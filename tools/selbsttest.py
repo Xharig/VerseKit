@@ -28829,6 +28829,7 @@ class _Basetool290:
         self.token_type = 'DPoP'
         self.requests = []
         self.sent_ops = []              # jede Anweisung, die VerseKit schickte
+        self.min_version = None
         self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0),
                                                       _handler290(self))
         self.base = 'http://127.0.0.1:%d' % self.server.server_address[1]
@@ -28966,7 +28967,7 @@ class _Basetool290:
                 'capabilities': sorted(self.scope.split()),
                 'limits': {'batchMaxOps': 500}, 'deprecations': [],
                 'docsUrl': 'https://krt-profit.github.io/basetool/',
-                'minClientVersion': None}, nonce_header)
+                'minClientVersion': self.min_version}, nonce_header)
         if route == '/me/installation':
             self.label = data.get('label')
             return handler._answer(200, {'label': self.label,
@@ -29257,6 +29258,28 @@ def _pruefung_290():
         pruefe(_bs.STATUS['state'] == 'ok'
                and _bs.load_state('inst-1')['cursor'] != 'c-alt',
                'nach CURSOR_EXPIRED: neuer Schnappschuss, neuer Cursor')
+
+        # Zu alte Fassung: gar nicht erst abgleichen, zum Update auffordern
+        from scbp import errors as _er290
+        _alt_ver = _er290.VERSION[0]
+        _er290.VERSION[0] = '3.60.0-rc6'
+        _srv.min_version = '3.61.0'
+        _vorher = len(_srv.requests)
+        try:
+            _bs.run(_w)
+            _zu_alt = None
+        except _bt.ApiError as _e:
+            _zu_alt = _e.code
+        pruefe(_zu_alt == 'CLIENT_VERSION_UNSUPPORTED'
+               and not any(p.startswith('/exchange/v1/me/blueprints')
+                           for _m, p in _srv.requests[_vorher:]),
+               'unter minClientVersion: nichts geholt, Aufforderung zum Update')
+        _srv.min_version = '3.59.0'
+        _bs.run(_w)
+        pruefe(_bs.STATUS['state'] == 'ok',
+               'darüber läuft der Abgleich wie gewohnt')
+        _srv.min_version = None
+        _er290.VERSION[0] = _alt_ver
 
         # Account: mismatch hält an
         _st = _bs.load_state('inst-1')

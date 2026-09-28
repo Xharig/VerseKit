@@ -358,6 +358,14 @@ def _run(watcher):
     capabilities = set(doc.get('capabilities') or ())
     _set(installation_id=installation_id, capabilities=sorted(capabilities),
          min_version=doc.get('minClientVersion'))
+    # Zu alt fürs Basetool? Dann gar nicht erst anfangen, sondern zum
+    # Aktualisieren auffordern — das Gateway lehnte ohnehin jede Anfrage ab.
+    minimum = doc.get('minClientVersion')
+    if minimum:
+        from . import errors, updater
+        own = errors.VERSION[0]
+        if own and updater.is_newer(minimum, own):
+            raise basetool.ApiError('CLIENT_VERSION_UNSUPPORTED', 403)
     if not set(basetool.SCOPES_BLUEPRINTS) <= capabilities:
         raise basetool.ApiError('SCOPE_MISSING', 403)
 
