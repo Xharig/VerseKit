@@ -3334,18 +3334,32 @@ class MainWindow:
         self._sidebar_width_update()
 
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
+        #
+        # ⚠⚠ **Das Wegräumen hängt am Widget, nicht an `is_new`** (28.09.2026).
+        # Vorher stand hier ein gemeinsames `if news.is_new(...)` um beides.
+        # Die Marke wird aber beim **Bau** des Reiters gesetzt und erst beim
+        # **Klick** wieder gefragt — sagt `gesehen.json` dazwischen etwas
+        # anderes, liefert `is_new` False, der ganze Block wird übersprungen
+        # und die sichtbare Marke bleibt für immer stehen. Genau so passiert
+        # beim Wechsel des Ablage-Ordners in den Einstellungen: Der neue Ordner
+        # brachte seine eigene `gesehen.json` mit, und danach ließ sich keine
+        # der angezeigten Marken mehr wegklicken.
+        #
+        # Was angezeigt wird, ist `entry[4]` — also entscheidet auch das über
+        # das Wegräumen. `mark_seen` bleibt an `is_new` gebunden: Es schreibt
+        # die Datei, und ohne echte Neuheit gibt es dort nichts zu schreiben.
         if news.is_new(kennung, self.version):
             news.mark_seen(kennung, self.version)
-            entry = self.buttons.get(kennung)
-            if entry and entry[4] is not None:
-                entry[4].destroy()
-                # ⚠ Und aus der Liste nehmen! Ein zerstörtes Widget bleibt sonst
-                # im Tupel stehen, und das nächste Einfärben greift ins Leere
-                # (`invalid command name`). Das schlug beim zweiten Reiterwechsel
-                # zu — also bei jedem Nutzer sofort.
-                zeile, strich, z, b, _ = entry
-                self.buttons[kennung] = (zeile, strich, z, b, None)
-                self._sidebar_dirty = True
+        entry = self.buttons.get(kennung)
+        if entry and entry[4] is not None:
+            entry[4].destroy()
+            # ⚠ Und aus der Liste nehmen! Ein zerstörtes Widget bleibt sonst
+            # im Tupel stehen, und das nächste Einfärben greift ins Leere
+            # (`invalid command name`). Das schlug beim zweiten Reiterwechsel
+            # zu — also bei jedem Nutzer sofort.
+            zeile, strich, z, b, _ = entry
+            self.buttons[kennung] = (zeile, strich, z, b, None)
+            self._sidebar_dirty = True
 
     def jump_to(self, kennung):
         """Auf eine andere Seite springen — und den Rückweg anbieten.

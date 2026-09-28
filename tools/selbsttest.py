@@ -25974,6 +25974,8 @@ def main():
     _pruefung_278()
     _pruefung_279()
     _pruefung_280()
+    _pruefung_281()
+    _pruefung_282()
 
     print()
     if fehler:
@@ -27737,6 +27739,210 @@ def _pruefung_280():
     finally:
         (_up280.new_version_alive, _pg280._hand_over, _th280.Timer) = _alt280
         _w280.destroy()
+
+
+def _pruefung_281():
+    """281. Eine sichtbare „Neu"-Marke lässt sich immer wegklicken.
+
+    ⚠⚠ Gemeldet am 28.09.2026 (Linux, v3.58.0): An mehreren Reitern blieb die
+    Marke stehen, egal wie oft man sie anklickte.
+
+    Die Ursache ist eine Zeitlücke: Die Marke entsteht beim **Bau** des Reiters
+    (`_tab`), weggeräumt wird sie beim **Klick** (`open_page`) — und dazwischen
+    wurde `news.is_new` ein zweites Mal gefragt. Sagt `gesehen.json` inzwischen
+    etwas anderes, liefert die zweite Frage `False`, der Block wird
+    übersprungen, und die angezeigte Marke ist unzerstörbar. Ausgelöst hat es
+    der Wechsel des Ablage-Ordners in den Einstellungen: Der neue Ordner
+    brachte seine eigene `gesehen.json` mit.
+
+    Geprüft wird beides — dass die Lage wirklich eintreten KANN (Wirkung an
+    `news`), und dass das Wegräumen nicht mehr daran hängt (Struktur von
+    `open_page`).
+    """
+    print('\n281. „Neu"-Marke: sichtbar heisst wegklickbar')
+    import ast as _ast281
+    import json as _js281
+    import tempfile as _tmp281
+    from scbp import news as _nw281, paths as _pf281
+
+    # --- Teil 1: die Lage ist echt, nicht ausgedacht -----------------------
+    # Erst der Beleg, dass `is_new` seine Antwort ändert, ohne dass am Fenster
+    # etwas geschehen wäre — sonst prüfte Teil 2 einen Fall, den es nicht gibt.
+    _ordner281 = _tmp281.mkdtemp(prefix='sc-bp-marke-')
+    _alt281 = _pf281.app_folder
+    try:
+        _pf281.app_folder = lambda *_a, **_k: _ordner281
+        _bereich281 = 'statistik'
+        _fassung281 = _nw281.NEW_SINCE[_bereich281]
+        _datei281 = _pf281.app_file(_nw281.FILE)
+        # Ordner A: der Bereich ist ungesehen -> beim Bau entsteht die Marke.
+        with io.open(_datei281, 'w', encoding='utf-8') as _f281:
+            _js281.dump({'bereiche': {}, 'zuletzt': _fassung281}, _f281)
+        pruefe(_nw281.is_new(_bereich281, _fassung281),
+               'beim Bau des Reiters steht eine Marke an')
+        # Ordner B (Wechsel in den Einstellungen): dort war er schon gesehen.
+        with io.open(_datei281, 'w', encoding='utf-8') as _f281:
+            _js281.dump({'bereiche': {_bereich281: _fassung281},
+                         'zuletzt': _fassung281}, _f281)
+        pruefe(not _nw281.is_new(_bereich281, _fassung281),
+               'nach dem Ordnerwechsel sagt dieselbe Frage „nicht neu" — '
+               'genau hier lief der alte Code ins Leere')
+    finally:
+        _pf281.app_folder = _alt281
+        shutil.rmtree(_ordner281, ignore_errors=True)
+
+    # --- Teil 2: das Wegräumen hängt am Widget, nicht an der Frage ---------
+    # Struktur statt Textsuche: Gesucht wird der Aufruf, der die Marke
+    # zerstört, und dann JEDES `if`, das ihn umschliesst. Sitzt darin ein
+    # `news.is_new`, ist die Lücke wieder da.
+    _quelle281 = io.open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
+                         encoding='utf-8').read()
+    _baum281 = _ast281.parse(_quelle281)
+    _fn281 = None
+    for _knoten281 in _ast281.walk(_baum281):
+        if (isinstance(_knoten281, _ast281.FunctionDef)
+                and _knoten281.name == 'open_page'):
+            _fn281 = _knoten281
+            break
+    pruefe(_fn281 is not None, 'open_page gefunden')
+
+    def _zerstoert281(knoten):
+        """Ist das der Aufruf, der die Marke abbaut? (`entry[4].destroy()`)"""
+        return (isinstance(knoten, _ast281.Call)
+                and isinstance(knoten.func, _ast281.Attribute)
+                and knoten.func.attr == 'destroy'
+                and isinstance(knoten.func.value, _ast281.Subscript))
+
+    def _fragt_is_new281(knoten):
+        for _k in _ast281.walk(knoten):
+            if (isinstance(_k, _ast281.Call)
+                    and isinstance(_k.func, _ast281.Attribute)
+                    and _k.func.attr == 'is_new'):
+                return True
+        return False
+
+    _gefunden281 = []
+    _schuldig281 = []
+
+    def _lauf281(knoten, wachen):
+        """Absteigen und dabei merken, in welchen `if`-Tests wir stecken."""
+        for _kind in _ast281.iter_child_nodes(knoten):
+            if isinstance(_kind, _ast281.If):
+                _lauf281(_kind, wachen + [_kind.test])
+            else:
+                if any(_zerstoert281(_k) for _k in _ast281.walk(_kind)):
+                    _gefunden281.append(_kind)
+                    for _test in wachen:
+                        if _fragt_is_new281(_test):
+                            _schuldig281.append(_kind)
+                _lauf281(_kind, wachen)
+
+    _lauf281(_fn281, [])
+    pruefe(bool(_gefunden281),
+           'der Abbau der Marke (entry[...].destroy()) steht in open_page')
+    pruefe(not _schuldig281,
+           'und er haengt an KEINER is_new-Abfrage (%d Stelle(n) sonst)'
+           % len(_schuldig281))
+
+    # --- Teil 3: kein int() mehr auf einer Tk-Massangabe -------------------
+    # `cget()` liefert unter Linux/Tk 8.6 ein `_tkinter.Tcl_Obj`; `int()` wirft
+    # darauf einen TypeError, den `except tk.TclError` nicht faengt. Am
+    # 28.09.2026 kamen so 8 von 8 aufgehobenen Fehlern aus `pages.py` — obwohl
+    # `_pixels` als Loesung laengst dastand und an anderer Stelle benutzt wurde.
+    _pq281 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                     encoding='utf-8').read()
+    _pbaum281 = _ast281.parse(_pq281)
+    _roh281 = []
+    for _k281 in _ast281.walk(_pbaum281):
+        if (isinstance(_k281, _ast281.Call)
+                and isinstance(_k281.func, _ast281.Name)
+                and _k281.func.id == 'int'):
+            for _innen281 in _ast281.walk(_k281):
+                if (isinstance(_innen281, _ast281.Call)
+                        and isinstance(_innen281.func, _ast281.Attribute)
+                        and _innen281.func.attr == 'cget'):
+                    _roh281.append(_k281.lineno)
+                    break
+    pruefe(not _roh281,
+           'keine Tk-Massangabe laeuft durch int() statt _pixels '
+           '(sonst Zeile(n) %s)' % (_roh281 or '—'))
+
+
+def _pruefung_282():
+    """282. Ein neues Programmsymbol erreicht auch Bestandsnutzer.
+
+    ⚠⚠ Gemeldet am 28.09.2026 (Linux): Im Startmenü stand noch das alte
+    Symbol — das neue („Figur im Ring") lag seit dem 18.09.2026 bei.
+
+    Die Lücke sitzt zwischen zwei Wegen: `_write_icon()` läuft nur in
+    `create()`, und `create()` läuft beim Update nicht (der Eintrag gilt als
+    vorhanden). `refresh_label()` wiederum fasst `Icon` bewusst nicht an.
+    Ergebnis: Die Bilddatei wurde nach dem allerersten Anlegen nie wieder
+    angefasst.
+
+    Gemessen wird die **Wirkung** an echten Dateien: alter Eintrag, altes Bild,
+    neues Bild im Gepäck — kommt es an?
+    """
+    print('\n282. Startmenue: ein neues Programmsymbol kommt auch beim Update an')
+    import tempfile as _tmp282
+    from scbp import desktop_entry as _de282
+
+    if not _de282.available():
+        pruefe(_de282.refresh_icon() is False,
+               'ausserhalb von Linux tut refresh_icon nichts')
+        return
+
+    _ordner282 = _tmp282.mkdtemp(prefix='sc-bp-symbol-')
+    _eintrag282 = os.path.join(_ordner282, 'sc-bp-watcher.desktop')
+    _bild282 = os.path.join(_ordner282, _de282.ICON_NAME)
+    _quelle282 = os.path.join(_ordner282, 'neu-icon.png')
+    _alt282 = (_de282.target_file, _de282._icon_source)
+    try:
+        _de282.target_file = lambda *_a, **_k: _eintrag282
+        _de282._icon_source = lambda *_a, **_k: _quelle282
+        # Das mitgelieferte (neue) Symbol und das alte, das schon im Menue liegt.
+        with io.open(_quelle282, 'wb') as _f282:
+            _f282.write(b'NEUES-SYMBOL')
+        with io.open(_bild282, 'wb') as _f282:
+            _f282.write(b'altes-symbol')
+        with io.open(_eintrag282, 'w', encoding='utf-8') as _f282:
+            _f282.write('[Desktop Entry]\nType=Application\nName=Verse-Kit\n'
+                        'Icon=%s\nTerminal=false\n' % _bild282)
+
+        pruefe(_de282.refresh_icon(), 'das neue Symbol wird uebernommen')
+        pruefe(io.open(_bild282, 'rb').read() == b'NEUES-SYMBOL',
+               'und steht wirklich in der Datei, auf die der Eintrag zeigt')
+        # ✅ Nur aendern, was sich geaendert hat.
+        pruefe(_de282.refresh_icon() is False,
+               'ein zweiter Lauf schreibt nicht noch einmal')
+        # ⛔ Der Pfad ist der Anker — er wird gelesen, nie geschrieben.
+        _text282 = io.open(_eintrag282, encoding='utf-8').read()
+        pruefe('Icon=%s\n' % _bild282 in _text282,
+               'der Icon-Pfad im Eintrag bleibt unangetastet')
+
+        # ⛔ Ein fremdes Symbol gehoert dem Nutzer.
+        _fremd282 = os.path.join(_ordner282, 'mein-eigenes.png')
+        with io.open(_fremd282, 'wb') as _f282:
+            _f282.write(b'gehoert-dem-nutzer')
+        with io.open(_eintrag282, 'w', encoding='utf-8') as _f282:
+            _f282.write('[Desktop Entry]\nIcon=%s\n' % _fremd282)
+        pruefe(_de282.refresh_icon() is False
+               and io.open(_fremd282, 'rb').read() == b'gehoert-dem-nutzer',
+               'ein selbst eingetragenes Symbol wird nicht angefasst')
+
+        # ⛔ Und ohne Eintrag wird keiner angelegt.
+        os.remove(_eintrag282)
+        pruefe(_de282.refresh_icon() is False and not os.path.exists(_eintrag282),
+               'ohne vorhandenen Eintrag passiert nichts')
+    finally:
+        (_de282.target_file, _de282._icon_source) = _alt282
+        shutil.rmtree(_ordner282, ignore_errors=True)
+
+    # Und der Start ruft es wirklich — sonst wirkt die Reparatur nirgends.
+    _start282 = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                        encoding='utf-8').read()
+    pruefe('desktop_entry.refresh_icon()' in _start282,
+           'der Programmstart frischt das Symbol auf')
 
 
 def _wurzel():

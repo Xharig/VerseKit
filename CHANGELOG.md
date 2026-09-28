@@ -39,6 +39,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
+- **„Neu"-Marken ließen sich nicht mehr wegklicken** — an manchen Reitern
+  blieb die Marke stehen, egal wie oft man den Reiter öffnete. Sie
+  verschwindet jetzt zuverlässig, sobald man drin war; das gilt auch, wenn
+  vorher der Ablage-Ordner gewechselt wurde
+- **Startmenü unter Linux zeigt das aktuelle Programmsymbol** — wer den
+  Eintrag schon hatte, behielt das alte Bild, weil es nur beim erstmaligen
+  Anlegen geschrieben wurde. Ein selbst eingetragenes Symbol bleibt
+  unangetastet
+- **Zeilenumbruch unter Linux** — beim Aufbau mancher Seiten lief jedes Mal
+  ein Fehler ins Protokoll, und der Text blieb breiter als das Fenster
 - **Neustart nach dem Farbwechsel** — die alte Fassung beendet sich jetzt
   wirklich; vorher blieb ihr Overlay (und ihr Fenster) neben der neuen
   stehen

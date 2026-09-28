@@ -101,16 +101,24 @@ def exists():
     return True
 
 
-def _write_icon(ordner):
-    """Das Programmsymbol neben den Eintrag legen. Gibt den Pfad zurück."""
-    quelle = None
+def _icon_source():
+    """Wo das mitgelieferte Programmsymbol liegt — oder None.
+
+    Eigene Funktion, weil zwei Wege es brauchen: `create()` legt es beim
+    Anlegen hin, `refresh_icon()` frischt es beim Update auf.
+    """
     wurzel = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for kandidat in (os.path.join(getattr(sys, '_MEIPASS', ''), 'icon.png'),
                      os.path.join(wurzel, 'assets', 'icon.png'),
                      os.path.join(wurzel, 'icon.png')):
         if kandidat and os.path.isfile(kandidat):
-            quelle = kandidat
-            break
+            return kandidat
+    return None
+
+
+def _write_icon(ordner):
+    """Das Programmsymbol neben den Eintrag legen. Gibt den Pfad zurück."""
+    quelle = _icon_source()
     if not quelle:
         return 'sc-bp-watcher'          # kein Bild da: Name reicht als Kennung
     ziel = os.path.join(ordner, ICON_NAME)
@@ -258,6 +266,67 @@ def refresh_label():
     try:
         with open(pfad, 'w', encoding='utf-8') as f:
             f.writelines(zeilen)
+    except OSError:
+        return False
+    return True
+
+
+def refresh_icon():
+    """Die **Bilddatei** des vorhandenen Eintrags auf den mitgelieferten Stand
+    bringen. Gibt zurück, ob etwas geändert wurde.
+
+    ⚠⚠ Gemeldet am 28.09.2026: Im Startmenü stand noch das alte Symbol, obwohl
+    das neue („Figur im Ring", 18.09.2026) längst mitgeliefert wurde.
+
+    Die Lücke sitzt zwischen den beiden Wegen: `_write_icon()` läuft nur in
+    `create()` — und `create()` läuft beim Update nicht, weil der Eintrag ja
+    schon da ist. `refresh_label()` wiederum fasst `Icon` bewusst nicht an.
+    Damit wurde die Bilddatei nach dem allerersten Anlegen **nie wieder**
+    angefasst, und jedes neue Programmsymbol erreichte nur Neuinstallationen.
+
+    ⛔ **Der Pfad in der `.desktop` bleibt der Anker** — er wird gelesen, nicht
+    geschrieben. Aufgefrischt wird der **Inhalt** der Datei, auf die er zeigt.
+    Wer sein eigenes Symbol eingetragen hat, zeigt damit nicht mehr auf unsere
+    Datei und bleibt unangetastet.
+
+    ✅ **Ändert nur, was sich geändert hat:** Sind die Bytes gleich, passiert
+    nichts — kein Schreibvorgang, kein neuer Zeitstempel.
+    """
+    if not available():
+        return False
+    pfad = target_file()
+    if not os.path.isfile(pfad):
+        return False
+    quelle = _icon_source()
+    if not quelle:
+        return False
+    try:
+        with open(pfad, encoding='utf-8') as f:
+            zeilen = f.readlines()
+    except OSError:
+        return False
+
+    ziel = ''
+    for zeile in zeilen:
+        if zeile.startswith('Icon='):
+            ziel = zeile[len('Icon='):].strip()
+            break
+    # Nur unsere eigene Symboldatei anfassen: ein absoluter Pfad, der auf den
+    # Dateinamen endet, den `_write_icon()` vergibt. Ein blosser Name
+    # („sc-bp-watcher") ist eine Themen-Kennung und keine Datei.
+    if (not ziel or not os.path.isabs(ziel)
+            or os.path.basename(ziel) != ICON_NAME
+            or not os.path.isfile(ziel)):
+        return False
+    try:
+        with open(quelle, 'rb') as f:
+            neu = f.read()
+        with open(ziel, 'rb') as f:
+            alt = f.read()
+        if alt == neu:
+            return False
+        with open(ziel, 'wb') as f:
+            f.write(neu)
     except OSError:
         return False
     return True

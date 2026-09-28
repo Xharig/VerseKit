@@ -5616,8 +5616,14 @@ class Overlay:
         vorhanden, und damit wäre die Sache erledigt. Bestandsnutzer behielten
         dauerhaft „SC BP Watcher" im Anwendungsmenü. Vom Prüfer gefunden (F02).
 
-        Legt nie etwas an und fasst `Exec`, `Icon` und den Dateinamen nicht an
-        — siehe `desktop_entry.refresh_label()`.
+        Legt nie etwas an und fasst `Exec`, den `Icon`-**Pfad** und den
+        Dateinamen nicht an — siehe `desktop_entry.refresh_label()`.
+
+        ⚠⚠ Dazu die **Bilddatei**, auf die der Eintrag zeigt (28.09.2026): Sie
+        wurde nach dem ersten Anlegen nie wieder angefasst, weil nur `create()`
+        sie schreibt und das beim Update nicht läuft. Im Startmenü stand
+        deshalb noch das Symbol von vor dem Namenswechsel — siehe
+        `desktop_entry.refresh_icon()`.
         """
         if paths.WINDOWS:
             return
@@ -5626,6 +5632,8 @@ class Overlay:
             from scbp import desktop_entry
             if desktop_entry.refresh_label():
                 errors.trail('Verknuepfung auf den aktuellen Namen gebracht')
+            if desktop_entry.refresh_icon():
+                errors.trail('Verknuepfung: Programmsymbol aufgefrischt')
         except Exception as ausnahme:
             errors.record('start.beschriftung', ausnahme)
 

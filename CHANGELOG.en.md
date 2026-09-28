@@ -39,6 +39,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
+- **"New" badges could not be dismissed** — on some tabs the badge stayed put
+  no matter how often you opened the tab. It now disappears reliably once
+  you have been there, including after changing the data folder
+- **Start menu on Linux shows the current app icon** — anyone who already had
+  the entry kept the old image, because it was only written when the entry was
+  first created. A custom icon you set yourself is left alone
+- **Line wrapping on Linux** — building some pages logged an error every time,
+  and the text stayed wider than the window
 - **Restart after changing the colour scheme** — the old instance now really
   quits; before, its overlay (and window) stayed next to the new one
 - After switching sources, the background could refresh the first

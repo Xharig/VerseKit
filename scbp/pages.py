@@ -964,7 +964,12 @@ def _wrap_self(label):
                            for option in ('padx', 'borderwidth',
                                           'highlightthickness'))
             neu = breite - rand
-            if int(label.cget('wraplength') or 0) != neu:
+            # ⚠ `_pixels`, nicht `int()` — `cget('wraplength')` liefert unter
+            # Linux/Tk 8.6 ein `_tkinter.Tcl_Obj`, und `int()` wirft darauf
+            # einen **TypeError**, den `except tk.TclError` nicht fängt.
+            # Siehe den Kasten an `_pixels`; am 28.09.2026 kam die Meldung
+            # von dieser Stelle zurück, obwohl `_pixels` längst gebaut war.
+            if _pixels(label, label.cget('wraplength')) != neu:
                 label.configure(wraplength=neu, justify='left')
         except tk.TclError:
             pass
@@ -1041,7 +1046,10 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
                 # Hauptfensters 900 Nachberechnungen für 11 Labels (gemessen
                 # 27.09.2026, „bis das Fenster das erste Mal kommt, dauert es
                 # ewig"). `_wrap_self` hatte die Bremse schon.
-                if int(label.cget('wraplength') or 0) != neu:
+                # ⚠ `_pixels`, nicht `int()` — siehe `_wrap_self`: auf einem
+                # `_tkinter.Tcl_Obj` wirft `int()` einen TypeError, und der
+                # kommt an `except tk.TclError` vorbei.
+                if _pixels(label, label.cget('wraplength')) != neu:
                     label.configure(wraplength=neu)
             except tk.TclError:
                 pass          # zwischen Prüfung und Zugriff zerstört
