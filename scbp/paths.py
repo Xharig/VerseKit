@@ -1941,7 +1941,21 @@ _WEBHOOK_RE = re.compile(
 # ist ein Netzfehler nicht mehr zu deuten.
 _CREDENTIAL_RE = re.compile(
     r'([?&](?:token|key|api[_-]?key|apikey|secret|auth|password|passwd|pw|'
-    r'access[_-]?token|signature|sig)=)[^&\s]+', re.I)
+    r'access[_-]?token|signature|sig|refresh[_-]?token|device[_-]?code|'
+    r'handoff)=)[^&\s]+', re.I)
+# Die Formularfelder der Anmeldung stehen auch ohne `?`/`&` davor im Text
+# (`refresh_token=…` am Anfang eines Formulars oder nach einem Leerzeichen).
+_FORM_SECRET_RE = re.compile(
+    r'(\b(?:refresh_token|access_token|device_code|client_secret)=)[^&\s]+')
+# ⭐ Seit v3.60.0 (Basetool): alles, was wie ein JWT aussieht — Zugangs- und
+# Erneuerungs-Token und DPoP-Nachweise beginnen mit `eyJ` (das ist `{"` in
+# Base64) und haben drei Teile. Dazu die Kopfzeilen, in denen sie reisen.
+# Verlangt von gelucs Sicherheitsanforderungen: „Redact Authorization and DPoP
+# headers and anything shaped like a JWT from everything you collect."
+_JWT_RE = re.compile(r'eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*')
+_AUTH_HEADER_RE = re.compile(
+    r'((?:Authorization|DPoP|DPoP-Nonce|Idempotency-Key)\s*[:=]\s*)'
+    r'(?:(?:DPoP|Bearer)\s+)?[^\s,;]+', re.I)
 
 
 def _redact_secrets(text):
@@ -1983,6 +1997,9 @@ def _redact_secrets(text):
         pass                    # lieber ungekürzt als gar kein Bericht
 
     text = _WEBHOOK_RE.sub('<meldeadresse>', text)
+    text = _AUTH_HEADER_RE.sub(r'\1<geheim>', text)
+    text = _JWT_RE.sub('<geheim>', text)
+    text = _FORM_SECRET_RE.sub(r'\1<geheim>', text)
     return _CREDENTIAL_RE.sub(r'\1<geheim>', text)
 
 

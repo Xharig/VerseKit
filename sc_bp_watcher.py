@@ -54,13 +54,14 @@ from scbp import (
                   paths, phrases, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
 from scbp import theme
+from scbp import basetool_sync
 
 try:
-    import winsound                      # nur Windows; unter Linux übernimmt tkinter
+    import winsound                     # nur Windows; unter Linux übernimmt tkinter
 except ImportError:
     winsound = None
 
-__version__ = '3.60.0-rc5'
+__version__ = '3.60.0-rc6'
 
 
 def _mitgeliefert(name):
@@ -874,6 +875,7 @@ class Watcher(threading.Thread):
             errors.record('watcher.schwund_pruefen', ausnahme)
         self._neu_einlesen = False            # Auftrag von außen, siehe unten
         self._entfernen = []                  # dito: Baupläne fremder Accounts
+        self._basetool_aenderungen = []       # dito: Ergebnis des Basetool-Abgleichs
         self.running = True
         self.cat_next = 0.0     # nächster Katalog-Check (Zeitstempel)
         self.cat_mtime = None   # letzter gesehener Änderungszeitpunkt der Katalogdatei
@@ -1664,7 +1666,7 @@ class Watcher(threading.Thread):
             # dann kann sie nicht auseinanderlaufen.
             self.q.put(('auftraege', self._auftragsstand()))
 
-    def _bestand_sichern(self):
+    def _bestand_sichern(self, abgleich_melden=True):
         """Bestand schreiben — und die Liste im Hauptfenster nachziehen lassen.
 
         ⚠⚠ **Warum das eine Methode ist und kein Signal an sieben Stellen.**
@@ -1687,6 +1689,8 @@ class Watcher(threading.Thread):
         schlange = getattr(self, 'q', None)
         if schlange is not None:
             schlange.put(('liste_frisch',))
+        if abgleich_melden:
+            basetool_sync.local_changed()
 
     def _emit(self, key, log_meta=None):
         # log_meta = Kürzel aus dem Log-Zusatz; wird nur genommen, wenn der
@@ -1736,6 +1740,35 @@ class Watcher(threading.Thread):
         zurück — und die Baupläne wären wieder da."""
         self._entfernen = list(self._entfernen) + list(names)
 
+    def basetool_apply(self, changes):
+        """Von außen gerufen (Basetool-Abgleich): Baupläne übernehmen oder
+        austragen — `('add', Name, Ortszeit)` bzw. `('remove', Schlüssel, _)`.
+
+        ⚠ Aus demselben Grund wie bei `remove_foreign` nur ein Merker: Den
+        Bestand schreibt ausschließlich dieser Faden."""
+        self._basetool_aenderungen = (list(self._basetool_aenderungen)
+                                      + list(changes))
+
+    def _basetool_anwenden(self):
+        changes, self._basetool_aenderungen = self._basetool_aenderungen, []
+        changed = False
+        for kind, what, when in changes:
+            if kind == 'add':
+                if bestand_datei.add(self.bestand, what, 'basetool', when):
+                    changed = True
+            elif kind == 'remove':
+                # ⚠ Nur, was allein aus dem Basetool kam. Was die Log belegt,
+                # bleibt — die Entfernung drüben wird dann als Konflikt gezeigt.
+                entry = self.bestand['bauplaene'].get(what)
+                if entry and entry.get('quelle') == 'basetool':
+                    self.bestand['bauplaene'].pop(what, None)
+                    changed = True
+        if changed:
+            # ⚠ Ohne Rückmeldung an den Abgleich: Er hat die Änderung ja selbst
+            # gebracht und liefe sonst gleich noch einmal.
+            self._bestand_sichern(abgleich_melden=False)
+            self.seen = bestand_datei.keys_seen_in_game(self.bestand)
+
     def _remove_foreign_now(self):
         names, self._entfernen = self._entfernen, []
         removed = []
@@ -1749,7 +1782,7 @@ class Watcher(threading.Thread):
                     removed.append(name)
         if removed:
             self._bestand_sichern()
-            self.seen = set(bestand_datei.keys(self.bestand))
+            self.seen = bestand_datei.keys_seen_in_game(self.bestand)
         self.q.put(('status', language.Phrase('s_er_fremd_ok', len(removed))))
 
     def _alles_neu_einlesen(self):
@@ -1776,7 +1809,7 @@ class Watcher(threading.Thread):
                 dazu.append(name)
         if dazu:
             self._bestand_sichern()
-            self.seen = set(bestand_datei.keys(self.bestand))
+            self.seen = bestand_datei.keys_seen_in_game(self.bestand)
         # ⚠⚠ **Das Auftrags-Protokoll gehoert mit dazu (06.09.2026).** Bis
         # hierher fasste dieser Lauf nur den Bauplan-Bestand an — gemeldet
         # wurde er als „Protokolle erneut einlesen", raeumte aber nur eine
@@ -1957,7 +1990,7 @@ class Watcher(threading.Thread):
 
         # 5) Alles, was schon im Bestand steht, gilt als bekannt — es wird nicht
         #    als „neu" gemeldet.
-        self.seen = set(bestand_datei.keys(self.bestand))
+        self.seen = bestand_datei.keys_seen_in_game(self.bestand)
         overlay.RESCAN_CALLBACK[0] = self.neu_einlesen_anstossen
         overlay.REMOVE_CALLBACK[0] = self.remove_foreign
         self.tail.new_names()          # Lesestand der Game.log setzen/fortführen
@@ -1982,6 +2015,8 @@ class Watcher(threading.Thread):
                 self._alles_neu_einlesen()
             if self._entfernen:
                 self._remove_foreign_now()
+            if self._basetool_aenderungen:
+                self._basetool_anwenden()
 
             # 0) Werte-Daten und Bauplan-Katalog frisch halten
             #    (selten, nur bei neuer Spielversion)
@@ -1989,6 +2024,9 @@ class Watcher(threading.Thread):
             self._katalog_tick()
             self._texte_tick()
             self._preise_tick()
+            # Abgleich mit dem KRT Profit Basetool — nur wenn freigeschaltet,
+            # verbunden und zugeschaltet; sonst kehrt das sofort zurück.
+            basetool_sync.tick(self)
 
             # 1) Game.log: die eigentliche Quelle. Ohne Launcher ist die Meldung
             #    endgültig, mit Launcher zunächst vorläufig (er bestätigt gleich).

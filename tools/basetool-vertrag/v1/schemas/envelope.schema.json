@@ -11,7 +11,8 @@
     },
     "formatVersion": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "<major>.<minor>. The Basetool reads every 1.x and refuses any other major: the part before the dot must be exactly 1."
     },
     "generator": {
       "type": "object",

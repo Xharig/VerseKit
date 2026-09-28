@@ -205,6 +205,9 @@ KNOPF_SYMBOLE = {
     # Kiste mit Pfeil — nicht `shield-check`, das trägt die Sicherung in der
     # Titelleiste, und zwei Dinge dürfen nicht dasselbe Bild haben.
     'sichern':      'archive-restore',
+    # Zwei Pfeile gegeneinander — der Abgleich mit dem KRT Profit Basetool
+    # (v3.60.0) geht in beide Richtungen.
+    'basetool':     'arrow-left-right',
     'anzeige':      'monitor',
     'auftragstexte': 'message-square-text',
     'bestand':      'package',

@@ -419,8 +419,9 @@ Windows binaries will be signed by SignPath, and Windows will show the
 publisher name instead of "unknown publisher".
 
 Builds are produced exclusively by a public GitHub Actions workflow — see
-[SECURITY.en.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.en.md) for how releases are built and what the program
-does and does not send.
+[SECURITY.en.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.en.md) for how releases are built, and
+[PRIVACY.en.md](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.en.md) for what the program reads, fetches and
+sends (and what not).
 
 ### ⚠️ Windows says "Windows protected your PC"
 

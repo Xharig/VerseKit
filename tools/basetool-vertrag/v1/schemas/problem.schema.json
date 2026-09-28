@@ -32,11 +32,13 @@
     },
     "correlationId": {
       "type": "string",
-      "maxLength": 64
+      "maxLength": 128,
+      "description": "The request's correlation id, the value of the X-Correlation-Id response header."
     },
     "retryAfterSeconds": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Reserved; not sent in v1. The Retry-After header carries the delay."
     },
     "confirmationUrl": {
       "type": "string",

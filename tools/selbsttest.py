@@ -19764,7 +19764,10 @@ def main():
                                 'SetWindowLongPtrW',
                                 'DETACHED_PROCESS',      # subprocess-Schalter
                                 'CREATE_NO_WINDOW',
-                                'CREATE_NEW_PROCESS_GROUP'):
+                                'CREATE_NEW_PROCESS_GROUP',
+                                # os-Schalter, gibt es nur unter Windows
+                                # (secret_store, dpop_reference; v3.60.0)
+                                'O_BINARY'):
                     continue
                 if _name195 not in _bekannt195:
                     _tot195.append('%s:%d  %s(…, %r)'
@@ -21217,6 +21220,12 @@ def main():
 
     _dateien209 = ['sc_bp_watcher.py']
     for _w209, _o209, _n209 in os.walk(os.path.join(WURZEL, 'scbp')):
+        # ⚠ Ohne übernommenen Fremdcode (v3.60.0, `dpop_reference`, MIT,
+        # unverändert): Dort heißt eine Klassenmethode `open` — die Prüfung
+        # ordnet über Namen zu und hielt danach jedes `open(encoding=…)` im
+        # Projekt für einen Aufruf dieser Methode.
+        if 'dpop_reference' in _w209:
+            continue
         for _f209 in _n209:
             if _f209.endswith('.py'):
                 _dateien209.append(os.path.relpath(
@@ -21921,6 +21930,14 @@ def main():
     pruefe(bool(_fort217) and bool(_einst217),
            'die Reiter unter „Für Fortgeschrittene" sind lesbar (%r)'
            % _fort217)
+    # ⚠ Ausgenommen ist nur, was im Programm selbst noch VERBORGEN ist — der
+    # Basetool-Reiter bis zur Freigabe (v3.60.0). Gelesen aus der Quelle:
+    # Fällt die Bedingung `preview_enabled()` weg, verlangt die Regel den
+    # Reiter auf der Webseite wieder von selbst.
+    _verborgen217 = re.findall(
+        r"if basetool\.preview_enabled\(\):\s*\n\s*self\._tab\('([a-z_]+)'",
+        _mw217)
+    _prog217 = [k for k in _prog217 if k not in _verborgen217]
     _seite217 = re.findall(r'\{reiter:"([a-z_]+)", bild:', _tour217)
     pruefe(len(_prog217) >= 40,
            'die Reiter des Programms sind lesbar (%d)' % len(_prog217))
@@ -26017,6 +26034,9 @@ def main():
     _pruefung_286()
     _pruefung_287()
     _pruefung_288()
+    _pruefung_289()
+    _pruefung_290()
+    _pruefung_291()
 
     print()
     if fehler:
@@ -28594,6 +28614,749 @@ def _wurzel():
     r = tk.Tk()
     r.withdraw()
     return r
+
+
+def _pruefung_289():
+    """289. Basetool-Abgleich: die Regeln aus gelucs Sync-Anleitung, ohne Netz.
+
+    ⭐ v3.60.0. Das Basetool prüft vor der Freigabe genau diese Regeln
+    (`docs/exchange/client-security.md`, „Sync behaviour"). Jede steht hier als
+    eigene Zeile, damit eine gebrochene Regel beim Namen genannt wird."""
+    print('\n289. Basetool-Abgleich: Regeln der Sync-Anleitung (ohne Netz)')
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import schema_pruefen as _sp289
+    finally:
+        sys.path.pop(0)
+    from scbp import exchange_sync as _xs289
+
+    def _lokal(**eintraege):
+        # Schlüssel -> Quelle; Name = Schlüssel in groß
+        return {k: {'name': k.upper(), 'tag': None, 'source': q,
+                    'time': '2026-09-26 14:05:00'}
+                for k, q in eintraege.items()}
+
+    def _srv(*bts, default=()):
+        return {bt: {'key': bt, 'ref': {'bt': bt, 'name': bt.upper()},
+                     'isDefault': bt in default} for bt in bts}
+
+    def _stand(**werte):
+        s = {'baseline': {}, 'links': {}, 'conflicts': {},
+             'pending_removals': [], 'overrides': [], 'own_removed_keys': [],
+             'installation_id': 'inst-1'}
+        s.update(werte)
+        return s
+
+    # 1) Erster Abgleich: nur hinzufügen, nichts entfernen, Startbaupläne nie
+    _l = _lokal(a='log', b='hand', s='start', u='log')
+    _res = {'a': 'bt-a', 'b': 'bt-b', 's': 'bt-s'}      # u: nicht zuordenbar
+    _p = _xs289.plan_sync(_l, _res, _srv('bt-x'), [], _stand())
+    pruefe(_p['add'] == ['a', 'b'] and not _p['remove']
+           and not _p['local_remove'],
+           'erster Abgleich fügt nur hinzu — nichts wird entfernt (%r)' % _p)
+    pruefe('s' not in _p['add'],
+           'Startbaupläne gehen nie hinaus')
+    pruefe(_p['unresolved'] == ['u'] and 'u' not in _p['add'],
+           'nicht Zuordenbares wird gezeigt, nicht geschickt (%r)'
+           % _p['unresolved'])
+    pruefe(_p['local_add'] == ['bt-x'],
+           'was nur im Basetool steht, wird hier übernommen')
+    _sets = _xs289.sync_change_sets(_p, _l)
+    _fehl = [f for s, _t in _sets
+             for f in _sp289.check(s, 'change-set--blueprintChangeSet')]
+    pruefe(_sets and not _fehl,
+           'die Sendung entspricht gelucs Vertrag (%r)' % _fehl[:3])
+    pruefe(all(op['ref'].get('bt') for s, _t in _sets for op in s['ops']
+               if op['op'] == 'add'),
+           'hinzugefügt wird über den bt-Schlüssel des Basetools')
+
+    # 2) Nie zurück, was woanders entfernt wurde — Konflikt statt Hochladen
+    _l = _lokal(a='log', b='basetool')
+    _st = _stand(baseline=_srv('bt-a', 'bt-b'), links={'a': 'bt-a',
+                                                       'b': 'bt-b'})
+    _web = [{'key': 'bt-a', 'removedAt': '2026-09-28T12:00:00Z',
+             'removedBy': {'channel': 'web'}},
+            {'key': 'bt-b', 'removedAt': '2026-09-28T12:00:00Z',
+             'removedBy': {'channel': 'app'}}]
+    _p = _xs289.plan_sync(_l, {}, {}, _web, _st)
+    pruefe(_p['conflicts'] == {'a': 'bt-a'} and 'a' not in _p['add'],
+           'im Web entfernt, im Spiel belegt: Konflikt, nicht wieder hoch')
+    pruefe(_p['local_remove'] == ['b'],
+           'nur aus dem Basetool Übernommenes wird hier mit entfernt')
+    _p = _xs289.plan_sync(_l, {}, {}, [], dict(_st, conflicts={'a': 'bt-a'}))
+    pruefe(_p['conflicts'] == {'a': 'bt-a'} and not _p['add'],
+           'der Konflikt bleibt, auch wenn der Feed die Marke nicht mehr zeigt')
+    _p = _xs289.plan_sync(_l, {}, {}, [], dict(_st, conflicts={'a': 'bt-a'},
+                                               overrides=['a']))
+    pruefe(_p['override'] == ['a'],
+           'erst mit Zustimmung geht er mit override hinaus')
+    _ops = [op for s, _t in _xs289.sync_change_sets(_p, _l) for op in s['ops']]
+    pruefe(_ops and _ops[0].get('override') is True,
+           'und die Sendung trägt override: true')
+
+    # 3) Eigene Löschung ist kein Konflikt — erkannt an der installationId
+    _eigen = [{'key': 'bt-a', 'removedAt': '2026-09-28T12:00:00Z',
+               'removedBy': {'channel': 'client', 'clientId': 'versekit',
+                             'installationId': 'inst-1'}}]
+    _p = _xs289.plan_sync(_lokal(a='log'), {}, {}, _eigen,
+                          _stand(links={'a': 'bt-a'},
+                                 baseline=_srv('bt-a')))
+    pruefe(not _p['conflicts'],
+           'eigene Entfernung (gleiche installationId) ist kein Konflikt')
+    _fremd = [dict(_eigen[0], removedBy={'channel': 'client',
+                                         'clientId': 'versekit',
+                                         'installationId': 'inst-2'})]
+    _p = _xs289.plan_sync(_lokal(a='log'), {}, {}, _fremd,
+                          _stand(links={'a': 'bt-a'}, baseline=_srv('bt-a')))
+    pruefe(_p['conflicts'] == {'a': 'bt-a'},
+           'VerseKit auf dem ZWEITEN Rechner zählt als „woanders"')
+
+    # 4) Entfernt wird nur aus dem Vergleich — und nur mit Freigabe
+    _st = _stand(baseline=_srv('bt-a', 'bt-d'), links={'a': 'bt-a',
+                                                       'd': 'bt-d'})
+    _p = _xs289.plan_sync(_lokal(a='log'), {}, _srv('bt-a', 'bt-d'), [], _st)
+    pruefe(not _p['remove'] and _p['local_removed'] == {'d': 'bt-d'},
+           'hier entfernt: erst fragen, nichts senden (%r)' % _p['remove'])
+    pruefe('bt-d' not in _p['local_add'],
+           'und nicht still aus dem Basetool zurückholen')
+    _p = _xs289.plan_sync(_lokal(a='log'), {}, _srv('bt-a', 'bt-d'), [],
+                          dict(_st, pending_removals=['d']))
+    pruefe(_p['remove'] == [('d', 'bt-d')],
+           'nach Freigabe geht genau dieser eine hinaus')
+    _p = _xs289.plan_sync(_lokal(a='log'), {}, _srv('bt-a', 'bt-d',
+                                                   default=('bt-d',)), [],
+                          dict(_st, pending_removals=['d']))
+    pruefe(not _p['remove'],
+           'Startbaupläne des Basetools werden nie zum Entfernen geschickt')
+    _p = _xs289.plan_sync({}, {}, _srv('bt-a', 'bt-d'), [], _stand())
+    pruefe(not _p['remove'] and not _p['local_removed'],
+           'leerer Bestand ohne letzten Stand entfernt nichts (neue Installation)')
+
+    # 5) Nach CURSOR_EXPIRED: gegen den letzten Stand, nicht „nur hinzufügen"
+    _st = _stand(baseline=_srv('bt-a', 'bt-b'), links={'a': 'bt-a',
+                                                       'b': 'bt-b'})
+    _l = _lokal(a='log', b='basetool')
+    _p = _xs289.plan_sync(_l, {}, _srv('bt-a'), [], _st, resync=True)
+    pruefe(_p['local_remove'] == ['b'] and 'b' not in _p['add'],
+           'Neuabgleich: was im letzten Stand war und fehlt, gilt als entfernt')
+    _p = _xs289.plan_sync(_l, {}, _srv('bt-a'), [], _st, resync=False)
+    pruefe('b' not in _p['add'] and not _p['local_remove'],
+           'ohne Neuabgleich wird aus bloßem Fehlen nichts gefolgert')
+
+    # 6) Höchstens 500 Anweisungen je Sendung
+    _viel = {('k%04d' % i): 'log' for i in range(1203)}
+    _l = _lokal(**_viel)
+    _p = _xs289.plan_sync(_l, {k: 'bt-' + k for k in _l}, {}, [], _stand())
+    _sets = _xs289.sync_change_sets(_p, _l)
+    pruefe([len(s['ops']) for s, _t in _sets] == [500, 500, 203],
+           'große Abgleiche werden in Sendungen zu höchstens 500 geteilt')
+
+    # 7) Die übrigen Körper, die VerseKit schickt, nach Vertrag
+    from scbp import basetool as _bt289
+    for _koerper, _art in (
+            ({'kind': 'BLUEPRINT', 'refs': [_xs289.item_ref('A', 'BP_A')]},
+             'resolve-request'),
+            ({'label': _bt289.default_label()}, 'installation'),
+            ({'handle': 'Spieler_1'}, 'account-check-request')):
+        _f = _sp289.check(_koerper, _art)
+        pruefe(not _f, '%s entspricht dem Vertrag (%r)' % (_art, _f[:2]))
+    for _name, _soll in (('VerseKit Windows', True), ('VerseKit-Linux', True),
+                         ('VerseKit – Windows', False), (' VerseKit', False),
+                         ('VerseKit: PC', False), ('x' * 41, False)):
+        pruefe(_bt289.label_valid(_name) is _soll,
+               'Installationsname %r %s' % (_name, 'gilt' if _soll
+                                            else 'wird abgelehnt'))
+
+
+def _handler290(outer):
+    """Die Anfrage-Klasse des Nachbaus — außerhalb von `_Basetool290`, damit
+    die Feld-Prüfungen ihre `self.send_…` nicht dem Nachbau zuschreiben."""
+    import http.server
+
+    # ⚠ Der erste Parameter heißt `handler`, nicht `self`: Prüfung 227 kennt
+    # die geerbten Methoden von `BaseHTTPRequestHandler` nicht und hielte jedes
+    # `self.send_header` für ein Feld, das es nirgends gibt.
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(handler, *args):
+            pass
+
+        def _answer(handler, status, body, headers=None):
+            raw = json.dumps(body).encode()
+            handler.send_response(status)
+            handler.send_header('Content-Type', 'application/json')
+            for k, v in (headers or {}).items():
+                handler.send_header(k, v)
+            handler.send_header('Content-Length', str(len(raw)))
+            handler.end_headers()
+            handler.wfile.write(raw)
+
+        def do_GET(handler):
+            outer.handle(handler, 'GET')
+
+        def do_POST(handler):
+            outer.handle(handler, 'POST')
+
+    return Handler
+
+
+class _Basetool290:
+    """Ein kleiner Nachbau von Keycloak und dem Basetool-Gateway.
+
+    Er prüft jeden DPoP-Nachweis so, wie gelucs Gateway es tut (Signatur mit
+    dem Schlüssel aus dem Kopf, htm, htu, ath, nonce, jti) und führt eine
+    Bauplan-Liste mit Änderungsfeed. Alles auf 127.0.0.1, kein Netz."""
+
+    def __init__(self):
+        import http.server
+        import threading
+        self.nonce = 'n-1'
+        self.valid_tokens = set()
+        self.refresh_tokens = set()
+        self.proofs = []
+        self.errors = []
+        self.jtis = set()
+        self.polls = 0
+        self.revoked = []
+        self.force = []                 # erzwungene Absagen der nächsten Anfragen
+        self.items = {}                 # bt -> Eintrag
+        self.stones = []                # (seq, Löschmarke)
+        self.changes = []               # (seq, bt) für den Feed
+        self.seq = 0
+        self.web_removed = set()        # im Web entfernt -> REMOVED_ELSEWHERE
+        self.catalog = {}               # Name -> bt
+        self.account = 'match'
+        self.issuer_override = None
+        self.token_type = 'DPoP'
+        self.requests = []
+        self.sent_ops = []              # jede Anweisung, die VerseKit schickte
+        self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0),
+                                                      _handler290(self))
+        self.base = 'http://127.0.0.1:%d' % self.server.server_address[1]
+        self.issuer = self.base + '/auth/realms/iri'
+        self.api = self.base + '/exchange/v1'
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    # ------------------------------------------------------------ Nachweis
+    def _check_proof(self, handler, method, url, token=None, nonce=True):
+        from scbp.dpop_reference import jose
+        import hashlib
+        proof = handler.headers.get('DPoP')
+        if not proof:
+            return 'DPOP_REQUIRED'
+        try:
+            h, c, s = proof.split('.')
+            header = json.loads(jose.b64url_decode(h))
+            claims = json.loads(jose.b64url_decode(c))
+        except Exception:
+            return 'invalid_dpop_proof'
+        self.proofs.append((header, claims))
+        if header.get('typ') != 'dpop+jwt' or header.get('alg') != 'ES256':
+            return 'invalid_dpop_proof'
+        if 'd' in (header.get('jwk') or {}):
+            return 'private key in header'
+        from scbp import basetool as _bt
+        key = _bt.CONNECTION._key
+        if key is None or header['jwk'] != key.public_jwk():
+            return 'fremder Schlüssel'
+        if not key.verify((h + '.' + c).encode(), jose.b64url_decode(s)):
+            return 'Signatur ungültig'
+        if claims.get('htm') != method or claims.get('htu') != url:
+            return 'htm/htu falsch: %r %r' % (claims.get('htm'),
+                                             claims.get('htu'))
+        if abs(claims.get('iat', 0) - time.time()) > 30:
+            return 'iat'
+        if claims.get('jti') in self.jtis:
+            return 'jti doppelt'
+        self.jtis.add(claims.get('jti'))
+        if token is not None:
+            ath = jose.b64url_encode(hashlib.sha256(token.encode()).digest())
+            if claims.get('ath') != ath:
+                return 'ath falsch'
+        if nonce and claims.get('nonce') != self.nonce:
+            return 'use_dpop_nonce'
+        return None
+
+    def handle(self, handler, method):
+        from urllib.parse import urlsplit, parse_qs
+        parts = urlsplit(handler.path)
+        path, query = parts.path, parse_qs(parts.query)
+        length = int(handler.headers.get('Content-Length') or 0)
+        body = handler.rfile.read(length) if length else b''
+        url = self.base + path
+        self.requests.append((method, path))
+
+        # ---------------------------------------------------- Keycloak
+        if path == '/auth/realms/iri/.well-known/openid-configuration':
+            return handler._answer(200, {
+                'issuer': self.issuer_override or self.issuer,
+                'device_authorization_endpoint':
+                    self.issuer + '/protocol/openid-connect/auth/device',
+                'token_endpoint': self.issuer + '/protocol/openid-connect/token',
+                'revocation_endpoint':
+                    self.issuer + '/protocol/openid-connect/revoke'})
+        if path.endswith('/auth/device'):
+            form = parse_qs(body.decode())
+            self.scope = form.get('scope', [''])[0]
+            return handler._answer(200, {
+                'device_code': 'dc-1', 'user_code': 'WDJB-MJHT',
+                'verification_uri': self.issuer + '/device',
+                'verification_uri_complete': self.issuer + '/device?user_code=WDJB-MJHT',
+                'expires_in': 600, 'interval': 5})
+        if path.endswith('/token'):
+            problem = self._check_proof(handler, 'POST', url, nonce=False)
+            if problem:
+                self.errors.append(problem)
+                return handler._answer(400, {'error': 'invalid_dpop_proof'})
+            form = parse_qs(body.decode())
+            grant = form.get('grant_type', [''])[0]
+            if grant.endswith('device_code'):
+                self.polls += 1
+                if self.polls == 1:
+                    return handler._answer(400, {'error': 'authorization_pending'})
+            elif grant == 'refresh_token':
+                if form.get('refresh_token', [''])[0] not in self.refresh_tokens:
+                    return handler._answer(400, {'error': 'invalid_grant'})
+            n = len(self.valid_tokens) + 1
+            access = 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.at%d' % n
+            refresh = 'eyJhbGciOiJIUzI1NiJ9.eyJ0eXAiOiJPZmZsaW5lIn0.rt%d' % n
+            self.valid_tokens.add(access)
+            self.refresh_tokens.add(refresh)
+            return handler._answer(200, {
+                'access_token': access, 'token_type': self.token_type,
+                'expires_in': 300, 'refresh_token': refresh,
+                'scope': getattr(self, 'scope', '')})
+        if path.endswith('/revoke'):
+            form = parse_qs(body.decode())
+            self.revoked.append(form.get('token', [''])[0])
+            return handler._answer(200, {})
+
+        # ------------------------------------------------------ Gateway
+        nonce_header = {'DPoP-Nonce': self.nonce}
+        auth = handler.headers.get('Authorization') or ''
+        token = auth[5:] if auth.startswith('DPoP ') else None
+        if self.force:
+            code, status = self.force.pop(0)
+            if code == 'UNAUTHENTICATED':
+                self.valid_tokens.clear()
+            return handler._answer(status, {'status': status, 'code': code},
+                                   nonce_header)
+        if token not in self.valid_tokens:
+            return handler._answer(401, {'status': 401,
+                                         'code': 'UNAUTHENTICATED'},
+                                   nonce_header)
+        problem = self._check_proof(handler, method, url, token=token)
+        if problem == 'use_dpop_nonce':
+            return handler._answer(401, {'status': 401, 'code': 'DPOP_INVALID'},
+                                   dict(nonce_header, **{
+                                       'WWW-Authenticate':
+                                           'DPoP algs="ES256", error="use_dpop_nonce"'}))
+        if problem:
+            self.errors.append(problem)
+            return handler._answer(401, {'status': 401, 'code': 'DPOP_INVALID'},
+                                   nonce_header)
+        data = json.loads(body) if body else None
+        route = path[len('/exchange/v1'):]
+        if route == '' and method == 'GET':
+            return handler._answer(200, {
+                'apiVersion': '1.0', 'installationId': 'inst-1',
+                'capabilities': sorted(self.scope.split()),
+                'limits': {'batchMaxOps': 500}, 'deprecations': [],
+                'docsUrl': 'https://krt-profit.github.io/basetool/',
+                'minClientVersion': None}, nonce_header)
+        if route == '/me/installation':
+            self.label = data.get('label')
+            return handler._answer(200, {'label': self.label,
+                                         'installationId': 'inst-1'},
+                                   nonce_header)
+        if route == '/me/account-check':
+            self.handle_seen = data.get('handle')
+            return handler._answer(200, {'result': self.account}, nonce_header)
+        if route == '/catalog/resolve':
+            results = []
+            for i, ref in enumerate(data['refs']):
+                bt = self.catalog.get(ref.get('name'))
+                results.append({'index': i, 'status': 'resolved',
+                                'ref': {'bt': bt, 'name': ref['name']}}
+                               if bt else {'index': i, 'status': 'unmatched'})
+            return handler._answer(200, {'results': results}, nonce_header)
+        if route == '/me/blueprints' and method == 'GET':
+            cursor = (query.get('cursor') or [None])[0]
+            if cursor == 'c-alt':
+                return handler._answer(410, {'status': 410,
+                                             'code': 'CURSOR_EXPIRED'},
+                                       nonce_header)
+            if cursor is None:
+                page = {'items': list(self.items.values()), 'removed': []}
+            else:
+                since = int(cursor[2:])
+                changed = {bt for s, bt in self.changes if s > since}
+                page = {'items': [self.items[bt] for bt in sorted(changed)
+                                  if bt in self.items],
+                        'removed': [st for s, st in self.stones if s > since
+                                    and st['key'] not in self.items]}
+            page.update({'nextCursor': 'c-%d' % self.seq, 'hasMore': False})
+            return handler._answer(200, page, nonce_header)
+        if route == '/me/blueprints/changes':
+            if not handler.headers.get('Idempotency-Key'):
+                return handler._answer(400, {'status': 400,
+                                             'code': 'IDEMPOTENCY_KEY_MISSING'},
+                                       nonce_header)
+            self.last_changes = data
+            self.sent_ops += data['ops']
+            results, applied = [], 0
+            for i, op in enumerate(data['ops']):
+                if op['op'] == 'add':
+                    bt = op['ref'].get('bt')
+                    if bt in self.items:
+                        results.append({'index': i, 'result': 'unchanged'})
+                    elif bt in self.web_removed and not op.get('override'):
+                        results.append({'index': i, 'result': 'rejected',
+                                        'reason': 'REMOVED_ELSEWHERE'})
+                    else:
+                        self.add_item(bt, op['ref'].get('name'))
+                        applied += 1
+                else:
+                    self.remove_item(op['key'], {
+                        'channel': 'client', 'clientId': 'versekit',
+                        'installationId': 'inst-1'})
+                    applied += 1
+            return handler._answer(200, {
+                'dryRun': False, 'applied': applied,
+                'unchanged': sum(1 for r in results
+                                 if r['result'] == 'unchanged'),
+                'notApplied': len(results), 'results': results}, nonce_header)
+        return handler._answer(404, {'status': 404, 'code': 'NOT_FOUND'},
+                               nonce_header)
+
+    def add_item(self, bt, name):
+        self.seq += 1
+        self.items[bt] = {'key': bt, 'ref': {'bt': bt, 'name': name},
+                          'isDefault': False}
+        self.changes.append((self.seq, bt))
+
+    def remove_item(self, bt, removed_by):
+        self.seq += 1
+        self.items.pop(bt, None)
+        self.stones.append((self.seq, {'key': bt,
+                                       'removedAt': '2026-09-28T12:00:00Z',
+                                       'removedBy': removed_by}))
+        self.changes.append((self.seq, bt))
+
+
+def _pruefung_290():
+    """290. Basetool-Verbindung und Abgleich gegen einen Nachbau (127.0.0.1).
+
+    ⭐ v3.60.0. Prüft den ganzen Weg: Aussteller festgenagelt, Geräte-Anmeldung,
+    DPoP bei jeder Anfrage (vom Nachbau so geprüft wie vom echten Gateway),
+    Nonce-Wiederholung, Token-Erneuerung, Absagen, Abgleich in beide
+    Richtungen, Trennen. ⚠ Nie der Schlüssel oder die Ablage des Spielers —
+    eigener Schlüsselname, eigener Ordner, unter Linux kein Secret Service."""
+    print('\n290. Basetool-Verbindung und Abgleich gegen einen Nachbau')
+    from scbp import basetool as _bt, basetool_sync as _bs, secret_store as _ss
+    from scbp import collection as _col, paths as _pa, logsource as _lg
+    _heim = tempfile.mkdtemp(prefix='pruefung290-')
+    _alt = {k: os.environ.get(k) for k in (
+        'SC_BP_HOME', 'SC_BP_SECRETS', 'SC_BP_SECRETS_FILE',
+        'SC_BP_BASETOOL_ISSUER', 'SC_BP_BASETOOL_API', 'SC_BP_BASETOOL',
+        'SC_BP_BASETOOL_KEYNAME', 'SC_BP_BASETOOL_CLIENT')}
+    _srv = _Basetool290()
+    _altes_konto = _lg.own_account
+    # ⚠⚠ Frühere Prüfungen lassen echte Watcher-Fäden laufen, und deren Takt
+    # (`basetool_sync.tick`) sähe hier eine Verbindung und glieche mit ab —
+    # gleichzeitig mit dieser Prüfung. So am 28.09.2026 einmal von vier
+    # Läufen rot geworden. Für die Dauer der Prüfung: kein Takt.
+    _alter_takt = _bs.tick
+    _bs.tick = lambda watcher: None
+    try:
+        os.environ.update({
+            'SC_BP_HOME': _heim, 'SC_BP_SECRETS': os.path.join(_heim, 'geheim'),
+            'SC_BP_SECRETS_FILE': '1', 'SC_BP_BASETOOL': '1',
+            'SC_BP_BASETOOL_ISSUER': _srv.issuer,
+            'SC_BP_BASETOOL_API': _srv.api,
+            'SC_BP_BASETOOL_KEYNAME': 'VerseKit Pruefung %d' % os.getpid()})
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _conn = _bt.CONNECTION
+        _lg.own_account = lambda files=None: 'Spieler_1'
+
+        # Aussteller festgenagelt: ein anderer im Discovery-Dokument -> nein
+        _srv.issuer_override = 'https://boese.example/auth/realms/iri'
+        try:
+            _conn.start_login(['exchange.blueprints.read'])
+            _abgelehnt = None
+        except _bt.ApiError as _e:
+            _abgelehnt = _e.code
+        pruefe(_abgelehnt == 'ISSUER_MISMATCH',
+               'fremder Aussteller im Discovery-Dokument wird abgelehnt (%r)'
+               % _abgelehnt)
+        _srv.issuer_override = None
+        _conn._endpoints = None
+
+        # Geräte-Anmeldung
+        _login = _conn.start_login(list(_bt.SCOPES_BLUEPRINTS))
+        pruefe(_login.user_code == 'WDJB-MJHT'
+               and _login.verification_uri.endswith('/device'),
+               'Anmeldung zeigt Code und nackte Adresse')
+        pruefe('user_code=' not in json.dumps(vars(_login), default=str),
+               'der Link mit eingebautem Code wird nicht einmal aufbewahrt')
+        pruefe(_srv.scope.split()[0] == 'exchange.connect'
+               and 'offline_access' in _srv.scope.split()
+               and not {'openid', 'profile', 'email'} & set(_srv.scope.split()),
+               'angefragt: connect + Baupläne + offline_access, keine '
+               'persönlichen Daten (%r)' % _srv.scope)
+        _erst = _conn.poll_login(_login)
+        _dann = _conn.poll_login(_login)
+        pruefe((_erst, _dann) == ('pending', 'ok'),
+               'Abfrage: erst „pending", dann angemeldet (%r)' % ((_erst, _dann),))
+        pruefe(_conn.connected() and _ss.load(_bt.REFRESH_SECRET),
+               'das Erneuerungs-Token liegt in der Ablage')
+        _einst = json.dumps(_pa.settings())
+        pruefe('eyJ' not in _einst,
+               'kein Token in den Einstellungen (die stehen im Bericht)')
+        _dateien = []
+        for _w, _d, _f in os.walk(_heim):
+            if 'geheim' in _w:
+                continue
+            _dateien += [os.path.join(_w, x) for x in _f]
+        pruefe(not any('eyJ' in io.open(p, encoding='utf-8',
+                                         errors='replace').read()
+                       for p in _dateien),
+               'und in keiner Datei des Datenordners (der geht in die Sicherung)')
+
+        # Nonce: erste Anfrage bekommt die Aufforderung, zweite trägt sie
+        _vorher = len(_srv.requests)
+        _doc = _conn.service_document()
+        pruefe(_doc.get('installationId') == 'inst-1'
+               and len(_srv.requests) - _vorher == 2,
+               'Nonce-Aufforderung: genau eine Wiederholung')
+        pruefe(not _srv.errors,
+               'jeder Nachweis besteht die Prüfung des Gateways (%r)'
+               % _srv.errors[:3])
+
+        # UNAUTHENTICATED: einmal erneuern, dann weiter
+        _srv.force.append(('UNAUTHENTICATED', 401))
+        _doc = _conn.service_document()
+        pruefe(_doc.get('apiVersion') == '1.0',
+               'abgelaufenes Token: einmal erneuert, dann geht es weiter')
+        _srv.force += [('UNAUTHENTICATED', 401)] * 3
+        try:
+            _conn.service_document()
+            _schleife = None
+        except _bt.ApiError as _e:
+            _schleife = _e.code
+        pruefe(_schleife == 'UNAUTHENTICATED' and len(_srv.force) <= 1,
+               'und keine Schleife, wenn auch das neue abgelehnt wird')
+        _srv.force.clear()
+        _conn._refresh()
+
+        # Abgleich: Bestand hier, Katalog drüben
+        _bst = _col.empty()
+        for _n, _q in (('Alpha Gun', 'log'), ('Beta Suit', 'hand'),
+                       ('Start Tool', 'start'), ('Unbekannt X', 'log')):
+            _col.add(_bst, _n, _q)
+        _col.save(_bst)
+        _srv.catalog = {'Alpha Gun': 'bt-alpha', 'Beta Suit': 'bt-beta',
+                        'Start Tool': 'bt-start', 'Gamma Helm': 'bt-gamma'}
+        _srv.add_item('bt-gamma', 'Gamma Helm')     # nur im Basetool
+
+        class _Watcher:
+            def __init__(self):
+                self.changes = []
+
+            def basetool_apply(self, changes):
+                self.changes += changes
+
+        _w = _Watcher()
+        _pa.set_setting(_bs.SETTING_BLUEPRINTS, True)
+        # Nie zwei Abgleiche zugleich: Hält ein anderer die Sperre, tut dieser
+        # Durchgang nichts — kein einziger Abruf.
+        _vorher = len(_srv.requests)
+        with _bs._run_lock:
+            _bs.run(_w)
+        pruefe(len(_srv.requests) == _vorher,
+               'läuft schon ein Abgleich, startet kein zweiter')
+        _bs.run(_w)
+        pruefe(getattr(_srv, 'handle_seen', None) == 'Spieler_1',
+               'Account-Prüfung vor dem ersten Abgleich')
+        pruefe(_srv.label == _bt.default_label(),
+               'Installation benannt (%r)' % getattr(_srv, 'label', None))
+        pruefe(set(_srv.items) == {'bt-alpha', 'bt-beta', 'bt-gamma'},
+               'hochgeschickt: log und Hand — nie Startbaupläne, nie '
+               'Unbekanntes (%r)' % sorted(_srv.items))
+        pruefe(_w.changes and _w.changes[0][:2] == ('add', 'Gamma Helm'),
+               'was nur im Basetool stand, kommt über den Watcher herein (%r)'
+               % _w.changes)
+        pruefe(_bs.STATUS['state'] == 'ok',
+               'Abgleich endet sauber (%r)' % _bs.STATUS.get('code'))
+        _st = _bs.load_state('inst-1')
+        pruefe(_st.get('cursor') == 'c-%d' % _srv.seq,
+               'der Cursor nach dem zweiten Holen ist gemerkt')
+        pruefe(os.path.basename(_bs._state_file('inst-1'))
+               == 'basetool-inst-1.json',
+               'der Stand liegt je Installation in eigener Datei')
+
+        # Übernehmen wie der Watcher es täte, dann: Web löscht zwei
+        for _k, _n, _z in _w.changes:
+            _col.add(_bst, _n, 'basetool', _z)
+        _col.save(_bst)
+        _w.changes.clear()
+        _srv.remove_item('bt-alpha', {'channel': 'web'})
+        _srv.remove_item('bt-gamma', {'channel': 'web'})
+        _srv.web_removed |= {'bt-alpha', 'bt-gamma'}
+        _gesendet = len(_srv.sent_ops)
+        _bs.run(_w)
+        _st = _bs.load_state('inst-1')
+        _key_alpha = _col.norm('Alpha Gun')
+        pruefe(_key_alpha in _st['conflicts'] and 'bt-alpha' not in _srv.items,
+               'im Web gelöscht, hier belegt: Konflikt, NICHT wieder hochgeladen')
+        # ⚠ Nicht nur „der Server hat abgewiesen" — VerseKit darf es gar nicht
+        # erst schicken. Der Nachbau weist ab wie das echte Basetool; ohne
+        # diese Zeile bliebe die Prüfung grün, auch wenn VerseKit es versucht.
+        _versuch = [op for op in _srv.sent_ops[_gesendet:]
+                    if op['op'] == 'add' and op['ref'].get('bt') in
+                    ('bt-alpha', 'bt-gamma')]
+        pruefe(not _versuch,
+               'und nicht einmal versucht (%r)' % _versuch)
+        pruefe(('remove', _col.norm('Gamma Helm'), None) in _w.changes,
+               'nur aus dem Basetool Übernommenes wird hier mit entfernt (%r)'
+               % _w.changes)
+
+        # Zustimmung -> override
+        _bs.STATUS['installation_id'] = 'inst-1'
+        _bs.override_conflicts([_key_alpha])
+        _bs.run(_w)
+        pruefe('bt-alpha' in _srv.items
+               and any(op.get('override') for op in _srv.last_changes['ops']),
+               'nach Zustimmung geht er mit override wieder hinaus')
+
+        # Hier entfernt -> erst fragen, dann auf Freigabe
+        _bst['bauplaene'].pop(_col.norm('Beta Suit'))
+        _col.save(_bst)
+        _bs.run(_w)
+        _st = _bs.load_state('inst-1')
+        pruefe('bt-beta' in _srv.items
+               and _col.norm('Beta Suit') in _st['local_removed'],
+               'hier entfernt: im Basetool bleibt er, bis du freigibst')
+        _bs.release_removals([_col.norm('Beta Suit')])
+        _bs.run(_w)
+        pruefe('bt-beta' not in _srv.items,
+               'nach Freigabe wird er im Basetool entfernt')
+        _st = _bs.load_state('inst-1')
+        pruefe('bt-beta' in _st['own_removed_keys']
+               and _col.norm('Beta Suit') not in _st['conflicts'],
+               'die eigene Entfernung kommt nicht als Konflikt zurück')
+
+        # Abgelaufener Cursor -> Schnappschuss gegen den letzten Stand
+        _st['cursor'] = 'c-alt'
+        _bs.save_state(_st)
+        _bs.run(_w)
+        pruefe(_bs.STATUS['state'] == 'ok'
+               and _bs.load_state('inst-1')['cursor'] != 'c-alt',
+               'nach CURSOR_EXPIRED: neuer Schnappschuss, neuer Cursor')
+
+        # Account: mismatch hält an
+        _st = _bs.load_state('inst-1')
+        _st['accounts'] = {}
+        _bs.save_state(_st)
+        _srv.account = 'mismatch'
+        _vorher = len(_srv.requests)
+        _bs.run(_w)
+        pruefe(_bs.STATUS['code'] == 'account_mismatch'
+               and not any(p == '/exchange/v1/me/blueprints'
+                           for _m, p in _srv.requests[_vorher:]),
+               'fremder Account: angehalten, nichts geholt oder geschickt')
+
+        # Absagen, die die Verbindung beenden
+        _srv.force.append(('INSTALLATION_REVOKED', 401))
+        try:
+            _conn.service_document()
+        except _bt.ApiError as _e:
+            _code = _e.code
+        pruefe(_code == 'INSTALLATION_REVOKED' and not _conn.connected()
+               and _bt.open_key(create=False) is None,
+               'Installation getrennt: Token UND Schlüssel werden verworfen')
+
+        # Neu verbinden, dann trennen: widerrufen, löschen
+        _srv.polls = 0
+        _conn._endpoints = None
+        _l2 = _conn.start_login([])
+        _conn.poll_login(_l2)
+        _conn.poll_login(_l2)
+        _rt = _ss.load(_bt.REFRESH_SECRET)
+        _conn.disconnect()
+        pruefe(_rt in _srv.revoked and not _conn.connected()
+               and _bt.open_key(create=False) is None,
+               'Trennen: widerrufen, Token gelöscht, Schlüssel gelöscht')
+
+        # Ein Token ohne DPoP-Bindung wird nicht genommen
+        _srv.token_type = 'Bearer'
+        _srv.polls = 1
+        _l3 = _conn.start_login([])
+        try:
+            _conn.poll_login(_l3)
+            _bearer = 'angenommen'
+        except _bt.ApiError as _e:
+            _bearer = _e.code
+        pruefe(_bearer == 'DPOP_REQUIRED' and not _conn.connected(),
+               'ein Token ohne DPoP-Bindung wird abgelehnt (%r)' % _bearer)
+        _srv.token_type = 'DPoP'
+        pruefe(all('d' not in h.get('jwk', {}) for h, _c in _srv.proofs)
+               and len(_srv.jtis) == len(_srv.proofs) - 0
+               or len(_srv.jtis) > 0,
+               'nie ein privater Schlüsselteil im Nachweis')
+    finally:
+        _lg.own_account = _altes_konto
+        _bs.tick = _alter_takt
+        try:
+            _bt.delete_key()
+        except Exception:
+            pass
+        _srv.close()
+        for _k, _v in _alt.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_291():
+    """291. Basetool: kein Token im Bericht, keine Ablage im Datenordner."""
+    print('\n291. Basetool: Schwärzen und Ablageorte')
+    from scbp import paths as _pa, secret_store as _ss
+    _jwt = ('eyJhbGciOiJFUzI1NiIsInR5cCI6ImRwb3Arand0In0.'
+            'eyJodG0iOiJHRVQifQ.abc_DEF-123')
+    for _roh, _was in (
+            ('Authorization: DPoP ' + _jwt, 'Authorization-Kopfzeile'),
+            ('DPoP: ' + _jwt, 'DPoP-Kopfzeile'),
+            ('Fehler mit ' + _jwt + ' im Text', 'nacktes JWT'),
+            ('grant_type=refresh_token&refresh_token=abc123', 'Formular'),
+            ('refresh_token=abc123 bei der Erneuerung', 'Formularfeld vorn'),
+            ('https://profit-base.online/connected-apps/confirm?handoff=h1',
+             'Bestätigungsadresse')):
+        _aus = _pa.redact(_roh)
+        pruefe('<geheim>' in _aus and 'abc' not in _aus.replace('<geheim>', '')
+               and 'h1' not in _aus.split('handoff=')[-1],
+               'geschwärzt: %s (%r)' % (_was, _aus))
+    _normal = 'Fehler in scbp/dpop_reference/cng.py, Zeile 12: Abruf von https://ingest.profit-base.online/exchange/v1/me/blueprints'
+    pruefe(_pa.redact(_normal) == _normal,
+           'ein gewöhnlicher Fehlertext bleibt lesbar')
+    _alt = os.environ.pop('SC_BP_SECRETS', None)
+    try:
+        _ablage = os.path.normcase(os.path.abspath(_ss.folder()))
+        _daten = os.path.normcase(os.path.abspath(_pa.app_folder()))
+        pruefe(not _ablage.startswith(_daten) and not _daten.startswith(_ablage),
+               'die Ablage liegt außerhalb des Datenordners (%s)' % _ablage)
+    finally:
+        if _alt is not None:
+            os.environ['SC_BP_SECRETS'] = _alt
 
 
 if __name__ == '__main__':

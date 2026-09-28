@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/location.schema.json",
   "title": "Location",
-  "description": "A non-hidden Lager location a client may offer.",
+  "description": "A non-hidden warehouse location a client may offer.",
   "type": "object",
   "properties": {
     "name": {

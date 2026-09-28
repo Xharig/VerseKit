@@ -1,0 +1,11 @@
+{
+  "shipId": "s-3",
+  "version": 0,
+  "shipType": {
+    "name": "Cutlass Black"
+  },
+  "insurance": {
+    "kind": "LTI"
+  },
+  "fitted": true
+}

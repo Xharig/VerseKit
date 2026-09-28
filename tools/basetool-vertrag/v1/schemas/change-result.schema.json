@@ -70,7 +70,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "description": "Feed position after this change."
+      "description": "Reserved; not sent in v1. Read the feed after a push to learn the new position."
     },
     "warnings": {
       "$ref": "#/$defs/warnings"

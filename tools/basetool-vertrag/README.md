@@ -7,7 +7,7 @@ der Selbsttest ohne Netz prüfen kann, ob VerseKit genau dieses Format schreibt.
 | | |
 |---|---|
 | Quelle | [github.com/krt-profit/basetool](https://github.com/krt-profit/basetool) |
-| Stand | Commit `c92404b6d07ea301dc400e28ebdcfcf39e2c8c3e` (26.09.2026, mit `installationId` aus #2118) |
+| Stand | Commit `f799e1e4ffe3f4e0ad8f055cca51f2534c1eac8a` (28.09.2026, Go-live-Stand mit Basetool v1.13.0) |
 | Lizenz | GPL-3.0 — wie VerseKit |
 | Urheber | greluc (KRT) und die Mitwirkenden am Basetool |
 

@@ -2526,6 +2526,13 @@ class MainWindow:
         # ihre Warnungen selbst.
         self._tab('achsen', 'achsen', t('hf_achsen'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
+        # ⭐ v3.60.0: Abgleich mit dem KRT Profit Basetool. Unsichtbar, bis
+        # greluc VerseKit freigegeben hat (`basetool.preview_enabled`) — ein
+        # Reiter, hinter dem jeder Versuch mit „nicht zugelassen" endet, sähe
+        # kaputt aus.
+        from . import basetool
+        if basetool.preview_enabled():
+            self._tab('basetool', 'basetool', t('hf_basetool'), g_einst)
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)

@@ -59,6 +59,9 @@ PAARE = [
     # zweisprachige Seite anlegt, traegt sie hier ein**, sonst wacht niemand
     # darueber.
     ('SUPPORT.en.md', 'SUPPORT.md', 'abschnitte'),
+    # Seit 28.09.2026 (v3.60.0): die Datenschutzerklärung, die das KRT Profit
+    # Basetool für die Freigabe verlangt.
+    ('PRIVACY.en.md', 'PRIVACY.md', 'abschnitte'),
 ]
 
 

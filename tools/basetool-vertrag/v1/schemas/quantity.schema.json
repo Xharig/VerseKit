@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/quantity.schema.json",
   "title": "Quantity",
-  "description": "An amount with its unit. SCU amounts carry at most three decimals; PIECE amounts are whole.",
+  "description": "An amount with its unit. PIECE amounts are whole. An SCU amount may carry any number of decimals; the server rounds it half-up to three.",
   "type": "object",
   "properties": {
     "amount": {

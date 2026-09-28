@@ -73,6 +73,13 @@
       "type": "string",
       "format": "date-time",
       "description": "RFC 3339 timestamp in UTC."
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "NOT_PERMITTED"
+      ],
+      "description": "Present only when the demand is withheld; both lists are then empty. NOT_PERMITTED: the member may not see their organisation's job orders. Absent when the member may see the demand, even if nothing is open. Treat an unknown value as withheld."
     }
   },
   "required": [

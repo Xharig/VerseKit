@@ -1,7 +1,8 @@
 {
-  "type": "https://krt-profit.github.io/basetool/exchange/errors#VERSION_CONFLICT",
-  "title": "Version conflict",
+  "title": "Conflict",
   "status": 409,
+  "detail": "The entry changed since it was read; pull, merge and retry.",
+  "instance": "/exchange/v1/me/ships/changes",
   "code": "VERSION_CONFLICT",
-  "correlationId": "5b0c"
+  "correlationId": "5b0c7e1a-3f2d-4c8e-9a61-0d4f2b7c9e13"
 }

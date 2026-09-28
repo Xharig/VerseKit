@@ -423,8 +423,9 @@ von SignPath unterschrieben, und Windows zeigt statt „unbekannter
 Herausgeber" einen Namen an.
 
 Gebaut wird ausschließlich über einen öffentlichen GitHub-Actions-Ablauf —
-[SECURITY.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.md) beschreibt, wie eine Version entsteht und was das
-Programm sendet (und was nicht).
+[SECURITY.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.md) beschreibt, wie eine Version entsteht, und
+[PRIVACY.md](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.md), was das Programm liest, holt und sendet
+(und was nicht).
 
 ### ⚠️ Windows meldet „Der Computer wurde durch Windows geschützt"
 

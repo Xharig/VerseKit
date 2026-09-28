@@ -1,0 +1,19 @@
+{
+  "ops": [
+    {
+      "op": "upsert",
+      "externalId": "vk-7",
+      "shipId": "s-1",
+      "version": 4,
+      "shipType": {
+        "bt": "st-cutlass-black",
+        "name": "Cutlass Black"
+      },
+      "insurance": {
+        "kind": "MONTHS",
+        "months": 6
+      },
+      "override": true
+    }
+  ]
+}

@@ -254,7 +254,8 @@
             "name": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 100
+              "maxLength": 255,
+              "description": "The member's name for the ship; absent when it has none."
             },
             "insurance": {
               "type": "object",
@@ -293,13 +294,16 @@
             },
             "fitted": {
               "type": "boolean"
+            },
+            "override": {
+              "type": "boolean",
+              "description": "Bring back a ship removed elsewhere; only after asking the member."
             }
           },
           "required": [
             "op",
             "externalId",
             "shipType",
-            "name",
             "insurance"
           ],
           "dependentRequired": {

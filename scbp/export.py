@@ -37,9 +37,11 @@ wenn er nicht sauber zu bilden ist, statt etwas Erfundenes zu schreiben.
 Klasse, Größe, Gütegrad, Hersteller, Quelle und Zeitpunkt. Für eigene
 Auswertungen und als Rückfall, unabhängig von jedem fremden Dienst.
 
-> **Hochgeladen wird nichts.** Der Export schreibt eine Datei, den Rest macht
-> der Spieler. Alles andere hieße fremde Zugangsdaten verwalten und ungefragt
-> Daten verschicken — das gehört nicht in ein Overlay.
+> **Der Export lädt nichts hoch.** Er schreibt eine Datei, den Rest macht der
+> Spieler. Seit v3.60.0 gibt es daneben den direkten Abgleich mit dem KRT
+> Profit Basetool (`basetool_sync`) — und dafür gilt der Satz: *Verse-Kit
+> schickt nur dorthin, womit du es ausdrücklich verbunden hast — und nur die
+> Bereiche, die du freigibst.* Ungefragt verschickt wird weiterhin nichts.
 """
 import json
 import os

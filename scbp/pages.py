@@ -114,10 +114,11 @@ def _builders():
     """
     # ⚠ Hier geladen, nicht oben im Modul: `stats_pages` holt sich seine
     # Bausteine aus diesem Modul und wäre sonst ein Zirkelbezug.
-    from . import stats_pages, settings_pages
+    from . import stats_pages, settings_pages, basetool_page
     return {
         **stats_pages.builders(),
         **settings_pages.builders(),
+        **basetool_page.builders(),
         'darstellung': _appearance,
         'uebersetzung': _translation_page,
         'liste':       _blueprint_list,
@@ -157,8 +158,14 @@ def _builders():
 
 
 def page_ids():
-    """Alle Seiten-Kennungen — für das Vorbauen im Leerlauf."""
-    return tuple(_builders())
+    """Alle Seiten-Kennungen — für das Vorbauen im Leerlauf.
+
+    ⚠ Ohne „Basetool", solange die Seite verborgen ist: Sie fragt beim Bauen
+    die Schlüsselablage des Systems ab — das soll bei niemandem passieren,
+    der den Reiter gar nicht sieht."""
+    from . import basetool
+    return tuple(k for k in _builders()
+                 if k != 'basetool' or basetool.preview_enabled())
 
 
 def build(fenster, kennung, rahmen):
@@ -6679,6 +6686,10 @@ def _thanks(fenster, rahmen):
     # neben Lucide (Lizenztext unter `tools/flaggen-vorlagen/LICENSE`).
     _credit_box(fenster, innen, 'flag-icons', 'MIT', t('s_dk_flaggen'),
                'https://flagicons.lipis.dev')
+    # Seit v3.60.0: gelucs DPoP-Referenz für die Basetool-Anmeldung
+    # (`scbp/dpop_reference/`, Lizenztext dort in `LICENSE`).
+    _credit_box(fenster, innen, 'Basetool DPoP reference', 'MIT',
+               t('s_dk_dpop'), 'https://krt-profit.github.io/basetool/')
 
     # --- Wird geladen, nicht mitgeliefert ---
     tk.Label(innen, text=t('s_dk_extern'), bg=BG, fg=FG, font=fenster.f_title,

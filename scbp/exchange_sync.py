@@ -344,6 +344,135 @@ def merge_pages(pages):
     return list(items.values()), list(stones.values()), cursor
 
 
+def plan_sync(local, resolved, server, stones, state, resync=False):
+    """Ein Abgleich-Durchgang nach gelucs Sync-Anleitung — ohne Netz.
+
+    Anders als `plan_blueprints` (Entwurf vom 26.09.) arbeitet dieser Plan
+    über den **`bt`-Schlüssel des Basetools**, den `catalog/resolve` für jeden
+    Bauplan liefert. Über Namen allein ließe sich nicht sicher zuordnen: Das
+    Basetool nennt manche Baupläne anders, und ein falsch zugeordneter Eintrag
+    tauchte doppelt auf.
+
+    `local`: aus `local_blueprints()`. `resolved`: Bestandsschlüssel -> `bt`
+    (oder None, wenn unbekannt). `server`: `bt` -> Eintrag, der Stand des
+    Basetools **nach** dem Holen. `stones`: die Löschmarken seit dem letzten
+    Stand. `resync`: nach `CURSOR_EXPIRED` — dann gilt, was im letzten Stand
+    war und jetzt fehlt, als woanders entfernt.
+
+    `state` trägt den **letzten abgeglichenen Stand** (`baseline`: `bt` ->
+    Eintrag), die Verknüpfungen (`links`), offene Konflikte, was der Spieler
+    zum Entfernen freigegeben hat (`pending_removals`), was er trotz Konflikt
+    wieder hochschicken will (`overrides`) und was **wir** entfernt haben.
+
+    Rückgabe::
+
+        {'add': [Schlüssel], 'override': [Schlüssel],
+         'remove': [(Schlüssel, bt)], 'conflicts': {Schlüssel: bt},
+         'local_add': [bt], 'local_remove': [Schlüssel],
+         'local_removed': {Schlüssel: bt}, 'links': {Schlüssel: bt},
+         'unresolved': [Schlüssel]}
+    """
+    baseline = state.get('baseline') or {}
+    old_links = dict(state.get('links') or {})
+    pending = set(state.get('pending_removals') or ())
+    overrides = set(state.get('overrides') or ())
+    own = set(state.get('own_removed_keys') or ())
+    installation_id = state.get('installation_id')
+
+    links = {}
+    for key in local:
+        bt = resolved.get(key) or old_links.get(key)
+        if bt:
+            links[key] = bt
+
+    # Was woanders entfernt wurde: Löschmarken fremder Kanäle — und nach
+    # einem abgelaufenen Cursor alles, was im letzten Stand war und fehlt.
+    elsewhere = {stone.get('key') for stone in stones
+                 if not _own_stone(stone, own, installation_id)}
+    if resync:
+        elsewhere |= {bt for bt in baseline if bt not in server
+                      and bt not in own}
+
+    conflicts, local_remove = {}, []
+    for key, bt in sorted(links.items()):
+        if key in pending:
+            continue
+        was_conflict = (state.get('conflicts') or {}).get(key) == bt
+        if bt in server and not was_conflict:
+            continue
+        if bt in elsewhere or (was_conflict and bt not in server):
+            if local[key]['source'] == 'basetool':
+                # Kam nur aus dem Basetool, kein Beleg im Spiel: dann gilt
+                # dessen Entfernung auch hier.
+                local_remove.append(key)
+            else:
+                conflicts[key] = bt
+
+    # Hier entfernt, beim letzten Abgleich verknüpft, drüben noch da: das
+    # entscheidet der Spieler. Nie still löschen, nie still zurückholen.
+    local_removed = {}
+    for key, bt in old_links.items():
+        if key not in local and bt in server and key not in pending:
+            local_removed[key] = bt
+
+    add, override, unresolved = [], [], []
+    for key, entry in sorted(local.items()):
+        if entry['source'] in NEVER_SENT or entry['source'] == 'basetool':
+            continue
+        if key in pending:
+            continue
+        bt = links.get(key)
+        if not bt:
+            unresolved.append(key)
+            continue
+        if bt in server:
+            continue
+        if key in conflicts:
+            if key in overrides:
+                override.append(key)
+            continue
+        add.append(key)
+
+    remove = []
+    for key in sorted(pending):
+        bt = old_links.get(key) or links.get(key)
+        item = server.get(bt)
+        if item is not None and not item.get('isDefault'):
+            remove.append((key, bt))
+
+    taken = set(links.values()) | set(local_removed.values())
+    local_add = sorted(bt for bt in server if bt not in taken)
+
+    return {'add': add, 'override': override, 'remove': remove,
+            'conflicts': conflicts, 'local_add': local_add,
+            'local_remove': sorted(local_remove),
+            'local_removed': local_removed, 'links': links,
+            'unresolved': unresolved}
+
+
+def sync_change_sets(plan, local):
+    """Der Plan als Sendungen: [(change_set, targets)], höchstens 500 je
+    Sendung. Hinzufügen trägt `bt` UND den Namen — der Server nimmt `bt`."""
+    ops, targets = [], []
+
+    def add_op(key, op_id, override=False):
+        op = _add_op(local[key], op_id, override)
+        op['ref'] = {'bt': plan['links'][key], 'name': local[key]['name'][:200]}
+        return op
+
+    for n, key in enumerate(plan['add'], 1):
+        ops.append(add_op(key, 'a%d' % n))
+        targets.append(key)
+    for n, key in enumerate(plan['override'], 1):
+        ops.append(add_op(key, 'o%d' % n, override=True))
+        targets.append(key)
+    for n, (key, bt) in enumerate(plan['remove'], 1):
+        ops.append({'opId': 'r%d' % n, 'op': 'remove', 'key': bt})
+        targets.append(key)
+    return [({'ops': ops[i:i + BATCH_MAX]}, targets[i:i + BATCH_MAX])
+            for i in range(0, len(ops), BATCH_MAX)]
+
+
 def new_idempotency_key():
     """Ein frischer Schlüssel je Sendung. ⚠ Beim Wiederholen DERSELBEN
     Sendung denselben Schlüssel nehmen, sonst bucht der Server doppelt."""

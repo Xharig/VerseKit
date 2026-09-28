@@ -77,7 +77,12 @@ FILE_VERSION = 3
 #
 # Oben steht, was beim Neuaufbau von selbst zurückkommt (Log, Startbaupläne);
 # darunter, was nur der Spieler oder ein fremdes Werkzeug weiß.
-RANK = {'launcher': 1, 'import': 1, 'hand': 2, 'start': 3, 'log': 4, 'nachlese': 4}
+#
+# `basetool` (v3.60.0): kam nur über den Abgleich mit dem KRT Profit Basetool,
+# ohne Beleg im Spiel — deshalb ganz unten. Findet die Log den Bauplan später,
+# wird er zu `log` aufgewertet und gilt ab dann als belegt.
+RANK = {'basetool': 0, 'launcher': 1, 'import': 1, 'hand': 2, 'start': 3,
+        'log': 4, 'nachlese': 4}
 
 # Diese Quellen baut VerseKit nach dem Zurücksetzen selbst wieder auf.
 RESTORABLE = ('log', 'nachlese', 'start')
@@ -503,9 +508,12 @@ def add(data, name, source='log', when=None):
             'zeit': when or _now(),
         }
         return True
+    # ⚠ Kam der Bauplan bisher nur aus dem Basetool, ist jeder andere Fund
+    # der erste Beleg hier — das zählt wie neu (Speichern, Meldung).
+    first_proof = entry.get('quelle') == 'basetool' and source != 'basetool'
     if RANK.get(source, 0) > RANK.get(entry.get('quelle'), 0):
         entry['quelle'] = source
-    return False
+    return first_proof
 
 
 def remove(data, name):
@@ -520,6 +528,16 @@ def contains(data, name):
 def keys(data):
     """Alle Namen in Vergleichsform — als Menge, für schnelle Abgleiche."""
     return set(data['bauplaene'])
+
+
+def keys_seen_in_game(data):
+    """Wie `keys`, aber ohne das, was nur aus dem Basetool kam.
+
+    ⚠ Für die Liste „schon gesehen" des Watchers: Ein Bauplan, den das
+    Basetool meldet, soll trotzdem als Fund gelten, sobald er in der Game.log
+    auftaucht — erst dann ist er im Spiel belegt und wird zu `log`."""
+    return {k for k, e in data['bauplaene'].items()
+            if e.get('quelle') != 'basetool'}
 
 
 def names(data):
