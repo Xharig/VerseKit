@@ -536,8 +536,34 @@ class Wizard:
             k.pack(anchor='w', pady=(14 if schluessel.endswith('_de') else 6, 0))
             k.bind('<Button-1>', lambda e, q=quelle: self._fetch_texts(q))
 
+        # ⚠⚠ Der vierte Weg braucht einen Knopf, sonst gibt es ihn nicht.
+        # Der Docstring oben nennt ihn seit jeher („Drei Wege plus ‚jetzt
+        # nicht'"), und weiterklicken ohne Wahl tat auch genau das — nur stand
+        # im Fenster nichts davon. Gemeldet von Choopa (28.09.2026), der die
+        # Übersetzungen des SCLC nutzt: „Was wenn ich das nicht direkt will?"
+        # Ein Weg, den man nicht sieht, ist für den Nutzer keiner.
+        #
+        # Ohne Flagge: Das hier ist keine Sprache, sondern die Entscheidung,
+        # keine zu nehmen. Abgesetzt durch den größeren Abstand darüber.
+        nichts = tk.Label(f, text='  %s  ' % t('inj_quelle_nichts'), bg=FLAECHE,
+                          fg=SUB, font=font(11), cursor='hand2',
+                          padx=10, pady=8)
+        nichts.pack(anchor='w', pady=(14, 0))
+        nichts.bind('<Button-1>', lambda e: self._skip_texts())
+
         self._paragraph(f, t('inj_fremd'), SUB, 9, oben=16)
         self.inj_meldung.pack(fill='x', pady=(14, 0))
+
+    def _skip_texts(self):
+        """„Nicht anfassen" — bestätigen, dass nichts geschieht, und nichts tun.
+
+        ⛔ Schreibt **keine** Einstellung. `inj_quelle` zu setzen hieße, auf der
+        Seite „Angaben im Spiel" stünde hinterher eine Quelle angewählt, die nie
+        geholt wurde — derselbe Fehler, den Haldjas am 25.08.2026 andersherum
+        gemeldet hat. Hier ist das Nichtstun die Wahrheit, und die bleibt
+        unverändert stehen.
+        """
+        self.inj_meldung.configure(text=t('inj_nichts_ok'), fg=ACCENT)
 
     def _fetch_texts(self, quelle):
         """Herunterladen, einsetzen, Bauplan-Angaben eintragen — in einem Zug."""

@@ -8,6 +8,26 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.59.1 - 2026-09-28
+
+> **Two things a fresh pair of eyes found.** The setup assistant offered three
+> language sources — anyone who wanted none of them had to guess that simply
+> clicking on does exactly that. And the community mark in the footer went
+> mushy at higher Windows scaling.
+
+### Improved
+
+- **"Leave alone" in the setup assistant** — a fourth button below the language
+  sources says outright that nothing is downloaded and nothing about your game
+  install is changed. Same wording as on the "Translation" tab, and you can do
+  it there later at any time. Suggested by Choopa
+
+### Fixed
+
+- **"Made by the Community" was blurry at higher scaling** — the mark was
+  scaled down from one large image, and that only worked in whole steps. The
+  sizes now ship ready-made and are no longer touched. Reported by Choopa
+
 ## v3.59.0 - 2026-09-28
 
 > **Your language, your channel.** A new “Translation” tab sets the game's

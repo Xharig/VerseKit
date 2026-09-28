@@ -64,6 +64,14 @@ GOLD    = theme.GOLD
 # melden“ traegt es, damit ihn niemand suchen muss.
 RED     = theme.RED
 
+# Die fertig gerenderten Größen des „Made by the Community"-Zeichens. Tk kann
+# Bilder nur über ganze Teiler verkleinern (`subsample`, ohne zu mitteln) —
+# deshalb liegt jede Stufe als eigene Datei daneben, wie bei den Flaggen.
+# Erzeugt aus `assets/made-by-the-community.png` (240 px):
+#   magick -background none <quelle> -filter Lanczos -resize <G>x<G> <ziel>
+# Eine neue Stufe braucht die Datei **und** einen Eintrag hier.
+COMMUNITY_SIZES = (64, 80, 96, 112, 128, 160, 200)
+
 # Mindestgröße: Darunter bricht die Bedienung, und keine Layout-Regel hilft mehr.
 # Kleinste Größe, auf die sich das Fenster ziehen lässt — zugleich die Startgröße.
 #
@@ -2686,20 +2694,54 @@ class MainWindow:
         es zusätzlich zu 45 % durchsichtig — grau auf Grau, „es ist eh nichts
         richtig erkennbar" (27.09.2026).
 
-        ⚠ Nur ganze Teiler (`subsample`): Tk kann Bilder nicht frei skalieren.
-        Das Bild ist 240 px groß; bei normaler Schrift wird es gedrittelt
-        (80 px), bei großer halbiert — so wächst es mit der Oberfläche mit.
-
         ⚠ Jeder Pixel im Fuß fehlt der rollenden Leiste darüber. rc2 hatte
-        deshalb 60 px — „etwas zu klein" (27.09.2026). Seitdem 80 px."""
-        png = _bundled(os.path.join('assets', 'made-by-the-community.png'))
-        if not png or not os.path.exists(png):
-            return
+        deshalb 60 px — „etwas zu klein" (27.09.2026). Seitdem rund 80 px.
+
+        ⚠⚠ **Fertig gerenderte Größen statt `subsample`** (28.09.2026).
+        Vorher wurde das 240-px-Bild über `subsample()` verkleinert — das nimmt
+        jeden n-ten Pixel, ohne zu mitteln. Bei der feinen Ringschrift
+        („MADE BY THE COMMUNITY") franst das aus und sieht matschig aus, und
+        weil der Teiler eine **ganze Zahl** sein muss, sprang die Größe bei
+        hoher Windows-Skalierung von 240/3 auf 240/2. Gemeldet von Choopa
+        (28.09.2026): „Bei der DPI und Schärfe musst Du was tun. Es wird
+        unscharf ab 128 % Skalierung."
+
+        Deshalb liegen die Größen jetzt fertig herunterskaliert daneben —
+        dasselbe Muster wie bei den Flaggen (`assets/flaggen/xx-14.png`).
+        Gewählt wird die nächstgelegene; sie wird **nicht mehr angefasst**,
+        und genau das macht sie scharf. Die restliche Abweichung liegt unter
+        einem Zehntel und fällt an einem Wasserzeichen nicht auf.
+
+        ⚠ Das 240er Original bleibt liegen — als Rückfall, wenn eine Stufe
+        fehlt, und als Quelle, wenn später eine Größe dazukommt."""
         try:
-            full = tk.PhotoImage(file=png)
             wanted = self.f_base.metrics('linespace') * 4.5
-            divisor = max(1, min(4, int(round(full.width() / wanted))))
-            self._community_image = full.subsample(divisor, divisor)
+            # ⚠ Erst den Ordner auflösen, dann die Datei darin. Der Bau packt
+            # `assets/community` als Ganzes ein (wie `assets/flaggen`), und die
+            # Prüfung „der Bau liefert … mit" liest den letzten Namen im
+            # `_bundled()`-Aufruf — ein `'%d.png' % groesse` stünde dort als
+            # Formatstring und wäre nie im Bauplan zu finden.
+            ordner = _bundled(os.path.join('assets', 'community'))
+            png = None
+            if ordner:
+                for groesse in sorted(COMMUNITY_SIZES,
+                                      key=lambda g: abs(g - wanted)):
+                    weg = os.path.join(ordner, '%d.png' % groesse)
+                    if os.path.exists(weg):
+                        png = weg
+                        break
+            if png:
+                self._community_image = tk.PhotoImage(file=png)
+            else:
+                # Rückfall auf das Original — lieber grob verkleinert als gar
+                # kein Zeichen.
+                weg = _bundled(os.path.join('assets',
+                                            'made-by-the-community.png'))
+                if not weg or not os.path.exists(weg):
+                    return
+                full = tk.PhotoImage(file=weg)
+                divisor = max(1, min(4, int(round(full.width() / wanted))))
+                self._community_image = full.subsample(divisor, divisor)
             tk.Label(self.sidebar_foot, image=self._community_image,
                      bg=SURFACE).pack(side='bottom', pady=(8, 2))
         except Exception as exception:

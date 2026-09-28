@@ -25976,6 +25976,8 @@ def main():
     _pruefung_280()
     _pruefung_281()
     _pruefung_282()
+    _pruefung_283()
+    _pruefung_284()
 
     print()
     if fehler:
@@ -27943,6 +27945,179 @@ def _pruefung_282():
                         encoding='utf-8').read()
     pruefe('desktop_entry.refresh_icon()' in _start282,
            'der Programmstart frischt das Symbol auf')
+
+
+def _pruefung_283():
+    """283. Der Assistent zeigt den Weg „keine Übersetzung" als Knopf.
+
+    ⚠⚠ Vorschlag von Choopa (28.09.2026): „Was wenn ich das nicht direkt will?"
+    Der Weg existierte seit jeher — weiterklicken ohne Wahl ließ die
+    Installation unverändert, und der Docstring von `_step_texts` nannte ihn
+    ausdrücklich („Drei Wege plus ‚jetzt nicht'"). Im Fenster stand davon
+    nichts. **Ein Weg, den man nicht sieht, ist für den Nutzer keiner.**
+
+    Gemessen wird der gebaute Schritt, nicht der Quelltext: vier anklickbare
+    Zeilen statt drei, und der vierte darf nichts schreiben.
+    """
+    print('\n283. Assistent: „keine Uebersetzung" steht als Knopf da')
+    import tkinter as _tk283
+    from scbp import language as _la283, paths as _pf283, wizard as _wz283
+
+    # Der Text gehoert in language.py — in beiden Sprachen, nicht fest im Code.
+    for _s283 in ('inj_quelle_nichts', 'inj_nichts_ok'):
+        _w283 = _la283.TEXTS.get(_s283)
+        pruefe(bool(_w283) and len(_w283) == 2 and all(_w283),
+               '%s steht in beiden Sprachen' % _s283)
+    # ⭐ Symmetrie: dieselbe Sache heisst ueberall gleich. Der Reiter
+    # „Uebersetzung" nennt es `s_tq_nichts` — der Assistent faengt damit an.
+    pruefe(_la283.TEXTS['inj_quelle_nichts'][0].startswith(
+               _la283.TEXTS['s_tq_nichts'][0]),
+           'der Knopf heisst wie auf dem Reiter „Uebersetzung" (%r)'
+           % _la283.TEXTS['s_tq_nichts'][0])
+
+    _root283 = _tk283.Tk()
+    _root283.withdraw()
+    try:
+        _a283 = _wz283.Wizard.__new__(_wz283.Wizard)
+        _a283.root = _root283
+        _a283.titel = _tk283.Label(_root283)
+        _flaeche283 = _tk283.Frame(_root283)
+        _a283._area = lambda: _flaeche283
+        _a283._paragraph = lambda *_a, **_k: None
+        _a283._step_texts()
+
+        # Anklickbar ist, was auf <Button-1> hoert.
+        _klickbar283 = [w for w in _flaeche283.winfo_children()
+                        if w.bind('<Button-1>')]
+        pruefe(len(_klickbar283) == 4,
+               'vier waehlbare Wege statt drei (gefunden: %d)'
+               % len(_klickbar283))
+
+        # Der vierte ist der neue — und er darf NICHTS schreiben.
+        _gesetzt283 = []
+        _alt283 = _pf283.set_setting
+        _pf283.set_setting = lambda *a, **k: _gesetzt283.append(a)
+        try:
+            _a283._skip_texts()
+        finally:
+            _pf283.set_setting = _alt283
+        pruefe(not _gesetzt283,
+               '„Nicht anfassen" schreibt keine Einstellung (sonst staende '
+               'hinterher eine Quelle angewaehlt, die nie geholt wurde)')
+        pruefe(_a283.inj_meldung.cget('text') == _la283.t('inj_nichts_ok'),
+               'und sagt dem Nutzer, dass nichts veraendert wurde')
+    finally:
+        _root283.destroy()
+
+    # Und der Melder wird genannt — alle drei Stellen, siehe CLAUDE.md.
+    pruefe('s_dk_choopa_idee' in _la283.TEXTS, 'Choopa steht auf der Danke-Seite')
+    _pq283 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                     encoding='utf-8').read()
+    pruefe("'Choopa'" in _pq283, 'und ist in die Danke-Liste eingetragen')
+    for _datei283 in ('CHANGELOG.md', 'CHANGELOG.en.md'):
+        _c283 = io.open(os.path.join(WURZEL, _datei283), encoding='utf-8').read()
+        pruefe('Choopa' in _c283, 'Melder steht in %s' % _datei283)
+
+
+def _pruefung_284():
+    """284. Das „Made by the Community"-Zeichen bleibt scharf.
+
+    ⚠⚠ Gemeldet von Choopa (28.09.2026): „Bei der DPI und Schärfe musst Du was
+    tun. Es wird unscharf ab 128 % Skalierung."
+
+    Ursache war `subsample()`: Tk verkleinert damit über **ganze Teiler** und
+    nimmt jeden n-ten Pixel, ohne zu mitteln. Bei der feinen Ringschrift franst
+    das aus — und der ganzzahlige Teiler sprang bei hoher Skalierung von 240/3
+    auf 240/2. Jetzt liegen die Größen fertig gerendert daneben.
+
+    Geprüft wird, dass jede eingetragene Stufe wirklich existiert **und** die
+    richtige Kantenlänge hat — eine fehlende Datei fiele sonst still auf den
+    unscharfen Rückfallweg zurück.
+    """
+    print('\n284. Community-Zeichen: fertige Groessen statt subsample')
+    import struct as _st284
+    from scbp import main_window as _mw284
+
+    def _kante284(weg):
+        with io.open(weg, 'rb') as f:
+            kopf = f.read(24)
+        return _st284.unpack('>II', kopf[16:24])
+
+    pruefe(bool(_mw284.COMMUNITY_SIZES), 'es sind Groessen eingetragen')
+    for _g284 in _mw284.COMMUNITY_SIZES:
+        _p284 = os.path.join(WURZEL, 'assets', 'community', '%d.png' % _g284)
+        if not os.path.exists(_p284):
+            pruefe(False, 'Stufe %d px liegt bei' % _g284)
+            continue
+        _b284, _h284 = _kante284(_p284)
+        pruefe(max(_b284, _h284) == _g284,
+               'Stufe %d px ist wirklich %d px gross (%dx%d)'
+               % (_g284, _g284, _b284, _h284))
+
+    # ⚠ Der Bau packt einzelne Dateien ein, keinen ganzen assets-Baum. Ein
+    # neuer Unterordner muss in BEIDE Zeilen (Windows `;`, Linux `:`), sonst
+    # fehlen die Bilder nur in der fertigen Version.
+    _yml284 = io.open(os.path.join(WURZEL, '.github', 'workflows',
+                                   'release.yml'), encoding='utf-8').read()
+    for _trenner284, _system284 in ((';', 'Windows'), (':', 'Linux')):
+        pruefe('assets/community%sassets/community' % _trenner284 in _yml284,
+               'der Bau packt assets/community ein (%s)' % _system284)
+
+    # Das Original bleibt als Rueckfall und als Quelle liegen.
+    _orig284 = os.path.join(WURZEL, 'assets', 'made-by-the-community.png')
+    pruefe(os.path.exists(_orig284), 'das 240er Original liegt weiter bei')
+    if os.path.exists(_orig284):
+        pruefe(max(_kante284(_orig284)) >= max(_mw284.COMMUNITY_SIZES),
+               'und ist mindestens so gross wie die groesste Stufe')
+
+    # ⭐ Die Wirkung, über den Syntaxbaum statt über eine Textsuche: Im
+    # Quelltext steht „subsample" auch im Docstring, der es ja gerade erklärt —
+    # eine Textsuche schlägt daran an und prüft nichts.
+    import ast as _ast284
+    _baum284 = _ast284.parse(io.open(
+        os.path.join(WURZEL, 'scbp', 'main_window.py'), encoding='utf-8').read())
+    _fn284 = None
+    for _k284 in _ast284.walk(_baum284):
+        if (isinstance(_k284, _ast284.FunctionDef)
+                and _k284.name == '_community_mark'):
+            _fn284 = _k284
+            break
+    pruefe(_fn284 is not None, '_community_mark gefunden')
+    if _fn284 is None:
+        return
+
+    _namen284 = {n.id for n in _ast284.walk(_fn284)
+                 if isinstance(n, _ast284.Name)}
+    pruefe('COMMUNITY_SIZES' in _namen284,
+           'der Fuss waehlt aus den fertigen Groessen')
+
+    # Jeder subsample-Aufruf muss im `else` eines `if` liegen — dem Rueckfall.
+    # Verglichen werden Zeilenbereiche: Ein `try:` umschliesst beide Zweige und
+    # wuerde als Ganzes immer anschlagen.
+    _rueckfall284 = []
+    for _k284 in _ast284.walk(_fn284):
+        if isinstance(_k284, _ast284.If) and _k284.orelse:
+            _von284 = min(n.lineno for n in _k284.orelse)
+            _bis284 = max(getattr(n, 'end_lineno', n.lineno)
+                          for n in _k284.orelse)
+            _rueckfall284.append((_von284, _bis284))
+
+    _frei284 = []
+    for _k284 in _ast284.walk(_fn284):
+        if (isinstance(_k284, _ast284.Call)
+                and isinstance(_k284.func, _ast284.Attribute)
+                and _k284.func.attr == 'subsample'):
+            if not any(a <= _k284.lineno <= b for a, b in _rueckfall284):
+                _frei284.append(_k284.lineno)
+
+    pruefe(not _frei284,
+           'subsample steht nur noch im Rueckfallweg (sonst Zeile(n) %s)'
+           % (_frei284 or '—'))
+
+    for _g284, _erwartet284 in ((80, 80), (100, 96), (130, 128), (1000, 200)):
+        _naechste284 = min(_mw284.COMMUNITY_SIZES, key=lambda s: abs(s - _g284))
+        pruefe(_naechste284 == _erwartet284,
+               'Wunsch %d px -> Stufe %d px' % (_g284, _naechste284))
 
 
 def _wurzel():

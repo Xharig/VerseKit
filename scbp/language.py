@@ -2467,6 +2467,15 @@ TEXTS = {
                               'missions", because the catalogue was only fetched '
                               'after setup. Only visible when setting VerseKit up '
                               'from scratch.'),
+    's_dk_choopa_idee':      ('**„Nicht anfassen" im Einrichtungsassistenten** — '
+                              'er nutzt die Übersetzungen eines anderen Werkzeugs '
+                              'und fragte, was er tun soll, wenn er keine davon '
+                              'will. Weiterklicken tat schon immer genau das; '
+                              'jetzt steht es auch als Knopf da.',
+                              '**"Leave alone" in the setup assistant** — he uses '
+                              'another tool\'s translations and asked what to do '
+                              'if he wants none of these. Clicking on always did '
+                              'exactly that; now there is a button saying so.'),
     's_dk_yoshimitsu_idee':  ('**Handelsrouten** — sag, wo du stehst und was in '
                               'den Laderaum passt, und das Werkzeug rechnet, '
                               'womit sich die nächste Fahrt lohnt.',
@@ -5685,6 +5694,20 @@ TEXTS = {
                           'The translation and StarStrings are separate projects. '
                           'They are fetched from their own pages on click, not '
                           'bundled with this tool.'),
+    # ⚠ Der vierte Weg war immer da — man sah ihn nur nicht. Wer weiterklickte,
+    # ohne zu wählen, behielt seine Installation unverändert; im Fenster stand
+    # das nirgends. Gemeldet von Choopa (28.09.2026): „Was wenn ich das nicht
+    # direkt will?" — er nutzt die Übersetzungen des SCLC und wollte keine
+    # zweite geladen bekommen. Wortlaut wie auf dem Reiter „Übersetzung"
+    # (`s_tq_nichts`), damit dieselbe Sache überall gleich heißt.
+    'inj_quelle_nichts': ('Nicht anfassen — keine Übersetzung laden',
+                          'Leave alone — do not load a translation'),
+    'inj_nichts_ok':     ('Bleibt, wie es ist. An deiner Spielinstallation wird '
+                          'nichts verändert — du kannst das später unter '
+                          '„Übersetzung" jederzeit nachholen.',
+                          'Left as it is. Nothing about your game install is '
+                          'changed — you can do this later at any time under '
+                          '"Translation".'),
     'inj_laeuft':        ('wird eingerichtet …', 'setting up …'),
     'inj_fehler':        ('Hat nicht geklappt: %s', 'Did not work: %s'),
     # ⚠ „Wirkt beim nächsten Spielstart" gehört an diese Stelle. Star Citizen

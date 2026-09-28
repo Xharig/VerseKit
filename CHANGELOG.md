@@ -8,6 +8,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.59.1 - 2026-09-28
+
+> **Zwei Sachen, die ein Blick von außen gefunden hat.** Im
+> Einrichtungsassistenten standen drei Sprachquellen zur Wahl — wer keine davon
+> wollte, musste raten, dass einfach Weiterklicken genau das tut. Und das
+> Gemeinschafts-Zeichen im Fuß wurde bei hoher Windows-Skalierung matschig.
+
+### Verbessert
+
+- **„Nicht anfassen" im Einrichtungsassistenten** — ein vierter Knopf unter den
+  Sprachquellen sagt ausdrücklich, dass nichts geladen und nichts an der
+  Spielinstallation verändert wird. Genau wie auf dem Reiter „Übersetzung", und
+  nachholen lässt es sich dort jederzeit. Vorschlag von Choopa
+
+### Behoben
+
+- **„Made by the Community" war bei hoher Skalierung unscharf** — das Zeichen
+  wurde aus einem großen Bild heruntergerechnet, und das ging nur in ganzen
+  Schritten. Jetzt liegen die Größen fertig bei und werden nicht mehr
+  angefasst. Gemeldet von Choopa
+
 ## v3.59.0 - 2026-09-28
 
 > **Deine Sprache, dein Kanal.** Ein neuer Reiter „Übersetzung" stellt die
