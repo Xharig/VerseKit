@@ -109,8 +109,11 @@ class Wizard:
         # Einstellungsschlüssel → Handgriff. Für den Selbsttest: So lässt sich
         # jede Zeile bedienen, ohne ein Fenster anzuklicken.
         self.controls = {}
+        # `pages._scheme_cards` beschriftet seine Vorschau mit `f_small` —
+        # dieselbe Schrift wie die Hinweise unter jeder Zeile.
+        self.f_small = font(9)
 
-        self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
+        self.root =tk.Toplevel(eltern) if eltern else tk.Tk()
         self.root.title(window_title(t('hf_titel') + ' — ' + t('assistent')))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
@@ -419,14 +422,27 @@ class Wizard:
         # Konstanten; ein halb umgefärbtes Programm wäre schlimmer als ein
         # ehrlicher Neustart (siehe `pages._appearance_page`). Beim ersten
         # Start stört das nicht — danach wird ohnehin neu gestartet.
+        #
+        # ⚠⚠ **Mit Vorschau, nicht als Textknöpfe** (28.09.2026, v3.60.0-rc5).
+        # rc4 hat `pages._scheme_cards(compact=True)` genau dafür gebaut — und
+        # hier stand weiter `_choices` mit den bloßen Namen. Der Baustein war
+        # da, nur nicht eingehängt. Gemeldet mit der Frage, ob ein Neuling
+        # überhaupt sieht, wie es aussehen würde: Nein, sah er nicht.
         from . import theme as theme_modul
+        from .pages import _scheme_cards
         ziel = self._row(f, t('s_da_schema'), t('as_schema_h'), below=True)
-        self._choices(
-            ziel, theme_modul.SETTING,
-            [(name, t(scheme['label']))
-             for name, scheme in theme_modul.SCHEMES.items()],
-            paths.setting(theme_modul.SETTING) or theme_modul.DEFAULT,
-            theme_modul.choose)
+        chosen = paths.setting(theme_modul.SETTING) or theme_modul.DEFAULT
+        if chosen not in theme_modul.SCHEMES:
+            chosen = theme_modul.DEFAULT
+
+        def pick_scheme(name):
+            theme_modul.choose(name)
+            cards.select(name)
+
+        cards = _scheme_cards(self, ziel, chosen, pick_scheme, compact=True)
+        cards.pack(anchor='w')
+        self.scheme_cards = cards
+        self.controls[theme_modul.SETTING] = pick_scheme
 
         # ⭐ Welche Baupläne zählen (28.09.2026, Wunsch: „Abfrage welche BP man
         # sehen will, alle oder nur erspielbare?"). Die Einstellung gibt es

@@ -24288,7 +24288,8 @@ def main():
             # Ergebnis der Punktzahl, nicht als Auswahl.
             _wahl244 = {'overlay_modus': 'popup',
                         'schrift_voreinstellung': 'fullhd',
-                        'deckkraft_prozent': 55}
+                        'deckkraft_prozent': 55,
+                        'farbschema': 'glut'}
             _soll244 = list(_wahl244) + list(_bool244)
             if _as244.possible():
                 _soll244.append('autostart')
@@ -24318,6 +24319,28 @@ def main():
                         continue
                     if _in244 != str(_w244.master):
                         _verdeckt244.append('%s:%s' % (_s244, _w244))
+                if _s244 == 'anzeige':
+                    # ⚠⚠ Jedes Farbschema zeigt sich in SEINEN Farben
+                    # (28.09.2026). rc4 hatte die Vorschau gebaut, aber hier
+                    # standen weiter nur die Namen — ein Neuling wählte blind.
+                    # Geprüft wird die Eigenschaft: Zu jedem Schema gibt es
+                    # eine Leinwand, die in dessen Hintergrundfarbe malt.
+                    from scbp import theme as _th244
+                    _gemalt244 = set()
+                    for _w244 in _kinder244(_a244.buehne):
+                        if _w244.winfo_class() != 'Canvas':
+                            continue
+                        for _id244 in _w244.find_all():
+                            try:
+                                _gemalt244.add(
+                                    _w244.itemcget(_id244, 'fill').lower())
+                            except Exception:
+                                pass
+                    _ohne244 = [n for n, s in _th244.SCHEMES.items()
+                                if s['bg'].lower() not in _gemalt244]
+                    pruefe(not _ohne244,
+                           'Einrichtung: jedes Farbschema hat eine Vorschau in '
+                           'seinen Farben (ohne: %r)' % _ohne244)
                 for _k244, _h244 in list(_a244.controls.items()):
                     if _k244 in _bedient244:
                         continue
