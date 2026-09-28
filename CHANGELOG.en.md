@@ -8,6 +8,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- The problem report listed the Swiss German wording "Bauplan überchoo" under
+  *Game language*, although Verse-Kit does not offer that translation
+
 ## v3.60.0 - 2026-09-28
 
 > **You decide what counts as "all blueprints".** Star Citizen can craft around

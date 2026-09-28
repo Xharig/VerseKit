@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- Im Fehlerbericht stand unter *Spielsprache* die schweizerdeutsche
+  Formulierung „Bauplan überchoo", obwohl Verse-Kit diese Übersetzung gar
+  nicht anbietet
+
 ## v3.60.0 - 2026-09-28
 
 > **Du entscheidest, was als „alle Baupläne" gilt.** Star Citizen kann rund

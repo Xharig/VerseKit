@@ -6259,9 +6259,12 @@ def main():
         pruefe(not _lq65._names_from_text(_zeile65, _m65),
                'eine Auftrags-Meldung loest nichts aus')
 
-    # e) Die schweizerdeutsche Fassung steht in der Rueckfall-Tabelle.
-    pruefe(any('überchoo' in _p for _p in _ph65.TABLE.get('de', [])),
-           'die live-CH-Formulierung ist dabei')
+    # e) Die schweizerdeutsche Fassung steht NICHT mehr in der Rueckfall-
+    #    Tabelle (seit 28.09.2026): VerseKit bietet sie nicht an, und im
+    #    Bericht sah der Eintrag bei jedem wie ein Fehler aus. Wer sie selbst
+    #    einspielt, wird ueber deren global.ini erkannt (Vorrang).
+    pruefe(not any('überchoo' in _p for _p in _ph65.TABLE.get('de', [])),
+           'die live-CH-Formulierung ist nicht mehr in der Tabelle')
 
     # f) Ohne jede Formulierung darf der Ausdruck NIE treffen — ein Muster,
     #    das auf alles passt, waere schlimmer als gar keines.
