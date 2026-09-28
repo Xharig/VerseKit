@@ -34,7 +34,7 @@ import tkinter as tk
 
 from .language import t
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, RED, _TK_CALLS,
-                    _heading, _scroll_area, _body_text, _button, _wrap)
+                    _heading, _scroll_area, _body_text, _button, _wrap, _link)
 from . import basetool, basetool_sync, paths, secret_store, theme
 
 
@@ -99,6 +99,11 @@ ERROR_TEXTS = {
 
 
 def error_text(code):
+    # Ein 5xx ohne eigenen Code des Basetools (etwa von der Vorschaltung):
+    # „gerade nicht erreichbar", nicht „abgelehnt" — VerseKit versucht es
+    # ohnehin von selbst wieder (erster Test, 28.09.2026: „HTTP_503").
+    if (code or '').startswith('HTTP_5'):
+        return t('s_bt_f_netz')
     key = ERROR_TEXTS.get(code)
     return t(key) if key else t('s_bt_f_allgemein', code)
 
@@ -121,6 +126,10 @@ def basetool_page(window, frame):
         _draw(window, area, login, redraw)
 
     def on_status():
+        # „Gleiche gerade ab …" vom Knopfdruck gilt, bis ein Durchgang fertig
+        # ist — dann steht dort sein Ergebnis.
+        if not basetool_sync.STATUS.get('running'):
+            login['requested'] = False
         _TK_CALLS.put(redraw)
 
     basetool_sync.LISTENERS.append(on_status)
@@ -172,6 +181,12 @@ def _draw(window, area, login, redraw):
     if pending is None:
         if connected:
             _buttons(window, card, [(t('s_bt_trennen'), disconnect, 'danger')])
+        elif not paths.setting_bool(basetool_sync.SETTING_BLUEPRINTS, False):
+            # ⚠ Erst ein Bereich, dann verbinden (28.09.2026, erster Test):
+            # Angefragt werden nur die Rechte eingeschalteter Bereiche. Wer mit
+            # ausgeschaltetem Schalter verband, bekam nur `exchange.connect`
+            # und musste danach ein zweites Mal im Browser zustimmen.
+            _note(window, card, t('s_bt_erst_bereich'), color=theme.YELLOW)
         else:
             _buttons(window, card, [(t('s_bt_verbinden'), connect, 'strong')])
 
@@ -198,17 +213,33 @@ def _draw(window, area, login, redraw):
                                                   expand=True)
     _note(window, card, t('s_bt_bauplaene_h'))
 
-    if basetool_sync.enabled() and connected:
-        missing = set(basetool.SCOPES_BLUEPRINTS) - set(
-            status.get('capabilities') or conn.granted or ())
-        if status.get('code') == 'SCOPE_MISSING' or (
-                conn.granted and missing):
-            _note(window, card, t('s_bt_rechte_fehlen'), color=theme.YELLOW,
-                  bottom=0)
-            _buttons(window, card, [(t('s_bt_rechte_erweitern'),
-                                     lambda: _start_login(window, login,
-                                                          redraw), 'strong')])
-        if status.get('running'):
+    # ⚠⚠ Beim ersten Test (28.09.2026): „sehe nicht, ob Erlaubnis erteilen was
+    # tut". Der neue Code erschien OBEN, hier unten blieb alles gleich — dazu
+    # zwei Sätze, die dasselbe sagten, und ein „Jetzt abgleichen", das ohne
+    # Erlaubnis nichts kann. Deshalb: je Zustand genau EINE Aussage.
+    missing = set(basetool.SCOPES_BLUEPRINTS) - set(
+        conn.granted or status.get('capabilities') or ())
+    rights_missing = (status.get('code') == 'SCOPE_MISSING'
+                      or (bool(conn.granted) and bool(missing)))
+    if basetool_sync.enabled() and connected and login['current'] is not None:
+        _note(window, card, t('s_bt_code_oben'), color=theme.YELLOW)
+    elif basetool_sync.enabled() and connected and rights_missing:
+        _note(window, card, t('s_bt_rechte_fehlen'), color=theme.YELLOW,
+              bottom=0)
+        _buttons(window, card, [(t('s_bt_rechte_erweitern'),
+                                 lambda: _start_login(window, login, redraw),
+                                 'strong')])
+    elif basetool_sync.enabled() and connected:
+        # ⭐ Woran man sieht, dass es klappt (28.09.2026: „weiß ehrlich
+        # nicht, wie ich bemerke, ob es klappt"): der abgeglichene Stand,
+        # dauerhaft, nicht nur als Meldung nach einem Durchgang.
+        state = basetool_sync.current_state()
+        if state and state.get('baseline'):
+            _note(window, card, t('s_bt_ueberblick',
+                                  len(state['baseline']),
+                                  len(state.get('links') or {})),
+                  color=FG, bottom=0)
+        if status.get('running') or login.get('requested'):
             _note(window, card, t('s_bt_laeuft'), bottom=0)
         elif status.get('state') == 'ok' and status.get('last_sync'):
             counts = status.get('counts') or {}
@@ -223,8 +254,16 @@ def _draw(window, area, login, redraw):
             _note(window, card, error_text(status['code']),
                   color=theme.YELLOW, bottom=0)
         tk.Frame(card, bg=SURFACE, height=8).pack(fill='x')
-        _buttons(window, card, [(t('s_bt_jetzt'), basetool_sync.request_now,
-                                 '')])
+
+        def sync_now():
+            # Sofort sichtbar machen, dass etwas passiert — der Durchgang
+            # selbst startet erst im nächsten Takt des Watchers (Sekunden).
+            login['requested'] = True
+            basetool_sync.request_now()
+            window.say(t('s_bt_laeuft'))
+            redraw()
+
+        _buttons(window, card, [(t('s_bt_jetzt'), sync_now, '')])
 
     # ------------------------------------------------ Account-Prüfung
     code = status.get('code') or ''
@@ -323,6 +362,8 @@ def _label_row(window, card, redraw):
 
     box.bind('<FocusOut>', keep)
     box.bind('<Return>', keep)
+    # ⚠ Erster Test (28.09.2026): „Was muss da stehen? Mein Handle?" — nein.
+    _note(window, card, t('s_bt_name_h'))
 
 
 def _start_login(window, login, redraw):
@@ -339,6 +380,8 @@ def _start_login(window, login, redraw):
         try:
             device = conn.start_login(scopes)
         except basetool.ApiError as error:
+            from . import errors
+            errors.record('basetool_page.login', RuntimeError(error.describe()))
             login['current'] = None
             login['message'] = error_text(error.code)
             _TK_CALLS.put(redraw)
@@ -359,6 +402,8 @@ def _start_login(window, login, redraw):
             try:
                 result = conn.poll_login(device)
             except basetool.ApiError as error:
+                from . import errors
+                errors.record('basetool_page.poll', RuntimeError(error.describe()))
                 result = 'error:' + error.code
             if result in ('pending', 'slow_down'):
                 continue
@@ -378,16 +423,43 @@ def _start_login(window, login, redraw):
     threading.Thread(target=work, daemon=True).start()
 
 
+def _copy(window, text):
+    """In die Zwischenablage — und sagen, dass es geklappt hat.
+
+    Über `report.to_archive`, denselben Weg wie „Bericht kopieren": Der hält
+    die Ablage auch nach dem Beenden (`update()`) und schluckt Fehler."""
+    from . import report
+    if report.to_archive(text, window.root):
+        window.say(t('s_bt_kopiert'))
+
+
 def _login_box(window, card, login, redraw):
     device = login['current']
     if device == 'starting':
         _note(window, card, t('s_bt_hole_code'))
         return
     _note(window, card, t('s_bt_code_h'), bottom=4)
-    tk.Label(card, text=device.user_code, bg=SURFACE, fg=ACCENT,
-             font=window.f_title, anchor='w').pack(fill='x', padx=16)
-    _note(window, card, t('s_bt_adresse', device.verification_uri), color=FG,
-          bottom=4)
+    # Code und Adresse je mit „Kopieren" — gewünscht beim ersten Test
+    # (28.09.2026: „Adresse nicht anklickbar", „auch nicht kopierbar").
+    # ⚠ Die Adresse ist die NACKTE `verification_uri` ohne Code; einen Link
+    # mit eingebautem Code gibt es hier nirgends, auch nicht zum Kopieren.
+    code_row = tk.Frame(card, bg=SURFACE)
+    code_row.pack(fill='x', padx=16)
+    tk.Label(code_row, text=device.user_code, bg=SURFACE, fg=ACCENT,
+             font=window.f_title, anchor='w').pack(side='left')
+    _button(window, code_row, t('s_bt_kopieren'),
+            lambda: _copy(window, device.user_code)).pack(side='left',
+                                                          padx=(12, 0))
+    address_row = tk.Frame(card, bg=SURFACE)
+    address_row.pack(fill='x', padx=16, pady=(6, 4))
+    tk.Label(address_row, text=t('s_bt_adresse_h'), bg=SURFACE, fg=FG,
+             font=window.f_small).pack(side='left', padx=(0, 6))
+    _button(window, address_row, t('s_bt_kopieren'),
+            lambda: _copy(window, device.verification_uri)).pack(side='right')
+    link_box = tk.Frame(address_row, bg=SURFACE)
+    link_box.pack(side='left', fill='x', expand=True)
+    _link(window, link_box, device.verification_uri, device.verification_uri,
+          SURFACE)
     _note(window, card, t('s_bt_code_warnung'), color=theme.YELLOW)
 
     def cancel():

@@ -149,6 +149,22 @@ class ApiError(Exception):
         self.status = status
         self.retry_after = retry_after
         self.problem = problem or {}
+        self.path = ''
+
+    def describe(self):
+        """Eine Zeile fürs Fehlerprotokoll — Code, Status, Anfrage, Wartezeit,
+        dazu `detail` und `correlationId` des Servers. Nie eine Kopfzeile,
+        nie ein Token; `paths.redact` schwärzt zusätzlich alles JWT-Artige."""
+        parts = [self.code, 'HTTP %s' % self.status]
+        if self.path:
+            parts.append(self.path)
+        if self.retry_after:
+            parts.append('Retry-After %ss' % self.retry_after)
+        for key in ('detail', 'correlationId'):
+            value = self.problem.get(key)
+            if value:
+                parts.append('%s=%s' % (key, str(value)[:160]))
+        return ' · '.join(parts)
 
     @property
     def action(self):
@@ -505,7 +521,15 @@ class Connection:
         with self._lock:
             self._access = answer.get('access_token')
             self._access_until = time.time() + int(answer.get('expires_in') or 300)
+            before = self.granted
             self.granted = tuple(sorted((answer.get('scope') or '').split()))
+        # Welche Rechte das Basetool wirklich erteilt hat — in die Startspur,
+        # damit ein Bericht „Erlaubnis fehlt" beantworten kann. Nur bei einer
+        # Änderung: erneuert wird alle fünf Minuten.
+        if self.granted != before:
+            from . import errors
+            errors.trail('Basetool: Rechte erteilt: %s'
+                         % (' '.join(self.granted) or '(keine)'))
         if answer.get('refresh_token'):
             secret_store.save(REFRESH_SECRET, answer['refresh_token'])
 
@@ -586,6 +610,9 @@ class Connection:
                 continue
             error = ApiError(code, status, _retry_after(answer_headers),
                              answer)
+            # Für das Fehlerprotokoll: welche Anfrage — nur der Pfad, ohne
+            # Abfrageteil (dort stünde der Cursor).
+            error.path = '%s %s' % (method, path)
             if error.action == 'forget_key':
                 self._forget_tokens()
                 self._drop_key()

@@ -725,6 +725,28 @@ def build(version='', root=None, fehleranzahl=8, message=''):
             (uebersicht.get('selbst_gesetzt') or {}).items()))
         or t('b_standard')))
 
+    def _basetool_line():
+        """Verbindung zum KRT Profit Basetool — ohne Token, ohne Kennungen.
+
+        ⚠ Seit dem ersten Test (28.09.2026): Die Seite zeigte „abgelehnt
+        (HTTP_503)" und „Erlaubnis fehlt", aber nirgends stand, welche Rechte
+        das Basetool bei der Anmeldung wirklich erteilt hatte — genau die eine
+        Auskunft, die den Fall entscheidet."""
+        from . import basetool, basetool_sync
+        status = dict(basetool_sync.STATUS)
+        rights = (basetool.CONNECTION.granted
+                  or status.get('capabilities') or ())
+        return t('b_basetool_wert') % (
+            t('e_an') if basetool.CONNECTION.connected() else t('e_aus'),
+            ', '.join(sorted(r.replace('exchange.', '') for r in rights))
+            or '—',
+            status.get('last_sync') or '—',
+            status.get('code') or '—')
+
+    from . import basetool as _basetool_module
+    if _basetool_module.preview_enabled():
+        line(t('b_basetool'), _safe(_basetool_line))
+
     # ⚠ Die Startspur zuerst — bei einem Absturz ist sie das Einzige, was bleibt.
     # Ein `SIGSEGV` beendet den Prozess sofort: kein `except`, kein Fehlerbericht,
     # nur „es stürzt ab". Die letzte Zeile hier sagt, wie weit der Start kam.

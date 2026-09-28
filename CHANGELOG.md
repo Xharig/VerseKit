@@ -8,6 +8,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.60.1 - 2026-09-28
+
+> Eine kleine Aufräum-Fassung: Der Fehlerbericht nennt keine Formulierung
+> mehr, die es in Verse-Kit gar nicht gibt.
+
 ### Behoben
 
 - Im Fehlerbericht stand unter *Spielsprache* die schweizerdeutsche

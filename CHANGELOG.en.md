@@ -8,6 +8,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.60.1 - 2026-09-28
+
+> A small clean-up release: the problem report no longer lists a wording that
+> Verse-Kit does not even use.
+
 ### Fixed
 
 - The problem report listed the Swiss German wording "Bauplan überchoo" under

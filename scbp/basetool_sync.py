@@ -192,6 +192,11 @@ def _run_guarded(watcher):
 
 
 def _after_error(error):
+    # ⚠ Ins Fehlerprotokoll — sonst stand auf der Seite nur „abgelehnt
+    # (HTTP_503)", und niemand konnte sagen, welche Anfrage es war
+    # (erster Test, 28.09.2026).
+    from . import errors
+    errors.record('basetool.sync', RuntimeError(error.describe()))
     action = error.action
     with _lock:
         if action == 'retry':
