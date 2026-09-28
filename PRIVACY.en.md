@@ -42,12 +42,16 @@ are replaced beforehand.
 Only if you explicitly connect Verse-Kit **and** turn syncing on. Both are off
 by default.
 
-**What goes there:** your blueprints (name, the Basetool's key, time, and how
-Verse-Kit knows them), the name you give this installation — never your
-computer's name — and, for the account check only, your RSI handle. Never
-purchase data, never other members' data.
+**What goes there** — depending on the areas you turn on: your blueprints
+(name, the Basetool's key, time, and how Verse-Kit knows them), your stock lots
+from raw-material and trade storage (material, place, quality, amount,
+"stolen") and your ships (type and insurance). Plus the name you give this
+installation — never your computer's name — and, for the account check only,
+your RSI handle. Never purchase data (price, purchase date, package), never
+other members' data.
 
-**What comes back:** your own blueprint list from the Basetool.
+**What comes back:** your own blueprints, stock lots and ships from the
+Basetool.
 
 **What is stored:** the synced state in your data folder
 (`basetool-<id>.json`), the credentials only in your system's key store (see

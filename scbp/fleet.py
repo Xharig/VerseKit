@@ -101,6 +101,9 @@ FORMAT = 1
 # nicht im Hangar, und geschenkte sind aus Sicht des Spielers Pledges.
 PLEDGE = 'pledge'
 INGAME = 'ingame'
+# Seit v3.60.x: kam nur über den Abgleich mit dem KRT Profit Basetool herein.
+# Ein Pledge-Import räumt es nicht weg (nur `pledge` fällt heraus).
+BASETOOL = 'basetool'
 
 
 def path():

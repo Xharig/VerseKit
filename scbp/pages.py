@@ -158,14 +158,8 @@ def _builders():
 
 
 def page_ids():
-    """Alle Seiten-Kennungen — für das Vorbauen im Leerlauf.
-
-    ⚠ Ohne „Basetool", solange die Seite verborgen ist: Sie fragt beim Bauen
-    die Schlüsselablage des Systems ab — das soll bei niemandem passieren,
-    der den Reiter gar nicht sieht."""
-    from . import basetool
-    return tuple(k for k in _builders()
-                 if k != 'basetool' or basetool.preview_enabled())
+    """Alle Seiten-Kennungen — für das Vorbauen im Leerlauf."""
+    return tuple(_builders())
 
 
 def build(fenster, kennung, rahmen):
@@ -13941,8 +13935,9 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
 
     # Zweite Zeile: Herkunft, LTI, Steckplätze — die drei Angaben, die den
     # Unterschied machen.
-    teile = [t('s_hg_pledge') if eintrag.get('herkunft') == meine.PLEDGE
-             else t('s_hg_ingame')]
+    teile = [{meine.PLEDGE: t('s_hg_pledge'),
+              meine.BASETOOL: t('s_hg_basetool')}.get(eintrag.get('herkunft'),
+                                                      t('s_hg_ingame'))]
     if eintrag.get('lti'):
         teile.append(t('s_hg_lti'))
     else:

@@ -1874,6 +1874,10 @@ class MainWindow:
                  on_font_change=None, start_page='liste'):
         self.on_close = on_close
         self.version = version
+        # Der Basetool-Abgleich meldet hierher, welche Seiten er verändert hat
+        # (Lager, Hangar). Ist das Fenster zu, gibt es nichts neu zu bauen.
+        from . import basetool_sync
+        basetool_sync.PAGES_CHANGED[0] = self.pages_changed
         # ⚠⚠ **Was noch aussteht, wird beim Zumachen nachgeholt.**
         #
         # Seiten sammeln Aenderungen ueber `after`, statt bei jedem Tastendruck
@@ -2526,13 +2530,10 @@ class MainWindow:
         # ihre Warnungen selbst.
         self._tab('achsen', 'achsen', t('hf_achsen'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
-        # ⭐ v3.60.0: Abgleich mit dem KRT Profit Basetool. Unsichtbar, bis
-        # greluc VerseKit freigegeben hat (`basetool.preview_enabled`) — ein
-        # Reiter, hinter dem jeder Versuch mit „nicht zugelassen" endet, sähe
-        # kaputt aus.
-        from . import basetool
-        if basetool.preview_enabled():
-            self._tab('basetool', 'basetool', t('hf_basetool'), g_einst)
+        # ⭐ v3.61.0: Abgleich mit dem KRT Profit Basetool — seit der Freigabe
+        # (krt-profit/basetool#2273) für alle sichtbar. Bis dahin verborgen,
+        # weil jeder Versuch mit „nicht zugelassen" geendet hätte.
+        self._tab('basetool', 'basetool', t('hf_basetool'), g_einst)
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
@@ -3586,6 +3587,36 @@ class MainWindow:
             except Exception as ausnahme:
                 from . import errors
                 errors.record('main_window.bestand_verwerfen:%s' % kennung,
+                              ausnahme)
+
+    def pages_changed(self, kennungen):
+        """Seiten neu aufbauen, deren Daten sich von außen geändert haben —
+        durch den Abgleich mit dem KRT Profit Basetool (v3.60.x).
+
+        ⚠⚠ **Anders als `stock_changed` AUCH die sichtbare Seite.** Lager und
+        Hangar bearbeiten ihre Einträge über die Listenposition. Bliebe die
+        sichtbare Seite beim alten Stand, träfe der nächste Klick auf
+        „Ändern" oder „Entfernen" womöglich einen anderen Eintrag. Die
+        Rollposition geht dabei verloren — das ist der kleinere Schaden."""
+        for kennung in kennungen:
+            if kennung not in self.drawn:
+                continue
+            try:
+                rahmen = self.pages.get(kennung)
+                if rahmen is not None:
+                    for kind in rahmen.winfo_children():
+                        kind.destroy()
+                self.drawn.discard(kennung)
+            except Exception as ausnahme:
+                from . import errors
+                errors.record('main_window.seite_verwerfen:%s' % kennung,
+                              ausnahme)
+        if self.current in kennungen:
+            try:
+                self.open_page(self.current)
+            except Exception as ausnahme:
+                from . import errors
+                errors.record('main_window.seite_neu:%s' % self.current,
                               ausnahme)
 
     def rebuild(self):

@@ -67,18 +67,12 @@ import urllib.request
 import uuid
 from email.utils import parsedate_to_datetime
 
-from . import paths, secret_store
+from . import secret_store
 
 ISSUER = 'https://profit-base.online/auth/realms/iri'
 API = 'https://ingest.profit-base.online/exchange/v1'
 CLIENT_ID = 'versekit'
 HOMEPAGE = 'https://versekit.xharig.com'
-
-# Die Seite „Basetool" bleibt verborgen, bis greluc VerseKit freigegeben hat
-# (krt-profit/basetool#2092) — sonst endete jeder Versuch mit „Programm nicht
-# zugelassen", und das sähe kaputt aus. Freischalten: diese Einstellung auf
-# `true` oder `SC_BP_BASETOOL=1`.
-PREVIEW_SETTING = 'basetool_vorschau'
 
 # Die Rechte, die VerseKit anfragen darf. `exchange.connect` und
 # `offline_access` immer — ohne `offline_access` endete die Verbindung, sobald
@@ -86,6 +80,8 @@ PREVIEW_SETTING = 'basetool_vorschau'
 SCOPE_CONNECT = 'exchange.connect'
 SCOPE_OFFLINE = 'offline_access'
 SCOPES_BLUEPRINTS = ('exchange.blueprints.read', 'exchange.blueprints.write')
+SCOPES_STOCK = ('exchange.stock.read', 'exchange.stock.write')
+SCOPES_HANGAR = ('exchange.hangar.read', 'exchange.hangar.write')
 
 REFRESH_SECRET = 'refresh-token'
 KEY_SECRET = 'dpop-key'
@@ -97,12 +93,6 @@ TIMEOUT = 30
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 # Das Zugangs-Token lebt 300 s. So viel vorher wird erneuert.
 REFRESH_MARGIN = 30
-
-
-def preview_enabled():
-    if os.environ.get('SC_BP_BASETOOL', '') not in ('', '0'):
-        return True
-    return paths.setting_bool(PREVIEW_SETTING, False)
 
 
 def _env(name, default):

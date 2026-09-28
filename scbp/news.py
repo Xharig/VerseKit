@@ -57,7 +57,8 @@ NEW_SINCE = {
     'statistik_auftraege': '3.58.0',
     'statistik_quantum': '3.58.0',
     'statistik_stabil': '3.58.0',
-    'darstellung': '3.58.0',   # Einstellungen neu gegliedert (rc4)
+    'darstellung': '3.58.0',
+    'basetool':    '3.61.0',   # Einstellungen neu gegliedert (rc4)
     'module':      '3.58.0',
     'startprogramme': '3.58.0',
     'uebersetzung': '3.59.0',  # Textquelle je Kanal, weitere Sprachen

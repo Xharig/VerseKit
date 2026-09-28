@@ -61,7 +61,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.60.1'
+__version__ = '3.61.0'
 
 
 def _mitgeliefert(name):
@@ -5700,6 +5700,8 @@ class Overlay:
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —
         # deshalb die Arbeit über `_im_tk` an Tk übergeben, nicht dort erledigen.
         overlay.start_watchdog(lambda: self._im_tk(self.hervorholen))
+        # Der Basetool-Abgleich schreibt Lager und Hangar im Tk-Faden.
+        basetool_sync.IN_TK[0] = self._im_tk
         self.hotkey_anmelden()
         self.root.mainloop()
 

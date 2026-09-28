@@ -20,8 +20,9 @@
 Die Seite „Basetool" — Verbindung und Bauplan-Abgleich mit dem KRT Profit
 Basetool.
 
-Ab Werk **unsichtbar** (`basetool.preview_enabled`), bis greluc VerseKit
-freigegeben hat. Wer das Basetool nicht nutzt, soll davon nichts merken.
+Seit v3.61.0 für alle sichtbar (Freigabe krt-profit/basetool#2273). Alles
+daran ist ab Werk aus: Wer das Basetool nicht nutzt, verbindet nie, und dann
+geht auch nichts hinaus.
 
 ⚠⚠ **Angezeigt wird nur der Code und die nackte Adresse** — nie ein Link mit
 eingebautem Code, auch nicht als Knopf. Der Knopf „Im Browser öffnen" öffnet
@@ -181,7 +182,7 @@ def _draw(window, area, login, redraw):
     if pending is None:
         if connected:
             _buttons(window, card, [(t('s_bt_trennen'), disconnect, 'danger')])
-        elif not paths.setting_bool(basetool_sync.SETTING_BLUEPRINTS, False):
+        elif not basetool_sync.enabled():
             # ⚠ Erst ein Bereich, dann verbinden (28.09.2026, erster Test):
             # Angefragt werden nur die Rechte eingeschalteter Bereiche. Wer mit
             # ausgeschaltetem Schalter verband, bekam nur `exchange.connect`
@@ -190,67 +191,31 @@ def _draw(window, area, login, redraw):
         else:
             _buttons(window, card, [(t('s_bt_verbinden'), connect, 'strong')])
 
-    # ------------------------------------------------------- Baupläne
-    card = _card(area)
-    from .main_window import toggle_switch
-    head = tk.Frame(card, bg=SURFACE)
-    head.pack(fill='x', padx=16, pady=(12, 0))
-
-    def flip():
-        new_value = not paths.setting_bool(basetool_sync.SETTING_BLUEPRINTS,
-                                           False)
-        paths.set_setting(basetool_sync.SETTING_BLUEPRINTS, new_value)
-        if new_value:
-            basetool_sync.request_now()
-        window.root.after(50, redraw)
-        return new_value
-
-    toggle_switch(head, paths.setting_bool(basetool_sync.SETTING_BLUEPRINTS,
-                                           False), flip,
-                  bg=SURFACE).pack(side='right')
-    tk.Label(head, text=t('s_bt_bauplaene'), bg=SURFACE, fg=FG,
-             font=window.f_bold, anchor='w').pack(side='left', fill='x',
-                                                  expand=True)
-    _note(window, card, t('s_bt_bauplaene_h'))
-
+    # --------------------------------------- Baupläne, Lager, Hangar
     # ⚠⚠ Beim ersten Test (28.09.2026): „sehe nicht, ob Erlaubnis erteilen was
-    # tut". Der neue Code erschien OBEN, hier unten blieb alles gleich — dazu
-    # zwei Sätze, die dasselbe sagten, und ein „Jetzt abgleichen", das ohne
-    # Erlaubnis nichts kann. Deshalb: je Zustand genau EINE Aussage.
-    missing = set(basetool.SCOPES_BLUEPRINTS) - set(
-        conn.granted or status.get('capabilities') or ())
-    rights_missing = (status.get('code') == 'SCOPE_MISSING'
-                      or (bool(conn.granted) and bool(missing)))
-    if basetool_sync.enabled() and connected and login['current'] is not None:
-        _note(window, card, t('s_bt_code_oben'), color=theme.YELLOW)
-    elif basetool_sync.enabled() and connected and rights_missing:
-        _note(window, card, t('s_bt_rechte_fehlen'), color=theme.YELLOW,
-              bottom=0)
-        _buttons(window, card, [(t('s_bt_rechte_erweitern'),
-                                 lambda: _start_login(window, login, redraw),
-                                 'strong')])
-    elif basetool_sync.enabled() and connected:
-        # ⭐ Woran man sieht, dass es klappt (28.09.2026: „weiß ehrlich
-        # nicht, wie ich bemerke, ob es klappt"): der abgeglichene Stand,
-        # dauerhaft, nicht nur als Meldung nach einem Durchgang.
-        state = basetool_sync.current_state()
-        if state and state.get('baseline'):
-            _note(window, card, t('s_bt_ueberblick',
-                                  len(state['baseline']),
-                                  len(state.get('links') or {})),
-                  color=FG, bottom=0)
+    # tut" und „weiß nicht, wie ich bemerke, ob es klappt". Deshalb je Bereich
+    # genau EINE Aussage — Code läuft oben / Recht fehlt / Stand — und darunter
+    # eine gemeinsame Zeile mit dem letzten Abgleich.
+    granted = set(conn.granted or status.get('capabilities') or ())
+    for setting, scopes, title_key, help_key in (
+            (basetool_sync.SETTING_BLUEPRINTS, basetool.SCOPES_BLUEPRINTS,
+             's_bt_bauplaene', 's_bt_bauplaene_h'),
+            (basetool_sync.SETTING_STOCK, basetool.SCOPES_STOCK,
+             's_bt_lager', 's_bt_lager_h'),
+            (basetool_sync.SETTING_SHIPS, basetool.SCOPES_HANGAR,
+             's_bt_hangar', 's_bt_hangar_h')):
+        _area_card(window, area, login, redraw, status, connected, granted,
+                   setting, scopes, title_key, help_key)
+
+    if connected and basetool_sync.enabled() and login['current'] is None:
+        card = _card(area)
+        _title(window, card, t('s_bt_abgleich'))
         if status.get('running') or login.get('requested'):
             _note(window, card, t('s_bt_laeuft'), bottom=0)
-        elif status.get('state') == 'ok' and status.get('last_sync'):
-            counts = status.get('counts') or {}
-            _note(window, card, t('s_bt_stand', status['last_sync'],
-                                  counts.get('added', 0),
-                                  counts.get('local_added', 0),
-                                  counts.get('removed', 0)), bottom=0)
-            if counts.get('unmatched') or counts.get('unresolved'):
-                _note(window, card, t('s_bt_unbekannt',
-                                      counts.get('unresolved', 0)), bottom=0)
-        elif status.get('code'):
+        elif status.get('last_sync'):
+            _note(window, card, t('s_bt_zuletzt', status['last_sync']),
+                  color=FG, bottom=0)
+        if status.get('code') and not status.get('running'):
             _note(window, card, error_text(status['code']),
                   color=theme.YELLOW, bottom=0)
         tk.Frame(card, bg=SURFACE, height=8).pack(fill='x')
@@ -295,6 +260,97 @@ def _draw(window, area, login, redraw):
                pady=(6, 20))
 
 
+def _area_card(window, area, login, redraw, status, connected, granted,
+               setting, scopes, title_key, help_key):
+    """Ein Bereich: Schalter, was er tut, und sein Stand — eine Aussage."""
+    from .main_window import toggle_switch
+    card = _card(area)
+    head = tk.Frame(card, bg=SURFACE)
+    head.pack(fill='x', padx=16, pady=(12, 0))
+    on = paths.setting_bool(setting, False)
+
+    def flip():
+        new_value = not paths.setting_bool(setting, False)
+        paths.set_setting(setting, new_value)
+        if new_value:
+            basetool_sync.request_now()
+        window.root.after(50, redraw)
+        return new_value
+
+    toggle_switch(head, on, flip, bg=SURFACE).pack(side='right')
+    tk.Label(head, text=t(title_key), bg=SURFACE, fg=FG, font=window.f_bold,
+             anchor='w').pack(side='left', fill='x', expand=True)
+    _note(window, card, t(help_key))
+    if not (on and connected):
+        return
+    if login['current'] is not None:
+        _note(window, card, t('s_bt_code_oben'), color=theme.YELLOW)
+        return
+    if granted and not set(scopes) <= granted:
+        _note(window, card, t('s_bt_rechte_fehlen'), color=theme.YELLOW,
+              bottom=0)
+        _buttons(window, card, [(t('s_bt_rechte_erweitern'),
+                                 lambda: _start_login(window, login, redraw),
+                                 'strong')])
+        return
+    state = basetool_sync.current_state() or {}
+    counts = status.get('counts') or {}
+    lines = []
+    if setting == basetool_sync.SETTING_BLUEPRINTS:
+        # ⭐ Woran man sieht, dass es klappt: der abgeglichene Stand,
+        # dauerhaft, nicht nur als Meldung nach einem Durchgang.
+        if state.get('baseline'):
+            lines.append(t('s_bt_ueberblick', len(state['baseline']),
+                           len(state.get('links') or {})))
+        if 'added' in counts:
+            lines.append(t('s_bt_stand_bp', counts.get('added', 0),
+                           counts.get('local_added', 0),
+                           counts.get('removed', 0)))
+        if counts.get('unresolved'):
+            lines.append(t('s_bt_unbekannt', counts['unresolved']))
+    elif setting == basetool_sync.SETTING_STOCK:
+        sub = state.get('stock') or {}
+        c = counts.get('stock') or {}
+        if 'server' in sub:
+            lines.append(t('s_bt_lager_ueberblick', len(sub.get('server') or {})))
+        if c:
+            lines.append(t('s_bt_lager_stand', c.get('sent', 0),
+                           c.get('taken', 0)))
+            if c.get('skipped_location'):
+                lines.append(t('s_bt_lager_ort',
+                               c['skipped_location'],
+                               ', '.join((sub.get('skipped') or {})
+                                         .get('location', [])[:5])))
+            if c.get('skipped_material'):
+                lines.append(t('s_bt_lager_material', c['skipped_material']))
+            if c.get('offers'):
+                lines.append(t('s_bt_lager_angebote', c['offers']))
+            if c.get('rejected'):
+                lines.append(t('s_bt_abgelehnt_n', c['rejected'],
+                               ', '.join(sorted(set(
+                                   (sub.get('rejected') or {}).values()))[:3])))
+    else:
+        sub = state.get('ships') or {}
+        c = counts.get('ships') or {}
+        if 'server' in sub:
+            lines.append(t('s_bt_hangar_ueberblick', len(sub.get('server') or {}),
+                           len(sub.get('links') or {})))
+        if c:
+            lines.append(t('s_bt_hangar_stand', c.get('linked', 0),
+                           c.get('created', 0), c.get('taken', 0)))
+            if c.get('unresolved'):
+                lines.append(t('s_bt_hangar_unbekannt', c['unresolved']))
+            if c.get('detached'):
+                lines.append(t('s_bt_hangar_missionen', c['detached']))
+            if c.get('rejected'):
+                lines.append(t('s_bt_abgelehnt_n', c['rejected'],
+                               ', '.join(sorted(set(
+                                   (sub.get('rejected') or {}).values()))[:3])))
+    for line in lines:
+        _note(window, card, line, color=FG, bottom=0)
+    tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
+
+
 def _decisions(window, area, state):
     """Was nur der Spieler entscheiden darf: Konflikte und hier Entferntes."""
     names = {bt: (item.get('ref') or {}).get('name') or bt
@@ -321,6 +377,57 @@ def _decisions(window, area, state):
              lambda: basetool_sync.release_removals(list(removed)), 'danger'),
             (t('s_bt_behalten'),
              lambda: basetool_sync.keep_removed(list(removed)), '')])
+
+    # Lager: Menge auf beiden Seiten verschieden — der Spieler entscheidet.
+    stock = state.get('stock') or {}
+    conflicts = stock.get('conflicts') or {}
+    if conflicts:
+        labels = stock.get('conflict_names') or {}
+        card = _card(area)
+        _title(window, card, t('s_bt_lager_konflikte', len(conflicts)))
+        _note(window, card, t('s_bt_lager_konflikte_h'), bottom=4)
+        shown = sorted(conflicts.items())[:12]
+        _note(window, card, '\n'.join(
+            t('s_bt_lager_konflikt_zeile', labels.get(k, k), here, there)
+            for k, (here, there) in shown)
+            + ('\n' + t('s_bt_und_mehr', len(conflicts) - 12)
+               if len(conflicts) > 12 else ''), color=FG)
+        keys = list(conflicts)
+        _buttons(window, card, [
+            (t('s_bt_meine'), lambda: basetool_sync.stock_decide(keys, 'mine'),
+             ''),
+            (t('s_bt_deren'),
+             lambda: basetool_sync.stock_decide(keys, 'theirs'), '')])
+
+    # Hangar: hier fehlende Schiffe — nur mit Freigabe drüben entfernen.
+    ships = state.get('ships') or {}
+    ship_names = ships.get('names') or {}
+    removed = ships.get('local_removed') or {}
+    if removed:
+        card = _card(area)
+        _title(window, card, t('s_bt_hangar_weg', len(removed)))
+        _note(window, card, t('s_bt_hangar_weg_h'), bottom=4)
+        server = ships.get('server') or {}
+        _note(window, card, ', '.join(sorted(
+            (((server.get(sid) or {}).get('shipType') or {}).get('name')
+             or ship_names.get(ext) or ext) for ext, sid in removed.items())),
+            color=FG)
+        exts = list(removed)
+        _buttons(window, card, [
+            (t('s_bt_auch_dort'), lambda: basetool_sync.ships_release(exts),
+             'danger'),
+            (t('s_bt_hangar_behalten'), lambda: basetool_sync.ships_keep(exts),
+             '')])
+    elsewhere = ships.get('removed_elsewhere') or []
+    if elsewhere:
+        card = _card(area)
+        _title(window, card, t('s_bt_hangar_dort_weg', len(elsewhere)))
+        _note(window, card, t('s_bt_hangar_dort_weg_h'), bottom=4)
+        _note(window, card, ', '.join(sorted(ship_names.get(e, e)
+                                             for e in elsewhere)), color=FG)
+        _buttons(window, card, [
+            (t('s_bt_wieder_hoch'),
+             lambda: basetool_sync.ships_override(list(elsewhere)), '')])
 
 
 def _listing(entries, names, limit=12):
@@ -368,9 +475,7 @@ def _label_row(window, card, redraw):
 
 def _start_login(window, login, redraw):
     """Geräte-Anmeldung im Hintergrund; der Code erscheint auf der Seite."""
-    scopes = [basetool.SCOPE_CONNECT]
-    if paths.setting_bool(basetool_sync.SETTING_BLUEPRINTS, False):
-        scopes += list(basetool.SCOPES_BLUEPRINTS)
+    scopes = [basetool.SCOPE_CONNECT] + basetool_sync.wanted_scopes()
     login['message'] = ''
     login['current'] = 'starting'
     redraw()

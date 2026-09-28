@@ -77,6 +77,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Translation per channel**: which text file Star Citizen reads — set separately for LIVE, PTU and TECH-PREVIEW, with the blueprint details on your main install |
 | ✅ | **Seven languages**: German, French, Italian, Spanish, Portuguese, Turkish and English — plus your **own URL** if you want to use a different translation, or **none at all**, leaving the text file untouched |
 | ✅ | **All blueprints, or only the obtainable ones**: the game can craft around 1,600 things, 738 of which contracts hand out — a toggle decides what counts in the list and in your progress |
+| ✅ | **Sync with the KRT Profit Basetool**: blueprints, storage and hangar both ways — connected with a code in your browser, each area switched on separately |
 | ✅ | **Wishlist**: ships you are aiming for — with price, location and a loadout you can plan before you own the ship |
 | ✅ | **Still missing**: the bill across all ships — buy or build per slot, with grade and class on every part, total and shopping route; tick off what you fitted |
 | ✅ | **What to farm**: your stock weighed against everything you want to build — across all items at once, not recipe by recipe |

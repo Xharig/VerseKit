@@ -42,12 +42,16 @@ und alles, was nach Zugangsdaten aussieht, sind vorher ersetzt.
 Nur, wenn du Verse-Kit ausdrücklich verbindest **und** den Abgleich
 einschaltest. Ab Werk ist beides aus.
 
-**Was hingeht:** deine Baupläne (Name, Kennung des Basetools, Zeitpunkt und
-woher Verse-Kit sie kennt), der Name, den du dieser Installation gibst — nie der
-Name deines Rechners — und, nur für die Account-Prüfung, dein RSI-Handle. Nie
-Kaufdaten, nie Daten anderer Mitglieder.
+**Was hingeht** — je nach Bereich, den du einschaltest: deine Baupläne (Name,
+Kennung des Basetools, Zeitpunkt und woher Verse-Kit sie kennt), deine
+Lagerposten aus Rohstoff- und Handelslager (Material, Ort, Qualität, Menge,
+„gestohlen") und deine Schiffe (Typ und Versicherung). Dazu der Name, den du
+dieser Installation gibst — nie der Name deines Rechners — und, nur für die
+Account-Prüfung, dein RSI-Handle. Nie Kaufdaten (Preis, Kaufdatum, Paket), nie
+Daten anderer Mitglieder.
 
-**Was zurückkommt:** deine eigene Bauplan-Liste aus dem Basetool.
+**Was zurückkommt:** deine eigenen Baupläne, Lagerposten und Schiffe aus dem
+Basetool.
 
 **Was gespeichert wird:** der abgeglichene Stand in deinem Datenordner
 (`basetool-<Kennung>.json`), die Zugangsdaten nur im Schlüsselspeicher deines

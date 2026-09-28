@@ -743,8 +743,9 @@ def build(version='', root=None, fehleranzahl=8, message=''):
             status.get('last_sync') or '—',
             status.get('code') or '—')
 
-    from . import basetool as _basetool_module
-    if _basetool_module.preview_enabled():
+    # Nur wer das Basetool überhaupt nutzt, bekommt die Zeile.
+    from . import basetool_sync as _basetool_sync
+    if _basetool_sync.enabled():
         line(t('b_basetool'), _safe(_basetool_line))
 
     # ⚠ Die Startspur zuerst — bei einem Absturz ist sie das Einzige, was bleibt.

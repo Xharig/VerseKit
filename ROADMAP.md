@@ -82,6 +82,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Übersetzung je Kanal**: welche Textdatei Star Citizen liest — für LIVE, PTU und TECH-PREVIEW getrennt einstellbar, die Hauptinstallation dazu mit den Bauplan-Angaben |
 | ✅ | **Sieben Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst; oder **gar keine**, dann bleibt die Textdatei unberührt |
 | ✅ | **Alle Baupläne oder nur die erspielbaren**: Das Spiel kann rund 1.600 Dinge herstellen, über Aufträge zu bekommen sind 738 — ein Schalter entscheidet, was in Liste und Fortschritt zählt |
+| ✅ | **Abgleich mit dem KRT Profit Basetool**: Baupläne, Lager und Hangar in beide Richtungen — verbunden per Code im Browser, jeder Bereich einzeln einschaltbar |
 
 ## Woran gearbeitet wird
 

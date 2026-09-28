@@ -21935,14 +21935,6 @@ def main():
     pruefe(bool(_fort217) and bool(_einst217),
            'die Reiter unter „Für Fortgeschrittene" sind lesbar (%r)'
            % _fort217)
-    # ⚠ Ausgenommen ist nur, was im Programm selbst noch VERBORGEN ist — der
-    # Basetool-Reiter bis zur Freigabe (v3.60.0). Gelesen aus der Quelle:
-    # Fällt die Bedingung `preview_enabled()` weg, verlangt die Regel den
-    # Reiter auf der Webseite wieder von selbst.
-    _verborgen217 = re.findall(
-        r"if basetool\.preview_enabled\(\):\s*\n\s*self\._tab\('([a-z_]+)'",
-        _mw217)
-    _prog217 = [k for k in _prog217 if k not in _verborgen217]
     _seite217 = re.findall(r'\{reiter:"([a-z_]+)", bild:', _tour217)
     pruefe(len(_prog217) >= 40,
            'die Reiter des Programms sind lesbar (%d)' % len(_prog217))
@@ -26051,6 +26043,8 @@ def main():
     _pruefung_290()
     _pruefung_291()
     _pruefung_292()
+    _pruefung_293()
+    _pruefung_294()
 
     print()
     if fehler:
@@ -28844,6 +28838,16 @@ class _Basetool290:
         self.requests = []
         self.sent_ops = []              # jede Anweisung, die VerseKit schickte
         self.min_version = None
+        # Lager und Hangar (Prüfung 294)
+        self.lots = {}                  # Kennung -> Posten
+        self.lot_stones = []            # (seq, Löschmarke)
+        self.ships = {}                 # shipId -> Schiff
+        self.ship_stones = []
+        self.ship_seq = 0
+        self.names = {}                 # (kind, Name) -> bt
+        self.places = [{'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
+                       {'name': 'Seraphim Station'}]
+        self.stock_ops, self.ship_ops = [], []
         self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0),
                                                       _handler290(self))
         self.base = 'http://127.0.0.1:%d' % self.server.server_address[1]
@@ -28990,6 +28994,35 @@ class _Basetool290:
         if route == '/me/account-check':
             self.handle_seen = data.get('handle')
             return handler._answer(200, {'result': self.account}, nonce_header)
+        if route == '/catalog/locations':
+            return handler._answer(200, {'items': self.places}, nonce_header)
+        if route in ('/me/stock', '/me/ships'):
+            lots = route == '/me/stock'
+            store = self.lots if lots else self.ships
+            stones = self.lot_stones if lots else self.ship_stones
+            cursor = (query.get('cursor') or [None])[0]
+            since = int(cursor[2:]) if cursor else None
+            page = {'items': list(store.values()),
+                    'removed': [st for s, st in stones
+                                if since is not None and s > since],
+                    'nextCursor': 'c-%d' % self.seq, 'hasMore': False}
+            return handler._answer(200, page, nonce_header)
+        if route == '/me/stock/changes':
+            self.stock_ops += data['ops']
+            return handler._answer(200, self._stock_changes(data['ops']),
+                                   nonce_header)
+        if route == '/me/ships/changes':
+            self.ship_ops += data['ops']
+            return handler._answer(200, self._ship_changes(data['ops']),
+                                   nonce_header)
+        if route == '/catalog/resolve' and data.get('kind') != 'BLUEPRINT':
+            results = []
+            for i, ref in enumerate(data['refs']):
+                bt = self.names.get((data['kind'], ref.get('name')))
+                results.append({'index': i, 'status': 'resolved',
+                                'ref': {'bt': bt, 'name': ref['name']}}
+                               if bt else {'index': i, 'status': 'unmatched'})
+            return handler._answer(200, {'results': results}, nonce_header)
         if route == '/catalog/resolve':
             results = []
             for i, ref in enumerate(data['refs']):
@@ -29046,6 +29079,108 @@ class _Basetool290:
                 'notApplied': len(results), 'results': results}, nonce_header)
         return handler._answer(404, {'status': 404, 'code': 'NOT_FOUND'},
                                nonce_header)
+
+    @staticmethod
+    def lot_key(material_bt, place, quality, stolen):
+        return '%s|%s|%d|%d' % (material_bt, place, quality, 1 if stolen else 0)
+
+    def put_lot(self, material_bt, name, place, quality, stolen, amount,
+                unit='SCU', commodity=False):
+        self.seq += 1
+        key = self.lot_key(material_bt, place, quality, stolen)
+        location = next(p for p in self.places if p['name'] == place)
+        self.lots[key] = {'key': key, 'material': {'bt': material_bt,
+                                                   'name': name},
+                          'materialKind': {'type': 'RAW',
+                                           'commodity': commodity},
+                          'location': location, 'quality': quality,
+                          'stolen': stolen,
+                          'quantity': {'amount': amount, 'unit': unit}}
+
+    def _stock_changes(self, ops):
+        results, applied = [], 0
+        for i, op in enumerate(ops):
+            place = op['location'].get('name')
+            if not any(p['name'] == place for p in self.places):
+                results.append({'index': i, 'result': 'rejected',
+                                'reason': 'LOCATION_UNKNOWN'})
+                continue
+            key = self.lot_key(op['material']['bt'], place, op['quality'],
+                               op['stolen'])
+            have = (self.lots.get(key) or {}).get('quantity', {}).get('amount', 0)
+            if round(have, 3) != round(op['expectedQuantity']['amount'], 3):
+                results.append({'index': i, 'result': 'rejected',
+                                'reason': 'VERSION_CONFLICT'})
+                continue
+            amount = op['quantity']['amount']
+            if amount == 0:
+                self.seq += 1
+                self.lots.pop(key, None)
+                self.lot_stones.append((self.seq, {'key': key,
+                                                   'removedAt': '2026-09-28T12:00:00Z',
+                                                   'removedBy': {'channel': 'client'}}))
+            else:
+                self.put_lot(op['material']['bt'], op['material'].get('name'),
+                             place, op['quality'], op['stolen'], amount,
+                             op['quantity']['unit'])
+            applied += 1
+        return {'dryRun': False, 'applied': applied, 'unchanged': 0,
+                'notApplied': len(results), 'results': results,
+                'offersReduced': 0, 'offersRemoved': 0}
+
+    def put_ship(self, ship_type_bt, type_name, insurance, name=None,
+                 location=None, external=None):
+        self.ship_seq += 1
+        self.seq += 1
+        ship_id = 's-%d' % self.ship_seq
+        ship = {'shipId': ship_id, 'version': 1,
+                'shipType': {'bt': ship_type_bt, 'name': type_name},
+                'insurance': insurance}
+        if name:
+            ship['name'] = name
+        if location:
+            ship['location'] = location
+        if external:
+            ship['externalId'] = external
+        self.ships[ship_id] = ship
+        return ship_id
+
+    def _ship_changes(self, ops):
+        results, applied = [], 0
+        for i, op in enumerate(ops):
+            if op['op'] == 'link':
+                self.ships[op['shipId']]['externalId'] = op['externalId']
+                applied += 1
+            elif op['op'] == 'upsert' and 'shipId' not in op:
+                bt = op['shipType'].get('bt')
+                self.put_ship(bt, op['shipType'].get('name'), op['insurance'],
+                              op.get('name'), op.get('location'),
+                              op['externalId'])
+                applied += 1
+            elif op['op'] == 'upsert':
+                ship = self.ships.get(op['shipId'])
+                if ship is None or ship['version'] != op['version']:
+                    results.append({'index': i, 'result': 'rejected',
+                                    'reason': 'VERSION_CONFLICT'})
+                    continue
+                ship.update({'insurance': op['insurance'],
+                             'version': ship['version'] + 1})
+                for field in ('name', 'location'):
+                    if field in op:
+                        ship[field] = op[field]
+                    else:
+                        ship.pop(field, None)
+                applied += 1
+            elif op['op'] == 'remove':
+                self.seq += 1
+                self.ships.pop(op['shipId'], None)
+                self.ship_stones.append((self.seq, {
+                    'key': op['shipId'], 'removedAt': '2026-09-28T12:00:00Z',
+                    'removedBy': {'channel': 'client'}}))
+                applied += 1
+        return {'dryRun': False, 'applied': applied, 'unchanged': 0,
+                'notApplied': len(results), 'results': results,
+                'detachedFromMissions': 0}
 
     def add_item(self, bt, name):
         self.seq += 1
@@ -29442,6 +29577,401 @@ def _pruefung_292():
     pruefe(not _funde,
            'keiner ruft `after` aus dem Nebenfaden (%s)'
            % (', '.join(_funde) or 'keiner'))
+
+
+def _pruefung_293():
+    """293. Basetool: Lager und Hangar — die Regeln, ohne Netz.
+
+    ⭐ v3.60.x. Wie 289 für die Baupläne: jede Regel aus gelucs Anleitung
+    (`resources/stock.md`, `resources/ships.md`, Sync-Anleitung) als eigene
+    Zeile, und jede Sendung gegen den Vertrag."""
+    print('\n293. Basetool: Lager und Hangar (ohne Netz)')
+    import json as _js293
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import schema_pruefen as _sp293
+    finally:
+        sys.path.pop(0)
+    from scbp import exchange_stock as _xk, exchange_ships as _xh
+
+    # ------------------------------------------------------------- Lager
+    _orte = {'area18': {'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
+             'seraphim station': {'name': 'Seraphim Station'}}
+    _bt = {'laranite': 'bt-lar', 'gold': 'bt-gold', 'iron': 'bt-iron',
+           'hadanite': 'bt-had'}
+    _roh = [{'material': 'Laranite', 'menge': 12.5, 'qualitaet': 712,
+             'ort': 'Area18'},
+            {'material': 'Laranite', 'menge': 2.5, 'qualitaet': 712,
+             'ort': 'area18'},
+            {'material': 'Hadanite', 'menge': 3, 'qualitaet': None,
+             'ort': 'Area18'},
+            {'material': 'Iron', 'menge': 1, 'qualitaet': 10,
+             'ort': 'Daymar Outpost'},
+            {'material': 'Unbekanntit', 'menge': 1, 'qualitaet': 1,
+             'ort': 'Area18'}]
+    _handel = [{'ware': 'Gold', 'menge': 40, 'ort': 'Seraphim Station',
+                'gestohlen': True}]
+    _lokal, _weg = _xk.local_lots(_roh, _handel,
+                                  lambda n: _bt.get(n.lower()), _orte,
+                                  lambda n: n == 'Hadanite')
+    _lar = _xk.identity('bt-lar', 'Area18', 712, False)
+    pruefe(_lokal[_lar]['amount'] == 15.0 and _lokal[_lar]['rows'] == [0, 1],
+           'gleiche Posten werden zusammengezählt (auch Ort in anderer '
+           'Schreibweise)')
+    _had = _xk.identity('bt-had', 'Area18', 0, False)
+    pruefe(_lokal[_had]['unit'] == 'PIECE',
+           'Stückgut geht als PIECE, nicht als SCU')
+    _gold = _xk.identity('bt-gold', 'Seraphim Station', 0, True)
+    pruefe(_gold in _lokal and _lokal[_gold]['quality'] == 0,
+           'Handelsware: Qualität 0, gestohlen wie eingetragen')
+    pruefe('Daymar Outpost' in _weg['location']
+           and 'Unbekanntit' in _weg['material'],
+           'unbekannter Ort und unbekanntes Material bleiben hier (%r)' % _weg)
+
+    def _srv(key, amount, unit='SCU'):
+        mat, ort, q, st = key.split('|')
+        return {'key': 'lot-' + mat, 'material': {'bt': mat, 'name': mat},
+                'location': {'name': 'Area18' if ort == 'area18'
+                             else 'Seraphim Station'},
+                'quality': int(q), 'stolen': st == '1',
+                'quantity': {'amount': amount, 'unit': unit}}
+
+    _nur_dort = _xk.identity('bt-iron', 'Area18', 5, False)
+    _server = _xk.server_lots([_srv(_lar, 20.0), _srv(_nur_dort, 7.0)])
+    _p = _xk.plan(_lokal, _server, None)
+    pruefe(_lar in _p['conflicts'] and not any(k == _lar for k, *_ in
+                                               _p['push']),
+           'erster Abgleich: beide Seiten mit verschiedener Menge - der '
+           'Spieler entscheidet')
+    pruefe(_nur_dort in dict(_p['take']),
+           'erster Abgleich: was nur drüben steht, kommt herein')
+    pruefe(any(k == _gold and exp == 0 for k, _a, exp in _p['push']),
+           'erster Abgleich: was nur hier steht, geht mit erwarteter Menge 0')
+    pruefe(not any(amount == 0 for _k, amount, _e in _p['push']),
+           'erster Abgleich senkt nichts auf 0')
+    _sets = _xk.change_sets(_p, _lokal, _server)
+    _fehl = [f for s, _k in _sets
+             for f in _sp293.check(s, 'change-set--stockChangeSet')]
+    pruefe(_sets and not _fehl,
+           'die Lager-Sendung entspricht gelucs Vertrag (%r)' % _fehl[:3])
+
+    # Später: hier geändert / dort geändert / beide geändert
+    _base = {_lar: 20.0, _nur_dort: 7.0}
+    _p = _xk.plan(_lokal, _xk.server_lots([_srv(_lar, 20.0),
+                                           _srv(_nur_dort, 7.0)]), _base)
+    pruefe((_lar, 15.0, 20.0) in _p['push'],
+           'hier geändert: geht mit der zuletzt dort gesehenen Menge als '
+           'erwartete')
+    pruefe((_nur_dort, 0) not in _p['take'] and any(
+        k == _nur_dort for k, *_ in _p['push']),
+           'fehlt hier, stand im letzten Stand: aus dem Vergleich entfernt')
+    _p = _xk.plan({_lar: dict(_lokal[_lar], amount=20.0)},
+                  _xk.server_lots([_srv(_lar, 30.0)]), {_lar: 20.0})
+    pruefe(_p['take'] == [(_lar, 30.0)], 'dort geändert: hier übernommen')
+    _p = _xk.plan(_lokal, _xk.server_lots([_srv(_lar, 30.0)]), {_lar: 20.0})
+    pruefe(_lar in _p['conflicts'], 'beide geändert: Konflikt')
+    _p = _xk.plan({_lar: dict(_lokal[_lar], amount=20.0)},
+                  _xk.server_lots([_srv(_lar, 30.0)]), {_lar: 30.0},
+                  open_conflicts={_lar})
+    pruefe(_lar in _p['conflicts'] and not _p['push'],
+           'ein offener Konflikt geht nie still hinaus')
+    _p = _xk.plan(_lokal, _xk.server_lots([_srv(_lar, 30.0)]), {_lar: 20.0},
+                  decisions={_lar: 'mine'})
+    _ops = [op for s, _k in _xk.change_sets(_p, _lokal, {},
+                                            overrides={_lar})
+            for op in s['ops'] if op['material']['bt'] == 'bt-lar']
+    pruefe(_ops and _ops[0]['expectedQuantity']['amount'] == 30.0
+           and _ops[0].get('override') is True,
+           'Entscheidung „meine": mit der Menge von drüben als erwartete '
+           'und override')
+
+    # ------------------------------------------------------------- Hangar
+    _hangar = {'schiffe': [
+        {'name': 'Cutlass Black', 'hersteller': 'Drake', 'herkunft': 'pledge',
+         'lti': True, 'paket': 'Standalone Ship', 'preis': '$120.00 USD',
+         'gekauft': 'May 18, 2026', 'warbond': True, 'kurz': 'DRAK_Cutlass'},
+        {'name': 'Aurora MR', 'hersteller': 'RSI', 'herkunft': 'ingame',
+         'versicherung': 6},
+        {'name': 'Pisces', 'hersteller': 'Anvil', 'herkunft': 'pledge'}]}
+    _lok = _xh.local_ships(_hangar)
+    _text = _js293.dumps(_lok)
+    pruefe(not any(w in _text for w in ('120.00', 'May 18', 'Standalone',
+                                        'preis', 'gekauft', 'paket')),
+           'Kaufdaten gelangen gar nicht erst in den Abgleich')
+    _ext = {e['name']: k for k, e in _lok.items()}
+    pruefe(_xh.external_id(_hangar['schiffe'][0])
+           == _xh.external_id(dict(_hangar['schiffe'][0], lti=False)),
+           'die Kennung eines Schiffs hängt nur an Hersteller und Name')
+    _res = {_ext['Cutlass Black']: 'st-cut', _ext['Aurora MR']: 'st-aur',
+            _ext['Pisces']: 'st-pis'}
+    _srv_ships = {
+        's-1': {'shipId': 's-1', 'version': 3,
+                'shipType': {'bt': 'st-cut', 'name': 'Cutlass Black'},
+                'name': 'Black Betty', 'insurance': {'kind': 'LTI'},
+                'location': {'name': 'Area18'}},
+        's-2': {'shipId': 's-2', 'version': 1,
+                'shipType': {'bt': 'st-cut', 'name': 'Cutlass Black'},
+                'insurance': {'kind': 'MONTHS', 'months': 2}},
+        's-3': {'shipId': 's-3', 'version': 1,
+                'shipType': {'bt': 'st-carrack', 'name': 'Carrack'},
+                'insurance': {'kind': 'LTI'}}}
+    _p = _xh.plan(_lok, _res, _srv_ships, {})
+    pruefe(_p['link'] == [(_ext['Cutlass Black'], 's-1')],
+           'vorhandenes Schiff wird verknüpft, nicht neu angelegt (%r)'
+           % _p['link'])
+    pruefe(_ext['Cutlass Black'] not in _p['create']
+           and sorted(_p['create']) == sorted([_ext['Aurora MR'],
+                                               _ext['Pisces']]),
+           'angelegt wird nur, was drüben fehlt')
+    pruefe(_p['take'] == ['s-3'],
+           'ein Typ, den es hier nicht gibt, kommt herein — das zweite '
+           'Exemplar eines vorhandenen Typs nicht (%r)' % _p['take'])
+    _sets = _xh.change_sets(_p, _lok, _res, _srv_ships)
+    _ops = [op for s, _k in _sets for op in s['ops']]
+    _fehl = [f for s, _k in _sets
+             for f in _sp293.check(s, 'change-set--shipChangeSet')]
+    pruefe(_sets and not _fehl,
+           'die Hangar-Sendung entspricht gelucs Vertrag (%r)' % _fehl[:3])
+    pruefe([o['op'] for o in _ops].index('link')
+           < [o['op'] for o in _ops].index('upsert'),
+           'link steht vor jedem Anlegen')
+    pruefe(not any(k in op for op in _ops for k in ('preis', 'gekauft',
+                                                   'paket', 'warbond')),
+           'keine Anweisung trägt Kaufdaten')
+
+    # Verknüpft: hier geändert → upsert mit Name und Ort von drüben
+    _st = {'links': {_ext['Cutlass Black']: 's-1'},
+           'baseline': {_ext['Cutlass Black']: {'kind': 'LTI'}}}
+    _lok2 = _xh.local_ships({'schiffe': [dict(_hangar['schiffe'][0],
+                                              lti=False, versicherung=3)]})
+    _p = _xh.plan(_lok2, _res, _srv_ships, _st)
+    _up = [op for s, _k in _xh.change_sets(_p, _lok2, _res, _srv_ships)
+           for op in s['ops'] if op['op'] == 'upsert']
+    pruefe(_up and _up[0].get('shipId') == 's-1' and _up[0]['version'] == 3
+           and _up[0].get('name') == 'Black Betty'
+           and _up[0].get('location', {}).get('name') == 'Area18',
+           'Änderung hier: upsert mit Version, Name und Ort von drüben (%r)'
+           % _up[:1])
+    _srv2 = dict(_srv_ships, **{'s-1': dict(_srv_ships['s-1'],
+                                            insurance={'kind': 'MONTHS',
+                                                       'months': 24})})
+    _p = _xh.plan(_lok, _res, _srv2, _st)
+    pruefe(_p['pull'] == [(_ext['Cutlass Black'], 's-1')] and not _p['update'],
+           'Änderung drüben: hier übernommen, nicht zurückgeschrieben')
+
+    # Hier weg → erst fragen; mit Freigabe → remove mit Version
+    _p = _xh.plan({}, _res, _srv_ships, {'links': {_ext['Cutlass Black']:
+                                                   's-1'}})
+    pruefe(_p['local_removed'] == {_ext['Cutlass Black']: 's-1'}
+           and not _p['remove'],
+           'hier fehlendes Schiff: erst fragen, nichts entfernen')
+    _p = _xh.plan({}, _res, _srv_ships, {'links': {_ext['Cutlass Black']:
+                                                   's-1'},
+                                         'pending_removals':
+                                             [_ext['Cutlass Black']]})
+    _rm = [op for s, _k in _xh.change_sets(_p, {}, _res, _srv_ships)
+           for op in s['ops'] if op['op'] == 'remove']
+    pruefe(_rm == [{'op': 'remove', 'shipId': 's-1', 'version': 3,
+                    'opId': 'h1'}],
+           'mit Freigabe: remove mit der aktuellen Version')
+    _p = _xh.plan({}, _res, _srv_ships, {'links': {_ext['Cutlass Black']:
+                                                   's-1'},
+                                         'kept': [_ext['Cutlass Black']]})
+    pruefe(not _p['local_removed'] and not _p['remove']
+           and 's-1' not in _p['take'],
+           '„im Basetool behalten": keine Frage mehr, nichts übernommen')
+
+    # Drüben weg → nie still neu anlegen
+    _p = _xh.plan(_lok, _res, {}, {'links': {_ext['Cutlass Black']: 's-1'}})
+    pruefe(_ext['Cutlass Black'] in _p['removed_elsewhere']
+           and _ext['Cutlass Black'] not in _p['create'],
+           'drüben gelöscht, hier belegt: wird gezeigt, nicht neu angelegt')
+    _p = _xh.plan(_lok, _res, {}, {'links': {_ext['Cutlass Black']: 's-1'},
+                                   'overrides': [_ext['Cutlass Black']]})
+    _cr = [op for s, _k in _xh.change_sets(_p, _lok, _res, {})
+           for op in s['ops'] if op.get('externalId') == _ext['Cutlass Black']]
+    pruefe(_cr and _cr[0].get('override') is True,
+           'erst mit Zustimmung: wieder angelegt, mit override')
+    _bt_hangar = _xh.local_ships({'schiffe': [dict(_hangar['schiffe'][0],
+                                                   herkunft='basetool')]})
+    _p = _xh.plan(_bt_hangar, _res, {}, {'links': {_ext['Cutlass Black']:
+                                                   's-1'}})
+    pruefe(_p['drop'] == [_ext['Cutlass Black']],
+           'nur aus dem Basetool übernommen: hier mit entfernt')
+
+
+def _pruefung_294():
+    """294. Basetool: Lager und Hangar über das Netz (Nachbau, 127.0.0.1).
+
+    ⭐ v3.60.x. Der ganze Weg wie in 290, jetzt für Lager und Hangar: Rechte
+    je Bereich, Lagerorte, Namensauflösung, erster Abgleich, Entscheidung,
+    Änderung hier und dort. ⚠ Eigener Wegwerf-Ordner und eigene Ablage."""
+    print('\n294. Basetool: Lager und Hangar über das Netz (Nachbau)')
+    from scbp import basetool as _bt, basetool_sync as _bs, secret_store as _ss
+    from scbp import paths as _pa, logsource as _lg
+    from scbp import materials as _mat, trade_cargo as _tc, fleet as _fl
+    _heim = tempfile.mkdtemp(prefix='pruefung294-')
+    _alt = {k: os.environ.get(k) for k in (
+        'SC_BP_HOME', 'SC_BP_SECRETS', 'SC_BP_SECRETS_FILE',
+        'SC_BP_BASETOOL_ISSUER', 'SC_BP_BASETOOL_API', 'SC_BP_BASETOOL',
+        'SC_BP_BASETOOL_KEYNAME')}
+    _srv = _Basetool290()
+    _altes_konto, _alter_takt = _lg.own_account, _bs.tick
+    _alte_orte = dict(_bs._LOCATIONS)
+    _bs.tick = lambda watcher: None
+    try:
+        os.environ.update({
+            'SC_BP_HOME': _heim, 'SC_BP_SECRETS': os.path.join(_heim, 'geheim'),
+            'SC_BP_SECRETS_FILE': '1', 'SC_BP_BASETOOL': '1',
+            'SC_BP_BASETOOL_ISSUER': _srv.issuer,
+            'SC_BP_BASETOOL_API': _srv.api,
+            'SC_BP_BASETOOL_KEYNAME': 'VerseKit Pruefung294 %d' % os.getpid()})
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs._LOCATIONS.update({'at': 0.0, 'places': {}})
+        _bs.IN_TK[0] = None
+        _lg.own_account = lambda files=None: 'Spieler_1'
+        for _s in (_bs.SETTING_STOCK, _bs.SETTING_SHIPS):
+            _pa.set_setting(_s, True)
+        _pa.set_setting(_bs.SETTING_BLUEPRINTS, False)
+
+        # Nur die Rechte der eingeschalteten Bereiche werden angefragt.
+        _conn = _bt.CONNECTION
+        _login = _conn.start_login(_bs.wanted_scopes())
+        _conn.poll_login(_login)
+        _conn.poll_login(_login)
+        _angefragt = set(_srv.scope.split())
+        pruefe({'exchange.stock.read', 'exchange.stock.write',
+                'exchange.hangar.read', 'exchange.hangar.write'} <= _angefragt
+               and not any('blueprints' in s for s in _angefragt),
+               'angefragt werden genau die Rechte der eingeschalteten '
+               'Bereiche (%r)' % sorted(_angefragt))
+
+        # Lager hier und dort
+        _srv.names.update({('MATERIAL', 'Laranite'): 'm-lar',
+                           ('MATERIAL', 'Gold'): 'm-gold',
+                           ('MATERIAL', 'Iron'): 'm-iron',
+                           ('SHIP_TYPE', 'Cutlass Black'): 't-cut',
+                           ('SHIP_TYPE', 'Aurora MR'): 't-aur'})
+        _mat.save([{'material': 'Laranite', 'menge': 15.0, 'qualitaet': 700,
+                    'ort': 'Area18'},
+                   {'material': 'Laranite', 'menge': 1.0, 'qualitaet': 1,
+                    'ort': 'Daymar Outpost'}])
+        _tc.save([{'ware': 'Gold', 'menge': 40.0, 'ort': 'Seraphim Station',
+                   'gestohlen': False}])
+        _srv.put_lot('m-lar', 'Laranite', 'Area18', 700, False, 20.0)
+        _srv.put_lot('m-iron', 'Iron', 'Area18', 5, False, 7.0)
+        # ⚠⚠ Erst: eine BESCHÄDIGTE Hangardatei bleibt unangetastet — sonst
+        # hielte der Abgleich den Hangar für leer und schriebe darüber.
+        _kaputt = '{"format": 1, "schiffe": [ kaputt'
+        with open(_fl.path(), 'w', encoding='utf-8') as _f:
+            _f.write(_kaputt)
+        # Nur der Hangar — sonst wäre das Lager danach kein erster Abgleich.
+        _pa.set_setting(_bs.SETTING_STOCK, False)
+        _srv.put_ship('t-x', 'Irgendwas', {'kind': 'LTI'})
+        _bs.run(None)
+        pruefe(io.open(_fl.path(), encoding='utf-8').read() == _kaputt,
+               'unlesbare Hangardatei: nicht überschrieben')
+        _srv.ships.clear()
+        _pa.set_setting(_bs.SETTING_STOCK, True)
+        _fl.save({'format': 1, 'schiffe': [
+            {'name': 'Cutlass Black', 'hersteller': 'Drake', 'herkunft':
+             'pledge', 'lti': True, 'preis': '$120.00 USD',
+             'gekauft': 'May 18, 2026', 'paket': 'Standalone Ship'},
+            {'name': 'Aurora MR', 'hersteller': 'RSI', 'herkunft': 'ingame',
+             'versicherung': 6}]})
+        _s1 = _srv.put_ship('t-cut', 'Cutlass Black', {'kind': 'LTI'},
+                            name='Black Betty', location={'name': 'Area18'})
+        _srv.put_ship('t-carrack', 'Carrack', {'kind': 'LTI'})
+
+        _bs.run(None)
+        pruefe(_bs.STATUS['state'] == 'ok',
+               'Abgleich läuft durch (%r)' % _bs.STATUS.get('code'))
+        _gold = _srv.lot_key('m-gold', 'Seraphim Station', 0, False)
+        pruefe(_srv.lots.get(_gold, {}).get('quantity', {}).get('amount') == 40,
+               'nur hier: Gold ist hochgeschickt')
+        pruefe(any(r.get('material') == 'Iron' and r.get('menge') == 7.0
+                   for r in _mat.load()),
+               'nur dort: Iron ist im Rohstofflager angekommen')
+        _lar = _srv.lot_key('m-lar', 'Area18', 700, False)
+        pruefe(_srv.lots[_lar]['quantity']['amount'] == 20.0
+               and any(r.get('material') == 'Laranite' and r['menge'] == 15.0
+                       for r in _mat.load()),
+               'verschiedene Menge: keine Seite wird still überschrieben')
+        _st = _bs.load_state('inst-1')
+        pruefe(len((_st.get('stock') or {}).get('conflicts') or {}) == 1,
+               'und der Konflikt steht zur Entscheidung an')
+        pruefe(not any(op['location'].get('name') == 'Daymar Outpost'
+                       for op in _srv.stock_ops),
+               'ein Ort, den das Basetool nicht führt, geht nie hinaus')
+        pruefe(_srv.ships[_s1].get('externalId')
+               and sum(1 for s in _srv.ships.values()
+                       if s['shipType']['bt'] == 't-cut') == 1,
+               'vorhandenes Schiff verknüpft, nicht doppelt angelegt')
+        pruefe(any(s['shipType']['bt'] == 't-aur' for s in _srv.ships.values()),
+               'nur hier: Aurora angelegt')
+        pruefe(any(s.get('name') == 'Carrack' and s.get('herkunft') == 'basetool'
+                   for s in _fl.load().get('schiffe') or ()),
+               'nur dort: Carrack im Hangar, Herkunft Basetool')
+        _gesendet = json.dumps(_srv.ship_ops)
+        pruefe(not any(w in _gesendet for w in ('120.00', 'May 18',
+                                                'Standalone', 'preis')),
+               'keine Kaufdaten in irgendeiner Sendung')
+
+        # Entscheidung „Basetool gilt" -> hier übernommen
+        _bs.STATUS['installation_id'] = 'inst-1'
+        _bs.stock_decide(list(_st['stock']['conflicts']), 'theirs')
+        _bs.run(None)
+        pruefe(any(r.get('material') == 'Laranite' and r['menge'] == 20.0
+                   for r in _mat.load()),
+               'Entscheidung „Basetool gilt": hier auf 20 gesetzt')
+
+        # Hier geändert -> hinaus, mit der zuletzt gesehenen Menge
+        _tc.save([{'ware': 'Gold', 'menge': 30.0, 'ort': 'Seraphim Station',
+                   'gestohlen': False}])
+        _vorher = len(_srv.stock_ops)
+        _bs.run(None)
+        _neu = [op for op in _srv.stock_ops[_vorher:]
+                if op['material']['bt'] == 'm-gold']
+        pruefe(_neu and _neu[0]['quantity']['amount'] == 30
+               and _neu[0]['expectedQuantity']['amount'] == 40
+               and _srv.lots[_gold]['quantity']['amount'] == 30,
+               'hier geändert: 40 auf 30 mit erwarteter Menge 40')
+
+        # Dort geändert -> hier übernommen; Versicherung dort -> hier
+        _srv.put_lot('m-iron', 'Iron', 'Area18', 5, False, 9.0)
+        _srv.ships[_s1].update({'insurance': {'kind': 'MONTHS', 'months': 24},
+                                'version': 2})
+        _vorher = len(_srv.ship_ops)
+        _bs.run(None)
+        pruefe(any(r.get('material') == 'Iron' and r['menge'] == 9.0
+                   for r in _mat.load()),
+               'dort geändert: Iron hier auf 9')
+        _cut = next(s for s in _fl.load()['schiffe']
+                    if s['name'] == 'Cutlass Black')
+        pruefe(_cut.get('lti') is False and _cut.get('versicherung') == 24
+               and not _srv.ship_ops[_vorher:],
+               'Versicherung dort geändert: hier übernommen, nichts zurück')
+        pruefe(_cut.get('preis') == '$120.00 USD',
+               'die Kaufdaten hier bleiben unberührt')
+    finally:
+        _lg.own_account, _bs.tick = _altes_konto, _alter_takt
+        _bs._LOCATIONS.clear()
+        _bs._LOCATIONS.update(_alte_orte)
+        try:
+            _bt.delete_key()
+        except Exception:
+            pass
+        _srv.close()
+        for _k, _v in _alt.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 if __name__ == '__main__':

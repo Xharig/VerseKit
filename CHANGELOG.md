@@ -8,6 +8,32 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.61.0 - 2026-09-28
+
+> **Verse-Kit spricht jetzt mit dem KRT Profit Basetool.** Was du im Spiel
+> freischaltest, einlagerst und im Hangar hast, landet auf Wunsch direkt in
+> deinem Basetool — und was dort dazukommt, hier. Einmal verbinden, Bereiche
+> einschalten, fertig.
+
+### Neu
+
+- **Reiter „Basetool"** unter *Einstellungen*: Verse-Kit mit dem KRT Profit
+  Basetool verbinden — mit einem Code, den du im Browser eintippst. Kein
+  Passwort in Verse-Kit, ab Werk ist alles aus
+- **Baupläne abgleichen** — in beide Richtungen. Im Basetool Gelöschtes kommt
+  nie still zurück; was du hier entfernst, fragt dich, bevor es dort
+  verschwindet
+- **Lager abgleichen** — Rohstoff- und Handelslager mit deinem persönlichen
+  Lager im Basetool. Stehen auf beiden Seiten verschiedene Mengen, entscheidest
+  du
+- **Hangar abgleichen** — deine Schiffe mit deinem Basetool-Hangar. Vorhandene
+  werden verknüpft statt doppelt angelegt; Kaufdaten gehen nie hinaus
+- **Datenschutzerklärung** (`PRIVACY.md`) mit allem, was dabei übertragen wird
+
+### Verbessert
+
+- Im Hangar steht bei Schiffen, die aus dem Basetool kamen, „aus dem Basetool"
+
 ## v3.60.1 - 2026-09-28
 
 > Eine kleine Aufräum-Fassung: Der Fehlerbericht nennt keine Formulierung

@@ -8,6 +8,30 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.61.0 - 2026-09-28
+
+> **Verse-Kit now talks to the KRT Profit Basetool.** What you unlock in the
+> game, put into storage and keep in your hangar lands straight in your
+> Basetool if you want — and what is added there, lands here. Connect once,
+> turn on the areas, done.
+
+### New
+
+- **"Basetool" tab** under *Settings*: connect Verse-Kit to the KRT Profit
+  Basetool — with a code you type in your browser. No password in Verse-Kit,
+  everything is off by default
+- **Sync blueprints** — both ways. What you deleted in the Basetool never comes
+  back silently; whatever you remove here asks you before it disappears there
+- **Sync storage** — raw-material and trade storage with your personal stock in
+  the Basetool. Where both sides hold different amounts, you decide
+- **Sync hangar** — your ships with your Basetool hangar. Existing ones are
+  linked instead of created twice; purchase data never leaves
+- **Privacy statement** (`PRIVACY.md`) listing everything that is transferred
+
+### Improved
+
+- In the hangar, ships that came from the Basetool say "from the Basetool"
+
 ## v3.60.1 - 2026-09-28
 
 > A small clean-up release: the problem report no longer lists a wording that
