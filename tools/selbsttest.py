@@ -26045,6 +26045,8 @@ def main():
     _pruefung_292()
     _pruefung_293()
     _pruefung_294()
+    _pruefung_295()
+    _pruefung_296()
 
     print()
     if fehler:
@@ -29971,6 +29973,160 @@ def _pruefung_294():
         _ss._backend_cache[0] = None
         _bt.CONNECTION = _bt.Connection()
         _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_295():
+    """295. Basetool: Handelswaren zählen unter Qualität 0.
+
+    ⭐ v3.61.1. Erster echter Test (28.09.2026): Titan mit Q 516 und Q 622 im
+    Rohstofflager ging als zwei Posten hinaus, jeder mit „dort 0" — das
+    Basetool bucht Handelswaren aber immer unter Q 0 und hatte dort schon
+    einen Posten. 8 von 8 Änderungen kamen als `VERSION_CONFLICT` zurück, bei
+    jedem Durchgang wieder."""
+    print('\n295. Basetool: Handelswaren unter Qualität 0')
+    from scbp import exchange_stock as _xk
+    _orte = {'levski': {'name': 'Levski', 'uex': {'kind': 'CITY', 'id': 2}}}
+    _bt = {'titanium': 'bt-ti', 'laranite': 'bt-lar'}
+    _roh = [{'material': 'Titanium', 'menge': 4, 'qualitaet': 516,
+             'ort': 'Levski'},
+            {'material': 'Titanium', 'menge': 6.909, 'qualitaet': 622,
+             'ort': 'Levski'},
+            {'material': 'Laranite', 'menge': 3, 'qualitaet': 712,
+             'ort': 'Levski'}]
+    _dort = [{'key': 'lot-ti', 'material': {'bt': 'bt-ti', 'name': 'Titanium'},
+              'materialKind': {'type': 'REFINED', 'commodity': True},
+              'location': {'name': 'Levski'}, 'quality': 0, 'stolen': False,
+              'quantity': {'amount': 4, 'unit': 'SCU'}},
+             {'key': 'lot-lar', 'material': {'bt': 'bt-lar',
+                                             'name': 'Laranite'},
+              'materialKind': {'type': 'RAW', 'commodity': False},
+              'location': {'name': 'Levski'}, 'quality': 712,
+              'stolen': False, 'quantity': {'amount': 3, 'unit': 'SCU'}}]
+
+    def _hier(waren):
+        return _xk.local_lots(_roh, [], lambda n: _bt.get(n.lower()), _orte,
+                              lambda n: False, waren)[0]
+
+    _waren = _xk.commodities(_dort)
+    pruefe(_waren == {'bt-ti': True, 'bt-lar': False},
+           'Handelsware aus materialKind der Posten gelernt')
+    pruefe(_xk.commodities([], {'bt-ti': True}) == {'bt-ti': True},
+           'Gelerntes bleibt, auch wenn der Posten dort verschwindet')
+    _l = _hier(_waren)
+    _ti = _xk.identity('bt-ti', 'Levski', 0, False)
+    pruefe(sorted(_l) == sorted([_ti, _xk.identity('bt-lar', 'Levski', 712,
+                                                   False)]),
+           'Titan Q 516 + Q 622 wird EIN Posten unter Q 0, Laranit behält Q 712')
+    pruefe(_l.get(_ti, {}).get('amount') == 10.909
+           and _l[_ti]['quality'] == 0 and len(_l[_ti]['rows']) == 2,
+           'die Mengen beider Zeilen zusammengezählt (10,909 SCU)')
+    _s = _xk.server_lots(_dort)
+    _base = {k: v['amount'] for k, v in _s.items()}
+    _p = _xk.plan(_l, _s, _base)
+    pruefe(_p['push'] == [(_ti, 10.909, 4)] and not _p['conflicts'],
+           'hinaus mit der Menge, die dort steht, als expectedQuantity (4)')
+    _ops = [o for o in _xk.change_sets(_p, _l, _s)[0][0]['ops']
+            if o['material'].get('bt') == 'bt-ti'] if _p['push'] else []
+    pruefe(len(_ops) == 1 and _ops[0]['quality'] == 0,
+           'genau EINE Titan-Sendung, mit Qualität 0')
+    # Gegenprobe: ohne das Gelernte wieder zwei Posten mit „dort 0"
+    _alt = _xk.plan(_hier(None), _s, _base)
+    pruefe(len([p for p in _alt['push'] if p[2] == 0]) == 2,
+           'Gegenprobe: ohne Handelswaren-Wissen zwei Posten mit „dort 0"')
+
+
+def _pruefung_296():
+    """296. Basetool-Seite: nach einem Klick weiter unten nicht schwarz.
+
+    ⭐ v3.61.1. Gemeldet am 28.09.2026 mit Bild: „beim Klicken auf Buttons wird
+    das Fenster schwarz". Die Seite baut sich bei jedem Klick neu. Wer
+    heruntergerollt hatte, stand danach im Leeren — der neue Inhalt lag
+    außerhalb der Ansicht, maß sich dort nicht neu (183 statt 813 px), und
+    die Ansicht zeigte darunter. Gemessen wird, ob danach etwas SICHTBAR ist."""
+    print('\n296. Basetool-Seite: Neuaufbau nach dem Herunterrollen')
+    import tkinter as _tk296
+    from scbp import main_window as _mw296, paths as _pa296, \
+        basetool_sync as _bs296
+    _alt_takt = _bs296.tick
+    _bs296.tick = lambda watcher: None
+    _bereiche = {k: _pa296.setting_bool(k, False) for k in (
+        _bs296.SETTING_BLUEPRINTS, _bs296.SETTING_STOCK, _bs296.SETTING_SHIPS)}
+    # ⚠⚠ Nie die echte Verbindung: eigener Schlüsselordner, eigene Verbindung.
+    # Die Seite zeigt den Stand „verbunden" über einen Ersatz.
+    from scbp import basetool as _bt296, secret_store as _ss296
+    _heim = tempfile.mkdtemp(prefix='pruefung296-')
+    _alt_env = {k: os.environ.get(k) for k in ('SC_BP_SECRETS',
+                                               'SC_BP_SECRETS_FILE')}
+    _alt_conn = _bt296.CONNECTION
+    os.environ.update({'SC_BP_SECRETS': os.path.join(_heim, 'geheim'),
+                       'SC_BP_SECRETS_FILE': '1'})
+    _ss296._backend_cache[0] = None
+    _bt296.CONNECTION = _bt296.Connection()
+    _bt296.CONNECTION.connected = lambda: True
+    for _k in _bereiche:
+        _pa296.set_setting(_k, True)
+    _w = _tk296.Tk()
+    _w.withdraw()
+    try:
+        _f = _mw296.MainWindow(_w, version='0.0.0-pruefung')
+        _f.root.geometry('1000x420')
+        _f.open_page('basetool')
+        for _ in range(10):
+            _w.update()
+
+        def _alle(x):
+            yield x
+            for c in x.winfo_children():
+                yield from _alle(c)
+
+        def _schalter():
+            _w.update()
+            return [x for x in _alle(_w) if isinstance(x, _tk296.Canvas)
+                    and x.winfo_width() == 44 and x.winfo_ismapped()]
+
+        # ⚠ Die Rollfläche ÜBER einem Schalter — nicht die erste beste: Die
+        # erste Fassung dieser Prüfung erwischte die Seitenleiste links und
+        # war deshalb auch ohne Reparatur grün.
+        _roll = None
+        _erst = _schalter()
+        _x = _erst[0].master if _erst else None
+        while _x is not None:
+            if isinstance(_x, _tk296.Canvas) and _x.cget('scrollregion'):
+                _roll = _x
+                break
+            _x = _x.master
+        pruefe(_roll is not None, 'Rollfläche der Seite gefunden')
+        if _roll is None:
+            return
+        _roll.yview_moveto(1.0)
+        _s = _schalter()
+        pruefe(len(_s) >= 1, 'heruntergerollt: ein Schalter ist sichtbar')
+        if not _s:
+            return
+        _s[-1].event_generate('<Button-1>', x=10, y=10)
+        _ende = time.time() + 1.5
+        while time.time() < _ende:
+            _w.update()
+        pruefe(len(_schalter()) >= 1,
+               'nach dem Klick ist die Seite nicht leer (Schalter sichtbar)')
+        pruefe(_roll.canvasy(0) > 0,
+               'die Rollstelle bleibt, wo sie war — nicht zurück nach oben')
+    finally:
+        _bs296.tick = _alt_takt
+        for _k, _v in _bereiche.items():
+            _pa296.set_setting(_k, _v)
+        try:
+            _w.destroy()
+        except Exception:
+            pass
+        _bt296.CONNECTION = _alt_conn
+        for _k, _v in _alt_env.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        _ss296._backend_cache[0] = None
         shutil.rmtree(_heim, ignore_errors=True)
 
 

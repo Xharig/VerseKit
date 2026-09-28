@@ -8,6 +8,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Basetool: Lager kam nur teilweise an** — Rohstoffe, die das Basetool als
+  Handelsware führt (z. B. Titan, Agricium, Aslarit, Druckeis), bucht es ohne
+  Qualität. Mehrere Qualitäten desselben Materials am selben Ort gehen jetzt
+  als ein Posten hinaus, statt mit „VERSION_CONFLICT" abgelehnt zu werden
+- **Basetool-Seite wurde schwarz**, wenn man heruntergerollt hatte und dann
+  einen Schalter oder Knopf anklickte — die Seite bleibt jetzt sichtbar, an
+  derselben Stelle
+
 ## v3.61.0 - 2026-09-28
 
 > **Verse-Kit spricht jetzt mit dem KRT Profit Basetool.** Was du im Spiel

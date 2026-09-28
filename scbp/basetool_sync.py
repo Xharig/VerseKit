@@ -692,8 +692,11 @@ def _sync_stock(conn, state):
     def resolver(name):
         return resolved.get((name or '').strip().lower())
 
+    trade_goods = exchange_stock.commodities(server_raw.values(),
+                                             sub.get('commodity'))
+    sub['commodity'] = trade_goods
     local, skipped = exchange_stock.local_lots(raw, trade, resolver, places,
-                                               crafting.is_piece)
+                                               crafting.is_piece, trade_goods)
     server = exchange_stock.server_lots(server_raw.values())
     decisions = dict(sub.get('decisions') or {})
     result = exchange_stock.plan(local, server, sub.get('baseline'), decisions,
@@ -710,7 +713,9 @@ def _sync_stock(conn, state):
         server = exchange_stock.server_lots(server_raw.values())
 
     if result['take']:
-        _apply_stock(result['take'], server, resolver, places)
+        _apply_stock(result['take'], server, resolver, places,
+                     exchange_stock.commodities(server_raw.values(),
+                                                trade_goods))
 
     conflicts = dict(result['conflicts'])
     for key, reason in rejected.items():
@@ -747,7 +752,7 @@ def _sync_stock(conn, state):
             + extra.get('offersRemoved', 0)}
 
 
-def _apply_stock(takes, server, resolver, places):
+def _apply_stock(takes, server, resolver, places, trade_goods=None):
     """Übernehmen, was sich im Basetool geändert hat — im Tk-Faden.
 
     ⚠ Die Zeilen werden dort NEU gesucht, nicht über die Listenposition von
@@ -762,7 +767,8 @@ def _apply_stock(takes, server, resolver, places):
             return
         raw, trade = materials.load(), trade_cargo.load()
         local, _skipped = exchange_stock.local_lots(raw, trade, resolver,
-                                                    places, crafting.is_piece)
+                                                    places, crafting.is_piece,
+                                                    trade_goods)
         drop_raw, drop_trade = set(), set()
         for key, amount in takes:
             lot = local.get(key)

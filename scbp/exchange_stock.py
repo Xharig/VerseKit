@@ -92,14 +92,39 @@ def server_lots(items):
     return out
 
 
-def local_lots(raw, trade, resolve, places, is_piece):
+def commodities(items, known=None):
+    """{bt: True/False} — welche Materialien das Basetool als Handelsware führt.
+
+    ⚠⚠ **Eine Handelsware bucht das Basetool immer unter Qualität 0**, egal
+    welche Qualität man schickt (`resources/stock.md`). Wer Titan mit Q 516
+    und Q 622 als zwei Posten schickt, erwartet dort zweimal „0" — das Basetool
+    rechnet beide gegen seinen EINEN Posten mit Q 0 und lehnt ab
+    (`VERSION_CONFLICT`; erster echter Test, 28.09.2026: 8 von 8 abgelehnt).
+
+    Die Angabe steht nur an den Posten (`materialKind.commodity`), nicht in
+    `catalog/resolve`. Das genügt: Abgelehnt wird nur, wo dort schon ein
+    Posten unter Q 0 liegt — und der trägt sie. `known` ist das Gelernte vom
+    letzten Mal, damit es nicht mit dem letzten Posten verschwindet."""
+    out = dict(known or {})
+    for lot in items:
+        bt = (lot.get('material') or {}).get('bt')
+        kind = lot.get('materialKind')
+        if bt and isinstance(kind, dict) and 'commodity' in kind:
+            out[bt] = bool(kind['commodity'])
+    return out
+
+
+def local_lots(raw, trade, resolve, places, is_piece, trade_goods=None):
     """Beide VerseKit-Lager -> ({Kennung: Posten}, {Grund: [Name]}).
 
     `resolve(name)` -> `bt` oder None, `places` -> {ort klein: location-ref}
     (aus `catalog/locations`), `is_piece(name)` -> zählt in Stück.
+    `trade_goods` -> {bt: True} für Handelswaren (siehe `commodities`): Sie
+    zählen unter Qualität 0, alle Qualitäten eines Orts werden ein Posten.
     Nicht Zuordenbares landet im zweiten Wert — `material` (unbekanntes
     Material), `location` (Ort, den das Basetool nicht führt, oder leer)."""
     out, skipped = {}, {'material': [], 'location': []}
+    trade_goods = trade_goods or {}
 
     def put(store, name, amount, location, quality, stolen, index):
         bt = resolve(name)
@@ -111,6 +136,8 @@ def local_lots(raw, trade, resolve, places, is_piece):
             skipped['location'].append(location or '—')
             return
         unit = PIECE if (store == 'raw' and is_piece(name)) else SCU
+        if trade_goods.get(bt):
+            quality = 0
         key = identity(bt, place['name'], quality, stolen)
         entry = out.setdefault(key, {
             'material': {'bt': bt, 'name': name[:200]}, 'location': place,

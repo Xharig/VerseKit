@@ -8,6 +8,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Basetool: storage only partly arrived** — materials the Basetool treats as
+  trade goods (e.g. Titanium, Agricium, Aslarite, Pressurized Ice) are kept
+  there without quality. Several qualities of the same material at one place
+  now go out as one lot instead of being refused with "VERSION_CONFLICT"
+- **Basetool page went black** after scrolling down and clicking a switch or
+  button — the page now stays visible, at the same spot
+
 ## v3.61.0 - 2026-09-28
 
 > **Verse-Kit now talks to the KRT Profit Basetool.** What you unlock in the

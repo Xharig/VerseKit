@@ -122,9 +122,29 @@ def basetool_page(window, frame):
                 return
         except tk.TclError:
             return
+        # ⚠⚠ Erst nach oben, dann neu bauen, dann die Stelle wiederherstellen
+        # (28.09.2026: „beim Klicken auf Buttons wird das Fenster schwarz").
+        # Wer heruntergerollt hatte, stand nach dem Neubau im Leeren: Außerhalb
+        # der Ansicht blendet die Leinwand den Inhalt aus, er misst sich dann
+        # nicht neu (183 statt 813 px), und die Ansicht zeigte unter ihm.
+        canvas = _canvas_of(area)
+        top = canvas.canvasy(0) if canvas is not None else 0
+        if canvas is not None:
+            canvas.yview_moveto(0)
         for child in area.winfo_children():
             child.destroy()
         _draw(window, area, login, redraw)
+        if canvas is not None and top > 0:
+            def back():
+                try:
+                    canvas.update_idletasks()
+                    canvas.configure(scrollregion=canvas.bbox('all'))
+                    height = (canvas.bbox('all') or (0, 0, 0, 0))[3]
+                    if height > 0:
+                        canvas.yview_moveto(top / height)
+                except tk.TclError:
+                    pass
+            canvas.after_idle(back)
 
     def on_status():
         # „Gleiche gerade ab …" vom Knopfdruck gilt, bis ein Durchgang fertig
@@ -138,6 +158,15 @@ def basetool_page(window, frame):
         on_status in basetool_sync.LISTENERS
         and basetool_sync.LISTENERS.remove(on_status)))
     redraw()
+
+
+def _canvas_of(widget):
+    """Die Rollfläche, in der dieses Element steckt — oder None."""
+    while widget is not None:
+        if isinstance(widget, tk.Canvas):
+            return widget
+        widget = widget.master
+    return None
 
 
 def _draw(window, area, login, redraw):
