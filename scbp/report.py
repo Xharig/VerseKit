@@ -719,7 +719,21 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     line(t('b_scanner'), _safe(_scanner_line))
     lines.append('')
 
-    line(t('b_ordner'), _safe(lambda: uebersicht.get('app_ordner')))
+    def _folder_line():
+        """Der Datenordner — und ob sich dort überhaupt schreiben lässt.
+
+        ⚠⚠ Parsuls Bericht vom 29.09.2026 sagte „Einstellungen: alle auf
+        Standard" und „Letzte Fehler: keine" — obwohl in Wahrheit NICHTS
+        gespeichert werden konnte, auch das Fehlerprotokoll nicht. Ohne diese
+        Angabe liest sich so ein Bericht wie „alles in Ordnung"."""
+        from . import paths as paths_module
+        folder = uebersicht.get('app_ordner')
+        ok, _own, reason = paths_module.storage_status(paths_module.app_folder())
+        if ok:
+            return '%s · %s' % (folder, t('b_ordner_ok'))
+        return '%s · %s' % (folder, t('b_ordner_gesperrt') % reason)
+
+    line(t('b_ordner'), _safe(_folder_line))
     line(t('b_einstellungen'), _safe(lambda: ', '.join(
         '%s=%s' % (k, v) for k, v in sorted(
             (uebersicht.get('selbst_gesetzt') or {}).items()))

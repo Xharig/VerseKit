@@ -6810,7 +6810,8 @@ def _thanks(fenster, rahmen):
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
              + t('s_dk_greluc_idee2'), ''),
-            ('Parsul', 'KRT', '', t('s_dk_parsul_bugs')),
+            ('Parsul', 'KRT', '', t('s_dk_parsul_bugs') + '\n\n'
+             + t('s_dk_parsul_bugs2')),
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.
@@ -11214,6 +11215,67 @@ def _signature_scanner(window, parent, signature_var):
     signature_watch.listen(read_value)
 
 
+def _mining_missing(window, page, inner):
+    """Die Bergbau-Seite ohne Bergbau-Daten — mit Weg heraus.
+
+    ⚠⚠ Gemeldet am 29.09.2026 (Parsul): „Die Bergbau-Daten sind noch nicht
+    geladen", obwohl der Katalog aufgefrischt war. Zwei Fehler dahinter:
+
+    1. **Eine Seite wird EINMAL gebaut.** Wer sie öffnete, bevor die Daten da
+       waren, sah den Satz bis zum Neustart. Jetzt baut sich die Seite beim
+       nächsten Öffnen neu, sobald die Daten da sind — und sofort nach
+       „Jetzt holen".
+    2. **Der Scanner-Schalter stand hinter dem Abbruch.** Der Scanner braucht
+       die Bergbau-Daten nicht; ohne sie fehlte er trotzdem.
+    """
+    from . import mining
+
+    _body_text(inner, t('s_bg_keine_daten'), window.f_small, fill='x')
+
+    def rebuild():
+        window.on_show.pop('bergbau', None)
+        for child in page.winfo_children():
+            child.destroy()
+        _mining(window, page)
+
+    def fetch():
+        window.say(t('s_bg_holt'))
+
+        def work():
+            try:
+                from . import catalog
+                ok, message = mining.update(catalog.current_version())
+                if not ok:
+                    errors.record('pages.bergbau.holen', RuntimeError(message))
+            except Exception as error:
+                errors.record('pages.bergbau.holen', error)
+                ok, message = False, t('s_bg_holen_weg')
+
+            def done():
+                window.say(message)
+                if ok and mining.locations():
+                    rebuild()
+            _from_thread(page, done)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    line = tk.Frame(inner, bg=BG)
+    line.pack(fill='x', pady=(6, 16))
+    _button(window, line, t('s_bg_jetzt_holen'), fetch).pack(side='left')
+
+    # Der Scanner liest die Zahl aus dem Bild — dafür braucht er keine
+    # Fundorte. Nur der Rechner daneben braucht sie.
+    _signature_scanner(window, inner, tk.StringVar(value=''))
+
+    def on_show():
+        try:
+            if mining.locations():
+                rebuild()
+        except Exception as error:
+            errors.record('pages.bergbau.neu', error)
+    window.on_show['bergbau'] = on_show
+
+
 def _mining(fenster, rahmen):
     """Wo welches Erz abzubauen ist — **beide** Richtungen in einer Suche.
 
@@ -11244,7 +11306,7 @@ def _mining(fenster, rahmen):
     _method_box(fenster, innen)
 
     if not orte:
-        _body_text(innen, t('s_bg_keine_daten'), fenster.f_small, fill='x')
+        _mining_missing(fenster, rahmen, innen)
         return
 
     kopf = tk.Frame(innen, bg=BG)

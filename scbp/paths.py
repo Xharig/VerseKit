@@ -127,6 +127,11 @@ SUBFOLDERS = {
     'update-helfer.1.txt': 'Diagnose',
 }
 FOLDER_NAME = 'SC BP Watcher'
+# ⭐ Neu angelegt wird seit v3.62.2 „Verse-Kit" (29.09.2026 — bei Parsul hieß
+# der frisch angelegte Ordner noch „SC BP Watcher"). `FOLDER_NAME` bleibt als
+# Anker (Prüfung 191): Wer den alten Ordner hat, behält ihn samt Bestand und
+# dem Zeiger auf einen selbst gewählten Ort. Siehe `_default_folder`.
+NEW_FOLDER_NAME = 'Verse-Kit'
 SETTINGS_FILE = 'einstellungen.json'
 
 # ⚠⚠⚠ Die Fensterklasse — ein Anker, der NICHT mitwandert (18.09.2026).
@@ -351,8 +356,7 @@ def app_folder():
     `SC_BP_HOME` oder die Einstellung `ablage_ordner`.
     """
     custom = os.environ.get('SC_BP_HOME') or _storage_from_file()
-    p = (os.path.expanduser(custom) if custom
-         else os.path.join(_documents(), FOLDER_NAME))
+    p = os.path.expanduser(custom) if custom else _default_folder()
     try:
         os.makedirs(p, exist_ok=True)
     except OSError:
@@ -973,8 +977,20 @@ def pointer_file():
     ein eigener Ablage-Ort gesetzt ist. `_storage_from_file()` liest ausschliesslich
     hier; alles andere steht in der Ablage selbst.
     """
-    return os.path.join(_documents(), FOLDER_NAME, 'Einstellungen',
-                        SETTINGS_FILE)
+    return os.path.join(_default_folder(), 'Einstellungen', SETTINGS_FILE)
+
+
+def _default_folder():
+    """Der Standard-Ordner unter Dokumente — der alte, wenn es ihn schon gibt.
+
+    ⚠⚠ Nie umbenennen, was da ist: Im alten Ordner liegen Bestand und
+    Einstellungen — oder der Zeiger auf einen selbst gewählten Ort. Nur wer
+    noch keinen hat, bekommt „Verse-Kit"."""
+    documents = _documents()
+    old = os.path.join(documents, FOLDER_NAME)
+    if os.path.isdir(old):
+        return old
+    return os.path.join(documents, NEW_FOLDER_NAME)
 
 
 def _set_storage_folder(value):
@@ -1004,21 +1020,28 @@ def _set_storage_folder(value):
         pass
     existing['ablage_ordner'] = value
     temp = target + '.tmp'
+    first_ok = False
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump(existing, f, ensure_ascii=False, indent=2)
         replace_file(temp, target)
-        # ⚠⚠ **Immer beide schreiben** (siehe `_zweitzeiger`). Wuerde nur der
-        # sichtbare gepflegt, waere die Zweitschrift nach der ersten Umstellung
-        # veraltet — und wenn sie dann einspringt, landet der Spieler in einem
-        # Ordner, den er vor Wochen verlassen hat. Ein falscher Zeiger ist
-        # schlimmer als keiner.
-        _write_pointer(_second_pointer(), value)
-        return True
+        first_ok = True
     except OSError as exc:
         _report_error('paths._set_storage_folder', exc)
-        return False
+    # ⚠⚠ **Immer beide schreiben** (siehe `_zweitzeiger`). Wuerde nur der
+    # sichtbare gepflegt, waere die Zweitschrift nach der ersten Umstellung
+    # veraltet — und wenn sie dann einspringt, landet der Spieler in einem
+    # Ordner, den er vor Wochen verlassen hat. Ein falscher Zeiger ist
+    # schlimmer als keiner.
+    #
+    # ⚠⚠ **Und die zweite auch dann, wenn die erste scheitert** (29.09.2026).
+    # Die erste liegt unter Dokumente — genau dort, wo Windows' überwachter
+    # Ordnerzugriff unbekannte Programme aussperrt. Stand der zweite Zeiger im
+    # selben `try`, kam aus so einem Ordner niemand mehr heraus: Der Umzug
+    # scheiterte still, bei jedem Versuch (gemeldet bei Parsul).
+    second_ok = _write_pointer(_second_pointer(), value)
+    return first_ok or second_ok
 
 
 def set_setting(name, value):

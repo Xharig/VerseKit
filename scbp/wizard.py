@@ -180,7 +180,7 @@ class Wizard:
         entfällt die Start-Karte. Mit festen Nummern stünde dort eine leere
         Seite, und der Zähler „Schritt 5 von 8" löge.
         """
-        steps = ['sprache', 'spiel']
+        steps = ['sprache', 'ablage', 'spiel']
         if not self.ohne_spielordner:
             steps.append('lesen')
         steps.append('anzeige')
@@ -204,7 +204,8 @@ class Wizard:
         self.weiter.configure(text='  %s  ' % (t('fertig') if self.schritt >= anzahl
                                                else t('weiter')),
                               bg=ACCENT, fg=BG, cursor='hand2')
-        {'sprache': self._step_language, 'spiel': self._step_game,
+        {'sprache': self._step_language, 'ablage': self._step_storage,
+         'spiel': self._step_game,
          'lesen': self._step_read, 'anzeige': self._step_display,
          'start': self._step_startup, 'angaben': self._step_details,
          'texte': self._step_texts, 'fertig': self._step_done}[self._current()]()
@@ -529,7 +530,86 @@ class Wizard:
         self.root.title(window_title(t('hf_titel') + ' — ' + t('assistent')))
         self._draw()
 
-    # -------------------------------------------------- 2. Star Citizen
+    # -------------------------------------------------- 2. Datenordner
+    def _step_storage(self):
+        """Wo die Daten liegen — gefragt, nicht still genommen.
+
+        ⚠⚠ Bis v3.62.1 nahm Verse-Kit ungefragt den Dokumente-Ordner. Bei
+        Parsul (29.09.2026) lag der in OneDrive und war für das Programm
+        gesperrt: Einstellungen, Bestand, Statistik, Bergbau-Daten — nichts
+        ließ sich speichern, und nicht einmal das Fehlerprotokoll sagte es.
+        Deshalb wird hier gefragt und **vor** dem Weiter geprüft, ob sich dort
+        schreiben lässt.
+        """
+        self.titel.configure(text=t('schritt_ablage'))
+        f = self._area()
+        self._paragraph(f, t('schritt_ablage_text'), FG, 11)
+        if paths.WINDOWS:
+            self._paragraph(f, t('schritt_ablage_hilfe'), SUB, 10, oben=10)
+
+        self.ablage = tk.StringVar(value=paths.app_folder())
+        zeile = tk.Frame(f, bg=BG)
+        zeile.pack(fill='x', pady=(18, 0))
+        from .main_window import round_entry
+        feld = round_entry(zeile, self.ablage, mono(10), FLAECHE, LINIE, ACCENT, FG)
+        feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
+        knopf = tk.Label(zeile, text=' %s ' % t('durchsuchen'), bg=BAR, fg=FG,
+                         font=font(10), cursor='hand2', padx=8, pady=6)
+        knopf.pack(side='right')
+        knopf.bind('<Button-1>', lambda e: self._choose_storage())
+
+        self.ablage_meldung = tk.Label(f, text='', bg=BG, fg=SUB, font=font(10),
+                                       anchor='w', justify='left', wraplength=560)
+        self.ablage_meldung.pack(fill='x', pady=(10, 0))
+        # ⚠ Geprüft wird beim Öffnen, nach „Durchsuchen" und beim Weiter — NICHT
+        # bei jedem Tastendruck: Die Probe legt den Ordner an, und aus
+        # „D:\Ver" würde sonst ein echter Ordner „D:\Ver".
+        self._check_storage()
+
+    def _choose_storage(self):
+        from . import file_picker
+        ordner = file_picker.choose_folder(t('schritt_ablage'))
+        if ordner:
+            self.ablage.set(ordner)
+            self._check_storage()
+
+    def _check_storage(self):
+        """Lässt sich dort schreiben? Zeigt es an und gibt (ok, ziel) zurück."""
+        eingabe = self.ablage.get().strip()
+        if not eingabe:
+            self.ablage_meldung.configure(text='', fg=SUB)
+            return False, ''
+        ziel = os.path.abspath(os.path.expanduser(eingabe))
+        ok, _eigene, grund = paths.storage_status(ziel)
+        if ok:
+            self.ablage_meldung.configure(text=t('ablage_ok'), fg=ACCENT)
+        else:
+            self.ablage_meldung.configure(
+                text=t('ablage_gesperrt') % paths.redact(grund), fg=GELB)
+        return ok, ziel
+
+    def _apply_storage(self):
+        """Beim Weiter: den gewählten Ordner übernehmen. False = hierbleiben."""
+        ok, ziel = self._check_storage()
+        if not ok:
+            return False
+        if os.environ.get('SC_BP_HOME'):
+            # Selbsttest und Sonderfälle: Der Ort steht fest, gewählt wird nicht.
+            return True
+        alt = paths.app_folder()
+        if os.path.normcase(os.path.abspath(alt)) == os.path.normcase(ziel):
+            return True
+        # Was schon da ist (etwa die Sprache aus Schritt 1), kommt mit.
+        try:
+            paths.move_storage(alt, ziel)
+        except Exception as ausnahme:
+            errors.record('wizard.ablage_mitnehmen', ausnahme)
+        if not paths.set_setting('ablage_ordner', ziel):
+            self.ablage_meldung.configure(text=t('ablage_umzug_weg'), fg=GELB)
+            return False
+        return True
+
+    # -------------------------------------------------- 3. Star Citizen
     def _step_game(self):
         self.titel.configure(text=t('schritt_spiel'))
         f = self._area()
@@ -948,6 +1028,8 @@ class Wizard:
 
     # ------------------------------------------------------------ Steuerung
     def _next(self):
+        if self._current() == 'ablage' and not self._apply_storage():
+            return                          # ohne beschreibbaren Ordner geht nichts
         if self._current() == 'spiel':
             if not self.gedeutet:
                 return                              # ohne Spielordner geht nichts
@@ -1021,9 +1103,24 @@ def needed():
     Spiel — auf einem Rechner ohne Star Citizen hieß das: jedes Mal wieder von
     vorn, und über die zweite Seite kam man nie hinaus.
     """
+    # ⚠⚠ **Zuerst: Lässt sich überhaupt speichern?** Sonst merkt sich das
+    # Programm nichts — auch nicht, dass es eingerichtet ist — und der Nutzer
+    # erfährt es nie (Parsul, 29.09.2026: Datenordner in OneDrive, von Windows
+    # gesperrt). Dann führt die Einrichtung zum Schritt „Datenordner".
+    if not storage_writable():
+        return True
     if paths.setting_bool('einrichtung_ohne_spiel', False):
         return False
     return not is_configured() or not paths.game_folder()
+
+
+def storage_writable():
+    """Kann Verse-Kit in seinen Datenordner schreiben?"""
+    try:
+        return paths.storage_status(paths.app_folder())[0]
+    except Exception as exc:
+        errors.record('wizard.ablage_pruefen', exc)
+        return False
 
 
 def _overlay():

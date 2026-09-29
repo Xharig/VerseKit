@@ -583,7 +583,9 @@ def main():
             _schritte6 = len(a._order())
             for _ in range(_schritte6):
                 titel.append(a.titel.cget('text'))
-                if a.schritt == 2:
+                # Nach Namen, nicht nach Nummer — seit v3.62.2 steht davor der
+                # Schritt „Datenordner".
+                if a._current() == 'spiel':
                     a.pfad.set(live)
                 a._next()
             pruefe(len(set(titel)) == _schritte6,
@@ -1224,10 +1226,10 @@ def main():
             pruefe(pf3.migration_needed(), 'ein alter Ordner wird erkannt')
             anzahl = pf3.migrate()
             pruefe(anzahl == 2, 'beide Dateien wandern mit')
-            pruefe(os.path.exists(os.path.join(neu_ordner, 'SC BP Watcher',
+            pruefe(os.path.exists(os.path.join(neu_ordner, pf3.NEW_FOLDER_NAME,
                                                'Bauplaene', 'bestand.json')),
                    'der Bestand landet unter „Bauplaene"')
-            pruefe(os.path.exists(os.path.join(neu_ordner, 'SC BP Watcher',
+            pruefe(os.path.exists(os.path.join(neu_ordner, pf3.NEW_FOLDER_NAME,
                                                'Intern', 'katalog-cache.json')),
                    'technischer Kleinkram landet unter „Intern"')
             pruefe(os.path.exists(os.path.join(alt_ordner, 'bestand.json')),
@@ -24394,7 +24396,7 @@ def main():
                    '(wirkungslos: %r)' % _falsch244)
 
             # Ohne Spielordner: Anzeige bleibt, Nachlesen/Angaben/Texte fallen weg.
-            _a244.schritt = 2
+            _a244.schritt = _a244._order().index('spiel') + 1
             _a244._without_game()
             _r244b = _a244._order()
             pruefe(_a244._current() == 'anzeige'
@@ -26049,6 +26051,7 @@ def main():
     _pruefung_296()
     _pruefung_297()
     _pruefung_298()
+    _pruefung_299()
 
     print()
     if fehler:
@@ -30403,6 +30406,194 @@ def _pruefung_298():
         _tk298.Toplevel.wm_geometry = _alt_geo
         _sc298.work_area = _alt
         _hw298._window.hide()
+
+
+def _pruefung_299():
+    """299. Ein Datenordner, in den nichts geschrieben werden darf, bleibt nicht stumm.
+
+    Gemeldet am 29.09.2026 bei Parsul: Verse-Kit nahm still den Dokumente-
+    Ordner (nach OneDrive umgeleitet, von Windows gesperrt). Einstellungen,
+    Bestand, Statistik, Bergbau-Daten — nichts ließ sich speichern, und der
+    Bericht sagte „keine Fehler". Geprüft wird jede der Stellen, die das
+    verschwiegen oder ihn festgehalten haben."""
+    print('\n299. Gesperrter Datenordner: gefragt, gemeldet, nicht festgesetzt')
+    import tkinter as _tk299
+    from scbp import (mining as _mi299, paths as _pa299, wizard as _wz299,
+                      language as _sp299)
+    _sp299.set_language('de')
+    _heim = tempfile.mkdtemp(prefix='pruefung299-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _gesperrt = os.path.join(_heim, 'datei-statt-ordner')
+    with open(_gesperrt, 'w', encoding='utf-8') as _f:
+        _f.write('x')
+    # Unter einer DATEI lässt sich kein Ordner anlegen — auf jedem System.
+    _unmoeglich = os.path.join(_gesperrt, 'Unterordner')
+
+    # a) Bergbau-Daten geholt, aber nicht gespeichert → das wird gesagt.
+    _alt_fetch, _alt_save = _mi299.fetch_file, _mi299._save
+    _abrufe = []
+
+    def _fetch(_name):
+        _abrufe.append(_name)
+        return {'locations': [{'locationName': 'Ort'}]}
+    _mi299.fetch_file = _fetch
+    _mi299._save = lambda _d: False
+    # ⚠ Im Gesamtlauf ist das Netz gesperrt (`SC_BP_NO_NET`) — dann bräche
+    # `update` vorher ab. Ins Netz geht trotzdem nichts: Die Falle oben fängt
+    # den Abruf, und die erste Zeile unten beweist das.
+    _alt_off = _mi299.OFF
+    _mi299.OFF = False
+    try:
+        _erg = _mi299.update('probe-build')
+    finally:
+        _mi299.fetch_file, _mi299._save = _alt_fetch, _alt_save
+        _mi299.OFF = _alt_off
+    pruefe(_abrufe == ['mining_data-probe-build.json'],
+           'die Falle hat den Abruf abgefangen (%r)' % _abrufe)
+    pruefe(_erg == (False, _sp299.t('m_b_nicht_gespeichert')),
+           'Bergbau: „geholt, aber nicht gespeichert" statt „50 Orte geladen" '
+           '(%r)' % (_erg,))
+
+    # b) Umzug aus einem gesperrten Ordner: der zweite Zeiger kommt trotzdem.
+    _alt_erst, _alt_zweit = _pa299.pointer_file, _pa299._second_pointer
+    _zweit = os.path.join(_heim, 'zweiter', 'ablage.json')
+    _pa299.pointer_file = lambda: os.path.join(_unmoeglich, 'einstellungen.json')
+    _pa299._second_pointer = lambda: _zweit
+    try:
+        _ok = _pa299._set_storage_folder(os.path.join(_heim, 'neu'))
+    finally:
+        _pa299.pointer_file, _pa299._second_pointer = _alt_erst, _alt_zweit
+    pruefe(_ok and _pa299._read_pointer(_zweit) == os.path.join(_heim, 'neu'),
+           'erster Zeiger gesperrt: der zweite wird trotzdem geschrieben (%r)'
+           % _pa299._read_pointer(_zweit))
+
+    # b2) Neu angelegt heißt der Ordner „Verse-Kit" — ein vorhandener alter bleibt.
+    _alt_dok = _pa299._documents
+    _dok = os.path.join(_heim, 'Dokumente')
+    os.makedirs(_dok)
+    _pa299._documents = lambda: _dok
+    try:
+        _neu = _pa299._default_folder()
+        os.makedirs(os.path.join(_dok, _pa299.FOLDER_NAME))
+        _bleibt = _pa299._default_folder()
+    finally:
+        _pa299._documents = _alt_dok
+    pruefe(os.path.basename(_neu) == 'Verse-Kit',
+           'ohne alten Ordner heißt der neue „Verse-Kit" (%r)'
+           % os.path.basename(_neu))
+    pruefe(os.path.basename(_bleibt) == 'SC BP Watcher',
+           'ein vorhandener „SC BP Watcher" bleibt, samt seinen Daten')
+
+    # c) Die Einrichtung fragt nach dem Ordner — und kommt, wenn er gesperrt ist.
+    _root = _wurzel()
+    _alt_status = _pa299.storage_status
+    try:
+        _wz = _wz299.Wizard(eltern=_root)
+        _reihe = _wz._order()
+        pruefe(_reihe[:3] == ['sprache', 'ablage', 'spiel'],
+               'Einrichtung: „Datenordner" direkt nach der Sprache (%r)'
+               % _reihe[:3])
+        _wz.schritt = _reihe.index('ablage') + 1
+        _wz._draw()
+        _wz.ablage.set(_unmoeglich)
+        _wz._next()
+        pruefe(_wz._current() == 'ablage'
+               and 'bitte einen anderen Ordner' in _wz.ablage_meldung.cget('text'),
+               'gesperrter Ordner: kein Weiter, und es wird gesagt (%r)'
+               % _wz.ablage_meldung.cget('text'))
+        _wz.ablage.set(_heim)
+        _wz._next()
+        pruefe(_wz._current() == 'spiel',
+               'beschreibbarer Ordner: weiter zu „Star Citizen finden"')
+        _wz.root.destroy()
+
+        # ⚠ Erst einen Zustand herstellen, in dem die Einrichtung NICHT käme —
+        # sonst kommt sie im frischen Prüfordner ohnehin, und die Zeile darunter
+        # misst nichts (so bei der ersten Gegenprobe am 29.09.2026 gesehen).
+        _pa299.set_setting('einrichtung_ohne_spiel', True)
+        pruefe(_wz299.needed() is False,
+               'Gegenstück: mit beschreibbarem Ordner kommt die Einrichtung nicht')
+        _pa299.storage_status = lambda _ziel: (False, 0, 'gesperrt')
+        pruefe(_wz299.needed() is True,
+               'Datenordner gesperrt: die Einrichtung kommt beim Start')
+        from scbp import report as _be299
+        _bericht = _be299.build('0.0.0-probe')
+        pruefe('NICHT beschreibbar' in _bericht,
+               'der Fehlerbericht sagt, dass nichts gespeichert wird')
+    finally:
+        _pa299.storage_status = _alt_status
+
+    # d) Bergbau-Seite ohne Daten: Weg heraus, Scanner trotzdem da, Neubau.
+    from scbp.main_window import MainWindow as _MW299
+    from scbp import scan_window as _sw299
+
+    def _texte(knoten):
+        for _k in knoten.winfo_children():
+            if isinstance(_k, _tk299.Label):
+                yield _k.cget('text') or ''
+            elif isinstance(_k, _tk299.Canvas):
+                for _i in _k.find_all():
+                    if _k.type(_i) == 'text':
+                        yield _k.itemcget(_i, 'text') or ''
+            yield from _texte(_k)
+
+    _cache = os.path.join(_heim, _mi299.CACHE)
+    if os.path.exists(_cache):
+        os.remove(_cache)
+    _fe = None
+    try:
+        _fe = _MW299(_root, version='0.0.0-bergbau', start_page='bergbau')
+        for _ in range(5):
+            _fe.root.update()
+        _seite = _fe.pages.get('bergbau')
+        _alle = ' | '.join(_texte(_seite))
+        pruefe(_sp299.t('s_bg_jetzt_holen') in _alle,
+               'ohne Bergbau-Daten: Knopf „Jetzt holen" ist da')
+        if _sw299.available():
+            pruefe(_sp299.t('s_bg_scan_kopf') in _alle,
+                   'ohne Bergbau-Daten: der Scanner-Schalter ist trotzdem da')
+        pruefe('bergbau' in _fe.on_show,
+               'die Seite meldet sich fürs erneute Öffnen an')
+        # Ein Ort zählt nur mit Erz darin (`mining.locations`) — dieselbe
+        # Form wie in Prüfung 249.
+        with open(_cache, 'w', encoding='utf-8') as _f:
+            json.dump({
+                'format': _mi299.FORMAT, 'build': 'probe',
+                'elemente': {'e1': {'name': 'Probium (Ore)',
+                                    'materialName': 'Probium'}},
+                'compositions': {'c1': {'name': 'Probium', 'parts': [
+                    {'elementGuid': 'e1', 'elementName': 'Probium (Ore)',
+                     'probability': 1.0, 'minPercent': 50, 'maxPercent': 100}]}},
+                'locations': [{'locationName': 'Ort Probe', 'system': 'Stanton',
+                               'groups': [{'groupName': 'SpaceShip_Mineables',
+                                           'groupProbability': 1.0,
+                                           'deposits': [{'relativeProbability': 1.0,
+                                                         'compositionGuid': 'c1'}]}]}],
+                'refineryProfiles': {}, 'refineries': []}, _f)
+        pruefe(bool(_mi299.locations()),
+               'die Probedaten ergeben einen Ort (sonst prüft die Zeile unten nichts)')
+        _fe.on_show['bergbau']()
+        _fe.root.update()
+        _alle = ' | '.join(_texte(_seite))
+        pruefe(_sp299.t('s_bg_keine_daten') not in _alle
+               and _sp299.t('s_bg_jetzt_holen') not in _alle,
+               'Daten sind da: beim erneuten Öffnen baut sich die Seite neu')
+    finally:
+        try:
+            if _fe is not None:
+                _fe.root.destroy()
+        except Exception:
+            pass
+        try:
+            _root.destroy()
+        except Exception:
+            pass
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 if __name__ == '__main__':

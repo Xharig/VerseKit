@@ -286,6 +286,34 @@ TEXTS = {
         'In welcher Sprache soll das Fenster mit dir reden?',
         'Which language should this window speak?'),
 
+    # ⚠⚠ Der Schritt „Datenordner" (29.09.2026, gemeldet bei Parsul): Vorher
+    # nahm Verse-Kit still den Dokumente-Ordner — bei ihm nach OneDrive
+    # umgeleitet und von Windows gesperrt. Nichts ließ sich speichern, und
+    # niemand erfuhr es.
+    'schritt_ablage':    ('Wo sollen deine Daten liegen?', 'Where should your data live?'),
+    'schritt_ablage_text': (
+        'Hier speichert Verse-Kit deinen Bauplan-Bestand, deine Einstellungen '
+        'und alles, was es aus dem Spiel sammelt. Der Vorschlag passt meistens — '
+        'du kannst aber jeden Ordner wählen.',
+        'This is where Verse-Kit keeps your blueprint collection, your settings '
+        'and everything it collects from the game. The suggestion usually fits — '
+        'but you can pick any folder.'),
+    'schritt_ablage_hilfe': (
+        'Liegt „Dokumente" bei dir in OneDrive, sperrt Windows den Ordner '
+        'manchmal für neue Programme (Ransomware-Schutz). Dann lieber einen '
+        'Ordner außerhalb wählen, zum Beispiel auf D:.',
+        'If your “Documents” folder is in OneDrive, Windows sometimes locks it '
+        'for new programs (ransomware protection). Then better pick a folder '
+        'outside, for example on D:.'),
+    'ablage_ok':         ('Hier kann Verse-Kit speichern.', 'Verse-Kit can save here.'),
+    'ablage_gesperrt':   ('Hier darf Verse-Kit nicht speichern — bitte einen '
+                          'anderen Ordner wählen. (%s)',
+                          'Verse-Kit is not allowed to save here — please pick '
+                          'another folder. (%s)'),
+    'ablage_umzug_weg':  ('Der Ordner ließ sich nicht umstellen — Details im '
+                          'Fehlerbericht.',
+                          'Could not switch the folder — details in the error '
+                          'report.'),
     'schritt_spiel':     ('Star Citizen finden', 'Find Star Citizen'),
     'schritt_spiel_text': (
         'Der Watcher liest die Game.log von Star Citizen — dort schreibt das '
@@ -2587,6 +2615,16 @@ TEXTS = {
                               'missions", because the catalogue was only fetched '
                               'after setup. Only visible when setting VerseKit up '
                               'from scratch.'),
+    's_dk_parsul_bugs2':     ('**Bei ihm ließ sich gar nichts speichern** — Verse-Kit '
+                              'hatte still einen Dokumente-Ordner in OneDrive '
+                              'genommen, den Windows gesperrt hielt. Seitdem fragt '
+                              'die Einrichtung, wo die Daten liegen sollen, und '
+                              'sagt es, wenn dort nichts gespeichert werden kann.',
+                              '**Nothing could be saved on his PC** — Verse-Kit had '
+                              'silently picked a Documents folder in OneDrive that '
+                              'Windows kept locked. Since then the setup asks where '
+                              'your data should live, and says so if nothing can '
+                              'be saved there.'),
     's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
                               'seine Übersetzungen für dieses Werkzeug '
                               'freigegeben. Dazu drei Anstöße an einem '
@@ -3080,6 +3118,9 @@ TEXTS = {
     'b_historie':      ('Patch-Historie', 'Patch history'),
     'b_overlay':       ('Overlay', 'Overlay'),
     'b_ordner':        ('Eigener Ordner', 'Own folder'),
+    'b_ordner_ok':     ('beschreibbar', 'writable'),
+    'b_ordner_gesperrt': ('NICHT beschreibbar (%s) — es wird nichts gespeichert',
+                          'NOT writable (%s) — nothing gets saved'),
     'b_einstellungen': ('Einstellungen', 'Settings'),
     'b_basetool':      ('Basetool', 'Basetool'),
     'b_basetool_wert': ('Verbindung %s · Rechte %s · zuletzt abgeglichen %s · letzte Absage %s',
@@ -5103,6 +5144,12 @@ TEXTS = {
     'm_b_geladen':       ('%d Orte geladen', '%d locations loaded'),
     'm_b_leer':          ('Die Datei enthält keine Orte.',
                           'The file contains no locations.'),
+    'm_b_nicht_gespeichert': ('Bergbau-Daten geholt, aber nicht gespeichert — '
+                              'Verse-Kit darf nicht in seinen Datenordner '
+                              'schreiben. Details im Fehlerbericht.',
+                              'Mining data fetched but not saved — Verse-Kit '
+                              'cannot write to its data folder. Details in the '
+                              'error report.'),
     # ⚠ Der Ton: ein Hinweis, keine Behauptung. Siehe `inventar.py`.
 
     's_bg_lead':         ('Wo welches Erz abzubauen ist. Tipp einen Rohstoff ein '
@@ -5151,6 +5198,10 @@ TEXTS = {
                           'beim nächsten Katalog-Abruf dazu.',
                           'The mining data is not loaded yet. It arrives with the '
                           'next catalogue update.'),
+    's_bg_jetzt_holen':  ('Jetzt holen', 'Fetch now'),
+    's_bg_holt':         ('Bergbau-Daten werden geholt …', 'Fetching mining data …'),
+    's_bg_holen_weg':    ('Bergbau-Daten holen ging nicht — Details im Fehlerbericht.',
+                          'Could not fetch mining data — details in the error report.'),
     's_he_keine_daten':  ('Die Rezepte sind noch nicht geladen. Sie kommen beim '
                           'nächsten Katalog-Abruf dazu.',
                           'The recipes are not loaded yet. They arrive with the '

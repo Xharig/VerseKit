@@ -1220,7 +1220,11 @@ def update(progress=None):
             errors.record('katalog.aktualisieren.crafting', error)
         try:
             from . import mining
-            mining.update(version, progress)
+            ok, meldung = mining.update(version, progress)
+            if not ok:
+                # Sonst erfährt niemand, warum die Bergbau-Seite leer bleibt.
+                errors.record('katalog.aktualisieren.bergbau',
+                              RuntimeError(meldung))
         except Exception as error:
             errors.record('katalog.aktualisieren.bergbau', error)
 

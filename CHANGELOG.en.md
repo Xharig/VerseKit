@@ -8,6 +8,35 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.62.2 - 2026-09-29
+
+> Verse-Kit now asks during setup where your data should live — and checks
+> that it is actually allowed to save there. If your “Documents” folder is in
+> OneDrive and Windows locks it, the setup comes up by itself and helps you
+> move. New folders are now called “Verse-Kit”.
+
+### Improved
+
+- **The setup asks where your data should live** — with a suggestion,
+  "Browse …" and a check that Verse-Kit is allowed to save there. Newly
+  created, the folder is now called "Verse-Kit"; an existing "SC BP Watcher"
+  folder stays as it is. Reported by Parsul (KRT)
+- **Mining: "Fetch now" button** when the mining data is still missing
+
+### Fixed
+
+- **Nothing was saved, and nobody was told** — if the data folder sat where
+  Windows blocks writing (such as "Documents" in OneDrive), settings,
+  collection, statistics and mining data were silently lost. Now the setup
+  comes up in that case and asks for another folder; the error report says so
+  too. Reported by Parsul (KRT)
+- **Switching the data folder failed when the old one was locked** — reported
+  by Parsul (KRT)
+- **The mining page stayed on "not loaded yet"** even after the data had
+  arrived — it now rebuilds the next time you open it. The switch for the
+  signature scanner was missing there entirely; it is always shown now.
+  Reported by Parsul (KRT)
+
 ## v3.62.1 - 2026-09-29
 
 > Two fixes: if your overlay bar sits at the bottom, the button tooltips now

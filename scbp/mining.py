@@ -203,13 +203,19 @@ def update(build, progress=None):
     # beantworten die Frage, die nach „wo baue ich das ab?" kommt: „und wohin
     # bringe ich es?" 20 Raffinerien, 10 verschiedene Profile — bei Quartz
     # liegen zwischen der besten und der schlechtesten 14 Prozentpunkte.
-    _save({'format': FORMAT, 'build': build, 'locations': locations_,
+    # ⚠ Das Ergebnis von `_save` zählt. Bis v3.62.1 meldete `update` hier
+    # „50 Orte geladen", auch wenn die Datei nicht geschrieben werden konnte —
+    # und die Bergbau-Seite blieb leer, ohne dass jemand den Grund erfuhr
+    # (gemeldet am 29.09.2026 bei Parsul).
+    saved = _save({'format': FORMAT, 'build': build, 'locations': locations_,
            'compositions': raw.get('compositions') or {},
            'refineries': raw.get('refineries') or [],
            'refineryProfiles': raw.get('refineryProfiles') or {},
            # Die Stammdaten je Rohstoff — darin stehen Seltenheit und
            # Scan-Signatur, ohne die der Signatur-Rechner nichts kann.
            'elemente': raw.get('mineableElements') or {}})
+    if not saved:
+        return False, t('m_b_nicht_gespeichert')
     return True, t('m_b_geladen') % len(locations_)
 
 

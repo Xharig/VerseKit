@@ -8,6 +8,35 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.62.2 - 2026-09-29
+
+> Verse-Kit fragt jetzt bei der Einrichtung, wo deine Daten liegen sollen —
+> und prüft, ob es dort überhaupt speichern darf. Liegt „Dokumente" bei dir in
+> OneDrive und sperrt Windows den Ordner, kommt die Einrichtung von selbst und
+> hilft beim Umziehen. Neue Ordner heißen jetzt „Verse-Kit".
+
+### Verbessert
+
+- **Die Einrichtung fragt, wo deine Daten liegen sollen** — mit Vorschlag,
+  „Durchsuchen …" und der Prüfung, ob Verse-Kit dort speichern darf. Neu
+  angelegt heißt der Ordner jetzt „Verse-Kit"; ein vorhandener
+  „SC BP Watcher"-Ordner bleibt, wie er ist. Gemeldet von Parsul (KRT)
+- **Bergbau: Knopf „Jetzt holen"**, wenn die Bergbau-Daten noch fehlen
+
+### Behoben
+
+- **Nichts wurde gespeichert, und niemand erfuhr es** — lag der Datenordner
+  an einer Stelle, an der Windows das Schreiben sperrt (etwa „Dokumente" in
+  OneDrive), gingen Einstellungen, Bestand, Statistik und Bergbau-Daten still
+  verloren. Jetzt kommt in dem Fall die Einrichtung und fragt nach einem
+  anderen Ordner; auch der Fehlerbericht sagt es. Gemeldet von Parsul (KRT)
+- **Datenordner umstellen klappte nicht, wenn der alte gesperrt war** —
+  gemeldet von Parsul (KRT)
+- **Bergbau-Seite blieb auf „noch nicht geladen"**, auch nachdem die Daten da
+  waren — sie baut sich jetzt beim nächsten Öffnen neu auf. Der Schalter für
+  den Signatur-Scanner fehlte dabei ganz; er ist jetzt immer da. Gemeldet von
+  Parsul (KRT)
+
 ## v3.62.1 - 2026-09-29
 
 > Zwei Nachbesserungen: Wer die Leiste des Overlays unten hat, bekommt die
