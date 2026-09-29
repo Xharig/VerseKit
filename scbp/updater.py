@@ -270,6 +270,23 @@ def check(own_version, force=False):
     #   3. Die fertige Version zur selben Nummer erscheint — die ist ohnehin
     #      "neuer" als jede Vorabfassung (siehe `ist_neuer`), also endet der
     #      Testkanal nie in einer Sackgasse.
+    return _best_newer(cached, own_version)
+
+
+def known_newer(own_version):
+    """Die neueste gemerkte Freigabe, die neuer ist als `own_version` — oder None.
+
+    ⚠ **Ohne Netz**, nur aus dem Zwischenspeicher: Gebraucht wird es vom
+    Update-Knopf in der Kopfzeile, der im Tk-Faden jede Minute nachsieht. Das
+    Nachfragen bei GitHub macht weiter `check()` im Hintergrund — hier wird
+    nur gelesen, was es gefunden hat. Dieselbe Auswahl wie dort
+    (`_best_newer`), damit Knopf und Update-Hinweis nie Verschiedenes sagen."""
+    return _best_newer(_cache_read(), own_version)
+
+
+def _best_newer(cached, own_version):
+    """Welche gemerkte Freigabe wird angeboten? Die drei Fälle für
+    Vorabversionen stehen als Kasten am Ende von `check()`."""
     own_is_prerelease = (_is_prerelease(own_version)
                         or paths.setting_bool('vorabversionen', False))
     # ⚠ **Nicht** den ersten Treffer nehmen, sondern den höchsten.

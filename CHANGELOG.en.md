@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.62.4 - 2026-09-29
+
+> There is now an update button up in the title bar. When a new version is
+> out, it turns green and tells you which one — one click, and you are at
+> “Update & About”.
+
+### New
+
+- **Update button in the title bar** — next to "What's new". When a new
+  version is out, it turns green and names it; a click takes you to
+  "Update & About". Suggested by Blackd0g84 (KRT)
+
 ## v3.62.3 - 2026-09-29
 
 > A small fix: Bendix, Torrez, RN-7s and the other refuelling nozzles are

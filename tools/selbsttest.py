@@ -10353,8 +10353,8 @@ def main():
         # Der alte Ziehgriff (Punktraster ohne Richtung). Seit 02.09.2026
         # ersetzt durch 'ziehen_ol/or/ul/ur'.
         'ziehgriff',
-        # Angelegt, aber nie eingebaut — der Update-Knopf traegt Text.
-        'herunterladen',
+        # ('herunterladen' stand hier bis v3.62.4 — seitdem traegt es der
+        # Update-Knopf in der Kopfzeile.)
         # Der gelbe Zustand „vorlaeufig" ist mit v3.0.0-rc95 abgeschafft
         # worden: Ein Fund aus dem Log gilt seither sofort als sicher. Das
         # Symbol ist der Rest davon.
@@ -26052,6 +26052,7 @@ def main():
     _pruefung_297()
     _pruefung_298()
     _pruefung_299()
+    _pruefung_300()
 
     print()
     if fehler:
@@ -30580,6 +30581,94 @@ def _pruefung_299():
                and _sp299.t('s_bg_jetzt_holen') not in _alle,
                'Daten sind da: beim erneuten Öffnen baut sich die Seite neu')
     finally:
+        try:
+            if _fe is not None:
+                _fe.root.destroy()
+        except Exception:
+            pass
+        try:
+            _root.destroy()
+        except Exception:
+            pass
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_300():
+    """300. Update-Knopf in der Kopfzeile — grün, sobald es etwas Neues gibt.
+
+    ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026). Geprüft am echten Hauptfenster:
+    Der Knopf steht ganz rechts, nennt eine bekannte neuere Version in der
+    Akzentfarbe, führt zu „Update & Über" — und fragt dafür NIE selbst im
+    Netz (er läuft im Tk-Faden; das Nachfragen macht das Overlay)."""
+    print('\n300. Update-Knopf in der Kopfzeile')
+    import tkinter as _tk300
+    from scbp import updater as _up300, language as _sp300, theme as _th300
+    from scbp.main_window import MainWindow as _MW300
+    _sp300.set_language('de')
+    _heim = tempfile.mkdtemp(prefix='pruefung300-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _alt_fetch = _up300._fetch
+    _netz = []
+
+    def _falle(*_a, **_k):
+        _netz.append(_a)
+        raise RuntimeError('Pruefung 300: kein Netz')
+    _up300._fetch = _falle
+    _root = _wurzel()
+    _fe = None
+    try:
+        # Die Falle muss zuschnappen können, sonst beweist „kein Abruf" nichts.
+        _up300.check('0.0.1', force=True) if not _up300.OFF else _falle()
+    except Exception:
+        pass
+    try:
+        pruefe(len(_netz) == 1, 'die Netz-Falle schnappt zu (%d)' % len(_netz))
+        _netz[:] = []
+        _up300._cache_write({'geprueft': time.time(), 'freigaben': [
+            {'version': 'v3.0.0', 'vorab': False},
+            {'version': 'v99.1.0', 'vorab': False},
+            {'version': 'v99.2.0-rc1', 'vorab': True}]})
+        _neu = _up300.known_newer('3.62.3')
+        pruefe((_neu or {}).get('version') == 'v99.1.0',
+               'known_newer: die höchste neuere FERTIGE Version (%r)'
+               % (_neu or {}).get('version'))
+        pruefe(_up300.known_newer('99.1.0') is None,
+               'known_newer: nichts, wenn man schon aktuell ist')
+
+        _fe = _MW300(_root, version='3.62.3')
+        _fe.root.update()
+        _knopf = getattr(_fe, 'update_button', None)
+        pruefe(_knopf is not None, 'das Hauptfenster hat einen Update-Knopf')
+        _leiste = _knopf.master
+        _rechts = [w for w in _leiste.pack_slaves()
+                   if w.pack_info().get('side') == 'right']
+        pruefe(bool(_rechts) and _rechts[0] is _knopf,
+               'er steht ganz rechts, neben „Was ist neu"')
+        _z, _w = _knopf.teile
+        pruefe('v99.1.0' in _w.cget('text')
+               and _w.cget('fg').lower() == _th300.ACCENT.lower(),
+               'neue Version bekannt: Knopf nennt sie, in der Akzentfarbe (%r, %r)'
+               % (_w.cget('text'), _w.cget('fg')))
+        pruefe(not _netz, 'dafür wurde nicht im Netz gefragt (%d)' % len(_netz))
+
+        _up300._cache_write({'geprueft': time.time(), 'freigaben': [
+            {'version': 'v3.0.0', 'vorab': False}]})
+        _fe._update_tick()
+        pruefe(_w.cget('text').strip() == _sp300.t('hf_update')
+               and _w.cget('fg').lower() != _th300.ACCENT.lower(),
+               'nichts Neues: schlicht „Update", nicht grün (%r)' % _w.cget('text'))
+
+        _w.event_generate('<Button-1>')
+        _fe.root.update()
+        pruefe(_fe.current == 'ueber',
+               'ein Klick führt zu „Update & Über" (%r)' % _fe.current)
+    finally:
+        _up300._fetch = _alt_fetch
         try:
             if _fe is not None:
                 _fe.root.destroy()

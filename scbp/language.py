@@ -2740,6 +2740,12 @@ TEXTS = {
                               'sits in the bottom right corner of the monitor. '
                               'With the bar at the bottom they now always appear '
                               'above the mouse pointer, not on the taskbar.'),
+    's_dk_blackdog_idee2':   ('**Update-Knopf oben in der Kopfzeile** — neben „Was '
+                              'ist neu", und grün mit der Versionsnummer, sobald '
+                              'eine neue Fassung da ist.',
+                              '**Update button in the title bar** — next to '
+                              '"What\'s new", and green with the version number as soon as '
+                              'a new version is out.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '
@@ -5465,6 +5471,8 @@ TEXTS = {
     'hf_schliessen':     ('Schließen', 'Close'),
     'hf_einrichtung':    ('Einrichtung starten', 'Run setup'),
     'hf_wasistneu':      ('Was ist neu', "What's new"),
+    'hf_update':         ('Update', 'Update'),
+    'hf_update_da':      ('Update %s', 'Update %s'),
     # ⚠ Bewusst nicht „Was ist neu im Patch" — die beiden stünden dann
     # untereinander und ließen sich im Vorbeigehen verwechseln. Hier geht es
     # um das SPIEL, dort um das Werkzeug.
@@ -5964,6 +5972,10 @@ TEXTS = {
                           'and inventory again'),
     'hf_hinweis_neu':    ('Was ist neu — die Änderungen dieser und älterer Versionen',
                           "What's new — the changes in this and earlier versions"),
+    'hf_hinweis_update': ('Update & Über — nach einer neuen Version sehen und sie holen',
+                          'Update & About — check for a new version and get it'),
+    'hf_hinweis_update_da': ('%s ist da — hier holen',
+                             '%s is available — get it here'),
     'hf_schrift':        ('Schriftgröße', 'Text size'),
     'hf_schrift_hilfe':  ('Vergrößert Schrift, Symbole und Knöpfe in allen Fenstern, das Overlay eingeschlossen. '
                           'Mit dem Regler stufenlos, darunter passend zu deinem Bildschirm.',

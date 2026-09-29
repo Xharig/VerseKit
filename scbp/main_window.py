@@ -2150,6 +2150,14 @@ class MainWindow:
         # deshalb steht der Zauberstab jetzt neben dem Wort „Einrichtung
         # starten": ein Verb sagt, dass etwas losgeht; „Einrichtung" allein
         # klang nach einem Ort, an dem man etwas nachschlägt.
+        # ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026): ein Update-Knopf bei den
+        # anderen dreien — und gleich dort sagen, dass es etwas Neues gibt.
+        # Zuerst gepackt, steht er ganz rechts.
+        self._update_state = [None]
+        self.update_button = self._titlebar_button(
+            bar, 'herunterladen', t('hf_update'), self._update_hint,
+            lambda: self.jump_to('ueber'))
+        self._update_tick()
         self.news_button = self._titlebar_button(bar, 'wasistneu', t('hf_wasistneu'),
                                           t('hf_hinweis_neu'), self._whats_new)
         self._titlebar_button(bar, 'einrichtung', t('hf_einrichtung'),
@@ -2161,6 +2169,38 @@ class MainWindow:
         self._titlebar_button(bar, 'sicherung', t('hf_sicherung'),
                          t('hf_hinweis_sich'), self._backup)
         self._playtime_display(bar)
+
+    # Wie oft der Update-Knopf nachsieht. Er liest nur den Zwischenspeicher
+    # (`updater.known_newer`) — gefragt wird GitHub vom Overlay im Hintergrund.
+    UPDATE_TICK_MS = 60 * 1000
+
+    def _update_tick(self):
+        """Den Update-Knopf grün färben, sobald eine neuere Version bekannt ist."""
+        try:
+            if not self.update_button.winfo_exists():
+                return
+            from . import updater
+            newer = updater.known_newer(self.version or '0.0.0')
+            version = (newer or {}).get('version') or None
+            if version != self._update_state[0]:
+                self._update_state[0] = version
+                z, w = self.update_button.teile
+                if version:
+                    w.configure(text=' ' + t('hf_update_da') % version, fg=ACCENT)
+                    z.recolor(icons.GREEN)
+                else:
+                    w.configure(text=' ' + t('hf_update'), fg=SUB)
+                    z.recolor(icons.GREY)
+        except Exception as ausnahme:
+            errors.record('main_window.update_knopf', ausnahme)
+        try:
+            self.root.after(self.UPDATE_TICK_MS, self._update_tick)
+        except tk.TclError:
+            pass
+
+    def _update_hint(self):
+        version = self._update_state[0]
+        return t('hf_hinweis_update_da') % version if version else t('hf_hinweis_update')
 
     # Wie oft die Spielzeit oben nachgerechnet wird.
     # ⚠ Eine Minute ist die feinste Anzeige („3 h 14 min") — oefter zu rechnen
@@ -2247,7 +2287,9 @@ class MainWindow:
         for part in (rahmen, z, w):
             part.bind('<Button-1>', lambda e, f=tat: f())
         icons.hover_group(rahmen, z)
-        notice.attach(rahmen, lambda: erklaerung)
+        # Der Hinweis darf mitwandern (Update-Knopf: „v3.62.4 ist da").
+        notice.attach(rahmen, erklaerung if callable(erklaerung)
+                      else (lambda: erklaerung))
         rahmen.teile = (z, w)
         return rahmen
 

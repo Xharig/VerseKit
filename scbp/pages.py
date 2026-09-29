@@ -6801,7 +6801,8 @@ def _thanks(fenster, rahmen):
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
-            ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), ''),
+            ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee') + '\n\n'
+             + t('s_dk_blackdog_idee2'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
              + t('s_dk_aeternitas_idee2'), t('s_dk_aeternitas_bugs')),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),

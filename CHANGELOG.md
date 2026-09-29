@@ -8,6 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.62.4 - 2026-09-29
+
+> Oben in der Kopfzeile sitzt jetzt ein Update-Knopf. Gibt es eine neue
+> Version, wird er grün und sagt dir gleich, welche — ein Klick, und du bist
+> bei „Update & Über".
+
+### Neu
+
+- **Update-Knopf oben in der Kopfzeile** — neben „Was ist neu". Gibt es eine
+  neue Version, wird er grün und nennt sie; ein Klick führt zu „Update &
+  Über". Vorschlag von Blackd0g84 (KRT)
+
 ## v3.62.3 - 2026-09-29
 
 > Eine kleine Korrektur: Bendix, Torrez, RN-7s und die anderen Düsen zum
