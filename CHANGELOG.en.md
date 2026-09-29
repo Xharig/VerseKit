@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.62.1 - 2026-09-29
+
+> Two fixes: if your overlay bar sits at the bottom, the button tooltips now
+> appear above the mouse pointer instead of half on the taskbar. And pages
+> that load in the background no longer get stuck.
+
 ### Fixed
 
 - **Pages loading in the background sometimes got stuck** — such as routes,

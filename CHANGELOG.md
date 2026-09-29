@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.62.1 - 2026-09-29
+
+> Zwei Nachbesserungen: Wer die Leiste des Overlays unten hat, bekommt die
+> Erklärtexte der Knöpfe jetzt über dem Mauszeiger statt halb auf der
+> Taskleiste. Und Seiten, die im Hintergrund nachladen, bleiben nicht mehr
+> hängen.
+
 ### Behoben
 
 - **Seiten, die im Hintergrund nachladen, blieben manchmal stehen** — etwa
