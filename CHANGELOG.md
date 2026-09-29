@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.62.3 - 2026-09-29
+
+> Eine kleine Korrektur: Bendix, Torrez, RN-7s und die anderen Düsen zum
+> Betanken stehen jetzt als „Treibstoffdüse" in der Liste, wie im Spiel —
+> nicht mehr als „Andockkragen".
+
 ### Behoben
 
 - **Treibstoffdüsen hießen „Andockkragen"** — Bendix, Torrez, RN-7s und die

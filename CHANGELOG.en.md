@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.62.3 - 2026-09-29
+
+> A small fix: Bendix, Torrez, RN-7s and the other refuelling nozzles are
+> now listed as “Fuel nozzle”, as in the game — no longer as “Docking
+> collar”.
+
 ### Fixed
 
 - **Fuel nozzles were called "docking collars"** — Bendix, Torrez, RN-7s and
