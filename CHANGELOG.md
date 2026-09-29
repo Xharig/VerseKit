@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.62.0 - 2026-09-29
+
+> Dein Hangar kommt jetzt auch aus anderen Flotten-Werkzeugen: Schiffslisten
+> aus Fleetview, Fleetyards und StarJump liest Verse-Kit direkt ein — dieselben
+> Dateien, die auch das KRT Profit Basetool nimmt. Was schon da ist, bleibt,
+> und nichts landet doppelt.
+
+### Neu
+
+- **Hangar aus Fleetview, Fleetyards und StarJump** — unter *Meine Schiffe*
+  liest „Exportdatei wählen …" jetzt auch die Schiffslisten aus Fleetview (CCU
+  Game), Fleetyards und StarJump FleetViewer (JSON). Sie ergänzen nur:
+  ausgetragen wird dabei nichts, schon vorhandene Schiffe werden erkannt.
+  Wunschschiffe aus Fleetyards landen auf der Wunschliste. Jedes Schiff zeigt,
+  aus welcher Liste es kam
+
 ## v3.61.1 - 2026-09-28
 
 > Zwei Nachbesserungen am Basetool-Abgleich: Das Rohstofflager kommt jetzt

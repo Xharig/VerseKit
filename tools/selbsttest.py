@@ -26047,6 +26047,7 @@ def main():
     _pruefung_294()
     _pruefung_295()
     _pruefung_296()
+    _pruefung_297()
 
     print()
     if fehler:
@@ -30128,6 +30129,107 @@ def _pruefung_296():
                 os.environ[_k] = _v
         _ss296._backend_cache[0] = None
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_297():
+    """297. Hangar: Schiffslisten aus Fleetview, Fleetyards und StarJump.
+
+    ⭐ v3.62.0 — dieselben drei Formate, die das KRT Profit Basetool einliest
+    (Beispiele wie in dessen `HangarImportServiceTest`). Geprüft wird vor
+    allem, was schiefgehen kann: Eine Liste darf den Pledge-Hangar nicht
+    ausräumen, und ein klein geschriebener Name ohne Hersteller darf kein
+    Schiff doppelt anlegen."""
+    print('\n297. Hangar: Schiffslisten (Fleetview, Fleetyards, StarJump)')
+    import json as _js297
+    from scbp import fleet as _fl297
+    _ordner = tempfile.mkdtemp(prefix='pruefung297-')
+
+    def _lies(daten):
+        _p = os.path.join(_ordner, 'liste.json')
+        with open(_p, 'w', encoding='utf-8') as _d:
+            _js297.dump(daten, _d)
+        return _fl297.read(_p)
+
+    try:
+        _fv, _f1 = _lies([{'name': 'galaxy', 'shipname': 'Meins',
+                           'type': 'ship'},
+                          {'name': 'aurora mr', 'shipname': '', 'type': 'ship'},
+                          {'name': 'aurora mr', 'shipname': '', 'type': 'ship'},
+                          {'name': 'Bett', 'shipname': '', 'type': 'hab'}])
+        pruefe(not _f1 and [e['quelle'] for e in _fv] == ['Fleetview'] * 3,
+               'Fleetview erkannt, Nicht-Schiffe übergangen (%r)'
+               % [e['name'] for e in _fv])
+        pruefe(_fv and _fv[1]['name'] == 'Aurora MR',
+               'klein geschriebener Name wird lesbar („Aurora MR")')
+        _fy, _f2 = _lies([{'name': 'A1 Spirit', 'slug': 'crus-a1-spirit',
+                           'shipCode': 'crus_spirit_a1',
+                           'manufacturerName': 'Crusader Industries',
+                           'manufacturerCode': 'CRUS', 'shipName': 'Koto',
+                           'wanted': False},
+                          {'name': 'Perseus', 'slug': 'rsi-perseus',
+                           'manufacturerCode': 'RSI', 'wanted': True}])
+        pruefe(not _f2 and [(e['name'], e['hkurz'], e['wunsch'])
+                            for e in _fy]
+               == [('A1 Spirit', 'CRUS', False), ('Perseus', 'RSI', True)],
+               'Fleetyards erkannt, mit Herstellerkürzel und Wunschschiff')
+        _sj, _f3 = _lies({'type': 'starjumpFleetviewer', 'version': 1,
+                          'canvasItems': [
+                              {'id': 'a', 'itemType': 'SHIP',
+                               'shipSlug': 'perseus', 'defaultText': 'Perseus'},
+                              {'id': 'b', 'itemType': 'TEXTGROUP',
+                               'text': 'Perseus'},
+                              {'itemType': 'SHIP', 'shipSlug': 'zeus-mkii-mr',
+                               'defaultText': ''}]})
+        pruefe(not _f3 and [e['name'] for e in _sj][:1] == ['Perseus']
+               and len(_sj) == 2 and _sj[1]['quelle'] == 'StarJump',
+               'StarJump erkannt (Objekt), Textgruppen übergangen, Kurzname '
+               'als Rückfall (%r)' % [e['name'] for e in _sj])
+        # Die alten Formate bleiben, was sie waren
+        _xp, _ = _lies([{'name': 'Arrow', 'ship_name': 'Arrow',
+                         'manufacturer_name': 'Anvil Aerospace',
+                         'manufacturer_code': 'ANVL', 'ship_code': 'ANVL_Arrow',
+                         'lti': True, 'entity_type': 'ship'}])
+        pruefe(_xp and 'herkunft' not in _xp[0] and _xp[0]['lti'] is True,
+               'Hangar XPLORer wird weiter als Pledge-Export gelesen')
+
+        # Einlesen in einen Hangar mit Pledge-Schiffen
+        _h = {'format': 1, 'schiffe': [
+            {'name': 'Galaxy', 'hersteller': 'Roberts Space Industries',
+             'hkurz': 'RSI', 'herkunft': 'pledge', 'belegung': {}},
+            {'name': 'Aurora MR', 'hersteller': 'Roberts Space Industries',
+             'herkunft': 'pledge', 'belegung': {}},
+            {'name': 'Idris-P', 'hersteller': 'Aegis Dynamics',
+             'hkurz': 'AEGS', 'herkunft': 'pledge', 'belegung': {}}]}
+        _neu, _da, _weg = _fl297.import_entries(_fv + _fy + _sj, _h,
+                                                save_now=False)
+        _namen = [s['name'] for s in _h['schiffe']]
+        pruefe(not _weg and 'Idris-P' in _namen,
+               'eine Schiffsliste räumt den Pledge-Hangar NICHT aus (Idris-P '
+               'fehlt in der Liste und bleibt)')
+        pruefe(_namen.count('Galaxy') == 1 and _namen.count('Aurora MR') == 1,
+               'nichts doppelt: „galaxy" und „aurora mr" sind die vorhandenen '
+               '(%r)' % _namen)
+        pruefe('A1 Spirit' in _namen and 'Perseus' in _namen,
+               'Fehlendes kommt dazu (A1 Spirit, Perseus)')
+        _a1 = next((s for s in _h['schiffe'] if s['name'] == 'A1 Spirit'), {})
+        pruefe(_a1.get('herkunft') == _fl297.LIST
+               and _a1.get('quelle') == 'Fleetyards',
+               'neue Schiffe tragen Herkunft „liste" und die Quelle')
+        pruefe(_fl297.wishlist_contains(_h, 'Perseus') is False,
+               'Wunschschiff, das über StarJump in den Hangar kam, steht '
+               'nicht zusätzlich auf der Wunschliste')
+        _h2 = {'format': 1, 'schiffe': []}
+        _fl297.import_entries(_fy, _h2, save_now=False)
+        pruefe(_fl297.wishlist_contains(_h2, 'Perseus')
+               and not _fl297.contains(_h2, 'Perseus', hkurz='RSI'),
+               'Fleetyards-Wunschschiff landet auf der Wunschliste, nicht im '
+               'Hangar')
+        # Ein späterer Pledge-Export räumt Listen-Schiffe nicht weg
+        _fl297.import_entries(_xp, _h, save_now=False)
+        pruefe(any(s['name'] == 'A1 Spirit' for s in _h['schiffe']),
+               'ein Pledge-Export danach lässt Listen-Schiffe stehen')
+    finally:
+        shutil.rmtree(_ordner, ignore_errors=True)
 
 
 if __name__ == '__main__':

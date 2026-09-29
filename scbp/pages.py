@@ -12286,6 +12286,8 @@ def _hangar(fenster, rahmen):
     # bringt Kürzel und Paketbeziehung, CSV die Versicherungsdauer.
     _body_text(innen, t('s_hg_import_json'), fenster.f_small, color=GOLD,
                 fill='x', padx=24, inset=48)
+    _body_text(innen, t('s_hg_import_listen'), fenster.f_small, fill='x',
+                padx=24, inset=48)
 
     def importieren():
         pfad = file_picker.open_file(
@@ -13936,8 +13938,9 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # Zweite Zeile: Herkunft, LTI, Steckplätze — die drei Angaben, die den
     # Unterschied machen.
     teile = [{meine.PLEDGE: t('s_hg_pledge'),
-              meine.BASETOOL: t('s_hg_basetool')}.get(eintrag.get('herkunft'),
-                                                      t('s_hg_ingame'))]
+              meine.BASETOOL: t('s_hg_basetool'),
+              meine.LIST: t('s_hg_liste', eintrag.get('quelle') or '?')}.get(
+                  eintrag.get('herkunft'), t('s_hg_ingame'))]
     if eintrag.get('lti'):
         teile.append(t('s_hg_lti'))
     else:

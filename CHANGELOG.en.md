@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.62.0 - 2026-09-29
+
+> Your hangar can now come from other fleet tools too: Verse-Kit reads ship
+> lists from Fleetview, Fleetyards and StarJump directly — the same files the
+> KRT Profit Basetool takes. What is already there stays, and nothing ends up
+> twice.
+
+### New
+
+- **Hangar from Fleetview, Fleetyards and StarJump** — under *My ships*,
+  “Choose export file …” now also reads ship lists from Fleetview (CCU Game),
+  Fleetyards and StarJump FleetViewer (JSON). They only add: nothing gets
+  removed, ships you already have are recognised. Wanted ships from
+  Fleetyards go to the wishlist. Every ship shows which list it came from
+
 ## v3.61.1 - 2026-09-28
 
 > Two fixes for the Basetool sync: your material storage now arrives in the

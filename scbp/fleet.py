@@ -104,6 +104,9 @@ INGAME = 'ingame'
 # Seit v3.60.x: kam nur über den Abgleich mit dem KRT Profit Basetool herein.
 # Ein Pledge-Import räumt es nicht weg (nur `pledge` fällt heraus).
 BASETOOL = 'basetool'
+# Aus einer Schiffsliste eines anderen Werkzeugs (Fleetview, Fleetyards,
+# StarJump FleetViewer) — `quelle` nennt es. Seit v3.62.0.
+LIST = 'liste'
 
 
 def path():
@@ -616,6 +619,111 @@ def _hangar_extension_entry(entry):
     }
 
 
+# ------------------------------------------------ Schiffslisten (v3.62.0)
+#
+# ⭐ Drei weitere Werkzeuge, deren Listen das KRT Profit Basetool einliest —
+# gewünscht am 28.09.2026: „das Basetool tut es auch". Die Formate stehen im
+# offenen Quellcode des Basetools (`FleetExportParser.java`, GPL-3.0):
+#
+# | Werkzeug | Wurzel | ein Schiff |
+# |---|---|---|
+# | CCU Game **Fleetview** | Liste | `{"name": "aurora mr", "shipname": "", "type": "ship"}` — je Schiff eine Zeile, klein geschrieben, **ohne Hersteller** |
+# | **Fleetyards** | Liste | `{"name": "A1 Spirit", "slug": "crus-a1-spirit", "manufacturerName": "Crusader Industries", "manufacturerCode": "CRUS", "shipName": "Koto", "wanted": false}` |
+# | **StarJump** FleetViewer | Objekt `{"type": "starjumpFleetviewer", "canvasItems": [...]}` | `{"itemType": "SHIP", "shipSlug": "perseus", "defaultText": "Perseus"}` |
+#
+# ⚠⚠ **Eine Schiffsliste ist KEIN Pledge-Export.** Sie kennt oft auch im Spiel
+# gekaufte Schiffe und ist selten vollständig. Sie **ergänzt** deshalb nur —
+# ausgetragen wird dabei nichts (`import_entries`), und die Schiffe tragen die
+# Herkunft `LIST`, damit ein späterer Pledge-Import sie nicht wegräumt.
+#
+# ⚠ Keine Versicherung, kein Paket, kein Preis: Keine der drei Listen führt
+# das. Eigene Schiffsnamen (`shipname`) werden nicht übernommen — VerseKits
+# eigene Namen sind die Namen am Terminal im Spiel, etwas anderes.
+
+
+def _nice(name):
+    """„aurora mr" → „Aurora MR" — nur, wenn die Liste alles klein schreibt."""
+    name = (name or '').strip()
+    if not name or name != name.lower():
+        return name
+    words = []
+    for word in name.split():
+        words.append(word.upper() if len(word) <= 2 and word.isalpha()
+                     else word[:1].upper() + word[1:])
+    return ' '.join(words)
+
+
+def _catalog_name(name):
+    """Name ohne Hersteller → `(Name, Hersteller, Kürzel)` aus dem Schiffskatalog.
+
+    „890 jump" → („890 Jump", „Origin", „ORIG"). UEX führt den Hersteller im
+    Namen („Origin 890 Jump"), `_split_maker` trennt ihn wieder ab — derselbe
+    Weg wie beim CSV der Hangar Extension, damit dasselbe Schiff dieselben
+    Kürzel trägt und nicht doppelt im Hangar landet."""
+    try:
+        from . import ships
+        entry = ships._find(name)
+    except Exception:
+        entry = None
+    if not entry:
+        return _nice(name), '', ''
+    maker, code, rest = _split_maker(entry.get('name') or '')
+    if not rest or not maker:
+        return _nice(name), '', ''
+    return rest, maker, code
+
+
+def _list_entry(name, source, maker='', maker_code='', wanted=False):
+    name = (name or '').strip()
+    if not name:
+        return None
+    if not maker_code:
+        name, maker, maker_code = _catalog_name(name)
+    return {'name': name, 'hersteller': (maker or '').strip(), 'kurz': '',
+            'hkurz': (maker_code or '').strip(), 'lti': False,
+            'warbond': False, 'paket': '', 'gekauft': '', 'preis': '',
+            'herkunft': LIST, 'quelle': source, 'wunsch': bool(wanted)}
+
+
+def _from_fleetview(entry):
+    if entry.get('type') not in (None, '', 'ship'):
+        return None
+    return _list_entry(entry.get('name'), 'Fleetview')
+
+
+def _from_fleetyards(entry):
+    name = entry.get('name') or ''
+    if not name.strip():
+        return None
+    return _list_entry(name, 'Fleetyards',
+                       entry.get('manufacturerName') or '',
+                       entry.get('manufacturerCode') or '',
+                       wanted=entry.get('wanted') is True)
+
+
+def _from_starjump(raw):
+    """Der FleetViewer von StarJump — ein Objekt, die Schiffe unter `canvasItems`."""
+    result = []
+    for item in raw.get('canvasItems') or ():
+        if not isinstance(item, dict) or \
+                (item.get('itemType') or '').lower() != 'ship':
+            continue
+        name = (item.get('defaultText') or '').strip()
+        if not name:
+            # Nur der Kurzname: „zeus-mkii-mr" → „zeus mkii mr"
+            name = (item.get('shipSlug') or '').replace('-', ' ').strip()
+        ship = _list_entry(name, 'StarJump')
+        if ship:
+            result.append(ship)
+    return result
+
+
+def _is_starjump(raw):
+    return isinstance(raw, dict) and (
+        str(raw.get('type') or '').lower() == 'starjumpfleetviewer'
+        or isinstance(raw.get('canvasItems'), list))
+
+
 def _from_json(text):
     """Der JSON-Export — vom Hangar XPLORer **oder** von der Hangar Extension.
 
@@ -633,6 +741,8 @@ def _from_json(text):
     müssen.
     """
     raw = json.loads(text)
+    if _is_starjump(raw):
+        return _from_starjump(raw)
     if not isinstance(raw, list):
         return []
     result = []
@@ -644,6 +754,22 @@ def _from_json(text):
             if ship:
                 result.append(ship)
             continue
+        # Fleetyards (camelCase) und Fleetview — erkannt wie im Basetool, an
+        # Feldern, die der XPLORer nie schreibt (der führt `ship_code`,
+        # `pledge_id`, `entity_type`).
+        if not any(k in entry for k in ('pledge_id', 'ship_code',
+                                        'entity_type', 'ship_name')):
+            if 'shipCode' in entry or 'manufacturerCode' in entry \
+                    or 'manufacturerName' in entry or 'slug' in entry:
+                ship = _from_fleetyards(entry)
+            elif 'shipname' in entry or 'type' in entry:
+                ship = _from_fleetview(entry)
+            else:
+                ship = False
+            if ship is not False:
+                if ship:
+                    result.append(ship)
+                continue
         # ⚠ Nur Schiffe. Der Export führt auch Ausrüstung, Farben und Anzüge —
         # ein „Bosco Weapon Display Rack" hat keine Steckplätze.
         if entry.get('entity_type') not in (None, '', 'ship'):
@@ -827,7 +953,9 @@ def read(file_path):
         return [], str(exc)
     head = text.lstrip()[:1]
     try:
-        entries = _from_json(text) if head == '[' else _from_csv(text)
+        # `{` = StarJump FleetViewer (ein Objekt), `[` = alle übrigen JSON.
+        entries = _from_json(text) if head in '[{' and head else \
+            _from_csv(text)
     except Exception as exc:
         errors.record('fleet.read.parse', exc)
         return [], str(exc)
@@ -848,16 +976,46 @@ def import_entries(entries, data=None, save_now=True):
     """
     data = data if data is not None else load()
     new = 0
+    # ⚠⚠ Nur ein **Pledge-Export** ist der ganze Hangar. Eine Schiffsliste
+    # (Fleetview, Fleetyards, StarJump — Herkunft `LIST`) ergänzt nur.
+    pledge_export = all((e.get('herkunft') or PLEDGE) == PLEDGE
+                        for e in entries)
+    wishes = [e for e in entries if e.get('wunsch')]
     for e in entries:
-        if add(data, e.get('name'), e.get('hersteller'),
-               origin=PLEDGE, kurz=e.get('kurz'),
-               hkurz=e.get('hkurz'), lti=e.get('lti'),
-               warbond=e.get('warbond'), paket=e.get('paket'),
-               gekauft=e.get('gekauft'), preis=e.get('preis'),
-               versicherung=e.get('versicherung')):
+        origin = e.get('herkunft') or PLEDGE
+        if e.get('wunsch'):
+            continue
+        if origin == LIST and not e.get('hkurz') and not e.get('hersteller'):
+            # Ohne Hersteller greift `_same_ship` nicht (Name allein reicht
+            # dort bewusst nicht). Steht genau EIN Schiff dieses Namens schon
+            # drin, ist es dieses — sonst stünde es gleich doppelt da.
+            same = [s for s in (data.get('schiffe') or [])
+                    if _slim(s.get('name')) == _slim(e.get('name'))]
+            if len(same) == 1:
+                continue
+        is_new = add(data, e.get('name'), e.get('hersteller'),
+                     origin=origin, kurz=e.get('kurz'),
+                     hkurz=e.get('hkurz'), lti=e.get('lti'),
+                     warbond=e.get('warbond'), paket=e.get('paket'),
+                     gekauft=e.get('gekauft'), preis=e.get('preis'),
+                     versicherung=e.get('versicherung'))
+        if is_new:
             new += 1
+            if e.get('quelle'):
+                data['schiffe'][-1]['quelle'] = e['quelle']
+    # Fleetyards führt auch Wunschschiffe (`wanted`) — die gehören auf die
+    # Wunschliste, nicht in den Hangar. ⚠ Erst NACH dem Hangar: Kam dasselbe
+    # Schiff in dieser Datei auch als eigenes herein, ist es kein Wunsch mehr.
+    for e in wishes:
+        if not contains(data, e.get('name'), e.get('hersteller'),
+                        hkurz=e.get('hkurz')) \
+                and not any(_slim(s.get('name')) == _slim(e.get('name'))
+                            for s in (data.get('schiffe') or [])):
+            wishlist_add(data, e.get('name'), e.get('hersteller'))
+    # Wünsche zählen weder als „übernommen" noch als „schon da".
+    wished = len(wishes)
     removed = []
-    if entries:
+    if entries and pledge_export:
         kept = []
         for ship in (data.get('schiffe') or []):
             in_export = any(_same_ship(ship, e.get('name'), e.get('hersteller'),
@@ -871,7 +1029,7 @@ def import_entries(entries, data=None, save_now=True):
             data['schiffe'] = kept
     if save_now:
         save(data)
-    return new, len(entries) - new, removed
+    return new, len(entries) - new - wished, removed
 
 
 def unknown(data=None):

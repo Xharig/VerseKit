@@ -3933,6 +3933,16 @@ TEXTS = {
                           'brings the bundle relations and the insurance (LTI or '
                           'duration), the CSV adds purchase date and price. '
                           'Nothing gets duplicated.'),
+    # ⭐ v3.62.0 — dieselben Listen, die das KRT Profit Basetool einliest.
+    's_hg_import_listen': ('Auch gelesen: Schiffslisten aus Fleetview (CCU '
+                           'Game), Fleetyards und StarJump FleetViewer (JSON). '
+                           'Sie ergänzen deinen Hangar nur — ausgetragen wird '
+                           'dabei nichts. Wunschschiffe aus Fleetyards landen '
+                           'auf der Wunschliste.',
+                           'Also read: ship lists from Fleetview (CCU Game), '
+                           'Fleetyards and StarJump FleetViewer (JSON). They '
+                           'only add to your hangar — nothing is removed. '
+                           'Wanted ships from Fleetyards go to the wishlist.'),
     's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),
@@ -3940,10 +3950,12 @@ TEXTS = {
                           '{anzahl} no longer in the export, removed: {namen}.'),
     's_hg_import_leer':  ('In der Datei stand kein einziges Schiff. Ist das der '
                           'JSON- oder CSV-Export der Hangar Extension oder des '
-                          'Hangar XPLORer?',
+                          'Hangar XPLORer, oder eine Schiffsliste aus '
+                          'Fleetview, Fleetyards oder StarJump?',
                           'There was not a single ship in that file. Is this the '
                           'JSON or CSV export of the Hangar Extension or Hangar '
-                          'XPLORer?'),
+                          'XPLORer, or a ship list from Fleetview, Fleetyards '
+                          'or StarJump?'),
     's_hg_import_fehler': ('Die Datei ließ sich nicht lesen.',
                            'That file could not be read.'),
     's_hg_erweiterung':  ('Erweiterung holen', 'Get the add-on'),
@@ -4244,6 +4256,7 @@ TEXTS = {
     's_hg_pledge':       ('gekauft', 'pledged'),
     's_hg_ingame':       ('im Spiel gekauft', 'bought in-game'),
     's_hg_basetool':     ('aus dem Basetool', 'from the Basetool'),
+    's_hg_liste':        ('aus %s', 'from %s'),
     's_hg_lti':          ('LTI', 'LTI'),
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
     # Carrack) — kommt aus `includedWith` der Hangar Extension. Vorschlag
