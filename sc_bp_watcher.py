@@ -2274,6 +2274,11 @@ class Overlay:
         # niemand je gelesen hat. Dieselbe stille Sorte wie die toten
         # `getattr`-Namen, die Pruefung 195 findet.
         self._leiste_seite = 'top'
+        # Leiste unten → Erklärtexte immer über dem Zeiger, nie auf der
+        # Taskleiste. Gefragt wird bei jedem Hinweis, also gilt ein Umstellen
+        # der Leiste sofort.
+        notice.prefer_above(self.root,
+                            lambda: self._leiste_seite == 'bottom')
         # ⚠ Produktname aus `language.py` — siehe `root.title()` oben.
         titel_lbl = tk.Label(bar,
                              text='● %s v%s' % (language.t('hf_titel'),

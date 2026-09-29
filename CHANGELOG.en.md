@@ -14,6 +14,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   shops, server status, prices or the check for a new version. The result now
   arrives reliably, even while a dialog is open or the window is closing, and
   the error log stays free of "main thread is not in main loop"
+- **Tooltips cut off at the screen edge** — with the overlay bar at the
+  bottom, the button tooltips now always appear above the mouse pointer
+  instead of on the taskbar. At the right edge they move left, long texts
+  wrap. Reported by Aeternitas26 (KRT)
 
 ## v3.62.0 - 2026-09-29
 

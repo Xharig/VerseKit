@@ -26048,6 +26048,7 @@ def main():
     _pruefung_295()
     _pruefung_296()
     _pruefung_297()
+    _pruefung_298()
 
     print()
     if fehler:
@@ -30301,6 +30302,107 @@ def _pruefung_297():
                'ein Pledge-Export danach lässt Listen-Schiffe stehen')
     finally:
         shutil.rmtree(_ordner, ignore_errors=True)
+
+
+def _pruefung_298():
+    """298. Erklärtexte bleiben im Bild — auch am unteren rechten Rand.
+
+    Gemeldet von Aeternitas26 (29.09.2026): Das Overlay lag unten rechts am
+    Monitor, die Hinweise liefen rechts und unten aus dem Bild. Geprüft wird
+    die Rechnung (`notice.position`) UND dass das echte Hinweisfenster sie
+    benutzt — ein Bildschirm von 800×600, Mauszeiger in der Ecke."""
+    print('\n298. Erklärtexte bleiben im Bild')
+    from scbp import notice as _hw298, screen as _sc298
+    _flaeche = (0, 0, 800, 600)
+    pruefe(_hw298.position(100, 100, 200, 40, _flaeche)
+           == (100 + _hw298.OFFSET_X, 100 + _hw298.OFFSET_Y),
+           'mit Platz: wie bisher rechts unter dem Zeiger')
+    _x, _y = _hw298.position(790, 590, 200, 40, _flaeche)
+    pruefe(_x + 200 <= 800 and _y + 40 <= 600 and _y < 590,
+           'in der Ecke unten rechts: links davon und ÜBER dem Zeiger '
+           '(%d, %d)' % (_x, _y))
+    _x, _y = _hw298.position(1790, 1070, 200, 40, (1000, 500, 800, 600))
+    pruefe(1000 <= _x and _x + 200 <= 1800 and 500 <= _y and _y + 40 <= 1100,
+           'auch auf einem zweiten Bildschirm mit Versatz (%d, %d)' % (_x, _y))
+    # Leiste unten: IMMER über dem Zeiger — auch wenn unten Platz wäre (dort
+    # liegt die Taskleiste). Nur ganz oben am Rand geht es nicht anders.
+    _x, _y = _hw298.position(100, 300, 200, 40, _flaeche, above=True)
+    pruefe(_y + 40 <= 300, 'Leiste unten: über dem Zeiger, obwohl unten '
+           'Platz ist (%d, %d)' % (_x, _y))
+    _x, _y = _hw298.position(100, 10, 200, 40, _flaeche, above=True)
+    pruefe(_y > 10, 'Leiste unten, Zeiger ganz oben: dann doch darunter '
+           '(%d, %d)' % (_x, _y))
+
+    # ⚠ Gelesen wird, was das Programm SETZT — nicht `wm_geometry()` zurück:
+    # Ein unsichtbar gehaltenes Prüffenster meldet dort eine Lage weit
+    # außerhalb, und „liegt im Bild" wäre dann aus falschem Grund grün.
+    import tkinter as _tk298
+    _root = _wurzel()
+    _alt = _sc298.work_area
+    _alt_geo = _tk298.Toplevel.wm_geometry
+    _gesetzt = []
+
+    def _merken(selbst, neu=None):
+        if neu is not None:
+            _gesetzt.append(neu)
+        return _alt_geo(selbst, neu)
+
+    _sc298.work_area = lambda root, x, y: _flaeche
+    _tk298.Toplevel.wm_geometry = _merken
+    try:
+        _hw298._window.show(_root, 'Signatur anlernen — ein langer Hinweis, '
+                            'der am Rand nicht abgeschnitten werden darf',
+                            790, 590)
+        pruefe(bool(_gesetzt), 'das Hinweisfenster wurde gesetzt (%r)'
+               % _gesetzt)
+        _top = _hw298._window.top
+        _lage = (_gesetzt or ['+9999+9999'])[-1].split('+')
+        _x, _y = int(_lage[1]), int(_lage[2])
+        _b, _h = _top.winfo_reqwidth(), _top.winfo_reqheight()
+        pruefe(0 <= _x and _x + _b <= 800 and 0 <= _y and _y + _h <= 600,
+               'das echte Hinweisfenster liegt ganz im Bild (%d, %d, %d×%d)'
+               % (_x, _y, _b, _h))
+
+        # Ein Fenster, das „oben" angemeldet hat (wie das Overlay mit der
+        # Leiste unten) — und eines, das es nicht hat, als Gegenstück.
+        _oben = _tk298.Toplevel(_root)
+        _knopf = _tk298.Label(_oben, text='x')
+        _hw298.prefer_above(_oben, lambda: True)
+        _hw298._window.show(_knopf, 'Hinweis', 100, 300)
+        _y = int(_gesetzt[-1].split('+')[2])
+        pruefe(_y < 300, 'Overlay mit Leiste unten: der echte Hinweis steht '
+               'über dem Zeiger (y=%d)' % _y)
+        _hw298._window.show(_root, 'Hinweis', 100, 300)
+        _y = int(_gesetzt[-1].split('+')[2])
+        pruefe(_y > 300, 'andere Fenster: weiter unter dem Zeiger (y=%d)'
+               % _y)
+        _oben.destroy()
+
+        # Und das echte Overlay meldet sich an — je nach Leistenseite.
+        if ANZEIGE:
+            from scbp import paths as _pf298
+            _vorher = _pf298.setting('overlay_leiste')
+            _wz = _tk298.Tk()
+            _wz.withdraw()
+            try:
+                import sc_bp_watcher as _w298
+                _ov = _w298.Overlay(wurzel=_wz)
+                _ov.root.withdraw()
+                _seiten = []
+                for _wert in ('unten', 'oben'):
+                    _pf298.set_setting('overlay_leiste', _wert)
+                    _ov._leiste_ausrichten()
+                    _seiten.append(_hw298._wants_above(_ov.root))
+                pruefe(_seiten == [True, False],
+                       'Overlay: Leiste unten = Hinweise oben, Leiste oben = '
+                       'unten (%r)' % _seiten)
+            finally:
+                _pf298.set_setting('overlay_leiste', _vorher or '')
+                _wz.destroy()
+    finally:
+        _tk298.Toplevel.wm_geometry = _alt_geo
+        _sc298.work_area = _alt
+        _hw298._window.hide()
 
 
 if __name__ == '__main__':

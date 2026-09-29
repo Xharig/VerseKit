@@ -15,6 +15,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Version. Das Ergebnis kommt jetzt verlässlich an, auch wenn gerade ein
   Dialog offen ist oder das Fenster zugeht, und das Fehlerprotokoll bleibt
   frei von „main thread is not in main loop"
+- **Hinweise am Bildschirmrand abgeschnitten** — steht die Leiste des
+  Overlays unten, erscheinen die Erklärtexte der Knöpfe jetzt immer über dem
+  Mauszeiger statt auf der Taskleiste. Am rechten Rand rücken sie nach links,
+  lange Texte brechen um. Gemeldet von Aeternitas26 (KRT)
 
 ## v3.62.0 - 2026-09-29
 

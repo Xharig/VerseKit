@@ -61,10 +61,62 @@ import tkinter as tk
 
 DELAY_MS = 450               # bis der Hinweis kommt
 OFFSET_X, OFFSET_Y = 12, 22  # neben und unter dem Mauszeiger
+WRAP = 420                   # längere Texte brechen um, statt quer zu laufen
 
 BG     = '#1b1b1b'
 FG     = '#e8e8e8'
 BORDER = '#3a3a3a'
+
+
+# Fenster, deren Hinweise über dem Zeiger stehen sollen: je Fenster das
+# Fenster selbst und die Funktion, die sagt, ob gerade „oben" gilt.
+# ⚠ Nicht nach dem Tk-Pfad: Jede Tk-Wurzel heißt `.`, zwei Wurzeln (im
+# Selbsttest die Regel) wären sonst dasselbe Fenster.
+_ABOVE = {}
+
+
+def prefer_above(window, ask):
+    """Hinweise in diesem Fenster über den Zeiger setzen, solange `ask()` wahr ist.
+
+    ⚠⚠ Für das Overlay mit der Leiste **unten**. Dort gehören die Hinweise
+    immer nach oben, nicht erst, wenn unten der Platz ausgeht: Unter der
+    Leiste liegt meist die Taskleiste, und ein Hinweis darüber ist kaum zu
+    lesen — auch wenn er rechnerisch noch ins Bild passt.
+    """
+    _ABOVE[id(window)] = (window, ask)
+
+
+def _wants_above(widget):
+    try:
+        window, ask = _ABOVE.get(id(widget.winfo_toplevel()), (None, None))
+        return bool(window is widget.winfo_toplevel() and ask())
+    except Exception:
+        return False
+
+
+def position(pointer_x, pointer_y, width, height, area, above=False):
+    """Wohin der Hinweis kommt: neben den Mauszeiger, aber nie aus dem Bild.
+
+    ⚠ Bis v3.62.0 stand er immer rechts unter dem Zeiger. Wer das Overlay in
+    die untere rechte Ecke legt, bekam die Hinweise damit rechts und unten
+    abgeschnitten. Gemeldet von Aeternitas26 (29.09.2026).
+
+    Mit `above` (Leiste unten) steht er immer **über** dem Zeiger, sonst nur,
+    wenn unten kein Platz ist; ist rechts keiner, rückt er nach links an die
+    Kante. `area` ist (x, y, breite, hoehe) des Bildschirms unter dem Zeiger,
+    ohne Taskleiste.
+    """
+    sx, sy, sb, sh = area
+    x = pointer_x + OFFSET_X
+    y = pointer_y + OFFSET_Y
+    if x + width > sx + sb:
+        x = sx + sb - width
+    oben = pointer_y - OFFSET_Y // 2 - height
+    if above and oben >= sy:
+        y = oben
+    elif y + height > sy + sh:
+        y = oben
+    return max(sx, x), max(sy, y)
 
 
 class _Window:
@@ -74,7 +126,7 @@ class _Window:
         self.top = None
         self.label = None
 
-    def show(self, parent, text, x, y):
+    def show(self, parent, text, pointer_x, pointer_y):
         if not text:
             return
         try:
@@ -84,12 +136,22 @@ class _Window:
                 self.top.attributes('-topmost', True)
                 self.label = tk.Label(self.top, text=text, bg=BG, fg=FG,
                                       font=('Segoe UI', 9), justify='left',
-                                      padx=8, pady=4,
+                                      padx=8, pady=4, wraplength=WRAP,
                                       highlightbackground=BORDER,
                                       highlightthickness=1)
                 self.label.pack()
             else:
                 self.label.configure(text=text)
+            self.top.update_idletasks()
+            try:
+                from . import screen
+                area = screen.work_area(parent, pointer_x, pointer_y)
+            except Exception:
+                area = (0, 0, parent.winfo_screenwidth(),
+                        parent.winfo_screenheight())
+            x, y = position(pointer_x, pointer_y, self.top.winfo_reqwidth(),
+                            self.top.winfo_reqheight(), area,
+                            above=_wants_above(parent))
             self.top.wm_geometry('+%d+%d' % (x, y))
             self.top.deiconify()
         except tk.TclError:
@@ -140,8 +202,7 @@ def attach(widget, text):
         state['job'] = widget.after(
             DELAY_MS,
             lambda: _window.show(widget, get_text(),
-                                 event.x_root + OFFSET_X,
-                                 event.y_root + OFFSET_Y))
+                                 event.x_root, event.y_root))
 
     def cancel(event=None):
         if state['job'] is not None:

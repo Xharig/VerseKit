@@ -6803,7 +6803,7 @@ def _thanks(fenster, rahmen):
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
-             + t('s_dk_aeternitas_idee2'), ''),
+             + t('s_dk_aeternitas_idee2'), t('s_dk_aeternitas_bugs')),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),

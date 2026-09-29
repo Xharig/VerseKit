@@ -2690,6 +2690,14 @@ TEXTS = {
                               '**Farming with locations** — what you need to '
                               'farm and where it is, plus the places where '
                               'you get several materials at once.'),
+    's_dk_aeternitas_bugs':  ('**Hinweise liefen aus dem Bild**, wenn das Overlay '
+                              'unten rechts am Monitor liegt. Mit der Leiste unten '
+                              'stehen sie jetzt immer über dem Mauszeiger, nicht '
+                              'mehr auf der Taskleiste.',
+                              '**Tooltips ran off the screen** when the overlay '
+                              'sits in the bottom right corner of the monitor. '
+                              'With the bar at the bottom they now always appear '
+                              'above the mouse pointer, not on the taskbar.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '
