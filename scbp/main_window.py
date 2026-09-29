@@ -2156,7 +2156,7 @@ class MainWindow:
         self._update_state = [None]
         self.update_button = self._titlebar_button(
             bar, 'herunterladen', t('hf_update'), self._update_hint,
-            lambda: self.jump_to('ueber'))
+            self._update_click)
         self._update_tick()
         self.news_button = self._titlebar_button(bar, 'wasistneu', t('hf_wasistneu'),
                                           t('hf_hinweis_neu'), self._whats_new)
@@ -2201,6 +2201,45 @@ class MainWindow:
     def _update_hint(self):
         version = self._update_state[0]
         return t('hf_hinweis_update_da') % version if version else t('hf_hinweis_update')
+
+    def _update_click(self):
+        """Grün: nach Rückfrage gleich einspielen. Grau: „Update & Über" öffnen.
+
+        ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026). ⚠⚠ **Die Rückfrage ist
+        Pflicht, nicht Höflichkeit.** Das automatische Update wartet, solange
+        Star Citizen läuft — grün ist der Knopf deshalb fast nur **mitten im
+        Spiel**. Ein Fehlklick schlösse das Overlay ohne Vorwarnung. Zwei
+        gleichwertige Wege, Escape tut nichts (`ask_choice`).
+
+        Das Einspielen selbst ist derselbe Weg wie auf der Update-Seite
+        (`pages._fetch_version`) — kein zweiter Installationsablauf."""
+        version = self._update_state[0]
+        try:
+            from . import updater, auto_update, pages
+            if not version or updater.packaging() == 'quellcode':
+                self.jump_to('ueber')
+                return
+            playing = auto_update.game_running()
+            later_auto = playing and auto_update.enabled()
+            text = t('hf_update_frage_spiel' if playing
+                     else 'hf_update_frage') % version
+            if later_auto:
+                text += '\n\n' + t('hf_update_frage_danach')
+            choice = ask_choice(
+                self.root, t('hf_update_titel') % version, text,
+                t('hf_update_jetzt'),
+                t('hf_update_danach') if later_auto else t('hf_update_spaeter'))
+            if choice != 'a':
+                if choice == 'b' and later_auto:
+                    self.say(t('hf_update_danach_ok') % version)
+                return
+            # Derselbe Kanal wie beim Grünfärben (`updater._best_newer`).
+            with_prerelease = (updater._is_prerelease(self.version or '')
+                               or paths.setting_bool('vorabversionen', False))
+            pages._fetch_version(self, with_prerelease)
+        except Exception as ausnahme:
+            errors.record('main_window.update_klick', ausnahme)
+            self.jump_to('ueber')
 
     # Wie oft die Spielzeit oben nachgerechnet wird.
     # ⚠ Eine Minute ist die feinste Anzeige („3 h 14 min") — oefter zu rechnen

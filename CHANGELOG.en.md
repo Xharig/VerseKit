@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **The update button at the top now installs directly** — when it is green,
+  a click asks briefly and installs the new version right away. If Star
+  Citizen is running, you can pick "After the game" instead. Without a new
+  version it still leads to "Update & About". Suggested by Blackd0g84 (KRT)
+
 ## v3.62.4 - 2026-09-29
 
 > There is now an update button up in the title bar. When a new version is

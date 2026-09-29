@@ -26053,6 +26053,7 @@ def main():
     _pruefung_298()
     _pruefung_299()
     _pruefung_300()
+    _pruefung_301()
 
     print()
     if fehler:
@@ -30669,6 +30670,123 @@ def _pruefung_300():
                'ein Klick führt zu „Update & Über" (%r)' % _fe.current)
     finally:
         _up300._fetch = _alt_fetch
+        try:
+            if _fe is not None:
+                _fe.root.destroy()
+        except Exception:
+            pass
+        try:
+            _root.destroy()
+        except Exception:
+            pass
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_301():
+    """301. Grüner Update-Knopf installiert direkt — aber nie ohne Rückfrage.
+
+    ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026). Grün ist der Knopf fast nur
+    mitten im Spiel (das Auto-Update wartet dann); ein Fehlklick darf das
+    Overlay nicht schließen. Geprüft am echten Hauptfenster, mit
+    untergeschobener Rückfrage und untergeschobenem Einspielen — es wird
+    nichts geladen und nichts installiert."""
+    print('\n301. Grüner Update-Knopf: Rückfrage, dann einspielen')
+    from scbp import (updater as _up301, language as _sp301,
+                      auto_update as _au301, pages as _pg301,
+                      main_window as _mw301)
+    _sp301.set_language('de')
+    _heim = tempfile.mkdtemp(prefix='pruefung301-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _alt = (_up301._fetch, _up301.packaging, _au301.game_running,
+            _au301.enabled, _pg301._fetch_version, _mw301.ask_choice)
+    _fragen, _geholt = [], []
+    _lage = {'antwort': '', 'spiel': True, 'auto': True, 'art': 'exe'}
+
+    def _kein_netz(*_a, **_k):
+        raise RuntimeError('Pruefung 301: kein Netz')
+
+    def _frage(parent, titel, text, a, b):
+        _fragen.append((titel, text, a, b))
+        return _lage['antwort']
+    _up301._fetch = _kein_netz
+    _up301.packaging = lambda: _lage['art']
+    _au301.game_running = lambda: _lage['spiel']
+    _au301.enabled = lambda: _lage['auto']
+    _pg301._fetch_version = lambda f, vorab: _geholt.append(vorab)
+    _mw301.ask_choice = _frage
+    _root = _wurzel()
+    _fe = None
+    try:
+        _up301._cache_write({'geprueft': time.time(), 'freigaben': [
+            {'version': 'v99.1.0', 'vorab': False}]})
+        _fe = _mw301.MainWindow(_root, version='3.62.3')
+        _fe.root.update()
+        _fe._update_tick()
+        _z, _w = _fe.update_button.teile
+
+        def _klick():
+            _fe.current = None
+            _w.event_generate('<Button-1>')
+            _fe.root.update()
+
+        # Selbstprüfung der Falle: Der Klick MUSS die Rückfrage erreichen.
+        _klick()
+        pruefe(len(_fragen) == 1,
+               'grün + Klick: es wird zuerst gefragt (%d)' % len(_fragen))
+        pruefe(not _geholt, 'Rückfrage weggeklickt: nichts eingespielt (%r)'
+               % _geholt)
+        pruefe(_fragen and 'v99.1.0' in _fragen[-1][0],
+               'die Rückfrage nennt die Version (%r)'
+               % (_fragen[-1][0] if _fragen else None))
+        pruefe(_fragen and _fragen[-1][3] == _sp301.t('hf_update_danach'),
+               'Spiel läuft + Auto-Update an: zweiter Weg „Nach dem Spiel" (%r)'
+               % (_fragen[-1][3] if _fragen else None))
+
+        _lage['antwort'] = 'b'
+        _klick()
+        pruefe(not _geholt, '„Nach dem Spiel": nichts eingespielt (%r)' % _geholt)
+
+        _lage['antwort'] = 'a'
+        _klick()
+        pruefe(_geholt == [False],
+               '„Jetzt installieren": derselbe Weg wie die Update-Seite, '
+               'fertiger Kanal (%r)' % _geholt)
+
+        _geholt[:] = []
+        _lage.update(spiel=False, antwort='')
+        _klick()
+        pruefe(_fragen[-1][3] == _sp301.t('hf_update_spaeter') and not _geholt,
+               'ohne Spiel: „Später" statt „Nach dem Spiel" (%r)'
+               % _fragen[-1][3])
+
+        _lage.update(spiel=True, auto=False)
+        _klick()
+        pruefe(_fragen[-1][3] == _sp301.t('hf_update_spaeter'),
+               'Auto-Update aus: kein „Nach dem Spiel", das nie käme (%r)'
+               % _fragen[-1][3])
+
+        _anzahl = len(_fragen)
+        _lage['art'] = 'quellcode'
+        _klick()
+        pruefe(len(_fragen) == _anzahl and _fe.current == 'ueber',
+               'Quellcode-Start: keine Rückfrage, sondern „Update & Über" (%r)'
+               % _fe.current)
+
+        _lage['art'] = 'exe'
+        _up301._cache_write({'geprueft': time.time(), 'freigaben': []})
+        _fe._update_tick()
+        _klick()
+        pruefe(len(_fragen) == _anzahl and _fe.current == 'ueber',
+               'nichts Neues: keine Rückfrage, sondern „Update & Über" (%r)'
+               % _fe.current)
+    finally:
+        (_up301._fetch, _up301.packaging, _au301.game_running,
+         _au301.enabled, _pg301._fetch_version, _mw301.ask_choice) = _alt
         try:
             if _fe is not None:
                 _fe.root.destroy()

@@ -2742,10 +2742,14 @@ TEXTS = {
                               'above the mouse pointer, not on the taskbar.'),
     's_dk_blackdog_idee2':   ('**Update-Knopf oben in der Kopfzeile** — neben „Was '
                               'ist neu", und grün mit der Versionsnummer, sobald '
-                              'eine neue Fassung da ist.',
+                              'eine neue Fassung da ist. Ein Klick installiert '
+                              'sie gleich — mit Rückfrage, damit ein Fehlklick '
+                              'mitten im Spiel nichts schließt.',
                               '**Update button in the title bar** — next to '
                               '"What\'s new", and green with the version number as soon as '
-                              'a new version is out.'),
+                              'a new version is out. One click installs it right away — '
+                              'after asking first, so a stray click in the middle of a '
+                              'game closes nothing.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '
@@ -5473,6 +5477,26 @@ TEXTS = {
     'hf_wasistneu':      ('Was ist neu', "What's new"),
     'hf_update':         ('Update', 'Update'),
     'hf_update_da':      ('Update %s', 'Update %s'),
+    'hf_update_titel':   ('%s installieren?', 'Install %s?'),
+    'hf_update_frage':   ('VerseKit lädt %s, installiert es und startet danach '
+                          'von selbst neu.',
+                          'VerseKit downloads %s, installs it and then restarts '
+                          'on its own.'),
+    'hf_update_frage_spiel': ('Star Citizen läuft gerade. Für %s schließt sich '
+                              'VerseKit kurz und startet von selbst neu — das '
+                              'Spiel läuft weiter.',
+                              'Star Citizen is running. To install %s, VerseKit '
+                              'closes briefly and restarts on its own — the game '
+                              'keeps running.'),
+    'hf_update_frage_danach': ('„Nach dem Spiel" spielt es von selbst ein, '
+                               'sobald du Star Citizen beendest.',
+                               '"After the game" installs it on its own as soon '
+                               'as you quit Star Citizen.'),
+    'hf_update_jetzt':   ('Jetzt installieren', 'Install now'),
+    'hf_update_danach':  ('Nach dem Spiel', 'After the game'),
+    'hf_update_spaeter': ('Später', 'Later'),
+    'hf_update_danach_ok': ('%s kommt, sobald Star Citizen beendet ist.',
+                            '%s will be installed once Star Citizen is closed.'),
     # ⚠ Bewusst nicht „Was ist neu im Patch" — die beiden stünden dann
     # untereinander und ließen sich im Vorbeigehen verwechseln. Hier geht es
     # um das SPIEL, dort um das Werkzeug.
@@ -5974,8 +5998,8 @@ TEXTS = {
                           "What's new — the changes in this and earlier versions"),
     'hf_hinweis_update': ('Update & Über — nach einer neuen Version sehen und sie holen',
                           'Update & About — check for a new version and get it'),
-    'hf_hinweis_update_da': ('%s ist da — hier holen',
-                             '%s is available — get it here'),
+    'hf_hinweis_update_da': ('%s ist da — hier installieren',
+                             '%s is available — install it here'),
     'hf_schrift':        ('Schriftgröße', 'Text size'),
     'hf_schrift_hilfe':  ('Vergrößert Schrift, Symbole und Knöpfe in allen Fenstern, das Overlay eingeschlossen. '
                           'Mit dem Regler stufenlos, darunter passend zu deinem Bildschirm.',

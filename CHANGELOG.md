@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Der Update-Knopf oben installiert jetzt direkt** — ist er grün, fragt ein
+  Klick kurz nach und spielt die neue Version gleich ein. Läuft Star Citizen,
+  kannst du stattdessen „Nach dem Spiel" wählen. Ohne neue Version führt er
+  wie bisher zu „Update & Über". Vorschlag von Blackd0g84 (KRT)
+
 ## v3.62.4 - 2026-09-29
 
 > Oben in der Kopfzeile sitzt jetzt ein Update-Knopf. Gibt es eine neue
