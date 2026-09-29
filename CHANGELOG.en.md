@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.63.0 - 2026-09-29
+
+> The green update button in the title bar now does the whole job: one click,
+> a short question, and the new version is installed. If you are in the middle
+> of a game, pick "After the game" — VerseKit then updates itself as soon as
+> you quit.
+
 ### Improved
 
 - **The update button at the top now installs directly** — when it is green,

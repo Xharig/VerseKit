@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.63.0 - 2026-09-29
+
+> Der grüne Update-Knopf oben erledigt jetzt alles selbst: ein Klick, eine
+> kurze Rückfrage, und die neue Version ist drauf. Bist du gerade im Spiel,
+> wähl „Nach dem Spiel" — dann aktualisiert sich VerseKit, sobald du
+> Star Citizen beendest.
+
 ### Verbessert
 
 - **Der Update-Knopf oben installiert jetzt direkt** — ist er grün, fragt ein
