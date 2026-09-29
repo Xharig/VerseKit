@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Treibstoffdüsen hießen „Andockkragen"** — Bendix, Torrez, RN-7s und die
+  anderen stehen jetzt unter „Treibstoffdüse", wie im Spiel. Gemeldet von
+  Parsul (KRT)
+
 ## v3.62.2 - 2026-09-29
 
 > Verse-Kit fragt jetzt bei der Einrichtung, wo deine Daten liegen sollen —

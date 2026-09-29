@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Fuel nozzles were called "docking collars"** — Bendix, Torrez, RN-7s and
+  the others are now listed as "Fuel nozzle", as in the game. Reported by
+  Parsul (KRT)
+
 ## v3.62.2 - 2026-09-29
 
 > Verse-Kit now asks during setup where your data should live — and checks

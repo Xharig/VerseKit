@@ -2625,6 +2625,10 @@ TEXTS = {
                               'Windows kept locked. Since then the setup asks where '
                               'your data should live, and says so if nothing can '
                               'be saved there.'),
+    's_dk_parsul_bugs3':     ('**Die Treibstoffdüsen hießen „Andockkragen"** — so '
+                              'heißt nur ihr interner Typ im Spiel.',
+                              '**The fuel nozzles were called "docking collars"** — '
+                              'that is only their internal type in the game.'),
     's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
                               'seine Übersetzungen für dieses Werkzeug '
                               'freigegeben. Dazu drei Anstöße an einem '
@@ -3378,7 +3382,11 @@ TEXTS = {
     'kat_unter_salvage_modifier': ('Salvage-Modifikator', 'Salvage modifier'),
     'kat_unter_salvage_head':     ('Salvage-Kopf', 'Salvage head'),
     'kat_unter_tractor_beam':     ('Traktorstrahl', 'Tractor beam'),
-    'kat_unter_andockkragen':     ('Andockkragen', 'Docking collar'),
+    # ⚠ Der Spieltyp heißt `DockingCollar`, die Gegenstände sind aber
+    # Treibstoffdüsen (Bendix, Torrez, RN-7s … — „Typ (De): Treibstoffdüse" in
+    # der deutschen global.ini). Bis v3.62.2 stand hier „Andockkragen"
+    # (gemeldet von Parsul, 29.09.2026). Die Schlüssel bleiben.
+    'kat_unter_andockkragen':     ('Treibstoffdüse', 'Fuel nozzle'),
     'kat_unter_fuelnozzle':       ('Betankungsdüse', 'Fuel nozzle'),
     'kat_unter_frachtmodul':      ('Frachtmodul', 'Cargo module'),
     # Schiffsmodule
@@ -3651,7 +3659,7 @@ TEXTS = {
     's_uk_shield_generators': ('Schildgeneratoren', 'Shield generators'),
     's_uk_undersuits':   ('Unteranzüge', 'Undersuits'),
     's_uk_container':    ('Container', 'Containers'),
-    's_uk_docking_collars': ('Andockkragen', 'Docking collars'),
+    's_uk_docking_collars': ('Treibstoffdüsen', 'Fuel nozzles'),   # siehe kat_unter_andockkragen
     's_uk_external_fuel_tanks': ('Zusatztanks', 'External fuel tanks'),
     's_uk_fabricator':   ('Fabrikatoren', 'Fabricators'),
     's_uk_fuel_nozzle':  ('Betankungsdüsen', 'Fuel nozzles'),
@@ -6123,7 +6131,7 @@ TEXTS = {
     'art_SalvageModifier':      ('Salvage-Modifikator', 'Salvage modifier'),
     'art_SalvageHead':          ('Salvage-Kopf', 'Salvage head'),
     'art_TractorBeam':          ('Traktorstrahl', 'Tractor beam'),
-    'art_DockingCollar':        ('Andockkragen', 'Docking collar'),
+    'art_DockingCollar':        ('Treibstoffdüse', 'Fuel nozzle'),   # siehe kat_unter_andockkragen
     'art_Cooler':               ('Cooler', 'Cooler'),
     'art_Shield':               ('Schild', 'Shield'),
     'art_Radar':                ('Radar', 'Radar'),
