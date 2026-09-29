@@ -29543,43 +29543,114 @@ def _pruefung_292():
     wenn es eine neue Fassung GEFUNDEN hatte. Update-Hinweis und
     automatisches Update kamen nie an.
 
-    Geprüft wird per Syntaxbaum: Jede Funktion, die in `sc_bp_watcher.py` als
-    `threading.Thread(target=…)` startet, enthält keinen Aufruf von `.after(`
-    (auch nicht in ihren inneren Funktionen und Lambdas)."""
-    print('\n292. Nebenfäden im Overlay fassen Tk nicht an')
+    Geprüft wird per Syntaxbaum: Jede Funktion, die in `sc_bp_watcher.py`
+    oder `scbp/pages.py` als `threading.Thread(target=…)` startet (oder als
+    Lauscher per `.listen(…)` aus einem fremden Faden gerufen wird), enthält
+    keinen Aufruf von `.after(` — auch nicht in ihren inneren Funktionen und
+    Lambdas. Ausgenommen ist nur, was sie ausdrücklich an den Tk-Faden
+    übergibt (`_im_tk`, `_in_tk`, `_from_thread`, `_TK_CALLS.put`): Das läuft
+    dort, und dort ist `after` richtig.
+
+    In `pages.py` standen am 28.09.2026 noch 24 solche Stellen; der Prüflauf
+    `randpruefung.py` zeigte dieselben Tracebacks."""
+    print('\n292. Nebenfäden in Overlay und Seiten fassen Tk nicht an')
     import ast as _ast292
-    _quelle = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
-                      encoding='utf-8').read()
-    _baum = _ast292.parse(_quelle)
-    _funde, _ziele = [], 0
-    for _aussen in _ast292.walk(_baum):
-        if not isinstance(_aussen, (_ast292.FunctionDef,
-                                    _ast292.AsyncFunctionDef)):
-            continue
-        _innere = {k.name: k for k in _aussen.body
-                   if isinstance(k, _ast292.FunctionDef)}
-        for _aufruf in _ast292.walk(_aussen):
-            if not (isinstance(_aufruf, _ast292.Call)
-                    and getattr(_aufruf.func, 'attr', '') == 'Thread'):
+
+    _uebergabe = ('_im_tk', '_in_tk', '_from_thread')
+
+    def _uebergibt(_aufruf):
+        """Reicht dieser Aufruf etwas an den Tk-Faden weiter?"""
+        _f = _aufruf.func
+        _name = getattr(_f, 'attr', None) or getattr(_f, 'id', '')
+        if _name in _uebergabe:
+            return True
+        return (_name == 'put' and isinstance(getattr(_f, 'value', None),
+                                              _ast292.Name)
+                and _f.value.id == '_TK_CALLS')
+
+    def _afters(_ziel):
+        """Alle `.after(`-Aufrufe, die im Nebenfaden selbst laufen."""
+        _weiter = set()          # Namen und Lambdas, die Tk bekommt
+        for _k in _ast292.walk(_ziel):
+            if isinstance(_k, _ast292.Call) and _uebergibt(_k):
+                for _a in _k.args:
+                    if isinstance(_a, _ast292.Name):
+                        _weiter.add(_a.id)
+                    elif isinstance(_a, _ast292.Lambda):
+                        _weiter.add(id(_a))
+        _gefunden, _stapel = [], list(_ast292.iter_child_nodes(_ziel))
+        while _stapel:
+            _k = _stapel.pop()
+            if isinstance(_k, _ast292.FunctionDef) and _k.name in _weiter:
                 continue
-            for _kw in _aufruf.keywords:
-                if _kw.arg != 'target' or not isinstance(_kw.value,
-                                                         _ast292.Name):
+            if isinstance(_k, _ast292.Lambda) and id(_k) in _weiter:
+                continue
+            if (isinstance(_k, _ast292.Call)
+                    and getattr(_k.func, 'attr', '') == 'after'):
+                _gefunden.append(_k.lineno)
+            _stapel.extend(_ast292.iter_child_nodes(_k))
+        return _gefunden
+
+    def _pruefen(_quelle):
+        """(Zahl der Nebenfaden-Funktionen, Funde) für einen Quelltext."""
+        _baum = _ast292.parse(_quelle)
+        _funde, _ziele = [], 0
+        for _aussen in _ast292.walk(_baum):
+            if not isinstance(_aussen, (_ast292.FunctionDef,
+                                        _ast292.AsyncFunctionDef)):
+                continue
+            _innere = {k.name: k for k in _aussen.body
+                       if isinstance(k, _ast292.FunctionDef)}
+            for _aufruf in _ast292.walk(_aussen):
+                if not isinstance(_aufruf, _ast292.Call):
                     continue
-                _ziel = _innere.get(_kw.value.id)
-                if _ziel is None:
+                _art = getattr(_aufruf.func, 'attr', '')
+                if _art == 'Thread':
+                    _namen = [kw.value for kw in _aufruf.keywords
+                              if kw.arg == 'target']
+                elif _art == 'listen':
+                    _namen = _aufruf.args[:1]
+                else:
                     continue
-                _ziele += 1
-                for _k in _ast292.walk(_ziel):
-                    if (isinstance(_k, _ast292.Call)
-                            and getattr(_k.func, 'attr', '') == 'after'):
-                        _funde.append('%s.%s:%d' % (_aussen.name, _ziel.name,
-                                                    _k.lineno))
-    pruefe(_ziele >= 5,
-           'die Nebenfäden des Overlays sind gefunden (%d)' % _ziele)
-    pruefe(not _funde,
-           'keiner ruft `after` aus dem Nebenfaden (%s)'
-           % (', '.join(_funde) or 'keiner'))
+                for _n in _namen:
+                    if not isinstance(_n, _ast292.Name):
+                        continue
+                    _ziel = _innere.get(_n.id)
+                    if _ziel is None:
+                        continue
+                    _ziele += 1
+                    _funde += ['%s.%s:%d' % (_aussen.name, _ziel.name, z)
+                               for z in _afters(_ziel)]
+        return _ziele, _funde
+
+    # ⭐ Erst die Prüfung selbst: Ein Nebenfaden mit `after` MUSS auffallen,
+    # einer, der über die Schlange geht, darf es nicht.
+    _falsch = ('def seite(w):\n'
+               '    def arbeit():\n'
+               '        def fertig():\n'
+               '            w.after(500, fertig)\n'
+               '        w.after(0, fertig)\n'
+               '    threading.Thread(target=arbeit).start()\n')
+    _richtig = _falsch.replace('        w.after(0, fertig)',
+                               '        _TK_CALLS.put(fertig)')
+    # Zeile 4 zählt mit: `fertig` geht hier an `after`, nicht an den Tk-Faden.
+    pruefe(sorted(_pruefen(_falsch)[1]) == ['seite.arbeit:4',
+                                            'seite.arbeit:5'],
+           'die Prüfung erkennt `after` im Nebenfaden (Probe: %s)'
+           % _pruefen(_falsch)[1])
+    pruefe(_pruefen(_richtig) == (1, []),
+           'die Prüfung lässt die Übergabe an den Tk-Faden durch (Probe: %s)'
+           % (_pruefen(_richtig),))
+
+    for _datei, _mindestens in (('sc_bp_watcher.py', 5),
+                                (os.path.join('scbp', 'pages.py'), 20)):
+        _ziele, _funde = _pruefen(io.open(os.path.join(WURZEL, _datei),
+                                          encoding='utf-8').read())
+        pruefe(_ziele >= _mindestens,
+               '%s: die Nebenfäden sind gefunden (%d)' % (_datei, _ziele))
+        pruefe(not _funde,
+               '%s: keiner ruft `after` aus dem Nebenfaden (%s)'
+               % (_datei, ', '.join(_funde) or 'keiner'))
 
 
 def _pruefung_293():

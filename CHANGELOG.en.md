@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Pages loading in the background sometimes got stuck** — such as routes,
+  shops, server status, prices or the check for a new version. The result now
+  arrives reliably, even while a dialog is open or the window is closing, and
+  the error log stays free of "main thread is not in main loop"
+
 ## v3.62.0 - 2026-09-29
 
 > Your hangar can now come from other fleet tools too: Verse-Kit reads ship

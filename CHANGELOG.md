@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Seiten, die im Hintergrund nachladen, blieben manchmal stehen** — etwa
+  Routen, Läden, Serverstatus, Preise oder die Suche nach einer neuen
+  Version. Das Ergebnis kommt jetzt verlässlich an, auch wenn gerade ein
+  Dialog offen ist oder das Fenster zugeht, und das Fehlerprotokoll bleibt
+  frei von „main thread is not in main loop"
+
 ## v3.62.0 - 2026-09-29
 
 > Dein Hangar kommt jetzt auch aus anderen Flotten-Werkzeugen: Schiffslisten

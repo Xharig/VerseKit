@@ -4175,11 +4175,7 @@ def _contract_log(fenster, rahmen):
                 return
             # ⚠ Zurück in den Oberflächen-Faden; und nur zeichnen, wenn es die
             # Seite noch gibt.
-            try:
-                if rahmen.winfo_exists():
-                    rahmen.after(0, lambda: zeichnen(neu_laden=True))
-            except Exception:
-                pass
+            _from_thread(rahmen, lambda: zeichnen(neu_laden=True))
 
         threading.Thread(target=nachlesen, daemon=True).start()
 
@@ -5394,7 +5390,8 @@ def _check_now(fenster):
                                               force=True)
         except Exception as ausnahme:
             errors.record('pages.jetzt_nachsehen', ausnahme)
-            fenster.root.after(0, lambda: fenster.say(t('s_ub_sucht_fehler')))
+            _from_thread(fenster.root,
+                         lambda: fenster.say(t('s_ub_sucht_fehler')))
             return
 
         def melden():
@@ -5426,10 +5423,7 @@ def _check_now(fenster):
             else:
                 fenster.say(t('s_ub_aktuell'))
 
-        try:
-            fenster.root.after(0, melden)
-        except Exception:
-            pass
+        _from_thread(fenster.root, melden)
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -5497,10 +5491,7 @@ def _refresh_channels(fenster, kaesten, neu_zeichnen):
             except tk.TclError:
                 pass
 
-        try:
-            fenster.root.after(0, nachziehen)
-        except Exception:
-            pass
+        _from_thread(fenster.root, nachziehen)
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -5598,6 +5589,13 @@ _TK_POLLER = [None]
 
 def _start_tk_poller(root):
     """Die Warteschlange im Tk-Faden abarbeiten — je Fenster einmal starten."""
+    # ⚠ An der Tk-Wurzel, nicht am Hauptfenster: Das ist ein `Toplevel` über
+    # dem Overlay. Ginge es zu, stünde der Abholer still, und was Nebenfäden
+    # danach ablegen (der Signatur-Lauscher etwa), sammelte sich an.
+    try:
+        root = root._root()
+    except AttributeError:
+        pass
     if _TK_POLLER[0] is root:
         return
 
@@ -5622,6 +5620,27 @@ def _start_tk_poller(root):
         _TK_POLLER[0] = root
     except (tk.TclError, RuntimeError) as ausnahme:
         errors.record('pages.tk_poller', ausnahme)
+
+
+def _from_thread(widget, action):
+    """Aus einem Nebenfaden: `action` im Tk-Faden ausführen, solange `widget` lebt.
+
+    ⚠⚠ **Nie `widget.after(0, …)` aus einem Nebenfaden** (28.09.2026). Das
+    wirft `RuntimeError: main thread is not in main loop`, sobald der
+    Hauptfaden gerade nicht in `mainloop()` steckt — und dann kommt das
+    Ergebnis nie an. Der Weg geht über `_TK_CALLS`; Prüfung 292 bewacht das.
+
+    Ist `widget` inzwischen weg (Seite gewechselt, Fenster zu), passiert
+    nichts — so wie früher, als `after` an einem toten Widget still scheiterte.
+    """
+    def run():
+        try:
+            if not widget.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        action()
+    _TK_CALLS.put(run)
 
 
 def _in_tk(fenster, tat):
@@ -6092,16 +6111,10 @@ def _server_status(fenster, rahmen):
             except Exception as ausnahme:
                 errors.record('pages.serverstatus', ausnahme)
                 lage = None
-            try:
-                if lage is None:
-                    fenster.root.after(
-                        0, lambda: behaelter.winfo_exists()
-                        and fenster.say(t('s_st_fehler')))
-                else:
-                    fenster.root.after(
-                        0, lambda: behaelter.winfo_exists() and zeichnen(lage))
-            except (RuntimeError, tk.TclError):
-                pass          # Fenster ist weg — dann gibt es nichts zu zeigen
+            if lage is None:
+                _from_thread(behaelter, lambda: fenster.say(t('s_st_fehler')))
+            else:
+                _from_thread(behaelter, lambda: zeichnen(lage))
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -6140,13 +6153,9 @@ def _server_status(fenster, rahmen):
                 lage, veraendert = None, False
             # Dieselbe Absicherung wie oben: Der Takt läuft, während der Nutzer
             # das Fenster schliessen kann.
-            try:
-                if veraendert and lage:
-                    fenster.root.after(0, lambda: behaelter.winfo_exists()
-                                       and zeichnen(lage))
-                fenster.root.after(POLL_MS, takt)
-            except (RuntimeError, tk.TclError):
-                pass
+            if veraendert and lage:
+                _from_thread(behaelter, lambda: zeichnen(lage))
+            _from_thread(behaelter, lambda: fenster.root.after(POLL_MS, takt))
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -6247,7 +6256,7 @@ def _load_notices(fenster, raum, quelle):
         except Exception as ausnahme:
             errors.record('pages.serverstatus_meldungen', ausnahme)
             liste = []
-        fenster.root.after(0, lambda: einsetzen(liste))
+        _from_thread(fenster.root, lambda: einsetzen(liste))
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -7234,11 +7243,7 @@ def _account_rows(window, inner):
                             .get('quelle') in ('log', 'nachlese')]
             except Exception as error:
                 errors.record('pages.erkennung.fremd', error)
-            try:
-                if info.winfo_exists():
-                    info.after(0, lambda: show(affected))
-            except Exception:
-                pass
+            _from_thread(info, lambda: show(affected))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -8442,10 +8447,7 @@ def _routes(fenster, rahmen):
                                 % (fertig, gesamt))
                     except tk.TclError:
                         pass
-                try:
-                    ueberall_stand.after(0, zeigen)
-                except tk.TclError:
-                    pass
+                _TK_CALLS.put(zeigen)
             try:
                 routen_modul.fetch_all(progress=melden)
             except Exception as ausnahme:
@@ -8462,10 +8464,7 @@ def _routes(fenster, rahmen):
                         _zeichnen()
                 except tk.TclError:
                     pass
-            try:
-                ergebnis.after(0, fertig)
-            except tk.TclError:
-                zustand['laeuft'] = False
+            _TK_CALLS.put(fertig)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -8739,10 +8738,7 @@ def _routes(fenster, rahmen):
                         _zeichnen()
                 except tk.TclError:
                     pass
-            try:
-                ergebnis.after(0, fertig)
-            except tk.TclError:
-                zustand['laeuft'] = False
+            _TK_CALLS.put(fertig)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -8937,10 +8933,7 @@ def _routes(fenster, rahmen):
                         _werft_bauen()
                 except tk.TclError:
                     pass
-            try:
-                werft_rahmen.after(0, fertig)
-            except tk.TclError:
-                pass
+            _TK_CALLS.put(fertig)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -9517,10 +9510,7 @@ def _shops(fenster, rahmen):
                         _ergebnis_zeichnen()
                 except tk.TclError:
                     pass
-            try:
-                ergebnis_rahmen.after(0, fertig)
-            except tk.TclError:
-                laeuft['ja'] = False
+            _TK_CALLS.put(fertig)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -9727,16 +9717,10 @@ def _shops(fenster, rahmen):
                                 text=t('s_ld_katalog_stand') % (fertig, gesamt))
                     except tk.TclError:
                         pass
-                try:
-                    stand_zeile.after(0, zeigen)
-                except Exception:
-                    # ⚠⚠ **`Exception`, nicht nur `tk.TclError`.** Wird das
-                    # Fenster geschlossen, während dieser Faden noch lädt,
-                    # wirft Tk `RuntimeError: main thread is not in main
-                    # loop` — eine andere Ausnahme, die hier durchrutschte
-                    # und im Fehlerprotokoll des Nutzers landete. Beim
-                    # Abnahme-Durchlauf am 06.09.2026 gefunden.
-                    pass
+                # ⚠⚠ Nie `after` aus diesem Faden: Tk wirft dann `RuntimeError:
+                # main thread is not in main loop` (Abnahme-Durchlauf
+                # 06.09.2026, Prüflauf 28.09.2026). Siehe `_from_thread`.
+                _TK_CALLS.put(zeigen)
             try:
                 laden_modul.fetch_catalog(progress=melden)
             except Exception as ausnahme:
@@ -9763,10 +9747,7 @@ def _shops(fenster, rahmen):
                     _vorschlaege()
                 except tk.TclError:
                     pass
-            try:
-                stand_zeile.after(0, fertig)
-            except tk.TclError:
-                zustand_katalog['laeuft'] = False
+            _from_thread(stand_zeile, fertig)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -9920,10 +9901,7 @@ def _shop_row(fenster, eltern, bauplan):
                     zeigen()
             except tk.TclError:
                 pass
-        try:
-            lbl.after(0, nachtragen)
-        except tk.TclError:
-            pass
+        _TK_CALLS.put(nachtragen)
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -10005,10 +9983,7 @@ def _fetch_slots(widget, erzwingen=False, danach=None):
         if geholt and danach is not None:
             # ⚠ Zurück in den Oberflächen-Faden — Tk aus einem Thread heraus
             # anzufassen führt zu Abstürzen, die sich nicht nachstellen lassen.
-            try:
-                widget.after(0, danach)
-            except Exception:
-                pass
+            _from_thread(widget, danach)
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -11044,7 +11019,7 @@ def _salvage(fenster, rahmen):
 
         # ⚠ In einem eigenen Faden: Ein Schiff holen sind mehrere Abrufe, und
         # die Ladenpreise kommen einzeln nach. Tk verträgt keine Zugriffe aus
-        # fremden Fäden — zurück geht es über `after(0, …)`.
+        # fremden Fäden — zurück geht es über `_TK_CALLS`.
         def arbeit():
             try:
                 teile, gefunden = _load_salvage(name)
@@ -11061,10 +11036,7 @@ def _salvage(fenster, rahmen):
                 if gefunden:
                     bg.remember_ship(gefunden, name, teile)
                 _zeigen(name, teile)
-            try:
-                ergebnis.after(0, fertig)
-            except tk.TclError:
-                pass
+            _TK_CALLS.put(fertig)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -11222,7 +11194,7 @@ def _signature_scanner(window, parent, signature_var):
     show_area()
 
     def read_value(value):
-        # ⚠ Kommt aus dem Wach-Faden — Tk nur über `after` anfassen.
+        # ⚠ Kommt aus dem Wach-Faden — Tk nur über `_TK_CALLS` anfassen.
         if value is None:
             return
 
@@ -11237,10 +11209,7 @@ def _signature_scanner(window, parent, signature_var):
                 signature_var.set('{:,}'.format(value).replace(',', '.'))
             except tk.TclError:
                 signature_watch.unlisten(read_value)
-        try:
-            window.root.after(0, put)
-        except Exception:
-            signature_watch.unlisten(read_value)
+        _TK_CALLS.put(put)
 
     signature_watch.listen(read_value)
 
@@ -12551,10 +12520,7 @@ def _hangar(fenster, rahmen):
                         neu_zeichnen()
                 except tk.TclError:
                     pass
-            try:
-                liste_rahmen.after(0, zeigen)
-            except tk.TclError:
-                pass
+            _TK_CALLS.put(zeigen)
         threading.Thread(target=arbeit, daemon=True).start()
 
     _nachziehen_im_hintergrund()
@@ -13808,10 +13774,7 @@ def _fetch_buy_prices(posten, widget, neu_zeichnen):
             except Exception as ausnahme:
                 errors.record('pages.einkauf.preis', ausnahme)
         if geholt:
-            try:
-                widget.after(0, neu_zeichnen)
-            except Exception:
-                pass
+            _from_thread(widget, neu_zeichnen)
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -14205,10 +14168,7 @@ def _fetch_cart_prices(liste, widget, neu_zeichnen):
             # ⚠ Zurück in den Oberflächen-Faden. Tk aus einem Thread heraus
             # anzufassen ist der Weg in Abstürze, die sich nicht nachstellen
             # lassen.
-            try:
-                widget.after(0, neu_zeichnen)
-            except Exception:
-                pass
+            _from_thread(widget, neu_zeichnen)
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -16032,7 +15992,7 @@ def _selling(fenster, rahmen):
         spielt, sieht ein eingefrorenes Fenster nach Absturz aus.
 
         Dasselbe Muster wie beim Update-Knopf weiter oben: Arbeit im Thread,
-        Rückkehr über `root.after(0, …)`.
+        Rückkehr über `_TK_CALLS`.
         """
         if laeuft['ja']:
             return
@@ -16068,10 +16028,7 @@ def _selling(fenster, rahmen):
                 except Exception:
                     pass
 
-            try:
-                fenster.root.after(0, melden)
-            except Exception:
-                laeuft['ja'] = False
+            _TK_CALLS.put(melden)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -18786,10 +18743,7 @@ def _patch_changes(fenster, rahmen):
                         stand.configure(text=t('s_pa_keine_neuen'))
                 except tk.TclError:
                     pass
-            try:
-                stand.after(0, nachtragen)
-            except tk.TclError:
-                pass
+            _TK_CALLS.put(nachtragen)
 
         threading.Thread(target=arbeit, daemon=True).start()
 
