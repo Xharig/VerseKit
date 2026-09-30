@@ -182,7 +182,9 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 }
 .datei .sys{font-size:13px;letter-spacing:4px;text-transform:uppercase;color:var(--text-leise);font-weight:700}
 .datei h3{margin:8px 0 4px;font-size:22px;font-weight:800}
-.datei code{color:var(--neon);font-size:14px;word-break:break-all}
+/* ⚠ `display:block`: Sonst steht der Dateiname bei größerer Schrift oder
+   Zoom NEBEN dem Knopf statt darüber (gesehen bei 150 %, 30.09.2026). */
+.datei code{display:block;color:var(--neon);font-size:14px;word-break:break-all}
 .datei .knopf{margin-top:16px}
 /* Zeile unter den beiden Knoepfen: Fassungsnummer wird nachgetragen, sobald
    GitHub geantwortet hat — bleibt sie aus, steht dort einfach nichts. */
@@ -311,9 +313,9 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     </div>
     <p class="anderes" id="anderes" hidden><a href="#laden" id="anderes-link"></a></p>
     <p class="klein"
-       data-de="Kostenlos und quelloffen unter GPL-3.0. Eine Datei laden, starten, fertig."
-       data-en="Free and open source under GPL-3.0. Download one file, run it, done.">
-      Kostenlos und quelloffen unter GPL-3.0. Eine Datei laden, starten, fertig.
+       data-de="Kostenlos und quelloffen unter GPL-3.0. Herunterladen, starten, fertig."
+       data-en="Free and open source under GPL-3.0. Download, run, done.">
+      Kostenlos und quelloffen unter GPL-3.0. Herunterladen, starten, fertig.
     </p>
     <p class="zahl" id="downloads" hidden><strong id="downloads-zahl"></strong>Downloads</p>
 
@@ -415,11 +417,11 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
   <div class="kreis c"></div>
   <div class="mitte">
     <div class="label" data-de="Herunterladen" data-en="Download">Herunterladen</div>
-    <h2 data-de="Eine Datei, kein Aufbau" data-en="One file, no setup">Eine Datei, kein Aufbau</h2>
+    <h2 data-de="Herunterladen, starten, spielen" data-en="Download, launch, play">Herunterladen, starten, spielen</h2>
     <p class="einleitung"
-       data-de="Kein Python, keine Installation drumherum. Neue Versionen meldet das Programm selbst und spielt sie auf Knopfdruck ein."
-       data-en="No Python, no installer circus. The program tells you about new versions itself and installs them at the push of a button.">
-      Kein Python, keine Installation drumherum. Neue Versionen meldet das Programm selbst und spielt sie auf Knopfdruck ein.
+       data-de="Unter Windows ein Installer, unter Linux eine einzelne Datei — kein Python, nichts zusammenzubauen. Neue Versionen meldet das Programm selbst und spielt sie auf Knopfdruck ein."
+       data-en="An installer on Windows, a single file on Linux — no Python, nothing to put together. The program tells you about new versions itself and installs them at the push of a button.">
+      Unter Windows ein Installer, unter Linux eine einzelne Datei — kein Python, nichts zusammenzubauen. Neue Versionen meldet das Programm selbst und spielt sie auf Knopfdruck ein.
     </p>
 
     <div class="dateien">
