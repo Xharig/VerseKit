@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Racks und Lackierungen tauschen** — unter *Mein Hangar → Ausstattung*
+  lassen sich Raketen-, Torpedo- und Bomben-Racks sowie Lackierungen wählen,
+  und zwar nur die, die wirklich an dein Schiff passen. Nach einem Rack-Tausch
+  stehen dessen Plätze darunter — an der Eclipse etwa 20 Bomben statt
+  3 Torpedos.
+
+### Behoben
+
+- **Leere Auswahl bei Torpedos und Raketen in eingebauten Racks** — dort stehen
+  jetzt die passenden Torpedos und Raketen zur Wahl.
+
 ## v3.63.1 - 2026-09-30
 
 > Wer mit hoher Auflösung spielt, hat es gemerkt: Der Signatur-Scanner kam

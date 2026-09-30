@@ -26055,6 +26055,7 @@ def main():
     _pruefung_300()
     _pruefung_301()
     _pruefung_302()
+    _pruefung_303()
 
     print()
     if fehler:
@@ -30878,6 +30879,155 @@ def _pruefung_301():
             _root.destroy()
         except Exception:
             pass
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_303():
+    """303. Racks, Raketen, Bomben, Lackierungen: Auswahl nach der Spielregel.
+
+    ⚠⚠ **Warum es diese Prüfung gibt.** Am Torpedoplatz der Eclipse ließ sich
+    kein Bomben-Rack wählen, bei erkul schon (gemeldet 30.09.2026), und
+    Lackierungen ließen sich an keinem Schiff ändern. Die Auswahl kannte nur
+    Art und Größe — Racks und Lacke hängen aber an Kennzeichnungen und stehen
+    in keinem Laden. Geprüft wird die **Wirkung** an selbst gebauten Daten,
+    ohne Netz:
+
+    - ein Rack eines anderen Schiffs (gleiche Art, gleiche Größe) fehlt;
+    - der Bomben-Rack der Größe 3 im Platz der Größe 10 steht zur Wahl;
+    - die Plätze im Werks-Rack wissen, was sie annehmen;
+    - ein Rack-Tausch ersetzt die Plätze darunter und verwirft deren alte Wahl;
+    - gleichnamige Varianten stehen nur einmal da, mit der Werks-Kennung.
+    """
+    print('\n303. Rack- und Lackauswahl nach Kennzeichnung, Rack-Tausch')
+    from scbp import erkul as _ek303, cart as _wk303, shops as _sh303
+    _heim = tempfile.mkdtemp(prefix='pruefung303-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _alt = (_ek303.parts, _sh303.catalog_items, _wk303._craftable)
+
+    def _rack(ref, name, typ, sub, groesse, tag, plaetze=(), werk=None):
+        teil = {'ref': ref, 'name': name, 'typ': typ, 'untertyp': sub,
+                'groesse': groesse, 'tags': [tag], 'verlangt': [tag]}
+        if plaetze:
+            teil['plaetze'] = list(plaetze)
+            teil['werk'] = werk or {}
+        return teil
+
+    def _port(name, art, sub, groesse):
+        return {'name': name, 'passt': {'typen': [[art, [sub]]],
+                                        'min': groesse, 'max': groesse,
+                                        'porttags': [], 'verlangt': []}}
+
+    _bomben = [_port('missile_%02d_attach' % i, 'Bomb', 'Utility', 3)
+               for i in range(1, 21)]
+    _torpedos = [_port('missile_%02d_attach' % i, 'Missile', 'Torpedo', 9)
+                 for i in range(1, 4)]
+    _teile = {}
+    for _t in (
+            _rack('torp', 'Eclipse Torpedo Rack', 'MissileLauncher',
+                  'MissileRack', 9, 'Eclipse_BombRack', _torpedos,
+                  {'missile_01_attach': {'ref': 'argos', 'name': 'Argos'}}),
+            _rack('bomb3', 'Eclipse 20xS3 Bomb Rack', 'BombLauncher',
+                  'BombRack', 3, 'Eclipse_BombRack', _bomben,
+                  dict(('missile_%02d_attach' % i,
+                        {'ref': 'thunder', 'name': 'Thunderball'})
+                       for i in range(1, 21))),
+            # Gleiche Art, gleiche Größe — aber für ein anderes Schiff.
+            _rack('fremd', 'Retaliator Torpedo Rack', 'MissileLauncher',
+                  'MissileRack', 10, 'Retaliator_Rack'),
+            # Zweite Kennung mit demselben Namen wie das Werks-Rack.
+            # ⚠ Absichtlich alphabetisch VOR `torp` — sonst gewänne die
+            # Werks-Kennung schon durch die Sortierung, und die Prüfung
+            # bewiese nichts.
+            _rack('a-variante', 'Eclipse Torpedo Rack', 'MissileLauncher',
+                  'MissileRack', 9, 'Eclipse_BombRack'),
+            {'ref': 'argos', 'name': 'Argos', 'typ': 'Missile',
+             'untertyp': 'Torpedo', 'groesse': 9, 'tags': [], 'verlangt': []},
+            {'ref': 'thunder', 'name': 'Thunderball', 'typ': 'Bomb',
+             'untertyp': 'Utility', 'groesse': 3, 'tags': [], 'verlangt': []},
+            {'ref': 'lack-e', 'name': 'Eclipse Livery', 'typ': 'Paints',
+             'untertyp': '', 'groesse': 1, 'tags': ['Paint_Eclipse'],
+             'verlangt': ['Paint_Eclipse']},
+            {'ref': 'lack-c', 'name': 'Cutlass Livery', 'typ': 'Paints',
+             'untertyp': '', 'groesse': 1, 'tags': ['Paint_Cutlass'],
+             'verlangt': ['Paint_Cutlass']}):
+        _teile[_t['ref']] = _t
+
+    _platz = {'pfad': 'hp_rack', 'art': 'MissileLauncher', 'groesse': 10,
+              'werk': {'ref': 'torp', 'name': 'Eclipse Torpedo Rack'},
+              'passt': {'typen': [['MissileLauncher', ['MissileRack']],
+                                  ['BombLauncher', ['BombRack']]],
+                        'min': 3, 'max': 10,
+                        'porttags': ['Eclipse_BombRack'],
+                        'verlangt': ['Eclipse_BombRack']}}
+    _lackplatz = {'pfad': 'hp_paint', 'art': 'Paints', 'groesse': 1,
+                  'passt': {'typen': [['Paints', []]], 'min': 1, 'max': 1,
+                            'porttags': ['Paint_Eclipse'],
+                            'verlangt': ['Paint_Eclipse']}}
+    # ⚠ Die Plätze im Werks-Rack kommen wie bei erkul OHNE `passt`.
+    _plaetze = [_platz] + [
+        {'pfad': 'hp_rack/missile_%02d_attach' % i, 'art': 'Missile',
+         'groesse': 9, 'werk': {'ref': 'argos', 'name': 'Argos'}}
+        for i in range(1, 4)] + [_lackplatz]
+    try:
+        _ek303.parts = lambda: _teile
+        _sh303.catalog_items = lambda: []
+        _wk303._craftable = lambda art, groesse: {}
+
+        _wahl = _wk303.choices('MissileLauncher', 10, _platz)
+        _namen = [x['name'] for x in _wahl]
+        pruefe('Retaliator Torpedo Rack' not in _namen,
+               'das Rack eines anderen Schiffs steht nicht zur Wahl (%r)'
+               % _namen)
+        pruefe('Eclipse 20xS3 Bomb Rack' in _namen,
+               'der Bomben-Rack der Größe 3 passt in den Platz der Größe 10 '
+               '(%r)' % _namen)
+        _torp = [x for x in _wahl if x['name'] == 'Eclipse Torpedo Rack']
+        pruefe(len(_torp) == 1 and _torp[0]['kennung'] == 'torp',
+               'gleichnamige Varianten stehen einmal da, mit der '
+               'Werks-Kennung (%r)' % _torp)
+        _lacke = [x['name'] for x in _wk303.choices('Paints', 1, _lackplatz)]
+        pruefe(_lacke == ['Eclipse Livery'],
+               'nur die Lackierung dieses Schiffs steht zur Wahl (%r)'
+               % _lacke)
+
+        _werk = _ek303.with_choices(_plaetze, {})
+        _kinder = [s for s in _werk if s['pfad'].startswith('hp_rack/')]
+        pruefe(len(_kinder) == 3 and all(s.get('passt') for s in _kinder),
+               'die Plätze im Werks-Rack wissen, was sie annehmen (%r)'
+               % [bool(s.get('passt')) for s in _kinder])
+        _tw = [x['name'] for x in _wk303.choices('Missile', 9, _kinder[0])]
+        pruefe(_tw == ['Argos'],
+               'der Torpedoplatz im Werks-Rack bietet Torpedos an (%r)' % _tw)
+
+        _schiff = {'name': 'Eclipse',
+                   'belegung': {'hp_rack/missile_01_attach':
+                                {'ref': 'argos', 'name': 'Argos'}}}
+        _wk303.set_part(_schiff, 'hp_rack', 'bomb3', 'Eclipse 20xS3 Bomb Rack')
+        pruefe(sorted(_schiff['belegung']) == ['hp_rack'],
+               'ein Rack-Tausch verwirft die alte Wahl darunter (%r)'
+               % sorted(_schiff['belegung']))
+        _neu = _ek303.with_choices(_plaetze, _wk303.loadout(_schiff))
+        _kinder = [s for s in _neu if s['pfad'].startswith('hp_rack/')]
+        pruefe(len(_kinder) == 20
+               and all(s['art'] == 'Bomb' and s['groesse'] == 3
+                       for s in _kinder)
+               and (_kinder[0].get('werk') or {}).get('ref') == 'thunder',
+               'nach dem Tausch stehen die Plätze des neuen Racks da '
+               '(%d, %r)' % (len(_kinder), _kinder[:1]))
+        _wk303.clear_part(_schiff, 'hp_rack')
+        _zurueck = [s for s in _ek303.with_choices(
+            _plaetze, _wk303.loadout(_schiff))
+            if s['pfad'].startswith('hp_rack/')]
+        pruefe(len(_zurueck) == 3,
+               'zurückgesetzt stehen wieder die Werksplätze da (%d)'
+               % len(_zurueck))
+    finally:
+        _ek303.parts, _sh303.catalog_items, _wk303._craftable = _alt
         if _alt_home is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

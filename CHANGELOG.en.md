@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Swap racks and paints** — under *My hangar → Loadout* you can now pick
+  missile, torpedo and bomb racks as well as paints, and only the ones that
+  actually fit your ship. After a rack swap its own slots show up below it —
+  on the Eclipse, for example, 20 bombs instead of 3 torpedoes.
+
+### Fixed
+
+- **Empty choice for torpedoes and missiles in built-in racks** — the matching
+  torpedoes and missiles are now listed there.
+
 ## v3.63.1 - 2026-09-30
 
 > If you play at a high resolution, you may have noticed: the signature

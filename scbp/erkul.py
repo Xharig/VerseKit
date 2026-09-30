@@ -113,7 +113,11 @@ CACHE = 'erkul-schiffe.json'
 # lässt sich weder eine Auslegung speichern noch sagen, was am Schiff *nicht*
 # ab Werk verbaut ist — „zwei Kühlerplätze Größe 2" nennt keinen Platz, dem
 # sich ein Teil zuordnen ließe.
-FORMAT = 3
+#
+# ⚠ 4 seit 30.09.2026: Jeder Platz trägt zusätzlich `passt` (siehe
+# `_constraints`). Ein alter Stand ohne das Feld wird dadurch einmal neu geholt
+# — sonst bliebe die Rack- und Lackauswahl bis zum nächsten Patch leer.
+FORMAT = 4
 
 # Notfrist. Maßgeblich ist die Spielversion aus `catalog.bin` — diese Frist
 # greift nur, falls sich die gar nicht ermitteln lässt.
@@ -186,6 +190,230 @@ INTERESTING = frozenset((
 # zweite falsch.
 SWAPPABLE = frozenset(INTERESTING | {'Battery', 'Avionics',
                                      'GravityGenerator'})
+
+
+# ⭐⭐ **Teile, die an Kennzeichnungen hängen statt nur an Art und Größe.**
+#
+# Racks, Raketen, Bomben und Lackierungen passen nicht „in jeden Platz der
+# Größe 10", sondern nur dorthin, wo die Kennzeichnungen stimmen. Beim
+# Torpedoplatz der Eclipse (gemeldet 30.09.2026: „ich kann keine Bombracks
+# auswählen, bei erkul gibt's die"):
+#
+#     Platz:  accepts MissileLauncher/MissileRack + BombLauncher/BombRack,
+#             minSize 3 … maxSize 10, portTags [Eclipse_BombRack],
+#             requiredTags [$Eclipse_BombRack]
+#     Rack:   tags [Eclipse_BombRack], requiredTags [Eclipse_BombRack]
+#
+# Nach Art und Größe allein passen **126** der 160 Racks — nach der Regel in
+# `fits_slot` genau die **4**, die auch erkul anbietet. Die Größe allein hätte
+# obendrein die Bomben-Racks verloren: Der 20×S3-Rack ist ein Teil der Größe 3
+# in einem Platz der Größe 10.
+#
+# Diese Teile stehen weder bei UEX im Laden noch unter den Bauplänen — ohne
+# erkul bleibt die Auswahl leer. Deshalb eine eigene, kleine Ablage.
+PART_FAMILIES = ('missileracks', 'rocketpods', 'missiles', 'bombs', 'paints')
+PART_KINDS = frozenset(('MissileLauncher', 'BombLauncher', 'Missile', 'Bomb',
+                        'Paints'))
+PARTS_CACHE = 'erkul-teile.json'
+PARTS_FORMAT = 1
+
+_parts_store = uex.Store(PARTS_CACHE, format_no=PARTS_FORMAT,
+                         shelf_life=SHELF_LIFE, patch_bound=True)
+
+
+def _constraints(desc):
+    """Was ein Platz annimmt, in Ablageform — oder `None`.
+
+    `typen` sind Paare `[Art, [Untertypen]]` (leere Liste = jeder Untertyp).
+    `verlangt` sind die Kennzeichnungen, die ein Teil **tragen** muss; erkul
+    schreibt sie mit führendem `$`, das gehört nicht zum Namen.
+    """
+    if not isinstance(desc, dict):
+        return None
+    takes = []
+    for node in (desc.get('accepts') or []):
+        if isinstance(node, dict) and node.get('type'):
+            takes.append([node['type'], list(node.get('subTypes') or [])])
+    if not takes:
+        return None
+    return {'typen': takes,
+            'min': desc.get('minSize'), 'max': desc.get('maxSize'),
+            'porttags': list(desc.get('portTags') or []),
+            'verlangt': [str(x).lstrip('$')
+                         for x in (desc.get('requiredTags') or [])]}
+
+
+def fits_slot(passt, part):
+    """Passt dieses Teil in diesen Platz? Dieselbe Regel wie im Spiel.
+
+    Vier Bedingungen, alle müssen stimmen:
+
+    1. Art und Untertyp stehen in der Liste des Platzes.
+    2. Die Größe des Teils liegt zwischen `min` und `max` des Platzes — nicht
+       „gleich der Platzgröße" (siehe oben: Bomben-Rack S3 im Platz S10).
+    3. Was das **Teil** verlangt, bietet der Platz (`requiredTags` ⊆ `portTags`).
+    4. Was der **Platz** verlangt, trägt das Teil (`requiredTags` ⊆ `tags`).
+
+    ⚠ Ohne 3 und 4 stünden am Torpedoplatz der Eclipse die Racks jedes anderen
+    Schiffs zur Wahl — 126 statt 4.
+    """
+    if not passt or not part:
+        return False
+    kind, sub = part.get('typ') or '', part.get('untertyp') or ''
+    if not any(t == kind and (not subs or sub in subs)
+               for t, subs in (passt.get('typen') or [])):
+        return False
+    size = part.get('groesse')
+    try:
+        size = int(size) if size is not None else None
+    except (TypeError, ValueError):
+        size = None
+    if size is not None:
+        low, high = passt.get('min'), passt.get('max')
+        if low is not None and size < int(low):
+            return False
+        if high is not None and size > int(high):
+            return False
+    if not set(part.get('verlangt') or []) <= set(passt.get('porttags') or []):
+        return False
+    if not set(passt.get('verlangt') or []) <= set(part.get('tags') or []):
+        return False
+    return True
+
+
+def _part_name(raw):
+    return ((raw.get('i18n') or {}).get('name') or raw.get('className') or '')
+
+
+def _slim_part(raw):
+    """Ein Teil aus einer erkul-Familie auf das Nötige eindampfen — oder `None`.
+
+    Ein Rack bringt seine **eigenen** Plätze mit (`plaetze`) und was ab Werk
+    darin steckt (`werk`, Platzname → Teil). Genau daraus entstehen nach einem
+    Rack-Tausch die neuen Plätze darunter: aus 3 × Torpedo S9 werden
+    20 × Bombe S3.
+    """
+    if not isinstance(raw, dict) or not raw.get('ref'):
+        return None
+    part = {'ref': raw['ref'], 'name': _part_name(raw),
+            'typ': raw.get('type') or '', 'untertyp': raw.get('subType') or '',
+            'groesse': raw.get('size'),
+            'tags': list(raw.get('tags') or []),
+            'verlangt': list(raw.get('requiredTags') or []),
+            'guete': raw.get('grade') or ''}
+    ports = []
+    for port in (raw.get('ports') or []):
+        if not isinstance(port, dict) or not port.get('name'):
+            continue
+        if any(((port.get('flags') or {}).get(f)) for f in HIDDEN):
+            continue
+        passt = _constraints(port)
+        if passt and any(t in SWAPPABLE for t, _ in passt['typen']):
+            ports.append({'name': port['name'], 'passt': passt})
+    if ports:
+        stock = {}
+        for slot in (raw.get('slots') or []):
+            item = slot.get('item') if isinstance(slot, dict) else None
+            if (isinstance(item, dict) and item.get('ref')
+                    and slot.get('portName')):
+                stock[slot['portName']] = {'ref': item['ref'],
+                                           'name': _part_name(item)}
+        part['plaetze'] = ports
+        part['werk'] = stock
+    return part
+
+
+def _refresh_parts(cat):
+    """Die Teilelisten holen, wenn der Patch neu ist. Wirft nie.
+
+    ⚠ Gespeichert wird nur, wenn **alle** Familien kamen. Eine halbe Ablage
+    sähe aus wie eine vollständige, und dann fehlten still die Lackierungen.
+    """
+    version = (cat or {}).get('dataVersion') or ''
+    if not version or _parts_store.load().get('spielversion') == version:
+        return
+    wanted = dict((f.get('kind'), f.get('path'))
+                  for f in (cat.get('families') or []) if isinstance(f, dict))
+    parts = {}
+    for family in PART_FAMILIES:
+        path = wanted.get(family)
+        if not path:
+            continue
+        raw = _fetch('%s/%s' % (BRANCH, path), 'teile')
+        if not isinstance(raw, list):
+            return
+        for item in raw:
+            one = _slim_part(item)
+            if one:
+                parts[one['ref']] = one
+    if parts:
+        _parts_store.save({'spielversion': version, 'teile': parts})
+
+
+def parts():
+    """Alle abgelegten Teile mit Kennzeichnungen: Kennung → Teil. Ohne Netz."""
+    return _parts_store.load().get('teile') or {}
+
+
+def compatible(slot):
+    """Welche abgelegten Teile in diesen Platz passen — nach `fits_slot`."""
+    passt = (slot or {}).get('passt')
+    if not passt:
+        return []
+    return [p for p in parts().values() if fits_slot(passt, p)]
+
+
+def with_choices(slots, chosen):
+    """Die Platzliste nach den eigenen Rack-Wechseln.
+
+    ⚠⚠ **Ein anderes Rack bringt andere Plätze.** Tauscht jemand an der
+    Eclipse das Torpedo-Rack gegen den 20×S3-Bomben-Rack, gibt es danach
+    keine drei Torpedoplätze mehr, sondern zwanzig Bombenplätze. Die Plätze
+    unter dem Rack werden deshalb durch die des gewählten Racks ersetzt,
+    samt dessen Werksbestückung. Anzeige **und** Warenkorb lesen diese
+    Liste — sonst rechnete der Warenkorb mit Torpedos, die gar nicht mehr
+    drin sind.
+    """
+    chosen = chosen or {}
+    index = parts()
+    if not index:
+        return slots
+    out, gone, racks = [], [], {}
+    for slot in slots:
+        path = slot.get('pfad') or ''
+        if any(path.startswith(prefix) for prefix in gone):
+            continue
+        # ⚠⚠ **Auch die Plätze im Werks-Rack brauchen `passt`.** erkul führt
+        # sie am Rack, nicht am Schiff — bei den drei Torpedoplätzen der
+        # Eclipse fehlte die Angabe deshalb, und ihre Auswahl blieb leer. Sie
+        # kommt hier aus den Rack-Daten, über den Platznamen.
+        parent, _, own = path.rpartition('/')
+        if not slot.get('passt') and parent in racks:
+            port = next((p for p in racks[parent].get('plaetze') or []
+                         if p.get('name') == own), None)
+            if port:
+                slot = dict(slot, passt=port['passt'])
+        out.append(slot)
+        pick = (chosen.get(path) or {}).get('ref')
+        stock = (slot.get('werk') or {}).get('ref')
+        rack = index.get(pick or stock) or {}
+        if not rack.get('plaetze'):
+            continue
+        racks[path] = rack
+        if not pick or pick == stock:
+            continue
+        prefix = path + '/'
+        gone.append(prefix)
+        for port in rack['plaetze']:
+            passt = port['passt']
+            kind = next((t for t, _ in passt['typen'] if t in SWAPPABLE), '')
+            child = {'pfad': prefix + port['name'], 'art': kind,
+                     'groesse': passt.get('max'), 'passt': passt}
+            stock = (rack.get('werk') or {}).get(port['name'])
+            if stock:
+                child['werk'] = dict(stock)
+            out.append(child)
+    return out
 
 
 def _fetch(path, where):
@@ -649,6 +877,11 @@ def _one_hardpoint(slot, hp_index, path):
         size = None
 
     entry = {'pfad': path, 'art': kind, 'groesse': size}
+    # ⭐ Was der Platz annimmt — für Racks, Raketen, Bomben und Lackierungen
+    # entscheidet das statt der bloßen Größe. Siehe `fits_slot`.
+    passt = _constraints(desc)
+    if passt:
+        entry['passt'] = passt
     if part is not None and part.get('ref'):
         # ⚠⚠ **Die Kennung ist das Entscheidende, nicht der Name.** `ref` ist
         # dieselbe Entitäts-Kennung wie bei UEX und scmdb — nur über sie hängt
@@ -752,6 +985,9 @@ def add_missing(rows):
     cat = ship_catalog()
     if not isinstance(cat, dict):
         return 0
+    # Die Teilelisten hängen am selben Katalog und am selben Patch — ein
+    # Abruf, wenn sich der Spielstand geändert hat, sonst keiner.
+    _refresh_parts(cat)
     version = cat.get('dataVersion') or ''
     data = load()
     # ⚠ Neuer Patch → alles Alte gilt nicht mehr. Steckplätze ändern sich mit
@@ -828,8 +1064,11 @@ def slot_counts(name, maker='', short='', maker_short=''):
     return ((load().get('schiffe') or {}).get(key) or {}).get('plaetze') or []
 
 
-def hardpoints(name, maker='', short='', maker_short=''):
+def hardpoints(name, maker='', short='', maker_short='', chosen=None):
     """Die **einzelnen** tauschbaren Steckplätze eines Schiffs.
+
+    Mit `chosen` (die eigene Auslegung, `cart.loadout()`) kommen nach einem
+    Rack-Wechsel die Plätze des gewählten Racks zurück — siehe `with_choices`.
 
     Je Eintrag `pfad`, `art`, `groesse` und — wenn ab Werk etwas darinsteckt —
     `werk` mit `ref` und `name`. Leere Liste heißt „keine Daten"; ob das Schiff
@@ -843,7 +1082,9 @@ def hardpoints(name, maker='', short='', maker_short=''):
     if not key:
         return []
     entry = (load().get('schiffe') or {}).get(key) or {}
-    return entry.get('slots') or []
+    # ⚠ Immer durch `with_choices`, auch ohne eigene Wahl: Dort bekommen die
+    # Plätze im Werks-Rack ihre Angabe, was sie annehmen.
+    return with_choices(entry.get('slots') or [], chosen)
 
 
 def stock_loadout(name, maker='', short='', maker_short=''):

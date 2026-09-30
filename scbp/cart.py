@@ -137,6 +137,10 @@ NOTEPAD = 'merkzettel'
 BUYABLE = 'kaufbar'
 CRAFTABLE = 'herstellbar'
 BOTH = 'beides'
+# ⚠ Passt laut Spieldaten, steht aber weder im Laden noch unter den Bauplänen —
+# etwa die Bomben-Racks der Eclipse. Kein Urteil darüber, wie man es bekommt:
+# Die Warenkorb-Zeile sagt dann ehrlich „kein Shop-Preis bekannt".
+SHIP_ONLY = 'schiffsteil'
 
 
 # ⚠⚠ **UEX-Warengruppe → Steckplatz-Art. Die einzige Übersetzungstabelle hier
@@ -314,8 +318,12 @@ def _craftable(kind, size):
     return result
 
 
-def choices(kind, size):
+def choices(kind, size, slot=None):
     """Welche Teile in einen Steckplatz dieser Art und Größe passen.
+
+    ⭐ Mit `slot` (dem Platz aus `erkul.hardpoints`) gilt für Racks, Raketen,
+    Bomben und Lackierungen die Regel des Spiels statt Art und Größe — siehe
+    `_choices_by_rule`.
 
     Gibt eine Liste `{'name', 'kennung', 'hersteller', 'guete', 'klasse',
     'herkunft'}` zurück, alphabetisch. `herkunft` ist `BUYABLE`,
@@ -339,6 +347,9 @@ def choices(kind, size):
     from . import shops
     if not kind:
         return []
+    if (slot or {}).get('passt') and kind in erkul.PART_KINDS \
+            and erkul.parts():
+        return _choices_by_rule(kind, slot)
     found = _craftable(kind, size)
     for entry in found.values():
         entry['herkunft'] = CRAFTABLE
@@ -399,6 +410,60 @@ def choices(kind, size):
     return result
 
 
+def _choices_by_rule(kind, slot):
+    """Die Auswahl für Racks, Raketen, Bomben und Lackierungen.
+
+    ⚠⚠ **Hier entscheidet der Platz, nicht der Laden.** Diese Teile hängen an
+    Kennzeichnungen: Der Torpedoplatz der Eclipse nimmt genau vier Racks, die
+    Lackierungen der Eclipse passen an kein anderes Schiff. Die meisten davon
+    stehen in keinem Laden und in keinem Bauplan — bis v3.63.1 blieb die
+    Auswahl deshalb leer (gemeldet 30.09.2026). Nach Art und Größe allein
+    stünden dagegen 126 Racks zur Wahl, fast alle falsch.
+
+    Die Liste kommt deshalb aus `erkul.compatible()`. Laden und Bauplan
+    liefern nur noch die **Herkunft** dazu, über die Kennung wie überall.
+    """
+    from . import shops
+    craft = _craftable(kind, None)
+    shop = dict((p.get('kennung'), p) for p in shops.catalog_items()
+                if p.get('kennung'))
+    stock = ((slot or {}).get('werk') or {}).get('ref')
+
+    # ⚠⚠ **Gleichnamige Varianten werden eins.** An der Cutlass Black gibt es
+    # „MSD-481 Missile Rack" viermal, mit vier Kennungen. Die Auswahl zeigt nur
+    # Namen — stünden alle vier da, wählte der Klick eine zufällige, und die
+    # Preissuche ginge ins Leere. Behalten wird die Kennung, die ab Werk
+    # verbaut ist, sonst die aus dem Laden, sonst die aus einem Bauplan.
+    def rank(part):
+        ref = part['ref']
+        return (ref != stock, ref not in shop, ref not in craft, ref)
+    best = {}
+    for part in sorted(erkul.compatible(slot), key=rank):
+        best.setdefault((part.get('name') or '').strip().lower(), part)
+
+    result = []
+    for part in best.values():
+        ref = part['ref']
+        in_shop, in_craft = shop.get(ref), craft.get(ref)
+        if in_shop and in_craft:
+            origin = BOTH
+        elif in_shop:
+            origin = BUYABLE
+        elif in_craft:
+            origin = CRAFTABLE
+        else:
+            origin = SHIP_ONLY
+        known = in_shop or in_craft or {}
+        result.append({'name': part.get('name') or known.get('name') or '',
+                       'kennung': ref,
+                       'hersteller': known.get('hersteller') or '',
+                       'guete': known.get('guete') or '',
+                       'klasse': known.get('klasse') or '',
+                       'herkunft': origin})
+    result.sort(key=lambda x: (x['name'] or '').lower())
+    return result
+
+
 # ------------------------------------------------------------- Die Auslegung
 #
 # ⚠ Alles hier arbeitet auf **einem Hangar-Eintrag** (ein Schiff aus
@@ -425,13 +490,33 @@ def set_part(entry, path, ref, name, method=BUY):
     new = {'ref': ref, 'name': name or '', 'weg': method}
     if old == new:
         return False
-    entry.setdefault('belegung', {})[path] = new
+    belegung = entry.setdefault('belegung', {})
+    if (old or {}).get('ref') != ref:
+        _clear_below(belegung, path)
+    belegung[path] = new
     return True
 
 
 def clear_part(entry, path):
     """Einen Steckplatz wieder auf die Werksausstattung zurücksetzen."""
-    return (entry or {}).get('belegung', {}).pop(path, None) is not None
+    belegung = (entry or {}).get('belegung', {})
+    removed = belegung.pop(path, None) is not None
+    return _clear_below(belegung, path) or removed
+
+
+def _clear_below(belegung, path):
+    """Die Wahl in den Plätzen **unter** einem Platz verwerfen.
+
+    ⚠⚠ Wer ein Rack tauscht, bekommt andere Plätze darunter — und die heißen
+    oft gleich: `missile_01_attach` gibt es am Torpedo-Rack wie am
+    Bomben-Rack. Bliebe die alte Wahl stehen, läge danach ein Torpedo in
+    einem Bombenplatz, und der Warenkorb wollte ihn kaufen.
+    """
+    prefix = path + '/'
+    below = [p for p in belegung if p.startswith(prefix)]
+    for p in below:
+        del belegung[p]
+    return bool(below)
 
 
 def set_method(entry, path, method):
@@ -591,17 +676,19 @@ def line_items(entry):
     """
     if not entry:
         return NO_DATA, []
+    chosen = loadout(entry)
+    # ⚠ Mit der eigenen Auslegung: Nach einem Rack-Tausch zählen die Plätze
+    # des neuen Racks, nicht die des alten — dieselbe Liste wie in der Anzeige.
     slots = erkul.hardpoints(entry.get('name') or '',
                                entry.get('hersteller') or '',
                                entry.get('kurz') or '',
-                               entry.get('hkurz') or '')
+                               entry.get('hkurz') or '', chosen=chosen)
     if not slots:
         # ⚠ Das ist **nicht** „nichts zu besorgen". Ohne Steckplatz-Daten ist
         # gar keine Aussage möglich, und die beiden Fälle dürfen nie denselben
         # Satz erzeugen.
         return NO_DATA, []
 
-    chosen = loadout(entry)
     by_path = dict((p.get('pfad'), p) for p in slots)
     result = []
     for path, part in chosen.items():

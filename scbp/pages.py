@@ -14352,11 +14352,13 @@ def _slot_list(fenster, eltern, eintrag, daten, neu_zeichnen):
     """
     from . import cart, erkul, fleet as meine
 
+    gewaehlt = cart.loadout(eintrag)
+    # ⚠ Mit der eigenen Auslegung: Nach einem Rack-Tausch stehen die Plätze
+    # des neuen Racks da (20 × Bombe S3 statt 3 × Torpedo S9).
     plaetze = erkul.hardpoints(eintrag.get('name') or '',
                                  eintrag.get('hersteller') or '',
                                  eintrag.get('kurz') or '',
-                                 eintrag.get('hkurz') or '')
-    gewaehlt = cart.loadout(eintrag)
+                                 eintrag.get('hkurz') or '', chosen=gewaehlt)
 
     tk.Label(eltern, text=t('s_wk_auslegung'), bg=SURFACE, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=(46, 16),
@@ -14498,7 +14500,10 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
         if gebaut:
             return
         gebaut.append(True)
-        moeglich = cart.choices(platz.get('art'), platz.get('groesse'))
+        # ⚠ Der Platz selbst geht mit: Racks, Raketen, Bomben und
+        # Lackierungen passen nach seinen Kennzeichnungen, nicht nach der
+        # Größe allein (Bomben-Racks der Eclipse, gemeldet 30.09.2026).
+        moeglich = cart.choices(platz.get('art'), platz.get('groesse'), platz)
         if not moeglich:
             # ⚠ Ehrlich statt hübsch: Wenn zu diesem Platz keine kaufbaren
             # Teile bekannt sind, wird das gesagt — nicht der halbe Katalog
