@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.64.0 - 2026-09-30
+
+> Im Hangar lassen sich jetzt Racks und Lackierungen tauschen — nur die, die
+> wirklich an dein Schiff passen, und nach einem Rack-Tausch mit den richtigen
+> Plätzen darunter. Dazu steht in jedem Auftragstext mit Bauplan-Angaben, wem
+> er Ruf bringt und in welcher Region er spielt.
+
+> [!important]
+> **Verse-Kit nutzt den SC Deutsch Launcher nicht mehr.** Das Ordnerfeld für
+> den Launcher in den Einstellungen entfällt, ebenso die Gefahrenstufe im
+> Auftragstext. Dateien des Launchers lassen sich weiterhin einlesen, und die
+> deutsche Übersetzung bleibt wählbar.
+
 ### Neu
 
 - **Racks und Lackierungen tauschen** — unter *Mein Hangar → Ausstattung*

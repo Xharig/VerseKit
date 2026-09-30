@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.64.0 - 2026-09-30
+
+> In your hangar you can now swap racks and paints — only the ones that
+> actually fit your ship, and after a rack swap with the right slots below it.
+> On top of that, every contract text with blueprint details now shows who it
+> gives reputation to and which region it takes place in.
+
+> [!important]
+> **Verse-Kit no longer uses the SC Deutsch Launcher.** The launcher folder
+> field in the settings is gone, and so is the danger level in the contract
+> text. Launcher files can still be imported, and the German translation
+> remains available.
+
 ### New
 
 - **Swap racks and paints** — under *My hangar → Loadout* you can now pick
