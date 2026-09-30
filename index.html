@@ -3,9 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Verse-Kit — Werkzeugkasten für Star Citizen</title>
-<meta name="description" content="Verse-Kit meldet neue Baupläne, führt Bestand, Herstellung, Bergbau, Handel und Hangar — kostenlos, quelloffen, für Windows und Linux.">
+<!-- ⚠ Titel und Beschreibung stehen fest auf ENGLISCH: Suchmaschinen und
+     Link-Vorschauen (Discord, Foren) lesen nur diese Fassung, das Skript
+     laeuft dort nicht. Die meisten Spieler suchen englisch („blueprint“,
+     „crafting“) — auch die deutschen. Nach der Sprachwahl setzt `sprache()`
+     den Fenstertitel um. -->
+<title>Verse-Kit — Star Citizen toolkit for blueprints, crafting, mining and trading</title>
+<meta name="description" content="Free, open-source Star Citizen companion for Windows and Linux: live blueprint alerts, which contract drops which blueprint, crafting ingredients, refinery comparison, trade routes and your hangar. Deutsch und Englisch.">
 <link rel="icon" href="assets/icon.png">
+<link rel="canonical" href="https://versekit.xharig.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Verse-Kit">
+<meta property="og:url" content="https://versekit.xharig.com/">
+<meta property="og:title" content="Verse-Kit — your toolkit for Star Citizen">
+<meta property="og:description" content="Blueprints, crafting, mining, trading and hangar — live while you play. Free and open source, Windows and Linux.">
+<meta property="og:image" content="https://versekit.xharig.com/assets/social-preview-en.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Verse-Kit next to its crafting page">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 /* ---------------------------------------------------------------
    Verse-Kit — Projektseite
@@ -802,6 +818,9 @@ function farbenBauen(){
 function sprache(s){
   sprLage = s;
   document.documentElement.lang = s;
+  document.title = s === "de"
+    ? "Verse-Kit — Werkzeugkasten für Star Citizen: Baupläne, Herstellung, Bergbau, Handel"
+    : "Verse-Kit — Star Citizen toolkit for blueprints, crafting, mining and trading";
   document.getElementById("knopf-de").className = (s === "de") ? "an" : "";
   document.getElementById("knopf-en").className = (s === "en") ? "an" : "";
   var texte = document.querySelectorAll("[data-de]");
@@ -1142,8 +1161,17 @@ function verlaufZeigen(){
   document.getElementById("verlauf-mehr").hidden = !!suche || zeigen.length >= treffer.length;
 }
 
-bauen();
-verlaufLaden();
+/* Start in der Sprache des Browsers: Deutsch nur, wenn der Browser Deutsch
+   bevorzugt — sonst Englisch. Vorher begann die Seite immer deutsch, und
+   die meisten Besucher mussten erst umschalten. Die HTML-Texte bleiben
+   deutsch, damit die Seite ohne Skript lesbar ist. */
+var browserSprache = ((navigator.languages && navigator.languages[0]) ||
+                      navigator.language || "de").toLowerCase();
+if (browserSprache.indexOf("de") === 0){
+  sprache("de");
+} else {
+  sprache("en");
+}
 </script>
 
 </body>
