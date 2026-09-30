@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **The signature scanner could barely read large HUD text** — at high
+  resolutions it took the map pin in front of the number for a digit, and
+  merged digits such as "400" were never split. Teaching didn't help because
+  of that; now it does. Reported by F_i_r_e (KRT)
+
 ## v3.63.0 - 2026-09-29
 
 > The green update button in the title bar now does the whole job: one click,

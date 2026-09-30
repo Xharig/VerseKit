@@ -304,6 +304,100 @@ def split_merged(boxes, raster=None, threshold=None):
     return result
 
 
+def split_variants(boxes, raster, threshold):
+    """Weitere Zerlegungen für den Fall, dass `split_merged` nichts Lesbares ergab.
+
+    ⚠⚠ **Bei großer HUD-Schrift verkleben die Ziffern reihenweise** (30.09.2026,
+    fünf Bilder „3,400" bei 3440×1440): „4", „0", „0" und das Komma sind EINE
+    Fläche. `split_merged` schätzt die Einzelbreite als Median der Reihe — ist
+    die halbe Reihe verklebt, ist der Median selbst zu breit, und nichts wird
+    getrennt. Hier gilt stattdessen die **schmalste Fläche in voller
+    Ziffernhöhe** als Einzelbreite (eine „1" zählt nicht, sie ist zu schmal),
+    und je verklebter Fläche werden die Teilzahlen daneben mit probiert.
+
+    Welche Zerlegung stimmt, entscheidet nicht diese Funktion, sondern der
+    Abgleich mit den möglichen Werten (`match_values`) mit all seinen Grenzen.
+    ⚠ Nur als Rückfall gedacht: `read` ruft sie erst, wenn der normale Weg
+    schweigt — so kann sie keine bisher richtige Lesung verändern.
+    """
+    if len(boxes) < 2:
+        return []
+    digit_h = _median([b[3] - b[1] + 1 for b in boxes])
+    narrow = [b[2] - b[0] + 1 for b in boxes
+              if (b[3] - b[1] + 1) >= digit_h * 0.85
+              and (b[2] - b[0] + 1) >= digit_h * 0.35]
+    if not narrow:
+        return []
+    single = min(narrow)
+    options = []
+    for box in boxes:
+        wide = box[2] - box[0] + 1
+        if wide < single * 1.65:
+            options.append([[box]])
+            continue
+        guess = max(2, int(round(wide / float(single))))
+        pieces = []
+        for parts in sorted({max(2, guess - 1), guess, guess + 1}):
+            pieces.append(_cut(box, parts, single, raster, threshold))
+        options.append(pieces)
+    merged_count = sum(1 for o in options if len(o) > 1)
+    if not merged_count or merged_count > VARIANT_MAX_MERGED:
+        return []
+    variants = [[]]
+    for choice in options:
+        variants = [v + piece for v in variants for piece in choice]
+    return variants
+
+
+# So viele verklebte Flächen je Reihe werden höchstens durchprobiert — jede
+# verdreifacht die Zahl der Zerlegungen.
+VARIANT_MAX_MERGED = 2
+
+
+def _cut(box, parts, single, raster, threshold):
+    """Eine Fläche in `parts` Stücke schneiden, jeweils an der dunkelsten Spalte."""
+    wide = box[2] - box[0] + 1
+    columns = [sum(1 for y in range(box[1], box[3] + 1)
+                   if raster[y][x] > threshold)
+               for x in range(box[0], box[2] + 1)]
+    reach = max(1, single // 3)
+    cuts = []
+    for i in range(1, parts):
+        expected = i * wide // parts
+        window = range(max(1, expected - reach), min(wide - 1, expected + reach + 1))
+        if window:
+            cuts.append(min(window, key=lambda c: (columns[c], abs(c - expected))))
+    edges = [0] + sorted(set(cuts)) + [wide]
+    result = []
+    for i in range(len(edges) - 1):
+        left, right = box[0] + edges[i], box[0] + edges[i + 1] - 1
+        if right >= left:
+            result.append((left, box[1], right, box[3]))
+    return result
+
+
+def _drop_raised_head(chars, digit_h):
+    """Den Kopf des Ortungssymbols abtrennen, wenn er über der Grundlinie endet.
+
+    ⚠⚠ Bei großer Schrift ist der Kopf der Stecknadel **so hoch wie eine
+    Ziffer** (15 gegen 13–14 Punkte, 30.09.2026) und übersteht deshalb das
+    Abschneiden nach der Höhe in `digit_rows`. Er endet aber 4–5 Punkte **über**
+    der Grundlinie der Ziffern — Ziffern stehen auf einer Linie, der Kopf nicht.
+    """
+    while len(chars) > MIN_CHARS:
+        base = _median([c[3] for c in chars[1:]])
+        if base - chars[0][3] > max(2, digit_h * HEAD_RAISE):
+            chars = chars[1:]
+        else:
+            break
+    return chars
+
+
+# Wie weit (Anteil der Ziffernhöhe) die Unterkante des ersten Zeichens über der
+# Grundlinie der übrigen liegen muss, damit es als Symbolkopf gilt.
+HEAD_RAISE = 0.2
+
+
 def _separator_fits(chars):
     """Steht an drittletzter Stelle ein Trennzeichen (ab vier Zeichen)?
 
@@ -336,7 +430,7 @@ def only_digits(chars):
     return [c for c in chars if (c[3] - c[1] + 1) > middle * 0.7]
 
 
-def digit_rows(boxes, width=None, raster=None, threshold=None):
+def digit_rows(boxes, width=None, raster=None, threshold=None, variants=False):
     """Die Zeichenreihe der Signatur finden — als Kandidatenliste.
 
     Übernommen aus dem Entwurf vom 09./10.09.2026 (`zeichenreihe_finden`), dort
@@ -349,6 +443,9 @@ def digit_rows(boxes, width=None, raster=None, threshold=None):
     Ortungssymbol** (das von links abgeschnitten wird), dicht beieinander, mit
     dem Trennzeichen an der richtigen Stelle. Gibt die Ziffernflächen (ohne
     Trennzeichen) der Reihe, deren Mitte der Ausschnittmitte am nächsten ist.
+
+    Mit `variants=True` kommen statt der einen Zerlegung die Rückfall-Zerlegungen
+    aus `split_variants` — mehrere Kandidaten derselben Reihe.
     """
     if not boxes:
         return []
@@ -397,16 +494,30 @@ def digit_rows(boxes, width=None, raster=None, threshold=None):
             start += 1
         if start == 0 or start >= len(ordered):
             continue
-        rest = split_merged(ordered[start:], raster, threshold)
-        if len(rest) < MIN_CHARS or not _separator_fits(rest):
-            continue
+        if variants:
+            if raster is None or threshold is None:
+                continue
+            candidates = []
+            for split in split_variants(ordered[start:], raster, threshold):
+                split = _drop_raised_head(split, digit_h)
+                if len(split) >= MIN_CHARS and split not in candidates:
+                    candidates.append(split)
+            if not candidates:
+                continue
+            rest = candidates[0]
+        else:
+            rest = _drop_raised_head(split_merged(ordered[start:], raster, threshold),
+                                     digit_h)
+            if len(rest) < MIN_CHARS or not _separator_fits(rest):
+                continue
+            candidates = [rest]
         if width:
             distance = abs((rest[0][0] + rest[-1][2]) / 2.0 - width / 2.0)
             if best_distance is None or distance < best_distance:
-                best, best_distance = rest, distance
-        elif len(rest) > len(best):
-            best = rest
-    return [only_digits(best)] if best else []
+                best, best_distance = candidates, distance
+        elif not best or len(rest) > len(best[0]):
+            best = candidates
+    return [only_digits(c) for c in best] if best else []
 
 
 def normalize(raster, box, threshold):
@@ -700,19 +811,30 @@ def read(raster, known=None, values=None):
 
     best = None
     fallback = None
-    for threshold in thresholds(raster):
-        for digits in digit_rows(components(raster, threshold), len(raster[0]),
-                                 raster, threshold):
-            if fallback is None or len(digits) > len(fallback[1]):
-                fallback = (threshold, digits)
-            if not known:
-                continue
-            patterns = [normalize(raster, box, threshold) for box in digits]
-            value, distance = match_values(patterns, known, values)
-            if value is not None and (best is None or distance < best[0]):
-                best = (distance, value, threshold, digits)
-            elif best is None and (result['abstand'] > distance):
-                result['abstand'] = distance
+    levels = thresholds(raster)
+    # ⚠⚠ Zwei Durchgänge: erst die gewohnte Zerlegung, und NUR wenn die nichts
+    # liest, die Rückfall-Zerlegungen (`split_variants`). So kann der Rückfall
+    # keine Lesung verändern, die vorher schon richtig war.
+    for variants in (False, True):
+        if best is not None or not known:
+            break
+        for threshold in levels:
+            for digits in digit_rows(components(raster, threshold), len(raster[0]),
+                                     raster, threshold, variants=variants):
+                if not variants and (fallback is None or len(digits) > len(fallback[1])):
+                    fallback = (threshold, digits)
+                patterns = [normalize(raster, box, threshold) for box in digits]
+                value, distance = match_values(patterns, known, values)
+                if value is not None and (best is None or distance < best[0]):
+                    best = (distance, value, threshold, digits)
+                elif best is None and (result['abstand'] > distance):
+                    result['abstand'] = distance
+    if not known:
+        for threshold in levels:
+            for digits in digit_rows(components(raster, threshold), len(raster[0]),
+                                     raster, threshold):
+                if fallback is None or len(digits) > len(fallback[1]):
+                    fallback = (threshold, digits)
     if best is not None:
         result.update(wert=best[1], grund=None, abstand=best[0],
                       schwelle=best[2], ziffern=best[3])
@@ -829,14 +951,19 @@ def learn(raster, typed):
     if len(digits_typed) < 2:
         return False, 'anlernen_leer', {}
     candidates = []
-    for threshold in thresholds(raster):
-        for digits in digit_rows(components(raster, threshold), len(raster[0]),
-                                 raster, threshold):
-            if len(digits) == len(digits_typed):
-                patterns = [normalize(raster, b, threshold) for b in digits]
-                fitting = sum(1 for p, d in zip(patterns, digits_typed)
-                              if plausible_template(d, p))
-                candidates.append((fitting, patterns))
+    # Wie beim Lesen: die Rückfall-Zerlegungen nur, wenn die gewohnte keine
+    # Reihe mit der getippten Stellenzahl findet (verklebte große Schrift).
+    for variants in (False, True):
+        if candidates:
+            break
+        for threshold in thresholds(raster):
+            for digits in digit_rows(components(raster, threshold), len(raster[0]),
+                                     raster, threshold, variants=variants):
+                if len(digits) == len(digits_typed):
+                    patterns = [normalize(raster, b, threshold) for b in digits]
+                    fitting = sum(1 for p, d in zip(patterns, digits_typed)
+                                  if plausible_template(d, p))
+                    candidates.append((fitting, patterns))
     if not candidates:
         return False, 'anlernen_anzahl', {}
     candidates.sort(key=lambda c: -c[0])

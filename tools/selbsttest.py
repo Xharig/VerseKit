@@ -26054,6 +26054,7 @@ def main():
     _pruefung_299()
     _pruefung_300()
     _pruefung_301()
+    _pruefung_302()
 
     print()
     if fehler:
@@ -30679,6 +30680,87 @@ def _pruefung_300():
             _root.destroy()
         except Exception:
             pass
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_302():
+    """302. Scan-Signatur bei großer HUD-Schrift: Symbolkopf und verklebte Ziffern.
+
+    ⭐ Fünf echte Bilder (3440×1440, alle „3,400"), gemeldet von F_i_r_e (KRT).
+    Vorher wurden davon 2 gelesen — auch nach dem Anlernen, weil es an der
+    ZERLEGUNG scheiterte, nicht an den Vorlagen: Der Kopf der Stecknadel ist so
+    hoch wie eine Ziffer und blieb als erste „Ziffer" stehen, und „400" samt
+    Komma war eine einzige Fläche. Geprüft wird der Nutzerfall: vier Bilder
+    anlernen, das fünfte lesen — jedes Bild einmal. Harte Bedingung: nichts
+    falsch. Dazu je eine Gegenprobe, dass BEIDE Reparaturen gebraucht werden.
+    """
+    print('\n302. Scan-Signatur: große HUD-Schrift (Symbolkopf, verklebte Ziffern)')
+    from scbp import signature_scan as _ss302
+    _bilder = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                                          'signatur-windows-gross.json'),
+                             encoding='utf-8'))['bilder']
+    _schluessel = sorted(_bilder)
+    # 3400 = 2 × 1700; dazu Werte in derselben Größenordnung als Störer.
+    _werte = sorted({v * n for v in (1700, 2000, 3000, 4000, 3170, 3585, 4270,
+                                     1920, 3855) for n in range(1, 8)})
+    _heim = tempfile.mkdtemp(prefix='pruefung302-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _eigene = os.path.join(_heim, _ss302.OWN_TEMPLATE_FILE)
+
+    def _reihum():
+        _gelesen = []
+        for _k in _schluessel:
+            if os.path.exists(_eigene):
+                os.remove(_eigene)
+            for _andere in _schluessel:
+                if _andere != _k:
+                    _ss302.learn(_bilder[_andere], '3,400')
+            _gelesen.append(_ss302.read(_bilder[_k], None, _werte)['wert'])
+        return _gelesen
+
+    _echt = (_ss302.split_variants, _ss302._drop_raised_head)
+    try:
+        _gelesen = _reihum()
+        pruefe(_gelesen.count(3400) == len(_schluessel),
+               'vier angelernt, das fünfte gelesen: alle fünf „3,400" (%r)' % _gelesen)
+        pruefe(set(_gelesen) <= {3400, None},
+               'nichts falsch gelesen (%r)' % _gelesen)
+
+        # Gegenprobe 1: ohne Rückfall-Zerlegung. Die Falle prüft sich zuerst
+        # selbst — sie muss aufgerufen worden sein, sonst misst sie nichts.
+        _rufe = []
+
+        def _ohne_zerlegung(*_a, **_k):
+            _rufe.append(1)
+            return []
+        _ss302.split_variants = _ohne_zerlegung
+        _ohne = _reihum()
+        _ss302.split_variants = _echt[0]
+        pruefe(len(_rufe) > 0, 'Gegenprobe: die Falle an split_variants schnappt zu (%d)'
+               % len(_rufe))
+        pruefe(_ohne.count(3400) < len(_schluessel),
+               'Gegenprobe: ohne Rückfall-Zerlegung fehlen Bilder (%r)' % _ohne)
+
+        # Gegenprobe 2: ohne das Abtrennen des Symbolkopfs.
+        _rufe2 = []
+
+        def _kopf_bleibt(chars, digit_h):
+            _rufe2.append(1)
+            return chars
+        _ss302._drop_raised_head = _kopf_bleibt
+        _mit_kopf = _reihum()
+        _ss302._drop_raised_head = _echt[1]
+        pruefe(len(_rufe2) > 0, 'Gegenprobe: die Falle am Symbolkopf schnappt zu (%d)'
+               % len(_rufe2))
+        pruefe(_mit_kopf.count(3400) < len(_schluessel),
+               'Gegenprobe: mit Symbolkopf fehlen Bilder (%r)' % _mit_kopf)
+    finally:
+        _ss302.split_variants, _ss302._drop_raised_head = _echt
         if _alt_home is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

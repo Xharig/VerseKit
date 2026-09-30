@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Der Signatur-Scanner las große HUD-Schrift kaum** — bei hohen Auflösungen
+  hielt er die Stecknadel vor der Zahl für eine Ziffer, und zusammengeflossene
+  Ziffern wie „400" blieben ungetrennt. Anlernen half deshalb nicht; jetzt
+  greift es. Gemeldet von F_i_r_e (KRT)
+
 ## v3.63.0 - 2026-09-29
 
 > Der grüne Update-Knopf oben erledigt jetzt alles selbst: ein Klick, eine
