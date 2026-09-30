@@ -373,8 +373,8 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **user.cfg** | Auf der Seite **„Spiel"**: was VerseKit einträgt, deine eigenen Zeilen und die ganze Datei, je Spielkanal. Vor der ersten Änderung wird die alte Datei gesichert |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Deutsch und Englisch** | Oberfläche umschaltbar. Die Bauplan-Meldung im Log erkennt der Watcher **in jeder Spielsprache** — er findet die Formulierung selbst heraus |
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Hält sich selbst aktuell** | Sieht alle 10 Minuten nach einer neuen Version und spielt sie von selbst ein — **nie, während Star Citizen läuft**, dann wartet es, bis das Spiel zu ist. Abschaltbar. Mit „Was ist neu" zum Nachlesen, auch für ältere Versionen |
-| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Nur lesend** | Liest die `Game.log` und, falls vorhanden, die Launcher-Dateien. **Eine Ausnahme, und die fragt vorher:** Auf Wunsch trägt der Watcher die Bauplan-Kennzeichnung in die `global.ini` ein — das lässt sich jederzeit wieder zurücknehmen, auch Text anderer Werkzeuge bleibt dabei erhalten |
-| <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Eigener Bestand** | Führt selbst Buch, welche Baupläne du hast — auch ohne den SC Deutsch Launcher |
+| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Nur lesend** | Liest die `Game.log`. **Eine Ausnahme, und die fragt vorher:** Auf Wunsch trägt der Watcher die Bauplan-Kennzeichnung in die `global.ini` ein — das lässt sich jederzeit wieder zurücknehmen, auch Text anderer Werkzeuge bleibt dabei erhalten |
+| <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Eigener Bestand** | Führt selbst Buch, welche Baupläne du hast — ohne ein weiteres Programm |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Spielzeit** | Oben in der Leiste steht, **wie lange du gespielt hast** — insgesamt und, während du spielst, die laufende Sitzung dahinter. Gezählt wird aus den Protokollen des Spiels, und zwar **fortgeschrieben**: Star Citizen räumt seine alten Logs weg, das Gezählte bleibt. Die Sicherung nimmt es beim Rechnerwechsel mit |
 | <img src="assets/symbole/22/statistik-gruen.png" width="22" alt=""> **Statistik** | Eigener Bereich mit sechs Reitern: **Spielzeit, Sitzungen, Aufträge und Quantensprünge** mit einer Wärmekarte, **wann du spielst** — dazu **Schiffe & Ausrüstung** (meistgenutzte und verlorene Schiffe, getragene Waffen), **Aufträge**, **Quantenreisen** und **Stabilität** (Abstürze, Verbindungsabbrüche). Gezählt wird nur, was in jeder Spielsprache verlässlich im Log steht; jede Sitzung wird einmal festgehalten und bleibt, auch wenn die Logs gelöscht werden. Lässt sich als Datei speichern |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Übersetzung — je Kanal** | Welche Textdatei Star Citizen liest, stellst du für **jeden Kanal getrennt** ein: LIVE, PTU, TECH-PREVIEW. Die Hauptinstallation bekommt dazu die Bauplan-Angaben, ein Nebenkanal nur die Textdatei — oder gar nichts, wenn du ihn in Ruhe lassen willst. Neue Fassungen holt Verse-Kit für jeden Kanal selbst. Zur Wahl stehen **Deutsch** (rjcncpt und Dymerz), **StarStrings** (MrKraken, auch fürs PTU), **Français, Italiano, Español, Português und Türkçe** (Dymerz), **Español** (Thord82), fünf Sprachen vom **SC Launch Configurator** (Luftwerft: Deutsch, Englisch, Français, Italiano, Español) und das **Englisch des Spiels** — oder **gar nichts**, dann bleibt die Textdatei unberührt. Wer eine andere nutzt, trägt ihre **Adresse** ein — eine Zip oder eine `global.ini`, nur `https://`; eine GitHub-Dateiansicht wird selbst in den Download umgewandelt, und was keine Textdatei des Spiels ist, wird abgelehnt |
@@ -500,21 +500,19 @@ Was die Farbpunkte in der Liste bedeuten:
 
 
 1. **Beim Start** sieht das Tool die aufgehobenen Logs vergangener Sitzungen durch (`logbackups/`) und übernimmt alles Gefundene still in deinen Bestand — wer ohne laufenden Watcher gespielt hat, verliert nichts. Diese Baupläne werden **nicht** als neu gemeldet. Reichen die Sicherungen nicht weit genug zurück, sagt der Watcher das als <img src="assets/symbole/16/hinweiszeile-grau.png" width="16" alt="">-Zeile, statt eine unvollständige Liste als vollständig auszugeben.
-2. **Im Hintergrund** (eigener Thread) wird die **`Game.log`** gelesen — alle 3 Sekunden, einstellbar. Schreibt das Spiel beim Freischalten `Added notification "Bauplan erhalten: <Name>: "`, steht der Bauplan **sofort** in der Liste (<img src="assets/symbole/16/bestaetigt-gruen.png" width="16" alt="">) und im Bestand.
-   - **Ist zusätzlich der SC Deutsch Launcher installiert**, meldet er nach, was im Log fehlte. Eine Zwischenstufe gibt es nicht: Was in der `Game.log` steht, steht im Spiel — da ist nichts zu bestätigen.
+2. **Im Hintergrund** (eigener Thread) wird die **`Game.log`** gelesen — alle 3 Sekunden, einstellbar. Schreibt das Spiel beim Freischalten `Added notification "Bauplan erhalten: <Name>: "`, steht der Bauplan **sofort** in der Liste (<img src="assets/symbole/16/bestaetigt-gruen.png" width="16" alt="">) und im Bestand. Eine Zwischenstufe gibt es nicht: Was in der `Game.log` steht, steht im Spiel — da ist nichts zu bestätigen.
 3. Jede neue Zeile wird oben eingefügt (Name · Art · `M/1/A` · Uhrzeit) und ein kurzer Ton gespielt.
    - **Einmal pro Minute** wird der Craftbar-Katalog geprüft. Ist er gewachsen, hat CIG mit einem Patch etwas **neu craftbar** gemacht → eine blaue Zeile. Das hat nichts mit deinem Freischalt-Stand zu tun. Der Vergleichsstand liegt als `catalog-seen.json` im eigenen Ordner und überlebt Neustarts; beim allerersten Start wird nur die Basis gesetzt.
 4. **Art, Größe, Gütegrad und Klasse** kommen aus den Craftdaten von scmdb.net und aus den mitgelieferten Spieldaten. Über allem stehen deine eigenen Korrekturen aus `bp-overrides.json`.
-5. **Dein Bestand** wächst dabei mit und bleibt in `bestand.json` erhalten — mit Vermerk, woher jeder Bauplan stammt (Log, Nachlese, Launcher). Das ist die Liste „welche habe ich", die bisher allein vom Launcher kam.
+5. **Dein Bestand** wächst dabei mit und bleibt in `bestand.json` erhalten — mit Vermerk, woher jeder Bauplan stammt (Log, Nachlese, Import). Das ist die Liste „welche habe ich".
 
-> **Warum direkt aus der Log?** Der SC Deutsch Launcher liest dieselbe Datei, exportiert seine eigene aber nur alle paar Minuten. Gemessen am 30.07.2026: Freischaltung im Spiel **21:23:49** → Launcher-Export **21:26:24** = **2,5 Minuten** Verzug. Wer selbst mitliest, ist in Sekunden dran — und braucht dafür niemanden dazwischen.
+> **Warum direkt aus der Log?** Wer selbst mitliest, ist in Sekunden dran — und braucht dafür niemanden dazwischen.
 
 Überwachte Dateien:
 
 ```text
 …\StarCitizen\LIVE\Game.log                 (Spiel — die eigentliche Quelle)
 …\StarCitizen\LIVE\logbackups\             (frühere Sitzungen, beim Start nachgelesen)
-…\sc-deutsch-launcher\blueprints\           (optional: meldet nach, was im Log fehlte)
 ```
 
 Eigene Dateien (Bestand, Einstellungen, Zwischenspeicher) liegen hier:
@@ -538,12 +536,11 @@ Deutsch und Englisch sind zusätzlich fest hinterlegt, und wer möchte, trägt e
 
 ### Eigene Pfade eintragen
 
-Liegt Star Citizen (oder der SC Deutsch Launcher) nicht an einer der üblichen Stellen, trägst du den Ordner selbst ein — in `einstellungen.json` im Ordner oben:
+Liegt Star Citizen nicht an einer der üblichen Stellen, trägst du den Ordner selbst ein — in `einstellungen.json` im Ordner oben:
 
 ```json
 {
-  "spiel_ordner": "D:\\Spiele\\StarCitizen\\LIVE",
-  "launcher_ordner": ""
+  "spiel_ordner": "D:\\Spiele\\StarCitizen\\LIVE"
 }
 ```
 
@@ -598,7 +595,6 @@ In `einstellungen.json` im eigenen Ordner — eine Textdatei, kein Code. Nach de
 |---|---|---|
 | `sprache` | Oberflächensprache: `auto`, `de` oder `en` | `auto` |
 | `spiel_ordner` | Wo Star Citizen liegt (leer = automatisch suchen) | leer |
-| `launcher_ordner` | Wo der SC Deutsch Launcher liegt (leer = automatisch suchen) | leer |
 | `pruefintervall_sekunden` | Wie oft die `Game.log` angesehen wird — erlaubt 1 bis 60 | `3` |
 | `signalton` | Kurzer Ton bei einem Fund | `true` |
 
@@ -612,7 +608,6 @@ In `einstellungen.json` im eigenen Ordner — eine Textdatei, kein Code. Nach de
 |---|---|
 | `SC_BP_HOME` | anderer Ordner für Bestand und Einstellungen |
 | `SC_INSTALL_DIR` | anderer Spielordner |
-| `SC_BP_LAUNCHER` | anderer Launcher-Ordner |
 | `SC_BP_NO_NET=1` | **keine** Netzabfragen — weder Craftdaten noch Versionsprüfung |
 | `SC_BP_SPRACHE` | Sprache für diesen Start (`de` / `en`) |
 
@@ -682,8 +677,6 @@ Wenn du das Projekt abzweigst, lass die Nennung im Fußbereich stehen oder nenne
 
 ## Danksagung & Credits
 
-Dieses Werkzeug ist mit dem **[SC Deutsch Launcher](https://www.sc-deutsch-launcher.de/)** groß geworden: Er war anfangs die einzige Datenquelle, und ohne ihn gäbe es dieses Projekt nicht. Ist er installiert, wird er weiter genutzt — er bestätigt die Funde. **Vielen Dank** an das Team dahinter! 🙏
-
 Die Werte zu Art, Größe, Gütegrad und Klasse sowie die Herkunft je Bauplan stammen aus der **[Star Citizen Mission DataBase (scmdb.net)](https://scmdb.net)** — ein Hobbyprojekt, das die Spieldaten aufbereitet und frei zugänglich macht. **Herzlichen Dank** dafür! 🙏
 
 > Der Watcher **liefert diese Daten nicht mit**, sondern lädt sie auf deinem Rechner direkt bei scmdb.net — so wie es ein Browser täte. scmdb steht unter [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/); eine mitgelieferte Kopie wäre eine Weitergabe und würde sowohl dieser Lizenz als auch der GPL dieses Projekts widersprechen. Abgerufen wird sparsam: nur, wenn eine **neue Spielversion** vorliegt.
@@ -692,9 +685,9 @@ Als Grundlage für die Bauplan-Angaben lässt sich **[StarStrings](https://githu
 
 > Auch StarStrings **liegt nicht bei**, sondern wird auf Wunsch von der Original-Adresse geholt. Eine Lizenz gibt das Projekt nicht an — umso mehr gilt: Der Text bleibt seiner.
 
-**Der Watcher verträgt sich mit anderen Werkzeugen.** StarStrings und der SC Deutsch Launcher kennzeichnen Bauplan-Aufträge ebenfalls, mit derselben Marke `[BP]`. Der Watcher setzt deshalb **keine zweite dazu, wo schon eine steht**, und lässt jeden Gegenstandsnamen in Ruhe, der bereits ein Kürzel trägt. Beim Launcher **ersetzt** seine Bauplan-Liste dessen Liste, statt eine zweite danebenzustellen — es ist dieselbe Liste, nur mit den **Kästchen** für deinen eigenen Bestand. Nimmst du die Angaben zurück, steht der Stand des anderen Werkzeugs wieder da, Zeichen für Zeichen.
+**Der Watcher verträgt sich mit anderen Werkzeugen.** StarStrings und der SC Deutsch Launcher kennzeichnen Bauplan-Aufträge ebenfalls, mit derselben Marke `[BP]`. Der Watcher setzt deshalb **keine zweite dazu, wo schon eine steht**, und lässt jeden Gegenstandsnamen in Ruhe, der bereits ein Kürzel trägt. Beim Launcher **ersetzt** seine eigene Bauplan-Liste dessen Liste, statt eine zweite danebenzustellen — mit den **Kästchen** für deinen eigenen Bestand. Nimmst du die Angaben zurück, steht der Stand des anderen Werkzeugs wieder da, Zeichen für Zeichen.
 
-**Die deutsche Übersetzung des Spiels** stammt von **rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), lizenziert unter [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.de). Sie wird über den SC Deutsch Launcher verteilt und gibt es auch auf **Schweizerdeutsch**; der Watcher erkennt beide Fassungen. Der Watcher **liefert sie nicht mit** und gibt auch keine veränderte Fassung weiter — er ergänzt die Datei ausschließlich auf deinem Rechner, und die **Quellenangabe in ihrer ersten Zeile bleibt dabei unangetastet**. **Danke** an rjcncpt! 🙏
+**Die deutsche Übersetzung des Spiels** stammt von **rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), lizenziert unter [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.de). Es gibt sie auch auf **Schweizerdeutsch**; der Watcher erkennt beide Fassungen. Der Watcher **liefert sie nicht mit** und gibt auch keine veränderte Fassung weiter — er ergänzt die Datei ausschließlich auf deinem Rechner, und die **Quellenangabe in ihrer ersten Zeile bleibt dabei unangetastet**. **Danke** an rjcncpt! 🙏
 
 **Die weiteren Übersetzungen** stammen von **Dymerz** (Deutsch, Français, Italiano, Español, Português, Türkçe), **Thord82** (Español, auch fürs PTU) und **MrKraken** (StarStrings, Englisch mit Auftragsmarken). Auch sie **liegen nicht bei** — Verse-Kit holt die gewählte Fassung auf deinem Rechner und hält sie aktuell. **Danke** an Dymerz, Thord82 und MrKraken! 🙏
 

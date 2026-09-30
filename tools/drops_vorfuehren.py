@@ -10,13 +10,12 @@ Spiel es täte. Der Watcher liest sie im selben Moment und meldet sie — es gib
 keinen Sonderweg und keinen Testmodus im Programm selbst. Was hier zu sehen ist,
 ist genau das, was auch beim Spielen passiert.
 
-**Alle vier Zustände auf einmal**, damit das Bild die Zeichen-Erklärung in der
+**Alle Zustände auf einmal**, damit das Bild die Zeichen-Erklärung in der
 Anleitung vollständig bebildert:
 
 | Zeichen | Zustand | Wie es hier entsteht |
 |---|---|---|
-| gelb | vorläufig, nur aus der Log | ein Fund ohne Launcher-Bestätigung |
-| grün | bestätigt | ein Fund, den der Launcher-Export kennt |
+| grün | Fund aus der Log | ein Fund |
 | Stern | von der Merkliste | ein Fund, der vorher vorgemerkt wurde |
 | blau | neu im Spiel craftbar | kommt vom Katalog selbst, echte Patch-Daten |
 
@@ -68,10 +67,6 @@ ausgabe.utf8()
 ORDNER = os.path.join(os.path.expanduser('~'), 'Documents',
                       'SC BP Watcher Test', 'Spiel-Vorfuehrung')
 
-# Der Blueprint-Ordner des SC Deutsch Launchers auf der NAS. Nur lesend benutzt.
-LAUNCHER = ('/Volumes/06_Spiele/PC Games/Star Citizen/SC-Deutsch-Launcher/'
-            'blueprints')
-
 # Die Zeile, die Star Citizen beim Freischalten schreibt. Wortlaut aus
 # `scbp/phrases.py` — wird der dort geändert, muss er hier mitziehen.
 ZEILE = ('<%s> [Notice] <SHUDEvent_OnNotification> Added notification '
@@ -80,15 +75,8 @@ ZEILE = ('<%s> [Notice] <SHUDEvent_OnNotification> Added notification '
 # Echte Baupläne aus dem Katalog, die der Autor noch nicht hat.
 # Bewusst verschiedene Arten — eine Liste aus lauter Schilden sieht aus wie ein
 # Fehler, nicht wie ein Spielabend.
-# Das dritte Feld sagt, ob der Bauplan **im Launcher-Export steht**. Daran hängt
-# die Farbe, und deshalb sind hier beide Sorten vertreten:
-#
-#   False → steht nicht im Export → bleibt **gelb** („vorläufig, aus der Log")
-#   True  → steht im Export       → wird **grün** („bestätigt")
-#
-# ⚠ Der gelbe Zustand entsteht nur, wenn der Watcher überhaupt einen Launcher
-# kennt. Ohne einen meldet er jeden Log-Fund sofort als gesichert — es gibt ja
-# keine zweite Stelle, die noch bestätigen könnte. Siehe `launcher_anschliessen`.
+# Das dritte Feld ist ein Überbleibsel (bis v3.63.1: „steht im Export des SC
+# Deutsch Launchers"). Es wird nicht mehr ausgewertet.
 FUNDE = [
     ('Aufeis', 'Cooler', False),
     ('CF-337 Panther Repeater', 'Schiffswaffe', False),
@@ -124,31 +112,10 @@ def einrichten():
     return log
 
 
-def launcher_anschliessen():
-    """Den Launcher-Export auf der NAS als Launcher eintragen — wenn er da ist.
-
-    ⚠ Ohne das gibt es **kein Gelb**. Der Watcher meldet einen Log-Fund nur dann
-    als „vorläufig", wenn eine zweite Stelle ihn bestätigen könnte; kennt er
-    keinen Launcher, ist der Fund sofort gesichert. Am 27.08.2026 war die NAS
-    eingehängt und die Leiste trotzdem ganz grün — weil die Startdatei den Export
-    nur **einliest**, statt ihn als Launcher anzumelden. Zwei verschiedene Dinge.
-    """
-    if not os.path.isdir(LAUNCHER):
-        print('  · NAS nicht eingehängt — ohne Launcher bleibt alles grün')
-        print('    (%s)' % LAUNCHER)
-        return False
-    if paths.setting('launcher_ordner') != LAUNCHER:
-        paths.set_setting('launcher_ordner', LAUNCHER)
-        print('  Launcher angemeldet: %s' % LAUNCHER)
-    return True
-
-
 def _bestand_freimachen():
     """Die vorgeführten Funde aus dem Bestand nehmen.
 
-    Wer schon drinsteht, wird nicht noch einmal gemeldet — und gerade die
-    Baupläne, die den grünen Zustand zeigen sollen, stehen ja im Export und
-    damit im Bestand.
+    Wer schon drinsteht, wird nicht noch einmal gemeldet.
     """
     from scbp import collection as bd
     daten = bd.load()
@@ -195,7 +162,6 @@ def vorbereiten():
     dann ohne Stern durch. Deshalb dieser eigene Schritt.
     """
     einrichten()
-    launcher_anschliessen()
     _bestand_freimachen()
     _katalogstand_beschneiden()
     if not watchlist.contains(GEMERKT[0]):
@@ -246,9 +212,6 @@ def aufraeumen():
     if watchlist.contains(GEMERKT[0]):
         watchlist.save(watchlist.remove(GEMERKT[0]))
         print('  Von der Merkliste genommen: %s' % GEMERKT[0])
-    if paths.setting('launcher_ordner') == LAUNCHER:
-        paths.set_setting('launcher_ordner', '')
-        print('  Launcher-Eintrag zurückgenommen')
     if paths.setting('spiel_ordner') == ORDNER:
         paths.set_setting('spiel_ordner', '')
         print('  Spielordner-Eintrag zurückgenommen')

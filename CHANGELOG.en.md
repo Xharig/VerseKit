@@ -15,6 +15,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   actually fit your ship. After a rack swap its own slots show up below it —
   on the Eclipse, for example, 20 bombs instead of 3 torpedoes.
 
+### Improved
+
+- **VerseKit no longer depends on the SC Deutsch Launcher** — the launcher
+  project's contract data is no longer publicly available. The contract texts
+  in the game are therefore built from VerseKit's own data (scmdb.net) only;
+  the danger level, which only that data had, is gone.
+  The launcher's files are no longer read, and the folder field in the
+  settings and the export for the Baupläne DB are removed. Their files can
+  still be imported, and the German translation remains available.
+- **Who a contract gives reputation to, and where it takes place** — faction
+  and type ("Headhunters +150 Standing") and the region ("Pyro (Bloom)") now
+  appear in every contract text with blueprint details, with the reputation
+  lines highlighted in blue.
+
 ### Fixed
 
 - **Empty choice for torpedoes and missiles in built-in racks** — the matching

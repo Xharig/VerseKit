@@ -333,10 +333,6 @@ def main():
     os.environ['SC_BP_NO_NET'] = '1'
     # ⚠⚠ Kein Prueflauf schickt je einen Fehlerbericht hinaus (Pruefung 34).
     os.environ['SC_BP_BERICHT_ZIEL'] = 'aus'
-    # Leer heisst ausdruecklich 'kein Launcher' - nur zu loeschen reicht
-    # nicht: dann sucht paths.py weiter und findet womoeglich einen
-    # echten Launcher-Stand auf einer eingehaengten Windows-Platte.
-    os.environ['SC_BP_LAUNCHER'] = ''
     os.environ.pop('SC_BP_OVERRIDES', None)
 
     try:
@@ -347,7 +343,12 @@ def main():
         print('\n1. Pfade finden')
         pruefe(w.paths.game_folder() == live, 'Spielordner gefunden')
         pruefe(len(w.paths.log_backups()) == 2, 'beide Sicherungen gefunden')
-        pruefe(not w.HAT_LAUNCHER, 'läuft ohne SC Deutsch Launcher')
+        # ⚠ Seit dem 30.09.2026 liest VerseKit nichts mehr vom SC Deutsch
+        # Launcher. Diese Zeile hält fest, dass der Weg nicht zurückkommt.
+        pruefe(not any(hasattr(m, n) for m, n in (
+                   (w, 'HAT_LAUNCHER'), (w, 'load_keys'), (w.paths, 'launcher_folder'),
+                   (w.injection, 'apply_scdl'), (w.injection, 'scdl_fetch'))),
+               'kein Weg zum SC Deutsch Launcher (Dateien, Vertragsdaten)')
 
         print('\n2. Nachlese und laufende Sitzung')
         q = queue.Queue()
@@ -3271,9 +3272,10 @@ def main():
 
             liegt = set(os.listdir(ordner22))
             pruefe({'SC-Blueprints-Basetool.json', 'scmdb-import.json',
-                    'bauplaene-db-import.json',
                     'SC-BP-Watcher-Bestand.json'} <= liegt,
                    'speichern() schreibt alle Versionen mit')
+            pruefe('bauplaene-db-import.json' not in liegt,
+                   'keine Ausgabe mehr für die Baupläne DB (seit 30.09.2026)')
 
             # ⚠ Nur zaehlen, was zur Ausgabe gehoert. Unter `SC_BP_HOME` legt
             # `paths.app_file()` ALLES flach in denselben Ordner — im
@@ -4661,46 +4663,8 @@ def main():
            'Name, Zusatz' in _lq51.LogTail.new_names.__doc__,
            'new_names() liefert unveraendert (Name, Zusatz)')
 
-    # ------------------------------------------------------------------
-    # 52. Kaestchen nur an Bauplaene — nicht an Regionen und Abgabeorte
-    #
-    # Die Bloecke des SCDL-Teams gliedern mit '#'-Ueberschriften, und unter
-    # dreien davon stehen Listen: '# Baupläne' (4379 Zeilen), '# Abgabe' (323)
-    # und '# Region' (239). Bis zum 29.08.2026 bekam jede davon ein Kaestchen —
-    # im Spiel stand '[  ] Stanton-System - Gefahr 4-6/10', als koennte man eine
-    # Region besitzen. Rund 620 Zeilen in den Rohdaten, 838 in der fertigen
-    # Datei (Bloecke werden mehrfach verwendet).
-    print()
-    print('52. Kaestchen nur an Bauplaenen, nicht an Regionen')
-    from scbp import injection as _inj52
-    _block52 = ('\\n# Baupläne:\\n    - Atzkav Sniper Rifle\\n    - Aril Arms'
-                '\\n\\n# Region: \\n    - Stanton-System - Gefahr 4-6/10'
-                '\\n    - \\n    - Nyx-System - Gefahr 3-6/10'
-                '\\n\\n# Abgabe:\\n    - Port Olisar')
-    _habe52 = {catalog._norm('Aril Arms')}
-    _neu52, _meine52, _gesamt52 = _inj52._set_boxes(_block52, _habe52)
-    pruefe('[  ] Atzkav Sniper Rifle' in _neu52,
-           'ein Bauplan, den man nicht hat, bekommt ein leeres Kaestchen')
-    pruefe('[x]' in _neu52 and 'Aril Arms' in _neu52,
-           'ein Bauplan, den man hat, wird angehakt')
-    pruefe('- Stanton-System - Gefahr 4-6/10' in _neu52
-           and '[  ] Stanton-System' not in _neu52,
-           'eine REGION bekommt KEIN Kaestchen')
-    pruefe('- Nyx-System - Gefahr 3-6/10' in _neu52,
-           'auch die zweite Region bleibt unangetastet')
-    pruefe('- Port Olisar' in _neu52 and '[  ] Port Olisar' not in _neu52,
-           'ein ABGABEORT bekommt KEIN Kaestchen')
-    pruefe((_meine52, _gesamt52) == (1, 2),
-           'gezaehlt werden nur die Bauplaene (1 von 2)')
-    # Englisch ist derselbe Aufbau, nur andere Ueberschriften.
-    _en52 = ('\\n# Blueprints:\\n    - Atzkav Sniper Rifle'
-             '\\n\\n# Region: \\n    - Stanton System'
-             '\\n\\n# Delivery:\\n    - Port Olisar')
-    _neu52en, _m52en, _g52en = _inj52._set_boxes(_en52, set())
-    pruefe('[  ] Atzkav Sniper Rifle' in _neu52en and _g52en == 1,
-           'englisch: nur unter "# Blueprints" wird angekreuzt')
-    pruefe('- Stanton System' in _neu52en and '- Port Olisar' in _neu52en,
-           'englisch: Region und Delivery bleiben unangetastet')
+    # 52. (Bis 30.09.2026: Kaestchen in den SCDL-Vertragsbloecken nur unter
+    # '# Baupläne'. Der Weg ist entfernt, die Pruefung mit ihm.)
 
     # 52b. Kein Knopf schneidet seine Beschriftung ab
     #
@@ -10589,80 +10553,7 @@ def main():
     pruefe("t('s_he_dazu_unklar') % unklar" in _q105 and 'if unklar:' in _q105,
            'die Kopfzeile zeigt ihn, sobald es unklare gibt')
 
-    # -----------------------------------------------------------------------
-    print()
-    print('106. Schritte einer Auftragsreihe finden ihre Bauplan-Angabe')
-    # ⚠⚠ **Der Anlass (03.09.2026).** Das Overlay meldete „Willkommen im System
-    # → 1 Bauplan, dir fehlt: Clearcut Module". Im aufgeschlagenen Auftrag
-    # („Bergbau-Gelegenheit") stand davon nichts. Es fehlten KEINE Daten — die
-    # Marke sass am Nachbarschluessel:
-    #
-    #     Battaglia_Story01_title  = Willkommen im System <EM4>[BP!]</EM4>
-    #     Battaglia_Story01B_title = Bergbau-Gelegenheit      ← das sieht man
-    #
-    # Die Quelle kennt nur den Schluessel der REIHE; im Spiel sieht man den
-    # SCHRITT. `_reihen_stamm` schlaegt die Bruecke.
-    #
-    # ⚠⚠ **Und die Gegenrichtung ist der teurere Teil der Pruefung.** Eine
-    # erste Fassung erlaubte auch einen Unterstrich im Kuerzel und traf damit
-    # `headhunters_defend_xt_h` und `…_m` — das sind Schwierigkeitsstufen,
-    # keine Reihenschritte, und sie geben andere Bauplaene. Gefunden wurde das
-    # nur, weil die Wirkung VOR dem scharfen Lauf an den echten Daten
-    # gemessen wurde. Diese Faelle stehen hier, damit die Grenze nicht wieder
-    # aufweicht.
-    from scbp import injection as _inj106
-
-    # Die bekannten Hauptauftraege, wie sie `einspielen_scdl` aufbaut.
-    _bekannt106 = {
-        'battaglia_story01', 'battaglia_story02', 'battaglia_story03',
-        'headhunters_defend_xt', 'headhunters_defend_xt_vh',
-        'covalex_haulcargo_atob',
-    }
-
-    # (Stamm, erwarteter Hauptauftrag oder None, Beschreibung)
-    FAELLE106 = [
-        ('battaglia_story01b', 'battaglia_story01',
-         'DER ANLASS: Schritt B gehoert zur Reihe'),
-        ('battaglia_story01c', 'battaglia_story01', 'Schritt C ebenso'),
-        ('battaglia_story02b', 'battaglia_story02', 'andere Reihe, Schritt B'),
-        ('battaglia_story03b', 'battaglia_story03', 'dritte Reihe'),
-
-        # --- Die Grenze: was NICHT zusammengehoert -----------------------
-        ('headhunters_defend_xt_h', None,
-         'DIE FEHLZUORDNUNG: _h ist eine Schwierigkeitsstufe'),
-        ('headhunters_defend_xt_m', None, 'dasselbe fuer _m'),
-        ('headhunters_defend_xt_vh', None,
-         'und _vh hat ohnehin eigene Daten'),
-        ('battaglia_story01_zusatzauftrag', None,
-         'ein langer Rest ist ein eigener Auftrag'),
-        ('battaglia_story01', None,
-         'wer selbst bekannt ist, braucht keine Bruecke'),
-        ('voelligandererauftrag', None, 'ohne gemeinsamen Anfang: nichts'),
-        ('', None, 'leerer Stamm faellt nicht auf die Nase'),
-    ]
-
-    for _stamm106, _soll106, _was106 in FAELLE106:
-        _ist106 = _inj106._series_stem(_stamm106, _bekannt106)
-        pruefe(_ist106 == _soll106,
-               '%s (%r -> %r)' % (_was106, _stamm106, _ist106))
-
-    # ⭐ Der laengste passende Stamm gewinnt — sonst landet ein Schritt bei der
-    # falschen Reihe, sobald es `…story0` und `…story01` nebeneinander gibt.
-    pruefe(_inj106._series_stem('battaglia_story01b',
-                                 {'battaglia_story0', 'battaglia_story01'})
-           == 'battaglia_story01',
-           'der laengste passende Stamm gewinnt')
-
-    # Und der Weg von der Funktion in die Injektion muss auch gegangen werden:
-    # eine Funktion, die niemand aufruft, behebt nichts.
-    _q106 = open(os.path.join(WURZEL, 'scbp', 'injection.py'),
-                 encoding='utf-8').read()
-    pruefe('_series_stem(_stem(key), title_stem_by_key)' in _q106,
-           'die Titel benutzen die Reihen-Zuordnung')
-    pruefe('_series_stem(_stem(key), stem_by_key)' in _q106,
-           'die Beschreibungen ebenso — sonst Marke ohne Liste darunter')
-    pruefe('title_stem_by_key[stem] = suffix' in _q106,
-           'und die Stamm-Tabelle fuer Titel wird ueberhaupt gefuellt')
+    # 106. (Bis 30.09.2026: Reihen-Titel im SCDL-Weg. Entfernt.)
 
     # -----------------------------------------------------------------------
     print()
@@ -11553,19 +11444,21 @@ def main():
     pruefe(_inj113d.stock_mark(_a113d) != _inj113d.stock_mark(_c113d),
            'ein umbenannter Bauplan aendert die Marke (gleiche Anzahl)')
 
-    # ⚠ Und die Kaestchen selbst: Was im Bestand liegt, wird angekreuzt.
-    _block113d = ('# Baupläne:' + chr(92) + 'n'
-                  '    - Marlin' + chr(92) + 'n'
-                  '    - RN-7s' + chr(92) + 'n')
-    _neu113d, _meine113d, _ges113d = _inj113d._set_boxes(
-        _block113d, set(_b113d['bauplaene']))
-    pruefe(_ges113d == 2 and _meine113d == 2,
-           'beide Bauplaene werden als vorhanden erkannt (%d von %d)'
-           % (_meine113d, _ges113d))
-    _neu113e, _meine113e, _ges113e = _inj113d._set_boxes(
-        _block113d, set(_a113d['bauplaene']))
-    pruefe(_ges113e == 2 and _meine113e == 1,
-           'was fehlt, bleibt ungehakt (%d von %d)' % (_meine113e, _ges113e))
+    # ⚠ Und die Kaestchen selbst: Was im Bestand liegt, wird angekreuzt —
+    # geprueft am einzigen Schreibweg (`_build_block`, seit 30.09.2026).
+    _e113d = {'bp': ['Marlin', 'RN-7s']}
+    _w113d = _inj113d.TEXTS['de']
+    _voll113d = _inj113d._build_block(
+        _e113d, _inj113d.bestand_datei.keys(_b113d), _w113d)
+    pruefe(_voll113d.count(_inj113d.BOX_HAVE) == 2,
+           'beide Bauplaene werden als vorhanden erkannt (%d von 2)'
+           % _voll113d.count(_inj113d.BOX_HAVE))
+    _halb113d = _inj113d._build_block(
+        _e113d, _inj113d.bestand_datei.keys(_a113d), _w113d)
+    pruefe(_halb113d.count(_inj113d.BOX_HAVE) == 1
+           and _halb113d.count(_inj113d.BOX_MISSING) == 1,
+           'was fehlt, bleibt ungehakt')
+
 
     # --------------------------------------------------------------------- 113f
     # ⚠⚠ Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.
@@ -13006,50 +12899,26 @@ def main():
             pass
 
     print()
-    print('127. Rufpunkte in JEDEN Auftrag, hervorgehoben')
-    # ⚠⚠ **Gemeldet am 05.09.2026 ueber Bushwick4712:** In einem Auftrag ohne
-    # Bauplaene standen keine Rufpunkte, waehrend eine fremde Uebersetzung sie
-    # dort anzeigte. Nachgemessen an den Vertragsdaten: **816 von 818**
-    # Auftraegen bringen Rufpunkte und Abklingzeit mit — bedient wurden aber
-    # nur die **367** mit eigenem Beschreibungsblock. Die uebrigen **449**
-    # gingen verloren, obwohl die Daten dalagen.
-    #
-    # Dazu die Hervorhebung: „Mach die XP blau geschrieben … damit allgemein
-    # spieler es schneller sehen." Der Melder hatte sie uebersehen, weil sie
-    # unauffaellig mitten im Text standen.
+    print('127. Rufpunkte im Auftragsblock, hervorgehoben')
+    # ⚠⚠ Gewuenscht am 05.09.2026: „Mach die XP blau geschrieben … damit
+    # allgemein spieler es schneller sehen." Bis 30.09.2026 tat das nur der
+    # SCDL-Weg; seitdem der einzige Schreibweg (`_build_block`).
     from scbp import injection as _inj127
+    _w127 = _inj127.TEXTS['de']
+    _b127 = _inj127._build_block({'rang': 'Junior', 'rep': 800, 'ruf': 150,
+                                  'uec': 5000, 'bp': ['Probe']}, set(), _w127)
+    _z127 = _b127.split('\\n')
+    pruefe(any(z.startswith('<EM4># %s:' % _w127['ruf']) and z.endswith('XP</EM4>')
+               for z in _z127),
+           'die Rufpunkte stehen blau im Block')
+    pruefe(any(z.startswith('<EM4># %s:' % _w127['rep_min']) for z in _z127),
+           'ebenso der Mindest-Ruf')
+    # ⚠ Nur Ruf-Zeilen — waere alles blau, waere nichts hervorgehoben.
+    pruefe(any(z.startswith('# %s:' % _w127['lohn']) for z in _z127),
+           'die Bezahlung bleibt schwarz')
+    # ⚠ Doppelte Auszeichnung zeigt das Spiel als TEXT an.
+    pruefe('<EM4><EM4>' not in _b127, 'keine doppelte Auszeichnung')
 
-    pruefe(_inj127.COLOR_OPEN == '<EM4>',
-           'die Hervorhebung ist die, die das Spiel benutzt')
-    pruefe(_inj127._highlight('# Rufpunkte: 5') ==
-           '<EM4># Rufpunkte: 5</EM4>',
-           'eine Zeile wird hervorgehoben')
-    # ⚠ Doppelte Auszeichnung zeigt das Spiel als TEXT an — aus zwei <EM4>
-    # wird kein kraeftigeres Blau, sondern ein sichtbares „<EM4>".
-    pruefe(_inj127._highlight('<EM4>schon da</EM4>') == '<EM4>schon da</EM4>',
-           'und keine zweite darueber')
-
-    # Dubletten: Was schon dasteht, kommt nicht noch einmal — auch dann nicht,
-    # wenn es beim letzten Lauf noch ungefaerbt war.
-    _e127 = {'contractInfo': '# Zu erwartende Rufpunkte: 50 XP'}
-    pruefe(_inj127._detail_lines(_e127, '') ==
-           ['<EM4># Zu erwartende Rufpunkte: 50 XP</EM4>'],
-           'in leeren Text wird eingesetzt')
-    pruefe(_inj127._detail_lines(
-        _e127, 'Text # Zu erwartende Rufpunkte: 50 XP') == [],
-        'was schon dasteht, kommt nicht doppelt')
-    pruefe(_inj127._detail_lines(
-        _e127, 'Text <EM4># Zu erwartende Rufpunkte: 50 XP</EM4>') == [],
-        'auch wenn es bereits hervorgehoben ist')
-
-    # ⚠⚠ **Fremder Text wird nicht verdoppelt.** MrKraken StarStrings schreibt
-    # eine eigene Reputationszeile; wo eine steht, kommt keine zweite dazu.
-    pruefe(_inj127._has_details('Reputation Awarded: 50'),
-           'eine fremde Reputationszeile wird erkannt')
-    pruefe(_inj127._has_details('<EM4># Zu erwartende Rufpunkte: 5</EM4>'),
-           'die eigene ebenso')
-    pruefe(not _inj127._has_details('Ein ganz gewoehnlicher Auftragstext'),
-           'ein gewoehnlicher Text gilt NICHT als schon versorgt')
 
     print()
     print('128. Wem der Auftrag Ruf bringt — und welcher Art')
@@ -13113,23 +12982,24 @@ def main():
            'ein unbekannter Auftrag bekommt nichts erfunden')
 
     # ⚠ Und die Verbindung zur Injektion: Ohne sie stuende das Modul da und
-    # niemand riefe es.
+    # niemand riefe es. Seit 30.09.2026 im einzigen Schreibweg (`_build_block`).
     from scbp import injection as _inj128
-    _e128 = {'titleLocKey': 'headhunters_test_title_001',
-             'contractInfo': '# Zu erwartende Rufpunkte: 150 XP'}
-    _zeilen128 = _inj128._detail_lines(_e128, '', {'ruf_bei': 'Ruf'},
-                                        _tab128)
-    pruefe(any('Headhunters +150 Standing' in z for z in _zeilen128),
-           'die Injektion setzt die Ruf-Zeile ein')
-    pruefe(all(z.startswith(_inj128.COLOR_OPEN) for z in _zeilen128),
-           'und hebt sie hervor wie die uebrigen Angaben')
-    # Dublettenschutz: Steht schon eine Ruf-Zeile da, kommt keine zweite —
-    # auch wenn sich die Zahl geaendert hat.
-    _zeilen128 = _inj128._detail_lines(
-        _e128, '# Ruf: Headhunters +99 Standing',
-        {'ruf_bei': 'Ruf'}, _tab128)
-    pruefe(not any('# Ruf:' in z for z in _zeilen128),
-           'eine vorhandene Ruf-Zeile wird nicht verdoppelt')
+    _e128 = {'titel_key': 'Headhunters_Test_title_001', 'bp': ['Probe'],
+             'ruf': 150}
+    _worte128 = _inj128.TEXTS['de']
+    _block128 = _inj128._build_block(_e128, set(), _worte128, _tab128)
+    pruefe('<EM4># Ruf: Headhunters +150 Standing</EM4>' in _block128,
+           'der Auftragsblock nennt Partei und Art, blau (%r)'
+           % [z for z in _block128.split('\\n') if 'Headhunters' in z])
+    # Gegenprobe: ohne Tabelle keine Zeile — sonst prueft die erste nichts.
+    pruefe('Headhunters' not in _inj128._build_block(_e128, set(), _worte128),
+           'Gegenprobe: ohne Ruf-Tabelle steht keine Partei im Block')
+    pruefe('_rep_table()' in open(os.path.join(WURZEL, 'scbp', 'injection.py'),
+                                  encoding='utf-8').read()
+           and 'rep_table))' in open(os.path.join(WURZEL, 'scbp', 'injection.py'),
+                                     encoding='utf-8').read(),
+           'apply_texts holt die Tabelle und reicht sie an den Block')
+
 
     print()
     print('129. Die neuere Ausfuhr von scmdb.net wird erkannt')
@@ -13532,102 +13402,8 @@ def main():
     pruefe(_leer135 > 0 and _filter135 > _leer135,
            'die Leer-Meldung wird vor dem Filtern entschieden')
 
-    print()
-    print('136. Auch die Ruf-Zeilen im Bauplan-Block sind blau')
-    # ⚠⚠ Gemeldet am 06.09.2026, nachdem die Angabe zweimal als „fehlt"
-    # durchgegangen war: „da ist keine Reputation in den Questtexten."
-    #
-    # Sie WAR da — nur nicht hervorgehoben. Die Rohdaten liefern zwei Felder:
-    # `contractInfo` (wird seit v3.17.0 blau eingesetzt) und `description`,
-    # der Bauplan-Block. In letzterem stehen zwei weitere Ruf-Zeilen, die
-    # unveraendert uebernommen wurden — also schwarz, mitten zwischen den
-    # blauen. Gemessen in einer echten global.ini: 435 + 435 + 129 Zeilen.
-    from scbp import injection as _in136
-
-    _block136 = ('MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP\\n'
-                 '# Min. Reputation: Auftragnehmer Junior (800 XP)\\n'
-                 '# Max. Reputation: Auftragnehmer Elite (95.250 XP)\\n'
-                 '# Baupläne:\\n'
-                 '    [  ] Atzkav Sniper Rifle\\n'
-                 '# Region: Stanton-System - Gefahr 4-6/10')
-    _neu136 = _in136._highlight_rep(_block136)
-
-    pruefe(_neu136.count(_in136.COLOR_OPEN) == 2,
-           'beide Ruf-Zeilen sind blau (gefunden: %d)'
-           % _neu136.count(_in136.COLOR_OPEN))
-    pruefe('<EM4># Min. Reputation: Auftragnehmer Junior (800 XP)</EM4>'
-           in _neu136, 'die Min-Zeile steht vollstaendig in Blau')
-
-    # ⚠ Nur Ruf-Zeilen. Gliederung bleibt schwarz — waere alles blau, waere
-    # nichts hervorgehoben.
-    for _wort136 in ('# Baupläne:', '# Region:'):
-        _zeile136 = [z for z in _neu136.split('\\n') if z.startswith(_wort136)]
-        pruefe(_zeile136 and _in136.COLOR_OPEN not in _zeile136[0],
-               '%s bleibt schwarz' % _wort136)
-
-    # ⚠ Die Bauplan-Zeile darf sich nicht veraendern — an ihrem Kaestchen
-    # haengt die Erkennung, welcher Block uns gehoert.
-    pruefe('    [  ] Atzkav Sniper Rifle' in _neu136,
-           'die Bauplan-Zeile bleibt unangetastet')
-
-    # ⚠ Nichts doppelt: Ein zweiter Lauf darf nicht `<EM4><EM4>` erzeugen —
-    # das zeigt das Spiel als sichtbaren Text an.
-    pruefe(_in136._highlight_rep(_neu136) == _neu136,
-           'ein zweiter Lauf aendert nichts mehr')
-
-    # ⚠ Gegenprobe: Ohne den Aufruf bliebe alles schwarz — sonst prueft die
-    # erste Zeile nichts.
-    pruefe(_in136.COLOR_OPEN not in _block136,
-           'Gegenprobe: der Ausgangsblock ist schwarz')
-
-    print()
-    print('137. Ohne Rufwerte steht „Keine Angaben" statt gar nichts')
-    # ⚠⚠ Am 06.09.2026 gemessen: 109 Auftraege bekamen ueberhaupt keine
-    # Ruf-Zeile, weil die Quelle fuer sie keine Rufwerte fuehrt. Im Spiel
-    # standen dort nur Abklingzeit und Teilbarkeit — und die Luecke sah aus
-    # wie ein Aussetzer des Werkzeugs statt wie fehlende Daten.
-    _worte137 = _in136.TEXTS['de']
-
-    # Ein Auftrag, dessen Quelle keine Rufangabe hat.
-    _leer137 = {'titleLocKey': 'probe_ohne_ruf',
-                'contractInfo': '# Cooldown für Mission: 1 Minute\\n'
-                                '# Mission kann geteilt werden? Ja'}
-    _z137 = _in136._detail_lines(_leer137, '', _worte137, None)
-    _ruf137 = [z for z in _z137
-               if any(w in z.lower() for w in _in136.REP_WORDS)]
-    pruefe(len(_ruf137) == 1,
-           'genau eine Ruf-Zeile kommt dazu (gefunden: %d)' % len(_ruf137))
-    pruefe(_ruf137 and 'Keine Angaben' in _ruf137[0],
-           'sie sagt „Keine Angaben"')
-    pruefe(_ruf137 and _ruf137[0].startswith(_in136.COLOR_OPEN),
-           'auch der Platzhalter ist blau')
-    # ⚠ Er steht OBEN, bei den anderen Angaben — nicht unten angehaengt.
-    pruefe(_z137 and _z137[0] is _ruf137[0] if _ruf137 else False,
-           'der Platzhalter steht bei den uebrigen Angaben')
-
-    # ⚠⚠ Kein Platzhalter, wo schon eine Rufangabe steht — weder eine eigene…
-    _hat137 = {'titleLocKey': 'probe_mit_ruf',
-               'contractInfo': '# Zu erwartende Rufpunkte: 150 XP\\n'
-                               '# Cooldown für Mission: 1 Minute'}
-    _z137b = _in136._detail_lines(_hat137, '', _worte137, None)
-    _ruf137b = [z for z in _z137b
-                if any(w in z.lower() for w in _in136.REP_WORDS)]
-    pruefe(len(_ruf137b) == 1 and 'Keine Angaben' not in _ruf137b[0],
-           'wo Rufwerte da sind, kommt kein Platzhalter dazu')
-
-    # …noch eine, die schon im Text des Spiels steht (anderes Werkzeug).
-    _z137c = _in136._detail_lines(
-        _leer137, '# Min. Reputation: Auftragnehmer Junior', _worte137, None)
-    _ruf137c = [z for z in _z137c
-                if any(w in z.lower() for w in _in136.REP_WORDS)]
-    pruefe(not _ruf137c,
-           'steht schon eine Rufangabe im Text, kommt keine zweite')
-
-    # ⚠ Gegenprobe: Ohne die Ergaenzung waere die Liste ruflos — sonst
-    # prueft die erste Zeile nichts.
-    pruefe(not [z for z in (_leer137['contractInfo'] or '').split('\\n')
-                if any(w in z.lower() for w in _in136.REP_WORDS)],
-           'Gegenprobe: die Quelle selbst nennt keinen Ruf')
+    # 136./137. (Bis 30.09.2026: Hervorhebung und "Keine Angaben" im Block der
+    # SCDL-Vertragsdaten. Der Weg ist entfernt; die Hervorhebung prueft 127.)
 
     print()
     print('138. Das Bilder-Werkzeug ist auf beiden Systemen einsatzbereit')
@@ -17002,19 +16778,14 @@ def main():
         pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
                'einspielen() schreibt den eigenen Schiffsnamen wirklich hinein')
 
-        # -- Weg 2: der bevorzugte SCDL-Weg. Ohne Vertragsdaten steigt er
-        #    sofort aus — also legt die Pruefung sich welche hin, statt sich
-        #    selbst zu ueberspringen (dieselbe Lehre wie bei Pruefung 67).
-        _scdl175 = _in175.paths.app_file(_in175.SCDL_CACHE % 'en')
-        os.makedirs(os.path.dirname(_scdl175), exist_ok=True)
-        with open(_scdl175, 'w', encoding='utf-8') as _f:
-            json.dump({'entries': [{}]}, _f)
-        _ini_frisch175()
-        _ok175, _, _meld175 = _in175.apply_scdl(_ini175, 'en')
-        pruefe(_ok175, 'der SCDL-Weg laeuft in der Pruefung wirklich an (%s)'
-               % _meld175)
-        pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
-               'einspielen_scdl() schreibt ihn ebenso — der Fehler von v3.28.0')
+        # -- Seit 30.09.2026 gibt es nur noch diesen einen Schreibweg: Der
+        #    SCDL-Weg ist entfernt. Festgehalten wird, dass `setup` (der echte
+        #    Einstiegspunkt) wirklich hierhin fuehrt und keinen zweiten hat.
+        _namen175 = set(_in175.setup.__code__.co_names)
+        pruefe('apply_texts' in _namen175
+               and not any('scdl' in _n.lower() for _n in _namen175),
+               'setup() fuehrt nur noch ueber apply_texts (%s)'
+               % sorted(_namen175))
     finally:
         if _altheim175 is None:
             os.environ.pop('SC_BP_HOME', None)
@@ -19815,7 +19586,7 @@ def main():
 
     # ---------------------------- Die Baupläne DB im Browser (196)
     print()
-    print('196. Die Bauplaene DB von Star Citizen Deutsch — beide Richtungen')
+    print('196. Die Bauplaene DB von Star Citizen Deutsch — einlesen')
     # ⚠⚠ Die Bauplan-Uebersicht im Browser
     # (`rjcncpt.github.io/StarCitizen-Deutsch-INI/`). ⛔ Das ist NICHT „der
     # Launcher als Webseite" — der SC Deutsch Launcher bleibt das Programm
@@ -19872,44 +19643,12 @@ def main():
         pruefe(len(_imp196.read(_datei196b)[1]) == 2,
                'Gegenprobe: ohne Schalter kommen weiterhin alle Eintraege mit')
 
-        # --- Die Gegenrichtung: unser Bestand IN die Bauplaene DB ----------
-        # ⚠⚠ Ihr Import prueft auf `blueprints` und nimmt je Eintrag `key`
-        # und `isDone`. Basetool (`productName`), scmdb (`tag`) und die
-        # Vollsicherung (`bauplaene`) weist sie allesamt mit „Ungueltiges
-        # Dateiformat" ab — ohne diese Version kommt der eigene Stand dort
-        # nicht hinein.
-        _bestand196 = {'bauplaene': {
-            'habe ich': {'name': 'Habe ich', 'quelle': 'log'},
-            'und das auch': {'name': 'Und das auch', 'quelle': 'hand'}}}
-        _doc196 = _exp196.for_bpdb(_bestand196)
-        pruefe(isinstance(_doc196.get('blueprints'), list)
-               and len(_doc196['blueprints']) == 2,
-               'die DB-Version schreibt eine Liste `blueprints`')
-        pruefe(all(e.get('key') and e.get('isDone') is True
-                   and e.get('isMarked') is False
-                   for e in _doc196['blueprints']),
-               'jeder Eintrag traegt `key` und `isDone: true`')
-        # ⭐ Und der Rundlauf: Was wir schreiben, lesen wir auch wieder ein.
-        pruefe(_imp196.detect(_doc196) == 'bpdb',
-               'die eigene DB-Version ist selbst wieder einlesbar')
-        _datei196c = os.path.join(_wiese196, 'bauplaene-db-import.json')
-        _ok196, _meldung196 = _exp196.write(_datei196c, kind='bpdb',
-                                            collection=_bestand196)
-        pruefe(_ok196, 'sie laesst sich schreiben (%s)' % _meldung196)
-        pruefe(sorted(e['name'] for e in _imp196.read(_datei196c)[1])
-               == ['Habe ich', 'Und das auch'],
-               'und beide Bauplaene kommen unveraendert zurueck')
-        # ⚠ Der Dateiname darf NICHT `sc_bp_erledigt.json` sein — so heisst
-        # die Datei, die das Launcher-PROGRAMM schreibt und die der Watcher
-        # ueberwacht. Zwei gleichnamige Dateien mit entgegengesetzter
-        # Richtung merkt man erst, wenn der Bestand falsch ist.
-        pruefe('sc_bp_erledigt' not in _exp196.suggestion('bpdb'),
-               'ihr Dateiname kollidiert nicht mit dem des Launchers')
-        # ⚠ Und sie gehoert in die Ablage — wer „Alles in die Ablage" drueckt,
-        # meint alles. Geprueft am Quelltext, damit kein Lauf noetig ist.
-        import inspect as _in196
-        pruefe("'bpdb'" in _in196.getsource(_exp196.archive),
-               'die Ablage schreibt sie mit')
+        # --- Die Gegenrichtung (Ausgabe FUER die Bauplaene DB) ist seit dem
+        # 30.09.2026 entfernt. Einlesen bleibt — wer von dort kommt, soll
+        # seinen Bestand mitnehmen koennen.
+        pruefe(not any('bpdb' in _n for _n in dir(_exp196))
+               and 'bpdb' not in _exp196.FILENAMES,
+               'keine Ausgabe mehr fuer die Bauplaene DB')
     finally:
         if _alt196 is None:
             os.environ.pop('SC_BP_HOME', None)
@@ -23115,26 +22854,16 @@ def main():
         pruefe('RepStanding_Bounty_MidLevel_Name=Guild Member\n' in _text234(),
                'Zuruecksetzen bringt den Rangnamen ohne Zahl zurueck')
 
-        _scdl234 = _in234.paths.app_file(_in234.SCDL_CACHE % 'en')
-        os.makedirs(os.path.dirname(_scdl234), exist_ok=True)
-        with open(_scdl234, 'w', encoding='utf-8') as _f:
-            json.dump({'entries': [{}]}, _f)
+        # ⚠ Bis 30.09.2026 lief der Rest ueber den SCDL-Weg; seitdem gibt es
+        # nur noch `apply_texts` (ueber `setup`, den echten Einstiegspunkt).
         _frisch234()
-        _ok234b, _, _m234b = _in234.apply_scdl(_ini234, 'en')
-        pruefe(_ok234b and _soll234 in _text234(),
-               'der SCDL-Weg schreibt sie ebenso (%s)' % _m234b)
-
-        with open(_in234.paths.app_file(_in234.SCDL_CACHE % 'de'), 'w',
-                  encoding='utf-8') as _f:
-            json.dump({'entries': [{}]}, _f)
-        _frisch234()
-        _in234.apply_scdl(_ini234, 'de')
+        _in234.apply_texts(_ini234, 'german_(germany)', catalog_data=_kat234)
         pruefe('Guild Member [ab 10.000]' in _text234(),
                'auf Deutsch steht „ab" davor')
 
         _pf234.set_setting(_rt234.SETTING, False)
         _frisch234()
-        _in234.apply_scdl(_ini234, 'en')
+        _in234.apply_texts(_ini234, 'english', catalog_data=_kat234)
         pruefe('[10,000+]' not in _text234(),
                'abgeschaltet steht keine Zahl am Rang')
         _pf234.set_setting(_rt234.SETTING, True)
@@ -23509,17 +23238,6 @@ def main():
                            remove_only=True)
         pruefe('Sabre_Raven_EX' not in _text241(),
                'Zuruecksetzen nimmt die ergaenzten Zeilen wieder heraus')
-        # ⚠ Und der SCDL-Weg — der bevorzugte. Die Gegenprobe hat gezeigt, dass
-        # eine Pruefung nur ueber `apply_texts` ihn gar nicht sieht.
-        _scdl241 = _in241.paths.app_file(_in241.SCDL_CACHE % 'de')
-        os.makedirs(os.path.dirname(_scdl241), exist_ok=True)
-        with open(_scdl241, 'w', encoding='utf-8') as _f:
-            json.dump({'entries': [{}]}, _f)
-        _in241.apply_scdl(_de241, 'de')
-        _in241.apply_scdl(_de241, 'de')
-        pruefe(_text241().count('vehicle_NameAEGS_Sabre_Raven_EX=') == 1
-               and 'vehicle_NameAEGS_Sabre_Raven_EX=*Aegis Sabre Raven EX\n' in _text241(),
-               'der SCDL-Weg ergaenzt ebenso, auch zweimal hintereinander nur einmal')
         # Englisch selbst bekommt nichts ergaenzt.
         pruefe(_in241._added_ship_names(_en241, [], {}) == {},
                'die englische Datei ergaenzt sich nicht aus sich selbst')
@@ -24712,22 +24430,15 @@ def main():
     print('248. Der Launcher ist keine Quelle mehr — weder im Katalog noch in der Anzeige')
     import sc_bp_watcher as _sw248
     from scbp import language as _sp248
-    _alt248 = (_sw248.SCMDB, _sw248.TYPE_FILE)
-    _dir248 = tempfile.mkdtemp(prefix='pruefung248-')
+    _alt248 = _sw248.SCMDB
     try:
-        _datei248 = os.path.join(_dir248, 'bp_item_types.json')
-        with open(_datei248, 'w', encoding='utf-8') as _f248:
-            json.dump({'alter launcher-eintrag': 'Cooler'}, _f248)
-        _sw248.TYPE_FILE = _datei248
         _sw248.SCMDB = {_sw248._scmdb_key('Probe Kanone'): {'a': 'WeaponGun'}}
         _typen248 = _sw248.load_types()
-        pruefe('alter launcher-eintrag' not in _typen248
-               and set(_typen248.values()) == {'Ship Weapon'},
-               'mit scmdb-Daten gilt deren Katalog, nicht die Launcher-Datei (%r)'
-               % _typen248)
+        pruefe(set(_typen248.values()) == {'Ship Weapon'},
+               'der Katalog kommt aus den scmdb-Daten (%r)' % _typen248)
         _sw248.SCMDB = {}
-        pruefe(_sw248.load_types() == {'alter launcher-eintrag': 'Cooler'},
-               'ohne scmdb-Daten bleibt die Launcher-Datei als Rueckfall')
+        pruefe(_sw248.load_types() == {},
+               'ohne scmdb-Daten ist er leer — kein Rueckfall auf den Launcher')
         # Quellenwechsel: andere Schreibweise darf keine Neu-Flut ausloesen.
         _alt_namen248 = ['Bauplan %d' % _i for _i in range(700)]
         _neu_namen248 = ['bauplan%d' % _i for _i in range(700)]
@@ -24743,8 +24454,7 @@ def main():
                                          'Watcher', '_catalog_tick'),
                'die Katalog-Wache nutzt diese Grenze')
     finally:
-        _sw248.SCMDB, _sw248.TYPE_FILE = _alt248
-        shutil.rmtree(_dir248, ignore_errors=True)
+        _sw248.SCMDB = _alt248
     _zeilen248 = []
     for _spr248 in ('de', 'en'):
         _sp248.set_language(_spr248)
@@ -26055,6 +25765,7 @@ def main():
     _pruefung_300()
     _pruefung_301()
     _pruefung_302()
+    _pruefung_304()
     _pruefung_303()
 
     print()
@@ -30686,6 +30397,64 @@ def _pruefung_300():
         else:
             os.environ['SC_BP_HOME'] = _alt_home
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_304():
+    """304. Region im Auftragstext — aus scmdb, ohne SCDL.
+
+    Bis v3.63.1 kam die Region vom SCDL-Weg. Seit 30.09.2026 aus derselben
+    scmdb-Datei wie die Ruf-Zeile (`reputation.prepare_regions`). Eine
+    Gefahrenstufe gibt es dort nicht und wird nicht erfunden.
+    """
+    print('\n304. Region im Auftragstext (scmdb)')
+    from scbp import reputation as _rp303, injection as _in303
+    _roh303 = {
+        'locationPools': {
+            'l1': {'system': 'Stanton', 'planet': 'Crusader'},
+            'l2': {'system': 'Stanton', 'planet': 'microTech'},
+            'l3': {'system': 'Stanton', 'planet': 'Hurston'},
+            'l4': {'system': 'Stanton', 'planet': 'ArcCorp'}},
+        'pyroRegions': {
+            'A': {'locations': [{'name': 'Pyro I', 'navIcon': 'Planet'},
+                                {'name': 'PYR1 L1', 'navIcon': 'Default'}]},
+            'B': {'locations': [{'name': 'Bloom', 'navIcon': 'Planet'}]}},
+        'contracts': [
+            # Zwei Varianten desselben Auftrags werden zusammengelegt.
+            {'titleLocKey': '@Probe_Zwei_Title', 'systems': ['Stanton'],
+             'locations': ['l1']},
+            {'titleLocKey': '@Probe_Zwei_Title', 'systems': ['Stanton'],
+             'locations': ['l2']},
+            {'titleLocKey': '@Probe_Pyro_Title', 'systems': ['Pyro'],
+             'pyroRegion': ['B']},
+            {'titleLocKey': '@Probe_Ueberall_Title', 'systems': ['Stanton'],
+             'locations': ['l1', 'l2', 'l3', 'l4']},
+            {'titleLocKey': '@Probe_Nix_Title'}]}
+    _reg303 = _rp303.prepare_regions(_roh303)
+    pruefe(_reg303.get('probe_zwei_title') == 'Stanton (Crusader, microTech)',
+           'Varianten eines Auftrags werden zusammengelegt (%r)'
+           % _reg303.get('probe_zwei_title'))
+    pruefe(_reg303.get('probe_pyro_title') == 'Pyro (Bloom)',
+           'die Pyro-Region wird zu ihren Planeten (%r)'
+           % _reg303.get('probe_pyro_title'))
+    pruefe(_reg303.get('probe_ueberall_title') == 'Stanton',
+           'alle Planeten eines Systems heißt: nur das System (%r)'
+           % _reg303.get('probe_ueberall_title'))
+    pruefe('probe_nix_title' not in _reg303,
+           'ohne Angaben keine Region (nichts erfunden)')
+
+    _tab303 = {'auftraege': {}, 'regionen': _reg303}
+    _b303 = _in303._build_block({'titel_key': 'Probe_Pyro_Title', 'bp': ['X']},
+                                set(), _in303.TEXTS['de'], _tab303)
+    pruefe('# Region: Pyro (Bloom)' in _b303,
+           'der Auftragsblock nennt die Region')
+    # Gegenprobe: ohne Tabelle keine Region — sonst prueft die Zeile oben nichts.
+    pruefe('Region' not in _in303._build_block(
+               {'titel_key': 'Probe_Pyro_Title', 'bp': ['X']},
+               set(), _in303.TEXTS['de']),
+           'Gegenprobe: ohne scmdb-Tabelle steht keine Region im Block')
+    pruefe(all('gefahr' not in _z.lower() and 'danger' not in _z.lower()
+               for _z in _reg303.values()),
+           'keine erfundene Gefahrenstufe')
 
 
 def _pruefung_302():

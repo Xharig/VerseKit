@@ -16,6 +16,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   stehen dessen Plätze darunter — an der Eclipse etwa 20 Bomben statt
   3 Torpedos.
 
+### Verbessert
+
+- **VerseKit ist unabhängig vom SC Deutsch Launcher** — die Vertragsdaten des
+  Launcher-Projekts stehen nicht mehr öffentlich bereit. Die Auftragstexte im
+  Spiel entstehen deshalb nur noch aus eigenen Daten (scmdb.net); die
+  Gefahrenstufe, die nur dort stand, fällt weg. Die Dateien des
+  Launchers werden nicht mehr gelesen, das Ordnerfeld in den Einstellungen und
+  die Ausgabe für die Baupläne DB entfallen. Einlesen lassen sich deren Dateien
+  weiterhin, und die deutsche Übersetzung bleibt wählbar.
+- **Wem ein Auftrag Ruf bringt und wo er spielt** — Partei und Art
+  („Headhunters +150 Standing") und die Region („Pyro (Bloom)") stehen jetzt
+  in jedem Auftragstext mit Bauplan-Angaben, die Ruf-Zeilen blau
+  hervorgehoben.
+
 ### Behoben
 
 - **Leere Auswahl bei Torpedos und Raketen in eingebauten Racks** — dort stehen

@@ -45,6 +45,14 @@ Die Quelldatei ist **12,5 MB**; aufbereitet bleiben rund 1.300 Zeilen. Beim
 Spieler liegt nur die kleine Fassung — dieselbe Regel wie beim
 Gegenstands-Zwischenspeicher.
 
+## Und wo der Auftrag spielt (seit 30.09.2026)
+
+Aus derselben Datei kommt die **Region**: `systems`, bei Pyro `pyroRegion`
+(A–D) und die Orte je Auftrag (`locations` → `locationPools[…].planet`).
+Daraus wird `# Region: Stanton (Crusader, microTech)`. Bis v3.63.1 lieferte
+das der SCDL-Weg; der ist entfernt. ⚠ Eine **Gefahrenstufe** gibt es in diesen
+Daten nicht — sie wird nicht erfunden.
+
 ## ⚠ An den Spielstand gebunden, nicht an die Uhr
 
 Nach einem Patch aendern sich Auftraege und Rufhoehen. Der Zwischenspeicher
@@ -53,12 +61,18 @@ neu geladen statt auf einen Zeitablauf zu warten.
 """
 import json
 import os
-import re
 
 from . import errors, paths
 
 CACHE_FILE = 'auftragsruf.json'
-FORMAT = 1
+# ⚠ 2 seit 30.09.2026 (Regionen dazu). Ein Zwischenspeicher im alten Aufbau
+# gilt als leer und wird beim nächsten Eintragen neu geholt — sonst stünde bis
+# zum nächsten Patch keine Region im Text.
+FORMAT = 2
+
+# So viele Planeten werden hinter einem System höchstens genannt; bei mehr
+# steht nur das System — eine lange Aufzählung liest im Auftrag niemand.
+MAX_PLANETS = 4
 
 # ⚠⚠ **Geholt wird vom GitHub-Spiegel, nicht von scmdb.net.** Krovax hat ihn
 # eigens für Programme angelegt und dazu gesagt: „Ich habs gemirrored, keine
@@ -111,12 +125,14 @@ def load():
             data = json.load(f)
         if (isinstance(data, dict) and data.get('format') == FORMAT
                 and isinstance(data.get('auftraege'), dict)):
+            if not isinstance(data.get('regionen'), dict):
+                data['regionen'] = {}
             return data
     except (OSError, ValueError):
         pass
     except Exception as error:
         errors.record('reputation.load', error)
-    return {'format': FORMAT, 'version': '', 'auftraege': {}}
+    return {'format': FORMAT, 'version': '', 'auftraege': {}, 'regionen': {}}
 
 
 def save(data):
@@ -184,6 +200,62 @@ def prepare(raw):
     return out
 
 
+def prepare_regions(raw):
+    """Wo ein Auftrag spielt — `{schluessel: 'Stanton (Crusader, microTech)'}`.
+
+    Mehrere Einträge mit demselben Titelschlüssel (Varianten eines Auftrags)
+    werden zusammengelegt. Je System die Planeten; bei Pyro zählt die
+    Pyro-Region (A–D), weil `locations` dort oft leer sind. Mehr als
+    `MAX_PLANETS` Planeten oder alle vier Pyro-Regionen: nur das System.
+    """
+    pools = raw.get('locationPools') or {}
+    pyro = {}
+    for letter, region in (raw.get('pyroRegions') or {}).items():
+        pyro[letter] = [loc.get('name') for loc in (region or {}).get('locations') or []
+                        if isinstance(loc, dict) and loc.get('navIcon') == 'Planet'
+                        and loc.get('name')]
+    # Alle Planeten je System — nennt ein Auftrag sie alle, heißt das „überall
+    # im System", und dann steht nur das System da.
+    everywhere = {}
+    for pool in pools.values():
+        if isinstance(pool, dict) and pool.get('planet') and pool.get('system'):
+            everywhere.setdefault(pool['system'], set()).add(pool['planet'])
+    for names in pyro.values():
+        everywhere.setdefault('Pyro', set()).update(names)
+    gathered = {}
+    for c in raw.get('contracts') or []:
+        key = _key(c.get('titleLocKey') or c.get('titleKey'))
+        if not key:
+            continue
+        slot = gathered.setdefault(key, {'systems': set(), 'pyro': set(),
+                                         'planets': {}})
+        slot['systems'].update(s for s in (c.get('systems') or []) if s)
+        slot['pyro'].update(r for r in (c.get('pyroRegion') or []) if r)
+        for loc in c.get('locations') or []:
+            pool = pools.get(loc) or {}
+            if pool.get('planet') and pool.get('system'):
+                slot['planets'].setdefault(pool['system'], set()).add(pool['planet'])
+    out = {}
+    for key, slot in gathered.items():
+        parts = []
+        for system in sorted(slot['systems']):
+            planets = set(slot['planets'].get(system) or ())
+            if system == 'Pyro' and slot['pyro'] and len(slot['pyro']) < len(pyro):
+                for letter in slot['pyro']:
+                    planets.update(pyro.get(letter) or ())
+            elif system == 'Pyro' and len(slot['pyro']) >= len(pyro) > 0:
+                planets = set()
+            if planets >= (everywhere.get(system) or {None}):
+                planets = set()
+            if planets and len(planets) <= MAX_PLANETS:
+                parts.append('%s (%s)' % (system, ', '.join(sorted(planets))))
+            else:
+                parts.append(system)
+        if parts:
+            out[key] = ', '.join(parts)
+    return out
+
+
 def refresh(game_version=''):
     """Die Tabelle holen, wenn sie fehlt oder zum Patch nicht mehr passt.
 
@@ -237,7 +309,8 @@ def refresh(game_version=''):
             return len(old['auftraege'])
         save({'format': FORMAT,
                  'version': raw.get('version') or game_version or '',
-                 'auftraege': contract_map})
+                 'auftraege': contract_map,
+                 'regionen': prepare_regions(raw)})
         return len(contract_map)
     except Exception as error:
         errors.record('reputation.refresh', error)
@@ -273,3 +346,10 @@ def line(key, word='Ruf', data=None):
     if not parts:
         return ''
     return '# %s: %s' % (word, ', '.join(parts))
+
+
+def region_line(key, word='Region', data=None):
+    """`# Region: Pyro (Bloom)` — oder `''`, wenn nichts bekannt ist."""
+    data = data if data is not None else load()
+    text = (data.get('regionen') or {}).get(_key(key))
+    return '# %s: %s' % (word, text) if text else ''

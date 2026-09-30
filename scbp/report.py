@@ -617,8 +617,6 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     line(t('b_gamelog'), _safe(lambda: uebersicht.get('game_log')
                                    or t('b_nicht_gefunden')))
     line(t('b_sicherungen'), _safe(_log_line))
-    line(t('b_launcher'), _safe(lambda: uebersicht.get('launcher')
-                                    or t('b_nicht_da')))
     # ⚠ **Womit sich das Spiel starten ließe — und ob das jemand von Hand
     # eingetragen hat.** Ohne diese Zeile ist „der Startknopf tut nichts" nicht
     # zu beantworten, ohne den Nutzer auszufragen. Siehe die Regel: Was einen

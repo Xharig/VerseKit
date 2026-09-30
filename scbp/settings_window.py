@@ -95,8 +95,6 @@ class SettingsWindow:
         self.sprache_wahl = tk.StringVar(value=paths.settings().get('sprache')
                                          or 'auto')
         self.spiel = tk.StringVar(value=paths.settings().get('spiel_ordner') or '')
-        self.launcher = tk.StringVar(value=paths.settings().get('launcher_ordner')
-                                     or '')
         self.intervall = tk.StringVar(
             value=str(paths.setting_int('pruefintervall_sekunden', 3,
                                              INTERVALL_MIN, INTERVALL_MAX)))
@@ -118,8 +116,6 @@ class SettingsWindow:
 
         self._language_choice(flaeche)
         self._folder_field(flaeche, t('e_spiel'), t('e_spiel_hilfe'), self.spiel)
-        self._folder_field(flaeche, t('e_launcher'), t('e_launcher_hilfe'),
-                         self.launcher)
         self._interval_field(flaeche)
         self._sound_field(flaeche)
         self._opacity_field(flaeche)
@@ -583,14 +579,14 @@ class SettingsWindow:
                 self.beim_sprachwechsel()
             return
 
-        werte = (self.sprache_wahl.get(), self.spiel.get(), self.launcher.get(),
+        werte = (self.sprache_wahl.get(), self.spiel.get(),
                  self.intervall.get(), self.ton.get(), self.deckkraft.get())
         eltern = self.root.master
         self.root.destroy()
         neu = SettingsWindow(eltern)
         (neu.sprache_wahl.set(werte[0]), neu.spiel.set(werte[1]),
-         neu.launcher.set(werte[2]), neu.intervall.set(werte[3]),
-         neu.ton.set(werte[4]), neu.deckkraft.set(werte[5]))
+         neu.intervall.set(werte[2]),
+         neu.ton.set(werte[3]), neu.deckkraft.set(werte[4]))
         neu._colour_language_buttons()
         neu._label_sound()
 
@@ -601,11 +597,10 @@ class SettingsWindow:
         Ein Ordner, den es nicht gibt, wird **nicht** gespeichert: Sonst sucht
         der Watcher beim nächsten Start an einem Ort, den der Spieler für
         richtig hält, und meldet nichts, ohne dass jemand den Grund sieht."""
-        for variable in (self.spiel, self.launcher):
-            wert = variable.get().strip()
-            if wert and not os.path.isdir(os.path.expanduser(wert)):
-                self._say(t('e_pfad_fehlt'), RED)
-                return
+        wert = self.spiel.get().strip()
+        if wert and not os.path.isdir(os.path.expanduser(wert)):
+            self._say(t('e_pfad_fehlt'), RED)
+            return
 
         try:
             takt = int(self.intervall.get())
@@ -616,7 +611,6 @@ class SettingsWindow:
 
         paths.set_setting('sprache', self.sprache_wahl.get())
         paths.set_setting('spiel_ordner', self.spiel.get().strip())
-        paths.set_setting('launcher_ordner', self.launcher.get().strip())
         paths.set_setting('pruefintervall_sekunden', takt)
         paths.set_setting('signalton', bool(self.ton.get()))
         paths.set_setting('deckkraft_prozent', int(self.deckkraft.get()))

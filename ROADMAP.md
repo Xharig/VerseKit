@@ -20,7 +20,7 @@ Vier Dinge sind Absicht und bleiben so:
 | | Inhalt |
 |---|---|
 | ✅ | Live-Erkennung neuer Baupläne aus der Spiel-Log, Anzeige im Overlay |
-| ✅ | **Eigener Bauplan-Bestand** — der SC Deutsch Launcher ist nicht nötig |
+| ✅ | **Eigener Bauplan-Bestand** — kein weiteres Programm nötig |
 | ✅ | **Nachlese**: beim Start werden frühere Spielsitzungen ausgewertet |
 | ✅ | **Bauplan-Liste** zum Nachschlagen, Filtern und Abhaken, mit Fortschritt (auch nur für die Merkliste) — die Suche findet **auch Aufträge** und filtert die Liste auf einen davon |
 | ✅ | **Herkunft je Bauplan** — Fraktion, Auftrag, nötiger Ruf, Belohnung; aus der Herstellung führt ein Knopf direkt hin |
@@ -37,7 +37,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | Einrichtungsassistent, jederzeit wiederholbar |
 | ✅ | Deutsch und Englisch, umschaltbar |
 | ✅ | Windows und Linux, mit Autostart auf beiden |
-| ✅ | Bestand ausgeben — für das KRT Profit Basetool, für scmdb.net, für die Baupläne DB · Star Citizen Deutsch und als vollständige Sicherung; einlesen geht aus denselben Quellen |
+| ✅ | Bestand ausgeben — für das KRT Profit Basetool, für scmdb.net und als vollständige Sicherung; einlesen geht aus denselben Quellen und aus der Baupläne DB · Star Citizen Deutsch |
 | ✅ | Overlay einklappen, für alle mit einem Bildschirm |
 | ✅ | **Ablage-Symbol**: neben der Uhr unter Windows, im Startmenü unter Linux — der Weg zurück zu Liste und Einstellungen, während sich das Overlay zurückhält |
 | ✅ | **Angaben am Gegenstand im Spiel** — Klasse, Größe und Gütegrad am Traktorstrahl, bei Raketen der Suchkopf |

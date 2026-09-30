@@ -2464,19 +2464,6 @@ def _folders(fenster, rahmen):
 
     _path_field(fenster, innen, ablage, ablage_waehlen, oeffnen=ablage_oeffnen)
 
-    tk.Label(innen, text='%s  —  %s' % (t('e_launcher'), t('s_optional')), bg=BG, fg=FG,
-             font=fenster.f_bold, anchor='w').pack(fill='x', pady=(20, 0))
-    _body_text(innen, t('e_launcher_hilfe'), fenster.f_small, fill='x')
-    def launcher_waehlen():
-        gewaehlt = choose_folder(t('e_launcher'), e.launcher.get())
-        if gewaehlt:
-            e.launcher.set(gewaehlt)
-            e._save()
-            fenster.say(t('e_neustart_noetig'))
-
-    _path_field(fenster, innen, e.launcher, launcher_waehlen,
-              platzhalter=t('s_or_leer'))
-
     _start_command_field(fenster, innen)
     _channel_states(fenster, innen)
 
@@ -3528,19 +3515,9 @@ def _collection(fenster, rahmen):
     for art, name, wofuer in (('basetool', 'KRT Profit Basetool',
                                t('s_be_n_bp') % anzahl),
                               ('scmdb', 'scmdb.net', t('s_be_n_bp') % anzahl),
-                              # ⚠ Die Baupläne DB nimmt **nur** ihr eigenes
-                              # Format an (`blueprints[].key` + `isDone`). Die
-                              # drei anderen Versionen weist sie mit
-                              # „Ungültiges Dateiformat" ab — ohne diese Zeile
-                              # kommt der eigene Bestand dort nicht hinein.
-                              #
-                              # ⛔ Sie heißt **nicht** „SC Deutsch Launcher".
-                              # Der Launcher ist das Programm für die
-                              # Übersetzung; die Baupläne DB ist die
-                              # Bauplan-Übersicht im Browser. Am 13.09.2026
-                              # stand hier einen Tag lang der falsche Name.
-                              ('bpdb', 'Baupläne DB · Star Citizen Deutsch',
-                               t('s_be_n_bp') % anzahl),
+                              # (Bis v3.63.1 stand hier auch die „Baupläne DB"
+                              # von Star Citizen Deutsch — seit 30.09.2026
+                              # entfernt. Einlesen lässt sie sich weiterhin.)
                               ('voll', t('s_be_voll'), t('s_be_voll_h'))):
         z = tk.Frame(karte, bg=SURFACE)
         z.pack(fill='x', padx=16, pady=5)
@@ -3552,8 +3529,8 @@ def _collection(fenster, rahmen):
         # größten Schrift fehlten ihm 15 px (randpruefung, 27.09.2026).
         _button(fenster, z, t('s_be_speichern_kurz'),
                lambda a=art: einzeln(a)).pack(side='right')
-        # ⚠ Die Breite trägt den LÄNGSTEN Namen — „Baupläne DB · Star Citizen
-        # Deutsch". Ein Label mit zu kleiner `width` wächst über sie hinaus
+        # ⚠ Die Breite trägt den LÄNGSTEN Namen — auch einen übersetzten.
+        # Ein Label mit zu kleiner `width` wächst über sie hinaus
         # und schiebt die Spalte daneben nach rechts: Dann steht „413
         # Baupläne" in jeder Zeile woanders.
         tk.Label(z, text=name, bg=SURFACE, fg=FG, font=fenster.f_small,
@@ -6752,8 +6729,8 @@ def _thanks(fenster, rahmen):
     _credit_box(fenster, innen, 'SC Launch Configurator (Luftwerft)',
                t('s_dk_keine_lizenz'), t('s_dk_luftwerft'),
                'https://www.luftwerft.com/')
-    _credit_box(fenster, innen, 'SC Deutsch Launcher', t('s_dk_freiwillig'),
-               t('s_dk_scdl'), 'https://www.sc-deutsch-launcher.de/')
+    # (Die Karte „SC Deutsch Launcher" ist seit dem 30.09.2026 entfernt —
+    # VerseKit nutzt ihn nicht mehr.)
     # ⚠⚠ Die Übersetzung selbst hat einen eigenen Urheber und eine eigene
     # Lizenz (CC BY-NC-SA 4.0). Die verlangt ausdrücklich Name UND Repository —
     # der Verteiler allein genügt nicht.

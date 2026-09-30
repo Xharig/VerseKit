@@ -370,8 +370,8 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **user.cfg** | On the **"Game"** page: what VerseKit writes, your own lines and the whole file, per game channel. The old file is backed up before the first change |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **German and English** | Interface switchable; the in-game blueprint message is recognised in both languages |
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Updates itself** | Checks for new versions every 10 minutes and installs them on its own — **never while Star Citizen is running**, it waits until the game is closed. Can be switched off. With „What's new" to read up on, including older releases |
-| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log` and, if present, the launcher files. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved |
-| <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have — without the SC Deutsch Launcher |
+| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log`. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved |
+| <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have — no other program needed |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Play time** | The bar at the top shows **how long you have played** — in total, and while you are playing the current session next to it. Counted from the game's own logs, and **kept**: Star Citizen clears out its old logs, the count stays. The backup takes it along when you move machines |
 | <img src="assets/symbole/22/statistik-gruen.png" width="22" alt=""> **Statistics** | A section with six tabs: **play time, sessions, contracts and quantum jumps** with a heat map of **when you play** — plus **ships & equipment** (most used and lost ships, weapons carried), **contracts**, **quantum travel** and **stability** (crashes, disconnects). Only what is reliably in the log in every game language is counted; each session is kept once and stays even when the logs are deleted. Can be saved as a file |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Translation — per channel** | Which text file Star Citizen reads is set **separately for each channel**: LIVE, PTU, TECH-PREVIEW. Your main install also gets the blueprint details, a secondary channel only the text file — or nothing at all, if you would rather leave it alone. Verse-Kit fetches new releases for each channel by itself. Available are **German** (rjcncpt and Dymerz), **StarStrings** (MrKraken, PTU too), **French, Italian, Spanish, Portuguese and Turkish** (Dymerz), **Spanish** (Thord82), five languages from the **SC Launch Configurator** (Luftwerft: German, English, French, Italian, Spanish) and the game's own **English** — or **none at all**, leaving the text file untouched. Using a different one? Enter its **URL** — a zip or a `global.ini`, `https://` only; a GitHub file view is turned into the download for you, and anything that is not a game text file is rejected |
@@ -498,21 +498,19 @@ What the coloured dots mean:
 
 1. **On start** the tool goes through the stored logs of earlier sessions (`logbackups/`) and quietly adds everything it finds to your inventory — nothing is lost if you played without the watcher running. Those blueprints are **not** reported as new. If the stored logs don't reach far enough back, the watcher says so as an <img src="assets/symbole/16/hinweiszeile-grau.png" width="16" alt=""> line instead of passing off an incomplete list as complete.
 2. **In the background** the **`Game.log`** is read — every 3 seconds, adjustable. *(The wording of the blueprint message depends on your game language — the watcher works it out by itself, see below.)* When the game writes `Added notification "Blueprint Received: <name>: "` on unlock, the blueprint is in the list **immediately** (<img src="assets/symbole/16/bestaetigt-gruen.png" width="16" alt="">) and in your inventory.
-   - **If the SC Deutsch Launcher is installed as well**, it reports anything the log missed. There is no intermediate stage: what the `Game.log` says is what the game did — there is nothing to confirm.
+   - There is no intermediate stage: what the `Game.log` says is what the game did — there is nothing to confirm.
 3. Every new line is inserted at the top (name · type · `M/1/A` · time) and a short sound plays.
    - **Once a minute** the craftable catalogue is checked. If it grew, CIG made something **newly craftable** with a patch → a blue line. This has nothing to do with your own unlocks.
 4. **Type, size, grade and class** come from scmdb.net's crafting data and from the bundled game data. Above all of it are your own corrections from `bp-overrides.json`.
-5. **Your inventory** grows along and stays in `bestand.json` — with a note where each blueprint came from (log, catch-up, launcher).
+5. **Your inventory** grows along and stays in `bestand.json` — with a note where each blueprint came from (log, catch-up, import).
 
-> **Why read the log directly?** The SC Deutsch Launcher reads the same file but only exports its own every few minutes. Measured on 2026-07-30: unlock in game **21:23:49** → launcher export **21:26:24** = **2.5 minutes** of delay. Reading it yourself gets you there in seconds — with nobody in between.
+> **Why read the log directly?** Reading it yourself gets you there in seconds — with nobody in between.
 
 Files watched:
 
 ```text
 …\StarCitizen\LIVE\Game.log                 (the game — the actual source)
-…\StarCitizen\LIVE\logbackups\              (earlier sessions, read on start)
-…\sc-deutsch-launcher\blueprints\           (optional: reports what the log missed)
-```
+…\StarCitizen\LIVE\logbackups\              (earlier sessions, read on start)```
 
 Its own files (inventory, settings, cache) live here:
 
@@ -535,12 +533,11 @@ German and English are additionally built in, and you can add your own in `phras
 
 ### Setting your own paths
 
-If Star Citizen (or the SC Deutsch Launcher) isn't in one of the usual places, you enter the folder yourself — in `einstellungen.json` in the folder above:
+If Star Citizen isn't in one of the usual places, you enter the folder yourself — in `einstellungen.json` in the folder above:
 
 ```json
 {
-  "spiel_ordner": "D:\\Games\\StarCitizen\\LIVE",
-  "launcher_ordner": ""
+  "spiel_ordner": "D:\\Games\\StarCitizen\\LIVE"
 }
 ```
 
@@ -574,7 +571,6 @@ In `einstellungen.json` in its own folder — a text file, not code. Restart the
 |---|---|---|
 | `sprache` | Interface language: `auto`, `de` or `en` | `auto` |
 | `spiel_ordner` | Where Star Citizen is (empty = search automatically) | empty |
-| `launcher_ordner` | Where the SC Deutsch Launcher is (empty = search automatically) | empty |
 | `pruefintervall_sekunden` | How often `Game.log` is checked — 1 to 60 allowed | `3` |
 | `signalton` | Short sound on a find | `true` |
 
@@ -584,7 +580,6 @@ In `einstellungen.json` in its own folder — a text file, not code. Restart the
 |---|---|
 | `SC_BP_HOME` | different folder for inventory and settings |
 | `SC_INSTALL_DIR` | different game folder |
-| `SC_BP_LAUNCHER` | different launcher folder |
 | `SC_BP_NO_NET=1` | **no** network access — neither crafting data nor update check |
 | `SC_BP_SPRACHE` | language for this run (`de` / `en`) |
 
@@ -638,8 +633,6 @@ If you fork this project, please keep the credit in the footer or mention the or
 
 ## Thanks & credits
 
-This tool grew up with the **[SC Deutsch Launcher](https://www.sc-deutsch-launcher.de/)**: it was the only data source in the beginning, and without it this project would not exist. If it is installed, it is still used — it confirms finds. **Many thanks** to the team behind it! 🙏
-
 The values for type, size, grade and class as well as the origin of each blueprint come from the **[Star Citizen Mission DataBase (scmdb.net)](https://scmdb.net)** — a hobby project that prepares the game data and makes it freely available. **Thank you** for that! 🙏
 
 > The watcher **does not ship this data**; it fetches it on your machine directly from scmdb.net, the way a browser would. scmdb is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/); a bundled copy would be redistribution and would conflict with that licence as well as with this project's GPL. Fetching is sparing: only when a **new game version** is out.
@@ -648,9 +641,9 @@ As a base for the blueprint details you can pick **[StarStrings](https://github.
 
 > StarStrings is **not bundled** either; it is fetched from its own address when you ask for it. The project states no licence — all the more reason the text stays his.
 
-**The watcher gets along with other tools.** StarStrings and the SC Deutsch Launcher mark blueprint contracts too, with the same `[BP]` mark. So the watcher adds **no second mark where one already stands**, and leaves any item name alone that already carries a tag. With the launcher its blueprint list **replaces** the launcher's instead of sitting beside it — it is the same list, only with the **tick boxes** for your own collection. Take the details back out and the other tool's state is there again, character for character.
+**The watcher gets along with other tools.** StarStrings and the SC Deutsch Launcher mark blueprint contracts too, with the same `[BP]` mark. So the watcher adds **no second mark where one already stands**, and leaves any item name alone that already carries a tag. With the launcher its own blueprint list **replaces** the launcher's instead of sitting beside it — with the **tick boxes** for your own collection. Take the details back out and the other tool's state is there again, character for character.
 
-**The German translation of the game** is by **rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). It is distributed through the SC Deutsch Launcher and also exists in **Swiss German**; the watcher recognises both. The watcher does **not bundle** it and never passes on a modified copy — it only extends the file on your own machine, and the **source note in its first line is left untouched**. **Thanks** to rjcncpt! 🙏
+**The German translation of the game** is by **rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). It also exists in **Swiss German**; the watcher recognises both. The watcher does **not bundle** it and never passes on a modified copy — it only extends the file on your own machine, and the **source note in its first line is left untouched**. **Thanks** to rjcncpt! 🙏
 
 **The other translations** come from **Dymerz** (German, French, Italian, Spanish, Portuguese, Turkish), **Thord82** (Spanish, PTU too) and **MrKraken** (StarStrings, English with contract markers). These are **not bundled** either — Verse-Kit fetches the one you pick on your machine and keeps it current. **Thanks** to Dymerz, Thord82 and MrKraken! 🙏
 

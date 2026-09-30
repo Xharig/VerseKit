@@ -215,8 +215,6 @@ TEXTS = {
     'sprache_auto':      ('automatisch (Systemsprache)', 'automatic (system language)'),
     'spielordner':       ('Spielordner (mit der Game.log darin)',
                           'Game folder (the one containing Game.log)'),
-    'launcher_optional': ('SC Deutsch Launcher (optional)',
-                          'SC Deutsch Launcher (optional)'),
     'durchsuchen':       ('Durchsuchen …', 'Browse …'),
     'leer_automatisch':  ('leer lassen = automatisch suchen. Gesucht wird hier:',
                           'leave empty = search automatically. Searched here:'),
@@ -586,11 +584,6 @@ TEXTS = {
                           'Leer lassen heißt: selbst suchen.',
                           'The folder holding Game.log — usually "LIVE". Leave '
                           'empty to search automatically.'),
-    'e_launcher':        ('SC Deutsch Launcher', 'SC Deutsch Launcher'),
-    'e_launcher_hilfe':  ('Optional, nur für Nutzer des Launchers: dessen Ordner '
-                          '„blueprints". Ohne ihn läuft der Watcher genauso.',
-                          'Optional, only for launcher users: its "blueprints" '
-                          'folder. The watcher works just as well without it.'),
     'e_intervall':       ('Wie oft nachsehen', 'How often to check'),
     'e_intervall_hilfe': ('Sekunden zwischen zwei Blicken in die Game.log. '
                           'Erlaubt 1 bis 60.',
@@ -1865,8 +1858,6 @@ TEXTS = {
                           'settings: put one on the start command below. If the '
                           'watcher is already running, a second start just '
                           'brings it to the front.'),
-    's_optional':      ('optional',
-                          'optional'),
     's_durchsuchen':   ('Durchsuchen …',
                           'Browse …'),
     's_oeffnen':       ('Öffnen',
@@ -2347,8 +2338,6 @@ TEXTS = {
     's_or_start_weg':  ('Startbefehl entfernt — es gilt wieder der gefundene Weg.',
                         'Launch command removed — the detected route applies again.'),
     's_or_uebernehmen': ('Übernehmen', 'Apply'),
-    's_or_leer':       ('leer — wird selbst gesucht',
-                          'empty — found automatically'),
 
     # -- Seite „Was ist neu" --
     # ⚠ Diese vier standen bis v3.0.0-rc58 **fest im Code** (`pages.py`) und
@@ -2465,12 +2454,6 @@ TEXTS = {
                         'Configurator — selectable under “Translation”. They '
                         'are generated largely automatically from the game '
                         'data and are still being refined.'),
-    's_dk_scdl':       ('War anfangs die einzige Datenquelle — ohne ihn gäbe es '
-                        'dieses Projekt nicht. Ist er installiert, bestätigt er die '
-                        'Funde und liefert die deutschen Bezeichnungen.',
-                        'Was the only data source at the start — without it this '
-                        'project would not exist. If installed, it confirms finds '
-                        'and supplies the German names.'),
     # ⚠⚠ Die deutsche Übersetzung selbst hat einen eigenen Urheber und eine
     # eigene Lizenz. Die verlangt ausdrücklich **Name UND Repository** — bis
     # v3.3.0-rc41 stand hier nur „SC Deutsch Launcher", also der Verteiler,
@@ -2491,7 +2474,6 @@ TEXTS = {
                         'passed on. The source note in its first line stays '
                         'untouched — the author asks for that, and it is how anyone '
                         'finds their way back to the original translation.'),
-    's_dk_freiwillig': ('freiwillig', 'optional'),
     's_dk_keine_lizenz': ('keine Lizenzangabe', 'no licence stated'),
     's_dk_erkul':      ('Welche Steckplätze ein Schiff hat und in welcher '
                         'Größe. Damit beantwortet das Werkzeug die Frage, die '
@@ -3060,10 +3042,6 @@ TEXTS = {
     # steht. Gefunden nur durch Hinsehen auf der englischen Seite.
     's_ub_q_katalog':  ('Bauplan-Katalog und Herkunft',
                           'blueprint catalogue and origins'),
-    's_ub_q_uebersetzung': ('Übersetzung und Vertragsdaten',
-                          'translation and mission data'),
-    's_ub_q_vorbild':  ('Vorbild für die Einspielung ins Spiel',
-                          'the model for writing into the game'),
 
     # -- Fehlerbericht (report.py) --
     # Der Bericht steht im Fenster und wird von dort in ein öffentliches Issue
@@ -3105,7 +3083,6 @@ TEXTS = {
     'b_logs_funde_1':  ('%s Bauplan daraus', '%s blueprint from them'),
     'b_protokolle_1':  ('%s Protokoll', '%s log'),
     'b_protokolle':    ('%s Protokolle', '%s logs'),
-    'b_launcher':      ('Launcher', 'Launcher'),
     # ⚠ Diese Zeile wäre am 27.08.2026 die halbe Diagnose gewesen: Bomb20
     # meldete „Star Citizen startet nicht aus dem Werkzeug", und niemand konnte
     # sehen, was das Werkzeug überhaupt gefunden hatte. Erst nach zwei Stunden
@@ -3145,7 +3122,6 @@ TEXTS = {
                         'connection %s · rights %s · last synced %s · last refusal %s'),
     'b_standard':      ('alle auf Standard', 'all at default'),
     'b_nicht_gefunden': ('nicht gefunden', 'not found'),
-    'b_nicht_da':      ('nicht vorhanden', 'not present'),
     # ⚠ Die wichtigste Zeile für den häufigsten Support-Fall: „ich sehe deine
     # Angaben im Spiel nicht mehr". Ursache ist fast immer, dass ein
     # Übersetzungs-Update oder ein Spiel-Patch die `global.ini` neu geschrieben
@@ -3171,7 +3147,6 @@ TEXTS = {
     # -- Kurzmeldungen aus den Bausteinen (Injektion, Übersetzung, Logs) --
     # Sie kommen als Rückgabewert aus einem Modul und landen über
     # `fenster.say()` in der Statuszeile — also sichtbar für den Nutzer.
-    'm_keine_scdl':    ('keine SCDL-Bauplan-Daten', 'no SCDL blueprint data'),
     'm_keine_ini':     ('global.ini nicht gefunden', 'global.ini not found'),
     'm_keine_missionen': ('Katalog kennt keine Missionen',
                           'the catalogue knows no missions'),
@@ -6141,8 +6116,6 @@ TEXTS = {
                                'ab dem nächsten Spielstart',
                                'Game language restored (%s) — takes effect '
                                'on the next game start'),
-    'bpdaten_erneuert':  ('Neue Bauplan-Daten (%s)',
-                          'New blueprint data (%s)'),
 
     # -- Bereiche (Obergruppen der Kategorien) --
     'gruppe_schiff':     ('Schiffsteile', 'Ship parts'),

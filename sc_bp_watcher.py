@@ -17,19 +17,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-SC BP Watcher — zeigt live an, sobald im SC Deutsch Launcher ein neuer
-Bauplan (Blueprint) freigeschaltet wird.
+VerseKit (früher SC BP Watcher) — zeigt live an, sobald in Star Citizen ein
+neuer Bauplan (Blueprint) freigeschaltet wird.
 
-Überwacht:  die Star-Citizen-Game.log (die eigentliche Quelle) und liest beim
-            Start auch die aufgehobenen Logs vergangener Sitzungen nach
-            + den SC Deutsch Launcher, **falls** er vorhanden ist (er bestätigt
-              die Funde und liefert einen gepflegten Katalog)
-            + bp_item_types.json bzw. die scmdb-Craftdaten als Katalog-Wache —
-              meldet, was im Spiel NEU craftbar wurde
-Bestand:    wird ab v2.0 selbst geführt (`bestand.json` im eigenen Ordner) —
-            der SC Deutsch Launcher ist damit kein Muss mehr.
-Werte:      Art/Größe/Gütegrad/Klasse aus dem Launcher-Katalog, sonst von
-            scmdb.net (seit v1.5.0).
+Überwacht:  die Star-Citizen-Game.log (die Quelle) und liest beim Start auch
+            die aufgehobenen Logs vergangener Sitzungen nach
+            + die scmdb-Craftdaten als Katalog-Wache — meldet, was im Spiel
+              NEU craftbar wurde
+Bestand:    wird selbst geführt (`bestand.json` im eigenen Ordner).
+Werte:      Art/Größe/Gütegrad/Klasse von scmdb.net, Korrekturen aus
+            `bp-overrides.json` haben Vorrang.
+
+⚠ Bis v3.63.1 las VerseKit zusätzlich die Dateien des SC Deutsch Launchers
+(`sc_bp_erledigt.json`, `bp_item_types.json`, dessen Katalog) und dessen
+Vertragsdaten. Beides ist seit dem 30.09.2026 entfernt.
 Anzeige:    kleines, immer-im-Vordergrund Overlay-Fenster (verschiebbar).
 
 Reines Python-Standardbibliothek-Tool (tkinter) — keine Zusatzpakete nötig.
@@ -80,15 +81,7 @@ def _mitgeliefert(name):
 
 # ---------------------------------------------------------------- Konfiguration
 # Wo die Dateien liegen, entscheidet `scbp/paths.py` je nach Betriebssystem.
-# Der SC Deutsch Launcher ist ab jetzt **optional**: Ist er da, wird er genutzt;
-# fehlt er (immer unter Linux), fällt nur seine Bestätigung weg — gemeldet wird
-# trotzdem, denn die Game.log ist die eigentliche Quelle.
-BP_DIR   = paths.launcher_folder() or ''
-BP_FILE  = paths.launcher_file('sc_bp_erledigt.json', BP_DIR)
-TYPE_FILE = paths.launcher_file('bp_item_types.json', BP_DIR)
-CAT_DIR  = paths.launcher_file('catalog', BP_DIR)               # Launcher-Katalog (Size/Grade/Klasse)
-HAT_LAUNCHER = bool(BP_DIR) and os.path.isdir(BP_DIR)
-# Manuelle Korrekturen an Size/Grade/Klasse, Vorrang vor dem Launcher-Katalog.
+# Manuelle Korrekturen an Size/Grade/Klasse, Vorrang vor den scmdb-Daten.
 # Standard: neben den eigenen Einstellungen in %APPDATA%\sc-bp-watcher\.
 # Wer die Datei woanders pflegt, setzt die
 # Umgebungsvariable SC_BP_OVERRIDES auf den vollen Pfad. Fehlt beides, gilt der
@@ -131,8 +124,8 @@ def max_zeilen():
     return paths.setting_int('max_zeilen', MAX_ROWS_VORGABE, 5, 100)
 
 # --- Katalog-Wache (ab v1.3.0) ---------------------------------------------
-# `bp_item_types.json` listet, was im Spiel überhaupt craftbar ist. Der Launcher
-# frischt sie mit den SC-Patches auf. Wächst sie, ist etwas NEU craftbar geworden —
+# Die scmdb-Craftdaten listen, was im Spiel überhaupt craftbar ist, frisch je
+# Spielversion. Wächst die Liste, ist etwas NEU craftbar geworden —
 # unabhängig davon, ob man es freigeschaltet hat. Der Stand liegt bewusst in einer
 # eigenen Datei, damit ein zweites Werkzeug auf denselben Daten dem Watcher
 # nicht die Meldung wegnimmt.
@@ -146,8 +139,7 @@ WATCHLIST  = paths.app_file('watchlist.json')
 CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur bei Patches)
 
 # --- scmdb-Craftdaten (ab v1.5.0) ------------------------------------------
-# Woher Art, Größe, Gütegrad und Klasse kommen, wenn der Launcher-Katalog sie
-# nicht kennt (oder gar nicht da ist). scmdb.net liefert je Spielversion eine
+# Woher Art, Größe, Gütegrad und Klasse kommen. scmdb.net liefert je Spielversion eine
 # fertige Datei mit genau diesen Werten — kein Entpacken von `Data.p4k` nötig,
 # reines urllib aus der Standardbibliothek.
 #
@@ -155,7 +147,8 @@ CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur
 #   crafting_items-<version>.json        -> name, attachType, size, grade,
 #                                           componentClass, manufacturer
 #
-# RANGFOLGE (wichtig): bp-overrides.json  >  Launcher-Katalog/Spieldaten  >  scmdb.
+# RANGFOLGE (wichtig): bp-overrides.json  >  Spieldaten  >  scmdb.
+# (Bis v3.63.1 stand der Katalog des SC Deutsch Launchers mit in der Rangfolge.)
 # scmdb füllt nur Lücken und überschreibt nie. Grund: Am 11.08.2026 verglichen —
 # 55 von 56 Werten stimmen exakt mit dem überein, was das Spiel selbst in die
 # Log schreibt, aber beim Kühler „Elsen" nennt scmdb Grad A, während Log UND
@@ -179,8 +172,8 @@ TEXTE_POLL_SEC = 6 * 3600
 # Geschrieben wird weiterhin nur, wenn er sich WIRKLICH geändert hat.
 BESTAND_POLL_SEC = 30
 SCMDB_TIMEOUT  = 30
-# Wer die Netzabfrage nicht will, setzt SC_BP_NO_NET=1 — dann bleibt alles beim
-# Launcher-Katalog wie bisher.
+# Wer die Netzabfrage nicht will, setzt SC_BP_NO_NET=1 — dann bleibt es beim
+# zuletzt geholten Stand.
 SCMDB_AUS      = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 # Gütegrad steht bei scmdb als Zahl. Zuordnung am 11.08.2026 gegen 56 Log-Zeilen
 # geprüft: A=1 (21x), B=2 (20x), C=3 (7x), D=4 (7x).
@@ -206,42 +199,19 @@ BG, FG, ACCENT, SUB, BAR = theme.BG, theme.FG, theme.ACCENT, theme.SUB, theme.BA
 # Für das Verbotszeichen an einer Auftragszeile — dieselbe Warnfarbe wie im
 # Hauptfenster, damit „hier wird etwas weggenommen" überall gleich aussieht.
 ROT = '#e05555'
-PROV = theme.YELLOW        # Gelb für „vorläufig" (aus der Game.log, noch nicht vom Launcher bestätigt)
+PROV = theme.YELLOW        # Gelb — Merklisten-Treffer der Katalog-Wache
 CATA = '#4aa3d8'        # Blau für „neu im Spiel craftbar" (Katalog-Zuwachs, kein eigener Fund)
 
 
 # ---------------------------------------------------------------- Daten-Helfer
-def load_keys():
-    """Liest die freigeschalteten BP-Namen. Gibt set() zurück (leer bei Fehler)."""
-    try:
-        with open(BP_FILE, encoding='utf-8') as f:
-            data = json.load(f)
-        return {b['key'] for b in data.get('blueprints', [])}
-    except Exception:
-        return None   # None = Datei (gerade) nicht lesbar -> Tick überspringen
-
-
 def load_types():
-    """Was im Spiel überhaupt craftbar ist: Name -> Art.
-
-    ⚠⚠ **Erste Wahl sind die scmdb-Craftdaten** (seit 17.09.2026). Vorher kam
-    zuerst die Launcher-Datei `bp_item_types.json` — die steht aber seit dem
-    26.08.2026 still: Wer den alten Ordner noch auf der Platte hatte, bekam
-    einen eingefrorenen Katalog, und neue Baupläne eines Patches fehlten. Die
-    Launcher-Datei bleibt nur Rückfall, solange die scmdb-Daten noch nicht
-    geladen sind.
+    """Was im Spiel überhaupt craftbar ist: Name -> Art — aus den scmdb-Craftdaten.
 
     ⚠ Die Art kommt über `scmdb_art()` — die Einträge heißen `a`, nicht `art`.
-    Der alte Rückfall las `art`/`attachType`, fand nichts und schrieb überall
-    „—" hinein; weil „—" nicht `None` ist, sprang `art_of()` auch nie auf
-    `scmdb_art()` zurück."""
-    if SCMDB:
-        return {name: (scmdb_art(name) or '—') for name in SCMDB}
-    try:
-        with open(TYPE_FILE, encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    ⚠ Bis v3.63.1 gab es einen Rückfall auf `bp_item_types.json` des SC
+    Deutsch Launchers; solange die scmdb-Daten noch nicht geladen sind, ist die
+    Liste jetzt schlicht leer."""
+    return {name: (scmdb_art(name) or '—') for name in SCMDB}
 
 
 def catalog_new(jetzt, bekannt):
@@ -287,7 +257,7 @@ def art_of(key):
 
 
 # Rüstungs-Slots von scmdb -> die hier verwendeten Begriffe. Die Gewichtsklasse (Heavy/Medium/
-# Light) steht bei scmdb getrennt in `attachSubType`, beim Launcher steckt sie im
+# Light) steht bei scmdb getrennt in `attachSubType`; angezeigt wird sie im
 # Begriff selbst („Heavy Armor"). Beides wird hier wieder zusammengesetzt.
 _SCMDB_SLOT = {
     'Char_Armor_Helmet':    'Helmet',
@@ -297,7 +267,7 @@ _SCMDB_SLOT = {
     'Char_Armor_Backpack':  'Backpack',
     'Char_Armor_Undersuit': 'Undersuit',
 }
-# Reine Umbenennungen, wo scmdb zusammenschreibt und der Launcher trennt.
+# Reine Umbenennungen, wo scmdb zusammenschreibt — angezeigt wird getrennt.
 _SCMDB_ART = {
     'QuantumDrive':   'Quantum Drive',
     'PowerPlant':     'Power Plant',
@@ -309,9 +279,7 @@ _SCMDB_ART = {
 
 
 def scmdb_art(key):
-    """Art aus den scmdb-Craftdaten, auf die Begriffe des Launchers gebracht.
-    Nur Rückfall — der Launcher-Katalog ist bei Schiffswaffen feiner (er kennt
-    `Laser Cannon`, scmdb nur `WeaponGun`)."""
+    """Art aus den scmdb-Craftdaten, auf die angezeigten Begriffe gebracht."""
     e = scmdb_of(key)
     if not e or not e.get('a'):
         return None
@@ -325,7 +293,7 @@ def scmdb_art(key):
 
 
 # ------------------------------------------------ Size / Grade / Klasse (M/A/1)
-# Ableitung: Launcher-Katalog +
+# Ableitung: scmdb-Craftdaten +
 # manuelle Overrides (bp-overrides.json, Vorrang). Ausgabe-Kürzel: Klasse/Grade/Size,
 # z. B. Military / Grade A / Size 1  ->  "M/A/1". Nur Size (Waffen) -> "–/–/2".
 CLASS_LETTER = {'Military': 'M', 'Stealth': 'S', 'Industrial': 'I',
@@ -339,79 +307,28 @@ def _norm(s):
     return s.lower().replace('\xa0', ' ').replace('�', ' ').strip()
 
 
-def load_display():
-    """Kleingeschriebener Katalog-Schlüssel -> Schreibweise wie im Spiel.
-    `bp_item_types.json` führt alles klein; für die Anzeige holen wir den echten
-    Namen aus dem Launcher-Katalog. Wird nur bei einem Katalog-Zuwachs gebraucht."""
-    d = {}
-    try:
-        for line in open(os.path.join(CAT_DIR, 'components.ini'), encoding='utf-8'):
-            if '=' not in line: continue
-            v = line.strip().split('=', 1)[1]
-            m = re.match(r'(.*?)\s*\([^/]+/[^/]+/[^)]+\)', v)
-            if m: d.setdefault(_norm(m.group(1)), m.group(1).strip())
-    except Exception:
-        pass
-    try:
-        for line in open(os.path.join(CAT_DIR, 'items_raw.ini'), encoding='utf-8'):
-            if '=' not in line: continue
-            k, v = line.split('=', 1); v = v.strip()
-            if k.endswith('_short') or not v: continue
-            d.setdefault(_norm(v), v)
-    except Exception:
-        pass
-    return d
-
-
-def _katalogname(schluessel, anzeige):
+def _katalogname(schluessel):
     """Der Name, wie ein Mensch ihn lesen soll — für die Meldungen der
     Katalog-Wache.
 
-    Drei Quellen, in dieser Reihenfolge:
-
-      1. **Launcher-Katalog** (`anzeige`) — deutsche, gepflegte Bezeichnungen.
-         Gibt es nur, wo der SC Deutsch Launcher installiert ist.
-      2. **scmdb-Zwischenspeicher** — dort liegt unter `n` der Name, wie ihn
-         das Spiel schreibt („GOLEM MC-4 Ore Pod"). Der Rückfall für Linux und
-         für jeden ohne Launcher.
-      3. **Der nackte Schlüssel** — nur, wenn beides fehlt.
+    Aus dem scmdb-Zwischenspeicher: dort liegt unter `n` der Name, wie ihn das
+    Spiel schreibt („GOLEM MC-4 Ore Pod"). Fehlt er, der nackte Schlüssel.
+    (Bis v3.63.1 kam davor der Katalog des SC Deutsch Launchers.)
 
     ⚠ Hier stand früher `schluessel.title()`. Das war falsch: Der Schlüssel ist
     auf Kleinbuchstaben und Ziffern eingedampft (`golemmc4orepod`), da gibt es
     keine Wortgrenzen mehr zurückzuholen — `.title()` machte daraus
     „Golemmc4Orepod". Der lesbare Name lag die ganze Zeit daneben im Cache.
     """
-    aus_launcher = anzeige.get(_norm(schluessel))
-    if aus_launcher:
-        return aus_launcher
     eintrag = SCMDB.get(schluessel) or {}
     return eintrag.get('n') or schluessel
 
 
 def load_meta():
     """comp[name] = (Klasse, Size, Grade) für Schiffskomponenten;
-    size_by_name[name] = Size für Waffen/Werkzeuge. Katalog + Overrides (Vorrang)."""
+    size_by_name[name] = Size für Waffen/Werkzeuge — aus den Overrides.
+    Alles Übrige liefern die scmdb-Craftdaten (`scmdb_of`)."""
     comp, size_by_name = {}, {}
-    # Schiffskomponenten aus components.ini:  "Name (Klasse/Size/Grade)"
-    try:
-        for line in open(os.path.join(CAT_DIR, 'components.ini'), encoding='utf-8'):
-            if '=' not in line: continue
-            _, v = line.strip().split('=', 1)
-            m = re.search(r'^(.*?)\s*\(([^/]+)/([^/]+)/([^)]+)\)', v)
-            if m: comp[m.group(1).strip().lower()] = (m.group(2), m.group(3), m.group(4))
-    except Exception:
-        pass
-    # Size aus items_raw.ini:  Schlüssel enthält _S1 / _S01 …
-    try:
-        for line in open(os.path.join(CAT_DIR, 'items_raw.ini'), encoding='utf-8'):
-            line = line.rstrip('\n')
-            if '=' not in line: continue
-            k, v = line.split('=', 1)
-            if k.endswith('_short'): continue
-            m = re.search(r'_S0?(\d)\b', k)
-            if m: size_by_name.setdefault(v.strip().lower(), m.group(1))
-    except Exception:
-        pass
     # Manuelle Overrides (Vorrang): vollständige Komponente -> comp, nur Size -> size_by_name
     try:
         ov = json.load(open(OVERRIDES_FILE, encoding='utf-8')).get('overrides', {})
@@ -537,8 +454,7 @@ def scmdb_of(key):
     return e
 
 
-# Jetzt, wo die scmdb-Daten stehen, gilt ihr Katalog — auch wenn vorhin die
-# alte Launcher-Datei als Vorbelegung gegriffen hat (siehe `load_types`).
+# Jetzt, wo die scmdb-Daten stehen, gilt ihr Katalog (siehe `load_types`).
 # ⛔⛔ **ERST NACH `scmdb_of`** (17.09.2026). `load_types()` ruft `scmdb_art()`
 # und die `scmdb_of()`. Stand dieser Block davor, starb v3.50.3 bei JEDEM
 # Nutzer mit scmdb-Zwischenspeicher sofort beim Start mit
@@ -792,7 +708,6 @@ class Watcher(threading.Thread):
     def __init__(self, out_queue):
         super().__init__(daemon=True)
         self.q = out_queue
-        self.known = None       # BP-Namen aus der Launcher-Datei (None = kein Launcher)
         self.seen = set()       # schon angezeigte Namen (normalisiert) — gegen Dubletten
         self.stand = logsource.ReadState()
         self.tail = logsource.LogTail(self.stand)
@@ -1190,7 +1105,6 @@ class Watcher(threading.Thread):
         ziel = translation.target_ini(sprache_ordner)
         if not ziel:
             return
-        kuerzel = injection._lang_code(sprache_ordner)
         neu_noetig = False
 
         # 0. ⚠⚠ **Liest das Spiel die Datei überhaupt?** (16.09.2026) Ohne
@@ -1224,12 +1138,17 @@ class Watcher(threading.Thread):
                         translation.status_text(quelle) or kennung)))
                     neu_noetig = True
 
-        # 2. Neue Vertragsdaten? Nach einem Patch geben Missionen anderes aus.
+        # 2. Hat sich der eigene Katalog erneuert? Nach einem Patch geben
+        #    Missionen anderes aus — dann gehören die Angaben neu eingetragen.
+        #    ⚠ Bis v3.63.1 stand hier die Abfrage der SCDL-Vertragsdaten; die
+        #    Quelle ist seit dem 29.09.2026 weg und wird nicht mehr genutzt.
+        katalog_stand = ''
         if not nur_bestand:
-            da, kennung = injection.scdl_update_available(kuerzel)
-            if da:
-                self.q.put(('status',
-                            language.Phrase('bpdaten_erneuert', kennung)))
+            try:
+                katalog_stand = katalog_modul.load().get('geholt') or ''
+            except Exception as ausnahme:
+                errors.record('watcher.inj_katalogstand', ausnahme)
+            if katalog_stand and katalog_stand != paths.setting('inj_katalog'):
                 neu_noetig = True
 
         # 3. Ist die Auszeichnung überhaupt noch drin? Ein Spiel-Patch ersetzt
@@ -1279,6 +1198,8 @@ class Watcher(threading.Thread):
                 try:
                     paths.set_setting(
                         'inj_bestand', marke or self._inj_mark())
+                    if katalog_stand:
+                        paths.set_setting('inj_katalog', katalog_stand)
                 except Exception as ausnahme:
                     errors.record('watcher.inj_marke_merken', ausnahme)
 
@@ -1287,14 +1208,11 @@ class Watcher(threading.Thread):
         """Prüft, ob der Craftbar-Katalog gewachsen ist. Der Vergleichsstand überlebt
         Neustarts (CAT_SEEN), sonst käme nach jedem Programmstart alles doppelt."""
         # Die Marke ist die Spielversion der scmdb-Daten — sie ändert sich genau
-        # dann, wenn ein Patch neue Baupläne bringt. Die Launcher-Datei zählt
-        # nur noch, wenn es (noch) keine scmdb-Daten gibt; siehe `load_types`.
+        # dann, wenn ein Patch neue Baupläne bringt. Ohne scmdb-Daten gibt es
+        # (noch) nichts zu vergleichen.
         marke = SCMDB_VERSION or None
         if marke is None:
-            try:
-                marke = os.path.getmtime(TYPE_FILE)
-            except OSError:
-                return
+            return
         if marke == self.cat_mtime:
             return
         self.cat_mtime = marke
@@ -1313,10 +1231,9 @@ class Watcher(threading.Thread):
         if not neu:
             self._save_catalog(jetzt)
             return
-        anzeige = load_display()
         for name in neu:
             titel = watchlist.match(name)
-            self.q.put(('catalog', _katalogname(name, anzeige),
+            self.q.put(('catalog', _katalogname(name),
                         jetzt.get(name) or '—', time.strftime('%H:%M:%S'), titel))
         self._save_catalog(jetzt)
 
@@ -1693,8 +1610,8 @@ class Watcher(threading.Thread):
             basetool_sync.local_changed()
 
     def _emit(self, key, log_meta=None):
-        # log_meta = Kürzel aus dem Log-Zusatz; wird nur genommen, wenn der
-        # Launcher-Katalog nichts hergibt (brandneues Item nach einem SC-Patch).
+        # log_meta = Kürzel aus dem Log-Zusatz; wird nur genommen, wenn die
+        # Werte-Daten nichts hergeben (brandneues Item nach einem SC-Patch).
         self.q.put(('new', key, art_of(key), meta_of(key) or log_meta or '',
                     time.strftime('%H:%M:%S')))
 
@@ -1890,26 +1807,12 @@ class Watcher(threading.Thread):
         if bericht.get('luecke') and bericht.get('grund'):
             self.q.put(('hinweis', bericht['grund']))
 
-    def _launcher_uebernehmen(self, keys):
-        """Was der Launcher kennt, gehört auch in den eigenen Bestand.
-
-        Kein „Import" im Sinne eines einmaligen Grundstocks (den macht das
-        Hilfsprogramm unter `tools/`), sondern laufender Betrieb. Rang 1: Ein
-        Log-Fund desselben Bauplans schlägt ihn."""
-        neu = 0
-        for k in keys:
-            if bestand_datei.add(self.bestand, k, 'launcher'):
-                neu += 1
-        if neu:
-            self._bestand_sichern()
-        return neu
-
     def _startbauplaene_eintragen(self):
         """Die acht Startbaupläne in den Bestand — falls noch nicht drin.
 
-        Quelle `start` (Rang 3): höher als ein von Hand gesetztes Häkchen oder
-        der Launcher, niedriger als ein Log-Fund — Startbaupläne kommen nach
-        dem Zurücksetzen von selbst wieder."""
+        Quelle `start` (Rang 3): höher als ein von Hand gesetztes Häkchen,
+        niedriger als ein Log-Fund — Startbaupläne kommen nach dem Zurücksetzen
+        von selbst wieder."""
         try:
             std = katalog_modul.starter_blueprints()
             if not std:
@@ -1974,19 +1877,7 @@ class Watcher(threading.Thread):
         # 3) Vergangenes nachlesen (still, nur in den Bestand)
         self._nachlese()
 
-        # 4) Launcher-Stand holen — wenn es ihn gibt. Ohne ihn wird nicht mehr
-        #    gewartet: Bis v1.5.0 hing der Watcher hier in einer Endlosschleife,
-        #    wenn die Launcher-Datei fehlte. Unter Linux wäre er nie gestartet.
-        if HAT_LAUNCHER:
-            for _ in range(10):
-                if not self.running:
-                    return
-                self.known = load_keys()
-                if self.known is not None:
-                    break
-                time.sleep(POLL_SEC)
-            if self.known:
-                self._launcher_uebernehmen(self.known)
+        # 4) (Bis v3.63.1 wurde hier der Stand des SC Deutsch Launchers geholt.)
 
         # 5) Alles, was schon im Bestand steht, gilt als bekannt — es wird nicht
         #    als „neu" gemeldet.
@@ -2028,8 +1919,7 @@ class Watcher(threading.Thread):
             # verbunden und zugeschaltet; sonst kehrt das sofort zurück.
             basetool_sync.tick(self)
 
-            # 1) Game.log: die eigentliche Quelle. Ohne Launcher ist die Meldung
-            #    endgültig, mit Launcher zunächst vorläufig (er bestätigt gleich).
+            # 1) Game.log: die Quelle. Die Meldung ist endgültig.
             geaendert = False
             for name, zusatz in self.tail.new_names():
                 nk = _norm(name)
@@ -2048,22 +1938,8 @@ class Watcher(threading.Thread):
             #     soll schon im Bestand stehen, wenn der Auftrag geprueft wird.
             self._auftraege_melden()
 
-            # 2) Launcher-Datei: bestätigt die Funde und meldet nach, was im Log
-            #    fehlte. Gibt es keinen Launcher, entfällt dieser Schritt still.
-            cur = load_keys() if HAT_LAUNCHER else None
-            if cur is not None:
-                zuwachs = False
-                for k in sorted(cur - (self.known or set())):
-                    dup = _norm(k) in self.seen      # steht schon in der Liste
-                    self.seen.add(_norm(k))
-                    if bestand_datei.add(self.bestand, k, 'launcher'):
-                        zuwachs = True
-                    self._merkliste_erledigen(k)
-                    if not dup:
-                        self._emit(k)
-                if zuwachs:
-                    self._bestand_sichern()
-                self.known = cur
+            # 2) (Bis v3.63.1 bestätigte hier die Datei des SC Deutsch Launchers
+            #    die Funde.)
 
             # 3) Katalog-Wache (selten, die Datei ändert sich nur bei SC-Patches)
             if time.time() >= self.cat_next:

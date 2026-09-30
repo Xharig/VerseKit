@@ -77,7 +77,7 @@ SEITEN = ('liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',
           'hangar', 'wunschliste', 'asop', 'einkaufsliste', 'farmliste',
           'bergung', 'zerlegen',
           'herstellung', 'bergbau', 'raffinerien', 'lager',
-          'verkauf', 'handelslager', 'laeden', 'routen')
+          'verkauf', 'handelslager', 'laeden', 'routen', 'basetool')
 
 
 def _alle_seiten_dabei():

@@ -19,8 +19,9 @@
 """
 Den eigenen Bauplan-Bestand als Datei ausgeben.
 
-Mehrere Formate, je eines pro Ziel — dazu `for_scmdb()` für **scmdb.net** und
-`for_bpdb()` für die **Baupläne DB** von Star Citizen Deutsch. Die beiden
+Mehrere Formate, je eines pro Ziel — dazu `for_scmdb()` für **scmdb.net**.
+(Die Ausgabe für die „Baupläne DB" von Star Citizen Deutsch ist seit dem
+30.09.2026 entfernt; einlesen lässt sich deren Datei weiterhin.) Die beiden
 Grundfälle:
 
 **1. Für das KRT Profit Basetool** (`profit-base.online`) — dessen Import nimmt
@@ -136,51 +137,6 @@ def for_basetool(collection=None, tags=None):
             entry['receivedAt'] = time_text
         entries.append(entry)
     return {'blueprints': entries}
-
-
-def for_bpdb(collection=None):
-    """Die Struktur, die die **Baupläne DB** von Star Citizen Deutsch einliest.
-
-    Das ist die Bauplan-Übersicht im Browser
-    (`rjcncpt.github.io/StarCitizen-Deutsch-INI/`) — **nicht** der SC Deutsch
-    Launcher, der bleibt ein Programm. Ihr Import erwartet eine Liste
-    `blueprints` mit `key` und einem Schalter je Eintrag:
-
-        {"blueprints": [{"key": "Manticore Helmet",
-                         "isDone": true, "isMarked": false}]}
-
-    `isDone` heißt „habe ich", `isMarked` „will ich". Wir schreiben deshalb
-    **nur** erspielte Baupläne, jeden mit `isDone: true` — alles andere wäre
-    ein fremder Wunschzettel in ihrer Liste.
-
-    ⚠ **Ohne diese Version kommt der eigene Bestand dort nicht hinein.** Die
-    Seite prüft auf `blueprints`; die Vollsicherung führt `bauplaene`, die
-    Basetool-Version `productName` und scmdb `tag`. Alle drei werden mit
-    „Ungültiges Dateiformat" abgewiesen.
-
-    ⚠ Einen Zeitpunkt gibt es in diesem Format nicht — er würde beim Import
-    ohnehin verworfen, die Seite merkt sich nur „erspielt/vorgemerkt".
-
-    Die Umschlagfelder (`exported`, `mode`, `total`, …) schreibt die Seite in
-    ihre eigenen Ausfuhren. Für den Import braucht sie keines davon; sie
-    stehen trotzdem drin, damit die Datei zwischen ihren eigenen nicht wie ein
-    Fremdkörper aussieht — und damit ein Mensch sie später zuordnen kann.
-    """
-    data = collection if collection is not None else collection_file.load()
-    entries = []
-    for key, e in sorted((data.get('bauplaene') or {}).items()):
-        name = (e.get('name') or '').strip()
-        if not name:
-            continue
-        entries.append({'key': name, 'isDone': True, 'isMarked': False})
-    return {
-        'exported': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
-        'mode': 'erspielt',
-        'total': len(entries),
-        'done_count': len(entries),
-        'mark_count': 0,
-        'blueprints': entries,
-    }
 
 
 SCMDB_URL = 'https://scmdb.net/?page=fab&fab=%s'
@@ -308,8 +264,6 @@ def write(path, kind='basetool', collection=None, catalog=None, version=''):
             doc = for_basetool(collection)
         elif kind == 'scmdb':
             doc = for_scmdb(collection, version)
-        elif kind == 'bpdb':
-            doc = for_bpdb(collection)
         else:
             doc = complete(collection, catalog)
         count = len(doc.get('blueprints') or doc.get('bauplaene') or [])
@@ -329,11 +283,6 @@ def write(path, kind='basetool', collection=None, catalog=None, version=''):
 FILENAMES = {
     'basetool': 'SC-Blueprints-Basetool-%s.json',
     'scmdb':    'scmdb-import-%s.json',
-    # ⚠ Nicht `sc_bp_erledigt.json` — so heißt die Datei, die das
-    # Launcher-Programm selbst schreibt und die der Watcher überwacht. Zwei
-    # Dateien mit demselben Namen und entgegengesetzter Richtung sind eine
-    # Verwechslung, die man erst merkt, wenn der Bestand falsch ist.
-    'bpdb': 'bauplaene-db-import-%s.json',
     'voll':     'SC-BP-Watcher-Bestand-%s.json',
     'auftraege': 'SC-BP-Watcher-Auftraege-%s.json',
 }
@@ -434,7 +383,7 @@ def archive(collection=None, catalog=None, version=''):
     # ⚠ Das Auftrags-Protokoll gehoert mit in die Ablage: Es ist eine eigene
     # Liste wie der Bestand, und wer seine Daten sichert, meint alle. Fehlt es
     # hier, merkt das niemand — bis der Rechner neu aufgesetzt ist.
-    for kind in ('basetool', 'scmdb', 'bpdb', 'voll', 'auftraege'):
+    for kind in ('basetool', 'scmdb', 'voll', 'auftraege'):
         target = os.path.join(folder, suggestion(kind, with_date=False))
         ok, _message = write(target, kind, collection, catalog, version)
         if ok:

@@ -32,16 +32,15 @@ Drei Sorten Pfade:
      Windows:  C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE\\
      Linux:    im Wine-Präfix, z. B. ~/Games/star-citizen/drive_c/Program Files/…
 
-  3. **SC Deutsch Launcher** (optional, nur wenn vorhanden)
-     Er ist kein Muss — wenn er da ist, wird er weiter genutzt,
-     weil er den vollständigen Bestand und einen gepflegten Katalog liefert.
+(Bis v3.63.1 gab es einen dritten Ort, den Ordner des SC Deutsch Launchers.
+Er wird seit dem 30.09.2026 nicht mehr gelesen; ein eingetragener
+`launcher_ordner` bleibt ohne Wirkung.)
 
 **Wer die Sachen woanders liegen hat, trägt die Pfade selbst ein.** Dafür gibt es
 `einstellungen.json` im eigenen Ordner:
 
     {
-      "spiel_ordner":    "/mnt/spiele/StarCitizen/LIVE",
-      "launcher_ordner": "D:\\SCDL\\blueprints"
+      "spiel_ordner":    "/mnt/spiele/StarCitizen/LIVE"
     }
 
 Die Datei wird angelegt, sobald das Spiel nicht gefunden wird — mit Kommentar
@@ -49,7 +48,7 @@ und leeren Feldern zum Ausfüllen. Ein leeres Feld heißt „bitte suchen".
 
 Rangfolge, wenn mehrere Angaben da sind:
 
-  1. Umgebungsvariable — `SC_BP_HOME`, `SC_INSTALL_DIR`, `SC_BP_LAUNCHER`
+  1. Umgebungsvariable — `SC_BP_HOME`, `SC_INSTALL_DIR`
      (für einen einmaligen Sonderfall, ohne etwas zu ändern)
   2. `einstellungen.json` — der normale Weg für einen dauerhaft eigenen Pfad
   3. die Suche an den üblichen Stellen
@@ -795,19 +794,6 @@ def searched_game_locations(limit=6):
     return (da + rest)[:limit]
 
 
-def searched_launcher_locations(limit=3):
-    """Dasselbe für den Blueprint-Ordner des SC Deutsch Launchers."""
-    if WINDOWS:
-        return [os.path.join(os.environ.get('APPDATA', '%APPDATA%'),
-                             'sc-deutsch-launcher', 'blueprints')]
-    places = list(_windows_launcher())
-    for prefix in _wine_prefixes()[:limit]:
-        places.append(os.path.join(prefix, 'drive_c', 'users', '<Benutzer>',
-                                 'AppData', 'Roaming', 'sc-deutsch-launcher',
-                                 'blueprints'))
-    return places[:limit]
-
-
 def _template():
     """Der Inhalt der Einstellungsdatei — mit den echten Suchorten dieses Rechners.
 
@@ -816,8 +802,8 @@ def _template():
     ist ein Feld daneben, das man beim Ausfüllen zwangsläufig liest. Sie werden
     nicht ausgewertet — was drinsteht, ändert nichts."""
     return {
-        '_hinweis': 'Eigene Pfade eintragen, wenn Star Citizen oder der '
-                    'SC Deutsch Launcher nicht an den ueblichen Stellen liegen. '
+        '_hinweis': 'Eigenen Pfad eintragen, wenn Star Citizen nicht an den '
+                    'ueblichen Stellen liegt. '
                     'Leeres Feld = automatisch suchen. Nach dem Aendern den '
                     'Watcher neu starten. Zeilen mit _ sind nur Erklaerung.',
         'spiel_ordner': '',
@@ -835,11 +821,6 @@ def _template():
         '_deckkraft_gemeint_ist': 'Wie undurchsichtig das Fenster ist. 100 = '
                                   'blickdicht, 30 = stark durchscheinend. '
                                   'Erlaubt 30 bis 100.',
-        'launcher_ordner': '',
-        '_launcher_ordner_gemeint_ist': 'Optional. Der Ordner "blueprints" des '
-                                        'SC Deutsch Launchers. Ohne ihn laeuft '
-                                        'der Watcher trotzdem.',
-        '_launcher_ordner_gesucht_wird_hier': searched_launcher_locations(),
     }
 
 
@@ -1860,71 +1841,12 @@ def _mtime(p):
 
 def localization_folder(folder=None):
     """`data/Localization` im Spielordner — dort liegen die entpackten `global.ini`,
-    sofern welche vorhanden sind (der SC Deutsch Launcher legt die deutsche dort ab)."""
+    sofern welche vorhanden sind (manche Übersetzungswerkzeuge legen sie dort ab)."""
     folder = folder or game_folder()
     if not folder:
         return None
     p = os.path.join(folder, 'data', 'Localization')
     return p if os.path.isdir(p) else None
-
-
-# ---------------------------------------------------- 3. SC Deutsch Launcher (optional)
-def launcher_folder():
-    """Blueprint-Ordner des SC Deutsch Launchers oder None.
-
-    Unter Windows liegt er in %APPDATA%. Unter Linux nur dann, wenn jemand den
-    Launcher unter Wine betreibt — dann steckt dasselbe AppData im Wine-Präfix."""
-    # Eine **gesetzte** Angabe gilt allein — auch wenn der Ordner dort nicht
-    # existiert. Wer einen Pfad einträgt, will keine Suche woanders; sonst
-    # nimmt das Programm klammheimlich einen anderen Launcher-Stand her als den
-    # angegebenen. (Fiel im Selbsttest auf: Der baut eine Installation ohne
-    # Launcher nach, bekam aber den echten von der Windows-Platte untergeschoben.)
-    for custom in (os.environ.get('SC_BP_LAUNCHER'), setting('launcher_ordner')):
-        if custom is not None and custom != '':
-            custom = os.path.expanduser(custom)
-            return custom if os.path.isdir(custom) else None
-    if os.environ.get('SC_BP_LAUNCHER') == '':
-        return None                    # ausdrücklich abgeschaltet
-    if WINDOWS:
-        p = os.path.join(os.environ.get('APPDATA', ''), 'sc-deutsch-launcher',
-                         'blueprints')
-        return p if os.path.isdir(p) else None
-    for prefix in _wine_prefixes():
-        pattern = os.path.join(prefix, 'drive_c', 'users', '*', 'AppData',
-                              'Roaming', 'sc-deutsch-launcher', 'blueprints')
-        for p in sorted(glob.glob(pattern)):
-            if os.path.isdir(p):
-                return p
-    # Dual-Boot: Der Launcher läuft unter Windows, seine Daten liegen auf der
-    # Windows-Platte — die unter Linux meist eingehängt ist. Ohne diesen Blick
-    # steht ein umgestiegener Spieler ohne seinen alten Bauplan-Stand da,
-    # obwohl der zwei Ordner weiter vollständig vorliegt. Genau so passiert.
-    for p in _windows_launcher():
-        return p
-    return None
-
-
-def _windows_launcher():
-    """Launcher-Daten auf einer eingehängten Windows-Platte."""
-    home = os.path.expanduser('~')
-    places = ['/run/media/*/*', '/media/*/*', '/mnt/*',
-            os.path.join(home, '.local', 'share', '*')]
-    for place in places:
-        pattern = os.path.join(place, 'Users', '*', 'AppData', 'Roaming',
-                              'sc-deutsch-launcher', 'blueprints')
-        for p in sorted(glob.glob(pattern)):
-            if os.path.isdir(p):
-                yield p
-
-
-def launcher_file(name, folder=None):
-    """Pfad zu einer Launcher-Datei, auch wenn es den Launcher nicht gibt.
-
-    Gibt immer einen Pfad zurück (nie None), damit die aufrufende Stelle wie
-    bisher einfach versuchen kann, ihn zu öffnen. Ohne Launcher zeigt er ins
-    Leere und das Öffnen scheitert — genau das ist gewollt."""
-    folder = folder if folder is not None else (launcher_folder() or '')
-    return os.path.join(folder, name)
 
 
 # ------------------------------------------------------------------ Übersicht
@@ -2035,7 +1957,6 @@ def overview():
         'spiel_ordner': game,
         'game_log': game_log(game),
         'sicherungen': len(log_backups(game)),
-        'launcher': launcher_folder(),
         'einstellungen': app_file(SETTINGS_FILE),
         'selbst_gesetzt': {k: v for k, v in settings().items()
                            if not k.startswith('_') and v},

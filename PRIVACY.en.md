@@ -26,7 +26,7 @@ request, the other side sees your IP address.
 | Prices, shops, places | UEX (uexcorp.space) |
 | Ship values | erkul.games |
 | Server status | status.robertsspaceindustries.com |
-| Translations you choose | the respective source (such as StarStrings, Luftwerft, SC Deutsch) |
+| Translations you choose | the respective source (such as StarStrings, Luftwerft, rjcncpt) |
 
 With the environment variable `SC_BP_NO_NET=1` Verse-Kit fetches nothing.
 

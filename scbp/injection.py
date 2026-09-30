@@ -60,7 +60,6 @@ import json
 import os
 import re
 import time
-import urllib.request
 
 from . import specs
 from . import asop as asop_modul
@@ -68,47 +67,6 @@ from . import errors, collection as bestand_datei
 from . import catalog as katalog_modul
 from . import paths
 from .language import t
-
-# ---------------------------------------------------------------------------
-# Zweite, bessere Datenquelle: das SCDL-Team veröffentlicht seine aufbereiteten
-# Vertragsdaten offen im Übersetzungs-Repo — **813 Verträge** mit fertigen
-# Texten, deutsch und englisch, samt Angaben, die scmdb so nicht hat (Region,
-# Gefahrenstufe, Wartezeit in Worten). Aus scmdb allein kämen 349 zusammen.
-#
-# Die Arbeitsteilung, die sich daraus ergibt, ist die sinnvolle: Das SCDL-Team
-# pflegt, was es ohnehin pflegt. Dieses Werkzeug steuert das bei, was nur es
-# kann — das **Kästchen**, also den Abgleich mit dem eigenen Bauplan-Bestand.
-# In den Rohdaten stehen die Baupläne neutral als „    - Name".
-#
-# Lizenz CC-BY-NC-SA-4.0: geholt wird zur Laufzeit von der Original-Adresse,
-# nichts davon liegt in diesem Repo. Die Herkunft wird im eingefügten Text
-# genannt.
-SCDL_RAW = ('https://raw.githubusercontent.com/rjcncpt/'
-            'StarCitizen-Deutsch-INI/master/blueprints/Data/%s')
-SCDL_FILE = {'de': 'bp-contracts_short.json',
-              'en': 'bp-contracts_short_en.json'}
-SCDL_CACHE = 'bp-contracts-%s.json'
-BP_LINE = re.compile(r'^(\s*)- (.+)$')
-
-# ⚠ Eine Listenzeile ist **nicht** automatisch ein Bauplan. Die Blöcke des
-# SCDL-Teams gliedern mit `#`-Überschriften, und unter dreien davon stehen
-# Listen. Gezählt an den echten Vertragsdaten vom 29.08.2026, in beiden
-# Sprachen gleich:
-#
-#     # Baupläne / # Blueprints     4379 Zeilen  <- Baupläne
-#     # Abgabe   / # Delivery        323 Zeilen  <- Abgabeorte
-#     # Region   / # Region          239 Zeilen  <- Regionen
-#     # Abgabe für … aUEC Mission    ~50 Zeilen  <- Abgabeorte je Preisstufe
-#
-# Bis zum 29.08.2026 bekam **jede** davon ein Kästchen. Im Spiel stand dann
-# `[  ] Stanton-System - Gefahr 4-6/10`, als könnte man eine Region besitzen —
-# rund 620 falsche Kästchen. Angekreuzt wird deshalb nur, was unter der
-# Bauplan-Überschrift steht.
-#
-# Ohne `#`-Überschrift steht keine einzige Listenzeile (nachgezählt: 0), der
-# Zustand ist also immer bekannt.
-HEADING_LINE = re.compile(r'^\s*#')
-BP_HEADING = re.compile(r'^\s*#\s*(?:Baupläne|Blueprints)', re.I)
 
 # Die Marken. Bewusst unauffällig und ohne Sonderzeichen, damit sie das Spiel
 # nicht stören, aber eindeutig genug, um sie sicher wiederzufinden.
@@ -244,6 +202,7 @@ TEXTS = {
         'cooldown':  'Wartezeit',
         'minuten':   'Minuten',
         'teilbar':   'Mission teilbar',
+        'region':    'Region',
         'ja':        'Ja', 'nein': 'Nein',
         'liste':     'Baupläne — angehakt ist, was du hast',
         'ab_rang':   'erst ab',
@@ -266,6 +225,7 @@ TEXTS = {
         'cooldown':  'Cooldown',
         'minuten':   'minutes',
         'teilbar':   'Shareable',
+        'region':    'Region',
         'ja':        'Yes', 'nein': 'No',
         'liste':     'Blueprints — ticked means you have it',
         'ab_rang':   'needs',
@@ -547,7 +507,59 @@ def _group_digits(value, words):
     return format(int(value), ',d').replace(',', words['trenner'])
 
 
-def _build_block(entry, owned, words):
+def _rep_table():
+    """Wem ein Auftrag Ruf bringt — die Tabelle aus `reputation`, oder None.
+
+    ⚠⚠ **Gewünscht am 05.09.2026:** „auf SCMDB sieht man auch ob es Standing
+    oder Rep bekommt, das muss auf jeden fall mit in den Questtext." Bis
+    v3.63.1 hing das am SCDL-Weg; seit dem 30.09.2026 steht es hier.
+
+    ⚠ Scheitert der Abruf, läuft alles Übrige weiter: Eine fehlende Ruf-Zeile
+    ist ein Verlust, ein abgebrochener Einbau wäre ein Schaden."""
+    try:
+        from . import reputation, gamebuild
+        try:
+            version = gamebuild.live() or ''
+        except Exception:
+            version = ''
+        reputation.refresh(version)
+        return reputation.load()
+    except Exception as exc:
+        errors.record('injection._rep_table', exc)
+        return None
+
+
+def _rep_line(entry, words, rep_table):
+    """`# Ruf: Headhunters +150 Standing` für diesen Auftrag — oder ''."""
+    if not rep_table:
+        return ''
+    try:
+        from . import reputation
+        return reputation.line(reputation._key(entry.get('titel_key')),
+                               words['ruf_bei'], rep_table)
+    except Exception as exc:
+        errors.record('injection._rep_line', exc)
+        return ''
+
+
+def _region_line(entry, words, rep_table):
+    """`# Region: Pyro (Bloom)` für diesen Auftrag — oder ''.
+
+    Aus derselben scmdb-Tabelle wie die Ruf-Zeile (`reputation`). Bis v3.63.1
+    kam die Region vom SCDL-Weg; eine Gefahrenstufe gibt es in den scmdb-Daten
+    nicht und wird deshalb nicht angegeben."""
+    if not rep_table:
+        return ''
+    try:
+        from . import reputation
+        return reputation.region_line(entry.get('titel_key'), words['region'],
+                                      rep_table)
+    except Exception as exc:
+        errors.record('injection._region_line', exc)
+        return ''
+
+
+def _build_block(entry, owned, words, rep_table=None):
     """Der Textblock, der an die Beschreibung gehängt wird.
 
     Erst die Eckdaten als kurze Liste, dann die Baupläne mit Kästchen. Die
@@ -555,19 +567,28 @@ def _build_block(entry, owned, words):
     man an Chance und Reputation — die Namensliste liest man erst danach."""
     z = ['', LINE, '', '<EM4>%s</EM4>' % words['ueberschr'], '']
 
+    # ⚠ Ruf-Zeilen blau (`<EM4>`, die Auszeichnung des Spiels). Gewünscht am
+    # 05.09.2026: „Mach die XP blau geschrieben … damit allgemein spieler es
+    # schneller sehen." Bis v3.63.1 tat das nur der SCDL-Weg.
+    def blue(text):
+        return '<EM4>%s</EM4>' % text
+
     chance = entry.get('chance')
     if chance:
         z.append('# %s: %d%%' % (words['chance'], round(chance * 100)))
     if entry.get('rang'):
-        z.append('# %s: %s (%s XP)' % (words['rep_min'], entry['rang'],
-                                       _group_digits(entry.get('rep') or 0, words)))
+        z.append(blue('# %s: %s (%s XP)' % (words['rep_min'], entry['rang'],
+                                            _group_digits(entry.get('rep') or 0, words))))
     if entry.get('rang_max'):
-        z.append('# %s: %s (%s XP)' % (words['rep_max'], entry['rang_max'],
-                                       _group_digits(entry.get('rep_max') or 0, words)))
+        z.append(blue('# %s: %s (%s XP)' % (words['rep_max'], entry['rang_max'],
+                                            _group_digits(entry.get('rep_max') or 0, words))))
     if entry.get('uec'):
         z.append('# %s: %s aUEC' % (words['lohn'], _group_digits(entry['uec'], words)))
     if entry.get('ruf'):
-        z.append('# %s: %s XP' % (words['ruf'], _group_digits(entry['ruf'], words)))
+        z.append(blue('# %s: %s XP' % (words['ruf'], _group_digits(entry['ruf'], words))))
+    rep = _rep_line(entry, words, rep_table)
+    if rep:
+        z.append(blue(rep))
     if entry.get('cooldown'):
         z.append('# %s: %s %s' % (words['cooldown'],
                                   _group_digits(entry['cooldown'], words),
@@ -575,6 +596,9 @@ def _build_block(entry, owned, words):
     if 'teilbar' in entry:
         z.append('# %s: %s' % (words['teilbar'],
                                words['ja'] if entry['teilbar'] else words['nein']))
+    region = _region_line(entry, words, rep_table)
+    if region:
+        z.append(region)
 
     # ⚠ **Ohne „3 von 12", seit dem 28.08.2026** — aus demselben Grund wie im
     # Titel (siehe `_titel_zusatz`): Die Liste führt alle Preisstufen zusammen,
@@ -619,32 +643,13 @@ FOREIGN_TAG = re.compile(r'^\[[A-Za-z0-9/. -]{1,14}\]\s')
 def _has_box(text):
     """Steht in diesem Stück ein Kästchen von uns?
 
-    **Das ist das Unterscheidungsmerkmal.** Watcher und SC Deutsch Launcher
-    schöpfen aus derselben Quelle (`bp-contracts_short.json` des SCDL-Teams) und
-    schreiben deshalb wortgleiche Blöcke — dieselbe Überschrift, dieselbe Liste.
+    **Das ist das Unterscheidungsmerkmal.** Der SC Deutsch Launcher schreibt
+    Blöcke mit derselben Überschrift und derselben Liste wie früher VerseKit
+    (bis v3.63.1 aus derselben Quelle) — und kann das weiterhin tun.
     Der einzige Unterschied ist der, der das Werkzeug ausmacht: In den Rohdaten
     steht `    - Atzkav Sniper Rifle`, bei uns `    [x] Atzkav Sniper Rifle`.
     Wo kein Kästchen steht, hat nicht der Watcher geschrieben."""
     return '[x]' in text or BOX_MISSING in text
-
-
-def _has_details(text):
-    """Stehen die Auftragsangaben schon im Text?
-
-    ⚠⚠ **Fremder Text wird nicht verdoppelt.** MrKraken StarStrings schreibt
-    bei denselben Auftraegen eine eigene Reputationszeile; wo eine steht,
-    kommt keine zweite dazu — dieselbe Regel wie bei der `[BP]`-Marke.
-    Entschieden am 05.09.2026: „Nicht schreiben, wenn MrKraken schon da ist."
-
-    ⚠ Erkannt wird an den Schlagwoertern beider Werkzeuge, nicht an unserem
-    Wortlaut allein: Sonst gaelte fremder Text als „noch nichts da", und der
-    Spieler haette die Angabe zweimal untereinander.
-    """
-    plain = (text or '').replace(COLOR_OPEN, '').replace(COLOR_CLOSE, '')
-    lowered = plain.lower()
-    return any(word in lowered for word in (
-        'rufpunkte', 'cooldown', 'reputation awarded', 'reputation gain',
-        'abklingzeit'))
 
 
 def _has_title_mark(text):
@@ -711,43 +716,6 @@ def _title_suffix(entry, owned, words):
     """
     chars = '!' if (entry.get('bpnote') or '').strip() else ''
     return ' <EM4>[%s%s]</EM4>' % (words['kurz'], chars)
-
-
-def scdl_fetch(lang_code, progress=None):
-    """Die Vertragsdaten des SCDL-Teams holen und ablegen. (Erfolg, Anzahl)."""
-    from .catalog import OFF
-    filename = SCDL_FILE.get(lang_code)
-    if not filename or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
-        return False, 0
-    try:
-        if progress:
-            progress('Bauplan-Daten werden geladen …')
-        req = urllib.request.Request(
-            SCDL_RAW % filename,
-            headers={'User-Agent': 'SC-BP-Watcher'})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            raw = json.loads(r.read().decode('utf-8'))
-        entries = raw.get('entries') or []
-        if not entries:
-            return False, 0
-        target = paths.app_file(SCDL_CACHE % lang_code)
-        with open(target + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(raw, f, ensure_ascii=False)
-        os.replace(target + '.tmp', target)
-        return True, len(entries)
-    except Exception:
-        return False, 0
-
-
-def scdl_load(lang_code):
-    """Die abgelegten Vertragsdaten — oder None."""
-    try:
-        with open(paths.app_file(SCDL_CACHE % lang_code),
-                  encoding='utf-8') as f:
-            raw = json.load(f)
-        return raw if raw.get('entries') else None
-    except Exception:
-        return None
 
 
 # Name der Einstellung, mit der sich die Angaben am Gegenstand abschalten
@@ -838,220 +806,6 @@ def stock_mark(stock=None):
     return '%d-%s' % (len(names), hashlib.sha1(raw).hexdigest()[:12])
 
 
-def _set_boxes(text, owned):
-    """In einem fertigen SCDL-Block die Bauplan-Zeilen ankreuzen.
-
-    Aus `    - Atzkav Sniper Rifle` wird `    [x] Atzkav Sniper Rifle`, wenn er
-    im Bestand liegt — sonst `    [  ] …`. Der übrige Text bleibt unangetastet;
-    er gehört dem SCDL-Team, wir hängen nur das Häkchen dran.
-
-    ⚠ **Nur unter der Bauplan-Überschrift.** Abgabeorte und Regionen stehen im
-    selben Block als Liste; sie anzukreuzen ergibt keinen Sinn (siehe
-    `BP_UEBERSCHRIFT`).
-
-    Gezählt wird nebenbei, damit das Titel-Kürzel dieselbe Zahl zeigt."""
-    lines = text.split('\\n')
-    mine = total = 0
-    in_list = False
-    for i, line in enumerate(lines):
-        if HEADING_LINE.match(line):
-            in_list = bool(BP_HEADING.match(line))
-            continue
-        if not in_list:
-            continue
-        m = BP_LINE.match(line)
-        if not m:
-            continue
-        indent, name = m.group(1), m.group(2).strip()
-        if name.startswith('#') or not name:
-            continue
-        total += 1
-        inside = katalog_modul._norm(name) in owned
-        if inside:
-            mine += 1
-        lines[i] = '%s%s %s' % (indent, BOX_HAVE if inside else BOX_MISSING, name)
-    return '\\n'.join(lines), mine, total
-
-
-# Die Auszeichnung, mit der das Spiel Text hervorhebt — dasselbe Blau, in dem
-# auch die `[BP!]`-Marke steht.
-#
-# ⚠⚠ **Gewuenscht am 05.09.2026:** „Mach die XP blau geschrieben … damit
-# allgemein spieler es schneller sehen." Der Anlass war ein Melder, der die
-# Rufpunkte uebersah, weil sie mitten im uebrigen Text standen — sie waren da,
-# nur unauffaellig.
-#
-# ⚠ Gemessen in der `global.ini` eines Spielers: `<EM4>` kommt 3.974 Mal vor,
-# die uebrigen Stufen zusammen achtmal. Es ist die Auszeichnung, die das Spiel
-# wirklich benutzt — nicht geraten.
-COLOR_OPEN = '<EM4>'
-COLOR_CLOSE = '</EM4>'
-
-
-def _highlight(line):
-    """Eine Zeile hervorheben — aber nur, wenn sie es nicht schon ist.
-
-    ⚠ Doppelte Auszeichnung zeigt das Spiel als Text an: Aus zwei `<EM4>`
-    wird kein kraeftigeres Blau, sondern ein sichtbares `<EM4>` im Fenster.
-    """
-    line = line.strip()
-    if not line or COLOR_OPEN in line:
-        return line
-    return '%s%s%s' % (COLOR_OPEN, line, COLOR_CLOSE)
-
-
-REP_WORDS = ('reputation', 'rufpunkte')
-
-
-def _highlight_rep(block):
-    """Die Ruf-Zeilen im eigenen Block blau setzen.
-
-    ⚠⚠ **Warum das noetig ist (06.09.2026).** Die Rohdaten liefern zwei
-    getrennte Felder: `contractInfo` (Rufpunkte, Abklingzeit, Teilbarkeit) und
-    `description` (der Bauplan-Block). Die Zeilen aus `contractInfo` faerben
-    wir seit v3.17.0 blau — in `description` stehen aber ZWEI WEITERE
-    Ruf-Zeilen, und die uebernahmen wir unveraendert, also ungefaerbt:
-
-        # Min. Reputation: Auftragnehmer Junior (800 XP)
-        # Max. Reputation: Auftragnehmer Elite (95.250 XP)
-
-    Gemessen in einer echten `global.ini`: 435 Zeilen `# Min. Reputation`,
-    435 `# Max. Reputation`, 129 `# Min. / Max. Reputation` — alle in Weiss,
-    mitten zwischen unseren blauen. Genau das war gemeldet worden: „da ist
-    keine Reputation in den Questtexten", weil sie im uebrigen Text unterging.
-
-    ⚠ **Das ist kein Eingriff in fremde Arbeit.** Diese Zeilen stehen in dem
-    Block, den der Watcher selbst einsetzt; sie stammen aus derselben Quelle
-    wie der Rest. Wo ein anderes Werkzeug seinen eigenen Block geschrieben hat
-    (erkennbar an fehlenden Kaestchen), wird hier nichts angefasst — der
-    Aufrufer setzt die Kaestchen unmittelbar davor.
-
-    ⚠ Nur Ruf-Zeilen. `# Baupläne:` und `# Region:` bleiben schwarz: Sie
-    gliedern den Block, sie sind keine Angabe. Waere alles blau, waere nichts
-    hervorgehoben.
-    """
-    lines = (block or '').split('\\n')
-    for i, line in enumerate(lines):
-        bare = line.strip()
-        if not bare.startswith('#') or COLOR_OPEN in line:
-            continue
-        if any(w in bare.lower() for w in REP_WORDS):
-            lines[i] = _highlight(bare)
-    return '\\n'.join(lines)
-
-
-def _detail_lines(entry, present='', words=None, rep_table=None):
-    """Die Angabezeilen eines Auftrags — hervorgehoben und ohne Dubletten.
-
-    ⚠ Verglichen wird gegen den Text OHNE Auszeichnung: Sonst gilt eine Zeile
-    als neu, nur weil sie beim letzten Lauf noch ungefaerbt war — und stuende
-    danach zweimal da.
-
-    ⚠⚠ **Die Ruf-Zeile kommt aus einer ANDEREN Quelle** (`reputation`). Die
-    Vertragsdaten nennen die Rufpunkte nur als Zahl; bei WEM sie anfallen und
-    ob es Standing, Affinity oder Bounty Hunting ist, steht dort in keinem
-    einzigen Feld — gemessen an allen 818 Eintraegen. Gewuenscht wurde genau
-    diese Unterscheidung: „auf SCMDB sieht man auch ob es Standing oder Rep
-    bekommt, das muss auf jeden fall mit in den Questtext."
-    """
-    plain = (present or '').replace(COLOR_OPEN, '').replace(COLOR_CLOSE, '')
-    out = []
-    for field in ('contractInfo', 'dropChance'):
-        for line in (entry.get(field) or '').split('\\n'):
-            line = line.strip()
-            if line and line not in plain:
-                out.append(_highlight(line))
-
-    if rep_table is not None:
-        try:
-            from . import reputation
-            line = reputation.line(
-                entry.get('titleLocKey') or '',
-                (words or {}).get('ruf_bei') or 'Ruf', rep_table)
-            # ⚠ Der Dublettenschutz vergleicht nur den ANFANG bis zum
-            # Doppelpunkt: Der Rest wechselt mit den Zahlen, und nach einem
-            # Patch stuenden sonst zwei Ruf-Zeilen untereinander.
-            if line and line.split(':')[0] not in plain:
-                out.append(_highlight(line))
-        except Exception as exc:
-            errors.record('injection._detail_lines', exc)
-
-    # ⚠⚠ **Lieber „keine Angaben" als gar nichts (06.09.2026).** 109 Auftraege
-    # bekamen ueberhaupt keine Ruf-Zeile — die Quelle fuehrt fuer sie keine
-    # Rufwerte (CleanAir-Kurierfahrten und aehnliche). Im Spiel stand dort
-    # dann nur Abklingzeit und Teilbarkeit, und die Luecke sah aus wie ein
-    # Aussetzer des Werkzeugs. Genau diese Frage kam auf: „da ist keine
-    # Reputation in den Questtexten."
-    #
-    # Eine fehlende Zeile und eine leere Angabe sehen gleich aus, meinen aber
-    # Verschiedenes. Steht sie da, weiss der Spieler: nachgesehen wurde, es
-    # gibt schlicht nichts. Dieselbe Zurueckhaltung wie beim Zustand
-    # `mission_log.EXPIRED` — feststellen, nicht behaupten.
-    #
-    # ⚠ Nur wenn WIRKLICH keine steht — weder eine eigene noch eine, die
-    # schon im Text ist. Sonst stuenden zwei Ruf-Zeilen untereinander, eine
-    # davon leer.
-    _has_rep = any(any(w in z.lower() for w in REP_WORDS) for z in out)
-    if not _has_rep and not any(w in plain.lower() for w in REP_WORDS):
-        out.insert(0, _highlight('# %s: %s' % (
-            (words or {}).get('ruf_erwartet') or 'Zu erwartende Rufpunkte',
-            (words or {}).get('keine_angabe') or 'Keine Angaben')))
-    return out
-
-
-def _contract_details(block, entry, words=None, rep_table=None):
-    """Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance einsetzen.
-
-    ⚠⚠ **Gewünscht von Bushwick4712 (KRT) am 04.09.2026:** „XP und Abklingzeit
-    fehlen in den Questtexten, der SC Deutsch Launcher liefert diese wohl, dann
-    brauchen wir das auch."
-
-    Er hat recht, und die Daten lagen längst vor — wir haben sie nur nicht
-    benutzt. Gemessen über alle 367 Aufträge mit Beschreibung:
-
-    | Angabe | stand im Spiel | liegt in der Quelle |
-    |---|---|---|
-    | Zu erwartende Rufpunkte | **0** | 311 |
-    | Abklingzeit | **0** | 367 |
-    | Mission teilbar | **0** | 367 |
-    | Chance auf Bauplan | **0** | 367 |
-
-    Eingesetzt wird **direkt vor der Bauplan-Überschrift** — dort stehen schon
-    die Reputationszeilen im selben `#`-Stil, und wer die Liste liest, hat die
-    Rahmenbedingungen dann darüber statt irgendwo darunter.
-
-    ⚠⚠ **Die Zeilen werden mit LITERALEM `\\n` getrennt, nicht mit einem echten
-    Zeilenumbruch.** Die `global.ini` des Spiels führt Umbrüche als zwei
-    Zeichen (Backslash + n); ein echter Umbruch zerreißt den Eintrag und das
-    Spiel zeigt den Rest gar nicht mehr. Der ganze Block wird deshalb überall
-    mit `'\\n'` zerlegt und wieder zusammengesetzt.
-
-    ⚠ **Nichts doppelt einsetzen.** Steht eine Angabe schon da (weil ein
-    anderes Werkzeug sie geschrieben hat oder wir selbst beim letzten Lauf),
-    bleibt sie stehen — dieselbe Regel wie bei den Marken.
-    """
-    suffix = _detail_lines(entry, block, words, rep_table)
-    if not suffix:
-        return block
-
-    lines = block.split('\\n')
-    # Vor die Bauplan-Überschrift, sonst ans Ende der Kopfzeilen.
-    pos = None
-    for i, line in enumerate(lines):
-        if BP_HEADING.match(line):
-            pos = i
-            break
-    if pos is None:
-        return '\\n'.join(lines + [''] + suffix)
-    # Eine Leerzeile davor, wenn dort nicht schon eine steht — sonst kleben
-    # die neuen Zeilen an der Reputationsangabe.
-    before = suffix + ['']
-    if pos > 0 and lines[pos - 1].strip():
-        before = [''] + before
-    lines[pos:pos] = before
-    return '\\n'.join(lines)
-
-
 def _stem(key):
     """Der Namensanfang, den Titel und Beschreibungen eines Auftrags teilen.
 
@@ -1066,306 +820,6 @@ def _stem(key):
         if pos > 0:
             return lowered[:pos]
     return ''
-
-
-# Ein Teilauftrag heißt wie seine Reihe plus ein **direkt angehängtes** Kürzel:
-# aus `battaglia_story01` wird `battaglia_story01b`, `…01c`.
-#
-# ⚠⚠ **Der Unterstrich ist die Grenze, und zwar aus einem gemessenen Grund.**
-# Eine erste Fassung erlaubte auch `_h`, `_m` — und traf damit prompt
-# `headhunters_defend_xt_h` und `…_m`. Das sind aber keine Schritte einer
-# Reihe, sondern **Schwierigkeitsstufen** (VE/E/M/H/VH/S), und die geben
-# unterschiedliche Baupläne. Dass die Quelle für `…_VH` einen **eigenen**
-# Eintrag führt, beweist es: Sie behandelt Stufen als eigenständige Aufträge.
-# Fehlen `_H` und `_M` dort, ist das eine Lücke in der Quelle — sie mit den
-# Daten der Grundstufe zu füllen wäre geraten, nicht gewusst.
-#
-# Damit bleibt die Linie des Werkzeugs gewahrt: Was wir nicht wissen,
-# behaupten wir nicht.
-SERIES_SUFFIX = re.compile(r'^[A-Za-z0-9]{1,2}$')
-
-
-def _series_stem(stem, known):
-    """Zu einem Teilauftrag den Stamm seiner Reihe — oder `None`.
-
-    ⚠⚠ **Warum es das braucht** (03.09.2026): Mehrteilige Auftragsreihen
-    tragen ihre Bauplan-Angabe nur am Schlüssel der *Reihe*. Im Spiel sieht
-    der Spieler aber den *Schritt*, an dem er gerade steht:
-
-        Battaglia_Story01_title  = Willkommen im System <EM4>[BP!]</EM4>
-        Battaglia_Story01B_title = Bergbau-Gelegenheit      ← das steht im Log
-        Battaglia_Story01C_title = Notruf
-
-    Das Overlay meldete „Willkommen im System → 1 Bauplan, dir fehlt: Clearcut
-    Module", und im aufgeschlagenen Auftrag stand nichts davon. Es fehlten
-    keine Daten — die Marke saß am Nachbarschlüssel.
-
-    Der längste passende Stamm gewinnt: Gäbe es `battaglia_story0` und
-    `battaglia_story01`, gehört `battaglia_story01b` zum zweiten.
-    """
-    if not stem or stem in known:
-        return None
-    best = None
-    for candidate in known:
-        if candidate == stem or not stem.startswith(candidate):
-            continue
-        rest = stem[len(candidate):]
-        if not rest or not SERIES_SUFFIX.match(rest):
-            continue
-        if best is None or len(candidate) > len(best):
-            best = candidate
-    return best
-
-
-def apply_scdl(ini_path, lang_code, stock=None):
-    """Injektion aus den SCDL-Vertragsdaten — der vollständigere Weg.
-
-    Gibt (Erfolg, Anzahl, Meldung) zurück wie `einspielen()`."""
-    data = scdl_load(lang_code)
-    if not data:
-        return False, 0, t('m_keine_scdl')
-    if not ini_path or not os.path.isfile(ini_path):
-        return False, 0, t('m_keine_ini')
-
-    owned = bestand_datei.keys(stock if stock is not None
-                                    else bestand_datei.load())
-    words = TEXTS[lang_code]
-
-    # ⚠⚠ **Wem der Auftrag Ruf bringt — aus einer eigenen Quelle.** Die
-    # Vertragsdaten kennen nur die Zahl („150 XP"), nicht die Partei und nicht
-    # die Art. Beides kommt von scmdb.net; das Modul holt es einmal je
-    # Spielversion und legt eine kleine Tabelle an (71 KB statt 12,5 MB).
-    #
-    # ⚠ Scheitert der Abruf, laeuft alles Uebrige weiter: Eine fehlende
-    # Ruf-Zeile ist ein Verlust, ein abgebrochener Einbau waere ein Schaden.
-    rep_table = None
-    try:
-        from . import reputation, gamebuild
-        try:
-            version = gamebuild.live() or ''
-        except Exception:
-            version = ''
-        reputation.refresh(version)
-        rep_table = reputation.load()
-    except Exception as exc:
-        errors.record('injection.apply_scdl', exc)
-
-    title_by_key, text_by_key = {}, {}
-    # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben
-    # trotzdem** (05.09.2026). Gemessen an den Vertragsdaten: **816 von 818**
-    # Auftraegen bringen Rufpunkte und Abklingzeit mit, aber nur **367** haben
-    # einen eigenen Beschreibungsblock — und nur die wurden bedient. Die
-    # uebrigen **449** gingen verloren, obwohl die Daten dalagen und ein
-    # Beschreibungs-Schluessel vorhanden ist.
-    #
-    # Genau so gemeldet: Ein Auftrag ohne Bauplaene zeigte nichts, waehrend
-    # eine fremde Uebersetzung dort Rufpunkte anzeigte. „bau es bitte endlich
-    # bei der SC BP Watcher Injektion mit ein … in JEDE quest wie mrkraken."
-    #
-    # ⚠ Der Unterschied zum Fall darunter: Hier gibt es keinen eigenen Block,
-    # den wir setzen koennten — die Zeilen werden an den **vorhandenen
-    # Spieltext angehaengt**. Deshalb eine eigene Tabelle statt `text_an`:
-    # `text_an` ERSETZT, das hier ERGAENZT.
-    details_by_key = {}
-    for e in data['entries']:
-        if not e.get('description') and e.get('descriptionLocKey'):
-            entry_lines = _detail_lines(e, '', words, rep_table)
-            if entry_lines:
-                # ⚠ **Eine Leerzeile davor.** Ohne sie klebt die erste Angabe
-                # unmittelbar am letzten Satz des Auftragstextes — gemessen
-                # kam „…erinnert daran.# Zu erwartende Rufpunkte: 20 XP"
-                # heraus. Der Block ist eine eigene Auskunft, keine
-                # Fortsetzung des Auftraggeber-Textes.
-                details_by_key[e['descriptionLocKey']] = (
-                    '\\n\\n' + '\\n'.join(entry_lines))
-
-    for e in data['entries']:
-        block = e.get('description') or ''
-        if not block:
-            continue
-        block, mine, total = _set_boxes(block, owned)
-        # ⚠ Erst jetzt einfaerben: Die Kaestchen sind gesetzt, der Block ist
-        # damit nachweislich unserer. Siehe `_ruf_einfaerben`.
-        block = _highlight_rep(block)
-        # ⭐ Rufpunkte, Abklingzeit, Teilbarkeit, Bauplan-Chance — sie standen
-        # in der Quelle, aber nicht im Spiel. Siehe `_auftragsangaben`.
-        block = _contract_details(block, e, words, rep_table)
-        if e.get('descriptionLocKey'):
-            text_by_key[e['descriptionLocKey']] = block
-        if e.get('titleLocKey'):
-            # Statt des schlichten [BP] die eigene Zählung — das ist der
-            # Mehrwert gegenüber der reinen Fremdfassung.
-            #
-            # ⚠ Und ein **Rufzeichen**, wenn die Baupläne an Bedingungen hängen.
-            # Gemessen an den Vertragsdaten: **332 von 818** Aufträgen (41 %)
-            # geben ihre Baupläne nur in bestimmten Preisstufen oder ab einem
-            # Rang — „Baupläne nur für 256.500 / 264.000 aUEC Mission", „nur ab
-            # Meister-Rang". Das steht zwar im Beschreibungstext, aber in der
-            # **Auftragsliste** sah man bisher nur `[BP 0/19]`, und genau danach
-            # entscheidet man, ob man annimmt.
-            #
-            # Morkhan am 28.08.2026 genau so hereingefallen: Auftrag angenommen
-            # (Neuling, 49.750 aUEC), Bauplan-Zähler im Titel gesehen — geben
-            # konnte die Stufe nie einen. Ein Zeichen im Titel kostet nichts und
-            # erspart die vergebliche Mission.
-            chars = '!' if (e.get('bpnote') or '').strip() else ''
-            title_by_key[e['titleLocKey']] = (' <EM4>[%s%s]</EM4>'
-                                          % (words['kurz'], chars))
-
-    changed = 0
-    try:
-        with open(ini_path, encoding='utf-8', errors='ignore') as f:
-            lines = f.read().splitlines()
-    except OSError as e:
-        return False, 0, 'Lesen fehlgeschlagen: %s' % e
-
-    # ⚠ Ein Auftrag hat EINEN Titel, aber oft ein Dutzend Beschreibungen: je eine
-    # für „zur Ruinenstation", „zum Verteilzentrum", „von A nach B" und so weiter.
-    # Die Vertragsdaten nennen dazu immer nur **eine** — die übrigen blieben leer.
-    # Im Spiel stand dann im Titel „[BP 0/12]", und wer die Beschreibung öffnete,
-    # um zu sehen *welche* zwölf, fand nichts. Genau so gemeldet.
-    #
-    # Gemessen an einer echten Installation: allein bei Covalex 51 Beschreibungen im
-    # Spiel, davon 7 mit Angaben.
-    #
-    # Deshalb ein zweiter Weg über den gemeinsamen Namensanfang: Zu jedem Titel,
-    # der Angaben bekommt, werden alle Beschreibungen desselben Auftrags mit
-    # demselben Block versehen. Groß- und Kleinschreibung zählt dabei nicht —
-    # in den Spieldaten steht `Covalex_HaulCargo_AToB_title` neben
-    # `Covalex_HaulCargo_AtoB_desc_ToRuinStation`, mit unterschiedlichem „to".
-    stem_by_key = {}
-    for e in data['entries']:
-        block = text_by_key.get(e.get('descriptionLocKey') or '')
-        stem = _stem(e.get('titleLocKey') or e.get('descriptionLocKey') or '')
-        if block and stem and stem not in stem_by_key:
-            stem_by_key[stem] = block
-
-    # Dasselbe für die TITEL — die Voraussetzung für mehrteilige Reihen.
-    # Ohne diese Tabelle gäbe es nur den exakten Schlüsselvergleich, und ein
-    # Teilauftrag (`…Story01B_title`) findet den Zusatz seiner Reihe nie.
-    title_stem_by_key = {}
-    for key, suffix in title_by_key.items():
-        stem = _stem(key)
-        if stem and stem not in title_stem_by_key:
-            title_stem_by_key[stem] = suffix
-
-    # ⚠ Ohne Marken im Text: Was hier angefasst wird, kommt vorher in die
-    # Merkdatei. Siehe `URTEXT_DATEI` — die Marken waren im Spiel sichtbar.
-    origtext_old = load_origtext()
-    origtext_new = {}
-    fallback = _fallback_form(origtext_old, ini_path)
-    name_suffix = _name_table(lines)
-    # ⚠⚠ **Es gibt ZWEI Schreibwege, und beide brauchen das hier.**
-    # `einrichten()` nimmt bevorzugt diesen (die gepflegten SCDL-Vertragstexte)
-    # und fällt nur ohne sie auf `einspielen()` zurück. In v3.28.0 hingen die
-    # eigenen Schiffsnamen nur am Rückfallweg — bei jedem, der die SCDL-Daten
-    # hat (also fast jedem), wurde der Name **nie** geschrieben. Gemeldet mit
-    # Bildschirmfoto: im Flottenmanager stand weiter der Werksname, obwohl die
-    # Datei nachweislich neu geschrieben worden war.
-    #
-    # ⚠ Wer hier eine neue Art von Einfügung baut, baut sie an **beiden**
-    # Stellen ein — oder er baut sie für die Hälfte der Nutzer gar nicht.
-    # Fehlende Schiffsnamen aus der englischen Datei zählen mit, damit ein
-    # eigener Name auch an einem Schiff ankommt, das die Übersetzung noch nicht
-    # kennt (siehe `_added_ship_names`).
-    added_ships = _added_ship_names(ini_path, lines, origtext_old)
-    own_ships = _asop_table(lines + ['%s=%s' % kv for kv in added_ships.items()])
-    # Ruf-Schwellen an den Rangnamen — ebenfalls in BEIDEN Schreibwegen.
-    rank_suffix = _rank_table(lang_code)
-
-    new = []
-    for line in lines:
-        parts = _split_line(line)
-        if not parts:
-            new.append(line)
-            continue
-        key, suffix, text = parts
-        # Der Wortlaut ohne UNSERE Einfügung. Ein fremder Block (Launcher) kann
-        # darin noch stehen — er wird gleich abgetrennt, aber nicht verworfen.
-        orig = _strip_old(text, key, origtext_old, fallback)
-        if orig == ADDED:
-            continue              # von uns ergänzt — wird unten frisch geschrieben
-        base_text, _foreign = _split_foreign_block(orig)
-        clean = base_text
-        touched = False
-        if key in own_ships:
-            own, star = own_ships[key]
-            clean = asop_modul.display_name(base_text, own, star)
-            touched = clean != base_text
-        elif key in rank_suffix:
-            from . import rank_thresholds
-            clean = rank_thresholds.with_suffix(base_text, rank_suffix[key])
-            touched = clean != base_text
-        elif key in name_suffix:
-            clean = _name_with_detail(base_text, name_suffix[key])
-            touched = True
-        elif key in title_by_key:
-            # ⚠ Steht die Marke schon da, kommt keine zweite dazu — gleich, ob
-            # StarStrings oder der SC Deutsch Launcher sie gesetzt hat.
-            if not _has_title_mark(base_text):
-                clean, touched = base_text + title_by_key[key], True
-        elif key in text_by_key:
-            clean, touched = _append_block(base_text, text_by_key[key]), True
-        elif key in details_by_key:
-            # ⚠ Ein Auftrag ohne eigenen Block: Die Angaben kommen an den
-            # SPIELTEXT, der schon dasteht. Steht die Angabe dort bereits
-            # (weil ein anderes Werkzeug sie geschrieben hat oder wir beim
-            # letzten Lauf), bleibt sie stehen — dieselbe Regel wie bei den
-            # Marken.
-            if not _has_details(base_text):
-                clean = _append_block(base_text, details_by_key[key])
-                touched = True
-        elif key.lower().endswith('_title'):
-            # Keine eigene Angabe — aber vielleicht ist es ein SCHRITT einer
-            # Reihe, deren Hauptauftrag Baupläne bringt (siehe
-            # `_reihen_stamm`). Der Spieler sieht im Auftragsfenster genau
-            # diesen Schritt; ohne den Zusatz erfährt er dort nichts.
-            main = _series_stem(_stem(key), title_stem_by_key)
-            if main and not _has_title_mark(base_text):
-                clean, touched = base_text + title_stem_by_key[main], True
-        elif '_desc' in key.lower():
-            # Keine eigene Angabe — aber vielleicht gehört die Beschreibung zu
-            # einem Auftrag, für den wir welche haben.
-            block = stem_by_key.get(_stem(key))
-            if not block:
-                # Wie beim Titel: auch Schritte einer Reihe versorgen, sonst
-                # steht im Schritt `[BP!]` und darunter keine Bauplan-Liste.
-                main = _series_stem(_stem(key), stem_by_key)
-                if main:
-                    block = stem_by_key[main]
-            if block:
-                clean, touched = _append_block(base_text, block), True
-        if touched:
-            # Den Wortlaut VOR der Einfügung merken, nicht danach — und **mit**
-            # dem fremden Block, damit das Zurücksetzen ihn wiederbringt.
-            origtext_new[key] = orig
-            changed += 1
-        else:
-            # Nichts beigesteuert: dann bleibt auch der fremde Block, wo er war.
-            clean = orig
-        new.append('%s%s=%s' % (key, suffix, clean))
-    changed += _append_ship_names(new, added_ships, own_ships, origtext_new)
-
-    try:
-        # ⚠⚠ **`newline=''` ist Pflicht — sonst wird die ganze Datei umgeschrieben.**
-        # Der Code setzt hier bewusst `\n`, weil das Spiel seine `global.ini` mit
-        # Unix-Zeilenenden ausliefert. Ohne diesen Parameter uebersetzt Python
-        # unter **Windows** jedes `\n` still in `\r\n` — und damit aendert sich
-        # JEDE der 90.363 Zeilen einer 10-MB-Fremddatei, obwohl inhaltlich nichts
-        # anders ist. Gemessen am 02.09.2026: +90.363 Bytes, genau ein Byte je
-        # Zeile. Unter Linux passiert das nicht, deshalb ist es dort nie
-        # aufgefallen — `tools/starstrings_pruefen.py` schlug unter Windows
-        # trotzdem fehl („Nach dem Zuruecksetzen weicht der Wortlaut ab"), und
-        # zwar schon in v3.9.4.
-        with open(ini_path + '.tmp', 'w', encoding='utf-8', newline='') as f:
-            f.write('\n'.join(new) + '\n')
-        os.replace(ini_path + '.tmp', ini_path)
-    except OSError as e:
-        return False, 0, 'Schreiben fehlgeschlagen: %s' % e
-    save_origtext(origtext_new, ini_path)
-    meta = data.get('_meta') or {}
-    return True, changed, '%d Textstellen (SCDL %s)' % (changed,
-                                                          meta.get('version', '?'))
 
 
 def apply_texts(ini_path, language, catalog_data=None, stock=None,
@@ -1429,8 +883,10 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
                                                            origtext_old)
     own_ships = {} if remove_only else _asop_table(
         lines + ['%s=%s' % kv for kv in added_ships.items()])
-    # Ruf-Schwellen an den Rangnamen — derselbe Einbau wie in `apply_scdl`.
+    # Ruf-Schwellen an den Rangnamen.
     rank_suffix = _rank_table(_lang_code(language), remove_only)
+    # Wem ein Auftrag Ruf bringt (Partei und Art) — nur beim Eintragen.
+    rep_table = None if remove_only else _rep_table()
 
     # ⚠ Eine Mission hat im Spiel **mehr** Beschreibungen, als der Katalog
     # kennt. Gemessen am 28.08.2026: `Covalex_HaulCargo_SingleToMulti` führt
@@ -1441,9 +897,8 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
     # Genau so gemeldet von Morkhan: „bei ner anderen mission steht, dass man
     # 12 Pläne bekommen kann, aber da werden keine angezeigt."
     #
-    # `einspielen_scdl()` löst das seit Langem über den gemeinsamen
-    # Namensanfang; hier fehlte es. Deshalb derselbe Weg auch für den eigenen
-    # Katalog: Zu jedem Titel, der Angaben bekommt, bekommen **alle**
+    # Gelöst über den gemeinsamen Namensanfang (so, wie es der frühere
+    # SCDL-Weg tat): Zu jedem Titel, der Angaben bekommt, bekommen **alle**
     # Beschreibungen desselben Auftrags denselben Block.
     stem_block = {}
     if not remove_only:
@@ -1498,7 +953,8 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
                     touched = True
             elif key in text_keys:
                 clean = _append_block(base_text,
-                                    _build_block(text_keys[key], owned, words))
+                                    _build_block(text_keys[key], owned, words,
+                                                 rep_table))
                 touched = True
             elif '_desc' in key.lower():
                 # Keine eigene Angabe — aber vielleicht gehört die Beschreibung
@@ -1506,7 +962,8 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
                 entry = stem_block.get(_stem(key))
                 if entry:
                     clean = _append_block(base_text,
-                                        _build_block(entry, owned, words))
+                                        _build_block(entry, owned, words,
+                                                     rep_table))
                     touched = True
             if touched:
                 origtext_new[key] = orig
@@ -1540,68 +997,22 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
 
 
 def setup(ini_path, language, progress=None, stock=None):
-    """Die Bauplan-Angaben eintragen — auf dem jeweils besten Weg.
+    """Die Bauplan-Angaben eintragen — aus den eigenen Daten (scmdb).
 
-    Zuerst die Vertragsdaten des SCDL-Teams: 813 Verträge mit gepflegten
-    Texten. Sind sie nicht erreichbar, tut es der eigene Aufbau aus den
-    scmdb-Daten (349 Verträge) — dann fehlen Feinheiten wie Region und
-    Gefahrenstufe, aber die Baupläne stehen da, und darum geht es."""
-    tag = _lang_code(language)
-    if not scdl_load(tag):
-        scdl_fetch(tag, progress)
-    if scdl_load(tag):
-        ok, n, message = apply_scdl(ini_path, tag, stock)
-        if ok:
-            return ok, n, message
+    ⚠⚠ **Bis v3.63.1 gab es hier einen zweiten, bevorzugten Weg** über die
+    Vertragsdaten des SC-Deutsch-Launcher-Teams. Die Quelle wurde am
+    29.09.2026 entfernt und wird nicht mehr genutzt (30.09.2026). Es gibt
+    seitdem nur noch **einen** Schreibweg: `apply_texts`."""
     return apply_texts(ini_path, language, stock=stock, progress=progress)
 
 
 def refresh(ini_path, language, progress=None, stock=None):
-    """Frische Vertragsdaten holen und neu eintragen.
+    """Neu eintragen — mit frisch geholtem Katalog, falls erreichbar.
 
     Gebraucht nach jedem Übersetzungs-Update und nach jedem Spiel-Patch: Beide
     schreiben die `global.ini` neu, die Angaben sind dann stillschweigend weg."""
-    scdl_fetch(_lang_code(language), progress)
+    katalog_modul.update(progress)       # wirft nie; holt nur bei neuer Spielversion
     return setup(ini_path, language, progress, stock)
-
-
-def scdl_update_available(lang_code):
-    """Gibt es bei den Vertragsdaten etwas Neueres? (ja/nein, neue Kennung).
-
-    Verglichen wird die Kennung aus `_meta.version` (z. B. „LIVE 20.08.2026").
-    Geholt wird dafür die ganze Datei — sie hat keine eigene Versionsauskunft,
-    und 2,4 MB einmal am Tag sind kein Grund, dafür etwas zu bauen."""
-    from .catalog import OFF
-    old = scdl_version(lang_code)
-    filename = SCDL_FILE.get(lang_code)
-    if not filename or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
-        return False, None
-    try:
-        req = urllib.request.Request(SCDL_RAW % filename,
-                                     headers={'User-Agent': 'SC-BP-Watcher'})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            raw = json.loads(r.read().decode('utf-8'))
-    except Exception as exc:
-        errors.record('injection.scdl_fetch', exc, filename)
-        return False, None
-    new_id = (raw.get('_meta') or {}).get('version')
-    if not raw.get('entries') or new_id == old:
-        return False, old
-    # Schon mal ablegen — der Abruf ist gelaufen, ein zweiter wäre Verschwendung.
-    try:
-        target = paths.app_file(SCDL_CACHE % lang_code)
-        with open(target + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(raw, f, ensure_ascii=False)
-        os.replace(target + '.tmp', target)
-    except Exception:
-        return False, old
-    return True, new_id
-
-
-def scdl_version(lang_code):
-    """Welche Version der Vertragsdaten liegt hier? Oder None."""
-    d = scdl_load(lang_code)
-    return (d.get('_meta') or {}).get('version') if d else None
 
 
 def leftover_file(new_path):

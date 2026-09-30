@@ -20,7 +20,7 @@ Four things are deliberate and will stay that way:
 | | |
 |---|---|
 | ✅ | Live detection of new blueprints from the game log, shown in the overlay |
-| ✅ | **Its own blueprint inventory** — the SC Deutsch Launcher is not needed |
+| ✅ | **Its own blueprint inventory** — no other program needed |
 | ✅ | **Catch-up**: earlier play sessions are read on start |
 | ✅ | **Blueprint list** to look up, filter and tick off, with progress (also for the watchlist only) — the search also finds **contracts** and filters the list down to one of them |
 | ✅ | **Where each blueprint drops** — faction, contract, required standing, payout; a button in Crafting leads straight there |
@@ -37,7 +37,7 @@ Four things are deliberate and will stay that way:
 | ✅ | Setup wizard, repeatable at any time |
 | ✅ | German and English, switchable |
 | ✅ | Windows and Linux, with autostart on both |
-| ✅ | Export your inventory — for the KRT Profit Basetool, for scmdb.net, for the Baupläne DB · Star Citizen Deutsch and as a full backup; import works from the same sources |
+| ✅ | Export your inventory — for the KRT Profit Basetool, for scmdb.net and as a full backup; import works from the same sources and from the Baupläne DB · Star Citizen Deutsch |
 | ✅ | Collapse the overlay, for anyone on a single screen |
 | ✅ | **Tray icon**: next to the clock on Windows, in the application menu on Linux — the way back to the list and the settings while the overlay stays out of sight |
 | ✅ | **Item details in game** — class, size and grade at the tractor beam, seeker type for missiles |

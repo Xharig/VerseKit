@@ -66,7 +66,9 @@ INFO_FILE = 'sicherung.txt'
 # ⚠ Im Zweifel gehört etwas NICHT hierher. Eine zu große Sicherung kostet
 # Sekunden, eine zu kleine kostet den Bestand.
 RELOADABLE = (
-    'Intern/bp-contracts-de.json',      # Auftragstexte, vom Netz
+    # Überbleibsel: SCDL-Vertragsdaten, bis v3.63.1 genutzt. Liegen bei
+    # Bestandsnutzern noch herum und gehören in keine Sicherung.
+    'Intern/bp-contracts-de.json',
     'Intern/bp-contracts-en.json',
     'Intern/crafting-blueprints.json',  # Rezepte, vom Netz
     'Intern/katalog-cache.json',        # der Bauplan-Katalog, vom Netz
@@ -416,6 +418,8 @@ def restore_bindings(source, with_active=False, game_folder=None):
 
 # Einstellungen, die einen Ort auf der Platte nennen. Beim Rechnerwechsel sind
 # sie der wahrscheinlichste Grund, warum danach nichts geht.
+# `launcher_ordner` wird seit dem 30.09.2026 nicht mehr gelesen — steht hier nur noch,
+# damit alte Sicherungen ihn beim Wiederherstellen nicht mitschleppen.
 PATH_FIELDS = ('spiel_ordner', 'launcher_ordner', 'export_ordner')
 
 
