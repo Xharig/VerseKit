@@ -1138,6 +1138,20 @@ def overlay_bild(ziel, englisch=False):
         fenster.update_idletasks()
         time.sleep(0.02)
 
+    # ⚠⚠ **Die Groesse NACH dem Anlaufen noch einmal setzen (30.09.2026).**
+    # Das Overlay richtet sich beim Start selbst ein (Ecke, Arbeitsflaeche,
+    # Klappzustand) und ueberschreibt dabei die Groesse von oben. Seit v3.6x
+    # kam so ein 650x146-Bild heraus: ein Fund sichtbar, der zweite
+    # abgeschnitten, dazu eine Rollleiste.
+    fenster.minsize(1, 1)
+    fenster.geometry('%dx%d+%d+%d' % (760, 300, WEIT_WEG[0], WEIT_WEG[1]))
+    for _ in range(14):
+        fenster.update()
+        fenster.update_idletasks()
+        time.sleep(0.02)
+    print('  Overlay-Groesse beim Abgriff: %dx%d'
+          % (fenster.winfo_width(), fenster.winfo_height()))
+
     geglueckt = abgreifen(fenster, ziel)
     try:
         fenster.destroy()

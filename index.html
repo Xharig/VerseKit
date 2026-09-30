@@ -89,6 +89,14 @@ header{
 .hero .klein{margin-top:18px;font-size:15px;color:var(--text-leise)}
 .hero .zahl{margin:26px 0 0;font-size:16px;color:var(--text-leise);letter-spacing:.5px}
 .hero .zahl strong{color:var(--neon);font-size:26px;font-weight:800;margin-right:6px}
+/* Das Vorstellungsvideo: stumm, laeuft von selbst in Schleife — Bildunterschriften
+   tragen die Aussage, auf Webseiten schaut man ohne Ton. Klick haelt es an. */
+.film{
+  max-width:960px;margin:40px auto 0;background:var(--flaeche);
+  border:1px solid var(--rand);border-radius:12px;padding:10px;
+}
+.film video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:7px;background:#0e131b;cursor:pointer}
+.hero .anderes{margin-top:12px;font-size:15px;color:var(--text-leise)}
 
 /* ---------- Abschnitte ---------- */
 section{padding:66px 0;position:relative}
@@ -254,6 +262,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a class="weg" href="#tour" data-de="Ansehen" data-en="Take a look">Ansehen</a>
       <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">Was es kann</a>
       <a href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
+      <a class="weg" href="#sicher" data-de="Sicher?" data-en="Safe?">Sicher?</a>
       <a class="weg" href="#aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <div class="sprache">
         <button id="knopf-de" class="an" onclick="sprache('de')">DE</button>
@@ -280,15 +289,24 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       ehemals SC BP Watcher · Windows und Linux · ohne Konto, ohne Cloud
     </p>
     <div class="knopfreihe">
-      <a class="knopf voll" href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
+      <!-- Text und Ziel setzt `knopfRichten()` passend zum System des Besuchers;
+           ohne Skript oder bei unbekanntem System springt er zum Abschnitt „Herunterladen". -->
+      <a class="knopf voll" id="knopf-laden" href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
       <a class="knopf leer" href="#tour" data-de="Erst ansehen" data-en="Look around first">Erst ansehen</a>
     </div>
+    <p class="anderes" id="anderes" hidden><a href="#laden" id="anderes-link"></a></p>
     <p class="klein"
        data-de="Kostenlos und quelloffen unter GPL-3.0. Eine Datei laden, starten, fertig."
        data-en="Free and open source under GPL-3.0. Download one file, run it, done.">
       Kostenlos und quelloffen unter GPL-3.0. Eine Datei laden, starten, fertig.
     </p>
     <p class="zahl" id="downloads" hidden><strong id="downloads-zahl"></strong>Downloads</p>
+
+    <div class="film">
+      <video id="film" src="assets/video/versekit-de.mp4" poster="assets/video/versekit-de.jpg"
+             autoplay muted loop playsinline preload="metadata"
+             aria-label="Verse-Kit in 26 Sekunden"></video>
+    </div>
   </div>
 </div>
 
@@ -417,6 +435,59 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
        data-de="Beim ersten Start meldet Windows „Der Computer wurde durch Windows geschützt“ — das passiert bei jedem Programm ohne teures Zertifikat. Auf „Weitere Informationen“ klicken, dann auf „Trotzdem ausführen“. Die Anleitung im Verzeichnis erklärt es mit Bildern."
        data-en="On first start Windows says “Windows protected your PC” — that happens with every program without an expensive certificate. Click “More info”, then “Run anyway”. The readme explains it with pictures.">
       Beim ersten Start meldet Windows „Der Computer wurde durch Windows geschützt“ — das passiert bei jedem Programm ohne teures Zertifikat. Auf „Weitere Informationen“ klicken, dann auf „Trotzdem ausführen“. Die Anleitung im Verzeichnis erklärt es mit Bildern.
+    </p>
+  </div>
+</section>
+
+<!-- ⚠ Hier stehen nur Tatsachen darüber, was das Werkzeug TUT — keine Aussage
+     wie „CIG erlaubt es“ und kein Versprechen über die Zukunft. Beides hängt an
+     einer Auslegung, die nicht wir treffen. Jeder Satz ist am Code belegt:
+     kein Zugriff auf den Spielspeicher (OpenProcess nur mit Abfragerecht),
+     Bau durch GitHub Actions (release.yml), Updates nur mit passender
+     Prüfsumme (SHA256SUMS.txt), Berichte nur auf Klick. -->
+<section id="sicher">
+  <div class="mitte">
+    <div class="label" data-de="Vertrauen" data-en="Trust">Vertrauen</div>
+    <h2 data-de="Ist das sicher?" data-en="Is it safe?">Ist das sicher?</h2>
+    <p class="einleitung"
+       data-de="Die berechtigte Frage vor jedem Download. Hier steht, was Verse-Kit tut — und was nicht."
+       data-en="The fair question before any download. Here is what Verse-Kit does — and what it does not.">
+      Die berechtigte Frage vor jedem Download. Hier steht, was Verse-Kit tut — und was nicht.
+    </p>
+    <div class="karten">
+      <div class="karte">
+        <h3 data-de="Kein Eingriff ins Spiel" data-en="No hooks into the game">Kein Eingriff ins Spiel</h3>
+        <p data-de="Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest."
+           data-en="No access to the game's memory, nothing is injected. Verse-Kit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand.">
+          Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest.
+        </p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Offener Quellcode" data-en="Open source">Offener Quellcode</h3>
+        <p data-de="Jede Zeile liegt offen auf GitHub. Die Dateien zum Herunterladen baut GitHub selbst aus genau diesem Code."
+           data-en="Every line is public on GitHub. The files you download are built by GitHub itself from exactly this code.">
+          Jede Zeile liegt offen auf GitHub. Die Dateien zum Herunterladen baut GitHub selbst aus genau diesem Code.
+        </p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Geprüfte Updates" data-en="Verified updates">Geprüfte Updates</h3>
+        <p data-de="Zu jeder Version gehört eine Prüfsumme. Ein Update wird nur eingespielt, wenn die Datei genau dazu passt."
+           data-en="Every version comes with a checksum. An update is only installed if the file matches it exactly.">
+          Zu jeder Version gehört eine Prüfsumme. Ein Update wird nur eingespielt, wenn die Datei genau dazu passt.
+        </p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Kostenlos, ohne Haken" data-en="Free, no catch">Kostenlos, ohne Haken</h3>
+        <p data-de="Keine Bezahlstufe, keine Werbung, keine Anmeldung. Ein Fehlerbericht geht nur raus, wenn du ihn selbst abschickst."
+           data-en="No paid tier, no ads, no sign-up. An error report only goes out when you send it yourself.">
+          Keine Bezahlstufe, keine Werbung, keine Anmeldung. Ein Fehlerbericht geht nur raus, wenn du ihn selbst abschickst.
+        </p>
+      </div>
+    </div>
+    <p class="hinweis"
+       data-de="Verse-Kit ist ein inoffizielles Fanprojekt und steht in keiner Verbindung zu Cloud Imperium Games."
+       data-en="Verse-Kit is an unofficial fan project and is not affiliated with Cloud Imperium Games.">
+      Verse-Kit ist ein inoffizielles Fanprojekt und steht in keiner Verbindung zu Cloud Imperium Games.
     </p>
   </div>
 </section>
@@ -738,9 +809,70 @@ function sprache(s){
     texte[i].textContent = texte[i].getAttribute("data-" + s);
   }
   zahlZeigen();
+  filmSprache();
+  anderesZeigen();
   bauen();
   verlaufLaden();
 }
+
+/* Der große Knopf oben lädt direkt die Datei für das System des Besuchers.
+   Nur Windows und Linux gibt es — Mac, Telefon und Unbekanntes springen wie
+   bisher zum Abschnitt „Herunterladen", wo beide Dateien stehen.
+   Die Texte laufen über data-de/data-en, damit `sprache()` sie mitnimmt. */
+var system = (function(){
+  var p = ((navigator.userAgentData && navigator.userAgentData.platform) ||
+           navigator.platform || "") + " " + navigator.userAgent;
+  if (/Android|iPhone|iPad/i.test(p)) return null;
+  if (/Win/i.test(p)) return "windows";
+  if (/Linux|X11/i.test(p)) return "linux";
+  return null;
+})();
+
+function knopfRichten(){
+  if (!system) return;
+  var knopf = document.getElementById("knopf-laden");
+  var name = system === "windows" ? "Windows" : "Linux";
+  knopf.href = "https://xharig.com/" + system;
+  knopf.setAttribute("data-de", "Für " + name + " herunterladen");
+  knopf.setAttribute("data-en", "Download for " + name);
+  knopf.textContent = knopf.getAttribute("data-" + sprLage);
+  anderesZeigen();
+}
+
+function anderesZeigen(){
+  if (!system) return;
+  var andere = system === "windows" ? "Linux" : "Windows";
+  document.getElementById("anderes-link").textContent = sprLage === "de"
+    ? "Andere Systeme: " + andere : "Other systems: " + andere;
+  document.getElementById("anderes").hidden = false;
+}
+
+/* Das Video in der Sprache der Seite. Wer weniger Bewegung eingestellt hat,
+   bekommt es angehalten, mit Bedienleiste. Ein Klick hält an bzw. spielt weiter. */
+var film = document.getElementById("film");
+var wenigBewegung = window.matchMedia &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function filmSprache(){
+  var ziel = "assets/video/versekit-" + sprLage + ".mp4";
+  if (film.getAttribute("src") === ziel) return;
+  film.setAttribute("poster", "assets/video/versekit-" + sprLage + ".jpg");
+  film.setAttribute("src", ziel);
+  film.setAttribute("aria-label", sprLage === "de"
+    ? "Verse-Kit in 26 Sekunden" : "Verse-Kit in 26 seconds");
+  if (!wenigBewegung) { var p = film.play(); if (p && p.catch) p.catch(function(){}); }
+}
+
+if (wenigBewegung){
+  film.removeAttribute("autoplay");
+  film.pause();
+  film.controls = true;
+} else {
+  film.addEventListener("click", function(){
+    if (film.paused) film.play(); else film.pause();
+  });
+}
+knopfRichten();
 
 /* Downloadzahl: Summe aller Release-Dateien aller Versionen — dieselbe Zahl,
    die der Discord-Kanal zeigt. Ueber 100 Releases → alle Seiten lesen.
