@@ -90,8 +90,9 @@ def _iso(time_string):
 def _unique_tags():
     """Bauplanname (klein) -> Tag — nur, wo der Name EINDEUTIG ist.
 
-    ⚠⚠ Anders als `_scmdb_tags()`: Dort gewinnt bei einem mehrdeutigen Namen
-    der erste Tag. Das Basetool prüft den Tag aber **vor** dem Namen und
+    Gilt für Basetool UND scmdb. ⚠⚠ Bis v3.64.1 hatte scmdb eine eigene
+    Tabelle, in der bei einem mehrdeutigen Namen der erste Tag gewann. Das
+    Basetool prüft den Tag aber **vor** dem Namen und
     springt bei einem Treffer sofort auf dieses Produkt (REQ-INV-019 im
     Basetool). Ein geratener Tag landete also sicher beim falschen Teil —
     etwa beim Kraftwerk der Idris statt dem der Reclaimer, die gleich heißen.
@@ -142,30 +143,6 @@ def for_basetool(collection=None, tags=None):
 SCMDB_URL = 'https://scmdb.net/?page=fab&fab=%s'
 
 
-def _scmdb_tags():
-    """Bauplanname (klein) -> Tag, aus den Rezeptdaten.
-
-    Der Tag (`BP_CRAFT_AMRS_LaserCannon_S2`) ist bei scmdb der Schlüssel — der
-    Name ist nur Beiwerk. `recipe()` gibt ihn nicht heraus, `all_items()` schon.
-
-    ⚠ Liegen keine Rezeptdaten vor (frische Installation, kein Netz), ist die
-    Zuordnung leer. Der Export läuft dann trotzdem, nur ohne Tags — er darf
-    nicht am Netz hängen."""
-    table = {}
-    try:
-        from . import crafting
-        for r in crafting.all_items():
-            tag = (r.get('tag') or '').strip()
-            if not tag:
-                continue
-            for key in (r.get('name'), r.get('basis')):
-                if key:
-                    table.setdefault(key.strip().lower(), tag)
-    except Exception:
-        return {}
-    return table
-
-
 def for_scmdb(collection=None, version='', tags=None):
     """Die Struktur, die der Import von **scmdb.net** erwartet.
 
@@ -185,25 +162,28 @@ def for_scmdb(collection=None, version='', tags=None):
     Felder `tag`, `name`, `url` stehen weiter mit drin, damit unser eigener
     Import und Menschen, die hineinsehen, etwas davon haben.
 
-    ⚠⚠ **Der Tag ist der Schlüssel, nicht der Name.** Gemessen an einem
-    gewachsenen Bestand: 409 von 413 Bauplänen finden über die Rezeptdaten
-    ihren Tag. Die vier übrigen sind deutsche Bezeichnungen ohne Gegenstück im
-    Rezeptsatz; sie werden trotzdem mit ausgegeben, damit sie nicht
-    stillschweigend verschwinden — ob scmdb sie ohne Tag zuordnen kann,
-    entscheidet deren Import.
+    ⚠⚠ **Der Tag ist der Schlüssel, nicht der Name** — und er wird über die
+    Vergleichsform gesucht (`_unique_tags`), wie beim Basetool. Bis v3.64.1
+    lief hier ein wörtlicher Vergleich: „(16 Schuss)" fand „(16 cap)" nicht,
+    `"Lorica"` nicht `'Lorica'`, ein geschütztes Leerzeichen im Oracle-Helm
+    nicht das normale. scmdb riet dann über den Namen — und schlug für ein
+    Magazin **die Waffe** vor; wer „Apply best guesses" klickte, bekam das
+    falsche Teil (gemeldet von zwaersch, 01.10.2026). Ein mehrdeutiger Name
+    bekommt bewusst keinen Tag: Dann fragt scmdb nach, statt still falsch
+    zuzuordnen. Ohne Tag geht der Bauplan trotzdem mit.
 
     `missions` bleibt leer. Gezählt würden dort nur Aufträge mit
     `debugName` aus den Spieldaten, die wir nicht zuverlässig haben und
     nicht erfinden."""
     data = collection if collection is not None else collection_file.load()
-    table = _scmdb_tags() if tags is None else tags
+    table = _unique_tags() if tags is None else tags
     entries = []
     for key, e in sorted((data.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
         if not name:
             continue
-        entry = {'tag': table.get(name.lower(), ''), 'productName': name,
-                 'name': name}
+        entry = {'tag': table.get(paths.name_key(name), ''),
+                 'productName': name, 'name': name}
         if entry['tag']:
             entry['url'] = SCMDB_URL % entry['tag']
         entries.append(entry)

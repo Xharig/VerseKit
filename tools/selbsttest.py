@@ -13264,6 +13264,44 @@ def main():
                             'blueprints': [{'name': 'x'}]})[1] == 0,
            'Gegenprobe: ein Bauplan nur mit name ist nicht zuordenbar')
 
+    # ⚠⚠ Nachtrag 01.10.2026 (v3.64.2, gemeldet von zwaersch): Der Tag wurde
+    # wortgleich gesucht. „(16 Schuss)" fand „(16 cap)" nicht, und scmdb
+    # schlug fuer das Magazin die WAFFE vor. Geprueft wird der echte Weg
+    # (`tags=None`) mit untergeschobenen Rezeptdaten — die Falle schnappt
+    # zuerst an einem Namen zu, der sicher treffen MUSS.
+    from scbp import crafting as _cr132
+    _alt_items132 = _cr132.all_items
+    _cr132.all_items = lambda *a, **k: [
+        {'name': 'Probe Rifle Magazine (16 cap)',
+         'basis': 'Probe Rifle Magazine (16 cap)', 'tag': 'BP_MAG'},
+        {'name': 'Probe Rifle', 'basis': 'Probe Rifle', 'tag': 'BP_GUN'},
+        {'name': "7MA 'Probe'", 'basis': "7MA 'Probe'", 'tag': 'BP_SHLD'},
+        {'name': 'Doppelt (S02)', 'basis': 'Doppelt', 'tag': 'BP_D2'},
+        {'name': 'Doppelt (S03)', 'basis': 'Doppelt', 'tag': 'BP_D3'},
+    ]
+    try:
+        _echt132 = {b['productName']: b.get('tag') for b in _ex132.for_scmdb(
+            {'bauplaene': {
+                '1': {'name': 'Probe Rifle'},
+                '2': {'name': 'Probe Rifle Magazine (16 Schuss)'},
+                '3': {'name': '7MA "Probe"'},
+                '4': {'name': 'Doppelt'},
+            }})['blueprints']}
+    finally:
+        _cr132.all_items = _alt_items132
+    pruefe(_echt132.get('Probe Rifle') == 'BP_GUN',
+           'Falle greift: die Rezeptdaten werden gelesen (%r)'
+           % _echt132.get('Probe Rifle'))
+    pruefe(_echt132.get('Probe Rifle Magazine (16 Schuss)') == 'BP_MAG',
+           '„(16 Schuss)" findet das Magazin „(16 cap)", nicht die Waffe (%r)'
+           % _echt132.get('Probe Rifle Magazine (16 Schuss)'))
+    pruefe(_echt132.get('7MA "Probe"') == 'BP_SHLD',
+           'andere Anfuehrungszeichen finden denselben Tag (%r)'
+           % _echt132.get('7MA "Probe"'))
+    pruefe(not _echt132.get('Doppelt'),
+           'ein mehrdeutiger Name bekommt keinen geratenen Tag (%r)'
+           % _echt132.get('Doppelt'))
+
     # ⚠ Unser eigener Import muss die Datei ebenfalls lesen koennen — wer
     # sie als Sicherung nimmt, bekommt sonst nichts zurueck.
     from scbp import importer as _im132

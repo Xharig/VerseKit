@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.64.2 - 2026-10-01
+
+> Beim Einlesen in scmdb.net müssen jetzt kaum noch Baupläne von Hand
+> zugeordnet werden — Magazine landen beim Magazin, nicht bei der Waffe.
+
+### Behoben
+
+- **scmdb.net ordnet Magazine und Schilde richtig zu** — Magazine mit
+  „(… Schuss)", Namen mit Anführungszeichen und der Oracle-Helm kamen bisher
+  als Rückfrage an, und der Vorschlag für ein Magazin war die Waffe. Nur wo
+  ein Name wirklich zu mehreren Teilen passt, fragt scmdb noch nach.
+  Gemeldet von Zwaersch (KRT)
+
 ## v3.64.1 - 2026-10-01
 
 > Deinen Bauplan-Bestand kannst du wieder bei scmdb.net einlesen. Und wer in

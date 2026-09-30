@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.64.2 - 2026-10-01
+
+> Importing into scmdb.net now needs hardly any manual matching — magazines
+> end up as magazines, not as the weapon.
+
+### Fixed
+
+- **scmdb.net matches magazines and shields correctly** — magazines with
+  "(… Schuss)", names with quotation marks and the Oracle helmet used to show
+  up as questions, and the suggestion for a magazine was the weapon. scmdb
+  only asks when a name really fits several items.
+  Reported by Zwaersch (KRT)
+
 ## v3.64.1 - 2026-10-01
 
 > You can import your blueprint collection into scmdb.net again. And clicking
