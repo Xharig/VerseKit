@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.63.1 - 2026-09-30
+
+> If you play at a high resolution, you may have noticed: the signature
+> scanner struggled with the large HUD text, and teaching it didn't help.
+> Now teaching works for large text too: teach it a few scans, and it reads
+> them.
+
 ### Fixed
 
 - **The signature scanner could barely read large HUD text** — at high

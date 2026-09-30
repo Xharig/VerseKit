@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.63.1 - 2026-09-30
+
+> Wer mit hoher Auflösung spielt, hat es gemerkt: Der Signatur-Scanner kam
+> mit der großen HUD-Schrift kaum zurecht, und Anlernen änderte daran nichts.
+> Jetzt greift das Anlernen auch bei großer Schrift: ein paar Scans
+> beibringen, und er liest sie.
+
 ### Behoben
 
 - **Der Signatur-Scanner las große HUD-Schrift kaum** — bei hohen Auflösungen
