@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.64.1 - 2026-10-01
+
+> Deinen Bauplan-Bestand kannst du wieder bei scmdb.net einlesen. Und wer in
+> der Bauplan-Liste auf „Datei speichern …" klickt, landet jetzt direkt bei
+> allen Formaten auf einen Blick.
+
+### Verbessert
+
+- **„Datei speichern …" in der Bauplan-Liste führt zu *Sichern &
+  Zurücksetzen → Bestand ausgeben*** — dort stehen Basetool, scmdb.net und
+  die vollständige Sicherung nebeneinander. Der Knopf „In die Ablage" in der
+  Liste entfällt; die Ablage liegt auf derselben Seite. Gemeldet von
+  Zwaersch (KRT)
+
+### Behoben
+
+- **scmdb.net nimmt die ausgegebene Datei wieder an** — beim Einlesen unter
+  „Import Watcher History" kam bisher „Unrecognized format". Gemeldet von
+  Zwaersch (KRT)
+
 ## v3.64.0 - 2026-09-30
 
 > Im Hangar lassen sich jetzt Racks und Lackierungen tauschen — nur die, die

@@ -34,7 +34,6 @@ Drei Dinge, für die es da ist:
 Bedienung: tippen filtert, Klick auf eine Zeile setzt oder entfernt das Häkchen,
 Klick auf ⓘ klappt die Bezugsquellen aus.
 """
-import os
 import time
 import tkinter as tk
 
@@ -399,20 +398,21 @@ class Bestandsfenster:
         self.fortschritt = tk.Label(bar, text='', bg=BAR, fg=SUB, font=schrift(10))
         self.fortschritt.pack(side='left')
         # Export rechts in der Kopfzeile — dort, wo man ihn sucht, wenn man die
-        # Liste vor sich hat. Geschrieben wird eine Datei; hochladen macht der
-        # Spieler selbst (nichts verlässt den Rechner ungefragt).
-        # Ein Knopf für den Regelfall (alle Formate in die Ablage), einer für
-        # den Einzelfall (eine Datei, Ziel selbst wählen). Drei Knöpfe für drei
-        # Formate wären eine Zumutung — die wenigsten wollen sich mit dem
-        # Unterschied befassen.
-        for text, tat, abstand in (
-                (t('export_ablage'), self._in_ablage, (0, 14)),
-                (t('export_einzeln'), lambda: self._exportieren('basetool'), (0, 6))):
-            from .main_window import round_button
-            k = round_button(bar, text, None, schrift(9), BAR, FLAECHE, LINIE, FG)
-            k.pack(side='right', padx=abstand)
-            k.bind('<Button-1>', lambda e, f=tat: f())
-            notice.attach(k, lambda: t('hinweis_export'))
+        # Liste vor sich hat.
+        # ⚠⚠ **Der Knopf springt nach „Sichern & Zurücksetzen" → „Bestand
+        # ausgeben".** Bis v3.64.0 schrieb er hier wortlos die Basetool-Datei,
+        # daneben stand „In die Ablage". Wer scmdb wollte, bekam die falsche
+        # Datei und fand den richtigen Knopf nicht (gemeldet von zwaersch,
+        # 01.10.2026). Dort stehen alle Formate mit Namen nebeneinander, die
+        # Ablage gleich darunter — ein zweiter Weg hier wäre doppelt.
+        # Im eigenständigen Fenster (ohne Hauptfenster) gibt es keine Seite
+        # zum Hinspringen; dort bleibt der alte Speichern-Dialog.
+        from .main_window import round_button
+        k = round_button(bar, t('export_einzeln'), None, schrift(9), BAR,
+                         FLAECHE, LINIE, FG)
+        k.pack(side='right', padx=(0, 14))
+        k.bind('<Button-1>', lambda e: self._zum_export())
+        notice.attach(k, lambda: t('hinweis_export'))
         self.export_meldung = tk.Label(bar, text='', bg=BAR, fg=ACCENT,
                                        font=schrift(9))
         self.export_meldung.pack(side='right', padx=(0, 10))
@@ -423,28 +423,19 @@ class Bestandsfenster:
         # Overlay ist der andere Fall: Dort gibt es keine Systemleiste, deshalb
         # behält es sein eigenes ✕.
 
-    def _in_ablage(self):
-        """Alle Formate auf einmal in den Ablage-Ordner — und ihn öffnen."""
-        ok, ordner, dateien = export_modul.archive(self.bestand, self.katalog,
-                                                   VERSION[0])
-        if not ok:
-            self.export_meldung.configure(text=t('export_fehler', ordner),
-                                          fg=GELB)
-            return
-        self.export_meldung.configure(text=t('export_ablage_fertig',
-                                             len(dateien)), fg=ACCENT)
-        # Ordner zeigen: Eine Datei, die man nicht findet, hilft niemandem.
+    def _zum_export(self):
+        """Zu „Sichern & Zurücksetzen" springen, auf „Bestand ausgeben".
+
+        Ohne Hauptfenster (eigenständiger Start) bleibt der Speichern-Dialog."""
         try:
-            import subprocess, sys as _sys
-            if _sys.platform.startswith('win'):
-                os.startfile(ordner)                       # noqa: S606
-            else:
-                subprocess.Popen(['xdg-open', ordner],
-                                 stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-        self.root.after(8000, lambda: self.export_meldung.configure(text=''))
+            main = getattr(self, 'hauptfenster', None)
+            if main is None:
+                self._exportieren('voll')
+                return
+            from . import pages
+            pages.show_export(main)
+        except Exception as exception:
+            errors.record('collection_window.zum_export', exception)
 
     def _exportieren(self, art):
         """Bestand als Datei ausgeben — Ziel wählt der Spieler."""

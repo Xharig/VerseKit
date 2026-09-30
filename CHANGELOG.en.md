@@ -8,6 +8,25 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.64.1 - 2026-10-01
+
+> You can import your blueprint collection into scmdb.net again. And clicking
+> "Save file …" in the blueprint list now takes you straight to all formats at
+> a glance.
+
+### Improved
+
+- **"Save file …" in the blueprint list now leads to *Backup & reset →
+  Export inventory*** — Basetool, scmdb.net and the full backup sit side by
+  side there. The "To the export folder" button in the list is gone; the
+  export folder is on the same page. Reported by Zwaersch (KRT)
+
+### Fixed
+
+- **scmdb.net accepts the exported file again** — importing it under
+  "Import Watcher History" used to fail with "Unrecognized format". Reported
+  by Zwaersch (KRT)
+
 ## v3.64.0 - 2026-09-30
 
 > In your hangar you can now swap racks and paints — only the ones that

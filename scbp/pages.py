@@ -3488,6 +3488,43 @@ def _backup_section(window, inner):
     tk.Frame(inner, bg=LINE, height=1).pack(fill='x', pady=(20, 16))
 
 
+def show_export(window):
+    """Nach „Sichern & Zurücksetzen" springen, „Bestand ausgeben" oben.
+
+    Der Weg aus der Bauplan-Liste: Dort stand ein Speichern-Knopf, der
+    immer die Basetool-Datei schrieb — wer scmdb wollte, fand den richtigen
+    nicht (gemeldet von zwaersch, 01.10.2026). Hier stehen alle Formate mit
+    Namen. Die Seite wird beim ersten Mal erst gebaut; gerollt wird deshalb
+    erst, wenn Tk die Höhen kennt."""
+    window.jump_to('bestand')
+    anchor = getattr(window, 'export_anchor', None)
+    if anchor is None:
+        return
+    canvas = None
+    step = anchor
+    while step is not None and canvas is None:
+        canvas = getattr(step, 'canvas', None)
+        step = getattr(step, 'master', None)
+    if canvas is None:
+        return
+
+    def scroll():
+        try:
+            if not anchor.winfo_exists():
+                return
+            canvas.update_idletasks()
+            region = canvas.bbox('all')
+            total = (region[3] - region[1]) if region else 0
+            if total <= 0:
+                return
+            top = anchor.winfo_rooty() - canvas.winfo_rooty() + canvas.canvasy(0)
+            canvas.yview_moveto(max(0.0, (top - 8) / total))
+        except Exception as exception:
+            errors.record('pages.show_export', exception)
+
+    canvas.after_idle(scroll)
+
+
 def _collection(fenster, rahmen):
     """Sichern & Zurücksetzen (bis rc3: „Bauplan-Bestand").
 
@@ -3502,8 +3539,11 @@ def _collection(fenster, rahmen):
     _backup_section(fenster, innen)
 
     anzahl = _count_collection()
-    tk.Label(innen, text=t('s_be_aus'), bg=BG, fg=FG,
-             font=fenster.f_title, anchor='w').pack(fill='x', pady=(0, 2))
+    # ⚠ Die Überschrift ist das Sprungziel von „Datei speichern …" in der
+    # Bauplan-Liste (`show_export`).
+    fenster.export_anchor = tk.Label(innen, text=t('s_be_aus'), bg=BG, fg=FG,
+                                     font=fenster.f_title, anchor='w')
+    fenster.export_anchor.pack(fill='x', pady=(0, 2))
     _body_text(innen, t('s_be_aus_h'), fenster.f_small,
                 fill='x', pady=(0, 12))
 

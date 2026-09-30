@@ -13187,7 +13187,7 @@ def main():
         shutil.rmtree(_wiese131, ignore_errors=True)
 
     print()
-    print('132. Der scmdb-Export hat das Format, das scmdb heute schreibt')
+    print('132. Der scmdb-Export hat das Format, das scmdb einliest')
     # ⚠⚠ Am 06.09.2026 aufgefallen, waehrend am IMPORT gearbeitet wurde:
     # scmdb.net exportiert inzwischen `version: 3` mit `tag`/`name`/`url`/
     # `completed`/`favorite`. Unser Export schrieb weiter `exportSchemaVersion:
@@ -13209,40 +13209,67 @@ def main():
     }}
     _doc132 = _ex132.for_scmdb(_bestand132, version='9.9.9', tags=_tags132)
 
-    pruefe(_doc132.get('version') == 3,
-           'der Umschlag traegt version 3 (ist: %r)' % _doc132.get('version'))
-    pruefe('exportSchemaVersion' not in _doc132,
-           'das alte Feld exportSchemaVersion ist weg')
+    # ⛔⛔ Nachtrag 01.10.2026 (gemeldet von zwaersch): Diese Pruefung hielt
+    # fest, was scmdb AUSGIBT (`version: 3`) — und verbot sogar
+    # `exportSchemaVersion`. scmdb liest aber nur „Import Watcher History",
+    # und der weist ab, was kein `exportSchemaVersion` und keine Liste
+    # `missions` hat. Hier steht deshalb die Pruefung der Seite selbst,
+    # nachgebaut aus ihrem Quelltext: erst der Umschlag, dann je Bauplan
+    # `tag` (exakt) oder `productName` (Name).
+    def _scmdb_nimmt132(doc):
+        """(angenommen?, Bauplaene, die scmdb zuordnen kann)."""
+        if not doc.get('exportSchemaVersion') \
+                or not isinstance(doc.get('missions'), list):
+            return False, 0
+        return True, sum(1 for b in doc.get('blueprints') or []
+                         if isinstance(b, dict)
+                         and (b.get('tag') or (b.get('productName')
+                                               or '').strip()))
 
-    _bp132 = {b['name']: b for b in _doc132.get('blueprints') or []}
+    _ok132, _zuordenbar132 = _scmdb_nimmt132(_doc132)
+    pruefe(_ok132, 'scmdb nimmt die Datei an (Umschlag: %s)'
+           % sorted(k for k in _doc132 if k != 'blueprints'))
+    pruefe(_zuordenbar132 == 2,
+           'jeder Bauplan traegt tag oder productName (zuordenbar: %d von 2)'
+           % _zuordenbar132)
+    pruefe('channel' not in _doc132,
+           'kein channel — alles ausser LIVE loest bei scmdb eine Warnung aus')
+
+    _bp132 = {b['productName']: b for b in _doc132.get('blueprints') or []}
     pruefe(len(_bp132) == 2, 'beide Bauplaene sind dabei')
 
     _omni132 = _bp132.get('Omnisky VI Cannon') or {}
     pruefe(_omni132.get('tag') == 'BP_CRAFT_AMRS_LaserCannon_S2',
            'der Tag steht am Bauplan (ist: %r)' % _omni132.get('tag'))
-    pruefe(_omni132.get('completed') is True, 'completed ist gesetzt')
-    pruefe(sorted(_omni132) == ['completed', 'favorite', 'name', 'tag', 'url'],
-           'die Felder sind genau die von scmdb (sind: %s)' % sorted(_omni132))
-    pruefe('productName' not in _omni132 and 'ts' not in _omni132,
-           'die alten Felder productName und ts sind weg')
 
     # ⚠ Wer keinen Tag hat, faellt trotzdem nicht heraus — sonst verschwaenden
-    # vier Bauplaene stillschweigend aus einem Bestand von 413.
+    # vier Bauplaene stillschweigend aus einem Bestand von 413. scmdb ordnet
+    # ihn dann ueber productName zu oder fragt nach.
     pruefe('Kennt-scmdb-nicht' in _bp132,
            'ein Bauplan ohne Tag geht trotzdem mit')
     pruefe('url' not in (_bp132.get('Kennt-scmdb-nicht') or {}),
            'ohne Tag wird keine Adresse erfunden')
 
-    # ⚠ Gegenprobe: Wuerde die Pruefung auch anschlagen? Ein Export nach dem
-    # ALTEN Muster muss hier durchfallen — sonst ist alles oben nur Deko.
-    _alt132 = {'exportSchemaVersion': 1,
-               'blueprints': [{'productName': 'Omnisky VI Cannon',
-                               'ts': 1756000000}]}
-    _durchgefallen132 = (_alt132.get('version') != 3
-                         or 'exportSchemaVersion' in _alt132
-                         or 'productName' in (_alt132['blueprints'][0]))
-    pruefe(_durchgefallen132,
-           'Gegenprobe: das alte Format faellt hier durch')
+    # ⚠ Gegenprobe: Die Datei, die bis v3.64.0 herauskam (scmdbs eigene
+    # Ausfuhr, `version: 3`), MUSS hier abgewiesen werden — genau die hat
+    # scmdb mit „Unrecognized format" abgelehnt.
+    _alt132 = {'version': 3, 'missions': [],
+               'blueprints': [{'tag': 'BP_CRAFT_AMRS_LaserCannon_S2',
+                               'name': 'Omnisky VI Cannon',
+                               'completed': True, 'favorite': False}]}
+    pruefe(not _scmdb_nimmt132(_alt132)[0],
+           'Gegenprobe: das Format bis v3.64.0 wird abgewiesen')
+    # ⚠ Und ein Umschlag ohne Namen und Tag am Bauplan zaehlt nicht.
+    pruefe(_scmdb_nimmt132({'exportSchemaVersion': 1, 'missions': [],
+                            'blueprints': [{'name': 'x'}]})[1] == 0,
+           'Gegenprobe: ein Bauplan nur mit name ist nicht zuordenbar')
+
+    # ⚠ Unser eigener Import muss die Datei ebenfalls lesen koennen — wer
+    # sie als Sicherung nimmt, bekommt sonst nichts zurueck.
+    from scbp import importer as _im132
+    pruefe(_im132.detect(_doc132) == 'scmdb',
+           'der eigene Import erkennt die Datei (ist: %r)'
+           % _im132.detect(_doc132))
 
     # ⚠ Und ohne Rezeptdaten? Der Export darf nicht am Netz haengen — er
     # laeuft dann eben ohne Tags weiter, statt zu scheitern.

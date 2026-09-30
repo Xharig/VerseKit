@@ -2778,7 +2778,9 @@ TEXTS = {
                               'und der Fall ist in einer Zeile zu sehen. Und '
                               'dass „Original" nach StarStrings gar nicht das '
                               'Original war — die Datei blieb liegen, samt '
-                              'fremder Kennzeichnungen.',
+                              'fremder Kennzeichnungen. Und dass scmdb.net die '
+                              'ausgegebene Datei ablehnte und der richtige '
+                              'Knopf dafür nicht zu finden war.',
                               'That "I cannot see your entries in the game" can '
                               'have two entirely different causes — nothing is '
                               'written, or it is written to the language file '
@@ -2786,7 +2788,10 @@ TEXTS = {
                               'names both side by side, and the case is '
                               'readable in a single line. And that "Original" '
                               'after StarStrings was not the original at all — '
-                              'the file stayed, foreign marks included.'),
+                              'the file stayed, foreign marks included. And '
+                              'that scmdb.net rejected the exported file, and '
+                              'the right button for it was nowhere to be '
+                              'found.'),
     's_dk_rurudotorg_bugs2': ('Dass die Schiffsauswahl bei „Was steckt drin?" '
                               'zuklappte, sobald man die Rollleiste anfasste — '
                               'mit dem Mausrad ging es, mit der Leiste nicht.',

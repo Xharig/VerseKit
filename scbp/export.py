@@ -169,9 +169,21 @@ def _scmdb_tags():
 def for_scmdb(collection=None, version='', tags=None):
     """Die Struktur, die der Import von **scmdb.net** erwartet.
 
-    Abgelesen an einer echten Exportdatei von scmdb.net (05.09.2026): ein
-    Umschlag mit `version: 3`, darin `missions` und `blueprints` mit `tag`,
-    `name`, `url`, `completed` und `favorite`.
+    ⛔⛔ **Maßgeblich ist, was scmdb EINLIEST — nicht, was es ausgibt.**
+    scmdb hat genau einen Import, „Import Watcher History", und der weist
+    jede Datei ab, der `exportSchemaVersion` oder die Liste `missions` fehlt
+    („Unrecognized format"). Seine eigene Ausfuhr (`version: 3`, heute 4)
+    kann scmdb gar nicht wieder einlesen. Bis v3.64.0 schrieben wir genau
+    diese Ausfuhr nach — gemeldet von zwaersch am 01.10.2026. Abgelesen am
+    Quelltext der Seite am selben Tag: je Bauplan zählt `tag` (exakter
+    Treffer), sonst `productName` (Namensvergleich); `missions` darf leer
+    sein. Ein `channel` wird bewusst NICHT gesetzt — jeder Wert außer LIVE
+    löst dort eine Warnung aus.
+
+    Früherer Stand, zur Einordnung: Bis 05.09.2026 las scmdb ein
+    `version: 3` mit `tag`, `name`, `url`, `completed` und `favorite`; die
+    Felder `tag`, `name`, `url` stehen weiter mit drin, damit unser eigener
+    Import und Menschen, die hineinsehen, etwas davon haben.
 
     ⚠⚠ **Der Tag ist der Schlüssel, nicht der Name.** Gemessen an einem
     gewachsenen Bestand: 409 von 413 Bauplänen finden über die Rezeptdaten
@@ -180,15 +192,9 @@ def for_scmdb(collection=None, version='', tags=None):
     stillschweigend verschwinden — ob scmdb sie ohne Tag zuordnen kann,
     entscheidet deren Import.
 
-    ⚠ **Das Format hat gewechselt.** Bis v3.17.3 schrieb der Watcher
-    `exportSchemaVersion: 1` mit `productName` und `ts` (Epochsekunden),
-    abgelesen am `--export` ihres alten Log-Watchers v0.1.9. Diese Felder gibt
-    es in Fassung 3 nicht mehr — auch den Zeitstempel nicht, was kein Verlust
-    ist: Wer seinen Bestand aus der Launcher-Datei übernommen hatte, trug
-    ohnehin für **alle** Einträge den Zeitpunkt des Imports.
-
-    `missions` bleibt leer. Ihre Einträge tragen einen `hash` aus dem
-    Auftragssystem von scmdb, den wir nicht haben und nicht erfinden."""
+    `missions` bleibt leer. Gezählt würden dort nur Aufträge mit
+    `debugName` aus den Spieldaten, die wir nicht zuverlässig haben und
+    nicht erfinden."""
     data = collection if collection is not None else collection_file.load()
     table = _scmdb_tags() if tags is None else tags
     entries = []
@@ -196,18 +202,32 @@ def for_scmdb(collection=None, version='', tags=None):
         name = (e.get('name') or '').strip()
         if not name:
             continue
-        entry = {'tag': table.get(name.lower(), ''), 'name': name}
+        entry = {'tag': table.get(name.lower(), ''), 'productName': name,
+                 'name': name}
         if entry['tag']:
             entry['url'] = SCMDB_URL % entry['tag']
-        entry['completed'] = True
-        entry['favorite'] = False
         entries.append(entry)
     return {
-        'version': 3,
+        'exportSchemaVersion': 1,
+        # scmdb zeigt „Watcher v<Wert>" — also nur die Nummer.
+        'productName': TOOL_NAME,
+        'watcherVersion': _tool_version(),
         'exportedAt': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
         'missions': [],
         'blueprints': entries,
     }
+
+
+def _tool_version():
+    """Die laufende Fassung, für die Anzeige „Watcher v…" bei scmdb.
+
+    `errors.VERSION` setzt der Programmstart. Lokal importiert: `errors`
+    importiert selbst `paths`, auf Modulebene wäre das ein Zirkelbezug."""
+    try:
+        from . import errors
+        return errors.VERSION[0] or ''
+    except Exception:
+        return ''
 
 
 def complete(collection=None, catalog=None):
