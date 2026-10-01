@@ -157,8 +157,7 @@ function b64urlJson(s) {
 export async function verifyAccess(request, env, fetchCerts = fetch) {
   const team = env.TEAM_DOMAIN || '';
   const aud = env.POLICY_AUD || '';
-  const allowed = (env.ERLAUBTE_MAIL || '').trim().toLowerCase();
-  if (!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(team) || !aud || !allowed) return null;
+  if (!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(team) || !aud) return null;
   const token = request.headers.get('cf-access-jwt-assertion') || '';
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -196,8 +195,19 @@ export async function verifyAccess(request, env, fetchCerts = fetch) {
   if (claims.iss !== `https://${team}`) return null;
   if (typeof claims.exp !== 'number' || claims.exp < now) return null;
   if (typeof claims.nbf === 'number' && claims.nbf > now + 60) return null;
-  if (String(claims.email || '').toLowerCase() !== allowed) return null;
   return claims;
+}
+
+// Wer darf was? Die Übersicht und die Daten nur der Eigentümer (seine Mail). Die
+// Sicherung (`/export`, nur lesen) zusätzlich das Dienst-Zeichen der
+// Feierabend-Sicherung — ein Cloudflare-Access-Service-Token, dessen Client-ID
+// als Geheimnis SERVICE_ID hinterlegt ist. Fehlt das Geheimnis, gibt es den
+// Weg nicht.
+export function allowed(claims, env, path) {
+  const mail = (env.ERLAUBTE_MAIL || '').trim().toLowerCase();
+  if (mail && String(claims.email || '').toLowerCase() === mail) return true;
+  const service = (env.SERVICE_ID || '').trim();
+  return path === '/export' && !!service && claims.common_name === service;
 }
 
 // ------------------------------------------------------------ Übersicht
@@ -287,8 +297,13 @@ async function data(env, ctx, days) {
     downloads(env),
     env.DB.prepare('SELECT tag, system, land, n FROM downloads WHERE tag >= ?1').bind(since).all(),
   ]);
+  const [bestand, verlauf] = await Promise.all([
+    env.DB.prepare('SELECT version, windows, linux, gesamt, veroeffentlicht, vorab, zuletzt FROM download_bestand').all(),
+    env.DB.prepare('SELECT * FROM download_verlauf ORDER BY tag').all(),
+  ]);
   return { tage: t.results || [], merkmale: m.results || [], downloads: dl.liste,
-           downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [] };
+           downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [],
+           bestand: bestand.results || [], verlauf: verlauf.results || [] };
 }
 
 // ------------------------------------------------------------ Kurzlinks
@@ -335,6 +350,46 @@ function shortLink(request, env, ctx, link) {
   });
 }
 
+// ------------------------------------------------------------ Mitschreiben
+
+// Alle 6 Stunden (Zeitplan in wrangler.toml): je Version den höchsten je
+// gesehenen Stand festhalten und eine Tageszeile schreiben. Gelöschte Releases
+// bleiben so erhalten. ⚠ Kommen keine FRISCHEN Zahlen (GitHub sperrt), wird
+// nichts geschrieben und laut abgebrochen — ein alter Stand als Tageszeile
+// sähe aus wie „heute nichts heruntergeladen".
+export async function snapshot(env, now = Date.now()) {
+  const dl = await downloads(env, now);
+  if (dl.alt || !dl.liste.length) throw new Error('keine frischen GitHub-Zahlen');
+  const day = new Date(now).toISOString().slice(0, 10);
+  await env.DB.batch(dl.liste.map((r) => env.DB.prepare(
+    'INSERT INTO download_bestand (version, windows, linux, gesamt, veroeffentlicht, vorab, erstmals, zuletzt) ' +
+    'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7) ON CONFLICT (version) DO UPDATE SET ' +
+    'windows = MAX(windows, ?2), linux = MAX(linux, ?3), gesamt = MAX(gesamt, ?4), ' +
+    'veroeffentlicht = COALESCE(veroeffentlicht, ?5), vorab = ?6, zuletzt = ?7'
+  ).bind(r.tag, r.windows, r.linux, r.windows + r.linux, r.am, r.vorab ? 1 : 0, day)));
+  const { results } = await env.DB.prepare(
+    'SELECT COUNT(*) AS n, SUM(gesamt) AS je FROM download_bestand').all();
+  const row = (results && results[0]) || { n: 0, je: 0 };
+  const win = dl.liste.reduce((a, r) => a + r.windows, 0);
+  const lin = dl.liste.reduce((a, r) => a + r.linux, 0);
+  await env.DB.prepare(
+    'INSERT INTO download_verlauf (tag, aktiv, je_gesehen, windows, linux, releases_aktiv, releases_je) ' +
+    'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT (tag) DO UPDATE SET aktiv = ?2, ' +
+    'je_gesehen = ?3, windows = ?4, linux = ?5, releases_aktiv = ?6, releases_je = ?7'
+  ).bind(day, win + lin, row.je || 0, win, lin, dl.liste.length, row.n || 0).run();
+  return { tag: day, aktiv: win + lin, je_gesehen: row.je || 0 };
+}
+
+// Alles, was die Datenbank weiß — für die Sicherung beim Feierabend.
+async function exportAll(env) {
+  const tables = ['tage', 'merkmale', 'downloads', 'download_bestand', 'download_verlauf'];
+  const out = { erstellt: new Date().toISOString() };
+  for (const t of tables) {
+    out[t] = (await env.DB.prepare('SELECT * FROM ' + t).all()).results || [];
+  }
+  return out;
+}
+
 const SECURITY = {
   'cache-control': 'no-store',
   'x-frame-options': 'DENY',
@@ -348,8 +403,13 @@ async function stats(request, env, ctx, verify) {
   if (request.method !== 'GET') return answer(405, 'nur GET');
   if (!env.DB) return answer(503, 'nicht eingerichtet');
   const who = await verify(request, env);
-  if (!who) return answer(403, 'kein Zugang');
   const url = new URL(request.url);
+  if (!who || !allowed(who, env, url.pathname)) return answer(403, 'kein Zugang');
+  if (url.pathname === '/export') {
+    return new Response(JSON.stringify(await exportAll(env)), {
+      headers: { 'content-type': 'application/json; charset=utf-8', ...SECURITY },
+    });
+  }
   if (url.pathname === '/daten') {
     const days = Math.min(MAX_DAYS, Math.max(1, Number(url.searchParams.get('tage')) || 120));
     return new Response(JSON.stringify(await data(env, ctx, days)), {
@@ -370,6 +430,9 @@ async function stats(request, env, ctx, verify) {
 }
 
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(snapshot(env));
+  },
   async fetch(request, env, ctx, verify = verifyAccess) {
     const url = new URL(request.url);
     // ⚠ Die Übersicht NUR unter ihrer eigenen Adresse — dort sitzt Access

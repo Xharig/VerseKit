@@ -42,3 +42,30 @@ CREATE TABLE IF NOT EXISTS ablage (
   inhalt     TEXT    NOT NULL,
   zeit       INTEGER NOT NULL
 );
+
+-- Höchster je gesehener Stand je Version — sinkt nie, auch wenn ein Release
+-- gelöscht wird (Prinzip von _Tools/downloads-mitschreiben.py, dessen Bestand
+-- seit 06.09.2026 hier übernommen ist). `gesamt` kann größer sein als
+-- windows + linux: Für übernommene Altdaten ist die Aufteilung unbekannt.
+CREATE TABLE IF NOT EXISTS download_bestand (
+  version         TEXT    PRIMARY KEY,
+  windows         INTEGER NOT NULL DEFAULT 0,
+  linux           INTEGER NOT NULL DEFAULT 0,
+  gesamt          INTEGER NOT NULL DEFAULT 0,
+  veroeffentlicht TEXT,
+  vorab           INTEGER NOT NULL DEFAULT 0,
+  erstmals        TEXT    NOT NULL,
+  zuletzt         TEXT    NOT NULL
+);
+
+-- Ein Eintrag je Tag: Summen wie in verlauf.csv. `je_gesehen` sinkt nie —
+-- daraus ergeben sich die Downloads je Tag.
+CREATE TABLE IF NOT EXISTS download_verlauf (
+  tag            TEXT    PRIMARY KEY,
+  aktiv          INTEGER NOT NULL,
+  je_gesehen     INTEGER NOT NULL,
+  windows        INTEGER NOT NULL,
+  linux          INTEGER NOT NULL,
+  releases_aktiv INTEGER NOT NULL,
+  releases_je    INTEGER NOT NULL
+);

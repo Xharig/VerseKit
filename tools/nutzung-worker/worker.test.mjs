@@ -14,6 +14,7 @@ const MAIL = 'probe@example.org';  // privacy-ok: erfundene Adresse, nur fuer de
 function fakeDb(rows = { tage: [], merkmale: [] }) {
   const calls = [];
   const stmt = (sql) => ({
+    all: async () => ({ results: [] }),
     bind(...args) {
       return {
         sql, args,
@@ -25,6 +26,7 @@ function fakeDb(rows = { tage: [], merkmale: [] }) {
   return { calls, prepare: stmt, batch: async (list) => { for (const s of list) calls.push({ sql: s.sql, args: s.args }); return []; } };
 }
 
+function env0() { return { LIMIT: { limit: async () => ({ success: true }) }, TEAM_DOMAIN: TEAM, POLICY_AUD: AUD, ERLAUBTE_MAIL: MAIL }; }
 function env(extra = {}) {
   return { DB: fakeDb(), LIMIT: { limit: async () => ({ success: true }) },
            TEAM_DOMAIN: TEAM, POLICY_AUD: AUD, ERLAUBTE_MAIL: MAIL, ...extra };
@@ -357,4 +359,87 @@ test('304 („nichts geändert") nutzt die abgelegte Seite und schickt das ETag 
   assert.equal(sent, '"a1"');
   assert.equal(r.alt, false);
   assert.equal(r.liste[0].windows, 4);
+});
+
+// ---------------------------------------------------------------- Mitschreiben (echtes SQLite)
+
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
+import { snapshot, allowed } from './worker.js';
+
+function realD1() {
+  const db = new DatabaseSync(':memory:');
+  db.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf-8'));
+  const stmt = (sql, args = []) => ({
+    sql, args,
+    bind: (...a) => stmt(sql, a),
+    run: async () => { db.prepare(sql).run(...args); return {}; },
+    all: async () => ({ results: db.prepare(sql).all(...args) }),
+  });
+  return { db, prepare: (sql) => stmt(sql), batch: async (list) => { for (const s of list) await s.run(); return []; } };
+}
+
+test('Vorbedingung: der Schnappschuss schreibt Bestand und Tageszeile', async () => {
+  const env = { DB: realD1() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0', 4, 1), rel('v3.64.2', 7, 3)]));
+  const r = await snapshot(env, Date.parse('2026-10-01T12:00:00Z'));
+  assert.equal(r.aktiv, 15);
+  const b = env.DB.db.prepare('SELECT version, gesamt FROM download_bestand ORDER BY version').all();
+  assert.deepEqual(b.map((x) => [x.version, x.gesamt]), [['v3.64.2', 10], ['v3.65.0', 5]]);
+  const v = env.DB.db.prepare('SELECT * FROM download_verlauf').all();
+  assert.equal(v.length, 1);
+  assert.equal(v[0].je_gesehen, 15);
+});
+
+test('ein gelöschtes Release bleibt im Bestand und zählt weiter', async () => {
+  const env = { DB: realD1() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0-rc1', 9, 2), rel('v3.64.2', 7, 3)]));
+  await snapshot(env, Date.parse('2026-10-01T12:00:00Z'));
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.64.2', 8, 3)]));     // rc gelöscht
+  const r = await snapshot(env, Date.parse('2026-10-02T12:00:00Z'));
+  assert.equal(r.aktiv, 11, 'GitHub kennt nur noch 11');
+  assert.equal(r.je_gesehen, 22, 'je gesehen: 11 (rc1) + 11 (v3.64.2)');
+  const rc = env.DB.db.prepare("SELECT gesamt, zuletzt FROM download_bestand WHERE version = 'v3.65.0-rc1'").get();
+  assert.equal(rc.gesamt, 11);
+  assert.equal(rc.zuletzt, '2026-10-01');
+});
+
+test('ein Zähler sinkt nie, auch wenn GitHub weniger meldet', async () => {
+  const env = { DB: realD1() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.64.2', 7, 3)]));
+  await snapshot(env, Date.parse('2026-10-01T12:00:00Z'));
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.64.2', 5, 1)]));
+  await snapshot(env, Date.parse('2026-10-02T12:00:00Z'));
+  const b = env.DB.db.prepare("SELECT windows, linux, gesamt FROM download_bestand WHERE version = 'v3.64.2'").get();
+  assert.deepEqual([b.windows, b.linux, b.gesamt], [7, 3, 10]);
+});
+
+test('sperrt GitHub, wird nichts geschrieben — und laut abgebrochen', async () => {
+  const env = { DB: realD1() };
+  globalThis.fetch = async () => new Response('rate limit', { status: 403 });
+  await assert.rejects(() => snapshot(env, Date.parse('2026-10-01T12:00:00Z')));
+  assert.equal(env.DB.db.prepare('SELECT COUNT(*) AS n FROM download_verlauf').get().n, 0);
+});
+
+test('Rechte: Eigentümer überall, das Dienst-Zeichen NUR beim Export', () => {
+  const env = { ERLAUBTE_MAIL: MAIL, SERVICE_ID: 'abc.access' };
+  assert.equal(allowed({ email: MAIL }, env, '/'), true);
+  assert.equal(allowed({ email: MAIL }, env, '/export'), true);
+  assert.equal(allowed({ common_name: 'abc.access' }, env, '/export'), true);
+  assert.equal(allowed({ common_name: 'abc.access' }, env, '/'), false);
+  assert.equal(allowed({ common_name: 'abc.access' }, env, '/daten'), false);
+  assert.equal(allowed({ common_name: 'fremd.access' }, env, '/export'), false);
+  assert.equal(allowed({ common_name: '' }, { ERLAUBTE_MAIL: MAIL, SERVICE_ID: '' }, '/export'), false,
+    'ohne hinterlegte Kennung gibt es den Weg nicht');
+});
+
+test('Export über den echten Weg: Dienst-Zeichen bekommt alle Tabellen', async () => {
+  const env = { ...env0(), DB: realD1(), SERVICE_ID: 'abc.access' };
+  const jwt = await token({ email: undefined, common_name: 'abc.access' });
+  const r = await worker.fetch(statsReq('/export', jwt), env, undefined, verify);
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  for (const t of ['tage', 'merkmale', 'downloads', 'download_bestand', 'download_verlauf']) assert.ok(Array.isArray(j[t]), t);
+  const r2 = await worker.fetch(statsReq('/daten', jwt), env, undefined, verify);
+  assert.equal(r2.status, 403, 'das Dienst-Zeichen sieht die Übersicht nicht');
 });

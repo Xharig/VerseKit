@@ -5,6 +5,8 @@
 // SVG im Browser. Die Content-Security-Policy des Workers lässt nur Skript
 // und Stil mit dem Einmal-Wert (`nonce`) dieser Antwort zu.
 
+import { ICON } from './icon.js';
+
 export function dashboardHtml(nonce) {
   return `<!doctype html>
 <html lang="de">
@@ -13,6 +15,7 @@ export function dashboardHtml(nonce) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>VerseKit Statistik</title>
+<link rel="icon" type="image/png" href="${ICON}">
 <style nonce="${nonce}">
 :root { --bg:#0f1417; --card:#171e22; --line:#26313a; --fg:#e6edf0; --sub:#8a9aa3;
         --accent:#9ce430; --b:#4fb3ff; --c:#ffb547; --d:#c792ea; }
@@ -25,6 +28,7 @@ body { margin:0; background:var(--bg); color:var(--fg);
 header { padding:18px 16px 6px; max-width:1200px; margin:0 auto; display:flex;
          gap:12px; align-items:baseline; flex-wrap:wrap; }
 h1 { font-size:20px; margin:0; } h1 b { color:var(--accent); }
+h1 .logo { width:28px; height:28px; vertical-align:-6px; margin-right:8px; }
 header .sub { color:var(--sub); }
 header select, header button { background:var(--card); color:var(--fg);
          border:1px solid var(--line); border-radius:8px; padding:5px 10px; font:inherit; }
@@ -67,7 +71,7 @@ svg text { fill:var(--sub); font-size:11px; }
 </head>
 <body>
 <header>
-  <h1><b>VerseKit</b> Statistik</h1>
+  <h1><img class="logo" src="${ICON}" alt=""><b>VerseKit</b> Statistik</h1>
   <span class="sub" id="stand">lädt …</span>
   <select id="zeitraum" aria-label="Zeitraum">
     <option value="30">30 Tage</option>
@@ -172,14 +176,18 @@ function render(d, span) {
   const yesterday = days[days.length - 2], full = days.slice(0, -1);
   const avg = (n) => { const w = full.slice(-n); return w.length ? w.reduce((a, t) => a + (perDay[t] || 0), 0) / w.length : 0; };
   const peak = Math.max(0, ...full.map((t) => perDay[t] || 0));
-  const dlTotal = d.downloads.reduce((a, r) => a + r.windows + r.linux, 0);
+  // ⭐ Gesamt aus dem Mitschreiben (höchster je gesehener Stand, gelöschte
+  // Releases eingeschlossen) — sinkt nie. Ohne Verlauf: was GitHub gerade hat.
+  const dlNow = d.downloads.reduce((a, r) => a + r.windows + r.linux, 0);
+  const lastV = (d.verlauf || [])[(d.verlauf || []).length - 1];
+  const dlTotal = lastV ? Math.max(lastV.je_gesehen, dlNow) : dlNow;
 
   const k = card('Überblick', true);
   const kpi = (v, l) => $('div', { class: 'kpi' }, [$('div', { class: 'v', text: v }), $('div', { class: 'l', text: l })]);
   k.appendChild($('div', { class: 'kpis' }, [
     kpi(perDay[today] || 0, 'heute bisher'), kpi(perDay[yesterday] || 0, 'gestern'),
     kpi(avg(7).toFixed(1), 'Ø letzte 7 Tage'), kpi(avg(30).toFixed(1), 'Ø letzte 30 Tage'),
-    kpi(peak, 'bester Tag im Zeitraum'), kpi(dlTotal, 'Downloads gesamt'),
+    kpi(peak, 'bester Tag im Zeitraum'), kpi(dlTotal, 'Downloads gesamt (mit gelöschten)'),
     kpi((d.kurzlinks || []).filter((r) => days.includes(r.tag)).reduce((a, r) => a + r.n, 0),
         'über die Webseite (Zeitraum)')]));
   k.appendChild($('div', { class: 'note', text: 'Aktiv = hat sich an dem Tag gemeldet (UTC). Jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Erst ab v3.65.0.' }));
@@ -188,6 +196,26 @@ function render(d, span) {
     { name: 'gesamt', color: 'var(--accent)', values: total, fill: true, width: 2.5 },
     { name: 'Windows', color: 'var(--b)', values: days.map((t) => perSys.windows[t] || 0) },
     { name: 'Linux', color: 'var(--c)', values: days.map((t) => perSys.linux[t] || 0) }]);
+
+  // Downloads je Tag — aus dem Mitschreiben (Zuwachs des nie sinkenden
+  // Gesamtstands). Fehlt ein Tag, steht sein Zuwachs am nächsten gemessenen.
+  const perDayDl = {}, perDayW = {}, perDayL = {};
+  const vl = d.verlauf || [];
+  for (let i = 1; i < vl.length; i++) {
+    perDayDl[vl[i].tag] = Math.max(0, vl[i].je_gesehen - vl[i - 1].je_gesehen);
+    perDayW[vl[i].tag] = Math.max(0, vl[i].windows - vl[i - 1].windows);
+    perDayL[vl[i].tag] = Math.max(0, vl[i].linux - vl[i - 1].linux);
+  }
+  const dayCard = card('Downloads je Tag', true);
+  if (vl.length < 2) {
+    dayCard.appendChild($('div', { class: 'empty', text: 'Noch zu wenig Messungen — der Worker schreibt alle 6 Stunden mit.' }));
+  } else {
+    lineChart(dayCard, days, [
+      { name: 'gesamt', color: 'var(--accent)', values: days.map((t) => perDayDl[t] || 0), fill: true, width: 2.5 },
+      { name: 'Windows', color: 'var(--b)', values: days.map((t) => perDayW[t] || 0) },
+      { name: 'Linux', color: 'var(--c)', values: days.map((t) => perDayL[t] || 0) }]);
+    dayCard.appendChild($('div', { class: 'note', text: 'Gemessen alle 6 Stunden. Fehlt ein Tag, steht sein Zuwachs am nächsten gemessenen Tag. Gelöschte Releases zählen mit.' }));
+  }
 
   // Anteile über die letzten 7 Tage INKLUSIVE heute, aber nur Tage mit
   // Meldungen: Summe der Meldungen mit dem Wert geteilt durch alle Meldungen —
@@ -209,22 +237,36 @@ function render(d, span) {
   // Eingeklappt die letzten 5, ausgeklappt alle fertigen Versionen. Die Wahl
   // merkt sich der Browser (nur bequem — fehlt der Speicher, gilt eingeklappt).
   // Versionen ohne einen einzigen Download (frühe Fassungen) blähen nur auf.
-  const rel = d.downloads.filter((r) => !r.vorab && r.windows + r.linux > 0);
+  const current = new Set(d.downloads.map((r) => r.tag));
+  // Gelöschte fertige Versionen aus dem Mitschreiben dazu — sonst wären ihre
+  // Downloads aus der Liste verschwunden.
+  const gone = (d.bestand || []).filter((b) => !b.vorab && b.gesamt > 0 && !current.has(b.version))
+    .map((b) => ({ tag: b.version, am: b.veroeffentlicht || b.zuletzt, windows: b.windows, linux: b.linux,
+                   gesamt: b.gesamt, weg: true }));
+  const rel = d.downloads.filter((r) => !r.vorab && r.windows + r.linux > 0)
+    .map((r) => ({ ...r, gesamt: r.windows + r.linux })).concat(gone)
+    .sort((a, b) => String(b.am).localeCompare(String(a.am)));
   const SHOWN = 5;
   let open = false;
   try { open = localStorage.getItem('dl-alle') === '1'; } catch (e) { open = false; }
   const dlCard = card('Downloads je Version (neueste zuerst)', true);
-  const dlMax = Math.max(1, ...rel.map((r) => r.windows + r.linux));
+  const dlMax = Math.max(1, ...rel.map((r) => r.gesamt));
   const extra = [];
   for (const [i, r] of rel.entries()) {
     const w = $('div', { class: 'fill' }); w.style.width = ((r.windows / dlMax) * 100).toFixed(1) + '%';
     w.style.background = 'var(--b)';
     const l = $('div', { class: 'fill' }); l.style.width = ((r.linux / dlMax) * 100).toFixed(1) + '%';
     l.style.background = 'var(--c)';
+    // Bei übernommenen Altdaten ist die Aufteilung unbekannt: dann ein grauer
+    // Balken für den Rest, statt eine Aufteilung zu erfinden.
+    const rest = Math.max(0, r.gesamt - r.windows - r.linux);
+    const u = $('div', { class: 'fill' }); u.style.width = ((rest / dlMax) * 100).toFixed(1) + '%';
+    u.style.background = 'var(--sub)';
+    const split = r.windows + r.linux > 0 ? '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' : '';
     const line = $('div', { class: 'bar' }, [
-      $('span', { text: r.tag + ' · ' + short(r.am) }),
-      $('div', { class: 'track stack' }, [w, l]),
-      $('span', { class: 'n', text: (r.windows + r.linux) + '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' })]);
+      $('span', { text: r.tag + ' · ' + short(String(r.am)) + (r.weg ? ' · gelöscht' : '') }),
+      $('div', { class: 'track stack' }, [w, l, u]),
+      $('span', { class: 'n', text: r.gesamt + split })]);
     if (i >= SHOWN) { extra.push(line); line.hidden = !open; }
     dlCard.appendChild(line);
   }

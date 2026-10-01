@@ -87,6 +87,27 @@ Alle Befehle in diesem Ordner (`tools/nutzung-worker`) in einem Terminal.
    Übersicht. In einem privaten Fenster ohne Anmeldung muss die
    Access-Anmeldeseite kommen, nie die Zahlen.
 
+## Mitschreiben und Sicherung
+
+- **Alle 6 Stunden** (Zeitplan in `wrangler.toml`) hält der Worker je Version
+  den **höchsten je gesehenen** Download-Stand fest (`download_bestand`) und
+  schreibt eine Tageszeile (`download_verlauf`). Gelöschte Releases bleiben so
+  erhalten; daraus entstehen „Downloads gesamt (mit gelöschten)" und
+  „Downloads je Tag".
+- **Sicherung außerhalb von Cloudflare:** `GET statistik-versekit.xharig.com/export`
+  liefert alle Tabellen. Erlaubt ist das dem Eigentümer **und** einem
+  Cloudflare-Access-Dienst-Zeichen, dessen Client-ID als Geheimnis
+  `SERVICE_ID` hinterlegt ist — dieses Zeichen darf **nur** `/export`, nicht
+  die Übersicht. Abgeholt wird es von einem Skript außerhalb dieses Repos.
+
+Einrichten des Dienst-Zeichens (Cloudflare Zero Trust):
+1. *Zugriffssteuerungen* → *Dienstanmeldeinformationen* → *Diensttoken
+   erstellen*, Name z. B. `VerseKit-Statistik-Sicherung`, Dauer nach Wahl.
+   Client-ID und Client-Secret sicher ablegen — das Secret erscheint nur einmal.
+2. In der Access-Anwendung der Übersicht eine zweite Richtlinie: Aktion
+   **Service Auth**, Einschließen → **Service Token** → das eben erstellte.
+3. `npx wrangler secret put SERVICE_ID` → die **Client-ID** (nicht das Secret).
+
 ## Prüfen (Code)
 
 ```
