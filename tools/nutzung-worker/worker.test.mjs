@@ -89,7 +89,7 @@ test('zusätzliche Felder (Kennung, Land) werden abgelehnt', async () => {
 test('falsche Werte werden abgelehnt', async () => {
   const bad = [{ v: 'DROP TABLE' }, { os: 'mac' }, { ui: 'deutsch' }, { game: 'EN' },
                { rc: 'ja' }, { autostart: 1 }, { overlay: 'aus' },
-               { mods: 'handel' }, { mods: ['C:/Users/x'] }, { mods: ['a', 'a'] },
+               { mods: 'handel' }, { mods: ['C:/Users/x'] }, { mods: ['a', 'a'] },  // privacy-ok: erfundener Pfad, muss abgewiesen werden
                { mods: Array.from({ length: 13 }, (_, i) => 'm' + 'x'.repeat(i)) }];
   for (const b of bad) {
     const e = env();

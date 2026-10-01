@@ -36,3 +36,5 @@ CLAUDE.md
 .sperrliste
 tools/bericht-worker/.wrangler/
 tools/bericht-worker/node_modules/
+tools/nutzung-worker/.wrangler/
+tools/nutzung-worker/node_modules/

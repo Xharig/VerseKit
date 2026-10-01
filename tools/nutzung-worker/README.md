@@ -55,7 +55,7 @@ Alle Befehle in diesem Ordner (`tools/nutzung-worker`) in einem Terminal.
      (`<team>` legst du in Schritt 6 fest — erst Schritt 6 bis zum Teamnamen
      machen, dann hier eintragen)
    - *Register application* → *Client ID* kopieren → *Generate a new client
-     secret* → kopieren (in KeePass ablegen).
+     secret* → kopieren und sicher ablegen (GitHub zeigt es nur einmal).
 6. **Cloudflare Zero Trust** (dash.cloudflare.com → links *Zero Trust*):
    - Beim ersten Mal einen **Teamnamen** wählen, z. B. `xharig` → ergibt
      `xharig.cloudflareaccess.com`. Tarif **Free** (bis 50 Nutzer).
