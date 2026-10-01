@@ -17,6 +17,9 @@ export function dashboardHtml(nonce) {
 :root { --bg:#0f1417; --card:#171e22; --line:#26313a; --fg:#e6edf0; --sub:#8a9aa3;
         --accent:#9ce430; --b:#4fb3ff; --c:#ffb547; --d:#c792ea; }
 * { box-sizing:border-box; }
+/* ⚠ Ohne diese Zeile schlägt display:grid der Balkenzeilen das hidden —
+   die eingeklappten Zeilen blieben sichtbar (01.10.2026). */
+[hidden] { display:none !important; }
 body { margin:0; background:var(--bg); color:var(--fg);
        font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 header { padding:18px 16px 6px; max-width:1200px; margin:0 auto; display:flex;
