@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **scmdb.net: mission end sent only once** — logging out with a running
+  mission used to report its end twice, the second time without the mission
+  name. Now exactly one end arrives
+
 ## v3.68.0 - 2026-10-01
 
 > Running Windows at 150 % scaling, say on a 4K screen, and Verse-Kit looks

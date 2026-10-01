@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **scmdb.net: Auftragsende nur noch einmal** — wer sich mit einem laufenden
+  Auftrag ausloggt, meldete das Ende bisher zweimal, das zweite Mal ohne
+  Auftragsnamen. Jetzt kommt genau ein Ende an
+
 ## v3.68.0 - 2026-10-01
 
 > Läuft Windows bei dir mit 150 % Skalierung, etwa am 4K-Bildschirm, und wirkt

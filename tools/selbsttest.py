@@ -31528,6 +31528,16 @@ def _pruefung_308():
                    ' Started - RequestFrontEndReason="x"!')
     pruefe([e.get('completion') for e in aus] == ['Disconnect'] and not weg.active,
            'Spielwelt verlassen: offener Auftrag endet als Disconnect')
+    if aus:
+        danach = weg.feed('<2026-08-09T18:00:01.000Z> [Notice] <EndMission> '
+                          'Ending mission for player. MissionId[%s] '
+                          'CompletionType[Abandon] Reason[Player left]'
+                          % aus[0]['guid'])
+    else:
+        danach = ['kein Disconnect']
+    pruefe(danach == [],
+           'Spaeteres EndMission desselben Auftrags: kein zweites Ende (%r)'
+           % danach)
 
     # --- Echter Durchlauf ueber den Server -------------------------------
     tmp = _tf308.mkdtemp(prefix='vk308-')

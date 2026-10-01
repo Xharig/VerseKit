@@ -193,6 +193,10 @@ class Reader(object):
                 out.append(self._event('mission_start', **fields))
         elif '<EndMission>' in line:
             m = END.search(line)
+            if m and m.group(1) in self.ended and m.group(1) not in self.active:
+                # Schon beendet (etwa beim Verlassen der Spielwelt) — kein
+                # zweites Ende senden.
+                return out
             if m:
                 guid, completion = m.group(1), m.group(2) or 'Unknown'
                 info = self.active.pop(guid, None)
