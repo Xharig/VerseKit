@@ -49,7 +49,7 @@ Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald 
 
 ### Im Spiel, ohne herauszutabben
 
-Der Watcher schreibt in die Auftragstexte des Spiels, **welche** Baupläne ein Auftrag ausschüttet — mit `[x]` für das, was du schon hast. Die Zählung steht schon im Titel, die Namen in der Beschreibung.
+Der Watcher schreibt in die Auftragstexte des Spiels, **welche** Baupläne ein Auftrag ausschüttet — mit `[x]` für das, was du schon hast. Im Titel steht `[BP]`, die Namen stehen in der Beschreibung — getrennt nach Stanton, Pyro und Nyx, wo ein Auftrag dort verschiedene Baupläne hergibt.
 
 <table>
 <tr>

@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.69.0 - 2026-10-02
+
+> The mission text shows again which blueprints you are still missing, split
+> by Stanton, Pyro and Nyx. On top of that, scmdb.net now gets a mission end
+> only once.
+
 ### Improved
 
 - **Usage count** now also reports whether new versions are installed

@@ -49,7 +49,7 @@ A small, borderless overlay that tells you **in real time** when a new blueprint
 
 ### In game, without tabbing out
 
-The watcher writes into the game's mission text **which** blueprints a contract hands out — with `[x]` for the ones you already have. The count is in the title, the names are in the description.
+The watcher writes into the game's mission text **which** blueprints a contract hands out — with `[x]` for the ones you already have. The title shows `[BP]`, the names are in the description — split by Stanton, Pyro and Nyx where a contract hands out different blueprints there.
 
 <table>
 <tr>

@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.69.0 - 2026-10-02
+
+> Im Auftragstext siehst du wieder für Stanton, Pyro und Nyx getrennt, welche
+> Baupläne dir noch fehlen. Dazu kommt das Auftragsende bei scmdb.net nur noch
+> einmal an.
+
 ### Verbessert
 
 - **Nutzung zählen** meldet zusätzlich, ob neue Versionen bei dir von selbst
