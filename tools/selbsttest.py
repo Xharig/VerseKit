@@ -31306,29 +31306,32 @@ def _pruefung_307():
                'Schlüsselbund lehnt ab: keine Datei angelegt')
         # Hinweis richtet sich nach der echten Herkunft
         pruefe(not _ss307.uses_file(), 'Hinweis: nichts aus der Datei, also keiner')
-        os.makedirs(_ss307.folder(), exist_ok=True)
-        with open(_ss307._file('alt'), 'w') as f:
-            f.write('aus-der-datei')
-        os.chmod(_ss307.folder(), 0o755)
-        os.chmod(_ss307._file('alt'), 0o644)
-        pruefe(_ss307.load('alt') == 'aus-der-datei',
-               'Rückfall beim Lesen: Wert aus der Datei')
-        pruefe(_ss307.uses_file(), 'Hinweis: Wert kam aus der Datei, also Hinweis')
-        pruefe(_st307.S_IMODE(os.stat(_ss307._file('alt')).st_mode) == 0o600
-               and _st307.S_IMODE(os.stat(_ss307.folder()).st_mode) == 0o700,
-               'Fremd lesbare Datei und Ordner werden nachgezogen (0600/0700)')
-        # Verweis statt Datei → abgelehnt
-        os.remove(_ss307._file('alt'))
-        ziel = os.path.join(tmp, 'woanders')
-        with open(ziel, 'w') as f:
-            f.write('x')
-        os.symlink(ziel, _ss307._file('alt'))
-        try:
-            _ss307.load('alt')
-            code = ''
-        except _ss307.SecretError as error:
-            code = error.code
-        pruefe(code == 'SECRET_UNSAFE', 'Verweis statt Datei: abgelehnt (%s)' % code)
+        # Dateirechte gibt es so nur unter Linux (und am Mac). Unter Windows
+        # liegt das Geheimnis in DPAPI, dieser Weg läuft dort nie.
+        if sys.platform != 'win32':
+            os.makedirs(_ss307.folder(), exist_ok=True)
+            with open(_ss307._file('alt'), 'w') as f:
+                f.write('aus-der-datei')
+            os.chmod(_ss307.folder(), 0o755)
+            os.chmod(_ss307._file('alt'), 0o644)
+            pruefe(_ss307.load('alt') == 'aus-der-datei',
+                   'Rückfall beim Lesen: Wert aus der Datei')
+            pruefe(_ss307.uses_file(), 'Hinweis: Wert kam aus der Datei, also Hinweis')
+            pruefe(_st307.S_IMODE(os.stat(_ss307._file('alt')).st_mode) == 0o600
+                   and _st307.S_IMODE(os.stat(_ss307.folder()).st_mode) == 0o700,
+                   'Fremd lesbare Datei und Ordner werden nachgezogen (0600/0700)')
+            # Verweis statt Datei: abgelehnt
+            os.remove(_ss307._file('alt'))
+            ziel = os.path.join(tmp, 'woanders')
+            with open(ziel, 'w') as f:
+                f.write('x')
+            os.symlink(ziel, _ss307._file('alt'))
+            try:
+                _ss307.load('alt')
+                code = ''
+            except _ss307.SecretError as error:
+                code = error.code
+            pruefe(code == 'SECRET_UNSAFE', 'Verweis statt Datei: abgelehnt (%s)' % code)
     finally:
         (_ss307.WINDOWS, _ss307._backend_cache[0], _ss307._run,
          _ss307._secret_tool) = alt[:4]
