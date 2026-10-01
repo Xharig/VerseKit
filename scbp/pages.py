@@ -3769,6 +3769,89 @@ def _collection(fenster, rahmen):
     _status(fenster, innen, '!', t('s_be_reset_warn'), t('s_be_reset_warn_h'),
             color=GOLD)
 
+    _shader_cache_section(fenster, innen)
+
+
+def _shader_cache_section(window, parent):
+    """Shader-Zwischenspeicher von Star Citizen und den Grafiktreibern leeren —
+    nur, solange das Spiel nicht läuft. Suchen und Löschen laufen im
+    Hintergrund, beides kann bei vielen tausend Dateien Sekunden dauern."""
+    from . import shader_cache
+    from .language import current
+
+    tk.Label(parent, text=t('s_sc_titel'), bg=BG, fg=FG,
+             font=window.f_title, anchor='w').pack(fill='x', pady=(28, 2))
+    _body_text(parent, t('s_sc_lead'), window.f_small, fill='x', pady=(0, 12))
+    slot = _setting_row(window, parent, t('s_sc_knopf'), t('s_sc_knopf_h'))
+    busy = [False]
+
+    def size_text(size):
+        return shader_cache.format_size(size, ',' if current() == 'de' else '.')
+
+    def game_blocks():
+        from . import auto_update
+        from .main_window import show_result
+        if auto_update.game_running():
+            show_result(window.root, t('s_sc_titel'), t('s_sc_spiel'))
+            return True
+        return False
+
+    def finished(freed, skipped):
+        from .main_window import show_result
+        busy[0] = False
+        text = t('s_sc_fertig') % size_text(freed)
+        if skipped:
+            text += '\n\n' + t('s_sc_rest') % skipped
+        show_result(window.root, t('s_sc_titel'), text)
+
+    def confirm(targets):
+        from .main_window import ask_yes_no
+        totals = shader_cache.total_by_kind(targets)
+        if not targets or not sum(totals.values()):
+            busy[0] = False
+            window.say(t('s_sc_leer'))
+            return
+        lines = []
+        for kind, key in ((shader_cache.KIND_SC, 's_sc_art_sc'),
+                          (shader_cache.KIND_GPU, 's_sc_art_gpu'),
+                          (shader_cache.KIND_CRASH, 's_sc_art_crash')):
+            if totals.get(kind):
+                lines.append(t(key) % size_text(totals[kind]))
+        question = '%s\n\n%s\n\n%s' % (t('s_sc_frage_kopf'), '\n'.join(lines),
+                                       t('s_sc_frage'))
+        if not ask_yes_no(window.root, t('s_sc_titel'), question) or game_blocks():
+            busy[0] = False
+            return
+        window.say(t('s_sc_loescht'))
+
+        def work():
+            freed, skipped = 0, 0
+            try:
+                freed, skipped = shader_cache.clear(targets)
+            except Exception as error:
+                errors.record('pages.shader_cache.clear', error)
+            _from_thread(slot, lambda: finished(freed, skipped))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def start():
+        if busy[0] or game_blocks():
+            return
+        busy[0] = True
+        window.say(t('s_sc_sucht'))
+
+        def work():
+            targets = []
+            try:
+                targets = shader_cache.find()
+            except Exception as error:
+                errors.record('pages.shader_cache.find', error)
+            _from_thread(slot, lambda: confirm(targets))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    _button(window, slot, t('s_sc_knopf'), start, danger=True).pack()
+
 
 def _empty_preview(fenster, eltern):
     """Der Vorschau-Kasten, bevor eine Datei gewählt wurde."""
@@ -6833,7 +6916,8 @@ def _thanks(fenster, rahmen):
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee') + '\n\n'
-             + t('s_dk_blackdog_idee2'), ''),
+             + t('s_dk_blackdog_idee2') + '\n\n'
+             + t('s_dk_blackdog_idee3'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
              + t('s_dk_aeternitas_idee2'), t('s_dk_aeternitas_bugs')),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),

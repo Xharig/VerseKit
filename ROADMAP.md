@@ -28,6 +28,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Was gerade zu tun ist** — die offenen Zwischenziele stehen unter ihrem Auftrag |
 | ✅ | **Aufträge & Protokoll** — welche Aufträge wann gespielt wurden, wie oft, und welcher Bauplan dabei herauskam; jeder Auftrag lässt sich auch einfach nachschlagen |
 | ✅ | **Sicherung** — alles Eigene in eine Datei und wieder zurück, für den Rechnerwechsel |
+| ✅ | **Shader-Cache leeren** — Shader-Speicher von Star Citizen und Grafiktreiber per Knopf leeren, Grafikeinstellungen bleiben |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |
 | ✅ | **Overlay in eine Bildschirmecke legen** — nötig im Pop-up-Betrieb, wo es sich nicht ziehen lässt; eingeklappt schrumpft es auf Streifenbreite |
 | ✅ | Katalog-Wache: meldet, was im Spiel **neu craftbar** wird, dazu eine Merkliste |

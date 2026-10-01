@@ -2285,6 +2285,27 @@ TEXTS = {
                           'Resetting deletes your blueprint inventory.'),
     's_be_reset_warn_h': ('Der Watcher liest ihn danach aus den noch vorhandenen Protokollen neu auf — was älter ist, ist weg. Vorher oben unter „Bestand ausgeben" sichern.',
                           'The watcher then rebuilds it from the logs that remain — anything older is gone. Save it above under "Export inventory" first.'),
+    's_sc_titel':      ('Shader-Cache leeren', 'Clear shader cache'),
+    's_sc_lead':       ('Hilft bei Grafikfehlern, Flackern oder Rucklern nach einem Patch. Star Citizen und der Grafiktreiber bauen die Shader beim nächsten Start neu auf — der erste Start dauert dadurch etwas länger.',
+                          'Helps with graphics glitches, flicker or stutter after a patch. Star Citizen and the graphics driver rebuild the shaders on the next start — so the first start takes a little longer.'),
+    's_sc_knopf':      ('Shader-Cache leeren', 'Clear shader cache'),
+    's_sc_knopf_h':    ('Leert die Shader-Speicher von Star Citizen und der Grafiktreiber sowie alte Absturzberichte des Spiels. Deine Grafikeinstellungen bleiben erhalten.',
+                          'Empties the shader caches of Star Citizen and the graphics drivers plus old crash reports of the game. Your graphics settings are kept.'),
+    's_sc_spiel':      ('Star Citizen läuft gerade. Bitte das Spiel erst beenden — solange es läuft, sind die Shader-Speicher in Benutzung.',
+                          'Star Citizen is running. Please quit the game first — while it runs, the shader caches are in use.'),
+    's_sc_sucht':      ('Shader-Speicher werden gesucht …', 'Looking for shader caches …'),
+    's_sc_leer':       ('Nichts zu leeren — die Shader-Speicher sind schon leer.',
+                          'Nothing to clear — the shader caches are already empty.'),
+    's_sc_frage_kopf': ('Gefunden:', 'Found:'),
+    's_sc_art_sc':     ('Star Citizen Shader: %s', 'Star Citizen shaders: %s'),
+    's_sc_art_gpu':    ('Grafiktreiber (alle Spiele): %s', 'Graphics driver (all games): %s'),
+    's_sc_art_crash':  ('Absturzberichte von Star Citizen: %s', 'Star Citizen crash reports: %s'),
+    's_sc_frage':      ('Jetzt leeren? Deine Grafikeinstellungen bleiben erhalten.',
+                          'Clear now? Your graphics settings are kept.'),
+    's_sc_loescht':    ('Shader-Speicher werden geleert …', 'Clearing shader caches …'),
+    's_sc_fertig':     ('Fertig — %s freigegeben.', 'Done — %s freed.'),
+    's_sc_rest':       ('%d Dateien waren in Benutzung und sind geblieben. Nach einem Neustart des Rechners lassen sie sich leeren.',
+                          '%d files were in use and stayed. After restarting the computer they can be cleared.'),
 
     # -- Seiten „Fortschritt", „Allgemein", „Anzeige", „Ordner" (Reste) --
     's_fo_lead':       ('Zuerst der Stand je Bereich — klick einen an, um die Kategorien darin zu sehen. Ein Klick auf eine Kategorie zeigt ihre Baupläne.',
@@ -2736,6 +2757,14 @@ TEXTS = {
                               'a new version is out. One click installs it right away — '
                               'after asking first, so a stray click in the middle of a '
                               'game closes nothing.'),
+    's_dk_blackdog_idee3':   ('**Shader-Cache leeren** — ein Knopf unter '
+                              '„Sichern & Zurücksetzen", der die Shader-Speicher '
+                              'von Star Citizen und der Grafiktreiber leert, wenn '
+                              'nach einem Patch Grafikfehler oder Ruckler auftreten.',
+                              '**Clear shader cache** — a button under '
+                              '"Backup & reset" that empties the shader caches of '
+                              'Star Citizen and the graphics drivers when a patch '
+                              'brings graphics glitches or stutter.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '

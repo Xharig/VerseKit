@@ -25856,6 +25856,7 @@ def main():
     _pruefung_304()
     _pruefung_303()
     _pruefung_305()
+    _pruefung_306()
 
     print()
     if fehler:
@@ -31006,6 +31007,150 @@ def _pruefung_305():
                           ('PRIVACY.en.md', 'nutzung-versekit.xharig.com')):
         with open(os.path.join(WURZEL, _datei), encoding='utf-8') as _f:
             pruefe(_wort in _f.read(), '%s nennt die Nutzungsmeldung' % _datei)
+
+
+def _pruefung_306():
+    """306. Shader-Cache leeren: findet die echten Orte, leert nur Zwischenspeicher.
+
+    Gebaut wird ein Wegwerf-Baum wie auf einem Spielerrechner — unter Windows
+    `AppData\\Local\\Star Citizen\\starcitizen_(…)\\{shaders,vulkanshadercache,
+    GraphicsSettings}`, unter Linux derselbe Baum im Wine-Präfix. Geprüft wird
+    die Wirkung: Was geleert ist, ist leer; die Grafikeinstellungen sind noch da;
+    eine gesperrte Datei bleibt liegen und wird gezählt. Echte Ordner werden
+    nie angefasst — `find()` bekommt die Wegwerf-Orte ausdrücklich übergeben.
+    """
+    print('\n306. Shader-Cache leeren (echte Orte, Grafikeinstellungen bleiben)')
+    import tempfile as _tf306
+    from scbp import paths as _pf306, shader_cache as _sc306
+    tmp = _tf306.mkdtemp(prefix='vk306-')
+
+    def _datei(pfad, inhalt=b'x' * 1000):
+        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+        with open(pfad, 'wb') as f:
+            f.write(inhalt)
+
+    def _baum(local, sc_name='Star Citizen'):
+        root = os.path.join(local, sc_name)
+        for ver in ('starcitizen_(sc-alpha-4.10.0)_aa_0',
+                    'starcitizen_(sc-alpha-4.10.0-hotfix)_bb_0'):
+            _datei(os.path.join(root, ver, 'shaders', 'Temp', 'a@b', 'c.bin'))
+            _datei(os.path.join(root, ver, 'shaders', 'd.bin'))
+            _datei(os.path.join(root, ver, 'vulkanshadercache', 'pipe.bin'))
+            _datei(os.path.join(root, ver, 'GraphicsSettings',
+                                'GraphicsSettings.json'), b'{"q":1}')
+        _datei(os.path.join(root, 'crashes', 'x', 'dump.dmp'))
+        return root
+
+    def _leer(pfad):
+        return os.path.isdir(pfad) and not os.listdir(pfad)
+
+    _alt = (_pf306.WINDOWS, _pf306._wine_prefixes, _pf306.game_folder,
+            os.environ.get('LOCALAPPDATA'), os.environ.get('XDG_CACHE_HOME'))
+    try:
+        # --- Leeren im Wegwerf-Baum ---
+        root = _baum(os.path.join(tmp, 'win', 'AppData', 'Local'))
+        gpu = os.path.join(tmp, 'win', 'AppData', 'Local', 'NVIDIA', 'DXCache')
+        _datei(os.path.join(gpu, 'cache.nvph'))
+        ziele = _sc306.find(sc_roots=[root], gpu_dirs=[gpu])
+        arten = sorted(set(k for k, _p, _s in ziele))
+        pruefe(len(ziele) == 6 and arten == ['crash', 'gpu', 'sc'],
+               'Vorbedingung: shaders + vulkanshadercache je Version, crashes, '
+               'Treiber gefunden (%r)' % [(k, os.path.basename(p)) for k, p, _s in ziele])
+        pruefe(not any(os.path.basename(p) == 'GraphicsSettings' for _k, p, _s in ziele),
+               'die Grafikeinstellungen stehen nicht auf der Liste')
+        summe = sum(s for _k, _p, s in ziele)
+        frei, rest = _sc306.clear(ziele)
+        pruefe(frei == summe and rest == 0,
+               'alles freigegeben, nichts übrig (%d von %d, %d übrig)' % (frei, summe, rest))
+        pruefe(all(_leer(p) for _k, p, _s in ziele),
+               'jeder geleerte Ordner ist leer und steht noch')
+        _gs = os.path.join(root, 'starcitizen_(sc-alpha-4.10.0)_aa_0',
+                           'GraphicsSettings', 'GraphicsSettings.json')
+        pruefe(os.path.isfile(_gs) and open(_gs, 'rb').read() == b'{"q":1}',
+               'die Grafikeinstellungen sind unverändert da')
+        pruefe(_sc306.find(sc_roots=[root], gpu_dirs=[gpu]) and
+               not sum(_sc306.total_by_kind(_sc306.find(sc_roots=[root],
+                                                        gpu_dirs=[gpu])).values()),
+               'danach meldet die Suche 0 Byte')
+
+        # --- Eine Datei in Benutzung bleibt liegen und wird gezählt ---
+        _gesperrt = os.path.join(root, 'starcitizen_(sc-alpha-4.10.0)_aa_0',
+                                 'shaders', 'Temp', 'gesperrt.bin')
+        _datei(_gesperrt)
+        _datei(os.path.join(root, 'starcitizen_(sc-alpha-4.10.0)_aa_0',
+                            'shaders', 'frei.bin'))
+        _echt_remove = _sc306.os.remove
+
+        def _remove(p):
+            if os.path.basename(p) == 'gesperrt.bin':
+                raise PermissionError('in Benutzung')
+            _echt_remove(p)
+        _sc306.os.remove = _remove
+        try:
+            frei2, rest2 = _sc306.clear(_sc306.find(sc_roots=[root], gpu_dirs=[]))
+        finally:
+            _sc306.os.remove = _echt_remove
+        pruefe(rest2 == 1 and frei2 == 1000 and os.path.isfile(_gesperrt),
+               'eine gesperrte Datei bleibt liegen und wird gezählt (%d Byte, %d übrig)'
+               % (frei2, rest2))
+
+        # --- Gegenprobe: stünde GraphicsSettings auf der Liste, würde es erkannt ---
+        _echt_subdirs = _sc306.SC_CACHE_SUBDIRS
+        _sc306.SC_CACHE_SUBDIRS = _echt_subdirs + ('GraphicsSettings',)
+        try:
+            pruefe(any(os.path.basename(p) == 'GraphicsSettings'
+                       for _k, p, _s in _sc306.find(sc_roots=[root], gpu_dirs=[])),
+                   'Gegenprobe: GraphicsSettings auf der Liste würde erkannt')
+        finally:
+            _sc306.SC_CACHE_SUBDIRS = _echt_subdirs
+
+        # --- Windows: Orte aus LOCALAPPDATA, Treiber auch unter LocalLow ---
+        _pf306.WINDOWS = True
+        os.environ['LOCALAPPDATA'] = os.path.join(tmp, 'win', 'AppData', 'Local')
+        _low = os.path.join(tmp, 'win', 'AppData', 'LocalLow', 'Intel', 'ShaderCache')
+        os.makedirs(_low, exist_ok=True)
+        pruefe(_pf306.sc_cache_roots() == [root],
+               'Windows: Star-Citizen-Ordner unter LOCALAPPDATA gefunden (%r)'
+               % _pf306.sc_cache_roots())
+        pruefe(sorted(_pf306.gpu_cache_dirs()) == sorted([gpu, _low]),
+               'Windows: Treiber-Speicher gefunden, auch unter LocalLow (%r)'
+               % _pf306.gpu_cache_dirs())
+
+        # --- Linux: Präfix aus der Liste und aus dem Spielordner, Public nie ---
+        _pf306.WINDOWS = False
+        p1 = os.path.join(tmp, 'lug')
+        p2 = os.path.join(tmp, 'eigen')
+        r1 = _baum(os.path.join(p1, 'drive_c', 'users', 'steamuser', 'AppData', 'Local'),
+                   sc_name='star citizen')
+        _baum(os.path.join(p1, 'drive_c', 'users', 'Public', 'AppData', 'Local'))
+        r2 = _baum(os.path.join(p2, 'drive_c', 'users', 'spieler', 'AppData', 'Local'))
+        _pf306._wine_prefixes = lambda: [p1]
+        _pf306.game_folder = lambda: os.path.join(
+            p2, 'drive_c', 'Program Files', 'Roberts Space Industries',
+            'StarCitizen', 'LIVE')
+        _gef = _pf306.sc_cache_roots()
+        pruefe(sorted(_gef) == sorted([r1, r2]),
+               'Linux: beide Präfixe gefunden, Kleinschreibung egal, Public nicht (%r)'
+               % _gef)
+        os.environ['XDG_CACHE_HOME'] = os.path.join(tmp, 'xdg')
+        _gl = os.path.join(tmp, 'xdg', 'nvidia', 'GLCache')
+        os.makedirs(_gl, exist_ok=True)
+        pruefe(_pf306.gpu_cache_dirs() == [_gl],
+               'Linux: Treiber-Speicher unter ~/.cache gefunden (%r)'
+               % _pf306.gpu_cache_dirs())
+    finally:
+        _pf306.WINDOWS, _pf306._wine_prefixes, _pf306.game_folder = _alt[:3]
+        for _name, _wert in (('LOCALAPPDATA', _alt[3]), ('XDG_CACHE_HOME', _alt[4])):
+            if _wert is None:
+                os.environ.pop(_name, None)
+            else:
+                os.environ[_name] = _wert
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # Die Danke-Seite nennt den Vorschlag.
+    from scbp import language as _sp306
+    pruefe(_sp306.TEXTS.get('s_dk_blackdog_idee3'),
+           'Danke-Seite: Vorschlag Shader-Cache steht drin')
 
 
 if __name__ == '__main__':

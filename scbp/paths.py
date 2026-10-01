@@ -1194,6 +1194,84 @@ def game_folder():
     return None
 
 
+def _local_appdata_dirs():
+    """Jeder `AppData\\Local`-Ordner, in dem das Spiel seine Zwischenspeicher
+    ablegen kann — unter Windows der eigene, unter Linux der jedes Benutzers in
+    jedem Wine-Präfix (auch dem Präfix, in dem der gefundene Spielordner liegt)."""
+    if WINDOWS:
+        base = os.environ.get('LOCALAPPDATA') or os.path.join(
+            os.path.expanduser('~'), 'AppData', 'Local')
+        return [base]
+    prefixes = list(_wine_prefixes())
+    folder = game_folder()
+    if folder:
+        head, sep, _rest = folder.partition(os.sep + 'drive_c' + os.sep)
+        if sep and head not in prefixes:
+            prefixes.insert(0, head)
+    found = []
+    for prefix in prefixes:
+        pattern = os.path.join(prefix, 'drive_c', 'users', '*', 'AppData', 'Local')
+        for local in sorted(glob.glob(pattern)):
+            if os.path.basename(os.path.dirname(os.path.dirname(local))) == 'Public':
+                continue
+            if local not in found:
+                found.append(local)
+    return found
+
+
+def sc_cache_roots():
+    """Vorhandene Ordner `Star Citizen` unter `AppData\\Local` — dort legt das
+    Spiel je Version Shader-Zwischenspeicher, Grafikeinstellungen und
+    Absturzberichte ab. Der Ordnername wird ohne Rücksicht auf Groß- und
+    Kleinschreibung gesucht, das Spiel schreibt ihn mal so, mal so."""
+    roots = []
+    for local in _local_appdata_dirs():
+        try:
+            names = os.listdir(local)
+        except OSError:
+            continue
+        for name in names:
+            path = os.path.join(local, name)
+            if name.lower() == 'star citizen' and os.path.isdir(path):
+                roots.append(path)
+    return roots
+
+
+GPU_CACHE_SUBDIRS_WINDOWS = (
+    ('NVIDIA', 'DXCache'),
+    ('NVIDIA', 'GLCache'),
+    ('AMD', 'DxCache'),
+    ('AMD', 'DxcCache'),
+    ('AMD', 'VkCache'),
+    ('Intel', 'ShaderCache'),
+    ('D3DSCache',),
+)
+
+GPU_CACHE_SUBDIRS_LINUX = (
+    ('nvidia', 'GLCache'),
+    ('mesa_shader_cache',),
+    ('mesa_shader_cache_db',),
+)
+
+
+def gpu_cache_dirs():
+    """Vorhandene Shader-Zwischenspeicher der Grafiktreiber. Sie gelten für alle
+    Spiele; der Treiber baut sie beim nächsten Start von selbst neu auf."""
+    candidates = []
+    if WINDOWS:
+        local = _local_appdata_dirs()[0]
+        for parts in GPU_CACHE_SUBDIRS_WINDOWS:
+            candidates.append(os.path.join(local, *parts))
+        low = os.path.join(os.path.dirname(local), 'LocalLow')
+        candidates.append(os.path.join(low, 'Intel', 'ShaderCache'))
+    else:
+        cache = os.environ.get('XDG_CACHE_HOME') or os.path.join(
+            os.path.expanduser('~'), '.cache')
+        for parts in GPU_CACHE_SUBDIRS_LINUX:
+            candidates.append(os.path.join(cache, *parts))
+    return [p for p in candidates if os.path.isdir(p)]
+
+
 def _channel_bases():
     """Ordner, in denen die Kanäle nebeneinander liegen können.
 

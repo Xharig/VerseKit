@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.66.0 - 2026-10-01
+
+> Nach einem Patch flackert es, Texturen spinnen oder das Spiel ruckelt? Oft
+> hilft es, die alten Shader wegzuwerfen. Das geht jetzt mit einem Knopf —
+> Verse-Kit findet die Ordner selbst und lässt deine Grafikeinstellungen in
+> Ruhe.
+
+### Neu
+
+- **Shader-Cache leeren** — ein Knopf unter *Einstellungen → Sichern &
+  Zurücksetzen* leert die Shader-Speicher von Star Citizen und der
+  Grafiktreiber sowie alte Absturzberichte. Hilft bei Grafikfehlern oder
+  Rucklern nach einem Patch. Findet die Ordner selbst, unter Linux auch im
+  Wine-Präfix; die Grafikeinstellungen bleiben erhalten, und solange das Spiel
+  läuft, passiert nichts. Vorschlag von Blackd0g84 (KRT)
+
 ## v3.65.0 - 2026-10-01
 
 > Wie viele nutzen Verse-Kit eigentlich wirklich? Die Downloads verraten das

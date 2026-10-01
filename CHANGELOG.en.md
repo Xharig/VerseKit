@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.66.0 - 2026-10-01
+
+> Flicker, broken textures or stutter after a patch? Throwing away the old
+> shaders often helps. That now takes one button — Verse-Kit finds the
+> folders by itself and leaves your graphics settings alone.
+
+### New
+
+- **Clear shader cache** — a button under *Settings → Backup & reset* empties
+  the shader caches of Star Citizen and the graphics drivers plus old crash
+  reports. Helps with graphics glitches or stutter after a patch. Finds the
+  folders by itself, on Linux inside the Wine prefix too; your graphics
+  settings are kept, and nothing happens while the game is running. Suggested
+  by Blackd0g84 (KRT)
+
 ## v3.65.0 - 2026-10-01
 
 > How many people actually use Verse-Kit? The downloads don't tell — so the
