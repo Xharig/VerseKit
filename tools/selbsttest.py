@@ -25858,6 +25858,7 @@ def main():
     _pruefung_305()
     _pruefung_306()
     _pruefung_307()
+    _pruefung_308()
 
     print()
     if fehler:
@@ -31364,6 +31365,146 @@ def _pruefung_307():
             inhalt = f.read()
         pruefe(all(w in inhalt for w in woerter),
                '%s nennt Handle, Sicherung, .bak.json und Bericht' % datei)
+
+
+def _pruefung_308():
+    """308. Verbindung zu scmdb.net (Log-Watcher-Protokoll 0.1.9)."""
+    print('\n308. scmdb-Bruecke: Ereignisse, englische Namen, Kanal, Server')
+    import json as _js308
+    import re as _re308
+    import tempfile as _tf308
+    import urllib.request as _ur308
+    from scbp import paths as _pa308, scmdb_bridge as _sb308
+
+    gid = '11111111-2222-3333-4444-555555555555'
+    did = '9d219d18-aeda-494c-bad6-30fb8d092949'
+    zeilen = [
+        '<2026-08-09T17:43:35.422Z> [Notice] <CLocalMissionPhaseMarker::CreateMarker>'
+        ' Creating objective marker: missionId [%s], generator name'
+        ' [LingFamilyHauling_Hauling], contract [HaulCargo_Test_Intro],'
+        ' contractDefinitionId[%s], objectiveId [pickup_1]' % (gid, did),
+        # derselbe Auftrag, zweites Ziel: kein zweiter Start
+        '<2026-08-09T17:43:35.500Z> [Notice] <CLocalMissionPhaseMarker::CreateMarker>'
+        ' Creating objective marker: missionId [%s], generator name'
+        ' [LingFamilyHauling_Hauling], contract [HaulCargo_Test_Intro],'
+        ' contractDefinitionId[%s], objectiveId [dropoff_1]' % (gid, did),
+        '<2026-08-09T17:50:00.000Z> [Notice] <EndMission> Ending mission for'
+        ' player. MissionId[%s] Player[Spieler] PlayerId[1]'
+        ' CompletionType[Complete] Reason[Mission Ended] [Team]' % gid,
+        '<2026-08-09T17:50:01.000Z> [Notice] <SHUDEvent_OnNotification> Added'
+        ' notification "Bauplan erhalten: Spectre (Sth/1/A): " [138] to queue.',
+        '<2026-08-09T17:50:02.000Z> [Notice] <SHUDEvent_OnNotification> Added'
+        ' notification "Bauplan erhalten: Antium Arme: " [139] to queue.',
+    ]
+    katalog = {'spectre': {'n': 'Spectre'}}
+    muster = _re308.compile(r'Added notification "(?:Bauplan erhalten):\s*(.+?)\s*:\s*"')
+    leser = _sb308.Reader('LIVE', catalog_names=katalog, pattern=muster)
+    ereignisse = []
+    for z in zeilen:
+        ereignisse += leser.feed(z)
+    arten = [e['type'] for e in ereignisse]
+    pruefe(arten == ['mission_start', 'mission_complete', 'blueprint_received'],
+           'Ereignisse in der richtigen Folge, ein Start je Auftrag (%s)' % arten)
+    start = ereignisse[0]
+    pruefe(start['guid'] == gid and start['debugName'] == 'HaulCargo_Test_Intro'
+           and start['generator'] == 'LingFamilyHauling_Hauling'
+           and start['contractDefinitionId'] == did
+           and abs(start['startTs'] - 1786297415.422) < 0.01,
+           'Start traegt Kennung, Vertrag, Generator, Vertrags-ID und Zeit')
+    ende = ereignisse[1]
+    pruefe(ende['completion'] == 'Complete' and ende['reason'] == 'Mission Ended'
+           and ende['debugName'] == 'HaulCargo_Test_Intro',
+           'Ende: abgeschlossen, mit Grund und Vertrag')
+    bp = ereignisse[2]
+    pruefe(bp['productName'] == 'Spectre',
+           'Bauplan: englischer Katalogname ohne Zusatz (%s)' % bp['productName'])
+    pruefe(bp['missionGuid'] == gid and bp['missionTrigger'] == 'complete',
+           'Bauplan: dem gerade abgeschlossenen Auftrag zugeordnet')
+    pruefe(leser.unmatched == ['Antium Arme'],
+           'Unbekannter Name wird nicht geschickt, nur vermerkt (%s)' % leser.unmatched)
+    pruefe(all(e['channel'] == 'LIVE' for e in ereignisse),
+           'Jedes Ereignis traegt den Kanal')
+    ptu = _sb308.Reader('PTU', catalog_names=katalog, pattern=muster)
+    pruefe(ptu.feed(zeilen[0])[0]['channel'] == 'PTU', 'PTU wird ehrlich als PTU gemeldet')
+    pruefe(_sb308.channel_of('/x/StarCitizen/HOTFIX') == 'HOTFIX'
+           and _sb308.channel_of('/x/irgendwas') == 'UNKNOWN',
+           'Kanal aus dem Ordnernamen, sonst UNKNOWN')
+    # Spielwelt verlassen: offene Auftraege enden als Disconnect
+    weg = _sb308.Reader('LIVE', catalog_names=katalog, pattern=muster)
+    weg.feed(zeilen[0])
+    aus = weg.feed('<2026-08-09T18:00:00.000Z> [CSessionManager::RequestFrontEnd]'
+                   ' Started - RequestFrontEndReason="x"!')
+    pruefe([e.get('completion') for e in aus] == ['Disconnect'] and not weg.active,
+           'Spielwelt verlassen: offener Auftrag endet als Disconnect')
+
+    # --- Echter Durchlauf ueber den Server -------------------------------
+    tmp = _tf308.mkdtemp(prefix='vk308-')
+    ordner = os.path.join(tmp, 'StarCitizen', 'PTU')
+    os.makedirs(ordner)
+    with open(os.path.join(ordner, 'Game.log'), 'w', encoding='utf-8') as f:
+        f.write(zeilen[0] + '\n')
+    alt = (os.environ.get('SC_INSTALL_DIR'), os.environ.get('SC_BP_SCMDB_PORT'),
+           _sb308.POLL)
+    brueck = _sb308.Bridge()
+    try:
+        os.environ['SC_INSTALL_DIR'] = ordner
+        import socket as _so308
+        frei = _so308.socket()
+        frei.bind(('127.0.0.1', 0))
+        nummer = frei.getsockname()[1]
+        frei.close()
+        os.environ['SC_BP_SCMDB_PORT'] = str(nummer)
+        _sb308.POLL = 0.1
+        pruefe(brueck.start(), 'Server startet auf 127.0.0.1')
+        time.sleep(0.5)
+        anfrage = _ur308.Request('http://127.0.0.1:%d/ping' % nummer,
+                                 headers={'Origin': 'https://scmdb.net'})
+        t0 = time.time()
+        with _ur308.urlopen(anfrage, timeout=5) as antwort:
+            dauer = time.time() - t0
+            ping = _js308.loads(antwort.read().decode('utf-8'))
+            erlaubt = antwort.headers.get('Access-Control-Allow-Origin')
+        pruefe(ping.get('version') == '0.1.9' and ping.get('client') == 'versekit'
+               and ping.get('channel') == 'PTU' and ping.get('status') == 'ok',
+               '/ping: Protokoll 0.1.9, client versekit, Kanal PTU (%s)' % ping)
+        pruefe(dauer < 0.5, '/ping antwortet unter 500 ms (%.3f s)' % dauer)
+        pruefe(erlaubt == 'https://scmdb.net', 'CORS nur fuer scmdb.net, kein *')
+        fremd = _ur308.Request('http://127.0.0.1:%d/ping' % nummer,
+                               headers={'Origin': 'https://boese.example'})
+        with _ur308.urlopen(fremd, timeout=5) as antwort:
+            pruefe(antwort.headers.get('Access-Control-Allow-Origin') is None,
+                   'Fremde Seite bekommt keinen CORS-Kopf')
+        strom = _ur308.urlopen('http://127.0.0.1:%d/events' % nummer, timeout=5)
+        erst = [_js308.loads(strom.readline().decode('utf-8')[6:]),
+                strom.readline()]
+        drei = [strom.readline(), strom.readline()]
+        snapshot = _js308.loads(drei[0].decode('utf-8')[6:])
+        pruefe(erst[0]['type'] == 'mission_start' and erst[0].get('replay') is True,
+               'Verlauf kommt zuerst, mit replay: true')
+        pruefe(snapshot['type'] == 'state_snapshot' and 'replay' not in snapshot
+               and len(snapshot['active']) == 1,
+               'Danach der aktuelle Stand ohne replay (%d offen)' % len(snapshot.get('active', [])))
+        with open(os.path.join(ordner, 'Game.log'), 'a', encoding='utf-8') as f:
+            f.write(zeilen[2] + '\n')
+        live = _js308.loads(strom.readline().decode('utf-8')[6:])
+        pruefe(live['type'] == 'mission_complete' and 'replay' not in live
+               and live['channel'] == 'PTU',
+               'Neue Log-Zeile kommt live an (%s)' % live['type'])
+        strom.close()
+        zweite = _sb308.Bridge()
+        pruefe(not zweite.start() and _sb308.STATUS['state'] == 'busy',
+               'Port belegt: zweiter Start unterbleibt und meldet es')
+    finally:
+        brueck.stop()
+        _sb308.POLL = alt[2]
+        for name, wert in (('SC_INSTALL_DIR', alt[0]), ('SC_BP_SCMDB_PORT', alt[1])):
+            if wert is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = wert
+        shutil.rmtree(tmp, ignore_errors=True)
+    pruefe(not _pa308.setting_bool(_sb308.SETTING, False),
+           'Ab Werk aus')
 
 
 if __name__ == '__main__':

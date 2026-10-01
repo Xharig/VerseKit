@@ -5748,5 +5748,11 @@ if __name__ == '__main__':
         usage_ping.start(__version__)
     except Exception as ausnahme:
         errors.record('watcher.nutzung', ausnahme)
+    # Verbindung zu scmdb.net als „Log Watcher" — nur wenn eingeschaltet.
+    try:
+        from scbp import scmdb_bridge
+        scmdb_bridge.apply_setting()
+    except Exception as ausnahme:
+        errors.record('watcher.scmdb_bridge', ausnahme)
     errors.trail('Hauptschleife läuft')
     fenster.run()

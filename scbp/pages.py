@@ -1944,6 +1944,25 @@ def _general(fenster, rahmen):
 
     toggle_switch(ziel, usage_ping.enabled(), usage_flip).pack()
 
+    # Verbindung zu scmdb.net (Log-Watcher-Protokoll) — ab Werk aus.
+    from . import scmdb_bridge
+    ziel = _setting_row(fenster, innen, t('s_scmdb'), t('s_scmdb_h'))
+
+    def scmdb_flip():
+        new_value = not scmdb_bridge.enabled()
+        paths.set_setting(scmdb_bridge.SETTING, new_value)
+        scmdb_bridge.apply_setting()
+        if not new_value:
+            state = t('e_aus')
+        elif scmdb_bridge.STATUS['state'] == 'busy':
+            state = t('s_scmdb_belegt')
+        else:
+            state = t('s_scmdb_bereit')
+        fenster.say('%s: %s' % (t('s_scmdb'), state))
+        return new_value
+
+    toggle_switch(ziel, scmdb_bridge.enabled(), scmdb_flip).pack()
+
 
 def _flag(code, master=None):
     """Eine Flagge in Zeilengröße — oder None, wenn das Bild fehlt.
@@ -6925,7 +6944,7 @@ def _thanks(fenster, rahmen):
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
-             + t('s_dk_greluc_idee2'), ''),
+             + t('s_dk_greluc_idee2'), t('s_dk_greluc_bugs')),
             ('Parsul', 'KRT', '', t('s_dk_parsul_bugs') + '\n\n'
              + t('s_dk_parsul_bugs2') + '\n\n' + t('s_dk_parsul_bugs3')),
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung

@@ -8,6 +8,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Connect to scmdb.net** — Verse-Kit reports new blueprints and running
+  missions straight to scmdb.net, no export or upload needed. Turn it on under
+  *Settings → General*, then enable "Watcher" at the top right on scmdb.net —
+  the page has to be open for that. Only LIVE and HOTFIX are taken over, and
+  blueprints always go by their English name so scmdb matches them reliably.
+  Off by default. Thanks to Krovax (scmdb) for the interface
+
 ### Changed
 
 - **Basetool sync more careful** — after an error Verse-Kit waits longer

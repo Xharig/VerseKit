@@ -8,6 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Mit scmdb.net verbinden** — Verse-Kit meldet neue Baupläne und laufende
+  Aufträge direkt an scmdb.net, ganz ohne Export und Hochladen. Einschalten
+  unter *Einstellungen → Allgemein*, dann auf scmdb.net oben rechts „Watcher"
+  aktivieren — die Seite muss dafür offen sein. Übernommen wird nur aus LIVE
+  und HOTFIX, Baupläne immer unter ihrem englischen Namen, damit scmdb sie
+  sicher zuordnet. Ab Werk aus. Danke an Krovax (scmdb) für die Schnittstelle
+
 ### Geändert
 
 - **Basetool-Abgleich vorsichtiger** — nach einem Fehler wartet Verse-Kit

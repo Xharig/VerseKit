@@ -2424,13 +2424,17 @@ TEXTS = {
                         'frei zugänglich macht. **Krovax** hat die Nutzung '
                         'ausdrücklich erlaubt und die Daten dafür bereitgestellt. '
                         'Abgerufen wird sparsam: nur bei einer neuen '
-                        'Spielversion.',
+                        'Spielversion. Über seine Watcher-Schnittstelle meldet '
+                        'Verse-Kit Baupläne und Aufträge auf Wunsch direkt an '
+                        'scmdb.net.',
                         'Type, size, grade, class and source for each blueprint — '
                         'plus who a contract credits reputation to, and of what '
                         'kind. A hobby project that prepares the game data and '
                         'makes it freely available. **Krovax** expressly gave '
                         'permission and provided the data for it. Fetched '
-                        'sparingly: only when a new game version appears.'),
+                        'sparingly: only when a new game version appears. '
+                        'Through his watcher interface, Verse-Kit can report '
+                        'blueprints and missions straight to scmdb.net.'),
     # ⚠⚠ **Wer eine Quelle benutzt, nennt sie.** Die Rohstoffpreise kamen
     # ab v3.3.0-rc39 von UEX Corp, standen aber nirgends auf dieser Seite.
     # Am 30.08.2026 gemeldet: „UEX Corp liefert uns nun auch Daten. Sieht
@@ -2608,6 +2612,14 @@ TEXTS = {
                               '**The "KRT (orange)" colour scheme** — colours and '
                               'shapes follow the design system of his Profit '
                               'Basetool.'),
+    's_dk_greluc_bugs':      ('**Prüfung des Basetool-Abgleichs** — Wartezeiten nach '
+                              'Fehlern, Halt nach einer Sperre, nur die Baupläne '
+                              'des eigenen Accounts und sicherer abgelegte '
+                              'Zugangsdaten unter Linux.',
+                              '**Review of the Basetool sync** — wait times after '
+                              'errors, a full stop after a block, only your own '
+                              'account\'s blueprints and more safely stored '
+                              'credentials on Linux.'),
     's_dk_parsul_bugs':      ('**Der Einrichtungsassistent trug bei einer frischen '
                               'Installation keine Bauplan-Angaben ein** — „Katalog '
                               'kennt keine Missionen", weil der Katalog erst nach '
@@ -5583,6 +5595,12 @@ TEXTS = {
     's_nutzung':         ('Nutzung zählen lassen', 'Count usage'),
     's_nutzung_h':       ('Einmal am Tag meldet VerseKit Version, System, Sprache und welche Bereiche du nutzt — ohne Kennung, Namen oder Handle. So sehe ich, wie viele VerseKit wirklich nutzen und was davon. Alles Einzelne steht in der Datenschutz-Erklärung.',
                           'Once a day VerseKit reports its version, your system, language and which areas you use — no ID, name or handle. That way I can see how many people really use VerseKit and which parts. Every detail is listed in the privacy statement.'),
+    's_scmdb':           ('Mit scmdb.net verbinden', 'Connect to scmdb.net'),
+    's_scmdb_h':         ('Verse-Kit meldet neue Baupläne und laufende Aufträge direkt an scmdb.net — ohne Export und Hochladen. Auf scmdb.net dann oben rechts „Watcher" einschalten; die Seite muss dafür offen sein. Übernommen wird in das scmdb-Konto, mit dem du dort angemeldet bist, und nur aus LIVE und HOTFIX. Läuft schon der Watcher von scmdb, nimm einen von beiden.',
+                          'Verse-Kit reports new blueprints and running missions straight to scmdb.net — no export, no upload. On scmdb.net, turn on "Watcher" at the top right; the page has to be open for that. Everything goes into the scmdb account you are signed in with there, and only from LIVE and HOTFIX. If scmdb\'s own watcher is already running, use one or the other.'),
+    's_scmdb_bereit':    ('an — auf scmdb.net „Watcher" einschalten', 'on — turn on "Watcher" on scmdb.net'),
+    's_scmdb_belegt':    ('Der Anschluss ist belegt — läuft der Watcher von scmdb? Beende ihn und schalte hier noch einmal ein.',
+                          'The port is in use — is scmdb\'s own watcher running? Close it and turn this on again.'),
     's_sa_export_h':     ('Speichert die Statistik als Datei zum Aufheben oder Teilen — ohne deinen Spielernamen.',
                           'Saves the statistics as a file to keep or share — without your player name.'),
     's_ss_lead':         ('Womit du fliegst, was du verlierst und was du trägst.',
