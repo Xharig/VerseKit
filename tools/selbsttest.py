@@ -5211,6 +5211,26 @@ def main():
                                          % (_rel52s, _nr52s,
                                             _zeile52s.strip()[:60]))
                         break
+    # Vorname des Autors; der Herstellername „Roberts Space Industries“ und
+    # seine Adressen sind ausgenommen.
+    _vorname52s = re.compile(r'\b' + 'rob' + r'ert\b(?!s? ?space)', re.I)
+    _endungen52s = ('.py', '.md', '.js', '.mjs', '.toml', '.yml', '.html', '.sql')
+    for _rel52s in sorted(_versionierte_dateien(_wurzelpfad)):
+        if (_rel52s.endswith('selbsttest.py') or not _rel52s.endswith(_endungen52s)
+                or _rel52s.startswith(('daten' + os.sep, 'daten/'))):
+            continue
+        _voll52s = os.path.join(_wurzelpfad, _rel52s)
+        if not os.path.exists(_voll52s):
+            continue
+        with open(_voll52s, encoding='utf-8', errors='replace') as _fh52s:
+            for _nr52s, _zeile52s in enumerate(_fh52s, 1):
+                if _vorname52s.search(_zeile52s):
+                    _funde52s.append('%s:%d (Vorname)' % (_rel52s, _nr52s))
+    pruefe(_vorname52s.search('nur ' + 'Rob' + 'ert sieht das') is not None,
+           'Gegenprobe: der Vorname würde gefunden')
+    pruefe(_vorname52s.search('Rob' + 'erts Space Industries') is None
+           and _vorname52s.search('rob' + 'ertsspaceindustries.com') is None,
+           'Gegenprobe: der Herstellername schlägt nicht an')
     pruefe(not _funde52s,
            'keine privaten Angaben im Projekt (%d Stellen)' % len(_funde52s))
     for _x52s in _funde52s[:6]:

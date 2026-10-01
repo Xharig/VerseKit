@@ -198,11 +198,8 @@ export async function verifyAccess(request, env, fetchCerts = fetch) {
   return claims;
 }
 
-// Wer darf was? Die Übersicht und die Daten nur der Eigentümer (seine Mail). Die
-// Sicherung (`/export`, nur lesen) zusätzlich das Dienst-Zeichen der
-// Feierabend-Sicherung — ein Cloudflare-Access-Service-Token, dessen Client-ID
-// als Geheimnis SERVICE_ID hinterlegt ist. Fehlt das Geheimnis, gibt es den
-// Weg nicht.
+// Übersicht und Daten: nur die Mail aus ERLAUBTE_MAIL. `/export` zusätzlich
+// das Access-Dienst-Zeichen mit der Client-ID aus SERVICE_ID.
 export function allowed(claims, env, path) {
   const mail = (env.ERLAUBTE_MAIL || '').trim().toLowerCase();
   if (mail && String(claims.email || '').toLowerCase() === mail) return true;
@@ -216,8 +213,7 @@ export function allowed(claims, env, path) {
 // Stunde und Absender-Adresse — und Cloudflare-Worker teilen sich ihre
 // Adressen mit vielen anderen. Am 01.10.2026 stand deshalb plötzlich „0
 // Downloads", die Seite war leer. Seitdem:
-//   1. Höchstens einmal je Minute wird GitHub überhaupt gefragt (erst 10 min —
-//      seitdem bringt „Aktualisieren" frische Zahlen).
+//   1. Höchstens einmal je Minute wird GitHub überhaupt gefragt.
 //   2. Mit ETag („hat sich etwas geändert?") — eine 304-Antwort zählt bei
 //      GitHub NICHT gegen die Grenze.
 //   3. Scheitert der Abruf, gelten die zuletzt gespeicherten Zahlen weiter —
