@@ -323,7 +323,7 @@ test('Vorbedingung: frische Zahlen werden geholt und abgelegt', async () => {
   assert.ok(env.DB.map.has('downloads') && env.DB.map.has('seite:1'));
 });
 
-test('innerhalb von 10 Minuten wird GitHub gar nicht gefragt', async () => {
+test('innerhalb einer Minute wird GitHub gar nicht gefragt', async () => {
   const env = { DB: ablageDb() };
   globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0', 4, 1)]));
   await downloads(env, 1_000_000);

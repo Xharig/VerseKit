@@ -206,13 +206,14 @@ export async function verifyAccess(request, env, fetchCerts = fetch) {
 // Stunde und Absender-Adresse — und Cloudflare-Worker teilen sich ihre
 // Adressen mit vielen anderen. Am 01.10.2026 stand deshalb plötzlich „0
 // Downloads", die Seite war leer. Seitdem:
-//   1. Höchstens alle 10 Minuten wird GitHub überhaupt gefragt.
+//   1. Höchstens einmal je Minute wird GitHub überhaupt gefragt (erst 10 min —
+//      seitdem bringt „Aktualisieren" frische Zahlen).
 //   2. Mit ETag („hat sich etwas geändert?") — eine 304-Antwort zählt bei
 //      GitHub NICHT gegen die Grenze.
 //   3. Scheitert der Abruf, gelten die zuletzt gespeicherten Zahlen weiter —
 //      mit ihrer Uhrzeit, damit die Seite nicht lügt.
 // Abgelegt in der Tabelle `ablage` (schluessel, inhalt, zeit).
-const DL_MAX_AGE = 10 * 60 * 1000;
+const DL_MAX_AGE = 60 * 1000;
 
 async function stored(env, key) {
   try {
