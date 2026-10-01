@@ -214,3 +214,69 @@ test('die Seite lädt nichts von außen', async () => {
   const html = dashboardHtml('abc');
   assert.ok(!/(src|href)=["']https?:/i.test(html), 'fremde Quelle in der Seite');
 });
+
+// ---------------------------------------------------------------- Kurzlinks
+
+function short(path, { agent = 'Mozilla/5.0 (Windows NT 10.0) Firefox/130.0', method = 'GET', cf = { country: 'RU', city: 'Moskau' } } = {}) {
+  const req = new Request(`https://xharig.com${path}`, { method, headers: { 'user-agent': agent, 'cf-connecting-ip': '203.0.113.9' } });
+  Object.defineProperty(req, 'cf', { value: cf });
+  return req;
+}
+function ctxCollect() { const p = []; return { p, waitUntil: (x) => p.push(x) }; }
+
+test('Vorbedingung: ein Download über den Kurzlink wird gezählt und weitergeleitet', async () => {
+  const e = env(); const c = ctxCollect();
+  const r = await worker.fetch(short('/windows'), e, c);
+  await Promise.all(c.p);
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get('location'), 'https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-Setup.exe');
+  const dl = e.DB.calls.filter((x) => /INTO downloads/.test(x.sql));
+  assert.equal(dl.length, 1);
+  assert.deepEqual(dl[0].args.slice(1), ['windows', 'RU']);
+});
+
+test('Linux führt zum AppImage', async () => {
+  const r = await worker.fetch(short('/linux'), env(), ctxCollect());
+  assert.equal(r.headers.get('location'), 'https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-x86_64.AppImage');
+});
+
+test('Vorschau-Roboter und Werkzeuge zählen nicht — werden aber weitergeleitet', async () => {
+  for (const agent of ['Mozilla/5.0 (compatible; Discordbot/2.0)', 'TelegramBot (like TwitterBot)',
+                       'WhatsApp/2.23', 'curl/8.4.0', 'Googlebot/2.1', '']) {
+    const e = env(); const c = ctxCollect();
+    const r = await worker.fetch(short('/windows', { agent }), e, c);
+    await Promise.all(c.p);
+    assert.equal(r.status, 302, agent);
+    assert.equal(e.DB.calls.length, 0, agent);
+  }
+});
+
+test('HEAD zählt nicht, schnelle Wiederholung zählt nicht', async () => {
+  let e = env(); let c = ctxCollect();
+  await worker.fetch(short('/windows', { method: 'HEAD' }), e, c); await Promise.all(c.p);
+  assert.equal(e.DB.calls.length, 0);
+  e = env({ LIMIT: { limit: async () => ({ success: false }) } }); c = ctxCollect();
+  const r = await worker.fetch(short('/windows'), e, c); await Promise.all(c.p);
+  assert.equal(r.status, 302);
+  assert.equal(e.DB.calls.length, 0);
+});
+
+test('klemmt die Datenbank, kommt der Download trotzdem', async () => {
+  const e = env({ DB: { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('weg'); } }) }) } });
+  const c = ctxCollect();
+  const r = await worker.fetch(short('/windows'), e, c);
+  await Promise.all(c.p);
+  assert.equal(r.status, 302);
+});
+
+test('vom Download wird weder IP noch Stadt gespeichert', async () => {
+  const e = env(); const c = ctxCollect();
+  await worker.fetch(short('/windows'), e, c); await Promise.all(c.p);
+  const stored = JSON.stringify(e.DB.calls);
+  assert.ok(!stored.includes('203.0.113.9') && !stored.includes('Moskau'), stored);
+});
+
+test('andere Pfade auf xharig.com gehören nicht dem Worker', async () => {
+  const r = await worker.fetch(short('/discord'), env(), ctxCollect());
+  assert.equal(r.status, 404);
+});

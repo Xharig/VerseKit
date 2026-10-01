@@ -9,6 +9,10 @@ einer privaten Übersicht. Was genau gemeldet wird, steht in `PRIVACY.md`
 |---|---|---|
 | `nutzung-versekit.xharig.com/ping` | nimmt die tägliche Meldung an | jeder Verse-Kit (nur `POST`, nur geprüfte Felder) |
 | `statistik-versekit.xharig.com` | die Übersicht mit den Charts | nur du — Cloudflare Access davor, der Worker prüft zusätzlich selbst |
+| `xharig.com/windows`, `xharig.com/linux` | Download-Knöpfe der Webseite: zählen Tag, System, Land, dann Weiterleitung zu GitHub | jeder; Vorschau-Roboter, `curl` und schnelle Wiederholungen zählen nicht |
+
+⚠ Für die Kurzlinks dürfen in Cloudflare **keine** Weiterleitungsregeln mit
+denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 
 ## Was durchgeht
 

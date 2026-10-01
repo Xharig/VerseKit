@@ -9,7 +9,13 @@ compatibility_date = "2026-09-01"
 workers_dev = true
 routes = [
   { pattern = "nutzung-versekit.xharig.com", custom_domain = true },
-  { pattern = "statistik-versekit.xharig.com", custom_domain = true }
+  { pattern = "statistik-versekit.xharig.com", custom_domain = true },
+  # Die Download-Kurzlinks der Webseite: zählen, dann weiter zu GitHub.
+  # ⚠ Greift erst, wenn die Weiterleitungsregeln VerseKit-Windows und
+  # VerseKit-Linux in Cloudflare entfernt sind — Weiterleitungsregeln laufen
+  # VOR Workern.
+  { pattern = "xharig.com/windows", zone_name = "xharig.com" },
+  { pattern = "xharig.com/linux", zone_name = "xharig.com" }
 ]
 
 # Die Access-Angaben für die zweite Prüfung im Worker stehen NICHT hier —

@@ -56,6 +56,14 @@ Entwickler.
 Abschalten: *Einstellungen → Allgemein → Nutzung zählen*. Mit
 `SC_BP_NO_NET=1` entfällt die Meldung ebenfalls.
 
+## Downloads über die Webseite
+
+Die Download-Knöpfe auf versekit.xharig.com führen über `xharig.com/windows`
+und `xharig.com/linux` zur Datei bei GitHub. Auf diesem Weg wird gezählt: Tag,
+System und das **Land**, das Cloudflare selbst erkennt. Keine IP-Adresse,
+keine Stadt, keine Kennung, kein Cookie. Wer direkt bei GitHub lädt, wird hier
+nicht gezählt.
+
 ## Fehlerbericht
 
 Der Bericht wird **nur verschickt, wenn du auf „Senden" drückst** — nachdem du

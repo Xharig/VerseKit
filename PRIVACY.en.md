@@ -55,6 +55,14 @@ Only the developer sees the numbers.
 Switch it off: *Settings → General → Count usage*. `SC_BP_NO_NET=1` stops it
 as well.
 
+## Downloads from the website
+
+The download buttons on versekit.xharig.com lead through `xharig.com/windows`
+and `xharig.com/linux` to the file on GitHub. On that path we count: the day,
+the system and the **country** that Cloudflare detects by itself. No IP
+address, no city, no ID, no cookie. Downloading directly from GitHub is not
+counted here.
+
 ## Problem report
 
 The report is **only sent when you press "Send"** — after you have seen its

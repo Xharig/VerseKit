@@ -10,6 +10,10 @@
 //                             einmal am Tag. Angenommen wird nur, was
 //                             `check()` durchlässt — feste Felder, feste
 //                             Formen, keine Kennung.
+//   xharig.com/windows, /linux   die Download-Kurzlinks der Webseite. Zählen
+//                             Tag, System und Land und leiten IMMER auf die
+//                             neueste Datei bei GitHub weiter — auch wenn das
+//                             Zählen scheitert. Vorschau-Roboter zählen nicht.
 //   statistik-versekit.xharig.com      privat. Davor sitzt Cloudflare Access (Anmeldung
 //                             über GitHub); der Worker prüft dessen Zeichen
 //                             ZUSÄTZLICH selbst (`verifyAccess`). Fehlt die
@@ -199,7 +203,9 @@ export async function verifyAccess(request, env, fetchCerts = fetch) {
 // ------------------------------------------------------------ Übersicht
 
 async function downloads(ctx) {
-  // Öffentliche Zahlen von GitHub, eine Stunde zwischengespeichert.
+  // Öffentliche Zahlen von GitHub, zehn Minuten zwischengespeichert — so lang,
+  // wie die Seite ohnehin wartet. (Erst eine Stunde: nach einem Release fehlte
+  // die neue Fassung bis zu einer Stunde lang.)
   const cache = typeof caches !== 'undefined' ? caches.default : null;
   // ⚠ GitHub gibt je Abruf höchstens 100 Releases heraus — VerseKit hat mehr.
   // Ohne Blättern fehlten die ältesten (gemessen: 866 statt 1236 Downloads).
@@ -216,7 +222,7 @@ async function downloads(ctx) {
         all.push(...batch);
         if (batch.length < 100) break;
       }
-      r = new Response(JSON.stringify(all), { headers: { 'cache-control': 'max-age=3600', 'content-type': 'application/json' } });
+      r = new Response(JSON.stringify(all), { headers: { 'cache-control': 'max-age=600', 'content-type': 'application/json' } });
       if (cache && ctx) ctx.waitUntil(cache.put(key, r.clone()));
     }
     return (await r.json()).map((rel) => ({
@@ -233,12 +239,58 @@ async function downloads(ctx) {
 
 async function data(env, ctx, days) {
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const [t, m, dl] = await Promise.all([
+  const [t, m, dl, links] = await Promise.all([
     env.DB.prepare('SELECT tag, version, system, land, n FROM tage WHERE tag >= ?1').bind(since).all(),
     env.DB.prepare('SELECT tag, merkmal, wert, n FROM merkmale WHERE tag >= ?1').bind(since).all(),
     downloads(ctx),
+    env.DB.prepare('SELECT tag, system, land, n FROM downloads WHERE tag >= ?1').bind(since).all(),
   ]);
-  return { tage: t.results || [], merkmale: m.results || [], downloads: dl };
+  return { tage: t.results || [], merkmale: m.results || [], downloads: dl,
+           kurzlinks: links.results || [] };
+}
+
+// ------------------------------------------------------------ Kurzlinks
+
+const SHORT_HOST = 'xharig.com';
+const SHORT_LINKS = {
+  '/windows': { system: 'windows',
+    target: `https://github.com/${REPO}/releases/latest/download/VerseKit-Setup.exe` },
+  '/linux': { system: 'linux',
+    target: `https://github.com/${REPO}/releases/latest/download/VerseKit-x86_64.AppImage` },
+};
+// Wer einen Link nur ansieht, lädt nichts herunter: Vorschau-Roboter (Discord
+// ruft jeden geposteten Link selbst ab), Suchmaschinen, Kommandozeilen-Werkzeuge.
+const NOT_A_PERSON = /bot|crawl|spider|slurp|preview|facebookexternalhit|embed|discord|telegram|whatsapp|skype|slack|curl|wget|python|go-http|java|okhttp|headless/i;
+
+export function countsAsDownload(request) {
+  if (request.method !== 'GET') return false;
+  const agent = request.headers.get('user-agent') || '';
+  return agent.length > 0 && !NOT_A_PERSON.test(agent);
+}
+
+async function countDownload(request, env, link) {
+  if (!env.DB || !env.LIMIT || !countsAsDownload(request)) return;
+  // Dieselbe Adresse mehrfach in kurzer Zeit (Doppelklick, Abbruch und neu)
+  // zählt einmal — die Bremse ist dieselbe wie bei der Meldung.
+  const ip = request.headers.get('cf-connecting-ip') || 'unbekannt';
+  const { success } = await env.LIMIT.limit({ key: 'dl:' + ip });
+  if (!success) return;
+  const day = new Date().toISOString().slice(0, 10);
+  await env.DB.prepare(
+    'INSERT INTO downloads (tag, system, land, n) VALUES (?1, ?2, ?3, 1) ' +
+    'ON CONFLICT (tag, system, land) DO UPDATE SET n = n + 1'
+  ).bind(day, link.system, country(request)).run();
+}
+
+function shortLink(request, env, ctx, link) {
+  // ⚠ Die Weiterleitung kommt IMMER und sofort — gezählt wird nebenher. Ein
+  // klemmender Zähler darf keinen Download verhindern.
+  const counting = countDownload(request, env, link).catch(() => {});
+  if (ctx && ctx.waitUntil) ctx.waitUntil(counting);
+  return new Response(null, {
+    status: 302,
+    headers: { location: link.target, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' },
+  });
 }
 
 const SECURITY = {
@@ -281,6 +333,9 @@ export default {
     // ⚠ Die Übersicht NUR unter ihrer eigenen Adresse — dort sitzt Access
     // davor. Über workers.dev oder nutzung-versekit.xharig.com gibt es sie nicht.
     if (url.hostname === STATS_HOST) return stats(request, env, ctx, verify);
+    if (url.hostname === SHORT_HOST && SHORT_LINKS[url.pathname]) {
+      return shortLink(request, env, ctx, SHORT_LINKS[url.pathname]);
+    }
     if (url.pathname === '/ping') return ping(request, env);
     return answer(404, 'nicht hier');
   },

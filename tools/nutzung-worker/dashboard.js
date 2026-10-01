@@ -49,6 +49,12 @@ main { max-width:1200px; margin:0 auto; padding:8px 16px 32px; display:grid;
 .note { color:var(--sub); font-size:12px; margin-top:8px; }
 svg text { fill:var(--sub); font-size:11px; }
 .empty { color:var(--sub); padding:20px 0; }
+.scroll { overflow-x:auto; }
+.tab { width:100%; border-collapse:collapse; font-size:13px; }
+.tab th { text-align:left; color:var(--sub); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+.tab td { padding:6px 8px; border-bottom:1px solid var(--line); }
+.tab .num { text-align:right; font-variant-numeric:tabular-nums; }
+.tab th:not(:first-child) { text-align:right; }
 </style>
 </head>
 <body>
@@ -158,7 +164,9 @@ function render(d, span) {
   k.appendChild($('div', { class: 'kpis' }, [
     kpi(perDay[today] || 0, 'heute bisher'), kpi(perDay[yesterday] || 0, 'gestern'),
     kpi(avg(7).toFixed(1), 'Ø letzte 7 Tage'), kpi(avg(30).toFixed(1), 'Ø letzte 30 Tage'),
-    kpi(peak, 'bester Tag im Zeitraum'), kpi(dlTotal, 'Downloads gesamt')]));
+    kpi(peak, 'bester Tag im Zeitraum'), kpi(dlTotal, 'Downloads gesamt'),
+    kpi((d.kurzlinks || []).filter((r) => days.includes(r.tag)).reduce((a, r) => a + r.n, 0),
+        'über die Webseite (Zeitraum)')]));
   k.appendChild($('div', { class: 'note', text: 'Aktiv = hat sich an dem Tag gemeldet (UTC). Jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Erst ab v3.65.0.' }));
 
   lineChart(card('Aktive Installationen je Tag', true), days, [
@@ -178,9 +186,32 @@ function render(d, span) {
   const vers = {}; for (const r of d.tage) if (r.tag === yesterday) vers[r.version] = (vers[r.version] || 0) + r.n;
   bars(card('Versionen gestern'), Object.entries(vers).sort((a, b) => b[1] - a[1]).slice(0, 10), (v) => v);
 
-  const lands = {}; for (const r of d.tage) if (win.has(r.tag)) lands[r.land] = (lands[r.land] || 0) + r.n;
-  bars(card('Länder (Ø 7 Tage)'), Object.entries(lands).sort((a, b) => b[1] - a[1]).slice(0, 15)
-    .map(([c, v]) => [landName(c), v]), (v) => pct(v));
+  // Länder: aktive Nutzer (Ø der letzten 7 vollen Tage) und Downloads über die
+  // Kurzlinks im gewählten Zeitraum nebeneinander. Downloads direkt bei GitHub
+  // und Auto-Updates kennen kein Land und fehlen hier.
+  const lands = {};
+  const row = (c) => (lands[c] = lands[c] || { users: 0, dl: 0 });
+  for (const r of d.tage) if (win.has(r.tag)) row(r.land).users += r.n;
+  const inSpan = new Set(days);
+  for (const r of (d.kurzlinks || [])) if (inSpan.has(r.tag)) row(r.land).dl += r.n;
+  const userSum = Object.values(lands).reduce((a, x) => a + x.users, 0);
+  const dlSum = Object.values(lands).reduce((a, x) => a + x.dl, 0);
+  const lc = card('Länder — Nutzer und Downloads', true);
+  const entries = Object.entries(lands).sort((a, b) => (b[1].users - a[1].users) || (b[1].dl - a[1].dl));
+  if (!entries.length) {
+    lc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
+  } else {
+    const head = $('tr', {}, ['Land', 'aktive Nutzer (Ø 7 Tage)', 'Anteil', 'Downloads (Zeitraum)', 'Anteil']
+      .map((h) => $('th', { text: h })));
+    const body = entries.slice(0, 25).map(([c, x]) => $('tr', {}, [
+      $('td', { text: landName(c) }),
+      $('td', { class: 'num', text: win.size ? (x.users / win.size).toFixed(1) : '—' }),
+      $('td', { class: 'num', text: userSum ? Math.round((x.users / userSum) * 100) + ' %' : '—' }),
+      $('td', { class: 'num', text: String(x.dl) }),
+      $('td', { class: 'num', text: dlSum ? Math.round((x.dl / dlSum) * 100) + ' %' : '—' })]));
+    lc.appendChild($('div', { class: 'scroll' }, [$('table', { class: 'tab' }, [$('thead', {}, [head]), $('tbody', {}, body)])]));
+  }
+  lc.appendChild($('div', { class: 'note', text: 'Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.' }));
 
   bars(card('Sprache der Oberfläche (Ø 7 Tage)'), share('ui').map(([c, v]) => [langName(c), v]), pct);
   bars(card('Sprache des Spiels (Ø 7 Tage)'), share('game').map(([c, v]) => [langName(c), v]), pct);

@@ -13,6 +13,17 @@ CREATE TABLE IF NOT EXISTS tage (
   PRIMARY KEY (tag, version, system, land)
 );
 
+-- Downloads über die Kurzlinks xharig.com/windows und xharig.com/linux, je
+-- Tag, System und Land. Downloads direkt auf GitHub und Auto-Updates sieht
+-- hier niemand — GitHub verrät kein Land.
+CREATE TABLE IF NOT EXISTS downloads (
+  tag     TEXT    NOT NULL,
+  system  TEXT    NOT NULL,
+  land    TEXT    NOT NULL,
+  n       INTEGER NOT NULL,
+  PRIMARY KEY (tag, system, land)
+);
+
 -- Weitere Merkmale, je eines für sich gezählt (Sprache, Testversionen,
 -- Bereiche, Overlay, Autostart). Bewusst NICHT mit der Tabelle oben
 -- verknüpft: Kombinationen würden kleine Gruppen erkennbar machen.
