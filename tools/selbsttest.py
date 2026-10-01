@@ -25859,6 +25859,7 @@ def main():
     _pruefung_306()
     _pruefung_307()
     _pruefung_308()
+    _pruefung_309()
 
     print()
     if fehler:
@@ -31368,6 +31369,94 @@ def _pruefung_307():
             inhalt = f.read()
         pruefe(all(w in inhalt for w in woerter),
                '%s nennt Handle, Sicherung, .bak.json und Bericht' % datei)
+
+
+_KIND309 = r'''
+import os, sys
+sys.path.insert(0, sys.argv[1])
+os.environ['VERSEKIT_DPI_FAKTOR'] = '1.5'
+from scbp import dpi
+if not dpi.install():
+    print('FEHL|dpi.install() mit erzwungenem Faktor')
+    sys.exit(0)
+import tkinter as tk
+import tkinter.font as tkfont
+try:
+    root = tk.Tk()
+except tk.TclError:
+    print('OHNE')
+    sys.exit(0)
+raw = root.tk.call
+
+
+def check(ok, text):
+    print('%s|%s' % ('OK' if ok else 'FEHL', text))
+
+
+check(abs(float(raw('tk', 'scaling')) - 2.0) < 0.01,
+      'tk scaling = Faktor x 96/72 (Schrift in Punkt waechst mit)')
+frame = tk.Frame(root, width=100, height=40, padx=4)
+frame.pack(padx=(10, 20), pady=6)
+frame.pack_propagate(False)
+root.geometry('400x300+50+60')
+root.update()
+check(frame.winfo_reqwidth() == 100, 'winfo_reqwidth logisch (100)')
+check(int(raw('winfo', 'reqwidth', frame._w)) == 150,
+      'Tk rechnet physisch (150)')
+check(frame.cget('width') == 100 and frame['padx'] == 4,
+      'cget und [] liefern logische Masse')
+check(frame.pack_info()['padx'] in ((10, 20), '10 20'),
+      'pack_info liefert logische Abstaende')
+check(root.geometry().startswith('400x300'), 'geometry hin und zurueck')
+root.minsize(200, 100)
+check(root.minsize() == (200, 100), 'minsize hin und zurueck')
+label = tk.Label(root, text='abc', width=10)
+label.pack()
+check(str(raw(label._w, 'cget', '-width')) == '10',
+      'Label-Breite in Zeichen bleibt unveraendert')
+canvas = tk.Canvas(root, width=44, height=24)
+canvas.pack()
+item = canvas.create_oval(5, 6, 19, 20, width=2)
+check([round(v, 6) for v in canvas.coords(item)] == [5, 6, 19, 20],
+      'Leinwand-Koordinaten ohne Rundungsfehler')
+check([round(float(v), 3) for v in raw(canvas._w, 'coords', item)]
+      == [7.5, 9, 28.5, 30], 'Leinwand physisch x1,5')
+font = tkfont.Font(family='Helvetica', size=10)
+check(abs(font.measure('Hallo Welt')
+          - int(raw('font', 'measure', font.name, 'Hallo Welt')) / 1.5) <= 1,
+      'Schriftbreite logisch')
+sizes = []
+root.bind('<Configure>', lambda e: sizes.append(e.width), add='+')
+root.geometry('500x320')
+root.update()
+check(500 in sizes, 'Configure-Ereignis liefert logische Breite')
+from scbp import screen_grab
+check(screen_grab.dpi_scale() == 1.5, 'Bildschirmabgriff kennt den Faktor')
+root.destroy()
+'''
+
+
+def _pruefung_309():
+    """309. Scharfe Darstellung: Umrechnung an der Tkinter-Grenze (`dpi`)."""
+    print('\n309. Scharfe Darstellung (Umrechnung logisch/physisch)')
+    from scbp import dpi as _dpi309
+    pruefe(not _dpi309.active(), 'Ab Werk keine Umrechnung')
+    pruefe(_dpi309.px(14) == 14 and _dpi309.logical(14) == 14,
+           'Ohne Faktor bleiben Masse unveraendert')
+    lauf = subprocess.run([sys.executable, '-c', _KIND309, WURZEL],
+                          capture_output=True, text=True, timeout=60,
+                          env=dict(os.environ, PYTHONIOENCODING='utf-8'))
+    zeilen = [z for z in lauf.stdout.splitlines() if z.strip()]
+    if zeilen == ['OHNE']:
+        print('  [--]   kein Bildschirm fuer Tk — Rest uebersprungen')
+        return
+    pruefe(lauf.returncode == 0 and len(zeilen) >= 13,
+           'Kindprozess lief durch (%d Zeilen)%s'
+           % (len(zeilen), '' if lauf.returncode == 0
+              else ': ' + lauf.stderr.strip()[-300:]))
+    for zeile in zeilen:
+        stand, _, text = zeile.partition('|')
+        pruefe(stand == 'OK', text or zeile)
 
 
 def _pruefung_308():

@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import screen, errors, fields, notice, news, paths, icons
+from . import screen, errors, fields, notice, news, paths, icons, dpi
 from .language import t, window_title
 from . import theme
 
@@ -2133,7 +2133,7 @@ class MainWindow:
         if png and os.path.exists(png):
             try:
                 full_color = tk.PhotoImage(file=png)
-                teiler = max(1, full_color.width() // 22)
+                teiler = max(1, full_color.width() // dpi.px(22))
                 self._icon_image = full_color.subsample(teiler, teiler)
                 tk.Label(bar, image=self._icon_image, bg=BAR).pack(side='left',
                                                                  padx=(12, 8), pady=8)
@@ -2804,7 +2804,7 @@ class MainWindow:
         ⚠ Das 240er Original bleibt liegen — als Rückfall, wenn eine Stufe
         fehlt, und als Quelle, wenn später eine Größe dazukommt."""
         try:
-            wanted = self.f_base.metrics('linespace') * 4.5
+            wanted = dpi.px(self.f_base.metrics('linespace') * 4.5)
             # ⚠ Erst den Ordner auflösen, dann die Datei darin. Der Bau packt
             # `assets/community` als Ganzes ein (wie `assets/flaggen`), und die
             # Prüfung „der Bau liefert … mit" liest den letzten Namen im

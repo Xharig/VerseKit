@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.68.0 - 2026-10-01
+
+> Läuft Windows bei dir mit 150 % Skalierung, etwa am 4K-Bildschirm, und wirkt
+> Verse-Kit verwaschen? Dann probier die neue scharfe Darstellung: gleiche
+> Größe, aber gestochen scharf.
+
+### Neu
+
+- **Scharfe Darstellung (Test)** — bei Windows-Skalierung über 100 % zeichnet
+  Verse-Kit selbst in voller Auflösung, statt von Windows hochgerechnet zu
+  werden. Fenster, Seiten und Overlay bleiben so groß und dort, wo sie waren,
+  sind aber scharf. Einschalten unter *Einstellungen → Darstellung*, wirkt nach
+  einem Neustart. Ab Werk aus, solange es getestet wird. Gemeldet von greluc
+  (KRT)
+
 ## v3.67.0 - 2026-10-01
 
 > Du trackst deine Baupläne auf scmdb.net? Dann musst du ab jetzt nichts mehr

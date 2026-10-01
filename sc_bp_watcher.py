@@ -55,6 +55,7 @@ from scbp import (
                   paths, phrases, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
 from scbp import theme
+from scbp import dpi
 from scbp import basetool_sync
 
 try:
@@ -62,7 +63,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.67.0'
+__version__ = '3.68.0'
 
 
 def _mitgeliefert(name):
@@ -5398,7 +5399,7 @@ class Overlay:
 
             punkt = POINT()
             if ctypes.windll.user32.GetCursorPos(ctypes.byref(punkt)):
-                return int(punkt.x), int(punkt.y)
+                return dpi.logical(int(punkt.x)), dpi.logical(int(punkt.y))
         except Exception:
             pass
         return self.root.winfo_pointerxy()
@@ -5643,6 +5644,9 @@ if __name__ == '__main__':
     # vor diesem Aufruf entsteht — weiterhin die helle Leiste des Systems.
     # Unter Linux tut der Aufruf nichts und kostet nichts.
     titlebar.install()
+    # Scharfe Darstellung bei Windows-Skalierung: vor `tk.Tk()`, siehe `dpi`.
+    if dpi.install():
+        errors.trail('Scharfe Darstellung an, Faktor %.2f' % dpi.factor())
     # ⚠ `className` setzt die Fensterklasse, an der die Arbeitsumgebung das
     # Fenster unserer Verknuepfung zuordnet. Ohne sie heisst die Wurzel `Tk`
     # und faellt aus der Zuordnung — siehe `paths.WM_CLASS`.

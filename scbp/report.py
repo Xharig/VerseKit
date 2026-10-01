@@ -420,6 +420,11 @@ def _screens(root):
                 line += t('b_fenster_zu_hoch')
     except Exception:
         pass
+    from . import dpi
+    if dpi.active():
+        line += t('b_scharf') % dpi.factor()
+    elif dpi.wanted():
+        line += t('b_scharf_ohne')
     return line
 
 

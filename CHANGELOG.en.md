@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.68.0 - 2026-10-01
+
+> Running Windows at 150 % scaling, say on a 4K screen, and Verse-Kit looks
+> washed out? Then try the new sharp rendering: same size, but crisp.
+
+### New
+
+- **Sharp rendering (test)** — with Windows scaling above 100 %, Verse-Kit
+  renders at full resolution itself instead of being upscaled by Windows.
+  Windows, pages and the overlay keep their size and place but are sharp.
+  Turn it on under *Settings → Appearance*; it takes effect after a restart.
+  Off by default while it is being tested. Reported by greluc (KRT)
+
 ## v3.67.0 - 2026-10-01
 
 > Tracking your blueprints on scmdb.net? From now on there's nothing to export

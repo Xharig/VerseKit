@@ -36,6 +36,7 @@ herauskam. Übersicht aller Symbole: siehe Projektnotizen.
 import os
 import sys
 import tkinter as tk
+from . import dpi
 from . import theme
 
 
@@ -185,6 +186,35 @@ def hover_px(sizes=None):
     return jetzt + 4
 
 
+_SIZES = []
+
+
+def _available_sizes():
+    """Die mitgelieferten Kantenlängen (Ordnernamen unter `assets/symbole`)."""
+    if not _SIZES:
+        try:
+            _SIZES.extend(sorted(int(n) for n in os.listdir(_bundled())
+                                 if n.isdigit()))
+        except Exception:
+            pass
+    return _SIZES
+
+
+def _file_for(name, px, color):
+    """Pfad zum Symbolbild. Bei scharfer Darstellung (`dpi`) die mitgelieferte
+    Größe, die der physischen Kantenlänge am nächsten liegt."""
+    filename = '%s-%s.png' % (name, color)
+    if not dpi.active():
+        return _bundled(str(px), filename)
+    target = dpi.px(px)
+    found = [s for s in _available_sizes()
+             if os.path.exists(_bundled(str(s), filename))]
+    if not found:
+        return _bundled(str(px), filename)
+    best = min(found, key=lambda s: (abs(s - target), -s))
+    return _bundled(str(best), filename)
+
+
 def photo(name, px, color=GREY, master=None):
     """Ein Symbol als `tk.PhotoImage` — beim zweiten Mal aus dem Speicher.
 
@@ -206,9 +236,8 @@ def photo(name, px, color=GREY, master=None):
     if (name, px, color) in _MISSING:
         return None
     try:
-        _CACHE[key] = tk.PhotoImage(
-            file=_bundled(str(px), '%s-%s.png' % (name, color)),
-            master=master)
+        _CACHE[key] = tk.PhotoImage(file=_file_for(name, px, color),
+                                    master=master)
         return _CACHE[key]
     except Exception:
         _MISSING.add((name, px, color))

@@ -36,7 +36,7 @@ import time
 import tkinter as tk
 
 from . import report, collection as bestand_datei, errors, catalog as katalog_modul
-from . import paths, icons
+from . import paths, icons, dpi
 from .language import t, pa_field
 from . import theme
 
@@ -1973,6 +1973,9 @@ def _flag(code, master=None):
     (MIT-Lizenz, Vorlage und Lizenz unter `tools/flaggen-vorlagen/`) und
     liegen je Zeilengröße fertig unter `assets/flaggen/`."""
     size = icons.LINE.get(icons.level(), 14)
+    if dpi.active():
+        size = min(sorted(set(icons.LINE.values())),
+                   key=lambda s: (abs(s - dpi.px(size)), -s))
     from .main_window import _bundled
     # Der Name in einer eigenen Zeile: Die Bau-Prüfung liest Dateinamen aus
     # `_bundled(…)` und hielte das Muster sonst für eine Datei.
@@ -2013,6 +2016,37 @@ def _appearance(window, frame):
     _scheme_row(window, inner)
     _language_row(window, inner)
     _font_size_row(window, inner)
+    _sharp_row(window, inner)
+
+
+def _sharp_row(window, inner):
+    """Scharfe Darstellung bei Windows-Skalierung über 100 % (`dpi`) — wirkt
+    nach einem Neustart, ab Werk aus."""
+    from .main_window import toggle_switch
+    target = _setting_row(window, inner, t('s_da_scharf'), t('s_da_scharf_h'))
+    if not sys.platform.startswith('win'):
+        tk.Label(target, text=t('s_nur_win'), bg=BG, fg=SUB,
+                 font=window.f_small).pack()
+        return
+    restart = tk.Frame(inner, bg=BG)
+
+    def flip():
+        new_value = not dpi.wanted()
+        paths.set_setting(dpi.SETTING, new_value)
+        for child in restart.winfo_children():
+            child.destroy()
+        if new_value != dpi.active():
+            _body_text(restart, t('s_da_scharf_neustart'), window.f_small,
+                       fill='x', pady=(8, 4))
+            _button(window, restart, t('s_da_neustart_knopf'),
+                    lambda: restart_and_hand_over(window),
+                    strong=True).pack(anchor='w')
+        window.say('%s: %s' % (t('s_da_scharf'),
+                               t('e_an') if new_value else t('e_aus')))
+        return new_value
+
+    toggle_switch(target, dpi.wanted(), flip).pack()
+    restart.pack(fill='x')
 
 
 def _scheme_row(window, inner):
@@ -6788,7 +6822,7 @@ def _thanks(fenster, rahmen):
     if logo and os.path.exists(logo):
         try:
             voll = tk.PhotoImage(file=logo)
-            teiler = max(1, voll.width() // 64)
+            teiler = max(1, voll.width() // dpi.px(64))
             fenster._author_logo = voll.subsample(teiler, teiler)
             tk.Label(zeile, image=fenster._author_logo, bg=SURFACE).pack(
                 side='left', padx=(0, 16))
@@ -6987,7 +7021,7 @@ def _about(fenster, rahmen):
             voll = tk.PhotoImage(file=symbol)
             # `subsample` verkleinert nur ganzzahlig — 48 px ist die Größe, die
             # neben zwei Textzeilen sitzt, ohne die Karte auseinanderzuziehen.
-            teiler = max(1, voll.width() // 48)
+            teiler = max(1, voll.width() // dpi.px(48))
             fenster._about_logo = voll.subsample(teiler, teiler)
             tk.Label(kopf, image=fenster._about_logo, bg=SURFACE).pack(
                 side='left', padx=(0, 14))

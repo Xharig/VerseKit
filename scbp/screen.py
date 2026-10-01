@@ -47,6 +47,8 @@ import re
 import subprocess
 import sys
 
+from . import dpi
+
 # Das Overlay-Fenster. Das Hauptprogramm trägt sich hier beim Start ein, damit der
 # Knopf „Fensterlage zurücksetzen" es sofort verschieben kann — ohne dass dieses
 # Modul das Hauptprogramm importieren muss (das gäbe einen Ringschluss).
@@ -77,7 +79,7 @@ def _windows_primary():
         width = int(benutzer.GetSystemMetrics(0))
         height = int(benutzer.GetSystemMetrics(1))
         if width > 0 and height > 0:
-            return 0, 0, width, height
+            return dpi.logical_rect((0, 0, width, height))
     except Exception:
         pass
     return None
@@ -128,7 +130,7 @@ def _windows_all_screens():
 
         ctypes.windll.user32.EnumDisplayMonitors(None, None,
                                                  rueckruf_typ(sammeln), 0)
-        return [s for s in screens if s[2] > 0 and s[3] > 0]
+        return [dpi.logical_rect(s) for s in screens if s[2] > 0 and s[3] > 0]
     except Exception:
         return []
 
@@ -220,9 +222,9 @@ def _windows_work_area():
             48, 0, ctypes.byref(rechteck), 0)
         if ok and rechteck.right > rechteck.left \
                 and rechteck.bottom > rechteck.top:
-            return (int(rechteck.left), int(rechteck.top),
-                    int(rechteck.right - rechteck.left),
-                    int(rechteck.bottom - rechteck.top))
+            return dpi.logical_rect((int(rechteck.left), int(rechteck.top),
+                                     int(rechteck.right - rechteck.left),
+                                     int(rechteck.bottom - rechteck.top)))
     except Exception:
         pass
     return None
