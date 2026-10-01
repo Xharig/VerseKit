@@ -23,7 +23,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   blueprints always go by their English name so scmdb matches them reliably.
   Off by default. Thanks to Krovax (scmdb) for the interface
 
-### Changed
+### Improved
 
 - **Basetool sync more careful** — after an error Verse-Kit waits longer
   before it tries again. If the Basetool blocks the connection or a permission

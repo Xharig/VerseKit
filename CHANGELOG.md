@@ -23,7 +23,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   und HOTFIX, Baupläne immer unter ihrem englischen Namen, damit scmdb sie
   sicher zuordnet. Ab Werk aus. Danke an Krovax (scmdb) für die Schnittstelle
 
-### Geändert
+### Verbessert
 
 - **Basetool-Abgleich vorsichtiger** — nach einem Fehler wartet Verse-Kit
   länger, bevor es neu versucht. Sperrt das Basetool die Verbindung oder fehlt
