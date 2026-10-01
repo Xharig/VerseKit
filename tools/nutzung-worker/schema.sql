@@ -34,3 +34,11 @@ CREATE TABLE IF NOT EXISTS merkmale (
   n       INTEGER NOT NULL,
   PRIMARY KEY (tag, merkmal, wert)
 );
+
+-- Zuletzt geholte GitHub-Zahlen (je Seite mit ETag, dazu die Gesamtliste).
+-- Antwortet GitHub nicht, zeigt die Übersicht diese — mit ihrer Uhrzeit.
+CREATE TABLE IF NOT EXISTS ablage (
+  schluessel TEXT    PRIMARY KEY,
+  inhalt     TEXT    NOT NULL,
+  zeit       INTEGER NOT NULL
+);

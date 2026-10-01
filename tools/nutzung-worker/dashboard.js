@@ -208,7 +208,8 @@ function render(d, span) {
   // wie in der Kurve oben. Direkt unter der Kurve, damit man nicht scrollt.
   // Eingeklappt die letzten 5, ausgeklappt alle fertigen Versionen. Die Wahl
   // merkt sich der Browser (nur bequem — fehlt der Speicher, gilt eingeklappt).
-  const rel = d.downloads.filter((r) => !r.vorab);
+  // Versionen ohne einen einzigen Download (frühe Fassungen) blähen nur auf.
+  const rel = d.downloads.filter((r) => !r.vorab && r.windows + r.linux > 0);
   const SHOWN = 5;
   let open = false;
   try { open = localStorage.getItem('dl-alle') === '1'; } catch (e) { open = false; }
@@ -239,6 +240,14 @@ function render(d, span) {
       try { localStorage.setItem('dl-alle', open ? '1' : '0'); } catch (e) { /* nur bequem */ }
     });
     dlCard.appendChild(toggle);
+  }
+  if (d.downloads_stand) {
+    const at = new Date(d.downloads_stand).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    dlCard.appendChild($('div', { class: 'note', text: d.downloads_alt
+      ? 'GitHub antwortet gerade nicht — das sind die Zahlen von ' + at + ' Uhr.'
+      : 'Zahlen von GitHub, Stand ' + at + ' Uhr.' }));
+  } else if (d.downloads_alt) {
+    dlCard.appendChild($('div', { class: 'note', text: 'GitHub antwortet gerade nicht — noch keine gespeicherten Zahlen.' }));
   }
   dlCard.appendChild($('div', { class: 'legend' }, [
     $('span', {}, [$('i', { style: 'background:var(--b)' }), document.createTextNode('Windows')]),

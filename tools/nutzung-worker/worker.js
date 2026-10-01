@@ -202,38 +202,72 @@ export async function verifyAccess(request, env, fetchCerts = fetch) {
 
 // ------------------------------------------------------------ Übersicht
 
-async function downloads(ctx) {
-  // Öffentliche Zahlen von GitHub, zehn Minuten zwischengespeichert — so lang,
-  // wie die Seite ohnehin wartet. (Erst eine Stunde: nach einem Release fehlte
-  // die neue Fassung bis zu einer Stunde lang.)
-  const cache = typeof caches !== 'undefined' ? caches.default : null;
-  // ⚠ GitHub gibt je Abruf höchstens 100 Releases heraus — VerseKit hat mehr.
-  // Ohne Blättern fehlten die ältesten (gemessen: 866 statt 1236 Downloads).
-  const key = new Request(`https://api.github.com/repos/${REPO}/releases?alle=2`);
+// GitHub-Downloads je Version. ⚠⚠ Ohne Anmeldung erlaubt GitHub 60 Abrufe je
+// Stunde und Absender-Adresse — und Cloudflare-Worker teilen sich ihre
+// Adressen mit vielen anderen. Am 01.10.2026 stand deshalb plötzlich „0
+// Downloads", die Seite war leer. Seitdem:
+//   1. Höchstens alle 10 Minuten wird GitHub überhaupt gefragt.
+//   2. Mit ETag („hat sich etwas geändert?") — eine 304-Antwort zählt bei
+//      GitHub NICHT gegen die Grenze.
+//   3. Scheitert der Abruf, gelten die zuletzt gespeicherten Zahlen weiter —
+//      mit ihrer Uhrzeit, damit die Seite nicht lügt.
+// Abgelegt in der Tabelle `ablage` (schluessel, inhalt, zeit).
+const DL_MAX_AGE = 10 * 60 * 1000;
+
+async function stored(env, key) {
   try {
-    let r = cache && (await cache.match(key));
-    if (!r) {
-      const all = [];
-      for (let page = 1; page <= 10; page++) {
-        const fresh = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100&page=${page}`,
-          { headers: { 'user-agent': 'versekit-statistik', accept: 'application/vnd.github+json' } });
-        if (!fresh.ok) return [];
-        const batch = await fresh.json();
-        all.push(...batch);
-        if (batch.length < 100) break;
-      }
-      r = new Response(JSON.stringify(all), { headers: { 'cache-control': 'max-age=600', 'content-type': 'application/json' } });
-      if (cache && ctx) ctx.waitUntil(cache.put(key, r.clone()));
-    }
-    return (await r.json()).map((rel) => ({
-      tag: rel.tag_name,
-      am: String(rel.published_at || '').slice(0, 10),
-      vorab: !!rel.prerelease,
-      windows: rel.assets.filter((a) => a.name.endsWith('.exe')).reduce((s, a) => s + a.download_count, 0),
-      linux: rel.assets.filter((a) => a.name.endsWith('.AppImage')).reduce((s, a) => s + a.download_count, 0),
-    }));
+    const { results } = await env.DB.prepare('SELECT inhalt, zeit FROM ablage WHERE schluessel = ?1').bind(key).all();
+    const row = results && results[0];
+    return row && row.inhalt ? { data: JSON.parse(row.inhalt), zeit: row.zeit } : null;
   } catch (e) {
-    return [];
+    return null;
+  }
+}
+
+async function store(env, key, data) {
+  await env.DB.prepare(
+    'INSERT INTO ablage (schluessel, inhalt, zeit) VALUES (?1, ?2, ?3) ' +
+    'ON CONFLICT (schluessel) DO UPDATE SET inhalt = ?2, zeit = ?3'
+  ).bind(key, JSON.stringify(data), Date.now()).run();
+}
+
+function compact(rel) {
+  return {
+    tag: rel.tag_name,
+    am: String(rel.published_at || '').slice(0, 10),
+    vorab: !!rel.prerelease,
+    windows: (rel.assets || []).filter((a) => a.name.endsWith('.exe')).reduce((s, a) => s + a.download_count, 0),
+    linux: (rel.assets || []).filter((a) => a.name.endsWith('.AppImage')).reduce((s, a) => s + a.download_count, 0),
+  };
+}
+
+export async function downloads(env, now = Date.now()) {
+  const last = await stored(env, 'downloads');
+  if (last && now - last.zeit < DL_MAX_AGE) return { liste: last.data, stand: last.zeit, alt: false };
+  try {
+    const all = [];
+    for (let page = 1; page <= 10; page++) {
+      const before = await stored(env, 'seite:' + page);
+      const headers = { 'user-agent': 'versekit-statistik', accept: 'application/vnd.github+json' };
+      if (before && before.data.etag) headers['if-none-match'] = before.data.etag;
+      const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100&page=${page}`, { headers });
+      let rows, count;
+      if (r.status === 304 && before) {
+        rows = before.data.rows; count = before.data.count;
+      } else if (r.ok) {
+        const batch = await r.json();
+        rows = batch.map(compact); count = batch.length;
+        await store(env, 'seite:' + page, { etag: r.headers.get('etag') || '', rows, count });
+      } else {
+        throw new Error('GitHub ' + r.status);
+      }
+      all.push(...rows);
+      if (count < 100) break;
+    }
+    await store(env, 'downloads', all);
+    return { liste: all, stand: now, alt: false };
+  } catch (e) {
+    return last ? { liste: last.data, stand: last.zeit, alt: true } : { liste: [], stand: null, alt: true };
   }
 }
 
@@ -242,11 +276,11 @@ async function data(env, ctx, days) {
   const [t, m, dl, links] = await Promise.all([
     env.DB.prepare('SELECT tag, version, system, land, n FROM tage WHERE tag >= ?1').bind(since).all(),
     env.DB.prepare('SELECT tag, merkmal, wert, n FROM merkmale WHERE tag >= ?1').bind(since).all(),
-    downloads(ctx),
+    downloads(env),
     env.DB.prepare('SELECT tag, system, land, n FROM downloads WHERE tag >= ?1').bind(since).all(),
   ]);
-  return { tage: t.results || [], merkmale: m.results || [], downloads: dl,
-           kurzlinks: links.results || [] };
+  return { tage: t.results || [], merkmale: m.results || [], downloads: dl.liste,
+           downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [] };
 }
 
 // ------------------------------------------------------------ Kurzlinks

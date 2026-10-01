@@ -291,3 +291,70 @@ test('alle vier Schreibweisen der Kurzlinks führen zur Datei', async () => {
     assert.match(r.headers.get('location'), /releases\/latest\/download\//, url);
   }
 });
+
+// ---------------------------------------------------------------- GitHub-Zahlen
+
+import { downloads } from './worker.js';
+
+function ablageDb() {
+  const map = new Map();
+  return {
+    map,
+    prepare(sql) {
+      return { bind(...args) { return {
+        all: async () => {
+          const row = map.get(args[0]);
+          return { results: row ? [row] : [] };
+        },
+        run: async () => { map.set(args[0], { inhalt: args[1], zeit: args[2] }); return {}; },
+      }; } };
+    },
+  };
+}
+const rel = (tag, exe, app) => ({ tag_name: tag, published_at: '2026-10-01T00:00:00Z', prerelease: false,
+  assets: [{ name: 'VerseKit-Setup.exe', download_count: exe }, { name: 'VerseKit-x86_64.AppImage', download_count: app }] });
+
+test('Vorbedingung: frische Zahlen werden geholt und abgelegt', async () => {
+  const env = { DB: ablageDb() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0', 4, 1)]), { headers: { etag: '"a1"' } });
+  const r = await downloads(env, 1_000_000);
+  assert.equal(r.alt, false);
+  assert.deepEqual(r.liste.map((x) => [x.tag, x.windows, x.linux]), [['v3.65.0', 4, 1]]);
+  assert.ok(env.DB.map.has('downloads') && env.DB.map.has('seite:1'));
+});
+
+test('innerhalb von 10 Minuten wird GitHub gar nicht gefragt', async () => {
+  const env = { DB: ablageDb() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0', 4, 1)]));
+  await downloads(env, 1_000_000);
+  let asked = 0;
+  globalThis.fetch = async () => { asked++; return new Response('[]'); };
+  const r = await downloads(env, Date.now());
+  assert.equal(asked, 0);
+  assert.equal(r.liste.length, 1);
+});
+
+test('GitHub sperrt: die gespeicherten Zahlen bleiben, mit Uhrzeit und Vermerk', async () => {
+  const env = { DB: ablageDb() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0', 4, 1)]), { headers: { etag: '"a1"' } });
+  await downloads(env);
+  const zeit = env.DB.map.get('downloads').zeit;
+  globalThis.fetch = async () => new Response('rate limit', { status: 403 });
+  const r = await downloads(env, zeit + 11 * 60 * 1000);
+  assert.equal(r.alt, true);
+  assert.equal(r.stand, zeit);
+  assert.equal(r.liste.length, 1, 'die Seite darf nicht leer werden');
+});
+
+test('304 („nichts geändert") nutzt die abgelegte Seite und schickt das ETag mit', async () => {
+  const env = { DB: ablageDb() };
+  globalThis.fetch = async () => new Response(JSON.stringify([rel('v3.65.0', 4, 1)]), { headers: { etag: '"a1"' } });
+  await downloads(env);
+  const zeit = env.DB.map.get('downloads').zeit;
+  let sent = null;
+  globalThis.fetch = async (url, init) => { sent = init.headers['if-none-match']; return new Response(null, { status: 304 }); };
+  const r = await downloads(env, zeit + 11 * 60 * 1000);
+  assert.equal(sent, '"a1"');
+  assert.equal(r.alt, false);
+  assert.equal(r.liste[0].windows, 4);
+});
