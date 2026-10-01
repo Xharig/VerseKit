@@ -45,6 +45,7 @@ main { max-width:1200px; margin:0 auto; padding:8px 16px 32px; display:grid;
        align-items:center; margin:5px 0; font-size:13px; }
 .bar .track { background:var(--line); border-radius:4px; height:10px; overflow:hidden; }
 .bar .fill { background:var(--accent); height:100%; }
+.bar .track.stack { display:flex; }
 .bar .n { color:var(--sub); font-variant-numeric:tabular-nums; min-width:52px; text-align:right; }
 .note { color:var(--sub); font-size:12px; margin-top:8px; }
 svg text { fill:var(--sub); font-size:11px; }
@@ -74,7 +75,14 @@ svg text { fill:var(--sub); font-size:11px; }
 'use strict';
 const $ = (t, a = {}, kids = []) => {
   const e = document.createElement(t);
-  for (const [k, v] of Object.entries(a)) k === 'text' ? (e.textContent = v) : e.setAttribute(k, v);
+  // ⚠ \`style\` NICHT als Attribut: Die Content-Security-Policy erlaubt Stil nur
+  // mit Einmal-Wert und blockiert style="…" — die Legenden-Kästchen blieben
+  // farblos. Über das Stil-Objekt gesetzt, ist es erlaubt.
+  for (const [k, v] of Object.entries(a)) {
+    if (k === 'text') e.textContent = v;
+    else if (k === 'style') e.style.cssText = v;
+    else e.setAttribute(k, v);
+  }
   for (const c of kids) e.appendChild(c);
   return e;
 };
@@ -174,17 +182,20 @@ function render(d, span) {
     { name: 'Windows', color: 'var(--b)', values: days.map((t) => perSys.windows[t] || 0) },
     { name: 'Linux', color: 'var(--c)', values: days.map((t) => perSys.linux[t] || 0) }]);
 
-  // Anteile über die letzten 7 vollen Tage: Summe der Meldungen mit dem Wert
-  // geteilt durch alle Meldungen — ein Durchschnitt, keine Personenzahl.
-  const win = new Set(full.slice(-7));
+  // Anteile über die letzten 7 Tage INKLUSIVE heute, aber nur Tage mit
+  // Meldungen: Summe der Meldungen mit dem Wert geteilt durch alle Meldungen —
+  // ein Durchschnitt, keine Personenzahl. (Erst nur volle Tage: am ersten Tag
+  // stand überall „Noch keine Daten", obwohl schon gemeldet wurde.)
+  const win = new Set(days.slice(-7).filter((t) => perDay[t]));
   const base = [...win].reduce((a, t) => a + (perDay[t] || 0), 0);
   const share = (trait) => { const m = {};
     for (const r of d.merkmale) if (r.merkmal === trait && win.has(r.tag)) m[r.wert] = (m[r.wert] || 0) + r.n;
     return Object.entries(m).sort((a, b) => b[1] - a[1]); };
   const pct = (v) => base ? Math.round((v / base) * 100) + ' %' : '—';
 
-  const vers = {}; for (const r of d.tage) if (r.tag === yesterday) vers[r.version] = (vers[r.version] || 0) + r.n;
-  bars(card('Versionen gestern'), Object.entries(vers).sort((a, b) => b[1] - a[1]).slice(0, 10), (v) => v);
+  const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
+  const vers = {}; for (const r of d.tage) if (r.tag === lastDay) vers[r.version] = (vers[r.version] || 0) + r.n;
+  bars(card('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay))), Object.entries(vers).sort((a, b) => b[1] - a[1]).slice(0, 10), (v) => v);
 
   // Länder: aktive Nutzer (Ø der letzten 7 vollen Tage) und Downloads über die
   // Kurzlinks im gewählten Zeitraum nebeneinander. Downloads direkt bei GitHub
@@ -201,7 +212,7 @@ function render(d, span) {
   if (!entries.length) {
     lc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
   } else {
-    const head = $('tr', {}, ['Land', 'aktive Nutzer (Ø 7 Tage)', 'Anteil', 'Downloads (Zeitraum)', 'Anteil']
+    const head = $('tr', {}, ['Land', 'aktive Nutzer je Tag (Ø 7 Tage)', 'Anteil', 'Downloads (Zeitraum)', 'Anteil']
       .map((h) => $('th', { text: h })));
     const body = entries.slice(0, 25).map(([c, x]) => $('tr', {}, [
       $('td', { text: landName(c) }),
@@ -223,9 +234,23 @@ function render(d, span) {
     ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
 
   const rel = d.downloads.filter((r) => !r.vorab).slice(0, 12);
-  bars(card('Downloads je Version (neueste zuerst)', true),
-    rel.map((r) => [r.tag + ' · ' + short(r.am), r.windows + r.linux, r]),
-    (v, r) => v + '  (' + r.windows + ' W · ' + r.linux + ' L)');
+  // Windows und Linux je in eigener Farbe — dieselben wie in der Kurve oben.
+  const dlCard = card('Downloads je Version (neueste zuerst)', true);
+  const dlMax = Math.max(1, ...rel.map((r) => r.windows + r.linux));
+  for (const r of rel) {
+    const w = $('div', { class: 'fill' }); w.style.width = ((r.windows / dlMax) * 100).toFixed(1) + '%';
+    w.style.background = 'var(--b)';
+    const l = $('div', { class: 'fill' }); l.style.width = ((r.linux / dlMax) * 100).toFixed(1) + '%';
+    l.style.background = 'var(--c)';
+    dlCard.appendChild($('div', { class: 'bar' }, [
+      $('span', { text: r.tag + ' · ' + short(r.am) }),
+      $('div', { class: 'track stack' }, [w, l]),
+      $('span', { class: 'n', text: (r.windows + r.linux) + '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' })]));
+  }
+  if (!rel.length) dlCard.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
+  dlCard.appendChild($('div', { class: 'legend' }, [
+    $('span', {}, [$('i', { style: 'background:var(--b)' }), document.createTextNode('Windows')]),
+    $('span', {}, [$('i', { style: 'background:var(--c)' }), document.createTextNode('Linux')])]));
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
     + ' · lädt alle 10 Minuten neu';

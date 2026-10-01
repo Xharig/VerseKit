@@ -209,7 +209,7 @@ async function downloads(ctx) {
   const cache = typeof caches !== 'undefined' ? caches.default : null;
   // ⚠ GitHub gibt je Abruf höchstens 100 Releases heraus — VerseKit hat mehr.
   // Ohne Blättern fehlten die ältesten (gemessen: 866 statt 1236 Downloads).
-  const key = new Request(`https://api.github.com/repos/${REPO}/releases?alle=1`);
+  const key = new Request(`https://api.github.com/repos/${REPO}/releases?alle=2`);
   try {
     let r = cache && (await cache.match(key));
     if (!r) {
