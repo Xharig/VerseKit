@@ -115,7 +115,10 @@ CACHE = 'katalog-cache.json'
 # (`ohne_weg`) — 853 zu vorher 738. Ohne Hochzählen bliebe der Schalter „Auch
 # Baupläne ohne bekannten Weg" bei jedem Bestandsnutzer wirkungslos, denn sein
 # Katalog kennt diese Einträge gar nicht. Anlass: Choopa (28.09.2026).
-FORMAT = 5
+#
+# 6: `_missions()` legt je Auftragstext die Baupläne je System ab
+# (`je_system`), für die getrennten Listen im Auftragstext.
+FORMAT = 6
 
 # Einstellung: Sollen Baupläne ohne bekannten Weg mitgezählt und angezeigt
 # werden? ⛔ Standard **aus** — der Fortschritt bleibt damit die Zahl, die
@@ -757,7 +760,10 @@ def _missions(merged):
             for r in (v.get('blueprintRewards') or []):
                 names.extend(pools.get(r.get('blueprintPool'), []))
             rank = v.get('minStanding') or {}
+            systems = v.get('availableSystems') or v.get('systems') or []
             seen.append({'namen': set(names), 'vertrag': v,
+                         'systeme': [str(s) for s in systems]
+                         if isinstance(systems, list) else [],
                             'rep': rank.get('minReputation'),
                             'rang': rank.get('name'),
                             'uec': v.get('rewardUEC')})
@@ -829,6 +835,9 @@ def _missions(merged):
         entry['sicher'] = sure
         if from_rank:
             entry['ab'] = from_rank
+        per_system = _per_system(with_bp)
+        if per_system:
+            entry['je_system'] = per_system
         # Wie viele Stufen dieses Auftrags leer ausgehen — steht als Warnung
         # dran, damit niemand für eine Liste hinfliegt, die seine Stufe nicht
         # hergibt.
@@ -842,6 +851,34 @@ def _missions(merged):
             entry['text_key'] = contract.get('descriptionLocKey')
         result[key] = entry
     return result
+
+
+SYSTEM_ORDER = ('Stanton', 'Pyro', 'Nyx')
+
+
+def system_sort_key(name):
+    """Stanton, Pyro, Nyx — danach weitere Systeme alphabetisch."""
+    if name in SYSTEM_ORDER:
+        return (0, SYSTEM_ORDER.index(name), '')
+    return (1, 0, name)
+
+
+def _per_system(variants):
+    """{System: [Baupläne]} über alle Varianten eines Auftragstexts — oder {}.
+
+    Leer, wenn eine Variante kein System nennt, nur ein System vorkommt oder
+    alle Systeme dieselbe Liste hergeben: Dann sagt die gemeinsame Liste
+    dasselbe."""
+    found = {}
+    for variant in variants:
+        if not variant['systeme']:
+            return {}
+        for system in variant['systeme']:
+            found.setdefault(system, set()).update(variant['namen'])
+    if len(found) < 2 or len(set(frozenset(v) for v in found.values())) < 2:
+        return {}
+    return {system: sorted(found[system])
+            for system in sorted(found, key=system_sort_key)}
 
 
 def _contracts(merged):

@@ -10,6 +10,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
+- **Baupläne im Auftragstext wieder je System** — gibt ein Auftrag in
+  Stanton, Pyro und Nyx verschiedene Baupläne her, steht im Spiel wieder für
+  jedes System eine eigene Liste. Seit dem Wechsel der Datenquelle war es eine
+  gemeinsame, und man sah nicht mehr, wo einem noch etwas fehlt. Gemeldet von
+  Zwaersch (KRT)
 - **scmdb.net: Auftragsende nur noch einmal** — wer sich mit einem laufenden
   Auftrag ausloggt, meldete das Ende bisher zweimal, das zweite Mal ohne
   Auftragsnamen. Jetzt kommt genau ein Ende an

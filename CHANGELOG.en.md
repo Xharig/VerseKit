@@ -10,6 +10,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
+- **Blueprints in the mission text split by system again** — when a mission
+  hands out different blueprints in Stanton, Pyro and Nyx, the game shows one
+  list per system again. Since the data source changed it was a single list,
+  and you could no longer tell where you were still missing something.
+  Reported by Zwaersch (KRT)
 - **scmdb.net: mission end sent only once** — logging out with a running
   mission used to report its end twice, the second time without the mission
   name. Now exactly one end arrives

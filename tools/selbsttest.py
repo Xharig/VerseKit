@@ -25860,6 +25860,7 @@ def main():
     _pruefung_307()
     _pruefung_308()
     _pruefung_309()
+    _pruefung_310()
 
     print()
     if fehler:
@@ -31457,6 +31458,69 @@ def _pruefung_309():
     for zeile in zeilen:
         stand, _, text = zeile.partition('|')
         pruefe(stand == 'OK', text or zeile)
+
+
+def _pruefung_310():
+    """310. Auftragstext: Baupläne je System getrennt (`je_system`)."""
+    print('\n310. Auftragstext: Baupläne je System')
+    from scbp import catalog as _k310, injection as _in310
+
+    def vertrag(key, system, pool, rep=800):
+        return {'titleLocKey': key, 'systems': [system] if system else [],
+                'blueprintRewards': [{'blueprintPool': pool, 'chance': 1}],
+                'minStanding': {'name': 'Junior', 'minReputation': rep}}
+
+    dump = {
+        'blueprintPools': {
+            'p_st': {'blueprints': [{'name': 'Stanton-Ding'},
+                                    {'name': 'Gemeinsam'}]},
+            'p_py': {'blueprints': [{'name': 'Pyro-Ding'},
+                                    {'name': 'Gemeinsam'}]},
+            'p_nyx': {'blueprints': [{'name': 'Nyx-Ding'}]},
+        },
+        'contracts': [
+            vertrag('drei_title', 'Nyx', 'p_nyx'),
+            vertrag('drei_title', 'Pyro', 'p_py'),
+            vertrag('drei_title', 'Stanton', 'p_st'),
+            vertrag('gleich_title', 'Stanton', 'p_st'),
+            vertrag('gleich_title', 'Pyro', 'p_st'),
+            vertrag('eins_title', 'Pyro', 'p_py'),
+            vertrag('ohne_title', 'Pyro', 'p_py'),
+            vertrag('ohne_title', '', 'p_st'),
+        ],
+    }
+    m = _k310._missions(dump)
+    drei = m.get('drei_title') or {}
+    pruefe(list((drei.get('je_system') or {}).keys())
+           == ['Stanton', 'Pyro', 'Nyx'],
+           'Drei Systeme in fester Reihenfolge Stanton, Pyro, Nyx (%r)'
+           % list((drei.get('je_system') or {}).keys()))
+    pruefe((drei.get('je_system') or {}).get('Pyro') == ['Gemeinsam', 'Pyro-Ding'],
+           'Jedes System mit genau seinen Bauplänen')
+    pruefe(drei.get('bp') == ['Gemeinsam', 'Nyx-Ding', 'Pyro-Ding',
+                              'Stanton-Ding'],
+           'Gesamtliste bleibt vollständig (Kästchen, Overlay)')
+    pruefe('je_system' not in (m.get('gleich_title') or {}),
+           'Gleiche Liste in allen Systemen: nicht getrennt')
+    pruefe('je_system' not in (m.get('eins_title') or {}),
+           'Nur ein System: nicht getrennt')
+    pruefe('je_system' not in (m.get('ohne_title') or {}),
+           'Variante ohne System: nicht getrennt (nichts raten)')
+
+    worte = _in310.TEXTS['de']
+    block = _in310._build_block(drei, {_k310._norm('Pyro-Ding')}, worte)
+    pruefe('<EM4># Stanton:</EM4>' in block and '<EM4># Nyx:</EM4>' in block,
+           'Auftragstext trägt die System-Überschriften')
+    pyro = block.split('# Pyro:')[1].split('# Nyx:')[0] if '# Pyro:' in block else ''
+    pruefe('%s Pyro-Ding' % _in310.BOX_HAVE in pyro
+           and '%s Gemeinsam' % _in310.BOX_MISSING in pyro,
+           'Kästchen je System nach eigenem Bestand')
+    pruefe(block.count('Gemeinsam') == 2,
+           'Bauplan aus zwei Systemen steht unter beiden')
+    flach = _in310._build_block(m.get('gleich_title') or {}, set(), worte)
+    pruefe('# Stanton:' not in flach and 'Stanton-Ding' in flach,
+           'Ohne Trennung: eine Liste wie bisher')
+    pruefe(_k310.FORMAT >= 6, 'Katalog-Format hochgezählt (Bestand baut neu)')
 
 
 def _pruefung_308():

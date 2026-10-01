@@ -611,7 +611,8 @@ def _build_block(entry, owned, words, rep_table=None):
     # Wer den Bauplan hat, hat ihn — auch wenn diese Stufe ihn nicht hergibt.
     frm = entry.get('ab') or {}
     width = max([len(n) for n in entry['bp']] or [0])
-    for name in entry['bp']:
+
+    def box_line(name):
         inside = katalog_modul._norm(name) in owned
         cond = frm.get(name)
         line = '   %s %s' % (BOX_HAVE if inside else BOX_MISSING, name)
@@ -619,7 +620,15 @@ def _build_block(entry, owned, words, rep_table=None):
             line += '%s  %s %s (%s XP)' % (' ' * (width - len(name)),
                                             words['ab_rang'], cond['rang'],
                                             _group_digits(cond['rep'], words))
-        z.append(line)
+        return line
+
+    per_system = entry.get('je_system') or {}
+    if per_system:
+        for system, names in per_system.items():
+            z += ['', blue('# %s:' % system)]
+            z += [box_line(name) for name in names]
+    else:
+        z += [box_line(name) for name in entry['bp']]
 
     # Gibt es Stufen dieses Auftrags, die leer ausgehen, gehört das dazu —
     # sonst fliegt jemand für eine Liste hin, die seine Stufe nie hergibt.
