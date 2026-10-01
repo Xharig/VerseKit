@@ -315,13 +315,35 @@ function render(d, span) {
   } else {
     const head = $('tr', {}, ['Land', 'aktive Nutzer je Tag (Ø 7 Tage)', 'Anteil', 'Downloads (Zeitraum)', 'Anteil']
       .map((h) => $('th', { text: h })));
-    const body = entries.slice(0, 25).map(([c, x]) => $('tr', {}, [
-      $('td', { text: landName(c) }),
-      $('td', { class: 'num', text: win.size ? (x.users / win.size).toFixed(1) : '—' }),
-      $('td', { class: 'num', text: userSum ? Math.round((x.users / userSum) * 100) + ' %' : '—' }),
-      $('td', { class: 'num', text: String(x.dl) }),
-      $('td', { class: 'num', text: dlSum ? Math.round((x.dl / dlSum) * 100) + ' %' : '—' })]));
+    // Wie bei den Versionen: eingeklappt die ersten 5, ausgeklappt alle.
+    // Eigener Merker, damit beide Listen unabhängig auf- und zuklappen.
+    const LAND_SHOWN = 5;
+    let landOpen = false;
+    try { landOpen = localStorage.getItem('land-alle') === '1'; } catch (e) { landOpen = false; }
+    const landExtra = [];
+    const body = entries.map(([c, x], i) => {
+      const tr = $('tr', {}, [
+        $('td', { text: landName(c) }),
+        $('td', { class: 'num', text: win.size ? (x.users / win.size).toFixed(1) : '—' }),
+        $('td', { class: 'num', text: userSum ? Math.round((x.users / userSum) * 100) + ' %' : '—' }),
+        $('td', { class: 'num', text: String(x.dl) }),
+        $('td', { class: 'num', text: dlSum ? Math.round((x.dl / dlSum) * 100) + ' %' : '—' })]);
+      if (i >= LAND_SHOWN) { landExtra.push(tr); tr.hidden = !landOpen; }
+      return tr;
+    });
     lc.appendChild($('div', { class: 'scroll' }, [$('table', { class: 'tab' }, [$('thead', {}, [head]), $('tbody', {}, body)])]));
+    if (landExtra.length) {
+      const toggle = $('button', { type: 'button', class: 'mehr' });
+      const label = () => { toggle.textContent = landOpen ? 'Nur die ersten ' + LAND_SHOWN : 'Alle Länder zeigen (' + entries.length + ')'; };
+      label();
+      toggle.addEventListener('click', () => {
+        landOpen = !landOpen;
+        for (const x of landExtra) x.hidden = !landOpen;
+        label();
+        try { localStorage.setItem('land-alle', landOpen ? '1' : '0'); } catch (e) { /* nur bequem */ }
+      });
+      lc.appendChild(toggle);
+    }
   }
   lc.appendChild($('div', { class: 'note', text: 'Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.' }));
 
