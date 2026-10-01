@@ -67,7 +67,7 @@ svg text { fill:var(--sub); font-size:11px; }
     <option value="90" selected>90 Tage</option>
     <option value="365">1 Jahr</option>
   </select>
-  <button id="neu" type="button" title="Lädt sonst alle 10 Minuten von selbst">Aktualisieren</button>
+  <button id="neu" type="button" title="Lädt die Seite neu — die Zahlen kommen sonst alle 10 Minuten von selbst">Aktualisieren</button>
 </header>
 <main id="inhalt"></main>
 <script nonce="${nonce}">
@@ -277,7 +277,9 @@ async function load() {
   }
 }
 document.getElementById('zeitraum').addEventListener('change', load);
-document.getElementById('neu').addEventListener('click', load);
+// Der Knopf lädt die GANZE Seite neu, nicht nur die Zahlen — sonst blieb nach
+// einer neuen Fassung der Übersicht die alte stehen, bis jemand F5 drückt.
+document.getElementById('neu').addEventListener('click', () => location.reload());
 load();
 setInterval(load, 10 * 60 * 1000);
 })();
