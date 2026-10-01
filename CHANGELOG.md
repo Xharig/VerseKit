@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Kästchen eindeutig** — ausgeschaltet zeigen sie jetzt einen leeren Kreis
+  wie in der Bauplan-Liste, eingeschaltet einen grünen Haken. Vorher stand
+  auch im ausgeschalteten Zustand ein grauer Haken da, etwa bei „als gestohlen
+  markiert" im Handelslager
+
 ## v3.69.0 - 2026-10-02
 
 > Im Auftragstext siehst du wieder für Stanton, Pyro und Nyx getrennt, welche

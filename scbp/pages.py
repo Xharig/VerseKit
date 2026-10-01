@@ -12251,9 +12251,10 @@ def _checkbox(parent, text, on, toggle, small_font):
     def _bauen(an_jetzt):
         for kind in rahmen.winfo_children():
             kind.destroy()
-        symbol = icons.line(rahmen, 'haken', background=BG,
-                               color=icons.GREEN if an_jetzt
-                               else icons.GREY)
+        # Aus: leerer Kreis wie in der Bauplan-Liste, an: grüner Haken.
+        symbol = icons.line(rahmen, 'haken' if an_jetzt else 'offen',
+                            background=BG,
+                            color=icons.GREEN if an_jetzt else icons.GREY)
         symbol.pack(side='left')
         lbl = tk.Label(rahmen, text=text, bg=BG,
                        fg=ACCENT if an_jetzt else SUB, font=small_font)

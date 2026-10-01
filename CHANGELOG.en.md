@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **Clearer tick boxes** — when off they now show an empty circle like the
+  blueprint list, when on a green tick. Before, a grey tick showed even when
+  off, for example at "marked as stolen" in the trade storage
+
 ## v3.69.0 - 2026-10-02
 
 > The mission text shows again which blueprints you are still missing, split
