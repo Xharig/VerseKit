@@ -23,8 +23,12 @@ header { padding:18px 16px 6px; max-width:1200px; margin:0 auto; display:flex;
          gap:12px; align-items:baseline; flex-wrap:wrap; }
 h1 { font-size:20px; margin:0; } h1 b { color:var(--accent); }
 header .sub { color:var(--sub); }
-header select { margin-left:auto; background:var(--card); color:var(--fg);
-         border:1px solid var(--line); border-radius:8px; padding:5px 8px; }
+header select, header button { background:var(--card); color:var(--fg);
+         border:1px solid var(--line); border-radius:8px; padding:5px 10px; font:inherit; }
+header select { margin-left:auto; }
+header button { cursor:pointer; }
+header button:hover { border-color:var(--accent); color:var(--accent); }
+header button:disabled { opacity:.5; cursor:default; }
 main { max-width:1200px; margin:0 auto; padding:8px 16px 32px; display:grid;
        grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
@@ -56,6 +60,7 @@ svg text { fill:var(--sub); font-size:11px; }
     <option value="90" selected>90 Tage</option>
     <option value="365">1 Jahr</option>
   </select>
+  <button id="neu" type="button" title="Lädt sonst alle 10 Minuten von selbst">Aktualisieren</button>
 </header>
 <main id="inhalt"></main>
 <script nonce="${nonce}">
@@ -191,20 +196,32 @@ function render(d, span) {
     rel.map((r) => [r.tag + ' · ' + short(r.am), r.windows + r.linux, r]),
     (v, r) => v + '  (' + r.windows + ' W · ' + r.linux + ' L)');
 
-  document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE');
+  document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
+    + ' · lädt alle 10 Minuten neu';
 }
 
 async function load() {
   const span = Number(document.getElementById('zeitraum').value);
+  const button = document.getElementById('neu');
+  button.disabled = true; button.textContent = 'Lädt …';
   try {
-    const r = await fetch('/daten?tage=' + span, { credentials: 'same-origin' });
+    const r = await fetch('/daten?tage=' + span, { credentials: 'same-origin', redirect: 'manual' });
+    // Nach 24 Stunden läuft die Anmeldung ab — dann leitet Access um, und
+    // nur ein Neuladen der ganzen Seite führt durch die Anmeldung.
+    if (r.type === 'opaqueredirect' || r.status === 0 || r.status === 403) {
+      document.getElementById('stand').textContent = 'Anmeldung abgelaufen — Seite neu laden (F5)';
+      return;
+    }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     render(await r.json(), span);
   } catch (e) {
     document.getElementById('stand').textContent = 'Laden fehlgeschlagen (' + e.message + ')';
+  } finally {
+    button.disabled = false; button.textContent = 'Aktualisieren';
   }
 }
 document.getElementById('zeitraum').addEventListener('change', load);
+document.getElementById('neu').addEventListener('click', load);
 load();
 setInterval(load, 10 * 60 * 1000);
 })();
