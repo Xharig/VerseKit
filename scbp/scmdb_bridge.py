@@ -390,30 +390,43 @@ class Bridge(object):
         _set(state='off', clients=0)
 
 
+_Base = BaseHTTPRequestHandler
+
+
 def _handler(bridge):
-    class Handler(BaseHTTPRequestHandler):
+    class Handler(_Base):
         server_version = 'VerseKit'
         protocol_version = 'HTTP/1.1'
+        # Setzt `StreamRequestHandler.setup()` je Verbindung; hier nur
+        # angekündigt. Geerbte Methoden laufen ausdrücklich über `_Base`.
+        wfile = None
 
         def log_message(self, *_args):
             pass
 
-        def _cors(self):
+        def _head(self, status, headers):
+            _Base.send_response(self, status)
             origin = self.headers.get('Origin')
             if origin in ORIGINS:
-                self.send_header('Access-Control-Allow-Origin', origin)
-                self.send_header('Vary', 'Origin')
-                # Chrome fragt bei einer öffentlichen Seite, die den eigenen
-                # Rechner anspricht, vorher eigens nach (Private Network Access).
-                self.send_header('Access-Control-Allow-Private-Network', 'true')
+                headers = [('Access-Control-Allow-Origin', origin),
+                           ('Vary', 'Origin'),
+                           # Chrome fragt bei einer öffentlichen Seite, die den
+                           # eigenen Rechner anspricht, vorher eigens nach
+                           # (Private Network Access).
+                           ('Access-Control-Allow-Private-Network', 'true')
+                           ] + list(headers)
+            for name, value in headers:
+                _Base.send_header(self, name, value)
+            _Base.end_headers(self)
+
+        def _out(self, data):
+            self.wfile.write(data)
+            self.wfile.flush()
 
         def do_OPTIONS(self):
-            self.send_response(204)
-            self._cors()
-            self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', '*')
-            self.send_header('Content-Length', '0')
-            self.end_headers()
+            self._head(204, [('Access-Control-Allow-Methods', 'GET, OPTIONS'),
+                             ('Access-Control-Allow-Headers', '*'),
+                             ('Content-Length', '0')])
 
         def do_GET(self):
             route = self.path.split('?', 1)[0]
@@ -422,34 +435,25 @@ def _handler(bridge):
                     'status': 'ok', 'version': PROTOCOL,
                     'channel': bridge.reader.channel, 'client': CLIENT,
                     'clientVersion': _version()}).encode('utf-8')
-                self.send_response(200)
-                self._cors()
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Cache-Control', 'no-cache')
-                self.send_header('Content-Length', str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._head(200, [('Content-Type', 'application/json'),
+                                 ('Cache-Control', 'no-cache'),
+                                 ('Content-Length', str(len(body)))])
+                self._out(body)
                 return
             if route == '/events':
                 self._events()
                 return
-            self.send_response(404)
-            self.send_header('Content-Length', '0')
-            self.end_headers()
+            self._head(404, [('Content-Length', '0')])
 
         def _send(self, event):
             line = 'data: %s\n\n' % json.dumps(event, ensure_ascii=False)
-            self.wfile.write(line.encode('utf-8'))
-            self.wfile.flush()
+            self._out(line.encode('utf-8'))
 
         def _events(self):
             self.close_connection = True
-            self.send_response(200)
-            self._cors()
-            self.send_header('Content-Type', 'text/event-stream')
-            self.send_header('Cache-Control', 'no-cache')
-            self.send_header('Connection', 'close')
-            self.end_headers()
+            self._head(200, [('Content-Type', 'text/event-stream'),
+                             ('Cache-Control', 'no-cache'),
+                             ('Connection', 'close')])
             sub, replay, snapshot = bridge.subscribe()
             try:
                 for event in replay:
@@ -459,8 +463,7 @@ def _handler(bridge):
                     try:
                         event = sub.get(timeout=HEARTBEAT)
                     except queue.Empty:
-                        self.wfile.write(b': heartbeat\n\n')
-                        self.wfile.flush()
+                        self._out(b': heartbeat\n\n')
                         continue
                     if event is None:
                         return
