@@ -30,7 +30,8 @@ header button { cursor:pointer; }
 header button:hover { border-color:var(--accent); color:var(--accent); }
 header button:disabled { opacity:.5; cursor:default; }
 main { max-width:1200px; margin:0 auto; padding:8px 16px 32px; display:grid;
-       grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px; }
+       grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; }
+@media (max-width: 900px) { main { grid-template-columns:1fr; } }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
         padding:14px 16px; min-width:0; }
 .wide { grid-column:1 / -1; }
@@ -193,13 +194,33 @@ function render(d, span) {
     return Object.entries(m).sort((a, b) => b[1] - a[1]); };
   const pct = (v) => base ? Math.round((v / base) * 100) + ' %' : '—';
 
-  const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
-  const vers = {}; for (const r of d.tage) if (r.tag === lastDay) vers[r.version] = (vers[r.version] || 0) + r.n;
-  bars(card('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay))), Object.entries(vers).sort((a, b) => b[1] - a[1]).slice(0, 10), (v) => v);
+  // ⭐ Feste Reihenfolge (Symmetrie): erst die vier breiten Karten, dann genau
+  // ZWEI Reihen zu je DREI kleinen. Wer eine kleine Karte dazubaut oder
+  // wegnimmt, hält die Zahl durch drei teilbar — sonst steht eine allein.
 
-  // Länder: aktive Nutzer (Ø der letzten 7 vollen Tage) und Downloads über die
-  // Kurzlinks im gewählten Zeitraum nebeneinander. Downloads direkt bei GitHub
-  // und Auto-Updates kennen kein Land und fehlen hier.
+  // 3. Downloads je Version — Windows und Linux je in eigener Farbe, dieselben
+  // wie in der Kurve oben. Direkt unter der Kurve, damit man nicht scrollt.
+  const rel = d.downloads.filter((r) => !r.vorab).slice(0, 10);
+  const dlCard = card('Downloads je Version (neueste zuerst)', true);
+  const dlMax = Math.max(1, ...rel.map((r) => r.windows + r.linux));
+  for (const r of rel) {
+    const w = $('div', { class: 'fill' }); w.style.width = ((r.windows / dlMax) * 100).toFixed(1) + '%';
+    w.style.background = 'var(--b)';
+    const l = $('div', { class: 'fill' }); l.style.width = ((r.linux / dlMax) * 100).toFixed(1) + '%';
+    l.style.background = 'var(--c)';
+    dlCard.appendChild($('div', { class: 'bar' }, [
+      $('span', { text: r.tag + ' · ' + short(r.am) }),
+      $('div', { class: 'track stack' }, [w, l]),
+      $('span', { class: 'n', text: (r.windows + r.linux) + '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' })]));
+  }
+  if (!rel.length) dlCard.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
+  dlCard.appendChild($('div', { class: 'legend' }, [
+    $('span', {}, [$('i', { style: 'background:var(--b)' }), document.createTextNode('Windows')]),
+    $('span', {}, [$('i', { style: 'background:var(--c)' }), document.createTextNode('Linux')])]));
+
+  // 4. Länder: aktive Nutzer (Ø 7 Tage) und Downloads über die Kurzlinks im
+  // gewählten Zeitraum nebeneinander. Downloads direkt bei GitHub und
+  // Auto-Updates kennen kein Land und fehlen hier.
   const lands = {};
   const row = (c) => (lands[c] = lands[c] || { users: 0, dl: 0 });
   for (const r of d.tage) if (win.has(r.tag)) row(r.land).users += r.n;
@@ -224,33 +245,22 @@ function render(d, span) {
   }
   lc.appendChild($('div', { class: 'note', text: 'Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.' }));
 
+  // 5./6. Zwei Reihen zu je drei kleinen Karten.
+  const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
+  const vers = {}; for (const r of d.tage) if (r.tag === lastDay) vers[r.version] = (vers[r.version] || 0) + r.n;
+  bars(card('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay))),
+    Object.entries(vers).sort((a, b) => b[1] - a[1]).slice(0, 10), (v) => v);
+  const sys = { Windows: 0, Linux: 0 };
+  for (const r of d.tage) if (win.has(r.tag)) sys[r.system === 'linux' ? 'Linux' : 'Windows'] += r.n;
+  bars(card('System (Ø 7 Tage)'), Object.entries(sys), pct);
   bars(card('Sprache der Oberfläche (Ø 7 Tage)'), share('ui').map(([c, v]) => [langName(c), v]), pct);
+
   bars(card('Sprache des Spiels (Ø 7 Tage)'), share('game').map(([c, v]) => [langName(c), v]), pct);
   bars(card('Eingeschaltete Bereiche (Ø 7 Tage)'), share('mod').map(([c, v]) => [NAMES.mod[c] || c, v]), pct);
-  const yn = card('Einstellungen (Ø 7 Tage)');
-  bars(yn, [
+  bars(card('Einstellungen (Ø 7 Tage)'), [
     ['Testversionen an', (share('rc').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Autostart an', (share('autostart').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
-
-  const rel = d.downloads.filter((r) => !r.vorab).slice(0, 12);
-  // Windows und Linux je in eigener Farbe — dieselben wie in der Kurve oben.
-  const dlCard = card('Downloads je Version (neueste zuerst)', true);
-  const dlMax = Math.max(1, ...rel.map((r) => r.windows + r.linux));
-  for (const r of rel) {
-    const w = $('div', { class: 'fill' }); w.style.width = ((r.windows / dlMax) * 100).toFixed(1) + '%';
-    w.style.background = 'var(--b)';
-    const l = $('div', { class: 'fill' }); l.style.width = ((r.linux / dlMax) * 100).toFixed(1) + '%';
-    l.style.background = 'var(--c)';
-    dlCard.appendChild($('div', { class: 'bar' }, [
-      $('span', { text: r.tag + ' · ' + short(r.am) }),
-      $('div', { class: 'track stack' }, [w, l]),
-      $('span', { class: 'n', text: (r.windows + r.linux) + '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' })]));
-  }
-  if (!rel.length) dlCard.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
-  dlCard.appendChild($('div', { class: 'legend' }, [
-    $('span', {}, [$('i', { style: 'background:var(--b)' }), document.createTextNode('Windows')]),
-    $('span', {}, [$('i', { style: 'background:var(--c)' }), document.createTextNode('Linux')])]));
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
     + ' · lädt alle 10 Minuten neu';
