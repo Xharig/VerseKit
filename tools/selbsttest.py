@@ -31174,7 +31174,7 @@ def _pruefung_307():
     pruefe(len({round(w, 3) for w in erste}) > 1, 'Wartezeit: mit Zufall')
     pruefe(all(_bt307.backoff(n) <= 300.0 for n in range(1, 20)),
            'Wartezeit: nie über 5 min')
-    pruefe(_bt307.backoff(3) >= 20.0, 'Wartezeit: verdoppelt (3. Versuch ≥ 20 s)')
+    pruefe(_bt307.backoff(3) >= 20.0, 'Wartezeit: verdoppelt (3. Versuch mindestens 20 s)')
     pruefe(_bt307.backoff(1, retry_after=900) >= 900,
            'Wartezeit: nie kürzer als Retry-After')
 
@@ -31271,9 +31271,9 @@ def _pruefung_307():
     fremd = {norm('Fremd Eins'), norm('Fremd Verknuepft'), norm('Fremd Hand')}
     raus = _ex307.own_blueprints(lokal, fremd, {norm('Fremd Verknuepft'): 'bt-1'})
     pruefe(norm('Fremd Eins') not in raus,
-           'Eigene Baupläne: nur in fremden Protokollen → geht nicht hinaus')
+           'Eigene Baupläne: nur in fremden Protokollen, geht nicht hinaus')
     pruefe(norm('Fremd Verknuepft') in raus,
-           'Eigene Baupläne: schon verknüpft → bleibt (keine Löschung drüben)')
+           'Eigene Baupläne: schon verknüpft, bleibt (keine Löschung drüben)')
     pruefe(norm('Fremd Hand') in raus and norm('Eigen') in raus,
            'Eigene Baupläne: von Hand und eigene bleiben')
 
@@ -31304,7 +31304,7 @@ def _pruefung_307():
                and _ss307._backend_cache[0] == 'secret-service',
                'Schlüsselbund lehnt ab: keine Datei angelegt')
         # Hinweis richtet sich nach der echten Herkunft
-        pruefe(not _ss307.uses_file(), 'Hinweis: nichts aus der Datei → keiner')
+        pruefe(not _ss307.uses_file(), 'Hinweis: nichts aus der Datei, also keiner')
         os.makedirs(_ss307.folder(), exist_ok=True)
         with open(_ss307._file('alt'), 'w') as f:
             f.write('aus-der-datei')
@@ -31312,7 +31312,7 @@ def _pruefung_307():
         os.chmod(_ss307._file('alt'), 0o644)
         pruefe(_ss307.load('alt') == 'aus-der-datei',
                'Rückfall beim Lesen: Wert aus der Datei')
-        pruefe(_ss307.uses_file(), 'Hinweis: Wert kam aus der Datei → Hinweis')
+        pruefe(_ss307.uses_file(), 'Hinweis: Wert kam aus der Datei, also Hinweis')
         pruefe(_st307.S_IMODE(os.stat(_ss307._file('alt')).st_mode) == 0o600
                and _st307.S_IMODE(os.stat(_ss307.folder()).st_mode) == 0o700,
                'Fremd lesbare Datei und Ordner werden nachgezogen (0600/0700)')
