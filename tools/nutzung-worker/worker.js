@@ -259,6 +259,10 @@ export async function downloads(env, now = Date.now()) {
         rows = batch.map(compact); count = batch.length;
         await store(env, 'seite:' + page, { etag: r.headers.get('etag') || '', rows, count });
       } else {
+        // Den Grund festhalten — sonst bleibt „GitHub antwortet nicht" ein Rätsel.
+        await store(env, 'fehler', { status: r.status,
+          rest: r.headers.get('x-ratelimit-remaining'), grenze: r.headers.get('x-ratelimit-limit'),
+          text: (await r.text()).slice(0, 200) }).catch(() => {});
         throw new Error('GitHub ' + r.status);
       }
       all.push(...rows);
@@ -267,6 +271,9 @@ export async function downloads(env, now = Date.now()) {
     await store(env, 'downloads', all);
     return { liste: all, stand: now, alt: false };
   } catch (e) {
+    if (!String(e && e.message).startsWith('GitHub ')) {
+      await store(env, 'fehler', { ausnahme: String(e && e.message).slice(0, 200) }).catch(() => {});
+    }
     return last ? { liste: last.data, stand: last.zeit, alt: true } : { liste: [], stand: null, alt: true };
   }
 }
