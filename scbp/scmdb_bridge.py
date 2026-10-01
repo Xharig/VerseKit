@@ -59,6 +59,8 @@ import json
 import os
 import queue
 import re
+import socket
+import sys
 import threading
 import time
 from calendar import timegm
@@ -362,7 +364,7 @@ class Bridge(object):
         if self.server is not None:
             return True
         try:
-            server = ThreadingHTTPServer((HOST, port()), _handler(self))
+            server = _Server((HOST, port()), _handler(self))
         except OSError:
             _set(state='busy', clients=0)
             return False
@@ -474,6 +476,24 @@ def _handler(bridge):
                 bridge.unsubscribe(sub)
 
     return Handler
+
+
+class _Server(ThreadingHTTPServer):
+    """Belegt den Anschluss allein.
+
+    Unter Windows erlaubt `SO_REUSEADDR` einem zweiten Programm, sich auf
+    denselben Anschluss zu setzen — dann liefen Verse-Kit und der Watcher von
+    scmdb still nebeneinander. Dort deshalb `SO_EXCLUSIVEADDRUSE` statt
+    `SO_REUSEADDR`."""
+    allow_reuse_address = sys.platform != 'win32'
+    # Setzt `TCPServer.__init__`; hier nur angekündigt (wie `wfile` oben).
+    socket = None
+
+    def server_bind(self):
+        if sys.platform == 'win32' and hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(socket.SOL_SOCKET,
+                                   socket.SO_EXCLUSIVEADDRUSE, 1)
+        ThreadingHTTPServer.server_bind(self)
 
 
 BRIDGE = Bridge()
