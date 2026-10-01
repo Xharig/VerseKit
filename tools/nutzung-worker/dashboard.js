@@ -47,6 +47,9 @@ main { max-width:1200px; margin:0 auto; padding:8px 16px 32px; display:grid;
 .bar .track { background:var(--line); border-radius:4px; height:10px; overflow:hidden; }
 .bar .fill { background:var(--accent); height:100%; }
 .bar .track.stack { display:flex; }
+.mehr { margin-top:8px; background:none; border:1px solid var(--line); color:var(--sub);
+        border-radius:8px; padding:4px 10px; font:inherit; font-size:12px; cursor:pointer; }
+.mehr:hover { border-color:var(--accent); color:var(--accent); }
 .bar .n { color:var(--sub); font-variant-numeric:tabular-nums; min-width:52px; text-align:right; }
 .note { color:var(--sub); font-size:12px; margin-top:8px; }
 svg text { fill:var(--sub); font-size:11px; }
@@ -200,20 +203,40 @@ function render(d, span) {
 
   // 3. Downloads je Version — Windows und Linux je in eigener Farbe, dieselben
   // wie in der Kurve oben. Direkt unter der Kurve, damit man nicht scrollt.
-  const rel = d.downloads.filter((r) => !r.vorab).slice(0, 10);
+  // Eingeklappt die letzten 5, ausgeklappt alle fertigen Versionen. Die Wahl
+  // merkt sich der Browser (nur bequem — fehlt der Speicher, gilt eingeklappt).
+  const rel = d.downloads.filter((r) => !r.vorab);
+  const SHOWN = 5;
+  let open = false;
+  try { open = localStorage.getItem('dl-alle') === '1'; } catch (e) { open = false; }
   const dlCard = card('Downloads je Version (neueste zuerst)', true);
   const dlMax = Math.max(1, ...rel.map((r) => r.windows + r.linux));
-  for (const r of rel) {
+  const extra = [];
+  for (const [i, r] of rel.entries()) {
     const w = $('div', { class: 'fill' }); w.style.width = ((r.windows / dlMax) * 100).toFixed(1) + '%';
     w.style.background = 'var(--b)';
     const l = $('div', { class: 'fill' }); l.style.width = ((r.linux / dlMax) * 100).toFixed(1) + '%';
     l.style.background = 'var(--c)';
-    dlCard.appendChild($('div', { class: 'bar' }, [
+    const line = $('div', { class: 'bar' }, [
       $('span', { text: r.tag + ' · ' + short(r.am) }),
       $('div', { class: 'track stack' }, [w, l]),
-      $('span', { class: 'n', text: (r.windows + r.linux) + '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' })]));
+      $('span', { class: 'n', text: (r.windows + r.linux) + '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' })]);
+    if (i >= SHOWN) { extra.push(line); line.hidden = !open; }
+    dlCard.appendChild(line);
   }
   if (!rel.length) dlCard.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
+  if (extra.length) {
+    const toggle = $('button', { type: 'button', class: 'mehr' });
+    const label = () => { toggle.textContent = open ? 'Nur die letzten ' + SHOWN : 'Alle Versionen zeigen (' + rel.length + ')'; };
+    label();
+    toggle.addEventListener('click', () => {
+      open = !open;
+      for (const x of extra) x.hidden = !open;
+      label();
+      try { localStorage.setItem('dl-alle', open ? '1' : '0'); } catch (e) { /* nur bequem */ }
+    });
+    dlCard.appendChild(toggle);
+  }
   dlCard.appendChild($('div', { class: 'legend' }, [
     $('span', {}, [$('i', { style: 'background:var(--b)' }), document.createTextNode('Windows')]),
     $('span', {}, [$('i', { style: 'background:var(--c)' }), document.createTextNode('Linux')])]));
