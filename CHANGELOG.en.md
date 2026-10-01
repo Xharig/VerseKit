@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.67.0 - 2026-10-01
+
+> Tracking your blueprints on scmdb.net? From now on there's nothing to export
+> or upload: Verse-Kit reports new blueprints and running missions straight
+> there — no separate watcher needed, just turn it on.
+
 ### New
 
 - **Connect to scmdb.net** — Verse-Kit reports new blueprints and running

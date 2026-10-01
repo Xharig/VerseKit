@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.67.0 - 2026-10-01
+
+> Du trackst deine Baupläne auf scmdb.net? Dann musst du ab jetzt nichts mehr
+> exportieren und hochladen: Verse-Kit meldet neue Baupläne und laufende
+> Aufträge direkt dorthin — ohne zusätzliches Programm, einfach einschalten.
+
 ### Neu
 
 - **Mit scmdb.net verbinden** — Verse-Kit meldet neue Baupläne und laufende

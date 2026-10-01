@@ -112,6 +112,22 @@ wenn du ihn selbst abschickst. Was das Basetool selbst mit deinen Daten tut,
 regelt seine eigene Datenschutzerklärung auf
 [profit-base.online](https://profit-base.online).
 
+## scmdb.net
+
+Nur, wenn du *Mit scmdb.net verbinden* einschaltest — ab Werk aus. Dann
+öffnet Verse-Kit einen kleinen Anschluss **nur auf deinem eigenen Rechner**
+(`127.0.0.1:23456`). Verse-Kit selbst schickt dabei nichts ins Netz: Die
+scmdb-Seite in **deinem** Browser holt sich die Angaben dort ab und trägt sie
+in das scmdb-Konto ein, mit dem du angemeldet bist.
+
+**Was die Seite bekommt:** die Namen neu erhaltener Baupläne (englisch, wie
+im Katalog) und zu laufenden Aufträgen die Kennungen aus dem Spielprotokoll,
+den internen Vertragsnamen, Start, Ende und wie er endete — nur aus der
+laufenden Spielsitzung und mit dem Spielkanal (LIVE, PTU …). Kein Handle,
+keine Pfade, keine Lagerdaten. Andere Webseiten bekommen keinen Zugriff. Was
+scmdb damit tut, regelt seine eigene Datenschutzerklärung auf
+[scmdb.net](https://scmdb.net).
+
 ## Kontakt
 
 Fragen zum Datenschutz über die [Issues](https://github.com/Xharig/VerseKit/issues),

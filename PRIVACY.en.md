@@ -110,6 +110,21 @@ credentials are not in it, and it only goes out when you send it yourself. What 
 is governed by its own privacy policy at
 [profit-base.online](https://profit-base.online).
 
+## scmdb.net
+
+Only if you turn on *Connect to scmdb.net* — off by default. Verse-Kit then
+opens a small port **on your own computer only** (`127.0.0.1:23456`).
+Verse-Kit itself sends nothing over the internet: the scmdb page in **your**
+browser picks the data up there and enters it into the scmdb account you are
+signed in with.
+
+**What the page gets:** the names of newly received blueprints (in English, as
+in the catalogue) and, for running missions, the IDs from the game log, the
+internal contract name, start, end and how it ended — only from the current
+game session and with the game channel (LIVE, PTU …). No handle, no paths, no
+storage data. Other websites get no access. What scmdb does with it is
+governed by its own privacy policy at [scmdb.net](https://scmdb.net).
+
 ## Contact
 
 Privacy questions via the [issues](https://github.com/Xharig/VerseKit/issues),
