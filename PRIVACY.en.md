@@ -44,6 +44,7 @@ Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com
 | which areas are switched on | Ships, Workshop, Trade … |
 | how the overlay runs | always visible / only on new blueprints |
 | whether Verse-Kit starts with your computer | yes / no |
+| whether new versions are installed automatically | yes / no |
 
 Plus the **country** that Cloudflare detects on every request by itself — only
 the country code, no city, no region. No ID, no name, no RSI handle, no paths.

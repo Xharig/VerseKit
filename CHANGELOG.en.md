@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **Usage count** now also reports whether new versions are installed
+  automatically for you (yes/no). That shows how many use automatic updates.
+  Listed in the privacy statement, can be turned off as before
+
 ### Fixed
 
 - **Blueprints in the mission text split by system again** — when a mission

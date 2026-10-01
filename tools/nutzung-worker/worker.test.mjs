@@ -33,7 +33,8 @@ function env(extra = {}) {
 }
 
 const FULL = { v: '3.65.0', os: 'windows', ui: 'de', game: 'en', rc: false,
-               mods: ['handel', 'schiffe'], overlay: 'popup', autostart: true };
+               mods: ['handel', 'schiffe'], overlay: 'popup', autostart: true,
+               update: false };
 
 function ping(body, { cf = { country: 'DE', city: 'Berlin', latitude: '52.5' }, host = 'nutzung-versekit.xharig.com', method = 'POST' } = {}) {
   const req = new Request(`https://${host}/ping`, {
@@ -56,7 +57,14 @@ test('Vorbedingung: eine vollständige Meldung wird gezählt', async () => {
   assert.equal(tage.length, 1);
   assert.deepEqual(tage[0].args.slice(1), ['3.65.0', 'windows', 'DE']);
   assert.deepEqual(merk.sort(), ['autostart=ja', 'game=en', 'mod=handel', 'mod=schiffe',
-                                 'overlay=popup', 'rc=nein', 'ui=de']);
+                                 'overlay=popup', 'rc=nein', 'ui=de', 'update=nein']);
+});
+
+test('ältere Fassungen ohne Feld update werden weiter gezählt', async () => {
+  const e = env();
+  const { update, ...old } = FULL;
+  assert.equal(update, false);
+  assert.equal((await worker.fetch(ping(old), e)).status, 204);
 });
 
 test('nur Version und System genügen auch', async () => {
@@ -90,7 +98,7 @@ test('zusätzliche Felder (Kennung, Land) werden abgelehnt', async () => {
 
 test('falsche Werte werden abgelehnt', async () => {
   const bad = [{ v: 'DROP TABLE' }, { os: 'mac' }, { ui: 'deutsch' }, { game: 'EN' },
-               { rc: 'ja' }, { autostart: 1 }, { overlay: 'aus' },
+               { rc: 'ja' }, { autostart: 1 }, { update: 'an' }, { overlay: 'aus' },
                { mods: 'handel' }, { mods: ['C:/Users/x'] }, { mods: ['a', 'a'] },  // privacy-ok: erfundener Pfad, muss abgewiesen werden
                { mods: Array.from({ length: 13 }, (_, i) => 'm' + 'x'.repeat(i)) }];
   for (const b of bad) {

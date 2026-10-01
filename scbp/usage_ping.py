@@ -32,6 +32,7 @@ Installationen es wirklich gibt.
 | `mods` | welche abschaltbaren Bereiche an sind (`schiffe`, `handel` …) |
 | `overlay` | wie das Overlay läuft (`immer` oder `popup`) |
 | `autostart` | ob VerseKit mit dem Rechner startet (ja/nein) |
+| `update` | ob neue Versionen von selbst eingespielt werden (ja/nein) |
 
 Keine Kennung, kein Name, kein RSI-Handle, keine Pfade. Der Empfänger
 (`tools/nutzung-worker/`, ein Cloudflare Worker) zählt je Tag nur `+1` für
@@ -94,7 +95,8 @@ def system():
     return 'windows' if sys.platform.startswith('win') else 'linux'
 
 
-FIELDS = ('v', 'os', 'ui', 'game', 'rc', 'mods', 'overlay', 'autostart')
+FIELDS = ('v', 'os', 'ui', 'game', 'rc', 'mods', 'overlay', 'autostart',
+          'update')
 
 # Sprachordner des Spiels (`german_(germany)`) -> Kürzel. Unbekanntes wird
 # `xx` — nie der Ordnername selbst, der könnte alles Mögliche enthalten.
@@ -138,6 +140,11 @@ def _autostart():
     return bool(autostart.is_on())
 
 
+def _auto_update():
+    from . import auto_update
+    return bool(auto_update.enabled())
+
+
 def payload(version, system_name=None):
     """Genau das, was hinausgeht — als eigene Funktion, damit es sich prüfen
     lässt und nirgends heimlich mehr dazukommt. Jede Angabe für sich
@@ -151,6 +158,7 @@ def payload(version, system_name=None):
         'mods': _safe(_modules, []),
         'overlay': _safe(_overlay, 'immer'),
         'autostart': _safe(_autostart, False),
+        'update': _safe(_auto_update, True),
     }
 
 

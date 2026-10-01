@@ -35,7 +35,7 @@ const LANG_RE = /^[a-z]{2}$/;
 const MODULE_RE = /^[a-z]{1,20}$/;
 const MAX_MODULES = 12;
 const OVERLAY = ['immer', 'popup'];
-const FIELDS = ['autostart', 'game', 'mods', 'os', 'overlay', 'rc', 'ui', 'v'];
+const FIELDS = ['autostart', 'game', 'mods', 'os', 'overlay', 'rc', 'ui', 'update', 'v'];
 const COUNTRY_RE = /^[A-Z][A-Z0-9]$/;   // ISO-Kürzel; Cloudflare nutzt auch T1 (Tor), XX (unbekannt)
 const STATS_HOST = 'statistik-versekit.xharig.com';
 const MAX_DAYS = 400;
@@ -93,6 +93,7 @@ export async function check(request) {
   lang('game');
   yesNo('rc');
   yesNo('autostart');
+  yesNo('update');
   if (d.overlay !== undefined) {
     if (!OVERLAY.includes(d.overlay)) throw { status: 400, text: 'overlay' };
     out.traits.push(['overlay', d.overlay]);

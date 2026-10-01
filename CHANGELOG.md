@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Nutzung zählen** meldet zusätzlich, ob neue Versionen bei dir von selbst
+  eingespielt werden (ja/nein). So sehe ich, wie viele die automatischen
+  Updates nutzen. Steht in der Datenschutz-Erklärung, abschaltbar wie bisher
+
 ### Behoben
 
 - **Baupläne im Auftragstext wieder je System** — gibt ein Auftrag in

@@ -44,6 +44,7 @@ Einmal am Tag schickt Verse-Kit an `nutzung-versekit.xharig.com` genau diese Ang
 | welche Bereiche eingeschaltet sind | Schiffe, Werkstatt, Handel … |
 | wie das Overlay läuft | immer sichtbar / nur bei neuen Bauplänen |
 | ob Verse-Kit mit dem Rechner startet | ja / nein |
+| ob neue Versionen von selbst eingespielt werden | ja / nein |
 
 Dazu das **Land**, das Cloudflare bei jeder Anfrage selbst erkennt — nur das
 Länderkürzel, keine Stadt, keine Region. Keine Kennung, kein Name, kein

@@ -30940,7 +30940,7 @@ def _pruefung_305():
                'Vorbedingung: die Gegenstelle fängt die Meldung ab (%r, %d)'
                % (erg, len(gesendet)))
         _erlaubt305 = sorted(['v', 'os', 'ui', 'game', 'rc', 'mods',
-                              'overlay', 'autostart'])
+                              'overlay', 'autostart', 'update'])
         pruefe(gesendet and sorted(gesendet[0]) == _erlaubt305,
                'es gehen GENAU die Felder aus PRIVACY.md hinaus (%r)'
                % (sorted(gesendet[0]) if gesendet else None))
@@ -30953,6 +30953,7 @@ def _pruefung_305():
                and re.match(r'^[a-z]{2}$', str(_g305.get('game')))
                and isinstance(_g305.get('rc'), bool)
                and isinstance(_g305.get('autostart'), bool)
+               and isinstance(_g305.get('update'), bool)
                and _g305.get('overlay') in ('immer', 'popup')
                and all(re.match(r'^[a-z]{1,20}$', m) for m in _g305.get('mods', [None])),
                'jede Angabe ist ein Kürzel, Ja/Nein oder ein fester Name (%r)' % _g305)

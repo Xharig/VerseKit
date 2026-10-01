@@ -362,6 +362,7 @@ function render(d, span) {
   bars(card('Einstellungen (Ø 7 Tage)'), [
     ['Testversionen an', (share('rc').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Autostart an', (share('autostart').find((x) => x[0] === 'ja') || [0, 0])[1]],
+    ['Auto-Update an', (share('update').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
