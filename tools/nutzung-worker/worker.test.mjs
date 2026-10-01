@@ -280,3 +280,14 @@ test('andere Pfade auf xharig.com gehören nicht dem Worker', async () => {
   const r = await worker.fetch(short('/discord'), env(), ctxCollect());
   assert.equal(r.status, 404);
 });
+
+test('alle vier Schreibweisen der Kurzlinks führen zur Datei', async () => {
+  for (const url of ['https://xharig.com/windows', 'https://xharig.com/windows/',
+                     'https://www.xharig.com/windows', 'https://www.xharig.com/linux/']) {
+    const req = new Request(url, { headers: { 'user-agent': 'Mozilla/5.0 Firefox/130.0' } });
+    Object.defineProperty(req, 'cf', { value: { country: 'DE' } });
+    const r = await worker.fetch(req, env(), ctxCollect());
+    assert.equal(r.status, 302, url);
+    assert.match(r.headers.get('location'), /releases\/latest\/download\//, url);
+  }
+});

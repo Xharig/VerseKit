@@ -251,7 +251,7 @@ async function data(env, ctx, days) {
 
 // ------------------------------------------------------------ Kurzlinks
 
-const SHORT_HOST = 'xharig.com';
+const SHORT_HOSTS = ['xharig.com', 'www.xharig.com'];
 const SHORT_LINKS = {
   '/windows': { system: 'windows',
     target: `https://github.com/${REPO}/releases/latest/download/VerseKit-Setup.exe` },
@@ -333,8 +333,11 @@ export default {
     // ⚠ Die Übersicht NUR unter ihrer eigenen Adresse — dort sitzt Access
     // davor. Über workers.dev oder nutzung-versekit.xharig.com gibt es sie nicht.
     if (url.hostname === STATS_HOST) return stats(request, env, ctx, verify);
-    if (url.hostname === SHORT_HOST && SHORT_LINKS[url.pathname]) {
-      return shortLink(request, env, ctx, SHORT_LINKS[url.pathname]);
+    // ⚠ Wie die frühere Weiterleitungsregel: mit und ohne `www.`, mit und ohne
+    // Schrägstrich am Ende. Sonst liefe `www.xharig.com/windows/` ins Leere.
+    const shortPath = url.pathname.replace(/\/+$/, '');
+    if (SHORT_HOSTS.includes(url.hostname) && SHORT_LINKS[shortPath]) {
+      return shortLink(request, env, ctx, SHORT_LINKS[shortPath]);
     }
     if (url.pathname === '/ping') return ping(request, env);
     return answer(404, 'nicht hier');

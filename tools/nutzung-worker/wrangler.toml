@@ -15,7 +15,13 @@ routes = [
   # VerseKit-Linux in Cloudflare entfernt sind — Weiterleitungsregeln laufen
   # VOR Workern.
   { pattern = "xharig.com/windows", zone_name = "xharig.com" },
-  { pattern = "xharig.com/linux", zone_name = "xharig.com" }
+  { pattern = "xharig.com/windows/", zone_name = "xharig.com" },
+  { pattern = "www.xharig.com/windows", zone_name = "xharig.com" },
+  { pattern = "www.xharig.com/windows/", zone_name = "xharig.com" },
+  { pattern = "xharig.com/linux", zone_name = "xharig.com" },
+  { pattern = "xharig.com/linux/", zone_name = "xharig.com" },
+  { pattern = "www.xharig.com/linux", zone_name = "xharig.com" },
+  { pattern = "www.xharig.com/linux/", zone_name = "xharig.com" }
 ]
 
 # Die Access-Angaben für die zweite Prüfung im Worker stehen NICHT hier —
