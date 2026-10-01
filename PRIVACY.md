@@ -2,9 +2,10 @@
 
 **Deutsch** · [English](PRIVACY.en.md)
 
-Verse-Kit läuft auf deinem Rechner. Es gibt kein Konto, keine Telemetrie, keine
-Werbung und kein Tracking. Diese Seite sagt vollständig, was das Programm liest,
-was es aus dem Netz holt und was es verschickt.
+Verse-Kit läuft auf deinem Rechner. Es gibt kein Konto, keine Werbung und kein
+Tracking. Einmal am Tag meldet das Programm, dass es läuft — ohne Kennung,
+abschaltbar (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
+das Programm liest, was es aus dem Netz holt und was es verschickt.
 
 ## Was auf deinem Rechner gelesen wird
 
@@ -29,6 +30,31 @@ bei jedem Abruf sieht die Gegenseite deine IP-Adresse.
 | Übersetzungen, die du auswählst | die jeweilige Quelle (etwa StarStrings, Luftwerft, rjcncpt) |
 
 Mit der Umgebungsvariable `SC_BP_NO_NET=1` holt Verse-Kit gar nichts.
+
+## Nutzung zählen
+
+Einmal am Tag schickt Verse-Kit an `nutzung-versekit.xharig.com` genau diese Angaben:
+
+| Angabe | Beispiel |
+|---|---|
+| Programmversion | `3.65.0` |
+| System | Windows oder Linux |
+| Sprache der Oberfläche und des Spiels | `de`, `en` |
+| ob du Testversionen angeboten bekommst | ja / nein |
+| welche Bereiche eingeschaltet sind | Schiffe, Werkstatt, Handel … |
+| wie das Overlay läuft | immer sichtbar / nur bei neuen Bauplänen |
+| ob Verse-Kit mit dem Rechner startet | ja / nein |
+
+Dazu das **Land**, das Cloudflare bei jeder Anfrage selbst erkennt — nur das
+Länderkürzel, keine Stadt, keine Region. Keine Kennung, kein Name, kein
+RSI-Handle, keine Pfade. Gespeichert wird dort nur ein Zähler je Tag und Wert —
+deine IP-Adresse wird nicht abgelegt. Damit lässt sich zählen, wie viele
+Verse-Kit an einem Tag nutzen und was davon, aber nicht, wer, und auch keine
+einzelne Installation über mehrere Tage verfolgen. Die Zahlen sieht nur der
+Entwickler.
+
+Abschalten: *Einstellungen → Allgemein → Nutzung zählen*. Mit
+`SC_BP_NO_NET=1` entfällt die Meldung ebenfalls.
 
 ## Fehlerbericht
 

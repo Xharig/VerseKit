@@ -62,7 +62,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.64.2'
+__version__ = '3.65.0'
 
 
 def _mitgeliefert(name):
@@ -5741,5 +5741,12 @@ if __name__ == '__main__':
             errors.record('watcher.prices_vorladen', ausnahme)
 
     threading.Thread(target=_steckplaetze_vorladen, daemon=True).start()
+    # Einmal am Tag „ich laufe" — nur Version und System, abschaltbar.
+    # Was genau hinausgeht, steht in scbp/usage_ping.py und PRIVACY.md.
+    try:
+        from scbp import usage_ping
+        usage_ping.start(__version__)
+    except Exception as ausnahme:
+        errors.record('watcher.nutzung', ausnahme)
     errors.trail('Hauptschleife läuft')
     fenster.run()

@@ -7354,7 +7354,8 @@ def main():
                           erkul as _ek74, mining as _mi74,
                           rank_thresholds as _rt74, reputation as _rp74,
                           serverstatus as _ss74, translation as _tr74,
-                          uex as _ux74, updater as _up74)
+                          uex as _ux74, updater as _up74,
+                          usage_ping as _np74)
 
         # Die Wege, die im Betrieb gegangen werden. Bei den drei privaten
         # (`_fetch`) sitzt die Sperre genau dort — sie sind die Engstelle,
@@ -7371,6 +7372,8 @@ def main():
              lambda: _tr74._fetch('https://example.invalid/x', True)),
             ('uex.fetch', lambda: _ux74.fetch('https://example.invalid/x', 'probe')),
             ('updater.check', lambda: _up74.check('1.0.0', force=True)),
+            ('usage_ping.send_if_due',
+             lambda: _np74.send_if_due('3.65.0', day='2000-01-01')),
         )
         for _name74b, _ruf74 in _wege74:
             _vor74 = len(_raus74)
@@ -25832,6 +25835,7 @@ def main():
     _pruefung_302()
     _pruefung_304()
     _pruefung_303()
+    _pruefung_305()
 
     print()
     if fehler:
@@ -30867,6 +30871,121 @@ def _pruefung_303():
         else:
             os.environ['SC_BP_HOME'] = _alt_home
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_305():
+    """305. Nutzung zählen: nur Version und System, einmal am Tag, abschaltbar.
+
+    ⚠⚠ **Warum es diese Prüfung gibt.** `PRIVACY.md` sagt wörtlich, was
+    hinausgeht — genau zwei Angaben. Kommt irgendwann eine dritte dazu (eine
+    Kennung, ein Name), ist das ein Wortbruch, den man am Bildschirm nie sieht.
+    Geprüft wird die **Wirkung**: Eine untergeschobene Gegenstelle fängt jede
+    Meldung ab und muss zuerst selbst zuschnappen (Vorbedingung).
+    """
+    print('\n305. Nutzung zählen (nur die genannten Angaben, einmal am Tag)')
+    import json as _js305
+    from scbp import paths as _pf305, usage_ping as _up305
+    gesendet = []
+
+    class _Antwort:
+        status = 204
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _gegenstelle(req, timeout=0):
+        gesendet.append(_js305.loads(req.data.decode('utf-8')))
+        return _Antwort()
+
+    _alt = (_up305.OFF, _up305._packaging, os.environ.get('SC_BP_NUTZUNG_ZIEL'))
+    _alt_an = _pf305.setting(_up305.SETTING)
+    _alt_zuletzt = _pf305.setting(_up305.LAST)
+    try:
+        _up305.OFF = False
+        _up305._packaging = lambda: 'exe'
+        os.environ.pop('SC_BP_NUTZUNG_ZIEL', None)
+        _pf305.set_setting(_up305.SETTING, True)
+        _pf305.set_setting(_up305.LAST, '')
+
+        erg = _up305.send_if_due('3.65.0', day='2026-10-01', opener=_gegenstelle)
+        pruefe(erg == 'gesendet' and len(gesendet) == 1,
+               'Vorbedingung: die Gegenstelle fängt die Meldung ab (%r, %d)'
+               % (erg, len(gesendet)))
+        _erlaubt305 = sorted(['v', 'os', 'ui', 'game', 'rc', 'mods',
+                              'overlay', 'autostart'])
+        pruefe(gesendet and sorted(gesendet[0]) == _erlaubt305,
+               'es gehen GENAU die Felder aus PRIVACY.md hinaus (%r)'
+               % (sorted(gesendet[0]) if gesendet else None))
+        pruefe(gesendet and gesendet[0].get('os') in ('windows', 'linux'),
+               'das System ist windows oder linux')
+        # ⚠ Kein Wert darf Namen oder Pfade tragen: nur kurze Kürzel, Ja/Nein
+        # und die festen Bereichsnamen.
+        _g305 = gesendet[0] if gesendet else {}
+        pruefe(re.match(r'^[a-z]{2}$', str(_g305.get('ui')))
+               and re.match(r'^[a-z]{2}$', str(_g305.get('game')))
+               and isinstance(_g305.get('rc'), bool)
+               and isinstance(_g305.get('autostart'), bool)
+               and _g305.get('overlay') in ('immer', 'popup')
+               and all(re.match(r'^[a-z]{1,20}$', m) for m in _g305.get('mods', [None])),
+               'jede Angabe ist ein Kürzel, Ja/Nein oder ein fester Name (%r)' % _g305)
+
+        erg2 = _up305.send_if_due('3.65.0', day='2026-10-01', opener=_gegenstelle)
+        pruefe(erg2 == 'schon' and len(gesendet) == 1,
+               'am selben Tag kein zweites Mal (%r)' % erg2)
+        erg3 = _up305.send_if_due('3.65.0', day='2026-10-02', opener=_gegenstelle)
+        pruefe(erg3 == 'gesendet' and len(gesendet) == 2,
+               'am nächsten Tag wieder (%r)' % erg3)
+
+        # Scheitert die Meldung, gilt der Tag nicht als erledigt.
+        def _kaputt(req, timeout=0):
+            raise OSError('kein Netz')
+        erg4 = _up305.send_if_due('3.65.0', day='2026-10-03', opener=_kaputt)
+        pruefe(erg4 == 'fehler' and _pf305.setting(_up305.LAST) == '2026-10-02',
+               'ohne Netz bleibt der Tag offen und wird nachgeholt (%r)' % erg4)
+
+        _pf305.set_setting(_up305.SETTING, False)
+        erg5 = _up305.send_if_due('3.65.0', day='2026-10-04', opener=_gegenstelle)
+        pruefe(erg5 == 'aus' and len(gesendet) == 2,
+               'abgeschaltet geht nichts hinaus (%r)' % erg5)
+        _pf305.set_setting(_up305.SETTING, True)
+
+        _up305._packaging = lambda: 'quellcode'
+        erg6 = _up305.send_if_due('3.65.0', day='2026-10-05', opener=_gegenstelle)
+        pruefe(erg6 == 'quellcode' and len(gesendet) == 2,
+               'der Quellcode-Start meldet nie (%r)' % erg6)
+        _up305._packaging = lambda: 'exe'
+
+        erg7 = _up305.send_if_due('3.65.0 @everyone', day='2026-10-06',
+                                  opener=_gegenstelle)
+        pruefe(erg7 == 'version' and len(gesendet) == 2,
+               'eine seltsame Versionsangabe geht nicht hinaus (%r)' % erg7)
+
+        # ⚠ Gegenprobe: Schmuggelt `payload` ein drittes Feld hinein, muss die
+        # Prüfung oben rot werden — sonst beweist sie nichts.
+        _echt_payload = _up305.payload
+        _up305.payload = lambda v, s=None: dict(_echt_payload(v, s), id='x')
+        try:
+            gesendet.clear()
+            _up305.send_if_due('3.65.0', day='2026-10-07', opener=_gegenstelle)
+            pruefe(gesendet and sorted(gesendet[0]) != _erlaubt305,
+                   'Gegenprobe: ein zusätzliches Feld würde erkannt')
+        finally:
+            _up305.payload = _echt_payload
+    finally:
+        _up305.OFF, _up305._packaging = _alt[0], _alt[1]
+        if _alt[2] is not None:
+            os.environ['SC_BP_NUTZUNG_ZIEL'] = _alt[2]
+        _pf305.set_setting(_up305.SETTING, _alt_an if _alt_an is not None else True)
+        _pf305.set_setting(_up305.LAST, _alt_zuletzt or '')
+
+    # Die Datenschutzseite nennt den Weg — in beiden Sprachen.
+    for _datei, _wort in (('PRIVACY.md', 'nutzung-versekit.xharig.com'),
+                          ('PRIVACY.en.md', 'nutzung-versekit.xharig.com')):
+        with open(os.path.join(WURZEL, _datei), encoding='utf-8') as _f:
+            pruefe(_wort in _f.read(), '%s nennt die Nutzungsmeldung' % _datei)
 
 
 if __name__ == '__main__':

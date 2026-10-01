@@ -8,6 +8,25 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.65.0 - 2026-10-01
+
+> Wie viele nutzen Verse-Kit eigentlich wirklich? Die Downloads verraten das
+> nicht — deshalb meldet sich das Werkzeug jetzt einmal am Tag, ganz ohne
+> Kennung. So sehe ich, was gebraucht wird und wohin die Arbeit gehen soll.
+
+> [!important]
+> **Verse-Kit zählt jetzt mit, wie viele es nutzen.** Einmal am Tag meldet es
+> Version, System, Sprache und welche Bereiche an sind — ohne Kennung, Namen
+> oder Handle. Abschalten: *Einstellungen → Allgemein → Nutzung zählen*. Was
+> genau hinausgeht, steht in der Datenschutz-Erklärung.
+
+### Neu
+
+- **Nutzung zählen** — einmal am Tag eine Meldung ohne Kennung, damit sich
+  sehen lässt, wie viele Verse-Kit wirklich nutzen und welche Bereiche. Ab
+  Werk an, unter *Einstellungen → Allgemein* abschaltbar. Vorschlag von
+  Choopa (Luftwerft)
+
 ## v3.64.2 - 2026-10-01
 
 > Beim Einlesen in scmdb.net müssen jetzt kaum noch Baupläne von Hand

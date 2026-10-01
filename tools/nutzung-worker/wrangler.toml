@@ -1,0 +1,35 @@
+# Cloudflare Worker: zählt täglich aktive Verse-Kit-Installationen und zeigt
+# die private Übersicht. Einrichten: siehe README.md daneben.
+name = "versekit-nutzung"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# nutzung-versekit.xharig.com  — nimmt die tägliche Meldung an (öffentlich, nur /ping)
+# statistik-versekit.xharig.com — die Übersicht, NUR hinter Cloudflare Access
+workers_dev = true
+routes = [
+  { pattern = "nutzung-versekit.xharig.com", custom_domain = true },
+  { pattern = "statistik-versekit.xharig.com", custom_domain = true }
+]
+
+# Die Access-Angaben für die zweite Prüfung im Worker stehen NICHT hier —
+# das Repo ist öffentlich, und die Mail-Adresse ist privat. Sie kommen als
+# Geheimnisse hinein (siehe README.md):
+#   TEAM_DOMAIN    <team>.cloudflareaccess.com
+#   POLICY_AUD     die AUD-Kennung der Access-Anwendung
+#   ERLAUBTE_MAIL  die Mail-Adresse, mit der du dich anmeldest
+# Fehlt eine, bleibt die Übersicht zu (403).
+
+# Die Datenbank legt `npx wrangler d1 create versekit-nutzung` an; die
+# Kennung, die der Befehl ausgibt, gehört hier hinein.
+[[d1_databases]]
+binding = "DB"
+database_name = "versekit-nutzung"
+database_id = "60e2e327-a9f0-4499-a37a-db6b9ee87816"
+
+# Höchstens 5 Meldungen je Absender-Adresse und Minute. Ein Programm meldet
+# sich einmal am Tag — alles darüber ist kein Verse-Kit.
+[[ratelimits]]
+name = "LIMIT"
+namespace_id = "1002"
+simple = { limit = 5, period = 60 }

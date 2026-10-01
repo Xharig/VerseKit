@@ -1930,6 +1930,20 @@ def _general(fenster, rahmen):
 
     toggle_switch(ziel, play_stats.auto_enabled(), stats_auto_flip).pack()
 
+    # ⭐ Tägliche Nutzungsmeldung (v3.65.0) — ab Werk an, hier abschaltbar.
+    # Was hinausgeht, sagt der Hilfetext wörtlich (Version und System).
+    from . import usage_ping
+    ziel = _setting_row(fenster, innen, t('s_nutzung'), t('s_nutzung_h'))
+
+    def usage_flip():
+        new_value = not usage_ping.enabled()
+        paths.set_setting(usage_ping.SETTING, new_value)
+        fenster.say('%s: %s' % (t('s_nutzung'),
+                                t('e_an') if new_value else t('e_aus')))
+        return new_value
+
+    toggle_switch(ziel, usage_ping.enabled(), usage_flip).pack()
+
 
 def _flag(code, master=None):
     """Eine Flagge in Zeilengröße — oder None, wenn das Bild fehlt.

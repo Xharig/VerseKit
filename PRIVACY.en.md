@@ -2,9 +2,10 @@
 
 [Deutsch](PRIVACY.md) · **English**
 
-Verse-Kit runs on your computer. There is no account, no telemetry, no
-advertising and no tracking. This page states in full what the program reads,
-what it fetches from the internet and what it sends.
+Verse-Kit runs on your computer. There is no account, no advertising and no
+tracking. Once a day the program reports that it is running — without any ID,
+and you can switch it off (see *Count usage*). This page states in full
+what the program reads, what it fetches from the internet and what it sends.
 
 ## What is read on your computer
 
@@ -29,6 +30,30 @@ request, the other side sees your IP address.
 | Translations you choose | the respective source (such as StarStrings, Luftwerft, rjcncpt) |
 
 With the environment variable `SC_BP_NO_NET=1` Verse-Kit fetches nothing.
+
+## Count usage
+
+Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com`:
+
+| Detail | Example |
+|---|---|
+| Program version | `3.65.0` |
+| System | Windows or Linux |
+| Language of the interface and of the game | `de`, `en` |
+| whether you are offered test versions | yes / no |
+| which areas are switched on | Ships, Workshop, Trade … |
+| how the overlay runs | always visible / only on new blueprints |
+| whether Verse-Kit starts with your computer | yes / no |
+
+Plus the **country** that Cloudflare detects on every request by itself — only
+the country code, no city, no region. No ID, no name, no RSI handle, no paths.
+All that is stored there is one counter per day and value — your IP address is
+not kept. This counts how many people use Verse-Kit on a given day and which
+parts, but not who, and no single installation can be followed across days.
+Only the developer sees the numbers.
+
+Switch it off: *Settings → General → Count usage*. `SC_BP_NO_NET=1` stops it
+as well.
 
 ## Problem report
 

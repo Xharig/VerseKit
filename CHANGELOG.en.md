@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.65.0 - 2026-10-01
+
+> How many people actually use Verse-Kit? The downloads don't tell — so the
+> tool now checks in once a day, without any ID at all. That shows me what is
+> needed and where the work should go next.
+
+> [!important]
+> **Verse-Kit now counts how many people use it.** Once a day it reports its
+> version, your system, language and which areas are switched on — no ID, name
+> or handle. Switch it off: *Settings → General → Count usage*. The privacy
+> statement lists exactly what is sent.
+
+### New
+
+- **Count usage** — once a day a report without any ID, so it can be seen how
+  many people really use Verse-Kit and which areas. On by default, can be
+  switched off under *Settings → General*. Suggested by Choopa (Luftwerft)
+
 ## v3.64.2 - 2026-10-01
 
 > Importing into scmdb.net now needs hardly any manual matching — magazines

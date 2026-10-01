@@ -2619,7 +2619,9 @@ TEXTS = {
                               'schon immer, nur sah man es nicht), das '
                               '**unscharfe Gemeinschafts-Zeichen** bei hoher '
                               'Skalierung, und der Schalter für **Baupläne ohne '
-                              'bekannten Weg**.',
+                              'bekannten Weg**. Später der Rat, **ehrlich zu '
+                              'zählen**, wie viele Verse-Kit wirklich nutzen — '
+                              'daraus wurde die tägliche Meldung ohne Kennung.',
                               'Developer of the **SC Launch Configurator** — he '
                               'released his translations for use in this tool. '
                               'Plus three nudges in one afternoon: **"Leave '
@@ -2627,7 +2629,9 @@ TEXTS = {
                               'always did that, you just could not see it), the '
                               '**blurry community mark** at higher scaling, and '
                               'the toggle for **blueprints with no known '
-                              'source**.'),
+                              'source**. Later the advice to **count honestly** '
+                              'how many people really use Verse-Kit — which '
+                              'became the daily report without any ID.'),
     's_dk_yoshimitsu_idee':  ('**Handelsrouten** — sag, wo du stehst und was in '
                               'den Laderaum passt, und das Werkzeug rechnet, '
                               'womit sich die nächste Fahrt lohnt.',
@@ -5547,6 +5551,9 @@ TEXTS = {
     's_sa_auto':         ('Automatisch auswerten', 'Evaluate automatically'),
     's_sa_auto_h':       ('Liest neue Protokolle beim Start von VerseKit und beim Öffnen der Statistik von selbst. Gelesen wird nur, was neu oder gewachsen ist.',
                           'Reads new logs by itself when VerseKit starts and when you open the statistics. Only what is new or has grown is read.'),
+    's_nutzung':         ('Nutzung zählen lassen', 'Count usage'),
+    's_nutzung_h':       ('Einmal am Tag meldet VerseKit Version, System, Sprache und welche Bereiche du nutzt — ohne Kennung, Namen oder Handle. So sehe ich, wie viele VerseKit wirklich nutzen und was davon. Alles Einzelne steht in der Datenschutz-Erklärung.',
+                          'Once a day VerseKit reports its version, your system, language and which areas you use — no ID, name or handle. That way I can see how many people really use VerseKit and which parts. Every detail is listed in the privacy statement.'),
     's_sa_export_h':     ('Speichert die Statistik als Datei zum Aufheben oder Teilen — ohne deinen Spielernamen.',
                           'Saves the statistics as a file to keep or share — without your player name.'),
     's_ss_lead':         ('Womit du fliegst, was du verlierst und was du trägst.',
