@@ -236,14 +236,17 @@ function render(d, span) {
   // wie in der Kurve oben. Direkt unter der Kurve, damit man nicht scrollt.
   // Eingeklappt die letzten 5, ausgeklappt alle fertigen Versionen. Die Wahl
   // merkt sich der Browser (nur bequem — fehlt der Speicher, gilt eingeklappt).
-  // Versionen ohne einen einzigen Download (frühe Fassungen) blähen nur auf.
+  // Versionen ohne einen einzigen Download (frühe Fassungen) blähen nur auf —
+  // außer der neuesten fertigen, die steht immer da, auch mit 0.
   const current = new Set(d.downloads.map((r) => r.tag));
+  const newest = d.downloads.filter((r) => !r.vorab)
+    .reduce((a, r) => (!a || String(r.am).localeCompare(String(a.am)) > 0 ? r : a), null);
   // Gelöschte fertige Versionen aus dem Mitschreiben dazu — sonst wären ihre
   // Downloads aus der Liste verschwunden.
   const gone = (d.bestand || []).filter((b) => !b.vorab && b.gesamt > 0 && !current.has(b.version))
     .map((b) => ({ tag: b.version, am: b.veroeffentlicht || b.zuletzt, windows: b.windows, linux: b.linux,
                    gesamt: b.gesamt, weg: true }));
-  const rel = d.downloads.filter((r) => !r.vorab && r.windows + r.linux > 0)
+  const rel = d.downloads.filter((r) => !r.vorab && (r.windows + r.linux > 0 || r === newest))
     .map((r) => ({ ...r, gesamt: r.windows + r.linux })).concat(gone)
     .sort((a, b) => String(b.am).localeCompare(String(a.am)));
   const SHOWN = 5;
