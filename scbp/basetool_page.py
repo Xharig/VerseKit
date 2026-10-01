@@ -96,6 +96,11 @@ ERROR_TEXTS = {
     'account_mismatch': 's_bt_konto_falsch',
     'account_unknown': 's_bt_konto_unbekannt',
     'account_all': 's_bt_konto_alle',
+    'account_none': 's_bt_konto_keiner',
+    'INSTALLATION_ID_MISSING': 's_bt_f_kennung',
+    'SECRET_REFUSED': 's_bt_f_schluesselbund',
+    'SECRET_UNSAFE': 's_bt_f_datei_offen',
+    'SECRET_FAILED': 's_bt_f_schluesselbund',
 }
 
 
@@ -177,9 +182,12 @@ def _draw(window, area, login, redraw):
     # ---------------------------------------------------------- Verbindung
     card = _card(area)
     _title(window, card, t('s_bt_verbindung'))
-    if basetool.connection_config()['sandbox']:
+    cfg = basetool.connection_config()
+    if cfg['sandbox']:
         _note(window, card, t('s_bt_sandbox'), color=theme.YELLOW, bottom=0)
-    if not secret_store.WINDOWS and secret_store.backend() == 'file':
+    elif cfg['override']:
+        _note(window, card, t('s_bt_override'), color=theme.YELLOW, bottom=0)
+    if secret_store.uses_file():
         _note(window, card, t('s_bt_datei', secret_store.folder()),
               color=theme.YELLOW, bottom=0)
 
@@ -520,6 +528,13 @@ def _start_login(window, login, redraw):
             login['message'] = error_text(error.code)
             _TK_CALLS.put(redraw)
             return
+        except secret_store.SecretError as error:
+            from . import errors
+            errors.record('basetool_page.login', error)
+            login['current'] = None
+            login['message'] = error_text(error.code)
+            _TK_CALLS.put(redraw)
+            return
         except Exception as exc:
             from . import errors
             errors.record('basetool_page.login', exc)
@@ -538,6 +553,10 @@ def _start_login(window, login, redraw):
             except basetool.ApiError as error:
                 from . import errors
                 errors.record('basetool_page.poll', RuntimeError(error.describe()))
+                result = 'error:' + error.code
+            except secret_store.SecretError as error:
+                from . import errors
+                errors.record('basetool_page.poll', error)
                 result = 'error:' + error.code
             if result in ('pending', 'slow_down'):
                 continue

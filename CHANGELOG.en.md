@@ -8,6 +8,23 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Changed
+
+- **Basetool sync more careful** — after an error Verse-Kit waits longer
+  before it tries again. If the Basetool blocks the connection or a permission
+  is missing, it no longer retries on its own — only at the next start or on
+  "Sync now". Syncing only happens once it is clear which account is yours,
+  and blueprints that appear only in another account's logs are not sent.
+  Reported by greluc (KRT)
+- **Credentials on Linux** — if your keyring refuses to store them, Verse-Kit
+  now tells you instead of silently falling back to a file. If the credentials
+  file is readable by others, it is locked down or not used. The "kept in a
+  file" hint only appears when that is actually the case. Reported by greluc
+  (KRT)
+- **Disconnect** now also deletes the previous version of the synced state.
+  The privacy statement says more precisely what the Basetool sync keeps on
+  your computer and where it travels with it. Reported by greluc (KRT)
+
 ## v3.66.0 - 2026-10-01
 
 > Flicker, broken textures or stutter after a patch? Throwing away the old

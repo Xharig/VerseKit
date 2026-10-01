@@ -88,12 +88,27 @@ Daten anderer Mitglieder.
 Basetool.
 
 **Was gespeichert wird:** der abgeglichene Stand in deinem Datenordner
-(`basetool-<Kennung>.json`), die Zugangsdaten nur im Schlüsselspeicher deines
-Systems (siehe [Sicherheit](SECURITY.md)). Daten aus dem Basetool bleiben auf
-deinem Rechner und gehen an niemanden weiter.
+(`basetool-<Kennung>.json`, daneben die Vorgängerfassung
+`basetool-<Kennung>.bak.json`), die Zugangsdaten nur im Schlüsselspeicher
+deines Systems (siehe [Sicherheit](SECURITY.md)). Daten aus dem Basetool
+bleiben auf deinem Rechner und gehen an niemanden weiter.
+
+In dieser Stand-Datei stehen **dein RSI-Handle** (aus der Account-Prüfung) und
+die **Liste deiner abgeglichenen Baupläne**, Lagerposten und Schiffe. Sie liegt
+im Datenordner und kommt deshalb mit in die **Sicherungs-ZIP**
+(*Einstellungen → Sichern & Zurücksetzen*). Liegt dein Datenordner in einer
+Cloud (OneDrive, iCloud …) oder auf einer geteilten Platte, liegt sie dort mit.
+Die Zugangsdaten selbst sind nie im Datenordner und nie in der Sicherung.
 
 **Trennen** widerruft die Verbindung beim Basetool und löscht die Zugangsdaten
-und den abgeglichenen Stand. Was das Basetool selbst mit deinen Daten tut,
+(Erneuerungs-Token und Schlüssel dieser Installation) und den abgeglichenen
+Stand — `basetool-<Kennung>.json` **und** `basetool-<Kennung>.bak.json`. Was
+schon in einer Sicherungs-ZIP steckt, bleibt dort, bis du sie löschst.
+
+**Fehlerbericht:** Er kann die Namen von Bauplänen enthalten, die Verse-Kit
+nicht zuordnen kann — darunter auch solche, die aus dem Basetool kamen. Dein
+RSI-Handle und die Zugangsdaten stehen nicht darin, und er geht nur hinaus,
+wenn du ihn selbst abschickst. Was das Basetool selbst mit deinen Daten tut,
 regelt seine eigene Datenschutzerklärung auf
 [profit-base.online](https://profit-base.online).
 

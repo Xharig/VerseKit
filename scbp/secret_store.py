@@ -55,10 +55,30 @@ APPLICATION = 'versekit'
 LABEL = 'VerseKit — KRT Profit Basetool'
 
 _backend_cache = [None]
+# Woher jedes Geheimnis zuletzt wirklich kam bzw. wohin es ging:
+# Name -> 'dpapi' | 'secret-service' | 'file'.
+_origin = {}
 
 
 class SecretError(Exception):
-    """Ein Geheimnis ließ sich nicht ablegen oder lesen."""
+    """Ein Geheimnis ließ sich nicht ablegen oder lesen.
+
+    `code` sagt der Oberfläche, warum: `SECRET_REFUSED` (Secret Service hat
+    abgelehnt), `SECRET_UNSAFE` (Datei oder Ordner für andere lesbar und nicht
+    zu korrigieren) oder `SECRET_FAILED`."""
+
+    def __init__(self, message, code='SECRET_FAILED'):
+        Exception.__init__(self, message)
+        self.code = code
+
+
+def uses_file():
+    """Liegt (mindestens) ein Geheimnis in der Datei statt im Secret Service?
+    Danach richtet sich der Hinweis auf der Seite — nicht nach der Vermutung,
+    welcher Speicher zu Beginn verfügbar war."""
+    if WINDOWS:
+        return False
+    return 'file' in _origin.values() or backend() == 'file'
 
 
 def folder():
@@ -82,8 +102,38 @@ def _ensure_folder():
     if not WINDOWS:
         # `makedirs` beachtet den Modus nur beim Anlegen und nur unter der
         # umask — also nachziehen, auch bei einem schon vorhandenen Ordner.
-        os.chmod(path, 0o700)
+        _tighten(path, 0o700)
     return path
+
+
+def _tighten(path, mode):
+    """Ordner oder Datei auf `mode` bringen — oder ablehnen.
+
+    Gehört der Eintrag einem anderen Benutzer oder lässt er sich nicht
+    nachziehen, wird er nicht benutzt."""
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise SecretError('%s: %s' % (os.path.basename(path), exc.strerror),
+                          'SECRET_UNSAFE')
+    import stat
+    if stat.S_ISLNK(info.st_mode):
+        raise SecretError('%s: symbolic link' % os.path.basename(path),
+                          'SECRET_UNSAFE')
+    if hasattr(os, 'getuid') and info.st_uid != os.getuid():
+        raise SecretError('%s: owned by another user' % os.path.basename(path),
+                          'SECRET_UNSAFE')
+    if stat.S_IMODE(info.st_mode) & 0o077:
+        try:
+            os.chmod(path, mode)
+        except OSError as exc:
+            raise SecretError('%s: %s' % (os.path.basename(path), exc.strerror),
+                              'SECRET_UNSAFE')
+        if stat.S_IMODE(os.lstat(path).st_mode) & 0o077:
+            raise SecretError('%s: readable by others'
+                              % os.path.basename(path), 'SECRET_UNSAFE')
 
 
 def _file(name):
@@ -187,16 +237,24 @@ def save(name, text):
     kind = backend()
     if kind == 'dpapi':
         _write_private(_file(name), _dpapi(data, True))
+        _origin[name] = 'dpapi'
         return
     if kind == 'secret-service':
-        result = _run([_secret_tool(), 'store', '--label=%s (%s)' % (LABEL, name),
-                       'application', APPLICATION, 'name', name], stdin=data)
-        if result.returncode == 0:
-            return
-        # Der Dienst hat abgelehnt (gesperrte Wallet, abgebrochene Abfrage):
-        # dann ehrlich auf die Datei zurückfallen — und das auch anzeigen.
-        _backend_cache[0] = 'file'
+        try:
+            result = _run([_secret_tool(), 'store',
+                           '--label=%s (%s)' % (LABEL, name),
+                           'application', APPLICATION, 'name', name], stdin=data)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise SecretError('secret-tool: %s' % exc, 'SECRET_REFUSED')
+        if result.returncode != 0:
+            # Abgelehnt (gesperrte Wallet, abgebrochene Abfrage): kein
+            # stiller Ausweg in die Datei — der Spieler erfährt es.
+            raise SecretError('secret-tool store: %d' % result.returncode,
+                              'SECRET_REFUSED')
+        _origin[name] = 'secret-service'
+        return
     _write_private(_file(name), data)
+    _origin[name] = 'file'
 
 
 def load(name):
@@ -209,8 +267,14 @@ def load(name):
         except (OSError, subprocess.SubprocessError) as exc:
             raise SecretError('secret-tool: %s' % exc)
         if result.returncode == 0 and result.stdout:
+            _origin[name] = 'secret-service'
             return result.stdout.decode('utf-8')
     path = _file(name)
+    if not os.path.exists(path):
+        return None
+    if not WINDOWS:
+        _tighten(folder(), 0o700)
+        _tighten(path, 0o600)
     try:
         with open(path, 'rb') as handle:
             data = handle.read()
@@ -220,6 +284,9 @@ def load(name):
         raise SecretError('%s: %s' % (os.path.basename(path), exc.strerror))
     if kind == 'dpapi':
         data = _dpapi(data, False)
+        _origin[name] = 'dpapi'
+    else:
+        _origin[name] = 'file'
     return data.decode('utf-8')
 
 
@@ -231,6 +298,7 @@ def delete(name):
             _run([tool, 'clear', 'application', APPLICATION, 'name', name])
         except (OSError, subprocess.SubprocessError):
             pass
+    _origin.pop(name, None)
     try:
         os.remove(_file(name))
     except FileNotFoundError:

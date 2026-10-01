@@ -87,12 +87,26 @@ other members' data.
 Basetool.
 
 **What is stored:** the synced state in your data folder
-(`basetool-<id>.json`), the credentials only in your system's key store (see
-[Security](SECURITY.en.md)). Data from the Basetool stays on your computer and
-is not passed on to anyone.
+(`basetool-<id>.json`, next to it the previous version
+`basetool-<id>.bak.json`), the credentials only in your system's key store
+(see [Security](SECURITY.en.md)). Data from the Basetool stays on your
+computer and is not passed on to anyone.
+
+This state file holds **your RSI handle** (from the account check) and the
+**list of your synced blueprints**, stock lots and ships. It sits in the data
+folder and therefore goes into the **backup zip** (*Settings → Backup &
+reset*). If your data folder is in a cloud (OneDrive, iCloud …) or on a shared
+drive, the file is there too. The credentials themselves are never in the data
+folder and never in the backup.
 
 **Disconnect** revokes the connection at the Basetool and deletes the
-credentials and the synced state. What the Basetool itself does with your data
+credentials (refresh token and this installation's key) and the synced state —
+`basetool-<id>.json` **and** `basetool-<id>.bak.json`. Whatever is already in a
+backup zip stays there until you delete it.
+
+**Problem report:** It can contain the names of blueprints Verse-Kit cannot
+match — including ones that came from the Basetool. Your RSI handle and the
+credentials are not in it, and it only goes out when you send it yourself. What the Basetool itself does with your data
 is governed by its own privacy policy at
 [profit-base.online](https://profit-base.online).
 

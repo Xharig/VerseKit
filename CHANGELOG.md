@@ -8,6 +8,23 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Geändert
+
+- **Basetool-Abgleich vorsichtiger** — nach einem Fehler wartet Verse-Kit
+  länger, bevor es neu versucht. Sperrt das Basetool die Verbindung oder fehlt
+  ein Recht, versucht es gar nicht mehr von selbst, sondern erst beim nächsten
+  Start oder auf „Jetzt abgleichen". Abgeglichen wird nur, wenn feststeht,
+  welcher Account deiner ist, und Baupläne, die nur in den Protokollen eines
+  anderen Accounts stehen, gehen nicht hinaus. Gemeldet von greluc (KRT)
+- **Zugangsdaten unter Linux** — lehnt dein Schlüsselbund das Speichern ab,
+  sagt Verse-Kit das jetzt, statt still in eine Datei auszuweichen. Ist die
+  Datei mit den Zugangsdaten für andere lesbar, wird sie abgesichert oder
+  nicht benutzt. Der Hinweis „liegt in einer Datei" erscheint nur noch, wenn es
+  wirklich so ist. Gemeldet von greluc (KRT)
+- **Trennen** löscht jetzt auch die Vorgängerfassung des abgeglichenen Stands.
+  Die Datenschutz-Erklärung sagt genauer, was zum Basetool-Abgleich auf deinem
+  Rechner liegt und wohin es mitwandert. Gemeldet von greluc (KRT)
+
 ## v3.66.0 - 2026-10-01
 
 > Nach einem Patch flackert es, Texturen spinnen oder das Spiel ruckelt? Oft

@@ -51,6 +51,9 @@ Hebel für Betrug:
 | `SC_BP_BASETOOL_CLIENT` | andere Programmkennung (`sandbox-client`) |
 | `SC_BP_BASETOOL_CA` | Zertifikatsdatei der Sandbox |
 
+Die letzten drei wirken nur zusammen mit `SC_BP_BASETOOL_ISSUER`. Ist irgendeine
+gesetzt, zeigt die Seite einen Hinweis.
+
 ⚠ **Kein Token und kein Schlüssel verlässt diesen Baustein** — nicht ins
 Fehlerprotokoll, nicht in den Bericht, nicht in die Sicherung. Fehlermeldungen
 tragen nur den Code des Servers (`CLIENT_REVOKED` …), nie eine Kopfzeile.
@@ -99,13 +102,27 @@ def _env(name, default):
     return (os.environ.get(name) or '').strip() or default
 
 
+OVERRIDE_VARS = ('SC_BP_BASETOOL_ISSUER', 'SC_BP_BASETOOL_API',
+                 'SC_BP_BASETOOL_CLIENT', 'SC_BP_BASETOOL_CA')
+
+
 def connection_config():
-    """Aussteller, Schnittstelle und Kennung — ab Werk die echten."""
+    """Aussteller, Schnittstelle und Kennung — ab Werk die echten.
+
+    Schnittstelle, Kennung und Zertifikat lassen sich nur zusammen mit einem
+    anderen Aussteller umstellen (Testumgebung). Ohne ihn bleiben sie beim
+    echten Basetool. `override` ist gesetzt, sobald irgendeine der Variablen
+    vorhanden ist — die Oberfläche zeigt dann einen Hinweis."""
+    sandbox = bool(_env('SC_BP_BASETOOL_ISSUER', ''))
+    override = any(_env(name, '') for name in OVERRIDE_VARS)
+    if not sandbox:
+        return {'issuer': ISSUER, 'api': API, 'client_id': CLIENT_ID, 'ca': '',
+                'sandbox': False, 'override': override}
     return {'issuer': _env('SC_BP_BASETOOL_ISSUER', ISSUER).rstrip('/'),
             'api': _env('SC_BP_BASETOOL_API', API).rstrip('/'),
             'client_id': _env('SC_BP_BASETOOL_CLIENT', CLIENT_ID),
             'ca': _env('SC_BP_BASETOOL_CA', ''),
-            'sandbox': bool(os.environ.get('SC_BP_BASETOOL_ISSUER'))}
+            'sandbox': True, 'override': True}
 
 
 def user_agent():
@@ -172,12 +189,11 @@ class ApiError(Exception):
 def backoff(attempt, retry_after=None):
     """Wartezeit nach dem `attempt`-ten Fehlschlag (1, 2, …) in Sekunden.
 
-    Verbindlich laut Sync-Anleitung: 5 s, verdoppelt bis höchstens 5 min, mit
-    Zufall, und **nie** kürzer als `Retry-After` — auch wenn das länger als
-    5 min ist (Tageskontingent)."""
+    Verbindlich laut Sync-Anleitung: mindestens 5 s, verdoppelt bis höchstens
+    5 min, mit Zufall obendrauf (nie darunter), und **nie** kürzer als
+    `Retry-After` — auch wenn das länger als 5 min ist (Tageskontingent)."""
     base = min(300.0, 5.0 * (2 ** max(0, attempt - 1)))
-    wait = base * random.uniform(0.8, 1.2)
-    wait = min(wait, 300.0)
+    wait = min(300.0, base + random.uniform(0.0, base * 0.2))
     if retry_after:
         wait = max(wait, float(retry_after))
     return wait

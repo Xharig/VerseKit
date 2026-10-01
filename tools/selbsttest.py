@@ -25857,6 +25857,7 @@ def main():
     _pruefung_303()
     _pruefung_305()
     _pruefung_306()
+    _pruefung_307()
 
     print()
     if fehler:
@@ -31151,6 +31152,218 @@ def _pruefung_306():
     from scbp import language as _sp306
     pruefe(_sp306.TEXTS.get('s_dk_blackdog_idee3'),
            'Danke-Seite: Vorschlag Shader-Cache steht drin')
+
+
+def _pruefung_307():
+    """307. Basetool-Auflagen: Wartezeit, Stopp ohne Zeitgeber, eigene Kennung,
+    Schlüsselspeicher, nur eigene Baupläne, Entwickler-Variablen, Trennen."""
+    print('\n307. Basetool-Auflagen (Wartezeit, Stopp, Kennung, Schlüssel, Konto)')
+    import random as _r307
+    import stat as _st307
+    import tempfile as _tf307
+    from scbp import (basetool as _bt307, basetool_sync as _bs307,
+                      exchange_sync as _ex307, logsource as _lg307,
+                      paths as _pa307, secret_store as _ss307)
+
+    # --- Wartezeit: erst ≥ 5 s, Zufall nur obendrauf, höchstens 5 min ------
+    _r307.seed(7)
+    erste = [_bt307.backoff(1) for _ in range(200)]
+    pruefe(min(erste) >= 5.0 and max(erste) <= 6.0,
+           'Wartezeit: erster Versuch zwischen 5 und 6 s (%.2f–%.2f)'
+           % (min(erste), max(erste)))
+    pruefe(len({round(w, 3) for w in erste}) > 1, 'Wartezeit: mit Zufall')
+    pruefe(all(_bt307.backoff(n) <= 300.0 for n in range(1, 20)),
+           'Wartezeit: nie über 5 min')
+    pruefe(_bt307.backoff(3) >= 20.0, 'Wartezeit: verdoppelt (3. Versuch ≥ 20 s)')
+    pruefe(_bt307.backoff(1, retry_after=900) >= 900,
+           'Wartezeit: nie kürzer als Retry-After')
+
+    # --- Entwickler-Variablen nur zusammen mit dem Aussteller -------------
+    alt_env = {n: os.environ.get(n) for n in _bt307.OVERRIDE_VARS}
+    try:
+        for n in _bt307.OVERRIDE_VARS:
+            os.environ.pop(n, None)
+        cfg = _bt307.connection_config()
+        pruefe(not cfg['override'] and cfg['api'] == _bt307.API,
+               'Variablen: ohne Angaben das echte Basetool, kein Hinweis')
+        os.environ['SC_BP_BASETOOL_API'] = 'https://fremd.example/x'
+        os.environ['SC_BP_BASETOOL_CLIENT'] = 'fremd'
+        os.environ['SC_BP_BASETOOL_CA'] = '/tmp/fremd.pem'
+        cfg = _bt307.connection_config()
+        pruefe(cfg['api'] == _bt307.API and cfg['client_id'] == _bt307.CLIENT_ID
+               and cfg['ca'] == '' and not cfg['sandbox'],
+               'Variablen: API/CLIENT/CA ohne ISSUER wirkungslos')
+        pruefe(cfg['override'], 'Variablen: trotzdem Hinweis auf der Seite')
+        os.environ['SC_BP_BASETOOL_ISSUER'] = 'https://sandbox.example/realm'
+        cfg = _bt307.connection_config()
+        pruefe(cfg['sandbox'] and cfg['api'] == 'https://fremd.example/x'
+               and cfg['client_id'] == 'fremd',
+               'Variablen: mit ISSUER gilt die Testumgebung')
+    finally:
+        for n, v in alt_env.items():
+            if v is None:
+                os.environ.pop(n, None)
+            else:
+                os.environ[n] = v
+
+    # --- Stopp-Code: kein Zeitgeber, auch nicht nach eigener Änderung -----
+    alt_sched = dict(_bs307._schedule)
+    alt_enabled = _bs307.enabled
+    try:
+        _bs307.enabled = lambda: True
+        _bs307.request_now()
+        for code in ('CLIENT_SUSPENDED', 'CLIENT_NOT_ALLOWED', 'SCOPE_MISSING',
+                     'NOT_PERMITTED'):
+            _bs307._after_error(_bt307.ApiError(code, 403))
+            _bs307.local_changed()
+            pruefe(not _bs307.due(time.time() + 10 ** 9),
+                   'Stopp %s: kein neuer Versuch von selbst' % code)
+            _bs307.request_now()
+            pruefe(_bs307.due(), 'Stopp %s: „Jetzt abgleichen" geht weiter' % code)
+        _bs307._after_error(_bt307.ApiError('RATE_LIMITED', 429, retry_after=60))
+        pruefe(not _bs307._schedule['halted']
+               and _bs307._schedule['next'] < time.time() + 400,
+               'Wiederholbarer Fehler: wartet, hält aber nicht an')
+    finally:
+        _bs307._schedule.clear()
+        _bs307._schedule.update(alt_sched)
+        _bs307.enabled = alt_enabled
+        _bs307._set(state='idle', code='')
+
+    # --- Ohne installationId keine gemeinsame Datei -----------------------
+    alt_doc = _bt307.CONNECTION.service_document
+    try:
+        _bt307.CONNECTION.service_document = lambda: {'capabilities': []}
+        try:
+            _bs307._run(None)
+            code = ''
+        except _bt307.ApiError as error:
+            code = error.code
+        pruefe(code == 'INSTALLATION_ID_MISSING',
+               'Ohne installationId: Abbruch statt Ausweichdatei (%s)' % code)
+        pruefe('ohne-kennung' not in rumpf(open(
+            os.path.join(WURZEL, 'scbp', 'basetool_sync.py'),
+            encoding='utf-8').read(), '_run'),
+               'Ohne installationId: keine Datei „ohne-kennung" mehr')
+    finally:
+        _bt307.CONNECTION.service_document = alt_doc
+
+    # --- Ohne eigenen Account kein Abgleich ------------------------------
+    alt_konto = _lg307.own_account
+    try:
+        _lg307.own_account = lambda files=None: None
+        pruefe(_bs307._account_ok(None, {}) == 'account_none',
+               'Kein eigener Account bekannt: kein Abgleich')
+    finally:
+        _lg307.own_account = alt_konto
+
+    # --- Nur eigene Baupläne ----------------------------------------------
+    norm = _bs307.collection_file.norm
+    lokal = {norm('Fremd Eins'): {'name': 'Fremd Eins', 'source': 'log',
+                                  'tag': None, 'time': None},
+             norm('Fremd Verknuepft'): {'name': 'Fremd Verknuepft',
+                                        'source': 'nachlese', 'tag': None,
+                                        'time': None},
+             norm('Fremd Hand'): {'name': 'Fremd Hand', 'source': 'hand',
+                                  'tag': None, 'time': None},
+             norm('Eigen'): {'name': 'Eigen', 'source': 'log', 'tag': None,
+                             'time': None}}
+    fremd = {norm('Fremd Eins'), norm('Fremd Verknuepft'), norm('Fremd Hand')}
+    raus = _ex307.own_blueprints(lokal, fremd, {norm('Fremd Verknuepft'): 'bt-1'})
+    pruefe(norm('Fremd Eins') not in raus,
+           'Eigene Baupläne: nur in fremden Protokollen → geht nicht hinaus')
+    pruefe(norm('Fremd Verknuepft') in raus,
+           'Eigene Baupläne: schon verknüpft → bleibt (keine Löschung drüben)')
+    pruefe(norm('Fremd Hand') in raus and norm('Eigen') in raus,
+           'Eigene Baupläne: von Hand und eigene bleiben')
+
+    # --- Schlüsselspeicher (Linux-Weg) -----------------------------------
+    tmp = _tf307.mkdtemp(prefix='vk307-')
+    alt = (_ss307.WINDOWS, _ss307._backend_cache[0], _ss307._run,
+           _ss307._secret_tool, dict(_ss307._origin),
+           os.environ.get('SC_BP_SECRETS'))
+    try:
+        _ss307.WINDOWS = False
+        os.environ['SC_BP_SECRETS'] = os.path.join(tmp, 'geheim')
+        _ss307._origin.clear()
+        # Secret Service lehnt ab → Fehler, kein stiller Rückfall in die Datei
+        _ss307._backend_cache[0] = 'secret-service'
+        _ss307._secret_tool = lambda: '/usr/bin/secret-tool'
+
+        class _Antwort:
+            returncode, stdout, stderr = 1, b'', b''
+        _ss307._run = lambda args, stdin=None: _Antwort()
+        try:
+            _ss307.save('probe', 'wert')
+            code = ''
+        except _ss307.SecretError as error:
+            code = error.code
+        pruefe(code == 'SECRET_REFUSED',
+               'Schlüsselbund lehnt ab: Fehler statt stiller Datei (%s)' % code)
+        pruefe(not os.path.exists(_ss307._file('probe'))
+               and _ss307._backend_cache[0] == 'secret-service',
+               'Schlüsselbund lehnt ab: keine Datei angelegt')
+        # Hinweis richtet sich nach der echten Herkunft
+        pruefe(not _ss307.uses_file(), 'Hinweis: nichts aus der Datei → keiner')
+        os.makedirs(_ss307.folder(), exist_ok=True)
+        with open(_ss307._file('alt'), 'w') as f:
+            f.write('aus-der-datei')
+        os.chmod(_ss307.folder(), 0o755)
+        os.chmod(_ss307._file('alt'), 0o644)
+        pruefe(_ss307.load('alt') == 'aus-der-datei',
+               'Rückfall beim Lesen: Wert aus der Datei')
+        pruefe(_ss307.uses_file(), 'Hinweis: Wert kam aus der Datei → Hinweis')
+        pruefe(_st307.S_IMODE(os.stat(_ss307._file('alt')).st_mode) == 0o600
+               and _st307.S_IMODE(os.stat(_ss307.folder()).st_mode) == 0o700,
+               'Fremd lesbare Datei und Ordner werden nachgezogen (0600/0700)')
+        # Verweis statt Datei → abgelehnt
+        os.remove(_ss307._file('alt'))
+        ziel = os.path.join(tmp, 'woanders')
+        with open(ziel, 'w') as f:
+            f.write('x')
+        os.symlink(ziel, _ss307._file('alt'))
+        try:
+            _ss307.load('alt')
+            code = ''
+        except _ss307.SecretError as error:
+            code = error.code
+        pruefe(code == 'SECRET_UNSAFE', 'Verweis statt Datei: abgelehnt (%s)' % code)
+    finally:
+        (_ss307.WINDOWS, _ss307._backend_cache[0], _ss307._run,
+         _ss307._secret_tool) = alt[:4]
+        _ss307._origin.clear()
+        _ss307._origin.update(alt[4])
+        if alt[5] is None:
+            os.environ.pop('SC_BP_SECRETS', None)
+        else:
+            os.environ['SC_BP_SECRETS'] = alt[5]
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # --- Trennen löscht auch die Vorgängerfassung ------------------------
+    alt_id = _bs307.STATUS.get('installation_id')
+    try:
+        _bs307.STATUS['installation_id'] = 'inst-307'
+        _bs307.save_state(_bs307._empty_state('inst-307'))
+        _bs307.save_state(_bs307._empty_state('inst-307'))
+        datei = _bs307._state_file('inst-307')
+        bak = datei[:-5] + '.bak.json'
+        pruefe(os.path.exists(datei) and os.path.exists(bak),
+               'Trennen: vorher liegen Stand und .bak.json da')
+        _bs307.forget_installation()
+        pruefe(not os.path.exists(datei) and not os.path.exists(bak),
+               'Trennen: Stand und .bak.json gelöscht')
+    finally:
+        _bs307.STATUS['installation_id'] = alt_id
+
+    # --- Datenschutz nennt die vier Punkte -------------------------------
+    for datei, woerter in (('PRIVACY.md', ('RSI-Handle', 'Sicherungs-ZIP',
+                                           '.bak.json', 'Fehlerbericht')),
+                           ('PRIVACY.en.md', ('RSI handle', 'backup zip',
+                                              '.bak.json', 'Problem report'))):
+        with open(os.path.join(WURZEL, datei), encoding='utf-8') as f:
+            inhalt = f.read()
+        pruefe(all(w in inhalt for w in woerter),
+               '%s nennt Handle, Sicherung, .bak.json und Bericht' % datei)
 
 
 if __name__ == '__main__':

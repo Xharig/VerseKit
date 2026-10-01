@@ -144,6 +144,31 @@ def local_blueprints(collection, tags):
     return out
 
 
+# Quellen, die aus den Spielprotokollen stammen.
+FROM_LOGS = ('log', 'nachlese')
+
+
+def own_blueprints(local, foreign, links):
+    """Nur die Baupläne des eigenen Accounts.
+
+    Ein Bauplan, der ausschließlich in Protokollen eines anderen Accounts steht
+    (`foreign`, Vergleichsform), geht nicht hinaus. Ist er schon verknüpft,
+    bleibt er stehen — sonst sähe der Abgleich ihn als hier entfernt und
+    schlüge vor, ihn im Basetool zu löschen."""
+    out = {}
+    for key, entry in local.items():
+        if (entry['source'] in FROM_LOGS and key not in links
+                and _compare(entry['name'], key) & foreign):
+            continue
+        out[key] = entry
+    return out
+
+
+def _compare(name, key):
+    from . import collection
+    return {collection.norm(name), collection.norm(key)}
+
+
 def _add_op(entry, op_id, override=False):
     op = {'opId': op_id, 'op': 'add', 'ref': item_ref(entry['name'],
                                                       entry['tag'])}

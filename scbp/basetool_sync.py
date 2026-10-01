@@ -81,7 +81,9 @@ _lock = threading.Lock()
 STATUS = {'state': 'idle', 'code': '', 'running': False, 'last_sync': None,
           'counts': {}, 'confirm_url': None, 'confirm_until': 0.0,
           'account': None}
-_schedule = {'next': 0.0, 'attempt': 0, 'changed_at': None}
+# `halted`: nach einem Stopp-Code (Programm gesperrt, Recht fehlt …) gibt es
+# keinen neuen Versuch von selbst — auch nicht nach einer eigenen Änderung.
+_schedule = {'next': 0.0, 'attempt': 0, 'changed_at': None, 'halted': False}
 LISTENERS = []
 # Der laufende Watcher — die Seite reicht Entscheidungen über ihn weiter.
 _WATCHER = [None]
@@ -190,12 +192,13 @@ def request_now():
     with _lock:
         _schedule['next'] = 0.0
         _schedule['attempt'] = 0
+        _schedule['halted'] = False
 
 
 def due(now=None):
     now = now or time.time()
     with _lock:
-        if STATUS['running']:
+        if STATUS['running'] or _schedule['halted']:
             return False
         changed = _schedule['changed_at']
         if changed and now - changed >= AFTER_CHANGE and _schedule['attempt'] == 0:
@@ -244,14 +247,14 @@ def _after_error(error):
     with _lock:
         if action == 'retry':
             _schedule['attempt'] += 1
-            wait = basetool.backoff(_schedule['attempt'], error.retry_after)
+            _schedule['next'] = time.time() + basetool.backoff(
+                _schedule['attempt'], error.retry_after)
         else:
-            # Halt: kein neuer Versuch im Takt. Erst beim nächsten Start oder
-            # auf Knopfdruck — so will es die Anleitung etwa bei einer
-            # Sperre des Programms.
+            # Halt ohne Zeitgeber: weiter erst beim nächsten Programmstart
+            # (`_schedule` beginnt dann bei 0) oder über `request_now()`.
             _schedule['attempt'] = 0
-            wait = 24 * 3600
-        _schedule['next'] = time.time() + wait
+            _schedule['next'] = float('inf')
+            _schedule['halted'] = True
     _set(state='error', code=error.code)
 
 
@@ -338,7 +341,7 @@ def _account_ok(conn, state):
     from . import logsource
     handle = logsource.own_account()
     if not handle:
-        return None                     # noch kein Account in den Protokollen
+        return 'account_none'           # ohne eigenen Account kein Abgleich
     if handle == logsource.ALL_ACCOUNTS:
         return 'account_all'
     lowered = handle.lower()
@@ -351,6 +354,26 @@ def _account_ok(conn, state):
     if result in ('match', 'confirmed'):
         return None
     return 'account_' + result          # account_mismatch / account_unknown
+
+
+_FOREIGN = {'at': 0.0, 'account': None, 'names': frozenset()}
+FOREIGN_AGAIN = 3600
+
+
+def _foreign_only():
+    """Baupläne, die nur in Protokollen anderer Accounts stehen (Vergleichsform).
+
+    Das Durchlesen aller Sicherungen ist teuer; das Ergebnis gilt eine Stunde
+    und wird bei einem Account-Wechsel neu ermittelt."""
+    from . import logsource
+    own = logsource.own_account()
+    now = time.time()
+    if _FOREIGN['account'] == own and now - _FOREIGN['at'] < FOREIGN_AGAIN:
+        return _FOREIGN['names']
+    names = frozenset(collection_file.norm(n)
+                      for n in logsource.foreign_only_blueprints(own=own))
+    _FOREIGN.update(at=now, account=own, names=names)
+    return names
 
 
 def confirm_account():
@@ -402,7 +425,11 @@ def _run(watcher):
     _set(state='running', code='')
 
     doc = conn.service_document()
-    installation_id = doc.get('installationId') or 'ohne-kennung'
+    installation_id = (doc.get('installationId') or '').strip()
+    if not installation_id:
+        # Ohne Kennung keine eigene Zustandsdatei — und eine gemeinsame
+        # Ausweichdatei würde Stände verschiedener Installationen mischen.
+        raise basetool.ApiError('INSTALLATION_ID_MISSING', 200)
     capabilities = set(doc.get('capabilities') or ())
     _set(installation_id=installation_id, capabilities=sorted(capabilities),
          min_version=doc.get('minClientVersion'))
@@ -456,7 +483,9 @@ def _sync_blueprints(conn, state, watcher):
 
     # 2) Vergleichen
     stock = collection_file.load()
-    local = exchange_sync.local_blueprints(stock, _tags())
+    local = exchange_sync.own_blueprints(
+        exchange_sync.local_blueprints(stock, _tags()),
+        _foreign_only(), state.get('links') or {})
     resolved = _resolve(conn, local, state)
     plan = exchange_sync.plan_sync(local, resolved, server, stones, state,
                                    resync=resync)
@@ -1015,9 +1044,12 @@ def forget_installation():
     """Nach dem Trennen: der Stand dieser Installation ist wertlos."""
     installation_id = STATUS.get('installation_id')
     if installation_id:
-        try:
-            os.remove(_state_file(installation_id))
-        except OSError:
-            pass
+        state_file = _state_file(installation_id)
+        # Mit der Vorgängerfassung, die `paths.save_json` daneben ablegt.
+        for target in (state_file, state_file[:-5] + '.bak.json'):
+            try:
+                os.remove(target)
+            except OSError:
+                pass
     _set(state='idle', code='', counts={}, installation_id=None,
          last_sync=None, confirm_url=None, account=None)
