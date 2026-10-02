@@ -8,6 +8,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.70.4 - 2026-10-03
+
+> Eine Wartungsfassung: Der Quelltext ist aufgeräumt, an der Bedienung
+> ändert sich nichts.
+
+### Verbessert
+
+- **Aufgeräumter Quelltext** — die Erklärungen im Code beschreiben nur noch,
+  was er tut
+
 ## v3.70.3 - 2026-10-02
 
 > Der Lager-Abgleich mit dem Basetool sortiert jetzt richtig: Materialien ins

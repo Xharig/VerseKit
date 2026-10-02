@@ -8,6 +8,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.70.4 - 2026-10-03
+
+> A maintenance release: the source code is tidied up, nothing changes in
+> how VerseKit works.
+
+### Improved
+
+- **Tidier source code** — the explanations in the code only describe what
+  it does
+
 ## v3.70.3 - 2026-10-02
 
 > The stock sync with the Basetool now sorts correctly: materials go to the
