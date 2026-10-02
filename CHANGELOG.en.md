@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.70.0 - 2026-10-02
+
+> Where can I get this, right where I am? In the shops you can now pick a
+> location and only see what is on the shelves there. And typing in every
+> search field is smooth again.
+
 ### New
 
 - **Shops: filter by location** — a separate "Location" field: type, pick a

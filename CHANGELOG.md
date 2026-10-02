@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.70.0 - 2026-10-02
+
+> Wo bekomme ich das hier, wo ich gerade stehe? In den Shops wählst du jetzt
+> einen Ort und siehst nur, was dort im Regal steht. Dazu tippt es sich in
+> allen Suchfeldern wieder flüssig.
+
 ### Neu
 
 - **Shops: nach Ort filtern** — ein eigenes Feld „Ort": tippen, Ort aus der
