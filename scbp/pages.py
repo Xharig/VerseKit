@@ -452,6 +452,13 @@ def _build_on_demand(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
     leinwand.configure(yscrollcommand=beim_rollen)
 
 
+def after_typing(widget, action):
+    """`main_window.after_typing` — hier, weil `main_window` erst innerhalb
+    der Funktionen geholt wird."""
+    from .main_window import after_typing as _after_typing
+    return _after_typing(widget, action)
+
+
 def _scroll_to_top(widget):
     """Die Rollfläche wieder an den Anfang setzen.
 
@@ -4300,7 +4307,7 @@ def _contract_log(fenster, rahmen):
         knopf.bind('<Button-1>', lambda ev, s=kennung: waehlen(s))
         chips[kennung] = knopf
 
-    suche.trace_add('write', zeichnen)
+    suche.trace_add('write', after_typing(rahmen, zeichnen))
     zeichnen()
 
     def _auffrischen():
@@ -5276,7 +5283,7 @@ def _joysticks(fenster, rahmen):
 
     # ⚠ Hier hängt die Suche NUR an der Liste, nicht am Seitenaufbau — sonst
     # verschwände mit jedem Buchstaben das Feld, in das getippt wird.
-    suche.trace_add('write', liste_zeichnen)
+    suche.trace_add('write', after_typing(rahmen, liste_zeichnen))
     _auffrischen()
     # ⚠ Bei jedem Öffnen frisch: Zwischen zwei Besuchen kann ein Gerät
     # abgezogen oder das Spiel gelaufen sein. Eine Seite, die einmal gebaut
@@ -7908,7 +7915,9 @@ def _crafting(fenster, rahmen):
             # Zutaten.
             offen['name'] = neuer_sprung
             filter_bauen()
-            suche_var.set(neuer_sprung)      # löst `zeichnen()` über den trace aus
+            suche_var.set(neuer_sprung)
+            # Sofort zeichnen — `trace_add` wartet aufs Ende des Tippens.
+            zeichnen()
             return
 
         etwas_gesetzt = bool(suche_var.get() or any(wahl.values())
@@ -8170,7 +8179,7 @@ def _crafting(fenster, rahmen):
             _body_text(liste_rahmen, t('s_he_mehr') % (len(treffer) - CRAFT_MAX),
                         fenster.f_small, fill='x')
 
-    suche_var.trace_add('write', zeichnen)
+    suche_var.trace_add('write', after_typing(rahmen, zeichnen))
     zeichnen()
 
 
@@ -8504,7 +8513,8 @@ def _routes(fenster, rahmen):
                        lambda _=None, w=zeile: w.configure(fg=ACCENT))
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
 
-    schiffsuche.trace_add('write', _schiffvorschlaege)
+    schiffsuche.trace_add('write', after_typing(rahmen,
+                                                _schiffvorschlaege))
 
     def _werft_bauen():
         """Das Werft-Menü — größte Werft oben, mit Anzahl."""
@@ -9068,7 +9078,7 @@ def _routes(fenster, rahmen):
     reset_knopf.bind('<Leave>',
                      lambda _=None: reset_knopf.configure(fg=SUB))
 
-    ortsuche.trace_add('write', _ortvorschlaege)
+    ortsuche.trace_add('write', after_typing(rahmen, _ortvorschlaege))
     for var in (scu_var, geld_var):
         var.trace_add('write', lambda *_a: _zeichnen())
     _schalter_zeichnen()
@@ -9280,6 +9290,23 @@ def _shops(fenster, rahmen):
                       ACCENT, FG, placeholder=t('s_ld_suche_platz'))
     feld.holder.pack(fill='x')
 
+    # Ort: tippen oder aufklappen, wie der Lagerort im Lager. Gefiltert wird,
+    # sobald ein bekannter Ort im Feld steht.
+    ort = tk.StringVar()
+    ort_wahl = {'ort': ''}
+    ort_rahmen = tk.Frame(kopf, bg=BG)
+    ort_rahmen.pack(fill='x', padx=24, pady=(8, 0))
+    tk.Label(ort_rahmen, text=t('s_ld_ort'), bg=BG, fg=FG,
+             font=fenster.f_bold, anchor='w').pack(fill='x')
+    ort_zeile, ort_liste, _ort_zeichnen = _combo_box(
+        fenster, ort_rahmen, ort, laden_modul.catalog_places, scrollable=200,
+        empty_text=t('s_ld_ort_unbekannt'))
+    ort_zeile.pack(fill='x', pady=(4, 0))
+    ort_liste.pack(fill='x')
+
+    def _am_ort(b):
+        return not ort_wahl['ort'] or ort_wahl['ort'] in (b.get('orte') or ())
+
     # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste.** Vorher stand hier
     # nur ein leeres Suchfeld — wer nicht wusste, wonach er suchen soll, sah
     # eine leere Seite. Xharig am 04.09.2026: „bei Läden gähnende Leere, kann
@@ -9357,7 +9384,8 @@ def _shops(fenster, rahmen):
                      'hersteller': x.get('hersteller') or '',
                      'groesse': x.get('groesse') or '',
                      'klasse': x.get('klasse') or '',
-                     'guete': x.get('guete') or ''}
+                     'guete': x.get('guete') or '',
+                     'orte': x.get('orte') or []}
                     for x in katalog if x['name'] and x['kennung']]
             # ⭐ **Schiffe gehören dazu.** Die Kauf- und Mietpreise lagen seit
             # v3.14.0 vor, wurden aber nur für den Frachtraum im Routenplaner
@@ -9484,6 +9512,8 @@ def _shops(fenster, rahmen):
         vorher = FILTER_FOLGE[:FILTER_FOLGE.index(feld)]
         zaehler = {}
         for b in _teile():
+            if not _am_ort(b):
+                continue
             if any(wahl[f] and b.get(f) != wahl[f] for f in vorher):
                 continue
             wert = (b.get(feld) or '').strip()
@@ -9611,6 +9641,13 @@ def _shops(fenster, rahmen):
             _body_text(ergebnis_rahmen, t('s_ld_unbekannt'), fenster.f_small,
                         fill='x')
             return
+        if ort_wahl['ort']:
+            am_ort = [z for z in liste if z.get('ort') == ort_wahl['ort']]
+            if not am_ort:
+                _body_text(ergebnis_rahmen,
+                           t('s_ld_ort_nicht_hier') % ort_wahl['ort'],
+                           fenster.f_small, fill='x')
+            liste = am_ort or liste
 
         kopf = tk.Frame(ergebnis_rahmen, bg=BG)
         kopf.pack(fill='x', pady=(0, 6))
@@ -9708,7 +9745,8 @@ def _shops(fenster, rahmen):
         # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
         # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
         # etwas. Jetzt füllt die Auswahl oben die Liste.
-        if len(text) < 2 and not any(wahl[f] for f in FILTER_FOLGE):
+        if len(text) < 2 and not any(wahl[f] for f in FILTER_FOLGE) \
+                and not ort_wahl['ort']:
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
@@ -9736,6 +9774,8 @@ def _shops(fenster, rahmen):
         gruppiert = {}
         gesamt = 0
         for b in _teile():
+            if not _am_ort(b):
+                continue
             if any(wahl[f] and b.get(f) != wahl[f] for f in FILTER_FOLGE):
                 continue
             if text and text not in _heuhaufen(b):
@@ -9921,7 +9961,7 @@ def _shops(fenster, rahmen):
 
         threading.Thread(target=arbeit, daemon=True).start()
 
-    suche.trace_add('write', _vorschlaege)
+    suche.trace_add('write', after_typing(rahmen, _vorschlaege))
 
     def _filter_gewechselt():
         gewaehlt['name'], gewaehlt['kennung'] = '', ''
@@ -9934,8 +9974,9 @@ def _shops(fenster, rahmen):
                 continue
             vorher = FILTER_FOLGE[:stelle]
             passend = {b.get(feld) for b in _teile()
-                       if all(not wahl[f] or b.get(f) == wahl[f]
-                              for f in vorher)}
+                       if _am_ort(b)
+                       and all(not wahl[f] or b.get(f) == wahl[f]
+                               for f in vorher)}
             if wahl[feld] not in passend:
                 wahl[feld] = ''
         _vorschlaege()
@@ -9986,6 +10027,8 @@ def _shops(fenster, rahmen):
         for feld in FILTER_FOLGE:
             wahl[feld] = ''
         gewaehlt['name'], gewaehlt['kennung'] = '', ''
+        ort_wahl['ort'] = ''
+        ort.set('')
         suche.set('')
         _liste_leeren()
         _leeren(ergebnis_rahmen)
@@ -9996,6 +10039,21 @@ def _shops(fenster, rahmen):
     ld_reset.bind('<Button-1>', _ld_zuruecksetzen)
     ld_reset.bind('<Enter>', lambda _=None: ld_reset.configure(fg=RED))
     ld_reset.bind('<Leave>', lambda _=None: ld_reset.configure(fg=SUB))
+
+    def _ort_geaendert(*_a):
+        """Steht ein bekannter Ort im Feld (oder ist es leer), gilt er als
+        Filter — Groß- und Kleinschreibung zählen nicht."""
+        _ort_zeichnen()
+        text = ort.get().strip().lower()
+        treffer = '' if not text else next(
+            (o for o in laden_modul.catalog_places() if o.lower() == text),
+            None)
+        if treffer is None or treffer == ort_wahl['ort']:
+            return
+        ort_wahl['ort'] = treffer
+        _filter_gewechselt()
+
+    ort.trace_add('write', _ort_geaendert)
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
     # da — eine Seite wird nur EINMAL gebaut.
@@ -11526,7 +11584,9 @@ def _mining(fenster, rahmen):
                 offen['name'] = 'ort:' + berg_wahl['ort']
             else:
                 offen['name'] = None
-            suche_var.set(neu)   # zeichnet über `trace_add` von selbst neu
+            suche_var.set(neu)
+            # Sofort zeichnen — `trace_add` wartet aufs Ende des Tippens.
+            zeichnen()
             return
         # ⚠ **Das Gerät ist kein Suchbegriff, sondern ein zweiter Filter.**
         # Es steht neben der Suche, nicht darin — deshalb hier nur neu
@@ -11676,7 +11736,7 @@ def _mining(fenster, rahmen):
             _body_text(liste_rahmen, t('s_he_nichts'), fenster.f_small,
                         fill='x')
 
-    suche_var.trace_add('write', zeichnen)
+    suche_var.trace_add('write', after_typing(rahmen, zeichnen))
     zeichnen()
     _body_text(innen, t('s_bg_mehr_info'), fenster.f_small, fill='x')
 
@@ -13131,7 +13191,7 @@ def _asop(fenster, rahmen):
                 inset=48, pady=(6, 0))
     liste = tk.Frame(innen, bg=BG)
 
-    suche.trace_add('write', lambda *_: _zeichnen())
+    suche.trace_add('write', after_typing(rahmen, _zeichnen))
 
     def _stand_der_quellen():
         try:
@@ -15439,7 +15499,7 @@ def _storage(fenster, rahmen):
             for kind in spalten_labels:
                 kind.bind('<Button-1>', lambda _e, n=nummer: bearbeiten(n))
 
-    filter_var.trace_add('write', lambda *_: zeichnen())
+    filter_var.trace_add('write', after_typing(rahmen, zeichnen))
 
     def bearbeiten(nummer):
         """Einen vorhandenen Posten in die Felder oben holen.
@@ -16177,9 +16237,11 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     # Tippen dampft die Liste auf die Treffer ein — sonst bliebe die volle
     # Liste stehen, während schon gefiltert wird. Ist das Feld wieder leer,
     # bleibt sie offen: Der Spieler sucht dann ja noch.
+    zeichnen_bald = after_typing(zeile, zeichnen)
+
     def beim_tippen(*_):
         offen['ja'] = not (var.get() or '').strip()
-        zeichnen()
+        zeichnen_bald()
 
     var.trace_add('write', beim_tippen)
     return zeile, liste, zeichnen

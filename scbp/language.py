@@ -697,8 +697,13 @@ TEXTS = {
     's_lg_abbau_fahrzeug': ('Fahrzeug', 'Vehicle'),
     's_lg_abbau_schiff': ('Schiff', 'Ship'),
     's_lg_suche':        ('Im Lager suchen …', 'Search stock …'),
-    's_ld_suche_platz':  ('Ware, Shop oder Ort suchen',
-                          'Search commodity, shop or location'),
+    's_ld_suche_platz':  ('Teil oder Hersteller suchen',
+                          'Search item or manufacturer'),
+    's_ld_ort':          ('Ort', 'Location'),
+    's_ld_ort_unbekannt': ('An diesem Ort verkauft niemand etwas aus der Liste.',
+                           'Nobody at this location sells anything from the list.'),
+    's_ld_ort_nicht_hier': ('In %s ist dazu gerade kein Laden bekannt — hier alle Läden:',
+                            'No shop known in %s for this right now — all shops:'),
     # ⭐⭐ Hinweise IM Eingabefeld — Regel seit 12.09.2026: In JEDEM Feld
     # steht, was hineingehört. Zwei Bedingungen, beide bewusst:
     #   * Sie nennen ein BEISPIEL, nicht die Beschriftung daneben. „Suche"

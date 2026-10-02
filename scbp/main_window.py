@@ -847,6 +847,39 @@ def _own_scroll(start, stop):
     return None
 
 
+# Wartezeit nach dem letzten Tastendruck, bevor ein Suchfeld seine Liste neu
+# aufbaut.
+TYPING_DELAY_MS = 200
+
+
+def after_typing(widget, action, delay=TYPING_DELAY_MS):
+    """Rückruf für `trace_add('write', …)`: `action()` läuft erst, wenn
+    `delay` ms lang nichts mehr getippt wurde — ein Neuaufbau je Pause statt
+    je Tastendruck."""
+    pending = {'id': None}
+
+    def run():
+        pending['id'] = None
+        try:
+            if widget.winfo_exists():
+                action()
+        except tk.TclError:
+            pass
+
+    def typed(*_args):
+        if pending['id'] is not None:
+            try:
+                widget.after_cancel(pending['id'])
+            except tk.TclError:
+                pass
+        try:
+            pending['id'] = widget.after(delay, run)
+        except tk.TclError:
+            pending['id'] = None
+
+    return typed
+
+
 def bind_wheel(canvas):
     """Das Mausrad an eine Rollfläche hängen — für das ganze Fenster.
 

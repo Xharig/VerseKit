@@ -8,7 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Shops: filter by location** — a separate "Location" field: type, pick a
+  location from the list, and search and menus only show what is sold there.
+  The selected item then only lists the shops at that location. The first
+  time after the update the page reloads its data once (just under a minute)
+
 ### Fixed
+
+- **No more stutter while typing in search fields** — the blueprint list,
+  shops, crafting, mining, storage and every pick list rebuilt their list on
+  each letter. Now only once you pause; the field itself reacts at once
+- **Shops: the search field promised "commodity, shop or location"** — it only
+  searched item and manufacturer. The new location field covers the rest
 
 - **Blueprint list: every route reachable** — when a blueprint has many
   routes (twelve for the Comer Scraper Module, for example), the expanded

@@ -8,7 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Shops: nach Ort filtern** — ein eigenes Feld „Ort": tippen, Ort aus der
+  Liste wählen, und Suche und Auswahlmenüs zeigen nur noch, was dort verkauft
+  wird. Beim gewählten Teil stehen dann nur die Läden an diesem Ort. Beim
+  ersten Öffnen nach dem Update lädt die Seite ihre Daten einmal neu (knapp
+  eine Minute)
+
 ### Behoben
+
+- **Kein Ruckeln mehr beim Tippen in Suchfeldern** — Bauplan-Liste, Shops,
+  Herstellung, Bergbau, Lager und alle Auswahlfelder bauten ihre Liste bei
+  jedem Buchstaben neu auf. Jetzt erst, wenn du kurz innehältst; das Feld
+  selbst reagiert sofort
+- **Shops: das Suchfeld versprach „Ware, Shop oder Ort"** — gesucht wurde aber
+  nur nach Teil und Hersteller. Dafür gibt es jetzt das Ortsfeld
 
 - **Bauplan-Liste: alle Wege erreichbar** — hat ein Bauplan viele Wege (etwa
   zwölf beim Comer Scraper Module), ragten die aufgeklappten „weiteren Wege"

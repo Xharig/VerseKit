@@ -354,7 +354,9 @@ class Bestandsfenster:
                        len(self.katalog.get('bauplaene') or {})))
         self.filter = 'alle'
         self.suche = tk.StringVar()
-        self.suche.trace_add('write', lambda *_: self._zeichnen(nach_oben=True))
+        from .main_window import after_typing
+        self.suche.trace_add('write', after_typing(
+            self.root, lambda: self._zeichnen(nach_oben=True)))
         self.offen = set()          # Namen, deren Herkunft ausgeklappt ist
         self.alle_zeigen = False
         self.bereiche_aus = set()   # ausgeblendete Bereiche (Schiff, FPS, …)
@@ -2666,7 +2668,9 @@ class Bestandsfenster:
         # ist vorhanden (oder umgekehrt), faende die Suche ihn nicht.
         self.filter = 'alle'
         self.alle_zeigen = False
-        self.suche.set(treffer)          # loest das Neuzeichnen aus
+        self.suche.set(treffer)
+        # Sofort zeichnen — die Suche wartet sonst aufs Ende des Tippens.
+        self._zeichnen(nach_oben=True)
         self._auswaehlen(treffer)
         return True
 

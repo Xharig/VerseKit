@@ -94,7 +94,8 @@ FORMAT = 1
 # Struktur (er führt die kaufbaren Teile selbst, seit `3` samt Hersteller und
 # Größe); der Preis-Zwischenspeicher daneben ist unverändert und soll deshalb
 # nicht mit weggeworfen werden.
-FORMAT_CATALOG = 5
+# 6: je Teil die Orte, an denen es zu kaufen ist (`o`), für den Ort-Filter.
+FORMAT_CATALOG = 6
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
@@ -156,6 +157,13 @@ _store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE,
 # Genau der Lauf, der bisher jede Woche umsonst fällig wurde.
 _catalog = uex.Store(CATALOG_CACHE, format_no=FORMAT_CATALOG,
                       shelf_life=90 * uex.DAY, patch_bound=True)
+
+
+def place_of(row):
+    """Der Ort einer UEX-Preiszeile: Station, sonst Stadt, sonst Außenposten
+    — dieselben Felder wie die Ortsliste in `places`."""
+    return (row.get('space_station_name') or row.get('city_name')
+            or row.get('outpost_name') or '').strip()
 
 
 def _save_catalog(progress=None):
@@ -265,17 +273,19 @@ def _save_catalog(progress=None):
             if found.get('Size'):
                 raw[item_no]['g'] = found['Size']
         price_rows = uex.fetch(SOURCE_CATEGORY_PRICES % k['id'], 'shops.buyable')
-        seen = set()
+        # Je Teil die Orte, an denen es zu kaufen ist (für den Ort-Filter).
+        sold_at = {}
         for x in price_rows or []:
             if (x.get('price_buy') or 0) <= 0:
                 continue
             item = str(x.get('id_item') or '')
-            if not item:
+            if not item or item not in raw:
                 continue
-            # Ein Teil steht in vielen Terminals — hier zählt es einmal.
-            if item in seen or item not in raw:
-                continue
-            seen.add(item)
+            here = sold_at.setdefault(item, set())
+            place = place_of(x)
+            if place:
+                here.add(place)
+        for item, here in sold_at.items():
             entry = raw[item]
             items_out.append({'n': entry['n'],
                               's': id_to_uuid.get(item) or ID_PREFIX + item,
@@ -283,7 +293,8 @@ def _save_catalog(progress=None):
                               'h': entry['h'],
                               'g': entry['g'],
                               'c': entry['c'],
-                              'q': entry['q']})
+                              'q': entry['q'],
+                              'o': sorted(here)})
         if progress:
             progress(number, len(chosen))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
@@ -398,8 +409,17 @@ def catalog_items():
                        'hersteller': x.get('h') or '',
                        'groesse': x.get('g') or '',
                        'klasse': x.get('c') or '',
-                       'guete': x.get('q') or ''})
+                       'guete': x.get('q') or '',
+                       'orte': list(x.get('o') or [])})
     return result
+
+
+def catalog_places():
+    """Alle Orte, an denen laut Katalog etwas zu kaufen ist, alphabetisch."""
+    found = set()
+    for x in (_catalog.load() or {}).get('teile') or []:
+        found.update(x.get('o') or [])
+    return sorted(found, key=str.lower)
 
 
 
@@ -536,8 +556,7 @@ def fetch(ident, name='', force=False):
             continue
         rows.append({
             'laden': (x.get('terminal_name') or '').strip(),
-            'ort': (x.get('space_station_name') or x.get('city_name')
-                    or x.get('outpost_name') or '').strip(),
+            'ort': place_of(x),
             'system': (x.get('star_system_name') or '').strip(),
             'preis': price,
             # 100 = fabrikneu. Gebrauchte Ware ist billiger und weniger wert —
