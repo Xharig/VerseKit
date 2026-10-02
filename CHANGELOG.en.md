@@ -15,19 +15,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   The selected item then only lists the shops at that location. The first
   time after the update the page reloads its data once (just under a minute)
 
-### Fixed
-
-- **No more stutter while typing in search fields** — the blueprint list,
-  shops, crafting, mining, storage and every pick list rebuilt their list on
-  each letter. Now only once you pause; the field itself reacts at once
-- **Shops: the search field promised "commodity, shop or location"** — it only
-  searched item and manufacturer. The new location field covers the rest
-
-- **Blueprint list: every route reachable** — when a blueprint has many
-  routes (twelve for the Comer Scraper Module, for example), the expanded
-  "more routes" ran off the bottom of the window and could not be scrolled.
-  They now scroll in their own area
-
 ### Improved
 
 - **Faster Basetool sync for storage and hangar** — when you change something
@@ -37,6 +24,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Clearer tick boxes** — when off they now show an empty circle like the
   blueprint list, when on a green tick. Before, a grey tick showed even when
   off, for example at "marked as stolen" in the trade storage
+
+### Fixed
+
+- **No more stutter while typing in search fields** — the blueprint list,
+  shops, crafting, mining, storage and every pick list rebuilt their list on
+  each letter. Now only once you pause; the field itself reacts at once
+- **Shops: the search field promised "commodity, shop or location"** — it only
+  searched item and manufacturer. The new location field covers the rest
+- **Blueprint list: every route reachable** — when a blueprint has many
+  routes (twelve for the Comer Scraper Module, for example), the expanded
+  "more routes" ran off the bottom of the window and could not be scrolled.
+  They now scroll in their own area
 
 ## v3.69.0 - 2026-10-02
 
