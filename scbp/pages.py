@@ -9729,6 +9729,10 @@ def _shops(fenster, rahmen):
     def _vorschlaege(*_a):
         _liste_leeren()
         text = suche.get().strip().lower()
+        # Ist ein Teil gewählt und nichts getippt, gehört die Fläche seinen
+        # Läden — keine Vorschlagsliste darüber.
+        if not text and gewaehlt['kennung']:
+            return
         # ⚠⚠ **Wer tippt, sucht etwas Neues — die alte Antwort muss weg.**
         # Am 04.09.2026 gemeldet: „Nachdem ich boomtube eingegeben habe,
         # bleibt das Eingabefeld ohne Funktion, ich kann nach keinem zweiten
@@ -9899,7 +9903,7 @@ def _shops(fenster, rahmen):
 
     def _stand_melden():
         """Sagen, wie viele Teile bereitstehen — statt einer leeren Fläche."""
-        anzahl = len(_teile())
+        anzahl = len([b for b in _teile() if _am_ort(b)])
         if not anzahl:
             stand_zeile.pack_forget()
             return
@@ -10052,6 +10056,7 @@ def _shops(fenster, rahmen):
             return
         ort_wahl['ort'] = treffer
         _filter_gewechselt()
+        _stand_melden()
 
     ort.trace_add('write', _ort_geaendert)
 

@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Shops: ein Teil anklicken zeigt wieder seine Läden** — mit gewähltem Ort
+  sprang die Seite nach dem Klick zurück auf die ganze Liste, die Läden
+  standen unsichtbar darunter. Die Zeile über der Liste nennt außerdem die
+  Zahl der Teile am gewählten Ort statt aller
+
 ## v3.70.0 - 2026-10-02
 
 > Wo bekomme ich das hier, wo ich gerade stehe? In den Shops wählst du jetzt

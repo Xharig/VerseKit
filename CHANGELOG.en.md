@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Shops: clicking a part shows its shops again** — with a location picked,
+  the page jumped back to the full list after the click and the shops sat
+  out of sight below it. The line above the list also counts the parts at
+  the chosen location instead of all of them
+
 ## v3.70.0 - 2026-10-02
 
 > Where can I get this, right where I am? In the shops you can now pick a
