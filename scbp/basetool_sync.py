@@ -852,7 +852,8 @@ def _apply_stock(takes, server, resolver, places, items=None):
             place = (source['location'] or {}).get('name') or ''
             if source.get('item'):
                 trade.append({'ware': name, 'menge': amount, 'ort': place,
-                              'gestohlen': bool(source.get('stolen'))})
+                              'gestohlen': bool(source.get('stolen')),
+                              'stueck': True})
             else:
                 row = {'material': name, 'menge': amount,
                        'qualitaet': source.get('quality') or 0, 'ort': place}

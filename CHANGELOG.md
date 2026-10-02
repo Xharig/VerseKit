@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.70.3 - 2026-10-02
+
+> Der Lager-Abgleich mit dem Basetool sortiert jetzt richtig: Materialien ins
+> Rohstofflager mit ihrer Qualität, Items ins Handelslager in ganzen Stück.
+> Was schon falsch einsortiert war, räumt der nächste Abgleich von selbst auf.
+
 ### Behoben
 
 - **Basetool-Lager: Materialien und Items landen im richtigen Lager** —
@@ -18,7 +24,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Falsch Einsortiertes zieht beim nächsten Abgleich von selbst um, ohne dass
   im Basetool etwas aus- oder eingebucht wird. Alte Posten, die im Basetool
   unter Qualität 0 stehen, bekommen dabei ihre echte Qualität aus dem
-  Rohstofflager. Gemeldet von greluc (KRT)
+  Rohstofflager. Im Handelslager zeigen Items ihre Stückzahl und lassen sich
+  dort auch ändern. Gemeldet von greluc (KRT)
 
 ## v3.70.2 - 2026-10-02
 

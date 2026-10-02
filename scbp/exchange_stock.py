@@ -183,7 +183,8 @@ def relocate(raw, trade, resolve, places, server, items):
             new_trade.append({'ware': row.get('material') or '',
                               'menge': _num(row.get('menge'), PIECE),
                               'ort': row.get('ort') or '',
-                              'gestohlen': bool(row.get('gestohlen'))})
+                              'gestohlen': bool(row.get('gestohlen')),
+                              'stueck': True})
             moved += 1
         else:
             keep_raw.append(row)

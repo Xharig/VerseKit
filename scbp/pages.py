@@ -16775,6 +16775,7 @@ def _trade_storage(fenster, rahmen):
     # und aussuchen. Beide Listen sind geschlossen (siehe `eintragen`), also
     # soll man sie auch sehen können, statt raten zu müssen, was drinsteht.
     ware_zeichnen = ort_zeichnen = lambda: None
+    beschriftungen = {}
     for beschriftung, var in ((t('s_hl_ware'), ware),
                               (t('s_hl_menge'), menge),
                               (t('s_hl_ort'), ort)):
@@ -16789,8 +16790,10 @@ def _trade_storage(fenster, rahmen):
         # Feld). Damit sehen beide Seiten des Handels-Bereichs gleich aus.
         block = tk.Frame(innen, bg=BG)
         block.pack(fill='x', padx=24, pady=(12, 0))
-        tk.Label(block, text=beschriftung, bg=BG, fg=FG,
-                 font=fenster.f_bold, anchor='w').pack(fill='x')
+        beschriftungen[str(var)] = tk.Label(block, text=beschriftung, bg=BG,
+                                            fg=FG, font=fenster.f_bold,
+                                            anchor='w')
+        beschriftungen[str(var)].pack(fill='x')
         if var is menge:
             feld = round_entry(block, var, fenster.f_small, theme.FIELD, LINE,
                                ACCENT, FG)
@@ -16829,8 +16832,10 @@ def _trade_storage(fenster, rahmen):
         # ⚠⚠ **Geschlossene Liste, kein Freitext** — dieselbe Regel wie beim
         # Lagerort. Angenommen wird nur, was UEX kennt; sonst steht am Ende ein
         # ausgedachter oder beleidigender Name im Werkzeug, und ein Bildschirm-
-        # foto davon macht die Runde.
-        if not preisdaten.known(name):
+        # foto davon macht die Runde. Beim Ändern darf der Name stehen bleiben,
+        # den der Posten schon trägt — ein Item aus dem Basetool steht nicht
+        # in der UEX-Liste.
+        if not preisdaten.known(name) and name != _name_vorher():
             meldung['text'], meldung['farbe'] = t('s_hl_unbekannt'), RED
             neu_zeichnen()
             return
@@ -16884,6 +16889,16 @@ def _trade_storage(fenster, rahmen):
         return (float(posten[nr].get('menge') or 0)
                 if 0 <= nr < len(posten) else 0.0)
 
+    def _name_vorher():
+        nr = bearbeitung['nummer']
+        posten = lager.load() if nr is not None else []
+        return ((posten[nr].get('ware') or '').strip()
+                if nr is not None and 0 <= nr < len(posten) else None)
+
+    def _mengen_beschriftung(stueck):
+        beschriftungen[str(menge)].configure(
+            text=t('s_hl_menge_stueck') if stueck else t('s_hl_menge'))
+
     def vorschau_zeigen(*_):
         roh = (menge.get() or '').strip()
         rechnung = any(z in roh[1:] for z in '+-−') or roh[:1] in '+-−'
@@ -16909,6 +16924,7 @@ def _trade_storage(fenster, rahmen):
     def abbrechen():
         bearbeitung['nummer'] = None
         ware.set(''); menge.set(''); gestohlen[0] = False
+        _mengen_beschriftung(False)
         neu_zeichnen()
 
     def knoepfe_setzen():
@@ -16941,6 +16957,7 @@ def _trade_storage(fenster, rahmen):
         menge.set(_amount_text(p.get('menge') or 0))
         ort.set(p.get('ort') or '')
         gestohlen[0] = bool(p.get('gestohlen'))
+        _mengen_beschriftung(lager.is_pieces(p))
         neu_zeichnen()
 
     liste_rahmen.pack(fill='both', expand=True, padx=24, pady=(12, 20))
@@ -17135,7 +17152,10 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
             # ⚠ Nur die Zahl — die Einheit steht in der Spaltenüberschrift.
             # „100 SCU" in jeder Zeile wiederholt, was darüber schon steht,
             # und schiebt die Zahlen auseinander.
-            (_amount_text(p.get('menge') or 0), vorne, 'e'),
+            # Ein Item zählt in Stück, nicht in der SCU der Überschrift.
+            ((_amount_text(p.get('menge') or 0) + ' ' + t('s_lg_stueck'))
+             if p.get('stueck') else _amount_text(p.get('menge') or 0),
+             vorne, 'e'),
             (_money(preis) if preis else '—', blass, 'e'),
             (_money(wert) if wert else '—', vorne, 'e'),
         )

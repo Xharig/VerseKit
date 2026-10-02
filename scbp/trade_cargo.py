@@ -59,7 +59,9 @@ ist.
 Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
 gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
 `handelslager.json` und die Schlüssel `format`, `posten`, `ware`, `menge`,
-`ort` und `gestohlen`. Ebenso die Kennungen `'ware'`, `'menge'`,
+`ort` und `gestohlen`. Ein Posten kann zusätzlich `"stueck": true` tragen:
+ein Item aus dem Lager-Abgleich mit dem Basetool, gezählt in ganzen Stück
+statt in SCU. Ebenso die Kennungen `'ware'`, `'menge'`,
 `'schreiben'` und `'weg'`, über die die Oberfläche ihre Meldung wählt, und der
 Seitenname `handelslager` in Reiterleiste und Symbolsatz. `calculate` und
 `parse_number` kommen aus `materials.py`.
@@ -217,6 +219,8 @@ def from_json(text):
                       'menge': amount,
                       'ort': str(p.get('ort') or '').strip(),
                       'gestohlen': bool(p.get('gestohlen'))})
+        if p.get('stueck'):
+            clean[-1]['stueck'] = True
     return clean
 
 
@@ -269,11 +273,21 @@ def change(index, goods, amount, place='', stolen=False):
     # Beim Ändern zählt die bisherige Menge als Ausgangswert — wer `+5`
     # tippt, bucht dazu, statt die Menge auf 5 zu setzen.
     number = _check_amount(amount, float(entries[index].get('menge') or 0))
+    pieces = bool(entries[index].get('stueck'))
+    if number is not None and pieces:
+        number = round(number) or None
     if number is None:
         return False, 'menge'
     entries[index] = {'ware': goods, 'menge': float(number),
                       'ort': place or '', 'gestohlen': bool(stolen)}
+    if pieces:
+        entries[index]['stueck'] = True
     return (True, '') if save(entries) else (False, 'schreiben')
+
+
+def is_pieces(entry):
+    """Zählt dieser Posten in ganzen Stück (ein Item) statt in SCU?"""
+    return bool(entry.get('stueck'))
 
 
 def remove(index):

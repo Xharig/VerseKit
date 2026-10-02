@@ -31888,6 +31888,42 @@ def _pruefung_313():
         pruefe(_srv.lots.get(_srv.lot_key('m-feyn', 'Area18', 324, False), {})
                .get('quantity', {}).get('amount') == 234,
                'Feynmaline Q 324 steht dort unverändert')
+
+        # Anzeige: Items zählen in Stück
+        _zeilen = _tc.load()
+        pruefe(all(r.get('stueck') for r in _zeilen
+                   if r['ware'] in ('Novian Crossbow',
+                                    'Novian "Ghostmaker" Crossbow'))
+               and not any(r.get('stueck') for r in _zeilen
+                           if r['ware'] == 'Gold'),
+               'umgezogene und neue Items tragen die Stück-Marke, Gold nicht')
+        _nr = next((i for i, r in enumerate(_zeilen)
+                    if r['ware'] == 'Novian Crossbow'), None)
+        _ok, _r = False, {}
+        if _nr is not None:
+            _ok, _grund = _tc.change(_nr, 'Novian Crossbow', '2,6', 'Area18')
+            _r = _tc.load()[_nr]
+        pruefe(_ok and _r.get('menge') == 3 and _r.get('stueck'),
+               'Ändern: Stück bleibt ganzzahlig und behält die Marke (%r)' % _r)
+        import tkinter as _tk313
+        import types as _ty313
+        from scbp import pages as _pg313
+        _w = _tk313.Tk()
+        _w.withdraw()
+        try:
+            _fen = _ty313.SimpleNamespace(f_small=('TkDefaultFont', 9))
+            _rahmen = _tk313.Frame(_w)
+            _pg313._trade_table(_fen, _rahmen, _tc.load(), lambda w: 0,
+                                lambda n: None, lambda n: None, None)
+            _texte = [c.cget('text') for c in _rahmen.winfo_children()[0]
+                      .winfo_children() if isinstance(c, _tk313.Label)]
+            _stk = _pg313.t('s_lg_stueck')
+            pruefe(('3 ' + _stk) in _texte and ('40 ' + _stk) not in _texte
+                   and '40' in _texte,
+                   'Tabelle: Item mit „%s", Gold als nackte SCU-Zahl (%r)'
+                   % (_stk, [x for x in _texte if x[:1].isdigit()]))
+        finally:
+            _w.destroy()
     finally:
         _lg.own_account, _bs.tick = _altes_konto, _alter_takt
         _bs._LOCATIONS.clear()

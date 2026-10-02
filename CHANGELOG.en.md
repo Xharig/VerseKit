@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.70.3 - 2026-10-02
+
+> The stock sync with the Basetool now sorts correctly: materials go to the
+> material storage with their quality, items to the cargo hold in whole
+> pieces. Anything already in the wrong store is tidied up by the next sync.
+
 ### Fixed
 
 - **Basetool stock: materials and items land in the right store** —
@@ -17,7 +23,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the next sync could have booked the material out in the Basetool. Anything
   sorted into the wrong store moves over by itself on the next sync, without
   booking anything out or in at the Basetool. Old lots the Basetool holds at
-  quality 0 get their real quality from the material storage on the way.
+  quality 0 get their real quality from the material storage on the way. In
+  the cargo hold, items show their piece count and can be edited there too.
   Reported by greluc (KRT)
 
 ## v3.70.2 - 2026-10-02

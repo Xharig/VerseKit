@@ -4522,6 +4522,7 @@ TEXTS = {
                           'box instead if the cargo is marked as stolen.'),
     's_hl_ware':         ('Ware', 'Commodity'),
     's_hl_menge':        ('Menge in SCU', 'Amount in SCU'),
+    's_hl_menge_stueck': ('Menge in Stück', 'Amount in pieces'),
     's_hl_ort':          ('Lagerort (freiwillig)', 'Storage location (optional)'),
     's_hl_gestohlen':    ('als gestohlen markiert', 'marked as stolen'),
     's_hl_buchen':       ('Eintragen', 'Add'),
