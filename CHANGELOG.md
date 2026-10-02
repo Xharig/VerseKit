@@ -8,6 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Basetool-Lager: Materialien und Items landen im richtigen Lager** —
+  Materialien kommen ins Rohstofflager und behalten ihre Qualität, Items
+  kommen ins Handelslager und zählen in ganzen Stück. Bisher landeten manche
+  Materialien ohne Qualität im Handelslager und Items im Rohstofflager; beim
+  nächsten Abgleich hätte das Material im Basetool ausgebucht werden können.
+  Falsch Einsortiertes zieht beim nächsten Abgleich von selbst um, ohne dass
+  im Basetool etwas aus- oder eingebucht wird. Alte Posten, die im Basetool
+  unter Qualität 0 stehen, bekommen dabei ihre echte Qualität aus dem
+  Rohstofflager. Gemeldet von greluc (KRT)
+
 ## v3.70.2 - 2026-10-02
 
 > Die Übersetzungen von Luftwerft lassen sich wieder einsetzen, und die

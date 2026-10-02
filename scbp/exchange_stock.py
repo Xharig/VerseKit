@@ -19,14 +19,21 @@
 """
 Lager-Abgleich mit dem KRT Profit Basetool — der Teil ohne Netz.
 
-Das Basetool führt das persönliche Lager als **Posten**: ein Material an einem
-Ort, mit Qualität und „gestohlen", und einer Menge (`resources/stock.md`).
-VerseKit hat zwei Lager, die beide dazu passen:
+Das Basetool führt das persönliche Lager als **Posten**: ein Material oder ein
+Item an einem Ort, mit Qualität und „gestohlen", und einer Menge
+(`resources/stock.md`). VerseKit hat zwei Lager, die beide dazu passen:
 
 | VerseKit | Posten beim Basetool |
 |---|---|
-| Rohstofflager (`materials`, `rohstoffe.json`): Material, Menge in SCU oder Stück, Qualität, Ort | Material, Qualität, nicht gestohlen |
-| Handelslager (`trade_cargo`, `handelslager.json`): Ware, Menge in SCU, Ort, gestohlen | Ware, Qualität 0, gestohlen wie eingetragen |
+| Rohstofflager (`materials`, `rohstoffe.json`): Material, Menge in SCU oder Stück, Qualität, Ort | Material mit seiner Qualität |
+| Handelslager (`trade_cargo`, `handelslager.json`): Ware oder Item, Menge, Ort, gestohlen | Material unter Qualität 0, Item in ganzen Stück (`PIECE`) |
+
+**Material oder Item** sagt der Posten selbst: `kind` (`MATERIAL`/`ITEM`),
+fehlt das Feld, ist ein Posten ohne `materialKind` ein Item. Ein Material
+behält immer die Qualität, unter der es gebucht ist; ein Item steht immer
+unter Qualität 0. `materialKind.commodity` heißt nur „bei UEX als Ware
+gelistet" — das gilt auch für Erze, Metalle und Edelsteine und entscheidet
+hier nichts.
 
 **Die Regeln** (Sync-Anleitung und `client-security.md`):
 
@@ -64,6 +71,14 @@ def identity(material_key, location, quality, stolen):
                             int(quality or 0), 1 if stolen else 0)
 
 
+def is_item(lot):
+    """Ist dieser Posten des Basetools ein Item (kein Material)?"""
+    kind = str(lot.get('kind') or '').upper()
+    if kind in ('MATERIAL', 'ITEM'):
+        return kind == 'ITEM'
+    return not isinstance(lot.get('materialKind'), dict)
+
+
 def server_lots(items):
     """Posten des Basetools -> {Kennung: Posten}. Mehrere Posten mit derselben
     Kennung (sollte es nicht geben) werden zusammengezählt."""
@@ -86,45 +101,34 @@ def server_lots(items):
                     'quality': int(lot.get('quality') or 0),
                     'stolen': bool(lot.get('stolen')),
                     'amount': _num(quantity.get('amount'), unit),
-                    'unit': unit,
-                    'commodity': bool((lot.get('materialKind') or {})
-                                      .get('commodity'))}
+                    'unit': unit, 'item': is_item(lot)}
     return out
 
 
-def commodities(items, known=None):
-    """{bt: True/False} — welche Materialien das Basetool als Handelsware führt.
+def item_flags(items, known=None):
+    """{bt: True/False} — welche `bt` das Basetool als Item führt.
 
-    ⚠⚠ **Eine Handelsware bucht das Basetool immer unter Qualität 0**, egal
-    welche Qualität man schickt (`resources/stock.md`). Wer Titan mit Q 516
-    und Q 622 als zwei Posten schickt, erwartet dort zweimal „0" — das Basetool
-    rechnet beide gegen seinen EINEN Posten mit Q 0 und lehnt ab
-    (`VERSION_CONFLICT`; erster echter Test, 28.09.2026: 8 von 8 abgelehnt).
-
-    Die Angabe steht nur an den Posten (`materialKind.commodity`), nicht in
-    `catalog/resolve`. Das genügt: Abgelehnt wird nur, wo dort schon ein
-    Posten unter Q 0 liegt — und der trägt sie. `known` ist das Gelernte vom
-    letzten Mal, damit es nicht mit dem letzten Posten verschwindet."""
+    `known` ist das Gelernte vom letzten Mal, damit es nicht mit dem letzten
+    Posten verschwindet."""
     out = dict(known or {})
     for lot in items:
         bt = (lot.get('material') or {}).get('bt')
-        kind = lot.get('materialKind')
-        if bt and isinstance(kind, dict) and 'commodity' in kind:
-            out[bt] = bool(kind['commodity'])
+        if bt:
+            out[bt] = is_item(lot)
     return out
 
 
-def local_lots(raw, trade, resolve, places, is_piece, trade_goods=None):
+def local_lots(raw, trade, resolve, places, is_piece, items=None):
     """Beide VerseKit-Lager -> ({Kennung: Posten}, {Grund: [Name]}).
 
     `resolve(name)` -> `bt` oder None, `places` -> {ort klein: location-ref}
     (aus `catalog/locations`), `is_piece(name)` -> zählt in Stück.
-    `trade_goods` -> {bt: True} für Handelswaren (siehe `commodities`): Sie
-    zählen unter Qualität 0, alle Qualitäten eines Orts werden ein Posten.
+    `items` -> {bt: True} für Items (siehe `item_flags`): Sie stehen unter
+    Qualität 0 und zählen in ganzen Stück, egal in welchem Lager.
     Nicht Zuordenbares landet im zweiten Wert — `material` (unbekanntes
     Material), `location` (Ort, den das Basetool nicht führt, oder leer)."""
     out, skipped = {}, {'material': [], 'location': []}
-    trade_goods = trade_goods or {}
+    items = items or {}
 
     def put(store, name, amount, location, quality, stolen, index):
         bt = resolve(name)
@@ -135,9 +139,10 @@ def local_lots(raw, trade, resolve, places, is_piece, trade_goods=None):
         if not place:
             skipped['location'].append(location or '—')
             return
-        unit = PIECE if (store == 'raw' and is_piece(name)) else SCU
-        if trade_goods.get(bt):
-            quality = 0
+        if items.get(bt):
+            unit, quality = PIECE, 0
+        else:
+            unit = PIECE if (store == 'raw' and is_piece(name)) else SCU
         key = identity(bt, place['name'], quality, stolen)
         entry = out.setdefault(key, {
             'material': {'bt': bt, 'name': name[:200]}, 'location': place,
@@ -150,11 +155,90 @@ def local_lots(raw, trade, resolve, places, is_piece, trade_goods=None):
         quality = row.get('qualitaet')
         put('raw', row.get('material') or '', row.get('menge'),
             row.get('ort'), int(round(quality)) if quality is not None else 0,
-            False, index)
+            row.get('gestohlen'), index)
     for index, row in enumerate(trade or ()):
         put('trade', row.get('ware') or '', row.get('menge'), row.get('ort'),
             0, row.get('gestohlen'), index)
     return out, skipped
+
+
+def relocate(raw, trade, resolve, places, server, items):
+    """Falsch einsortierte Zeilen ins richtige Lager ziehen — nur hier, ohne
+    eine Sendung ans Basetool. Rückgabe: (raw, trade, Anzahl umgezogen).
+
+    * Ein Item im Rohstofflager kommt ins Handelslager. Seine Kennung bleibt
+      dieselbe (Qualität 0).
+    * Ein Material im Handelslager kommt ins Rohstofflager, wenn sein Posten
+      unter Qualität 0 dort nicht steht, aber **genau ein** Posten desselben
+      Materials am selben Ort, gleich gestohlen und mit derselben Menge, eine
+      Qualität trägt — die bekommt die Zeile. Ohne eindeutigen Treffer bleibt
+      sie, wo sie ist.
+
+    `server` -> `server_lots(...)`, `items` -> `item_flags(...)`."""
+    items = items or {}
+    keep_raw, new_trade, moved = [], [], 0
+    for row in raw or ():
+        bt = resolve(row.get('material') or '')
+        if bt and items.get(bt):
+            new_trade.append({'ware': row.get('material') or '',
+                              'menge': _num(row.get('menge'), PIECE),
+                              'ort': row.get('ort') or '',
+                              'gestohlen': bool(row.get('gestohlen'))})
+            moved += 1
+        else:
+            keep_raw.append(row)
+
+    taken = set()
+    for row in keep_raw:
+        bt = resolve(row.get('material') or '')
+        place = places.get((row.get('ort') or '').strip().lower())
+        if bt and place:
+            quality = row.get('qualitaet')
+            taken.add(identity(bt, place['name'],
+                               int(round(quality)) if quality is not None
+                               else 0, row.get('gestohlen')))
+
+    groups = {}
+    for index, row in enumerate(trade or ()):
+        bt = resolve(row.get('ware') or '')
+        place = places.get((row.get('ort') or '').strip().lower())
+        if not bt or not place or items.get(bt, True):
+            continue
+        stolen = bool(row.get('gestohlen'))
+        group = groups.setdefault(identity(bt, place['name'], 0, stolen),
+                                  {'bt': bt.lower(), 'place': place['name'],
+                                   'stolen': stolen, 'rows': []})
+        group['rows'].append(index)
+
+    drop, new_raw = set(), []
+    for key, group in groups.items():
+        if key in server:
+            continue
+        first = trade[group['rows'][0]]
+        total = sum(float(trade[i].get('menge') or 0) for i in group['rows'])
+        matches = [
+            lot for lot_key, lot in server.items()
+            if not lot['item'] and lot['quality'] and lot_key not in taken
+            and ((lot['material'] or {}).get('bt') or '').lower()
+            == group['bt']
+            and ((lot['location'] or {}).get('name') or '').strip().lower()
+            == group['place'].strip().lower()
+            and lot['stolen'] == group['stolen']
+            and _num(total, lot['unit']) == lot['amount']]
+        if len(matches) != 1:
+            continue
+        lot = matches[0]
+        row = {'material': first.get('ware') or '',
+               'menge': _num(total, lot['unit']),
+               'qualitaet': lot['quality'], 'ort': first.get('ort') or ''}
+        if group['stolen']:
+            row['gestohlen'] = True
+        new_raw.append(row)
+        drop.update(group['rows'])
+        moved += len(group['rows'])
+
+    trade_out = [r for i, r in enumerate(trade or ()) if i not in drop]
+    return keep_raw + new_raw, trade_out + new_trade, moved
 
 
 def plan(local, server, baseline, decisions=None, open_conflicts=()):

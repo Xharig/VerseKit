@@ -2620,11 +2620,15 @@ TEXTS = {
     's_dk_greluc_bugs':      ('**Prüfung des Basetool-Abgleichs** — Wartezeiten nach '
                               'Fehlern, Halt nach einer Sperre, nur die Baupläne '
                               'des eigenen Accounts und sicherer abgelegte '
-                              'Zugangsdaten unter Linux.',
+                              'Zugangsdaten unter Linux. Dazu der Lager-Abgleich: '
+                              'Materialien und Items landen im richtigen Lager, '
+                              'Materialien mit ihrer Qualität.',
                               '**Review of the Basetool sync** — wait times after '
                               'errors, a full stop after a block, only your own '
                               'account\'s blueprints and more safely stored '
-                              'credentials on Linux.'),
+                              'credentials on Linux. Plus the stock sync: '
+                              'materials and items land in the right store, '
+                              'materials with their quality.'),
     's_dk_parsul_bugs':      ('**Der Einrichtungsassistent trug bei einer frischen '
                               'Installation keine Bauplan-Angaben ein** — „Katalog '
                               'kennt keine Missionen", weil der Katalog erst nach '
@@ -5736,6 +5740,8 @@ TEXTS = {
     's_bt_lager_ueberblick': ('Im Basetool: %d Posten in deinem Lager', 'In the Basetool: %d lots in your stock'),
     's_bt_lager_stand':  ('Beim letzten Mal: %d Posten hochgeschickt, %d übernommen.',
                           'Last time: %d lots sent, %d taken over.'),
+    's_bt_lager_umgezogen': ('%d Einträge standen im falschen Lager und sind umgezogen: Materialien ins Rohstofflager, Items ins Handelslager. Am Basetool wurde dafür nichts gebucht.',
+                             '%d entries were in the wrong store and have moved: materials to the material storage, items to the cargo hold. Nothing was booked at the Basetool for this.'),
     's_bt_lager_ort':    ('%d Posten bleiben hier, weil das Basetool den Ort nicht als Lagerort führt: %s',
                           '%d lots stay here because the Basetool does not list the place as a storage location: %s'),
     's_bt_lager_material': ('%d Posten bleiben hier, weil das Basetool das Material nicht kennt.',

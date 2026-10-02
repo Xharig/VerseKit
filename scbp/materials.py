@@ -44,6 +44,9 @@ Zählung `[BP 3/12]`: lieber nichts sagen als etwas Unwahres.
      "posten": [{"material": "Iron", "menge": 12.5,
                  "qualitaet": 80, "ort": "Daymar"}]}
 
+Ein Posten kann zusätzlich `"gestohlen": true` tragen — so kommt gestohlenes
+Material aus dem Lager-Abgleich mit dem Basetool herein.
+
 Mehrere Posten desselben Materials sind Absicht: 12 SCU Iron von Daymar mit
 80 % Güte sind etwas anderes als 3 SCU aus dem Aaron Halo.
 
@@ -165,6 +168,8 @@ def from_json(text):
                       'menge': float(p.get('menge') or 0),
                       'qualitaet': p.get('qualitaet'),
                       'ort': str(p.get('ort') or '').strip()})
+        if p.get('gestohlen'):
+            clean[-1]['gestohlen'] = True
     return clean
 
 
@@ -315,10 +320,13 @@ def change(index, material, amount, quality=None, place=''):
     entries = load()
     if not (0 <= index < len(entries)):
         return False
+    stolen = entries[index].get('gestohlen')
     entries[index] = {'material': (material or '').strip(),
                       'menge': float(amount or 0),
                       'qualitaet': quality,
                       'ort': (place or '').strip()}
+    if stolen:
+        entries[index]['gestohlen'] = True
     save(entries)
     return True
 

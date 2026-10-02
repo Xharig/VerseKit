@@ -730,15 +730,33 @@ def _sync_stock(conn, state):
                              {n.lower(): {'name': n[:200]} for n in names if n},
                              cache)
 
+    # Was dort schon steht, trägt sein `bt` selbst — auch ein Item, das als
+    # MATERIAL nicht aufzulösen ist.
+    for lot in server_raw.values():
+        material = lot.get('material') or {}
+        name = (material.get('name') or '').strip().lower()
+        if name and material.get('bt') and name not in resolved:
+            resolved[name] = material['bt']
+    items = exchange_stock.item_flags(server_raw.values(), sub.get('items'))
+    rest = {n for n in names if n and n.lower() not in resolved}
+    if rest:
+        found = _resolve_refs(conn, 'ITEM',
+                              {n.lower(): {'name': n[:200]} for n in rest},
+                              sub.setdefault('resolved_items', {}))
+        for name, bt in found.items():
+            resolved.setdefault(name, bt)
+            items.setdefault(bt, True)
+    sub['items'] = items
+    sub.pop('commodity', None)
+
     def resolver(name):
         return resolved.get((name or '').strip().lower())
 
-    trade_goods = exchange_stock.commodities(server_raw.values(),
-                                             sub.get('commodity'))
-    sub['commodity'] = trade_goods
-    local, skipped = exchange_stock.local_lots(raw, trade, resolver, places,
-                                               crafting.is_piece, trade_goods)
     server = exchange_stock.server_lots(server_raw.values())
+    raw, trade, moved = exchange_stock.relocate(raw, trade, resolver, places,
+                                                server, items)
+    local, skipped = exchange_stock.local_lots(raw, trade, resolver, places,
+                                               crafting.is_piece, items)
     decisions = dict(sub.get('decisions') or {})
     result = exchange_stock.plan(local, server, sub.get('baseline'), decisions,
                                  open_conflicts=set(sub.get('conflicts') or ()))
@@ -753,10 +771,8 @@ def _sync_stock(conn, state):
         server_raw, _resync = _pull_generic(conn, sub, '/me/stock', 'key')
         server = exchange_stock.server_lots(server_raw.values())
 
-    if result['take']:
-        _apply_stock(result['take'], server, resolver, places,
-                     exchange_stock.commodities(server_raw.values(),
-                                                trade_goods))
+    if result['take'] or moved:
+        _apply_stock(result['take'], server, resolver, places, items)
 
     conflicts = dict(result['conflicts'])
     for key, reason in rejected.items():
@@ -785,7 +801,7 @@ def _sync_stock(conn, state):
                 'conflict_names': names_of,
                 'decisions': {}, 'rejected': rejected,
                 'skipped': {k: sorted(set(v))[:20] for k, v in skipped.items()}})
-    return {'sent': applied, 'taken': len(result['take']),
+    return {'sent': applied, 'taken': len(result['take']), 'moved': moved,
             'conflicts': len(conflicts), 'rejected': len(rejected),
             'skipped_location': len(set(skipped['location'])),
             'skipped_material': len(set(skipped['material'])),
@@ -793,8 +809,12 @@ def _sync_stock(conn, state):
             + extra.get('offersRemoved', 0)}
 
 
-def _apply_stock(takes, server, resolver, places, trade_goods=None):
-    """Übernehmen, was sich im Basetool geändert hat — im Tk-Faden.
+def _apply_stock(takes, server, resolver, places, items=None):
+    """Übernehmen, was sich im Basetool geändert hat, und falsch einsortierte
+    Zeilen umziehen (`exchange_stock.relocate`) — im Tk-Faden.
+
+    Neues kommt nach seiner Art: ein Material ins Rohstofflager mit seiner
+    Qualität, ein Item ins Handelslager.
 
     ⚠ Die Zeilen werden dort NEU gesucht, nicht über die Listenposition von
     vorhin: Zwischen Holen und Schreiben kann der Spieler etwas geändert
@@ -806,10 +826,12 @@ def _apply_stock(takes, server, resolver, places, trade_goods=None):
         if not (_store_ok(materials.FILE, 'posten')
                 and _store_ok(trade_cargo.FILE, 'posten')):
             return
-        raw, trade = materials.load(), trade_cargo.load()
+        raw, trade, _moved = exchange_stock.relocate(
+            materials.load(), trade_cargo.load(), resolver, places, server,
+            items)
         local, _skipped = exchange_stock.local_lots(raw, trade, resolver,
                                                     places, crafting.is_piece,
-                                                    trade_goods)
+                                                    items)
         drop_raw, drop_trade = set(), set()
         for key, amount in takes:
             lot = local.get(key)
@@ -828,13 +850,15 @@ def _apply_stock(takes, server, resolver, places, trade_goods=None):
                 continue
             name = (source['material'] or {}).get('name') or ''
             place = (source['location'] or {}).get('name') or ''
-            if source.get('commodity'):
+            if source.get('item'):
                 trade.append({'ware': name, 'menge': amount, 'ort': place,
                               'gestohlen': bool(source.get('stolen'))})
             else:
-                raw.append({'material': name, 'menge': amount,
-                            'qualitaet': source.get('quality') or 0,
-                            'ort': place})
+                row = {'material': name, 'menge': amount,
+                       'qualitaet': source.get('quality') or 0, 'ort': place}
+                if source.get('stolen'):
+                    row['gestohlen'] = True
+                raw.append(row)
         _applying[0] = True
         try:
             materials.save([r for i, r in enumerate(raw)

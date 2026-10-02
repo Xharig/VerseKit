@@ -7156,7 +7156,8 @@ def main():
                '(%d Marken in der Datei)' % (_name71, _marken71))
         pruefe('sc-deutsch-launcher' in _zeile1_71.lower()
                or 'übersetzung' in _zeile1_71.lower()
-               or 'übersetzig' in _zeile1_71.lower(),
+               or 'übersetzig' in _zeile1_71.lower()
+               or 'luftwerft.com' in _zeile1_71.lower(),
                '%s: der Verweis auf die Ursprungsuebersetzung steht noch da'
                % _name71)
     if not _geprueft71:
@@ -25864,6 +25865,7 @@ def main():
     _pruefung_310()
     _pruefung_311()
     _pruefung_312()
+    _pruefung_313()
 
     print()
     if fehler:
@@ -28664,6 +28666,8 @@ class _Basetool290:
         self.ship_stones = []
         self.ship_seq = 0
         self.names = {}                 # (kind, Name) -> bt
+        self.item_bts = set()           # bt, die Items sind (Prüfung 313)
+        self.units = {}                 # bt -> Einheit, sonst wie gesendet
         self.places = [{'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
                        {'name': 'Seraphim Station'}]
         self.stock_ops, self.ship_ops = [], []
@@ -28905,16 +28909,22 @@ class _Basetool290:
 
     def put_lot(self, material_bt, name, place, quality, stolen, amount,
                 unit='SCU', commodity=False):
+        """Ein Posten wie im Vertrag: ein Item (bt in `self.item_bts`) hat
+        kein `materialKind`, steht unter Q 0 und zählt in PIECE."""
         self.seq += 1
+        item = material_bt in self.item_bts
+        if item:
+            quality, unit = 0, 'PIECE'
         key = self.lot_key(material_bt, place, quality, stolen)
         location = next(p for p in self.places if p['name'] == place)
         self.lots[key] = {'key': key, 'material': {'bt': material_bt,
                                                    'name': name},
-                          'materialKind': {'type': 'RAW',
-                                           'commodity': commodity},
                           'location': location, 'quality': quality,
                           'stolen': stolen,
                           'quantity': {'amount': amount, 'unit': unit}}
+        if not item:
+            self.lots[key]['materialKind'] = {'type': 'RAW',
+                                              'commodity': commodity}
 
     def _stock_changes(self, ops):
         results, applied = [], 0
@@ -28924,7 +28934,16 @@ class _Basetool290:
                 results.append({'index': i, 'result': 'rejected',
                                 'reason': 'LOCATION_UNKNOWN'})
                 continue
-            key = self.lot_key(op['material']['bt'], place, op['quality'],
+            bt = op['material']['bt']
+            unit = self.units.get(bt, 'PIECE' if bt in self.item_bts
+                                  else op['quantity']['unit'])
+            if op['quantity']['unit'] != unit \
+                    or op['expectedQuantity']['unit'] != unit:
+                results.append({'index': i, 'result': 'rejected',
+                                'reason': 'UNIT_MISMATCH'})
+                continue
+            key = self.lot_key(bt, place,
+                               0 if bt in self.item_bts else op['quality'],
                                op['stolen'])
             have = (self.lots.get(key) or {}).get('quantity', {}).get('amount', 0)
             if round(have, 3) != round(op['expectedQuantity']['amount'], 3):
@@ -29865,14 +29884,13 @@ def _pruefung_294():
 
 
 def _pruefung_295():
-    """295. Basetool: Handelswaren zählen unter Qualität 0.
+    """295. Basetool: ein Material behält seine Qualität.
 
-    ⭐ v3.61.1. Erster echter Test (28.09.2026): Titan mit Q 516 und Q 622 im
-    Rohstofflager ging als zwei Posten hinaus, jeder mit „dort 0" — das
-    Basetool bucht Handelswaren aber immer unter Q 0 und hatte dort schon
-    einen Posten. 8 von 8 Änderungen kamen als `VERSION_CONFLICT` zurück, bei
-    jedem Durchgang wieder."""
-    print('\n295. Basetool: Handelswaren unter Qualität 0')
+    `materialKind.commodity` heißt nur „bei UEX als Ware gelistet" und
+    entscheidet weder Qualität noch Lager. Ein alter Posten unter Q 0 wird mit
+    den echten Qualitäten in EINER Sendung umgebucht: Fall auf 0 und Anstieg
+    je Qualität — das Basetool zählt das als Umbuchung."""
+    print('\n295. Basetool: Material behält seine Qualität')
     from scbp import exchange_stock as _xk
     _orte = {'levski': {'name': 'Levski', 'uex': {'kind': 'CITY', 'id': 2}}}
     _bt = {'titanium': 'bt-ti', 'laranite': 'bt-lar'}
@@ -29885,43 +29903,43 @@ def _pruefung_295():
     _dort = [{'key': 'lot-ti', 'material': {'bt': 'bt-ti', 'name': 'Titanium'},
               'materialKind': {'type': 'REFINED', 'commodity': True},
               'location': {'name': 'Levski'}, 'quality': 0, 'stolen': False,
-              'quantity': {'amount': 4, 'unit': 'SCU'}},
+              'quantity': {'amount': 10.909, 'unit': 'SCU'}},
              {'key': 'lot-lar', 'material': {'bt': 'bt-lar',
                                              'name': 'Laranite'},
               'materialKind': {'type': 'RAW', 'commodity': False},
               'location': {'name': 'Levski'}, 'quality': 712,
               'stolen': False, 'quantity': {'amount': 3, 'unit': 'SCU'}}]
-
-    def _hier(waren):
-        return _xk.local_lots(_roh, [], lambda n: _bt.get(n.lower()), _orte,
-                              lambda n: False, waren)[0]
-
-    _waren = _xk.commodities(_dort)
-    pruefe(_waren == {'bt-ti': True, 'bt-lar': False},
-           'Handelsware aus materialKind der Posten gelernt')
-    pruefe(_xk.commodities([], {'bt-ti': True}) == {'bt-ti': True},
-           'Gelerntes bleibt, auch wenn der Posten dort verschwindet')
-    _l = _hier(_waren)
-    _ti = _xk.identity('bt-ti', 'Levski', 0, False)
-    pruefe(sorted(_l) == sorted([_ti, _xk.identity('bt-lar', 'Levski', 712,
-                                                   False)]),
-           'Titan Q 516 + Q 622 wird EIN Posten unter Q 0, Laranit behält Q 712')
-    pruefe(_l.get(_ti, {}).get('amount') == 10.909
-           and _l[_ti]['quality'] == 0 and len(_l[_ti]['rows']) == 2,
-           'die Mengen beider Zeilen zusammengezählt (10,909 SCU)')
+    _items = _xk.item_flags(_dort)
+    pruefe(_items == {'bt-ti': False, 'bt-lar': False},
+           'beide Posten sind Materialien, commodity hin oder her (%r)'
+           % _items)
+    _l = _xk.local_lots(_roh, [], lambda n: _bt.get(n.lower()), _orte,
+                        lambda n: False, _items)[0]
+    _ti0 = _xk.identity('bt-ti', 'Levski', 0, False)
+    _ti516 = _xk.identity('bt-ti', 'Levski', 516, False)
+    _ti622 = _xk.identity('bt-ti', 'Levski', 622, False)
+    pruefe(sorted(_l) == sorted([_ti516, _ti622,
+                                 _xk.identity('bt-lar', 'Levski', 712,
+                                              False)]),
+           'Titan Q 516 und Q 622 bleiben zwei Posten mit ihrer Qualität')
     _s = _xk.server_lots(_dort)
     _base = {k: v['amount'] for k, v in _s.items()}
     _p = _xk.plan(_l, _s, _base)
-    pruefe(_p['push'] == [(_ti, 10.909, 4)] and not _p['conflicts'],
-           'hinaus mit der Menge, die dort steht, als expectedQuantity (4)')
-    _ops = [o for o in _xk.change_sets(_p, _l, _s)[0][0]['ops']
-            if o['material'].get('bt') == 'bt-ti'] if _p['push'] else []
-    pruefe(len(_ops) == 1 and _ops[0]['quality'] == 0,
-           'genau EINE Titan-Sendung, mit Qualität 0')
-    # Gegenprobe: ohne das Gelernte wieder zwei Posten mit „dort 0"
-    _alt = _xk.plan(_hier(None), _s, _base)
-    pruefe(len([p for p in _alt['push'] if p[2] == 0]) == 2,
-           'Gegenprobe: ohne Handelswaren-Wissen zwei Posten mit „dort 0"')
+    pruefe(sorted(_p['push']) == sorted([(_ti0, 0, 10.909), (_ti516, 4, 0),
+                                         (_ti622, 6.909, 0)])
+           and not _p['conflicts'] and not _p['take'],
+           'alter Q-0-Posten: auf 0, die echten Qualitäten hinauf (%r)'
+           % _p['push'])
+    _sets = _xk.change_sets(_p, _l, _s)
+    _ops = [o for o in _sets[0][0]['ops'] if o['material'].get('bt') == 'bt-ti']
+    pruefe(len(_sets) == 1 and sorted(o['quality'] for o in _ops)
+           == [0, 516, 622],
+           'Fall und Anstiege in EINER Sendung — zählt als Umbuchung')
+    _neu = {k: dict(v) for k, v in _s.items() if k != _ti0}
+    _neu.update({k: dict(_l[k]) for k in (_ti516, _ti622) if k in _l})
+    _p2 = _xk.plan(_l, _neu, {k: v['amount'] for k, v in _neu.items()})
+    pruefe(not _p2['push'] and not _p2['take'] and not _p2['conflicts'],
+           'danach stimmen beide Seiten — nichts mehr zu tun')
 
 
 def _pruefung_296():
@@ -31666,6 +31684,228 @@ def _pruefung_312():
                'Deutsch bleibt die erste Sprache (Gegenprobe)')
     finally:
         _tr312._custom_latest, _tr312._fetch = alt_head, alt_fetch
+
+
+def _pruefung_313():
+    """313. Basetool-Lager: Material oder Item entscheidet das Lager.
+
+    Ein Material gehört ins Rohstofflager, mit seiner Qualität; ein Item ins
+    Handelslager, in ganzen Stück unter Q 0. Falsch Einsortiertes zieht nur
+    hier um — ohne Aus- und Einbuchen am Basetool."""
+    print('\n313. Basetool-Lager: Material oder Item')
+    from scbp import exchange_stock as _xk
+    # ------------------------------------------------------- ohne Netz
+    _mat = {'materialKind': {'type': 'RAW', 'commodity': True}}
+    pruefe(not _xk.is_item(_mat) and _xk.is_item({})
+           and _xk.is_item({'kind': 'ITEM', 'materialKind': {}})
+           and not _xk.is_item({'kind': 'MATERIAL'}),
+           'Item: `kind` zuerst, sonst „kein materialKind"')
+    _orte = {'area18': {'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}}}
+    _bt = {'feynmaline': 'bt-feyn', 'novian crossbow': 'bt-xbow',
+           'gold': 'bt-gold'}
+
+    def _res(name):
+        return _bt.get((name or '').lower())
+
+    def _lot(bt, name, quality, amount, unit, item=False):
+        lot = {'key': 'lot-%s-%d' % (bt, quality),
+               'material': {'bt': bt, 'name': name},
+               'location': {'name': 'Area18'}, 'quality': quality,
+               'stolen': False, 'quantity': {'amount': amount, 'unit': unit}}
+        if not item:
+            lot['materialKind'] = {'type': 'REFINED', 'commodity': True}
+        return lot
+
+    _dort = [_lot('bt-feyn', 'Feynmaline', 324, 234, 'PIECE'),
+             _lot('bt-xbow', 'Novian Crossbow', 0, 1, 'PIECE', item=True),
+             _lot('bt-gold', 'Gold', 0, 40, 'SCU')]
+    _items = _xk.item_flags(_dort)
+    _server = _xk.server_lots(_dort)
+    pruefe(_items == {'bt-feyn': False, 'bt-xbow': True, 'bt-gold': False},
+           'Items aus den Posten gelernt (%r)' % _items)
+    # So hat die alte Fassung einsortiert: Feynmaline (commodity) ins
+    # Handelslager, die Armbrust (ohne materialKind) ins Rohstofflager.
+    _roh = [{'material': 'Novian Crossbow', 'menge': 1, 'qualitaet': 0,
+             'ort': 'Area18'}]
+    _handel = [{'ware': 'Feynmaline', 'menge': 234, 'ort': 'Area18',
+                'gestohlen': False},
+               {'ware': 'Gold', 'menge': 40, 'ort': 'Area18',
+                'gestohlen': False}]
+    _base = {k: v['amount'] for k, v in _server.items()}
+    _feyn = _xk.identity('bt-feyn', 'Area18', 324, False)
+
+    _alt = _xk.local_lots(_roh, _handel, _res, _orte, lambda n: False,
+                          _items)[0]
+    _p_alt = _xk.plan(_alt, _server, _base)
+    pruefe(any(k == _feyn and a == 0 for k, a, _e in _p_alt['push']),
+           'Gegenprobe: ohne Umzug würde Feynmaline Q 324 am Basetool '
+           'ausgebucht')
+
+    _r, _h, _n = _xk.relocate(_roh, _handel, _res, _orte, _server, _items)
+    pruefe(_n == 2, 'zwei Zeilen ziehen um (%d)' % _n)
+    pruefe(_r == [{'material': 'Feynmaline', 'menge': 234,
+                   'qualitaet': 324, 'ort': 'Area18'}],
+           'Feynmaline steht im Rohstofflager, mit Q 324 vom Basetool (%r)'
+           % _r)
+    pruefe(any(r.get('ware') == 'Novian Crossbow' and r['menge'] == 1
+               for r in _h)
+           and any(r.get('ware') == 'Gold' for r in _h),
+           'die Armbrust steht im Handelslager, Gold bleibt dort (%r)' % _h)
+    _neu = _xk.local_lots(_r, _h, _res, _orte, lambda n: False, _items)[0]
+    _p = _xk.plan(_neu, _server, _base)
+    pruefe(not _p['push'] and not _p['take'] and not _p['conflicts'],
+           'nach dem Umzug: keine einzige Sendung (%r)' % _p)
+    _xb = _xk.identity('bt-xbow', 'Area18', 0, False)
+    pruefe(_neu[_xb]['unit'] == 'PIECE' and _neu[_xb]['store'] == 'trade',
+           'Item im Handelslager zählt in PIECE')
+    pruefe(_xk.relocate(_r, _h, _res, _orte, _server, _items)[2] == 0,
+           'ein zweiter Durchgang zieht nichts mehr um')
+
+    _zwei = _xk.server_lots(_dort + [_lot('bt-feyn', 'Feynmaline', 500, 234,
+                                          'PIECE')])
+    pruefe(_xk.relocate([], _handel, _res, _orte, _zwei, _items)[2] == 0,
+           'zwei passende Qualitäten: nichts wird geraten')
+    pruefe(_xk.relocate([], _handel, _res, _orte, _server, {})[2] == 0,
+           'unbekannte Art: nichts zieht um')
+
+    _h2 = [dict(r) for r in _h]
+    for _row in _h2:
+        if _row['ware'] == 'Novian Crossbow':
+            _row['menge'] = 3
+    _l2 = _xk.local_lots(_r, _h2, _res, _orte, lambda n: False, _items)[0]
+    _sets = _xk.change_sets(_xk.plan(_l2, _server, _base), _l2, _server)
+    _ops = [o for s, _k in _sets for o in s['ops']]
+    pruefe(len(_ops) == 1 and _ops[0]['quantity'] == {'amount': 3,
+                                                      'unit': 'PIECE'}
+           and _ops[0]['expectedQuantity'] == {'amount': 1, 'unit': 'PIECE'}
+           and _ops[0]['quality'] == 0,
+           'Item hinaus: PIECE, Qualität 0 (%r)' % _ops)
+
+    # ----------------------------------------------- über das Netz (Nachbau)
+    from scbp import basetool as _bt313, basetool_sync as _bs, \
+        secret_store as _ss
+    from scbp import paths as _pa, logsource as _lg
+    from scbp import materials as _ma, trade_cargo as _tc
+    _heim = tempfile.mkdtemp(prefix='pruefung313-')
+    _alt_env = {k: os.environ.get(k) for k in (
+        'SC_BP_HOME', 'SC_BP_SECRETS', 'SC_BP_SECRETS_FILE',
+        'SC_BP_BASETOOL_ISSUER', 'SC_BP_BASETOOL_API', 'SC_BP_BASETOOL',
+        'SC_BP_BASETOOL_KEYNAME')}
+    _srv = _Basetool290()
+    _altes_konto, _alter_takt = _lg.own_account, _bs.tick
+    _alte_orte = dict(_bs._LOCATIONS)
+    _bs.tick = lambda watcher: None
+    try:
+        os.environ.update({
+            'SC_BP_HOME': _heim, 'SC_BP_SECRETS': os.path.join(_heim, 'geheim'),
+            'SC_BP_SECRETS_FILE': '1', 'SC_BP_BASETOOL': '1',
+            'SC_BP_BASETOOL_ISSUER': _srv.issuer,
+            'SC_BP_BASETOOL_API': _srv.api,
+            'SC_BP_BASETOOL_KEYNAME': 'VerseKit Pruefung313 %d' % os.getpid()})
+        _ss._backend_cache[0] = None
+        _bt313.CONNECTION = _bt313.Connection()
+        _bs._LOCATIONS.update({'at': 0.0, 'places': {}})
+        _bs.IN_TK[0] = None
+        _lg.own_account = lambda files=None: 'Spieler_1'
+        _pa.set_setting(_bs.SETTING_STOCK, True)
+        _pa.set_setting(_bs.SETTING_SHIPS, False)
+        _pa.set_setting(_bs.SETTING_BLUEPRINTS, False)
+        _conn = _bt313.CONNECTION
+        _login = _conn.start_login(_bs.wanted_scopes())
+        _conn.poll_login(_login)
+        _conn.poll_login(_login)
+
+        _srv.item_bts.update({'i-xbow', 'i-ghost', 'i-tool'})
+        _srv.units['m-feyn'] = 'PIECE'
+        _srv.names.update({('MATERIAL', 'Feynmaline'): 'm-feyn',
+                           ('MATERIAL', 'Gold'): 'm-gold',
+                           ('MATERIAL', 'Laranite'): 'm-lar',
+                           ('ITEM', 'Pyro RYT Multi-Tool'): 'i-tool'})
+        _srv.put_lot('m-feyn', 'Feynmaline', 'Area18', 324, False, 234,
+                     'PIECE', commodity=True)
+        _srv.put_lot('i-xbow', 'Novian Crossbow', 'Area18', 0, False, 1)
+        _srv.put_lot('m-gold', 'Gold', 'Area18', 0, False, 40.0,
+                     commodity=True)
+        _ma.save([{'material': 'Novian Crossbow', 'menge': 1.0,
+                   'qualitaet': 0, 'ort': 'Area18'}])
+        _tc.save([{'ware': 'Feynmaline', 'menge': 234.0, 'ort': 'Area18',
+                   'gestohlen': False},
+                  {'ware': 'Gold', 'menge': 40.0, 'ort': 'Area18',
+                   'gestohlen': False}])
+
+        _bs.run(None)
+        pruefe(_bs.STATUS['state'] == 'ok',
+               'Abgleich läuft durch (%r)' % _bs.STATUS.get('code'))
+        pruefe(not _srv.stock_ops,
+               'Umzug: keine einzige Anweisung ans Basetool (%r)'
+               % _srv.stock_ops[:3])
+        pruefe(any(r.get('material') == 'Feynmaline'
+                   and r.get('qualitaet') == 324 and r.get('menge') == 234
+                   for r in _ma.load())
+               and not any(r.get('ware') == 'Feynmaline' for r in _tc.load()),
+               'Feynmaline ist ins Rohstofflager umgezogen, mit Q 324')
+        pruefe(any(r.get('ware') == 'Novian Crossbow' for r in _tc.load())
+               and not any(r.get('material') == 'Novian Crossbow'
+                           for r in _ma.load()),
+               'die Armbrust ist ins Handelslager umgezogen')
+        pruefe(_bs.STATUS['counts'].get('stock', {}).get('moved') == 2,
+               'der Umzug wird gezählt (%r)'
+               % _bs.STATUS['counts'].get('stock'))
+
+        # Neues dort: ein Item und ein Material
+        _srv.put_lot('i-ghost', 'Novian "Ghostmaker" Crossbow', 'Area18', 0,
+                     False, 2)
+        _srv.put_lot('m-lar', 'Laranite', 'Area18', 712, False, 5.0)
+        _bs.run(None)
+        pruefe(any(r.get('ware') == 'Novian "Ghostmaker" Crossbow'
+                   and r.get('menge') == 2 for r in _tc.load()),
+               'neues Item kommt ins Handelslager')
+        pruefe(any(r.get('material') == 'Laranite' and r.get('qualitaet') == 712
+                   for r in _ma.load()),
+               'neues Material kommt ins Rohstofflager, mit Qualität')
+
+        # Hier geändert: Item-Menge und ein nur hier getipptes Item
+        _zeilen = _tc.load()
+        for _z in _zeilen:
+            if _z['ware'] == 'Novian Crossbow':
+                _z['menge'] = 3
+        _zeilen.append({'ware': 'Pyro RYT Multi-Tool', 'menge': 1,
+                        'ort': 'Area18', 'gestohlen': False})
+        _tc.save(_zeilen)
+        _vorher = len(_srv.stock_ops)
+        _bs.run(None)
+        _neu_ops = _srv.stock_ops[_vorher:]
+        _st = _bs.load_state('inst-1')
+        pruefe(len(_neu_ops) == 2
+               and all(o['quantity']['unit'] == 'PIECE' for o in _neu_ops)
+               and not (_st.get('stock') or {}).get('rejected'),
+               'Items gehen in PIECE hinaus und werden angenommen (%r / %r)'
+               % (_neu_ops, (_st.get('stock') or {}).get('rejected')))
+        pruefe(_srv.lots.get(_srv.lot_key('i-xbow', 'Area18', 0, False), {})
+               .get('quantity', {}).get('amount') == 3
+               and _srv.lot_key('i-tool', 'Area18', 0, False) in _srv.lots,
+               'dort steht jetzt 3 Armbrüste und das Multi-Tool')
+        pruefe(_srv.lots.get(_srv.lot_key('m-feyn', 'Area18', 324, False), {})
+               .get('quantity', {}).get('amount') == 234,
+               'Feynmaline Q 324 steht dort unverändert')
+    finally:
+        _lg.own_account, _bs.tick = _altes_konto, _alter_takt
+        _bs._LOCATIONS.clear()
+        _bs._LOCATIONS.update(_alte_orte)
+        try:
+            _bt313.delete_key()
+        except Exception:
+            pass
+        _srv.close()
+        for _k, _v in _alt_env.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        _ss._backend_cache[0] = None
+        _bt313.CONNECTION = _bt313.Connection()
+        _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 def _pruefung_308():

@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Basetool stock: materials and items land in the right store** —
+  materials go to the material storage and keep their quality, items go to
+  the cargo hold and count in whole pieces. Until now some materials ended up
+  in the cargo hold without their quality, and items in the material storage;
+  the next sync could have booked the material out in the Basetool. Anything
+  sorted into the wrong store moves over by itself on the next sync, without
+  booking anything out or in at the Basetool. Old lots the Basetool holds at
+  quality 0 get their real quality from the material storage on the way.
+  Reported by greluc (KRT)
+
 ## v3.70.2 - 2026-10-02
 
 > The Luftwerft translations install again, and the translation page sticks

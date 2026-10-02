@@ -353,6 +353,8 @@ def _area_card(window, area, login, redraw, status, connected, granted,
         if c:
             lines.append(t('s_bt_lager_stand', c.get('sent', 0),
                            c.get('taken', 0)))
+            if c.get('moved'):
+                lines.append(t('s_bt_lager_umgezogen', c['moved']))
             if c.get('skipped_location'):
                 lines.append(t('s_bt_lager_ort',
                                c['skipped_location'],
