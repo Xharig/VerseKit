@@ -118,7 +118,10 @@ CACHE = 'katalog-cache.json'
 #
 # 6: `_missions()` legt je Auftragstext die Baupläne je System ab
 # (`je_system`), für die getrennten Listen im Auftragstext.
-FORMAT = 6
+#
+# 7: Töpfe mit Gewichten (`toepfe`) und je Auftragstext die Ziehungen je
+# Variante (`ziehungen`), für die Chance auf einen NEUEN Bauplan.
+FORMAT = 7
 
 # Einstellung: Sollen Baupläne ohne bekannten Weg mitgezählt und angezeigt
 # werden? ⛔ Standard **aus** — der Fortschritt bleibt damit die Zahl, die
@@ -838,6 +841,9 @@ def _missions(merged):
         per_system = _per_system(with_bp)
         if per_system:
             entry['je_system'] = per_system
+        draws = _draws(with_bp)
+        if draws:
+            entry['ziehungen'] = draws
         # Wie viele Stufen dieses Auftrags leer ausgehen — steht als Warnung
         # dran, damit niemand für eine Liste hinfliegt, die seine Stufe nicht
         # hergibt.
@@ -879,6 +885,56 @@ def _per_system(variants):
         return {}
     return {system: sorted(found[system])
             for system in sorted(found, key=system_sort_key)}
+
+
+def _pools(merged):
+    """{Topf-ID: [[Bauplan, Gewicht], …]} — für die Chance auf einen NEUEN
+    Bauplan (`new_blueprint_chance`)."""
+    out = {}
+    for guid, pool in (merged.get('blueprintPools') or {}).items():
+        rows = [[b['name'], float(b.get('weight') or 1)]
+                for b in (pool.get('blueprints') or []) if b.get('name')]
+        if rows:
+            out[guid] = rows
+    return out
+
+
+def _draws(variants):
+    """Je Variante eines Auftragstexts ihre Systeme und Ziehungen bei
+    Abschluss: [{'s': [System], 'p': [[Topf-ID, Chance], …]}], ohne Doppel."""
+    out = []
+    for variant in variants:
+        pools = sorted([r.get('blueprintPool'), float(r.get('chance') or 0)]
+                       for r in (variant['vertrag'].get('blueprintRewards')
+                                 or [])
+                       if r.get('blueprintPool')
+                       and (r.get('trigger') or 'complete') == 'complete')
+        if not pools:
+            continue
+        item = {'s': sorted(variant['systeme']), 'p': pools}
+        if item not in out:
+            out.append(item)
+    return out
+
+
+def new_blueprint_chance(draw, pools, owned):
+    """Chance, mit einer Variante mindestens einen NOCH NICHT besessenen
+    Bauplan zu bekommen — oder None ohne Topfdaten.
+
+    Je Topf wird ein Eintrag nach Gewicht gezogen, auch ein schon
+    besessener; der bringt nichts. Je Topf also
+    Chance × (Gewicht des Fehlenden / Gesamtgewicht), über alle Töpfe
+    „mindestens einer"."""
+    nothing, known = 1.0, False
+    for guid, chance in draw.get('p') or ():
+        rows = pools.get(guid) or []
+        total = sum(w for _n, w in rows)
+        if not total:
+            continue
+        known = True
+        missing = sum(w for n, w in rows if _norm(n) not in owned)
+        nothing *= 1.0 - chance * (missing / total)
+    return (1.0 - nothing) if known else None
 
 
 def _contracts(merged):
@@ -1071,7 +1127,7 @@ def build(version=None, progress=None, from_file=None):
     data = {'version': version, 'format': FORMAT,
              'geholt': time.strftime('%Y-%m-%d %H:%M'),
              'bauplaene': blueprints, 'missionen': _missions(merged),
-             'vertraege': _contracts(merged)}
+             'vertraege': _contracts(merged), 'toepfe': _pools(merged)}
     target = paths.app_file(CACHE)
     temp = target + '.tmp'
     with open(temp, 'w', encoding='utf-8') as f:

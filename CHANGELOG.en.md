@@ -8,6 +8,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Chance of a new blueprint** in the mission text — instead of "Blueprint
+  chance: 100%" it now shows how likely you are to get a blueprint you **don't
+  have yet**. The game also draws blueprints you already own from the pool,
+  and then you get nothing. With twelve blueprints in the pool and two
+  missing, that is 17%. For missions in several systems the chance is shown
+  per system at the list
+
 ### Fixed
 
 - **Blueprint list: every route reachable** — when a blueprint has many

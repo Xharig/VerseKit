@@ -186,6 +186,9 @@ TEXTS = {
         # Überschrift, die nichts verspricht, was sie nicht halten kann.
         'ueberschr': 'MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP',
         'chance':    'Chance auf Bauplan',
+        'chance_neu': 'Chance auf neuen Bauplan',
+        'neu_kurz':  'neu',
+        'alle_da':   'du hast alle',
         'rep_min':   'Min. Reputation',
         'rep_max':   'Max. Reputation',
         'lohn':      'Belohnung',
@@ -215,6 +218,9 @@ TEXTS = {
         'kurz':      'BP',
         'ueberschr': 'POSSIBLE BLUEPRINTS FOR THIS MISSION TYPE',
         'chance':    'Blueprint chance',
+        'chance_neu': 'Chance of a new blueprint',
+        'neu_kurz':  'new',
+        'alle_da':   'you have them all',
         'rep_min':   'Min. reputation',
         'rep_max':   'Max. reputation',
         'lohn':      'Payout',
@@ -559,7 +565,31 @@ def _region_line(entry, words, rep_table):
         return ''
 
 
-def _build_block(entry, owned, words, rep_table=None):
+def _percent(value):
+    """0,17 -> '17%'; über null, aber gerundet null -> '<1%'."""
+    if 0 < value < 0.005:
+        return '<1%'
+    if 0.995 <= value < 1:
+        return '>99%'
+    return '%d%%' % round(value * 100)
+
+
+def _new_chance(draws, pools, owned, words):
+    """'17%', '17–40%' (je nach Variante) oder '0% — du hast alle' — None
+    ohne Topfdaten."""
+    values = [v for v in (katalog_modul.new_blueprint_chance(d, pools, owned)
+                          for d in draws) if v is not None]
+    if not values:
+        return None
+    low, high = min(values), max(values)
+    if high == 0:
+        return '0%% — %s' % words['alle_da']
+    if _percent(low) == _percent(high):
+        return _percent(low)
+    return '%s–%s' % (_percent(low).rstrip('%'), _percent(high))
+
+
+def _build_block(entry, owned, words, rep_table=None, pools=None):
     """Der Textblock, der an die Beschreibung gehängt wird.
 
     Erst die Eckdaten als kurze Liste, dann die Baupläne mit Kästchen. Die
@@ -573,8 +603,12 @@ def _build_block(entry, owned, words, rep_table=None):
     def blue(text):
         return '<EM4>%s</EM4>' % text
 
+    draws = entry.get('ziehungen') or []
+    new_text = _new_chance(draws, pools, owned, words) if pools else None
     chance = entry.get('chance')
-    if chance:
+    if new_text:
+        z.append('# %s: %s' % (words['chance_neu'], new_text))
+    elif chance:
         z.append('# %s: %d%%' % (words['chance'], round(chance * 100)))
     if entry.get('rang'):
         z.append(blue('# %s: %s (%s XP)' % (words['rep_min'], entry['rang'],
@@ -625,7 +659,10 @@ def _build_block(entry, owned, words, rep_table=None):
     per_system = entry.get('je_system') or {}
     if per_system:
         for system, names in per_system.items():
-            z += ['', blue('# %s:' % system)]
+            here = (_new_chance([d for d in draws if system in d.get('s', [])],
+                                pools, owned, words) if pools else None)
+            z += ['', blue('# %s:' % system if not here else
+                           '# %s (%s: %s):' % (system, words['neu_kurz'], here))]
             z += [box_line(name) for name in names]
     else:
         z += [box_line(name) for name in entry['bp']]
@@ -861,6 +898,7 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
             errors.record('injection.apply_texts', exc)
     if not missions and not remove_only:
         return False, 0, t('m_keine_missionen')
+    pools = catalog_data.get('toepfe') or {}
 
     owned = bestand_datei.keys(stock if stock is not None
                                     else bestand_datei.load())
@@ -963,7 +1001,7 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
             elif key in text_keys:
                 clean = _append_block(base_text,
                                     _build_block(text_keys[key], owned, words,
-                                                 rep_table))
+                                                 rep_table, pools))
                 touched = True
             elif '_desc' in key.lower():
                 # Keine eigene Angabe — aber vielleicht gehört die Beschreibung
@@ -972,7 +1010,7 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
                 if entry:
                     clean = _append_block(base_text,
                                         _build_block(entry, owned, words,
-                                                     rep_table))
+                                                     rep_table, pools))
                     touched = True
             if touched:
                 origtext_new[key] = orig

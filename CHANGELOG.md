@@ -8,6 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Chance auf einen neuen Bauplan** im Auftragstext — statt „Chance auf
+  Bauplan: 100 %" steht da jetzt, wie wahrscheinlich ein Bauplan ist, den du
+  **noch nicht hast**. Das Spiel zieht aus dem Topf auch Baupläne, die du schon
+  besitzt, und dann bekommst du nichts. Liegen im Topf zwölf Baupläne und dir
+  fehlen zwei, sind es 17 %. Bei Aufträgen in mehreren Systemen steht die
+  Chance je System an der Liste
+
 ### Behoben
 
 - **Bauplan-Liste: alle Wege erreichbar** — hat ein Bauplan viele Wege (etwa
