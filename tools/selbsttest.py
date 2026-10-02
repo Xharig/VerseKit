@@ -25866,6 +25866,7 @@ def main():
     _pruefung_311()
     _pruefung_312()
     _pruefung_313()
+    _pruefung_314()
 
     print()
     if fehler:
@@ -31942,6 +31943,58 @@ def _pruefung_313():
         _bt313.CONNECTION = _bt313.Connection()
         _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_314():
+    """314. Kommentare sagen, was der Code tut — keine Vorgeschichte.
+
+    Jede Fundstelle von `tools/kommentare_pruefen.py`, die nicht im Bestand
+    steht, macht die Prüfung rot. Der Bestand hält nur Prüfsummen und wird
+    nie ergänzt."""
+    print('\n314. Kommentare: nur was der Code tut')
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import kommentare_pruefen as _kp
+    finally:
+        sys.path.pop(0)
+
+    _bestand = _kp.bestand_lesen()
+    pruefe(sum(_bestand.values()) > 0,
+           'der Bestand ist da und nicht leer (%d Einträge)'
+           % sum(_bestand.values()))
+
+    # Gegenprobe: dieselbe Datei, einmal mit einem Funktionskommentar und
+    # einmal mit Vorgeschichte.
+    _datei = 'scbp/exchange_stock.py'
+    with open(os.path.join(WURZEL, _datei), encoding='utf-8') as _f:
+        _text = _f.read()
+    _vorher = {_datei: _kp.funde_text(_datei, _text)}
+    pruefe(not _kp.neue_funde(_vorher, _bestand),
+           'Gegenprobe: unveränderte Datei hat nichts Neues')
+    _sauber = _text + '\n# Zählt die Posten je Ort zusammen.\n'
+    pruefe(not _kp.neue_funde({_datei: _kp.funde_text(_datei, _sauber)},
+                              _bestand),
+           'Gegenprobe: ein Funktionskommentar bleibt grün')
+    _saetze = ('# So hat die alte Fassung einsortiert.',
+               '# Vorher war das ein eigener Knopf.',
+               '# Bis zum 3. Oktober lief das anders.',
+               '# Auf Wunsch so gebaut.',
+               '# Gemeldet von einem Tester.',
+               '# Das ' + 'wollte Rob' + 'ert so.',
+               '# Entschieden: bleibt drin.',
+               '# Stand 02.10.2026 so gemessen.')
+    for _satz in _saetze:
+        _neu = _kp.neue_funde(
+            {_datei: _kp.funde_text(_datei, _text + '\n' + _satz + '\n')},
+            _bestand)
+        pruefe(len(_neu) == 1 and _satz.lstrip('# ') in _neu[0][2],
+               'Gegenprobe: „%s" wird erkannt' % _satz.lstrip('# '))
+
+    _neu = _kp.neue_funde(_kp.alle_funde(), _bestand)
+    pruefe(not _neu,
+           'kein neuer Kommentar mit Vorgeschichte (%d): %s'
+           % (len(_neu), '; '.join('%s:%d: %s' % (d, n, t[:80])
+                                   for d, n, t in _neu[:5])))
 
 
 def _pruefung_308():
