@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Blueprint list: every route reachable** — when a blueprint has many
+  routes (twelve for the Comer Scraper Module, for example), the expanded
+  "more routes" ran off the bottom of the window and could not be scrolled.
+  They now scroll in their own area
+
 ### Improved
 
 - **Faster Basetool sync for storage and hangar** — when you change something

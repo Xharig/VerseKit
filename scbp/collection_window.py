@@ -2461,14 +2461,41 @@ class Bestandsfenster:
                              text='  ' + t('hk_weitere') % len(weitere))
         kopf.configure(cursor='hand2', anchor='w')
         kopf.pack(fill='x')
-        inhalt = tk.Frame(rahmen, bg=FLAECHE)
+        # Aufgeklappt in einer eigenen Rollfläche mit begrenzter Höhe — der
+        # Block steht fest unter der Liste und könnte sonst aus dem Fenster
+        # ragen.
+        from .main_window import bind_wheel, round_scrollbar
+        bereich = tk.Frame(rahmen, bg=FLAECHE)
+        leinwand = tk.Canvas(bereich, bg=FLAECHE, highlightthickness=0,
+                             height=1)
+        rolle = round_scrollbar(bereich, leinwand, bg=FLAECHE)
+        leinwand.configure(yscrollcommand=rolle.set)
+        inhalt = tk.Frame(leinwand, bg=FLAECHE)
+        fenster = leinwand.create_window((0, 0), window=inhalt, anchor='nw')
+
+        def hoehe_setzen(_=None):
+            grenze = max(120, int(self.root.winfo_height() * 0.3))
+            noetig = inhalt.winfo_reqheight()
+            leinwand.configure(height=min(noetig, grenze),
+                               scrollregion=(0, 0, 0, noetig))
+            if noetig > grenze:
+                rolle.pack(side='right', fill='y', padx=(6, 0))
+            else:
+                rolle.pack_forget()
+
+        inhalt.bind('<Configure>', hoehe_setzen)
+        leinwand.bind('<Configure>',
+                      lambda e: leinwand.itemconfigure(fenster, width=e.width))
+        leinwand.pack(side='left', fill='both', expand=True)
+        bind_wheel(leinwand)
 
         def umschalten(_=None):
-            if inhalt.winfo_ismapped():
-                inhalt.pack_forget()
+            if bereich.winfo_ismapped():
+                bereich.pack_forget()
                 kopf.swap_symbol('aufklappen')
             else:
-                inhalt.pack(fill='x', pady=(8, 0))
+                bereich.pack(fill='x', pady=(8, 0))
+                hoehe_setzen()
                 kopf.swap_symbol('zuklappen')
             # ⚠ Ohne das bleibt die Rollfläche so lang wie vorher — die
             # aufgeklappten Wege stehen dann unerreichbar unterhalb.

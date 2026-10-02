@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Bauplan-Liste: alle Wege erreichbar** — hat ein Bauplan viele Wege (etwa
+  zwölf beim Comer Scraper Module), ragten die aufgeklappten „weiteren Wege"
+  unten aus dem Fenster und ließen sich nicht rollen. Jetzt rollen sie in
+  einem eigenen Bereich
+
 ### Verbessert
 
 - **Basetool-Abgleich schneller bei Lager und Hangar** — änderst du etwas im
