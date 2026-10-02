@@ -435,6 +435,12 @@ def _custom_latest(spec):
     return None
 
 
+def _direct(source, spec):
+    """Liegt die Datei direkt unter einer Adresse statt in einem GitHub-Repo?
+    (eigene Adresse, Luftwerft)"""
+    return source == CUSTOM or (bool(spec.get('url')) and not spec.get('repo'))
+
+
 def latest(source, channel=None):
     """Die neueste Version einer Quelle: (Kennung, Adresse, Größe) oder None.
 
@@ -445,7 +451,7 @@ def latest(source, channel=None):
     if not q:
         last_error[0] = t('m_keine_kanalfassung') % (channel or 'LIVE')
         return None
-    if source == CUSTOM:
+    if _direct(source, q):
         try:
             ident = _custom_latest(q)
             last_error[0] = None
@@ -826,11 +832,11 @@ def fetch(source, progress=None, game_dir=None, channel=None):
             sprache = from_archive
     else:
         ini = content if b'\nvehicle_' in content[:20000000] else None
-    if source == CUSTOM and not (ini and looks_like_global_ini(ini)):
+    if _direct(source, q) and not (ini and looks_like_global_ini(ini)):
         return False, t('m_keine_spieldatei')
     if not ini:
         return False, t('m_keine_ini_archiv')
-    if source == CUSTOM and not ident:
+    if _direct(source, q) and not ident:
         # Der Server nennt keine Kennung — dann ist der Inhalt die Kennung.
         import hashlib
         ident = 'inhalt:%s' % hashlib.sha256(ini).hexdigest()[:16]

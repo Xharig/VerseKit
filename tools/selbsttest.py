@@ -25863,6 +25863,7 @@ def main():
     _pruefung_309()
     _pruefung_310()
     _pruefung_311()
+    _pruefung_312()
 
     print()
     if fehler:
@@ -31601,6 +31602,46 @@ def _pruefung_311():
         _bs311.area_on, _bs311.enabled = alt_area, alt_enabled
         _bs311._schedule.clear()
         _bs311._schedule.update(alt_sched)
+
+
+def _pruefung_312():
+    """312. Quellen mit direkter Adresse (Luftwerft) je Kanal abrufbar."""
+    print('\n312. Übersetzung: Quellen ohne Repo nach Adresse')
+    from scbp import translation as _tr312
+
+    alt_head, alt_fetch = _tr312._custom_latest, _tr312._fetch
+    gefragt = []
+
+    def kopf(spec):
+        gefragt.append(spec['url'])
+        return 'etag:probe'
+
+    def kein_github(*_a, **_k):
+        raise AssertionError('GitHub abgefragt')
+
+    try:
+        _tr312._custom_latest = kopf
+        _tr312._fetch = kein_github
+        direkte = [k for k, q in _tr312.SOURCES.items()
+                   if q.get('url') and not q.get('repo')]
+        pruefe(len(direkte) >= 5, 'Luftwerft-Quellen vorhanden (%d)'
+               % len(direkte))
+        for kennung in direkte:
+            for kanal, teil in ((None, '/LIVE/'), ('TECH-PREVIEW', '/PTU/'),
+                                ('PTU', '/PTU/')):
+                del gefragt[:]
+                try:
+                    neu = _tr312.latest(kennung, kanal)
+                except Exception as e:
+                    neu = 'Ausnahme %r' % e
+                pruefe(isinstance(neu, tuple) and neu[0] == 'etag:probe'
+                       and teil in (neu[1] or ''),
+                       '%s %s: Kennung per Kopfabfrage (%s)'
+                       % (kennung, kanal or 'LIVE', neu))
+        pruefe(_tr312._direct('deutsch', _tr312.SOURCES['deutsch']) is False,
+               'Repo-Quelle bleibt beim GitHub-Weg (Gegenprobe)')
+    finally:
+        _tr312._custom_latest, _tr312._fetch = alt_head, alt_fetch
 
 
 def _pruefung_308():
