@@ -31,9 +31,9 @@ Item an einem Ort, mit Qualität und „gestohlen", und einer Menge
 **Material oder Item** sagt der Posten selbst: `kind` (`MATERIAL`/`ITEM`),
 fehlt das Feld, ist ein Posten ohne `materialKind` ein Item. Ein Material
 behält immer die Qualität, unter der es gebucht ist; ein Item steht immer
-unter Qualität 0. `materialKind.commodity` heißt nur „bei UEX als Ware
-gelistet" — das gilt auch für Erze, Metalle und Edelsteine und entscheidet
-hier nichts.
+unter Qualität 0. `materialKind.commodity` zeigt nur an, dass UEX das
+Material als Ware führt — das gilt auch für Erze, Metalle und Edelsteine und
+entscheidet hier nichts.
 
 **Die Regeln** (Sync-Anleitung und `client-security.md`):
 

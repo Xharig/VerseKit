@@ -29886,8 +29886,8 @@ def _pruefung_294():
 def _pruefung_295():
     """295. Basetool: ein Material behält seine Qualität.
 
-    `materialKind.commodity` heißt nur „bei UEX als Ware gelistet" und
-    entscheidet weder Qualität noch Lager. Ein alter Posten unter Q 0 wird mit
+    `materialKind.commodity` zeigt nur an, dass UEX das Material als Ware
+    führt, und entscheidet weder Qualität noch Lager. Ein alter Posten unter Q 0 wird mit
     den echten Qualitäten in EINER Sendung umgebucht: Fall auf 0 und Anstieg
     je Qualität — das Basetool zählt das als Umbuchung."""
     print('\n295. Basetool: Material behält seine Qualität')
@@ -31723,8 +31723,8 @@ def _pruefung_313():
     _server = _xk.server_lots(_dort)
     pruefe(_items == {'bt-feyn': False, 'bt-xbow': True, 'bt-gold': False},
            'Items aus den Posten gelernt (%r)' % _items)
-    # So hat die alte Fassung einsortiert: Feynmaline (commodity) ins
-    # Handelslager, die Armbrust (ohne materialKind) ins Rohstofflager.
+    # Falsch einsortiert: das Material im Handelslager, das Item im
+    # Rohstofflager.
     _roh = [{'material': 'Novian Crossbow', 'menge': 1, 'qualitaet': 0,
              'ort': 'Area18'}]
     _handel = [{'ware': 'Feynmaline', 'menge': 234, 'ort': 'Area18',
