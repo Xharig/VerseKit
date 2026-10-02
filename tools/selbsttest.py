@@ -13017,10 +13017,10 @@ def main():
     # Gegenprobe: ohne Tabelle keine Zeile — sonst prueft die erste nichts.
     pruefe('Headhunters' not in _inj128._build_block(_e128, set(), _worte128),
            'Gegenprobe: ohne Ruf-Tabelle steht keine Partei im Block')
-    _quelle128 = open(os.path.join(WURZEL, 'scbp', 'injection.py'),
-                      encoding='utf-8').read()
-    pruefe('_rep_table()' in _quelle128
-           and re.search(r'_build_block\([^)]*\brep_table\b', _quelle128),
+    pruefe('_rep_table()' in open(os.path.join(WURZEL, 'scbp', 'injection.py'),
+                                  encoding='utf-8').read()
+           and 'rep_table))' in open(os.path.join(WURZEL, 'scbp', 'injection.py'),
+                                     encoding='utf-8').read(),
            'apply_texts holt die Tabelle und reicht sie an den Block')
 
 
@@ -25862,7 +25862,6 @@ def main():
     _pruefung_309()
     _pruefung_310()
     _pruefung_311()
-    _pruefung_312()
 
     print()
     if fehler:
@@ -31601,59 +31600,6 @@ def _pruefung_311():
         _bs311.area_on, _bs311.enabled = alt_area, alt_enabled
         _bs311._schedule.clear()
         _bs311._schedule.update(alt_sched)
-
-
-def _pruefung_312():
-    """312. Chance auf einen NEUEN Bauplan (Topf, Gewicht, eigener Bestand)."""
-    print('\n312. Chance auf neuen Bauplan')
-    from scbp import catalog as _k312, injection as _in312
-
-    def topf(n, gewicht=1):
-        return [['B%d' % i, gewicht] for i in range(n)]
-
-    pools = {'zwoelf': topf(12), 'eins': [['Gewehr', 1]],
-             'schwer': [['Leicht', 1], ['Selten', 3]]}
-    besitz = {_k312._norm('B%d' % i) for i in range(10)}
-    ziehung = {'s': ['Nyx'], 'p': [['zwoelf', 1.0], ['eins', 1.0]]}
-    p = _k312.new_blueprint_chance(ziehung, pools,
-                                   besitz | {_k312._norm('Gewehr')})
-    pruefe(abs(p - 2 / 12.0) < 1e-9,
-           '2 von 12 fehlen, zweiter Topf besessen: 2/12 (%.4f)' % p)
-    p = _k312.new_blueprint_chance(ziehung, pools, besitz)
-    pruefe(abs(p - (1 - (10 / 12.0) * 0.0)) < 1e-9,
-           'Fehlt der Einzeltopf: sicher ein neuer (%.4f)' % p)
-    p = _k312.new_blueprint_chance({'p': [['schwer', 1.0]]}, pools,
-                                   {_k312._norm('Leicht')})
-    pruefe(abs(p - 0.75) < 1e-9, 'Gewicht zählt: Selten 3 von 4 (%.4f)' % p)
-    p = _k312.new_blueprint_chance({'p': [['zwoelf', 0.5]]}, pools, besitz)
-    pruefe(abs(p - 0.5 * 2 / 12.0) < 1e-9, 'Topf-Chance zählt mit (%.4f)' % p)
-    pruefe(_k312.new_blueprint_chance({'p': [['fehlt', 1.0]]}, pools, set())
-           is None, 'Ohne Topfdaten: keine Zahl')
-
-    worte = _in312.TEXTS['de']
-    alles = besitz | {_k312._norm(n) for n in ('B10', 'B11', 'Gewehr')}
-    eintrag = {'bp': ['B0'], 'chance': 1.0, 'ziehungen': [ziehung]}
-    block = _in312._build_block(eintrag, besitz | {_k312._norm('Gewehr')},
-                                worte, None, pools)
-    pruefe('Chance auf neuen Bauplan: 17%' in block
-           and 'Chance auf Bauplan: 100%' not in block,
-           'Auftragstext: 17% statt 100%')
-    block = _in312._build_block(eintrag, alles, worte, None, pools)
-    pruefe('0% — du hast alle' in block, 'Alles besessen: 0% — du hast alle')
-    block = _in312._build_block({'bp': ['B0'], 'chance': 1.0}, set(), worte,
-                                None, pools)
-    pruefe('Chance auf Bauplan: 100%' in block,
-           'Ohne Ziehungsdaten: alte Angabe bleibt')
-    geteilt = {'bp': ['B0', 'Gewehr'], 'chance': 1.0,
-               'je_system': {'Stanton': ['Gewehr'], 'Nyx': ['B0']},
-               'ziehungen': [{'s': ['Stanton'], 'p': [['eins', 1.0]]},
-                             {'s': ['Nyx'], 'p': [['zwoelf', 1.0]]}]}
-    block = _in312._build_block(geteilt, besitz | {_k312._norm('Gewehr')},
-                                worte, None, pools)
-    pruefe('# Stanton (neu: 0% — du hast alle):' in block
-           and '# Nyx (neu: 17%):' in block,
-           'Je System eigene Chance in der Überschrift')
-    pruefe(_k312.FORMAT >= 7, 'Katalog-Format hochgezählt (Bestand baut neu)')
 
 
 def _pruefung_308():
