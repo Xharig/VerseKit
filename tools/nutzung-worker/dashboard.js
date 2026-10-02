@@ -141,13 +141,15 @@ function lineChart(parent, days, series) {
     svg.appendChild(s('polyline', { points: pts, fill: 'none', stroke: sr.color, 'stroke-width': sr.width || 2,
       'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
   }
-  // Wert beim Überfahren
+  // Wert beim Überfahren; ohne Maus der letzte Tag
   const tip = s('text', { x: W - R, y: T + 10, 'text-anchor': 'end' }); svg.appendChild(tip);
+  const showDay = (i) => { tip.textContent = short(days[i]) + '  ' + series.map((sr) => sr.name + ' ' + sr.values[i]).join(' · '); };
+  showDay(days.length - 1);
   svg.addEventListener('mousemove', (ev) => {
     const r = svg.getBoundingClientRect(); const x = ((ev.clientX - r.left) / r.width) * W;
-    const i = Math.max(0, Math.min(days.length - 1, Math.round(((x - L) / (W - L - R)) * (days.length - 1))));
-    tip.textContent = short(days[i]) + '  ' + series.map((sr) => sr.name + ' ' + sr.values[i]).join(' · ');
+    showDay(Math.max(0, Math.min(days.length - 1, Math.round(((x - L) / (W - L - R)) * (days.length - 1)))));
   });
+  svg.addEventListener('mouseleave', () => showDay(days.length - 1));
   parent.appendChild(svg);
   parent.appendChild($('div', { class: 'legend' }, series.map((sr) =>
     $('span', {}, [$('i', { style: 'background:' + sr.color }), document.createTextNode(sr.name)]))));
