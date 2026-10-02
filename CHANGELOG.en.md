@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.70.2 - 2026-10-02
+
+> The Luftwerft translations install again, and the translation page sticks
+> to LIVE and PTU.
+
+### Improved
+
+- **Translation: LIVE and PTU only** — Tech-Preview is no longer offered
+
+### Fixed
+
+- **Translation: Luftwerft loads again** — every Luftwerft language stopped
+  with "Did not work: 'repo'", in every channel
+
 ## v3.70.1 - 2026-10-02
 
 > A quick follow-up for the shops: pick a location, click a part, and you

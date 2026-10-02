@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.70.2 - 2026-10-02
+
+> Die Übersetzungen von Luftwerft lassen sich wieder einsetzen, und die
+> Übersetzungsseite beschränkt sich auf LIVE und PTU.
+
+### Verbessert
+
+- **Übersetzung: nur noch LIVE und PTU** — Tech-Preview steht nicht mehr
+  zur Wahl
+
+### Behoben
+
+- **Übersetzung: Luftwerft lädt wieder** — jede Luftwerft-Sprache brach mit
+  „Hat nicht geklappt: 'repo'" ab, in jedem Kanal
+
 ## v3.70.1 - 2026-10-02
 
 > Ein schneller Nachschlag zu den Shops: Wer einen Ort gewählt hat und dann
