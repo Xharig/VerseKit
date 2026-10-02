@@ -10,6 +10,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Basetool-Abgleich schneller bei Lager und Hangar** — änderst du etwas im
+  Rohstofflager, Handelslager oder Hangar, gleicht Verse-Kit nach rund
+  20 Sekunden ab, wie schon bei den Bauplänen. Bisher kam es erst mit dem
+  nächsten Fünf-Minuten-Takt beim Basetool an
 - **Kästchen eindeutig** — ausgeschaltet zeigen sie jetzt einen leeren Kreis
   wie in der Bauplan-Liste, eingeschaltet einen grünen Haken. Vorher stand
   auch im ausgeschalteten Zustand ein grauer Haken da, etwa bei „als gestohlen

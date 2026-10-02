@@ -25861,6 +25861,7 @@ def main():
     _pruefung_308()
     _pruefung_309()
     _pruefung_310()
+    _pruefung_311()
 
     print()
     if fehler:
@@ -31522,6 +31523,83 @@ def _pruefung_310():
     pruefe('# Stanton:' not in flach and 'Stanton-Ding' in flach,
            'Ohne Trennung: eine Liste wie bisher')
     pruefe(_k310.FORMAT >= 6, 'Katalog-Format hochgezählt (Bestand baut neu)')
+
+
+def _pruefung_311():
+    """311. Lager und Hangar stoßen den Basetool-Abgleich nach Änderung an."""
+    print('\n311. Lager und Hangar: Abgleich nach eigener Änderung')
+    from scbp import (basetool_sync as _bs311, fleet as _fl311,
+                      materials as _ma311, paths as _pa311,
+                      trade_cargo as _tc311)
+
+    alt_sched = dict(_bs311._schedule)
+    alt_area, alt_enabled = _bs311.area_on, _bs311.enabled
+    alt_json, alt_replace, alt_open = (_pa311.save_json, _fl311.os.replace,
+                                       _fl311.open if hasattr(_fl311, 'open')
+                                       else None)
+    bereiche = {'lager': True, 'hangar': True}
+
+    def geaendert():
+        return _bs311._schedule.get('changed_at') is not None
+
+    def zuruecksetzen():
+        _bs311._schedule['changed_at'] = None
+
+    class _Datei(object):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def write(self, _text):
+            return 0
+
+    try:
+        _pa311.save_json = lambda *_a, **_k: True
+        _fl311.os.replace = lambda *_a, **_k: None
+        _fl311.open = lambda *_a, **_k: _Datei()
+        _bs311.area_on = lambda s: (
+            bereiche['lager'] if s == _bs311.SETTING_STOCK
+            else bereiche['hangar'] if s == _bs311.SETTING_SHIPS else False)
+        _bs311.enabled = lambda: bereiche['lager'] or bereiche['hangar']
+
+        for name, speichern in (
+                ('Rohstofflager', lambda: _ma311.save([])),
+                ('Handelslager', lambda: _tc311.save([])),
+                ('Hangar', lambda: _fl311.save({'schiffe': []}))):
+            zuruecksetzen()
+            speichern()
+            pruefe(geaendert(), '%s gespeichert: Abgleich angestoßen' % name)
+
+        zuruecksetzen()
+        _bs311._applying[0] = True
+        try:
+            _ma311.save([])
+            _tc311.save([])
+            _fl311.save({'schiffe': []})
+        finally:
+            _bs311._applying[0] = False
+        pruefe(not geaendert(),
+               'Schreibt der Abgleich selbst: kein neuer Anstoß')
+
+        bereiche['lager'] = bereiche['hangar'] = False
+        zuruecksetzen()
+        _ma311.save([])
+        pruefe(not geaendert(), 'Lager und Hangar aus: kein Anstoß')
+    finally:
+        _pa311.save_json = alt_json
+        _fl311.os.replace = alt_replace
+        if alt_open is None:
+            try:
+                del _fl311.open
+            except AttributeError:
+                pass
+        else:
+            _fl311.open = alt_open
+        _bs311.area_on, _bs311.enabled = alt_area, alt_enabled
+        _bs311._schedule.clear()
+        _bs311._schedule.update(alt_sched)
 
 
 def _pruefung_308():

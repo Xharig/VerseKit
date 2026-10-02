@@ -146,10 +146,15 @@ def save(data):
         with open(target + '.tmp', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=1)
         os.replace(target + '.tmp', target)
-        return True
     except Exception as exc:
         errors.record('fleet.save', exc)
         return False
+    try:
+        from . import basetool_sync
+        basetool_sync.store_saved()
+    except Exception as exc:
+        errors.record('fleet.abgleich_melden', exc)
+    return True
 
 
 def _slim(text):

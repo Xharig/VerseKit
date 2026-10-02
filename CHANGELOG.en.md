@@ -10,6 +10,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Faster Basetool sync for storage and hangar** — when you change something
+  in the raw-material storage, trade storage or hangar, Verse-Kit syncs after
+  about 20 seconds, just like blueprints. Before, it only reached the Basetool
+  with the next five-minute cycle
 - **Clearer tick boxes** — when off they now show an empty circle like the
   blueprint list, when on a green tick. Before, a grey tick showed even when
   off, for example at "marked as stolen" in the trade storage

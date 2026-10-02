@@ -116,10 +116,21 @@ def save(entries):
     """
     target = paths.app_file(FILE)
     try:
-        return paths.save_json(target, {'format': FORMAT, 'posten': entries})
+        saved = paths.save_json(target, {'format': FORMAT, 'posten': entries})
     except Exception as exc:
         errors.record('trade_cargo.save', exc)
         return False
+    if saved:
+        _notify_basetool()
+    return saved
+
+
+def _notify_basetool():
+    try:
+        from . import basetool_sync
+        basetool_sync.store_saved()
+    except Exception as exc:
+        errors.record('trade_cargo.abgleich_melden', exc)
 
 
 def as_csv(entries=None):

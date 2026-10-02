@@ -181,10 +181,22 @@ def _set(**values):
 
 # ------------------------------------------------------------------ Takt
 def local_changed():
-    """Der eigene Bestand hat sich geändert — bald abgleichen (gesammelt)."""
-    if enabled():
+    """Der eigene Bestand hat sich geändert — bald abgleichen (gesammelt).
+
+    Schreibt der Abgleich selbst (`_applying`), zählt das nicht."""
+    if enabled() and not _applying[0]:
         with _lock:
             _schedule['changed_at'] = time.time()
+
+
+# Gesetzt, solange der Abgleich Übernommenes in die eigenen Lager schreibt.
+_applying = [False]
+
+
+def store_saved():
+    """Rohstofflager, Handelslager oder Hangar wurde geschrieben."""
+    if area_on(SETTING_STOCK) or area_on(SETTING_SHIPS):
+        local_changed()
 
 
 def request_now():
@@ -823,9 +835,14 @@ def _apply_stock(takes, server, resolver, places, trade_goods=None):
                 raw.append({'material': name, 'menge': amount,
                             'qualitaet': source.get('quality') or 0,
                             'ort': place})
-        materials.save([r for i, r in enumerate(raw) if i not in drop_raw])
-        trade_cargo.save([r for i, r in enumerate(trade)
-                          if i not in drop_trade])
+        _applying[0] = True
+        try:
+            materials.save([r for i, r in enumerate(raw)
+                            if i not in drop_raw])
+            trade_cargo.save([r for i, r in enumerate(trade)
+                              if i not in drop_trade])
+        finally:
+            _applying[0] = False
         _pages_changed(['lager', 'handelslager'])
 
     _in_tk(work)
@@ -927,7 +944,11 @@ def _apply_ships(result, server, local):
             entry = by_ext.get(ext)
             if entry is not None and entry.get('herkunft') == fleet.BASETOOL:
                 data['schiffe'] = [e for e in data['schiffe'] if e is not entry]
-        fleet.save(data)
+        _applying[0] = True
+        try:
+            fleet.save(data)
+        finally:
+            _applying[0] = False
         _pages_changed(['hangar'])
 
     _in_tk(work)
