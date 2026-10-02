@@ -8,6 +8,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.70.1 - 2026-10-02
+
+> Ein schneller Nachschlag zu den Shops: Wer einen Ort gewählt hat und dann
+> ein Teil anklickt, sieht jetzt wieder direkt dessen Läden.
+
 ### Behoben
 
 - **Shops: ein Teil anklicken zeigt wieder seine Läden** — mit gewähltem Ort

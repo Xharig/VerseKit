@@ -21821,6 +21821,7 @@ def main():
                  if not u.startswith(('https://github.com/Xharig/',
                                       'https://discord.gg/',
                                       'https://xharig.com/',
+                                      'https://versespotter.xharig.com/',
                                       'https://ko-fi.com/',
                                       'https://robertsspaceindustries.com/'))]
     pruefe(not _fremd217,

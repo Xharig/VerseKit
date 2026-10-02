@@ -8,6 +8,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.70.1 - 2026-10-02
+
+> A quick follow-up for the shops: pick a location, click a part, and you
+> see its shops right away again.
+
 ### Fixed
 
 - **Shops: clicking a part shows its shops again** — with a location picked,
