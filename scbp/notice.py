@@ -47,12 +47,11 @@ Bewusst schlicht gehalten:
 * Der Hinweis verschwindet auch beim **Klick**. Sonst bliebe er über einem
   Fenster stehen, das gerade zugegangen ist.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `hinweis`, die Funktion `anhaengen`
-(Sprachumstellung P3). **Nur das Modul ist umbenannt.** Das Wort `hinweis`
-steht an vielen anderen Stellen weiter — und muss dort bleiben: als Kennung in
+⚠ Das Wort `hinweis` steht an vielen anderen Stellen — und muss dort
+bleiben: als Kennung in
 der Nachrichten-Warteschlange (`q.put(('hinweis', …))`), als Feld im
 Fehlerprotokoll, das in der Datei des Nutzers steht, und in den Textschlüsseln
-`hinweis_…`. Ein pauschales Ersetzen hätte alle drei zerschossen.
+`hinweis_…`. Ein pauschales Ersetzen zerschösse alle drei.
 
 ⚠ Prüfung 112 im Selbsttest schneidet den Quelltext dieser Datei an den Namen
 `attach`, `on_enter` und `cancel` auf. Wer die umbenennt, zieht die Prüfung mit.
@@ -97,9 +96,9 @@ def _wants_above(widget):
 def position(pointer_x, pointer_y, width, height, area, above=False):
     """Wohin der Hinweis kommt: neben den Mauszeiger, aber nie aus dem Bild.
 
-    ⚠ Bis v3.62.0 stand er immer rechts unter dem Zeiger. Wer das Overlay in
-    die untere rechte Ecke legt, bekam die Hinweise damit rechts und unten
-    abgeschnitten. Gemeldet von Aeternitas26 (29.09.2026).
+    ⚠ Nicht stur rechts unter dem Zeiger: Wer das Overlay in die untere
+    rechte Ecke legt, bekäme die Hinweise sonst rechts und unten
+    abgeschnitten.
 
     Mit `above` (Leiste unten) steht er immer **über** dem Zeiger, sonst nur,
     wenn unten kein Platz ist; ist rechts keiner, rückt er nach links an die

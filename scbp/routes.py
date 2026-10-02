@@ -19,22 +19,21 @@
 """
 Handelsrouten: Wo kaufe ich billig, wo verkaufe ich teuer — und was bleibt übrig?
 
-## Der Wunsch dahinter
+## Was es tut
 
-Gewünscht von **YoshimitsuDE** (04.09.2026): „Tradingtool, Preis Einkauf und
-Verkauf, eventuell mit guten Routen und Profitmaximierung." Genauer: Man gibt
-seinen **Frachtraum** an und bekommt eine Route über zwei, drei oder mehr
+Einkaufs- und Verkaufspreise, Routen und Gewinn: Man gibt seinen
+**Frachtraum** an und bekommt eine Route über zwei, drei oder mehr
 Stationen zurück, dazu den Gewinn — wahlweise nach **bestem Gewinn** oder nach
 **kurzer Strecke**.
 
 ## ⭐ UEX rechnet die einzelnen Fahrten schon selbst
 
-Der Endpunkt `commodities_routes` liefert fertige Fahrten. Eine Zeile ist
-„kauf X hier, verkauf es dort" und bringt alles mit, was die Frage braucht::
+Der Endpunkt `commodities_routes` liefert fertige Fahrten. Eine Zeile heißt:
+Ware hier kaufen, dort verkaufen — und bringt alles mit, was die Frage braucht::
 
     Kaufterminal · Verkaufsterminal · Ware
     Einkaufspreis · Verkaufspreis · Spanne · Rendite
-    Entfernung in Gm        <- damit ist „kurze Route" beantwortbar
+    Entfernung in Gm        <- damit ist die kurze Route beantwortbar
     verfügbare Menge · gesuchte Menge · nötiges Kapital
 
 Wir rechnen daraus nur noch, **was in den eigenen Laderaum passt** und wie sich
@@ -42,7 +41,7 @@ Fahrten aneinanderhängen lassen.
 
 ## ⚠⚠ Der Zuschnitt: je Startort, nicht auf Vorrat
 
-Gemessen am 04.09.2026:
+Gemessen:
 
 | Zuschnitt | Ergebnis |
 |---|---|
@@ -56,14 +55,14 @@ unhöflich.
 
 ## ⚠ Ketten kosten weitere Abrufe — deshalb gedeckelt
 
-Für „und wo fahre ich danach hin?" braucht es die Fahrten **ab dem Zielort**.
+Für die Weiterfahrt braucht es die Fahrten **ab dem Zielort**.
 Das ist je Kandidat ein weiterer Abruf. Deshalb werden nur die
 `CHAIN_CANDIDATES` besten Ziele weiterverfolgt: höchstens ein paar Abrufe
 statt siebzig.
 
 ## ⚠⚠ Und eine Warnung, die in jede Anzeige gehört
 
-`scu_origin` (wieviel dort liegt) ist **von Spielern gemeldet** und altert. Die
+`scu_origin` (wieviel dort liegt) stammt **von Spielern** und altert. Die
 Spitzenreiter sind fast immer kleine Mengen mit riesiger Spanne — steht die
 Ware nicht mehr da, ist die ganze Fahrt wertlos. Das Alter der Daten gehört
 deshalb an jede Route, nicht in eine Fußnote.
@@ -83,11 +82,11 @@ SHELF_LIFE = 6 * 60 * 60
 
 # Wieviele Startorte die Ablage behält.
 #
-# ⚠⚠ **Muss über der Zahl der Handelsposten liegen (184).** Stand hier vorher
-# auf 25 — mit dem Rundumlauf aus `fetch_all()` hätte sich die Ablage dabei
-# selbst leergeräumt: Ab dem 26. Posten wäre bei jedem weiteren der älteste
-# hinausgeflogen, und am Ende stünden 25 zufällige statt aller 184 da. Der
-# Fehler wäre nicht aufgefallen — die Liste hätte einfach weniger gezeigt.
+# ⚠⚠ **Muss über der Zahl der Handelsposten liegen (184).** Liegt sie
+# darunter, räumt sich die Ablage beim Rundumlauf aus `fetch_all()` selbst
+# leer: Ist die Grenze erreicht, fliegt bei jedem weiteren Posten der älteste
+# hinaus, und am Ende steht nur ein zufälliger Teil statt aller 184 da. Das
+# fällt nicht auf — die Liste zeigt einfach weniger.
 #
 # 200 deckt alle Posten ab und bleibt bei rund 2 MB.
 MAX_STARTS = 200
@@ -129,7 +128,7 @@ def age(start):
 def trips(start):
     """Alle bekannten Fahrten ab diesem Terminal.
 
-    `None` heißt „noch nicht nachgesehen", `[]` heißt „von hier lohnt nichts".
+    `None` heißt noch nicht nachgesehen, `[]` heißt: von hier lohnt nichts.
     """
     entry = _all().get(str(start))
     if entry is None:
@@ -212,11 +211,9 @@ def amount_and_profit(trip, free_scu, money):
 def what_limits(trip, free_scu, money):
     """Woran hängt die Menge — Frachtraum, Vorrat, Bedarf oder Geld?
 
-    ⭐ **Die nützlichste Auskunft der ganzen Zeile.** „69 von 120 SCU" sagt
-    noch nicht, ob ein größeres Schiff hilft. Steht dort „begrenzt durch Geld",
-    weiß man: mehr Kapital, mehr Gewinn — ein größerer Frachter brächte nichts.
-    Am 04.09.2026 aufgefallen, weil bei 120 SCU Frachtraum und 70 SCU Vorrat
-    nur 69 mitkamen und der Grund nirgends stand (das Geld reichte nicht).
+    ⭐ **Die nützlichste Auskunft der ganzen Zeile.** 69 von 120 SCU sagt
+    noch nicht, ob ein größeres Schiff hilft. Begrenzt das Geld, weiß man:
+    mehr Kapital, mehr Gewinn — ein größerer Frachter brächte nichts.
 
     Gibt einen Sprachschlüssel zurück, oder `''`, wenn nichts begrenzt.
     """
@@ -285,7 +282,7 @@ def chain(start, scu, money, short=False, most=5, stops=2,
         last_step = (step == stops - 1)
         for profit_so_far, place, so_far in branches:
             # ⚠ `fetch_missing=False` rechnet **nur** mit dem, was schon abgelegt
-            # ist. Für „beste Route überall" ist das Pflicht: Dort werden 184
+            # ist. Für die beste Route überall ist das Pflicht: Dort werden 184
             # Startorte durchgerechnet, und jeder fehlende Zwischenstopp wäre
             # ein Netzabruf — Minuten statt Sekunden.
             if trips(place) is None and (not fetch_missing or not fetch(place)):
@@ -295,11 +292,8 @@ def chain(start, scu, money, short=False, most=5, stops=2,
             # steht so gut wie nie unter den gewinnstärksten fünf — und wenn
             # sie nicht dabei ist, gibt es überhaupt keine Rundreise.
             #
-            # Genau daran ist sie bis v3.15.0-rc4 immer gescheitert: gemessen
-            # ab Nyx Gateway 192 Einzelfahrten, und bei 2, 3 und 4 Stationen
-            # jedes Mal „keine Route". Am 05.09.2026 gefragt: „Wenn ich
-            # Rundreise angebe — was kaufe ich auf dem Rückweg?" Gar nichts,
-            # es kam nie eine zustande.
+            # Gemessen ab Nyx Gateway: 192 Einzelfahrten, und mit nur den
+            # besten fünf bei 2, 3 und 4 Stationen jedes Mal keine Route.
             #
             # Teuer ist das nicht: Die Fahrten dieses Ortes liegen bereits in
             # der Ablage, es wird nur weniger davon weggeworfen.
@@ -364,10 +358,10 @@ def trade_posts():
 
 
 def fetch_all(progress=None, cancel=None):
-    """Die Fahrten **aller** Handelsposten holen — für „beste Route überhaupt".
+    """Die Fahrten **aller** Handelsposten holen — für die beste Route überhaupt.
 
     ⚠⚠ **Das ist der teuerste Abruf im ganzen Werkzeug, und deshalb kein
-    Automatismus.** Gemessen am 04.09.2026: 184 Handelsposten, rund **0,5 s je
+    Automatismus.** Gemessen: 184 Handelsposten, rund **0,5 s je
     Abruf** — zusammen **92 Sekunden** und rund **1,9 MB** Ablage bei etwa
     11.000 Fahrten.
 
@@ -430,12 +424,10 @@ def best_chains_anywhere(scu, money, short=False, stops=2, round_trip=False,
                          most=15):
     """Die besten **Ketten** über alle abgelegten Startorte.
 
-    ⚠⚠ **Die Schalter mussten auch hier gelten.** Am 05.09.2026 gemeldet:
-    „Ich möchte eine Rundreise über 3 Stationen, kurze Strecken — die Anzeige
-    bleibt aber so wie am Anfang geladen." Zu Recht: `best_anywhere` kannte
-    nur Einzelfahrten, die Schalter darüber färbten sich und bewirkten nichts.
-    Ein Bedienelement, das sich einschalten lässt und nichts tut, ist
-    schlimmer als keins.
+    ⚠⚠ **Die Schalter gelten auch hier** (Rundreise, Stationszahl, kurze
+    Strecken). `best_anywhere` kennt nur Einzelfahrten; ohne diese Funktion
+    färbten sich die Schalter und bewirkten nichts. Ein Bedienelement, das
+    sich einschalten lässt und nichts tut, ist schlimmer als keins.
 
     ⚠ **Holt nichts nach** — dieselbe Regel wie bei `best_anywhere`. Gerechnet
     wird mit dem, was der Rundumlauf gesammelt hat; gemessen bleibt das nach
@@ -461,10 +453,10 @@ def best_chains_anywhere(scu, money, short=False, stops=2, round_trip=False,
 def known_starts():
     """Wieviele **Handelsposten** schon abgelegt sind — für die Anzeige.
 
-    ⚠⚠ **Nur die, die auch in der Postenliste stehen.** Vorher wurde einfach
-    die Ablage gezählt — und die enthält noch Startorte aus der Zeit vor dem
-    Handelsfilter (Läden, Tankstellen). In der Anzeige stand deshalb
-    „187 von 184 Handelsposten": mehr, als es gibt.
+    ⚠⚠ **Nur die, die auch in der Postenliste stehen.** Die Ablage kann
+    Startorte enthalten, die der Handelsfilter ausschließt (Läden,
+    Tankstellen). Sie mitzuzählen ergäbe etwa 187 von 184 Handelsposten:
+    mehr, als es gibt.
 
     Eine Zahl, die größer ist als ihr Nenner, macht die ganze Anzeige
     unglaubwürdig — auch die Teile, die stimmen.

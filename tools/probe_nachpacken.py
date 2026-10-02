@@ -76,9 +76,8 @@ def main():
     # richtig, sonst stünde der Nutzer vor einer Liste, die ohne Rollbalken
     # endet, obwohl es weitergeht.
     #
-    # Die erste Fassung dieser Probe erwartete hier hart 45 und schlug fehl;
-    # die Erwartung war falsch, nicht der Code. Gemessen an einem hohen
-    # Fenster: 90 von 200.
+    # Eine harte Erwartung von 45 wäre deshalb falsch, nicht der Code.
+    # Gemessen an einem hohen Fenster: 90 von 200.
     p(anfang < gebaut * 0.75,
       'zu Beginn steht nur ein Teil der Liste (%d von %d)' % (anfang, gebaut))
 
@@ -130,8 +129,8 @@ def main():
     # ── Und dasselbe fuer die Auswahlliste („Zerlegen") ──────────────────
     #
     # ⚠ Dort wird nicht nur gepackt, sondern **gebaut**: Bei 400 Teilen
-    # entstanden ueber 1.600 Bauteile, die beim naechsten Tastendruck alle
-    # wieder zerstoert wurden (1,03 von 1,24 s allein dafuer).
+    # entstuenden ueber 1.600 Bauteile, die beim naechsten Tastendruck alle
+    # wieder zerstoert wuerden (1,03 von 1,24 s allein dafuer).
     print('\n  Auswahlliste auf „Zerlegen":')
     fenster.open_page('zerlegen')
     for _ in range(3):
@@ -158,8 +157,7 @@ def main():
     p(feld is not None, 'das Auswahlfeld ist da')
     # ⚠ **Ein Klick reicht nicht.** Ohne Eingabe und ohne Aufklappen baut die
     # Liste bewusst gar nichts (`if not text and not offen['ja']: return`).
-    # Die erste Fassung dieser Probe klickte nur und mass deshalb eine Seite
-    # ganz ohne Liste — 109 Bauteile vorher wie nachher.
+    # Nur zu klicken hiesse, eine Seite ganz ohne Liste zu messen.
     #
     # Also wirklich tippen: ueber die `textvariable` des Feldes.
     if feld is not None:
@@ -180,9 +178,9 @@ def main():
     p(vorher_n < 400,
       'zu Beginn stehen deutlich weniger als alle Bauteile (%d)' % vorher_n)
 
-    # ⚠ **Über ALLE Rollflächen rollen.** Die erste Fassung nahm die letzte
-    # gefundene — das war die der Seite, nicht die der Auswahlliste. Sie
-    # meldete deshalb „nichts kam nach", obwohl die Mechanik lief.
+    # ⚠ **Über ALLE Rollflächen rollen.** Die zuletzt gefundene ist die der
+    # Seite, nicht die der Auswahlliste — wer nur sie rollt, sieht nichts
+    # nachkommen, obwohl die Mechanik läuft.
     lw = [c for c in alle_leinwaende(seite, []) if c.winfo_height() > 20]
     for _ in range(14):
         for c in lw:

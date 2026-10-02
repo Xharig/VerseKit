@@ -19,15 +19,13 @@
 """
 Der eigene Bauplan-Bestand — die Liste „welche habe ich".
 
-Bis v1.5.0 kam sie ausschließlich vom SC Deutsch Launcher. Ab jetzt führt der
-Watcher sie selbst: Jeder Bauplan, der in der Game.log auftaucht, wird
-dauerhaft festgehalten. Damit läuft das Programm ohne den Launcher — und
-unter Linux, wo es ihn gar nicht gibt.
+Der Watcher führt sie selbst: Jeder Bauplan, der in der Game.log auftaucht,
+wird dauerhaft festgehalten. Damit läuft das Programm ohne den SC Deutsch
+Launcher — und unter Linux, wo es ihn gar nicht gibt.
 
-**Warum das nicht der schlechtere Weg ist:** Am 11.08.2026 gemessen — dem
-Launcher fehlt die P4-AR Rifle, obwohl sie im Fabricator als „im Besitz" steht.
-Startbaupläne wurden nie „erhalten" und stehen deshalb in keinem Log. Seine
-Zahl ist eine Untergrenze, kein Bestand. Ein selbst geführter Bestand, der
+**Warum das genauer ist:** Startbaupläne wurden nie „erhalten" und stehen
+deshalb in keinem Log — eine reine Log-Zählung (wie die des Launchers) ist eine
+Untergrenze, kein Bestand. Ein selbst geführter Bestand, der
 Startbaupläne kennt und Nachlese aus den Log-Sicherungen betreibt, ist genauer.
 
 Die Datei liegt im App-Ordner (`bestand.json`) und sieht so aus:
@@ -47,14 +45,13 @@ Bekannte Quellen: `log` (aus der laufenden Game.log), `nachlese` (aus einer
 Log-Sicherung), `launcher` (vom SC Deutsch Launcher bestätigt), `start`
 (Startbauplan, war von Anfang an da) und `hand` (im Fenster abgehakt).
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `bestand` (Sprachumstellung P4,
-Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben, weil sie in den Dateien jedes Nutzers stehen: die Dateinamen
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben, weil sie in den Dateien jedes Nutzers stehen: die Dateinamen
 `bestand.json`, `bestand.bak.json` und `hochwasser.json`, die Schlüssel
 `version`, `stand`, `bauplaene`, `name`, `quelle`, `zeit` und `ordner` und die
 Quellwerte oben. Ebenso der Schlüssel `'unbekannt'`, den `by_source()` für
-Einträge ohne Quelle liefert. Umbenannt, stünde bei jedem Nutzer nach dem
-Update ein leerer Bestand da.
+Einträge ohne Quelle liefert. Umbenannt, stünde bei jedem Nutzer ein leerer
+Bestand da.
 """
 import json
 import os
@@ -62,23 +59,23 @@ import time
 
 from . import errors, paths
 
-# 3 (29.08.2026): `namensform()` gleicht jetzt auch die SPRACHE der Mengenangabe
-#   an — `(16 Schuss)` und `(16 cap)` sind derselbe Bauplan. Gespeicherte
-#   Bestaende haben die Dublette noch drin, deshalb muss der Umzug erneut laufen.
+# 3: `namensform()` gleicht auch die SPRACHE der Mengenangabe an —
+#   `(16 Schuss)` und `(16 cap)` sind derselbe Bauplan. Bestaende aus Fassung 2
+#   haben die Dublette noch drin, deshalb laeuft der Umzug erneut.
 FILE_VERSION = 3
 
 # Rangfolge der Quellen: Ein Eintrag wird nur „aufgewertet", nie herabgestuft.
 #
-# ⚠ **Die Log ist die Quelle** (seit v3.0.0-rc95), deshalb steht sie oben.
-# Bis v3.46.1 war es umgekehrt: `launcher` hatte Rang 4 und überschrieb jeden
-# Log-Fund. Weil die Warnung beim Zurücksetzen aus diesem Feld rechnet, was
-# wiederkommt (`restorable()`), galt dort jeder Bauplan, den auch der Launcher
-# kannte, als verloren — die genannte Zahl war zu klein.
+# ⚠ **Die Log ist die Quelle**, deshalb steht sie oben. `launcher` darf keinen
+# Log-Fund überschreiben: Die Warnung beim Zurücksetzen rechnet aus diesem Feld,
+# was wiederkommt (`restorable()`) — stünde dort `launcher`, gälte jeder
+# Bauplan, den auch der Launcher kennt, als verloren, und die genannte Zahl
+# wäre zu klein.
 #
 # Oben steht, was beim Neuaufbau von selbst zurückkommt (Log, Startbaupläne);
 # darunter, was nur der Spieler oder ein fremdes Werkzeug weiß.
 #
-# `basetool` (v3.60.0): kam nur über den Abgleich mit dem KRT Profit Basetool,
+# `basetool`: kam nur über den Abgleich mit dem KRT Profit Basetool,
 # ohne Beleg im Spiel — deshalb ganz unten. Findet die Log den Bauplan später,
 # wird er zu `log` aufgewertet und gilt ab dann als belegt.
 RANK = {'basetool': 0, 'launcher': 1, 'import': 1, 'hand': 2, 'start': 3,
@@ -108,18 +105,14 @@ def empty():
 def _renew_keys(data):
     """Gespeicherte Schlüssel noch einmal durch `namensform()` schicken.
 
-    ⚠ **Warum das nötig war.** Bis v3.0.0 schnitt nur das Log-Lesen den
-    Klassen-Zusatz ab. Namen aus der **Launcher-Datei** und aus **Importen**
-    landeten mitsamt Zusatz im Bestand — `xl-1 (mil/2/a)` statt `xl-1`. Die
-    Bauplan-Liste sucht nach `xl-1` und fand nichts: Der Bauplan galt als
-    fehlend, obwohl er dastand.
+    ⚠ **Warum das nötig ist.** Ältere Bestände können Schlüssel mitsamt
+    Klassen-Zusatz enthalten — `xl-1 (mil/2/a)` statt `xl-1`. Die
+    Bauplan-Liste sucht nach `xl-1` und findet nichts: Der Bauplan gilt als
+    fehlend, obwohl er dasteht.
 
-    Seit v3.0.0 schneidet `namensform()` selbst ab. Das hilft aber nur neuen
+    `namensform()` schneidet den Zusatz ab, das hilft aber nur neuen
     Einträgen — die **gespeicherten** Schlüssel bleiben, wie sie sind. Deshalb
     werden sie hier einmalig neu gebildet.
-
-    Gemessen an Morkhans Bericht (28.08.2026): **320 Baupläne** im Bestand,
-    Launcher wird gefunden — und im Spiel trotzdem alles leer.
 
     Treffen zwei alte Schlüssel auf denselben neuen, gewinnt der **ältere
     Fund**: Wann ein Bauplan zum ersten Mal auftauchte, ist die Angabe, die
@@ -194,15 +187,11 @@ def _high_water_file():
 def check_shrinkage(data):
     """Sind ploetzlich Bauplaene weniger als je zuvor? Dann melden.
 
-    ⚠⚠⚠ **Der Fall, aus dem das entstand.** Am 06.09.2026 zeigte der Watcher
-    nach einem Neustart 406 statt 413 Bauplaenen. Verloren war nichts — er
-    schaute nur in einen anderen Ordner, weil die Zeiger-Datei beim Aufraeumen
-    im Dateimanager mit weggeworfen worden war. Er nahm den leeren Standardort,
-    legte dort einen Bestand an und sagte **kein Wort** dazu.
-
-    Zurueck blieb eine Zahl, die kleiner war als gestern, und keine Erklaerung:
-    *„wieso aendert sich immer wieder der Ordner, die ganze Zeit hat es doch
-    geklappt?"*
+    ⚠⚠⚠ **Der Fall dahinter.** Wird die Zeiger-Datei auf den Datenordner
+    weggeworfen (etwa beim Aufraeumen im Dateimanager), schaut der Watcher in
+    den leeren Standardort und legt dort einen Bestand an. Verloren ist
+    nichts — aber ohne Meldung bleibt eine Zahl, die kleiner ist als gestern,
+    und keine Erklaerung.
 
     ⚠ Geprueft wird gegen den **Hoechststand**, nicht gegen den letzten Lauf.
     Ein Bestand wird nie kleiner: Bauplaene verschwinden nicht von selbst. Wird
@@ -282,16 +271,14 @@ def reset():
     dann, wenn vorher schon keine da war**. Sonst die Störung, die im Weg
     stand (keine Rechte, Datei gesperrt).
 
-    ⚠⚠ **„War schon weg" ist Erfolg, kein Fehler.** Bis v3.5.0 lag das
-    `os.remove` unmittelbar in der Oberfläche, und ein `FileNotFoundError`
-    landete still in der Diagnose: Der Nutzer drückte den roten Knopf,
-    bestätigte die Warnfrage — und dann passierte **nichts**. Kein Haken,
-    keine Meldung. Das Werkzeug sah kaputt aus, obwohl der Zustand genau der
-    gewünschte war.
+    ⚠⚠ **Eine schon fehlende Datei ist Erfolg, kein Fehler.** Landet ein
+    `FileNotFoundError` still in der Diagnose, drückt der Nutzer den roten
+    Knopf, bestätigt die Warnfrage — und dann passiert **nichts**. Kein Haken,
+    keine Meldung. Das Werkzeug sähe kaputt aus, obwohl der Zustand genau der
+    beabsichtigte ist.
 
     ⚠ Der Fall trifft nicht die Ausnahme, sondern den Anfänger: Wer noch
-    keinen einzigen Bauplan hat, hat auch keine Bestandsdatei. Am 31.08.2026
-    aus einem Nutzerbericht mit „Inventory 0 blueprints" (Linux, CachyOS).
+    keinen einzigen Bauplan hat, hat auch keine Bestandsdatei.
 
     ⚠ Hier und nicht in der Oberfläche, damit es sich prüfen lässt — ohne
     Fenster, auf jedem System.
@@ -347,14 +334,10 @@ def save(data):
 def _update_exports(data):
     """Die drei Ausgabe-Dateien auf den neuen Stand bringen — still.
 
-    ⚠ **Warum das hier hängt und nicht am Knopf.** Die Ausgabe-Dateien für das
-    KRT Profit Basetool, für scmdb.net und die Vollsicherung wurden bisher
-    **nur** geschrieben, wenn jemand auf „Alle drei in die Ablage" klickte.
-    Wer das einmal gemacht hatte, hielt sie danach für aktuell — sie standen
-    aber für immer auf dem Stand jenes Klicks. Aufgefallen ist es, als jemand das
-    Werkzeug jemandem vorführte und selbst suchen musste, wo die Dateien
-    herkommen (27.08.2026): „die werden ja bei drops direkt fortgeschrieben
-    oder?" Nein — bis jetzt nicht.
+    ⚠ **Warum das hier hängt und nicht am Knopf.** Würden die Ausgabe-Dateien
+    für das KRT Profit Basetool, für scmdb.net und die Vollsicherung nur auf
+    Knopfdruck geschrieben, hielte man sie danach für aktuell — sie stünden
+    aber für immer auf dem Stand jenes Klicks.
 
     An `save()` hängt es, weil hier **jede** Bestandsänderung
     vorbeikommt: der Fund im Spiel, die Nachlese beim Start, die Bestätigung
@@ -383,21 +366,18 @@ def catalog_name(name, known=None):
     ⚠⚠ **`known` durchreichen, wenn viele Namen hintereinander laufen.**
     Ohne den Parameter holt sich diese Funktion den Katalog selbst — und
     `catalog.load()` liest jedes Mal die ganze Datei (rund 1 MB). Bei einem
-    Aufruf faellt das nicht auf, bei 406 hintereinander schon: Gemessen am
-    04.09.2026 brauchte `align()` dadurch **3,6 Sekunden** bei jedem
-    Programmstart — und berichtigte dabei null Eintraege. Wer 26 Bauplaene hat,
+    Aufruf faellt das nicht auf, bei 406 hintereinander schon: Gemessen
+    braucht `align()` dadurch **3,6 Sekunden** bei jedem Programmstart — und
+    berichtigt dabei null Eintraege. Wer 26 Bauplaene hat,
     merkt nichts; wer 400 hat, wartet.
 
     ⚠⚠ **Warum das nötig ist: Wir vergiften uns die eigene Erkennung.** Das
     Werkzeug (und der SC Deutsch Launcher) schreiben Klasse, Größe und Gütegrad
     an die Gegenstandsnamen im Spiel. Schaltet das Spiel danach frei, steht in
     der `Game.log` nicht mehr „Balandin", sondern **„Balandin (S3 B Military)"**
-    — und genau das wurde gespeichert. Der Katalog kennt den Namen nicht, also
+    — und genau das würde gespeichert. Der Katalog kennt den Namen nicht, also
     tauchte der Bauplan in der Liste **nie als vorhanden** auf, der Fortschritt
-    blieb zu niedrig, und mit jedem Fund wurde es schlimmer.
-
-    Gemeldet am 30.08.2026 von **Morkhan (KRT)**: 315 gespeicherte Baupläne,
-    davon 23 dem Katalog unbekannt — zwölf davon nur wegen des Anhangs.
+    bliebe zu niedrig, und mit jedem Fund würde es schlimmer.
 
     ⚠ **Die Klammer wird nur abgeschnitten, wenn sie die Ursache ist.** 39
     Katalognamen tragen selbst eine — „A03 Sniper Rifle Magazine (15 cap)",

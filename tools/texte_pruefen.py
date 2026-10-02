@@ -68,8 +68,8 @@ FREMDE_BAUSTEINE = {
 # Parameternamen, hinter denen ein sichtbarer Text steckt. Bausteine der
 # geprüften Datei werden darüber **selbst gefunden** — sonst müsste man die
 # Tabelle bei jedem neuen Baustein von Hand nachziehen, und genau das geht
-# schief: `_value_row` fehlte, und deshalb stand „Baupläne bekannt" monatelang
-# unübersetzt auf der englischen Über-Seite, während die Prüfung grün meldete.
+# schief: Fehlt ein Baustein, bleibt sein Text unübersetzt, während die
+# Prüfung grün ist.
 TEXTNAMEN = ('text', 'titel', 'bez', 'bezeichnung', 'hilfe', 'lead', 'fett',
              'rest', 'beschriftung', 'wofuer', 'platzhalter')
 
@@ -99,9 +99,9 @@ KEINE_TEXTE = (
 # Lizenzkürzel, Adressen. Bleibt nach ihrem Abzug nichts übrig, ist die Zeile
 # kein zu übersetzender Satz.
 UNVERAENDERLICH = re.compile(
-    # `\S+\.github\.io/` ist die Projektseite auf GitHub Pages — seit v3.55.1
-    # auf „Danke & Lizenzen" verlinkt, und eine Adresse übersetzt man nicht.
-    # Seit v3.57.3 steht dort die eigene Adresse `versekit.xharig.com`.
+    # `\S+\.github\.io/` ist die Projektseite auf GitHub Pages, verlinkt auf
+    # der Danke-Seite, und eine Adresse übersetzt man nicht. Dort steht auch
+    # die eigene Adresse `versekit.xharig.com`.
     r'(https?://\S+|(?:www\.|github\.com/|\S+\.github\.io/)\S+'
     r'|[\w-]+\.xharig\.com\b'
     r'|SC BP Watcher|GPL-[\d.]+-only'
@@ -123,8 +123,7 @@ def _literale(knoten):
         return [(knoten.lineno, knoten.value)]
     # ⚠ `eintrag.get('material')` liest ebenfalls ein Wörterbuch aus — der
     # Schlüssel ist Technik, angezeigt wird der Wert. Ohne diese Ausnahme
-    # meldete die Prüfung am 29.08.2026 zwei Fehlalarme auf der Lager-Seite
-    # (`text=p.get('material')`). Eng gefasst: nur der **erste** Parameter, und
+    # gäbe es Fehlalarme wie `text=p.get('material')`. Eng gefasst: nur der **erste** Parameter, und
     # nur bei den drei Wörterbuch-Methoden.
     schluessel_holer = ('get', 'setdefault', 'pop')
     if (isinstance(knoten, ast.Call)
@@ -225,21 +224,18 @@ def pruefe(pfad):
     # Meldern. Steht eine Beschriftung dagegen als Tupelpaar in einer Schleife
     # oder in einem Wörterbuch auf Modulebene, ist sie unsichtbar.
     #
-    # Genau so sind am 27.08.2026 vier Wörter durchgerutscht — „Alles / Neu /
-    # Verbessert / Behoben" auf dem Reiter „Was ist neu", monatelang auch in der
-    # englischen Oberfläche deutsch. Aufgefallen ist es erst auf einem
-    # Bildschirmfoto.
+    # So entgehen etwa die Filterknöpfe auf dem Reiter „Was ist neu".
     #
-    # Ein Versuch, das Muster „Kennung + Beschriftung" mitzuprüfen, wurde am
-    # selben Tag wieder verworfen: Er meldete 55 Stellen, fast alle falsch —
-    # überwiegend die zweisprachigen Spieltext-Tabellen, die längst richtig
-    # gebaut sind. Eine Prüfung, die so oft danebenliegt, wird übergangen, und
-    # dann fällt auch das Echte nicht mehr auf.
+    # Das Muster Kennung + Beschriftung mitzuprüfen taugt nicht: Es ergibt
+    # 55 Stellen, fast alle falsch — überwiegend die zweisprachigen
+    # Spieltext-Tabellen, die richtig gebaut sind. Eine Prüfung, die so oft
+    # danebenliegt, wird übergangen, und dann fällt auch das Echte nicht
+    # mehr auf.
     #
     # Geschlossen wird die Lücke von der anderen Seite: `oberflaeche_pruefen.py`
     # baut das Fenster auf **Englisch** auf und sieht nach, ob ein sichtbarer
     # Text wörtlich in der deutschen Spalte von `language.py` steht. Das braucht
-    # keine Heuristik und fand alle vier Stellen sofort.
+    # keine Heuristik.
     return sorted(funde)
 
 

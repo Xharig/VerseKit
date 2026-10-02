@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Skaliert `update()` mit der Zeilenzahl? — die Gegenprobe auf DERSELBEN Seite.
 
-⚠⚠ Bisher wurde die Bauteil-Frage an **zwei verschiedenen** Seiten gemessen
-(`joysticks` 986 Bauteile / 535 ms gegen `wasistneu` 1000 / 91 ms). Daraus
-folgt nur: Die Zahl allein erklaert es nicht. Es folgt NICHT, dass die Zahl
+⚠⚠ Die Bauteil-Frage an **zwei verschiedenen** Seiten zu messen
+(`joysticks` 986 Bauteile / 535 ms gegen `wasistneu` 1000 / 91 ms) ergibt
+nur: Die Zahl allein erklaert es nicht. Es folgt NICHT, dass die Zahl
 egal ist — die Seiten unterscheiden sich in allem.
 
 Dieser Lauf haelt alles konstant ausser der Zeilenzahl: **dieselbe Seite**,
@@ -12,7 +12,7 @@ dieselben Widget-Arten, nur halb so viele Belegungen.
 Gemessen wird der **warme** Fall (Seite schon gebaut, wird nur eingeblendet)
 — das ist der, der bei jedem Klick anfaellt.
 
-## Ergebnis vom 13.09.2026 (zwei Laeufe)
+## Ergebnis (zwei Laeufe)
 
 | Zeilen | Bauteile | Zeit |
 |---|---|---|
@@ -24,15 +24,14 @@ Gemessen wird der **warme** Fall (Seite schon gebaut, wird nur eingeblendet)
 Zahl also der Posten — eine Virtualisierung (nur sichtbare Zeilen vorhalten)
 wuerde hier wirken.
 
-⛔⛔ **Damit ist eine fruehere Schlussfolgerung von mir widerlegt.** Sie
-lautete „die Bauteil-Anzahl ist es nicht" und stuetzte sich darauf, dass
-`wasistneu` mit **1000** Bauteilen nur 91 ms braucht. Zwei verschiedene
-Seiten unterscheiden sich aber in allem — aus ihrem Unterschied folgt nichts
+⛔⛔ **Ein Seitenvergleich widerlegt das nicht.** Dass `wasistneu` mit
+**1000** Bauteilen nur 91 ms braucht, sagt nichts darueber, ob die
+Bauteil-Anzahl es ist. Zwei verschiedene Seiten unterscheiden sich in allem — aus ihrem Unterschied folgt nichts
 ueber die Wirkung der Zahl. Genau dafuer gibt es diesen Lauf: **eine Sache
 aendern, alles andere festhalten.**
 
-⚠ Nicht zu verwechseln mit der Messung vom 12.09.2026 (zehnmal weniger
-Bauteile sparen 18 ms). Die betraf das **Bauen**, nicht das **Anzeigen**.
+⚠ Nicht zu verwechseln mit der Messung, wonach zehnmal weniger Bauteile
+18 ms sparen. Die betraf das **Bauen**, nicht das **Anzeigen**.
 
 ⚠ Der Sockel bleibt: Bei 25 % der Zeilen sind noch 68 % der Bauteile da
 (Kopfzeile, Rahmen, Geraeteblock). Eine echte Virtualisierung mit nur den

@@ -28,15 +28,14 @@ drueckt den Knopf, den er meint.
 
 **Linux:** `/dev/input/js*` liefert 8-Byte-Ereignisse — vier Byte Zeit, zwei
 Byte Wert, ein Byte Art, ein Byte Nummer. Mehr als `os`, `struct` und
-`select` braucht es nicht. Gemessen am 04.09.2026: 32 Knoepfe und 6 Achsen
-werden sauber gemeldet.
+`select` braucht es nicht. Gemessen: 32 Knoepfe und 6 Achsen werden sauber
+gemeldet.
 
 **Windows:** `winmm.dll` bringt `joyGetPosEx` mit, erreichbar ueber `ctypes` —
 ebenfalls Standardbibliothek. Die Knoepfe stehen dort als Bitmaske in einem
 Feld; abgefragt wird zyklisch, statt auf Ereignisse zu warten.
 
-⚠️ **Der Windows-Weg ist ungetestet.** Er ist nach der Dokumentation gebaut,
-aber hier stand kein Windows zum Ausprobieren bereit. Schlaegt er fehl, faellt
+⚠️ **Der Windows-Weg ist nach der Dokumentation gebaut.** Schlaegt er fehl, faellt
 die Oberflaeche auf die Eingabe von Hand zurueck — das ist unbequem, aber
 nichts geht kaputt.
 
@@ -48,7 +47,7 @@ Star Citizen benennt seine Geraete mit einer Kennung wie
 
 Das ist kein Zufallswert: `504944564944` ist schlicht `PIDVID` in ASCII, und
 davor stehen **PID und VID** des USB-Geraets, je vier Stellen hexadezimal.
-Am 04.09.2026 an drei Geraeten gegengeprueft — Linux meldet in
+An drei Geraeten gegengeprueft — Linux meldet in
 `/sys/class/input/js0/device/id/` genau dieselben Werte.
 
 Damit laesst sich ein gedrueckter Knopf **eindeutig** dem richtigen Geraet in
@@ -143,12 +142,11 @@ def _windows_devices():
     Dasselbe Ergebnis wie `_linux_devices()`: `[{'pfad', 'name', 'kennung'}]`.
     `pfad` ist der Geraetepfad des Systems (`\\\\?\\HID#VID_…`).
 
-    ⛔⛔ **Nicht mehr ueber `winmm`** (16.09.2026). Bis v3.43.0 stand hier
-    `joyGetNumDevs()` mit `joyGetDevCapsW()` fuer jeden der 16 Plaetze — und
-    die Geraete-Seite ruft das **alle drei Sekunden**. Am 12.09.2026 riss das
-    ein Windows mit HOTAS-Aufbau hart herunter:
+    ⛔⛔ **Nicht ueber `winmm`.** `joyGetNumDevs()` mit `joyGetDevCapsW()` fuer
+    jeden der 16 Plaetze — und die Geraete-Seite ruft das **alle drei
+    Sekunden** — kann ein Windows mit HOTAS-Aufbau hart herunterreissen:
     `Windows fatal exception: code 0xc0000374` (Heap-Beschaedigung), mitten in
-    `joyGetDevCapsW`. Die Struktur war richtig (728 Byte wie `JOYCAPSW`); die
+    `joyGetDevCapsW`. Die Struktur ist richtig (728 Byte wie `JOYCAPSW`); die
     Beschaedigung entsteht im Treiberpfad dahinter, und dagegen hilft auf
     Python-Seite kein `try` — der Prozess ist einfach weg.
 
@@ -162,8 +160,8 @@ def _windows_devices():
 
     ⚠ **Das ist NICHT die Nummer, die Star Citizen benutzt.** Wie unter Linux
     auch: Die Reihenfolge des Systems und die des Spiels sind zwei
-    verschiedene Dinge (gemessen 06.09.2026 — derselbe Stick war unter Linux
-    `js0` und im Spiel `js2`). Verbunden werden beide ueber die Kennung.
+    verschiedene Dinge (gemessen: derselbe Stick war unter Linux `js0` und
+    im Spiel `js2`). Verbunden werden beide ueber die Kennung.
     """
     import ctypes
     from ctypes import wintypes
@@ -438,15 +436,12 @@ def _winmm_index_map():
 
     Liefert `{platz: kennung}`, im Zweifel ein leeres Woerterbuch.
 
-    ⛔⛔ **Das ersetzt `joyGetDevCapsW`** (20.09.2026). Frueher stand die Frage
-    an den Treiber: `joyGetDevCapsW` liefert `wMid`/`wPid` und damit die
-    Kennung. Genau dieser Aufruf hat am 12.09.2026 ein Windows mit
-    HOTAS-Aufbau hart heruntergerissen (`0xc0000374`, Heap-Beschaedigung) —
-    aus der Geraeteabfrage ist er deshalb seit v3.43.1 raus, hier stand er bis
-    heute noch. Die Registry beantwortet dieselbe Frage, ohne einen
-    Joystick-Treiber anzusprechen.
+    ⛔⛔ **Das ersetzt `joyGetDevCapsW`.** Der liefert zwar `wMid`/`wPid` und
+    damit die Kennung, kann aber ein Windows mit HOTAS-Aufbau hart
+    herunterreissen (`0xc0000374`, Heap-Beschaedigung). Die Registry
+    beantwortet dieselbe Frage, ohne einen Joystick-Treiber anzusprechen.
 
-    ⚠ **Der Versatz ist gemessen** (20.09.2026, drei VIRPIL-Geraete): Platz 0
+    ⚠ **Der Versatz ist gemessen** (drei VIRPIL-Geraete): Platz 0
     trug `VID_3344&PID_03F3` und stand in der Registry als `Joystick1OEMName`,
     Platz 1 als `Joystick2OEMName`, Platz 2 als `Joystick3OEMName`. Drei von
     drei, keine Abweichung. **Registry ab 1, `winmm` ab 0.**
@@ -610,7 +605,7 @@ def _windows_wait(duration, stop_flag=None):
 # Tk nennt Tasten anders als Star Citizen. Was hier nicht steht, wird
 # kleingeschrieben durchgereicht — das deckt Buchstaben und Ziffern ab.
 # ⚠ Die Zielnamen sind an den Werkseinstellungen des Spiels abgelesen, nicht
-# erfunden (99 verschiedene, Stand 04.09.2026).
+# erfunden (99 verschiedene).
 TK_TO_SC = {
     'Escape': 'escape', 'Return': 'enter', 'BackSpace': 'backspace',
     'Tab': 'tab', 'space': 'space', 'Caps_Lock': 'capslock',

@@ -20,12 +20,12 @@
 Die Seite „Basetool" — Verbindung und Bauplan-Abgleich mit dem KRT Profit
 Basetool.
 
-Seit v3.61.0 für alle sichtbar (Freigabe krt-profit/basetool#2273). Alles
-daran ist ab Werk aus: Wer das Basetool nicht nutzt, verbindet nie, und dann
+Für alle sichtbar (Freigabe krt-profit/basetool#2273). Alles daran ist ab
+Werk aus: Wer das Basetool nicht nutzt, verbindet nie, und dann
 geht auch nichts hinaus.
 
 ⚠⚠ **Angezeigt wird nur der Code und die nackte Adresse** — nie ein Link mit
-eingebautem Code, auch nicht als Knopf. Der Knopf „Im Browser öffnen" öffnet
+eingebautem Code, auch nicht als Knopf. Der Browser-Knopf öffnet
 die Seite, auf der man den Code **selbst eintippt**; genau dort warnt das
 Basetool vor Betrug.
 """
@@ -106,8 +106,8 @@ ERROR_TEXTS = {
 
 def error_text(code):
     # Ein 5xx ohne eigenen Code des Basetools (etwa von der Vorschaltung):
-    # „gerade nicht erreichbar", nicht „abgelehnt" — VerseKit versucht es
-    # ohnehin von selbst wieder (erster Test, 28.09.2026: „HTTP_503").
+    # gerade nicht erreichbar, nicht abgelehnt — VerseKit versucht es
+    # ohnehin von selbst wieder (etwa bei `HTTP_503`).
     if (code or '').startswith('HTTP_5'):
         return t('s_bt_f_netz')
     key = ERROR_TEXTS.get(code)
@@ -127,11 +127,11 @@ def basetool_page(window, frame):
                 return
         except tk.TclError:
             return
-        # ⚠⚠ Erst nach oben, dann neu bauen, dann die Stelle wiederherstellen
-        # (28.09.2026: „beim Klicken auf Buttons wird das Fenster schwarz").
-        # Wer heruntergerollt hatte, stand nach dem Neubau im Leeren: Außerhalb
-        # der Ansicht blendet die Leinwand den Inhalt aus, er misst sich dann
-        # nicht neu (183 statt 813 px), und die Ansicht zeigte unter ihm.
+        # ⚠⚠ Erst nach oben, dann neu bauen, dann die Stelle wiederherstellen.
+        # Wer heruntergerollt hat, stünde nach dem Neubau sonst im Leeren
+        # (das Fenster wirkt schwarz): Außerhalb der Ansicht blendet die
+        # Leinwand den Inhalt aus, er misst sich dann nicht neu (183 statt
+        # 813 px), und die Ansicht zeigt unter ihm.
         canvas = _canvas_of(area)
         top = canvas.canvasy(0) if canvas is not None else 0
         if canvas is not None:
@@ -152,7 +152,7 @@ def basetool_page(window, frame):
             canvas.after_idle(back)
 
     def on_status():
-        # „Gleiche gerade ab …" vom Knopfdruck gilt, bis ein Durchgang fertig
+        # Der Abgleich-Hinweis vom Knopfdruck gilt, bis ein Durchgang fertig
         # ist — dann steht dort sein Ergebnis.
         if not basetool_sync.STATUS.get('running'):
             login['requested'] = False
@@ -220,18 +220,17 @@ def _draw(window, area, login, redraw):
         if connected:
             _buttons(window, card, [(t('s_bt_trennen'), disconnect, 'danger')])
         elif not basetool_sync.enabled():
-            # ⚠ Erst ein Bereich, dann verbinden (28.09.2026, erster Test):
-            # Angefragt werden nur die Rechte eingeschalteter Bereiche. Wer mit
-            # ausgeschaltetem Schalter verband, bekam nur `exchange.connect`
-            # und musste danach ein zweites Mal im Browser zustimmen.
+            # ⚠ Erst ein Bereich, dann verbinden: Angefragt werden nur die
+            # Rechte eingeschalteter Bereiche. Wer mit ausgeschaltetem Schalter
+            # verbindet, bekommt nur `exchange.connect` und muss danach ein
+            # zweites Mal im Browser zustimmen.
             _note(window, card, t('s_bt_erst_bereich'), color=theme.YELLOW)
         else:
             _buttons(window, card, [(t('s_bt_verbinden'), connect, 'strong')])
 
     # --------------------------------------- Baupläne, Lager, Hangar
-    # ⚠⚠ Beim ersten Test (28.09.2026): „sehe nicht, ob Erlaubnis erteilen was
-    # tut" und „weiß nicht, wie ich bemerke, ob es klappt". Deshalb je Bereich
-    # genau EINE Aussage — Code läuft oben / Recht fehlt / Stand — und darunter
+    # ⚠⚠ Ob das Erteilen der Erlaubnis gewirkt hat und ob der Abgleich klappt,
+    # muss ablesbar sein. Deshalb je Bereich genau EINE Aussage — Code läuft oben / Recht fehlt / Stand — und darunter
     # eine gemeinsame Zeile mit dem letzten Abgleich.
     granted = set(conn.granted or status.get('capabilities') or ())
     for setting, scopes, title_key, help_key in (
@@ -478,8 +477,8 @@ def _listing(entries, names, limit=12):
 
 
 def _label_row(window, card, redraw):
-    """Der Name dieser Installation — so steht sie im Basetool unter
-    „Verbundene Anwendungen". ⚠ Nie der Rechnername."""
+    """Der Name dieser Installation — so steht sie im Basetool in der Liste
+    der verbundenen Anwendungen. ⚠ Nie der Rechnername."""
     from .main_window import round_entry
     row = tk.Frame(card, bg=SURFACE)
     row.pack(fill='x', padx=16, pady=(0, 10))
@@ -508,7 +507,7 @@ def _label_row(window, card, redraw):
 
     box.bind('<FocusOut>', keep)
     box.bind('<Return>', keep)
-    # ⚠ Erster Test (28.09.2026): „Was muss da stehen? Mein Handle?" — nein.
+    # ⚠ Der Hinweis erklärt, was hier hingehört — nicht das eigene Handle.
     _note(window, card, t('s_bt_name_h'))
 
 
@@ -581,7 +580,7 @@ def _start_login(window, login, redraw):
 def _copy(window, text):
     """In die Zwischenablage — und sagen, dass es geklappt hat.
 
-    Über `report.to_archive`, denselben Weg wie „Bericht kopieren": Der hält
+    Über `report.to_archive`, denselben Weg wie beim Kopieren des Berichts: Der hält
     die Ablage auch nach dem Beenden (`update()`) und schluckt Fehler."""
     from . import report
     if report.to_archive(text, window.root):
@@ -594,8 +593,7 @@ def _login_box(window, card, login, redraw):
         _note(window, card, t('s_bt_hole_code'))
         return
     _note(window, card, t('s_bt_code_h'), bottom=4)
-    # Code und Adresse je mit „Kopieren" — gewünscht beim ersten Test
-    # (28.09.2026: „Adresse nicht anklickbar", „auch nicht kopierbar").
+    # Code und Adresse je mit eigenem Kopieren-Knopf.
     # ⚠ Die Adresse ist die NACKTE `verification_uri` ohne Code; einen Link
     # mit eingebautem Code gibt es hier nirgends, auch nicht zum Kopieren.
     code_row = tk.Frame(card, bg=SURFACE)

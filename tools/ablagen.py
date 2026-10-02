@@ -54,15 +54,14 @@ def ablage_module(mit_fehlern=False):
     — als `(namen, fehler)`.
 
     ⚠⚠ **Ein uebersprungener Import ist ein BEFUND, kein Nebenergebnis.**
-    Die erste Fassung verschluckte ihn mit `except Exception: continue`, und
-    die Begruendung dazu war falsch: „faellt an anderer Stelle auf". Faellt es
-    nicht. Pruefung 190 vergleicht diese Menge mit einer zweiten Ermittlung —
-    die denselben Weg geht und denselben Import ueberspringt. Scheitert also
+    Verschluckt mit `except Exception: continue`, faellt er nirgends auf:
+    Pruefung 190 vergleicht diese Menge mit einer zweiten Ermittlung — die
+    denselben Weg geht und denselben Import ueberspringt. Scheitert also
     `selling`, fehlt es in **beiden** Mengen, der Vergleich bleibt gruen, und
     die Importpruefung danach sieht den Namen gar nicht erst.
 
     Zwei Ermittlungen mit demselben Algorithmus sind keine zwei Ermittlungen.
-    Deshalb wird der Fehlschlag jetzt nach oben gereicht.
+    Deshalb wird der Fehlschlag nach oben gereicht.
     """
     import scbp
     from scbp import uex

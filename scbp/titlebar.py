@@ -19,9 +19,8 @@
 """
 Die Titelleiste des Systems dunkel stellen (nur Windows).
 
-Das Fenster ist von innen komplett dunkel — und obendrauf sass eine **weisse**
-Leiste mit dem Fenstertitel und den drei Knoepfen. Am 31.08.2026 gemeldet:
-„die Kopfleiste ist weiss, das ist mega haesslich". Sie gehoert nicht zum
+Das Fenster ist von innen komplett dunkel — und obendrauf saesse eine **weisse**
+Leiste mit dem Fenstertitel und den drei Knoepfen. Sie gehoert nicht zum
 Programm, sondern zu Windows: Wer im System das helle Design faehrt, bekommt
 sie hell — egal, wie dunkel der Inhalt ist.
 
@@ -92,11 +91,9 @@ def set_dark(window):
 def redraw_frame(window):
     """Windows zwingen, den Fensterrahmen neu zu zeichnen.
 
-    ⚠⚠ **Ohne das bleibt die Leiste weiss.** Genau daran ist v3.6.0
-    gescheitert: `DwmSetWindowAttribute` meldete Erfolg, die Einstellung stand
-    auch — aber Windows zeichnet einen Rahmen, der bereits auf dem Bildschirm
-    ist, nicht von selbst neu. Am 31.08.2026 gemeldet: „Meine Leiste ist
-    weiss", mit Bildschirmfoto einer frisch gebauten 3.6.0.
+    ⚠⚠ **Ohne das bleibt die Leiste weiss.** `DwmSetWindowAttribute` meldet
+    Erfolg, die Einstellung steht auch — aber Windows zeichnet einen Rahmen,
+    der bereits auf dem Bildschirm ist, nicht von selbst neu.
 
     ⚠ **Und vorher geht es nicht.** Naheliegend waere, die Einstellung schon
     beim Bauen des Fensters zu setzen, bevor es je gezeichnet wurde — dann
@@ -149,8 +146,8 @@ def install():
             try:
                 # ⚠⚠ **Erst beim Anzeigen, nicht schon hier.** Naheliegend
                 # waere, die Einstellung gleich beim Bauen zu setzen — dann
-                # zeichnete Windows die Leiste von Anfang an richtig. Gemessen
-                # am 31.08.2026: **Zu diesem Zeitpunkt gibt es das Handle noch
+                # zeichnete Windows die Leiste von Anfang an richtig. Gemessen:
+                # **Zu diesem Zeitpunkt gibt es das Handle noch
                 # gar nicht** (`GetParent` liefert 0), der Aufruf ginge ins
                 # Leere und meldete das nicht einmal. Also nur `<Map>` — und
                 # dort dann mit erzwungenem Neuzeichnen.
@@ -174,17 +171,13 @@ def _once(window, attempt=0):
     Merker liefe das Neuzeichnen dutzendfach — jedes Mal, wenn jemand das
     Fenster aus der Taskleiste holt.
 
-    ⚠⚠ **Der Merker wird erst gesetzt, wenn es GEKLAPPT hat.** Bis zum
-    02.09.2026 stand er eine Zeile zu frueh — vor dem Versuch. Lieferte
-    `GetParent` in diesem Moment noch 0 (das Fenster war gemappt, der Rahmen
-    aber noch nicht fertig), gab `set_dark()` False zurueck, und das Fenster galt
-    trotzdem als erledigt: **fuer immer helle Leiste, ohne einen zweiten
-    Versuch.** Es war ein Wettlauf, deshalb sah es zufaellig aus — Overlay und
-    versteckte Fenster gewannen ihn, das jedes Mal neu gebaute Hauptfenster
-    verlor ihn. Gemessen am laufenden Programm: drei Fenster mit gesetztem
-    Attribut, das sichtbare Hauptfenster mit `DWMWA_USE_IMMERSIVE_DARK_MODE`
-    auf **0**. Setzen von Hand liess die Leiste sofort umschlagen — das Setzen
-    genuegt also, es wurde nur nie ausgefuehrt.
+    ⚠⚠ **Der Merker wird erst gesetzt, wenn es GEKLAPPT hat.** Stuende er vor
+    dem Versuch und lieferte `GetParent` in diesem Moment noch 0 (das Fenster
+    ist gemappt, der Rahmen aber noch nicht fertig), gaebe `set_dark()` False
+    zurueck, und das Fenster gaelte trotzdem als erledigt: **fuer immer helle
+    Leiste, ohne einen zweiten Versuch.** Das ist ein Wettlauf und sieht
+    deshalb zufaellig aus — Overlay und versteckte Fenster gewinnen ihn, das
+    jedes Mal neu gebaute Hauptfenster verliert ihn.
 
     ⚠ **Und bei Misserfolg wird der Merker NICHT gesetzt.** Dann versucht es
     das naechste `<Map>` erneut (Wiederherstellen aus der Taskleiste). Ein

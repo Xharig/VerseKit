@@ -21,9 +21,8 @@ Eine Tastenkombination, die auch im Spiel greift.
 
 Star Citizen laeuft im Vollbild und blendet den Mauszeiger aus. Wer nachsehen
 will, ob er einen Bauplan schon hat, muss heraustabben und das Fenster dann
-**blind** suchen und anklicken. Am 31.08.2026 als Nutzerwunsch gemeldet:
-„Hotkey um die Bauplanliste aufzurufen, da man in SC erst raustabben muss und
-die Maus ueber dem SC-Fenster nicht sichtbar ist."
+**blind** suchen und anklicken. Eine Tastenkombination holt die Bauplan-Liste
+direkt nach vorn.
 
 ## Was auf welchem System geht
 
@@ -40,16 +39,16 @@ Tastenkombinationen des Schreibtischs; `grund()` sagt das, und die
 Einstellungsseite zeigt den fertigen Befehl zum Hinterlegen. Der Doppelstart
 holt das laufende Programm schon heute nach vorn (siehe `overlay.please_show`).
 
-⚠ **Frueher stand hier: „unter Windows fragil".** Das galt fuer
-Tastatur-Haken (`SetWindowsHookEx`), die tief im System sitzen und von
-Virenwaechtern angefasst werden. `RegisterHotKey` ist etwas anderes: die dafuer
+⚠ **Unter Windows nicht fragil.** Fragil sind Tastatur-Haken
+(`SetWindowsHookEx`), die tief im System sitzen und von Virenwaechtern
+angefasst werden. `RegisterHotKey` ist etwas anderes: die dafuer
 vorgesehene Schnittstelle, seit Windows 95 unveraendert. Sie kann nur eines
 nicht — eine Kombination belegen, die schon jemand anders hat. Dann sagt sie
 das, und wir geben es weiter, statt so zu tun, als laege es an uns.
 
 ## Gelesen wird nicht mitgehoert
 
-⚠⚠ Es wird **eine** Kombination angemeldet, und das System weckt uns nur bei
+⚠⚠ Es wird **eine** Kombination registriert, und das System weckt uns nur bei
 genau dieser. Alles andere sieht das Programm nie — kein Mitschreiben, kein
 Zugriff auf das, was im Spiel getippt wird. Das ist der Unterschied zwischen
 `RegisterHotKey` und einem Tastatur-Haken, und er ist der Grund, warum hier
@@ -128,22 +127,20 @@ def possible():
 #
 # ⚠⚠ **Ein EIGENER Faden mit eigener Nachrichtenschlange — nicht der Tk-Faden.**
 # `RegisterHotKey(None, ...)` haengt die Kombination an den Faden, der anmeldet;
-# der Druck kommt dann als **Faden-Nachricht** in dessen Schlange an. Genau das
-# war bis v3.8.0 der Tk-Faden — und dort kam nie etwas an: Tk pumpt seine
+# der Druck kommt dann als **Faden-Nachricht** in dessen Schlange an. Im
+# Tk-Faden kommt dort nie etwas an: Tk pumpt seine
 # Schlange selbst mit `PeekMessage(NULL, 0, 0, PM_REMOVE)` und nimmt dabei
 # ALLES heraus, auch Faden-Nachrichten. Eine Faden-Nachricht hat kein Fenster,
 # also kann `DispatchMessage` sie niemandem zustellen — sie ist danach weg.
 # Wer wie wir 300 ms spaeter nachsieht, findet eine leere Schlange.
 #
-# ⚠ Gemessen am 31.08.2026, weil „geht bei mir nicht" allein keine Ursache ist:
-# dreimal `WM_HOTKEY` an den eigenen Faden geschickt, ohne Tk **3 von 3**
-# angekommen, mit laufendem Tk **0 von 3**. Das ist der ganze Fehler.
+# ⚠ Gemessen: dreimal `WM_HOTKEY` an den eigenen Faden geschickt, ohne Tk
+# **3 von 3** angekommen, mit laufendem Tk **0 von 3**.
 #
-# Deshalb meldet jetzt ein eigener Faden an und wartet dort mit `GetMessage`
+# Deshalb registriert ein eigener Faden und wartet dort mit `GetMessage`
 # auf **seiner** Schlange, die ihm niemand leerraeumt. Er setzt nur eine Fahne;
-# `poll()` nimmt sie im Tk-Takt herunter. Am Wesentlichen aendert das
-# nichts: Es kommt weiterhin ausschliesslich die eine angemeldete Kombination
-# an, mitgelesen wird nichts.
+# `poll()` nimmt sie im Tk-Takt herunter. Es kommt weiterhin ausschliesslich
+# die eine registrierte Kombination an, mitgelesen wird nichts.
 WM_HOTKEY = 0x0312
 WM_QUIT = 0x0012
 PM_NOREMOVE = 0x0000
@@ -255,8 +252,8 @@ class _Windows:
         try:
             import ctypes
             u32 = ctypes.windll.user32
-            # `WM_QUIT` beendet das `GetMessage` des Fadens; er meldet die
-            # Kombination selbst wieder ab, dort wo er sie angemeldet hat.
+            # `WM_QUIT` beendet das `GetMessage` des Fadens; er gibt die
+            # Kombination selbst wieder frei, dort wo er sie registriert hat.
             u32.PostThreadMessageW(ctypes.c_uint(tid), ctypes.c_uint(WM_QUIT),
                                    ctypes.c_size_t(0), ctypes.c_ssize_t(0))
         except Exception:
@@ -397,14 +394,14 @@ class _X11:
 class Watch:
     """Meldet die Kombination an und sagt auf Nachfrage, ob gedrückt wurde.
 
-    ⚠⚠ **Es wird NICHT mitgehört.** Angemeldet wird genau eine Kombination;
+    ⚠⚠ **Es wird NICHT mitgehört.** Registriert wird genau eine Kombination;
     alles andere sieht das Programm nie. Das ist der Unterschied zu einem
     Tastatur-Haken — und der Grund, warum hier nur dieser Weg in Frage kam.
 
     ⚠⚠ **Gewartet wird NEBEN Tk, gefragt wird im Tk-Takt.** Unter Windows
-    landet der Druck in der Schlange genau des Fadens, der angemeldet hat —
+    landet der Druck in der Schlange genau des Fadens, der registriert hat —
     und wenn das der Tk-Faden ist, räumt Tk ihn selbst weg, bevor jemand
-    nachsieht (gemessen am 31.08.2026: 0 von 3 kamen an). Deshalb hält ein
+    nachsieht (gemessen: 0 von 3 kamen an). Deshalb hält ein
     eigener Faden die Stellung und setzt eine Fahne; `poll()` nimmt sie
     im selben Takt wie die übrige Warteschlange herunter.
     """

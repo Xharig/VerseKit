@@ -19,14 +19,11 @@
 """
 Die Originaltexte des Spiels aus `Data.p4k` holen.
 
-Bis v2.0.0-rc9 gab es diesen Weg nur als Entwicklerwerkzeug
-(`tools/extract_global_ini.py`). Im Programm stand „Englisch — Originaltexte aus
-dem Spiel" zwar zur Auswahl, tat aber nichts: Es **prüfte nur**, ob schon eine
-englische `global.ini` dalag. War keine da — der Normalfall —, kam eine
-Fehlermeldung. Damit war die Bauplan-Auszeichnung faktisch an eine der beiden
-Fremdquellen gebunden.
+Eine englische `global.ini` liegt normalerweise nicht im Spielordner. Ohne
+diesen Weg wäre die Bauplan-Auszeichnung an eine der beiden Fremdquellen
+gebunden (siehe auch `tools/extract_global_ini.py`).
 
-Das ist unnötig, denn die Datei liegt auf jedem Rechner mit Star Citizen: im
+Die Datei liegt aber auf jedem Rechner mit Star Citizen: im
 `Data.p4k`. Es sind **144 GB**, aber nur eine von 1.364.115 Dateien wird
 gebraucht — gelesen werden das Inhaltsverzeichnis und genau ein Block.
 **0,2 Sekunden.**
@@ -39,7 +36,7 @@ Warum eigener Code und kein Fremdwerkzeug:
 * **7-Zip kann es nicht.** Es listet das Archiv zwar, scheitert aber beim
   Entpacken mit `Headers Error`: CIG komprimiert mit **Verfahren 100 = zstd**.
 * `compression.zstd` ist **ab Python 3.14 Standardbibliothek** — damit bleibt die
-  Projektregel „keine Zusatzpakete" unangetastet. Auf älterem Python wird
+  Projektregel (keine Zusatzpakete) unangetastet. Auf älterem Python wird
   `zstandard`/`pyzstd` versucht, sonst 7-Zip als letzter Strohhalm.
 """
 import io
@@ -53,7 +50,7 @@ from . import paths
 from .language import t
 
 # 7-Zip nur als letzter Strohhalm für altes Python. Es kann CIGs zstd meist
-# **nicht** — auf dem Testrechner scheiterte es mit „Headers Error". Der Eintrag
+# **nicht** — es scheitert mit `Headers Error`. Der Eintrag
 # bleibt für den Fall, dass jemand eine Version mit zstd-Unterstützung hat.
 SEVENZIP = [
     os.environ.get('SEVENZIP', ''),
@@ -287,12 +284,11 @@ def read_from_archive(sprache='english', spielordner=None, fortschritt=None):
     hat. Geschrieben wird hier **nichts**: keine Datei ins Spiel, kein
     `g_language` in die `user.cfg`, keine verworfenen Originaltexte.
 
-    ⚠⚠ **Warum getrennt von `fetch()`** (20.09.2026): Wer nur einen Namen
-    nachschlagen will, darf dem Spieler nicht die Spielsprache umstellen.
-    `fetch()` tut genau das — und das ist dort auch richtig, denn dort hat er
-    es angefordert. Beide gehen jetzt über **diesen** Lesevorgang; zwei eigene
-    Schleifen über dasselbe Archiv wären die Art von Doppelpflege, an der hier
-    schon einmal die Hälfte der Nutzer vorbeigelaufen ist.
+    ⚠⚠ **Warum getrennt von `fetch()`:** Wer nur einen Namen nachschlagen
+    will, darf dem Spieler nicht die Spielsprache umstellen. `fetch()` tut
+    genau das — und das ist dort auch richtig, denn dort hat er es
+    angefordert. Beide gehen über **diesen** Lesevorgang; zwei eigene
+    Schleifen über dasselbe Archiv wären Doppelpflege.
     """
     def melde(text):
         if fortschritt:
@@ -331,25 +327,23 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
     Geschrieben wird direkt an den Ort, an dem das Spiel sie erwartet. Eine
     **vorhandene fremde Datei wird nicht angetastet** — dort könnte die
     Übersetzung eines anderen Projekts liegen, und die zu überschreiben, weil
-    jemand auf „Originaltexte" geklickt hat, wäre ein handfester Verlust.
+    jemand die Originaltexte gewählt hat, wäre ein handfester Verlust.
 
-    ⚠⚠ **Mit einer Ausnahme, seit 15.09.2026: eine Datei, die das Werkzeug
-    SELBST hingelegt hat.** Wer im Werkzeug StarStrings wählt, bekommt
-    MrKrakens Datei nach `english/` — genau dorthin, wo „Original" schreibt.
-    Bis dahin galt sie beim Wechsel auf „Original" als fremd und blieb liegen,
-    samt MrKrakens Kennzeichnungen; „Original" war damit gar nicht das
-    Original. Gemeldet von zwaersch. Was das Werkzeug selbst eingesetzt und
-    vermerkt hat, ersetzt es auch wieder — siehe `_placed_by_us()`.
+    ⚠⚠ **Mit einer Ausnahme: eine Datei, die das Werkzeug SELBST hingelegt
+    hat.** Wer im Werkzeug StarStrings wählt, bekommt MrKrakens Datei nach
+    `english/` — genau dorthin, wo `original` schreibt. Gälte sie beim
+    Wechsel als fremd, bliebe sie samt MrKrakens Kennzeichnungen liegen, und
+    das Original wäre gar nicht das Original. Was das Werkzeug selbst
+    eingesetzt und vermerkt hat, ersetzt es auch wieder — siehe
+    `_placed_by_us()`.
 
     ⚠ **Die Datei allein reicht nicht.** Ohne `g_language` in der `user.cfg`
     liest Star Citizen sie gar nicht erst, sondern bleibt bei den Texten aus
     dem Archiv — und dann steht am Traktorstrahl weiter nur der nackte Name.
     Wer englisch spielt, hat diesen Ordner nämlich **gar nicht**; er entsteht
-    erst hier. Genau deshalb steht der Eintrag jetzt in dieser Funktion und
-    nicht bei den Aufrufern: Dort stand er zweimal, in `wizard.py` und in
-    `settings_window.py`, und ein dritter Weg hätte ihn vergessen.
-    (Hinweis von gemeldet, 27.08.2026: „auch da ist dann die user cfg wieder
-    mit wichtig, sonst kann man das nie ohne eine übersetzung nutzen.")
+    erst hier. Genau deshalb steht der Eintrag in dieser Funktion und nicht
+    bei den Aufrufern (`wizard.py`, `settings_window.py`) — ein weiterer Weg
+    vergäße ihn sonst.
 
     `sprache_eintragen=False` lässt die `user.cfg` in Ruhe — für Werkzeuge,
     die nur an die Datei wollen, ohne die Installation umzustellen."""
@@ -406,17 +400,15 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
 def _placed_by_us(sprache):
     """Welche Fremdquellen DIESES Werkzeug in den Sprachordner gelegt hat.
 
-    ⚠⚠ Gemeldet von zwaersch am 15.09.2026: StarStrings im Werkzeug gewählt,
-    danach „Original" — und MrKrakens Kennzeichnungen standen weiter im Spiel.
-    `fetch()` ließ eine vorhandene Datei grundsätzlich liegen, weil sie von
-    einem fremden Projekt stammen könnte. Das stimmt für eine von Hand
-    hingelegte Datei — nicht für eine, die das Werkzeug selbst eingesetzt und
-    dabei vermerkt hat (`translation.installed`). „Original" heißt dann: die
-    eigene Fremdquelle raus, das Original rein.
+    ⚠⚠ `fetch()` lässt eine vorhandene Datei liegen, weil sie von einem
+    fremden Projekt stammen könnte. Das stimmt für eine von Hand hingelegte
+    Datei — nicht für eine, die das Werkzeug selbst eingesetzt und dabei
+    vermerkt hat (`translation.installed`, etwa StarStrings). Der Wechsel auf
+    `original` heißt dann: die eigene Fremdquelle raus, das Original rein.
 
-    Gibt die Quellen-Kennungen zurück; leer heißt „die Datei ist fremd oder es
-    gibt keine". Wirft nie — ein Fehler im Vermerk darf den Abruf nicht
-    anhalten, dann gilt die alte, vorsichtige Regel.
+    Gibt die Quellen-Kennungen zurück; leer heißt: die Datei ist fremd oder
+    es gibt keine. Wirft nie — ein Fehler im Vermerk darf den Abruf nicht
+    anhalten, dann gilt die vorsichtige Regel (liegen lassen).
     """
     from . import translation
     try:

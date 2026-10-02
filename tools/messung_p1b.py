@@ -19,16 +19,16 @@
 """
 Messungen für das Ein-Klick-Update unter Windows (Paket P1b-1).
 
-⚠⚠ **Über Inno Setup wird nichts geglaubt, was nicht gemessen wurde.** Fünf
-Anläufe am Windows-Update sind daran gescheitert, dass eine plausible
-Erklärung ungeprüft übernommen wurde. Dieses Werkzeug baut nichts am Programm
+⚠⚠ **Über Inno Setup wird nichts geglaubt, was nicht gemessen wurde.** Eine
+plausible, aber ungeprüfte Erklärung führt beim Windows-Update in die Irre.
+Dieses Werkzeug baut nichts am Programm
 — es stellt Fragen an einen echten Installer und schreibt die Antworten auf.
 
 **Wo es läuft:** im Bau-Ablauf `messung-p1b.yml` auf `windows-latest`. Dort
 verhält sich Inno Setup genauso wie bei jedem Nutzer. **Nicht** messbar ist
 dort, was an einem echten Arbeitsplatz hängt: der Echtzeitschutz von Defender
 (auf den Bau-Rechnern abgeschaltet), ein Klick auf „Abbrechen", eine Anmeldung
-mitten im Update. Diese Fragen bleiben für den Windows-Rechner des Autors.
+mitten im Update. Diese Fragen brauchen einen echten Windows-Rechner.
 
 **Was gemessen wird**
 
@@ -108,8 +108,8 @@ INNO_STAMP = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3})')
 # ⚠⚠ Ohne sie bleibt der gebaute Watcher im Einrichtungsassistenten stehen und
 # wartet auf einen Klick, den im Bau-Ablauf niemand macht. Der Instanz-Wächter
 # startet aber erst danach (`Overlay.run()`, direkt vor `mainloop()`) — der
-# Port wird nie geöffnet. Genau so im ersten Lauf am 11.09.2026: M4, M5 und M6
-# liefen grün durch und hatten nichts gemessen.
+# Port wird nie geöffnet — M4, M5 und M6 liefen grün durch und hätten nichts
+# gemessen.
 SEEDED_SETTINGS = {'einrichtung_fertig': True, 'einrichtung_ohne_spiel': True}
 WATCHER_WAIT = 60           # Sekunden, bis der Watcher lauschen muss
 
@@ -136,7 +136,7 @@ def program_style_command(setup, target_dir, log_file):
 
 
 def program_style_env(compat_layer=None):
-    """Die Umgebung, wie das Programm sie säubert — auf Wunsch mit Kennung."""
+    """Die Umgebung, wie das Programm sie säubert — wahlweise mit Kennung."""
     env = dict(os.environ)
     for name in ('_MEIPASS', '_MEIPASS2', 'TCL_LIBRARY', 'TK_LIBRARY',
                  'TIX_LIBRARY', 'MATPLOTLIBDATA', '__COMPAT_LAYER'):
@@ -371,11 +371,11 @@ def m3b_dying_parent(setup, work, out):
 
 
 def m3c_compat_layer(setup, work, out):
-    """M3c: Versuch, den alten Fehler nachzustellen — mit Kompatibilitäts-Kennung.
+    """M3c: Versuch, einen Abbruch durch Kompatibilitäts-Kennung nachzustellen.
 
-    ⚠ Ausdrücklich ein **Versuch**. Welchen Wert Windows damals gesetzt hat,
-    stand nur als „DetectorsAppHealth" im Protokoll; ob der Wert hier dieselbe
-    Wirkung hat, ist genau die Frage.
+    ⚠ Ausdrücklich ein **Versuch**. Bekannt ist nur der Eintrag
+    „DetectorsAppHealth" im Protokoll; ob der Wert hier dieselbe Wirkung hat,
+    ist genau die Frage.
     """
     target = os.path.join(work, 'm3c_ziel')
     log = os.path.join(out, 'm3c_kompat_setup.log')
@@ -559,8 +559,8 @@ def main(argv):
     # ⚠ Ein Befund ist ein Ergebnis, kein Fehlschlag — deshalb bleibt der
     #   Lauf auch bei „Installer scheitert" grün. Rot wird er nur, wenn das
     #   Werkzeug selbst nichts gemessen hat: Drift im Programm, oder eine
-    #   Messung ungültig bzw. abgestürzt. Der erste Lauf war trotz drei leerer
-    #   Messungen grün — genau das soll nicht wieder durchrutschen.
+    #   Messung ungültig bzw. abgestürzt. Leere Messungen dürfen nicht grün
+    #   durchrutschen.
     return 0 if drift['ok'] and not invalid_ids(report) else 1
 
 

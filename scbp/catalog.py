@@ -22,14 +22,13 @@ Der Bauplan-Katalog: welche Baupläne es gibt — und woher sie kommen.
 Zwei Fragen beantwortet dieses Modul:
 
   **Was gibt es überhaupt?** 714 Baupläne (Stand 4.9.0). Das ist etwas anderes
-  als „was ist craftbar": Die Datei `crafting_items` zählt 1573 Gegenstände,
+  als alles Craftbare: Die Datei `crafting_items` zählt 1573 Gegenstände,
   aber für die meisten davon droppt nie ein Bauplan. Für eine Liste zum Abhaken
   wäre die große Zahl irreführend.
 
   **Woher bekomme ich einen bestimmten?** Fraktion, Auftrag, nötiger Ruf,
-  Belohnung. Für 655 der 714 (92 %) ist das auflösbar. **Genau das kann der
-  SC Deutsch Launcher nicht** — „mir fehlt X" ist die halbe Information,
-  „X droppt bei Fraktion Y ab Rang Z" ist die ganze.
+  Belohnung. Für 655 der 714 (92 %) ist das auflösbar. Dass X fehlt, ist die
+  halbe Information; dass X bei Fraktion Y ab Rang Z droppt, ist die ganze.
 
 Die Kette durch die Daten von scmdb.net:
 
@@ -69,11 +68,10 @@ class Rejected(Exception):
     sein — sonst sucht man den Fehler bei sich."""
 
 
-# ⭐ **Zwei Adressen für dieselben Daten** (seit 29.08.2026).
+# ⭐ **Zwei Adressen für dieselben Daten.**
 #
-# Krovax (scmdb) hat auf Anfrage einen **öffentlichen Spiegel** eingerichtet,
-# ausdrücklich für Programme: „Public mirror of SCMDB's static data JSONs for
-# programmatic consumers." Der ist die erste Wahl, denn:
+# scmdb stellt einen **öffentlichen Spiegel** bereit, ausdrücklich für
+# Programme. Der ist die erste Wahl, denn:
 #
 #   * **kein Bot-Schutz davor.** scmdb.net steht hinter Cloudflare; dessen
 #     Regeln können sich ändern, ohne dass hier jemand etwas tut — und dann
@@ -96,25 +94,17 @@ CACHE = 'katalog-cache.json'
 # reicht das nicht: Wer schon einen Katalog auf der Platte hat, behielte den
 # alten bis zum nächsten Patch — der Umbau wäre für ihn unsichtbar.
 #
-# Am 28.08.2026 genau so aufgefallen: `_missionen()` führt seither die
-# Preisstufen eines Auftrags zusammen (797 Baupläne, die vorher niemand sah).
-# Ohne diese Nummer hätte kein einziger Tester den Fix zu Gesicht bekommen.
-#
 # **Hochzählen, sobald `_missionen()` oder `_herkunft()` etwas anders ablegen.**
 #
-# 3 (13.09.2026): `_contracts()` kam dazu — jeder Vertrag einzeln, mit seiner
-# eigenen Bauplanliste und seinem System. Ohne Hochzählen behielte jeder
-# vorhandene Katalog die zusammengefasste Liste, und die Regionsanzeige wäre
-# für Bestandsnutzer bis zum nächsten Patch unsichtbar.
+# 3: `_contracts()` — jeder Vertrag einzeln, mit seiner eigenen Bauplanliste
+# und seinem System.
 #
-# 4 (26.09.2026): Der Gütegrad kommt aus CIGs eigener Sprachdatei, scmdb nur
-# noch als Rückfall (siehe `game_grades()`). Ohne Hochzählen stünden Draug,
-# Elsen und Pelerous bei jedem Bestandsnutzer weiter als „A" da.
+# 4: Der Gütegrad kommt aus CIGs eigener Sprachdatei, scmdb nur als Rückfall
+# (siehe `game_grades()`).
 #
-# 5 (28.09.2026): Auch Baupläne **ohne bekannten Weg** stehen jetzt im Katalog
-# (`ohne_weg`) — 853 zu vorher 738. Ohne Hochzählen bliebe der Schalter „Auch
-# Baupläne ohne bekannten Weg" bei jedem Bestandsnutzer wirkungslos, denn sein
-# Katalog kennt diese Einträge gar nicht. Anlass: Choopa (28.09.2026).
+# 5: Auch Baupläne **ohne bekannten Weg** stehen im Katalog (`ohne_weg`).
+# Ohne Hochzählen bliebe der Schalter „Auch Baupläne ohne bekannten Weg"
+# wirkungslos, denn ein vorhandener Katalog kennt diese Einträge gar nicht.
 #
 # 6: `_missions()` legt je Auftragstext die Baupläne je System ab
 # (`je_system`), für die getrennten Listen im Auftragstext.
@@ -124,16 +114,16 @@ FORMAT = 6
 # werden? ⛔ Standard **aus** — der Fortschritt bleibt damit die Zahl, die
 # Bestandsnutzer kennen (738), und wer mehr sehen will, schaltet es ein.
 SETTING_ALL = 'alle_bauplaene'
-# ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — Krovax hat die Nutzung dem
-# alten Namen gegenüber freigegeben; wer danach filtert, erkennt uns weiter.
+# ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — die Nutzungsfreigabe gilt dem
+# alten Namen; wer danach filtert, erkennt uns weiter.
 USER_AGENT = ('VerseKit/2.0 (ehemals SC-BP-Watcher) '
               '(+https://github.com/Xharig/VerseKit)')
 TIMEOUT = 120
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 
 # Die Bezeichnungen der Arten stehen im Sprachmodul — sie sind Oberflächentext
-# und müssen mit umschalten. „Char_Armor_Helmet" ist nichts, was ein Mensch
-# lesen sollte, und „Helm" nichts, was in einer englischen Liste stehen darf.
+# und müssen mit umschalten. `Char_Armor_Helmet` ist nichts für die Anzeige,
+# und das deutsche Wort gehört nicht in eine englische Liste.
 def reward_cap(catalog_data, blueprint_key):
     """Kann man sich diesen Bauplan durch **zu hohen Ruf** aussperren?
 
@@ -152,10 +142,11 @@ def reward_cap(catalog_data, blueprint_key):
     gibt es hier `None`. Nur wenn **alle** Wege gedeckelt sind, zählt der
     höchste; bis dahin ist Zeit.
 
-    ⚠ Der **eigene** Ruf-Stand steht nicht in der `Game.log` — nachgemessen am
-    30.08.2026 über 22 Protokolle: Dort taucht `reputation` ausschließlich als
+    ⚠ Der **eigene** Ruf-Stand steht nicht in der `Game.log` — nachgemessen
+    über 22 Protokolle: Dort taucht `reputation` ausschließlich als
     Verbindungszeile zu CIGs `ReputationService` auf, nie ein Wert. Deshalb
-    sagt diese Auskunft „ab wann zu", nicht „dir bleiben noch 4.200".
+    sagt diese Auskunft, ab wann der Weg zu ist, nicht wie viel Ruf noch
+    bleibt.
     """
     paths = []
     for mission in (catalog_data.get('missionen') or {}).values():
@@ -174,20 +165,17 @@ def reward_cap(catalog_data, blueprint_key):
 def blueprints_for_contract(catalog_data, title):
     """Welche Bauplan-Schlüssel gibt dieser Auftrag her? (Menge, ggf. leer)
 
-    ⛔⛔ **Die EINE Stelle, die einen angezeigten Auftragstitel auflöst.**
-    Vorher rechneten zwei Seiten es sich selbst aus — jede mit einem
-    **wörtlichen** Vergleich gegen `q['auftrag']`:
+    ⛔⛔ **Die EINE Stelle, die einen angezeigten Auftragstitel auflöst** —
+    für `seiten._to_contract()` (ob anklickbar) und
+    `bestandsfenster.zum_auftrag()` (Liste umstellen).
 
-        seiten._to_contract()            (ob anklickbar)
-        bestandsfenster.zum_auftrag()    (Liste umstellen)
-
-    Das trifft alles, was aus der Liste selbst kommt, und **nichts**, was aus
-    dem Spiel kommt: In den Herkunftsdaten steht der Auftrag mit Platzhalter,
+    Ein **wörtlicher** Vergleich gegen `q['auftrag']` trifft alles, was aus
+    der Liste selbst kommt, und **nichts**, was aus dem Spiel kommt: In den
+    Herkunftsdaten steht der Auftrag mit Platzhalter,
 
         'Stop Rival Attack at [LOCATION]'
 
     im Spiel heißt er `'Stop Rival Attack at Asteroiden Bergbaubasis'`.
-    Gemeldet am 13.09.2026 — 55 Baupläne, und die Zeile war tot.
 
     **Zwei Wege, in dieser Reihenfolge:**
 
@@ -231,8 +219,8 @@ def contract_traits(catalog_data, blueprint_key):
     Gibt `{'teilbar': bool|None, 'sperre': Minuten|None}` zurück — beides aus
     CIGs eigenen Vertragsdaten (`canBeShared`, `personalCooldownTime`).
 
-    ⚠ **Teilbar nur, wenn ALLE Wege es sind.** „Den könnt ihr zu fünft laufen"
-    darf nicht dastehen, wenn es nur für einen von vier Aufträgen gilt — dann
+    ⚠ **Teilbar nur, wenn ALLE Wege es sind.** Gilt es nur für einen von vier
+    Aufträgen und steht trotzdem als teilbar da, dann
     steht die Staffel am falschen Auftrag. 334 der 353 sind teilbar, die
     Ausnahme ist also selten und genau deshalb wichtig.
 
@@ -295,14 +283,12 @@ def kind_readable(raw):
 # ⚠ scmdb führt Magazine unter zwei Kennungen: 32 als `WeaponAttachment`
 # (alle mit Subtyp „Magazine", nichts anderes steckt darin) und die beiden
 # Start-Magazine als `ammo`. Für den Spieler ist das ein und dieselbe Sache —
-# gemeldet als „Magazin für Waffen fehlen quasi alle Waffen bis auf 2": Der
-# Filter „Magazin" zeigte die zwei, die 32 anderen standen unter
-# „Waffenaufsatz".
+# ungebündelt zeigt der Filter Magazin nur die zwei, die 32 anderen stehen
+# unter Waffenaufsatz.
 #
 # ⚠ Derselbe Fall bei den Handfeuerwaffen: 87 stehen als `WeaponPersonal` da, die
-# S-38 Pistol und das P4-AR Rifle als `weapons`. Im Fenster ergab das zwei
-# Gruppen — „FPS-Waffe (87)" und „Handfeuerwaffe (2)" — für ein und dieselbe
-# Sache. Wer nach FPS-Waffen filtert, sucht auch die beiden.
+# S-38 Pistol und das P4-AR Rifle als `weapons`. Ungebündelt ergäbe das zwei
+# Gruppen für ein und dieselbe Sache. Wer nach FPS-Waffen filtert, sucht auch die beiden.
 KIND_MERGE = {'ammo': 'WeaponAttachment', 'weapons': 'WeaponPersonal'}
 
 
@@ -319,12 +305,10 @@ def kind_id(entry_or_raw):
 
 # So viele Bezugsquellen je Bauplan werden behalten.
 #
-# Stand 24.08.2026 **gemessen** am Dump 4.9.0-live.12344265 (655 Baupläne mit
-# Quelle): Median 4 Wege, Mittelwert 5,8, Höchstwert 73. Die frühere Grenze von
-# 3 hat damit **54 %** aller Baupläne Wege abgeschnitten — die Annahme „einer
-# reicht, man nimmt ohnehin den leichtesten" war falsch. Sie stimmt nur, solange
-# man den leichtesten auch fliegen *will*: Wer gerade bei einer anderen Fraktion
-# Ruf sammelt, braucht den zweiten oder dritten Weg.
+# **Gemessen** am Dump 4.9.0-live.12344265 (655 Baupläne mit Quelle):
+# Median 4 Wege, Mittelwert 5,8, Höchstwert 73. Eine Grenze von 3 schnitte
+# **54 %** aller Baupläne Wege ab. Ein Weg reicht nicht: Wer gerade bei einer
+# anderen Fraktion Ruf sammelt, braucht den zweiten oder dritten.
 #
 # Bei 12 verliert genau **ein** Bauplan etwas (der mit 73 Vorkommen). Angezeigt
 # wird trotzdem nur der leichteste; der Rest steht hinter „weitere Wege".
@@ -419,8 +403,8 @@ def _values(raw_items):
 
     ⚠ `_name` trägt den Namen in seiner **Schreibweise aus dem Spiel** mit —
     der Schlüssel ist die Vergleichsform und taugt nicht zum Anzeigen
-    („a03 'canuto' sniper rifle"). Gebraucht wird er seit dem 28.09.2026 für
-    die Baupläne ohne bekannten Weg: Sie kommen nur aus dieser Datei, es gibt
+    (`a03 'canuto' sniper rifle`). Gebraucht wird er für die Baupläne ohne
+    bekannten Weg: Sie kommen nur aus dieser Datei, es gibt
     also keine zweite Stelle, die ihren Namen kennt.
 
     ⛔ Unterstrich-Schlüssel sind **innerlich** und gehören nicht in den
@@ -482,10 +466,9 @@ def game_grades():
     """Die Gütegrade laut Spiel — `{Vergleichsname: 1–4}`, leer ohne Spiel.
 
     ⚠⚠ **scmdb liegt beim Gütegrad nachweislich daneben.** Gegen CIGs
-    englische Sprachdatei verglichen (4.10.1, 26.09.2026): Von 305
-    Schiffskomponenten weichen drei ab — Draug (scmdb A, Spiel C), Elsen
-    (A statt B) und Pelerous (A statt C). Elsen ist seit August bekannt und
-    bei scmdb bis heute nicht behoben. Deshalb gilt: **Spiel vor scmdb.**
+    englische Sprachdatei verglichen (4.10.1): Von 305 Schiffskomponenten
+    weichen drei ab — Draug (scmdb A, Spiel C), Elsen (A statt B) und
+    Pelerous (A statt C). Deshalb gilt: **Spiel vor scmdb.**
 
     Gelesen wird die **Originaldatei aus der `Data.p4k`**, nicht eine lose
     `global.ini` im Spielordner — die kann von einem anderen Werkzeug
@@ -525,16 +508,16 @@ def apply_game_grades(values_, grades):
 
 # So viele Annahmeorte werden genannt. Mehr hilft niemandem: Wer den Auftrag
 # sucht, fliegt den nächsten an — eine Aufzählung von fünfzehn Lagrange-Punkten
-# beantwortet die Frage „wo hole ich den?" schlechter als drei Planeten.
+# beantwortet die Frage nach dem Ort schlechter als drei Planeten.
 PLACES_PER_CONTRACT = 4
 
 
 def _pickup_places(contract, places_pool):
     """Wo sich der Auftrag annehmen lässt — System und die größeren Orte.
 
-    Von der Orga gemeldet: „Man sieht, wo es den Bauplan gibt, aber nicht, wo
-    man die Mission annehmen muss." Die Angabe steckt in `locations` als
-    Kennungen; aufgelöst werden sie über `locationPools`.
+    Ergänzt die Herkunft des Bauplans um den Ort, an dem die Mission
+    angenommen wird. Die Angabe steckt in `locations` als Kennungen;
+    aufgelöst werden sie über `locationPools`.
 
     Planeten zuerst, danach der Rest — ein Planetenname ist die Auskunft, mit
     der ein Spieler etwas anfangen kann; „HUR L2" hilft nur, wenn man ohnehin
@@ -722,24 +705,19 @@ def _missions(merged):
                        if b.get('name')]
     reward_pools = merged.get('factionRewardsPools') or []
 
-    # ⚠ **Ein Schlüssel, viele Verträge — der Fehler vom 28.08.2026.**
-    # Hier stand am Ende `ergebnis[titel_key or text_key] = eintrag`. Verträge,
-    # die sich einen Textschlüssel teilen, haben sich damit gegenseitig
-    # überschrieben: Der zuletzt eingelesene gewann, alle anderen fielen still
-    # weg. Gemessen am Dump 4.10.0-live.12519617:
+    # ⚠ **Ein Schlüssel, viele Verträge.** Mit einem schlichten
+    # `ergebnis[titel_key or text_key] = eintrag` überschreiben sich Verträge,
+    # die sich einen Textschlüssel teilen, gegenseitig: Der zuletzt
+    # eingelesene gewinnt, alle anderen fallen still weg. Gemessen am Dump
+    # 4.10.0-live.12519617:
     #
     #     353 Schlüssel, davon 123 mehrfach belegt
     #     319 Verträge fielen weg
     #     797 Bauplan-Einträge wurden dadurch nie angezeigt
     #
-    # Gemeldet hat es Morkhan: „ich bekomme nicht angezeigt welche baupläne ich
-    # beim neulingsauftrag bekommen kann, sondern NUR die auf der höchsten
-    # stufe." Es war nicht die höchste Stufe — es war die zuletzt gelesene.
-    #
-    # Jetzt werden alle Varianten **zusammengeführt**: Die Liste zeigt, was der
-    # Auftragstyp überhaupt hergibt, das Kästchen sagt, was man davon hat.
-    # Dazu am 28.08.2026: „wenn es den da nicht gibt ist das egal, er
-    # hat ihn, also gehört er abgehakt PUNKT."
+    # Deshalb werden alle Varianten **zusammengeführt**: Die Liste zeigt, was
+    # der Auftragstyp überhaupt hergibt, das Kästchen sagt, was man davon hat —
+    # auch wenn die Stufe, an der man gerade steht, den Bauplan nicht hergibt.
     raw = {}
     for contract in ((merged.get('contracts') or [])
                     + (merged.get('legacyContracts') or [])):
@@ -749,11 +727,10 @@ def _missions(merged):
 
     result = {}
     for key, variants in raw.items():
-        # ⚠ Varianten **ohne** Baupläne bleiben in `gesehen` mit dabei. Vorher
-        # flogen sie sofort raus — dadurch war nicht mehr erkennbar, dass es
-        # Stufen dieses Auftrags gibt, die leer ausgehen. 14 Auftragstexte sind
-        # so gebaut, darunter Morkhans Beispiel: Die Trainee-Stufe schüttet
-        # nichts aus, hängt aber am selben Text wie die beiden höheren.
+        # ⚠ Varianten **ohne** Baupläne bleiben in `gesehen` mit dabei. Sonst
+        # wäre nicht erkennbar, dass es Stufen dieses Auftrags gibt, die leer
+        # ausgehen. 14 Auftragstexte sind so gebaut, etwa eine Trainee-Stufe,
+        # die nichts ausschüttet, aber am selben Text hängt wie die höheren.
         seen = []
         for v in variants:
             names = []
@@ -785,18 +762,17 @@ def _missions(merged):
         # Ab welchem Rang ein Bauplan überhaupt zu haben ist. Nur dort, wo sich
         # die Stufen wirklich unterscheiden — sonst stünde an jedem dasselbe.
         # Das ist reine Zusatzinfo: Sie ändert weder Kästchen noch Auswahl,
-        # sondern beantwortet „warum finde ich den hier gerade nicht".
+        # sondern erklärt, warum ein Bauplan auf der aktuellen Stufe fehlt.
         from_rank = {}
         if len(set(g['rep'] for g in with_bp)) > 1:
             for name in all_names:
                 q = _easiest([g for g in with_bp if name in g['namen']])
                 if q['rang'] and q['rep']:
                     from_rank[name] = {'rang': q['rang'], 'rep': q['rep']}
-            # ⚠ **Nur wenn es die Baupläne unterscheidet.** Beim ersten Anlauf
-            # stand die Angabe an *jedem* Bauplan derselbe Auftrags — zwölfmal
-            # „erst ab Sr. Contractor" untereinander. Das ist kein Wissen,
-            # sondern Lärm: Gilt für alle derselbe Rang, steht er ohnehin oben
-            # unter „Min. Reputation". Die Zeile lohnt sich erst, wenn ein
+            # ⚠ **Nur wenn es die Baupläne unterscheidet.** Sonst stünde an
+            # *jedem* Bauplan desselben Auftrags derselbe Rang untereinander —
+            # Lärm, denn gilt für alle derselbe Rang, steht er ohnehin oben bei
+            # der Mindest-Reputation. Die Zeile lohnt sich erst, wenn ein
             # Bauplan einen *höheren* Rang braucht als ein anderer.
             if len(set((b['rang'], b['rep']) for b in from_rank.values())) < 2:
                 from_rank = {}
@@ -804,7 +780,7 @@ def _missions(merged):
         easy = _easiest(with_bp)
         contract = easy['vertrag']
         rewards = contract.get('blueprintRewards') or []
-        # „Sicher" und „Chance" über **alle** Varianten: Wenn irgendeine den
+        # Sicher und Chance über **alle** Varianten: Wenn irgendeine den
         # Bauplan garantiert gibt, ist er erreichbar.
         sure = any(r.get('chance') == 1 for g in with_bp
                      for r in (g['vertrag'].get('blueprintRewards') or []))
@@ -885,16 +861,16 @@ def _contracts(merged):
     """Jeder Vertrag einzeln — die **Gegenrichtung** zu `_missions()`.
 
     `_missions()` fasst alle Varianten eines Auftragstexts zusammen; das muss
-    so sein (siehe dort: Morkhans Fund vom 28.08.2026, 319 Verträge fielen
-    still weg). Für die Anzeige ist es aber zu grob:
+    so sein (siehe dort: sonst fallen 319 Verträge still weg). Für die Anzeige
+    ist es aber zu grob:
 
         Foxwell_DefendEntitesAndEscort_H_Title   54 Baupläne   (zusammengefasst)
           ├─ …_Nyx_Hard       23
           ├─ …_Pyro_Hard      19
           └─ …_Stanton_Hard   12
 
-    Wer den Auftrag in Nyx annimmt, sieht im Spiel **23** — und der Watcher
-    meldete 54. Die Liste ist nicht falsch, aber sie beantwortet die Frage
+    Wer den Auftrag in Nyx annimmt, sieht im Spiel **23** — die
+    zusammengefasste Liste sagt 54. Sie ist nicht falsch, aber sie beantwortet die Frage
     nicht, die der Spieler hat.
 
     ⭐ Und der Log nennt den Vertrag selbst:
@@ -905,7 +881,7 @@ def _contracts(merged):
     Platzhalter, keine Sprache — und keine Namensabbildung über den Tippfehler
     `Entities`/`Entites` in der Quelle.
 
-    ⚠ An 157 Log-Sicherungen gemessen (13.09.2026): **687 von 707** Annahmen
+    ⚠ An 157 Log-Sicherungen gemessen: **687 von 707** Annahmen
     lassen sich so zuordnen (97,2 %). Die übrigen fallen auf den Titelweg
     zurück — deshalb bleibt `_missions()` vollständig erhalten.
 
@@ -1004,15 +980,12 @@ def build(version=None, progress=None, from_file=None):
 
     # ---- Und alles Übrige, was das Spiel überhaupt herstellen lässt ----
     #
-    # ⭐ Vorschlag von Choopa (28.09.2026): „einen Toggle zu setzen in den
-    # Settings — dann kann man die selber ein- und ausblenden."
-    #
     # Bis hierher steht im Katalog nur, was ein Belohnungs-Topf ausschüttet
     # (738). `crafting_items` kennt aber **alle** herstellbaren Gegenstände
     # (1591) — die Datei wird oben ohnehin schon geholt, es ist also keine
     # neue Quelle, sondern dieselbe vollständiger ausgewertet.
     #
-    # Die Übrigen sind nicht „weg", sie haben nur keinen bekannten Weg: teils
+    # Die Übrigen fehlen nicht im Spiel, sie haben nur keinen bekannten Weg: teils
     # über Kioske zu bekommen, teils aus Events, teils noch keiner Mission
     # zugeordnet. Sie tragen `ohne_weg` und bleiben **standardmäßig
     # unsichtbar** (siehe `SETTING_ALL` und `load()`).
@@ -1026,34 +999,31 @@ def build(version=None, progress=None, from_file=None):
     # ---- Was hat dieser Patch gebracht? ----
     #
     # Verglichen wird gegen **alle je gesehenen** Baupläne, nicht gegen den
-    # Katalog von letzter Woche. Der Unterschied ist der ganze Grund für
-    # `patchhistory`: Am 26.08.2026 meldete der Vergleich gegen den letzten
-    # Katalog 74 Zugänge, von denen 53 längst im Spiel waren — die Quelle hatte
-    # sie zwischendurch schlicht nicht geführt.
+    # vorigen Katalog. Der Unterschied ist der ganze Grund für
+    # `patchhistory`: Führt die Quelle einen Bauplan zwischendurch nicht, gälte
+    # er gegen den vorigen Katalog beim Wiederauftauchen fälschlich als neu.
     #
     # ⚠ Ist noch nichts gesehen worden (erster Katalogbau überhaupt), wird
     # NICHTS als Zugang gewertet — sonst stünden alle 730 Baupläne als „neu" da.
     # Nur die Vergleichsgrundlage wird gesetzt.
     #
-    # ⚠ Wer den Watcher schon vor v3.0.0-rc55 benutzt hat, hat einen Katalog,
-    # aber noch keine Vergleichsgrundlage — die Datei kam erst mit der
-    # Patch-Historie dazu. Ohne diesen Nachzug griffe bei ihm die Regel oben
-    # fälschlich, und der **nächste** Patch bliebe stumm: alles gälte als
-    # „schon immer da". Der alte Katalog ist die richtige Grundlage — was darin
+    # ⚠ Ältere Installationen haben einen Katalog, aber keine
+    # Vergleichsgrundlage — die Datei gehört zur Patch-Historie. Ohne diesen
+    # Nachzug griffe dort die Regel oben fälschlich, und der **nächste** Patch
+    # bliebe stumm. Der vorhandene Katalog ist die richtige Grundlage — was darin
     # steht, war vor diesem Lauf im Spiel.
     known = _baseline()
     if known:
-        # ⚠⚠ **Baupläne ohne bekannten Weg sind kein Patch-Zugang** (28.09.2026).
-        # Mit FORMAT 5 kamen 853 Einträge dazu, die es längst gab — sie standen
-        # nur nie im Katalog. Ohne diese Bedingung meldete der erste Lauf nach
-        # dem Update sie alle als „neu craftbar geworden", und die Seite
-        # *Geänderte Spielwerte* wäre für jeden Bestandsnutzer unbrauchbar.
+        # ⚠⚠ **Baupläne ohne bekannten Weg sind kein Patch-Zugang.**
+        # Mit FORMAT 5 kommen viele Einträge dazu, die es längst gab — sie
+        # standen nur nie im Katalog. Ohne diese Bedingung gälten sie alle als
+        # neu craftbar, und die Seite *Geänderte Spielwerte* wäre unbrauchbar.
         # Dieselbe Falle wie beim allerersten Katalogbau, eine Ebene höher.
         #
-        # ⭐ Die Bedingung bleibt dauerhaft, nicht nur für diesen einen Lauf —
-        # und sie ist dabei die genauere Aussage: Ein Bauplan ist dann neu für
-        # den Spieler, wenn es einen **Weg** zu ihm gibt. Bekommt einer später
-        # einen, verliert er `ohne_weg` und wird genau dann gemeldet.
+        # ⭐ Die Bedingung gilt dauerhaft und ist die genauere Aussage: Ein
+        # Bauplan ist dann neu für den Spieler, wenn es einen **Weg** zu ihm
+        # gibt. Bekommt einer später einen, verliert er `ohne_weg` und zählt
+        # genau dann als Zugang.
         access = [e['n'] for k, e in blueprints.items()
                   if k not in known and not e.get('ohne_weg')]
         if access:
@@ -1084,42 +1054,35 @@ def build(version=None, progress=None, from_file=None):
 def load(unreachable=None):
     """Der eigene Katalog von der Platte. Fehlt er, ist er leer.
 
-    ⚠⚠ **`unreachable` ist für alles, was NICHT die Anzeige ist** (28.09.2026).
-    Ohne Angabe entscheidet die Einstellung des Spielers, ob Baupläne ohne
+    ⚠⚠ **`unreachable` ist für alles, was NICHT die Anzeige ist.**
+    Ohne Angabe bestimmt die Einstellung des Spielers, ob Baupläne ohne
     bekannten Weg dabei sind — richtig für Liste, Fortschritt und Overlay.
 
     Falsch ist es überall dort, wo eine **feste** Zahl gemeint ist: Prüfung 73
-    hält die Zahlen in der Anleitung („670 der 738") gegen die Daten, und die
-    hing danach plötzlich daran, was der Entwickler bei sich eingestellt hat —
-    bei ihm 1591, bei jedem anderen 738, und die Anleitung konnte nie für
-    beide stimmen. `unreachable=False` erzwingt die erspielbaren, `True` alle.
+    hält die Zahlen in der Anleitung gegen die Daten, und die hingen sonst von
+    der örtlichen Einstellung ab. `unreachable=False` erzwingt die
+    erspielbaren, `True` alle.
 
     ⚠ **Die Schlüssel werden beim Laden neu gebildet.** Ein Katalog auf der
-    Platte kann Monate alt sein und mit einer früheren Fassung von
-    `namensform()` geschrieben worden sein. Genau das lag am 29.08.2026 vor:
-    Dort standen Magazine noch als `… magazine (15 cap)`, während der Bestand
-    sie längst als `… magazine (15)` führt — die Angleichung der Mengenangabe
-    kam erst später dazu.
+    Platte kann Monate alt sein und mit einer anderen Fassung von
+    `namensform()` geschrieben worden sein — etwa Magazine als
+    `… magazine (15 cap)`, während der Bestand sie als `… magazine (15)` führt.
+    Solche Baupläne gälten überall als fehlend, obwohl sie im Bestand stehen.
 
-    Die Folge war eine Zahl, die niemand erklären konnte: Das Overlay meldete
-    **405** Baupläne, der Fortschritt **382 von 738**. 23 Magazine und
-    Batterien galten überall als fehlend, obwohl sie im Bestand standen.
-
-    Deshalb wird hier nicht mehr darauf vertraut, wie die Schlüssel einmal
+    Deshalb wird hier nicht darauf vertraut, wie die Schlüssel einmal
     geschrieben wurden — sie werden aus dem Namen neu gebildet.
     """
     try:
         with open(paths.app_file(CACHE), encoding='utf-8') as f:
             d = json.load(f)
         if isinstance(d.get('bauplaene'), dict):
-            d.setdefault('missionen', {})    # Kataloge vor v2.0.0-rc5
+            d.setdefault('missionen', {})    # Kataloge ohne Feld `missionen`
             # ⚠ Kataloge vor FORMAT 3 kennen die Vertragsliste nicht. Fehlt
-            # sie, faellt die Zuordnung auf den Titelweg zurueck — das ist
-            # genau das Verhalten bis v3.32.4, also kein Rueckschritt.
+            # sie, faellt die Zuordnung auf den Titelweg zurueck.
             d.setdefault('vertraege', {})
             d['bauplaene'] = _align_keys(d['bauplaene'])
-            # ⭐ Baupläne ohne bekannten Weg nur auf Wunsch (Choopa,
-            # 28.09.2026). **Hier** gefiltert und nirgends sonst: Am Katalog
+            # ⭐ Baupläne ohne bekannten Weg nur, wenn `SETTING_ALL` gesetzt
+            # ist. **Hier** gefiltert und nirgends sonst: Am Katalog
             # hängen 88 Lesestellen — Liste, Fortschritt, Overlay, Suche,
             # Herstellung. Jede einzeln zu filtern hieße, beim nächsten neuen
             # Bereich eine zu vergessen, und dann zählte er anders als der Rest.
@@ -1163,11 +1126,11 @@ def _align_keys(blueprints):
 def _baseline():
     """Wogegen dieser Lauf vergleicht, um Zugänge zu erkennen.
 
-    Normalerweise die Liste aller je gesehenen Baupläne. Fehlt sie — jeder, der
-    den Watcher vor v3.0.0-rc55 benutzt hat, hat sie nicht —, gilt ersatzweise
-    der Katalog, der schon auf der Platte liegt: Was darin steht, war vor diesem
-    Lauf im Spiel. Ohne diesen Ersatz griffe beim nächsten Patch die Regel
-    „erster Katalogbau überhaupt", und er meldete **keinen einzigen** Zugang.
+    Normalerweise die Liste aller je gesehenen Baupläne. Fehlt sie (ältere
+    Installationen), gilt ersatzweise der Katalog, der schon auf der Platte
+    liegt: Was darin steht, war vor diesem Lauf im Spiel. Ohne diesen Ersatz
+    griffe beim nächsten Patch die Regel für den ersten Katalogbau, und er
+    brächte **keinen einzigen** Zugang.
 
     Leer ist das Ergebnis nur beim allerersten Katalogbau — dann ist es richtig
     so, sonst stünden alle 738 Baupläne als „neu" da."""
@@ -1177,13 +1140,11 @@ def _baseline():
 def refresh_stamp():
     """Fehlende `seit`-Stempel im vorhandenen Katalog nachtragen.
 
-    ⚠ **Warum das nötig ist.** Gestempelt wurde bisher nur beim Neubau des
-    Katalogs — und neu gebaut wird nur, wenn eine neue Spielversion kommt. Wer
-    seinen Katalog vor v3.0.0-rc55 geholt hat, sitzt deshalb auf 738 Einträgen
-    ohne Herkunft, und daran ändert sich bis zum nächsten Patch nichts: Das
-    Auswahlfeld zeigte „4.10.0 (21)" — es liest die Historie direkt —, die
-    Liste blieb aber leer, weil der Filter gegen den Stempel im Katalog prüft.
-    Dasselbe traf „neu im Spiel".
+    ⚠ **Warum das nötig ist.** Gestempelt wird beim Neubau des Katalogs —
+    und neu gebaut wird nur, wenn eine neue Spielversion kommt. Ein älterer
+    Katalog ohne Stempel bliebe bis zum nächsten Patch ohne Herkunft, und die
+    nach Patch gefilterte Liste bliebe leer, weil der Filter gegen den Stempel
+    im Katalog prüft. Dasselbe gilt für „neu im Spiel".
 
     Der Abgleich kostet nichts und braucht kein Netz: Die Historie liegt beim
     Programm, der Katalog auf der Platte. Geschrieben wird nur, wenn sich
@@ -1275,13 +1236,8 @@ def update(progress=None):
         # `contracts` merkt sich `missions` und `contract_definitions` beim ersten
         # Zugriff; der Katalog ist rund 1 MB gross, und bei jedem Auftrag neu
         # zu lesen waere Verschwendung. Die Funktion `contracts.forget()`
-        # gibt es genau dafuer — sie hatte bis zum 13.09.2026 **keinen
-        # einzigen Aufrufer**.
-        #
-        # ⚠ Aufgefallen ist es an v3.33.0: Die Bauplaene je Region waren
-        # gebaut, belegt und ausgeliefert — und blieben im Feld wirkungslos,
-        # weil der Speicher noch den Stand VOR dem Katalog-Neubau hielt. Das
-        # Overlay zeigte weiter die zusammengezaehlte Zahl.
+        # gibt es genau dafuer — ohne diesen Aufruf hielte der Speicher den
+        # Stand VOR dem Katalog-Neubau.
         #
         # ⭐ Dieselbe Sorte wie die toten `getattr`-Namen, die Pruefung 195
         # sucht: Der Code sieht vollstaendig aus, nur ruft ihn niemand.
@@ -1299,7 +1255,7 @@ def version_short(version):
     """Aus '4.10.0-live.12519617' wird '4.10.0'.
 
     Die volle Kennung ist eindeutig und wird deshalb gespeichert; im Auswahlfeld
-    hat sie nichts verloren — dort will man „4.10.0" lesen, nicht die Buildnummer."""
+    steht nur die kurze Version, ohne Buildnummer."""
     return (version or '').split('-')[0] or (version or '')
 
 
@@ -1311,12 +1267,11 @@ def patches(data=None):
     taucht seine Version hier von allein auf — es gibt keine gepflegte Liste,
     die man vergessen könnte.
 
-    ⚠ **Gezählt wird der Katalog, nicht die Historie.** Hier stand ein
-    `return patchhistory.patches()`, und damit versprach das Auswahlfeld etwas,
-    das die Liste darunter nicht einlösen konnte: Am 28.08.2026 stand im Feld
-    „4.10.0 (24)" und darunter drei Zeilen. Das Feld las die Historie, der
-    Filter prüft den Stempel im Katalog — zwei Quellen für dieselbe Frage, und
-    die Zahl in Klammern ist genau die Zusage, wie viele Zeilen kommen.
+    ⚠ **Gezählt wird der Katalog, nicht die Historie.** Mit
+    `return patchhistory.patches()` verspräche das Auswahlfeld etwas, das die
+    Liste darunter nicht einlösen kann: Der Filter prüft den Stempel im
+    Katalog — zwei Quellen für dieselbe Frage, und die Zahl in Klammern ist
+    genau die Zusage, wie viele Zeilen kommen.
 
     Dass die Historie mehr weiß, hilft dabei nicht: Was nicht gestempelt ist,
     kann die Liste nicht zeigen. Dafür sorgt `stempel_nachziehen()`, und zwar
@@ -1371,8 +1326,8 @@ def by_kind(data=None):
 
 
 # ------------------------------------------------------- Obergruppen
-# Alphabetisch sortiert stand „Andockkragen" vor „Schiffswaffe" und die Rüstung
-# mittendrin — 25 Kategorien in Buchstabenreihenfolge sind kein Überblick.
+# 25 Kategorien in Buchstabenreihenfolge sind kein Überblick — Andockkragen
+# stünde vor Schiffswaffe und die Rüstung mittendrin.
 # Wer sucht, denkt in Bereichen: erst das Schiff, dann was man am Mann trägt.
 TOP_GROUPS = ('schiff', 'fps', 'ruestung', 'sonstiges')
 
@@ -1387,9 +1342,8 @@ KIND_GROUP = {
     'WeaponPersonal': 'fps', 'WeaponAttachment': 'fps',
     # ⚠ scmdb führt einige Einträge unter kleingeschriebenen Sammelbegriffen
     # statt unter der sonst üblichen Kennung. Ohne diese vier Zeilen landeten
-    # die S-38 Pistol und das P4-AR Rifle unter „Sonstiges", während der
-    # Filter „nur FPS-Waffen" nichts anzeigte — dasselbe für den Field Recon
-    # Suit unter „Rüstung". Betroffen sind 10 der 722 Baupläne; wer nur auf
+    # die S-38 Pistol und das P4-AR Rifle unter Sonstiges statt bei den
+    # FPS-Waffen — dasselbe für den Field Recon Suit bei der Rüstung. Betroffen sind 10 der 722 Baupläne; wer nur auf
     # die Gesamtzahl sieht, merkt davon nichts.
     # Beide fallen inzwischen über `ART_ZUSAMMEN` mit ihrer richtigen Kennung
     # zusammen; die Zeile bleibt für den Fall, dass `obergruppe()` einmal eine
@@ -1407,7 +1361,7 @@ KIND_GROUP = {
 
 # Zusätzliche Suchwörter je Art. Vier Kategorien heißen bewusst englisch, weil
 # das Spiel sie so nennt — „Cooler", „Power Plant", „Quantum Drive", „Radar".
-# Wer deutsch denkt, tippt trotzdem „Kühler" und findet dann nichts. Beides
+# Die deutsche Suche (etwa nach Kühler) fände sonst nichts. Beides
 # soll gehen, ohne die im Spiel gebräuchliche Beschriftung zu ändern.
 KIND_KEYWORDS = {
     'Cooler':        ('kühler', 'kuehler', 'kuhler'),

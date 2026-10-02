@@ -6,7 +6,7 @@
 # `sys_platform == "win32"` vom laufenden System kommen und nicht von der
 # Wheel-Vertraeglichkeit. Ein anderswo erzeugter Lock haette `pefile` und
 # `pywin32-ctypes` nicht dabei — der Windows-Bau waere mit `--require-hashes`
-# abgebrochen. Am 10.09.2026 gemessen.
+# abgebrochen (gemessen).
 #
 # Und genau deshalb braucht es KEINEN zweiten Rechner: `windows-latest` hier
 # ist ein Windows-Rechner. Der Ablauf laeuft von Hand, haengt beide Dateien

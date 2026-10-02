@@ -52,12 +52,11 @@ UEX) — 15 Terminals, davon 7 mit Ankaufgeboten.
 
 ⚠ **Hinweis, keine Behauptung** — dieselbe Haltung wie im Werkstatt-Lager: Wer
 zwei Zugänge zu buchen vergisst, hat ein lückenhaftes Lager. Das Werkzeug sagt
-deshalb nie „das hast du nicht", sondern rechnet nur mit dem, was eingetragen
+deshalb nie, dass etwas fehlt, sondern rechnet nur mit dem, was eingetragen
 ist.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `handelslager` (Sprachumstellung P4,
-Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
+⚠ Die gespeicherten Namen sind deutsch, obwohl das Modul englisch heißt —
+sie stehen in der Datei jedes Nutzers und dürfen sich nicht ändern: der Dateiname
 `handelslager.json` und die Schlüssel `format`, `posten`, `ware`, `menge`,
 `ort` und `gestohlen`. Ein Posten kann zusätzlich `"stueck": true` tragen:
 ein Item aus dem Lager-Abgleich mit dem Basetool, gezählt in ganzen Stück
@@ -112,9 +111,9 @@ def save(entries):
     """Die Posten schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
     ⚠ Die **Vorgängerfassung** (`handelslager.bak.json`) legt
-    `paths.save_json` an. Bis 31.08.2026 fehlte sie hier: Geschrieben wurde
-    atomar, aber ohne Rückfall — ein leer gespeichertes Lager war endgültig
-    weg. Ein Lager sind eigene Eingaben, die kein Neuaufbau zurückholt.
+    `paths.save_json` an. Atomar ohne Rückfall wäre ein leer gespeichertes
+    Lager endgültig weg — und ein Lager sind eigene Eingaben, die kein
+    Neuaufbau zurückholt.
     """
     target = paths.app_file(FILE)
     try:

@@ -83,8 +83,8 @@ MARK = re.compile(re.escape(OPEN) + '.*?' + re.escape(CLOSE))
 # ⚠ Das `!?` muss mit: Seit dem Rufzeichen für eingeschränkte Aufträge heißt
 # der Zusatz auch `[BP 0/19!]`. Ohne das bliebe er beim Zurücksetzen stehen —
 # und zwar genau bei den 332 Aufträgen, die eine Einschränkung haben.
-# ⚠ **Beide Formen**: `[BP 3/12]` von vor dem 28.08.2026 und das heutige
-# `[BP]`. Wer schon einmal injiziert hat, trägt die alte in seiner Datei —
+# ⚠ **Beide Formen**: die zählende `[BP 3/12]` und das heutige `[BP]`. Wer
+# mit einer älteren Version injiziert hat, trägt die zählende in seiner Datei —
 # ohne sie hier bliebe sie beim Zurücksetzen für immer stehen.
 #
 # ⚠ Und genau deshalb greift dieser Notnagel **nur bei einer Datei, in der wir
@@ -92,21 +92,18 @@ MARK = re.compile(re.escape(OPEN) + '.*?' + re.escape(CLOSE))
 # ist nicht unser Alleinstellungsmerkmal — MrKraken schreibt in StarStrings
 # dasselbe. Als eigener Nachweis dient `EIGENER_NACHWEIS` weiter unten.
 
-# ⚠ Beim ersten Anlauf stand hier „ab der Bindestrich-Linie alles weg". Das ging
-# schief: CIG benutzt solche Linien **selbst** als Gliederung. Im Test auf einer
-# Kopie verlor `Battaglia_RPT_BoardShip_01_desc` dadurch 589 seiner 870 Zeichen —
-# der ganze Abschnitt „GENEHMIGUNG: Battaglia, Recco" wäre stillschweigend
-# verschwunden. Genau die Sorte Schaden, die niemand bemerkt, bis der Text im
-# Spiel fehlt.
+# ⚠ Nicht einfach ab der Bindestrich-Linie alles wegschneiden: CIG benutzt
+# solche Linien **selbst** als Gliederung. `Battaglia_RPT_BoardShip_01_desc`
+# verlöre dadurch 589 seiner 870 Zeichen — ein ganzer Abschnitt verschwände
+# stillschweigend, und niemand bemerkt es, bis der Text im Spiel fehlt.
 #
 # Geschnitten wird deshalb nur, wenn nach der Linie auch eine **unserer**
 # Überschriften steht — die eigene und die der SCDL-Vertragsdaten, je zweisprachig.
 #
 # ⚠ Es sind **vier** Formen, nicht zwei. Die Vertragsdaten kennen neben der
-# Bauplan-Liste noch einen zweiten Blocktyp: den Hinweis „Dieser Missionstyp wird
-# vom Spiel dynamisch erzeugt" (84 der 363 Blöcke). Im Test ohne Merkdatei blieben
-# genau diese 90 Zeilen halb stehen — der Anfang war weg, der Rest stand noch da.
-# Gezählt, nicht geraten: 279 + 84 je Sprache.
+# Bauplan-Liste noch einen zweiten Blocktyp: den Hinweis auf dynamisch erzeugte
+# Missionstypen (84 der 363 Blöcke). Fehlt seine Überschrift hier, bleiben diese
+# Blöcke ohne Merkdatei halb stehen. Gezählt: 279 + 84 je Sprache.
 _HEADINGS = (
     'BAUPLÄNE AUS DIESEM AUFTRAG', 'BLUEPRINTS FROM THIS CONTRACT',
     'MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP',
@@ -118,12 +115,11 @@ _HEADINGS = (
 # von `ist_drin()`.
 #
 # ⚠ Der blanke Titelzusatz `<EM4>[BP]</EM4>` taugt dafür **nicht** — MrKraken
-# schreibt in StarStrings genau denselben. Vor dem 29.08.2026 stand er hier, und
-# damit meldete der Watcher „steht schon drin", sobald jemand StarStrings frisch
-# eingesetzt hatte, ohne dass je etwas eingetragen worden wäre.
+# schreibt in StarStrings genau denselben. Damit hielte der Watcher eine frisch
+# eingesetzte StarStrings-Datei für schon eingetragen.
 #
 # Sicher sind: die alte Marke, unsere Block-Überschriften (in keiner der beiden
-# Fremdquellen enthalten — am 29.08.2026 in beiden Fassungen nachgezählt: 0) und
+# Fremdquellen enthalten — in beiden nachgezählt: 0) und
 # die zählende bzw. rufende Titelform, die es nur bei uns gibt.
 COUNTING_TITLE = re.compile(r'<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+|!)\]</EM4>')
 
@@ -160,10 +156,9 @@ UNMARKED = re.compile(
     # ⚠ `<EM\d>` muss mit: Unser Block schreibt die Überschrift als
     # `<EM4>MÖGLICHE BAUPLÄNE …</EM4>`, also steht das Tag ZWISCHEN Linie und
     # Überschrift. Ohne diese Alternative greift der Notnagel am eigenen Block
-    # gar nicht — gemessen am 02.09.2026, und zwar seit jeher. Folge: Wem die
-    # Merkdatei fehlt (anderer Rechner, aufgeräumt), der bekam den Block beim
-    # Zurücksetzen nicht mehr aus seiner `global.ini` heraus. Gefunden erst,
-    # als Prüfung 102 den Notnagel zum ersten Mal ohne Merkdatei ansprach.
+    # gar nicht: Wem die Merkdatei fehlt (anderer Rechner, aufgeräumt), der
+    # bekäme den Block beim Zurücksetzen nicht mehr aus seiner `global.ini`
+    # heraus. Prüfung 102 spricht den Notnagel ohne Merkdatei an.
     r'|(?:\\n){1,2}?\s*-{20,}(?:\\n|\s|<EM\d>)*(?:%s).*$)'
     % '|'.join(re.escape(u) for u in _HEADINGS), re.S)
 
@@ -173,17 +168,14 @@ UNMARKED = re.compile(
 TEXTS = {
     'de': {
         'kurz':      'BP',
-        # ⚠ **„Missionstyp", nicht „dieser Auftrag" (28.08.2026).** Hier stand
-        # „BAUPLÄNE AUS DIESEM AUFTRAG" — und das versprach mehr, als die Daten
+        # ⚠ **Missionstyp, nicht dieser Auftrag.** Eine Überschrift, die
+        # Baupläne aus *diesem Auftrag* verspricht, sagt mehr, als die Daten
         # hergeben: Die Liste führt alle Preisstufen zusammen, weil sich 123 von
-        # 353 Aufträgen den Textschlüssel über ihre Stufen hinweg teilen.
-        # Morkhan las die Überschrift wörtlich, nahm den Auftrag an und bekam
-        # nichts — „is trotzdem verwirrend, egal wie man's dreht." Die
-        # Verwirrung saß in der Überschrift, nicht in der Liste.
+        # 353 Aufträgen den Textschlüssel über ihre Stufen hinweg teilen. Wer
+        # sie wörtlich nimmt, nimmt den Auftrag an und bekommt womöglich nichts.
         #
-        # Der SC Deutsch Launcher schreibt aus demselben Grund „MÖGLICHE
-        # BAUPLÄNE FÜR DIESEN MISSIONSTYP" (367 mal in seiner Datei). Eine
-        # Überschrift, die nichts verspricht, was sie nicht halten kann.
+        # Der SC Deutsch Launcher verwendet dieselbe Überschrift (367 mal in
+        # seiner Datei). Sie verspricht nichts, was sie nicht halten kann.
         'ueberschr': 'MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP',
         'chance':    'Chance auf Bauplan',
         'rep_min':   'Min. Reputation',
@@ -191,7 +183,7 @@ TEXTS = {
         'lohn':      'Belohnung',
         'ruf':       'Rufpunkte',
         # ⚠ Kurz halten: Die Zeile traegt schon Fraktionsnamen und Art
-        # („Citizens For Prosperity +100 Standing"), und sie steht in einer
+        # (`Citizens For Prosperity +100 Standing`), und sie steht in einer
         # Spalte, die das Spiel nicht umbricht.
         'ruf_bei':   'Ruf',
         # ⚠ Wortgleich mit dem, was die Quelle selbst schreibt („# Zu
@@ -242,7 +234,7 @@ TEXTS = {
 # Wo ein **fremder** Anhang beginnt — damit unserer davor landet, nicht dahinter
 # ---------------------------------------------------------------------------
 #
-# ⚠ Warum es das gibt (gemessen 02.09.2026, `tools/smartcitizen_pruefen.py`):
+# ⚠ Warum es das gibt (gemessen mit `tools/smartcitizen_pruefen.py`):
 # Smart Citizen (Osiris-DevWorks) hängt eigene Blöcke an dieselben
 # Beschreibungen und räumt vor jedem Lauf seinen alten Block ab — indem es den
 # **ersten** eigenen Marker sucht und ab dort ALLES wegwirft:
@@ -251,9 +243,9 @@ TEXTS = {
 #         if marker in existing_value:
 #             existing_value = existing_value[:existing_value.index(marker)]
 #
-# Auf ihrer Seite ist das richtig. Nur stand unser Block dahinter — und war
-# damit bei jedem ihrer Läufe still verschwunden: **398 von 398** gemeinsamen
-# Einträgen. Der Nutzer merkt nur, dass „die Baupläne weg sind".
+# Auf ihrer Seite ist das richtig. Steht unser Block aber dahinter, ist er
+# bei jedem ihrer Läufe still verschwunden: **398 von 398** gemeinsamen
+# Einträgen. Der Nutzer merkt nur, dass die Baupläne weg sind.
 #
 # ⚠ **Ein Muster, keine Namensliste.** Eine Liste ihrer Marker wäre beim ersten
 # Umbenennen tot, ohne dass es auffällt. Erkannt wird deshalb die **Form**, in
@@ -285,7 +277,7 @@ def _append_block(base_text, block):
     Steht dahinter fremder Text im Blockformat, schiebt sich unserer davor.
 
     ⚠ Der Unterschied ist nicht kosmetisch: Werkzeuge, die ihren eigenen Block
-    abräumen, schneiden „ab dem eigenen Marker bis zum Ende". Alles davor
+    abräumen, schneiden ab dem eigenen Marker bis zum Ende. Alles davor
     überlebt, alles dahinter nicht.
     """
     hit = FOREIGN_APPENDIX.search(base_text)
@@ -318,17 +310,15 @@ def _split_line(line):
 
 # Wo die Originaltexte liegen, bevor etwas eingefügt wird.
 #
-# ⚠ Warum es diese Datei gibt: Bis v3.0.0 stand um jede Einfügung ein Marken-Paar
-# `[SCBPW] … [/SCBPW]`, damit sie sich auf den Buchstaben genau wieder entfernen
-# lässt. Das funktionierte — nur **sieht man die Marken im Spiel**. Im
-# Auftragstitel stand „Security Patrol[SCBPW] [BP 3/6][/SCBPW]", und das ist
-# nichts, was jemand in seinem Spiel haben will.
+# ⚠ Warum es diese Datei gibt: Ein Marken-Paar um jede Einfügung
+# (`[SCBPW] … [/SCBPW]`) ließe sich zwar auf den Buchstaben genau entfernen —
+# aber **man sieht die Marken im Spiel**, etwa mitten im Auftragstitel.
 #
-# Der Ausweg ist nicht ein unsichtbareres Zeichen — was die Spiel-Engine mit
+# Ein unsichtbareres Zeichen ist kein Ausweg — was die Spiel-Engine mit
 # unbekannten Zeichen macht, weiß man erst, wenn es zu spät ist. Stattdessen wird
 # der **Originaltext** jeder angefassten Zeile hier festgehalten. Damit braucht es
-# im Spieltext gar keine Marke mehr, und das Zurücksetzen ist genauer als vorher:
-# Es stellt den Wortlaut wieder her, statt eine Einfügung herauszuschneiden.
+# im Spieltext gar keine Marke, und das Zurücksetzen stellt den Wortlaut wieder
+# her, statt eine Einfügung herauszuschneiden.
 ORIGTEXT_FILE = 'injektion-urtext.json'
 
 # Merker im Urtext für eine Zeile, die es in der Grundlage NICHT gab und die
@@ -367,11 +357,10 @@ def _added_ship_names(ini_path, lines, origtext_old):
             with open(english, encoding='utf-8', errors='ignore') as f:
                 reference = f.read().splitlines()
         else:
-            # ⭐⭐ **Keine englische Datei daneben — und das ist der Normalfall**
-            # (20.09.2026). Sie entsteht nur, wenn jemand StarStrings oder
-            # „Originaltexte" eingerichtet hat; wer bei einer Übersetzung
-            # bleibt, hat sie nie. Bis hierher hiess das: gar keine Ergaenzung,
-            # und im Flottenmanager stand weiter `@vehicle_Name…`.
+            # ⭐⭐ **Keine englische Datei daneben — und das ist der Normalfall.**
+            # Sie entsteht nur, wenn jemand StarStrings oder die Originaltexte
+            # eingerichtet hat; wer bei einer Übersetzung bleibt, hat sie nie.
+            # Ohne Ergaenzung stuende im Flottenmanager weiter `@vehicle_Name…`.
             #
             # Die Originaltexte liegen in JEDER Installation in der
             # `Data.p4k` — von dort, ohne am Spiel etwas zu veraendern.
@@ -409,13 +398,12 @@ def is_fresh():
 
     ⚠ Diese Auskunft entscheidet, ob der **Notnagel** in `_saeubern()` greifen
     darf. Er erkennt frühere Einfügungen an ihrer Form — und die Form des
-    Titelzusatzes ist seit dem 28.08.2026 `<EM4>[BP]</EM4>`, **genau das**, was
-    MrKraken in StarStrings selbst an 314 Titel schreibt. In einer frisch
-    eingesetzten Fremddatei kann nichts von uns stehen; wer dort trotzdem
-    schneidet, löscht fremden Text. Gemessen an der echten Datei vom
-    29.08.2026: 17 seiner Kennzeichnungen fielen so weg — und weil als „Urtext"
-    der bereits geschnittene Wortlaut gemerkt wurde, kamen sie auch beim
-    Zurücksetzen nie wieder.
+    Titelzusatzes ist `<EM4>[BP]</EM4>`, **genau das**, was MrKraken in
+    StarStrings selbst an 314 Titel schreibt. In einer frisch eingesetzten
+    Fremddatei kann nichts von uns stehen; wer dort trotzdem schneidet,
+    löscht fremden Text (an der echten Datei gemessen: 17 Kennzeichnungen) —
+    und weil dann der bereits geschnittene Wortlaut als Urtext gemerkt wird,
+    kommen sie auch beim Zurücksetzen nie wieder.
     """
     return bool(_origtext_file().get('frisch'))
 
@@ -491,7 +479,7 @@ def _strip_old(text, key='', origtext=None, fallback=UNMARKED):
         # Launcher. Der bleibt stehen; er gehört dem Spieler.
         if OWN_TRACE.search(drop) and not _has_box(drop):
             return text
-        # ⚠ Der Notnagel schneidet „ab hier bis zum Ende" — seit unser Block
+        # ⚠ Der Notnagel schneidet ab hier bis zum Ende — da unser Block
         # **vor** einem fremden Anhang sitzt (`_anhaengen`), läge der fremde
         # Text mit im Schnitt. Also nur bis dorthin schneiden und den Rest
         # wieder anfügen. Ohne das nähme das Zurücksetzen Smart Citizens
@@ -510,9 +498,8 @@ def _group_digits(value, words):
 def _rep_table():
     """Wem ein Auftrag Ruf bringt — die Tabelle aus `reputation`, oder None.
 
-    ⚠⚠ **Gewünscht am 05.09.2026:** „auf SCMDB sieht man auch ob es Standing
-    oder Rep bekommt, das muss auf jeden fall mit in den Questtext." Bis
-    v3.63.1 hing das am SCDL-Weg; seit dem 30.09.2026 steht es hier.
+    ⚠⚠ Der Auftragstext zeigt, ob ein Auftrag Standing oder Rep bringt —
+    dieselbe Angabe, die scmdb führt.
 
     ⚠ Scheitert der Abruf, läuft alles Übrige weiter: Eine fehlende Ruf-Zeile
     ist ein Verlust, ein abgebrochener Einbau wäre ein Schaden."""
@@ -545,9 +532,9 @@ def _rep_line(entry, words, rep_table):
 def _region_line(entry, words, rep_table):
     """`# Region: Pyro (Bloom)` für diesen Auftrag — oder ''.
 
-    Aus derselben scmdb-Tabelle wie die Ruf-Zeile (`reputation`). Bis v3.63.1
-    kam die Region vom SCDL-Weg; eine Gefahrenstufe gibt es in den scmdb-Daten
-    nicht und wird deshalb nicht angegeben."""
+    Aus derselben scmdb-Tabelle wie die Ruf-Zeile (`reputation`). Eine
+    Gefahrenstufe gibt es in den scmdb-Daten nicht und wird deshalb nicht
+    angegeben."""
     if not rep_table:
         return ''
     try:
@@ -567,9 +554,8 @@ def _build_block(entry, owned, words, rep_table=None):
     man an Chance und Reputation — die Namensliste liest man erst danach."""
     z = ['', LINE, '', '<EM4>%s</EM4>' % words['ueberschr'], '']
 
-    # ⚠ Ruf-Zeilen blau (`<EM4>`, die Auszeichnung des Spiels). Gewünscht am
-    # 05.09.2026: „Mach die XP blau geschrieben … damit allgemein spieler es
-    # schneller sehen." Bis v3.63.1 tat das nur der SCDL-Weg.
+    # ⚠ Ruf-Zeilen blau (`<EM4>`, die Auszeichnung des Spiels), damit sie
+    # im Auftragstext sofort ins Auge fallen.
     def blue(text):
         return '<EM4>%s</EM4>' % text
 
@@ -600,10 +586,10 @@ def _build_block(entry, owned, words, rep_table=None):
     if region:
         z.append(region)
 
-    # ⚠ **Ohne „3 von 12", seit dem 28.08.2026** — aus demselben Grund wie im
-    # Titel (siehe `_titel_zusatz`): Die Liste führt alle Preisstufen zusammen,
-    # die Zahl wäre eine Behauptung über etwas, das gar nicht auflösbar ist.
-    # Die Kästchen sagen dasselbe, nur ehrlich: angehakt heißt „hab ich".
+    # ⚠ **Ohne Zählung (3 von 12)** — aus demselben Grund wie im Titel (siehe
+    # `_titel_zusatz`): Die Liste führt alle Preisstufen zusammen, die Zahl
+    # wäre eine Behauptung über etwas, das gar nicht auflösbar ist. Die
+    # Kästchen sagen dasselbe, nur ehrlich: angehakt heißt vorhanden.
     z += ['', '# ' + words['liste'] + ':']
 
     # Wo sich die Stufen unterscheiden, steht der nötige Rang hinter dem Namen.
@@ -632,7 +618,6 @@ def _build_block(entry, owned, words, rep_table=None):
 
     # Gibt es Stufen dieses Auftrags, die leer ausgehen, gehört das dazu —
     # sonst fliegt jemand für eine Liste hin, die seine Stufe nie hergibt.
-    # Genau das ist Morkhan am 28.08.2026 passiert.
     if entry.get('leer'):
         z += ['', '# ' + (words['leere_stufen']
                           % (entry['leer'], entry['stufen']))]
@@ -643,7 +628,7 @@ def _build_block(entry, owned, words, rep_table=None):
 
 
 # Ein Kürzel, das am Anfang eines Namens schon dasteht — `[CS1] Spark-G Missile`.
-# So schreibt MrKraken seine Angaben (136 Namen in der Fassung vom 29.08.2026),
+# So schreibt MrKraken seine Angaben (136 Namen in StarStrings),
 # der Watcher setzt seine dahinter in runde Klammern. Ohne diese Prüfung stünde
 # im Spiel `[CS1] Spark-G Missile (CS1)`.
 FOREIGN_TAG = re.compile(r'^\[[A-Za-z0-9/. -]{1,14}\]\s')
@@ -653,8 +638,7 @@ def _has_box(text):
     """Steht in diesem Stück ein Kästchen von uns?
 
     **Das ist das Unterscheidungsmerkmal.** Der SC Deutsch Launcher schreibt
-    Blöcke mit derselben Überschrift und derselben Liste wie früher VerseKit
-    (bis v3.63.1 aus derselben Quelle) — und kann das weiterhin tun.
+    Blöcke mit derselben Überschrift und derselben Liste wie VerseKit.
     Der einzige Unterschied ist der, der das Werkzeug ausmacht: In den Rohdaten
     steht `    - Atzkav Sniper Rifle`, bei uns `    [x] Atzkav Sniper Rifle`.
     Wo kein Kästchen steht, hat nicht der Watcher geschrieben."""
@@ -711,17 +695,15 @@ def _fallback_form(origtext_old, ini_path):
 def _title_suffix(entry, owned, words):
     """Kürzel für die Auftragsliste: sieht man, ohne aufzuklappen.
 
-    ⚠ **Ohne Zählung, seit dem 28.08.2026.** Hier stand `[BP 3/12]`. Die Zahl
-    sah nützlich aus, war aber nicht wahr: Die Liste eines Auftrags führt alle
-    Baupläne **aller** Preisstufen zusammen, und welche davon die eigene Stufe
-    hergibt, lässt sich nicht auflösen — 123 von 353 Aufträgen teilen sich den
-    Textschlüssel über ihre Stufen hinweg. „3 von 12" hieß damit in Wahrheit
-    „3 von 12, die irgendjemand irgendwo bekommen kann".
+    ⚠ **Ohne Zählung.** Ein `[BP 3/12]` sähe nützlich aus, wäre aber nicht
+    wahr: Die Liste eines Auftrags führt alle Baupläne **aller** Preisstufen
+    zusammen, und welche davon die eigene Stufe hergibt, lässt sich nicht
+    auflösen — 123 von 353 Aufträgen teilen sich den Textschlüssel über ihre
+    Stufen hinweg. Die Zahl hieße nur: 3 von 12, die irgendjemand irgendwo
+    bekommen kann.
 
-    gemeldet, nachdem die Meldungen kamen: „die zählung war meine idee und ich
-    fand sie gut, bis die fehlermeldungen kamen — nun weiß ich, sie ist Schrott
-    und eh nicht wahr." Ein schlichtes `[BP]` sagt, was stimmt: Hier gibt es
-    Baupläne. Was man davon hat, sagen die Kästchen in der Liste.
+    Ein schlichtes `[BP]` sagt, was stimmt: Hier gibt es Baupläne. Was man
+    davon hat, sagen die Kästchen in der Liste.
     """
     chars = '!' if (entry.get('bpnote') or '').strip() else ''
     return ' <EM4>[%s%s]</EM4>' % (words['kurz'], chars)
@@ -800,8 +782,8 @@ def stock_mark(stock=None):
     ⚠ Wozu: Die Kästchen in den Auftragstexten zeigen, was der Spieler schon
     hat. Ändert sich sein Bestand, müssen sie neu geschrieben werden — sonst
     stimmen sie ab dem nächsten Fund nicht mehr. Ein Vergleich dieser Marke
-    beantwortet die Frage „hat sich seit dem letzten Einspielen etwas getan?"
-    ohne die Texte jedes Mal neu zu bauen.
+    zeigt, ob sich seit dem letzten Einspielen etwas getan hat, ohne die
+    Texte jedes Mal neu zu bauen.
 
     ⚠ Über die **Namen**, nicht über die Anzahl: `collection.align()` benennt
     beim Start Einträge um, ohne dass die Zahl sich ändert — und genau die
@@ -845,11 +827,9 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
     catalog_data = catalog_data if given else katalog_modul.load()
     missions = catalog_data.get('missionen') or {}
     if not missions and not remove_only and not given:
-        # ⚠⚠ **Bei einer frischen Installation ist der Katalog noch leer**
-        # (gemeldet am 27.09.2026 aus dem Einrichtungsassistenten: „Hat nicht
-        # geklappt: Katalog kennt keine Missionen"). Er wird sonst erst nach
-        # der Einrichtung geholt — hier aber gebraucht, sobald die
-        # SCDL-Vertragsdaten einmal nicht zu holen waren. Also jetzt holen,
+        # ⚠⚠ **Bei einer frischen Installation ist der Katalog noch leer** —
+        # etwa im Einrichtungsassistenten. Er wird sonst erst nach der
+        # Einrichtung geholt, hier aber schon gebraucht. Also jetzt holen,
         # statt aufzugeben.
         try:
             if progress:
@@ -898,16 +878,13 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
     rep_table = None if remove_only else _rep_table()
 
     # ⚠ Eine Mission hat im Spiel **mehr** Beschreibungen, als der Katalog
-    # kennt. Gemessen am 28.08.2026: `Covalex_HaulCargo_SingleToMulti` führt
-    # drei Beschreibungs-Schlüssel, in der `global.ini` stehen **acht** —
+    # kennt. Gemessen: `Covalex_HaulCargo_SingleToMulti` führt drei
+    # Beschreibungs-Schlüssel, in der `global.ini` stehen **acht** —
     # verschiedene Zielorte und Waren derselben Mission. Wer eine der fünf
-    # übrigen erwischt, sah `[BP 0/12]` im Titel und darunter **nichts**.
+    # übrigen erwischt, sähe die Marke im Titel und darunter **nichts**.
     #
-    # Genau so gemeldet von Morkhan: „bei ner anderen mission steht, dass man
-    # 12 Pläne bekommen kann, aber da werden keine angezeigt."
-    #
-    # Gelöst über den gemeinsamen Namensanfang (so, wie es der frühere
-    # SCDL-Weg tat): Zu jedem Titel, der Angaben bekommt, bekommen **alle**
+    # Gelöst über den gemeinsamen Namensanfang: Zu jedem Titel, der Angaben
+    # bekommt, bekommen **alle**
     # Beschreibungen desselben Auftrags denselben Block.
     stem_block = {}
     if not remove_only:
@@ -988,11 +965,9 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
         # Unix-Zeilenenden ausliefert. Ohne diesen Parameter uebersetzt Python
         # unter **Windows** jedes `\n` still in `\r\n` — und damit aendert sich
         # JEDE der 90.363 Zeilen einer 10-MB-Fremddatei, obwohl inhaltlich nichts
-        # anders ist. Gemessen am 02.09.2026: +90.363 Bytes, genau ein Byte je
-        # Zeile. Unter Linux passiert das nicht, deshalb ist es dort nie
-        # aufgefallen — `tools/starstrings_pruefen.py` schlug unter Windows
-        # trotzdem fehl („Nach dem Zuruecksetzen weicht der Wortlaut ab"), und
-        # zwar schon in v3.9.4.
+        # anders ist (+90.363 Bytes, genau ein Byte je Zeile). Unter Linux
+        # passiert das nicht; `tools/starstrings_pruefen.py` erkennt es unter
+        # Windows am abweichenden Wortlaut nach dem Zuruecksetzen.
         with open(ini_path + '.tmp', 'w', encoding='utf-8', newline='') as f:
             f.write('\n'.join(new) + '\n')
         os.replace(ini_path + '.tmp', ini_path)
@@ -1008,10 +983,8 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
 def setup(ini_path, language, progress=None, stock=None):
     """Die Bauplan-Angaben eintragen — aus den eigenen Daten (scmdb).
 
-    ⚠⚠ **Bis v3.63.1 gab es hier einen zweiten, bevorzugten Weg** über die
-    Vertragsdaten des SC-Deutsch-Launcher-Teams. Die Quelle wurde am
-    29.09.2026 entfernt und wird nicht mehr genutzt (30.09.2026). Es gibt
-    seitdem nur noch **einen** Schreibweg: `apply_texts`."""
+    ⚠⚠ Es gibt nur **einen** Schreibweg: `apply_texts`. Vertragsdaten
+    des SC Deutsch Launchers werden nicht genutzt (Prüfung 175)."""
     return apply_texts(ini_path, language, stock=stock, progress=progress)
 
 
@@ -1050,15 +1023,12 @@ def clean_leftover(new_path):
     """Vor einem Quellenwechsel die alte Datei zurücksetzen.
 
     ⚠⚠ **Warum das sein muss.** Die Textquellen schreiben in **verschiedene**
-    Sprachordner: „deutsch" nach `german_(germany)`, „StarStrings" und
-    „Original" nach `english`. Wer wechselt, lässt in der alten Datei unsere
+    Sprachordner: `deutsch` nach `german_(germany)`, `starstrings` und
+    `original` nach `english`. Wer wechselt, lässt in der alten Datei unsere
     Einfügungen stehen — und niemand pflegt sie mehr. Lädt das Spiel
     ausgerechnet die, sieht der Spieler **dauerhaft einen alten Stand**, ohne
-    dass irgendetwas darauf hindeutet.
-
-    Genau so am 29.08.2026 gemessen: Die deutsche Datei war **später**
-    geschrieben (06:53) als die englische (06:34) und trug trotzdem die alte
-    Form — der Wechsel auf „Original" an jenem Morgen hatte sie liegen lassen.
+    dass irgendetwas darauf hindeutet — auch eine später geschriebene Datei
+    kann so die alte Form tragen.
 
     ⚠ Die Reihenfolge ist Pflicht: **erst aufräumen, dann einrichten.** Das
     Zurücksetzen braucht den Urtext der alten Datei, und `einrichten()`
@@ -1094,15 +1064,14 @@ def remove_texts(ini_path, language='english'):
 def is_applied(ini_path):
     """Steckt in dieser Datei schon eine Injektion?
 
-    Seit v3.0.0 stehen keine Marken mehr im Text (sie waren im Spiel sichtbar),
-    also wird nach der **Form** der Einfügung gesucht. Die alte Marke gilt
-    weiter — in der Datei von jemandem, der von einer früheren Version kommt,
-    steht sie noch.
+    Im Text stehen keine Marken (sie wären im Spiel sichtbar), also wird nach
+    der **Form** der Einfügung gesucht. Die alte Marke gilt weiter — in der
+    Datei von jemandem, der von einer älteren Version kommt, steht sie noch.
 
-    ⚠ Gesucht wird nur nach **eindeutig eigenen** Formen. Hier stand der blanke
-    Titelzusatz `<EM4>[BP]</EM4>` — und den schreiben MrKrakens StarStrings und
-    der SC Deutsch Launcher genauso. Wer eines von beiden benutzte, bekam „steht
-    schon drin" gemeldet, ohne dass der Watcher je etwas eingetragen hätte.
+    ⚠ Gesucht wird nur nach **eindeutig eigenen** Formen. Den blanken
+    Titelzusatz `<EM4>[BP]</EM4>` schreiben MrKrakens StarStrings und der SC
+    Deutsch Launcher genauso — wer eines von beiden benutzt, bekäme sonst
+    „eingetragen" angezeigt, ohne dass der Watcher je etwas eingetragen hätte.
     Auch die Block-Überschrift zählt nur **mit Kästchen** — ohne sie stammt der
     Block aus derselben Quelle, aber von fremder Hand.
 
@@ -1125,17 +1094,10 @@ def is_applied(ini_path):
 
 
 # ---------------------------------------------------------------------------
-# ⚠ Diese beiden Funktionen lagen bis zum 28.08.2026 als Methoden im
-# Einstellungsfenster. Damit war der Zustand der Injektion nur zu erfahren,
-# wenn ein Fenster offen war — der **Diagnosebericht** kam nicht heran.
-#
-# Das kostete echte Zeit: Als Morkhan am 28.08. meldete, er sehe die
-# Bauplan-Angaben im Spiel nicht mehr, stand in seinem Bericht nur
-# `inj_quelle=deutsch`. Ob überhaupt etwas eingetragen war, ließ sich daraus
-# nicht ablesen — es musste erschlossen werden. Die Antwort lag im Programm
-# vor, nur nicht dort, wo man im Fehlerfall nachsieht.
-#
-# Jetzt stehen sie frei, und Fenster wie Bericht fragen dieselbe Stelle.
+# ⚠ Diese beiden Funktionen stehen frei, nicht als Methoden im
+# Einstellungsfenster: Auch der **Diagnosebericht** muss den Zustand der
+# Injektion erfahren, ohne dass ein Fenster offen ist. Fenster wie Bericht
+# fragen dieselbe Stelle.
 
 def _lang_order(fallback_lang=('english', 'german_(germany)')):
     """In welcher Reihenfolge die Sprachordner geprüft werden.
@@ -1163,16 +1125,15 @@ def ini_file():
     """Die `global.ini`, um die es geht. (Pfad, Sprachordner, Quelle).
 
     ⚠ Maßgeblich ist die **gewählte** Textquelle, nicht die zuerst gefundene.
-    Hier stand eine feste Reihenfolge: erst „deutsch", dann „starstrings", und
-    die erste eingerichtete gewann. Wer beide einmal benutzt hatte und dann auf
-    StarStrings umstellte, bekam trotzdem weiter „Quelle: Deutsch (rjcncpt)"
-    angezeigt — die deutsche war ja auch noch eingerichtet. Genau so gemeldet.
-    Die Reihenfolge greift nur, solange nichts gewählt wurde.
+    Mit einer festen Reihenfolge (erst `deutsch`, dann `starstrings`) gewänne
+    die erste eingerichtete — wer beide einmal benutzt hat und auf
+    StarStrings umstellt, sähe weiter die deutsche Quelle angezeigt. Die
+    Reihenfolge greift nur, solange nichts gewählt wurde.
     """
     from . import translation
     chosen = paths.setting('inj_quelle')
-    # Seit v3.59.0 alle Quellen samt eigener Adresse — die feste Liste
-    # `deutsch`, `starstrings` hätte eine französische Wahl übersehen.
+    # Alle Quellen samt eigener Adresse — eine feste Liste `deutsch`,
+    # `starstrings` übersähe eine französische Wahl.
     order_list = list(translation.SOURCES) + [translation.CUSTOM]
     if chosen in order_list:
         order_list.remove(chosen)
@@ -1181,13 +1142,12 @@ def ini_file():
         # Die Originaltexte kommen aus dem Spiel selbst, nicht aus einem
         # fremden Projekt — dort gibt es keine Version zu vermerken.
         #
-        # ⚠⚠ **Die Spielsprache entscheidet, nicht die Reihenfolge.** Hier stand
-        # fest `('english', 'german_(germany)')`, und die erste vorhandene Datei
-        # gewann — beide gibt es fast immer, also **immer Englisch**. Wer sein
-        # Spiel auf Deutsch stellt (`g_language = german_(germany)` in der
-        # `user.cfg`), bekam die Angaben in die englische Datei geschrieben, die
-        # das Spiel nie liest. Eingetragen wurde korrekt, angekommen ist nichts,
-        # und die Statuszeile meldete trotzdem Erfolg. Am 29.08.2026 gemeldet.
+        # ⚠⚠ **Die Spielsprache entscheidet, nicht die Reihenfolge.** Mit
+        # fester Folge `('english', 'german_(germany)')` gewänne die erste
+        # vorhandene Datei — beide gibt es fast immer, also **immer Englisch**.
+        # Wer sein Spiel auf Deutsch stellt (`g_language = german_(germany)` in
+        # der `user.cfg`), bekäme die Angaben in die englische Datei, die das
+        # Spiel nie liest — und die Statuszeile zeigte trotzdem Erfolg.
         for lang_folder in _lang_order():
             path = translation.target_ini(lang_folder)
             if path and os.path.isfile(path):

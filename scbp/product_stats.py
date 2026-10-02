@@ -21,14 +21,12 @@ Die Produktwerte eines gebauten Gegenstands — Grundwert gegen gebauten Wert.
 
 Beantwortet: „Was hat meine NDB-30 mit diesem Erz am Ende für DPS?"
 
-⚠⚠ **Warum es dieses Modul gibt.** Bis v3.42.4 zeigte die Herstellung je
-Material nur einen Faktor („Aufprallwucht × 1.024"). Zwei Materialien, die
-dieselbe Eigenschaft heben, standen als zwei Zeilen untereinander — die
-Summe musste man selbst bilden, und DPS, Schildstärke oder Kühlleistung
-standen nirgends. Am 16.09.2026 gemeldet: im Spiel werde „nur die HP
-verbessert, nicht die Feuerkraft". Die Faktoren stimmten (an allen 1.607
-Bauplänen gegen scmdb nachgerechnet, keine Abweichung), nur sah man nicht,
-was daraus wird.
+⚠⚠ **Warum es dieses Modul gibt.** Ein Faktor je Material („Aufprallwucht
+× 1.024") allein reicht nicht: Zwei Materialien, die dieselbe Eigenschaft
+heben, stünden als zwei Zeilen untereinander — die Summe müsste man selbst
+bilden, und DPS, Schildstärke oder Kühlleistung stünden nirgends. Die
+Faktoren stimmen (an allen 1.607 Bauplänen gegen scmdb nachgerechnet, keine
+Abweichung); hier wird sichtbar, was daraus wird.
 
 **Die Rechnung folgt scmdb.net genau**, damit beide Werkzeuge dieselbe Zahl
 zeigen:
@@ -590,7 +588,7 @@ def _without_empty_sections(out):
     """Überschriften ohne eine einzige Zeile darunter fallen weg.
 
     ⚠ Ein Bergungsmodul hat keine Integrität und keinen Stromverbrauch — dort
-    stand sonst „Komponente" direkt über „Bergungsmodul", wie ein Versehen.
+    stünde sonst „Komponente" direkt über „Bergungsmodul", wie ein Versehen.
     """
     result = []
     for i, z in enumerate(out):

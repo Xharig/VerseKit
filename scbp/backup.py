@@ -24,10 +24,9 @@ einlesen, weiterspielen. Bauplan-Bestand, beide Lager, Auftrags-Protokoll,
 Merkliste, Einstellungen — alles, was nirgends sonst zu holen ist.
 
 ⚠⚠ **Aussperren statt aufzählen.** Der nächstliegende Weg wäre eine Liste der
-Dateien, die mitkommen. Genau das gab es schon einmal, als `.gitignore` im
-Ablage-Ordner — und als mit dem Auftrags-Protokoll eine neue eigene Datei
-dazukam, fiel sie stillschweigend heraus. Niemand merkt so etwas, bis der
-Rechner neu aufgesetzt ist.
+Dateien, die mitkommen. Kommt dann eine neue eigene Datei dazu, fällt sie
+stillschweigend heraus — und niemand merkt das, bis der Rechner neu
+aufgesetzt ist.
 
 Deshalb hier andersherum: Mitgenommen wird **alles**, ausgenommen die
 Zwischenspeicher, die sich jederzeit neu laden lassen (`RELOADABLE`). Kommt
@@ -40,9 +39,8 @@ löst den Rechnerwechsel nicht: Der Spieler müsste die Dateien von Hand in eine
 Ordner legen, den er nicht kennt. `restore()` ist deshalb kein Zusatz,
 sondern die zweite Hälfte derselben Funktion.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `sicherung` (Sprachumstellung P4,
-Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben, weil sie in den Sicherungen der Nutzer stehen: die Kennung
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Deutsch
+bleiben, weil sie in den Sicherungen der Nutzer stehen: die Kennung
 `SC-BP-Watcher-Sicherung`, die Beilage `sicherung.txt` und der Vorsatz
 `Steuerung/` im Archiv — umbenannt, ließe sich keine ältere Sicherung mehr
 einspielen. Ebenso die Kennwörter `'leer'` und `'ungueltig'`, über die die
@@ -66,8 +64,8 @@ INFO_FILE = 'sicherung.txt'
 # ⚠ Im Zweifel gehört etwas NICHT hierher. Eine zu große Sicherung kostet
 # Sekunden, eine zu kleine kostet den Bestand.
 RELOADABLE = (
-    # Überbleibsel: SCDL-Vertragsdaten, bis v3.63.1 genutzt. Liegen bei
-    # Bestandsnutzern noch herum und gehören in keine Sicherung.
+    # Ungenutzte SCDL-Vertragsdaten. Können in bestehenden Ablagen liegen
+    # und gehören in keine Sicherung.
     'Intern/bp-contracts-de.json',
     'Intern/bp-contracts-en.json',
     'Intern/crafting-blueprints.json',  # Rezepte, vom Netz
@@ -94,9 +92,8 @@ RELOADABLE_FOLDERS = (
 
 
 # ⚠⚠ **Die Belegung liegt NICHT in unserer Ablage, sondern im Spielordner.**
-# Bis v3.14 fiel sie deshalb durch jedes Raster: Der Knopf hiess „Sicherung",
-# nahm aber ausgerechnet das nicht mit, was am schwersten wiederzubeschaffen
-# ist — eine verlorene HOTAS-Belegung sind Stunden.
+# Ein Sichern nur der Ablage nähme sie deshalb nicht mit — dabei ist sie am
+# schwersten wiederzubeschaffen: Eine verlorene HOTAS-Belegung sind Stunden.
 #
 # Sie kommt unter einem eigenen Vorsatz ins Archiv, damit beim Zurueckholen
 # klar zu trennen ist, was in die Ablage gehoert und was ins Spiel.
@@ -120,10 +117,8 @@ def _binding_files(folder=None):
     beim Zurueckholen entschiede der Zufall.
 
     ⚠⚠ **Eine Sicherung nimmt alles mit, was erreichbar ist.** Die
-    `attributes.xml` fehlte anfangs — damit waere beim Zurueckholen zwar die
-    Steuerung wieder da gewesen, aber der eingestellte Blickwinkel weg.
-    Wuensch dazu am 06.09.2026: „Sicherung sollte allgemein immer alles
-    verfuegbare sichern, nicht nur einzelne Teile." Kommt eine weitere Datei
+    `attributes.xml` gehoert dazu — ohne sie waere beim Zurueckholen zwar die
+    Steuerung wieder da, aber der eingestellte Blickwinkel weg. Kommt eine weitere Datei
     des Spielers dazu, gehoert sie hierher — nicht in eine zweite Liste.
     """
     from . import joysticks
@@ -197,7 +192,7 @@ def write(target, version='', game_folder=None):
 
     ⚠ `game_folder` ist für Prüfläufe da. Ohne ihn wird der eingerichtete
     Spielordner genommen — und ein Prüflauf, der ihn vergisst, schreibt in die
-    **echte** Steuerung des Spielers. Genau das ist am 04.09.2026 passiert.
+    **echte** Steuerung des Spielers.
     """
     files = _files()
     if not files:
@@ -418,7 +413,7 @@ def restore_bindings(source, with_active=False, game_folder=None):
 
 # Einstellungen, die einen Ort auf der Platte nennen. Beim Rechnerwechsel sind
 # sie der wahrscheinlichste Grund, warum danach nichts geht.
-# `launcher_ordner` wird seit dem 30.09.2026 nicht mehr gelesen — steht hier nur noch,
+# `launcher_ordner` wird nicht gelesen — steht hier nur,
 # damit alte Sicherungen ihn beim Wiederherstellen nicht mitschleppen.
 PATH_FIELDS = ('spiel_ordner', 'launcher_ordner', 'export_ordner')
 
@@ -430,15 +425,15 @@ def _clear_foreign_paths(root):
     alten Rechner stand das Spiel vielleicht unter `D:\\Spiele`, hier liegt es
     woanders. Ein Pfad, der ins Leere zeigt, ist schlimmer als gar keiner: Ein
     leeres Feld laesst das Programm selbst suchen, ein falsches nicht — es
-    meldet dann „keine Game.log gefunden", und niemand kommt auf die
+    findet dann keine Game.log, und niemand kommt auf die
     Einstellung, die man gerade eingespielt hat.
 
     Was hier existiert, bleibt unangetastet: Wer seine Sicherung auf demselben
     Rechner einspielt, soll seine Pfade behalten.
 
     ⚠ `ablage_ordner` wird **immer** entfernt, auch wenn es ihn gibt. Er steht
-    seit dem 04.09.2026 ohnehin in der Zeiger-Datei unter Dokumente und nicht
-    mehr hier; eine aeltere Sicherung kann ihn aber noch enthalten. Bliebe er
+    in der Zeiger-Datei unter Dokumente und nicht hier; eine aeltere
+    Sicherung kann ihn aber noch enthalten. Bliebe er
     stehen, wuerde das Programm nach dem Einspielen woanders hinschauen als
     dorthin, wo der Spieler die Sicherung gerade eingespielt hat.
     """

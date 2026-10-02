@@ -21,8 +21,8 @@ Die Scan-Signatur vom Bildschirm lesen — als Werkzeug, noch nicht im Programm.
 
 **Wozu.** Der Scanner im Spiel zeigt eine Zahl; welcher Brocken dahintersteckt,
 sagt er nicht. `scbp.mining.find_signature()` beantwortet das längst — nur
-muss die Zahl bisher von Hand eingetippt werden. Ein Nutzer dazu: „wieso kann
-ein Funk-Plugin das, mein Tool mit SC-Bezug nicht?" Das Argument sitzt.
+muss die Zahl bisher von Hand eingetippt werden. Dieses Werkzeug liest sie vom
+Bildschirm.
 
 **Warum zuerst ein Werkzeug und nicht gleich der Einbau.** Die Ziffernerkennung
 ist das große Stück; wenn sie wackelt, ist alles andere umsonst gebaut. Als
@@ -54,7 +54,7 @@ Schrift ohnehin Müll — angelernt wird stattdessen von Hand, einmal.
 Oberfläche einbaut, muss den Aufruf nachziehen.
 
 ⚠ **Stand: Linux/X11.** Unter nativem Wayland hat Star Citizen kein X-Fenster
-und der Abgriff ist unmöglich — gemessen am 08.09.2026. Wine muss im X11-Modus
+und der Abgriff ist unmöglich — gemessen. Wine muss im X11-Modus
 laufen (`WAYLAND_DISPLAY=` leer), und die Bildschirm-Skalierung muss glatt sein,
 sonst zielt man im Spiel daneben. Der Windows-Weg über GDI fehlt noch.
 """
@@ -75,10 +75,10 @@ ausgabe.utf8()
 # steht — verglichen wird immer dasselbe Raster.
 NORM_B, NORM_H = 16, 24
 
-# ⚠ Wie erkennt man, dass gar keine Zahl da ist? Der erste Versuch nahm die
-# Spanne (hellster minus dunkelster Punkt) — untauglich: Ein einzelner Stern im
-# schwarzen Weltraum ergibt Spanne 191, und das Werkzeug meldete „Text da" auf
-# einem leeren Bild (09.09.2026 gemessen). Gezaehlt wird deshalb, wie VIELE
+# ⚠ Wie erkennt man, dass gar keine Zahl da ist? Die Spanne (hellster minus
+# dunkelster Punkt) taugt nicht: Ein einzelner Stern im schwarzen Weltraum
+# ergibt Spanne 191, und ein leeres Bild galte als Text. Gezaehlt wird
+# deshalb, wie VIELE
 # Punkte ueber der Schwelle liegen. Eine fuenfstellige Zahl bringt einige
 # hundert; darunter ist nichts da, was sich zu lesen lohnt.
 MINDEST_HELLE_PUNKTE = 60
@@ -239,12 +239,11 @@ def spielfenster(lib, anzeige):
                                         ctypes.byref(merkmale)):
             continue
         # IsViewable = 2. Die Tiefen schliessen Hilfsfenster aus, die unter
-        # XWayland zwar gemeldet werden, ihren Inhalt aber nie herausgeben.
+        # XWayland zwar aufgefuehrt werden, ihren Inhalt aber nie herausgeben.
         #
         # ⚠ **24, 30 und 32 — nicht nur 24.** Auf einer Ausgabe mit 10 Bit je
-        # Farbkanal hat das Fenster Tiefe 30; die alte Bedingung liess es
-        # durchfallen, und das Werkzeug meldete „kein Star-Citizen-Fenster
-        # gefunden", obwohl das Spiel lief. Welches Fenster wirklich gemeint
+        # Farbkanal hat das Fenster Tiefe 30; mit nur 24 fiele es durch, und
+        # das Werkzeug faende kein Star-Citizen-Fenster, obwohl das Spiel laeuft. Welches Fenster wirklich gemeint
         # ist, entscheidet ohnehin der Name ein paar Zeilen weiter unten.
         if merkmale.map_state != 2 or merkmale.depth not in (24, 30, 32):
             continue
@@ -381,12 +380,11 @@ def png_lesen(pfad):
         return None
     # ⚠⚠ **Jede Laenge pruefen, BEVOR daraus geschnitten wird.**
     #
-    # Die Zusage dieser Funktion lautet „None bei allem, was nicht passt".
-    # Vorher galt sie nur fuer die Faelle, an die gedacht war: Eine abgebrochene
-    # oder fremde Datei konnte eine Laenge angeben, die ueber das Dateiende
-    # hinauszeigt — dann warf `struct.unpack` einen `struct.error` mitten aus
-    # dem Werkzeug heraus, oder ein zu kurzer Brocken wurde stillschweigend mit
-    # verfaelschten Punkten weiterverarbeitet. Beides ist schlechter als ein
+    # Die Zusage dieser Funktion lautet: None bei allem, was nicht passt.
+    # Eine abgebrochene oder fremde Datei kann eine Laenge angeben, die ueber
+    # das Dateiende hinauszeigt — ungeprueft wirft `struct.unpack` dann einen
+    # `struct.error` mitten aus dem Werkzeug heraus, oder ein zu kurzer Brocken
+    # wird stillschweigend mit verfaelschten Punkten weiterverarbeitet. Beides ist schlechter als ein
     # klares Nein.
     stelle, kopf, teile = 8, None, []
     while stelle + 8 <= len(roh):
@@ -682,8 +680,8 @@ def png_schreiben(raster, ziel):
 # Kommandozeile
 # --------------------------------------------------------------------------
 
-# Der Bereich, in dem die Pille sitzt — am 09.09.2026 auf einem
-# 5120x1440-Fenster ausgemessen (2480,470 mit 200x56).
+# Der Bereich, in dem die Pille sitzt — auf einem 5120x1440-Fenster
+# ausgemessen (2480,470 mit 200x56).
 # ⚠ Diese Anteile gelten fuer 3,56:1. SC verschiebt HUD-Elemente je nach
 # Bildformat; auf 16:9 sitzt die Pille woanders. Deshalb ist das hier nur der
 # Startwert des WERKZEUGS — im Programm wird die Pille spaeter gesucht und
@@ -752,8 +750,7 @@ def main():
     if wahl.zeigen:
         # ⚠ NICHT in den Repo-Ordner: Das Bild zeigt einen Ausschnitt des
         # echten Bildschirms und hat in einem oeffentlichen Repo nichts zu
-        # suchen (am 09.09.2026 waere es beinahe mitcommittet worden).
-        # Es landet deshalb in der Ablage, die ohnehin privat ist.
+        # suchen. Es landet deshalb in der Ablage, die ohnehin privat ist.
         from scbp import paths as _pf
         ziel = _pf.app_file('signatur-ausschnitt.png')
         png_schreiben(raster, ziel)

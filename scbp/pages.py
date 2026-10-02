@@ -25,7 +25,7 @@ geht es um den **Rahmen** (Reiterleiste, Umschalten, Größe), hier um den
 Funktion, kein Eingriff in den Rahmen.
 
 Die großen Seiten leihen sich die vorhandenen Fenster: `collection_window` und
-`settings_window` können seit v3.0.0 auch in einen übergebenen Rahmen
+`settings_window` können auch in einen übergebenen Rahmen
 zeichnen, statt ein eigenes Fenster aufzumachen.
 """
 import os
@@ -49,7 +49,7 @@ ACCENT  = theme.ACCENT
 LINE   = theme.LINE
 GOLD    = theme.GOLD
 
-# Zustimmung zum Absenden von Bericht und Scan-Bildern — gemerkt (17.09.2026).
+# Zustimmung zum Absenden von Bericht und Scan-Bildern — wird gemerkt.
 BERICHT_ZUSTIMMUNG = 'bericht_senden_bestaetigt'
 RED     = theme.RED
 # Fuer Zustaende, die schiefgingen, ohne eine Stoerung zu sein (abgebrochen,
@@ -59,23 +59,18 @@ RED_PALE = theme.RED_PALE
 # Wie viele Zeilen das Auftrags-Protokoll zuerst zeigt — der Rest kommt auf
 # Klick nach.
 #
-# ⚠ **Die Zahl ist gemessen, nicht geraten.** Am 07.09.2026 brauchte die Seite
-# beim ersten Öffnen **1479 ms**; sie war damit die mit Abstand teuerste im
-# Programm, alle übrigen 29 Seiten standen unter 130 ms. In tkinter kostet
-# jede Zeile echte Bedienelemente — sie im Voraus zu bauen ist die eigentliche
-# Arbeit, nicht das Lesen der Datei.
+# ⚠ In tkinter kostet jede Zeile echte Bedienelemente — sie im Voraus zu
+# bauen ist die eigentliche Arbeit, nicht das Lesen der Datei. Mit allen
+# Zeilen braucht die Seite beim ersten Öffnen weit über eine Sekunde.
 #
-# ⚠ 40, wie `ZEILEN_ZUERST` in der Bauplan-Liste. Zwei verschiedene Zahlen für
-# dieselbe Sache wären genau die Art Unterschied, die niemand begründen kann.
+# ⚠ 40, wie `ZEILEN_ZUERST` in der Bauplan-Liste — dieselbe Sache, dieselbe
+# Zahl.
 LOG_ROWS_FIRST = 40
 
 # ⚠ Die Klassen heißen in den Daten englisch; angezeigt werden sie übersetzt.
 #
-# ⚠⚠ **Hier auf Modulebene und nicht in der Funktion, die sie zuerst
-# brauchte.** Sie stand bis zum 06.09.2026 lokal in der Läden-Seite; als die
-# Herstellung dieselbe Übersetzung brauchte, wäre die naheliegende Lösung eine
-# zweite Kopie gewesen. Genau so ist `namensform()` einmal dreifach im Programm
-# gelandet und auseinandergelaufen.
+# ⚠⚠ **Auf Modulebene**, weil Läden-Seite und Herstellung dieselbe
+# Übersetzung brauchen — eine zweite Kopie liefe mit der Zeit auseinander.
 CLASS_LABELS = {'Civilian': 's_ld_kl_civilian',
                  'Military': 's_ld_kl_military',
                  'Industrial': 's_ld_kl_industrial',
@@ -92,8 +87,8 @@ CLASS_LABELS = {'Civilian': 's_ld_kl_civilian',
 # ⚠ Die Projektseite und **nicht** ein einzelner Store: Welchen Browser der
 # Spieler benutzt, weiß das Werkzeug nicht, und dort stehen alle drei
 # nebeneinander (Chrome, Firefox, Opera).
-# ⭐ Seit 15.09.2026 die empfohlene Erweiterung für den Hangar-Import: ein
-# gepflegter Fork des XPLORer (MIT, AlyxOne), für Chrome, Firefox und Edge. Der
+# ⭐ Die empfohlene Erweiterung für den Hangar-Import: ein gepflegter Fork
+# des XPLORer (MIT, AlyxOne), für Chrome, Firefox und Edge. Der
 # Hub-Beitrag nennt alle drei Stores; Quellcode-Seite gibt es keine.
 HANGAR_EXT_PAGE = ('https://robertsspaceindustries.com/community-hub/post/'
                    'star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W')
@@ -174,7 +169,7 @@ def build(fenster, kennung, rahmen):
 def style_headings(window, root_widget):
     """Schema „KRT": jede Zwischenüberschrift orange und in Großbuchstaben.
 
-    ⭐ Zentral statt an jeder der rund 17 Stellen (rc7): Nach dem Aufbau einer
+    ⭐ Zentral statt an jeder der rund 17 Stellen: Nach dem Aufbau einer
     Seite wird jede Beschriftung in Titelschrift, die auf dem Seitengrund in
     der normalen Textfarbe steht, umgefärbt. Kachelwerte (andere Fläche,
     Akzentfarbe) und die Seitenüberschrift (schon orange) bleiben, wie sie
@@ -222,12 +217,8 @@ def _wide_area(frame, bg=None):
 
     ⛔⛔ **Der Seitenkörper darf nie waagerecht rollen** (Projektregel). Zu
     breiter Inhalt bekommt deshalb seine eigene Fläche, statt die Seite zu
-    dehnen — oder, was bis zum 14.09.2026 geschah, **still abgeschnitten** zu
-    werden: Auf der Raffinerien-Seite fehlten bei „sehr groß" drei Spalten,
-    und zwar in einer ausgelieferten Fassung. Tk meckert dabei nicht.
-
-    ⚠ Im Quelltext stand seit dem ersten Tag ein Kommentar, die Tabelle habe
-    so eine Fläche. Sie hatte sie nie. **Ein Kommentar ist kein Bauteil.**
+    dehnen — oder **still abgeschnitten** zu werden (etwa Spalten der
+    Raffinerien-Tabelle bei „sehr groß"). Tk meckert dabei nicht.
 
     ⚠ Anders als `_scroll_area()` wird die Breite des inneren Rahmens **nicht**
     auf die Leinwand gezwungen — genau die soll er ja überschreiten dürfen.
@@ -274,8 +265,7 @@ def _scroll_area(frame, inset=24, height=None):
     """
     # ⚠ `hoehe` macht daraus einen Bereich mit **fester** Höhe, der nicht
     # mitwächst — für Listen, die mit der Zeit länger werden. Ohne das frisst
-    # so eine Liste irgendwann die ganze Seite: Gemessen am 07.09.2026 braucht
-    # eine Patch-Zeile 30 px, und die eigene Patch-Sammlung wächst absichtlich
+    # so eine Liste irgendwann die ganze Seite: Eine Patch-Zeile braucht 30 px, und die eigene Patch-Sammlung wächst absichtlich
     # über die zehn hinaus, die die Quelle vorhält. Bei 30 Patches blieben für
     # den eigentlichen Inhalt noch 41 px, bei 50 gar nichts mehr.
     aussen = tk.Frame(frame, bg=BG)
@@ -296,14 +286,13 @@ def _scroll_area(frame, inset=24, height=None):
     innen = tk.Frame(leinwand, bg=BG)
     innen.bind('<Configure>',
                lambda e: leinwand.configure(scrollregion=leinwand.bbox('all')))
-    # ⚠⚠ **`width=1`, bis die Leinwand ihre echte Breite kennt** (rc9).
+    # ⚠⚠ **`width=1`, bis die Leinwand ihre echte Breite kennt.**
     # Ohne Breite bekommt der Inhalt einer Leinwand seine WUNSCHbreite — und
     # die ist, solange noch nichts umgebrochen ist, die der längsten
     # Textzeile: 2340 px auf „Allgemein". Alle Umbrüche (`_wrap`) rechneten
     # gegen diese Fantasiebreite und schrumpften die Fläche dann in rund 70
     # Runden herunter — **7874 von rund 10 000 Tk-Aufrufen** beim ersten
-    # Öffnen des Hauptfensters (gemessen 27.09.2026, gemeldet als „bis das
-    # Fenster das erste Mal kommt, dauert es ewig"). Mit 1 px warten die
+    # Öffnen des Hauptfensters. Mit 1 px warten die
     # Umbrüche (sie setzen erst ab 40 px ein) und rechnen einmal, sobald das
     # `<Configure>` der Leinwand die richtige Breite bringt.
     fenster_id = leinwand.create_window((0, 0), window=innen, anchor='nw',
@@ -347,7 +336,7 @@ def _pack_on_demand(leinwand, zeilen, sofort=ROWS_FIRST,
     weit unter dem Fensterrand liegen. Bei 200 Zeilen ist das die eigentliche
     Wartezeit beim Seitenwechsel — nicht das Bauen.
 
-    Gemessen am 13.09.2026 auf der Joystick-Seite, warmer Wechsel:
+    Gemessen auf der Joystick-Seite, warmer Wechsel:
 
     | | |
     |---|---|
@@ -411,7 +400,7 @@ def _build_on_demand(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
     erzeugt — weil nicht das Anzeigen teuer ist, sondern das **Wegwerfen**
     beim nächsten Tastendruck.
 
-    Gemessen am 13.09.2026 auf der Seite „Zerlegen": Von 1,24 s je Anzeigen
+    Gemessen auf der Seite „Zerlegen": Von 1,24 s je Anzeigen
     gingen **1,03 s** allein für `destroy()` von 1600 Bauteilen drauf. Die
     Auswahlliste baut für jedes der rund 400 Teile eine Zeile aus bis zu drei
     Bauteilen — und wirft alles weg, sobald jemand einen Buchstaben tippt.
@@ -467,14 +456,10 @@ def _scroll_to_top(widget):
     ungefähr gleich lang bleibt. Schrumpft er stark (eine aufgeklappte
     Vorschlagsliste verschwindet), führt derselbe Anteil hinter das Ende: Oben
     steht dann eine leere Fläche, und der Inhalt fehlt scheinbar.
-
-    Am 04.09.2026 gemeldet: „Wieso ist da so viel leerer Raum … verschenkter
-    Platz." Genau dieser Fall.
     """
     # ⛔⛔ Das Attribut heisst `canvas`, nicht `leinwand` — `_scroll_area`
-    # setzt es so (`innen_ziel.canvas = leinwand`). Bis zum 14.09.2026
-    # stand hier der alte deutsche Name, ein Rueckstand der
-    # Sprachumstellung. `getattr(..., None)` liefert dann brav `None`,
+    # setzt es so (`innen_ziel.canvas = leinwand`). Mit falschem Namen
+    # liefert `getattr(..., None)` brav `None`,
     # und die Funktion steigt **stillschweigend** aus: kein Fehler,
     # keine Meldung, nur eine Seite, die beim Neuzeichnen nach oben
     # springt.
@@ -509,7 +494,7 @@ def _scroll_to_top(widget):
 def _files_stamp(*files):
     """Ein Fingerabdruck mehrerer Dateien: Pfad, Änderungszeit, Größe.
 
-    ⭐ Für Seiten, die sich beim Anzeigen neu aufbauen (rc9): Stimmt der
+    ⭐ Für Seiten, die sich beim Anzeigen neu aufbauen: Stimmt der
     Fingerabdruck mit dem vom letzten Aufbau überein, hat sich keine Quelle
     geändert, und der Neuaufbau kann entfallen. Eine fehlende Datei zählt als
     „fehlt" — taucht sie auf, ändert sich der Abdruck."""
@@ -530,17 +515,15 @@ def _keep_scroll(widget, action):
     ⚠⚠ **Wer eine Liste neu aufbaut, verliert die Rollposition.** Beim Löschen
     eines Postens wird die ganze Tabelle verworfen und neu gezeichnet; die
     Leinwand steht danach wieder bei null, und wer unten am zwölften Eintrag
-    war, landet oben. Am 30.08.2026 gemeldet: „beim Löschen von Einträgen
-    springt das Fenster immer wieder nach ganz oben."
+    war, landet oben.
 
     Die Stelle wird **vorher** gelesen und **nach** dem Neuzeichnen gesetzt —
     dazwischen ändert sich die Höhe des Inhalts, deshalb erst nach einem
     Leerlauf, wenn Tk den neuen Rollbereich kennt.
     """
     # ⛔⛔ Das Attribut heisst `canvas`, nicht `leinwand` — `_scroll_area`
-    # setzt es so (`innen_ziel.canvas = leinwand`). Bis zum 14.09.2026
-    # stand hier der alte deutsche Name, ein Rueckstand der
-    # Sprachumstellung. `getattr(..., None)` liefert dann brav `None`,
+    # setzt es so (`innen_ziel.canvas = leinwand`). Mit falschem Namen
+    # liefert `getattr(..., None)` brav `None`,
     # und die Funktion steigt **stillschweigend** aus: kein Fehler,
     # keine Meldung, nur eine Seite, die beim Neuzeichnen nach oben
     # springt.
@@ -580,18 +563,10 @@ def _keep_scroll(widget, action):
         pass
 
 
-# ⚠ Hier stand bis 17.09.2026 `_search_clear` — ein × NEBEN dem Suchfeld, als
-# Schriftzeichen. Das X sitzt seitdem in jedem Feld selbst (`round_entry`,
-# ab Werk `clearable=True`). Zwei Arten X auf verschiedenen Seiten waren
-# genau das, was die Regel „Gleiches sieht gleich aus" verbietet.
-
-
 def _filter_bar(window, parent, fields, on_change, state):
     """Eine Reihe Auswahlfelder plus „Auswahl zurücksetzen" — für jede Seite gleich.
 
-    ⚠⚠ **Ein Bedienkonzept für das ganze Programm.** Xharig am 29.08.2026:
-    *„egal wo, sollte das Bedienkonzept nicht jedes Mal ändern — die Leute
-    wollen es nutzen und nicht erst lernen, wie sie es nutzen."* Wer die
+    ⚠⚠ **Ein Bedienkonzept für das ganze Programm.** Wer die
     Bauplan-Liste bedienen kann, muss Herstellung und Bergbau ohne Umlernen
     bedienen können. Deshalb dasselbe `round_select` wie dort, derselbe
     Zurücksetzen-Knopf an derselben Stelle.
@@ -625,9 +600,8 @@ def _filter_bar(window, parent, fields, on_change, state):
         gebaut[schluessel] = w
         reihenfolge.append(w)
     # ⚠⚠ **Umbrechend, nicht abgeschnitten.** Tk schneidet eine zu breite
-    # Reihe wortlos rechts ab — bei fünf Menüs im Laden-Reiter stand dort
-    # „Alle Gü…", und das fünfte war nicht mehr bedienbar. Am 05.09.2026
-    # gemeldet: „Kein Umbruch bei den Dropdowns."
+    # Reihe wortlos rechts ab — bei fünf Menüs im Laden-Reiter wäre das
+    # fünfte sonst nicht mehr bedienbar.
     #
     # Derselbe Helfer wie bei den Geräteknöpfen der Steuerung. Er wirkt hier
     # auf **alle** Seiten mit Filterleiste — die Bauplan-Liste hat sechs
@@ -653,8 +627,8 @@ def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand, lead=0):
     ⚠ **Einmal beim Bauen zu messen reicht nicht.** `schrift.measure()` sagt,
     wie breit Tk den Text glaubt; gezeichnet wird er mit der Schrift, die das
     System hergibt — und unter Wayland steht die erst fest, wenn das Fenster
-    angezeigt wird. Auf einem anderen Rechner stand deshalb „erung speichern" auf
-    einem Knopf, während derselbe Knopf hier sauber aussah.
+    angezeigt wird. Ohne Nachmessen schneidet die Leinwand den Text dann
+    beidseitig ab.
 
     Deshalb wird dreimal nachgesehen: sofort, beim ersten `<Configure>` und
     einmal im Leerlauf. Vergrössert wird nur, wenn es nötig ist — dadurch kommt
@@ -664,7 +638,7 @@ def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand, lead=0):
     Leinwand, wird der Rahmen neu gezeichnet, sonst endet er mitten im Wort;
     die Liste hält die neue Kennung fest, damit die Farbwechsel weiter greifen.
 
-    `lead` ist der Platz links VOR dem Text (eine Flagge, seit rc5): Er
+    `lead` ist der Platz links VOR dem Text (etwa eine Flagge): Er
     zählt zur Breite, und der Text wird rechts davon mittig gesetzt — sonst
     schöbe das Nachmessen ihn über das Bild.
     """
@@ -704,12 +678,10 @@ def _button(window, parent, text, action, strong=False, danger=False):
     breite = schrift.measure(text) + 30
     # ⚠ `gefahr` faerbt **dauerhaft**, nicht erst beim Überfahren. Ein Knopf,
     # der erst rot wird, wenn die Maus schon darauf steht, warnt niemanden —
-    # gesehen hat man ihn dann längst. am 28.08.2026 gemeldet zum
-    # Absende-Knopf: „der Button wird erst beim Überfahren rot."
+    # gesehen hat man ihn dann längst.
     farbe = RED if danger else (ACCENT if strong else FG)
     rand = RED if danger else (ACCENT if strong else LINE)
-    # Schema „KRT": starke Knöpfe orange gefüllt, Schrift dunkel —
-    # wie „EINSATZ ÖFFNEN" im Profit Basetool.
+    # Schema „KRT": starke Knöpfe orange gefüllt, Schrift dunkel.
     gefuellt = strong and not danger and theme.FILLED_BUTTONS
     if gefuellt:
         farbe = BG
@@ -718,8 +690,7 @@ def _button(window, parent, text, action, strong=False, danger=False):
     # ⚠ Erst der Text, dann der Rahmen — und dazwischen wird **nachgemessen**.
     # `schrift.measure()` sagt, wie breit Tk den Text glaubt; gezeichnet wird
     # er mit der Schrift, die das System wirklich hergibt. Weichen die ab, ist
-    # die Leinwand zu schmal und schneidet beidseitig ab: Am 29.08.2026 stand
-    # auf einem Knopf „erung speichern" statt „Änderung speichern".
+    # die Leinwand zu schmal und schneidet beidseitig ab.
     # `bbox()` liefert die tatsaechliche Ausdehnung, ohne dass das Fenster
     # sichtbar sein muss.
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
@@ -753,9 +724,7 @@ def _button(window, parent, text, action, strong=False, danger=False):
 
         ⚠ Ein Canvas hat eine feste Wunschbreite. `pack(fill='x')` streckt zwar
         die Leinwand, aber das darauf gezeichnete Rechteck bleibt schmal — der
-        Knopf sah dann aus, als füllte er nur die halbe Kastenbreite. Genau so
-        am 26.08.2026 gemeldet: „der Button füllt nur die hälfte unter den
-        versionen".
+        Knopf sah dann aus, als füllte er nur die halbe Kastenbreite.
 
         Deshalb bei jeder Größenänderung Rechteck und Text neu setzen. Knöpfe,
         die nicht gestreckt werden, behalten ihre Breite von selbst.
@@ -805,7 +774,7 @@ def _choice(window, parent, entries, active, action):
     schrift = window.f_small
     for eintrag in entries:
         # ⭐ Ein drittes Feld ist ein Bild vor dem Text (die Flaggen der
-        # Sprachwahl, rc5) — `None` oder weggelassen heißt: nur Text.
+        # Sprachwahl) — `None` oder weggelassen heißt: nur Text.
         kennung, text = eintrag[0], eintrag[1]
         bild = eintrag[2] if len(eintrag) > 2 else None
         vorlauf = (bild.width() + 6) if bild else 0
@@ -843,14 +812,11 @@ def _choice(window, parent, entries, active, action):
     # ⚠⚠ **`select_quiet` muss es geben, auch wenn es hier dasselbe tut.**
     #
     # Fünf Stellen rufen es auf einer `_choice`-Reihe auf (Overlay-Ecke,
-    # Bestandsfenster, Systemmenü). Bis zum 16.09.2026 gab es nur `select` —
-    # der Aufruf endete in `AttributeError: 'Frame' object has no attribute
-    # 'select_quiet'`.
+    # Bestandsfenster, Systemmenü). Fehlt es, endet der Aufruf in
+    # `AttributeError: 'Frame' object has no attribute 'select_quiet'`.
     #
-    # ⚠ **Vier der fünf Stellen stehen in `try/except` und haben den Fehler
-    # verschluckt**: Die Auswahl frischte sich dort nie auf, und niemand sah,
-    # warum. Sichtbar wurde es nur an der ungekapselten Overlay-Stelle, im
-    # Fehlerbericht eines Nutzers.
+    # ⚠ **Vier der fünf Stellen stehen in `try/except` und würden den Fehler
+    # verschlucken**: Die Auswahl frischte sich dann still nie auf.
     #
     # **Warum dasselbe `setzen`:** Der Unterschied zwischen laut und leise
     # entsteht in `main_window.choice`, wo `select` den Rückruf mit auslöst.
@@ -866,8 +832,7 @@ def _status(window, parent, symbol, bold, rest, color=None):
     """Ein Statuskasten mit farbigem Balken links — wie in der Vorschau.
 
     ⚠ `symbol` ist ein Name aus `scbp/icons.py` („haken", „offen"), kein
-    Schriftzeichen mehr. Der Parameter hieß bis v3.0.0-rc55 `zeichen` und hätte
-    das gleichnamige Modul verdeckt.
+    Schriftzeichen.
     """
     color = color or ACCENT
     innen = _card(parent, border_color=color, pady=(0, 14))
@@ -911,15 +876,13 @@ def _pixels(widget, wert, ersatz=0):
 
     ⚠ `cget()` liefert je nach Widget und Option mal ein `int`, mal einen
     String, mal ein `_tkinter.Tcl_Obj`. Auf Letzteres wirft `int()` einen
-    **TypeError** — und der wurde von `except (TclError, ValueError)` nicht
+    **TypeError** — und der wird von `except (TclError, ValueError)` nicht
     gefangen, weil ein TypeError keins von beiden ist.
 
-    Gemessen am 28.08.2026 unter Linux (AppImage, Python 3.14.6, Tk 8.6):
-    **50 von 50** aufgehobenen Fehlern kamen aus dieser einen Stelle. Die Folge
-    war nicht nur ein volles Protokoll — `_umbruch` brach ab, *bevor* es
-    `wraplength` setzen konnte. Der Text blieb einzeilig und breit, wurde am
-    Fensterrand abgeschnitten und drückte die Schalter rechts hinaus. Auf
-    "Texte im Spiel" und "Bestand" war das bei kleiner Fenstergröße sichtbar.
+    Unter Linux (Tk 8.6) tritt das regelmäßig auf. Die Folge ist nicht nur
+    ein volles Protokoll — `_umbruch` bricht ab, *bevor* es `wraplength`
+    setzen kann. Der Text bleibt einzeilig und breit, wird am Fensterrand
+    abgeschnitten und drückt die Schalter rechts hinaus.
 
     `tk.getint()` ist Tks eigener Umwandler und versteht alle drei Formen.
     """
@@ -944,12 +907,6 @@ def _wrap_self(label):
     ⚠ **Nur setzen, wenn sich der Wert ändert.** Ein neues `wraplength` ändert
     die Höhe, das löst wieder ein `<Configure>` aus — ohne diese Bremse dreht
     sich das im Kreis.
-
-    > **Woher:** 14.09.2026. In der Belegungsliste stand ausdrücklich, das
-    > Abschneiden sei Absicht („der Name steht immerhin am Anfang lesbar da").
-    > Bei „sehr groß" brauchte ein Aktionsname 446 px und bekam 296 — ein
-    > Drittel fehlte. Und ausgerechnet wer diese Stufe wählt, tut das, **weil**
-    > er lesen können will.
     """
     def nachziehen(_=None):
         try:
@@ -960,8 +917,8 @@ def _wrap_self(label):
                 return
             # ⚠ `wraplength` gilt für den Text, `winfo_width` für das ganze
             # Label — die Polsterung links und rechts steckt mit drin. Ohne
-            # sie abzuziehen, wünschte sich „Bergbau-Regler" (padx=8) 153 px
-            # und bekam 148 (randpruefung, 27.09.2026).
+            # sie abzuziehen, ist der Text bei `padx=8` ein paar Pixel zu
+            # breit (tools/randpruefung.py).
             #
             # ⚠⚠ Genau die Polsterung abziehen, nicht mehr: Ein Label ohne
             # `expand` bekommt seine Wunschbreite, und jeder Pixel Abschlag
@@ -975,8 +932,7 @@ def _wrap_self(label):
             # ⚠ `_pixels`, nicht `int()` — `cget('wraplength')` liefert unter
             # Linux/Tk 8.6 ein `_tkinter.Tcl_Obj`, und `int()` wirft darauf
             # einen **TypeError**, den `except tk.TclError` nicht fängt.
-            # Siehe den Kasten an `_pixels`; am 28.09.2026 kam die Meldung
-            # von dieser Stelle zurück, obwohl `_pixels` längst gebaut war.
+            # Siehe den Kasten an `_pixels`.
             if _pixels(label, label.cget('wraplength')) != neu:
                 label.configure(wraplength=neu, justify='left')
         except tk.TclError:
@@ -1015,9 +971,8 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
         # .!...!label`. Dasselbe beim `<Configure>` des Elternrahmens: Der lebt
         # noch, das Label darin nicht mehr.
         #
-        # Der Fehler stürzte nichts ab (der Haken in `errors.py` fängt ihn), er
-        # füllte nur das Protokoll: acht Einträge in einem Bericht vom
-        # 27.08.2026, alle aus demselben Augenblick.
+        # Der Fehler stürzt nichts ab (der Haken in `errors.py` fängt ihn), er
+        # füllt nur das Protokoll.
         try:
             if not (label.winfo_exists() and ziel.winfo_exists()):
                 return
@@ -1034,8 +989,7 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
             # nur den TEXT; was das Label am Ende belegt, ist Text + Rand +
             # Innenabstand. Stand `wraplength` auf der vollen Breite, brauchte
             # es also ein paar Pixel mehr, als es bekam — und Tk schnitt still
-            # ab. Genau so gemessen am 28.08.2026: die englische Warnzeile auf
-            # der Spiel-Seite ragte um 5 px heraus, bei 1100×842.
+            # ab (gemessen: rund 5 px).
             #
             # Erfragt statt geschätzt, damit es auch bei anderer Darstellung
             # stimmt.
@@ -1047,13 +1001,12 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
                 rand = 4
             neu = max(160, int(breite * share) - inset - rand)
             try:
-                # ⚠⚠ **Nur schreiben, wenn sich der Wert ändert** (rc9). Jedes
+                # ⚠⚠ **Nur schreiben, wenn sich der Wert ändert.** Jedes
                 # `configure` lässt Tk das Label neu vermessen, das meldet
                 # dem Elternrahmen ein `<Configure>` — und der ruft wieder
-                # hierher. Ohne diese Bremse liefen beim ersten Öffnen des
-                # Hauptfensters 900 Nachberechnungen für 11 Labels (gemessen
-                # 27.09.2026, „bis das Fenster das erste Mal kommt, dauert es
-                # ewig"). `_wrap_self` hatte die Bremse schon.
+                # hierher. Ohne diese Bremse laufen beim ersten Öffnen des
+                # Hauptfensters Hunderte Nachberechnungen (wie in
+                # `_wrap_self`).
                 # ⚠ `_pixels`, nicht `int()` — siehe `_wrap_self`: auf einem
                 # `_tkinter.Tcl_Obj` wirft `int()` einen TypeError, und der
                 # kommt an `except tk.TclError` vorbei.
@@ -1077,11 +1030,11 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
 def _bundled_idle(widget, action):
     """Einen Rückruf bündeln: viele Ereignisse, EIN Aufruf, sobald Tk ruht.
 
-    ⚠⚠ **Warum (rc9).** Die Umbrüche hängen am `<Configure>` des
+    ⚠⚠ **Warum.** Die Umbrüche hängen am `<Configure>` des
     Elternrahmens. Beim ersten Öffnen des Hauptfensters ändert sich dessen
-    Größe dutzendfach, bis alles steht — und jedes Mal rechneten alle Labels
-    neu: **7874 von rund 10 000 Tk-Aufrufen** beim Öffnen kamen aus
-    `nachziehen` (gemessen 27.09.2026). Gebündelt rechnet jedes Label einmal,
+    Größe dutzendfach, bis alles steht — und jedes Mal rechnen alle Labels
+    neu: Ungebündelt kommen rund drei Viertel aller Tk-Aufrufe beim Öffnen
+    aus `nachziehen`. Gebündelt rechnet jedes Label einmal,
     wenn die Größe feststeht."""
     pending = [None]
 
@@ -1103,10 +1056,8 @@ def _button_row(parent, buttons, gap=8):
     """Knöpfe nebeneinander — und untereinander, sobald der Platz nicht reicht.
 
     ⚠ Tk bricht eine Knopfreihe nicht um. Passt sie nicht, schneidet es den
-    letzten Knopf einfach ab: Auf der Über-Seite stand bei Mindestbreite
-    sichtbar „Einrichtung wiederho…". Aufgefallen ist das erst auf einem
-    Bildschirmfoto — die Randprüfung hatte Knöpfe als Rollflächen ausgenommen,
-    weil jeder Knopf hier ein `Canvas` ist.
+    letzten Knopf einfach ab. ⚠ Die Randprüfung sieht das nur, wenn sie
+    Knöpfe nicht als Rollflächen ausnimmt — jeder Knopf hier ist ein `Canvas`.
     """
     def ordnen(_=None):
         # Wie bei `_umbruch`: Der Rückruf kann nach dem Seitenwechsel drankommen,
@@ -1123,14 +1074,12 @@ def _button_row(parent, buttons, gap=8):
             + gap * (len(buttons) - 1)
 
         # ⚠⚠ **Erst Platz schaffen, dann umbrechen.** Untereinander stehende
-        # Knöpfe sehen aus wie ein Fehler — Xharig: „das sieht schrecklich
-        # aus." Bevor umgebrochen wird, fordert die Reihe deshalb die Breite
-        # an, die sie braucht.
+        # Knöpfe sehen aus wie ein Fehler. Bevor umgebrochen wird, fordert
+        # die Reihe deshalb die Breite an, die sie braucht.
         #
         # Eine feste Mindestbreite genügt dafür nicht: Wie breit ein Knopf
         # wirklich wird, steht erst fest, wenn er gezeichnet ist — unter
-        # Wayland fällt das messbar anders aus als hier. Zwei Anläufe mit
-        # geschätzten Zahlen (1100, dann 1160) reichten beide nicht.
+        # Wayland fällt das messbar anders aus.
         try:
             oben = parent.winfo_toplevel()
             fehlend = gebraucht - platz
@@ -1144,19 +1093,13 @@ def _button_row(parent, buttons, gap=8):
                     #
                     # `minsize()` setzt immer beide Werte. Hier geht es aber nur
                     # um die BREITE — wie hoch das Fenster sein muss, hat mit
-                    # der Knopfreihe nichts zu tun. Bis 3.9.5 stand an dieser
-                    # Stelle `oben.winfo_height()`, also die gerade aktuelle
-                    # Höhe: Wer sein Fenster einmal hoch gezogen hatte und dann
-                    # eine Seite mit breiter Knopfreihe öffnete, konnte es nie
-                    # wieder niedriger ziehen. Gemeldet mit `Fenster 1770×899,
-                    # mindestens 1770×899` — beide Maße gleich, das Fenster saß
-                    # in seiner eigenen Größe fest, obwohl `MIN_HEIGHT` 380 ist.
+                    # der Knopfreihe nichts zu tun. Mit `oben.winfo_height()`,
+                    # also der gerade aktuellen Höhe, säße ein einmal hoch
+                    # gezogenes Fenster in seiner eigenen Größe fest und ließe
+                    # sich nie wieder niedriger ziehen.
                     #
-                    # Es ist derselbe Fehler wie in Falle 4 der Projektnotiz,
-                    # nur andersherum: Dort blieb `minsize` beim Verkleinern
-                    # stehen, hier wächst es beim Vergrößern mit. Beide Male
-                    # gilt: Wer die Fenstergröße anfasst, fasst genau die
-                    # Maße an, um die es geht — und keine weiteren.
+                    # Wer die Fenstergröße anfasst, fasst genau die Maße an,
+                    # um die es geht — und keine weiteren.
                     _, min_hoch = oben.minsize()
                     oben.minsize(noetig, min_hoch)
                     if oben.winfo_width() < noetig:
@@ -1196,15 +1139,14 @@ def _reflow_grid(eltern):
         return
     platz = eltern.winfo_width()
 
-    # ⚠⚠ **Bei unbekannter Breite NICHT einfach aussteigen** (07.09.2026).
-    # Das war ein Teufelskreis: Ohne Breite wurden die Knöpfe nirgends
-    # platziert, ohne platzierte Kinder blieb der Rahmen 1 px breit, und ohne
-    # Breitenänderung feuerte nie ein `<Configure>`, das es hätte richten
-    # können. Neun Bereichsknöpfe blieben so dauerhaft unsichtbar.
+    # ⚠⚠ **Bei unbekannter Breite NICHT einfach aussteigen.**
+    # Das wäre ein Teufelskreis: Ohne Breite würden die Knöpfe nirgends
+    # platziert, ohne platzierte Kinder bliebe der Rahmen 1 px breit, und ohne
+    # Breitenänderung feuerte nie ein `<Configure>`, das es richten könnte —
+    # die Knöpfe blieben dauerhaft unsichtbar.
     #
-    # Vorher fiel das nicht auf, weil dieser Rahmen in einer Rollfläche lag und
-    # deren Breite sofort feststand. Seit die Bereichsauswahl fest über der
-    # Rollfläche sitzt, ist sie beim ersten Ordnen noch nicht vermessen.
+    # Eine Bereichsauswahl fest über der Rollfläche ist beim ersten Ordnen
+    # noch nicht vermessen.
     #
     # Also: einspaltig setzen — damit der Rahmen überhaupt eine Größe bekommt —
     # und gleich noch einmal nachfassen, wenn die Breite steht.
@@ -1219,26 +1161,19 @@ def _reflow_grid(eltern):
     abstand = zustand['abstand']
 
     # ⚠⚠ **Alle Spalten gleich breit — sonst rechnet der Umbruch am Layout
-    # vorbei** (07.09.2026, gemeldet: „ab mounts ist es auch abgeschnitten bei
-    # den auswahlen").
+    # vorbei.**
     #
-    # Vorher addierte diese Schleife die Breiten der Knöpfe **einer Zeile** und
-    # brach um, wenn die Summe den Platz überschritt. `grid` richtet aber nach
-    # der breitesten Zelle **je Spalte** aus, über alle Zeilen hinweg: Steht in
-    # Spalte 4 irgendeiner Zeile ein breiter Knopf („mininglasers (13)",
-    # 131 px), wird Spalte 4 in JEDER Zeile so breit — und die tatsächlichen
-    # Positionen laufen der Rechnung davon.
+    # Die Breiten der Knöpfe **einer Zeile** zu addieren genügt nicht: `grid`
+    # richtet nach der breitesten Zelle **je Spalte** aus, über alle Zeilen
+    # hinweg. Steht in Spalte 4 irgendeiner Zeile ein breiter Knopf, wird
+    # Spalte 4 in JEDER Zeile so breit — und die tatsächlichen Positionen
+    # laufen der Rechnung davon. Tk schneidet den Überstand wortlos ab — ohne
+    # Rollbalken, ohne Hinweis.
     #
-    # Gemessen bei 892 px Rahmenbreite und 16 Bereichen: „missileracks (5)"
-    # saß bei x=864 und war 120 px breit, ragte also 92 px hinaus. Tk schneidet
-    # das wortlos ab — ohne Rollbalken, ohne Hinweis. Genau die Falle, gegen
-    # die `_knopfgitter` einmal gebaut wurde.
-    #
-    # Die Lösung ist nicht, genauer zu rechnen, sondern dem Layout die Freiheit
-    # zu nehmen: Jede Spalte bekommt dieselbe Breite (die des breitesten
+    # Deshalb bekommt jede Spalte dieselbe Breite (die des breitesten
     # Knopfes). Dann ist die Spaltenzahl eine simple Division, und was gerechnet
     # wurde, steht auch so da. Es kostet etwas Leerraum hinter den kurzen
-    # Beschriftungen — dafür ist nichts mehr abgeschnitten, und die Knöpfe
+    # Beschriftungen — dafür ist nichts abgeschnitten, und die Knöpfe
     # stehen sauber untereinander statt in ausgefransten Zeilen.
     breiteste = max((k.winfo_reqwidth() for k in knoepfe), default=0)
     spaltenbreite = breiteste + abstand
@@ -1258,11 +1193,10 @@ def _reflow_grid(eltern):
     # Knöpfe einspaltig, bei einem breiten Fenster in acht Spalten — wird das
     # Fenster danach schmaler, blieben die alten acht `minsize` erhalten.
     #
-    # Gemessen am 14.09.2026 auf der Joystick-Seite: Der Rahmen forderte
-    # **1344 px** an, obwohl fünf Spalten à 168 px nur 840 brauchen. Sichtbar
-    # abgeschnitten war nichts — die Knöpfe saßen alle richtig —, aber die
-    # überhöhte Wunschbreite reicht nach oben durch, und die Randprüfung
-    # meldete dreimal einen Überstand, den es gar nicht gab.
+    # Der Rahmen forderte dann deutlich mehr Breite an, als die Spalten
+    # brauchen. Sichtbar abgeschnitten ist nichts, aber die überhöhte
+    # Wunschbreite reicht nach oben durch, und die Randprüfung meldet einen
+    # Überstand, den es gar nicht gibt.
     spalte = spalten
     while eltern.grid_columnconfigure(spalte).get('minsize'):
         eltern.grid_columnconfigure(spalte, uniform='', minsize=0)
@@ -1278,9 +1212,7 @@ def _button_grid(parent, buttons, gap=6):
     „alle untereinander" eine Wand, und Platz anzufordern geht an der Sache
     vorbei, wenn jemand sein Fenster **absichtlich** klein zieht.
 
-    Am 05.09.2026 gemeldet: „Werkseinstellung zurücksetzen wird abgeschnitten"
-    und „Maus, Tastatur und Gamepad werden auch abgeschnitten beim
-    Kleinerziehen". Tk schneidet eine zu breite Reihe wortlos ab — was rechts
+    Tk schneidet eine zu breite Reihe wortlos ab — was rechts
     nicht mehr hinpasst, ist einfach weg, ohne Rollbalken und ohne Hinweis.
 
     ⚠ Der Rahmen gehört **allein** dem Gitter: `grid` und `pack` vertragen
@@ -1340,15 +1272,11 @@ def _strip_markup(text):
     nicht. Die Sternchen in `language.py` markieren die Betonung fuer den
     Leser der Sprachdatei; auf dem Bildschirm haben sie nichts zu suchen.
 
-    Die Danke-Seite entfernte sie schon, die Einstellungszeilen nicht: Auf
-    "Texte im Spiel" stand dadurch woertlich `**ganze Spiel**` auf dem
-    Bildschirm (gefunden von am 28.08.2026 gemeldet unter rc85). Damit das
-    nicht bei jedem neuen Text wieder passiert, geht es jetzt durch diese
-    eine Stelle.
+    Damit das nicht bei jedem neuen Text einzeln bedacht werden muss, geht
+    es durch diese eine Stelle.
 
     ⚠ Dasselbe gilt fuer die Rueckstriche um Befehle und Werte. Sie kommen aus
-    dem Änderungsprotokoll, das die Seite „Was ist neu" anzeigt, und standen
-    dort bis rc42 mit auf dem Bildschirm.
+    dem Änderungsprotokoll, das die Seite „Was ist neu" anzeigt.
     """
     return text.replace('**', '').replace('`', '') if text else text
 
@@ -1377,8 +1305,8 @@ def _setting_row(window, parent, caption, help_text, wide=False, top=False):
         erklaerung.pack(fill='x')
     if wide:
         # Breite Bedienelemente unter die Beschreibung statt daneben: Auf
-        # Englisch sind die Wörter länger, und rechts wurde der letzte Knopf
-        # abgeschnitten („Ve…" statt „Very large").
+        # Englisch sind die Wörter länger, und rechts würde der letzte Knopf
+        # abgeschnitten.
         rechts = tk.Frame(links, bg=BG)
         rechts.pack(fill='x', anchor='w', pady=(8, 0))
         # ⚠ Auch hier braucht es einen Abzug. Ohne ihn bekommt der Text die
@@ -1387,7 +1315,7 @@ def _setting_row(window, parent, caption, help_text, wide=False, top=False):
         # (gemessen: 5, tools/randpruefung.py).
         #
         # Die Beschriftung braucht denselben Umbruch: Auf Englisch sind die
-        # Wörter länger, und bisher hatte sie in diesem Zweig gar keinen.
+        # Wörter länger.
         if erklaerung is not None:
             _wrap(erklaerung, reference=zeile, inset=10)
         _wrap(beschriftung, reference=zeile, inset=10)
@@ -1427,19 +1355,19 @@ def _blueprint_list(fenster, rahmen):
     """Die Bauplan-Liste — das vorhandene Fenster, eingebettet."""
     from . import collection_window
     # ⭐ Rückweg zum Hauptfenster — die Liste braucht ihn, um auf andere Seiten
-    # zu springen (bisher ging der Weg nur andersherum, über `stock_page`).
+    # zu springen (andersherum geht der Weg über `stock_page`).
     #
     # ⚠⚠ **Als Argument, nicht danach zugewiesen.** Der Konstruktor zeichnet
     # die Liste bereits; wer den Rückweg erst hinterher setzt, hat beim ersten
     # Zeichnen keinen — und dann ist kein Name anklickbar, bis zufällig neu
-    # gezeichnet wird. Genau das war der Fehler in v3.26.0 bis rc3.
+    # gezeichnet wird.
     fenster.stock_page = collection_window.Bestandsfenster(rahmen=rahmen,
                                                             hauptfenster=fenster)
 
     # ⚠ Beim erneuten Aufrufen ohne Filter anfangen. Die Seite wird nur ein-
     # und ausgeblendet, sonst stünde die Auswahl von vorhin noch da — und wer
-    # „Andockkragen, Größe 2, Grad A" vergessen hat, sieht „Nichts gefunden"
-    # und hält den Bestand für leer. Am 29.08.2026 gemeldet.
+    # den alten Filter vergessen hat, sieht „Nichts gefunden" und hält den
+    # Bestand für leer.
     def _frisch():
         seite = getattr(fenster, 'stock_page', None)
         if seite is None:
@@ -1459,16 +1387,13 @@ def _blueprint_list(fenster, rahmen):
 def _progress(fenster, rahmen):
     """Wie weit bin ich? — nach Bereichen gegliedert, jeder Bereich aufklappbar.
 
-    ⚠ Vorher standen hier alle 25 Kategorien in einer einzigen langen Liste. Bei
-    722 Bauplänen sucht man darin ewig, und der eine Wert, der einen gerade
-    interessiert, steht irgendwo in der Mitte. Jetzt zuerst die vier Bereiche mit
-    ihrem Gesamtstand — und die Einzelheiten erst auf Klick. Eingeklappt zu
-    starten ist Absicht: Der Überblick ist die Antwort auf „wie weit bin ich",
-    die Kategorien sind die Antwort auf „und wo genau".
+    ⚠ Alle 25 Kategorien in einer einzigen langen Liste wären bei über 700
+    Bauplänen kaum zu durchsuchen. Deshalb zuerst die vier Bereiche mit ihrem
+    Gesamtstand — und die Einzelheiten erst auf Klick. Eingeklappt starten:
+    Der Überblick zeigt, wie weit man ist; die Kategorien zeigen, wo genau.
 
-    ⭐ **„Nur Merkliste"** (16.09.2026) — Wunsch Aeternitas26 (KRT): „gibt es
-    eine Möglichkeit, den Fortschritt nur für die als Favoriten markierten
-    Baupläne anzuzeigen?" Favoriten sind hier die Merkliste. Gezählt werden
+    ⭐ **„Nur Merkliste"** — zeigt den Fortschritt nur für die Baupläne der
+    Merkliste. Gezählt werden
     nur **angeklickte** Baupläne; eigene Beobachtungen mit Suchmuster stehen
     für kein bestimmtes Teil und haben deshalb keinen Fortschritt. Die Wahl
     bleibt über den Neustart erhalten (`fortschritt_merkliste`).
@@ -1483,12 +1408,9 @@ def _progress(fenster, rahmen):
         return
 
     # ⚠⚠⚠ **Sind es weniger Baupläne als je zuvor?** Dann steht das hier —
-    # oben, wo die Zahl steht, über die man stolpert. Am 06.09.2026 zeigte
-    # der Watcher nach einem Neustart 406 statt 413, weil die Zeiger-Datei
-    # auf den Datenordner beim Aufräumen im Dateimanager mit weggeworfen
-    # worden war. Er nahm still den Standardordner. Zurück blieb eine
-    # kleinere Zahl und die Frage „wieso ändert sich immer wieder der
-    # Ordner, die ganze Zeit hat es doch geklappt?"
+    # oben, wo die Zahl steht, über die man stolpert. Typischer Fall: Die
+    # Zeiger-Datei auf den Datenordner ist weg, der Watcher nimmt still den
+    # Standardordner, und zurück bleibt nur eine kleinere Zahl.
     #
     # ⚠ `shrinkage_state()` und nicht `check_shrinkage()`: Letzteres würde beim
     # Hinsehen den kleineren Stand als neuen Höchstwert festschreiben, und die
@@ -1627,13 +1549,10 @@ def _best_contracts(fenster, eltern, katalog, habe):
         errors.record('pages.lohnende_auftraege', ausnahme)
         return
 
-    # ⭐ Auf- und zuklappbar wie die Bereiche darüber — gewünscht am
-    # 07.09.2026. Zehn Aufträge mit je vier Zeilen sind der mit Abstand
-    # längste Block der Seite; wer nur wissen will, wie weit er ist, scrollt
-    # sonst an ihm vorbei. **Zugeklappt zu starten ist dieselbe Entscheidung
-    # wie bei den Bereichen:** Der Überblick ist die Antwort auf „wie weit bin
-    # ich", die Aufträge sind die Antwort auf „und was mache ich als
-    # Nächstes".
+    # ⭐ Auf- und zuklappbar wie die Bereiche darüber. Zehn Aufträge mit je
+    # vier Zeilen sind der mit Abstand längste Block der Seite; wer nur
+    # wissen will, wie weit er ist, scrollt sonst an ihm vorbei. **Startet
+    # zugeklappt wie die Bereiche.**
     #
     # ⚠ Kopfaufbau bewusst Zeichen für Zeichen wie in `_progress_section`:
     # Pfeil, Titel, Zahl — gleiche Dinge stehen an der gleichen Stelle.
@@ -1680,15 +1599,11 @@ def _best_contracts(fenster, eltern, katalog, habe):
     from .main_window import round_frame
     kasten = round_frame(koerper, SURFACE, LINE, radius=8, base_color=BG)
     kasten.holder.pack(fill='x', pady=(10, 0))
-    # ⚠ Nur die ersten zehn. Es sind 170 — eine vollständige Liste wäre keine
-    # Antwort auf „was mache ich als Nächstes", sondern die nächste Suchaufgabe.
-    # ⚠ **Der Annahmeort gehört an die Zeile.** Er lag von Anfang an vor —
-    # `lohnende_auftraege` liefert ihn als sechsten Wert — und wurde hier
-    # weggeworfen. Damit beantwortete die Seite „welcher Auftrag lohnt sich"
-    # und ließ die Anschlussfrage „und wo nehme ich den an" offen; genau
-    # dieselbe Lücke war im Bauplan-Fenster schon einmal gemeldet worden,
-    # weshalb es `ort_text()` überhaupt gibt. Sie wurde dort geschlossen und
-    # hier nicht.
+    # ⚠ Nur die ersten zehn. Es sind 170 — eine vollständige Liste wäre
+    # keine Empfehlung mehr, sondern die nächste Suchaufgabe.
+    # ⚠ **Der Annahmeort gehört an die Zeile** — `lohnende_auftraege` liefert
+    # ihn als sechsten Wert, `ort_text()` macht daraus den Text wie im
+    # Bauplan-Fenster.
     from .collection_window import ort_text
     for titel, fraktion, anzahl, uec, rang, wo in lohnend[:10]:
         zeile = tk.Frame(kasten, bg=SURFACE)
@@ -1707,7 +1622,7 @@ def _best_contracts(fenster, eltern, katalog, habe):
         teile.append(t('s_fo_lohnt_topf', anzahl))
         tk.Label(rechts, text=' · '.join(teile), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
-        # Der Annahmeort steht direkt da — er beantwortet „wo finde ich den".
+        # Der Annahmeort steht direkt in der Zeile.
         ort = ort_text(wo)
         beschriftungen = []
         if ort:
@@ -1779,12 +1694,8 @@ def _progress_section(fenster, eltern, titel, gesamt, meine, kategorien):
                             anchor='e')
             zahl.pack(side='right')
 
-            # ⭐ **Die Zahl ist keine Antwort, sie ist eine Frage** — dieselbe
-            # Überlegung wie bei „Was bringt am meisten?": „38 / 70" sagt
-            # nicht, WELCHE 32 fehlen. Der Klick führt in die Bauplan-Liste,
-            # gefiltert auf genau diese Kategorie. Gewünscht am 07.09.2026
-            # („bei einem Klick auf Cooler, Schild, Radar wird man auf die
-            # Baupläne geschickt und die Vorauswahl getroffen").
+            # ⭐ „38 / 70" sagt nicht, WELCHE 32 fehlen. Der Klick führt in
+            # die Bauplan-Liste, gefiltert auf genau diese Kategorie.
             def hinspringen(_ereignis=None, art=art):
                 _to_kind(fenster, art)
 
@@ -1805,13 +1716,11 @@ def _progress_section(fenster, eltern, titel, gesamt, meine, kategorien):
             # Anker hängt ans ENDE der Elternfläche — und dort steht längst
             # alles, was nach den Bereichen kommt (die Liste „Was lohnt sich
             # am meisten", zehn Aufträge mit je vier Zeilen). Die Kategorien
-            # eines Bereichs landeten dadurch ganz unten, hinter dieser Liste,
-            # statt unter ihrem eigenen Balken: Man klappte oben etwas auf und
-            # es erschien nichts — das Aufgeklappte lag mehrere
-            # Bildschirmhöhen tiefer. Gemeldet am 07.09.2026 („die Infos da
-            # ganz unten müssen doch oben hin").
+            # eines Bereichs landeten ohne Anker ganz unten, hinter dieser
+            # Liste, statt unter ihrem eigenen Balken: Man klappt oben etwas
+            # auf, und das Aufgeklappte liegt mehrere Bildschirmhöhen tiefer.
             #
-            # ⚠ Der Fehler tritt nur auf, weil `koerper` erst beim ERSTEN
+            # ⚠ Das droht nur, weil `koerper` erst beim ERSTEN
             # Aufklappen gepackt wird. Wer so etwas nachträglich packt, muss
             # immer sagen, wohin — sonst entscheidet die Reihenfolge der
             # Klicks über das Layout.
@@ -1852,8 +1761,8 @@ def _general(fenster, rahmen):
                   t('s_allg_lead'))
     innen = _scroll_area(rahmen)
 
-    # ⚠ Die Sprache steht seit v3.58.0-rc4 unter „Darstellung" (Gliederung
-    # vom 27.09.2026): Sie ändert, wie das Programm aussieht, nicht, wie es
+    # ⚠ Die Sprache steht unter „Darstellung": Sie ändert, wie das Programm
+    # aussieht, nicht, wie es
     # sich verhält. „Allgemein" ist das Programmverhalten.
     ziel = _setting_row(fenster, innen, t('e_ton'),
                  t('s_ton_h'))
@@ -1867,7 +1776,7 @@ def _general(fenster, rahmen):
     toggle_switch(ziel, paths.setting_bool('signalton', True),
                     ton_um).pack()
 
-    # ⚠ Standardmaessig AUS (Wunsch 05.09.2026). Gezaehlt wird trotzdem von
+    # ⚠ Standardmaessig AUS. Gezaehlt wird trotzdem von
     # Anfang an — sonst begaenne die Zaehlung erst beim Einschalten, und die
     # Protokolle davor haette Star Citizen dann laengst weggeraeumt. Was nichts
     # kostet und sich nicht nachholen laesst, sammelt man besser mit.
@@ -1924,7 +1833,7 @@ def _general(fenster, rahmen):
                  font=fenster.f_small).pack()
 
     # Dieselbe Einstellung wie auf „Statistik → Auswertung" — hier, weil sie
-    # das Programmverhalten beim Start betrifft (Gliederung vom 27.09.2026).
+    # das Programmverhalten beim Start betrifft.
     from . import play_stats
     ziel = _setting_row(fenster, innen, t('s_sa_auto'), t('s_sa_auto_h'))
 
@@ -1937,7 +1846,7 @@ def _general(fenster, rahmen):
 
     toggle_switch(ziel, play_stats.auto_enabled(), stats_auto_flip).pack()
 
-    # ⭐ Tägliche Nutzungsmeldung (v3.65.0) — ab Werk an, hier abschaltbar.
+    # ⭐ Tägliche Nutzungsmeldung — ab Werk an, hier abschaltbar.
     # Was hinausgeht, sagt der Hilfetext wörtlich (Version und System).
     from . import usage_ping
     ziel = _setting_row(fenster, innen, t('s_nutzung'), t('s_nutzung_h'))
@@ -1975,7 +1884,7 @@ def _flag(code, master=None):
     """Eine Flagge in Zeilengröße — oder None, wenn das Bild fehlt.
 
     ⚠ **Die einzige Ausnahme neben Discord und Ko-fi** von der Regel „Symbole
-    nur aus dem Lucide-Satz" (Wunsch vom 27.09.2026): Lucide führt keine
+    nur aus dem Lucide-Satz": Lucide führt keine
     Flaggen, Emoji sind verboten. Die Bilder stammen aus „flag-icons"
     (MIT-Lizenz, Vorlage und Lizenz unter `tools/flaggen-vorlagen/`) und
     liegen je Zeilengröße fertig unter `assets/flaggen/`."""
@@ -1999,7 +1908,7 @@ def _flag(code, master=None):
 
 
 def _language_row(window, inner):
-    """Sprache der Oberfläche — seit rc4 auf „Darstellung"."""
+    """Sprache der Oberfläche — auf „Darstellung"."""
     from . import paths
     parts = _settings_parts(window)
     target = _setting_row(window, inner, t('e_sprache'), t('s_sprache_h'),
@@ -2014,10 +1923,7 @@ def _language_row(window, inner):
 
 
 def _appearance(window, frame):
-    """Darstellung: Sprache und Größe (Gliederung vom 27.09.2026).
-
-    Wie beim SC Deutsch Launcher „Größe, Farben, Sprache" — die Farbschemata
-    kommen hierher, sobald es sie gibt."""
+    """Darstellung: Sprache, Größe und Farbschemata."""
     _heading(window, frame, t('hf_darstellung'), t('s_da_lead'))
     inner = _scroll_area(frame)
     _scheme_row(window, inner)
@@ -2057,7 +1963,7 @@ def _sharp_row(window, inner):
 
 
 def _scheme_row(window, inner):
-    """Das Farbschema (v3.58.0-rc5) — wirkt nach einem Neustart.
+    """Das Farbschema — wirkt nach einem Neustart.
 
     ⚠ Nicht sofort: Die Farben werden beim Laden der Module gelesen, und
     jedes Fenster hält sie als Konstanten (siehe `theme`). Ein halb
@@ -2088,25 +1994,23 @@ def _scheme_row(window, inner):
 
 
 def _scheme_cards(window, parent, active, action, compact=False):
-    """Je Schema eine kleine Vorschau in SEINEN Farben (Vorbild SCDL).
+    """Je Schema eine kleine Vorschau in SEINEN Farben.
 
     Gezeichnet werden Kopfleiste, zwei Zeilen und ein Akzentbalken — keine
     Symbole, also keine Ausnahme von der Regel „nichts selbst malen": Es ist
     eine Abbildung des Fensters, kein Bedienzeichen. Der Haken der gewählten
     Karte kommt aus dem Symbolsatz.
 
-    ⭐ **`compact` für den Einrichtungsassistenten** (28.09.2026). Dort standen
-    die sechs Schemata zuerst als reine Textknöpfe in einer Reihe — „Hoher
-    Kontrast" wurde abgeschnitten, und vor allem: *„niemand weiß, was er wählen
-    soll, wenn er nicht sieht, wie es aussieht."* Genau dafür gibt es diese
-    Vorschau; sie gehört an beide Stellen, nicht nur in die Einstellungen.
+    ⭐ **`compact` für den Einrichtungsassistenten.** Ein Schema wählt man
+    nach dem Aussehen, deshalb steht die Vorschau auch dort und nicht nur in
+    den Einstellungen.
 
     Kompakt heißt kleiner und alle sechs in **einer** Reihe: Das Fenster des
     Assistenten ist 640 px breit, und zwei Reihen à 78 px hätten die Seite
     über den Rand geschoben."""
     row = tk.Frame(parent, bg=BG)
     cards = {}
-    # ⚠ Drei je Reihe, nicht alle nebeneinander: Seit rc8 gibt es sechs
+    # ⚠ Drei je Reihe, nicht alle nebeneinander: Es gibt sechs
     # Schemata — nebeneinander wären das über 1000 px, mehr als die Seite hat.
     width, height = (88, 46) if compact else (170, 78)
     per_row = len(theme.SCHEMES) if compact else 3
@@ -2170,41 +2074,18 @@ def _scheme_cards(window, parent, active, action, compact=False):
 def _font_size_row(window, inner):
     """Größe der Oberfläche: Regler stufenlos, darunter Voreinstellungen.
 
-    ⭐ Seit v3.58.0-rc5 (Wunsch vom 27.09.2026, Vorbild SC Deutsch Launcher):
-    *„einen Schieberegler, womit man es auch stufenlos in der Größe verschieben
-    kann — nutzt man den Regler, muss nur die Auswahl darunter wegfallen."*
-    Vorher gab es nur Klein/Normal/Groß/Sehr groß.
+    ⭐ Wird der Regler benutzt, fällt die Auswahl der Voreinstellungen weg.
 
     ⚠ Angewendet wird beim **Loslassen**, nicht beim Ziehen: Jede neue Größe
     baut das ganze Fenster neu auf (siehe `set_font_size`) — bei jedem
     Zwischenschritt wäre das ein Flackern. Während des Ziehens wandert nur die
     Prozentzahl mit.
 
-    Die größte Stufe des Reglers liegt über dem alten „Sehr groß"."""
-    # ⭐⭐ **„Sehr groß" ist seit 14.09.2026 wieder dabei** — und die Geschichte
-    # dazu gehört hierher, weil sie zeigt, wann ein festgeschriebener Rückbau
-    # überprüft werden muss.
-    #
-    # **Warum es raus war (30.08.2026):** Die Stufe vergrösserte Schrift,
-    # Symbole und Knöpfe so weit, dass die daraus folgende **Mindesthöhe
-    # grösser wurde als ein Bildschirm** — bei zwei übereinander stehenden
-    # Monitoren lief das Fenster in den zweiten hinein. Eine Einstellung, die
-    # das Fenster unbrauchbar macht, gehört nicht angeboten. Das war richtig.
-    #
-    # **Warum es zurück ist:** Nachgemessen am 14.09.2026 beträgt die
-    # Mindestgrösse dort **1215 × 380 px** — auch nachdem alle 33 Seiten
-    # gebaut sind. Sie passt damit auf jeden üblichen Bildschirm. Der Grund
-    # für den Rückbau hat sich erledigt, ohne dass es jemandem aufgefallen
-    # wäre: Die Mindesthöhe hängt seit der `minsize()`-Reparatur nicht mehr
-    # an der Schriftstufe.
-    #
-    # ⚠⚠ **Ein festgeschriebener Rückbau ist ein Zeitstempel, keine
-    # Wahrheit.** Genau dieselbe Lehre wie beim Titelleisten-Umbau, der nach
-    # vier Anläufen als unmöglich galt und danach im ersten gelang.
-    #
-    # **Und der Anlass war kein technischer:** Bomb20 und Haldjas wollten die
-    # Stufe zurück — sie lesen den Text sonst schlecht. Eine Einstellung, die
-    # niemandem schadet und zwei Leuten das Lesen ermöglicht, wird angeboten.
+    Die größte Stufe des Reglers liegt über „Sehr groß"."""
+    # ⚠ „Sehr groß" ist unbedenklich: Die Mindestgrösse liegt dort bei rund
+    # **1215 × 380 px**, auch wenn alle Seiten gebaut sind — die Mindesthöhe
+    # hängt nicht an der Schriftstufe (`minsize()`). Würde sie es, könnte die
+    # Stufe das Fenster grösser als den Bildschirm machen.
     from .main_window import (slider, font_points, font_percent, auto_points,
                               FONT_POINTS_RANGE, FONT_PRESETS)
     target = _setting_row(window, inner, t('hf_schrift'), t('hf_schrift_hilfe'),
@@ -2256,9 +2137,8 @@ def _display(fenster, rahmen):
     e = _settings_parts(fenster)
 
     # --- Wie sich das Overlay im Spiel verhält -------------------------------
-    # Angestoßen von einer Rückmeldung von Haldjas (pr0): „Das Overlay ist permanent
-    # zu sehen und nicht durchklickbar. Wenn ich im Kampf mit der Maus
-    # hineinkomme, wird das unangenehm."
+    # Ein dauerhaft sichtbares Overlay, das Klicks nicht durchreicht, stört im
+    # Kampf, sobald die Maus hineinkommt — deshalb wählbar.
     ziel = _setting_row(fenster, innen, t('s_ov_modus'), t('s_ov_modus_h'), wide=True)
     modus = _choice(fenster, ziel,
                   [('immer', t('s_ov_immer')), ('popup', t('s_ov_popup'))],
@@ -2268,12 +2148,11 @@ def _display(fenster, rahmen):
 
     # ⚠⚠ **Die Tastenkombination.** Star Citizen laeuft im Vollbild und blendet
     # den Mauszeiger aus: Wer nachsehen will, ob er einen Bauplan schon hat,
-    # muss heraustabben und das Fenster dann BLIND suchen und anklicken. Am
-    # 31.08.2026 als Nutzerwunsch gemeldet.
+    # muss heraustabben und das Fenster dann BLIND suchen und anklicken.
     # ⚠⚠ **Die Ecke — im Pop-up-Betrieb der einzige Weg.** Dort reicht das
     # Overlay Mausklicks durch und laesst sich deshalb nicht ziehen. Ohne
     # diese Einstellung koennen diese Nutzer es ueberhaupt nicht
-    # positionieren. Am 31.08.2026 gemeldet.
+    # positionieren.
     ziel = _setting_row(fenster, innen, t('s_ov_ecke'), t('s_ov_ecke_h'), wide=True)
     ecke = _choice(fenster, ziel,
                  [('frei', t('s_ov_ecke_frei')),
@@ -2295,10 +2174,8 @@ def _display(fenster, rahmen):
     from . import overlay as _ov_anzeige
     _ov_anzeige.CORNER_DISPLAY[0] = lambda k: ecke.select_quiet(k)
 
-    # ⭐ **Wo die Leiste sitzt, entscheidet der Nutzer** (13.09.2026). Bisher
-    # hing das an der Ecke: untere Ecke = Leiste unten, sonst oben. Seit ein
-    # Verschieben die Ecke auf „frei" stellt, waere sie damit immer oben — wer
-    # sie unten hatte, haette sie verloren. Also eine eigene Einstellung.
+    # ⭐ **Wo die Leiste sitzt, ist eine eigene Einstellung.** Hinge sie an
+    # der Ecke, wäre sie nach jedem Verschieben (Ecke „frei") immer oben.
     ziel = _setting_row(fenster, innen, t('s_ov_leiste'), t('s_ov_leiste_h'),
                  wide=True)
     leiste = _choice(fenster, ziel,
@@ -2436,12 +2313,11 @@ def _display(fenster, rahmen):
         # gesetzt: mittig auf dem Hauptbildschirm. Wie viele Bildschirme jemand hat,
         # wissen wir nicht; die Mitte des Hauptbildschirms passt überall.
         #
-        # ⚠⚠ **Zurücksetzen heißt ALLES zurück** (17.09.2026: „drücke
-        # ich zurücksetzen, erwarte ich doch auch, dass es wirklich
-        # zurückgesetzt wird"). Bis dahin blieben Ecke und Leiste stehen: Ein
-        # Overlay mit Leiste unten und fester Ecke sprang danach wieder dorthin,
-        # wo es vorher unerreichbar war. Und die Größe war fest 440×1000 — auf
-        # einem Laptop höher als der Bildschirm (siehe `groesse_begrenzen`).
+        # ⚠⚠ **Zurücksetzen heißt ALLES zurück** — auch Ecke und Leiste.
+        # Blieben sie stehen, spränge ein Overlay mit fester Ecke wieder
+        # dorthin, wo es unerreichbar war. Die Größe wird begrenzt, sonst wäre
+        # sie auf einem Laptop höher als der Bildschirm (siehe
+        # `groesse_begrenzen`).
         from . import screen
         from . import overlay as overlay_module
         try:
@@ -2502,9 +2378,9 @@ def _folders(fenster, rahmen):
     _body_text(innen, t('e_spiel_hilfe'), fenster.f_small, fill='x')
 
     def spiel_waehlen():
-        # ⚠ Vorher lief das über `e._choose(...)`, und das übergibt
-        # `parent=self.root` — eingebettet ist das ein Rahmen, der nie gepackt
-        # wird. Der Dialog erschien deshalb nicht: „beim Klick passiert nichts".
+        # ⚠ Nicht über `e._choose(...)`: Das übergibt `parent=self.root` —
+        # eingebettet ist das ein Rahmen, der nie gepackt wird, und der Dialog
+        # erschiene nicht.
         gewaehlt = choose_folder(t('e_spiel'), e.spiel.get())
         if gewaehlt:
             e.spiel.set(gewaehlt)
@@ -2528,9 +2404,9 @@ def _folders(fenster, rahmen):
                       else t('s_or_nicht_auf'))
 
     def ablage_waehlen():
-        # ⚠ Hier stand nur ein Hinweis in der Fußzeile („lässt sich in den
-        # Einstellungen hinterlegen") — auf der Seite, die genau diese Einstellung
-        # IST. Für den Nutzer sah es aus, als täte der Knopf nichts.
+        # ⚠ Wirklich wählen lassen, nicht nur auf die Einstellungen verweisen —
+        # dies IST die Seite mit der Einstellung, ein Hinweis sähe aus, als
+        # täte der Knopf nichts.
         gewaehlt = choose_folder(t('s_eigene'), ablage.get())
         if not gewaehlt:
             return
@@ -2576,15 +2452,10 @@ def _channel_states(window, inner):
 def _move_storage(fenster, ablage, ziel):
     """Den Ablage-Ordner umstellen — **und die Daten mitnehmen**.
 
-    ⚠⚠ **Bis v3.19.0 setzte der Knopf nur die Einstellung.** Verschoben wurde
-    nichts; gemeldet wurde „Neustart nötig". Wer umstellte, startete neu und
-    sah ein leeres Programm — Bestand, Merkliste, Auftrags-Protokoll lagen noch
-    im alten Ordner, aber das sagte ihm niemand. Für den Nutzer sieht das nicht
-    nach einem halben Umzug aus, sondern nach Datenverlust.
-
-    Das war der Grund, warum der eigentlich beste Rat für Doppelstart-Nutzer
-    nicht gegeben werden konnte: „Leg die Ablage auf eine Platte, die beide
-    Systeme sehen" wäre mit diesem Knopf eine Falle gewesen.
+    ⚠⚠ **Nur die Einstellung umzustellen reicht nicht.** Bestand, Merkliste
+    und Auftrags-Protokoll lägen dann noch im alten Ordner, und nach dem
+    Neustart sähe das Programm leer aus — für den Nutzer sieht das nach
+    Datenverlust aus.
 
     **Vier Lagen, vier Antworten** — sie unterscheiden sich, und keine darf
     stillschweigend passieren:
@@ -2643,7 +2514,7 @@ def _move_storage(fenster, ablage, ziel):
         fenster.say(t('s_ab_misslungen') % (misslungen, kopiert))
         return
     _set_storage(fenster, ablage, ziel)
-    # ⭐ Seit rc9: den alten Ordner räumen — Datei für Datei nur, was am neuen
+    # ⭐ Den alten Ordner räumen — Datei für Datei nur, was am neuen
     # Ort nachweislich gleich liegt (siehe `paths.remove_old_storage`).
     _entfernt, behalten = paths.remove_old_storage(alt, ziel)
     if behalten:
@@ -2671,9 +2542,8 @@ def _overlay_corner(fenster, wahl, kennung):
         wahl.select(kennung)
     except Exception:
         pass
-    # ⭐ Die Ecke nimmt die Leiste mit (17.09.2026: „unten rechts sollte
-    # die Leiste auch nach unten setzen, hat man oben eingestellt, bleibt sie
-    # oben"). Eine untere Ecke hängt die Leiste nach unten, eine obere nach
+    # ⭐ Die Ecke nimmt die Leiste mit: Eine untere Ecke hängt die Leiste nach
+    # unten, eine obere nach
     # oben — danach lässt sie sich weiter von Hand umstellen.
     if kennung.startswith(('oben', 'unten')):
         seite = 'unten' if kennung.startswith('unten') else 'oben'
@@ -2890,13 +2760,11 @@ def _overlay_mode(fenster, wahl, kennung):
 
 
 def clean_environment():
-    """Weiterleitung — die Wahrheit steht in `file_picker` (bis 11.09.2026 `dateiwahl`).
+    """Weiterleitung — die Wahrheit steht in `file_picker`.
 
-    ⚠ Sie stand jahrelang hier, weil sie hier zuerst gebraucht wurde. Seit die
-    Dateiauswahl ein eigenes Modul hat, gehört sie dorthin: Beide brauchen
-    dieselbe Wäsche, und zwei Versionen davon wären eine zu viel. Die
-    Weiterleitung bleibt, weil `_show_folder` und der Spielstart sie hier
-    aufrufen.
+    ⚠ Beide brauchen dieselbe Wäsche, und zwei Versionen davon wären eine zu
+    viel. Die Weiterleitung gibt es, weil `_show_folder` und der Spielstart
+    sie hier aufrufen.
     """
     from . import paths as paths_module
     return paths_module.clean_environment()
@@ -2962,8 +2830,7 @@ def _game(fenster, rahmen):
             # ⚠ „Ausgeschaltet“ allein ist die halbe Wahrheit. Bleibt etwas in der
             # Datei stehen (Entfernen scheiterte, oder es wurde von Hand
             # abgeschaltet), sieht der Spieler seine Angaben weiter im Spiel —
-            # und der Kasten behauptet, es sei nichts da. Genau daran ist
-            # am 28.08.2026 gemeldet im Test hängengeblieben.
+            # und der Kasten behauptete, es sei nichts da.
             if lage['drin']:
                 _status(fenster, kasten, 'offen', t('s_sp_aus_rest'),
                         t('s_sp_aus_rest_h'), color=SUB)
@@ -2992,8 +2859,8 @@ def _game(fenster, rahmen):
     fenster.on_show['spiel'] = lage_zeigen
 
     # --- Textquelle ----------------------------------------------------------
-    # ⭐ Seit v3.59.0 auf dem eigenen Reiter „Übersetzung" — elf Quellen und
-    # eine Karte je Kanal passen nicht mehr in eine Zeile dieser Seite. Hier
+    # ⭐ Die Auswahl steht auf dem eigenen Reiter „Übersetzung" — elf Quellen
+    # und eine Karte je Kanal passen nicht in eine Zeile dieser Seite. Hier
     # steht nur, was gewählt ist, und der Weg dorthin.
     from . import translation as _tr
     ziel = _setting_row(fenster, innen, t('s_sp_quelle'),
@@ -3016,9 +2883,9 @@ def _game(fenster, rahmen):
                     inj_auto_um).pack()
 
     # --- An oder aus ---------------------------------------------------------
-    # ⚠ Der Schalter fehlte ganz. Wer auf PTU spielt oder die Textdatei in Ruhe
-    # lassen will, hatte keine Möglichkeit außer „Wieder entfernen" — und beim
-    # nächsten Start schrieb das Werkzeug wieder hinein.
+    # ⚠ Für alle, die auf PTU spielen oder die Textdatei in Ruhe lassen
+    # wollen: „Wieder entfernen" allein hilft nicht, beim nächsten Start
+    # schriebe das Werkzeug wieder hinein.
     ziel = _setting_row(fenster, innen, t('s_sp_an'), t('s_sp_an_h'))
 
     def inj_an_um():
@@ -3026,13 +2893,9 @@ def _game(fenster, rahmen):
         paths.set_setting('inj_an', neu_wert)
         fenster.say(t('s_sp_an_sagen')
                       % (t('e_an') if neu_wert else t('e_aus')))
-        # ⚠ **Aus heißt weg, an heißt da.** Bis rc83 setzte der Schalter nur die
-        # Einstellung: Wer abschaltete, sah seine Angaben weiter im Spiel und
-        # musste erst unten „Wieder entfernen“ finden. Der Hinweis darauf stand
-        # im Kleingedruckten — und genau das liest niemand.
-        #
-        # Am 28.08.2026 fiel auf, nachdem er im eigenen Test darauf hereinfiel:
-        # „ich schalte es auf aus, also ist es weg.“
+        # ⚠ **Aus heißt weg, an heißt da.** Setzte der Schalter nur die
+        # Einstellung, sähe man seine Angaben weiter im Spiel und müsste erst
+        # unten „Wieder entfernen“ finden.
         #
         # Gefahrlos, weil verlustfrei: Der Urtext ist gemerkt
         # (`injection.ORIGTEXT_FILE`), das Entfernen stellt den Wortlaut auf den
@@ -3065,18 +2928,11 @@ def _game(fenster, rahmen):
         paths.set_setting(inj_modul.SETTING_DETAILS, neu_wert)
         fenster.say(t('s_sp_angaben_sagen')
                       % (t('e_an') if neu_wert else t('e_aus')))
-        # ⚠ **Umlegen muss sofort wirken.** Bis rc83 setzte dieser Schalter nur
-        # die Einstellung — die `global.ini` blieb unangetastet, bis jemand unten
-        # auf „Jetzt eintragen“ drückte. Wer die Angaben abschaltete, das Spiel
-        # neu startete und sie weiter sah, hielt das Werkzeug für kaputt.
-        #
-        # Verschlimmert durch den Kasten darüber: Der sagt „Änderungen wirken beim
-        # nächsten Spielstart“ — also genau das, was hier eben NICHT stimmte.
-        # Gemessen am 28.08.2026 (gemessen): Schalter aus, Datei unverändert,
-        # 1.217 Angaben standen weiter drin.
-        #
-        # Dazu: „ein user erwartet das was er liest und sieht, ist es aus
-        # angaben weg also muss das auch so sein.“
+        # ⚠ **Umlegen muss sofort wirken.** Setzte dieser Schalter nur die
+        # Einstellung, bliebe die `global.ini` unangetastet, bis jemand unten
+        # auf „Jetzt eintragen“ drückt — und wer die Angaben abschaltet und sie
+        # nach dem Neustart weiter sieht, hält das Werkzeug für kaputt. Der
+        # Kasten darüber sagt „Änderungen wirken beim nächsten Spielstart“.
         #
         # ⚠ Nur wenn wirklich etwas drinsteht und das Schreiben überhaupt
         # eingeschaltet ist. Sonst würde ein Formatschalter ungefragt eine
@@ -3099,7 +2955,6 @@ def _game(fenster, rahmen):
     # --- Ruf-Stufen an den Rangnamen -------------------------------------------
     # „Gildenmitglied [ab 10.000]" im Reputationsmenü. Gleich gebaut wie der
     # Schalter darüber: Umlegen schreibt sofort neu, wenn etwas drinsteht.
-    # Gewünscht von KynoTnis (ADI), 16.09.2026.
     row = _setting_row(fenster, innen, t('s_sp_rang'), t('s_sp_rang_h'))
 
     def toggle_ranks():
@@ -3140,9 +2995,7 @@ def _game(fenster, rahmen):
 def _user_cfg_section(window, inner):
     """Die `user.cfg` je Kanal: eigene Zeilen bearbeiten, ganze Datei sehen.
 
-    ⭐ Wunsch vom 27.09.2026 (Vorbild SC Deutsch Launcher, dort mit
-    abgeschnittenen Kästen fester Größe). Hier deshalb: **untereinander statt
-    nebeneinander**, und die Kästen wachsen mit der Zeilenzahl bis zu einer
+    ⭐ **Untereinander statt nebeneinander**, und die Kästen wachsen mit der Zeilenzahl bis zu einer
     Grenze — erst darüber rollen sie."""
     from . import usercfg
     channels = [c for c in usercfg.installed_channels() if c[2]]
@@ -3164,8 +3017,7 @@ def _user_cfg_section(window, inner):
                         font=('Consolas', 10) if sys.platform.startswith('win')
                         else ('DejaVu Sans Mono', 10), height=6,
                         padx=8, pady=6, highlightthickness=0)
-        # ⚠ Der Rollbalken des Programms, nicht `tk.Scrollbar` (am 27.09.2026
-        # gemeldet: „nicht der festgelegte Standard"). Er blendet sich selbst
+        # ⚠ Der Rollbalken des Programms, nicht `tk.Scrollbar`. Er blendet sich selbst
         # aus, wenn alles hineinpasst — Prüfung 272 verbietet `tk.Scrollbar`.
         from .main_window import round_scrollbar
         roll = round_scrollbar(box, field, bg=theme.FIELD)
@@ -3235,8 +3087,7 @@ def _choose_source(fenster, e, wahl, kennung, danach):
     """Eine Textquelle einrichten — das dauert, also erst ansagen.
 
     ⚠ Ohne Ansage sieht es aus, als sei nichts passiert: Das Herunterladen und
-    Einsetzen braucht mehrere Sekunden, und in dieser Zeit stand vorher nichts
-    im Fenster.
+    Einsetzen braucht mehrere Sekunden.
     """
     from . import paths
     wahl.select(kennung)
@@ -3261,12 +3112,10 @@ def _choice_rows(window, parent, entries, active, action, per_row=3):
     Textquellen nebeneinander passten in kein Fenster. Die Reihen teilen sich
     eine Auswahl: `select(k)` hebt genau einen Knopf über alle Reihen hervor.
 
-    ⭐ **Ein `None` in der Liste bricht die Reihe um** (28.09.2026). Damit
+    ⭐ **Ein `None` in der Liste bricht die Reihe um.** Damit
     lassen sich Gruppen bilden, die zusammengehören — bei den Textquellen
     stehen so alle deutschen in der ersten Reihe, die englischen in der
-    zweiten und die übrigen Sprachen danach. Ohne das lief die Reihenfolge
-    stur in Dreierschritten durch, und „Deutsch (Dymerz)" landete neben
-    „Français". Wunsch von Choopa, bestätigt am 28.09.2026.
+    zweiten und die übrigen Sprachen danach.
 
     Eine Gruppe mit mehr als `per_row` Einträgen wird innerhalb weiter
     umgebrochen — die Gruppe bleibt trotzdem zusammen.
@@ -3297,11 +3146,9 @@ def _choice_rows(window, parent, entries, active, action, per_row=3):
 
 
 def _translation_page(window, frame):
-    """Übersetzung — Textquelle je Kanal (v3.59.0).
+    """Übersetzung — Textquelle je Kanal, mehrere Sprachen, eigene Adresse.
 
-    ⭐ Wunsch vom 27.09.2026: *„Textquelle je Kanal bieten auch andere Tools,
-    also auf jeden Fall, da müssen wir nachziehen"* — dazu weitere Sprachen
-    und eine eigene Adresse wie beim SC Deutsch Launcher und SCLC. Eine Karte
+    Eine Karte
     je installiertem Kanal: Die Hauptinstallation (der Spielordner aus den
     Einstellungen) bekommt die Textdatei **samt Bauplan-Angaben**, jeder
     weitere Kanal (PTU …) nur die Textdatei — der Bauplan-Bestand gilt dort
@@ -3324,11 +3171,9 @@ def _translation_page(window, frame):
         """Welche Quellen es für den Kanal gibt — mit Flagge, nach Sprache
         gruppiert.
 
-        ⭐ **Erst alle deutschen, dann alle englischen, dann die übrigen**
-        (Wunsch vom 28.09.2026). Vorher lief die Liste in der Reihenfolge des
-        Wörterbuchs durch und wurde stur alle drei Knöpfe umgebrochen — dann
-        stand „Deutsch (Dymerz)" neben „Français", obwohl es neben „Deutsch
-        (rjcncpt)" gehört. Ein `None` trennt die Gruppen (`_choice_rows`).
+        ⭐ **Erst alle deutschen, dann alle englischen, dann die übrigen.**
+        Ein `None` trennt die Gruppen (`_choice_rows`), sonst bräche die
+        Liste stur alle drei Knöpfe um und mischte die Sprachen.
 
         ⚠ Die Reihenfolge **innerhalb** einer Gruppe bleibt die aus
         `SOURCES` — dort steht die gepflegteste Quelle je Sprache vorn.
@@ -3349,12 +3194,8 @@ def _translation_page(window, frame):
 
         result.append((translation.CUSTOM, t('s_sp_q_eigen'), None))
         # ⚠⚠ **„Nicht anfassen" gibt es für JEDEN Kanal, auch die
-        # Hauptinstallation** (28.09.2026). Bis dahin stand der Knopf nur an
-        # den Nebenkanälen — an LIVE gab es keinen sichtbaren Weg, VerseKit
-        # die Textdatei in Ruhe lassen zu lassen, obwohl der Zustand „noch
-        # keine Textquelle gewählt" längst vorgesehen war
-        # (`s_tq_nichts_gewaehlt`). Wieder ein Weg, den es gab und den
-        # niemand sehen konnte — wie im Einrichtungsassistenten.
+        # Hauptinstallation** — der sichtbare Weg zum Zustand „noch keine
+        # Textquelle gewählt" (`s_tq_nichts_gewaehlt`).
         #
         # ⚠ An der Hauptinstallation hat die Wahl eine Folge, die man kennen
         # muss: **Ohne Textdatei keine Bauplan-Angaben im Spiel.** Deshalb
@@ -3543,7 +3384,7 @@ def _backup_section(window, inner):
 
     Dieselben Wege wie der Knopf „Sicherung" in der Titelleiste und
     „Einrichtung starten" — hier stehen sie dort, wo man sie beim
-    Rechnerwechsel sucht (Gliederung vom 27.09.2026)."""
+    Rechnerwechsel sucht."""
     from . import file_picker, backup
     tk.Label(inner, text=t('s_si_sicherung'), bg=BG, fg=FG,
              font=window.f_title, anchor='w').pack(fill='x', pady=(0, 2))
@@ -3566,10 +3407,8 @@ def _backup_section(window, inner):
 def show_export(window):
     """Nach „Sichern & Zurücksetzen" springen, „Bestand ausgeben" oben.
 
-    Der Weg aus der Bauplan-Liste: Dort stand ein Speichern-Knopf, der
-    immer die Basetool-Datei schrieb — wer scmdb wollte, fand den richtigen
-    nicht (gemeldet von zwaersch, 01.10.2026). Hier stehen alle Formate mit
-    Namen. Die Seite wird beim ersten Mal erst gebaut; gerollt wird deshalb
+    Der Weg aus der Bauplan-Liste: Hier stehen alle Formate mit Namen,
+    statt dass ein einzelner Knopf stillschweigend eines wählt. Die Seite wird beim ersten Mal erst gebaut; gerollt wird deshalb
     erst, wenn Tk die Höhen kennt."""
     window.jump_to('bestand')
     anchor = getattr(window, 'export_anchor', None)
@@ -3601,13 +3440,11 @@ def show_export(window):
 
 
 def _collection(fenster, rahmen):
-    """Sichern & Zurücksetzen (bis rc3: „Bauplan-Bestand").
+    """Sichern & Zurücksetzen.
 
-    ⚠ Die Kennung bleibt `bestand` — sie steckt in „Neu"-Marken und
-    Sprüngen. Das Zurücksetzen steht weiter ganz unten, rot und mit
-    Rückfrage: Die Seite ist seit der Gliederung vom 27.09.2026 nicht mehr
-    hinter „Für Fortgeschrittene" versteckt, wo sie hing, weil sie früher
-    im Vorbeigehen angeklickt wurde."""
+    ⚠ Die Kennung ist `bestand` — sie steckt in „Neu"-Marken und
+    Sprüngen. Das Zurücksetzen steht ganz unten, rot und mit Rückfrage,
+    damit es nicht im Vorbeigehen angeklickt wird."""
     from . import export, importer
     _heading(fenster, rahmen, t('hf_sichern'), t('s_si_lead'))
     innen = _scroll_area(rahmen)
@@ -3622,17 +3459,12 @@ def _collection(fenster, rahmen):
     _body_text(innen, t('s_be_aus_h'), fenster.f_small,
                 fill='x', pady=(0, 12))
 
-    # ⚠ Ein Speichern-Knopf **je Version**, direkt an der Version. Vorher gab es
-    # nur einen gemeinsamen Knopf „Einzeln speichern …", und der schrieb immer
-    # die Basetool-Version. Wer beim Vorführen scmdb einzeln speichern wollte,
-    # suchte vergeblich — es gab den Weg schlicht nicht.
+    # ⚠ Ein Speichern-Knopf **je Version**, direkt an der Version — so ist
+    # jedes Format einzeln erreichbar.
     karte = _card(innen)
     for art, name, wofuer in (('basetool', 'KRT Profit Basetool',
                                t('s_be_n_bp') % anzahl),
                               ('scmdb', 'scmdb.net', t('s_be_n_bp') % anzahl),
-                              # (Bis v3.63.1 stand hier auch die „Baupläne DB"
-                              # von Star Citizen Deutsch — seit 30.09.2026
-                              # entfernt. Einlesen lässt sie sich weiterhin.)
                               ('voll', t('s_be_voll'), t('s_be_voll_h'))):
         z = tk.Frame(karte, bg=SURFACE)
         z.pack(fill='x', padx=16, pady=5)
@@ -3641,7 +3473,7 @@ def _collection(fenster, rahmen):
         # Knöpfe am Ende der Schleife auf „voll" gezeigt und dreimal dasselbe
         # gespeichert.
         # ⚠ Der Knopf zuerst: `pack` quetscht, was zuletzt kommt — bei der
-        # größten Schrift fehlten ihm 15 px (randpruefung, 27.09.2026).
+        # größten Schrift fehlten ihm sonst 15 px (tools/randpruefung.py).
         _button(fenster, z, t('s_be_speichern_kurz'),
                lambda a=art: einzeln(a)).pack(side='right')
         # ⚠ Die Breite trägt den LÄNGSTEN Namen — auch einen übersetzten.
@@ -3672,11 +3504,8 @@ def _collection(fenster, rahmen):
     def einzeln(art):
         """Eine einzelne Version speichern — die, an deren Zeile der Knopf steht.
 
-        ⚠ Hier stand `art='basetool'` **fest verdrahtet**, während der Knopf
-        „Einzeln speichern …" hieß. Wer scmdb oder die Vollsicherung einzeln
-        wollte, bekam wortlos die Basetool-Version; über den Dialog waren die
-        anderen beiden gar nicht erreichbar. Gemeldet am
-        27.08.2026 („bei einzeln speichern speichert er nur basetool").
+        ⚠ `art` kommt vom Knopf der Zeile — nie fest verdrahtet, sonst
+        bekäme man wortlos immer dasselbe Format.
         """
         from . import file_picker
         ziel = file_picker.save_file(
@@ -3723,7 +3552,7 @@ def _collection(fenster, rahmen):
                     t('s_be_unbekannt_h'), color=RED)
             return
         # ⚠⚠ **Erkannt und trotzdem leer** — das gibt es wirklich, und zwar
-        # ohne Fehler: Die Baupläne DB gibt auf Wunsch die **vorgemerkten**
+        # ohne Fehler: Die Baupläne DB kann die **vorgemerkten**
         # Baupläne aus, scmdb die nur beobachteten. Beides
         # sind Wunschzettel, keine erspielten Baupläne; wir übernehmen daraus
         # nichts. Ohne diesen Hinweis stünde dort eine Vorschau „0 kommen
@@ -3760,25 +3589,21 @@ def _collection(fenster, rahmen):
         fenster.say(t('s_be_neu_los') if ov.request_rescan()
                       else t('s_be_neu_kein'))
 
-    # ⚠⚠ **Nicht rot — der Knopf kann nichts kaputt machen.** Bis v3.5.1 war er
-    # es, weil er „etwas anrichtet": Er stösst einen Lauf über hunderte
-    # Protokolle an. Nachgesehen tut er aber nur eines — `bestand.hinzufuegen`,
-    # und das **legt an**. Es nimmt nichts weg, überschreibt nichts, und
+    # ⚠⚠ **Nicht rot — der Knopf kann nichts kaputt machen.** Er stösst zwar
+    # einen Lauf über hunderte Protokolle an, tut aber nur eines —
+    # `bestand.hinzufuegen`, und das **legt an**. Es nimmt nichts weg, überschreibt nichts, und
     # doppelt kann nichts werden. Der schlimmste Fall ist „dauert kurz".
     #
     # ⚠⚠ **Zwei Bedeutungen für dieselbe Farbe heissen: die Farbe warnt nicht
     # mehr.** Direkt darunter steht „Bestand zurücksetzen" — das loescht
-    # wirklich. Waren beide rot, sagte Rot nur noch „irgendwas Wichtiges".
-    # Am 31.08.2026 genau so passiert: Haldjas drueckte den harmlosen, und es
-    # brauchte einen Zuruf „nicht druecken, der ist nicht ohne Grund rot" —
-    # bei einem Knopf, der gar nichts anrichten kann.
+    # wirklich. Wären beide rot, sagte Rot nur noch „irgendwas Wichtiges".
     #
     # Rot bleibt fuer das, was weg ist, wenn man es drueckt.
     _button(fenster, ziel, t('s_be_neu'), neu_einlesen).pack()
 
-    # ⚠ **Bestand zurücksetzen — hier und nicht unter „Fehler melden".** Dort
-    # stand es bis rc42, und dort sucht es niemand: Wer seinen Bauplan-Stand
-    # neu aufbauen will, geht auf die Seite, die seinen Bauplan-Stand verwaltet.
+    # ⚠ **Bestand zurücksetzen — hier und nicht unter „Fehler melden".** Wer
+    # seinen Bauplan-Stand neu aufbauen will, geht auf die Seite, die seinen
+    # Bauplan-Stand verwaltet.
     #
     # Der Platz direkt unter „Protokolle erneut einlesen" ist Absicht — die
     # beiden gehören zusammen und der Unterschied wird erst nebeneinander
@@ -3790,11 +3615,9 @@ def _collection(fenster, rahmen):
     def zuruecksetzen():
         from .main_window import ask_yes_no
 
-        # ⚠⚠ **Die Zahlen NENNEN, nicht nur warnen.** Am 05.09.2026 hat ein
-        # Melder seinen Bestand von **232 auf 3** zurückgesetzt — die Warnung
-        # sagte zwar „was älter ist als deine Protokolle, kommt nicht zurück",
-        # aber nicht, wie wenig das bei ihm war. Wer „232 → 3" liest, bricht
-        # ab; wer nur einen Satz liest, klickt weiter.
+        # ⚠⚠ **Die Zahlen NENNEN, nicht nur warnen.** Ein allgemeiner Satz
+        # sagt nicht, wie wenig beim Neuaufbau zurückkommt. Wer „232 → 3"
+        # liest, bricht ab; wer nur einen Satz liest, klickt weiter.
         #
         # ⚠ Gerechnet wird aus dem Bestand selbst: Was aus `log`, `nachlese`
         # oder `start` stammt, kommt beim Neuaufbau zurück — alles andere
@@ -4004,23 +3827,18 @@ def _contract_log(fenster, rahmen):
 
     # ⚠⚠ **Die Daten werden bei JEDEM Zeigen neu geholt, nicht nur beim Bauen.**
     # Die Nachlese der alten Protokolle läuft kurz nach dem Start in einem
-    # eigenen Faden. Wer die Seite in dieser Sekunde öffnet, sah bis
-    # 04.09.2026 „Noch kein Auftrag aufgezeichnet" — und danach nie wieder
-    # etwas anderes, weil die Seite gebaut blieb. Genau so gemeldet, mit acht
-    # Aufträgen in der Datei.
+    # eigenen Faden. Wer die Seite in dieser Sekunde öffnet, sähe sonst
+    # „Noch kein Auftrag aufgezeichnet" — und danach nie wieder etwas
+    # anderes, weil die Seite gebaut bleibt.
     daten = {'alle': []}
     stand = {'art': 'alle'}
-    # ⭐ **Wie viele Zeilen zuerst.** Vorgeschlagen von Zwaersch am 07.09.2026:
-    # lange Listen begrenzen und unten nachladen lassen, statt alles im Voraus
-    # zu bauen. Gemessen wurde vorher, wo sich das lohnt — diese Seite war mit
-    # **1479 ms** beim ersten Öffnen die mit Abstand teuerste, alle übrigen
-    # standen unter 130 ms. Eine Grenze überall einzubauen hätte nichts
-    # gebracht.
+    # ⭐ **Wie viele Zeilen zuerst.** Die Liste wird begrenzt und unten
+    # nachgeladen, statt alles im Voraus zu bauen — diese Seite ist mit allen
+    # Zeilen die mit Abstand teuerste im Programm (siehe `LOG_ROWS_FIRST`).
     #
-    # ⚠ Vorher stand hier ein hartes `treffer[:200]` — **ohne jeden Hinweis**.
-    # Wer 392 Aufträge gespielt hat, sah 200 und erfuhr nirgends, dass 192
-    # fehlen. Dieselbe Falle wie bei der Patch-Liste: Weggelassen heißt nicht
-    # verschwiegen.
+    # ⚠ Kein hartes Abschneiden **ohne Hinweis**: Wer 392 Aufträge gespielt
+    # hat, muss erfahren, dass nicht alle gezeigt werden. Weggelassen heißt
+    # nicht verschwiegen.
     gezeigt = {'anzahl': LOG_ROWS_FIRST}
     # Der Fingerabdruck der zuletzt gezeichneten Liste — siehe `zeichnen()`.
     zuletzt = {'stand': None}
@@ -4048,10 +3866,10 @@ def _contract_log(fenster, rahmen):
     kopf.pack(fill='x', padx=24, pady=(12, 0))
     liste_rahmen.pack(fill='both', expand=True, padx=24, pady=(4, 12))
 
-    # ⚠ **Drei Aussagen, drei Farben** (06.09.2026): Gruen fuer die Leistung,
+    # ⚠ **Drei Aussagen, drei Farben:** Gruen fuer die Leistung,
     # blasses Rot fuer das, was schiefging, Grau fuer das, worueber wir nichts
-    # behaupten. Abgebrochen und fehlgeschlagen standen vorher beide in Grau
-    # und waren dadurch von „nicht mehr offen" nicht zu unterscheiden.
+    # behaupten. In Grau waeren abgebrochen und fehlgeschlagen von „nicht
+    # mehr offen" nicht zu unterscheiden.
     #
     # ⚠ Blass, nicht `ROT`: Das kraeftige Rot gehoert den echten Fehlern
     # („Fehler melden"). Ein aufgegebener Auftrag ist eine Notiz, keine
@@ -4072,18 +3890,14 @@ def _contract_log(fenster, rahmen):
     def _wort_laufend():
         """„läuft" nur, solange das Spiel wirklich schreibt.
 
-        ⚠⚠ **Gemeldet am 05.09.2026:** „Spiel ist aus, und die Quest die da
-        auf läuft steht ist von gestern nacht, da bin ich ohne ab zu brechen
-        ausgeloggt weil ich zu müde war."
-
-        Ausloggen beendet keinen Auftrag — das Spiel schreibt dafür nichts ins
+        ⚠⚠ Ausloggen beendet keinen Auftrag — das Spiel schreibt dafür nichts ins
         Protokoll. Aufgeräumt wird so ein Fall erst, wenn eine **spätere**
         Sitzung ihn nicht mehr nennt (`_close_expired`); beim letzten
         Auftrag vor dem Ausloggen gibt es die noch nicht. Gemessen an 381
         Aufträgen: 68 waren so bereits aufgelöst, genau einer blieb übrig —
         der jüngste.
 
-        ⚠ **Der Zustand bleibt richtig, nur das Wort war es nicht.** Der
+        ⚠ **Der Zustand bleibt, nur das Wort hängt am laufenden Spiel.** Der
         Auftrag ist im Spiel weiter angenommen; beim nächsten Einloggen meldet
         Star Citizen ihn erneut. Ihn zu beenden wäre gelogen. „läuft"
         behauptet aber „jetzt gerade" — und das stimmt bei geschlossenem Spiel
@@ -4116,9 +3930,8 @@ def _contract_log(fenster, rahmen):
 
         # ⭐⭐ **Nur neu zeichnen, wenn sich etwas geändert hat.**
         #
-        # Diese Seite wurde bei JEDEM Anzeigen komplett neu gebaut — und nach
-        # der Nachlese im Hintergrund gleich noch einmal. Gemessen am
-        # 13.09.2026: 388 ms je Anzeigen, davon 332 ms in 1.859 Tk-Aufrufen.
+        # Ein kompletter Neubau bei JEDEM Anzeigen (und nach der Nachlese
+        # gleich noch einmal) kostet rund 400 ms, fast alles in Tk-Aufrufen.
         # Wer nur kurz auf eine andere Seite und zurück klickt, wartete jedes
         # Mal darauf, dass dieselbe Liste neu entsteht.
         #
@@ -4177,7 +3990,7 @@ def _contract_log(fenster, rahmen):
                      bg=SURFACE, fg=SUB, font=fenster.f_small, width=11,
                      anchor='w', padx=10, pady=7).pack(side='left')
             # ⚠ Breit genug fuer den laengsten Zustand — „nicht mehr offen"
-            # hat 16 Zeichen, bei 14 stand dort ein Stumpf.
+            # hat 16 Zeichen.
             # ⚠ Der laufende Zustand heisst je nach Lage anders — siehe
             # `_wort_laufend`. Einmal je Durchlauf gefragt, nicht je Zeile:
             # Das ist ein Dateizugriff, und die Liste hat hunderte Zeilen.
@@ -4199,10 +4012,9 @@ def _contract_log(fenster, rahmen):
             name_lab.pack(fill='x')
             _wrap(name_lab)
 
-            # ⭐ **Der Auftragsname führt zu seinen Bauplänen** (08.09.2026,
-            # Drei-Klick-Regel). Das Protokoll sagt bisher nur „diesen Auftrag
-            # hast du gespielt" — die Anschlussfrage ist „und was bringt der
-            # eigentlich?". Der Klick stellt die Bauplan-Liste auf ihn ein.
+            # ⭐ **Der Auftragsname führt zu seinen Bauplänen**
+            # (Drei-Klick-Regel). Der Klick stellt die Bauplan-Liste auf ihn
+            # ein.
             #
             # ⚠ `_to_contract` sieht vorher nach: Kennt kein Bauplan diesen
             # Auftrag als Quelle, wird NICHT gesprungen, sondern gemeldet. Das
@@ -4231,9 +4043,8 @@ def _contract_log(fenster, rahmen):
                          bg=SURFACE, fg=SUB, font=fenster.f_small,
                          anchor='w').pack(fill='x')
 
-            # ⭐ Was dabei herauskam. Das ist der Grund, warum jemand nach einem
-            # Auftrag sucht — „welcher war das nochmal, bei dem der Helm kam?".
-            # In der Markenfarbe, damit es beim Ueberfliegen auffaellt.
+            # ⭐ Was dabei herauskam — meist der Grund, warum jemand nach einem
+            # Auftrag sucht. In der Markenfarbe, damit es beim Ueberfliegen auffaellt.
             bps = eintrag.get('bauplaene') or []
             if bps:
                 bp_lab = tk.Label(
@@ -4268,17 +4079,7 @@ def _contract_log(fenster, rahmen):
         # nächsten Anzeigen neu.
         zuletzt['stand'] = _anzeige_stand()
 
-        # ⚠ **„Mehrfach gespielt" ist am 07.09.2026 entfernt worden.** Der
-        # Block zählte unter der Liste auf, welcher Auftrag wie oft lief.
-        # Begründung: „schaut sich niemand an und bringt einem eh keinen
-        # Mehrwert." Er kostete bei jedem Zeichnen einen Durchlauf über alle
-        # Einträge plus zwei Bedienelemente je Wiederholung — auf einer Seite,
-        # die ohnehin die teuerste im Programm war.
-        #
-        # `mission_log.summarize()` bleibt bestehen: Die Funktion ist
-        # geprüft und harmlos, sie wird hier nur nicht mehr angezeigt.
-
-    # ⚠⚠ **Die Filterknoepfe tragen die Farbe ihres Zustands** (06.09.2026):
+    # ⚠⚠ **Die Filterknoepfe tragen die Farbe ihres Zustands:**
     # Wer „abgebrochen" sucht, drueckt einen Knopf im selben blassen Rot, in
     # dem die Zeilen danach dastehen. Ohne diese Kopplung waeren es sechs
     # gleich aussehende Knoepfe, und die Farben in der Liste haetten keine
@@ -4314,12 +4115,10 @@ def _contract_log(fenster, rahmen):
     def _auffrischen():
         """Erst die Logs nachlesen, dann anzeigen.
 
-        ⚠⚠ **Die Datei allein neu zu laden genügt nicht.** Das Protokoll wurde
-        bis zum 04.09.2026 ausschliesslich beim Programmstart gefuellt
-        (`_nachlese` im Hauptprogramm). Wer den Watcher morgens startet und
-        mittags einen Auftrag abgibt, fand ihn hier nicht — die Seite lud brav
-        eine Datei, in der seit dem Start nichts Neues stand. Gemeldet mit
-        einem Auftrag, der eine halbe Stunde zuvor beendet worden war.
+        ⚠⚠ **Die Datei allein neu zu laden genügt nicht.** Beim Programmstart
+        füllt `_nachlese` im Hauptprogramm das Protokoll; wer den Watcher
+        morgens startet und mittags einen Auftrag abgibt, fände ihn sonst hier
+        nicht — in der Datei stünde seit dem Start nichts Neues.
 
         ⚠ Das ist billig: Der Lesestand merkt sich Name und Groesse jeder
         Logdatei, also wird nur die laufende `Game.log` erneut gelesen.
@@ -4329,11 +4128,9 @@ def _contract_log(fenster, rahmen):
         # ⚠⚠⚠ **Im Hintergrund, nicht im Seitenaufbau.** Der Kommentar oben
         # nennt 20 ms — das gilt, wenn der Lesestand gefüllt ist und nur die
         # laufende `Game.log` neu gelesen wird. Beim **ersten** Mal ist er
-        # leer, und dann werden alle Sicherungen durchgegangen: Beim
-        # Abnahme-Durchlauf am 06.09.2026 gemessen **9.003 ms** für diese eine
-        # Seite. Neun Sekunden, in denen das Fenster steht und auf keinen
-        # Klick reagiert — genau das, was in den Startverläufen als lange
-        # Ladezeit auffiel.
+        # leer, und dann werden alle Sicherungen durchgegangen: gemessen rund
+        # **9 s** für diese eine Seite, in denen das Fenster steht und auf
+        # keinen Klick reagiert.
         #
         # Gezeigt wird sofort der gespeicherte Stand; was dazukommt, kommt
         # nach. Ein Protokoll, das eine Sekunde später vollständig wird, ist
@@ -4361,9 +4158,8 @@ def _contract_log(fenster, rahmen):
     # ⚠⚠ **Und beim ERSTEN Öffnen auch.** `on_show` feuert nur, wenn die
     # Seite bereits gebaut war (`if kennung in self.gezeichnet`) — beim ersten
     # Besuch also nicht. Wer den Watcher morgens startet, mittags einen Auftrag
-    # abgibt und dann zum ersten Mal hierher wechselt, sah den Stand vom
-    # Programmstart. Am 05.09.2026 gemeldet von **Bushwick4712**: „mission log
-    # updated nicht."
+    # abgibt und dann zum ersten Mal hierher wechselt, sähe sonst den Stand
+    # vom Programmstart.
     #
     # ⚠ Der Aufruf steht am Ende, nachdem alles gebaut ist — vorher gäbe es
     # nichts zu zeichnen.
@@ -4375,9 +4171,8 @@ def _system_path_label(path):
 
     Unter Linux ist er kurz (`/dev/input/js0`) und bleibt, wie er ist. Unter
     Windows ist er der volle Gerätepfad (`\\\\?\\HID#VID_3344&PID_43F5&…#{…}`),
-    über 100 Zeichen lang — er schob den Zustand „bereit" am Zeilenende aus
-    dem Bild (`randpruefung`, 26.09.2026: +19 px bei 1100×842) und überlagerte
-    den Gerätenamen. Wiedererkennbar sind daran nur Hersteller- und
+    über 100 Zeichen lang — ungekürzt schiebt er den Zustand „bereit" am
+    Zeilenende aus dem Bild (`randpruefung`) und überlagert den Gerätenamen. Wiedererkennbar sind daran nur Hersteller- und
     Gerätenummer; der Rest ist für den Spieler Rauschen.
     """
     if not path:
@@ -4398,8 +4193,8 @@ def _device_hub(fenster, eltern):
     aber eine Frage, die sonst niemand beantwortet: **welches Gerät ist
     überhaupt welches?** Über einen Stick gibt es drei Aussagen — was das
     System sieht, was das Spiel zuletzt sah, und was in der Belegung steht —
-    und ihre Nummern stimmen nicht überein. Gemessen am 06.09.2026: Derselbe
-    Stick war am System `js0` und im Spiel `js2`.
+    und ihre Nummern stimmen nicht überein: Derselbe Stick kann am System
+    `js0` und im Spiel `js2` sein.
 
     ## ⚠ Die Überwachung fragt ab, sie horcht nicht
 
@@ -4474,8 +4269,8 @@ def _device_hub(fenster, eltern):
             # ⚠ Reihenfolge = Vorrang. Tk nimmt bei Platzmangel dem ZULETZT
             # gepackten Element den Platz weg. Also erst, was nie fehlen darf
             # (Nummer, Zustand), dann der Pfad, zuletzt der dehnbare Name.
-            # Bis 26.09.2026 stand der Zustand hinter dem Pfad — und „bereit"
-            # wurde bei langen Windows-Pfaden abgeschnitten.
+            # Hinter dem Pfad würde „bereit" bei langen Windows-Pfaden
+            # abgeschnitten.
             tk.Label(zeile, text=nummer, bg=SURFACE,
                      fg=ACCENT if geraet['nummer'] else SUB,
                      font=fenster.f_bold, width=5,
@@ -4620,10 +4415,9 @@ def _joysticks(fenster, rahmen):
 
     # ⚠⚠ **Das Suchfeld wird EINMAL gebaut und danach nie wieder angefasst.**
     #
-    # Die erste Fassung baute bei jedem Tastendruck die ganze Seite neu — also
-    # auch das Feld, in das der Spieler gerade tippte. Ergebnis: Nach jedem
-    # Buchstaben war der Eingabezeiger weg und man musste neu hineinklicken.
-    # Genau so gemeldet, und es ist im Projekt nicht das erste Mal passiert.
+    # Würde bei jedem Tastendruck die ganze Seite neu gebaut — also auch das
+    # Feld, in das der Spieler gerade tippt —, wäre nach jedem Buchstaben der
+    # Eingabezeiger weg.
     #
     # Die Aufteilung dagegen:
     #
@@ -4780,8 +4574,8 @@ def _joysticks(fenster, rahmen):
 
         ⚠⚠ Der gefährlichste Knopf auf der Seite: Er wirft weg, woran jemand
         einen Abend gesessen hat. Deshalb nennt die Frage die **Anzahl** der
-        betroffenen Belegungen — „alles zurücksetzen?" ist zu abstrakt, um
-        eine Entscheidung darauf zu stützen.
+        betroffenen Belegungen — „alles zurücksetzen?" allein ist zu
+        abstrakt.
         """
         eigene = 0
         for liste in (joysticks.view(joysticks.MINE) or {}).values():
@@ -4916,13 +4710,11 @@ def _joysticks(fenster, rahmen):
                    lambda: _ausgeben(True)),
             _button(fenster, werkzeugleiste, t('s_js_einlesen'), _einlesen),
         ])
-        # ⚠⚠ **Der gefährliche Knopf steht allein, in einer eigenen Zeile.**
-        # Am 05.09.2026 gemeldet: „Wird abgeschnitten. Willst du den Knopf
-        # nicht besser platzieren, wo er nicht abgeschnitten wird und nicht
-        # aus Versehen gedrückt wird?" Beides richtig — er stand als fünfter
-        # in einer Reihe, die nicht mehr hinpasste, direkt neben vier
-        # harmlosen. Ein Knopf, der die ganze Belegung wegwirft, gehört nicht
-        # dorthin, wo die Hand ohnehin gerade ist.
+        # ⚠⚠ **Der gefährliche Knopf steht allein, in einer eigenen Zeile** —
+        # nicht als fünfter in einer Reihe neben vier harmlosen, wo er
+        # abgeschnitten und aus Versehen gedrückt würde. Ein Knopf, der die
+        # ganze Belegung wegwirft, gehört nicht dorthin, wo die Hand ohnehin
+        # gerade ist.
         #
         # `gefahr=True` färbt ihn dauerhaft rot, nicht erst beim Überfahren —
         # ein Knopf, der erst warnt, wenn die Maus schon darauf steht, warnt
@@ -5080,16 +4872,8 @@ def _joysticks(fenster, rahmen):
             # ⚠⚠ **Die Marke rechts wird ZUERST gepackt.** In `tkinter`
             # bekommt das zuerst gepackte Element seinen Platz; ein langer
             # Aktionsname mit `side='left'` schiebt eine später gepackte
-            # `side='right'`-Beschriftung aus dem Fenster. Beim
-            # Abnahme-Durchlauf am 06.09.2026 gemessen: „geändert" brauchte
-            # 82 px und bekam 43 — es stand also „geänd…" da, bei manchen
-            # Zeilen nur 6 px.
-            #
-            # Derselbe Fehler steckte am selben Tag im Warenkorb, wo er den
-            # Knopf „Kaufen" unerreichbar machte. Die Regel steht seit
-            # Langem in den Projektnotizen — sie greift nur, wenn man beim
-            # Schreiben daran denkt, deshalb prüft die Abnahme jetzt die
-            # Textbreiten.
+            # `side='right'`-Beschriftung aus dem Fenster. Die Abnahme prüft
+            # die Textbreiten.
             if e.get('quelle') == joysticks.MINE:
                 tk.Label(zeile, text=t('s_js_q_meine'), bg=SURFACE, fg=ACCENT,
                          font=fenster.f_small, anchor='e', padx=10).pack(
@@ -5100,13 +4884,10 @@ def _joysticks(fenster, rahmen):
             # ⚠ `expand=True`: Der Name darf schrumpfen, die Marke daneben
             # nicht.
             #
-            # ⭐ **Was nicht passt, wird UMGEBROCHEN statt abgeschnitten**
-            # (14.09.2026). Hier stand vorher, das Abschneiden sei Absicht —
-            # „der Name steht immerhin am Anfang lesbar da". Bei „sehr groß"
-            # brauchte ein Aktionsname 446 px und bekam 296: Ein Drittel
-            # fehlte. Und wer diese Schriftstufe wählt, tut das, **weil** er
-            # lesen können will. Eine Zeile mehr kostet nichts, ein
-            # abgeschnittener Name kostet die Auskunft.
+            # ⭐ **Was nicht passt, wird UMGEBROCHEN statt abgeschnitten.**
+            # Bei „sehr groß" fehlte einem langen Aktionsname sonst ein
+            # Drittel. Eine Zeile mehr kostet nichts, ein abgeschnittener Name
+            # kostet die Auskunft.
             _name_lbl = tk.Label(zeile, text=(klar or e['aktion']),
                                  bg=SURFACE,
                                  fg=(FG if echt else SUB),
@@ -5205,24 +4986,17 @@ def _joysticks(fenster, rahmen):
             # nach der Spielsprache: Wer den englischen Client fährt, aber die
             # Oberfläche auf Deutsch hat, will deutsche Aktionsnamen.
             #
-            # ⚠⚠ **Hier steht bewusst KEIN `forget()` mehr.**
-            #
-            # Die Geschichte dazu in drei Schritten, weil sie lehrreich ist:
-            #
-            # 1. Es stand hier und lief bei JEDEM Anzeigen — gemessen 96 ms.
-            # 2. Ich entfernte es, maß 894 statt 886 ms und schloss daraus
-            #    „wirkungslos". ⛔ Diese **Einzelmessung war zu verrauscht**:
-            #    Die Zahl schwankt zwischen 978 und 3966 ms.
-            # 3. Dann band ich es an den Sprachwechsel. Auch das war falsch —
-            #    der Prüfer zeigte, dass die Namen aus **Dateien im
-            #    Spielordner** kommen. Wer den Ordner umstellt oder das Spiel
-            #    aktualisiert, bekam weiter die alten Namen.
+            # ⚠⚠ **Hier steht bewusst KEIN `forget()`.** Bei JEDEM Anzeigen
+            # kostet es rund 96 ms; an den Sprachwechsel gebunden, griffe es
+            # zu selten — die Namen kommen aus **Dateien im Spielordner**, und
+            # wer den Ordner umstellt oder das Spiel aktualisiert, bekäme
+            # weiter die alten Namen.
             #
             # ⭐ Die Gültigkeit gehört dorthin, wo die Daten herkommen:
-            # `joysticks.labels()` schlüsselt seinen Merker jetzt selbst
-            # nach Sprache **und** Zustand der Quelldateien. Diese Seite muss
-            # gar nichts mehr darüber wissen — und bekommt trotzdem immer den
-            # richtigen Stand.
+            # `joysticks.labels()` schlüsselt seinen Merker selbst nach
+            # Sprache **und** Zustand der Quelldateien. Diese Seite muss gar
+            # nichts darüber wissen — und bekommt trotzdem immer den richtigen
+            # Stand.
             daten['namen'] = joysticks.labels(current())
         except Exception as ausnahme:
             errors.record('pages.joysticks_namen', ausnahme)
@@ -5232,23 +5006,18 @@ def _joysticks(fenster, rahmen):
         # ⭐⭐ **Nichts neu zeichnen, wenn sich nichts geändert hat.**
         #
         # Dieser Rückruf läuft bei JEDEM Anzeigen der Seite — auch wenn man nur
-        # kurz woanders war. Gemessen am 12.09.2026: **894 ms je Klick**, davon
-        # 92 % in `liste_zeichnen`. Gemeldet als „wirkt lahm … als hätte ein
-        # Anfänger das gebaut".
+        # kurz woanders war. Ein Neubau kostet fast eine Sekunde je Klick,
+        # beinahe alles in `liste_zeichnen`.
         #
         # ⚠⚠ **Der Vergleich steht HIER — nach `_laden()`, nicht davor.**
-        # Die erste Fassung verglich nur `compare()`, und das enthält Geräte,
-        # Zuordnung und Dateipfad, **nicht die Belegungen**. Die kommen erst
-        # über `_laden()` → `joysticks.view()`. Der Prüfer hat es nachgestellt:
-        # `js1_x` auf `js1_y` umlegen — `compare()` bleibt gleich, die
-        # Belegung ändert sich, und die Seite hätte den alten Stand gezeigt.
-        # Importierte und im Werkzeug neu gesetzte Belegungen wären unsichtbar
-        # geblieben.
+        # `compare()` allein enthält Geräte, Zuordnung und Dateipfad, **nicht
+        # die Belegungen**. Die kommen erst über `_laden()` →
+        # `joysticks.view()`: `js1_x` auf `js1_y` umlegen lässt `compare()`
+        # gleich, die Belegung ändert sich — die Seite zeigte den alten Stand.
         #
-        # ⭐ Die Lehre daraus: Ein Fingerabdruck muss aus **genau den Daten**
-        # bestehen, aus denen gezeichnet wird — nicht aus denen, die man
-        # zuerst zur Hand hat. Deshalb stehen jetzt alle vier Quellen drin,
-        # die `kopf_zeichnen()` und `liste_zeichnen()` benutzen.
+        # ⭐ Ein Fingerabdruck muss aus **genau den Daten** bestehen, aus denen
+        # gezeichnet wird. Deshalb stehen alle vier Quellen drin, die
+        # `kopf_zeichnen()` und `liste_zeichnen()` benutzen.
         #
         # ⚠ `erzwingen=True` für Aufrufer, die selbst etwas geändert haben.
         stand = (current(),
@@ -5453,13 +5222,10 @@ def _version_box(fenster, eltern, eintrag, punkte, offen):
         # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
         # der Text zu spät um und der Rest wird stumm abgeschnitten.
         #
-        # Vorher stand hier „Fensterbreite minus 340" — ein geschätzter Abzug für
-        # Seitenleiste, Ränder und die Art-Blase davor. Die Schätzung ging schief,
-        # sobald sich eines davon änderte: Seit die Seitenleiste ihre Breite selbst
-        # misst, fehlten rund 50 Pixel, und `tools/randpruefung.py` meldete die
-        # Zeilen bei **jeder** Fenstergröße als beschnitten.
+        # Ein geschätzter Abzug („Fensterbreite minus …" für Seitenleiste,
+        # Ränder und Art-Blase) geht schief, sobald sich eines davon ändert.
         #
-        # Jetzt wird nicht mehr gerechnet, sondern genommen, was das Label
+        # Deshalb wird nicht gerechnet, sondern genommen, was das Label
         # tatsächlich bekommt — und bei jeder Größenänderung neu. Damit stimmt es
         # auch, wenn jemand das Fenster zieht.
         etikett = tk.Label(z, text=_clean_row(zeile), bg=BG, fg=FG,
@@ -5487,19 +5253,17 @@ def _version_box(fenster, eltern, eintrag, punkte, offen):
                              else 'aufklappen')
         if zustand['offen']:
             # ⚠ `after=kopf` ist der ganze Witz. Ohne das packt Tk den Inhalt ans
-            # **Ende** der Fläche — also unter alle anderen Versionen. Bei elf
-            # Versionen klappte man v3.0.0 auf und der Text erschien unterhalb von
-            # v1.0.0; wer nicht weit genug rollt, hält die Version für leer. Beim
-            # ersten Zeichnen fiel das nicht auf, weil dort Kopf und Inhalt
-            # ohnehin nacheinander gepackt werden.
+            # **Ende** der Fläche — also unter alle anderen Versionen; wer nicht
+            # weit genug rollt, hält die Version für leer. Beim ersten Zeichnen
+            # fällt das nicht auf, weil dort Kopf und Inhalt ohnehin
+            # nacheinander gepackt werden.
             koerper.pack(fill='x', after=kopf)
         else:
             koerper.pack_forget()
 
     # ⚠ **Alle** Teile des Kopfes binden, nicht nur Rahmen und Pfeil. Die
     # Versionsnummer, das Datum und die Anzahl sind eigene Labels — ein Klick
-    # darauf erreichte den Rahmen nie. Genau dorthin zielt man aber: Gemeldet als
-    # „die alten Versionen sind gar nicht aufklappbar".
+    # darauf erreichte den Rahmen sonst nie. Genau dorthin zielt man aber.
     for teil in [kopf, pfeil] + list(kopf.winfo_children()):
         teil.bind('<Button-1>', umschalten)
         try:
@@ -5540,17 +5304,11 @@ def _value_row(fenster, eltern, bez, wert, farbe=None):
 def _check_now(fenster):
     """Wirklich bei GitHub nachfragen und sagen, was dabei herauskam.
 
-    ⚠ Hier stand nur `fenster.sagen(t('s_ub_sucht'))` — der Knopf **meldete**, dass
-    er sucht, und suchte nicht. Ein Nutzer (Bomb20, 25.08.2026) hatte deshalb auf
-    rc18 weiterhin rc12 als neueste Version angeboten bekommen: Sein
-    Zwischenspeicher blieb auf dem alten Stand, und der einzige Knopf, der ihn
-    hätte auffrischen können, tat nichts.
+    ⚠ Nur zu **melden**, dass gesucht wird, reicht nicht: Der Knopf ist der
+    einzige Weg, den Zwischenspeicher aufzufrischen.
 
-    ⚠ Und danach stand hier zeitweise der **Holen**-Ablauf: herunterladen,
-    einspielen, abtreten — mit `datei` und `freigabe`, die es in dieser Funktion
-    nie gab. Der Knopf antwortete deshalb mit `name 'datei' is not defined`,
-    egal ob eine neue Version da war oder nicht. Gemeldet am
-    27.08.2026. Nachsehen ist nachsehen: Dieser Knopf lädt nichts.
+    ⚠ Nachsehen ist nachsehen: Dieser Knopf lädt nichts — das Holen
+    (herunterladen, einspielen, abtreten) gehört nicht hierher.
 
     Läuft im eigenen Faden — die Abfrage geht ins Netz. Gezeichnet wird nur im
     Tk-Faden.
@@ -5572,11 +5330,8 @@ def _check_now(fenster):
         def melden():
             # ⚠ **Erst neu aufbauen, dann sagen.** `rebuild()` zerstoert
             # saemtliche Kinder des Fensters und baut sie neu — auch die
-            # Fusszeile, in der `say()` schreibt. Stand das `say()` davor,
-            # existierte die Antwort ein paar Millisekunden und war dann weg:
-            # Der Knopf blieb bei „Suche nach einer neuen Version …" stehen und
-            # meldete nie ein Ergebnis. Genau so gemeldet von der Autor am
-            # 27.08.2026, direkt nach der Reparatur des `datei`-Fehlers.
+            # Fusszeile, in der `say()` schreibt. Stuende das `say()` davor,
+            # existierte die Antwort ein paar Millisekunden und waere dann weg.
             #
             # Der Neuaufbau muss trotzdem sein: Die Kanal-Kaesten tragen die
             # Versionsnummern und muessen mitziehen.
@@ -5589,10 +5344,8 @@ def _check_now(fenster):
             elif updater.fetch_succeeded() is False:
                 # ⚠ **Nicht „du bist aktuell" sagen, wenn gar nicht nachgesehen
                 # werden konnte.** Die beiden Auskünfte sind das Gegenteil
-                # voneinander. Bomb20 bekam am 27.08.2026 „du hast die neueste
-                # rc67" gemeldet, während rc68 seit zwei Minuten draußen war —
-                # der Abruf war an GitHubs Stundengrenze gescheitert und wurde
-                # still verschluckt.
+                # voneinander — etwa wenn der Abruf an GitHubs Stundengrenze
+                # scheitert.
                 fenster.say(t('s_ub_grenze') if updater.rate_limited()
                               else t('s_ub_sucht_fehler'))
             else:
@@ -5627,9 +5380,9 @@ def _refresh_channels(fenster, kaesten, neu_zeichnen):
         try:
             # ⚠ `erzwingen=True` ist hier nötig. Ohne das fragt `nachsehen()` nur,
             # wenn der letzte Blick länger als einen Tag her ist — und dann bleibt
-            # die Beschriftung auf dem Stand von heute früh stehen. Genau so ist es
-            # passiert: Der Knopf bot „v3.0.0-rc13 holen" an, während rc15 lief.
-            # Wer draufdrückt, geht **zurück**. Einmal je Seitenaufbau nachfragen
+            # die Beschriftung auf dem Stand von heute früh stehen — und bietet
+            # womöglich eine ältere Version an; wer draufdrückt, geht
+            # **zurück**. Einmal je Seitenaufbau nachfragen
             # ist der Preis dafür, dass draufsteht, was drin ist.
             updater.check(fenster.version or '0.0.0', force=True)
         except Exception as ausnahme:
@@ -5640,12 +5393,10 @@ def _refresh_channels(fenster, kaesten, neu_zeichnen):
             try:
                 if not kaesten.winfo_exists():
                     return
-                # ⚠ **Und dann in Ruhe wieder nachsehen.** Bis rc71 wurde
-                # **einmal je Seitenaufbau** gefragt. Wer die Seite offen hatte,
-                # während draußen eine neue Version erschien, sah weiter die alte
-                # Nummer auf dem Knopf und hielt sich für aktuell. Bomb20 am
-                # 27.08.2026: „ich krieg noch 67 angezeigt" — rc68 war seit
-                # Minuten da.
+                # ⚠ **Und dann in Ruhe wieder nachsehen.** Nur einmal je
+                # Seitenaufbau gefragt, sähe wer die Seite offen hat, während
+                # draußen eine neue Version erscheint, weiter die alte Nummer
+                # auf dem Knopf und hielte sich für aktuell.
                 #
                 # Fünf Minuten sind der Kompromiss: oft genug, dass niemand eine
                 # Version verpasst, und selten genug für GitHubs Grenze von 60
@@ -5676,11 +5427,9 @@ def _can_fetch(mit_vorab, eigene=''):
 
     ⚠ `_fetch_label` liefert **nur** die Beschriftung, und zwei ihrer Ergebnisse
     sind gar keine Aufforderung, sondern eine Zustandsmeldung: „v3.0.0-rc41 ist
-    schon da" und „Erst oben auf ‚Jetzt nachsehen' druecken". Der Knopf blieb
-    trotzdem ein Knopf — wer auf „ist schon da" drueckte, bekam die laufende
-    Version noch einmal installiert. Gemeldet am 26.08.2026: „in dem gruenen
-    kasten steht aber rc41 ist schon da, wenn man klickt will er auch direkt
-    installieren."
+    schon da" und „Erst oben auf ‚Jetzt nachsehen' druecken". Bliebe der Knopf
+    trotzdem ein Knopf, bekaeme wer auf „ist schon da" drueckt die laufende
+    Version noch einmal installiert.
 
     Was aussieht wie ein Knopf, muss etwas tun. Sonst wird daraus ein ruhiger
     Hinweis (siehe `_channel_box`).
@@ -5710,9 +5459,8 @@ def _fetch_label(mit_vorab, eigene=''):
     stehen. Kurz darauf frischt `_refresh_channels` sie auf.
 
     ⚠ Und sie sagt, **wohin** es geht. „v2.0.0 holen" neben einer laufenden
-    v3.0.0-rc15 sieht aus wie ein Update und ist ein Rückschritt — der Autor ist
-    am 25.08.2026 genau darauf hereingefallen und stand danach wieder auf rc13.
-    Ist die angebotene Version älter, steht das jetzt dabei; ist es dieselbe,
+    v3.0.0-rc15 sieht aus wie ein Update und ist ein Rückschritt.
+    Ist die angebotene Version älter, steht das dabei; ist es dieselbe,
     steht das auch da.
     """
     from . import updater
@@ -5743,16 +5491,14 @@ _READY = [None]
 
 _TK_REPORTED = [False]      # siehe unten: nur der erste wird gemerkt
 
-# ⭐⭐ **Aufträge aus Nebenfäden laufen über diese Warteschlange** (v3.59.0).
+# ⭐⭐ **Aufträge aus Nebenfäden laufen über diese Warteschlange.**
 #
-# Gemeldet am rc1, 27.09.2026: Nach dem Farbwechsel blieb das alte Overlay
-# stehen — schon zum zweiten Mal, obwohl v3.58.0 es „behoben" hatte. Im
-# Fehlerprotokoll stand `pages.nach_neustart: main thread is not in main
-# loop`. `root.after()` aus einem Nebenfaden geht nur, solange der Hauptfaden
+# `root.after()` aus einem Nebenfaden geht nur, solange der Hauptfaden
 # gerade IN `mainloop()` steckt — nicht während einer Rückfrage, einer
 # `update()`-Schleife oder beim Abbau, und genau da liegt ein Neustart nach
-# dem Farbwechsel. Gemessen unter 3.12 und 3.14 gleich. Dieselbe Meldung
-# (`pages.im_tk`) steht im Protokoll schon seit v3.49.
+# dem Farbwechsel. Sonst steht `main thread is not in main loop` im
+# Fehlerprotokoll und das alte Overlay bleibt stehen (Python 3.12 und 3.14
+# gleich).
 #
 # Deshalb fasst ein Nebenfaden Tk gar nicht mehr an: Er legt die Tat hier
 # ab, und der Tk-Faden holt sie alle 100 ms ab (`_start_tk_poller`, gestartet
@@ -5800,13 +5546,13 @@ def _start_tk_poller(root):
 def _from_thread(widget, action):
     """Aus einem Nebenfaden: `action` im Tk-Faden ausführen, solange `widget` lebt.
 
-    ⚠⚠ **Nie `widget.after(0, …)` aus einem Nebenfaden** (28.09.2026). Das
+    ⚠⚠ **Nie `widget.after(0, …)` aus einem Nebenfaden.** Das
     wirft `RuntimeError: main thread is not in main loop`, sobald der
     Hauptfaden gerade nicht in `mainloop()` steckt — und dann kommt das
     Ergebnis nie an. Der Weg geht über `_TK_CALLS`; Prüfung 292 bewacht das.
 
     Ist `widget` inzwischen weg (Seite gewechselt, Fenster zu), passiert
-    nichts — so wie früher, als `after` an einem toten Widget still scheiterte.
+    nichts.
     """
     def run():
         try:
@@ -5823,19 +5569,14 @@ def _in_tk(fenster, tat):
 
     ⚠ **Zeichnen ist Beiwerk, die Arbeit ist der Zweck.** `root.after()` aus
     einem Nebenfaden kann werfen (`RuntimeError: main thread is not in main
-    loop`), etwa wenn das Fenster gerade zugeht. Bis rc68 riss so eine Ausnahme
-    den ganzen Update-Faden mit: Der Download brach beim ersten Fortschritt ab,
-    es wurde nie etwas geholt, und der Nutzer sah gar nichts.
-
-    Bomb20 am 27.08.2026: „ich habe auf get 68 geklickt, aber da kam nix mit
-    restart oder install." In seinem Bericht stand der Fehler dreimal, bei jedem
-    Klick einmal.
+    loop`), etwa wenn das Fenster gerade zugeht. Ungefangen risse so eine
+    Ausnahme den ganzen Update-Faden mit: Der Download bräche beim ersten
+    Fortschritt ab, und der Nutzer sähe gar nichts.
 
     ⚠ **Gemerkt wird nur der erste.** Beim Herunterladen kommt der Fortschritt
-    im Sekundentakt; geht dabei das Fenster zu, wirft jeder einzelne Aufruf.
-    Ein Bericht vom 28.08.2026 zeigte **50 von 50** Plätzen mit derselben
-    Meldung belegt, alle innerhalb von acht Sekunden — und damit war jeder
-    echte Fehler aus dem Protokoll verdrängt. Ein erwarteter Fehler, der die
+    im Sekundentakt; geht dabei das Fenster zu, wirft jeder einzelne Aufruf —
+    binnen Sekunden wären alle 50 Plätze des Protokolls mit derselben Meldung
+    belegt und jeder echte Fehler verdrängt. Ein erwarteter Fehler, der die
     Diagnose unbrauchbar macht, ist schlimmer als keiner.
     """
     if threading.current_thread() is not threading.main_thread():
@@ -5856,10 +5597,9 @@ def restart_and_hand_over(fenster):
     """Neu starten UND die alte Fassung beenden — der ganze Weg in einem.
 
     ⚠⚠ `updater.restart()` startet nur die neue Fassung; gehen muss die alte
-    selbst. Der Knopf „Jetzt neu starten" beim Farbschema rief `restart`
-    allein auf — danach liefen **zwei** VerseKit, und das alte Overlay blieb
-    unter dem neuen stehen (gemeldet am rc8, 27.09.2026). Dasselbe beim
-    Neustart nach dem Einspielen einer Sicherung. Gibt True zurück, wenn der
+    selbst. `restart` allein ließe **zwei** VerseKit laufen, und das alte
+    Overlay bliebe unter dem neuen stehen (Farbschema, Einspielen einer
+    Sicherung). Gibt True zurück, wenn der
     Neustart angestoßen wurde."""
     from . import updater
     fenster.say(t('s_ub_startet_neu'))
@@ -5873,9 +5613,9 @@ def restart_and_hand_over(fenster):
 def _hand_over_after_restart(fenster):
     """Erst nachsehen, ob die neue Version lebt — dann erst selbst gehen.
 
-    ⚠ Vorher trat die alte Version **sofort** ab. War die neue schon tot (unter
-    Linux monatelang der Regelfall, siehe `updater.neue_fassung_laeuft`),
-    stand der Rechner ohne Watcher da, und niemand erfuhr den Grund.
+    ⚠ Tritt die alte Version **sofort** ab und ist die neue schon tot (siehe
+    `updater.neue_fassung_laeuft`), steht der Rechner ohne Watcher da, und
+    niemand erfährt den Grund.
 
     Die Prüfung wartet ein paar Sekunden und gehört deshalb in einen eigenen
     Faden. Gezeichnet wird nur im Tk-Faden.
@@ -5917,17 +5657,16 @@ def _hand_over(fenster, notausgang=2.0, gleich=400):
     """Den Prozess beenden — verlaesslich, auch wenn Tk schon haengt.
 
     ⚠ `quit()` allein reicht nicht: Es beendet die Ereignisschleife, nicht den
-    Prozess. Gemeldet als „er schliesst das fenster nicht selbst" (Haldjas,
-    25.08.2026) — die neue Version lief, die alte stand daneben. Also der Reihe
+    Prozess — die neue Version liefe, die alte stünde daneben. Also der Reihe
     nach: Fenster zu, Schleife beenden, und wenn nach zwei Sekunden immer noch
     etwas haengt (ein Faden, ein Overlay), hart raus.
 
     ⚠ Der Notausgang wird **sofort** scharf gestellt, nicht erst im
-    `after`-Rueckruf. Stand er dort, hing er an Tk: Feuert der Rueckruf nicht,
-    weil die Ereignisschleife schon endete oder das Fenster weg ist, wurde der
-    Faden nie gestartet und der Prozess lief weiter — „als haette er nur das
-    symbol von der taskleiste gekillt", mit einem halb aufgeraeumten Rest, der
-    danach „No such file or directory: ...base_library.zip" meldete.
+    `after`-Rueckruf. Dort hinge er an Tk: Feuert der Rueckruf nicht, weil
+    die Ereignisschleife schon endete oder das Fenster weg ist, wird der
+    Faden nie gestartet und der Prozess laeuft weiter — mit einem halb
+    aufgeraeumten Rest, der danach „No such file or directory:
+    ...base_library.zip" meldet.
 
     Ein eigener Faden haengt an nichts und laeuft in jedem Fall ab.
     """
@@ -5964,8 +5703,7 @@ def _fetch_version(fenster, mit_vorab):
     # ⚠ Erst nachsehen, dann greifen. Die Liste der Freigaben steht im
     # Zwischenspeicher und frischt sich nur einmal am Tag auf — ohne diesen
     # Schritt holt der Knopf die Version von gestern, obwohl heute eine neuere
-    # da ist. Gemessen: Der Knopf bot v3.0.0-rc2 an, während rc7 längst
-    # veröffentlicht war.
+    # da ist.
     try:
         updater.check(fenster.version or '0.0.0')
     except Exception as ausnahme:
@@ -5992,12 +5730,11 @@ def _fetch_version(fenster, mit_vorab):
         #
         # Hängt an der Freigabe **gar keine** Datei, wird sie gerade noch
         # gebaut: Der Tag ist da, GitHub Actions braucht danach ein bis zwei
-        # Minuten für Installer und AppImage. Wer in dieser Lücke klickt, bekam
-        # bisher „Bitte hol die neue Version selbst von der Releases-Seite" —
-        # und dort ist sie dann auch nicht. Am 30.08.2026 gemeldet: „wieso
-        # steht das da?"; nach einem Neustart lief es von allein.
+        # Minuten für Installer und AppImage. „Bitte hol die neue Version
+        # selbst von der Releases-Seite" wäre in dieser Lücke falsch — dort
+        # ist sie dann auch nicht.
         #
-        # Sind Dateien da, aber keine passende, stimmt die alte Meldung.
+        # Sind Dateien da, aber keine passende, stimmt diese Meldung.
         if not (freigabe.get('dateien') or []):
             fenster.say(t('s_ub_wird_gebaut'))
         else:
@@ -6024,12 +5761,9 @@ def _fetch_version(fenster, mit_vorab):
                     fenster, lambda: fenster.say(t('wird_geladen', p))),
                 release=freigabe)
 
-            # ⚠ Hier stand bis v3.29.0 ein Hinweisfenster, das quittiert
-            # werden musste, bevor das Setup loslief (seit rc52). Es war
-            # richtig, solange der Watcher danach **nicht** wiederkam: Ein
-            # Programm, das sich wortlos schließt, sieht aus wie ein Absturz.
-            # Jetzt kommt er von selbst wieder — und aus einem Klick sollen
-            # nicht zwei werden. Die Ansage steht in der Fußzeile.
+            # ⚠ Kein Hinweisfenster zum Quittieren: Der Watcher kommt nach
+            # dem Setup von selbst wieder, und aus einem Klick sollen nicht
+            # zwei werden. Die Ansage steht in der Fußzeile.
             geklappt, grund = updater.install(
                 ziel, target_version=freigabe.get('version') or '',
                 previous_version=fenster.version or '')
@@ -6041,16 +5775,9 @@ def _fetch_version(fenster, mit_vorab):
 
             # ⚠ Unter Windows ist hier **Schluss** — kein zweiter Klick mehr.
             #
-            # Der Ablauf mit „erst holen, dann auf ‚Jetzt neu starten' druecken"
-            # stammt aus der Zeit des Dateitauschs: Damals lag die neue Datei
-            # nur bereit, und getauscht wurde beim Beenden. Der Installer
-            # dagegen **laeuft schon** — und wartet darauf, dass wir endlich
-            # gehen.
-            #
-            # Genau das hat am 26.08.2026 die lange Pause verursacht, die
-            # der Autor gemeldet hat („wieso es solange dauert bis er alles
-            # geschlossen hat, das wirkt komisch auf user"). Im Inno-Protokoll
-            # steht sie auf die Millisekunde:
+            # Der Installer **laeuft schon** — und wartet darauf, dass wir
+            # endlich gehen. Bleiben wir, steht die Pause im Inno-Protokoll
+            # auf die Millisekunde:
             #
             #     09:50:07.869  Shutting down applications using our files.
             #     09:50:39.243  Directory for uninstall files: ...
@@ -6061,8 +5788,7 @@ def _fetch_version(fenster, mit_vorab):
             # Programm, das nichts tut.
             #
             # Treten wir gleich ab, entfaellt das Warten vollstaendig. Wieder
-            # hoch faehrt uns der Helfer aus `update_run` — bis v3.29.0 tat
-            # das niemand, und der Nutzer musste selbst starten. Die Sperre
+            # hoch faehrt uns der Helfer aus `update_run`. Die Sperre
             # gehoert ab hier dem Helfer; er gibt sie am Ende frei.
             if art == 'exe':
                 uebergeben = True
@@ -6071,10 +5797,8 @@ def _fetch_version(fenster, mit_vorab):
                 return
 
             # Linux: Das AppImage ist getauscht, die alte Fassung gesichert.
-            # ⚠ Bis v3.29.0 wurde hier die Seite umgebaut, und es brauchte
-            # einen zweiten Klick auf „Jetzt neu starten" — ein Rest aus der
-            # Zeit des Dateitauschs beim Beenden. Jetzt geht es gleich weiter.
-            # Der alte Knopf bleibt nur als Rückfall, wenn schon der Start
+            # ⚠ Es geht gleich weiter, ohne zweiten Klick. Der Knopf „Jetzt
+            # neu starten" ist nur der Rückfall, wenn schon der Start
             # scheitert.
             def _neustart():
                 fenster.say(t('s_ub_startet_neu'))
@@ -6083,7 +5807,7 @@ def _fetch_version(fenster, mit_vorab):
                     return
                 # ⚠ Erst zeichnen, dann melden: Der Neuaufbau macht aus
                 # „holen" ein „Jetzt neu starten" und zerstoert dabei die
-                # Fusszeile. Stand das `say()` zuerst, war die Meldung nach
+                # Fusszeile. Stuende das `say()` zuerst, waere die Meldung nach
                 # einer zwanzigstel Sekunde wieder weg.
                 fenster.rebuild()
                 try:
@@ -6120,9 +5844,8 @@ def _channel_box(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
 
     ⚠ **`grid` statt `pack`, und zwar wegen `uniform`.** Mit
     `pack(expand=True)` verteilt Tk nur den **Überschuss** gleichmäßig, nicht
-    die Gesamtbreite: Wer mehr Text hat, bleibt breiter. Die beiden Kästen
-    standen deshalb sichtbar ungleich nebeneinander — gemeldet von der Autor am
-    27.08.2026 („die müssen aber gleich sein"). `columnconfigure(…,
+    die Gesamtbreite: Wer mehr Text hat, bleibt breiter, und die beiden
+    Kästen stünden sichtbar ungleich nebeneinander. `columnconfigure(…,
     uniform=…)` ist die einzige Zusage in Tk, die zwei Spalten wirklich gleich
     breit macht; bei `pack` gibt es nichts Vergleichbares.
     """
@@ -6148,10 +5871,9 @@ def _channel_box(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
 
     kopf = tk.Frame(innen, bg=SURFACE)
     kopf.pack(fill='x', padx=14, pady=(12, 2))
-    # ⚠ **Kein Punkt vor dem Titel mehr** (07.09.2026). Er zeigte dasselbe wie
-    # der Rahmen des Kastens, der bei der gewählten Fassung grün wird —
-    # zweimal dieselbe Auskunft an derselben Stelle. Gemeldet mit „ist
-    # unnötig, da der Kasten ja schon grün wird".
+    # ⚠ **Kein Punkt vor dem Titel.** Er zeigte dasselbe wie der Rahmen des
+    # Kastens, der bei der gewählten Fassung grün wird — zweimal dieselbe
+    # Auskunft an derselben Stelle.
     tk.Label(kopf, text=titel, bg=SURFACE, fg=FG,
              font=fenster.f_bold).pack(side='left')
     if marke_text:
@@ -6223,9 +5945,8 @@ def _server_status(fenster, rahmen):
         for kind in behaelter.winfo_children():
             kind.destroy()
         # ⚠ Drei Fälle, drei Meldungen: nie abgerufen, keine Verbindung, oder
-        # keine Verbindung **aber** ein alter Stand. Vorher gab es nur „noch
-        # nichts abgerufen" — und den Rat, auf „Jetzt nachsehen" zu klicken,
-        # was ohne Internet zu nichts führt.
+        # keine Verbindung **aber** ein alter Stand. Der Rat, auf „Jetzt
+        # nachsehen" zu klicken, führt ohne Internet zu nichts.
         ohne_netz = bool(lage.get('kein_netz'))
         if not lage.get('systeme'):
             _body_text(behaelter,
@@ -6279,8 +6000,7 @@ def _server_status(fenster, rahmen):
             # `RuntimeError: main thread is not in main loop`, und der Fehler
             # landet in keinem Haken, weil er in einem eigenen Faden passiert.
             # Ohne Internet dauert der Abruf am längsten, also trifft es genau
-            # dann: „Einstellungsmenü stürzt ab, wenn der User kein Internet
-            # mehr hat und man auf Serverstatus geht" (30.08.2026).
+            # dann.
             try:
                 lage = serverstatus.state(force=erzwingen)
             except Exception as ausnahme:
@@ -6382,7 +6102,7 @@ def _status_banner(fenster, eltern, lage):
     Werteliste.
 
     ⚠ **Kein `round_frame`.** Dessen Leinwand bleibt auf ihrer Anfangshöhe,
-    wenn der Inhalt nicht mitgemessen wird — der Streifen erschien als leerer
+    wenn der Inhalt nicht mitgemessen wird — der Streifen erschiene als leerer
     grüner Rahmen. Ein schlichter Frame mit farbigem Balken am linken Rand
     trägt dieselbe Aussage und kann nicht einklappen.
     """
@@ -6511,7 +6231,7 @@ def _system_row(fenster, eltern, sys_):
         side='left', padx=(0, 10))
     # ⚠ Beides sind **Daten von CIG**, kein Oberflächentext: Systemname und
     # Zustand stehen so auf der Statusseite und dürfen nicht übersetzt werden.
-    # Vorher entnommen, damit die Textprüfung die Schlüssel nicht für Sätze hält.
+    # Vorab entnommen, damit die Textprüfung die Schlüssel nicht für Sätze hält.
     name = sys_.get('name') or '?'
     zustand = sys_.get('status') or '—'
     tk.Label(z, text=name, bg=SURFACE, fg=FG,
@@ -6565,10 +6285,7 @@ def _notice_card(fenster, eltern, meldung):
 
     # ⚠ `fill='x'` ist Pflicht. Das Label ist zwar linksbündig gesetzt, aber
     # ohne Füllung zentriert Tk es als Ganzes im Kasten — der Meldungstext
-    # stand mittig statt links und sah dadurch nicht aus wie auf der Seite.
-    # ⚠ `fill='x'` ist Pflicht. Das Label ist zwar linksbündig gesetzt, aber
-    # ohne Füllung zentriert Tk es als Ganzes im Kasten — der Meldungstext
-    # stand mittig statt links.
+    # stünde mittig statt links.
     #
     # Die Hervorhebung kommt aus dem Quelltext von CIG mit: Dort steht fett,
     # was man tun soll („Fahrzeuge sichern"). Ältere Zwischenspeicher führen
@@ -6699,20 +6416,17 @@ def _credit_box(fenster, eltern, name, lizenz, was, adresse=None):
     # Die Lizenz als Blase daneben — sie gehört zum Namen, nicht in den Fließtext.
     blase(kopf, lizenz, ACCENT, fenster.f_small).pack(side='left', padx=8)
 
-    # ⚠ Auch hier durch `_ohne_marken`: Auf der Danke-Seite stand wörtlich
-    # `**Krovax**` auf dem Bildschirm — die Sternchen sind für den Leser der
-    # Sprachdatei gedacht, nicht für den Spieler. Gefunden am 09.09.2026 von
-    # `tools/oberflaeche_pruefen.py`, drin seit die Quelle genannt wird.
+    # ⚠ Auch hier durch `_ohne_marken`: Die Sternchen sind für den Leser der
+    # Sprachdatei gedacht, nicht für den Spieler
+    # (`tools/oberflaeche_pruefen.py`).
     text = tk.Label(kasten, text=_strip_markup(was), bg=SURFACE, fg=SUB,
                     font=fenster.f_small, anchor='w', justify='left')
     text.pack(fill='x', padx=16, pady=(0, 10))
     # ⚠⚠ `inset` MUSS die Polsterung aus `pack` nennen — hier 2 × 16.
     # `_wrap` misst den Elternrahmen; was das Label per `padx` abgibt, sieht
-    # es nicht. Ohne die 32 stand `wraplength` auf 886, verfügbar waren 860,
-    # und die letzte Zeile jeder Quellenbeschreibung wurde still abgeschnitten
-    # (gemessen 14.09.2026: +8 bis +27 px auf der Danke-Seite, in beiden
-    # Sprachen). Gefunden hat es `tools/randpruefung.py` — aber erst, seit es
-    # nicht mehr nur elf von 33 Seiten anschaut.
+    # es nicht. Ohne die 32 steht `wraplength` zu hoch, und die letzte Zeile
+    # jeder Quellenbeschreibung wird still abgeschnitten
+    # (`tools/randpruefung.py`).
     _wrap(text, inset=32)
 
     if adresse:
@@ -6723,7 +6437,7 @@ def _credit_box(fenster, eltern, name, lizenz, was, adresse=None):
                         font=fenster.f_small, anchor='w', cursor='hand2')
         link.pack(fill='x', padx=16, pady=(0, 12))
         # Lange Adressen (der Hub-Beitrag der Hangar-Erweiterung) brechen um,
-        # statt das Fenster auf 1236 px aufzudrücken (randpruefung, 27.09.2026).
+        # statt das Fenster aufzudrücken (tools/randpruefung.py).
         _wrap(link, inset=32)
 
         def oeffnen(_=None):
@@ -6794,16 +6508,14 @@ def _contributor(fenster, eltern, name, gruppe, idee, funde):
 def _thanks(fenster, rahmen):
     """Wem was gehört — und Dank an die, ohne die es das Werkzeug nicht gäbe.
 
-    ⚠ Diese Seite gibt es seit v3.0.0-rc58. Vorher stand im ganzen Programm
-    **keine** Lizenzangabe: weder die eigene (GPL-3.0) noch die der Symbole. Bei
-    einem GPL-Programm gehört die eigene Lizenz sichtbar hin, und die
-    ISC-Lizenz von Lucide verlangt, dass ihr Hinweis mitgeliefert wird — eine
-    Datei tief in der entpackten `.exe` erfüllt das formal, findet aber niemand.
+    ⚠ Bei einem GPL-Programm gehört die eigene Lizenz (GPL-3.0) sichtbar hin,
+    und die ISC-Lizenz von Lucide verlangt, dass ihr Hinweis mitgeliefert
+    wird — eine Datei tief in der entpackten `.exe` erfüllt das formal, findet
+    aber niemand.
 
     Ein **eigener Reiter** statt eines Abschnitts auf „Update & Über": Die Seite
     dort ist mit Version, Katalogzahlen, Update-Kanal und Holen-Knopf schon voll,
-    und wem was gehört, hat mit Updates nichts zu tun. Gemeldet am 27.08.2026:
-    „fremdleistungen gehören doch als eigener tab ehr in info oder?"
+    und wem was gehört, hat mit Updates nichts zu tun.
     """
     _heading(fenster, rahmen, t('hf_danke'), t('s_dk_lead'))
     innen = _scroll_area(rahmen)
@@ -6812,11 +6524,8 @@ def _thanks(fenster, rahmen):
     # ⚠ Ganz oben und mit Avatar, nicht als eine Zeile unter vielen. Diese Seite
     # nennt fremde Arbeit, und genau deshalb muss die eigene zuerst stehen —
     # sonst schmälert die Aufzählung das, worum es hier eigentlich geht.
-    # Gemeldet am 27.08.2026: „ich bin zwar dankbar, aber so dankbar nun auch
-    # wieder nicht, zudem wieso sollte ich meine Leistung dadurch schmälern."
-    #
-    # Der Block stand bis dahin auf „Update & Über" und ist von dort hierher
-    # gewandert — dieselben Angaben an zwei Stellen waren die eigentliche Klage.
+    # Nur hier, nicht zusätzlich auf „Update & Über" — dieselben Angaben
+    # gehören nicht an zwei Stellen.
     tk.Label(innen, text=t('hf_wer'), bg=BG, fg=FG, font=fenster.f_title,
              anchor='w').pack(fill='x', pady=(0, 2))
     tk.Label(innen, text=t('s_ub_wer_h'), bg=BG, fg=SUB, font=fenster.f_small,
@@ -6860,11 +6569,11 @@ def _thanks(fenster, rahmen):
                 pady=(0, 10))
     _credit_box(fenster, innen, 'Lucide', 'ISC', t('s_dk_symbole'),
                'https://lucide.dev')
-    # Seit v3.58.0-rc6: die zwei Flaggen der Sprachwahl — die einzigen Bilder
+    # Die zwei Flaggen der Sprachwahl — die einzigen Bilder
     # neben Lucide (Lizenztext unter `tools/flaggen-vorlagen/LICENSE`).
     _credit_box(fenster, innen, 'flag-icons', 'MIT', t('s_dk_flaggen'),
                'https://flagicons.lipis.dev')
-    # Seit v3.60.0: gelucs DPoP-Referenz für die Basetool-Anmeldung
+    # Die DPoP-Referenz des Basetools für dessen Anmeldung
     # (`scbp/dpop_reference/`, Lizenztext dort in `LICENSE`).
     _credit_box(fenster, innen, 'Basetool DPoP reference', 'MIT',
                t('s_dk_dpop'), 'https://krt-profit.github.io/basetool/')
@@ -6876,15 +6585,15 @@ def _thanks(fenster, rahmen):
                 pady=(0, 10))
     _credit_box(fenster, innen, 'Star Citizen Mission DataBase',
                'CC BY-NC-ND 4.0', t('s_dk_scmdb'), 'https://scmdb.net')
-    # ⚠ Seit v3.3.0-rc39 kommen die Rohstoffpreise von hier. Wer eine Quelle
-    # benutzt, nennt sie — sie stand bis rc40 nirgends.
+    # ⚠ Die Rohstoffpreise kommen von hier. Wer eine Quelle benutzt, nennt
+    # sie.
     _credit_box(fenster, innen, 'UEX Corp',
                t('s_dk_keine_lizenz'), t('s_dk_uex'), 'https://uexcorp.space')
-    # ⚠ Seit v3.48.0 kommen die Ruf-Stufen der Ränge von hier.
+    # ⚠ Die Ruf-Stufen der Ränge kommen von hier.
     _credit_box(fenster, innen, 'scunpacked-data (Star Citizen Wiki)',
                t('s_dk_keine_lizenz'), t('s_dk_scunpacked'),
                'https://github.com/StarCitizenWiki/scunpacked-data')
-    # ⚠ Seit v3.19.0 kommen die Steckplätze der Schiffe von hier. Wer eine
+    # ⚠ Die Steckplätze der Schiffe kommen von hier. Wer eine
     # Quelle benutzt, nennt sie — und zwar bevor jemand danach fragt.
     _credit_box(fenster, innen, 'erkul.games',
                t('s_dk_keine_lizenz'), t('s_dk_erkul'), 'https://erkul.games')
@@ -6896,30 +6605,29 @@ def _thanks(fenster, rahmen):
                'MIT', t('s_dk_hangarext'), HANGAR_EXT_PAGE)
     _credit_box(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
                'MIT', t('s_dk_xplorer'), XPLORER_PAGE)
-    # ⭐ Seit v3.57.1: Der Bauplan-Export folgt dem Format des Basetools, und
-    # die Zuordnung der Protokolle zum Account (v3.57.0) stammt aus dessen
+    # ⭐ Der Bauplan-Export folgt dem Format des Basetools, und die Zuordnung
+    # der Protokolle zum Account stammt aus dessen
     # SC-Extractor. Verlinkt wird das öffentliche Repository — die Seite
     # selbst verlangt eine Anmeldung und hilft niemandem von außen.
     _credit_box(fenster, innen, 'Profit Basetool (greluc)', 'GPL-3.0',
                t('s_dk_basetool'), 'https://github.com/krt-profit/basetool')
     # StarStrings hat KEINE Lizenzangabe - kein LICENSE im Repo, nichts in
-    # der readme, GitHub meldet keine (geprueft 29.08.2026). Hier stand
-    # 'CC BY-NC-SA 4.0'. Das war geraten, vermutlich von scmdb uebernommen,
-    # und es schrieb MrKraken eine Lizenz zu, die er nie vergeben hat.
+    # der readme, GitHub meldet keine. Deshalb hier keine Lizenz nennen;
+    # eine geratene schriebe MrKraken etwas zu, das er nie vergeben hat.
     _credit_box(fenster, innen, 'StarStrings (MrKraken)',
                t('s_dk_keine_lizenz'),
                t('s_dk_ss'), 'https://starstrings.app')
-    # ⭐ Seit v3.59.0 wählbar unter „Übersetzung". Beide Projekte nennen keine
-    # Lizenz (geprüft 27.09.2026) — deshalb nichts mitgeliefert, nur auf
-    # Wunsch von ihrer Adresse geladen, und hier genannt.
+    # ⭐ Wählbar unter „Übersetzung". Beide Projekte nennen keine Lizenz —
+    # deshalb nichts mitgeliefert, nur bei Auswahl von ihrer Adresse geladen,
+    # und hier genannt.
     _credit_box(fenster, innen, 'StarCitizen-Localization (Dymerz)',
                t('s_dk_keine_lizenz'), t('s_dk_dymerz'),
                'https://github.com/Dymerz/StarCitizen-Localization')
     _credit_box(fenster, innen, 'Star_citizen_ES (Thord82)',
                t('s_dk_keine_lizenz'), t('s_dk_thord82'),
                'https://github.com/Thord82/Star_citizen_ES')
-    # ⭐ Seit v3.60.0: Der Entwickler des SC Launch Configurator hat seine
-    # Übersetzungen ausdrücklich freigegeben (28.09.2026). Sein Werkzeug steht
+    # ⭐ Die Übersetzungen des SC Launch Configurator sind ausdrücklich
+    # freigegeben. Das Werkzeug steht
     # weiter unten unter den Werkzeugen anderer — hier zählt die Sprachquelle.
     # ⚠ Der Titel ist der **Eigenname**, kein beschreibender Satz — sonst steht
     # dort auf Englisch ein deutsches Wort („Luftwerft-Übersetzungen"), und
@@ -6927,8 +6635,6 @@ def _thanks(fenster, rahmen):
     _credit_box(fenster, innen, 'SC Launch Configurator (Luftwerft)',
                t('s_dk_keine_lizenz'), t('s_dk_luftwerft'),
                'https://www.luftwerft.com/')
-    # (Die Karte „SC Deutsch Launcher" ist seit dem 30.09.2026 entfernt —
-    # VerseKit nutzt ihn nicht mehr.)
     # ⚠⚠ Die Übersetzung selbst hat einen eigenen Urheber und eine eigene
     # Lizenz (CC BY-NC-SA 4.0). Die verlangt ausdrücklich Name UND Repository —
     # der Verteiler allein genügt nicht.
@@ -6937,9 +6643,7 @@ def _thanks(fenster, rahmen):
                'https://github.com/rjcncpt/StarCitizen-Deutsch-INI')
 
     # --- Menschen ---
-    # ⚠ Aufklappbar, und zwar mit Absicht: Die Liste wird wachsen. der Autor am
-    # 27.08.2026: „das werden später ja mal richtig viele, ich möchte schon alle
-    # drauf haben aber nichts überladen." Sichtbar bleibt darum immer nur der
+    # ⚠ Aufklappbar, weil die Liste wächst. Sichtbar bleibt immer nur der
     # Name mit seiner Gruppe — was daraus geworden ist, steht eine Zeile tiefer
     # und nur auf Klick. So trägt die Seite auch fünfzig Namen noch.
     tk.Label(innen, text=t('s_dk_leute'), bg=BG, fg=FG, font=fenster.f_title,
@@ -6952,15 +6656,12 @@ def _thanks(fenster, rahmen):
     for name, gruppe, idee, funde in (
             ('Haldjas', 'pr0', t('s_dk_haldjas_idee'),
              t('s_dk_haldjas_bugs')),
-            # ⚠ Zwei Bausteine hintereinander: die frühen Funde samt
-            # Nitro-Dank und der Fund vom 11.09. `_contributor` nimmt einen Text —
-            # also hier zusammensetzen, statt die Funktion für einen
+            # ⚠ Zwei Textbausteine hintereinander. `_contributor` nimmt einen
+            # Text — also hier zusammensetzen, statt die Funktion für einen
             # Sonderfall umzubauen.
             #
-            # ⚠⚠ **Eine Person, ein Eintrag.** Er stand hier bis zum
-            # 12.09.2026 zweimal, weil sein Anzeigename gewechselt hat — die
-            # Seite zählt Beiträge je Person, seine waren dadurch geteilt.
-            # Genannt wird der Name, unter dem er heute auftritt.
+            # ⚠⚠ **Eine Person, ein Eintrag** — die Seite zählt Beiträge je
+            # Person.
             ('rurudotorg', 'SC4M', t('s_dk_rurudotorg_idee'),
              t('s_dk_rurudotorg_bugs') + '\n\n' + t('s_dk_rurudotorg_bugs2')),
             ('Morkhan', 'KRT', t('s_dk_morkhan_idee'),
@@ -7015,10 +6716,8 @@ def _about(fenster, rahmen):
     innen = _scroll_area(rahmen)
 
     # --- Zustand ---
-    # ⚠ Mit dem Programmsymbol daneben. Es stand hier nie — und seit der
-    # Autor-Block mit dem Avatar auf „Danke & Lizenzen" gewandert ist, hatte die
-    # Seite gar kein Bild mehr und wirkte nackt. Gemeldet am 27.08.2026: „bei
-    # über muss oben zur Version noch das Watcher Logo (icon)".
+    # ⚠ Mit dem Programmsymbol daneben — der Block mit dem Avatar steht auf
+    # „Danke & Lizenzen", ohne Symbol hätte diese Seite gar kein Bild.
     karte = _card(innen, pady=(0, 6))
     kopf = tk.Frame(karte, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(14, 6))
@@ -7037,9 +6736,8 @@ def _about(fenster, rahmen):
             errors.record('pages.ueber.symbol', ausnahme)
     titel = tk.Frame(kopf, bg=SURFACE)
     titel.pack(side='left', fill='x', expand=True)
-    # ⚠ Produktname aus `language.py` — nie fest hier. Bei der Umbenennung zu
-    # VerseKit (12.09.2026) stand er an vier Stellen hart im Code und wäre
-    # teils alt geblieben.
+    # ⚠ Produktname aus `language.py` — nie fest hier, sonst bliebe er bei
+    # einer Umbenennung teils alt.
     tk.Label(titel, text=t('hf_titel'), bg=SURFACE, fg=FG,
              font=fenster.f_title, anchor='w').pack(fill='x')
     tk.Label(titel, text=fenster.version or '—', bg=SURFACE, fg=ACCENT,
@@ -7059,16 +6757,14 @@ def _about(fenster, rahmen):
 
     # --- Einmal holen, ohne etwas umzustellen ---
     #
-    # ⚠ Der häufigste Wunsch ist der einfachste: „gib mir die neueste, egal
-    # welche". Bisher musste man dafür erst verstehen, was ein Kanal ist, und
-    # den richtigen Kasten anklicken. Morkhan am 26.08.2026 dazu: „das ist
-    # verwirrend" — er hatte den falschen gewählt und bekam gar nichts.
+    # ⚠ Die häufigste Absicht ist die einfachste: die neueste Version holen,
+    # egal welche — ohne erst verstehen zu müssen, was ein Kanal ist, und den
+    # richtigen Kasten zu finden.
     #
-    # ⚠ **Und er steht ganz oben, direkt unter der Versionskarte.** Vorher kam er
-    # erst nach der Knopfreihe und dem Tagesschalter — bei der Mindestgröße des
-    # Fensters lag er damit **unterhalb der Kante**. Gemeldet am 27.08.2026:
-    # „das nervt User, weil die den Button zum Updaten nicht sofort finden."
-    # Das Fenster größer zu machen wäre die falsche Antwort gewesen: Auf einem
+    # ⚠ **Und er steht ganz oben, direkt unter der Versionskarte.** Nach der
+    # Knopfreihe und dem Tagesschalter läge er bei der Mindestgröße des
+    # Fensters **unterhalb der Kante**.
+    # Das Fenster größer zu machen wäre die falsche Antwort: Auf einem
     # 1366×768-Laptop passt es dann gar nicht mehr. Der wichtigste Knopf gehört
     # nach oben, nicht das Fenster in die Höhe.
     _body_text(innen, t('s_up_sofort_h'), fenster.f_small,
@@ -7080,8 +6776,8 @@ def _about(fenster, rahmen):
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(4, 4))
     _button_row(reihe, [
-        # ⚠ Nicht mehr "stark": Der hervorgehobene Knopf der Seite ist jetzt
-        # der Hol-Knopf darüber. Zwei starke Knöpfe nebeneinander heben sich
+        # ⚠ Nicht "stark": Der hervorgehobene Knopf der Seite ist der
+        # Hol-Knopf darüber. Zwei starke Knöpfe nebeneinander heben sich
         # gegenseitig auf — dann sticht keiner mehr hervor.
         _button(fenster, reihe, t('s_ub_nachsehen'),
                lambda: _check_now(fenster)),
@@ -7133,9 +6829,8 @@ def _about(fenster, rahmen):
                      holen_text=_fetch_label(True, fenster.version),
                      holen_aktiv=_can_fetch(True, fenster.version))
         # ⚠ Die Beschriftungen kommen aus dem Zwischenspeicher, damit die Seite
-        # sofort steht. Der frischt sich aber nur einmal am Tag auf — auf einem
-        # Bildschirmfoto vom 25.08.2026 bot der Knopf „v3.0.0-rc9 holen" an,
-        # während rc12 lief und rc13 schon draußen war. Der Knopf holt zwar die
+        # sofort steht. Der frischt sich aber nur einmal am Tag auf — der Knopf
+        # böte dann eine veraltete Version an. Der Knopf holt zwar die
         # richtige Version (er sieht vorher nach), aber was draufsteht, führt in
         # die Irre. Deshalb einmal im Hintergrund nachsehen und die Kästen neu
         # zeichnen, wenn sich etwas geändert hat.
@@ -7144,7 +6839,6 @@ def _about(fenster, rahmen):
     # ⚠ Der Tagesschalter steht **hinter** den Kanal-Kästen, nicht davor. Davor
     # drückte er die Kästen bei der Mindestgröße des Fensters unter die Kante —
     # und in ihnen sitzt der Knopf, mit dem man die stabile Version holt.
-    # Gemeldet am 27.08.2026: „bei der stable version dann bitte auch."
     # Der Schalter ist eine Nebeneinstellung, die Kästen sind der Zweck der
     # Seite; also gehören sie nach oben.
     ziel = _setting_row(fenster, innen, t('s_ub_taeglich'), t('s_ub_taeglich_h'))
@@ -7171,10 +6865,10 @@ def _about(fenster, rahmen):
 def _link(fenster, eltern, text, ziel, grund=None):
     """Eine anklickbare Adresse — öffnet den Browser.
 
-    ⚠ Vorher war das ein gewöhnliches Label in der Akzentfarbe: Es **sah aus wie
-    ein Link** und tat nichts. Das ist schlimmer als schwarzer Text, weil es zum
-    Klicken einlädt. Jetzt ist der Mauszeiger eine Hand, die Adresse unterstreicht
-    sich beim Überfahren, und ein Klick öffnet sie.
+    ⚠ Ein gewöhnliches Label in der Akzentfarbe **sähe aus wie ein Link** und
+    täte nichts — schlimmer als schwarzer Text, weil es zum Klicken einlädt.
+    Deshalb ist der Mauszeiger eine Hand, die Adresse unterstreicht sich beim
+    Überfahren, und ein Klick öffnet sie.
     """
     grund = grund or SURFACE
     lbl = tk.Label(eltern, text=text, bg=grund, fg=ACCENT, font=fenster.f_small,
@@ -7182,10 +6876,9 @@ def _link(fenster, eltern, text, ziel, grund=None):
     lbl.pack(fill='x', pady=(4, 0))
 
     def oeffnen(_=None):
-        # Die saubere Umgebung und der Rückfall auf `xdg-open` stecken jetzt in
+        # Die saubere Umgebung und der Rückfall auf `xdg-open` stecken in
         # `paths.open_in_browser` — an EINER Stelle, damit nicht die Hälfte der
-        # Verweise sie hat und die andere nicht. Genau daran hingen „Kaffee
-        # spendieren" und „Discord" (30.08.2026 gemeldet).
+        # Verweise sie hat und die andere nicht.
         try:
             geklappt = paths.open_in_browser(ziel)
         except Exception as ausnahme:
@@ -7219,10 +6912,8 @@ def _underlined(schrift):
 def _switch(window, parent, key, default):
     """Ein An/Aus-Schalter, der sofort schreibt — es gibt keinen Speichern-Knopf.
 
-    ⚠ Seit v3.58.0-rc3 derselbe Schiebeschalter wie überall (`toggle_switch`).
-    Vorher stand hier ein Wort „an"/„aus" auf einem Kasten — die einzigen
-    zwei Schalter im Programm, die nicht wie Schalter aussahen (Seite „Update
-    & Über", gemeldet 27.09.2026)."""
+    ⚠ Derselbe Schiebeschalter wie überall (`toggle_switch`) — ein Wort
+    „an"/„aus" auf einem Kasten sähe nicht wie ein Schalter aus."""
     from . import paths
     from .main_window import toggle_switch
 
@@ -7297,7 +6988,7 @@ def _detection(fenster, rahmen):
 
     _button(fenster, ziel, t('s_er_kat_jetzt'), katalog_neu).pack()
 
-    # ⭐ Baupläne ohne bekannten Weg — Vorschlag von Choopa (28.09.2026).
+    # ⭐ Baupläne ohne bekannten Weg.
     #
     # ⛔ Standard **aus**: Der Fortschritt bleibt damit die Zahl, die
     # Bestandsnutzer kennen. Wer umschaltet, sieht statt 738 alle 1591 — und
@@ -7311,9 +7002,7 @@ def _detection(fenster, rahmen):
     # ⚠⚠ **`toggle_switch` ruft OHNE Argument und will den neuen Zustand
     # zurück** (siehe seinen Docstring). Eine Funktion mit Parameter läuft in
     # einen TypeError, den die Fehler-Haken schlucken — der Schalter sieht
-    # dann aus wie kaputt und schreibt nichts. Genau so am 28.09.2026
-    # ausgeliefert und sofort gemeldet: „den Schalter kann ich nicht
-    # einschalten."
+    # dann aus wie kaputt und schreibt nichts.
     def alle_um():
         neu = not paths.setting_bool(katalog_modul.SETTING_ALL, False)
         paths.set_setting(katalog_modul.SETTING_ALL, neu)
@@ -7330,24 +7019,16 @@ def _detection(fenster, rahmen):
 
     _account_rows(fenster, innen)
 
-    # ⚠⚠ **Hier stand bis v3.5.1 ein zweiter „Protokolle neu lesen"-Knopf.**
-    # Er loeschte `logstand.json` und wirkte erst **beim naechsten Start**.
-    # Unter „Bestand" gibt es denselben Auftrag als „Protokolle erneut
-    # einlesen" — der ignoriert den Lesestand ebenfalls, geht jede Sicherung
-    # UND die laufende `Game.log` durch, wirkt **sofort** und sagt hinterher,
-    # was dabei herauskam.
-    #
-    # Der eine konnte also strikt weniger als der andere. Gemeldet am
-    # 31.08.2026 von Haldjas: „unter detection macht es das nach dem naechsten
-    # start, unter BP inventory sofort — ersteres ist wahrscheinlich dann nicht
-    # mehr so sinnvoll?" Er hatte recht.
-    #
-    # ⚠ Zwei Knoepfe fuer eine Sache sind schlimmer als einer: Wer den
-    # schwaecheren erwischt, glaubt, das Werkzeug koenne es nicht.
+    # ⚠⚠ **Kein eigener „Protokolle neu lesen"-Knopf hier.** Unter „Bestand"
+    # gibt es „Protokolle erneut einlesen" — der ignoriert den Lesestand,
+    # geht jede Sicherung UND die laufende `Game.log` durch, wirkt **sofort**
+    # und sagt hinterher, was dabei herauskam. Zwei Knoepfe fuer eine Sache
+    # sind schlimmer als einer: Wer den schwaecheren erwischt, glaubt, das
+    # Werkzeug koenne es nicht.
 
 
 def _account_rows(window, inner):
-    """Eigener Account und das Aufräumen fremder Baupläne (ab v3.57.0).
+    """Eigener Account und das Aufräumen fremder Baupläne.
 
     ⭐ Wer zwei Accounts auf einem Rechner spielt, hat beider Protokolle in
     `logbackups/`. Gezählt wird nur der eigene (`logsource.own_account`);
@@ -7459,15 +7140,13 @@ def _diagnostics(fenster, rahmen):
     innen = _scroll_area(rahmen)
 
     # ⭐ Wer meldet? Steht ÜBER dem Bericht, damit man sieht, was mitgeht.
-    #
-    # Anlass (29.08.2026): Das Werkzeug wurde im SCMDB-Discord vorgestellt
-    # (620 Mitglieder). Ohne Absender lässt sich ein Bericht niemandem
-    # zuordnen, und Rückfragen laufen ins Leere.
+    # Ohne Absender lässt sich ein Bericht niemandem zuordnen, und
+    # Rückfragen laufen ins Leere.
     #
     # ⚠ **Freiwillig und nie vorausgefüllt** — auch nicht mit dem
     # Benutzernamen des Systems. Das Werkzeug sammelt sonst nichts über den
-    # Nutzer, und in der Ankündigung steht „no telemetry". Ein heimlich
-    # mitgeschickter Name wäre ein Wortbruch.
+    # Nutzer („no telemetry"); ein heimlich mitgeschickter Name wäre ein
+    # Wortbruch.
     melder_var = tk.StringVar(value=(paths.setting('melder_name') or ''))
     ziel_melder = _setting_row(fenster, innen, t('s_melder'), t('s_melder_h'))
     from .main_window import round_entry
@@ -7476,23 +7155,13 @@ def _diagnostics(fenster, rahmen):
                               placeholder=t('s_pl_melder'))
     melder_feld.holder.pack(fill='x', pady=(8, 0))
 
-    # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.**
-    # Am 05.09.2026 schrieb Bushwick4712 seine Meldung („mission log updated
-    # nicht") in das **Namensfeld**, weil es das einzige war, in das man etwas
-    # tippen konnte. Der Bericht kam damit als „BUSHWICK mission log updated
-    # niocht" an — der Hinweis war da, aber an der falschen Stelle, und wäre
-    # bei einem längeren Satz abgeschnitten worden.
+    # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.** Ohne
+    # eigenes Feld landet die Meldung im **Namensfeld**, weil es das einzige
+    # ist, in das man etwas tippen kann.
     #
-    # ⚠ **Nicht gespeichert.** Anders als der Name gehört ein Satz zu *einem*
-    # Bericht; beim nächsten Öffnen stünde er sonst noch da und würde
-    # versehentlich zu einer zweiten Meldung mitgeschickt.
-    # ⚠⚠ **Mehrzeilig und über die volle Breite, unter der Erklärung.** Der
-    # erste Anlauf setzte ein einzeiliges Feld rechts neben den Text — halb so
-    # breit wie die Seite, eine Zeile hoch. Wer zwei Sätze tippte, sah nur das
-    # Ende und konnte vor dem Absenden nicht mehr nachlesen, was er meldet.
-    # Am 05.09.2026 gemeldet: „Wir haben da ja noch ne Menge Platz, macht es
-    # nicht Sinn das Fenster … größer und unter den Text zu machen, das der
-    # Melder das was er eintippt auch noch selber lesen kann?"
+    # ⚠⚠ **Mehrzeilig und über die volle Breite, unter der Erklärung.** In
+    # einem einzeiligen Feld neben dem Text sähe man bei zwei Sätzen nur das
+    # Ende und könnte vor dem Absenden nicht mehr nachlesen, was man meldet.
     #
     # Genau dafür ist `breit=True` da (siehe `_feld`): unter die Beschreibung
     # statt daneben, volle Breite. Der Name bleibt bewusst einzeilig rechts —
@@ -7569,8 +7238,8 @@ def _diagnostics(fenster, rahmen):
     melder_feld.bind('<Return>', melder_uebernehmen)
     # ⚠ Die Meldung wird **nicht** gespeichert — sie gehört zu diesem einen
     # Bericht. Deshalb nur den Text neu bauen, nichts ablegen.
-    # ⚠ **Kein `<Return>` mehr.** Im einzeiligen Feld war die Eingabetaste das
-    # Bestätigen; in einem mehrzeiligen Feld ist sie der Zeilenumbruch. Wer
+    # ⚠ **Kein `<Return>`.** In einem mehrzeiligen Feld ist die Eingabetaste
+    # der Zeilenumbruch, nicht das Bestätigen. Wer
     # hier bindet, nimmt dem Melder die Absätze weg — bei einer
     # Fehlerbeschreibung genau das Falsche.
     #
@@ -7581,8 +7250,8 @@ def _diagnostics(fenster, rahmen):
 
     # ⚠⚠ **Beim erneuten Öffnen den Bericht neu bauen.** Er enthält die eigene
     # Bauplan-Zahl, und die ändert sich beim Spielen. Ohne das stünde in einem
-    # Bericht vom Abend der Bestand vom Morgen — und der Entwickler sucht einen
-    # Fehler an einer Zahl, die längst anders ist.
+    # Bericht vom Abend der Bestand vom Morgen — eine Zahl, die längst anders
+    # ist.
     #
     # ⚠ **Diese Seite wird bewusst NICHT verworfen** wie die übrigen Seiten mit
     # Bestandszahlen (`main_window.STOCK_PAGES`). Ein Neubau würde das
@@ -7592,10 +7261,8 @@ def _diagnostics(fenster, rahmen):
     fenster.on_show['diagnose'] = _bericht_neu
 
     # ⭐ **Die Zusicherung steht zwischen Bericht und Knöpfen** — genau dort,
-    # wo die Entscheidung fällt. Sie stand bis zum 05.09.2026 *unter* der
-    # Knopfreihe, also hinter dem Klick, und konnte am unteren Rand
-    # wegfallen. Gemeldet mit der Frage, ob sie nicht besser nach oben
-    # gehöre, „damit sie nicht aus Versehen abgeschnitten wird".
+    # wo man sich fürs Absenden entscheidet. *Unter* der Knopfreihe stünde
+    # sie hinter dem Klick und könnte am unteren Rand wegfallen.
     #
     # ⚠ **Nach oben aber nicht.** Ihr eigener Text lautet „Der Block **oben**
     # ist der ganze Inhalt" — über dem Bericht stimmte der Bezug nicht mehr.
@@ -7614,16 +7281,12 @@ def _diagnostics(fenster, rahmen):
     def aktueller_bericht():
         """Genau das, was im Kasten steht — und vorher den Namen übernehmen.
 
-        ⚠⚠ **Nicht die Fassung von vorhin.** Bis v3.3.0 arbeiteten alle vier
-        Knöpfe mit `text`, dem Bericht, der beim **Öffnen der Seite** gebaut
-        wurde. Wer seinen Namen eintippte, sah ihn zwar sofort im Kasten
-        (`melder_uebernehmen` zeichnet ihn neu) — kopiert, gespeichert und
-        gesendet wurde trotzdem die alte Fassung, also „Von: nicht angegeben".
-        Genau so am 30.08.2026 passiert: Der Melder hatte seinen Namen
-        eingetragen, im Bericht stand er nicht, und niemand konnte sich
-        erklären, warum.
+        ⚠⚠ **Nicht der Bericht vom Öffnen der Seite.** Wer seinen Namen
+        eintippt, sieht ihn sofort im Kasten (`melder_uebernehmen` zeichnet
+        ihn neu) — der beim Öffnen gebaute `text` enthielte ihn nicht, und
+        hinaus ginge „Von: nicht angegeben".
 
-        Deshalb kommt der Text jetzt **aus dem Kasten**. Der Satz darunter
+        Deshalb kommt der Text **aus dem Kasten**. Der Satz darunter
         verspricht „Du siehst vorher genau, was du verschickst" — dann muss
         auch genau das verschickt werden. Und der Name wird vorher übernommen,
         falls das Feld noch den Tastaturfokus hat.
@@ -7634,9 +7297,8 @@ def _diagnostics(fenster, rahmen):
     def _meldung_verbraucht():
         """Das Feld „Was ist passiert?" leeren — der Satz ist raus.
 
-        ⚠⚠ **Alle drei Knöpfe, nicht nur „Absenden".** Beim ersten Anlauf hing
-        das nur am Absenden. „Angaben kopieren" und „Melden" geben den Bericht
-        aber genauso weiter — beim einen in die Zwischenablage, beim anderen
+        ⚠⚠ **Alle drei Knöpfe, nicht nur „Absenden".** „Angaben kopieren"
+        und „Melden" geben den Bericht genauso weiter — beim einen in die Zwischenablage, beim anderen
         ins Meldeformular. Wer so meldet, hätte seinen Satz eine Woche später
         unbemerkt am nächsten Bericht hängen.
 
@@ -7665,7 +7327,7 @@ def _diagnostics(fenster, rahmen):
             fenster.say(t('s_di_kopiert'))
             _meldung_verbraucht()
 
-    # ⚠ Gemerkt, sobald der Spieler den Haken einmal setzt (17.09.2026) — wer
+    # ⚠ Gemerkt, sobald der Spieler den Haken einmal setzt — wer
     # Bilder und Berichte schicken will, soll das nicht jedes Mal neu bestätigen.
     bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
 
@@ -7674,12 +7336,11 @@ def _diagnostics(fenster, rahmen):
 
         ⚠ Der Weg für alle, die nicht basteln wollen. Kopieren und in Discord
         einfügen scheitert daran, dass der Bericht zu lang ist und man wissen
-        muss, wohin damit. Gemeldet am 28.08.2026: „ich will nicht jedem eine
-        Stunde erklären, wie ich zu dem Bericht komme."
+        muss, wohin damit.
 
-        ⚠⚠ **Zustimmung per Haken, nicht per Rückfrage-Fenster** (17.09.2026):
-        Erst ein Fenster, dann ein zweites für die Scan-Bilder, die Knöpfe an
-        verschiedenen Stellen — „nicht einfach in der Bedienung". Im Bericht
+        ⚠⚠ **Zustimmung per Haken, nicht per Rückfrage-Fenster** — ein
+        Fenster für den Bericht und ein zweites für die Scan-Bilder wären
+        umständlich. Im Bericht
         und in den Bildern steckt nichts Heikles (Namen und Pfade sind
         herausgenommen, die Bilder zeigen nur die Zahl). Ohne Haken wird nichts
         gesendet; der Knopf sagt dann, was fehlt.
@@ -7699,7 +7360,7 @@ def _diagnostics(fenster, rahmen):
                 archiv = signature_scan.sample_archive()
                 if archiv:
                     # ⭐ Der Dateiname trägt den Melder, sonst heißen im
-                    # Download-Ordner alle Archive gleich (21.09.2026).
+                    # Download-Ordner alle Archive gleich.
                     anhaenge.append((signature_scan.archive_name(), archiv,
                                      'application/zip'))
             except Exception as ausnahme:
@@ -7720,17 +7381,13 @@ def _diagnostics(fenster, rahmen):
     # ⚠ Ganz vorn und in Rot: Wer hier landet, hat ein Problem und sucht den
     # kürzesten Weg.
     #
-    # ⚠ **Immer zeigen, auch ohne eingebautes Ziel.** Der erste Anlauf blendete
-    # ihn aus, wenn nicht gesendet werden kann — gedacht als „ein Knopf, der
-    # nichts tut, ist schlimmer als keiner". In der Praxis trifft das nur den
-    # Quellcode, also den Entwickler selbst. am 28.08.2026 gemeldet vor der
-    # Diagnose-Seite: „nicht mal ICH finde den." Ein Knopf, der fehlt, sieht aus
-    # wie ein Fehler; einer, der beim Drücken sagt, was ihm fehlt, erklärt sich.
-    # ⚠ **Drei Knöpfe, nicht fünf.** „Als Datei speichern" und „Eigenen Ordner
-    # öffnen" sind am 05.09.2026 gestrichen worden: In über einem Jahr hat sie
-    # niemand benutzt. Beide erzeugen Arbeit statt sie abzunehmen — wer den
-    # Bericht abschickt oder kopiert, ist fertig; wer ihn als Datei ablegt,
-    # muss ihn danach noch irgendwohin bringen.
+    # ⚠ **Immer zeigen, auch ohne eingebautes Ziel** (das trifft nur den
+    # Start aus dem Quellcode). Ein Knopf, der fehlt, sieht aus wie ein
+    # Fehler; einer, der beim Drücken sagt, was ihm fehlt, erklärt sich.
+    # ⚠ **Drei Knöpfe, kein „Als Datei speichern".** Eine Datei erzeugt Arbeit
+    # statt sie abzunehmen — wer den Bericht abschickt oder kopiert, ist
+    # fertig; wer ihn als Datei ablegt, muss ihn danach noch irgendwohin
+    # bringen.
     #
     # ⚠ Der Bericht ist damit **nicht** unerreichbar: „In die Ablage kopieren"
     # gibt denselben Text, und wer ihn wirklich als Datei braucht, fügt ihn ein
@@ -7743,8 +7400,7 @@ def _diagnostics(fenster, rahmen):
     ])
 
     # ⭐ EIN Haken als Zustimmung, direkt unter „Absenden" — statt zweier
-    # Rückfrage-Fenster (17.09.2026: „2 mal ein Fenster zu klicken … an 2
-    # unterschiedlichen Stellen … nicht einfach in der Bedienung"). Gibt es
+    # Rückfrage-Fenster an verschiedenen Stellen. Gibt es
     # angelernte Scan-Bilder, nennt der Haken sie mit, und sie gehen mit.
     from .main_window import toggle_switch as _toggle
     try:
@@ -7771,11 +7427,9 @@ def _diagnostics(fenster, rahmen):
     # Satz, der auf den Discord-Knopf verweist, den die Seitenleiste ohnehin
     # führt.
     #
-    # **Warum er hier steht** (16.09.2026): Ein Nutzer wollte einen Absturz
-    # melden, fand auf GitHub den Knopf „New issue" ausgegraut — dort greift
-    # eine Anmeldepflicht, die von außen wie eine Sperre aussieht — und kam nur
-    # durch, weil er den Entwickler persönlich kannte. Wer ihn nicht kennt,
-    # hört an dieser Stelle auf. Der Weg über Discord braucht kein Konto bei
+    # **Warum er hier steht:** Auf GitHub ist der Knopf „New issue" ohne
+    # Anmeldung ausgegraut — von außen sieht das wie eine Sperre aus, und
+    # wer melden will, hört an dieser Stelle auf. Der Weg über Discord braucht kein Konto bei
     # GitHub, und genau das muss **auf dieser Seite** stehen, nicht nur in der
     # Anleitung.
     _body_text(innen, t('s_di_ohne_github'), fenster.f_small, color=SUB,
@@ -7855,15 +7509,13 @@ def _crafting(fenster, rahmen):
     tk.Label(kopf, text=t('s_he_von') % gesamt, bg=BG, fg=SUB,
              font=fenster.f_small).pack(side='left')
     # ⚠⚠ **Die unklaren gehören dazu, sonst fehlt eine Zahl ohne Erklärung.**
-    # `counts()` gibt sie längst zurück, angezeigt wurden sie nie: Ein
-    # Bauplan, dessen Name mehrere Gegenstände meint (Idris- und
+    # `counts()` gibt sie zurück: Ein Bauplan, dessen Name mehrere Gegenstände meint (Idris- und
     # Reclaimer-Kraftwerk, BroadSpec in zwei Größen), zählt bewusst nicht als
     # „sicher" — richtig so, ein falsch zugeordneter Bauplan wäre schlimmer.
     #
-    # Nur stand oben dann eine Zahl, die **kleiner ist als der eigene
-    # Bestand**, und nichts sagte warum. Gemeldet als „404 von 1597" bei 405
-    # Bauplänen; der Hinweis dazu (`s_he_unklar`) steht bisher erst am
-    # aufgeklappten Eintrag — also genau dort, wo man ihn nur findet, wenn man
+    # Ohne sie stünde oben eine Zahl, die **kleiner ist als der eigene
+    # Bestand**, und nichts sagte warum — der Hinweis (`s_he_unklar`) steht
+    # sonst erst am aufgeklappten Eintrag, wo man ihn nur findet, wenn man
     # schon weiß, wonach man sucht.
     if unklar:
         tk.Label(kopf, text=t('s_he_dazu_unklar') % unklar, bg=BG, fg=SUB,
@@ -7899,7 +7551,7 @@ def _crafting(fenster, rahmen):
         ⚠⚠ **Nur wenn wirklich etwas gesetzt war.** Sonst baut jeder Wechsel
         auf die Herstellungs-Seite die 1597 Zeilen neu auf, ohne dass sich
         etwas ändert — dieselbe Bremse wie in der Bauplan-Liste
-        (`collection_window._fein_leeren`), am 31.08.2026 gemessen und gemeldet.
+        (`collection_window._fein_leeren`).
         """
         # ⚠⚠ **Ein Sprung aus der Bauplan-Liste darf hier NICHT geleert
         # werden.** Beim ersten Mal wird die Seite frisch gebaut und nimmt den
@@ -7938,8 +7590,7 @@ def _crafting(fenster, rahmen):
     fenster.on_show['herstellung'] = _herst_frisch
 
     # --- Filter, dieselben Bedienelemente wie in der Bauplan-Liste ----------
-    # ⚠ „egal wo, sollte das Bedienkonzept nicht jedes Mal ändern — die Leute
-    # wollen es nutzen und nicht erst lernen, wie sie es nutzen." (29.08.2026)
+    # ⚠ Ein Bedienkonzept für das ganze Programm (siehe `_filter_bar`).
     #
     # ⚠ Die Werte kommen aus den **vorhandenen** Einträgen, nicht aus einer
     # festen Liste. Bringt ein Patch eine neue Waffenart, steht sie am nächsten
@@ -7947,9 +7598,8 @@ def _crafting(fenster, rahmen):
     wahl = {'art': '', 'unterart': '', 'hersteller': '', 'zustand': '',
             'material': ''}
 
-    # ⚠⚠ **Dieselbe Gliederung wie in der Bauplan-Liste.** Xharig:
-    # „BP und Herstellung sind ja die gleichen BP, also muss man auf die
-    # gleiche Art suchen." Beide Seiten fragen dasselbe Modul — wer hier eine
+    # ⚠⚠ **Dieselbe Gliederung wie in der Bauplan-Liste** — es sind dieselben
+    # Baupläne. Beide Seiten fragen dasselbe Modul — wer hier eine
     # eigene Einteilung baute, hätte zwei Wahrheiten über dieselben Daten.
     from . import categories as kat_modul
     from . import catalog as kat_daten
@@ -8000,7 +7650,7 @@ def _crafting(fenster, rahmen):
         """Nur die Unterarten der gewählten Oberkategorie.
 
         Ohne die Einschränkung stünde „Laserkanone" neben „Helm" neben
-        „Magazin" — wieder die lange Liste, die zwei Ebenen gerade abschaffen."""
+        „Magazin" — die lange Liste, die zwei Ebenen vermeiden sollen."""
         if not ober:
             return []
         zaehler = {}
@@ -8045,9 +7695,8 @@ def _crafting(fenster, rahmen):
         # Eine Unterart, die zur neuen Art nicht passt, muss weg — sonst
         # filtert man auf etwas, das es in dieser Art gar nicht gibt.
         # ⚠ `_unterarten_zur_art()` liefert **Paare** (Wert, Beschriftung) —
-        # der Vergleich gegen die rohe Liste traf deshalb nie zu, und jede
-        # gewählte Unterart wurde sofort wieder geleert: „klicke ich sie an,
-        # ist nichts ausgewählt" (29.08.2026).
+        # ein Vergleich gegen die rohe Liste träfe nie zu, und jede gewählte
+        # Unterart würde sofort wieder geleert.
         gueltig = [u for u, _b in _unterarten_zur_art(wahl['art'])]
         if wahl['unterart'] and wahl['unterart'] not in gueltig:
             wahl['unterart'] = ''
@@ -8063,10 +7712,7 @@ def _crafting(fenster, rahmen):
     # untereinander sind schon wieder die Zettelwirtschaft, die der Umschalter
     # vermeiden soll.
     # ⭐ **Wer aus der Bauplan-Liste herspringt, will die Zutaten SEHEN** —
-    # nicht erst noch einmal klicken. Gemeldet am 07.09.2026 nach dem Test von
-    # v3.26.0: „das Teil ist zugeklappt, geht es dass das direkt aufgeklappt
-    # ist, damit man nicht einen extra Klick hat?" — mit Verweis auf die
-    # Drei-Klick-Regel.
+    # nicht erst noch einmal klicken (Drei-Klick-Regel).
     #
     # ⚠ Nur beim Sprung, nicht beim gewöhnlichen Öffnen der Seite: Dort weiß
     # niemand, welche der 1597 Zeilen aufgehen sollte.
@@ -8125,11 +7771,9 @@ def _crafting(fenster, rahmen):
             w.destroy()
         text = suche_var.get().strip().lower()
 
-        # ⭐ **Ohne Eingabe steht hier keine Liste** (07.09.2026). Vorher
-        # standen 1597 Baupläne untereinander — mit Auswahlfeldern darüber,
-        # die genau dafür da sind. Gemeldet mit „wir haben nen Dropdown, da
-        # kann der Spieler ja schon auswählen, und die Liste scrollt eh
-        # niemand durch".
+        # ⭐ **Ohne Eingabe steht hier keine Liste.** 1597 Baupläne
+        # untereinander scrollt niemand durch; dafür sind die Auswahlfelder
+        # darüber da.
         #
         # ⚠ Der Hinweis darf nicht fehlen: Eine Seite, die leer aufgeht und
         # nichts sagt, sieht kaputt aus.
@@ -8138,12 +7782,10 @@ def _crafting(fenster, rahmen):
                         fill='x')
             return
 
-        # ⭐⭐ **Auch nach der ZUTAT suchen.** Bis v3.3.0-rc40 sah die Suche
-        # nur auf Bauplan-Namen. Wer „ric" tippte, um zu sehen, was aus Riccite
-        # wird, bekam „Lo*ric*a" und „Fab*ric*ation" — Zufallstreffer — und nie
-        # die 84 Baupläne, die Riccite wirklich brauchen. Am 30.08.2026
-        # gemeldet: „Was kann ich aus Sadaryx herstellen? Meine User werden es
-        # nie erfahren."
+        # ⭐⭐ **Auch nach der ZUTAT suchen.** Nur auf Bauplan-Namen bekäme
+        # wer „ric" tippt, um zu sehen, was aus Riccite wird, Zufallstreffer
+        # wie „Lo*ric*a" — und nie die Baupläne, die Riccite wirklich
+        # brauchen.
         material_treffer, aus_material = [], set()
         if text:
             for name_ in herst_modul.storable():
@@ -8197,10 +7839,8 @@ def _money(amount):
 def _auec(amount):
     """Ein Geldbetrag **mit Einheit** — „59.345 aUEC".
 
-    ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** Am 04.09.2026 stand im
-    Routen-Reiter „59.345" ohne alles, und die Frage kam prompt: „was sind die
-    59.345, Eier, Pfannkuchen?" Berechtigt — in einer Zeile mit SCU-Mengen und
-    Entfernungen sagt eine blanke Zahl gar nichts.
+    ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** In einer Zeile mit
+    SCU-Mengen und Entfernungen sagt eine blanke Zahl gar nichts.
     """
     return t('s_auec') % _money(amount)
 
@@ -8230,13 +7870,11 @@ def _to_contract(fenster, titel):
 
     Gerufen von „Was bringt am meisten?" und vom Auftrags-Protokoll.
 
-    ⚠⚠ **Erst nachsehen, DANN die Seite wechseln.** Vorher stand `open_page`
-    ganz oben: Wer einen Auftrag ohne Baupläne anklickte, landete trotzdem in
-    der Liste — mit der alten Ansicht und einer Meldung darunter. Aus „Was
-    bringt am meisten?" fiel das nie auf, dort stehen nur Aufträge MIT
-    Bauplänen. Im Auftrags-Protokoll (ab 08.09.2026 anklickbar) sind es
-    **178 von 419**, die keinen bringen — dort wäre es der Normalfall
-    gewesen.
+    ⚠⚠ **Erst nachsehen, DANN die Seite wechseln.** Stünde `open_page` ganz
+    oben, landete wer einen Auftrag ohne Baupläne anklickt trotzdem in der
+    Liste — mit der alten Ansicht und einer Meldung darunter. Im
+    Auftrags-Protokoll bringen rund 40 % der Aufträge keinen Bauplan — dort
+    ist das der Normalfall.
     """
     try:
         titel = (titel or '').strip()
@@ -8245,13 +7883,10 @@ def _to_contract(fenster, titel):
         # Gegen den Katalog fragen, ohne die Seite anzufassen.
         #
         # ⛔⛔ **Über `catalog.blueprints_for_contract`, nicht mit einem eigenen
-        # Vergleich.** Hier stand ein wörtlicher Titelvergleich gegen
-        # `q['auftrag']` — und derselbe noch einmal in
-        # `collection_window.zum_auftrag()`. Beide trafen alles aus der eigenen
-        # Liste und **nichts** aus dem Spiel: In den Herkunftsdaten steht
-        # `'Stop Rival Attack at [LOCATION]'`, im Spiel
-        # `'Stop Rival Attack at Asteroiden Bergbaubasis'`. 55 Baupläne, und
-        # die Zeile war tot (gemeldet 13.09.2026).
+        # Vergleich.** Ein wörtlicher Titelvergleich gegen `q['auftrag']`
+        # trifft alles aus der eigenen Liste und **nichts** aus dem Spiel: In
+        # den Herkunftsdaten steht `'Stop Rival Attack at [LOCATION]'`, im
+        # Spiel `'Stop Rival Attack at Asteroiden Bergbaubasis'`.
         from . import catalog as kat_modul
         if not kat_modul.blueprints_for_contract(kat_modul.load(), titel):
             fenster.say(t('s_fo_lohnt_nichts'))
@@ -8294,8 +7929,6 @@ def _to_blueprint(fenster, name):
 def _routes(fenster, rahmen):
     """Der Reiter „Routen": Wo stehe ich, wieviel passt rein — was lohnt sich?
 
-    Gewünscht von **YoshimitsuDE** (04.09.2026).
-
     ⚠⚠ **Drei Eingaben, keine Automatik.** Das Spiel verrät nicht, wo der
     Spieler steht, was in seinem Laderaum liegt oder wieviel Geld er hat —
     nichts davon steht in der `Game.log`. Also wird gefragt, statt geraten.
@@ -8308,22 +7941,18 @@ def _routes(fenster, rahmen):
     zustand = {'start': '', 'startname': '', 'laeuft': False, 'kurz': False,
                'schiff': '', 'stumm': False, 'stopps': 2, 'rund': False,
                'stumm_schiff': False, 'modus': 'ab_hier', 'ort_offen': False}
-    # ⚠ 120 statt 96: Das ist der Laderaum der Freelancer MAX, gemessen am
-    # 04.09.2026. Ein Standardwert soll einem echten Schiff entsprechen und
+    # ⚠ 120: Das ist der Laderaum der Freelancer MAX. Ein Standardwert soll einem echten Schiff entsprechen und
     # nicht geraten sein.
     scu_var = tk.StringVar(value='120')
     geld_var = tk.StringVar(value='500000')
     ortsuche = tk.StringVar()
 
-    # ⚠⚠ **Die Eingaben bleiben stehen, nur das Ergebnis rollt.** Sie lagen
-    # bis v3.15.1 **in** der Rollfläche — wer zu den Fahrten hinunterrollte,
-    # verlor Startort, Frachtraum und Schiff aus dem Bild. Auf einem kleineren
-    # Fenster fällt das sofort auf: Morkhan schickte am 05.09.2026 ein Bild,
-    # auf dem die ganze Zeile „Wo stehst du gerade?" fehlte.
+    # ⚠⚠ **Die Eingaben bleiben stehen, nur das Ergebnis rollt.** Lägen sie
+    # **in** der Rollfläche, verlöre wer zu den Fahrten hinunterrollt
+    # Startort, Frachtraum und Schiff aus dem Bild.
     #
-    # ⚠ Derselbe Fehler war im Laden-Reiter schon behoben — und hier
-    # übersehen. Wo eine Seite eine feste Kopfzone hat, brauchen die anderen
-    # sie auch: Erst alles Feste packen, **danach** die rollende Fläche.
+    # ⚠ Wie im Laden-Reiter: Erst alles Feste packen, **danach** die
+    # rollende Fläche.
     kopf = tk.Frame(rahmen, bg=BG)
     kopf.pack(fill='x', side='top', padx=24, pady=(4, 0))
 
@@ -8333,8 +7962,7 @@ def _routes(fenster, rahmen):
 
     # ⭐ **Dropdown UND Suchfeld — wie überall im Werkzeug.** Wer den Namen
     # weiß, tippt; wer ihn nicht weiß, klappt das System auf und sieht alle
-    # Handelsposten darin. Gewünscht am 04.09.2026: „mach noch Dropdown zum
-    # Auswahlfeld bei ‚Wo stehst du gerade' bei Routen."
+    # Handelsposten darin.
     ortzeile = tk.Frame(kopf, bg=BG)
     ortzeile.pack(fill='x')
     # ⚠ Über `round_entry` — damit auch hier das X im Feld sitzt (Standard).
@@ -8343,9 +7971,8 @@ def _routes(fenster, rahmen):
                          ACCENT, FG, placeholder=t('s_rt_wo_platz'))
     ortfeld.holder.pack(side='left', fill='x', expand=True)
     # ⚠⚠ **Nicht gepackt, solange leer.** Ein geleerter Rahmen behält seine
-    # Höhe — gemessen 920 px bei null Kindern. Am 05.09.2026 im Routen-Reiter
-    # gemeldet: „Oben entsteht mega viel Leerraum, ich scrolle, um nichts zu
-    # sehen wegzubekommen." Genau dieser Rahmen und der für die Schiffe.
+    # Höhe — gemessen 920 px bei null Kindern, oben klafft dann ein großer
+    # Leerraum. Gilt für diesen Rahmen und den für die Schiffe.
     ortvorschlag = tk.Frame(kopf, bg=BG)
 
     def _ortliste_leeren():
@@ -8355,11 +7982,9 @@ def _routes(fenster, rahmen):
 
     def _ortliste_zeigen():
         # ⚠⚠ **`after=` — sonst landet die Liste ganz unten.** Ein `pack()`
-        # ohne Angabe hängt sich ans Ende des Rahmens; seit die Liste beim
-        # Leeren ausgepackt wird, ist das nicht mehr ihr alter Platz. Am
-        # 05.09.2026 gemeldet: „Oben kommt keine Auswahl mehr, wo ich Seraphim
-        # Station auswählen könnte" — sie stand unter den Schaltern, weit weg
-        # vom Suchfeld.
+        # ohne Angabe hängt sich ans Ende des Rahmens; weil die Liste beim
+        # Leeren ausgepackt wird, stünde sie sonst unter den Schaltern, weit
+        # weg vom Suchfeld.
         ortvorschlag.pack(fill='x', after=ortzeile)
 
     def _systeme():
@@ -8415,14 +8040,9 @@ def _routes(fenster, rahmen):
 
     # ⭐⭐ **Schiff wählen statt Zahl tippen — als Suchfeld, nicht als Fenster.**
     #
-    # ⚠ Der erste Anlauf war ein Knopf, der einen Auswahl-Dialog öffnete. Zwei
-    # Fehler auf einmal, am 04.09.2026 gemeldet: Der Dialog zeigte nur sieben
-    # von 134 Schiffen („leer und nur wenige auswählbar"), und ein eigenes
-    # Fenster passt nicht zum Rest.
-    #
-    # Xharig dazu: „Suchfeld immer mit Auswahl-Dropdown bei 2 Buchstaben oder
-    # so, so machen wir es auch in anderen Menüs im Tool." Genau so ist es
-    # jetzt — dasselbe Muster wie beim Ortsfeld darüber.
+    # ⚠ Ein eigenes Auswahl-Fenster passt nicht zum Rest. Suchfeld mit
+    # Vorschlagsliste ab zwei Buchstaben — dasselbe Muster wie beim Ortsfeld
+    # darüber und in den anderen Menüs des Werkzeugs.
     schiff_rahmen = tk.Frame(kopf, bg=BG)
     schiff_rahmen.pack(fill='x', pady=(10, 0))
     tk.Label(schiff_rahmen, text=t('s_rt_schiff'), bg=BG, fg=SUB,
@@ -8432,9 +8052,7 @@ def _routes(fenster, rahmen):
                             SURFACE, LINE, ACCENT, FG,
                             placeholder=t('s_rt_schiff_platz'))
     schifffeld.holder.pack(fill='x')
-    # ⭐⭐ **Eine Werft-Auswahl neben dem Suchfeld.** Am 05.09.2026: „Dropdown
-    # hast du mir für Schiffe unter Routen versprochen — Spieler kennen ja
-    # nicht alle Schiffe und deren SCU-Kapazität." Richtig: Ein Suchfeld, das
+    # ⭐⭐ **Eine Werft-Auswahl neben dem Suchfeld.** Ein Suchfeld, das
     # erst ab zwei Zeichen etwas zeigt, setzt voraus, dass man den Namen schon
     # kennt. Über die Werft kommt man auch ohne hin — dasselbe Muster wie im
     # Laden-Reiter, wo die Schiffe ebenfalls nach Werft stehen.
@@ -8532,12 +8150,9 @@ def _routes(fenster, rahmen):
             return
 
         def _gewechselt():
-            # ⚠⚠ **Das Suchfeld wird mit geleert.** Am 05.09.2026 gemeldet:
-            # „Wenn ich einen anderen Hersteller auswähle, muss sich das Feld
-            # oben leeren — Spieler wissen es nicht, löschen es nicht und
-            # sehen nun keine Auswahl mehr." Genau so: Im Feld stand noch
-            # „Drake Ironclad", die neue Werft war Argo — beides zusammen
-            # ergibt nichts, und die Liste blieb leer.
+            # ⚠⚠ **Das Suchfeld wird mit geleert.** Steht im Feld noch
+            # „Drake Ironclad" und die neue Werft ist Argo, ergibt beides
+            # zusammen nichts, und die Liste bliebe leer.
             zustand['schiff'] = ''
             zustand['stumm_schiff'] = True
             schiffsuche.set('')
@@ -8571,8 +8186,8 @@ def _routes(fenster, rahmen):
                      bg=BG, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(fill='x')
 
-    # ⭐⭐ **„Die beste Route überhaupt, egal von wo nach wo."** Gewünscht am
-    # 04.09.2026. Das braucht die Fahrten **aller** 184 Handelsposten — rund
+    # ⭐⭐ **Die beste Route überhaupt, egal von wo nach wo.** Das braucht die
+    # Fahrten **aller** 184 Handelsposten — rund
     # 92 Sekunden. Deshalb ein Knopf und kein Automatismus: Beim Öffnen der
     # Seite ungefragt anderthalb Minuten ins Netz zu greifen wäre unhöflich
     # gegenüber der fremden Schnittstelle und dem Spieler.
@@ -8586,8 +8201,7 @@ def _routes(fenster, rahmen):
                               font=fenster.f_small, anchor='w')
     ueberall_stand.pack(side='left', padx=(10, 0))
 
-    # ⭐ **Zurücksetzen.** Gewünscht am 05.09.2026: „Routen braucht auch einen
-    # Reset-Button." Nach ein paar Versuchen stehen hier Startort, System,
+    # ⭐ **Zurücksetzen.** Nach ein paar Versuchen stehen hier Startort, System,
     # Schiff, Hersteller, Frachtraum, Geld und drei Umschalter — von Hand
     # zurückzustellen ist das ein halbes Dutzend Klicks.
     #
@@ -8600,9 +8214,9 @@ def _routes(fenster, rahmen):
     def _stand_zeigen():
         bekannt = routen_modul.known_starts()
         gesamt = len(routen_modul.trade_posts())
-        # ⚠ **Auch die Null wird genannt.** Vorher blieb die Zeile leer,
-        # solange noch nichts gesammelt war — und damit stand neben dem Knopf
-        # gar nichts, wo bei anderen „184 von 184 Handelsposten" steht. Wer
+        # ⚠ **Auch die Null wird genannt.** Bliebe die Zeile leer, solange
+        # noch nichts gesammelt ist, stünde neben dem Knopf gar nichts, wo
+        # bei anderen „184 von 184 Handelsposten" steht. Wer
         # zwei Bildschirmfotos vergleicht, hält das für einen Fehler; wer
         # allein davor sitzt, weiß nicht, dass der Knopf etwas sammelt.
         if gesamt:
@@ -8655,12 +8269,9 @@ def _routes(fenster, rahmen):
     ueberall_knopf.bind('<Leave>',
                         lambda _=None: ueberall_knopf.configure(fg=SUB))
 
-    # ⚠⚠ **Die Umschalter stehen oben, nicht im Ergebnis.** Sie lagen zuerst
-    # unter der Ortswahl und erschienen deshalb erst, wenn schon ein Ort
-    # gewählt war — wer die Seite zum ersten Mal öffnete, sah sie nie und
-    # wusste nicht, dass es sie gibt. Am 04.09.2026 gesucht und nicht
-    # gefunden: „Da wolltest du doch was bauen, beste Route, schnellste Route
-    # oder so."
+    # ⚠⚠ **Die Umschalter stehen oben, nicht im Ergebnis.** Unter der
+    # Ortswahl erschienen sie erst, wenn schon ein Ort gewählt ist — wer die
+    # Seite zum ersten Mal öffnet, sähe sie nie.
     #
     # Es sind **Einstellungen**, keine Ergebnisse. Sie gehören dorthin, wo man
     # etwas einstellt.
@@ -8706,9 +8317,8 @@ def _routes(fenster, rahmen):
 
         reihe_bauen(((False, t('s_rt_nach_gewinn')),
                      (True, t('s_rt_nach_strecke'))), 'kurz')
-        # ⚠ Wieviele Stationen — gewünscht am 04.09.2026: „bei Tools im
-        # Internet bekommt man Routen von A nach B, von B weiter nach C, von C
-        # nach A". Genau das sind diese beiden Reihen.
+        # ⚠ Wieviele Stationen — Routen von A nach B, von B weiter nach C,
+        # von C nach A. Genau das sind diese beiden Reihen.
         reihe_bauen(((2, t('s_rt_stopps') % 2),
                      (3, t('s_rt_stopps') % 3),
                      (4, t('s_rt_stopps') % 4)), 'stopps')
@@ -8722,19 +8332,14 @@ def _routes(fenster, rahmen):
             return
         scu, geld = _as_int(scu_var, 96), _as_int(geld_var, 500000)
 
-        # ⚠⚠ **Die globale Bestenliste.** Sie fehlte: Der Knopf sammelte alle
-        # 184 Handelsposten ein — und danach stand weiter „Tippe oben ein, wo
-        # du gerade bist" da, weil `_zeichnen()` ohne gewählten Ort abbrach.
-        # Anderthalb Minuten Abruf für nichts. Am 04.09.2026 gemeldet: „Beste
-        # Route lädt 187 Handelsposten, zeigt dann aber nichts an."
+        # ⚠⚠ **Die globale Bestenliste.** Ohne gewählten Ort bräche
+        # `_zeichnen()` sonst ab, und nach dem Sammeln aller Handelsposten
+        # stünde weiter „Tippe oben ein, wo du gerade bist" da.
         if zustand.get('modus') == 'ueberall':
             tk.Label(ergebnis, text=t('s_rt_ueberall_titel'), bg=BG, fg=FG,
                      font=fenster.f_bold, anchor='w').pack(fill='x',
                                                            pady=(0, 6))
-            # ⚠⚠ **Die Schalter gelten auch hier.** Bis v3.15.0-rc6 zeigte
-            # dieser Zweig immer nur Einzelfahrten: „Ich möchte eine Rundreise
-            # über 3 Stationen, kurze Strecken — die Anzeige bleibt aber so
-            # wie am Anfang geladen" (05.09.2026). Die Schalter färbten sich
+            # ⚠⚠ **Die Schalter gelten auch hier** — sonst färbten sie sich
             # und bewirkten nichts, und das ist schlimmer als kein Schalter.
             #
             # Gerechnet wird nur mit dem, was der Rundumlauf gesammelt hat —
@@ -8821,9 +8426,7 @@ def _routes(fenster, rahmen):
         """Eine Fahrtenkette als Kasten — Gewinn, Weg, Schritte.
 
         ⚠ Eigene Funktion, weil beide Modi sie brauchen: die Ketten ab einem
-        gewählten Ort und die besten Ketten überall. Vorher stand der Code nur
-        im ersten Zweig, und der zweite konnte deshalb gar keine Ketten
-        zeigen.
+        gewählten Ort und die besten Ketten überall.
         """
         kasten = tk.Frame(eltern, bg=SURFACE, highlightthickness=1,
                           highlightbackground=LINE)
@@ -8849,9 +8452,8 @@ def _routes(fenster, rahmen):
                      % _money(anfangs), bg=SURFACE, fg=SUB,
                      font=fenster.f_small, anchor='w').pack(fill='x', padx=12)
         # ⭐⭐ **Der ganze Weg auf einen Blick, vor den Einzelschritten.**
-        # Ohne ihn stand da „120 SCU Copper → Rat's Nest", und niemand sah,
-        # wo man dafür einkauft. Am 04.09.2026: „Wie fliegt man hier? Ich
-        # versteh es nicht, User also auch nicht."
+        # Ohne ihn stünde da „120 SCU Copper → Rat's Nest", und niemand sähe,
+        # wo man dafür einkauft.
         weg_orte = [startname] + [f['zielname'] for f in weg]
         tk.Label(kasten, text='   ' + '  →  '.join(weg_orte), bg=SURFACE,
                  fg=FG, font=fenster.f_small, anchor='w',
@@ -8884,10 +8486,9 @@ def _routes(fenster, rahmen):
         # ⚠ Wer einen Ort wählt, will Fahrten **von dort** — nicht weiter die
         # globale Liste. Sonst klickt man einen Ort an und nichts ändert sich.
         zustand['modus'] = 'ab_hier'
-        # ⚠⚠ **Der gewählte Ort bleibt im Feld stehen.** Vorher wurde es
-        # geleert — dann stand oben „Wo stehst du gerade?" über einem leeren
-        # Kasten, und es sah aus, als sei nichts ausgewählt. Am 04.09.2026
-        # gemeldet: „Ort verschwindet nach Eingabe oben."
+        # ⚠⚠ **Der gewählte Ort bleibt im Feld stehen.** Geleert stünde oben
+        # „Wo stehst du gerade?" über einem leeren Kasten, und es sähe aus,
+        # als sei nichts ausgewählt.
         #
         # `stumm` verhindert dabei, dass das Setzen sofort wieder die
         # Vorschlagsliste aufklappt.
@@ -8928,11 +8529,9 @@ def _routes(fenster, rahmen):
             return
         _ortliste_leeren()
         text = ortsuche.get().strip().lower()
-        # ⚠⚠ **Ohne Eingabe reicht ein Klick ins Feld.** Vorher passierte
-        # unter zwei Zeichen nur etwas, wenn rechts ein System gewählt war —
-        # am 05.09.2026 gemeldet: „Muss rechts System auswählen, dann klappt
-        # die Eingrenzung … das erwartet so kein User." Stimmt: Wer ein
-        # Auswahlfeld anklickt, erwartet eine Auswahl, kein Vorbedingung.
+        # ⚠⚠ **Ohne Eingabe reicht ein Klick ins Feld** — auch ohne rechts
+        # gewähltes System. Wer ein Auswahlfeld anklickt, erwartet eine
+        # Auswahl, keine Vorbedingung.
         if len(text) < 2 and not zustand.get('system') \
                 and not zustand.get('ort_offen'):
             return
@@ -8974,8 +8573,8 @@ def _routes(fenster, rahmen):
             if len(treffer) >= (25 if not text else 8):
                 break
         # ⚠ Angezeigt wird der **Terminalname**, dahinter Station und System.
-        # Vorher stand achtmal „Seraphim Station · Stanton" untereinander und
-        # niemand konnte sagen, welche Zeile welche ist.
+        # Sonst stünde achtmal „Seraphim Station · Stanton" untereinander, und
+        # niemand könnte sagen, welche Zeile welche ist.
         if treffer:
             _ortliste_zeigen()
         for kennung, name, ort, system in sorted(treffer,
@@ -9124,10 +8723,9 @@ def _routes(fenster, rahmen):
 def _route_header(fenster, eltern):
     """Die Spaltenüberschrift über der ersten Fahrt.
 
-    ⚠⚠ **Ohne sie ist die größte Zahl mehrdeutig.** Am 04.09.2026 stand da
-    „1.917.234 aUEC · 69 SCU Atlasium" — und die Frage kam: „EK sind fast 2
-    Mio, aber wieviel Gewinn macht man?" Es *war* der Gewinn (der Einsatz lag
-    bei 4.982.766). Eine Zahl ohne Spaltennamen lädt zum Falschlesen ein.
+    ⚠⚠ **Ohne sie ist die größte Zahl mehrdeutig.** Bei
+    „1.917.234 aUEC · 69 SCU Atlasium" ist nicht klar, ob das Einsatz oder
+    Gewinn ist. Eine Zahl ohne Spaltennamen lädt zum Falschlesen ein.
 
     ⚠ Nur **über der ersten** Fahrt — in jeder Zeile wiederholt wäre sie
     Lärm. Dieselbe Regel wie im Verkaufs-Reiter.
@@ -9164,7 +8762,7 @@ def _route_row(fenster, eltern, fahrt, hervor=False, mit_start=False):
              font=fenster.f_small, anchor='w').pack(side='left')
     # ⚠⚠ **Beide Orte, beide beschriftet.** „→ Terra Gateway" allein sagt
     # nicht, wo man einkauft — das stand nur in der Überschrift darüber. Wer
-    # die Zeile für sich liest (und das tut man in einer Tabelle), sah einen
+    # die Zeile für sich liest (und das tut man in einer Tabelle), sähe einen
     # Pfeil ins Nichts.
     if fahrt.get('startname'):
         tk.Label(zeile, text='  ' + t('s_rt_ab') % fahrt['startname'],
@@ -9175,10 +8773,9 @@ def _route_row(fenster, eltern, fahrt, hervor=False, mit_start=False):
              fg=SUB, font=fenster.f_small, anchor='w').pack(side='left')
 
     # ⭐⭐ **Der Einsatz gehört dazu — ohne ihn ist der Gewinn eine Behauptung.**
-    # Am 04.09.2026 stand da „586.500 aUEC · 1 SCU Osoian Hides", und die
-    # Frage kam sofort: „Bringt da 1 SCU wirklich über 500k?" Die Zahl stimmte
-    # (Einkauf 283.500, Verkauf 870.000 je SCU) — aber dass man dafür erst
-    # **283.500 aUEC hinlegen** muss, stand nirgends.
+    # Bei „586.500 aUEC · 1 SCU Osoian Hides" stimmt die Zahl (Einkauf
+    # 283.500, Verkauf 870.000 je SCU) — aber dass man dafür erst
+    # **283.500 aUEC hinlegen** muss, stünde sonst nirgends.
     #
     # Genau das trennt eine Auskunft von einer Zahl: Ein Gewinn ohne Einsatz
     # sagt nicht, ob man ihn sich leisten kann.
@@ -9211,7 +8808,7 @@ def _route_row(fenster, eltern, fahrt, hervor=False, mit_start=False):
 # **Handfeuerwaffe**. Beides steckt in den Rezeptdaten unter derselben Art
 # `weapons` — 270 Stück, die niemand zusammen durchsucht.
 #
-# Gemessen am 04.09.2026: Schiffswaffen 96, FPS-Waffen 168, dazu 6 ohne
+# Gemessen: Schiffswaffen 96, FPS-Waffen 168, dazu 6 ohne
 # Unterart. Die sechs bleiben schlicht „Waffen" — geraten wird nicht.
 SHIP_WEAPONS = frozenset(('laser', 'ballistic', 'distortion', 'neutron',
                            'tachyon'))
@@ -9223,9 +8820,8 @@ FPS_WEAPONS = frozenset(('pistol', 'rifle', 'sniper', 'smg', 'shotgun', 'lmg'))
 EMERGENCY_CAP = 400
 
 # ⚠⚠ **Wie viele Zeilen je Warengruppe, wenn mehrere nebeneinanderstehen.**
-# Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da nicht
-# durch." Bei 176 Treffern in vier Gruppen füllte allein die erste Gruppe die
-# ganze Liste — die anderen drei sah man nie. Ein Deckel **je Gruppe** zeigt
+# Bei 176 Treffern in vier Gruppen füllte sonst allein die erste Gruppe die
+# ganze Liste — die anderen drei sähe man nie. Ein Deckel **je Gruppe** zeigt
 # stattdessen von jeder etwas, und darunter steht, wie viele noch folgen.
 PER_GROUP = 12
 
@@ -9246,7 +8842,7 @@ def _shops(fenster, rahmen):
     ⚠⚠ **Gesucht wird über den Bauplan-Namen, zugeordnet über die
     Entitäts-Kennung.** Der Name ist das, was der Spieler kennt; die Kennung
     ist das, worüber es keine Verwechslung gibt. Ein Namensvergleich gegen UEX
-    hat hier schon einmal `Golden Medmon` als Goldpreis geliefert.
+    liefert etwa `Golden Medmon` als Goldpreis.
     """
     from . import crafting as herst_modul, shops as laden_modul
 
@@ -9257,15 +8853,10 @@ def _shops(fenster, rahmen):
     laeuft = {'ja': False}
     # ⚠⚠ **Die Reihenfolge ist die Kaskade.** Jedes Menü zeigt nur, was zur
     # Auswahl in den Menüs **davor** passt — und beim Wechsel fällt weg, was
-    # danach nicht mehr passt. Am 04.09.2026 verlangt: „Wenn mehr Filter nötig
-    # sind, damit man findet was man sucht, dann musst du die bauen." Vier
-    # Ebenen decken die Frage „Radar — Schiffskomponenten oder Schiffswaffen,
-    # welche Größe, welcher Hersteller?" vollständig ab.
-    # ⚠⚠ **Drei Menüs, und der Hersteller ist keins davon.** Am 05.09.2026:
-    # „Nach Hersteller sucht eigentlich niemand, wenn er Teile sucht, die in
-    # sein Schiff passen" — und: „Hersteller muss grau hinter dem Namen
-    # stehen, das reicht." Stimmt beides: Was hineinpasst, entscheidet die
-    # Größe. Der Hersteller ist eine Angabe zum Lesen, kein Suchweg — er steht
+    # danach nicht mehr passt.
+    # ⚠⚠ **Der Hersteller hat kein Menü.** Wer Teile sucht, die in sein
+    # Schiff passen, sucht nicht nach Hersteller — was hineinpasst,
+    # entscheidet die Größe. Der Hersteller ist eine Angabe zum Lesen, kein Suchweg — er steht
     # an der Zeile und wird von der Suche mit gefunden, hat aber kein Menü.
     FILTER_FOLGE = ('bereich', 'gruppe', 'groesse', 'klasse', 'guete')
     # ⚠ Muss vor `_teile()` stehen — die Funktion fragt ihn ab, um während des
@@ -9274,8 +8865,7 @@ def _shops(fenster, rahmen):
     wahl = dict((f, '') for f in FILTER_FOLGE)
 
     # ⚠⚠ **Suchfeld und Auswahl bleiben stehen, nur die Liste rollt.**
-    # Am 04.09.2026 gemeldet: „Auswahlfelder verschwinden oben beim
-    # Runterscrollen." Wer bei Zeile 30 merkt, dass er die Auswahl ändern
+    # Wer bei Zeile 30 merkt, dass er die Auswahl ändern
     # will, muss sonst erst wieder hochrollen — und weiß beim Rollen nicht
     # mehr, wonach er überhaupt gefiltert hat.
     #
@@ -9308,21 +8898,15 @@ def _shops(fenster, rahmen):
     def _am_ort(b):
         return not ort_wahl['ort'] or ort_wahl['ort'] in (b.get('orte') or ())
 
-    # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste.** Vorher stand hier
-    # nur ein leeres Suchfeld — wer nicht wusste, wonach er suchen soll, sah
-    # eine leere Seite. Xharig am 04.09.2026: „bei Läden gähnende Leere, kann
-    # man da nicht ein Menü mit Dropdowns bauen … gleiches Bild und Bedienung
-    # wie im restlichen Tool?"
-    #
-    # Genau dafür gibt es `_filterleiste` — sie trägt in ihrem eigenen Kopf
-    # den Satz „das Bedienkonzept sollte nicht jedes Mal ändern".
+    # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste** (`_filter_bar`).
+    # Mit nur einem leeren Suchfeld sähe, wer nicht weiß, wonach er suchen
+    # soll, eine leere Seite.
     filter_rahmen = tk.Frame(kopf, bg=BG)
     filter_rahmen.pack(fill='x', padx=24, pady=(8, 0))
 
     # Die Standzeile gehört zum festen Kopf — sie sagt, worauf sich die Liste
     # darunter bezieht. Rechts daneben der Reset: Bei fünf Auswahlmenüs plus
     # Suchfeld ist „alles wieder offen" sonst ein halbes Dutzend Klicks.
-    # Gewünscht am 05.09.2026: „Läden braucht auch einen Reset-Button."
     stand_rahmen = tk.Frame(kopf, bg=BG)
     stand_rahmen.pack(fill='x', padx=24, pady=(6, 0))
     stand_zeile = tk.Label(stand_rahmen, text='', bg=BG, fg=GOLD,
@@ -9352,21 +8936,18 @@ def _shops(fenster, rahmen):
         erst beim Anzeigen (`_gruppenname`). So bleibt eine getroffene Auswahl
         gültig, auch wenn jemand die Sprache umstellt.
 
-        ⚠⚠ **Die Quelle ist der UEX-Katalog, nicht die Bauplanliste.** Bis
-        v3.14.0 kam die Liste aus `crafting.all_items()` — sie zeigte also nur,
-        was man auch **bauen** kann. Am 04.09.2026 gefragt: „Wie soll man da
-        wissen, wo es Boomtube-Raketen gibt?" Gar nicht: Der Boomtube Rocket
-        Launcher ist nicht craftbar und stand deshalb nirgends, obwohl UEX
-        seine Läden kennt. Gemessen: **1.528 kaufbare Teile** statt 893
+        ⚠⚠ **Die Quelle ist der UEX-Katalog, nicht die Bauplanliste.**
+        `crafting.all_items()` zeigt nur, was man auch **bauen** kann — der
+        Boomtube Rocket Launcher etwa ist nicht craftbar, obwohl UEX seine
+        Läden kennt. Gemessen: **1.528 kaufbare Teile** statt 893
         craftbaren, darunter Raketen, Bomben, Torpedorohre und
         Railgun-Munition.
 
         ⚠⚠ **Der Rückfall auf die Baupläne gilt nur ohne laufenden Abruf.**
         Er zeigt eine andere Gliederung (Bauplan-Arten statt UEX-Bereiche) und
         kennt keine Schiffe — wer ihn während der ersten Minute sieht, hält
-        ihn für das Ergebnis. Am 05.09.2026 genau so gemeldet: „Finde Schiffe
-        nicht mehr in der Auswahl bei Läden", während im Hintergrund noch der
-        Katalog geholt wurde.
+        ihn für das Ergebnis, während im Hintergrund noch der Katalog geholt
+        wird.
 
         Läuft der Abruf, bleibt die Liste deshalb leer und der Hinweis darüber
         stehen. Nur wenn gar nichts geht (kein Netz), sind die Baupläne besser
@@ -9388,10 +8969,9 @@ def _shops(fenster, rahmen):
                      'guete': x.get('guete') or '',
                      'orte': x.get('orte') or []}
                     for x in katalog if x['name'] and x['kennung']]
-            # ⭐ **Schiffe gehören dazu.** Die Kauf- und Mietpreise lagen seit
-            # v3.14.0 vor, wurden aber nur für den Frachtraum im Routenplaner
-            # benutzt — angezeigt hat sie nie jemand. Ein Reiter „wo bekomme
-            # ich das" ist der Ort dafür. Warengruppe ist die Werft: Wer ein
+            # ⭐ **Schiffe gehören dazu.** Ihre Kauf- und Mietpreise liegen
+            # ohnehin vor (Frachtraum im Routenplaner), und ein Reiter „wo
+            # bekomme ich das" ist der Ort dafür. Warengruppe ist die Werft: Wer ein
             # Schiff sucht, sucht meistens „die Drakes".
             try:
                 from . import ships as schiff_modul
@@ -9419,8 +8999,7 @@ def _shops(fenster, rahmen):
         ⚠⚠ **„Waffen" ist keine brauchbare Gruppe.** 270 Stück, und darin
         steckt Grundverschiedenes: Schiffsgeschütze und Handfeuerwaffen. Wer
         einen Kühler fürs Schiff sucht, sucht nicht dieselbe Liste wie jemand,
-        der ein Gewehr braucht. Am 04.09.2026: „Aber Waffen und Schiffswaffen
-        gehört trotzdem getrennt."
+        der ein Gewehr braucht.
 
         Die Trennung steckt schon in den Daten — in der **Unterart**:
 
@@ -9491,22 +9070,18 @@ def _shops(fenster, rahmen):
     def _mit_zahl(feld):
         """Werte eines Feldes mit ihrer Anzahl — „Kühler (74)".
 
-        ⚠⚠ **Sortiert nach Anzahl, nicht alphabetisch.** Am 04.09.2026
-        gemeldet: „Da fehlen noch Schiffswaffen und FPS-Waffen." Sie fehlten
-        nicht — sie standen alphabetisch an Position 11 und 14, und die
-        aufgeklappte Liste zeigt rund zehn Zeilen. Die Rollleiste ist da und
-        bekommt ihre 10 px (nachgemessen, in beiden Pack-Reihenfolgen), aber
-        ein dunkler Streifen auf dunklem Grund fällt nicht auf: „sieht aber
-        keine Sau, weil kein Balken da ist."
+        ⚠⚠ **Sortiert nach Anzahl, nicht alphabetisch.** Alphabetisch
+        stünden Schiffswaffen und FPS-Waffen an Position 11 und 14, die
+        aufgeklappte Liste zeigt rund zehn Zeilen — und die Rollleiste, ein
+        dunkler Streifen auf dunklem Grund, fällt nicht auf.
 
         Ein Auswahlmenü, dessen zwei größte Gruppen man erst erscrollen muss,
         ist **falsch sortiert** — nicht zu kurz.
         """
         # ⚠⚠ **Jedes Menü richtet sich nach den Menüs davor.** Sonst lassen
-        # sich Dinge zusammenstellen, die es nicht gibt — am 04.09.2026
-        # gemeldet: „Rüstung (710)" und „Geschütze (87)" nebeneinander,
-        # Ergebnis null. „Geschütze gehören doch nicht zu Rüstungen." Eine
-        # unmögliche Kombination gehört gar nicht erst angeboten.
+        # sich Dinge zusammenstellen, die es nicht gibt — etwa „Rüstung" und
+        # „Geschütze" nebeneinander, Ergebnis null. Eine unmögliche
+        # Kombination gehört gar nicht erst angeboten.
         #
         # ⚠ Das **erste** Menü bleibt immer vollständig — sonst käme man aus
         # einer engen Auswahl nicht mehr heraus.
@@ -9548,12 +9123,10 @@ def _shops(fenster, rahmen):
     def _liste_leeren():
         """Die Vorschlagsliste wegräumen — **ausgepackt**, nicht nur geleert.
 
-        ⚠⚠ **Ein geleerter Rahmen behält seine Höhe.** Gemessen am 04.09.2026:
-        Nach dem Klick auf ein Teil hatte dieser Rahmen **null Kinder und
-        weiterhin 920 px**. Die Läden darunter landeten damit bei y=1135 in
-        einem 1000 px hohen Fenster — gezeichnet, aber außerhalb der Sicht.
-        Der Reiter wirkte leer, obwohl elf Läden bereitstanden: „klickt man
-        diese an, sieht man keinen Verkaufsort."
+        ⚠⚠ **Ein geleerter Rahmen behält seine Höhe.** Gemessen: Nach dem
+        Klick auf ein Teil hatte dieser Rahmen **null Kinder und weiterhin
+        920 px**. Die Läden darunter landeten damit bei y=1135 in einem
+        1000 px hohen Fenster — gezeichnet, aber außerhalb der Sicht.
 
         `pack_forget()` ist der einzige Weg, der die Höhe zuverlässig abgibt.
         """
@@ -9564,8 +9137,8 @@ def _shops(fenster, rahmen):
         """Die Vorschlagsliste wieder einhängen — immer über dem Ergebnis.
 
         ⚠ **Sie bekommt einen Rand.** Ohne den klebt sie als flache Fläche am
-        Text darüber und sieht nach Beschriftung aus, nicht nach Auswahl —
-        am 04.09.2026 genau so missverstanden. Ein Kasten sagt „hier steht
+        Text darüber und sieht nach Beschriftung aus, nicht nach Auswahl.
+        Ein Kasten sagt „hier steht
         etwas zum Anklicken", bevor jemand den Mauszeiger darüber hält.
         """
         vorschlag_rahmen.pack(fill='x', padx=24, pady=(6, 0),
@@ -9735,30 +9308,24 @@ def _shops(fenster, rahmen):
         if not text and gewaehlt['kennung']:
             return
         # ⚠⚠ **Wer tippt, sucht etwas Neues — die alte Antwort muss weg.**
-        # Am 04.09.2026 gemeldet: „Nachdem ich boomtube eingegeben habe,
-        # bleibt das Eingabefeld ohne Funktion, ich kann nach keinem zweiten
-        # Artikel suchen." Es reagierte sehr wohl — nur standen unter dem
-        # neuen Vorschlag weiter die 19 Läden des alten Teils, und die
-        # füllten den Bildschirm. Was sich nicht sichtbar ändert, gilt als
-        # kaputt, und zwar zu Recht.
+        # Sonst stehen unter dem neuen Vorschlag weiter die Läden des alten
+        # Teils und füllen den Bildschirm. Was sich nicht sichtbar ändert,
+        # gilt als kaputt.
         #
         # `_waehlen` leert das Feld (`suche.set('')`), bevor es zeichnet —
         # deshalb greift das hier nur beim echten Tippen.
         if text:
             gewaehlt['name'], gewaehlt['kennung'] = '', ''
             _leeren(ergebnis_rahmen)
-        # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
-        # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
-        # etwas. Jetzt füllt die Auswahl oben die Liste.
+        # ⚠ **Ohne Suchtext gilt der Filter.** Wer nur klickt statt zu
+        # tippen, soll auch etwas sehen: Die Auswahl oben füllt die Liste.
         if len(text) < 2 and not any(wahl[f] for f in FILTER_FOLGE) \
                 and not ort_wahl['ort']:
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
-        # ⭐⭐ **Gesucht wird auch in Bereich und Warengruppe.** Am 04.09.2026
-        # gefragt: „Wenn ich Radar suche — sind es Schiffskomponenten,
-        # Untergruppe Radar, oder Schiffswaffen?" Genau das muss man nicht
-        # wissen müssen: Wer „Radar" tippt, bekommt die Gruppe Radar, egal wo
+        # ⭐⭐ **Gesucht wird auch in Bereich und Warengruppe.** Wo etwas
+        # einsortiert ist, muss man nicht wissen: Wer „Radar" tippt, bekommt die Gruppe Radar, egal wo
         # sie einsortiert ist. Gesucht wird in der deutschen **und** der
         # englischen Bezeichnung — die Quelle ist englisch, und viele kennen
         # die Teile nur so.
@@ -9798,10 +9365,8 @@ def _shops(fenster, rahmen):
             """Eine Zeile: Name links, Größe und Hersteller rechts.
 
             ⚠⚠ **Die Größe gehört an die Zeile, nicht nur ins Filtermenü.**
-            Am 05.09.2026 gefragt: „Ein Spieler, der nicht alle
-            Quantenantriebe kennt — wie findet er einen für sein Schiff
-            passenden?" Über die Größe. Die nützt ihm aber nur, wenn sie
-            dasteht: Eine Liste aus 44 Fantasienamen (Erebos, Flash, Goliath)
+            Wer nicht alle Quantenantriebe kennt, findet einen passenden über
+            die Größe. Die nützt aber nur, wenn sie dasteht: Eine Liste aus 44 Fantasienamen (Erebos, Flash, Goliath)
             sagt ihm nichts, dieselbe Liste mit „Größe 1 · Wen-Cassel" schon.
             """
             name, kennung = b['name'], b['kennung']
@@ -9835,24 +9400,19 @@ def _shops(fenster, rahmen):
                 stueck.bind('<Leave>',
                             lambda _=None: zeile.configure(fg=FG))
 
-        # ⚠⚠ **Eine Gruppe → flache Liste. Mehrere → gegliedert.**
-        # Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da
-        # nicht durch — die Auswahl bei der Bauplan-Liste ist deutlich feiner
-        # und besser untergliedert." Stimmt: Dort stehen Zwischenüberschriften
-        # je Art. Ohne sie ist „Systeme (176)" eine Namensreihe, aus der
+        # ⚠⚠ **Eine Gruppe → flache Liste. Mehrere → gegliedert**, mit
+        # Zwischenüberschriften je Art wie in der Bauplan-Liste. Ohne sie ist
+        # „Systeme (176)" eine Namensreihe, aus der
         # niemand ablesen kann, was überhaupt dazugehört.
         #
         # Der Deckel greift deshalb **je Gruppe**, nicht auf die ganze Liste:
-        # Sonst füllte die erste Gruppe alle 40 Zeilen und die übrigen drei
-        # blieben unsichtbar — genau die, nach denen gefragt wurde.
+        # Sonst füllte die erste Gruppe alle 40 Zeilen und die übrigen
+        # blieben unsichtbar.
         if len(gruppiert) == 1:
-            # ⚠⚠ **Eine Gruppe wird VOLLSTÄNDIG gezeigt — kein Deckel.**
-            # Am 05.09.2026: „Entweder komplette Liste, und Size dabei, oder
-            # der User braucht keine Liste — er findet eh nichts, und wenn er
-            # keine Namen kennt, bringt ihm die Liste nichts." Genau so: Wer
+            # ⚠⚠ **Eine Gruppe wird VOLLSTÄNDIG gezeigt — kein Deckel.** Wer
             # sich bis auf eine Warengruppe durchgeklickt hat, will sie ganz
-            # sehen. Bei 87 Geschützen 40 zu zeigen und auf „tipp genauer" zu
-            # verweisen, hilft niemandem, der die Namen nicht kennt.
+            # sehen. Auf „tipp genauer" zu verweisen, hilft niemandem, der
+            # die Namen nicht kennt.
             #
             # ⚠ Der Notdeckel bleibt, damit ein Ausreißer in fremden Daten
             # nicht Tausende Zeilen baut. Die größte echte Gruppe hat 201.
@@ -9879,10 +9439,9 @@ def _shops(fenster, rahmen):
                 _zeile_bauen(b)
             rest = len(eintraege) - PER_GROUP
             if rest > 0:
-                # ⚠⚠ **Anklickbar, nicht nur eine Feststellung.** Am
-                # 05.09.2026: „Gruppen zeigen zu wenig." Der Weg zum Rest war
-                # da — man musste ihn nur oben im Menü suchen. Ein Klick auf
-                # die Zeile, die den Rest ankündigt, ist der kürzere: Er setzt
+                # ⚠⚠ **Anklickbar, nicht nur eine Feststellung.** Ein Klick
+                # auf die Zeile, die den Rest ankündigt, ist kürzer als der
+                # Weg übers Menü oben: Er setzt
                 # genau diese Warengruppe als Filter.
                 mehr = tk.Label(vorschlag_rahmen,
                                 text='   ' + t('s_ld_weitere') % rest,
@@ -9918,9 +9477,8 @@ def _shops(fenster, rahmen):
         zustand_katalog['laeuft'] = True
         stand_zeile.configure(text=t('s_ld_katalog_laeuft'), fg=GOLD)
         # ⚠ Die Zeile sitzt im festen Kopf, neben dem Reset — nicht in der
-        # Rollfläche. Bei 168 Zeilen darüber sähe den Hinweis sonst niemand;
-        # am 04.09.2026 genau so passiert: Die Liste war ungefiltert, der
-        # Grund stand außer Sicht, und das Werkzeug wirkte schlicht kaputt.
+        # Rollfläche. Bei 168 Zeilen darüber sähe den Hinweis sonst niemand,
+        # und das Werkzeug wirkte schlicht kaputt.
         stand_zeile.pack(side='left', fill='x', expand=True)
 
         def arbeit():
@@ -9933,8 +9491,7 @@ def _shops(fenster, rahmen):
                     except tk.TclError:
                         pass
                 # ⚠⚠ Nie `after` aus diesem Faden: Tk wirft dann `RuntimeError:
-                # main thread is not in main loop` (Abnahme-Durchlauf
-                # 06.09.2026, Prüflauf 28.09.2026). Siehe `_from_thread`.
+                # main thread is not in main loop`. Siehe `_from_thread`.
                 _TK_CALLS.put(zeigen)
             try:
                 laden_modul.fetch_catalog(progress=melden)
@@ -10001,10 +9558,6 @@ def _shops(fenster, rahmen):
         dort „FPS-Waffen (168)", danach sind es 60. Ohne diesen zweiten
         Aufbau bleibt die alte Zahl stehen, und das Werkzeug behauptet etwas,
         das es selbst schon besser weiß.
-
-        Am 04.09.2026 genau so aufgefallen: Seite geöffnet, während der Abruf
-        noch lief, ungefilterte Liste gesehen — und der Changelog behauptete
-        das Gegenteil.
         """
         _leeren(filter_rahmen)
         # ⚠ Ein Menü ohne echte Auswahl lässt `_filterleiste` selbst weg — so
@@ -10158,9 +9711,9 @@ def _blueprint_specs(bauplan):
         return ''
     # ⚠⚠ **Bei Rüstung und FPS-Waffen wird NICHTS gezeigt.** In den Rohdaten
     # trägt jeder Helm brav eine Größe und eine Güte — sie bedeuten dort aber
-    # nichts. Gemessen am 06.09.2026: Das „A03 Sniper Rifle" kam als „Größe 3 ·
-    # Güte A" heraus, was frei erfunden ist. Dieselbe Falle steht in
-    # `reference_scmdb_craftdaten` und in `catalog._values`: Werte nur zeigen,
+    # nichts: Das „A03 Sniper Rifle" käme als „Größe 3 · Güte A" heraus, was
+    # frei erfunden ist. Dieselbe Falle steht in `catalog._values`: Werte nur
+    # zeigen,
     # wo sie eine Bedeutung haben.
     art = eintrag.get('a') or ''
     if art.startswith('Char_') or art in ('WeaponPersonal', 'WeaponAttachment'):
@@ -10189,12 +9742,10 @@ def _fetch_slots(widget, erzwingen=False, danach=None):
     nichts zu holen, und ein Bauplan-Klick soll keinen Abruf auslösen, der beim
     letzten Mal schon nichts brachte.
 
-    ⚠⚠ **`erzwingen=True`, wenn gerade ein Schiff dazugekommen ist.** Genau
-    daran scheiterte die Wunschliste: Der Hangar hatte beim Programmstart schon
-    einmal nachgezogen, die Sperre stand — und ein frisch eingetragenes
-    Wunschschiff bekam nie seine Daten. Auf der Karte stand dann „Für dieses
-    Schiff liegen keine Steckplatz-Daten vor", und die Ausstattung blieb leer.
-    Am 06.09.2026 gemeldet mit „kann da nichts auswählen".
+    ⚠⚠ **`erzwingen=True`, wenn gerade ein Schiff dazugekommen ist.** Hat
+    der Hangar beim Programmstart schon einmal nachgezogen, steht die
+    Sperre — und ein frisch eingetragenes Wunschschiff bekäme nie seine
+    Daten; seine Ausstattung bliebe leer.
 
     Die Sperre bleibt für den Normalfall richtig — sie verhindert einen Abruf
     bei **jedem** Bauplan-Klick. Sie darf nur nicht gelten, wenn sich die Liste
@@ -10267,11 +9818,9 @@ def _fits_row(fenster, eltern, bauplan):
         return
 
     # ⚠⚠ **Schiffe im Hangar heißen nicht, dass ihre Steckplätze da sind.**
-    # Genau diese Verwechslung hat am 06.09.2026 eine falsche Auskunft erzeugt:
-    # Nach dem Umstieg auf ein neues Ablage-Format war die Steckplatz-Datei
-    # ungültig und wurde verworfen — die Herstellung meldete daraufhin bei
-    # **jedem** Bauplan „passt in keines deiner Schiffe", obwohl eine S4-Waffe
-    # in 48 Plätze gepasst hätte.
+    # Ist die Steckplatz-Datei etwa nach einem Formatwechsel verworfen,
+    # meldete die Herstellung sonst bei **jedem** Bauplan „passt in keines
+    # deiner Schiffe".
     #
     # „Keine Daten" und „passt nicht" sehen im Code gleich aus (eine leere
     # Liste) und bedeuten das Gegenteil voneinander. Wer sie zusammenwirft,
@@ -10294,11 +9843,9 @@ def _fits_row(fenster, eltern, bauplan):
         text, farbe = t('s_hg_passt_in').format(schiffe=namen), ACCENT
     else:
         text, farbe = t('s_hg_passt_nirgends'), GOLD
-    # ⚠⚠ **Fett und farbig — Grau wird nicht gelesen.** Die Zeile stand hier
-    # zuerst in `SUB` (dem Grau für Nebensächliches) unter einem langen
-    # Rezeptblock. Rückmeldung dazu am 06.09.2026: *„in Grau nimmt es keiner
-    # wahr und fragt sich dann, wo er die Info findet"* — von jemandem, der
-    # wusste, dass es die Auskunft gibt, und sie trotzdem übersah.
+    # ⚠⚠ **Fett und farbig — Grau wird nicht gelesen.** In `SUB` (dem Grau
+    # für Nebensächliches) unter einem langen Rezeptblock wird die Zeile
+    # übersehen.
     #
     # Beide Fälle sind Antworten und beide gehören gesehen: Grün „passt in",
     # Gold „passt nirgends". `SUB` bleibt dem vorbehalten, was man überlesen
@@ -10324,10 +9871,9 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         zeichen_text, farbe = '·', SUB
     tk.Label(zeile, text=zeichen_text, bg=BG, fg=farbe, font=fenster.f_base,
              width=2).pack(side='left')
-    # ⚠⚠ **Die aufgeklappte Zeile muss sich abheben.** Am 31.08.2026 gemeldet:
-    # „nicht klar genug, welcher Bauplan bei Herstellung ausgewaehlt ist,
-    # steht auch nirgends." Sie sah aus wie jede andere — und sobald man ein
-    # Stueck gerollt hatte, war der Name oben aus dem Bild.
+    # ⚠⚠ **Die aufgeklappte Zeile muss sich abheben.** Sähe sie aus wie jede
+    # andere, wäre nach ein Stueck Rollen nicht mehr klar, welcher Bauplan
+    # ausgewaehlt ist — der Name ist dann oben aus dem Bild.
     _offen = offen['name'] == eintrag['name']
     tk.Label(zeile, text=eintrag['name'], bg=BG,
              fg=ACCENT if _offen else FG,
@@ -10365,10 +9911,8 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         tk.Label(_kopf, text='  ·  %s' % eintrag['hersteller'], bg=theme.FIELD,
                  fg=SUB, font=fenster.f_small, anchor='w').pack(side='left')
     # ⭐⭐ **Klasse, Größe und Güte gehören hierher.** Die Bauplan-Liste zeigt
-    # sie als Kürzel („M/1/A"), die Herstellung zeigte sie gar nicht — dabei
-    # ist genau hier die Stelle, an der jemand entscheidet, ob er das Teil
-    # überhaupt bauen will. Gemeldet am 06.09.2026: *„in Herstellung finde ich
-    # auch nicht raus, welche Size etwas hat oder ob es Military ist."*
+    # sie als Kürzel („M/1/A") — und hier ist die Stelle, an der jemand
+    # entscheidet, ob er das Teil überhaupt bauen will.
     #
     # ⚠ **Ausgeschrieben, nicht als Kürzel.** In der Liste ist „M/1/A" richtig,
     # weil dort 738 Zeilen untereinander stehen und jede Spalte zählt. Hier
@@ -10382,10 +9926,9 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
     if eintrag['habe'] is None:
         _body_text(block, t('s_he_unklar'), fenster.f_small, fill='x')
 
-    # ⚠⚠ **„Ich kann das nicht bauen — woher bekomme ich den Bauplan?"**
-    # Gewuenscht von Bushwick4712 (KRT) am 31.08.2026. Die Antwort stand schon
-    # im Werkzeug, aber auf einer anderen Seite und hinter einem Symbol: Man
-    # musste wissen, dass es sie gibt, und den Namen von Hand hinuebertippen.
+    # ⚠⚠ **Woher bekomme ich den Bauplan?** Die Antwort steht auf einer
+    # anderen Seite; der Knopf führt direkt hin, statt dass man den Namen von
+    # Hand hinuebertippen muss.
     #
     # ⚠ **Nur wenn der Bauplan fehlt.** Wer ihn hat, will hier bauen und nicht
     # wissen, wo es ihn gaebe — der Knopf waere dann nur eine Zeile mehr.
@@ -10397,12 +9940,11 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                lambda n=eintrag.get('basis'): _to_blueprint(fenster, n)).pack(
                    anchor='w', padx=12, pady=(8, 0))
     # ⭐⭐ **„Lohnt sich das Bauen überhaupt?"** Die Zutatenkosten stehen
-    # unten schon Stück für Stück da — was fehlte, war die andere Hälfte:
-    # Was kostet dasselbe Teil fertig im Regal?
+    # unten Stück für Stück da — dies ist die andere Hälfte: Was kostet
+    # dasselbe Teil fertig im Regal?
     #
-    # ⚠ Zugeordnet wird über die **Entitäts-Kennung**, nie über den Namen.
-    # Über Namen ist es hier schon einmal schiefgegangen (`Gold` lieferte
-    # `Golden Medmon` mit). Siehe `scbp/shops.py`.
+    # ⚠ Zugeordnet wird über die **Entitäts-Kennung**, nie über den Namen
+    # (`Gold` lieferte sonst `Golden Medmon` mit). Siehe `scbp/shops.py`.
     _shop_row(fenster, block, eintrag.get('basis'))
     # ⭐⭐ **„Und passt das überhaupt in mein Schiff?"** Die Frage, die auf
     # jeden neuen Bauplan folgt. Steht direkt unter dem Ladenpreis, weil beide
@@ -10414,19 +9956,17 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
     from . import materials as lager
     from . import prices as preis_modul
     for stufe in (rez or {}).get('stufen') or []:
-        # ⭐ Was davon liegt im eigenen Lager? (Vorschlag von Horthy (KRT))
+        # ⭐ Was davon liegt im eigenen Lager?
         # ⚠ Gezeigt wird „hast du" bzw. „dir fehlt" — **nie** „du kannst nicht
         # bauen". Das Lager wird von Hand gepflegt und ist irgendwann
         # lückenhaft; ein Hinweis darf danebenliegen, eine Behauptung nicht.
-        # ⚠ Die Lage wird jetzt bei JEDER Änderung der Stückzahl neu gerechnet
+        # ⚠ Die Lage wird bei JEDER Änderung der Stückzahl neu gerechnet
         # (siehe `mengen_setzen` weiter unten) — deshalb hier nur der
         # Startwert für ein Stück.
 
-        # ⭐ **Der Knopf steht GANZ OBEN.** Er stand bis zum 29.08.2026 unter
-        # den Zutaten, der Herstellzeit UND dem Block „Mit deinem Material" —
-        # bei drei Zutaten also gut zehn Zeilen tiefer. Xharig hat ihn selbst
-        # nicht gefunden: „wenn selbst ich es nicht verstehe". Eine Funktion,
-        # die man suchen muss, ist für den Nutzer nicht vorhanden.
+        # ⭐ **Der Knopf steht GANZ OBEN** — nicht unter Zutaten, Herstellzeit
+        # und dem Block „Mit deinem Material", gut zehn Zeilen tiefer. Eine
+        # Funktion, die man suchen muss, ist für den Nutzer nicht vorhanden.
         reihe = tk.Frame(block, bg=theme.FIELD)
         reihe.pack(fill='x', padx=12, pady=(8, 2))
         rueck = tk.Label(reihe, text='', bg=theme.FIELD, fg=SUB,
@@ -10437,10 +9977,10 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # nicht mehr, und niemand merkt es.
         anzahl_var = tk.StringVar(value='1')
 
-        # ⚠⚠ **Die eingestellte Qualität gilt auch fürs Lager.** Bis v3.42.4
-        # zählte „hast du" jeden Posten ab der Mindestgüte des Rezepts — wer
-        # den Titanium-Regler auf Q 685 schob, las weiter „hast du: 13.938",
-        # obwohl kein einziger Posten Q 685 erreichte. Gemeldet am 16.09.2026.
+        # ⚠⚠ **Die eingestellte Qualität gilt auch fürs Lager.** Zählte
+        # „hast du" jeden Posten ab der Mindestgüte des Rezepts, läse wer den
+        # Regler auf Q 685 schiebt weiter die volle Menge, auch wenn kein
+        # Posten Q 685 erreicht.
         # `gewaehlt` hält je Material den Reglerwert; die Regler weiter unten
         # schreiben hinein, Lagerzeile und Abzug lesen daraus.
         gewaehlt = {}
@@ -10490,8 +10030,8 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # später warf `TypeError: 'int' object is not callable`. Sichtbar wurde
         # das als **verschwundener Qualitäts-Block**: Die Ausnahme brach den
         # Aufbau mitten drin ab, die Herstellzeit blieb ohne Wert und alles
-        # danach — Regler, Wirkungen, Hinweise — fehlte ersatzlos. In rc37 und
-        # rc38 ausgeliefert. Nie einen lokalen Namen vergeben, den es in
+        # danach — Regler, Wirkungen, Hinweise — fehlte ersatzlos. Nie einen
+        # lokalen Namen vergeben, den es in
         # dieser Datei schon als Funktion gibt.
         try:
             _sperre, _wirkung, _zerlege_sekunden = herst_modul.dismantle_block()
@@ -10515,17 +10055,10 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         _anzahl_feld.holder.pack(side='left')
         rueck.pack(side='left', padx=(10, 0))
 
-        # ⭐⭐ **Vormerken — der kurze Weg zur Materialliste.** Bis v3.20.0
-        # führte er nur über ein Schiff: erst auf die Wunschliste, dann
-        # Steckplätze belegen, dann stand das Material da. Für einen Helm,
-        # eine Rüstung oder eine FPS-Waffe gab es ihn **gar nicht**, obwohl
-        # das genauso Baupläne mit Rohstoffbedarf sind.
-        #
-        # Gemeldet von Haldjas am 06.09.2026: „‚What to farm' ist irgendwie
-        # bisschen unnötig komplex — man geht da rein, wird dann zu ‚still
-        # missing' geschickt und weiß dann aber nicht so genau, was man machen
-        # soll." Genau hier, wo das Rezept steht, ist die Stelle, an der man es
-        # sich vornimmt.
+        # ⭐⭐ **Vormerken — der kurze Weg zur Materialliste**, ohne Umweg
+        # über Wunschliste und Steckplätze eines Schiffs. Auch für Helme,
+        # Rüstungen und FPS-Waffen, die genauso Rohstoffe brauchen. Hier, wo
+        # das Rezept steht, nimmt man es sich vor.
         #
         # ⚠ Die Stückzahl daneben wird mitgenommen: Wer drei Helme bauen will,
         # braucht dreifaches Material.
@@ -10535,17 +10068,15 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # gibt es in dieser Funktion nicht, das ist die Nachbarfunktion
         # `_fits_row`.
         _mz_name = eintrag.get('name') or ''
-        # ⚠⚠⚠ **NUR eine echte Entitäts-Kennung, niemals der Name.** Hier
-        # stand `eintrag.get('ref') or eintrag.get('basis')` — und `basis` ist
-        # der Bauplanname. Der landete als `uuid` in der Preisabfrage und
-        # erzeugte eine kaputte Adresse:
+        # ⚠⚠⚠ **NUR eine echte Entitäts-Kennung, niemals der Name.** `basis`
+        # ist der Bauplanname; als `uuid` in der Preisabfrage ergäbe er eine
+        # kaputte Adresse:
         #
         #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
         #     InvalidURL: URL can't contain control characters
         #
-        # Die Seite „Was noch fehlt" blieb daraufhin leer und versuchte es
-        # endlos weiter. Gemeldet am 06.09.2026: „der sucht als was und will
-        # was laden, hört aber nicht auf."
+        # Die Seite „Was noch fehlt" bliebe dann leer und versuchte es
+        # endlos weiter.
         #
         # Ohne Kennung ist der Posten trotzdem vollständig: Das Rezept findet
         # `bauweg()` über den Namen, und ein Ladenpreis steht eben nicht dabei.
@@ -10584,8 +10115,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # ⚠⚠ **Die Zutatenzeilen werden EINMAL gebaut, danach nur neu
         # beschriftet.** Sie hängen an der Stückzahl, und die ändert sich beim
         # Tippen. Würde bei jedem Tastendruck die Seite neu aufgebaut, verlöre
-        # das Stückzahl-Feld den Cursor — derselbe Fehler wie im Lager-Suchfeld
-        # (v3.3.0-rc21). Also: Widgets stehen lassen, nur `configure(text=…)`.
+        # das Stückzahl-Feld den Cursor (wie beim Lager-Suchfeld). Also: Widgets stehen lassen, nur `configure(text=…)`.
         #
         # Aus demselben Grund werden ALLE Etiketten angelegt, auch die für
         # „dir fehlt" und „zu schlechte Qualität". Sie werden je nach Lage
@@ -10628,11 +10158,9 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         def mengen_setzen(*_):
             """Mengen und Lage neu beschriften — für die aktuelle Stückzahl.
 
-            ⚠ **Hier steckt der Grund, warum es die Funktion gibt.** Bis
-            v3.3.0-rc35 zeigte die Zutatenliste immer den Bedarf für EIN
-            Stück. Wer 10 eintippte, sah weiter „1.16 SCU" und „dir fehlt
-            1.16" — obwohl 11,6 gebraucht wurden. Der Abzug rechnete richtig,
-            die Anzeige log. Am 30.08.2026 gemeldet.
+            ⚠ Ohne sie zeigte die Zutatenliste immer den Bedarf für EIN
+            Stück: Wer 10 eintippt, sähe weiter „1.16 SCU" und „dir fehlt
+            1.16", obwohl 11,6 gebraucht werden.
             """
             wie_viele = lager.parse_number(anzahl_var.get())
             wie_viele = 1 if not wie_viele or wie_viele < 1 else int(wie_viele)
@@ -10720,7 +10248,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             tk.Label(z, text=_duration(stufe['zeit']), bg=theme.FIELD,
                      fg=FG, font=fenster.f_small).pack(side='left')
 
-        # ⭐ Was käme mit DEINEM Material heraus? (Idee von Xharig, 29.08.2026)
+        # ⭐ Was käme mit DEINEM Material heraus?
         #
         # Die Rezepte tragen die Qualitätswirkung mit: mieses Erz macht ein
         # schlechteres Stück, gutes ein besseres. Das steht in keiner Webseite,
@@ -10750,7 +10278,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             #
             # ⚠ `stand` IST `gewaehlt` — dasselbe Wörterbuch, kein Abbild.
             # Die Lagerzeile oben liest daraus; eine Kopie hieße, dass der
-            # Regler das Lager nie erreicht (genau der Fehler vom 16.09.2026).
+            # Regler das Lager nie erreicht.
             stand = gewaehlt
             stand.update({m: float(qualitaeten.get(m, 500.0))
                           for m in alle_materialien})
@@ -10761,13 +10289,11 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
             # ⭐⭐ **Die Produkt-Tabelle — Grundwert, gebaut, Änderung.**
             #
-            # Bis v3.42.4 standen hier nur Faktoren je Material. Zwei
-            # Materialien auf dieselbe Eigenschaft ergaben zwei Zeilen
-            # „× 1.024", die Summe und das Ergebnis (DPS, Schildstärke,
-            # Kühlleistung) musste man selbst ausrechnen. Am 16.09.2026
-            # gemeldet, der Vergleich mit scmdb.net zeigte es sofort: dort steht
-            # oben die Tabelle, darunter die Regler. Gerechnet wird genau wie
-            # dort, siehe `scbp/product_stats.py`.
+            # Nur Faktoren je Material hießen: zwei Materialien auf dieselbe
+            # Eigenschaft ergeben zwei Zeilen „× 1.024", und Summe und
+            # Ergebnis (DPS, Schildstärke, Kühlleistung) müsste man selbst
+            # ausrechnen. Oben die Tabelle, darunter die Regler — gerechnet
+            # wird wie auf scmdb.net, siehe `scbp/product_stats.py`.
             #
             # ⚠ Gebaut wird EINMAL, danach nur beschriftet (Regler-Ruckeln,
             # siehe unten). Welche Zeilen es gibt, hängt nur an den
@@ -10867,16 +10393,13 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             # „Und mit besserem Erz?" Nur dass hier der eigene Lagerstand der
             # Ausgangspunkt ist — je Material einzeln.
             #
-            # ⚠⚠ **Je Material ein eigener Wert.** Bis v3.3.0-rc35 gab es
-            # EINEN Regler, der allen Zutaten dieselbe Qualität gab. Das ist
-            # praktisch nie die Wirklichkeit: „jedes Material hat man so gut
-            # wie nie in der gleichen Qualität da" (30.08.2026).
+            # ⚠⚠ **Je Material ein eigener Wert.** Ein Regler für alle
+            # Zutaten entspräche praktisch nie der Wirklichkeit — man hat die
+            # Materialien so gut wie nie in gleicher Qualität da.
             #
-            # ⭐ **Die Wirkung steht rechts neben ihrem Regler** (16.09.2026).
-            # Vorher stand sie in einer eigenen Liste darüber, mit „Titanium ·
-            # Q 685" am Zeilenende — man musste zwischen Regler und Liste hin
-            # und her lesen. Neben dem Regler sieht man beim Ziehen, was sich
-            # ändert, und der freie Platz rechts war ohnehin ungenutzt.
+            # ⭐ **Die Wirkung steht rechts neben ihrem Regler.** So sieht man
+            # beim Ziehen, was sich ändert, ohne zwischen Regler und einer
+            # eigenen Liste hin und her zu lesen.
             from .main_window import slider as schieberegler
             tk.Label(block, text=t('s_he_regler_kopf'), bg=theme.FIELD, fg=FG,
                      font=fenster.f_base, anchor='w').pack(
@@ -10960,8 +10483,8 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                              anchor='e').grid(row=_nr, column=0, sticky='e',
                                               padx=(0, 10))
                     # ⚠⚠ Faktor und Prozent in EIGENEN Etiketten mit fester
-                    # Breite — in v3.3.0-rc37 schnitt ein gemeinsames Etikett
-                    # „+4,70 %" zu „+4.(" ab.
+                    # Breite — ein gemeinsames Etikett schnitt „+4,70 %" zu
+                    # „+4.(" ab.
                     faktor_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
                                           fg=ACCENT, font=fenster.f_base,
                                           width=9, anchor='e')
@@ -10984,9 +10507,9 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             def werte_zeichnen():
                 """Nur die Zahlen austauschen — keine Widgets neu bauen.
 
-                ⚠⚠ Vorher wurde bei jeder Reglerbewegung alles zerstört und
-                neu aufgebaut — bei einem Regler heißt das: bei jedem Pixel.
-                Das ruckelte so stark, dass er nicht bedienbar war (29.08.2026).
+                ⚠⚠ Bei jeder Reglerbewegung alles zu zerstören und neu
+                aufzubauen hieße: bei jedem Pixel. Das ruckelt so stark, dass
+                der Regler nicht bedienbar ist.
                 """
                 aktuell = {(w['eigenschaft'], w['material'], w['slot']): w
                            for w in herst_modul.values_with_stock(
@@ -11121,7 +10644,7 @@ def _mining_share(fenster, zeile, anteil, stufe, grund, allein=False):
     # ⚠ **Unter einem halben Prozent steht „<1 %", nicht „0 %".** Eine Null
     # neben einem Erz, das in der Liste steht, liest sich wie „gibt es hier
     # nicht" — und dann stimmt die Zeile darüber nicht mehr mit sich selbst
-    # überein. Genau so stand Beryl auf Daymar da (0,4 %).
+    # überein (etwa Beryl auf Daymar, 0,4 %).
     prozent = round(anteil * 100)
     text = (t('s_bg_anteil_wenig') if prozent < 1
             else t('s_bg_anteil') % prozent)
@@ -11133,9 +10656,6 @@ def _mining_share(fenster, zeile, anteil, stufe, grund, allein=False):
 
 def _salvage(fenster, rahmen):
     """Was in einem Wrack steckt — und ob sich das Aussteigen lohnt.
-
-    Der Wunsch kam von **Zwaersch (KRT)**; er ist der Grund, warum das
-    Werkzeug überhaupt an die Schiffsdaten angeschlossen wurde.
 
     ⚠ **Eigene Schiffsauswahl, nicht der Hangar.** Ein Wrack ist nicht das
     eigene Schiff — hier geht es um jeden Rumpf, der einem begegnet. Deshalb
@@ -11204,8 +10724,8 @@ def _salvage(fenster, rahmen):
                  anchor='w').pack(fill='x', pady=(0, 2))
         # ⚠ Die Einordnung steht **an** der Zahl, nicht in einer Fußnote:
         # Es ist der Ladenwert, kein Verkaufserlös. Verkaufspreise für
-        # Schiffsteile führt kaum ein Händler (gemessen 06.09.2026: drei von
-        # vier Werksteilen ohne jedes Ankaufgebot).
+        # Schiffsteile führt kaum ein Händler (gemessen: drei von vier
+        # Werksteilen ohne jedes Ankaufgebot).
         _body_text(ergebnis, _strip_markup(t('s_wr_wert_hinweis')),
                     fenster.f_small, fill='x', pady=(0, 6))
         if ohne:
@@ -11278,14 +10798,13 @@ def _salvage(fenster, rahmen):
         """Die gemerkten Wracks verwerfen — mit Rückfrage, die die Zahl nennt.
 
         ⚠ Ohne diesen Knopf müsste jemand `bergung.json` von Hand löschen. Ein
-        Zwischenspeicher, den nur der Entwickler leeren kann, ist keiner.
+        Zwischenspeicher, den der Spieler nicht leeren kann, ist keiner.
         """
         # ⚠⚠ **`ask_yes_no`, nicht `messagebox.askyesno`.** Der
         # System-Dialog sieht auf jedem Schreibtisch anders aus — unter Linux
         # weißer Kasten mit fetter Schrift und englischen Knöpfen („Yes"/„No")
-        # mitten in einem deutschen, dunklen Programm. Rückmeldung dazu am
-        # 06.09.2026 in zwei Worten: „sieht kacke aus." Der eigene Dialog
-        # steht seit v3.0.0 bereit und wird überall sonst benutzt.
+        # mitten in einem deutschen, dunklen Programm. Der eigene Dialog
+        # wird überall sonst benutzt.
         from .main_window import ask_yes_no
         anzahl = len(bg.load().get('schiffe') or {})
         if not anzahl:
@@ -11347,14 +10866,14 @@ def _load_salvage(name):
     # `aegs` und „Anvil Aerospace" als `anvl` — Zusammenziehungen, keine
     # Wortanfänge. Ohne die Übersetzung findet „Aegis Gladius Valiant" sein
     # `aegs_gladius_valiant` nicht, und die Seite meldet „fliegt im Spiel noch
-    # nicht" für ein Schiff, das jeder kennt. Genau so am 06.09.2026 gemeldet.
+    # nicht" für ein Schiff, das jeder kennt.
     #
     # Die Werft steht in den UEX-Schiffsdaten, die Kürzel-Tabelle liefert
     # erkul selbst mit (152 Hersteller).
     # ⚠ **Kein Herstellerkürzel aus der Tabelle.** Erkuls Herstellerliste führt
     # fünf verschiedene Kürzel unter dem Namen „Aegis Dynamics", und `aegs`,
     # das die Schiffe benutzen, ist nicht darunter. Die Zuordnung erkennt
-    # Zusammenziehungen inzwischen selbst (`_ist_kuerzel`); die Werft kommt
+    # Zusammenziehungen selbst (`_ist_kuerzel`); die Werft kommt
     # trotzdem mit, weil sie bei manchen Namen das entscheidende Wort liefert.
     from . import ships as alle_schiffe
     eintrag = alle_schiffe._find(name) or {}
@@ -11413,9 +10932,8 @@ def _signature_scanner(window, parent, signature_var):
     area = tk.Label(line, text='', bg=BG, fg=SUB, font=window.f_small,
                     anchor='w', justify='left')
 
-    # ⚠ Kein Scan-Bereich mehr (17.09.2026): Die Pille wandert mit dem
-    # gescannten Brocken, VerseKit sucht sie selbst. Der Knopf öffnet nur noch
-    # das Anlern-Fenster.
+    # ⚠ Kein Scan-Bereich: Die Pille wandert mit dem gescannten Brocken,
+    # VerseKit sucht sie selbst. Der Knopf öffnet nur das Anlern-Fenster.
     def show_area():
         count = len(signature_scan.samples())
         area.configure(text=t('s_bg_scan_bilder') % count if count else '', fg=SUB)
@@ -11434,8 +10952,8 @@ def _signature_scanner(window, parent, signature_var):
 
         def put():
             # ⚠⚠ Die Seite gehört zu EINEM Hauptfenster. Wurde es geschlossen,
-            # schrieb die Wache weiter in die tote Seite — acht „bad window
-            # path name" im Bericht vom 17.09.2026. Dann abmelden.
+            # schriebe die Wache weiter in die tote Seite („bad window path
+            # name"). Dann abmelden.
             try:
                 if not parent.winfo_exists():
                     signature_watch.unlisten(read_value)
@@ -11451,15 +10969,14 @@ def _signature_scanner(window, parent, signature_var):
 def _mining_missing(window, page, inner):
     """Die Bergbau-Seite ohne Bergbau-Daten — mit Weg heraus.
 
-    ⚠⚠ Gemeldet am 29.09.2026 (Parsul): „Die Bergbau-Daten sind noch nicht
-    geladen", obwohl der Katalog aufgefrischt war. Zwei Fehler dahinter:
+    ⚠⚠ Zwei Fallen:
 
-    1. **Eine Seite wird EINMAL gebaut.** Wer sie öffnete, bevor die Daten da
-       waren, sah den Satz bis zum Neustart. Jetzt baut sich die Seite beim
-       nächsten Öffnen neu, sobald die Daten da sind — und sofort nach
-       „Jetzt holen".
-    2. **Der Scanner-Schalter stand hinter dem Abbruch.** Der Scanner braucht
-       die Bergbau-Daten nicht; ohne sie fehlte er trotzdem.
+    1. **Eine Seite wird EINMAL gebaut.** Wer sie öffnet, bevor die Daten da
+       sind, sähe den Satz sonst bis zum Neustart. Deshalb baut sich die
+       Seite beim nächsten Öffnen neu, sobald die Daten da sind — und sofort
+       nach „Jetzt holen".
+    2. **Der Scanner-Schalter steht vor dem Abbruch.** Der Scanner braucht
+       die Bergbau-Daten nicht.
     """
     from . import mining
 
@@ -11519,9 +11036,8 @@ def _mining(fenster, rahmen):
     oder nicht.
     """
     from . import mining as berg_modul
-    # ⚠ **`s_bg_lead`, nicht `s_wr_lead`.** Hier stand der Text der
-    # Bergungs-Seite — „Vor dir treibt ein Wrack…" über der Erzsuche. Der
-    # eigene Satz war die ganze Zeit da und wurde von niemandem gerufen.
+    # ⚠ **`s_bg_lead`, nicht `s_wr_lead`** — Letzteres ist der Text der
+    # Bergungs-Seite.
     _heading(fenster, rahmen, t('hf_bergbau'), t('s_bg_lead'))
     innen = _scroll_area(rahmen)
 
@@ -11562,8 +11078,8 @@ def _mining(fenster, rahmen):
 
     # ⚠ Dieselben Auswahlfelder wie auf den anderen Seiten. Tippen bleibt
     # möglich — aber wer die 38 Rohstoffe oder 48 Orte nicht auswendig kann,
-    # soll sie aufklappen können, statt zu raten. „egal wo, sollte das
-    # Bedienkonzept nicht jedes Mal ändern." (29.08.2026)
+    # soll sie aufklappen können, statt zu raten. Ein Bedienkonzept für das
+    # ganze Programm (siehe `_filter_bar`).
     berg_wahl = {'erz': '', 'ort': '', 'geraet': ''}
     # Was zuletzt über Erz oder Ort ins Suchfeld geschrieben wurde. Ohne das
     # löschte ein Wechsel des Geräte-Feldes die getippte Suche mit.
@@ -11575,12 +11091,9 @@ def _mining(fenster, rahmen):
         neu = berg_wahl['erz'] or berg_wahl['ort'] or ''
         if neu != berg_letzte['wert']:
             berg_letzte['wert'] = neu
-            # ⭐ **Gewählt heißt aufgeklappt** (08.09.2026): „wenn man eine
-            # Auswahl trifft, machs doch so, dass das betreffende direkt
-            # aufgeklappt ist, und man nicht nochmal extra klicken muss."
-            # Wer einen Namen aus dem Auswahlfeld nimmt, hat sich schon
-            # entschieden — die Kopfzeile danach noch einmal anzuklicken ist
-            # ein Klick, der nichts entscheidet.
+            # ⭐ **Gewählt heißt aufgeklappt.** Wer einen Namen aus dem
+            # Auswahlfeld nimmt, hat ihn schon gewählt — die Kopfzeile danach
+            # noch einmal anzuklicken wäre ein überflüssiger Klick.
             #
             # ⚠ Nur bei der Auswahl, nicht beim Tippen: Nach zwei Buchstaben
             # stehen dort noch zwölf Treffer, und einer davon spränge auf.
@@ -11631,8 +11144,8 @@ def _mining(fenster, rahmen):
     # Watcher ohnehin lädt.
     #
     # ⚠ Das Feld wird **hier** gebaut, nicht in `zeichnen()`. Läge es darin,
-    # verlöre es bei jedem Tastendruck den Cursor — derselbe Fehler wie beim
-    # Suchfeld im Lager (v3.3.0-rc21).
+    # verlöre es bei jedem Tastendruck den Cursor (wie beim Suchfeld im
+    # Lager).
     sig_var = tk.StringVar(value='')
     ziel_sig = _setting_row(fenster, innen, t('s_bg_sig_feld'), '')
     sig_feld = round_entry(ziel_sig, sig_var, fenster.f_small, theme.FIELD,
@@ -11690,11 +11203,8 @@ def _mining(fenster, rahmen):
     def aufklappen(*_):
         """Neu zeichnen, **ohne** die Rollstelle zu verlieren.
 
-        ⛔⛔ Ein Klick auf ein Erz baut die ganze Liste neu — und die Seite
-        sprang dabei nach oben. Gemeldet am 14.09.2026: „klickt man ein Erz an,
-        um die Infos zu sehen, rollt das Fenster nach oben, und man muss neu
-        runterscrollen … der User denkt, da sei was defekt, und meldet mir
-        Fehler."
+        ⛔⛔ Ein Klick auf ein Erz baut die ganze Liste neu — ohne diesen Weg
+        spränge die Seite dabei nach oben, und man müsste neu hinunterrollen.
 
         ⚠ **Nur beim Aufklappen, nicht beim Suchen.** Wer etwas Neues eintippt,
         will das erste Ergebnis sehen — dort ist der Sprung nach oben richtig.
@@ -11707,11 +11217,8 @@ def _mining(fenster, rahmen):
             w.destroy()
         text = suche_var.get().strip().lower()
 
-        # ⚠ **Rohstoffe zuerst, auch ohne Suche.** Die Seite zeigte im
-        # Grundzustand die 48 Orte — man kam also mit „wo bin ich?" herein,
-        # gesucht wird aber mit „wo finde ich Titanium?". Am 29.08.2026:
-        # „in der Liste sollten auch nicht die Orte, sondern erst das Mineral
-        # stehen, da sucht man als Erstes nach."
+        # ⚠ **Rohstoffe zuerst, auch ohne Suche.** Gesucht wird mit „wo finde
+        # ich Titanium?", nicht mit „wo bin ich?".
         geraet = berg_wahl['geraet']
         for e in erze:
             if geraet and not _has_tool(e, geraet):
@@ -11721,11 +11228,9 @@ def _mining(fenster, rahmen):
                           geraet)
         # Orte danach — sie beantworten die zweite Frage („was gibt es hier?").
         #
-        # ⚠ **Ohne Eingabe stehen sie NICHT da** (07.09.2026). Vorher hingen
-        # 48 Ortszeilen unter den Rohstoffen, durch die niemand liest: Wer
-        # einen Ort sucht, tippt ihn oder klappt ihn im Auswahlfeld auf.
-        # Gemeldet mit „Erze sollten wir da anzeigen, Orte reicht wenn der
-        # User das per Textfeld suchen kann oder aus dem Dropdown".
+        # ⚠ **Ohne Eingabe stehen sie NICHT da.** 48 Ortszeilen unter den
+        # Rohstoffen liest niemand: Wer einen Ort sucht, tippt ihn oder
+        # klappt ihn im Auswahlfeld auf.
         #
         # Die Auswahl schreibt in dasselbe Suchfeld — ein gewählter Ort füllt
         # `text` also und erscheint dadurch von selbst.
@@ -11768,7 +11273,7 @@ def _refinery_head(kuerzel):
     genau wie die Spaltenbreite in Zeichen angegeben ist.
 
     ⚠ Und nicht `textwrap`: Das füllt die erste Zeile bis zum Anschlag und
-    lässt den Rest hängen — aus „Checkmate" wurde „Checkm" / „ate". Zwei
+    lässt den Rest hängen — aus „Checkmate" würde „Checkm" / „ate". Zwei
     möglichst gleich lange Hälften lesen sich besser („Check" / „mate"), und
     wo ein Trennzeichen nahe der Mitte steht, wird dort getrennt
     („Pyro-" / „Gate").
@@ -11820,7 +11325,7 @@ def _refinery_short(namen):
 
     ⚠ Dieselbe Regel wie im Raffinerie-Kasten der Bergbau-Seite. Zwei
     Schreibweisen für dieselbe Station wären ein Widerspruch im eigenen
-    Programm — und genau die sind heute dreimal teuer geworden.
+    Programm.
 
     ⚠⚠ **Bei Gateways reicht das erste Wort nicht.** „Pyro Gateway (Nyx)"
     steht in **Nyx** und hieße gekürzt „Pyro" — in einer Spalte, über der
@@ -11841,10 +11346,8 @@ def _refinery_short(namen):
 def _refineries(fenster, rahmen):
     """Alle Raffinerien nebeneinander — Boni **und** Nachteile.
 
-    ⭐ Gewünscht am 13.09.2026: „eine Seite, wo er sehen kann, welche Boni alle
-    Raffinerien geben, in einer Tabelle, damit er entscheiden kann, welche die
-    beste ist, wo er für unterschiedliche Materialien das beste Ergebnis
-    bekommt" — und ausdrücklich **mit den Nachteilen**.
+    ⭐ Eine Tabelle, aus der man je Material die beste Raffinerie abliest —
+    **mit den Nachteilen**.
 
     ⚠⚠ **Die Nachteile sind der Kern, nicht die Zugabe.** 40 der 108 Werte
     sind negativ (−9 % bis +13 %). Eine Tabelle, die nur die Boni zeigt,
@@ -11877,13 +11380,12 @@ def _refineries(fenster, rahmen):
         return
 
     # ⛔⛔ **Jede Spalte kostet Platz, und Tk schneidet still ab.**
-    # Gemessen am 14.09.2026 bei 1100×842 (verfügbar: 852 px): Mit 20 Zeichen
-    # für das Material und 8 je Wert brauchte die Zeile 890 px bei normaler
-    # Schrift und **1354 px** bei „sehr groß" — dort fehlten fünf Spalten
-    # ersatzlos. Schon die ausgelieferte v3.34.0 verlor bei „sehr groß" drei.
+    # Gemessen bei 1100×842 (verfügbar: 852 px): Mit 20 Zeichen für das
+    # Material und 8 je Wert bräuchte die Zeile 890 px bei normaler Schrift
+    # und **1354 px** bei „sehr groß" — dort fehlten fünf Spalten ersatzlos.
     #
-    # Ein Wert ist höchstens vier Zeichen breit (`+11`, `-9`). Die acht waren
-    # nur für die Überschrift da — und die passt jetzt zweizeilig.
+    # Ein Wert ist höchstens vier Zeichen breit (`+11`, `-9`). Die Überschrift
+    # passt zweizeilig darüber.
     karte = _card(innen, pady=(0, 12))
     # ⭐ Ab hier rollt die Tafel waagerecht in ihrer eigenen Fläche. Schmalere
     # Spalten und zweizeilige Überschriften (siehe unten) holen genug heraus,
@@ -11933,11 +11435,10 @@ def _refineries(fenster, rahmen):
                      width=COLUMN_VALUE, anchor='e').pack(side='left')
 
     # ⛔⛔ **Nach System gegliedert, nicht als Liste mit Ortsspalte.**
-    # Die erste Fassung schrieb je Zeile „Kürzel · System · Stationen". Sobald
-    # eine Spalte zu mehreren Orten gehörte, stand dort „Nyx, Pyro, Stanton" —
-    # und damit war die Zeile unlesbar. Jetzt trägt jede Spalte genau ein
-    # System, und das System steht als **Überschrift** darüber. Die Ortsspalte
-    # entfällt ersatzlos: Sie wiederholte nur, was schon oben steht.
+    # Gehört eine Spalte zu mehreren Orten, stünde dort „Nyx, Pyro, Stanton",
+    # und die Zeile wäre unlesbar. Jede Spalte trägt genau ein System, und
+    # das System steht als **Überschrift** darüber. Eine Ortsspalte
+    # wiederholte nur, was schon oben steht.
     _body_text(innen, t('s_rf_legende'), fenster.f_small, fill='x')
     _letztes = None
     for namen, system in spalten:
@@ -11956,8 +11457,8 @@ def _refineries(fenster, rahmen):
             _kurz = t('s_bg_raff_weitere') % (_kurz, len(namen) - 1)
         tk.Label(z, text=_kurz, bg=BG, fg=FG, font=fenster.f_small,
                  anchor='w', width=16).pack(side='left', padx=(12, 0))
-        # Umbrechen: Bei der größten Schrift brauchte die Pyro-Liste 749 px
-        # und bekam 682 (randpruefung, 27.09.2026).
+        # Umbrechen: Bei der größten Schrift ist die Pyro-Liste sonst zu
+        # breit (tools/randpruefung.py).
         _namen_lbl = tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
                               font=fenster.f_small, anchor='w',
                               justify='left')
@@ -11998,11 +11499,10 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
         offen['name'] = None if offen['name'] == schluessel else schluessel
         neu_zeichnen()
 
-    # ⚠ Hier stand `t('s_bg_orte') % (a, b).split('·')[0]` — das `.split()` lief
-    # auf dem **Tupel**, nicht auf dem Text. Ergebnis: Ausnahme in `zeichnen()`,
-    # und die ganze Liste blieb leer. Der Selbsttest sah es nicht, weil er die
-    # Seite ohne Suchbegriff baut und dieser Zweig nie lief. Gefunden auf einem
-    # Bildschirmfoto (29.08.2026). Jetzt ein eigener Textschlüssel.
+    # ⚠ Ein eigener Textschlüssel, kein `t(...) % (a, b).split('·')[0]` —
+    # dort liefe `.split()` auf dem **Tupel**, und die ganze Liste bliebe
+    # leer. Der Selbsttest baut die Seite ohne Suchbegriff und erreicht
+    # diesen Zweig nicht.
     # ⚠ Bei gewähltem Gerät zählt die Kopfzeile nur die Orte, die dann auch
     # darunter stehen — sonst verspricht sie 18 Orte und zeigt drei.
     from .mining import _pot
@@ -12024,8 +11524,8 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                                      e[0].lower()))
     for eintrag in fundorte:
         ort, system, arten = eintrag[0], eintrag[1], eintrag[2]
-        # ⚠ Nachgiebig: Ablagen und Selbsttest-Listen von vor v3.27 haben nur
-        # drei Felder je Fundort.
+        # ⚠ Nachgiebig: Ältere Ablagen und Selbsttest-Listen haben nur drei
+        # Felder je Fundort.
         anteil = eintrag[3] if len(eintrag) > 3 else 0.0
         stufe = eintrag[4] if len(eintrag) > 4 else 1
         allein = False
@@ -12095,11 +11595,10 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                         fenster.f_small, fill='x')
         # ⭐ **Von hier zur ganzen Tabelle.** Der Kasten beantwortet „welche
         # Raffinerie für DIESES Erz"; wer mehrere Erze im Laderaum hat, will
-        # die Gegenrichtung. Ausdrücklich so gewünscht am 13.09.2026:
-        # „mit Verlinkung von den Raffinerien von der Bergbau-Seite".
+        # die Gegenrichtung.
         #
         # ⚠ Über `jump_to`, nicht `open_page` — nur so steht der Rückweg über
-        # der Zielseite (seit v3.32.0).
+        # der Zielseite.
         _button(fenster, block, t('s_bg_raff_alle'),
                 lambda: fenster.jump_to('raffinerien')).pack(
                     anchor='w', padx=12, pady=(6, 10))
@@ -12157,8 +11656,7 @@ def _method_box(fenster, eltern):
             _body_text(ergebnis, t('s_rm_zeit_laeuft'), fenster.f_small,
                         fill='x')
 
-        # ⭐ **Der Vergleich klappt zu und startet zugeklappt** (08.09.2026):
-        # „die Info braucht man nur, wenn man sie sehen will." Neun Methoden
+        # ⭐ **Der Vergleich klappt zu und startet zugeklappt.** Neun Methoden
         # mit Bewertung sind zwölf Zeilen über der eigentlichen Liste — die
         # Empfehlung darüber beantwortet die Frage schon, der Rest ist zum
         # Nachschlagen. Gleiches Muster wie „Was bringt am meisten?" auf der
@@ -12230,10 +11728,10 @@ def _method_box(fenster, eltern):
 def _mining_place(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
     """Ein Ort — aufgeklappt steht darunter, was es dort gibt.
 
-    ⚠⚠ **Nach Gerät gruppiert, nicht in einer Liste.** Vorher standen auf
-    Daymar „59 % Aphorite (FPS)", „48 % Beradom (Fahrzeug)" und „33 % Silicon
-    (Schiff)" untereinander, absteigend sortiert — und behaupteten damit, das
-    eine sei ergiebiger als das andere. Das ist falsch: Die drei Zahlen sind
+    ⚠⚠ **Nach Gerät gruppiert, nicht in einer Liste.** „59 % Aphorite (FPS)",
+    „48 % Beradom (Fahrzeug)" und „33 % Silicon (Schiff)" absteigend
+    untereinander behaupteten, das eine sei ergiebiger als das andere. Das
+    ist falsch: Die drei Zahlen sind
     je Gerät auf 100 % gerechnet, ein Vergleich über die Blöcke hinweg ergibt
     keinen Sinn. Wer oben ein Gerät wählt, bekommt nur dessen Block.
     """
@@ -12287,8 +11785,7 @@ def _mining_place(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
 
 # ------------------------------------------------------------------- Lager
 #
-# Vorschlag von **Horthy (KRT)** (29.08.2026): Rohstoffe selbst
-# eintragen, beim Herstellen abziehen lassen.
+# Rohstoffe selbst eintragen, beim Herstellen abziehen lassen.
 #
 # ⚠ **Von Hand, weil es nicht anders geht.** Die `Game.log` sagt nichts über
 # Rohstoffe — in 17 MB Protokollen kommt weder `resource` noch `cargo` vor.
@@ -12342,7 +11839,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     """Eine ganze Raffinerie-Ausbeute auf einmal eintragen.
 
     ⚠⚠ **Warum das nicht automatisch geht.** Der Raffinerie-Auftrag steht
-    **nicht** in der `Game.log` — am 30.08.2026 über 22 Protokolle nachgemessen:
+    **nicht** in der `Game.log` — über 22 Protokolle nachgemessen:
     `Refinery` kommt dort 58-mal vor, ausschliesslich als Ladezeile für die
     3D-Modelle des Decks; `Aslarite`, `Agricium` und `cSCU` **kein einziges
     Mal**. Das Spiel hält diese Aufträge serverseitig.
@@ -12401,14 +11898,12 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
              lambda k: (einheit.set(k), pruefen()),
              fenster.f_small).pack(side='left')
 
-    # ⭐ **Eigenes Lagerort-Feld.** Vorher galt stillschweigend der Ort aus dem
-    # Formular ganz oben — der steht seit dem Umbau weit weg, und wer ihn für
-    # eine Ausbeute ändern wollte, musste hochrollen und danach zurück. Am
-    # 30.08.2026 gemeldet: „man kann für Raffinerie-Ausbeute keinen Lagerort
-    # angeben."
+    # ⭐ **Eigenes Lagerort-Feld.** Das Formular ganz oben steht weit weg;
+    # wer den Ort für eine Ausbeute ändern will, müsste sonst hochrollen und
+    # danach zurück.
     #
-    # Vorbelegt mit dem Ort von oben, damit sich für alle, die immer am selben
-    # Ort einlagern, nichts ändert.
+    # Vorbelegt mit dem Ort von oben, für alle, die immer am selben Ort
+    # einlagern.
     ort_raff = tk.StringVar(value=(ort_var.get() or '').strip())
     ortblock = tk.Frame(ziel, bg=BG)
     ortblock.pack(fill='x', pady=(4, 0))
@@ -12462,10 +11957,9 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
             return
         # ⚠⚠ **Der Ort läuft NICHT durch `storage_name()`.** Die Funktion zieht
         # eine Eingabe auf einen bekannten **Rohstoff** — sie vergleicht gegen
-        # `storable()`. Ein Ortsname steht dort nie drin, also kam immer
+        # `storable()`. Ein Ortsname steht dort nie drin, also käme immer
         # `None` zurück, und `or ''` machte daraus einen **leeren Lagerort**:
-        # Wer „Levski" gewählt hatte, bekam seine ganze Ausbeute ohne Ort
-        # eingebucht. Am 30.08.2026 gemeldet.
+        # Die ganze Ausbeute würde ohne Ort eingebucht.
         #
         # Der Ort wird gegen die Ortsliste geprüft, so wie im Formular oben.
         ziel_ort = (ort_raff.get() or '').strip()
@@ -12502,14 +11996,14 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
 
     # ⚠⚠ **`setting_bool`, nicht `setting`.** Letztere liefert
     # einen PFAD und ruft dafür `.strip()` auf dem Wert auf. Hier steht aber
-    # ein Ja/Nein: Sobald der Block einmal aufgeklappt war, lag `True` in der
-    # Datei — und `True.strip()` warf einen AttributeError. Der traf nicht nur
-    # diesen Block, sondern riss den Aufbau der GANZEN Lager-Seite ab: Die
-    # Liste der eingetragenen Posten fehlte danach völlig, obwohl die Daten
-    # unversehrt waren. Gemeldet am 03.09.2026, drin seit v3.4.1.
+    # ein Ja/Nein: Sobald der Block einmal aufgeklappt war, liegt `True` in
+    # der Datei — und `True.strip()` wirft einen AttributeError. Der träfe
+    # nicht nur diesen Block, sondern risse den Aufbau der GANZEN Lager-Seite
+    # ab: Die Liste der eingetragenen Posten fehlte, obwohl die Daten
+    # unversehrt sind.
     #
-    # ⚠ Und es blieb kaputt, bis das Programm neu startete — eine Seite wird
-    # nur EINMAL gebaut (siehe `open_page()`). Zuklappen half also nicht.
+    # ⚠ Und es bliebe kaputt bis zum Neustart — eine Seite wird nur EINMAL
+    # gebaut (siehe `open_page()`).
     if paths.setting_bool('lager_raffinerie_offen', False):
         _umschalten()
     return feld
@@ -12548,8 +12042,7 @@ def _hangar(fenster, rahmen):
                                                    pady=(18, 2))
     _body_text(innen, t('s_hg_import_text'), fenster.f_small, fill='x',
                 padx=24, inset=48)
-    # ⚠ Bis 15.09.2026 stand hier „nimm die JSON" — beim XPLORer fehlten der
-    # CSV drei Schiffe. Bei der Hangar Extension ergänzen sich beide: JSON
+    # ⚠ Bei der Hangar Extension ergänzen sich beide Formate: JSON
     # bringt Kürzel und Paketbeziehung, CSV die Versicherungsdauer.
     _body_text(innen, t('s_hg_import_json'), fenster.f_small, color=GOLD,
                 fill='x', padx=24, inset=48)
@@ -12583,8 +12076,8 @@ def _hangar(fenster, rahmen):
     # müssen darin sitzen, nicht in der Rollfläche. `_knopfreihe` packt mit
     # `side='left'` in ihr `eltern` und merkt sich dort ihren Umbruch-Zustand
     # (`zuletzt_nebeneinander`). Bekommt sie zweimal dieselbe Fläche, tritt die
-    # zweite Reihe der ersten den Zustand weg — beim ersten Anlauf hier waren
-    # daraufhin **alle vier Knöpfe unsichtbar**, ohne Fehlermeldung.
+    # zweite Reihe der ersten den Zustand weg — dann sind **alle vier Knöpfe
+    # unsichtbar**, ohne Fehlermeldung.
     reihe_import = tk.Frame(innen, bg=BG)
     reihe_import.pack(fill='x', padx=24, pady=(10, 0))
     _button_row(reihe_import, [
@@ -12601,8 +12094,7 @@ def _hangar(fenster, rahmen):
     _body_text(innen, t('s_hg_hand_text'), fenster.f_small, fill='x',
                 padx=24, inset=48)
     # ⚠ Sagt, wie das Feld benutzt wird. Ohne diesen Satz haelt man die
-    # sichtbare Liste fuer das ganze Angebot — genau das war die Rueckmeldung
-    # vom 06.09.2026.
+    # sichtbare Liste fuer das ganze Angebot.
     _body_text(innen, t('s_hg_such_hilfe'), fenster.f_small, fill='x',
                 padx=24, inset=48)
 
@@ -12614,8 +12106,7 @@ def _hangar(fenster, rahmen):
     # Werkzeug, und ein Bildschirmfoto davon macht die Runde.
     # ⚠⚠ **`namen_alle`, nicht `alle`** — das dort liefert nur Schiffe **mit
     # Laderaum** (134 von 280). Damit liessen sich Jaeger, Renner und Exo-
-    # Anzuege gar nicht eintragen: Arrow, Gladius, A.T.L.S. IKTI. Gemeldet am
-    # 06.09.2026.
+    # Anzuege gar nicht eintragen: Arrow, Gladius, A.T.L.S. IKTI.
     zeile, auswahl, _ = _combo_box(fenster, block, schiff,
                                      alle_schiffe.all_names,
                                      empty_text=t('s_hg_nichts_gefunden'),
@@ -12633,11 +12124,8 @@ def _hangar(fenster, rahmen):
             meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), RED
             neu_zeichnen()
             return
-        # ⚠⚠ **Die Herkunft ist wählbar, nicht geraten.** Bis zum 06.09.2026
-        # bekam jedes von Hand eingetragene Schiff „im Spiel gekauft" —
-        # verpflichtend, ohne Wahl. Gefragt wurde: „wie tragen User per
-        # Echtgeld gekaufte Schiffe ein, die nicht den Hangar XPLORer nutzen
-        # wollen?" Die ehrliche Antwort war: gar nicht.
+        # ⚠⚠ **Die Herkunft ist wählbar, nicht geraten** — auch per Echtgeld
+        # gekaufte Schiffe lassen sich ohne Hangar-Import eintragen.
         #
         # Der Unterschied ist keine Nebensache: An der Herkunft hängt, ob ein
         # Schiff dauerhaft versichert ist (LTI kommt nur mit Echtgeld-Käufen)
@@ -12659,15 +12147,11 @@ def _hangar(fenster, rahmen):
     def _steckplaetze_holen(still=True):
         """Die Steckplätze der Hangar-Schiffe holen, soweit sie fehlen.
 
-        ⚠⚠ **Dafür gab es einmal einen Knopf — er ist raus.** „Steckplätze
-        holen" stand neben „Eintragen", und die Rückmeldung dazu lautete: *„was
-        macht Steckplätze holen denn? ich verstehe den Knopf nicht."* Zu Recht:
-        Er holte nach, was nach Import und Handeintrag ohnehin schon geholt
-        wird. Ein Knopf, der eine Arbeit anbietet, die das Programm längst
-        erledigt hat, erklärt sich nie — er wirft nur die Frage auf, was er
-        soll.
+        ⚠⚠ **Dafür gibt es keinen Knopf.** Ein Knopf, der eine Arbeit
+        anbietet, die das Programm längst erledigt, erklärt sich nie — er wirft
+        nur die Frage auf, was er soll.
 
-        Geholt wird jetzt an drei Stellen von selbst: nach dem Import, nach
+        Geholt wird an drei Stellen von selbst: nach dem Import, nach
         einem Handeintrag, und **beim Öffnen der Seite**, wenn etwas fehlt.
         """
         geholt = meine.fetch_missing(daten['stand'])
@@ -12723,10 +12207,9 @@ def _hangar(fenster, rahmen):
 
         stand = daten['stand']
         alle = (stand.get('schiffe') or [])
-        # ⭐ **Das Suchfeld oben filtert auch die eigene Liste** (16.09.2026).
-        # Vorher suchte es nur im Angebot zum Eintragen — wer „Ikti" tippte,
-        # sah darunter weiter alle 43 Schiffe und hielt die Suche für kaputt:
-        # *„natürlich muss man beim Suchen filtern"*.
+        # ⭐ **Das Suchfeld oben filtert auch die eigene Liste**, nicht nur
+        # das Angebot zum Eintragen — sonst sähe wer „Ikti" tippt darunter
+        # weiter alle Schiffe und hielte die Suche für kaputt.
         suche = (schiff.get() or '').strip()
         schiffsliste = [s for s in alle if _hangar_matches(s, suche)]
         titel = (t('s_hg_meine_gefiltert').format(n=len(schiffsliste),
@@ -12827,15 +12310,10 @@ def _hangar(fenster, rahmen):
 def _wishlist(fenster, rahmen):
     """Schiffe, die man sich vornimmt — mit Preis, Ort und planbarer Ausstattung.
 
-    ⭐ Vorschlag von Zwaersch (KRT) am 06.09.2026: „Also Unterpunkt könnte man
-    noch ne Wishlist-Option anbieten. Für, ich nenn's mal allgemein Vehikel,
-    die man sich erspielen/kaufen möchte."
-
-    ⚠⚠ **Eigener Reiter, nicht mehr unten am Hangar.** Am selben Tag gemeldet:
-    „wird sonst unübersichtlich und niemand findet es auf Anhieb." Das stimmt —
-    die Wunschliste stand hinter einer Liste, die bei vierzig Schiffen über
-    mehrere Bildschirmhöhen ging, und jedes davon klappt seine Ausstattung auf.
-    Was hinter etwas Wachsendem steht, ist irgendwann nicht mehr da.
+    ⚠⚠ **Eigener Reiter, nicht unten am Hangar.** Dort stünde die
+    Wunschliste hinter einer Liste, die bei vierzig Schiffen über mehrere
+    Bildschirmhöhen geht, und jedes davon klappt seine Ausstattung auf. Was
+    hinter etwas Wachsendem steht, ist irgendwann nicht mehr da.
 
     ⚠ **Getrennt vom Hangar geführt.** Ein Wunsch ist kein Besitz — was hier
     steht, darf nie in „passt in dein Schiff" auftauchen. Sonst beantwortet das
@@ -12895,7 +12373,7 @@ def _wishlist(fenster, rahmen):
             # hat beim Programmstart schon einmal nachgezogen und die Sperre
             # gesetzt; ohne dieses Kennzeichen käme das frisch eingetragene
             # Schiff nie an seine Daten, und auf der Karte stünde dauerhaft
-            # „keine Steckplatz-Daten". Genau das war am 06.09.2026 der Fall.
+            # „keine Steckplatz-Daten".
             #
             # `danach` zeichnet neu, sobald wirklich etwas geholt wurde — sonst
             # müsste man den Reiter wechseln, damit die Ausstattung erscheint.
@@ -12964,9 +12442,7 @@ def _asop(fenster, rahmen):
     # ⚠⚠ **Reihenfolge ist hier alles.** Erst alles Feste packen (Kopf oben,
     # Fuß unten), **danach** die rollende Fläche mit `expand=True`. Wer die
     # Liste zuerst packt, schiebt den Fuß aus dem Fenster — bei 41 Schiffen
-    # ist der Knopf dann unerreichbar. Genau so gemeldet zu v3.28.0:
-    # „der Button verschwindet, wenn man runterscrollt, in der ewig langen
-    # Liste."
+    # ist der Knopf dann unerreichbar.
     _heading(fenster, rahmen, t('hf_asop'), t('s_as_lead'))
 
     daten = {'stand': asop_modul.load()}
@@ -12985,9 +12461,8 @@ def _asop(fenster, rahmen):
     such_zeile.pack(fill='x', padx=24, pady=(0, 6))
     from .main_window import round_entry as _rundes_feld_such
     # ⚠⚠ Der Hinweis steht IM Feld (`placeholder`), nicht als Label darüber.
-    # Bis 17.09.2026 lag hier ein Label auf dem Feld und fing jeden Klick ab —
-    # hineinklicken ging nur rechts hinter dem Text (gemeldet mit Bild). Genau
-    # das Muster, das `fields.py` seit dem 12.09.2026 verbietet.
+    # Ein Label auf dem Feld fängt jeden Klick ab — hineinklicken ginge nur
+    # rechts hinter dem Text. `fields.py` verbietet dieses Muster.
     such_feld = _rundes_feld_such(such_zeile, suche, fenster.f_small,
                                   theme.FIELD, LINE, ACCENT, FG,
                                   placeholder=t('s_as_suche'))
@@ -13009,8 +12484,8 @@ def _asop(fenster, rahmen):
             if pfad and os.path.isfile(pfad):
                 with open(pfad, encoding='utf-8', errors='ignore') as f:
                     lines = f.read().splitlines()
-                # ⚠ Dieselben ergänzten Schiffsnamen wie beim Einspielen
-                # (17.09.2026): Kennt die Übersetzung ein Schiff noch nicht,
+                # ⚠ Dieselben ergänzten Schiffsnamen wie beim Einspielen:
+                # Kennt die Übersetzung ein Schiff noch nicht,
                 # steht es hier trotzdem mit seinem genauen Schlüssel da —
                 # sonst kürzte die Zuordnung den Namen und traf ein ANDERES
                 # Fahrzeug (Sabre Raven EX → Sabre Raven).
@@ -13106,8 +12581,7 @@ def _asop(fenster, rahmen):
         geschlossen wird. Beschriften scheitert dann, und **das darf das
         Schreiben nicht verhindern**: Sonst steht der Name in `asop.json`,
         aber nie in der `global.ini` — und im Spiel bleibt der Werksname
-        stehen, ohne jeden Hinweis. Genau dieses Bild wurde schon zweimal
-        gemeldet, damals aus einem anderen Grund.
+        stehen, ohne jeden Hinweis.
         """
         try:
             stand.configure(text=text, fg=farbe)
@@ -13134,14 +12608,11 @@ def _asop(fenster, rahmen):
         _sagen(t('s_as_steht') if ok else (t('s_as_schief') % text),
                ACCENT if ok else RED)
 
-    # ⚠⚠ **Der Knopf war der Fehler von v3.28.0.** Wer einen Namen eintippt,
-    # hat ihn vergeben — und erwartet ihn im Spiel. Stattdessen musste er unter
-    # einer Liste von 41 Schiffen einen Knopf finden, der weit außerhalb des
-    # Bildes lag. Gemeldet mit Bildschirmfoto: Name eingetragen, Haken gesetzt,
-    # im Flottenmanager stand weiter der Werksname. Die Datei war nie
-    # geschrieben worden.
+    # ⚠⚠ **Kein Knopf zum Schreiben.** Wer einen Namen eintippt, hat ihn
+    # vergeben — und erwartet ihn im Spiel, ohne unter einer langen Liste
+    # erst einen Knopf suchen zu müssen.
     #
-    # ⚠ Deshalb schreibt die Seite jetzt **von selbst** — gemessen 0,28 s für
+    # ⚠ Deshalb schreibt die Seite **von selbst** — gemessen 0,28 s für
     # die ganze 12-MB-Datei, also nichts, wofür man jemanden klicken lässt.
     # Gesammelt wird über `after`: Wer fünf Schiffe hintereinander benennt,
     # löst einen Lauf aus, nicht fünf.
@@ -13209,10 +12680,9 @@ def _asop(fenster, rahmen):
                             paths.app_file(asop_modul.FILE))
 
     def _beim_zeigen():
-        # ⭐ Nur neu aufbauen, wenn sich eine Quelle geändert hat (rc9). Vorher
-        # las jeder Besuch die ganze Sprachdatei des Spiels und baute alle
-        # Zeilen neu — rund 850 ms, obwohl sich nichts geändert hatte
-        # (gemessen 27.09.2026: „das Programm ist etwas träger").
+        # ⭐ Nur neu aufbauen, wenn sich eine Quelle geändert hat. Sonst liest
+        # jeder Besuch die ganze Sprachdatei des Spiels und baut alle Zeilen
+        # neu — rund 850 ms, obwohl sich nichts geändert hat.
         stempel = _stand_der_quellen()
         if stempel == alles.get('stempel'):
             return
@@ -13263,9 +12733,8 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):
                           stern_an.get())
         sichern()
 
-    # ⚠⚠ **Kein `tk.Checkbutton`.** In v3.28.0 stand hier eines — gemeldet:
-    # „zu klein, sieht niemand, und sieht anders aus als der Rest im Projekt".
-    # Beides stimmt: Tk malt sein Kästchen im Systemstil, also hell, winzig und
+    # ⚠⚠ **Kein `tk.Checkbutton`** — zu klein und anders als der Rest:
+    # Tk malt sein Kästchen im Systemstil, also hell, winzig und
     # in einer anderen Handschrift als jede andere Seite. Das Projekt hat einen
     # eigenen Schalter (`_switch`) — der hängt an einer Einstellung und passt
     # hier nicht, sein **Aussehen** aber schon: eine Schaltfläche, die im
@@ -13306,14 +12775,11 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):
 def _shopping_list(fenster, rahmen):
     """Alles, was noch zu besorgen ist — über alle Schiffe, wie eine Rechnung.
 
-    ⭐⭐ **Der Reiter, der die ganze Ausstattungs-Arbeit zusammenführt.** Bis
-    v3.19.0 hing der Warenkorb unter jeder einzelnen Schiffszeile: Wer wissen
-    wollte, was sein nächster Ausflug zum Händler insgesamt kostet, musste
-    vierzig Karten aufklappen und im Kopf addieren. Am 06.09.2026 gefragt:
-    „der Warenkorb braucht auch einen extra Reiter, Einkaufsliste, da können
-    Komponenten oder Schiffe drin sein, wenn Schiffe mit Fitting, dann muss man
-    am Ende auch den Gesamtpreis sehen und eine Einzelaufstellung, so wie jede
-    Rechnung die man bekommen würde."
+    ⭐⭐ **Der Reiter, der die ganze Ausstattungs-Arbeit zusammenführt.** Wer
+    wissen will, was sein nächster Ausflug zum Händler insgesamt kostet,
+    müsste sonst vierzig Karten aufklappen und im Kopf addieren. Komponenten
+    und Schiffe, mit Gesamtpreis und Einzelaufstellung wie auf einer
+    Rechnung.
 
     ⚠ **Nach Schiff gegliedert, nicht nach Teileart.** Eine Rechnung ordnet
     nach Position, nicht nach Warengruppe — man will sehen, was *dieses* Schiff
@@ -13358,9 +12824,7 @@ def _shopping_list(fenster, rahmen):
             _no_data_note(fenster, koerper, werte)
             return
         # ⚠⚠ **Die Seite heißt „Was noch fehlt" — dann steht hier auch nur
-        # das.** Am 06.09.2026: „hier kann, was eingebaut ist, auch raus, ist
-        # ja Unfug." Stimmt: Unter der Überschrift „0 Positionen" standen
-        # trotzdem vier abgehakte Zeilen.
+        # das.** Abgehakte Zeilen unter „0 Positionen" wären Unfug.
         #
         # ⚠ Alles abgehakt ist etwas anderes als „nie etwas geplant" — und der
         # Unterschied gehört gesagt, sonst wirkt eine fertige Liste wie eine
@@ -13377,8 +12841,7 @@ def _shopping_list(fenster, rahmen):
         _fetch_buy_prices(posten, koerper, neu_zeichnen)
 
         # ⚠⚠ **Der Kopf zählt, was noch zu tun ist — nicht, was einmal
-        # geplant war.** Bis zum 06.09.2026 stand „8 Positionen aus 2
-        # Schiffen" da, obwohl zwei davon abgehakt waren. Eine Überschrift,
+        # geplant war.** Abgehakte Posten zählen nicht mit. Eine Überschrift,
         # die sich beim Abarbeiten nicht ändert, ist keine Auskunft.
         tk.Label(koerper,
                  text=t('s_ek_kopf_1' if len(posten) == 1
@@ -13436,10 +12899,8 @@ def _dismantle(fenster, rahmen):
     """Was ein Fabricator aus einem Teil zurückgibt — vor dem Ausbauen wissen.
 
     ⭐⭐ **Die Frage eines Bergungsspielers, bevor er den Schneidbrenner
-    ansetzt.** Vorschlag vom 06.09.2026: *„unter Bergung ein Extra-Fenster, wo
-    man Waffen, Komponenten etc. prüfen kann, wie viel Material man rausbekommt,
-    wenn man es im Fabricator zerlegt … so kann ein Salvager gleich entscheiden,
-    brauche ich die Komponente evtl. zum Zerlegen."*
+    ansetzt:** Wie viel Material gibt eine Waffe oder Komponente zurück, wenn
+    man sie im Fabricator zerlegt — lohnt sich das Ausbauen?
 
     ⚠⚠ **Die halbe Wahrheit wäre hier die gefährlichere.** „Man bekommt 50 %
     zurück" stimmt — aber sechs Rohstoffe stehen auf der Sperrliste des
@@ -13561,15 +13022,12 @@ def _farm_list(fenster, rahmen):
     """Was an Rohstoffen fehlt, um das Geplante selbst zu bauen.
 
     ⭐⭐ **Die Gegenrichtung zu „Was noch fehlt".** Dort steht, was die Schiffe
-    brauchen und was es kostet; hier steht, was davon noch **im Boden** liegt.
-    Der Vorschlag am 06.09.2026: *„Herstellungswarteliste fällt mir da ein,
-    wäre dann sinnvoll, dann würde man anhand seines Lagers auch sehen was man
-    noch farmen muss."*
+    brauchen und was es kostet; hier steht, was davon noch **im Boden** liegt
+    — gerechnet gegen das eigene Lager.
 
-    ⚠⚠ **Hier in der Werkstatt und nicht bei den Schiffen** — ebenfalls seine
-    Einordnung: *„schiebt man Herstellungsliste nicht eher unten in die
-    Werkstatt?"* Stimmt. Die Werkstatt-Kette lautet „was habe ich an Material →
-    was baue ich → wo hole ich es", und eine Liste fehlender Rohstoffe ist die
+    ⚠⚠ **Hier in der Werkstatt und nicht bei den Schiffen.** Die
+    Werkstatt-Kette lautet „welches Material ist da →
+    was wird gebaut → wo gibt es das", und eine Liste fehlender Rohstoffe ist die
     Antwort auf genau die erste Frage. Bei den Schiffen ginge es um Geld, hier
     um Erz.
 
@@ -13600,15 +13058,9 @@ def _farm_list(fenster, rahmen):
         Steckplatz — vorgemerkt wird sie in der Herstellung, und hier steht
         sie dann.
 
-        Gemeldet von Haldjas am 06.09.2026: *„‚What to farm' ist irgendwie
-        bisschen unnötig komplex — man geht da rein, wird dann zu ‚still
-        missing' geschickt und weiß dann aber nicht so genau, was man machen
-        soll."* Der Umweg über die Wunschliste war nirgends erklärt, und für
-        FPS-Ausrüstung gab es ihn gar nicht.
-
         ⚠ **Auch bei leerem Merkzettel wird der Satz gezeigt** — er sagt, wo
-        der Knopf sitzt. Ein leerer Bereich ohne Erklärung wirft genau die
-        Frage auf, die diese Rückmeldung ausgelöst hat.
+        der Knopf sitzt. Ein leerer Bereich ohne Erklärung lässt einen ratlos
+        zurück.
         """
         eintraege = meine.notepad()
         rahmen_mz = tk.Frame(koerper, bg=BG)
@@ -13626,25 +13078,20 @@ def _farm_list(fenster, rahmen):
             neu_zeichnen()
 
         # ⚠⚠ **Das Material gehört an den Eintrag, nicht nur in die Summe
-        # unten.** Am 06.09.2026 gemeldet: „Man sieht da aber kein Material,
-        # was man farmen muss — unter den Waffen würde es Sinn machen, dass man
-        # das zu farmende Material sieht." Genau so: Die Summe unten beantwortet
+        # unten.** Die Summe unten beantwortet
         # „wie viel Erz brauche ich insgesamt", hier steht „und wofür".
         from . import crafting as _mz_herst
         # ⚠⚠⚠ **Die Fehlmengen kommen aus DERSELBEN Rechnung wie die Summe
-        # darunter.** Der erste Anlauf fragte hier das Lager direkt und zeigte
-        # „hast 8,01", während zehn Zeilen tiefer „hast 3,44" stand. Beide
-        # Zahlen waren richtig gerechnet — oben der volle Lagerbestand, unten
-        # der Anteil, der für diesen Bedarf zugeteilt wurde — und genau das ist
-        # der Fehler: Zwei Zahlen mit derselben Beschriftung auf einer Seite.
+        # darunter.** Das Lager direkt zu fragen ergäbe oben den vollen
+        # Lagerbestand und unten den für diesen Bedarf zugeteilten Anteil —
+        # zwei Zahlen mit derselben Beschriftung auf einer Seite.
         #
-        # Der Einzelposten sagt jetzt nur noch, **was er braucht**; ob es
-        # reicht, sagt die Farbe, und die stammt aus der Gesamtrechnung. Eine
-        # Seite, eine Wahrheit.
-        # ⚠⚠⚠ **Die Rechnung wird ÜBERGEBEN, nicht neu angestellt.** Der erste
-        # Anlauf rief hier `cart.farm_list()` ein zweites Mal — dieselbe
-        # Rechnung über alle Schiffe und Rezepte, nur damit die Farbe stimmt.
-        # Gemessen: Die Seite brauchte dadurch **3937 ms** statt 60.
+        # Der Einzelposten sagt nur, **was er braucht**; ob es reicht, sagt
+        # die Farbe, und die stammt aus der Gesamtrechnung. Eine Seite, eine
+        # Wahrheit.
+        # ⚠⚠⚠ **Die Rechnung wird ÜBERGEBEN, nicht neu angestellt.** Ein
+        # zweiter Aufruf von `cart.farm_list()` rechnete dasselbe über alle
+        # Schiffe und Rezepte noch einmal — gemessen **3937 ms** statt 60.
         #
         # Eine teure Rechnung gehört einmal gemacht und weitergereicht.
         _fehlt_gesamt = set()
@@ -13701,7 +13148,7 @@ def _farm_list(fenster, rahmen):
                     # derselben Rechnung wie die Summe darunter.
                     #
                     # ⚠ `_menge_text()` statt `%.2f`: Deutsche Zahlen haben
-                    # ein Komma. Sonst stand oben „4.64" und unten „8,8" auf
+                    # ein Komma. Sonst stünde oben „4.64" und unten „8,8" auf
                     # derselben Seite.
                     tk.Label(zutat,
                              text=t('s_mz_braucht') % _amount_text(braucht),
@@ -13854,10 +13301,8 @@ def _farm_gathering(fenster, parent, gathering):
 def farm_locations(needed, ores=None, per_ore=3, places=5):
     """Wo die fehlenden Rohstoffe liegen — je Rohstoff und als Sammelorte.
 
-    ⭐⭐ Wunsch Aeternitas26 (KRT, 15.09.2026): „was ich farmen muss **und wo**
-    ich das am besten finde". Er führte dafür eine eigene Tabelle Erze ↔
-    Vorkommen, um seine Route zu planen — die Bergbau-Seite kannte die
-    Fundorte längst, die Farmliste wusste nur nichts davon.
+    ⭐⭐ Was man farmen muss **und wo** man es am besten findet — die
+    Fundorte kommen aus denselben Daten wie auf der Bergbau-Seite.
 
     `needed` sind Rohstoffnamen aus den Rezepten (`Titanium`), `ores` die Liste
     aus `mining.ores()` (`Titanium (Ore)`); verglichen wird über
@@ -13924,9 +13369,8 @@ def _number(value):
     Fehler aus. Und `4,0` neben `4` in derselben Spalte liest sich, als wären
     es zwei verschiedene Angaben.
 
-    ⚠⚠ **Unter 1 braucht es zwei Stellen.** Die erste Fassung rundete immer
-    auf eine — beim Durchklicken des Zerlege-Rechners am 06.09.2026 wurde
-    daraus aus 0,64 ein „0,6" und aus 0,32 ein „0,3". Bei Rohstoffmengen, die
+    ⚠⚠ **Unter 1 braucht es zwei Stellen.** Mit einer würde aus 0,64 ein
+    „0,6" und aus 0,32 ein „0,3". Bei Rohstoffmengen, die
     fast alle unter eins liegen, ist das keine Rundung mehr, sondern eine
     andere Zahl: Wer 0,32 zurückbekommt, hat nicht 0,3.
     """
@@ -13966,8 +13410,8 @@ def _buy_ship_head(fenster, eltern, eintrag):
     tk.Label(zeile, text=eintrag.get('schiff') or '', bg=BG, fg=FG,
              font=fenster.f_bold, anchor='w').pack(side='left')
     # ⚠ Woher das Schiff kommt, gehört an die Überschrift: Auf einer Rechnung
-    # mit vierzig Positionen ist der Unterschied zwischen „habe ich" und
-    # „will ich haben" die wichtigste Angabe überhaupt.
+    # mit vierzig Positionen ist der Unterschied zwischen „im Hangar" und
+    # „auf der Wunschliste" die wichtigste Angabe überhaupt.
     marke = (t('s_ek_aus_wunsch')
              if eintrag.get('quelle') == cart.WISHLIST
              else t('s_ek_aus_hangar'))
@@ -13983,9 +13427,8 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
     zeile = tk.Frame(eltern, bg=SURFACE)
     zeile.pack(fill='x', pady=(0, 2))
 
-    # ⭐⭐ **Der Haken ist die einzige Möglichkeit, das zu wissen.** Am
-    # 06.09.2026 gefragt: „wenn etwas von der Liste gekauft wurde, und im
-    # Schiff eingebaut ist, wie erfährt die Einkaufsliste davon?" Gar nicht —
+    # ⭐⭐ **Der Haken ist die einzige Möglichkeit, das zu wissen.** Ob etwas
+    # gekauft und eingebaut ist, erfährt die Einkaufsliste sonst nicht —
     # das Spiel schreibt nicht in die Game.log, was in einem Schiff steckt.
     # Also wird nichts erraten, sondern abgehakt wie auf jedem Einkaufszettel.
     # Beim Selbstherstellen genauso: ein Haken für beide Wege.
@@ -14132,9 +13575,8 @@ def _wish_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
                  fg=ACCENT, font=fenster.f_small,
                  anchor='w').pack(side='left', padx=(12, 0))
 
-    # ⚠⚠ **Auch ein Wunschschiff lässt sich ausstatten.** Am 06.09.2026
-    # gefragt: „was ist, wenn jemand ein Schiff und dazu ein besseres Fitting
-    # bauen oder kaufen will?" Genau hier ist die Planung am meisten wert — vor
+    # ⚠⚠ **Auch ein Wunschschiff lässt sich ausstatten.** Genau hier ist die
+    # Planung am meisten wert — vor
     # dem Kauf, wenn die Summe noch eine Entscheidung ist und keine Quittung.
     #
     # Der Block ist derselbe wie im Hangar: `warenkorb` arbeitet auf einem
@@ -14214,15 +13656,14 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
             teile.append(t('s_hg_vers_monate').format(n=monate))
     # Kam das Schiff mit einem anderen aus dem Hangar (URSA der Carrack)?
     # Steht nur da, wenn das Paket ein eigenes Schiff nennt — Pledge-Namen
-    # des XPLORer („Standalone Ship") bleiben weg. Vorschlag AlyxOne.
+    # des XPLORer („Standalone Ship") bleiben weg.
     beilage = meine.bundled_with(daten['stand'], eintrag)
     if beilage:
         teile.append(t('s_hg_beilage').format(schiff=beilage))
 
     # ⚠⚠ **Drei Zustände, nicht zwei** — und der Unterschied ist der ganze
-    # Punkt. Bis zum 06.09.2026 stand bei jedem Schiff ohne Steckplatz-Daten
-    # „noch nicht im Spiel". Das war schlicht **falsch**: Die Ironclad Assault
-    # und die Super Hornet Mk II fliegen längst, sie waren nur nicht zugeordnet.
+    # Punkt. Fehlende Steckplatz-Daten heißen nicht „noch nicht im Spiel":
+    # Ein Schiff kann längst fliegen und nur nicht zugeordnet sein.
     # Aus einer fehlenden Zuordnung eine Aussage über das Spiel zu machen, ist
     # genau die Sorte Behauptung, die dieses Werkzeug nicht aufstellt.
     #
@@ -14251,15 +13692,12 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              fg=farbe, font=fenster.f_small,
              anchor='w').pack(side='left')
 
-    # ⭐⭐ **Offene Posten sieht man, ohne aufzuklappen.** Am 06.09.2026
-    # gefragt: „wie sehe ich ohne Aufklappen, dass ich dort noch nicht
-    # besorgte Komponenten habe?" Gar nicht — bei vierzig Schiffen klappt
-    # niemand alle auf, und was man aufklappen muss, um es zu finden, findet
-    # man nicht.
+    # ⭐⭐ **Offene Posten sieht man, ohne aufzuklappen.** Bei vierzig
+    # Schiffen klappt niemand alle auf, und was man aufklappen muss, um es zu
+    # finden, findet man nicht.
     #
-    # ⚠ In der Markenfarbe, nicht in Grau: Dieselbe Rückmeldung wie zu „passt
-    # in dein Schiff" — „in Grau nimmt es keiner wahr und fragt sich dann, wo
-    # er die Info findet".
+    # ⚠ In der Markenfarbe, nicht in Grau — wie bei „passt in dein Schiff":
+    # Grau wird übersehen.
     from . import cart as _wk_marke
     # ⚠ Ein eigener Rahmen, damit sich die Marke nachziehen lässt, ohne die
     # ganze Zeile neu zu bauen — beim Abhaken darf die aufgeklappte
@@ -14333,8 +13771,7 @@ def _cart_box(fenster, karte, eintrag, daten, beim_aendern=None):
         ⚠⚠ **Und die Zeile darüber mitziehen.** Der Block kennt nur sich
         selbst; die Marke „4 noch zu besorgen" steht aber in der Schiffszeile,
         eine Ebene höher. Ohne diesen Rückruf hakte man alle vier Posten ab und
-        die Zeile behauptete weiter, es seien vier offen. Am 06.09.2026
-        gemeldet: „habe die angehakt, aber steht immer noch 4 zu besorgen."
+        die Zeile behauptete weiter, es seien vier offen.
         """
         for kind in koerper.winfo_children():
             kind.destroy()
@@ -14368,8 +13805,7 @@ def _cart_content(fenster, eltern, eintrag, daten, neu_zeichnen):
     # ⚠⚠ **Drei Zustände, drei verschiedene Sätze.** „Keine Daten" und „nichts
     # zu besorgen" sehen im Code gleich aus — beides ist eine leere Liste. Wer
     # sie gleich behandelt, sagt jemandem mit fehlenden Steckplatz-Daten, an
-    # seinem Schiff sei alles in Ordnung. Genau diese Verwechslung stand am
-    # 06.09.2026 bei jedem Bauplan.
+    # seinem Schiff sei alles in Ordnung.
     if zustand == cart.NO_DATA:
         _body_text(eltern, t('s_wk_keine_daten'), fenster.f_small,
                     bg=SURFACE, fill='x', padx=(46, 16), pady=(0, 10),
@@ -14399,18 +13835,13 @@ def _cart_content(fenster, eltern, eintrag, daten, neu_zeichnen):
     cart.enrich(liste)
     _fetch_cart_prices(liste, eltern, neu_zeichnen)
 
-    # ⚠ **Zählt, was noch zu tun ist.** Derselbe Fehler wie im Kopf der
-    # Sammelliste: „Warenkorb (2)" blieb bei zwei stehen, obwohl beide Posten
-    # abgehakt waren. Beim Durchklicken am 06.09.2026 aufgefallen — die Marke
-    # in der Zeile zog schon mit, diese Überschrift nicht.
+    # ⚠ **Zählt, was noch zu tun ist** — wie der Kopf der Sammelliste und
+    # die Marke in der Zeile. Abgehakte Posten zählen nicht.
     noch_offen = [x for x in liste if not x.get('erledigt')]
     fertig = [x for x in liste if x.get('erledigt')]
 
-    # ⚠⚠ **Eingebautes steht nicht mehr im Warenkorb.** Am 06.09.2026: „wenn
-    # etwas eingebaut ist, muss es auch nicht mehr im Warenkorb unter dem
-    # Schiff stehen, das ist verschenkter Platz." Stimmt — unter der
-    # Überschrift „Warenkorb (0)" standen trotzdem vier Karten, jede mit dem
-    # Vermerk, dass sie erledigt ist. Ein Korb zeigt, was noch hineingehört.
+    # ⚠⚠ **Eingebautes steht nicht mehr im Warenkorb** — das wäre
+    # verschenkter Platz. Ein Korb zeigt, was noch hineingehört.
     #
     # ⚠ Aber **nicht spurlos**: Eine Zeile nennt die Zahl, und ein Klick holt
     # sie zurück. Wer einen Haken versehentlich setzt, muss ihn wiederfinden —
@@ -14434,11 +13865,10 @@ def _fetch_cart_prices(liste, widget, neu_zeichnen):
     """Fehlende Ladenpreise im Hintergrund nachholen, dann neu zeichnen.
 
     ⚠⚠ **Ohne das steht „wird nachgeschlagen …" für immer da.** Der Zustand
-    `NICHT_GEPRUEFT` heißt wörtlich „noch niemand hat nachgesehen" — aber
-    nachgesehen hat auch niemand, weil der Warenkorb den Abruf nie ausgelöst
-    hat. Der Satz war also wahr und trotzdem eine Sackgasse: Am 06.09.2026
-    gemeldet mit „kaufen lädt keinen Preis". Die Bergungs-Seite holt ihre
-    Preise seit jeher selbst nach; hier fehlte genau dieser Schritt.
+    `NICHT_GEPRUEFT` heißt wörtlich „noch niemand hat nachgesehen" — und
+    ohne diesen Abruf sähe auch niemand nach. Der Satz wäre wahr und
+    trotzdem eine Sackgasse. Die Bergungs-Seite holt ihre Preise genauso
+    selbst nach.
 
     ⚠ Im **Hintergrund**, nicht im Zeichnen. Jeder unbekannte Posten ist ein
     Netzabruf; bei zwölf Posten stünde die Oberfläche sonst sekundenlang. Erst
@@ -14475,19 +13905,16 @@ def _notice(window, title, text):
     """Ein Hinweis im Programmstil — **nie** der System-Dialog von Tk.
 
     ⚠⚠ **Warum das keine Stilfrage ist.** Ein `messagebox.showinfo` bringt
-    zwei Fehler auf einmal mit, und beide sind am 06.09.2026 aufgetreten:
+    zwei Fehler auf einmal mit:
 
     1. **Er sieht fremd aus** — heller Kasten mit Systemschrift mitten in einem
        dunklen Programm, und seine Knöpfe kommen in der Systemsprache, nicht in
-       der eingestellten. („sieht kacke aus", „der Dialog zeigt im Deutschen
-       englische Wörter")
+       der eingestellten.
     2. **Er erscheint irgendwo** — Tk setzt ihn nicht über das Elternfenster.
-       Er landete unten am Bildschirmrand, wo niemand hinsieht, und weil er
-       **modal** ist, nahm er die ganze Oberfläche mit: Die Gruppen in der
-       Seitenleiste ließen sich nicht mehr auf- und zuklappen. Der Fehler sah
-       nach einem kaputten Menü aus und war ein unsichtbares Fenster.
-       („Fenster spawnt irgendwo unten, wo niemand hinschaut, was genau zu
-       diesem Fehler geführt hat")
+       Landet er unten am Bildschirmrand, wo niemand hinsieht, nimmt er als
+       **modales** Fenster die ganze Oberfläche mit: Die Gruppen in der
+       Seitenleiste lassen sich nicht mehr auf- und zuklappen. Das sieht nach
+       einem kaputten Menü aus und ist ein unsichtbares Fenster.
 
     `ask_yes_no` steht mittig über dem Elternfenster, trägt die Farben des
     Programms und benutzt die eingestellte Sprache.
@@ -14508,15 +13935,12 @@ def _part_label(teil):
     ⭐⭐ **Das ist die Angabe, nach der ausgesucht wird.** Ein Schiff wird auf
     einen Zweck hin gebaut: Tarnung, Kampf, Bergbau. Wer die Namen nicht
     auswendig kennt — und das tut fast niemand —, sieht in einer reinen
-    Namensliste nicht, was er da anklickt. Am 06.09.2026 gemeldet: „man sollte
-    in der Liste sehen ob es grade A B oder C ist und ob Military oder was
-    anderes."
+    Namensliste nicht, was er da anklickt.
 
-    ⚠ **Die Klasse wird nachgeschlagen, wenn sie fehlt.** `cart.choices()`
-    reichte sie bis v3.19.0 nicht durch; UEX führt sie neben der Güte. Sobald
-    sie mitkommt, greift der direkte Weg und der Nachschlag entfällt von
-    selbst — er steht hier, damit nicht zwei Stellen dieselbe Filterung
-    doppeln.
+    ⚠ **Die Klasse wird nachgeschlagen, wenn sie fehlt** — UEX führt sie
+    neben der Güte. Kommt sie mit, greift der direkte Weg und der Nachschlag
+    entfällt von selbst — er steht hier, damit nicht zwei Stellen dieselbe
+    Filterung doppeln.
 
     ⚠ Übersetzt wird über `KLASSEN_TEXTE`, wie überall sonst. Die **Güte**
     bleibt `A`/`B`/`C`/`D` — das ist im Spiel ein Buchstabe, kein Wort.
@@ -14601,9 +14025,7 @@ def _slot_list(fenster, eltern, eintrag, daten, neu_zeichnen):
 
     # ⚠⚠ **Gleiche Plätze werden gebündelt.** Eine Cutlass Black hat sechzehn
     # Raketenplätze, alle mit derselben Ignite II ab Werk — sechzehn identische
-    # Zeilen untereinander sind keine Liste, sondern eine Wand. Rückmeldung am
-    # 06.09.2026: „gleiche Raketen kann man zusammenfassen, sonst wird die
-    # Liste zu lang."
+    # Zeilen untereinander sind keine Liste, sondern eine Wand.
     #
     # Gebündelt wird nur, was wirklich gleich ist: gleiche Art, gleiche Größe,
     # gleiches Teil ab Werk **und** dieselbe eigene Wahl. Sobald jemand einen
@@ -14660,10 +14082,8 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
     # ist eine Kennung, keine Beschriftung, und `hardpoint_Left_Pylon_03` sagt
     # niemandem etwas.
     # ⚠⚠ **Ein Pfeil, sonst findet niemand die Funktion.** Die Zeile klappt auf
-    # Klick eine Teileauswahl auf — erkennbar war das nur am Mauszeiger, wenn
-    # man zufällig darüberfuhr. Am 06.09.2026 gefragt: „wo würde man die Plätze
-    # eigentlich belegen?" Wenn der Entwickler die eigene Funktion nicht
-    # findet, findet sie niemand.
+    # Klick eine Teileauswahl auf — ohne Pfeil wäre das nur am Mauszeiger
+    # erkennbar, wenn man zufällig darüberfährt.
     #
     # Überall sonst im Programm steht an aufklappbaren Zeilen dieser Pfeil.
     pfeil = icons.line(zeile, 'aufklappen', background=SURFACE,
@@ -14715,8 +14135,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
         #
         # ⚠ Und der Name darf hier auch nicht als Beispiel ausgeschrieben
         # stehen: Die Prüfung liest den Quelltext, nicht den Code — ein
-        # Kommentar mit dem Suchmuster darin löst sie genauso aus. Beim ersten
-        # Anlauf hat genau die Warnung vor der Falle die Falle ausgelöst.
+        # Kommentar mit dem Suchmuster darin löst sie genauso aus.
         def platz_zuruecksetzen():
             geaendert = False
             for einer in alle_pfade:
@@ -14737,7 +14156,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
         gebaut.append(True)
         # ⚠ Der Platz selbst geht mit: Racks, Raketen, Bomben und
         # Lackierungen passen nach seinen Kennzeichnungen, nicht nach der
-        # Größe allein (Bomben-Racks der Eclipse, gemeldet 30.09.2026).
+        # Größe allein (etwa die Bomben-Racks der Eclipse).
         moeglich = cart.choices(platz.get('art'), platz.get('groesse'), platz)
         if not moeglich:
             # ⚠ Ehrlich statt hübsch: Wenn zu diesem Platz keine kaufbaren
@@ -14755,9 +14174,8 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
             # gereicht — das Eingabefeld wird dann absichtlich **nicht**
             # befüllt (siehe `waehlen()` dort, der Verkaufs-Reiter braucht das
             # so). Wer trotzdem aus dem Feld liest, liest eine leere
-            # Zeichenkette: Der Klick auf ein Teil tat schlicht nichts, ohne
-            # Fehler und ohne Meldung. Am 06.09.2026 gemeldet mit „klick ich
-            # was an, wird es nicht eingefügt".
+            # Zeichenkette: Der Klick auf ein Teil täte schlicht nichts, ohne
+            # Fehler und ohne Meldung.
             #
             # `args` ist leer, wenn die Eingabetaste bestätigt — dann gilt das
             # Feld.
@@ -14805,17 +14223,11 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
 def _save_entry(eintrag):
     """Diesen Eintrag in die Datei zurückschreiben — Hangar **oder** Wunsch.
 
-    ⚠⚠⚠ **Der Vorgänger hat Daten vernichtet.** `_hangar_liste()` gab nur die
-    Schiffsliste zurück, und gespeichert wurde damit
-    `{'format': …, 'schiffe': …}` — **ohne `wunsch`**. Jedes Mal, wenn jemand
-    an der Ausstattung eines Schiffs etwas änderte, war die komplette
-    Wunschliste weg. Am 06.09.2026 gemeldet: „gebe ich ein Schiff auf der
-    Wunschliste ein, bleibt es nur so lange stehen, bis ich Komponenten dazu
-    eintrage."
-
-    Dazu kam der zweite Teil desselben Fehlers: Ein **Wunsch**-Eintrag wurde in
-    `schiffe` gesucht, dort nie gefunden — seine Änderung ging also ebenfalls
-    verloren.
+    ⚠⚠⚠ **Nie nur die Schiffsliste schreiben.** `{'format': …, 'schiffe': …}`
+    **ohne `wunsch`** löschte bei jeder Änderung an der Ausstattung eines
+    Schiffs die komplette Wunschliste. Und ein **Wunsch**-Eintrag, der nur in
+    `schiffe` gesucht wird, wird dort nie gefunden — seine Änderung ginge
+    ebenfalls verloren.
 
     ⚠ Gespeichert wird deshalb der **geladene Gesamtstand** mit dem
     ausgetauschten Eintrag. Wer eine Teilmenge schreibt, löscht den Rest; das
@@ -14902,8 +14314,6 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
     kopf.pack(fill='x', padx=12, pady=(8, 2))
 
     # ⭐⭐ **Der Haken sitzt am Posten selbst, nicht nur auf der Sammelliste.**
-    # Am 06.09.2026 dazu: „es muss auch anklickbar sein, ob eine Komponente
-    # schon eingebaut ist oder noch gekauft oder hergestellt werden muss."
     # Genau hier steht man vor dem Schiff und sieht seine Plätze — hier fällt
     # einem ein, dass das Teil längst drin ist, nicht zwei Reiter weiter.
     def abhaken(_e=None):
@@ -14971,10 +14381,9 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
                 # ⚠⚠ **Der Ort steht oft schon im Ladennamen.** UEX schreibt
                 # ihn dort mit hinein: Laden „Ship Weapons - Pyro Gateway
                 # (Stanton)", Ort „Pyro Gateway (Stanton)". Beides
-                # aneinandergehängt ergab „… bei Ship Weapons - Pyro Gateway
-                # (Stanton) · Pyro Gateway (Stanton)" — derselbe Ort zweimal,
-                # und die Zeile so lang, dass sie den Knopf daneben aus dem
-                # Fenster geschoben hat.
+                # aneinandergehängt ergäbe denselben Ort zweimal, und die Zeile
+                # würde so lang, dass sie den Knopf daneben aus dem Fenster
+                # schiebt.
                 laden = (angabe.get('laden') or '').strip()
                 ort = (angabe.get('ort') or '').strip()
                 stellen = [laden] if laden else []
@@ -14995,11 +14404,9 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
             text, farbe = t('s_wk_kein_preis'), SUB
         else:
             text, farbe = t('s_wk_nicht_geprueft'), SUB
-        # ⚠⚠ **Ein fehlender Preis ist kein fehlender Weg.** Bis zum 06.09.2026
-        # stand der Knopf nur bei `BEKANNT` — wer einmal auf „Selbst
-        # herstellen" gewechselt hatte, kam nicht mehr zurück, solange UEX
-        # keinen Preis führte. Gefragt wurde: „wie wähle ich Kaufen
-        # überhaupt aus?" Die richtige Antwort war: gar nicht.
+        # ⚠⚠ **Ein fehlender Preis ist kein fehlender Weg.** Stünde der Knopf
+        # nur bei `BEKANNT`, käme wer einmal auf „Selbst herstellen"
+        # gewechselt hat nicht mehr zurück, solange UEX keinen Preis führt.
         #
         # | Zustand | heißt | Knopf |
         # |---|---|---|
@@ -15010,14 +14417,11 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
         # Der Unterschied ist derselbe wie überall hier: Eine Aussage über
         # **fremde Daten** darf nie zu einer Aussage über das Spiel werden.
         #
-        # ⚠⚠ **Der Knopf wird VOR dem Text gepackt — das ist kein Stil, sondern
-        # der Fehler selbst.** In `tkinter` bekommt das zuerst gepackte Element
-        # seinen Platz; ein langer Text mit `side='left'` schiebt einen später
-        # gepackten `side='right'`-Knopf schlicht aus dem Fenster. Genau das ist
-        # passiert: Bei einem Laden mit langem Namen war der Knopf „Kaufen"
-        # unsichtbar, und wer einmal auf „Selbst herstellen" gewechselt hatte,
-        # kam nicht zurück. Am 06.09.2026 gemeldet — und dieselbe Falle steht
-        # schon zweimal in den Projektregeln.
+        # ⚠⚠ **Der Knopf wird VOR dem Text gepackt — das ist kein Stil.** In
+        # `tkinter` bekommt das zuerst gepackte Element seinen Platz; ein
+        # langer Text mit `side='left'` schiebt einen später gepackten
+        # `side='right'`-Knopf schlicht aus dem Fenster. Bei einem Laden mit
+        # langem Namen wäre der Knopf „Kaufen" sonst unsichtbar.
         if not aktiv and angabe.get('zustand') != cart.NO_RECIPE:
             _button(fenster, zeile, t(schluessel),
                    waehlen(weg)).pack(side='right', padx=(8, 0))
@@ -15086,7 +14490,7 @@ def _cart_route(fenster, eltern, liste):
     # wirklich liegen. Beide sind richtig und meinen Verschiedenes —
     # unbeschriftet nebeneinander sähe es aus, als rechne das Werkzeug falsch.
     # ⚠ Läden und Stopps werden **einzeln** gebeugt. Zwei Läden an einem Ort
-    # sind „2 Läden · 1 Stopp" — ein gemeinsamer Mehrzahl-Satz schrieb hier
+    # sind „2 Läden · 1 Stopp" — ein gemeinsamer Mehrzahl-Satz schriebe
     # „1 Stopps".
     zahl_text = '%s · %s' % (
         t('s_wk_laden' if zahlen['laeden'] == 1
@@ -15142,12 +14546,12 @@ def _storage(fenster, rahmen):
     # ⭐ In welcher Einheit das Mengenfeld rechnet. Das Raffinerie-Terminal im
     # Spiel zeigt **cSCU**, die Gegenstands-Anzeige im Lager **SCU** — und vom
     # Terminal abzutippen ist bequemer, weil man dort nicht jeden Stapel
-    # einzeln mit der Maus anfahren muss (Wunsch vom 30.08.2026). Das Kästchen
+    # einzeln mit der Maus anfahren muss. Das Kästchen
     # neben dem Feld schaltet um; die Beschriftung sagt immer, was gerade gilt.
     cscu = [paths.setting('lager_einheit') == 'cscu']
 
     def _einheit(name=None):
-        """„Stück" oder „SCU" für die Meldungen (rc7) — zum gewählten oder
+        """„Stück" oder „SCU" für die Meldungen — zum gewählten oder
         zum genannten Material."""
         try:
             from . import crafting as _h_einheit
@@ -15188,9 +14592,8 @@ def _storage(fenster, rahmen):
     frei = {'name': None}
 
     mengen_vorschau = None
-    # ⚠⚠ **Beschriftung ÜBER dem Feld** — dasselbe Bild wie im Handelslager
-    # (Wunsch vom 30.08.2026: „damit wir überall das gleiche Bild haben").
-    # Die alte Zeilenform (Bezeichnung links, Feld rechts) verträgt sich nicht
+    # ⚠⚠ **Beschriftung ÜBER dem Feld** — dasselbe Bild wie im Handelslager.
+    # Die Zeilenform (Bezeichnung links, Feld rechts) verträgt sich nicht
     # mit einem Feld, das im Betrieb wächst: Klappt die Auswahlliste auf, wird
     # die Zeile zehn Zeilen hoch und Tk setzt die Beschriftung auf halbe Höhe.
     ware_zeichnen = ort_zeichnen = lambda: None
@@ -15293,10 +14696,10 @@ def _storage(fenster, rahmen):
                             ACCENT, FG)
             f.holder.pack(fill='x', pady=(4, 0))
 
-    # ℹ Die früheren „Meintest du:"-Zeilen für Rohstoff und Lagerort sind
-    # entfallen: Das Auswahlfeld filtert beim Tippen selbst und zeigt auf
-    # Knopfdruck die ganze Liste. Zwei Wege für dieselbe Hilfe nebeneinander
-    # wären eine Bedienung zu viel.
+    # ℹ Keine „Meintest du:"-Zeilen für Rohstoff und Lagerort: Das
+    # Auswahlfeld filtert beim Tippen selbst und zeigt auf Knopfdruck die
+    # ganze Liste. Zwei Wege für dieselbe Hilfe nebeneinander wären eine
+    # Bedienung zu viel.
 
     def _bestand_vorher():
         """Wie viel im gerade bearbeiteten Posten liegt — sonst 0."""
@@ -15348,7 +14751,7 @@ def _storage(fenster, rahmen):
     # ⚠ Als **Tabelle mit Spalten**, nicht als Fließtext: Bei 26 Materialien
     # an mehreren Orten wird die Liste lang, und dann sucht man einen Posten,
     # statt ihn zu sehen. Spaltenköpfe sortieren auf Klick, das Feld darüber
-    # filtert. (Wunsch von Xharig, 29.08.2026.)
+    # filtert.
     sortier = {'nach': 'material', 'ab': False}
     filter_var = tk.StringVar()
 
@@ -15455,15 +14858,15 @@ def _storage(fenster, rahmen):
             # den Platz in der Reihenfolge des Packens: Was links zuerst
             # kommt, nimmt sich seine Breite, und der rechte Rest bekommt, was
             # übrig ist — bei fünf Spalten mit fester Breite also unter
-            # Umständen nichts. Auf dem Bildschirm stand deshalb „chen" statt
-            # „Löschen" (30.08.2026 gemeldet). Zuerst gepackt, reserviert es
+            # Umständen nichts — es stünde „chen" statt „Löschen" da. Zuerst
+            # gepackt, reserviert es
             # seinen Platz, und die Spalten teilen sich den Rest.
             weg = tk.Label(z, text=t('s_lg_weg'), bg=z_bg, fg=SUB,
                            font=fenster.f_small, cursor='hand2', anchor='e')
             weg.pack(side='right', padx=(8, 4))
             # ⚠ Rollstelle halten — sonst springt die Seite beim Löschen nach
             # ganz oben, und wer beim zwölften Posten war, sucht sich neu
-            # zurecht (30.08.2026 gemeldet).
+            # zurecht.
             weg.bind('<Button-1>',
                      lambda _e, n=nummer: _keep_scroll(
                          weg, lambda: (lager.remove(n),
@@ -15487,7 +14890,8 @@ def _storage(fenster, rahmen):
                 if letzte:
                     # ⚠ Die letzte Spalte (Ort) nimmt den Rest und bricht um,
                     # statt feste Zeichen zu fordern: Bei der größten Schrift
-                    # bekam „Levski" 103 von 198 px (randpruefung, 27.09.2026).
+                    # bekäme „Levski" sonst nur rund die Hälfte seiner Breite
+                    # (tools/randpruefung.py).
                     lbl.pack(side='left', padx=(0, 8), fill='x', expand=True)
                     _wrap_self(lbl)
                 else:
@@ -15584,15 +14988,12 @@ def _storage(fenster, rahmen):
         if richtig is None:
             # ⚠⚠ **HIER endet es. Es gibt keinen Ausweg, und das ist Absicht.**
             #
-            # Bis v3.3.0-rc40 stand daneben ein Knopf „Trotzdem eintragen".
-            # Damit war das Feld faktisch frei — und ein freies Textfeld heisst,
-            # dass jemand Schimpfwoerter, Religioeses oder Politisches
-            # eintraegt, ein Bildschirmfoto macht und es verbreitet. Am Ende
-            # fragt niemand, wer das getippt hat: Es steht in diesem Werkzeug,
-            # also kommt es scheinbar von dessen Autor.
+            # Ein Knopf „Trotzdem eintragen" machte das Feld faktisch frei —
+            # und ein freies Textfeld heisst, dass jemand Schimpfwoerter,
+            # Religioeses oder Politisches eintraegt, ein Bildschirmfoto macht
+            # und es verbreitet. Es steht dann in diesem Werkzeug.
             #
-            # Am 30.08.2026 unmissverstaendlich festgelegt: „NUR was auch in
-            # der Rohstoff-Liste ist darf speicherbar sein, sonst nichts."
+            # Speicherbar ist NUR, was in der Rohstoff-Liste steht.
             #
             # Die Liste umfasst alle 39 Mineralien und 13 Pflanzen aus den
             # Spieldaten (`crafting.storable()`). Fehlt etwas, wird die
@@ -15612,9 +15013,9 @@ def _storage(fenster, rahmen):
         # sich das Vorzeichen beziehen koennte, dort zaehlt schlicht die Zahl.
         # ⚠⚠ **Auch „1.04+3" muss gehen.** Beim Bearbeiten steht die aktuelle
         # Menge schon im Feld — wer drei dazulegen will, tippt hinten „+3" an.
-        # Bis v3.3.0-rc39 zaehlte nur ein FUEHRENDES Vorzeichen, und genau die
-        # natuerliche Eingabe wurde abgelehnt. `lager.calculate()` kann jetzt
-        # beides und liefert direkt die **neue Menge**.
+        # Nur ein FUEHRENDES Vorzeichen zu zaehlen, lehnte genau diese
+        # natuerliche Eingabe ab. `lager.calculate()` kann beides und liefert
+        # direkt die **neue Menge**.
         roh = (menge.get() or '0').strip()
         vorher_menge = _bestand_vorher()
         rechnend = bool(roh) and (roh[:1] in '+-−'
@@ -15634,9 +15035,8 @@ def _storage(fenster, rahmen):
             if neu_wert < 0 and nr is None:
                 # ⚠ Beim ANLEGEN gibt es keinen Bestand, von dem etwas
                 # abgehen könnte. „So viel ist nicht da. Vorhanden: 0 SCU"
-                # las sich dort wie ein Buchhaltungsfehler, dabei ist die
-                # Eingabe schlicht sinnlos. Am 30.08.2026 aufgefallen: „-2"
-                # in ein leeres Formular.
+                # läse sich dort wie ein Buchhaltungsfehler, dabei ist die
+                # Eingabe („-2" in ein leeres Formular) schlicht sinnlos.
                 meldung.configure(text=t('s_lg_nicht_negativ'), fg=GOLD)
                 return
             if neu_wert < 0:
@@ -15745,12 +15145,10 @@ def _storage(fenster, rahmen):
     meldung.pack(fill='x')
 
     _refinery_box(fenster, innen, lager, ort, zeichnen, meldung)
-    # ⚠⚠ **Das Suchfeld wird EINMAL gebaut — nicht in `zeichnen()`.** Dort
-    # stand es bis rc28, und `zeichnen()` räumt bei jeder Änderung den ganzen
-    # Listenbereich leer: Mit jedem getippten Buchstaben zerstörte sich das
-    # Feld selbst, der Tastaturfokus ging verloren, und man musste für den
-    # nächsten Buchstaben neu hineinklicken. Am 30.08.2026 gemeldet: „im Lager
-    # bei Eingabe im Suchfeld tabt man automatisch raus".
+    # ⚠⚠ **Das Suchfeld wird EINMAL gebaut — nicht in `zeichnen()`.**
+    # `zeichnen()` räumt bei jeder Änderung den ganzen Listenbereich leer:
+    # Mit jedem getippten Buchstaben zerstörte sich das Feld selbst, und der
+    # Tastaturfokus ginge verloren.
     #
     # Alles, woran ein Cursor stehen kann, gehört ausserhalb der Zeichenroutine.
     from .main_window import round_entry as _rf_suche
@@ -15928,9 +15326,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     ⭐⭐ **`zusatz`: was rechts neben dem Namen steht** — eine Funktion
     `name -> text` oder ein Wörterbuch. Bei der Teileauswahl sind das Güte und
     Klasse, und die entscheiden dort alles: Man baut ein Schiff auf einen Zweck
-    hin. Am 06.09.2026 dazu: „man sollte in der Liste sehen ob es grade A B
-    oder C ist und ob Military oder was anderes … nicht jeder weiß alle
-    Komponenten auswendig."
+    hin, und nicht jeder kennt alle Komponenten auswendig.
 
     ⚠ **Der Zusatz wird mitgesucht.** Wer `stealth` tippt, meint die
     Tarn-Komponenten und nicht ein Teil namens Stealth — eine Liste, die den
@@ -15943,11 +15339,11 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     offen = {'ja': False}
 
     # ⭐ `clearable`: ein X im Feld leert die Suche — in jedem Auswahlfeld
-    # gleich, gewünscht am 17.09.2026 für „Mein Hangar".
+    # gleich.
     # ⚠⚠ **Feste Regel: Der Pfeil sitzt IM Feld und sieht aus wie bei
-    # `round_select`** (dasselbe ▾). Bis 17.09.2026 stand hier ein Chevron ›
-    # als eigenes Bauteil neben dem Feld — auf „Bergbau" also zwei Sorten
-    # Auswahlfeld untereinander. Siehe `round_entry(dropdown=True)`.
+    # `round_select`** (dasselbe ▾), kein eigenes Bauteil daneben — sonst
+    # stünden zwei Sorten Auswahlfeld untereinander. Siehe
+    # `round_entry(dropdown=True)`.
     feld = round_entry(zeile, var, window.f_small, theme.FIELD, LINE, ACCENT,
                        FG, clearable=True, dropdown=True)
     pfeil = feld.trailing
@@ -15981,7 +15377,6 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
         # tippt, meint „A.T.L.S." — und umgekehrt. Ohne diese Zeile findet das
         # Feld sein eigenes Schiff nicht: Der Pledge-Store schreibt „A.T.L.S.",
         # UEX schreibt „Argo ATLS IKTI", und beide sind dasselbe Ding.
-        # Gemeldet am 06.09.2026 beim Handeintrag im Hangar.
         schlank = _squashed(text)
 
         def _passt(name):
@@ -16002,9 +15397,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
         liste.pack(fill='x', pady=(4, 0))
         # ⭐ **`rollbar`: alle Treffer, in einer Flaeche fester Hoehe.**
         # Ohne das zeigt die Liste zehn Namen und sagt „und 124 weitere" — wer
-        # nicht weiterliest, haelt die zehn fuer das ganze Angebot. Gemeldet am
-        # 06.09.2026 zum Hangar: „sonst sieht er die Liste und denkt sich, dass
-        # nicht alle Schiffe eintragbar sind."
+        # nicht weiterliest, haelt die zehn fuer das ganze Angebot.
         #
         # ⚠ Die Hoehe ist **fest**, nicht mitwachsend: 280 Schiffe untereinander
         # wuerden die ganze Seite zuschuetten und den Knopf darunter
@@ -16094,13 +15487,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
         # Teileauswahl im Warenkorb zeichnet `beim_waehlen` die ganze
         # Steckplatz-Liste neu — und die Auswahlliste hängt darin. Danach
         # arbeitete `zeichnen()` auf einem Widget weiter, das es nicht mehr
-        # gibt: `TclError: bad window path name`, acht Stück in einem
-        # Fehlerbericht vom 06.09.2026.
-        #
-        # ⚠ Und **warum das erst jetzt auffiel**: Solange der Klick gar nichts
-        # bewirkte (der Name kam nie an, siehe `uebernehmen`), wurde auch
-        # nichts neu gezeichnet. Ein behobener Fehler hat den zweiten
-        # freigelegt — nicht verursacht.
+        # gibt: `TclError: bad window path name`.
         try:
             if not liste.winfo_exists():
                 return
@@ -16116,10 +15503,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
 
     feld.holder.pack(side='left', fill='both', expand=True)
 
-    # ⭐⭐ **Ein Klick ins Feld klappt die Liste auf.** Am 05.09.2026 gemeldet:
-    # „Erwarte, dass ich ins Feld klicke, was eingeben kann und auch vor der
-    # Eingabe schon das Dropdown aufgeht — das Dropdown ist aber rechts
-    # versteckt, da sucht es niemand." Beides stimmt: Der Pfeil ist ein
+    # ⭐⭐ **Ein Klick ins Feld klappt die Liste auf.** Der Pfeil ist ein
     # 16-Pixel-Symbol am rechten Rand, und wer ein Auswahlfeld anklickt,
     # erwartet eine Auswahl. Der Pfeil bleibt trotzdem — er zeigt an, dass da
     # etwas zum Aufklappen ist, und schliesst die Liste wieder.
@@ -16131,9 +15515,8 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     feld.bind('<FocusIn>', beim_hineinklicken, add='+')
     feld.bind('<Button-1>', beim_hineinklicken, add='+')
 
-    # ⚠⚠ **Und sie geht wieder zu, wenn man woanders hinklickt.** Am
-    # 05.09.2026 gemeldet: „Wenn man dann doch nichts auswählt, bleibt die
-    # einfach offen." Eine Liste, die nur aufgeht, ist eine halbe Bedienung.
+    # ⚠⚠ **Und sie geht wieder zu, wenn man woanders hinklickt.** Eine
+    # Liste, die nur aufgeht, ist eine halbe Bedienung.
     #
     # ⚠ **Verzögert um 200 ms** — und das ist kein Schönheitsfehler: Ein Klick
     # auf einen Listeneintrag löst zuerst `<FocusOut>` am Feld aus und erst
@@ -16150,14 +15533,11 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
             zeichnen()
 
     # ⚠⚠ **Ein Klick auf die Rollleiste ist ein Klick IN die Liste.**
-    # Gemeldet am 11.09.2026 zu „Was steckt drin?": Mit dem Mausrad ließ sich
-    # die Schiffsliste rollen — wer aber die Leiste rechts anfasste, dem
-    # verschwand die ganze Auswahl. Ursache ist die Fensterregel
-    # `_bind_click_on_empty`: Die Leiste ist eine Leinwand, kein
-    # Eingabefeld, also bekommt das Fenster den Fokus, das Feld meldet
-    # `<FocusOut>`, und 200 ms später klappte `_zumachen` die Liste zu.
-    # `_klick_im_fenster` erkannte den Klick zwar richtig als „drinnen" —
-    # nur fragte das `<FocusOut>` gar nicht erst nach.
+    # Die Fensterregel `_bind_click_on_empty` greift dort: Die Leiste ist
+    # eine Leinwand, kein Eingabefeld, also bekommt das Fenster den Fokus,
+    # das Feld meldet `<FocusOut>`, und 200 ms später klappte `_zumachen`
+    # die Liste zu — obwohl `_klick_im_fenster` den Klick richtig als
+    # „drinnen" erkennt.
     #
     # Deshalb merkt sich `_klick_im_fenster`, wann zuletzt innen geklickt
     # wurde. Fällt der Fokusverlust auf denselben Augenblick, stammt er von
@@ -16187,9 +15567,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     # `<FocusOut>` allein reicht **nicht**: Es feuert nur, wenn ein anderes
     # **fokussierbares** Element den Fokus übernimmt. Wer auf eine
     # Beschriftung oder freie Fläche klickt, lässt den Fokus im Eingabefeld —
-    # und die Liste blieb offen. Am 05.09.2026: „Klicken im selben Fenster ins
-    # Leere blendet das Dropdown auch nicht aus, ist in jedem Programm so, nur
-    # bei mir nicht."
+    # und die Liste bliebe offen.
     #
     # Deshalb hängt die Prüfung am Fenster, nicht am Feld: Jeder Klick wird
     # daraufhin angesehen, ob er innerhalb von Feld, Pfeil oder Liste lag.
@@ -16213,9 +15591,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     except tk.TclError:
         pass
 
-    # ⭐⭐ **Enter übernimmt, was dasteht.** Am 05.09.2026 gemeldet: „Gebe ich
-    # Gold fertig ein und wähle es nicht aus der Liste, übernimmt er Gold auch
-    # nicht." Wer den Namen kennt und ihn zu Ende tippt, hat die Liste nicht
+    # ⭐⭐ **Enter übernimmt, was dasteht.** Wer den Namen kennt und ihn zu Ende tippt, hat die Liste nicht
     # nötig — und drückt Enter.
     #
     # ⚠ Der Aufrufer entscheidet, was gültig ist (`beim_bestaetigen`): Im
@@ -16380,10 +15756,7 @@ def _selling(fenster, rahmen):
     def waehlen(name):
         if name not in auswahl:
             auswahl.append(name)
-        # ⭐⭐ **Menge gleich mitnehmen, ohne Umweg übers Lager.** Am
-        # 05.09.2026: „Eine Menge, die man hat, kann man nur über das Lager
-        # eingeben — manchmal will man Ware sofort verkaufen, ohne erst
-        # einzulagern." Richtig: Wer gerade 120 SCU Gold im Laderaum hat und
+        # ⭐⭐ **Menge gleich mitnehmen, ohne Umweg übers Lager.** Wer gerade 120 SCU Gold im Laderaum hat und
         # wissen will, was sie bringen, will sie nicht erst eintragen.
         suche.set('')
         neu_zeichnen()
@@ -16425,10 +15798,9 @@ def _selling(fenster, rahmen):
     feldzeile.pack(fill='x', pady=(4, 0))
     feldliste.pack(fill='x')
 
-    # ⚠ Hier stand bis v3.15.0-rc12 ein einzelnes Mengenfeld für „die zuletzt
-    # gewählte Ware". Es ist weg: Die Menge steht jetzt an der Marke der Ware
-    # selbst (siehe `_chips`), und zwei Wege für dieselbe Sache waren genau
-    # der Grund, warum sich die Zahlen gegenseitig überschrieben.
+    # ⚠ Kein einzelnes Mengenfeld für „die zuletzt gewählte Ware": Die Menge
+    # steht an der Marke der Ware selbst (siehe `_chips`) — zwei Wege für
+    # dieselbe Sache überschrieben sich gegenseitig.
     _menge_lbl = tk.Label(suchzeile, text=t('s_vk_menge_hinweis'), bg=BG,
                           fg=SUB, font=fenster.f_small, anchor='w',
                           justify='left')
@@ -16456,13 +15828,10 @@ def _selling(fenster, rahmen):
     def _chips():
         """Die gewählten Waren — je eine Marke mit **eigenem** Mengenfeld.
 
-        ⚠⚠ **Die Menge gehört an die Ware, nicht an ein Feld daneben.**
-        Zuerst gab es ein einziges Mengenfeld, das für „die zuletzt gewählte
-        Ware" galt. Das muss raten — und rät falsch, sobald jemand die Zahl
-        eintippt, **bevor** er die Ware wählt. Am 05.09.2026 gemeldet: „Wenn
-        ich eine Menge eingebe, wird die nicht übernommen, erst wenn ich den
-        zweiten Artikel eingebe — und dann ändert sich die Zahl wieder."
-        Genau das: Die Zahl landete bei der vorigen Ware und wanderte dann mit.
+        ⚠⚠ **Die Menge gehört an die Ware, nicht an ein Feld daneben.** Ein
+        einziges Mengenfeld für „die zuletzt gewählte Ware" muss raten — und
+        rät falsch, sobald jemand die Zahl eintippt, **bevor** er die Ware
+        wählt: Die Zahl landet bei der vorigen Ware.
 
         Mit einem Feld je Marke gibt es nichts mehr zu raten.
         """
@@ -16524,10 +15893,8 @@ def _selling(fenster, rahmen):
             _body_text(ergebnis_rahmen, t('s_vk_leer_hinweis'),
                         fenster.f_small, fill='x')
             # ⭐⭐ **Statt einer leeren Seite: Was zahlt gerade am besten?**
-            # Xharig am 04.09.2026: „ist einfach nur leer, und ein Suchfeld,
-            # ist langweilig — was kann man da hinbauen?"
             #
-            # Die Antwort lag schon da: Die Ablage kennt 114 Waren mit
+            # Die Ablage kennt 114 Waren mit
             # Ankaufgeboten. Daraus eine Bestenliste zu bauen kostet **keinen
             # einzigen Abruf** — und beantwortet die Frage, die man vor dem
             # Suchfeld überhaupt hat: „Wonach soll ich suchen?"
@@ -16559,12 +15926,11 @@ def _selling(fenster, rahmen):
                 zeile.pack(fill='x', padx=12, pady=5)
                 for w in (kasten, zeile):
                     w.configure(cursor='hand2')
-                # ⚠ `s_vk_je_scu` gab es **schon** — mit `{preis}` statt `%s`.
-                # Ein zweiter Eintrag desselben Namens hat den alten still
-                # verdrängt, und `% _geld(...)` flog auf die Nase: „Text da,
-                # aber zeigt nichts an" (04.09.2026). Ein doppelter Schlüssel
+                # ⚠ `s_vk_je_scu` nutzt `{preis}`, nicht `%s`. Ein zweiter
+                # Eintrag desselben Namens verdrängt den ersten still, und
+                # `% _geld(...)` flöge auf die Nase. Ein doppelter Schlüssel
                 # fällt in einem Wörterbuch nicht auf — deshalb prüft der
-                # Selbsttest das jetzt.
+                # Selbsttest das.
                 p = tk.Label(zeile,
                              text=t('s_vk_je_scu').format(
                                  preis=_auec(preis)),
@@ -16593,9 +15959,8 @@ def _selling(fenster, rahmen):
         lagermengen.update(eigene_mengen)
         for nummer, ort in enumerate(orte[:40]):
             # ⚠ Die Spaltenüberschrift steht **nur über dem ersten Kasten**.
-            # In jedem zu wiederholen war der erste Bau: Bei 40 Orten stand
-            # „Ware · SCU · Preis 1 SCU · Gesamtpreis" vierzigmal da und machte
-            # die Liste unruhiger, statt sie zu erklären.
+            # In jedem wiederholt, stünde sie bei 40 Orten vierzigmal da und
+            # machte die Liste unruhiger, statt sie zu erklären.
             _selling_row(fenster, ergebnis_rahmen, ort, len(auswahl),
                            lagermengen, mit_kopf=(nummer == 0))
 
@@ -16604,9 +15969,7 @@ def _selling(fenster, rahmen):
         such_zeichnen()
         _ergebnis()
 
-    # ⚠⚠ **Ein Klick ins Leere nimmt auch den Schreibcursor mit.** Am
-    # 05.09.2026 gemeldet: „Bei Eingabe der Menge muss der Marker aus dem Feld
-    # auch wieder verschwinden, wenn man ins Leere klickt." Stimmt — ein
+    # ⚠⚠ **Ein Klick ins Leere nimmt auch den Schreibcursor mit.** Ein
     # blinkender Cursor in einem Feld, das man gar nicht mehr bearbeitet,
     # behauptet, man sei noch dabei.
     #
@@ -17060,13 +16423,11 @@ def _trade_storage(fenster, rahmen):
     def _lager_leeren():
         """Das ganze Handelslager verwerfen — nach Rückfrage.
 
-        ⚠⚠ **Der Name ist mit Absicht lang.** Sie hiess bis 31.08.2026
-        `_leeren` — genau wie der Helfer weiter oben, der die Kinder eines
-        Rahmens wegraeumt und **mit** Argument gerufen wird. Die spaetere
-        Definition gewinnt in Python: Ab dem Einbau des Loeschen-Knopfes
-        scheiterte jeder Aufbau der Liste mit „_leeren() takes 0 positional
-        arguments but 1 was given" — die Seite blieb ohne ihre Tabelle. Ging
-        so in v3.4.2 an die Nutzer.
+        ⚠⚠ **Der Name ist mit Absicht lang.** `_leeren` heisst schon der
+        Helfer weiter oben, der die Kinder eines Rahmens wegraeumt und **mit**
+        Argument gerufen wird. Die spaetere Definition gewinnt in Python: Jeder
+        Aufbau der Liste scheiterte dann mit „_leeren() takes 0 positional
+        arguments but 1 was given".
 
         ⚠ Rot **und** mit Frage, wie im Werkstatt-Lager. In der Frage steht die
         Zahl der Posten: „12 Posten werden entfernt" wiegt anders als „wirklich
@@ -17105,13 +16466,11 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
                           bearbeiten, offen_nr):
     """Das Lager als echte Tabelle. Gibt den Gesamtwert zurück.
 
-    ⚠⚠ **Ein gemeinsames Raster, nicht ein Rahmen je Zeile.** Vorher war jede
-    Zeile ein eigener Kasten mit `pack` — dabei richtet sich nichts aneinander
-    aus: Die Beträge standen rechtsbündig irgendwo, und man musste raten,
-    welche Zahl wozu gehört. Mit `grid` in **einem** Rahmen legt Tk die Spalten
-    über alle Zeilen gleich breit an, und die Zuordnung ist zu sehen statt zu
-    erraten. Am 30.08.2026 so gewünscht: „wie ne Tabelle aufgebaut bitte, damit
-    man die zuordnung zahlen text erkennt".
+    ⚠⚠ **Ein gemeinsames Raster, nicht ein Rahmen je Zeile.** Mit einem
+    eigenen Kasten je Zeile (`pack`) richtet sich nichts aneinander aus, und
+    man muss raten, welche Zahl wozu gehört. Mit `grid` in **einem** Rahmen
+    legt Tk die Spalten über alle Zeilen gleich breit an, und die Zuordnung
+    ist zu sehen statt zu erraten.
 
     Die Zahlenspalten stehen rechtsbündig (`sticky='e'`) — so steht Tausender
     unter Tausender, und ungleich lange Beträge bleiben vergleichbar.
@@ -17203,7 +16562,7 @@ def _view_angle(fenster, rahmen):
 
     ## ⚠ Warum von Hand ausgemessen wird
 
-    Am 06.09.2026 an einem Aufbau mit drei Bildschirmen gemessen: Tk meldet
+    An einem Aufbau mit drei Bildschirmen gemessen: Tk meldet
     für `winfo_screenmmwidth()` **1640 mm** — das ist der gesamte Desktop über
     alle drei Geräte, nicht der Bildschirm, auf dem gespielt wird. Die
     EDID-Angabe des Geräts (1193 mm) wäre richtig, ist aber nur unter X11
@@ -17285,15 +16644,11 @@ def _view_angle(fenster, rahmen):
             # Dort weitermachen, wo zuletzt aufgehört wurde — wer nachjustiert,
             # soll nicht wieder bei einer beliebigen Größe anfangen.
             start = fov_modul.CARD_WIDTH_MM / mm_je_pixel
-        # ⛔⛔ **Rückstand der Sprachumstellung.** Hier standen bis zum
-        # 14.09.2026 noch die deutschen Schlüsselwörter `schrift=`, `klein=`
-        # und `startbreite=`; `calibrate()` heißt seine Parameter längst
-        # `font`, `small`, `start_width`. Der Klick auf „Neu ausmessen" warf
-        # deshalb `TypeError: calibrate() got an unexpected keyword argument
-        # 'schrift'` — es passierte schlicht nichts. Gefunden von Blackd0g84
-        # (KRT). Dieselbe Bauart wie der `CurvePlot(breite=…)`-Fehler auf der
-        # Achsen-Seite: Ein Schlüsselwort gehört der **empfangenden**
-        # Funktion, und ein falsches fällt erst beim Aufruf auf.
+        # ⛔⛔ **Die Schlüsselwörter heißen `font`, `small`, `start_width`** —
+        # so benennt `calibrate()` seine Parameter. Ein falsches wirft erst
+        # beim Klick auf „Neu ausmessen" einen `TypeError`, und es passiert
+        # schlicht nichts. Ein Schlüsselwort gehört der **empfangenden**
+        # Funktion.
         fov_window.calibrate(rahmen, _fertig_gemessen,
                              font=fenster.f_base, small=fenster.f_small,
                              start_width=start)
@@ -17358,9 +16713,8 @@ def _view_angle(fenster, rahmen):
         feld.bind('<Return>', _abstand_merken)
         # ⚠⚠ `add='+'` ist hier PFLICHT. Ohne das ersetzt diese Bindung die,
         # die `fields.hint()` gerade gesetzt hat — und der Hinweis kommt
-        # nach dem ersten Verlassen des Feldes nie wieder. Vom Prüfer
-        # nachgestellt (12.09.2026): leeres Feld → Return → Fokus weg, Hinweis
-        # bleibt verschwunden.
+        # nach dem ersten Verlassen des Feldes nie wieder (leeres Feld →
+        # Return → Fokus weg, Hinweis bleibt verschwunden).
         #
         # Die Falle gilt für JEDES Feld mit eigener Bindung: `bind()` ohne
         # `add='+'` wirft die vorhandene weg, ohne sich zu beschweren.
@@ -17420,9 +16774,9 @@ def _view_angle(fenster, rahmen):
     def _wert_zeile(eltern, bezeichnung, wert, hilfe='', farbe=FG):
         zeile = tk.Frame(eltern, bg=BG)
         zeile.pack(fill='x', pady=(12, 0))
-        # ⚠ Der Wert zuerst: `pack` quetscht, was zuletzt kommt. Stand die
-        # Erklärung vorn, bekam „88 cm" bei der größten Schrift 5 von 70 px
-        # (randpruefung, 27.09.2026). Jetzt bricht die Erklärung um.
+        # ⚠ Der Wert zuerst: `pack` quetscht, was zuletzt kommt. Stünde die
+        # Erklärung vorn, bekäme der Wert bei der größten Schrift kaum Platz
+        # (tools/randpruefung.py). So bricht die Erklärung um.
         tk.Label(zeile, text=wert, bg=BG, fg=farbe, font=fenster.f_bold,
                  anchor='e').pack(side='right', padx=(16, 0))
         links = tk.Frame(zeile, bg=BG)
@@ -17459,7 +16813,7 @@ def _axes(fenster, rahmen):
     bleiben in der Datei stehen und tun nichts. Im Spiel ist das nicht zu
     sehen, weil dort nur das aktuelle Gerät auftaucht.
 
-    An einem echten Aufbau gemessen (06.09.2026): drei solcher Fälle, darunter
+    An einem echten Aufbau gemessen: drei solcher Fälle, darunter
     eine Sättigung, die der Spieler eingestellt hatte und die seit einem
     Kennungswechsel wirkungslos war. Beide Sticks liefen dadurch unterschiedlich
     scharf, bei identischer Beschriftung.
@@ -17501,13 +16855,12 @@ def _axes(fenster, rahmen):
     innen = _scroll_area(rahmen)
     _body_text(innen, t('s_ac_hinweis'), fenster.f_small, fill='x')
 
-    # ⚠⚠⚠ **Liegen mehrere Belegungsdateien da, muss man das sehen.** Am
-    # 06.09.2026 las der Watcher die falsche von zweien und zeigte eine
-    # Empfindlichkeit von 2, während im Spiel überall 1,00 stand — und weil
-    # in der alten Datei die Geräte anders durchnummeriert waren, die Werte
-    # des falschen Sticks dazu. Nichts davon war zu sehen.
+    # ⚠⚠⚠ **Liegen mehrere Belegungsdateien da, muss man das sehen.** Liest
+    # der Watcher die falsche, zeigt er andere Werte als das Spiel — und weil
+    # in einer alten Datei die Geräte anders durchnummeriert sein können, die
+    # Werte des falschen Sticks dazu.
     #
-    # Gelesen wird jetzt die zuletzt geänderte (`joysticks.all_actionmaps`).
+    # Gelesen wird die zuletzt geänderte (`joysticks.all_actionmaps`).
     # Das allein reicht aber nicht: Solange die Karteileiche danebenliegt,
     # kann sie beim nächsten Kopiervorgang wieder die jüngere sein. Deshalb
     # steht hier, was gefunden wurde — und welche davon zählt.
@@ -17561,8 +16914,7 @@ def _axes(fenster, rahmen):
         ⚠⚠ `_auffrischen()` baut den ganzen Inhalt neu auf — alle Kinder
         zerstören, alles wieder hinstellen. Beim Ändern einer Einstellung ist
         das richtig. Bei einem **Seitenwechsel** ist es reine Arbeit ohne
-        Ergebnis: Gemessen am 12.09.2026 **313 ms bei jedem Klick**, und das
-        ist Teil dessen, was als „wirkt lahm" ankam.
+        Ergebnis: gemessen **313 ms bei jedem Klick**.
 
         ⭐ Der Fingerabdruck ist die **Datenlage selbst**, nicht ein
         Zeitstempel: Sind die Zahlen gleich, wäre auch das Bild gleich. Und
@@ -17571,13 +16923,11 @@ def _axes(fenster, rahmen):
         die richtige Richtung für einen Irrtum.
 
         ⚠⚠ **Er braucht ALLE Quellen, aus denen gezeichnet wird — nicht nur
-        die naheliegendste.** Die erste Fassung nahm allein
-        `curves.summary()`. Darin stehen die Achseneinstellungen, aber
-        **nicht**, welche Funktion auf welcher Achse liegt. Vom Prüfer
-        nachgestellt (12.09.2026): `v_pitch` von `js1_x` auf `js1_y` schieben,
-        Exponent unverändert — die Zusammenfassung bleibt gleich, die Funktion
-        gehört danach zu einer anderen Achse, und Beschriftung, CurvePlot und
-        Regler wären auf dem alten Stand geblieben.
+        die naheliegendste.** In `curves.summary()` stehen die
+        Achseneinstellungen, aber **nicht**, welche Funktion auf welcher Achse
+        liegt: `v_pitch` von `js1_x` auf `js1_y` schieben lässt die
+        Zusammenfassung gleich, und Beschriftung, CurvePlot und Regler blieben
+        auf dem alten Stand.
 
         ⭐ **Statt die einzelnen Abfragen nachzubauen, steht hier die QUELLE.**
         `zusammenfassung()`, `funktionen_je_achse()` und `spielachsen_auf()`
@@ -17586,7 +16936,7 @@ def _axes(fenster, rahmen):
         dort zeigt, auch das, woran hier gerade niemand denkt.
 
         Einzelne Abfragen aufzuzählen wäre die zweite Wahrheit, die irgendwann
-        unvollständig wird — genau der Fehler, den die erste Fassung hatte.
+        unvollständig wird.
 
         ⚠ Dazu `device_set.sets()`: eine **eigene** Quelle (die Gerätesätze
         stehen woanders), und sie wird auf derselben Seite angezeigt.
@@ -17631,16 +16981,15 @@ def _axes(fenster, rahmen):
 
         ⚠ Der Inhalt wird bei jedem Geräte- und Achsenwechsel komplett neu
         gebaut — danach steht die Rollfläche wieder bei null, und wer unten
-        bei den Reglern war, landet oben. Gemeldet 06.09.2026: „beim
-        Anklicken einer Option springt das Fenster immer nach oben."
-        `_rollstelle_halten` gibt es im Projekt genau dafür.
+        bei den Reglern war, landet oben. `_rollstelle_halten` gibt es im
+        Projekt genau dafür.
         """
         _keep_scroll(inhalt, _neu_bauen)
-        # ⚠ Den Abdruck NACH dem Aufbau nehmen (rc9): `_neu_bauen` setzt beim
+        # ⚠ Den Abdruck NACH dem Aufbau nehmen: `_neu_bauen` setzt beim
         # ersten Mal die Vorauswahl in `wahl`, und Klicks auf der Seite ändern
         # sie. Genommen vorher, passte der Abdruck beim nächsten Besuch nicht,
         # und die Seite baute sich umsonst neu (0,47 s, gemessen mit
-        # `tools/tempo_messen.py`, 27.09.2026).
+        # `tools/tempo_messen.py`).
         zuletzt_achsen['stand'] = _achsen_stand()
 
     def _neu_bauen():
@@ -17845,12 +17194,10 @@ def _axes(fenster, rahmen):
             # ⚠⚠ **Den Ausgangswert NACH dem Rastern lesen.**
             #
             # `tk.Scale` zieht jeden Wert auf sein Raster: Aus dem echten
-            # 0.098999992 wurde beim Aufbau 0.099 — und die Seite hielt das
-            # für eine Änderung, die niemand gemacht hatte. Die Folge war
-            # sichtbar: „Ungespeicherte Änderung" stand sofort beim Öffnen da,
-            # und beim Speichern landeten Werte in der Datei, die der Spieler
-            # nie angefasst hatte (gemeldet 06.09.2026: „die Werte sind immer
-            # wieder die alten").
+            # 0.098999992 wird beim Aufbau 0.099 — und die Seite hielte das
+            # für eine Änderung, die niemand gemacht hat: „Ungespeicherte
+            # Änderung" stünde sofort beim Öffnen da, und beim Speichern
+            # landeten Werte in der Datei, die der Spieler nie angefasst hat.
             #
             # Verglichen wird deshalb gegen den **gerasterten** Startwert.
             # Fasst niemand den Regler an, gibt es keine Änderung — und der
@@ -17910,9 +17257,9 @@ def _axes(fenster, rahmen):
         _empfindlichkeit(empf_rahmen, gewaehlter, wahl['achse'],
                          plot, anzeigen, _stand_zeigen)
 
-        # ⚠ Der frühere lokale Import des Tk-Dialogs ist hier weggefallen: Er
-        # verdeckte den Dialog im Programmstil, der weiter oben in dieser
-        # Funktion definiert ist, und holte den weißen System-Kasten zurück.
+        # ⚠ Kein lokaler Import des Tk-Dialogs hier: Er verdeckte den Dialog
+        # im Programmstil, der weiter oben in dieser Funktion definiert ist,
+        # und holte den weißen System-Kasten zurück.
         # (Der Aufruf steht bewusst nicht ausgeschrieben — die Wache im
         # Selbsttest sucht nach dem Wortlaut und schlüge sonst an.)
         _speichern = _speichern_alles
@@ -18020,12 +17367,11 @@ def _axes(fenster, rahmen):
     def _altbestand(eltern, ueberblick):
         """Alte Einträge früherer Gerätenummern — bewusst unauffällig.
 
-        ⚠⚠ **Das ist eine Auskunft, kein Auftrag.** Die erste Fassung stand
-        in Gold ganz oben, hieß „Diese Einstellungen wirken nicht mehr" und
-        hatte drei Knöpfe darunter — und wurde prompt als Fehlermeldung
-        gelesen, die man wegklicken muss. Wer alle Knöpfe reihum drückt,
-        überschreibt seine funktionierenden Werte mit alten, die sich
-        untereinander widersprechen. Genau so ist es passiert.
+        ⚠⚠ **Das ist eine Auskunft, kein Auftrag.** In Gold ganz oben mit
+        Knöpfen darunter wird sie als Fehlermeldung gelesen, die man
+        wegklicken muss. Wer alle Knöpfe reihum drückt, überschreibt seine
+        funktionierenden Werte mit alten, die sich untereinander
+        widersprechen.
 
         Deshalb: unten statt oben, zugeklappt statt offen, sachlicher Titel
         statt Warnfarbe, und der erste Satz sagt, dass nichts zu tun ist.
@@ -18187,9 +17533,10 @@ def _axes(fenster, rahmen):
             knopf.bind('<Button-1>', lambda _e, f=tat: f())
 
         # ⚠ Die Knöpfe zuerst, der Text danach: `pack` verteilt knappen Platz
-        # in Packreihenfolge, und was zuletzt kommt, wird gequetscht. Standen
-        # Name und Stand vorn, bekam „Löschen" 61 von 97 px (randpruefung,
-        # 27.09.2026). So bricht der Text um, und die Knöpfe bleiben ganz.
+        # in Packreihenfolge, und was zuletzt kommt, wird gequetscht. Stünden
+        # Name und Stand vorn, würde „Löschen" abgeschnitten
+        # (tools/randpruefung.py). So bricht der Text um, und die Knöpfe
+        # bleiben ganz.
         links_teil = tk.Frame(zeile, bg=SURFACE)
         links_teil.pack(side='left', fill='x', expand=True, padx=10, pady=8)
         for text, schrift, farbe in (
@@ -18206,21 +17553,12 @@ def _axes(fenster, rahmen):
     def _exponent_fuer(ueberblick, block, achse):
         """Der Exponent, der auf **dieser** physischen Achse gilt.
 
-        ⚠⚠⚠ **Die erste Fassung nahm den Exponenten des ganzen GERÄTS** — wenn
-        es dort genau einen gab, galt er für jede Achse. Sie nannte sich selbst
-        „eine Näherung" und schrieb „lieber nichts anzeigen als das Falsche" —
-        und zeigte dann genau das Falsche:
+        ⚠⚠⚠ **Nicht den Exponenten des ganzen GERÄTS nehmen.** Sonst stünde
+        auf einer Achse ohne Flugfunktion eine gebogene Kurve — geerbt von
+        anderen Achsen desselben Geräts —, während direkt darunter „Auf dieser
+        Achse liegt keine Flugfunktion" steht.
 
-        Am 06.09.2026 stand am **rechten** Stick auf der Achse `x` eine deutlich
-        gebogene Kurve, während direkt darunter „Auf dieser Achse liegt keine
-        Flugfunktion" stand. Beides auf einer Seite, beides über dieselbe Achse.
-        Die Kurve kam von `z`, `rotx` und `roty` desselben Geräts, die alle auf
-        2 stehen.
-
-        Dazu die Frage, die keine gute Antwort hatte: *„Wie soll ich einem User
-        erklären, dass er da was sieht, was gar nicht stimmt?"*
-
-        **Jetzt wird die Belegung gefragt, nicht das Gerät.** Liegt auf der
+        **Gefragt wird die Belegung, nicht das Gerät.** Liegt auf der
         Achse keine Flugfunktion, ist der Exponent **1** — die Kurve gerade,
         und das stimmt dann auch: Ohne Funktion wirkt keine Empfindlichkeit.
 
@@ -18279,13 +17617,11 @@ def _axes(fenster, rahmen):
     def _empf_zeile(eltern, nummer, eintrag, plot, anzeigen, stand_zeigen):
         """Ein Regler je Flugfunktion — im selben Sammelbecken wie die anderen.
 
-        ⚠⚠ **Kein eigener Speichern-Knopf je Zeile.** Die erste Fassung hatte
-        einen, und das war gleich doppelt falsch: Totzone und Sättigung
-        sammelt man und schreibt sie mit **einem** Knopf — plötzlich je Zeile
-        einzeln zu speichern ist ein Bruch. Und der Knopf fraß so viel Platz,
-        dass vom Regler zwei kurze Balken übrig blieben, die niemand als
-        Regler erkennt. Gemeldet am 06.09.2026: „Empfindlichkeit kann ich
-        nicht einstellen oder ich checks einfach nicht."
+        ⚠⚠ **Kein eigener Speichern-Knopf je Zeile.** Totzone und Sättigung
+        sammelt man und schreibt sie mit **einem** Knopf — je Zeile einzeln
+        zu speichern wäre ein Bruch. Und ein Knopf je Zeile fräße so viel
+        Platz, dass vom Regler zwei kurze Balken übrig blieben, die niemand
+        als Regler erkennt.
         """
         # ⚠ Ein fehlender Klarname wird NICHT verschwiegen: Dann steht der
         # technische Name da. Lieber „flight_move_pitch" als eine leere Zeile,
@@ -18355,14 +17691,10 @@ def _axes(fenster, rahmen):
         wert.pack(side='left', fill='x', expand=True)
 
         # ⭐⭐ **Was auf dieser Achse liegt — sonst bleibt die Empfindlichkeit
-        # unerklärt.** Am 06.09.2026 gefragt: „Sättigung und Totzone stehen in
-        # ner Art Tabelle, Empfindlichkeit aber nicht dabei, an welchen Achsen
-        # kann man Empfindlichkeit eigentlich einstellen?"
-        #
-        # Die Antwort ließ sich aus der Tabelle nicht ablesen: Totzone und
-        # Sättigung hängen an der **physischen** Achse, die Empfindlichkeit an
-        # der **Flugfunktion**, die darauf liegt. Wo keine Funktion belegt ist,
-        # gibt es auch nichts einzustellen — das steht jetzt in der Zeile.
+        # unerklärt.** Totzone und Sättigung hängen an der **physischen**
+        # Achse, die Empfindlichkeit an der **Flugfunktion**, die darauf
+        # liegt. Wo keine Funktion belegt ist, gibt es auch nichts
+        # einzustellen — das steht in der Zeile.
         #
         # ⚠ Bei mehreren Funktionen nur die Zahl: Auf `js2_slider1` liegen
         # `flight_move_strafe_back` und `flight_move_move_back` gleichzeitig,
@@ -18394,9 +17726,9 @@ def _axes(fenster, rahmen):
     def _befund_block(fall, wohin=None):
         """Ein verlorener Stand — nach Wert zusammengefasst, nicht je Achse.
 
-        ⚠ **Die erste Fassung listete jede Achse einzeln.** An einem echten
-        Aufbau waren das elf Zeilen für einen einzigen Fall und über zwanzig
-        insgesamt — die eigentliche Bedienung stand damit unter der Falzkante.
+        ⚠ **Nicht jede Achse einzeln.** An einem echten Aufbau wären das elf
+        Zeilen für einen einzigen Fall und über zwanzig insgesamt — die
+        eigentliche Bedienung stünde damit unter der Falzkante.
         Dabei steht auf allen sechs Achsen fast immer **derselbe** Wert: Wer
         eine Sättigung einstellt, stellt sie für den ganzen Stick ein. Eine
         Zeile je Wert sagt dasselbe und passt auf den Bildschirm.
@@ -18465,9 +17797,9 @@ def _axes(fenster, rahmen):
     fenster.on_show['achsen'] = _beim_zeigen
 
 
-# ------------------------------------------- Was der Patch geändert hat (v3.24)
-# ⚠ **Höchstens so viele Posten auf einmal.** Der Patch vom 26.08.2026 ändert
-# allein bei den Schiffen 184 Einträge, viele davon mit mehreren Feldern —
+# ------------------------------------------------- Was der Patch geändert hat
+# ⚠ **Höchstens so viele Posten auf einmal.** Ein Patch ändert allein bei den
+# Schiffen schon mal 184 Einträge, viele davon mit mehreren Feldern —
 # gezeichnet wären das über tausend Etiketten in einem Rutsch. Tk zeichnet
 # einsträngig, das Fenster stünde sekundenlang. Der Rest steht als „… und N
 # weitere" darunter; wer mehr sehen will, schränkt den Bereich ein.
@@ -18475,9 +17807,8 @@ _PATCH_MAX = 60
 
 # ⚠ **Wie hoch die Patch-Liste höchstens wird.** Sie steht fest über dem
 # Inhalt, damit man beim Durchsehen der Werte nicht nach oben zurück muss — und
-# genau deshalb darf sie nicht mitwachsen. Gemessen am 07.09.2026: 30 px je
-# Zeile. 150 px sind genau fünf Zeilen — „5 patches zu sehen reicht"; alles
-# darüber rollt in der Liste selbst.
+# genau deshalb darf sie nicht mitwachsen. Gemessen: 30 px je Zeile. 150 px
+# sind genau fünf Zeilen; alles darüber rollt in der Liste selbst.
 #
 # Die Zahl ist bewusst eine Höhe und keine Zeilenzahl: Bei größerer Schrift
 # werden die Zeilen höher, und dann sollen eben vier statt fünf hineinpassen —
@@ -18496,12 +17827,10 @@ def _patch_number(value, digits=4):
         return 'ja' if value else 'nein'
     if isinstance(value, float):
         gerundet = round(value, digits)
-        # ⚠⚠ **Keine Exponentialschreibweise** (07.09.2026, gefragt mit
-        # „1.25e-06 was soll das für nen wert sein?"). Zu Recht: `%g` kippt
-        # unterhalb von 0,0001 auf `1.25e-06` um, und das liest niemand, der
-        # nicht täglich mit Zehnerpotenzen umgeht. Die Zahl war zwar richtig
-        # und sichtbar — nur eben unverständlich, was fast dasselbe ist wie
-        # unsichtbar.
+        # ⚠⚠ **Keine Exponentialschreibweise.** `%g` kippt unterhalb von
+        # 0,0001 auf `1.25e-06` um, und das liest niemand, der nicht täglich
+        # mit Zehnerpotenzen umgeht. Richtig, aber unverständlich ist fast
+        # dasselbe wie unsichtbar.
         #
         # Also ausgeschrieben: `0.00000125`. Länger, aber jeder sieht sofort,
         # dass es eine sehr kleine Zahl ist — und wie klein.
@@ -18519,22 +17848,15 @@ def _patch_number(value, digits=4):
 def _pc_pair(alt, neu):
     """Alt und neu so darstellen, dass ein Unterschied auch SICHTBAR ist.
 
-    ⚠⚠ **Das ist keine Kosmetik — ohne das log die Seite** (07.09.2026).
-    `_pa_zahl` rundete fest auf vier Nachkommastellen. Die Treibstoff-Brennraten
-    aus 4.10.0 liegen aber bei `1.25e-06`; alles darunter wurde damit zu `0`,
-    und alt wie neu sahen gleich aus. Die Zeile meldete „unverändert".
-
-    Nachgemessen über beide Patches: **557 Zeilen** standen so da — und
-    **keine einzige** davon war wirklich unverändert. Es waren durchweg echte
-    Änderungen, oft um den Faktor drei bis fünf:
+    ⚠⚠ **Das ist keine Kosmetik — ohne das lügt die Seite.** Fest auf vier
+    Nachkommastellen gerundet, werden Treibstoff-Brennraten um `1.25e-06` zu
+    `0`, alt und neu sehen gleich aus, und die Zeile meldet „unverändert" —
+    bei echten Änderungen, oft um den Faktor drei bis fünf:
 
         precomputed.fuel.burnRate.main       1.25e-06 → 2.67e-07
         precomputed.fuel.burnRate.maneuver   1e-05    → 2.136e-06
 
-    Also genau das Gegenteil dessen, was der Reiter soll: Er versteckte die
-    größten Änderungen des Patches hinter dem Wort „unverändert".
-
-    Deshalb wird die Genauigkeit jetzt so weit erhöht, bis der Unterschied
+    Deshalb wird die Genauigkeit so weit erhöht, bis der Unterschied
     dasteht. Normale Werte bleiben kurz (`110 → 120`), nur die winzigen werden
     länger — und das ist der Preis dafür, dass sie überhaupt zu sehen sind.
     """
@@ -18545,9 +17867,9 @@ def _pc_pair(alt, neu):
 
     for stellen in (4, 6, 8, 10, 12, 14):
         vorher, nachher = _patch_number(alt, stellen), _patch_number(neu, stellen)
-        # ⚠ **Unterschiedlich zu sein reicht nicht.** Bei sechs Stellen wurde
+        # ⚠ **Unterschiedlich zu sein reicht nicht.** Bei sechs Stellen wird
         # aus `1.25e-06 → 2.67e-07` die Zeile „1e-06 → 0" — verschieden, ja,
-        # aber die zweite Zahl war gelogen: Der Wert ist nicht null, er ist
+        # aber die zweite Zahl ist gelogen: Der Wert ist nicht null, er ist
         # nur kleiner als die Anzeige fassen konnte. Eine falsche 0 an dieser
         # Stelle ist schlimmer als eine lange Zahl, denn sie liest sich wie
         # „abgeschaltet".
@@ -18562,7 +17884,7 @@ def _pc_pair(alt, neu):
 def _pc_percent(alt, neu):
     """Um wie viel Prozent hat sich der Wert verändert — als fertiger Zusatz.
 
-    ⚠⚠ **Das ist bei kleinen Zahlen die einzige lesbare Aussage** (07.09.2026).
+    ⚠⚠ **Das ist bei kleinen Zahlen die einzige lesbare Aussage.**
     `0.00000125 → 0.00000036` ist zwar richtig und ausgeschrieben, aber wer das
     erfassen will, muss Nullen zählen. Was der Spieler wissen will, ist nicht
     die Zahl, sondern **wie stark** sich etwas geändert hat: „auf ein Drittel
@@ -18652,13 +17974,10 @@ def _pc_short_path(pfad):
 def _pc_struct(alt, neu, hoechstens=3):
     """Was sich in zwei verschachtelten Werten wirklich unterscheidet.
 
-    ⚠⚠ **Warum es diese Funktion gibt** (07.09.2026, gemeldet als „da sind gar
-    keine Infos drin"): `_pa_zahl` gibt für alles Verschachtelte ein `…`
-    zurück. In der Kategorie `blades` ist **jeder** geänderte Wert eine
-    verschachtelte Struktur (`resource.states[0].flows`) — die Seite zeigte
-    dort also 69 Zeilen `… → …` untereinander. Buchstäblich keine Auskunft,
-    und weil `blades` alphabetisch weit vorn steht, war es das Erste, was man
-    sah.
+    ⚠⚠ **Warum es diese Funktion gibt:** `_patch_number` gibt für alles
+    Verschachtelte ein `…` zurück. In der Kategorie `blades` ist **jeder**
+    geänderte Wert eine verschachtelte Struktur (`resource.states[0].flows`)
+    — ohne diese Funktion stünden dort nur Zeilen `… → …` untereinander.
 
     Statt den ganzen Wert zu zeigen (der wäre unlesbar lang), wird der
     **Unterschied** gebildet: beide Seiten in Blattwerte zerlegt, verglichen,
@@ -18666,8 +17985,8 @@ def _pc_struct(alt, neu, hoechstens=3):
 
     Und der ehrlichste Fall zuerst: Unterscheiden sich die Blätter gar nicht,
     hat der Patch an dieser Stelle nichts geändert — dann sagt das Ergebnis
-    genau das, statt einen Unterschied vorzutäuschen. Gemessen am 07.09.2026
-    trifft das auf rund ein Fünftel der Posten in 4.10.0 zu.
+    genau das, statt einen Unterschied vorzutäuschen. Gemessen trifft das auf
+    rund ein Fünftel der Posten eines Patches zu.
     """
     a, b = _pc_leaves(alt), _pc_leaves(neu)
     teile = []
@@ -18704,7 +18023,7 @@ def _pc_field_row(fenster, eltern, feld):
     # ⚠ Drei Fälle, nicht einer. Fehlt `newValue`, hat der Patch das Feld
     # **weggenommen**; fehlt `oldValue`, ist es **dazugekommen**. Wer stumpf
     # „alt → neu" schreibt, macht daraus „1090 → None" und behauptet einen
-    # Wert, den es nicht gibt. Gemessen an der C-788 Cannon (07.09.2026).
+    # Wert, den es nicht gibt (etwa bei der C-788 Cannon).
     if feld['hat_alt'] and feld['hat_neu']:
         # ⚠ Verschachtelte Werte NICHT als „… → …" abtun — dann steht dort
         # nichts. Bei ihnen zeigt `_pc_struct` den echten Unterschied.
@@ -18713,41 +18032,33 @@ def _pc_field_row(fenster, eltern, feld):
             text = _pc_struct(feld['alt'], feld['neu'])
             farbe = FG
         else:
-            # ⚠⚠ **Verglichen wird der ROHWERT, nicht die Anzeige.**
-            # Hier stand bis zum 07.09.2026 das Gegenteil, mit der Begründung
-            # „was für den Leser gleich aussieht, ist für ihn auch gleich".
-            # Das klang vernünftig und war falsch: Wenn die Anzeige zwei
-            # verschiedene Werte gleich aussehen lässt, ist die ANZEIGE das
-            # Problem — dann muss sie genauer werden, nicht die Änderung
-            # verschwinden. `_pc_pair` erhöht die Genauigkeit so weit, bis der
-            # Unterschied dasteht.
+            # ⚠⚠ **Maßgeblich ist der ROHWERT, nicht eine grobe Anzeige.**
+            # Lässt die Anzeige zwei verschiedene Werte gleich aussehen, ist
+            # die ANZEIGE das Problem — dann muss sie genauer werden, nicht
+            # die Änderung verschwinden. `_pc_pair` erhöht die Genauigkeit so
+            # weit, bis der Unterschied dasteht.
             vorher, nachher = _pc_pair(feld['alt'], feld['neu'])
             richtung = _pc_direction(feld['alt'], feld['neu'])
             # ⚠ `0 → 0` ist keine Auskunft, sondern Lärm — und davon steht
             # reichlich in den Daten: Erkul führt ein Feld auch dann im Diff,
-            # wenn der Wert derselbe geblieben ist. Gemessen am 07.09.2026:
-            # rund ein Fünftel der Posten in 4.10.0 ändert keinen einzigen
-            # Wert. Wer zwischen echten Änderungen zehnmal „0 → 0" liest,
-            # hält den ganzen Reiter für kaputt.
+            # wenn der Wert derselbe geblieben ist. Wer zwischen echten
+            # Änderungen zehnmal „0 → 0" liest, hält den ganzen Reiter für
+            # kaputt.
             #
-            # Verglichen wird die ANZEIGE, nicht der Rohwert: Was für den
-            # Leser gleich aussieht, ist für ihn auch gleich — ob dahinter
-            # eine gerundete Winzigkeit steckt, ändert daran nichts.
+            # Verglichen werden die Ausgaben von `_pc_pair` — die sind genau
+            # genug, dass ein echter Unterschied darin sichtbar bleibt.
             if vorher == nachher:
                 # ⚠⚠ **Der WERT selbst, grau — nicht „0" und nicht ein Satz.**
                 #
-                # Vorher stand hier „umgebaut, aber kein Wert anders": richtig,
-                # aber dreimal so lang wie die Zeile daneben, und bei der
-                # Avenger Stalker füllt das 3 von 8 Zeilen.
+                # Ein Satz wäre dreimal so lang wie die Zeile daneben.
                 #
-                # Vorgeschlagen war, stattdessen `0` einzutragen. Das wäre
-                # kürzer, aber es LÜGT: Bei „Verbrauch Haupttriebwerk 0" liest
-                # man, der Verbrauch sei null — nicht, dass er gleich geblieben
-                # ist. Ein Feld, dessen echter Wert 0 ist, wäre davon nicht
-                # mehr zu unterscheiden.
+                # Eine `0` LÜGT: Bei „Verbrauch Haupttriebwerk 0" liest man,
+                # der Verbrauch sei null — nicht, dass er gleich geblieben ist.
+                # Ein Feld, dessen echter Wert 0 ist, wäre davon nicht mehr zu
+                # unterscheiden.
                 #
-                # Vorgeschlagen war weiter ein `→ X`. Dagegen spricht, dass es
-                # sich wie „ist weggefallen" liest — und dafür gibt es bereits
+                # Ein `→ X` liest sich wie „ist weggefallen" — und dafür gibt
+                # es bereits
                 # eine eigene Zeile (`1090 → fällt weg`, gold). Zwei Zeichen
                 # für zwei verschiedene Aussagen, die gleich aussehen, sind
                 # schlimmer als eine Zeile mehr Text.
@@ -18758,10 +18069,9 @@ def _pc_field_row(fenster, eltern, feld):
                 # Grau heißt hier ohnehin schon „unverändert" — dieselbe
                 # Regel wie bei den grünen und roten Zeilen.
                 #
-                # ⚠ In den heutigen Daten kommt dieser Fall **nicht** vor:
-                # Nach dem Rundungsfix vom 07.09.2026 sind alle 2652 Posten
-                # sichtbar geändert. Der Zweig bleibt trotzdem — der nächste
-                # Patch kann ein Feld anfassen, ohne den Wert zu ändern.
+                # ⚠ Mit der genauen Anzeige aus `_pc_pair` ist der Fall
+                # selten. Der Zweig bleibt trotzdem — ein Patch kann ein Feld
+                # anfassen, ohne den Wert zu ändern.
                 text, farbe = '%s → %s' % (vorher, nachher), SUB
             else:
                 text = '%s → %s%s' % (vorher, nachher,
@@ -18793,19 +18103,14 @@ def _patch_changes(fenster, rahmen):
 
     _heading(fenster, rahmen, t('hf_patchaenderungen'), t('s_pa_lead'))
 
-    # ⚠⚠ **Patch-Liste und Bereichsknöpfe bleiben STEHEN, nur die Werte rollen**
-    # (07.09.2026): „ab den auswahlen nach unten scrollbar … wenn man durch die
-    # werte schaut ist es mega nervig erst nach oben zu müssen um ne neue
-    # auswahl zu treffen."
-    #
-    # Vorher lag alles in EINER Rollfläche. Wer bei „ships" durch 60 Posten
-    # gescrollt war und dann „weapons" ansehen wollte, musste den ganzen Weg
+    # ⚠⚠ **Patch-Liste und Bereichsknöpfe bleiben STEHEN, nur die Werte
+    # rollen.** Läge alles in EINER Rollfläche, müsste wer bei „ships" durch
+    # 60 Posten gescrollt ist und dann „weapons" ansehen will, den ganzen Weg
     # zurück nach oben — bei jedem Wechsel.
     #
     # ⚠ Die Reihenfolge ist dabei die halbe Miete: Erst alles Feste packen,
     # **danach** die Rollfläche mit `expand=True`. Wird der feste Teil nach dem
-    # wachsenden gepackt, schiebt der Inhalt ihn aus dem Fenster — genau die
-    # Falle, die in diesem Projekt schon zweimal zugeschlagen hat.
+    # wachsenden gepackt, schiebt der Inhalt ihn aus dem Fenster.
     _body_text(rahmen, t('s_pa_sammlung'), fenster.f_small, fill='x',
                 padx=24, inset=48)
 
@@ -18814,17 +18119,13 @@ def _patch_changes(fenster, rahmen):
     stand = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_small,
                      anchor='w')
 
-    # ⚠⚠ **Die Patch-Liste rollt in sich selbst, mit fester Höhe** (07.09.2026):
-    # „wenn viele weitere patches hinzukommen, ist unten dann überhaupt noch was
-    # lesbar?"
+    # ⚠⚠ **Die Patch-Liste rollt in sich selbst, mit fester Höhe.**
     #
-    # Nein, wäre die Antwort gewesen. Die Liste steht fest über dem Inhalt, und
-    # sie wächst — die eigene Sammlung geht absichtlich über die zehn Patches
+    # Die Liste steht fest über dem Inhalt, und sie wächst — die eigene Sammlung geht absichtlich über die zehn Patches
     # hinaus, die die Quelle vorhält. Gemessen: 30 px je Zeile, also blieben
     # bei 30 Patches noch 41 px für die Werte und bei 50 gar nichts mehr.
     #
-    # Fünf Zeilen sind sichtbar, der Rest wird gerollt. Das ist genau die Regel
-    # aus der Projekt-Anleitung: Ein fester Bereich mit veränderlichem Inhalt
+    # Fünf Zeilen sind sichtbar, der Rest wird gerollt: Ein fester Bereich mit veränderlichem Inhalt
     # braucht eine Höhengrenze **und** eine eigene Rollfläche — sonst wird er
     # irgendwann abgeschnitten, ohne dass es jemand merkt.
     liste = _scroll_area(rahmen, height=_PATCH_LIST_HEIGHT)
@@ -18896,17 +18197,11 @@ def _patch_changes(fenster, rahmen):
         if not version or not pa.load(version):
             return
         # ⚠⚠ **`_knopfgitter` will fertige KNÖPFE, keine Beschriftungspaare.**
-        # Hier standen bis zum 07.09.2026 `(Text, Rückruf)`-Tupel, und das ist
-        # kein Schönheitsfehler: `_reflow_grid` ruft `winfo_exists()` auf
-        # jedem Eintrag, ein Tupel hat das nicht — beim Klick auf einen
-        # abgelegten Patch flog `AttributeError: 'tuple' object has no
-        # attribute 'winfo_exists'`, und zwar aus einem `after`-Rückruf heraus.
-        # Der Reiter blieb dabei leer, ohne sichtbare Fehlermeldung.
-        #
-        # Aufgefallen ist es erst am 07.09.2026 beim ersten echten Durchklicken:
-        # Der Reiter ist am Mac entstanden, wo Fenster gebaut, aber nicht
-        # gezeigt werden — geklickt hatte ihn vorher niemand. Genau die Lücke,
-        # die auch der Selbsttest nicht schließt.
+        # `_reflow_grid` ruft `winfo_exists()` auf jedem Eintrag, ein
+        # `(Text, Rückruf)`-Tupel hat das nicht — es flöge `AttributeError:
+        # 'tuple' object has no attribute 'winfo_exists'`, und zwar aus einem
+        # `after`-Rückruf heraus. Der Reiter bliebe leer, ohne sichtbare
+        # Fehlermeldung, und der Selbsttest klickt ihn nicht an.
         knoepfe = [_button(fenster, bereiche, t('s_pa_alle'),
                           lambda: _art_waehlen(None),
                           strong=(zustand['art'] is None))]
@@ -18934,10 +18229,7 @@ def _patch_changes(fenster, rahmen):
 
     def _patch_waehlen(version):
         zustand['patch'] = version
-        # ⚠⚠ **Nicht „Alle" vorwählen** (07.09.2026): „Alle ist irgendwie doof,
-        # da sieht man eh nichts mehr."
-        #
-        # Zu Recht. Die Anzeige bricht nach 60 Posten ab, und über alle
+        # ⚠⚠ **Nicht „Alle" vorwählen.** Die Anzeige bricht nach 60 Posten ab, und über alle
         # Bereiche hinweg stehen die alphabetisch vorn — bei 4.10.0 sind das
         # 60 Zeilen `blades`, während die 184 Schiffe dahinter nie zu sehen
         # sind. Man sucht sich also erst durch das Uninteressanteste.
@@ -18950,17 +18242,13 @@ def _patch_changes(fenster, rahmen):
         zustand['art'] = None
         if not pa.load(version):
             # ⚠⚠ **Zwei völlig verschiedene Gründe, warum hier nichts liegt** —
-            # und bis zum 07.09.2026 bekamen beide denselben Satz zu sehen:
-            # „nicht abgelegt, die Quelle meldet keine Änderungen".
+            # und sie brauchen zwei verschiedene Sätze:
             #
-            #   1. Der Patch hat wirklich nichts geändert (8 von 10 Patches!)
-            #   2. Der Patch hat 352 Änderungen — sie sind nur noch nicht geholt
+            #   1. Der Patch hat wirklich nichts geändert (die meisten Patches)
+            #   2. Der Patch hat Änderungen — sie sind nur noch nicht geholt
             #
-            # Im zweiten Fall log die Seite den Nutzer an: Sie behauptete, es
-            # gebe nichts, während der Knopf daneben genau das geholt hätte.
-            # Wer zuerst auf die zwei jüngsten Patches klickt — und die sind
-            # leer — hält den ganzen Reiter für kaputt oder nutzlos. Genau so
-            # gemeldet am 07.09.2026: „da sind gar keine Infos drin".
+            # Derselbe Satz für beide behauptete im zweiten Fall, es gebe
+            # nichts, während der Knopf daneben genau das geholt hätte.
             _leeren(bereiche, ergebnis)
             eintrag = _eintrag_zu(version)
             if eintrag is not None and not eintrag['leer']:
@@ -18981,19 +18269,14 @@ def _patch_changes(fenster, rahmen):
     def _liste_zeigen():
         _leeren(liste)
 
-        # ⚠⚠ **Patches ohne Werteänderung kommen NICHT in die Liste**
-        # (07.09.2026): „das sind ja nur hotfixes wo nie ne änderung drin ist."
-        #
-        # Stimmt, und die Zahlen geben ihm recht: Von zehn Patches sind **acht**
-        # leer. Sie standen bisher als volle Zeilen dazwischen, drängten die
-        # zwei interessanten nach unten — und wer der Reihe nach von oben
-        # klickte, landete zuerst auf ihnen und hielt den Reiter für kaputt.
+        # ⚠⚠ **Patches ohne Werteänderung kommen NICHT in die Liste.** Meist
+        # sind es Hotfixes — von zehn Patches sind typischerweise **acht**
+        # leer. Als volle Zeilen drängten sie die interessanten nach unten,
+        # und wer der Reihe nach von oben klickt, landete zuerst auf ihnen.
         #
         # ⚠ Aber nicht spurlos: Darunter steht, **wie viele** weggelassen
         # wurden. Ohne diese Zeile sähe es aus, als fehlten Patches oder als
-        # sei der Abruf unvollständig — und genau dieser Verdacht („da sind gar
-        # keine Infos drin") war der Anlass, den Reiter zu überarbeiten.
-        # Weglassen ja, verschweigen nein.
+        # sei der Abruf unvollständig. Weglassen ja, verschweigen nein.
         alle = pa.overview()
         gezeigt = [e for e in alle if not e['leer']]
         weggelassen = len(alle) - len(gezeigt)
@@ -19075,10 +18358,10 @@ def _patch_changes(fenster, rahmen):
     _button(fenster, kopf, t('s_pa_suchen'), _suchen).pack(side='left')
 
     _liste_zeigen()
-    # ⚠ Über `_posten_zeigen()`, nicht mit einem fest hingeschriebenen Text.
-    # Genau daran ging der Startzustand vorbei: Hier stand `s_pa_waehlen`
-    # direkt, also „Wähl links einen Patch aus" — auch dann, wenn links noch
-    # gar nichts Abgelegtes liegt. Die Fallunterscheidung steckt in
+    # ⚠ Über `_posten_zeigen()`, nicht mit einem fest hingeschriebenen Text:
+    # `s_pa_waehlen` direkt („Wähl links einen Patch aus") stünde auch dann
+    # da, wenn links noch gar nichts Abgelegtes liegt. Die Fallunterscheidung
+    # steckt in
     # `_posten_zeigen()`; steht sie an zwei Stellen, läuft sie auseinander.
     _posten_zeigen()
 

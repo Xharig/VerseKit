@@ -35,10 +35,9 @@ Damit das trägt, gelten zwei Regeln:
 Gepflegt wird nur die Tabelle unten: Bereich -> in welcher Version kam er dazu.
 Der Rest ergibt sich.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `neuheiten` (Sprachumstellung P3:
-Bezeichner englisch, Kommentare deutsch). **Der Dateiname `gesehen.json`, die
-Schlüssel `zuletzt` und `bereiche` und die Bereichsnamen in `NEW_SINCE` sind
-dabei bewusst gleich geblieben** — sie stehen in der Datei jedes Nutzers.
+⚠ **Der Dateiname `gesehen.json`, die Schlüssel `zuletzt` und `bereiche` und
+die Bereichsnamen in `NEW_SINCE` bleiben deutsch**, obwohl das Modul englisch
+heißt — sie stehen in der Datei jedes Nutzers.
 Umbenannt, verlöre jeder beim Update seine gesehenen Marken, und alles wäre
 wieder markiert.
 """

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Gegenprobe zu den vier Befunden vom 12.09.2026 (Runde 3).
+"""Gegenprobe zu drei Befunden am Merker der Aktionsnamen (`joysticks`).
 
 Was hier geprueft wird, laesst der Selbsttest nicht zu: Er kennt keinen
 echten Spielordner, und die Fragen sind alle vom Typ „passiert das WIRKLICH

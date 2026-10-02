@@ -19,18 +19,16 @@
 """
 Farbschemata — die EINE Stelle, an der die Farben des Programms stehen.
 
-⚠⚠ **Warum es diese Datei gibt (v3.58.0-rc5).** Bis dahin stand jede Farbe in
-jeder Datei einzeln: dasselbe Grün in 13 Dateien, der Hintergrund der
-Eingabefelder 100 Mal direkt im Code. Ein zweites Farbschema hätte jede
-dieser Stellen doppelt gebraucht. Jetzt holt sich jedes Fenster seine Farben
-von hier.
+⚠⚠ **Warum es diese Datei gibt.** Steht jede Farbe in jeder Datei einzeln,
+bräuchte ein zweites Farbschema jede dieser Stellen doppelt. Deshalb holt
+sich jedes Fenster seine Farben von hier.
 
-⚠⚠ **„Verse-Kit (Original)" ist pixelgleich mit allem davor.** Die Werte
-unten sind die alten, Zeichen für Zeichen. Belegt wird das mit einem
-Bildvergleich aller Seiten vor und nach dem Umbau.
+⚠⚠ **Das Schema `original` ist der Bezug.** Seine Werte sind die
+Grundfarben des Programms, Zeichen für Zeichen; belegt per Bildvergleich
+aller Seiten.
 
 ⚠ **Gewählt wird beim Start.** Die Farben werden beim Laden der Module
-gelesen (als Konstanten wie bisher), ein Wechsel wirkt deshalb nach einem
+gelesen (als Konstanten), ein Wechsel wirkt deshalb nach einem
 Neustart. Die Seite „Darstellung" bietet ihn an.
 
 ## Die Schemata
@@ -67,9 +65,8 @@ SCHEMES = {
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'gruen',
     },
-    # ⭐ Entschieden am 27.09.2026: „wie beim Basetool". Die Werte stammen aus
-    # dem Design-System des Profit Basetools (`colors_and_type.css`, Stand
-    # 27.09.2026): Hausfarbe #E77E23, Seitengrund
+    # ⭐ Die Werte stammen aus dem Design-System des Profit Basetools
+    # (`colors_and_type.css`): Hausfarbe #E77E23, Seitengrund
     # Schwarz, Flächen #141414, Haarlinien #282828, Text #D2D2D2, Ecken 0.
     # Die Form ebenfalls von dort: `.hud-box` mit zwei 10-px-Eckwinkeln,
     # Überschriften und Knöpfe in Großbuchstaben, Knöpfe orange gefüllt mit
@@ -90,9 +87,9 @@ SCHEMES = {
         'square': True, 'upper_headings': True, 'accent_headings': True,
         'filled_buttons': True, 'icon_set': 'orange',
     },
-    # ⭐ Seit v3.58.0-rc8 (Wunsch vom 27.09.2026): vier weitere Schemata in der
-    # Form des Originals (runde Kästen, Überschriften wie gewohnt) — nur die
-    # Farben wechseln. Aufgebaut wie „Original": Grund, Fläche und Leiste in
+    # ⭐ Vier weitere Schemata in der Form des Originals (runde Kästen,
+    # Überschriften wie gewohnt) — nur die Farben wechseln. Aufgebaut wie
+    # `original`: Grund, Fläche und Leiste in
     # drei Stufen desselben Tons, der Akzent als einzige laute Farbe.
     'eis': {
         'label': 's_da_eis',

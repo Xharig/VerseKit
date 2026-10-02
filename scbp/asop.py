@@ -39,7 +39,7 @@ Das gilt für jedes Werkzeug, das über die Sprachdatei geht, auch für fremde.
 Es steht hier, damit niemand später eine Funktion sucht, die es nicht geben
 kann.
 
-## Die Zuordnung — gemessen, nicht geraten (09.09.2026)
+## Die Zuordnung — gemessen, nicht geraten
 
 Der eigene Hangar führt Klartextnamen (`Ursa Medivac`) und einen Kurznamen aus
 dem Pledge-Export (`RSI_Ursa`). Die `global.ini` führt Schlüssel
@@ -164,11 +164,10 @@ def read_keys(lines):
     `…_short`-Fassungen bleiben draußen: Sie stehen im Fleet Manager nicht, und
     wer beide anfasst, hat den Namen zweimal zu pflegen.
 
-    ⚠⚠ **Groß- und Kleinschreibung des Anfangs zählt nicht** (17.09.2026).
-    CIG schreibt fünf Schiffe `vehicle_name…` statt `vehicle_Name…` — Carrack,
-    Carrack Expedition, Paladin, Starlancer MAX und TAC. Verglichen wurde
-    buchstabengenau, und diese fünf ließen sich nicht benennen: „In der
-    Sprachdatei nicht gefunden", gemeldet mit dem Paladin. Der Schlüssel selbst
+    ⚠⚠ **Groß- und Kleinschreibung des Anfangs zählt nicht.** CIG schreibt
+    fünf Schiffe `vehicle_name…` statt `vehicle_Name…` — Carrack, Carrack
+    Expedition, Paladin, Starlancer MAX und TAC. Buchstabengenau verglichen,
+    ließen sich diese fünf nicht benennen. Der Schlüssel selbst
     bleibt, wie er in der Datei steht — nur so trifft die Injektion ihn wieder.
     """
     table = {}
@@ -195,11 +194,11 @@ def missing_names(lines, reference_lines):
     Groß-/Kleinschreibung; ein Stern vorn (unser eigener, falls die englische
     Datei früher einmal das Ziel war) wird abgeschnitten.
 
-    ⚠⚠ **Wozu** (17.09.2026). Eine Übersetzung hinkt dem Patch hinterher:
-    Kennt sie ein neues Schiff nicht, zeigt der Flottenmanager
-    `@vehicle_NameAEGS_Sabre_Raven_EX`. Schlimmer: „Schiffe benennen" fand den
+    ⚠⚠ **Wozu.** Eine Übersetzung hinkt dem Patch hinterher: Kennt sie ein
+    neues Schiff nicht, zeigt der Flottenmanager
+    `@vehicle_NameAEGS_Sabre_Raven_EX`. Schlimmer: Das Benennen fände den
     Schlüssel nicht, kürzte den Namen und landete bei einem ANDEREN Fahrzeug
-    („Sabre Raven EX" → „Sabre Raven"). Mit dem englischen Namen ergänzt, gibt
+    (`Sabre Raven EX` → `Sabre Raven`). Mit dem englischen Namen ergänzt, gibt
     es den genauen Schlüssel, und nichts muss geraten werden.
     """
     present = set()
@@ -227,16 +226,15 @@ def match_ships(schiffe, tabelle):
     """
     # ⚠⚠ **Alle Kandidaten sammeln, nicht nur den ersten.**
     #
-    # Bis zum 10.09.2026 stand hier `setdefault(…, schluessel)` — der erste
-    # Treffer gewann, jeder weitere fiel lautlos weg. Damit waren ausgerechnet
-    # die **genauen** Stufen die unscharfen: Zwei Schluessel, die sich nur in
-    # Trennzeichen unterscheiden (`RSI_Aurora_MR` und `RSIAuroraMR` werden beide
-    # zu `rsiauroramr`), und erst recht zwei Schiffe mit demselben angezeigten
-    # Werksnamen — davon gibt es im Spiel etliche — landeten beim
-    # Erstgefundenen. Der eigene Name wurde dann am falschen Fahrzeug in die
-    # `global.ini` geschrieben, ohne eine Zeile Hinweis.
+    # Kein `setdefault(…, schluessel)` — dann gewinnt der erste Treffer, jeder
+    # weitere fällt lautlos weg, und ausgerechnet die **genauen** Stufen werden
+    # unscharf: Zwei Schluessel, die sich nur in Trennzeichen unterscheiden
+    # (`RSI_Aurora_MR` und `RSIAuroraMR` werden beide zu `rsiauroramr`), und
+    # erst recht zwei Schiffe mit demselben angezeigten Werksnamen — davon gibt
+    # es im Spiel etliche — landen beim Erstgefundenen. Der eigene Name stünde
+    # dann am falschen Fahrzeug in der `global.ini`, ohne eine Zeile Hinweis.
     #
-    # Jetzt gilt auf **jeder** Stufe dieselbe Regel wie bei den unscharfen:
+    # Deshalb gilt auf **jeder** Stufe dieselbe Regel wie bei den unscharfen:
     # genau ein Kandidat, sonst gar keiner.
     nach_schluessel, nach_wert = {}, {}
     for schluessel, wert in tabelle.items():
@@ -297,15 +295,15 @@ def _ladder(name, kurz, tabelle, nach_schluessel, nach_wert):
         if len(treffer) == 1:
             return treffer[0], 'imwert'
         mehrdeutig = mehrdeutig or len(treffer) > 1
-    # ⚠⚠ **Ein Anhängsel hinten am Namen** (16.09.2026). Der Pledge-Import
-    # schreibt den Paketnamen samt Lackierung: `ATLS IKTI Akuma` — im Spiel
-    # heißt das Fahrzeug `Argo ATLS IKTI`, und einen Kurznamen bringt so ein
-    # Eintrag nicht mit. Keine Stufe darüber fand ihn; der Spieler sah „In der
-    # Sprachdatei nicht gefunden" an einem Schiff, das dort steht.
+    # ⚠⚠ **Ein Anhängsel hinten am Namen.** Der Pledge-Import schreibt den
+    # Paketnamen samt Lackierung: `ATLS IKTI Akuma` — im Spiel heißt das
+    # Fahrzeug `Argo ATLS IKTI`, und einen Kurznamen bringt so ein Eintrag
+    # nicht mit. Keine Stufe darüber findet ihn, obwohl das Schiff in der
+    # Sprachdatei steht.
     #
     # Deshalb Wort für Wort von hinten kürzen — mit denselben zwei Regeln wie
     # oben: nur bei genau EINEM Treffer, und nie unter zwei Wörter. `ATLS`
-    # allein endete eindeutig auf `Argo ATLS` und machte aus jedem ATLS-Paket
+    # allein endet eindeutig auf `Argo ATLS` und machte aus jedem ATLS-Paket
     # das Grundmodell.
     worte = name.split()
     if not mehrdeutig:
@@ -339,14 +337,14 @@ def display_name(werksname, eigener, stern):
 def build_table(zeilen, daten=None):
     """`{schluessel: (eigener Name, Stern)}` für die Injektion — oder leer.
 
-    ⚠⚠ **Hier steht der Wunsch, nicht der fertige Text.** Den Werksnamen setzt
+    ⚠⚠ **Hier steht der gewählte Name, nicht der fertige Text.** Den Werksnamen setzt
     die Injektion ein, und zwar den **zurückgesetzten** — sie hat die Zeile
     vorher durch `_saeubern()` geschickt. Würde hier schon ein fertiger Wert
     gebaut, käme der Werksname aus der *laufenden* Datei: Bei einem zweiten
     Lauf wäre das unser eigener Text von vorhin, und ein Stern setzte sich vor
     den Stern.
 
-    ⚠ Leer heißt „nichts anfassen". Das ist der Regelfall: Wer keine eigenen
+    ⚠ Leer heißt: nichts anfassen. Das ist der Regelfall: Wer keine eigenen
     Namen vergeben hat, soll auch keine geänderte Zeile in seiner `global.ini`
     haben.
     """

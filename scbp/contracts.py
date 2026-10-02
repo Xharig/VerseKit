@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Angenommene Aufträge — „bringt mir der etwas, das mir fehlt?"
+Angenommene Aufträge — bringt der Auftrag etwas, das noch fehlt?
 
 Der Watcher beantwortet seine eigene Frage damit **früher**: Nicht erst wenn der
 Bauplan im Spiel auftaucht, sondern schon beim Annehmen des Auftrags.
@@ -38,11 +38,11 @@ zweites Fenster. Eine Zeile im Overlay, wie ein Bauplanfund auch.
 | 4. Schlüssel → Baupläne | `missionen[<schlüssel>]['bp']` im Katalog |
 | 5. Was davon fehlt | der eigene Bestand |
 
-## ⚠ Die Fallen, alle an echten Daten gemessen (29.08.2026)
+## ⚠ Die Fallen, alle an echten Daten gemessen
 
 1. **Auf den SCHLÜSSEL gehen, nie auf die Formulierung.** Auf Deutsch heißen
    `mobiGlas_ui_MissionEvent_Available` **und** `mobiGlas_ui_ObjectiveEvent_Activated`
-   beide „Neuer Auftrag" — das sind Zwischenziele. Wer darauf hört, meldet bei
+   beide `Neuer Auftrag` — das sind Zwischenziele. Wer darauf hört, meldet bei
    jedem Etappenziel. Nur `MissionEvent_Activated` ist die Annahme.
 2. **Der Titel trägt unsere eigenen Marken.** Im Log steht
    `Retake Platforms From Nine Tails <EM4>[BP!]</EM4>`, in der injizierten
@@ -68,12 +68,12 @@ import re
 
 from . import errors, catalog, paths
 
-# Der sprachneutrale Schlüssel für „Auftrag angenommen" — in jeder Sprache derselbe.
+# Der sprachneutrale Schlüssel für die Annahme — in jeder Sprache derselbe.
 # Dazu das Teilen in der Gruppe: Wer einen Auftrag geteilt **bekommt**, soll
 # genauso erfahren, dass darin Baupläne stecken.
 #
 # Gemessen an Logs, in denen **beide** Rollen vorkamen — geteilt und
-# geteilt bekommen: Auf jedes „geteilt" folgt eine Annahme. Streng genommen
+# geteilt bekommen: Auf jedes Teilen folgt eine Annahme. Streng genommen
 # genuegte also die Annahme allein. Das Teilen bleibt trotzdem drin, weil es
 # nichts kostet: Steht der Titel schon in der Liste, bleibt es bei einem
 # Eintrag. Faellt die Annahme in einer kuenftigen Spielfassung einmal weg,
@@ -85,7 +85,7 @@ INI_KEYS = ('mobiGlas_ui_MissionEvent_Activated',
 # jeden Auftrag für ewig offen: Wer zehn hintereinander macht, haette zehn
 # Zeilen stehen, von denen neun erledigt sind.
 #
-# `Deactivate` heisst im Spiel „zurückgezogen" — das ist der Abbruch von Hand.
+# `Deactivate` heisst im Spiel `zurückgezogen` — das ist der Abbruch von Hand.
 INI_END_KEYS = (
     'mobiGlas_ui_MissionEvent_Complete',      # abgeschlossen
     'mobiGlas_ui_MissionEvent_Deactivate',    # zurückgezogen (abgebrochen)
@@ -93,13 +93,12 @@ INI_END_KEYS = (
 )
 
 # Rückfall, falls die `global.ini` nicht vorliegt. Beide an echten Logs gemessen
-# (aus echten Log-Sicherungen, 29.08.2026: 701 Annahmen, 303 Abschluesse, 112
+# (aus echten Log-Sicherungen: 701 Annahmen, 303 Abschluesse, 112
 # Ruecknahmen, 57 Fehlschlaege).
 TABLE = {
     # ⚠ Schweizerdeutsch ist eine **eigene Fassung** derselben Übersetzung
-    # (`live-CH`) und schreibt „Uftrag" statt „Auftrag". Am 30.08.2026 direkt
-    # in der Quelle nachgesehen (`rjcncpt/StarCitizen-Deutsch-INI`, Ordner
-    # `live-CH`) — nicht geraten:
+    # (`live-CH`) und schreibt `Uftrag` statt `Auftrag`. Direkt in der Quelle
+    # nachgesehen (`rjcncpt/StarCitizen-Deutsch-INI`, Ordner `live-CH`):
     #
     #     mobiGlas_ui_MissionEvent_Activated=Uftrag angenommen: %s
     #     mobiGlas_ui_MissionEvent_Complete=Uftrag abgschlosse: %s
@@ -112,10 +111,10 @@ TABLE = {
     'en': ['Contract Accepted', 'Contract Shared'],
 }
 
-# ⚠ „Auftrag geteilt" gehoert NICHT hierher — das ist ein Anfang, kein Ende.
+# ⚠ `Auftrag geteilt` gehoert NICHT hierher — das ist ein Anfang, kein Ende.
 END_TABLE = {
     # ⚠ Auch hier die Schweizer Fassung — und die weicht bei JEDEM der drei
-    # Enden ab: „abgschlosse", „fehlgschlage". Nur „zurückgezogen" ist gleich.
+    # Enden ab: `abgschlosse`, `fehlgschlage`. Nur `zurückgezogen` ist gleich.
     'de': ['Auftrag abgeschlossen', 'Auftrag zurückgezogen',
            'Auftrag fehlgeschlagen',
            'Uftrag abgschlosse', 'Uftrag zurückgezogen',
@@ -131,14 +130,14 @@ FRAME = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 # Auftrag als zwei verschiedene.
 #
 # ⚠ Nicht nur unsere eigenen. Dieselbe Marke setzen auch MrKraken StarStrings
-# und der SC Deutsch Launcher, und zwar in Formen, die `injection.py` längst
-# kennt (`TITELMARKE`) — hier fehlten sie:
+# und der SC Deutsch Launcher, und zwar in Formen, die auch `injection.py`
+# kennt (`TITELMARKE`):
 #
 #   `<EM4>[BP]?</EM4>`            Zusatz HINTER der Klammer, nicht darin
 #   `<EM4>[150 Rep] [BP]*</EM4>`  Vorspann davor, Zeichen dahinter
 #
-# Die alte Fassung erlaubte nur `!` INNERHALB der Klammer und liess deshalb
-# 103 von 347 Titeln ungeputzt stehen. Bewusst dieselbe Form wie
+# Wer nur `!` INNERHALB der Klammer erlaubt, laesst 103 von 347 Titeln
+# ungeputzt stehen. Dieselbe Form wie
 # `injection.TITLE_MARK`: zwei Verstaendnisse derselben Marke laufen
 # auseinander, sobald jemand nur eines von beiden pflegt.
 _MARKS = re.compile(
@@ -147,7 +146,7 @@ _MARKS = re.compile(
 )
 _PLACEHOLDER = re.compile(r'~mission\([^)]*\)')
 
-# ⛔ Die Kennung, die „keine Kennung" bedeutet. Jede **geteilte** Auftrags-
+# ⛔ Die Kennung, die keine Kennung bedeutet. Jede **geteilte** Auftrags-
 # meldung traegt sie — an 157 Log-Sicherungen gemessen: 403 von 403.
 # Wer sie wie eine echte MissionId fuehrt, wirft alle geteilten Auftraege in
 # einen Topf; ein Ende raeumte dann den falschen weg.
@@ -161,13 +160,13 @@ NULL_ID = '00000000-0000-0000-0000-000000000000'
 #
 # Das `,P` ist die CryEngine-Schreibweise für eine Textvariante. Wer die Zeile
 # schlicht bei `=` abschneidet, behält sie mit — und findet den Auftrag im
-# Katalog dann nicht mehr. **16 Missionen waren dadurch unsichtbar**, darunter
-# die mit 54 Bauplänen.
+# Katalog dann nicht mehr — **16 Missionen** wären unsichtbar, darunter die
+# mit 54 Bauplänen.
 #
-# ⚠ Und unsichtbar heißt hier nicht „keine Angabe": Der Platz wurde von einem
-# Nachbarn eingenommen, dessen Muster auf ein bloßes Präfix zusammenfällt
-# (siehe `_pattern_weak`). Gemeldet wurden dann dessen Baupläne — also die
-# einer ganz anderen Mission.
+# ⚠ Und unsichtbar heißt hier nicht: keine Angabe. Den Platz nimmt ein
+# Nachbar ein, dessen Muster auf ein bloßes Präfix zusammenfällt (siehe
+# `_pattern_weak`). Angezeigt würden dann dessen Baupläne — also die einer
+# ganz anderen Mission.
 _VARIANT = re.compile(r',[A-Za-z]{1,3}$')
 
 _contract_defs = None        # {vertrag_id: {'bp': [...], 'system': [...]}}
@@ -225,10 +224,10 @@ def _phrases_for(key, fallback):
     Sprachen, die wir nie gesehen haben. Sonst die mitgelieferte Tabelle.
     """
     key = (key,) if isinstance(key, str) else tuple(key)
-    # ⭐ Gemerkt, bis sich eine der Sprachdateien ändert (rc9). Jede
-    # `global.ini` hat rund 10 MB, und gelesen wurden sie alle bei jedem
-    # Aufruf — mehrmals je Besuch des Auftragslogs, zusammen rund 0,4 s
-    # (gemessen mit `tools/tempo_messen.py`, 27.09.2026).
+    # ⭐ Gemerkt, bis sich eine der Sprachdateien ändert. Jede `global.ini`
+    # hat rund 10 MB; sie bei jedem Aufruf zu lesen kostet mehrmals je Besuch
+    # des Auftragslogs, zusammen rund 0,4 s (gemessen mit
+    # `tools/tempo_messen.py`).
     files = _ini_files()
     stamp = []
     for path in files:
@@ -334,10 +333,9 @@ def end_pattern():
 # Dieselbe Mission, zwei Ebenen. Die zweite Zeile nimmt **das Zwischenziel**
 # weg, nicht den Auftrag — der läuft weiter, und direkt danach steht im Log
 # schon das nächste Ziel. Wer den Unterschied nicht macht, löscht laufende
-# Aufträge: am 31.08.2026 mit Bildschirmfoto gemeldet — Auftrag im Spiel
-# sichtbar aktiv, Leiste leer.
+# Aufträge: im Spiel sichtbar aktiv, in der Leiste leer.
 #
-# An allen 153 Protokollen gemessen (31.08.2026): 473 Enden, davon **111 mit**
+# An 153 Protokollen gemessen: 473 Enden, davon **111 mit**
 # ObjectiveId. Alle 111 waren Zwischenziele, und in allen 111 Fällen lief die
 # Mission danach nachweislich weiter.
 SUFFIX = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\]')
@@ -354,7 +352,7 @@ SUFFIX = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\
 # Marken, keine Platzhalter, keine Sprache, keine Praefix-Muster — und keine
 # Namensabbildung ueber den Tippfehler `Entities`/`Entites` in der Quelle.
 #
-# ⚠ An 157 Log-Sicherungen gemessen (13.09.2026): Zu **687 von 707** Annahmen
+# ⚠ An 157 Log-Sicherungen gemessen: Zu **687 von 707** Annahmen
 # laesst sich so ein Vertrag finden (97,2 %). Die uebrigen 20 tragen keinen
 # Marker — dort bleibt es beim Titelweg. Deshalb ersetzt das den alten Weg
 # nicht, es geht ihm nur vor.
@@ -380,15 +378,15 @@ def contracts_from_text(text):
     return found
 
 # ⚠⚠ **Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.**
-# Gemeldet am 04.09.2026: Ein Auftrag wurde angenommen und war vier Sekunden
-# spaeter wieder weg, weil ein anderer Spieler schneller war. Im Protokoll
-# steht dazu **keine** „Auftrag abgeschlossen"-Meldung, nur diese Zeile:
+# Beispiel: Ein Auftrag wird angenommen und ist Sekunden spaeter wieder weg,
+# weil ein anderer Spieler schneller war. Im Protokoll steht dazu **keine**
+# Abschluss-Meldung, nur diese Zeile:
 #
 #   <EndMission> … MissionId[e0b968d5-…] … CompletionType[Abandon]
 #                                          Reason[Player left]
 #
 # Wer nur auf die Meldungen hoert, fuehrt so einen Auftrag fuer immer als
-# laufend — im Overlay standen zwei, im Spiel war einer.
+# laufend — im Overlay stuenden zwei, im Spiel ist einer.
 #
 # ⚠ Die Kennung steht hier **ohne** Doppelpunkt und ohne ObjectiveId daneben,
 # `SUFFIX` greift also nicht. Sie wird deshalb gleich hier mitgelesen.
@@ -402,23 +400,21 @@ ENDMISSION = re.compile(r'<EndMission>[^\n]*?MissionId\[([^\]]*)\]')
 # ⚠⚠ **Wer die Spielwelt verlässt, verliert seine Aufträge — lautlos.**
 # Star Citizen meldet beim Ausloggen **kein einziges** Auftrags-Ende. Im
 # Auftragsbuch ist danach trotzdem alles weg. Wer nur auf Enden hört, führt
-# Aufträge von vorgestern als „laufend" — gemeldet am 31.08.2026: Das Spiel war
-# nicht einmal gestartet, und in der Leiste stand „Willkommen im System".
+# Aufträge von vorgestern als laufend — auch wenn das Spiel gar nicht läuft.
 #
 # Der Marker ist sprachneutral und deckt **beide** Fälle ab: zurück ins
 # Hauptmenü und Spiel beenden. Er steht in jeder Fassung an derselben Stelle:
 #
 #     [CSessionManager::RequestFrontEnd] Started - RequestFrontEndReason="…"!
 #
-# An 23 Protokollen gemessen (31.08.2026): **39** Ausloggen-Marker, 19
+# An 23 Protokollen gemessen: **39** Ausloggen-Marker, 19
 # Annahmen, 3 echte Enden, 87 Zwischenziele. Kein einziger Auftrag hat ein
 # Ausloggen überlebt — es gibt **0** Fälle, in denen nach einem Marker noch ein
 # Ende für einen davor angenommenen Auftrag kam.
 #
-# ⚠ Das ist **nicht** das pauschale Räumen aus v3.4.4. Dort räumte ein Ende,
-# das sich keinem Auftrag zuordnen ließ — geraten also. Hier sagt das Spiel
-# selbst, dass die Spielwelt verlassen wurde. Der Unterschied ist der zwischen
-# „ich weiß nicht, was das war" und „der Spieler ist raus".
+# ⚠ Das ist **kein** pauschales Räumen bei einem Ende, das sich keinem
+# Auftrag zuordnen lässt — das wäre geraten. Hier sagt das Spiel selbst, dass
+# die Spielwelt verlassen wurde.
 LEFT_GAME = re.compile(r'CSessionManager::RequestFrontEnd\]\s*Started')
 
 
@@ -555,9 +551,9 @@ def state_from_text(text, start_pat=None, end_pat=None):
         # ⚠⚠ **Ein Ende darf titellos sein, eine Annahme nicht.** Das stille
         # Ende aus `<EndMission>` (siehe `ENDMISSION`) traegt nur die Kennung —
         # und genau die genuegt, `which_ended` findet den Auftrag darueber.
-        # Stand hier bis zum 04.09.2026 ein pauschales `if not rein: continue`,
-        # wurde es verworfen, bevor es zum Zuge kam: Ein Auftrag, den ein
-        # anderer Spieler wegschnappte, blieb fuer immer als laufend stehen.
+        # Ein pauschales `if not rein: continue` verwuerfe es, bevor es zum
+        # Zuge kommt: Ein Auftrag, den ein anderer Spieler wegschnappt, bliebe
+        # fuer immer als laufend stehen.
         if not plain and not (mid and not is_accept):
             continue
         if is_accept:
@@ -611,7 +607,7 @@ def open_from_text(text, start_pat=None, end_pat=None):
 #
 # ⚠ **Der Zustand kommt aus der sprachneutralen Zeile, nie aus dem Wortlaut.**
 # Dieselbe Falle wie bei den Aufträgen: Auf Deutsch heißt die Ziel-Annahme
-# „Neuer Auftrag" — genau wie eine Auftrags-Meldung. Wer darauf hört, zählt
+# `Neuer Auftrag` — genau wie eine Auftrags-Meldung. Wer darauf hört, zählt
 # falsch. `ObjectiveUpserted` steht in jeder Sprache gleich da.
 #
 # ⚠ **Der Wortlaut wird über die ObjectiveId zugeordnet, nicht über die
@@ -747,8 +743,8 @@ def _build_index():
                         continue
                     if '~mission(' in title:
                         # Platzhalter -> Muster. Der Rest wird woertlich
-                        # genommen, damit „High-Risk Bounty: X" nicht auf
-                        # „Low-Risk Bounty: X" passt.
+                        # genommen, damit `High-Risk Bounty: X` nicht auf
+                        # `Low-Risk Bounty: X` passt.
                         raw = '^' + '.+'.join(
                             re.escape(t) for t in _PLACEHOLDER.split(title)) + '$'
                         try:
@@ -766,9 +762,9 @@ def _build_index():
 # auf **jeden** Auftrag dieser Familie, nicht auf einen bestimmten.
 #
 # Der Kommentar bei `_build_index` verspricht, der Rest werde wörtlich
-# genommen, damit „High-Risk Bounty: X" nicht auf „Low-Risk Bounty: X" passt.
+# genommen, damit `High-Risk Bounty: X` nicht auf `Low-Risk Bounty: X` passt.
 # Das stimmt — aber nur, solange der Platzhalter **in der Mitte** steht.
-# Gemessen am 13.09.2026: **70 von 116** Mustern enden so.
+# Gemessen: **70 von 116** Mustern enden so.
 def _pattern_weak(pattern):
     """Fällt dieses Muster auf ein bloßes Präfix zusammen?"""
     return pattern.endswith('.+$')
@@ -820,7 +816,7 @@ def contract_definitions():
     """Die Verträge aus dem Katalog — einmal lesen, dann gemerkt.
 
     ⚠ Fehlt der Abschnitt (Katalog vor FORMAT 3), kommt ein leeres
-    Wörterbuch — dann gilt weiter der Titelweg, wie bis v3.32.4.
+    Wörterbuch — dann gilt der Titelweg.
     """
     global _contract_defs
     if _contract_defs is None:
@@ -849,8 +845,8 @@ def check(title, has_already, contract_id=None):
           ├─ …_Pyro_Hard     19
           └─ …_Stanton_Hard  12
 
-    Wer den Auftrag in Nyx annimmt, sieht im Spiel 23 — und bekam bis v3.32.4
-    die 54 gemeldet. Nicht falsch, aber nicht die Frage, die er hat.
+    Wer den Auftrag in Nyx annimmt, sieht im Spiel 23 — der Titelweg nennt
+    54. Nicht falsch, aber nicht die Frage, die er hat.
 
     ⚠ **Der Titelweg bleibt der Rückfall**, nicht der Ersatz: Zu 20 von 707
     gemessenen Annahmen gibt es keinen Marker, und ein Katalog vor FORMAT 3

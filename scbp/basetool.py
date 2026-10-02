@@ -138,7 +138,7 @@ class ApiError(Exception):
     | action | Bedeutung |
     |---|---|
     | `retry` | später noch einmal (Zurückhalten, `retry_after` beachten) |
-    | `relogin` | Verbindung ist vorbei, neu verbinden nur auf Wunsch |
+    | `relogin` | Verbindung ist vorbei, neu verbinden nur auf Knopfdruck |
     | `forget_key` | diese Installation wurde getrennt — Schlüssel verwerfen |
     | `stop` | aufhören und dem Spieler sagen, warum |
     | `update` | VerseKit ist zu alt |
@@ -494,7 +494,7 @@ class Connection:
         raise ApiError(error or 'TOKEN_FAILED', status)
 
     def _token_request(self, form):
-        """POST an den Token-Endpunkt mit Nachweis; Nonce-Wunsch und
+        """POST an den Token-Endpunkt mit Nachweis; Nonce-Anforderung und
         Uhrzeit-Absage je einmal wiederholen."""
         cfg = connection_config()
         url = self.endpoints()['token']
@@ -530,7 +530,7 @@ class Connection:
             before = self.granted
             self.granted = tuple(sorted((answer.get('scope') or '').split()))
         # Welche Rechte das Basetool wirklich erteilt hat — in die Startspur,
-        # damit ein Bericht „Erlaubnis fehlt" beantworten kann. Nur bei einer
+        # damit ein Bericht fehlende Erlaubnisse erklären kann. Nur bei einer
         # Änderung: erneuert wird alle fünf Minuten.
         if self.granted != before:
             from . import errors
@@ -577,7 +577,7 @@ class Connection:
                 idempotency_key=None):
         """Eine Anfrage an die Schnittstelle -> Antwort als dict.
 
-        Nonce-Wunsch: einmal wiederholen. `UNAUTHENTICATED`: einmal erneuern
+        Nonce-Anforderung: einmal wiederholen. `UNAUTHENTICATED`: einmal erneuern
         und wiederholen, dann nicht noch einmal — keine Schleife. Eine
         wiederholte Schreibanfrage behält ihren `Idempotency-Key`."""
         cfg = connection_config()
@@ -658,7 +658,7 @@ class Connection:
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'DPoP': self._proof('POST', url)}, body, cfg)
             except Exception:
-                pass                        # Widerruf ist „nach Kräften"
+                pass                        # Widerruf ist nur ein Versuch
         self._forget_tokens()
         self._drop_key()
         with self._lock:
@@ -681,7 +681,7 @@ def new_idempotency_key():
 
 
 def default_label():
-    """„VerseKit Windows" / „VerseKit Linux" — ⚠ nie der Rechnername, und
+    """`VerseKit Windows` / `VerseKit Linux` — ⚠ nie der Rechnername, und
     der Bindestrich ist der einfache, kein Gedankenstrich."""
     return 'VerseKit Windows' if secret_store.WINDOWS else 'VerseKit Linux'
 

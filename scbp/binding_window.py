@@ -28,7 +28,7 @@
 
 ⚠⚠ **Warum nicht sofort schreiben, sobald etwas erkannt ist?** Weil die
 Erkennung danebenliegen kann — eine zittrige Achse, ein Knopf, der beim
-Loslassen prellt, unter Windows ein ungetesteter Weg. Zwischen „erkannt" und
+Loslassen prellt, unter Windows ein nur nach Dokumentation gebauter Weg. Zwischen „erkannt" und
 „geschrieben" gehoert ein Mensch. In der Datei haengt die komplette Steuerung
 des Spielers.
 
@@ -72,7 +72,7 @@ PATIENCE = 20.0
 
 
 class BindingWindow:
-    """Fragt eine Eingabe ab und schreibt sie auf Wunsch in die Belegung."""
+    """Fragt eine Eingabe ab und schreibt sie nach Bestätigung in die Belegung."""
 
     def __init__(self, parent, action, section, device_id, plain_name='',
                  previous='', done=None):
@@ -88,9 +88,9 @@ class BindingWindow:
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
-        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
-        # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
-        # weil es modal war, ließ sich das Programm nicht einmal beenden.
+        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen kann das
+        # Fenster so außerhalb des sichtbaren Bereichs landen; weil es modal
+        # ist, ließe sich das Programm dann nicht einmal beenden.
         #
         # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
@@ -282,10 +282,9 @@ class BindingWindow:
 
     def _write(self, device_id, name):
         # ⚠⚠ **Kein `messagebox`.** Der System-Dialog von Tk landet nicht
-        # zuverlässig über dem Elternfenster: Am 06.09.2026 erschien er beim
-        # Speichern der Belegung **außerhalb aller Bildschirme** — und weil er
-        # modal ist, war das Programm damit unbedienbar und ließ sich nicht
-        # einmal mehr beenden. Dazu kommen die bekannten Punkte: heller Kasten
+        # zuverlässig über dem Elternfenster: Er kann **außerhalb aller
+        # Bildschirme** erscheinen — und weil er modal ist, wäre das Programm
+        # damit unbedienbar und ließe sich nicht einmal mehr beenden. Dazu kommen die bekannten Punkte: heller Kasten
         # im dunklen Programm, Knöpfe in der Systemsprache.
         #
         # `ask_yes_no` setzt sich mittig über das Elternfenster und wird

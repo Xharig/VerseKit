@@ -101,9 +101,9 @@ class VersionWindow:
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
-        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
-        # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
-        # weil es modal war, ließ sich das Programm nicht einmal beenden.
+        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen kann das
+        # Fenster so außerhalb des sichtbaren Bereichs landen; weil es
+        # modal ist, ließe sich das Programm dann nicht einmal beenden.
         #
         # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
@@ -211,16 +211,11 @@ class VersionWindow:
                                    + t('selbst_holen'), fg=YELLOW)
             return
 
-        # ⚠ Hier stand nur „Beim nächsten Start läuft die neue Version" — und
-        # genau das stimmt unter Windows **nicht**. Dort tauscht ein Hilfsskript
-        # die Datei erst, wenn das Programm beendet ist; wer einfach weiterspielt,
+        # ⚠ Ein bloßer Hinweis, beim nächsten Start laufe die neue Version,
+        # stimmt unter Windows **nicht**. Dort tauscht ein Hilfsskript die
+        # Datei erst, wenn das Programm beendet ist; wer einfach weiterspielt,
         # bei dem gibt es nach zwei Minuten auf, und aktualisiert ist nichts.
-        #
-        # Morkhan am 26.08.2026: „dann klicke ich auf jetzt holen, dann läuft
-        # des durch … und dann passiert nix mehr." Er hatte alles richtig
-        # gemacht — es fehlte schlicht der zweite Schritt, und niemand sagte ihm
-        # das. In den Einstellungen gibt es den Neustart-Knopf längst; hier war
-        # er nie eingebaut.
+        # Deshalb steht hier der Neustart als zweiter Schritt, mit Knopf.
         self.message.configure(text=t('neustart_noetig'), fg=ACCENT)
         try:
             self._restart_button()
@@ -229,7 +224,7 @@ class VersionWindow:
             errors.record('version_window.restart_button', ausnahme)
 
     def _restart_button(self):
-        """Aus „geladen" wird ein Knopf, der den Neustart auch ausführt."""
+        """Aus der Meldung `geladen` wird ein Knopf, der den Neustart auch ausführt."""
         bar = getattr(self, '_knopfleiste', None)
         if bar is None:
             return

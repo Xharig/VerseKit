@@ -1,9 +1,8 @@
 # Prueft, ob eine Fassung fertig ist — veroeffentlicht aber NICHTS von selbst.
 #
-# ⚠ Der Zeitplan ist am 25.08.2026 abgeschaltet worden. Gemeldet: "Release machen wir
-# jeden Samstag um 12 Uhr, stossen den aber selber an, kein Auto-Release, ist zu
-# vage, ist besser wir machen das selber." Und das stimmt: Ein Ablauf, der von
-# allein taggt, entscheidet anhand von Changelog-Datum und Versionsnummer — beides
+# ⚠ Kein Zeitplan, kein Auto-Release — veroeffentlicht wird von Hand. Ein
+# Ablauf, der von allein taggt, entscheidet anhand von Changelog-Datum und
+# Versionsnummer — beides
 # sagt nichts darueber, ob die Fassung wirklich gut ist. Am Samstag steht ausserdem
 # oft ein frischer Spiel-Patch an; ob der noch mit hineingehoert, weiss nur ein
 # Mensch.
@@ -19,7 +18,7 @@
 #   Ein Tag, den ein Ablauf mit dem Standard-Token setzt, loest KEINEN weiteren
 #   Ablauf aus (GitHub verhindert damit Endlosschleifen). "Tag pushen und hoffen,
 #   dass release.yml anspringt" funktioniert also nicht. Deshalb ruft dieser
-#   Ablauf den Bau selbst auf — release.yml kann das seit dem Umbau (workflow_call).
+#   Ablauf den Bau selbst auf — release.yml ist dafuer als workflow_call aufrufbar.
 #
 # Woran es NICHT scheitern soll:
 #   Jeden Samstag blind zu taggen waere schlimmer als gar keine Automatik. Ueber
@@ -33,10 +32,10 @@
 name: Release-Bereitschaft pruefen
 
 on:
-  # ⚠ KEIN `schedule` mehr — siehe Kopf. Der Zeitplan stand hier:
+  # ⚠ KEIN `schedule` — siehe Kopf. Ein Zeitplan braeuchte beide Zeilen:
   #     - cron: '0 10 * * 6'   (Sommerzeit, samstags 12:00 deutscher Zeit)
   #     - cron: '0 11 * * 6'   (Winterzeit)
-  # Wer ihn je wieder will, setzt beide Zeilen zurueck; die Uhrzeitpruefung
+  # Wer ihn einschaltet, setzt beide Zeilen ein; die Uhrzeitpruefung
   # weiter unten faengt die jeweils falsche ab.
   workflow_dispatch:
     inputs:

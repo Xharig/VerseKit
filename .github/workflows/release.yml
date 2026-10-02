@@ -1,11 +1,10 @@
 # Baut bei jedem Versions-Tag die fertigen Dateien und haengt sie an ein Release.
 #
 # Warum das hier laeuft und nicht auf dem Entwicklungsrechner:
-#   * Niemand soll etwas selbst bauen muessen — weder die Nutzer noch der Entwickler.
+#   * Niemand soll etwas selbst bauen muessen.
 #   * Die .exe braucht Windows, das AppImage braucht Linux. Kein Rechner hat beides.
-#   * Frueher hing die veroeffentlichte .exe vier Versionen hinter dem Code, weil
-#     "Tag pushen" und "Release anlegen" zwei verschiedene Dinge sind. Jetzt ist es
-#     eines.
+#   * Tag pushen und Release anlegen sind damit ein Schritt — die veroeffentlichten
+#     Dateien koennen nicht hinter dem Code zurueckbleiben.
 #
 # Ausloesen:  git tag v2.0.0 && git push origin v2.0.0
 
@@ -29,12 +28,10 @@ on:
 # `pip install --upgrade pyinstaller` holt bei jedem Lauf, was gerade neu ist —
 # damit ergibt ein zweiter Bau desselben Tags nicht zwingend dieselbe Datei.
 #
-# Nachgemessen am 10.09.2026 mit `git ls-remote --tags`: Die beweglichen Tags
-# (`v4`, `v5`, `v2`) zeigten zu diesem Zeitpunkt auf **genau** die SHAs, die
-# unten stehen. Es wurde also festgeschrieben, was ohnehin lief — nichts
-# aktualisiert.
+# Die SHAs unten sind die, auf die die beweglichen Tags (`v4`, `v5`, `v2`)
+# beim Festschreiben zeigten (nachgemessen mit `git ls-remote --tags`).
 #
-# ⚠⚠ **Seit dem 11.09.2026 sind auch die Unterabhaengigkeiten festgenagelt.**
+# ⚠⚠ **Auch die Unterabhaengigkeiten sind festgenagelt.**
 # `packaging/lock-windows.txt` und `packaging/lock-linux.txt` nennen jedes
 # Paket mit Version und SHA-256; installiert wird mit `--require-hashes`.
 # Damit liegen `altgraph`, `packaging`, `setuptools`,
@@ -50,7 +47,7 @@ on:
 #
 # ⚠ Was weiterhin NICHT festliegt: das Betriebssystem der Bau-Rechner, die
 # Python-Punktversion, `apt`-Pakete im Linux-Container und Inno Setup unter
-# Windows. „Reproduzierbar" waere also weiter zu viel gesagt — festgenagelt
+# Windows. Reproduzierbar waere also weiter zu viel gesagt — festgenagelt
 # ist die Python-Seite der Lieferkette.
 #
 # Anheben ist Handarbeit und Absicht: SHA UND den Kommentar daneben aendern.
@@ -67,7 +64,7 @@ env:
   # ⚠ Das Nachfolge-Repo — `AppImage/AppImageKit` ist abgeloest, seine aelteren
   # Anhaenge tragen dort bereits `obsolete-` im Namen.
   APPIMAGETOOL_VERSION: '1.9.1'
-  # Selbst nachgerechnet am 10.09.2026 (Datei geladen, `shasum -a 256`), nicht
+  # Selbst nachgerechnet (Datei geladen, `shasum -a 256`), nicht
   # von der Seite abgeschrieben.
   APPIMAGETOOL_SHA256: 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0'
   # ⚠⚠ **Die Runtime ist der zweite Netzzugriff, den AppImageTool macht — und
@@ -100,9 +97,9 @@ jobs:
           # bringt Python `compression.zstd` in der Standardbibliothek mit —
           # und genau das braucht `scbp/gametext.py`, um die englische
           # `global.ini` aus CIGs `Data.p4k` zu holen (CIG komprimiert mit
-          # zstd). Mit 3.12 blieb dem Nutzer nur „installier dir 7-Zip", und
-          # damit stand jeder vor einer Wand, der englisch spielt und bloss die
-          # Angaben am Gegenstand haben will.
+          # zstd). Mit einer aelteren Fassung braeuchte der Nutzer 7-Zip — eine
+          # Wand fuer jeden, der englisch spielt und bloss die Angaben am
+          # Gegenstand haben will.
           python-version: '3.14'
 
       - name: Version gegen den Tag pruefen
@@ -130,7 +127,7 @@ jobs:
         run: python tools/selbsttest.py
 
       # Ohne diese Angaben zeigt der Task-Manager den Dateinamen
-      # „SC-BP-Watcher" statt „Verse-Kit" — und das unter Hintergrundprozessen.
+      # `SC-BP-Watcher` statt des Programmnamens — und das unter Hintergrundprozessen.
       - name: Versionsangaben schreiben
         run: python .github/scripts/versionsinfo.py build/versionsinfo.txt
 
@@ -160,11 +157,9 @@ jobs:
           # Lauf von Hand gibt es keinen Tag — dann steht in github.ref_name der
           # Zweigname, und Inno Setup bricht mit "Value of [Setup] section
           # directive VersionInfoVersion is invalid" ab, weil aus "in-arbeit"
-          # keine Dateiversion wird. Genau daran ist der im Projekt
-          # beschriebene Weg "bauen ohne Release" bei JEDEM Versuch gescheitert
-          # (vier von vier, gemessen am 03.09.2026) — und es fiel nie auf, weil
-          # der Linux-Teil durchlief und alle echten Bauten ueber einen Tag
-          # kamen. Bei einem Tag-Lauf ist beides ohnehin dasselbe: Der Schritt
+          # keine Dateiversion wird. Der Weg "bauen ohne Release" scheiterte
+          # damit bei JEDEM Versuch — unauffaellig, weil der Linux-Teil
+          # durchlaeuft. Bei einem Tag-Lauf ist beides ohnehin dasselbe: Der Schritt
           # "Version pruefen" laesst den Bau gar nicht erst weiterlaufen, wenn
           # Tag und __version__ auseinandergehen.
           $roh = Get-Content sc_bp_watcher.py -Raw
@@ -310,7 +305,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         # ⚠ Mit voller Historie und Tags: `release_text.py` sucht die vorige
-        # Testfassung, um „was hat sich seit dann geändert" zu verlinken. Ein
+        # Testfassung, um die Änderungen seit dann zu verlinken. Ein
         # flacher Klon kennt keine Tags, und der Link fiele still weg.
         with: { fetch-depth: 0 }
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
@@ -364,14 +359,9 @@ jobs:
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
           body_path: release-text.md
-          # ⚠ Die nackte `SC-BP-Watcher.exe` wird NICHT mehr angehängt
-          # (bewusste Entscheidung, 27.08.2026: „ich will die exe ohne install
-          # loswerden … nun wollen wir es funktionierend und einfach").
-          #
-          # Sie war seinerzeit dazu da, Vertrauen aufzubauen — ein unsigniertes
-          # Programm ohne Installer wirkt harmloser. Das Argument ist
-          # verbraucht, und zwei Auslieferungswege heißen zwei Fehlerquellen
-          # und doppelte Unterstützung.
+          # ⚠ Die nackte `SC-BP-Watcher.exe` wird NICHT angehängt: Zwei
+          # Auslieferungswege heißen zwei Fehlerquellen und doppelte
+          # Unterstützung.
           #
           # Der Weg für **v2.0.0** bleibt trotzdem offen: Deren Update-Logik
           # greift die erste Datei auf `.exe` — das ist jetzt der Installer —
@@ -390,8 +380,8 @@ jobs:
       # Chat-Meldung darf eine fertige Veroeffentlichung nicht rot faerben.
       #
       # ⚠ Der Beitrag landet nur im EIGENEN Discord. Ob ihn jemand anderes
-      # sieht, entscheidet weiterhin ein Klick auf „Veroeffentlichen" — diese
-      # Bremse ist gewollt (siehe Projektnotizen).
+      # sieht, haengt weiterhin an einem Klick auf „Veroeffentlichen" — diese
+      # Bremse ist gewollt.
       - name: Im Discord melden
         if: always()
         env:

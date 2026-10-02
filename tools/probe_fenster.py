@@ -2,17 +2,15 @@
 """Lassen sich die eigenstaendigen Fenster wirklich oeffnen?
 
 ⛔⛔ **Warum es das braucht:** Der Selbsttest deckt diese Fenster nicht ab —
-sie leben in GUI-Rueckrufen, die er nie ausloest. Bei der Umbenennung am
-13.09.2026 war er **2208/2208 gruen**, waehrend zwei der vier Fenster beim
-Oeffnen mit `TypeError` starben:
+sie leben in GUI-Rueckrufen, die er nie ausloest. Er kann vollstaendig gruen
+sein, waehrend Fenster beim Oeffnen mit `TypeError` sterben, etwa:
 
     rundleiste() got an unexpected keyword argument 'bg_colour'
-    verlauf() got an unexpected keyword argument 'whole'
 
-Die Ursache ist lehrreich: Umbenannt wurden Schluesselwoerter, die **fremden**
-Funktionen gehoeren. `code_umbenennen()` hat eine Sperre fuer fremde
-Attribute — ein `rundleiste(grund=BG)` ist aber ein ganz normales NAME-Token
-im eigenen Modul.
+Typische Ursache: Bei einer Umbenennung werden Schluesselwoerter geaendert,
+die **fremden** Funktionen gehoeren. `code_umbenennen()` hat eine Sperre fuer
+fremde Attribute — ein `rundleiste(grund=BG)` ist aber ein ganz normales
+NAME-Token im eigenen Modul.
 
 ⚠ Gegen die **eingelesene Signatur** pruefen faengt es nur halb: `pack(side=)`
 meldet dann Fehlalarme, weil es im Projekt eine gleichnamige Funktion gibt.

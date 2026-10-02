@@ -25,8 +25,7 @@ Also Zutaten, Mengen und Herstellzeit zu jedem der 1.607 Baupläne.
 ⚠ **Was hier NICHT beantwortet wird: ob man es herstellen kann.** Der Watcher
 liest Baupläne aus der `Game.log`; was an Erz im Frachtraum oder im Lager liegt,
 steht dort nicht. Also „braucht 0,3 SCU Iron" — nie „du kannst das jetzt bauen".
-Dieselbe Linie wie bei der Zählung `[BP 3/12]`, die am 28.08.2026 herausflog,
-weil sie mehr behauptete, als sie wusste.
+Nichts behaupten, was das Werkzeug nicht weiß.
 
 **Woher die Daten kommen**
 
@@ -36,11 +35,11 @@ die lädt der Katalog ohnehin schon, siehe `catalog.py`.
 
 > **Nichts davon wird mitgeliefert.** scmdb steht unter CC BY-NC-ND 4.0; geholt
 > wird zur Laufzeit auf dem Rechner des Nutzers, von der Original-Adresse. Die
-> Nutzung ist von Krovax (scmdb) am 29.08.2026 ausdrücklich freigegeben — die
+> Nutzung ist vom Betreiber von scmdb (Krovax) ausdrücklich freigegeben — die
 > Weitergabe **nicht**, und die könnte er auch gar nicht erlauben: die Rohdaten
 > sind CIGs Eigentum.
 
-**Aufbau der Quelle** (gemessen 29.08.2026, Build 4.10.0-live.12519617)
+**Aufbau der Quelle** (gemessen an Build 4.10.0-live.12519617)
 
     blueprints[1607]
       productName          "Drake Ore Pod"
@@ -59,9 +58,8 @@ Schlüssel.** Neben `type="resource"` mit `resourceName` steht
 
     options[]  type="item", itemName="Hadanite", quantity=75, minQuality=1
 
-Bis zum 17.09.2026 las diese Datei nur `resource`. Die `item`-Zutaten fielen
-damit **spurlos** aus jeder Zutatenliste — gemeldet von Bushwick4712: „ich sehe
-nicht das Hadanite, was man braucht". Gemessen an Build 4.10.1-live.12660092:
+Wer nur `resource` liest, verliert die `item`-Zutaten **spurlos** aus jeder
+Zutatenliste. Gemessen an Build 4.10.1-live.12660092:
 **298 Zutaten in 255 Bauplänen**, dazu 376 Qualitätswirkungen und elf
 Materialien (Hadanite, Dolivine, Sadaryx, Aphorite, Beradom, Glacosite,
 Janalite, Feynmaline, Carinite, Saldynium, Yormandi Eye). Wer eine neue Stelle
@@ -82,9 +80,8 @@ alle Stufen, damit es nicht bricht, falls CIG welche nachliefert.
 `Aslarite`, in `mining_data` steht `Aslarite (Raw)`. Für die spätere Verknüpfung
 gibt es `norm_material()`.
 
-⚠ Bis zum 12.09.2026 hieß dieses Modul `herstellung` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: der Dateiname `crafting-blueprints.json` und alle Schlüssel
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben: der Dateiname `crafting-blueprints.json` und alle Schlüssel
 darin (`format`, `build`, `blueprints`, `dismantle`) — sonst gilt jede
 vorhandene Ablage als veraltet und wird neu geholt (4,1 MB). Ebenso die
 Schlüssel der Ergebnisse (`basis`, `name`, `hersteller`, `art`, `unterart`,
@@ -93,9 +90,8 @@ Schlüssel der Ergebnisse (`basis`, `name`, `hersteller`, `art`, `unterart`,
 `mods`, `qualitaet`, `faktor`, `besser_hoch`, `absolut`, `spanne`) und die
 Textschlüssel `he_art_…` / `he_sub_…`.
 
-⚠ `norm_rohstoff()` heißt jetzt `norm_material()`. Drei bereits umgestellte
-Module holen sie direkt (`materials`, `mining`, `prices`) — ihre Hinweise sind
-mitgezogen.
+`norm_material()` wird auch direkt von `materials`, `mining` und `prices`
+geholt.
 """
 import json
 import os
@@ -126,11 +122,10 @@ EMPTY = {'format': FORMAT, 'build': None, 'blueprints': []}
 
 # ⚠⚠ **Die Daten bleiben im Speicher.**
 #
-# `load()` las bis zum 29.08.2026 bei JEDEM Aufruf die ganze Datei von der
-# Platte — bei den Rezepten sind das 4 MB und **22 ms**. Das fiel niemandem
-# auf, solange nur beim Seitenaufbau geladen wurde. Mit dem Qualitäts-Regler
-# wurde daraus ein Ladevorgang **pro Mausbewegung**: über 600 ms Rechenzeit je
-# Sekunde, und der Regler ruckelte so, dass er unbenutzbar war.
+# Die ganze Datei von der Platte zu lesen kostet bei den Rezepten 4 MB und
+# **22 ms**. Beim Seitenaufbau fällt das nicht auf — mit dem Qualitäts-Regler
+# wäre es ein Ladevorgang **pro Mausbewegung**: über 600 ms Rechenzeit je
+# Sekunde, und der Regler ruckelte so, dass er unbenutzbar wäre.
 #
 # Gemerkt wird zusammen mit Zeitstempel und Größe der Datei. Ändert sich eine
 # von beiden — etwa weil ein neuer Spiel-Build geladen wurde — wird neu
@@ -202,10 +197,10 @@ def update(build, progress=None):
     if OFF:
         return False, t('m_h_kein_netz')
     raw_stand = load()
-    # ⚠ `dismantle` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
+    # ⚠ In aelteren Ablagen kann `dismantle` fehlen — dort wurden beim Sichern
     # nur die Bauplaene behalten. Fehlt der Abschnitt, wird einmal neu geholt;
     # danach ist er da und es passiert wieder nichts.
-    # ⚠ Dasselbe fuer `products` (ab v3.43.0): die Grundwerte der Produkte
+    # ⚠ Dasselbe fuer `products`: die Grundwerte der Produkte
     # fuer die Tabelle „Grundwert → gebaut". Aeltere Ablagen holen einmal nach.
     if (raw_stand.get('build') == build and raw_stand.get('blueprints')
             and raw_stand.get('dismantle') is not None
@@ -244,8 +239,7 @@ def norm_material(name):
 
     ⚠ Die Baupläne sagen `Aslarite`, `mining_data` sagt `Aslarite (Raw)`, und
     bei Agricium steht dort `Agricium (Ore)`. Ohne diese Angleichung findet die
-    Bergbau-Sicht später zu **keinem** Rohstoff einen Fundort — beim Messen am
-    29.08.2026 waren es 0 von 26.
+    Bergbau-Sicht zu **keinem** Rohstoff einen Fundort (gemessen: 0 von 26).
 
     Dazu die englische/amerikanische Schreibweise: `Aluminium` / `Aluminum`.
     """
@@ -260,8 +254,8 @@ def _option_material(option):
 
     ⚠⚠ **Die einzige Stelle, die beide Schlüssel kennt.** `resourceName` bei
     Erzen, `itemName` bei den gesammelten Edelsteinen. Wer nur den ersten
-    liest, verliert 298 Zutaten, ohne dass irgendwo eine Lücke zu sehen wäre —
-    genau das war bis zum 17.09.2026 der Fall. Siehe Modulkopf.
+    liest, verliert 298 Zutaten, ohne dass irgendwo eine Lücke zu sehen wäre.
+    Siehe Modulkopf.
     """
     return (option or {}).get('resourceName') or (option or {}).get('itemName') or ''
 
@@ -288,7 +282,7 @@ def _ingredients(tier):
 def _name_from_tag(tag):
     """Ein lesbarer Ersatzname, wenn `productName` fehlt.
 
-    ⚠ **Fünf Baupläne tragen keinen Produktnamen** (gemessen 29.08.2026):
+    ⚠ **Fünf Baupläne tragen keinen Produktnamen** (gemessen an 4.10.0):
     die Kühler von Idris und Pioneer, die Radare von Idris, Lephari und Polaris.
     Ohne Ersatz stünden in der Liste fünf Einträge namens „?".
 
@@ -319,7 +313,7 @@ def _distinguisher(tag, name):
 def _merge(items):
     """Mehrere Baupläne zu einem Listeneintrag — oder eben nicht.
 
-    ⚠ **14 Produktnamen kommen mehrfach vor** (29.08.2026):
+    ⚠ **14 Produktnamen kommen mehrfach vor** (gemessen an 4.10.0):
 
       * **10** sind echte Dubletten — dasselbe Rezept, nur eine andere Nummer
         im Tag (`…_01_01_13` neben `…_01_01_15`). Die gehören zusammen, sonst
@@ -349,8 +343,7 @@ def all_items():
 
     **Ein Eintrag je Gegenstand**, nicht je Bauplan: Gleiche Namen mit gleichem
     Rezept werden zusammengefasst (siehe `_merge`). Sonst zählt die
-    Übersicht zu hoch — beim Messen am 29.08.2026 kamen so 406 „herstellbare"
-    heraus, obwohl es 404 Baupläne waren."""
+    Übersicht zu hoch (gemessen: 406 herstellbare bei 404 Bauplänen)."""
     by_name = {}
     for b in load().get('blueprints') or []:
         name = b.get('productName') or _name_from_tag(b.get('tag'))
@@ -445,7 +438,7 @@ def classification():
     stattdessen die **Rolle** (`combat`, `engineer`, `stealth`).
 
     Beide Quellen zusammen ergeben also erst das vollständige Bild. Verknüpft
-    wird über den Namen — gemessen am 29.08.2026: **738 von 738** Bauplänen des
+    wird über den Namen — gemessen: **738 von 738** Bauplänen des
     Katalogs finden so ihr Rezept.
 
     Wird einmal gelesen und gemerkt; die 2-MB-Datei bei jedem Filterklick neu
@@ -498,11 +491,10 @@ _raw_cache = {'stand': None, 'daten': None, 'geprueft': 0.0}
 # ⚠⚠ **Wie lange ein einmal geprueftes Verzeichnis als frisch gilt.**
 # `load()` fragt bei JEDEM Aufruf das Dateisystem (`os.stat`), um zu sehen,
 # ob sich der Zwischenspeicher geaendert hat. Einzeln ist das nichts — in einer
-# Schleife ueber den ganzen Katalog aber alles: Am 02.09.2026 gemessen,
+# Schleife ueber den ganzen Katalog aber alles: gemessen
 # **738 Nachschlaege = 51 ms, davon 50 ms allein `load()`**; der eigentliche
-# Verzeichnis-Zugriff kostete 0,1 ms. Das war der groesste Einzelposten beim
-# Oeffnen der Bauplan-Liste (gemeldet als „bis Symbole und Text links geladen
-# sind" — Haldjas, pr0, und am selben Tag erneut).
+# Verzeichnis-Zugriff kostet 0,1 ms. Ungedrosselt ist das der groesste
+# Einzelposten beim Oeffnen der Bauplan-Liste.
 #
 # Ein halbe Sekunde Nachlauf ist unbedenklich: Die Rezeptdaten aendern sich nur,
 # wenn der Katalog neu geschrieben wird — und `_save()` setzt den Merker
@@ -533,8 +525,7 @@ def recipe_raw(name):
     stamp = id(data)
     # ⚠ `daten is None` gehoert mit in die Bedingung: Sonst genuegt ein
     # geleertes Verzeichnis bei gleich gebliebener Kennung, und die letzte
-    # Zeile laeuft in ein `None.get(...)`. Beim Bau der Gegenprobe zu dieser
-    # Drosselung genau so passiert (02.09.2026).
+    # Zeile laeuft in ein `None.get(...)`.
     if _raw_cache['stand'] != stamp or _raw_cache['daten'] is None:
         index = {}
         for b in data.get('blueprints') or []:
@@ -585,7 +576,7 @@ def material_demand():
     """Wie viele Baupläne brauchen welchen Rohstoff? {Rohstoff: Anzahl}.
 
     Grundlage für die spätere Umkehrsicht („dir fehlen 12, dafür brauchst du
-    vor allem Aslarite"). Gemessen am 29.08.2026: Aslarite steckt in 856 der
+    vor allem Aslarite"). Gemessen an 4.10.0: Aslarite steckt in 856 der
     1.607 Baupläne."""
     counter = {}
     for b in load().get('blueprints') or []:
@@ -605,7 +596,7 @@ def material_demand():
 # ist die Herstellungs-Liste keine Nachschlagetabelle, sondern trägt denselben
 # Mehrwert wie die Bauplan-Liste: das Kästchen.
 #
-# ⚠ **Immer über `_norm()` vergleichen, nie stumpf.** Gemessen am 29.08.2026 an
+# ⚠ **Immer über `_norm()` vergleichen, nie stumpf.** Gemessen an
 # einem echten Bestand: 404 von 404 Bauplänen finden ihr Produkt — ohne
 # Normalisierung nur 402. Die beiden Ausreißer (`7MA "Lorica"`, `Oracle Helmet`)
 # sind die bekannte Anführungszeichen-Falle, die `catalog._norm()` behandelt.
@@ -635,10 +626,9 @@ def with_collection(collection_keys):
     Variante. Wer hier beide anhakt, verspricht dem Spieler, er könne **beide**
     bauen — und das wissen wir nicht.
 
-    Gemessen am 29.08.2026 an einem echten Bestand: Ohne diese Unterscheidung
-    standen 405 Häkchen in einer Liste, obwohl es 404 Baupläne sind. Die Linie
-    ist dieselbe wie überall im Werkzeug: Was wir nicht wissen, behaupten wir
-    nicht — „kennt der Katalog den Auftrag nicht, wird geschwiegen"."""
+    Gemessen an einem echten Bestand: Ohne diese Unterscheidung stehen 405
+    Häkchen in einer Liste, obwohl es 404 Baupläne sind. Was das Werkzeug
+    nicht weiß, behauptet es nicht."""
     result = all_items()
     ambiguous = set()
     seen = set()
@@ -664,13 +654,12 @@ def counts(collection_keys):
     ⚠ **Gezählt werden die eigenen Baupläne, nicht die Listeneinträge.** Vier
     Produktnamen kommen doppelt vor und meinen verschiedene Gegenstände
     („Main Powerplant" für Idris und Reclaimer, „BroadSpec" in zwei Größen).
-    Wer über die Liste zählt, zählt so einen Bauplan zweimal — beim Messen am
-    29.08.2026 kamen 405 heraus, obwohl der Bestand 404 hatte.
+    Wer über die Liste zählt, zählt so einen Bauplan zweimal (gemessen: 405
+    bei einem Bestand von 404).
 
-    ⚠⚠ **Das gilt für `unklar` genauso** (03.09.2026). Bis dahin zählte es die
-    Listen*einträge*: Ein einziger Bauplan „BroadSpec" ergab **zwei** unklare,
-    weil zwei Gegenstände so heißen. Solange die Zahl niemand sah, fiel das
-    nicht auf — sobald sie neben der Kopfzahl steht, rechnet der Spieler
+    ⚠⚠ **Das gilt für `unklar` genauso.** Über die Listen*einträge* gezählt,
+    ergäbe ein einziger Bauplan „BroadSpec" **zwei** unklare, weil zwei
+    Gegenstände so heißen. Neben der Kopfzahl rechnet der Spieler dann
     `404 + 2 = 406` und hat 405 Baupläne. Gezählt werden deshalb die
     betroffenen **Namen**, nicht die Einträge; dann geht die Rechnung auf:
     404 sicher + 1 unklar = 405 im Bestand."""
@@ -693,7 +682,7 @@ def counts(collection_keys):
 # Also: mieses Erz → 0,9-fache Schadensminderung, bestes Erz → 1,1-fache.
 # Dazwischen wird linear gerechnet.
 #
-# Gemessen am 29.08.2026: **1.540 von 1.607 Bauplänen (96 %)** haben solche
+# Gemessen an 4.10.0: **1.540 von 1.607 Bauplänen (96 %)** haben solche
 # Angaben. Betroffen sind Min/Max Temp, Damage Mitigation, Integrity, Power
 # Pips, Impact Force, Coolant Rating, Schildstärke, Rückstoß und mehr.
 #
@@ -748,10 +737,9 @@ def higher_is_better(modifiers):
     | Quantum Fuel Burn | 114 |
     | Damage Mitigation | 3 (Ausreisser in den Quelldaten) |
 
-    Ohne diese Unterscheidung stand ein Rückstoss von `× 0.800` — der
+    Ohne diese Unterscheidung stünde ein Rückstoss von `× 0.800` — der
     bestmögliche Wert — in der Warnfarbe da, als wäre er schlecht, und
-    `× 1.080` bei mieser Qualität in Grün. Am 30.08.2026 gemeldet: „ist es
-    realistisch das sich bei niedrigerer Qualität die Werte erhöhen?"
+    `× 1.080` bei mieser Qualität in Grün.
 
     ⚠ Die Richtung steht **im Modifikator selbst** und wird nicht nach
     Eigenschaftsnamen geraten: `modifierAtEnd` gegen `modifierAtStart`. Damit
@@ -972,8 +960,8 @@ def material_names():
     ⚠ **Damit niemand raten oder tippen muss.** Ein freies Textfeld für einen
     Namen, der exakt passen muss, ist eine stille Fehlerquelle: Wer „Aslerite"
     schreibt, bekommt nie einen Treffer und erfährt auch nicht, warum. Gemessen
-    an Build 4.10.1 sind es **37** Materialien — 26 Erze und elf Edelsteine, die
-    bis zum 17.09.2026 fehlten (siehe Modulkopf). Eine Liste, die in jede
+    an Build 4.10.1 sind es **37** Materialien — 26 Erze und elf Edelsteine
+    (siehe Modulkopf). Eine Liste, die in jede
     Auswahl passt.
     """
     names = set()
@@ -1036,9 +1024,9 @@ def storable():
     | Mineralien aus den Bergbaudaten | 39 | auch was (noch) in keinem Rezept steht |
     | Pflanzen (`Harvestables`) | 13 | von Hand geerntet, mit Qualität |
 
-    ⚠ Die **Gesamtzahl bleibt 52** — die elf Edelsteine standen schon über die
-    Bergbaudaten drin, nur eben ohne Rezept dahinter. Was sich ändert: Sie
-    kommen jetzt aus der Rezept-Schreibweise, und damit heißt Saldynium in der
+    ⚠ Die **Gesamtzahl ist 52** — die elf Edelsteine stehen auch in den
+    Bergbaudaten. Sie kommen aus der Rezept-Schreibweise, und damit heißt
+    Saldynium in der
     Liste `Saldynium (Ore)` wie im Rezept. Ein vorhandener Posten `Saldynium`
     wird über `norm_material()` weiterhin gefunden und weitergezählt.
 
@@ -1047,9 +1035,8 @@ def storable():
     kein Ordnungssinn: Ein freies Textfeld heisst, dass jemand Schimpfwörter,
     Religiöses oder Politisches eintragen, ein Bildschirmfoto machen und es
     verbreiten kann. Am Ende fragt niemand, wer das getippt hat — es steht in
-    diesem Werkzeug, also kommt es scheinbar von dessen Autor. Am 30.08.2026
-    unmissverständlich festgelegt: „NUR was auch in der Rohstoff-Liste ist darf
-    speicherbar sein, sonst nichts."
+    diesem Werkzeug, also kommt es scheinbar vom Werkzeug selbst. Speicherbar
+    ist NUR, was in der Rohstoff-Liste steht.
 
     Fehlt etwas in der Liste, wird die **Liste** ergänzt (sie kommt aus den
     Daten), nicht die Sperre gelockert.
@@ -1169,22 +1156,18 @@ _by_material = {}
 def blueprints_with(material):
     """Welche Baupläne brauchen diesen Rohstoff? Namen, alphabetisch.
 
-    ⭐ **Die Gegenrichtung, die gefehlt hat.** Die Suche schaute nur auf
-    Bauplan-NAMEN. Wer „sad" tippte, um zu sehen, was aus Sadaryx wird, bekam
-    „Cru*sad*er Edition" — und nie eine Antwort. Am 30.08.2026 gemeldet:
-    „Was kann ich aus Sadaryx herstellen? Meine User werden es nie erfahren."
+    ⭐ **Die Gegenrichtung.** Eine Suche nur über Bauplan-NAMEN liefert auf
+    „sad" (für Sadaryx) „Cru*sad*er Edition" — und nie eine Antwort auf die
+    Frage, was sich aus einem Rohstoff herstellen lässt.
 
     ⚠ Eine **leere Liste ist auch eine Antwort**, und zwar oft die richtige:
     **15** der 52 einlagerbaren Namen kommen in keinem einzigen Rezept vor —
     die Pflanzen und ein paar Mineralien. Das muss dastehen, statt dass jemand
     weitersucht.
 
-    ⚠⚠ **Bis zum 17.09.2026 waren es 26 — und Sadaryx stand fälschlich
-    darunter.** Die Frage von damals („Was kann ich aus Sadaryx herstellen?")
-    galt als beantwortet, blieb es aber nicht: Sadaryx ist eine `item`-Zutat,
-    und die fielen aus `_ingredients()` heraus. Die Antwort war ein sauber
-    gebautes „nichts" über einer Lücke — heute sind es 37 Baupläne. Siehe
-    Modulkopf.
+    ⚠⚠ **`item`-Zutaten zählen mit.** Sadaryx ist eine `item`-Zutat (37
+    Baupläne); fehlt sie in `_ingredients()`, entsteht ein sauber gebautes
+    „nichts" über einer Lücke. Siehe Modulkopf.
     """
     global _by_material
     if not _by_material:

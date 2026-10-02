@@ -47,10 +47,8 @@ SYMBOL = os.path.join(PROJEKT, 'assets', 'icon.png')
 # Was auf dem Desktop gesucht wird — mit oder ohne Versionsnummer im Namen.
 #
 # ⚠ `.+` und nicht `[^.]*`: Eine Versionsnummer enthält **Punkte** („3.0.0-rc58").
-# Das erste Muster verbot sie und fand deshalb ausgerechnet die Datei nicht mehr,
-# die das Skript selbst benannt hatte — beim ersten Lauf fiel das nicht auf, weil
-# im Namen damals noch gar keine Nummer stand.
-# ⚠⚠ BEIDE Namen erkennen (Umbenennung zu VerseKit, 12.09.2026). Das Skript
+# `[^.]*` fände ausgerechnet die Datei nicht, die das Skript selbst benannt hat.
+# ⚠⚠ BEIDE Namen erkennen (alter Name „SC BP Watcher", neuer „VerseKit"). Das Skript
 # BENENNT die vorhandene Datei um, statt eine zweite anzulegen — deshalb reicht
 # es, den alten Namen weiter zu finden: Beim naechsten Lauf heisst sie neu, und
 # es bleibt bei EINEM Startknopf.

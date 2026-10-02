@@ -23,19 +23,15 @@ Zwei Ebenen statt einer langen Liste — Oberkategorie und Unterart.
 `Rüstung (Arme)`, `Rüstung (Beine)`, `Rüstung (Torso)`, `Helm`, `Rucksack`,
 `Unteranzug`, `Kleidung (Jacke)`, `Kleidung (Schuhe)` … Wer eine ganze Rüstung
 zusammenstellen will, sucht sich darin einen Wolf — und bei `Schiffswaffe (87)`
-stand alles zusammen, ohne dass man sah, was davon ballistisch ist und was
-Laser. Am 29.08.2026 gemeldet: *„da gibt es aber viele, und ich weiß grad nicht,
-welche Ballistik sind, welche Laser, welche Repeater oder Cannon."*
+steht alles zusammen, ohne dass man sieht, was davon ballistisch ist und was
+Laser, was Repeater und was Cannon.
 
-**Die Gliederung ist nicht erfunden.** Sie folgt der Liste, die Xharig seit
-Hand gepflegten Vergleichsliste: sieben
-Oberkategorien, darunter die feinen Arten. Was sich dort bewährt hat, muss das
-Werkzeug nicht neu erfinden.
+**Die Gliederung:** sieben Oberkategorien, darunter die feinen Arten.
 
 **Woher die Angaben kommen** — drei Quellen, in dieser Reihenfolge:
 
 1. **Der Tag der Rezeptdaten** ist am genauesten. `BP_CRAFT_APAR_BallisticGatling_S4`
-   nennt die Waffenart direkt; so wird auch anderswo
+   nennt die Waffenart direkt; daran unterscheidet sich etwa
    Ballistic Cannon von Ballistic Gatling. Gemessen: 89 Schiffswaffen und
    Werkzeuge tragen sie.
 2. **Die Katalog-Art** (`Char_Armor_Helmet`, `Cooler`) für alles, was
@@ -45,9 +41,8 @@ Werkzeug nicht neu erfinden.
 Was in keine Kategorie fällt, landet unter „Sonstiges" — sichtbar, nicht
 verschwunden.
 
-⚠ Bis zum 12.09.2026 hieß dieses Modul `kategorien` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: die Kennungen der Gruppen (`'schiffswaffe'`, `'ruestung'`,
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben: die Kennungen der Gruppen (`'schiffswaffe'`, `'ruestung'`,
 `'kleidung'` …) und der feinen Arten (`'ballistic_cannon'`, `'helm'` …) —
 über sie holt die Oberfläche ihre Texte (`kat_ober_…`, `kat_unter_…`), und
 der Vorsatz `art:` für Einzelgänger steht in gespeicherten Filtern.
@@ -62,7 +57,7 @@ from .language import t
 _TAG_KINDS = (
     # ⚠ Die zusammengesetzten zuerst: `BallisticScatterGun` muss vor
     # `ScatterGun` stehen, sonst schluckt das kürzere Wort den Treffer und
-    # sechs von sieben Scatterguns fielen durch — gemessen am 29.08.2026.
+    # sechs von sieben Scatterguns fallen durch (gemessen).
     'BallisticScatterGun', 'LaserScatterGun',
     'BallisticCannon', 'BallisticGatling', 'BallisticRepeater',
     'LaserCannon', 'LaserRepeater',
@@ -151,9 +146,8 @@ _FROM_SUBTYPE = {
 
 # Magazine tragen keine eigene Katalog-Art — sie stehen unter
 # `WeaponAttachment` zwischen Zielfernrohren und Griffen. Ihr Tag endet aber
-# immer auf `_mag` (oder `_mag_civilian`). ⚠ Ohne diese Zeile lagen 18 Magazine
-# unter „Waffenaufsatz", während sie andernorts als
-# eigene Gruppe führt.
+# immer auf `_mag` (oder `_mag_civilian`). ⚠ Ohne diese Zeile lägen 18 Magazine
+# unter „Waffenaufsatz" statt in einer eigenen Gruppe.
 _MAGAZINE = re.compile(r'_mag(?:_|$)', re.I)
 
 
@@ -200,8 +194,7 @@ def classify(art='', tag='', unterart='', rezeptart=''):
     if (art or '').lower().startswith('char_clothing'):
         return (CLOTHING, '')
     # ⚠ Was sich nicht bündeln lässt, bleibt **allein stehen** — mit seinem
-    # eigenen Namen, nicht in einem Sammeltopf „Sonstiges". Xharig:
-    # „nur was man nicht bündeln kann, sollte noch alleine stehen bleiben."
+    # eigenen Namen, nicht in einem Sammeltopf „Sonstiges".
     # Ein Andockkragen gehört in keine der sieben Gruppen, ist aber eine klare
     # Sache — er verschwindet nicht, er steht für sich.
     if art:

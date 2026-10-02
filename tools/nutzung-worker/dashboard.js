@@ -21,7 +21,7 @@ export function dashboardHtml(nonce) {
         --accent:#9ce430; --b:#4fb3ff; --c:#ffb547; --d:#c792ea; }
 * { box-sizing:border-box; }
 /* ⚠ Ohne diese Zeile schlägt display:grid der Balkenzeilen das hidden —
-   die eingeklappten Zeilen blieben sichtbar (01.10.2026). */
+   die eingeklappten Zeilen blieben sichtbar. */
 [hidden] { display:none !important; }
 body { margin:0; background:var(--bg); color:var(--fg);
        font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -221,8 +221,8 @@ function render(d, span) {
 
   // Anteile über die letzten 7 Tage INKLUSIVE heute, aber nur Tage mit
   // Meldungen: Summe der Meldungen mit dem Wert geteilt durch alle Meldungen —
-  // ein Durchschnitt, keine Personenzahl. (Erst nur volle Tage: am ersten Tag
-  // stand überall „Noch keine Daten", obwohl schon gemeldet wurde.)
+  // ein Durchschnitt, keine Personenzahl. (Nur volle Tage hieße: am ersten Tag
+  // stünde überall der Leer-Hinweis, obwohl schon Meldungen da sind.)
   const win = new Set(days.slice(-7).filter((t) => perDay[t]));
   const base = [...win].reduce((a, t) => a + (perDay[t] || 0), 0);
   const share = (trait) => { const m = {};

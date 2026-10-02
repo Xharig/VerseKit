@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-VerseKit (früher SC BP Watcher) — zeigt live an, sobald in Star Citizen ein
+VerseKit — zeigt live an, sobald in Star Citizen ein
 neuer Bauplan (Blueprint) freigeschaltet wird.
 
 Überwacht:  die Star-Citizen-Game.log (die Quelle) und liest beim Start auch
@@ -27,10 +27,6 @@ neuer Bauplan (Blueprint) freigeschaltet wird.
 Bestand:    wird selbst geführt (`bestand.json` im eigenen Ordner).
 Werte:      Art/Größe/Gütegrad/Klasse von scmdb.net, Korrekturen aus
             `bp-overrides.json` haben Vorrang.
-
-⚠ Bis v3.63.1 las VerseKit zusätzlich die Dateien des SC Deutsch Launchers
-(`sc_bp_erledigt.json`, `bp_item_types.json`, dessen Katalog) und dessen
-Vertragsdaten. Beides ist seit dem 30.09.2026 entfernt.
 Anzeige:    kleines, immer-im-Vordergrund Overlay-Fenster (verschiebbar).
 
 Reines Python-Standardbibliothek-Tool (tkinter) — keine Zusatzpakete nötig.
@@ -90,9 +86,9 @@ def _mitgeliefert(name):
 OVERRIDES_FILE = os.environ.get('SC_BP_OVERRIDES') or paths.app_file(
     'bp-overrides.json')
 # Wie oft die Game.log angesehen wird. Einstellbar über `pruefintervall_sekunden`
-# in der `einstellungen.json`; 3 Sekunden sind ein guter Mittelweg zwischen
-# „steht sofort da" und „liest dauernd die Platte". Grenzen 1–60, damit eine
-# vertippte 0 keine Dauerschleife wird.
+# in der `einstellungen.json`; 3 Sekunden sind ein Mittelweg zwischen schneller
+# Anzeige und seltenem Plattenzugriff. Grenzen 1–60, damit eine vertippte 0
+# keine Dauerschleife wird.
 POLL_SEC = paths.setting_int('pruefintervall_sekunden', 3, 1, 60)
 # Signalton bei einem Fund — manche wollen im Spiel keinen zusätzlichen Ton.
 TON_AN = paths.setting_bool('signalton', True)
@@ -101,20 +97,15 @@ TON_AN = paths.setting_bool('signalton', True)
 def deckkraft():
     """Die eingestellte Durchsichtigkeit in Prozent — frisch gelesen.
 
-    ⚠ Bis 17.09.2026 eine Konstante, beim Laden der Datei gelesen. Der
-    Einrichtungsassistent läuft beim ersten Start aber **danach** — die dort
-    gewählte Durchsichtigkeit galt erst ab dem zweiten Start.
+    ⚠ Keine Konstante beim Laden der Datei: Der Einrichtungsassistent läuft
+    beim ersten Start **danach** — die dort gewählte Durchsichtigkeit gälte
+    sonst erst ab dem zweiten Start.
     """
     return paths.setting_int('deckkraft_prozent', 93, 30, 100)
 
 
 # So viele Neuzugänge bleiben im Overlay stehen, ältere rutschen heraus.
-#
-# ⚠ Zweierlei war hier falsch. Erstens war die Zahl **fest** — die Einstellung
-# „Zeilen im Overlay" wurde brav gespeichert und dann nie gelesen. Zweitens war
-# die Vorgabe 200: So viele Baupläne sammelt in einer Spielsitzung niemand, und
-# ein Overlay, das theoretisch 200 Zeilen hoch werden kann, steht im Weg.
-# Jetzt gilt die Einstellung, mit 20 als Vorgabe.
+# Es gilt die Einstellung „Zeilen im Overlay", mit 20 als Vorgabe.
 MAX_ROWS_VORGABE = 20
 
 
@@ -124,7 +115,7 @@ def max_zeilen():
     Neustart."""
     return paths.setting_int('max_zeilen', MAX_ROWS_VORGABE, 5, 100)
 
-# --- Katalog-Wache (ab v1.3.0) ---------------------------------------------
+# --- Katalog-Wache ---------------------------------------------------------
 # Die scmdb-Craftdaten listen, was im Spiel überhaupt craftbar ist, frisch je
 # Spielversion. Wächst die Liste, ist etwas NEU craftbar geworden —
 # unabhängig davon, ob man es freigeschaltet hat. Der Stand liegt bewusst in einer
@@ -139,7 +130,7 @@ CAT_SEEN   = paths.app_file('catalog-seen.json')
 WATCHLIST  = paths.app_file('watchlist.json')
 CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur bei Patches)
 
-# --- scmdb-Craftdaten (ab v1.5.0) ------------------------------------------
+# --- scmdb-Craftdaten ------------------------------------------------------
 # Woher Art, Größe, Gütegrad und Klasse kommen. scmdb.net liefert je Spielversion eine
 # fertige Datei mit genau diesen Werten — kein Entpacken von `Data.p4k` nötig,
 # reines urllib aus der Standardbibliothek.
@@ -149,12 +140,10 @@ CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur
 #                                           componentClass, manufacturer
 #
 # RANGFOLGE (wichtig): bp-overrides.json  >  Spieldaten  >  scmdb.
-# (Bis v3.63.1 stand der Katalog des SC Deutsch Launchers mit in der Rangfolge.)
-# scmdb füllt nur Lücken und überschreibt nie. Grund: Am 11.08.2026 verglichen —
-# 55 von 56 Werten stimmen exakt mit dem überein, was das Spiel selbst in die
-# Log schreibt, aber beim Kühler „Elsen" nennt scmdb Grad A, während Log UND
-# `components.ini` übereinstimmend B sagen (auch der Hersteller ist dort falsch).
-# Eine sehr gute Quelle, aber keine unfehlbare.
+# scmdb füllt nur Lücken und überschreibt nie: 55 von 56 Werten stimmen exakt
+# mit dem überein, was das Spiel selbst in die Log schreibt, aber beim Kühler
+# „Elsen" nennt scmdb Grad A, während Log UND `components.ini` übereinstimmend
+# B sagen (auch der Hersteller ist dort falsch).
 SCMDB_BASE     = 'https://scmdb.net/data'
 SCMDB_CACHE    = paths.app_file('scmdb-items.json')   # aufbereitet, klein
 SCMDB_POLL_SEC = 6 * 3600    # nur alle 6 Stunden nach einer neuen Spielversion sehen
@@ -162,11 +151,9 @@ SCMDB_POLL_SEC = 6 * 3600    # nur alle 6 Stunden nach einer neuen Spielversion 
 # Häufiger bringt nichts — die Quellen aktualisieren im Tagesrhythmus.
 TEXTE_POLL_SEC = 6 * 3600
 # ⚠ Der EIGENE Bestand hat einen ganz anderen Takt und darf nicht an diesem
-# hängen: Er ändert sich, während der Spieler spielt. Bis zum 05.09.2026 hing
-# beides zusammen — wer einen Bauplan freischaltete, sah das Kästchen im Spiel
-# frühestens sechs Stunden später, und wer das Werkzeug vorher beendete, nie.
-# Gemeldet mit einem Lauf von 20 Minuten: 304 Baupläne im Bestand, 303 in der
-# eingetragenen Liste.
+# hängen: Er ändert sich, während der Spieler spielt. Am Texte-Takt gekoppelt,
+# sähe man ein freigeschaltetes Kästchen im Spiel frühestens sechs Stunden
+# später, und wer das Werkzeug vorher beendet, nie.
 #
 # Das kostet nichts: Der Fingerabdruck des Bestands ist in 0,4 ms gebaut
 # (gemessen mit 407 Bauplänen), also 0,013 % eines Drei-Sekunden-Takts.
@@ -176,8 +163,7 @@ SCMDB_TIMEOUT  = 30
 # Wer die Netzabfrage nicht will, setzt SC_BP_NO_NET=1 — dann bleibt es beim
 # zuletzt geholten Stand.
 SCMDB_AUS      = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
-# Gütegrad steht bei scmdb als Zahl. Zuordnung am 11.08.2026 gegen 56 Log-Zeilen
-# geprüft: A=1 (21x), B=2 (20x), C=3 (7x), D=4 (7x).
+# Gütegrad steht bei scmdb als Zahl. Zuordnung gegen 56 Log-Zeilen geprüft: A=1 (21x), B=2 (20x), C=3 (7x), D=4 (7x).
 GRADE_LETTER = {1: 'A', 2: 'B', 3: 'C', 4: 'D'}
 
 # Fenstergröße beim allerersten Start. **Ohne feste Position**: Wo das Fenster
@@ -194,14 +180,13 @@ DEFAULT_GEOM  = os.environ.get('SC_BP_GEOMETRIE') or '440x1000'
 SETTINGS_FILE = paths.app_file('watcher.json')
 
 # Farben (dunkles Overlay)
-# Xharig-Grün für dunklen Grund. Bis v1.5.0 stand hier noch #47aa42 — die alte
-# Markenfarbe von vor dem Logo-Wechsel. Zwei Grüntöne im selben Programm gehen nicht.
+# Markengrün für dunklen Grund — nur ein Grünton im ganzen Programm.
 BG, FG, ACCENT, SUB, BAR = theme.BG, theme.FG, theme.ACCENT, theme.SUB, theme.BAR
 # Für das Verbotszeichen an einer Auftragszeile — dieselbe Warnfarbe wie im
-# Hauptfenster, damit „hier wird etwas weggenommen" überall gleich aussieht.
+# Hauptfenster, damit eine Wegnahme überall gleich aussieht.
 ROT = '#e05555'
 PROV = theme.YELLOW        # Gelb — Merklisten-Treffer der Katalog-Wache
-CATA = '#4aa3d8'        # Blau für „neu im Spiel craftbar" (Katalog-Zuwachs, kein eigener Fund)
+CATA = '#4aa3d8'        # Blau für neu im Spiel Craftbares (Katalog-Zuwachs, kein eigener Fund)
 
 
 # ---------------------------------------------------------------- Daten-Helfer
@@ -209,23 +194,20 @@ def load_types():
     """Was im Spiel überhaupt craftbar ist: Name -> Art — aus den scmdb-Craftdaten.
 
     ⚠ Die Art kommt über `scmdb_art()` — die Einträge heißen `a`, nicht `art`.
-    ⚠ Bis v3.63.1 gab es einen Rückfall auf `bp_item_types.json` des SC
-    Deutsch Launchers; solange die scmdb-Daten noch nicht geladen sind, ist die
-    Liste jetzt schlicht leer."""
+    ⚠ Solange die scmdb-Daten noch nicht geladen sind, ist die Liste leer."""
     return {name: (scmdb_art(name) or '—') for name in SCMDB}
 
 
 def catalog_new(jetzt, bekannt):
-    """Was im Katalog neu craftbar ist — oder None: „nur Basis setzen".
+    """Was im Katalog neu craftbar ist — oder None: nur die Basis setzen.
 
     None beim ersten Lauf (nichts bekannt) **und** wenn sich die Schreibweise
     der Namen geändert hat: Deckt der gemerkte Stand weniger als die Hälfte
     des jetzigen ab, stammt er aus einer anderen Quelle.
 
-    ⚠⚠ Genau das passiert beim Umstieg von der Launcher-Datei auf die
-    scmdb-Daten (17.09.2026) — die schreiben die Namen anders
-    (`probekanone` statt `Probe Kanone`). Ohne diese Grenze meldete der erste
-    Abgleich nach dem Update jeden der rund 700 Baupläne als „neu craftbar".
+    ⚠⚠ Ohne diese Grenze meldet ein Quellenwechsel mit anderer Schreibweise
+    (`probekanone` statt `Probe Kanone`) jeden der rund 700 Baupläne als
+    neu craftbar.
     """
     jetzt = set(jetzt)
     if not bekannt or len(jetzt & set(bekannt)) * 2 < len(jetzt):
@@ -234,7 +216,7 @@ def catalog_new(jetzt, bekannt):
 
 
 # Die Merkliste steckt in `scbp/watchlist.py` — sie wird im Fenster per Klick
-# gepflegt, nicht mehr nur von Hand in der Datei.
+# gepflegt.
 
 
 # Vorbelegung, damit `load_types()` weiter unten nicht ins Leere greift: Die
@@ -253,7 +235,7 @@ def art_of(key):
         TYPES = load_types()
         art = TYPES.get(k)
     if art is None:
-        art = scmdb_art(key)      # ab v1.5.0: Rückfall auf die scmdb-Craftdaten
+        art = scmdb_art(key)      # Rückfall auf die scmdb-Craftdaten
     return art or '—'
 
 
@@ -313,13 +295,11 @@ def _katalogname(schluessel):
     Katalog-Wache.
 
     Aus dem scmdb-Zwischenspeicher: dort liegt unter `n` der Name, wie ihn das
-    Spiel schreibt („GOLEM MC-4 Ore Pod"). Fehlt er, der nackte Schlüssel.
-    (Bis v3.63.1 kam davor der Katalog des SC Deutsch Launchers.)
+    Spiel schreibt (`GOLEM MC-4 Ore Pod`). Fehlt er, der nackte Schlüssel.
 
-    ⚠ Hier stand früher `schluessel.title()`. Das war falsch: Der Schlüssel ist
-    auf Kleinbuchstaben und Ziffern eingedampft (`golemmc4orepod`), da gibt es
-    keine Wortgrenzen mehr zurückzuholen — `.title()` machte daraus
-    „Golemmc4Orepod". Der lesbare Name lag die ganze Zeit daneben im Cache.
+    ⚠ Nicht `schluessel.title()`: Der Schlüssel ist auf Kleinbuchstaben und
+    Ziffern eingedampft (`golemmc4orepod`), da gibt es keine Wortgrenzen mehr
+    zurückzuholen — `.title()` machte daraus `Golemmc4Orepod`.
     """
     eintrag = SCMDB.get(schluessel) or {}
     return eintrag.get('n') or schluessel
@@ -346,7 +326,7 @@ def load_meta():
 COMP, SIZE_BY_NAME = load_meta()
 
 
-# ------------------------------------------------------- scmdb-Craftdaten (v1.5.0)
+# ---------------------------------------------------------------- scmdb-Craftdaten
 def _scmdb_key(s):
     """Vergleichsschlüssel: nur Buchstaben und Ziffern. Fängt typografische
     Anführungszeichen und geschützte Leerzeichen mit ab, an denen ein reiner
@@ -375,8 +355,8 @@ def load_scmdb():
         return {}, ''
 
 
-# Aufbau-Nummer des Zwischenspeichers — wie `catalog.FORMAT`. 2 (26.09.2026):
-# Gütegrad aus dem Spiel. Ohne sie behielte jeder den alten Stand bis zum
+# Aufbau-Nummer des Zwischenspeichers — wie `catalog.FORMAT`. 2: Gütegrad aus
+# dem Spiel. Ohne sie behielte jeder den alten Stand bis zum
 # nächsten Patch.
 SCMDB_FORMAT = 2
 
@@ -393,7 +373,7 @@ def _scmdb_format():
 def scmdb_aktualisieren():
     """Holt die Craftdaten, wenn eine neue Spielversion da ist. Gibt True zurück,
     wenn der Zwischenspeicher erneuert wurde. Wirft nie — ohne Netz bleibt der
-    letzte Stand gültig, ohne Zwischenspeicher läuft alles wie vor v1.5.0."""
+    letzte Stand gültig, ohne Zwischenspeicher fehlen nur die scmdb-Werte."""
     if SCMDB_AUS:
         return False
     try:
@@ -409,7 +389,7 @@ def scmdb_aktualisieren():
         roh = _scmdb_hole('%s/crafting_items-%s.json' % (SCMDB_BASE, version))
         # ⚠ Der Gütegrad kommt aus dem Spiel, scmdb nur als Rückfall — dieselbe
         # Regel wie im Bauplan-Katalog (`catalog.game_grades`). Sonst sagt die
-        # Liste „C" und das Overlay „A" zum selben Kühler.
+        # Liste Grad C und das Overlay Grad A zum selben Kühler.
         from scbp import catalog as _catalog
         spiel_grade = _catalog.game_grades()
         items = {}
@@ -456,11 +436,10 @@ def scmdb_of(key):
 
 
 # Jetzt, wo die scmdb-Daten stehen, gilt ihr Katalog (siehe `load_types`).
-# ⛔⛔ **ERST NACH `scmdb_of`** (17.09.2026). `load_types()` ruft `scmdb_art()`
-# und die `scmdb_of()`. Stand dieser Block davor, starb v3.50.3 bei JEDEM
-# Nutzer mit scmdb-Zwischenspeicher sofort beim Start mit
-# „NameError: name 'scmdb_of' is not defined". Der Selbsttest sah es nicht:
-# In seinem Wegwerf-Ordner gibt es keine scmdb-Daten, der Block lief nie.
+# ⛔⛔ **ERST NACH `scmdb_of`**. `load_types()` ruft `scmdb_art()` und die
+# `scmdb_of()`. Steht dieser Block davor, stirbt das Programm bei jedem Nutzer
+# mit scmdb-Zwischenspeicher sofort beim Start mit `NameError`. Ein Prüflauf
+# ohne scmdb-Daten sieht das nicht, weil der Block dort nie läuft —
 # Pruefung 250 startet das Programm deshalb MIT scmdb-Daten.
 if SCMDB or not TYPES:
     TYPES = load_types()
@@ -507,7 +486,7 @@ def meta_of(key):
 
 
 # ------------------------------------------------------- Game.log (Sofort-Meldung)
-# Das Lesen der Log steckt seit v1.6 in `scbp/logsource.py` — samt Nachlese der
+# Das Lesen der Log steckt in `scbp/logsource.py` — samt Nachlese der
 # aufgehobenen Sitzungen und einem Lesestand, der Programmneustarts übersteht.
 # Welche Formulierung im Log steht, hängt an der Spielsprache; darum kümmert
 # sich `scbp/phrases.py`. Hier bleibt nur, was mit der ANZEIGE zu tun hat.
@@ -527,8 +506,8 @@ def kuerzel_aus_zusatz(zusatz):
 
 def _loose(name):
     """Name ohne Klammer-Zusatz am Ende — für den Notfall-Abgleich, wenn Log und
-    Launcher unterschiedlich übersetzt sind (gesehen: „Scalpel Sniper Rifle Magazine
-    (12 Schuss)" im Log vs. „… (12 cap)" beim Launcher)."""
+    Launcher unterschiedlich übersetzt sind (`Scalpel Sniper Rifle Magazine
+    (12 Schuss)` im Log vs. `… (12 cap)` beim Launcher)."""
     return re.sub(r'\s*\([^()]*\)\s*$', '', _norm(name)).strip()
 
 
@@ -537,9 +516,9 @@ def _loose(name):
 def load_geometry():
     """Die gemerkte Fensterlage — oder `None`, wenn es noch keine gibt.
 
-    Bewusst `None` statt der Standardgröße: Nur so unterscheidet der Aufrufer
-    „der Nutzer hat sein Fenster irgendwohin gestellt" von „erster Start", und
-    nur beim ersten Start soll das Fenster mittig gesetzt werden.
+    `None` statt der Standardgröße: Nur so unterscheidet der Aufrufer eine vom
+    Nutzer gewählte Lage vom ersten Start, und nur beim ersten Start wird das
+    Fenster mittig gesetzt.
     """
     try:
         return json.load(open(SETTINGS_FILE, encoding='utf-8')).get('geometry') or None
@@ -581,11 +560,10 @@ def geometrie_pruefen(geom, root):
         sh = max(root.winfo_screenheight(), root.winfo_vrootheight())
     except Exception:
         return geom
-    # ⚠⚠ **Gegen die echten Monitore prüfen, wo sie bekannt sind.** Bis
-    # v3.42.4 galt hier nur „bis zum Dreifachen der Bildschirmgröße" — bei drei
-    # Monitoren von Y −1440 bis +1152 ließ das Y = 2526 durch, und das Overlay
-    # startete nach einem Update unterhalb aller Bildschirme. Es lief, war aber
-    # nirgends zu sehen (gemeldet am 16.09.2026).
+    # ⚠⚠ **Gegen die echten Monitore prüfen, wo sie bekannt sind.** Eine
+    # Grenze von der dreifachen Bildschirmgröße lässt bei drei Monitoren von
+    # Y −1440 bis +1152 ein Y = 2526 durch — das Overlay läuft dann unterhalb
+    # aller Bildschirme und ist nirgends zu sehen.
     schirme = screen.detected_screens()
     if schirme:
         if screen.title_visible(int(x), int(y), int(breite), schirme):
@@ -615,11 +593,10 @@ def groesse_begrenzen(root, width, height, x=None, y=None):
     """Breite und Höhe auf die Arbeitsfläche des Bildschirms begrenzen.
 
     ⚠⚠ Die Standardgröße ist 440×1000. Auf jedem Bildschirm mit weniger als
-    rund 1016 Pixeln nutzbarer Höhe — jedem Laptop mit 768 oder 900 — lag die
+    rund 1016 Pixeln nutzbarer Höhe — jedem Laptop mit 768 oder 900 — läge die
     Leiste damit schon beim ersten Start außerhalb, und „Fensterlage
-    zurücksetzen" setzte genau diese Größe wieder. Am 17.09.2026 dazu: „die
-    Größe begrenzen, dass das bei niemandem passieren kann." Gemessen wird
-    der Schirm unter (x, y), ohne Lage der Hauptschirm.
+    zurücksetzen" setzte genau diese Größe wieder. Gemessen wird der Schirm
+    unter (x, y), ohne Lage der Hauptschirm.
     """
     try:
         if x is None or y is None:
@@ -664,9 +641,9 @@ def save_geometry(geom):
 
 
 # ------------------------------------------------ Mit dem Rechner starten
-# Steckt seit v1.6 in `scbp/autostart.py`: unter Windows ein Registry-Wert,
+# Steckt in `scbp/autostart.py`: unter Windows ein Registry-Wert,
 # unter Linux eine `.desktop`-Datei in ~/.config/autostart/.
-# ⚠ Keine Konstante mehr: Ein Text, der beim Programmstart **einmal**
+# ⚠ Keine Konstante: Ein Text, der beim Programmstart **einmal**
 # festgelegt wird, kann nicht mehr auf einen Sprachwechsel reagieren. Der
 # Titel wird bei jedem Gebrauch frisch geholt (`_autostart_titel`).
 
@@ -677,9 +654,7 @@ def signalton(auffaellig=False):
 
     Unter Windows `winsound`, unter Linux ein Systemklang über `scbp/sound.py`.
 
-    Bis v2.0.0-rc3 stand hier für Linux nur `bell()` mit der Begründung
-    „bleibt es still, ist das kein Fehler". Beim ersten echten Bauplan blieb
-    es still, und das **war** ein Fehler: `bell()` ist die X11-Systemglocke,
+    ⚠ `bell()` allein reicht unter Linux nicht: Es ist die X11-Systemglocke,
     die auf modernen Arbeitsplätzen praktisch überall aus ist. `bell()` bleibt
     als letzter Rückfall — schaden kann es nicht."""
     if not TON_AN:
@@ -712,7 +687,7 @@ class Watcher(threading.Thread):
         self.seen = set()       # schon angezeigte Namen (normalisiert) — gegen Dubletten
         self.stand = logsource.ReadState()
         self.tail = logsource.LogTail(self.stand)
-        # Zweites Muster: angenommene Auftraege (ab v3.2.0). Faellt der Katalog
+        # Zweites Muster: angenommene Auftraege. Faellt der Katalog
         # aus, meldet `contracts` einfach nichts — der Bauplan-Weg bleibt heil.
         try:
             self.tail.mission_pattern = contracts.start_pattern()
@@ -744,20 +719,16 @@ class Watcher(threading.Thread):
         # ob Bauplaene drin sind — das Ziel sagt, wofuer man gerade fliegt.**
         # Beides steht im Protokoll; die Buchfuehrung dazu in `contracts.Objectives`.
         self._ziele = contracts.Objectives()
-        # ⚠ Messpunkte im Startverlauf. Zwischen „Overlay wird gebaut" und
-        # „Overlay steht" lagen bei einem Nutzer **vier Sekunden**, bei einem
-        # anderen eine — und dazwischen stand nichts, woran man das haette
-        # festmachen koennen. Ein Bericht, der nur Anfang und Ende kennt, sagt
-        # bei genau der Frage nichts, fuer die man ihn braucht.
+        # ⚠ Messpunkte im Startverlauf: Ein Bericht, der nur Anfang und Ende
+        # des Overlay-Aufbaus kennt, sagt nicht, wo die Startzeit bleibt.
         errors.trail('Overlay: Bestand wird geladen')
         self.bestand = bestand_datei.load()   # der eigene, dauerhafte Bestand
         errors.trail('Overlay: Bestand geladen (%d Bauplaene)'
                     % len(self.bestand.get('bauplaene') or {}))
-        # ⚠ Einmal beim Start die Namen an den Katalog angleichen. Was der
-        # Watcher vor v3.3.3 aus dem Log gelesen hat, trägt womöglich die
-        # Angaben aus dem Spiel im Namen („Balandin (S3 B Military)") und galt
-        # dadurch als unbekannt — siehe `collection.catalog_name`. Ohne diesen
-        # Durchlauf bliebe der alte Stand für immer schief.
+        # ⚠ Einmal beim Start die Namen an den Katalog angleichen. Ein
+        # gespeicherter Name kann die Angaben aus dem Spiel enthalten
+        # (`Balandin (S3 B Military)`) und gilt dann als unbekannt — siehe
+        # `collection.catalog_name`.
         try:
             berichtigt = bestand_datei.align(self.bestand)
             if berichtigt:
@@ -767,16 +738,13 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             errors.record('watcher.bestand_angleichen', ausnahme)
         errors.trail('Overlay: Bestand am Katalog geprueft')
-        # ⚠ Hier wurden bis zum 16.09.2026 gemerkte Baupläne ausgetragen, die
-        # schon im Bestand standen (`watchlist.prune`). Seit der Fortschritt
-        # „nur Merkliste" zählt, **bleiben Erledigte stehen** und werden in der
-        # Liste abgehakt — siehe Kopf von `scbp/watchlist.py`.
+        # ⚠ Gemerkte Baupläne, die schon im Bestand stehen, werden NICHT
+        # ausgetragen: Der Fortschritt der Merkliste zählt sie, sie werden in
+        # der Liste abgehakt — siehe Kopf von `scbp/watchlist.py`.
         # ⚠⚠⚠ **Ist der Bestand kleiner als je zuvor?** Dann stimmt etwas mit
-        # dem ORT nicht — Bauplaene verschwinden nicht von selbst. Am
-        # 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413,
-        # weil die Zeiger-Datei auf den Datenordner beim Aufraeumen im
-        # Dateimanager mit weggeworfen worden war. Er nahm den leeren
-        # Standardort und sagte kein Wort dazu.
+        # dem ORT nicht — Bauplaene verschwinden nicht von selbst. Typisch:
+        # Die Zeiger-Datei auf den Datenordner ist weg, und es wird lautlos
+        # der leere Standardort genommen.
         #
         # ⚠ Nur vermerken, nicht hier melden: Zu diesem Zeitpunkt steht noch
         # kein Fenster. Die Oberflaeche fragt es ab und zeigt es an.
@@ -802,7 +770,7 @@ class Watcher(threading.Thread):
         self.bestand_next = 0.0  # nächster Blick auf den EIGENEN Bestand
         self.texte_laeuft = False
 
-    # ---- scmdb-Craftdaten frisch halten (ab v1.5.0) ----
+    # ---- scmdb-Craftdaten frisch halten ----
     def _scmdb_tick(self):
         """Sieht selten nach, ob eine neue Spielversion vorliegt, und lädt dann die
         Werte-Datei neu. Läuft im Hintergrund-Thread, damit die Oberfläche nicht
@@ -821,8 +789,8 @@ class Watcher(threading.Thread):
 
         ⚠ Laeuft im Hintergrund-Thread und schluckt jeden Fehler. Ohne Netz
         bleibt der letzte Stand; liegt gar keiner vor, entfaellt die
-        Preisangabe still — die Herstellung funktioniert ohne sie genauso wie
-        vorher. Es gibt keine Meldung darueber, weil es keine braucht.
+        Preisangabe still — die Herstellung funktioniert ohne sie genauso.
+        Es gibt keine Meldung darueber, weil es keine braucht.
         """
         # ⚠⚠ **Der Spielstand zuerst, und das ist kein Zufall.** Jede Ablage
         # wird mit dem Stand gestempelt, der beim Sichern bekannt ist. Käme er
@@ -857,11 +825,9 @@ class Watcher(threading.Thread):
             errors.record('watcher.ships', ausnahme)
         # ⭐⭐ **Und der Warengruppen-Katalog für den Laden-Reiter — zuletzt.**
         #
-        # Er ist der teuerste der Abrufe (76 Stück, gemessen rund 50 s) und
-        # stand deshalb lange nur beim Öffnen der Seite. Genau das war das
-        # Problem: Wer den Reiter aufmacht, wartet dann eine Minute vor einer
-        # leeren Liste. Am 05.09.2026: „Bei Läden ist die lange Ladezeit echt
-        # störend."
+        # Er ist der teuerste der Abrufe (76 Stück, gemessen rund 50 s). Erst
+        # beim Öffnen der Seite geholt, wartet man eine Minute vor einer
+        # leeren Liste.
         #
         # Hier läuft er im Hintergrund-Thread, während der Spieler etwas
         # anderes tut — und dank der Patch-Bindung höchstens einmal je
@@ -876,9 +842,8 @@ class Watcher(threading.Thread):
     def _katalog_tick(self):
         """Holt den Bauplan-Katalog von scmdb, wenn er fehlt oder veraltet ist.
 
-        Bis v2.0.0-rc1 wurde `catalog.update()` von **nirgendwo** aufgerufen:
-        Der Katalog kam nie an, das Bauplan-Fenster blieb bei jedem Nutzer leer und
-        der Hinweistext versprach etwas, das nicht geschah.
+        ⚠ Der einzige Aufrufer von `catalog.update()` — ohne ihn kommt der
+        Katalog nie an, und das Bauplan-Fenster bleibt leer.
 
         Der Abruf läuft in einem **eigenen** Thread, nicht hier im Watcher-Takt:
         Es sind rund 12 MB, und die Log-Erkennung ist die Kernaufgabe — sie darf
@@ -931,8 +896,7 @@ class Watcher(threading.Thread):
         #                Aus lassen will, wer gerade auf PTU spielt oder seine
         #                Textdatei in Ruhe haben möchte.
         #   `inj_auto` — hält es sich von selbst aktuell?
-        # Der erste fehlte ganz: Ausschalten ging nur über „Wieder entfernen",
-        # und beim nächsten Start schrieb das Werkzeug wieder hinein.
+        # Ohne `inj_an` hilft „Wieder entfernen" nur bis zum nächsten Start.
         if not paths.setting_bool('inj_an', True):
             self.texte_next = time.time() + TEXTE_POLL_SEC
             return
@@ -947,9 +911,8 @@ class Watcher(threading.Thread):
         #   `bestand_neu` alle 30 Sekunden. Fragt nur die eigene Bestandsdatei,
         #                 kostet 0,4 ms und braucht kein Netz.
         #
-        # Sie hingen bis zum 05.09.2026 zusammen, und damit hing der eigene
-        # Fund am Takt der fremden Quellen. Falsch herum: Was der Spieler
-        # gerade selbst tut, ist das Schnellste im Spiel, nicht das Langsamste.
+        # Gekoppelt hinge der eigene Fund am Takt der fremden Quellen — was der
+        # Spieler gerade selbst tut, muss aber am schnellsten ankommen.
         jetzt = time.time()
         faellig = jetzt >= self.texte_next
         bestand_neu = False
@@ -961,7 +924,7 @@ class Watcher(threading.Thread):
 
         quelle = self._aktive_quelle()
         eigene_texte = bool(translation.installed('original'))
-        # ⭐ v3.59.0: Nebenkanäle (PTU …) mit eigener Textquelle halten sich
+        # ⭐ Nebenkanäle (PTU …) mit eigener Textquelle halten sich
         # auch dann aktuell, wenn die Hauptinstallation nichts gewählt hat.
         kanaele = translation.channel_sources() if faellig else {}
         if not quelle and not eigene_texte and not kanaele:
@@ -990,10 +953,10 @@ class Watcher(threading.Thread):
         """Die Textquelle der Hauptinstallation — die GEWÄHLTE, nicht die
         erste eingerichtete.
 
-        ⚠ Bis v3.58.0 stand hier „die erste in `SOURCES`, die einen Vermerk
-        hat". Mit zwei Quellen fiel das kaum auf; mit elf (v3.59.0) hätte wer
-        einmal Deutsch und dann Französisch gewählt hatte, im Hintergrund
-        wieder die deutsche Datei aufgefrischt."""
+        ⚠ Nicht einfach die erste in `SOURCES` mit Vermerk: Wer erst Deutsch
+        und dann Französisch gewählt hat, bekäme sonst im Hintergrund wieder
+        die deutsche Datei aufgefrischt. Nur ohne gültige Wahl gilt die erste
+        eingerichtete."""
         alle = list(translation.SOURCES) + [translation.CUSTOM]
         gewaehlt = paths.setting('inj_quelle')
         if gewaehlt in alle and translation.installed(gewaehlt):
@@ -1072,8 +1035,8 @@ class Watcher(threading.Thread):
         Bewusst still bei einem Fehler: Diese Frage wird alle 30 Sekunden
         gestellt: Eine kaputte Bestandsdatei würde das Fehlerprotokoll sonst in
         einer halben Stunde mit 60 gleichen Einträgen füllen und die 50
-        aufgehobenen Plätze verdrängen — genau die, die eine Meldung brauchbar
-        machen. Gemeldet wird sie im Sechs-Stunden-Lauf, dort stört sie nicht.
+        aufgehobenen Plätze verdrängen. Ins Protokoll kommt der Fehler im
+        Sechs-Stunden-Lauf, dort stört er nicht.
         """
         try:
             return self._inj_mark() != paths.setting('inj_bestand')
@@ -1085,12 +1048,10 @@ class Watcher(threading.Thread):
         """Was sich seit dem letzten Einspielen geändert haben kann: der eigene
         Bestand **und die VerseKit-Fassung**.
 
-        ⚠⚠ Die Fassung gehört dazu (17.09.2026). Vorher schrieb ein Update die
-        Texte im Spiel nicht neu — eine neue Art von Zusatz kam erst an, wenn
-        zufällig ein Bauplan dazukam oder ein Patch die Datei ersetzte. Die
-        Ruf-Stufen aus v3.48.0 standen deshalb nach dem Update nicht in der
-        `global.ini`, gemessen an der Datei: zuletzt geschrieben vor dem Release.
-        Einmal neu schreiben je Update kostet ein paar Sekunden."""
+        ⚠⚠ Die Fassung gehört dazu: Ohne sie schreibt ein Update die Texte im
+        Spiel nicht neu — eine neue Art von Zusatz käme erst an, wenn zufällig
+        ein Bauplan dazukommt oder ein Patch die Datei ersetzt. Einmal neu
+        schreiben je Update kostet ein paar Sekunden."""
         return '%s@%s' % (injection.stock_mark(), __version__)
 
     def _texte_abgleichen(self, quelle, nur_bestand=False):
@@ -1108,17 +1069,14 @@ class Watcher(threading.Thread):
             return
         neu_noetig = False
 
-        # 0. ⚠⚠ **Liest das Spiel die Datei überhaupt?** (16.09.2026) Ohne
-        #    `g_language` in der `user.cfg` bleibt Star Citizen englisch, egal
-        #    was in `german_(germany)/global.ini` steht. Gesetzt wurde die Zeile
-        #    bisher nur beim Holen einer neuen Übersetzungsfassung — fiel sie
-        #    danach weg (die `user.cfg` von Hand oder von einem anderen Werkzeug
-        #    umgeschrieben), merkte das niemand: Die Kästchen standen in der
-        #    Datei, die Punkte 1 bis 4 fanden alles in Ordnung, und der Spieler
-        #    sah nach dem nächsten Spielstart englische Texte.
+        # 0. ⚠⚠ **Liest das Spiel die Datei überhaupt?** Ohne `g_language` in
+        #    der `user.cfg` bleibt Star Citizen englisch, egal was in
+        #    `german_(germany)/global.ini` steht. Fällt die Zeile weg (die
+        #    `user.cfg` von Hand oder von einem anderen Werkzeug umgeschrieben),
+        #    finden die Punkte 1 bis 4 alles in Ordnung, und das Spiel zeigt
+        #    trotzdem englische Texte.
         #
-        #    Gewählt ist die Quelle vom Spieler selbst — wer „Deutsch" eingestellt
-        #    hat, will Deutsch. Nur ergänzt, nie gelöscht: `set_user_cfg` lässt
+        #    Die Quelle hat der Spieler selbst gewählt. Nur ergänzt, nie gelöscht: `set_user_cfg` lässt
         #    alle anderen Zeilen stehen.
         #
         #    Läuft außerdem bei JEDEM Start, unabhängig von `inj_an`/`inj_auto`
@@ -1141,8 +1099,6 @@ class Watcher(threading.Thread):
 
         # 2. Hat sich der eigene Katalog erneuert? Nach einem Patch geben
         #    Missionen anderes aus — dann gehören die Angaben neu eingetragen.
-        #    ⚠ Bis v3.63.1 stand hier die Abfrage der SCDL-Vertragsdaten; die
-        #    Quelle ist seit dem 29.09.2026 weg und wird nicht mehr genutzt.
         katalog_stand = ''
         if not nur_bestand:
             try:
@@ -1157,28 +1113,25 @@ class Watcher(threading.Thread):
         if not neu_noetig and not nur_bestand and not injection.is_applied(ziel):
             neu_noetig = True
 
-        # 4. ⚠⚠ **Hat sich der eigene Bestand geändert?** Bis zum 04.09.2026
-        #    fehlte genau diese Bedingung — und damit hörten die Kästchen im
-        #    Spiel still auf zu stimmen, sobald ein Bauplan dazukam.
+        # 4. ⚠⚠ **Hat sich der eigene Bestand geändert?** Ohne diese Bedingung
+        #    hören die Kästchen im Spiel still auf zu stimmen, sobald ein
+        #    Bauplan dazukommt.
         #
         #    Die Punkte 1 bis 3 fragen alle nach FREMDEN Änderungen. Die
         #    Kästchen sind aber unsere eigene Zutat und hängen am Bestand des
-        #    Spielers: Wer einen Bauplan freischaltet, sieht ihn im
-        #    Auftragstext trotzdem weiter als fehlend — bis zufällig eine
-        #    Übersetzung oder ein Patch die Datei anfasst. Gemeldet mit zwei
-        #    Bauplänen, die seit dem 25.08. im Bestand lagen und im Spiel
-        #    ungehakt blieben: „ich dachte wir machen die Kästen?"
+        #    Spielers: Wer einen Bauplan freischaltet, sähe ihn im
+        #    Auftragstext sonst weiter als fehlend — bis zufällig eine
+        #    Übersetzung oder ein Patch die Datei anfasst.
         #
         #    ⚠ Verglichen wird ein Fingerabdruck, nicht die Anzahl. Der
         #    Bestandsabgleich beim Start benennt Einträge um (`angleichen`);
         #    dabei bleibt die Zahl gleich, die Namen ändern sich — und genau
         #    die stehen in den Kästchen.
         #
-        #    ⚠⚠ Am 05.09.2026 nachgebessert: Die Bedingung war da, hing aber im
-        #    Sechs-Stunden-Takt der Punkte 1 bis 3 — also im Takt der fremden
-        #    Quellen. Wer 20 Minuten spielte und aufhörte, kam nie hierher.
-        #    Der Auslöser sitzt jetzt in `_bestandsmarke_neu` und fragt alle 30
-        #    Sekunden; diese Stelle hier bleibt trotzdem die maßgebliche —
+        #    ⚠⚠ Der Auslöser hängt NICHT am Sechs-Stunden-Takt der Punkte 1
+        #    bis 3 — wer 20 Minuten spielt und aufhört, käme sonst nie hierher.
+        #    Er sitzt in `_bestandsmarke_neu` und fragt alle 30 Sekunden;
+        #    diese Stelle hier bleibt trotzdem die maßgebliche —
         #    zwischen Auslösen und Schreiben liegt ein Thread-Wechsel, in dem
         #    sich der Bestand erneut ändern kann.
         marke = None
@@ -1248,20 +1201,16 @@ class Watcher(threading.Thread):
         except Exception:
             pass
 
-    # Bis zu wie vielen nachgelesenen Bauplänen einzeln gemeldet wird.
+    # Bis zu wie vielen nachgelesenen Bauplänen jeder einzeln angezeigt wird.
     #
-    # ⚠ **Warum es überhaupt eine Grenze gibt.** Die Nachlese war bis v3.0.3
-    # vollständig still — mit gutem Grund: Beim allerersten Start geht sie über
-    # **alle** aufgehobenen Sitzungen (auf einem gewachsenen Rechner sind das
-    # über hundert), und niemand will danach hunderte Zeilen wegklicken.
-    #
-    # Nur trifft dieser Fall genau **einmal** zu. Im Alltag findet sie null bis
-    # drei — und die will man sehen. Am 28.08.2026 fiel auf, nachdem ein Bauplan
-    # still im Bestand gelandet war: „sonst geht das still in den Bestand wie bei
-    # mir heute, und niemand sieht es."
+    # ⚠ **Warum es eine Grenze gibt.** Beim allerersten Start geht die
+    # Nachlese über **alle** aufgehobenen Sitzungen (auf einem gewachsenen
+    # Rechner über hundert), und niemand will danach hunderte Zeilen
+    # wegklicken. Im Alltag findet sie null bis drei — und die sollen nicht
+    # still im Bestand landen.
     #
     # Also beides: bis zu dieser Zahl einzeln melden, darüber nur die Summe in
-    # der Statuszeile wie bisher.
+    # der Statuszeile.
     NACHLESE_MELDEN_BIS = 10
 
     def _nachgelesenes_melden(self, namen):
@@ -1291,8 +1240,8 @@ class Watcher(threading.Thread):
 
         ⚠ Es gibt Faelle, die kein Log meldet: Ein Auftrag geht durch einen
         Fehler im Spiel verloren, oder man muss ausloggen, um einen Fehler
-        loszuwerden — dann ist der Auftrag weg, ohne dass „abgeschlossen" oder
-        „zurückgezogen" im Log stuende. Der Watcher kann das nicht wissen, der
+        loszuwerden — dann ist der Auftrag weg, ohne dass ein Abschluss oder
+        Rückzug im Log stuende. Der Watcher kann das nicht wissen, der
         Spieler schon. Also darf er es sagen.
 
         Der Titel bleibt in `_auftraege_gesehen`, damit er nicht beim naechsten
@@ -1309,7 +1258,7 @@ class Watcher(threading.Thread):
 
         ⚠ Kennt der Katalog den Auftrag nicht, bleibt es beim blossen Titel.
         Der ist keine Zusage, sondern nur der Name, den das Spiel selbst
-        gemeldet hat. Eine erfundene Bauplan-Angabe waere schlimmer als keine.
+        ins Log schreibt. Eine erfundene Bauplan-Angabe waere schlimmer als keine.
         """
         try:
             ergebnis = contracts.check(
@@ -1333,7 +1282,7 @@ class Watcher(threading.Thread):
             zusatz = language.Phrase('auftrag_fehlt', hat, gesamt, fehlend[0])
         else:
             # ⚠ Ab zwei fehlenden werden KEINE Namen mehr genannt. Bei 31 von 54
-            # wäre „darunter: Aufeis, Avalanche" eine Auswahl ohne Aussagewert —
+            # wäre eine Aufzählung einzelner Namen eine Auswahl ohne Aussagewert —
             # sie sagt nichts darüber, ob der Auftrag sich lohnt, und kostet die
             # halbe Zeilenbreite. Die vollständige Liste steht im Spiel.
             zusatz = language.Phrase('auftrag_stand', hat, gesamt)
@@ -1344,9 +1293,9 @@ class Watcher(threading.Thread):
 
         Das Spiel meldet nicht nur die Annahme, sondern auch jedes Ende —
         abgeschlossen, zurückgezogen, fehlgeschlagen. Wer das Log einmal ganz
-        durchgeht und Buch führt, weiss beim Start, was noch laeuft. Vorher war
-        ein Auftrag nach einem Neustart des Watchers einfach weg: Er stand nur
-        als Verlaufszeile da, nicht als Zustand.
+        durchgeht und Buch führt, weiss beim Start, was noch laeuft — ein
+        Auftrag übersteht so einen Neustart des Watchers als Zustand, nicht
+        nur als Verlaufszeile.
 
         ⚠ **Nur die laufende Log-Datei.** Startet man das Spiel neu, beginnt
         eine frische; was in den Sicherungen davor steht, kann laengst erledigt
@@ -1407,7 +1356,7 @@ class Watcher(threading.Thread):
     def _auftraege_melden(self):
         """Zu jedem angenommenen Auftrag sagen, ob Bauplaene dabei sind.
 
-        Die eine Frage des Werkzeugs, nur frueher beantwortet: nicht erst wenn
+        Die eine Frage des Werkzeugs, nur zeitiger beantwortet: nicht erst wenn
         der Bauplan kommt, sondern schon beim Annehmen.
 
         ⚠ Kennt der Katalog den Auftrag nicht, wird **geschwiegen**. Eine
@@ -1440,19 +1389,15 @@ class Watcher(threading.Thread):
         veraendert = False
 
         # ⚠ **In der Reihenfolge des Logs durchgehen, nicht erst alle Enden.**
-        # Bis v3.3.0-rc29 stand hier „zuerst wegnehmen, dann hinzufuegen" —
-        # gedacht fuer den Fall, dass jemand einen Auftrag abbricht und sofort
-        # neu annimmt. Der umgekehrte Fall kam dabei unter die Raeder: Enthaelt
-        # ein Abschnitt erst die Annahme und danach den Abschluss, wurde der
-        # Abschluss zuerst verrechnet (und traf ins Leere) und der Auftrag
-        # danach als frisch angenommen hingestellt.
+        # Erst alle Enden und dann alle Annahmen zu verrechnen, deckt nur den
+        # Fall ab, dass jemand einen Auftrag abbricht und sofort neu annimmt.
+        # Enthaelt ein Abschnitt erst die Annahme und danach den Abschluss,
+        # träfe der Abschluss ins Leere und der Auftrag stuende als frisch
+        # angenommen da.
         #
         # Genau das passiert nach jedem Neustart des Watchers waehrend einer
         # laufenden Spielsitzung, denn dann liest der erste Abschnitt alles
-        # nach, was seit dem letzten Lauf geschah. Am 30.08.2026 gemessen:
-        # „Retake Platforms From Nine Tails" um 01:18 angenommen, um 01:59
-        # abgeschlossen, Watcher um 02:22 gestartet — und die Zeile stand als
-        # laufender Auftrag da.
+        # nach, was seit dem letzten Lauf geschah.
         #
         # Die Reihenfolge klaert beide Faelle: Was am Ende des Abschnitts offen
         # ist, wird gezeigt; was zuletzt ein Ende hatte, nicht.
@@ -1470,7 +1415,7 @@ class Watcher(threading.Thread):
                     self.q.put(('auftrag_weg', weg))
                     veraendert = True
                     # Damit derselbe Auftrag nach dem naechsten Einloggen
-                    # wieder gemeldet wird — man nimmt ihn ja erneut an.
+                    # wieder angezeigt wird, wenn er erneut angenommen wird.
                     self._auftraege_gesehen.discard(weg)
                 for kennung in list(self._auftrag_missionen):
                     self._ziele.forget(kennung)
@@ -1490,23 +1435,17 @@ class Watcher(threading.Thread):
                     if vertrag:
                         self._auftrag_vertraege[rein] = vertrag
                 continue
-            # ⚠⚠ **Ein Ende darf titellos sein — gemeldet 06.09.2026.** Bricht
-            # man einen Auftrag ab, schreibt das Spiel nur:
+            # ⚠⚠ **Ein Ende darf titellos sein.** Bricht man einen Auftrag ab,
+            # schreibt das Spiel nur:
             #
             #     <EndMission> … MissionId[7dc679f3-…] CompletionType[Abandon]
             #
-            # Kein Titel, nur die Kennung. Bis hierher galt fuer JEDES Ereignis
-            # „ohne Titel kein Auftrag" — damit flog genau dieses Ende heraus,
-            # bevor `which_ended` ueberhaupt gefragt wurde. Die Funktion
-            # haette es gekonnt: Ihr dritter Schritt loest ueber die MissionId
-            # auf, und die stand die ganze Zeit daneben.
+            # Kein Titel, nur die Kennung. Ein Ereignis ohne Titel darf deshalb
+            # nicht vorher aussortiert werden: `which_ended` loest es im
+            # dritten Schritt ueber die MissionId auf.
             #
-            # Sichtbar wurde es daran, dass ein abgebrochener Auftrag im
-            # Auftrags-Protokoll richtig als „abgebrochen" stand (anderer Weg,
-            # ueber `mission_log`) und im Overlay trotzdem weiter als laufend.
-            #
-            # ⚠ Ohne Titel UND ohne Kennung wird nichts geraten. Pauschal zu
-            # raeumen hat in v3.4.4 laufende Auftraege mitgerissen.
+            # ⚠ Ohne Titel UND ohne Kennung wird nichts geraten — pauschal zu
+            # raeumen reisst laufende Auftraege mit.
             if not rein and not mission_id:
                 continue
             # ⚠⚠ **Nicht jedes Ende meint den Auftrag.** Traegt die Meldung
@@ -1525,8 +1464,8 @@ class Watcher(threading.Thread):
                 # Zwischenziel — oder ein Missions-Ende ohne auffindbaren
                 # Auftrag. Letzteres kam ueber 153 Protokolle kein einziges
                 # Mal vor; traete es doch ein, bleibt alles stehen. Geraten
-                # wird nicht, und pauschal geraeumt schon gar nicht: Genau das
-                # hat in v3.4.4 laufende Auftraege mitgerissen.
+                # wird nicht, und pauschal geraeumt schon gar nicht: Das
+                # risse laufende Auftraege mit.
                 continue
             offen_jetzt.pop(weg, None)
             if self._offene_auftraege.pop(weg, None) is not None:
@@ -1536,9 +1475,8 @@ class Watcher(threading.Thread):
                 self._ziele.forget(kennung)
                 del self._auftrag_missionen[kennung]
             self.q.put(('auftrag_weg', weg))
-            # Damit dieselbe Mission spaeter wieder gemeldet wird. Ohne das
-            # bliebe ein wiederholter Auftrag stumm — und genau die macht man
-            # im Spiel reihenweise.
+            # Damit dieselbe Mission spaeter wieder angezeigt wird. Ohne das
+            # bliebe ein wiederholter Auftrag stumm.
             self._auftraege_gesehen.discard(weg)
 
         for rein, titel in offen_jetzt.items():
@@ -1550,15 +1488,15 @@ class Watcher(threading.Thread):
                 veraendert = True
             # ⚠⚠ **Ein nachgereichter Vertrag laesst die Zeile neu bauen.**
             #
-            # Das Spiel meldet „geteilt" und „angenommen" Sekunden auseinander.
+            # Das Spiel schreibt Teilen und Annahme Sekunden auseinander ins Log.
             # Die geteilte Meldung traegt die Nullkennung und findet daher nie
             # einen Vertrag — die Zeile entstuende ueber den Titelweg, mit der
             # ueber alle Regionen zusammengefassten Zahl. Liegen die beiden
             # Meldungen im selben Abschnitt, faellt das nicht auf; liegen sie
             # in zwei, bliebe die grobe Zahl fuer immer stehen.
             #
-            # Deshalb wird nicht „schon gesehen" gefragt, sondern „mit
-            # derselben Quelle gesehen".
+            # Deshalb wird nicht gefragt, ob der Auftrag schon gesehen wurde,
+            # sondern ob mit derselben Quelle.
             quelle = self._auftrag_vertraege.get(rein)
             if (rein in self._auftraege_gesehen
                     and self._auftrag_zeile_quelle.get(rein) == quelle):
@@ -1572,7 +1510,7 @@ class Watcher(threading.Thread):
             veraendert = True
             # ⚠⚠ **Erst die Leiste, dann der Hinweis.** Andersherum weiss die
             # Anzeige beim Hinweis noch nichts von dem Auftrag und setzt
-            # denselben Satz ein zweites Mal darunter (gemeldet 31.08.2026).
+            # denselben Satz ein zweites Mal darunter.
             self.q.put(('auftraege', self._auftragsstand()))
             # ⚠ Mit dem Auftragsschluessel. Die Zeile in der Liste gehoert zu
             # genau diesem Auftrag — endet er, muss sie mitverschwinden, und
@@ -1590,11 +1528,10 @@ class Watcher(threading.Thread):
         ⚠⚠ **Warum das eine Methode ist und kein Signal an sieben Stellen.**
         Der Bestand wird an sieben Stellen geschrieben: Live-Fund, Nachlese,
         Launcher, Startabgleich, Angleichen. Jede davon muss die Liste
-        auffrischen, und die achte, die jemand später hinzufügt, würde es
-        vergessen — genau so entstehen die Fehler, bei denen „bei mir geht es"
-        und bei einem anderen nicht. Wer speichert, meldet. Ohne Ausnahme.
+        auffrischen, und eine später hinzugefügte achte würde es vergessen.
+        Wer speichert, gibt Bescheid. Ohne Ausnahme.
 
-        ⚠ **Gemeldet, NACHDEM geschrieben wurde.** Die Liste liest die Datei
+        ⚠ **Bescheid erst, NACHDEM geschrieben wurde.** Die Liste liest die Datei
         neu; meldete man vorher, könnte sie den Stand von davor erwischen. Das
         wäre ein Wettlauf, der einmal unter hundert Malen zuschlägt — und dann
         fehlt genau ein Bauplan, bis zufällig der nächste kommt.
@@ -1712,8 +1649,8 @@ class Watcher(threading.Thread):
         hält. Oder wenn beim ersten Lauf die Spielsprache noch nicht erkannt war
         und die Protokolle mit der falschen Formulierung durchsucht wurden.
 
-        Gemeldet wird immer, auch die Null: Wer einen Knopf drückt, will wissen,
-        dass etwas passiert ist."""
+        Das Ergebnis wird immer angezeigt, auch die Null: Auf einen Knopfdruck
+        folgt sichtbar eine Antwort."""
         try:
             funde, bericht = logsource.read_all(phrases.pattern())
         except Exception as ausnahme:
@@ -1728,11 +1665,9 @@ class Watcher(threading.Thread):
         if dazu:
             self._bestand_sichern()
             self.seen = bestand_datei.keys_seen_in_game(self.bestand)
-        # ⚠⚠ **Das Auftrags-Protokoll gehoert mit dazu (06.09.2026).** Bis
-        # hierher fasste dieser Lauf nur den Bauplan-Bestand an — gemeldet
-        # wurde er als „Protokolle erneut einlesen", raeumte aber nur eine
-        # Haelfte auf. Wer die Auswertung verbessert, erreicht damit nur
-        # kuenftige Auftraege; die schon eingetragenen bleiben, wie sie sind.
+        # ⚠⚠ **Das Auftrags-Protokoll gehoert mit dazu.** Ohne diesen Schritt
+        # erreicht eine verbesserte Auswertung nur kuenftige Auftraege; die
+        # schon eingetragenen bleiben, wie sie sind.
         # Begruendung und Vorsichtsmassnahmen: `mission_log.reassess`.
         from scbp import mission_log as _ml
         a_neu = a_ber = 0
@@ -1878,10 +1813,8 @@ class Watcher(threading.Thread):
         # 3) Vergangenes nachlesen (still, nur in den Bestand)
         self._nachlese()
 
-        # 4) (Bis v3.63.1 wurde hier der Stand des SC Deutsch Launchers geholt.)
-
-        # 5) Alles, was schon im Bestand steht, gilt als bekannt — es wird nicht
-        #    als „neu" gemeldet.
+        # 4) Alles, was schon im Bestand steht, gilt als bekannt — es erscheint
+        #    nicht als neu.
         self.seen = bestand_datei.keys_seen_in_game(self.bestand)
         overlay.RESCAN_CALLBACK[0] = self.neu_einlesen_anstossen
         overlay.REMOVE_CALLBACK[0] = self.remove_foreign
@@ -1893,7 +1826,7 @@ class Watcher(threading.Thread):
         self.tail.missions = []
         self.tail.missions_done = []
         self.tail.mission_events = []
-        # 6) Was laeuft gerade? Das Log weiss es — auch nach einem Neustart
+        # 5) Was laeuft gerade? Das Log weiss es — auch nach einem Neustart
         #    des Watchers. Nach `new_names()`, damit der Lesestand steht und
         #    laufende Meldungen nicht doppelt kommen.
         self._auftraege_beim_start()
@@ -1939,10 +1872,7 @@ class Watcher(threading.Thread):
             #     soll schon im Bestand stehen, wenn der Auftrag geprueft wird.
             self._auftraege_melden()
 
-            # 2) (Bis v3.63.1 bestätigte hier die Datei des SC Deutsch Launchers
-            #    die Funde.)
-
-            # 3) Katalog-Wache (selten, die Datei ändert sich nur bei SC-Patches)
+            # 2) Katalog-Wache (selten, die Datei ändert sich nur bei SC-Patches)
             if time.time() >= self.cat_next:
                 self.cat_next = time.time() + CAT_POLL
                 self._catalog_tick()
@@ -1953,7 +1883,7 @@ class Watcher(threading.Thread):
         """Worauf gewartet wurde und was jetzt da ist, wird auf der Merkliste abgehakt.
 
         Der Watcher sagt einmal Bescheid. Der Eintrag bleibt stehen, damit der
-        Fortschritt „nur Merkliste" ihn mitzählt."""
+        Fortschritt der Merkliste ihn mitzählt."""
         try:
             titel = watchlist.fulfill(name)
         except Exception:
@@ -1966,18 +1896,14 @@ class Watcher(threading.Thread):
         die Launcher-Zahl, denn der Launcher ist ab jetzt nur noch eine von
         mehreren Quellen (und zählt nachweislich zu niedrig)."""
         log_state = '✓' if self.tail.path else '–'
-        # ⚠ Vorlage **und** Bausteine über `sprache.t` — beide Schlüssel gab es
-        # längst, benutzt wurde keiner. Ergebnis: Wer auf Englisch stellte,
-        # bekam eine englische Oberfläche und eine deutsche Statuszeile.
+        # ⚠ Vorlage **und** Bausteine über `sprache.t` — sonst bleibt die
+        # Statuszeile deutsch, wenn die Oberfläche auf Englisch steht.
         # ⚠ Ein `Satz`, kein fertiger Text: Auch die Statuszeile bleibt stehen,
         # bis die nächste Meldung kommt — sie muss sich beim Sprachwechsel neu
         # zusammensetzen lassen. Der eingesetzte Baustein ist selbst ein `Satz`
         # und wird dabei mit übersetzt; nur die Uhrzeit bleibt eingefroren, und
         # das ist richtig — der Zeitpunkt der Meldung ändert sich nicht.
-        # ⚠ Kein „mit Launcher" / „ohne Launcher" mehr (17.09.2026). Die Quelle
-        # ist seit Langem die Game.log; der Launcher liefert nichts Neues mehr.
-        # Stand dort „mit Launcher", nur weil sein alter Ordner noch auf der
-        # Platte lag — eine Angabe, die „schon ewig nicht mehr stimmt".
+        # Keine Launcher-Angabe: Die Quelle ist die Game.log.
         return language.Phrase('ueberwache', bestand_datei.count(self.bestand),
                             log_state, time.strftime('%H:%M:%S'))
 
@@ -2010,8 +1936,8 @@ class Overlay:
     def __init__(self, wurzel=None):
         """`wurzel` ist die eine Tk-Instanz des Programms — siehe unten, warum es
         nur eine geben darf."""
-        # ⚠ Vor allem anderen: Liegen die Dateien noch am alten Ort (bis v2.x
-        # versteckt in %APPDATA% bzw. ~/.config), werden sie in den sichtbaren
+        # ⚠ Vor allem anderen: Liegen die Dateien noch am alten Ort (versteckt
+        # in %APPDATA% bzw. ~/.config), werden sie in den sichtbaren
         # Ordner unter Dokumente **kopiert**. Erst danach darf irgendetwas
         # gelesen werden — sonst startet der Spieler mit leerer Liste, obwohl
         # sein Bestand nur woanders liegt.
@@ -2031,33 +1957,30 @@ class Overlay:
                     sys.stdout.write(self.umzug_meldung + '\n')
         except Exception as ausnahme:
             errors.record('start.umzug', ausnahme)
-        # Von Hand herübergezogene Dateien an ihren Platz holen (rc9) — siehe
+        # Von Hand herübergezogene Dateien an ihren Platz holen — siehe
         # `paths.tidy_storage`. Vor dem ersten Lesen des Bestands.
         try:
             paths.tidy_storage()
         except Exception as ausnahme:
             errors.record('start.aufraeumen', ausnahme)
 
-        # ⚠ **Nur eine einzige `tk.Tk()` im ganzen Programm.** Vorher legte der
-        # Assistent eine eigene an, zerstörte sie am Ende — und hier entstand eine
-        # zweite. Das ist der Fall, den Tk nicht verlässlich verträgt: Nach dem
-        # `destroy()` der ersten leben Schriften, Bilder und offene `after`-Aufträge
-        # weiter und zeigen auf einen toten Interpreter. Ob das gutgeht, hängt am
-        # Zeitpunkt — bei einem Tester (Bomb20, 25.08.2026) endete der **erste**
-        # Programmstart reproduzierbar mit `SIGSEGV`, direkt nach dem Nachlesen der
-        # Logs. Sein Satz „mit Debugging an lief es durch" ist der Fingerabdruck
-        # eines solchen Zeitproblems: Langsamer läuft es zufällig richtig.
+        # ⚠ **Nur eine einzige `tk.Tk()` im ganzen Programm.** Zwei
+        # nacheinander verträgt Tk nicht verlässlich: Nach dem `destroy()` der
+        # ersten leben Schriften, Bilder und offene `after`-Aufträge weiter und
+        # zeigen auf einen toten Interpreter. Ob das gutgeht, hängt am
+        # Zeitpunkt — der erste Programmstart kann so mit `SIGSEGV` enden,
+        # langsamer (etwa mit Debugging) läuft es zufällig richtig.
         #
         # Deshalb wird die Wurzel **einmal** erzeugt und weitergereicht; der
-        # Assistent ist seitdem ein `Toplevel` daran.
+        # Assistent ist ein `Toplevel` daran.
         self.root = wurzel if wurzel is not None else tk.Tk()
         # Ab hier werden auch Fehler in Rückrufen der Oberfläche festgehalten.
         # Ohne diesen Haken schreibt Tk sie auf die Standardausgabe — und die
         # sieht in einer .exe oder einem AppImage niemand.
         errors.install_hooks(self.root)
-        # Die Tastenkombination, die auch im Spiel greift. ⚠ Angemeldet wird
+        # Die Tastenkombination, die auch im Spiel greift. ⚠ Registriert wird
         # erst, wenn die Hauptschleife laeuft (`hotkey_anmelden`) — vorher
-        # gibt es den Faden noch nicht, an dem die Meldung haengt.
+        # gibt es den Faden noch nicht, an dem die Nachricht haengt.
         self.hotkey = hotkey_modul.Watch()
         _WURZEL[0] = self.root                    # damit signalton() klingeln kann
         # Damit der Knopf „Fensterlage zurücksetzen" das Overlay sofort in die Mitte
@@ -2073,16 +1996,15 @@ class Overlay:
         overlay.OVERLAY_CONTROL[0] = self
         # Damit jeder festgehaltene Fehler weiß, aus welcher Version er stammt.
         errors.VERSION[0] = __version__
-        # ⚠ Der Produktname steht NUR in `language.py` (`hf_titel`). Hier stand
-        # er bis zum 12.09.2026 fest im Code — bei der Umbenennung zu VerseKit
-        # zeigte das Hauptfenster deshalb den neuen Namen und das Overlay noch
-        # den alten. Vom Prüfer gefunden, nicht vom Selbsttest.
+        # ⚠ Der Produktname steht NUR in `language.py` (`hf_titel`) — fest im
+        # Code liefen Hauptfenster und Overlay bei einer Umbenennung
+        # auseinander.
         self.root.title(language.t('hf_titel'))
         self.root.configure(bg=BG)
         self.root.overrideredirect(True)          # randloses Overlay
         self.root.attributes('-topmost', True)    # immer im Vordergrund
         # Wie sich das Fenster im Spiel verhält — siehe scbp/overlay.py.
-        # 'immer' = steht dauerhaft da (wie bisher), 'popup' = zeigt sich nur,
+        # 'immer' = steht dauerhaft da, 'popup' = zeigt sich nur,
         # wenn wirklich ein Bauplan dazukommt.
         self.anzeigeart = paths.setting('overlay_modus') or 'immer'
         self._popup_uhr = None
@@ -2104,12 +2026,12 @@ class Overlay:
         # Taskleiste, Alt+Tab und „Apps" im Task-Manager statt Werkzeugfenster
         # — nimmt dem Spiel keinen Fokus, siehe `overlay.show_as_app`.
         overlay.show_as_app(self.root)
-        # Runde Ecken unter Windows 11 (rc7) — siehe `overlay.round_corners`.
+        # Runde Ecken unter Windows 11 — siehe `overlay.round_corners`.
         # ⚠ Einmal sofort und einmal, wenn das Overlay sicher steht: Vor dem
         # ersten Zeigen hat das Fenster noch keinen Rahmen, an dem DWM ansetzt.
         overlay.round_corners(self.root)
         self.root.after(500, lambda: overlay.round_corners(self.root))
-        # Ein Klick aufs Overlay nimmt dem Spiel nie den Fokus (rc11) — siehe
+        # Ein Klick aufs Overlay nimmt dem Spiel nie den Fokus — siehe
         # `overlay.never_activate`. Nach `show_as_app`, das den Rahmen anlegt.
         overlay.never_activate(self.root)
         self.root.after(500, lambda: overlay.never_activate(self.root))
@@ -2120,22 +2042,18 @@ class Overlay:
         self.count = 0
         self.rows = {}          # normalisierter Name -> Zeilen-Widgets (für die Bestätigung)
 
-        # ⚠ Die Schriftgröße aus den Einstellungen gilt **auch hier**. Sie wirkte
-        # lange nur im großen Fenster; im Overlay standen feste Größen. Wer sie
-        # auf „groß" stellte, weil er die Zeilen im Spiel nicht lesen konnte,
-        # änderte damit ausgerechnet das Fenster nicht, um das es ihm ging.
-        # Gemeldet von Haldjas, 25.08.2026.
+        # ⚠ Die Schriftgröße aus den Einstellungen gilt **auch hier** — gerade
+        # die Zeilen im Overlay muss man im Spiel lesen können.
         #
-        # Die Grundwerte liegen eins unter den früheren festen Größen, damit die
-        # Stufe „normal" (= 1) genau das bisherige Aussehen ergibt — niemand,
-        # der nichts eingestellt hat, sieht plötzlich ein anderes Overlay.
+        # Die Grundwerte liegen eins unter den Standardgrößen, damit die Stufe
+        # „normal" (= 1) genau das Standard-Aussehen ergibt.
         (self.f_title, self.f_item, self.f_sub) = self._schriften_anlegen()
         # Die Symbolgröße hängt an derselben Stufe wie die Schriften.
         icons.set_level(paths.setting('schriftgroesse') or 'normal')
 
         # --- Titelleiste (Drag-Griff + Schließen) ---
-        # ⚠ Die Höhe wächst mit der Schriftgröße mit. Sie stand lange fest auf
-        # 26 px — bei „groß" ragten die Symbole dann oben und unten heraus.
+        # ⚠ Die Höhe wächst mit der Schriftgröße mit. Fest auf 26 px ragten die
+        # Symbole bei großer Schrift oben und unten heraus.
         bar = tk.Frame(self.root, bg=BAR, height=icons.width() + 4)
         # Für die Mindestbreite gemerkt: Schmaler als diese Leiste darf das
         # Overlay nicht werden, sonst fehlen die Symbole.
@@ -2146,10 +2064,9 @@ class Overlay:
         # Sitzt das Overlay in einer UNTEREN Ecke, gehoert die Leiste an den
         # unteren Fensterrand — sonst klebt sie eine Fensterhoehe ueber dem
         # Bildschirmrand. Siehe `_leiste_ausrichten`.
-        # ⚠ Der Name muss zu dem passen, den `_leiste_ausrichten()` liest.
-        # Bis v3.32.2 stand hier `_leisten_seite` (mit n) — ein Feld, das
-        # niemand je gelesen hat. Dieselbe stille Sorte wie die toten
-        # `getattr`-Namen, die Pruefung 195 findet.
+        # ⚠ Der Name muss zu dem passen, den `_leiste_ausrichten()` liest —
+        # ein abweichender Name waere ein Feld, das niemand liest. Dieselbe
+        # stille Sorte wie die toten `getattr`-Namen, die Pruefung 195 findet.
         self._leiste_seite = 'top'
         # Leiste unten → Erklärtexte immer über dem Zeiger, nie auf der
         # Taskleiste. Gefragt wird bei jedem Hinweis, also gilt ein Umstellen
@@ -2181,8 +2098,7 @@ class Overlay:
         # ⚠ Ein Radiergummi, kein Mülleimer. Der Knopf **löscht nichts** — er
         # räumt nur die angezeigten Meldungen weg, die Baupläne bleiben (siehe
         # `hinweis_leeren`). Ein Mülleimer verspricht Vernichtung, und genau
-        # deshalb traut sich niemand, ihn zu drücken. Gemeldet am 27.08.2026:
-        # „Mülleimer für leeren schon gut, aber gäbe es da was besseres?"
+        # deshalb traut sich niemand, ihn zu drücken.
         leeren_lbl = icons.button(bar, 'leeren', self.clear,
                                    font=self.f_title)
         leeren_lbl.pack(side='right')
@@ -2198,14 +2114,12 @@ class Overlay:
         self.klapp_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.klapp_lbl, self._hinweis_klappen)
 
-        # ⚠ Der **Hinweg** zum Durchreichen. Bis rc89 gab es nur den Rückweg:
-        # Das schwebende Schloss erscheint erst, wenn durchgereicht wird, und
-        # verschwindet beim Abschalten wieder — danach führte der einzige Weg
-        # über Einstellungen → Overlay. Haldjas (pr0) am 28.08.2026: „man kann
-        # das durchklicken entfernen, aber eventuell kann der button zum locken
-        # stehen bleiben? sonst muss man ja erst wieder in die einstellungen".
+        # ⚠ Der **Hinweg** zum Durchreichen. Das schwebende Schloss erscheint
+        # erst, wenn durchgereicht wird, und verschwindet beim Abschalten
+        # wieder — ohne diesen Knopf führte der einzige Weg zurück über
+        # Einstellungen → Overlay.
         #
-        # Ein **offenes** Schloss heißt „das Overlay fängt Klicks ab" — ein
+        # Ein **offenes** Schloss heißt: Das Overlay fängt Klicks ab — ein
         # Klick sperrt zu. Das geschlossene Schloss taucht dann als eigenes
         # Fenster auf (`_schloss_anwenden`), weil diese Leiste hier ab dem
         # Moment nicht mehr zu treffen ist.
@@ -2233,21 +2147,18 @@ class Overlay:
         notice.attach(self.neulesen_lbl,
                           lambda: language.t('hinweis_neulesen'))
 
-        # ⭐ Signatur-Scanner an/aus direkt in der Leiste (17.09.2026, Wunsch
-        # beim Minen): an zum Minen, aus danach — dafür soll niemand ins große
-        # Fenster. Grün = sucht, grau = aus. Nur wo abgegriffen werden kann.
+        # ⭐ Signatur-Scanner an/aus direkt in der Leiste: an zum Minen, aus
+        # danach — ohne Umweg über das große Fenster. Grün = sucht, grau = aus. Nur wo abgegriffen werden kann.
         self.scan_lbl = None
         self.anlern_lbl = None
         try:
             from scbp import screen_grab as _screen_grab
             if _screen_grab.supported():
                 # ⭐⭐ **Anlernen gehört in die Leiste, nicht auf eine
-                # Unterseite** (21.09.2026). Solange die mitgelieferten
-                # Vorlagen nicht jede HUD-Schriftgröße treffen, muss jeder
-                # Spieler nachlernen können — und wer gerade mint, hat das
-                # große Fenster nicht offen. Derselbe Grund wie beim
-                # Startknopf: „wenn Leute den suchen müssen, ist er falsch
-                # platziert."
+                # Unterseite**. Solange die mitgelieferten Vorlagen nicht
+                # jede HUD-Schriftgröße treffen, muss jeder Spieler
+                # nachlernen können — und wer gerade mint, hat das große
+                # Fenster nicht offen.
                 self.anlern_lbl = icons.button(bar, 'anlernen',
                                                self._anlernen_oeffnen,
                                                font=self.f_title)
@@ -2264,19 +2175,13 @@ class Overlay:
         except Exception as ausnahme:
             errors.record('overlay.scan_knopf', ausnahme)
 
-        # ⚠ Hier stand bis v3.47.0 ein Klemmbrett, das das grosse Fenster auf
-        # der Bauplan-Liste oeffnete. Am 17.09.2026 entfernt: Es tat fast
-        # dasselbe wie das Zahnrad daneben, und die Leiste soll Platz fuer die
-        # Mining-Knoepfe bekommen. Die Liste bleibt ueber das grosse Fenster
-        # erreichbar (Reiter „Bauplan-Liste"), `liste_oeffnen` nutzen weiter
+        # Kein eigener Knopf für die Bauplan-Liste: Sie ist über das große
+        # Fenster erreichbar (Reiter „Bauplan-Liste"), `liste_oeffnen` nutzen
         # der Einrichtungsassistent und der Klick auf eine Fundmeldung.
 
-        # Das Zahnrad ist der direkte Griff in die Einstellungen. Bis v3.0.0 lag
-        # daneben noch ein zweiter Knopf für den Einrichtungs-Assistenten — der
-        # ist am 27.08.2026 entfallen. Gemeldet: „assitant neu starten, reicht
-        # glaube ich in den einstellungen, da gehen die leute eh hin wenn die
-        # merken es klemmt etwas." Erreichbar bleibt er über das große Fenster,
-        # oben rechts („Einrichtung starten").
+        # Das Zahnrad ist der direkte Griff in die Einstellungen. Der
+        # Einrichtungs-Assistent hat hier keinen eigenen Knopf; er ist über
+        # das große Fenster erreichbar, oben rechts („Einrichtung starten").
         self.einst_lbl = icons.button(bar, 'einstellungen',
                                        self.einstellungen_oeffnen,
                                        font=self.f_title)
@@ -2284,19 +2189,15 @@ class Overlay:
         notice.attach(self.einst_lbl,
                           lambda: language.t('hinweis_einstellungen'))
 
-        # ⚠ Der Startknopf gehört **hierher**, nicht auf eine Unterseite. Er saß
-        # erst unter „Angaben im Spiel" — also dort, wo es um Auftragstexte
-        # geht, und da sucht ihn niemand. Dazu: „wenn leute den suchen
-        # müssen ist er falsch platziert."
+        # ⚠ Der Startknopf gehört **hierher**, nicht auf eine Unterseite.
         #
         # Wer das Spiel starten will, hat das große Fenster nicht offen; er
         # sieht das Overlay. Deshalb steht das Zeichen hier, in Grün — und nur
         # dann, wenn wirklich ein Weg gefunden wurde (`paths.game_starter()`).
         #
-        # ⚠ Eine Rakete, kein Abspielpfeil. Ein `▶` heißt überall „Video ab",
-        # nicht „Programm starten"; eine Rakete sagt beides — starten und
-        # Weltraum. Gemeldet am 27.08.2026: „SC Starten ist das symbol nicht
-        # eindeutig genug".
+        # ⚠ Eine Rakete, kein Abspielpfeil. Ein `▶` steht überall für Video
+        # abspielen, nicht für Programm starten; eine Rakete sagt beides —
+        # starten und Weltraum.
         if paths.game_starter():
             self.start_lbl = icons.button(bar, 'starten', self._spiel_starten,
                                            color=icons.GREEN,
@@ -2304,23 +2205,20 @@ class Overlay:
             self.start_lbl.pack(side='right', padx=(0, 6))
             # ⚠ Erklärung wie bei allen anderen Zeichen über `notice`,
             # **nicht** über die Statuszeile: Die zeigt echte Meldungen, und
-            # der frühere Weg stellte danach `_status_text` wieder her — einen
-            # Merker, der nie fortgeschrieben wird. Ein Bauplanfund war nach
-            # einem Mausschlenker damit überschrieben.
+            # danach `_status_text` wiederherzustellen — einen Merker, der nie
+            # fortgeschrieben wird — überschriebe einen Bauplanfund schon nach
+            # einem Mausschlenker.
             notice.attach(self.start_lbl, lambda: language.t('s_sp_start'))
 
-        # ⚠ Eine Glocke statt des `ⓘ`. Ein „i" heisst „hier steht etwas", eine
-        # Glocke heisst „fuer dich ist etwas da" — und genau darum geht es hier,
-        # denn das Zeichen faerbt sich gruen, wenn eine neue Version bereitsteht.
-        # Gemeldet am 26.08.2026: „Die Glocke für Updates ist auch besser."
+        # ⚠ Eine Glocke statt des `ⓘ`. Ein `i` steht für eine Erklärung, eine
+        # Glocke für eine Nachricht — und darum geht es hier, denn das Zeichen
+        # faerbt sich gruen, wenn eine neue Version bereitsteht.
         self.info_lbl = icons.button(bar, 'glocke',
                                       lambda: self.fenster_oeffnen('ueber'),
                                       font=self.f_title)
         self.info_lbl.pack(side='right', padx=(0, 6))
-        # ⚠ Führt ins **Hauptfenster**, nicht mehr in ein eigenes Infofenster.
-        # Es gab zwei Wege zu Änderungen und Updates, und nur einer war zu Ende
-        # gebaut: Im Infofenster fehlte der Neustart-Knopf, deshalb lud Morkhan
-        # am 26.08.2026 dreimal vergeblich. Ein Weg statt zwei.
+        # ⚠ Führt ins **Hauptfenster**, nicht in ein eigenes Infofenster —
+        # ein Weg zu Änderungen und Updates statt zwei halber.
         #
         # Und zwar auf **„Update & Über"**: Wer auf das Zeichen klickt, will
         # meistens wissen, ob es etwas Neues gibt — und landet so direkt beim
@@ -2369,17 +2267,15 @@ class Overlay:
         self.canvas = tk.Canvas(wrap, bg=BG, highlightthickness=0)
         # ⚠ Keine tk.Scrollbar: Die reicht Tk an das System durch — unter Linux
         # grau, auf dem Mac hellweiss, und damit der einzige Fleck, der aus dem
-        # Bild faellt. Genau so gemeldet: "scrollbalken im watcher selber ist
-        # auch nicht passend". Die vier Rollbereiche im Hauptfenster hatten den
-        # Umbau schon; hier stand er noch aus.
+        # Bild faellt. Dieselbe runde Leiste wie im Hauptfenster.
         from scbp.main_window import round_scrollbar
         sb = round_scrollbar(wrap, self.canvas, bg=BG)
         self.list = tk.Frame(self.canvas, bg=BG)
         self.list.bind('<Configure>',
                        lambda e: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
-        # Die Liste muss so breit sein wie das Fenster. Bis v1.2.0 stand hier ein fester
-        # Wert (312 px) — dadurch wurden lange Namen abgeschnitten und Breiterziehen
-        # brachte nichts. Jetzt wird die Breite bei jeder Größenänderung nachgezogen.
+        # Die Liste muss so breit sein wie das Fenster. Die 312 px sind nur der
+        # Startwert; die Breite wird bei jeder Größenänderung nachgezogen
+        # (`_fit_width`), sonst würden lange Namen abgeschnitten.
         self._list_id = self.canvas.create_window((0, 0), window=self.list, anchor='nw', width=312)
         self._wrap_labels = []          # Untertitel, die umbrechen dürfen
         self.canvas.bind('<Configure>', self._fit_width)
@@ -2393,72 +2289,42 @@ class Overlay:
         #
         # ⚠ Er wird beim Einklappen **ausgeblendet** (siehe `umklappen`). Er
         # sitzt auf `rely=1.0`, und bei einem auf Leistenhöhe geschrumpften
-        # Fenster ist „unten rechts" dieselbe Stelle wie „oben rechts" — er
-        # legte sich dann über das ✕, und man musste zielen, um das Fenster
-        # überhaupt schließen zu können. Ein 26 Pixel hohes Fenster in der Höhe
-        # zu ziehen ergibt ohnehin keinen Sinn.
-        # ⚠⚠ **Seit rc26 hängt der Griff wieder am Fenster.** Der Grund dafür,
-        # ihn an die Liste zu hängen, steht unten und war richtig — nur trägt
-        # er nicht mehr: Seit die Auftragsleiste über der Liste Platz nimmt,
-        # kann die Liste **niedriger werden als der Griff selbst**. Bei einem
-        # schmalen Overlay mit einem laufenden Auftrag blieben ihr rund 20
-        # Pixel, der Griff braucht 26 — und war schlicht weg. Gemeldet am
-        # 29.08.2026, zweimal: „kein Anfasser da zum Vergrössern des Fensters."
-        #
-        # Das Einklapp-Problem von damals löst inzwischen `_grip_nachziehen()`:
-        # Die Methode gab es zu jener Zeit noch nicht, sie setzt den Zustand
-        # durch, statt ihn einmal zu setzen.
-        #
-        # --- Die alte Begründung, zur Einordnung: ---
-        # ⚠ Der Griff hängt an der **Liste**, nicht am Fenster.
-        #
-        # Am Fenster (`self.root`) sitzt er auf `rely=1.0` — bei einem auf
-        # Leistenhöhe eingeklappten Overlay ist „unten rechts" dieselbe Zeile
-        # wie die Titelleiste, und er stand als Dreieck neben dem ✕. Ihn dort
-        # rechtzeitig auszublenden hat dreimal nicht verlässlich geklappt: Der
-        # Zustand hängt am Zeitpunkt des Aufbaus.
-        #
-        # Als Kind der Liste kann er dort gar nicht mehr auftauchen — ist sie
-        # eingeklappt, hat sie keine Höhe, und mit ihr ist er weg. Kein Timing,
-        # keine Sonderbehandlung. Ein Zustand, der sich aus dem Aufbau ergibt,
-        # ist verlässlicher als einer, den man nachträglich herstellt.
-        # ⚠ Größer und in der Akzentfarbe. In Grau und Schriftgröße war er
-        # kaum zu finden — „der Anfasser zum Größerziehen ist nicht mehr da
-        # oder nicht mehr zu sehen" (29.08.2026). Er ist der einzige Weg, das
-        # Overlay in der Größe zu ändern; wer ihn nicht sieht, hält die Größe
-        # für fest.
-        # ⚠ **Symbol aus dem Satz, kein Schriftzeichen.** Bis zum 02.09.2026
-        # stand hier das Zeichen „◢" — es zeigte in drei von vier Ecken in die
-        # falsche Richtung, und Schriftzeichen als Symbole sind ohnehin
-        # ausgeschlossen (sie sind auf jedem System anders gross). Jetzt sind
-        # es vier Lucide-Pfeile, einer je Richtung; `_grip_nachziehen()`
-        # tauscht den passenden ein.
+        # Fenster ist unten rechts dieselbe Stelle wie oben rechts — er läge
+        # dann über dem ✕. Ein 26 Pixel hohes Fenster in der Höhe zu ziehen
+        # ergibt ohnehin keinen Sinn. `_grip_nachziehen()` setzt diesen
+        # Zustand bei jeder Änderung durch, statt ihn einmal zu setzen.
+        # ⚠⚠ **Der Griff hängt am Fenster, nicht an der Liste.** Die
+        # Auftragsleiste nimmt über der Liste Platz, dadurch kann die Liste
+        # **niedriger werden als der Griff selbst** (rund 20 Pixel gegen 26)
+        # — als Kind der Liste wäre er dann weg.
+        # ⚠ Größer und in der Akzentfarbe: Er ist der einzige Weg, das Overlay
+        # in der Größe zu ändern; wer ihn nicht sieht, hält die Größe für fest.
+        # ⚠ **Symbol aus dem Satz, kein Schriftzeichen** (Schriftzeichen sind
+        # auf jedem System anders gross). Vier Lucide-Pfeile, einer je
+        # Richtung; `_grip_nachziehen()` tauscht den passenden ein.
         self.grip = icons.button(self.root,
                                   self.GRIFF_SYMBOLE[(False, False)],
                                   color=icons.GREEN, background=BG)
         self.grip.configure(cursor=sicherer_cursor(CURSOR_GROESSE))
         self.grip.place(relx=1.0, rely=1.0, anchor='se')
         self.grip.bind('<B1-Motion>', self._resize)
-        # ⚠ Den Zustand **durchsetzen**, nicht einmal setzen. Zweimal wurde der
-        # Griff beim Start im eingeklappten Zustand trotzdem angezeigt, obwohl
-        # das Verstecken nachweislich aufgerufen wurde — irgendein Schritt im
-        # Aufbau stellt ihn danach wieder her. Statt diese Stelle weiter zu
-        # suchen, wird bei jedem Layout-Ereignis geprüft, ob der Griff zum
-        # Klappzustand passt. Das kostet nichts: Stimmt es schon, kehrt die
+        # ⚠ Den Zustand **durchsetzen**, nicht einmal setzen. Ein Schritt im
+        # Aufbau kann den versteckten Griff im eingeklappten Zustand wieder
+        # herstellen. Deshalb wird bei jedem Layout-Ereignis geprüft, ob der
+        # Griff zum Klappzustand passt. Das kostet nichts: Stimmt es schon, kehrt die
         # Prüfung sofort zurück.
         self.root.bind('<Configure>', self._grip_nachziehen, add='+')
         self.root.bind('<Map>', self._grip_nachziehen, add='+')
-        # ⚠⚠ **Und das schwebende Schloss genauso** (13.09.2026). Es ist ein
+        # ⚠⚠ **Und das schwebende Schloss genauso.** Es ist ein
         # eigenes Fenster und wandert nicht von allein mit — siehe
         # `_schloss_lage_folgen`. `add='+'` ist Pflicht, sonst verdrängt diese
         # Bindung die Zeile darüber.
         self.root.bind('<Configure>', self._schloss_lage_folgen, add='+')
         self.root.bind('<Map>', self._schloss_lage_folgen, add='+')
         # ⚠⚠ **Die Lage beim Verschieben merken, nicht erst beim Schließen.**
-        # Bis v3.42.4 schrieb sie nur `quit()`. Das Update (`_hand_over`) und
-        # „Beenden" am Symbol neben der Uhr enden über `os._exit` — ohne
-        # `quit()`. Nach dem Update stand das Overlay deshalb an einer alten
-        # gespeicherten Stelle statt dort, wo man es hingezogen hatte.
+        # Das Update (`_hand_over`) und „Beenden" am Symbol neben der Uhr enden
+        # über `os._exit` — ohne `quit()`. Schriebe nur `quit()` die Lage,
+        # stuende das Overlay danach an einer alten gespeicherten Stelle.
         self._lage_nach = None
         self.root.bind('<Configure>', self._lage_merken_bald, add='+')
         self.grip.bind('<ButtonRelease-1>', self._save_geo)   # Größe merken
@@ -2470,11 +2336,9 @@ class Overlay:
         bestandsfenster_modul.VERSION[0] = __version__
         self.eingeklappt = False
         self.hoehe_offen = None      # Fensterhöhe vor dem Einklappen
-        # ⚠⚠ **Auch die Breite.** Eingeklappt behielt das Overlay bis v3.7.0
-        # seine volle Breite — bei 1160 Pixeln ist das ein Balken quer ueber
-        # den halben Bildschirm, und in eine Ecke bekommt man ihn nie. Genau
-        # das am 31.08.2026 gemeldet: „stoert mich irgendwie, dass es nicht
-        # komplett in der Ecke sitzt."
+        # ⚠⚠ **Auch die Breite.** Behielte das Overlay eingeklappt seine volle
+        # Breite, waere das bei 1160 Pixeln ein Balken quer ueber den halben
+        # Bildschirm, der nie ganz in eine Ecke passt.
         self.breite_offen = None     # Fensterbreite vor dem Einklappen
         # ⚠⚠ **Aus der gemerkten Lage vorbelegen — sonst schrumpft das Overlay
         # bei jedem Start.** `klappzustand_setzen(False)` rechnet die offene
@@ -2482,16 +2346,13 @@ class Overlay:
         # auf None, kommt dabei die Mindestgroesse heraus: Aus 620x316 wurden
         # rund 146 px Hoehe.
         #
-        # Getroffen hat es jeden, der eine feste Ecke eingestellt hat — nur
-        # dann wird `klappzustand_setzen` beim Start ueberhaupt gerufen (siehe
-        # `ecke_beim_start`). Wer sein Overlay frei stehen laesst, merkte
-        # nichts; deshalb fiel es lange nicht auf. Gemeldet am 04.09.2026:
-        # „das overlay startet bei mir immer in klein, das merkt sich seine
-        # groesse grad nicht."
+        # Betroffen ist nur, wer eine feste Ecke eingestellt hat — nur dann
+        # wird `klappzustand_setzen` beim Start ueberhaupt gerufen (siehe
+        # `ecke_beim_start`).
         #
         # ⚠ Nur wenn das Fenster offen gespeichert wurde. War es eingeklappt,
-        # ist die gemerkte Groesse die des Streifens — die als „offen" zu
-        # uebernehmen hiesse, es liesse sich nie wieder richtig aufklappen.
+        # ist die gemerkte Groesse die des Streifens — die als offene Groesse
+        # zu uebernehmen hiesse, es liesse sich nie wieder richtig aufklappen.
         if not paths.setting_bool('eingeklappt', False):
             _m_lage = GEOM_RE.match(load_geometry() or '')
             if _m_lage:
@@ -2506,21 +2367,17 @@ class Overlay:
 
         # ⛔⛔ **Die gewaehlte Leistenseite gilt auch beim START.**
         #
-        # Bis v3.32.2 wurde `_leiste_ausrichten()` nur aus den Einstellungen,
-        # beim Klappen und beim Ecke-Anwenden gerufen — nie im Aufbau. Wer
-        # „unten" gewaehlt und die Ecke auf „frei" stehen hatte, bekam die
-        # Leiste nach jedem Neustart wieder oben.
+        # Ohne diesen Aufruf im Aufbau bekommt, wer die Leiste unten und die
+        # Ecke frei stehen hat, die Leiste nach jedem Neustart wieder oben.
         #
-        # ⚠ Und es blieb nicht bei der Leiste: Der Groessen-Griff rechnet aus
-        # der EINSTELLUNG (`_verankert`), setzte sich also nach oben — auf
-        # dieselbe Seite wie die falsch gebliebene Leiste. Beide uebereinander,
-        # der Griff auf den Symbolen.
+        # ⚠ Und der Groessen-Griff rechnet aus der EINSTELLUNG (`_verankert`)
+        # — er laege dann auf derselben Seite wie die falsche Leiste, auf den
+        # Symbolen.
         #
-        # ⛔ **Hier unten und nicht oben bei der Geometrie.** Genau dort stand
-        # der erste Anlauf — 24 Zeilen VOR `bar = tk.Frame(...)`. Die Funktion
-        # sucht ihre Bauteile ueber `pack_slaves()`, fand nichts und kehrte
-        # sofort zurueck: ein Aufruf, der nichts tut und dabei richtig aussieht.
-        # Gemerkt hat das erst die Messung, nicht das Lesen.
+        # ⛔ **Hier unten und nicht oben bei der Geometrie.** VOR
+        # `bar = tk.Frame(...)` sucht die Funktion ihre Bauteile ueber
+        # `pack_slaves()`, findet nichts und kehrt sofort zurueck: ein Aufruf,
+        # der nichts tut und dabei richtig aussieht.
         self._leiste_ausrichten()
 
         self.q = queue.Queue()
@@ -2542,8 +2399,8 @@ class Overlay:
         ⚠⚠ Der Fall aus der Praxis: Kommt eine ausgebesserte Fassung neben LIVE,
         laedt kaum jemand 100 GB neu — man benennt LIVE in HOTFIX um, damit der
         Launcher nur die Unterschiede holt. Der eingetragene Ordner ist damit
-        weg. Bis v3.10.0 stand der Watcher dann ohne Erklaerung da: „Star Citizen
-        nicht gefunden", obwohl in den Einstellungen ein Pfad steht.
+        weg, und ohne diese Frage stuende der Watcher ohne Erklaerung da: Star
+        Citizen nicht gefunden, obwohl in den Einstellungen ein Pfad steht.
 
         ⚠ Nur **einmal je Programmstart** fragen. Wer „jetzt nicht" sagt, will
         Ruhe — und ein Fenster, das immer wiederkommt, klickt man ungelesen weg.
@@ -2571,21 +2428,14 @@ class Overlay:
             errors.record('watcher.kanal_pruefen', ausnahme)
 
     # ---- Drag & Resize ----
-    # ---- Schalter „mit dem Rechner starten" ----
+    # ---- Schalter: mit dem Rechner starten ----
     # ---- Erklärtexte, die ihren Zustand kennen ----
     # --------------------------------------------------------- Schriftgrößen
-    # ⚠ `f_title` traegt den Titeltext der Leiste. 9 Punkt waren zu klein —
-    # Im Vergleich mit dem SC-Deutsch-Launcher (26.08.2026): „die
-    # button größe oben, ist auch deutlich angenehmer". Auf einem 4096 Pixel
-    # breiten Bildschirm bei 100 % Skalierung ist das keine Geschmacksfrage.
+    # ⚠ `f_title` traegt den Titeltext der Leiste. 9 Punkt sind zu klein —
+    # auf einem 4096 Pixel breiten Bildschirm bei 100 % Skalierung kaum lesbar.
     #
-    # ⚠ Eine vierte Schrift `f_icon` gab es hier bis v3.0.0-rc55, eigens für
-    # die Symbole, samt einer eigenen Schriftfamilie (`Segoe UI Symbol`) — weil
-    # in `Segoe UI` kein einziges der Symbole steckt und Windows sonst zur
-    # Farb-Emoji-Schrift greift. Beides ist entfallen: Die Symbole sind seit dem
-    # 27.08.2026 **Bilder** und hängen an keiner Schrift mehr (siehe
-    # `scbp/icons.py`). Damit ist auch die alte Schwierigkeit weg, die gemalten
-    # und die geschriebenen Zeichen auf eine Größe zu bringen.
+    # Keine eigene Schrift für die Symbole: Sie sind **Bilder** und hängen an
+    # keiner Schrift (siehe `scbp/icons.py`).
     #
     # Wer eine der Zahlen aendert, sieht sich die Leiste danach an — auf dem
     # Bildschirm, nicht im Code.
@@ -2594,7 +2444,7 @@ class Overlay:
                      ('f_sub', 'Segoe UI', 7))
 
     def _stufe(self):
-        # Punkte statt Stufe (rc5) — dieselbe Größe wie im großen Fenster.
+        # Punkte statt Stufe — dieselbe Größe wie im großen Fenster.
         from scbp.main_window import font_points
         return font_points()
 
@@ -2628,18 +2478,16 @@ class Overlay:
             self.bar.configure(height=icons.width() + 4)
         except Exception as ausnahme:
             errors.record('overlay.symbolgroesse', ausnahme)
-        # ⛔⛔ **Und die Mindestbreite muss mit** (13.09.2026). Größere Symbole
-        # brauchen mehr Platz — die offene Grenze stand aber weiter auf dem
-        # Wert vom Programmstart. Damit ließ sich das Fenster schmaler ziehen,
-        # als der eingeklappte Streifen braucht, und beim ersten Zuklappen zog
-        # `klappzustand_setzen()` es auf die echte Breite hoch: **die Leiste
-        # wurde breiter.** Gemeldet als „wenn ich von ausgeklappt in
-        # eingeklappt wechsle, wird die Leiste ein klein bisschen größer".
+        # ⛔⛔ **Und die Mindestbreite muss mit.** Größere Symbole brauchen mehr
+        # Platz. Bliebe die offene Grenze auf dem Wert vom Programmstart, ließe
+        # sich das Fenster schmaler ziehen, als der eingeklappte Streifen
+        # braucht, und beim Zuklappen zöge `klappzustand_setzen()` es auf die
+        # echte Breite hoch: **die Leiste würde breiter.**
         #
         # Die beiden Rechnungen sind dieselbe (`_leisten_breite()` ist nur
-        # `max(_mindestbreite(), 260)`) — sie liefen nur zu verschiedenen
-        # Zeiten. Die offene Grenze wurde **einmal** gesetzt, die des Streifens
-        # bei **jedem** Einklappen.
+        # `max(_mindestbreite(), 260)`) — sie müssen nur zur selben Zeit
+        # laufen: Die Grenze des Streifens wird bei **jedem** Einklappen
+        # gesetzt, die offene deshalb hier mit der neuen Symbolgröße.
         #
         # ⚠ Über `after_idle`: Die neuen Symbolgrößen stehen erst, wenn Tk
         # gezeichnet hat — vorher gemessen wäre es derselbe Fehler nochmal.
@@ -2660,11 +2508,9 @@ class Overlay:
     def _ganz_beenden(self):
         """Beenden über das Symbol neben der Uhr — und zwar wirklich.
 
-        ⚠ `destroy()` allein hat das Fenster geschlossen und den Prozess leben
-        lassen: Es beendet die Ereignisschleife, nicht das Programm. Läuft noch
-        ein Faden (Watcher, Netzabruf), bleibt das Ganze im Speicher stehen —
-        genau das, was Haldjas am 25.08.2026 gesehen hat („als hätte er nur das
-        symbol von der taskleiste gekillt").
+        ⚠ `destroy()` allein schließt das Fenster und lässt den Prozess leben:
+        Es beendet die Ereignisschleife, nicht das Programm. Läuft noch ein
+        Faden (Watcher, Netzabruf), bleibt das Ganze im Speicher stehen.
 
         Zuerst wird sauber zugemacht, damit der Bestand geschrieben wird. Wer
         nach drei Sekunden immer noch hängt, wird hart beendet — bis dahin ist
@@ -2679,12 +2525,10 @@ class Overlay:
     def _icon_setzen(self):
         """Fenster- und Taskleisten-Icon — auf beiden Systemen und für alle Fenster.
 
-        Vorher stand hier nur `iconbitmap('icon.ico')`. Das hatte zwei Löcher:
-        `iconbitmap` mit einer `.ico` ist **Windows-only**, unter Linux blieb das
-        Fenster ohne Icon. Und die Datei lag zur Laufzeit gar nicht daneben —
-        PyInstallers `--icon` setzt nur das Symbol der `.exe` selbst, es packt
-        die Datei nicht mit ein. In der fertigen Version gab es das Icon also
-        nirgends, auch unter Windows nicht.
+        `iconbitmap('icon.ico')` allein reicht nicht: Mit einer `.ico` ist es
+        **Windows-only**, unter Linux bliebe das Fenster ohne Icon. Und die
+        Datei muss mitgeliefert sein — PyInstallers `--icon` setzt nur das
+        Symbol der `.exe` selbst, es packt die Datei nicht mit ein.
 
         `iconphoto(True, …)` mit dem PNG kann Tk auf beiden Systemen, und das
         `True` vererbt es an **alle** weiteren Fenster (Liste, Einstellungen,
@@ -2727,8 +2571,8 @@ class Overlay:
         Deshalb geht jeder Schreibzugriff durch hier.
 
         Ein fertiger Text (kein `Satz`) ist erlaubt — dann friert die Zeile in
-        ihrer Sprache ein, statt falsch zu werden. `None` als Quelle sagt genau
-        das: „hier gibt es nichts aufzufrischen"."""
+        ihrer Sprache ein, statt falsch zu werden. `None` als Quelle heißt:
+        hier gibt es nichts aufzufrischen."""
         self._status_quelle = quelle if language.is_refreshable(quelle) else None
         self.status.config(text=str(quelle))
 
@@ -2740,11 +2584,9 @@ class Overlay:
     def _neu_beschriften(self):
         """Alle festen Texte der Melde-Leiste erneuern.
 
-        ⚠ Wird beim Sprachwechsel gerufen (angemeldet über
-        `sprache.anmelden`). Bis zum 26.08.2026 gab es das nicht: Das
-        Einstellungsfenster stellte sich um, das Overlay blieb deutsch stehen.
-        Wer die Sprache wechselt, sieht sonst zwei Sprachen nebeneinander —
-        und hält es zu Recht für kaputt.
+        ⚠ Wird beim Sprachwechsel gerufen (registriert über
+        `sprache.anmelden`). Ohne das stellt sich das Einstellungsfenster um
+        und das Overlay bleibt in der alten Sprache stehen.
 
         Die Erklärblasen stehen hier nicht: Die holen ihren Text bei jedem
         Überfahren neu (`lambda: sprache.t(...)`) und sind damit von allein
@@ -2773,23 +2615,18 @@ class Overlay:
         except Exception as ausnahme:
             errors.record('overlay._neu_beschriften', ausnahme)
 
-    # ⚠ Der Autostart-Schalter ist am 27.08.2026 aus der Melde-Leiste
-    # entfallen — mitsamt `_show_autostart` und `_toggle_autostart`. Zwei
-    # Gründe: Ein Ein/Aus-Zeichen heißt überall „Gerät ausschalten", und es saß
-    # direkt neben dem `✕`, das das Programm wirklich schließt — zwei Knöpfe,
-    # die beide nach „aus" aussehen. Und es ist eine **Einstellung**, kein
-    # Werkzeug; dort steht sie ohnehin (Reiter „Allgemein").
+    # ⚠ Kein Autostart-Schalter in der Melde-Leiste: Ein Ein/Aus-Zeichen
+    # steht überall für Gerät ausschalten und säße neben dem `✕`, das das
+    # Programm wirklich schließt. Autostart ist eine **Einstellung**, kein
+    # Werkzeug (Reiter „Allgemein").
 
     # ⚠ `_dx`/`_dy` **hier** vorbelegen, nicht erst in `_drag_start`. Tk liefert
     # `<B1-Motion>` nicht immer nach einem `<Button-1>` auf demselben Fenster:
     # Wer den Knopf ausserhalb drückt und in das Overlay zieht, löst nur die
-    # Bewegung aus — und `self._dx` gab es dann nicht. Ergebnis war jedes Mal
-    # `AttributeError: 'Overlay' object has no attribute '_dx'`.
-    #
-    # Der Fehler stand am 25.08.2026 in Bomb20s Bericht (rc18) und am 27.08.2026
-    # in im eigenen Lauf (rc69) — dazwischen nie behoben, weil er nichts kaputt macht,
-    # was man sieht: Das Ziehen tut einmal nichts, und der Fehler landet
-    # lautlos im Protokoll.
+    # Bewegung aus — und ohne Vorbelegung gibt es `self._dx` dann nicht:
+    # `AttributeError: 'Overlay' object has no attribute '_dx'`. Sichtbar ist
+    # das kaum: Das Ziehen tut einmal nichts, und der Fehler landet lautlos
+    # im Protokoll.
     _dx = 0
     _dy = 0
 
@@ -2810,16 +2647,12 @@ class Overlay:
     def _leiste_seite_wunsch(self):
         """Gehoert die Leiste nach oben oder nach unten?
 
-        ⭐ **Eine eigene Entscheidung seit v3.32.0** (13.09.2026). Bis dahin
-        hing sie an der Ecke: untere Ecke = Leiste unten. Seit ein Verschieben
-        die Ecke auf „frei" stellt, waere sie damit immer oben — wer sie unten
-        hatte, haette sie beim ersten Ziehen verloren.
+        ⭐ **Eine eigene Einstellung, unabhaengig von der Ecke.** Ein
+        Verschieben stellt die Ecke auf `frei`; hinge die Leistenseite an der
+        Ecke, waere sie danach immer oben.
 
-        ⚠ **Bestandsnutzer behalten, was sie hatten.** Ist nichts eingestellt,
-        entscheidet weiter die Ecke. Ein neuer Schalter darf niemandem
-        stillschweigend die Oberflaeche umbauen — wer „unten links" gewaehlt
-        hatte, hat die Leiste unten gewollt, auch ohne den neuen Schalter je
-        gesehen zu haben.
+        ⚠ Ist nichts eingestellt, gilt die Ecke: untere Ecke = Leiste unten.
+        So bleibt die Leiste dort, wo sie bei einer unteren Ecke schon war.
         """
         try:
             wunsch = (paths.setting('overlay_leiste') or '').strip()
@@ -2847,17 +2680,11 @@ class Overlay:
     def _verschoben(self, e=None):
         """Nach dem Ziehen: Lage merken — und die Ecke aufheben.
 
-        ⭐ **Wer schiebt, entscheidet.** Steht eine Ecke eingestellt, setzt das
-        Overlay sich bei jedem Anlass dorthin zurueck: beim Start, beim Klappen
-        und beim Schliessen des grossen Fensters (`verhalten_anwenden`). Wer es
-        derweil mit der Hand auf einen anderen Bildschirm gezogen hat, sah seine
-        Verschiebung deshalb kommentarlos rueckgaengig gemacht.
-
-        Gemeldet am 13.09.2026: „beim Schliessen des Einstellungsfensters wird
-        die Position des Overlays wieder zurueckgesetzt, ich wollte das Overlay
-        auf meinen 2. Bildschirm ziehen" — mit der richtigen Schlussfolgerung
-        gleich dazu: *„wenn man es verschiebt, muesste sich das automatisch auf
-        verschiebbar aendern."*
+        ⭐ **Verschieben stellt auf frei.** Steht eine Ecke eingestellt, setzt
+        das Overlay sich bei jedem Anlass dorthin zurueck: beim Start, beim
+        Klappen und beim Schliessen des grossen Fensters
+        (`verhalten_anwenden`). Eine Verschiebung von Hand, etwa auf einen
+        anderen Bildschirm, waere sonst kommentarlos rueckgaengig gemacht.
 
         ⚠ **Nur bei einer echten Bewegung.** Die Leiste ist auch die Flaeche,
         auf die man klickt; ein Klick ohne Bewegung darf die Einstellung nicht
@@ -2890,14 +2717,13 @@ class Overlay:
         falls sie darunter liegt. Sonst startet das Overlay in genau der Groesse
         wieder, in der die Symbole fehlten.
 
-        ⛔⛔ **Nachfassen, solange die Leiste noch nicht messbar ist**
-        (13.09.2026). Ein Label, dessen Bild noch nicht geladen ist, meldet
+        ⛔⛔ **Nachfassen, solange die Leiste noch nicht messbar ist.** Ein
+        Label, dessen Bild noch nicht geladen ist, liefert
         `winfo_reqwidth() == 1`. Faellt das in den einen `after_idle`-Aufruf
         beim Start, ist die Grenze dauerhaft zu klein — und **zu klein heisst
         hier nicht harmlos**: Das Fenster laesst sich dann schmaler ziehen, als
-        der eingeklappte Streifen braucht, und beim ersten Zuklappen wird es
-        wieder hochgezogen. Sichtbar als „die Leiste wird ein klein bisschen
-        groesser".
+        der eingeklappte Streifen braucht, und beim ersten Zuklappen wird die
+        Leiste ein Stueck breiter.
 
         Dieselbe Falle wie beim schwebenden Schloss: Ein ungezeichnetes Widget
         meldet 1, und wer das fuer eine Messung haelt, rechnet mit Unsinn.
@@ -2916,11 +2742,9 @@ class Overlay:
             self.root.minsize(breite, 120)
             # ⚠⚠ **Nur eingreifen, wenn das Fenster wirklich schon steht.**
             # Beim Start meldet Tk für ein noch nicht angezeigtes Fenster die
-            # Breite `1` — der Vergleich traf dann immer zu, und das Overlay
-            # wurde auf die Mindestbreite gesetzt. Die gemerkte Größe aus dem
-            # letzten Lauf war damit weg: „er startet bei mir immer mit der
-            # kleinsten Größe" (30.08.2026). Eingebaut hatte das ausgerechnet
-            # die Änderung, die die Symbolleiste retten sollte.
+            # Breite `1` — der Vergleich traefe dann immer zu, das Overlay
+            # landete auf der Mindestbreite, und die gemerkte Größe aus dem
+            # letzten Lauf waere weg.
             #
             # `winfo_ismapped()` allein genügt nicht — auch ein gemapptes
             # Fenster meldet kurzzeitig 1. Deshalb beides.
@@ -2936,9 +2760,8 @@ class Overlay:
         """Wie schmal das Overlay hoechstens werden darf.
 
         ⚠ Nicht raten, sondern die Kopfleiste fragen. Wird das Fenster
-        schmaler, verschwinden die Symbole rechts — und wer sie nicht sieht,
-        sucht einen Fehler, den es nicht gibt. Genau so gemeldet am 29.08.2026:
-        Glocke und die Symbole rechts waren weg.
+        schmaler, verschwinden die Symbole rechts (Glocke und Co.) — und wer
+        sie nicht sieht, sucht einen Fehler, den es nicht gibt.
 
         Der Zuschlag deckt Rahmen und Innenabstand. Findet sich keine
         Kopfleiste, bleibt es beim alten Wert.
@@ -2950,9 +2773,8 @@ class Overlay:
             # ⚠ NICHT `self.kopf.winfo_reqwidth()` nehmen. Die Leiste läuft mit
             # `pack_propagate(False)` — sie gibt die Größe ihrer Kinder
             # absichtlich nicht weiter, damit die Höhe fest bleibt. Gefragt
-            # meldet sie deshalb einen Fantasiewert, und die Mindestbreite war
-            # wirkungslos: Am 29.08.2026 war im Overlay kein einziges Symbol
-            # mehr zu sehen.
+            # liefert sie deshalb einen Fantasiewert, und die Mindestbreite
+            # waere wirkungslos — bis kein Symbol mehr zu sehen ist.
             #
             # Also die Kinder selbst zusammenzählen. Der Zuschlag je Element
             # deckt dessen seitlichen Abstand, die 20 am Ende den Rand und den
@@ -2986,15 +2808,11 @@ class Overlay:
         Fenster, muss es in die freie Richtung wachsen. Ohne gewaehlte Ecke
         (`frei`) gilt das Uebliche: oben und links liegen fest.
 
-        ⛔⛔ **Die Leistenseite zaehlt mit** (13.09.2026). Der Griff sitzt in
-        der freien Ecke, und bis v3.32.0 war die freie Ecke immer auch die
-        leistenfreie — weil die Leiste ihre Seite von der Ecke bezog. Seit sie
-        eine eigene Einstellung ist, stimmt das nicht mehr: Wer „frei
-        verschiebbar" **und** „Leiste unten" waehlt, bekam den Griff unten
-        rechts, also mitten auf die Symbole der Leiste, und er deckte das ✕ zu.
-
-        Genau der Fall, den der Kommentar unten seit rc10 beschreibt — nur
-        entsteht er jetzt ueber einen zweiten Weg. Liegt die Leiste unten, gilt
+        ⛔⛔ **Die Leistenseite zaehlt mit.** Der Griff sitzt in der freien
+        Ecke. Die Leistenseite ist eine eigene Einstellung, die freie Ecke
+        also nicht automatisch leistenfrei: Bei „frei verschiebbar" **und**
+        „Leiste unten" laege der Griff unten rechts, mitten auf den Symbolen
+        der Leiste, und deckte das ✕ zu. Liegt die Leiste unten, gilt deshalb
         die untere Kante als fest, und der Griff geht nach oben.
         """
         try:
@@ -3008,14 +2826,12 @@ class Overlay:
     def _resize(self, e):
         """Das Fenster am Griff groesser ziehen — von der freien Ecke aus.
 
-        ⚠⚠ **Diese Rechnung ging von „oben links steht fest" aus** und war
-        damit falsch, sobald das Overlay in einer unteren oder rechten Ecke
-        klebt: Gezogen wurde gegen den Bildschirmrand, an dem das Fenster
-        haengt. Gemeldet am 02.09.2026 zu rc10: *„Fenstergroesse ist auch nicht
-        mehr anpassbar, da ich sie nur nach unten ziehen koennte."*
+        ⚠⚠ **Nicht von fester oberer linker Ecke ausgehen:** Klebt das
+        Overlay in einer unteren oder rechten Ecke, wuerde sonst gegen den
+        Bildschirmrand gezogen, an dem das Fenster haengt.
 
-        Jetzt bleibt jede verankerte Kante stehen, und die Groesse waechst in
-        die Richtung, in die ueberhaupt Platz ist.
+        Jede verankerte Kante bleibt stehen, und die Groesse waechst in die
+        Richtung, in die ueberhaupt Platz ist.
         """
         unten, rechts = self._verankert()
         x0, y0 = self.root.winfo_x(), self.root.winfo_y()
@@ -3029,8 +2845,8 @@ class Overlay:
         else:
             breite = max(self._mindestbreite(), zeiger_x - x0)
             neu_x = x0
-        # ⚠ Nie größer als der Bildschirm, auf dem das Overlay steht
-        # (17.09.2026) — sonst liegt die Leiste, der Griff zum Verschieben,
+        # ⚠ Nie größer als der Bildschirm, auf dem das Overlay steht — sonst
+        # liegt die Leiste, der Griff zum Verschieben,
         # irgendwo außerhalb. Siehe `_in_arbeitsflaeche`.
         try:
             _sx, _sy, sb, sh = screen.work_area(self.root, x0, y0)
@@ -3091,17 +2907,12 @@ class Overlay:
         top = self.list.pack_slaves()          # aktuell oberste Zeile (Reihenfolge im Fenster!)
         row = tk.Frame(self.list, bg=BG)
         row.pack(fill='x', anchor='w', padx=2, pady=1)
-        # ⚠ **Ein Zustand, nicht zwei.** Bis v3.0.0-rc94 stand ein Fund aus der
-        # Game.log **gelb** da — „vorläufig", bis die Launcher-Datei ihn
-        # bestätigt. Diese Bestätigung kann es nicht mehr geben: Die Game.log
-        # ist die Quelle, der Launcher nur noch eine Ergänzung. Übrig blieb ein
-        # Zustand, aus dem nichts mehr herausführt — wer den Launcher hat, sah
-        # dauerhaft Gelb, wer ihn nicht hat dauerhaft Grün, bei genau derselben
-        # Sicherheit. Das ist keine Auskunft, das ist eine Sackgasse.
+        # ⚠ **Ein Zustand, nicht zwei.** Die Game.log ist die Quelle; ein Fund
+        # daraus ist endgültig, eine Vorstufe gibt es nicht.
         #
-        # Noch früher standen hier die Emoji `🟡`/`🟢`: Die nahmen unter Windows
-        # die Farb-Emoji-Schrift, erschienen als bunte Klötzchen und ignorierten
-        # jede eingestellte Farbe — vor jeder einzelnen Zeile.
+        # Ein Bild, kein Emoji: Emoji nehmen unter Windows die
+        # Farb-Emoji-Schrift, erscheinen als bunte Klötzchen und ignorieren
+        # jede eingestellte Farbe.
         dot = icons.line(row, 'bestaetigt', color=icons.GREEN,
                             background=BG, font=self.f_item)
         dot.pack(side='left', padx=(0, 4))
@@ -3116,28 +2927,23 @@ class Overlay:
         self.rows[nk] = {'frame': row, 'dot': dot, 'name': name, 'sub': sub, 'ts': ts}
         # neueste oben einsortieren. WICHTIG: pack_slaves() (= Reihenfolge im Fenster),
         # nicht winfo_children() (= Reihenfolge der Erzeugung) — sonst landen neue
-        # Zeilen unter den älteren (Fehler bis v1.1.0).
+        # Zeilen unter den älteren.
         if top:
             row.pack_configure(before=top[0])
         self._trim()
         self.canvas.yview_moveto(0)
         signalton()
-        # ⚠ Nicht mehr direkt `_popup_zeigen()`: Das half nur im
-        # Aufblend-Betrieb. Ein eingeklapptes Overlay bei „Immer sichtbar"
-        # meldete gar nichts — siehe `bei_fund_zeigen`.
+        # ⚠ Nicht direkt `_popup_zeigen()`: Das hilft nur im Aufblend-Betrieb,
+        # ein eingeklapptes Overlay bei „Immer sichtbar" bliebe stumm — siehe
+        # `bei_fund_zeigen`.
         self.bei_fund_zeigen()
 
     def _liste_nachziehen(self):
         """Die Seiten im Hauptfenster auf den neuen Bestand bringen.
 
-        ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026.** Bis hierher meldete ein
-        Fund sich nur im Overlay. Die Liste im Hauptfenster las ihren Bestand
-        einmal beim Bauen und danach nie wieder — wer sie offen hatte, sah
-        beim nächsten Bauplan weder die neue Anzahl noch den grünen Haken, und
-        beim Wechseln auf eine andere Seite und zurück ebenso wenig.
-
-        Erwartet wird das Gegenteil, und zwar von jedem: Bauplan fällt,
-        Werkzeug meldet ihn, Liste stimmt. Sofort.
+        ⚠⚠ Die Liste im Hauptfenster liest ihren Bestand sonst nur einmal beim
+        Bauen — wer sie offen hat, sähe beim nächsten Bauplan weder die neue
+        Anzahl noch den grünen Haken, auch nicht nach einem Seitenwechsel.
 
         Gerufen aus `_poll_queue` auf das Signal, das `_bestand_sichern()`
         absetzt — also erst, wenn der Fund wirklich auf der Platte steht.
@@ -3196,8 +3002,8 @@ class Overlay:
                 lbl._quelle = zeile
             lbl.pack(side='left', fill='x', expand=True, anchor='w')
             # ⚠ In die Umbruchliste. Ohne das steht die Zeile in einer festen
-            # Breite und wird am Fensterrand abgeschnitten — auf einem schmalen
-            # Overlay endete sie mitten in „dir fehlt: H".
+            # Breite und wird auf einem schmalen Overlay am Fensterrand mitten
+            # im Wort abgeschnitten.
             self._wrap_labels.append(lbl)
             # Zum Ausblenden. Ein Auftrag kann im Spiel verloren gehen, ohne
             # dass das Log ein Wort darüber verliert — dann nimmt man ihn hier
@@ -3270,12 +3076,10 @@ class Overlay:
     def _scanner_faerben(self):
         """Grün = liest · Gelb = eingeschaltet, liest aber nicht · Grau = aus.
 
-        ⚠⚠ **Der Schalter ist nicht der Betrieb.** Bis zum 21.09.2026 färbte
-        sich das Auge allein nach der Einstellung. Scheitert der Wach-Faden
-        oder stirbt er, blieb es **grün** — und der Spieler sucht den Fehler
-        bei der Erkennung, während in Wahrheit niemand mehr liest. Genau so
-        lief die Fehlersuche in der Nacht zum 21.09.2026: Weder das Auge noch
-        der Fehlerbericht konnten die Frage „liest sie überhaupt?" beantworten.
+        ⚠⚠ **Der Schalter ist nicht der Betrieb.** Färbte sich das Auge allein
+        nach der Einstellung, bliebe es **grün**, wenn der Wach-Faden scheitert
+        oder stirbt — und der Spieler suchte den Fehler bei der Erkennung,
+        während in Wahrheit niemand mehr liest.
         """
         if not getattr(self, 'scan_lbl', None):
             return
@@ -3316,7 +3120,7 @@ class Overlay:
 
         ⚠⚠ Nicht an der Bergbau-Seite aufhängen: Die wird erst beim ersten
         Besuch gebaut — wer den Reiter nie öffnet, hätte sonst keinen Scanner,
-        obwohl der Schalter an steht (Lehre aus dem Entwurf vom 10.09.2026).
+        obwohl der Schalter an steht.
         """
         try:
             from scbp import signature_watch
@@ -3364,9 +3168,7 @@ class Overlay:
 
         Aufgerufen, wenn das Spiel den Auftrag beendet meldet oder der Spieler
         ihn selbst wegnimmt. ⚠ Ohne das bliebe eine Zeile stehen, die behauptet,
-        der Auftrag laufe noch — und weil sie in der Liste steht und nicht in
-        der Auftragsleiste, trug sie bis v3.3.0-rc29 nicht einmal ein Zeichen
-        zum Wegklicken.
+        der Auftrag laufe noch.
         """
         for row in list(self.list.pack_slaves()):
             if getattr(row, '_auftrag', None) != auftrag:
@@ -3380,7 +3182,7 @@ class Overlay:
 
     def add_hinweis(self, text, auftrag=None):
         """Eine Zeile, die keine Freischaltung meldet, sondern etwas erklärt —
-        etwa „im Bestand fehlt möglicherweise etwas" oder ein angenommener
+        etwa ein Hinweis auf eine Lücke im Bestand oder ein angenommener
         Auftrag mit Bauplänen darin.
 
         Kein Signalton, kein Ausrufezeichen: Es ist eine Information beim Start,
@@ -3392,9 +3194,7 @@ class Overlay:
         """
         # ⚠⚠ **Nicht zweimal dasselbe.** Steht der Auftrag schon in der
         # Auftragsleiste, sagt diese Zeile wortgleich dasselbe noch einmal —
-        # direkt darunter. Am 31.08.2026 mit Bildschirmfoto gemeldet: „wieso
-        # sehe ich ne quest jetzt 2 mal". Die Leiste zeigt den Zustand; sie
-        # gewinnt. Ohne Leiste — oder nachdem der Auftrag dort weggeklickt
+        # direkt darunter. Die Leiste zeigt den Zustand; sie gewinnt. Ohne Leiste — oder nachdem der Auftrag dort weggeklickt
         # wurde — erscheint der Hinweis weiterhin.
         if auftrag and auftrag in getattr(self, '_auftrag_schluessel', ()):
             return
@@ -3410,8 +3210,7 @@ class Overlay:
                        anchor='w', justify='left')
         # ⚠ Der Träger bleibt am Label hängen. Hinweise stehen in der Liste,
         # bis sie hinausrollen — ohne das hier wäre eine Meldung von vorhin für
-        # immer in der Sprache von vorhin. Gefunden am 26.08.2026: englisches
-        # Fenster, deutsche Zeile „Keine Log-Sicherungen gefunden".
+        # immer in der Sprache von vorhin.
         # Gemerkt wird am Widget selbst, nicht in einer eigenen Liste — sonst
         # bleiben beim Hinausrollen (`_trim`) Leichen zurück.
         if language.is_refreshable(text):
@@ -3480,13 +3279,11 @@ class Overlay:
     def _im_tk(self, tat):
         """Etwas aus einem Nebenfaden im Tk-Faden erledigen lassen.
 
-        ⚠⚠ **Nie `root.after` aus einem Nebenfaden** (gemeldet am 28.09.2026 im
-        eigenen Bericht: `RuntimeError: main thread is not in main loop`, alle
-        zehn Minuten). Genau dort rief das Nachsehen nach neuen Versionen
-        `root.after(0, …)` — und immer, wenn es eine neue Fassung GEFUNDEN
-        hatte, starb der Faden an dieser Zeile. Update-Hinweis und
-        automatisches Update kamen dann nie an. Die Schlange dagegen ist
-        fadenfest, und `_poll_queue` arbeitet sie im Tk-Faden ab."""
+        ⚠⚠ **Nie `root.after` aus einem Nebenfaden** — das endet in
+        `RuntimeError: main thread is not in main loop`, und der Faden stirbt
+        (beim Nachsehen nach neuen Versionen gingen so Update-Hinweis und
+        automatisches Update verloren). Die Schlange dagegen ist fadenfest,
+        und `_poll_queue` arbeitet sie im Tk-Faden ab."""
         self.q.put(('tk', tat))
 
     # ---- Queue vom Watcher abarbeiten ----
@@ -3497,8 +3294,8 @@ class Overlay:
                 if msg[0] == 'status':
                     # ⚠ Die Quelle merken, nicht nur den fertigen Text: Kommt
                     # der als `sprache.Satz`, lässt sich die Zeile beim
-                    # Sprachwechsel neu auswerten statt in der Sprache von
-                    # damals stehen zu bleiben.
+                    # Sprachwechsel neu auswerten statt in der alten Sprache
+                    # stehen zu bleiben.
                     self._status_setzen(msg[1])
                 elif msg[0] == 'hinweis':
                     # Bleibt stehen, bis die nächste Statusmeldung kommt, und
@@ -3536,8 +3333,7 @@ class Overlay:
 
         ⚠⚠ **Die Fusszeile reicht nicht.** Sie steht vier Sekunden und ist dann
         leer — und genau in diesen vier Sekunden sieht niemand hin, der gerade
-        einen Lauf ueber hunderte Protokolle angestossen hat. Gemeldet am
-        31.08.2026: „in der Leiste steht es zu kurz oder gar nicht."
+        einen Lauf ueber hunderte Protokolle angestossen hat.
 
         ⚠ **Die Leiste bekommt es trotzdem.** Ist das Hauptfenster zu — der
         Knopf gibt es auch am Overlay —, gibt es kein Fenster, ueber dem ein
@@ -3578,9 +3374,8 @@ class Overlay:
     # selbst hat ihren eigenen Zwischenspeicher, hier geht es nur darum, dass
     # überhaupt jemand fragt.
     #
-    # ⚠ Seit dem automatischen Update (16.09.2026) im Takt von
-    # `auto_update.CHECK_INTERVAL_S` und `updater.MIN_INTERVAL` — seit
-    # 17.09.2026 alle 10 Minuten statt 30.
+    # ⚠ Im Takt von `auto_update.CHECK_INTERVAL_S` und
+    # `updater.MIN_INTERVAL` — alle 10 Minuten.
     VERSION_TAKT = 10 * 60 * 1000
 
     # Wie lange nach einem erzwungenen Nachsehen beim Spielende kein weiteres
@@ -3588,19 +3383,18 @@ class Overlay:
     # jede Minute bei GitHub nach — ohne Anmeldung sind 60 Abfragen je Stunde
     # erlaubt, und die teilen sich alle Rechner hinter einem Router.
     SPIELENDE_ABSTAND_S = 5 * 60
-    # Wie oft die Spielende-Wache nachsieht (20 s, Wunsch Bushwick4712: das
-    # Update gut eine Minute nach Spielende). Gleich `auto_update.GAME_POLL_S`.
+    # Wie oft die Spielende-Wache nachsieht (20 s, damit das Update gut eine
+    # Minute nach Spielende kommt). Gleich `auto_update.GAME_POLL_S`.
     SPIELENDE_TAKT_MS = 20 * 1000
 
     def _spielende_wache(self):
-        """Beim Spielende sofort nach einer neuen Fassung sehen (16.09.2026).
+        """Beim Spielende sofort nach einer neuen Fassung sehen.
 
         ⚠ **Wozu.** Das automatische Update spielt nie mitten im Spiel ein.
         Wird eine Fassung WÄHREND des Spiels gefunden, wartet `_auto_update`
-        und fragt jede Minute nach — sie kommt also gleich nach Spielende. Aber
-        erschien sie erst, nachdem zuletzt nachgesehen wurde, lag zwischen
-        Spielende und Update bis zu eine halbe Stunde. Wunsch: *„nach
-        Spielende sollten es eher weniger sein"*. Statt den Takt für alle zu
+        und fragt jede Minute nach — sie kommt also gleich nach Spielende.
+        Erschien sie erst nach dem letzten Nachsehen, läge zwischen Spielende
+        und Update sonst ein ganzer Takt. Statt den Takt für alle zu
         verkürzen, wird genau dieser Moment genutzt.
 
         Gefragt wird im Nebenfaden — die Prozessliste zu lesen dauert unter
@@ -3623,8 +3417,8 @@ class Overlay:
                 if vorher and not laeuft:
                     self._im_tk(
                         lambda: self._nach_version_sehen(spielende=True))
-                # Startprogramme (v3.58.0-rc4): „sobald SC läuft" beim Wechsel
-                # auf laufend, „wieder beenden" beim Wechsel auf aus. Auch der
+                # Startprogramme: die Einträge für den Spielstart beim Wechsel
+                # auf laufend, das Beenden beim Wechsel auf aus. Auch der
                 # erste Blick zählt — läuft das Spiel schon beim Start von
                 # VerseKit, starten die Einträge einmal.
                 from scbp import start_programs
@@ -3649,14 +3443,10 @@ class Overlay:
         wenn nichts da ist. Ein Werkzeug, das beim Spielen im Vordergrund liegt,
         soll nicht ungefragt Fenster aufreißen; der Knopf färbt sich, mehr nicht.
 
-        ⚠ **Und danach wieder, jede Stunde.** Bis v3.0.1 lief das hier **genau
-        einmal**, zwei Sekunden nach dem Start. Der Stundenabstand in
-        `updater.nachsehen()` lief damit ins Leere — er begrenzt, wie oft
-        gefragt werden *darf*, aber fragen musste jemand. Wer den Watcher
-        durchlaufen ließ, erfuhr nie von einer neuen Fassung; sie erschien erst
-        nach einem Neustart. Gemeldet am 28.08.2026, als v3.0.1
-        draußen war und der laufende Watcher weiter schwieg — obwohl er die neue
-        Fassung längst abgerufen hatte und sie in seinem Zwischenspeicher stand.
+        ⚠ **Und danach wieder, im Takt.** Der Abstand in `updater.nachsehen()`
+        begrenzt nur, wie oft gefragt werden *darf* — fragen muss jemand.
+        Liefe das hier nur einmal nach dem Start, erführe ein durchlaufender
+        Watcher nie von einer neuen Fassung.
         """
         # Erst den nächsten Blick einplanen, dann arbeiten: Wirft das Nachsehen,
         # hört die Reihe sonst still auf.
@@ -3676,20 +3466,16 @@ class Overlay:
                 self.root.after(self.VERSION_TAKT, self._nach_version_sehen)
             except tk.TclError:
                 return                   # Fenster ist zu, dann reicht es auch
-            # ⚠⚠ **Der Takt fragt IMMER wirklich nach** (17.09.2026). Vorher
-            # lieferte `updater.check` innerhalb von 30 Minuten nach JEDEM
-            # Nachsehen den Zwischenspeicher — auch nach einem Blick von Hand
-            # auf „Update & Über". Gemessen: um 00:45:13 von Hand nachgesehen,
-            # um 00:46:31 kam v3.46.0, der Takt um 01:09 fragte deshalb gar
-            # nicht, erst der um 01:39. Ein Blick von Hand verschob das
-            # automatische Update so um eine halbe Stunde. Mehr Abfragen
-            # entstehen dadurch nicht: Der Takt selbst ist die Grenze.
+            # ⚠⚠ **Der Takt fragt IMMER wirklich nach.** Sonst liefert
+            # `updater.check` nach JEDEM Nachsehen eine Weile den
+            # Zwischenspeicher — auch nach einem Blick von Hand auf
+            # „Update & Über" —, und das automatische Update verschiebt sich
+            # um einen ganzen Takt. Mehr Abfragen entstehen dadurch nicht:
+            # Der Takt selbst ist die Grenze.
             erzwingen = True
-        # ⚠ **Der Schalter „Nach neuen Versionen sehen" wirkt erst seit hier.**
-        # Er wurde geschrieben, aber nirgends gelesen — wer ihn ausschaltete,
-        # änderte nichts. Eine beschriftete Einstellung, die nichts tut, ist
-        # schlimmer als gar keine. Die Reihe oben läuft trotzdem weiter, damit
-        # das Wiedereinschalten ohne Neustart greift.
+        # ⚠ **Hier wirkt der Schalter „Nach neuen Versionen sehen".** Die
+        # Reihe oben läuft trotzdem weiter, damit das Wiedereinschalten ohne
+        # Neustart greift.
         if not paths.setting_bool('update_pruefen', True):
             return
 
@@ -3831,11 +3617,10 @@ class Overlay:
     def klappzustand_setzen(self, zu, merken=True):
         """Den Klappzustand **herstellen** — nicht umschalten.
 
-        ⚠ Der Unterschied zählt. Beim Programmstart wurde bisher `umklappen()`
-        aufgerufen, also ein Umschalter, während das Fenster noch aufgebaut
-        wurde. Das Ergebnis hing davon ab, was Tk zu diesem Zeitpunkt schon
-        wusste: Der Ziehgriff blieb sichtbar und deckte das ✕ zu, bis man einmal
-        von Hand auf- und wieder zuklappte. Wer einen Zustand will, soll ihn
+        ⚠ Der Unterschied zählt. Ein Umschalter (`umklappen()`) beim
+        Programmstart, während das Fenster noch aufgebaut wird, hängt davon ab,
+        was Tk zu diesem Zeitpunkt schon weiß: Der Ziehgriff bliebe sichtbar
+        und deckte das ✕ zu. Wer einen Zustand will, soll ihn
         setzen und nicht auf das Gegenteil des gerade Vermuteten schalten.
 
         Gemerkt wird die Höhe **vor** dem Einklappen, nicht eine feste Zahl: Wer
@@ -3875,10 +3660,9 @@ class Overlay:
             # haelt das Fenster auf 520x120, damit im offenen Zustand keine
             # Symbole abgeschnitten werden. Beim Einklappen wirkt genau diese
             # Grenze gegen uns: `geometry('260x26')` wird gesetzt, das Fenster
-            # bleibt aber 520x120 — und die Ecke ist fuer die kleinere Groesse
-            # gerechnet. In einer rechten Ecke standen dadurch 252 px, in einer
-            # unteren 86 px ausserhalb des Bildschirms; sichtbar blieb ein
-            # gruener Strich. Gemeldet von Haldjas (pr0) am 01./02.09.2026.
+            # bliebe aber 520x120 — und die Ecke ist fuer die kleinere Groesse
+            # gerechnet. In einer rechten Ecke stuenden dadurch 252 px, in
+            # einer unteren 86 px ausserhalb des Bildschirms.
             #
             # Gemessen statt geraten: `tools/entwurf_ecken_messen.py` baut das
             # Fenster unter Xvfb und vergleicht die **tatsaechliche** Geometrie
@@ -3900,31 +3684,24 @@ class Overlay:
             # ⚠ Das Schloss ist ein EIGENES Fenster und wandert nicht von
             # allein mit. Beim Klappen ändert sich Höhe UND Lage (in einer
             # unteren Ecke rutscht das Fenster nach oben, weil es kürzer
-            # wird) — ohne diese Zeile bleibt das Schloss stehen, wo das
-            # Overlay vorher war. Gemeldet von Haldjas (pr0) am 01.09.2026:
-            # „das Overlay wird zwar in die jeweiligen Ecken verschoben, aber
-            # der Grüne Balken im eingeklappten Zustand sitzt weiter am
-            # selben Ort."
+            # wird) — ohne diese Zeile bleibt das Schloss an der alten Lage
+            # des Overlays stehen.
             self._schloss_nachziehen()
             # ⚠⚠ **Und der Streifen genauso — er ist das dritte eigene Fenster.**
             #
-            # Dieselbe Zeile steht in `ecke_anwenden()`, hier fehlte sie. Der
-            # Unterschied fiel nicht auf, weil beide Wege dasselbe tun sollen,
-            # aber verschieden gerufen werden: `ecke_anwenden` beim Wechsel auf
-            # der Einstellungsseite, DIESE Methode beim **Programmstart**
-            # (`verhalten_anwenden` ruft sie per `after(120, …)`).
+            # Dieselbe Zeile steht in `ecke_anwenden()`. Beide Wege sollen
+            # dasselbe tun, werden aber verschieden gerufen: `ecke_anwenden`
+            # beim Wechsel auf der Einstellungsseite, DIESE Methode beim
+            # **Programmstart** (`verhalten_anwenden` ruft sie per
+            # `after(120, …)`).
             #
             # Beim Start wird `_letzte_lage` vorher aus der gespeicherten Lage
-            # gesetzt und der Streifen sofort dorthin gezeichnet. Wanderte das
-            # Fenster danach in die Ecke, blieb er stehen — und mit ihm das
-            # Schloss, das aus derselben Lage rechnet.
+            # gesetzt und der Streifen sofort dorthin gezeichnet. Wandert das
+            # Fenster danach in die Ecke, bliebe er ohne diese Zeile stehen —
+            # und mit ihm das Schloss, das aus derselben Lage rechnet.
             #
-            # Gemeldet von Haldjas (pr0) am 02.09.2026: „Overlay war auf links
-            # unten eingestellt, balken war rechts unten und hat den watcher
-            # aber links unten geöffnet." Nicht reproduzierbar war es, weil der
-            # Fall nur beim ERSTEN Start nach einem Eckenwechsel eintritt:
-            # Danach ist die gespeicherte Lage die Ecke selbst, und es stimmt
-            # wieder. Im Protokoll stand nichts, weil nichts scheiterte.
+            # ⚠ Der Fall tritt nur beim ERSTEN Start nach einem Eckenwechsel
+            # ein: Danach ist die gespeicherte Lage die Ecke selbst.
             if self.anzeigeart == 'popup':
                 self._letzte_lage = '%dx%d+%d+%d' % (breite, hoehe, x, y)
                 self._anfasser_zeigen()
@@ -3939,18 +3716,16 @@ class Overlay:
         """Wie breit der eingeklappte Streifen sein muss — gemessen, nicht geraten.
 
         ⚠⚠ Ein fester Wert saesse bei anderer Schriftgroesse und in der anderen
-        Sprache daneben: „SC BP Watcher" ist kuerzer als sein englisches
-        Gegenstueck, und die Symbolreihe waechst mit der Schrift mit. Also
+        Sprache daneben: Die Titel sind je Sprache verschieden lang, und die
+        Symbolreihe waechst mit der Schrift mit. Also
         fragen wir die Leiste selbst, was sie braucht.
 
-        ⚠⚠ **NICHT `winfo_reqwidth()` der Leiste nehmen** — genau daran ist
-        diese Methode bis zum 02.09.2026 gescheitert. Die Kopfleiste laeuft
-        mit `pack_propagate(False)` und meldet deshalb `1`; die Rechnung fiel
-        jedes Mal auf den Mindestwert 260 zurueck, waehrend die Leiste in
-        Wirklichkeit 520 breit ist. In einer rechten Ecke wurde die Position
-        fuer 260 gerechnet und das Fenster stand mit 252 px ausserhalb des
-        Bildschirms. Dieselbe Falle war in `_mindestbreite()` laengst behoben —
-        also wird sie hier benutzt statt ein zweites Mal hineinzutappen.
+        ⚠⚠ **NICHT `winfo_reqwidth()` der Leiste nehmen.** Die Kopfleiste
+        laeuft mit `pack_propagate(False)` und liefert deshalb `1`; die
+        Rechnung fiele auf den Mindestwert 260 zurueck, waehrend die Leiste in
+        Wirklichkeit 520 breit ist — in einer rechten Ecke stuende das Fenster
+        dann 252 px ausserhalb des Bildschirms. `_mindestbreite()` zaehlt
+        richtig, deshalb wird sie hier benutzt.
         """
         try:
             self.root.update_idletasks()
@@ -3961,38 +3736,19 @@ class Overlay:
     def _leiste_ausrichten(self):
         """Die Titelleiste an den Fensterrand haengen, den der Nutzer will.
 
-        ⚠ Seit v3.32.0 entscheidet das eine **eigene Einstellung**
-        (`_leiste_seite_wunsch`), nicht mehr die Ecke — siehe dort.
+        ⚠ Welche Seite, sagt eine **eigene Einstellung**
+        (`_leiste_seite_wunsch`), nicht die Ecke — siehe dort.
 
-        ⚠⚠ Gemeldet von Haldjas (pr0) am 02.09.2026, nachdem ein erster Versuch
-        am eigentlichen Punkt vorbeiging: *„Der Balken und das Schloss sind, der
-        Einstellung nach, mit in die Ecken gesprungen, aber eben weiterhin am
-        oberen Rand vom Watcher, was bedeutet, dass sie entsprechend weiter oben
-        im Bild sitzen, wenn man den watcher unten platziert hat."*
+        Fest oben verankert (`side='top'`) saesse die Leiste bei einer unteren
+        Ecke eine ganze Fensterhoehe ueber dem Bildschirmrand. Hier wechselt
+        sie die Seite: oben bleibt oben, unten wandert nach unten.
 
-        Das Fenster wanderte also richtig — die Leiste war nur fest oben
-        verankert (`side='top'`). Bei einer unteren Ecke sass sie damit eine
-        ganze Fensterhoehe ueber dem Bildschirmrand. Hier wechselt sie die
-        Seite: oben bleibt oben, unten wandert nach unten.
-
-        ⚠⚠ **Warum das vier Anlaeufe gekostet hat — und woran es WIRKLICH lag.**
-        Am 02.09.2026 wurde dieser Umbau zurueckgenommen, mit der Begruendung,
-        Tk rechne beim Umpacken die Fenstergroesse neu: Ein eingeklapptes
-        Fenster wuchs „von 22 auf 120 px und ragte 86 px unter den
-        Bildschirmrand". Beide Zahlen waren der Schluessel, nur hat sie damals
-        niemand gelesen: **120 ist die Mindesthoehe** aus
-        `_mindestgroesse_setzen()`, und **86 der Ueberstand**, den dieselbe
-        Mindestgroesse in einer unteren Ecke erzeugte.
-
-        Es lag also nie am Umpacken. Es lag daran, dass `minsize` beim
-        Einklappen stehenblieb — derselbe Fehler, der das eingeklappte Overlay
-        in drei von vier Ecken aus dem Bild geschoben hat. Seit er behoben ist,
-        bleibt das Fenster beim Umpacken exakt so gross, wie es war (gemessen
-        mit `tools/entwurf_leiste_unten.py`: 520x26 vorher wie nachher).
-
-        Die Lehre steht ueber der Technik: Vier Anlaeufe haben ein Symptom
-        bekaempft, das eine Ursache zwei Funktionen weiter hatte. Die Zahlen
-        aus der ersten Messung hatten sie benannt.
+        ⚠⚠ **Das Umpacken aendert die Fenstergroesse nicht.** Waechst ein
+        eingeklapptes Fenster dabei auf 120 px, ist das die Mindesthoehe aus
+        `_mindestgroesse_setzen()`: `minsize` muss beim Einklappen mitgezogen
+        werden. Dann bleibt das Fenster beim Umpacken exakt so gross, wie es
+        war (gemessen mit `tools/entwurf_leiste_unten.py`: 520x26 vorher wie
+        nachher).
         """
         seite = self._leiste_seite_wunsch()
         # ⚠ Nur anfassen, wenn sich wirklich etwas aendert. Ein Umpacken bei
@@ -4011,7 +3767,7 @@ class Overlay:
             # ⚠ Die Leiste ZUERST packen — in Tk bekommt das zuerst gepackte
             # Bauteil seinen Rand zuerst. Kaeme sie nach der rollenden Flaeche
             # (`expand=True`), draengte diese sie aus dem Fenster; genau die
-            # Falle, die in den Projektregeln unter „Fensteraufbau" steht.
+            # Falle aus den Projektregeln, Abschnitt Fensteraufbau.
             for kind, info in teile:
                 info.pop('in', None)
                 if kind is leiste:
@@ -4028,11 +3784,11 @@ class Overlay:
         durchklickbar, damit es im Kampf nicht stoert — und was Mausklicks
         durchreicht, laesst sich auch nicht anfassen. Ohne eine waehlbare Ecke
         gibt es fuer diese Nutzer **gar keinen** Weg, das Overlay zu
-        positionieren. Am 31.08.2026 gemeldet.
+        positionieren.
 
         ⚠ Gerechnet wird auf dem Schirm, auf dem das Fenster GERADE steht —
-        nicht auf dem ersten. Bei drei Monitoren nebeneinander waere „oben
-        rechts" sonst immer der linke Bildschirm.
+        nicht auf dem ersten. Bei drei Monitoren nebeneinander laege die Ecke
+        oben rechts sonst immer auf dem linken Bildschirm.
         """
         x, y = self.root.winfo_x(), self.root.winfo_y()
         try:
@@ -4041,17 +3797,14 @@ class Overlay:
                 # ⚠⚠ **Sitzt die Leiste unten, ist die UNTERE Kante die feste.**
                 # Ohne diese Zeile bleibt beim Klappen die obere Kante stehen,
                 # das Fenster schrumpft nach oben weg — und die unten
-                # verankerte Leiste springt mit. Gemessen am 17.09.2026 bei
-                # freier Lage: Unterkante 1220 offen, 246 eingeklappt, also
-                # **974 px nach oben**. Gemeldet mit zwei Bildschirmfotos:
-                # „eingeklappt klappt die Leiste oben hin statt unten".
+                # verankerte Leiste springt mit (gemessen bei freier Lage:
+                # Unterkante 1220 offen, 246 eingeklappt, also **974 px nach
+                # oben**).
                 #
-                # ⭐ Die Regel gab es schon — in `_feste_kante()` fuer das
-                # Ziehen am Griff (`ecke.startswith('unten') or
-                # _leiste_seite_wunsch() == 'bottom'`). Sie stand nur an EINER
-                # der beiden Stellen, die dasselbe entscheiden. Genau das
-                # Muster aus den Projektregeln: Wer eine Stelle repariert,
-                # sucht die zweite.
+                # ⭐ Dieselbe Regel steht in `_feste_kante()` fuer das Ziehen
+                # am Griff (`ecke.startswith('unten') or
+                # _leiste_seite_wunsch() == 'bottom'`). Beide Stellen
+                # entscheiden dasselbe und muessen zusammen geaendert werden.
                 #
                 # ⚠ Bei gesetzter Ecke passiert das nicht — dort rechnet die
                 # Ecke die Lage ohnehin neu (unten: `sy + sh - hoehe - rand`).
@@ -4059,12 +3812,9 @@ class Overlay:
                     y += self.root.winfo_height() - hoehe
                 return x, y
             # ⚠⚠ **Arbeitsflaeche, nicht die volle Bildschirmflaeche.** Unten
-            # liegt unter Windows die Taskleiste. Wurde das Overlay an den
-            # echten Bildschirmrand gesetzt, verschwand der 5 px hohe
-            # Anfasser-Streifen dahinter: „hovern geht nicht mehr, nur ein
-            # Klick auf eine bestimmte Stelle klappt ihn aus" (Haldjas, pr0,
-            # 02.09.2026) — getroffen wurde das Stueck, das oberhalb der
-            # Leiste herausschaute. `arbeitsflaeche()` faellt auf die volle
+            # liegt unter Windows die Taskleiste. Am echten Bildschirmrand
+            # verschwaende der 5 px hohe Anfasser-Streifen dahinter, und das
+            # Ueberfahren griffe nicht mehr. `arbeitsflaeche()` faellt auf die volle
             # Flaeche zurueck, wenn das System keine Angabe liefert.
             sx, sy, sb, sh = screen.work_area(self.root, x, y)
             rand = 8
@@ -4119,19 +3869,14 @@ class Overlay:
         | eine der vier | höchstens die Arbeitsfläche | ganz im Bild |
         | frei verschiebbar | höchstens die Arbeitsfläche | unangetastet — dort darf jemand es absichtlich über zwei Monitore legen |
 
-        ⚠ Die Größe wird IMMER begrenzt (17.09.2026: „die Größe
-        begrenzen, dass das bei niemandem passieren kann"). Ein Overlay, das
-        höher ist als der Bildschirm, hat an irgendeiner Stelle seine Leiste
-        außerhalb — und die Leiste ist der Griff zum Verschieben.
+        ⚠ Die Größe wird IMMER begrenzt. Ein Overlay, das höher ist als der
+        Bildschirm, hat an irgendeiner Stelle seine Leiste außerhalb — und die
+        Leiste ist der Griff zum Verschieben.
 
-        ⚠⚠ Gemeldet am 17.09.2026 mit zwei Bildschirmfotos: Das Overlay (440×1000
-        auf einer Arbeitsfläche von 1104 Pixeln Höhe) rutschte nach „Unten
-        rechts" aus dem Bild, sichtbar blieben zwei Zeilen — die Leiste unten
-        lag unter dem Rand und damit der einzige Griff zum Verschieben. Die
-        Eckrechnung selbst ist richtig (unsichtbar nachgestellt); eine Lage und
-        eine Größe aus verschiedenen Ständen reichen aber, um das Fenster
-        hinauszuschieben (siehe `hoehe_offen`). Diese Grenze gilt deshalb nach
-        JEDER Eckrechnung, ganz gleich woher die Zahlen kamen.
+        ⚠⚠ Die Eckrechnung selbst ist richtig; eine Lage und eine Größe aus
+        verschiedenen Ständen reichen aber, um das Fenster hinauszuschieben
+        (siehe `hoehe_offen`). Diese Grenze gilt deshalb nach JEDER
+        Eckrechnung, ganz gleich woher die Zahlen kamen.
         """
         try:
             sx, sy, sb, sh = screen.work_area(self.root, x, y)
@@ -4171,18 +3916,13 @@ class Overlay:
             # allein mit. Er rechnet aus `_letzte_lage`, also muss die zuerst
             # auf die neue Ecke gebracht werden; sonst zeigt er weiter auf die
             # alte Stelle, bis das Overlay einmal auf- und zugeblendet hat.
-            #
-            # Gemeldet am 02.09.2026 zu rc11: „wenn ich die Fensterposition von
-            # oben links nach rechts wechsle im Nur-bei-Neuzugang-Modus, muss
-            # ich erst mit der Maus ueber den Strich fahren, eh es die Position
-            # wechselt." Gilt fuer alle vier Ecken.
+            # Gilt fuer alle vier Ecken.
             #
             # ⚠ Und zwar mit den eben BERECHNETEN Werten, nicht mit
             # `_current_geom()`: Tk uebernimmt eine frisch gesetzte Geometrie
             # erst im naechsten Durchlauf der Ereignisschleife, gefragt kommt
-            # also noch die alte zurueck. Der Streifen sass dann eine Ecke
-            # hinterher — beim Wechsel auf „oben rechts" landete er mittig,
-            # weil er die neue Richtung auf die alte Lage rechnete.
+            # also noch die alte zurueck. Der Streifen saesse dann eine Ecke
+            # hinterher, weil er die neue Richtung auf die alte Lage rechnet.
             if self.anzeigeart == 'popup':
                 self._letzte_lage = '%dx%d+%d+%d' % (b, h, x, y)
                 self._anfasser_zeigen()
@@ -4215,28 +3955,22 @@ class Overlay:
             # die von den verankerten Bildschirmraendern wegzeigt. Nur von dort
             # laesst sich in eine Richtung ziehen, in der ueberhaupt Platz ist.
             #
-            # Zwei Fliegen mit einer Klappe: Bei unten haengender Leiste liegt
-            # „unten rechts" mitten auf ihren Symbolen, der Griff deckte dort
-            # das ✕ zu. Die freie Ecke ist immer auch die leistenfreie.
-            #
-            # Gemeldet am 02.09.2026 zu rc10: „Fenstergroesse ist auch nicht
-            # mehr anpassbar, da ich sie nur nach unten ziehen koennte."
+            # Zugleich: Bei unten haengender Leiste liegt die Ecke unten rechts
+            # mitten auf ihren Symbolen, der Griff deckte dort das ✕ zu. Die
+            # freie Ecke ist immer auch die leistenfreie.
             unten, rechts = self._verankert()
             lage = dict(relx=0.0 if rechts else 1.0,
                         rely=0.0 if unten else 1.0,
                         anchor=('n' if unten else 's')
                                + ('w' if rechts else 'e'))
-            # ⚠ **Das Dreieck muss dorthin zeigen, wohin man zieht.** Es stand
-            # fest auf ◢ (unten rechts) und wies damit in drei von vier Ecken
-            # gegen den Bildschirmrand — also genau in die Richtung, in der
-            # kein Platz ist. Ein Griff, der in die Irre zeigt, ist schlechter
-            # als gar keiner. Gemeldet am 02.09.2026 zu rc11.
+            # ⚠ **Das Dreieck muss dorthin zeigen, wohin man zieht.** Fest auf
+            # unten rechts wiese es in drei von vier Ecken gegen den
+            # Bildschirmrand — genau in die Richtung, in der kein Platz ist.
             self.grip.swap_symbol(self.GRIFF_SYMBOLE[(unten, rechts)])
             # ⚠ **Und er darf keinen Text verdecken.** Sitzt der Griff oben
-            # (also bei einer unteren Ecke), liegt er auf der Statuszeile:
-            # „405 Baupläne" wurde zu „5 Baupläne", weil das Dreieck die
-            # ersten Zeichen verdeckte. Gemeldet am 02.09.2026 zu rc11. Die
-            # Zeile rueckt deshalb auf der Seite ein, an der er sitzt.
+            # (also bei einer unteren Ecke), liegt er auf der Statuszeile und
+            # verdeckt deren erste Zeichen. Die Zeile rueckt deshalb auf der
+            # Seite ein, an der er sitzt.
             try:
                 platz = self.grip.winfo_reqwidth() + 6
                 if unten:
@@ -4255,7 +3989,7 @@ class Overlay:
             else:
                 self.grip.place_forget()
             if os.environ.get('SC_BP_GRIFF_PROTOKOLL'):
-                # Nur auf Zuruf: schreibt mit, wer den Griff wann umstellt.
+                # Nur mit gesetzter Variable: schreibt mit, wer den Griff wann umstellt.
                 # Gedacht, um die Stelle zu finden, die ihn nach dem Start
                 # wieder einblendet — ohne dass man das Fenster sehen muss.
                 import traceback
@@ -4270,8 +4004,7 @@ class Overlay:
             pass
 
     def einstellungen_oeffnen(self):
-        """Seit v3.0.0 führen beide Wege ins **eine** Fenster — nur auf eine
-        andere Seite. Zwei getrennte Fenster hießen: raten, in welchem etwas
+        """Beide Wege führen ins **eine** Fenster — nur auf eine andere Seite. Zwei getrennte Fenster hießen: raten, in welchem etwas
         steckt."""
         self.fenster_oeffnen('allgemein')
 
@@ -4286,7 +4019,7 @@ class Overlay:
         self.fenster_oeffnen('liste')
 
     def fenster_oeffnen(self, seite='liste'):
-        """Das Hauptfenster zeigen — und darin die gewünschte Seite.
+        """Das Hauptfenster zeigen — und darin die Seite `seite`.
 
         Ein zweiter Klick holt das vorhandene Fenster nach vorn und wechselt die
         Seite, statt ein zweites aufzumachen. Zwei gleiche Fenster nebeneinander
@@ -4304,25 +4037,19 @@ class Overlay:
             except Exception:
                 pass                       # war schon zu
         # ⚠ `start_page` durchreichen, NICHT hinterher oeffnen: Sonst baut das
-        # Fenster erst die Bauplan-Liste und danach die eigentlich gewollte
-        # Seite — zwei Aufbauten fuer einen Wunsch.
+        # Fenster erst die Bauplan-Liste und danach die verlangte Seite —
+        # zwei Aufbauten fuer einen Aufruf.
         self._fenster = MainWindow(self.root, on_close=self._liste_zu,
                                      version=__version__,
                                      on_font_change=self.schriftgroesse_anwenden,
                                      start_page=seite)
-        # ⛔ **Kein Grün mehr, solange das Fenster offen ist** (14.09.2026).
-        #
-        # Das Symbol blieb grün, während das große Fenster offen war. Gemeldet:
-        # „ich weiß nicht, wann oder warum wir das gebaut hatten, vermutlich
-        # mal ganz am Anfang, wo es nur Baupläne gab."
-        #
-        # Zwei Gründe, es wegzulassen:
+        # ⛔ **Kein Grün, solange das Fenster offen ist.** Zwei Gründe:
         #
         # 1. **Es sagt nichts, was man nicht sieht.** Das Fenster steht auf dem
         #    Bildschirm. Und es verhindert auch nichts: Ein zweiter Klick holt
         #    das vorhandene Fenster nach vorn (`fenster_oeffnen`), öffnet also
         #    ohnehin kein zweites.
-        # 2. ⚠⚠ **Seit heute ist Grün die Farbe für „die Maus ist drauf".** Ein
+        # 2. ⚠⚠ **Grün ist die Farbe für den Mauszeiger darüber.** Ein
         #    dauerhaft grünes Symbol ist von einem überfahrenen nicht mehr zu
         #    unterscheiden — zwei Bedeutungen auf einer Farbe.
         #
@@ -4334,14 +4061,13 @@ class Overlay:
         self._fenster = None
         # ⚠ Genau hier zieht eine geänderte Anzeigeart. Stellt jemand in den
         # Einstellungen auf „nur bei einem Neuzugang" um, darf das Overlay nicht
-        # sofort verschwinden — er steht ja noch davor und will das Ergebnis
-        # sehen. Beim Schließen des Fensters ist der richtige Moment: Wer fertig
-        # eingestellt hat, will zurück ins Spiel.
+        # sofort verschwinden, solange das Ergebnis noch angesehen wird. Beim
+        # Schließen des Fensters ist der richtige Moment.
         self.verhalten_anwenden()
 
     def _current_geom(self):
         # Aus winfo bauen (nicht root.geometry()): so bleibt negatives Y als absolute
-        # Position erhalten ('+-1439') statt als „vom unteren Rand" missverstanden zu werden.
+        # Position erhalten ('+-1439') statt als Abstand vom unteren Rand missverstanden zu werden.
         return (f'{self.root.winfo_width()}x{self.root.winfo_height()}'
                 f'+{self.root.winfo_x()}+{self.root.winfo_y()}')
 
@@ -4372,11 +4098,10 @@ class Overlay:
                     or self.root.winfo_width() < 50):
                 return
             save_geometry(self._current_geom())
-            # ⚠⚠ Die offene Größe folgt dem, was der Nutzer gezogen hat
-            # (17.09.2026). Bis dahin wurde sie nur beim Start und beim
-            # Einklappen gemerkt — wer das Overlay danach größer oder kleiner
-            # zog, bekam beim nächsten Anwenden der Ecke die ALTE Größe an eine
-            # für die neue gerechnete Stelle. Siehe `_in_arbeitsflaeche`.
+            # ⚠⚠ Die offene Größe folgt dem, was der Nutzer gezogen hat.
+            # Nur beim Start und beim Einklappen gemerkt, bekäme ein danach
+            # größer oder kleiner gezogenes Overlay beim nächsten Anwenden der
+            # Ecke die ALTE Größe an eine für die neue gerechnete Stelle. Siehe `_in_arbeitsflaeche`.
             if not self.eingeklappt:
                 self.hoehe_offen = self.root.winfo_height()
                 self.breite_offen = self.root.winfo_width()
@@ -4395,42 +4120,24 @@ class Overlay:
         ⚠ Erst hier, nicht im Aufbau: Beides fasst das fertige Fenster an. Vorher
         hat es unter X11 noch keine Kennung, die man einer Maske geben könnte.
         """
-        # ⚠ Hier stand bis 02.09.2026 ein Versuch, die Titelleiste bei den
-        # unteren Ecken an den unteren Fensterrand zu haengen (gewuenscht von
-        # Haldjas/pr0). Er ist zurueckgenommen: Das Umpacken liess Tk die
-        # Fenstergroesse neu rechnen, ein eingeklapptes Fenster wuchs von 22
-        # auf 120 px und ragte 86 px unter den Bildschirmrand — samt Leiste.
-        # Und die Leiste ist im eingeklappten Zustand der EINZIGE Bedienweg.
-        # Vier Anlaeufe (before=, Geschwister neu packen, Klappzustand
-        # wiederherstellen, after()) haben es nicht geloest. Der Umbau gehoert
-        # an den Rechner, an dem man das Overlay im Einsatz sieht.
-        # ⚠⚠ **Und das Fenster in die Ecke setzen.** Die gewaehlte Ecke wirkte
-        # bisher nur beim Ein- und Ausklappen (`_klappen` ruft `_klapp_ecke`).
-        # Wer sie einstellt und das Werkzeug neu startet, fand es deshalb dort
-        # wieder, wo es zuletzt STAND — nicht in der Ecke. Am 02.09.2026 am
-        # Bildschirm gesehen: „unten links" eingestellt, Overlay saß oben
-        # links. Ein aelterer Fehler, der erst auffiel, als die Leiste
-        # mitwanderte.
-        # ⚠⚠ Ueber `_klappen()`, NICHT mit selbst gemessener Hoehe. Am
-        # 02.09.2026 stand hier `winfo_height()` — im eingeklappten Zustand
-        # meldet Tk dort die Hoehe des INHALTS (gemessen: 120 px statt 22).
-        # Damit gesetzt, ragte das Fenster 86 px unter den Bildschirmrand, und
-        # die Leiste lag genau dort. `_klappen()` rechnet die richtige Hoehe
-        # selbst aus und setzt Lage und Groesse in einem Zug.
+        # ⚠⚠ **Und das Fenster in die Ecke setzen.** Wirkte die gewaehlte Ecke
+        # nur beim Ein- und Ausklappen (`klappzustand_setzen` ruft
+        # `_klapp_ecke`), staende das Overlay nach einem Neustart dort, wo es
+        # zuletzt STAND — nicht in der Ecke.
+        # ⚠⚠ Ueber `klappzustand_setzen()`, NICHT mit selbst gemessener Hoehe:
+        # `winfo_height()` liefert im eingeklappten Zustand die Hoehe des
+        # INHALTS (gemessen: 120 px statt 22), das Fenster ragte damit 86 px
+        # unter den Bildschirmrand, samt Leiste. `klappzustand_setzen()`
+        # rechnet die richtige Hoehe selbst aus und setzt Lage und Groesse in
+        # einem Zug.
         # ⚠ Per `after()`, nicht sofort: Beim Start steht der Klappzustand hier
         # noch nicht endgueltig fest, und Tk hat die Groesse noch nicht
-        # gerechnet. Sofort gesetzt, wird die Hoehe gleich wieder ueberschrieben
-        # — gemessen am 02.09.2026: 120 px statt 22, das Fenster ragte 86 px
-        # unter den Bildschirmrand und nahm die Leiste mit.
+        # gerechnet. Sofort gesetzt, wird die Hoehe gleich wieder ueberschrieben.
         try:
             if (paths.setting('overlay_ecke') or 'frei') != 'frei':
-                # ⚠⚠ Die Methode heisst `klappzustand_setzen`. Hier stand bis
-                # v3.9.2 `self._klappen(...)` — ein Name, den es nie gab. Der
-                # Aufruf starb bei JEDEM Start mit AttributeError, das
-                # `except` darunter fing ihn, und die gewaehlte Ecke wurde
-                # deshalb beim Start nie angewandt. Gemeldet von Haldjas (pr0)
-                # am 02.09.2026: „nach dem Start sitzt der Header wieder oben,
-                # obwohl das Fenster auf links unten eingestellt ist."
+                # ⚠⚠ Ein Tippfehler im Methodennamen faellt hier nicht auf:
+                # Der AttributeError landet im `except` darunter, und die
+                # gewaehlte Ecke wird beim Start still nie angewandt.
                 self.root.after(
                     120,
                     lambda: self.klappzustand_setzen(self.eingeklappt,
@@ -4474,14 +4181,13 @@ class Overlay:
         if an and not geklappt:
             self._status_setzen(language.Phrase('ov_durchklick_geht_nicht'))
         # ⚠ Den Schiebeschalter auf der Seite „Anzeige" mitziehen, falls sie
-        # gerade offen ist. Gemeldet am 02.09.2026: Wer das Durchreichen am
-        # Schloss umlegte, sah dort weiter den alten Zustand — richtig wurde er
-        # erst beim erneuten Aufrufen der Seite.
+        # gerade offen ist — sonst zeigt er nach einem Klick auf das Schloss
+        # den alten Zustand bis zum erneuten Aufrufen der Seite.
         #
-        # ⚠ Gemeldet wird der Zustand, der WIRKLICH gilt (`an and geklappt`),
-        # nicht der gewuenschte: Spielt das System nicht mit, wird die
-        # Einstellung ohnehin zurueckgenommen — dann darf der Schalter nicht
-        # „an" zeigen.
+        # ⚠ Weitergegeben wird der Zustand, der WIRKLICH gilt
+        # (`an and geklappt`), nicht der verlangte: Spielt das System nicht
+        # mit, wird die Einstellung ohnehin zurueckgenommen — dann darf der
+        # Schalter nicht auf an stehen.
         try:
             anzeigen = overlay.CLICK_THROUGH_DISPLAY[0]
             if anzeigen is not None:
@@ -4490,21 +4196,17 @@ class Overlay:
             errors.record('overlay.durchklick_anzeige', ausnahme)
         # ⚠ Der Rückgabewert wird gebraucht: Der Schloss-Knopf in der Leiste
         # muss die Einstellung zurücknehmen, wenn das System nicht mitspielt —
-        # sonst steht dort „durchklickbar an", während nichts durchgereicht wird.
+        # sonst steht dort durchklickbar, während nichts durchgereicht wird.
         return geklappt
 
     # ---------------------------------------------- Der Anfasser holt es zurück
     #
-    # Gemeldet am 25.08.2026: „Wie schaut es aus, das Fenster bei Mouseover sichtbar
-    # zu machen, damit man den Umweg nicht gehen muss es erneut zu starten? Die
-    # Logik kenne ich bisher ohnehin nicht bei anderen Programmen dieser Art."
+    # Beim Überfahren wird das versteckte Overlay wieder sichtbar — ohne
+    # Neustart des Programms.
     #
-    # Er hat recht — „zum Zurückholen das Programm neu starten" verlangt kein
-    # anderes Overlay.
-    #
-    # ⚠ Der erste Anlauf fragte die Mausposition ab (`winfo_pointerxy`) und blendete
-    # ein, sobald sie im Bereich lag. Das **kann unter Wayland nicht gehen**:
-    # Gemessen auf einem Rechner meldete Tk zwölfmal hintereinander exakt
+    # ⚠ Die Mausposition abzufragen (`winfo_pointerxy`) und einzublenden, sobald
+    # sie im Bereich liegt, **kann unter Wayland nicht gehen**:
+    # Gemessen auf einem Rechner lieferte Tk zwölfmal hintereinander exakt
     # dieselben Koordinaten, während die Maus quer über den Schirm fuhr. Eine
     # Anwendung erfährt die Zeigerposition dort nur, solange er über einem **ihrer
     # eigenen** Fenster steht — und ein verstecktes Fenster ist keines.
@@ -4521,27 +4223,19 @@ class Overlay:
     # Feinausgleich in Pixeln, um den das schwebende Schloss nach rechts gesetzt
     # wird, während es über dem Knopf in der Leiste liegt.
     #
-    # ⚠ **Steht auf 0, und das ist das Ergebnis einer Messung — keine
-    # Bequemlichkeit.** Am 28.08.2026 stand hier kurzzeitig eine 7. Sie stammte
-    # aus einem Bildschirmfoto, auf dem das schwebende Schloss sichtbar links
-    # neben dem Knopf saß; ausgezählt ergab das sieben Pixel.
+    # ⚠ **Steht auf 0, und das ist das Ergebnis einer Messung.** Ein in Pixeln
+    # gemessener Ausgleich gilt nur für den einen Bildschirm, auf dem gemessen
+    # wurde (bei anderer Auflösung sind die Symbole 24 px breit statt 22), und
+    # verschiebt das Schloss auf jedem anderen.
     #
-    # Der Haken: Das Foto war **5120×1440** groß — der zweite Monitor, nicht der
-    # Hauptbildschirm mit 4096×1152. Dort sind die Symbole 24 px breit statt 22.
-    # Ein in Pixeln gemessener Ausgleich gilt damit genau für den einen
-    # Bildschirm, auf dem gemessen wurde, und verschiebt ihn auf jedem anderen.
-    #
-    # Nachgemessen am laufenden Programm auf dem Hauptbildschirm (Fensterlage
-    # über `EnumWindows`, Leiste über `PrintWindow` abgegriffen und die
-    # Symbolspalten ausgezählt):
+    # Gemessen am laufenden Programm (Fensterlage über `EnumWindows`, Leiste
+    # über `PrintWindow` abgegriffen und die Symbolspalten ausgezählt):
     #
     #     Knopf in der Leiste   Symbol bei x = 838 … 855
     #     schwebendes Fenster   x = 843, Symbol also ab 845
     #
-    # Mit Ausgleich saß es **sieben Pixel zu weit rechts**; ohne sitzt es
-    # deckungsgleich. Der Wert bleibt als benannte Konstante stehen, damit die
-    # Stelle auffindbar ist — wer hier wieder eine Zahl einträgt, sollte den
-    # Absatz oben gelesen haben.
+    # Ohne Ausgleich sitzt es deckungsgleich. Der Wert bleibt als benannte
+    # Konstante stehen, damit die Stelle auffindbar ist.
     SCHLOSS_FEIN_X = 0
 
     def _schloss_anwenden(self, an, versuch=0):
@@ -4550,24 +4244,18 @@ class Overlay:
         ⚠ Der einzige Weg zurück. Werden Klicks durchgereicht, ist am Overlay
         nichts mehr zu treffen: kein Knopf, keine Leiste, auch der Schalter in
         den Einstellungen ist unerreichbar, weil man das Fenster nicht mehr
-        aufbekommt. Bis hierher half nur, das Programm ein zweites Mal zu
-        starten — und dafür muss man aus dem Spiel heraus. Genau das soll die
-        Einstellung ja vermeiden.
+        aufbekommt.
 
         Deshalb ein **eigenes kleines Fenster**: Es liegt über dem Overlay, wird
         nie durchlässig gemacht und trägt das Schloss. Ein Klick darauf hebt das
-        Durchreichen wieder auf. Denselben Weg geht Ryze beim TeamSpeak-Plugin.
+        Durchreichen wieder auf.
         """
         if not an:
             return self._schloss_weg()
         try:
             self.root.update_idletasks()
-            # ⚠ Es soll aussehen, als würde **dasselbe** Schloss grün. der Autor
-            # am 28.08.2026: „am besten wäre das gleiche schloss grün zu färben
-            # was eh in der leiste ist, und es damit auch wieder zu entsperren".
-            #
-            # Genau das passiert hier — mit einer Einschränkung, die bleiben
-            # muss: Ein eigenes Fenster ist es trotzdem. Wer Klicks durchreicht,
+            # ⚠ Es soll aussehen, als würde **dasselbe** Schloss grün — ein
+            # eigenes Fenster ist es trotzdem. Wer Klicks durchreicht,
             # reicht sie für das **ganze** Fenster durch; ein Knopf in der Leiste
             # wäre in dem Moment genauso tot wie der Rest. Deshalb liegt hier ein
             # zweites, nie durchlässiges Fenster **passgenau über** dem Schloss
@@ -4577,8 +4265,7 @@ class Overlay:
             sichtbar = False
             try:
                 # ⚠ `ismapped()` allein genügt nicht — die Maße müssen auch
-                # stimmen. Nachgemessen am 28.08.2026 an einem Fenster wie dem
-                # Overlay:
+                # stimmen. Gemessen an einem Fenster wie dem Overlay:
                 #
                 #     direkt nach dem Bau    ismapped=0  w=1   rootx=0
                 #     nach update_idletasks  ismapped=0  w=1   rootx=0
@@ -4601,22 +4288,18 @@ class Overlay:
             elif (knopf is not None and self._wird_noch_gezeichnet()
                     and (versuch < 10 or self.anzeigeart != 'popup')):
                 # ⚠ **Beim Start ist der Knopf noch nicht gezeichnet — dann wird
-                # gewartet, nicht geraten.** Gemeldet von Haldjas (pr0) am
-                # 28.08.2026 zu rc91: „Starte Watcher — Schloss ist an 2
-                # Positionen … position bleibt so bis man den watcher neu
-                # startet."
+                # gewartet, nicht geraten.**
                 #
                 # `verhalten_anwenden()` läuft unmittelbar vor `mainloop()`. Die
                 # Leiste steht da im Baum, aber Tk hat noch nichts gemalt: Weder
                 # `winfo_ismapped()` noch die Maße stimmen (ein ungezeichnetes
-                # Widget meldet Breite **1** — dieselbe Tk-Falle wie beim
-                # Rundrahmen). Das Schloss landete deshalb bei **jedem** Start
-                # neben dem Overlay statt darauf, und daneben stand das Schloss
-                # der Leiste: zwei Schlösser, eines davon am falschen Platz.
+                # Widget liefert Breite **1** — dieselbe Tk-Falle wie beim
+                # Rundrahmen). Das Schloss landete sonst bei **jedem** Start
+                # neben dem Overlay statt darauf: zwei Schlösser, eines davon
+                # am falschen Platz.
                 #
-                # Ein kurz aufblitzendes falsches Schloss wäre nur die halbe
-                # Reparatur — also gar nicht erst bauen, sondern nachfassen, bis
-                # die Leiste steht.
+                # Also gar nicht erst bauen, sondern nachfassen, bis die Leiste
+                # steht.
                 #
                 # ⚠ **Die Begrenzung gilt nur im Aufblend-Betrieb.** Dort ist das
                 # Overlay absichtlich weg und kommt vielleicht nie wieder — nach
@@ -4625,38 +4308,30 @@ class Overlay:
                 #
                 # Steht das Overlay dauerhaft ("Immer sichtbar"), gibt es keinen
                 # Anfasser, auf den man ausweichen könnte: Die gemerkte Lage ist
-                # dann irgendeine frühere Fensterposition, und das Schloss landete
-                # sichtbar daneben, bis es beim nächsten Anlass zurücksprang.
-                # Gemeldet am 28.08.2026: "das schloss springt nach ner zeit an
-                # die richtige stelle". Also: dort ohne Begrenzung warten — die
-                # Leiste kommt, sie ist ja sichtbar.
+                # dann irgendeine frühere Fensterposition, und das Schloss
+                # landete sichtbar daneben, bis es beim nächsten Anlass
+                # zurückspringt. Also: dort ohne Begrenzung warten — die Leiste
+                # kommt, sie ist ja sichtbar.
                 self.root.after(300, lambda: self._nachfassen(versuch + 1))
                 return
             else:
                 # ⚠ **Im Pop-up-Betrieb ist das Overlay versteckt** — und ein
-                # verstecktes Fenster taugt nicht als Bezugspunkt. Genau daran
-                # scheiterte rc92 bei Haldjas (pr0): Sein Bericht zeigt
-                # `overlay_modus=popup`, und `verhalten_anwenden()` ruft dort
-                # `withdraw()`, **bevor** je gezeichnet wurde. Der Knopf in der
-                # Leiste ist damit dauerhaft nicht gemappt, das Nachfassen läuft
-                # zehnmal leer, und danach rechnete diese Stelle aus der Lage
-                # eines unsichtbaren Fensters. Für ihn schwebte das Schloss frei
-                # neben dem Overlay — „rechts neben dem watcher".
+                # verstecktes Fenster taugt nicht als Bezugspunkt: Bei
+                # `overlay_modus=popup` ruft `verhalten_anwenden()` `withdraw()`,
+                # **bevor** je gezeichnet wurde. Der Knopf in der Leiste ist
+                # damit dauerhaft nicht gemappt, und das Nachfassen läuft
+                # zehnmal leer.
                 #
-                # Denselben Fall löst `_anfasser_zeigen()` seit jeher richtig:
-                # Es rechnet aus `self._letzte_lage`, der gemerkten Position.
-                # Das Schloss geht denselben Weg und legt sich an die rechte
-                # obere Ecke dieser Lage — dorthin, wo im sichtbaren Zustand der
-                # Knopf in der Leiste sitzt. Blendet das Overlay auf, rückt es
-                # von selbst an seinen Platz (`_popup_zeigen` fasst nach).
+                # Wie `_anfasser_zeigen()` rechnet das Schloss dann aus
+                # `self._letzte_lage`, der gemerkten Position. Blendet das
+                # Overlay auf, rückt es von selbst an seinen Platz
+                # (`_popup_zeigen` fasst nach).
                 #
                 # ⚠ Und zwar **direkt neben den Anfasser-Streifen**, nicht an
-                # die rechte Ecke der gemerkten Lage. Haldjas zu rc93: „das
-                # schloss sitzt jetzt neben dem watcher" — richtig gerechnet,
-                # aber einsam: Der Streifen sitzt mittig, das Schloss saß gut
-                # zweihundert Pixel weiter rechts, wo gar nichts zu sehen ist.
-                # Zwei Marken für dieselbe Sache gehören zusammen; dann liest
-                # man „hier wartet das Overlay, und hier ist das Schloss".
+                # die rechte Ecke der gemerkten Lage: Der Streifen sitzt
+                # mittig, dort saesse das Schloss gut zweihundert Pixel
+                # daneben, wo gar nichts zu sehen ist. Zwei Marken für
+                # dieselbe Sache gehören zusammen.
                 lage = GEOM_RE.match(self._letzte_lage or '')
                 if lage is not None and lage.group(3) is not None:
                     ov_breite, _h, links, oben = (int(z) for z in lage.groups())
@@ -4699,7 +4374,7 @@ class Overlay:
             self._schloss = tk.Toplevel(self.root)
             self._schloss.overrideredirect(True)
             self._schloss.attributes('-topmost', True)
-            # Auch das Schloss nimmt dem Spiel nie den Fokus (rc11).
+            # Auch das Schloss nimmt dem Spiel nie den Fokus.
             _sl = self._schloss
             _sl.after(200, lambda: _sl.winfo_exists()
                       and overlay.never_activate(_sl))
@@ -4738,12 +4413,9 @@ class Overlay:
     def _wird_noch_gezeichnet(self):
         """Fehlt der Knopf, weil Tk noch malt — oder weil das Fenster weg soll?
 
-        ⚠ Diese Unterscheidung fehlte, und sie kostete drei Sekunden bei jedem
-        Zublenden. Haldjas (pr0) am 28.08.2026 zu rc95: „wenn der watcher
-        minimiert wurde, dauert es nochmal 3 sekunden bis das schloss sich wieder
-        seine alte position neben dem balken sucht." Das waren **genau** die
-        zehn Nachfass-Versuche à 300 ms — gedacht für den Start, wo die Leiste
-        gleich kommt, aber blind auch dann gelaufen, wenn das Overlay gerade
+        ⚠ Ohne diese Unterscheidung kostet jedes Zublenden drei Sekunden: die
+        zehn Nachfass-Versuche à 300 ms, gedacht für den Start, wo die Leiste
+        gleich kommt — und blind auch dann, wenn das Overlay gerade
         absichtlich verschwunden ist. Warten auf etwas, das nicht kommt.
 
         Nachgemessen trennt `root.winfo_ismapped()` die beiden Fälle sauber:
@@ -4771,15 +4443,14 @@ class Overlay:
     def _lage_bericht(self):
         """Eine Zeile fuer den Fehlerbericht: Wie steht das Overlay gerade?
 
-        ⭐ Gebaut am 13.09.2026, nachdem eine Meldung ueber das Schloss einen
-        ganzen Abend Messungen gekostet hat, weil im Bericht nichts davon
-        stand. Die Zeile beantwortet die Fragen, die dabei offen blieben:
+        ⭐ Die Zeile beantwortet, was sich sonst nur am Bildschirm nachmessen
+        laesst:
 
         * Wie gross ist das Fenster, und ist es eingeklappt?
         * **Waechst es beim Einklappen?** Dazu die gemessene Mindestbreite
           neben der tatsaechlichen — laufen die auseinander, steht es hier.
         * Sitzt das schwebende Schloss auf dem Knopf, oder daneben? Der
-          Versatz in Pixeln, nicht „sieht falsch aus".
+          Versatz in Pixeln, nicht nur ein Eindruck.
 
         ⚠ Nur Zahlen und Zustaende, keine Pfade und keine Namen — die Zeile
         geht wie der ganze Bericht in ein oeffentliches Issue.
@@ -4841,11 +4512,9 @@ class Overlay:
         springen lässt oder ein- und ausklappt, verschiebt die Leiste — und
         das Schloss ist ein eigenes Fenster und wandert nicht von allein mit.
 
-        Bis zum 13.09.2026 gab es dafür keinen Rückweg: Nach dem letzten
-        ausdrücklichen Aufruf blieb das Schloss stehen, wo es war, bis der
-        nächste Anlass kam. Genau das ist die Sorte Versatz, die man sieht,
-        aber nicht nachmisst — gemeldet als „im eingeklappten Zustand sitzt
-        das Schloss nicht ganz genau da, wo es sitzen sollte".
+        Ohne sie bliebe das Schloss nach dem letzten ausdrücklichen Aufruf
+        stehen, wo es war, bis der nächste Anlass kommt — ein kleiner Versatz,
+        den man sieht, aber nicht nachmisst.
 
         Diese Methode baut **nichts** neu, sie setzt nur `geometry()`. Damit
         ist sie billig genug, um an `<Configure>` zu hängen.
@@ -4961,11 +4630,9 @@ class Overlay:
     def _anfasser_x(self, links, ov_breite):
         """Wo der Streifen sitzt — an der Seite, die zur gewaehlten Ecke passt.
 
-        ⚠ Bis zum 02.09.2026 sass er **immer mittig**. In einer Ecke sieht das
-        falsch aus: Wer das Overlay nach links unten legt, erwartet den Griff
-        dort und nicht in der Bildmitte. Der Autor am 02.09.2026: *„Links als
-        Auswahl, links an die Leiste statt mittig; rechts ausgewaehlt, pack das
-        Schloss und den Strich rechts an das Fenster."*
+        ⚠ Nicht immer mittig: Wer das Overlay nach links unten legt, erwartet
+        den Griff dort und nicht in der Bildmitte. Linke Ecke = links an der
+        Leiste, rechte Ecke = Schloss und Strich rechts am Fenster.
 
         Ohne gewaehlte Ecke (`frei`) bleibt es mittig — dort gibt es keine
         Seite, an die er gehoeren wuerde.
@@ -4983,12 +4650,10 @@ class Overlay:
     def _anfasser_y(self, oben, ov_hoehe):
         """Auf welcher Hoehe der Streifen sitzt — Ober- oder Unterkante.
 
-        ⚠⚠ **Dieselbe Falle wie bei der Breite, nur eine Achse weiter.** Am
-        02.09.2026 wurde `_anfasser_x` an die Ecke angepasst, `y` blieb dagegen
-        stur die **Oberkante** der gemerkten Lage. Bei einer unteren Ecke
-        waechst das Overlay nach oben — seine Oberkante liegt dann fast am
-        oberen Bildrand, und der Streifen sass mitten im Bild statt unten.
-        Gemeldet noch am selben Tag mit einem Bildschirmfoto.
+        ⚠⚠ **Dieselbe Falle wie bei der Breite, nur eine Achse weiter.** Bei
+        einer unteren Ecke waechst das Overlay nach oben — seine Oberkante
+        liegt dann fast am oberen Bildrand, und an der Oberkante saesse der
+        Streifen mitten im Bild statt unten.
 
         Bei einer unteren Ecke gehoert er also an die **Unterkante** der
         gemerkten Lage; oben und ohne Ecke bleibt es die Oberkante.
@@ -5011,17 +4676,15 @@ class Overlay:
             return
         breite, _hoehe, links, oben = (int(z) for z in m.groups())
         x = self._anfasser_x(links, breite)
-        # ⚠ **Kein `max(0, …)` auf der Höhe.** Hier stand es, und damit
-        # widersprach diese Zeile dem, was `_current_geom()` zwei Funktionen
-        # weiter oben ausdrücklich bewahrt: „so bleibt negatives Y als absolute
-        # Position erhalten (`+-1439`)".
+        # ⚠ **Kein `max(0, …)` auf der Höhe.** Es widerspräche dem, was
+        # `_current_geom()` ausdrücklich bewahrt: negatives Y als absolute
+        # Position (`+-1439`).
         #
         # Auf **mehreren Bildschirmen** ist ein negatives Y keine kaputte
         # Angabe, sondern eine gültige: Wer einen zweiten Monitor über dem
         # Hauptmonitor liegen hat, arbeitet dort mit Werten unterhalb von null.
         # `max(0, …)` klemmt sie auf die Oberkante des Hauptmonitors — Streifen
-        # und Schloss sprangen dadurch auf den falschen Bildschirm. Aufgefallen
-        # am 28.08.2026 an einem Aufbau mit zwei Monitoren übereinander.
+        # und Schloss sprängen dadurch auf den falschen Bildschirm.
         #
         # ⚠ Die Ecke entscheidet, ob Ober- oder Unterkante gilt — siehe
         # `_anfasser_y`. `_hoehe` ist die gemerkte Fensterhoehe.
@@ -5031,7 +4694,7 @@ class Overlay:
                 self._anfasser = tk.Toplevel(self.root)
                 self._anfasser.overrideredirect(True)
                 self._anfasser.attributes('-topmost', True)
-                # Auch der Anfasser nimmt dem Spiel nie den Fokus (rc11).
+                # Auch der Anfasser nimmt dem Spiel nie den Fokus.
                 _af = self._anfasser
                 _af.after(200, lambda: _af.winfo_exists()
                           and overlay.never_activate(_af))
@@ -5064,22 +4727,16 @@ class Overlay:
     def bei_fund_zeigen(self):
         """Nach einem Fund sichtbar machen — je nach Betriebsart auf ihrem Weg.
 
-        ⚠⚠ **Ein eingeklapptes Overlay meldete bisher gar nichts.** Im
-        Aufblend-Betrieb kam es bei jedem Bauplan zurueck; wer dagegen „Immer
-        sichtbar" gewaehlt und die Leiste zugeklappt hatte, bekam nur den
-        Signalton. Der Fund stand in der Liste, sichtbar wurde er erst, wenn
-        jemand von Hand aufklappte.
+        ⚠⚠ **Auch ein eingeklapptes Overlay zeigt den Fund.** Im
+        Aufblend-Betrieb kommt es bei jedem Bauplan zurueck; bei „Immer
+        sichtbar" mit zugeklappter Leiste gaebe es sonst nur den Signalton.
+        Mit **durchgereichten Mausklicks** waeren es zwei Handgriffe mitten im
+        Kampf — erst das Schloss treffen, dann den Klapp-Knopf.
 
-        Mit **durchgereichten Mausklicks** war das doppelt aergerlich: Man hoert
-        den Ton, kann aber nichts anklicken — erst das Schloss treffen, dann den
-        Klapp-Knopf. Zwei Handgriffe mitten im Kampf, fuer eine Meldung, die man
-        nur kurz sehen wollte. Ein zugeklapptes Overlay schaltete damit genau
-        die Funktion ab, fuer die es da ist.
-
-        Also klappt es jetzt selbst auf und nach derselben Zeit wieder zu, die
-        auch der Aufblend-Betrieb benutzt. ⚠ **Ohne `merken`** — der Wunsch des
-        Spielers, zugeklappt zu arbeiten, bleibt bestehen; das hier ist nur ein
-        Blick, kein neuer Zustand.
+        Also klappt es selbst auf und nach derselben Zeit wieder zu, die auch
+        der Aufblend-Betrieb benutzt. ⚠ **Ohne `merken`** — der eingestellte
+        Klappzustand bleibt bestehen; das hier ist nur ein Blick, kein neuer
+        Zustand.
         """
         if self.anzeigeart == 'popup':
             return self._popup_zeigen()
@@ -5174,13 +4831,11 @@ class Overlay:
         # stehen — sonst verschwindet es unter den Händen, während man die
         # Liste liest.
         #
-        # ⛔⛔ Hier stand bis zum 13.09.2026 `for name in ('listenfenster',
-        # 'hauptfenster')`. **Beide Felder gibt es auf dieser Klasse nicht** —
-        # das Fenster heisst `_fenster` (siehe `fenster_oeffnen`). `getattr`
-        # lieferte also immer `None`, die Schleife lief zweimal leer, und das
-        # Overlay blendete beim Verlassen nach 800 ms ab, obwohl die
-        # Bauplan-Liste offen davor stand. Kein Fehler, keine Meldung — der
-        # stille Ausfall, gegen den es `tote_namen()` gibt.
+        # ⛔⛔ Das Fenster heisst `_fenster` (siehe `fenster_oeffnen`). Ein
+        # falscher Name hier faellt nicht auf: `getattr` liefert dann immer
+        # `None`, und das Overlay blendet beim Verlassen nach 800 ms ab,
+        # obwohl die Bauplan-Liste offen davor steht — der stille Ausfall,
+        # gegen den es `tote_namen()` gibt.
         fenster = getattr(self, '_fenster', None)
         try:
             if fenster is not None and fenster.root.winfo_exists():
@@ -5208,9 +4863,9 @@ class Overlay:
         ⚠⚠ **Der Grund, warum es sie gibt:** Star Citizen laeuft im Vollbild
         und blendet den Mauszeiger aus. Wer nachsehen will, ob er einen
         Bauplan schon hat, muss heraustabben und das Fenster dann BLIND suchen
-        und anklicken. Am 31.08.2026 als Nutzerwunsch gemeldet.
+        und anklicken.
 
-        ⚠ Scheitert es, wird es NICHT gemeldet: Beim Start weiss noch niemand,
+        ⚠ Scheitert es, wird es NICHT angezeigt: Beim Start weiss noch niemand,
         dass es die Kombination gibt, und eine Fehlermeldung ueber etwas, das
         man nie eingestellt hat, verwirrt nur. Der Grund steht auf der
         Einstellungsseite — dort, wo jemand danach sucht.
@@ -5232,9 +4887,9 @@ class Overlay:
 
         ⚠⚠ **Hier wird nur die Fahne abgeholt.** Gewartet wird woanders:
         Unter Windows landet der Druck in der Schlange des Fadens, der
-        angemeldet hat — war das der Tk-Faden, raeumte Tk ihn selbst weg,
-        bevor dieser Takt nachsah (v3.8.0 und frueher, gemessen 0 von 3).
-        Seither haelt ein eigener Faden die Stellung, siehe `scbp/hotkey.py`.
+        registriert hat — waere das der Tk-Faden, raeumte Tk ihn selbst weg,
+        bevor dieser Takt nachsieht (gemessen 0 von 3). Deshalb haelt ein
+        eigener Faden die Stellung, siehe `scbp/hotkey.py`.
         """
         try:
             if self.hotkey.poll():
@@ -5245,9 +4900,7 @@ class Overlay:
     def _ablage_menue(self):
         """Das Rechtsklick-Menü am Symbol neben der Uhr — siehe `tray_icon.menu_set`.
 
-        ⚠ Nach dem Vorbild des SC Deutsch Launchers (Wunsch vom 15.09.2026):
-        Bis dahin standen dort nur „Fenster zeigen" und „Beenden". Jeder Punkt
-        ruft über `_im_tk` in den Tk-Faden zurück — das Menü läuft im Faden
+        ⚠ Jeder Punkt ruft über `_im_tk` in den Tk-Faden zurück — das Menü läuft im Faden
         des Symbols, und Tk verträgt keine fremden Fäden (auch `root.after`
         nicht, siehe `_im_tk`).
 
@@ -5290,12 +4943,11 @@ class Overlay:
 
         ⚠ Läuft im Tk-Faden (das Symbol ruft über `root.after` hierher). Das
         Windows-Standardmenü aus `tray_icon._show_menu()` ist weiß mit
-        Systemschrift und passt nicht zum Werkzeug (Wunsch vom 15.09.2026:
-        Markenfarben).
+        Systemschrift und passt nicht zu den Markenfarben.
 
-        ⚠ **Kein `tk.Menu`.** Der erste Anlauf war eines — die Einträge
-        zeichnet Tk unter Windows zwar selbst, den **Rahmen** aber Windows:
-        ein weißer Rand um ein dunkles Menü, „sieht unschön aus". Deshalb
+        ⚠ **Kein `tk.Menu`.** Die Einträge zeichnet Tk unter Windows zwar
+        selbst, den **Rahmen** aber Windows: ein weißer Rand um ein dunkles
+        Menü. Deshalb
         dasselbe Rezept wie bei den Auswahllisten in `main_window`: ein
         rahmenloses `Toplevel`, ein Pixel `BORDER` außen, Zeilen als Labels
         mit der Markenfarbe beim Überfahren. Schließt sich, sobald es den
@@ -5306,9 +4958,8 @@ class Overlay:
         self._ablage_menue_schliessen()
         # ⚠ Den Zeiger von Windows holen, nicht von Tk: Der Klick kam aus dem
         # Faden des Symbols, und `winfo_pointerxy` misst aus Sicht des
-        # (eingeklappten, evtl. anders skalierten) Hauptfensters. Beim ersten
-        # Versuch am 15.09.2026 stand das Menü oben links bei 0/0 — auf drei
-        # Bildschirmen leicht zu übersehen. `GetCursorPos` liefert dieselben
+        # (eingeklappten, evtl. anders skalierten) Hauptfensters — das Menü
+        # stuende dann oben links bei 0/0. `GetCursorPos` liefert dieselben
         # Koordinaten, mit denen Windows selbst das Symbol trifft.
         x, y = self._zeiger_lage()
         fenster = tk.Toplevel(self.root)
@@ -5360,7 +5011,7 @@ class Overlay:
             y = y - hoch
         x = min(x, links + schirm_breit - breit - 8)
         # ⚠ `+%d`, nicht `%+d`: Ein Bildschirm links vom Hauptschirm hat
-        # negative x-Werte, und Tk liest `-1500` als „vom rechten Rand",
+        # negative x-Werte, und Tk liest `-1500` als Abstand vom rechten Rand,
         # `+-1500` dagegen als Koordinate.
         lage = '%dx%d+%d+%d' % (breit, hoch, max(x, links), max(y, oben))
         fenster.geometry(lage)
@@ -5472,17 +5123,14 @@ class Overlay:
             errors.record('overlay.hervorholen', ausnahme)
 
     def ablagesymbol_starten(self):
-        """Das Symbol neben der Uhr — nur unter Windows und nur, wenn gewünscht.
+        """Das Symbol neben der Uhr — nur unter Windows und nur, wenn eingeschaltet.
 
         ⚠ Es gehört zum Pop-up-Betrieb: Blendet sich das Overlay nur noch bei
         einem Fund ein, braucht es einen Weg zurück. Unter Linux ist das der
         Startmenü-Eintrag, unter Windows dieses Symbol.
         """
-        # ⚠ Jeder Ausgang wird in den Startverlauf geschrieben. Zweimal wurde
-        # hier auf Verdacht repariert (rc24, rc29), weil niemand sagen konnte,
-        # ob das Symbol scheitert oder gar nicht erst versucht wird — Haldjas'
-        # Bericht zeigte weder einen Fehler noch eine Spur. Eine Zeile im
-        # Startverlauf beantwortet das beim nächsten Bericht sofort.
+        # ⚠ Jeder Ausgang wird in den Startverlauf geschrieben: So zeigt der
+        # Bericht, ob das Symbol scheitert oder gar nicht erst versucht wird.
         if not tray_icon.available():
             errors.trail('Ablagesymbol: entfällt (nicht Windows)')
             return
@@ -5504,8 +5152,8 @@ class Overlay:
             errors.trail('Ablagesymbol: %s'
                         % ('steht' if geklappt else 'NICHT angelegt'))
             if not geklappt:
-                # Der Rückgabewert wurde bisher weggeworfen. Ein „nein" ist
-                # aber genau die Auskunft, die in den Bericht gehört.
+                # Den Rückgabewert nicht wegwerfen: Ein Nein ist genau die
+                # Auskunft, die in den Bericht gehört.
                 errors.record('overlay.ablagesymbol',
                               OSError('TrayIcon.start() meldet, dass es '
                                       'nicht angelegt werden konnte'))
@@ -5527,12 +5175,9 @@ class Overlay:
             if ergebnis:
                 self.q.put(('hinweis', update_run.message(ergebnis)))
                 # ⚠⚠ **Nach einem Update geht das Hauptfenster wieder auf.**
-                # Bis v3.42.4 startete der Helfer nur das Overlay — das
-                # Fenster, aus dem heraus man „Update" geklickt hatte, blieb
-                # zu. Steht das Overlay auf einem anderen Bildschirm, sieht das
-                # aus wie „nicht wieder gestartet", obwohl es lief (gemeldet am
-                # 16.09.2026: Installer 18:49:13 fertig, Start 18:49:16).
-                # Ein Update beginnt immer mit einem Klick im Programm; wer
+                # Startete nur das Overlay, sähe das bei einem Overlay auf
+                # einem anderen Bildschirm aus, als sei das Programm nicht
+                # wieder gestartet. Ein Update beginnt immer mit einem Klick im Programm; wer
                 # dort war, erwartet es danach wieder vor sich.
                 # ⚠ Nicht nach einem AUTOMATISCHEN Update: Da hat niemand
                 # geklickt, und ein Fenster, das von selbst aufgeht, ist
@@ -5546,18 +5191,15 @@ class Overlay:
     def _beschriftung_nachziehen(self):
         """Eine vorhandene Linux-Verknüpfung auf den aktuellen Namen bringen.
 
-        ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). Beim
-        Update läuft `desktop_entry.create()` **nicht** — der Eintrag gilt als
-        vorhanden, und damit wäre die Sache erledigt. Bestandsnutzer behielten
-        dauerhaft „SC BP Watcher" im Anwendungsmenü. Vom Prüfer gefunden (F02).
+        ⚠⚠ Beim Update läuft `desktop_entry.create()` **nicht** — der Eintrag
+        gilt als vorhanden. Ohne diesen Schritt bliebe nach einer Umbenennung
+        der alte Name dauerhaft im Anwendungsmenü.
 
         Legt nie etwas an und fasst `Exec`, den `Icon`-**Pfad** und den
         Dateinamen nicht an — siehe `desktop_entry.refresh_label()`.
 
-        ⚠⚠ Dazu die **Bilddatei**, auf die der Eintrag zeigt (28.09.2026): Sie
-        wurde nach dem ersten Anlegen nie wieder angefasst, weil nur `create()`
-        sie schreibt und das beim Update nicht läuft. Im Startmenü stand
-        deshalb noch das Symbol von vor dem Namenswechsel — siehe
+        ⚠⚠ Dazu die **Bilddatei**, auf die der Eintrag zeigt: Nur `create()`
+        schreibt sie, und das läuft beim Update nicht — siehe
         `desktop_entry.refresh_icon()`.
         """
         if paths.WINDOWS:
@@ -5608,9 +5250,8 @@ if __name__ == '__main__':
     # ⚠ Windows-Kennzeichen, damit der Installer uns findet und vor dem
     # Überschreiben schließen kann. Ohne das bricht das Setup mitten im
     # Kopieren ab: „DeleteFile failed; code 32 — Der Prozess kann nicht auf die
-    # Datei zugreifen, da sie von einem anderen Prozess verwendet wird."
-    # Beim Testen so gemeldet (Haldjas, 25.08.2026); die Installation blieb halb
-    # fertig liegen, und danach startete nur noch das Setup.
+    # Datei zugreifen, da sie von einem anderen Prozess verwendet wird." Die
+    # Installation bleibt dann halb fertig liegen.
     #
     # Der Name muss mit `AppMutex` in `packaging/installer.iss` übereinstimmen.
     # Das Kennzeichen wird nur gesetzt, nie abgefragt — den Einzelstart regelt
@@ -5624,12 +5265,10 @@ if __name__ == '__main__':
             errors.record('start.mutex', ausnahme)
 
     # ⚠ Die **eine** Tk-Instanz des Programms. Sie entsteht hier und wird an alles
-    # weitergereicht — Assistent wie Overlay. Vorher legte der Assistent eine
-    # eigene an und zerstörte sie am Ende; die zweite, die das Overlay danach
-    # anlegte, lief auf einem Interpreter, in dem noch Schriften und Bilder der
-    # ersten hingen. Ergebnis war ein `SIGSEGV` beim **ersten** Programmstart —
-    # also bei jedem neuen Nutzer, und nur dort, weil der Assistent nur einmal
-    # läuft. Gemeldet von Bomb20 am 25.08.2026.
+    # weitergereicht — Assistent wie Overlay. Eine zweite Instanz nach dem
+    # `destroy()` der ersten liefe auf einem Interpreter, in dem noch Schriften
+    # und Bilder der ersten hängen — ein `SIGSEGV` beim **ersten**
+    # Programmstart, weil der Assistent nur dann läuft.
     #
     # Sie bleibt versteckt, bis das Overlay sie übernimmt: Ein leeres graues
     # Fenster hinter dem Assistenten hätte niemand erklären können.
@@ -5665,12 +5304,9 @@ if __name__ == '__main__':
         errors.trail('Assistent fertig (Liste zeigen: %s)' % zeige_liste)
         if not fertig and not wizard.is_configured():
             # ⚠⚠ **Abbrechen beendet nur beim ECHTEN ersten Start.**
-            # Bis rc44 beendete jeder Abbruch das Programm — und zwar
-            # wortlos. Wer schon eingerichtet war und den unerwarteten
-            # Assistenten einfach zumachte, hatte danach gar nichts: kein
-            # Overlay, keine Meldung, nichts im Fehlerbericht. Genau so am
-            # 30.08.2026 gemeldet („nun läuft er, sehe ihn aber nirgends" —
-            # er lief nicht mehr).
+            # Beendete jeder Abbruch das Programm, haette wer schon
+            # eingerichtet ist und den Assistenten zumacht, danach gar
+            # nichts: kein Overlay, keine Meldung, nichts im Fehlerbericht.
             #
             # Ist das Werkzeug schon eingerichtet, ist der Assistent nur ein
             # Angebot. Wer ihn wegklickt, will weiterarbeiten, nicht aufhören.
@@ -5687,20 +5323,17 @@ if __name__ == '__main__':
         errors.trail('Bauplan-Liste steht')
     # ⚠⚠⚠ **Die Steckplatz-Daten JETZT holen, nicht beim ersten Seitenaufruf.**
     #
-    # Bis v3.22.2 stieß erst „Mein Hangar" den Abruf an. Der lief zwar im
-    # Hintergrund — sein Ergebnis wurde aber über `after()` ins Zeichnen
-    # gegeben, und das schlug beim nächsten Seitenwechsel zu. Gemessen mit
-    # frischen Daten: Hangar **1053 ms**, „Was noch fehlt" **2053 ms**, in der
-    # Abnahme bis zu **7,5 Sekunden** auf der Wunschliste.
+    # Stößt erst die Hangar-Seite den Abruf an, landet sein Ergebnis über
+    # `after()` im Zeichnen und schlägt beim nächsten Seitenwechsel zu
+    # (gemessen mit frischen Daten: Hangar **1053 ms**, die Fehlliste
+    # **2053 ms**, die Wunschliste bis zu **7,5 Sekunden**).
     #
     # ⚠ Es ist **keine Rechenlast**: Der Profiler zählt 64 ms eigenen Code.
-    # Es sind Netzabrufe, die zum falschen Zeitpunkt eingelöst werden. Wer
-    # schon alles beisammen hat, merkte davon nichts — deshalb fiel es hier
-    # nie auf und wurde erst von einem Tester mit frischer Installation
-    # gemeldet: *„Geschwindigkeit scheint in manchen Tabs wieder bisschen
-    # langsam zu sein."*
+    # Es sind Netzabrufe, die zum falschen Zeitpunkt eingelöst werden. Mit
+    # schon vorhandenen Daten merkt man davon nichts — nur bei einer frischen
+    # Installation.
     #
-    # Jetzt läuft der Abruf, während der Spieler noch das Overlay ansieht.
+    # Deshalb läuft der Abruf, während der Spieler noch das Overlay ansieht.
     # Öffnet er später eine Seite, ist alles da.
     #
     # ⚠ Als Thread und mit `try` drumherum: Ein Netzfehler beim Start darf das
@@ -5717,17 +5350,15 @@ if __name__ == '__main__':
             errors.record('watcher.steckplaetze_vorladen', ausnahme)
             return
         # ⚠⚠ **Und danach die Preise** — sonst wandert die Wartezeit nur
-        # weiter. Nach dem ersten Fix stand „Was noch fehlt" bei 14 ms, dafür
-        # brauchte „Was ich farmen muss" plötzlich **3355 ms**: Die Rechnung
-        # holt für jeden Posten den Ladenpreis, und das lief wieder erst beim
-        # Öffnen.
+        # weiter: Die Farm-Rechnung holt für jeden Posten den Ladenpreis, und
+        # beim Öffnen geholt kostet das gemessen **3355 ms**.
         #
         # ⚠ Erst die Steckplätze, dann die Preise — vorher weiß niemand,
         # welche Teile überhaupt gebraucht werden.
         try:
             # ⚠ **Zuerst die Rohstoffpreise**, denn ohne sie kann die
-            # Materialrechnung nichts sagen — und „Was ich farmen muss" holte
-            # sie sonst beim Öffnen nach (gemessen: bis 4,7 Sekunden).
+            # Materialrechnung nichts sagen — und die Farm-Seite holte sie
+            # sonst beim Öffnen nach (gemessen: bis 4,7 Sekunden).
             # `aktualisieren()` ist von sich aus sparsam: Ist die Ablage
             # frisch, geht kein einziger Abruf hinaus.
             from scbp import prices as _pr

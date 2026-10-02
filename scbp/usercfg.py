@@ -19,14 +19,13 @@
 """
 Die `user.cfg` je Spielkanal sichtbar machen — und eigene Zeilen pflegen.
 
-Anlass (27.09.2026): *„man sieht nicht, was in der user.cfg eingetragen wird
-und ist."* VerseKit schreibt dort seit langem `g_language` (siehe
-`translation.set_user_cfg`), gezeigt wurde die Datei nie.
+VerseKit schreibt dort `g_language` (siehe `translation.set_user_cfg`); hier
+wird sichtbar, was in der Datei steht.
 
 ⚠⚠ **Die Sprachzeilen gehören VerseKit.** `g_language` und
 `g_languageAudio` setzt das Programm selbst, abhängig von der gewählten
 Textquelle, und prüft sie bei jedem Start (`_spielsprache_pruefen`). Wer sie
-unter „Eigene user.cfg" änderte, würde beim nächsten Start still überschrieben
+bei den eigenen Zeilen änderte, würde beim nächsten Start still überschrieben
 — deshalb stehen sie dort nicht, und `write_own` fasst sie nie an.
 
 ⚠ **Vor der ersten Änderung eine Sicherung** (`user.cfg.versekit-vorher`):

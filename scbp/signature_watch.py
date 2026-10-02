@@ -21,13 +21,12 @@ Die Wache, die im Hintergrund die Scan-Signatur mitliest.
 
 ⚠⚠ **Warum von allein und nicht auf Knopfdruck.** Um einen Knopf zu drücken,
 muss der Spieler aus Star Citizen heraus — und dann schaltet das Spiel den
-Bergbau-Scanner ab. Die Zahl wäre weg, bevor sie gelesen ist (so im Entwurf
-vom 10.09.2026 zweimal gebaut und zweimal umsonst).
+Bergbau-Scanner ab. Die Zahl wäre weg, bevor sie gelesen ist.
 
 | Regel | Warum |
 |---|---|
 | Nur, solange Star Citizen **vorn** ist | sonst liest sie den Desktop — eine Zahl im Browser wäre ein Treffer |
-| Gemeldet erst bei **zwei gleichen** Lesungen aus den letzten drei | das HUD flackert; eine einzelne Lesung kann danebenliegen |
+| Angezeigt erst bei **zwei gleichen** Lesungen aus den letzten drei | das HUD flackert; eine einzelne Lesung kann danebenliegen |
 | Weg ist die Anzeige erst nach `CLEAR_S` ohne Zahl | beim Drehen des Schiffs verschwindet die Pille für Augenblicke |
 | **Standard aus** (`SETTING`) | Bildabgriff ohne Zustimmung wäre ein Vertrauensbruch |
 """
@@ -70,7 +69,7 @@ def _publish(value):
 
 
 def shown():
-    """Die zuletzt gemeldete Signatur oder None."""
+    """Die zuletzt angezeigte Signatur oder None."""
     return _state['shown']
 
 
@@ -127,10 +126,9 @@ def set_enabled(on):
     """Den Scanner ein- oder ausschalten — der EINE Weg dafür.
 
     ⚠⚠ Es gibt zwei Schalter für dieselbe Sache: das Auge in der Overlay-Leiste
-    und „Signatur automatisch erkennen" auf der Bergbau-Seite. Bis zum
-    17.09.2026 schaltete jeder für sich; das Auge wurde grau, der Schalter auf
-    der Seite blieb auf „an" („wieso sind die wieder nicht synchron?"). Jetzt
-    gehen beide hier durch, und jede Anzeige meldet sich über `on_switch`.
+    und den Schalter zur automatischen Erkennung auf der Bergbau-Seite.
+    Schaltete jeder für sich, liefen sie auseinander. Deshalb gehen beide hier
+    durch, und jede Anzeige meldet sich über `on_switch`.
     """
     from . import paths
     paths.set_setting(SETTING, bool(on))
@@ -158,7 +156,7 @@ def step(grab, read, foreground, region, history, now, last_seen):
     """Ein Takt der Wache — ohne Faden und ohne Bildschirm prüfbar.
 
     Gibt (zu_meldender_wert_oder_KEIN, neues_last_seen). `KEIN` (der Wert
-    `False`) heißt „nichts ändern", `None` heißt „Anzeige leeren".
+    `False`) heißt: nichts ändern, `None` heißt: Anzeige leeren.
     """
     if region is None or not foreground():
         if _state['shown'] is not None and now - last_seen > CLEAR_S:

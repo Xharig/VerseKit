@@ -32,10 +32,10 @@ Spiel nicht verlassen muss und aus dem Rezept direkt herspringt.
 **Woher die Daten kommen**
 
 `mining_data-<build>.json` von scmdb.net, 0,4 MB, einmal je Spiel-Build. Nichts
-davon wird mitgeliefert (CC BY-NC-ND); die Nutzung ist von Krovax am 29.08.2026
-freigegeben, die Weitergabe nicht.
+davon wird mitgeliefert (CC BY-NC-ND); die Nutzung ist vom Betreiber von scmdb
+(Krovax) freigegeben, die Weitergabe nicht.
 
-**Die Kette durch die Daten** (drei Anläufe gekostet, deshalb hier festgehalten)
+**Die Kette durch die Daten**
 
     locations[]                     50 Orte in Nyx, Pyro, Stanton
       groups[]                      FPS_Mineables · SpaceShip_Mineables ·
@@ -48,14 +48,13 @@ freigegeben, die Weitergabe nicht.
 
 ⚠ **Nicht über `presetName` gehen.** Bei Erz-Vorkommen ist das Feld leer (364
 mal); nur Wrackteile tragen dort einen Namen. Wer darüber verknüpft, bekommt
-0 Treffer — genau so gemessen am 29.08.2026.
+0 Treffer (gemessen).
 
 ⚠ **Nur die Erz-Gruppen nehmen.** `Salvage_*` und `Harvestables` stehen in
 derselben Liste, sind aber Wracks und Pflanzen.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `bergbau` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: der Dateiname `mining-data.json` und die Schlüssel darin
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben: der Dateiname `mining-data.json` und die Schlüssel darin
 (`format`, `build`, `locations`, `compositions`, `refineries`,
 `refineryProfiles`, `elemente`) — sonst wird jede vorhandene Ablage als
 veraltet verworfen und neu geholt. Ebenso die Abbauarten `fps`, `schiff`,
@@ -94,11 +93,10 @@ KINDS = {
 
 # ⚠⚠ **Die Daten bleiben im Speicher.**
 #
-# `load()` las bis zum 29.08.2026 bei JEDEM Aufruf die ganze Datei von der
-# Platte — bei den Rezepten sind das 4 MB und **22 ms**. Das fiel niemandem
-# auf, solange nur beim Seitenaufbau geladen wurde. Mit dem Qualitäts-Regler
-# wurde daraus ein Ladevorgang **pro Mausbewegung**: über 600 ms Rechenzeit je
-# Sekunde, und der Regler ruckelte so, dass er unbenutzbar war.
+# Die ganze Datei bei JEDEM Aufruf von der Platte zu lesen kostet bei den
+# Rezepten 4 MB und **22 ms**. Beim Seitenaufbau fällt das nicht auf — mit dem
+# Qualitäts-Regler wäre es ein Ladevorgang **pro Mausbewegung**: über 600 ms
+# Rechenzeit je Sekunde, und der Regler ruckelte so, dass er unbenutzbar wäre.
 #
 # Gemerkt wird zusammen mit Zeitstempel und Größe der Datei. Ändert sich eine
 # von beiden — etwa weil ein neuer Spiel-Build geladen wurde — wird neu
@@ -133,9 +131,9 @@ def material_key(name):
 
     ⚠⚠ `norm_material()` allein reicht beim Eis nicht. Dieselbe Sache heißt
     im Lager und in den Rezepten `Pressurized Ice`, an den Fundorten
-    `Ice (Raw)` und in den Raffinerie-Profilen `Raw Ice`. Der Vergleich fand
-    deshalb nichts: Im Lager stand keine Abbauart, obwohl Eis nur mit dem
-    Schiff abgebaut wird (gemeldet 17.09.2026).
+    `Ice (Raw)` und in den Raffinerie-Profilen `Raw Ice`. Ohne Brücke findet
+    der Vergleich nichts: Im Lager stünde keine Abbauart, obwohl Eis nur mit
+    dem Schiff abgebaut wird.
 
     Die Brücke steht in den Daten selbst: `materialName` am Rohstoff und die
     Zusammensetzung, die nur aus diesem einen Rohstoff besteht. Nichts von Hand
@@ -186,8 +184,8 @@ def update(build, progress=None):
     if OFF:
         return False, t('m_h_kein_netz')
     current = load()
-    # ⚠ `refineries` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
-    # nur Orte und Zusammensetzungen behalten. Fehlt der Abschnitt, wird einmal
+    # ⚠ `refineries` fehlt in Ablagen, die beim Sichern nur Orte und
+    # Zusammensetzungen behalten haben. Fehlt der Abschnitt, wird einmal
     # neu geholt; danach passiert wieder nichts. Die Datei ist 0,4 MB.
     if (current.get('build') == build and current.get('locations')
             and current.get('refineries') is not None
@@ -203,10 +201,9 @@ def update(build, progress=None):
     # beantworten die Frage, die nach „wo baue ich das ab?" kommt: „und wohin
     # bringe ich es?" 20 Raffinerien, 10 verschiedene Profile — bei Quartz
     # liegen zwischen der besten und der schlechtesten 14 Prozentpunkte.
-    # ⚠ Das Ergebnis von `_save` zählt. Bis v3.62.1 meldete `update` hier
-    # „50 Orte geladen", auch wenn die Datei nicht geschrieben werden konnte —
-    # und die Bergbau-Seite blieb leer, ohne dass jemand den Grund erfuhr
-    # (gemeldet am 29.09.2026 bei Parsul).
+    # ⚠ Das Ergebnis von `_save` zählt. Sonst meldet `update` „50 Orte
+    # geladen", auch wenn die Datei nicht geschrieben werden konnte — und die
+    # Bergbau-Seite bleibt leer, ohne dass jemand den Grund erfährt.
     saved = _save({'format': FORMAT, 'build': build, 'locations': locations_,
            'compositions': raw.get('compositions') or {},
            'refineries': raw.get('refineries') or [],
@@ -260,7 +257,7 @@ def _save(data):
 # Gegengerechnet gegen die Anzeige von strata.celd.space, die dieselben
 # scmdb-Daten auswertet: dort steht 18,0 % — die Restabweichung kommt daher,
 # dass celd den Halo in Segmente zerlegt und wir ihn als einen Ort führen.
-# Aslarite 13,9 zu 14,2 · Copper 9,0 zu 10,3. (Gemessen 08.09.2026.)
+# Aslarite 13,9 zu 14,2 · Copper 9,0 zu 10,3.
 #
 # ⚠ **Es ist ein Anteil, keine Fördermenge.** Ein kleiner Fleck, an dem fast
 # nur Titanium liegt, steht damit genauso gut da wie ein riesiges Feld mit
@@ -272,10 +269,10 @@ def _save(data):
 #
 # ⚠ **Höher angesetzt als bei strata.celd.space** (dort 25/15/8/4/1). Die
 # rechnen über alles am Ort, wir je Abbauart — dadurch liegen unsere Anteile
-# durchweg höher, und mit ihren Schwellen stand auf Daymar siebenmal
+# durchweg höher, und mit ihren Schwellen stünde auf Daymar siebenmal
 # „fast nur das" untereinander: 59, 48, 40, 35, 33, 31, 26 Prozent, alle
 # gleich benannt. Eine Stufe, die für fast jede Zeile dasselbe sagt, sagt
-# nichts. (Gemessen 08.09.2026 am fertigen Bild.)
+# nichts.
 LEVELS = ((50, 6), (30, 5), (15, 4), (7, 3), (2, 2))
 
 
@@ -478,13 +475,13 @@ MAX_CHUNKS = {'legendary': 2, 'epic': 3, 'rare': 4, 'uncommon': 5,
 BASE_SIGNATURES = (('roc', 4000, 7), ('fps', 3000, 10), ('salvage', 2000, 15))
 
 
-# ⚠⚠ Das Spiel zeigt die Signatur als `17,200` — mit Tausenderkomma. Bis zum
-# 08.09.2026 machte ein schlichtes `replace(',', '.')` daraus **17,2**, Faktor
-# tausend daneben und ohne eine Zeile Fehlermeldung: Wer genau abschrieb, was
-# im HUD stand, bekam Unsinn vorgesetzt.
+# ⚠⚠ Das Spiel zeigt die Signatur als `17,200` — mit Tausenderkomma. Ein
+# schlichtes `replace(',', '.')` machte daraus **17,2**, Faktor tausend
+# daneben und ohne eine Zeile Fehlermeldung: Wer genau abschreibt, was im HUD
+# steht, bekäme Unsinn vorgesetzt.
 #
 # ⚠ Die Regel wohnt bewusst in `materials` und nicht hier — dort steht mit
-# `parse_number` seit jeher alles, was eine getippte Zahl entgegennimmt, und zwei
+# `parse_number` alles, was eine getippte Zahl entgegennimmt, und zwei
 # Fassungen derselben Regel liefen garantiert auseinander. Der Unterschied
 # steckt allein im Schalter: Hier gilt `integer=True`, weil Signaturen ganze
 # Zahlen im Tausenderbereich sind (`8,600` meint 8600, nie 8,6). Bei Mengen ist
@@ -569,8 +566,8 @@ def plants():
 
     ⚠ Sie stehen **nicht** bei den Mineralien (`mineableElements`), sondern als
     Vorkommen mit `presetName` an den Fundorten, in Gruppen namens
-    `Harvestables`. Der Watcher hat sie deshalb nie gekannt: Er las nur
-    Vorkommen mit `compositionGuid` und ueberging alle anderen — 661 von 1.025.
+    `Harvestables`. Wer nur Vorkommen mit `compositionGuid` liest, uebergeht
+    alle anderen — 661 von 1.025.
 
     Die Namen stehen dort zusammengeschrieben (`Plant HeartoftheWoods`); hier
     werden sie auseinandergenommen zu „Heart of the Woods", so wie das Spiel
@@ -602,7 +599,7 @@ def _readable(joined):
     """
     # ⚠ Das Bindewort darf auch von einem KLEINBUCHSTABEN gefolgt sein.
     # „HeartoftheWoods" ist genau so gebaut: auf „of" folgt „the". Mit
-    # `(?=[A-Z])` blieb daraus „Heartof the Woods".
+    # `(?=[A-Z])` bliebe daraus „Heartof the Woods".
     text = re.sub(r'(?<=[a-z])(of|the|and)(?=[a-zA-Z])', r' \1 ', joined)
     text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
     return ' '.join(text.split())
@@ -615,8 +612,8 @@ def refinery_matrix():
     * `zeilen`  = `[(material, [wert je Spalte], bester_index)]`
 
     ⭐ **Die Gegenrichtung zu `refineries_for()`.** Die beantwortet „welche
-    Raffinerie für DIESES Erz" — gefragt wurde aber das Umgekehrte: „welche
-    ist für meine Materialien insgesamt die beste". Dafür braucht man alle
+    Raffinerie für DIESES Erz" — diese hier das Umgekehrte: „welche ist für
+    meine Materialien insgesamt die beste". Dafür braucht man alle
     nebeneinander, und zwar **samt der Nachteile**: Gemessen am Stand
     4.10.0 sind **40 von 108** Werten negativ, von −9 % bis +13 %. Eine
     Tabelle, die nur die Boni zeigt, empfiehlt eine Station, die beim
@@ -629,18 +626,15 @@ def refinery_matrix():
     demselben Profil liefern dasselbe Ergebnis und stünden sonst als gleiche
     Spalte mehrfach da — aber ein Bündel darf nicht über Systemgrenzen
     reichen. Das kostet zwei Spalten (12 statt 10) und ist jeden Pixel wert:
-
-    Am 14.09.2026 kam erst „sind in Pyro keine Raffenerien?" (ein Profil deckt
-    acht Stationen in drei Systemen ab, angezeigt wurde nur Stanton), und nach
-    der ersten Reparatur — die alle drei Systeme in **eine** Zelle schrieb —
-    sofort: *„Und bei checkmate stehen sogar nyx stanton und Pyro, das rafft
-    niemand wie das gemeint ist, nichtmal ich verstehe es."*
+    Ein Profil deckt acht Stationen in drei Systemen ab. Merkt sich ein
+    Bündel nur ein System, verschwindet Pyro aus der Ansicht; schreibt es alle
+    drei in **eine** Zelle, versteht niemand, was gemeint ist.
 
     > **Eine Spalte, die zu drei Orten gehört, beantwortet keine Frage, die
     > jemand hat.** Gefragt wird „wohin fliege ich?", und darauf ist „Nyx,
     > Pyro, Stanton" keine Antwort.
 
-    Je System getrennt ergibt dagegen eine Aussage, die vorher unterging: In
+    Je System getrennt ergibt dagegen eine Aussage, die sonst untergeht: In
     **Pyro** sind alle fünf Stationen gleich — es ist egal, wohin man fliegt.
     In **Nyx** ist Levski der Ausreißer gegenüber den beiden Gateways.
 

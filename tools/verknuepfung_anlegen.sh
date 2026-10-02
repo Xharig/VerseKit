@@ -14,7 +14,7 @@
 set -euo pipefail
 
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# ⚠ Sichtbarer Name — wandert mit der Umbenennung (12.09.2026). Der Zusatz
+# ⚠ Sichtbarer Name — folgt dem Programmnamen. Der Zusatz
 # „(Quellcode)" unterscheidet ihn vom echten Eintrag des Installers bzw. des
 # AppImage, damit im Menü nicht zwei gleich heißende Einträge stehen.
 NAME="VerseKit (Quellcode)"

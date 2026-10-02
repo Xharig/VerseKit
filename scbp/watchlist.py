@@ -22,30 +22,27 @@ Die Merkliste — Baupläne, auf die man wartet.
 Trägt man einen Bauplan hier ein, meldet der Watcher ihn **auffällig**, sobald
 er auftaucht: gold statt grün, mit Stern.
 
-⭐⭐ **Danach bleibt er stehen — als erledigt** (seit 16.09.2026). Bis dahin
-flog ein freigeschalteter Bauplan von selbst raus. Dann aber lässt sich kein
-Fortschritt über die Merkliste zeigen: Aeternitas26 (KRT) wünschte sich den
-Bauplan-Fortschritt „nur für die als Favoriten markierten Baupläne", und mit
-einer Liste, aus der alles Erreichte verschwindet, stünde der immer bei null.
-Entschieden am 16.09.2026: Erledigte bleiben, die Anzeige hakt sie ab (erledigt
-ist, was im Bestand steht — das wird nicht zusätzlich gespeichert).
+⭐⭐ **Danach bleibt er stehen — als erledigt.** Sonst ließe sich kein
+Fortschritt über die Merkliste zeigen: Bei einer Liste, aus der alles
+Erreichte verschwindet, stünde der Bauplan-Fortschritt der gemerkten Baupläne
+immer bei null. Erledigte bleiben, die Anzeige hakt sie ab (erledigt ist, was
+im Bestand steht — das wird nicht zusätzlich gespeichert).
 
-⚠ Das hebt die Regel vom 06.09.2026 auf („da wird einer beobachtet, den ich
-schon habe"): Ein gemerkter Bauplan, den man hat, steht jetzt **mit Haken**
-in der Liste, nicht als offen. **Eigene Beobachtungen mit Suchmuster** fliegen
-beim Fund weiter raus — sie stehen für „irgendein passendes Teil", nicht für
-einen Bauplan, und zählen im Fortschritt nicht mit.
+⚠ Ein gemerkter Bauplan, den man hat, steht **mit Haken** in der Liste, nicht
+als offen. **Eigene Beobachtungen mit Suchmuster** fliegen beim Fund raus —
+sie stehen für „irgendein passendes Teil", nicht für einen Bauplan, und zählen
+im Fortschritt nicht mit.
 
 Gepflegt wird sie **im Fenster mit einem Klick** — niemand soll dafür eine
 Datei bearbeiten müssen. Die Datei (`watchlist.json`) bleibt trotzdem lesbar
-und von Hand änderbar, denn ein eigenes Werkzeug des Autors schreibt dort Teile der
-Ausrüstungsliste hinein.
+und von Hand änderbar, damit auch andere Werkzeuge Einträge hineinschreiben
+können.
 
 Zwei Arten von Einträgen leben nebeneinander:
 
   **Namen** — was im Fenster angeklickt wurde. Genauer Abgleich.
-  **Muster** — Teilstücke eines Namens, von außen eingetragen (der Skill kennt
-  die endgültigen Namen künftiger Gegenstände ja noch nicht). Trifft ein Muster,
+  **Muster** — Teilstücke eines Namens, von außen eingetragen (wer einträgt,
+  kennt die endgültigen Namen künftiger Gegenstände noch nicht). Trifft ein Muster,
   gilt der Eintrag als erfüllt.
 
 Format:
@@ -55,14 +52,12 @@ Format:
       "eintraege": [{"titel": "Helm meiner Wahl", "muster": ["adp-mk4", "woodland"]}]
     }
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `merkliste` (Sprachumstellung P4,
-Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben, weil sie in der Datei jedes Nutzers stehen: die Schlüssel
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben, weil sie in der Datei jedes Nutzers stehen: die Schlüssel
 `namen`, `eintraege`, `titel` und `muster`. Ebenso die Schlüssel, die
-`all_entries()` für die Anzeige liefert (`titel`, `art`, `muster`), und die
-Fehlerkennung wechselt nur ihren Namen, nicht ihre Bedeutung. Der alte
-Dateiname `merkliste.json` steht weiter in `paths.SUBFOLDERS` — er gehört zu
-Ablagen aus früheren Fassungen, nicht zu diesem Modul.
+`all_entries()` für die Anzeige liefert (`titel`, `art`, `muster`). Der
+Dateiname `merkliste.json` in `paths.SUBFOLDERS` gehört zu älteren Ablagen,
+nicht zu diesem Modul.
 """
 import re
 import json
@@ -157,7 +152,7 @@ def remove_entry(title, data=None):
     ⚠ Nicht dasselbe wie `remove()`. Das nimmt einen Bauplan-Namen heraus
     und wirft dabei jede Muster-Beobachtung mit weg, die auf ihn passt. Hier
     geht es um die Beobachtung selbst: „Helm meiner Wahl" abwählen,
-    weil die Staffel ein anderes Teil nimmt — die Baupläne, die das Muster
+    weil ein anderes Teil gewählt wird — die Baupläne, die das Muster
     zufällig trifft, gehen niemanden etwas an.
 
     Gibt die geänderten Daten zurück (noch nicht gespeichert).
@@ -183,9 +178,9 @@ def _pattern_matches(entry, name_norm):
 
     ⚠ **An Wortgrenzen, nicht mitten im Wort.** Ein blosses „steckt drin"
     liefert falsche Treffer, die niemand als solche erkennt: Das Muster
-    `arden backpack` traf am 29.08.2026 auf *W**arden** Backpack Purgatory
-    Camo* — und der Watcher meldete ein Rüstungsteil als verfügbar, das mit
-    der gesuchten Ausrüstung nichts zu tun hat. Wer sich darauf verlässt,
+    `arden backpack` trifft sonst *W**arden** Backpack Purgatory Camo* — und
+    der Watcher meldet ein Rüstungsteil als verfügbar, das mit der gesuchten
+    Ausrüstung nichts zu tun hat. Wer sich darauf verlässt,
     fliegt umsonst los.
 
     Vor und hinter dem Muster darf deshalb kein weiterer Buchstabe und keine
@@ -218,7 +213,7 @@ def match(name, data=None):
 
 
 def fulfill(name):
-    """Ein Wunsch ist erfüllt. Gibt den Titel zurück, auf den gewartet wurde.
+    """Ein Merklisten-Eintrag ist erfüllt. Gibt den Titel zurück, auf den gewartet wurde.
 
     Wird aufgerufen, sobald ein Bauplan im eigenen Bestand landet.
 

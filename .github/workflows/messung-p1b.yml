@@ -2,14 +2,13 @@
 #
 # ⚠⚠ Hier wird NICHTS gebaut, was ein Nutzer bekommt. Der Ablauf baut
 # `.exe` und Installer aus dem gewaehlten Zweig, stellt dem Installer die
-# Fragen aus der P1b-Entscheidungsvorlage und haengt die Antworten samt
+# Fragen M1–M7 (siehe tools/messung_p1b.py) und haengt die Antworten samt
 # Setup-Protokollen an den Lauf.
 #
-# Warum auf einem Bau-Rechner und nicht am Windows-Rechner des Autors: Wie
-# Inno Setup sich verhaelt, ist auf jedem Windows gleich — und Windows laeuft
-# beim Autor nur selten. Was an einem echten Arbeitsplatz haengt (Defender,
-# ein Klick auf „Abbrechen", Anmelden mitten im Update), misst dieser Ablauf
-# ausdruecklich NICHT; das bleibt fuer den Windows-Rechner.
+# Warum auf einem Bau-Rechner: Wie Inno Setup sich verhaelt, ist auf jedem
+# Windows gleich. Was an einem echten Arbeitsplatz haengt (Defender, ein Klick
+# auf „Abbrechen", Anmelden mitten im Update), misst dieser Ablauf
+# ausdruecklich NICHT; das braucht einen echten Windows-Rechner.
 #
 # ⚠ Die Bau-Schritte sind aus release.yml uebernommen. Aendert sich dort der
 # Bau, gehoert er hier nachgezogen — sonst misst dieser Ablauf einen Installer,

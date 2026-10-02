@@ -4,15 +4,14 @@ Wer StarStrings als Grundlage auswählt, will StarStrings. Der Watcher darf dort
 nur beisteuern, was ein fremdes Projekt nicht kann — die Kästchen zum eigenen
 Bestand — und muss alles andere so lassen, wie MrKraken es geschrieben hat.
 
-⚠ Warum es das gibt: Bis zum 29.08.2026 tat er das nicht. Gemessen an der echten
-Fassung von diesem Tag:
+⚠ Warum es das gibt — die Fehlerbilder, die ohne diese Wache unbemerkt
+blieben (gemessen an einer echten Fassung):
 
-  * **17** seiner Auftrags-Kennzeichnungen `<EM4>[BP]</EM4>` schnitt der
-    Formen-Notnagel heraus — und weil danach der bereits geschnittene Wortlaut
-    als „Urtext" gemerkt wurde, kamen sie auch beim Zurücksetzen nie wieder.
-  * bei den übrigen **297** stand die Marke danach doppelt.
-  * **136** Gegenstandsnamen bekamen ihr Kürzel ein zweites Mal angehängt
-    (`[CS1] Spark-G Missile (CS1)`).
+  * Auftrags-Kennzeichnungen `<EM4>[BP]</EM4>`, die der Formen-Notnagel
+    herausschneidet — und weil danach der bereits geschnittene Wortlaut als
+    Urtext gemerkt wird, kommen sie auch beim Zurücksetzen nie wieder.
+  * doppelte Marken.
+  * Gegenstandsnamen mit doppeltem Kürzel (`[CS1] Spark-G Missile (CS1)`).
 
 Gemessen wird an der echten Datei, aber nie in ihr.
 
@@ -89,8 +88,8 @@ def markierte_schluessel(text):
         schluessel, wert = zeile.split('=', 1)
         # ⚠ MrKraken schreibt **drei** Formen: `<EM4>[BP]</EM4>`,
         # `<EM4>[10 Rep] [BP]</EM4>` und `<EM4>[150 Rep] [BP]*</EM4>` (allein
-        # die letzte 267 mal). Der erste Anlauf hier suchte nach `[BP]</EM4>`
-        # und prüfte damit 47 statt 314 Einträge.
+        # die letzte 267 mal). Eine Suche nach `[BP]</EM4>` allein prüft nur
+        # 47 statt 314 Einträge.
         if injection.TITLE_MARK.search(wert):
             treffer.add(schluessel)
     return treffer

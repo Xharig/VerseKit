@@ -3,9 +3,9 @@
 // Weiterleitung der Verse-Kit-Fehlerberichte an Discord — läuft als
 // Cloudflare Worker, NICHT im Programm und NICHT auf einem Heimserver.
 //
-// Warum es das gibt: Bis v3.57 stand die Discord-Webhook-Adresse in der
-// fertigen Programmdatei. Wer sie ausliest, kann in den Kanal schreiben —
-// auch @everyone. Jetzt kennt das Programm nur noch diese öffentliche
+// Warum es das gibt: Stünde die Discord-Webhook-Adresse in der fertigen
+// Programmdatei, könnte jeder, der sie ausliest, in den Kanal schreiben —
+// auch @everyone. Deshalb kennt das Programm nur diese öffentliche
 // Adresse; der Webhook liegt ausschließlich als Geheimnis beim Worker
 // (`DISCORD_WEBHOOK`) und lässt sich jederzeit tauschen, ohne neue Version.
 //
@@ -75,9 +75,9 @@ export default {
     if (url.pathname !== '/bericht') return answer(404, 'nicht hier');
     if (request.method !== 'POST') return answer(405, 'nur POST');
     // ⚠ Nicht nur „gesetzt", sondern „sieht aus wie ein Discord-Webhook".
-    // Am 26.09.2026 stand im Geheimnis ein einzelnes Steuerzeichen (\u0016 —
-    // Strg+V, das die Eingabeabfrage nicht als Einfügen verstand). Der Worker
-    // stürzte daran bei jedem Bericht ab (Fehler 1101), statt zu sagen, was fehlt.
+    // Steht im Geheimnis etwa ein einzelnes Steuerzeichen (\u0016 — Strg+V,
+    // das die Eingabeabfrage nicht als Einfügen versteht), stürzt der Worker
+    // sonst bei jedem Bericht ab (Fehler 1101), statt zu sagen, was fehlt.
     if (!WEBHOOK_RE.test(env.DISCORD_WEBHOOK || '')) return answer(503, 'nicht eingerichtet');
 
     // Menge begrenzen — je Absender-Adresse. Die Grenze selbst steht in

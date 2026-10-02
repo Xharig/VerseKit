@@ -171,7 +171,7 @@ def _packaging():
 
 
 def send_if_due(version, day=None, opener=None):
-    """Meldet, wenn heute noch nicht gemeldet wurde. Gibt zurück, was geschah:
+    """Sendet, wenn heute noch nicht gesendet wurde. Gibt zurück, was geschah:
     'aus', 'quellcode', 'version', 'schon', 'gesendet' oder 'fehler'."""
     if OFF or not enabled() or not target().startswith('https://'):
         return 'aus'

@@ -19,10 +19,8 @@
 """
 Wie sich das Overlay im Spiel verhält.
 
-Anlass war eine Rückmeldung von Haldjas (pr0): „Das Overlay ist permanent zu sehen und
-nicht durchklickbar. Wenn ich im Kampf mit der Maus hineinkomme, wird das
-unangenehm." — Recht hat er. Ein Werkzeug, das beim Spielen im Weg steht, benutzt
-niemand, egal wie gut es sonst ist.
+Ein Overlay, das dauernd zu sehen ist und Klicks abfängt, steht beim Spielen im
+Weg — etwa wenn man im Kampf mit der Maus hineinkommt.
 
 Zwei getrennte Antworten darauf, beide abschaltbar:
 
@@ -101,10 +99,9 @@ DWMWCP_ROUND = 2
 
 
 def round_corners(window):
-    """Runde Ecken am Overlay — Windows 11 zeichnet sie selbst (v3.58.0-rc7).
+    """Runde Ecken am Overlay — Windows 11 zeichnet sie selbst.
 
-    Wunsch vom 27.09.2026: *„Das Overlay hat bisher scharfe Ecken, sähe das
-    nicht besser aus, wenn es abgerundet wäre?"* Ein rahmenloses Fenster
+    Ein rahmenloses Fenster
     (`overrideredirect`) bekommt die Rundung von Windows 11 nicht von selbst;
     mit dieser Einstellung schon — mit Kantenglättung, ohne Zusatzpaket.
 
@@ -117,18 +114,16 @@ def round_corners(window):
     ist im Prüflauf nicht zu sehen** — der darf kein Fenster auf den
     Bildschirm bringen. Belegt wird es am Release, beim Test am Bildschirm.
 
-    ⚠ **In jedem Schema, auch „KRT" (seit rc8).** In rc7 blieb das Overlay im
-    eckigen KRT-Schema eckig — gedacht als Merkmal des Designs. Am Release
-    kam die Rückmeldung: *„das Overlay hast du aber vergessen, die Ecken
-    abzurunden"* (27.09.2026). Rund ist nur der Fensterumriss; die Kästen
-    darin bleiben im KRT-Schema eckig mit orangen Eckwinkeln.
+    ⚠ **In jedem Schema, auch im KRT-Schema.** Rund ist nur der
+    Fensterumriss; die Kästen darin bleiben im KRT-Schema eckig mit orangen
+    Eckwinkeln.
     """
     if not WINDOWS:
         return False
     try:
         window.update_idletasks()
         # ⚠ Das Rahmenfenster, nicht `winfo_id()`: Am inneren Fenster lehnt DWM
-        # ab (0x80070006, ungültiges Handle) — gemessen am 27.09.2026. Und das
+        # ab (0x80070006, ungültiges Handle) — gemessen. Und das
         # Fenster muss schon stehen; versteckt gibt es den Rahmen noch nicht.
         handle = (int(window.wm_frame(), 16)
                   or ctypes.windll.user32.GetParent(window.winfo_id()))
@@ -153,7 +148,7 @@ def show_as_app(window):
     Mit `WS_EX_APPWINDOW` statt `WS_EX_TOOLWINDOW` reicht Alt+Tab. Aussehen,
     Vordergrund und Durchklicken bleiben, wie sie sind.
 
-    ⚠ **Gemessen, bevor es eingebaut wurde (26.09.2026):** Das Aufblenden im
+    ⚠ **Gemessen:** Das Aufblenden im
     Pop-up-Betrieb (`deiconify` + `lift` + `-topmost`) nimmt dem Spiel auch als
     App-Fenster **keinen Fokus** — auch dann nicht, wenn das Overlay zuletzt
     selbst vorn war. Die Gegenprobe mit absichtlichem `focus_force()` wurde
@@ -197,18 +192,16 @@ _NO_ACTIVATE = {}
 def never_activate(window):
     """Ein Klick auf das Overlay nimmt dem Spiel nie den Fokus (nur Windows).
 
-    ⚠⚠ **Warum (v3.58.0-rc11).** Gemeldet am 27.09.2026 beim Spielen: *„immer
-    wieder geht der Fokus aus dem Spiel, vermutlich wenn die nicht sichtbare
-    Maus über das Overlay kommt."* Star Citizen versteckt den Zeiger, bewegt
-    ihn aber weiter. Steht er über dem Overlay, wenn geschossen oder geklickt
-    wird, aktiviert Windows das Overlay — und das Spiel verliert die Tastatur.
-    „Durchklickbar" hilft, macht das Overlay aber unbedienbar.
+    ⚠⚠ **Warum.** Star Citizen versteckt den Zeiger, bewegt ihn aber weiter.
+    Steht er über dem Overlay, wenn geschossen oder geklickt wird, aktiviert
+    Windows das Overlay — und das Spiel verliert die Tastatur. Durchklickbar
+    zu schalten hilft, macht das Overlay aber unbedienbar.
 
     Windows fragt vor jedem Klick mit `WM_MOUSEACTIVATE`, ob das Fenster
-    aktiviert werden soll. **Tk antwortet selbst mit „ja"** — auch mit
+    aktiviert werden soll. **Tk antwortet selbst mit ja** — auch mit
     `WS_EX_NOACTIVATE` (gemessen unter Tk 8.6 und 9.0: beide Male 1 =
     aktivieren). Deshalb wird genau diese eine Nachricht hier abgefangen und
-    mit „nicht aktivieren" beantwortet; alles andere läuft unverändert an Tk
+    mit `MA_NOACTIVATE` beantwortet; alles andere läuft unverändert an Tk
     weiter. Am Rahmen eingehängt, gilt es auch für alles darin (Knöpfe,
     Innenflächen fragen ihren Rahmen). Der Klick selbst kommt an — die Knöpfe
     des Overlays funktionieren weiter, nur ohne Fokuswechsel.
@@ -272,8 +265,8 @@ def _x11_click_through(fenster, an):
     ⚠ Die Typen müssen von Hand gesetzt werden. Ohne `restype` nimmt ctypes für
     jeden Rückgabewert ein 32-Bit-`int` an — auf einem 64-Bit-System wird der
     Zeiger auf den Display damit abgeschnitten, und der nächste Aufruf greift ins
-    Nichts. Der erste Anlauf hat das Programm genau so mit einem Speicherauszug
-    beendet, nicht mit einer Fehlermeldung.
+    Nichts. Das Programm endet dann mit einem Speicherauszug, nicht mit einer
+    Fehlermeldung.
     """
     from ctypes import c_int, c_ulong, c_void_p
     try:
@@ -350,24 +343,13 @@ def click_through_possible():
 #
 # ⚠ Warum es das Schloss überhaupt gibt: Wer Klicks durchreichen lässt, kommt an
 # das Overlay nicht mehr heran — auch nicht an den Schalter, mit dem er es
-# wieder abstellt. Der Rückweg war bis dahin, **das Programm ein zweites Mal zu
-# starten**, und dafür muss man aus dem Spiel heraus. Gemeldet am 27.08.2026:
-# „der zweite Programmstart ist die denkbar dümmste Lösung, weil man dann
-# raustabben muss aus dem Spiel." Ryze löst es beim TeamSpeak-Plugin mit einem
-# Schloss, das anklickbar bleibt — denselben Weg gehen wir.
+# wieder abstellt. Ein zweiter Programmstart als Rückweg verlangt, aus dem
+# Spiel herauszuwechseln. Das Schloss bleibt dagegen anklickbar.
 LOCK_CALLBACK = [None]
 
-# ⭐ **Der Bericht muss mitwachsen.** Am 13.09.2026 kam die Meldung „im
-# eingeklappten Zustand sitzt das Schloss nicht ganz genau da, wo es sitzen
-# sollte" — und dazu die entscheidende Beobachtung „beim Einklappen wird das
-# Fenster leicht groesser". Beides liess sich hier nicht nachstellen, und im
-# Fehlerbericht stand nichts davon: keine Fenstergroesse, kein Klappzustand,
-# keine Mindestbreite, kein Versatz des schwebenden Schlosses.
-#
-# Das ist genau der Fall, fuer den die Regel gilt: Wird ein Fehler behandelt,
-# der im Bericht **nicht sichtbar** gewesen waere, wird die Sichtbarkeit im
-# selben Arbeitsgang mitgebaut. Eine Zeile im Bericht haette die Messungen
-# eines ganzen Abends ersetzt.
+# ⭐ **Der Zustand des Overlays im Fehlerbericht:** Fenstergroesse,
+# Klappzustand, Mindestbreite, Versatz des schwebenden Schlosses. Ohne diese
+# Zeile lassen sich Fehler an Lage und Groesse des Overlays nicht nachstellen.
 #
 # Das Overlay haengt seine Auskunft hier ein; `report.build()` fragt sie ab.
 # Ueber ein Modul, weil der Bericht aus `pages.py` gebaut wird und von dort
@@ -385,20 +367,18 @@ STATE_REPORT = [None]
 # jeder Aenderung. `None` heisst schlicht: Die Seite wurde nie gebaut.
 CLICK_THROUGH_DISPLAY = [None]
 
-# ⭐ **Dasselbe fuer die Ecken-Auswahl** (13.09.2026). Wer das Overlay mit der
-# Hand an eine andere Stelle zieht, hat damit gesagt „hier will ich es" — die
-# eingestellte Ecke muss dann weichen, sonst schnappt das Fenster beim naechsten
-# Anlass zurueck. Gemeldet: „beim Schliessen des Einstellungsfensters wird die
-# Position des Overlays wieder zurueckgesetzt, ich wollte es auf meinen 2.
-# Bildschirm ziehen."
+# ⭐ **Dasselbe fuer die Ecken-Auswahl.** Wer das Overlay mit der Hand an
+# eine andere Stelle zieht, legt damit die Position fest — die eingestellte
+# Ecke muss dann weichen, sonst schnappt das Fenster beim naechsten Anlass
+# (etwa beim Schliessen des Einstellungsfensters) zurueck.
 #
-# Das Overlay stellt die Einstellung dabei selbst auf „frei verschiebbar" — und
-# die Auswahlliste auf der Seite „Anzeige" muss das sehen. Sonst steht dort
-# weiter „unten links", waehrend das Fenster woanders sitzt: zwei Anzeigen fuer
+# Das Overlay stellt die Einstellung dabei selbst auf frei verschiebbar — und
+# die Auswahlliste auf der Seite Anzeige muss das sehen. Sonst steht dort
+# weiter die alte Ecke, waehrend das Fenster woanders sitzt: zwei Anzeigen fuer
 # denselben Zustand, die sich widersprechen.
 CORNER_DISPLAY = [None]
 
-# Dasselbe für „Protokolle erneut einlesen". Beide Bedienelemente — der Knopf am
+# Dasselbe fürs erneute Einlesen der Protokolle. Beide Bedienelemente — der Knopf am
 # Overlay und der in den Einstellungen — rufen hier an; die Arbeit macht der
 # Watcher-Faden.
 #
@@ -411,7 +391,7 @@ RESCAN_CALLBACK = [None]
 def account_changed():
     """Der eigene Account wurde umgestellt (Seite „Erkennung").
 
-    ⚠ Das ist KEIN zweiter „Protokolle neu einlesen"-Knopf — den gibt es
+    ⚠ Das ist KEIN zweiter Knopf zum Neu-Einlesen — den gibt es
     bewusst nur einmal (Prüfung 95c). Es ist die Folge einer Einstellung:
     Zählt ein anderer Account, müssen seine Protokolle gelesen werden, sonst
     stünde der Bestand bis zum nächsten Programmstart auf dem alten Stand."""
@@ -524,8 +504,8 @@ def stop_watchdog():
     _watchdog[0] = None
     if horcher is None:
         return
-    # ⚠ **`close()` allein genügt nicht** — und daran ist der Selbst-Neustart
-    # unter Linux gescheitert, drei Anläufe lang.
+    # ⚠ **`close()` allein genügt nicht** — sonst scheitert der Selbst-Neustart
+    # unter Linux.
     #
     # Im Lausch-Faden steht `accept()` und wartet. Ein `close()` aus einem
     # anderen Faden weckt es nicht: Der Faden bleibt hängen, der Deskriptor
@@ -533,10 +513,9 @@ def stop_watchdog():
     # kann sich dann nicht binden, hält sich für die zweite Instanz — und
     # beendet sich planmäßig wieder.
     #
-    # Für den Nutzer sah das aus wie „geht aus und kommt nicht wieder". Im
-    # Protokoll stand am 27.08.2026 endlich der Beweis: `neustart_tot,
-    # Rückgabewert 0 — keine Ausgabe`. Kein Absturz, sondern ein geordneter
-    # Abgang. Gemessen, nachdem zwei geratene Reparaturen es nicht gelöst hatten.
+    # Für den Nutzer sieht das aus, als ginge das Programm aus und käme nicht
+    # wieder. Im Protokoll steht dann `neustart_tot, Rückgabewert 0 — keine
+    # Ausgabe`: kein Absturz, sondern ein geordneter Abgang.
     #
     # `shutdown()` bricht das wartende `accept()` ab — erst danach gibt `close()`
     # den Port wirklich frei.

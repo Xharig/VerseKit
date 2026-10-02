@@ -64,7 +64,7 @@ GOLD    = theme.GOLD
 # melden“ traegt es, damit ihn niemand suchen muss.
 RED     = theme.RED
 
-# Die fertig gerenderten Größen des „Made by the Community"-Zeichens. Tk kann
+# Die fertig gerenderten Größen des Made-by-the-Community-Zeichens. Tk kann
 # Bilder nur über ganze Teiler verkleinern (`subsample`, ohne zu mitteln) —
 # deshalb liegt jede Stufe als eigene Datei daneben, wie bei den Flaggen.
 # Erzeugt aus `assets/made-by-the-community.png` (240 px):
@@ -91,40 +91,32 @@ COMMUNITY_SIZES = (64, 80, 96, 112, 128, 160, 200)
 # spielt, sitzt nicht an einem 1366×768-Gerät. Ein Fenster, das sich nicht beliebig
 # klein ziehen lässt, macht weniger Ärger als abgeschnittene Knöpfe.
 # ⚠ **1160, nicht 1100.** Die Knopfreihe auf „Fehler melden" braucht auf
-# Deutsch 869 px (fünf Knöpfe, gemessen 29.08.2026); dazu die Seitenleiste mit
-# 210 und rund 60 für Ränder und Rollleiste. Bei 1100 brach sie um und die
-# Knöpfe standen untereinander — Xharig: „das sieht schrecklich aus."
-# Englisch käme mit 710 aus; massgeblich ist die längere Sprache.
-# ⭐ **Mindesthöhe 380 statt 760** (30.08.2026). Sie hing vorher am Platzbedarf
-# der Seitenleiste — bei 1020 px passte das Fenster auf keinen 1080er
-# Bildschirm mehr, und selbst auf grossen Schirmen liess es sich nicht kleiner
-# ziehen als 1028. Seit die Leiste rollt und ihre Gruppen klappbar sind, geht
-# nichts verloren, wenn das Fenster kürzer ist: Was nicht hinpasst, rollt.
+# Deutsch 869 px (fünf Knöpfe, gemessen); dazu die Seitenleiste mit 210 und
+# rund 60 für Ränder und Rollleiste. Bei 1100 bricht sie um, und die Knöpfe
+# stehen untereinander. Englisch käme mit 710 aus; massgeblich ist die
+# längere Sprache.
+# ⭐ **Mindesthöhe 380.** Sie hängt nicht am Platzbedarf der Seitenleiste
+# (sonst passte das Fenster auf keinen 1080er Bildschirm): Die Leiste rollt,
+# ihre Gruppen sind klappbar — was nicht hinpasst, rollt.
 MIN_WIDTH, MIN_HEIGHT = 1160, 380
 
-# ⚠⚠ **Der Seiten-Vorbau ist ABGESCHALTET (02.09.2026).**
+# ⚠⚠ **Der Seiten-Vorbau ist ABGESCHALTET.**
 #
-# Er baute alle uebrigen Seiten im Hintergrund vor, damit sie beim Anklicken
-# sofort dastehen. Die Absicht war richtig, die Wirkung nicht: Tk zeichnet
-# einstraengig, und der Vorbau hielt die Oberflaeche **1,7 Sekunden** am Stueck
-# fest (gemessen ueber 17 Seiten: `wasistneu` 181 ms, `diagnose` 162 ms,
-# `liste` 87 ms). Getroffen wurde jeweils das, was der Nutzer gerade anfasste —
-# gemeldet mal als „linke leiste laed langsamer", mal als „bauplan liste
-# weiterhin langsam". **Wechselnde Symptome, eine Ursache.**
+# Er baut alle uebrigen Seiten im Hintergrund vor, damit sie beim Anklicken
+# sofort dastehen. Tk zeichnet aber einstraengig, und der Vorbau haelt die
+# Oberflaeche **1,7 Sekunden** am Stueck fest (gemessen ueber 17 Seiten:
+# `wasistneu` 181 ms, `diagnose` 162 ms, `liste` 87 ms). Getroffen wird
+# jeweils das, was der Nutzer gerade anfasst — **wechselnde Symptome, eine
+# Ursache.** Er laeuft auch weiter, waehrend die frisch geoeffnete Seite noch
+# gezeichnet wird — sie meldet `steht (3 ms)` und ist trotzdem nicht zu sehen.
 #
-# Zwei Anlaeufe, ihn zu baendigen, reichten nicht: erst nach Ruhe bauen, dann
-# auch den Seitenwechsel als Aktion zaehlen. Er lief weiter, waehrend die
-# frisch geoeffnete Seite noch gezeichnet wurde — sie meldete `steht (3 ms)`
-# und war trotzdem nicht zu sehen.
-#
-# ⚠ **Er hat nie etwas beschleunigt.** Das stand von Anfang an in seiner
-# eigenen Beschreibung: „Das macht nichts schneller — dieselbe Arbeit faellt
-# weiter an, nur eben bevor jemand darauf wartet." Ohne ihn kostet die erste
-# Anzeige einer Seite genau ihre Bauzeit, und die ist gemessen vertretbar:
-# Bauplan-Liste 87 ms, teuerste Seite 178 ms, alle uebrigen unter 40 ms.
+# ⚠ **Er beschleunigt nichts:** Dieselbe Arbeit faellt weiter an, nur bevor
+# jemand darauf wartet. Ohne ihn kostet die erste Anzeige einer Seite genau
+# ihre Bauzeit, und die ist gemessen vertretbar: Bauplan-Liste 87 ms,
+# teuerste Seite 178 ms, alle uebrigen unter 40 ms.
 #
 # Wer ihn wieder einschaltet, muss zuerst das Zeichnen der angeklickten Seite
-# sicherstellen — sonst kehrt genau dieses Bild zurueck.
+# sicherstellen.
 PREBUILD_ON = False
 
 # Die zuletzt eingestellte Fenstergroesse. Nur die **Groesse**, keine Lage:
@@ -161,8 +153,7 @@ def remembered_size(root):
     # Andersherum gewinnt auf einem Bildschirm, der kleiner ist als die
     # Mindestgroesse, der Bildschirm: Das Fenster kaeme mit 1024x768 heraus,
     # obwohl `minsize` 1160x380 verlangt, und Tk zoege es beim ersten Zeichnen
-    # ruckartig wieder auf. Gefunden hat das der Bau-Lauf von v3.4.2 — der
-    # Windows-Rechner dort hat einen kleineren Schirm als jeder echte Nutzer.
+    # ruckartig wieder auf (etwa auf dem kleinen Schirm des Bau-Rechners).
     width = max(MIN_WIDTH, width)
     height = max(MIN_HEIGHT, height)
     return width, height
@@ -170,8 +161,8 @@ def remembered_size(root):
 
 # Startbreite der Seitenleiste. Auch sie ist nur eine Untergrenze: Wie breit
 # „Angaben im Spiel" oder das englische „In-game details" wirklich wird, hängt
-# wieder an Schrift und Skalierung — bei 125 % ragte der Text aus der Leiste
-# heraus und war abgeschnitten.
+# wieder an Schrift und Skalierung — bei 125 % ragt der Text sonst aus der
+# Leiste heraus und wird abgeschnitten.
 SIDEBAR_WIDTH = 210
 
 # Wie viel Streichweg auf dem Trackpad eine Zeile ergibt. Ein Trackpad meldet
@@ -185,8 +176,7 @@ TRACKPAD_DIVISOR = 12
 # Stelle einzeln angefasst werden müsste.
 FONT_LEVELS = {'klein': 0, 'normal': 1, 'gross': 3, 'sehrgross': 5}
 
-# ⭐ Stufenlos seit v3.58.0-rc5 (Wunsch vom 27.09.2026, Vorbild SC Deutsch
-# Launcher): ein Regler in ganzen Punkten und Voreinstellungen je Bildschirm.
+# ⭐ Stufenlos: ein Regler in ganzen Punkten und Voreinstellungen je Bildschirm.
 # ⚠ Die Stufe `schriftgroesse` bleibt daneben bestehen — Symbole, Overlay und
 # Einrichtung lesen sie. Sie wird aus den Punkten zur NÄCHSTEN Stufe
 # abgeleitet, und `schrift_punkte` gilt nur, solange sie zu dieser Stufe passt:
@@ -205,7 +195,7 @@ def level_for_points(points):
 
 
 def font_points():
-    """Die eingestellte Größe in Punkten über „klein" (0 … 7)."""
+    """Die eingestellte Größe in Punkten über der Stufe `klein` (0 … 7)."""
     level = paths.setting('schriftgroesse') or 'normal'
     stored = paths.settings().get(FONT_POINTS)
     if isinstance(stored, int) and not isinstance(stored, bool):
@@ -216,12 +206,12 @@ def font_points():
 
 
 def font_percent(points):
-    """Punkte als Prozent gegenüber „normal" (11 pt) — für die Anzeige."""
+    """Punkte als Prozent gegenüber der Stufe `normal` (11 pt) — für die Anzeige."""
     return int(round((10 + points) * 100.0 / 11))
 
 
 def auto_points(screen_height):
-    """Die Voreinstellung „Auto": aus der Bildschirmhöhe."""
+    """Die Voreinstellung `Auto`: aus der Bildschirmhöhe."""
     if screen_height >= 2000:
         return 6
     if screen_height >= 1400:
@@ -240,7 +230,7 @@ def _round_rect(canvas, x1, y1, x2, y2, radius, keep_round=False, **kw):
     # Vieleck mit denselben 24 Punkten (Radius 0, ungeglättet) — viele Stellen
     # schieben die Form später mit `corners()` nach, und die zählen darauf.
     # Schalter und Regler bleiben rund (`keep_round`): eckig sähen sie falsch
-    # aus, und rund war ausdrücklich gewünscht.
+    # aus.
     square = theme.SQUARE and not keep_round
     if square:
         radius = 0
@@ -293,9 +283,9 @@ def to_front(window, focus=False):
     ⚠ **`lift()` allein genügt nicht.** Unter Wayland — und je nach
     Fensterverwaltung auch unter X11 — darf sich ein Fenster nicht selbst in
     den Vordergrund setzen; `lift()` wirkt dann nur innerhalb der eigenen
-    Anwendung und `focus_force()` wird schlicht ignoriert. Gemeldet am
-    29.08.2026: Ein Klick auf das Overlay öffnete zwar die Seite, aber das
-    Fenster blieb hinter dem Spiel.
+    Anwendung und `focus_force()` wird schlicht ignoriert — ein Klick auf das
+    Overlay öffnet dann zwar die Seite, aber das Fenster bleibt hinter dem
+    Spiel.
 
     Was zuverlässig wirkt, ist `-topmost` **kurz** zu setzen und gleich wieder
     abzuschalten: Der Compositor holt das Fenster dabei nach vorn, und danach
@@ -304,17 +294,13 @@ def to_front(window, focus=False):
     `deiconify()` gehört dazu — sonst bleibt ein **minimiertes** Fenster
     minimiert, und der Klick scheint gar nichts zu tun.
 
-    ⚠⚠ **`focus_force()` nur auf ausdrücklichen Wunsch** (`fokus=True`).
-    Es zieht den Tastaturfokus — und wer gerade Star Citizen spielt, fliegt
-    damit aus dem Spiel. Genau das darf ein Overlay-Werkzeug nicht:
-
-        „ich bin mitten im spiel, du kannst die fenster aufrufen aber
-         bekommst du es hin mich nicht als raus zu tabben?"  (29.08.2026)
+    ⚠⚠ **`focus_force()` nur ausdrücklich** (`fokus=True`). Es zieht den
+    Tastaturfokus — und wer gerade Star Citizen spielt, fliegt damit aus dem
+    Spiel. Genau das darf ein Overlay-Werkzeug nicht.
 
     Ohne Fokus kommt das Fenster **sichtbar** nach vorn, die Tastatur bleibt
     aber beim Spiel. Wer darin tippen will, klickt hinein — dann bekommt es den
-    Fokus vom Fenstermanager, und das ist eine bewusste Entscheidung des
-    Spielers statt eines Überfalls.
+    Fokus vom Fenstermanager.
 
     Mit `fokus=True` wird es nur beim **Programmstart** gerufen: Dort hat der
     Nutzer das Werkzeug gerade selbst gestartet und will hin.
@@ -335,10 +321,8 @@ def to_front(window, focus=False):
         #
         #    ⚠ Nur unter Wayland, und nur wenn das Fenster wirklich verdeckt
         #    ist. Es kostet ein kurzes Flackern; das ist der Preis dafür, dass
-        #    der Klick überhaupt etwas tut. Ohne diesen Schritt blieb nur
-        #    „Programm neu starten", und dazu Xharig am 29.08.2026:
-        #    „nen user findet das nervig und wers nicht nervig findet rafft es
-        #    nicht."
+        #    der Klick überhaupt etwas tut. Ohne diesen Schritt bliebe nur ein
+        #    Neustart des Programms.
         if _wayland() and not window.focus_displayof():
             window.withdraw()
             window.update_idletasks()
@@ -428,7 +412,7 @@ def corners(x1, y1, x2, y2, r):
 def _corner_marks(canvas, width, bottom, length=10):
     """Die orangen Eckwinkel des KRT-Schemas: oben links, unten rechts.
 
-    Das Erkennungszeichen des Profit Basetools (Bild vom 27.09.2026)."""
+    Das Erkennungszeichen des Profit Basetools."""
     canvas.delete('ecke')
     for points in ((1, length, 1, 1, length, 1),
                    (width - 1 - length, bottom, width - 1, bottom,
@@ -439,12 +423,11 @@ def _corner_marks(canvas, width, bottom, length=10):
 def fast_destroy(window):
     """Ein Fenster samt Inhalt auf einen Schlag abbauen.
 
-    ⚠⚠ **Warum nicht einfach `destroy()` (rc9).** tkinter baut ein Fenster
+    ⚠⚠ **Warum nicht einfach `destroy()`.** tkinter baut ein Fenster
     von innen nach außen ab: jedes Element einzeln, mit einem eigenen
     Tk-Aufruf — und nach jedem ordnet Tk den Elternrahmen neu an, der ja noch
     steht. Beim Hauptfenster sind das rund 6500 Elemente: **2,2 Sekunden**,
-    in denen das Fenster sichtbar stehen bleibt (gemessen 27.09.2026 unter
-    Tk 9, gemeldet als *„selbst das Schließen dauert ewig"*).
+    in denen das Fenster sichtbar stehen bleibt (gemessen unter Tk 9).
 
     Hier verschwindet es zuerst vom Bildschirm, dann räumt Tk das ganze
     Fenster in einem Aufruf ab (ohne Zwischen-Neuanordnung), und zuletzt wird
@@ -502,10 +485,8 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
 
     Bei einer Karte über die volle Breite fällt das nicht auf — genau dafür ist
     er gebaut. Bei allem, was seine eigene Größe haben soll, ist es der falsche
-    Baustein: Aus kompakten Etiketten wurden Balken über die halbe Karte, ein
-    Statusstreifen erschien als leerer Rahmen ohne Inhalt. Beides am 26.08.2026
-    im Serverstatus, und beides schon am Vormittag desselben Tages an anderer
-    Stelle.
+    Baustein: Aus kompakten Etiketten werden Balken über die halbe Karte, ein
+    Statusstreifen erscheint als leerer Rahmen ohne Inhalt.
 
     **Für kleine Elemente ein schlichtes `tk.Label` mit `bg` und `padx/pady`
     nehmen.** Eckig, aber richtig bemessen.
@@ -533,11 +514,11 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
                                         anchor='nw')
 
     def refresh(_=None):
-        # ⚠ Solange nichts gezeichnet ist, meldet `winfo_width` eine 1. Dann
-        # die gewünschte Breite nehmen — sonst bliebe das Rechteck auf seinen
+        # ⚠ Solange nichts gezeichnet ist, liefert `winfo_width` eine 1. Dann
+        # die angeforderte Breite nehmen — sonst bliebe das Rechteck auf seinen
         # Anfangskoordinaten stehen, seine Rundungen lägen außerhalb der
-        # Leinwand, und der Kasten sähe wieder eckig aus. Genau das ist bei den
-        # schmalen Zahlenfeldern passiert.
+        # Leinwand, und der Kasten sähe eckig aus (sichtbar bei schmalen
+        # Zahlenfeldern).
         width = canvas.winfo_width()
         if width < 10:
             width = canvas.winfo_reqwidth()
@@ -555,7 +536,7 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
     canvas.bind('<Configure>', refresh)
     canvas.bind('<Map>', refresh)
     # Merkmal für die Randprüfung: Dieser Rahmen wird bewusst auf die
-    # Kastenbreite gezwungen — sein Wunsch nach mehr Platz ist kein Fehler,
+    # Kastenbreite gezwungen — sein Bedarf an mehr Platz ist kein Fehler,
     # der Text darin bricht um. Ohne die Markierung meldet jede Karte einen
     # Fehlalarm.
     inner.sized = True
@@ -588,35 +569,30 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     ⚠⚠ **Ein Hinweis braucht zwingend eine `textvariable`.** Wer das Feld
     stattdessen mit `feld.get()` ausliest, bekäme den Hinweistext als
     Benutzereingabe zurück — aus einem leeren Mengenfeld würde dann das Wort
-    „Menge". Deshalb ist die Kombination `hinweis=` ohne `textvariable`
+    `Menge`. Deshalb ist die Kombination `hinweis=` ohne `textvariable`
     **verboten** und nicht etwa still wirkungslos: Ein stiller Ausfall wäre
     genau die Sorte Fehler, die erst beim Nutzer auffällt.
 
     `clearable`: ein X **im Feld**, rechts, das den Text löscht — dasselbe wie
     in der Bauplan-Liste. Es steht nur da, wenn etwas drinsteht; ein X an
-    einem leeren Feld tut nichts. Gewünscht am 17.09.2026 für die Suche in
-    „Mein Hangar": „ein X ins Suchfeld, ist intuitiver". Braucht ebenfalls eine
-    `textvariable`, über die es merkt, ob etwas drinsteht.
+    einem leeren Feld tut nichts. Braucht ebenfalls eine `textvariable`, über
+    die es merkt, ob etwas drinsteht.
 
     `dropdown`: der Aufklapp-Pfeil einer Auswahlliste, **immer** ganz rechts
     im Feld. Er liegt danach als `feld.trailing` bereit, der Aufrufer bindet
     den Klick. Das X rückt links daneben.
 
-    ⚠⚠ **Feste Regel (17.09.2026): Der Pfeil sitzt IM Feld und sieht aus wie
-    bei `round_select`** — dasselbe ▾, dieselbe gedämpfte Farbe. Bis dahin
-    stand ein Chevron › als eigenes Bauteil **neben** dem Rahmen, und zwei
-    Arten Auswahlfeld lagen auf derselben Seite („Alle Orte ▾" und daneben
-    ein Feld mit › außen). Das Zeichen ist bewusst dasselbe wie in
-    `round_select` und kein Bild aus dem Symbolsatz: Gleiches muss gleich
-    aussehen, und dort steht es seit jeher so.
+    ⚠⚠ **Feste Regel: Der Pfeil sitzt IM Feld und sieht aus wie bei
+    `round_select`** — dasselbe ▾, dieselbe gedämpfte Farbe, nie als eigenes
+    Bauteil neben dem Rahmen. Das Zeichen ist dasselbe wie in `round_select`
+    und kein Bild aus dem Symbolsatz: Gleiches muss gleich aussehen.
     """
     if placeholder and textvariable is None:
         raise ValueError('round_entry: `placeholder` braucht eine `textvariable` '
                          '— sonst liest `feld.get()` den Hinweistext als '
                          'Eingabe')
-    # ⚠⚠ **Das X gehört in JEDES Eingabefeld** (feste Regel, 17.09.2026: „das
-    # X soll auch Standard sein, in allen Eingabefeldern"). Deshalb steht es
-    # ab Werk an, und ein Feld ohne eigene Variable bekommt eine: Nur über sie
+    # ⚠⚠ **Das X gehört in JEDES Eingabefeld** (feste Regel). Deshalb steht
+    # es ab Werk an, und ein Feld ohne eigene Variable bekommt eine: Nur über sie
     # merkt das X, ob etwas drinsteht. `feld.get()`/`insert()` wirken wie
     # vorher — die Variable spiegelt nur den Inhalt.
     if textvariable is None:
@@ -714,12 +690,10 @@ def round_textarea(parent, font, bg, border, accent, fg, rows=4, **kw):
     ⚠⚠ **Wofür.** Ein `Entry` zeigt immer nur einen Ausschnitt: Wer zwei Sätze
     tippt, sieht das Ende und nicht mehr, was er geschrieben hat. Für eine
     Fehlerbeschreibung ist genau das falsch — man will beim Absenden noch
-    einmal lesen können, was man da meldet. Am 05.09.2026 gemeldet:
-    „macht es nicht Sinn das Fenster … größer und unter den Text zu machen,
-    das der Melder das was er eintippt auch noch selber lesen kann?"
+    einmal lesen können, was man da schreibt.
 
     ⚠ **Warum eine eigene Funktion und kein `Text` an Ort und Stelle.**
-    Gleiche Dinge sehen im Programm gleich aus (Projektregel „Symmetrie"). Ein
+    Gleiche Dinge sehen im Programm gleich aus (Projektregel Symmetrie). Ein
     nacktes `Text` hätte eckige Ecken und einen anderen Rand als jedes andere
     Eingabefeld — auf derselben Seite, direkt unter einem runden Namensfeld.
     Der Rand wird deshalb genauso gemalt und wechselt beim Hineinklicken
@@ -883,27 +857,24 @@ def after_typing(widget, action, delay=TYPING_DELAY_MS):
 def bind_wheel(canvas):
     """Das Mausrad an eine Rollfläche hängen — für das ganze Fenster.
 
-    ⚠ Zwei Fehler steckten hier, und beide zusammen ließen das Rad wirkungslos
-    aussehen, während der Rollbalken von Hand funktionierte:
+    ⚠ Drei Fallen, die das Rad wirkungslos aussehen lassen, während der
+    Rollbalken von Hand funktioniert:
 
-    1. **Die Rechnung.** Vorher stand hier `int(-1 * e.delta / 120)`. Windows
-       meldet ±120, Linux meldet sich über Button-4/5 — beides ging auf.
-       macOS meldet aber **±1**, und `int(-1/120)` ist **0**: kein Ausschlag.
-       Deshalb zählt jetzt nur die Richtung, nie der Betrag.
+    1. **Die Rechnung.** Nicht `int(-1 * e.delta / 120)`: Windows meldet
+       ±120, Linux meldet sich über Button-4/5 — beides ginge auf. macOS
+       meldet aber **±1**, und `int(-1/120)` ist **0**: kein Ausschlag.
+       Deshalb zählt nur die Richtung, nie der Betrag.
 
-    2. **Die Bindung.** Vorher hingen die Ereignisse an drei Widgets
-       (Leinwand, Innenrahmen, Polster). Tk schickt das Rad aber an das
-       Element **unter dem Zeiger**, und das ist fast immer eine Beschriftung
-       oder ein Kasten darin — dort war nichts gebunden. Also greift die
-       Bindung jetzt am ganzen Fenster, und der Griff sucht sich die
-       Rollfläche unter dem Zeiger.
+    2. **Die Bindung.** Tk schickt das Rad an das Element **unter dem
+       Zeiger**, und das ist fast immer eine Beschriftung oder ein Kasten in
+       der Rollfläche, nicht die Leinwand selbst. Also greift die Bindung am
+       ganzen Fenster, und der Griff sucht sich die Rollfläche unter dem
+       Zeiger.
 
-    3. **Und der Grund, warum das trotzdem nicht wirkte:** Die Bauplan-Liste
-       rief `bind_all` **ohne** `add='+'` auf. Das ersetzt jede vorher
-       gesetzte Bindung im ganzen Fenster — und weil die Liste die Startseite
-       ist, war die Bindung der Seiten sofort wieder weg. Danach rollte das
-       Rad überall nur noch die Liste, auch wenn die gar nicht zu sehen war.
-       Deshalb hängen jetzt **alle** Rollflächen an dieser einen Stelle.
+    3. **`bind_all` nie ohne `add='+'`.** Das ersetzt jede zuvor gesetzte
+       Bindung im ganzen Fenster — rief eine Seite es so auf, rollte das Rad
+       überall nur noch diese Seite. Deshalb hängen **alle** Rollflächen an
+       dieser einen Stelle.
 
     4. **Trackpad.** Gemessen mit `tools/rad_messen.py`: Vom Trackpad kommt
        **kein einziges** `<MouseWheel>` an — nicht etwa ein zu kleiner Wert,
@@ -946,14 +917,10 @@ def bind_wheel(canvas):
         def surface_below(e):
             """Was unter dem Mauszeiger gerollt werden soll — oder nichts.
 
-            ⚠ **Ein Textfeld rollt sich selbst.** Vorher zählten nur die
-            registrierten Rollflächen; ein `tk.Text` ist keine, also ging das
-            Rad an die Seite dahinter. Auf der Diagnose-Seite hieß das: Erst
-            die ganze Seite nach unten schieben, und **dann** erst ließ sich im
-            Bericht rollen. Am 28.08.2026 fiel auf, nachdem sein Bruder
-            dasselbe gemeldet hatte: „in dem Fehlerbericht-Fenster kann man
-            erst scrollen, nachdem die Diagnose-Seite nach unten gescrollt
-            ist."
+            ⚠ **Ein Textfeld rollt sich selbst.** Ein `tk.Text` ist keine
+            registrierte Rollfläche; zählten nur diese, ginge das Rad an die
+            Seite dahinter — auf der Diagnose-Seite ließe sich dann erst im
+            Bericht rollen, wenn die ganze Seite unten ist.
 
             Wie im Browser: Was unter dem Zeiger liegt und rollen kann, rollt
             — die Seite bewegt man daneben.
@@ -977,9 +944,7 @@ def bind_wheel(canvas):
             Rollfläche kleiner ist als das Sichtfenster — der Inhalt wandert
             dann einfach nach oben aus dem Bild, und unten bleibt eine leere
             Fläche stehen. Für den Nutzer sieht das aus, als sei etwas
-            verlorengegangen. Gemeldet am 07.09.2026: „in einigen Fenstern
-            kann man bei so gut wie keinem Inhalt den gesamten Inhalt
-            scrollen, der sollte aber fest sein."
+            verlorengegangen.
 
             `yview()` liefert Anfang und Ende des sichtbaren Ausschnitts als
             Bruchteile. Deckt der Ausschnitt alles ab, gibt es keinen
@@ -1027,7 +992,7 @@ def bind_wheel(canvas):
             # ⚠ Kein Minus wie beim Rad: `<TouchpadScroll>` zählt andersherum
             # als `<MouseWheel>`. Mit dem Vorzeichen des Rades rollte die Liste
             # genau falsch herum. Die vom Nutzer eingestellte Richtung
-            # („natürliches Scrollen") hat das System da schon eingerechnet.
+            # (natürliches Scrollen) hat das System da schon eingerechnet.
             try:
                 target.yview_scroll(whole, 'units')
             except tk.TclError:
@@ -1069,14 +1034,11 @@ def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
     weiter. `canvas` ist die Rollfläche, an der sie hängt.
     """
     bg = bg or BG
-    # ⚠⚠ **Ein Rollbalken, den man nicht sieht, ist keiner.** Der Griff war
-    # `#2b3547` — auf der Fläche einer aufgeklappten Auswahlliste (`#161c28`)
-    # ergibt das einen Kontrast von **1,6 : 1**. Am 30.08.2026 gemeldet: „ah es
-    # ist scrollbar und funktioniert, aber ich sehe keinen Rollbalken, und da
-    # ich mich grad mal dumm stelle wie normale User — wenn ich es nicht sehe,
-    # wie sollen es andere dann checken."
+    # ⚠⚠ **Ein Rollbalken, den man nicht sieht, ist keiner.** Ein Griff in
+    # `#2b3547` ergibt auf der Fläche einer aufgeklappten Auswahlliste
+    # (`#161c28`) nur einen Kontrast von **1,6 : 1**.
     #
-    # Jetzt 2,9 : 1 auf der Liste und 3,6 : 1 auf einer Seite, unter der Maus
+    # Die Farben hier ergeben 2,9 : 1 auf der Liste und 3,6 : 1 auf einer Seite, unter der Maus
     # 3,8 : 1. Dazu eine sichtbare Rille: Erst sie zeigt, dass es überhaupt
     # eine Bahn gibt, an der etwas entlangläuft — der Griff allein sieht aus
     # wie ein Strich.
@@ -1142,8 +1104,8 @@ def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
         if nothing_to_scroll():
             c.itemconfigure(grip, state='hidden')
             # ⚠ **Auch die Rille verschwindet.** Eine sichtbare Bahn ohne
-            # Griff sagt „hier lässt sich etwas schieben" — und genau das
-            # stimmt dann nicht. Sie bleibt als leerer Streifen stehen, damit
+            # Griff verspricht etwas zum Schieben — und genau das stimmt dann
+            # nicht. Sie bleibt als leerer Streifen stehen, damit
             # der Inhalt beim Ein- und Ausblenden nicht in der Breite springt.
             c.itemconfigure(groove, state='hidden')
             return
@@ -1160,16 +1122,11 @@ def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
     def jump(e):
         # ⚠⚠ **Ohne diese Frage rollt eine Seite, die ganz hineinpasst.**
         # `refresh` versteckt zwar den Griff, wenn es nichts zu rollen
-        # gibt — die Bahn darunter nahm den Klick aber weiter an. Bei voller
+        # gibt — die Bahn darunter nimmt den Klick aber weiter an. Bei voller
         # Spanne rechnet die Zeile unten `e.y / hoehe - 0.5`: Ein Klick in
-        # die untere Hälfte schob den Inhalt um eine halbe Fensterhöhe ins
-        # Leere, und es sah aus, als sei etwas verlorengegangen.
-        #
-        # Gemeldet am 07.09.2026 gleich dreifach: „ballistic gatling
-        # ausgewählt, kann man scrollen", „Military als Auswahl, 6 Teile
-        # drin, ist scrollbar", „das ist bei sehr vielen Seiten so". Es traf
-        # jede Seite, deren Inhalt kleiner ist als ihr Fenster — also fast
-        # jede, sobald ein Filter gesetzt war.
+        # die untere Hälfte schöbe den Inhalt um eine halbe Fensterhöhe ins
+        # Leere. Das trifft jede Seite, deren Inhalt kleiner ist als ihr
+        # Fenster — also fast jede, sobald ein Filter gesetzt ist.
         if nothing_to_scroll():
             return
         upper, lower, height = grip_pos()
@@ -1217,13 +1174,8 @@ def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
     c.bind('<Leave>', leave)
     # ⛔ **`set` bleibt für immer.** Das ist der Name, unter dem Tk eine
     # Rollleiste anspricht: `canvas.configure(yscrollcommand=leiste.set)`.
-    # Keine Entscheidung von uns.
-    #
-    # Daneben stand bis zum 13.09.2026 dieselbe Funktion noch einmal als
-    # `c.setzen` — „damit der Rest des Programms bei seiner Sprache bleiben
-    # kann". Nachgemessen: **niemand hat sie je gerufen.** Ein Zwilling, den
-    # keiner benutzt, ist kein Übersetzungsdienst, sondern eine zweite Stelle,
-    # die mitgepflegt werden will.
+    # Kein zweiter Name daneben — ein Zwilling, den keiner ruft, ist nur eine
+    # zweite Stelle, die mitgepflegt werden will.
     c.set = setzen
     return c
 
@@ -1247,9 +1199,7 @@ def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
 #     ausgefranst. Dazu käme eine Datei, die ins Paket muss.
 #
 # Als Vektor ist es in jeder Größe scharf, braucht keine Datei und hängt an
-# keiner Schriftart. Ein erster Versuch hatte die Form nur **angedeutet**;
-# am 26.08.2026 gemeldet dazu: „und wieso nimmst du nicht das original logo, was
-# schärfer wäre und nicht so pixelig?" — zu Recht.
+# keiner Schriftart — und es ist die Originalform, keine Andeutung.
 _DC_OUTLINE = (
 
     (0.8471, 0.1762), (0.8144, 0.1617), (0.7809, 0.1487), (0.7468, 0.1371),
@@ -1329,14 +1279,14 @@ def discord_glyph(canvas, x, middle, height, color):
         canvas.create_polygon(path(eye), fill=bg, outline=bg)
 
 
-# Von am 26.08.2026 gemeldet bestätigt. ⚠ Wer sie ändert, prüft vorher, dass die
+# ⚠ Wer sie ändert, prüft vorher, dass die
 # Seite wirklich erreichbar ist: Ein Knopf, der ins Leere führt, ist schlimmer
 # als keiner — wer ihn drückt, hält das Werkzeug für kaputt.
 KOFI_URL = 'https://ko-fi.com/xharig'
 # ⚠ Die dauerhafte Einladung (`CODE_OF_CONDUCT.md` nennt dieselbe). Ein Link,
 # der irgendwann abläuft, führt Leute auf eine Fehlerseite und niemand merkt
 # es. Steht hier einmal — Seitenleiste und Symbol neben der Uhr nutzen ihn.
-# Seit v3.57.4 über die eigene Kurzadresse: Läuft die Einladung doch einmal ab,
+# Über die eigene Kurzadresse: Läuft die Einladung doch einmal ab,
 # wird sie nur in der Weiterleitung getauscht, und jede Programmfassung stimmt.
 DISCORD_URL = 'https://xharig.com/discord'
 
@@ -1350,8 +1300,8 @@ def coffee_glyph(canvas, x, middle, height, color):
     eine erscheint als Fragezeichen, das andere sprengt die einfarbige Leiste.
     Dieselbe Überlegung wie beim Discord-Zeichen, siehe dort.
 
-    ⚠ **Der erste Entwurf hatte einen Dampffaden**, und der war bei Knopfgröße
-    nicht mehr zu sehen — ein Strich von einem Pixel Breite verschwindet. Für
+    ⚠ **Kein Dampffaden:** Bei Knopfgröße ist er nicht mehr zu sehen — ein
+    Strich von einem Pixel Breite verschwindet. Für
     kleine Zeichen gilt: **wenige, kräftige Formen.** Was man wegkürzen kann,
     ohne dass das Motiv unklar wird, gehört weg. Bei einer Tasse tragen Becher
     und Henkel, der Dampf ist Zierde.
@@ -1400,12 +1350,10 @@ def round_button(parent, text, action, font, bg, fill_color, border, fg,
     Am Rückgabewert hängt `.setzen(fuellung, rand, fg)` — damit lässt sich der
     Knopf später umfärben (an/aus, ausgewählt/nicht), ohne ihn neu zu bauen.
 
-    ⚠ **Das Rechteck wird bei jeder Größenänderung neu gemalt.** Vorher entstand
-    es genau einmal in Textbreite und blieb so. Wer den Knopf mit `fill='x'`
-    streckte, bekam ein breiteres Canvas mit einem schmalen Rechteck darin — der
-    Knopf sah je nach Textlänge unterschiedlich breit aus, obwohl beide dieselbe
-    Anweisung hatten. Aufgefallen an zwei Knöpfen untereinander (gemeldet,
-    26.08.2026): „Discord Button sollte die Gleiche Breite haben wie SC Starten".
+    ⚠ **Das Rechteck wird bei jeder Größenänderung neu gemalt.** Einmal in
+    Textbreite gemalt, ergäbe ein mit `fill='x'` gestreckter Knopf ein
+    breiteres Canvas mit einem schmalen Rechteck darin — zwei Knöpfe
+    untereinander sähen je nach Textlänge unterschiedlich breit aus.
 
     `malen` ist eine Funktion `(leinwand, x, mitte, hoehe, farbe)`, die links im
     Knopf ein Symbol zeichnet — für alles, wofür es kein brauchbares Zeichen in
@@ -1522,16 +1470,14 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         return entries[0][1] if entries else ''
 
     # ⚠⚠ **Das geschlossene Feld muss NICHT so breit sein wie der längste
-    # Eintrag.** Bis v3.3.0-rc40 war es das — und weil unter den 64
-    # Herstellern „Musashi Industrial & Starflight Concern" steht (39 Zeichen),
-    # war das Feld über 300 Pixel breit. In der Herstellung passte die vierte
-    # Auswahl dadurch nicht mehr in die Zeile und wurde rechts abgeschnitten
-    # („Materia…"). Am 30.08.2026 gemeldet: „obwohl der breiteste Eintrag bei
-    # Hersteller ca. die Hälfte des Dropdowns benötigt."
+    # Eintrag.** Unter den 64 Herstellern steht `Musashi Industrial &
+    # Starflight Concern` (39 Zeichen) — danach bemessen wäre das Feld über
+    # 300 Pixel breit, und in der Herstellung passte die vierte Auswahl nicht
+    # mehr in die Zeile.
     #
     # Die **aufgeklappte Liste** bleibt so breit, wie ihr längster Eintrag es
     # verlangt — dort ist der Platz da. Nur das Feld wird gedeckelt; ein zu
-    # langer gewählter Wert bekommt am Ende ein „…".
+    # langer gewählter Wert bekommt am Ende ein `…`.
     if width is None:
         needed = max(s.measure(text) for _, text in entries) + 42
         width = min(needed, s.measure('M' * MAX_FIELD_CHARS) + 42)
@@ -1634,9 +1580,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         # ⚠ Nicht `winfo_screenheight()`: Tk meldet damit die Höhe **aller**
         # Bildschirme zusammen. Bei zwei übereinander stehenden Monitoren passt
         # eine lange Liste rechnerisch immer nach unten — und klappt in
-        # Wirklichkeit unterhalb des Bildes auf. Gemeldet als „Alle Arten und
-        # Alle Quellen sind nicht auswählbar", also genau die beiden längsten
-        # Listen. Maßgeblich ist der Bildschirm, auf dem das Feld steht.
+        # Wirklichkeit unterhalb des Bildes auf — gerade die längsten Listen.
+        # Maßgeblich ist der Bildschirm, auf dem das Feld steht.
         _sx, screen_top, _sb, schirm_hoch = screen.screen_at(
             c, c.winfo_rootx(), c.winfo_rooty())
         screen_bottom = screen_top + schirm_hoch
@@ -1649,19 +1594,17 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         # ⚠ **Zweite Grenze: das Fenster selbst.** Der Bildschirm allein
         # genügt nicht — steht das Fenster weit unten im Bild, passt eine lange
         # Liste rechnerisch noch auf den Schirm, ragt aber weit darunter hinaus
-        # und wird am Bildrand abgeschnitten. Bei 38 Rohstoffen im Bergbau war
-        # sie länger als das Fenster hoch ist: „ist die Liste über dem
-        # Einstellungsfenster hinaus, wird die abgeschnitten, wenn man das
-        # Fenster zu weit unten im Bild hat" (30.08.2026).
+        # und wird am Bildrand abgeschnitten (bei 38 Rohstoffen im Bergbau ist
+        # sie länger als das Fenster hoch).
         #
         # Wird sie dadurch kürzer als ihr Inhalt, bekommt sie unten eine
         # Rollleiste — der Code dafür steht bereits da.
         # ⚠ Maßstab ist die **kleinstmögliche** Fensterhöhe, nicht die
         # aktuelle. Wer sein Fenster gross zieht, bekaeme sonst eine Liste, die
         # nach dem Verkleinern nicht mehr hineinpasst — und beim naechsten
-        # Aufklappen unten abgeschnitten waere. Gefordert am 30.08.2026:
-        # „Auswahlfenster duerfen die minimale Fensterhoehe NIE
-        # ueberschreiten." Also gilt immer `MIN_HEIGHT`, auch im Vollbild.
+        # Aufklappen unten abgeschnitten waere. Eine Auswahlliste ueberschreitet
+        # die minimale Fensterhoehe NIE — es gilt immer `MIN_HEIGHT`, auch im
+        # Vollbild.
         try:
             window_height = c.winfo_toplevel().winfo_height()
             if window_height > 200:
@@ -1670,9 +1613,9 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
             pass
         # ⚠ **Dritte Grenze, und die entscheidende: eine feste Zeilenzahl.**
         # Die beiden Grenzen darueber messen den Platz — der ist auf einem
-        # grossen Bildschirm riesig. Bei 48 Orten im Bergbau hing die Liste
-        # daraufhin ueber die ganze Fensterhoehe herunter und weit darueber
-        # hinaus ins Bild, ohne dass man ihr ansah, dass sie rollt (30.08.2026).
+        # grossen Bildschirm riesig. Bei 48 Orten im Bergbau hinge die Liste
+        # sonst ueber die ganze Fensterhoehe herunter, ohne dass man ihr
+        # ansieht, dass sie rollt.
         #
         # Eine Auswahlliste soll man ueberblicken koennen. Mehr als rund
         # fuenfzehn Zeilen liest ohnehin niemand am Stueck — der Rest gehoert
@@ -1695,16 +1638,15 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
             # ⚠ Gleiche Breite wie auf den Seiten. Acht Pixel waren schmaler
             # als alles andere im Fenster und dadurch noch schwerer zu sehen.
             #
-            # ⚠⚠ **Und sie reicht trotzdem nicht.** Am 04.09.2026: „sieht aber
-            # keine Sau, weil kein Balken da ist … ah, man muss scrollen." Die
-            # Leiste ist da und **bekommt ihre 10 px** (nachgemessen, in beiden
+            # ⚠⚠ **Und sie reicht trotzdem nicht.** Die Leiste ist da und
+            # **bekommt ihre 10 px** (nachgemessen, in beiden
             # Pack-Reihenfolgen) — nur sieht man einen dunklen Streifen auf
-            # dunklem Grund nicht.
+            # dunklem Grund leicht nicht.
             #
-            # Die Lehre daraus gehört nicht hierher, sondern in die Listen
-            # selbst: **Was wichtig ist, gehört nach oben.** Standen die zwei
-            # größten Gruppen (Rüstung 910, Waffen 270) alphabetisch an Position
-            # 11 und 14, half auch der beste Balken nicht.
+            # Deshalb gilt in den Listen selbst: **Was wichtig ist, gehört nach
+            # oben.** Stehen die zwei größten Gruppen (Rüstung 910, Waffen 270)
+            # alphabetisch an Position 11 und 14, hilft auch der beste Balken
+            # nicht.
             leiste = round_scrollbar(outer, canvas, bg=SURFACE, width=10)
             leiste.pack(side='right', fill='y')
             canvas.configure(yscrollcommand=leiste.set)
@@ -1719,8 +1661,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         # ein eigenes Fenster, ihr Elternteil ist aber das Auswahlfeld — die
         # Kette laeuft also aus der Liste heraus und findet die Rollflaeche der
         # Seite darunter. Ergebnis: Man dreht am Rad, die Liste steht still und
-        # die Seite dahinter wandert. Die unteren Eintraege waren so gar nicht
-        # erreichbar. Am 30.08.2026 gemeldet.
+        # die Seite dahinter wandert. Die unteren Eintraege waeren so gar nicht
+        # erreichbar.
         #
         # Eine Bindung am Listenfenster selbst greift fuer alle Zeilen darin
         # (Tk geht Widget → Klasse → Fenster → „all") und laeuft VOR der
@@ -1776,17 +1718,10 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         # der Voreinstellung (0,0) statt unter dem Feld. Ein `update_idletasks()`
         # laesst Tk die Anweisung erst anwenden.
         #
-        # Am 02.09.2026 gemeldet, mit Bild: „Alle Klassen" klappte ganz links
-        # oben auf. Die Rechnung war dabei die ganze Zeit richtig — die Spur
-        # zeigte `Feld bei (2160,347) gemappt=1 -> Liste bei (2160,380)`. Genau
-        # deshalb war es so schwer zu finden: Es sah nach einem Rechenfehler
-        # aus und war ein Zeitpunktfehler. Gefunden wurde es, weil ein
-        # Messpunkt mit `update_idletasks()` den Fehler versehentlich behob.
-        #
-        # ⚠ `round_select` selbst ist seit v3.9.1 unveraendert (344 Zeilen,
-        # geprueft). Ausgeloest hat es vermutlich der Seiten-Vorbau, der die
-        # Ereignisschleife staerker belegt und damit das Zeitfenster
-        # verschiebt — das erklaert, warum derselbe Code vorher richtig lag.
+        # ⚠ Die Rechnung selbst ist dabei richtig (die Spur zeigt etwa
+        # `Feld bei (2160,347) gemappt=1 -> Liste bei (2160,380)`) — es ist
+        # ein Zeitpunktfehler, kein Rechenfehler. Wie oft er zuschlaegt, haengt
+        # daran, wie stark die Ereignisschleife gerade belegt ist.
         window.update_idletasks()
         window.lift()
         window.focus_set()
@@ -1796,10 +1731,10 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         #
         # ⚠ Die Bindung wird **verzögert** gesetzt. Direkt nach einer Auswahl baut
         # die Bauplan-Liste sich neu auf (bis zu 670 Zeilen), und dabei wandert der
-        # Fokus noch einmal. Hing `<FocusOut>` sofort am frischen Fenster, fing es
-        # genau dieses Nachzucken ab und schloss sich von selbst: Wer nach einer
-        # Auswahl gleich das nächste Feld anklickte, sah die Liste aufblitzen und
-        # verschwinden — erst der zweite Klick hielt. Genau so gemeldet.
+        # Fokus noch einmal. Hinge `<FocusOut>` sofort am frischen Fenster, finge
+        # es genau dieses Nachzucken ab und schlösse sich von selbst: Wer nach
+        # einer Auswahl gleich das nächste Feld anklickt, sähe die Liste
+        # aufblitzen und verschwinden.
         def set_guard():
             try:
                 window.bind('<FocusOut>', close_list)
@@ -1807,9 +1742,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
                 # ⚠⚠ **Scrollen schliesst die Liste auch.** Sie schwebt als
                 # eigenes Fenster an einer festen Stelle des Bildschirms —
                 # rollt man die Seite darunter weg, bleibt sie stehen und legt
-                # sich über fremde Zeilen. Am 29.08.2026 gemeldet: „alles
-                # scrollt mit, wenn ich durch die Liste scrolle." Ein
-                # Fokuswechsel findet dabei nicht statt, `<FocusOut>` greift
+                # sich über fremde Zeilen. Ein Fokuswechsel findet dabei nicht
+                # statt, `<FocusOut>` greift
                 # also nicht.
                 #
                 # Dasselbe gilt, wenn das Fenster verschoben oder in der Grösse
@@ -1840,8 +1774,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
     c.bind('<Button-1>', open_list)
     # ⚠⚠ **Beim Seitenwechsel muss die Liste mitgehen.** Sie ist ein eigenes,
     # rahmenloses Fenster und hängt an keiner Seite: Wer sie in der Herstellung
-    # aufklappt und dann links auf „Mein Lager" klickt, hatte sie bis
-    # v3.3.0-rc40 weiter über dem Lager schweben. Am 30.08.2026 gemeldet.
+    # aufklappt und dann links auf „Mein Lager" klickt, hätte sie sonst weiter
+    # über dem Lager schweben.
     #
     # Die vorhandenen Wachen greifen dort nicht: Ein Seitenwechsel ist kein
     # Fokuswechsel (`<FocusOut>`), kein Rollen und keine Größenänderung des
@@ -1866,7 +1800,7 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
 
 
 def badge(parent, text, color, font, bg=None, min_width=0):
-    """Eine abgerundete Blase mit farbigem Rand — „neu", „behoben" und Verwandte.
+    """Eine abgerundete Blase mit farbigem Rand — für Marken wie neu oder behoben.
 
     Ein farbiges Wort geht in einer Liste unter; eine umrandete Blase liest man
     als Auszeichnung.
@@ -1916,13 +1850,13 @@ class MainWindow:
         # Seiten sammeln Aenderungen ueber `after`, statt bei jedem Tastendruck
         # zu schreiben — wer fuenf Schiffe benennt, loest einen Schreiblauf aus
         # und nicht fuenf. Das ist richtig, hat aber ein Loch: Wer unmittelbar
-        # danach das Fenster schliesst, ist schneller als die Drossel. Der
-        # Wunsch steht dann in der eigenen Datei, in der `global.ini` aber
+        # danach das Fenster schliesst, ist schneller als die Drossel. Die
+        # Aenderung steht dann in der eigenen Datei, in der `global.ini` aber
         # nicht — und im Spiel steht weiter der alte Name, ohne jeden Hinweis.
         #
-        # Genau dieselbe Falle wie bei der Fenstergroesse ein paar Zeilen
-        # weiter unten, nur mit schlimmerer Wirkung. Eine Seite meldet ihren
-        # offenen Auftrag hier an; `schliessen()` arbeitet ihn ab.
+        # Dieselbe Falle wie bei der Fenstergroesse ein paar Zeilen weiter
+        # unten. Eine Seite traegt ihren offenen Auftrag hier ein;
+        # `schliessen()` arbeitet ihn ab.
         self.before_close = []
         # ⚠ `class_` / `className` setzen die Fensterklasse — ohne sie heisst
         # dieses Fenster `Toplevel` und die Arbeitsumgebung ordnet es der
@@ -1931,11 +1865,9 @@ class MainWindow:
                      else tk.Tk(className=paths.WM_CLASS))
         # ⚠⚠ **Erst bauen, dann zeigen.** Ein `Toplevel` steht ab der Erzeugung
         # auf dem Bildschirm — Reiterleiste, Fusszeile und die erste Seite
-        # entstehen also VOR den Augen des Nutzers. Gemeldet als „braucht eine
-        # Weile, bis Symbole und Text links geladen werden" (Haldjas, pr0, und
-        # am 02.09.2026 erneut). Die Zeit war dabei nie das eigentliche Problem
-        # — man sah nur beim Bauen zu. Das `deiconify()` am Ende von `__init__`
-        # gehoert untrennbar hierher.
+        # entstehen sonst VOR den Augen des Nutzers, und das Fenster wirkt
+        # langsam. Das `deiconify()` am Ende von `__init__` gehoert untrennbar
+        # hierher.
         self.root.withdraw()
         self.root.title(window_title(t('hf_titel')))
         self.root.configure(bg=BG)
@@ -1972,13 +1904,11 @@ class MainWindow:
         self._body()
         self._bind_click_on_empty()
 
-        # ⚠⚠ **Die gewuenschte Seite, nicht fest die Liste.** Bis zum 02.09.2026
-        # stand hier `self.oeffnen('liste')`, und der Aufrufer oeffnete die
-        # eigentlich gewollte Seite erst DANACH. Wer die Einstellungen aufmachte,
-        # wartete damit auf den Aufbau der kompletten Bauplan-Liste, die sofort
-        # wieder ausgeblendet wurde. Im Fehlerbericht stand es zweimal woertlich
-        # untereinander: `Seite liste: steht (205 ms)` gefolgt von
-        # `Seite allgemein: steht (7 ms)` — 205 der 212 ms waren fuer nichts.
+        # ⚠⚠ **Die verlangte Seite, nicht fest die Liste.** Oeffnete hier
+        # immer erst die Liste und der Aufrufer danach seine Seite, wartete
+        # man auf den Aufbau der kompletten Bauplan-Liste, die sofort wieder
+        # ausgeblendet wird (`Seite liste: steht (205 ms)` gefolgt von
+        # `Seite allgemein: steht (7 ms)` — 205 der 212 ms fuer nichts).
         self.open_page(start_page)
         # Die Mindesthöhe hängt an Schriftgröße und Skalierung — einmal messen,
         # sobald Tk die Seitenleiste gezeichnet hat.
@@ -1989,16 +1919,13 @@ class MainWindow:
         # wieder entstehen. (Im Pruefbetrieb legt `tools/unsichtbar.py`
         # `deiconify` stumm, dort bleibt das Fenster also verborgen.)
         # ⭐⭐ **Ein Klick ins Leere nimmt den Cursor aus dem Eingabefeld.**
-        # Vorschlag vom 06.09.2026: „kannst du da nicht im Programm einen
-        # Standard festlegen, so wie auch, wenn man ins Leere klickt, dass der
-        # Cursor dann nicht in einem Eingabefeld bleibt?"
         #
         # Das ist überall sonst so — in jedem Browser, in jeder App. Bleibt
         # der Cursor stehen, tippt man weiter in ein Feld, das man längst
         # verlassen glaubt, und wundert sich, warum die Suche nicht reagiert.
         #
-        # ⚠ **Auf dem Fenster, nicht auf jedem Feld einzeln.** Genau das war
-        # die Bitte: ein Standard, nicht dieselbe Zeile an fünfzig Stellen.
+        # ⚠ **Auf dem Fenster, nicht auf jedem Feld einzeln:** ein Standard,
+        # nicht dieselbe Zeile an fünfzig Stellen.
         # `bind_all` mit `add='+'`, damit vorhandene Klick-Bindungen weiter
         # feuern — ohne das `+` würde jedes andere `<Button-1>` überschrieben.
         self.root.bind_all('<Button-1>', self._click_on_empty, add='+')
@@ -2024,9 +1951,8 @@ class MainWindow:
 
             # ⚠ `focus_get()` antwortet nur, wenn dieses Fenster das AKTIVE des
             # Betriebssystems ist — sonst `None`, und die Regel griffe nie
-            # (07.09.2026 unter Windows gemessen). Im echten Betrieb ist das
-            # Fenster beim Klick natuerlich aktiv; im Prueflauf steht es
-            # beiseite, und drei Pruefungen liefen deshalb ins Leere.
+            # (unter Windows gemessen). Im echten Betrieb ist das Fenster beim
+            # Klick natuerlich aktiv; im Prueflauf steht es beiseite.
             # `focus_lastfor()` beantwortet dieselbe Frage ohne aktives
             # Fenster: welches Widget den Fokus in diesem Toplevel hat.
             if jetzt is None and target is not None:
@@ -2037,8 +1963,7 @@ class MainWindow:
                                                              'Spinbox'):
                 # ⚠ Auf das Toplevel des Klicks, nicht fest auf `self.root`.
                 # Sonst landet der Fokus in der Wurzel, waehrend der Nutzer in
-                # einem eigenen Fenster steht — dort bliebe der Cursor stehen,
-                # also genau der gemeldete Fehler, nur eine Ebene hoeher.
+                # einem eigenen Fenster steht — dort bliebe der Cursor stehen.
                 (target.winfo_toplevel() if target is not None
                  else self.root).focus_set()
         except Exception:
@@ -2065,9 +1990,8 @@ class MainWindow:
         *Text*. Alles, was seine Größe beim Bauen **einmal gemessen** hat,
         bleibt stehen: die gezeichneten Rundknöpfe (`_wahl`, `round_button`,
         `round_entry`) legen ihre Leinwand auf `schrift.measure(text)` fest.
-        Bei „sehr groß" ragte der Text deshalb aus dem Kasten heraus und war
-        abgeschnitten — gemeldet von am 27.08.2026 gemeldet an der
-        Overlay-Wahl („immer sichtbar" / „nur bei einem Neuzugang").
+        Bei der größten Stufe ragte der Text sonst aus dem Kasten heraus und
+        wäre abgeschnitten.
 
         Deshalb dasselbe wie beim Sprachwechsel: einmal neu aufbauen. Jede
         Leinwand misst dann mit der neuen Schrift. Einzeln nachzuziehen wären
@@ -2077,7 +2001,7 @@ class MainWindow:
         ⚠ Die Rückmeldung kommt **nach** dem Neuaufbau. Vorher gesagt, wäre sie
         sofort wieder weg: `rebuild()` zerstört auch die Fußzeile.
         """
-        # ⭐ Eine Zahl heißt Punkte (Regler, seit rc5), ein Wort eine Stufe.
+        # ⭐ Eine Zahl heißt Punkte (Regler), ein Wort eine Stufe.
         if isinstance(stufe, int) and not isinstance(stufe, bool):
             n = max(FONT_POINTS_RANGE[0], min(FONT_POINTS_RANGE[1], stufe))
             stufe = level_for_points(n)
@@ -2096,8 +2020,8 @@ class MainWindow:
                 errors.record('main_window.schriftwechsel', ausnahme)
 
         # ⚠ Über `after`, nicht sofort: Wir stecken im Klick-Rückruf des
-        # Knopfes, der gleich zerstört wird. Tk meldete sonst
-        # „invalid command name“.
+        # Knopfes, der gleich zerstört wird. Tk wirft sonst
+        # `invalid command name`.
         def nachziehen():
             try:
                 self.rebuild()
@@ -2112,11 +2036,8 @@ class MainWindow:
         """Ein Klick neben ein Eingabefeld beendet die Eingabe — überall.
 
         ⚠⚠ **Das ist eine Regel des ganzen Fensters, keine Einzellösung.**
-        Am 05.09.2026 gemeldet, und zwar mit dem entscheidenden Zusatz: „das
-        vergisst du jedesmal aufs neue wo man text eingeben kann." Zu Recht —
-        vorher war schon das Auswahlfeld betroffen (blieb beim Klick ins Leere
-        offen), dann das Meldungsfeld, dann das Namensfeld. Dreimal dieselbe
-        Ursache, dreimal einzeln geflickt. Das hier fasst es an der Wurzel.
+        Auswahlfeld, Meldungsfeld, Namensfeld — dieselbe Ursache überall; das
+        hier fasst sie an der Wurzel, statt jedes Feld einzeln zu flicken.
 
         ⚠ **Warum `<FocusOut>` allein nicht reicht.** Tk gibt den Fokus nur
         ab, wenn ihn ein anderes **fokussierbares** Bedienelement übernimmt.
@@ -2179,13 +2100,11 @@ class MainWindow:
                  font=self.f_small).pack(side='left', padx=(6, 0))
 
         # Symbol UND Wort: Ein Symbol allein erklärt sich nur dem, der es gebaut
-        # hat — hier war selbst der Entwickler unsicher, was `⟳` bedeutet. Genau
-        # deshalb steht der Zauberstab jetzt neben dem Wort „Einrichtung
-        # starten": ein Verb sagt, dass etwas losgeht; „Einrichtung" allein
-        # klang nach einem Ort, an dem man etwas nachschlägt.
-        # ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026): ein Update-Knopf bei den
-        # anderen dreien — und gleich dort sagen, dass es etwas Neues gibt.
-        # Zuerst gepackt, steht er ganz rechts.
+        # hat. Deshalb steht der Zauberstab neben „Einrichtung starten": ein
+        # Verb sagt, dass etwas losgeht; ein Substantiv allein klänge nach einem
+        # Ort, an dem man etwas nachschlägt.
+        # ⭐ Der Update-Knopf steht bei den anderen dreien und zeigt gleich
+        # dort, dass es etwas Neues gibt. Zuerst gepackt, steht er ganz rechts.
         self._update_state = [None]
         self.update_button = self._titlebar_button(
             bar, 'herunterladen', t('hf_update'), self._update_hint,
@@ -2197,8 +2116,8 @@ class MainWindow:
                          t('hf_hinweis_einr'), self._open_wizard)
         # ⚠ Gehoert hier oben hin, nicht in die Einstellungen: Wer den Rechner
         # wechselt, sucht nicht erst in Untermenues — und wer eine Sicherung
-        # nie gesehen hat, macht auch keine. Ein sichtbarer Knopf ist der
-        # Unterschied zwischen „gibt es" und „wird benutzt".
+        # nie gesehen hat, macht auch keine. Erst ein sichtbarer Knopf wird
+        # auch benutzt.
         self._titlebar_button(bar, 'sicherung', t('hf_sicherung'),
                          t('hf_hinweis_sich'), self._backup)
         self._playtime_display(bar)
@@ -2238,8 +2157,7 @@ class MainWindow:
     def _update_click(self):
         """Grün: nach Rückfrage gleich einspielen. Grau: „Update & Über" öffnen.
 
-        ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026). ⚠⚠ **Die Rückfrage ist
-        Pflicht, nicht Höflichkeit.** Das automatische Update wartet, solange
+        ⚠⚠ **Die Rückfrage ist Pflicht, nicht Höflichkeit.** Das automatische Update wartet, solange
         Star Citizen läuft — grün ist der Knopf deshalb fast nur **mitten im
         Spiel**. Ein Fehlklick schlösse das Overlay ohne Vorwarnung. Zwei
         gleichwertige Wege, Escape tut nichts (`ask_choice`).
@@ -2282,9 +2200,7 @@ class MainWindow:
     def _playtime_display(self, bar):
         """Gesamt- und Sitzungszeit in der Kopfzeile.
 
-        ⚠⚠ **Gewuenscht am 05.09.2026**, zusammen mit der Datenbank dahinter:
-        „so das man einmal pro min oben ne aktuelle Zeit hat, fuer gesamt und
-        Aktuelle sitzung."
+        Einmal pro Minute aufgefrischt, aus der Datenbank in `playtime`.
 
         ⚠ **Kein Knopf.** Die drei Nachbarn links tun etwas, wenn man sie
         anklickt; das hier ist eine Auskunft. Deshalb ohne Zeigefinger und in
@@ -2296,7 +2212,7 @@ class MainWindow:
         """
         from . import playtime as _sz
 
-        # ⚠⚠ **Standardmaessig AUS** (Wunsch vom 05.09.2026). Nicht jeder will
+        # ⚠⚠ **Standardmaessig AUS.** Nicht jeder will
         # wissen, wie viel Zeit er in einem Spiel verbracht hat — und eine
         # Zahl, die das ungefragt vorrechnet, ist schwer wieder loszuwerden.
         # Wer sie will, schaltet sie unter Anzeige ein.
@@ -2359,7 +2275,7 @@ class MainWindow:
         for part in (rahmen, z, w):
             part.bind('<Button-1>', lambda e, f=tat: f())
         icons.hover_group(rahmen, z)
-        # Der Hinweis darf mitwandern (Update-Knopf: „v3.62.4 ist da").
+        # Der Hinweis darf mitwandern (Update-Knopf: neue Versionsnummer).
         notice.attach(rahmen, erklaerung if callable(erklaerung)
                       else (lambda: erklaerung))
         rahmen.teile = (z, w)
@@ -2392,14 +2308,11 @@ class MainWindow:
         # die Einträge stehen (siehe `_sidebar_width_update`).
         # ⚠⚠ **Die Leiste rollt, wenn sie nicht ganz auf den Bildschirm passt.**
         #
-        # Vorher war sie ein fester Rahmen, und ihre Höhe bestimmte die
-        # Mindesthöhe des Fensters (`_mindestmass_nachziehen`). Mit jedem neuen
-        # Reiter wuchs das Fenster mit — bei der Gruppe „Handel" (v3.4.0)
-        # brauchte sie 1020 px und das Fenster passte auf einem 1080er
-        # Bildschirm nicht mehr: unten stand es über der Taskleiste hinaus, und
-        # man kam an den Inhalt darunter nicht mehr heran. Am 30.08.2026 so
-        # gemeldet: „das Einstellungsfenster ist zu groß, er kommt nicht mehr
-        # an alles ran."
+        # Als fester Rahmen bestimmte ihre Höhe die Mindesthöhe des Fensters
+        # (`_mindestmass_nachziehen`), und mit jedem neuen Reiter wüchse das
+        # Fenster mit — bei 1020 px passt es auf keinen 1080er Bildschirm, steht
+        # unten über die Taskleiste hinaus, und der Inhalt darunter ist
+        # unerreichbar.
         #
         # Ein `minsize`, das größer ist als der Bildschirm, lässt sich auch
         # nicht wegdeckeln — Tk hält es gegen jedes `geometry()`. Also muss die
@@ -2465,10 +2378,10 @@ class MainWindow:
 
         self.content = tk.Frame(self.root, bg=BG)
         self.content.pack(side='right', fill='both', expand=True)
-        # ⭐ **Der Rückweg nach einem Seitensprung** (13.09.2026, Bushwick).
-        # Wer in der Bauplan-Liste einen Eintrag anklickt, landet in der
-        # Herstellung — und kam von dort nur über die Seitenleiste zurück,
-        # also ohne Suchbegriff und ohne Filter, mit denen er losgelaufen war.
+        # ⭐ **Der Rückweg nach einem Seitensprung.** Wer in der Bauplan-Liste
+        # einen Eintrag anklickt, landet in der Herstellung — und käme von dort
+        # sonst nur über die Seitenleiste zurück, also ohne Suchbegriff und
+        # ohne Filter, mit denen er losgelaufen war.
         #
         # ⚠ Es sind **sechs** solcher Sprünge, nicht einer (Liste→Herstellung,
         # Auftrag→Liste dreimal, Rohstoff→Bergbau, →Was ist neu). Ein Knopf nur
@@ -2490,34 +2403,28 @@ class MainWindow:
         # der Bauplan-Liste, nicht in einem eigenen Bereich.
         self._tab('auftragslog', 'eigenbuch', t('hf_auftragslog'), g_bp)
 
-        # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die beiden Seiten
-        # beantworten eine andere Frage („was brauche ich / wo hole ich es")
-        # als der eigene Bestand („habe ich das schon"). Die Gruppenüberschrift
-        # gibt zugleich den Kontext, deshalb reichen darunter kurze Namen.
+        # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die Seiten
+        # beantworten eine andere Frage (was wird gebraucht, wo gibt es das) als
+        # der eigene Bestand (ist das schon da). Die Gruppenüberschrift gibt
+        # zugleich den Kontext, deshalb reichen darunter kurze Namen.
         # ⚠ Die Reihenfolge ist die **Kette, wie man sie im Spiel erlebt**:
-        # Was habe ich → was brauche ich dafür → wo hole ich das. So hat es
-        # Xharig am 29.08.2026 selbst beschrieben, und so liest sich die
-        # Leiste von oben nach unten wie ein Ablauf statt wie eine Sammlung.
-        # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt** (entschieden
-        # 06.09.2026). Die Werkstatt-Kette lautet „was habe ich an Material →
-        # was baue ich → wo hole ich es"; ein Schiff ist keine Zutat. Und der
-        # Bereich wächst: Auslegung und Bergung gehören später hierher, nicht
-        # zwischen Rohstoffe und Rezepte.
+        # Was ist da → was wird dafür gebraucht → wo gibt es das. So liest sich
+        # die Leiste von oben nach unten wie ein Ablauf statt wie eine Sammlung.
+        # ⚠ **Schiffe: eigene Gruppe, nicht an „Werkstatt" angehängt.** Die
+        # Werkstatt-Kette lautet Material → bauen → beschaffen; ein Schiff ist
+        # keine Zutat.
         #
-        # **Zwischen Bauplänen und Werkstatt**, weil „passt der Bauplan in mein
-        # Schiff?" die unmittelbare Anschlussfrage an einen neuen Fund ist —
-        # sie kommt vor „woraus baue ich das".
+        # **Zwischen Bauplänen und Werkstatt**, weil die Frage, ob der Bauplan
+        # ins eigene Schiff passt, die unmittelbare Anschlussfrage an einen
+        # neuen Fund ist — sie kommt vor der Frage, woraus man ihn baut.
         g_schiff = self._group(t('hf_gruppe_schiffe'), 'schiffe')
         self._tab('hangar', 'hangar', t('hf_hangar'), g_schiff)
-        # ⚠ **Eigener Reiter seit v3.19.0** — vorher stand die Wunschliste
-        # unten auf der Hangar-Seite. Am 06.09.2026 gemeldet: „wird sonst
-        # unübersichtlich und niemand findet es auf Anhieb." Über einer Liste
-        # von vierzig Schiffen, von denen jedes seine Ausstattung aufklappt,
-        # verschwindet alles, was darunter steht.
+        # ⚠ **Eigener Reiter, nicht unten auf der Hangar-Seite:** Unter einer
+        # Liste von vierzig Schiffen, von denen jedes seine Ausstattung
+        # aufklappt, verschwindet alles, was darunter steht.
         #
-        # ⚠ Und in derselben Gruppe, nicht in einer eigenen: „die Reiter können
-        # unter Schiffe bleiben, weil es ja Schiffe betrifft." Eine Gruppe je
-        # Reiter wäre keine Gliederung mehr.
+        # ⚠ Und in derselben Gruppe, nicht in einer eigenen — es betrifft
+        # Schiffe. Eine Gruppe je Reiter wäre keine Gliederung mehr.
         self._tab('wunschliste', 'wunschliste', t('hf_wunschliste'),
                      g_schiff)
         # ⚠ **Zuletzt in der Gruppe, und das ist die Kette:** was ich habe →
@@ -2526,7 +2433,7 @@ class MainWindow:
         self._tab('einkaufsliste', 'einkaufsliste',
                      t('hf_einkaufsliste'), g_schiff)
         # ⚠ Danach, nicht davor: Namen vergeben ist Feinarbeit an dem, was man
-        # schon hat — die Kette „habe → will → kostet" bleibt vorn. Und es
+        # schon hat — die Kette habe → will → kostet bleibt vorn. Und es
         # gehört in diese Gruppe, weil es Schiffe betrifft; eine eigene Gruppe
         # für einen Reiter wäre keine Gliederung mehr.
         self._tab('asop', 'hangar', t('hf_asop'), g_schiff)
@@ -2536,26 +2443,24 @@ class MainWindow:
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
         # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
-        # beim Erz stellt: „und wo lasse ich das raffinieren?" Ein eigener
+        # beim Erz stellt: wo man es raffinieren lässt. Ein eigener
         # Bereich wäre sie nicht — der Raffinerie-Kasten am Erz verlinkt
         # hierher, und der Rückweg steht über der Seite.
         self._tab('raffinerien', 'raffinerie', t('hf_raffinerien'), g_werk)
-        # ⚠ **Hier und nicht bei „Handel".** Die Kette der Werkstatt endet bei
-        # „wo hole ich das" — und ein fertig gekauftes Teil ist die Antwort auf
+        # ⚠ **Hier und nicht bei „Handel".** Die Kette der Werkstatt endet beim
+        # Beschaffen — und ein fertig gekauftes Teil ist die Antwort auf
         # dieselbe Frage, nur der andere Weg: bauen oder kaufen. Bei „Handel"
         # ginge es um Ware, die man **loswerden** will; das ist etwas anderes.
         self._tab('laeden', 'laeden', t('hf_laeden'), g_werk)
-        # ⚠ **Hier und nicht bei den Schiffen** (Einordnung vom 06.09.2026:
-        # „schiebt man Herstellungsliste nicht eher unten in die Werkstatt?").
-        # Die Werkstatt-Kette ist „was habe ich an Material → was baue ich → wo
-        # hole ich es" — eine Liste fehlender Rohstoffe ist die Antwort auf die
-        # erste Frage. Bei den Schiffen ginge es um Geld, hier um Erz.
+        # ⚠ **Hier und nicht bei den Schiffen.** Die Werkstatt-Kette ist
+        # Material → bauen → beschaffen — eine Liste fehlender Rohstoffe ist
+        # die Antwort auf die erste Frage. Bei den Schiffen ginge es um Geld, hier um Erz.
         #
         # Zuletzt in der Gruppe, weil sie die anderen drei zusammenfasst.
         self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
 
         # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt.** Die Kette dort
-        # endet beim Bauen („was habe ich → was brauche ich → wo hole ich es").
+        # endet beim Bauen (habe → brauche → beschaffe).
         # Handel ist die Gegenrichtung: Ware, die man **loswerden** will. Wer
         # verkauft, denkt nicht an Rezepte — und wer baut, will sein Baumaterial
         # nicht in einer Verkaufsliste sehen.
@@ -2564,12 +2469,11 @@ class MainWindow:
         # man damit tut.
         # ⚠ **Eigene Gruppe, nicht bei „Bergbau".** Bergbau ist Erz aus
         # Felsen, Bergung ist ein Wrack ausschlachten — zwei Spielarten, die
-        # nur im deutschen Wort nah beieinander liegen. Der Wunsch dazu war
-        # ausdrücklich: „dafür machen wir einen Salvage-Abschnitt, zumindest
-        # würde man da suchen."
+        # nur im deutschen Wort nah beieinander liegen. Ein eigener
+        # Salvage-Abschnitt ist dort, wo man es sucht.
         g_bergung = self._group(t('hf_gruppe_bergung'), 'bergung')
         self._tab('bergung', 'sicherung', t('hf_bergung'), g_bergung)
-        # ⚠ **Zweiter Reiter in dieser Gruppe.** „Was steckt drin?" sagt, was
+        # ⚠ **Zweiter Reiter in dieser Gruppe.** Der erste sagt, was
         # ein Wrack an Bord hat; hier steht, was davon der Fabricator wieder
         # herausgibt. Zwei Schritte derselben Arbeit — erst schauen, dann
         # entscheiden, ob sich das Ausbauen lohnt.
@@ -2581,15 +2485,12 @@ class MainWindow:
         self._tab('verkauf', 'verkauf', t('hf_verkauf'), g_handel)
         # ⚠ Nach „Verkauf", weil es die größere Frage ist: Dort geht es um
         # Ware, die man **schon hat**; hier um die Fahrt, die man erst plant.
-        # Wer den Laderaum voll hat, will „wohin damit" — wer ihn leer hat,
-        # „was soll ich überhaupt laden".
+        # Wer den Laderaum voll hat, sucht einen Abnehmer — wer ihn leer hat,
+        # sucht erst eine Ladung.
         self._tab('routen', 'routen', t('hf_routen'), g_handel)
 
-        # ⭐ **Eigene Gruppe seit v3.58.0-rc2** (27.09.2026). In rc1 war die
-        # Statistik ein Reiter unter „Info"; mit den Unterseiten nach dem
-        # Vorbild des SC Deutsch Launchers wurde daraus ein Bereich:
-        # *„als Extra Kategorie Statistik, und da als Reiter ausklappbar, und
-        # einen Extra Reiter an erster Stelle mit den Einstellungen."*
+        # ⭐ **Statistik als eigene Gruppe** mit ihren Unterseiten als Reitern,
+        # die Einstellungen dazu als eigener Reiter.
         # ⚠ Die Auswertung zuerst — was man einstellt, steht vor dem, was
         # man liest. Die Übersicht behält die Kennung `statistik`, damit ihre
         # „Neu"-Marke und gespeicherte Sprünge dorthin weiter stimmen.
@@ -2607,13 +2508,7 @@ class MainWindow:
                   g_stat)
         self._tab('statistik_stabil', 'st_stabil', t('hf_st_stabil'), g_stat)
 
-        # ⭐⭐ **Neu gegliedert in v3.58.0-rc4** (27.09.2026, nach dem
-        # Vorbild des SC Deutsch Launchers): *„User melden, dass sie einiges
-        # suchen müssten, weil es nicht nachvollziehbar genug sei."* Vorher
-        # steckten die Overlay-Einstellungen unter „Anzeige", die Pfade unter
-        # „Für Fortgeschrittene", und die `user.cfg` war nirgends zu sehen.
-        #
-        # Die Reihenfolge geht vom Programm zum Spiel: wie VerseKit sich
+        # ⭐⭐ Die Reihenfolge geht vom Programm zum Spiel: wie VerseKit sich
         # verhält → wie es aussieht → wo das Spiel liegt → was im Spiel
         # eingestellt wird → was mit dem Spiel startet → Sichern.
         #
@@ -2626,7 +2521,7 @@ class MainWindow:
         self._tab('darstellung', 'darstellung', t('hf_darstellung'), g_einst)
         self._tab('ordner', 'ordner', t('hf_ordner'), g_einst)
         self._tab('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
-        # ⭐ v3.59.0: direkt unter „Spiel" — dort stehen die Bauplan-Angaben,
+        # ⭐ Direkt unter „Spiel" — dort stehen die Bauplan-Angaben,
         # hier, in welche Textdatei (und in welcher Sprache, je Kanal) sie
         # geschrieben werden. Eigener Reiter, weil elf Quellen und eine Karte
         # je Kanal die Seite „Spiel" gesprengt hätten.
@@ -2637,23 +2532,20 @@ class MainWindow:
         # Wie der eigene Aufbau aussieht (welcher Stick welche Nummer hat) und
         # wie die Achse reagiert — dieselbe Sache aus zwei Richtungen.
         self._tab('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
-        # ⚠ „Achsen & Kurven" stand bis rc3 hinter „Für Fortgeschrittene",
-        # weil die Seite in die `actionmaps.xml` schreibt und einmal im
-        # Vorbeigehen funktionierende Werte überschrieben wurden. Seit der
-        # Gliederung vom 27.09.2026 offen neben „Steuerung" — die Seite trägt
-        # ihre Warnungen selbst.
+        # ⚠ „Achsen & Kurven" schreibt in die `actionmaps.xml` und kann dort
+        # funktionierende Werte überschreiben. Die Seite steht trotzdem offen
+        # neben „Steuerung" — sie trägt ihre Warnungen selbst.
         self._tab('achsen', 'achsen', t('hf_achsen'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
-        # ⭐ v3.61.0: Abgleich mit dem KRT Profit Basetool — seit der Freigabe
-        # (krt-profit/basetool#2273) für alle sichtbar. Bis dahin verborgen,
-        # weil jeder Versuch mit „nicht zugelassen" geendet hätte.
+        # ⭐ Abgleich mit dem KRT Profit Basetool
+        # (Freigabe: krt-profit/basetool#2273).
         self._tab('basetool', 'basetool', t('hf_basetool'), g_einst)
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
 
-        # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas.
-        # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.
+        # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas,
+        # deshalb stehen sie nicht unter „Einstellungen".
         g_info = self._group(t('hf_gruppe_info'), 'info')
         self._tab('wasistneu', 'wasistneu', t('hf_wasistneu'), g_info)
         # ⚠ **Direkt unter „Was ist neu", und das ist die Symmetrie:** Dort
@@ -2677,14 +2569,11 @@ class MainWindow:
         self._tab('serverstatus', 'serverstatus', t('hf_serverstatus'),
                      g_info)
         # ⚠ **Diagnose gehört hierher, nicht unter „Fortgeschritten".** Wer die
-        # Seite braucht, hat ein Problem — und sucht sie dann in einem Menü, das
-        # zugeklappt ist und „Fortgeschritten" heißt, also nach „nichts für
-        # mich" aussieht. Am 28.08.2026 fiel auf, nachdem sein Bruder den
-        # Bericht nicht fand: „ich will nicht jedem eine Stunde erklären, wie
-        # ich zu dem Bericht komme."
+        # Seite braucht, hat ein Problem — und übersieht ein zugeklapptes Menü,
+        # dessen Name nach Expertenkram klingt.
         #
-        # Seit dem roten Knopf „Fehlerbericht absenden" ist die Seite außerdem
-        # der Weg, auf dem Meldungen überhaupt ankommen. Ein Weg, den man
+        # Mit dem roten Knopf „Fehlerbericht absenden" ist die Seite außerdem
+        # der Weg, auf dem Fehlerberichte überhaupt ankommen. Ein Weg, den man
         # erklären muss, wird nicht benutzt.
         self._tab('diagnose', 'diagnose', t('hf_diagnose'), g_info)
         # ⚠ Eigener Reiter, kein Abschnitt auf „Update & Über": Die Seite dort
@@ -2698,10 +2587,9 @@ class MainWindow:
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
         # es sucht, findet es; wer es nicht kennt, wird nicht erschlagen.
         #
-        # ⚠ **Es sitzt in der Gruppe „Einstellungen", nicht mehr am unteren
-        # Rand.** Dort klebte es früher zwischen den Knöpfen und war das
-        # einzige Element der Leiste ohne Gruppe — ein Bruch, sobald die
-        # Gruppen klappbar wurden (30.08.2026).
+        # ⚠ **Es sitzt in der Gruppe „Einstellungen", nicht am unteren Rand.**
+        # Dort wäre es das einzige Element der Leiste ohne Gruppe — ein Bruch
+        # neben lauter klappbaren Gruppen.
         #
         # ⚠ Und zwar **Einstellungen**, nicht „Info": Dahinter liegen Pfade,
         # Erkennung und der Bauplan-Bestand, also Dinge, die man **einstellt**.
@@ -2711,8 +2599,7 @@ class MainWindow:
         self.collapse.pack(fill='x', pady=(6, 4))
         # ⚠ Aufbau wie eine Gruppenüberschrift: Beschriftung links, Pfeil
         # rechts, dasselbe Symbol. Es ist dieselbe Handlung — etwas auf- und
-        # zuklappen —, also muss es gleich aussehen (Wunsch vom 30.08.2026:
-        # „gleiches Bild im gesamten Projekt").
+        # zuklappen —, also muss es im ganzen Projekt gleich aussehen.
         self.collapse_head = tk.Frame(self.collapse, bg=SURFACE, cursor='hand2')
         self.collapse_head.pack(fill='x')
         self.collapse_arrow = icons.line(self.collapse_head, 'aufklappen',
@@ -2728,9 +2615,6 @@ class MainWindow:
         self.collapse_body = tk.Frame(self.collapse, bg=SURFACE)
 
         # --- Discord -----------------------------------------------------
-        # Wunsch von am 26.08.2026 gemeldet, nach dem Vorbild des
-        # SC-Deutsch-Launchers: „discord Button wäre tatsächlich auch sinnvoll."
-        #
         # ⚠ Bewusst **ruhiger** als der Knopf darüber. Star Citizen zu starten
         # ist die Handlung, für die jemand dieses Fenster offen hat; der Weg zum
         # Discord ist ein Angebot. Zwei gleich laute Knöpfe nebeneinander nehmen
@@ -2745,7 +2629,7 @@ class MainWindow:
         self.discord_button.pack(fill='x')
 
         # --- Ko-fi -------------------------------------------------------
-        # ⚠ Die Rechtslage dazu ist **zweigeteilt** und am 26.08.2026 geprüft:
+        # ⚠ Die Rechtslage dazu ist **zweigeteilt**:
         #
         #   * Die Fandom-FAQ von RSI führt „donations" wörtlich in der Liste
         #     verbotener kommerzieller Nutzung.
@@ -2754,10 +2638,8 @@ class MainWindow:
         #     Zugangsgebühren und Werbe- bzw. Sponsoreneinnahmen. Spenden kommen
         #     dort nicht vor.
         #
-        # der Autor hat sich nach beiden Fundstellen dafür entschieden, weil das
-        # Projekt echte Kosten verursacht und die ToS es nicht untersagen. Was in
-        # **beiden** Dokumenten verboten bleibt und deshalb hier nie entstehen
-        # darf: eine Bezahlschranke, ein Abo, Werbung. Der Knopf führt zu einer
+        # Was in **beiden** Dokumenten verboten bleibt und deshalb hier nie
+        # entstehen darf: eine Bezahlschranke, ein Abo, Werbung. Der Knopf führt zu einer
         # freiwilligen Seite, das Werkzeug bleibt vollständig und kostenlos.
         rahmen_kofi = tk.Frame(self.sidebar_foot, bg=SURFACE)
         rahmen_kofi.pack(side='bottom', fill='x', padx=12, pady=(0, 2))
@@ -2768,14 +2650,9 @@ class MainWindow:
         self.kofi_button.pack(fill='x')
 
         # --- Star Citizen starten ---------------------------------------
-        # ⚠ Der Knopf stand erst auf der Seite „Auftragstexte", also dort, wo es
-        # um Bauplan-Angaben im Spiel geht — selbst der Autor fand ihn nicht
-        # wieder. Danach zog er ins Overlay; sichtbar war er dort nur, solange
-        # das Overlay eingeblendet ist.
-        #
-        # Gemeldet am 26.08.2026: „den SC Starten Button sollten wir über für
-        # Fortgeschrittene packen in dem markanten grün wie jetzt auch, da sieht
-        # man ihn sofort." Hier ist er auf **jeder** Seite zu sehen.
+        # ⚠ Hier ist der Knopf auf **jeder** Seite zu sehen, im markanten Grün
+        # — auf einer Unterseite findet ihn niemand, und im Overlay ist er nur
+        # sichtbar, solange das Overlay eingeblendet ist.
         #
         # ⚠ `side='bottom'` staffelt von unten nach oben: Was **später** gepackt
         # wird, sitzt weiter oben. Dieser Knopf kommt deshalb nach dem
@@ -2803,34 +2680,29 @@ class MainWindow:
         self._community_mark()
 
     def _community_mark(self):
-        """Das „Made by the Community"-Zeichen als Wasserzeichen im Fuß.
+        """Das Made-by-the-Community-Zeichen als Wasserzeichen im Fuß.
 
-        ⭐ Wunsch vom 27.09.2026, nach dem Vorbild des SC Deutsch Launchers.
-        Das Zeichen stammt aus dem offiziellen Fankit von CIG und ist genau
+        ⭐ Das Zeichen stammt aus dem offiziellen Fankit von CIG und ist genau
         für Fan-Projekte gedacht; es sagt auf einen Blick, dass VerseKit kein
         Werkzeug von CIG ist.
 
         ⚠ Oberhalb der Knöpfe, **rein weiß**: kein Bedienelement — deshalb
         kein Mauszeiger, kein Klick. Das Schwarz des Originals ist durchsichtig
-        gemacht, sonst stünde eine schwarze Scheibe auf der Leiste. In rc2 war
-        es zusätzlich zu 45 % durchsichtig — grau auf Grau, „es ist eh nichts
-        richtig erkennbar" (27.09.2026).
+        gemacht, sonst stünde eine schwarze Scheibe auf der Leiste. Nicht
+        zusätzlich durchsichtig: grau auf Grau ist es nicht mehr erkennbar.
 
-        ⚠ Jeder Pixel im Fuß fehlt der rollenden Leiste darüber. rc2 hatte
-        deshalb 60 px — „etwas zu klein" (27.09.2026). Seitdem rund 80 px.
+        ⚠ Jeder Pixel im Fuß fehlt der rollenden Leiste darüber; rund 80 px
+        sind der Kompromiss.
 
-        ⚠⚠ **Fertig gerenderte Größen statt `subsample`** (28.09.2026).
-        Vorher wurde das 240-px-Bild über `subsample()` verkleinert — das nimmt
-        jeden n-ten Pixel, ohne zu mitteln. Bei der feinen Ringschrift
-        („MADE BY THE COMMUNITY") franst das aus und sieht matschig aus, und
-        weil der Teiler eine **ganze Zahl** sein muss, sprang die Größe bei
-        hoher Windows-Skalierung von 240/3 auf 240/2. Gemeldet von Choopa
-        (28.09.2026): „Bei der DPI und Schärfe musst Du was tun. Es wird
-        unscharf ab 128 % Skalierung."
+        ⚠⚠ **Fertig gerenderte Größen statt `subsample`.** `subsample()` nimmt
+        jeden n-ten Pixel, ohne zu mitteln. Bei der feinen Ringschrift franst
+        das aus und sieht matschig aus, und weil der Teiler eine **ganze
+        Zahl** sein muss, springt die Größe bei hoher Windows-Skalierung von
+        240/3 auf 240/2 — ab etwa 128 % Skalierung wird es unscharf.
 
-        Deshalb liegen die Größen jetzt fertig herunterskaliert daneben —
+        Deshalb liegen die Größen fertig herunterskaliert daneben —
         dasselbe Muster wie bei den Flaggen (`assets/flaggen/xx-14.png`).
-        Gewählt wird die nächstgelegene; sie wird **nicht mehr angefasst**,
+        Gewählt wird die nächstgelegene; sie wird **nicht weiter skaliert**,
         und genau das macht sie scharf. Die restliche Abweichung liegt unter
         einem Zehntel und fällt an einem Wasserzeichen nicht auf.
 
@@ -2840,7 +2712,7 @@ class MainWindow:
             wanted = dpi.px(self.f_base.metrics('linespace') * 4.5)
             # ⚠ Erst den Ordner auflösen, dann die Datei darin. Der Bau packt
             # `assets/community` als Ganzes ein (wie `assets/flaggen`), und die
-            # Prüfung „der Bau liefert … mit" liest den letzten Namen im
+            # Prüfung, ob der Bau die Datei mitliefert, liest den letzten Namen im
             # `_bundled()`-Aufruf — ein `'%d.png' % groesse` stünde dort als
             # Formatstring und wäre nie im Bauplan zu finden.
             ordner = _bundled(os.path.join('assets', 'community'))
@@ -2884,10 +2756,9 @@ class MainWindow:
     def _open_address(self, adresse, meldung, stelle):
         """Eine Adresse aufmachen — und **sagen**, wenn es nicht geklappt hat.
 
-        ⚠ Beide Knöpfe riefen bis rc43 `webbrowser.open()` direkt auf. Im
-        AppImage öffnet das nichts (siehe `paths.open_in_browser`), meldet aber auch
-        keinen Fehler: Die Statuszeile sagte „wird geöffnet", und dann passierte
-        nie etwas. Ein Knopf, der schweigend nichts tut, ist schlimmer als einer,
+        ⚠ Nicht `webbrowser.open()` direkt: Im AppImage öffnet das nichts
+        (siehe `paths.open_in_browser`), wirft aber auch keinen Fehler — die
+        Statuszeile behauptete das Öffnen, und dann passiert nichts. Ein Knopf, der schweigend nichts tut, ist schlimmer als einer,
         der sagt, dass er nicht kann — dann steht wenigstens die Adresse da.
         """
         from . import paths as paths_module
@@ -2913,31 +2784,27 @@ class MainWindow:
         if not ok:
             self.say(t('s_sp_start_nein', grund))
 
-    # ⚠⚠ **Diese Gruppen lassen sich NICHT zuklappen** (05.09.2026).
+    # ⚠⚠ **Diese Gruppen lassen sich NICHT zuklappen.**
     # In „Info" steht „Fehler melden". Wer die Gruppe zuklappt, blendet damit
     # den Weg aus, auf dem er ein Problem loswird — und sucht ihn genau dann,
-    # wenn etwas klemmt und die Geduld ohnehin am Ende ist. Gemeldet mit dem
-    # Satz: „Info sollte auch nicht einklappbar sein, sonst blendet jemand
-    # Fehler melden aus, und findet es nicht mehr."
+    # wenn etwas klemmt und die Geduld ohnehin am Ende ist.
     #
     # ⚠ Warum nicht einfach alle festnageln: Das Zuklappen gibt es aus einem
     # guten Grund — die Seitenleiste bestimmt die Mindesthöhe des Fensters,
     # und zugeklappte Gruppen sparen rund 400 px. Festgenagelt wird deshalb
     # nur, was im Notfall auffindbar bleiben muss.
     #
-    # ⭐⭐ **Seit v3.58.0: Info klappt wieder — aber nicht ganz** (27.09.2026).
-    # Die Gruppe wuchs um „Statistik", und fest offen kostete sie bei jedem
-    # Platz. Der Wunsch: *„Info wieder einklappbar, außer Fehler melden,
-    # Update und Über, und Was ist neu, die sollen sichtbar bleiben, damit die
-    # niemand übersieht."* Damit bleibt der Grund von oben gewahrt — der Weg,
-    # ein Problem loszuwerden, lässt sich nicht wegklappen —, und der Rest
-    # gibt seinen Platz frei. Die Reiter hier stehen auch in zugeklappter
+    # ⭐⭐ **Info klappt — aber nicht ganz.** Fest offen kostete die Gruppe
+    # viel Platz. „Fehler melden", „Update & Über" und „Was ist neu" bleiben
+    # auch zugeklappt sichtbar (`PINNED_TABS`). Damit bleibt der Grund von
+    # oben gewahrt — der Weg, ein Problem loszuwerden, lässt sich nicht
+    # wegklappen —, und der Rest gibt seinen Platz frei. Die Reiter hier stehen auch in zugeklappter
     # Gruppe da, in ihrer gewohnten Reihenfolge.
     ALWAYS_OPEN = ()
     PINNED_TABS = {'info': ('wasistneu', 'ueber', 'diagnose')}
 
     def _apply_modules(self):
-        """Ausgeschaltete Module aus der Leiste nehmen (v3.58.0-rc4).
+        """Ausgeschaltete Module aus der Leiste nehmen.
 
         ⚠ Nur ausblenden: Die Gruppe wird gebaut wie immer und dann nicht
         gepackt. So bleibt alles, was an ihren Reitern hängt (Neu-Marken,
@@ -2953,10 +2820,9 @@ class MainWindow:
     def _group_setting(self, kennung):
         """Unter welchem Namen der Klappzustand einer Gruppe gemerkt wird.
 
-        ⚠ Für Info ein **neuer** Name: `gruppe_zu_info` stammt aus der Zeit vor
-        dem 05.09.2026, als Info frei klappte. Ein altes „zu" von damals hätte
-        die Gruppe jetzt schlagartig zugeklappt — ausgerechnet in der Fassung,
-        die dort einen neuen Reiter bringt."""
+        ⚠ Für Info ein **eigener** Name, nicht `gruppe_zu_info`: Ein dort
+        gespeicherter alter Zustand würde die Gruppe sonst unvermittelt
+        zuklappen."""
         if kennung in self.PINNED_TABS:
             return 'gruppe_zu_%s_2' % kennung
         return 'gruppe_zu_%s' % kennung
@@ -2987,15 +2853,15 @@ class MainWindow:
 
         Gibt den Rahmen zurück, in den die Reiter der Gruppe gehören.
 
-        ⭐ **Warum klappbar** (Wunsch vom 30.08.2026): Die Seitenleiste
-        bestimmt mit, wie hoch das Fenster mindestens sein muss. Bei 36 px je
-        Reiter waren es mit der Gruppe „Handel" 1020 px — mehr, als auf einen
-        1080er Bildschirm passt. Wer Werkstatt, Handel und Einstellungen
-        zuklappt, spart rund 400 px, und die Mindesthöhe geht mit.
+        ⭐ **Warum klappbar:** Die Seitenleiste bestimmt mit, wie hoch das
+        Fenster mindestens sein muss. Bei 36 px je Reiter kommen schnell über
+        1000 px zusammen — mehr, als auf einen 1080er Bildschirm passt. Wer
+        Werkstatt, Handel und Einstellungen zuklappt, spart rund 400 px, und
+        die Mindesthöhe geht mit.
 
         ⚠ **Das ersetzt weder die Deckelung noch die rollende Leiste.** Klappt
         jemand alles auf, ist der Bedarf wieder da; ohne die beiden anderen
-        Maßnahmen wäre derselbe Fehler zurück.
+        Maßnahmen passte das Fenster wieder nicht.
 
         ⚠ Der Zustand wird gemerkt, aber **die Gruppe des offenen Reiters
         bleibt offen** (siehe `open_page`) — sonst verschwindet die Seite, auf
@@ -3004,9 +2870,8 @@ class MainWindow:
         kennung = kennung or text
         fest = kennung in self.ALWAYS_OPEN
         # ⚠ Eine festgenagelte Gruppe steht offen, auch wenn in den
-        # Einstellungen noch ein „zu" von früher liegt. Sonst bliebe sie bei
-        # allen zu, die sie einmal zugeklappt hatten — also genau bei denen,
-        # um die es hier geht.
+        # Einstellungen ein gespeicherter Zuklapp-Zustand liegt. Sonst bliebe
+        # sie bei allen zu, die sie einmal zugeklappt haben.
         offen = fest or not paths.setting_bool(
             self._group_setting(kennung), False)
 
@@ -3015,16 +2880,15 @@ class MainWindow:
         kopf = tk.Frame(self.sidebar, bg=SURFACE,
                         cursor='' if fest else 'hand2')
         kopf.pack(fill='x', pady=(10, 0))
-        # ⚠ **Dasselbe Symbol wie überall sonst im Programm.** Zuerst standen
-        # hier Textpfeile (`⌄`/`⌃`) — die sehen je nach Systemschrift anders aus
-        # als die gezeichneten Symbole, mit denen sich der Bauplan-Fortschritt
-        # und der Bestand aufklappen. Ein Werkzeug, das dieselbe Handlung an
+        # ⚠ **Dasselbe Symbol wie überall sonst im Programm.** Textpfeile
+        # (`⌄`/`⌃`) sähen je nach Systemschrift anders aus als die Symbole,
+        # mit denen sich der Bauplan-Fortschritt und der Bestand aufklappen. Ein Werkzeug, das dieselbe Handlung an
         # zwei Stellen verschieden abbildet, muss zweimal gelernt werden.
         pfeil = icons.line(kopf, 'zuklappen' if offen else 'aufklappen',
                               background=SURFACE, font=self.f_small)
-        # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil ist ein
-        # Versprechen („hier lässt sich klappen"); eines, das nicht eingelöst
-        # wird, ist schlimmer als keines.
+        # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil
+        # verspricht, dass sich etwas klappen lässt; ein Versprechen, das
+        # nicht eingelöst wird, ist schlimmer als keines.
         if not fest:
             pfeil.pack(side='right', padx=(0, 12))
         beschriftung = tk.Label(kopf, text=text.upper(), bg=SURFACE, fg=SUB,
@@ -3147,8 +3011,8 @@ class MainWindow:
                 # ⚠⚠ **Was nicht gepackt ist, zählt nicht.** `winfo_reqheight()`
                 # meldet auch für einen weggeklappten Rahmen weiter die volle
                 # Höhe seines Inhalts — der Rahmen ist ja noch da, nur nicht
-                # sichtbar. Ohne diese Abfrage brachte das Zuklappen einer
-                # Gruppe **null** Ersparnis: 1020 px vorher, 1020 px nachher.
+                # sichtbar. Ohne diese Abfrage brächte das Zuklappen einer
+                # Gruppe **null** Ersparnis.
                 # `pack_info()` wirft bei einem nicht gepackten Widget, und
                 # genau das ist hier die Auskunft.
                 polster = kind.pack_info().get('pady', 0)
@@ -3166,13 +3030,13 @@ class MainWindow:
 
         ⚠ Die Leiste hat eine feste Breite (`pack_propagate(False)`) — sonst würde
         sie mit dem Inhalt wandern. Feste Breite heißt aber auch: Was nicht
-        hineinpasst, wird **abgeschnitten**, ohne Hinweis. Bei 125 % Anzeige-
-        Skalierung traf das „Angaben im Spiel"; auf Englisch sind mehrere Einträge
-        noch länger. Deshalb wird die Breite aus den Einträgen gemessen.
+        hineinpasst, wird **abgeschnitten**, ohne Hinweis — bei 125 % Anzeige-
+        Skalierung und auf Englisch schnell. Deshalb wird die Breite aus den
+        Einträgen gemessen.
         """
-        # ⭐ Nur neu messen, wenn sich die Leiste geändert hat (rc9) — neuer
-        # Reiter, Neuaufbau, eine verschwundene Neu-Marke. Sonst stand hier bei
-        # jedem Seitenwechsel eine Vermessung aller Zeilen.
+        # ⭐ Nur neu messen, wenn sich die Leiste geändert hat — neuer
+        # Reiter, Neuaufbau, eine verschwundene Neu-Marke. Sonst stünde hier
+        # bei jedem Seitenwechsel eine Vermessung aller Zeilen.
         if (not getattr(self, '_sidebar_dirty', True)
                 and getattr(self, '_sidebar_needed', None)):
             return self._sidebar_needed
@@ -3185,10 +3049,10 @@ class MainWindow:
                 # ⚠ Der **aktive** Reiter wird fett gezeichnet, und fett ist breiter.
                 # Gemessen wird aber der Zustand, in dem die Zeile gerade ist — wer
                 # nur `winfo_reqwidth()` nimmt, misst bei allen anderen die schmale
-                # Version und macht die Leiste zu knapp. Genau deshalb war „Angaben
-                # im Spiel" abgeschnitten, sobald die Seite offen war.
+                # Version und macht die Leiste zu knapp — der aktive Eintrag
+                # wäre dann abgeschnitten.
                 zusatz = 0
-                # ⭐ Je Text nur einmal messen (rc9): Das lief bei jedem
+                # ⭐ Je Text nur einmal messen: Sonst liefe bei jedem
                 # Seitenwechsel für alle Reiter in zwei Schriften — 80
                 # Schriftvermessungen, obwohl sich Texte und Schriften nur bei
                 # einem Neuaufbau ändern (dort wird der Speicher geleert).
@@ -3227,22 +3091,21 @@ class MainWindow:
 
         ⚠ Gerechnet wird immer für den **aufgeklappten** Zustand — auch solange
         „Für Fortgeschrittene" noch zu ist. Sonst passte das Fenster genau, und beim
-        Aufklappen war „Diagnose" unten abgeschnitten: Die Reiter werden von oben
+        Aufklappen wäre der unterste Reiter abgeschnitten: Die Reiter werden von oben
         gepackt, der Klappteil von unten, und was dazwischen nicht hineinpasst,
-        fällt heraus. Genau so gemeldet. Ein Fenster, das beim Aufklappen von selbst
-        wächst, wäre die zweitbeste Lösung — es springt dann unter den Händen.
+        fällt heraus. Ein Fenster, das beim Aufklappen von selbst wächst, wäre die
+        zweitbeste Lösung — es springt dann unter den Händen.
 
         ⚠ Gemessen wird erst, wenn Tk die Leiste wirklich gezeichnet hat. Vorher ist
-        ihre Höhe 1 Pixel, und die Rechnung „Fenster minus Leiste" ergibt Unsinn —
-        im ersten Anlauf kam so eine Mindesthöhe von 1418 Pixeln heraus. Ist sie noch
-        nicht so weit, wird es kurz darauf noch einmal versucht.
+        ihre Höhe 1 Pixel, und die Rechnung Fenster minus Leiste ergibt Unsinn
+        (etwa eine Mindesthöhe von 1418 Pixeln). Ist sie noch nicht so weit, wird
+        es kurz darauf noch einmal versucht.
         """
         # ⚠⚠ **Erst nachsehen, ob es das Fenster noch gibt.** Diese Funktion
         # wird per `after(30, …)` eingeplant — wird das Fenster in dieser Zeit
         # geschlossen, läuft sie ins Leere und Tk meldet `bad window path
-        # name`. Abgestürzt ist dabei nie etwas (der Haken in `errors.py`
-        # fängt es), es füllte nur das Fehlerprotokoll des Nutzers. Beim
-        # Durchklicken am 06.09.2026 aufgefallen.
+        # name`. Abstürzen kann dabei nichts (der Haken in `errors.py` fängt
+        # es), es füllt nur das Fehlerprotokoll des Nutzers.
         try:
             if not self.root.winfo_exists():
                 return
@@ -3254,34 +3117,26 @@ class MainWindow:
                     self.root.after(60, lambda: self._min_height_update(
                         versuch + 1))
                 return
-            # ⚠⚠ **Der Leistenbedarf bestimmt die Mindesthöhe NICHT mehr.**
+            # ⚠⚠ **Der Leistenbedarf bestimmt die Mindesthöhe NICHT.**
             #
-            # Er tat es, solange die Leiste ein fester Rahmen war: Was nicht
-            # ins Fenster passte, war unerreichbar, also musste das Fenster
-            # mitwachsen. Mit jedem neuen Reiter wuchs es weiter — bei der
-            # Gruppe „Handel" auf über 1000 px. Auf einem 1080er Bildschirm
-            # passte es dann gar nicht mehr, und selbst auf grossen Schirmen
-            # liess es sich nicht kleiner ziehen als 1028 px („das fenster ist
-            # zu hoch, kann es nicht kleiner ziehen", 30.08.2026).
-            #
-            # Seit die Leiste rollt (`_body`) und ihre Gruppen klappbar sind,
-            # geht bei einem kürzeren Fenster nichts verloren: Was nicht
-            # hinpasst, rollt. Die Mindesthöhe ist deshalb wieder eine feste
-            # Zahl — `_sidebar_needed_height()` wird nur noch für den Rollbereich
-            # gebraucht, nicht mehr für die Fenstergrösse.
+            # Täte er es, wüchse das Fenster mit jedem neuen Reiter — über
+            # 1000 px passt es auf keinen 1080er Bildschirm mehr. Die Leiste
+            # rollt (`_body`) und ihre Gruppen sind klappbar, also geht bei
+            # einem kürzeren Fenster nichts verloren: Was nicht hinpasst,
+            # rollt. Die Mindesthöhe ist deshalb eine feste Zahl —
+            # `_sidebar_needed_height()` wird nur für den Rollbereich
+            # gebraucht, nicht für die Fenstergrösse.
             needed = MIN_HEIGHT
             # ⚠⚠ **Die Mindesthöhe darf den Bildschirm nie überschreiten.**
             #
             # Ein `minsize`, das höher ist als der Monitor, lässt sich nicht
             # mehr wegdeckeln: Tk hält es gegen jedes `geometry()`, auch gegen
-            # `_onto_screen()` weiter unten. Das Fenster stand dann
-            # über die Taskleiste hinaus, und an alles darunter kam man nicht
-            # mehr heran (30.08.2026 gemeldet, nachdem die Gruppe „Handel" die
-            # Leiste auf 1020 px gebracht hatte).
+            # `_onto_screen()` weiter unten. Das Fenster stuende dann über die
+            # Taskleiste hinaus, und an alles darunter kaeme man nicht heran.
             #
-            # Seit die Seitenleiste rollt (siehe `_body`), ist ein Fenster,
-            # das kürzer ist als ihr Bedarf, auch kein Verlust mehr — man
-            # kommt weiterhin an jeden Eintrag.
+            # Da die Seitenleiste rollt (siehe `_body`), ist ein Fenster, das
+            # kürzer ist als ihr Bedarf, kein Verlust — man kommt weiterhin an
+            # jeden Eintrag.
             from . import screen as _bs
             try:
                 _, _, _, schirm_hoch = _bs.screen_at(
@@ -3306,16 +3161,14 @@ class MainWindow:
     def _onto_screen(self):
         """Das Fenster auf dem Bildschirm halten, auf dem es gerade steht.
 
-        ⚠⚠ **Bei „Sehr groß" wuchs das Fenster über den Monitor hinaus.** Die
-        Schriftgröße vergrößert Schrift, Symbole und Knöpfe; daraus folgt eine
-        größere Mindesthöhe, und die wurde gesetzt, ohne zu fragen, ob sie
-        überhaupt auf den Bildschirm passt. Bei zwei übereinander stehenden
-        49-Zoll-Monitoren lief das Fenster in den zweiten hinein. Am 30.08.2026
-        gemeldet.
+        ⚠⚠ **Bei großer Schrift kann das Fenster über den Monitor wachsen.**
+        Die Schriftgröße vergrößert Schrift, Symbole und Knöpfe; daraus folgt
+        eine größere Mindesthöhe — ungeprüft gesetzt, läuft das Fenster bei
+        zwei übereinander stehenden Monitoren in den zweiten hinein.
 
         ⚠ Tk hilft hier nicht: `winfo_screenheight()` meldet die Höhe **aller**
         Bildschirme zusammen — bei zwei übereinander also das Doppelte. Für
-        „passt das?" ist das die falsche Zahl. `screen.screen_at()`
+        die Frage, ob das Fenster passt, ist das die falsche Zahl. `screen.screen_at()`
         liefert den Monitor, auf dem das Fenster wirklich steht.
 
         Verschoben wird nur, was muss: Wer sein Fenster selbst irgendwohin
@@ -3349,14 +3202,12 @@ class MainWindow:
         if self.advanced_open:
             self.collapse_body.pack(fill='x')
             if not self.collapse_body.winfo_children():
-                # ⚠ Seit der Gliederung vom 27.09.2026 steht hier nur noch die
-                # Erkennung. Pfade, Bestand (jetzt „Sichern & Zurücksetzen")
-                # und „Achsen & Kurven" sind in die offene Gruppe gezogen —
-                # die frühere Begründung fürs Verstecken steht dort.
+                # ⚠ Hier steht nur die Erkennung. Pfade, „Sichern &
+                # Zurücksetzen" und „Achsen & Kurven" stehen in der offenen
+                # Gruppe.
                 self._tab('erkennung', 'erkennung', t('hf_erkennung'), self.collapse_body)
-                # ⚠ Hierher am 27.09.2026 (erst offen in rc4): Programme mit
-                # dem Spiel zu starten ist etwas für Fortgeschrittene — und
-                # führt aus, was man einträgt.
+                # ⚠ Programme mit dem Spiel zu starten ist etwas für
+                # Fortgeschrittene — es führt aus, was man einträgt.
                 self._tab('startprogramme', 'startprogramme',
                           t('hf_startprogramme'), self.collapse_body)
             self.collapse_button.configure(text=t('hf_fortgeschritten'))
@@ -3389,13 +3240,12 @@ class MainWindow:
         einmal begann.
         """
         # ⚠⚠ **Ein Seitenwechsel ist die deutlichste Nutzeraktion überhaupt.**
-        # Ohne diese Zeile lief der Vorbau munter weiter, während die gerade
-        # angeklickte Seite noch gezeichnet wurde: Sie meldete `steht (3 ms)`,
-        # war aber sekundenlang nicht zu sehen, weil Tk mit dem Vorbau der
-        # nächsten Seite beschäftigt war. Gemeldet am 02.09.2026 als „bauplan
-        # langsam", nachdem die linke Leiste bereits schnell war.
+        # Ohne diese Zeile liefe der Vorbau weiter, während die gerade
+        # angeklickte Seite noch gezeichnet wird: Sie meldet `steht (3 ms)`,
+        # ist aber sekundenlang nicht zu sehen, weil Tk mit dem Vorbau der
+        # nächsten Seite beschäftigt ist.
         self._remember_action()
-        # ⭐ Module (rc4): Eine Seite, deren Gruppe ausgeschaltet ist, wird
+        # ⭐ Module: Eine Seite, deren Gruppe ausgeschaltet ist, wird
         # nicht still gezeigt — der Sprung landet auf „Module" und sagt, was
         # aus ist. Sonst stünde man auf einer Seite ohne Eintrag in der Leiste.
         from . import modules
@@ -3414,32 +3264,23 @@ class MainWindow:
             self.on_show = {}
         if kennung not in self.pages:
             self.pages[kennung] = tk.Frame(self.content, bg=BG)
-        # ⚠ Beim **zweiten** Besuch wurde bisher nur „steht" geschrieben, weil
-        # die Seite schon gebaut war. Knallte es dabei, fehlte die Zeile ganz
-        # statt nur zur Hälfte — und die Überschrift des Berichts verspricht
-        # „die letzte Zeile ohne ‚steht' ist die, an der es hing". Das stimmte
-        # dann nicht mehr. Aufgefallen im rc75-Bericht, notiert für dieses
-        # Release.
+        # ⚠ Auch beim **zweiten** Besuch eine Startzeile: Die Überschrift des
+        # Berichts sagt, die letzte Zeile ohne `steht` sei die, an der es hing.
+        # Ohne Startzeile beim Einblenden stimmte das nicht.
         #
-        # Deshalb auch hier eine Zeile, aber eine eigene: „zeigen" statt
-        # „bauen beginnt". Wer den Bericht liest, sieht damit den Unterschied
-        # zwischen „beim Aufbauen gestorben" und „beim Einblenden gestorben".
-        # ⚠⚠ **Millisekunden, nicht nur Sekunden.** Gemeldet am 02.09.2026
-        # (Haldjas, pr0): „Er braucht eben recht lang, um die Icons und co zu
-        # laden, wenn man die Einstellungen oeffnet." Im Bericht standen nur
-        # sekundengenaue Zeitstempel — damit liess sich nicht unterscheiden,
-        # ob eine Seite 50 ms oder 900 ms braucht. Zwei Erklaerungen wurden
-        # dadurch gejagt und beide widerlegt (Schriftgroesse, Zahl der
-        # Symbolbilder: gemessen 36 Bilder in 4 ms). Ohne Zahl im Bericht
-        # bleibt es beim Raten.
+        # Die Zeile ist eine eigene: `zeigen` statt `bauen beginnt`. Wer den
+        # Bericht liest, unterscheidet damit Abbruch beim Aufbauen und Abbruch
+        # beim Einblenden.
+        # ⚠⚠ **Millisekunden, nicht nur Sekunden.** Mit sekundengenauen
+        # Zeitstempeln laesst sich nicht unterscheiden, ob eine Seite 50 ms
+        # oder 900 ms braucht — ohne Zahl im Bericht bleibt es beim Raten.
         _beginn = time.perf_counter()
         if kennung in self.drawn:
             errors.trail('Seite %s: zeigen' % kennung)
             # ⚠ Eine Seite wird **einmal** gebaut und danach nur noch ein- und
             # ausgeblendet. Alles, was beim erneuten Aufrufen frisch sein soll,
-            # muss sich deshalb hier melden — sonst steht der Suchbegriff von
-            # vorhin noch da. Am 29.08.2026 gemeldet: „da sollte man den
-            # Titan-Eintrag im Suchfeld nicht speichern."
+            # muss sich deshalb hier eintragen — sonst steht etwa der
+            # Suchbegriff vom letzten Besuch noch da.
             ruf = self.on_show.get(kennung)
             if ruf:
                 try:
@@ -3448,12 +3289,11 @@ class MainWindow:
                     errors.record('main_window.zeigen:%s' % kennung, ausnahme)
         else:
             self.drawn.add(kennung)
-            # ⚠ Die Spur führt jetzt auch über die Bedienung, nicht nur über den
-            # Start. Grund: Bomb20 meldete am 27.08.2026 einen reproduzierbaren
-            # Absturz beim Öffnen von „Was ist neu" — und sein Bericht wusste
-            # nichts davon. Die Fehlerhaken greifen nur bei Python-Ausnahmen,
-            # und die Spur endete beim letzten Startschritt. Fehlt die zweite
-            # Zeile hier, hat es beim Bauen genau dieser Seite geknallt.
+            # ⚠ Die Spur führt auch über die Bedienung, nicht nur über den
+            # Start: Die Fehlerhaken greifen nur bei Python-Ausnahmen, ein
+            # harter Absturz beim Öffnen einer Seite stünde sonst nirgends.
+            # Fehlt die zweite Zeile hier, hat es beim Bauen genau dieser
+            # Seite geknallt.
             errors.trail('Seite %s: bauen beginnt' % kennung)
             try:
                 self._fill_page(kennung, self.pages[kennung])
@@ -3494,20 +3334,17 @@ class MainWindow:
         # Der aktive Reiter wird fett — und fett ist breiter. Die Messung
         # rechnet den fetten Zuschlag deshalb für JEDEN Reiter ein; ihr Ergebnis
         # hängt nicht davon ab, welcher gerade gewählt ist, und bleibt gemerkt,
-        # bis sich die Leiste ändert (rc9, siehe `_sidebar_width_update`).
+        # bis sich die Leiste ändert (siehe `_sidebar_width_update`).
         self._sidebar_width_update()
 
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
         #
-        # ⚠⚠ **Das Wegräumen hängt am Widget, nicht an `is_new`** (28.09.2026).
-        # Vorher stand hier ein gemeinsames `if news.is_new(...)` um beides.
-        # Die Marke wird aber beim **Bau** des Reiters gesetzt und erst beim
-        # **Klick** wieder gefragt — sagt `gesehen.json` dazwischen etwas
-        # anderes, liefert `is_new` False, der ganze Block wird übersprungen
-        # und die sichtbare Marke bleibt für immer stehen. Genau so passiert
-        # beim Wechsel des Ablage-Ordners in den Einstellungen: Der neue Ordner
-        # brachte seine eigene `gesehen.json` mit, und danach ließ sich keine
-        # der angezeigten Marken mehr wegklicken.
+        # ⚠⚠ **Das Wegräumen hängt am Widget, nicht an `is_new`.** Die Marke
+        # wird beim **Bau** des Reiters gesetzt und erst beim **Klick** wieder
+        # gefragt — sagt `gesehen.json` dazwischen etwas anderes (etwa nach
+        # einem Wechsel des Ablage-Ordners, der seine eigene `gesehen.json`
+        # mitbringt), liefert `is_new` False, und die sichtbare Marke bliebe
+        # für immer stehen.
         #
         # Was angezeigt wird, ist `entry[4]` — also entscheidet auch das über
         # das Wegräumen. `mark_seen` bleibt an `is_new` gebunden: Es schreibt
@@ -3529,11 +3366,10 @@ class MainWindow:
         """Auf eine andere Seite springen — und den Rückweg anbieten.
 
         ⭐ **Der Unterschied zu `open_page()`.** Ein Klick in der Seitenleiste
-        ist eine Entscheidung: Der Mensch weiß, wo er hinwill, und findet auch
+        ist eine gezielte Wahl: Der Mensch weiß, wo er hinwill, und findet auch
         zurück. Ein **Sprung** ist etwas anderes — die Seite wechselt, weil er
-        auf einen Eintrag geklickt hat, und danach steht er woanders, als er
-        wollte. Gewünscht von Bushwick (13.09.2026) für den Weg
-        Bauplan-Liste → Herstellung.
+        auf einen Eintrag geklickt hat (etwa Bauplan-Liste → Herstellung), und
+        danach steht er woanders, als er war.
 
         Jeder Sprung im Programm geht deshalb hier durch, nicht direkt über
         `open_page()`. Wer einen neuen baut, nimmt diese Methode — sonst
@@ -3553,8 +3389,8 @@ class MainWindow:
         ⚠ **Der Knopf wird jedes Mal neu gebaut, nicht beschriftet.**
         `round_button` malt den Text auf eine Leinwand und misst die Breite
         dabei einmal — ein späteres `itemconfigure(text=…)` ließe den Rahmen
-        auf der alten Breite stehen, und bei „Zurück zu Aufträge" neben
-        „Zurück zu Bauplan-Liste" fällt das sofort auf. Dasselbe Muster wie
+        auf der alten Breite stehen, und bei unterschiedlich langen Seitennamen
+        fällt das sofort auf. Dasselbe Muster wie
         beim schwebenden Schloss im Overlay.
         """
         for kind in self.back_bar.winfo_children():
@@ -3598,12 +3434,10 @@ class MainWindow:
             return False
 
     def _recolor_tabs(self):
-        # ⭐ Nur Reiter anfassen, deren Zustand sich geändert hat (rc9). Bis
-        # dahin wurden bei JEDEM Seitenwechsel alle rund 40 Reiter samt Symbol
-        # neu eingefärbt — 360 Tk-Aufrufe, obwohl sich nur zwei ändern (der
-        # alte und der neue). `tools/tempo_messen.py` zeigte das als Grundpreis
-        # von rund 560 Aufrufen je Wechsel, auch auf Seiten, die sonst nichts
-        # tun. Der Zustand ist alles, wovon das Aussehen abhängt: gewählt, und
+        # ⭐ Nur Reiter anfassen, deren Zustand sich geändert hat. Alle rund
+        # 40 Reiter samt Symbol bei JEDEM Seitenwechsel neu einzufärben kostet
+        # 360 Tk-Aufrufe, obwohl sich nur zwei ändern (der alte und der neue)
+        # — gemessen mit `tools/tempo_messen.py`. Der Zustand ist alles, wovon das Aussehen abhängt: gewählt, und
         # beim Fehler-Reiter, ob Fehler anstehen.
         zustaende = getattr(self, '_tab_states', None)
         if zustaende is None:
@@ -3630,8 +3464,7 @@ class MainWindow:
             # Farbe etwas bedeutet und nicht nur schmueckt:
             #
             #   * **Das Wort ist immer rot.** Wer ein Problem hat, soll den
-            #     Reiter finden, ohne ein Menue zu durchsuchen. der Autor am
-            #     28.08.2026: „damit wirklich niemand uebersieht“.
+            #     Reiter finden, ohne ein Menue zu durchsuchen.
             #   * **Das Symbol wird nur rot, wenn wirklich etwas passiert ist**
             #     — wenn also Fehler mitgeschrieben wurden. Sonst stuende der
             #     Reiter dauerhaft auf Alarm, obwohl alles laeuft, und niemand
@@ -3659,12 +3492,10 @@ class MainWindow:
     def stock_changed(self):
         """Sagt allen Seiten Bescheid, die den eigenen Bestand anzeigen.
 
-        ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026** für die Bauplan-Liste.
-        Beim Nachsehen hatten vier weitere Seiten denselben Fehler: Sie lesen
-        den Bestand beim Bauen, werden danach nur ein- und ausgeblendet und
-        zeigen deshalb für den Rest der Sitzung den Stand von damals. Wer
-        einen Bauplan bekommt, sieht auf „Wie weit bin ich" weiter die alte
-        Zahl — auch nach dem Wechseln auf eine andere Seite und zurück.
+        ⚠⚠ Diese Seiten lesen den Bestand beim Bauen, werden danach nur ein-
+        und ausgeblendet und zeigten ohne Bescheid für den Rest der Sitzung
+        den alten Stand — auch nach dem Wechseln auf eine andere Seite und
+        zurück.
 
         **Zwei verschiedene Wege, mit Absicht:**
 
@@ -3705,12 +3536,12 @@ class MainWindow:
 
     def pages_changed(self, kennungen):
         """Seiten neu aufbauen, deren Daten sich von außen geändert haben —
-        durch den Abgleich mit dem KRT Profit Basetool (v3.60.x).
+        durch den Abgleich mit dem KRT Profit Basetool.
 
         ⚠⚠ **Anders als `stock_changed` AUCH die sichtbare Seite.** Lager und
         Hangar bearbeiten ihre Einträge über die Listenposition. Bliebe die
-        sichtbare Seite beim alten Stand, träfe der nächste Klick auf
-        „Ändern" oder „Entfernen" womöglich einen anderen Eintrag. Die
+        sichtbare Seite beim alten Stand, träfe der nächste Klick zum Ändern
+        oder Entfernen womöglich einen anderen Eintrag. Die
         Rollposition geht dabei verloren — das ist der kleinere Schaden."""
         for kennung in kennungen:
             if kennung not in self.drawn:
@@ -3764,16 +3595,13 @@ class MainWindow:
         self.open_page(merker or 'liste')
 
         # ⚠ Die Mindestgroesse muss mitwachsen. Sie haengt an der Hoehe der
-        # Seitenleiste, und die haengt an der Schrift: Bei „sehr gross" braucht
-        # sie mehr Platz, als das Fenster hoch ist — dann fallen „Star Citizen
-        # starten", „Kaffee spendieren" und „Discord" unten heraus, weil sie von
-        # unten gepackt werden. Genau so gemeldet von Gemeldet am 27.08.2026:
-        # „wenn jemand so schlecht sehen sollte, was ja moeglich ist, dann muss
-        # die minimale groesse eben im verhaeltnis mitwachsen."
+        # Seitenleiste, und die haengt an der Schrift: Bei grosser Schrift
+        # braucht sie mehr Platz, als das Fenster hoch ist — dann fallen die
+        # Knoepfe im Fuss unten heraus, weil sie von unten gepackt werden.
         #
-        # Gerechnet hat das `_min_height_update()` schon immer richtig —
-        # es lief nur beim Start und beim Aufklappen, nie nach einem Schrift-
-        # oder Sprachwechsel. Hier ist der richtige Ort: Wer neu aufbaut, hat
+        # `_min_height_update()` laeuft deshalb auch nach einem Schrift- oder
+        # Sprachwechsel, nicht nur beim Start und beim Aufklappen. Hier ist
+        # der richtige Ort: Wer neu aufbaut, hat
         # neue Masse. Ueber `after`, weil Tk die Leiste erst zeichnen muss —
         # vorher meldet sie 1 Pixel Hoehe (die Funktion faengt das ab und
         # versucht es erneut).
@@ -3787,11 +3615,9 @@ class MainWindow:
 
     # ⚠⚠ **So lange muss Ruhe sein, bevor im Hintergrund gebaut wird.**
     # Tk zeichnet einstraengig: Jede vorgebaute Seite haelt die Oberflaeche
-    # fest. Am 02.09.2026 gemessen, waehrend jemand das Fenster bediente —
-    # `wasistneu` 181 ms, `diagnose` 153 ms, in Summe **1,7 Sekunden** ueber
-    # 17 Seiten. Gemeldet wurde das als „linke leiste laed langsamer" bzw.
-    # „bauplan liste weiterhin langsam", je nachdem, was gerade angefasst
-    # wurde — dasselbe Stocken, nur an wechselnder Stelle.
+    # fest. Gemessen, waehrend das Fenster bedient wird: `wasistneu` 181 ms,
+    # `diagnose` 153 ms, in Summe **1,7 Sekunden** ueber 17 Seiten — ein
+    # Stocken an wechselnder Stelle, je nachdem, was gerade angefasst wird.
     PREBUILD_IDLE_S = 1.2
     PREBUILD_RECHECK_MS = 400
 
@@ -3803,19 +3629,16 @@ class MainWindow:
         """Die noch leeren Seiten nacheinander im Leerlauf bauen.
 
         ⚠ **Warum das nötig ist.** Jede Seite entsteht erst beim ersten
-        Aufruf. Gemessen am 02.09.2026 im eigenen Startverlauf:
+        Aufruf. Gemessen im Startverlauf:
 
             00:51:48  Seite wasistneu: bauen beginnt
             00:51:49  Seite wasistneu: steht
 
         Eine volle Sekunde, in der das Fenster keine Klicks annimmt — und das
-        einmal je Seite. Aus dem Testlauf gemeldet: „ich muss das
-        Einstellungsfenster einmal zu und erneut aufmachen, ehe ich etwas
-        auswählen kann."
+        einmal je Seite.
 
         ⚠ Das macht nichts **schneller** — dieselbe Arbeit fällt weiter an, nur
-        eben bevor jemand darauf wartet. Ehrlich bleiben: verlagert, nicht
-        beschleunigt.
+        eben bevor jemand darauf wartet: verlagert, nicht beschleunigt.
 
         ⚠⚠ **Eine Seite je Durchlauf, nicht alle am Stück.** Tk zeichnet im
         selben Strang; neunzehn Seiten hintereinander würden das Fenster
@@ -3854,12 +3677,8 @@ class MainWindow:
                 # `feld.focus_set()`, damit man sofort tippen kann. Beim
                 # ANZEIGEN ist das richtig; beim Vorbauen im Hintergrund
                 # klaut eine unsichtbare Seite damit den Fokus, und die
-                # Eingabe im sichtbaren Feld kommt nicht mehr an.
-                #
-                # Gemeldet am 02.09.2026, unmittelbar nach rc4: „kann bei BP
-                # Suche nichts mehr eingeben … marker das ich nun text
-                # eingeben kann fehlt ebenso." Ein selbst eingebauter Fehler,
-                # entstanden aus einer Verbesserung.
+                # Eingabe im sichtbaren Feld kommt nicht mehr an, und die
+                # Schreibmarke fehlt.
                 vorher = None
                 try:
                     vorher = self.root.focus_get()
@@ -3868,12 +3687,11 @@ class MainWindow:
                 _t_vor = time.perf_counter()
                 try:
                     self._fill_page(kennung, self.pages[kennung])
-                    # ⚠ Diagnose (02.09.2026): Der Vorbau laeuft 400 ms nach
-                    # dem Oeffnen los und haelt Tk je Seite fest — waehrend
-                    # dieser Zeit reagiert das Fenster traege. Gemeldet als
-                    # „bauplan liste weiterhin langsam", obwohl der Aufbau
-                    # selbst nur noch 88 ms braucht. Ohne Zahlen bleibt es
-                    # beim Raten, welche Seite wie lange blockiert.
+                    # ⚠ Diagnose: Der Vorbau laeuft 400 ms nach dem Oeffnen
+                    # los und haelt Tk je Seite fest — waehrend dieser Zeit
+                    # reagiert das Fenster traege, auch wenn der Aufbau der
+                    # sichtbaren Seite schnell ist. Ohne Zahlen bleibt es beim
+                    # Raten, welche Seite wie lange blockiert.
                     errors.trail('Vorbau %s: %d ms'
                                 % (kennung,
                                    round((time.perf_counter() - _t_vor) * 1000)))
@@ -4014,8 +3832,8 @@ class MainWindow:
                 if not updater.restart():
                     self.say(t('sich_neustart_selbst'))
                     return
-                # ⚠ Und die alte Fassung beenden — `restart` startet nur die
-                # neue (siehe `pages.restart_and_hand_over`).
+                # ⚠ Und den laufenden Prozess beenden — `restart` startet nur
+                # den neuen (siehe `pages.restart_and_hand_over`).
                 pages._hand_over_after_restart(self)
             except Exception as ausnahme:
                 errors.record('main_window.sicherung_neustart', ausnahme)
@@ -4091,9 +3909,8 @@ class MainWindow:
         """Das Fenster zeigen und auf Eingaben warten.
 
         ⚠ Erst nach vorn holen. Ein frisch gestartetes Fenster liegt sonst
-        hinter dem, was gerade offen war — gemeldet als „es startet, aber ich
-        sehe nichts", während das Fenster nachweislich gebaut und sichtbar
-        war (1040×760, Zustand „normal"), nur eben verdeckt. Besonders auf
+        hinter dem, was gerade offen war — gebaut und sichtbar, aber verdeckt,
+        und es wirkt, als sei nichts gestartet. Besonders auf
         dem Mac: Wird das Programm aus einem Terminal gestartet, behält das
         Terminal den Vordergrund.
 
@@ -4121,15 +3938,15 @@ def _bundled(name):
 # ⚠ **Warum nicht `messagebox.askyesno`.** Der System-Dialog von Tk ist auf
 # einem dunklen Programm ein Fremdkörper: heller Kasten, fremde Schrift — und
 # seine Knöpfe holt er aus Tks eigener Sprachtabelle, die auf vielen
-# Linux-Systemen unvollständig ist. Ergebnis war deutscher Text über den
-# Knöpfen **Yes / No** (gemeldet, 28.08.2026). Die Sprache liesse sich über
+# Linux-Systemen unvollständig ist — deutscher Text über den Knöpfen
+# **Yes / No**. Die Sprache liesse sich über
 # `msgcat` flicken, das Aussehen nicht: Farben und Breite gibt der Dialog nicht
 # her, und er wird **hoch statt breit** — bei einem längeren Satz eine schmale
 # Säule.
 #
 # Deshalb ein eigener. Er kostet wenig, sieht aus wie das Programm und ist in
 # beiden Sprachen richtig beschriftet.
-DIALOG_WIDTH = 620          # bewusst breit: Am 28.08.: "eher breiter statt hoch"
+DIALOG_WIDTH = 620          # bewusst breit: lieber breit als hoch
 
 # Wieviele Eintraege eine Auswahlliste im Dialog zeigt, bevor sie abkuerzt.
 # ⚠ Sieben, damit der Dialog nicht ueber den Bildschirmrand waechst und die
@@ -4233,7 +4050,7 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
                  choices=(), choices_title=''):
     """Nach einem kurzen Text fragen — im Programmstil. Gibt den Text oder `None`.
 
-    `None` heisst **abgebrochen**, `''` heisst „nichts eingetippt". Der
+    `None` heisst **abgebrochen**, `''` heisst: nichts eingetippt. Der
     Unterschied zaehlt: Beim Abbruch soll gar nichts passieren, bei einer
     leeren Eingabe eine Meldung kommen.
 
@@ -4248,7 +4065,7 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
 
     ⚠⚠ **Ersatz fuer `simpledialog.askstring`, und zwar aus gutem Grund.** Der
     Systemdialog kommt grau, in der Systemschrift und mit einem englischen
-    „Cancel" daher — auf dem dunklen Grund des Programms ein Fremdkoerper, und
+    `Cancel` daher — auf dem dunklen Grund des Programms ein Fremdkoerper, und
     ein Regelverstoss gleich doppelt: Jeder sichtbare Text gehoert nach
     `language.py`, und gleiche Dinge sehen ueberall gleich aus.
 
@@ -4370,7 +4187,7 @@ def ask_pick(parent, title, text, entries, no_text=None):
     """Einen Eintrag aus einer Liste waehlen. Gibt den Eintrag oder `None`.
 
     ⚠ **Wozu, wenn es doch einen Dateiwaehler gibt:** Weil der Spieler seine
-    Profile am **Namen** kennt, nicht am Pfad. Wer „Virpil_Kampf" einspielen
+    Profile am **Namen** kennt, nicht am Pfad. Wer `Virpil_Kampf` einspielen
     will, soll ihn anklicken — und nicht erst durch `USER/client/0/controls/
     mappings/` navigieren, einen Ordner, den er nie selbst angelegt hat und
     der auf jedem Rechner woanders liegt.
@@ -4463,14 +4280,9 @@ def center_over(window, parent, width=None, height=None):
     bekommt (`geometry('520x340')`) und keine Position, wird vom Fenstermanager
     platziert — und der weiß nichts vom Hauptfenster. Auf einem
     Mehrschirm-Arbeitsplatz landet es dadurch irgendwo, im schlimmsten Fall
-    außerhalb des sichtbaren Bereichs.
-
-    Am 06.09.2026 ist genau das passiert: Ein Fenster erschien „außerhalb
-    meiner Bildschirme", war modal, und das Programm ließ sich danach nicht
-    einmal mehr beenden. Auf die Frage, ob alle Fenster geprüft seien, war die
-    ehrliche Antwort nein — sechs weitere setzten ebenfalls nur eine Größe:
-    Belegungsfenster, Assistent, Bestand, Einstellungen, Blickwinkel und
-    Versionen.
+    außerhalb des sichtbaren Bereichs. Ist es dazu modal, lässt sich das
+    Programm danach nicht einmal mehr beenden. Deshalb geht jedes Fenster mit
+    fester Größe hier durch.
 
     ⚠ **Nie über den linken oder oberen Rand hinaus** (`max(0, …)`): Ist das
     Elternfenster kleiner als das Kind, käme sonst eine negative Position
@@ -4582,10 +4394,9 @@ def ask_channel(parent, entered, channels):
     ⚠⚠ **Wofuer das da ist.** Legt CIG eine ausgebesserte Fassung neben LIVE,
     laedt kaum jemand 100 GB neu — man benennt den LIVE-Ordner in HOTFIX um,
     damit der Launcher nur die Unterschiede holt. Der eingetragene Ordner ist
-    damit weg, und der Watcher las entweder stillschweigend woanders oder meldete
-    „Star Citizen nicht gefunden", obwohl in den Einstellungen ein Pfad steht.
-    Beides sieht nach einem kaputten Programm aus. Gemeldet von Haldjas am
-    03.09.2026, dem genau das passiert war.
+    damit weg, und der Watcher läse entweder stillschweigend woanders oder
+    fände Star Citizen nicht, obwohl in den Einstellungen ein Pfad steht.
+    Beides sieht nach einem kaputten Programm aus.
 
     ⚠ **Gefragt wird, nicht stillschweigend umgestellt.** Welcher Kanal gemeint
     ist, weiss nur der Spieler — wer PTU testet und daneben LIVE liegen hat,
@@ -4701,7 +4512,6 @@ def show_result(parent, title, text):
     eine Zeile und ist dann wieder leer — wer in der Zeit woanders hinsieht,
     erfaehrt das Ergebnis nie. Bei einem Lauf ueber hunderte Protokolle sieht
     man aber genau dorthin nicht: Man hat den Knopf gedrueckt und wartet.
-    Am 31.08.2026 gemeldet: „in der Leiste steht es zu kurz oder gar nicht."
 
     ⚠ Ein Fenster nur fuer ein ERGEBNIS, nicht fuer jede Meldung. Ein Werkzeug,
     das staendig Fenster aufreisst, wird weggeklickt, ohne gelesen zu werden.

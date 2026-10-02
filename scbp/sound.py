@@ -19,12 +19,10 @@
 """
 Der Signalton — und warum `bell()` unter Linux nichts taugt.
 
-Bis v2.0.0-rc3 rief der Watcher unter Linux `tkinter.bell()` auf, mit dem
-Kommentar „bleibt es still, ist das kein Fehler". Beim ersten echten Drop am
-24.08.2026 blieb es still — und **das** war der Fehler: `bell()` ist die
-**X11-Systemglocke**, und die ist auf modernen Arbeitsplätzen praktisch
-überall aus. Unter Wayland/XWayland gibt es sie faktisch gar nicht mehr; auf
-dem Testrechner fehlte sogar `xset`, mit dem man sie einschalten könnte.
+`tkinter.bell()` ist unter Linux die **X11-Systemglocke**, und die ist auf
+modernen Arbeitsplätzen praktisch überall aus. Unter Wayland/XWayland gibt es
+sie faktisch gar nicht mehr; oft fehlt sogar `xset`, mit dem man sie
+einschalten könnte.
 
 Ein Signalton, der genau dann nicht kommt, wenn er gebraucht wird, ist
 schlimmer als keiner: Man verlässt sich darauf und verpasst den Drop.
@@ -45,15 +43,13 @@ stumm scheitern und die Kaskade abbrechen, bevor der Rückfall greift.
 Gefunden wird das Programm **einmal beim Start**, nicht bei jedem Ton — sonst
 sucht das Programm bei jedem Bauplan erneut das Dateisystem ab.
 
-⚠⚠ Bis zum 11.09.2026 hieß dieses Modul `ton`, die Funktion `abspielen`
-(Sprachumstellung P3). **`ton` war die Falle des ganzen Pakets:** Das Wort
-steht an Stellen, die mit diesem Modul nichts zu tun haben — als Schalter
-`self.ton` im Einstellungsfenster (gespeichert als `signalton`), als Schlüssel
-`'ton'` in `translation.py` für die **Sprache der Spielstimmen**
-(`g_languageAudio`), und als Symbolname. Umbenannt wurde deshalb nur der
-Sammelimport und der eine Aufruf in `sc_bp_watcher.py` — nie das Wort.
+⚠⚠ **Das Wort `ton` ist eine Falle:** Es steht an Stellen, die mit diesem
+Modul nichts zu tun haben — als Schalter `self.ton` im Einstellungsfenster
+(gespeichert als `signalton`), als Schlüssel `'ton'` in `translation.py` für
+die **Sprache der Spielstimmen** (`g_languageAudio`), und als Symbolname.
+Ein pauschales Ersetzen des Wortes träfe sie alle.
 
-Die Anlässe `'normal'` und `'auffaellig'` sind unverändert: Der Aufrufer
+Die Anlässe `'normal'` und `'auffaellig'` bleiben deutsch: Der Aufrufer
 übergibt sie als Text, sie sind Schnittstelle, keine Bezeichner.
 """
 import os

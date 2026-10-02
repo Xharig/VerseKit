@@ -24,10 +24,9 @@ was es gibt, was man hat, was fehlt — und **woher man das Fehlende bekommt**.
 
 Drei Dinge, für die es da ist:
 
-  **Nachschlagen.** „Habe ich den schon?" ohne im Spiel nachzusehen.
+  **Nachschlagen.** Ob ein Bauplan schon da ist, ohne im Spiel nachzusehen.
   **Nachtragen.** Was keine Log-Sicherung mehr hergibt, hakt man hier von Hand
-  ab. Das ist die Antwort auf den Lückenhinweis beim Start — lieber ehrlich
-  sagen, dass etwas fehlt, und eine Möglichkeit geben, es einzutragen.
+  ab — das Gegenstück zum Lückenhinweis beim Start.
   **Finden.** Bei jedem fehlenden Bauplan steht, welche Fraktion ihn auslobt,
   in welchem Auftrag, ab welchem Rang und was er einbringt.
 
@@ -69,12 +68,12 @@ GELB    = theme.YELLOW
 #     10 Zeilen   0,45 s        60 Zeilen    5,05 s
 #     30 Zeilen   1,14 s       120 Zeilen   30,36 s
 #
-# Bei 120 waren es 801 Widgets und eine halbe Minute, in der das Fenster steht
-# — gemeldet als „Fenster geht auf, dauert aber ewig". Jedes weitere Zeichnen
-# danach dauert nur 0,4 s; teuer ist ausschließlich der erste Aufbau.
+# Bei 120 waren es 801 Widgets und eine halbe Minute, in der das Fenster steht.
+# Jedes weitere Zeichnen danach dauert nur 0,4 s; teuer ist ausschließlich der
+# erste Aufbau.
 #
-# 40 ist der Kompromiss: gut zwei Bildschirmhöhen sofort da, unter zwei
-# Sekunden Wartezeit. Wer mehr will, tippt oder klickt auf „weitere anzeigen".
+# 40 Zeilen sind gut zwei Bildschirmhöhen bei unter zwei Sekunden Wartezeit.
+# Mehr gibt es über die Suche oder den Knopf „weitere anzeigen".
 ZEILEN_ZUERST = 40
 
 # Ab welcher Inhaltshöhe die Liste in Blöcken gezeigt werden muss.
@@ -90,7 +89,7 @@ ZEILEN_ZUERST = 40
 # Ein Sicherheitsabstand bis 32000 px. Wie viele Zeilen das sind, hängt von
 # Schriftgröße und Skalierung ab und wird gemessen, nicht geraten (siehe
 # `_zeilen_deckel`). Wird es mehr, übernimmt der Blockmodus — abgeschnitten wird
-# nichts, siehe „Lange Liste in Blöcken".
+# nichts, siehe Abschnitt „Lange Liste in Blöcken".
 HOECHSTE_INHALTSHOEHE = 32000
 
 # Wie viele Reihen in einen Block kommen, wenn die Liste in Blöcken gezeigt
@@ -123,7 +122,7 @@ def kuerzel(eintrag):
     """Klasse/Größe/Grad als „M/1/A" — leer, wo es nichts zu zeigen gibt.
 
     ⚠ Die Reihenfolge ist **Klasse, Größe, Grad**, nicht Klasse, Grad, Größe.
-    So liest es sich wie im Spiel („Size 1, Grade A"), und die Größe ist beim
+    So liest es sich wie im Spiel (Size 1, Grade A), und die Größe ist beim
     Suchen das Wichtigere: Ein Cooler der falschen Größe passt gar nicht,
     einer mit anderem Grad passt schlechter.
     """
@@ -156,11 +155,11 @@ def quelle_text(q):
 
 
 def ort_text(wo):
-    """Wo der Auftrag angenommen wird — „Stanton: Hurston, Crusader, …".
+    """Wo der Auftrag angenommen wird, etwa `Stanton: Hurston, Crusader, …`.
 
-    Von Nutzern gemeldet: Es stand da, *woher* ein Bauplan kommt, aber nicht,
-    *wo* man den Auftrag findet. Ohne diese Zeile muss man den Missionsnamen
-    anderswo nachschlagen, und damit ist der halbe Nutzen der Liste dahin."""
+    Ergänzt zur Herkunft (*woher* ein Bauplan kommt) den Ort (*wo* man den
+    Auftrag findet), damit man den Missionsnamen nicht anderswo nachschlagen
+    muss."""
     if not wo:
         return ''
     orte = ', '.join(wo.get('orte') or [])
@@ -172,10 +171,9 @@ def ort_text(wo):
     return '%s %s' % (t('annehmen_in'), system or orte)
 
 
-# Was die Suche außer dem Namen noch durchsucht. Von einem Nutzer gewünscht:
-# nach „military", „civilian", „stealth" suchen können — die Klasse steht in
-# jeder Zeile, war aber bis dahin nicht auffindbar. Hersteller und Gütegrad
-# kommen mit, aus demselben Grund.
+# Was die Suche außer dem Namen noch durchsucht: die Klasse (military,
+# civilian, stealth …), die in jeder Zeile steht, dazu Hersteller und
+# Gütegrad.
 #
 # Tatsächlich vorhandene Klassen (gemessen am Katalog 4.9.0): Civilian 72,
 # Energy 45, Military 38, Ballistic 30, Industrial 25, Stealth 22, Electron 6,
@@ -193,8 +191,8 @@ KLASSE_BUCHSTABE = {'Military': 'M', 'Stealth': 'S', 'Industrial': 'I',
 
 # ⚠ Klassen, Größen und Grade stehen hier **fest**, nicht aus dem Katalog
 # abgeleitet. Grund: Was gerade kein Bauplan hat, fehlte sonst in der Auswahl —
-# gemeldet für „Competition" (kommt im Katalog 4.9.0 nicht vor), für die Größen
-# 4 bis 6 und für die Grade B bis D. Ein Auswahlfeld, dessen Inhalt sich mit
+# etwa „Competition" (kommt im Katalog 4.9.0 nicht vor), die Größen 4 bis 6
+# oder die Grade B bis D. Ein Auswahlfeld, dessen Inhalt sich mit
 # jedem Spiel-Patch ändert, ist keins: Man sucht etwas und findet den Eintrag
 # nicht, ohne zu erfahren warum. Was der Katalog darüber hinaus hergibt, wird
 # unten trotzdem ergänzt — verlieren soll man nichts.
@@ -213,7 +211,7 @@ def _passt(eintrag, text):
     hersteller = (eintrag.get('m') or '').lower()
     if hersteller and text in hersteller:
         return True
-    # „grade a" und „size 2" — so, wie es in der Zeile steht
+    # `grade a` und `size 2` — so, wie es in der Zeile steht
     grad = GRAD_BUCHSTABE.get(eintrag.get('g'))
     if grad and text in ('grade %s' % grad, 'grad %s' % grad, grad):
         return True
@@ -280,21 +278,14 @@ class Bestandsfenster:
                  hauptfenster=None):
         """Ohne `rahmen` ein eigenes Fenster, mit `rahmen` eine Seite im Hauptfenster.
 
-        Seit v3.0.0 liegt die Liste im Hauptfenster; der eigenständige Modus
-        bleibt, weil er sich einzeln starten und prüfen lässt.
+        Der eigenständige Modus lässt sich einzeln starten und prüfen.
 
         ⚠⚠ **`hauptfenster` gehört hier hinein und NICHT nachträglich
-        zugewiesen.** Der Rückweg zum Hauptfenster entscheidet, ob ein
-        Bauplan-Name anklickbar ist (Sprung zu den Zutaten) — und diese
-        Entscheidung fällt beim **ersten** Zeichnen, das noch im Konstruktor
+        zugewiesen.** Der Rückweg zum Hauptfenster bestimmt, ob ein
+        Bauplan-Name anklickbar ist (Sprung zu den Zutaten) — und das wird
+        beim **ersten** Zeichnen festgelegt, das noch im Konstruktor
         passiert. Wer ihn erst danach setzt, bekommt eine Liste, in der nichts
-        geht, bis sie zufällig ein zweites Mal gezeichnet wird.
-
-        Am 08.09.2026 dreimal gemeldet — „beim ersten Klick ist gar nichts
-        anklickbar", „geht erst nach dem 2. Laden der Bauplan-Liste",
-        „klicken direkt nach Start geht noch nicht". Zwei Anläufe suchten die
-        Ursache bei den Rezeptdaten; sie lag hier, in der Reihenfolge zweier
-        Zeilen.
+        geht, bis sie ein zweites Mal gezeichnet wird.
         """
         self.hauptfenster = hauptfenster
         self.beim_schliessen = beim_schliessen
@@ -308,9 +299,9 @@ class Bestandsfenster:
             self.root.configure(bg=BG)
             # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
             # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
-            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
-            # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
-            # weil es modal war, ließ sich das Programm nicht einmal beenden.
+            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen kann das
+            # Fenster so außerhalb des sichtbaren Bereichs landen; weil es
+            # modal ist, ließe sich das Programm dann nicht einmal beenden.
             #
             # `center_over` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
@@ -318,29 +309,22 @@ class Bestandsfenster:
             if eltern is None or not center_over(self.root, eltern, 720, 780):
                 self.root.geometry('720x780')
 
-        # ⚠⚠ **Die Lücke, die der Bericht bisher nicht kannte.** Zwischen
-        # „Seite liste: bauen beginnt" und „Liste: zeichnen beginnt" lag alles
-        # hier — Bestand lesen, Katalog stempeln, Katalog laden, Kopf und
-        # Werkzeugleiste bauen — ohne eine einzige Zahl. Am 02.09.2026 gemeldet:
-        # „nur beim ersten Laden ist es langsam". Drei Erklärungen ließen sich
-        # am Entwicklungsrechner widerlegen (JSON-Parsen 49 ms für 8,4 MB,
-        # Stempeln 12 ms, Zeichnen 30 ms) — nur stehen dort 3 Bestandseinträge
-        # statt 405. Ohne Zahlen vom echten Rechner bliebe es beim Raten, und
-        # genau daran sind hier schon mehrere Anläufe gescheitert.
+        # ⚠⚠ **Messpunkte für den Bericht.** Zwischen den Berichtszeilen
+        # `Seite liste: bauen beginnt` und `Liste: zeichnen beginnt` liegt
+        # alles hier — Bestand lesen, Katalog stempeln, Katalog laden, Kopf
+        # und Werkzeugleiste bauen. Die Zeiten hängen stark von der Größe des
+        # Bestands ab, deshalb wird jeder Schritt einzeln gemessen.
         _t_bau = time.perf_counter()
         self.bestand = bestand_datei.load()
         _ms_bestand = (time.perf_counter() - _t_bau) * 1000
-        # ⚠ Erst stempeln, dann laden. Das Nachziehen hing bisher allein am
-        # Netz-Takt (`catalog.update()`), und der läuft irgendwann nach
-        # dem Start in einem eigenen Faden. Am 28.08.2026 war das Fenster um
-        # 10:44:02 gebaut und der Katalog um 10:44:03 fertig gestempelt — eine
-        # Sekunde zu spät: Die Liste hielt den ungestempelten Stand fest und
-        # zeigte drei Zeilen, wo 24 hingehörten. Sichtbar wurde es erst beim
-        # nächsten Öffnen.
+        # ⚠ Erst stempeln, dann laden. Der Netz-Takt (`catalog.update()`)
+        # läuft irgendwann nach dem Start in einem eigenen Faden; ist das
+        # Fenster vorher gebaut, hält die Liste den ungestempelten Stand fest
+        # und zeigt zu wenige Zeilen, bis sie neu geöffnet wird.
         #
-        # Genau das trifft **jeden** Nutzer beim ersten Start nach einer
-        # Fassung, die neue Historie mitbringt. Hier kostet es nichts: gelesen
-        # wird ohnehin, geschrieben nur, wenn sich wirklich etwas ändert.
+        # Das trifft jeden ersten Start nach einer Fassung, die neue Historie
+        # mitbringt. Hier kostet es nichts: gelesen wird ohnehin, geschrieben
+        # nur, wenn sich wirklich etwas ändert.
         _t_stempel = time.perf_counter()
         katalog_modul.refresh_stamp()
         _ms_stempel = (time.perf_counter() - _t_stempel) * 1000
@@ -361,11 +345,8 @@ class Bestandsfenster:
         self.alle_zeigen = False
         self.bereiche_aus = set()   # ausgeblendete Bereiche (Schiff, FPS, …)
 
-        # ⚠ **Die letzte blinde Stelle.** In Haldjas' Bericht vom 03.09.2026
-        # standen 29 ms Daten und 58 ms Zeichnen — bei 112 ms gesamt. Die
-        # fehlenden 25 ms lagen genau hier: vier Bauschritte ohne eine einzige
-        # Zahl. Wer nicht weiss, wohin ein Viertel der Zeit geht, kann sie auch
-        # nicht kuerzen.
+        # ⚠ Messpunkt für die vier folgenden Bauschritte — ohne ihn fehlt im
+        # Bericht die Zeit zwischen Daten und Zeichnen.
         _t_rahmen = time.perf_counter()
         self._kopf()
         _ms_kopf = (time.perf_counter() - _t_rahmen) * 1000
@@ -401,14 +382,12 @@ class Bestandsfenster:
         self.fortschritt.pack(side='left')
         # Export rechts in der Kopfzeile — dort, wo man ihn sucht, wenn man die
         # Liste vor sich hat.
-        # ⚠⚠ **Der Knopf springt nach „Sichern & Zurücksetzen" → „Bestand
-        # ausgeben".** Bis v3.64.0 schrieb er hier wortlos die Basetool-Datei,
-        # daneben stand „In die Ablage". Wer scmdb wollte, bekam die falsche
-        # Datei und fand den richtigen Knopf nicht (gemeldet von zwaersch,
-        # 01.10.2026). Dort stehen alle Formate mit Namen nebeneinander, die
-        # Ablage gleich darunter — ein zweiter Weg hier wäre doppelt.
+        # ⚠⚠ **Der Knopf springt zur Seite „Sichern & Zurücksetzen", Abschnitt
+        # „Bestand ausgeben".** Dort stehen alle Formate mit Namen
+        # nebeneinander, die Ablage gleich darunter — ein zweiter Weg hier
+        # wäre doppelt.
         # Im eigenständigen Fenster (ohne Hauptfenster) gibt es keine Seite
-        # zum Hinspringen; dort bleibt der alte Speichern-Dialog.
+        # zum Hinspringen; dort öffnet sich der Speichern-Dialog.
         from .main_window import round_button
         k = round_button(bar, t('export_einzeln'), None, schrift(9), BAR,
                          FLAECHE, LINIE, FG)
@@ -462,21 +441,19 @@ class Bestandsfenster:
     def _grenze_zeigen(self):
         """Sagen, was das Werkzeug NICHT wissen kann.
 
-        ⚠⚠ **Die ehrlichste Zeile im ganzen Programm.** Der Watcher kennt nur,
-        was seit seiner Installation im Protokoll stand — und Star Citizen
-        loescht seine alten Protokolle laufend weg. Wer vorher gespielt hat,
-        hat Bauplaene, von denen das Werkzeug nichts weiss.
+        ⚠⚠ Der Watcher kennt nur, was seit seiner Installation im Protokoll
+        stand — und Star Citizen loescht seine alten Protokolle laufend weg.
+        Wer vorher gespielt hat, hat Bauplaene, von denen das Werkzeug nichts
+        weiss.
 
-        ⚠ Das ist **kein Fehler und laesst sich nicht beheben**: Gemessen am
-        05.09.2026 an 194 Protokollen — jede Bauplan-Meldung, die darin stand,
-        ist auch im Bestand gelandet. Die Luecke stammt aus der Zeit davor.
-        Und der Fabricator hilft nicht weiter: Das Spiel schreibt seine Liste
+        ⚠ Das ist **kein Fehler und laesst sich nicht beheben**: Gemessen an
+        194 Protokollen ist jede Bauplan-Meldung, die darin stand, auch im
+        Bestand gelandet. Die Luecke stammt aus der Zeit davor. Und der
+        Fabricator hilft nicht weiter: Das Spiel schreibt seine Liste
         nirgends ins Protokoll, nur die Verbindung zum Dienst.
 
         Also bleibt der Abgleich von Hand — und wer das nicht weiss, haelt
-        eine unvollstaendige Liste fuer vollstaendig. Genau so aufgefallen:
-        „habe meine BP Liste mit dem Fabricator Ingame abgeglichen und mir
-        hatten noch welche gefehlt."
+        eine unvollstaendige Liste fuer vollstaendig.
 
         ⚠ Steht **unter** der Werkzeugleiste, nicht als Kasten oben: Es ist
         eine einmalige Auskunft, keine Warnung. Wer sie gelesen hat, soll
@@ -487,8 +464,8 @@ class Bestandsfenster:
         zeile.pack(fill='x', padx=14, pady=(0, 6))
 
         # ⚠⚠ **Der Satz muss umbrechen, sonst schiebt er das Fenster breiter.**
-        # Die Randprüfung hat genau das gemeldet: „+8 px" auf Englisch bei
-        # 1100 px Breite — dort ist der Text länger. Ein `wraplength`, das mit
+        # Auf Englisch bei 1100 px Breite sind es +8 px (Randprüfung), dort
+        # ist der Text länger. Ein `wraplength`, das mit
         # der Fensterbreite mitzieht, statt einer festen Zahl: Wer das Fenster
         # schmaler zieht, bekäme sonst denselben Fehler zurück.
         def _umbrechen(_ereignis=None):
@@ -526,10 +503,9 @@ class Bestandsfenster:
         # nur ein Zeichen, das nichts tut.
         self._loeschkreuz_zeigen()
 
-        # ⚠ Eigene Zeile für die Zähler-Knöpfe. Vorher teilten sie sich die
-        # Zeile mit dem Suchfeld, das `expand=True` hat — wurde das Fenster
-        # schmaler, schnitt Tk den letzten Knopf ab: „⭐ be…" statt
-        # „⭐ beobachtet". Der Entwurf trennt das ebenfalls in eigene Zeilen.
+        # ⚠ Eigene Zeile für die Zähler-Knöpfe. In der Zeile des Suchfelds,
+        # das `expand=True` hat, schneidet Tk beim Schmalerziehen den letzten
+        # Knopf ab (`⭐ be…` statt `⭐ beobachtet`).
         # ⚠ Ein Halter um die Zeile. Die Knöpfe selbst werden per `grid`
         # angeordnet (Umbruch), und Tk verträgt `grid` und `pack` nicht im
         # selben Elternteil — der Zurücksetzen-Knopf rechts wird aber gepackt.
@@ -559,11 +535,8 @@ class Bestandsfenster:
     def _feinfilter(self):
         """Fünf Auswahlfelder: Art, Klasse, Größe, Quelle, Gütegrad.
 
-        ⚠ Hier standen vier Knöpfe, die Bereiche **ausblendeten** — also das
-        Gegenteil dessen, was man erwartet: Wer nur FPS-Waffen sehen wollte,
-        musste drei andere Bereiche wegklicken, und blendete man alle bis auf
-        einen aus, blieb die Liste manchmal leer, ohne dass der Grund
-        erkennbar war. Jetzt wird ausgewählt, was man sehen will.
+        ⚠ Ausgewählt wird, was man **sehen** will — nicht, was ausgeblendet
+        wird. Ausblenden hieße, für einen Bereich alle anderen wegzuklicken.
 
         Die Einträge kommen aus dem Katalog, nicht aus einer festen Liste: Was
         es im Spiel nicht gibt, steht auch nicht zur Wahl.
@@ -582,14 +555,14 @@ class Bestandsfenster:
         # von `zum_auftrag()`, weil ein Titel aus dem Spiel sich nicht
         # wörtlich mit den Herkunftsdaten vergleichen lässt (Platzhalter).
         self.auftrag_bp = None
-        # Eine angeklickte Katalog-Art („Cooler", „Schild", „Helm") — kommt aus
+        # Eine angeklickte Katalog-Art (Cooler, Schild, Helm) — kommt aus
         # dem Bauplan-Fortschritt, wo jede Kategorie eine eigene Zeile hat.
         #
         # ⚠ Bewusst NICHT `fein['art']`: Das sind die Oberkategorien aus
         # `categories.classify`, der Fortschritt zählt dagegen nach
         # `catalog.kind_readable`. Zwei Zuordnungen, die sich ähneln, aber nicht
-        # deckungsgleich sind — genau daran ging am 29.08.2026 schon einmal
-        # eine Liste leer aus, während im Feld eine Zahl stand. Wer aus dem
+        # deckungsgleich sind — vermischt bleibt die Liste leer, während im
+        # Feld eine Zahl steht. Wer aus dem
         # Fortschritt springt, muss exakt die Baupläne sehen, die dort gezählt
         # wurden.
         self.katalog_art = ''
@@ -597,21 +570,17 @@ class Bestandsfenster:
         # ⚠ Eigener Rahmen für die Auswahlfelder. Sie werden per `grid`
         # angeordnet (damit sie umbrechen können), und Tk verträgt `grid` und
         # `pack` nicht im selben Elternteil — daneben liegen aber der
-        # Trefferzähler und „zurücksetzen", die gepackt sind.
+        # Trefferzähler und `zurücksetzen`, die gepackt sind.
         self.fein_rahmen = tk.Frame(reihe, bg=BG)
         self.fein_rahmen.pack(side='left', fill='x', expand=True)
 
 
         self._feinfilter_felder()
 
-        # ⚠ Ein Knopf, kein unterstrichener Kleintext. Er stand hier als
-        # graue 9-Punkt-Zeile neben dem Trefferzähler — und wurde übersehen:
-        # „ein Reset-Knopf fehlt, bisher muss man das per Hand machen"
-        # (29.08.2026), obwohl es ihn gab. Was man nicht findet, ist nicht da.
+        # ⚠ Ein Knopf, kein unterstrichener Kleintext — als graue
+        # 9-Punkt-Zeile wird er übersehen.
         # ⚠ Er sitzt **oben in der Zustandszeile**, ganz rechts und mit
-        # Abstand — nicht an „neu im Spiel" geklebt. Vorher stand er unten
-        # rechts beim Trefferzähler und wurde schlicht nicht gefunden: „ein
-        # Reset-Knopf fehlt … nervt auf Dauer" (29.08.2026), obwohl es ihn gab.
+        # Abstand — nicht an den Neu-im-Spiel-Knopf geklebt.
         self.zuruecksetzen_lbl = tk.Label(
             self.knopfhalter, text='\u00d7  ' + t('ff_zuruecksetzen'),
             bg=FLAECHE, fg=ACCENT, font=schrift(10), cursor='hand2',
@@ -632,30 +601,28 @@ class Bestandsfenster:
     def _reihe_umbrechen(self, rahmen, elemente, rechts_frei=None):
         """Eine Reihe von Bedienelementen umbrechen lassen, wenn es eng wird.
 
-        ⚠ Tk bricht nicht um, es schneidet ab. Gemeldet für beide Reihen der
-        Bauplan-Liste: „rechts ist was abgeschnitten" (das fünfte Auswahlfeld
-        stand halb da) und bei Mindestbreite blieben von vier Zähler-Knöpfen
-        nur zwei übrig — „und das werden User sicherlich nutzen". Im Entwurf
+        ⚠ Tk bricht nicht um, es schneidet ab: In beiden Reihen der
+        Bauplan-Liste stünde sonst das fünfte Auswahlfeld nur halb da, und bei
+        Mindestbreite blieben von vier Zähler-Knöpfen zwei übrig. Im Entwurf
         macht das `flex-wrap: wrap`; hier ist es von Hand nachgebaut.
 
         `rechts_frei` ist ein Widget, für das rechts Platz bleiben soll (der
         Trefferzähler).
 
-        ⚠ Angeordnet wird per `grid`, nicht per `pack` mit Zwischenrahmen. Ein
-        erster Anlauf hängte die Elemente in neue Halter (`feld.master = …`) —
-        den Elternteil eines Tk-Widgets kann man aber nicht nachträglich
-        umsetzen, und die fünf Auswahlfelder verschwanden daraufhin
+        ⚠ Angeordnet wird per `grid`, nicht per `pack` mit Zwischenrahmen. Den
+        Elternteil eines Tk-Widgets kann man nicht nachträglich umsetzen
+        (`feld.master = …`) — die Auswahlfelder verschwänden dann
         vollständig aus dem Fenster. Mit `grid` bleibt jedes Element, wo es
         gebaut wurde, und wechselt nur Zeile und Spalte.
         """
         def ordnen(_=None):
             # ⚠ Tote Elemente überspringen. Die Auswahlfelder werden neu
             # gebaut, sobald die Oberkategorie wechselt — die alte Bindung
-            # hängt aber weiter am Rahmen und griff dann auf zerstörte
+            # hängt aber weiter am Rahmen und greift dann auf zerstörte
             # Leinwände zu: `TclError: bad window path name … !canvas14`.
-            # Der Fehler wurde gefangen, aber `ordnen()` brach mittendrin ab,
-            # die Felder blieben ungesetzt und die Liste zeichnete nichts mehr —
-            # „0 von 738" bei gewählter Kategorie (29.08.2026).
+            # Bricht `ordnen()` daran mittendrin ab, bleiben die Felder
+            # ungesetzt und die Liste zeichnet nichts mehr (0 Treffer bei
+            # gewählter Kategorie).
             try:
                 if not rahmen.winfo_exists():
                     return
@@ -740,14 +707,11 @@ class Bestandsfenster:
     def _oberkategorien(self):
         """Die Oberkategorien fürs Auswahlfeld — mit Anzahl.
 
-        ⚠ **Zwei Ebenen statt dreissig Einträgen.** Vorher standen hier
-        „Rüstung (Arme)", „Rüstung (Beine)", „Rüstung (Torso)", „Helm",
-        „Rucksack" … als je eigener Eintrag. Wer eine ganze Rüstung
-        zusammenstellt, sucht sich darin einen Wolf. Die Gliederung folgt der
-        gepflegten Vergleichsliste.
+        ⚠ **Zwei Ebenen statt dreissig Einträgen.** Rüstungsteile (Arme,
+        Beine, Torso, Helm, Rucksack …) werden zu einer Oberkategorie
+        gebündelt. Die Gliederung folgt der gepflegten Vergleichsliste.
 
-        Was sich nicht bündeln lässt, bleibt als eigener Eintrag stehen —
-        „nur was man nicht bündeln kann, sollte noch alleine stehen bleiben."
+        Was sich nicht bündeln lässt, bleibt als eigener Eintrag stehen.
         """
         from . import categories as kat_modul
         zaehler = {}
@@ -785,9 +749,9 @@ class Bestandsfenster:
         """Wie viele Baupläne hat jeder Wert dieses Feldes?
 
         Damit steht in der Auswahlliste, was einen erwartet — und eine Null
-        ist erklärt statt rätselhaft. Gemeldet wurde „Competition findet
-        nichts": Die Klasse steht zu Recht in der Liste (das Spiel kennt sie),
-        nur hat im Katalog 4.9.0 kein einziger Bauplan sie.
+        ist erklärt statt rätselhaft. Beispiel „Competition": Die Klasse
+        steht zu Recht in der Liste (das Spiel kennt sie), nur hat im Katalog
+        4.9.0 kein einziger Bauplan sie.
         """
         from collections import Counter
         zaehler = Counter()
@@ -847,7 +811,7 @@ class Bestandsfenster:
         return katalog_modul.kind_id(eintrag) in self._arten_mit_echtem(feld)
 
     def _mit_zahl(self, eintraege, zaehler):
-        """An jede Beschriftung die Anzahl hängen — „Military (38)"."""
+        """An jede Beschriftung die Anzahl hängen — `Military (38)`."""
         return [(wert, '%s (%d)' % (text, zaehler.get(str(wert), 0)))
                 for wert, text in eintraege]
 
@@ -887,16 +851,13 @@ class Bestandsfenster:
         nächsten Öffnen im Feld.
 
         ⚠⚠ **Die Kurzform allein reicht nicht.** `4.10.0-live.12519617` und
-        `4.10.0-live.12545750` kürzen beide auf „4.10.0" — im Menü standen
+        `4.10.0-live.12545750` kürzen beide auf „4.10.0" — im Menü stünden
         dann **zwei gleich beschriftete Einträge** mit verschiedenen Zahlen,
-        „4.10.0 (34)" und „4.10.0 (24)", und niemand konnte sagen, welcher
-        welcher ist. Gemeldet am 02.09.2026 aus dem laufenden Betrieb.
+        und niemand könnte sagen, welcher welcher ist.
 
-        Genau dieser Fehler wurde in v3.9.1 schon **im Bericht** behoben
-        (`report.py`, `_patch_history`) — hier war er noch. Wer eine Regel
-        an einer Stelle repariert, muss die anderen Stellen mitnehmen: Der
-        Bericht führt die Liste nur auf, das Menü lässt danach **auswählen**.
-        Falsch beschriftet ist es hier also schädlicher.
+        Dieselbe Regel gilt im Bericht (`report.py`, `_patch_history`). Wer
+        sie an einer Stelle ändert, muss die andere mitnehmen: Der Bericht
+        führt die Liste nur auf, das Menü lässt danach **auswählen**.
 
         Warum es überhaupt zwei 4.10.0 gibt: Ein Hotfix wurde in den
         Live-Kanal übernommen. Dabei ändern sich Werte an bestehenden
@@ -924,19 +885,15 @@ class Bestandsfenster:
     def _widerspruch_pruefen(self, gezeigt):
         """Meldet, wenn die Liste leer bleibt, obwohl das Feld Treffer verspricht.
 
-        ⚠ **Der stumme Fehler.** Am 29.08.2026 stand im Auswahlfeld
-        „Schiffsmodule (157)", und die Liste zeigte „Nichts gefunden" — eine
-        vorgelagerte Prüfung verglich Katalog-Art gegen Oberkategorie und warf
-        jede Gruppe weg. Am Bildschirm sah das aus wie ein leerer Bestand; im
-        Diagnosebericht stand nichts davon, weil nichts abgestürzt war.
+        ⚠ **Der stumme Fehler.** Steht im Auswahlfeld eine Zahl (etwa
+        `Schiffsmodule (157)`) und die Liste zeigt keinen Treffer, sieht das
+        am Bildschirm aus wie ein leerer Bestand — und im Diagnosebericht
+        steht nichts davon, weil nichts abgestürzt ist.
 
         Genau das hält diese Prüfung fest: Die Zahl **im Feld** kommt aus dem
         Katalog, die Zahl **in der Liste** aus dem Filter. Klaffen sie
         auseinander, stimmt der Filter nicht — und die Meldung steht im
         Bericht, bevor jemand ein Bildschirmfoto schicken muss.
-
-        Ein Werkzeug, das solche Widersprüche nur anzeigt und nicht meldet,
-        liegt in der Ecke.
         """
         try:
             if gezeigt or not self.fein.get('art'):
@@ -969,9 +926,8 @@ class Bestandsfenster:
         """Zeigt, welche Aufträge zum Suchbegriff passen — und wie viele
         Baupläne in jedem stecken.
 
-        ⭐ Das ist die Frage hinter der Suche nach einem Auftrag: nicht „gibt es
-        ihn?", sondern „was springt dabei heraus?". Die Zeilen darunter sind
-        dann die Baupläne selbst.
+        ⭐ Wer nach einem Auftrag sucht, will wissen, was er einbringt. Die
+        Zeilen darunter sind dann die Baupläne selbst.
         """
         try:
             text = self.suche.get().strip().lower()
@@ -1075,12 +1031,11 @@ class Bestandsfenster:
         self._zeichnen(nach_oben=False)
 
     def _treffer_zeigen(self, gruppen):
-        """Rechts die Zahl, links „zurücksetzen" — beides nur, wenn es zählt.
+        """Rechts die Zahl, links `zurücksetzen` — beides nur, wenn es zählt.
 
-        Die Zahl beantwortet die Frage, die sich sonst nur durch Scrollen klärt:
-        Habe ich gerade alles vor mir oder einen Ausschnitt? Und „zurücksetzen"
-        erscheint erst, wenn wirklich etwas gesetzt ist — ein Knopf, der nichts
-        tut, ist schlimmer als keiner.
+        Die Zahl zeigt, ob man gerade alles vor sich hat oder einen
+        Ausschnitt. `zurücksetzen` erscheint erst, wenn wirklich etwas
+        gesetzt ist — ein Knopf, der nichts tut, ist schlimmer als keiner.
         """
         if not hasattr(self, 'treffer_lbl'):
             return
@@ -1148,7 +1103,7 @@ class Bestandsfenster:
         # der erste Vergleich — er gehört dann in keinen der Patch-Einträge.
         if self.fein['patch'] and e.get('seit') != self.fein['patch']:
             return False
-        # ⚠ Wer nach „Größe 2" oder „Grad A" sucht, meint Schiffsteile. Arten, bei
+        # ⚠ Wer nach Größe 2 oder Grad A filtert, meint Schiffsteile. Arten, bei
         # denen die Zahl nur der Vollständigkeit halber dasteht (Rüstung, FPS-Waffen),
         # fallen deshalb heraus, statt das Ergebnis zu fluten.
         if self.fein['groesse']:
@@ -1172,9 +1127,9 @@ class Bestandsfenster:
     def _feinfilter_felder(self):
         """Die Auswahlfelder bestücken — auch nach einem Wechsel der Art neu.
 
-        ⚠ Eigene Methode, weil die **Unterarten von der Art abhängen**: Wählt
-        jemand „Schiffswaffen", müssen dort `ballistic` und `laser` stehen, bei
-        „Rüstung" die Rollen. Ohne Neuaufbau bliebe die Liste der vorigen Art
+        ⚠ Eigene Methode, weil die **Unterarten von der Art abhängen**: Bei
+        Schiffswaffen müssen dort `ballistic` und `laser` stehen, bei
+        Rüstung die Körperteile. Ohne Neuaufbau bliebe die Liste der vorigen Art
         stehen, und wer daraus wählt, bekommt eine leere Trefferliste.
         """
         from .main_window import round_select
@@ -1192,9 +1147,8 @@ class Bestandsfenster:
         # Die Zahl hinter jedem Eintrag sagt, was einen erwartet — und erklärt
         # eine Null, statt sie rätselhaft zu lassen.
         feld('art', [('', t('ff_alle_arten'))] + self._oberkategorien())
-        # ⭐ Unterart — genau das, was in der langen Waffenliste fehlte:
-        # „ich weiß grad nicht, welche Ballistik sind, welche Laser, welche
-        # Repeater oder Cannon" (29.08.2026). Der Katalog kennt nur
+        # ⭐ Unterart — teilt die lange Waffenliste in Ballistik, Laser,
+        # Repeater, Cannon. Der Katalog kennt nur
         # `WeaponGun`; welche davon ballistisch sind, steht in den Rezeptdaten.
         # Beide werden über den Namen verbunden — 738 von 738 passen.
         #
@@ -1202,9 +1156,9 @@ class Bestandsfenster:
         # hat. Bei Kühlern gäbe es nichts zu wählen, und ein leeres Feld lässt
         # einen suchen, was es filtern soll.
         _unter = self._unterarten()
-        # ⚠ Das leere Feld nennt die Zahl. Ein Feld, das „Alle Unterarten"
-        # sagt, sieht aus wie eine Anzeige — eines, das „12 Unterarten — hier
-        # verfeinern" sagt, wie eine Einladung. Genau daran hat es gefehlt.
+        # ⚠ Das leere Feld nennt die Zahl der Unterarten. Ein Feld mit „Alle
+        # Unterarten" sieht aus wie eine Anzeige, eines mit Zahl und
+        # Aufforderung zum Verfeinern wie eine Auswahl.
         feld('unterart',
              [('', t('ff_unterart_waehlen') % len(_unter) if _unter
                    else self._unterart_beschriftung())] + _unter)
@@ -1241,10 +1195,8 @@ class Bestandsfenster:
     def _unterart_beschriftung(self):
         """Was im leeren Unterart-Feld steht.
 
-        ⚠ Die **Rüstungsrolle** (Kampf, Technik, Tarnung) stand hier kurz als
-        eigene Auswahl — sie ist wieder raus: „das mit den Rollen war ne gute
-        Idee, aber danach sucht laut Rückmeldung niemand" (29.08.2026). Bei
-        Rüstung zählen die Körperteile.
+        ⚠ Die **Rüstungsrolle** (Kampf, Technik, Tarnung) ist keine eigene
+        Auswahl. Bei Rüstung zählen die Körperteile.
         """
         return t('ff_alle_unterarten')
 
@@ -1252,10 +1204,9 @@ class Bestandsfenster:
         """Die Unterarten **der gewählten Oberkategorie** — mit Anzahl.
 
         ⚠ Ohne gewählte Oberkategorie bleibt die Liste leer. Alle Unterarten
-        durcheinander („Laserkanone" neben „Helm" neben „Magazin") wäre wieder
-        die lange Liste, die dieses Feld gerade abschaffen soll: „wichtig ist,
-        dass man nur die Unterarten passend zur Überkategorie zur Auswahl hat,
-        sonst suchen die Leute sich wieder nen Wolf" (29.08.2026).
+        durcheinander (Laserkanone neben Helm neben Magazin) wäre wieder die
+        lange Liste, die dieses Feld gerade abschaffen soll — zur Auswahl
+        stehen nur die Unterarten passend zur Oberkategorie.
         """
         from . import categories as kat_modul
         ober = self.fein.get('art') or ''
@@ -1328,13 +1279,10 @@ class Bestandsfenster:
         deshalb wird stumm gesetzt und am Ende einmal gezeichnet.
 
         ⚠⚠ **War nichts gesetzt, wird auch nichts gezeichnet.** Diese Routine
-        läuft bei **jedem** Wechsel auf die Bauplan-Liste — und zeichnete
-        bisher jedes Mal 738 Zeilen neu, auch wenn gar kein Filter aktiv war.
-        Gemessen am 31.08.2026: **794 ms** allein fürs Umschalten auf eine
-        Seite, die längst gebaut dasteht. Genau das war als „das Fenster
-        reagiert träge" gemeldet worden.
+        läuft bei **jedem** Wechsel auf die Bauplan-Liste. Alle Zeilen neu zu
+        zeichnen kostet rund 800 ms für eine Seite, die längst gebaut dasteht.
 
-        Der Normalfall ist „kein Filter gesetzt" — dann ist die Liste schon
+        Der Normalfall ist: kein Filter gesetzt — dann ist die Liste schon
         richtig, und es gibt nichts zurückzustellen.
         """
         etwas_gesetzt = (any(self.fein.values()) or self.alle_zeigen)
@@ -1360,20 +1308,15 @@ class Bestandsfenster:
     def neu_laden(self, auch_katalog=False):
         """Den Bestand frisch von der Platte lesen und die Liste neu zeichnen.
 
-        ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026.** Was jeder erwartet:
-        Ein Bauplan fällt, das Werkzeug meldet ihn — und in der Liste steht
-        sofort die neue Anzahl und der grüne Haken daneben. Tatsächlich stand
-        dort der Stand von dem Moment, in dem die Seite zum ersten Mal geöffnet
-        worden war.
-
-        Der Grund war, dass `self.bestand` **nur** im `__init__` gelesen wurde.
-        Die Seite wird einmal gebaut und danach nur ein- und ausgeblendet
-        (dieselbe Falle wie beim Auftrags-Protokoll), also blieben die Daten
-        von damals stehen — auch beim erneuten Öffnen. Der Fund lag längst in
-        `bestand.json`, nur las ihn niemand mehr.
+        ⚠⚠ Fällt ein Bauplan, soll in der Liste sofort die neue Anzahl und
+        der grüne Haken stehen. Die Seite wird aber einmal gebaut und danach
+        nur ein- und ausgeblendet (dieselbe Falle wie beim Auftrags-Protokoll);
+        würde `self.bestand` **nur** im `__init__` gelesen, bliebe der Stand
+        vom ersten Öffnen stehen, obwohl der Fund längst in `bestand.json`
+        liegt.
 
         ⚠ **Der Katalog bleibt standardmäßig, wie er ist.** Er ändert sich
-        nicht dadurch, dass ich einen Bauplan freischalte, und ihn mitzulesen
+        nicht dadurch, dass ein Bauplan freigeschaltet wird, und ihn mitzulesen
         kostet mehr als alles andere hier zusammen (gemessen: Bestand 1 ms,
         Katalog 9 ms, Stempeln 12 ms). Beim Seitenwechsel wird er trotzdem
         mitgenommen — dort ist Zeit dafür, und ein Patch kann zwischendurch
@@ -1391,9 +1334,8 @@ class Bestandsfenster:
             # ⭐⭐ **Nur neu zeichnen, wenn sich die Daten geändert haben.**
             #
             # `_zeichnen()` baut bis zu 200 Zeilen aus je mehreren Bauteilen
-            # neu auf. Gemessen am 12.09.2026 im Profillauf: **177 ms bei
-            # jedem Anzeigen der Seite**, obwohl man nur kurz woanders war.
-            # Teil dessen, was als „wirkt lahm" ankam.
+            # neu auf. Gemessen im Profillauf: **177 ms bei jedem Anzeigen
+            # der Seite**, obwohl man nur kurz woanders war.
             #
             # ⭐⭐ Nur neu zeichnen, wenn sich etwas geändert hat — und der
             # Vergleich geht gegen den Abdruck, den `_zeichnen()` beim
@@ -1406,20 +1348,15 @@ class Bestandsfenster:
     def _platzhalter(self, feld):
         """Der graue Hinweis im leeren Suchfeld.
 
-        ⚠⚠ **Warum es das braucht:** Die Liste findet seit v3.12.0 auch
-        *Aufträge* — das Feld sah aber aus wie ein leeres Kästchen und sagte
-        nichts. Zwaersch hat am 09.09.2026 gemeldet, dass man das nicht erkennt,
-        und vorgeschlagen, dafür einen eigenen Reiter zu bauen. Ein Reiter wäre
-        die dritte Stelle für dieselbe Sache gewesen; der Text hier steht
-        genau dort, wohin man beim Tippen ohnehin sieht.
+        ⚠⚠ **Warum es das braucht:** Die Liste findet auch *Aufträge* — ohne
+        Hinweis sieht das Feld aus wie ein leeres Kästchen und verrät das
+        nicht. Der Text steht genau dort, wohin man beim Tippen ohnehin sieht.
 
-        ⚠⚠ **Bis zum 12.09.2026 war das ein Label ÜBER dem Feld** — und damit
-        ein Bauteil, das die Mausklicks abfing. Wer auf den Hinweis klickte,
-        klickte nicht ins Feld; man musste **daneben** treffen. Gemeldet als
-        „alles andere als intuitiv".
+        ⚠⚠ **Kein Label ÜBER dem Feld** — das wäre ein Bauteil, das die
+        Mausklicks abfängt: Wer auf den Hinweis klickt, klickt nicht ins Feld.
 
-        Jetzt steht der Hinweis **im Feld selbst** (`fields.hint`), also
-        gibt es nichts mehr, was einen Klick abfangen könnte. Warum das die
+        Der Hinweis steht **im Feld selbst** (`fields.hint`), also gibt es
+        nichts, was einen Klick abfangen könnte. Warum das die
         Textvariable nicht stört, steht ausführlich in `scbp/fields.py`.
         """
         # ⚠ Das Feld wird gemerkt, damit der Selbsttest es nicht im
@@ -1454,14 +1391,12 @@ class Bestandsfenster:
 
         ⚠ Muss **vor** der Liste gepackt werden. In tkinter bekommt das zuletzt
         gepackte Element mit `expand=True` den Rest des Platzes; käme dieser
-        Block danach, schöbe die Liste ihn aus dem Fenster — das ist in diesem
-        Programm schon zweimal passiert.
+        Block danach, schöbe die Liste ihn aus dem Fenster.
 
-        Warum überhaupt fest: Vorher klappte die Herkunft in der Zeile auf. Ein
-        Bauplan hat bis zu zwölf Bezugsquellen, der Block wurde über 700 Pixel
-        hoch, sichtbar sind 465 — er schob die ganze Liste weg, und man wusste
-        nicht mehr, wo man war. Genau so gemeldet: „dann gehen alle Orte auf …
-        ich kann nichts mehr bedienen."
+        Warum überhaupt fest: Ein Bauplan hat bis zu zwölf Bezugsquellen. In
+        der Zeile aufgeklappt würde der Block über 700 Pixel hoch, sichtbar
+        sind 465 — er schöbe die ganze Liste weg, und man wüsste nicht mehr,
+        wo man war.
         """
         self.herkunft_rahmen = tk.Frame(self.root, bg=BG)
         self.herkunft_rahmen.pack(side='bottom', fill='x', padx=14,
@@ -1527,9 +1462,8 @@ class Bestandsfenster:
         """Die Baupläne, die gerade angezeigt werden sollen.
 
         Die Reihenfolge kommt aus `catalog.groups_ordered()`: erst die
-        Schiffsteile, dann die FPS-Waffen, dann Rüstung und Kleidung. Nach
-        Alphabet stand vorher „Andockkragen" ganz oben und die Rüstung
-        mittendrin."""
+        Schiffsteile, dann die FPS-Waffen, dann Rüstung und Kleidung — nicht
+        nach Alphabet, sonst stünde die Rüstung mittendrin."""
         text = self.suche.get().strip().lower()
         habe = bestand_datei.keys(self.bestand)
         beobachtet = merk.names()
@@ -1540,18 +1474,14 @@ class Bestandsfenster:
         for og, art, liste in katalog_modul.groups_ordered(self.katalog):
             if og in self.bereiche_aus:
                 continue
-            # ⚠ **Hier wird die Art NICHT mehr vorab geprüft.** Bis rc19 stand
-            # hier eine Abkürzung: Die Katalog-Art sei ein Merkmal der ganzen
-            # Gruppe, also genüge eine Prüfung statt 87. Seit die Auswahl
-            # **Oberkategorien** anbietet (`schiffsmodul`), verglich sie
-            # Katalog-Art gegen Oberkategorie — das trifft nie zu, und **jede**
-            # Gruppe fiel heraus: „Nichts gefunden" bei 157 vorhandenen
-            # Bauplänen, gemeldet am 29.08.2026.
+            # ⚠ **Hier wird die Art NICHT vorab je Gruppe geprüft.** Die
+            # Auswahl bietet **Oberkategorien** an (`schiffsmodul`); ein
+            # Vergleich Katalog-Art gegen Oberkategorie trifft nie zu, und
+            # **jede** Gruppe fiele heraus.
             #
-            # Geprüft wird jetzt je Zeile in `_fein_passt()`. Das ist die
-            # einzige Stelle, an der die Kategorie ausgewertet wird — zwei
-            # Stellen waren genau eine zu viel. Die Kategorie je Bauplan ist
-            # gemerkt, das kostet also kaum etwas.
+            # Geprüft wird je Zeile in `_fein_passt()`. Das ist die einzige
+            # Stelle, an der die Kategorie ausgewertet wird. Die Kategorie je
+            # Bauplan ist gemerkt, das kostet also kaum etwas.
             # Suchwörter der Art: „Kühler" soll die Cooler finden, obwohl die
             # Kategorie im Spiel englisch heißt.
             wortliste = katalog_modul.keywords(liste[0].get('a')) if liste else ()
@@ -1576,7 +1506,7 @@ class Bestandsfenster:
                         continue
                 if self.filter == 'neu' and k not in neu_im_spiel:
                     continue
-                # ⚠ „kann zugehen": nur was **fehlt** und **nur** ueber
+                # ⚠ Filter `deckel`: nur was **fehlt** und **nur** ueber
                 # Auftraege mit Ruf-Obergrenze zu bekommen ist. Was man schon
                 # hat, kann nicht mehr verloren gehen; und ein einziger Weg
                 # ohne Deckel genuegt, damit nichts in Gefahr ist.
@@ -1599,11 +1529,10 @@ class Bestandsfenster:
         Daten **und** Anzeigezustand. Fehlt eine, bleibt die Liste still auf
         dem alten Stand, und das fällt niemandem auf.
 
-        Am 12.09.2026 zweimal nachgebessert, beide Male vom Prüfer gefunden:
-        erst fehlte der Anzeigezustand (Filter, Suche), dann die
-        **Merkliste** — `_auswahl()` liest `merk.names()` und `merk.match()`,
-        die Zeilen lesen `merk.contains()`. Wer sie in einem zweiten Fenster
-        ändert, sah hier weiter die alten Sterne.
+        Dazu gehören der Anzeigezustand (Filter, Suche) und die **Merkliste**
+        — `_auswahl()` liest `merk.names()` und `merk.match()`, die Zeilen
+        lesen `merk.contains()`. Wer sie in einem zweiten Fenster ändert,
+        sähe hier sonst weiter die alten Sterne.
 
         ⚠ Lieber eine Quelle zu viel als eine zu wenig: Ein Irrtum soll einen
         **überflüssigen** Neuaufbau kosten, nie ein veraltetes Bild.
@@ -1624,14 +1553,14 @@ class Bestandsfenster:
         `nach_oben` springt an den Anfang. Nötig bei Suche und Filter: Die
         Ansicht behält sonst ihre alte Scrollposition, und wenn aus 714 Zeilen
         plötzlich fünf werden, steht man vor **leerer Fläche** und hält die Suche
-        für kaputt. Genau so gemeldet: „gebe ich xl ein, ist die Liste leer" —
-        die fünf Treffer waren da, nur weit über dem sichtbaren Ausschnitt.
+        für kaputt — die Treffer sind da, nur weit über dem sichtbaren
+        Ausschnitt.
 
         Beim Abhaken, Merken und Ausklappen bleibt die Position dagegen stehen —
         dort wäre ein Sprung nach oben ein Verlust, man arbeitet ja an einer
         bestimmten Stelle.
 
-        ⚠ „Bleibt stehen" ging so nicht auf: Tk merkt sich den **Anteil** der
+        ⚠ Stehenbleiben braucht die Pixelhöhe: Tk merkt sich den **Anteil** der
         Scrollfläche, nicht die Pixelhöhe. Klappt man die Herkunft aus, wird
         die Liste länger, derselbe Anteil zeigt plötzlich weiter oben — und die
         angeklickte Zeile ist weg. Gemessen: 0,50 sprang auf 0,43, also ein
@@ -1647,12 +1576,11 @@ class Bestandsfenster:
         # ⭐⭐ **Ab hier gibt es kein gueltiges Bild mehr.** Die naechste Zeile
         # zerstoert die Zeilen; was danach schiefgeht — ein vorzeitiges
         # `return`, eine Ausnahme —, hinterlaesst eine halbe oder leere Liste.
-        # Der alte Abdruck wuerde sie weiter als „zeigt Zustand A" ausweisen,
-        # und `neu_laden()` spraenge ab, obwohl A laengst weg ist.
+        # Der alte Abdruck wuerde sie weiter als Zustand A ausweisen, und
+        # `neu_laden()` spraenge ab, obwohl A laengst weg ist.
         #
-        # Vom Pruefer am 12.09.2026 nachgestellt: A zeichnen → leeren Katalog
-        # zeichnen (fliegt unten raus) → A wiederherstellen → `neu_laden()`.
-        # Die Liste blieb leer.
+        # Fall: A zeichnen → leeren Katalog zeichnen (fliegt unten raus) → A
+        # wiederherstellen → `neu_laden()` — die Liste bliebe leer.
         #
         # Deshalb: **erst ungueltig machen, dann bauen.** Jeder erfolgreiche
         # Ausgang schreibt den Abdruck selbst wieder.
@@ -1662,8 +1590,8 @@ class Bestandsfenster:
         # Listen laeuft erst im Leerlauf — bis dahin kann laengst ein zweiter
         # Zeichenvorgang gelaufen sein. Ohne Nummer legt der alte Auftrag dann
         # seine Bloecke ueber das neue Bild und stempelt es auch noch als
-        # gueltig. Vom Pruefer am 12.09.2026 nachgestellt: lange Ansicht
-        # einplanen → kurze Ansicht zeichnen → Leerlauf abarbeiten.
+        # gueltig. Fall: lange Ansicht einplanen → kurze Ansicht zeichnen →
+        # Leerlauf abarbeiten.
         #
         # ⛔ Und die Nummer allein reicht nicht: Der Abdruck darf NICHT in
         # einem gemeinsamen Feld zwischengelagert werden, sonst greift der
@@ -1686,26 +1614,18 @@ class Bestandsfenster:
         # gesetzt ist, und brauchen kein Nachziehen von außen.)
         self._loeschkreuz_zeigen()
 
-        # ⚠ Die Warnzeile zum Filter „weg beim Aufsteigen" — sie steht ÜBER der
-        # Liste, nicht im Hilfetext. Grund: Der Knopf loest die Frage „wieso
-        # denn weg?" aus, und die muss an Ort und Stelle beantwortet sein.
-        # Ein Hilfetext, den man erst durch Draufzeigen findet, erreicht
-        # niemanden — die Mechanik dahinter (Auftraege mit Ruf-Obergrenze)
-        # kennt kaum ein Spieler. Am 02.09.2026 hiess der Knopf noch „kann
-        # zugehen" und war damit fuer alle unverstaendlich.
+        # ⚠ Die Warnzeile zum Filter `deckel` steht ÜBER der Liste, nicht im
+        # Hilfetext: Die Mechanik dahinter (Auftraege mit Ruf-Obergrenze)
+        # kennt kaum ein Spieler, und ein Hilfetext, den man erst durch
+        # Draufzeigen findet, erreicht niemanden.
         if self.filter == 'deckel':
             tk.Label(self.inhalt, text=t('deckel_warnung'), bg=BG, fg=SUB,
                      font=schrift(10), justify='left', anchor='w',
                      wraplength=620).pack(fill='x', padx=24, pady=(12, 4))
 
-        # ⚠⚠ **Messpunkte, weil der Bericht hier bisher blind war.** Am
-        # 02.09.2026 gemeldet: „beim Aufruf von Bauplan Liste dauert es bissl,
-        # bis alles geladen ist." Der Bericht kannte nur „zeichnen beginnt" und
-        # „steht" — dazwischen lagen Auswahl, Gruppierung und das Packen der
-        # Zeilen ununterscheidbar beieinander. Genau diese Blindheit hat schon
-        # beim Seitenaufbau zwei falsche Erklaerungen gekostet (Schriftgroesse,
-        # Zahl der Symbolbilder), bis die Millisekunden im Bericht standen.
-        # Deshalb hier drei Zahlen statt einer: Auswahl, Zeilen, gesamt.
+        # ⚠⚠ **Messpunkte für den Bericht.** Zwischen `zeichnen beginnt` und
+        # `steht` liegen Auswahl, Gruppierung und das Packen der Zeilen;
+        # deshalb hier drei Zahlen statt einer: Auswahl, Zeilen, gesamt.
         _t_start = time.perf_counter()
         errors.trail('Liste: zeichnen beginnt')
         _t_auswahl = time.perf_counter()
@@ -1721,8 +1641,8 @@ class Bestandsfenster:
         elif not self.katalog['bauplaene']:
             # ⚠ Auch das ist ein **fertiges** Bild, nur ein sehr kurzes. Ohne
             # diesen Abdruck bliebe die Seite auf ewig ungueltig und wuerde bei
-            # jedem Anzeigen neu gebaut — der Fall „noch kein Katalog" trifft
-            # jede frische Installation.
+            # jedem Anzeigen neu gebaut — der Fall ohne Katalog trifft jede
+            # frische Installation.
             self._hinweis_kein_katalog()
             self._letzter_stand = self._anzeige_stand()
             return
@@ -1731,9 +1651,9 @@ class Bestandsfenster:
         #
         # * **Kurz** (der Normalfall — beim Start 40 Zeilen, mit Suche oder Filter
         #   fast immer): alles in einen Rahmen packen. Erprobt und einfach.
-        # * **Lang** („alle anzeigen" ohne Filter, über 700 Zeilen): in Blöcken,
+        # * **Lang** (alle anzeigen ohne Filter, über 700 Zeilen): in Blöcken,
         #   weil ein einzelner Rahmen sonst höher würde, als X11 Fenster
-        #   platzieren kann — siehe „Lange Liste in Blöcken".
+        #   platzieren kann — siehe Abschnitt „Lange Liste in Blöcken".
         gesamt_zeilen = sum(len(paare) for _, paare in gruppen)
         in_bloecken = self.alle_zeigen and gesamt_zeilen > self._zeilen_deckel()
         # Bleibt None, wenn in Bloecken gebaut wird — dort laufen die Zeilen
@@ -1829,11 +1749,11 @@ class Bestandsfenster:
 
         # ⭐⭐ **Wer zeichnet, schreibt den Abdruck — und zwar HIER, am Ende.**
         #
-        # Die erste Fassung setzte ihn in `neu_laden()`, also nur auf einem von
-        # **vierzehn** Wegen, die `_zeichnen()` rufen. Vom Prüfer nachgestellt:
-        # Zustand A über `neu_laden()` zeichnen, Zustand B direkt zeichnen, A
-        # auf der Platte wiederherstellen, `neu_laden()` — der Vergleich fand
-        # sein altes A, sprang ab, und auf dem Bildschirm stand weiter B.
+        # Nicht in `neu_laden()`: Das ist nur einer von **vierzehn** Wegen, die
+        # `_zeichnen()` rufen. Sonst: Zustand A über `neu_laden()` zeichnen,
+        # Zustand B direkt zeichnen, A auf der Platte wiederherstellen,
+        # `neu_laden()` — der Vergleich findet sein altes A, springt ab, und
+        # auf dem Bildschirm steht weiter B.
         #
         # ⚠ Und **nach** dem Aufbau, nicht davor: Bricht das Zeichnen ab,
         # bleibt der Abdruck ungültig (oben auf `None` gesetzt), und die Liste
@@ -1996,11 +1916,10 @@ class Bestandsfenster:
         # ⭐ **Jetzt erst steht das Bild — wenn es denn steht.**
         #
         # ⛔ `_bloecke_pflegen()` fängt `TclError` ab und kehrt trotzdem
-        # normal zurück. Seine Rückkehr war deshalb **kein Beleg** für einen
-        # geglückten Aufbau: Vom Prüfer am 12.09.2026 nachgestellt — ein
-        # simulierter `TclError` in `_block_bauen()` ergab null gebaute Blöcke
-        # und trotzdem einen gültigen Abdruck. Sie meldet den Erfolg jetzt
-        # ausdrücklich zurück.
+        # normal zurück. Seine Rückkehr ist deshalb **kein Beleg** für einen
+        # geglückten Aufbau: Ein `TclError` in `_block_bauen()` ergäbe null
+        # gebaute Blöcke und trotzdem einen gültigen Abdruck. Deshalb meldet
+        # es den Erfolg ausdrücklich zurück.
         #
         # ⚠ Und die Laufnummer noch einmal: Zwischen Gerüst und hier kann ein
         # Rückruf ein neues Zeichnen ausgelöst haben.
@@ -2043,10 +1962,9 @@ class Bestandsfenster:
         ⚠ Die Rollhöhe entsteht aus **geschätzten** Zeilenhöhen (Kopf, Zeile,
         Zeile mit Zusatz). Das stimmt, solange jede Zeile gleich hoch ist. Klappt
         jemand die Herkunft eines Bauplans auf, wächst der Block aber um ein
-        Vielfaches: Bei „Hart Scraper Module" sind es zwölf Wege. Die Schätzung
+        Vielfaches: Bei `Hart Scraper Module` sind es zwölf Wege. Die Schätzung
         weiß nichts davon, die Rollfläche bleibt zu kurz — und die unteren Wege
-        sind nicht erreichbar. Am 29.08.2026 gemeldet: „wenn es sehr viele Orte
-        gibt, muss man scrollen können, um die unteren zu sehen."
+        sind nicht erreichbar.
 
         Deshalb hier: gebaute Blöcke ausmessen, alle Blöcke neu untereinander
         legen, Rollfläche auf die neue Gesamthöhe setzen.
@@ -2081,9 +1999,9 @@ class Bestandsfenster:
 
         ⛔⛔ **Die normale Rückkehr allein beweist gar nichts** — hier wird
         `TclError` abgefangen, damit ein Rollvorgang nicht das Programm
-        mitreißt. Wer daraus „ist gebaut" schließt, stempelt ein Bild als
-        gültig, das nie entstanden ist. Genau das ist am 12.09.2026 im
-        Fingerabdruck passiert; deshalb der ausdrückliche Rückgabewert.
+        mitreißt. Wer daraus „ist gebaut" schließt, stempelt im Fingerabdruck
+        ein Bild als gültig, das nie entstanden ist; deshalb der
+        ausdrückliche Rückgabewert.
         """
         if not self._block_start:
             return True                     # nichts zu bauen ist auch fertig
@@ -2112,7 +2030,7 @@ class Bestandsfenster:
             for nummer in sorted(gebraucht):
                 if nummer not in self._blockteile:
                     self._block_bauen(nummer)
-            # ⭐ Nicht „keine Ausnahme geflogen", sondern **nachgesehen**: Ein
+            # ⭐ Nicht auf fehlende Ausnahmen verlassen, sondern **nachsehen**: Ein
             # Block, der in `_blockteile` fehlt, steht auch nicht auf dem
             # Schirm — egal warum.
             geglueckt = all(n in self._blockteile for n in gebraucht)
@@ -2131,7 +2049,7 @@ class Bestandsfenster:
         """Weicht ein gebauter Block von seiner Schätzung ab? Dann nachziehen.
 
         Selbsttätig statt an jeder Klickstelle einzeln: Aufgeklappt wird an
-        zwei Stellen (Herkunft eines Bauplans, „weitere Wege" darin), und beim
+        zwei Stellen (Herkunft eines Bauplans, weitere Wege darin), und beim
         nächsten Umbau käme eine dritte dazu, die jemand vergisst.
 
         ⚠ Der Wächter verhindert die Schleife — `_hoehen_nachziehen()` ruft
@@ -2218,11 +2136,10 @@ class Bestandsfenster:
                             anchor='w')
         name_label.pack(fill='x')
 
-        # ⭐ **Der Name führt zu den Zutaten** (07.09.2026). „Woher gibt es den
-        # Bauplan" beantwortete bisher nur die eine Hälfte; „was brauche ich
-        # zum Bauen" stand allein auf der Herstellungs-Seite, erreichbar über
-        # Seitenleiste plus Suchfeld. Nach der Drei-Klick-Regel ein Umweg zu
-        # viel.
+        # ⭐ **Der Name führt zu den Zutaten.** Die Zeile zeigt, woher es den
+        # Bauplan gibt; was man zum Bauen braucht, steht auf der
+        # Herstellungs-Seite. Der Klick auf den Namen spart den Weg über
+        # Seitenleiste plus Suchfeld (Drei-Klick-Regel).
         #
         # ⚠ Der Name war der einzige freie Platz in der Zeile — Haken, Info
         # und Stern sind längst belegt. Ein eigener Knopf daneben wäre das
@@ -2231,15 +2148,13 @@ class Bestandsfenster:
         # ⚠ Nur wo es wirklich ein Rezept gibt: Ein Klick, der auf einer
         # leeren Seite endet, ist schlimmer als keiner — dieselbe Regel wie
         # bei `zum_auftrag` und `zur_art`.
-        # ⚠⚠ **Keine Rezept-Prüfung mehr an dieser Stelle** (08.09.2026).
-        # Zweimal wurde gemeldet, dass beim ersten Öffnen kein Name anklickbar
-        # ist — die Rezepte werden nachgeladen, und jeder Versuch, den
-        # Ladezustand hier abzufragen, traf ihn nur halb: erst wurde ein Nein
-        # gemerkt, dann griff die Abfrage auf `laden()` zu früh. „geht erst
-        # nach dem 2. Laden der Bauplan-Liste."
+        # ⚠⚠ **Keine Rezept-Prüfung an dieser Stelle.** Die Rezepte werden
+        # nachgeladen; eine Abfrage des Ladezustands hier trifft ihn nur
+        # halb (ein zu früh gemerktes Nein, ein zu früher Zugriff auf
+        # `laden()`), und beim ersten Öffnen wäre dann kein Name anklickbar.
         #
         # Die Prüfung verhindert ohnehin nichts: Gemessen haben **alle 738**
-        # Baupläne ein Rezept. Sie kostete also nur den Fehler. Führt ein
+        # Baupläne ein Rezept. Führt ein
         # Sprung doch einmal ins Leere, sagt die Herstellungs-Seite das mit
         # ihrem eigenen Hinweis — besser als eine Liste, in der gar nichts
         # geht.
@@ -2265,11 +2180,9 @@ class Bestandsfenster:
             # ⚠ `antippbar()` statt `zeile()`: eine Stufe groesser. Das Zeichen
             # oeffnet den Herkunftskasten — in reiner Zeilengroesse war es zu
             # klein, um es als Schaltflaeche zu erkennen und zu treffen.
-            # ⚠⚠ **Wort dazu, nicht nur ein Zeichen.** Bushwick4712 (KRT) hat
-            # den Knopf am 31.08.2026 schlicht nicht gefunden — er suchte, wo
-            # es einen Bauplan gibt, und das Symbol am rechten Rand hat ihm
-            # nichts gesagt. Ein Symbol erklaert sich nur dem, der es gebaut
-            # hat.
+            # ⚠⚠ **Wort dazu, nicht nur ein Zeichen.** Ein Symbol am rechten
+            # Rand allein verrät nicht, dass hier steht, wo es den Bauplan
+            # gibt.
             source_button = icons.tappable(row, symbol, background=FLAECHE,
                                      text=t('hk_knopf'), font=schrift(10))
             source_button.configure(cursor='hand2', padx=12, fg=ACCENT)
@@ -2288,7 +2201,7 @@ class Bestandsfenster:
             notice.attach(start_icon, lambda: t('hinweis_startbauplan'))
         else:
             # 59 Baupläne haben in den Daten keine Bezugsquelle — überwiegend
-            # Event-Belohnungen („Purgatory Camo", „SecondWind"). Ohne Zeichen
+            # Event-Belohnungen (`Purgatory Camo`, `SecondWind`). Ohne Zeichen
             # sähe die Zeile aus, als hätte jemand vergessen, die Herkunft
             # einzutragen; mit ? steht da, was Sache ist: Es gibt keinen Auftrag,
             # über den man da herankommt.
@@ -2297,10 +2210,10 @@ class Bestandsfenster:
             no_source_label.pack(side='right')
             notice.attach(no_source_label, lambda: t('hinweis_ohne_quelle'))
 
-        # Stern: worauf man wartet, wird auffällig gemeldet, sobald es auftaucht.
+        # Stern: worauf man wartet, wird auffällig angezeigt, sobald es auftaucht.
         # Bei schon vorhandenen Bauplänen wäre das Merken sinnlos — dort kein
-        # Stern. ⚠ **Außer er ist schon gemerkt** (16.09.2026): Seit Erledigte
-        # auf der Merkliste bleiben, ist der Stern der einzige Weg, so einen
+        # Stern. ⚠ **Außer er ist schon gemerkt**: Erledigte bleiben auf der
+        # Merkliste, und der Stern ist der einzige Weg, so einen
         # Eintrag wieder loszuwerden.
         watched = merk.contains(name)
         if not drin or watched:
@@ -2332,7 +2245,7 @@ class Bestandsfenster:
 
         # ⚠ `badge` misst die Textbreite und braucht deshalb ein Font-Objekt.
         # Dieses Fenster reicht Schriften als Tupel weiter — `_as_font`
-        # wandelt um, sonst gibt es „'tuple' object has no attribute 'metrics'".
+        # wandelt um, sonst gibt es `'tuple' object has no attribute 'metrics'`.
         from .main_window import badge as blase, round_frame, _as_font
         quellen = list(eintrag.get('q') or [])
         farbe = ACCENT if quellen else GELB
@@ -2554,8 +2467,8 @@ class Bestandsfenster:
     def zum_auftrag(self, name):
         """Die Liste auf diesen Auftrag stellen — alles, was er hergibt.
 
-        Von aussen gerufen: „Was bringt am meisten?" nennt einen Auftrag mit
-        einer Zahl daneben. Die Zahl allein beantwortet die naechste Frage
+        Von aussen gerufen: Die Auswertung der ergiebigsten Auftraege nennt
+        einen Auftrag mit einer Zahl daneben. Die Zahl allein beantwortet die naechste Frage
         nicht — **welche** Bauplaene sind das? Hier stehen sie.
 
         ⚠⚠ **Erst nachsehen, dann springen** — dieselbe Regel wie bei
@@ -2582,7 +2495,7 @@ class Bestandsfenster:
         # kann sonst dieselbe Auflösung nicht machen und zeigte eine leere
         # Liste — der Sprung sähe aus, als sei das Werkzeug kaputt.
         self.auftrag_bp = treffer
-        # ⚠ Der Filter muss auf „alle" — sonst versteckt „fehlt mir" genau die
+        # ⚠ Der Filter muss auf `alle` — sonst versteckt `fehlt mir` genau die
         # Bauplaene, die man schon hat, und die Zahl daneben stimmt nicht mehr
         # mit dem ueberein, was dasteht.
         self.filter = 'alle'
@@ -2608,7 +2521,7 @@ class Bestandsfenster:
             errors.record('collection_window.zur_herstellung', ausnahme)
 
     def zur_art(self, art):
-        """Die Liste auf eine Katalog-Art stellen — „Cooler", „Schild", „Helm".
+        """Die Liste auf eine Katalog-Art stellen — Cooler, Schild, Helm.
 
         Von aussen gerufen: Im Bauplan-Fortschritt steht je Kategorie ein
         Balken mit „38 / 70" daneben. Die Zahl beantwortet die naechste Frage
@@ -2623,8 +2536,7 @@ class Bestandsfenster:
         ⚠ Gefiltert wird ueber `catalog.kind_readable` — **dieselbe** Zuordnung,
         nach der der Fortschritt zaehlt. Wuerde hier der Feinfilter
         (`fein['art']`, aus `categories.classify`) benutzt, koennten Zahl und
-        Liste auseinanderlaufen; genau diesen stummen Widerspruch gab es am
-        29.08.2026 schon einmal.
+        Liste stumm auseinanderlaufen.
         """
         art = (art or '').strip()
         if not art:
@@ -2634,8 +2546,8 @@ class Bestandsfenster:
             for e in ((self.katalog or {}).get('bauplaene') or {}).values())
         if not bekannt:
             return False
-        # ⚠ Filter auf „alle": Sonst versteckt „fehlt mir" genau die Bauplaene,
-        # die man schon hat — und die Zahl im Fortschritt („38 / 70") zaehlt
+        # ⚠ Filter auf `alle`: Sonst versteckt `fehlt mir` genau die Bauplaene,
+        # die man schon hat — und die Zahl im Fortschritt (38 / 70) zaehlt
         # beide Seiten.
         self.filter = 'alle'
         self.alle_zeigen = False
@@ -2664,7 +2576,7 @@ class Bestandsfenster:
                 break
         if not treffer:
             return False
-        # ⚠ Filter zurueck auf „alle": Steht er auf „fehlt mir" und der Bauplan
+        # ⚠ Filter zurueck auf `alle`: Steht er auf `fehlt mir` und der Bauplan
         # ist vorhanden (oder umgekehrt), faende die Suche ihn nicht.
         self.filter = 'alle'
         self.alle_zeigen = False

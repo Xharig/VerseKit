@@ -28,8 +28,8 @@ keine davon ist für sich vollständig:
 | **die Game.log** (`joysticks.devices()`) | was das Spiel zuletzt gesehen hat | ob es noch da ist |
 | **die actionmaps.xml** (`joysticks.assignment()`) | welche `js`-Nummer die Belegung meint | ob es das Gerät gibt |
 
-⚠⚠ **Und die Nummern stimmen nicht überein.** Gemessen am 06.09.2026 an
-einem Aufbau mit drei Geräten:
+⚠⚠ **Und die Nummern stimmen nicht überein.** Gemessen an einem Aufbau mit
+drei Geräten:
 
     linker Stick    System: js0    Spiel: js2
     rechter Stick   System: js1    Spiel: js1
@@ -46,8 +46,8 @@ Die **Kennung** — dieselbe geschweifte Zeichenfolge in allen drei Quellen
 Über sie lässt sich zusammenführen, was sonst nur nebeneinanderläge.
 
 ⚠ **Nie über den Namen.** Dasselbe Gerät heißt an den drei Stellen
-verschieden: „VIRPIL Controls 20241226 L-VPC Stick WarBRD-D" im System,
-„L-VPC Stick WarBRD-D" im Protokoll, „LEFT VPC Stick WarBRD-D" in der
+verschieden: `VIRPIL Controls 20241226 L-VPC Stick WarBRD-D` im System,
+`L-VPC Stick WarBRD-D` im Protokoll, `LEFT VPC Stick WarBRD-D` in der
 Belegung — je nachdem, wer es zuletzt umbenannt hat.
 
 ## Die Zustände, die dabei herauskommen
@@ -177,7 +177,7 @@ def summary(folder=None, filename=None):
     }
 
 
-# Was der Assistent vorschlagen kann.
+# Die Schritte, die der Assistent anbietet.
 SWAP = 'tausch'        # dasselbe Gerät unter neuer Kennung → umhängen
 START = 'starten'      # das Spiel kennt es noch nicht → einmal starten
 PLUG_IN = 'anstecken'  # die Belegung erwartet es → anstecken oder aufräumen
@@ -199,7 +199,7 @@ def suggestions(folder=None, filename=None):
 
     ## ⚠⚠ Geraten wird nicht
 
-    Ein Vorschlag zum Umhängen entsteht **nur**, wenn genau **ein** Gerät
+    Ein Schritt zum Umhängen entsteht **nur**, wenn genau **ein** Gerät
     fehlt und genau **ein** neues ohne Nummer dasteht. Bei mehreren wäre die
     Zuordnung Ratearbeit — und ein falsch geratener Ersatz vertauscht zwei
     Sticks, was man erst im Gefecht merkt. Dieselbe Vorsicht wie in
@@ -209,7 +209,7 @@ def suggestions(folder=None, filename=None):
     Dasselbe Gerät heißt an den drei Stellen verschieden; ein Namensvergleich
     wäre Ratearbeit mit gutem Gefühl.
 
-    Liefert je Vorschlag:
+    Liefert je Schritt:
 
     | Feld | Bedeutung |
     |---|---|
@@ -247,16 +247,16 @@ def suggestions(folder=None, filename=None):
 def reassign(old_id, new_id, filename=None, folder=None):
     """Die Belegung eines Geräts auf seine neue Kennung umhängen.
 
-    Reicht an `joysticks.swap_id()` durch — der Schritt, den der
-    Vorschlag `tausch` anbietet. Steht hier, damit die Oberfläche nur ein
+    Reicht an `joysticks.swap_id()` durch — der Schritt der Art
+    `tausch`. Steht hier, damit die Oberfläche nur ein
     Modul kennen muss.
 
     ⚠ **Es wird keine einzige Belegungszeile angefasst.** Getauscht wird die
     Kennung im Kopf der Datei; alle `js<n>_`-Zeilen zeigen danach wieder auf
     ein Gerät, das da ist.
     """
-    # ⛔ Schluesselwort-Aufruf: Die Parameter heissen seit P4 Stufe 10c
-    # `filename`/`folder` — wer sie hier umbenennt, zieht `swap_id` mit.
+    # ⛔ Schluesselwort-Aufruf: Die Parameter heissen `filename`/`folder` —
+    # wer sie hier umbenennt, zieht `swap_id` mit.
     return joysticks.swap_id(old_id, new_id,
                                       filename=filename, folder=folder)
 

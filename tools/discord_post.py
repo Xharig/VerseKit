@@ -16,7 +16,7 @@ irgendwann bleibt die Meldung ganz aus.
     python3 tools/discord_post.py v2.1.0 --de     # nur deutsch
     python3 tools/discord_post.py v2.1.0 --en     # nur englisch
 
-⭐ **Standard ist zweisprachig** (16.09.2026). Ins Discord kommen zunehmend
+⭐ **Standard ist zweisprachig.** Ins Discord kommen zunehmend
 englischsprachige Spieler; zwei getrennte Meldungen je Version verdoppeln aber
 den Kanal, und wer die falsche Sprache zuerst sieht, scrollt weiter. Deshalb
 eine Nachricht mit beiden Fassungen — Kopfzeile, Download-Link und Fußzeile
@@ -57,14 +57,11 @@ def punkte_aus(block):
     ⚠⚠ **Erst den Punkt zusammensetzen, dann kürzen.** Im CHANGELOG ist jeder
     Punkt über mehrere Zeilen umgebrochen; die fette Überschrift reicht oft bis
     in die zweite. Wer nur die erste Zeile nimmt, findet das schließende `**`
-    nicht, fällt auf „erster Satz" zurück — und der endet dann mitten im Wort.
-    Genau so sah die Meldung zu v3.3.0 aus: „Ins Lager kommt nur noch, was es
-    im Spiel wirklich gibt — Rohstoff", „Die Suche findet auch die Zutat. »ric«
-    brachte". Sechs von sechs Punkten abgeschnitten, in einer Nachricht, die an
-    mehrere hundert Leute geht (30.08.2026 aufgefallen).
+    nicht, fällt auf den ersten Satz zurück — und der endet dann mitten im
+    Wort, in einer Nachricht, die an mehrere hundert Leute geht.
     """
     # ⚠ **Der Dank gehört nicht in die Ankündigung.** Er steht im Programm auf
-    # der Seite „Danke & Lizenzen" — dort sucht ihn, wer ihn sehen will. In
+    # der Danke-Seite — dort sucht ihn, wer ihn sehen will. In
     # einer Versionsmeldung ist er Ballast und verdrängt das, worum es geht:
     # was das Werkzeug jetzt kann.
     block = re.split(r'(?m)^### (?:Danke|Thanks)\s*$', block)[0]
@@ -77,7 +74,7 @@ def punkte_aus(block):
         puffer[0] = None
         if not text:
             return
-        # „**Titel.** Erklärung …" -> nur der Titel; sonst der erste Satz.
+        # `**Titel.** Erklärung …` -> nur der Titel; sonst der erste Satz.
         fett = re.match(r'\*\*(.+?)\*\*', text, re.S)
         kurz = fett.group(1) if fett else text
         kurz = re.sub(r'[`*_]', '', kurz)
@@ -130,12 +127,9 @@ def vorspann_aus(block):
     So bleibt der Text, was er sein muss: von einem Menschen geschrieben, für
     Menschen.
 
-    ⚠⚠ **Der Vorspann ist im CHANGELOG ein Blockzitat** (`> …`) — so steht er
-    dort seit jeher, in jeder Version. Diese Funktion hat `> `-Zeilen früher
-    übersprungen und damit **nie einen Vorspann gefunden**: Jede Ankündigung
-    fiel auf die Aufzählung der Überschriften zurück, obwohl der Text
-    danebenstand. Aufgefallen am 03.09.2026, betroffen war jede bisherige
-    Version.
+    ⚠⚠ **Der Vorspann ist im CHANGELOG ein Blockzitat** (`> …`) — in jeder
+    Version. Wer `> `-Zeilen überspringt, findet **nie einen Vorspann**, und
+    jede Ankündigung fällt auf die Aufzählung der Überschriften zurück.
 
     Ausgenommen bleiben die Hinweiskästen (`> [!important]`, `> [!warning]`):
     Die richten sich an Umsteiger und sind keine Ankündigung.
@@ -180,22 +174,19 @@ def vorspann_aus(block):
     # ⚠ **Auf das Leerzeichen achten.** Geprüft wird `- ` und `* `, nicht `*`:
     # Ein Vorspann fängt fast immer mit einem fetten Satz an (`**Die Raffinerie
     # verrät …`), und der beginnt ebenfalls mit einem Stern. Ohne das
-    # Leerzeichen verwarf diese Zeile genau die Texte, die sie schützen sollte
-    # — zusammen mit der Blockzitat-Blindheit oben der Grund, warum bis zum
-    # 03.09.2026 nie ein Vorspann im Discord landete.
+    # Leerzeichen verwürfe diese Zeile genau die Texte, die sie schützen soll.
     if text.startswith('- ') or text.startswith('* '):
         return ''
     return text
 
 
 def herunterladen_link(tag):
-    """Die Adresse, die im Post unter „Herunterladen" steht.
+    """Die Adresse, die im Post beim Herunterladen-Link steht.
 
     ⚠ **Nicht immer `/releases/latest`.** GitHub überspringt dort jede
     Vorabfassung — wer den Post zu `v3.9.2-rc7` liest und darauf klickt, landet
     bei der letzten **stabilen** Version und bekommt die Testfassung nie zu
-    sehen. Gemessen am 02.09.2026: sieben Testfassungen in einer Nacht,
-    **ein** Download über alle zusammen.
+    sehen.
 
     Bei einer Vorabfassung zeigt der Link deshalb direkt auf ihren Tag.
     """
@@ -228,9 +219,9 @@ def bauen(tag, sprache='de'):
                 % (tag, vorspann, holen, REPO))
 
     punkte = punkte_aus(block)[:PUNKTE]
-    # ⚠ Eine reine Fehlerbehebung anzukündigen mit „Was diese Version bringt"
-    # liest sich schief: Darunter stehen dann Sätze wie „Der eingetippte Name
-    # kam nicht mit" — also das Problem, nicht die Neuerung. Bei einer Fassung
+    # ⚠ Eine reine Fehlerbehebung als Neuerung anzukündigen liest sich
+    # schief: Darunter stehen dann Sätze, die das Problem beschreiben, nicht
+    # die Neuerung. Bei einer Fassung
     # ohne neue Funktionen sagt die Zeile deshalb, was sie ist.
     nur_behoben = bool(re.search(r'(?m)^### (Behoben|Fixed)\s*$', block)) and \
         not re.search(r'(?m)^### (Neu|Added|Geändert|Changed)\s*$', block)
@@ -305,7 +296,7 @@ def _teile(tag, sprache):
 
 
 def bauen_zweisprachig(tag):
-    """Eine Nachricht, beide Sprachen — der Standard seit 16.09.2026.
+    """Eine Nachricht, beide Sprachen — der Standard.
 
     Kopf, Download-Link und Fußzeile stehen nur einmal darin. Das ist nicht nur
     kürzer, es ist auch richtiger: Die Datei ist dieselbe, egal in welcher

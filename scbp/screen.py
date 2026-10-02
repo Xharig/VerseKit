@@ -201,12 +201,10 @@ def all_screens(root):
 def _windows_work_area():
     """Der nutzbare Bereich des Hauptschirms — **ohne Taskleiste**.
 
-    ⚠⚠ Warum das noetig ist (gemeldet 02.09.2026 von Haldjas, pr0): Wer das
-    Overlay in eine untere Ecke legt, bekam es an den echten Bildschirmrand
-    gesetzt — und dort liegt unter Windows die Taskleiste. Der schmale
-    Anfasser-Streifen (5 px hoch) verschwand dahinter: „hovern geht nicht mehr,
-    nur ein Klick auf eine bestimmte Stelle klappt ihn aus." Getroffen wurde
-    genau das Stueck, das oberhalb der Leiste herausschaute.
+    ⚠⚠ Warum das noetig ist: Wer das Overlay in eine untere Ecke legt, bekaeme
+    es sonst an den echten Bildschirmrand gesetzt — und dort liegt unter
+    Windows die Taskleiste. Der schmale Anfasser-Streifen (5 px hoch)
+    verschwaende dahinter; Ueberfahren mit der Maus ginge nicht mehr.
 
     `SPI_GETWORKAREA` (48) liefert das Rechteck, das Windows selbst fuer
     Fenster vorsieht. Schlaegt der Aufruf fehl, geben wir `None` zurueck und
@@ -279,8 +277,8 @@ def screen_at(root, x, y):
     gesamten zusammengesetzten Fläche. Bei zwei übereinander stehenden Monitoren
     sind das doppelt so viele Pixel, wie tatsächlich zu sehen sind — eine
     Auswahlliste auf dem oberen Schirm „passt" dann rechnerisch nach unten und
-    klappt in Wirklichkeit ins Nichts. Gemeldet als „Alle Arten und Alle Quellen
-    sind nicht auswählbar": Die langen Listen gingen unterhalb des Bildes auf.
+    klappt in Wirklichkeit ins Nichts: Lange Listen gehen unterhalb des Bildes
+    auf und sind nicht auswählbar.
     """
     for sx, sy, sb, sh in all_screens(root):
         if sx <= x < sx + sb and sy <= y < sy + sh:

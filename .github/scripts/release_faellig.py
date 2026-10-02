@@ -38,7 +38,8 @@ def abschnitt_datum(pfad, nummer):
     """Das Datum aus der Ueberschrift des Versions-Abschnitts — oder None.
 
     Erwartet `## v2.1.0 - 2026-08-26`. Ohne Datum gilt der Abschnitt als
-    unfertig: Wer noch kein Datum gesetzt hat, wollte noch nicht veroeffentlichen.
+    unfertig: Fehlt das Datum, ist der Abschnitt noch nicht zur
+    Veroeffentlichung freigegeben.
     """
     try:
         with open(os.path.join(WURZEL, pfad), encoding='utf-8') as f:

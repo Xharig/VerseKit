@@ -21,14 +21,14 @@ Einen kleinen Bildschirmausschnitt holen — für den Signatur-Scanner.
 
 | System | Weg | Stand |
 |---|---|---|
-| Windows | GDI (`BitBlt`) über `ctypes` | gebaut 17.09.2026 |
+| Windows | GDI (`BitBlt`) über `ctypes` | gebaut |
 | Linux | Wayland-Portal | folgt — siehe Vorhaben-Notiz |
 
 ⚠⚠ **Physische Bildpunkte, nicht die logischen von Tk.** VerseKit läuft ohne
 DPI-Kennung; Windows rechnet ihm bei 125 % alles herunter. Ein Abgriff in dieser
 Rechnung liefert ein **gestauchtes, verwaschenes** Bild — bei Ziffern von neun
 Punkten Breite ist das das Ende jeder Erkennung. Deshalb schaltet der
-abgreifende Faden sich für die Dauer des Aufrufs auf „DPI-bewusst"
+abgreifende Faden sich für die Dauer des Aufrufs auf DPI-bewusst
 (`SetThreadDpiAwarenessContext`) — ⚠ nur in Arbeitsfäden, nie im Tk-Faden
 (siehe `dpi_scale`).
 
@@ -45,7 +45,7 @@ import ctypes
 import sys
 import threading
 
-# Kennung für „pro Bildschirm DPI-bewusst, Fassung 2" (Windows 10 1703+).
+# Kennung für Per-Monitor-DPI-Awareness V2 (Windows 10 1703+).
 _PER_MONITOR_AWARE_V2 = -4
 _SRCCOPY = 0x00CC0020
 
@@ -106,12 +106,11 @@ _scale_cache = []
 def dpi_scale():
     """Physische Bildpunkte je logischem Punkt (125 % → 1,25), einmal gemessen.
 
-    ⚠⚠ **In einem eigenen Faden gemessen, nie im Tk-Faden.** Im RC 1 schaltete
-    das Scan-Fenster den Tk-Faden selbst auf „DPI-bewusst", um die Lage zu
-    lesen — die gemischten Rechnungen ließen das Fenster beim Ziehen springen
-    und nach dem Speichern unten rechts versetzt wieder aufgehen (gemeldet
-    17.09.2026). Jetzt rechnet Tk nur logisch, und umgerechnet wird an genau
-    einer Stelle mit diesem Faktor.
+    ⚠⚠ **In einem eigenen Faden gemessen, nie im Tk-Faden.** Schaltet man den
+    Tk-Faden selbst auf DPI-bewusst, lassen die gemischten Rechnungen das
+    Fenster beim Ziehen springen und nach dem Speichern versetzt wieder
+    aufgehen. Tk rechnet nur logisch, und umgerechnet wird an genau einer
+    Stelle mit diesem Faktor.
     """
     if _scale_cache:
         return _scale_cache[0]
@@ -172,7 +171,7 @@ def grab_raw(left, top, width, height):
     """Den Ausschnitt als BGRA-Bytes holen (oben beginnend).
 
     ⚠ Für große Flächen (die Suche nach der Pille) — die Umrechnung in eine
-    Zeilenliste kostet in Python 0,7 s für 3072×1007 (gemessen 17.09.2026).
+    Zeilenliste kostet in Python 0,7 s für 3072×1007 (gemessen).
     Die Suche arbeitet deshalb auf den Bytes, umgerechnet wird nur der Fund.
     """
     if not supported():

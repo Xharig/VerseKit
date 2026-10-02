@@ -59,13 +59,13 @@ Tesseract, kein Fremdpaket.
 
 ⭐⭐ **Gelesen wird ein MÖGLICHER Wert, nicht Ziffer für Ziffer.** Die Anzeige
 ist immer Grundsignatur mal Brockenzahl. Aus dieser Menge wird der Wert
-gewählt, dessen Ziffern insgesamt am besten passen — „1?,800" hat nur eine
-gültige Lesart, auch wenn die Null für sich einer Acht ähnelt. Danke an ryze.
+gewählt, dessen Ziffern insgesamt am besten passen — `1?,800` hat nur eine
+gültige Lesart, auch wenn die Null für sich einer Acht ähnelt. Herkunft des
+Ansatzes: siehe Lizenzhinweis oben.
 
-Der Erkennungskern stammt aus dem Entwurf vom 09./10.09.2026 (Zweig
-`mining-scanner`), dort gegen 82 Bilder mit bekannter Antwort vermessen. Was
-wegfällt, ist die Suche nach der Pille im ganzen Bild — die war der
-fehleranfälligste Teil, und der Spieler zeigt die Stelle jetzt selbst.
+Der Erkennungskern ist gegen 82 Bilder mit bekannter Antwort vermessen. Die
+Pille wird nicht im ganzen Bild gesucht — das wäre der fehleranfälligste
+Teil; der Spieler zeigt die Stelle selbst.
 
 Rückgaben tragen **Kennwörter**, keine Sätze — den Text setzt die Oberfläche
 aus `language.py`.
@@ -92,30 +92,28 @@ HOLE_PENALTY = 0.25
 HOLE_POSITION_TOLERANCE = 0.12      # siehe `_holes_match`
 
 # ⚠⚠ **Wie viele Punkte eine geschlossene Fläche mindestens hat, damit sie als
-# Loch zählt.** Vorher standen hier 3 — und daran scheiterte am 21.09.2026 die
-# ganze Erkennung auf einem Rechner: In „3,400" schnürte EIN heller Bildpunkt
-# die obere Öffnung der Null ab. Damit zählte sie zwei Löcher statt einem, bekam
-# den Aufschlag von 0,25 auf ihren sonst tadellosen Abstand von 0,09 — und 0,34
-# liegt über `MAX_DIGIT_DISTANCE`. Die Ziffer fiel heraus, kein möglicher Wert
-# blieb übrig, und auch die Freilesung schwieg (dieselbe Grenze). Dieselbe
-# Prüfung lehnte die Null beim Anlernen ab, er konnte es sich also nicht
-# wegtrainieren.
+# Loch zählt.** Bei 3 schnürt etwa in `3,400` EIN heller Bildpunkt die obere
+# Öffnung der Null ab. Damit zählt sie zwei Löcher statt einem, bekommt den
+# Aufschlag von 0,25 auf ihren sonst tadellosen Abstand von 0,09 — und 0,34
+# liegt über `MAX_DIGIT_DISTANCE`. Die Ziffer fällt heraus, kein möglicher Wert
+# bleibt übrig, und auch die Freilesung schweigt (dieselbe Grenze). Dieselbe
+# Prüfung lehnt die Null beim Anlernen ab, Anlernen hilft also nicht.
 #
-# Gemessen (58 Windows-Bilder dreigeteilt · fünf gemeldete Bilder): 3 Punkte →
+# Gemessen (58 Windows-Bilder dreigeteilt · fünf Problembilder): 3 Punkte →
 # 46/58 und 0 von 5; **8 Punkte → 47/58 und 2 von 5**, beide Male nichts falsch.
-# Den Aufschlag zu senken war der naheliegende, aber falsche Weg: 0,20 las 6,740
+# Den Aufschlag zu senken ist der naheliegende, aber falsche Weg: 0,20 las 6,740
 # als 8,740, 0,15 und 0,12 lasen 16,960 als 16,860.
 MIN_HOLE = 8
 
 # Schlechtester mittlerer Abstand, der noch als gelesen gilt, und der Vorsprung
-# vor dem zweitbesten Wert. Gemessen am 10.09.2026 gegen 82 Bilder:
+# vor dem zweitbesten Wert. Gemessen gegen 82 Bilder:
 # | Vorsprung | richtig | falsch | schweigt |
 # |---|---|---|---|
 # | 0,020 | 62 | 1 | 19 |
 # | 0,050 | 45 | 2 | 35 |
 MAX_DISTANCE = 0.34
 VALUE_MARGIN = 0.02
-# Höchster Abstand EINER Ziffer. Abgestimmt am 17.09.2026 (82 Aufnahmen /
+# Höchster Abstand EINER Ziffer. Abgestimmt (82 Aufnahmen /
 # gezeichnete Ziffern, richtig/falsch): 0,30 → 74/2 · 42/2; **0,26 → 72/1 ·
 # 33/0**; 0,22 → 70/1 · 15/1. Ein höherer Vorsprung half nirgends.
 MAX_DIGIT_DISTANCE = 0.26
@@ -123,23 +121,23 @@ MAX_DIGIT_DISTANCE = 0.26
 MAX_OWN_PER_DIGIT = 24
 
 # Welche Lochstruktur eine Ziffer haben MUSS — (Anzahl, Lage von oben).
-# ⚠ Am 10.09.2026 hatten fünf von acht angelernten „Sechsen" zwei Löcher: Achten
-# in der falschen Zeile. Dieser Prüfstein hält solche Vorlagen fern.
+# ⚠ Angelernte Sechsen mit zwei Löchern sind Achten in der falschen Zeile.
+# Dieser Prüfstein hält solche Vorlagen fern.
 # Mindestens so viele Zeichen — weniger wären zu leicht mit Rauschen zu
 # verwechseln, und eine Signatur unter 100 gibt es nicht.
 MIN_CHARS = 3
 
-# ⚠⚠ Die Lagen sind an echten Bildern gemessen (17.09.2026, 54 Windows-Bilder,
+# ⚠⚠ Die Lagen sind an echten Bildern gemessen (54 Windows-Bilder,
 # Lage des Lochs von oben): 9 → 0,35–0,37 · 0 → 0,45–0,55 · 6 → 0,62–0,73.
-# Vorher standen hier die Linux-Werte (9: 0,32, 6: 0,65) mit Toleranz 0,22 —
-# damit ging eine 6 als 0 durch, und Tippfehler beim Anlernen („8000" auf
-# einem 8,600-Bild) speicherten Sechsen als Nullen.
+# Mit den Linux-Werten (9: 0,32, 6: 0,65) und Toleranz 0,22 ginge eine 6 als 0
+# durch, und Tippfehler beim Anlernen (`8000` auf einem 8,600-Bild)
+# speicherten Sechsen als Nullen.
 LEARN_HOLE_TOLERANCE = 0.07
 
 REQUIRED_HOLES = {
     '0': (1, 0.5), '1': (0, None), '2': (0, None), '3': (0, None),
     # ⚠ Die 4 darf offen sein: Bei kleiner Schrift schließt sich ihr Dreieck
-    # nicht — „15,420" wurde am 17.09.2026 mit „Stelle 3 unklar" abgelehnt.
+    # nicht, und `15,420` würde sonst an Stelle 3 abgelehnt.
     '4': ((0, 1), None), '5': (0, None), '6': (1, 0.68), '7': (0, None),
     '8': (2, None), '9': (1, 0.35),
 }
@@ -177,11 +175,10 @@ def otsu(raster):
 
 
 def thresholds(raster):
-    """Mehrere Trennlinien — Otsu und „nur das Hellste".
+    """Mehrere Trennlinien — Otsu und nur das Hellste.
 
     ⚠⚠ Otsu allein reicht nicht: Vor einem hellen Asteroiden rutscht die
-    Schwelle ab, und die Ziffern verschmelzen mit dem Geröll (09.09.2026
-    gemessen). Die Ziffern belegen nur wenige Punkte des Ausschnitts — hohe
+    Schwelle ab, und die Ziffern verschmelzen mit dem Geröll (gemessen). Die Ziffern belegen nur wenige Punkte des Ausschnitts — hohe
     Perzentile treffen genau sie.
     """
     counts = [0] * 256
@@ -201,11 +198,10 @@ def thresholds(raster):
                     found.append(value)
                     top = max(top, value)
                     break
-        # ⚠⚠ **Stufen zwischen Otsu und dem Hellsten** (17.09.2026). Bei kleiner
-        # HUD-Schrift (Ziffern 5×11, Striche 1–2 Punkte) lagen alle Perzentile
+        # ⚠⚠ **Stufen zwischen Otsu und dem Hellsten.** Bei kleiner
+        # HUD-Schrift (Ziffern 5×11, Striche 1–2 Punkte) liegen alle Perzentile
         # auf dem hellen Ortungssymbol (≈240), Otsu auf dem Pillengrund (≈128)
-        # — sauber getrennt standen die Ziffern erst bei 160–190, und genau
-        # dort gab es keine Schwelle.
+        # — sauber getrennt stehen die Ziffern erst bei 160–190.
         for share in (0.25, 0.45, 0.65):
             found.append(int(base + (top - base) * share))
     return sorted({v for v in found if 8 <= v <= 245})
@@ -253,14 +249,14 @@ def _median(values):
 def split_merged(boxes, raster=None, threshold=None):
     """Zusammengeflossene Ziffern wieder auftrennen.
 
-    ⚠⚠ **Geschnitten wird an der dunkelsten Spalte, nicht stur gleichmäßig**
-    (17.09.2026). Bei kleiner Schrift (5×11) kleben Ziffern oft zusammen; die
-    gleichmäßige Teilung schnitt eine Spalte daneben, jede Ziffer sah dann in
-    jedem Abgriff anders aus. Gesucht wird jetzt nahe der erwarteten Stelle die
-    Spalte mit den wenigsten hellen Punkten. Ohne Bild (`raster`) bleibt es bei
-    der gleichmäßigen Teilung.
+    ⚠⚠ **Geschnitten wird an der dunkelsten Spalte, nicht stur gleichmäßig.**
+    Bei kleiner Schrift (5×11) kleben Ziffern oft zusammen; die gleichmäßige
+    Teilung schneidet eine Spalte daneben, jede Ziffer sieht dann in jedem
+    Abgriff anders aus. Gesucht wird nahe der erwarteten Stelle die Spalte mit
+    den wenigsten hellen Punkten. Ohne Bild (`raster`) bleibt es bei der
+    gleichmäßigen Teilung.
 
-    ⚠ Gemessen am 17.09.2026 (82 Aufnahmen · Windows-Bilder, je mit den
+    ⚠ Gemessen (82 Aufnahmen · Windows-Bilder, je mit den
     übrigen angelernt): gleichmäßig 72/1 · 14/1, **dunkelste Spalte 72/1 ·
     15/1**. Nicht übernommen: Zuschnitt auf die Umrisse (+1 richtig, aber +1
     falsch) und die Einzelbreite aus den schmalen Flächen (82 Aufnahmen: 39
@@ -307,18 +303,17 @@ def split_merged(boxes, raster=None, threshold=None):
 def split_variants(boxes, raster, threshold):
     """Weitere Zerlegungen für den Fall, dass `split_merged` nichts Lesbares ergab.
 
-    ⚠⚠ **Bei großer HUD-Schrift verkleben die Ziffern reihenweise** (30.09.2026,
-    fünf Bilder „3,400" bei 3440×1440): „4", „0", „0" und das Komma sind EINE
-    Fläche. `split_merged` schätzt die Einzelbreite als Median der Reihe — ist
+    ⚠⚠ **Bei großer HUD-Schrift verkleben die Ziffern reihenweise** (etwa
+    `3,400` bei 3440×1440): 4, 0, 0 und das Komma sind EINE Fläche. `split_merged` schätzt die Einzelbreite als Median der Reihe — ist
     die halbe Reihe verklebt, ist der Median selbst zu breit, und nichts wird
     getrennt. Hier gilt stattdessen die **schmalste Fläche in voller
-    Ziffernhöhe** als Einzelbreite (eine „1" zählt nicht, sie ist zu schmal),
+    Ziffernhöhe** als Einzelbreite (eine 1 zählt nicht, sie ist zu schmal),
     und je verklebter Fläche werden die Teilzahlen daneben mit probiert.
 
     Welche Zerlegung stimmt, entscheidet nicht diese Funktion, sondern der
     Abgleich mit den möglichen Werten (`match_values`) mit all seinen Grenzen.
     ⚠ Nur als Rückfall gedacht: `read` ruft sie erst, wenn der normale Weg
-    schweigt — so kann sie keine bisher richtige Lesung verändern.
+    schweigt — so kann sie keine sonst richtige Lesung verändern.
     """
     if len(boxes) < 2:
         return []
@@ -380,7 +375,7 @@ def _drop_raised_head(chars, digit_h):
     """Den Kopf des Ortungssymbols abtrennen, wenn er über der Grundlinie endet.
 
     ⚠⚠ Bei großer Schrift ist der Kopf der Stecknadel **so hoch wie eine
-    Ziffer** (15 gegen 13–14 Punkte, 30.09.2026) und übersteht deshalb das
+    Ziffer** (15 gegen 13–14 Punkte) und übersteht deshalb das
     Abschneiden nach der Höhe in `digit_rows`. Er endet aber 4–5 Punkte **über**
     der Grundlinie der Ziffern — Ziffern stehen auf einer Linie, der Kopf nicht.
     """
@@ -433,11 +428,10 @@ def only_digits(chars):
 def digit_rows(boxes, width=None, raster=None, threshold=None, variants=False):
     """Die Zeichenreihe der Signatur finden — als Kandidatenliste.
 
-    Übernommen aus dem Entwurf vom 09./10.09.2026 (`zeichenreihe_finden`), dort
-    gegen 82 Aufnahmen vermessen; auf aufgezogenen Ausschnitten derselben
-    Aufnahmen am 17.09.2026: 66 richtig, 1 falsch. ⚠ Eine eigene, vereinfachte
-    Suche schaffte auf denselben Bildern nur 25 richtig bei 7 falschen — nicht
-    wieder „vereinfachen", ohne gegen die Aufnahmen zu messen.
+    Gegen 82 Aufnahmen vermessen; auf aufgezogenen Ausschnitten derselben
+    Aufnahmen: 66 richtig, 1 falsch. ⚠ Eine vereinfachte Suche schafft auf
+    denselben Bildern nur 25 richtig bei 7 falschen — nicht vereinfachen, ohne
+    gegen die Aufnahmen zu messen.
 
     Gesucht: ähnlich hohe Flächen auf einer Grundlinie, **angeführt vom
     Ortungssymbol** (das von links abgeschnitten wird), dicht beieinander, mit
@@ -540,8 +534,8 @@ def normalize(raster, box, threshold):
 def holes(pattern):
     """Geschlossene Flächen eines Zeichens — (Anzahl, höchste Lage 0..1).
 
-    ⚠⚠ Das Merkmal, das Null von Acht trennt: Am 10.09.2026 gingen 60 von 63
-    Fehlschlägen auf genau diese Verwechslung zurück.
+    ⚠⚠ Das Merkmal, das Null von Acht trennt: Ohne es gingen 60 von 63
+    gemessenen Fehlschlägen auf genau diese Verwechslung zurück.
 
     ⚠⚠ Flächen unter `MIN_HOLE` Punkten zählen nicht mit — ein einzelner heller
     Punkt kann eine Öffnung abschnüren und aus einer Null eine Acht machen.
@@ -584,9 +578,9 @@ def holes(pattern):
 def _holes_match(a, b):
     """Gleiche Lochstruktur? Anzahl gleich und Lage nah genug.
 
-    ⚠⚠ **Toleranz 0,12, nicht 0,20** (17.09.2026). Das Loch der 6 liegt bei
-    kleiner Schrift um 0,69, das der 0 bei 0,50 — mit 0,20 galten beide als
-    gleich, und aus 16,960 wurde 10,800, aus 16,000 wurde 10,000. Gemessen
+    ⚠⚠ **Toleranz 0,12, nicht 0,20.** Das Loch der 6 liegt bei kleiner
+    Schrift um 0,69, das der 0 bei 0,50 — mit 0,20 gelten beide als gleich,
+    und aus 16,960 wird 10,800, aus 16,000 wird 10,000. Gemessen
     (Windows-Bilder · 82 Aufnahmen, richtig/falsch): 0,20 → 17/2 · 72/1;
     0,14 und 0,10 → **17/0** · 72/1.
     """
@@ -697,7 +691,7 @@ def _score_value(table, text):
         total += distance
         worst = max(worst, distance)
     # ⚠ Der Mittelwert allein versteckt eine einzelne falsche Ziffer: Aus
-    # „3,400" wurde „3,000", weil drei gute Ziffern die Vier überstimmten.
+    # `3,400` würde `3,000`, weil drei gute Ziffern die Vier überstimmen.
     if worst > MAX_DIGIT_DISTANCE:
         return None
     return total / len(text)
@@ -709,9 +703,9 @@ def digit_table(patterns, known):
     size = float(NORM_W * NORM_H)
     for pattern in patterns:
         # ⚠⚠ Verglichen wird **gestreckt** (`fill`): beide Seiten füllen das
-        # Raster. Unter Windows waren die Ziffern 5×11 statt 9×11 wie in den
+        # Raster. Unter Windows sind die Ziffern 5×11 statt 9×11 wie in den
         # Linux-Aufnahmen, aus denen die Vorlagen stammen — mit erhaltenem
-        # Seitenverhältnis passte keine Vorlage (17.09.2026). An den 82
+        # Seitenverhältnis passt keine Vorlage. An den 82
         # Aufnahmen kostet das nichts (65 → 66 richtig, weiter 1 falsch).
         filled = fill(pattern)
         own = holes(filled)
@@ -751,11 +745,11 @@ def match_values(patterns, known, values):
         return None, best
     if len(scored) > 1 and scored[1][0] - best < VALUE_MARGIN:
         return None, best
-    # ⚠⚠ **Nicht einrasten, wenn die Ziffern sicher etwas anderes sagen**
-    # (17.09.2026). Das Einrasten auf mögliche Werte schützt vor einer falsch
-    # gelesenen Ziffer — erzeugt aber eine falsche Zahl, sobald im Spiel ein
-    # Wert steht, den die Bergbaudaten nicht kennen: „1,700" (kein bekanntes
-    # Vorkommen) wurde als „7,200" gelesen, obwohl jede Ziffer sicher erkannt war.
+    # ⚠⚠ **Nicht einrasten, wenn die Ziffern sicher etwas anderes sagen.**
+    # Das Einrasten auf mögliche Werte schützt vor einer falsch gelesenen
+    # Ziffer — erzeugt aber eine falsche Zahl, sobald im Spiel ein Wert steht,
+    # den die Bergbaudaten nicht kennen: `1,700` (kein bekanntes Vorkommen)
+    # würde als `7,200` gelesen, obwohl jede Ziffer sicher erkannt ist.
     free = free_reading(table)
     if free is not None and free != value:
         return (free if FREE_WINS else None), best
@@ -764,11 +758,11 @@ def match_values(patterns, known, values):
 
 # Was tun, wenn die sicher gelesenen Ziffern einen anderen Wert ergeben als der
 # eingerastete? True: die gelesene Zahl zeigen (ohne Erz), False: schweigen.
-# Gemessen 17.09.2026 (54 echte Windows-Bilder, je 3-fach geteilt angelernt ·
+# Gemessen (54 echte Windows-Bilder, je 3-fach geteilt angelernt ·
 # 82 Aufnahmen): ohne Freilesung 40/1 · 72/1 (1,700 als 7,200); **Vorsprung
-# 0,06 → 41/0 · 72/1**; 0,04 → 41/0 · 71/2. Eine zusätzliche Regel „nicht
-# einrasten, wenn eine Stelle deutlich besser zu einer anderen Ziffer passt"
-# änderte nichts und ist wieder heraus.
+# 0,06 → 41/0 · 72/1**; 0,04 → 41/0 · 71/2. Eine zusätzliche Regel, nicht
+# einzurasten, wenn eine Stelle deutlich besser zu einer anderen Ziffer passt,
+# ändert nichts.
 FREE_WINS = True
 # Vorsprung der besten Ziffer vor der zweitbesten, damit sie als sicher gilt.
 FREE_MARGIN = 0.06
@@ -850,8 +844,8 @@ def read(raster, known=None, values=None):
 # Die Pille im Spielbild suchen
 # --------------------------------------------------------------------------
 
-# ⚠⚠ **Die Pille wandert mit dem gescannten Brocken** (17.09.2026, Bildschirm-
-# fotos: mal mittig, mal weit oben rechts). Ein fester Scan-Bereich kann deshalb
+# ⚠⚠ **Die Pille wandert mit dem gescannten Brocken** (mal mittig, mal weit
+# oben rechts). Ein fester Scan-Bereich kann deshalb
 # nicht tragen — gesucht wird in der Bildmitte des Spielfensters, als Anteil
 # (links, oben, breite, höhe).
 SEARCH_AREA = (0.2, 0.1, 0.6, 0.75)
@@ -864,7 +858,7 @@ def pill_candidates(raw, width, height):
 
     ⚠ Arbeitet auf den BGRA-Bytes mit C-schnellen Operationen (`translate`,
     `re`): Eine Umrechnung von 3072×1080 in eine Zeilenliste kostet 0,7 s,
-    diese Suche 25 ms (gemessen 17.09.2026). Gesucht werden Nester aus kurzen
+    diese Suche 25 ms (gemessen). Gesucht werden Nester aus kurzen
     hellen Strichen in Zahlengröße; ob es wirklich eine Signatur ist,
     entscheidet danach `read` — Chat und Beschriftungen fallen dort heraus.
     """
@@ -938,9 +932,8 @@ def learn(raster, typed):
     Ziffernbild gab es schon), `unklar` (Stellen, 1-basiert, die nicht wie ihre
     Ziffer aussahen und deshalb NICHT gespeichert wurden).
 
-    ⚠ Bis 17.09.2026 stand dort nur die Zahl der neuen Bilder: „Gelernt (4
-    Ziffern)" bei einer fünfstelligen Zahl — und niemand wusste, ob das Richtige
-    angekommen war.
+    ⚠ Die bloße Zahl der neuen Bilder sagte nicht, ob das Richtige angekommen
+    ist — etwa vier Ziffern bei einer fünfstelligen Zahl.
 
     ⚠ Passt die Zahl der gefundenen Ziffern nicht zur getippten Zahl, wird
     NICHT geraten — eine falsch zugeordnete Vorlage vergiftet jede spätere
@@ -977,11 +970,11 @@ def learn(raster, typed):
         if not plausible_template(digit, pattern):
             stats['unklar'].append(position)
             continue
-        # ⚠⚠ **„Bekannt" heißt: VerseKit hätte diese Ziffer schon VOR dem
+        # ⚠⚠ **`bekannt` heißt: VerseKit hätte diese Ziffer schon VOR dem
         # Anlernen richtig gelesen** — beste Vorlage ist die getippte Ziffer,
-        # nah genug. Bitgleichheit taugte nicht: Bei kleiner Schrift sieht
-        # dieselbe Ziffer in jedem Abgriff anders aus, und beim zehnten „2,000"
-        # hieß es wieder „4 neu" („das Fenster lügt meine User an", 17.09.2026).
+        # nah genug. Bitgleichheit taugt nicht: Bei kleiner Schrift sieht
+        # dieselbe Ziffer in jedem Abgriff anders aus, und auch beim zehnten
+        # gleichen Bild hieße es wieder „neu".
         # Gespeichert wird trotzdem immer — mehr Beispiele, bessere Erkennung.
         # Sind alle bekannt, weiß der Spieler: genug angelernt.
         column = columns[position - 1]
@@ -1044,12 +1037,12 @@ def samples():
 def reporter_folder():
     """Der eingetragene Melder-Name, tauglich als Ordner- und Dateiname.
 
-    ⭐ **Ohne ihn weiß niemand, wessen Bilder das sind** (21.09.2026). Mehrere
+    ⭐ **Ohne ihn weiß niemand, wessen Bilder das sind.** Mehrere
     Archive liegen nebeneinander im Download-Ordner und heißen alle gleich; wer
     sie auspackt, bekommt jedes Mal denselben Ordner `bilder`. Der Name ist
     freiwillig eingetragen und geht ohnehin oben im Bericht mit — hier kommt
     nichts dazu, was nicht schon mitgeschickt würde. Ist keiner eingetragen,
-    bleibt es beim alten Aufbau.
+    bleibt es beim Ordner `bilder`.
     """
     from . import paths
     raw = (paths.setting('melder_name') or '').strip()
@@ -1096,8 +1089,8 @@ def save_sample(raster, number):
     """Das angelernte Bild mit der richtigen Zahl ablegen.
 
     ⭐⭐ **Bild + richtige Antwort ist das Wertvollste für die Erkennung.** Aus
-    genau solchen Paaren (82 Aufnahmen vom 10.09., Live-Bilder vom 17.09.2026)
-    wurde der Kern vermessen und verbessert. Die Ziffernvorlagen allein sagen
+    genau solchen Paaren (82 Aufnahmen und Live-Bilder) ist der Kern
+    vermessen. Die Ziffernvorlagen allein sagen
     nicht, woran eine Lesung scheiterte. Name `<zahl>_<zeit>.png`, höchstens
     `SAMPLE_LIMIT`, die ältesten gehen zuerst. Nur der Ausschnitt um die Zahl —
     nichts vom übrigen Bildschirm.
@@ -1130,7 +1123,7 @@ def region():
     """Der gemerkte Scan-Bereich (links, oben, breite, höhe) in Bildpunkten."""
     from . import paths
     # ⚠ `settings().get`, nicht `setting()`: Das gibt nur Text zurück, und eine
-    # Liste gälte als „nicht gesetzt" — der Bereich wäre nach jedem Speichern weg.
+    # Liste gälte als nicht gesetzt — der Bereich wäre nach jedem Speichern weg.
     raw = paths.settings().get(REGION_SETTING)
     try:
         left, top, width, height = (int(v) for v in raw)

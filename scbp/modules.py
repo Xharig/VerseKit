@@ -17,19 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Module: ganze Gruppen der Seitenleiste ein- und ausblenden (v3.58.0-rc4).
+Module: ganze Gruppen der Seitenleiste ein- und ausblenden.
 
-Anlass (27.09.2026): Die Leiste kommt an ihre Grenze. Wer nicht handelt,
-braucht „Handel" nicht zu sehen.
+Die Leiste kommt an ihre Grenze. Wer nicht handelt, braucht „Handel" nicht zu
+sehen.
 
-⚠⚠ **Die Regeln, auf die es ankommt** (entschieden mit der Neugliederung der
-Einstellungen am 27.09.2026):
+⚠⚠ **Die Regeln, auf die es ankommt:**
 
 1. **Ab Werk ist alles an.** Wer VerseKit neu hat, sieht alles, was es kann.
 2. **Baupläne, Einstellungen und Info sind nie abschaltbar** — der Kern des
    Werkzeugs und der Weg zum Fehlerbericht. Sie stehen deshalb gar nicht in
-   `SWITCHABLE`. Die Statistik war es anfangs auch; seit dem 27.09.2026 lässt
-   sie sich ausblenden (*„wer das nicht will"*). Ausgewertet wird trotzdem
+   `SWITCHABLE`. Die Statistik lässt sich ausblenden. Ausgewertet wird trotzdem
    weiter, solange „Automatisch auswerten" an ist — sonst fehlten beim
    Wiedereinschalten die Wochen dazwischen.
 3. **Ausblenden, nicht abschalten.** Es wird nichts gelöscht und nichts

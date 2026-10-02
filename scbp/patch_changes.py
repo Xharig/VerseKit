@@ -32,14 +32,14 @@ Lebenszyklus. Die Bauplan-Historie darf weitergegeben werden und liegt im Repo;
 die Werte-Diffs stammen von erkul und bleiben beim Spieler.
 
 ⭐ **Warum überhaupt lokal ablegen — der Silberstreif.** Erkul hebt nur die
-**letzten zehn** Patches auf (Stand 07.09.2026 zurück bis 01.07.2026). Wer sie
+**letzten zehn** Patches auf (rund zwei Monate). Wer sie
 beim Spieler ablegt, dessen Historie **wächst über die von erkul hinaus** —
 nach einem Jahr hat er etwas, das es sonst nirgends gibt. Genau deshalb wird
 hier abgelegt statt jedes Mal frisch abgerufen.
 
-**Aufbewahrung — entschieden am 06.09.2026:** *alles aufheben, die leeren
-wegwerfen.* Von zehn Patches ändern nur zwei überhaupt Daten; die anderen acht
-sind knapp 480 Byte reines „nichts passiert". Gemessen am 07.09.2026:
+**Aufbewahrung:** *alles aufheben, die leeren wegwerfen.* Von zehn Patches
+ändern nur zwei überhaupt Daten; die anderen acht sind knapp 480 Byte ohne
+Inhalt. Gemessen:
 
     4.10.0-LIVE.12519617   17 +   1 -   352 ~    34 KB gepackt
     4.9.0-LIVE.12232306    24 +   4 -   250 ~    20 KB gepackt
@@ -115,7 +115,7 @@ def _number(value):
 def _has_content(summary):
     """Hat dieser Patch überhaupt etwas geändert?
 
-    Das ist die Regel „die leeren wegwerfen" an genau einer Stelle. Sie wird
+    Das ist die Regel, die leeren wegzuwerfen, an genau einer Stelle. Sie wird
     zweimal gebraucht — beim Abholen und beim Anzeigen —, deshalb steht sie
     hier und nicht doppelt."""
     z = summary or {}
@@ -198,10 +198,9 @@ def _write(version, data):
         with open(temp, 'w', encoding='utf-8') as f:
             # ⚠ **Kompakt, ohne Einrückung** — anders als `patch-historie.json`.
             # Die liegt im Repo und soll lesbar sein; diese hier liest niemand
-            # von Hand, sie hat vierstellige Einträge. Gemessen am 07.09.2026:
-            # mit `indent=1` sind es 570 KB für zwei Patches, ohne 373 KB —
-            # 35 % Aufschlag für Leerzeichen, die keiner sieht. Der Plan
-            # rechnete mit den kleineren Zahlen.
+            # von Hand, sie hat vierstellige Einträge. Gemessen: mit
+            # `indent=1` sind es 570 KB für zwei Patches, ohne 373 KB —
+            # 35 % Aufschlag für Leerzeichen, die keiner sieht.
             json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
         os.replace(temp, target)
         return True
@@ -219,7 +218,7 @@ def sync():
 
     ⚠ Leere Patches werden nicht abgelegt, aber auch **nicht erneut geholt** —
     sie stehen im Inhaltsverzeichnis mit ihrer Zusammenfassung, und die reicht
-    zur Entscheidung. Ein Abruf pro leerem Patch wäre Verkehr, den erkul
+    zur Beurteilung. Ein Abruf pro leerem Patch wäre Verkehr, den erkul
     bezahlt und der niemandem nützt.
 
     Wirft nie: Ohne Netz kommt eine leere Liste zurück, und das Werkzeug läuft
@@ -282,8 +281,8 @@ def overview():
 def _value(entry, key):
     """`oldValue`/`newValue` — beide dürfen fehlen, und das ist die Aussage.
 
-    ⚠ **Fehlt einer, ist das kein Datenfehler, sondern der Inhalt.** Gemessen
-    am 07.09.2026 an der C-788 Cannon: `weapon.ammo.impactRadius` hat nur einen
+    ⚠ **Fehlt einer, ist das kein Datenfehler, sondern der Inhalt.** Beispiel
+    C-788 Cannon: `weapon.ammo.impactRadius` hat nur einen
     `oldValue` — das Feld ist mit dem Patch **weggefallen**. Wer stumpf
     `eintrag['newValue']` liest, bekommt hier einen `KeyError` und reißt die
     ganze Anzeige mit. Zurück kommt deshalb `(wert, vorhanden)`."""

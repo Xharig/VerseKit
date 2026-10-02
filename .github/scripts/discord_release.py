@@ -3,10 +3,7 @@
 
 **Warum nicht die GitHub-Discord-Anbindung?** Die richtet man in Discord ein und
 sie postet immer denselben Einzeiler: `[Repo] New release published: v3.0.0-rc60`.
-Wer das liest, weiß nicht, ob sich das Laden lohnt. Gemeldet am 27.08.2026 nach
-dem Vergleich mit dem StarStrings-Kanal: „finde nur das das hier besser aussieht,
-wäre das bei mir auch machbar mit bissl mehr infos, statt einfach nur dem nakten
-Link?"
+Wer das liest, weiß nicht, ob sich das Laden lohnt.
 
 Dieses Skript baut stattdessen eine **Embed** aus dem CHANGELOG — dieselbe Quelle,
 aus der auch die Release-Beschreibung und „Was ist neu" im Werkzeug gespeist
@@ -17,8 +14,6 @@ fällt bei einer Vorabfassung ohne eigenen Abschnitt auf die **Grundversion**
 zurück — sinnvoll für die Release-Seite, hier aber falsch: Dann stünde in der
 Meldung zu `rc60` alles, was seit `v3.0.0` je dazukam. Deshalb prüft dieses
 Skript **exakt** auf den Tag und schweigt lieber, als zu viel zu erzählen.
-Gemeldet: „wichtig ist das da dann wirklich nur das steht was in der version neu
-ist."
 
 **Aufruf** (aus dem Bau-Ablauf, `DISCORD_WEBHOOK` als Secret):
 
@@ -37,16 +32,15 @@ sys.path.insert(0, HIER)
 import release_text                                          # noqa: E402
 
 REPO = 'Xharig/VerseKit'
-GRUEN = 0x9ce430          # Xharig-Neongrün für dunklen Grund
+GRUEN = 0x9ce430          # Marken-Neongrün für dunklen Grund
 GOLD = 0xd8a03a           # Testfassungen
-# ⚠⚠ **Die Fassungsnummer gehoert in die URL** (gemessen 18.09.2026).
+# ⚠⚠ **Die Fassungsnummer gehoert in die URL.**
 #
 # Discord laedt Bilder nicht direkt, sondern ueber einen eigenen Zwischen-
-# speicher — und der merkt sich das Ergebnis **je URL**. Da hier immer
-# dieselbe Adresse stand (`main/assets/icon.png`), lieferte er beim Release
-# v3.53.0 noch das Symbol von vor dem Wechsel, obwohl auf GitHub laengst das
-# neue lag (per `curl` gegengeprueft: Pruefsumme gleich der lokalen Datei).
-# Fuer den Leser sah es aus, als waere das Update nicht angekommen.
+# speicher — und der merkt sich das Ergebnis **je URL**. Bei immer derselben
+# Adresse (`main/assets/icon.png`) liefert er nach einem Symbolwechsel noch
+# das alte Bild, obwohl auf GitHub laengst das neue liegt. Fuer den Leser
+# saehe es aus, als waere das Update nicht angekommen.
 #
 # Mit `?v=<tag>` ist die Adresse bei jeder Fassung neu, der Zwischenspeicher
 # hat dafuer nichts liegen und holt frisch. GitHub ignoriert den Zusatz.
@@ -66,9 +60,8 @@ def nur_diese_fassung(tag, datei='CHANGELOG.md'):
     Gibt `None` zurück, wenn es keinen eigenen Abschnitt gibt. Der Aufrufer
     postet dann nur den Link statt eines fremden Textes.
 
-    ⚠ `datei` wählt die Sprachfassung. Bis zum 16.09.2026 stand hier fest
-    `CHANGELOG.md` — die Meldung im Discord war dadurch **immer deutsch**,
-    auch nachdem der Server zweisprachig geworden war.
+    ⚠ `datei` wählt die Sprachfassung. Fest `CHANGELOG.md` hieße: die
+    Meldung im Discord wäre **immer deutsch**.
     """
     pfad = os.path.join(os.path.dirname(HIER), '..', datei)
     pfad = os.path.normpath(pfad)
@@ -82,7 +75,7 @@ def nur_diese_fassung(tag, datei='CHANGELOG.md'):
     def suche(gesuchte_zahl):
         for block in re.split(r'^## ', text, flags=re.M)[1:]:
             kopf, _, rest = block.partition('\n')
-            # Wortgrenze: „3.0.0" darf nicht in „3.0.0-rc1" fassen und umgekehrt.
+            # Wortgrenze: `3.0.0` darf nicht in `3.0.0-rc1` fassen und umgekehrt.
             if re.search(r'(?<![\w.-])v?%s(?![\w.-])' % re.escape(gesuchte_zahl),
                          kopf):
                 return rest.strip()
@@ -96,9 +89,9 @@ def nur_diese_fassung(tag, datei='CHANGELOG.md'):
     #
     # Ein `rc` hat fast nie einen eigenen Changelog-Abschnitt — gesammelt wird
     # unter der Version, auf die er hinarbeitet (`v3.3.0-rc1` → `## v3.3.0`).
-    # Ohne diesen Rückgriff stand im Discord nur „Im Changelog steht zu dieser
-    # Version noch nichts", ausgerechnet bei der Ankündigung, die Tester lesen
-    # sollen (29.08.2026 bei rc1 genau so passiert).
+    # Ohne diesen Rückgriff stünde im Discord nur der Hinweis, dass der
+    # Changelog zu dieser Version noch nichts sagt — ausgerechnet bei der
+    # Ankündigung, die Tester lesen sollen.
     #
     # Das ist **nicht** der Sammelblock einer fremden Version, vor dem die
     # Vorsicht hier schützen soll: 3.3.0-rc1 gehört zu 3.3.0. Fremd wäre
@@ -123,13 +116,13 @@ def fuer_discord(text):
             continue
         zeilen.append(zeile)
 
-    # ⚠⚠ **Mehrzeilige Blockzitate zu EINER Zeile zusammenziehen** (16.09.2026).
+    # ⚠⚠ **Mehrzeilige Blockzitate zu EINER Zeile zusammenziehen.**
     #
     # Der Vorspann jeder Version ist ein Blockzitat und im Changelog auf rund
     # 76 Zeichen umbrochen, damit er sich im Editor lesen lässt. Die Glättung
-    # weiter unten lässt `>`-Zeilen bewusst in Ruhe — dadurch stand der
-    # Vorspann in **jeder** Discord-Karte zerhackt da, mitten im Satz
-    # umgebrochen („Zwei Zeilen standen fest / auf Deutsch darin — wer …").
+    # weiter unten lässt `>`-Zeilen bewusst in Ruhe — ohne diesen Schritt
+    # stünde der Vorspann in **jeder** Discord-Karte mitten im Satz
+    # umgebrochen da.
     #
     # Hier werden Folgezeilen angehängt und ihr `> ` entfernt. Eine Zeile mit
     # **Hinweis-Marke** (⚠️ ❗ ✅ ℹ️, oben erzeugt) bleibt eigenständig: Sie ist
@@ -154,10 +147,9 @@ def fuer_discord(text):
     # damit er sich im Editor lesen lässt. Discord bricht selbst um — die harten
     # Umbrüche ergäben dort ein zerhacktes Schriftbild.
     # ⚠ Der Lookahead muss die **Einrückung überspringen**. Ein Blockzitat im
-    # Changelog ist oft eingerückt („  > Bei zwei Zeilen …"); direkt nach dem
-    # Umbruch steht dann ein Leerzeichen, nicht das `>`. Ohne `\s*` im
-    # Lookahead wurden solche Zitate zusammengezogen, und die `>` standen
-    # mitten im Satz — so geschehen bei v3.3.0-rc1.
+    # Changelog ist oft eingerückt (`  > …`); direkt nach dem Umbruch steht
+    # dann ein Leerzeichen, nicht das `>`. Ohne `\s*` im Lookahead würden
+    # solche Zitate zusammengezogen, und die `>` stünden mitten im Satz.
     text = re.sub(r'\n(?!\s*[\n\-*>#])\s*', ' ', text)
 
     if len(text) > MAX_BESCHREIBUNG:
@@ -173,7 +165,7 @@ def bauen(tag):
     inhalt = nur_diese_fassung(tag)
     link = 'https://github.com/%s/releases/tag/%s' % (REPO, tag)
 
-    # ⭐ **Zweisprachig seit 16.09.2026.** Ins Discord kommen zunehmend
+    # ⭐ **Zweisprachig.** Ins Discord kommen zunehmend
     # englischsprachige Spieler; eine rein deutsche Versionsmeldung erreicht
     # sie nicht. Beide Fassungen stehen in **einer** Karte untereinander —
     # zwei Karten wären zwei Benachrichtigungen für dieselbe Version.

@@ -20,7 +20,7 @@ Anleitung vollständig bebildert:
 | blau | neu im Spiel craftbar | kommt vom Katalog selbst, echte Patch-Daten |
 
 **Die Namen sind echt** und stammen aus dem Katalog — und zwar aus dem, was
-der Autor *nicht* hat. Ausgedachte Namen wären hier schädlich: Am Bildschirmfoto
+im Bestand der Test-Ablage *nicht* steht. Ausgedachte Namen wären hier schädlich: Am Bildschirmfoto
 sähe man ihnen nichts an, aber ein Leser, der sie nachschlägt, findet nichts.
 
 **Aufruf** — in dieser Reihenfolge:
@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Und sie muss überhaupt gesetzt werden: Die Startdatei auf dem Desktop legt den
 # Watcher auf diese Test-Ablage. Läuft dieses Skript ohne die Variable, schreibt
 # es in die **normale** Ablage — und der Watcher sieht nichts, ohne dass ein
-# Fehler erscheint. Genau daran ist der erste Versuch am 27.08.2026 gescheitert.
+# Fehler erscheint.
 TEST_ABLAGE = os.path.join(os.path.expanduser('~'), 'Documents',
                            'SC BP Watcher Test')
 if not os.environ.get('SC_BP_HOME') and os.path.isdir(TEST_ABLAGE):
@@ -72,11 +72,10 @@ ORDNER = os.path.join(os.path.expanduser('~'), 'Documents',
 ZEILE = ('<%s> [Notice] <SHUDEvent_OnNotification> Added notification '
          '"Bauplan erhalten: %s: " [136]\n')
 
-# Echte Baupläne aus dem Katalog, die der Autor noch nicht hat.
+# Echte Baupläne aus dem Katalog, die im Test-Bestand noch fehlen.
 # Bewusst verschiedene Arten — eine Liste aus lauter Schilden sieht aus wie ein
 # Fehler, nicht wie ein Spielabend.
-# Das dritte Feld ist ein Überbleibsel (bis v3.63.1: „steht im Export des SC
-# Deutsch Launchers"). Es wird nicht mehr ausgewertet.
+# Das dritte Feld wird nicht ausgewertet.
 FUNDE = [
     ('Aufeis', 'Cooler', False),
     ('CF-337 Panther Repeater', 'Schiffswaffe', False),

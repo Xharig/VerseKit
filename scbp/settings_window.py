@@ -19,19 +19,13 @@
 """
 Die Einstellungen — sichtbar, statt in einer Datei.
 
-Bis v2.0.0-rc3 gab es dieses Fenster nicht. Sprache und Spielordner ließen sich
-nur über den **Einrichtungsassistenten** ändern, die übrigen drei Felder gar
-nicht — für die musste man `einstellungen.json` von Hand bearbeiten und das
-Programm neu starten. Gemeldet als „ich finde den Einstellungs-Button gar
-nicht", und das zu Recht: Niemand kommt darauf, dass „Einrichtung wiederholen"
-der Weg zur Spracheinstellung ist.
+Ohne dieses Fenster ließen sich Sprache und Spielordner nur über den
+**Einrichtungsassistenten** ändern, die übrigen Felder nur durch Bearbeiten von
+`einstellungen.json` und einen Neustart. Niemand kommt darauf, dass der
+Assistent der Weg zur Spracheinstellung ist — und fehlt eine Angabe, wird
+gefragt, statt auf eine Datei zu verweisen.
 
-Das widersprach auch der eigenen Projektregel — *fehlt eine Angabe, wird
-gefragt, nie „bearbeite diese Datei und starte neu"*.
-
-Aufbau: fünf Felder, jedes mit **einem Satz Erklärung darunter**. Die Erklärungen
-standen vorher schon in der JSON-Datei, weil man dort keine ausgegraute
-Beschriftung hat — hier stehen sie da, wo sie hingehören.
+Aufbau: fünf Felder, jedes mit **einem Satz Erklärung darunter**.
 
 Der Assistent bleibt daneben bestehen. Er führt Schritt für Schritt durch die
 Ersteinrichtung; dieses Fenster ist zum gezielten Nachstellen einer Sache.
@@ -80,9 +74,9 @@ class SettingsWindow:
             self.root.configure(bg=BG)
             # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
             # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
-            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
-            # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
-            # weil es modal war, ließ sich das Programm nicht einmal beenden.
+            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen kann das
+            # Fenster so außerhalb des sichtbaren Bereichs landen; weil es
+            # modal ist, ließe sich das Programm dann nicht einmal beenden.
             #
             # `center_over` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
@@ -90,7 +84,7 @@ class SettingsWindow:
             if eltern is None or not center_over(self.root, eltern, 660, 900):
                 self.root.geometry('660x900')
 
-        # Werte laden. Leere Felder heißen „selbst suchen" — das bleibt so,
+        # Werte laden. Leere Felder heißen: selbst suchen — das bleibt so,
         # ein leeres Feld ist hier kein Fehler.
         self.sprache_wahl = tk.StringVar(value=paths.settings().get('sprache')
                                          or 'auto')
@@ -201,11 +195,11 @@ class SettingsWindow:
         ohne es zu übernehmen."""
         self.sprache_wahl.set(wert)
         language.set_language(wert)
-        # ⚠ Seit v3.0.0 gibt es keinen Speichern-Knopf mehr — also muss die Wahl
-        # hier festgehalten werden. Vorher wurde nur der laufende Betrieb
-        # umgestellt: Die Oberfläche sprach Deutsch, die Markierung stand
-        # weiter auf der alten Sprache, und nach einem Neustart war alles beim
-        # Alten. Das sah aus wie ein Anzeigefehler, war aber verlorene Eingabe.
+        # ⚠ Es gibt keinen Speichern-Knopf — also muss die Wahl hier
+        # festgehalten werden. Wird nur der laufende Betrieb umgestellt,
+        # spricht die Oberfläche die neue Sprache, die Markierung steht weiter
+        # auf der alten, und nach einem Neustart ist alles beim Alten. Das
+        # sieht aus wie ein Anzeigefehler, ist aber verlorene Eingabe.
         paths.set_setting('sprache', wert)
         self._colour_language_buttons()
         self._relabel()
@@ -232,14 +226,13 @@ class SettingsWindow:
 
     # ------------------------------------------------------- Rückmeldungen
     #
-    # ⚠ Hier lag ein Totalausfall: Alle Rückmeldungen gingen direkt an
-    # `self.meldung` — das Label im Fuß des **eigenständigen** Einstellungsfensters.
-    # Eingebettet in das Hauptfenster wird dieser Fuß nie gebaut, das Label gibt es
-    # also gar nicht. Jeder Klick auf „Jetzt auffrischen", „Prüfen" oder eine
-    # Textquelle brach sofort mit `AttributeError` ab — noch **vor** der eigentlichen
-    # Arbeit. Die Seite sah vollständig aus und tat nichts.
+    # ⚠ Rückmeldungen nie direkt an `self.meldung` — das Label im Fuß des
+    # **eigenständigen** Einstellungsfensters. Eingebettet in das Hauptfenster
+    # wird dieser Fuß nie gebaut, das Label gibt es also gar nicht. Jeder Klick
+    # auf „Jetzt auffrischen", „Prüfen" oder eine Textquelle bräche sofort mit
+    # `AttributeError` ab — noch **vor** der eigentlichen Arbeit.
     #
-    # Deshalb laufen alle Meldungen jetzt durch `_melden()`. Eingebettet gehen sie
+    # Deshalb laufen alle Meldungen durch `_melden()`. Eingebettet gehen sie
     # an den Rückruf, den das Hauptfenster setzt (seine Fußzeile), sonst an das
     # eigene Label.
     melder = None                 # setzt das Hauptfenster beim Einbetten
@@ -342,15 +335,13 @@ class SettingsWindow:
         # Wer sich später umentscheidet (etwa vom deutschen auf den englischen
         # Client), soll dafür nicht den Assistenten suchen müssen.
         #
-        # ⚠⚠ **Die dritte Stelle mit derselben Liste** — hier standen bis zum
-        # 28.09.2026 ebenfalls die drei fest verdrahteten Zeilen. Assistent,
-        # Reiter „Übersetzung" und dieses Fenster hatten je eine eigene
-        # Vorstellung davon, was es gibt; nur der Reiter wuchs mit `SOURCES`
-        # mit. Alle drei ziehen jetzt aus `translation.grouped_sources()`.
+        # ⚠⚠ **Die dritte Stelle mit derselben Liste** — Assistent, Reiter
+        # „Übersetzung" und dieses Fenster ziehen alle aus
+        # `translation.grouped_sources()`, damit keine Stelle eine eigene
+        # Vorstellung davon hat, was es gibt.
         #
-        # ⚠ Eine Reihe je Sprache statt alles untereinander: Zu dritt
-        # nebeneinander passte früher der letzte nicht ins Fenster — nach
-        # Sprachen gruppiert stehen höchstens drei in einer Reihe, und
+        # ⚠ Eine Reihe je Sprache statt alles untereinander: Nach Sprachen
+        # gruppiert stehen höchstens drei in einer Reihe, und
         # untereinander wären es bei vierzehn Quellen vierzehn Zeilen.
         wahl = tk.Frame(eltern, bg=BG)
         wahl.pack(fill='x', pady=(0, 8))
@@ -388,10 +379,9 @@ class SettingsWindow:
     def _inj_switch(self, quelle):
         """Auf eine andere Textquelle umstellen — holen, einsetzen, auszeichnen.
 
-        ⚠ Vor dem ersten Einsetzen einer **fremden** Quelle wird gefragt. Grund
-        aus dem Test (Bomb20, 25.08.2026): „übrigens tauscht das tool — wenn auf
-        deutsch gestellt — auch im Spiel alles englische gegen deutsches aus."
-        Das ist so gewollt, aber niemand rechnet damit: Wer einen Bauplan-Melder
+        ⚠ Vor dem ersten Einsetzen einer **fremden** Quelle wird gefragt. Eine
+        solche Quelle tauscht im Spiel alle Texte aus, nicht nur die
+        Bauplan-Angaben. Das ist so gewollt, aber niemand rechnet damit: Wer einen Bauplan-Melder
         installiert, erwartet keine vollständige Spielübersetzung. Eine
         Überraschung an der Spielinstallation ist genau das, was dieses
         Werkzeug nicht sein will.
@@ -399,7 +389,7 @@ class SettingsWindow:
         „Original" fragt nicht — das nimmt die Texte aus der eigenen
         Installation und ändert die Sprache nicht.
         """
-        # Seit v3.59.0 jede fremde Quelle, nicht nur Deutsch und StarStrings.
+        # Jede fremde Quelle, nicht nur Deutsch und StarStrings.
         if quelle != 'original' and not self._source_confirmed(quelle):
             return
         self._inj_switch_now(quelle)
@@ -417,9 +407,8 @@ class SettingsWindow:
         from .main_window import ask_yes_no
         name = translation.display_name(quelle)
         frage = t('s_sp_warnung') % name
-        # ⭐ Manche Quelle bringt ihren eigenen Hinweis mit — der Entwickler des
-        # SC Launch Configurator hat ihn für seine Übersetzungen ausdrücklich
-        # erbeten (28.09.2026): Sie sind noch im Aufbau. Das gehört **vor** den
+        # ⭐ Manche Quelle bringt ihren eigenen Hinweis mit (`hinweis`, etwa:
+        # die Übersetzung ist noch im Aufbau). Das gehört **vor** den
         # Wechsel, nicht in eine Fußnote danach.
         eigener = (translation.SOURCES.get(quelle) or {}).get('hinweis')
         if eigener:

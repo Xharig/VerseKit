@@ -1,8 +1,8 @@
 # Zaehlt die Downloads ALLER Releases fuer das Abzeichen in den READMEs.
 #
 # Warum es das braucht: shields.io liest bei `github/downloads/.../total` nur
-# die erste Seite der Releases (100 Stueck). Seit es mehr als 100 gibt, zeigte
-# das Abzeichen zu wenig (19.09.2026: 783 statt 981).
+# die erste Seite der Releases (100 Stueck). Bei mehr als 100 Releases zeigt
+# das Abzeichen dann zu wenig.
 #
 # Der Ablauf schreibt die Summe nach `downloads.json` auf dem eigenen Zweig
 # `zaehler` — nicht nach main, damit weder die Projektseite neu gebaut wird

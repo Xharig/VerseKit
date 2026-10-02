@@ -26,11 +26,10 @@ Bedeutung der Daten. Die bleibt im jeweiligen Fachmodul.
 
 ## Warum es das gibt
 
-`prices.py`, `places.py` und `selling.py` trugen bis v3.15 **jeweils dieselbe**
-Maschinerie: `QUELLE`, `CACHE`, `FORMAT`, `ZEITLIMIT`, `HALTBAR` und dazu
-`laden()`, `alter()`, `_holen()`, `_sichern()`. Dreimal derselbe Code, und mit
-jedem weiteren Endpunkt eine Kopie mehr. (Die Namen von damals stehen hier
-unverändert — sie beschreiben den Stand vor v3.15, nicht den von heute.)
+Ohne diesen Unterbau trüge jedes Fachmodul (`prices.py`, `places.py`,
+`selling.py`, …) **dieselbe** Maschinerie: Quelle, Ablage, Format, Zeitlimit,
+Haltbarkeit, Laden, Alter, Holen, Sichern — mit jedem weiteren Endpunkt eine
+Kopie mehr.
 
 Das ist nicht nur Schreibarbeit. An jeder Kopie hängen **Regeln, die niemand
 sieht**: höchstens einmal am Tag holen, ohne Netz nicht krachen, bei
@@ -75,7 +74,7 @@ alles ein bisschen kann und nichts richtig.
 ## ⚠⚠ Zwei Eigenheiten der Schnittstelle, die hier festgehalten sind
 
 **1. Ohne Kennung antwortet UEX mit HTTP 403.** Ein blanker Abruf ohne
-`User-Agent` wird abgewiesen. Gemessen am 04.09.2026.
+`User-Agent` wird abgewiesen (gemessen).
 
 **2. Eine Antwort ist bei 500 Zeilen abgeschnitten.** Kein Fehler, keine
 Meldung — die Liste hört einfach auf. Wer einen zu weiten Zuschnitt wählt,
@@ -102,8 +101,8 @@ WEEK = 7 * DAY
 # Wie lange auf eine Antwort gewartet wird.
 TIMEOUT = 30
 
-# ⚠ Ab so vielen Zeilen ist die Antwort vermutlich abgeschnitten. Gemessen am
-# 04.09.2026: `commodities_routes?id_planet_origin=…` lieferte bei 7 von 10
+# ⚠ Ab so vielen Zeilen ist die Antwort vermutlich abgeschnitten. Gemessen:
+# `commodities_routes?id_planet_origin=…` lieferte bei 7 von 10
 # Planeten **exakt** 500 Zeilen. Das ist keine Zufallszahl, das ist der Deckel.
 CAP = 500
 
@@ -148,8 +147,8 @@ def fetch(url, label, timeout=TIMEOUT):
     if items is None:
         return []
     # ⚠⚠ **HTML-Zeichen aus den Daten holen.** UEX liefert Apostrophe als
-    # `&apos;` — im Werkzeug stand deshalb „Grey&apos;s Market" statt „Grey's
-    # Market" (gemeldet 05.09.2026). Das betrifft jeden Namen aus der Quelle,
+    # `&apos;` — ohne Umwandlung stünde `Grey&apos;s Market` statt
+    # `Grey's Market` im Werkzeug. Das betrifft jeden Namen aus der Quelle,
     # nicht nur Hersteller: Terminals, Orte, Waren, Teile.
     #
     # Deshalb hier zentral und nicht in fünf Modulen einzeln — sonst taucht
@@ -163,12 +162,11 @@ def fetch(url, label, timeout=TIMEOUT):
     # rechnet mit einem Bruchstück weiter und hält es für das Ganze.
     #
     # ⚠⚠ **`==`, nicht `>=`** — und der Unterschied ist der ganze Sinn der
-    # Prüfung. Mit `>=` schlug sie bei **jeder vollständigen** Antwort an, die
+    # Prüfung. Mit `>=` schlüge sie bei **jeder vollständigen** Antwort an, die
     # zufällig groß ist: `terminals` liefert 826 Zeilen, `commodities_prices_all`
-    # 2.593 — beides ungekürzt, beides täglich als Fehler ins Protokoll.
+    # 2.593 — beides ungekürzt, beides täglich als Fehler im Protokoll.
     #
-    # Am 04.09.2026 im Fehlerbericht aufgefallen. Der Schaden ist nicht die
-    # falsche Zeile, sondern die Gewöhnung: Ein Protokoll, in dem jeden Tag
+    # Der Schaden ist nicht die falsche Zeile, sondern die Gewöhnung: Ein Protokoll, in dem jeden Tag
     # zwei erfundene Fehler stehen, liest bald niemand mehr — und der echte
     # geht darin unter.
     #
@@ -296,15 +294,15 @@ class Store:
                 data['spielstand'] = build
         target = self.path()
         separators = (',', ':') if compact else None
-        # ⚠⚠ **Ein eigener Zwischenname je Schreibvorgang.** Bis zum
-        # 06.09.2026 hieß die Datei fest `<ziel>.tmp` — schreiben zwei Fäden
-        # gleichzeitig dieselbe Ablage (etwa zwei Abrufe der Steckplatzdaten),
-        # legen beide dieselbe `.tmp` an, der erste benennt sie um, und dem
-        # zweiten fehlt sie: `No such file or directory: …tmp -> …json`.
+        # ⚠⚠ **Ein eigener Zwischenname je Schreibvorgang.** Mit festem
+        # `<ziel>.tmp` legen zwei Fäden, die gleichzeitig dieselbe Ablage
+        # schreiben (etwa zwei Abrufe der Steckplatzdaten), dieselbe `.tmp`
+        # an, der erste benennt sie um, und dem zweiten fehlt sie:
+        # `No such file or directory: …tmp -> …json`.
         #
-        # Der Schreibvorgang war also atomar, aber nicht nebenläufig-sicher.
-        # Mit Prozess- und Faden-Nummer im Namen stören sie sich nicht mehr;
-        # das abschließende `os.replace` bleibt atomar wie zuvor.
+        # Atomar heißt also nicht nebenläufig-sicher. Mit Prozess- und
+        # Faden-Nummer im Namen stören sie sich nicht; das abschließende
+        # `os.replace` bleibt atomar.
         temp = '%s.%d.%d.tmp' % (target, os.getpid(),
                                  threading.get_ident() % 100000)
         try:

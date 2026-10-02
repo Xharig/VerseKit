@@ -50,9 +50,8 @@ Drei Abrufe für eine vollständige Liste sind sparsamer als hundert kleine.
 ⚠ Und **selten**: Schiffe kommen mit einem Patch dazu, nicht über Nacht —
 dieselbe Wochenfrist wie bei den Lagerorten.
 
-⚠ Bis zum 12.09.2026 hieß dieses Modul `schiffe` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: der Ablage-Name `schiffe.json` und die Schlüssel darin
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben: der Ablage-Name `schiffe.json` und die Schlüssel darin
 (`schiffe`, `kauf`, `miete`, `konzept`, `anbau`, `name`, `werft`, `scu`,
 `stelle`, `ort`, `system`, `preis`) — sonst gilt jede vorhandene Ablage als
 fremd. Ebenso die Kennungen, unter denen `uex.fetch()` meldet
@@ -65,9 +64,9 @@ SOURCE_SHIPS = 'https://api.uexcorp.uk/2.0/vehicles'
 SOURCE_BUY = 'https://api.uexcorp.uk/2.0/vehicles_purchases_prices'
 SOURCE_RENT = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
 CACHE = 'schiffe.json'
-# 2 seit v3.15.0 (die Werft kam dazu), 3 seit dem Entschlüsseln der
-# HTML-Zeichen — sonst bliebe „Grey&apos;s Market" in der alten Ablage stehen.
-# 4 seit v3.19.0: `konzept` kam dazu, 5: `anbau` (siehe `update`).
+# 2: mit Werft, 3: HTML-Zeichen entschlüsselt — sonst bliebe
+# „Grey&apos;s Market" in einer Ablage aus Fassung 2 stehen.
+# 4: mit `konzept`, 5: mit `anbau` (siehe `update`).
 FORMAT = 5
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
@@ -146,9 +145,9 @@ def all_names():
 
     ⚠⚠ **Nicht mit `names_with_cargo()` verwechseln.** Das dort filtert auf
     Laderaum und liefert 134 von 280 — richtig für den Routenplaner, falsch
-    überall sonst. Im Hangar war es ein Fehler: Wer einen Arrow, einen Gladius
-    oder ein A.T.L.S. IKTI besitzt, konnte ihn **gar nicht eintragen**, weil
-    kein Jäger und kein Exo-Anzug Laderaum hat. Gemeldet am 06.09.2026.
+    überall sonst. Im Hangar wäre es ein Fehler: Wer einen Arrow, einen Gladius
+    oder ein A.T.L.S. IKTI besitzt, könnte ihn **gar nicht eintragen**, weil
+    kein Jäger und kein Exo-Anzug Laderaum hat.
     """
     ships = load().get('schiffe') or {}
     return sorted((s.get('name') or '' for s in ships.values()
@@ -160,8 +159,8 @@ def _find(name):
 
     ⚠⚠ **UEX führt den Hersteller im Namen mit** (`name_full`): „RSI Galaxy",
     „Drake Ironclad Assault". Der Pledge-Export schreibt dagegen nur „Galaxy".
-    Ein Vergleich auf Gleichheit findet deshalb **nichts** — und genau daran
-    ist die Konzept-Erkennung beim ersten Anlauf gescheitert.
+    Ein Vergleich auf Gleichheit findet deshalb **nichts** — und die
+    Konzept-Erkennung scheitert daran.
 
     Deshalb zwei Stufen: erst gleich, dann als **Ende** des UEX-Namens. Der
     zweite Weg zählt nur bei einem **einzigen** Treffer; „Galaxy" darf nicht
@@ -189,8 +188,8 @@ def manufacturer(name):
 
     ⚠ **Warum das nötig ist.** UEX führt den Hersteller im Namen mit („MISC
     Prospector"), der Spieler tippt aber nur „Prospector". Ohne Hersteller
-    findet `erkul` einen Teil der Schiffe nicht: Gemessen am 06.09.2026 fand es
-    Vulture und Corsair auch ohne, die **Prospector aber nicht**. Auf der
+    findet `erkul` einen Teil der Schiffe nicht: Gemessen findet es Vulture
+    und Corsair auch ohne, die **Prospector aber nicht**. Auf der
     Wunschliste gibt es keinen Export, aus dem der Hersteller käme — also wird
     er hier aus dem UEX-Namen geholt und beim Eintragen mitgespeichert.
 
@@ -285,7 +284,7 @@ def update():
         ident = str(x.get('id') or '')
         name = (x.get('name_full') or x.get('name') or '').strip()
         if ident and name:
-            # ⚠ Der Hersteller kommt seit v3.15.0 mit — im Laden-Reiter sind
+            # ⚠ Der Hersteller kommt mit — im Laden-Reiter sind
             # die Werften die Warengruppen, nach denen jemand sucht („zeig mir
             # die Drakes"). Ohne ihn wären 280 Schiffe eine Namensliste.
             ships[ident] = {'name': name, 'scu': int(x.get('scu') or 0),
@@ -293,16 +292,16 @@ def update():
             # ⭐⭐ **`is_concept` beantwortet eine Frage, die wir sonst raten
             # müssten:** Gibt es das Schiff im Spiel schon? Der Hangar zeigt zu
             # jedem Schiff ohne Steckplatz-Daten, woran das liegt — und ohne
-            # dieses Feld stand dort „noch nicht im Spiel" auch bei Schiffen,
-            # die längst fliegen (gemeldet 06.09.2026: Ironclad Assault,
-            # Super Hornet Mk II). Eine Behauptung, die man nicht belegen kann,
+            # dieses Feld stünde dort „noch nicht im Spiel" auch bei Schiffen,
+            # die längst fliegen (etwa Ironclad Assault, Super Hornet Mk II).
+            # Eine Behauptung, die man nicht belegen kann,
             # gehört nicht ins Werkzeug.
             if x.get('is_concept'):
                 ships[ident]['konzept'] = 1
             # ⚠ Anbauteile sind keine Schiffe: „Retaliator Cargo Module",
             # „Endeavor Medical Bay Pod". In einer Schiffsliste stiften sie nur
             # Verwirrung — und bei der Zuordnung landeten sie beim Hauptschiff,
-            # wodurch die Bergung für ein Modul die Ausstattung des ganzen
+            # sodass die Bergung für ein Modul die Ausstattung des ganzen
             # Retaliators zeigte.
             if x.get('is_addon'):
                 ships[ident]['anbau'] = 1

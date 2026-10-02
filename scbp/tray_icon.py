@@ -19,7 +19,7 @@
 """
 Das Symbol im Infobereich der Windows-Taskleiste („Ablage", System Tray).
 
-**Wozu.** Das Overlay kann sich seit v3.0.0 zurückhalten und nur bei einem
+**Wozu.** Das Overlay kann sich zurückhalten und nur bei einem
 neuen Bauplan aufblenden. Dann ist es aber die meiste Zeit unsichtbar, und wer
 an die Liste oder die Einstellungen will, braucht einen Weg dorthin. Unter Linux
 ist das der Startmenü-Eintrag; unter Windows gehört das Symbol neben die Uhr —
@@ -76,10 +76,9 @@ MF_SEPARATOR = 0x0800
 # Programm sehr früh startet und die Taskleiste noch gar nicht da war. Ohne
 # darauf zu hören, ist das Symbol danach für immer weg.
 #
-# Genau so gemeldet (Haldjas, 25.08.2026): „mit rc20 hatte ich ein Symbol auf
-# der taskleiste, rc22 hat es nicht mehr". Ausgelöst hat es die neue
-# Installer-Einstellung `RestartApplications`, die das Programm direkt nach dem
-# Setup wieder startet — da ist die Taskleiste manchmal noch nicht bereit.
+# Das passiert etwa mit der Installer-Einstellung `RestartApplications`, die
+# das Programm direkt nach dem Setup wieder startet — da ist die Taskleiste
+# manchmal noch nicht bereit.
 WM_TASKBARCREATED = None          # wird beim Start registriert
 
 # Die erste Befehlsnummer im Menü; jeder anklickbare Eintrag bekommt die
@@ -97,14 +96,12 @@ CMD_FIRST = 1001
 # abgeschnittener Wert an — und der zeigt auf nichts.
 #
 # Das ist kein theoretisches Problem: Windows vergibt Handles meist im unteren
-# Bereich, deshalb geht es fast immer gut. „Fast immer" heißt hier: Bei Haldjas
-# war am 25.08.2026 das Rechtsklick-Menü **leer** — `CreatePopupMenu` hatte ein
-# gekürztes Handle geliefert, und die beiden `AppendMenuW` liefen ins Leere,
-# ohne dass es jemand merkte (der Rückgabewert wurde nie geprüft).
+# Bereich, deshalb geht es fast immer gut. Wenn nicht, bleibt etwa das
+# Rechtsklick-Menü **leer**: `CreatePopupMenu` liefert ein gekürztes Handle,
+# und die `AppendMenuW` laufen ins Leere, ohne dass es jemand merkt.
 #
-# Dasselbe Muster erklärt vermutlich auch, warum das Symbol selbst gelegentlich
-# ausblieb. Dagegen half bisher nur, es mehrfach zu versuchen — das behandelte
-# das Symptom.
+# Dasselbe Muster kann auch das Symbol selbst gelegentlich ausbleiben lassen;
+# mehrfaches Versuchen behandelt nur das Symptom.
 def _set_signatures():
     """Einmal beim Laden: sagen, was die Windows-Funktionen wirklich liefern."""
     if not WINDOWS:
@@ -134,16 +131,14 @@ def _set_signatures():
                                     wintypes.UINT, ctypes.c_int, ctypes.c_int,
                                     wintypes.UINT]
 
-    # ⚠ Ab hier lag der Grund, warum unter Windows **nie** ein Symbol in der
-    # Ablage erschien. `CreateWindowExW` bekam zwar einen `restype`, aber
-    # **kein `argtypes`** — und ohne das rät ctypes: Es reicht jedes Argument
-    # als `c_int` weiter, also 32 Bit. Das Modulhandle in Argument 11 ist unter
-    # 64-Bit-Windows breiter, und der Aufruf endete mit
+    # ⚠ `CreateWindowExW` braucht neben `restype` auch **`argtypes`** — ohne
+    # das rät ctypes: Es reicht jedes Argument als `c_int` weiter, also 32 Bit.
+    # Das Modulhandle in Argument 11 ist unter 64-Bit-Windows breiter, und der
+    # Aufruf endet mit
     #
     #     ArgumentError: argument 11: OverflowError: int too long to convert
     #
-    # Im Fehlerbericht vom 26.08.2026 stand genau das, und in der Startspur
-    # dazu die Zeile „Ablagesymbol: NICHT angelegt".
+    # Das Symbol erscheint dann nie in der Ablage.
     #
     # Deshalb bekommt hier **jede** benutzte Funktion ihre Signatur. Eine
     # halb deklarierte Schnittstelle ist schlimmer als eine gar nicht
@@ -212,16 +207,16 @@ class TrayIcon(object):
     """Das Symbol neben der Uhr. `start()` und `stop()` — mehr braucht es nicht."""
 
     # ⚠ Der Standardtitel ist nur ein Notnagel: Der Aufrufer uebergibt
-    # `sprache.t('hf_titel')`. Er wurde bei der Umbenennung (12.09.2026)
-    # trotzdem mitgezogen — ein Standardwert mit altem Namen ist eine
-    # Zeitbombe fuer den Fall, dass der Aufrufer ihn einmal weglaesst.
+    # `sprache.t('hf_titel')`. Er traegt trotzdem den aktuellen Namen — ein
+    # Standardwert mit altem Namen ist eine Zeitbombe fuer den Fall, dass der
+    # Aufrufer ihn einmal weglaesst.
     def __init__(self, beim_zeigen=None, beim_beenden=None, titel='Verse-Kit',
                  beim_menue=None):
         self.beim_zeigen = beim_zeigen
         self.beim_beenden = beim_beenden
         # ⭐ Ist `beim_menue` gesetzt, zeichnet der Aufrufer das Menü selbst
-        # (der Watcher als Tk-Menü in den Markenfarben — Wunsch vom
-        # 15.09.2026, das Windows-Standardmenü war weiß). `_show_menu()` mit
+        # (der Watcher als Tk-Menü in den Markenfarben — das
+        # Windows-Standardmenü ist weiß). `_show_menu()` mit
         # dem grauen Windows-Menü bleibt als Rückfall für alle, die nur
         # `menu_set()` benutzen.
         self.beim_menue = beim_menue
@@ -327,10 +322,9 @@ class TrayIcon(object):
         * `(text, None)` — eine ausgegraute Auskunftszeile (z. B. die Version)
         * `None` — eine Trennlinie
 
-        ⚠ Bis zum 15.09.2026 hatte das Menü genau zwei Punkte, „Fenster zeigen"
-        und „Beenden". Gewünscht wurde, was der SC Deutsch Launcher dort bietet:
-        RSI Launcher, Einstellungen, Übersetzung, Discord, Ko-fi, Version.
-        Die Texte kommen vom Aufrufer — dieses Modul hängt nicht an `sprache`.
+        Typische Einträge: Fenster zeigen, RSI Launcher, Einstellungen,
+        Übersetzung, Discord, Ko-fi, Version, Beenden. Die Texte kommen vom
+        Aufrufer — dieses Modul hängt nicht an `sprache`.
 
         Gibt die Zuordnung Befehlsnummer → Tat zurück (für Prüfungen).
         """
@@ -420,8 +414,8 @@ class TrayIcon(object):
               menue=None):
         """Symbol anlegen. Gibt zurück, ob es geklappt hat.
 
-        `menue` — siehe `menu_set()`. Ohne Angabe bleibt es beim alten Paar
-        „Fenster zeigen" / „Beenden"."""
+        `menue` — siehe `menu_set()`. Ohne Angabe gibt es nur zwei Punkte:
+        Fenster zeigen und Beenden."""
         if not WINDOWS or self._laeuft:
             return False
         if menue is None:
@@ -473,10 +467,8 @@ class TrayIcon(object):
                 0, klasse.lpszClassName, klasse.lpszClassName, 0,
                 0, 0, 0, 0, None, None, klasse.hInstance, None)
             if not self.fenster:
-                # ⚠ Bisher ging es hier **stumm** zurück. Im Fehlerbericht stand
-                # dann „keine Fehler" und trotzdem fehlte das Symbol — genau so
-                # bei Haldjas am 25.08.2026 gemeldet. Ohne Meldung ist eine
-                # Nutzerrückmeldung wertlos.
+                # ⚠ Nicht **stumm** zurückgehen: Sonst steht im Fehlerbericht
+                # kein Fehler, und trotzdem fehlt das Symbol.
                 from . import errors
                 errors.record('tray_icon.window',
                               OSError('CreateWindowExW lieferte kein Fenster, '
@@ -500,7 +492,7 @@ class TrayIcon(object):
             nachricht = wintypes.MSG()
             while benutzer.GetMessageW(ctypes.byref(nachricht), None, 0, 0) > 0:
                 # Taskleiste neu entstanden (Explorer-Neustart) — das Symbol ist
-                # damit weg und muss erneut angemeldet werden. Ohne das bleibt
+                # damit weg und muss erneut registriert werden. Ohne das bleibt
                 # es bis zum nächsten Programmstart verschwunden.
                 if (WM_TASKBARCREATED
                         and nachricht.message == WM_TASKBARCREATED):
@@ -509,10 +501,10 @@ class TrayIcon(object):
                 benutzer.TranslateMessage(ctypes.byref(nachricht))
                 benutzer.DispatchMessageW(ctypes.byref(nachricht))
         except Exception as ausnahme:
-            # ⚠ Dieser Zweig hat jeden Fehler verschluckt: Fensterklasse,
-            # Fenster, Symbol — alles, was **vor** `_symbol_anlegen` schiefging,
-            # verschwand spurlos. Der Bericht meldete „none recorded", während
-            # das Symbol fehlte, und jede Ursachensuche lief ins Leere.
+            # ⚠ Dieser Zweig darf nichts verschlucken: Fensterklasse, Fenster,
+            # Symbol — alles, was **vor** `_symbol_anlegen` schiefgeht, wäre
+            # sonst spurlos weg, und der Bericht zeigte keine Fehler, während
+            # das Symbol fehlt.
             try:
                 from . import errors
                 errors.record('tray_icon.loop', ausnahme)
@@ -525,16 +517,16 @@ class TrayIcon(object):
     def stop(self):
         """Symbol wieder wegnehmen — sonst bleibt eine tote Hülle neben der Uhr.
 
-        ⚠ `DestroyWindow` stand hier früher direkt im Aufruf, und das ging nicht
-        gut: Windows lässt ein Fenster **nur von dem Faden** zerstören, der es
-        erzeugt hat. Von hier aus scheiterte der Aufruf still im `except` — das
-        Symbol verschwand zwar (`Shell_NotifyIconW` darf fadenübergreifend), die
-        Nachrichtenschleife lief aber weiter.
+        ⚠ Kein `DestroyWindow` direkt von hier: Windows lässt ein Fenster
+        **nur von dem Faden** zerstören, der es erzeugt hat. Von hier aus
+        scheitert der Aufruf still im `except` — das Symbol verschwindet zwar
+        (`Shell_NotifyIconW` darf fadenübergreifend), die Nachrichtenschleife
+        läuft aber weiter.
 
-        Schlimm war das nie, weil der Faden ein Hintergrundfaden ist und beim
-        Programmende ohnehin mitgeht. Sauber ist es trotzdem nicht: Wer hier
-        aufräumt, will, dass danach nichts mehr läuft. Deshalb wird jetzt eine
-        Nachricht geschickt, statt fremd zuzugreifen — `WM_CLOSE` landet in der
+        Der Faden ist ein Hintergrundfaden und geht beim Programmende ohnehin
+        mit. Wer hier aufräumt, will trotzdem, dass danach nichts mehr läuft.
+        Deshalb wird eine Nachricht geschickt, statt fremd zuzugreifen —
+        `WM_CLOSE` landet in der
         Schleife, die von selbst zu `WM_DESTROY` und `PostQuitMessage` kommt.
         """
         if not WINDOWS or not self.fenster:

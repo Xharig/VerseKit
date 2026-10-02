@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Die Seiten der Gruppe „Statistik" (seit v3.58.0-rc2).
+Die Seiten der Gruppe „Statistik".
 
 Eigenes Modul, weil `pages.py` mit rund 18.000 Zeilen schon die teuerste Datei
 im Projekt ist — sechs Seiten mehr hätten sie nur noch länger gemacht. Die
@@ -28,8 +28,8 @@ die Seiten aussehen wie alle anderen.
 aus `statistik.json`; nur die laufende `Game.log` wird beim Öffnen im
 Hintergrund nachgelesen — und nur, wenn „Automatisch auswerten" an ist.
 
-⚠ **Nichts ist anklickbar.** Die Seiten erzählen, sie führen nirgendwohin
-(Wunsch vom 27.09.2026: „ohne was anklickbares"). Balken und Tabellen sind
+⚠ **Nichts ist anklickbar.** Die Seiten erzählen, sie führen nirgendwohin.
+Balken und Tabellen sind
 Labels, keine Knöpfe — ein Mauszeiger als Hand wäre ein falsches Versprechen.
 """
 import calendar
@@ -122,8 +122,8 @@ def tiles(window, parent, items, columns=2):
         row, column = divmod(index, columns)
         card = round_frame(grid, SURFACE, LINE, radius=8, base_color=BG)
         # ⚠ Eine Tk-Leinwand wünscht sich ab Werk 10 cm Breite (378 px). Drei
-        # Kacheln mit `uniform` wollten damit 1164 px und drückten das ganze
-        # Fenster von 1100 auf 1236 px auf (randpruefung, 27.09.2026). Die
+        # Kacheln mit `uniform` wollen damit 1164 px und drücken das ganze
+        # Fenster von 1100 auf 1236 px auf (randpruefung). Die
         # Breite gibt hier das Raster vor, nicht die Leinwand.
         card.canvas.configure(width=1)
         card.holder.grid(row=row, column=column, sticky='nsew',
@@ -137,7 +137,7 @@ def tiles(window, parent, items, columns=2):
                  anchor='w').pack(fill='x', padx=16)
         if below:
             # ⚠ Umbrechen, nicht abschneiden: Bei drei Kacheln nebeneinander
-            # stand „Ziel im Quantenantrieb gewähl" (27.09.2026 gemeldet).
+            # würde sonst „Ziel im Quantenantrieb gewähl" stehen.
             line = tk.Label(card, text=below, bg=SURFACE, fg=SUB,
                             font=window.f_small, anchor='w', justify='left')
             line.pack(fill='x', padx=16)
@@ -273,7 +273,7 @@ def own_account():
 def evaluation(window, frame):
     """Auswertung: Stand, Knöpfe, Automatik, Speichern.
 
-    ⚠ Ganz oben in der Gruppe (Wunsch vom 27.09.2026): Was man einstellt,
+    ⚠ Ganz oben in der Gruppe: Was man einstellt,
     steht vor dem, was man liest — wie bei den übrigen Gruppen."""
     from . import play_stats
     _heading(window, frame, t('hf_st_auswertung'), t('s_sa_lead'))
@@ -427,7 +427,7 @@ def heatmap(window, parent, grid_values):
     def draw(_event=None):
         canvas.delete('all')
         # ⚠⚠ Die Spalte der Wochentage wird aus dem LÄNGSTEN Namen gemessen,
-        # bei jedem Zeichnen neu: Mit festen 34 px ragten „Mon" und „Wed" auf
+        # bei jedem Zeichnen neu: Mit festen 34 px ragen „Mon" und „Wed" auf
         # Englisch in die Karte hinein. Und gemessen wird erst hier, nicht
         # beim Bauen — die Schriftbreite steht erst fest, wenn das Fenster da
         # ist (Falle 1 der Projektregeln).
@@ -446,8 +446,8 @@ def heatmap(window, parent, grid_values):
                     x + 1, y + 1, x + cell - 1, y + STATS_CELL_HEIGHT - 1,
                     width=0,
                     fill=color(seconds / highest) if seconds else LINE)
-        # Alle drei Stunden beschriftet (Wunsch vom 27.09.2026) — alle sechs
-        # waren zu grob, um eine Zelle ohne Abzählen zu treffen.
+        # Alle drei Stunden beschriftet — alle sechs sind zu grob, um eine
+        # Zelle ohne Abzählen zu treffen.
         for hour in range(0, 24, 3):
             canvas.create_text(column + hour * cell, 7 * STATS_CELL_HEIGHT + 4,
                                anchor='nw', text='%02d' % hour, fill=SUB,

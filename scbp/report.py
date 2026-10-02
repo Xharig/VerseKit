@@ -19,8 +19,7 @@
 """
 Ein Fehlerbericht, mit dem sich arbeiten lässt.
 
-„Bei mir geht es nicht" ist keine Fehlermeldung. Dieses Modul baut daraus einen
-Textblock, den der Spieler in ein Issue einfügt — und der die Fragen schon
+Dieses Modul baut einen Textblock, den der Spieler in ein Issue einfügt — und der die Fragen schon
 beantwortet, die man sonst einzeln stellen müsste: Welches System, welche
 Verpackung, welche Tk-Version, welcher Bildschirmaufbau, ist das Spiel
 gefunden, welche Sprache wurde erkannt, wie weit ist das Protokoll gelesen,
@@ -78,18 +77,17 @@ def _wrap(text, width):
     die bleibt hier ganz, statt hart getrennt zu werden. Lieber eine zu lange
     Zeile als ein zerschnittener Dateiname.
 
-    ⚠⚠ **Eigene Zeilenumbrüche bleiben stehen.** Bis zum 05.09.2026 zerlegte
-    ein einzelnes `.split()` den ganzen Text an jedem Leerraum — auch an
-    `\\n`. Solange das Eingabefeld einzeilig war, fiel das nicht auf; seit es
-    vier Zeilen hat, tippen Leute Aufzählungen:
+    ⚠⚠ **Eigene Zeilenumbrüche bleiben stehen.** Ein einzelnes `.split()`
+    über den ganzen Text zerlegte ihn an jedem Leerraum — auch an `\\n`. Das
+    Eingabefeld ist mehrzeilig, und Leute tippen Aufzählungen:
 
         1. Läden öffnen
         2. Auf einen Radar klicken
         3. nichts passiert
 
-    Daraus wurde eine einzige Zeile — aus drei Schritten ein Klumpen, und
-    genau die Abfolge ist das, was eine Meldung brauchbar macht. Umbrochen
-    wird deshalb **je Zeile**; leere Zeilen bleiben als Absatztrenner.
+    Daraus würde eine einzige Zeile — und genau die Abfolge macht eine
+    Meldung brauchbar. Umbrochen wird deshalb **je Zeile**; leere Zeilen
+    bleiben als Absatztrenner.
     """
     result = []
     for paragraph in (text or '').split('\n'):
@@ -120,8 +118,8 @@ def _dense(entries):
 
     ⚠ Wozu: Der Bericht zeigt je Topf nur zwölf Zeilen. Eine Liste, die sich
     beim Tippen immer wieder neu zeichnet, schreibt in Sekunden zwölf gleiche
-    Zeilen — und der Ausschnitt sagt danach nichts mehr aus. Genau so kam der
-    rc42-Bericht an (30.08.2026): zwölfmal „Liste: zeichnen beginnt".
+    Zeilen — und der Ausschnitt sagt danach nichts mehr aus (zwölfmal
+    `Liste: zeichnen beginnt`).
 
     Zusammengefasst wird nur, was **direkt hintereinander** gleich ist, und die
     Uhrzeit der ersten Zeile bleibt stehen — sonst ginge die Reihenfolge oder
@@ -142,14 +140,10 @@ def _log_line():
     """Wie viele Protokolle da sind, wie viele gelesen wurden — und was dabei
     herauskam.
 
-    ⚠⚠ **Diese Zeile ersetzt eine Rueckfrage, die oft nicht moeglich ist.** Am
-    31.08.2026 kam ein Bericht mit „462 Protokolle" und „0 Baupläne", ohne
-    Absender und ohne Nachricht. Daraus war nicht zu erkennen, ob die Erkennung
-    bei dem Menschen versagt oder ob er einfach neu im Spiel ist — und genau
-    das ist der Unterschied zwischen „alles in Ordnung" und „das Werkzeug ist
-    fuer ihn wertlos".
-
-    Jetzt beantwortet der Bericht es selbst:
+    ⚠⚠ **Diese Zeile ersetzt eine Rueckfrage, die oft nicht moeglich ist.**
+    Viele Protokolle und null Bauplaene koennen heissen, dass die Erkennung
+    versagt — oder dass jemand neu im Spiel ist. Der Bericht unterscheidet
+    das selbst:
 
     | Was dasteht | Was es heisst |
     |---|---|
@@ -166,15 +160,14 @@ def _log_line():
 
     # ⚠ **Jeder Schritt fuer sich abgesichert, auch der erste.** Diese Zeile
     # steht in einem Bericht, den jemand abschickt, WEIL schon etwas kaputt
-    # ist — eine ausgehaengte Platte darf ihn nicht um den Rest bringen. Beim
-    # Bauen lag der erste Aufruf zunaechst ausserhalb; Selbsttest 94 hat es
-    # sofort gemeldet.
+    # ist — eine ausgehaengte Platte darf ihn nicht um den Rest bringen.
+    # Selbsttest 94 prueft das.
     backups = []
     try:
         backups = paths_module.log_backups()
     except Exception:
         pass
-    # ⚠ Einzahl beachten: „1 Protokolle" stand so im Bericht (02.09.2026).
+    # ⚠ Einzahl beachten, sonst steht `1 Protokolle` im Bericht.
     parts = [t('b_protokolle_1' if len(backups) == 1 else 'b_protokolle')
              % len(backups)]
     try:
@@ -199,10 +192,10 @@ def _collection_line():
     ⚠⚠ **Warum zwei Zahlen.** Der Bericht zählt die Einträge in `bestand.json`,
     die Bauplan-Liste geht den **Katalog** durch und hakt ab, was man davon hat.
     Ein Bauplan, den der Katalog nicht kennt, steht also in der einen Zahl und
-    fehlt in der anderen. Am 30.08.2026 gemeldet: Bericht 315, Liste 292 — und
-    beide Zahlen stimmten. Wer das sieht, hält eine davon für kaputt.
+    fehlt in der anderen — beide Zahlen stimmen, und wer nur sie sieht, hält
+    eine davon für kaputt.
 
-    Deshalb steht die Differenz jetzt im Bericht, statt dass sie jemand suchen
+    Deshalb steht die Differenz im Bericht, statt dass sie jemand suchen
     muss. Sie ist auch die interessantere Angabe: Sie sagt, wie weit Katalog und
     eigener Stand auseinanderlaufen.
     """
@@ -223,14 +216,14 @@ def _collection_line():
 
 
 # Wie viele Namen der Bericht höchstens aufzählt. Mehr macht ihn unlesbar,
-# und für die Frage „woran liegt es" reicht eine Handvoll Beispiele.
+# und um die Ursache zu erkennen, reicht eine Handvoll Beispiele.
 UNBEKANNT_MAX = 12
 
 
 def _unknown_blueprints():
     """Die Baupläne im eigenen Bestand, die der Katalog nicht kennt.
 
-    ⚠ Die Zahl allein („23 unbekannt") sagt nur, dass etwas nicht zusammenpasst.
+    ⚠ Die Zahl allein (`23 unbekannt`) sagt nur, dass etwas nicht zusammenpasst.
     Die Namen sagen, **was** — und meistens auch gleich, warum: ein ganzes
     Rüstungsset, das der Katalog noch nicht führt, oder eine abweichende
     Schreibweise. Ohne sie muss jemand die Datei von Hand mit dem Katalog
@@ -259,14 +252,11 @@ def _unknown_blueprints():
 def _game_language():
     """Wonach im Log gesucht wird — und woher **jede** Formulierung stammt.
 
-    ⚠ Hier stand eine einzige Herkunft hinter der **ganzen** Liste. Die Liste
-    ist aber gemischt: belegte Formulierungen (eigene Angabe, `global.ini`) und
-    die eingebaute Rückfalltabelle. Der Bericht las sich dadurch so, als stünden
-    alle sieben in der `global.ini` — dort steht genau eine. Am 01.09.2026
-    kostete das drei Suchläufe in einer 12-MB-Datei, bis klar war, dass „Bauplan
-    überchoo" (Schweizerdeutsch) aus der Tabelle kommt und dort gar nicht stehen
-    kann. Ein Bericht, der eine falsche Herkunft behauptet, schickt die
-    Fehlersuche in die Irre — genau das, was er verhindern soll."""
+    ⚠ Die Herkunft steht **je Formulierung**, nicht einmal für die ganze
+    Liste. Die Liste ist gemischt: belegte Formulierungen (eigene Angabe,
+    `global.ini`) und die eingebaute Rückfalltabelle. Eine gemeinsame Herkunft
+    ließe den Bericht so lesen, als stünden alle in der `global.ini` — und
+    schickte die Fehlersuche in die Irre."""
     from . import phrases
     found, _origin = phrases.collect()
     if not found:
@@ -287,18 +277,15 @@ def _game_language():
 def _patch_history():
     """Was die Historie je Spielversion führt — mit Anzahl.
 
-    ⚠ Diese Zeile gibt es, weil ein Fehler sich hier drei Wochen lang verstecken
-    konnte: Ein eigener Fund überschrieb die mitgelieferte Liste derselben
-    Version, und aus 24 Bauplänen in 4.10.0 wurden 3. Im Bericht stand nur der
-    Katalogstand — der war völlig in Ordnung, die Historie darunter nicht. Wer
-    „der Patch-Filter zeigt fast nichts" meldet, soll die Zahlen sehen können,
-    ohne dass jemand erst eine JSON-Datei aufmacht.
+    ⚠ Der Katalogstand allein sagt nichts über die Historie darunter: Ein
+    eigener Fund, der die mitgelieferte Liste derselben Version überschreibt,
+    lässt aus vielen Bauplänen einer Version wenige werden. Zeigt der
+    Patch-Filter fast nichts, stehen die Zahlen hier, ohne dass jemand erst
+    eine JSON-Datei aufmacht.
 
     ⚠ Die Kurzform allein reicht nicht. `4.10.0-live.12519617` und
-    `4.10.0-live.12545750` kürzen beide auf „4.10.0"; im Bericht stand dann
-    zweimal „4.10.0" mit verschiedenen Zahlen, und niemand konnte zuordnen,
-    welcher Patch welche Zugänge brachte — ausgerechnet in der Zeile, die es
-    zum Zuordnen gibt. Darum: Kurzform nur, solange sie eindeutig ist, sonst
+    `4.10.0-live.12545750` kürzen beide auf `4.10.0`; zweimal dieselbe
+    Kurzform mit verschiedenen Zahlen ließe sich nicht zuordnen. Darum: Kurzform nur, solange sie eindeutig ist, sonst
     die volle Version."""
     from . import patchhistory
     listing = patchhistory.patches()
@@ -314,26 +301,23 @@ def _patch_history():
 def _json_size(path_, key):
     """Wie viele Einträge stehen in einer unserer JSON-Dateien?
 
-    ⚠ Hier stand `daten.get(schluessel, daten)` — fehlte der Schlüssel, wurde
-    also das **ganze** Wörterbuch gezählt. Der Bericht meldete damit „3
-    Baupläne", weil die Datei drei Felder oben hat (version, stand, bauplaene),
-    während darin 394 Baupläne standen. Eine falsche Zahl, die völlig plausibel
-    aussieht — genau die Sorte, die niemand nachprüft.
+    ⚠ Kein `daten.get(schluessel, daten)` — fehlt der Schlüssel, würde sonst
+    das **ganze** Wörterbuch gezählt: drei Felder oben (version, stand,
+    bauplaene) statt der Baupläne darin. Eine falsche Zahl, die völlig
+    plausibel aussieht — genau die Sorte, die niemand nachprüft.
 
-    Fehlt der Schlüssel, steht jetzt `—` da. Lieber keine Angabe als eine
+    Fehlt der Schlüssel, steht `—` da. Lieber keine Angabe als eine
     erfundene, gerade in einem Bericht, mit dem jemand einen Fehler sucht.
     ⚠ Und: Eine Datei, die **es gar nicht gibt**, ist hier kein Fehler, sondern
     der Normalfall. Wer noch nichts auf die Merkliste gesetzt hat, hat keine
-    `watchlist.json` — bis rc42 flog dabei ein `FileNotFoundError`, den `_sicher`
-    zwar auffing, aber als Fehler in den Bericht schrieb. Im Bericht vom
-    26.08.2026 stand er ganz oben, direkt über den echten Altlasten:
+    `watchlist.json`. Ein `FileNotFoundError` würde von `_sicher` zwar
+    aufgefangen, aber als Fehler in den Bericht geschrieben:
 
         report.angabe  FileNotFoundError: .../Bauplaene/watchlist.json
 
     Wer einen Fehler sucht, soll in dieser Liste keine Zeilen finden, die gar
-    keine sind. Der Docstring von `_sicher` sagt es schon: „Ein leerer Wert ist
-    normal (kein Spiel installiert, keine Merkliste) — eine Ausnahme ist es
-    nicht."
+    keine sind — ein leerer Wert ist normal, keine Ausnahme (siehe
+    `_sicher`).
     """
     if not os.path.exists(path_):
         return '—'
@@ -361,10 +345,9 @@ def _tk_version():
 
     ⚠ `tkinter.TkVersion` ist eine Fliesskommazahl und meldet nur „9.0", auch
     bei 9.0.3. Zwischen Tk 8.6 und 9.0 liegt ein Hauptversionssprung, und
-    Unterschiede im Aufbau der Oberflaeche sind genau dort zu erwarten: Am
-    02.09.2026 kam eine Meldung ueber traegen Fensteraufbau von einem Rechner
-    mit Tk 9.0, waehrend dieselbe Fassung unter 8.6 zuegig lief. Ohne die
-    genaue Nummer im Bericht laesst sich so etwas nicht zuordnen.
+    Unterschiede im Aufbau der Oberflaeche sind genau dort zu erwarten (etwa
+    ein traeger Fensteraufbau unter 9.0, der unter 8.6 zuegig laeuft). Ohne
+    die genaue Nummer im Bericht laesst sich so etwas nicht zuordnen.
     """
     import tkinter
     try:
@@ -384,10 +367,9 @@ def _packaging_readable():
     """
     # ⚠⚠ **Ein dynamischer Import — kein Umbenennungswerkzeug findet ihn.**
     # Der Modulname steht in einer Zeichenkette, der Funktionsname auch.
-    # Bei der Bezeichner-Migration am 12.09.2026 war das die EINZIGE Stelle
-    # im Projekt, die weder der Syntaxbaum-Scanner noch der Selbsttest
-    # gemeldet hätte: Sie bricht erst, wenn jemand einen Fehlerbericht baut.
-    # Gefunden per Textsuche über das ganze Repo, nachdem alles grün war.
+    # Weder ein Syntaxbaum-Scanner noch der Selbsttest finden diese Stelle
+    # bei einer Umbenennung: Sie bricht erst, wenn jemand einen Fehlerbericht
+    # baut. Nur eine Textsuche über das ganze Repo trifft sie.
     kind = __import__('scbp.updater',
                      fromlist=['packaging']).packaging()
     return {'quellcode': t('b_v_quellcode'),
@@ -404,13 +386,10 @@ def _screens(root):
     # 72 Punkte je Zoll ist Tks Bezug; daraus wird die Skalierung lesbar.
     scaling = round(float(root.tk.call('tk', 'scaling')) * 72 / 96 * 100)
     line = t('b_skalierung') % (width, height, scaling)
-    # ⭐ **Fenstermaße dazu.** Am 30.08.2026 meldete ein Nutzer, das Fenster sei
-    # zu groß und er komme „nicht mehr an alles ran" — im Bericht stand dazu
-    # keine einzige Zahl. Sichtbar war nur der Bildschirm, nicht das Fenster
-    # darauf und schon gar nicht das `minsize`, das den Fehler ausmachte:
-    # Ist die Mindesthöhe größer als der Bildschirm, hält Tk sie gegen jedes
-    # Verkleinern. Genau diese drei Zahlen nebeneinander beantworten die Frage
-    # in einer Zeile.
+    # ⭐ **Fenstermaße dazu.** Neben dem Bildschirm stehen das Fenster und
+    # sein `minsize`: Ist die Mindesthöhe größer als der Bildschirm, hält Tk
+    # sie gegen jedes Verkleinern, und Teile des Fensters sind unerreichbar.
+    # Diese drei Zahlen nebeneinander zeigen das in einer Zeile.
     try:
         fb, fh = root.winfo_width(), root.winfo_height()
         mb, mh = root.minsize()
@@ -432,8 +411,7 @@ def _game_launcher():
     """Der Weg, auf dem Star Citizen gestartet würde — gekürzt und eingeordnet.
 
     Drei Auskünfte in einer Zeile: **ob** etwas gefunden wurde, **was**, und ob
-    es der selbst eingetragene Startbefehl ist. Genau diese drei Fragen standen
-    am 27.08.2026 zwei Stunden lang im Raum.
+    es der selbst eingetragene Startbefehl ist.
     """
     from . import paths as paths_module
     from . import language as language_module
@@ -450,14 +428,13 @@ def _game_launcher():
 def _injection_state():
     """Stehen die Bauplan-Angaben im Spiel? Eine Zeile, die einen Anruf spart.
 
-    ⚠ Der häufigste Support-Fall lautet „ich sehe deine Angaben im Spiel nicht
-    mehr". Ursache ist fast immer, dass ein Übersetzungs-Update oder ein
-    Spiel-Patch die `global.ini` neu geschrieben und die Angaben dabei
-    stillschweigend entfernt hat — das Werkzeug merkt davon nichts.
+    ⚠ Der häufigste Support-Fall: Die Angaben fehlen im Spiel. Ursache ist
+    fast immer, dass ein Übersetzungs-Update oder ein Spiel-Patch die
+    `global.ini` neu geschrieben und die Angaben dabei stillschweigend
+    entfernt hat — das Werkzeug merkt davon nichts.
 
-    Am 28.08.2026 stand in Morkhans Bericht nur `inj_quelle=deutsch`. Ob
-    überhaupt etwas eingetragen war, ließ sich daraus nicht ablesen; es musste
-    erschlossen werden. Genau dafür gibt es den Bericht.
+    Die Einstellung (`inj_quelle`) allein sagt nicht, ob überhaupt etwas
+    eingetragen ist; diese Zeile sagt es.
 
     Die Auskunft kommt aus `injection.status()` — derselben Stelle, die auch das
     Einstellungsfenster anzeigt. Kosten: rund 20 ms für eine 9-MB-Datei,
@@ -465,15 +442,15 @@ def _injection_state():
     """
     from . import injection
     lage = injection.status()
-    # ⚠ „Keine Datei" ist NICHT dasselbe wie „nicht eingetragen". Wer unter
+    # ⚠ Keine Datei ist NICHT dasselbe wie nicht eingetragen. Wer unter
     # Linux ohne Übersetzung spielt, hat schlicht keine `global.ini` — dort
-    # wäre ein fettes „NICHT eingetragen" eine Warnung vor dem Normalzustand.
+    # wäre ein fettes NICHT eingetragen eine Warnung vor dem Normalzustand.
     if not lage['datei']:
         return t('b_inj_keine')
     parts = [t('b_inj_drin') if lage['drin'] else t('b_inj_weg')]
     # ⚠ Beide Schalter stehen auf „an", solange niemand sie anfasst — dann
     # tauchen sie in `selbst_gesetzt` NICHT auf. Ohne diese zwei Angaben liest
-    # man „nicht eingetragen" und weiß nicht, ob das Absicht ist.
+    # man nicht eingetragen und weiß nicht, ob das Absicht ist.
     if not paths.setting_bool('inj_an', True):
         parts.append(t('b_inj_aus'))
     parts.append(t('b_inj_auto')
@@ -489,14 +466,8 @@ def _injection_state():
     #
     # Es gibt `english/global.ini` und `german_(germany)/global.ini`, und der
     # Watcher pflegt genau eine davon. Steht die Angabe in der anderen, sieht
-    # der Spieler **nichts** und meldet „funktioniert nicht" — ohne dass
-    # irgendetwas kaputt wäre.
-    #
-    # ⚠ Am 29.08.2026 kostete genau das einen Abend, und am 13.09.2026 kam
-    # dieselbe Meldung von einem zweiten Nutzer („bei Original habe ich keine
-    # Kästen gehabt"). Beide Male war die Frage „welche Datei gegen welche
-    # Sprache" nicht aus dem Bericht zu beantworten — sie musste erschlossen
-    # werden. Genau dafür ist der Bericht da.
+    # der Spieler **nichts** — ohne dass irgendetwas kaputt wäre. Welche
+    # Datei gegen welche Sprache steht, muss deshalb im Bericht stehen.
     #
     # ⚠ Die Spielsprache steht als `g_language` in der `user.cfg`. Fehlt sie,
     # startet Star Citizen auf Englisch; dann steht hier „—" und das ist die
@@ -519,11 +490,10 @@ def _crash_brief(lines, limit):
     den, in dem es knallte, mit `Current thread`. Wo der in der Liste steht,
     ist Zufall.
 
-    Bis zum 14.09.2026 nahm der Bericht schlicht die ersten 14 Zeilen. In einem
-    echten Bericht dieses Tages (Heap-Korruption `0xc0000374`) waren das drei
-    Fäden, die alle nur **warteten**: `GetMessageW` im Tastenkürzel-Faden,
-    `socket.accept` im Overlay, die Tray-Schleife. Der Faden, der abgestürzt
-    ist, stand weiter unten und wurde von „… (19)" verschluckt.
+    Die ersten 14 Zeilen zeigen oft nur Fäden, die **warten** —
+    `GetMessageW` im Tastenkürzel-Faden, `socket.accept` im Overlay, die
+    Tray-Schleife —, während der abgestürzte Faden weiter unten in der
+    Kürzung verschwindet.
 
     > **Ein Bericht, der die Ursache abschneidet und die Zuschauer zeigt, ist
     > schlimmer als keiner — er schickt den Leser in die falsche Richtung.**
@@ -566,18 +536,16 @@ def build(version='', root=None, fehleranzahl=8, message=''):
 
     # ⭐ Wer meldet das? Steht bewusst ganz oben — mit vielen Nutzern ist ein
     # Bericht ohne Absender kaum zuzuordnen, und Rückfragen laufen ins Leere.
-    # **Freiwillig**: Ist nichts eingetragen, steht hier „nicht angegeben"; der
+    # **Freiwillig**: Ist nichts eingetragen, steht hier `nicht angegeben`; der
     # Watcher füllt das Feld nie von selbst.
     reporter = (paths.setting('melder_name') or '').strip()
     # ⚠ **Ohne `kuerzen()`.** Jede andere Zeile läuft durch die Anonymisierung,
-    # die Benutzernamen durch `<benutzer>` ersetzt — und genau das traf den
-    # Melder-Namen, wenn er dem Systemkonto gleicht („Xharig"). Ausgerechnet
-    # die einzige Angabe, die der Nutzer BEWUSST macht, verschwand dadurch.
-    # Aufgefallen am 29.08.2026 auf einem Bildschirmfoto, nicht im Test.
+    # die Benutzernamen durch `<benutzer>` ersetzt — und das träfe den
+    # Absender-Namen, wenn er dem Systemkonto gleicht. Ausgerechnet die
+    # einzige Angabe, die der Nutzer BEWUSST macht, verschwände dadurch.
     lines.append('%-18s%s' % (t('b_melder'), reporter or t('s_melder_leer')))
     # ⭐⭐ **Was ist passiert — in eigenen Worten, ganz oben.** Ohne dieses Feld
-    # landete die Meldung im Namen: „BUSHWICK mission log updated niocht"
-    # (05.09.2026). Der Hinweis war da, nur an der falschen Stelle.
+    # landet die Beschreibung im Namensfeld.
     #
     # ⚠ Steht **vor** allen technischen Angaben. Was der Mensch schreibt, ist
     # der Anfang jeder Diagnose — die Zahlen darunter belegen oder widerlegen
@@ -603,11 +571,9 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     line(t('b_python'), '%s / %s' % (platform.python_version(),
                                       _safe(_tk_version)))
     line(t('b_bildschirm'), _safe(lambda: _screens(root)))
-    # ⭐ **Wie das Overlay gerade steht.** Am 13.09.2026 kostete eine Meldung
-    # ueber das schwebende Schloss einen ganzen Abend Messungen, weil hier
-    # nichts davon stand: keine Fenstergroesse, kein Klappzustand, keine
-    # Mindestbreite, keine Leistengroesse, kein Versatz. Der Bericht waechst
-    # deshalb mit — eine Zeile beantwortet, wofuer sonst nachgefragt wird.
+    # ⭐ **Wie das Overlay gerade steht:** Fenstergroesse, Klappzustand,
+    # Mindestbreite, Leistengroesse, Versatz — eine Zeile beantwortet, wofuer
+    # sonst nachgefragt oder nachgemessen werden muesste.
     #
     # ⚠ Nur Zahlen und Zustaende; der Bericht landet in einem oeffentlichen
     # Issue. Steht kein Overlay (Pruefstand, reines Fensterprogramm), bleibt
@@ -623,21 +589,16 @@ def build(version='', root=None, fehleranzahl=8, message=''):
                                    or t('b_nicht_gefunden')))
     line(t('b_sicherungen'), _safe(_log_line))
     # ⚠ **Womit sich das Spiel starten ließe — und ob das jemand von Hand
-    # eingetragen hat.** Ohne diese Zeile ist „der Startknopf tut nichts" nicht
-    # zu beantworten, ohne den Nutzer auszufragen. Siehe die Regel: Was einen
-    # Fehler erklären würde, gehört in den Bericht, bevor er das nächste Mal
-    # gemeldet wird.
+    # eingetragen hat.** Tut der Startknopf nichts, lässt sich das ohne diese
+    # Zeile nicht klären, ohne den Nutzer auszufragen.
     line(t('b_starter'), _safe(_game_launcher))
-    # ⚠ `collect()` gibt ein **Tupel** zurück — (phrases, herkunft). Hier stand
-    # `', '.join(sammeln())`, was eine Liste mit einem String zusammenfügen
-    # wollte und mit einem TypeError abbrach. `_sicher()` verschluckte den, und
-    # im Bericht stand nur ein Strich. Drei Übergaben lang galt das als
-    # ungeklärter Punkt; in Wahrheit war es diese eine fehlende `[0]`.
+    # ⚠ `collect()` gibt ein **Tupel** zurück — (phrases, herkunft). Ein
+    # `', '.join(...)` direkt darauf bricht mit TypeError ab; `_sicher()`
+    # verschluckt den, und im Bericht stünde nur ein Strich.
     #
     # Die Herkunft wird gleich mit ausgegeben: Sie sagt, ob die Formulierung aus
     # der echten `global.ini` des Spielers stammt oder nur aus unserer Tabelle
-    # geraten ist — genau die Auskunft, die man bei „er erkennt meine Baupläne
-    # nicht" als Erstes braucht.
+    # geraten ist — die erste Auskunft, wenn Baupläne nicht erkannt werden.
     line(t('b_spielsprache'), _safe(_game_language))
     line(t('b_inj'), _safe(_injection_state))
     line(t('b_inj_datei'), _safe(
@@ -651,13 +612,10 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         line(t('b_unbekannt'), _unknown)
     line(t('b_merkliste'), _safe(lambda: t('b_n_eintraege') % _json_size(
         __import__('scbp.watchlist', fromlist=['path']).path(), 'eintraege')))
-    # ⚠⚠ **Der gespeicherte Stand, kein Netzabruf.** Hier stand
-    # `aktuelle_version()` — und die fragt scmdb.net. Ohne Internet wartete der
-    # Bericht auf den Timeout, und weil er im Hauptfaden gebaut wird, war das
-    # ganze Fenster so lange starr: „ohne Internetverbindung geht auch Fehler
-    # melden nicht aufzurufen, Einstellungsfenster ist auch da nicht mehr
-    # bedienbar" (30.08.2026). Ausgerechnet die Seite, die man bei Störungen
-    # braucht.
+    # ⚠⚠ **Der gespeicherte Stand, kein Netzabruf.** `aktuelle_version()`
+    # fragt scmdb.net. Ohne Internet wartete der Bericht auf den Timeout, und
+    # weil er im Hauptfaden gebaut wird, wäre das ganze Fenster so lange
+    # starr — ausgerechnet die Seite, die man bei Störungen braucht.
     #
     # Der Bericht soll ohnehin den **Ist-Zustand auf diesem Rechner** zeigen,
     # nicht den im Netz: Interessant ist, welchen Katalog der Nutzer hat.
@@ -665,9 +623,9 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         'scbp.catalog', fromlist=['load']).load().get('version') or None)))
     line(t('b_historie'), _safe(_patch_history))
 
-    # ⚠ Die drei Werkstatt-Seiten (ab v3.3.0). Ohne sie liesse sich eine
-    # Meldung wie „bei mir bleibt die Herstellung leer" nicht beurteilen —
-    # man saehe nicht, ob die Daten ueberhaupt geladen sind.
+    # ⚠ Die drei Werkstatt-Seiten. Ohne sie liesse sich eine leere
+    # Herstellungs-Seite nicht beurteilen — man saehe nicht, ob die Daten
+    # ueberhaupt geladen sind.
     def _storage_line():
         from . import materials
         items = materials.load()
@@ -694,14 +652,12 @@ def build(version='', root=None, fehleranzahl=8, message=''):
 
     def _scanner_line():
         # ⭐ Ohne diese Zeile sagt ein Bericht zum Signatur-Scanner nichts:
-        # an/aus, wie viel angelernt ist, was zuletzt gelesen wurde. (Den
-        # Scan-Bereich gibt es seit rc7 nicht mehr — die Pille wird gesucht.)
+        # an/aus, wie viel angelernt ist, was zuletzt gelesen wurde. (Einen
+        # festen Scan-Bereich gibt es nicht — die Pille wird gesucht.)
         #
-        # ⚠⚠ **Der Schalter ist nicht der Betrieb.** Bis zum 21.09.2026 stand
-        # hier nur „an" — also die Einstellung. Ob der Wach-Faden überhaupt
-        # lebt, war weder im Bericht noch am Overlay abzulesen; eine Meldung
-        # „zeigt nichts mehr an" war damit nicht zu beantworten, obwohl genau
-        # diese eine Auskunft sie entschieden hätte.
+        # ⚠⚠ **Der Schalter ist nicht der Betrieb.** Die Einstellung allein
+        # sagt nicht, ob der Wach-Faden überhaupt lebt; zeigt der Scanner
+        # nichts mehr an, ist genau das die entscheidende Auskunft.
         from . import paths as paths_module, screen_grab, signature_scan, signature_watch
         if not screen_grab.supported():
             return t('b_scan_nicht')
@@ -725,10 +681,10 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     def _folder_line():
         """Der Datenordner — und ob sich dort überhaupt schreiben lässt.
 
-        ⚠⚠ Parsuls Bericht vom 29.09.2026 sagte „Einstellungen: alle auf
-        Standard" und „Letzte Fehler: keine" — obwohl in Wahrheit NICHTS
-        gespeichert werden konnte, auch das Fehlerprotokoll nicht. Ohne diese
-        Angabe liest sich so ein Bericht wie „alles in Ordnung"."""
+        ⚠⚠ Lässt sich im Datenordner nichts speichern, zeigt der Bericht
+        sonst Standard-Einstellungen und keine Fehler — auch das
+        Fehlerprotokoll wird dann nicht geschrieben. Ohne diese Angabe liest
+        sich so ein Bericht, als sei alles in Ordnung."""
         from . import paths as paths_module
         folder = uebersicht.get('app_ordner')
         ok, _own, reason = paths_module.storage_status(paths_module.app_folder())
@@ -745,10 +701,9 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     def _basetool_line():
         """Verbindung zum KRT Profit Basetool — ohne Token, ohne Kennungen.
 
-        ⚠ Seit dem ersten Test (28.09.2026): Die Seite zeigte „abgelehnt
-        (HTTP_503)" und „Erlaubnis fehlt", aber nirgends stand, welche Rechte
-        das Basetool bei der Anmeldung wirklich erteilt hatte — genau die eine
-        Auskunft, die den Fall entscheidet."""
+        ⚠ Zeigt die Seite eine Ablehnung oder fehlende Erlaubnis, entscheidet
+        sich der Fall daran, welche Rechte das Basetool bei der Anmeldung
+        wirklich erteilt hat — die stehen hier."""
         from . import basetool, basetool_sync
         status = dict(basetool_sync.STATUS)
         rights = (basetool.CONNECTION.granted
@@ -767,11 +722,10 @@ def build(version='', root=None, fehleranzahl=8, message=''):
 
     # ⚠ Die Startspur zuerst — bei einem Absturz ist sie das Einzige, was bleibt.
     # Ein `SIGSEGV` beendet den Prozess sofort: kein `except`, kein Fehlerbericht,
-    # nur „es stürzt ab". Die letzte Zeile hier sagt, wie weit der Start kam.
-    # ⚠ Start und Bedienung **getrennt** deckeln. Beides in einen Topf zu werfen
-    # und die letzten zwölf Zeilen zu nehmen, war der Fehler in rc74: Fünf Klicks
-    # genügten, und der komplette Startverlauf war aus dem Bericht verdrängt —
-    # ausgerechnet der Teil, für den die Spur gebaut wurde.
+    # nur der Absturz. Die letzte Zeile hier sagt, wie weit der Start kam.
+    # ⚠ Start und Bedienung **getrennt** deckeln. In einem gemeinsamen Topf mit
+    # den letzten zwölf Zeilen verdrängen fünf Klicks den kompletten
+    # Startverlauf — ausgerechnet den Teil, für den die Spur gebaut ist.
     start, seiten = _safe(errors.split_trail, ([], []))
     # ⚠ Erst zusammenfassen, dann die letzten zwölf nehmen — andersherum wäre
     # der Ausschnitt schon leergeräumt, bevor das Zusammenfassen greift.
@@ -793,9 +747,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # ⚠⚠ **24 Zeilen, nicht 12 — der Weg zum Bericht frisst die Spur.**
         # Jede Seite belegt zwei Zeilen; zwölf zeigten also sechs Seiten. Wer
         # den Bericht holt, klickt sich aber erst durch die Info-Seiten dorthin
-        # — und schob damit genau die Seite hinaus, um die es ging. Am
-        # 05.09.2026 aufgefallen: „Hab Läden geöffnet und auch mal was
-        # gesucht", und im Bericht stand keine Zeile davon.
+        # — und schöbe damit genau die Seite hinaus, um die es ging.
         #
         # Ein Bericht, dessen Beschaffung die Beobachtung zerstört, ist kein
         # Bericht. `TRAIL_KEEP` hebt 60 Zeilen auf, der Platz war also da.
@@ -814,9 +766,9 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # Vermerk stellt fest, wann — er urteilt nicht, ob es noch zutrifft.
         wann = _safe(errors.crash_time, None)
         # ⚠ Und mit Fassung, genau wie die Fehlerliste darunter — derselbe
-        # Vermerk, dieselbe Regel: feststellen, nicht urteilen. Ohne sie stand
-        # am 21.09.2026 ein Abbruch aus einer Fassung vor 3.43 in einem Bericht
-        # aus 3.55.0, und nichts im Kopf verriet das.
+        # Vermerk, dieselbe Regel: feststellen, nicht urteilen. Ohne sie
+        # stünde ein Abbruch aus einer alten Fassung in einem neuen Bericht,
+        # und nichts im Kopf verriete das.
         crash_version = _safe(errors.crash_version, '')
         if not crash_version:
             version_note = t('b_absturz_ohne_fassung')
@@ -838,14 +790,12 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     if letzte:
         lines.append(t('b_fehler') % (len(letzte), total))
         # ⚠ **Gleichartige Fehler zusammenfassen.** Ein einziger Vorfall kann
-        # den ganzen Speicher belegen: Am 28.08.2026 stand in einem Bericht
-        # **50 von 50** Plätzen dieselbe Zeile, alle innerhalb von acht Sekunden
-        # (ein Fortschritt im Sekundentakt bei zugehendem Fenster). Acht davon
-        # wurden angezeigt — acht Zeilen, die dasselbe sagen, und kein Platz für
-        # das, was sonst noch passiert ist.
+        # den ganzen Speicher belegen: Ein Fehler in einer Schleife (etwa ein
+        # Fortschritt im Sekundentakt bei zugehendem Fenster) füllt alle 50
+        # Plätze mit derselben Zeile — und die angezeigten Zeilen sagen alle
+        # dasselbe, ohne Platz für das, was sonst noch passiert ist.
         #
-        # Die Ursache dafür ist behoben, aber das Muster kann jederzeit
-        # wiederkommen: Jeder Fehler in einer Schleife tut das. Deshalb wird hier
+        # Deshalb wird hier
         # gebündelt, was sich nur in der Uhrzeit unterscheidet — dieselbe Stelle,
         # dieselbe Art, dieselbe Meldung, dieselbe Fassung.
         bundled = []
@@ -863,9 +813,9 @@ def build(version='', root=None, fehleranzahl=8, message=''):
             # der laufenden Fassung stammt. Ohne die Angabe sucht der Nächste
             # nach einem Fehler, den es vielleicht nicht mehr gibt.
             #
-            # ⚠⚠ **Die Kennzeichnung stellt fest, sie urteilt nicht.** Sie hieß
-            # bis 05.09.2026 „vermutlich längst behoben" — das stimmt aber nur,
-            # wenn der Melder seine Fassung selbst überholt hat. Wer lange kein
+            # ⚠⚠ **Die Kennzeichnung stellt fest, sie urteilt nicht.** Ein
+            # Urteil wie `vermutlich behoben` stimmt nur, wenn der Absender
+            # seine Fassung selbst überholt hat. Wer lange kein
             # Update gemacht hat, schickt aus einer alten Version einen Fehler,
             # den wir noch nie gesehen haben. Eine Bemerkung, die zum Abhaken
             # einlädt, ist dann genau das Gegenteil einer Hilfe.
@@ -891,9 +841,8 @@ def submit(text, version='', attachments=None):
 
     ⚠ **Der einzige Weg, der bei Nicht-Bastlern ankommt.** Kopieren und in
     Discord einfügen scheitert dreifach: Der Bericht steckt unter
-    „Fortgeschritten", er ist zu lang für eine Nachricht, und man muss wissen,
-    wohin damit. Gemeldet am 28.08.2026: „ich will nicht jedem eine Stunde
-    erklären, wie ich zu dem Bericht komme."
+    Fortgeschritten, er ist zu lang für eine Nachricht, und man muss wissen,
+    wohin damit.
 
     Verschickt wird **nur auf Knopfdruck** und erst, nachdem der Nutzer den
     vollen Wortlaut gesehen hat. Der Text ist derselbe, der auf der Seite steht
@@ -930,7 +879,7 @@ def submit(text, version='', attachments=None):
             return False, 'HTTP %s' % answer.status
     except Exception as exception:
         errors.record('report.submit', exception)
-        # ⭐ Die Weiterleitung bremst die Menge je Absender (seit v3.57.2).
+        # ⭐ Die Weiterleitung bremst die Menge je Absender.
         # Wer zweimal schnell hintereinander drückt, soll hören, dass er nur
         # kurz warten muss — nicht, dass keine Verbindung besteht.
         if getattr(exception, 'code', None) == 429:
@@ -979,7 +928,7 @@ ISSUE_ADRESSE = 'https://github.com/Xharig/VerseKit/issues/new'
 def _template_for_language():
     """Deutsche Oberfläche → deutsches Formular, sonst das englische.
 
-    ⚠ **Der Rückfall ist seit 31.08.2026 das deutsche Formular** — Deutsch ist
+    ⚠ **Der Rückfall ist das deutsche Formular** — Deutsch ist
     die Hauptsprache des Projekts. Er greift nur, wenn sich die eingestellte
     Sprache nicht ermitteln lässt; das ist ein Ausnahmefall, und dann ist die
     Hauptsprache die bessere Wahl als die zweite.
@@ -1008,7 +957,7 @@ def issue_url(text, title='', template=None):
 
     Über die Adresse ist beides gelöst: Der Browser öffnet das Formular fertig
     ausgefüllt, der Spieler liest es und drückt selbst auf Abschicken. Er sieht
-    also genau, was er weitergibt — und angemeldet ist er dort ohnehin.
+    also genau, was er weitergibt — und eingeloggt ist er dort ohnehin.
     """
     from urllib.parse import urlencode
 

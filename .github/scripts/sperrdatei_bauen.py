@@ -20,10 +20,10 @@
 Eine Sperrdatei mit Prüfsummen erzeugen — für den Bau, nicht für das Programm.
 
 **Wozu.** Der Bau nagelt seine Werkzeuge namentlich fest (PyInstaller,
-pyflakes, pip). Was `pip` **dazu** holt, war offen: `altgraph`, `packaging`,
+pyflakes, pip). Was `pip` **dazu** holt, ist ohne Sperrdatei offen: `altgraph`, `packaging`,
 `setuptools`, `pyinstaller-hooks-contrib`, unter Windows zusätzlich `pefile`
-und `pywin32-ctypes`. Ein neues `setuptools` konnte den Bau also weiter
-verändern, ohne dass irgendwo etwas geändert wurde.
+und `pywin32-ctypes`. Ein neues `setuptools` könnte den Bau also verändern,
+ohne dass irgendwo etwas geändert wurde.
 
 **Was hier herauskommt.** Eine Datei im `requirements`-Format, in der **jedes**
 Paket mit Version und SHA-256 steht. Damit lässt sich der Bau mit
@@ -31,12 +31,12 @@ Paket mit Version und SHA-256 steht. Damit lässt sich der Bau mit
 bricht er ab, statt still etwas anderes einzubauen.
 
 ⚠⚠ **Eine Sperrdatei gilt nur für die Plattform, auf der sie entstand.**
-Am 10.09.2026 gemessen: `pip download --platform win_amd64` löst die
+Gemessen: `pip download --platform win_amd64` löst die
 Windows-Pakete **nicht** auf — `--platform` steuert nur, welche Wheels als
 verträglich gelten, die Marker `sys_platform == "win32"` kommen dagegen vom
 **laufenden** System. Ergebnis eines anderswo erzeugten Locks: `pefile` und
-`pywin32-ctypes` fehlen, dafür ist `macholib` drin. Der Windows-Bau wäre damit
-mit `--require-hashes` abgebrochen.
+`pywin32-ctypes` fehlen, dafür ist `macholib` drin. Der Windows-Bau bräche
+damit mit `--require-hashes` ab.
 
 **Deshalb entsteht jede Sperrdatei dort, wo sie gilt** — und dafür braucht es
 keinen zweiten Rechner: Der Bau-Ablauf `sperrdateien.yml` lässt dieses Skript

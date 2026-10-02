@@ -34,7 +34,7 @@ Drei mögliche Grundlagen:
 
 > **Nichts davon wird mitgeliefert.** Beide Fremdprojekte behalten ihre Rechte,
 > und ihre Lizenzen vertragen sich nicht mit der GPL dieses Werkzeugs. Geholt
-> wird zur Laufzeit, von der Original-Adresse, auf Wunsch des Nutzers — dasselbe
+> wird zur Laufzeit, von der Original-Adresse, nur wenn der Nutzer es wählt — dasselbe
 > Vorgehen wie beim Bauplan-Katalog von scmdb.
 
 Was der Watcher **selbst** beisteuert, ist die Bauplan-Auszeichnung obendrauf
@@ -61,13 +61,12 @@ TIMEOUT = 60
 SOURCES = {
     'deutsch': {
         'repo':     'rjcncpt/StarCitizen-Deutsch-INI',
-        # ⚠⚠ **Die Datei im Repo, nicht das Release** (17.09.2026). rjcncpt
-        # veröffentlicht neue Stände nicht mehr als Release: Das neueste war
-        # `2026.09.08-LIVE` mit Textstand 29.08., während `live/global.ini` im
-        # Repo am 16.09. für Patch 4.10.1 nachgezogen war. VerseKit fragte nur
-        # nach Releases, sah „nichts Neues" — und im Flottenmanager stand
+        # ⚠⚠ **Die Datei im Repo, nicht das Release.** rjcncpt veröffentlicht
+        # neue Stände nicht zuverlässig als Release; `live/global.ini` im Repo
+        # ist aktueller. Wer nur nach Releases fragt, sieht nichts Neues — und
+        # im Flottenmanager stehen Platzhalter wie
         # `@vehicle_NameAEGS_Sabre_Raven_EX`, weil der alten Datei die neuen
-        # Schiffe fehlten. Das Release bleibt als Rückfall (`datei`).
+        # Schiffe fehlen. Das Release bleibt als Rückfall (`datei`).
         'repo_datei': 'live/global.ini',
         'datei':    'StarCitizen.Deutsch.LIVE.zip',
         'sprache':  'german_(germany)',
@@ -92,12 +91,12 @@ SOURCES = {
         # `releases/latest` liefert sie nie, deshalb der feste Tag.
         'ptu':      {'tag': 'latest-ptu', 'datei': 'StarStrings-PTU.zip'},
     },
-    # ⭐ Seit v3.59.0 (Wunsch vom 27.09.2026): weitere gepflegte Übersetzungen.
-    # Dymerz liefert je Sprache eine Zip mit einer blanken `global.ini`; seine
-    # PTU-Fassung ist veraltet (Juli 2026) und wird deshalb nicht angeboten.
+    # ⭐ Weitere gepflegte Übersetzungen. Dymerz liefert je Sprache eine Zip
+    # mit einer blanken `global.ini`; seine PTU-Fassung ist veraltet und wird
+    # deshalb nicht angeboten.
     # ⚠ Keine Lizenz angegeben — wie bei StarStrings: nichts mitliefern, nur
-    # auf Wunsch von der Adresse des Projekts laden, und auf „Danke & Lizenzen"
-    # nennen.
+    # nach Wahl des Nutzers von der Adresse des Projekts laden, und auf
+    # „Danke & Lizenzen" nennen.
     'dymerz_de': {
         'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'german_.germany.zip',
         'sprache': 'german_(germany)', 'ton': 'english',
@@ -154,15 +153,13 @@ SOURCES = {
 
 # ---------------------------------------------------------------- Luftwerft
 #
-# ⭐ **Die Übersetzungen des SC Launch Configurator** (Luftwerft), ausdrücklich
-# freigegeben von ihrem Entwickler Choopa am 28.09.2026: *„Kannst auch unsere
-# Sprach-URLs gerne mit bei Dir aufnehmen, wenn Du willst."*
+# ⭐ **Die Übersetzungen des SC Launch Configurator** (Luftwerft), von ihren
+# Entwicklern zur Einbindung freigegeben.
 #
-# ⚠ **Sein eigener Hinweis gehört dazu** — er hat ihn selbst erbeten: *„mach
-# einen Hinweis mit rein, dass da noch viel zu polieren ist. Die Quali von SCDL
-# haben wir noch bei weitem nicht erreicht."* Genau deshalb trägt jede dieser
-# Quellen `hinweis`; die Rückfrage vor dem Umstellen zeigt ihn an. Wer eine
-# fremde Übersetzung einsetzt, soll vorher wissen, worauf er sich einlässt.
+# ⚠ **Der Hinweis der Quelle gehört dazu:** Die Übersetzungen sind noch nicht
+# ausgereift. Deshalb trägt jede dieser Quellen `hinweis`; die Rückfrage vor
+# dem Umstellen zeigt ihn an. Wer eine fremde Übersetzung einsetzt, soll
+# vorher wissen, worauf er sich einlässt.
 #
 # ⚠ Hier steht **kein Repo und kein Release**, sondern die Datei direkt: Die
 # Dateien liegen nicht auf GitHub, sondern auf dem eigenen Server. Sie bauen
@@ -234,10 +231,9 @@ def _fetch(url, raw=False):
 
 # --------------------------------------------------------------- Was ist neu?
 # Der zuletzt aufgetretene Netzfehler — im Klartext, für die Anzeige.
-# Ohne diese Zeile stand bei einem Zertifikatsproblem nur „Version nicht
-# gefunden" im Fenster, was nach „das Release existiert nicht" aussieht und in
-# die völlig falsche Richtung führt. Die Diagnose kostete am 24.08.2026 eine
-# halbe Stunde, obwohl die Ausnahme den Grund kannte.
+# Ohne diese Zeile stünde bei einem Zertifikatsproblem nur, dass die Version
+# nicht gefunden wurde — das sieht aus, als gäbe es das Release nicht, und
+# führt in die völlig falsche Richtung, obwohl die Ausnahme den Grund kennt.
 last_error = [None]
 
 # Kennung → Tag der Fassung (`JJJJ-MM-TT`), wie ihn die letzte Abfrage nannte.
@@ -258,10 +254,10 @@ def _net_error(e):
 
 
 # ------------------------------------------------------ Kanäle und Quellen
-# ⭐ Seit v3.59.0 kann jeder Kanal (LIVE, PTU …) eine eigene Textquelle haben.
+# ⭐ Jeder Kanal (LIVE, PTU …) kann eine eigene Textquelle haben.
 # `channel=None` heißt überall: die Hauptinstallation (der Spielordner aus
-# den Einstellungen), genau wie vor v3.59.0 — dort bleiben die Vermerke unter
-# dem blanken Quellennamen, damit bestehende Installationen nichts merken.
+# den Einstellungen) — dort stehen die Vermerke unter dem blanken
+# Quellennamen, damit bestehende Installationen nichts merken.
 # Ein Nebenkanal bekommt seine Vermerke unter `quelle@KANAL`.
 
 def _key(source, channel=None):
@@ -272,7 +268,7 @@ def _custom_settings(channel=None):
     """Adresse und Sprachordner der eigenen Quelle für einen Kanal.
 
     ⚠ `paths.settings()`, nicht `paths.setting()`: Das Letzte liefert nur
-    Text und hält ein Wörterbuch für „nicht gesetzt"."""
+    Text und hält ein Wörterbuch für nicht gesetzt."""
     all_settings = paths.settings().get(SETTING_CUSTOM)
     if not isinstance(all_settings, dict):
         return {}
@@ -359,11 +355,10 @@ def language_folder(source, channel=None):
 def grouped_sources(channel=None, with_original=True):
     """Die wählbaren Quellen, **nach Sprache gruppiert** — eine Liste je Sprache.
 
-    ⚠⚠ **Die eine Stelle, die die Reihenfolge festlegt** (28.09.2026). Vorher
-    baute sich der Reiter „Übersetzung" seine Liste aus `SOURCES`, während der
-    Einrichtungsassistent **drei fest verdrahtete Zeilen** hatte. Folge: Jede
-    neue Quelle erschien im Reiter und im Assistenten nie — bei v3.60.0 kannte
-    er 2 von 14, und niemandem fiel es auf, weil nichts kaputtging.
+    ⚠⚠ **Die eine Stelle, die die Reihenfolge festlegt** — für den Reiter
+    „Übersetzung" und den Einrichtungsassistenten. Getrennte Listen laufen
+    still auseinander: Eine neue Quelle erschiene dann nur an einer Stelle,
+    und niemandem fiele es auf, weil nichts kaputtgeht.
 
     Wer eine Quelle ergänzt, ergänzt **eine** Zeile in `SOURCES`. Beide
     Ansichten ziehen von hier.
@@ -477,11 +472,11 @@ def latest(source, channel=None):
             commits = _fetch('https://api.github.com/repos/%s/commits?path=%s'
                              '&per_page=1' % (q['repo'], q['repo_datei']))
         except Exception as e:
-            # ⚠⚠ **Kein Rückfall aufs Release, wenn die Abfrage scheitert**
-            # (17.09.2026). Das Release trägt eine andere Kennung als die
-            # eingesetzte Repo-Datei — ein abgewiesener Abruf (GitHub-Limit)
-            # hätte als „neue Fassung" gegolten und die veraltete Datei aus dem
-            # Release über die aktuelle geschrieben.
+            # ⚠⚠ **Kein Rückfall aufs Release, wenn die Abfrage scheitert.**
+            # Das Release trägt eine andere Kennung als die eingesetzte
+            # Repo-Datei — ein abgewiesener Abruf (GitHub-Limit) gälte sonst
+            # als neue Fassung und schriebe die veraltete Datei aus dem
+            # Release über die aktuelle.
             _net_error(e)
             return None
         first = (commits[0] or {}) if isinstance(commits, list) and commits else {}
@@ -563,8 +558,8 @@ def _record_check(source, result, ident=None):
     """Festhalten, wann zuletzt nachgesehen wurde und mit welchem Ergebnis.
 
     `result`: `aktuell`, `neu` oder `fehler`. Ist die eingesetzte Fassung die
-    neueste, wird ihr Datum nachgetragen — Installationen von vor v3.48.5
-    kennen es sonst nicht."""
+    neueste, wird ihr Datum nachgetragen — Vermerke ohne Datum bekommen es
+    so nachträglich."""
     d = _note()
     entry = d.get(source)
     if not isinstance(entry, dict):
@@ -583,7 +578,7 @@ def info(source, channel=None):
 
 
 def _day(stamp, lang=None):
-    """`2026-09-16` → `16.09.2026` (deutsch) bzw. unverändert (englisch)."""
+    """`JJJJ-MM-TT` → `TT.MM.JJJJ` (deutsch) bzw. unverändert (englisch)."""
     from . import language
     lang = lang or language.current()
     try:
@@ -596,7 +591,7 @@ def _day(stamp, lang=None):
 def status_text(source, lang=None, today=None, channel=None):
     """Für Spieler lesbar: Stand der Übersetzung und ob sie aktuell ist.
 
-    Beispiel: „Stand 16.09.2026 · aktuell, nachgesehen heute 04:52".
+    Beispiel: `Stand TT.MM.JJJJ · aktuell, nachgesehen heute 04:52`.
     ⚠ Nie die Kennung (`git-082b11db5e73`) — daran erkennt niemand etwas."""
     entry = info(source, channel)
     parts = []
@@ -634,7 +629,7 @@ def forget_note(source):
 def note(source, ident):
     """Eine Quelle als eingerichtet festhalten.
 
-    Auch für den Weg „Originaltexte aus dem Spiel" nötig, obwohl dort nichts
+    Auch für den Weg mit den Originaltexten aus dem Spiel nötig, obwohl dort nichts
     heruntergeladen wird: Ohne Vermerk weiß der Watcher beim nächsten Start
     nicht, dass der Spieler die Bauplan-Angaben überhaupt eingerichtet hat —
     und würde sie nach einem Spiel-Patch nicht wieder eintragen."""
@@ -656,7 +651,7 @@ def update_available(source, channel=None):
     key = _key(source, channel)
     # ⚠ Die eigene Adresse ohne Kennung (der Server nennt weder ETag noch
     # Datum noch Größe): Dann gibt es nichts zu vergleichen — nicht jedes Mal
-    # neu laden, sondern „nicht geprüft" melden.
+    # neu laden, sondern als nicht geprüft melden.
     if not fresh or not fresh[0]:
         _record_check(key, 'fehler')
         return False, None
@@ -734,14 +729,13 @@ def game_language(game_dir=None):
     Gibt den Sprachordner zurück (`german_(germany)`, `english`, …) oder `None`,
     wenn nichts eingetragen ist. Ohne Eintrag startet Star Citizen auf Englisch.
 
-    ⚠⚠ **Warum es das braucht.** Das Werkzeug **schrieb** `g_language` schon
-    lange (`user_cfg_setzen`), gelesen hat es die Zeile nie. Bei der Textquelle
-    „Original" nahm `injection.ini_file()` deshalb eine feste Reihenfolge —
-    erst `english`, dann `german_(germany)` — und beide Dateien gibt es fast
-    immer. Ergebnis: Wir schrieben in die englische, das Spiel las die deutsche.
-    Eingetragen wurde also korrekt, angekommen ist nie etwas, und die Statuszeile
-    meldete trotzdem Erfolg. Am 29.08.2026 gemeldet; es erklärt vermutlich
-    monatelang nicht ankommende Auftragstexte.
+    ⚠⚠ **Warum es das braucht.** Das Werkzeug **schreibt** `g_language`
+    (`user_cfg_setzen`). Ohne die Zeile zu lesen, nähme `injection.ini_file()`
+    bei der Textquelle „Original" eine feste Reihenfolge — erst `english`,
+    dann `german_(germany)` — und beide Dateien gibt es fast immer. Dann
+    landet die Auszeichnung in der englischen, während das Spiel die deutsche
+    liest: Eingetragen korrekt, angekommen nichts, und die Statuszeile meldet
+    trotzdem Erfolg.
     """
     root = game_dir or paths.game_folder()
     if not root:
@@ -810,7 +804,7 @@ def fetch(source, progress=None, game_dir=None, channel=None):
     """Eine Quelle herunterladen und einsetzen. Gibt (Erfolg, Meldung) zurück.
 
     `channel` und `game_dir` gehören zusammen: ein Nebenkanal (PTU …) und sein
-    Ordner. Ohne beides: die Hauptinstallation, wie vor v3.59.0."""
+    Ordner. Ohne beides: die Hauptinstallation."""
     def report(text):
         if progress:
             progress(text)

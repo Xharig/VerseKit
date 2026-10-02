@@ -14,8 +14,8 @@ Geprüft wird in **beide** Richtungen — das ist der Sinn:
   2. **Sie über unseren Stand.** Ihr `append_enhancements` schneidet den
      bestehenden Text **ab dem ersten** ihrer Marker weg. Steht unser
      Bauplan-Block dahinter, verschwindet er bei deren nächstem Lauf — ohne
-     dass jemand etwas merkt. Diese Richtung sagt vorher, was der Nutzer sonst
-     als „meine Baupläne sind plötzlich weg" meldet.
+     dass jemand etwas merkt. Diese Richtung sagt vorher, wann dem Nutzer
+     seine Bauplan-Angaben plötzlich fehlen würden.
 
 ⚠ Richtung 2 ist keine Kritik an Smart Citizen: Das Abschneiden ist dort
 richtig — es entfernt den **eigenen** alten Block, bevor der neue kommt. Nur
@@ -56,7 +56,7 @@ SC_GEN = ('https://raw.githubusercontent.com/Osiris-DevWorks/smart-citizen/'
           'main/scripts/generate_enhancements_ini.py')
 
 # Smart Citizens Marken, wörtlich aus `scripts/generate_enhancements_ini.py`
-# (Stand 02.09.2026). Sie stehen hier als Erwartung, nicht als Kopie: Der
+# Sie stehen hier als Erwartung, nicht als Kopie: Der
 # Abgleich unten holt die Datei und meldet, wenn sich dort etwas geändert hat.
 SC_TRENNER = '\\n\\n--- STATS ---\\n'
 SC_MARKER = ('\\n\\n--- STATS ---', '\\n\\n<EM3>STATS</EM3>',
@@ -151,9 +151,8 @@ with zipfile.ZipFile(io.BytesIO(hole(DE_ZIP, 'DE_ZIP'))) as z:
 BLOCK = ('Weight: 10.0 kg\\nFire Rate: 650 RPM\\nAlpha Dmg: 14.5 (Phys) | '
          'DPS: 157.1\\nAmmo: 75\\nVelocity: 600 m/s')
 
-# ⚠ **Alle** Beschreibungen, keine Stichprobe. Der erste Anlauf nahm jede 30.
-# und meldete „13 Einträge betroffen" — eine Zahl, die nur die Stichprobe
-# beschrieb, nicht die Lage. Smart Citizen fasst im Betrieb jede passende
+# ⚠ **Alle** Beschreibungen, keine Stichprobe. Eine Stichprobe ergibt eine
+# Zahl, die nur die Stichprobe beschreibt, nicht die Lage. Smart Citizen fasst im Betrieb jede passende
 # Beschreibung an; die Prüfung muss dasselbe tun, sonst sieht ein echter
 # Konflikt harmlos aus.
 zeilen, gesetzt, ihre_schluessel = [], 0, set()

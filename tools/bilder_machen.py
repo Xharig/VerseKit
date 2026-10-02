@@ -19,24 +19,18 @@
 """
 Die Bildschirmfotos für die Anleitung machen — **ohne** den Bildschirm zu belegen.
 
-## Warum es dieses Werkzeug gibt
+## Wozu
 
-Die Bilder in der Anleitung entstanden bisher von Hand: Fenster aufziehen, Seite
-anklicken, Ausschnitt fotografieren, zuschneiden, benennen — je Bild ein
-Arbeitsgang, und das siebzehnmal. Entsprechend sahen sie aus: Am 31.08.2026
-waren **elf von sechzehn** Bildern vom 27.08. und zeigten eine Oberfläche, die es
-so nicht mehr gibt (die Seitenleiste hatte damals keine Gruppen, Werkstatt und
-Handel gab es noch gar nicht). Dazu zwei verschiedene Auflösungen im selben
-Dokument — 2282×1666 neben 1180×820.
-
-Was von Hand gemacht wird, verrottet. Also macht es jetzt ein Skript.
+Jedes Bild der Anleitung entsteht auf Knopfdruck, in derselben Auflösung und
+mit dem aktuellen Stand der Oberfläche — statt je Bild Fenster aufziehen, Seite
+anklicken, fotografieren, zuschneiden, benennen.
 
 ## ⚠⚠ Es reisst den Bildschirm NICHT an sich
 
 Das ist die eigentliche Schwierigkeit. Ein Bildschirmfoto braucht normalerweise
 ein sichtbares Fenster im Vordergrund — und genau das ist hier verboten: Wer
 gerade Star Citizen fliegt, landet sonst mitten im Kampf auf dem Desktop (siehe
-`tools/unsichtbar.py`, am 29.08.2026 rund zwanzig Mal passiert).
+`tools/unsichtbar.py`).
 
 Der Ausweg ist `PrintWindow` aus der Windows-API: Es lässt ein Fenster **sich
 selbst neu zeichnen**, in einen Speicherbereich statt auf den Schirm. Mit dem
@@ -46,8 +40,7 @@ aufgebaut und nie nach vorn geholt.
 
 ⚠ **`SetProcessDpiAwareness` muss VOR dem ersten Tk-Fenster stehen.** Ohne das
 rechnet Windows die Angaben um, und man greift am Fenster vorbei — bei 125 %
-Skalierung fehlt rechts und unten ein Fünftel. Das hat schon einmal fünf Anläufe
-gekostet.
+Skalierung fehlt rechts und unten ein Fünftel.
 
 ## Womit gearbeitet wird
 
@@ -95,10 +88,9 @@ if sys.platform == 'win32':
 #
 # ⚠ **Bewusst über der Mindestbreite (1160).** Bei genau der Mindestbreite
 # wächst die Seitenleiste beim Seitenwechsel noch einmal nach, und der Abgriff
-# erwischt den Moment dazwischen: Auf dem Bild fehlten rechts der Knopf „In die
-# Ablage" und ein Stück der Kopfzeile. Gemessen ragt bei 1160 zwar nichts über
-# den Rand (siehe die Messung vom 31.08.2026) — aber ein Bild, das in dieser
-# Sekunde entsteht, zeigt es trotzdem. Mit Luft passiert das nicht, und die
+# erwischt den Moment dazwischen: Auf dem Bild fehlen dann rechts Knöpfe und ein
+# Stück der Kopfzeile. Gemessen ragt bei 1160 zwar nichts über den Rand — aber
+# ein Bild, das in dieser Sekunde entsteht, zeigt es trotzdem. Mit Luft passiert das nicht, und die
 # Bilder zeigen nebenbei mehr Inhalt.
 BREITE, HOEHE = 1400, 860
 
@@ -123,7 +115,7 @@ SEITEN = {
     # siehe `beispiel_hangar()`. Der echte Hangar verriete Pledge-Pakete.
     'hangar':       'screenshot-hangar',
     # ⚠ Dieselbe erfundene Ablage wie beim Hangar — auch hier stünden sonst
-    # die echten Schiffe und Wünsche des Autors im Bild.
+    # die echten Schiffe und Wunschzettel-Einträge der Kopie im Bild.
     'wunschliste':  'screenshot-wunschliste',
     'einkaufsliste': 'screenshot-einkaufsliste',
     'farmliste':    'screenshot-farmliste',
@@ -143,18 +135,18 @@ SEITEN = {
     'wasistneu':    'screenshot-wasistneu',
     'ueber':        'screenshot-ueber',
     'danke':        'screenshot-danke',
-    # ⭐ Seit 17.09.2026 jede Seite der Reiterleiste — „in jedem Fenster".
+    # ⭐ Jede Seite der Reiterleiste bekommt ein Bild.
     'asop':         'screenshot-schiffe-benennen',
     'raffinerien':  'screenshot-raffinerien',
     'routen':       'screenshot-routen',
     'patchaenderungen': 'screenshot-patchaenderungen',
     # ⚠ Erfundene Sitzungen, siehe `beispiel_statistik()` — die echten verrieten,
-    # wann der Autor spielt.
+    # wann gespielt wird.
     'statistik':    'screenshot-statistik',
     'darstellung':  'screenshot-darstellung',
-    # ⭐⭐ **Seit 27.09.2026 wirklich JEDER Reiter** — die Webseite zeigt das
-    # Werkzeug mit allen Original-Reitern (Wunsch des Autors). Seiten, die
-    # sonst Echtes zeigten, bekommen erfundene Daten; siehe `beispiel_daten`.
+    # ⭐⭐ **Wirklich JEDER Reiter** — die Webseite zeigt das Werkzeug mit
+    # allen Original-Reitern. Seiten, die sonst Echtes zeigten, bekommen
+    # erfundene Daten; siehe `beispiel_daten`.
     'statistik_auswertung': 'screenshot-statistik-auswertung',
     'statistik_schiffe':    'screenshot-statistik-schiffe',
     'statistik_auftraege':  'screenshot-statistik-auftraege',
@@ -208,18 +200,17 @@ def datenstand_kopieren():
     from scbp import paths
     # ⚠⚠ **`app_folder()`, nicht `app_datei('')`.** Der zweite Weg landet im
     # Unterordner „Intern" — dort liegen Zwischenspeicher, aber weder Bestand
-    # (`Bauplaene/`) noch Einstellungen (`Einstellungen/`). Die ersten Bilder
-    # zeigten deshalb „0 von 738 (0 %)": ein Werkzeug, das aussieht, als könne
+    # (`Bauplaene/`) noch Einstellungen (`Einstellungen/`). Die Bilder zeigten
+    # dann einen leeren Bestand (0 %): ein Werkzeug, das aussieht, als könne
     # es nichts.
     #
     # ⚠ Mit `SC_BP_HOME` legt der Watcher alles **flach** ab (siehe
     # `app_file`) — die Unterordner der Vorlage werden deshalb eingeebnet.
     quelle = paths.app_folder()
     # ⚠⚠ **Nicht unter %TEMP%, sondern in einem Ordner ohne Benutzernamen.**
-    # Der Pfad steht auf der Seite „Update & Über" im Bild — unter Windows hiess
-    # er `C:\Users\<name>\AppData\Local\Temp\…`, und die Bilder sind
-    # oeffentlich (Regel „Keine persoenlichen Daten im Repo"). Unter Linux ist
-    # es ohnehin `/tmp/…`.
+    # Der Pfad steht auf der Seite „Update & Über" im Bild — unter Windows
+    # hiesse er `C:\Users\<name>\AppData\Local\Temp\…`, und die Bilder sind
+    # oeffentlich. Unter Linux ist es ohnehin `/tmp/…`.
     basis = None
     if sys.platform == 'win32':
         try:
@@ -251,7 +242,7 @@ def _gefaehrliches_abschalten(ordner):
     ⚠⚠ **Die Kopie schuetzt die eigenen Daten, nicht das Spiel.** `SC_BP_HOME`
     lenkt Bestand, Einstellungen und Zwischenspeicher in den Wegwerf-Ordner —
     die `global.ini` von Star Citizen liegt aber woanders, und `inj_auto`
-    („Selbst aktuell halten") schreibt beim Start hinein. Ein Werkzeug, das
+    (Schalter „Selbst aktuell halten") schreibt beim Start hinein. Ein Werkzeug, das
     fuer ein Bildschirmfoto die Spieldateien anfasst, ist ein Werkzeug zu viel.
 
     ⚠ Ebenso der Autostart: Er traegt sich in Registry bzw. `.desktop` ein,
@@ -268,19 +259,19 @@ def _gefaehrliches_abschalten(ordner):
         daten = {}
     daten['inj_auto'] = False
     daten['autostart'] = False
-    # Für die Bilder: kein Name im Bericht („Fehler melden"), und ein
-    # Beispiel-Eintrag unter „Startprogramme" statt einer leeren Liste. Er
+    # Für die Bilder: kein Name im Fehlerbericht, und ein Beispiel-Eintrag
+    # unter den Startprogrammen statt einer leeren Liste. Er
     # startet nichts — Startprogramme laufen nur beim Klick auf den Launcher.
     daten['melder_name'] = ''
-    # ⚠⚠ **Immer „Original" — schon hier, beim Kopieren.** Bis 27.09.2026
-    # setzte erst `main()` das Schema, und das Overlay-Bild entsteht in einem
-    # EIGENEN Prozess (`--nur-overlay`), der diese Stelle nie erreichte: Die
-    # Webseite zeigte das Overlay im KRT-Orange des Autors statt in den
-    # Markenfarben. `--schema=` überschreibt das danach für „Darstellung".
+    # ⚠⚠ **Immer `original` — schon hier, beim Kopieren.** Das Overlay-Bild
+    # entsteht in einem EIGENEN Prozess (`--nur-overlay`), der `main()` nicht
+    # erreicht; stünde das Schema erst dort, zeigte das Overlay das Schema der
+    # Kopie statt der Markenfarben. `--schema=` überschreibt das danach für
+    # die Seite Darstellung.
     daten['farbschema'] = 'original'
-    # Ebenso die Größe — fest, nicht die des Autors. ⚠ Bewusst „sehrgross":
-    # Die Webseite zeigt die Bilder auf rund 800 px verkleinert; mit der
-    # Grundstufe (100 %) war die Schrift dort nicht mehr lesbar (27.09.2026).
+    # Ebenso die Größe — fest, nicht die der Kopie. ⚠ `sehrgross`: Die
+    # Webseite zeigt die Bilder auf rund 800 px verkleinert; mit der
+    # Grundstufe (100 %) ist die Schrift dort nicht mehr lesbar.
     daten['schriftgroesse'] = 'sehrgross'
     daten['startprogramme_an'] = True
     daten['startprogramme'] = [{
@@ -297,19 +288,17 @@ def _gefaehrliches_abschalten(ordner):
 def beispiel_daten():
     """Erfundene Beispieldaten für JEDE Seite, die sonst leer bliebe.
 
-    ⭐ Wunsch 17.09.2026: „alle Bilder neu inkl. Beispieldaten in jedem
-    Fenster". Ein leerer Wunschzettel oder „Nichts zu besorgen" erklärt
-    niemandem, wozu eine Seite gut ist.
+    ⭐ Jedes Fenster bekommt Beispieldaten. Eine leere Seite erklärt
+    niemandem, wozu sie gut ist.
 
-    ⚠⚠ **Immer, nicht nur wenn die Hangar-Seite dran ist.** Bis 17.09.2026
-    wurde der Beispiel-Hangar nur gelegt, wenn `hangar` im Lauf stand — wer
-    nur `wunschliste` neu machte, bekam den ECHTEN Hangar aus der Kopie ins
-    Bild. Ebenso standen die eigenen Schiffsnamen (`asop.json`) auf
-    „Schiffe benennen".
+    ⚠⚠ **Immer, nicht nur wenn die Hangar-Seite dran ist.** Auch andere
+    Seiten (`wunschliste`) lesen den Hangar — ohne Beispiel-Hangar käme der
+    ECHTE aus der Kopie ins Bild. Ebenso die eigenen Schiffsnamen
+    (`asop.json`) auf der Seite zum Schiffe-Benennen.
 
     Die Schiffe sind so gewählt, dass ihre Steckplätze schon im kopierten
-    erkul-Zwischenspeicher liegen — dann braucht es kein Netz, und „Was noch
-    fehlt" hat echte Plätze, in die Teile gelegt werden können.
+    erkul-Zwischenspeicher liegen — dann braucht es kein Netz, und die Seite
+    der fehlenden Teile hat echte Plätze, in die Teile gelegt werden können.
     """
     import json
     from scbp import fleet, cart, erkul, trade_cargo
@@ -335,7 +324,7 @@ def beispiel_daten():
     ]
 
     # Ein paar Teile in die Plätze legen — gekauft und selbst gebaut, damit
-    # „Was noch fehlt" und „Was ich farmen muss" etwas zu rechnen haben.
+    # die Seiten der fehlenden und zu farmenden Teile etwas zu rechnen haben.
     erkul_schiffe = (erkul.load().get('schiffe') or {})
     for eintrag, schluessel, wie in ((schiffe[1], 'aegsgladius', cart.BUY),
                                      (schiffe[2], 'anvlasgard', cart.CRAFT),
@@ -363,7 +352,7 @@ def beispiel_daten():
     with open(os.path.join(heim, fleet.FILE), 'w', encoding='utf-8') as f:
         json.dump(daten, f, ensure_ascii=False, indent=1)
 
-    # Eigene Schiffsnamen — erfunden, nicht die des Autors.
+    # Eigene Schiffsnamen — erfunden, nicht die aus der Kopie.
     with open(os.path.join(heim, 'asop.json'), 'w', encoding='utf-8') as f:
         from scbp import asop
         json.dump({'format': asop.FORMAT, 'namen': {
@@ -373,7 +362,7 @@ def beispiel_daten():
 
     # Ladung im Handelslager — Waren, die die kopierten Preisdaten kennen.
     # ⚠ Die Schlüssel in `waren` sind kleingeschrieben — angezeigt und
-    # zugeordnet wird über den `name` darin („Agricium", nicht „agricium").
+    # zugeordnet wird über den `name` darin (`Agricium`, nicht `agricium`).
     try:
         with open(os.path.join(heim, 'preise.json'), encoding='utf-8') as f:
             waren = json.load(f).get('waren') or {}
@@ -395,8 +384,8 @@ def beispiel_daten():
 def beispiel_statistik(heim):
     """Erfundene Sitzungen für die Statistik (und die Spielzeit oben).
 
-    ⚠⚠ **Nie die echten.** Die Kopie trüge sonst die Spielzeit des Autors samt
-    Wärmekarte — wann er abends am Rechner sitzt — in ein öffentliches Bild.
+    ⚠⚠ **Nie die echten.** Die Kopie trüge sonst die echte Spielzeit samt
+    Wärmekarte — wann gespielt wird — in ein öffentliches Bild.
     Fester Startwert, damit jeder Lauf dasselbe Bild ergibt: abends unter der
     Woche, nachmittags am Wochenende, über acht Wochen."""
     import json
@@ -441,7 +430,7 @@ def beispiel_statistik(heim):
     with open(os.path.join(heim, playtime.FILE), 'w', encoding='utf-8') as f:
         json.dump({'format': playtime.FORMAT, 'sitzungen': spielzeit,
                    'gelesen': {}}, f, ensure_ascii=False)
-    # ⚠⚠ **Die echten Logs als „schon gelesen" eintragen.** Die Seiten lesen
+    # ⚠⚠ **Die echten Logs als gelesen eintragen.** Die Seiten lesen
     # beim Öffnen die laufende `Game.log` nach — der Spielordner steht in der
     # kopierten Einstellung, und ohne diesen Eintrag landete eine ECHTE
     # Sitzung zwischen den erfundenen im Bild.
@@ -462,8 +451,8 @@ def beispiel_auftragszeiten(spielzeit, zufall):
     """Die Aufträge der Kopie in die erfundenen Sitzungen verlegen.
 
     ⚠⚠ Die Namen bleiben (ein Auftragstitel verrät nichts), die **Uhrzeiten
-    nicht**: „Aufträge & Protokoll" und die Statistik-Seite „Aufträge" zeigten
-    sonst mit Datum und Uhrzeit, wann der Autor spielt. Jeder Auftrag landet
+    nicht**: Das Auftrags-Protokoll und die Statistik der Aufträge zeigten
+    sonst mit Datum und Uhrzeit, wann gespielt wird. Jeder Auftrag landet
     in einer der erfundenen Sitzungen, in derselben Reihenfolge wie vorher.
     ⚠ Der Lesestand (`gelesen`) bleibt stehen — ohne ihn läse die Seite die
     echten Logs nach und brächte die echten Zeiten zurück."""
@@ -496,7 +485,7 @@ def beispiel_auftragszeiten(spielzeit, zufall):
         json.dump(daten, f, ensure_ascii=False)
 
 
-# Erfundene Geräte für „Steuerung" und „Achsen & Kurven": gängige Modelle,
+# Erfundene Geräte für die Seiten Steuerung und Achsen: gängige Modelle,
 # Kennung wie im Spiel (Produkt + Hersteller, dahinter die feste Endung).
 BEISPIEL_GERAETE = [('VKB-Sim Gladiator NXT EVO R', '0200231D'),
                     ('VKB-Sim Gladiator NXT EVO L', '0201231D'),
@@ -506,11 +495,11 @@ BEISPIEL_GERAETE = [('VKB-Sim Gladiator NXT EVO R', '0200231D'),
 
 
 def beispiel_steuerung(heim):
-    """Erfundene Geräte für „Steuerung" und „Achsen & Kurven".
+    """Erfundene Geräte für die Seiten Steuerung und Achsen.
 
     ⚠⚠ **Nie die echten.** Beide Seiten lesen die Dateien des Spiels selbst
     (Startprotokoll und `actionmaps.xml`), nicht die Wegwerf-Kopie — im Bild
-    stünden sonst die Geräte des Autors samt Kennungen. Die Belegung selbst
+    stünden sonst die echten Geräte samt Kennungen. Die Belegung selbst
     bleibt die echte (sie zeigt, wie die Seite arbeitet, und verrät nichts);
     getauscht werden Name und Kennung jedes Geräts. Umgelenkt wird nur in
     DIESEM Prozess, und nur zum Lesen: Die Seiten schreiben erst, wenn jemand
@@ -538,7 +527,7 @@ def beispiel_steuerung(heim):
     log_text = ''.join(log)
     # ⚠ Die dritte Quelle: was JETZT angesteckt ist, fragt die Seite beim
     # System ab (`input_device.devices`) — ohne diese Zeile stünden die echten
-    # Sticks als „dem Spiel unbekannt" unter den erfundenen.
+    # Sticks als dem Spiel unbekannt unter den erfundenen.
     from scbp import input_device
     angesteckt = [{'pfad': '', 'name': g['name'], 'kennung': g['kennung']}
                   for g in joysticks.devices_from_text(log_text)]
@@ -546,18 +535,18 @@ def beispiel_steuerung(heim):
     joysticks.all_actionmaps = lambda folder=None: [ziel] if text else []
     joysticks.devices = \
         lambda folder=None: joysticks.devices_from_text(log_text)
-    # Gespeicherte Profile tragen Namen, die der Autor vergeben hat.
+    # Gespeicherte Profile tragen selbst vergebene Namen.
     joysticks.profiles = lambda folder=None: []
 
 
 def nachlesen_abschalten():
     """Spielzeit und Statistik lesen während der Bilder NICHTS nach.
 
-    ⚠⚠ Am 27.09.2026 zeigte jedes Bild ab dem vierten die echte Spielzeit
-    (347 h statt der erfundenen 71 h): „Aufträge & Protokoll" liest beim
-    Öffnen die echten Spielprotokolle nach und schreibt dabei Spielzeit und
-    Statistik mit fort (`mission_log`, `_sz.catch_up`/`_st.startup_catch_up`).
-    Dazu zählt eine gerade laufende Sitzung mit, wenn der Autor spielt.
+    ⚠⚠ Das Auftrags-Protokoll liest beim Öffnen die echten Spielprotokolle
+    nach und schreibt dabei Spielzeit und Statistik mit fort (`mission_log`,
+    `_sz.catch_up`/`_st.startup_catch_up`) — jedes spätere Bild zeigte sonst
+    die echte Spielzeit statt der erfundenen. Dazu zählt eine gerade
+    laufende Sitzung mit, wenn nebenher gespielt wird.
     Umgelenkt wird nur in diesem Prozess."""
     from scbp import playtime, play_stats
     playtime.catch_up = lambda files: 0
@@ -568,7 +557,7 @@ def nachlesen_abschalten():
 
 
 def beispiel_bericht():
-    """„Fehler melden" ohne den Bildschirm des Autors.
+    """Die Seite zum Fehlermelden ohne den Bildschirm des Bau-Rechners.
 
     Der Name ist in der Kopie schon geleert (`beispiel_daten`); die Zeile
     „Bildschirm" nennt sonst Auflösung und Aufbau des Rechners, auf dem das
@@ -631,11 +620,10 @@ def beispiel_hangar():
     """Einen **erfundenen** Hangar in die Wegwerf-Kopie legen.
 
     ⚠⚠ **Der echte Hangar darf NICHT ins Bild.** Alle anderen Seiten zeigen
-    den kopierten Datenstand des Autors, und das ist unbedenklich: ein
+    den kopierten Datenstand, und das ist unbedenklich: ein
     Bauplan-Fortschritt oder ein Erzlager verrät nichts über die Person. Der
     Hangar schon — dort stehen die **Pledge-Pakete** und LTI-Markierungen, also
-    was jemand ausgegeben hat. Das gehört in kein öffentliches Repo (siehe
-    „Nichts Privates ins Projekt").
+    was jemand ausgegeben hat. Das gehört in kein öffentliches Repo.
 
     Deshalb wird die Datei in der Kopie **überschrieben**, nicht ergänzt. Der
     echte Hangar liegt woanders und wird nur gelesen.
@@ -667,7 +655,7 @@ def beispiel_hangar():
         print('  Hinweis: Beispiel-Hangar misslungen (%s)' % ausnahme)
         return
     # ⚠ Die Steckplätze müssen dazu passen, sonst steht auf dem Bild viermal
-    # „keine Steckplatz-Daten" — ein Bild, das das Gegenteil dessen zeigt, was
+    # der Hinweis auf fehlende Steckplatz-Daten — das Gegenteil dessen, was
     # die Seite kann. Vier Abrufe bei erkul, und nur beim Bilderbau.
     try:
         geholt = fleet.fetch_missing(daten)
@@ -678,10 +666,10 @@ def beispiel_hangar():
 
 
 def marken_loeschen():
-    """Die „Neu"-Marken in der Wegwerf-Kopie auf „gesehen" setzen.
+    """Die Neu-Marken in der Wegwerf-Kopie auf gesehen setzen.
 
     ⚠ **Sie gehören nicht in die Anleitung.** Eine Marke ist eine Nachricht an
-    *einen* Nutzer („diesen Bereich gab es beim letzten Mal noch nicht") — auf
+    *einen* Nutzer (dieser Bereich ist seit seinem letzten Besuch neu) — auf
     einem Bild in der Anleitung behauptet sie dasselbe gegenüber jedem Leser,
     für immer. Ausserdem verbreitern sie die Seitenleiste, wodurch die Bilder
     unterschiedlich breit würden.
@@ -724,9 +712,9 @@ def _warten(wurzel, sekunden=0.4):
 
     ⚠⚠ Nicht `update()` in einer Schleife: Seiten holen Daten in einem
     Hintergrund-Faden und melden sich per `after()` zurück — das geht nur,
-    wenn `mainloop` läuft. Mit `update()` allein warf der Faden „main thread
-    is not in main loop", und „Was steckt drin?" blieb für immer bei
-    „Wird nachgeschlagen …" (17.09.2026).
+    wenn `mainloop` läuft. Mit `update()` allein wirft der Faden
+    `main thread is not in main loop`, und die Seite bleibt für immer beim
+    Hinweis `Wird nachgeschlagen …` stehen.
     """
     wurzel.after(int(sekunden * 1000), wurzel.quit)
     wurzel.mainloop()
@@ -806,7 +794,7 @@ def rollen_zu(seite, textanfang):
 
 
 def warten_bis_weg(seite, wurzel, text, hoechstens=25.0):
-    """Warten, bis kein Element mehr diesen Text zeigt (etwa „Wird nachgeschlagen")."""
+    """Warten, bis kein Element mehr diesen Text zeigt (etwa `Wird nachgeschlagen`)."""
     ende = time.time() + hoechstens
     while time.time() < ende:
         _warten(wurzel, 0.5)
@@ -838,7 +826,7 @@ def vorbereiten(kennung, seite, wurzel):
         tippen(seite, 'Aves')
     elif kennung == 'bergung':
         # ⚠ Ein Schiff, dessen Steckplätze im kopierten Zwischenspeicher liegen
-        # — ohne Netz stünde sonst nur „Wird nachgeschlagen …" im Bild.
+        # — ohne Netz stünde sonst nur `Wird nachgeschlagen …` im Bild.
         tippen(seite, 'Ironclad')
         _warten(wurzel)
         klicken(seite, 'Drake Ironclad')
@@ -879,8 +867,8 @@ def fenster_richten(fenster, wurzel):
     ⚠⚠ **Nach jedem Seitenwechsel nötig, nicht nur einmal am Anfang.** Die
     Seitenleiste misst sich je Seite neu, und mit ihr wächst `minsize` — das
     Fenster wird dabei breiter, ohne dass der Inhalt schon neu gezeichnet
-    wäre. Der erste Versuch griff genau in diesem Moment ab: Rechts standen
-    schwarze Blöcke, wo der Inhalt hätte sein sollen.
+    wäre. Wer genau in diesem Moment abgreift, bekommt rechts schwarze Blöcke,
+    wo der Inhalt sein sollte.
 
     Deshalb wird die Grösse **nach** dem Seitenwechsel gesetzt (mindestens so
     breit, wie `minsize` verlangt) und danach mehrfach durchgezeichnet.
@@ -889,9 +877,8 @@ def fenster_richten(fenster, wurzel):
     # ⚠⚠ **Mehrere Runden, bis sich nichts mehr rührt.** Einmal richten reicht
     # nicht: Die Seitenleiste misst sich nach dem Seitenwechsel noch einmal
     # nach und schiebt `minsize` dabei hoch — das Fenster wird also NACH dem
-    # Richten breiter, und gezeichnet ist der Inhalt noch in der alten Breite.
-    # Genau so entstand das erste Listenbild, bei dem rechts „In die Ablage"
-    # und „Was ist neu" abgeschnitten waren.
+    # Richten breiter, und gezeichnet ist der Inhalt noch in der alten Breite —
+    # rechts wären dann Knöpfe abgeschnitten.
     for _runde in range(4):
         try:
             min_b, min_h = (int(x) for x in fenster.root.minsize())
@@ -949,13 +936,8 @@ def neu_zeichnen(fenster):
 def abgreifen_x11(fenster, ziel):
     """Dasselbe unter Linux — vom unsichtbaren Bildschirm.
 
-    ⚠⚠ **Warum es diesen zweiten Weg gibt (06.09.2026).** Das Werkzeug konnte
-    nur unter Windows arbeiten (`PrintWindow`) und brach sonst mit
-    „braucht Windows" ab. Auf dem Rechner, auf dem entwickelt wird, laeuft
-    Linux — die Bilder der Anleitung waren deshalb vom 31.08.2026 und zeigten
-    eine Oberflaeche von vor drei Wochen. Genau der Zustand, gegen den dieses
-    Werkzeug gebaut wurde: Was von Hand gemacht wird, verrottet. Ein Werkzeug,
-    das auf dem Hauptsystem nicht laeuft, verrottet mit.
+    ⚠⚠ `PrintWindow` gibt es nur unter Windows; dieser Weg macht dieselben
+    Bilder unter Linux.
 
     ⚠ **Der Bildschirm des Nutzers wird nicht angefasst.** Der ganze Lauf
     startet sich unter `xvfb-run` neu (`unsichtbar.sicherstellen`); das Fenster
@@ -1060,7 +1042,7 @@ def abgreifen(fenster, ziel):
     # ⚠ **Nur der Fensterinhalt — ohne Titelleiste und Rahmen.** `PrintWindow`
     # zeichnet das ganze Fenster samt weisser Windows-Titelleiste. Die Bilder
     # aus dem Linux-Weg haben keinen Rahmen (Xvfb zeichnet keinen), und zwei
-    # Sorten nebeneinander sehen nach Zufall aus. Gesehen am 11.09.2026.
+    # Sorten nebeneinander sehen nach Zufall aus.
     class POINT(ctypes.Structure):
         _fields_ = [('x', ctypes.c_long), ('y', ctypes.c_long)]
 
@@ -1082,14 +1064,8 @@ def abgreifen(fenster, ziel):
 def overlay_bild(ziel, englisch=False):
     """Das Overlay selbst fotografieren — es ist kein Seiten-Fenster.
 
-    ⚠⚠ **Warum es hier fehlte (06.09.2026).** `SEITEN` kennt nur die Seiten des
-    Hauptfensters; das Overlay ist eine eigene Klasse mit eigenem Fenster. Es
-    fiel dadurch aus dem Werkzeug heraus und blieb als einziges von Hand
-    gemacht — mit dem Ergebnis, dass sein Bild vom 27.08.2026 stammte und
-    **v3.0.0-rc58** zeigte, mit gelben „vorlaeufig"-Eintraegen und „mit
-    Launcher" als Autoritaet. Beides gibt es seit rc95 nicht mehr. Ein Bild,
-    das ein Verhalten zeigt, das es nicht mehr gibt, ist schlimmer als ein
-    altes: Es verspricht etwas Falsches.
+    ⚠⚠ `SEITEN` kennt nur die Seiten des Hauptfensters; das Overlay ist eine
+    eigene Klasse mit eigenem Fenster und braucht deshalb diesen eigenen Weg.
 
     ⚠ **Der Watcher-Thread laeuft dabei mit** — er gehoert zur Klasse. Was er
     anfassen koennte, ist vorher abgeschaltet (`_gefaehrliches_abschalten`);
@@ -1110,17 +1086,17 @@ def overlay_bild(ziel, englisch=False):
 
     # ⚠⚠ **`deiconify()` nicht vergessen.** Das Overlay startet versteckt und
     # zeigt sich erst, wenn alles bereit ist. Ohne diesen Aufruf misst Tk
-    # **1x1 Pixel** und der Abgriff liefert ein leeres Bild — der Grund, warum
-    # der erste Anlauf wortlos „FEHL" meldete.
+    # **1x1 Pixel**, der Abgriff liefert ein leeres Bild und meldet wortlos
+    # „FEHL".
     fenster.deiconify()
     # ⚠ Knapp gehalten. Das alte Bild war 1240x888 und bestand zu zwei Dritteln
     # aus leerer Flaeche — das Overlay ist im Betrieb schmal und niedrig, so
     # soll es auch aussehen.
     fenster.geometry('%dx%d+%d+%d' % (760, 300, WEIT_WEG[0], WEIT_WEG[1]))
 
-    # ⚠ Dem Watcher-Faden Zeit lassen: Die Kopfzeile („413 Bauplaene · Log ✓")
+    # ⚠ Dem Watcher-Faden Zeit lassen: Die Kopfzeile (`413 Bauplaene · Log ✓`)
     # entsteht erst, wenn er den Bestand gelesen hat. Wer zu frueh abgreift,
-    # fotografiert „Starte ...".
+    # fotografiert `Starte ...`.
     ende_zeit = time.time() + 4.0
     while time.time() < ende_zeit:
         fenster.update()
@@ -1138,11 +1114,10 @@ def overlay_bild(ziel, englisch=False):
         fenster.update_idletasks()
         time.sleep(0.02)
 
-    # ⚠⚠ **Die Groesse NACH dem Anlaufen noch einmal setzen (30.09.2026).**
+    # ⚠⚠ **Die Groesse NACH dem Anlaufen noch einmal setzen.**
     # Das Overlay richtet sich beim Start selbst ein (Ecke, Arbeitsflaeche,
-    # Klappzustand) und ueberschreibt dabei die Groesse von oben. Seit v3.6x
-    # kam so ein 650x146-Bild heraus: ein Fund sichtbar, der zweite
-    # abgeschnitten, dazu eine Rollleiste.
+    # Klappzustand) und ueberschreibt dabei die Groesse von oben — heraus
+    # kaeme ein zu kleines Bild mit abgeschnittenen Funden und Rollleiste.
     fenster.minsize(1, 1)
     fenster.geometry('%dx%d+%d+%d' % (760, 300, WEIT_WEG[0], WEIT_WEG[1]))
     for _ in range(14):
@@ -1165,15 +1140,14 @@ def main():
     # Fenster weit ausserhalb aufzubauen; unter Linux haengt die Shell an
     # `DISPLAY=:0`, also am echten Monitor — ein Fenster blitzt dort auf und
     # reisst den Tastaturfokus mit. Wer gerade Star Citizen fliegt, landet im
-    # Desktop und stirbt (am 29.08.2026 rund zwanzig Mal passiert).
+    # Desktop und stirbt.
     #
     # ⚠ Der Schirm muss groesser sein als das Fenster, sonst schneidet Xvfb ab.
     #
     # ⚠⚠ **`messend=True` — sonst liefert Windows kein einziges Bild.** Ohne
     # die Kennzeichnung versteckt `unsichtbar.py` unter Windows jedes Fenster
     # mit `withdraw()`, und ein verstecktes Fenster zeichnet nichts, auch nicht
-    # fuer `PrintWindow`. So am 11.09.2026 gesehen: „das Fenster hat nichts
-    # gezeichnet", bei jeder Seite. Mit der Kennzeichnung bleibt es aufgebaut,
+    # fuer `PrintWindow`. Mit der Kennzeichnung bleibt es aufgebaut,
     # wird aber voellig durchsichtig und weit neben den Schirm geschoben — und
     # nach vorn holen bleibt gesperrt. Unter Linux aendert sich nichts, dort
     # greift vorher Xvfb.
@@ -1184,9 +1158,9 @@ def main():
     # ⚠⚠ **Immer 100 % — gleich wie auf jedem anderen Rechner.** Dieses Werkzeug
     # macht sich oben DPI-bewusst (fuer den richtigen Abgriff). Dadurch sieht Tk
     # die echte Bildschirm-Skalierung, bei 125 % also 120 DPI, und zeichnet
-    # alles ein Viertel groesser: Die Probe vom 11.09.2026 hatte groessere
-    # Schrift als jedes andere Bild, und die Seitenleiste klappte mangels Hoehe
-    # zu. Der Watcher selbst laeuft dort mit 100 % (sein Fehlerbericht sagt es).
+    # alles ein Viertel groesser: groessere Schrift als in den anderen
+    # Bildern, und die Seitenleiste klappt mangels Hoehe zu. Der Watcher
+    # selbst laeuft dort mit 100 % (sein Fehlerbericht sagt es).
     # Deshalb bekommt JEDE Tk-Wurzel 96 DPI — auch die, die das Overlay selbst
     # anlegt. Unter Linux arbeitet Xvfb ohnehin mit 96 DPI.
     if sys.platform == 'win32':
@@ -1202,10 +1176,9 @@ def main():
 
         _tk_wurzel.Tk.__init__ = _mit_hundert_prozent
 
-    # ⭐ `--schema=<kennung>`: die Bilder in einem bestimmten Farbschema (seit
-    # v3.58.0, Wunsch vom 27.09.2026: „je ein Bild der unterschiedlichen
-    # Farben im Darstellungsfenster, damit die Leute sich die Farben schon
-    # anschauen können"). Ohne Seitenangabe entsteht nur „Darstellung", unter
+    # ⭐ `--schema=<kennung>`: die Bilder in einem bestimmten Farbschema — je
+    # Schema ein Bild der Seite Darstellung, damit man die Farben vorab sieht.
+    # Ohne Seitenangabe entsteht nur `darstellung`, unter
     # eigenem Namen `screenshot-farbschema-<kennung>` — die übrigen Bilder
     # bleiben im gewohnten Schema.
     schema = None
@@ -1239,8 +1212,8 @@ def main():
     os.environ['SC_BP_HOME'] = datenstand_kopieren()
     # Das Schema steht in der Kopie, bevor irgendetwas die Farben liest —
     # `theme` liest sie beim Import, danach wirkt eine Änderung nicht mehr.
-    # Ohne Angabe gilt immer „Original": Die Webseite zeigt das gewohnte
-    # Aussehen, egal welches Schema der Autor gerade selbst benutzt.
+    # Ohne Angabe gilt immer `original`: Die Webseite zeigt das gewohnte
+    # Aussehen, egal welches Schema in der Kopie eingestellt ist.
     import json as _json
     _pfad = os.path.join(os.environ['SC_BP_HOME'], 'einstellungen.json')
     try:
@@ -1254,11 +1227,11 @@ def main():
     # ⚠⚠ **Der Beispiel-Hangar VOR `SC_BP_NO_NET`.** Er holt die Steckplätze
     # seiner vier Schiffe, und dafür braucht er das Netz — `catalog.OFF` liest
     # die Sperre beim Import und behält sie danach. Wer die Reihenfolge dreht,
-    # bekommt viermal „keine Steckplatz-Daten" ins Bild, also ausgerechnet das
-    # Gegenteil dessen, was die Seite zeigen soll.
-    # ⚠ Mit Netz, ausser `--offline`: „Was steckt drin?" und die Preise auf
-    # „Was noch fehlt" holen ihre Daten erst beim Aufruf — ohne Netz stand dort
-    # nur „Wird nachgeschlagen …" im Bild (17.09.2026).
+    # bekommt viermal den Hinweis auf fehlende Steckplatz-Daten ins Bild, also
+    # ausgerechnet das Gegenteil dessen, was die Seite zeigen soll.
+    # ⚠ Mit Netz, ausser `--offline`: Die Bestückung und die Preise der
+    # fehlenden Teile holen ihre Daten erst beim Aufruf — ohne Netz stünde
+    # dort nur `Wird nachgeschlagen …` im Bild.
     if '--offline' in sys.argv:
         os.environ['SC_BP_NO_NET'] = '1'
     # ⚠ Immer und für jede Seite — siehe `beispiel_daten`. Die Beispielschiffe
@@ -1279,7 +1252,7 @@ def main():
     wurzel.withdraw()
 
     # ⚠⚠ **EIN Fenster fuer alle Seiten — nicht je Seite ein frisches.**
-    # Beides wurde am 31.08.2026 durchprobiert:
+    # Was die beiden Wege ergeben:
     #
     # | Weg | was dabei herauskam |
     # |---|---|

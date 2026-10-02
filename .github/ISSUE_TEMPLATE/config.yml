@@ -1,11 +1,9 @@
 # Was GitHub auf der Seite "New issue" zeigt — zusätzlich zu den Vorlagen.
 #
-# ⚠⚠ Warum es diese Datei gibt (16.09.2026): Ein Nutzer wollte einen Absturz
-# melden, kam auf diese Seite und fand den Knopf ausgegraut — GitHub hatte
-# zeitweise eine automatische Sperre gesetzt. Auf der Seite stand kein anderer
-# Weg. Er kam nur durch, weil er den Entwickler ohnehin kannte; wer ihn nicht
-# kennt, hört an dieser Stelle auf. Die Links unten stehen genau dort, wo
-# jemand steht, der gerade nicht weiterkommt.
+# ⚠⚠ Warum es diese Datei gibt: GitHub kann den Knopf für neue Meldungen
+# zeitweise sperren (automatische Sperre). Ohne andere Wege auf dieser Seite
+# hört dann jeder auf, der einen Fehler melden will. Die Links unten stehen
+# genau dort, wo jemand steht, der gerade nicht weiterkommt.
 #
 # ⚠ Leere Meldungen bleiben erlaubt (`true`). Wer sein Anliegen in keine
 # Vorlage pressen kann, soll trotzdem schreiben können — eine schlecht

@@ -20,23 +20,20 @@
 Das eigene Rohstoff-Lager — von Hand geführt.
 
 **Warum von Hand.** Die `Game.log` sagt **nichts** über Rohstoffe: In 17 MB
-Protokollen (aktuelles plus 18 Sicherungen, Stand 29.08.2026) kommt kein
-einziges Mal `craft`, `resource`, `inventory` oder `cargo` vor. Was im
-Frachtraum liegt, kann der Watcher also nicht wissen — anders als bei den
-Bauplänen, die im Log stehen.
+Protokollen (aktuelles plus 18 Sicherungen) kommt kein einziges Mal `craft`,
+`resource`, `inventory` oder `cargo` vor. Was im Frachtraum liegt, kann der
+Watcher also nicht wissen — anders als bei den Bauplänen, die im Log stehen.
 
-**Der Vorschlag dahinter** stammt von **Horthy (KRT)** (29.08.2026):
-Rohstoffe selbst eintragen, und beim Herstellen sagt man dem Werkzeug „Bauplan
-X baue ich jetzt" — dann zieht es die Zutaten ab. Die Mengen kennt es seit
-v3.3.0 ohnehin (`crafting.recipe()`).
+Rohstoffe werden selbst eingetragen; beim Herstellen eines Bauplans zieht das
+Werkzeug die Zutaten ab. Die Mengen kommen aus `crafting.recipe()`.
 
 ⚠ **Haltung: Hinweis, keine Behauptung.**
 
 Zugänge muss der Spieler eintragen — wer das zweimal vergisst, hat ein
-lückenhaftes Lager. Deshalb sagt das Werkzeug **nie** „du kannst das nicht
-bauen", sondern höchstens „dir fehlt Iron". Ein veraltetes Lager wird dadurch
-nicht falsch, nur weniger hilfreich. Dieselbe Linie wie bei der gelöschten
-Zählung `[BP 3/12]`: lieber nichts sagen als etwas Unwahres.
+lückenhaftes Lager. Deshalb behauptet das Werkzeug **nie**, etwas sei nicht
+baubar, sondern nennt höchstens, welches Material fehlt. Ein veraltetes Lager
+wird dadurch nicht falsch, nur weniger hilfreich: lieber nichts sagen als
+etwas Unwahres.
 
 **Aufbau der Datei** (`rohstoffe.json` im eigenen Ordner)
 
@@ -50,9 +47,8 @@ Material aus dem Lager-Abgleich mit dem Basetool herein.
 Mehrere Posten desselben Materials sind Absicht: 12 SCU Iron von Daymar mit
 80 % Güte sind etwas anderes als 3 SCU aus dem Aaron Halo.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `rohstoffe` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Deutsch
+bleiben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
 `rohstoffe.json` und die Schlüssel `format`, `posten`, `material`, `menge`,
 `qualitaet` und `ort`. Ebenso die Schlüssel `name` und `menge`, die `stock()`
 für die Anzeige liefert, die Einheit `'cscu'` und die Textschlüssel `s_rf_…`.
@@ -87,9 +83,9 @@ def save(entries):
     """Die Posten schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
     ⚠ Die **Vorgängerfassung** (`rohstoffe.bak.json`) legt
-    `paths.save_json` an. Bis 31.08.2026 fehlte sie hier: Geschrieben wurde
-    atomar, aber ohne Rückfall — ein leer gespeichertes Lager war endgültig
-    weg. Ein Lager sind eigene Eingaben, die kein Neuaufbau zurückholt.
+    `paths.save_json` an. Ohne sie wäre ein leer gespeichertes Lager
+    endgültig weg — ein Lager sind eigene Eingaben, die kein Neuaufbau
+    zurückholt.
     """
     target = paths.app_file(FILE)
     try:
@@ -175,9 +171,9 @@ def from_json(text):
 
 # ⚠⚠ Tausendertrennzeichen gegen Dezimalkomma — ein Zeichen, zwei Bedeutungen.
 # `17,200` heisst im Spiel siebzehntausendzweihundert, `12,5` heisst zwoelf
-# Komma fuenf. Bis zum 08.09.2026 machte ein schlichtes `replace(',', '.')`
-# aus beidem eine Kommazahl — bei der Scan-Signatur lag das Ergebnis damit
-# Faktor tausend daneben, ohne eine Zeile Fehlermeldung.
+# Komma fuenf. Ein schlichtes `replace(',', '.')` macht aus beidem eine
+# Kommazahl — bei der Scan-Signatur laege das Ergebnis damit Faktor tausend
+# daneben, ohne eine Zeile Fehlermeldung.
 #
 # ⚠ **Geraten wird nicht.** Aufgeloest wird nur, was eindeutig ist:
 #
@@ -207,12 +203,10 @@ def normalize_separators(text, integer=False):
 
     # ⚠⚠ **Beide Zeichen: Das HINTERE trennt die Dezimalstellen.** Punkt.
     #
-    # Bis zum 10.09.2026 lief auch dieser Fall ueber die Dreiergruppen-Schleife
-    # unten — und die frass bei drei Nachkommastellen eine Gruppe zu viel:
-    # `1,234.567` wurde erst zu `1234.567` und dann zu **1234567**. Wer eine
-    # Menge mit drei Nachkommastellen eintippt, hatte sie um Faktor tausend im
-    # Lager stehen, ohne jede Meldung — genau der Fehler, gegen den diese
-    # Funktion ueberhaupt geschrieben wurde.
+    # Nicht ueber die Dreiergruppen-Schleife unten: Die frisst bei drei
+    # Nachkommastellen eine Gruppe zu viel — `1,234.567` wuerde erst zu
+    # `1234.567` und dann zu **1234567**, um Faktor tausend falsch und ohne
+    # jede Meldung.
     #
     # Mit beiden Zeichen braucht es die Schleife gar nicht: Welches Zeichen
     # welche Rolle hat, steht fest, sobald man weiss, welches hinten steht.
@@ -222,7 +216,7 @@ def normalize_separators(text, integer=False):
         return raw.replace(',', '.')
 
     # Ab hier gibt es nur EIN Zeichen. Mehrfach kann es nur Tausender sein;
-    # einmal ist es mehrdeutig und wird ueber `integer` entschieden.
+    # einmal ist es mehrdeutig und wird ueber `integer` aufgeloest.
     if integer or commas > 1 or dots > 1:
         previous = None
         # In der Schleife, sonst bliebe bei `1,234,567` die vordere Gruppe stehen.
@@ -264,8 +258,8 @@ def same_stack(a_material, a_quality, a_place, b):
     anderer Stapel, und was in Orison liegt, hilft in Pyro nicht.
 
     ⚠ Verglichen wird über `norm_material` und ohne Rücksicht auf Gross- und
-    Kleinschreibung: „orison" und „Orison" sind derselbe Ort, „Iron (Ore)" und
-    „Iron" dasselbe Material.
+    Kleinschreibung: `orison` und `Orison` sind derselbe Ort, `Iron (Ore)` und
+    `Iron` dasselbe Material.
     """
     if norm_material(a_material) != norm_material(b.get('material')):
         return False
@@ -285,9 +279,8 @@ def add(material, amount, quality=None, place=''):
     Savrilium Q 600 in Orison einträgt, hat einen Stapel mit der Summe — keine
     zwei Zeilen, die gleich aussehen und einzeln gepflegt werden müssten.
 
-    Am 30.08.2026 gemeldet, mit Ansage: „ich hab mich mal extra dumm gestellt,
-    weil das sind die Fälle wie es passieren wird." Genau so: Man trägt nach
-    jedem Abbauflug nach und weiss nicht mehr, ob der Stapel schon dasteht.
+    Der Regelfall: Man trägt nach jedem Abbauflug nach und weiss nicht mehr,
+    ob der Stapel schon dasteht.
 
     Ohne das Zusammenfassen zerfällt ein Lager mit der Zeit in Dutzende
     Zeilen desselben Materials, und die Herstellung rechnet zwar richtig, aber
@@ -443,7 +436,7 @@ def refinery_lines(text, unit='cscu'):
     egal wie viele Wörter er hat.
 
     ⚠ **cSCU ist die Voreinstellung**, weil das Terminal so rechnet
-    („GEWONNENE MATERIALIEN (cSCU)"). Bei der falschen Annahme steht im Lager
+    (`GEWONNENE MATERIALIEN (cSCU)`). Bei der falschen Annahme steht im Lager
     alles um den Faktor 100 daneben, und die Herstellung rechnet mit Unsinn.
     """
     from . import crafting
@@ -460,10 +453,9 @@ def refinery_lines(text, unit='cscu'):
             continue
         name = ' '.join(parts[:-2])
         try:
-            # ⚠ Dieselbe Trennzeichen-Regel wie beim Eintippen (08.09.2026).
-            # Vorher scheiterte eine Zeile mit BEIDEN Zeichen ganz: aus
-            # `1.234,56` wurde `1.234.56`, und das warf — die Zeile landete
-            # unter „keine Zahl", obwohl sie eindeutig lesbar war. Die Menge
+            # ⚠ Dieselbe Trennzeichen-Regel wie beim Eintippen. Ein schlichtes
+            # Ersetzen machte aus `1.234,56` ein `1.234.56`, und das wirft —
+            # obwohl die Zeile eindeutig lesbar ist. Die Menge
             # kann hier vierstellig sein (cSCU-Ausbeute), das Dezimalkomma
             # bleibt bei SCU der Regelfall; deshalb ohne `integer`.
             quality = int(float(normalize_separators(parts[-2])))
@@ -475,8 +467,8 @@ def refinery_lines(text, unit='cscu'):
         if not real:
             # ⚠ Kein stiller Fehlschlag und keine stille Zuordnung: Der Name
             # wird **nicht** geraten, aber der wahrscheinlichste Treffer steht
-            # daneben. Wer „Aslerite" tippt, soll „Aslarite" lesen und selbst
-            # entscheiden — das Werkzeug entscheidet es nicht für ihn.
+            # daneben. Wer `Aslerite` tippt, liest `Aslarite` und wählt selbst —
+            # das Werkzeug wählt nicht für ihn.
             similar = crafting.similar_materials(name, 2)
             reason = t('s_rf_unbekannt') % name
             if similar:
@@ -504,13 +496,10 @@ def calculate(text, previous=0.0):
     | `+3` | dazubuchen | 4,04 |
     | `1.04+3` | ausrechnen | 4,04 |
 
-    ⚠⚠ **Die dritte Form ist die, die vorher fehlte — und die natürlichste.**
-    Beim Bearbeiten steht die aktuelle Menge bereits im Feld. Wer drei dazu
-    buchen will, tippt hinten `+3` an und hat `1.04+3` dastehen. Genau das
-    wurde bis v3.3.0-rc39 abgelehnt („Trag eine Menge ein, zum Beispiel 12,5"),
-    weil nur ein **führendes** Vorzeichen zählte. Am 30.08.2026 gemeldet:
-    „der Text unten sagt mach +5 wird auf oder -5 abgebucht, gehen tuts aber
-    nicht, wie genau es geht kapier ich nicht."
+    ⚠⚠ **Die dritte Form ist die natürlichste.** Beim Bearbeiten steht die
+    aktuelle Menge bereits im Feld. Wer drei dazu buchen will, tippt hinten
+    `+3` an und hat `1.04+3` dastehen. Zählte nur ein **führendes**
+    Vorzeichen, würde genau das abgelehnt.
 
     Beide Wege kommen aufs Gleiche — das ist kein Zufall, sondern der Punkt:
     Man muss nicht wissen, welchen das Programm meint.
@@ -548,10 +537,8 @@ def check(ingredients, count=1):
 
     ⚠ **`count` muss hier durch, nicht nur beim Abziehen.** Wer 10 in das
     Stückzahl-Feld tippt, sieht sonst weiter den Bedarf für ein einziges Stück
-    — und daneben „dir fehlt nichts", während in Wirklichkeit das Zehnfache
-    gebraucht wird. Am 30.08.2026 gemeldet: „10 als Menge eingegeben sollte
-    auch 10fache Menge an benötigtem Material sein, angezeigt wird es nicht."
-    Die zurückgegebene `gebraucht`-Menge ist deshalb bereits multipliziert.
+    — und daneben, dass nichts fehlt, während in Wirklichkeit das Zehnfache
+    gebraucht wird. Die zurückgegebene `gebraucht`-Menge ist deshalb bereits multipliziert.
     """
     result = []
     factor = max(1, int(count or 1))
@@ -562,9 +549,8 @@ def check(ingredients, count=1):
                        + (amount or 0) * factor)
     for _slot, material, amount, quality in ingredients:
         key = norm_material(material)
-        # ⚠ Seit 29.08.2026 zählt nur, was die geforderte Qualität erreicht.
-        # Vorher wurde `guete` durchgereicht und nie benutzt — dadurch galt Erz
-        # als brauchbar, das für dieses Rezept zu schlecht ist.
+        # ⚠ Es zählt nur, was die geforderte Qualität erreicht. Sonst gälte
+        # Erz als brauchbar, das für dieses Rezept zu schlecht ist.
         suitable, too_low = amount_with_quality(material, quality)
         required = needed[key]
         result.append((material, (amount or 0) * factor, suitable,
@@ -576,25 +562,21 @@ def deduct(ingredients, count=1):
     """Die Zutaten eines Rezepts aus dem Lager nehmen — `count` mal.
 
     ⚠ **`count` gibt es, damit niemand zählen muss.** Wer zehn Stück am Stück
-    baut, klickt sonst zehnmal — und beim elften Klick stimmt der Bestand nicht
-    mehr, ohne dass es auffällt. Am 29.08.2026 genau so gemeldet: „ich klicke
-    dann aber sogar 11 mal, weil ich mich verzählt habe."
+    baut, klickt sonst zehnmal — und nach einem Klick zu viel stimmt der
+    Bestand nicht mehr, ohne dass es auffällt.
 
     Gibt `(True, [])` zurück, wenn alles da war — sonst `(False, [(Material,
     Fehlmenge), …])`.
 
-    ⚠⚠ **Reicht das Lager nicht, wird GAR NICHTS abgezogen.** Bis
-    v3.3.0-rc35 wurde genommen, so weit es reichte, und der Rest gemeldet.
-    Das ist falsch: Fehlt eine Zutat, war der Gegenstand überhaupt nicht
-    herstellbar — der Klick war ein Versehen oder ein Vertipper in der
-    Stückzahl. Wer mit „Anzahl 10" klickte und Material für drei hatte, stand
-    danach mit einem leergeräumten Lager und ohne die zehn Stück da, und der
-    Bestand liess sich nur von Hand wieder zusammensuchen. Am 30.08.2026
-    festgelegt: „Kann der Bestand im Lager ins Minus gehen? Darf er nicht,
-    wenn was fehlt ist es ja nicht herstellbar."
+    ⚠⚠ **Reicht das Lager nicht, wird GAR NICHTS abgezogen.** Zu nehmen, so
+    weit es reicht, wäre falsch: Fehlt eine Zutat, ist der Gegenstand
+    überhaupt nicht herstellbar — der Klick war ein Versehen oder ein
+    Vertipper in der Stückzahl. Wer mit Anzahl 10 klickt und Material für drei
+    hat, stünde sonst mit einem leergeräumten Lager und ohne die zehn Stück
+    da. Der Bestand darf nicht ins Minus gehen.
 
-    Ins Minus konnte er dabei nie geraten (`min(vorhanden, gebraucht)`) —
-    aber „auf null geräumt" ist fast so schlimm. Deshalb erst rechnen, dann
+    Ins Minus gerät er schon wegen `min(vorhanden, gebraucht)` nie — aber
+    auf null geräumt ist fast so schlimm. Deshalb erst rechnen, dann
     nehmen: Es wird in zwei Durchgängen gearbeitet, und der erste fasst nichts
     an.
 

@@ -96,9 +96,8 @@ TEXTS = {
     # ⚠ Der Filter, der die unsichtbarste Falle sichtbar macht: 280 der 353
     # Auftraege haben eine Ruf-OBERGRENZE. Wer darueber steigt, bekommt sie nicht
     # mehr angeboten — und ihre Bauplaene sind fuer diesen Spielstand weg.
-    # ⚠ Hiess bis 02.09.2026 „kann zugehen" — verstand niemand, auch der Autor
-    # nicht: „nichtmal ich raffe was das sein soll". Der Knopf kann die
-    # Spielmechanik auch nicht erklaeren, dafuer ist kein Platz. Deshalb zwei
+    # ⚠ Der Knopf kann die Spielmechanik nicht erklaeren, dafuer ist kein
+    # Platz. Deshalb zwei
     # Dinge: ein Name, der eine HANDLUNG nennt statt eines Zustands
     # („Aufsteigen" kennt jeder, „hoher Ruf" liest sich nicht als Gefahr) —
     # und die Warnzeile darunter, die das „wieso?" gleich mitbeantwortet.
@@ -284,10 +283,9 @@ TEXTS = {
         'In welcher Sprache soll das Fenster mit dir reden?',
         'Which language should this window speak?'),
 
-    # ⚠⚠ Der Schritt „Datenordner" (29.09.2026, gemeldet bei Parsul): Vorher
-    # nahm Verse-Kit still den Dokumente-Ordner — bei ihm nach OneDrive
-    # umgeleitet und von Windows gesperrt. Nichts ließ sich speichern, und
-    # niemand erfuhr es.
+    # ⚠⚠ Der Schritt „Datenordner": Ohne ihn landet alles still im
+    # Dokumente-Ordner — ist der nach OneDrive umgeleitet und von Windows
+    # gesperrt, lässt sich nichts speichern, und niemand erfährt es.
     'schritt_ablage':    ('Wo sollen deine Daten liegen?', 'Where should your data live?'),
     'schritt_ablage_text': (
         'Hier speichert Verse-Kit deinen Bauplan-Bestand, deine Einstellungen '
@@ -335,11 +333,9 @@ TEXTS = {
 
     # Die Einstellungs-Karten im Assistenten. Die Namen der Einstellungen sind
     # dieselben wie auf den Seiten — nur die Hinweise sind hier kürzer.
-    # ⚠ **„Darstellung", wie die Einstellungsseite** (28.09.2026). Der Schritt
-    # hieß „Anzeige", die Seite dahinter „Darstellung" — zwei Namen für
-    # dieselbe Sache, und wer in der Einrichtung etwas gesehen hat, sucht es
-    # später unter dem falschen Wort. Der Schlüssel bleibt `schritt_anzeige`:
-    # Er steht nur im Code, und ihn umzubenennen brächte nichts als Risiko.
+    # ⚠ **„Darstellung", wie die Einstellungsseite** — ein Name für dieselbe
+    # Sache, damit man später unter demselben Wort sucht. Der Schlüssel heißt
+    # `schritt_anzeige`: Er steht nur im Code.
     'schritt_anzeige':   ('Darstellung', 'Appearance'),
     'schritt_start':     ('Programmstart', 'Startup'),
     'schritt_angaben':   ('Angaben im Spiel', 'Details in the game'),
@@ -356,8 +352,8 @@ TEXTS = {
                           '100 % = opaque. Less if the overlay sits on top of the game.'),
     'as_zeit_h':         ('Wie lange du gespielt hast, oben in der Kopfzeile.',
                           'How long you have played, at the top of the window.'),
-    # Farbschema und Bauplan-Umfang in der Einrichtung (28.09.2026): zwei
-    # Grundentscheidungen, die man einmal trifft und danach selten anfasst —
+    # Farbschema und Bauplan-Umfang in der Einrichtung: zwei
+    # Grundeinstellungen, die man einmal setzt und danach selten anfasst —
     # und die man sonst erst findet, wenn man die Einstellungen durchsucht.
     'as_schema_h':       ('Wirkt beim nächsten Start. Später jederzeit unter '
                           '„Darstellung" änderbar.',
@@ -416,12 +412,9 @@ TEXTS = {
                           'Bauplan-Liste.',
                           'The gear in the title bar opens the main window at '
                           'any time — the blueprint list is on the left.'),
-    # ⚠⚠ **Hier stand „du musst dich durch keine Menüs klicken"** — und das war
-    # schlicht falsch (28.09.2026). Um die Einrichtung zu wiederholen, muss man
-    # sehr wohl klicken: oben in der Titelleiste auf „Einrichtung starten".
-    # Ein Versprechen, das das Werkzeug nicht hält, ist schlimmer als gar
-    # keines — es lässt den Nutzer suchen, was es nicht gibt. Jetzt steht
-    # stattdessen da, **wo** der Knopf ist.
+    # ⚠⚠ Der Text nennt, **wo** der Knopf ist: oben in der Titelleiste
+    # „Einrichtung starten". Kein Versprechen, das das Werkzeug nicht hält —
+    # es lässt den Nutzer suchen, was es nicht gibt.
     'tipp_erneut':       ('Diese Einrichtung kannst du jederzeit wiederholen: '
                           'oben in der Titelleiste steht „Einrichtung '
                           'starten". Hier stehen nur die wichtigsten '
@@ -471,9 +464,8 @@ TEXTS = {
     'craftdaten_neu':    ('scmdb-Craftdaten aktualisiert (%s, %d Gegenst\u00e4nde)',
                           'scmdb crafting data updated (%s, %d items)'),
     # ⚠ Vier Zahlen, weil der Lauf zwei Dinge tut: Baupläne nachtragen und das
-    # Auftrags-Protokoll neu bewerten. Bis 06.09.2026 stand hier nur die
-    # Bauplan-Zahl — der Lauf hieß „Protokolle erneut einlesen" und räumte
-    # sichtbar nur die eine Hälfte auf.
+    # Auftrags-Protokoll neu bewerten. Nur die Bauplan-Zahl zeigte bloß die
+    # eine Hälfte.
     'neu_gelesen':       ('%d Protokolle noch einmal gelesen. Baupläne: %d '
                           'dazugekommen. Aufträge: %d neu, %d berichtigt.',
                           '%d logs read again. Blueprints: %d added. '
@@ -495,9 +487,8 @@ TEXTS = {
                           'when the watcher was closed while Star Citizen kept '
                           'running: that session\'s blueprints then sit in a file '
                           'it considers done. Duplicates cannot happen.'),
-    # ⚠⚠ Sagt jetzt „meldet sich", nicht „steht in der Leiste": Das Ergebnis
-    # kommt als Fenster. Die alte Zusage stimmte nicht mehr — und sie stimmte
-    # auch vorher nur vier Sekunden lang.
+    # ⚠⚠ „meldet sich", nicht „steht in der Leiste": Das Ergebnis kommt als
+    # Fenster.
     's_be_neu_los':      ('Wird gelesen … das Ergebnis meldet sich, sobald es da ist.',
                           'Reading … the result will report back when it is ready.'),
     's_be_neu_kein':     ('Dafür muss der Watcher laufen.',
@@ -542,12 +533,11 @@ TEXTS = {
                              'Starts on login — click to turn off'),
     'hinweis_autostart_aus': ('Startet nicht von selbst — Klick schaltet es ein',
                               'Does not start by itself — click to turn on'),
-    # ⚠⚠ **Ein Symbol allein findet niemand.** Bis v3.5.3 stand hier nur ein
-    # kleines Zeichen am rechten Rand der Zeile — Bushwick4712 (KRT) hat es am
-    # 31.08.2026 schlicht nicht gefunden. Jetzt steht das Wort daneben.
+    # ⚠⚠ **Ein Symbol allein findet niemand.** Ein kleines Zeichen am rechten
+    # Rand der Zeile wird übersehen — deshalb steht das Wort daneben.
     'hk_knopf':          ('Woher?', 'Where from?'),
-    # Der Weg von der Herstellung zum Bauplan: „ich kann das nicht bauen — wo
-    # kriege ich den Bauplan her?" Gewuenscht von Bushwick4712 (KRT).
+    # Der Weg von der Herstellung zum Bauplan: Wer etwas nicht bauen kann,
+    # sieht hier, wo es den Bauplan gibt.
     's_he_woher_bp':     ('Woher gibt es den Bauplan?',
                           'Where do I get the blueprint?'),
     's_he_woher_nichts': ('Zu diesem Bauplan ist keine Bezugsquelle bekannt.',
@@ -567,9 +557,9 @@ TEXTS = {
     # -- Einstellungsfenster --
     'titel_einstellungen': ('Verse-Kit — Einstellungen',
                             'Verse-Kit — Settings'),
-    # ⚠ `einstellungen` steht schon weiter oben unter „Einstellungen" — der
-    # zweite Eintrag war identisch und damit wirkungslos, aber er hätte beim
-    # nächsten Ändern eine der beiden Stellen still übergangen.
+    # ⚠ `einstellungen` steht schon weiter oben unter „Einstellungen" — ein
+    # zweiter Eintrag mit demselben Schlüssel wäre wirkungslos und würde beim
+    # Ändern eine der beiden Stellen still übergehen.
     'hinweis_einstellungen': ('Einstellungen öffnen', 'Open settings'),
     'e_sprache':         ('Sprache', 'Language'),
     'e_sprache_hilfe':   ('Sprache dieses Fensters und aller Meldungen. Nicht zu '
@@ -650,9 +640,8 @@ TEXTS = {
     's_ov_durch_nein': ('Auf diesem System nicht möglich: Unter Wayland kann ein gewöhnliches Fenster keine Klicks weiterreichen.',
                           'Not possible on this system: under Wayland an ordinary window cannot pass clicks on.'),
     # --- Texte der Melde-Leiste (Overlay) ------------------------------------
-    # Diese vier standen bis 26.08.2026 fest auf Deutsch im Code. Ergebnis: Wer
-    # auf Englisch umstellte, bekam ein englisches Hauptfenster und ein
-    # deutsches Overlay. Gemeldet.
+    # Fest im Code stehend bekäme, wer auf Englisch umstellt, ein englisches
+    # Hauptfenster und ein deutsches Overlay.
     'ov_starte':       ('Starte \u2026', 'Starting \u2026'),
     # Die Anzeige der laufenden Auftraege. ⚠ „laut Log" steht bewusst dabei:
     # Geht ein Auftrag durch einen Fehler im Spiel verloren, meldet das Spiel
@@ -674,7 +663,7 @@ TEXTS = {
     's_suche_leeren':    ('Suche leeren', 'Clear search'),
     # Stueckzahl beim Herstellen. ⚠ Ohne sie klickt man zehnmal und verzaehlt
     # sich beim elften — dann stimmt der Bestand nicht mehr, ohne dass es
-    # auffaellt. Am 29.08.2026 gemeldet.
+    # auffaellt.
     's_lg_anzahl':       ('Anzahl', 'How many'),
     # Lager sichern und zurueckholen.
     's_lg_ausgeben':     ('Lager ausgeben', 'Export stock'),
@@ -704,8 +693,8 @@ TEXTS = {
                            'Nobody at this location sells anything from the list.'),
     's_ld_ort_nicht_hier': ('In %s ist dazu gerade kein Laden bekannt — hier alle Läden:',
                             'No shop known in %s for this right now — all shops:'),
-    # ⭐⭐ Hinweise IM Eingabefeld — Regel seit 12.09.2026: In JEDEM Feld
-    # steht, was hineingehört. Zwei Bedingungen, beide bewusst:
+    # ⭐⭐ Hinweise IM Eingabefeld: In JEDEM Feld steht, was hineingehört.
+    # Zwei Bedingungen:
     #   * Sie nennen ein BEISPIEL, nicht die Beschriftung daneben. „Suche"
     #     über einem Feld und „Suche" darin sagt zweimal nichts.
     #   * Sie stehen im Feld, nicht als Bauteil darüber (siehe fields.py).
@@ -780,8 +769,8 @@ TEXTS = {
                           'Restart failed — please close and start it yourself.'),
     's_ub_holen_zurueck': ('zurück auf %s', 'back to %s'),
     's_ub_holen_gleich': ('%s ist schon installiert', '%s is already installed'),
-    # ⚠ „Noch keine Version bekannt“ klingt nach einem Fehler und sagt nicht,
-    # was zu tun ist. Genau dieser Knopf stand bei Morkhan da (26.08.2026).
+    # ⚠ Ein Text wie „Noch keine Version bekannt“ klänge nach einem Fehler und
+    # sagte nicht, was zu tun ist.
     's_ub_holen_keine': ('Erst oben auf „Jetzt nachsehen“ drücken',
                         'Press “Check now” above first'),
     's_ub_holen_laeuft': ('%s wird geholt …', 'Fetching %s …'),
@@ -796,21 +785,18 @@ TEXTS = {
     'b_absturz_fassung': ('Fassung %s', 'version %s'),
     'b_absturz_ohne_fassung': ('Fassung nicht festgehalten — prüfen, ob es ihn noch gibt',
                                'version not recorded — check whether it still occurs'),
-    # ⚠⚠ **Nur feststellen, nicht bewerten.** Bis 05.09.2026 stand hier
-    # „vermutlich längst behoben". Das ist eine Behauptung, und sie kann
-    # falsch sein: Wer lange kein Update gemacht hat, meldet aus einer alten
-    # Fassung einen Fehler, den wir noch nie gesehen haben — und die
-    # Bemerkung lädt dazu ein, ihn abzuhaken statt ihn zu lesen.
+    # ⚠⚠ **Nur feststellen, nicht bewerten.** Ein Urteil wie „vermutlich
+    # behoben" kann falsch sein: Wer lange kein Update gemacht hat, meldet aus
+    # einer alten Fassung womöglich einen Fehler, der noch nie aufgefallen ist
+    # — und das Urteil lädt dazu ein, ihn abzuhaken statt ihn zu lesen.
     #
-    # Dieselbe Lehre wie beim festgeschriebenen Rückbau weiter oben: Ein
-    # Vermerk ist ein Zeitstempel, keine Wahrheit.
+    # Ein Vermerk ist ein Zeitstempel, keine Wahrheit.
     'b_fehler_alt':    ('(nicht aus der laufenden Fassung — prüfen, ob es ihn '
                         'noch gibt)',
                           '(not from the running version — check whether it '
                           'still occurs)'),
-    # ⚠ „RSI Launcher starten", nicht „Star Citizen starten" (15.09.2026):
-    # Der Knopf öffnet den Launcher, nicht das Spiel — mehrere Nutzer meldeten,
-    # das Spiel starte mit dem Knopf ja gar nicht. Stimmt; er sagt es jetzt.
+    # ⚠ „RSI Launcher starten", nicht „Star Citizen starten": Der Knopf öffnet
+    # den Launcher, nicht das Spiel.
     's_sp_start_knopf': ('RSI Launcher starten', 'Launch RSI Launcher'),
     's_sp_start_lauft': ('RSI Launcher wird gestartet …', 'Starting the RSI Launcher …'),
     's_sp_kein_starter': ('kein Starter gefunden', 'no launcher found'),
@@ -892,9 +878,7 @@ TEXTS = {
                           'The update to %s did not finish. Details are in the '
                           'diagnostics.'),
     's_sp_start_nein': ('Start nicht möglich: %s', 'Could not start: %s'),
-    # Das Rechtsklick-Menü am Symbol neben der Uhr (Windows). Erweitert am
-    # 15.09.2026 nach dem Vorbild des SC Deutsch Launchers — vorher gab es nur
-    # „Fenster zeigen" und „Beenden".
+    # Das Rechtsklick-Menü am Symbol neben der Uhr (Windows).
     'tray_zeigen':     ('Verse-Kit öffnen', 'Open Verse-Kit'),
     'tray_einstellungen': ('Einstellungen öffnen', 'Open settings'),
     'tray_launcher':   ('RSI Launcher starten', 'Launch RSI Launcher'),
@@ -945,10 +929,9 @@ TEXTS = {
     's_kn_spaeter':    ('Jetzt nicht',
                           'Not now'),
     # Das Auftrags-Protokoll — welche Auftraege wann gespielt wurden.
-    # ⚠ Der Reiter hiess bis 09.09.2026 nur „Auftrags-Protokoll". Zwaersch
-    # suchte hier vergeblich, weil „Protokoll" nach Vergangenheit klingt und
-    # nicht nach Nachschlagen — dabei findet die Seite jeden Auftrag und zeigt
-    # seine Bauplaene. Der Name nennt jetzt beides.
+    # ⚠ „Protokoll" allein klingt nach Vergangenheit und nicht nach
+    # Nachschlagen — dabei findet die Seite jeden Auftrag und zeigt seine
+    # Bauplaene. Der Name nennt beides.
     'hf_auftragslog':  ('Aufträge & Protokoll', 'Missions & log'),
     's_al_lead':       ('Welchen Auftrag du wann gespielt hast — und welche '
                         'Baupläne er hergibt.',
@@ -978,8 +961,7 @@ TEXTS = {
     's_al_fertig':     ('abgeschlossen', 'completed'),
     's_al_abbruch':    ('abgebrochen', 'abandoned'),
     # Der Auftrag ist gescheitert — Zeit abgelaufen, Ziel verloren, gestorben.
-    # Das Spiel unterscheidet das vom Aufgeben; bis 06.09.2026 tat der Watcher
-    # das nicht und zeigte beides als Erfolg.
+    # Das Spiel unterscheidet das vom Aufgeben und vom Erfolg.
     's_al_fehl':       ('fehlgeschlagen', 'failed'),
     's_al_f_alle':     ('alle', 'all'),
     # Kein Ende im Log, aber eine spätere Sitzung kannte ihn nicht mehr.
@@ -992,8 +974,7 @@ TEXTS = {
     # Die Joystick-Seite — welcher Stick ist welche Nummer, und was liegt drauf.
     # ⚠ „Steuerung", nicht „Joysticks": Auf der Seite stehen auch Tastatur,
     # Maus und Gamepad. Wer sucht, wo seine Tastenbelegung ist, klickt keinen
-    # Reiter namens „Joysticks" an. Der Schlüssel heißt aus Bestandsgründen
-    # weiter `hf_joysticks`.
+    # Reiter namens „Joysticks" an. Der Schlüssel heißt `hf_joysticks`.
     'hf_joysticks':    ('Steuerung', 'Controls'),
     's_js_lead':       ('Welcher Stick welche Nummer hat — und was auf '
                         'welcher Taste liegt.',
@@ -1098,22 +1079,20 @@ TEXTS = {
                         'überhaupt noch gilt.',
                           'How sharply your sticks respond — and which of '
                           'those settings still apply.'),
-    # ⚠⚠⚠ **Sichtbarkeit für einen Fehler, der still zuschlug.** Am
-    # 06.09.2026 lagen in EINER Installation zwei Belegungsdateien
-    # nebeneinander: `LIVE/user/client/…` (das Spiel) und `LIVE/USER/client/…`
-    # (eine Karteileiche aus der Windows-Installation). Der Watcher las die
-    # falsche und zeigte eine Empfindlichkeit von 2, während im Spiel überall
-    # 1,00 stand — und weil dort auch die Gerätereihenfolge anders war, die
-    # Werte des falschen Sticks dazu.
+    # ⚠⚠⚠ **Sichtbarkeit für einen Fehler, der still zuschlägt.** In einer
+    # Installation können zwei Belegungsdateien nebeneinander liegen:
+    # `LIVE/user/client/…` (das Spiel) und `LIVE/USER/client/…` (eine
+    # Karteileiche aus der Windows-Installation). Wer die falsche liest, zeigt
+    # falsche Empfindlichkeiten — und bei anderer Gerätereihenfolge die Werte
+    # des falschen Sticks.
     #
     # Unter Windows sind `USER` und `user` derselbe Ordner, unter Linux nicht.
     # Wer aus einer Windows-Installation herüberzieht, hat danach beide und
-    # merkt nichts davon. Deshalb steht es jetzt auf der Seite.
-    # ⚠⚠⚠ **Die Meldung, die am 06.09.2026 gefehlt hat.** Der Watcher zeigte
-    # nach einem Neustart 406 statt 413 Bauplaenen, weil die Zeiger-Datei auf
-    # den Datenordner beim Aufraeumen im Dateimanager mit weggeworfen worden
-    # war. Er nahm still den leeren Standardordner. Zurueck blieb eine
-    # kleinere Zahl ohne jede Erklaerung.
+    # merkt nichts davon. Deshalb steht es auf der Seite.
+    # ⚠⚠⚠ **Weniger Baupläne als zuletzt.** Fehlt die Zeiger-Datei auf den
+    # Datenordner (etwa beim Aufraeumen im Dateimanager weggeworfen), nimmt
+    # der Watcher still den leeren Standardordner. Ohne diese Meldung bliebe
+    # eine kleinere Zahl ohne jede Erklaerung.
     #
     # ⚠ Kein Alarmton, keine rote Wand: Es ist meistens KEIN Verlust, sondern
     # der falsche Ordner — und genau das soll dastehen, samt dem Ort, an dem
@@ -1160,17 +1139,12 @@ TEXTS = {
                           'port, new firmware — the game treats it as a new '
                           'device, and the old settings stay in the file '
                           'without any effect.'),
-    # ⚠⚠ **Kein Alarm.** Die erste Fassung hieß „Diese Einstellungen wirken
-    # nicht mehr", stand in Gold ganz oben und hatte drei Knöpfe darunter.
-    # Das las sich wie ein Fehler, der behoben werden muss — mit der Folge,
-    # dass man reihum draufklickt und sich seine funktionierenden Werte mit
-    # alten, widersprüchlichen überschreibt. Genau so ist es passiert:
-    # Ein Hinweis, der wie ein Fehler aussieht, wird weggeklickt — das ist der
-    # Normalfall und kein Vorwurf. Hier führte es dazu, dass man reihum auf
-    # „Übernehmen" drückt und sich funktionierende Werte mit alten,
-    # widersprüchlichen überschreibt.
+    # ⚠⚠ **Kein Alarm.** Ein Hinweis in Gold ganz oben mit Knöpfen darunter
+    # liest sich wie ein Fehler, der behoben werden muss — und wird
+    # weggeklickt: Man drückt reihum auf „Übernehmen" und überschreibt
+    # funktionierende Werte mit alten, widersprüchlichen.
     #
-    # Jetzt: neutraler Titel, zugeklappt, unter den Einstellungen statt
+    # Deshalb: neutraler Titel, zugeklappt, unter den Einstellungen statt
     # darüber, und der erste Satz sagt, dass alles in Ordnung ist.
     's_ac_befund':     ('Altbestand in der Belegungsdatei',
                           'Leftovers in the bindings file'),
@@ -1190,9 +1164,8 @@ TEXTS = {
                               'contradict each other — the second click then '
                               'undoes the first. When in doubt: just clean '
                               'up.'),
-    # ⚠ Der Text erklärt die SACHE, nicht die Technik. Die erste Fassung
-    # lautete „Das Gerät ist da, die Einstellung hängt an seiner alten
-    # Kennung" — richtig, aber die Frage dazu war: „was heißt das?"
+    # ⚠ Der Text erklärt die SACHE, nicht die Technik — „die Einstellung
+    # hängt an seiner alten Kennung" ist richtig, aber unverständlich.
     's_ac_befund_lead': ('Star Citizen merkt sich Totzone und Sättigung an '
                          'einer internen Nummer des Geräts, nicht an seinem '
                          'Namen. Dein Stick hat im Lauf der Zeit eine neue '
@@ -1255,7 +1228,7 @@ TEXTS = {
     's_ac_keine_funktion': ('Auf dieser Achse liegt keine Flugfunktion.',
                               'No flight function is bound to this axis.'),
     # ⚠ Kurz halten: Der Knopf steht am Ende einer Reglerzeile, nicht unter
-    # einem Block. „In die Belegungsdatei schreiben" sprengte die Zeile.
+    # einem Block. „In die Belegungsdatei schreiben" sprengt die Zeile.
     's_ac_setzen':     ('Setzen', 'Set'),
     # Die Spielachsen in verständlichen Worten. ⚠ Die technischen Namen
     # stammen aus der Belegungsdatei und sind nicht übersetzbar — was hier
@@ -1416,9 +1389,8 @@ TEXTS = {
                              'be, they do no harm.'),
 
     # -- Bindings tauschen und Gerätesätze --
-    # ⚠ Jede Knopfreihe bekommt eine Überschrift und einen Satz dazu. Ohne
-    # das stand dort nur „Auf »RIGHT VPC Stick WarBRD-D« übertragen" — und
-    # die Frage dazu lautete wörtlich: „was machen die Buttons überhaupt?"
+    # ⚠ Jede Knopfreihe bekommt eine Überschrift und einen Satz dazu. Ein
+    # Knopf wie „Auf »<Gerät>« übertragen" allein erklärt nicht, was er tut.
     's_ac_einrichtung': ('Geräte-Einrichtung', 'Device setup'),
     's_ac_kopf_angleichen': ('Beide Sticks gleich einstellen',
                                'Set up both sticks alike'),
@@ -1437,8 +1409,8 @@ TEXTS = {
                              'Swaps which stick has which number — the whole '
                              'set of bindings moves to the other device. Dead '
                              'zone and saturation stay where they are.'),
-    # Kurz, weil der Gerätename lang sein kann: Bei der größten Schrift ragte
-    # „Belegungen mit »…« tauschen" 38 px aus der Spalte (27.09.2026). Worum
+    # Kurz, weil der Gerätename lang sein kann: Bei der größten Schrift ragt
+    # „Belegungen mit »…« tauschen" 38 px aus der Spalte. Worum
     # es geht, sagt die Überschrift darüber.
     's_ac_tauschen':   ('Mit »{}« tauschen',
                           'Swap with “{}”'),
@@ -1618,7 +1590,7 @@ TEXTS = {
     's_js_sicht':      ('Anzeigen', 'Show'),
     's_js_q_meine':    ('geändert', 'changed'),
     # Eingaben im Klartext. ⚠ „Achse X" statt „x": Auf einer Tastatur ist `x`
-    # ein Buchstabe — in der Liste eines Sticks las sich die Zeile falsch.
+    # ein Buchstabe — in der Liste eines Sticks liest sich die Zeile sonst falsch.
     # ⚠ Im Deutschen heißt es „X-Achse", nicht „Achse X" — im Englischen
     # umgekehrt „Axis X". Deshalb zwei verschiedene Satzstellungen.
     's_js_e_achse':     ('%s-Achse', 'Axis %s'),
@@ -1747,12 +1719,10 @@ TEXTS = {
                          'lesen — es stehen die technischen Namen da.',
                            'The game\'s wording could not be read — technical '
                            'names are shown instead.'),
-    # ⚠⚠ **„Eigene Dateien" sagte niemandem etwas.** Am 31.08.2026 gemeldet:
-    # „da fehlt auch die Beschreibung, für was der Ordner ist, der Name sagt
-    # nichts aus." Und der zweite Teil fehlte ganz: Dieser eine Ordner ist
+    # ⚠⚠ **Der Name sagt, wofür der Ordner ist** — „Eigene Dateien" sagt
+    # nichts. Und der Text nennt den zweiten Zweck: Dieser eine Ordner ist
     # der Weg, alles zwischen zwei Rechnern zu teilen — Bestand UND beide
-    # Lager. Genau danach wurde am selben Tag gefragt, weil das Lager unter
-    # Windows fehlte.
+    # Lager.
     's_eigene':        ('Ordner für deine Daten',
                           'Folder for your data'),
     's_eigene_h':      ('Alles, was das Werkzeug über dich weiß, liegt hier: '
@@ -1790,13 +1760,11 @@ TEXTS = {
     # ⚠⚠ **Der Grund fuer die Tastenkombination.** Star Citizen laeuft im
     # Vollbild und blendet den Mauszeiger aus: Wer nachsehen will, ob er einen
     # Bauplan schon hat, muss heraustabben und das Fenster dann BLIND suchen
-    # und anklicken. Am 31.08.2026 als Nutzerwunsch gemeldet.
+    # und anklicken.
     # ⚠⚠ **Ziehen geht im Pop-up-Betrieb nicht.** Das Overlay ist dort
     # durchklickbar, damit es im Kampf nicht stoert — und was Mausklicks
     # durchreicht, laesst sich auch nicht anfassen. Ohne waehlbare Ecke gibt es
     # fuer diese Nutzer GAR KEINEN Weg, das Overlay zu positionieren.
-    # Am 31.08.2026 gemeldet: „stoert mich irgendwie, dass es nicht komplett in
-    # der Ecke sitzt."
     's_ov_ecke':       ('Wo das Overlay sitzt',
                           'Where the overlay sits'),
     's_ov_ecke_h':     ('Legt das Overlay fest in eine Bildschirmecke — auch '
@@ -1808,9 +1776,9 @@ TEXTS = {
                           'the overlay passes mouse clicks through and cannot '
                           'be dragged.'),
     's_ov_ecke_frei':  ('Frei verschiebbar', 'Free to move'),
-    # ⚠ Bis v3.31.2 hing die Seite der Leiste an der Ecke — untere Ecke hiess
-    # Leiste unten. Seit ein Verschieben die Ecke auf „frei" stellt, braucht es
-    # dafuer eine eigene Entscheidung, sonst waere sie immer oben.
+    # ⚠ Die Seite der Leiste haengt nicht an der Ecke: Ein Verschieben stellt
+    # die Ecke auf „frei", deshalb braucht die Leiste eine eigene Einstellung,
+    # sonst waere sie immer oben.
     's_ov_leiste':     ('Leiste am Overlay', 'Bar on the overlay'),
     's_ov_leiste_h':   ('Oben oder unten — je nachdem, wo das Overlay steht '
                         'und wohin du greifen willst.',
@@ -1896,10 +1864,9 @@ TEXTS = {
     's_sp_nichts_h':   ('Wähle unten eine Textquelle — der Rest passiert von selbst.',
                           'Pick a text source below — the rest happens on its own.'),
     's_sp_quelle':     ('Textquelle', 'Text source'),
-    # ⚠ Der Satz „übersetzt das ganze Spiel" MUSS hier stehen bleiben. Beim
-    # Testen gemeldet (Bomb20, 25.08.2026): „übrigens tauscht das tool — wenn
-    # auf deutsch gestellt — auch im Spiel alles englische gegen deutsches
-    # aus." Das ist so gewollt (der Watcher braucht eine global.ini, in die er
+    # ⚠ Der Satz „übersetzt das ganze Spiel" MUSS hier stehen bleiben. Mit
+    # Deutsch als Quelle wird auch im Spiel alles Englische gegen Deutsches
+    # getauscht. Das ist nötig (der Watcher braucht eine global.ini, in die er
     # schreibt), aber niemand rechnet damit: Wer einen Bauplan-Melder
     # installiert, erwartet keine Spielübersetzung.
     's_sp_quelle_h':   ('Woher die Grundlage kommt, in die geschrieben wird. ⚠ Deutsch und StarStrings ersetzen die Textdatei des Spiels vollständig — danach ist das **ganze Spiel** in dieser Sprache, nicht nur die Bauplan-Angaben. „Original" holt die englischen Originaltexte aus dem Spiel; hatte das Werkzeug vorher StarStrings eingesetzt, wird das dabei ersetzt — eine Datei, die du selbst hingelegt hast, bleibt. Übersetzung und StarStrings sind fremde Projekte und werden beim Klick von deren eigener Adresse geladen, nicht mitgeliefert.',
@@ -1920,7 +1887,7 @@ TEXTS = {
     # darunter womöglich deutschen Text.
     #
     # ⚠ Und es macht die beiden Stellen einheitlich: Der Einrichtungsassistent
-    # sagt seit jeher „Englisch — Originaltexte aus dem Spiel"
+    # sagt ebenso „Englisch — Originaltexte aus dem Spiel"
     # (`inj_quelle_orig`). Dieselbe Auswahl an zwei Orten verschieden zu
     # benennen ist genau die Sorte Unterschied, die niemandem auffällt außer
     # dem, der sie sucht.
@@ -1933,15 +1900,15 @@ TEXTS = {
     's_sp_q_it':       ('Italiano (Dymerz)', 'Italiano (Dymerz)'),
     's_sp_q_es':       ('Español (Dymerz)', 'Español (Dymerz)'),
     's_sp_q_es2':      ('Español (Thord82)', 'Español (Thord82)'),
-    # Die Übersetzungen des SC Launch Configurator (Luftwerft), freigegeben von
-    # ihrem Entwickler am 28.09.2026.
+    # Die Übersetzungen des SC Launch Configurator (Luftwerft), mit Freigabe
+    # ihres Urhebers.
     's_sp_q_lw_de':    ('Deutsch (Luftwerft)', 'Deutsch (Luftwerft)'),
     's_sp_q_lw_en':    ('English (Luftwerft)', 'English (Luftwerft)'),
     's_sp_q_lw_fr':    ('Français (Luftwerft)', 'Français (Luftwerft)'),
     's_sp_q_lw_it':    ('Italiano (Luftwerft)', 'Italiano (Luftwerft)'),
     's_sp_q_lw_es':    ('Español (Luftwerft)', 'Español (Luftwerft)'),
-    # ⚠ Der Wortlaut folgt dem, was der Entwickler selbst gesagt hat — er hat
-    # diesen Hinweis erbeten, statt ihn sich ersparen zu lassen.
+    # ⚠ Der Wortlaut ist mit dem Urheber der Übersetzung abgestimmt — nicht
+    # eigenmächtig kürzen.
     's_sp_hinweis_luftwerft':
                        ('Hinweis des Entwicklers: An dieser Übersetzung wird '
                         'noch gearbeitet. Sie entsteht weitgehend automatisch '
@@ -2075,11 +2042,10 @@ TEXTS = {
     's_sp_hand':       ('Von Hand', 'By hand'),
     's_sp_hand_h':     ('Alles Eingefügte steht zwischen Marken und lässt sich auf den Buchstaben genau wieder entfernen.',
                           'Everything inserted sits between markers and can be removed again to the letter.'),
-    # ⚠ **„Neu einsetzen", nicht „auffrischen" (06.09.2026).** Der Knopf holt
-    # die Vertragsdaten UND schreibt den ganzen Block neu ins Spiel — die
-    # Funktion dahinter heisst intern schon „neu eintragen". „Auffrischen"
+    # ⚠ **„Neu einsetzen", nicht „auffrischen".** Der Knopf holt die
+    # Vertragsdaten UND schreibt den ganzen Block neu ins Spiel. „Auffrischen"
     # beschreibt nur das Holen und klingt nach „nachsehen, ob was fehlt";
-    # der Nutzer will aber das Ergebnis benannt haben.
+    # der Name benennt das Ergebnis.
     's_sp_jetzt':      ('Neu einsetzen', 'Insert again'),
     's_sp_pruefen':    ('Übersetzung prüfen', 'Check translation'),
     's_sp_weg':        ('Wieder entfernen', 'Remove again'),
@@ -2098,18 +2064,12 @@ TEXTS = {
     's_be_voll':       ('Vollständige Sicherung', 'Full backup'),
     's_be_voll_h':     ('mit Art, Klasse, Größe, Gütegrad',
                           'with type, class, size and grade'),
-    # ⚠ Hieß bis v3.32.0 `s_be_alle_drei` („Alle drei in die Ablage"). Drei
-    # stimmte schon vorher nicht mehr — das Auftrags-Protokoll wird seit
-    # v3.26.0 mitgeschrieben —, und mit der Launcher-Version sind es fünf
-    # Dateien. Eine Zahl im Knopf, die niemand nachzählt, ist nur eine
-    # Falschaussage, die bei jeder Erweiterung wieder falsch wird.
+    # ⚠ Keine Zahl im Knopf: Eine Dateizahl, die niemand nachzählt, wird bei
+    # jeder Erweiterung zur Falschaussage.
     's_be_alle':       ('Alles in die Ablage', 'Everything to the folder'),
     's_be_einzeln':    ('Einzeln speichern …', 'Save individually …'),
-    # ⚠ Ein Knopf je Version, direkt an der Version. Vorher gab es nur
-    # „Einzeln speichern …", und das schrieb **immer** die Basetool-Version —
-    # scmdb und die Vollsicherung waren über den Dialog gar nicht erreichbar.
-    # Aufgefallen, als der Autor das Werkzeug jemandem vorführte und selbst
-    # suchen musste (27.08.2026).
+    # ⚠ Ein Knopf je Version, direkt an der Version — so ist jede Fassung
+    # (Basetool, scmdb, Vollsicherung) einzeln erreichbar.
     's_be_speichern_kurz': ('Speichern …', 'Save …'),
     's_be_fort':       ('Wird bei jedem neuen Bauplan mitgeschrieben.',
                         'Kept up to date with every new blueprint.'),
@@ -2125,16 +2085,15 @@ TEXTS = {
     's_be_waehlen':    ('Datei wählen …', 'Choose file …'),
     # ⛔ „Baupläne DB · Star Citizen Deutsch" ist die Bauplan-Übersicht im
     # Browser, der „SC Deutsch Launcher" das Programm für die Übersetzung.
-    # Zwei verschiedene Dinge — am 13.09.2026 standen sie hier einen Tag lang
-    # als eines.
+    # Zwei verschiedene Dinge — nicht zusammenfassen.
     's_be_erkannt':    ('Erkannt werden: eigene Sicherung · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher · Baupläne DB · Star Citizen Deutsch. Welches Format vorliegt, findet das Werkzeug selbst heraus.',
                           'Recognised: your own backup · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher · Baupläne DB · Star Citizen Deutsch. Which format it is, the tool works out by itself.'),
     's_be_unbekannt':  ('Diese Datei kenne ich nicht.',
                           'I do not recognise this file.'),
     's_be_unbekannt_h': ('Erwartet werden: eigene Sicherung, KRT Profit Basetool, scmdb.net, SC Deutsch Launcher oder die Baupläne DB.',
                           'Expected: your own backup, KRT Profit Basetool, scmdb.net, the SC Deutsch Launcher or the Baupläne DB.'),
-    # ⚠ Erkannt, aber nichts darin: Die Baupläne DB gibt auf Wunsch die
-    # **vorgemerkten** Baupläne aus, scmdb die nur beobachteten. Beides sind
+    # ⚠ Erkannt, aber nichts darin: Die Baupläne DB kann die **vorgemerkten**
+    # Baupläne ausgeben, scmdb die nur beobachteten. Beides sind
     # Wunschzettel — daraus wird nichts übernommen, und das muss dastehen,
     # sonst wirkt der leere Import wie ein Fehler.
     's_be_leer':       ('Diese Datei kenne ich — erspielte Baupläne stehen aber keine darin.',
@@ -2173,7 +2132,7 @@ TEXTS = {
                           'Catalogue refreshed: %s blueprints'),
     's_er_kat_weg':    ('Katalog holen ging nicht', 'Could not fetch catalogue'),
     's_er_kat_jetzt':  ('Jetzt neu holen', 'Fetch again now'),
-    # ⭐ Vorschlag von Choopa (28.09.2026). ⚠ Der Text sagt ausdrücklich, was
+    # ⚠ Der Text sagt ausdrücklich, was
     # mit der Fortschrittszahl passiert — wer 738 gewohnt ist und plötzlich
     # 1591 sieht, hält es sonst für einen Fehler.
     's_er_alle':       ('Auch Baupläne ohne bekannten Weg',
@@ -2218,11 +2177,9 @@ TEXTS = {
     # -- Seite „Diagnose" --
     's_di_lead':       ('Wenn etwas klemmt: Dieser Block sagt in einem Rutsch, woran es liegen könnte. Der rote Knopf schickt ihn dem Entwickler — mehr musst du nicht tun.',
                           'When something is stuck: this block says in one go what it might be. The red button sends it to the developer — that is all you need to do.'),
-    # ⚠ „Auf GitHub" gehört in den Namen. Vorher hieß der Knopf „Fehler
-    # melden …" und stand neben „Fehlerbericht absenden" — zwei Namen, die
-    # dasselbe versprechen, während der eine den Browser aufmacht und ein
-    # GitHub-Konto verlangt. Gemeldet am 28.08.2026: „woher weiß ein User, was
-    # Fehler melden macht?"
+    # ⚠ „GitHub" gehört in den Namen: Der Knopf steht neben „Fehlerbericht
+    # absenden", öffnet aber den Browser und verlangt ein GitHub-Konto. Zwei
+    # Namen, die dasselbe versprechen, ließen das nicht erkennen.
     's_di_melden':     ('GitHub Issue …', 'GitHub issue …'),
     's_di_absenden':   ('Fehlerbericht absenden', 'Send error report'),
     's_di_ab_frage_t': ('Fehlerbericht absenden?', 'Send error report?'),
@@ -2251,10 +2208,8 @@ TEXTS = {
                          '— it sends the report straight away. Prefer to write '
                          'instead of click? Then use Discord, the icon at the '
                          'bottom of the sidebar. Both are read.'),
-    # ⚠ „Als Datei speichern …" und „Eigenen Ordner öffnen" sind am 05.09.2026
-    # gestrichen worden — in über einem Jahr hat sie niemand benutzt. Beide
-    # erzeugten Arbeit, statt sie abzunehmen: Wer den Bericht als Datei ablegt,
-    # muss ihn danach noch irgendwohin bringen. Kopieren tut dasselbe in einem
+    # ⚠ Kein „Als Datei speichern …": Wer den Bericht als Datei ablegt, muss
+    # ihn danach noch irgendwohin bringen. Kopieren tut dasselbe in einem
     # Schritt weniger.
     's_di_browser_ok': ('Formular im Browser geöffnet', 'Form opened in the browser'),
     's_di_browser_weg': ('Browser ließ sich nicht öffnen', 'The browser would not open'),
@@ -2280,10 +2235,9 @@ TEXTS = {
                           'Your blueprint inventory will be deleted and rebuilt from the logs you still have.\n\nAnything older than your logs will not come back. Continue?'),
     's_be_reset_ok':   ('Bestand zurückgesetzt — beim nächsten Start neu gelesen',
                           'Inventory reset — read afresh on the next start'),
-    # ⚠⚠ **Auch das Misslingen muss ANKOMMEN.** Bis 3.5.0 wurde ein
-    # Fehlschlag nur in die Diagnose geschrieben — der Nutzer druckte den roten
-    # Knopf, bestaetigte die Warnung und bekam danach: nichts. Kein Haken, kein
-    # Fehler. Am 31.08.2026 aus einem Nutzerbericht (Linux, CachyOS).
+    # ⚠⚠ **Auch das Misslingen muss ANKOMMEN.** Steht ein Fehlschlag nur in
+    # der Diagnose, drueckt der Nutzer den roten Knopf, bestaetigt die Warnung
+    # und bekommt danach: nichts. Kein Haken, kein Fehler.
     's_be_reset_fehler': ('Zurücksetzen ging nicht: %s',
                           'Reset did not work: %s'),
     's_be_reset_warn': ('Zurücksetzen löscht deinen Bauplan-Stand.',
@@ -2317,8 +2271,7 @@ TEXTS = {
                           'The state of each area first — click one to see the categories inside. Clicking a category shows its blueprints.'),
     's_fo_von':        ('  von %d Bauplänen · %.0f %%',
                           '  of %d blueprints · %.0f %%'),
-    # ⭐ Wunsch Aeternitas26 (KRT, 15.09.2026): Fortschritt nur für die
-    # gemerkten Baupläne.
+    # Umschalter: Fortschritt für alle oder nur für die gemerkten Baupläne.
     's_fo_alle':       ('Alle Baupläne', 'All blueprints'),
     's_fo_merk':       ('Nur Merkliste', 'Watchlist only'),
     's_fo_merk_leer':  ('Auf deiner Merkliste steht noch kein Bauplan. Merke dir '
@@ -2337,11 +2290,9 @@ TEXTS = {
     's_or_geoeffnet':  ('Ordner geöffnet', 'Folder opened'),
     's_or_nicht_auf':  ('Der Ordner ließ sich nicht öffnen — Näheres steht in der Diagnose.',
                           'The folder could not be opened — see Diagnostics for details.'),
-    # ⚠ Das Feld gab es als Einstellung `spielstarter` schon lange — aber
-    # nirgends in der Oberfläche, nur von Hand in der `einstellungen.json`. Für
-    # jemanden, der spielen und nicht schrauben will, heißt das: gibt es nicht.
-    # Gemeldet am 27.08.2026: „einige kennen sich nicht aus und wollen nur was
-    # funktionierendes."
+    # ⚠ Die Einstellung `spielstarter` gehört in die Oberfläche: Was nur von
+    # Hand in der `einstellungen.json` steht, gibt es für jemanden, der spielen
+    # und nicht schrauben will, nicht.
     's_or_start':      ('Startbefehl für Star Citizen  —  optional',
                         'Launch command for Star Citizen  —  optional'),
     's_or_start_h':    ('Leer lassen, wenn der Knopf „RSI Launcher starten" bei dir '
@@ -2366,9 +2317,9 @@ TEXTS = {
     's_or_uebernehmen': ('Übernehmen', 'Apply'),
 
     # -- Seite „Was ist neu" --
-    # ⚠ Diese vier standen bis v3.0.0-rc58 **fest im Code** (`pages.py`) und
-    # blieben deshalb auch auf Englisch deutsch — sichtbar auf dem Reiter
-    # „Was ist neu", direkt neben einem sauber übersetzten Changelog.
+    # ⚠ Diese vier gehören hierher, nicht **fest in den Code** (`pages.py`) —
+    # sonst bleiben die Filterknöpfe auf „Was ist neu" auch auf Englisch
+    # deutsch, direkt neben einem sauber übersetzten Changelog.
     's_wn_f_alle':     ('Alles', 'All'),
     's_wn_f_neu':      ('Neu', 'New'),
     's_wn_f_bess':     ('Verbessert', 'Improved'),
@@ -2380,11 +2331,9 @@ TEXTS = {
 
     # -- Seite „Über" --
     # --- Danke & Lizenzen -------------------------------------------------
-    # ⚠ Diese Seite gibt es seit v3.0.0-rc58. Vorher stand im ganzen Programm
-    # **keine** Lizenzangabe — weder die eigene (GPL) noch die der Symbole. Und
-    # fremde Projekte wurden nur nebenbei genannt, dort wo sie gerade gebraucht
-    # wurden (StarStrings auf der Auftragstexte-Seite). Wer wissen wollte, wem
-    # was gehört, fand es nur in der README auf GitHub.
+    # ⚠ Die eine Stelle im Programm, an der alle Lizenzangaben stehen — die
+    # eigene (GPL), die der Symbole und die der fremden Projekte. Wer wissen
+    # will, wem was gehört, findet es hier und nicht nur in der README.
     's_dk_lead':       ('Was hier drinsteckt, stammt nicht nur von mir. Diese Seite '
                         'sagt, wem was gehört — und bedankt sich bei denen, ohne '
                         'die es das Werkzeug nicht gäbe.',
@@ -2419,10 +2368,9 @@ TEXTS = {
                         'Separate projects with their own licences. They are '
                         'fetched from their own addresses when needed — bundling a '
                         'copy would count as redistribution and is not allowed.'),
-    # ⚠⚠ **Krovax hat die Nutzung ausdrücklich erlaubt** und die Daten eigens
-    # bereitgestellt. Das gehört hierher, nicht nur in eine Notiz: Die Lizenz
-    # allein (CC BY-NC-ND) sähe aus, als hätten wir uns bedient — richtig ist,
-    # dass jemand die Tür aufgemacht hat. Wer hilft, wird genannt.
+    # ⚠⚠ **Der Betreiber von scmdb (Krovax) hat die Nutzung ausdrücklich
+    # erlaubt** und die Daten eigens bereitgestellt. Das gehört hierher: Die
+    # Lizenz allein (CC BY-NC-ND) deckt die Nutzung nicht ab.
     's_dk_scmdb':      ('Art, Größe, Gütegrad, Klasse und Herkunft je Bauplan — '
                         'dazu, wem ein Auftrag Ruf gutschreibt und welcher Art. '
                         'Ein Hobbyprojekt, das die Spieldaten aufbereitet und '
@@ -2440,10 +2388,8 @@ TEXTS = {
                         'sparingly: only when a new game version appears. '
                         'Through his watcher interface, Verse-Kit can report '
                         'blueprints and missions straight to scmdb.net.'),
-    # ⚠⚠ **Wer eine Quelle benutzt, nennt sie.** Die Rohstoffpreise kamen
-    # ab v3.3.0-rc39 von UEX Corp, standen aber nirgends auf dieser Seite.
-    # Am 30.08.2026 gemeldet: „UEX Corp liefert uns nun auch Daten. Sieht
-    # aber niemand — nix sagen ist wie klauen." Genau so ist es.
+    # ⚠⚠ **Wer eine Quelle benutzt, nennt sie.** Die Rohstoffpreise kommen
+    # von UEX Corp.
     's_dk_uex':        ('Kauf- und Verkaufspreise der Rohstoffe. Damit steht '
                         'neben jeder fehlenden Zutat, was sie kostet — oder '
                         'dass sie sich gar nicht kaufen lässt. Ein von '
@@ -2485,9 +2431,8 @@ TEXTS = {
                         'are generated largely automatically from the game '
                         'data and are still being refined.'),
     # ⚠⚠ Die deutsche Übersetzung selbst hat einen eigenen Urheber und eine
-    # eigene Lizenz. Die verlangt ausdrücklich **Name UND Repository** — bis
-    # v3.3.0-rc41 stand hier nur „SC Deutsch Launcher", also der Verteiler,
-    # nicht der Autor. Am 30.08.2026 nachgereicht.
+    # eigene Lizenz. Die verlangt ausdrücklich **Name UND Repository** — der
+    # „SC Deutsch Launcher" allein wäre nur der Verteiler, nicht der Urheber.
     's_dk_ini':        ('Die deutsche Übersetzung des Spiels selbst — die '
                         'Grundlage, in die der Watcher seine Bauplan-Angaben '
                         'schreibt. Es gibt sie auch auf Schweizerdeutsch; beide '
@@ -2580,9 +2525,7 @@ TEXTS = {
                               'of the time. His latest report brought two things at '
                               'once: the sluggish program start, and the blueprints '
                               'that no longer matched the catalogue with StarStrings.'),
-    # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.** Am 27.08.2026 fand
-    # ein Tester an einem Vormittag vier Fehler, die alle am Samstag jeden
-    # Nutzer getroffen hätten — und hier stand weiter nur sein Fund vom 25.08.
+    # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.**
     # Der Dank im CHANGELOG ist das eine; diese Seite ist das, was die Leute im
     # Programm sehen. Wer einen Melder hier vergisst, hat ihm nicht gedankt.
     's_dk_rurudotorg_idee':  ('**Updates kamen unter Linux nicht an** — er ist drangeblieben,'
@@ -2611,7 +2554,7 @@ TEXTS = {
                               'Verse-Kit took over the idea: if you play two '
                               'accounts on one computer, you no longer get the '
                               'other one\'s blueprints.'),
-    # Seit v3.58.0: das Schema „KRT (Orange)" folgt seinem Design-System.
+    # Das Schema „KRT (Orange)" folgt seinem Design-System.
     's_dk_greluc_idee2':     ('**Das Farbschema „KRT (Orange)"** — Farben und Form '
                               'folgen dem Design-System seines Profit Basetools.',
                               '**The "KRT (orange)" colour scheme** — colours and '
@@ -2723,8 +2666,8 @@ TEXTS = {
                               'actually does better. Crafting only showed a '
                               'factor per material, not the damage and DPS you '
                               'end up with — now both are in a table.'),
-    # ⚠ „Ich sehe nicht das Hadanite, was man braucht" — ein Fund an EINEM
-    # Bauplan, der eine Luecke in 255 aufdeckte. Der Dank benennt das, ohne
+    # ⚠ Das fehlende Hadanite — ein Fund an EINEM Bauplan, der eine Luecke
+    # in 255 aufdeckte. Der Dank benennt das, ohne
     # daraus eine Fehlergeschichte zu machen.
     's_dk_bushwick_bugs3':   ('Und das **fehlende Hadanite** am Attrition-5: '
                               'Zutaten, die im Spiel als Stück gesammelt werden '
@@ -2879,8 +2822,8 @@ TEXTS = {
     # steht er als Mensch: Das Versicherungsfeld hat er gebaut und sein Muster
     # vorab herausgegeben, damit der Import am ersten Tag damit umgehen kann.
     # ⚠⚠ Programmsymbol: Konzept UND ursprünglicher Entwurf sind von ihm, hier
-    # entstand nur die grafische Umsetzung — sein Wortlaut vom 19.09.2026. Die
-    # Fassung „nur die Idee" (v3.53.1) war falsch und hat ihn herabgesetzt.
+    # entstand nur die grafische Umsetzung. ⚠ Nicht auf „nur die Idee"
+    # verkürzen — das setzt den Urheber herab.
     's_dk_alyxone_idee':     ('**Die Versicherung im JSON-Export** — er hat das '
                               'Feld in seiner Hangar Extension gebaut und sein '
                               'Muster vorab herausgegeben, damit der Import es '
@@ -2949,7 +2892,7 @@ TEXTS = {
                         # ⚠ Den Herstellernamen NIE ueber einen Zeilenumbruch
                         # trennen. Die Klarnamen-Pruefung (52r) laesst ihn nur
                         # als Ganzes durch; halbiert bleibt ein Vorname stehen
-                        # und sie schlaegt Alarm. Am 30.08.2026 passiert.
+                        # und sie schlaegt Alarm.
                         'Ltd. oder Roberts Space Industries und wird von ihnen '
                         'weder unterstützt noch gebilligt.\n\n'
                         'Es verwendet Material aus dem offiziellen Star Citizen '
@@ -2987,10 +2930,8 @@ TEXTS = {
 
     's_ub_lead':       ('Welche Version läuft, wer sie gebaut hat — und ob du Neues vor allen anderen bekommen willst.',
                           'Which version is running, who built it — and whether you want new things before everyone else.'),
-    # ⚠ „Jetzt nachsehen" sagte nicht, wonach. Und „Aktualisieren" waere
-    # falsch: Der Knopf **prueft** nur, er holt nichts. Der
-    # SC-Deutsch-Launcher loest dasselbe mit „SCDL auf Aktualitaet
-    # pruefen" — Vorbild uebernommen (gemeldet, 26.08.2026).
+    # ⚠ Der Knopftext sagt, wonach gesehen wird. „Aktualisieren" waere
+    # falsch: Der Knopf **prueft** nur, er holt nichts.
     'hf_kofi':         ('Kaffee spendieren', 'Buy me a coffee'),
     'hf_kofi_auf':     ('Ko-fi wird im Browser geöffnet …',
                         'Opening Ko-fi in your browser …'),
@@ -3013,8 +2954,8 @@ TEXTS = {
     's_ub_nachsehen':  ('Auf Aktualität prüfen', 'Check for updates'),
     's_ub_aktuell':    ('Du hast die neueste Version.', 'You have the latest version.'),
     's_ub_gefunden':   ('Neue Version gefunden: %s', 'New version found: %s'),
-    # ⚠ Der Unterschied zwischen „nichts Neues" und „konnte nicht nachsehen".
-    # Bis rc68 meldete der Knopf in beiden Fällen Entwarnung — siehe
+    # ⚠ Der Unterschied zwischen „nichts Neues" und „konnte nicht nachsehen":
+    # Beides darf nicht als Entwarnung erscheinen — siehe
     # `updater.abruf_geglueckt`.
     's_ub_grenze':     ('GitHub lässt nur 60 Abfragen pro Stunde zu, und die '
                         'sind für den Moment aufgebraucht. In einer Stunde geht '
@@ -3027,16 +2968,13 @@ TEXTS = {
     's_ub_sucht':      ('Suche nach einer neuen Version …',
                           'Looking for a new version …'),
     's_ub_einrichtung': ('Einrichtung wiederholen', 'Run setup again'),
-    # ⚠ **Drei Schlüssel, die es nie gab.** Wer `t()` mit einem Schlüssel ruft,
-    # den diese Tabelle nicht kennt, bekommt den **Schlüsselnamen** zurück — und
-    # der steht dann in der Oberfläche. Am 28.08.2026 zeigte der Hinweis an der
-    # Rakete wörtlich `s_sp_start`; die anderen beiden wären bei der nächsten
-    # fehlgeschlagenen Übersetzung und im Versionsfenster aufgetaucht.
+    # ⚠ Wer `t()` mit einem Schlüssel ruft, den diese Tabelle nicht kennt,
+    # bekommt den **Schlüsselnamen** zurück — und der steht dann in der
+    # Oberfläche (etwa wörtlich `s_sp_start` am Hinweis an der Rakete).
     #
-    # Gefunden hat sie kein Mensch, sondern eine Prüfung: Sie sammelt jeden
-    # `t()`/`Satz()`-Aufruf mit festem Schlüssel aus dem ganzen Programm und
-    # gleicht ihn hier ab (Selbsttest, Abschnitt 49). Von Hand ist das nicht zu
-    # halten — es sind über 600 Einträge.
+    # Eine Prüfung sammelt jeden `t()`/`Satz()`-Aufruf mit festem Schlüssel
+    # aus dem ganzen Programm und gleicht ihn hier ab (Selbsttest, Abschnitt
+    # 49). Von Hand ist das nicht zu halten — es sind über 600 Einträge.
     's_sp_start':      ('RSI Launcher starten', 'Launch RSI Launcher'),
     'm_keine_fassung': ('Keine Fassung zum Herunterladen gefunden.',
                         'No version found to download.'),
@@ -3052,7 +2990,7 @@ TEXTS = {
                           'Check for new versions'),
     's_ub_taeglich_h': ('Alle 10 Minuten, ausschließlich bei GitHub. Ist etwas da, färbt sich die Glocke in der Titelleiste grün.',
                           'Every 10 minutes, only at GitHub. If there is something, the bell in the title bar turns green.'),
-    # --- Automatisches Update (`scbp/auto_update.py`, 16.09.2026) ---
+    # --- Automatisches Update (`scbp/auto_update.py`) ---
     's_ub_auto':       ('Updates automatisch einspielen',
                           'Install updates automatically'),
     's_ub_auto_h':     ('Eine neue Version wird von selbst geholt und eingespielt — '
@@ -3079,18 +3017,15 @@ TEXTS = {
                                      'Help with testing or rather have some quiet — both are fine. Click a box to switch; the button inside fetches that version right away.'),
     's_ub_wer_h':      ('Und woher die Daten kommen, ohne die es das Werkzeug nicht gäbe.',
                           'And where the data comes from, without which this tool would not exist.'),
-    # ⚠ Hieß bis rc68 „Nur fertige Versionen". Das war falsch: Das Werkzeug wird
-    # laufend weiterentwickelt, „fertig" klingt nach abgeschlossen. der Autor am
-    # 27.08.2026: „nenn es Stable Version, nicht fertige Versionen, weil es ein
-    # laufend bearbeitetes Projekt ist."
+    # ⚠ „Stabil", nicht „fertig": Das Werkzeug wird laufend weiterentwickelt,
+    # „fertig" klingt nach abgeschlossen.
     's_ub_fertig':     ('Stabile Version  ·  empfohlen',
                         'Stable version  ·  recommended'),
     's_ub_fertig_h':      ('Das Übliche: eine Meldung, wenn eine geprüfte Version erscheint. Samstags, höchstens einmal die Woche.',
                                       'The usual: a notice when a tested version appears. Saturdays, at most once a week.'),
     # ⚠ Gleiches Muster wie `s_ub_fertig` direkt darüber: Name · Zweck, mit
-    # denselben doppelten Leerzeichen um den Punkt. „Auch Testversionen" stand
-    # als einziger Kasten ohne Zusatz da und las sich wie ein angehängter
-    # Nachsatz statt wie eine Wahl. Geändert am 01.09.2026.
+    # denselben doppelten Leerzeichen um den Punkt. Ein Kasten ohne Zusatz
+    # liest sich wie ein angehängter Nachsatz statt wie eine Wahl.
     's_ub_test':       ('Testversion  ·  zum Testen',
                         'Test version  ·  for testing'),
     's_ub_test_h':        ('Du siehst Neues zuerst und hilfst beim Prüfen. Läuft ganz normal, ist aber weniger lange erprobt — es kann mal klemmen.',
@@ -3125,29 +3060,24 @@ TEXTS = {
     'b_spiel':         ('Spiel', 'Game'),
     'b_gamelog':       ('Game.log', 'Game.log'),
     'b_sicherungen':   ('Sicherungen', 'Kept logs'),
-    # ⚠⚠ **Die Zeile, die eine Rueckfrage erspart.** Am 31.08.2026 kam ein
-    # Bericht mit „462 Protokolle" und „0 Baupläne" — und ohne Absender. Ob
-    # die Erkennung bei dem Menschen nichts findet oder ob er schlicht neu im
-    # Spiel ist, war daraus NICHT zu erkennen, und nachfragen ging nicht.
-    # Jetzt steht beides drin: wie viele Protokolle durchgesehen wurden und
+    # ⚠⚠ **Die Zeile, die eine Rueckfrage erspart.** Ein Bericht mit
+    # „0 Baupläne" allein sagt nicht, ob die Erkennung nichts findet oder ob
+    # der Spieler schlicht neu ist — und Berichte kommen oft ohne Absender.
+    # Deshalb steht beides drin: wie viele Protokolle durchgesehen wurden und
     # wie viele Bauplaene dabei herauskamen. 462 gelesen und 0 gefunden heisst
     # kaputt; 0 gelesen heisst, die Nachlese lief nie.
     'b_logs_gelesen':  ('%s durchgesehen', '%s read'),
     'b_logs_funde':    ('%s Baupläne daraus', '%s blueprints from them'),
-    # ⚠ Einzahl-Fassungen. Im Bericht stand „1 Baupläne daraus" und
-    # „1 Protokolle" — gemeldet am 02.09.2026 aus einem echten Bericht.
+    # ⚠ Einzahl-Fassungen, damit nicht „1 Baupläne" im Bericht steht.
     # Der Bericht ist das, was Nutzer verschicken; ein falscher Plural darin
     # sieht nach Nachlässigkeit aus. `%s` bleibt, damit die Zahl an derselben
     # Stelle steht wie in der Mehrzahl-Fassung.
     'b_logs_funde_1':  ('%s Bauplan daraus', '%s blueprint from them'),
     'b_protokolle_1':  ('%s Protokoll', '%s log'),
     'b_protokolle':    ('%s Protokolle', '%s logs'),
-    # ⚠ Diese Zeile wäre am 27.08.2026 die halbe Diagnose gewesen: Bomb20
-    # meldete „Star Citizen startet nicht aus dem Werkzeug", und niemand konnte
-    # sehen, was das Werkzeug überhaupt gefunden hatte. Erst nach zwei Stunden
-    # kam heraus, dass es den `lug-helper` aufrief — ein Programm, das das Spiel
-    # gar nicht starten kann. Hätte hier gestanden „lug-helper (gefunden)",
-    # wäre es in einer Minute klar gewesen.
+    # ⚠ Startet das Spiel nicht aus dem Werkzeug, ist diese Zeile die halbe
+    # Diagnose: Sie zeigt, welchen Starter das Werkzeug gefunden hat — etwa den
+    # `lug-helper`, ein Programm, das das Spiel gar nicht starten kann.
     'b_starter':       ('Spielstarter', 'Game launcher'),
     'b_starter_eigen': ('%s  (selbst eingetragen)', '%s  (set by hand)'),
     'b_starter_kein':  ('keiner gefunden — der Startknopf erscheint nicht',
@@ -3157,8 +3087,8 @@ TEXTS = {
     'b_n_bauplaene':   ('%s Baupläne', '%s blueprints'),
     # ⚠ Zwei Zahlen für dieselbe Sache sind schlimmer als eine fehlende. Der
     # Bericht zählt die Datei, die Bauplan-Liste den Katalog — wer im Bericht
-    # 315 liest und in der Liste 292 sieht, hält eins von beidem für kaputt
-    # (30.08.2026 gemeldet). Jetzt steht die Differenz daneben, mit Grund.
+    # 315 liest und in der Liste 292 sieht, hält eins von beidem für kaputt.
+    # Deshalb steht die Differenz daneben, mit Grund.
     'b_n_bp_katalog':  ('%s Baupläne · %s davon im Katalog, %s unbekannt',
                         '%s blueprints · %s of them in the catalogue, %s unknown'),
     # ⚠ Die Zahl allein sagt „da stimmt was nicht" und sonst nichts. Erst die
@@ -3217,8 +3147,8 @@ TEXTS = {
     'm_keine_version': ('Version nicht gefunden', 'version not found'),
     # ⚠ 403 ist KEIN Netzfehler. scmdb steht hinter Cloudflare, und dessen
     # Schutz weist Abrufe ohne eigene Kennung ab (die nackte
-    # `Python-urllib`-Kennung laeuft auf 403, gemessen 29.08.2026). Ohne
-    # eigene Meldung stand dort nur "Netzfehler", und man sucht an der
+    # `Python-urllib`-Kennung laeuft auf 403). Ohne eigene Meldung stuende
+    # dort nur "Netzfehler", und man suchte an der
     # falschen Stelle — dieselbe Falle wie beim Zertifikatsfehler.
     # Rueckmeldungen der Herstellungs-Daten (scbp/crafting.py).
     'm_h_aktuell':     ('Rezepte sind aktuell (%d Baupläne)',
@@ -3315,10 +3245,8 @@ TEXTS = {
                           'No source is known for this blueprint.'),
 
     # -- Feinfilter über der Bauplan-Liste --
-    # Vorher waren es vier Knöpfe, die Bereiche ausblendeten — also das
-    # Gegenteil von dem, was man erwartet: Wer „nur FPS-Waffen" wollte, musste
-    # drei andere Bereiche wegklicken. Jetzt wird ausgewählt, was man sehen
-    # will, und zwar nach fünf Merkmalen.
+    # Ausgewählt wird, was man sehen will — nicht, was ausgeblendet wird —,
+    # und zwar nach fünf Merkmalen.
     'ff_alle_arten':   ('Alle Arten', 'All types'),
     'ff_alle_klassen': ('Alle Klassen', 'All classes'),
     'ff_alle_groessen': ('Alle Größen', 'All sizes'),
@@ -3328,14 +3256,13 @@ TEXTS = {
     # Waffenart (ballistisch, Laser), bei Ruestung die Rolle (Kampf, Technik).
     # Ein Feld, zwei Beschriftungen — sonst muesste man raten, was es filtert.
     # ⚠ Die Merkliste fuehrt ZWEI Sorten: angeklickte Bauplaene aus dem Katalog
-    # und eigene Beobachtungen mit Suchmustern. Die Liste zeigte nur die erste
-    # Sorte und meldete „Du beobachtest noch nichts", obwohl neun Eintraege
-    # hinterlegt waren. Am 29.08.2026 gemeldet.
+    # und eigene Beobachtungen mit Suchmustern. Die Liste muss beide zeigen,
+    # sonst meldet sie „Du beobachtest noch nichts", obwohl Eintraege
+    # hinterlegt sind.
     'merk_eigene':      ('Eigene Beobachtungen', 'Your own watches'),
     'merk_wartet':      ('wartet auf: %s', 'waiting for: %s'),
     # ⚠ Abwaehlen muss gehen. Eine Beobachtung, die man nur anlegen, aber nicht
-    # loswerden kann, wird zur Altlast: „falls wir die doch auswechseln, dann
-    # muss ich die abwählen können." (29.08.2026)
+    # loswerden kann, wird zur Altlast.
     'merk_eigene_weg':  ('Diese Beobachtung entfernen', 'Remove this watch'),
     'merk_eigene_h':    ('Diese stehen in keinem Katalog — der Watcher hält '
                          'nach den Suchmustern Ausschau, sobald etwas im Spiel '
@@ -3345,9 +3272,7 @@ TEXTS = {
                          'unlocked in the game.'),
     'ff_alle_unterarten': ('Alle Unterarten', 'All subtypes'),
     # ⚠ Das leere Feld sagt, dass es etwas zu holen gibt — sonst findet es
-    # niemand: „man muss irgendwie sichtbar machen, dass man die Unterarten
-    # auswählen kann, niemand hat es auf Anhieb gefunden, erst nach Erklärung."
-    # (29.08.2026) Ein Feld mit „Alle Unterarten" sieht aus wie eine Anzeige;
+    # niemand auf Anhieb. Ein Feld mit „Alle Unterarten" sieht aus wie eine Anzeige;
     # eines mit „12 Unterarten ▾" wie eine Einladung.
     'ff_unterart_waehlen': ('%d Unterarten — hier verfeinern',
                             '%d subtypes — refine here'),
@@ -3432,8 +3357,8 @@ TEXTS = {
     'kat_unter_tractor_beam':     ('Traktorstrahl', 'Tractor beam'),
     # ⚠ Der Spieltyp heißt `DockingCollar`, die Gegenstände sind aber
     # Treibstoffdüsen (Bendix, Torrez, RN-7s … — „Typ (De): Treibstoffdüse" in
-    # der deutschen global.ini). Bis v3.62.2 stand hier „Andockkragen"
-    # (gemeldet von Parsul, 29.09.2026). Die Schlüssel bleiben.
+    # der deutschen global.ini) — nicht „Andockkragen". Der Schlüssel heißt
+    # `kat_unter_andockkragen`.
     'kat_unter_andockkragen':     ('Treibstoffdüse', 'Fuel nozzle'),
     'kat_unter_fuelnozzle':       ('Betankungsdüse', 'Fuel nozzle'),
     'kat_unter_frachtmodul':      ('Frachtmodul', 'Cargo module'),
@@ -3469,17 +3394,15 @@ TEXTS = {
     # aus solchen Auftraegen stammen. Wer eine Quest fliegt, will wissen, was
     # dabei herausspringt.
     # ⚠⚠ Der Platzhalter im leeren Suchfeld — er ist der EINZIGE Hinweis
-    # darauf, dass hier auch Auftraege gefunden werden. Gemeldet von Zwaersch
-    # am 09.09.2026: Die Auftragssuche gab es seit v3.12.0, und niemand hat sie
-    # gesehen, weil das Feld ein leeres Kaestchen war. Nicht kuerzen auf
+    # darauf, dass hier auch Auftraege gefunden werden. Ein leeres Kaestchen
+    # verraet die Auftragssuche nicht. Nicht kuerzen auf
     # „Suchen" — dann ist der Hinweis wieder weg.
     's_bp_suche_platz':  ('Bauplan oder Auftrag suchen',
                            'Search blueprints or contracts'),
     's_bp_auftrag_kopf': ('Aufträge mit „%s"', 'Contracts matching "%s"'),
     's_bp_auftrag_zeile': ('%s — %d Baupläne', '%s — %d blueprints'),
     # ⚠ Eine Zeile, die aussieht wie eine Antwort, aber nichts tut, ist eine
-    # Sackgasse: „die Quest muss natürlich anklickbar sein, sonst bringt das
-    # nichts." (29.08.2026)
+    # Sackgasse — deshalb ist der Auftrag anklickbar.
     's_bp_auftrag_klick': ('Klick auf einen Auftrag zeigt nur seine Baupläne.',
                            'Click a contract to see only its blueprints.'),
     's_bp_auftrag_aktiv': ('Nur aus: %s', 'Only from: %s'),
@@ -3498,8 +3421,7 @@ TEXTS = {
     'ff_groesse':      ('Größe %s', 'Size %s'),
     'ff_grad':         ('Grad %s', 'Grade %s'),
     # ⚠ „Auswahl zurücksetzen", nicht nur „zurücksetzen". Auf einem Knopf
-    # allein sagt „zurücksetzen" nicht, WAS zurückgeht — und der Knopf wurde
-    # ohnehin schon einmal übersehen.
+    # allein sagt „zurücksetzen" nicht, WAS zurückgeht.
     'ff_zuruecksetzen': ('Auswahl zurücksetzen', 'Clear filters'),
     'ff_treffer':      ('%d von %d Bauplänen', '%d of %d blueprints'),
     'ff_alle_treffer': ('alle %d Baupläne', 'all %d blueprints'),
@@ -3517,9 +3439,8 @@ TEXTS = {
     # verstellt etwas in der falschen Fassung und sucht dann den Fehler.
     's_testfassung':     ('⚠ TESTFASSUNG', '⚠ TEST BUILD'),
     # ⚠ Der Rueckweg nach einem Seitensprung. Wer in der Bauplan-Liste auf
-    # einen Eintrag klickt, landet in der Herstellung — und kam von dort bis
-    # zum 13.09.2026 nur ueber die Seitenleiste zurueck, also ohne den Filter,
-    # mit dem er losgelaufen war. Gewuenscht von Bushwick.
+    # einen Eintrag klickt, landet in der Herstellung — ueber die Seitenleiste
+    # kaeme er nur ohne den Filter zurueck, mit dem er losgelaufen ist.
     # Der Platzhalter ist der Name der Seite, von der man kam.
     'hf_zurueck_zu':     ('← Zurück zu %s', '← Back to %s'),
     # --- Seite „Herstellung" -------------------------------------------------
@@ -3527,18 +3448,17 @@ TEXTS = {
                           'eine Zeile zeigt die Zutaten.',
                           'What an item needs to be crafted. Click a row to see '
                           'the ingredients.'),
-    # ⚠ „Suchen …" verschweigt, WONACH. Seit die Suche auch die Zutaten
-    # kennt, ist das die halbe Funktion: Wer nicht weiss, dass er einen
-    # Rohstoff eintippen darf, findet nie heraus, was daraus wird.
-    # Vorbild ist der Bergbau, der seit jeher „Rohstoff oder Ort …" sagt.
+    # ⚠ „Suchen …" verschweigt, WONACH. Die Suche kennt auch die Zutaten —
+    # das ist die halbe Funktion: Wer nicht weiss, dass er einen Rohstoff
+    # eintippen darf, findet nie heraus, was daraus wird. Gleiches Muster wie
+    # im Bergbau („Rohstoff oder Ort …").
     's_he_suche':        ('Bauplan oder Rohstoff …',
                           'Blueprint or resource …'),
     's_he_von':          (' von %d herstellbar — davon hast du den Bauplan',
                           ' of %d craftable — you have the blueprint for these'),
     # ⚠ Der Zusatz hinter der Kopfzahl, wenn Bauplaene wegen mehrdeutiger
     # Namen NICHT mitgezaehlt werden. Ohne ihn steht dort eine Zahl, die
-    # kleiner ist als der eigene Bestand, und nichts erklaert die Luecke —
-    # genau daran ist ein „404 von 1597" bei 405 Bauplaenen aufgefallen.
+    # kleiner ist als der eigene Bestand, und nichts erklaert die Luecke.
     's_he_dazu_unklar':  (' · %d weitere unklar',
                           ' · %d more unclear'),
     's_he_zeit':         ('Herstellzeit', 'Craft time'),
@@ -3563,10 +3483,9 @@ TEXTS = {
                           'Type a blueprint or material — or pick a type, '
                           'manufacturer or material above.'),
     # --- Lager (scbp/materials.py) ------------------------------------------
-    # ⚠ **„Rohstofflager", nicht „Mein Lager".** Am 05.09.2026: „Da sind ja
-    # Rohstoffe drin, und namentlich passt das zu Handelslager." Beides
-    # richtig — der Name sagt jetzt, was drinliegt, und die zwei Lager im
-    # Werkzeug heißen nach demselben Muster.
+    # ⚠ **„Rohstofflager", nicht „Mein Lager".** Der Name sagt, was drinliegt,
+    # und die zwei Lager im Werkzeug heißen nach demselben Muster
+    # (Handelslager).
     'hf_lager':          ('Rohstofflager', 'Material storage'),
     # ---------------------------------------------------- Reiter „Verkauf"
     's_vk_lead':         ('Wo du deine Ware los wirst — und was sie je SCU '
@@ -3673,10 +3592,9 @@ TEXTS = {
     # Schlüssel" steht in `scbp/shops.py`; kennt sie einen Namen nicht,
     # bleibt der englische stehen — geraten wird nicht.
     's_uk_armor':        ('Rüstung', 'Armor'),
-    # ⚠ „Avionik" ist ein deutsches Wort und sagt trotzdem nichts — am
-    # 04.09.2026 gefragt: „Was ist Avionic überhaupt, ich hab's doch auf
-    # Deutsch gestellt?" Dahinter stehen Radar und Flight Blades, also die
-    # Elektronik an Bord. Ebenso „Ausrüstung" direkt neben „Rüstung": zwei
+    # ⚠ „Avionik" ist ein deutsches Wort und sagt trotzdem nichts. Dahinter
+    # stehen Radar und Flight Blades, also die Elektronik an Bord. Ebenso
+    # „Ausrüstung" direkt neben „Rüstung": zwei
     # Wörter, die sich nur durch drei Buchstaben unterscheiden und
     # Verschiedenes meinen.
     's_uk_avionics':     ('Bordelektronik', 'Avionics'),
@@ -3732,18 +3650,16 @@ TEXTS = {
                             'Tell me where you are and what fits — then I work '
                             'out what pays off.'),
     's_rt_wo':           ('Wo stehst du gerade?', 'Where are you right now?'),
-    # ⭐ Hinweise IM Eingabefeld. Regel seit 12.09.2026: In jedem Feld steht,
-    # was hineingehört — ein leeres Kästchen sagt nichts. Sie liegen im Feld
+    # ⭐ Hinweise IM Eingabefeld: In jedem Feld steht, was hineingehört —
+    # ein leeres Kästchen sagt nichts. Sie liegen im Feld
     # selbst, nicht als Bauteil darüber (siehe `scbp/fields.py`).
     's_rt_wo_platz':     ('Station, Mond oder Planet tippen',
                           'Type a station, moon or planet'),
     's_rt_alle_systeme': ('Alle Systeme', 'All systems'),
     's_rt_scu':          ('Frachtraum (SCU)', 'Cargo hold (SCU)'),
     's_rt_geld':         ('Geld (aUEC)', 'Money (aUEC)'),
-    # ⚠ **Nennt beide Wege.** Am 05.09.2026: „Man muss im Werkzeug erst
-    # wissen, dass man ‚Beste Routen überall' klicken muss — das ist nicht
-    # intuitiv." Stimmt: Der Hinweis erwähnte nur das Ortsfeld, obwohl der
-    # Knopf direkt daneben stand.
+    # ⚠ **Nennt beide Wege:** das Ortsfeld und den Knopf „Beste Routen
+    # überall" direkt daneben — sonst muss man den zweiten Weg erst kennen.
     's_rt_kein_ort':     ('Tippe oben ein, wo du gerade bist — dann siehst du, '
                           'was sich von dort aus lohnt. Oder drück '
                           '„Beste Routen überall suchen", wenn dir egal ist, '
@@ -3772,11 +3688,11 @@ TEXTS = {
     's_rt_nach_strecke': ('kurze Strecke', 'short distance'),
     's_rt_strecke':      ('%d Gm', '%d Gm'),
     # ⚠ Auch „SCU" läuft durch `t()`. Die Einheit heißt zwar in beiden
-    # Sprachen gleich — aber eine Ausnahme „das ist doch international" hebelt
+    # Sprachen gleich — aber eine Ausnahme für internationale Wörter hebelt
     # die Regel aus, und die nächste Zeile ist dann keine Einheit mehr.
     's_rt_scu_menge':    ('%d SCU', '%d SCU'),
     's_auec':            ('%s aUEC', '%s aUEC'),
-    # ⚠ Die Beschriftung sagt, was das Feld TUT. „Schiff" allein ließ offen,
+    # ⚠ Die Beschriftung sagt, was das Feld TUT. „Schiff" allein lässt offen,
     # wozu man dort etwas einträgt.
     # ⚠ „Hersteller", nicht „Werft" — so heißt es überall sonst im Werkzeug.
     's_rt_alle_werften': ('Alle Hersteller', 'All manufacturers'),
@@ -3803,17 +3719,15 @@ TEXTS = {
                              'routes anywhere" above.'),
     # ⚠ „ab X" heißt: **dort kaufst du**. Kurz genug für die Zeile, und mit
     # dem Ziel dahinter eindeutig.
-    # ⚠⚠ **Beide Orte benannt, nicht nur einer.** Bis v3.15.1 stand in der
-    # Zeile allein das Ziel hinter einem Pfeil; wo eingekauft wird, ergab sich
-    # nur aus der Überschrift darüber. Am 05.09.2026 gemeldet: „Der Startpunkt
-    # und das Ziel sind nicht eindeutig genug erkennbar." Ein Pfeil zwischen
-    # einem genannten und einem ungenannten Ort ist keine Angabe.
+    # ⚠⚠ **Beide Orte benannt, nicht nur einer.** Steht allein das Ziel
+    # hinter einem Pfeil, ergibt sich der Einkaufsort nur aus der Überschrift
+    # darüber. Ein Pfeil zwischen einem genannten und einem ungenannten Ort
+    # ist keine Angabe.
     's_rt_ab':           ('kaufen ab %s', 'buy at %s'),
     's_rt_nach':         ('verkaufen in %s', 'sell at %s'),
     's_rt_einsatz':      ('Einsatz: %s aUEC', 'Outlay: %s aUEC'),
-    # ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** Über einer Kette stand nur
-    # „177.960 aUEC" — am 05.09.2026 gefragt: „Was ist das? Gewinn, oder was
-    # genau steht da? Und was ist der Einsatz auf einer Tour?" Beide Zahlen
+    # ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** Über einer Kette lässt
+    # „177.960 aUEC" offen, ob das Gewinn oder Einsatz ist. Beide Zahlen
     # gehören beschriftet, und der Einsatz gehört dazu: Was man nicht
     # vorstrecken kann, kann man nicht verdienen.
     's_rt_kette_gewinn': ('Gewinn %s aUEC', 'Profit %s aUEC'),
@@ -3837,9 +3751,9 @@ TEXTS = {
                              'there is no more there'),
     's_rt_grenze_bedarf': ('mehr nimmt das Ziel nicht ab',
                              'the destination takes no more'),
-    # ⚠ Reihenfolge: Nummer, WOHER, Menge, Ware, WOHIN. Der Einkaufsort stand
-    # vorher gar nicht da — man sah „120 SCU Copper → Rat's Nest" und musste
-    # sich denken, wo man das Copper herbekommt.
+    # ⚠ Reihenfolge: Nummer, WOHER, Menge, Ware, WOHIN. Ohne Einkaufsort
+    # sieht man nur „120 SCU Copper → Rat's Nest" und muss sich denken, wo
+    # man das Copper herbekommt.
     's_rt_schritt':      ('   %d)  In %s:  %d SCU %s kaufen  →  verkaufen in %s',
                             '   %d)  At %s:  buy %d SCU %s  →  sell at %s'),
     's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),
@@ -3879,9 +3793,8 @@ TEXTS = {
                           'limited — is it worth it?'),
     # ⚠⚠ **Der wichtigste Satz der Seite.** Ohne ihn schickt das Werkzeug
     # jemanden für 400.000 aUEC ins Feuer, die es nicht gibt.
-    # ⚠ „Brikett" stand hier bis zum 06.09.2026 — eine zu wörtliche
-    # Übersetzung von „brick". Zwaersch (KRT), von dem der Hinweis stammt,
-    # dazu: „ich hätte es als unbrauchbar oder unbenutzbar beschrieben."
+    # ⚠ Nicht „Brikett" — das wäre eine zu wörtliche Übersetzung von „brick";
+    # gemeint ist „unbrauchbar".
     's_wr_npc_warnung':  ('⚠ Das gilt für **NPC-Wracks**. Ein Spielerschiff '
                           'wird unbrauchbar, sobald der Besitzer die '
                           'Versicherung beansprucht — ausgebaute Teile sind '
@@ -3901,8 +3814,8 @@ TEXTS = {
     's_wr_kein_schiff':  ('Such dir ein Schiff aus der Liste aus.',
                           'Pick a ship from the list.'),
     # ⚠⚠ **Zwei getrennte Sätze, weil es zwei verschiedene Lagen sind.**
-    # „Fliegt noch nicht" stand hier für beide — und war bei zehn Schiffen
-    # schlicht falsch, darunter Hammerhead und Idris-P. Die Konzept-Aussage
+    # Ein „Fliegt noch nicht" für beide wäre bei Schiffen wie Hammerhead und
+    # Idris-P schlicht falsch. Die Konzept-Aussage
     # stützt sich auf UEX; wo die nichts sagt, wird auch nichts behauptet.
     's_wr_unbekannt':    ('Zu diesem Schiff liegen keine Bestückungsdaten vor. '
                           'Die Quelle führt rund 220 der 265 Schiffe — bei den '
@@ -4027,8 +3940,8 @@ TEXTS = {
                           'Download the JSON or CSV export there and pick the '
                           'file here. The older Hangar XPLORer is still read as '
                           'well.'),
-    # ⚠ Der Hinweis auf JSON steht bewusst dabei: Bei einem echten Export vom
-    # 06.09.2026 fehlten der CSV-Fassung drei Schiffe, die in der JSON standen.
+    # ⚠ Der Hinweis auf JSON steht bewusst dabei: Der CSV-Fassung eines
+    # Exports können Schiffe fehlen, die in der JSON stehen.
     # Gelesen werden beide — empfohlen wird nur eines.
     's_hg_import_json':  ('Am besten beide Dateien nacheinander: Die JSON bringt '
                           'Paketzugehörigkeit und Versicherung (LTI oder '
@@ -4079,7 +3992,7 @@ TEXTS = {
     's_hg_getragen':     ('{name} ist jetzt in deinem Hangar.',
                           '{name} is now in your hangar.'),
     # --- Liste
-    # --- Wunschliste (Vorschlag von Zwaersch (KRT), 06.09.2026)
+    # --- Wunschliste
     's_hg_wunsch_titel': ('Wunschliste', 'Wishlist'),
     's_hg_wunsch_text':  ('Schiffe und Fahrzeuge, die du dir erspielen oder '
                           'kaufen möchtest. Daneben steht, was sie kosten und '
@@ -4106,8 +4019,8 @@ TEXTS = {
                           'A newly claimed ship comes back in its factory '
                           'loadout. Without the right insurance, everything '
                           'you fitted is gone.'),
-    # Seit v3.19.0 ein eigener Reiter — die Wunschliste stand vorher unten auf
-    # der Hangar-Seite und war dort nicht zu finden.
+    # Die Wunschliste ist ein eigener Reiter — unten auf der Hangar-Seite
+    # wäre sie nicht zu finden.
     's_wl_lead':         ('Was du dir vornimmst — mit Preis, Ort und der '
                           'Ausstattung, die du schon vorher planen kannst.',
                           'What you are aiming for — with price, location and '
@@ -4145,8 +4058,8 @@ TEXTS = {
     # zurück, falls ein Haken versehentlich gesetzt wurde.
     's_wk_eingebaut_n':  ('{n} bereits eingebaut', '{n} already fitted'),
     's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
-    # ⚠ Nicht mehr „die Positionen unten": Sie stehen seit rc22 gar nicht
-    # mehr da. Ein Satz, der auf etwas Unsichtbares zeigt, verwirrt mehr, als
+    # ⚠ Kein Verweis auf „die Positionen unten": Sie stehen dann gar nicht
+    # da. Ein Satz, der auf etwas Unsichtbares zeigt, verwirrt mehr, als
     # er erklärt.
     's_ek_alles_erledigt': ('Alles erledigt — {n} Positionen sind abgehakt '
                             'und eingebaut.',
@@ -4179,7 +4092,7 @@ TEXTS = {
     # schlimmer: Der Spieler sieht das Erz ja in seinem Lager liegen.
     's_fl_zu_gering':    ('({menge} liegen da, aber unter Güte {guete})',
                           '({menge} in stock, but below quality {guete})'),
-    # ⭐ Wunsch Aeternitas26 (KRT, 15.09.2026): was ich farmen muss UND wo.
+    # Was man farmen muss UND wo.
     's_fl_fundorte':     ('Fundorte: %s', 'Found at: %s'),
     's_fl_sammel_kopf':  ('Wo du das meiste auf einmal findest',
                           'Where you find the most at once'),
@@ -4195,7 +4108,7 @@ TEXTS = {
                           'Bauplan vorliegt: {teile}',
                           '{n} parts could not be calculated because no '
                           'blueprint is available: {teile}'),
-    # --- Zerlege-Rechner (v3.19.0) — Vorschlag aus der Bergungs-Ecke
+    # --- Zerlege-Rechner
     's_zl_lead':         ('Such ein Teil heraus, dann steht hier, welche '
                           'Rohstoffe der Fabricator dir zurückgibt — und '
                           'welche dabei verloren gehen.',
@@ -4259,9 +4172,8 @@ TEXTS = {
                           'already stored is still available.'),
     's_pa_leer':         ('nichts geändert', 'nothing changed'),
     # ⚠ Die Sammelzeile für die ausgeblendeten Patches. Sie muss sein: Ohne
-    # sie sähe die Liste aus, als fehlten Patches — und genau dieser Verdacht
-    # („da sind gar keine Infos drin") war der Anlass, den ganzen Reiter zu
-    # überarbeiten. Weglassen ja, verschweigen nein.
+    # sie sähe die Liste aus, als fehlten Patches. Weglassen ja, verschweigen
+    # nein.
     's_pa_leere_weg':    ('{n} weitere Patches haben keine Werte geändert '
                           '— meist Hotfixes',
                           '{n} more patches changed no values — mostly '
@@ -4270,13 +4182,10 @@ TEXTS = {
                           '{plus} added · {minus} removed · {tilde} changed'),
     # ⚠ Der Fall, für den die lokale Ablage überhaupt gebaut wurde.
     's_pa_nur_hier':     ('nur noch bei dir', 'only in your copy'),
-    # ⚠⚠ Bis zum 07.09.2026 gab es hier NUR `s_pa_nicht_da` mit dem Wortlaut
-    # „nicht abgelegt — die Quelle meldet für ihn keine Änderungen". Der zweite
-    # Halbsatz war schlicht falsch: Ein Patch ist auch dann nicht abgelegt,
-    # wenn er 352 Änderungen hat und man nur den Knopf noch nicht gedrückt hat.
-    # Die Seite behauptete also „da ist nichts", wo in Wahrheit „da ist etwas,
-    # es ist nur noch nicht geholt" richtig gewesen wäre — und wirkte dadurch
-    # nutzlos. Deshalb jetzt drei getrennte Fälle.
+    # ⚠⚠ Drei getrennte Fälle: Ein Patch ist auch dann nicht abgelegt, wenn
+    # er viele Änderungen hat und man nur den Knopf noch nicht gedrückt hat.
+    # Ein einziger Satz „keine Änderungen" behauptete „da ist nichts", wo
+    # „da ist etwas, es ist nur noch nicht geholt" richtig ist.
     's_pa_leer_klick':   ('Dieser Patch hat keine Werte geändert — das ist bei '
                           'den meisten so. Nimm einen aus der Liste, bei dem '
                           'Zahlen stehen.',
@@ -4314,8 +4223,8 @@ TEXTS = {
     's_pa_feld_neu':     ('{feld} neu: {wert}', '{feld} new: {wert}'),
     # ⚠ Der ehrliche Fall: Der Patch hat das Feld angefasst, aber kein
     # einziger Wert darin ist anders. Rund ein Fünftel der Posten.
-    # ⚠ Nur noch für VERSCHACHTELTE Werte, wo es keinen einzelnen Wert zum
-    # Hinschreiben gibt. Bei einfachen Werten steht seit 07.09.2026 der
+    # ⚠ Nur für VERSCHACHTELTE Werte, wo es keinen einzelnen Wert zum
+    # Hinschreiben gibt. Bei einfachen Werten steht der
     # unveränderte Wert selbst da (grau) — kürzer und aussagekräftiger.
     's_pa_gleich':       ('umgebaut, kein Wert anders',
                           'restructured, no value changed'),
@@ -4364,11 +4273,10 @@ TEXTS = {
     's_hg_liste':        ('aus %s', 'from %s'),
     's_hg_lti':          ('LTI', 'LTI'),
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
-    # Carrack) — kommt aus `includedWith` der Hangar Extension. Vorschlag
-    # AlyxOne, 15.09.2026.
+    # Carrack) — kommt aus `includedWith` der Hangar Extension.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
     # Versicherungsdauer ohne LTI — aus dem CSV der Hangar Extension
-    # („120 Month Insurance"). Gewünscht am 15.09.2026.
+    # („120 Month Insurance").
     's_hg_vers_jahre':   ('{n} Jahre Versicherung', '{n} years insurance'),
     's_hg_vers_monate':  ('{n} Monate Versicherung', '{n} months insurance'),
     's_hg_plaetze':      ('{n} Steckplätze', '{n} slots'),
@@ -4376,15 +4284,15 @@ TEXTS = {
     # ⚠ Kein „unbekannt": Erkul führt nur Schiffe, die im Spiel flugfähig sind.
     # Ein Treffer hier heißt fast immer „gibt es noch nicht" — das ist eine
     # Auskunft, keine Panne, und wird auch so gesagt.
-    # ⚠ **Neutral, keine Behauptung.** Hier stand bis zum 06.09.2026 „noch
-    # nicht im Spiel" — und das war falsch, sobald die Zuordnung danebenlag
-    # (Ironclad Assault, Super Hornet Mk II fliegen längst). Was das Werkzeug
+    # ⚠ **Neutral, keine Behauptung.** „noch nicht im Spiel" wäre falsch,
+    # sobald die Zuordnung danebenliegt (Ironclad Assault, Super Hornet Mk II
+    # fliegen längst). Was das Werkzeug
     # sicher weiß, ist nur: es hat keine Daten. Die Aussage „Konzept" gibt es
     # daneben, sie stützt sich aber auf UEX und nicht auf unser Nichtwissen.
     's_hg_ohne_daten':   ('keine Steckplatz-Daten', 'no slot data'),
     # ⚠⚠ **Die Quelle steht dabei — weil sie irren kann.** UEX führt das
-    # A.T.L.S. IKTI als Konzept, obwohl es im Spiel geflogen wird (gemessen
-    # 06.09.2026). Ohne den Zusatz behauptet das Werkzeug etwas über das Spiel,
+    # A.T.L.S. IKTI als Konzept, obwohl es im Spiel geflogen wird. Ohne den
+    # Zusatz behauptet das Werkzeug etwas über das Spiel,
     # was es nicht weiß; mit ihm gibt es eine Fremdangabe weiter und sagt, von
     # wem sie stammt. Dieselbe Linie wie überall hier: lieber eine unbequeme
     # Auskunft als eine schöne Zahl, auf die kein Verlass ist.
@@ -4415,11 +4323,9 @@ TEXTS = {
     # ⚠ „Ausstattung", nicht „Auslegung": Das zweite ist die
     # wörtliche Übersetzung von „loadout" und klingt im Deutschen nach
     # Statik — nach etwas, das ein Ingenieur berechnet, nicht nach dem, was
-    # im Schiff steckt. Rückmeldung am 06.09.2026: „Auslegung klingt doof,
-    # Ausstattung wäre eher richtig."
+    # im Schiff steckt.
     #
-    # ⚠ Nur der deutsche Text ändert sich; „Loadout" ist auf Englisch der
-    # eingeführte Begriff und bleibt.
+    # ⚠ „Loadout" ist auf Englisch der eingeführte Begriff.
     's_wk_titel':        ('Ausstattung & Warenkorb', 'Loadout & shopping list'),
     's_wk_auslegung':    ('Ausstattung', 'Loadout'),
     's_wk_ab_werk':      ('ab Werk: {name}', 'stock: {name}'),
@@ -4427,9 +4333,8 @@ TEXTS = {
     's_wk_platz_frei':   ('unverändert', 'unchanged'),
     's_wk_zuruecksetzen': ('Zurücksetzen', 'Reset'),
     # ⚠ „Keine Daten" ist NICHT „nichts zu besorgen" — die beiden Sätze sagen
-    # Verschiedenes und dürfen nie füreinander einspringen. Genau diese
-    # Verwechslung hat am 06.09.2026 die Auskunft „passt in keines deiner
-    # Schiffe" erzeugt, obwohl nur die Steckplatz-Daten fehlten.
+    # Verschiedenes und dürfen nie füreinander einspringen. Sonst heißt es
+    # „passt in keines deiner Schiffe", obwohl nur die Steckplatz-Daten fehlen.
     's_wk_keine_daten':  ('Für dieses Schiff liegen keine Steckplatz-Daten vor '
                           '— eine Ausstattung lässt sich erst speichern, wenn sie '
                           'da sind.',
@@ -4479,9 +4384,9 @@ TEXTS = {
     # aus, als rechne das Werkzeug falsch.
     's_wk_route_summe':  ('Auf dieser Route {preis} aUEC',
                           'On this route {preis} aUEC'),
-    # ⚠ **Vier Bausteine statt zwei Sätze.** Die erste Fassung hatte je einen
-    # Satz für „alles Einzahl" und „alles Mehrzahl" — und schrieb bei zwei
-    # Läden an einem Ort „2 Läden · 1 Stopps". Die beiden Zahlen sind
+    # ⚠ **Vier Bausteine statt zwei Sätze.** Je ein Satz für „alles Einzahl"
+    # und „alles Mehrzahl" schriebe bei zwei Läden an einem Ort „2 Läden ·
+    # 1 Stopps". Die beiden Zahlen sind
     # unabhängig, also braucht jede ihre eigene Form.
     's_wk_laden':        ('{n} Shop', '{n} shop'),
     's_wk_laeden':       ('{n} Shops', '{n} shops'),
@@ -4557,9 +4462,8 @@ TEXTS = {
                           'Could not be saved.'),
     's_hl_leer':         ('Noch nichts eingetragen.', 'Nothing entered yet.'),
     's_hl_scu':          ('{menge} SCU', '{menge} SCU'),
-    # ⚠ „Freiwillig": Ohne Angabe kommt die Menge wie bisher aus dem
-    # Handelslager. Am 05.09.2026 gewünscht — manchmal will man Ware sofort
-    # verkaufen, ohne sie erst einzulagern.
+    # ⚠ „Freiwillig": Ohne Angabe kommt die Menge aus dem Handelslager. Mit
+    # Angabe lässt sich Ware sofort verkaufen, ohne sie erst einzulagern.
     # ⚠ Die Menge wird an der Marke der Ware eingetippt, nicht in einem Feld
     # daneben — siehe `_chips`. Dieser Satz sagt, wo.
     's_vk_scu_kurz':     ('SCU', 'SCU'),
@@ -4637,23 +4541,23 @@ TEXTS = {
     's_lg_menge_cscu':   ('Menge (cSCU)', 'Amount (cSCU)'),
     # ⚠⚠ **Edelsteine haben keine SCU.** Hadanite, Dolivine, Sadaryx und acht
     # weitere werden im Spiel als Stueck aufgesammelt; die Rezepte fordern
-    # „75", nicht „0,75 SCU". Stuende hier weiter „(SCU)" und waere das
+    # „75", nicht „0,75 SCU". Stuende hier „(SCU)" und waere das
     # cSCU-Kaestchen angehakt, landeten 75 Steine als **0,75** im Lager — ohne
     # eine Zeile Meldung. Das Kaestchen verschwindet deshalb bei Stueckware.
     's_lg_menge_stueck': ('Menge (Stück)', 'Amount (qty)'),
     # Die Einheit selbst heisst in beiden Sprachen gleich — sie steht
     # trotzdem hier, weil jeder sichtbare Text durch `t()` laeuft.
     's_lg_cscu':         ('cSCU', 'cSCU'),
-    # Die Skala der Rezepte laeuft 0 bis 1000, NICHT in Prozent. Stand hier
-    # als 'Guete %' — wer im Spiel 72 abliest und eintraegt, haette danach
-    # lauter falsche Ergebnisse bekommen: sein Erz gaelte als unbrauchbar.
+    # Die Skala der Rezepte laeuft 0 bis 1000, NICHT in Prozent. Eine
+    # Beschriftung in Prozent fuehrt in die Irre: Wer im Spiel 72 abliest und
+    # eintraegt, dessen Erz gaelte als unbrauchbar.
     's_lg_qualitaet':    ('Qualität 0–1000', 'Quality 0–1000'),
     # Vorschlaege beim Eintippen — ein freies Feld fuer einen Namen, der exakt
     # passen muss, ist eine stille Fehlerquelle. Wer "Aslerite" schreibt,
     # bekommt nie einen Treffer und erfaehrt auch nicht, warum.
-    # Ruecmeldungen beim Eintragen. ⚠ Vorher war das Feld stumm, wenn der
-    # Name fehlte — Knopf gedrueckt, nichts passiert, kein Hinweis. Und bei
-    # einer krummen Menge stand die Feldbeschriftung da statt einer Erklaerung.
+    # Rueckmeldungen beim Eintragen. ⚠ Ohne sie bliebe das Feld stumm, wenn
+    # der Name fehlt — Knopf gedrueckt, nichts passiert, kein Hinweis. Und bei
+    # einer krummen Menge braucht es eine Erklaerung.
     's_lg_kein_material': ('Trag zuerst ein Material ein.',
                            'Enter a material first.'),
     # ⚠ Beim Anlegen ist eine negative Menge keine Buchung, sondern
@@ -4665,11 +4569,9 @@ TEXTS = {
     's_lg_eingetragen':  ('Eingetragen: %s · %g %s', 'Added: %s · %g %s'),
     's_lg_summe_eins':   ('%d Posten · 1 Rohstoff', '%d entries · 1 material'),
     's_lg_meinst_du':    ('Meintest du:', 'Did you mean:'),
-    # ⚠⚠ Dieser Satz versprach bis v3.3.0-rc42 „Du kannst es trotzdem
-    # eintragen" — und war damit **falsch**, seit der Knopf dafuer weg ist. Der
-    # Text stand an einer anderen Stelle als die Meldung `s_lg_name_fremd` und
-    # blieb beim Aufraeumen stehen. Auf dem Bildschirm behauptete das Programm
-    # also etwas, das es nicht tut. Am 30.08.2026 aufgefallen.
+    # ⚠⚠ Kein „Du kannst es trotzdem eintragen" — dafuer gibt es keinen
+    # Knopf. Der Text steht an einer anderen Stelle als die Meldung
+    # `s_lg_name_fremd`.
     #
     # ⚠ Wer eine Funktion entfernt, sucht nach ALLEN Stellen, die sie
     # beschreiben — nicht nur nach dem Knopf.
@@ -4688,9 +4590,8 @@ TEXTS = {
     's_lg_weg':          ('Löschen', 'Remove'),
     # --- Einen vorhandenen Posten berichtigen -----------------------------
     # ⚠ Eintragen ohne Berichtigen ist halb fertig: Wer sich vertippt oder
-    # Material weitergegeben hat, stand vor einer Liste, die er nur noch
-    # loeschen konnte. Am 29.08.2026 gemeldet: „wenn ich was korrigieren will
-    # geht das gar nicht".
+    # Material weitergegeben hat, stuende sonst vor einer Liste, die er nur
+    # noch loeschen kann.
     's_lg_zeile_klick':  ('Klick auf eine Zeile, um sie zu ändern.',
                           'Click a row to change it.'),
     's_lg_bearbeite':    ('Du änderst diesen Posten: %s',
@@ -4700,14 +4601,11 @@ TEXTS = {
     's_lg_geaendert':    ('Geändert: %s · %g %s', 'Changed: %s · %g %s'),
     # Auf- und Abbuchen statt Kopfrechnen: Wer zwei SCU abgibt, soll „-2"
     # tippen koennen und nicht erst ausrechnen muessen, was uebrig bleibt.
-    # ⚠⚠ Der alte Satz lautete „Menge überschreiben — oder +5 bzw. -2
-    # tippen, dann wird auf- oder abgebucht." Er beschrieb eine Mechanik,
-    # statt zu zeigen, was zu tun ist: „auf- und abbuchen" ist Buchhalter-
-    # sprache, und WO die Zeichen hingehoeren stand nirgends. Am 30.08.2026
-    # gemeldet: „wie genau es geht kapier ich nicht, steht da auch nicht"
-    # und „didaktisch schon grausam".
+    # ⚠⚠ Der Text zeigt, was zu tun ist, statt eine Mechanik zu beschreiben:
+    # „auf- und abbuchen" ist Buchhaltersprache und sagt nicht, WO die
+    # Zeichen hingehoeren.
     #
-    # Jetzt: eine Handlung je Zeile, mit Beispiel. Die eigentliche
+    # Deshalb: eine Handlung je Zeile, mit Beispiel. Die eigentliche
     # Erklaerung ist ohnehin die Vorschau neben dem Feld — sie zeigt beim
     # Tippen, was herauskommt.
     's_lg_rechnen':      ('Neue Menge eintippen — oder anhängen: '
@@ -4727,13 +4625,10 @@ TEXTS = {
     # ⚠ Der Name ist der Schluessel zwischen Lager und Rezept. Ein Vertipper
     # macht den Bestand still unbrauchbar: Die Liste sieht richtig aus, nur die
     # Haekchen bleiben aus. Deshalb wird abgeglichen, statt zu uebernehmen.
-    # ⚠⚠ Es gibt keinen Ausweg mehr — der Text darf also nicht klingen,
-    # als gaebe es einen. „Du kannst es trotzdem eintragen" stand hier
-    # bis v3.3.0-rc40 und war die Einladung, ein freies Textfeld zu
-    # benutzen. Grund fuer die Sperre: siehe `crafting.storable()`.
+    # ⚠⚠ Es gibt keinen Ausweg — der Text darf also nicht klingen, als gaebe
+    # es einen. Grund fuer die Sperre: siehe `crafting.storable()`.
     # ⚠ Auch der Lagerort ist eine geschlossene Liste — aus demselben Grund
-    # wie der Rohstoffname. „Bei Oma im Keller ist eben keine Location mit
-    # Lager in SC." (30.08.2026)
+    # wie der Rohstoffname: Ein frei erfundener Ort ist kein Lager im Spiel.
     's_lg_ort_fremd':    ('„%s" gibt es in Star Citizen nicht. Tipp die '
                           'ersten Buchstaben einer Station oder Stadt, dann '
                           'kommt der Vorschlag — oder lass das Feld leer.',
@@ -4757,12 +4652,11 @@ TEXTS = {
     # Hand gepflegt und ist irgendwann lückenhaft. Ein Hinweis darf danebenliegen,
     # eine Behauptung nicht.
     # Wirkung der Materialqualitaet auf die Werte des Produkts.
-    # 1540 der 1607 Bauplaene haben solche Angaben (gemessen 29.08.2026).
+    # Rund 1540 der 1607 Bauplaene haben solche Angaben.
     's_he_werte':        ('Mit deinem Material', 'With your material'),
     # ⚠ Dieselbe Flaeche zeigt zwei verschiedene Dinge, also braucht sie zwei
     # Ueberschriften. Steht nichts im Lager, ist es kein „dein Material" —
-    # dann wird ein Wert durchgespielt, und das muss dranstehen. Am 29.08.2026
-    # gesehen: „dir fehlt: 1.2" bei Borase, darunter „Mit deinem Material".
+    # dann wird ein Wert durchgespielt, und das muss dranstehen.
     's_he_werte_probe':  ('Was Qualität %g bringen würde',
                           'What quality %g would give'),
     # ⚠ Seit es je Material einen eigenen Regler gibt, waere EINE Zahl in
@@ -4803,8 +4697,8 @@ TEXTS = {
     # bringe ich es?"
     # ⭐ Scan-Signatur: der Scanner zeigt eine Zahl, aber nicht, was
     # dahintersteckt. Genau die Luecke schliesst das Feld.
-    # ⚠ Neu formuliert am 17.09.2026: „Signatur selbst ablesen" las sich, als
-    # müsse der Spieler selbst ablesen — gemeint war das Gegenteil.
+    # ⚠ Nicht „Signatur selbst ablesen": Das liest sich, als müsse der
+    # Spieler selbst ablesen — gemeint ist das Gegenteil.
     's_bg_sig_feld':     ('Signatur nachschlagen', 'Look up a signature'),
     's_bg_scan_kopf':    ('Signatur automatisch erkennen', 'Recognise signatures automatically'),
     's_bg_scan_h':       ('Beim Scannen findet Verse-Kit die Zahl selbst im Bild und zeigt im Overlay, welches Erz es ist. Wird eine Zahl nicht erkannt: „Ziffern anlernen". Nur Windows.',
@@ -4878,7 +4772,7 @@ TEXTS = {
                           'with 10 %% tolerance.'),
     's_bg_sig_anzahl':   ('%d mögliche Treffer', '%d possible matches'),
     's_bg_sig_genau':    ('genau', 'exact'),
-    # --- Raffinerien im Vergleich (Wunsch vom 13.09.2026) ---
+    # --- Raffinerien im Vergleich ---
     # ⚠ Der Vorspann nennt die Nachteile ausdrücklich. Wer nur „hier stehen die
     # Boni" liest, überfliegt die roten Zahlen — und genau die entscheiden.
     's_rf_lead':         ('Was jede Raffinerie aus deinem Erz macht — Aufschlag '
@@ -4997,7 +4891,7 @@ TEXTS = {
                            'for this blueprint.'),
     # ⚠ Bei einer TEILmenge muss beides dastehen. „dir fehlt 0,07" allein
     # verschweigt, dass 0,02 schon da sind — und genau das will man wissen,
-    # bevor man losfliegt. (Frage von Xharig, 29.08.2026.)
+    # bevor man losfliegt.
     # Spaltenkoepfe der Lager-Tabelle — anklickbar zum Sortieren.
     's_lg_sp_material':  ('Material', 'Material'),
     's_lg_sp_menge':     ('Menge', 'Amount'),
@@ -5011,22 +4905,15 @@ TEXTS = {
                           '%g SCU on hand, but below Q %g'),
     's_lg_da':           ('hast du: %g', 'you have: %g'),
     's_lg_fehlt':        ('dir fehlt: %g', 'you are missing: %g'),
-    # ⚠ Der Knopf muss sagen, WAS PASSIERT. 'Das stelle ich jetzt her' klang
+    # ⚠ Der Knopf muss sagen, WAS PASSIERT. 'Das stelle ich jetzt her' klingt
     # nach einer Aktion im Spiel; dass dabei das eigene Lager verrechnet wird,
-    # stand nirgends. Xharig hat ihn am 29.08.2026 selbst nicht gefunden.
+    # muss dastehen.
     's_lg_bauen':        ('Hergestellt — vom Lager abziehen',
                           'Crafted — deduct from stock'),
     # ⭐⭐ **Der Weg von einem Bauplan zur Materialliste — ohne Umweg über ein
-    # Schiff.** Bis v3.20.0 führte jede Materialliste über die Wunschliste:
-    # erst ein Schiff eintragen, dann Steckplätze belegen. Für einen Helm, eine
-    # Waffe oder ein Rüstungsteil gab es diesen Weg gar nicht.
-    #
-    # Gemeldet von Haldjas am 06.09.2026: *„‚What to farm' ist irgendwie
-    # bisschen unnötig komplex — man geht da rein, wird dann zu ‚still missing'
-    # geschickt und weiß dann aber nicht so genau, was man machen soll. […]
-    # Eventuell wäre es sinnvoll, direkt unter Crafting Buttons hinzuzufügen,
-    # die dann die entsprechenden Blueprints auf die Wishlist / zu What to farm
-    # hinzufügen."*
+    # Schiff.** Über die Wunschliste ginge es nur mit Schiff und Steckplätzen;
+    # für einen Helm, eine Waffe oder ein Rüstungsteil gäbe es diesen Weg gar
+    # nicht. Der Knopf sitzt deshalb direkt in der Herstellung.
     's_mz_knopf':        ('Zum Farmen vormerken', 'Add to farming list'),
     's_mz_drauf':        ('Vorgemerkt ✓', 'On the list ✓'),
     's_mz_hilfe':        ('Landet unter »Was ich farmen muss« — mit dem '
@@ -5043,19 +4930,16 @@ TEXTS = {
                           'weapons too, not only ship parts.'),
     's_mz_weg':          ('Streichen', 'Remove'),
     's_mz_stueck':       ('Stück', 'Qty'),
-    # ⚠ **Das Material gehört an den Eintrag.** Gemeldet am 06.09.2026: „Man
-    # sieht da aber kein Material, was man farmen muss — unter den Waffen würde
-    # es Sinn machen, dass man das zu farmende Material sieht." Die Summe unten
-    # sagt, wie viel Erz insgesamt fehlt; hier steht, wofür.
+    # ⚠ **Das Material gehört an den Eintrag.** Die Summe unten sagt, wie
+    # viel Erz insgesamt fehlt; hier steht, wofür.
     # ⚠ `%s` und nicht `%.2f` — die Zahl kommt fertig formatiert aus
-    # `_menge_text()`, mit Komma und ohne Nullenschwanz. Ein `%.2f` schrieb
-    # „4.64" mit Punkt, während zehn Zeilen tiefer „8,8" stand.
+    # `_menge_text()`, mit Komma und ohne Nullenschwanz. Ein `%.2f` schriebe
+    # „4.64" mit Punkt, während zehn Zeilen tiefer „8,8" steht.
     #
-    # ⚠⚠ **Kein „hast" mehr.** Es stand einmal dabei — und zeigte den vollen
-    # Lagerbestand (8,01), während die Summe darunter den für diesen Bedarf
-    # zugeteilten Anteil nannte (3,44). Beide Zahlen waren richtig gerechnet,
-    # aber zwei „hast"-Werte auf einer Seite sind ein Fehler. Was fehlt, sagt
-    # jetzt die Farbe und die Summe darunter.
+    # ⚠⚠ **Kein „hast".** Es zeigte den vollen Lagerbestand, während die
+    # Summe darunter den für diesen Bedarf zugeteilten Anteil nennt — zwei
+    # „hast"-Werte auf einer Seite sind ein Fehler, auch wenn beide richtig
+    # gerechnet sind. Was fehlt, sagt die Farbe und die Summe darunter.
     's_mz_braucht':      ('braucht %s', 'needs %s'),
     's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
                           'No recipe available for this blueprint.'),
@@ -5065,8 +4949,7 @@ TEXTS = {
                           'of your stock.'),
     's_lg_abgezogen':    ('Abgezogen.', 'Deducted.'),
     # ⚠ Nichts wird abgezogen, wenn etwas fehlt — der Text muss das sagen.
-    # „Abgezogen, so weit vorhanden" stand hier bis v3.3.0-rc35 und
-    # beschrieb ein Verhalten, das ein halb leeres Lager hinterliess.
+    # Ein „Abgezogen, so weit vorhanden" hinterliesse ein halb leeres Lager.
     's_lg_teilweise':    ('Nichts abgezogen — es fehlt: %s',
                           'Nothing deducted — missing: %s'),
     's_lg_fehlt_paar':   ('%s (%g)', '%s (%g)'),
@@ -5088,8 +4971,7 @@ TEXTS = {
     # ⚠ 589 Rezept-Slots haben ein Material OHNE jede Qualitaetswirkung.
     # Dort einen Regler anzubieten heisst: Man zieht, und nichts
     # passiert — ein Bedienelement, das nichts tut, ist schlimmer als
-    # keines. Am 30.08.2026 beim Testen aufgefallen (Titanium in der
-    # BUL-H4 Armor).
+    # keines (z. B. Titanium in der BUL-H4 Armor).
     's_he_ohne_wirkung': ('verändert keine Eigenschaft',
                           'changes no property'),
     # --- Produktwerte: Grundwert gegen gebauten Wert (`scbp/product_stats.py`)
@@ -5248,9 +5130,8 @@ TEXTS = {
                           'The percentage says how much of what you mine here '
                           'with that gear is this ore — not how big the location '
                           'is. Hand, vehicle and ship mining count separately.'),
-    # ⚠ Bis v3.27.0 stand hier „Genauer — mit Wahrscheinlichkeiten und
-    # Refinery-Vergleich". Beides zeigt der Watcher inzwischen selbst; der Satz
-    # verwies also auf etwas, das eine Seite höher schon dastand.
+    # ⚠ Kein Verweis auf Wahrscheinlichkeiten oder Refinery-Vergleich: Beides
+    # zeigt der Watcher selbst, eine Seite höher.
     's_bg_mehr_info':    ('Die vollständigen Bergbaudaten und weitere '
                           'Auswertungen stehen auf scmdb.net',
                           'The full mining data and further analyses are at '
@@ -5285,8 +5166,8 @@ TEXTS = {
                           '%s · %d own digit images (%d digits) · %d scan images · last %s · scale %s'),
     'b_scan_nicht':      ('auf diesem System noch nicht verfügbar', 'not available on this system yet'),
     # ⭐ Der Schalter sagt nicht, ob die Wache wirklich liest — siehe
-    # `signature_watch.running()`. Genau diese Unterscheidung fehlte in der
-    # Nacht zum 21.09.2026 und kostete eine ganze Fehlersuche.
+    # `signature_watch.running()`. Ohne diese Unterscheidung ist ein
+    # Fehlerbericht zur Scan-Wache kaum zu deuten.
     'b_scan_laeuft':     ('an, Wache liest', 'on, watch is reading'),
     'b_scan_tot':        ('an, aber die Wache liest NICHT', 'on, but the watch is NOT reading'),
     'b_n_bauplaene_kurz': ('%d Baupläne · Stand %s', '%d blueprints · build %s'),
@@ -5317,9 +5198,8 @@ TEXTS = {
                           'is sent.'),
     's_melder_leer':     ('nicht angegeben', 'not given'),
     'hf_gruppe_bp':      ('Baupläne', 'Blueprints'),
-    # Hiess frueher Herstellung & Bergbau. Das deckte das Lager nicht ab,
-    # das seit v3.3.0 in derselben Gruppe sitzt; drei Woerter waeren als
-    # Ueberschrift zu lang geworden.
+    # `hf_gruppe_herst` heisst „Werkstatt": Die Gruppe umfasst Herstellung,
+    # Bergbau und Lager; drei Woerter waeren als Ueberschrift zu lang.
     'hf_gruppe_schiffe': ('Schiffe', 'Ships'),
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
@@ -5345,8 +5225,8 @@ TEXTS = {
                           'Variants can be told apart — F7C, F7C-M, Mk I and '
                           'Mk II are different models to the game.'),
     # ⚠ Kein gemaltes Sternzeichen als Beschriftung: Das Projekt malt keine
-    # Symbole, und `U+2605` kennt cp1252 nicht — daran ist am 06.09.2026 schon
-    # ein Bau-Lauf gestorben (Pruefung 144). Das Sternchen selbst steht in
+    # Symbole, und `U+2605` kennt cp1252 nicht — daran stirbt ein Bau-Lauf
+    # (Pruefung 144). Das Sternchen selbst steht in
     # `asop.STAR` und geht in die Sprachdatei des Spiels, nicht in die
     # Oberflaeche.
     's_as_stern':        ('Stern', 'Star'),
@@ -5399,9 +5279,8 @@ TEXTS = {
                            'the "In-game text" page does that for you.'),
     'hf_wunschliste':    ('Wunschliste', 'Wishlist'),
     # ⚠ **Nicht „Einkaufsliste".** Der Reiter führt beide Wege — kaufen UND
-    # selbst herstellen. Am 06.09.2026 dazu: „Einkaufsliste trifft ja nicht zu,
-    # wenn Herstellungsliste und Einkaufsliste eins ist." Stimmt. Der Name
-    # folgt jetzt dem Muster der anderen Reiter („Was steckt drin?", „Was ist
+    # selbst herstellen. Der Name folgt dem Muster der anderen Reiter
+    # („Was steckt drin?", „Was ist
     # neu") und sagt, welche Frage die Seite beantwortet.
     'hf_einkaufsliste':  ('Was noch fehlt', 'Still missing'),
     'hf_farmliste':      ('Was ich farmen muss', 'What to farm'),
@@ -5420,34 +5299,27 @@ TEXTS = {
     'hf_fortgeschritten':('Für Fortgeschrittene', 'For advanced users'),
     'hf_gruppe_info':    ('Info', 'Info'),
     'hf_liste':          ('Bauplan-Liste', 'Blueprint list'),
-    # ⚠ „Fortschritt" allein reichte, solange das Fenster nur Baupläne kannte.
-    # Mit den Sichten Herstellung und Bergbau ist es mehrdeutig — es könnte der
-    # Herstellungs- oder Abbaufortschritt sein. (gemeldet 29.08.2026.)
+    # ⚠ „Fortschritt" allein ist mehrdeutig, weil es auch die Sichten
+    # Herstellung und Bergbau gibt — es könnte der Herstellungs- oder
+    # Abbaufortschritt sein.
     'hf_fortschritt':    ('Bauplan-Fortschritt', 'Blueprint progress'),
     'hf_allgemein':      ('Allgemein', 'General'),
     'hf_anzeige':        ('Anzeige', 'Display'),
     'hf_ordner':         ('Installation & Pfade', 'Installation & paths'),
-    # „Angaben im Spiel" sagte nicht, worum es geht — dahinter stecken die
-    # Textquelle (Übersetzung, StarStrings oder Original) und das Eintragen der
-    # Bauplan-Angaben in die Auftragstexte. Beides betrifft die Texte der
-    # Aufträge, also heißt der Punkt jetzt danach.
-    # ⚠ „Texte im Spiel", nicht mehr „Auftragstexte": Der alte Name sagte nicht,
-    # **wo** diese Texte auftauchen. Gemeldet am 27.08.2026: „das bescheibt es
-    # nicht gut genug".
+    # Dahinter stecken die Textquelle (Übersetzung, StarStrings oder Original)
+    # und das Eintragen der Bauplan-Angaben in die Auftragstexte — beides
+    # Texte im Spiel. Der Name sagt, **wo** diese Texte auftauchen.
     #
-    # „Ingame-Texte" stand kurz zur Wahl und ist unter Spielern gängig — aber
-    # jeder andere Reiter der Leiste ist deutsch (Bauplan-Liste, Fortschritt,
-    # Anzeige, Bestand, Serverstatus …). Ein einzelner Anglizismus dazwischen
-    # fällt auf, und Einheitlichkeit war der Grund für die ganze Überarbeitung.
+    # Kein Anglizismus wie „Ingame": Jeder andere Reiter der Leiste ist
+    # deutsch (Bauplan-Liste, Fortschritt, Anzeige, Bestand, Serverstatus …).
     'hf_spiel':          ('Spiel', 'Game'),
     'hf_uebersetzung':   ('Übersetzung', 'Translation'),
-    # ⚠ Nicht nur „Bestand". Seit es „Mein Lager" gibt, verwechseln Leute die
-    # beiden: Der eine Reiter fuehrt die Bauplaene, der andere die Rohstoffe.
+    # ⚠ Nicht nur „Bestand": Neben dem Rohstofflager waere das verwechselbar.
+    # Der eine Reiter fuehrt die Bauplaene, der andere die Rohstoffe.
     # Der Name nennt deshalb, worum es geht — und passt zu den Nachbarn
     # „Bauplan-Liste" und „Bauplan-Fortschritt".
     'hf_bestand':        ('Bauplan-Bestand', 'Blueprint inventory'),
     # ⚠ „Über“ allein findet niemand, der ein Update sucht.
-    # Gemeldet am 26.08.2026: „ich suche updates auch nicht bei Über“.
     'hf_ueber':          ('Update & Über', 'Update & About'),
     'hf_serverstatus':   ('Serverstatus', 'Server status'),
     'hf_danke':          ('Danke & Lizenzen', 'Thanks & Licenses'),
@@ -5543,12 +5415,9 @@ TEXTS = {
     # ⚠ Bewusst nicht „Was ist neu im Patch" — die beiden stünden dann
     # untereinander und ließen sich im Vorbeigehen verwechseln. Hier geht es
     # um das SPIEL, dort um das Werkzeug.
-    # ⚠ Hiess bis zum 07.09.2026 „Was der Patch geändert hat". Zwei Probleme:
-    # Der Reiter steht direkt unter „Was ist neu" — beide fingen mit „Was" an,
-    # beide klangen nach Neuigkeiten, und keiner sagte, WORUEBER er spricht.
-    # Dabei ist genau das der Unterschied: dort das WERKZEUG, hier das SPIEL.
-    # Dazu war er mit 26 Zeichen der mit Abstand laengste Reiter in einer
-    # Leiste, deren andere Eintraege 11 bis 13 Zeichen haben.
+    # ⚠ Der Name sagt, WORUEBER der Reiter spricht, und faengt nicht wie
+    # „Was ist neu" mit „Was" an. Kurz halten: Die anderen Eintraege der
+    # Leiste haben 11 bis 13 Zeichen.
     'hf_patchaenderungen': ('Geänderte Spielwerte', 'Changed game values'),
     # --- Statistik (v3.58.0) ---
     # ⚠ Nur Zahlen, die in jeder Spielsprache gleich im Log stehen — keine
@@ -5573,8 +5442,7 @@ TEXTS = {
     's_sx_export':       ('Statistik speichern …', 'Save statistics …'),
     's_sx_exportiert':   ('Gespeichert: %s', 'Saved: %s'),
     's_sx_export_fehler': ('Die Statistik ließ sich nicht speichern.', 'The statistics could not be saved.'),
-    # ⭐ Seit v3.58.0-rc2 eine eigene Gruppe mit Unterseiten (Vorbild: die
-    # Spielstatistik des SC Deutsch Launchers). Ganz oben die Auswertung —
+    # ⭐ Eine eigene Gruppe mit Unterseiten. Ganz oben die Auswertung —
     # das, was man einstellt, steht vor dem, was man liest.
     'hf_gruppe_statistik': ('Statistik', 'Statistics'),
     'hf_st_auswertung':  ('Auswertung', 'Evaluation'),
@@ -5672,7 +5540,7 @@ TEXTS = {
     's_sb_e_sauber':     ('Sauber beendet', 'Closed properly'),
     's_sb_e_absturz':    ('Absturz', 'Crash'),
     's_sb_e_offen':      ('Kein Ende im Log', 'No end in the log'),
-    # --- Einstellungen neu gegliedert (v3.58.0-rc4, 27.09.2026) ---
+    # --- Einstellungsseiten ---
     'hf_overlay':        ('Overlay', 'Overlay'),
     'hf_darstellung':    ('Darstellung', 'Appearance'),
     'hf_module':         ('Module', 'Modules'),
@@ -6139,11 +6007,9 @@ TEXTS = {
     # ⚠⚠ **Diese drei stehen NICHT direkt in einem `t(...)`-Aufruf.** Sie werden
     # im Assistenten und auf der Einstellungsseite über eine Schleifenvariable
     # geholt (`for schluessel, quelle in (('inj_quelle_de', …), …): t(schluessel)`).
-    # Wer nach `t('inj_quelle_de')` sucht, findet nichts und hält sie für tot —
-    # genau so sind sie am 26.08.2026 beim Aufräumen mitgegangen. Im Setup
-    # standen danach acht Tage lang die nackten Schlüsselnamen als Knopfbeschriftung
-    # (Schritt 4 von 5). Gemeldet von Haldjas, 03.09.2026: „setup ist ein klein
-    # wenig kaputt". Prüfung 49 wacht seitdem auch über Schleifenvariablen.
+    # Wer nach `t('inj_quelle_de')` sucht, findet nichts und hält sie für tot.
+    # Fehlen sie, stehen im Setup die nackten Schlüsselnamen als
+    # Knopfbeschriftung. Prüfung 49 wacht auch über Schleifenvariablen.
     'inj_quelle_de':     ('Deutsch — Übersetzung von rjcncpt laden',
                           'German — fetch the rjcncpt translation'),
     'inj_quelle_ss':     ('Englisch — StarStrings von MrKraken laden',
@@ -6156,11 +6022,9 @@ TEXTS = {
                           'The translation and StarStrings are separate projects. '
                           'They are fetched from their own pages on click, not '
                           'bundled with this tool.'),
-    # ⚠ Der vierte Weg war immer da — man sah ihn nur nicht. Wer weiterklickte,
-    # ohne zu wählen, behielt seine Installation unverändert; im Fenster stand
-    # das nirgends. Gemeldet von Choopa (28.09.2026): „Was wenn ich das nicht
-    # direkt will?" — er nutzt die Übersetzungen des SCLC und wollte keine
-    # zweite geladen bekommen. Wortlaut wie auf dem Reiter „Übersetzung"
+    # ⚠ Der vierte Weg: Wer weiterklickt, ohne zu wählen, behält seine
+    # Installation unverändert — das muss im Fenster stehen, etwa für alle,
+    # die schon eine andere Übersetzung nutzen. Wortlaut wie auf dem Reiter „Übersetzung"
     # (`s_tq_nichts`), damit dieselbe Sache überall gleich heißt.
     'inj_quelle_nichts': ('Nicht anfassen — keine Übersetzung laden',
                           'Leave alone — do not load a translation'),
@@ -6183,9 +6047,7 @@ TEXTS = {
     'inj_fehler':        ('Hat nicht geklappt: %s', 'Did not work: %s'),
     # ⚠ „Wirkt beim nächsten Spielstart" gehört an diese Stelle. Star Citizen
     # liest die Textdatei **einmal beim Hochfahren** — wer das Spiel offen hat,
-    # sieht nach dem Einspielen nichts und hält es für kaputt. Morkhan am
-    # 28.08.2026 genau so: „das is immer noch [da]" — er hatte das Spiel nie
-    # neu gestartet.
+    # sieht nach dem Einspielen nichts und hält es für kaputt.
     'inj_aktiv':         ('Bauplan-Angaben sind eingetragen (%d Stellen) — wirkt beim nächsten Spielstart',
                           'Blueprint notes are in place (%d spots) — takes effect the next time the game starts'),
     # ⚠ Der Wechsel räumt die alte Sprachdatei auf — das gehört gesagt, nicht
@@ -6304,12 +6166,11 @@ def subscribe(callback):
 # Die Knopfbeschriftungen der System-Abfragen (`messagebox.askyesno`) kommen
 # nicht aus dieser Datei, sondern aus Tks eigener Sprachtabelle `msgcat`.
 #
-# ⚠ Und die ist unvollständig: Auf Linux stand die Tk-Sprache bereits richtig
-# auf `de_de`, die deutschen Texte fehlten der Installation aber schlicht —
-# gemessen am 28.08.2026, `::msgcat::mc Yes` gab „Yes“ zurück. Ergebnis war
-# eine Abfrage mit deutschem Text und den Knöpfen **Yes / No**, gefunden von
-# der Autor beim Umstellen der Textquelle. Unter Windows fällt es nicht auf,
-# weil Tk die Texte dort mitbringt.
+# ⚠ Und die ist unvollständig: Auf Linux kann die Tk-Sprache richtig auf
+# `de_de` stehen, während der Installation die deutschen Texte schlicht
+# fehlen — `::msgcat::mc Yes` gibt dann „Yes“ zurück. Ergebnis ist eine
+# Abfrage mit deutschem Text und den Knöpfen **Yes / No**. Unter Windows
+# fällt es nicht auf, weil Tk die Texte dort mitbringt.
 #
 # Also tragen wir sie selbst ein. Nur für Deutsch — im englischen Betrieb sind
 # „Yes/No“ ja richtig.
@@ -6374,11 +6235,8 @@ def set_language(lang):
 # Die Eigenschaften aus den Rezeptdaten
 # ---------------------------------------------------------------------------
 #
-# ⚠⚠ **Am 31.08.2026 gemeldet:** „die Beschreibung, welche Werte sich ändern,
-# ist bei deutscher Einstellung englisch — einige können kein Englisch und
-# verstehen das nun nicht, und melden, es würde ihnen nicht helfen." Genau der
-# Zweck der Seite ging damit verloren: Wer nicht weiß, was „Damage Mitigation"
-# heißt, liest eine Zahl ohne Bedeutung.
+# ⚠⚠ **Übersetzt, weil sonst der Zweck der Seite verloren geht:** Wer nicht
+# weiß, was „Damage Mitigation" heißt, liest eine Zahl ohne Bedeutung.
 #
 # ⚠ **Gehen über den sprachneutralen `propertyKey`**, nicht über den englischen
 # Namen — sonst fällt beim nächsten Patch die Hälfte still auf Englisch zurück.
@@ -6442,10 +6300,9 @@ class Phrase:
     """Ein Text, der erst **beim Anzeigen** in Sprache gegossen wird.
 
     ⚠ Der Unterschied zu `t()`: `t()` liefert einen fertigen Satz — wer den in
-    ein Label schreibt, hat die Sprache von damals eingefroren. Stellt jemand
-    später um, bleibt die Zeile stehen wie sie war. Genau so hatte am
-    26.08.2026 jemand ein englisches Fenster mit einer deutschen Meldung
-    „Keine Log-Sicherungen gefunden" darin.
+    ein Label schreibt, friert die Sprache dieses Moments ein. Stellt jemand
+    später um, bleibt die Zeile stehen wie sie war — ein englisches Fenster
+    mit einer deutschen Meldung darin.
 
     Ein `Satz` merkt sich stattdessen **Schlüssel und Werte** und setzt sich
     bei jedem `str(...)` neu zusammen. Wer ihn wegschreibt, kann ihn beim
@@ -6554,12 +6411,12 @@ if __name__ == '__main__':
 
 
 # ---------------------------------------------------------------------------
-# Feldnamen aus den Erkul-Diffs — „Was der Patch geändert hat"
+# Feldnamen aus den Erkul-Diffs — Reiter „Geänderte Spielwerte"
 #
 # ⚠⚠ **Warum das hier steht und nicht im Code.** Die Werte-Diffs von erkul
 # tragen die rohen CIG-Bezeichner: `precomputed.fuel.hydrogenCapacity`. Für den
-# Entwickler lesbar, für einen Spieler nicht — und die Seite zeigte 2753 solcher
-# Zeilen. Gemessen am 07.09.2026 über die zwei Patches mit Inhalt: **60**
+# Programmierer lesbar, für einen Spieler nicht — und die Seite zeigt
+# Tausende solcher Zeilen. Gemessen über zwei Patches mit Inhalt: **60**
 # verschiedene Pfade, aber die häufigsten **25 decken 93 %** aller Vorkommen.
 # Ein überschaubares Wörterbuch bringt also fast alles.
 #
@@ -6569,7 +6426,7 @@ if __name__ == '__main__':
 #
 # ⚠ **Nichts hineinschreiben, was nicht gemessen ist.** `vehicle.dimensions.x`
 # steht bewusst als „Abmessung (X)" darin und nicht als „Länge": Welche Achse
-# welche Kante ist, war nicht nachgeprüft. Lieber sperrig und richtig.
+# welche Kante ist, ist nicht nachgeprüft. Lieber sperrig und richtig.
 PA_FIELDS = {
     # Treibstoff — der ganze Block 4.10.0 (183 Schiffe)
     'precomputed.fuel.hydrogenCapacity':      ('Wasserstoff-Tank',

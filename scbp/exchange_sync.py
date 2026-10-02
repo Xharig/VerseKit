@@ -27,7 +27,7 @@ geht: VerseKits Bestand in das Format bringen, den Abgleich **planen** und die
 Antwort des Servers deuten. Es schickt nichts, öffnet nichts und schreibt nichts
 auf die Platte — die Netzseite kommt als eigener Baustein darüber.
 
-**Die Regeln des Abgleichs** (gelucs ADR-0218 und unsere Leitplanken):
+**Die Regeln des Abgleichs** (ADR-0218 des Basetools und unsere Leitplanken):
 
 1. **Aus Fehlen wird nie gelöscht.** Fehlt ein Bauplan auf einer Seite, ist das
    kein Auftrag, ihn auf der anderen zu entfernen — ein unvollständiger Stand
@@ -54,9 +54,9 @@ der Netzseite::
 
 Eine Löschmarke ist unsere eigene, wenn ihr `removedBy.installationId` unsere
 `installation_id` ist — die liefert das Basetool in der Antwort auf
-`POST /me/installation` und im Service-Dokument (krt-profit/basetool#2118,
-auf unsere Frage hin). Solange sie fehlt, hilft `own_removed_keys`: Was wir
-selbst weggeschickt haben, wissen wir. greluc hat beides als gültig bestätigt.
+`POST /me/installation` und im Service-Dokument (krt-profit/basetool#2118).
+Solange sie fehlt, hilft `own_removed_keys`: Was wir selbst weggeschickt
+haben, wissen wir. Beide Wege gelten laut Basetool.
 """
 import time
 import uuid
@@ -96,7 +96,7 @@ def _own_stone(stone, own_keys, installation_id):
 
 
 def iso_utc(local_time):
-    """„2026-09-26 14:05:00" (Ortszeit, wie im Bestand) -> RFC 3339 in UTC.
+    """`JJJJ-MM-TT hh:mm:ss` (Ortszeit, wie im Bestand) -> RFC 3339 in UTC.
 
     ⚠ Der Bestand hält die **Ortszeit**. Der alte Basetool-Export hängt nur ein
     `Z` an und verschiebt damit jede Zeit um die Zeitzone; hier wird wirklich
@@ -261,9 +261,9 @@ def plan_blueprints(local, server_items, tombstones, state):
     linked_back = {server_key: local_key
                    for local_key, server_key in links.items()}
 
-    # ⚠ Eigene Löschmarken zählen auch für die Regel „fehlt ohne Marke"
-    # darunter — sonst meldete eine per Kennung erkannte eigene Entfernung
-    # dort doch noch einen Konflikt (so beim ersten Lauf der Prüfung passiert).
+    # ⚠ Eigene Löschmarken zählen auch für die Regel zu Fehlendem ohne Marke
+    # darunter — sonst ergäbe eine per Kennung erkannte eigene Entfernung
+    # dort doch noch einen Konflikt.
     own |= {stone.get('key') for stone in tombstones
             if _own_stone(stone, own, state.get('installation_id'))}
     conflicts = {}

@@ -26,14 +26,12 @@ Pfeile und Warnzeichen nicht — und `print()` wirft dann keinen Hinweis, sonder
 einen **UnicodeEncodeError** mitten im Lauf. Der Lauf bricht ab, und zwar an
 einer Stelle, die mit dem Geprüften nichts zu tun hat.
 
-Genau so am 14.09.2026 vor dem Release von v3.34.1: `launcher_pruefen.py`
-starb in Zeile 205 an einem einzigen `↔`. Inhaltlich war alles in Ordnung —
-mit `PYTHONIOENCODING=utf-8` lief derselbe Lauf durch und bestand. Nur sah das
-auf dem Bildschirm aus wie ein durchgefallener Prüflauf kurz vor einer
-Veröffentlichung.
+Ein einziges `↔` reicht dafür. Inhaltlich ist dann alles in Ordnung — mit
+`PYTHONIOENCODING=utf-8` läuft derselbe Lauf durch und besteht. Nur sieht das
+auf dem Bildschirm aus wie ein durchgefallener Prüflauf.
 
-⚠ **Das trifft nicht nur ein Werkzeug.** Gemessen am selben Tag tragen **acht**
-Werkzeuge unter `tools/` Zeichen, die `cp1252` nicht kennt:
+⚠ **Das trifft nicht nur ein Werkzeug.** Mehrere Werkzeuge unter `tools/`
+tragen Zeichen, die `cp1252` nicht kennt:
 
     ← → ↔ − ⏻ ─ └ ├ ▾ ⚠ ⛔ ✅ ✓ ✕ ✗ ❌ ⭐ ▶
 

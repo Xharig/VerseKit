@@ -19,11 +19,11 @@
 """
 Meine Schiffe — welche ich habe und woher sie kommen.
 
-Ohne diese Liste ist „passt der Bauplan in mein Schiff?" nicht zu beantworten;
+Ohne diese Liste ist nicht zu beantworten, ob ein Bauplan ins eigene Schiff passt;
 das Werkzeug wüsste nur, in *irgendein* Schiff passt es. `ships.py` führt
 alle Schiffe des Spiels für den Routenplaner — hier geht es um die eigenen.
 
-## ⚠ Die `Game.log` gibt das nicht her — gemessen am 06.09.2026
+## ⚠ Die `Game.log` gibt das nicht her — gemessen
 
 Naheliegend wäre, den Hangar aus dem Spiel mitzulesen, wie bei den Bauplänen.
 Geht nicht. Über 202 Logsicherungen stehen zwar zehntausende Schiffsnamen, aber
@@ -49,8 +49,8 @@ eingetragen hat und dessen Spiel von 78 spricht, dem fehlt etwas.
 
 Beide Erweiterungen setzen auf der Pledge-Seite Export-Knöpfe. Gelesen wird
 JSON und CSV beider — erkannt am Inhalt, nicht am Dateinamen (`_from_json`,
-`_from_csv`). Empfohlen wird seit 15.09.2026 die Hangar Extension: Sie wird
-gepflegt, der XPLORer nicht mehr. Wer JSON **und** CSV der Extension
+`_from_csv`). Empfohlen wird die Hangar Extension: Sie wird gepflegt, der
+XPLORer nicht mehr. Wer JSON **und** CSV der Extension
 einliest, bekommt Kürzel und Paketbeziehung aus dem einen und die
 Versicherung aus dem anderen — `_same_ship` führt sie zusammen.
 
@@ -77,9 +77,8 @@ Fehlerbericht geraten. Dieselbe Linie wie `paths.redact()` bei den Pfaden.
 (welches Teil in welchem Steckplatz) ist mit Absicht schon da: Kommt sie dazu,
 soll das keinen Formatwechsel kosten und keine bestehende Datei entwerten.
 
-⚠ Bis zum 12.09.2026 hieß dieses Modul `hangar` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: der Ablage-Name `hangar.json` und alle Schlüssel darin
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Deutsch
+bleiben: der Ablage-Name `hangar.json` und alle Schlüssel darin
 (`format`, `schiffe`, `wunsch`, `merkzettel`, `name`, `hersteller`,
 `herkunft`, `belegung`, `kurz`, `hkurz`, `lti`, `warbond`, `paket`,
 `gekauft`, `preis`, `ref`, `anzahl`, `weg`) sowie die Herkunftswerte
@@ -101,11 +100,11 @@ FORMAT = 1
 # nicht im Hangar, und geschenkte sind aus Sicht des Spielers Pledges.
 PLEDGE = 'pledge'
 INGAME = 'ingame'
-# Seit v3.60.x: kam nur über den Abgleich mit dem KRT Profit Basetool herein.
+# Kam nur über den Abgleich mit dem KRT Profit Basetool herein.
 # Ein Pledge-Import räumt es nicht weg (nur `pledge` fällt heraus).
 BASETOOL = 'basetool'
 # Aus einer Schiffsliste eines anderen Werkzeugs (Fleetview, Fleetyards,
-# StarJump FleetViewer) — `quelle` nennt es. Seit v3.62.0.
+# StarJump FleetViewer) — `quelle` nennt es.
 LIST = 'liste'
 
 
@@ -189,15 +188,11 @@ def id_sets(data=None):
 def wishlist(data=None):
     """Die Schiffe, die man sich vorgenommen hat — alphabetisch.
 
-    ⚠ **Getrennt vom Hangar, in derselben Datei.** Ein Wunsch ist kein Besitz:
-    Was hier steht, darf nirgends in „passt in dein Schiff" auftauchen, sonst
-    beantwortet das Werkzeug eine Frage über ein Schiff, das der Spieler gar
-    nicht hat. Ein fehlendes Feld gilt als leere Liste — alte Dateien bleiben
-    damit gültig, es braucht keinen Formatwechsel.
-
-    Der Vorschlag kam von **Zwaersch (KRT)** am 06.09.2026: *„Also Unterpunkt
-    könnte man noch ne Wishlist-Option anbieten. Für, ich nenn's mal allgemein
-    Vehikel, die man sich erspielen/kaufen möchte."*
+    ⚠ **Getrennt vom Hangar, in derselben Datei.** Ein Wunschschiff ist kein
+    Besitz: Was hier steht, darf nirgends in die Auskunft einfließen, ob ein
+    Teil ins eigene Schiff passt, sonst beantwortet das Werkzeug eine Frage über ein Schiff, das
+    der Spieler gar nicht hat. Ein fehlendes Feld gilt als leere Liste — alte
+    Dateien bleiben damit gültig, es braucht keinen Formatwechsel.
     """
     items = (data or load()).get('wunsch') or []
     return sorted((w for w in items if isinstance(w, dict) and w.get('name')),
@@ -231,7 +226,7 @@ def wishlist_add(data, name, manufacturer=''):
 
 
 def wishlist_remove(data, name):
-    """Einen Wunsch streichen. Gibt zurück, ob einer wegfiel."""
+    """Einen Eintrag der Wunschliste streichen. Gibt zurück, ob einer wegfiel."""
     wanted = _slim(name)
     before = len(data.get('wunsch') or [])
     data['wunsch'] = [w for w in (data.get('wunsch') or [])
@@ -242,24 +237,14 @@ def wishlist_remove(data, name):
 def notepad(data=None):
     """Einzelne Gegenstände, die man bauen oder kaufen will — alphabetisch.
 
-    ⭐⭐ **Der Weg zum Farmen ohne Umweg über ein Schiff.** Bis v3.20.0 führte
-    jede Materialliste über die Wunschliste: erst ein Schiff eintragen, dann
-    Steckplätze belegen, dann stand das Material da. Für einen Helm, eine Waffe
-    oder ein Rüstungsteil gab es diesen Weg **gar nicht** — obwohl sie genauso
-    Baupläne mit Rohstoffbedarf sind.
-
-    Gemeldet von **Haldjas** am 06.09.2026: *„‚What to farm' ist irgendwie
-    bisschen unnötig komplex — man geht da rein, wird dann zu ‚still missing'
-    geschickt und weiß dann aber nicht so genau, was man machen soll. […]
-    Eventuell wäre es sinnvoll, direkt unter Crafting Buttons hinzuzufügen, die
-    dann die entsprechenden Blueprints auf die Wishlist / zu What to farm
-    hinzufügen. Es wäre nämlich auch ganz nützlich, wenn man nicht nur
-    Schiffsteile, sondern auch Rüstungen/Waffen für FPS hinzufügen könnte zum
-    Workshop, sind ja immerhin auch Blueprints, die Ressourcen brauchen."*
+    ⭐⭐ **Der Weg zum Farmen ohne Umweg über ein Schiff.** Über die
+    Wunschliste führt eine Materialliste nur über ein Schiff und belegte
+    Steckplätze. Für einen Helm, eine Waffe oder ein Rüstungsteil gäbe es
+    diesen Weg **gar nicht** — obwohl sie genauso Baupläne mit Rohstoffbedarf
+    sind.
 
     ⚠ Ein fehlendes Feld gilt als leere Liste — alte Dateien bleiben gültig,
-    es braucht keinen Formatwechsel. Dieselbe Entscheidung wie bei
-    `wishlist()`.
+    es braucht keinen Formatwechsel. Dieselbe Regel wie bei `wishlist()`.
     """
     items = (data or load()).get('merkzettel') or []
     result = []
@@ -267,9 +252,9 @@ def notepad(data=None):
         if not isinstance(m, dict) or not m.get('name'):
             continue
         # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung, sondern ein
-        # Name.** v3.21.0 und v3.22.0 haben genau das gespeichert; daraus wurde
+        # Name.** Ältere Merkzettel können so etwas enthalten; daraus wird
         # eine kaputte Preisabfrage (`items_prices?uuid=CF-447 Rhino Repeater`),
-        # die Seite „Was noch fehlt" blieb leer und lud endlos.
+        # und die Seite „Was noch fehlt" bleibt leer und lädt endlos.
         #
         # Hier wird es beim Lesen stillschweigend verworfen — so heilen sich
         # vorhandene Merkzettel von selbst, ohne dass jemand etwas neu eintragen
@@ -355,13 +340,12 @@ def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
     3. **Herstellername + Name** in schlanker Schreibweise — der einzige Weg
        für Einträge von Hand, die kein Kürzel haben.
 
-    ⚠ Der Name allein reicht nicht: „Cutlass Black" von Drake und eine
+    ⚠ Der Name allein reicht nicht: die Cutlass Black von Drake und eine
     gleichnamige Variante eines anderen Herstellers wären sonst dasselbe.
 
-    ⚠ Warum drei Wege: Der XPLORer schreibt „Musashi Industrial & Starflight
-    Concern", die Hangar Extension „MISC" — beim ersten Import aus der
-    Erweiterung in einen XPLORer-Hangar (15.09.2026) standen deshalb vier
-    Schiffe doppelt da, bei gleichem Kürzel.
+    ⚠ Warum drei Wege: Der XPLORer schreibt `Musashi Industrial & Starflight
+    Concern`, die Hangar Extension `MISC` — ein Import aus der Erweiterung in
+    einen XPLORer-Hangar ergäbe sonst Doppel bei gleichem Kürzel.
     """
     wanted = _slim(name)
     e_kurz = _slim(entry.get('kurz'))
@@ -376,8 +360,8 @@ def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
             e_hkurz == _slim(hkurz)
             or frozenset((e_hkurz, _slim(hkurz))) in _MAKER_TWINS):
         # Mit Herstellerkürzel darf der Name um ein Klassenwort abweichen —
-        # das CSV der Extension hat kein Schiffskürzel, und „Idris-P" muss
-        # trotzdem die „Idris-P Frigate" des XPLORer treffen.
+        # das CSV der Extension hat kein Schiffskürzel, und `Idris-P` muss
+        # trotzdem die `Idris-P Frigate` des XPLORer treffen.
         return _names_compatible(e_name, wanted)
     if e_name != wanted:
         return False
@@ -392,7 +376,7 @@ _CLASS_WORDS = ('frigate', 'destroyer', 'corvette', 'carrier', 'cruiser')
 # Herstellerkürzel, die für dasselbe Schiff nebeneinander vorkommen: Razor,
 # Fury, Guardian und Pulse liefen bei CIG von MISC zu Mirai — der XPLORer
 # schreibt noch `MISC_Razor_EX`, die Hangar Extension `MRAI_Razor_EX`. Bei
-# gleichem Namen ist das ein Schiff, nicht zwei (echter Hangar, 15.09.2026).
+# gleichem Namen ist das ein Schiff, nicht zwei.
 _MAKER_TWINS = {frozenset(('misc', 'mrai'))}
 
 
@@ -400,9 +384,9 @@ def _names_compatible(a, b):
     """Meinen zwei geschliffene Namen bei gleichem Kürzel dasselbe Schiff?
 
     ⚠ Gleiches Kürzel heißt **nicht** gleiches Schiff: Der XPLORer gibt der
-    „ATLS GEO" dasselbe Kürzel wie der „ATLS" (`ARGO_ATLS`), die Extension
+    ATLS GEO dasselbe Kürzel wie der ATLS (`ARGO_ATLS`), die Extension
     kennt `ARGO_ATLS_GEO`. Wer nur das Kürzel vergleicht, macht aus zwei
-    Schiffen eines — gemessen am 15.09.2026 an einem echten Hangar. Deshalb
+    Schiffen eines. Deshalb
     müssen die Namen gleich sein oder sich um ein Klassenwort unterscheiden.
     """
     if not a or not b:
@@ -481,10 +465,9 @@ def bundled_with(data, entry):
 
     Die Hangar Extension schreibt unter `includedWith` das Schiff, mit dem
     eines mitkam (die URSA der Carrack, die MPUV Personnel der Idris-P). Beim
-    XPLORer steht unter `paket` dagegen der **Pledge-Name** („Standalone
-    Ship", „Package - Dominus Pack") — das ist keine Beilage. Unterschieden
+    XPLORer steht unter `paket` dagegen der **Pledge-Name** (`Standalone
+    Ship`, `Package - Dominus Pack`) — das ist keine Beilage. Unterschieden
     wird deshalb daran, ob der Wert ein Schiff **im eigenen Hangar** nennt.
-    Vorschlag AlyxOne, 15.09.2026.
     """
     wanted = _slim(entry.get('paket'))
     if not wanted or wanted == _slim(entry.get('name')):
@@ -550,15 +533,14 @@ def _extension_insurance(entry):
 
     ⚠ **`"0MI"` ist keine Versicherung von null Monaten, sondern gar keine
     Angabe.** Das ist der Rückfallwert der Erweiterung für Pledges, die die
-    Information nicht führen (Autor der Erweiterung, 17.09.2026) — er landet
-    deshalb wie ein fehlendes Feld.
+    Information nicht führen — er landet deshalb wie ein fehlendes Feld.
 
     ⚠ **Fehlt das Feld, gibt es keine Angabe** — kein LTI, keine Dauer. Die
     Schiffszeile bleibt dann ohne Versicherung, statt „keine" zu behaupten.
 
-    ⚠ Ein Zwischenstand der Erweiterung führte zwei Felder (`insurance` als
-    Wahrheitswert, `insuranceMonths` als Zahl). Beide werden weiter gelesen —
-    wer einen Export von damals noch hat, soll ihn nicht neu ziehen müssen.
+    ⚠ Ältere Exporte der Erweiterung führen zwei Felder (`insurance` als
+    Wahrheitswert, `insuranceMonths` als Zahl). Beide werden weiter gelesen,
+    damit solche Exporte gültig bleiben.
     """
     value = entry.get('insurance')
     lti = False
@@ -583,20 +565,19 @@ def _extension_insurance(entry):
 def _hangar_extension_entry(entry):
     """Ein Schiff aus dem JSON der **Star Citizen: Hangar Extension** (AlyxOne).
 
-    Seit 15.09.2026 die empfohlene Erweiterung — ein Fork des XPLORer, MIT,
-    von seinem Autor gepflegt. Ihr Export sieht anders aus:
+    Die empfohlene Erweiterung — ein gepflegter Fork des XPLORer, MIT. Ihr
+    Export sieht anders aus:
 
         {"manufacturer": {"code": "ARGO", "name": "Argo Astronautics",
                           "shortName": "ARGO"},
          "code": "ARGO_ATLS", "matrix": "ATLS", "name": "ATLS",
          "focus": "Cargo", "status": "Flight-Ready",
-         "insurance": "LTI",                   # oder „120MI", wenn vorhanden
+         "insurance": "LTI",                   # oder "120MI", wenn vorhanden
          "includedWith": "Idris-P"}            # nur bei Paket-Beilagen
 
     ⚠ `name` vor `matrix` — dieselbe Regel wie beim XPLORer (`name` vor
-    `ship_name`): `matrix` ist der Grundtyp („L-22 Alpha Wolf"), `name` die
-    Ausführung, wie der Store sie führt („L22-AlphaWolf"). Gemessen am Export
-    vom 15.09.2026: 43 Schiffe, genau ein Unterschied.
+    `ship_name`): `matrix` ist der Grundtyp (`L-22 Alpha Wolf`), `name` die
+    Ausführung, wie der Store sie führt (`L22-AlphaWolf`).
 
     ⚠ **Warbond, Kaufdatum und Preis stehen nur im CSV-Export** — der JSON
     führt Schiffe und Fahrzeuge samt ihrer Beziehungen, dazu die Versicherung
@@ -624,10 +605,10 @@ def _hangar_extension_entry(entry):
     }
 
 
-# ------------------------------------------------ Schiffslisten (v3.62.0)
+# ------------------------------------------------ Schiffslisten
 #
-# ⭐ Drei weitere Werkzeuge, deren Listen das KRT Profit Basetool einliest —
-# gewünscht am 28.09.2026: „das Basetool tut es auch". Die Formate stehen im
+# ⭐ Drei weitere Werkzeuge, deren Listen auch das KRT Profit Basetool
+# einliest. Die Formate stehen im
 # offenen Quellcode des Basetools (`FleetExportParser.java`, GPL-3.0):
 #
 # | Werkzeug | Wurzel | ein Schiff |
@@ -647,7 +628,7 @@ def _hangar_extension_entry(entry):
 
 
 def _nice(name):
-    """„aurora mr" → „Aurora MR" — nur, wenn die Liste alles klein schreibt."""
+    """`aurora mr` → `Aurora MR` — nur, wenn die Liste alles klein schreibt."""
     name = (name or '').strip()
     if not name or name != name.lower():
         return name
@@ -661,8 +642,8 @@ def _nice(name):
 def _catalog_name(name):
     """Name ohne Hersteller → `(Name, Hersteller, Kürzel)` aus dem Schiffskatalog.
 
-    „890 jump" → („890 Jump", „Origin", „ORIG"). UEX führt den Hersteller im
-    Namen („Origin 890 Jump"), `_split_maker` trennt ihn wieder ab — derselbe
+    `890 jump` → (`890 Jump`, `Origin`, `ORIG`). UEX führt den Hersteller im
+    Namen (`Origin 890 Jump`), `_split_maker` trennt ihn wieder ab — derselbe
     Weg wie beim CSV der Hangar Extension, damit dasselbe Schiff dieselben
     Kürzel trägt und nicht doppelt im Hangar landet."""
     try:
@@ -715,7 +696,7 @@ def _from_starjump(raw):
             continue
         name = (item.get('defaultText') or '').strip()
         if not name:
-            # Nur der Kurzname: „zeus-mkii-mr" → „zeus mkii mr"
+            # Nur der Kurzname: `zeus-mkii-mr` → `zeus mkii mr`
             name = (item.get('shipSlug') or '').replace('-', ' ').strip()
         ship = _list_entry(name, 'StarJump')
         if ship:
@@ -741,9 +722,8 @@ def _from_json(text):
     | Pledge-Angaben | LTI, Warbond, Paket, Datum, Preis | Versicherung und Paket — kein Warbond, Datum, Preis (siehe `_hangar_extension_entry`) |
 
     Erkannt wird **je Eintrag** am Wörterbuch `manufacturer` — kein Werkzeug
-    schreibt das Feld des anderen. Beide dürfen weiter eingelesen werden: Wer
-    seinen XPLORer-Export von vor Wochen noch hat, soll ihn nicht neu ziehen
-    müssen.
+    schreibt das Feld des anderen. Beide werden eingelesen, auch ältere
+    XPLORer-Exporte.
     """
     raw = json.loads(text)
     if _is_starjump(raw):
@@ -776,14 +756,14 @@ def _from_json(text):
                     result.append(ship)
                 continue
         # ⚠ Nur Schiffe. Der Export führt auch Ausrüstung, Farben und Anzüge —
-        # ein „Bosco Weapon Display Rack" hat keine Steckplätze.
+        # ein `Bosco Weapon Display Rack` hat keine Steckplätze.
         if entry.get('entity_type') not in (None, '', 'ship'):
             continue
         # ⚠⚠ **`name` vor `ship_name`** — und das ist kein Geschmack.
         # `ship_name` ist der Grundtyp, `name` die tatsächliche Ausführung.
-        # Andersherum wurden aus „A.T.L.S." und „ATLS GEO" zwei Einträge
-        # desselben Namens, von denen der zweite als Doppel wegfiel; und die
-        # „F7C-M Super Hornet Mk II" hieß Mk I, weil ihr `ship_code` noch auf
+        # Andersherum würden aus `A.T.L.S.` und `ATLS GEO` zwei Einträge
+        # desselben Namens, von denen der zweite als Doppel wegfiele; und die
+        # `F7C-M Super Hornet Mk II` hieße Mk I, weil ihr `ship_code` noch auf
         # der alten Ausführung steht.
         name = (entry.get('name') or entry.get('ship_name') or '').strip()
         if not name:
@@ -793,8 +773,8 @@ def _from_json(text):
             'hersteller': (entry.get('manufacturer_name') or '').strip(),
             'kurz': (entry.get('ship_code') or '').strip(),
             # ⚠ Das Herstellerkürzel ist für die Zuordnung wichtiger als der
-            # ausgeschriebene Name: Erkul führt „Roberts Space Industries" als
-            # `rsi`. Ohne dieses Feld fand die Ursa Medivac keinen Anschluss.
+            # ausgeschriebene Name: Erkul führt `Roberts Space Industries` als
+            # `rsi`. Ohne dieses Feld findet etwa die Ursa Medivac keinen Anschluss.
             'hkurz': (entry.get('manufacturer_code') or '').strip(),
             'lti': bool(entry.get('lti')),
             'warbond': bool(entry.get('warbond')),
@@ -806,9 +786,9 @@ def _from_json(text):
 
 
 # Wie die Hangar Extension den Hersteller im CSV vor den Schiffsnamen setzt
-# („Aegis Idris-P", „RSI Galaxy", „Kruger L-22 Alpha Wolf") → Kürzel, wie es
-# ihr JSON-Export und erkul führen. Längste Namen zuerst, damit „Consolidated
-# Outland" nicht an „Consolidated" scheitert.
+# (`Aegis Idris-P`, `RSI Galaxy`, `Kruger L-22 Alpha Wolf`) → Kürzel, wie es
+# ihr JSON-Export und erkul führen. Längste Namen zuerst, damit `Consolidated
+# Outland` nicht an `Consolidated` scheitert.
 _CSV_MAKERS = (
     ('Roberts Space Industries', 'RSI'), ('Consolidated Outland', 'CNOU'),
     ('Musashi Industrial & Starflight Concern', 'MISC'),
@@ -824,7 +804,7 @@ _MONTHS = re.compile(r'^\s*(\d+)\s*month', re.IGNORECASE)
 
 
 def _split_maker(full):
-    """„Aegis Idris-P" → (`Aegis`, `AEGS`, `Idris-P`); ohne Treffer bleibt der Name ganz."""
+    """`Aegis Idris-P` → (`Aegis`, `AEGS`, `Idris-P`); ohne Treffer bleibt der Name ganz."""
     full = (full or '').strip()
     for maker, code in _CSV_MAKERS:
         if full.lower().startswith(maker.lower() + ' '):
@@ -833,7 +813,7 @@ def _split_maker(full):
 
 
 def _insurance(content):
-    """„Lifetime Insurance" → (True, 0) · „120 Month Insurance" → (False, 120)."""
+    """`Lifetime Insurance` → (True, 0) · `120 Month Insurance` → (False, 120)."""
     text = (content or '').strip()
     if 'lifetime' in text.lower():
         return True, 0
@@ -846,13 +826,13 @@ def _from_extension_csv(rows):
 
     Eine Zeile je **Inhalt** eines Pledges: Schiffe, Farben, Ausrüstung,
     Versicherung. Zusammengehalten über `Pledge ID`. Gemessen an einem echten
-    Export vom 15.09.2026 (751 Zeilen, 42 Schiffe):
+    Export (751 Zeilen, 42 Schiffe):
 
     | `Content Type` | was es ist | wird |
     |---|---|---|
-    | `Ship` | „Aegis Idris-P" — Hersteller und Name in einem Feld | ein Schiff |
-    | `Included Ship` | Beilage eines Pakets („ARGO MPUV Personnel") | ein Schiff, `paket` = das Schiff des Pledges, sonst der Pledge-Name |
-    | `Insurance` | „Lifetime Insurance", „120 Month Insurance" — **eine je Pledge** | `lti` bzw. `versicherung` (Monate) für jedes Schiff des Pledges |
+    | `Ship` | `Aegis Idris-P` — Hersteller und Name in einem Feld | ein Schiff |
+    | `Included Ship` | Beilage eines Pakets (`ARGO MPUV Personnel`) | ein Schiff, `paket` = das Schiff des Pledges, sonst der Pledge-Name |
+    | `Insurance` | `Lifetime Insurance`, `120 Month Insurance` — **eine je Pledge** | `lti` bzw. `versicherung` (Monate) für jedes Schiff des Pledges |
     | alles andere | Farben, Anzüge, Möbel, Gutscheine | übergangen |
 
     ⭐ **Das ist die Datei mit der Versicherungsdauer.** Der JSON-Export der
@@ -972,12 +952,11 @@ def import_entries(entries, data=None, save_now=True):
 
     Gibt `(neu, schon_da, ausgetragen)` zurück — `ausgetragen` sind die Namen.
 
-    ⚠ **Ein Export ist der ganze Pledge-Hangar, keine Ergänzung.** Bis v3.46.1
-    kam nur hinzu, was neu war. Wer ein Schiff per Upgrade umbaute, behielt
-    deshalb das alte im Hangar: Am 17.09.2026 stand nach einem Prospector ➔
-    Sabre Raven EX die Raven im neuen Export, die Prospector nicht mehr — in
-    VerseKit aber beide. Jetzt fällt ein Echtgeld-Schiff heraus, das im
-    Export fehlt. Im Spiel gekaufte (`INGAME`) bleiben: Die kennt kein Export.
+    ⚠ **Ein Export ist der ganze Pledge-Hangar, keine Ergänzung.** Käme nur
+    hinzu, was neu ist, bliebe nach einem Upgrade (etwa Prospector ➔ Sabre
+    Raven EX) das alte Schiff im Hangar stehen. Deshalb fällt ein
+    Echtgeld-Schiff heraus, das im Export fehlt. Im Spiel gekaufte (`INGAME`)
+    bleiben: Die kennt kein Export.
     """
     data = data if data is not None else load()
     new = 0
@@ -1010,14 +989,15 @@ def import_entries(entries, data=None, save_now=True):
                 data['schiffe'][-1]['quelle'] = e['quelle']
     # Fleetyards führt auch Wunschschiffe (`wanted`) — die gehören auf die
     # Wunschliste, nicht in den Hangar. ⚠ Erst NACH dem Hangar: Kam dasselbe
-    # Schiff in dieser Datei auch als eigenes herein, ist es kein Wunsch mehr.
+    # Schiff in dieser Datei auch als eigenes herein, gehört es nicht auf die
+    # Wunschliste.
     for e in wishes:
         if not contains(data, e.get('name'), e.get('hersteller'),
                         hkurz=e.get('hkurz')) \
                 and not any(_slim(s.get('name')) == _slim(e.get('name'))
                             for s in (data.get('schiffe') or [])):
             wishlist_add(data, e.get('name'), e.get('hersteller'))
-    # Wünsche zählen weder als „übernommen" noch als „schon da".
+    # Wunschschiffe zählen weder als übernommen noch als schon vorhanden.
     wished = len(wishes)
     removed = []
     if entries and pledge_export:
@@ -1041,9 +1021,9 @@ def unknown(data=None):
     """Welche Schiffe im Hangar erkul **nicht** kennt.
 
     ⚠ Das ist meistens **keine Panne**, sondern eine Auskunft: Erkul führt nur
-    Schiffe, die im Spiel flugfähig sind. Ein Treffer hier heißt in aller Regel
-    „gibt es noch nicht" — bei einem echten Hangar-Export vom 06.09.2026 waren
-    das Crucible, Endeavor, Galaxy, Liberator, Merchantman und die beiden ATLS.
+    Schiffe, die im Spiel flugfähig sind. Ein Treffer hier heißt in aller Regel,
+    dass es das Schiff im Spiel noch nicht gibt — etwa Crucible, Endeavor,
+    Galaxy, Liberator, Merchantman.
     """
     result = []
     for s in ((data or load()).get('schiffe') or []):
@@ -1054,15 +1034,17 @@ def unknown(data=None):
 
 
 def wishlist_id_sets(data=None):
-    """Dasselbe für die Wunschliste — je Wunsch `(name, hersteller, '', '')`.
+    """Dasselbe für die Wunschliste — je Eintrag `(name, hersteller, '', '')`.
 
     ⚠ **Getrennt von `id_sets()`, mit Absicht.** Beide Listen holen dieselbe
-    Art Daten, dürfen aber nie in denselben Topf: `id_sets()` speist auch
-    „passt in dein Schiff", und ein Wunschschiff hat man nicht. Wer die Listen
-    hier zusammenlegt, beantwortet dort eine Frage über fremdes Eigentum.
+    Art Daten, dürfen aber nie in denselben Topf: `id_sets()` speist auch die
+    Auskunft, ob ein Teil ins eigene Schiff passt, und ein Wunschschiff hat
+    man nicht. Wer
+    die Listen hier zusammenlegt, beantwortet dort eine Frage über fremdes
+    Eigentum.
 
-    ⚠ **Ein fehlender Hersteller wird nachgeschlagen.** Wünsche, die vor dem
-    06.09.2026 eingetragen wurden, haben keinen — und ohne ihn findet `erkul`
+    ⚠ **Ein fehlender Hersteller wird nachgeschlagen.** Ältere Einträge der
+    Wunschliste haben keinen — und ohne ihn findet `erkul`
     einen Teil der Schiffe nicht. Statt diese Einträge stillschweigend
     auszulassen, wird der Hersteller bei UEX geholt. Geschrieben wird dabei
     nichts: Eine Leseabfrage, die nebenbei die Datei ändert, überrascht später
@@ -1084,10 +1066,8 @@ def fetch_missing(data=None):
 
     Gibt zurück, wie viele Schiffe neu geholt wurden.
 
-    ⚠ **Die Wunschliste zählt mit.** Wer sich ein Schiff vornimmt, will oft
-    gleich planen, was hineinsoll — am 06.09.2026 gefragt: „was ist, wenn
-    jemand ein Schiff und dazu ein besseres Fitting bauen oder kaufen will?"
-    Ohne Steckplatz-Daten steht auf der Wunschzeile nur eine Kaufsumme, und
+    ⚠ **Die Wunschliste zählt mit.** Wer sich ein Schiff vornimmt, plant oft
+    gleich die Ausstattung mit. Ohne Steckplatz-Daten steht auf der Wunschzeile nur eine Kaufsumme, und
     die Ausstattung ließe sich erst planen, wenn das Schiff schon gekauft ist.
     Geholt wird nur — verrechnet werden Wunschschiffe nirgends als Besitz.
     """

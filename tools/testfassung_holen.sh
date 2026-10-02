@@ -6,7 +6,7 @@
 # er loest bei allen die Update-Meldung aus. Wer selbst testen will, nimmt das
 # AppImage, das GitHub bei jedem Bau-Lauf ohnehin anhaengt.
 #
-# Voraussetzung: die GitHub-Kommandozeile `gh`, einmal angemeldet.
+# Voraussetzung: die GitHub-Kommandozeile `gh`, einmal eingeloggt.
 #   Arch/EndeavourOS:  sudo pacman -S github-cli && gh auth login
 #
 # Der Zielpfad laesst sich mit SC_BP_APPIMAGE ueberschreiben.
@@ -72,7 +72,7 @@ NEU="$(find "$TMP" -name '*.AppImage' -print -quit)"
 
 mkdir -p "$(dirname "$ZIEL")"
 
-# Die bisherige Fassung bleibt als .vorher liegen — falls die neue klemmt,
+# Die zuletzt eingesetzte Datei bleibt als .vorher liegen — falls die neue klemmt,
 # ist der Rueckweg ein Umbenennen und kein neuer Download.
 if [ -f "$ZIEL" ]; then
   cp -f "$ZIEL" "$ZIEL.vorher"

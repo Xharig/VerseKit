@@ -66,9 +66,9 @@ nichts anfasst.
 
 ## ⚠⚠ Und die Nummern werden NICHT umsortiert
 
-Der erste Entwurf wollte genau das: Position im Protokoll mit Nummer in der
-Belegung vergleichen und bei Abweichung alles durchnummerieren. **Das war
-falsch** — die Begruendung steht ausfuehrlich ueber `compare()`. Kurz: Das
+Position im Protokoll mit Nummer in der Belegung zu vergleichen und bei
+Abweichung alles durchzunummerieren, **waere falsch** — die Begruendung steht
+ausfuehrlich ueber `compare()`. Kurz: Das
 Spiel erkennt seine Geraete an der gespeicherten Kennung wieder, nicht an der
 Fundreihenfolge. Wer die Nummern anfasst, zerstoert eine gesunde Belegung.
 
@@ -115,8 +115,8 @@ JS_PREFIX = re.compile(r'\bjs(\d+)_')
 SLOTS = 8
 
 # ⚠⚠ **Der Mappings-Ordner heisst in beiden Schreibweisen** — genau wie
-# `USER`/`user` weiter oben. Am 04.09.2026 lagen auf einem Linux-Rechner
-# `controls/mappings` **und** `Controls/mappings` nebeneinander, mit
+# `USER`/`user` weiter oben. Auf Linux-Rechnern koennen
+# `controls/mappings` **und** `Controls/mappings` nebeneinander liegen, mit
 # verschiedenen Dateien darin (verschiedene Inodes). Deshalb wird auch hier
 # gesucht statt geraten — und beim Auflisten nach Namen entdoppelt.
 MAPPING_FOLDERS = (('controls', 'mappings'), ('Controls', 'mappings'),
@@ -149,8 +149,7 @@ def all_actionmaps(folder=None):
     Wer aus einer Windows-Installation herueberzieht, hat danach beide — und
     merkt nichts davon.
 
-    Gemessen am 06.09.2026 auf einem Linux-Rechner, in **einer**
-    Installation:
+    Gemessen auf einem Linux-Rechner, in **einer** Installation:
 
     | Ordner | geaendert | Inhalt |
     |---|---|---|
@@ -158,8 +157,8 @@ def all_actionmaps(folder=None):
     | `LIVE/USER/client/…` | 17:13 — die Karteileiche | 22 Exponenten |
 
     Die Karteileiche stammte erkennbar von Windows: Sie nannte die Geraete
-    „RIGHT VPC Stick" und „Tastatur", waehrend das Linux-Spiel „R-VPC Stick"
-    und „Wine Keyboard" schreibt. **Und sie hatte eine andere Reihenfolge** —
+    `RIGHT VPC Stick` und `Tastatur`, waehrend das Linux-Spiel `R-VPC Stick`
+    und `Wine Keyboard` schreibt. **Und sie hatte eine andere Reihenfolge** —
     `instance=1` war dort der rechte Stick, im Spiel ist es der linke. Wer sie
     liest, zeigt dem Spieler also nicht nur veraltete Werte, sondern die Werte
     des **falschen Geraets**.
@@ -194,16 +193,13 @@ def all_actionmaps(folder=None):
 def _actionmaps_path(folder=None):
     """Wo die Belegungsdatei liegt, **mit der das Spiel wirklich arbeitet**.
 
-    ⚠⚠⚠ **Die erste Fassung nahm stur `USER` zuerst** — die erste Schreibweise,
-    die es gab, unabhaengig vom Alter. Am 06.09.2026 war das die falsche: Der
-    Watcher zeigte 22 Exponenten und eine Empfindlichkeit von 2, waehrend im
-    Spiel ueberall 1,00 stand — gemeldet mit einem berechtigten „mir reicht
-    es langsam".
+    ⚠⚠⚠ **Nicht stur `USER` zuerst** — die erste Schreibweise, die es gibt,
+    kann unabhaengig vom Alter die falsche sein: Dann zeigt der Watcher etwa
+    22 Exponenten und eine Empfindlichkeit von 2, waehrend im Spiel ueberall
+    1,00 steht.
 
-    Dabei stand die Loesung schon im selben Modul — `_mappings_path()` nimmt
-    seit dem 04.09.2026 den **zuletzt geaenderten** Ordner, aus genau diesem
-    Grund. Hier wurde sie nicht angewendet. Eine Lehre, die nur an einer von
-    zwei Stellen gezogen wird, ist keine.
+    Dieselbe Regel wie in `_mappings_path()`, das den **zuletzt geaenderten**
+    Ordner nimmt.
 
     **Die juengste gewinnt.** Sobald das Spiel schreibt, ist seine Datei die
     juengste — die Wahl korrigiert sich damit von selbst und bleibt richtig,
@@ -216,15 +212,16 @@ def _actionmaps_path(folder=None):
 def all_mapping_folders(folder=None):
     """**Alle** vorhandenen Mappings-Ordner, neuester zuerst.
 
-    ⚠⚠ Auf einem Linux-Rechner lagen am 04.09.2026 `controls/mappings` **und**
-    `Controls/mappings` nebeneinander — mit **verschiedenen** Dateien darin.
+    ⚠⚠ Auf Linux-Rechnern koennen `controls/mappings` **und**
+    `Controls/mappings` nebeneinander liegen — mit **verschiedenen** Dateien
+    darin.
 
     Deshalb zwei verschiedene Fragen, die nicht dieselbe Antwort haben:
 
     | Frage | Antwort |
     |---|---|
-    | „Wohin schreibe ich ein Profil?" | **einer** — `_mappings_path()` |
-    | „Was ist an Profilen da?" | **alle** — diese Funktion |
+    | Wohin wird ein Profil geschrieben? | **einer** — `_mappings_path()` |
+    | Welche Profile gibt es? | **alle** — diese Funktion |
 
     Wer beim Sichern nur einen Ordner liest, laesst die Profile des anderen
     zurueck, ohne dass es auffaellt.
@@ -332,8 +329,8 @@ def check_name(name):
 def as_profile(name, filename=None, folder=None):
     """Aus der aktiven Belegung einen Baum im **Profil-Format** des Spiels.
 
-    ⚠⚠ **Die beiden Formate sind nicht dasselbe** — gemessen am 04.09.2026 an
-    einer echten Ausgabe des Spiels:
+    ⚠⚠ **Die beiden Formate sind nicht dasselbe** — gemessen an einer echten
+    Ausgabe des Spiels:
 
     | | aktive `actionmaps.xml` | Profil im Mappings-Ordner |
     |---|---|---|
@@ -341,8 +338,7 @@ def as_profile(name, filename=None, folder=None):
     | darunter | ein `<ActionProfiles>`, das alles traegt | dieselben Bloecke **direkt** an der Wurzel |
     | Kopf | keiner | `<CustomisationUIHeader>` mit `<devices>` und `<categories>` |
 
-    Wer die aktive Datei bloss kopiert, bekommt **kein ladbares Profil**. Genau
-    das tat die Ausgabe bis v3.14.
+    Wer die aktive Datei bloss kopiert, bekommt **kein ladbares Profil**.
 
     Liefert `(baum, None)` oder `(None, Meldungsschluessel)`.
     """
@@ -491,7 +487,7 @@ def assignment(filename=None, folder=None):
         tree = ET.parse(path)
     except Exception:
         # Eine kaputte oder halb geschriebene Datei ist kein Grund
-        # abzustuerzen — die Seite zeigt dann „nicht lesbar".
+        # abzustuerzen — die Seite zeigt sie dann als nicht lesbar.
         return []
     out = []
     for node in tree.getroot().iter('options'):
@@ -523,7 +519,7 @@ EMPTY    = 'leer'     # keine Daten (noch nie gespielt, Datei fehlt)
 
 # ⚠⚠ **Die Position im Protokoll ist NICHT die Nummer in der Belegung.**
 #
-# Gemessen am 04.09.2026 an einem laufenden Aufbau: Das Protokoll meldet
+# Gemessen an einem laufenden Aufbau: Das Protokoll meldet
 # `joystick0` als linken Stick, waehrend die `actionmaps.xml` `instance="1"`
 # (also `js1`) dem **rechten** zuordnet — und die Belegung funktioniert
 # trotzdem einwandfrei im Spiel.
@@ -533,11 +529,10 @@ EMPTY    = 'leer'     # keine Daten (noch nie gespielt, Datei fehlt)
 # heute an anderer Stelle auftaucht, behaelt seine Nummer und damit seine
 # Belegung.
 #
-# Der erste Entwurf dieses Moduls hat genau das falsch gemacht: Er verglich
-# Position mit Nummer, meldete einen voellig gesunden Aufbau als „verrutscht"
-# und haette beim Umschreiben **alle drei Geraete durchgetauscht** — aus einer
-# funktionierenden Belegung waere Schrott geworden. Der Fehler faellt nur auf,
-# wenn man gegen echte Dateien prueft; die Rechnung fuer sich sah stimmig aus.
+# Wer Position mit Nummer vergleicht, haelt einen voellig gesunden Aufbau fuer
+# verrutscht und tauscht beim Umschreiben **alle Geraete durch** — aus einer
+# funktionierenden Belegung wird Schrott. Das faellt nur auf, wenn man gegen
+# echte Dateien prueft; die Rechnung fuer sich sieht stimmig aus.
 #
 # **Was wirklich schiefgehen kann**, ist etwas anderes: Aendert sich die
 # Kennung eines Geraets — anderer USB-Anschluss, neue Firmware, Tausch —, dann
@@ -615,8 +610,7 @@ def bindings(filename=None, folder=None):
     niemand kennt, spielt keine Rolle. Vorlagen braucht erst, wer die Knoepfe
     auf einem **Bild** zeigen will.
 
-    **Tastatur und Maus sind mit dabei** (Wunsch von Morkhan, 04.09.2026) —
-    sie stehen in derselben Datei und unterscheiden sich nur in der Vorsilbe.
+    **Tastatur und Maus sind mit dabei** — sie stehen in derselben Datei und unterscheiden sich nur in der Vorsilbe.
     Wer nachsehen will, welche Taste was tut, muss dafuer nicht ins Spiel.
 
     Liefert `{kennzeichen: [{…}, …]}` mit `kennzeichen` wie `js1`, `kb1`, `mo1`.
@@ -685,11 +679,11 @@ ROTATION_AXES = {'rotx': 'X', 'roty': 'Y', 'rotz': 'Z'}
 
 
 def input_readable(input_device, kind=''):
-    """Aus `x` wird „Achse X", aus `button12` „Knopf 12".
+    """Aus `x` wird `Achse X`, aus `button12` `Knopf 12`.
 
-    ⚠⚠ **Warum das noetig ist:** In der Spalte stand nur `x` — und `x` ist
-    auf einer Tastatur ein Buchstabe. Wer die Zeile eines Sticks las, konnte
-    denken, dort sei die Taste X gemeint. Dasselbe gilt fuer `y` und `z`.
+    ⚠⚠ **Warum das noetig ist:** Ein nacktes `x` ist auf einer Tastatur ein
+    Buchstabe. In der Zeile eines Sticks saehe es aus, als sei die Taste X
+    gemeint. Dasselbe gilt fuer `y` und `z`.
 
     Zweisprachig ueber die Sprachdatei; was dort nicht steht, wird gross
     geschrieben durchgereicht, statt einen huebschen Namen zu erfinden.
@@ -697,7 +691,7 @@ def input_readable(input_device, kind=''):
     from .language import t
     if not input_device:
         return ''
-    # Zusammengesetzte Eingaben: `ralt+y` → „Alt rechts + Y"
+    # Zusammengesetzte Eingaben: `ralt+y` → `Alt rechts + Y`
     if '+' in input_device:
         return ' + '.join(input_readable(part, kind)
                           for part in input_device.split('+') if part)
@@ -760,7 +754,7 @@ def unbound(game_folder=None, filename=None):
     ⭐ **Ohne diese Liste kaeme man an sie gar nicht heran.** Die Belegungs-
     ansicht zeigt, was belegt ist — eine Aktion ohne jede Belegung taucht dort
     naturgemaess nicht auf, und der Spieler koennte sie nie anklicken, um sie
-    zu belegen. Am 04.09.2026 gemessen: **411 von 646** benannten Aktionen
+    zu belegen. Gemessen: **411 von 646** benannten Aktionen
     sind ab Werk unbelegt (Emotes, Bergbau-Feinheiten, Notfallbefehle).
 
     Liefert dieselbe Form wie `view()`, unter dem Schluessel `frei`, mit
@@ -839,12 +833,11 @@ def view(which=ALL, filename=None, folder=None):
     ⚠⚠ **Beim Zusammenfuehren gewinnt der Spieler — aber nur auf DEM GERAET,
     das er angefasst hat.**
 
-    Der erste Entwurf warf die Werksvorgabe fuer **alle** Geraete weg, sobald
-    eine Aktion irgendwo eigen belegt war. Ergebnis: Wer „Respawn" auf einen
-    Stick legt, sah die Taste `F` nicht mehr — obwohl sie im Spiel weiter
-    funktioniert. Gemeldet am 04.09.2026, und zwar zu Recht: In der Liste
-    „noch nicht belegt" standen Scheinwerfer, Hocken, Respawn und die linke
-    Maustaste, die alle laengst eine Taste haben.
+    Die Werksvorgabe fuer **alle** Geraete wegzuwerfen, sobald eine Aktion
+    irgendwo eigen belegt ist, waere falsch: Wer Respawn auf einen Stick legt,
+    saehe die Taste `F` nicht mehr — obwohl sie im Spiel weiter funktioniert —,
+    und unter den unbelegten Aktionen stuenden Dinge, die laengst eine Taste
+    haben.
 
     **So macht es das Spiel:** Eine eigene Stick-Belegung ersetzt die
     Stick-Vorgabe. Tastatur, Maus und Gamepad bleiben davon unberuehrt.
@@ -956,23 +949,21 @@ _LABELS = {}
 # ⚠ Aendert sich, was `_profile()` merkt, muss diese Zahl hoch — sonst liest
 # eine neue Fassung den Merker der alten und findet die neuen Felder nicht.
 #
-# ⭐ **4 seit dem 12.09.2026**, und diesmal aus einem anderen Grund: Nicht der
-# Inhalt hat sich geaendert, sondern die Art, wie der Stand gebildet wird
-# (siehe `_p4k_mark()`). Alte Eintraege tragen einen Stand, der nach der
-# neuen Regel nicht mehr zustande kaeme — sie muessen weg.
+# ⭐ Auch wenn sich die Art aendert, wie der Stand gebildet wird (siehe
+# `_p4k_mark()`), muss sie hoch: Alte Eintraege tragen dann einen Stand, der
+# nach der neuen Regel nicht mehr zustande kaeme — sie muessen weg.
 CACHE_VERSION = 4
 
 
 def _p4k_mark(game_folder=None):
     """Woran man erkennt, dass ein ANDERES Archiv vorliegt.
 
-    ⚠⚠ **Der blosse Zeitstempel reicht nicht**, und die Begruendung „die
-    Datei ist 100 GB gross, zwei Fassungen in derselben Sekunde gibt es
-    nicht" geht am Fall vorbei: Das Archiv muss nicht *geschrieben* werden,
-    um zu wechseln. Zwei Installationen nebeneinander, eine Ruecksicherung,
-    eine Kopie mit erhaltenem Datum — und der gemeinsame Merker
-    `aktionsnamen.json` liefert weiter die Etiketten der anderen Installation.
-    Vom Pruefer am 12.09.2026 nachgestellt.
+    ⚠⚠ **Der blosse Zeitstempel reicht nicht**, auch wenn zwei Fassungen
+    einer 100-GB-Datei nie in derselben Sekunde entstehen: Das Archiv muss
+    nicht *geschrieben* werden, um zu wechseln. Zwei Installationen
+    nebeneinander, eine Ruecksicherung, eine Kopie mit erhaltenem Datum — und
+    der gemeinsame Merker `aktionsnamen.json` liefert weiter die Etiketten der
+    anderen Installation (nachgestellt).
 
     Deshalb: **Pfad, Groesse und `st_mtime_ns`** — reine Metadaten, kein
     Lesen. Der aeussere Merker in `labels()` kann das nicht heilen; er
@@ -1004,7 +995,7 @@ def _profile(game_folder=None):
     sein kann.** Die `actionmaps.xml` des Spielers enthaelt naemlich nur seine
     **Abweichungen** vom Standard — wer nichts umgestellt hat, hat dort auch
     nichts stehen, und eine Liste allein daraus waere fast leer. Erst beide
-    zusammen ergeben „was tut welche Taste".
+    zusammen sagen, was welche Taste tut.
 
     Gemerkt wird das Ergebnis in `Intern/aktionsnamen.json`: Das Archiv
     einmal aufzuschlagen dauert spuerbar, und die Daten aendern sich nur mit
@@ -1062,8 +1053,8 @@ def _profile(game_folder=None):
             preset = {}
             for field in ('keyboard', 'joystick', 'mouse', 'gamepad'):
                 value = (at.get(field) or '').strip()
-                # ⚠ Ein leeres Feld heisst „ab Werk nicht belegt" und ist
-                # etwas anderes als „gar kein Feld". Beides kommt vor.
+                # ⚠ Ein leeres Feld heisst ab Werk nicht belegt und ist
+                # etwas anderes als ein fehlendes Feld. Beides kommt vor.
                 if value:
                     preset[field] = value
             if preset:
@@ -1119,22 +1110,20 @@ def _source_mark(language, game_folder=None):
     ⚠⚠ **Der Merker allein nach Sprache reicht nicht.** Die Namen kommen aus
     zwei Dateien im SPIELORDNER — `defaultProfile.xml` und der `global.ini`
     der jeweiligen Sprache. Wer den Spielordner umstellt oder das Spiel
-    aktualisiert, bekam bisher weiter die alten Namen; nur ein `forget()`
-    half, und das wurde aus Tempogruenden seltener gerufen.
-
-    Vom Pruefer am 12.09.2026 nachgestellt: Uebersetzungsquelle aendern,
-    Sprache gleich lassen — `labels()` lieferte den alten Namen.
+    aktualisiert, bekaeme sonst weiter die alten Namen; nur ein `forget()`
+    hilft, und das wird aus Tempogruenden selten gerufen. Nachgestellt:
+    Uebersetzungsquelle aendern, Sprache gleich lassen — `labels()` liefert
+    den alten Namen.
 
     Die Marke ist absichtlich **billig**: Pfad, Groesse und Zeitstempel, kein
     Lesen des Inhalts. Die `global.ini` hat rund 12 MB.
 
-    ⚠⚠ **Sie muss die Dateien beobachten, die WIRKLICH gelesen werden.** Die
-    erste Fassung nahm eine lose `Data/defaultProfile.xml` — die gibt es gar
-    nicht: `_profile()` holt sie aus dem Archiv `Data.p4k`. Und bei deutscher
-    Oberflaeche fehlte die englische `global.ini`, obwohl `labels()`
-    daraus jede fehlende Uebersetzung nachtraegt. Beide echten Quellen
-    konnten sich also aendern, ohne dass die Marke sich ruehrte — vom Pruefer
-    am 12.09.2026 nachgestellt.
+    ⚠⚠ **Sie muss die Dateien beobachten, die WIRKLICH gelesen werden.** Eine
+    lose `Data/defaultProfile.xml` gibt es gar nicht: `_profile()` holt sie
+    aus dem Archiv `Data.p4k`. Und bei deutscher Oberflaeche gehoert die
+    englische `global.ini` dazu, weil `labels()` daraus jede fehlende
+    Uebersetzung nachtraegt. Sonst aendern sich die echten Quellen, ohne dass
+    die Marke sich ruehrt.
 
     ⚠ **Und `st_mtime_ns`, nicht `int(st_mtime)`.** Auf Sekunden gerundet
     fallen zwei gleich grosse Fassungen derselben Sekunde zusammen. Das
@@ -1196,22 +1185,20 @@ def labels(language='de', game_folder=None):
     out = {}
     for action, pair in (label_pairs or {}).items():
         label, description = ((pair or []) + ['', ''])[:2]
-        # ⚠⚠ **Nicht `schluessel` nennen.** Genau das hiess hier bis zum
-        # 12.09.2026 so wie der Merker-Schluessel oben — die Schleife
-        # ueberschrieb ihn, und abgelegt wurde am Ende unter dem letzten
-        # Etikett (`'ui_…'`). Gesucht wird aber nach `(Sprache, Marke)`: Der
-        # Merker traf nie, die 12-MB-INI wurde bei **jedem** Aufruf neu
-        # gelesen. Vom Pruefer nachgestellt — zwei unveraenderte Aufrufe,
-        # zwei Lesevorgaenge.
+        # ⚠⚠ **Nicht `schluessel` nennen** — so heisst der Merker-Schluessel
+        # oben. Die Schleife ueberschriebe ihn, und abgelegt wuerde am Ende
+        # unter dem letzten Etikett (`'ui_…'`). Gesucht wird aber nach
+        # `(Sprache, Marke)`: Der Merker traefe nie, die 12-MB-INI wuerde bei
+        # **jedem** Aufruf neu gelesen.
         l_key = (label or '').lstrip('@')
         name = texts.get(l_key) or fallback.get(l_key) or ''
         h_key = (description or '').lstrip('@')
         hint = texts.get(h_key) or fallback.get(h_key) or ''
         if not name:
-            # ⚠⚠ **Dritte Stufe, und sie ist noetig.** Gemessen am 04.09.2026:
+            # ⚠⚠ **Dritte Stufe, und sie ist noetig.** Gemessen:
             # 314 Aktionen haben gar kein Etikett, bei weiteren 68 zeigt es
             # ins Leere — dafuer gibt es auch im Spiel selbst keinen Namen.
-            # In der Liste stand dann `v_ads_stable_max_zoom_hold`.
+            # In der Liste stuende sonst `v_ads_stable_max_zoom_hold`.
             #
             # Aufbereitet wird **rein mechanisch**: Vorsilbe ab, Unterstriche
             # zu Leerzeichen, Wortanfaenge gross. Das ist Formatierung, kein
@@ -1267,7 +1254,7 @@ def bind_action(action, section, device_id, input_device, filename=None, folder=
     | `eingabe` | `button10`, `f5`, `lalt+y` — **ohne** Vorsilbe |
 
     Eine **leere** `eingabe` loescht die Belegung: Das Spiel versteht
-    `input=""` als „bewusst nicht belegt" und nimmt dann auch nicht die
+    `input=""` als bewusst nicht belegt und nimmt dann auch nicht die
     Werkseinstellung. Genau so macht es das Spiel selbst.
 
     ⚠⚠ **Es wird immer nur EIN `rebind` je Aktion und Geraet geschrieben.**
@@ -1400,8 +1387,8 @@ def reset(filename=None, folder=None):
     * Entfernt werden **nur die Tastenbelegungen** (`<actionmap>`). Was an
       den Geraeten eingestellt ist — Totzonen, Kurven, Empfindlichkeit
       (`<deviceoptions>`, `<options>`) — bleibt stehen. Das sind
-      Geraeteeinstellungen, keine Belegung, und wer „Belegung zuruecksetzen"
-      drueckt, will seine Totzonen nicht neu einmessen.
+      Geraeteeinstellungen, keine Belegung, und wer die Belegung
+      zuruecksetzt, will seine Totzonen nicht neu einmessen.
 
     Liefert `(erfolg, meldung, anzahl geloeschter Gruppen)`.
     """
@@ -1464,7 +1451,7 @@ def export_file(target, language='de', filename=None, folder=None):
                                      label_text, e['bereich'], e.get('quelle', ''))))
             with open(target, 'w', encoding='utf-8-sig', newline='') as f:
                 # ⚠ `utf-8-sig`: Excel liest UTF-8 ohne Vorspann als
-                # Windows-1252 und macht aus „Schleudersitz" Buchstabensalat.
+                # Windows-1252 und macht aus Umlauten Buchstabensalat.
                 f.write(chr(10).join(lines) + chr(10))
         else:
             shutil.copy2(source, target)
@@ -1625,7 +1612,7 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
     ⭐ **Getauscht werden nur die beiden `Product`-Angaben** in den
     `<options type="joystick">`-Bloecken. Keine einzige der 400 Belegungszeilen
     wird angefasst: Das Spiel erkennt seine Geraete an der gespeicherten
-    Kennung wieder (gemessen 04.09.2026), also genuegt es zu sagen, welche
+    Kennung wieder (gemessen), also genuegt es zu sagen, welche
     Kennung nun welche Nummer ist. Danach wirken alle `js1_`-Zeilen auf dem
     anderen Stick.
 

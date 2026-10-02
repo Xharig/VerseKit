@@ -2,9 +2,8 @@
 
 Warum das ein eigenes Werkzeug ist: Abgeschnittene Knöpfe fallen beim Bauen
 nicht auf, weil die deutsche Beschriftung noch passt — auf Englisch sind die
-Wörter länger, und dann steht dort „Ve…" statt „Very large". Genau das ist
-mehrfach passiert und jedes Mal erst beim Ansehen eines Bildschirmfotos
-aufgefallen. Eine Maschine sieht das zuverlässiger als ein müdes Auge.
+Wörter länger, und dann steht dort „Ve…" statt „Very large". Eine Maschine
+sieht das zuverlässiger als ein müdes Auge.
 
 Geprüft wird jede Seite in beiden Sprachen und in zwei Fenstergrößen: der
 Mindestgröße, die ein Nutzer einstellen kann, und einer üblichen. Was rechts
@@ -35,16 +34,9 @@ os.environ['SC_BP_NO_NET'] = '1'
 import tkinter as tk                                          # noqa: E402
 from scbp import main_window, pages, language                # noqa: E402
 
-# ⛔⛔ **Keine feste Liste.** Hier standen bis zum 14.09.2026 elf Kennungen von
-# Hand — das Programm hatte längst **33**. Zweiundzwanzig Seiten wurden also
-# nie auf abgeschnittene Beschriftungen geprüft, darunter alle Werkstatt- und
-# Handelsseiten.
-#
-# Aufgefallen ist es, weil auf der Raffinerien-Seite bei „sehr groß" **drei
-# Spalten gar nicht angezeigt** wurden — in einer ausgelieferten Fassung. Genau
-# dafür gibt es dieses Werkzeug; es hat nur nie hingeschaut.
-#
-# Eine Liste von Hand ist am Tag ihrer Erweiterung still veraltet. Gefragt wird
+# ⛔⛔ **Keine feste Liste.** Eine Liste von Hand ist am Tag der nächsten neuen
+# Seite still veraltet — und jede fehlende Seite wird nie auf abgeschnittene
+# Beschriftungen geprüft. Gefragt wird
 # deshalb das Programm selbst.
 SEITEN = list(pages.page_ids())
 
@@ -103,9 +95,9 @@ def _durchgehen(w, gefunden):
             #
             # ⚠ `Canvas` darf NICHT pauschal durchgehen. Jeder Knopf des
             # Hauses ist ein Canvas mit fest gerechneter Breite — genau die
-            # Elemente, für die diese Prüfung gebaut wurde. Solange sie
-            # ausgenommen waren, meldete sie nichts, während auf der
-            # Über-Seite sichtbar „Einrichtung wiederho…" stand. Knöpfe
+            # Elemente, für die diese Prüfung gebaut wurde. Ausgenommen,
+            # meldete sie nichts, während etwa „Einrichtung wiederho…"
+            # sichtbar abgeschnitten dasteht. Knöpfe
             # tragen deshalb die Markierung `is_button` und werden geprüft.
             knopf = getattr(kind, 'is_button', False)
             rollend = ((kind.winfo_class() in ('Canvas', 'Text', 'Listbox',
@@ -116,10 +108,8 @@ def _durchgehen(w, gefunden):
             # `_button_grid` legt seine Knöpfe in mehrere Zeilen, sobald es eng
             # wird — genau dafür wurde es gebaut. Seine `winfo_reqwidth()` ist
             # dabei die Breite EINER Zeile mit allen Knöpfen, also immer zu
-            # groß. Am 14.09.2026 meldete diese Prüfung deshalb dreimal
-            # „+566 px" auf der Joystick-Seite, während in Wirklichkeit
-            # **0 von 16** Knöpfen herausragten und die dritte Reihe sauber
-            # zweizeilig stand.
+            # groß — die Prüfung meldete „+566 px", während in Wirklichkeit
+            # kein Knopf herausragt und die Reihe sauber zweizeilig steht.
             #
             # Bei so einem Rahmen zählt nicht die Wunschbreite, sondern wo die
             # Knöpfe wirklich sitzen.

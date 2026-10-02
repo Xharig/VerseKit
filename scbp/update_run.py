@@ -19,9 +19,9 @@
 """
 Ein-Klick-Update: Laufmarke, Update-Sperre und der Helfer unter Windows.
 
-Bis v3.29.0 endete ein Update unter Windows mit einem geschlossenen Watcher:
-Der Installer lief still, startete bei `/SILENT` absichtlich nichts, und der
-Nutzer musste selbst wieder starten. Dieses Modul nimmt das ab — und es hält
+Der Installer läuft unter Windows still und startet bei `/SILENT` absichtlich
+nichts — ohne Helfer endete ein Update mit einem geschlossenen Watcher, den der
+Nutzer selbst wieder starten müsste. Dieses Modul nimmt das ab — und es hält
 nicht nur den Ablauf fest, der gelingt, sondern auch, was geschah, wenn er
 mittendrin stirbt.
 
@@ -34,7 +34,7 @@ Drei Bausteine, alle nur Standardbibliothek:
 * **Die Sperre** (`update-sperre.json`) — damit zwei Klicks oder zwei
   Instanzen nicht zwei Installer loslassen.
   ⚠ Bewusst **keine** Portbindung. Unter Windows bindet ein zweiter Prozess
-  mit `SO_REUSEADDR` denselben Port anstandslos — gemessen am 11.09.2026.
+  mit `SO_REUSEADDR` denselben Port anstandslos — gemessen.
   Eine Datei, die nur mit `O_EXCL` entsteht, sperrt auf jedem System gleich.
 * **Der Helfer** — eine `.cmd` in `%TEMP%`. Sie wartet, bis der alte Watcher
   weg ist, gleicht die Prüfsumme **unmittelbar vor dem Start** noch einmal ab,
@@ -55,16 +55,15 @@ LOG_FILE = 'update-helfer.txt'
 LOG_FILE_OLD = 'update-helfer.1.txt'
 HELPER_NAME = 'scbp-update-helfer.cmd'
 
-# Nach welchen Rückgabewerten der Helfer den Watcher wieder startet
-# (entschieden 11.09.2026):
+# Nach welchen Rückgabewerten der Helfer den Watcher wieder startet:
 #
 #   0  Installation gelungen
 #   2  abgebrochen, bevor etwas geändert wurde
 #   3  vor dem Einspielen gescheitert — gemessen: Inno ändert dabei nichts
 #   5  abgebrochen während des Einspielens — gemessen: Inno rollt zurück, die
-#      bisherige Fassung liegt unverändert da
+#      laufende Fassung liegt unverändert da
 #
-# Jeder andere Wert startet **nichts**. Gemeldet wird er beim nächsten Start
+# Jeder andere Wert startet **nichts**. Angezeigt wird er beim nächsten Start
 # von Hand, über die Laufmarke.
 RESTART_AFTER = (0, 2, 3, 5)
 
@@ -72,13 +71,13 @@ RESTART_AFTER = (0, 2, 3, 5)
 RC_CHECKSUM_BAD = 90
 RC_OLD_STUCK = 91
 
-# So lange wartet der Helfer, bis die alte Fassung wirklich weg ist.
+# So lange wartet der Helfer, bis der zu ersetzende Watcher wirklich beendet ist.
 WAIT_SECONDS = 60
 # Eine Sperre, die älter ist, gilt als verwaist — auch wenn die PID noch lebt
 # (Windows vergibt PIDs wieder).
 LOCK_MAX_AGE = 15 * 60
 # Eine Laufmarke, die älter ist, wird still weggeräumt: Wer tagelang nicht
-# gestartet hat, braucht keine Meldung über ein Update von damals.
+# gestartet hat, braucht keine Meldung über ein so altes Update.
 RUN_MAX_AGE = 24 * 3600
 
 
@@ -241,7 +240,7 @@ def pid_alive(pid):
         k = _kernel32()
         handle = k.OpenProcess(_QUERY_ONLY, False, pid)
         if not handle:
-            # „Zugriff verweigert" heißt: Es gibt ihn, wir dürfen nur nicht
+            # Zugriff verweigert (5) heißt: Es gibt ihn, wir dürfen nur nicht
             # hinein. Alles andere heißt: Es gibt ihn nicht.
             return ctypes.get_last_error() == 5
         try:
@@ -411,10 +410,9 @@ def _cleanup(run):
     # Nur eine Datei, die erkennbar uns gehört — nie etwas Fremdes.
     #
     # ⚠⚠ Die Prüfung geht über `paths.is_ours()`, weil sie BEIDE
-    # Namen kennen muss. Bis zum 12.09.2026 stand hier nur
-    # 'sc-bp-watcher' — ein `VerseKit-Setup.exe` wäre nach dem Update
-    # liegen geblieben, während die Laufmarke gelöscht wurde. Vom Prüfer
-    # mit einer protokollierenden Attrappe nachgewiesen (F04).
+    # Namen kennen muss. Mit nur 'sc-bp-watcher' bliebe ein
+    # `VerseKit-Setup.exe` nach dem Update liegen, während die Laufmarke
+    # gelöscht wird.
     if installer and paths.is_ours(installer):
         _remove(installer)
 
@@ -426,7 +424,7 @@ def evaluate(own_version):
     oder `unklar` — oder None, wenn es nichts zu sagen gibt. Räumt danach auf.
 
     ⚠ Die Version entscheidet, nicht der Rückgabewert. Meldet der Installer 0,
-    läuft aber weiter die alte Fassung, ist das **kein** Erfolg — genau diese
+    läuft aber weiter die Version von vor dem Update, ist das **kein** Erfolg — genau diese
     falsche Erfolgsmeldung soll es nicht geben.
 
     ⚠ Hält der Helfer die Sperre noch, läuft das Update gerade — wer jetzt
@@ -554,10 +552,10 @@ def helper_flags():
     ⚠⚠ **Kein `DETACHED_PROCESS`.** Ohne eigene Konsole bekommt jedes
     Konsolenprogramm, das `cmd` startet (`tasklist`, `findstr`, `certutil`),
     eine neue, sichtbare Konsole — und benutzt deren Ein- und Ausgabe statt der
-    Umleitungen. Im ersten Echttest (11.09.2026) hing so `find` in einem offenen
-    Fenster und wartete auf die Tastatur, und `certutil` schrieb die Summe in
-    sein Fenster statt in die Datei. Der Helfer verwarf daraufhin ein
-    einwandfreies Update (Rückgabewert 90) — sicher, aber aus dem falschen Grund.
+    Umleitungen: `find` hängt dann in einem offenen Fenster und wartet auf die
+    Tastatur, und `certutil` schreibt die Summe in sein Fenster statt in die
+    Datei. Der Helfer verwürfe daraufhin ein einwandfreies Update
+    (Rückgabewert 90) — sicher, aber aus dem falschen Grund.
 
     `CREATE_NO_WINDOW` gibt `cmd` eine eigene, **unsichtbare** Konsole, die alle
     Kinder erben. Die eigene Prozessgruppe löst ihn vom Watcher, der gleich

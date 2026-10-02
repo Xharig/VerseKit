@@ -52,10 +52,8 @@ wie `(12 Schuss)` gegen `(12 cap)`.
 Dieses Modul **entscheidet nichts allein**: `preview()` sagt, was passieren
 würde; erst `merge()` schreibt.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `importieren`, die Funktionen
-`erkennen`, `lesen`, `vorschau` und `uebernehmen` (Sprachumstellung P4,
-Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst gleich
-geblieben: die Formatkennungen (`'eigen'`, `'scmdb'`, `'scmdb2'`, `'basetool'`,
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben: die Formatkennungen (`'eigen'`, `'scmdb'`, `'scmdb2'`, `'basetool'`,
 `'launcher'`, `'bpdb'`) — `pages.py` holt darüber die Bezeichnung für
 die Anzeige —, die
 Schlüssel `name` und `zeit` der Einträge, die Schlüssel `neu`, `schon_da`,
@@ -74,11 +72,11 @@ from . import errors
 SOURCE = 'import'
 
 # ⚠⚠ Unter welchen Namen wir unsere EIGENEN Exportdateien wiedererkennen.
-# BEIDE gelten dauerhaft (Umbenennung zu VerseKit, 12.09.2026):
-#   * 'VerseKit'      — was `export.py` ab jetzt schreibt
-#   * 'SC BP Watcher' — was in jeder vor der Umbenennung erzeugten Datei steht
-# ⛔ Keinen streichen. Der Auftrag verlangt ausdrücklich, dass bestehende
-# Sicherungen und Exporte weiter importierbar bleiben.
+# BEIDE gelten dauerhaft:
+#   * 'VerseKit'      — was `export.py` schreibt
+#   * 'SC BP Watcher' — was in Dateien aus älteren Fassungen steht
+# ⛔ Keinen streichen: Bestehende Sicherungen und Exporte müssen weiter
+# importierbar bleiben.
 EIGENE_WERKZEUGNAMEN = ('VerseKit', 'SC BP Watcher')
 
 
@@ -103,9 +101,7 @@ def detect(data):
             #
             # ⛔ **Das heißt NICHT „der Launcher ist jetzt eine Webseite".**
             # Der SC Deutsch Launcher bleibt ein Programm; die Bauplan-
-            # Übersicht ist eine eigene Seite daneben. Genau diese
-            # Falschaussage stand hier am 13.09.2026 einen Tag lang, auch im
-            # Changelog.
+            # Übersicht ist eine eigene Seite daneben.
             #
             # Sie schreibt dieselben `key`-Einträge wie das Launcher-Programm,
             # hängt aber an jeden zwei Schalter:
@@ -136,9 +132,7 @@ def detect(data):
         if 'productName' in first:
             return 'basetool'
         # ⚠⚠ **Die neuere Ausfuhr von scmdb.net** (dort „Tracking-Export").
-        # Am 05.09.2026 gemeldet: Eine Datei von einem Mitspieler wurde mit
-        # „Diese Datei kenne ich nicht" abgewiesen — zu Recht, denn scmdb hat
-        # das Format gewechselt und wir kannten nur das alte:
+        # scmdb hat das Format gewechselt; beide werden erkannt:
         #
         #     alt:  {"exportSchemaVersion": …, "blueprints": [{"productName": …, "ts": …}]}
         #     neu:  {"version": 3, "blueprints": [{"tag": …, "name": …, "completed": true}]}
@@ -157,10 +151,10 @@ _ZONED = re.compile(r'^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}:\d{2})(?:\.\d+)?'
 def _time_from(value):
     """Einen Zeitwert in unsere Schreibweise (Ortszeit) bringen — oder nichts.
 
-    ⚠⚠ **Eine Zeit mit `Z` oder `+02:00` ist KEINE Ortszeit.** Bis v3.57.3
-    wurde das `Z` einfach abgeschnitten — eine Basetool-Datei (`receivedAt`
-    in UTC) landete damit im Sommer zwei Stunden zu früh im Bestand. Jetzt
-    wird mit Zone umgerechnet; ohne Zone bleibt der Wert, wie er ist."""
+    ⚠⚠ **Eine Zeit mit `Z` oder `+02:00` ist KEINE Ortszeit.** Wer das `Z`
+    nur abschneidet, legt eine Basetool-Datei (`receivedAt` in UTC) im Sommer
+    zwei Stunden zu früh in den Bestand. Deshalb wird mit Zone umgerechnet;
+    ohne Zone bleibt der Wert, wie er ist."""
     try:
         if isinstance(value, (int, float)) and value > 0:
             return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(value))
@@ -209,7 +203,7 @@ def read(path):
     elif kind == 'scmdb2':
         # ⚠⚠ **Nur, was als erledigt markiert ist.** Die Ausfuhr enthaelt auch
         # Bauplaene, die jemand nur beobachtet oder angesehen hat; `completed`
-        # ist das Feld, das „habe ich" bedeutet. Ohne diese Bedingung waere
+        # ist das Feld fuer den Besitz. Ohne diese Bedingung waere
         # jeder Bauplan der Datenbank im Bestand — und das Werkzeug meldete
         # nie wieder einen Fund.
         #

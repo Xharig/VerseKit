@@ -54,18 +54,16 @@ ausgabe.utf8()
 # Prueflaeufe bauen echte Fenster. Ohne diese Umleitung blitzen sie ueber
 # einem laufenden Spiel auf und reissen den Fokus mit — siehe unsichtbar.py.
 #
-# ⚠ `messend=True` ist hier Pflicht (07.09.2026). Der Selbsttest MISST Layouts:
+# ⚠ `messend=True` ist hier Pflicht. Der Selbsttest MISST Layouts:
 # Fensterbreiten, Kastenhoehen, Rollstaende. Ohne die Kennzeichnung nimmt
 # `unsichtbar.py` auf Windows und Mac den Weg `verstecken()` — `withdraw()` —,
 # und ein verstecktes Fenster hat keine Geometrie: `winfo_width()` meldet 1.
-# Unter Linux fiel das nie auf, weil dort vorher Xvfb greift und ein echter
+# Unter Linux faellt das nie auf, weil dort vorher Xvfb greift und ein echter
 # (nur unsichtbarer) Bildschirm alles korrekt vermisst.
 #
-# Was das auf Windows angerichtet hat: sieben Pruefungen fielen mit `[1, 1] px`
-# bzw. `0 px` durch, und Pruefung 60 STARB — sie sucht die Rollflaeche ueber
-# `winfo_width() > 20`, fand bei Breite 1 nichts und rief `yview()` auf `None`.
-# Damit endete der Lauf nach 681 von rund 1767 Pruefungen. Der Selbsttest hat
-# auf Windows also nie geprueft, was er soll.
+# Ohne die Kennzeichnung fallen auf Windows Pruefungen mit `[1, 1] px` bzw.
+# `0 px` durch, und Pruefung 60 findet ueber `winfo_width() > 20` keine
+# Rollflaeche — der Lauf endete mittendrin.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import unsichtbar                                              # noqa: E402
 unsichtbar.sicherstellen(messend=True)
@@ -111,16 +109,15 @@ ERWARTET = {
     "cf-117 bulldog 'hazard-zone' repeater",
     'singe cannon (s2)',
     # ⚠ `(12)`, nicht `(12 schuss)`: Die Log-Zeile oben ist DEUTSCH — genau der
-    # Fall, der den Bauplan frueher doppelt in den Bestand gelegt hat, weil der
+    # Fall, der den Bauplan sonst doppelt in den Bestand legt, weil der
     # Launcher dieselbe Kiste als `(12 cap)` fuehrt.
     'scalpel sniper rifle magazine (12)',
 }
 
 fehler = []
-# ⚠ Die Bilanz am Ende sagte immer „N von N fehlgeschlagen", weil sie die
-# Gesamtzahl aus der Fehlerzahl selbst errechnete (`len(fehler) + 0`). Ein
-# einzelner Fehler unter zweihundert Prüfungen las sich damit als „1 von 1" —
-# also als hätte gar nichts geklappt. Deshalb wird jetzt wirklich gezählt.
+# ⚠ Die Gesamtzahl wird wirklich gezählt, nicht aus der Fehlerzahl
+# errechnet (`len(fehler) + 0`) — sonst läse sich ein einzelner Fehler unter
+# zweihundert Prüfungen als 1 von 1, als hätte gar nichts geklappt.
 geprueft = [0]
 
 
@@ -128,7 +125,7 @@ def hat_anzeige():
     """Lässt sich hier überhaupt ein Fenster öffnen?
 
     Auf einem Bau-Rechner gibt es keinen Bildschirm — dort scheitert schon
-    `tk.Tk()` mit „no display name and no $DISPLAY". Die Erkennung, der Bestand
+    `tk.Tk()` mit `no display name and no $DISPLAY`. Die Erkennung, der Bestand
     und die Pfade brauchen kein Fenster; nur die paar Prüfungen, die eines
     aufmachen, werden dann übersprungen statt den ganzen Lauf zu versenken."""
     try:
@@ -157,9 +154,9 @@ def rumpf(quelle, name):
     sie nicht gibt.
 
     ⛔⛔ **Warum das ein eigener Helfer ist.** Viele Prüfungen schneiden sich
-    eine Funktion per Textsuche aus `pages.py` heraus. Das war in **vier**
-    Bauarten geschrieben, mit vier verschiedenen Ausfällen, sobald der Name sich
-    ändert (gemessen am 14.09.2026 vor P4 Stufe 7c):
+    eine Funktion per Textsuche aus `pages.py` heraus. Dafür gibt es **vier**
+    Bauarten, mit vier verschiedenen Ausfällen, sobald der Name sich ändert
+    (gemessen):
 
     | Bauart | Wenn der Name fehlt |
     |---|---|
@@ -191,12 +188,11 @@ def rumpf(quelle, name):
 def methode(quelle, klasse, name):
     """Der Quelltext EINER Methode — ueber den Syntaxbaum, nicht per Textsuche.
 
-    ⛔⛔ Dasselbe Problem wie bei `rumpf()`, eine Ebene tiefer. Hier stand bis
-    zum 14.09.2026:
+    ⛔⛔ Dasselbe Problem wie bei `rumpf()`, eine Ebene tiefer. Bei
 
         quelle.split('class _Windows')[1].split('def nachsehen')[1]
 
-    Sobald die Methode anders heisst, wirft der zweite `split` — und reisst den
+    wirft der zweite `split`, sobald die Methode anders heisst — und reisst den
     ganzen Lauf mit. Ein Textmuster kennt seinen Gegenstand nicht; der
     Syntaxbaum schon. Fehlt die Methode, gibt es hier eine **rote Pruefung mit
     Namen** und einen leeren Rumpf, mit dem die folgenden sauber durchfallen.
@@ -216,14 +212,11 @@ def methode(quelle, klasse, name):
 
 
 # ---------------------------------------------------------------------------
-# ⚠ Am 28.08.2026 stand in `release.yml` zweimal `shell: bash` untereinander.
-# YAML verbietet denselben Schlüssel zweimal in einer Map — GitHub lehnte die
-# **ganze Datei** ab. Folge: Jeder Bau brach nach 0 Sekunden ab („workflow file
-# issue"), über eine Stunde lang unbemerkt, weil niemand hinsah. Die Commits
-# von 00:03 bis 00:57 wurden nie gebaut.
-#
-# Genau die Sorte Fehler, die der Selbsttest sonst sichtbar macht — nur prüfte
-# er die Workflow-Dateien nicht.
+# ⚠ YAML verbietet denselben Schlüssel zweimal in einer Map (etwa zweimal
+# `shell: bash` untereinander in `release.yml`) — GitHub lehnt dann die
+# **ganze Datei** ab. Folge: Jeder Bau bricht nach 0 Sekunden ab (`workflow
+# file issue`), unbemerkt, solange niemand hinsieht. Deshalb prüft der
+# Selbsttest auch die Workflow-Dateien.
 #
 # ⚠ Und PyYAML hilft hier NICHT: `safe_load` meldet doppelte Schlüssel nicht,
 # es nimmt still den letzten Wert. Gemessen, nicht vermutet. Also von Hand über
@@ -316,12 +309,12 @@ def main():
     # ⚠⚠ Der Grund steht in Abschnitt 37: Die Isolation gegen echte Spieldaten
     # laesst nur den Wegwerf-Bereich durch. Waere das der ALLGEMEINE
     # Temp-Ordner, waere das viel zu weit — dort liegen auch fremde Werkzeuge,
-    # abgebrochene Prueflaeufe von gestern und deren Daten. Gemessen am
-    # 12.09.2026: Eine `Game.log` in einem beliebigen, nirgendwo registrierten
-    # Temp-Ordner wurde anstandslos akzeptiert, ebenso die Temp-Wurzel selbst.
+    # abgebrochene Prueflaeufe und deren Daten. Gemessen: Eine `Game.log` in
+    # einem beliebigen, nirgendwo registrierten Temp-Ordner wuerde
+    # anstandslos akzeptiert, ebenso die Temp-Wurzel selbst.
     #
     # Mit einer eigenen Wurzel ist die Erlaubnis genau das, was dieser Lauf
-    # selbst angelegt hat — nicht „irgendetwas Temporaeres".
+    # selbst angelegt hat — nicht irgendetwas Temporaeres.
     _echtes_temp = tempfile.gettempdir()
     LAUFWURZEL[0] = tempfile.mkdtemp(prefix='sc-bp-lauf-', dir=_echtes_temp)
     tempfile.tempdir = LAUFWURZEL[0]
@@ -343,8 +336,8 @@ def main():
         print('\n1. Pfade finden')
         pruefe(w.paths.game_folder() == live, 'Spielordner gefunden')
         pruefe(len(w.paths.log_backups()) == 2, 'beide Sicherungen gefunden')
-        # ⚠ Seit dem 30.09.2026 liest VerseKit nichts mehr vom SC Deutsch
-        # Launcher. Diese Zeile hält fest, dass der Weg nicht zurückkommt.
+        # ⚠ VerseKit liest nichts vom SC Deutsch Launcher. Diese Zeile hält
+        # fest, dass der Weg nicht zurückkommt.
         pruefe(not any(hasattr(m, n) for m, n in (
                    (w, 'HAT_LAUNCHER'), (w, 'load_keys'), (w.paths, 'launcher_folder'),
                    (w.injection, 'apply_scdl'), (w.injection, 'scdl_fetch'))),
@@ -365,11 +358,11 @@ def main():
                 print('         Abweichung:', x)
 
         print('\n3. Neuer Fund im laufenden Spiel')
-        # ⚠ Erst die Schlange leeren. Seit v3.1.0 meldet die Nachlese, was sie
+        # ⚠ Erst die Schlange leeren. Die Nachlese stellt ein, was sie
         #   gefunden hat (bis zu `NACHLESE_MELDEN_BIS` Stück) — das sind hier
         #   sieben, und die stünden sonst in der Auswertung unten und ließen den
         #   frischen Fund wie einen von acht aussehen. Der Test prüft, dass
-        #   **dieser eine** gemeldet wird, nicht wie viele vorher kamen.
+        #   **dieser eine** ankommt, nicht wie viele vorher kamen.
         _vorher = []
         while not q.empty():
             _vorher.append(q.get())
@@ -435,7 +428,7 @@ def main():
                'die Vorlage nennt die Suchorte beim Feld')
 
         # Und die Gegenprobe: Liegt an einem Suchort wirklich ein Spiel, muss es
-        # gefunden werden. Ohne diese Hälfte wäre „nichts gefunden" wertlos —
+        # gefunden werden. Ohne diese Hälfte wäre ein leeres Ergebnis wertlos —
         # eine kaputte Suche fände auch nichts.
         with open(datei, encoding='utf-8') as f:
             ohne = json.load(f)
@@ -472,23 +465,18 @@ def main():
         # ⚠⚠⚠ **Ab hier zeigt SC_INSTALL_DIR wieder auf die NACHGEBAUTE
         # Installation — und das ist keine Kosmetik.**
         #
-        # Abschnitt 5 hat die Variable entfernt („Suche muss jetzt scheitern")
-        # und nie wieder gesetzt. Danach trug nur noch die Einstellungsdatei im
-        # Prüf-Ablageordner. Legt eine spätere Prüfung einen **frischen**
-        # `SC_BP_HOME` an — Prüfung 113 tut genau das —, ist diese Einstellung
-        # weg, die Suche greift, und auf einem Spielrechner findet sie die
-        # **echte** Star-Citizen-Installation.
+        # Abschnitt 5 entfernt die Variable (die Suche muss dort scheitern).
+        # Danach traegt nur noch die Einstellungsdatei im Prüf-Ablageordner.
+        # Legt eine spätere Prüfung einen **frischen** `SC_BP_HOME` an —
+        # Prüfung 113 tut genau das —, ist diese Einstellung weg, die Suche
+        # greift, und auf einem Spielrechner findet sie die **echte**
+        # Star-Citizen-Installation.
         #
-        # Gemessen am 12.09.2026: Ein Hintergrund-`scan_backlog()` (es läuft beim
-        # Öffnen der Auftragslog-Seite) las daraufhin die echten `logbackups/`
-        # und schrieb **390 echte Auftraege** in die Testdatei von Prüfung 113.
-        # Die meldete „396 statt 2" — ein Fehler, den es im Programm nicht gab.
-        # Zweimal in Folge aufgetreten, dazwischen grün: Es haengt am Zeitpunkt
-        # des Hintergrund-Ticks, nicht am Code.
-        #
-        # Der Kommentar in Abschnitt 5 kannte das Problem bereits („Auf einem
-        # Spielrechner war er deshalb rot") — entschaerft wurde es dort aber nur
-        # fuer eine einzelne Pruefung, nicht fuer den Rest des Laufs.
+        # Gemessen: Ein Hintergrund-`scan_backlog()` (es läuft beim Öffnen der
+        # Auftragslog-Seite) liest dann die echten `logbackups/` und schreibt
+        # Hunderte echter Auftraege in die Testdatei von Prüfung 113 — ein
+        # Fehler, den es im Programm nicht gibt. Ob es passiert, haengt am
+        # Zeitpunkt des Hintergrund-Ticks, nicht am Code.
         #
         # ⚠ Die Umgebungsvariable ist das richtige Mittel: Sie sticht sowohl die
         # Einstellungsdatei als auch die Suche. Damit kann KEINE spaetere
@@ -509,20 +497,20 @@ def main():
         pruefe(not assi.needed(),
                'beim nächsten Mal läuft der Assistent nicht mehr von allein')
 
-        # ⚠⚠ Ein Lesefehler darf den ganzen Lauf nicht kippen. Bis 01.09.2026
-        # flog eine unerwartete Ausnahme aus `_lies_datei` bis hinauf in
-        # `_nachlese()`, das sie **still** verschluckt — `stand.speichern()`
-        # wurde nie erreicht, und ALLE in diesem Lauf gelesenen Dateien galten
-        # wieder als ungelesen. Am alten Stand gemessen: 0 von 23 gemerkt,
-        # beim naechsten Start dasselbe von vorn, ohne jede Meldung.
+        # ⚠⚠ Ein Lesefehler darf den ganzen Lauf nicht kippen. Fliegt eine
+        # unerwartete Ausnahme aus `_lies_datei` bis hinauf in `_nachlese()`,
+        # das sie **still** verschluckt, wird `stand.speichern()` nie
+        # erreicht, und ALLE in diesem Lauf gelesenen Dateien gelten wieder als
+        # ungelesen — beim naechsten Start dasselbe von vorn, ohne jede
+        # Meldung.
         _sicherungen6 = pf2.log_backups()
         pruefe(len(_sicherungen6) > 0,
                'es liegen Sicherungen zum Pruefen bereit (%d)' % len(_sicherungen6))
         # ⚠ **Und sie stammen aus dem Wegwerf-Ordner, nicht vom Spieler.**
         #
         # ⚠⚠ Diese Zeile allein reicht NICHT als Wache gegen das Leck von
-        # Pruefung 113 — nachgemessen am 12.09.2026: Mit ausgebautem
-        # `SC_INSTALL_DIR` blieb sie gruen. An dieser Stelle traegt naemlich
+        # Pruefung 113 — nachgemessen: Mit ausgebautem `SC_INSTALL_DIR`
+        # bleibt sie gruen. An dieser Stelle traegt naemlich
         # noch die Einstellungsdatei im Pruef-Ablageordner. Die eigentliche
         # Wache steht deshalb dort, wo die Bedingung entsteht: bei 113, wo ein
         # FRISCHER Ablageordner die Einstellung wegnimmt.
@@ -584,8 +572,8 @@ def main():
             _schritte6 = len(a._order())
             for _ in range(_schritte6):
                 titel.append(a.titel.cget('text'))
-                # Nach Namen, nicht nach Nummer — seit v3.62.2 steht davor der
-                # Schritt „Datenordner".
+                # Nach Namen, nicht nach Nummer — davor steht der Schritt
+                # „Datenordner".
                 if a._current() == 'spiel':
                     a.pfad.set(live)
                 a._next()
@@ -610,7 +598,7 @@ def main():
         pruefe(language.t('gibtesnicht') == 'gibtesnicht',
                'fehlender Schlüssel stürzt nicht ab, sondern fällt auf')
         # Arten aus dem Katalog müssen alle eine Übersetzung haben — nach einem
-        # SC-Patch können neue dazukommen, und dann steht sonst „Char_Armor_…"
+        # SC-Patch können neue dazukommen, und dann steht sonst `Char_Armor_…`
         # mitten in der Liste.
         from scbp import catalog
         kat = catalog.load()
@@ -658,7 +646,7 @@ def main():
         pruefe(mk.contains('wunschteil'), 'Groß- und Kleinschreibung egal')
         pruefe(mk.toggle('Wunschteil') is False, 'zweiter Klick trägt aus')
         mk.toggle('Wunschteil')
-        # Muster-Einträge von außen (ein eigenes Werkzeug des Autors schreibt so)
+        # Muster-Einträge von außen (fremde Werkzeuge schreiben so)
         d = mk.load()
         d['eintraege'].append({'titel': 'Beispielsatz',
                                'muster': ['adp-mk4', 'woodland']})
@@ -667,8 +655,8 @@ def main():
                'Muster von außen greifen weiter')
         pruefe(mk.fulfill('Wunschteil') == 'Wunschteil',
                'ein erfüllter Wunsch wird gemeldet')
-        # ⚠ Seit 16.09.2026 bleibt er stehen — erledigt ist, was im Bestand
-        # steht (Fortschritt „nur Merkliste").
+        # ⚠ Er bleibt stehen — erledigt ist, was im Bestand steht (der
+        # Fortschritt kann sich auf die Merkliste beschränken).
         pruefe(mk.contains('Wunschteil'), 'und bleibt als erledigt auf der Liste')
         pruefe(mk.fulfill('Irgendwas anderes') is None,
                'was nie beobachtet wurde, ändert nichts')
@@ -744,11 +732,8 @@ def main():
         # ⚠⚠ **Kein Schlüssel darf zweimal vergeben sein.** Ein Wörterbuch
         # nimmt das klaglos hin: Der zweite Eintrag verdrängt den ersten, und
         # niemand merkt es — bis eine Stelle mit `%s` rechnet, während der
-        # gewinnende Eintrag `{preis}` benutzt. Genau so ist am 04.09.2026 die
-        # Bestenliste im Verkaufs-Reiter stumm geblieben: Überschrift da,
-        # Liste leer, kein Hinweis worauf.
-        #
-        # Gefunden wurden dabei **drei** Doppelungen, eine davon Monate alt.
+        # gewinnende Eintrag `{preis}` benutzt. Dann bleibt etwa eine
+        # Bestenliste stumm: Überschrift da, Liste leer, kein Hinweis worauf.
         import re as _re_dop
         _sprachdatei = os.path.join(WURZEL, 'scbp', 'language.py')
         with open(_sprachdatei, encoding='utf-8') as _f_dop:
@@ -809,27 +794,23 @@ def main():
                'es bleiben höchstens %d Einträge liegen' % errors_module.MAX_ENTRIES)
 
         text = report.build(version='0.0.0-test')
-        # ⚠ Der Produktname kommt aus `language`, nicht aus dieser Zeile.
-        # Bis zur Umbenennung „VerseKit" → „Verse-Kit" (17.09.2026) stand er
-        # hier ausgeschrieben — die Pruefung ging rot, obwohl der Bericht in
-        # Ordnung war. Sie prueft jetzt die Eigenschaft („der Bericht nennt das
-        # Werkzeug beim Namen") statt einer Schreibweise und zieht beim
-        # naechsten Namenswechsel von selbst mit.
+        # ⚠ Der Produktname kommt aus `language`, nicht aus dieser Zeile. Die
+        # Pruefung prueft die Eigenschaft (der Bericht nennt das Werkzeug beim
+        # Namen) statt einer Schreibweise und zieht bei einem Namenswechsel
+        # von selbst mit.
         from scbp import language as _sp_bericht
         pruefe(bool(text) and _sp_bericht.t('hf_titel') in text,
                'der Bericht wird gebaut und nennt das Werkzeug (%r)'
                % _sp_bericht.t('hf_titel'))
 
-        # ⚠ Ein Schreibfehler darf nicht spurlos verschwinden. Bis zum
-        # 26.08.2026 gab `einstellungen_schreiben` nur `False` zurück — und
-        # **kein einziger Aufrufer** wertet das aus. Eine Einstellung war nach
-        # dem Neustart einfach wieder alt, ohne jeden Hinweis.
+        # ⚠ Ein Schreibfehler darf nicht spurlos verschwinden. Ein blosses
+        # `False`, das **kein einziger Aufrufer** auswertet, liesse eine
+        # Einstellung nach dem Neustart einfach wieder alt sein, ohne jeden
+        # Hinweis.
         # ⚠ Jede Datei, die der Code über `_mitgeliefert()` lädt, muss der Bau
         # auch einpacken. Sonst fehlt sie NUR in der fertigen Version — beim
-        # Start aus dem Quellcode fällt es nie auf. Genau so fehlte das Logo auf
-        # der Seite „Update & Über": Der Code lud `assets/xharig.png`, der Bau
-        # lieferte nur `assets/icon.png`. Gemeldet am 26.08.2026 ,
-        # dem es im Bild eines Testers auffiel.
+        # Start aus dem Quellcode fällt es nie auf (etwa ein Logo auf der Seite
+        # „Update & Über", das der Code lädt, der Bau aber nicht mitliefert).
         # ⚠ **Beide Schreibweisen**, solange die Sprachmigration laeuft:
         # `main_window` und `icons` heissen schon `_bundled`,
         # `sc_bp_watcher.py` noch `_mitgeliefert`. Nur eine davon zu suchen
@@ -853,11 +834,11 @@ def main():
             pruefe(name in bauplan,
                    'der Bau liefert „%s" mit' % name)
 
-        # ⚠ Zwei Fallen stecken in diesem Test, beide am 26.08.2026 erlebt:
+        # ⚠ Zwei Fallen stecken in diesem Test:
         #
         # 1. **Nicht per `chmod` sperren.** Auf den Bau-Rechnern läuft alles als
         #    root, und root schreibt auch in einen Ordner mit entzogenen
-        #    Rechten. Der Test war dort grün, ohne etwas zu prüfen.
+        #    Rechten. Der Test wäre dort grün, ohne etwas zu prüfen.
         # 2. **Nicht den ganzen Ablageordner unbrauchbar machen.** Dann kann
         #    auch das Fehlerprotokoll nicht mehr geschrieben werden — und genau
         #    das soll ja geprüft werden.
@@ -885,9 +866,9 @@ def main():
             if alt_home:
                 os.environ['SC_BP_HOME'] = alt_home
 
-        # ⚠ Die Zeile „Spielsprache" stand drei Übergaben lang auf „—", weil
-        # `phrases.collect()` ein Tupel liefert und der Bericht es wie eine
-        # Liste behandelte. Der TypeError wurde von `_sicher()` verschluckt.
+        # ⚠ `phrases.collect()` liefert ein Tupel. Behandelt der Bericht es wie
+        # eine Liste, verschluckt `_sicher()` den TypeError, und die Zeile
+        # Spielsprache steht auf `—`.
         # Geprüft wird deshalb der Wert selbst, nicht nur dass der Bericht baut.
         pruefe(report._game_language() and 'Bauplan erhalten'
                in report._game_language(),
@@ -959,8 +940,7 @@ def main():
                'ein Import überschreibt keine bessere Quelle')
 
         # ----------------------------------------------------------------- 13b
-        # Der Ablage-Ort muss einen Neustart ueberleben. Gemeldet am
-        # 04.09.2026: „bei jedem Neustart ist der alte Pfad wieder drin".
+        # Der Ablage-Ort muss einen Neustart ueberleben.
         #
         # ⚠ Der Fehler zeigt sich NUR, wenn bereits ein eigener Ort gesetzt
         # ist. Dann schreibt `set_setting` ueber `app_file()` in den
@@ -1118,58 +1098,34 @@ def main():
                        'die geöffnete Seite bleibt geöffnet')
                 # Feste Zahl mit Absicht: Der Test soll auffallen, wenn beim
                 # Sprachwechsel ein Reiter verschwindet. Kommt einer dazu,
-                # wird sie hier mitgezogen. 11 = die Hauptleiste ohne die zwei
-                # unter „Für Fortgeschrittene".
+                # wird sie hier mitgezogen.
                 #
-                # ⚠ Am 28.08.2026 von 10 auf 11: **Diagnose ist nach oben
-                # gewandert.** Wer die Seite braucht, hat ein Problem — und
-                # sucht sie nicht in einem zugeklappten Menü namens
-                # „Fortgeschritten". Seit dem Knopf „Fehlerbericht absenden"
-                # ist sie zudem der Weg, auf dem Meldungen ankommen.
-                #
-                # ⚠ Am 30.08.2026 von 14 auf 16: die Gruppe **Handel** mit
-                # „Handelslager" und „Verkauf". Kurz darauf zurueck auf 15:
-                # **Bauplan-Bestand** ist hinter „Fuer Fortgeschrittene"
-                # gewandert, weil die Seite am eigenen Bestand schreibt und im
-                # Vorbeigehen angeklickt wurde.
-                #
-                # ⚠ Am 04.09.2026 von 15 auf 16: das **Auftrags-Protokoll**
-                # unter „Baupläne". Auftraege sind die Quelle der Bauplaene —
-                # deshalb dort und nicht in einer eigenen Gruppe.
-                #
-                # ⚠ Am 04.09.2026 von 16 auf 17: **Joysticks** unter
-                # „Einstellungen" — welcher Stick welche Nummer hat und was
-                # darauf liegt.
-                #
-                # ⚠ Am 04.09.2026 von 17 auf 18: **Läden** unter „Werkstatt".
-                # Dort und nicht bei „Handel": Die Kette der Werkstatt endet
-                # bei „wo hole ich das", und ein fertig gekauftes Teil ist die
-                # Antwort auf dieselbe Frage — nur der andere Weg. Bei „Handel"
-                # geht es um Ware, die man loswerden will.
-                #
-                # ⚠ Am 04.09.2026 von 18 auf 19: **Routen** unter „Handel",
-                # hinter „Verkauf". Dort geht es um Ware, die man schon hat —
-                # hier um die Fahrt, die man erst plant.
-                #
-                # ⚠ Am 06.09.2026 von 20 auf 21: **Bergung** in einer
-                # eigenen Gruppe. Bergbau ist Erz aus Felsen, Bergung ist ein
-                # Wrack ausschlachten — im Werkzeug zwei verschiedene Fragen.
-                #
-                # ⚠ Am 06.09.2026 von 19 auf 20: **Mein Hangar** unter
-                # „Werkstatt", noch vor dem Lager. Die Kette dort beginnt bei
-                # „was habe ich", und das sind zwei Dinge — die Schiffe und
-                # das Material. Die Schiffe zuerst, weil sie die Frage
-                # beantworten, die auf einen neuen Bauplan sofort folgt:
-                # passt das überhaupt irgendwo hinein?
-                #
-                # ⚠ Am 06.09.2026 von 21 auf 22: **Achsen & Kurven** unter
-                # „Einstellungen", direkt unter „Joysticks". Der eine Reiter
-                # sagt, welcher Stick welche Nummer hat und was darauf liegt —
-                # der andere, wie die Achse reagiert. Im Spiel stehen die
-                # beiden Fragen ebenfalls an zwei getrennten Stellen.
-                # ⚠ Beide Zahlen stehen im Text. Ohne sie meldet ein
-                # Bau-Lauf nur „[FEHL] alle Reiter sind wieder da", und
-                # niemand weiß, ob einer fehlt oder zwanzig.
+                # Zur Gliederung der Leiste:
+                # * **Diagnose** steht oben, nicht unter den
+                #   Fortgeschrittenen — wer sie braucht, hat ein Problem, und
+                #   sie ist der Weg, auf dem Meldungen ankommen.
+                # * **Bauplan-Bestand** schreibt am eigenen Bestand und steht
+                #   deshalb nicht zwischen harmlosen Seiten.
+                # * Das **Auftrags-Protokoll** steht unter Baupläne: Auftraege
+                #   sind die Quelle der Bauplaene.
+                # * **Joysticks** und direkt darunter **Achsen & Kurven**
+                #   stehen unter Einstellungen — welcher Stick welche Nummer
+                #   hat, und wie die Achse reagiert; im Spiel ebenfalls zwei
+                #   getrennte Stellen.
+                # * **Läden** steht unter Werkstatt, nicht bei Handel: Die
+                #   Kette der Werkstatt endet bei der Frage, wo man ein Teil
+                #   holt, und ein fertig gekauftes Teil ist die Antwort darauf.
+                #   Bei Handel geht es um Ware, die man loswerden will.
+                # * **Routen** steht unter Handel hinter Verkauf: dort Ware,
+                #   die man schon hat, hier die Fahrt, die man erst plant.
+                # * **Bergung** hat eine eigene Gruppe: Bergbau ist Erz aus
+                #   Felsen, Bergung ist ein Wrack ausschlachten.
+                # * **Mein Hangar** steht unter Werkstatt vor dem Lager: Die
+                #   Schiffe beantworten die Frage, die auf einen neuen Bauplan
+                #   sofort folgt — passt das überhaupt irgendwo hinein?
+                # ⚠ Beide Zahlen stehen im Text. Ohne sie sagt ein Bau-Lauf
+                # nur, die Reiter seien nicht alle wieder da, und niemand
+                # weiß, ob einer fehlt oder zwanzig.
                 pruefe(len(hf.buttons) == _vorher_reiter,
                        'alle Reiter sind wieder da (vorher %d, jetzt %d)'
                        % (_vorher_reiter, len(hf.buttons)))
@@ -1203,11 +1159,11 @@ def main():
         os.makedirs(alt_ordner, exist_ok=True)
         os.makedirs(neu_ordner, exist_ok=True)
         os.environ.pop('SC_BP_HOME', None)
-        # ⚠⚠ **Auch den Zweitzeiger stilllegen.** Seit dem 06.09.2026 liest
-        # `app_folder()` einen zweiten Zeiger im Konfigurationsordner (siehe
+        # ⚠⚠ **Auch den Zweitzeiger stilllegen.** `app_folder()` liest einen
+        # zweiten Zeiger im Konfigurationsordner (siehe
         # `paths._second_pointer`). Auf einem Rechner, auf dem der gesetzt ist,
-        # zog der Umzug sonst in den ECHTEN Ablageordner des Benutzers statt
-        # in den Testordner — die Pruefung fiel um und hatte recht damit.
+        # zoege der Umzug sonst in den ECHTEN Ablageordner des Benutzers statt
+        # in den Testordner.
         _kon3 = tempfile.mkdtemp(prefix='umzug-konf-')
         _sicher3 = {k: os.environ.get(k)
                     for k in ('XDG_CONFIG_HOME', 'APPDATA')}
@@ -1268,10 +1224,9 @@ def main():
                'abweichender Klammer-Zusatz gilt nicht als unbekannt')
 
         # ------------------------------------------------------------------ 16
-        # Neustart nach dem Update. Dieser Fehler ist dreimal aufgetreten und
-        # war jedes Mal schwer zu sehen, weil er nur in der verpackten Version
-        # unter Windows auftritt — hier wird deshalb die Entscheidung geprüft,
-        # nicht das Ergebnis.
+        # Neustart nach dem Update. Ein Fehler hier ist schwer zu sehen, weil
+        # er nur in der verpackten Version unter Windows auftritt — geprüft
+        # wird deshalb die Weiche im Code, nicht das Ergebnis.
         print()
         print('16. Neustart nach dem Update')
         from scbp import updater as akt
@@ -1312,13 +1267,11 @@ def main():
             pruefe(len(gestartet) == 1,
                    'ohne wartenden Tausch startet die neue Version')
 
-            # ⚠ **Die Umgebung muss gewaschen sein.** Genau hier ist der
-            # Neustart unter Linux monatelang gescheitert: `LD_LIBRARY_PATH`,
+            # ⚠ **Die Umgebung muss gewaschen sein.** `LD_LIBRARY_PATH`,
             # `PYTHONHOME` und `PYTHONPATH` zeigen im AppImage in den entpackten
             # Mount der ALTEN Version. Zwei Sekunden spaeter beendet sie sich,
             # der Mount verschwindet, und die neue Version findet ihre
-            # Bibliotheken nicht mehr. Fuer den Nutzer: „es geht aus, startet
-            # aber nicht" (Bomb20, 27.08.2026).
+            # Bibliotheken nicht mehr: Das Programm geht aus und startet nicht.
             geerbt = umgebungen[-1] if umgebungen else {}
             uebrig = [n for n in ('LD_LIBRARY_PATH', 'PYTHONHOME', 'PYTHONPATH',
                                   'APPIMAGE', 'APPDIR', 'ARGV0', '_MEIPASS')
@@ -1372,10 +1325,10 @@ def main():
         # sucht nach dem Spielordner noch feste Orte unter `LOCALAPPDATA`,
         # `PROGRAMFILES` und `PROGRAMW6432` ab — und auf einem Rechner, auf dem
         # Star Citizen wirklich installiert ist, findet es dort den **echten**
-        # RSI Launcher. Die zweite Prüfung unten schlug deshalb bei der Autor
-        # unter Windows immer fehl, während sie auf Linux und Mac grün war: Der
-        # Test löschte seinen Schein-Launcher, und `spielstarter()` lieferte
-        # trotzdem einen Pfad — nur eben den vom richtigen Spiel.
+        # RSI Launcher. Die zweite Prüfung unten schlüge dann auf einem solchen
+        # Windows-Rechner immer fehl: Der Test löscht seinen Schein-Launcher,
+        # und `spielstarter()` liefert trotzdem einen Pfad — nur eben den vom
+        # richtigen Spiel.
         #
         # Ein Test, der vom Rechner abhängt, auf dem er läuft, prüft nichts.
         alt_umgebung = {}
@@ -1408,9 +1361,7 @@ def main():
         # Und dasselbe unter Linux: Dort ist der Starter **nicht** der
         # `lug-helper` (der verwaltet nur und kann gar nicht starten), sondern
         # das `sc-launch.sh` im Wine-Präfix — eine Ebene über `drive_c`.
-        # Der Fehler dahinter kostete am 27.08.2026 zwei Melder und einen
-        # halben Vormittag: Der Knopf war da, meldete „wird gestartet …" und
-        # nichts geschah.
+        # Sonst ist der Knopf da, kündigt den Start an, und nichts geschieht.
         linux_basis = os.path.join(basis, 'linuxprobe', 'star-citizen')
         linux_spiel = os.path.join(linux_basis, 'drive_c', 'Program Files',
                                    'Roberts Space Industries', 'StarCitizen',
@@ -1433,8 +1384,8 @@ def main():
                    'unter Linux wird sc-launch.sh über drive_c gefunden')
 
             # Ohne Startskript darf KEIN Pfad kommen — auch dann nicht, wenn auf
-            # dem Rechner ein `lug-helper` im Suchpfad liegt. Genau der wurde
-            # früher zurückgegeben, und der Knopf tat nichts.
+            # dem Rechner ein `lug-helper` im Suchpfad liegt. Mit dem als
+            # Ergebnis täte der Knopf nichts.
             os.remove(skript)
             pruefe(pf_start.game_starter() is None,
                    'ohne sc-launch.sh gibt es unter Linux keinen Knopf')
@@ -1447,11 +1398,10 @@ def main():
             else:
                 os.environ['HOME'] = alt_heim
 
-        # Jeder Ausgang beim Ablagesymbol muss im Startverlauf landen. Der
-        # Fehler war zweimal nicht zu finden, weil weder ein Fehler noch eine
-        # Spur im Bericht stand — geprüft wird hier deshalb, dass überhaupt
-        # gemeldet wird, nicht was dabei herauskommt (das geht nur unter
-        # Windows).
+        # Jeder Ausgang beim Ablagesymbol muss im Startverlauf landen — ohne
+        # Fehler und ohne Spur im Bericht ist ein Problem dort nicht zu finden.
+        # Geprüft wird deshalb, dass überhaupt eine Spur entsteht, nicht was
+        # dabei herauskommt (das geht nur unter Windows).
         quelle_start = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                             encoding='utf-8').read()
         block = quelle_start.split('def ablagesymbol_starten')[1].split('\n    def ')[0]
@@ -1472,11 +1422,8 @@ def main():
         # nicht, würde ein dort gestarteter Faden nie laufen — und der Prozess
         # liefe weiter, während sein Temp-Ordner schon abgeräumt wird.
         #
-        # ⚠ Geprüft wird **innerhalb** von `_hand_over()` (bis P4 Stufe 7d
-        # `_abtreten`). Früher lag der Notausgang direkt in `_fetch_version`,
-        # und der Test schnitt die Quelle bei `def _abtreten` ab — damals der
-        # Name der dortigen *lokalen* Funktion. Seit es eine eigene Funktion
-        # ist (beide Abtritts-Wege teilen sie sich), traf der Schnitt ins Leere.
+        # ⚠ Geprüft wird **innerhalb** von `_hand_over()` — der eigenen
+        # Funktion, die sich beide Abtritts-Wege teilen.
         #
         # ⚠ Über `rumpf()`: Ein `split(...)[1]` wirft bei einer Umbenennung
         # einen IndexError und reisst den GANZEN Lauf mit. `rumpf()` macht
@@ -1492,15 +1439,14 @@ def main():
         # ---------------------------------------------------------------- 17
         print()
         print('17. Zweisprachigkeit: kein fester Text in der Oberfläche')
-        # ⚠ Warum das geprüft wird: Am 26.08.2026 stellte der Autor auf Englisch um
-        # und bekam ein englisches Hauptfenster mit einer **deutschen** Melde-
-        # Leiste. Die Übersetzungen dafür gab es längst — `ueberwache`,
-        # `mit_launcher`, `ohne_launcher`, `nachgelesen`, `vorlaeufig` —, nur
-        # benutzt hat sie niemand. Der Code setzte die deutschen Sätze weiter fest
-        # zusammen.
+        # ⚠ Warum das geprüft wird: Setzt der Code deutsche Sätze fest
+        # zusammen, steht in einem englischen Hauptfenster eine **deutsche**
+        # Melde-Leiste — auch wenn die Übersetzungen dafür längst in der
+        # Tabelle stehen.
         #
-        # Deshalb prüft das hier nicht „gibt es unbenutzte Schlüssel", sondern die
-        # eigentliche Ursache: **Steht sichtbarer Text fest im Code?**
+        # Deshalb prüft das hier nicht, ob es unbenutzte Schlüssel gibt,
+        # sondern die eigentliche Ursache: **Steht sichtbarer Text fest im
+        # Code?**
         import ast as _ast
         import re as _re
 
@@ -1585,7 +1531,7 @@ def main():
                         if isinstance(_teil, _ast.Constant):
                             weg.add(id(_teil))
                 # Der `if __name__ == '__main__'`-Block ist der Aufruf von der
-                # Kommandozeile — den sieht kein Spieler, nur der Entwickler.
+                # Kommandozeile — den sieht kein Spieler.
                 if (isinstance(_k, _ast.If) and isinstance(_k.test, _ast.Compare)
                         and getattr(_k.test.left, 'id', '') == '__name__'):
                     for _teil in _ast.walk(_k):
@@ -1620,15 +1566,13 @@ def main():
         pruefe(not _treffer,
                'kein fest eingebauter Anzeigetext (%d gefunden)' % len(_treffer))
 
-        # ⚠ ALLE Module, nicht nur die mit „Fenster" im Namen.
+        # ⚠ ALLE Module, nicht nur die mit Fenster im Namen.
         #
-        # Die erste Version prüfte eine Handauswahl von Oberflächen-Dateien —
-        # und ließ `logsource.py` aus, weil das nach Hintergrund klingt. Genau
-        # von dort kam aber „Zwischen … hat Star Citizen Logs weggeräumt", und
-        # der Satz stand fest auf Deutsch im Overlay. Auch `paths.py` gab „kein
-        # Starter gefunden" in die Statuszeile.
+        # Auch Module, die nach Hintergrund klingen (`logsource.py`,
+        # `paths.py`), schreiben Sätze ins Overlay oder in die Statuszeile.
+        # Eine Handauswahl von Oberflächen-Dateien liesse sie aus.
         #
-        # Wer entscheidet, was „sichtbar" ist, irrt sich. Deshalb: alles
+        # Wer festlegt, was sichtbar ist, irrt sich. Deshalb: alles
         # prüfen, Ausnahmen einzeln benennen und begründen.
         _AUSNAHMEN = {
             # Suchwörter und Datenzuordnung — werden nie angezeigt
@@ -1646,9 +1590,9 @@ def main():
             # Datenfeld der Übersetzungsquellen, nirgends angezeigt (geprüft)
             ('scbp/translation.py', 'Deutsche Übersetzung (rjcncpt)'),
             ('scbp/translation.py', 'StarStrings (aufgeräumte englische Texte)'),
-            # ⚠ Eigenname in der eigenen Sprache (v3.59.0): „Türkçe" heißt in
-            # jedem Fenster so, genau wie „Français" daneben — das „ü" macht
-            # es nicht zu einem deutschen Satz.
+            # ⚠ Eigenname in der eigenen Sprache: `Türkçe` heißt in jedem
+            # Fenster so, genau wie `Français` daneben — das ü macht es nicht
+            # zu einem deutschen Satz.
             ('scbp/translation.py', 'Türkçe (Dymerz)'),
             # ⚠ **Ein Eigenname, kein Satz.** Die „Baupläne DB · Star Citizen
             # Deutsch" heißt auch im englischen Fenster so — genau wie „KRT
@@ -1669,7 +1613,7 @@ def main():
             # Kommentare in der einstellungen.json und eine Entwickler-Hilfe
             # zum fehlenden Entpacker — beides kein Oberflächentext.
             'scbp/paths.py', 'scbp/gametext.py', 'scbp/phrases.py',
-            # Feldnamen der `global.ini` („Gütegrad:", „Verfolgungssignal:") —
+            # Feldnamen der `global.ini` (`Gütegrad:`, `Verfolgungssignal:`) —
             # damit wird in der Spieldatei GESUCHT, angezeigt wird nichts
             # davon. Gleiche Lage wie bei `phrases.py` eine Zeile höher.
             'scbp/specs.py',
@@ -1755,14 +1699,12 @@ def main():
 
             # ⚠⚠ **Ein Suchfeld darf sich beim Tippen nicht selbst wegbauen.**
             #
-            # Gemeldet am 04.09.2026 zur Joystick-Seite: „springt die Maus
-            # raus, ich muss immer erneut reinklicken und kann nur einen
-            # Buchstaben eingeben." Ursache war eine Zeichenfunktion, die an
-            # der Suchvariablen hing und dabei die **ganze** Seite neu baute —
-            # samt des Feldes, in das gerade getippt wurde.
+            # Haengt eine Zeichenfunktion an der Suchvariablen und baut dabei
+            # die **ganze** Seite neu — samt des Feldes, in das gerade getippt
+            # wird —, laesst sich nur ein Buchstabe eingeben, dann ist der
+            # Fokus weg.
             #
-            # Es ist im Projekt nicht das erste Mal passiert, deshalb wird es
-            # ab jetzt geprüft statt erinnert: Nach einem simulierten
+            # Deshalb wird es geprüft statt erinnert: Nach einem simulierten
             # Tastendruck muss das Eingabefeld **dasselbe Objekt** sein.
             # Gegengeprüft mit eingebautem Fehler — schlägt dann an.
             _felder_kaputt = []
@@ -1822,8 +1764,7 @@ def main():
         # trotzdem falsch stehen bleiben — nämlich dann, wenn er einmal fertig
         # zusammengesetzt in ein Label geschrieben wurde. Wer danach die
         # Sprache wechselt, hat ein englisches Fenster mit einer deutschen
-        # Zeile darin. Genau so gefunden am 26.08.2026 bei „Keine
-        # Log-Sicherungen gefunden".
+        # Zeile darin.
         #
         # Der Weg dagegen: `sprache.Satz` trägt Schlüssel und Werte mit, das
         # Label merkt sich den Träger, `_neu_beschriften()` wertet ihn neu aus.
@@ -1916,11 +1857,11 @@ def main():
                '(%d Direktzugriffe)' % len(_direkt))
 
         # ------------------------------------------------------------------
-        # ⚠ Am 27.08.2026 stand im Auswahlfeld „4.10.0 (21)" und in der Liste
-        # darunter „Nichts gefunden". Grund: Das Feld liest die Patch-Historie
-        # direkt, der Filter prüft den Stempel `seit` im Katalog — und gestempelt
-        # wurde nur beim Neubau. Wer seinen Katalog vor rc55 geholt hat, wartet
-        # sonst bis zum nächsten Patch, und der wäre obendrein stumm geblieben.
+        # ⚠ Liest das Auswahlfeld die Patch-Historie direkt, der Filter aber
+        # den Stempel `seit` im Katalog, und wird nur beim Neubau gestempelt,
+        # steht im Feld eine Zahl (`4.10.0 (21)`) und darunter eine leere
+        # Liste. Ein alter Katalog wartete sonst bis zum nächsten Patch, und
+        # der bliebe obendrein stumm.
         print()
         print('19. Der Katalog holt fehlende Patch-Stempel nach')
         from scbp import catalog as kat19, patchhistory as ph19
@@ -1965,7 +1906,7 @@ def main():
                'ohne Katalog bleibt es ruhig')
 
         # d) ⚠ Der teurere Fehler: Fehlt die Vergleichsgrundlage, hielte
-        #    `erzeugen()` jeden Bauplan für „schon immer da" und der nächste
+        #    `erzeugen()` jeden Bauplan für schon immer da, und der nächste
         #    Patch meldete NULL Zugänge. Der vorhandene Katalog ist die
         #    richtige Grundlage — was darin steht, war vorher im Spiel.
         _katalog_schreiben('4.10.0-live.2')
@@ -2004,13 +1945,10 @@ def main():
                'auch ohne Netz stempelt der Start nach')
 
         # ------------------------------------------------------------------
-        # ⚠ Am 27.08.2026 antwortete „Auf Aktualität prüfen" mit
-        # `name 'datei' is not defined` — ein Rückruf griff auf eine Variable
-        # zu, die es in seiner Funktion nie gab. Python merkt das erst beim
-        # **Klicken**; im Selbsttest lief die Zeile nie. Zwei weitere Fälle
-        # derselben Art steckten still im Code (`os` im Bestandsfenster, `t`
-        # statt `sprache.t` beim Ordner-Umzug) — beide in einem `except`
-        # begraben, also unsichtbar.
+        # ⚠ Greift ein Rückruf auf eine Variable zu, die es in seiner
+        # Funktion nie gab, antwortet der Knopf mit `name 'datei' is not
+        # defined`. Python merkt das erst beim **Klicken**; liegt der Aufruf
+        # in einem `except`, ist er ganz unsichtbar.
         #
         # Ein undefinierter Name ist ohne Ausführen findbar. Genau das prüft
         # `pyflakes`. Fehlt es, wird die Prüfung übersprungen statt zu scheitern:
@@ -2039,11 +1977,11 @@ def main():
                    % len(_offen))
 
         # ------------------------------------------------------------------
-        # ⚠ Am 27.08.2026 meldete gemeldet, dass bei „sehr gross" die Knoepfe
-        # der Overlay-Wahl abgeschnitten sind. Ein benanntes Tk-Font wirkt
-        # sofort auf jeden Text — aber die gezeichneten Rundknoepfe legen ihre
-        # Leinwand beim Bauen **einmal** auf `schrift.measure(text)` fest.
-        # Gemessen: 177 px Kasten, 206 px Text. 29 px fehlten.
+        # ⚠ Bei „sehr gross" duerfen die Knoepfe der Overlay-Wahl nicht
+        # abgeschnitten sein. Ein benanntes Tk-Font wirkt sofort auf jeden
+        # Text — aber die gezeichneten Rundknoepfe legen ihre Leinwand beim
+        # Bauen **einmal** auf `schrift.measure(text)` fest. Gemessen: 177 px
+        # Kasten, 206 px Text. 29 px fehlen.
         print()
         print('21. Groessere Schrift sprengt keine Knoepfe mehr')
         import tkinter as tk21
@@ -2093,7 +2031,7 @@ def main():
         #    an der Schrift. Ohne Nachziehen ragen bei „sehr gross" die unteren
         #    Eintraege („Star Citizen starten", „Kaffee spendieren", „Discord")
         #    aus dem Fenster — sie werden von unten gepackt und fallen heraus.
-        #    Gerechnet wurde immer richtig; der Aufruf fehlte im Neuaufbau.
+        #    Die Rechnung allein genuegt nicht; der Neuaufbau muss sie rufen.
         import inspect as _ins21
         _quelle21 = _ins21.getsource(HF21.rebuild)
         pruefe('_min_height_update' in _quelle21,
@@ -2103,18 +2041,16 @@ def main():
         #    nicht: Es verteilt nur den UEBERSCHUSS gleichmaessig, der laengere
         #    Text bleibt breiter. Nur `grid` mit `uniform` sagt Gleichheit zu.
         # ⚠ Ohne echte Fenstergroesse meldet Tk fuer beide Kaesten 1 Pixel —
-        # dann waeren sie „gleich gross" und die Pruefung ginge immer durch.
+        # dann waeren sie gleich gross und die Pruefung ginge immer durch.
         # Deshalb eine Groesse setzen und das Layout wirklich rechnen lassen.
         # ⚠ `_wurzel()` liefert ein verstecktes Fenster — ein verstecktes Fenster
-        # rechnet Tk nicht aus, beide Kaesten meldeten 1 Pixel. Dann waeren sie
-        # „gleich gross" und die Pruefung ginge immer durch. Also kurz zeigen.
+        # rechnet Tk nicht aus, beide Kaesten meldeten 1 Pixel. Also kurz zeigen.
         # ⚠ **Weit ausserhalb des Bildschirms** zeigen, nicht mittendrin.
         # Tk rechnet ein verstecktes Fenster nicht aus, gezeigt werden muss es
         # also — aber es muss niemand sehen. Der Selbsttest laeuft nach jeder
-        # Aenderung, und jedes Mal sprang hier ein 1100x760-Fenster ueber den
-        # Bildschirm und riss den Fokus mit. Gemeldet am 28.08.2026: „du hast
-        # mich staendig aus dem rausgezogen was ich mache, den ganzen Abend
-        # schon." Negative Koordinaten loesen das auf beiden Systemen.
+        # Aenderung; mittendrin spraenge jedes Mal ein 1100x760-Fenster ueber
+        # den Bildschirm und risse den Fokus mit. Negative Koordinaten loesen
+        # das auf beiden Systemen.
         wurzel.geometry('1100x760+-4000+-4000')
         wurzel.attributes('-alpha', 0.0)
         wurzel.deiconify()
@@ -2149,15 +2085,14 @@ def main():
 
         print()
         print('26. Ein Absturz und die Bedienung hinterlassen eine Spur')
-        # ⚠ Bomb20 meldete am 27.08.2026 einen reproduzierbaren Absturz beim
-        # Oeffnen von "Was ist neu" — und sein Bericht wusste NICHTS davon. Die
-        # Fehlerhaken fangen Python-Ausnahmen; ein harter Abbruch ist keine, und
-        # die Spur endete beim letzten Startschritt.
+        # ⚠ Ein harter Absturz (etwa beim Oeffnen von "Was ist neu") muss im
+        # Bericht stehen. Die Fehlerhaken fangen Python-Ausnahmen; ein harter
+        # Abbruch ist keine, und die Spur endete sonst beim letzten
+        # Startschritt.
         #
-        # ⚠ Der erste Anlauf (rc74) hat den Fehler halb wiederholt: Start und
-        # Bedienung landeten in EINEM Topf, der Bericht nahm die letzten zwoelf
-        # Zeilen — fuenf Klicks genuegten, und der Startverlauf war weg.
-        # Ein rc74-Bericht zeigte keinen einzigen Startschritt mehr.
+        # ⚠ Start und Bedienung gehoeren NICHT in EINEN Topf: Naehme der
+        # Bericht die letzten zwoelf Zeilen, genuegten fuenf Klicks, und der
+        # Startverlauf waere weg.
         import os as os26
         from scbp import errors as fe26
         from scbp import paths as pf26
@@ -2173,9 +2108,8 @@ def main():
             fe26.trail('Start, Version 3.0.0-test, testos')
             fe26.trail('Tk-Wurzel steht')
             # ⚠ Genau die Zeile, an der getrennt wird — nicht eine
-            # nachgetippte Fassung davon. Bis rc42 stand hier
-            # „Hauptschleife laeuft" ohne Umlaut; die Pruefung lief gruen,
-            # obwohl das Programm etwas anderes schreibt.
+            # nachgetippte Fassung davon. Eine Abschrift ohne Umlaut liesse
+            # die Pruefung gruen, obwohl das Programm etwas anderes schreibt.
             fe26.trail(fe26.TRAIL_BOUNDARY)
             for _ in range(40):
                 fe26.trail('Seite liste: bauen beginnt')
@@ -2184,10 +2118,9 @@ def main():
             start26, seiten26 = fe26.split_trail()
             pruefe(len(start26) == 3,
                    'Start und Bedienung werden getrennt (%d Startzeilen)' % len(start26))
-            # ⚠⚠ **Nur die eigenen Zeilen zaehlen.** Diese Pruefung schrieb
-            # bis zum 04.09.2026 gegen `len(seiten26) == 80` — und schlug
-            # sporadisch mit 81 fehl, ohne dass sich am Programm etwas
-            # geaendert haette.
+            # ⚠⚠ **Nur die eigenen Zeilen zaehlen.** Gegen `len(seiten26) ==
+            # 80` geprueft, schluege die Pruefung sporadisch mit 81 fehl, ohne
+            # dass sich am Programm etwas geaendert haette.
             #
             # Ursache: `MainWindow._prebuild_pages` laeuft **400 ms nach dem
             # Oeffnen** ueber `after()` und schreibt dann `Vorbau xy: N ms` in
@@ -2209,32 +2142,22 @@ def main():
                       else '; dazu %d fremde Zeile(n): %s'
                            % (len(_fremd26), _fremd26[0][:50])))
 
-            # Und jetzt der Punkt, der in rc74 fehlte.
+            # Und jetzt das Kuerzen selbst.
             fe26._trim_trail(pf26.app_file(fe26.TRAIL_FILE))
             start27, seiten27 = fe26.split_trail()
             pruefe(len(start27) == 3,
                    'der Startverlauf ueberlebt das Kuerzen')
-            # ⚠⚠ **Dieselbe Sporadik wie oben — hier war sie nur nicht behoben.**
-            # Der `after()`-Rueckruf aus einer frueheren Pruefung kann auch
-            # NACH dem Kuerzen noch eine Zeile hineinschreiben; dann sind es
-            # SPUR_REST + 1, und die Pruefung faellt, ohne dass am Programm
-            # etwas falsch waere. Am 04.09.2026 zweimal gemessen: derselbe
-            # Code, ein Lauf rot, einer gruen.
-            #
-            # Gezaehlt wird deshalb auch hier nur, was diese Pruefung selbst
-            # geschrieben hat. Die Zahl aufzuweichen waere der falsche Ausweg —
-            # dann bemerkte sie eine echte Kuerzung nicht mehr.
+            # ⚠⚠ **Dieselbe Sporadik wie oben.** Der `after()`-Rueckruf aus
+            # einer frueheren Pruefung kann auch NACH dem Kuerzen noch eine
+            # Zeile hineinschreiben. Die Zahl aufzuweichen waere der falsche
+            # Ausweg — dann bemerkte die Pruefung eine echte Kuerzung nicht
+            # mehr.
             # ⚠⚠ **Gezaehlt wird die GESAMTZAHL, nicht nur die eigenen Zeilen.**
             # Genau das ist die Eigenschaft, um die es geht: Nach dem Kuerzen
             # stehen SPUR_REST Zeilen da — wer sie geschrieben hat, ist dafuer
-            # gleichgueltig.
-            #
-            # Der erste Anlauf zaehlte nur die eigenen und schlug deshalb
-            # weiterhin fehl, sobald der `after()`-Rueckruf einer frueheren
-            # Pruefung eine Zeile beisteuerte: 59 eigene + 1 fremde = 60
-            # gekuerzte, und die Pruefung sah 59. Die Meldung nennt die fremden
-            # trotzdem — sonst waere nicht zu erkennen, woher eine Abweichung
-            # kaeme.
+            # gleichgueltig (59 eigene + 1 fremde = 60 gekuerzte). Die
+            # Pruefzeile nennt die fremden trotzdem — sonst waere nicht zu
+            # erkennen, woher eine Abweichung kaeme.
             _fremd27 = [z for z in seiten27 if 'Seite liste:' not in z]
             pruefe(len(seiten27) == fe26.TRAIL_KEEP,
                    'gekuerzt wird nur der Bedienteil (%d Zeilen%s)'
@@ -2251,8 +2174,8 @@ def main():
             pruefe(fe26.clear_crash() and not fe26.last_crash(),
                    'und laesst sich abhaken')
 
-            # ⚠ Der Abbruch traegt seine Fassung (21.09.2026). Durchgespielt
-            # ueber zwei echte Starts: Lauf A in 9.9.1 stuerzt ab, Lauf B in
+            # ⚠ Der Abbruch traegt seine Fassung. Durchgespielt ueber zwei
+            # echte Starts: Lauf A in 9.9.1 stuerzt ab, Lauf B in
             # 9.9.2 legt ihn beiseite. Der Bericht muss 9.9.1 nennen — nicht
             # die laufende Fassung — und den Alt-Vermerk tragen.
             import faulthandler as fh26
@@ -2320,11 +2243,11 @@ def main():
                'die Diagnose-Seite selbst steht nicht als letzte Zeile drin')
         quelle26b = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                          encoding='utf-8').read()
-        # ⚠ Drei Stellen seit dem 28.08.2026: „bauen beginnt" beim ersten
-        # Aufbauen, „zeigen" beim erneuten Einblenden, „steht" am Ende. Vorher
-        # gab es die mittlere nicht — ging beim zweiten Besuch etwas schief,
-        # fehlte die Zeile GANZ statt zur Haelfte, und der Bericht verspricht,
-        # dass die letzte Zeile ohne „steht" die ist, an der es hing.
+        # ⚠ Drei Stellen: `bauen beginnt` beim ersten Aufbauen, `zeigen` beim
+        # erneuten Einblenden, `steht` am Ende. Ohne die mittlere fehlte bei
+        # einem Fehler im zweiten Besuch die Zeile GANZ statt zur Haelfte, und
+        # der Bericht verspricht, dass die letzte Zeile ohne `steht` die ist,
+        # an der es hing.
         pruefe(quelle26b.count("errors.trail('Seite ") == 3,
                'jeder Seitenwechsel schreibt zwei Zeilen (bauen bzw. zeigen, dann steht)')
         pruefe("Seite %s: zeigen" in quelle26b,
@@ -2337,8 +2260,8 @@ def main():
         print()
         print('27. Angaben am Gegenstand: Kuerzel aus der Beschreibung')
         # ⚠ Die Fallen hier sind Datenfallen, keine Programmierfehler — sie
-        # fallen nur auf, wenn man die echte `global.ini` daneben legt. Beim Bau
-        # (27.08.2026) stand sechsmal `Individuell angefertigt` und dreimal
+        # fallen nur auf, wenn man die echte `global.ini` daneben legt. Dort
+        # steht sechsmal `Individuell angefertigt` und dreimal
         # `N/A` im Feld Guetegrad; wer den ersten Buchstaben nimmt, schreibt
         # `(Ind/4/I)` in einen Spielnamen. So etwas sieht man erst im Spiel.
         from scbp import specs as an27
@@ -2401,9 +2324,7 @@ def main():
 
         print()
         print('28. Ohne Launcher: Ordner und user.cfg entstehen selbst')
-        # ⚠ Gemeldet am 27.08.2026: „das hat bei mir und meinem bruder nur
-        # geklappt WEIL wir vorher den launcher hatten von sc deutsch." Genau
-        # das ist der ungetestete Fall — wer den SC Deutsch Launcher nie hatte,
+        # ⚠ Der Fall ohne Vorgeschichte — wer den SC Deutsch Launcher nie hatte,
         # hat **keinen** Ordner `data/Localization/<sprache>/`, und ohne den
         # landet die Datei irgendwo, wo Star Citizen sie nicht sucht.
         #
@@ -2459,7 +2380,7 @@ def main():
                'die deutsche Quelle bringt den englischen Ton mit')
 
         # StarStrings (MrKraken) ist derselbe Fall — nur mit englischem
-        # Zielordner. Gemeldet: „ist ja wie die deutsche im grunde."
+        # Zielordner.
         ss28 = os.path.join(basis, 'starstringsprobe', 'LIVE')
         os.makedirs(ss28)
         ziel_ss = ue28.target_ini(ue28.SOURCES['starstrings']['sprache'], ss28)
@@ -2489,12 +2410,12 @@ def main():
         pruefe('r_VSync = 0' in cfg_ss2,
                'und die Grafikeinstellung ebenso')
 
-        # ⚠ Der dritte Weg — und der eigentliche „ohne Launcher"-Fall: Wer
+        # ⚠ Der dritte Weg — und der eigentliche Fall ohne Launcher: Wer
         # **englisch original** spielt, will vielleicht nur die Angaben am
         # Gegenstand und gar keine Übersetzung. Der hat **gar keine**
         # `global.ini` auf der Platte, nur die `Data.p4k`. Ohne `g_language`
-        # liest Star Citizen eine dort abgelegte Datei nicht einmal an.
-        # Gemeldet: „sonst kann man das nie ohne eine übersetzung nutzen."
+        # liest Star Citizen eine dort abgelegte Datei nicht einmal an —
+        # sonst ginge es nie ohne eine Übersetzung.
         from scbp import gametext as st28
         quelle_st = open(os.path.join(WURZEL, 'scbp', 'gametext.py'),
                          encoding='utf-8').read()
@@ -2522,16 +2443,14 @@ def main():
 
         print()
         print('29. Bedienelemente stehen einheitlich — Symmetrie')
-        # ⚠ Gemeldet am 27.08.2026: „im gleichen tab sind die einstellings
-        # schalter mal mittig mal rechts, das muss einheitlich sein, im gesamten
-        # projekt gilt das natuerlich." Und: „Symetrie ist fuer mich EXTREM
-        # wichtig bei eigentlich allem."
+        # ⚠ Schalter stehen im ganzen Projekt einheitlich rechts, nie mal
+        # mittig, mal rechts.
         #
-        # Woher der Unterschied kam: `_feld(..., breit=True)` legt das
-        # Bedienelement UNTER die Beschreibung, ueber die volle Breite — ein
-        # `.pack()` ohne Anker sitzt darin **mittig**. Ohne `breit` steht es
-        # rechts neben dem Text. Auf der Seite „Texte im Spiel" standen dadurch
-        # drei Schiebeschalter untereinander: mittig, rechts, mittig.
+        # Die Falle: `_feld(..., breit=True)` legt das Bedienelement UNTER die
+        # Beschreibung, ueber die volle Breite — ein `.pack()` ohne Anker
+        # sitzt darin **mittig**. Ohne `breit` steht es rechts neben dem
+        # Text. Gemischt stehen Schiebeschalter untereinander mittig, rechts,
+        # mittig.
         #
         # `breit=True` ist fuer BREITE Bedienelemente da (Knopfreihen, die auf
         # Englisch sonst abgeschnitten werden). Ein Schiebeschalter ist schmal
@@ -2544,9 +2463,9 @@ def main():
             """Der VOLLSTAENDIGE `_feld(...)`-Aufruf ab `start`.
 
             ⚠ Nicht bei der ersten `)` abschneiden — die schliesst `t('...')`,
-            und `breit=True` steht dahinter. Genau daran ist die erste Fassung
-            dieser Pruefung gescheitert: Sie meldete brav 0 Ausreisser, auch
-            als absichtlich einer eingebaut wurde. Deshalb zaehlen."""
+            und `breit=True` steht dahinter. Wer dort abschneidet, meldet brav
+            0 Ausreisser, auch wenn absichtlich einer eingebaut ist. Deshalb
+            zaehlen."""
             text, tiefe = '', 0
             for _z in zeilen[start:start + 4]:
                 for _c in _z:
@@ -2579,21 +2498,14 @@ def main():
 
         print()
         print('30. Nur noch der Installer — und v2.0.0 kommt trotzdem mit')
-        # Entscheidung Gemeldet am 27.08.2026: „ich will die exe ohne install
-        # loswerden … sie belastet mich nur und war damals deine Entscheidung,
-        # als wir sagten, wir machen es so, um Vertrauen aufzubauen. ABER das
-        # haben wir doch schon, nun wollen wir es funktionierend. Und einfach."
-        #
         # Zwei Auslieferungswege heissen zwei Fehlerquellen und doppelte
-        # Unterstuetzung. Ab v3.0.0 gibt es unter Windows nur den Installer.
+        # Unterstuetzung. Unter Windows gibt es nur den Installer.
         #
-        # ⚠ Der Haken, den das aufwirft: **v2.0.0 gab es NUR als nackte .exe.**
-        # Ihre Update-Logik nimmt die erste Datei auf `.exe` — jetzt also den
-        # Installer. Das ging frueher schief, weil die alte `einspielen()` den
-        # Fund roh ueber das laufende Programm schob. ABER ihr Hilfsskript
-        # startet die getauschte Datei anschliessend (`start "" "<ziel>"`) —
-        # der Installer laeuft also und richtet alles ein. Was frueher der
-        # Fehler war, ist jetzt der Weg hinaus.
+        # ⚠ Der Haken: **v2.0.0 gab es NUR als nackte .exe.** Ihre
+        # Update-Logik nimmt die erste Datei auf `.exe` — also den Installer —
+        # und schiebt sie roh ueber das laufende Programm. Ihr Hilfsskript
+        # startet die getauschte Datei aber anschliessend (`start ""
+        # "<ziel>"`) — der Installer laeuft also und richtet alles ein.
         from scbp import updater as ak30
         yml30 = open(os.path.join(WURZEL, '.github', 'workflows',
                                   'release.yml'), encoding='utf-8').read()
@@ -2607,14 +2519,14 @@ def main():
         # Was gebaut wird, muss zu dem passen, was gesucht wird.
         iss30 = open(os.path.join(WURZEL, 'packaging', 'installer.iss'),
                      encoding='utf-8').read()
-        # ⭐ Die WIRKUNG pruefen, nicht den Namen. Alte Fassungen (rc39-rc75 und
-        # alles danach) suchen die Release-Datei ueber `passende_datei()`, und
-        # die schaut auf die ENDUNG: `-setup.exe`, `-installer.exe`, `_setup.exe`.
-        # Der Praefix darf wechseln, das Suffix nicht.
+        # ⭐ Die WIRKUNG pruefen, nicht den Namen. Installierte Fassungen
+        # suchen die Release-Datei ueber `passende_datei()`, und die schaut
+        # auf die ENDUNG: `-setup.exe`, `-installer.exe`, `_setup.exe`. Der
+        # Praefix darf wechseln, das Suffix nicht.
         #
-        # ⚠ Bis zum 12.09.2026 stand hier der Name woertlich — die Wache haette
-        # die VerseKit-Umbenennung blockiert, obwohl der Updateweg sie traegt.
-        # Dasselbe Muster wie bei Pruefung 74: Form gemessen, wo Wirkung zaehlt.
+        # ⚠ Den Namen woertlich zu verlangen hiesse Form messen, wo Wirkung
+        # zaehlt — eine Umbenennung waere blockiert, obwohl der Updateweg sie
+        # traegt.
         _basis30 = [z.split('=', 1)[1].strip() for z in iss30.splitlines()
                     if z.strip().startswith('OutputBaseFilename=')]
         _endungen30 = ('-setup.exe', '-installer.exe', '_setup.exe')
@@ -2635,19 +2547,17 @@ def main():
         # entsteht eine zweite Fassung neben der alten Datei.
         ak30q = open(os.path.join(WURZEL, 'scbp', 'updater.py'),
                      encoding='utf-8').read()
-        # Seit dem Ein-Klick-Update steht der Installer-Aufruf im Helfer, der
-        # Ordner kommt als SCBP_ZIEL aus `einspielen()`.
+        # Der Installer-Aufruf steht im Helfer, der Ordner kommt als
+        # SCBP_ZIEL aus `einspielen()`.
         ul30 = open(os.path.join(WURZEL, 'scbp', 'update_run.py'),
                     encoding='utf-8').read()
         pruefe('/DIR="%SCBP_ZIEL%"' in ul30,
                'der Installer bekommt /DIR — ersetzen statt danebenlegen')
-        # ⚠⚠ Diese Pruefung schnitt bis zum 12.09.2026 **200 Zeichen Text**
-        # ab der Zeile `eigener_ordner = ` heraus. Bei der Umbenennung der
-        # Update-Module flog sie mit `ValueError: substring not found` —
-        # zu Recht: Sie prueft eine Schreibweise, und schon eine andere
-        # Zeilenumbruch-Stelle haette sie blind gemacht.
+        # ⚠⚠ Kein Ausschnitt von **200 Zeichen Text** ab einer Zeile: Das
+        # prueft eine Schreibweise, und schon eine andere Zeilenumbruch-Stelle
+        # macht es blind.
         #
-        # Jetzt ueber den Syntaxbaum: Gesucht wird die **Zuweisung**, die den
+        # Deshalb ueber den Syntaxbaum: Gesucht wird die **Zuweisung**, die den
         # Zielordner bildet, und ob in ihrem Ausdruck wirklich das laufende
         # Programm steht.
         import ast as _ast30
@@ -2665,14 +2575,10 @@ def main():
 
         print()
         print('31. Das Schloss holt einen aus dem Durchreichen zurueck')
-        # ⚠ Gemeldet am 27.08.2026: „der zweite Programmstart ist die denkbar
-        # duemmste Loesung, weil man dann raustabben muss aus dem Spiel."
-        #
-        # Und er hat recht: Wer Klicks durchreichen laesst, will im Spiel
-        # bleiben. Bis dahin fuehrte der einzige Rueckweg genau dort hinaus.
-        # Ryze loest es beim TeamSpeak-Plugin mit einem Schloss, das anklickbar
-        # bleibt — dasselbe macht jetzt ein eigenes kleines Fenster, das nie
-        # durchlaessig gemacht wird.
+        # ⚠ Wer Klicks durchreichen laesst, will im Spiel bleiben — ein
+        # zweiter Programmstart als Rueckweg zwaenge ihn heraus. Ein Schloss,
+        # das anklickbar bleibt, loest das: ein eigenes kleines Fenster, das
+        # nie durchlaessig gemacht wird.
         from scbp import overlay as ov31
         pruefe(hasattr(ov31, 'LOCK_CALLBACK'),
                'overlay kennt den Rueckruf fuers Schloss')
@@ -2714,22 +2620,19 @@ def main():
 
         print()
         print('32. Die Log-Erkennung kennt UNSERE eigenen Zusaetze')
-        # ⚠ Der gefaehrlichste Fehler dieser Nacht, gefunden am 28.08.2026 beim
-        # Nachgehen einer Frage von Morkhan.
-        #
-        # Seit rc76 schreibt das Werkzeug die Angaben selbst an die
-        # Gegenstandsnamen (`scbp/specs.py`). Das Spiel schreibt den Namen
+        # ⚠ Das Werkzeug schreibt die Angaben selbst an die Gegenstandsnamen
+        # (`scbp/specs.py`). Das Spiel schreibt den Namen
         # anschliessend **mitsamt Zusatz** in die Game.log:
         #
         #     Bauplan erhalten: Spectre (Sth/1/A)
         #
-        # `SUFFIX_RE` kannte aber nur `Civ|Mil|Ind|Sth|Cmp` mit Grad `A-D` —
-        # also genau die Form, die der SC Deutsch Launcher erzeugte. Alles, was
-        # wir zusaetzlich schreiben, blieb am Namen kleben: Der Bauplan landet
-        # unter falschem Namen im Bestand und wird **nie abgehakt**.
+        # Kennte `SUFFIX_RE` nur `Civ|Mil|Ind|Sth|Cmp` mit Grad `A-D` — die
+        # Form, die der SC Deutsch Launcher erzeugt —, bliebe alles, was wir
+        # zusaetzlich schreiben, am Namen kleben: Der Bauplan landet unter
+        # falschem Namen im Bestand und wird **nie abgehakt**.
         #
-        # Betroffen waeren 344 Waffen und 62 Raketen gewesen — und niemand
-        # haette es gemerkt, weil das Werkzeug ja etwas anzeigt.
+        # Betroffen waeren 344 Waffen und 62 Raketen — und niemand merkte es,
+        # weil das Werkzeug ja etwas anzeigt.
         from scbp.logsource import split_names as tn32
         faelle32 = [
             ('Spectre (Sth/1/A)',            'Spectre'),
@@ -2748,7 +2651,7 @@ def main():
             pruefe(tn32(roh32)[0] == erwartet32,
                    'abgeschnitten: %s' % roh32)
         # ⚠ Und die Gegenrichtung: Echte Namensklammern duerfen NICHT fallen.
-        # Sonst hiesse „Singe Cannon (S2)" plötzlich nur noch „Singe Cannon",
+        # Sonst hiesse `Singe Cannon (S2)` plötzlich nur noch `Singe Cannon`,
         # und zwei verschiedene Waffen waeren derselbe Eintrag.
         for roh32 in ('Singe Cannon (S2)', 'Irgendwas (30 cap)',
                       'Ding (Alpha/1/A)', 'Sache (Mil/1/Z)'):
@@ -2763,20 +2666,17 @@ def main():
 
         print()
         print('33. Bestand und Liste finden zueinander, egal woher der Name kam')
-        # ⚠ Der Fehler, der Morkhans leere Kaestchen erklaert (28.08.2026).
-        #
-        # `paths.name_key()` nennt sich selbst „die EINZIGE Stelle" fuer
-        # Vergleichsschluessel — schnitt den Klassen-Zusatz aber nicht ab. Das
-        # tat nur `logsource.split_names()`. Also:
+        # ⚠ `paths.name_key()` ist die EINZIGE Stelle fuer
+        # Vergleichsschluessel und muss den Klassen-Zusatz abschneiden, nicht
+        # nur `logsource.split_names()`. Sonst:
         #
         #     aus der Game.log:        'xl-1'            ✅ geschnitten
         #     aus der Launcher-Datei:  'xl-1 (mil/2/a)'  ❌ ungeschnitten
         #     aus einem Import:        'xl-1 (mil/2/a)'  ❌ ungeschnitten
         #
-        # Zwei Schluessel, die nie zueinander finden: Der Bauplan galt als
-        # fehlend, obwohl er im Bestand stand. Betroffen war jeder, der seinen
-        # Stand aus dem SC Deutsch Launcher oder einer Sicherung mitbrachte —
-        # also genau die Leute, die schon laenger spielen.
+        # Zwei Schluessel, die nie zueinander finden: Der Bauplan gilt als
+        # fehlend, obwohl er im Bestand steht — bei jedem, der seinen Stand
+        # aus dem SC Deutsch Launcher oder einer Sicherung mitbringt.
         from scbp.paths import name_key as nfm33
         gleich33 = [
             ('XL-1 (Mil/2/A)',            'XL-1'),
@@ -2798,7 +2698,7 @@ def main():
                    'unangetastet: %s' % roh33)
         # ⚠ Die Mengenangabe ist der Sonderfall: Das WORT faellt weg, die ZAHL
         # bleibt. Sonst zaehlt derselbe Bauplan doppelt, sobald das Spiel auf
-        # Deutsch laeuft (gemessen 29.08.2026: 405 angezeigt, 403 echt).
+        # Deutsch laeuft (gemessen: 405 angezeigt, 403 echt).
         pruefe(nfm33('Ravager-212 Magazine (16 cap)')
                == nfm33('Ravager-212 Magazine (16 Schuss)'),
                'deutsch und englisch ergeben denselben Schluessel')
@@ -2810,7 +2710,7 @@ def main():
                'Klammern ohne fuehrende Ziffer bleiben unangetastet')
         # ⚠ Und der wichtigste Teil: Ein **schon gespeicherter** Bestand muss
         # mitziehen. `namensform()` zu reparieren hilft nur neuen Eintraegen —
-        # Morkhans 320 Bauplaene lagen mit den alten Schluesseln auf der Platte.
+        # vorhandene Bauplaene liegen mit den alten Schluesseln auf der Platte.
         import json as js33, tempfile as tf33, shutil as sh33
         heim33 = tf33.mkdtemp(prefix='bestand33-')
         alt_heim33 = os.environ.get('SC_BP_HOME')
@@ -2854,9 +2754,9 @@ def main():
             auf_platte33 = js33.load(open(be33.path(), encoding='utf-8'))
             pruefe(auf_platte33.get('version') == be33.FILE_VERSION,
                    'der Umzug wird auf die Platte geschrieben, nicht nur gedacht')
-            # ⚠ Und der Umzug muss die Sprach-Dublette einsammeln — genau die,
-            # die am 29.08.2026 in einem echten Bestand lag. Nur `namensform()` zu
-            # reparieren haette den gespeicherten Bestand nicht angefasst.
+            # ⚠ Und der Umzug muss die Sprach-Dublette einsammeln, wie sie in
+            # einem echten Bestand liegen kann. Nur `namensform()` zu
+            # reparieren fasste den gespeicherten Bestand nicht an.
             pruefe(len([k for k in d33['bauplaene']
                         if k.startswith('ravager-212')]) == 1,
                    'die deutsche und die englische Fassung werden zusammengefuehrt')
@@ -2880,19 +2780,15 @@ def main():
 
         print()
         print('34. Fehlerbericht absenden — ein Knopf statt einer Erklaerstunde')
-        # ⚠ Gemeldet am 28.08.2026: „ich will nicht jedem eine Stunde erklaeren,
-        # wie ich zu dem Bericht komme, das ist nervenaufreibend." Und sein
-        # Bruder, um den es ging: „weil ich kein nerd bin … ich installiere und
-        # es funktioniert, wenn nicht, unbrauchbar."
-        #
+        # ⚠ Einen Bericht zu schicken darf keine Erklaerung brauchen.
         # Kopieren und in Discord einfuegen scheitert dreifach: Der Bericht
-        # steckt unter „Fortgeschritten", er ist zu lang fuer eine Nachricht,
-        # und man muss wissen, wohin damit.
+        # steckt unter den Fortgeschrittenen-Seiten, er ist zu lang fuer eine
+        # Nachricht, und man muss wissen, wohin damit.
         from scbp import report_target as bz34, report as be34
-        # ⭐⭐ Seit v3.57.2 geht der Bericht an eine eigene Weiterleitung
-        # (Cloudflare Worker), nicht mehr direkt an Discord. Bis dahin setzte
-        # der Bau die Webhook-Adresse aus einem Secret ein — und damit stand
-        # sie in jeder veroeffentlichten `.exe`, fuer jeden auslesbar.
+        # ⭐⭐ Der Bericht geht an eine eigene Weiterleitung (Cloudflare
+        # Worker), nicht direkt an Discord. Eine Webhook-Adresse, die der Bau
+        # einsetzt, stuende in jeder veroeffentlichten `.exe`, fuer jeden
+        # auslesbar.
         _env34 = os.environ.get('SC_BP_BERICHT_ZIEL')
         try:
             os.environ.pop('SC_BP_BERICHT_ZIEL', None)
@@ -2902,7 +2798,7 @@ def main():
             pruefe(bz34.available(), 'und der Knopf kann senden')
             pruefe('discord' not in bz34.RELAY.lower(),
                    'die eingebaute Adresse ist KEIN Discord-Webhook')
-            # Seit v3.57.3 die eigene Domain statt workers.dev: Die
+            # Die eigene Domain statt workers.dev: Die
             # workers.dev-Adresse haengt am Konto-Namen, die eigene nicht.
             pruefe(bz34.RELAY.startswith('https://bericht.xharig.com/'),
                    'die Weiterleitung laeuft ueber die eigene Domain')
@@ -2917,9 +2813,7 @@ def main():
                and not bz34.available(),
                'im Prueflauf ist das Senden abgeschaltet')
         # ⚠ Der Knopf wird trotzdem GEZEIGT — er sagt beim Druecken, was fehlt.
-        # Ihn auszublenden traf nur den Quellcode, also den Entwickler selbst:
-        # „nicht mal ICH finde den" (28.08.2026). Ein fehlender Knopf sieht aus
-        # wie ein Fehler.
+        # Ein fehlender Knopf sieht aus wie ein Fehler.
         quelle34 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                         encoding='utf-8').read()
         stelle34 = quelle34[quelle34.index("s_di_absenden"):][:200]
@@ -2983,10 +2877,10 @@ def main():
 
         print()
         print('35. Ein Textfeld rollt sich selbst, nicht die Seite dahinter')
-        # ⚠ Von zwei Leuten unabhaengig gemeldet (28.08.2026): Im Bericht auf
-        # der Diagnose-Seite liess sich erst rollen, NACHDEM man die ganze
-        # Seite nach unten geschoben hatte. Das Rad ging an die Rollflaeche
-        # dahinter, weil ein `tk.Text` keine registrierte Flaeche ist.
+        # ⚠ Der Bericht auf der Diagnose-Seite muss sich sofort rollen
+        # lassen, nicht erst NACHDEM die ganze Seite nach unten geschoben ist.
+        # Sonst geht das Rad an die Rollflaeche dahinter, weil ein `tk.Text`
+        # keine registrierte Flaeche ist.
         from scbp import main_window as hf35
         import tkinter as tk35
         w35 = tk35.Tk()
@@ -3006,8 +2900,8 @@ def main():
             # ⚠ `update()`, nicht nur `update_idletasks()`. Unter Windows
             # rechnet Tk das Layout eines Fensters ausserhalb des Bildschirms
             # sonst nicht zu Ende: `yview()` gibt dann (0.0, 0.0), das sieht
-            # wie Ueberlauf aus, und die Pruefung schlug im Bau fehl, obwohl
-            # sie hier gruen war (28.08.2026).
+            # wie Ueberlauf aus, und die Pruefung schluege im Bau fehl, obwohl
+            # sie unter Linux gruen ist.
             w35.update()
             oben35, unten35 = feld35.yview()
             if (unten35 - oben35) <= 0.0:
@@ -3032,7 +2926,7 @@ def main():
 
         print()
         print('36. Der Reiter „Fehler melden“ faellt auf, ohne zu luegen')
-        # ⚠ Zwei Stufen, damit Rot etwas bedeutet (Entscheidung 28.08.2026):
+        # ⚠ Zwei Stufen, damit Rot etwas bedeutet:
         #   * Das Wort ist IMMER rot — wer ein Problem hat, soll den Reiter
         #     finden, ohne ein Menue zu durchsuchen.
         #   * Das Symbol wird NUR rot, wenn wirklich Fehler mitgeschrieben
@@ -3040,8 +2934,8 @@ def main():
         #     alles laeuft — und niemand naehme ihn noch ernst.
         quelle36 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                         encoding='utf-8').read()
-        # 4000 statt 2200: Seit rc9 steht vorn die Erklärung zum gemerkten
-        # Zustand der Reiter, und die geprüften Zeilen rückten nach hinten.
+        # 4000 Zeichen: Vorn steht die Erklärung zum gemerkten Zustand der
+        # Reiter, die geprüften Zeilen folgen dahinter.
         stelle36 = quelle36[quelle36.index('def _recolor_tabs'):][:4000]
         pruefe("rot = (kennung == 'diagnose')" in stelle36,
                'der Reiter diagnose wird gesondert behandelt')
@@ -3098,9 +2992,8 @@ def main():
         finally:
             pf25.setting = alt_einst25
 
-        # ⚠ Und er muss im BERICHT stehen. Ohne diese Zeile ist "der Startknopf
-        # tut nichts" nicht zu beantworten, ohne den Nutzer auszufragen — genau
-        # das kostete am 27.08.2026 zwei Stunden.
+        # ⚠ Und er muss im BERICHT stehen. Ohne diese Zeile ist ein Startknopf,
+        # der nichts tut, nicht zu klaeren, ohne den Nutzer auszufragen.
         pruefe(hasattr(be25, '_game_launcher'),
                'der Bericht kennt eine Starter-Zeile')
         quelle25 = open(os.path.join(WURZEL, 'scbp', 'report.py'),
@@ -3117,12 +3010,9 @@ def main():
         # Deskriptor bleibt gueltig, der Port belegt. Die frisch gestartete
         # Fassung kann sich dann nicht binden, haelt sich fuer die zweite
         # Instanz und beendet sich planmaessig — fuer den Nutzer sieht das aus
-        # wie "geht aus und kommt nicht wieder".
-        #
-        # Drei Anlaeufe (rc67, rc68, rc70) haben das nicht geloest, weil geraten
-        # statt gemessen wurde. Der Beweis kam aus einem Bericht vom
-        # 27.08.2026: "neustart_tot, Rueckgabewert 0 — keine Ausgabe". Kein
-        # Absturz, sondern ein geordneter Abgang.
+        # wie "geht aus und kommt nicht wieder". Im Bericht steht dann
+        # "neustart_tot, Rueckgabewert 0 — keine Ausgabe": kein Absturz,
+        # sondern ein geordneter Abgang.
         import socket as so24
         from scbp import overlay as ov24
         alt_port24 = ov24.WATCHDOG_PORT
@@ -3170,11 +3060,10 @@ def main():
         print('23. Bei der Mindestgroesse ist alles Wichtige sichtbar')
         # ⚠ Die Seite „Update & Ueber" ist die einzige, auf der ein nicht
         # gefundener Knopf richtig weh tut: Wer den Update-Knopf nicht sieht,
-        # updatet nicht. Gemeldet am 27.08.2026: „das nervt user weil die den
-        # button zum updaten nicht sofort finden."
+        # updatet nicht.
         #
         # Geprueft wird bei der MINDESTGROESSE des Fensters (1100x760) — nicht
-        # bei der Groesse, die der Entwickler zufaellig offen hat.
+        # bei einer Groesse, die zufaellig offen ist.
         import tkinter as tk23
         import tkinter.font as tkfont23
         from scbp import pages as se23
@@ -3197,11 +3086,9 @@ def main():
             rahmen23.pack(fill='both', expand=True)
             # ⚠ **Feste Probehoehe, nicht `MIN_HEIGHT`.** Geprueft wird, ob die
             # Update-Seite bei vernuenftiger Fenstergroesse vollstaendig
-            # hineinpasst — das hat mit der **Mindest**hoehe nichts zu tun.
-            # Seit die Leiste rollt, darf die bei 380 px liegen (30.08.2026);
-            # die Pruefung schlug daraufhin fehl, obwohl am Fenster nichts
-            # falsch war. 760 war die fruehere Mindesthoehe und bleibt das
-            # sinnvolle Mass fuer „passt die Seite".
+            # hineinpasst — das hat mit der **Mindest**hoehe nichts zu tun:
+            # Weil die Leiste rollt, darf die bei 380 px liegen. 760 ist das
+            # sinnvolle Mass dafuer, ob die Seite passt.
             PROBE_HOEHE23 = 760
             wurzel23.geometry('%dx%d' % (MB23, PROBE_HOEHE23))
             se23._about(_Traeger23(), rahmen23)
@@ -3225,8 +3112,8 @@ def main():
             _sammeln(rahmen23)
             # ⚠ **Nicht auf MIN_HOEHE bestehen.** Der Windows-Runner hat einen
             # virtuellen Bildschirm, auf dem Tk das Fenster nur 749 px hoch
-            # bekommt — die Pruefung schlug dort fehl und brach den Bau von
-            # rc68 ab, obwohl am Code nichts falsch war. Ist das Fenster
+            # bekommt — die Pruefung schluege dort fehl und braeche den Bau
+            # ab, obwohl am Code nichts falsch ist. Ist das Fenster
             # kleiner als die Mindestgroesse, wird die Kanten-Pruefung darunter
             # sogar STRENGER; verlangt wird deshalb nur ein echtes Fenster.
             pruefe(hoehe23 >= 600,
@@ -3243,9 +3130,9 @@ def main():
 
         print()
         print('22. Die Ablage schreibt bei jedem neuen Bauplan mit')
-        # Bis rc65 wurden die drei Ausgabe-Dateien NUR auf Knopfdruck
-        # geschrieben. Wer einmal geklickt hatte, hielt sie fuer aktuell — sie
-        # standen aber fuer immer auf dem Stand jenes Klicks.
+        # Werden die drei Ausgabe-Dateien NUR auf Knopfdruck geschrieben, haelt
+        # sie fuer aktuell, wer einmal geklickt hat — sie stehen aber fuer
+        # immer auf dem Stand jenes Klicks.
         import importlib as _imp22
         heim22 = os.path.join(basis, 'ablageprobe')
         os.makedirs(heim22)
@@ -3280,9 +3167,9 @@ def main():
             # ⚠ Nur zaehlen, was zur Ausgabe gehoert. Unter `SC_BP_HOME` legt
             # `paths.app_file()` ALLES flach in denselben Ordner — im
             # Normalbetrieb liegen die internen Dateien dagegen unter
-            # `Intern/`. Ohne diese Ausnahme meldet die Pruefung jedes neue
-            # interne Modul als „zweite Garnitur", obwohl es keine ist
-            # (05.09.2026 mit `spielzeit.json` genau so passiert).
+            # `Intern/`. Ohne diese Ausnahme haelt die Pruefung jede neue
+            # interne Datei (etwa `spielzeit.json`) fuer eine zweite
+            # Garnitur, obwohl sie keine ist.
             NICHT_AUSGABE = ('spielzeit.json',)
 
             def _ausgabe22():
@@ -3293,11 +3180,10 @@ def main():
             # und niemand wuesste, welche die aktuelle ist.
             #
             # ⚠⚠ **Verglichen wird vorher gegen nachher, nicht gegen eine
-            # feste Zahl.** Hier stand `== 4` („drei Versionen + fremde
-            # Datei"). Das ist genau das, was die Pruefung gar nicht wissen
-            # will: Sie fragt, ob ein zweites Speichern eine zweite Garnitur
-            # anlegt — und wurde trotzdem jedes Mal rot, wenn eine Version
-            # dazukam (13.09.2026 mit der Launcher-Version genau so). Eine
+            # feste Zahl.** Eine Zahl wie `== 4` ist genau das, was die
+            # Pruefung gar nicht wissen will: Sie fragt, ob ein zweites
+            # Speichern eine zweite Garnitur anlegt — und wuerde trotzdem
+            # jedes Mal rot, wenn eine Version dazukommt. Eine
             # Zahl, die bei jeder Erweiterung nachgezogen werden muss, wird
             # irgendwann gedankenlos hochgesetzt; dann prueft sie nichts mehr.
             vorher22 = _ausgabe22()
@@ -3308,7 +3194,7 @@ def main():
                    'zweimal speichern erzeugt keine zweite Garnitur (dazu: %s)'
                    % (', '.join(sorted(nachher22 - vorher22)) or 'nichts'))
             # ⚠ Gegenprobe: Die Pruefung hat ueberhaupt etwas in der Hand —
-            # ein leerer Ordner waere sonst auch „unveraendert".
+            # ein leerer Ordner bliebe sonst auch unveraendert.
             pruefe(len(vorher22) >= 4,
                    'Gegenprobe: es liegen ueberhaupt Ausgabedateien da (%d)'
                    % len(vorher22))
@@ -3346,22 +3232,17 @@ def main():
 
     # ⚠⚠⚠ **Ab hier sieht der Prueflauf keine echten Spiel-Protokolle mehr.**
     #
-    # Abschnitt 5 entfernt `SC_INSTALL_DIR` („Suche muss jetzt scheitern") und
-    # setzt es nie wieder; die nachgebaute Installation ist gerade geloescht
-    # worden. Danach findet `paths` auf einem Spielrechner die **echte**
-    # Installation — und ein `mission_log.scan_backlog()` im Hintergrundfaden (es
-    # startet beim Oeffnen der Auftragslog-Seite) liest deren `logbackups/` und
-    # schreibt sie in Bestand und Protokoll.
-    #
-    # Am 12.09.2026 hat das zwei Pruefungen gekippt, beide nicht reproduzierbar
-    # und nur unter Windows:
-    #
-    #   113: „das Protokoll steht in der eigenen Datei (396)" statt 2
-    #    94: „nur die zwei aus Protokollen werden gezaehlt (gezaehlt: 164)"
+    # Abschnitt 5 entfernt `SC_INSTALL_DIR` (die Suche muss dort scheitern)
+    # und setzt es nie wieder; die nachgebaute Installation ist gerade
+    # geloescht worden. Danach findet `paths` auf einem Spielrechner die
+    # **echte** Installation — und ein `mission_log.scan_backlog()` im
+    # Hintergrundfaden (es startet beim Oeffnen der Auftragslog-Seite) liest
+    # deren `logbackups/` und schreibt sie in Bestand und Protokoll. Das
+    # kippt Pruefungen wie 94 und 113, nicht reproduzierbar und nur unter
+    # Windows.
     #
     # ⚠⚠⚠ **Die Isolation gehoert an `scan_backlog()` — nicht an eine seiner
-    # Quellen.** Das ist die Lehre vom 12.09.2026, und sie hat zwei Anlaeufe
-    # gekostet:
+    # Quellen.**
     #
     # `scan_backlog()` liest ZWEI Quellen, und beide zeigen auf den Spieler:
     #
@@ -3370,10 +3251,9 @@ def main():
     #   | die aufgehobenen Sicherungen | `paths.log_backups()` |
     #   | die **laufende** `Game.log`   | `paths.game_folder()` |
     #
-    # ⛔ Der erste Versuch legte nur `log_backups()` stille — und die
-    # **Wache dazu fragte genau diese Funktion ab**. Sie war gruen und konnte
-    # gar nicht rot werden, waehrend der Lauf weiter 1,2 MB echte `Game.log`
-    # mit 80 Auftragszeilen las. Gefunden hat es erst ein fremder Pruefer.
+    # ⛔ Nur `log_backups()` stillzulegen und die **Wache dazu genau diese
+    # Funktion abfragen zu lassen**, ist immer gruen und kann gar nicht rot
+    # werden, waehrend der Lauf weiter die echte `Game.log` liest.
     #
     # ⭐ **Eine Wache darf nicht messen, was zwei Zeilen vorher stillgelegt
     # wurde.** Und wer einen groben Schutz durch einen feinen ersetzt, zaehlt
@@ -3384,17 +3264,16 @@ def main():
     # sind `pages.py` (Hintergrundfaden beim Oeffnen der Auftragslog-Seite)
     # und `sc_bp_watcher.py` beim Start. Hier faellt also nichts aus.
     #
-    # Verworfen wurden ausserdem, jeweils mit Gegenprobe:
+    # Andere Wege und warum sie nicht taugen (jeweils mit Gegenprobe):
     #
     # | Weg | Ergebnis |
     # |---|---|
     # | `SC_INSTALL_DIR` zurueck auf die nachgebaute Installation | wirkungslos, der Ordner ist geloescht |
     # | `SC_INSTALL_DIR` auf einen leeren Ersatz | zerbricht Pruefung 111 und 123 — die Variable sticht die Einstellungsdatei, ueber die beide ihren Spielordner setzen |
-    # | Suchwurzeln leeren | kostet VIER `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen). Der Lauf war gruen — mit 2090 statt 2094 Pruefungen |
+    # | Suchwurzeln leeren | kostet VIER `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen); der Lauf bliebe gruen, nur mit weniger Pruefungen |
     # | nur `log_backups()` stilllegen | laesst die laufende `Game.log` durch; die Wache dazu misst ihre eigene Stilllegung |
     #
-    # ⭐⭐ **Es sind DREI Wege, nicht einer.** Aufgezaehlt statt vermutet — das
-    # ist der Kern der Lehre:
+    # ⭐⭐ **Es sind DREI Wege, nicht einer.** Aufgezaehlt statt vermutet:
     #
     #   | # | Weg | wer ihn nimmt |
     #   |---|---|---|
@@ -3403,28 +3282,26 @@ def main():
     #   | 3 | `mission_log.scan_backlog()` | baut sich den Pfad zur laufenden Datei **selbst** (`mission_log.py`) und geht an 2 vorbei |
     #
     # Riegel 3 gaebe es nicht, wenn `mission_log` ueber `pfade.game_log()`
-    # ginge. Das zu aendern waere Programmcode — und der wird in einem
-    # Umbenennungs-Zweig nicht angefasst. Also hier ein dritter Riegel.
+    # ginge. Das zu aendern waere Programmcode. Also hier ein dritter Riegel.
     #
-    # ⚠⚠⚠ **POSITIVLISTE: erlaubt ist nur der Wegwerf-Ordner, nicht „alles
-    # ausser dem Spiel".** Drei Anlaeufe, jeder von einer Gegenprobe widerlegt:
+    # ⚠⚠⚠ **POSITIVLISTE: erlaubt ist nur der Wegwerf-Ordner, nicht alles
+    # ausser dem Spiel.** Die anderen Ansaetze, jeder von einer Gegenprobe
+    # widerlegt:
     #
-    # | Ansatz | Was ihn erledigt hat |
+    # | Ansatz | Was dagegen spricht |
     # |---|---|
     # | alles stilllegen (`lambda *_a: []`) | kippt VIER Pruefungen in 131 |
-    # | nur der Aufruf **ohne Ordner** | kippt Pruefung 123: Sie legt ihren eigenen Spielordner an und traegt ihn in die EINSTELLUNGSDATEI ein — ruft also zu Recht ohne Argument. „Ohne Argument" heisst nicht „zeigt auf den Spieler" |
+    # | nur der Aufruf **ohne Ordner** | kippt Pruefung 123: Sie legt ihren eigenen Spielordner an und traegt ihn in die EINSTELLUNGSDATEI ein — ruft also zu Recht ohne Argument. Ohne Argument heisst nicht, dass es auf den Spieler zeigt |
     # | **Sperrliste**: alles unter der echten Installation | zwei Loecher, beide gemessen (siehe unten) |
     #
-    # ⛔ **Warum die Sperrliste durchlaessig war** — der Pruefer hat beides
-    # gefunden, die Messung hat es bestaetigt:
+    # ⛔ **Warum eine Sperrliste durchlaessig ist** (gemessen):
     #
     #   1. **Nachbarkanaele.** `log_backups()` liest ausdruecklich auch
-    #      HOTFIX (`_channel_siblings`, Wunsch vom 05.09.2026). HOTFIX ist ein
-    #      GESCHWISTER von LIVE, kein Unterordner — eine Sperre auf LIVE laesst
-    #      es durch. Gemessen: 2 Sicherungen und die laufende Datei kamen an.
+    #      HOTFIX (`_channel_siblings`). HOTFIX ist ein GESCHWISTER von LIVE,
+    #      kein Unterordner — eine Sperre auf LIVE laesst es durch.
     #   2. **Gross-/Kleinschreibung.** `commonpath` vergleicht Zeichenketten;
     #      Windows-Pfade sind aber schreibungsblind. Derselbe Ordner,
-    #      kleingeschrieben uebergeben, ging glatt durch. Dazu loest
+    #      kleingeschrieben uebergeben, geht glatt durch. Dazu loest
     #      `abspath()` keine Junctions auf — der zweite Weg um dieselbe Sperre.
     #
     # ⭐⭐ **Die Lehre: Eine Sperrliste muss jeden Weg kennen, eine Positivliste
@@ -3439,14 +3316,14 @@ def main():
     # Protokolle.
     #
     # ⚠ Steht bewusst HINTER Abschnitt 6: Der braucht die Sicherungen der
-    # nachgebauten Installation („es liegen Sicherungen zum Pruefen bereit").
+    # nachgebauten Installation.
     _pf_iso = __import__('scbp.paths', fromlist=['log_backups'])
     _echte_sicherungen = _pf_iso.log_backups
     _echte_gamelog = _pf_iso.game_log
     # ⚠⚠ **Die Wurzel DIESES Laufs, nicht der allgemeine Temp-Ordner.**
     # `gettempdir()` waere viel zu weit: Dort liegen fremde Werkzeuge und
-    # abgebrochene Prueflaeufe von gestern. Gemessen — eine `Game.log` in einem
-    # beliebigen Temp-Ordner kam glatt durch, ebenso die Temp-Wurzel selbst.
+    # abgebrochene Prueflaeufe. Gemessen — eine `Game.log` in einem
+    # beliebigen Temp-Ordner kaeme glatt durch, ebenso die Temp-Wurzel selbst.
     _lauf_iso = os.path.normcase(os.path.realpath(LAUFWURZEL[0]))
 
     def _wegwerf(pfad):
@@ -3483,10 +3360,10 @@ def main():
 
     print()
     print('37. Ein Auftrag mit mehreren Preisstufen verliert keine Bauplaene')
-    # ⚠ Der Fehler vom 28.08.2026, gemeldet von Morkhan. `_missionen()` legte
-    # die Auftraege unter ihrem Textschluessel ab — und Vertraege, die sich
-    # einen teilen (123 von 353), ueberschrieben sich gegenseitig. Der zuletzt
-    # gelesene gewann, 797 Bauplan-Eintraege sah nie jemand.
+    # ⚠ Legt `_missionen()` die Auftraege unter ihrem Textschluessel ab,
+    # ueberschreiben sich Vertraege, die sich einen teilen (123 von 353),
+    # gegenseitig. Der zuletzt gelesene gewinnt, 797 Bauplan-Eintraege
+    # saehe nie jemand.
     #
     # Geprueft wird an einem winzigen Dump mit genau dieser Falle: zwei
     # Stufen, ein Schluessel, verschiedene Toepfe. Kommt nur eine Seite an,
@@ -3538,8 +3415,8 @@ def main():
     # ------------------------------------------------------------------
     # Die Bau-Anleitungen selbst. Ein Tippfehler darin kostet keinen Fehler
     # im Programm, sondern **jeden Bau** — und zwar stumm: GitHub meldet nur
-    # „workflow file issue", nichts davon steht im Fehlerbericht eines
-    # Nutzers. Am 28.08.2026 lief das über eine Stunde so.
+    # `workflow file issue`, nichts davon steht im Fehlerbericht eines
+    # Nutzers.
     print()
     print('38. Die Bau-Anleitungen sind gueltiges YAML')
     _wf = os.path.join(os.path.dirname(os.path.dirname(
@@ -3556,14 +3433,14 @@ def main():
                   % (_funde[0][0], _funde[0][1], _funde[0][2])))
 
     # Gegenprobe — eine Prüfung, die nie anschlägt, prüft nichts. Das hier ist
-    # der echte Fehler vom 28.08.2026, Zeichen für Zeichen.
+    # ein echter Fehler, Zeichen für Zeichen.
     _kaputt = ('jobs:\n  bau:\n    steps:\n'
                '      - name: Berichtsziel einsetzen\n'
                '        shell: bash\n        shell: bash\n'
                '        run: echo hi\n')
     pruefe([f[1] for f in doppelte_schluessel(_kaputt)] == ['shell'],
            'und der Fehler von damals wird auch wirklich gefunden')
-    # Und die Gegenrichtung: Was erlaubt ist, darf nicht gemeldet werden —
+    # Und die Gegenrichtung: Was erlaubt ist, darf nicht anschlagen —
     # sonst schaltet man die Prüfung nach dem dritten Fehlalarm ab.
     _erlaubt = ('jobs:\n  bau:\n    steps:\n'
                 '      - name: A\n        run: |\n'
@@ -3574,11 +3451,11 @@ def main():
 
 
     # ------------------------------------------------------------------
-    # ⚠ Der häufigste Support-Fall: „ich sehe deine Angaben im Spiel nicht
-    # mehr". Ein Übersetzungs-Update oder ein Spiel-Patch schreibt die
-    # `global.ini` neu und wirft die Angaben dabei stillschweigend hinaus.
-    # Am 28.08.2026 stand in Morkhans Bericht nur `inj_quelle=deutsch` — ob
-    # etwas eingetragen war, musste erschlossen werden statt abgelesen.
+    # ⚠ Der häufigste Support-Fall: Die Angaben fehlen im Spiel. Ein
+    # Übersetzungs-Update oder ein Spiel-Patch schreibt die `global.ini` neu
+    # und wirft die Angaben dabei stillschweigend hinaus. Steht im Bericht
+    # nur `inj_quelle=deutsch`, muss erschlossen statt abgelesen werden, ob
+    # etwas eingetragen ist.
     print()
     print('39. Der Bericht sagt, ob die Angaben im Spiel stehen')
     from scbp import report as ber39, injection as inj39
@@ -3588,7 +3465,7 @@ def main():
     _ini39 = os.path.join(_ordner39, 'global39.ini')
     _echt39 = inj39.ini_file
     try:
-        # Datei da, Angaben vom Launcher hinausgeworfen — Morkhans Lage.
+        # Datei da, Angaben vom Launcher hinausgeworfen.
         with open(_ini39, 'w', encoding='utf-8') as f:
             f.write('mission_a_desc=Deliver cargo.\n')
         inj39.ini_file = lambda: (_ini39, 'german_(germany)', 'deutsch')
@@ -3596,10 +3473,10 @@ def main():
         pruefe('NICHT' in _l39 or 'NOT' in _l39,
                'ohne Angaben in der Datei sagt der Bericht das auch')
 
-        # ⚠ MrKrakens Kennzeichnung allein ist KEINE Injektion. Er schreibt in
-        # StarStrings dasselbe blanke `<EM4>[BP]</EM4>` an seine Titel (314 in
-        # der Fassung vom 29.08.2026). Bis dahin meldete der Bericht deshalb
-        # „steht drin", sobald jemand StarStrings frisch eingesetzt hatte.
+        # ⚠ Die StarStrings-Kennzeichnung allein ist KEINE Injektion.
+        # StarStrings schreibt dasselbe blanke `<EM4>[BP]</EM4>` an seine
+        # Titel (314 Stueck). Sonst behauptete der Bericht eine Injektion,
+        # sobald jemand StarStrings frisch eingesetzt hat.
         with open(_ini39, 'a', encoding='utf-8') as f:
             f.write('mission_b_title=Bounty <EM4>[BP]</EM4>\n')
         _l39ss = ber39._injection_state()
@@ -3616,7 +3493,7 @@ def main():
         pruefe('NICHT' not in _l39b and 'NOT' not in _l39b,
                'und mit Angaben meldet er sie als eingetragen')
 
-        # ⚠ Gar keine Datei ist NICHT dasselbe wie „nicht eingetragen": Unter
+        # ⚠ Gar keine Datei ist NICHT dasselbe wie nicht eingetragen: Unter
         # Linux ohne Übersetzung ist das der Normalzustand, und eine Warnung
         # davor wäre eine Warnung vor nichts.
         inj39.ini_file = lambda: (None, 'english', None)
@@ -3630,8 +3507,7 @@ def main():
 
     print()
     print('40. Der Installer haelt das Programm auch UNTEN, nicht nur zu')
-    # ⚠ Gemessen am 28.08.2026 (beim Update rc75 -> rc83). Im
-    # Setup-Protokoll steht die ganze Kette:
+    # ⚠ Gemessen bei einem Update. Im Setup-Protokoll steht die ganze Kette:
     #
     #     05:43:47  Shutting down applications using our files. (forced)
     #     05:43:55  << Watcher laeuft wieder, Elternprozess explorer.exe >>
@@ -3662,11 +3538,11 @@ def main():
            'AppMutex steht NICHT drin (blockierte den Weg am 26.08.2026)')
     pruefe('RestartApplications=no' in aktiv40,
            'RestartApplications=no — der RM faehrt nichts von selbst hoch')
-    # ⚠ Und die Erklaerung im Code muss dazu passen. Sie tat es bis zum
-    # 28.08.2026 nicht und schickte die Fehlersuche in die falsche Richtung.
+    # ⚠ Und die Erklaerung im Code muss dazu passen — sonst schickt sie die
+    # Fehlersuche in die falsche Richtung.
     ak40 = open(os.path.join(WURZEL, 'scbp', 'updater.py'),
                 encoding='utf-8').read()
-    kopf40 = ak40[ak40.index('Der Eigenbau ist deshalb weg'):][:3000]
+    kopf40 = ak40[ak40.index('Unter Windows startet deshalb der Installer'):][:3000]
     # ⚠ Auf Wortabwesenheit zu pruefen waere falsch: Der Kommentar ZITIERT die
     # beiden alten Falschaussagen, um sie zu widerlegen. Geprueft wird deshalb,
     # ob er den echten Stand nennt — daran haengt, ob der naechste Leser richtig
@@ -3678,16 +3554,12 @@ def main():
 
     print()
     print('41. Ein Schalter, der aus sagt, macht auch aus')
-    # ⚠ Gemessen am 28.08.2026 (gemessen): „Angaben am Gegenstand“ abgeschaltet,
-    # Statuszeile meldete „aus“ — und die `global.ini` blieb unangetastet. 1.217
-    # Angaben standen weiter drin, das Spiel zeigte sie unverändert.
+    # ⚠ „Angaben am Gegenstand“ abgeschaltet heißt: Die Angaben verschwinden
+    # aus der `global.ini`. Bliebe die Datei unangetastet, stünden die Angaben
+    # weiter drin, und wer neu startet und alles unverändert vorfindet, hält
+    # das Werkzeug für kaputt — man erwartet, was man liest und sieht.
     #
-    # Schlimmer noch der Kasten darüber: „Änderungen wirken beim nächsten
-    # Spielstart“ — wer danach neu startete und alles unverändert vorfand, hielt
-    # das Werkzeug für kaputt. Gemeldet: „ein user erwartet das was er liest und
-    # sieht, ist es aus angaben weg also muss das auch so sein.“
-    #
-    # Der Schalter stößt das Neuschreiben jetzt selbst an. Diese Prüfung hält das
+    # Der Schalter stößt das Neuschreiben deshalb selbst an. Diese Prüfung hält das
     # fest — fällt es heraus, ist der Fehler zurück, und zwar unsichtbar.
     se41 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
@@ -3698,16 +3570,15 @@ def main():
     pruefe('lage_zeigen' in rumpf41,
            'und der Zustandskasten wird danach aufgefrischt')
     # ⚠ Zwei Riegel, sonst stößt ein Formatschalter eine Einfügung an, die
-    # niemand wollte — der obere Schalter lässt Vorhandenes mit Absicht stehen.
+    # nicht eingeschaltet ist — der obere Schalter lässt Vorhandenes mit
+    # Absicht stehen.
     pruefe("inj_an" in rumpf41,
            'aber nur, wenn das Schreiben überhaupt eingeschaltet ist')
     pruefe("drin" in rumpf41,
            'und nur, wenn schon etwas in der Datei steht')
 
-    # ⚠ Derselbe Anspruch für den Hauptschalter — der Autor fiel im eigenen Test
-    # darauf herein und hat damit den Punkt bewiesen: „ich hab das fette gelesen
-    # aber nicht das kleinere“. Der Hinweis stand im Kleingedruckten, und genau
-    # das liest niemand. Aus heißt jetzt weg, an heißt da.
+    # ⚠ Derselbe Anspruch für den Hauptschalter: Ein Hinweis im
+    # Kleingedruckten liest niemand. Aus heißt weg, an heißt da.
     i41b = se41.index('def inj_an_um():')
     rumpf41b = se41[i41b:se41.index('return neu_wert', i41b)]
     pruefe('_inj_remove' in rumpf41b,
@@ -3722,7 +3593,7 @@ def main():
            'der Hilfetext behauptet nicht mehr das Gegenteil (de)')
     pruefe('does not remove' not in hilfe41[1],
            'dasselbe auf Englisch')
-    # ⚠ Und der Kasten muss den Rest zugeben, statt „nichts geschrieben“ zu sagen.
+    # ⚠ Und der Kasten muss den Rest zugeben, statt zu behaupten, es stehe nichts mehr drin.
     pruefe('s_sp_aus_rest' in sp41.TEXTS and 's_sp_aus_rest_h' in sp41.TEXTS,
            'der Kasten kann sagen, dass noch Angaben im Spiel stehen')
     pruefe('s_sp_aus_rest' in se41,
@@ -3732,12 +3603,11 @@ def main():
     # Installers (nur bei gewaehltem Haekchen) und vom Programm selbst
     # (`scbp/autostart.py`). `uninsdeletevalue` raeumt nur den ersten Fall weg.
     #
-    # Gemessen am 28.08.2026 (gemessen): Nach dem Deinstallieren stand der Wert
-    # weiter in der Registry und zeigte auf eine geloeschte Datei. Windows
+    # Gemessen: Ohne eigenes Aufraeumen steht der Wert nach dem Deinstallieren
+    # weiter in der Registry und zeigt auf eine geloeschte Datei. Windows
     # versucht sie bei jeder Anmeldung zu starten und scheitert still.
     #
-    # Derselbe Autostart hat morgens den Update-Fehler (Code 5) ausgeloest — er
-    # war an beiden Enden nur halb geregelt.
+    # Derselbe Autostart loest auch den Update-Fehler (Code 5) aus, siehe 40.
     pruefe('CurUninstallStepChanged' in iss40 and 'RegDeleteValue' in iss40,
            'der Deinstaller raeumt den Autostart-Eintrag weg')
     # ⚠ Beide Seiten MUESSEN denselben Wertnamen meinen, sonst raeumt der
@@ -3748,15 +3618,12 @@ def main():
 
     print()
     print('42. Ein eigener Fund ergaenzt einen Patch, er ersetzt ihn nicht')
-    # ⚠ Gemessen am 28.08.2026 (gemessen): Im Filter stand „4.10.0 (3)", und
-    # darunter drei Schiffswaffen. Mitgeliefert waren 21 Baupläne für dieselbe
-    # Version — der ganze Patch war aus der Anzeige verschwunden.
-    #
-    # Ursache: `laden()` legte die eigene Historie per `update()` über die
-    # mitgelieferte. Bei gleichem Versionsschlüssel gewann die eigene komplett.
-    # Nur: Was `record()` schreibt, ist immer bloß der **Zuwachs seit dem
-    # letzten Lauf** — hier drei Waffen, die scmdb zwei Tage später nachreichte.
-    # Als vollständige Patch-Liste gelesen ist das zwangsläufig falsch.
+    # ⚠ Legt `laden()` die eigene Historie per `update()` über die
+    # mitgelieferte, gewinnt bei gleichem Versionsschlüssel die eigene
+    # komplett. Was `record()` schreibt, ist aber immer bloß der **Zuwachs
+    # seit dem letzten Lauf** (etwa drei Waffen, die scmdb später
+    # nachreicht) — als vollständige Patch-Liste gelesen verschwände der
+    # ganze mitgelieferte Patch aus der Anzeige.
     #
     # Diese Prüfung hält beide Richtungen fest: mitgeliefert + eigen, und eigen
     # + eigen. Fällt eine heraus, frisst der nächste Nachzügler wieder den Patch.
@@ -3772,7 +3639,7 @@ def main():
                'die mitgelieferte Historie fuehrt mehrere Bauplaene (%d)'
                % _vorher42)
 
-        # a) Der Fall vom 28.08.2026: zwei Nachzuegler in derselben Version.
+        # a) Der Kernfall: zwei Nachzuegler in derselben Version.
         ph42.record(_v42, ['Testwaffe A', 'Testwaffe B'], datum='2099-12-31')
         pruefe(len(ph42.load()[_v42]['neu']) == _vorher42 + 2,
                'eigene Funde kommen dazu, statt den Patch zu ersetzen')
@@ -3797,10 +3664,10 @@ def main():
                'der Bericht nennt die Anzahl je Patch')
 
         # e) ⚠ Zwei Spielversionen mit derselben Nummer duerfen im Bericht nicht
-        #    zu zwei gleich aussehenden Eintraegen verkuerzt werden. Genau das
-        #    stand am 01.09.2026 dort: "4.10.0 (24), 4.10.0 (34)" — beide Male
-        #    dieselbe Beschriftung, und niemand konnte zuordnen, welche Zahl zu
-        #    welchem Patch gehoert. Ausgerechnet in der Zeile, die es zum
+        #    zu zwei gleich aussehenden Eintraegen verkuerzt werden, etwa
+        #    "4.10.0 (24), 4.10.0 (34)" — beide Male dieselbe Beschriftung,
+        #    und niemand koennte zuordnen, welche Zahl zu welchem Patch
+        #    gehoert. Ausgerechnet in der Zeile, die es zum
         #    Zuordnen gibt (siehe d).
         _kurz42 = _v42.split('-')[0]
         _zwei42 = _kurz42 + '-live.99999999'
@@ -3818,18 +3685,16 @@ def main():
 
     print()
     print('43. Das Auswahlfeld verspricht nur, was die Liste zeigen kann')
-    # ⚠ Gemessen am 28.08.2026 (gemessen), direkt nach dem Fix an der Historie:
-    # Im Feld stand „4.10.0 (24)", darunter drei Zeilen. Die Zahl in Klammern
-    # ist eine Zusage, wie viele Zeilen kommen — und sie kam aus einer anderen
-    # Quelle als die Zeilen selbst: `patches()` las die Historie, der Filter
-    # prueft den Stempel `seit` im Katalog.
+    # ⚠ Die Zahl in Klammern (`4.10.0 (24)`) ist eine Zusage, wie viele Zeilen
+    # kommen. Liest `patches()` die Historie, der Filter aber den Stempel
+    # `seit` im Katalog, stehen darunter womoeglich nur drei Zeilen.
     #
     # Zwei Quellen fuer dieselbe Frage gehen irgendwann auseinander. Das Feld
-    # zaehlt jetzt den Katalog. Damit dort auch alles gestempelt ist, zieht das
-    # Fenster den Stempel nach, BEVOR es den Katalog liest — vorher hing das
-    # allein am Netz-Takt, der irgendwann nach dem Start in einem eigenen Faden
-    # laeuft (gemessen: Fenster 10:44:02, Stempel 10:44:03 — eine Sekunde zu
-    # spaet, und die Liste blieb bis zum naechsten Oeffnen falsch).
+    # zaehlt deshalb den Katalog. Damit dort auch alles gestempelt ist, zieht
+    # das Fenster den Stempel nach, BEVOR es den Katalog liest — allein am
+    # Netz-Takt, der irgendwann nach dem Start in einem eigenen Faden laeuft,
+    # kaeme der Stempel leicht eine Sekunde zu spaet, und die Liste bliebe
+    # bis zum naechsten Oeffnen falsch.
     import tempfile as _tf43
     from scbp import catalog as kat43, patchhistory as ph43
     _alt_home43 = os.environ.get('SC_BP_HOME')
@@ -3881,14 +3746,10 @@ def main():
 
     print()
     print('44. Das Schloss laesst sich auch wieder ZUsperren')
-    # ⚠ Haldjas (pr0) am 28.08.2026: „man kann das durckclicken entfernen, aber
-    # eventuell kann der button zum locken stehen bleiben? sonst muss man ja
-    # erst wieder in die einstellungen."
-    #
-    # Er hat den blinden Fleck getroffen: Gebaut war nur der Rueckweg. Das
-    # schwebende Schloss erscheint, solange durchgereicht wird — schaltet man ab,
-    # ist es weg, und der Hinweg fuehrte allein ueber Einstellungen -> Overlay.
-    # Ein Weg hin und her gehoert an dieselbe Stelle.
+    # ⚠ Das schwebende Schloss erscheint, solange durchgereicht wird — schaltet
+    # man ab, ist es weg. Ohne Knopf zum Zusperren fuehrte der Hinweg allein
+    # ueber Einstellungen -> Overlay. Ein Weg hin und her gehoert an dieselbe
+    # Stelle.
     import tempfile as _tf44
     from scbp import paths as pf44, language as sp44
     import sc_bp_watcher as w44
@@ -3945,9 +3806,8 @@ def main():
         pruefe(_o44.gemeldet is not None,
                'und der Nutzer erfaehrt, wie er zurueckkommt')
 
-        # ⚠ Zweiter Wunsch von Gemeldet am selben Tag: „am besten waere das
-        #   gleiche schloss gruen zu faerben was eh in der leiste ist, und es
-        #   damit auch wieder zu entsperren."
+        # ⚠ Entsperrt wird ueber das gruen gefaerbte Schloss, das ohnehin in
+        #   der Leiste sitzt.
         #
         #   Ein eigenes Fenster MUSS es bleiben — durchgereicht wird immer fuer
         #   das ganze Fenster, ein Knopf in der Leiste waere in dem Moment
@@ -3955,10 +3815,9 @@ def main():
         #   Pruefung haelt fest, dass die Lage vom Leisten-Knopf kommt und nicht
         #   wieder in die Ecke rutscht.
         # ⚠ **Genau diese eine Methode ausschneiden, nicht bis zur
-        # uebernaechsten.** Bis zum 13.09.2026 lief der Schnitt bis
-        # `def _leistenschloss` — also ueber `_schloss_nachziehen` hinweg. Kam
-        # dort eine Methode dazu, die `SCHLOSS_FEIN_X` zu Recht benutzt, wurde
-        # die Pruefung rot, obwohl der Aufblend-Betrieb unveraendert war. Ein
+        # uebernaechsten.** Liefe der Schnitt bis `def _leistenschloss` — also
+        # ueber `_schloss_nachziehen` hinweg —, wuerde die Pruefung rot,
+        # sobald dort eine Methode `SCHLOSS_FEIN_X` zu Recht benutzt. Ein
         # Bereich, der fremde Nachbarn einschliesst, prueft nicht die Sache,
         # sondern die Reihenfolge im Quelltext.
         _ank44 = _q44.index('def _schloss_anwenden')
@@ -3969,8 +3828,7 @@ def main():
         pruefe('winfo_ismapped()' in _rumpf44,
                'und faellt auf die Ecke zurueck, wenn der Knopf nicht da ist')
 
-        # ⚠ Der Fall, an dem rc92 noch scheiterte — gemeldet von Haldjas (pr0)
-        #   am 28.08.2026, belegt durch seinen Bericht: `overlay_modus=popup`.
+        # ⚠ Der Fall `overlay_modus=popup`:
         #
         #   Im Pop-up-Betrieb ruft `verhalten_anwenden()` `withdraw()`, BEVOR je
         #   gezeichnet wurde. Der Knopf ist dann dauerhaft nicht gemappt, das
@@ -3980,10 +3838,10 @@ def main():
         #       versteckt (war sichtbar):  ismapped=0  w=56  rootx=1161
         #       nie gemalt, dann versteckt: ismapped=0  w=1   rootx=0
         #
-        #   `_anfasser_zeigen()` loest denselben Fall seit jeher richtig: aus
-        #   `self._letzte_lage`. Das Schloss geht jetzt denselben Weg.
+        #   `_anfasser_zeigen()` loest denselben Fall richtig: aus
+        #   `self._letzte_lage`. Das Schloss geht denselben Weg.
         # ⚠ Ein Toplevel erbt die Deckkraft des Hauptfensters NICHT. Ohne diese
-        #   Zeile lag ein voll deckendes Schloss ueber einem zu 93 % durch-
+        #   Zeile laege ein voll deckendes Schloss ueber einem zu 93 % durch-
         #   scheinenden Knopf — zwei Symbole mit verschiedener Saettigung.
         # ⚠ Der Feinausgleich gilt NUR im sichtbaren Fall. Der Aufblend-Betrieb
         #   rechnet aus der Streifen-Position — wer ihn dort mit einrechnet,
@@ -4022,34 +3880,25 @@ def main():
             _teil44 = _teil44[:_teil44.index('    def ', 10)]
             pruefe('_schloss_nachziehen()' in _teil44,
                    'das Schloss zieht %s mit' % _was44)
-        # ⚠⚠ **Die Titelleiste haengt an der Seite, die zur Ecke passt.**
-        #   Gemeldet von Haldjas (pr0) am 02.09.2026: Bei einer unteren Ecke
-        #   sass die Leiste eine Fensterhoehe ueber dem Bildschirmrand.
+        # ⚠⚠ **Die Titelleiste haengt an der richtigen Seite.** Bei einer
+        #   unteren Ecke darf sie nicht eine Fensterhoehe ueber dem
+        #   Bildschirmrand sitzen.
         #
-        #   Vier Anlaeufe (v3.9.2-rc3 bis rc6) sind daran gescheitert, dass ein
-        #   EINGEKLAPPTES Fenster beim Neupacken „von 22 auf 120 px" wuchs und
-        #   „86 px unter den Bildschirmrand" ragte. Beide Zahlen waren die
-        #   Loesung, nur hat sie niemand gelesen: 120 ist die Mindesthoehe aus
-        #   `_mindestgroesse_setzen()`, 86 ihr Ueberstand in einer unteren
-        #   Ecke. Es lag nie am Neupacken — `minsize` blieb beim Einklappen
-        #   stehen. Seit rc9 zieht sie mit, seither funktioniert der Umbau
+        #   Die Falle: Waechst ein EINGEKLAPPTES Fenster beim Neupacken von 22
+        #   auf 120 px und ragt 86 px unter den Bildschirmrand, ist 120 die
+        #   Mindesthoehe aus `_mindestgroesse_setzen()` und 86 ihr Ueberstand
+        #   in einer unteren Ecke — `minsize` muss beim Einklappen mitziehen
         #   (gemessen in `tools/entwurf_leiste_pruefen.py`).
         #
         #   Diese Pruefung bewacht die drei Stellen, an denen es kippen kann.
         #   Die Leiste ist im eingeklappten Zustand der EINZIGE Bedienweg —
         #   ist sie ausserhalb des Bildes, kommt niemand mehr an das Werkzeug.
         #
-        #   ⭐⭐ **Neu gefasst am 13.09.2026.** Bis dahin stand hier, die Seite
-        #   haenge an der EckeR — und genau das ist jetzt falsch: Sie ist eine
-        #   eigene Entscheidung des Nutzers geworden (`overlay_leiste`), weil
+        #   ⭐⭐ Die Seite ist eine eigene Einstellung (`overlay_leiste`), weil
         #   ein Verschieben die Ecke auf „frei" stellt und die Leiste sonst
-        #   immer oben gelandet waere.
-        #
-        #   Die Pruefung hat dabei getan, wofuer sie da ist: Sie ist bei der
-        #   Aenderung rot geworden und hat zum Nachdenken gezwungen, statt sie
-        #   stillschweigend durchzulassen. Bewacht wird ab jetzt der neue
-        #   Vertrag — **samt Rueckfall**, denn ohne den verlieren
-        #   Bestandsnutzer ihre untere Leiste.
+        #   immer oben landen wuerde. Bewacht wird dieser Vertrag — **samt
+        #   Rueckfall**, denn ohne den verlieren Bestandsnutzer ihre untere
+        #   Leiste.
         if 'def _leiste_seite_wunsch' in _q44:
             _teil45 = _q44[_q44.index('def _leiste_seite_wunsch'):]
             _teil45 = _teil45[:_teil45.index('    def ', 10)]
@@ -4090,8 +3939,8 @@ def main():
             pruefe('_verankert()' in _teil47,
                    'der Ziehgriff sitzt an der freien Ecke')
         # ⚠ Und das Ziehen selbst muss dieselbe Ecke kennen. Sonst wird gegen
-        #   den Bildschirmrand gezogen, an dem das Fenster klebt — gemeldet
-        #   am 02.09.2026: „laesst sich nur nach unten ziehen".
+        #   den Bildschirmrand gezogen, an dem das Fenster klebt, und es
+        #   liesse sich nur in eine Richtung ziehen.
         if 'def _resize' in _q44:
             _teil48 = _q44[_q44.index('def _resize'):]
             _teil48 = _teil48[:_teil48.index('    def ', 10)]
@@ -4119,8 +3968,8 @@ def main():
             #   Tk liefert nach `geometry()` noch die alte Lage zurueck.
             #
             # ⚠⚠ Auf die ZUWEISUNG pruefen, nicht auf den blossen Namen — der
-            #   steht als Warnung im Kommentar daneben, und die erste Fassung
-            #   dieser Pruefung ist genau darueber gestolpert.
+            #   steht als Warnung im Kommentar daneben, und eine Suche nach dem
+            #   Namen stolpert genau darueber.
             pruefe('_letzte_lage = self._current_geom()' not in _teil50,
                    'und rechnet dabei nicht mit der noch alten Geometrie')
             pruefe("_letzte_lage = '%dx%d+%d+%d'" in _teil50,
@@ -4128,11 +3977,10 @@ def main():
 
         # ⚠⚠ Zwei Patches koennen auf dieselbe Kurzform kuerzen — ein Hotfix im
         #   Live-Kanal erzeugt genau das: 4.10.0-live.12519617 und
-        #   4.10.0-live.12545750 heissen beide „4.10.0". Wo die Kurzform allein
-        #   steht, sind sie nicht auseinanderzuhalten. In v3.9.1 im BERICHT
-        #   behoben, im Patch-MENUE aber nicht — gemeldet 02.09.2026. Diese
-        #   Pruefung deckt beide Stellen ab, damit es nicht an einer dritten
-        #   wieder auftaucht.
+        #   4.10.0-live.12545750 heissen beide `4.10.0`. Wo die Kurzform allein
+        #   steht, sind sie nicht auseinanderzuhalten. Diese Pruefung deckt
+        #   BERICHT und Patch-MENUE ab, damit es nicht an einer Stelle
+        #   stehen bleibt.
         for _datei48, _funktion48, _wo48 in (
                 ('report.py', 'def _patch_history', 'im Bericht'),
                 ('collection_window.py', 'def _patches', 'im Patch-Menue')):
@@ -4152,7 +4000,7 @@ def main():
                    'die volle Version erscheint %s, wenn die Kurzform doppelt '
                    'vorkommt' % _wo48)
 
-        # ⚠ Seiten im Leerlauf vorbauen (02.09.2026). Jede Seite entsteht beim
+        # ⚠ Seiten im Leerlauf vorbauen. Jede Seite entsteht beim
         #   ersten Aufruf und braucht dafuer bis zu einer Sekunde — gemessen im
         #   Startverlauf eines echten Berichts. Der Vorbau nimmt diese
         #   Wartezeit vorweg. Zwei Dinge muessen dabei stimmen, sonst wird es
@@ -4173,8 +4021,7 @@ def main():
                        'und gibt zwischen den Seiten die Bedienung frei')
                 pruefe('in self.drawn' in _t46,
                        'und baut keine Seite doppelt')
-                # ⚠⚠ Der Fehler, den der Vorbau selbst erzeugt hat
-                #   (02.09.2026, direkt nach rc4): Manche Seiten rufen beim
+                # ⚠⚠ Die Falle des Vorbaus selbst: Manche Seiten rufen beim
                 #   Bauen `focus_set()` — das Suchfeld der Bauplan-Liste tut
                 #   es. Im Hintergrund gebaut, klaut eine unsichtbare Seite
                 #   damit den Eingabefokus, und im sichtbaren Feld kommt
@@ -4190,7 +4037,7 @@ def main():
                 _t47 = _q46[_q46.index('self.pages, self.drawn'):][:400]
                 pruefe('_prebuild_running = False' in _t47,
                        'und wird beim Neuaufbau des Fensters zurueckgesetzt')
-        # ⚠ Gemessen am 28.08.2026: Ein ungezeichnetes Widget meldet Breite 1 und
+        # ⚠ Gemessen: Ein ungezeichnetes Widget meldet Breite 1 und
         #   Position 0. `ismapped()` allein reicht deshalb nicht — sonst saesse
         #   das Schloss in der Bildschirmecke statt auf der Leiste.
         pruefe('winfo_width() > 1' in _rumpf44,
@@ -4223,21 +4070,19 @@ def main():
                and _l44.schloss_lbl.farbe == zn44.GREY,
                'und danach wieder offen und grau')
 
-        # ⚠ Gemeldet von Haldjas (pr0) am 28.08.2026 zu rc91: „nach dem ersten
-        #   start ist das schloss symbol weiterhin in der ecke wie vorher auch,
-        #   erst wenn man es einmal benutzt hat aendert es die position in die
-        #   leiste."
+        # ⚠ Schon beim ersten Start sitzt das Schloss in der Leiste, nicht in
+        #   der Ecke.
         #
-        #   Grund: `verhalten_anwenden()` laeuft unmittelbar vor `mainloop()`.
+        #   Die Falle: `verhalten_anwenden()` laeuft unmittelbar vor `mainloop()`.
         #   Die Leiste steht dann im Baum, aber Tk hat noch nichts gemalt — also
         #   meldet `winfo_ismapped()` falsch, und der Rueckfall auf die Ecke
         #   greift bei JEDEM Start, sobald jemand das Durchreichen eingeschaltet
         #   gespeichert hat. Es wird deshalb nachgefasst.
         pruefe('_nachfassen' in _rumpf44,
                'ist die Leiste noch nicht gezeichnet, wird nachgefasst')
-        # ⚠ Und zwar OHNE vorher eines an der falschen Stelle zu bauen. Genau
-        #   das hat Haldjas gesehen: „Schloss ist an 2 Positionen". Ein kurz
-        #   aufblitzendes falsches Schloss waere nur die halbe Reparatur.
+        # ⚠ Und zwar OHNE vorher eines an der falschen Stelle zu bauen — sonst
+        #   stuende das Schloss an zwei Positionen. Ein kurz aufblitzendes
+        #   falsches Schloss waere nur die halbe Reparatur.
         _warte44 = _rumpf44.split('_nachfassen(versuch + 1)', 1)[1]
         pruefe(_warte44.lstrip(') ' + chr(10)).startswith('return'),
                'und zwar ohne vorher eines an der falschen Stelle zu bauen')
@@ -4249,9 +4094,9 @@ def main():
         #   eingeklappt oder im Pop-up-Betrieb versteckt ist.
         pruefe('versuch < 10' in _rumpf44,
                'und begrenzt, damit es nicht ewig weiterlaeuft')
-        # Und NUR, solange die Leiste ueberhaupt noch kommt. Gemeldet von
-        # Haldjas (pr0) zu rc95: Beim Zublenden lief das Nachfassen blind mit
-        # und verzoegerte den Ruecksprung um genau 10 x 300 ms = 3 Sekunden.
+        # Und NUR, solange die Leiste ueberhaupt noch kommt. Liefe das
+        # Nachfassen beim Zublenden blind mit, verzoegerte es den Ruecksprung
+        # um genau 10 x 300 ms = 3 Sekunden.
         # Gemessen trennt root.winfo_ismapped() die Faelle:
         #     Start, nach update_idletasks   root=1  knopf=0  -> wird gemalt
         #     nach withdraw()                root=0  knopf=0  -> soll weg sein
@@ -4269,15 +4114,14 @@ def main():
 
     print()
     print('45. Kein totes Bild in der Anleitung')
-    # ⚠ Gefunden am 28.08.2026 beim Ergaenzen der Funktionsliste: Drei Bilder
-    # in der Tabelle zeigten ins Leere — `symbole/22/punkt-blau.png` (zweimal)
-    # und `symbole/22/gemerkt-gruen.png`. Beides sind **Zeilen**-Symbole, und die
-    # werden nur bis 18 px gebaut (`tools/symbole_bauen.py`: ZEILE geht bis 18,
-    # KNOPF bis 30). Auf GitHub stand dort ein kaputtes Bild-Kaestchen — in der
-    # Funktionsliste, also auf dem, was ein Interessierter als Erstes sieht.
+    # ⚠ Ein Bild wie `symbole/22/punkt-blau.png` zeigt ins Leere: **Zeilen**-
+    # Symbole werden nur bis 18 px gebaut (`tools/symbole_bauen.py`: ZEILE
+    # geht bis 18, KNOPF bis 30). Auf GitHub stuende dort ein kaputtes
+    # Bild-Kaestchen — in der Funktionsliste, also auf dem, was ein
+    # Interessierter als Erstes sieht.
     #
-    # Niemand hat es gemeldet, weil ein fehlendes Bild niemandem wehtut. Genau
-    # deshalb gehoert es in den Selbsttest: Wer ein Symbol umbenennt oder eine
+    # Ein fehlendes Bild tut niemandem weh, also faellt es niemandem auf.
+    # Genau deshalb gehoert es in den Selbsttest: Wer ein Symbol umbenennt oder eine
     # Groesse nicht baut, erfaehrt es hier statt gar nicht.
     import re as _re45
     _tot45 = []
@@ -4299,15 +4143,10 @@ def main():
 
     print()
     print('46. Ein Fund ist ein Fund - kein Wartezustand mehr')
-    # ⚠ Bis v3.0.0-rc94 stand ein Bauplan aus der Game.log GELB da: „vorlaeufig",
-    # bis die Launcher-Datei ihn auf Gruen bestaetigt. Diese Bestaetigung kann es
-    # nicht mehr geben — die Game.log ist die Quelle, der Launcher nur noch eine
-    # Ergaenzung. Uebrig blieb ein Zustand, aus dem nichts mehr herausfuehrt:
-    # Wer den Launcher hatte, sah dauerhaft Gelb; wer ihn nicht hat, dauerhaft
-    # Gruen — bei genau derselben Sicherheit.
-    #
-    # Gemeldet am 28.08.2026: die Bestaetigung wird „nicht nur nicht mehr
-    # gebraucht, sondern kann auch gar nicht mehr geben".
+    # ⚠ Ein Bauplan aus der Game.log ist sofort GRUEN — keinen gelben
+    # Vorlaeufig-Zustand, der auf eine Bestaetigung aus einer anderen Quelle
+    # wartet. Die Game.log ist die Quelle; ein Zustand, aus dem nichts mehr
+    # herausfuehrt, liesse Bauplaene bei gleicher Sicherheit dauerhaft gelb.
     #
     # Diese Pruefung haelt fest, dass die Mechanik WEG ist und nicht nur
     # stillgelegt — halb entfernter Code kommt sonst beim naechsten Umbau
@@ -4329,27 +4168,23 @@ def main():
 
     print()
     print('47. Protokolle lassen sich erneut einlesen')
-    # ⚠ Gemeldet am 28.08.2026, wenige Stunden nach v3.0.0: Ein
-    # Bauplan kam an, waehrend der Watcher zu war und Star Citizen weiterlief.
-    # Beim naechsten Start war er weg — und zwar dauerhaft.
+    # ⚠ Ein Bauplan, der ankommt, waehrend der Watcher zu ist und Star
+    # Citizen weiterlaeuft, darf beim naechsten Start nicht verloren sein.
     #
-    # Der Grund: `nachlesen()` fasste die laufende Game.log nur an, wenn sie
-    # NOCH NIE gelesen war. Danach galt sie als erledigt, das Mitlesen setzte
-    # beim gemerkten Stand an, und alles davor war unerreichbar. In
+    # Die Falle: Fasst `nachlesen()` die laufende Game.log nur an, wenn sie
+    # NOCH NIE gelesen war, gilt sie danach als erledigt, das Mitlesen setzt
+    # beim gemerkten Stand an, und alles davor ist unerreichbar. In
     # `logbackups/` landet die Datei erst beim naechsten Spielstart.
     #
     # Gemessen: Bauplan bei Byte 11.987.664, Lesestand 12.759.872.
     _q47 = open(os.path.join(WURZEL, 'scbp', 'logsource.py'),
                 encoding='utf-8').read()
-    # ⚠⚠ Schnitt bis zum 13.09.2026 den Text zwischen ZWEI Zeichenketten
-    # heraus (`'if auch_laufende:'` bis `'bericht['`). Bei der Umbenennung
-    # des Moduls flog das zweimal mit `ValueError: substring not found` —
-    # zu Recht: Schon eine umformulierte Zeile haette denselben Effekt.
+    # ⚠⚠ Kein Schnitt zwischen ZWEI Zeichenketten: Schon eine umformulierte
+    # Zeile wirft ihn mit `ValueError: substring not found` um.
     #
-    # Jetzt ueber den Syntaxbaum: der Rumpf der Funktion, die den Fall
+    # Deshalb ueber den Syntaxbaum: der Rumpf der Funktion, die den Fall
     # wirklich behandelt. `ast.unparse` laesst Kommentare von selbst weg —
-    # und genau die waren vorher das Problem, weil die alte Bedingung dort
-    # als Zitat steht.
+    # wichtig, weil die alte Bedingung in einem Kommentar als Zitat steht.
     import ast as _ast47
     _code47 = ''
     for _k47 in _ast47.walk(_ast47.parse(_q47)):
@@ -4380,14 +4215,13 @@ def main():
 
     print()
     print('48. Nach einer neuen Fassung wird immer wieder gesehen')
-    # ⚠ Gemeldet am 28.08.2026: v3.0.1 war draussen, der laufende
-    # Watcher schwieg — obwohl er die Fassung laengst abgerufen hatte und sie in
-    # seinem Zwischenspeicher stand.
+    # ⚠ Ein laufender Watcher meldet eine neue Fassung, auch wenn sie erst
+    # nach dem Start erscheint.
     #
-    # Der Grund: `_nach_version_sehen()` wurde GENAU EINMAL gerufen, zwei
-    # Sekunden nach dem Start. Der Stundenabstand in `updater.nachsehen()`
+    # Die Falle: Wird `_nach_version_sehen()` GENAU EINMAL gerufen, zwei
+    # Sekunden nach dem Start, erfaehrt nie von einer neuen Fassung, wer den
+    # Watcher durchlaufen laesst. Der Stundenabstand in `updater.nachsehen()`
     # begrenzt nur, wie oft gefragt werden DARF — fragen muss trotzdem jemand.
-    # Wer den Watcher durchlaufen liess, erfuhr nie von einer neuen Fassung.
     _w48 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
     _f48 = _w48[_w48.index('def _nach_version_sehen'):]
     _f48 = _f48[:_f48.index('    def ', 10)]
@@ -4405,18 +4239,14 @@ def main():
 
     print()
     print('49. Jeder Sprachschluessel, der gerufen wird, gibt es auch')
-    # ⚠ Gemeldet am 28.08.2026: Am Raketen-Symbol stand als Hinweis
-    # woertlich `s_sp_start` — der Schluesselname statt des Textes.
+    # ⚠ `t()` gibt den Schluessel zurueck, wenn die Tabelle ihn nicht kennt —
+    # dann steht etwa am Raketen-Symbol woertlich `s_sp_start`. Das ist als
+    # Notnagel richtig (besser als ein Absturz), macht den Fehler aber
+    # unsichtbar, bis ihn jemand im laufenden Programm sieht. Deutscher Text
+    # in der englischen Oberflaeche ist etwas anderes als ein FEHLENDER
+    # Schluessel.
     #
-    # `t()` gibt den Schluessel zurueck, wenn die Tabelle ihn nicht kennt. Das
-    # ist als Notnagel richtig (besser als ein Absturz), macht den Fehler aber
-    # unsichtbar, bis ihn jemand im laufenden Programm sieht. Der Selbsttest
-    # pruefte bis dahin nur, ob deutscher Text in der englischen Oberflaeche
-    # steht — ein FEHLENDER Schluessel ist etwas anderes.
-    #
-    # Die Pruefung fand auf einen Schlag drei: `s_sp_start`, `m_keine_fassung`
-    # und `aktuelle_fassung`. Von Hand ist das bei ueber 600 Eintraegen nicht zu
-    # halten.
+    # Von Hand ist das bei ueber 600 Eintraegen nicht zu halten.
     import ast as _ast49
     from scbp import language as _sp49
 
@@ -4442,23 +4272,21 @@ def main():
             #     for schluessel, quelle in (('inj_quelle_de', 'deutsch'), …):
             #         tk.Label(text='  %s  ' % t(schluessel))
             #
-            # Bis 03.09.2026 sah diese Pruefung nur `t('literal')` und ging
-            # daran vorbei. Folge: Beim Aufraeumen am 26.08.2026 galten
-            # `inj_quelle_de/_ss/_orig` als tot und flogen raus — acht Tage lang
-            # standen im Setup (Schritt 4 von 5) die nackten Schluesselnamen als
-            # Knopfbeschriftung. Gemeldet von Haldjas, 03.09.2026.
+            # Wer nur `t('literal')` sieht, haelt solche Schluessel fuer tot —
+            # raeumt man sie weg, stehen im Setup die nackten
+            # Schluesselnamen als Knopfbeschriftung.
             #
             # Deshalb werden Schleifen ueber feste Listen mit aufgeloest: Was die
             # Variable annehmen KANN, wird geprueft. Steht ein Tupel als Ziel
             # (`for a, b in …`), zaehlt nur die Stelle, die auch wirklich in den
             # Aufruf geht — sonst laege hier gleich `'deutsch'` mit im Netz.
             #
-            # ⚠ **Gemerkt wird der AUFRUF, nicht der Variablenname.** Der erste
-            # Entwurf ordnete die Werte dem Namen zu und galt damit fuer die
-            # ganze Datei. In `pages.py` heisst ein Funktionsparameter ebenfalls
-            # `schluessel` (`def form(anzahl, schluessel)`) — der bekam prompt die
-            # Werte einer ganz anderen Schleife untergeschoben und wurde dreimal
-            # grundlos angemahnt. Eine Pruefung, die falsch anschlaegt, schaltet
+            # ⚠ **Gemerkt wird der AUFRUF, nicht der Variablenname.** Werte, die
+            # dem Namen zugeordnet sind, gelten fuer die ganze Datei. In
+            # `pages.py` heisst ein Funktionsparameter ebenfalls `schluessel`
+            # (`def form(anzahl, schluessel)`) — der bekaeme die Werte einer
+            # ganz anderen Schleife untergeschoben und wuerde grundlos
+            # angemahnt. Eine Pruefung, die falsch anschlaegt, schaltet
             # man ab; deshalb zaehlt nur, was im Koerper DIESER Schleife steht.
             _ausschleife49 = {}
             for _kn in _ast49.walk(_baum49):
@@ -4532,14 +4360,13 @@ def main():
 
     print()
     print('50. Der Autostart merkt sich einen Pfad, den es morgen noch gibt')
-    # ⚠ Gefunden am 29.08.2026 auf einem Linux-Rechner: In der Autostart-Datei
-    # stand `Exec=/tmp/.mount_SC-BP-ji95vH/usr/bin/SC-BP-Watcher` — der temporaere
-    # Einhaengepunkt des AppImage. Der bekommt bei JEDEM Start einen neuen
-    # Zufallsnamen. Folge: Der Watcher startete nach einem Neustart nie wieder,
-    # ohne Fehlermeldung — die Datei sah ja voellig richtig aus.
+    # ⚠ Eine Zeile wie `Exec=/tmp/.mount_SC-BP-ji95vH/usr/bin/SC-BP-Watcher`
+    # zeigt auf den temporaeren Einhaengepunkt des AppImage. Der bekommt bei
+    # JEDEM Start einen neuen Zufallsnamen — der Watcher startete nach einem
+    # Neustart nie wieder, ohne Fehlermeldung.
     #
-    # Ursache war die Reihenfolge: Ein AppImage ist ebenfalls `sys.frozen`, also
-    # gewann die frozen-Abfrage und `APPIMAGE` kam nie dran. Genau das wird hier
+    # Die Falle ist die Reihenfolge: Ein AppImage ist ebenfalls `sys.frozen`;
+    # gewinnt die frozen-Abfrage, kommt `APPIMAGE` nie dran. Genau das wird hier
     # geprueft, weil es sich nur an der Reihenfolge entscheidet und ein spaeteres
     # Umsortieren den Fehler lautlos zurueckholen wuerde.
     import importlib as _im50
@@ -4663,15 +4490,14 @@ def main():
            'Name, Zusatz' in _lq51.LogTail.new_names.__doc__,
            'new_names() liefert unveraendert (Name, Zusatz)')
 
-    # 52. (Bis 30.09.2026: Kaestchen in den SCDL-Vertragsbloecken nur unter
-    # '# Baupläne'. Der Weg ist entfernt, die Pruefung mit ihm.)
+    # 52. entfallen.
 
     # 52b. Kein Knopf schneidet seine Beschriftung ab
     #
     # `_knopf` bemisst die Leinwand mit `schrift.measure()`. Gezeichnet wird
     # aber mit der Schrift, die das System hergibt — weichen die ab, steht der
-    # Text ueber den Rand und wird beidseitig abgeschnitten. Am 29.08.2026 in
-    # rc7 gemeldet: Auf dem Knopf stand „erung speichern".
+    # Text ueber den Rand und wird beidseitig abgeschnitten (`erung
+    # speichern`).
     print()
     print('52b. Knoepfe schneiden ihre Beschriftung nicht ab')
     import tkinter as _tk52b
@@ -4712,9 +4538,9 @@ def main():
 
     # 52c. Die Mindestbreite des Overlays ist keine Fantasiezahl
     #
-    # Der erste Anlauf fragte die Kopfleiste nach ihrer Wunschbreite. Die laeuft
-    # aber mit `pack_propagate(False)` und meldete **1 Pixel** — die Grenze war
-    # damit wirkungslos, und im Overlay war kein Symbol mehr zu sehen.
+    # Die Kopfleiste nach ihrer Wunschbreite zu fragen taugt nicht: Sie laeuft
+    # mit `pack_propagate(False)` und meldet **1 Pixel** — die Grenze waere
+    # damit wirkungslos, und im Overlay waere kein Symbol mehr zu sehen.
     print()
     print('52c. Mindestbreite des Overlays deckt die Symbolleiste')
     import importlib.util as _ilu52c
@@ -4744,8 +4570,7 @@ def main():
     # 52d. Suchfelder vergessen ihren Inhalt beim naechsten Aufruf
     #
     # Seiten werden EINMAL gebaut und danach nur ein- und ausgeblendet. Ohne
-    # Rueckruf stand der Suchbegriff von vorhin noch da: „da sollte man den
-    # Titan-Eintrag im Suchfeld nicht speichern" (29.08.2026).
+    # Rueckruf stuende der Suchbegriff von vorhin noch da.
     print()
     print('52d. Suchfelder sind beim erneuten Aufrufen leer')
     _w52d = _tk52b.Tk()
@@ -4765,8 +4590,8 @@ def main():
         for _seite in ('bergbau', 'herstellung'):
             pruefe("on_show['%s']" % _seite in _qu52d,
                    'Seite %s meldet sich fuers erneute Anzeigen an' % _seite)
-        # ⚠ Seit 17.09.2026 sitzt das X in JEDEM Feld (`round_entry`, ab Werk
-        # an) — nicht mehr als eigenes Zeichen daneben (`_search_clear`).
+        # ⚠ Das X sitzt in JEDEM Feld (`round_entry`, ab Werk an) — nicht als
+        # eigenes Zeichen daneben (`_search_clear`).
         import inspect as _insp52d
         from scbp.main_window import round_entry as _re52d
         pruefe(_insp52d.signature(_re52d).parameters['clearable'].default is True
@@ -4790,8 +4615,7 @@ def main():
     # Der Katalog kennt nur `WeaponGun`; welche davon ballistisch sind und
     # welche Laser, steht ausschliesslich in den Rezeptdaten. Umgekehrt kennt
     # er die Koerperteile der Ruestung, die dort fehlen. Erst beide zusammen
-    # ergeben die Filter, nach denen am 29.08.2026 gefragt wurde: „ich weiss
-    # grad nicht, welche Ballistik sind, welche Laser".
+    # ergeben Filter wie ballistisch / Laser.
     print()
     print('52e. Unterarten aus den Rezeptdaten')
     from scbp import crafting as _he52e
@@ -4829,9 +4653,9 @@ def main():
 
     # 52f. Zwei Ebenen statt einer langen Liste
     #
-    # Die Art-Auswahl hatte dreissig Eintraege — „Ruestung (Arme)",
-    # „Ruestung (Beine)", „Helm", „Rucksack" je einzeln. Die Gliederung folgt
-    # jetzt der gepflegten Vergleichsliste: sieben Gruppen, darunter die feinen Arten.
+    # Statt dreissig Eintraegen in einer Art-Auswahl (Ruestung Arme, Ruestung
+    # Beine, Helm, Rucksack je einzeln) folgt die Gliederung der gepflegten
+    # Vergleichsliste: sieben Gruppen, darunter die feinen Arten.
     # Gemessen an echten Daten deckt sie sich mit dieser Liste exakt.
     print()
     print('52f. Ober- und Unterkategorie')
@@ -4875,9 +4699,9 @@ def main():
 
     # 52g. Beobachtungs-Muster treffen an Wortgrenzen
     #
-    # Ein blosses „steckt drin" liefert falsche Treffer, die niemand als solche
-    # erkennt: `arden backpack` traf am 29.08.2026 auf *Warden Backpack
-    # Purgatory Camo*, und der Watcher meldete ein Ruestungsteil als
+    # Ein blosser Teilstring-Treffer liefert falsche Treffer, die niemand als
+    # solche erkennt: `arden backpack` traefe *Warden Backpack Purgatory
+    # Camo*, und der Watcher meldete ein Ruestungsteil als
     # verfuegbar, das mit der gesuchten Ausruestung nichts zu tun hat. Bei
     # einer Staffelruestung geht es um genau ein Teil je Platz — die Farben
     # sind ueber Monate auf Tarnung getestet.
@@ -4902,11 +4726,11 @@ def main():
 
     # 52h. Die Kategorie wird an genau EINER Stelle geprueft
     #
-    # Bis rc19 gab es eine zweite: eine Abkuerzung, die ganze Gruppen vorab
-    # aussortierte und dabei Katalog-Art gegen Oberkategorie verglich. Das
-    # trifft nie zu — jede Gruppe fiel heraus, die Liste zeigte „Nichts
-    # gefunden" bei 157 vorhandenen Bauplaenen. Zwei Stellen fuer dieselbe
-    # Frage waren genau eine zu viel.
+    # Eine zweite Stelle — etwa eine Abkuerzung, die ganze Gruppen vorab
+    # aussortiert und dabei Katalog-Art gegen Oberkategorie vergleicht — trifft
+    # nie zu: Jede Gruppe fiele heraus, und die Liste bliebe leer bei 157
+    # vorhandenen Bauplaenen. Zwei Stellen fuer dieselbe Frage sind genau eine
+    # zu viel.
     print()
     print('52h. Kategorie-Pruefung nur an einer Stelle')
     with open(os.path.join(_wurzelpfad, 'scbp', 'collection_window.py'),
@@ -4919,8 +4743,8 @@ def main():
 
     # 52i. Suche nach dem Auftrag
     #
-    # „Retake" fand bis rc21 nichts, obwohl sechs Bauplaene aus Auftraegen mit
-    # diesem Wort stammen. Wer eine Quest fliegt, will wissen, was dabei
+    # Die Suche nach `Retake` findet die sechs Bauplaene aus Auftraegen mit
+    # diesem Wort. Wer eine Quest fliegt, will wissen, was dabei
     # herausspringt.
     print()
     print('52i. Nach Auftrag, Fraktion und Auftragsart suchen')
@@ -4960,11 +4784,10 @@ def main():
 
     # 52k. Ein alter Katalog bekommt neue Schluessel
     #
-    # Der Katalog auf der Platte kann Monate alt sein. Am 29.08.2026 standen
-    # dort Magazine noch als „… magazine (15 cap)", waehrend der Bestand sie
-    # als „… magazine (15)" fuehrt — die Angleichung der Mengenangabe kam
-    # spaeter dazu. Ergebnis: Das Overlay meldete 405 Bauplaene, der
-    # Fortschritt 382 von 738, und niemand konnte die Zahlen erklaeren.
+    # Der Katalog auf der Platte kann Monate alt sein und Magazine noch als
+    # `… magazine (15 cap)` fuehren, waehrend der Bestand sie als
+    # `… magazine (15)` fuehrt. Dann passen Overlay-Zahl und Fortschritt
+    # nicht zusammen, und niemand kann die Zahlen erklaeren.
     print()
     print('52k. Alte Katalog-Schluessel werden angeglichen')
     from scbp import catalog as _ka52k
@@ -4983,11 +4806,10 @@ def main():
 
     # 52m. Der Ziehgriff ueberlebt ein niedriges Overlay
     #
-    # Er hing an der Liste — eine gute Idee, solange die Liste den Rest des
-    # Fensters bekam. Seit die Auftragsleiste darueber Platz nimmt, kann die
-    # Liste niedriger werden als der Griff selbst: Bei einem schmalen Overlay
-    # mit einem laufenden Auftrag blieben ihr rund 20 Pixel, der Griff braucht
-    # 26 — und war weg. Zweimal gemeldet am 29.08.2026.
+    # Haengt er an der Liste, kann sie niedriger werden als der Griff selbst,
+    # weil die Auftragsleiste darueber Platz nimmt: Bei einem schmalen Overlay
+    # mit einem laufenden Auftrag bleiben ihr rund 20 Pixel, der Griff
+    # braucht 26 — und ist weg.
     print()
     print('52m. Ziehgriff bleibt sichtbar')
     import importlib.util as _ilu52m
@@ -5054,10 +4876,9 @@ def main():
 
     # 52p. Eingabefelder ueberleben das Neuzeichnen
     #
-    # Das Suchfeld im Lager stand IN der Zeichenfunktion, und die raeumt bei
-    # jeder Aenderung den Listenbereich leer: Mit jedem getippten Buchstaben
-    # zerstoerte sich das Feld selbst und der Cursor war weg — „im Lager bei
-    # Eingabe im Suchfeld tabt man automatisch raus" (30.08.2026).
+    # Steht das Suchfeld im Lager IN der Zeichenfunktion, die bei jeder
+    # Aenderung den Listenbereich leer raeumt, zerstoert sich das Feld mit
+    # jedem getippten Buchstaben selbst, und der Cursor ist weg.
     print()
     print('52p. Suchfelder werden nicht beim Zeichnen neu gebaut')
     with open(os.path.join(_wurzelpfad, 'scbp', 'pages.py'),
@@ -5078,11 +4899,10 @@ def main():
 
     # 52q. Die gemerkte Fenstergroesse ueberlebt den Start
     #
-    # Die Mindestbreiten-Pruefung lief ueber `after_idle` — da meldet Tk fuer
-    # ein noch nicht angezeigtes Fenster die Breite 1. Der Vergleich traf immer
-    # zu, das Overlay wurde auf die Mindestbreite gesetzt, und die Groesse aus
-    # dem letzten Lauf war weg: „er startet bei mir immer mit der kleinsten
-    # Groesse" (30.08.2026).
+    # Laeuft die Mindestbreiten-Pruefung ueber `after_idle`, meldet Tk fuer
+    # ein noch nicht angezeigtes Fenster die Breite 1. Der Vergleich trifft
+    # immer zu, das Overlay wird auf die Mindestbreite gesetzt, und die
+    # Groesse aus dem letzten Lauf ist weg.
     print()
     print('52q. Gemerkte Fenstergroesse bleibt erhalten')
     _m52q = _m52c            # dasselbe Modul wie in 52c
@@ -5118,24 +4938,19 @@ def main():
 
     # 52r. Kein Entwicklername im CHANGELOG
     #
-    # ⚠ Die Regel „jeden Fehlerfinder namentlich nennen" gilt fuer Tester von
-    # aussen, nicht fuer den Entwickler selbst — es ist sein Projekt. Zweimal
-    # aufgeraeumt, zweimal wieder hineingerutscht: Beim ersten Mal war nur nach
-    # nur nach dem Pseudonym gesucht worden — die Stellen mit dem Klarnamen
-    # blieben stehen. Diese Pruefung sucht nach dem Klarnamen, und zwar im
-    # ganzen Projekt statt nur in zwei Dateien.
+    # ⚠ Namentlich genannt werden Tester von aussen, nie der Urheber des
+    # Projekts. Diese Pruefung sucht nach dem Klarnamen, und zwar im ganzen
+    # Projekt statt nur in zwei Dateien.
     print()
     print('52r. Kein Klarname im ganzen Projekt')
     import re as _re52r
-    # ⚠ `Xharig` allein ist erlaubt: Copyright-Zeile, Repo-Adresse, der
+    # ⚠ Das Pseudonym allein ist erlaubt: Copyright-Zeile, Repo-Adresse, der
     # Autoren-Block der README. Der **Klarname** ist es nie.
     _NAMEN52r = _re52r.compile(r'\bRoberts?\b')
     _alle52r = []
     # ⚠⚠ **Der Klarname gehoert NIRGENDS hin** — nicht in den CHANGELOG, nicht
-    # in Kommentare, nicht in die Danksagung: „es geht niemanden was an, wie
-    # ich heisse" (30.08.2026). Deshalb sucht diese Pruefung im ganzen Projekt,
-    # nicht nur in zwei Dateien. Beim ersten Aufraeumen war nur der CHANGELOG
-    # geprueft worden — im Quelltext standen danach noch dreizehn Stellen.
+    # in Kommentare, nicht in die Danksagung. Deshalb sucht diese Pruefung im
+    # ganzen Projekt, nicht nur in zwei Dateien.
     for _datei52r in sorted(_versionierte_dateien(_wurzelpfad)):
         _pfad52r = os.path.join(_wurzelpfad, _datei52r)
         if not os.path.exists(_pfad52r):
@@ -5144,16 +4959,14 @@ def main():
             _text52r = _fh52r.read()
         _treffer52r = []
         for _nr52r, _zeile52r in enumerate(_text52r.splitlines(), 1):
-            # ⚠ „Roberts Space Industries" ist der Hersteller im Spiel und
-            # muss stehen bleiben.
+            # ⚠ Der Herstellername im Spiel (siehe `replace` unten) muss
+            # stehen bleiben.
             #
             # ⚠⚠ **Auch halbiert.** In langen Texten bricht der Name ueber
-            # zwei Quelltextzeilen („… or Roberts Space " + "Industries."),
-            # und dann greift die Ausnahme oben nicht mehr — die Pruefung
-            # meldete einen Klarnamen, wo der Hersteller stand. Am 30.08.2026
-            # passiert. Genau derselbe Fehler hat frueher schon einmal den
-            # Herstellernamen in 174 Commits auseinandergerissen, weil jemand
-            # den Fehlalarm „bereinigt" hat.
+            # zwei Quelltextzeilen, und dann greift die Ausnahme oben nicht
+            # mehr — die Pruefung schluege an, wo der Hersteller steht. Wer
+            # einen solchen Fehlalarm bereinigt, reisst den Herstellernamen
+            # auseinander.
             _sauber52r = _zeile52r.replace('Roberts Space Industries', '')
             _sauber52r = _sauber52r.replace('Roberts Space', '')
             if _NAMEN52r.search(_sauber52r):
@@ -5170,9 +4983,8 @@ def main():
     # ⚠⚠ Nicht nur der Klarname (52r). Auch alles andere, was aus dem
     # Arbeitsalltag stammt und niemanden etwas angeht: die persoenliche
     # Wissenssammlung und ihr Programm, Adressen im Heimnetz, Passwort- und
-    # Dokumentenverwaltung, die eigene Spielorganisation, Wohnort, Arbeitgeber.
-    # Am 30.08.2026 stand solches im CHANGELOG, in sechzehn Release-Texten und
-    # als fester Pfad im Quelltext.
+    # Dokumentenverwaltung, die eigene Spielorganisation, Wohnort, Arbeitgeber
+    # — im CHANGELOG, in Release-Texten und als fester Pfad im Quelltext.
     #
     # ⚠ Die Begriffe stehen hier zusammengesetzt, damit diese Datei nicht
     # selbst als Treffer gilt.
@@ -5184,8 +4996,7 @@ def main():
         'kirch' + 'hain', 'gar' + 'the', 'das kar' + 'tell',
         'staffel ma' + 'mba', 'pi-' + 'hole',
         # ⚠ Auch der Verweis auf die interne Arbeitsregel-Datei gehoert nicht
-        # ins oeffentliche Repo — am 10.09.2026 standen sechs solcher Hinweise
-        # im Quelltext, einer davon frisch dazugekommen. Der Inhalt einer Regel
+        # ins oeffentliche Repo. Der Inhalt einer Regel
         # darf im Kommentar stehen, der Zeiger auf die private Datei nicht.
         'cla' + 'ude',
     ]
@@ -5211,8 +5022,8 @@ def main():
                                          % (_rel52s, _nr52s,
                                             _zeile52s.strip()[:60]))
                         break
-    # Vorname des Autors; der Herstellername „Roberts Space Industries“ und
-    # seine Adressen sind ausgenommen.
+    # Der gesuchte Vorname; der Herstellername im Spiel und seine Adressen
+    # sind ausgenommen.
     _vorname52s = re.compile(r'\b' + 'rob' + r'ert\b(?!s? ?space)', re.I)
     _endungen52s = ('.py', '.md', '.js', '.mjs', '.toml', '.yml', '.html', '.sql')
     for _rel52s in sorted(_versionierte_dateien(_wurzelpfad)):
@@ -5238,11 +5049,11 @@ def main():
 
     # 53. Lagerbestand berichtigen — und Namen, die wirklich passen
     #
-    # Eintragen ohne Berichtigen war halb fertig: Wer sich vertippt oder
-    # Material weitergegeben hatte, konnte den Posten nur loeschen und neu
-    # tippen. Und beim Neutippen entstand leicht ein zweiter Name fuer
+    # Eintragen ohne Berichtigen ist halb fertig: Wer sich vertippt oder
+    # Material weitergegeben hat, koennte den Posten nur loeschen und neu
+    # tippen. Und beim Neutippen entsteht leicht ein zweiter Name fuer
     # dasselbe Material — der Bestand sieht dann richtig aus, wird von den
-    # Rezepten aber nicht mehr gefunden. Am 29.08.2026 gemeldet.
+    # Rezepten aber nicht mehr gefunden.
     print()
     print('53. Lagerbestand berichtigen und Namen abgleichen')
     from scbp import materials as _ro53
@@ -5320,15 +5131,13 @@ def main():
     pruefe(_ro53.parse_number('12.5') == 12.5, 'ein Punkt genauso')
     pruefe(_ro53.parse_number(' 8 ') == 8.0, 'Leerzeichen stoeren nicht')
     pruefe(_ro53.parse_number('-2,5') == -2.5, 'ein Minus bleibt erhalten')
-    # ⚠ Hier stand bis 08.09.2026 `parse_number('-2')` unter der Beschriftung
-    # „auch das lange Minus" — geprueft wurde also das normale Minus ein zweites
-    # Mal, und das lange (U+2212) nie. Eine Pruefung, die etwas anderes tut, als
-    # sie sagt, ist schlimmer als keine: Sie erzeugt Sicherheit, die es nicht gibt.
+    # ⚠ Wirklich das lange Minus (U+2212), nicht ein zweites Mal das normale.
+    # Eine Pruefung, die etwas anderes tut, als sie sagt, ist schlimmer als
+    # keine: Sie erzeugt Sicherheit, die es nicht gibt.
     # ⚠ Das lange Minus als `chr()`, nicht als Zeichen im Text: Pruefung 144
     # verbietet cp1252-fremde Zeichen in `pruefe(...)`, weil der Bau unter
-    # Windows genau daran abgebrochen ist. U+2212 kennt cp1252 nicht — als
-    # Literal waere diese Zeile also selbst der Fehler, den 144 sucht.
-    # (Vermutlich der Grund, warum hier urspruenglich das normale Minus stand.)
+    # Windows daran abbricht. U+2212 kennt cp1252 nicht — als Literal waere
+    # diese Zeile also selbst der Fehler, den 144 sucht.
     pruefe(_ro53.parse_number(chr(0x2212) + '2') == -2.0,
            'auch das lange Minus vom Ziffernblock')
     pruefe(_ro53.parse_number('12 SCU') is None,
@@ -5359,10 +5168,9 @@ def main():
     pruefe(_ro53.normalize_separators('17,200') == '17.200',
            'als Menge gelesen bleibt es eine Kommazahl')
 
-    # ⚠⚠ **Beide Trennzeichen zusammen — hier lag der Fehler bis 10.09.2026.**
-    # Die Dreiergruppen-Schleife frass bei DREI Nachkommastellen eine Gruppe zu
-    # viel: `1,234.567` wurde ueber `1234.567` zu 1234567, also Faktor tausend
-    # daneben — genau der Schaden, gegen den die Funktion geschrieben wurde.
+    # ⚠⚠ **Beide Trennzeichen zusammen.** Eine Dreiergruppen-Schleife frisst
+    # bei DREI Nachkommastellen leicht eine Gruppe zu viel: `1,234.567` wird
+    # ueber `1234.567` zu 1234567, also Faktor tausend daneben — genau der Schaden, gegen den die Funktion geschrieben wurde.
     for _roh53, _soll53 in (('1.234,56', '1234.56'),     # deutsche Schreibweise
                             ('1,234.56', '1234.56'),     # englische
                             ('1,234.567', '1234.567'),   # der Fehlerfall
@@ -5416,17 +5224,17 @@ def main():
     # ------------------------------------------------------------------
     # 58. Ein abgeschlossener Auftrag darf nicht als frisch angenommen gelten
     #
-    # Am 30.08.2026 gemeldet: „Retake Platforms From Nine Tails" um 01:18
-    # angenommen, um 01:59 abgeschlossen — der Watcher um 02:22 gestartet und
-    # der Auftrag stand als laufend da. Zwei Ursachen, beide hier geprueft:
+    # Ein Auftrag, der vor dem Start des Watchers angenommen und
+    # abgeschlossen wurde, darf nicht als laufend dastehen. Zwei Fallen,
+    # beide hier geprueft:
     #
-    #   a) `new_names()` stieg aus, wenn nichts Neues in der Log stand — ohne
-    #      die Auftragslisten des VORIGEN Abschnitts zu leeren. Der Aufrufer
-    #      wertete sie ein zweites Mal aus.
-    #   b) Die Auswertung nahm erst alle Enden und dann alle Annahmen. In einem
-    #      Abschnitt, der beides enthaelt (jeder Neustart bei laufendem Spiel
-    #      liest so etwas nach), traf das Ende ins Leere und die Annahme stellte
-    #      den Auftrag danach wieder hin.
+    #   a) Steigt `new_names()` aus, wenn nichts Neues in der Log steht, ohne
+    #      die Auftragslisten des VORIGEN Abschnitts zu leeren, wertet der
+    #      Aufrufer sie ein zweites Mal aus.
+    #   b) Nimmt die Auswertung erst alle Enden und dann alle Annahmen, trifft
+    #      in einem Abschnitt, der beides enthaelt (jeder Neustart bei
+    #      laufendem Spiel liest so etwas nach), das Ende ins Leere, und die
+    #      Annahme stellt den Auftrag danach wieder hin.
     print()
     print('58. Abgeschlossener Auftrag bleibt abgeschlossen')
     from scbp import logsource as _lq58
@@ -5440,9 +5248,9 @@ def main():
                    'Added notification "Auftrag abgeschlossen: Retake Platforms: " ...\n')
 
     # ⚠⚠ **Eine Attrappe bildet eine Schnittstelle nach, ohne sie zu erben.**
-    # Bei der Umbenennung von `logquelle` am 13.09.2026 fiel sie deshalb
-    # durch KEIN Werkzeug auf: Sie nennt `ReadState` nirgends, hat aber
-    # dessen Methodennamen. Der Fehler kam erst zur Laufzeit —
+    # Bei einer Umbenennung faellt sie deshalb durch KEIN Werkzeug auf: Sie
+    # nennt `ReadState` nirgends, hat aber dessen Methodennamen. Der Fehler
+    # kommt erst zur Laufzeit —
     # `'_Stand58' object has no attribute 'get_active'`.
     #
     # ⭐ Wer eine Attrappe baut, macht sie damit **unsichtbar fuer jede
@@ -5466,7 +5274,7 @@ def main():
                'der erste Abschnitt bringt Annahme und Ende')
 
         # a) Zweiter Aufruf, nichts Neues in der Datei: die Listen MUESSEN leer
-        #    sein. Bis v3.3.0-rc33 standen sie noch voll da.
+        #    sein.
         _t58.new_names()
         pruefe(_t58.missions == [] and _t58.missions_done == []
                and _t58.mission_events == [],
@@ -5515,10 +5323,10 @@ def main():
     # ------------------------------------------------------------------
     # 59. Eine aufgeklappte Auswahlliste bleibt ueberschaubar
     #
-    # Am 30.08.2026 gemeldet: Die Ortsliste im Bergbau (48 Eintraege) reichte
-    # vom Auswahlfeld bis weit unter das Fenster ins Bild hinein. Die Hoehe war
-    # bis dahin nur nach dem *Platz* begrenzt — und auf einem grossen Bildschirm
-    # ist der riesig. Jetzt gilt zusaetzlich eine feste Zeilenzahl; alles
+    # Eine lange Liste (die Ortsliste im Bergbau hat 48 Eintraege) darf nicht
+    # vom Auswahlfeld bis weit unter das Fenster reichen. Nur nach dem *Platz*
+    # begrenzt, ist sie auf einem grossen Bildschirm riesig. Deshalb gilt
+    # zusaetzlich eine feste Zeilenzahl; alles
     # darueber wird gerollt, und die Rollleiste zeigt, dass mehr kommt.
     print()
     print('59. Aufgeklappte Auswahlliste bleibt ueberschaubar')
@@ -5628,20 +5436,15 @@ def main():
     # ------------------------------------------------------------------
     # 60. Das Mausrad rollt die aufgeklappte Liste — nicht die Seite dahinter
     #
-    # Am 30.08.2026 gemeldet: „das dropdown laesst sich NICHT scrollen … wenn
-    # man so wie jeder user es versucht zu scrollen, scrollt das fenster
-    # dahinter und man kann die abgeschnittenen daten NICHT erreichen."
-    #
-    # Ursache: `bind_wheel` haengt global am Programm und sucht die
+    # Die Falle: `bind_wheel` haengt global am Programm und sucht die
     # Rollflaeche, indem es vom Element unter dem Zeiger durch die Elternkette
     # nach oben geht. Die aufgeklappte Liste ist ein eigenes Fenster, ihr
     # Elternteil ist aber das Auswahlfeld — und das steht mitten in der
-    # rollbaren Seite. Die Kette lief also aus der Liste heraus in die Seite
+    # rollbaren Seite. Die Kette liefe also aus der Liste heraus in die Seite
     # dahinter. Die rollte weg, das Feld wanderte mit, die Liste klappte zu.
     #
     # ⚠ Der Aufbau hier muss das nachstellen: Das Feld MUSS in der Rollflaeche
-    # stecken. Ein Feld daneben zeigt den Fehler nicht — daran ist die erste
-    # Messung vorbeigelaufen.
+    # stecken. Ein Feld daneben zeigt den Fehler nicht.
     print()
     print('60. Mausrad rollt die Klappliste, nicht die Seite dahinter')
     import tkinter as _tk60
@@ -5695,18 +5498,17 @@ def main():
             _liste60 = _rollflaeche60(_auf60[0])
             _zeilen60 = _etiketten60(_auf60[0], [])
 
-            # ⚠ Wache statt Absturz (07.09.2026). `_rollflaeche60` sucht ueber
+            # ⚠ Wache statt Absturz. `_rollflaeche60` sucht ueber
             # `winfo_width() > 20` und gibt `None` zurueck, wenn kein Fenster
-            # vermessbar ist. Vorher lief das ungeprueft in `_liste60.yview()`
-            # — `AttributeError` auf `None`, und der GANZE Lauf war zu Ende:
-            # unter Windows nach 681 von 1767 Pruefungen, mitten im Abschnitt.
+            # vermessbar ist. Ungeprueft liefe das in `_liste60.yview()` —
+            # `AttributeError` auf `None`, und der GANZE Lauf waere zu Ende.
             # Ein Prueflauf darf an einer fehlenden Voraussetzung scheitern,
-            # aber er darf die 1086 Pruefungen dahinter nicht mitreissen.
+            # aber er darf die Pruefungen dahinter nicht mitreissen.
             #
             # Und er ueberspringt hier NICHT: Findet sich die Rollflaeche
             # nicht, ist entweder das Fenster nicht vermessbar (Kennzeichnung
             # `messend` verloren) oder die Klappliste wirklich kaputt. Beides
-            # ist ein Fehler und gehoert rot gemeldet — eine Pruefung, die sich
+            # ist ein Fehler und gehoert rot — eine Pruefung, die sich
             # selbst ueberspringt, prueft nichts.
             pruefe(_liste60 is not None,
                    'die Rollflaeche der Klappliste ist auffindbar'
@@ -5724,8 +5526,7 @@ def main():
             # als Maustaste 4/5, Windows und macOS als `<MouseWheel>` mit einem
             # Ausschlag — unter Windows ±120, auf dem Mac ±1. Ein Test, der nur
             # `<Button-5>` schickt, faellt unter Windows durch, obwohl das
-            # Programm dort in Ordnung ist. Genau so am 30.08.2026 im Bau-Lauf
-            # passiert: Linux gruen, Windows rot.
+            # Programm dort in Ordnung ist: Linux gruen, Windows rot.
             def _radeln60(male):
                 for _ in range(male):
                     if sys.platform.startswith('linux'):
@@ -5785,14 +5586,11 @@ def main():
     # ------------------------------------------------------------------
     # 61. Stueckzahl, Abzug und die Grenze des Lagers
     #
-    # Am 30.08.2026 gemeldet, drei Fragen auf einmal:
-    #   „10 als Menge eingegeben sollte auch 10fache Menge an benoetigtem
-    #    Material sein, angezeigt wird es nicht — wuerde es ueberhaupt richtig
-    #    abgezogen? Kann der Bestand im Lager ins Minus gehen? (Darf er nicht,
-    #    wenn was fehlt ist es ja nicht herstellbar.)"
-    #
-    # Der Abzug rechnete richtig, die Anzeige nicht. Ins Minus konnte der
-    # Bestand nie geraten — aber er wurde LEERGERAEUMT, wenn etwas fehlte.
+    # Drei Regeln:
+    #   * Die Stueckzahl vervielfacht den angezeigten Materialbedarf.
+    #   * Der Abzug rechnet mit derselben Stueckzahl.
+    #   * Der Bestand geht nie ins Minus — und wird auch nicht LEERGERAEUMT,
+    #     wenn etwas fehlt; dann ist es nicht herstellbar.
     print()
     print('61. Stueckzahl, Abzug und die Grenze des Lagers')
     from scbp import materials as _ro61
@@ -5870,7 +5668,7 @@ def main():
     #    Material einen eigenen Regler bauen.
     _seiten61 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
-    # ⚠ Seit v3.43.0 geht die Liste durch `_zutaten_jetzt()` — dieselben
+    # ⚠ Die Liste geht durch `_zutaten_jetzt()` — dieselben
     # Zutaten, nur mit der Reglerqualitaet als Mindestguete (Pruefung 67b).
     pruefe('lager.check(_zutaten_jetzt(), wie_viele)' in _seiten61,
            'die Zutatenliste rechnet mit der eingegebenen Stueckzahl')
@@ -5880,10 +5678,9 @@ def main():
            and 'neu_zeichnen()' not in _seiten61.split('def mengen_setzen')[1]
            .split('anzahl_var.trace_add')[0],
            'ohne die Seite neu zu bauen (sonst verliert das Feld den Cursor)')
-    # ⚠ **Nicht auf die ersten 1500 Zeichen begrenzen.** Genau daran ist die
-    # Pruefung am 30.08.2026 gescheitert: Ein Einschub zwischen Kommentar und
-    # Schleife schob die gesuchte Zeile aus dem Fenster, und der Test meldete
-    # einen Fehler, den es nicht gab. Ein Suchfenster mit fester Groesse ist
+    # ⚠ **Nicht auf die ersten 1500 Zeichen begrenzen.** Ein Einschub
+    # zwischen Kommentar und Schleife schoebe die gesuchte Zeile aus dem
+    # Fenster, und der Test schluege an, ohne dass ein Fehler da ist. Ein Suchfenster mit fester Groesse ist
     # eine Wette darauf, dass niemand mehr etwas dazwischenschreibt.
     _regler61 = _seiten61.split('Ein Regler je Material')[1]
     pruefe('for _mat in alle_materialien' in _regler61,
@@ -5892,16 +5689,11 @@ def main():
     # ------------------------------------------------------------------
     # 62. Nicht jede Eigenschaft wird durch eine hoehere Zahl besser
     #
-    # Am 30.08.2026 gemeldet: „ist es realistisch das sich bei niedrigerer
-    # Qualitaet die Werte erhoehen? Und bei besserer Qualitaet die Werte
-    # verschlechtern?"
-    #
-    # Die Daten sind in Ordnung, die Anzeige war es nicht. Bei 852 der 6524
-    # Modifikatoren (Spielstand 4.10.0) SINKT der Faktor mit steigender
-    # Qualitaet — Rueckstoss, Quantum-Treibstoff — und genau das ist dort die
-    # Verbesserung. Die Anzeige faerbte stur „>= 1 ist gut": Der bestmoegliche
-    # Rueckstoss (x 0.800) stand in der Warnfarbe, der schlechteste (x 1.200)
-    # in Gruen.
+    # Bei 852 der 6524 Modifikatoren (Spielstand 4.10.0) SINKT der Faktor mit
+    # steigender Qualitaet — Rueckstoss, Quantum-Treibstoff — und genau das
+    # ist dort die Verbesserung. Faerbte die Anzeige stur `>= 1` als gut,
+    # stuende der bestmoegliche Rueckstoss (x 0.800) in der Warnfarbe, der
+    # schlechteste (x 1.200) in Gruen.
     print()
     print('62. Richtung der Qualitaetswirkung')
     from scbp import crafting as _he62
@@ -6038,7 +5830,7 @@ def main():
         _r63 = _bg63.refineries_for('Riccite')
         pruefe(_r63 and all(w == 0 for _n, _s, w in _r63),
                'ein Erz ohne Profileintrag steht ueberall auf 0 %')
-        # ⚠ Schreibweisen: Profile sagen „Aluminum (Ore)", Rezepte „Aluminium".
+        # ⚠ Schreibweisen: Profile sagen `Aluminum (Ore)`, Rezepte `Aluminium`.
         pruefe(bool(_bg63.refineries_for('Aluminium')),
                'die britische Schreibweise findet dieselben Raffinerien')
         # Und die Reihenfolge: beste zuerst.
@@ -6078,9 +5870,9 @@ def main():
     # Textumwandlung und braucht keine Stammdaten — stuende sie im `else`, wuerde
     # sie im Wegwerf-Ordner stillschweigend uebersprungen und pruefte nie etwas.
     #
-    # Der Fall: Das Spiel zeigt die Signatur als `17,200`. Bis zum 08.09.2026
-    # machte `replace(',', '.')` daraus 17,2 — Faktor tausend daneben, ohne
-    # Fehlermeldung. Wer genau abschrieb, was er sah, bekam Unsinn. Dasselbe bei
+    # Der Fall: Das Spiel zeigt die Signatur als `17,200`. `replace(',', '.')`
+    # machte daraus 17,2 — Faktor tausend daneben, ohne Fehlermeldung. Wer
+    # genau abschreibt, was er sieht, bekaeme Unsinn. Dasselbe bei
     # `17.200`, wie es ein deutscher Nutzer schreibt.
     #
     # ⚠ Geprueft wird die Umwandlung SELBST, nicht nur ein Suchergebnis: Ein
@@ -6168,9 +5960,9 @@ def main():
     # ------------------------------------------------------------------
     # 65. Auch eine umgestellte Uebersetzung wird erkannt
     #
-    # Bis v3.3.0-rc37 wurde aus der `global.ini` nur der Teil VOR dem `%s`
-    # genommen. Bei „Bauplan erhalten: %s" ist das richtig. Bei einer
-    # umgestellten Formulierung — „%s ist eingetroffen" — waere davor nichts,
+    # Nur den Teil VOR dem `%s` aus der `global.ini` zu nehmen reicht nicht.
+    # Bei `Bauplan erhalten: %s` ist das richtig. Bei einer umgestellten
+    # Formulierung — `%s ist eingetroffen` — waere davor nichts,
     # die Erkennung fiele auf die mitgelieferte Tabelle zurueck und faende
     # NICHTS: keine Fehlermeldung, keine uebersprungene Datei, einfach null
     # Bauplaene. Die gefaehrlichste Art zu scheitern.
@@ -6190,12 +5982,12 @@ def main():
            'ohne umgestellte Formulierung ist der Ausdruck zeichengleich '
            'mit dem alten')
 
-    # a2) ⚠ Der Bericht darf keine falsche Herkunft behaupten. Er zeigte eine
-    #     einzige Quelle hinter der GANZEN Liste — „aus der global.ini des
-    #     Spiels" — obwohl die Liste gemischt ist: belegte Formulierungen und
-    #     die eingebaute Rueckfalltabelle. Am 01.09.2026 kostete das drei
-    #     Suchlaeufe in einer 12-MB-Datei nach „Bauplan ueberchoo", das dort
-    #     gar nicht stehen kann (Schweizerdeutsch, aus der Tabelle).
+    # a2) ⚠ Der Bericht darf keine falsche Herkunft behaupten. Eine einzige
+    #     Quelle hinter der GANZEN Liste (die global.ini des Spiels) waere
+    #     falsch, denn die Liste ist gemischt: belegte Formulierungen und die
+    #     eingebaute Rueckfalltabelle. Wer sich darauf verlaesst, sucht in
+    #     einer 12-MB-Datei nach Formulierungen, die nur aus der Tabelle
+    #     stammen.
     from scbp import report as _ber65, language as _sp65
     _zeile65 = _ber65._game_language() or ''
     _eigene65, _ini65 = _ph65.measured()
@@ -6246,8 +6038,8 @@ def main():
                'eine Auftrags-Meldung loest nichts aus')
 
     # e) Die schweizerdeutsche Fassung steht NICHT mehr in der Rueckfall-
-    #    Tabelle (seit 28.09.2026): VerseKit bietet sie nicht an, und im
-    #    Bericht sah der Eintrag bei jedem wie ein Fehler aus. Wer sie selbst
+    #    Tabelle: VerseKit bietet sie nicht an, und im Bericht saehe der
+    #    Eintrag bei jedem wie ein Fehler aus. Wer sie selbst
     #    einspielt, wird ueber deren global.ini erkannt (Vorrang).
     pruefe(not any('überchoo' in _p for _p in _ph65.TABLE.get('de', [])),
            'die live-CH-Formulierung ist nicht mehr in der Tabelle')
@@ -6259,10 +6051,10 @@ def main():
            'eine leere Liste ergibt einen Ausdruck, der nie trifft')
 
     # ------------------------------------------------------------------
-    # 66. Preise — „kaufen oder abbauen?"
+    # 66. Preise — kaufen oder abbauen?
     #
-    # Die Herstellung sagte, WAS fehlt, aber nicht, ob man es ueberhaupt kaufen
-    # kann. Gemessen am 30.08.2026 ueber alle 26 Rohstoffe in Rezepten: 19
+    # Die Herstellung sagt, WAS fehlt, und ob man es ueberhaupt kaufen kann.
+    # Gemessen ueber alle 26 Rohstoffe in Rezepten (Spielstand 4.10.0): 19
     # kaufbar, **7 nicht** (Aslarite, Lindinium, Ouratite, Quantainium,
     # Riccite, Savrilium, Torite). Fuenf davon stehen zusaetzlich auf der
     # Zerlege-Sperrliste — weder kaufbar noch zurueckzugewinnen.
@@ -6282,9 +6074,8 @@ def main():
         _pr66.load = _echt66
 
     # b) ⚠⚠ Jedes Material steht bei UEX ZWEIMAL — veredelt und als Erz. Wer
-    #    beim Einlesen ueberschreibt, bekommt zufaellig die falsche Form: Beim
-    #    ersten Versuch stand bei Iron „Kaufpreis 0", obwohl es fuer 2.643 im
-    #    Regal liegt.
+    #    beim Einlesen ueberschreibt, bekommt zufaellig die falsche Form: Dann
+    #    steht bei Iron Kaufpreis 0, obwohl es fuer 2.643 im Regal liegt.
     _bau66 = {'format': _pr66.FORMAT, 'geholt': 1.0, 'waren': {
         'iron': [{'name': 'Iron', 'kauf': 2643.0, 'verkauf': 3376.0},
                  {'name': 'Iron (Ore)', 'kauf': 0.0, 'verkauf': 1000.0}],
@@ -6311,7 +6102,7 @@ def main():
     finally:
         _pr66.load = _echt66
 
-    # c) Die Anzeige darf „nicht kaufbar" NIE als „0 aUEC" schreiben.
+    # c) Die Anzeige darf nicht Kaufbares NIE als `0 aUEC` schreiben.
     _seiten66 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
     pruefe("t('s_he_nur_abbau')" in _seiten66,
@@ -6343,11 +6134,10 @@ def main():
     # ------------------------------------------------------------------
     # 67. Ein Rezept wirklich AUFKLAPPEN
     #
-    # ⚠⚠ Der Fehler, der diese Pruefung erzwungen hat (rc37 und rc38
-    # ausgeliefert): Beim Auspacken der Zerlege-Angaben bekam eine Variable den
-    # Namen `_dauer` — und ueberschrieb damit die gleichnamige Funktion in
-    # derselben Datei. Ein paar Zeilen spaeter warf `_dauer(stufe['zeit'])`
-    # dann `TypeError: 'int' object is not callable`.
+    # ⚠⚠ Die Falle: Bekommt beim Auspacken der Zerlege-Angaben eine Variable
+    # den Namen `_dauer`, ueberschreibt sie die gleichnamige Funktion in
+    # derselben Datei. Ein paar Zeilen spaeter wirft `_dauer(stufe['zeit'])`
+    # dann `TypeError: 'int' object is not callable` — erst beim Aufklappen.
     #
     # Sichtbar wurde das als **verschwundener Qualitaets-Block**: Die Ausnahme
     # brach den Aufbau mitten drin ab, die Herstellzeit blieb ohne Wert, und
@@ -6364,11 +6154,10 @@ def main():
 
     # ⚠⚠ **Notfalls eigene Daten hinlegen.** Die Rezepte sind ein
     # heruntergeladener Zwischenspeicher im Ablageordner — der Selbsttest
-    # arbeitet in einem Wegwerf-Ordner, dort liegt keiner. Bis rc42 hiess das:
-    # Diese Pruefung wurde **immer uebersprungen**, auf jedem frischen Rechner
-    # und im Bau-Lauf sowieso. Sie war fuer den `_dauer`-Fehler gebaut worden,
-    # der zwei ausgelieferte Fassungen unbrauchbar gemacht hat — und lief nie.
-    # Eine Pruefung, die nur bei ihrem Autor anschlaegt, ist keine.
+    # arbeitet in einem Wegwerf-Ordner, dort liegt keiner. Ohne eigene Daten
+    # wuerde diese Pruefung **immer uebersprungen**, auf jedem frischen
+    # Rechner und im Bau-Lauf sowieso. Eine Pruefung, die nur auf einem
+    # einzigen Rechner anschlaegt, ist keine.
     if not (_he67.load().get('blueprints') or []):
         _mini67 = {
             'format': _he67.FORMAT, 'build': 'selbsttest',
@@ -6439,11 +6228,9 @@ def main():
 
                 class _Fenster67:
                     # ⚠ **Das Ersatzfenster muss alle Schriften kennen, die das
-                    # echte hat.** Am 31.08.2026 fehlte `f_bold`, und die neue
-                    # Kopfzeile ueber dem Rezept liess die ganze Pruefung
-                    # auffliegen — im Bau-Lauf, nicht auf dem Entwicklerrechner,
-                    # weil der Selbsttest dort schon vorher abbricht. Kommt eine
-                    # Schrift dazu, gehoert sie hierher.
+                    # echte hat.** Fehlt eine (etwa `f_bold` fuer die
+                    # Kopfzeile ueber dem Rezept), fliegt die ganze Pruefung
+                    # auf. Kommt eine Schrift dazu, gehoert sie hierher.
                     f_base = f_small = f_item = f_bold = _schrift67
                     on_show = {}
                     mining_search = ''
@@ -6466,8 +6253,8 @@ def main():
                        'ein aufgeklapptes Rezept baut ohne Ausnahme (%s)'
                        % (_fehler67 or 'sauber'))
 
-                # Und der Qualitaets-Block muss wirklich dastehen — nicht nur
-                # „keine Ausnahme". Genau der war ja verschwunden.
+                # Und der Qualitaets-Block muss wirklich dastehen — keine
+                # Ausnahme allein genuegt nicht.
                 def _texte67(w, raus):
                     try:
                         raus.append(str(w.cget('text')))
@@ -6486,11 +6273,10 @@ def main():
 
                 # ⚠⚠ Und JEDE Spanne steht unter IHRER Wirkung.
                 #
-                # Bis rc42 bekam das Spannen-Etikett den Behaelter eine Ebene
-                # hoeher als Elternteil: Alle Spannen sammelten sich am Ende
-                # des Blocks, und keine sagte mehr, zu welchem Wert sie
-                # gehoert. Seit v3.43.0 steht die Wirkung rechts neben ihrem
-                # Regler in einem Raster — Name, Faktor, Prozent in einer
+                # Bekommt das Spannen-Etikett den Behaelter eine Ebene hoeher
+                # als Elternteil, sammeln sich alle Spannen am Ende des
+                # Blocks, und keine sagt mehr, zu welchem Wert sie gehoert.
+                # Die Wirkung steht rechts neben ihrem Regler in einem Raster — Name, Faktor, Prozent in einer
                 # Zeile, die Spanne in der Zeile darunter.
                 #
                 # Der Massstab ist deshalb die **Rasterzeile**: Jede Spanne
@@ -6529,14 +6315,12 @@ def main():
     # ------------------------------------------------------------------
     # 67b. Produkt-Tabelle und Lagerzeile folgen dem Regler
     #
-    # ⚠⚠ Zwei Fehler vom 16.09.2026, beide in derselben Flaeche:
+    # ⚠⚠ Zwei Anforderungen an dieselbe Flaeche:
     #
-    # 1. Es gab keine Produktwerte. Wer „Energie-Schaden +7,4 %" suchte, fand
-    #    nur zwei Faktorzeilen „× 1.042" und „× 1.032" und musste selbst
-    #    rechnen — oder zu scmdb.net wechseln. Jetzt steht oben eine Tabelle
-    #    Grundwert / Gebaut / Änderung, gerechnet wie auf scmdb.
-    # 2. Die Lagerzeile ignorierte den Regler. Titanium auf Q 685 geschoben,
-    #    im Lager nur Q 295–622 — und trotzdem „hast du: 13.938".
+    # 1. Produktwerte statt nur Faktorzeilen (`× 1.042`): Oben steht eine
+    #    Tabelle Grundwert / Gebaut / Änderung, gerechnet wie auf scmdb.
+    # 2. Die Lagerzeile folgt dem Regler. Titanium auf Q 685 geschoben, im
+    #    Lager nur Q 295–622 — dann zaehlt davon nichts als vorhanden.
     #
     # ⚠ Eigene Daten, eigenes Lager — unabhaengig davon, was im Ablageordner
     # liegt. Der Zug am Regler geht ueber denselben Rueckruf, den die Maus
@@ -6674,10 +6458,10 @@ def main():
     # ------------------------------------------------------------------
     # 67c. Eine gemerkte Lage ausserhalb aller Monitore wird verworfen
     #
-    # ⚠⚠ Am 16.09.2026 startete das Overlay nach einem Update bei Y = 2526 —
-    # bei drei Monitoren zwischen Y −1440 und +1152, also unter allen
-    # Bildschirmen. Die alte Schranke „bis zum Dreifachen der Bildschirmhoehe"
-    # liess das durch. Nachgestellt mit genau diesem Aufbau.
+    # ⚠⚠ Eine gemerkte Lage Y = 2526 bei drei Monitoren zwischen Y −1440 und
+    # +1152 liegt unter allen Bildschirmen. Eine Schranke bis zum Dreifachen
+    # der Bildschirmhoehe liesse das durch. Nachgestellt mit genau diesem
+    # Aufbau.
     print()
     print('67c. Gemerkte Fensterlage gegen die echten Monitore')
     import tkinter as _tk67c
@@ -6728,10 +6512,8 @@ def main():
     # ------------------------------------------------------------------
     # 68. Der Namensvorschlag steht NEBEN dem Eingabefeld
     #
-    # Bis v3.3.0-rc39 hing er ganz unten unter den Knoepfen — 557 Pixel unter
-    # dem Feld, in das getippt wird. Am 30.08.2026 gemeldet: „wenn ich
-    # Savrilium einlagern will, suche ich nicht dort unten nach dem Begriff um
-    # drauf zu klicken." Ein Vorschlag, den man suchen muss, ist keiner.
+    # Nicht ganz unten unter den Knoepfen, Hunderte Pixel unter dem Feld, in
+    # das getippt wird. Ein Vorschlag, den man suchen muss, ist keiner.
     print()
     print('68. Namensvorschlag am Eingabefeld')
     import tkinter as _tk68
@@ -6800,10 +6582,9 @@ def main():
 
         # ---- Rechnen im Mengenfeld ----
         # ⚠⚠ Beim Bearbeiten steht die aktuelle Menge schon im Feld. Wer drei
-        # dazulegen will, tippt hinten „+3" an — und hat „1.04+3" dastehen.
-        # Bis v3.3.0-rc39 zaehlte nur ein FUEHRENDES Vorzeichen; genau die
-        # natuerliche Eingabe wurde abgelehnt („Trag eine Menge ein, zum
-        # Beispiel 12,5"). Am 30.08.2026 gemeldet.
+        # dazulegen will, tippt hinten `+3` an — und hat `1.04+3` dastehen.
+        # Zaehlte nur ein FUEHRENDES Vorzeichen, wuerde genau die natuerliche
+        # Eingabe abgelehnt.
         from scbp import materials as _ro68
         for _eingabe68, _vorher68, _soll68 in (
                 ('4,5', 1.04, 4.5),          # blosse Zahl
@@ -6841,11 +6622,10 @@ def main():
     # ------------------------------------------------------------------
     # 69. Kein abgeschnittener Text im aufgeklappten Rezept
     #
-    # ⚠⚠ Der Fehler, der diese Pruefung erzwungen hat: Das Etikett fuer den
-    # Qualitaetsfaktor hatte `width=9` — eine **Zusage ueber den Inhalt**. Als
-    # in v3.3.0-rc37 die Prozentzahl in dasselbe Etikett geschrieben wurde,
-    # schnitt Tk sie stumm ab: Auf dem Bildschirm stand „× 1.047  +4.(" statt
-    # „+4,70 %". Kein Fehler, keine Meldung — nur eine halbe Zahl.
+    # ⚠⚠ Ein Etikett mit `width=9` ist eine **Zusage ueber den Inhalt**.
+    # Kommt eine Prozentzahl dazu, schneidet Tk sie stumm ab: Auf dem
+    # Bildschirm steht `× 1.047  +4.(` statt `+4,70 %`. Kein Fehler, keine
+    # Meldung — nur eine halbe Zahl.
     #
     # Wer Inhalt zu einem Feld fester Breite dazutut, muss die Breite anfassen.
     # Diese Pruefung merkt es, wenn er es vergisst — an JEDEM Etikett, nicht
@@ -6916,10 +6696,9 @@ def main():
                         # ist bewusst nicht angezeigt (sonst schoebe der Test
                         # ein Fenster ins Bild); fuer alles Unangezeigte
                         # liefert Tk stur **1**. Ein Vergleich dagegen
-                        # ueberspringt jede Zeile und die Pruefung meldet
-                        # zufrieden „nichts abgeschnitten", waehrend auf dem
-                        # Bildschirm eine halbe Zahl steht. Genau so lief mein
-                        # erster Anlauf am 30.08.2026 ins Leere.
+                        # ueberspringt jede Zeile und die Pruefung ist
+                        # zufrieden gruen, waehrend auf dem Bildschirm eine
+                        # halbe Zahl steht.
                         #
                         # `winfo_reqwidth()` ist die Breite, die Tk dem
                         # Etikett geben WIRD — bei `width=9` sind das 76 px,
@@ -6966,9 +6745,9 @@ def main():
     # ⚠⚠ Der Grund ist nicht Ordnungssinn. Ein freies Textfeld heisst, dass
     # jemand Schimpfwoerter, Religioeses oder Politisches eintraegt, ein
     # Bildschirmfoto macht und es verbreitet — und am Ende fragt niemand, wer
-    # getippt hat: Es steht in diesem Werkzeug. Am 30.08.2026 festgelegt:
-    # „NUR was auch in der Rohstoff-Liste ist darf speicherbar sein, sonst
-    # nichts." Und: „Lagerort gilt exakt das Gleiche."
+    # getippt hat: Es steht in diesem Werkzeug. Deshalb ist NUR speicherbar,
+    # was in der Rohstoff-Liste steht — und fuer den Lagerort gilt exakt
+    # das Gleiche.
     print()
     print('70. Nur Echtes ins Lager')
     from scbp import crafting as _he70
@@ -6978,10 +6757,9 @@ def main():
     _q70 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe("t('s_lg_trotzdem')" not in _q70,
            'es gibt keinen Knopf „Trotzdem eintragen" mehr')
-    # ⚠ Auch der TEXT muss weg. Beim Aufraeumen blieb `s_lg_unbekannt` stehen
-    # und behauptete weiter „Du kannst es trotzdem eintragen" — das Programm
-    # versprach also etwas, das es nicht mehr tut (30.08.2026 aufgefallen).
-    # Wer eine Funktion entfernt, sucht nach ALLEN Stellen, die sie
+    # ⚠ Auch der TEXT muss weg: `s_lg_unbekannt` darf nicht mehr anbieten, es
+    # trotzdem einzutragen — sonst verspricht das Programm etwas, das es
+    # nicht tut. Wer eine Funktion entfernt, sucht nach ALLEN Stellen, die sie
     # beschreiben, nicht nur nach dem Knopf.
     from scbp import language as _sp70
     pruefe('s_lg_trotzdem' not in _sp70.TEXTS,
@@ -7026,8 +6804,8 @@ def main():
         pruefe(not _or70.knows('Bei Oma im Keller'),
                'ein erfundener Ort wird abgelehnt')
         pruefe(_or70.knows(''), 'leer bleibt erlaubt — das Feld ist freiwillig')
-        # ⚠ Teiltext, nicht nur Wortanfang: UEX schreibt „Pyro Gateway
-        #   (Stanton)" und „Checkmate Station".
+        # ⚠ Teiltext, nicht nur Wortanfang: UEX schreibt `Pyro Gateway
+        #   (Stanton)` und `Checkmate Station`.
         pruefe(any('Pyro Gateway' in o for o in _or70.similar('pyro')),
                '„pyro" schlaegt die Gateways vor')
         pruefe(_or70.similar('checkmate') == ['Checkmate Station'],
@@ -7047,10 +6825,9 @@ def main():
     # 71. Keine fremde Uebersetzung im Paket
     #
     # ⚠⚠ Die deutsche Uebersetzung des Spiels stammt von rjcncpt
-    # (StarCitizen-Deutsch-INI) und steht unter **CC BY-NC-SA 4.0**. Der Autor
-    # setzt das durch: Am 10.04.2025 wurde ein Repository nach einer
-    # DMCA-Beschwerde von GitHub entfernt — Grund war „nicht-konforme
-    # Weitergabe unter CC-BY-NC-SA-4.0" und fehlende Namensnennung.
+    # (StarCitizen-Deutsch-INI) und steht unter **CC BY-NC-SA 4.0**. Die
+    # Lizenz wird durchgesetzt: Nicht-konforme Weitergabe ohne
+    # Namensnennung kann per DMCA-Beschwerde ein Repository kosten.
     #
     # Der Watcher ist davon nicht betroffen, weil er die Uebersetzung **nicht
     # weitergibt**: Er liest die Datei auf dem Rechner des Nutzers und ergaenzt
@@ -7108,14 +6885,12 @@ def main():
         pruefe('rjcncpt' in _r71 and 'CC BY-NC-SA' in _r71,
                '%s nennt Urheber und Lizenz' % _readme71)
 
-    # ⚠⚠ **Die erste Zeile der `global.ini` muss stehen bleiben.** Der Autor
-    # verlangt das ausdruecklich: „belasse in der global.ini-Datei die erste
-    # Zeile mit der Angabe zur Ursprungsuebersetzung bestehen. Das hilft
-    # anderen Spielern ohne Umwege an die urspruengliche Uebersetzung zu
-    # gelangen."
+    # ⚠⚠ **Die erste Zeile der `global.ini` muss stehen bleiben.** Die
+    # Bedingungen der Uebersetzung verlangen, die Zeile mit der Angabe zur
+    # Ursprungsuebersetzung zu belassen.
     #
-    # Bisher blieb sie stehen, weil die Injektion den Schluessel schlicht nicht
-    # anfasst — also zufaellig. Diese Pruefung macht daraus eine Zusage.
+    # Sie bleibt stehen, weil die Injektion den Schluessel nicht anfasst.
+    # Diese Pruefung macht daraus eine Zusage.
     _inj71 = open(os.path.join(WURZEL, 'scbp', 'injection.py'),
                   encoding='utf-8').read()
     pruefe('Frontend_PU_Version' not in _inj71
@@ -7126,8 +6901,8 @@ def main():
     #
     # ⚠ Nur Dateien mit einer Quellenangabe zaehlen. Die englische `global.ini`
     # ist CIGs eigene und traegt keine; sie mit zu pruefen hiesse, einen Fehler
-    # zu melden, wo keiner sein kann. Genau so lief mein erster Anlauf: Er nahm
-    # die erste Datei im Ordner — die englische — und schlug an.
+    # zu melden, wo keiner sein kann — etwa, wenn die erste Datei im Ordner
+    # die englische ist.
     from scbp import paths as _pf71
     _dateien71 = []
     try:
@@ -7168,10 +6943,9 @@ def main():
     # 72. Der Startverlauf im Bericht bleibt lesbar
     #
     # ⚠ Die Spur ist bei einem harten Absturz das Einzige, was uebrig bleibt —
-    # die letzte Zeile sagt, wie weit der Start kam. Im rc42-Bericht stand
-    # davon **kein einziger Schritt** mehr: zwoelfmal „Liste: zeichnen
-    # beginnt" hatte den ganzen Ausschnitt gefuellt. Zwei Ursachen, beide hier
-    # abgesichert:
+    # die letzte Zeile sagt, wie weit der Start kam. Sie darf nicht von
+    # wiederholten Zeilen (zwoelfmal `Liste: zeichnen beginnt`) aus dem
+    # Ausschnitt verdraengt werden. Zwei Fallen, beide hier abgesichert:
     #
     #   a) Getrennt wurde per Vorsilbe („Seite ") — jeder neue Spur-Aufruf
     #      irgendwo im Programm galt damit als Startschritt. Jetzt ist die
@@ -7229,13 +7003,10 @@ def main():
     # ------------------------------------------------------------------
     # 73. Die Zahlen in der Anleitung stimmen noch
     #
-    # ⚠ In der README stehen Zahlen: „für 670 der 738 Bauplaene steht, woher
-    # sie kommen", „zu jedem der 1.597 herstellbaren Gegenstaende". Die sind
-    # kein Beiwerk — sie sind das Versprechen, das jemand vor dem Herunterladen
-    # liest. Und sie veralten mit **jedem** Spiel-Patch, ohne dass irgendetwas
-    # anschlaegt: Am 30.08.2026 stand dort 655 von 722, waehrend die Daten
-    # laengst 670 von 738 hergaben. Aufgefallen ist es nur, weil jemand von
-    # Hand nachgezaehlt hat.
+    # ⚠ In der README stehen Zahlen (wie viele Bauplaene eine Herkunft haben,
+    # wie viele Gegenstaende herstellbar sind). Die sind kein Beiwerk — sie
+    # sind das Versprechen, das jemand vor dem Herunterladen liest. Und sie
+    # veralten mit **jedem** Spiel-Patch, ohne dass irgendetwas anschlaegt.
     #
     # ⚠ Diese Pruefung braucht die heruntergeladenen Daten und wird ohne sie
     # uebersprungen — im Bau-Lauf also immer. Sie greift dort, wo sie greifen
@@ -7255,9 +7026,8 @@ def main():
         _he73.forget()
         try:
             # ⚠ `unreachable=False`: Die Anleitung nennt die **erspielbaren**
-            # („670 der 738"). Ohne das haengt die Pruefung an der Einstellung
-            # des Entwicklers und meldet bei ihm eine andere Zahl als bei
-            # jedem anderen (28.09.2026).
+            # (`670 der 738`). Ohne das haengt die Pruefung an der
+            # Einstellung des Rechners, auf dem sie laeuft.
             _bp73 = (_ka73.load(unreachable=False).get('bauplaene') or {})
         except Exception:
             _bp73 = {}
@@ -7283,7 +7053,7 @@ def main():
                  _soll73['herstellbar']))
 
         def _zahlen73(text):
-            # „670 der 738", „670 of 738", „670 von 738" — beide Zahlen.
+            # `670 der 738`, `670 of 738`, `670 von 738` — beide Zahlen.
             paare = set()
             for _m in _re73.finditer(
                     r'\*\*([\d.,]+)\s+(?:der|von|of(?: the)?)\s+([\d.,]+)\*\*',
@@ -7313,9 +7083,8 @@ def main():
     # 74. `SC_BP_NO_NET` gilt ueberall
     #
     # ⚠ Die Anleitung verspricht: „Beides laesst sich mit `SC_BP_NO_NET=1`
-    # abschalten." Bis rc42 stimmte das nur zur Haelfte — Katalog, Preise,
-    # Orte, Serverstatus und Update-Frage hielten sich daran, die
-    # Uebersetzungsquellen und die Auftragsdaten des SCDL-Teams nicht. Wer die
+    # abschalten." Das gilt fuer JEDEN Abruf — Katalog, Preise, Orte,
+    # Serverstatus, Update-Frage ebenso wie die Uebersetzungsquellen. Wer die
     # Schalterstellung ernst nimmt, muss sich darauf verlassen koennen.
     #
     # Ausgenommen ist einzig `report.py`: Es sendet nur, wenn jemand den Knopf
@@ -7342,15 +7111,14 @@ def main():
 
     # ⛔⛔ **Die Suche oben misst die FORM, nicht die Wirkung** — und das reicht
     # nicht. Ihr genuegt ein Kommentar oder ein unbenutzter Import; eine
-    # entfernte Netzsperre bliebe unentdeckt. Am 12.09.2026 als F03 abgegrenzt
-    # („bestehende Luecke, nicht von P4"), am 20.09.2026 nachgeholt: Ab hier
-    # wird **gemessen**, ob wirklich kein Abruf hinausgeht.
+    # entfernte Netzsperre bliebe unentdeckt. Ab hier wird **gemessen**, ob
+    # wirklich kein Abruf hinausgeht.
     #
     # ⚠⚠ Die Falle gehoert an `urllib.request.urlopen`, NICHT an das Modul.
     # Die Module rufen qualifiziert (`urllib.request.urlopen(req, …)`) — ein
-    # `modul.urlopen = falle` geht ins Leere. Genau so lief der erste Anlauf:
-    # acht Module, null Abrufe, und die Null war geschenkt, weil die Falle nie
-    # installiert war. Deshalb prueft sie sich hier zuerst selbst.
+    # `modul.urlopen = falle` geht ins Leere, und jede Null waere geschenkt,
+    # weil die Falle nie installiert ist. Deshalb prueft sie sich hier zuerst
+    # selbst.
     import urllib.request as _ur74
 
     _raus74 = []
@@ -7413,13 +7181,12 @@ def main():
     # ------------------------------------------------------------------
     # 75. Verweise gehen ueber EINEN Weg — und der wäscht die Umgebung
     #
-    # ⚠⚠ Gemeldet am 30.08.2026: „Kaffee spendieren" und „Discord" taten
-    # **nichts**. Kein Fehler im Bericht, keine Ausnahme — `webbrowser.open()`
-    # meldet Erfolg, sobald es ein Programm gestartet hat, und im AppImage
-    # stirbt genau dieses Programm sofort an unseren Bibliothekspfaden.
+    # ⚠⚠ `webbrowser.open()` meldet Erfolg, sobald es ein Programm gestartet
+    # hat, und im AppImage stirbt genau dieses Programm sofort an unseren
+    # Bibliothekspfaden — ein Verweis tut dann **nichts**, ohne Fehler im
+    # Bericht, ohne Ausnahme.
     #
-    # Die Hälfte der Verweise hatte die Umgebungswaesche schon, die andere
-    # nicht. Deshalb geht jetzt **alles** durch `paths.open_in_browser` — und hier
+    # Deshalb geht **alles** durch `paths.open_in_browser` — und hier
     # wird nachgezaehlt, dass kein `webbrowser.open()` daran vorbei geht.
     #
     # ⚠ Geprueft wird **ohne** irgendetwas zu oeffnen: `browser_commands` liefert
@@ -7468,22 +7235,18 @@ def main():
     _echt75 = _sp75.Popen
     _altumg75 = dict(os.environ)
 
-    # ⚠⚠ **`webbrowser.open` MUSS mit abgefangen werden** (07.09.2026, unter
-    # Windows gemeldet: „bei mir geht ein Browser auf").
+    # ⚠⚠ **`webbrowser.open` MUSS mit abgefangen werden.**
     #
-    # Abgefangen war bis dahin nur `subprocess.Popen` — der Weg, den `open_in_browser`
-    # unter LINUX geht. Unter Windows liefert `browser_commands()` bewusst eine
-    # leere Liste (dort macht `webbrowser` es richtig), und `open_in_browser` faellt
-    # auf `webbrowser.open()` zurueck. Das lief hier ungebremst: Bei jedem
-    # Selbsttest sprang der echte Standardbrowser mit `example.invalid` auf.
+    # `subprocess.Popen` ist nur der Weg, den `open_in_browser` unter LINUX
+    # geht. Unter Windows liefert `browser_commands()` bewusst eine leere
+    # Liste (dort macht `webbrowser` es richtig), und `open_in_browser` faellt
+    # auf `webbrowser.open()` zurueck. Ungebremst spraenge bei jedem
+    # Selbsttest der echte Standardbrowser mit `example.invalid` auf.
     #
-    # Damit brach ausgerechnet dieser Prueflauf die Regel, fuer die es
+    # Damit braeche ausgerechnet dieser Prueflauf die Regel, fuer die es
     # `unsichtbar.py` gibt — nichts auf dem Bildschirm des Nutzers, kein
     # geklauter Fokus. Ein aufspringendes Browserfenster ist schlimmer als ein
     # aufblitzendes tkinter-Fenster: Es bleibt stehen.
-    #
-    # Aufgefallen ist es erst, als der Selbsttest unter Windows ueberhaupt so
-    # weit kam — vorher starb er in Abschnitt 60.
     import webbrowser as _wb75
     _echt_wb75 = _wb75.open
     _wb75_gerufen = []
@@ -7508,9 +7271,8 @@ def main():
                'der Öffner bekommt eine saubere Umgebung (%d Variablen, '
                'ohne unsere Pfade)' % len(_umg75))
     else:
-        # ⚠ Hier stand bis zum 07.09.2026 nur „nur unter Linux sinnvoll" —
-        # und damit prüfte der ganze Abschnitt auf Windows und Mac NICHTS.
-        # Die Umgebungsprobe ist tatsächlich linuxeigen (dort wird ein eigener
+        # ⚠ Auch auf Windows und Mac wird geprüft. Die Umgebungsprobe ist
+        # tatsächlich linuxeigen (dort wird ein eigener
         # Prozess gestartet), der Weg zum Browser aber nicht: Auf Windows geht
         # er über `webbrowser.open()`, und genau das lässt sich prüfen.
         pruefe(_geklappt75, 'der Aufruf meldet Erfolg')
@@ -7519,19 +7281,18 @@ def main():
                % (_wb75_gerufen or 'gar nicht gerufen'))
 
     # ------------------------------------------------------------------
-    # 76. „Protokolle neu einlesen" darf nicht die Einrichtung zuruecksetzen
+    # 76. Protokolle neu einlesen darf nicht die Einrichtung zuruecksetzen
     #
-    # ⚠⚠ Gemeldet am 30.08.2026, und es kostete beinahe die Veroeffentlichung:
-    # Nach einem Klick auf „alte Protokolle neu einlesen" kam beim naechsten
-    # Start der **komplette Einrichtungsassistent** — bei einem Werkzeug, das
-    # seit Wochen eingerichtet war. Wer ihn dann zumachte, hatte gar nichts
-    # mehr: Das Programm beendete sich wortlos, ohne Overlay, ohne Meldung, und
-    # im Fehlerbericht stand keine Zeile.
+    # ⚠⚠ Nach dem Neueinlesen darf beim naechsten Start nicht der
+    # **komplette Einrichtungsassistent** kommen — und wer ihn zumacht, darf
+    # nicht ohne Overlay, ohne Meldung und ohne Zeile im Fehlerbericht
+    # dastehen.
     #
-    # Zwei Fehler in einer Kette:
-    #   a) `noetig()` nahm das Fehlen von `logstand.json` als „erster Start" —
-    #      dabei ist das der **Lesestand**, und genau den loescht der Knopf.
-    #   b) Abbrechen beendete das Programm **immer**, nicht nur beim ersten Mal.
+    # Zwei Fallen in einer Kette:
+    #   a) `noetig()` darf das Fehlen von `logstand.json` nicht als ersten
+    #      Start nehmen — das ist der **Lesestand**, und genau den loescht
+    #      der Knopf.
+    #   b) Abbrechen beendet das Programm nur beim ersten Mal, nicht **immer**.
     print()
     print('76. Der Lesestand ist kein Einrichtungsmerkmal')
     from scbp import wizard as _as76
@@ -7595,15 +7356,13 @@ def main():
     # ------------------------------------------------------------------
     # 77. Verschickt wird, was im Kasten steht
     #
-    # ⚠⚠ Gemeldet am 30.08.2026 von **Morkhan (KRT)**: „bei mir stehts drin,
-    # aber wenn ichs verschicke wohl nicht." Er hatte seinen Namen eingetragen,
-    # der Kasten zeigte ihn — im abgesendeten Bericht stand trotzdem
-    # „nicht angegeben".
+    # ⚠⚠ Ein eingetragener Name, den der Kasten zeigt, muss auch im
+    # abgesendeten Bericht stehen.
     #
-    # Ursache: Alle vier Knoepfe arbeiteten mit `text`, dem Bericht vom
-    # **Oeffnen der Seite**. Das Nachzeichnen des Kastens aenderte nur die
-    # Anzeige. Der Kasten verspricht „Du siehst vorher genau, was du
-    # verschickst" — dann darf darunter nichts anderes rausgehen.
+    # Die Falle: Arbeiten die Knoepfe mit `text`, dem Bericht vom **Oeffnen
+    # der Seite**, aendert das Nachzeichnen des Kastens nur die Anzeige. Der
+    # Kasten verspricht, dass man vorher genau sieht, was verschickt wird —
+    # dann darf darunter nichts anderes rausgehen.
     print()
     print('77. Verschickt wird, was im Kasten steht')
     import ast as _ast77
@@ -7632,9 +7391,7 @@ def main():
         else:
             _falsch77.append('%s(...) in Zeile %d' % (_k77.func.attr,
                                                       _k77.lineno))
-    # ⚠ Drei seit dem 05.09.2026: „Als Datei speichern" und „Eigenen Ordner
-    # oeffnen" sind gestrichen — in ueber einem Jahr hat sie niemand benutzt.
-    # Uebrig sind Absenden, Melden und Kopieren, und jeder von ihnen muss den
+    # ⚠ Drei Knoepfe: Absenden, Melden und Kopieren, und jeder von ihnen muss den
     # Text weiterhin FRISCH aus dem Kasten holen: Sonst verschickt jemand einen
     # Bericht ohne den Satz, den er gerade eingetippt hat.
     pruefe(_richtig77 >= 3,
@@ -7649,16 +7406,15 @@ def main():
     # ------------------------------------------------------------------
     # 78. Die Angaben im Spiel duerfen die Erkennung nicht vergiften
     #
-    # ⚠⚠ Der schwerste Fund des Tages, gemeldet von **Morkhan (KRT)**:
-    # Das Werkzeug schreibt Klasse, Groesse und Guetegrad an die
+    # ⚠⚠ Das Werkzeug schreibt Klasse, Groesse und Guetegrad an die
     # Gegenstandsnamen im Spiel. Schaltet man danach frei, steht in der
-    # `Game.log` „Balandin (S3 B Military)" statt „Balandin" — und genau das
-    # wurde gespeichert. Der Katalog kennt den Namen nicht, der Bauplan galt
-    # als **nicht vorhanden**, der Fortschritt blieb zu niedrig. Bei ihm zwoelf
-    # Stueck, und mit jedem neuen Fund einer mehr.
+    # `Game.log` `Balandin (S3 B Military)` statt `Balandin`. So gespeichert,
+    # kennt der Katalog den Namen nicht, der Bauplan gilt als **nicht
+    # vorhanden**, und der Fortschritt bleibt zu niedrig — mit jedem neuen
+    # Fund einer mehr.
     #
     # ⚠ Die Klammer darf NICHT blind abgeschnitten werden: 39 Katalognamen
-    # tragen selbst eine („A03 Sniper Rifle Magazine (15 cap)").
+    # tragen selbst eine (`A03 Sniper Rifle Magazine (15 cap)`).
     print()
     print('78. Angaben im Namen verderben den Abgleich nicht')
     from scbp import collection as _bd78
@@ -7671,7 +7427,7 @@ def main():
         os.environ['SC_BP_HOME'] = _ordner78
         # Ein kleiner eigener Katalog — kein Netz, keine Nutzerdaten.
         # ⚠ Die Schluessel mit `norm()` bilden, nicht von Hand tippen: Es
-        # kuerzt mehr als nur Kleinschreibung (aus „(15 cap)" wird „(15)").
+        # kuerzt mehr als nur Kleinschreibung (aus `(15 cap)` wird `(15)`).
         # Ein selbst getippter Schluessel passt dann nirgends, und die Pruefung
         # misst am Ende nur ihren eigenen Tippfehler.
         _kat78 = {'format': 2, 'stand': 'test', 'bauplaene': {
@@ -7784,15 +7540,14 @@ def main():
     # ------------------------------------------------------------------
     # 80. Anfuehrungszeichen duerfen Namen nicht trennen
     #
-    # ⚠⚠ Bis zum 30.08.2026 fehlte in `paths.QUOTES` ausgerechnet das
-    # **oeffnende** typografische Anfuehrungszeichen. Aus
-    # `SW16BR1 “Buzzsaw” Repeater` wurde `sw16br1 “buzzsaw' repeater` — das
-    # schliessende angeglichen, das oeffnende nicht. Drei Katalog-Bauplaene
-    # tragen es; keiner konnte je zu einem Fund aus einer anderen Quelle passen.
+    # ⚠⚠ `paths.QUOTES` braucht auch das **oeffnende** typografische
+    # Anfuehrungszeichen. Ohne wird aus `SW16BR1 “Buzzsaw” Repeater`
+    # `sw16br1 “buzzsaw' repeater` — das schliessende angeglichen, das
+    # oeffnende nicht. Drei Katalog-Bauplaene tragen es; keiner passte dann
+    # je zu einem Fund aus einer anderen Quelle.
     #
-    # Aufgefallen ist es beim Abgleich einer von Hand gefuehrten Liste gegen den
-    # Katalog — **nicht** durch eine Meldung. Der Bauplan gilt einfach als
-    # „fehlt", und niemand vermutet ein Anfuehrungszeichen dahinter.
+    # Eine Meldung gibt es dabei **nicht**. Der Bauplan gilt einfach als
+    # fehlend, und niemand vermutet ein Anfuehrungszeichen dahinter.
     print()
     print('80. Anfuehrungszeichen trennen keine Namen')
     from scbp import paths as _pf80
@@ -7820,16 +7575,15 @@ def main():
     # ------------------------------------------------------------------
     # 81. Geschrieben wird in die Datei, die das Spiel LIEST
     #
-    # ⚠⚠ Gemeldet am 29.08.2026: Bei der Textquelle „Original" nahm
-    # `ini_datei()` eine feste Reihenfolge (`english`, dann `german_(germany)`)
-    # und die erste vorhandene Datei. Beide gibt es fast immer — also immer
-    # Englisch. Wer sein Spiel auf Deutsch stellt, bekam die Angaben in eine
+    # ⚠⚠ Nimmt `ini_datei()` bei der Textquelle `original` eine feste
+    # Reihenfolge (`english`, dann `german_(germany)`) und die erste
+    # vorhandene Datei, ist es fast immer Englisch — beide gibt es fast
+    # immer. Wer sein Spiel auf Deutsch stellt, bekaeme die Angaben in eine
     # Datei geschrieben, die das Spiel nie liest: eingetragen korrekt,
-    # angekommen nichts, Statuszeile trotzdem gruen. Erklaert vermutlich
-    # monatelang nicht ankommende Auftragstexte.
+    # angekommen nichts, Statuszeile trotzdem gruen.
     #
-    # Massgeblich ist `g_language` in der `user.cfg`. Das Werkzeug **schrieb**
-    # die Zeile seit jeher — gelesen hat es sie nie.
+    # Massgeblich ist `g_language` in der `user.cfg` — das Werkzeug schreibt
+    # die Zeile UND liest sie.
     print()
     print('81. Die Spielsprache entscheidet ueber die Zieldatei')
     from scbp import injection as _in81
@@ -7899,10 +7653,10 @@ def main():
     # angeboten** — und seine Bauplaene sind fuer diesen Spielstand weg. Im
     # Spiel steht das nirgends, und man merkt es erst, wenn es zu spaet ist.
     #
-    # ⚠ Der EIGENE Ruf steht nicht in der `Game.log` — am 30.08.2026 ueber 22
-    # Protokolle nachgemessen: `reputation` kommt dort ausschliesslich als
-    # Verbindungszeile zu CIGs Dienst vor, nie ein Wert. Deshalb sagt die
-    # Auskunft „ab wann zu", nicht „dir bleiben noch 4.200".
+    # ⚠ Der EIGENE Ruf steht nicht in der `Game.log` — ueber 22 Protokolle
+    # nachgemessen: `reputation` kommt dort ausschliesslich als
+    # Verbindungszeile zu CIGs Dienst vor, nie ein Wert. Deshalb nennt die
+    # Auskunft die Grenze, ab der der Auftrag zu ist, nicht den Abstand dazu.
     #
     # Die Regel, die hier abgesichert wird: **Ein offener Weg genuegt.** Fuehren
     # fuenf Auftraege zu einem Bauplan und einer davon hat keine Obergrenze,
@@ -7938,8 +7692,9 @@ def main():
 
     # --- Die drei uebrigen Auskuenfte aus denselben Vertragsdaten ---
     #
-    # ⚠ „Teilbar" nur, wenn ALLE Wege es sind: „den koennt ihr zu fuenft laufen"
-    # darf nicht dastehen, wenn es fuer einen von vier Auftraegen gilt — dann
+    # ⚠ Teilbar nur, wenn ALLE Wege es sind: Die Angabe, man koenne ihn zu
+    # fuenft laufen, darf nicht dastehen, wenn es fuer einen von vier
+    # Auftraegen gilt — dann
     # steht die Staffel am falschen Auftrag.
     _kat82['missionen']['nicht_teilbar'] = {'bp': ['Testteil C'],
                                             'teilbar': False, 'cooldown': 60}
@@ -7956,7 +7711,7 @@ def main():
     pruefe(_m82['teilbar'] is False,
            'ein nicht teilbarer Weg genuegt fuer „nicht teilbar"')
 
-    # „Was bringt am meisten" — gezaehlt wird ueber die Bezugsquellen der
+    # Was bringt am meisten — gezaehlt wird ueber die Bezugsquellen der
     # Bauplaene, weil nur die den aufgeloesten Auftragstitel tragen.
     _kat82['bauplaene'] = {
         _ka82._norm('Fehlt A'): {'n': 'Fehlt A', 'q': [
@@ -7986,8 +7741,8 @@ def main():
     # ------------------------------------------------------------------
     # 83. Raffinerie-Ausbeute abtippen
     #
-    # ⚠ Der Raffinerie-Auftrag steht **nicht** in der `Game.log` — am
-    # 30.08.2026 ueber 22 Protokolle nachgemessen: `Refinery` kommt 58-mal vor,
+    # ⚠ Der Raffinerie-Auftrag steht **nicht** in der `Game.log` — ueber 22
+    # Protokolle nachgemessen: `Refinery` kommt 58-mal vor,
     # ausschliesslich als Ladezeile fuer die 3D-Modelle des Decks; `Aslarite`,
     # `Agricium` und `cSCU` **kein einziges Mal**. Automatisch geht also nichts,
     # und Bilderkennung braeuchte Zusatzpakete. Bleibt: das Abtippen ertraeglich
@@ -8099,7 +7854,7 @@ def main():
            'selling.py kann norm_material gar nicht erreichen')
 
     # ⭐ Der Kern des Reiters: mehr abgenommene Waren schlagen den hoeheren
-    # Preis. Gemessen am 30.08.2026 bringt der Umweg ueber mehrere Terminals
+    # Preis. Gemessen bringt der Umweg ueber mehrere Terminals
     # nur 2 % mehr — dafuer aber zwei zusaetzliche Anfluege.
     _orte84 = _vk84.places_for(['Gold', 'Copper', 'Iron'])
     pruefe(_orte84[0]['terminal'] == 'Alles' and _orte84[0]['anzahl'] == 3,
@@ -8123,8 +7878,8 @@ def main():
     # `AUS` hier abgeschaltet und der Abruf durch eine Falle ersetzt: Kommt die
     # Anfrage trotz Sperre durch, fliegt sie und die Pruefung faellt durch.
     #
-    # ⚠ Seit dem gemeinsamen Unterbau haengt der Abruf an `uex.fetch` — die
-    # Falle gehoert also dorthin, nicht mehr an ein `_holen` in `verkauf`.
+    # ⚠ Der Abruf haengt am gemeinsamen Unterbau `uex.fetch` — die Falle
+    # gehoert also dorthin, nicht an ein `_holen` in `verkauf`.
     from scbp import uex as _uex84
 
     def _falle84(*_a, **_k):
@@ -8175,7 +7930,7 @@ def main():
            'auch mit Minus (100-40 ergibt 60)')
 
     # ⚠ **Beim Aendern zaehlt die bisherige Menge als Ausgangswert**: `-5` ist
-    # dort eine Buchung („fuenf abbuchen"), kein Fehler. Abgewiesen wird erst,
+    # dort eine Buchung (fuenf abbuchen), kein Fehler. Abgewiesen wird erst,
     # wenn das **Ergebnis** null oder kleiner waere.
     _nr84 = [i for i, p in enumerate(_hl84.load())
              if p['ware'] == 'Gold' and not p['gestohlen']][0]
@@ -8198,7 +7953,7 @@ def main():
            'die Ware wird gegen die Warenliste geprueft')
     pruefe('ortsliste.knows(ort.get())' in _hlseite84,
            'der Lagerort wird gegen die Ortsliste geprueft')
-    # ⚠ Seit dem Auswahlfeld gibt es keine „Meintest du"-Zeile mehr: Das Feld
+    # ⚠ Eine „Meintest du"-Zeile gibt es nicht: Das Auswahlfeld
     # filtert beim Tippen selbst und laesst sich per Pfeil ganz aufklappen.
     # Geprueft wird deshalb, dass **beide** Felder ihre geschlossene Liste
     # bekommen — Waren aus den Preisdaten, Orte aus der Ortsliste.
@@ -8209,7 +7964,7 @@ def main():
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf des
     # Bausteins, und das soll es auch. Geprueft wird der Import: ohne ihn kann
     # kein Systemelement benutzt werden. (Dieselbe Falle wie bei
-    # `norm_material` weiter oben — beim ersten Anlauf prompt wieder getappt.)
+    # `norm_material` weiter oben.)
     pruefe('import ttk' not in _q84s and 'from tkinter.ttk' not in _q84s,
            'kein ttk-Systemelement in der Oberflaeche')
     # ⚠ Nicht auf die Ausrichtung im Woerterbuch prueft: `'verkauf':     _selling,`
@@ -8239,11 +7994,10 @@ def main():
 
     # 85. Das Fenster passt auf den Bildschirm
     #
-    # ⚠⚠ Am 30.08.2026 gemeldet: „das Einstellungsfenster ist zu gross, er
-    # kommt nicht mehr an alles ran." Mit der Gruppe „Handel" brauchte die
-    # Seitenleiste 1020 px; daraus wurde eine Mindesthoehe groesser als der
-    # 1080er Bildschirm — und ein `minsize` haelt Tk gegen **jedes**
-    # `geometry()`, auch gegen das Zurechtruecken beim Start.
+    # ⚠⚠ Braucht die Seitenleiste 1020 px, wird daraus eine Mindesthoehe
+    # groesser als ein 1080er Bildschirm — und ein `minsize` haelt Tk gegen
+    # **jedes** `geometry()`, auch gegen das Zurechtruecken beim Start. Dann
+    # kommt man nicht mehr an alles heran.
     print()
     print('85. Das Fenster passt auf den Bildschirm')
     from scbp import screen as _bs85
@@ -8327,10 +8081,10 @@ def main():
         _wurzel85.update_idletasks()
     _zu85 = _fenster85._sidebar_needed_height()
 
-    # ⚠⚠ **Mit Zahl, nicht mit „kleiner gleich".** Beim ersten Bau brachte das
-    # Zuklappen **null** Ersparnis (1020 px vorher wie nachher):
-    # `winfo_reqheight()` meldet auch fuer einen weggeklappten Rahmen die volle
-    # Hoehe seines Inhalts. Eine Pruefung auf `<=` waere gruen geblieben.
+    # ⚠⚠ **Mit Zahl, nicht mit kleiner gleich.** `winfo_reqheight()` meldet
+    # auch fuer einen weggeklappten Rahmen die volle Hoehe seines Inhalts —
+    # das Zuklappen braechte dann **null** Ersparnis, und eine Pruefung auf
+    # `<=` bliebe gruen.
     pruefe(_zu85 < _offen85 - 200,
            'zugeklappte Gruppen sparen echte Hoehe (%d -> %d px)'
            % (_offen85, _zu85))
@@ -8359,19 +8113,16 @@ def main():
     # „Fuer Fortgeschrittene" gehoert in eine Gruppe wie alles andere —
     # sonst ist es das einzige Element der Leiste ohne eine.
     # ⚠ **Einstellungen, nicht Info.** Dahinter liegen Spielordner und
-    # Erkennung — Dinge, die man einstellt. „Info" erzaehlt etwas.
+    # Erkennung — Dinge, die man einstellt. Info erzaehlt etwas.
     pruefe(_fenster85.collapse.master
            is _fenster85.groups['einstellungen']['inhalt'],
            'Fortgeschrittenes sitzt in der Gruppe Einstellungen')
     pruefe(hasattr(_fenster85, 'collapse_arrow'),
            'und traegt denselben Klapp-Pfeil wie die Gruppen')
 
-    # ⚠ **Umgedreht am 27.09.2026 (Gliederung der Einstellungen, rc4).** Hier
-    # stand bis rc3: „Bauplan-Bestand steht NICHT in der offenen Liste" — die
-    # Seite schreibt am eigenen Bestand und wurde am 30.08.2026 im
-    # Vorbeigehen angeklickt, als sie zwischen harmlosen Einstellungen stand.
-    # Jetzt heisst sie „Sichern & Zurücksetzen" und steht offen — der Schutz
-    # ist ein anderer, und DEN prueft diese Stelle: Sie steht als LETZTER
+    # ⚠ Die Seite „Sichern & Zurücksetzen" schreibt am eigenen Bestand und
+    # steht offen. Damit sie nicht im Vorbeigehen angeklickt wird, prueft
+    # diese Stelle den Schutz: Sie steht als LETZTER
     # Reiter der Gruppe, nicht mehr zwischen harmlosen Seiten, und das
     # Zurücksetzen darauf ist rot und fragt nach.
     _reihe85 = [k for z in _fenster85.groups['einstellungen']['inhalt']
@@ -8383,15 +8134,15 @@ def main():
            '„Sichern & Zuruecksetzen" ist der letzte Reiter der Einstellungen '
            '(%r)' % _reihe85[-3:])
     # ⚠ Eigener Name: `_q85` gehoert weiter unten der Quelle von
-    # `main_window.py` — im ersten Anlauf hier ueberschrieben, und die
-    # Pruefung zur Mindesthoehe las ploetzlich `pages.py`.
+    # `main_window.py` — hier ueberschrieben, laese die Pruefung zur
+    # Mindesthoehe ploetzlich `pages.py`.
     _qseiten85 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                          encoding='utf-8').read()
     pruefe("t('s_zuruecksetzen'), zuruecksetzen, danger=True)" in _qseiten85
            and "ask_yes_no(fenster.root, t('s_be_reset'), frage)"
            in _qseiten85,
            'das Zuruecksetzen ist rot und fragt nach')
-    # Hinter „Für Fortgeschrittene" liegt seitdem nur noch die Erkennung.
+    # Hinter „Für Fortgeschrittene" liegt nur die Erkennung.
     pruefe('erkennung' not in _fenster85.buttons,
            'die Erkennung liegt hinter „Fuer Fortgeschrittene"')
     _fenster85._collapse_toggle()
@@ -8402,13 +8153,11 @@ def main():
            and 'startprogramme' in _fenster85.buttons,
            'beide sind nach dem Aufklappen da')
 
-    # ⚠⚠ **Umgedreht am 31.08.2026.** Hier stand bis v3.5.1 das Gegenteil:
-    # „Protokolle erneut einlesen" MUSSTE rot sein. Das war falsch — der Knopf
-    # legt nur an und kann nichts wegnehmen. Direkt darunter steht das
-    # ebenfalls rote „Bestand zuruecksetzen", das wirklich loescht; zwei
-    # Bedeutungen fuer dieselbe Farbe heissen, dass die Farbe nicht mehr warnt.
-    # Gemeldet von Haldjas, der den harmlosen drueckte. Das Ganze steht jetzt
-    # in Pruefung 95.
+    # ⚠⚠ Protokolle erneut einlesen ist NICHT rot — der Knopf legt nur an
+    # und kann nichts wegnehmen. Direkt darunter steht das rote „Bestand
+    # zuruecksetzen", das wirklich loescht; zwei Bedeutungen fuer dieselbe
+    # Farbe heissen, dass die Farbe nicht mehr warnt. Das Ganze steht in
+    # Pruefung 95.
     _q85s = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("t('s_be_neu'), neu_einlesen, danger=True" not in _q85s,
@@ -8433,10 +8182,9 @@ def main():
     # ⚠⚠ **Der Lagerort der Raffinerie-Ausbeute darf NICHT durch
     # `storage_name()` laufen.** Die Funktion zieht eine Eingabe auf einen
     # bekannten **Rohstoff** (sie vergleicht gegen `storable()`); ein
-    # Ortsname steht dort nie drin. Ergebnis war `None`, und `or ''` machte
-    # daraus einen leeren Lagerort: Wer „Levski" gewaehlt hatte, bekam die
-    # ganze Ausbeute ohne Ort eingebucht (30.08.2026 gemeldet, mit zwei
-    # Bildschirmfotos belegt).
+    # Ortsname steht dort nie drin. Ergebnis waere `None`, und `or ''` machte
+    # daraus einen leeren Lagerort: Wer Levski gewaehlt hat, bekaeme die
+    # ganze Ausbeute ohne Ort eingebucht.
     from scbp import crafting as _he85
     pruefe(_he85.storage_name('Levski') is None,
            'lager_name() kennt keine Orte — das war die Ursache')
@@ -8472,9 +8220,9 @@ def main():
            'an allen Loeschstellen, nicht nur an einer (%d)'
            % _q85p.count('_keep_scroll('))
 
-    # ⚠ **„Wird noch gebaut" ist etwas anderes als „hol es selbst".** Wer in der
-    # Luecke zwischen Tag und fertigem Bau auf „holen" klickt, findet auf der
-    # Releases-Seite auch nichts — die alte Meldung schickte ihn ins Leere.
+    # ⚠ **Noch im Bau ist etwas anderes als selbst holen.** Wer in der Luecke
+    # zwischen Tag und fertigem Bau auf Holen klickt, findet auf der
+    # Releases-Seite auch nichts — ein Verweis dorthin liefe ins Leere.
     _q85u = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("if not (freigabe.get('dateien') or []):" in _q85u
@@ -8502,25 +8250,21 @@ def main():
     # ------------------------------------------------------------------
     # ⚠⚠ **Der Fehler, den diese Pruefung bewacht.** `_knopfreihe` in
     # `pages.py` fordert Breite an, wenn die Knoepfe nebeneinander nicht
-    # hineinpassen — und setzte dabei bis 3.9.5
-    # `minsize(noetig, oben.winfo_height())`. Die zweite Zahl ist die GERADE
-    # AKTUELLE Fensterhoehe. Wer sein Fenster hoch gezogen hatte und danach
-    # eine Seite mit breiter Knopfreihe oeffnete, konnte es nie wieder
-    # niedriger ziehen.
-    #
-    # Gemeldet als `Fenster 1770x899, mindestens 1770x899` — beide Masse
-    # gleich, das Fenster sass in seiner eigenen Groesse fest, obwohl
-    # `MIN_HEIGHT` 380 ist.
+    # hineinpassen. Setzt sie dabei `minsize(noetig, oben.winfo_height())`,
+    # ist die zweite Zahl die GERADE AKTUELLE Fensterhoehe: Wer sein Fenster
+    # hoch gezogen hat und danach eine Seite mit breiter Knopfreihe oeffnet,
+    # kann es nie wieder niedriger ziehen (`Fenster 1770x899, mindestens
+    # 1770x899`, obwohl `MIN_HEIGHT` 380 ist).
     #
     # ⚠ Die vorhandene Warnung `b_fenster_zu_hoch` schlaegt dabei NICHT an:
     # Sie greift erst, wenn die Mindesthoehe den BILDSCHIRM ueberschreitet.
-    # 899 von 2880 ist weit davon entfernt — der Fehler blieb unter der
-    # Schwelle und trotzdem spuerbar.
+    # 899 von 2880 ist weit davon entfernt — unter der Schwelle und trotzdem
+    # spuerbar.
     #
-    # ⚠⚠ **Und Pruefung 87 lief daran vorbei**, weil sie
-    # `minsize(MIN_BREITE, MIN_HOEHE)` im QUELLTEXT sucht. Die Zeile stand da
-    # und stimmte — sie wurde nur zwei Dateien weiter wieder ueberschrieben.
-    # Deshalb misst diese Pruefung den WERT am fertigen Fenster.
+    # ⚠⚠ **Und Pruefung 87 sieht das nicht**, weil sie
+    # `minsize(MIN_BREITE, MIN_HOEHE)` im QUELLTEXT sucht. Die Zeile kann
+    # stimmen und zwei Dateien weiter wieder ueberschrieben werden. Deshalb
+    # misst diese Pruefung den WERT am fertigen Fenster.
     #
     # ⚠ Bewusst ein EIGENES Toplevel statt des Hauptfensters: Dort haengt
     # `_min_height_update` am `<Configure>` und setzt `minsize` gleich
@@ -8607,7 +8351,7 @@ def main():
     # Handelslager schreiben beide `{"format": 1, "posten": [...]}` — an der
     # Huelle sind sie nicht zu unterscheiden. Ohne Weiche haette das
     # Handelslager eine Rohstoff-Sicherung klaglos angenommen, jeden Posten
-    # mangels `ware` weggeworfen und mit „0 Posten eingelesen" ein LEERES
+    # mangels `ware` weggeworfen und mit null eingelesenen Posten ein LEERES
     # Lager gespeichert. Ein Lager ist Handarbeit, die kein Neuaufbau
     # zurueckholt.
     #
@@ -8684,15 +8428,14 @@ def main():
     pruefe("swap_symbol('zuklappen')" in _raffblock86
            and "swap_symbol('aufklappen')" in _raffblock86,
            'die Raffinerie-Ausbeute laesst sich ein- und ausklappen')
-    # ⚠⚠ **Diese Pruefung hat den Fehler bis zum 03.09.2026 FESTGESCHRIEBEN.**
-    # Sie verlangte woertlich `setting('lager_raffinerie_offen')` — also
-    # genau den falschen Aufruf: Die Funktion liefert einen PFAD und ruft
-    # `.strip()` auf dem Wert. Bei `True` warf das einen AttributeError und
-    # riss den Aufbau der ganzen Lager-Seite ab.
+    # ⚠⚠ `setting('lager_raffinerie_offen')` ist der falsche Aufruf: Die
+    # Funktion liefert einen PFAD und ruft `.strip()` auf dem Wert. Bei
+    # `True` wirft das einen AttributeError und reisst den Aufbau der ganzen
+    # Lager-Seite ab.
     #
     # Eine Pruefung, die eine Schreibweise vorschreibt, statt eine Wirkung zu
     # pruefen, haelt einen Fehler fest, sobald er einmal drin ist. Hier steht
-    # deshalb jetzt, WAS gelten muss: ein Ja/Nein wird mit dem Ja/Nein-Leser
+    # deshalb, WAS gelten muss: ein Ja/Nein wird mit dem Ja/Nein-Leser
     # gelesen, nie mit dem Pfad-Leser.
     pruefe(_raffblock86.count("set_setting('lager_raffinerie_offen'") >= 2
            and "setting_bool('lager_raffinerie_offen'" in _raffblock86,
@@ -8702,8 +8445,8 @@ def main():
 
     # 87. Das Fenster behaelt die eingestellte Groesse
     #
-    # ⭐ Wer mit langen Listen arbeitet, zieht das Fenster gross — und fand es
-    # bis 31.08.2026 bei jedem Start wieder auf 1160x380 zurueckgesetzt.
+    # ⭐ Wer mit langen Listen arbeitet, zieht das Fenster gross — und will es
+    # beim naechsten Start nicht wieder auf 1160x380 zurueckgesetzt finden.
     #
     # ⚠ Gemerkt wird **nur die Groesse, nie die Lage**: Eine gespeicherte
     # Position zeigt auf einem anderen Rechner ins Nichts (dieselbe Falle wie
@@ -8713,10 +8456,10 @@ def main():
     from scbp import main_window as _hf87
     from scbp import paths as _pf87
 
-    # ⚠⚠ **Geprueft wird die RECHNUNG, nicht das gezeichnete Fenster.** Die
-    # erste Fassung mass `winfo_width()` an einem echten Fenster — und fiel auf
-    # beiden Bau-Rechnern durch, obwohl der Code stimmte: Ein verstecktes
-    # Fenster meldet dort keine brauchbaren Masse (dieselbe Falle wie bei den
+    # ⚠⚠ **Geprueft wird die RECHNUNG, nicht das gezeichnete Fenster.**
+    # `winfo_width()` an einem echten Fenster fiele auf beiden Bau-Rechnern
+    # durch, obwohl der Code stimmt: Ein verstecktes Fenster meldet dort
+    # keine brauchbaren Masse (dieselbe Falle wie bei den
     # Pruefungen 59 und 60). Was zaehlt, ist ohnehin `gemerkte_groesse()`:
     # Genau ihr Ergebnis setzt `MainWindow.__init__` als Startgroesse.
     class _Schirm87:
@@ -8759,10 +8502,9 @@ def main():
     pruefe(_bg87 <= max(1024, _hf87.MIN_WIDTH) and _hg87 <= max(768, _hf87.MIN_HEIGHT),
            'eine Groesse groesser als der Bildschirm wird gedeckelt')
 
-    # ⚠⚠ … und die Deckelung darf die Mindestgroesse NICHT unterbieten. Genau
-    # daran ist der erste Bau-Lauf von v3.4.2 gescheitert: Der Bau-Rechner hat
-    # einen kleineren Schirm als jeder echte Nutzer, heraus kam 1024x768 —
-    # unterhalb des eigenen `minsize` von 1160x380.
+    # ⚠⚠ … und die Deckelung darf die Mindestgroesse NICHT unterbieten. Der
+    # Bau-Rechner hat einen kleineren Schirm als jeder echte Nutzer, heraus
+    # kaeme 1024x768 — unterhalb des eigenen `minsize` von 1160x380.
     for _eintrag87 in (None, '', '3000x1800', 'kaputt'):
         _pf87.set_setting(_hf87.SIZE_KEY, _eintrag87)
         _bk87, _hk87 = _hf87.remembered_size(_klein87)
@@ -8777,10 +8519,9 @@ def main():
     # Und der Weg von der Rechnung ins Fenster muss auch gegangen werden.
     _q87 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                 encoding='utf-8').read()
-    # ⚠⚠ Suchte bis zum 12.09.2026 den **kompletten Aufruf als Zeichenkette**
-    # (`'bildschirm.mittig(self.root, _b_start, _h_start)'`). Ein anderer
-    # Zeilenumbruch haette sie blind gemacht, und bei der Umbenennung des
-    # Moduls fiel sie um. Geprueft wird jetzt, ob die Aufbau-Funktion beide
+    # ⚠⚠ Keine Suche nach dem **kompletten Aufruf als Zeichenkette**: Ein
+    # anderer Zeilenumbruch macht sie blind, eine Umbenennung des Moduls
+    # wirft sie um. Geprueft wird, ob die Aufbau-Funktion beide
     # Dinge wirklich **nachschlaegt** — rekursiv, damit verschachtelte
     # Rueckrufe mitzaehlen (siehe Pruefung 187).
     from scbp import main_window as _hf87
@@ -8809,11 +8550,11 @@ def main():
 
     # 88. Kein Funktionsname zweimal in derselben Funktion
     #
-    # ⚠⚠ **Die Wurzel des Fehlers in v3.4.2.** Im Handelslager gab es zweimal
-    # `_leeren`: einmal den Helfer, der die Kinder eines Rahmens wegraeumt
-    # (**mit** Argument), und einmal — neu dazugebaut — das Leeren des ganzen
-    # Lagers (**ohne**). In Python gewinnt die spaetere Definition, ohne Warnung.
-    # Ergebnis: Jeder Aufbau der Liste starb mit „takes 0 positional arguments
+    # ⚠⚠ Gibt es in einer Funktion zweimal `_leeren` — einmal den Helfer,
+    # der die Kinder eines Rahmens wegraeumt (**mit** Argument), und einmal
+    # das Leeren des ganzen Lagers (**ohne**) —, gewinnt in Python die
+    # spaetere Definition, ohne Warnung. Ergebnis: Jeder Aufbau der Liste
+    # stirbt mit „takes 0 positional arguments
     # but 1 was given", die Seite blieb ohne Tabelle — und ging so an die Nutzer.
     #
     # Gesucht wird mit dem Syntaxbaum, nicht mit Textsuche: Nur so ist klar,
@@ -8853,17 +8594,16 @@ def main():
     # 89. Ein Ende meint den Auftrag — oder nur ein Zwischenziel
     #
     # ⚠⚠ **Beim Zurückziehen meldet das Spiel oft das ZIEL, nicht den
-    # Auftrag.** Angenommen wird „Retake Platforms From Nine Tails",
-    # zurückgezogen wird „Obere Plattform erreichen". Beide Meldungen tragen
+    # Auftrag.** Angenommen wird `Retake Platforms From Nine Tails`,
+    # zurückgezogen wird `Obere Plattform erreichen`. Beide Meldungen tragen
     # dieselbe MissionId — die Ziel-Meldung zusätzlich eine **ObjectiveId**.
     # Genau daran hängt der Unterschied.
     #
-    # Zweimal ist das hier schon schiefgegangen:
-    #   * v3.4.3 und davor: nur über den Titel gestrichen. Ein von Hand
-    #     abgebrochener Auftrag lief ewig weiter (Morkhan/KRT, 31.08.2026).
-    #   * v3.4.4: jedes unzuordenbare Ende räumte die ganze Liste. Damit
-    #     verschwand ein Auftrag, der im Spiel sichtbar aktiv war
-    #     (31.08.2026, mit Bildschirmfoto gemeldet).
+    # Zwei Fallen:
+    #   * Nur über den Titel streichen: Ein von Hand abgebrochener Auftrag
+    #     liefe ewig weiter.
+    #   * Bei jedem unzuordenbaren Ende die ganze Liste räumen: Dann
+    #     verschwindet ein Auftrag, der im Spiel sichtbar aktiv ist.
     #
     # Über alle 153 Protokolle gemessen: 473 Enden, davon 111 mit ObjectiveId
     # (Zwischenziele, die Mission lief jedes Mal weiter) und 362 echte
@@ -8891,17 +8631,17 @@ def main():
     _neu89 = _zeile89('Auftrag angenommen', 'Kill the king',
                       mid='33333333-3333-3333-3333-333333333333')
 
-    # a) Der Kern des Fehlers vom 31.08.2026.
+    # a) Der Kernfall: ein zurueckgezogenes Zwischenziel.
     _laeuft89 = _au89.open_from_text(_an89 + _ziel89 + _zielweg89)
     pruefe(len(_laeuft89) == 1 and 'Retake Platforms' in _laeuft89[0],
            'ein zurueckgezogenes ZIEL laesst den Auftrag stehen')
 
-    # b) Und er reisst auch keinen zweiten mit — das war v3.4.4.
+    # b) Und er reisst auch keinen zweiten mit.
     pruefe(len(_au89.open_from_text(_an89 + _neu89 + _zielweg89)) == 2,
            'und raeumt schon gar nicht die ganze Liste')
 
     # c) Der echte Abbruch verschwindet trotzdem — ueber die MissionId, auch
-    #    wenn der Endtitel voellig anders lautet (Morkhans Fall).
+    #    wenn der Endtitel voellig anders lautet.
     _nach89 = _au89.open_from_text(_an89 + _neu89 + _weg89)
     pruefe(len(_nach89) == 1 and 'Kill the king' in _nach89[0],
            'ein echter Abbruch trifft ueber die MissionId genau seinen Auftrag')
@@ -8912,8 +8652,8 @@ def main():
            'ein laufender Auftrag bleibt stehen')
 
     # d) Ohne die Kennungen — fremdes Format, aeltere Spielfassung — muss
-    #    weiterhin der Titel entscheiden. Sonst faellt das Werkzeug bei einer
-    #    kuenftigen Log-Aenderung still auf „nichts geht mehr" zurueck.
+    #    weiterhin der Titel entscheiden. Sonst geht bei einer kuenftigen
+    #    Log-Aenderung still gar nichts mehr.
     _alt89 = 'Added notification "Auftrag angenommen: Secure Our Airspace: " [1]' + '\n'
     _altweg89 = 'Added notification "Auftrag abgeschlossen: Secure Our Airspace: " [2]' + '\n'
     pruefe(len(_au89.open_from_text(_alt89)) == 1
@@ -8934,16 +8674,15 @@ def main():
 
     # f) Und das Hauptprogramm darf NICHT pauschal raeumen.
     #
-    # ⚠ Bis zum 31.08.2026 stand hier eine Textsuche nach `offen.clear()` im
-    # Quelltext. Die hat das falsche geprueft: Sie verbot ein **Wort**, nicht
-    # ein **Verhalten** — und schlug damit auch bei einem Raeumen an, das
-    # richtig ist. Geprueft wird jetzt, was herauskommt.
+    # ⚠ Keine Textsuche nach `offen.clear()` im Quelltext: Sie verbietet ein
+    # **Wort**, nicht ein **Verhalten** — und schluege auch bei einem Raeumen
+    # an, das richtig ist. Geprueft wird, was herauskommt.
     #
     # Der Unterschied, um den es geht:
     #
     # | Auslöser | räumen? | warum |
     # |---|---|---|
-    # | Ende, das sich keinem Auftrag zuordnen lässt | **nein** | geraten — das war v3.4.4 |
+    # | Ende, das sich keinem Auftrag zuordnen lässt | **nein** | waere geraten |
     # | Spielwelt verlassen (`LEFT_GAME`) | **ja** | das Spiel sagt es selbst |
     _fremd89 = _zeile89('Auftrag abgeschlossen', 'Nie angenommener Auftrag',
                         mid='99999999-9999-9999-9999-999999999999')
@@ -8952,9 +8691,9 @@ def main():
 
     # g) Ausloggen dagegen raeumt — und zwar alles.
     #
-    # Gemeldet am 31.08.2026: Star Citizen war nicht einmal gestartet, und in
-    # der Leiste stand ein Auftrag von vorgestern. Beim Verlassen der
-    # Spielwelt meldet das Spiel **kein** Auftrags-Ende, das Auftragsbuch ist
+    # Sonst steht ein Auftrag von vorgestern in der Leiste, obwohl Star
+    # Citizen nicht einmal laeuft. Beim Verlassen der Spielwelt schreibt das
+    # Spiel **kein** Auftrags-Ende, das Auftragsbuch ist
     # trotzdem leer. An 23 Protokollen gemessen: 39 Marker, kein einziger
     # Auftrag hat eines ueberlebt.
     _raus89 = ('<2026-08-30T12:27:22.352Z> [CSessionManager::RequestFrontEnd]'
@@ -8987,16 +8726,15 @@ def main():
 
     # 90. Der Seitenwechsel zeichnet nur, wenn es etwas zu zeichnen gibt
     #
-    # ⚠⚠ **Am 31.08.2026 gemeldet: „reagiert etwas langsamer".** Gemessen kam
-    # heraus: Der Wechsel auf die Bauplan-Liste kostete **642 ms**, obwohl die
-    # Seite laengst gebaut war. Ursache war die Routine, die beim erneuten
-    # Anzeigen die Filter zuruecksetzt — sie zeichnete **immer** alle 738
-    # Zeilen neu, auch wenn gar kein Filter gesetzt war. Und `set('')` auf ein
-    # bereits leeres Suchfeld loest den `trace` trotzdem aus.
+    # ⚠⚠ Die Routine, die beim erneuten Anzeigen die Filter zuruecksetzt,
+    # darf nicht **immer** alle 738 Zeilen neu zeichnen — gemessen kostet das
+    # **642 ms** je Wechsel auf die Bauplan-Liste, obwohl die Seite laengst
+    # gebaut ist. Und `set('')` auf ein bereits leeres Suchfeld loest den
+    # `trace` trotzdem aus.
     #
-    # Jetzt: 0,4 ms, wenn nichts gesetzt war. ⚠ Der Zweck darf dabei nicht
-    # verloren gehen — war etwas gesetzt, MUSS weiter zurueckgestellt werden,
-    # sonst steht der Suchbegriff von vorhin wieder da (29.08.2026 gemeldet).
+    # Ohne gesetzten Filter: 0,4 ms. ⚠ Der Zweck darf dabei nicht verloren
+    # gehen — war etwas gesetzt, MUSS weiter zurueckgestellt werden, sonst
+    # steht der Suchbegriff von vorhin wieder da.
     print()
     print('90. Der Seitenwechsel zeichnet nur, wenn noetig')
     _q90 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
@@ -9023,14 +8761,12 @@ def main():
 
     # 91. Ein Auftrag steht nur EINMAL im Overlay
     #
-    # ⚠⚠ **Am 31.08.2026 mit Bildschirmfoto gemeldet: „wieso sehe ich ne quest
-    # jetzt 2 mal".** Derselbe Satz stand in der Auftragsleiste und direkt
-    # darunter noch einmal als Hinweiszeile. Der Watcher schickte beides: die
-    # Leiste (`auftraege`) und den Hinweis (`hinweis`) — mit demselben Text.
+    # ⚠⚠ Derselbe Satz darf nicht in der Auftragsleiste und direkt darunter
+    # noch einmal als Hinweiszeile stehen — schickt der Watcher die Leiste
+    # (`auftraege`) und den Hinweis (`hinweis`) mit demselben Text.
     #
-    # ⚠ Geprueft wird die **Anzeige**, nicht der Quelltext. Der Fehler war auf
-    # einem Bild zu sehen und im Code nicht: Beide Aufrufe fuer sich sind
-    # richtig, erst zusammen ergeben sie die Dopplung.
+    # ⚠ Geprueft wird die **Anzeige**, nicht der Quelltext. Beide Aufrufe
+    # fuer sich sind richtig, erst zusammen ergeben sie die Dopplung.
     print()
     print('91. Ein Auftrag steht nur EINMAL im Overlay')
     import sc_bp_watcher as _w91
@@ -9099,7 +8835,7 @@ def main():
     # `ObjectiveId`, nie über die Formulierung.
     #
     # ⚠ **Nicht auf den Wortlaut hören.** Auf Deutsch heißt die Ziel-Annahme
-    # „Neuer Auftrag" — wortgleich mit einer Auftragsmeldung. Wer danach geht,
+    # `Neuer Auftrag` — wortgleich mit einer Auftragsmeldung. Wer danach geht,
     # zählt Ziele als Aufträge.
     print()
     print('92. Was gerade zu tun ist — Zwischenziele unter dem Auftrag')
@@ -9150,7 +8886,7 @@ def main():
     pruefe(_z92.absorb([]) is False,
            'und meldet nichts, wenn nichts kam')
 
-    # d) ⚠⚠ **Das war der Fehler vom 31.08.2026.** Ein zurueckgezogenes ZIEL
+    # d) ⚠⚠ **Der Kernfall.** Ein zurueckgezogenes ZIEL
     #    darf den Auftrag nicht mitreissen — die beiden Ebenen muessen auch
     #    hier getrennt bleiben.
     _text92 = (_mld92('Auftrag angenommen', 'Retake Platforms')
@@ -9204,22 +8940,20 @@ def main():
            'und der Rest wird gezaehlt, nicht verschwiegen')
 
 
-    # 93. „Bestand zurücksetzen" sagt immer, was passiert ist
+    # 93. Bestand zurücksetzen sagt immer, was passiert ist
     #
-    # ⚠⚠ **Am 31.08.2026 aus einem Nutzerbericht** (Linux, CachyOS, v3.4.2,
-    # „Inventory 0 blueprints"):
+    # ⚠⚠ Wer noch keinen einzigen Bauplan hat, hat auch keine Bestandsdatei:
     #
     #     seiten.bestand.zuruecksetzen
     #     FileNotFoundError: .../Bauplaene/bestand.json
     #
-    # Wer noch keinen einzigen Bauplan hat, hat auch keine Bestandsdatei. Das
-    # `os.remove` warf, der Fehler ging still in die Diagnose — und auf dem
-    # Bildschirm passierte nach dem roten Knopf und der Warnfrage **nichts**.
-    # Kein Haken, keine Meldung. Von einem kaputten Knopf nicht zu
-    # unterscheiden, obwohl der Zustand genau der gewünschte war.
+    # Wirft das `os.remove` und geht der Fehler still in die Diagnose,
+    # passiert nach dem roten Knopf und der Warnfrage **nichts** — kein
+    # Haken, keine Meldung. Von einem kaputten Knopf nicht zu unterscheiden,
+    # obwohl der Zustand genau der richtige ist.
     #
     # ⚠ **Geprüft wird das Modul, nicht die Oberfläche.** Genau dafür ist die
-    # Entscheidung aus `pages.py` herausgezogen worden: So läuft die Prüfung
+    # Logik aus `pages.py` herausgezogen: So läuft die Prüfung
     # ohne Fenster — auf jedem System und im Bau-Lauf.
     print()
     print('93. „Bestand zuruecksetzen" sagt immer, was passiert ist')
@@ -9232,7 +8966,7 @@ def main():
     pruefe(_bd93.reset() is None, 'das Zuruecksetzen meldet Erfolg')
     pruefe(not os.path.exists(_datei93), 'und die Datei ist weg')
 
-    # ⭐ Der gemeldete Fall: noch einmal, jetzt ohne Datei.
+    # ⭐ Der Kernfall: noch einmal, jetzt ohne Datei.
     pruefe(_bd93.reset() is None,
            'ein zweites Mal ist ebenfalls Erfolg — „war schon weg" ist weg')
 
@@ -9242,7 +8976,7 @@ def main():
            'danach ist der Bestand wirklich leer')
 
     # ⚠ Eine echte Stoerung muss dagegen zurueckkommen — sonst schluckt der
-    # Knopf ein „keine Rechte" und behauptet Erfolg.
+    # Knopf fehlende Rechte und behauptet Erfolg.
     _echt93 = os.remove
     os.remove = _machs93 = lambda *_a, **_k: (_ for _ in ()).throw(
         PermissionError(13, 'kein Zugriff'))
@@ -9266,11 +9000,10 @@ def main():
 
     # 94. Der Bericht sagt selbst, ob die Log-Erkennung greift
     #
-    # ⚠⚠ **Weil Rueckfragen oft nicht gehen.** Am 31.08.2026 kam ein Bericht
-    # mit „462 Protokolle" und „0 Baupläne" — ohne Absender, ohne Nachricht.
-    # Daraus war NICHT zu erkennen, ob die Erkennung bei dem Menschen versagt
-    # oder ob er einfach neu im Spiel ist. Genau das ist aber der Unterschied
-    # zwischen „alles in Ordnung" und „das Werkzeug ist fuer ihn wertlos".
+    # ⚠⚠ **Weil Rueckfragen oft nicht gehen.** Aus 462 Protokollen und 0
+    # Bauplaenen allein ist NICHT zu erkennen, ob die Erkennung versagt oder
+    # der Spieler einfach neu ist. Genau das ist aber der Unterschied
+    # zwischen alles in Ordnung und einem wertlosen Werkzeug.
     #
     # | Was dasteht | Was es heisst |
     # |---|---|
@@ -9287,21 +9020,21 @@ def main():
     _bd94.save(_bd94.empty())
 
     # ⚠⚠⚠ **Die erste Zahl wird gegen eine FESTE Liste geprueft, nicht gegen
-    # `log_backups()`.** Bis zum 12.09.2026 stand hier
+    # `log_backups()`.** Eine Zeile wie
     #
     #     pruefe(_z94[0] == len(w.paths.log_backups()), ...)
     #
-    # — beide Seiten holten ihren Wert aus derselben Funktion. Die Pruefung
-    # konnte gar nicht rot werden; sie verglich die Funktion mit sich selbst.
-    # Auf einem Rechner ohne Spiel war es zusaetzlich `0 == 0`.
+    # holt beide Seiten aus derselben Funktion und kann gar nicht rot werden;
+    # sie vergleicht die Funktion mit sich selbst. Auf einem Rechner ohne
+    # Spiel waere es zusaetzlich `0 == 0`.
     #
-    # ⭐ Der Erwartungswert steht jetzt HIER im Test (drei erfundene Pfade) und
+    # ⭐ Der Erwartungswert steht deshalb HIER im Test (drei erfundene Pfade) und
     # nicht in der geprueften Funktion. Damit faellt auf, wenn der Bericht
     # anfaengt, eine andere Quelle zu zaehlen oder gar nicht mehr zu zaehlen.
     # Nichtleer ist Absicht: Gegen `0` waere jede kaputte Zaehlung unauffaellig.
     # ⚠ **Mehrere Groessen, nicht nur eine.** Eine einzige Probe (3 -> 3) liesse
-    # eine fest eingebaute 3 durchgehen; die Gegenprobe „vier Pfade, erwartet
-    # drei" zeigt nur, dass eine absichtlich falsche Erwartung scheitert. Erst
+    # eine fest eingebaute 3 durchgehen; die Gegenprobe (vier Pfade, erwartet
+    # drei) zeigt nur, dass eine absichtlich falsche Erwartung scheitert. Erst
     # eine Reihe belegt, dass wirklich GEZAEHLT wird.
     _echt94 = w.paths.log_backups
     _gemessen94 = []
@@ -9358,18 +9091,16 @@ def main():
     _bd94.save(_bd94.empty())
 
 
-    # 95. Rot heisst „weg", nicht „irgendwas Wichtiges"
+    # 95. Rot heisst weg, nicht irgendwas Wichtiges
     #
-    # ⚠⚠ **Am 31.08.2026 gemeldet von Haldjas** — zwei Sachen auf einmal:
+    # ⚠⚠ Zwei Regeln:
     #
-    # 1. Es gab **zwei** Knoepfe, die die Protokolle neu lesen: einer unter
-    #    „Erkennung" (wirkte erst beim naechsten Start) und einer unter
-    #    „Bestand" (sofort). Der erste konnte strikt weniger. Wer ihn
-    #    erwischte, glaubte, das Werkzeug koenne es nicht.
-    # 2. Der verbliebene war **rot** — und direkt darunter steht das ebenfalls
-    #    rote „Bestand zuruecksetzen", das wirklich loescht. Haldjas drueckte
-    #    den harmlosen, und es brauchte einen Zuruf hinterher. Zwei
-    #    Bedeutungen fuer dieselbe Farbe heissen: Die Farbe warnt nicht mehr.
+    # 1. Es gibt nur **einen** Knopf, der die Protokolle neu liest. Ein
+    #    zweiter, der strikt weniger kann (wirkt erst beim naechsten Start),
+    #    liesse glauben, das Werkzeug koenne es nicht.
+    # 2. Er ist nicht **rot** — direkt darunter steht das rote „Bestand
+    #    zuruecksetzen", das wirklich loescht. Zwei Bedeutungen fuer dieselbe
+    #    Farbe heissen: Die Farbe warnt nicht mehr.
     #
     # ⚠ Nachgesehen, nicht geglaubt: `neu_einlesen` landet ueber den Watcher
     # bei `bestand.hinzufuegen` — und das LEGT AN. Nichts wird entfernt,
@@ -9435,9 +9166,8 @@ def main():
 
     # 96. Das Ergebnis des Einlesens geht nicht in der Leiste unter
     #
-    # ⚠⚠ **Am 31.08.2026 gemeldet:** „waere eine Meldung mit Fenster
-    # sinnvoller, in der Leiste steht es zu kurz oder gar nicht." Die Fusszeile
-    # zeigt vier Sekunden und ist dann leer — und genau in diesen vier Sekunden
+    # ⚠⚠ Das Ergebnis kommt in einem Fenster. Die Fusszeile zeigt vier
+    # Sekunden und ist dann leer — und genau in diesen vier Sekunden
     # sieht niemand hin, der gerade einen Lauf ueber hunderte Protokolle
     # angestossen hat. Er hat den Knopf gedrueckt und wartet.
     #
@@ -9471,7 +9201,7 @@ def main():
 
     # c) ⚠ Und sie setzt IMMER auch die Leiste, bevor sie ein Fenster
     #    versucht. Ohne das waere ein zugeklapptes Hauptfenster gleich­
-    #    bedeutend mit „Ergebnis weg".
+    #    bedeutend mit einem verlorenen Ergebnis.
     _bz96 = _code96.split('def _bescheid_zeigen')[1].split(chr(10) + '    def ')[0]
     pruefe(_bz96.index('_status_setzen') < _bz96.index('show_result'),
            'die Leiste wird gesetzt, BEVOR ein Fenster versucht wird')
@@ -9487,23 +9217,21 @@ def main():
     pruefe('only_ok' in _hq96 and 'if not only_ok:' in _hq96,
            'beim Bescheid entfaellt der zweite Knopf — es gibt nichts zu waehlen')
 
-    # e) Und die Zusage in der Leiste darf nicht mehr „steht in der Leiste"
-    #    versprechen, wenn ein Fenster kommt.
+    # e) Und die Zusage in der Leiste darf nicht auf die Leiste verweisen,
+    #    wenn ein Fenster kommt.
     pruefe('Leiste' not in _sp96.t('s_be_neu_los'),
            'der Zwischenstand verspricht nicht mehr die Leiste')
 
 
     # 97. Von der Herstellung zum Bauplan — und den Knopf auch finden
     #
-    # ⚠⚠ **Beides von Bushwick4712 (KRT) am 31.08.2026.**
+    # ⚠⚠ Zwei Dinge:
     #
-    # 1. „Ich kann das nicht bauen — woher bekomme ich den Bauplan?" Die
-    #    Antwort stand schon im Werkzeug, aber auf einer anderen Seite: Man
-    #    musste wissen, dass es sie gibt, und den Namen von Hand
-    #    hinuebertippen.
-    # 2. Den Knopf dorthin hat er **nicht gefunden**. Es war ein Symbol am
-    #    rechten Rand der Zeile, ohne Wort. Ein Symbol erklaert sich nur dem,
-    #    der es gebaut hat.
+    # 1. Woher bekomme ich den Bauplan? Die Antwort steht auf einer anderen
+    #    Seite; ohne Sprung muesste man wissen, dass es sie gibt, und den
+    #    Namen von Hand hinuebertippen.
+    # 2. Der Knopf dorthin muss zu finden sein — ein Symbol am rechten Rand
+    #    der Zeile, ohne Wort, erklaert sich nur dem, der es gebaut hat.
     print()
     print('97. Von der Herstellung zum Bauplan — und den Knopf auch finden')
     from scbp import pages as _se97, language as _sp97
@@ -9572,8 +9300,8 @@ def main():
     # c) Und derselbe Weg fuer einen ganzen AUFTRAG.
     #
     # „Was bringt am meisten?" nennt einen Auftrag mit einer Zahl daneben —
-    # die naechste Frage ist immer „und welche Bauplaene sind das?". Die Liste
-    # kann darauf filtern, war von dort aus aber nicht erreichbar.
+    # die naechste Frage ist immer, welche Bauplaene das sind. Die Liste kann
+    # darauf filtern und ist von dort aus erreichbar.
     pruefe(hasattr(_bf97.Bestandsfenster, 'zum_auftrag'),
            'die Liste laesst sich auch auf einen ganzen Auftrag stellen')
     _auf97 = sorted({(q.get('auftrag') or '').strip()
@@ -9609,21 +9337,18 @@ def main():
     # d) Der Hinweis im leeren Suchfeld — der EINZIGE Ort, an dem steht, dass
     #    die Liste auch Auftraege findet.
     #
-    # ⚠⚠ Die Auftragssuche gab es seit v3.12.0, und niemand hat sie gefunden:
-    # Das Feld war ein leeres Kaestchen. Gemeldet von Zwaersch am 09.09.2026,
-    # mit dem Vorschlag, dafuer einen eigenen Reiter zu bauen. Faellt der
-    # Hinweis bei einem Umbau der Werkzeugleiste weg, ist die Funktion wieder
-    # unsichtbar — und das merkt niemand, weil nichts kaputtgeht.
+    # ⚠⚠ Ohne Hinweis ist das Feld ein leeres Kaestchen, und die
+    # Auftragssuche findet niemand. Faellt der Hinweis bei einem Umbau der
+    # Werkzeugleiste weg, ist die Funktion unsichtbar — und das merkt
+    # niemand, weil nichts kaputtgeht.
     #
     # ⚠ Geprueft wird die **Wirkung** (ist er zu sehen?), nicht die
     # Schreibweise im Quelltext — eine Pruefung, die einen Aufruf
     # festschreibt, haelt beim naechsten Mal den Fehler fest (Pruefung 86).
     #
-    # ⚠⚠ Umgestellt am 12.09.2026: Bis dahin fragte sie das LABEL, das ueber
-    # dem Feld lag (`platzhalter_lbl.winfo_ismapped()`). Genau dieses Label
-    # war der Fehler — es fing die Mausklicks ab, und man musste NEBEN den
-    # Text klicken, um ins Feld zu kommen. Der Hinweis steht jetzt im Feld
-    # selbst.
+    # ⚠⚠ Der Hinweis steht im Feld selbst, nicht als LABEL darueber — ein
+    # Label finge die Mausklicks ab, und man muesste NEBEN den Text klicken,
+    # um ins Feld zu kommen.
     #
     # ⭐ Die Pruefung fragt deshalb den **sichtbaren Feldinhalt** ab. Das ist
     # genau das, was der Nutzer sieht — und es haelt auch, wenn der Hinweis
@@ -9658,24 +9383,21 @@ def main():
            'der Knopf steht nur, wo der Bauplan fehlt UND es ihn irgendwo gibt')
 
 
-    # 98. Die Titelleiste ist wirklich dunkel — nicht nur „erfolgreich gesetzt"
+    # 98. Die Titelleiste ist wirklich dunkel — nicht nur erfolgreich gesetzt
     #
-    # ⚠⚠ **v3.6.0 hat genau hier gelogen.** `DwmSetWindowAttribute` gab S_OK
-    # zurueck, das Werkzeug hielt sich fuer fertig — und auf dem Bildschirm
-    # sass weiter eine weisse Leiste. Am 31.08.2026 mit Bildschirmfoto
-    # gemeldet: „Meine Leiste ist weiss."
+    # ⚠⚠ `DwmSetWindowAttribute` kann S_OK zurueckgeben, waehrend auf dem
+    # Bildschirm weiter eine weisse Leiste sitzt. Zwei Fallen, beide erst
+    # durch Nachmessen sichtbar:
     #
-    # Zwei Dinge kamen zusammen, beide erst durch Nachmessen sichtbar:
-    #
-    # 1. Der Aufruf **vor** dem ersten Anzeigen ging ins Leere — zu dem
+    # 1. Der Aufruf **vor** dem ersten Anzeigen geht ins Leere — zu dem
     #    Zeitpunkt gibt es das Fenster-Handle noch gar nicht (`GetParent`
-    #    liefert 0), und er meldete das nicht.
-    # 2. Beim Anzeigen wurde die Einstellung zwar gesetzt, aber Windows
+    #    liefert 0), und er sagt das nicht.
+    # 2. Beim Anzeigen wird die Einstellung zwar gesetzt, aber Windows
     #    zeichnet einen Rahmen, der schon steht, nicht von selbst neu.
     #
     # ⚠ **Deshalb prueft das hier den ZUSTAND, nicht den Rueckgabewert.** Die
-    # Einstellung wird zurueckgelesen. Ein „hat geklappt" vom System war ja
-    # gerade das, was in die Irre gefuehrt hat.
+    # Einstellung wird zurueckgelesen. Der Erfolgswert des Systems ist gerade
+    # das, was in die Irre fuehrt.
     print()
     print('98. Die Titelleiste ist wirklich dunkel')
     from scbp import titlebar as _tl98
@@ -9747,14 +9469,12 @@ def main():
         except Exception:
             pass
 
-    # ⭐⭐ Der Merker steht ERST nach dem Erfolg (Fund vom 02.09.2026)
+    # ⭐⭐ Der Merker steht ERST nach dem Erfolg
     #
-    # Bis dahin setzte `_once` ihn eine Zeile zu frueh — vor dem Versuch.
-    # Lieferte `GetParent` in diesem Moment noch 0, galt das Fenster trotzdem
-    # als erledigt und bekam **nie wieder** einen Versuch: dauerhaft helle
-    # Leiste. Weil es ein Wettlauf war, traf es mal das eine Fenster und mal
-    # keines — am laufenden Programm gemessen: drei Fenster mit gesetztem
-    # Attribut, das sichtbare Hauptfenster mit 0.
+    # Setzt `_once` ihn vor dem Versuch und liefert `GetParent` in diesem
+    # Moment noch 0, gilt das Fenster trotzdem als erledigt und bekommt
+    # **nie wieder** einen Versuch: dauerhaft helle Leiste. Weil es ein
+    # Wettlauf ist, trifft es mal das eine Fenster und mal keines.
     #
     # ⚠ Bewusst OHNE echtes Fenster und ohne Windows: Der Fehler steckt in der
     # Reihenfolge, nicht in der Systemschnittstelle. So greift die Pruefung
@@ -9804,22 +9524,21 @@ def main():
 
     # 98c. Das Fenster baut NUR die gewuenschte Seite — und zeigt sich fertig
     #
-    # ⚠⚠ Gemeldet von Haldjas (pr0): „Er braucht eben recht lang, um die Icons
-    # und co zu laden, wenn man die Einstellungen oeffnet." Zwei Ursachen, beide
-    # am 02.09.2026 gefunden — und beide standen laengst im Fehlerbericht:
+    # ⚠⚠ Das Oeffnen der Einstellungen darf nicht traege sein. Zwei Fallen,
+    # beide im Fehlerbericht abzulesen:
     #
     #   Seite liste: steht (205 ms)     <- gar nicht angefordert
-    #   Seite allgemein: steht (7 ms)   <- das war der Wunsch
+    #   Seite allgemein: steht (7 ms)   <- die angeforderte Seite
     #
-    # 1. Der Konstruktor baute fest `oeffnen('liste')`, der Aufrufer oeffnete
-    #    die gewollte Seite erst danach. Wer die Einstellungen aufmachte,
-    #    wartete auf den Aufbau der ganzen Bauplan-Liste.
-    # 2. Ein `Toplevel` steht ab der Erzeugung auf dem Bildschirm — man sah dem
-    #    Fenster beim Bauen zu. Deshalb `withdraw()` am Anfang, `deiconify()`
-    #    als letzte Zeile.
+    # 1. Baut der Konstruktor fest `oeffnen('liste')` und der Aufrufer
+    #    oeffnet die angeforderte Seite erst danach, wartet man beim Oeffnen der
+    #    Einstellungen auf den Aufbau der ganzen Bauplan-Liste.
+    # 2. Ein `Toplevel` steht ab der Erzeugung auf dem Bildschirm — man saehe
+    #    dem Fenster beim Bauen zu. Deshalb `withdraw()` am Anfang,
+    #    `deiconify()` als letzte Zeile.
     #
     # ⚠ Die Zeit war nie das Problem: 20 Symbolbilder brauchen 8 ms. Wer hier
-    # etwas „optimiert", sucht an der falschen Stelle — es ging um eine Seite
+    # etwas optimiert, sucht an der falschen Stelle — es ging um eine Seite
     # zu viel und um den Zeitpunkt des Anzeigens.
     print()
     print('98c. Das Fenster baut nur die gewuenschte Seite')
@@ -9869,10 +9588,10 @@ def main():
     #
     # ⚠⚠ **Der groesste Einzelposten beim Oeffnen der Bauplan-Liste.**
     # `recipe_raw()` rief bei JEDEM Nachschlag `load()`, und das macht ein
-    # `os.stat`. Einzeln belanglos, ueber den Katalog toedlich: am 02.09.2026
-    # gemessen **738 Nachschlaege = 51 ms, davon 50 ms allein `load()`** —
-    # der reine Verzeichnis-Zugriff kostete 0,1 ms. Nach der Drosselung
-    # (`_RAW_FRESH_S`) waren es 0,7 ms.
+    # `os.stat`. Einzeln belanglos, ueber den Katalog toedlich: gemessen
+    # **738 Nachschlaege = 51 ms, davon 50 ms allein `load()`** — der reine
+    # Verzeichnis-Zugriff kostet 0,1 ms. Mit der Drosselung (`_RAW_FRESH_S`)
+    # sind es 0,7 ms.
     #
     # ⚠ Gezaehlt wird, nicht gestoppt: Eine Zeitmessung im Selbsttest haengt
     # von der Tagesform des Rechners ab und wird frueher oder spaeter zur
@@ -9926,13 +9645,12 @@ def main():
     #
     # ⚠ Er baute alle Seiten im Hintergrund vor und hielt Tk dabei **1,7 s**
     # am Stueck fest (17 Seiten; `wasistneu` 181 ms, `diagnose` 162 ms).
-    # Getroffen wurde jeweils das, was der Nutzer gerade anfasste — gemeldet
-    # mal als traege Seitenleiste, mal als traege Bauplan-Liste. Beschleunigt
-    # hat er nie etwas, er verlagerte nur (steht so in seiner eigenen
-    # Beschreibung). Abgeschaltet am 02.09.2026 auf Ansage.
+    # Getroffen wird jeweils das, was der Nutzer gerade anfasst — mal die
+    # Seitenleiste, mal die Bauplan-Liste. Beschleunigt hat er nie etwas, er
+    # verlagert nur.
     #
     # ⚠ Diese Pruefung verbietet ihn NICHT — sie sorgt dafuer, dass ein
-    # Wiedereinschalten eine bewusste Entscheidung ist und nicht aus Versehen
+    # Wiedereinschalten bewusst geschieht und nicht aus Versehen
     # passiert. Wer ihn zurueckholt, muss zuerst das Zeichnen der angeklickten
     # Seite sicherstellen und diese Pruefung mit anfassen.
     print()
@@ -9953,11 +9671,10 @@ def main():
 
     # 99. Man sieht, welcher Bauplan in der Herstellung aufgeklappt ist
     #
-    # ⚠⚠ **Am 31.08.2026 gemeldet:** „nicht klar genug, welcher Bauplan bei
-    # Herstellung ausgewaehlt ist, steht auch nirgends." Die aufgeklappte
-    # Zeile sah aus wie jede andere, und der Rezeptkasten darunter ist lang —
-    # Zutaten, Herstellzeit, Regler, Werte. Wer bis dorthin gerollt hatte,
-    # wusste nicht mehr, wovon er die Zutaten liest.
+    # ⚠⚠ Sieht die aufgeklappte Zeile aus wie jede andere, ist nicht klar,
+    # welcher Bauplan ausgewaehlt ist — der Rezeptkasten darunter ist lang
+    # (Zutaten, Herstellzeit, Regler, Werte), und wer bis dorthin gerollt
+    # hat, weiss nicht mehr, wovon er die Zutaten liest.
     #
     # ⚠ Zwei Antworten, beide noetig: Die Zeile hebt sich ab UND der Name
     # steht noch einmal ueber dem Rezept. Nur das Hervorheben haette nichts
@@ -9978,7 +9695,7 @@ def main():
     # ⚠ Der Name im Kasten: geprueft wird, dass er VOR den Zutaten steht.
     # Dahinter waere er wertlos — dann hat man ihn erst gefunden, wenn man
     # ihn nicht mehr braucht.
-    # ⚠ Seit rc5 steht dort `theme.FIELD` statt des Farbwerts (scbp/theme.py).
+    # ⚠ Dort steht `theme.FIELD` statt des Farbwerts (scbp/theme.py).
     _kopf99 = _code99.find("text=eintrag['name'], bg=theme.FIELD")
     _zutat99 = _code99.find('rez = herst_modul.recipe')
     pruefe(_kopf99 > 0, 'der Name steht noch einmal ueber dem Rezept')
@@ -9991,16 +9708,14 @@ def main():
 
     # 100. Die Tastenkombination — und was sie NICHT tut
     #
-    # ⚠⚠ **Nutzerwunsch vom 31.08.2026:** „Hotkey um die Bauplanliste
-    # aufzurufen, da man in SC erst raustabben muss um dann mit der Maus das
-    # Fenster zu suchen und zu klicken, da die Maus nicht sichtbar ist ueber
-    # dem SC Fenster."
+    # ⚠⚠ Die Tastenkombination ruft die Bauplanliste auf, ohne dass man aus
+    # SC heraustabben und das Fenster mit der Maus suchen muss.
     #
     # ⚠⚠ **Es wird NICHT mitgehoert.** Angemeldet wird genau EINE Kombination
     # (`RegisterHotKey` unter Windows, `XGrabKey` unter X11); alles andere
     # sieht das Programm nie. Das ist der Unterschied zu einem Tastatur-Haken —
-    # und der Grund, warum nur dieser Weg in Frage kam. Diese Pruefung haelt
-    # das fest, damit es niemand spaeter „vereinfacht".
+    # und der Grund, warum nur dieser Weg in Frage kommt. Diese Pruefung haelt
+    # das fest, damit es niemand spaeter vereinfacht.
     print()
     print('100. Die Tastenkombination — und was sie NICHT tut')
     from scbp import hotkey as _hk100
@@ -10073,14 +9788,11 @@ def main():
            'gefragt wird im Tk-Takt, im selben wie die uebrige Warteschlange')
 
 
-    # ⭐⭐ Und der Fehler, der am 31.08.2026 gemeldet wurde: „bei mir geht
-    # er nicht".
-    #
-    # ⚠⚠ **Angemeldet war alles richtig — der Druck kam nur nie an.**
-    # `RegisterHotKey(None, ...)` liefert eine FADEN-Nachricht. Lief die im
-    # Tk-Faden, raeumte Tk sie mit seiner eigenen Pumpe
+    # ⭐⭐ ⚠⚠ **Richtig angemeldet heisst nicht, dass der Druck ankommt.**
+    # `RegisterHotKey(None, ...)` liefert eine FADEN-Nachricht. Laeuft die im
+    # Tk-Faden, raeumt Tk sie mit seiner eigenen Pumpe
     # (`PeekMessage(NULL, 0, 0, PM_REMOVE)`) weg, bevor der 300-ms-Takt
-    # nachsah — eine Faden-Nachricht hat kein Fenster, also stellt
+    # nachsieht — eine Faden-Nachricht hat kein Fenster, also stellt
     # `DispatchMessage` sie niemandem zu, sie ist einfach fort. Gemessen:
     # ohne Tk 3 von 3 angekommen, mit laufendem Tk 0 von 3.
     _hq100 = open(os.path.join(WURZEL, 'scbp', 'hotkey.py'),
@@ -10096,12 +9808,11 @@ def main():
     # `RegisterHotKey` noch die Schlange, um die es hier geht. Der Weg dorthin
     # (X11) ist ein anderer und war nie betroffen.
     #
-    # ⚠⚠ **Kein `mainloop()`, sondern `update()` im Takt.** Die erste Fassung
-    # dieser Pruefung rief `mainloop()` — und blieb auf dem Windows-Laeufer von
-    # GitHub haengen, wo kein Mensch am Bildschirm sitzt (Bau-Lauf v3.8.1, nach
-    # elf Minuten abgebrochen). `update()` pumpt dieselbe Nachrichtenschlange,
-    # um die es hier geht, und kommt garantiert zurueck. Der ganze Selbsttest
-    # macht es ueberall sonst genauso — diese Pruefung war die Ausnahme.
+    # ⚠⚠ **Kein `mainloop()`, sondern `update()` im Takt.** `mainloop()`
+    # bleibt auf dem Windows-Laeufer von GitHub haengen, wo kein Mensch am
+    # Bildschirm sitzt. `update()` pumpt dieselbe Nachrichtenschlange, um die
+    # es hier geht, und kommt garantiert zurueck. Der ganze Selbsttest macht
+    # es ueberall sonst genauso.
     if sys.platform.startswith('win'):
         import ctypes as _ct100
         import tkinter as _tkk100
@@ -10143,19 +9854,15 @@ def main():
 
     # 101. Das Overlay laesst sich in eine Ecke legen — und klappt schmal ein
     #
-    # ⚠⚠ **Am 31.08.2026 gemeldet:** „stoert mich irgendwie, dass es nicht
-    # komplett in der Ecke sitzt … der Balken sitzt ja aber mittig vom Watcher
-    # Fenster."
+    # ⚠⚠ Das eingeklappte Overlay sitzt komplett in der Ecke. Zwei Fallen:
     #
-    # Zwei Ursachen:
-    #
-    # 1. Beim Einklappen schrumpfte nur die HOEHE. Der Streifen blieb so breit
+    # 1. Schrumpft beim Einklappen nur die HOEHE, bleibt der Streifen so breit
     #    wie das offene Fenster — bei 1160 Pixeln ein Balken quer ueber den
     #    halben Bildschirm, den man in keine Ecke bekommt.
     # 2. Ziehen geht im Pop-up-Betrieb ueberhaupt nicht: Dort ist das Overlay
     #    durchklickbar, damit es im Kampf nicht stoert — und was Mausklicks
-    #    durchreicht, laesst sich nicht anfassen. Diese Nutzer konnten das
-    #    Overlay also GAR NICHT positionieren.
+    #    durchreicht, laesst sich nicht anfassen. Ohne Ecke liesse es sich
+    #    dort GAR NICHT positionieren.
     #
     # ⚠⚠ **Gerechnet, nicht gemessen.** Pruefung 87 steht als Mahnmal daneben:
     # Versteckte Fenster liefern auf den Bau-Rechnern keine Masse, und eine
@@ -10175,14 +9882,11 @@ def main():
         root = _Wurzel101()
         _klapp_ecke = _w101.Overlay._klapp_ecke
 
-    # ⚠⚠ **`arbeitsflaeche` vortaeuschen, nicht `schirm_fuer`.** Seit
-    # v3.9.4 rechnet `_klapp_ecke` mit der nutzbaren Flaeche (ohne
-    # Taskleiste) statt mit der ganzen. Wer hier weiter `schirm_fuer`
-    # ersetzt, taeuscht eine Funktion vor, die gar nicht mehr gefragt wird —
-    # und bekommt die echten Werte des Rechners. Auf dem Windows-Bauserver
-    # sind das andere als 1920x1080, und drei Pruefungen fielen um
-    # (gemessen 02.09.2026 beim Bau von v3.9.4). Der Fehlschlag war richtig:
-    # Der Aufrufweg hatte sich geaendert.
+    # ⚠⚠ **`arbeitsflaeche` vortaeuschen, nicht `schirm_fuer`.**
+    # `_klapp_ecke` rechnet mit der nutzbaren Flaeche (ohne Taskleiste) statt
+    # mit der ganzen. Wer hier `schirm_fuer` ersetzt, taeuscht eine Funktion
+    # vor, die gar nicht gefragt wird — und bekommt die echten Werte des
+    # Rechners. Auf dem Windows-Bauserver sind das andere als 1920x1080.
     _echt101 = _bs101.work_area
     _bs101.work_area = lambda *_a, **_k: (0, 0, 1920, 1080)
     _o101 = _Ov101()
@@ -10252,20 +9956,18 @@ def main():
     print('102. Unser Block sitzt VOR einem fremden Anhang')
     # ⚠ Warum das geprueft wird: Werkzeuge, die ihren eigenen Anhang abraeumen
     # (Smart Citizen), schneiden "ab dem eigenen Marker bis zum Ende". Alles
-    # davor ueberlebt, alles dahinter nicht. Gemessen am 02.09.2026 verlor
-    # unser Block dadurch 398 von 398 gemeinsamen Eintraegen.
+    # davor ueberlebt, alles dahinter nicht. Gemessen: Dahinter verliert
+    # unser Block 398 von 398 gemeinsamen Eintraegen.
     from scbp import injection as _in102
 
     # ⚠ Die **echte** Ueberschrift nehmen, nicht eine ausgedachte: Der Notnagel
     # beim Zuruecksetzen erkennt den eigenen Block an genau diesen Woertern
     # (`_UEBERSCHRIFTEN`). Mit einer erfundenen Ueberschrift prueft der Test
-    # das Zuruecksetzen gar nicht — beim ersten Anlauf am 02.09.2026 genau so
-    # passiert, und die Pruefung meldete einen Fehler, der keiner war.
+    # das Zuruecksetzen gar nicht und schlaegt an, ohne dass ein Fehler da ist.
     # ⚠ Das Kaestchen muss mit. Ein Block mit unserer Ueberschrift, aber **ohne**
     # Kaestchen, gilt absichtlich als fremder Block des SC Deutsch Launchers und
     # bleibt beim Zuruecksetzen stehen (siehe `_saeubern`). Ohne das Kaestchen
-    # prueft der Test also das Gegenteil dessen, was er soll — am 02.09.2026
-    # genau so passiert, zweimal hintereinander.
+    # prueft der Test also das Gegenteil dessen, was er soll.
     _UNSER = ('\\n\\n' + ('-' * 57) + '\\n\\n<EM4>%s</EM4>\\n\\n%s Atzkav'
               % (_in102._HEADINGS[0], _in102.BOX_HAVE))
 
@@ -10297,8 +9999,8 @@ def main():
            'ohne fremden Anhang bleibt es schlichtes Anhaengen')
 
     # -- Und das Zuruecksetzen darf den Fremdtext nicht mitnehmen -----------
-    # ⚠ Der Notnagel schnitt frueher "ab unserer Linie bis zum Ende". Seit
-    # unser Block davor sitzt, laege der fremde Text mit im Schnitt.
+    # ⚠ Schnitte der Notnagel "ab unserer Linie bis zum Ende", laege der
+    # fremde Text mit im Schnitt, weil unser Block davor sitzt.
     _zurueck102 = _in102._strip_old(_erg102)
     pruefe('AUFTRAG' not in _zurueck102,
            'das Zuruecksetzen entfernt unseren Block')
@@ -10308,11 +10010,10 @@ def main():
     # -----------------------------------------------------------------------
     print()
     print('103. Kein Symbol wird erzeugt und dann nicht benutzt')
-    # ⚠ Anlass (02.09.2026): In `symbole_bauen.py` stand seit langem
-    # `'ziehgriff': 'grip'`. Die Bilder wurden brav in allen Groessen und
-    # Farben erzeugt — eingebaut war das Symbol nie, der Ziehgriff blieb ein
-    # Schriftzeichen. **Ein vorbereitetes Symbol sieht in der Zuordnungstabelle
-    # aus wie erledigt.** Genau das faellt sonst niemandem auf.
+    # ⚠ Ein Eintrag wie `'ziehgriff': 'grip'` in `symbole_bauen.py` erzeugt
+    # Bilder in allen Groessen und Farben, auch wenn das Symbol nie eingebaut
+    # wird. **Ein vorbereitetes Symbol sieht in der Zuordnungstabelle aus wie
+    # erledigt.** Genau das faellt sonst niemandem auf.
     #
     # Gesucht wird der Name als Zeichenkette im Quelltext — in einem Aufruf,
     # einem Woerterbuch oder einer Liste. Die Dateien, in denen die Namen
@@ -10323,7 +10024,7 @@ def main():
     # Jeder Eintrag ist ein Symbol, das erzeugt wird, ohne dass es jemand
     # sieht. Wer eines ergaenzt, sollte den Grund danebenschreiben.
     _AUSNAHMEN103 = {
-        # ⚠ **Bewusste Ausnahme, kein Versehen** (entschieden 02.09.2026).
+        # ⚠ **Bewusste Ausnahme, kein Versehen.**
         # Der Ko-fi-Knopf malt seine Tasse selbst (`coffee_glyph` in
         # `main_window.py`), obwohl `coffee.svg` im Satz liegt und 24 fertige
         # Bilder daraus erzeugt werden.
@@ -10333,19 +10034,17 @@ def main():
         # Markenlogos. Dieses Zeichen muss also gemalt bleiben. Eine gemalte
         # Tasse daneben ist stimmiger als ein Bildsymbol neben einem
         # gezeichneten Logo. Die beiden sind damit die EINZIGE Ausnahme von
-        # der Regel „Symbole kommen aus dem Satz".
+        # der Regel, dass Symbole aus dem Satz kommen.
         'kaffee',
         # Gegenstueck zu 'aufklappen'/'einklappen', die beide benutzt werden.
         # Dieses dritte Motiv wurde nie gebraucht.
         'ausklappen',
-        # Der alte Ziehgriff (Punktraster ohne Richtung). Seit 02.09.2026
-        # ersetzt durch 'ziehen_ol/or/ul/ur'.
+        # Der Ziehgriff ohne Richtung (Punktraster); benutzt werden
+        # 'ziehen_ol/or/ul/ur'.
         'ziehgriff',
-        # ('herunterladen' stand hier bis v3.62.4 — seitdem traegt es der
-        # Update-Knopf in der Kopfzeile.)
-        # Der gelbe Zustand „vorlaeufig" ist mit v3.0.0-rc95 abgeschafft
-        # worden: Ein Fund aus dem Log gilt seither sofort als sicher. Das
-        # Symbol ist der Rest davon.
+        # ('herunterladen' traegt der Update-Knopf in der Kopfzeile.)
+        # Einen gelben Vorlaeufig-Zustand gibt es nicht: Ein Fund aus dem Log
+        # gilt sofort als sicher. Das Symbol wird nicht benutzt.
         'vorlaeufig',
     }
 
@@ -10402,13 +10101,11 @@ def main():
     # -----------------------------------------------------------------------
     print()
     print('104. Kein Aufruf `self.xyz(...)`, den es gar nicht gibt')
-    # ⚠⚠ **Der teuerste Fehler des 02.09.2026.** In `verhalten_anwenden` stand
-    # `self._klappen(...)` — einen solchen Namen gab es nie, die Methode heisst
-    # `klappzustand_setzen`. Der Aufruf starb bei JEDEM Programmstart mit
-    # AttributeError, das `except Exception` darunter fing ihn und schrieb ihn
-    # stumm ins Protokoll. Folge: Die gewaehlte Ecke wurde beim Start nie
-    # angewandt. Aufgefallen ist es erst durch einen Fehlerbericht von aussen
-    # (Haldjas, pr0) — mit einer ausgelieferten Version.
+    # ⚠⚠ Ein Aufruf wie `self._klappen(...)` in `verhalten_anwenden`, obwohl
+    # die Methode `klappzustand_setzen` heisst, stirbt bei JEDEM
+    # Programmstart mit AttributeError; das `except Exception` darunter faengt
+    # ihn und schreibt ihn stumm ins Protokoll. Folge: Die gewaehlte Ecke
+    # wird beim Start nie angewandt.
     #
     # Python selbst merkt so etwas nie: Attributzugriffe loesen sich zur
     # Laufzeit auf, und wo ein `except` drumherum steht, faellt gar nichts auf.
@@ -10493,18 +10190,15 @@ def main():
     # -----------------------------------------------------------------------
     print()
     print('105. Die Kopfzahl der Herstellung verschweigt die unklaren nicht')
-    # ⚠⚠ **Der Anlass (03.09.2026).** Ueber der Liste stand „404 von 1597
-    # herstellbar", der Bestand hatte zeitgleich 405 Bauplaene. Einer fehlte
-    # scheinbar — tatsaechlich war er nur als *unklar* eingestuft: Traegt ein
-    # Bauplan einen Namen, den mehrere Gegenstaende fuehren (Idris- und
-    # Reclaimer-Kraftwerk, BroadSpec in zwei Groessen), zaehlt er bewusst
-    # nicht als „sicher". Das ist richtig so.
+    # ⚠⚠ Traegt ein Bauplan einen Namen, den mehrere Gegenstaende fuehren
+    # (Idris- und Reclaimer-Kraftwerk, BroadSpec in zwei Groessen), zaehlt er
+    # bewusst nicht als sicher, sondern als *unklar*. Das ist richtig so.
     #
-    # Falsch war die ANZEIGE: `counts()` gibt `unklar` seit jeher zurueck,
-    # die Kopfzeile warf den Wert weg. Oben stand also eine Zahl kleiner als
-    # der eigene Bestand, und der Hinweis dazu (`s_he_unklar`) stand erst am
-    # AUFGEKLAPPTEN Eintrag — dort findet ihn nur, wer schon weiss, wonach er
-    # sucht.
+    # Die ANZEIGE muss es aber sagen: `counts()` gibt `unklar` zurueck, und
+    # die Kopfzeile nennt den Wert. Sonst steht oben eine Zahl kleiner als
+    # der eigene Bestand, und der Hinweis dazu (`s_he_unklar`) stuende erst
+    # am AUFGEKLAPPTEN Eintrag — dort findet ihn nur, wer schon weiss, wonach
+    # er sucht.
     #
     # ⚠ Diese Pruefung legt sich ihre Daten SELBST hin (Regel aus Pruefung
     # 67): Die Rezeptdaten sind ein heruntergeladener Zwischenspeicher und
@@ -10545,12 +10239,10 @@ def main():
            'der eindeutige Bauplan zaehlt als sicher (%d)' % _sicher105)
 
     # ⚠⚠ **EIN Bauplan, nicht zwei Eintraege.** Der Spieler hat einen einzigen
-    # Bauplan „Main Powerplant"; dass zwei Gegenstaende so heissen, ist SEIN
-    # Problem nicht. Bis zum 03.09.2026 zaehlte `counts()` hier die
-    # Listeneintraege — an den echten Daten kamen so `404 · 2 unklar` bei 405
-    # Bauplaenen heraus, und die Rechnung ging wieder nicht auf. Genau der
-    # Fehler, den der Zusatz eigentlich beheben sollte, nur eine Stelle
-    # weiter.
+    # Bauplan `Main Powerplant`; dass zwei Gegenstaende so heissen, aendert
+    # daran nichts. Zaehlte `counts()` hier die Listeneintraege, kaeme
+    # `404 · 2 unklar` bei 405 Bauplaenen heraus, und die Rechnung ginge
+    # wieder nicht auf.
     pruefe(_unklar105 == 1,
            'ein mehrdeutiger Bauplan zaehlt EINMAL, nicht je Eintrag (%d)'
            % _unklar105)
@@ -10577,26 +10269,20 @@ def main():
     pruefe("t('s_he_dazu_unklar') % unklar" in _q105 and 'if unklar:' in _q105,
            'die Kopfzeile zeigt ihn, sobald es unklare gibt')
 
-    # 106. (Bis 30.09.2026: Reihen-Titel im SCDL-Weg. Entfernt.)
+    # 106. entfallen.
 
     # -----------------------------------------------------------------------
     print()
     print('107. Wer das Overlay verschiebt, nimmt Schloss UND Streifen mit')
-    # ⚠⚠ **Der Anlass (Haldjas, pr0, 02.09.2026).** „Overlay war auf links
-    # unten eingestellt, balken war rechts unten und hat den watcher aber
-    # links unten geoeffnet."
+    # ⚠⚠ Das Overlay hat DREI eigene Fenster: die Hauptflaeche, das Schloss
+    # und den Anfasser-Streifen. Die beiden letzten folgen nicht von allein —
+    # jede Stelle, die das Overlay bewegt, muss sie mitnehmen:
+    #   `ecke_anwenden()`        Eckenwechsel auf der Einstellungsseite
+    #   `klappzustand_setzen()`  beim PROGRAMMSTART
     #
-    # Das Overlay hat DREI eigene Fenster: die Hauptflaeche, das Schloss und
-    # den Anfasser-Streifen. Die beiden letzten folgen nicht von allein — jede
-    # Stelle, die das Overlay bewegt, muss sie mitnehmen.
-    #
-    # Es gab zwei solche Stellen, und nur eine tat es vollstaendig:
-    #   `ecke_anwenden()`        Eckenwechsel auf der Einstellungsseite  ✓
-    #   `klappzustand_setzen()`  beim PROGRAMMSTART                      ✗
-    #
-    # Der Streifen blieb dort auf der gespeicherten alten Lage stehen. Nicht
-    # reproduzierbar war es, weil der Fall nur beim ersten Start nach einem
-    # Eckenwechsel eintritt und sich danach selbst wegraeumt.
+    # Fehlt es an der zweiten, bleibt der Streifen auf der gespeicherten
+    # alten Lage stehen. Schwer nachzustellen, weil der Fall nur beim ersten
+    # Start nach einem Eckenwechsel eintritt und sich danach selbst wegraeumt.
     #
     # ⚠ Diese Pruefung liest den Quelltext, statt ein Overlay zu bauen: Der
     # Fehler ist ein FEHLENDER Aufruf, und genau den findet man am
@@ -10644,15 +10330,14 @@ def main():
     # -----------------------------------------------------------------------
     print()
     print('108. Ja/Nein-Einstellungen killen keine Seite mehr')
-    # ⚠⚠ **Der Fehler, der eine ganze Seite gefressen hat (03.09.2026).**
-    # `_refinery_box` rief `paths.setting('lager_raffinerie_offen')`.
-    # Diese Funktion liefert einen PFAD und ruft dafuer `.strip()` auf dem
-    # Wert. Sobald der Block einmal aufgeklappt war, stand `True` in der
-    # Datei — `True.strip()` warf einen AttributeError, und der riss den
-    # Aufbau der GANZEN Lager-Seite ab. Die Posten waren unversehrt, man sah
-    # sie nur nicht mehr. Drin seit v3.4.1, aufgefallen erst in v3.9.7.
+    # ⚠⚠ **Ein Fehler, der eine ganze Seite frisst.** `paths.setting()`
+    # liefert einen PFAD und ruft dafuer `.strip()` auf dem Wert. Fragt man
+    # damit einen Ja/Nein-Schalter (etwa `lager_raffinerie_offen`), steht
+    # nach dem ersten Aufklappen `True` in der Datei — `True.strip()` wirft
+    # einen AttributeError und reisst den Aufbau der GANZEN Lager-Seite ab.
+    # Die Posten sind unversehrt, man sieht sie nur nicht mehr.
     #
-    # Zwei Wachen, weil beide Ebenen falsch waren:
+    # Zwei Wachen, eine je Ebene:
     from scbp import paths as _pf108
 
     # 1) `setting()` darf an KEINEM Werttyp mehr sterben. Ein Pfad ist
@@ -10684,9 +10369,9 @@ def main():
     #    Diese Wache findet den naechsten Fall von selbst — sie sucht jeden
     #    Schluessel, der irgendwo mit einem bool GESETZT wird, und prueft, ob
     #    er anderswo als Pfad GELESEN wird.
-    # ⚠⚠ **Über `ast`, nicht über Suchmuster.** Die erste Fassung suchte per
-    # Regex — und meldete prompt einen Treffer in `paths.py`, wo der
-    # Schlüsselname nur im KOMMENTAR steht, der den Fehler erklärt. Dieselbe
+    # ⚠⚠ **Über `ast`, nicht über Suchmuster.** Ein Regex schlüge in
+    # `paths.py` an, wo der Schlüsselname nur im KOMMENTAR steht, der den
+    # Fehler erklärt. Dieselbe
     # Falle wie beim Riegel und bei `tee`: Ein Wort im Text ist kein Aufruf.
     # Der Syntaxbaum kennt den Unterschied.
     import ast as _ast108
@@ -10793,13 +10478,12 @@ def main():
 
     print()
     print('110. Die Ankuendigung nimmt den handgeschriebenen Vorspann')
-    # ⚠⚠ **Bis zum 03.09.2026 ist das NIE passiert** — bei keiner einzigen
-    # Version. Zwei Zeilen in `vorspann_aus` haben zusammengewirkt:
-    #   * `> `-Zeilen wurden uebersprungen, und im CHANGELOG ist der Vorspann
-    #     immer ein Blockzitat;
-    #   * was uebrig blieb, fiel unter „faengt mit `*` an, also ein verirrter
-    #     Aufzaehlungspunkt" — denn ein Vorspann beginnt mit `**fett**`.
-    # Der Fehler war unsichtbar: Es kam ja ein Text heraus, nur eben die
+    # ⚠⚠ Zwei Fallen in `vorspann_aus`, die zusammenwirken:
+    #   * `> `-Zeilen zu ueberspringen verliert den Vorspann, denn im
+    #     CHANGELOG ist er immer ein Blockzitat;
+    #   * eine Zeile, die mit `*` anfaengt, ist nicht immer ein verirrter
+    #     Aufzaehlungspunkt — ein Vorspann beginnt mit `**fett**`.
+    # Der Fehler waere unsichtbar: Es kaeme ja ein Text heraus, nur eben die
     # Stichpunktliste statt der Ankuendigung.
     import importlib.util as _il110
 
@@ -10854,19 +10538,16 @@ def main():
 
     print()
     print('111. Wird LIVE in HOTFIX umbenannt, faellt das auf')
-    # ⚠⚠ **Gemeldet von Haldjas am 03.09.2026.** Kommt eine ausgebesserte
-    # Fassung neben LIVE auf denselben Server, laedt kaum jemand 100 GB neu —
-    # man benennt den LIVE-Ordner in HOTFIX um, damit der Launcher nur die
-    # Unterschiede holt. Der eingetragene Spielordner ist damit weg.
-    #
-    # In seinem Bericht stand `spiel_ordner=…\StarCitizen\LIVE`, dazu „Spiel
-    # nicht gefunden", keine Game.log und 0 gelesene Protokolle — der Watcher
-    # stand ohne Erklaerung da, obwohl in den Einstellungen ein Pfad steht.
-    # Zwei Ursachen, beide hier abgedeckt:
-    #   a) `HOTFIX` fehlte in `KANAELE`.
-    #   b) Gesucht wurde **im** eingetragenen Ordner und darunter, nie
-    #      **daneben** — wer sein Spiel nicht am Standardort hat, fand seinen
-    #      Nachbarkanal auch mit (a) nicht.
+    # ⚠⚠ Kommt eine ausgebesserte Fassung neben LIVE auf denselben Server,
+    # laedt kaum jemand 100 GB neu — man benennt den LIVE-Ordner in HOTFIX
+    # um, damit der Launcher nur die Unterschiede holt. Der eingetragene
+    # Spielordner ist damit weg, und der Watcher stuende ohne Erklaerung da
+    # (keine Game.log, 0 gelesene Protokolle), obwohl ein Pfad eingetragen ist.
+    # Zwei Bedingungen, beide hier abgedeckt:
+    #   a) `HOTFIX` steht in `KANAELE`.
+    #   b) Gesucht wird nicht nur **im** eingetragenen Ordner und darunter,
+    #      sondern auch **daneben** — sonst faende, wer sein Spiel nicht am
+    #      Standardort hat, seinen Nachbarkanal auch mit (a) nicht.
     import shutil as _sh111
     from scbp import paths as _pf111
 
@@ -10878,10 +10559,9 @@ def main():
     # ⚠⚠ **Nur im Wegwerf-Ordner suchen — sonst zaehlt das echte Spiel mit.**
     # `available_channels()` geht die ueblichen Installationsorte ab. Auf einem
     # Rechner, auf dem Star Citizen liegt, findet es dort LIVE und PTU — und
-    # diese Pruefung, die genau eine Liste erwartet, war damit **auf dem
-    # Entwicklungsrechner nie gruen zu bekommen**. Im Bau-Lauf lief sie durch,
-    # weil dort kein Spiel installiert ist: zwei verschiedene Wahrheiten ueber
-    # dieselbe Frage, und die roten Zeilen standen wochenlang im Protokoll.
+    # diese Pruefung, die genau eine Liste erwartet, waere dort **nie gruen
+    # zu bekommen**, im Bau-Lauf ohne installiertes Spiel aber schon: zwei
+    # verschiedene Wahrheiten ueber dieselbe Frage.
     #
     # Eine Pruefung darf sich nicht darauf verlassen, dass etwas NICHT auf dem
     # Rechner ist. Sie schneidet die Suche deshalb auf ihren eigenen Ordner zu —
@@ -10902,7 +10582,7 @@ def main():
         _basis111 = os.path.dirname(_live111)
         _pf111._channel_bases = lambda: [_basis111]
 
-        # a) Solange LIVE steht, darf nichts gemeldet werden — eine Wache, die
+        # a) Solange LIVE steht, darf nichts anschlagen — eine Wache, die
         #    im Normalfall anschlaegt, wird weggeklickt.
         pruefe(_pf111.channel_mismatch() is None,
                'ein vorhandener Spielordner loest keine Frage aus')
@@ -10947,12 +10627,12 @@ def main():
     # ⚠⚠ **Warum das eine Pruefung wert ist.** Eine Zeile der Bauplan-Liste
     # haengt bis zu vier Erklaertexte an. Mit vier Bindings je Text waren das 16
     # pro Zeile — bei 40 Zeilen ueber 600, alle gesetzt, bevor das Fenster
-    # steht. In Haldjas' Bericht vom 03.09.2026 kosteten die Zeilen 55 der 112
-    # ms. Drei der vier Bindings raeumen einen Anzeige-Auftrag ab, den es vor
-    # der ersten Mausberuehrung gar nicht geben kann — die kommen jetzt erst
-    # beim ersten `<Enter>`.
+    # steht (gemessen: rund die Haelfte der Aufbauzeit). Drei der vier
+    # Bindings raeumen einen Anzeige-Auftrag ab, den es vor der ersten
+    # Mausberuehrung gar nicht geben kann — die kommen erst beim ersten
+    # `<Enter>`.
     #
-    # ⚠ Ohne Wache faellt ein Rueckbau auf „alle vier sofort" niemandem auf:
+    # ⚠ Ohne Wache faellt ein Rueckbau auf alle vier sofort niemandem auf:
     # Das Programm funktioniert weiter, es wird nur wieder langsam. Genau die
     # Sorte Verschlechterung, die man erst Monate spaeter bemerkt.
     import tkinter as _tk112
@@ -10976,19 +10656,17 @@ def main():
         # sonst bliebe ein Erklaertext stehen, wenn die Maus weiterzieht.
         #
         # ⚠⚠ **Das wird am Quelltext geprueft, nicht am laufenden Fenster.**
-        # Zwei Anlaeufe ueber `event_generate` sind daran gescheitert, dass Tk
-        # einem nie sichtbar gemachten Widget kein `<Enter>` zustellt — auch
-        # mit `when='now'` nicht. Die Pruefung meldete dann „haengt nur <Enter>
-        # dran" und sah aus wie ein echter Fund, obwohl gar nichts ausgeloest
-        # worden war. Ein Fenster dafuer wirklich sichtbar zu machen ist keine
-        # Option: Auf dem Rechner des Autors reisst das den Tastaturfokus aus
-        # dem laufenden Spiel.
+        # Tk stellt einem nie sichtbar gemachten Widget kein `<Enter>` zu —
+        # auch mit `when='now'` nicht; ein `event_generate` saehe aus wie ein
+        # echter Fund, obwohl gar nichts ausgeloest wurde. Ein Fenster dafuer
+        # wirklich sichtbar zu machen ist keine Option: Das reisst den
+        # Tastaturfokus aus dem laufenden Spiel.
         #
         # Statisch ist schwaecher — es beweist nicht, dass Tk die Bindings
         # tatsaechlich setzt. Es faengt aber genau den Rueckbau ab, um den es
         # geht: dass jemand die drei Abraeumer wieder nach oben zieht (dann
         # sind sie wieder sofort da) oder ganz streicht (dann fehlen sie).
-        # ⚠ Seit P3 (11.09.2026) heisst das Modul `notice`, die Funktionen
+        # ⚠ Das Modul heisst `notice`, die Funktionen
         #   `attach`, `on_enter` und `cancel`. Diese Pruefung schneidet den
         #   Quelltext an den Funktionsnamen auf — sie muss bei jeder Umbenennung
         #   mitziehen, sonst bricht sie mit einem IndexError statt zu pruefen.
@@ -11013,9 +10691,9 @@ def main():
 
     print()
     print('113. Das Auftrags-Protokoll zaehlt jeden Durchlauf genau einmal')
-    # ⚠⚠ **Fuenf Anlaeufe, jeder an echten Sicherungen widerlegt.** Die Zahl in
-    # Klammern ist, was „Retake Platforms From Nine Tails" jeweils faelschlich
-    # zeigte — richtig waren fuenf Durchlaeufe:
+    # ⚠⚠ **Fuenf Fallen, jede an echten Sicherungen gemessen.** Die Zahl in
+    # Klammern ist, was `Retake Platforms From Nine Tails` jeweils
+    # faelschlich zeigen wuerde — richtig sind fuenf Durchlaeufe:
     #
     #   1. Jede Logdatei fuer sich ausgewertet (32) — ein Auftrag ueber zwei
     #      Abende steht in zwei Dateien.
@@ -11024,11 +10702,11 @@ def main():
     #      verschiedenen Nummern.
     #   3. Marken nicht geputzt (3 + 2 getrennt) — derselbe Auftrag mal mit,
     #      mal ohne die eingespielte Bauplan-Marke im Titel.
-    #   4. Zwischenziele als Auftraege gezaehlt (8 fuer „Obere Plattform
-    #      erreichen") — das ist ein Ziel innerhalb des Auftrags.
+    #   4. Zwischenziele als Auftraege gezaehlt (8 fuer `Obere Plattform
+    #      erreichen`) — das ist ein Ziel innerhalb des Auftrags.
     #   5. Nach Dateidatum sortiert — auf einer Sicherung tragen alle Kopien
-    #      den Zeitpunkt des Kopierens, die Reihenfolge war zufaellig und ein
-    #      Auftrag bekam das Ende eines fremden Durchlaufs.
+    #      den Zeitpunkt des Kopierens, die Reihenfolge ist zufaellig und ein
+    #      Auftrag bekaeme das Ende eines fremden Durchlaufs.
     #
     # Jede dieser fuenf Fallen hat hier ihren eigenen Fall. Ohne sie faellt
     # niemandem auf, wenn eine davon zurueckkommt: Das Protokoll sieht immer
@@ -11049,27 +10727,22 @@ def main():
     # laeuft beim Oeffnen der Auftragslog-Seite — liest dann die echten
     # `logbackups/` und schreibt sie in die Testdatei hier drunter.
     #
-    # Gemessen am 12.09.2026: „das Protokoll steht in der eigenen Datei (396)"
-    # statt 2, zweimal in Folge, dazwischen gruen. Es haengt am Zeitpunkt des
-    # Hintergrund-Ticks — die Pruefungen darunter sind also nur so verlaesslich
-    # wie diese Zeile.
+    # Es haengt am Zeitpunkt des Hintergrund-Ticks, ob das passiert — die
+    # Pruefungen darunter sind also nur so verlaesslich wie diese Zeile.
     #
     # ⚠⚠⚠ **Diese Wache darf NICHT abfragen, was Abschnitt 37 stillgelegt hat.**
-    # Die erste Fassung tat genau das (`log_backups()` fragen, nachdem
-    # `log_backups()` stillgelegt wurde) — sie war gruen und konnte
-    # strukturell nicht rot werden, waehrend die laufende `Game.log` weiter
-    # gelesen wurde. Eine Wache auf dem eigenen Eingriff ist keine.
+    # `log_backups()` zu fragen, nachdem `log_backups()` stillgelegt wurde,
+    # ist immer gruen und kann strukturell nicht rot werden, waehrend die
+    # laufende `Game.log` weiter gelesen wird. Eine Wache auf dem eigenen
+    # Eingriff ist keine.
     #
     # Geprueft werden deshalb **alle drei Wege** zu echten Logdaten, einzeln
-    # benannt (Abschnitt 37 zaehlt sie auf). Nimmt jemand einen Riegel heraus —
-    # genau das ist am 12.09.2026 in einem „nur Umbenennung"-Commit passiert —,
+    # benannt (Abschnitt 37 zaehlt sie auf). Nimmt jemand einen Riegel heraus,
     # nennt die Meldung, welcher es war.
     #
     # ⚠ Auf einem Rechner ohne Star Citizen ist diese Wache trivial gruen: Dort
     # gibt es nichts zu finden. Das ist hinnehmbar, weil sie auf einem
-    # Spielrechner sehr wohl rot wird. Der Unterschied zur ersten Fassung ist
-    # genau das — die konnte NIRGENDS rot werden, weil sie die Funktion abfragte,
-    # die zwei Zeilen vorher stillgelegt worden war.
+    # Spielrechner sehr wohl rot wird.
     #
     # ⚠ Der Spielordner DARF gefunden werden — dort liegt die `global.ini`, die
     # vier andere Pruefungen brauchen.
@@ -11081,19 +10754,18 @@ def main():
     #
     # (a) allein genuegt nicht: Riegel 3 deckt einen Weg, der strukturell offen
     # ist (`mission_log` baut den Pfad selbst und geht an `game_log()` vorbei),
-    # bei diesem Spielstand aber gerade nichts hergibt — gemessen am 12.09.2026:
-    # ohne Riegel 3 bleibt (a) gruen. Wer sich auf (a) verliesse, koennte Riegel
-    # 3 entfernen, ohne dass etwas auffaellt. Genau diese Sorte Entfernung war
-    # der Ausloeser.
+    # bei diesem Spielstand aber gerade nichts hergibt — gemessen: ohne
+    # Riegel 3 bleibt (a) gruen. Wer sich auf (a) verliesse, koennte Riegel 3
+    # entfernen, ohne dass etwas auffaellt.
     #
-    # (b) allein genuegt auch nicht: Sie prueft nur, dass ich etwas gesetzt habe,
+    # (b) allein genuegt auch nicht: Sie prueft nur, dass etwas gesetzt ist,
     # nicht dass es wirkt.
     _pf113 = __import__('scbp.paths', fromlist=['log_backups'])
     _ml113 = __import__('scbp.mission_log', fromlist=['scan_backlog'])
 
-    # ⚠⚠⚠ **Die Struktur ZUERST — vor jedem Aufruf.** Die erste Fassung rief
-    # die Funktionen auf und prueefte erst danach, ob ueberhaupt die Riegel
-    # drinstecken. Ist `scan_backlog` versehentlich wieder das Original, liest die
+    # ⚠⚠⚠ **Die Struktur ZUERST — vor jedem Aufruf.** Erst aufrufen und
+    # danach pruefen, ob ueberhaupt die Riegel drinstecken, taugt nicht: Ist
+    # `scan_backlog` versehentlich wieder das Original, liest die
     # Wache selbst die echten Daten ein, bevor sie den Fehler meldet — und
     # `pruefe()` sammelt nur, es bricht nicht ab.
     _riegel113 = [
@@ -11112,12 +10784,11 @@ def main():
         print('       · Riegel fehlen — die Wirkungspruefung wird uebersprungen')
     else:
         # ⚠⚠ **Die Wirkung an ECHTEN Dateien pruefen, nicht an erfundenen.**
-        # Die erste Fassung uebergab Pfade, unter denen gar nichts liegt — da
-        # liefert schon die Originalfunktion `None` bzw. `[]`, und der Filter
-        # kam nie zum Zug. Der Pruefer hat es belegt: Mit einem Filter, der
-        # ALLES durchlaesst, blieb diese Pruefung gruen.
+        # Unter Pfaden, unter denen gar nichts liegt, liefert schon die
+        # Originalfunktion `None` bzw. `[]`, und der Filter kaeme nie zum Zug —
+        # mit einem Filter, der ALLES durchlaesst, bliebe diese Pruefung gruen.
         #
-        # Jetzt werden zwei nachgebaute Installationen angelegt — eine INNERHALB
+        # Deshalb werden zwei nachgebaute Installationen angelegt — eine INNERHALB
         # der Laufwurzel (muss durchgelassen werden) und eine AUSSERHALB (muss
         # gesperrt sein). Beide mit echter `Game.log` und echter Sicherung.
         # ⚠ **`gettempdir()` taugt hier NICHT als „draussen".** Es ist seit
@@ -11168,13 +10839,13 @@ def main():
                    % (bool(_pf113.game_log(_sp_drin)),
                       len(_pf113.log_backups(_sp_drin) or [])))
 
-            # ⚠ Die Filterentscheidung direkt — unabhaengig davon, ob eine
+            # ⚠ Der Filter direkt — unabhaengig davon, ob eine
             # Funktion zufaellig nichts findet.
             pruefe(_wegwerf(_sp_drin) and not _wegwerf(_sp_draus),
                    'die Filterentscheidung trennt drinnen von draussen '
                    '(%r / %r)' % (_wegwerf(_sp_drin), _wegwerf(_sp_draus)))
 
-            # ⚠⚠ **Die zwei Grenzfaelle, die frueher schon durchgingen.**
+            # ⚠⚠ **Die zwei Grenzfaelle.**
             # Ein drinnen/draussen-Paar allein beweist zu wenig: Eine Fassung
             # ohne abschliessenden Pfadtrenner (`startswith(wurzel)` statt
             # `startswith(wurzel + os.sep)`) besteht es **und** laesst einen
@@ -11308,8 +10979,8 @@ def main():
 
         # ⭐ Der Bauplan gehoert an den Auftrag, bei dem er herauskam.
         #
-        # ⚠ **Die Belohnung faellt NACH dem Abgeben.** Gemessen am 29.08.2026:
-        # Auftrag endete 17:42:00, der Bauplan kam 17:42:54. Wer nur waehrend
+        # ⚠ **Die Belohnung faellt NACH dem Abgeben.** Gemessen: Auftrag
+        # endete 17:42:00, der Bauplan kam 17:42:54. Wer nur waehrend
         # des Auftrags sucht, findet keinen einzigen — deshalb der Nachlauf.
         _log4 = _log113('d.log', [
             _zeile113('2026-09-01T10:00:00.000',
@@ -11398,9 +11069,8 @@ def main():
 
     # --------------------------------------------------------------------- 113b
     # ⚠⚠ Der Bestandsabgleich beim Start darf den Katalog nur EINMAL lesen.
-    # Gemessen am 04.09.2026: Er las die 1-MB-Datei einmal je Bauplan und
-    # brauchte bei 406 Stueck **3,6 Sekunden bei jedem Programmstart** — und
-    # berichtigte dabei nichts. Nach dem Fix: 11 ms.
+    # Gemessen: Die 1-MB-Datei einmal je Bauplan zu lesen kostet bei 406
+    # Stueck **3,6 Sekunden bei jedem Programmstart**, einmal gelesen 11 ms.
     #
     # ⚠ Gezaehlt statt gestoppt: Eine Zeitmessung im Selbsttest wackelt mit der
     # Maschine und schlaegt irgendwann grundlos an. Die Zahl der Dateizugriffe
@@ -11430,7 +11100,7 @@ def main():
     # ⚠⚠ Ein zweites Kuerzel-Muster: MrKraken StarStrings stellt Klasse, Groesse
     # und Grad VORAN statt sie anzuhaengen (`Ind/2/B Citadel`). Gemessen in der
     # ausgelieferten Datei: 465 Eintraege. Ohne Angleichung findet keiner davon
-    # seinen Katalog-Eintrag — bei einem Melder vier von 26 Bauplaenen.
+    # seinen Katalog-Eintrag.
     print()
     print('113c. Das Kuerzel wird auch vorangestellt erkannt')
     _pf113c = importlib.import_module('scbp.paths')
@@ -11447,11 +11117,10 @@ def main():
 
     # --------------------------------------------------------------------- 113d
     # ⚠⚠ Die Kaestchen in den Auftragstexten muessen dem Bestand folgen.
-    # Bis zum 04.09.2026 wurde nur bei FREMDEN Aenderungen neu geschrieben
-    # (neue Uebersetzung, neue Vertragsdaten, Auszeichnung weg) — der eigene
-    # Bestand stand nicht auf der Liste. Damit hoerten die Kaestchen still auf
-    # zu stimmen, sobald ein Bauplan dazukam: Gemeldet mit zwei Bauplaenen, die
-    # seit zehn Tagen im Bestand lagen und im Spiel ungehakt blieben.
+    # Neu geschrieben wird nicht nur bei FREMDEN Aenderungen (neue
+    # Uebersetzung, neue Vertragsdaten, Auszeichnung weg), sondern auch beim
+    # eigenen Bestand — sonst hoeren die Kaestchen still auf zu stimmen,
+    # sobald ein Bauplan dazukommt.
     print()
     print('113d. Die Kaestchen folgen dem eigenen Bestand')
     _inj113d = importlib.import_module('scbp.injection')
@@ -11469,7 +11138,7 @@ def main():
            'ein umbenannter Bauplan aendert die Marke (gleiche Anzahl)')
 
     # ⚠ Und die Kaestchen selbst: Was im Bestand liegt, wird angekreuzt —
-    # geprueft am einzigen Schreibweg (`_build_block`, seit 30.09.2026).
+    # geprueft am einzigen Schreibweg (`_build_block`).
     _e113d = {'bp': ['Marlin', 'RN-7s']}
     _w113d = _inj113d.TEXTS['de']
     _voll113d = _inj113d._build_block(
@@ -11485,12 +11154,10 @@ def main():
 
 
     # --------------------------------------------------------------------- 113f
-    # ⚠⚠ Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.
-    # Gemeldet am 04.09.2026: Ein Auftrag wurde angenommen und war vier
-    # Sekunden spaeter weg, weil ein anderer Spieler schneller war. Dazu steht
-    # im Protokoll nur `<EndMission> … CompletionType[Abandon]` — keine
-    # „Auftrag abgeschlossen"-Meldung. Im Overlay standen daraufhin zwei
-    # laufende Auftraege, im Spiel war einer.
+    # ⚠⚠ Ein Auftrag kann enden, ohne dass das Spiel ihn abschliesst: Ist ein
+    # anderer Spieler schneller, ist er Sekunden nach der Annahme weg, und im
+    # Protokoll steht nur `<EndMission> … CompletionType[Abandon]`. Sonst
+    # stuenden im Overlay zwei laufende Auftraege, im Spiel einer.
     print()
     print('113f. Ein Auftrag endet auch ohne Meldung')
     _au113f = importlib.import_module('scbp.contracts')
@@ -11527,11 +11194,11 @@ def main():
 
     # --------------------------------------------------------------------- 113e
     # ⚠⚠ Das Overlay muss seine Groesse ueber den Neustart behalten.
-    # Bis zum 04.09.2026 schrumpfte es bei jedem Start auf die Mindestgroesse:
-    # `klappzustand_setzen(False)` rechnet `max(hoehe_offen, Leiste + 120)`,
-    # und `hoehe_offen` stand beim Start auf None. Aus 620x316 wurden 564x150.
+    # `klappzustand_setzen(False)` rechnet `max(hoehe_offen, Leiste + 120)`;
+    # steht `hoehe_offen` beim Start auf None, schrumpft es auf die
+    # Mindestgroesse (aus 620x316 wird 564x150).
     #
-    # ⚠ Getroffen hat es nur, wer eine feste Ecke eingestellt hat — sonst wird
+    # ⚠ Betroffen ist nur, wer eine feste Ecke eingestellt hat — sonst wird
     # `klappzustand_setzen` beim Start gar nicht gerufen. Deshalb setzt diese
     # Pruefung die Ecke ausdruecklich.
     print()
@@ -11580,7 +11247,7 @@ def main():
     # ⚠⚠ Hier wird in die Datei geschrieben, an der die **komplette Steuerung**
     # des Spielers haengt. Ein Fehler kostet ihn seine Belegung — deshalb wird
     # jeder Schritt geprueft, und zwar an einer selbst hingelegten Datei, nie
-    # an einer echten (siehe die Regel „Pruefungen nie in Livedaten").
+    # an einer echten (Pruefungen nie in Livedaten).
     print()
     print('115. Belegen: nur das Gemeinte anfassen')
     _js115 = importlib.import_module('scbp.joysticks')
@@ -11639,7 +11306,7 @@ def main():
                    for n in os.listdir(_wiese115)),
                'vor dem Schreiben entsteht eine Sicherung')
 
-        # 3. Konflikte werden gemeldet, BEVOR etwas passiert.
+        # 3. Konflikte werden erkannt, BEVOR etwas passiert.
         _konflikt115 = _js115.conflicts('v_eject', 'js1', 'button9',
                                         filename=_datei115)
         pruefe(any(k['aktion'] == 'v_lights' for k in _konflikt115),
@@ -11688,7 +11355,7 @@ def main():
         pruefe(not _ok115, 'eine fremde XML-Datei wird abgelehnt')
 
         # 7. ⚠⚠ Zuruecksetzen wirft die Belegungen weg — aber NICHT die
-        #    Geraeteeinstellungen. Wer „Belegung zuruecksetzen" drueckt, will
+        #    Geraeteeinstellungen. Wer die Belegung zuruecksetzt, will
         #    seine Totzonen nicht neu einmessen.
         with open(_datei115, encoding='utf-8') as _f115:
             _vor115 = _f115.read()
@@ -11714,12 +11381,11 @@ def main():
 
         # 9. ⚠⚠ **Eigene Belegung verdraengt den Standard nur auf DEM GERAET.**
         #
-        # Am 04.09.2026 gemeldet: In „noch nicht belegt" standen Scheinwerfer,
-        # Hocken, Respawn und die linke Maustaste — alles Aktionen, die ab Werk
-        # laengst eine Taste haben. Ursache war ein Zusammenfuehren, das die
-        # Werksvorgabe fuer **alle** Geraete wegwarf, sobald die Aktion
-        # irgendwo eigen belegt war. Wer „Respawn" auf den Stick legte, verlor
-        # in der Anzeige die Taste `F` — die im Spiel weiter funktioniert.
+        # Wirft das Zusammenfuehren die Werksvorgabe fuer **alle** Geraete
+        # weg, sobald die Aktion irgendwo eigen belegt ist, stehen Aktionen
+        # mit Werkstaste als unbelegt da. Wer Respawn auf den Stick legt,
+        # verloere in der Anzeige die Taste `F` — die im Spiel weiter
+        # funktioniert.
         #
         # Der Standard kommt sonst aus dem `Data.p4k`, das hier nicht liegt.
         # Deshalb wird er fuer diese Pruefung untergeschoben — kein Abruf,
@@ -11782,8 +11448,8 @@ def main():
                   'w', encoding='utf-8') as _f:
             json.dump([{'ware': 'Gold'}], _f)
         # … und eine Datei, die es neu gibt und die NIEMAND aufgezaehlt hat.
-        # ⚠ Genau daran ist die frühere Liste gescheitert: Das Auftrags-
-        # Protokoll kam dazu und fiel stillschweigend heraus.
+        # ⚠ Genau daran scheitert eine feste Liste: Eine neue Datei fiele
+        # stillschweigend heraus.
         with open(os.path.join(_quell114, 'Intern', 'ganz-neu.json'),
                   'w', encoding='utf-8') as _f:
             json.dump({'kommt': 'spaeter dazu'}, _f)
@@ -11871,16 +11537,11 @@ def main():
 
     print()
     print('116. Der eigene Bestand haengt NICHT am Takt der fremden Quellen')
-    # ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026** — sichtbar an zwei Zahlen
-    # in seinem Bericht: `Bestand 304`, `inj_bestand=303-…`. Die Kaestchen im
-    # Spiel hinkten also einen Bauplan hinterher, obwohl das automatische
-    # Auffrischen eingeschaltet war.
-    #
-    # Die Bedingung „hat sich der Bestand geaendert?" gab es seit dem
-    # 04.09.2026 — sie hing nur im selben Sechs-Stunden-Takt wie die
-    # Netzabfragen nach neuer Uebersetzung und neuen Vertragsdaten. Sein Lauf
-    # dauerte 20 Minuten. Nach dem Durchlauf beim Start wurde nie wieder
-    # geschaut, und beim naechsten Start stand dieselbe Wartezeit erneut an.
+    # ⚠⚠ Haengt die Frage, ob sich der Bestand geaendert hat, im selben
+    # Sechs-Stunden-Takt wie die Netzabfragen nach neuer Uebersetzung und
+    # neuen Vertragsdaten, hinken die Kaestchen im Spiel hinterher (sichtbar
+    # im Bericht als `Bestand 304`, `inj_bestand=303-…`) — bei kurzen
+    # Spielsitzungen wird nach dem Start nie wieder geschaut.
     #
     # ⚠ Was diese Pruefung wirklich festhaelt, ist nicht die Zahl 30, sondern
     # das VERHAELTNIS: Der eigene Bestand aendert sich, waehrend gespielt wird;
@@ -11930,32 +11591,23 @@ def main():
 
     print()
     print('117. Jede Seite mit Bestandszahlen zieht nach')
-    # ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026:** Bauplan faellt, Werkzeug
-    # meldet ihn — und in der Liste stand weiter die alte Anzahl, ohne gruenen
-    # Haken. Der Bestand wurde beim Bauen der Seite gelesen und danach nie
-    # wieder; die Seite selbst wird nur ein- und ausgeblendet.
-    #
-    # Vier weitere Seiten hatten denselben Fehler. Sie stehen jetzt in
+    # ⚠⚠ Eine Seite wird einmal gebaut und danach nur ein- und ausgeblendet.
+    # Liest sie den Bestand beim Bauen, steht nach einem neuen Bauplan weiter
+    # die alte Anzahl da, ohne gruenen Haken. Solche Seiten stehen in
     # `STOCK_PAGES` und werden bei einer Bestandsaenderung verworfen.
     #
-    # ⚠ Diese Pruefung haelt die LISTE vollstaendig: Wer morgen eine Seite
-    # baut, die `bestand_datei` liest, faellt hier auf, statt es niemandem zu
-    # sagen. Genau so ist der gemeldete Fehler entstanden — die Seiten kamen
-    # nach und nach dazu, und niemand ging die alten noch einmal durch.
+    # ⚠ Diese Pruefung haelt die LISTE vollstaendig: Wer eine Seite baut, die
+    # `bestand_datei` liest, faellt hier auf, statt es niemandem zu sagen.
     from scbp.main_window import MainWindow as _HF117
 
     _seiten117 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                       encoding='utf-8').read()
-    # ⛔⛔ **Nicht die Kennung aus dem Funktionsnamen schnitzen.** Bis zum
-    # 14.09.2026 hiess jede Seitenfunktion `_<kennung>(fenster, rahmen)`, und
-    # diese Pruefung schnitt das Wort hinter dem Unterstrich heraus. Mit P4
-    # Stufe 7c fallen die deutschen Funktionsnamen — `_diagnose` wurde
-    # `_diagnostics`, die Kennung blieb `diagnose`. Die Pruefung meldete prompt
-    # „fehlt: diagnostics": Sie verglich einen Funktionsnamen mit einer Liste
-    # von Kennungen.
+    # ⛔⛔ **Nicht die Kennung aus dem Funktionsnamen schnitzen.** Funktion
+    # und Kennung heissen nicht gleich (`_diagnostics` gehoert zur Kennung
+    # `diagnose`).
     #
     # Die Zuordnung steht an genau einer Stelle im Programm — dort wird sie
-    # jetzt auch geholt. Damit ueberlebt die Pruefung jede weitere Umbenennung.
+    # auch geholt. Damit ueberlebt die Pruefung jede weitere Umbenennung.
     from scbp import pages as _se117
     _kennung117 = dict((_f117.__name__, _k117)
                        for _k117, _f117 in _se117._builders().items())
@@ -11980,7 +11632,7 @@ def main():
     #
     # ⚠ **`diagnose` ist eine bewusste Ausnahme.** Sie zeigt die Bestandszahl
     # im Fehlerbericht, darf aber nicht verworfen werden: Ein Neubau leerte das
-    # Feld „Was ist passiert?" — jemand tippt seine Beschreibung, sieht kurz
+    # Meldungsfeld — jemand tippt seine Beschreibung, sieht kurz
     # woanders nach, und der Text waere weg. Sie frischt stattdessen ueber
     # `on_show['diagnose']` nur den Berichtstext auf. Wer diese Zeile
     # entfernt, muss dort einen anderen Weg bauen, nicht die Seite verwerfen.
@@ -12022,14 +11674,11 @@ def main():
     print()
     print('118. Jeder Weg aus dem Fehlerbericht leert das Meldungsfeld')
     # ⚠⚠ Der Satz in „Was ist passiert?" gehoert zu EINEM Bericht. Bleibt er
-    # stehen, haengt er unbemerkt am naechsten — und der Entwickler sucht einen
-    # Fehler, den der Melder vor einer Woche hatte.
+    # stehen, haengt er unbemerkt am naechsten — und wer ihn liest, sucht
+    # einen Fehler, der eine Woche alt ist.
     #
-    # Beim ersten Anlauf am 05.09.2026 hing das Leeren nur am Absenden.
-    # Gemeldet noch am selben Tag: „bei Angaben kopieren wird der text nicht
-    # geloescht" — und beim Melde-Knopf ebenso wenig. Drei Wege aus dem
-    # Bericht heraus, einer davon aufgeraeumt: Das ist kein halber Fix, das
-    # ist ein Fix, der beim naechsten Nutzer wieder auffaellt.
+    # Drei Wege fuehren aus dem Bericht heraus: Absenden, Angaben kopieren,
+    # Melde-Knopf. Jeder leert das Feld.
     #
     # ⚠ Diese Wache faengt den VIERTEN Weg, den jemand spaeter baut.
     _sei118 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
@@ -12070,7 +11719,7 @@ def main():
 
     print()
     print('119. Die Melde-Adresse kommt nicht in den oeffentlichen Bericht')
-    # ⚠⚠ **Gemessen am 05.09.2026, nicht vermutet.** `report.submit()` gibt
+    # ⚠⚠ **Gemessen, nicht vermutet.** `report.submit()` gibt
     # den Grund eines gescheiterten Sendeversuchs bewusst NICHT zurueck, weil
     # die Adresse geheim ist — eine Zeile darueber steht aber
     # `errors.record('report.submit', ausnahme)`, und das Fehlerprotokoll
@@ -12119,17 +11768,17 @@ def main():
 
     print()
     print('120. Melde-Seite: Feld gross genug, Zusicherung vor dem Klick')
-    # ⚠⚠ Zwei Meldungen vom 05.09.2026, beide zur selben Seite:
+    # ⚠⚠ Zwei Anforderungen an dieselbe Seite:
     #
-    # a) Das Meldungsfeld war ein einzeiliges `Entry` rechts neben dem Text —
-    #    halb so breit wie die Seite. Wer zwei Saetze tippte, sah nur das Ende
-    #    und konnte vor dem Absenden nicht nachlesen, was er meldet.
-    # b) Die Zusicherung „Du siehst vorher genau, was du verschickst" stand
-    #    UNTER der Knopfreihe, also hinter dem Klick — und konnte am unteren
-    #    Rand wegfallen.
+    # a) Das Meldungsfeld ist mehrzeilig und breit. Ein einzeiliges `Entry`
+    #    rechts neben dem Text zeigte nach zwei Saetzen nur das Ende, und vor
+    #    dem Absenden liesse sich nicht nachlesen, was man schickt.
+    # b) Die Zusicherung, dass man vorher sieht, was verschickt wird, steht
+    #    VOR der Knopfreihe — dahinter kaeme sie nach dem Klick und koennte am
+    #    unteren Rand wegfallen.
     #
-    # ⚠ Nach OBEN gehoert sie trotzdem nicht: Ihr Text lautet „Der Block oben
-    # ist der ganze Inhalt". Ueber dem Bericht stimmte der Bezug nicht mehr.
+    # ⚠ Nach OBEN gehoert sie trotzdem nicht: Ihr Text verweist auf den Block
+    # oben. Ueber dem Bericht stimmte der Bezug nicht mehr.
     # Die Pruefung haelt deshalb BEIDE Grenzen fest — hinter dem Bericht,
     # vor den Knoepfen.
     import tkinter as tk
@@ -12177,9 +11826,8 @@ def main():
         pruefe(_sicher120 is not None, 'die Zusicherung ist auf der Seite')
 
         # ⚠ NICHT ueber y-Koordinaten messen: Die Zusicherung enthaelt selbst
-        # eine Leinwand (das Haekchen), und die sieht wie ein Knopf aus — der
-        # erste Anlauf dieser Pruefung meldete deshalb einen Fehler, den es
-        # nicht gab. Gemessen wird die Aufbaureihenfolge im gemeinsamen
+        # eine Leinwand (das Haekchen), und die sieht wie ein Knopf aus — die
+        # Pruefung schluege an, ohne dass ein Fehler da ist. Gemessen wird die Aufbaureihenfolge im gemeinsamen
         # Rahmen, also genau das, was `pack` untereinander setzt.
         def _vorfahr120(widget, eltern):
             lauf = widget
@@ -12222,16 +11870,14 @@ def main():
 
     print()
     print('121. Eingeklapptes Overlay: ein Fund holt es kurz heraus')
-    # ⚠⚠ **Die Funktion gab es, bewacht war sie nicht.** Am 05.09.2026
-    # nachgefragt — und beim Nachsehen stand im Selbsttest zu
-    # `bei_fund_zeigen` und `_wieder_zuklappen` keine Zeile. Eine Funktion
+    # ⚠⚠ Wache fuer `bei_fund_zeigen` und `_wieder_zuklappen`. Eine Funktion
     # ohne Wache ist eine Funktion auf Zeit: Der naechste Umbau am Klappen
     # nimmt sie mit, und gemerkt wird es erst, wenn jemand im Kampf einen
     # Bauplan verpasst.
     #
     # Worum es geht: Wer „Immer sichtbar" gewaehlt und die Leiste zugeklappt
-    # hat, bekam frueher nur den Signalton. Mit durchgereichten Mausklicks
-    # war das doppelt aergerlich — man hoert etwas, kann aber nichts
+    # hat, bekaeme sonst nur den Signalton. Mit durchgereichten Mausklicks
+    # ist das doppelt aergerlich — man hoert etwas, kann aber nichts
     # anklicken. Ein zugeklapptes Overlay schaltete damit genau die Funktion
     # ab, fuer die es da ist.
     import tkinter as tk121
@@ -12265,9 +11911,9 @@ def main():
                'ein Fund holt das eingeklappte Overlay heraus')
         pruefe(_ov121._zuklapp_uhr is not None,
                'und stellt eine Uhr, damit es nicht offen stehen bleibt')
-        # ⚠ Der Blick darf den gemerkten Wunsch NICHT umschreiben — sonst
-        # staende das Overlay beim naechsten Start offen, obwohl der Spieler
-        # es zugeklappt haben wollte.
+        # ⚠ Der Blick darf den gemerkten Klappzustand NICHT umschreiben —
+        # sonst staende das Overlay beim naechsten Start offen, obwohl der
+        # Spieler es zugeklappt hat.
         pruefe(_pf121.setting_bool('eingeklappt', False),
                'der gemerkte Wunsch bleibt trotzdem „zugeklappt"')
 
@@ -12275,8 +11921,7 @@ def main():
         # bei (0,0); das aufklappende Overlay landet genau dort, loest
         # `<Enter>` aus und setzt `_maus_drauf` — dann WARTET das Zuklappen,
         # zu Recht, und die Pruefung misst ihre eigene Umgebung statt des
-        # Programms. Genau so meldete der erste Anlauf einen Fehler, den es
-        # nicht gab.
+        # Programms.
         _ov121._maus_drauf = False
 
         class _Fern121(object):
@@ -12309,14 +11954,13 @@ def main():
         # Und die Ruecksicht: Wer gerade liest, dem klappt nichts unter dem
         # Zeiger weg.
         #
-        # ⚠⚠ **Auch diese Haelfte muss festgenagelt werden.** Bis zum
-        # 12.09.2026 stand hier nur `_ov121._maus_drauf = True` — eine
-        # Zuweisung an die Instanz. Unter Xvfb traegt das, weil der Zeiger bei
-        # (0,0) steht und sich nicht ruehrt. Unter Windows ist es ein echtes
-        # Fenster mit einem echten Mauszeiger: Ein `<Enter>` oder `<Leave>` vom
-        # Betriebssystem schrieb den Wert waehrend des Wartens um, das Overlay
-        # klappte zu Recht zu — und die Pruefung meldete einen Fehler, den es
-        # nicht gab. Gemessen: derselbe Stand lief dreimal, einmal rot.
+        # ⚠⚠ **Auch diese Haelfte muss festgenagelt werden.** Eine blosse
+        # Zuweisung `_ov121._maus_drauf = True` an die Instanz traegt unter
+        # Xvfb, weil der Zeiger bei (0,0) steht und sich nicht ruehrt. Unter
+        # Windows ist es ein echtes Fenster mit einem echten Mauszeiger: Ein
+        # `<Enter>` oder `<Leave>` vom Betriebssystem schreibt den Wert
+        # waehrend des Wartens um, das Overlay klappt zu Recht zu — und die
+        # Pruefung wuerde zufaellig rot.
         #
         # ⚠ Die beiden Haelften sind einander die Gegenprobe: mit `False`
         # klappt es zu, mit `True` bleibt es offen. Wer hier `_Fern121(True)`
@@ -12344,24 +11988,19 @@ def main():
 
     print()
     print('122. „Info" klappt zu — Fehler melden, Update und Neues bleiben sichtbar')
-    # ⚠⚠ **Gemeldet am 05.09.2026:** „Info sollte auch nicht einklappbar sein,
-    # sonst blendet jemand Fehler melden aus, und findet es nicht mehr."
-    #
-    # Genau so: Wer die Gruppe zuklappt, blendet den Weg aus, auf dem er ein
+    # ⚠⚠ Wer die Gruppe zuklappt, blendet den Weg aus, auf dem er ein
     # Problem loswird — und sucht ihn dann, wenn etwas klemmt und die Geduld
     # ohnehin am Ende ist.
     #
     # ⚠ Die uebrigen Gruppen bleiben klappbar, und das gehoert mitgeprueft:
     # Das Zuklappen gibt es aus einem guten Grund — die Seitenleiste bestimmt
     # die Mindesthoehe des Fensters, zugeklappte Gruppen sparen rund 400 px.
-    # Wer hier alles festnagelt, holt den alten Fehler zurueck.
+    # Wer hier alles festnagelt, macht das Fenster wieder zu hoch.
     import tkinter as tk122
     from scbp import paths as _pf122, main_window as _hf122
 
-    # ⭐⭐ **Seit v3.58.0 klappt Info wieder — nur nicht ganz** (27.09.2026):
-    # „Info wieder einklappbar, außer Fehler melden, Update und Über, und Was
-    # ist neu, die sollen sichtbar bleiben." Geprueft wird deshalb nicht mehr
-    # „Info bleibt offen", sondern die Eigenschaft, um die es damals ging:
+    # ⭐⭐ **Info klappt — nur nicht ganz:** Fehler melden, Update & Über und
+    # Was ist neu bleiben sichtbar. Geprueft wird deshalb die Eigenschaft:
     # **Fehler melden ist nie weggeklappt** — und die beiden anderen auch nicht.
     _alt122 = {k: _pf122.setting(k) for k in
                ('gruppe_zu_info', 'gruppe_zu_info_2', 'gruppe_zu_werkstatt')}
@@ -12369,8 +12008,8 @@ def main():
     try:
         # ⚠ Der harte Fall: ein altes „zu" aus der Zeit, als Info frei
         # klappte. Es darf die Gruppe NICHT zuklappen — sonst saehe ein Teil
-        # der Nutzer die Reiter darin nie. (Der Statistik-Reiter, um den es
-        # hier in rc1 ging, hat seit rc2 eine eigene Gruppe.)
+        # der Nutzer die Reiter darin nie. (Der Statistik-Reiter hat eine
+        # eigene Gruppe.)
         _pf122.set_setting('gruppe_zu_info', 'ja')
         _pf122.set_setting('gruppe_zu_info_2', 'nein')
         _pf122.set_setting('gruppe_zu_werkstatt', 'ja')
@@ -12436,9 +12075,8 @@ def main():
 
     print()
     print('123. „laeuft" nur, solange das Spiel wirklich schreibt')
-    # ⚠⚠ **Gemeldet am 05.09.2026:** „Spiel ist aus, und die Quest die da auf
-    # laeuft steht ist von gestern nacht, da bin ich ohne ab zu brechen
-    # ausgeloggt weil ich zu muede war."
+    # ⚠⚠ Nach dem Ausloggen ohne Abbruch steht ein Auftrag vom Vorabend noch
+    # da, obwohl das Spiel aus ist.
     #
     # Ausloggen beendet keinen Auftrag — das Spiel schreibt dafuer nichts.
     # Aufgeraeumt wird so ein Fall erst, wenn eine SPAETERE Sitzung ihn nicht
@@ -12446,10 +12084,10 @@ def main():
     # Ausloggen gibt es die noch nicht. Gemessen an 381 echten Auftraegen:
     # 68 waren so bereits aufgeloest, genau einer blieb uebrig — der juengste.
     #
-    # ⚠ Der Zustand bleibt richtig, nur das Wort war es nicht: Der Auftrag ist
-    # im Spiel weiter angenommen, beim naechsten Einloggen meldet SC ihn
-    # erneut. Ihn zu beenden waere gelogen. „laeuft" behauptet aber „jetzt
-    # gerade" — „noch offen" stimmt in beiden Faellen.
+    # ⚠ Der Zustand bleibt richtig, nur das Wort muss passen: Der Auftrag ist
+    # im Spiel weiter angenommen, beim naechsten Einloggen nennt SC ihn
+    # erneut. Ihn zu beenden waere gelogen. Laeuft behauptet aber jetzt
+    # gerade — noch offen stimmt in beiden Faellen.
     import time as _t123
     from scbp import paths as _pf123
 
@@ -12516,19 +12154,18 @@ def main():
 
     print()
     print('124. Eine LANGE stumme Sitzung raeumt auf — eine kurze nicht')
-    # ⚠⚠ **Gemeldet am 05.09.2026:** Nach dem Ausloggen ohne Abgabe stand der
-    # letzte Auftrag fuer immer auf „laeuft" — auch nachdem danach 162 Minuten
-    # gespielt worden war, ohne dass ein einziger Auftrag vorkam. Dazu: „er
-    # wurde nicht wieder gemeldet, kann er auch nicht da er weg ist."
+    # ⚠⚠ Nach dem Ausloggen ohne Abgabe darf der letzte Auftrag nicht fuer
+    # immer laufen — auch nicht, wenn danach lange gespielt wird, ohne dass
+    # er noch einmal im Log steht.
     #
-    # ⚠⚠ **Der erste Loesungsversuch war FALSCH und wurde gemessen widerlegt.**
-    # „Spieler war im Spiel, nannte aber keinen Auftrag" allein haette an 188
-    # echten Protokollen ACHT Auftraege geschlossen, die kurz danach wieder
-    # auftauchten — kurze Fehlstarts nennen den Auftrag eben doch nicht immer.
-    # Erst die Mindestdauer macht die Regel sicher (0 Fehlschliessungen ab
-    # einer Stunde, genommen sind 90 Minuten).
+    # ⚠⚠ **Ohne Mindestdauer ist die Regel FALSCH** (gemessen): Allein die
+    # Bedingung, der Spieler war im Spiel und nannte keinen Auftrag, schloesse
+    # an 188 echten Protokollen ACHT Auftraege, die kurz danach wieder
+    # auftauchten — kurze Fehlstarts nennen den Auftrag eben doch nicht
+    # immer. Erst die Mindestdauer macht die Regel sicher (0
+    # Fehlschliessungen ab einer Stunde, genommen sind 90 Minuten).
     #
-    # Diese Pruefung haelt BEIDE Seiten fest. Ohne die zweite waere der alte
+    # Diese Pruefung haelt BEIDE Seiten fest. Ohne die zweite waere ein
     # Fehler nur gegen einen schlimmeren getauscht: Ein faelschlich
     # geschlossener Auftrag ist schlimmer als eine ehrliche Karteileiche.
     import importlib as _il124
@@ -12548,7 +12185,7 @@ def main():
             return '<%s.000Z> %s\n' % (zeit, text)
 
         # Sitzung 1: ein Auftrag wird angenommen und NICHT beendet — genau der
-        # Fall „ausgeloggt, ohne abzugeben".
+        # Fall: ausgeloggt, ohne abzugeben.
         _annahme124 = _zeile124(
             '2026-09-04T20:31:27',
             '[42] <SHUDEvent_OnNotification> Added notification '
@@ -12614,12 +12251,10 @@ def main():
 
     print()
     print('125. Spielzeit: fortgeschrieben, ohne doppelt zu zaehlen')
-    # ⚠⚠ **Gewuenscht am 05.09.2026**, mitsamt der Begruendung, warum es eine
-    # eigene Datei braucht: „dazu muesste es aber auch eine Datenbank geben die
-    # Fortgeschrieben wird (die muesste dann auch Exportierbar sein bei
-    # Systemumzug oder neuinstallation)".
+    # ⚠⚠ Die Spielzeit braucht eine eigene, fortgeschriebene Datei, die auch
+    # einen Systemumzug oder eine Neuinstallation uebersteht.
     #
-    # Genau so: Star Citizen hebt seine Protokolle nur begrenzt auf — gemessen
+    # Denn Star Citizen hebt seine Protokolle nur begrenzt auf — gemessen
     # decken 188 Sicherungen 88 Tage ab. Wer die Spielzeit allein aus den
     # vorhandenen Logs rechnet, bekommt jeden Monat eine kleinere
     # Vergangenheit.
@@ -12649,9 +12284,8 @@ def main():
         # auf dem sie laeuft.** `paths.game_folder()` faellt auf eine Suche
         # zurueck, wenn kein gueltiger Pfad eingetragen ist — auf einem
         # Rechner MIT Star Citizen findet es das echte Spiel, und wenn dort
-        # gerade gespielt wird, zaehlt die laufende Sitzung mit. Genau so
-        # meldete diese Pruefung „3 h 31 min statt 3 h 30 min": ein Fehler in
-        # der Pruefung, nicht im Programm.
+        # gerade gespielt wird, zaehlt die laufende Sitzung mit — ein Fehler
+        # in der Pruefung, nicht im Programm.
         pruefe(_sz125.total(with_running=False) == 3600 * 3.5,
                'zwei Sitzungen ergeben 3 h 30 min (%s)'
                % _sz125.as_text(_sz125.total(with_running=False)))
@@ -12719,11 +12353,9 @@ def main():
 
     print()
     print('126. Ein Klick ins Leere beendet die Eingabe — ueberall')
-    # ⚠⚠ **Gemeldet am 05.09.2026, mit dem entscheidenden Zusatz:** „das
-    # vergisst du jedesmal aufs neue wo man text eingeben kann." Zu Recht:
-    # Erst blieb das Auswahlfeld beim Klick ins Leere offen, dann uebernahm
-    # das Meldungsfeld seinen Text nicht, dann das Namensfeld. Dreimal
-    # dieselbe Ursache, dreimal einzeln geflickt.
+    # ⚠⚠ Jedes Eingabefeld ist betroffen — Auswahlfeld, Meldungsfeld,
+    # Namensfeld. Einzeln geflickt, faellt das naechste neue Feld wieder
+    # heraus.
     #
     # Die Ursache: Tk gibt den Fokus nur ab, wenn ihn ein anderes
     # FOKUSSIERBARES Bedienelement uebernimmt. Ein Klick auf eine Flaeche
@@ -12769,20 +12401,20 @@ def main():
                 _w126.update()
                 _w126.update_idletasks()
 
-            # ⚠⚠ **`focus_get()` allein reicht auf Windows nicht** (07.09.2026).
+            # ⚠⚠ **`focus_get()` allein reicht auf Windows nicht.**
             #
-            # Es beantwortet „welches Widget hat den Tastaturfokus" nur, wenn
+            # Es beantwortet, welches Widget den Tastaturfokus hat, nur, wenn
             # das Fenster auch das AKTIVE des Betriebssystems ist. Im Selbsttest
             # ist es das nicht: Das Fenster steht durchsichtig weit neben dem
             # Bildschirm (`unsichtbar.py`), und nach 125 Abschnitten voller
             # gebauter und zerstoerter Fenster hat Windows den Fokus laengst
             # woanders. `focus_get()` liefert dann schlicht `None`.
             #
-            # Gemessen, nicht vermutet: Alle drei Setz-Pruefungen meldeten
-            # „Fokus liegt bei KEINEM Widget dieses Fensters" — und die zwei
-            # Gegenpruefungen („Klick ins Leere nimmt den Fokus weg") standen
-            # dabei auf gruen, weil `None is not _feld` zufaellig zutrifft.
-            # Sie haben also nichts geprueft.
+            # Gemessen, nicht vermutet: Mit `focus_get()` allein saehen die
+            # Setz-Pruefungen den Fokus bei KEINEM Widget dieses Fensters —
+            # und die Gegenpruefungen (Klick ins Leere nimmt den Fokus weg)
+            # waeren gruen, weil `None is not _feld` zufaellig zutrifft. Sie
+            # pruefen dann nichts.
             #
             # Der Zwang `focus_force()` waere der falsche Ausweg: Er reisst den
             # Tastaturfokus auf Betriebssystem-Ebene an sich — wer gerade Star
@@ -12800,8 +12432,7 @@ def main():
             # nichts zu sagen hat.
             # ⚠ `bezug` ist noetig, weil `focus_lastfor()` JE TOPLEVEL
             # antwortet. Auf `_w126` gefragt kommt die Wurzel `.` zurueck —
-            # die Widgets sitzen aber im Toplevel des Hauptfensters. Genau
-            # das meldete der erste Anlauf: „Fokus liegt stattdessen auf .".
+            # die Widgets sitzen aber im Toplevel des Hauptfensters.
             def _fokus126(bezug):
                 return _w126.focus_get() or bezug.focus_lastfor()
 
@@ -12820,8 +12451,8 @@ def main():
 
             # ⚠ Der Fokus muss ERZWUNGEN werden. Unter Xvfb vergibt kein
             # Fenstermanager ihn, `focus_get()` gibt dann None — und die
-            # Pruefung wuerde „nicht im Feld" melden, ohne je drin gewesen zu
-            # sein. Genau so lief der erste Anlauf ins Leere.
+            # Pruefung saehe den Fokus ausserhalb des Felds, ohne dass er je
+            # drin gewesen waere.
             _w126.focus_force()
             _w126.update()
             _eingabe126[0].focus_set()
@@ -12837,7 +12468,7 @@ def main():
                    'ein Klick ins Leere nimmt den Fokus aus dem Meldungsfeld')
 
             # ⚠⚠ **Das `<FocusOut>` wird hier ausdruecklich geschickt** —
-            # gemessen am 07.09.2026, und der Grund ist unangenehm konkret:
+            # gemessen, und der Grund ist unangenehm konkret:
             #
             # Tk sendet `FocusIn`/`FocusOut` nur, wenn das Toplevel den
             # Tastaturfokus des BETRIEBSSYSTEMS hat. Im Prueflauf hat es den
@@ -12847,8 +12478,7 @@ def main():
             # Bericht haengt genau daran.
             #
             # Unter Xvfb feuert es, weil dort ein eigener Bildschirm existiert.
-            # Deshalb fiel es unter Linux nie auf, und unter Windows kam der
-            # Lauf frueher gar nicht bis hierher.
+            # Deshalb faellt es unter Linux nie auf.
             #
             # Erzwingen liesse sich das nur mit `focus_force()` — dem
             # Fokusklau, den `unsichtbar.py` gerade verhindert. Also wird das
@@ -12873,8 +12503,8 @@ def main():
             # Der Fokuswechsel ist ein Ereignis; ohne Durchlauf sitzt er noch
             # nicht, und der Klick danach nimmt einen Fokus weg, der nie da
             # war — dann feuert auch kein `<FocusOut>`, und der Name bleibt
-            # draussen. Genau daran scheiterte der erste Anlauf dieser
-            # Pruefung, waehrend das Programm richtig arbeitete.
+            # draussen — die Pruefung scheitert, waehrend das Programm
+            # richtig arbeitet.
             _w126.update()
             pruefe(_fokus126(_namen126[0]) is _namen126[0],
                    'der Fokus laesst sich ins Namensfeld setzen'
@@ -12893,9 +12523,9 @@ def main():
             # leere Zeichenkette.
             #
             # Im Programm gibt es genau EINE Wurzel; dort tritt das nicht auf.
-            # In einem eigenen Lauf am 05.09.2026 gegengeprueft, mit echtem
-            # Klick auf eine Beschriftung, in beiden Reihenfolgen — der Name
-            # kam jedes Mal im Bericht an.
+            # In einem eigenen Lauf gegengeprueft, mit echtem Klick auf eine
+            # Beschriftung, in beiden Reihenfolgen — der Name kommt jedes Mal
+            # im Bericht an.
             #
             # Der Meldungstext oben deckt dieselbe Kette ab (er haengt nicht
             # an einer StringVar). Eine Zeile, die je nach Wurzel gruen oder
@@ -12905,8 +12535,8 @@ def main():
                    'am Namensfeld haengt die Uebernahme am Fokusverlust')
 
             # ⚠ Gegenprobe: Ein Klick INS Feld darf den Fokus nicht nehmen.
-            # Ohne sie waere die Regel „Fokus immer weg" ebenso gruen — und
-            # tippen unmoeglich.
+            # Ohne sie waere eine Regel, die den Fokus immer wegnimmt, ebenso
+            # gruen — und tippen unmoeglich.
             _w126.focus_force()
             _w126.update()
             _eingabe126[0].focus_set()
@@ -12924,9 +12554,8 @@ def main():
 
     print()
     print('127. Rufpunkte im Auftragsblock, hervorgehoben')
-    # ⚠⚠ Gewuenscht am 05.09.2026: „Mach die XP blau geschrieben … damit
-    # allgemein spieler es schneller sehen." Bis 30.09.2026 tat das nur der
-    # SCDL-Weg; seitdem der einzige Schreibweg (`_build_block`).
+    # ⚠⚠ Die Rufpunkte stehen blau, damit Spieler sie schneller sehen —
+    # geschrieben von `_build_block`.
     from scbp import injection as _inj127
     _w127 = _inj127.TEXTS['de']
     _b127 = _inj127._build_block({'rang': 'Junior', 'rep': 800, 'ruf': 150,
@@ -12946,10 +12575,8 @@ def main():
 
     print()
     print('128. Wem der Auftrag Ruf bringt — und welcher Art')
-    # ⚠⚠ **Gewuenscht am 05.09.2026:** „auf SCMDB sieht man auch ob es Standing
-    # oder Rep bekommt, das muss auf jeden fall mit in den Questtext." Als
-    # Beispiele genannt: Headhunters und Citizens For Prosperity, „da gibt es
-    # beides".
+    # ⚠⚠ Im Auftragstext steht, ob der Auftrag Standing oder Rep bringt — bei
+    # Headhunters und Citizens For Prosperity etwa gibt es beides.
     #
     # Die Vertragsdaten geben das NICHT her — gemessen an allen 818 Eintraegen
     # kennen sie die Rufpunkte nur als Zahl, ohne Partei und ohne Art. Deshalb
@@ -13006,7 +12633,7 @@ def main():
            'ein unbekannter Auftrag bekommt nichts erfunden')
 
     # ⚠ Und die Verbindung zur Injektion: Ohne sie stuende das Modul da und
-    # niemand riefe es. Seit 30.09.2026 im einzigen Schreibweg (`_build_block`).
+    # niemand riefe es. Gerufen wird es im Schreibweg (`_build_block`).
     from scbp import injection as _inj128
     _e128 = {'titel_key': 'Headhunters_Test_title_001', 'bp': ['Probe'],
              'ruf': 150}
@@ -13027,9 +12654,7 @@ def main():
 
     print()
     print('129. Die neuere Ausfuhr von scmdb.net wird erkannt')
-    # ⚠⚠ **Gemeldet am 05.09.2026:** Eine Datei von einem Mitspieler wurde mit
-    # „Diese Datei kenne ich nicht" abgewiesen. Zu Recht — scmdb hat das Format
-    # gewechselt, und wir kannten nur das alte:
+    # ⚠⚠ scmdb hat das Format gewechselt; beide werden erkannt:
     #
     #     alt:  {"exportSchemaVersion": …, "blueprints": [{"productName", "ts"}]}
     #     neu:  {"version": 3, "blueprints": [{"tag", "name", "completed"}]}
@@ -13077,12 +12702,11 @@ def main():
 
     print()
     print('130. Zuruecksetzen sagt VORHER, was es kostet')
-    # ⚠⚠ **Am 05.09.2026 hat ein Melder seinen Bestand von 232 auf 3 gesetzt.**
-    # Die Warnung war da und sachlich richtig („was aelter ist als deine
-    # Protokolle, kommt nicht zurueck") — sie nannte nur keine Zahlen. Bei ihm
-    # gaben 221 Protokolle ganze 3 Bauplaene her; 229 waren weg.
+    # ⚠⚠ Eine sachlich richtige Warnung ohne Zahlen (was aelter ist als die
+    # Protokolle, kommt nicht zurueck) reicht nicht — Zuruecksetzen kann einen
+    # Bestand von 232 auf 3 bringen.
     #
-    # Wer „232 → 3" liest, bricht ab. Wer einen Satz liest, klickt weiter.
+    # Wer 232 → 3 liest, bricht ab. Wer einen Satz liest, klickt weiter.
     from scbp import collection as _b130
 
     _wiese130 = tempfile.mkdtemp(prefix='sc-bp-reset-')
@@ -13138,11 +12762,8 @@ def main():
 
     print()
     print('131. Die Protokolle der Nachbarkanaele kommen mit')
-    # ⚠⚠ **Am 05.09.2026 gemeldet:** Nach einem Wechsel von HOTFIX auf LIVE
-    # gaben 221 Protokolle nur DREI Bauplaene her — die uebrigen lagen im
-    # HOTFIX-Ordner, den der Watcher nie ansah. Dazu: „er hat im HOTFIX noch
-    # alle logs liegen … koennen wir die aus allen Ordner also Live und HOTFIX
-    # in die log durchsuchung einbeziehen?"
+    # ⚠⚠ Nach einem Wechsel von HOTFIX auf LIVE liegen die meisten
+    # Protokolle im HOTFIX-Ordner. Der Watcher liest sie mit.
     #
     # Es ist dieselbe Person mit demselben Spielstand; nur der Kanal ist ein
     # anderer. Ein Kanalwechsel darf die Vorgeschichte nicht kosten.
@@ -13172,8 +12793,6 @@ def main():
         # man auf LIVE nicht. Sie mitzulesen wuerde einen Bestand behaupten,
         # den es nicht gibt — und ein zu viel eingetragener Bauplan ist
         # schlimmer als ein fehlender: Man plant damit und steht ohne da.
-        # Am 05.09.2026 richtiggestellt, nachdem der erste Anlauf alle Kanaele
-        # zusammenwarf.
         pruefe(len(_gefunden131) == 224,
                'LIVE (3) + HOTFIX (221) = 224, PTU bleibt draussen (%d)'
                % len(_gefunden131))
@@ -13212,12 +12831,10 @@ def main():
 
     print()
     print('132. Der scmdb-Export hat das Format, das scmdb einliest')
-    # ⚠⚠ Am 06.09.2026 aufgefallen, waehrend am IMPORT gearbeitet wurde:
-    # scmdb.net exportiert inzwischen `version: 3` mit `tag`/`name`/`url`/
-    # `completed`/`favorite`. Unser Export schrieb weiter `exportSchemaVersion:
-    # 1` mit `productName` und `ts` — abgelesen an ihrem alten Log-Watcher
-    # v0.1.9. Der Import wurde angepasst, der Export nicht: eine Richtung
-    # angefasst, die andere vergessen.
+    # ⚠⚠ scmdb.net exportiert `version: 3` mit `tag`/`name`/`url`/
+    # `completed`/`favorite`, liest aber `exportSchemaVersion` mit
+    # `productName` (siehe unten). Import und Export sind zwei Richtungen;
+    # beide muessen stimmen.
     #
     # Der TAG ist bei ihnen der Schluessel, nicht der Name. Ein Export ohne
     # Tags waere syntaktisch richtig und trotzdem wertlos.
@@ -13233,11 +12850,10 @@ def main():
     }}
     _doc132 = _ex132.for_scmdb(_bestand132, version='9.9.9', tags=_tags132)
 
-    # ⛔⛔ Nachtrag 01.10.2026 (gemeldet von zwaersch): Diese Pruefung hielt
-    # fest, was scmdb AUSGIBT (`version: 3`) — und verbot sogar
-    # `exportSchemaVersion`. scmdb liest aber nur „Import Watcher History",
-    # und der weist ab, was kein `exportSchemaVersion` und keine Liste
-    # `missions` hat. Hier steht deshalb die Pruefung der Seite selbst,
+    # ⛔⛔ Massgeblich ist nicht, was scmdb AUSGIBT (`version: 3`), sondern was
+    # es einliest: „Import Watcher History" weist ab, was kein
+    # `exportSchemaVersion` und keine Liste `missions` hat. Hier steht
+    # deshalb die Pruefung der Seite selbst,
     # nachgebaut aus ihrem Quelltext: erst der Umschlag, dann je Bauplan
     # `tag` (exakt) oder `productName` (Name).
     def _scmdb_nimmt132(doc):
@@ -13274,9 +12890,8 @@ def main():
     pruefe('url' not in (_bp132.get('Kennt-scmdb-nicht') or {}),
            'ohne Tag wird keine Adresse erfunden')
 
-    # ⚠ Gegenprobe: Die Datei, die bis v3.64.0 herauskam (scmdbs eigene
-    # Ausfuhr, `version: 3`), MUSS hier abgewiesen werden — genau die hat
-    # scmdb mit „Unrecognized format" abgelehnt.
+    # ⚠ Gegenprobe: scmdbs eigene Ausfuhr (`version: 3`) MUSS hier abgewiesen
+    # werden — genau die lehnt scmdb mit `Unrecognized format` ab.
     _alt132 = {'version': 3, 'missions': [],
                'blueprints': [{'tag': 'BP_CRAFT_AMRS_LaserCannon_S2',
                                'name': 'Omnisky VI Cannon',
@@ -13288,9 +12903,8 @@ def main():
                             'blueprints': [{'name': 'x'}]})[1] == 0,
            'Gegenprobe: ein Bauplan nur mit name ist nicht zuordenbar')
 
-    # ⚠⚠ Nachtrag 01.10.2026 (v3.64.2, gemeldet von zwaersch): Der Tag wurde
-    # wortgleich gesucht. „(16 Schuss)" fand „(16 cap)" nicht, und scmdb
-    # schlug fuer das Magazin die WAFFE vor. Geprueft wird der echte Weg
+    # ⚠⚠ Der Tag darf nicht wortgleich gesucht werden: `(16 Schuss)` findet
+    # `(16 cap)` nicht, und scmdb schlaegt fuer das Magazin die WAFFE vor. Geprueft wird der echte Weg
     # (`tags=None`) mit untergeschobenen Rezeptdaten — die Falle schnappt
     # zuerst an einem Namen zu, der sicher treffen MUSS.
     from scbp import crafting as _cr132
@@ -13341,15 +12955,14 @@ def main():
 
     print()
     print('133. Ein Auftrags-Ende ohne Titel wird nicht weggeworfen')
-    # ⚠⚠ Am 06.09.2026 gemeldet: Ein abgebrochener Auftrag stand im
-    # Auftrags-Protokoll richtig als „abgebrochen" und im Overlay weiter als
-    # laufend. Beim Abbruch schreibt das Spiel nur:
+    # ⚠⚠ Ein abgebrochener Auftrag darf im Overlay nicht weiter als laufend
+    # stehen. Beim Abbruch schreibt das Spiel nur:
     #
     #     <EndMission> … MissionId[7dc679f3-…] CompletionType[Abandon]
     #
-    # Kein Titel. Der Watcher warf jedes titellose Ereignis weg, bevor
-    # `which_ended` gefragt wurde — und deren dritter Schritt haette es
-    # ueber die MissionId aufgeloest.
+    # Kein Titel. Wirft der Watcher titellose Ereignisse weg, bevor
+    # `which_ended` gefragt wird, geht es verloren — deren dritter Schritt
+    # loest es ueber die MissionId auf.
     from scbp import contracts as _au133
 
     _echt133 = (
@@ -13411,10 +13024,9 @@ def main():
 
     print()
     print('134. Ein gescheiterter Auftrag gilt nicht als abgeschlossen')
-    # ⚠⚠ Am 06.09.2026 aufgefallen: Das Spiel kennt vier Ausgaenge, der Watcher
-    # wertete nur `Abandon` aus — `Fail` und `Deactivate` fielen unter
-    # „abgeschlossen". An einem gewachsenen Protokoll waren das **52**
-    # gescheiterte Auftraege, die gruen als Erfolg dastanden.
+    # ⚠⚠ Das Spiel kennt vier Ausgaenge. Wer nur `Abandon` auswertet, zaehlt
+    # `Fail` und `Deactivate` als abgeschlossen — gescheiterte Auftraege
+    # stuenden gruen als Erfolg da.
     from scbp import mission_log as _ml134
 
     pruefe(_ml134._state_for('Complete') == _ml134.COMPLETED,
@@ -13447,9 +13059,8 @@ def main():
 
     print()
     print('135. Jeder Zustand hat einen Filterknopf in seiner Farbe')
-    # Gewuenscht am 06.09.2026: „Buttons wie bei was ist neu in den farben ob
-    # abgeschlossen, abgebrochen, fehlgeschlagen, das man dann nur die art
-    # sieht."
+    # Filterknoepfe wie bei „Was ist neu", je Zustand (abgeschlossen,
+    # abgebrochen, fehlgeschlagen) in dessen Farbe.
     #
     # ⚠ Geprueft wird die KOPPLUNG, nicht das Aussehen. Dass die Knoepfe
     # klicken und filtern, ist am gebauten Fenster nachgemessen (sechs
@@ -13484,24 +13095,20 @@ def main():
 
     # ⚠⚠ **Die Reihenfolge in `zeichnen` ist entscheidend.** Die Meldung „Noch
     # kein Auftrag aufgezeichnet" darf NUR beim wirklich leeren Protokoll
-    # kommen. Stuende sie hinter dem Filter, hiesse ein sauberes Konto ohne
-    # Fehlschlaege „du hast noch nie einen Auftrag gespielt" — schlicht falsch.
+    # kommen. Stuende sie hinter dem Filter, behauptete sie bei einem
+    # sauberen Konto ohne Fehlschlaege, es sei nie ein Auftrag gespielt
+    # worden — schlicht falsch.
     _leer135 = _quelle134.find("t('s_al_leer')")
     _filter135 = _quelle134.find("stand['art'] != 'alle'")
     pruefe(_leer135 > 0 and _filter135 > _leer135,
            'die Leer-Meldung wird vor dem Filtern entschieden')
 
-    # 136./137. (Bis 30.09.2026: Hervorhebung und "Keine Angaben" im Block der
-    # SCDL-Vertragsdaten. Der Weg ist entfernt; die Hervorhebung prueft 127.)
+    # 136./137. entfallen; die Hervorhebung prueft 127.
 
     print()
     print('138. Das Bilder-Werkzeug ist auf beiden Systemen einsatzbereit')
-    # ⚠⚠ Am 06.09.2026: Die Bilder der Anleitung waren anderthalb Wochen alt,
-    # das Overlay-Bild zeigte eine Fassung von vor 18 Versionen — mit einem
-    # Verhalten, das es seit v3.0.0-rc95 nicht mehr gibt. Der Grund war nicht
-    # Nachlaessigkeit: `bilder_machen.py` lief nur unter Windows und brach hier
-    # mit „braucht Windows" ab. Im Kopf des Werkzeugs steht „Was von Hand
-    # gemacht wird, verrottet" — das galt auch fuer es selbst.
+    # ⚠⚠ Laeuft `bilder_machen.py` nur auf einem System, veralten die Bilder
+    # der Anleitung unbemerkt. Was von Hand gemacht wird, verrottet.
     #
     # Diese Pruefung schaut auf den Quelltext, nicht auf einen Lauf: Bilder zu
     # machen dauert Minuten und braucht einen Bildschirm. Sie faengt die drei
@@ -13511,15 +13118,14 @@ def main():
                   encoding='utf-8').read()
 
     # ⚠⚠ Das Wichtigste: Ein Werkzeug mit Fenster MUSS sich unsichtbar machen.
-    # Claudes Shell haengt an `DISPLAY=:0`, also am Monitor des Nutzers — ohne
+    # Eine Shell an `DISPLAY=:0` haengt am Monitor des Nutzers — ohne
     # diesen Aufruf blitzt das Fenster dort auf und reisst den Tastaturfokus
     # mit. Wer gerade Star Citizen fliegt, landet im Desktop und stirbt.
     #
-    # ⚠⚠ **Gefragt wird der SYNTAXBAUM, nicht der Text.** Die erste Fassung
-    # dieser Zeile suchte schlicht nach `'unsichtbar.sicherstellen(' in …` —
-    # und blieb gruen, als der Aufruf zum Ausprobieren auskommentiert wurde:
-    # In `# unsichtbar.sicherstellen(...)` steht der gesuchte Text ja weiter
-    # drin. Eine Pruefung, die eine auskommentierte Sicherung fuer vorhanden
+    # ⚠⚠ **Gefragt wird der SYNTAXBAUM, nicht der Text.** Eine Suche nach
+    # `'unsichtbar.sicherstellen(' in …` bliebe gruen, wenn der Aufruf
+    # auskommentiert ist: In `# unsichtbar.sicherstellen(...)` steht der
+    # gesuchte Text ja weiter drin. Eine Pruefung, die eine auskommentierte Sicherung fuer vorhanden
     # haelt, prueft genau das Gegenteil von dem, wofuer sie gebaut wurde.
     import ast as _ast138
     _baum138 = _ast138.parse(_bm138)
@@ -13573,11 +13179,9 @@ def main():
     # Zu jeder Seite in `bilder_machen.SEITEN` muss ein Bild vorliegen.
     _bilder138 = [n for n in os.listdir(os.path.join(WURZEL, 'assets'))
                   if n.startswith('screenshot-') and n.endswith('.png')]
-    # ⚠⚠ **Keine feste Zahl mehr.** Bis zum 06.09.2026 stand hier
-    # `len(...) == 34` — und wer eine Seite dazunahm, bekam eine rote Prüfung,
-    # obwohl er alles richtig gemacht hatte. Dasselbe Muster wie bei der
-    # Prüfung, die einmal den falschen Aufruf **festgeschrieben** hat:
-    # Geprüft gehört die **Wirkung** („zu jeder Seite gibt es ein Bild"), nicht
+    # ⚠⚠ **Keine feste Zahl.** Mit `len(...) == N` bekäme, wer eine Seite
+    # dazunimmt, eine rote Prüfung, obwohl er alles richtig gemacht hat.
+    # Geprüft gehört die **Wirkung** (zu jeder Seite gibt es ein Bild), nicht
     # eine Zahl, die jemand nachpflegen muss.
     _erwartet138 = set()
     for _z138 in _bm138.split('\n'):
@@ -13611,10 +13215,10 @@ def main():
 
     print()
     print('139. Schiffe finden ihre Steckplätze — auch bei krummen Namen')
-    # ⚠⚠ **Diese Prüfung gibt es, weil die Zuordnung STILL falsch war.**
-    # Sie hat nicht gekracht und nichts gemeldet — sie hat nur nichts gefunden,
-    # und die Anzeige machte daraus „noch nicht im Spiel". Zwei Schiffe, die
-    # längst fliegen, standen so als Konzept da (gemeldet 06.09.2026).
+    # ⚠⚠ **Die Zuordnung kann STILL falsch sein.** Sie kracht nicht und
+    # sagt nichts — sie findet nur nichts, und die Anzeige macht daraus
+    # ein Schiff, das noch nicht im Spiel ist. Schiffe, die längst fliegen,
+    # stünden so als Konzept da.
     #
     # ⚠ Sie **legt sich ihre Daten selbst hin**: ein Dutzend erkul-Kennungen im
     # Code, kein Abruf, keine Nutzerdatei. Sonst wäre sie eine Prüfung, die
@@ -13650,7 +13254,7 @@ def main():
             _daneben139.append('%s -> %s statt %s' % (_n139, _ist139 or '—',
                                                       _soll139))
     # ⭐ **Die Trefferquote steht im Text, nicht nur im Ergebnis.** Eine
-    # Zuordnung, die „alles in Ordnung" meldet, ohne dass jemand die Zahl
+    # Zuordnung, die gruen ist, ohne dass jemand die Zahl
     # gesehen hat, ist dieselbe stille Falle noch einmal.
     pruefe(not _daneben139,
            'alle %d krummen Namen finden ihr Schiff (daneben: %s)'
@@ -13679,9 +13283,9 @@ def main():
     print()
     print('140. Der Ablage-Ordner nimmt die Daten mit')
     # ⚠⚠ **Diese Prüfung bewacht einen Datenverlust, keinen Schönheitsfehler.**
-    # Bis v3.19.0 setzte „Ablage-Ordner umstellen" nur die Einstellung — die
-    # Dateien blieben liegen. Wer umstellte, sah nach dem Neustart ein leeres
-    # Programm und hielt seinen Bauplan-Bestand für verloren.
+    # Setzt „Ablage-Ordner umstellen" nur die Einstellung und lässt die
+    # Dateien liegen, sieht man nach dem Neustart ein leeres Programm und
+    # hält seinen Bauplan-Bestand für verloren.
     import shutil as _sh140
     import tempfile as _tf140
     from scbp import paths as _pf140
@@ -13695,9 +13299,9 @@ def main():
                       encoding='utf-8') as _f140:
                 json.dump({'probe': list(range(50))}, _f140)
 
-        # ⚠ Rekursiv: Die Ablage sortiert seit v3.0.0 in Unterordner. Ein
-        # flacher Durchlauf fände hier **nichts** und meldete „nichts zu tun",
-        # während der ganze Bestand danebenliegt.
+        # ⚠ Rekursiv: Die Ablage sortiert in Unterordner. Ein flacher
+        # Durchlauf fände hier **nichts** und hielte das für erledigt, während
+        # der ganze Bestand danebenliegt.
         pruefe(len(_pf140._storage_files(_von140)) == 2,
                'Dateien werden auch in Unterordnern gefunden')
 
@@ -13761,11 +13365,8 @@ def main():
     # zieht auch die Game.log heran, und die sieht auf jedem Rechner anders
     # aus. Lokal grün, im Bau rot wäre hier besonders tückisch.
     print()
-    # ⚠ Nummer 146, obwohl sie weit vor den 140ern steht: Drei Sitzungen
-    # haben am selben Tag Prüfungen angelegt, und 142 wie 144 gab es dadurch
-    # doppelt. Am 06.09.2026 glattgezogen — der Joystick-Strang wanderte ans
-    # Ende (146-148), weil der andere in sich fortlaufend war. Die Nummer sagt,
-    # **wann** eine Prüfung dazukam, nicht wo sie in der Datei steht.
+    # ⚠ Nummer 146, obwohl sie weit vor den 140ern steht: Die Nummer sagt die
+    # Reihenfolge des Hinzukommens, nicht wo eine Prüfung in der Datei steht.
     print('146. Achsen: Totzone, Sättigung, tote Kennungen')
     import shutil as _sh141
     import tempfile as _tf141
@@ -13776,7 +13377,7 @@ def main():
     _WEG141 = 'CCCC3333-0000-0000-0000-504944564944'
 
     # Der Aufbau bildet genau die Lagen nach, die an einer echten Datei
-    # gemessen wurden (06.09.2026):
+    # gemessen wurden:
     #   · ein Gerät mit aktiver UND überholter Kennung (Sättigung verloren)
     #   · Sättigung doppelt geschrieben — der Normalfall, kein Fehler
     #   · zwei Blöcke mit DERSELBEN Kennung und widersprüchlichem Wert
@@ -13841,7 +13442,7 @@ def main():
         pruefe(_nach141.get(_ALT141) and not _nach141[_ALT141][0]['aktiv'],
                'der Block mit unbekannter Kennung gilt als tot')
 
-        # ⭐ Der Kern: „Gerät ist da, Einstellung hängt an alter Kennung."
+        # ⭐ Der Kern: Gerät ist da, Einstellung hängt an alter Kennung.
         pruefe(_nach141.get(_ALT141) and _nach141[_ALT141][0]['ueberholt'],
                'gleicher Name + aktiver Zwilling -> überholt, nicht verwaist')
         pruefe(_nach141.get(_WEG141) and _nach141[_WEG141][0]['verwaist'],
@@ -13874,11 +13475,10 @@ def main():
 
         # Schreiben: über die Kennung, Doppel einsammeln, Rest heil lassen
         #
-        # ⚠⚠ Vorher den Zustand ALLER Blöcke festhalten. Die erste Fassung
-        # prüfte nur den einen toten Block, den sie im Verdacht hatte — und
-        # blieb in der Gegenprobe grün: Der eingebaute Fehler (Schreiben ohne
-        # Kennungsprüfung) traf den *letzten* Block der Datei, nicht diesen
-        # einen. Eine Wache, die nur eine Tür bewacht, meldet nichts, wenn
+        # ⚠⚠ Vorher den Zustand ALLER Blöcke festhalten. Wer nur den einen
+        # toten Block prüft, den er im Verdacht hat, bleibt in der Gegenprobe
+        # grün: Der eingebaute Fehler (Schreiben ohne Kennungsprüfung) trifft
+        # den *letzten* Block der Datei, nicht diesen einen. Eine Wache, die nur eine Tür bewacht, meldet nichts, wenn
         # jemand durch die andere geht.
         _vorher_alle141 = {}
         for _b141 in _kv141.device_axes(filename=_datei141):
@@ -13990,8 +13590,8 @@ def main():
     pruefe(_gl141(_kv141.answer(0.5, curve=_knick141), 0.1)
            and _gl141(_kv141.answer(0.25, curve=_knick141), 0.05),
            'gesetzte Kurvenpunkte gewinnen über den Exponenten')
-    # ⚠⚠ Die gefährlichste Verwechslung im ganzen Bereich: „nicht gesetzt"
-    # ist bei der Sättigung **1,0**, nicht 0. Ein Regler, der bei fehlender
+    # ⚠⚠ Die gefährlichste Verwechslung im ganzen Bereich: Nicht gesetzt
+    # heißt bei der Sättigung **1,0**, nicht 0. Ein Regler, der bei fehlender
     # Sättigung auf 0 stünde, schriebe beim ersten Anfassen einen Wert, nach
     # dem der Stick fast nicht mehr steuert. Die Oberfläche holt sich den
     # Ruhewert aus dieser Tabelle — deshalb wird sie hier festgenagelt.
@@ -14013,10 +13613,9 @@ def main():
     # ⚠⚠ **Diese Pruefung legt sich ihre Daten selbst hin.** Erkuls Schiffe
     # liegen als heruntergeladener Zwischenspeicher im Ablageordner; im
     # Wegwerf-Ordner des Selbsttests gibt es keinen. Eine Pruefung, die sich
-    # dann ueberspringt, prueft nie etwas — genau der Fehler, der bei
-    # Pruefung 67 monatelang unbemerkt blieb.
+    # dann ueberspringt, prueft nie etwas (siehe Pruefung 67).
     #
-    # Nachgebaut ist der Aufbau der Cutlass Black, gemessen am 06.09.2026:
+    # Nachgebaut ist der gemessene Aufbau der Cutlass Black:
     # ein fester Turm mit tauschbaren Kindern, ein Rack mit Raketen, und
     # zweimal derselbe Steckplatzname auf verschiedenen Ebenen.
     from scbp import erkul as _erk141
@@ -14122,10 +13721,10 @@ def main():
 
     print()
     print('142. Der Warenkorb haelt seine vier Zustaende auseinander')
-    # ⚠⚠ **Die teuerste Verwechslung dieses Projekts.** „keine Daten" und
-    # „nichts zu tun" sehen im Code gleich aus — beides ist eine leere Liste.
-    # Am 06.09.2026 stand deshalb bei jedem Bauplan „passt in keines deiner
-    # Schiffe", auch wenn nur die Steckplatz-Daten fehlten.
+    # ⚠⚠ **Die teuerste Verwechslung dieses Projekts.** Keine Daten und
+    # nichts zu tun sehen im Code gleich aus — beides ist eine leere Liste.
+    # Verwechselt, stuende bei jedem Bauplan, er passe in keines der eigenen
+    # Schiffe, auch wenn nur die Steckplatz-Daten fehlen.
     from scbp import cart as _wk142
 
     _abgelegt142 = {'spielversion': 'probe', 'hersteller': {}, 'schiffe': {
@@ -14226,7 +13825,7 @@ def main():
         pruefe(_stopps143 and _stopps143[0]['ort'] == 'Area18',
                'gewaehlt wird der Ort mit der groessten Deckung')
         # ⚠ Ein Stopp, zwei Laeden — genau die Unterscheidung, die erkul mit
-        # „1 shop · 1 stop" trifft.
+        # `1 shop · 1 stop` trifft.
         pruefe(_stopps143 and len(_stopps143[0]['laeden']) == 2,
                'zwei Laeden am selben Ort bleiben EIN Stopp')
         _summe143 = _wk142.route_total(_stopps143)
@@ -14263,8 +13862,8 @@ def main():
 
     print()
     print('144. Jeder Prüftext lässt sich unter Windows ausgeben')
-    # ⚠⚠ **Diese Prüfung gibt es, weil der Bau daran gescheitert ist.**
-    # Am 06.09.2026 brach der Selbsttest unter Windows mitten im Lauf ab:
+    # ⚠⚠ Ein Pfeil in einem Prüftext bricht den Selbsttest unter Windows
+    # mitten im Lauf ab:
     #
     #     UnicodeEncodeError: 'charmap' codec can't encode character
     #     '\u2192' in position 42
@@ -14279,11 +13878,10 @@ def main():
     with open(os.path.join(WURZEL, 'tools', 'selbsttest.py'),
               encoding='utf-8') as _f144:
         _roh144 = _f144.read()
-    # ⚠⚠ **Über den Syntaxbaum, nicht zeilenweise.** Die erste Fassung sah nur
-    # Zeilen an, in denen `pruefe(` steht — und ging genau an dem Fall vorbei,
-    # der den Bau abgebrochen hatte: Der Text stand in der **Fortsetzungszeile**
-    # darunter. Sie meldete „keine" und war grün, während Windows weiter
-    # abbrach. Dieselbe Lehre wie bei der ast-Falle in Prüfung 138.
+    # ⚠⚠ **Über den Syntaxbaum, nicht zeilenweise.** Wer nur Zeilen ansieht,
+    # in denen `pruefe(` steht, geht am Text in der **Fortsetzungszeile**
+    # darunter vorbei — grün, während Windows weiter abbricht. Dieselbe
+    # Lehre wie bei der ast-Falle in Prüfung 138.
     import ast as _ast144
     _schlimm144 = []
     for _knoten144 in _ast144.walk(_ast144.parse(_roh144)):
@@ -14453,19 +14051,16 @@ def main():
         # ⚠⚠ **Kein Dialog des Betriebssystems in den neuen Seiten.**
         #
         # `tkinter.messagebox` öffnet einen weißen Kasten mit grauen Knöpfen
-        # mitten in einem dunklen, deutschen Fenster. Für die Bergung wurde
-        # das schon einmal behoben; beim Bau der Achsen- und
-        # Blickwinkel-Seite ist es trotzdem wieder hineingerutscht und fiel
-        # erst auf einem Bildschirmfoto auf: *„ALLE Fenster müssen IMMER so
-        # aussehen wie das Design, das das Tool hat."*
+        # mitten in einem dunklen, deutschen Fenster. Alle Fenster sehen aus
+        # wie das Werkzeug.
         #
         # `frage_stellen()` gibt es genau dafür. Diese Wache hält fest, dass
         # die neuen Seiten es auch benutzen.
-        # ⭐ Alte Geräte-Einträge wegräumen. Ohne das wird man den Hinweis
-        # „diese Einstellungen wirken nicht mehr" nie los — Star Citizen legt
-        # bei jeder neuen Kennung einen weiteren Block an und räumt nie auf.
-        # ⚠ Gibt es nichts wegzuräumen, meldet die Funktion das als
-        # „nichts zu tun" — und NICHT als Erfolg mit null Treffern. Die
+        # ⭐ Alte Geräte-Einträge wegräumen. Ohne das wird man den Hinweis auf
+        # wirkungslose Einstellungen nie los — Star Citizen legt bei jeder
+        # neuen Kennung einen weiteren Block an und räumt nie auf.
+        # ⚠ Gibt es nichts wegzuräumen, liefert die Funktion das als eigenes
+        # Ergebnis — und NICHT als Erfolg mit null Treffern. Die
         # Oberfläche zeigt daraus einen Hinweis statt einer Rückfrage über
         # null Einträge.
         _ok145, _m145, _zahl145 = _kv145.clean_up(filename=_d145,
@@ -14611,7 +14206,7 @@ def main():
     #
     # | Es muss gehen | Es darf NICHT gehen |
     # |---|---|
-    # | ein Wunschschiff belegen und in den Warenkorb legen | ein Wunschschiff in „passt in dein Schiff" auftauchen |
+    # | ein Wunschschiff belegen und in den Warenkorb legen | ein Wunschschiff unter den eigenen Schiffen auftauchen |
     #
     # Waeren beide Listen zusammengelegt, faellt der zweite Punkt lautlos um:
     # Das Werkzeug gaebe dann Auskunft ueber ein Schiff, das dem Spieler gar
@@ -14638,7 +14233,7 @@ def main():
     pruefe(isinstance(_w149.get('belegung'), dict),
            'das Feld fuer die Ausstattung liegt leer bereit')
 
-    # Der Warenkorb arbeitet auf dem Wunsch-Eintrag wie auf einem Hangar-Schiff.
+    # Der Warenkorb arbeitet auf dem Wunschschiff wie auf einem Hangar-Schiff.
     pruefe(_wk149.set_part(_w149, 'hardpoint_power', 'ref-abc', 'Fortitude'),
            'ein Teil laesst sich in einen Steckplatz des Wunschschiffs legen')
     pruefe(_wk149.loadout(_w149).get('hardpoint_power', {}).get('name')
@@ -14657,7 +14252,7 @@ def main():
     pruefe(not (set(s[0] for s in _hs149) & set(s[0] for s in _ws149)),
            'kein Schiff steht in beiden Listen')
 
-    # Gegenprobe: Waere ein Wunsch faelschlich im Hangar, muesste das auffallen.
+    # Gegenprobe: Waere ein Wunschschiff faelschlich im Hangar, muesste das auffallen.
     _falsch149 = dict(_daten149)
     _falsch149['schiffe'] = _daten149['schiffe'] + [{'name': 'Prospector',
                                                      'hersteller': 'MISC'}]
@@ -14815,7 +14410,7 @@ def main():
         pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.START,
                'ein voellig neues Geraet -> einmal starten')
 
-        # Alles in Ordnung heisst: kein Vorschlag.
+        # Alles in Ordnung heisst: nichts anzubieten.
         _js150.devices = lambda ordner=None: [
             {'name': 'Log A', 'kennung': _A150}]
         _js150.assignment = lambda datei=None, ordner=None: [
@@ -15038,30 +14633,26 @@ def main():
     # ------------------------------------------------------------------
     # 155. Der Warenkorb-Knopf bleibt sichtbar, und der Ort steht einmal
     #
-    # ⚠⚠ Zwei Fehler, die zusammen auftraten und einander verstaerkt haben:
+    # ⚠⚠ Zwei Fallen, die einander verstaerken:
     #
-    # 1. Der Preistext wurde VOR dem Knopf gepackt. In tkinter bekommt das
-    #    zuerst gepackte Element seinen Platz — ein langer Text mit
-    #    `side='left'` schiebt einen spaeter gepackten `side='right'`-Knopf aus
-    #    dem Fenster. Der Knopf war da, nur unerreichbar.
-    # 2. Der Ort stand doppelt im Text: UEX schreibt ihn schon in den
-    #    Ladennamen („Ship Weapons - Pyro Gateway (Stanton)"), und daneben
-    #    stand er noch einmal. Das machte den Text erst lang genug, damit der
-    #    erste Fehler zuschlug.
+    # 1. Wird der Preistext VOR dem Knopf gepackt, bekommt er zuerst seinen
+    #    Platz — ein langer Text mit `side='left'` schiebt einen spaeter
+    #    gepackten `side='right'`-Knopf aus dem Fenster. Der Knopf ist da,
+    #    nur unerreichbar.
+    # 2. UEX schreibt den Ort schon in den Ladennamen (`Ship Weapons - Pyro
+    #    Gateway (Stanton)`); steht er daneben noch einmal, wird der Text erst
+    #    lang genug, damit die erste Falle zuschlaegt.
     #
-    # Folge: Wer einmal auf „Selbst herstellen" gewechselt hatte, kam nie
-    # zurueck auf „Kaufen" — ohne Fehlermeldung, der Knopf war schlicht nicht
-    # zu sehen. Am 06.09.2026 gemeldet.
+    # Folge: Wer auf „Selbst herstellen" wechselt, kaeme nie zurueck auf
+    # „Kaufen" — ohne Fehlermeldung, der Knopf waere schlicht nicht zu sehen.
     #
     # ⚠⚠ **Geprueft wird die PACK-REIHENFOLGE, nicht die Pixellage.** Die
-    # erste Fassung dieser Pruefung mass die rechte Kante des Knopfes in einem
-    # echten Fenster. Lokal unter Linux war sie gruen, im Bau-Lauf unter
-    # Windows fiel sie mit „rechte Kante None" um: Dort war zum Messzeitpunkt
-    # nichts gemappt, der Knopf also gar nicht auffindbar — und die
-    # Folgepruefungen fielen mit.
+    # rechte Kante des Knopfes in einem echten Fenster zu messen ist lokal
+    # unter Linux gruen, im Bau-Lauf unter Windows aber `None`: Dort ist zum
+    # Messzeitpunkt nichts gemappt.
     #
     # Eine Pruefung, die auf einer Plattform falsch rot ist, blockiert den Bau
-    # und sagt trotzdem nichts. Die Ursache war ohnehin nie eine Pixelzahl,
+    # und sagt trotzdem nichts. Die Ursache ist ohnehin keine Pixelzahl,
     # sondern die Reihenfolge in `pack()`: Der Knopf muss VOR dem Textlabel
     # kommen. Genau das steht in `pack_slaves()` — plattformunabhaengig, ohne
     # sichtbares Fenster.
@@ -15160,10 +14751,9 @@ def main():
 
     print()
     print('156. Die Teileauswahl kennt auch Herstellbares')
-    # ⚠⚠ **Militaer ist nicht kaufbar, aber herstellbar.** Bis zum 06.09.2026
-    # speiste sich die Auswahl nur aus UEX — und UEX fuehrt Ladenware. Bei den
-    # Quantenantrieben der Groesse 2 standen dadurch 0 Militaer-Teile zur Wahl,
-    # obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
+    # ⚠⚠ **Militaer ist nicht kaufbar, aber herstellbar.** UEX fuehrt nur
+    # Ladenware — aus UEX allein stuenden bei den Quantenantrieben der
+    # Groesse 2 null Militaer-Teile zur Wahl, obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
     from scbp import cart as _wk156, shops as _ld156
     from scbp import crafting as _he156, catalog as _kt156
 
@@ -15192,9 +14782,9 @@ def main():
         # Der Katalog kennt nur eines der drei — die anderen muessen ueber den
         # Rueckfall aus den Rezeptdaten kommen.
         # ⚠ Der Schluessel muss durch `catalog._norm()` gegangen sein.
-        # Beim ersten Anlauf stand hier `militaerqd` ohne Bindestrich — `_norm`
-        # macht aber `militaer-qd` daraus, die Merkmale wurden nicht gefunden,
-        # und die Pruefung meldete einen Fehler im Code, den es nicht gab.
+        # `militaerqd` ohne Bindestrich passte nicht — `_norm` macht
+        # `militaer-qd` daraus, die Merkmale wuerden nicht gefunden, und die
+        # Pruefung schluege an, ohne dass der Code falsch ist.
         _kt156.load = lambda: {'bauplaene': {
             'militaer-qd': {'n': 'Militaer-QD', 'a': 'QuantumDrive', 's': 2,
                             'g': 1, 'c': 'Military', 'm': 'Wei-Tek'}}}
@@ -15227,7 +14817,7 @@ def main():
                'ein Teil der falschen Groesse bleibt draussen')
 
         # ⚠ GEGENPROBE 1: Ohne die Craft-Quelle waeren es nur die zwei
-        # kaufbaren — und Militaer fehlte, genau wie vor dem 06.09.2026.
+        # kaufbaren — und Militaer fehlte.
         _ohne156 = [x for x in _a156 if x['herkunft'] != _wk156.CRAFTABLE]
         pruefe(len(_ohne156) == 2,
                'Gegenprobe: nur aus dem Laden waeren es 2 statt 3 (bekam: %d)'
@@ -15294,7 +14884,7 @@ def main():
                'es fehlt genau 1 (bekam: %s)'
                % (_f157['fehlt'][0]['differenz'] if _f157['fehlt'] else None))
 
-        # ⚠ GEGENPROBE: Einzeln gerechnet meldet `pruefen()` „nichts fehlt" —
+        # ⚠ GEGENPROBE: Einzeln gerechnet sagt `pruefen()`, es fehle nichts —
         # genau der Fehler, den die Farmliste vermeiden muss.
         _einzeln157 = _ro157.check([('Frame', 'Iron', 2.0, 0)], 1)
         pruefe(_einzeln157[0][3] == 0.0,
@@ -15316,9 +14906,8 @@ def main():
 
         # ⚠⚠ **Ein Posten ohne Rezept steht gar nicht erst auf „bauen".**
         # `rechnung()` setzt den Weg auf „kaufen" zurueck, sobald kein Rezept
-        # vorliegt — die Farmliste sieht ihn deshalb nie. Beim ersten Anlauf
-        # erwartete diese Pruefung ihn unter `ohne_rezept` und war rot, obwohl
-        # der Code sich richtig verhielt.
+        # vorliegt — die Farmliste sieht ihn deshalb nie, auch nicht unter
+        # `ohne_rezept`.
         #
         # Geprueft wird deshalb das **tatsaechliche** Verhalten: Er erzeugt
         # keinen Materialbedarf und wird nicht als Bau-Posten gezaehlt.
@@ -15338,14 +14927,14 @@ def main():
     # ------------------------------------------------------------------
     # 158. Guete als Buchstabe, und was ohne Klasse dasteht
     #
-    # ⚠⚠ Zwei Fehler an derselben Angabe, beide am 06.09.2026 gemessen:
+    # ⚠⚠ Zwei Fallen an derselben Angabe:
     #
     # 1. Der Bauplan-Katalog fuehrt die Guete als **Zahl**, das Spiel als
-    #    Buchstabe. Ungewandelt standen 224 von 304 Teilen mit `1`-`4` in der
-    #    Liste, gemischt mit denen, die ihr `A`-`D` aus UEX hatten.
-    # 2. Beim Zusammenfuehren gewann die Katalog-Angabe, sobald sie irgendetwas
-    #    enthielt. `Bolt` stand dadurch als „2 · Tarnung" da, wo vorher richtig
-    #    „B · Tarnung" stand — eine Verschlechterung durch eine Erweiterung.
+    #    Buchstabe. Ungewandelt stuenden `1`-`4` in der Liste, gemischt mit
+    #    `A`-`D` aus UEX.
+    # 2. Gewinnt beim Zusammenfuehren die Katalog-Angabe, sobald sie
+    #    irgendetwas enthaelt, steht `Bolt` als `2 · Tarnung` statt
+    #    `B · Tarnung` da.
     #
     # Dazu die dritte Frage: Was steht da, wenn die Klasse fehlt? Geraten wird
     # nichts (der Katalog fuehrt sie nur bei 240 von 738 Eintraegen) — dafuer
@@ -15400,17 +14989,15 @@ def main():
         _sp158.set_language(_alt158)
 
     # ------------------------------------------------------------------
-    # 159. Abhaken, offene Posten und „fertig gefittet"
+    # 159. Abhaken, offene Posten und fertig gefittet
     #
     # ⭐⭐ Die wichtigste Pruefung dieses Bereichs, und zwar wegen der
     # Spielmechanik dahinter: Ein neu geclaimtes Schiff kommt in seiner
     # **Werksausstattung** zurueck. Wer ein aufgeruestetes Schiff ohne die
     # passende Versicherung claimt, verliert alles Eingebaute — mehrere
-    # hunderttausend aUEC. Am 06.09.2026 erklaert: „ich habe Super Hornet
-    # gefittet und versichert, und wenn ich das Schiff ohne Versicherung neu
-    # claime, wuerde ich die Komponenten verlieren."
+    # hunderttausend aUEC.
     #
-    # Deshalb muss „fertig gefittet" zuverlaessig sein — eine falsche Marke
+    # Deshalb muss die Marke fertig gefittet zuverlaessig sein — eine falsche
     # waere hier schlimmer als gar keine.
     #
     # ⚠ Und der Fall, der beides auseinanderhaelt: Ein Schiff **ohne jede
@@ -15476,24 +15063,18 @@ def main():
     # ------------------------------------------------------------------
     # 160. Ein Klick auf den Haken — und was die Anzeige danach sagt
     #
-    # ⚠⚠⚠ **Diese Pruefung gibt es, weil drei Fehler durchgerutscht sind, die
-    # alle sichtbar gewesen waeren.** Am 06.09.2026 gefragt: „testest du deine
-    # Funktionen gar nicht mehr in echt, oder machst du das immer erst nachdem
-    # ich Fehler gefunden habe?" Die ehrliche Antwort war: Die Datenschicht
-    # war gemessen (Abhaken senkte die Summe von 540.540 auf 405.405), die
-    # **Oberflaeche nach einem Klick** aber nie.
+    # ⚠⚠⚠ **Die Datenschicht allein zu messen reicht nicht** — gemessen wird
+    # die **Oberflaeche nach einem Klick**. Drei Fallen liegen dort:
     #
-    # Genau dort lagen alle drei:
-    #
-    # | Fehler | was zu sehen war |
+    # | Falle | was zu sehen waere |
     # |---|---|
-    # | Marke zog nicht mit | alle vier abgehakt, Zeile sagte „4 noch zu besorgen" |
-    # | Kopf zaehlte Erledigtes | „8 Positionen", zwei davon fertig |
-    # | Farmliste zaehlte Erledigtes | „fuer 8 Bauteile", vier schon gebaut |
+    # | Marke zieht nicht mit | alle abgehakt, Zeile nennt noch offene Posten |
+    # | Kopf zaehlt Erledigtes | Positionen mitgezaehlt, die fertig sind |
+    # | Farmliste zaehlt Erledigtes | Bauteile mitgezaehlt, die schon gebaut sind |
     #
     # Eine Pruefung, die nur Funktionen aufruft, findet so etwas nie: Jede
-    # einzelne Funktion war richtig. Falsch war, **wer nach einer Aenderung
-    # neu zeichnet**. Deshalb wird hier wirklich geklickt und danach der Text
+    # einzelne Funktion kann richtig sein. Falsch ist dann, **wer nach einer
+    # Aenderung neu zeichnet**. Deshalb wird hier wirklich geklickt und danach der Text
     # der Widgets gelesen.
     print()
     print('160. Ein Klick auf den Haken zieht die Anzeige nach')
@@ -15561,7 +15142,7 @@ def main():
         pruefe('Claim' in _fertig160 or 'claim' in _fertig160,
                'ist alles abgehakt, steht die Claim-Warnung da (%r)'
                % _fertig160)
-        # ⚠⚠ Die Gegenprobe, die den gemeldeten Fehler gefunden haette.
+        # ⚠⚠ Die Gegenprobe: Nach dem Abhaken steht nichts mehr zu besorgen.
         pruefe('besorgen' not in _fertig160,
                'Gegenprobe: „noch zu besorgen" steht NICHT mehr da, wenn '
                'alles abgehakt ist')
@@ -15580,22 +15161,15 @@ def main():
     # ------------------------------------------------------------------
     # 161. Kein System-Dialog im Programm
     #
-    # ⚠⚠⚠ **Das war der schlimmste Fehler des Tages.** Am 06.09.2026 erschien
-    # beim Speichern der Joystick-Belegung ein `messagebox`-Fenster
-    # **ausserhalb aller Bildschirme**. Weil es modal ist, war das Programm
-    # danach unbedienbar — es liess sich nicht einmal mehr beenden. Vorher
-    # hatte derselbe Dialog schon dafuer gesorgt, dass sich die Gruppen in der
-    # Seitenleiste nicht mehr auf- und zuklappen liessen: Er stand unsichtbar
-    # am unteren Rand und hielt die Oberflaeche fest.
+    # ⚠⚠⚠ Ein `messagebox`-Fenster kann **ausserhalb aller Bildschirme**
+    # aufgehen. Weil es modal ist, ist das Programm danach unbedienbar — es
+    # laesst sich nicht einmal mehr beenden. Steht es unsichtbar am unteren
+    # Rand, haelt es die Oberflaeche fest (etwa die Gruppen der Seitenleiste).
     #
-    # Dazu die beiden aelteren Beschwerden ueber denselben Dialog: heller
-    # Kasten im dunklen Programm („sieht kacke aus") und Knoepfe in der
-    # Systemsprache statt der eingestellten („der Dialog zeigt im Deutschen
-    # englische Woerter").
+    # Dazu: heller Kasten im dunklen Programm und Knoepfe in der
+    # Systemsprache statt der eingestellten.
     #
-    # Es gab bereits drei oertliche Ersatzklassen — und fuenf Stellen, die
-    # sich den echten mit `from tkinter import messagebox` zurueckgeholt
-    # haben. Eine Regel, die man an jeder Stelle einzeln befolgen muss, wird
+    # Eine Regel, die man an jeder Stelle einzeln befolgen muss, wird
     # irgendwo nicht befolgt. Deshalb prueft das hier den ganzen Quelltext.
     #
     # ⚠ Die **eine** erlaubte Stelle ist der Notnagel in `main_window.py`:
@@ -15651,12 +15225,10 @@ def main():
     # ------------------------------------------------------------------
     # 162. Jedes Fenster sagt, WO es steht — nicht nur wie gross es ist
     #
-    # ⚠⚠⚠ **Der Standard, statt sechsmal derselbe Fehler.** Am 06.09.2026:
-    # „kannst du da nicht im Programm einen Standard festlegen?" — nachdem ein
-    # Fenster ausserhalb aller Bildschirme aufgegangen war und das Programm
-    # unbedienbar machte.
+    # ⚠⚠⚠ **Ein Standard statt vieler Einzelfaelle.** Ein Fenster ausserhalb
+    # aller Bildschirme macht das Programm unbedienbar.
     #
-    # Ursache war jedes Mal dieselbe Zeile: `geometry('520x340')` ohne `+x+y`.
+    # Die Ursache ist jedes Mal dieselbe Zeile: `geometry('520x340')` ohne `+x+y`.
     # Wer nur eine Groesse setzt, ueberlaesst die Platzierung dem
     # Fenstermanager — und der weiss nichts vom Hauptfenster. Auf einem
     # Arbeitsplatz mit drei Bildschirmen ist das ein Gluecksspiel.
@@ -15709,21 +15281,19 @@ def main():
     # ------------------------------------------------------------------
     # 163. Speichern wirft nichts weg
     #
-    # ⚠⚠⚠ **Der einzige Datenverlust dieses Projekts.** Am 06.09.2026 gemeldet:
-    # „Gebe ich ein Schiff auf der Wunschliste ein, bleibt es nur so lange
-    # stehen, bis ich Komponenten dazu eintrage." Die Ursache war eine Zeile:
+    # ⚠⚠⚠ **Datenverlust.** Eine Zeile wie
     #
     #     meine.speichern({'format': …, 'schiffe': _hangar_liste(eintrag)})
     #
-    # Die Datei enthaelt zwei Listen — `schiffe` UND `wunsch`. Wer nur eine
-    # davon schreibt, loescht die andere. Jede Aenderung an der Ausstattung
-    # irgendeines Schiffs hat die komplette Wunschliste vernichtet.
+    # reicht: Die Datei enthaelt zwei Listen — `schiffe` UND `wunsch`. Wer nur
+    # eine davon schreibt, loescht die andere. Jede Aenderung an der
+    # Ausstattung irgendeines Schiffs vernichtete die komplette Wunschliste.
     #
-    # Dazu der zweite Teil: Ein Wunsch-Eintrag wurde in `schiffe` gesucht,
-    # dort nie gefunden — seine Aenderung ging ebenfalls verloren.
+    # Dazu der zweite Teil: Ein Eintrag der Wunschliste darf nicht nur in
+    # `schiffe` gesucht werden — sonst geht seine Aenderung ebenfalls verloren.
     #
     # ⚠ Eine Pruefung, die nur `speichern()` aufruft, findet das nicht: Die
-    # Funktion war richtig. Falsch war, WAS ihr uebergeben wurde. Geprueft
+    # Funktion ist richtig. Falsch waere, WAS ihr uebergeben wird. Geprueft
     # wird deshalb der Weg ueber `_save_entry`, so wie die Oberflaeche
     # ihn geht.
     print()
@@ -15765,7 +15335,7 @@ def main():
         pruefe(len(_wk163.loadout(_neu163['schiffe'][0])) == 1,
                '* und die Aenderung selbst ist gespeichert')
 
-        # An einem WUNSCH-Schiff etwas aendern.
+        # An einem Schiff der Wunschliste etwas aendern.
         _wunsch163 = _neu163['wunsch'][0]
         _wk163.set_part(_wunsch163, 'p9', 'ref-2', 'FR-66')
         _st163._save_entry(_wunsch163)
@@ -15777,7 +15347,7 @@ def main():
         pruefe(len(_wk163.loadout(_zuletzt163['schiffe'][0])) == 1,
                '* die des Hangar-Schiffs steht auch noch da')
 
-        # Gegenprobe: Ein Eintrag, den es nirgends gibt, wird gemeldet.
+        # Gegenprobe: Ein Eintrag, den es nirgends gibt, scheitert sichtbar.
         pruefe(not _st163._save_entry({'name': 'Gibt es nicht',
                                               'hersteller': 'X'}),
                'Gegenprobe: ein unbekannter Eintrag meldet, dass er fehlt')
@@ -15792,10 +15362,10 @@ def main():
     # 164. Der Zerlege-Rechner
     #
     # ⭐⭐ Die Frage eines Bergungsspielers vor dem Ausbauen: Was gibt der
-    # Fabricator zurueck? Vorschlag vom 06.09.2026.
+    # Fabricator zurueck?
     #
-    # ⚠⚠ **Die halbe Wahrheit waere hier die gefaehrlichere.** „Man bekommt
-    # 50 % zurueck" stimmt — aber sechs Rohstoffe stehen auf der Sperrliste
+    # ⚠⚠ **Die halbe Wahrheit waere hier die gefaehrlichere.** 50 % zurueck
+    # stimmt — aber sechs Rohstoffe stehen auf der Sperrliste
     # und kommen GAR NICHT wieder, darunter Quantainium und Stileron.
     # Gemessen: Bei 258 von 400 Teilen ist mindestens einer davon dabei. Ein
     # Rechner, der stumpf halbiert, schickt zwei Drittel der Spieler mit
@@ -15831,7 +15401,7 @@ def main():
         pruefe(_regeln164['dauer'] == 15, 'die Dauer ebenso')
         pruefe('quantainium' in _regeln164['gesperrt'],
                'die Sperrliste ist da')
-        # ⚠ „Saldynium (Ore)" und „Saldynium" sind dasselbe Erz.
+        # ⚠ `Saldynium (Ore)` und `Saldynium` sind dasselbe Erz.
         pruefe('saldynium' in _regeln164['gesperrt'],
                'auch die Kurzform eines gesperrten Erzes gilt')
 
@@ -15865,17 +15435,11 @@ def main():
     # ------------------------------------------------------------------
     # 165. Die Kurve zeigt den Exponenten DIESER Achse
     #
-    # ⚠⚠⚠ **Zwei Anzeigen auf einer Seite widersprachen sich.** Am 06.09.2026
-    # stand am rechten Stick auf der Achse `x` eine deutlich gebogene Kurve —
-    # und direkt darunter „Auf dieser Achse liegt keine Flugfunktion". Die
-    # Biegung kam von `z`, `rotx` und `roty` desselben Geräts.
-    #
-    # Ursache: `_exponent_fuer` nahm den Exponenten des ganzen **Geräts**,
-    # wenn es dort genau einen gab. Die Funktion nannte sich selbst „eine
-    # Näherung" und schrieb „lieber nichts anzeigen als das Falsche" — und tat
-    # dann genau das. Dazu die Frage, auf die es keine gute Antwort gab: „Wie
-    # soll ich einem User erklären, dass er da was sieht, was gar nicht
-    # stimmt?"
+    # ⚠⚠⚠ **Zwei Anzeigen auf einer Seite duerfen sich nicht widersprechen.**
+    # Nimmt `_exponent_fuer` den Exponenten des ganzen **Geräts**, steht auf
+    # einer Achse ohne Flugfunktion eine gebogene Kurve — die Biegung kaeme
+    # von anderen Achsen desselben Geräts —, und direkt darunter der Hinweis,
+    # dass auf dieser Achse keine Flugfunktion liegt.
     #
     # ⚠ Geprüft wird die **Regel**, nicht der Zahlenwert: Ohne Funktion auf der
     # Achse muss der Exponent 1 sein (gerade Linie). Bei uneinigen Funktionen
@@ -15938,22 +15502,19 @@ def main():
     # ------------------------------------------------------------------
     # 166. Bei mehreren Belegungsdateien gewinnt die juengste
     #
-    # ⚠⚠⚠ **Der Fehler, der alles andere wertlos machte.** Am 06.09.2026 lagen
-    # in EINER Installation zwei `actionmaps.xml` nebeneinander:
-    # `LIVE/user/client/…` (dort schreibt das Spiel) und `LIVE/USER/client/…`
-    # (eine Karteileiche aus der Windows-Installation). Der Watcher nahm stur
-    # die erste Schreibweise, die es gab — `USER` — und zeigte damit eine
-    # Empfindlichkeit von 2, waehrend im Spiel ueberall 1,00 stand.
+    # ⚠⚠⚠ In EINER Installation koennen zwei `actionmaps.xml` nebeneinander
+    # liegen: `LIVE/user/client/…` (dort schreibt das Spiel) und
+    # `LIVE/USER/client/…` (eine Karteileiche aus der Windows-Installation).
+    # Wer stur die erste Schreibweise nimmt, zeigt alte Werte.
     #
-    # ⚠ Schlimmer noch: In der alten Datei waren die Geraete anders
-    # durchnummeriert (`instance=1` war der rechte Stick statt des linken).
-    # Der Watcher zeigte also nicht nur alte Werte, sondern die des falschen
-    # Geraets — und das sah aus wie ein Bedienfehler des Spielers.
+    # ⚠ Schlimmer noch: In der alten Datei koennen die Geraete anders
+    # durchnummeriert sein (`instance=1` der rechte Stick statt des linken).
+    # Dann stehen nicht nur alte Werte da, sondern die des falschen Geraets —
+    # und das sieht aus wie ein Bedienfehler des Spielers.
     #
     # Unter Windows sind `USER` und `user` derselbe Ordner, unter Linux nicht.
-    # Die Lehre stand zu dem Zeitpunkt schon im Code: `_mappings_path` nimmt
-    # seit dem 04.09.2026 den zuletzt geaenderten Ordner, aus genau diesem
-    # Grund. Bei den Belegungsdateien war sie nicht gezogen worden.
+    # `_mappings_path` nimmt aus genau diesem Grund den zuletzt geaenderten
+    # Ordner; die Belegungsdateien muessen es ebenso tun.
     # **Eine Lehre, die nur an einer von zwei Stellen sitzt, ist keine.**
     print()
     print('166. Bei mehreren Belegungsdateien gewinnt die juengste')
@@ -16032,10 +15593,10 @@ def main():
     # ------------------------------------------------------------------
     # 167. Ein Geraet mit zwei Namen ist EIN Reiter
     #
-    # ⚠⚠⚠ Am 06.09.2026 zeigte „Achsen & Kurven" fuenf Reiter fuer drei
-    # Sticks: `L-VPC Stick` (Linux-Name) und `LEFT VPC Stick` (alter
-    # Windows-Name) standen beide da — dieselbe Kennung, verschiedene Werte.
-    # Wer etwas einstellte, traf womoeglich den toten Eintrag.
+    # ⚠⚠⚠ `L-VPC Stick` (Linux-Name) und `LEFT VPC Stick` (alter
+    # Windows-Name) duerfen auf „Achsen & Kurven" nicht als zwei Reiter
+    # dastehen — dieselbe Kennung, verschiedene Werte. Wer etwas einstellt,
+    # traefe womoeglich den toten Eintrag.
     print()
     print('167. Ein Geraet mit zwei Namen ist EIN Reiter')
     from scbp import curves as _kv167
@@ -16081,10 +15642,9 @@ def main():
     # ------------------------------------------------------------------
     # 168. Weniger Bauplaene als je zuvor faellt auf
     #
-    # ⚠⚠⚠ Am 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413
-    # Bauplaenen — er las stillschweigend einen anderen Ordner, weil die
-    # Zeiger-Datei beim Aufraeumen im Dateimanager mit weggeworfen worden war.
-    # Kein Wort dazu; zurueck blieb nur eine kleinere Zahl.
+    # ⚠⚠⚠ Fehlt die Zeiger-Datei, liest der Watcher stillschweigend einen
+    # anderen Ordner — zurueck bleibt nur eine kleinere Zahl. Das muss
+    # auffallen.
     print()
     print('168. Weniger Bauplaene als je zuvor faellt auf')
     from scbp import collection as _bs168
@@ -16144,11 +15704,9 @@ def main():
     # ------------------------------------------------------------------
     # 169. Zwei Zeiger auf den Datenordner — und sie heilen einander
     #
-    # ⚠⚠⚠ **Der ganze Datenbestand hing an einer Datei mit einer Zeile.** Am
-    # 06.09.2026 wurde sie beim Aufraeumen im Dateimanager mit weggeworfen —
-    # zusammen mit zwei fast gleich heissenden Altstaenden daneben, die
-    # wirklich Muell waren. Danach schaute das Programm in den Standardordner
-    # und zeigte einen kleineren Bestand, ohne ein Wort dazu.
+    # ⚠⚠⚠ **Haengt der ganze Datenbestand an einer Datei mit einer Zeile,**
+    # genuegt ein Aufraeumen im Dateimanager, und das Programm schaut in den
+    # Standardordner und zeigt einen kleineren Bestand, ohne ein Wort dazu.
     #
     # Der zweite Zeiger liegt im Konfigurationsordner, wo niemand mit dem
     # Dateimanager aufraeumt. Fehlt einer, wird er aus dem anderen wieder
@@ -16201,24 +15759,21 @@ def main():
         #
         # ⚠⚠ **Unter Windows kann `os.remove` an einer gerade geschriebenen
         # Datei scheitern** — Virenscanner und Indexdienst halten sie einen
-        # Augenblick fest (`WinError 32`). Bis zum 12.09.2026 stand hier ein
-        # blankes `os.remove`, und ein einziger solcher Augenblick riss den
-        # GANZEN Selbsttest ab: Der Lauf endete nach 1.777 von 2.090
-        # Pruefungen mit einem Traceback, und die restlichen 300 liefen nie.
+        # Augenblick fest (`WinError 32`). Ein blankes `os.remove` risse dann
+        # den GANZEN Selbsttest mit einem Traceback ab, und die restlichen
+        # Pruefungen liefen nie.
         #
         # Die beiden `rmtree` daneben tragen `ignore_errors=True` aus genau
-        # diesem Grund — nur diese eine Zeile war ungeschuetzt.
+        # diesem Grund.
         #
         # ⚠ Weggesehen wird trotzdem nicht: Laesst sich die Datei auch nach
         # mehreren Anlaeufen nicht entfernen, ist das ein BEFUND mit Grund,
         # kein stilles Ueberspringen. Die Pruefung darunter braucht sie weg —
         # sonst prueft sie etwas anderes, als ihr Text behauptet.
-        # ⛔⛔ **`ignore_errors=True` heisst: es kann stehen bleiben.** Am
-        # 14.09.2026 fiel die Pruefung darunter einmal rot aus („ohne jeden
-        # Zeiger kommt None zurueck") — nicht weil `_storage_from_file()` etwas
-        # falsch macht, sondern weil der SICHTBARE Zeiger den `rmtree`
-        # ueberlebt hatte. Die Zweitschrift wurde unten hartnaeckig entfernt,
-        # der sichtbare gar nicht geprueft. Eine Pruefung, deren Vorbedingung
+        # ⛔⛔ **`ignore_errors=True` heisst: es kann stehen bleiben.** Ueberlebt
+        # der SICHTBARE Zeiger den `rmtree`, faellt die Pruefung darunter rot
+        # aus, ohne dass `_storage_from_file()` etwas falsch macht. Deshalb
+        # werden beide Zeiger hartnaeckig entfernt. Eine Pruefung, deren Vorbedingung
         # nur meistens gilt, meldet einen Fehler, den es nicht gibt — und
         # schickt die naechste Sitzung auf die falsche Faehrte.
         _ab169 = []
@@ -16258,16 +15813,9 @@ def main():
     # ------------------------------------------------------------------
     # 170. Der Merkzettel — Bauplaene farmen ohne Umweg ueber ein Schiff
     #
-    # ⭐⭐ Bis v3.20.0 fuehrte jede Materialliste ueber die Wunschliste: erst ein
-    # Schiff eintragen, dann Steckplaetze belegen. Fuer einen Helm, eine
-    # Ruestung oder eine FPS-Waffe gab es diesen Weg **gar nicht**, obwohl das
-    # genauso Bauplaene mit Rohstoffbedarf sind.
-    #
-    # Gemeldet von Haldjas am 06.09.2026: „‚What to farm' ist irgendwie bisschen
-    # unnoetig komplex — man geht da rein, wird dann zu ‚still missing'
-    # geschickt und weiss dann aber nicht so genau, was man machen soll. […] Es
-    # waere naemlich auch ganz nuetzlich, wenn man nicht nur Schiffsteile,
-    # sondern auch Ruestungen/Waffen fuer FPS hinzufuegen koennte zum Workshop."
+    # ⭐⭐ Ueber die Wunschliste fuehrt der Weg nur ueber ein Schiff und seine
+    # Steckplaetze. Ein Helm, eine Ruestung oder eine FPS-Waffe sind genauso
+    # Bauplaene mit Rohstoffbedarf — der Merkzettel nimmt sie direkt auf.
     print()
     print('170. Der Merkzettel — farmen ohne Umweg ueber ein Schiff')
     from scbp import fleet as _hg170
@@ -16320,15 +15868,13 @@ def main():
            'Gegenprobe: ohne Stueckzahl bleibt es bei einfach')
 
     # ⚠⚠⚠ **Ein Merkzettel-Posten hat KEINE Entitaets-Kennung.** Er entsteht in
-    # der Herstellungsliste, und die kennt nur den Bauplannamen. Beim ersten
-    # Anlauf landete der Name im `ref`-Feld, das Bauplan-Verzeichnis fand
-    # nichts — und der Posten fiel stillschweigend auf „kaufen" zurueck.
+    # der Herstellungsliste, und die kennt nur den Bauplannamen. Landet der
+    # Name im `ref`-Feld, findet das Bauplan-Verzeichnis nichts — und der
+    # Posten faellt stillschweigend auf Kaufen zurueck.
     #
-    # Auf „Was ich farmen muss" stand daraufhin gleichzeitig „2 Teile konnten
-    # nicht gerechnet werden" UND „Alles da — du kannst sofort loslegen", bei
-    # null Erz im Lager. Zwei Saetze, die sich widersprechen, und beide falsch.
-    # Gemeldet am 06.09.2026: „Man sieht da aber kein Material, was man farmen
-    # muss."
+    # Auf „Was ich farmen muss" stuenden dann gleichzeitig zwei Saetze, die
+    # sich widersprechen (Teile nicht gerechnet UND alles da), bei null Erz
+    # im Lager, und kein Material zum Farmen.
     _echt_rez = None
     try:
         from scbp import crafting as _hs170
@@ -16356,13 +15902,12 @@ def main():
             _hs170.recipe = _echt_rez
 
     # ------------------------------------------------------------------
-    # 171. Erledigte Merkposten BLEIBEN stehen (seit 16.09.2026)
+    # 171. Erledigte Merkposten BLEIBEN stehen
     #
-    # Bis dahin trug der Start gemerkte Bauplaene aus, die schon im Bestand
-    # standen (`prune`, Meldung vom 06.09.2026). Seit „Bauplan-Fortschritt"
-    # die Merkliste zaehlen kann (Wunsch Aeternitas26), muss Erledigtes
-    # stehen bleiben — sonst stuende der Fortschritt immer bei null. Nur
-    # Muster-Beobachtungen fliegen beim Fund raus.
+    # Der Start traegt gemerkte Bauplaene, die schon im Bestand stehen, nicht
+    # aus. Weil Bauplan-Fortschritt die Merkliste zaehlen kann, muss
+    # Erledigtes stehen bleiben — sonst stuende der Fortschritt immer bei
+    # null. Nur Muster-Beobachtungen fliegen beim Fund raus.
     print()
     print('171. Erledigte Merkposten bleiben stehen')
     from scbp import watchlist as _mk171
@@ -16401,16 +15946,13 @@ def main():
     # ------------------------------------------------------------------
     # 172. Die Mengen am Eintrag addieren sich zur Summe darunter
     #
-    # ⚠⚠⚠ **Zwei Zahlen mit derselben Beschriftung auf einer Seite.** Am
-    # 06.09.2026 stand bei einem Bauteil „hast 0,00" und zehn Zeilen tiefer
-    # „hast 3,44" fuer denselben Rohstoff — Ursache war ein `float()` auf das
-    # TUPEL aus `amount_with_quality()`, dessen Ausnahme ein `except` daneben
-    # stillschweigend zu `0.00` machte.
+    # ⚠⚠⚠ **Keine zwei Zahlen mit derselben Beschriftung auf einer Seite.**
+    # Ein `float()` auf das TUPEL aus `amount_with_quality()` wirft, und ein
+    # `except` daneben macht daraus stillschweigend `0.00`.
     #
-    # Nach dem Fix stand oben der volle Lagerbestand (8,01) und unten der
-    # zugeteilte Anteil (3,44) — beide richtig gerechnet und trotzdem ein
-    # Widerspruch. Der Eintrag nennt deshalb nur noch den **Bedarf**; ob es
-    # reicht, sagt die Farbe aus derselben Rechnung.
+    # Und selbst richtig gerechnet widersprechen sich voller Lagerbestand
+    # (oben) und zugeteilter Anteil (unten). Der Eintrag nennt deshalb nur
+    # den **Bedarf**; ob es reicht, sagt die Farbe aus derselben Rechnung.
     #
     # ⚠ Geprueft wird die Rechenregel: Die Einzelbedarfe muessen sich zum
     # Gesamtbedarf addieren. Tun sie das nicht, zeigt die Seite zwei
@@ -16462,15 +16004,14 @@ def main():
                'sechs geplante Bauteile (4 + 2), nicht zwei Zeilen')
 
         # ⚠⚠⚠ **Ein Name im Kennungsfeld darf NIE zu einer Abfrage werden.**
-        # Am 06.09.2026 speicherte der Merkzettel den Bauplannamen als
-        # Kennung. Daraus wurde:
+        # Steht der Bauplanname als Kennung da, wird daraus:
         #
         #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
         #     InvalidURL: URL can't contain control characters
         #
-        # Der Abruf scheiterte, es wurde nichts gemerkt — und weil nichts
-        # gemerkt war, versuchte es die Seite sofort wieder. „Was noch fehlt"
-        # blieb leer und lud endlos.
+        # Der Abruf scheitert, es wird nichts gemerkt — und weil nichts
+        # gemerkt ist, versucht es die Seite sofort wieder. „Was noch fehlt"
+        # bleibt leer und laedt endlos.
         from scbp import shops as _ld172, errors as _fe172
         _fe172.clear()
         pruefe(_ld172.fetch('CF-447 Rhino Repeater') is False,
@@ -16513,7 +16054,7 @@ def main():
     try:
         from scbp import patch_changes as _pa173
 
-        # --- Die Regel „die leeren wegwerfen" -----------------------------
+        # --- Die Regel: die leeren wegwerfen ------------------------------
         pruefe(not _pa173._has_content({'added': 0, 'removed': 0,
                                        'modified': 0, 'unchanged': 2568}),
                'ein Patch ohne Änderungen gilt als leer')
@@ -16670,7 +16211,7 @@ def main():
            and abs(_anteile174['Selten'] - 0.25) < 0.001,
            'drei zu eins im Schiffs-Topf ergeben 75 zu 25 Prozent')
     # ⚠⚠ **Der Kern der Sache.** Wuerde ueber alle Geraete zusammen gerechnet,
-    # stuenden hier 50/16,7/33,3 — und „34 % Aphorite" auf Daymar waere fuer
+    # stuenden hier 50/16,7/33,3 — und 34 % Aphorite auf Daymar waere fuer
     # jeden falsch, der mit dem Prospector kommt.
     pruefe(abs(_anteile174['Nur mit ROC'] - 1.0) < 0.001,
            'das einzige Fahrzeug-Erz steht bei 100 %, nicht bei einem Drittel')
@@ -16741,11 +16282,10 @@ def main():
     pruefe(not _mehr175[0]['schluessel'],
            'bei mehreren moeglichen Schiffen wird keines gewaehlt')
 
-    # -- ⚠⚠ **Das gilt auch fuer die GENAUEN Stufen** (Befund vom 10.09.2026).
-    #    Bis dahin merkten sich die beiden Nachschlagetabellen ueber
-    #    `setdefault` nur den ERSTEN Schluessel je Schreibweise — die
-    #    Mehrdeutigkeit war weg, bevor die Leiter sie sehen konnte, und der
-    #    eigene Name landete am erstbesten Fahrzeug. Zwei Faelle davon:
+    # -- ⚠⚠ **Das gilt auch fuer die GENAUEN Stufen.** Merken sich die
+    #    Nachschlagetabellen ueber `setdefault` nur den ERSTEN Schluessel je
+    #    Schreibweise, ist die Mehrdeutigkeit weg, bevor die Leiter sie sehen
+    #    kann, und der eigene Name landet am erstbesten Fahrzeug. Zwei Faelle:
     _doppel175 = {
         # gleicher Klartextname, zwei Fahrzeuge — im Spiel keine Seltenheit
         'vehicle_NameDRAK_Cutlass_Black': 'Drake Cutlass Black',
@@ -16765,7 +16305,7 @@ def main():
     pruefe(not _nach175['Aurora']['schluessel'],
            'zwei Schluessel gleicher Schreibweise ergeben ebenfalls keinen')
 
-    # -- ⚠⚠ **Ein Anhaengsel am Paketnamen** (16.09.2026): Der Pledge-Import
+    # -- ⚠⚠ **Ein Anhaengsel am Paketnamen:** Der Pledge-Import
     #    schreibt `ATLS IKTI Akuma`, ohne Kurznamen — im Spiel heisst das
     #    Fahrzeug `Argo ATLS IKTI`. Die Nachbarn stehen mit Absicht dabei:
     #    GEO IKTI und IKTI Rad duerfen nicht getroffen werden, und `ATLS`
@@ -16800,7 +16340,7 @@ def main():
     pruefe(_as175.display_name('Anvil F7C-M', '', False) == 'Anvil F7C-M',
            'ohne alles bleibt der Werksname unveraendert')
 
-    # -- Die Tabelle fuer die Injektion traegt den WUNSCH, nicht den Text.
+    # -- Die Tabelle fuer die Injektion traegt den GEWAEHLTEN Namen, nicht den Text.
     #    ⚠ Stuende hier ein fertiger Wert, kaeme der Werksname aus der
     #    laufenden Datei — beim zweiten Lauf also unser eigener von vorhin.
     _zeilen175 = ['%s=%s' % (k, w) for k, w in _tab175.items()]
@@ -16815,20 +16355,17 @@ def main():
     pruefe(_as175.build_table(_zeilen175, _weg175) == {},
            'ein geleertes Feld nimmt das Schiff wieder heraus')
 
-    # -- ⚠⚠ BEIDE Schreibwege muessen die eigenen Namen kennen.
+    # -- ⚠⚠ Der Schreibweg muss die eigenen Namen kennen.
     #
-    # Das war der Fehler von v3.28.0/v3.28.1: `einrichten()` nimmt bevorzugt
-    # `einspielen_scdl()` (die gepflegten Vertragstexte) und faellt nur ohne
-    # sie auf `einspielen()` zurueck. Verdrahtet war nur der Rueckfallweg —
-    # bei jedem mit SCDL-Daten wurde der Schiffsname also **nie** geschrieben.
-    # Die Probe lief gruen, weil sie `einspielen()` direkt rief.
+    # Eine Probe, die eine Hilfsfunktion direkt ruft statt des echten
+    # Einstiegspunkts, bliebe gruen, auch wenn der echte Weg den Namen nie
+    # schreibt.
     #
-    # ⚠⚠ **Und diese Pruefung sah anfangs selbst nur so aus, als pruefe sie.**
-    # Sie sah nach, ob `_asop_tabelle` in `__code__.co_names` vorkommt. Das
-    # beweist nichts: Ein Aufruf, dessen Ergebnis anschliessend verworfen wird,
-    # besteht ihn genauso — und unerreichbarer Code ebenfalls. Seit dem
-    # 10.09.2026 wird deshalb an einer echten Wegwerf-`global.ini` geschrieben
-    # und der Name im Ergebnis **nachgelesen**, einmal ueber jeden Weg.
+    # ⚠⚠ Nachzusehen, ob `_asop_tabelle` in `__code__.co_names` vorkommt,
+    # beweist nichts: Ein Aufruf, dessen Ergebnis anschliessend verworfen
+    # wird, besteht das genauso — und unerreichbarer Code ebenfalls. Deshalb
+    # wird an einer echten Wegwerf-`global.ini` geschrieben und der Name im
+    # Ergebnis **nachgelesen**.
     import tempfile as _tf175
     from scbp import injection as _in175
 
@@ -16854,7 +16391,7 @@ def main():
                                        'name': 'Testauftrag',
                                        'bp': ['Testbauplan']}}}
 
-        # Der Wunsch muss in der abgelegten Datei stehen — beide Wege holen ihn
+        # Der Name muss in der abgelegten Datei stehen — beide Wege holen ihn
         # sich von dort, nicht aus einem Aufrufparameter.
         _as175.save(_as175.set_name(_as175.empty(), _schl175, 'Packesel', True))
         _erwartet175 = '%s=*Packesel' % _schl175
@@ -16867,8 +16404,8 @@ def main():
         pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
                'einspielen() schreibt den eigenen Schiffsnamen wirklich hinein')
 
-        # -- Seit 30.09.2026 gibt es nur noch diesen einen Schreibweg: Der
-        #    SCDL-Weg ist entfernt. Festgehalten wird, dass `setup` (der echte
+        # -- Es gibt nur diesen einen Schreibweg. Festgehalten wird, dass
+        #    `setup` (der echte
         #    Einstiegspunkt) wirklich hierhin fuehrt und keinen zweiten hat.
         _namen175 = set(_in175.setup.__code__.co_names)
         pruefe('apply_texts' in _namen175
@@ -16884,10 +16421,9 @@ def main():
 
     # -- ⚠⚠ **Der Eilige.** Die Seite sammelt Aenderungen 900 ms lang, bevor
     #    sie schreibt. Wer einen Namen tippt und sofort zumacht, ist schneller
-    #    als die Drossel: Der Wunsch stuende in `asop.json`, in der
+    #    als die Drossel: Der Name stuende in `asop.json`, in der
     #    `global.ini` aber nicht — im Spiel also weiter der Werksname, ohne
-    #    jeden Hinweis. Dasselbe Bild wie beim Fehler von v3.28.0, nur mit
-    #    anderer Ursache. `before_close` holt den Auftrag nach.
+    #    jeden Hinweis. `before_close` holt den Auftrag nach.
     from scbp import main_window as _hf175
     _wz175 = _wurzel()
     _f175 = _hf175.MainWindow(_wz175, version='0.0.0-test')
@@ -16906,14 +16442,12 @@ def main():
            'die _short-Fassungen werden nicht mitgelesen')
 
     print('\n177. Beim Quellenwechsel bleibt keine Datei liegen')
-    # ⚠⚠ Die Textquellen schreiben in **verschiedene** Sprachordner: „deutsch"
-    # nach `german_(germany)`, „StarStrings" und „Original" nach `english`. Wer
-    # wechselt, liess bis v3.28.x unsere Einfuegungen in der alten Datei stehen
-    # — und niemand pflegte sie mehr. Laedt das Spiel ausgerechnet die, sieht
-    # der Spieler dauerhaft einen alten Stand, ohne jeden Hinweis.
-    #
-    # Gemessen am 29.08.2026: Die deutsche Datei war SPAETER geschrieben (06:53)
-    # als die englische (06:34) und trug trotzdem die alte Form.
+    # ⚠⚠ Die Textquellen schreiben in **verschiedene** Sprachordner: `deutsch`
+    # nach `german_(germany)`, `starstrings` und `original` nach `english`.
+    # Bleiben beim Wechsel unsere Einfuegungen in der alten Datei stehen,
+    # pflegt sie niemand mehr. Laedt das Spiel ausgerechnet die, sieht der
+    # Spieler dauerhaft einen alten Stand, ohne jeden Hinweis — auch wenn die
+    # Datei spaeter geschrieben ist als die andere.
     #
     # ⚠ Geprueft wird an zwei echten Dateien in zwei Ordnern, nicht an einer
     # Zusicherung im Quelltext — und der Wortlaut zeichengenau.
@@ -16978,9 +16512,8 @@ def main():
         shutil.rmtree(_heim177, ignore_errors=True)
 
     print('\n176. Die Schiffszeile: eigener Schalter, kein Tk-Kaestchen')
-    # ⚠⚠ In v3.28.0 stand hier ein `tk.Checkbutton`. Gemeldet: „zu klein, sieht
-    # niemand, und sieht anders aus als der Rest im Projekt". Tk malt sein
-    # Kaestchen im Systemstil — hell, winzig, fremde Handschrift.
+    # ⚠⚠ Kein `tk.Checkbutton`: Tk malt sein Kaestchen im Systemstil — hell,
+    # winzig, fremde Handschrift.
     #
     # ⚠ Geprueft wird die **gebaute Zeile**, nicht der Quelltext: Eine Pruefung,
     # die auf `tk.Checkbutton` im Text sucht, faellt auf jeden anderen Weg zum
@@ -17033,7 +16566,7 @@ def main():
         pruefe(bool(_gesichert176), 'und sichert sofort, ohne Speichern-Knopf')
 
     # ⚠ Kein gemaltes Sternzeichen in der Beschriftung: cp1252 kennt U+2605
-    # nicht, und daran ist am 06.09.2026 ein Bau-Lauf gestorben.
+    # nicht, und der Bau-Lauf stirbt daran.
     # ⚠ Die Sternzeichen NICHT woertlich hinschreiben: Pruefung 144 durchsucht
     # den ganzen Aufruf, nicht nur den Ausgabetext — sonst schlaegt sie hier an.
     _sterne176 = (chr(0x2605), chr(0x2606))
@@ -17044,14 +16577,13 @@ def main():
 
     # -- Und die Seite selbst: Suche oben, Knopf unten, nur die Liste rollt.
     #
-    # ⚠⚠ Gemeldet zu v3.28.0: „der Button verschwindet, wenn man runterscrollt,
-    # in der ewig langen Liste." Ursache war die Pack-Reihenfolge — die
-    # Rollfläche mit `expand=True` schiebt alles aus dem Fenster, was NACH ihr
-    # gepackt wird.
+    # ⚠⚠ Die Pack-Reihenfolge entscheidet, ob der Knopf in der langen Liste
+    # sichtbar bleibt — die Rollfläche mit `expand=True` schiebt alles aus dem
+    # Fenster, was NACH ihr gepackt wird.
     #
-    # ⚠ Geprüft wird die **Pack-Reihenfolge**, nicht eine Pixellage: Prüfung
-    # 155 hat genau daran schon einmal gelitten (unter Linux grün, im Bau-Lauf
-    # unter Windows rot, weil dort nichts gemappt war).
+    # ⚠ Geprüft wird die **Pack-Reihenfolge**, nicht eine Pixellage: Eine
+    # Pixellage ist unter Linux grün und im Bau-Lauf unter Windows rot, weil
+    # dort nichts gemappt ist (siehe Prüfung 155).
     _seite176 = tk.Frame(_w176)
     _seite176.pack(fill='both', expand=True)
     _se176._asop(_f176, _seite176)
@@ -17103,7 +16635,7 @@ def main():
     # Womit eine geladene Datei benutzt wird — ab hier ist eine Pruefung zu
     # spaet. `chmod +x` zaehlt mit: Wer ausfuehrbar macht, will ausfuehren.
     #
-    # ⭐ **Lücke 2 geschlossen (20.09.2026):** Ein geladenes Skript braucht kein
+    # ⭐ **Lücke 2:** Ein geladenes Skript braucht kein
     # `chmod +x`, wenn es ueber seinen Interpreter laeuft — `python werkzeug.py`
     # fuehrt genauso fremden Code aus. Verlangt wird ein Argument mit Endung,
     # damit `python3 -m pip …` nicht faelschlich anschlaegt.
@@ -17149,14 +16681,14 @@ def main():
             if _holt_hier178:
                 # ⚠⚠ **Die Reihenfolge ist der ganze Punkt.** Eine Pruefsumme
                 # hinter `chmod +x` oder hinter dem Aufruf ist wertlos — die
-                # fremde Datei lief dann schon. Geprueft wird deshalb nicht
-                # „steht irgendwo eine Pruefung", sondern „steht sie VOR der
-                # ersten Benutzung".
+                # fremde Datei lief dann schon. Geprueft wird deshalb nicht, ob
+                # irgendwo eine Pruefung steht, sondern ob sie VOR der ersten
+                # Benutzung steht.
                 #
-                # ⭐ **Lücke 1 geschlossen (20.09.2026):** Zuerst wird die
-                # **eigene** Zeile ab dem Download abgesucht. `wget … &&
-                # chmod +x … && ./…` steht in einer einzigen Zeile — die Suche
-                # ab der naechsten sah davon nichts und meldete „sauber".
+                # ⭐ **Lücke 1:** Zuerst wird die **eigene** Zeile ab dem
+                # Download abgesucht. `wget … && chmod +x … && ./…` steht in
+                # einer einzigen Zeile — eine Suche erst ab der naechsten
+                # saehe davon nichts.
                 # Ort ist deshalb ein Paar (Zeile, Spalte); so laesst sich
                 # innerhalb einer Zeile genauso vergleichen wie ueber mehrere.
                 #
@@ -17213,8 +16745,6 @@ def main():
                % (_name178, '; '.join(_m178) or 'nichts zu beanstanden'))
 
     # ⚠⚠ **Gegenprobe — eine Pruefung, die nie anschlaegt, prueft nichts.**
-    # Genau das ist Pruefung 29 in ihrer ersten Fassung passiert: Sie meldete
-    # brav „0 Ausreisser", auch als absichtlich einer eingebaut wurde.
     _boese178 = [
         ('bewegliche Action', 'jobs:\n  a:\n    steps:\n'
                               '      - uses: actions/checkout@v4\n'),
@@ -17234,15 +16764,12 @@ def main():
                                 '          ./werkzeug.AppImage bauen\n'
                                 '          echo "abc  werkzeug.AppImage" '
                                 '| sha256sum -c -\n'),
-        # ⭐⭐ Die beiden Luecken aus dem Review vom 10.09.2026, geschlossen am
-        # 20.09.2026.
+        # ⭐⭐ Die beiden Luecken (eine Zeile, Interpreter-Aufruf).
         #
         # ⚠⚠ **Beide Faelle tragen eine Pruefsumme — und genau darauf kommt es
-        # an.** Der erste Entwurf liess sie weg; damit schlug die ALTE Regel
-        # „Datei geladen, aber nicht geprueft" an, und beide Gegenproben waren
-        # auch ohne die Reparatur gruen. Sie haetten also nur bewiesen, dass
-        # irgendeine Regel greift — nicht die neue. Aufgefallen ist das erst,
-        # weil die Reparatur zur Probe zurueckgenommen wurde.
+        # an.** Ohne sie schluege die Regel fuer geladene, ungepruefte Dateien
+        # an, und beide Gegenproben waeren auch ohne die Reparatur gruen. Sie
+        # bewiesen dann nur, dass irgendeine Regel greift — nicht die richtige.
         ('alles in EINER Zeile', '      - run: |\n'
                                  '          wget -q https://x/w.AppImage '
                                  '&& chmod +x w.AppImage && ./w.AppImage\n'
@@ -17285,11 +16812,9 @@ def main():
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
 
     print('\n183. Die Umbenennungen aus P3 halten')
-    # ⚠⚠ **Zwei dieser Pruefungen liefen beim Umbenennen nur als
-    # Wegwerf-Skript** (P3, 11.09.2026): die Signaturpruefung der Dateiauswahl
-    # und der Einzelimport des Sammelimports. Der Pruefer beanstandete zu
-    # Recht, dass sie im Repo nicht sichtbar waren. Was nicht eingecheckt ist,
-    # schuetzt beim naechsten Umbau nichts — hier stehen sie jetzt dauerhaft.
+    # ⚠⚠ Hier stehen dauerhaft die Signaturpruefung der Dateiauswahl und der
+    # Einzelimport des Sammelimports. Was nicht eingecheckt ist, schuetzt
+    # beim naechsten Umbau nichts.
     import ast as _ast183
     import importlib as _il183
     import inspect as _in183
@@ -17431,12 +16956,12 @@ def main():
                'scbp/%s.py gibt es nicht mehr' % _alt183)
 
     print('\n190. Die Umbenennungen aus P4 halten')
-    # ⚠⚠ Sprachumstellung P4 (ab 11.09.2026). Jede Umbenennung traegt sich in
-    # `_p4_190` ein: alter Modulname -> neuer. Mehr ist nicht zu tun.
+    # ⚠⚠ Sprachumstellung P4. Jede Umbenennung traegt sich in `_p4_190` ein:
+    # alter Modulname -> neuer. Mehr ist nicht zu tun.
     #
-    # ⚠ Gesucht wird nicht nur nach `import`-Zeilen. `report.py` holte die
-    # Merkliste per `__import__('scbp.merkliste', …)` — eine Zeichenkette, die
-    # weder eine Suche nach Importen noch pyflakes als Modulbezug sieht. Ein
+    # ⚠ Gesucht wird nicht nur nach `import`-Zeilen. Ein Aufruf wie
+    # `__import__('scbp.merkliste', …)` ist eine Zeichenkette, die weder eine
+    # Suche nach Importen noch pyflakes als Modulbezug sieht. Ein
     # Rest dort fiele erst auf, wenn ein Nutzer einen Fehlerbericht baut.
     # Deshalb liest die Pruefung den Syntaxbaum: Importe in allen Formen UND
     # jede Zeichenkette, die genau `scbp.<alter Name>` lautet.
@@ -17511,7 +17036,7 @@ def main():
         'logquelle': 'logsource',
         # Stufe 10a — die Auftraege aus dem Log
         #
-        # ⚠ `contracts` ist der Begriff des Spiels („Contract Accepted").
+        # ⚠ `contracts` ist der Begriff des Spiels (`Contract Accepted`).
         # Die Daten-Schluessel `'auftraege'` (Auftragslog-Datei, Export,
         # Ruf-Tabelle, Warteschlange im Watcher) bleiben deutsch.
         'auftraege': 'contracts',
@@ -17580,59 +17105,45 @@ def main():
 
     # ⭐⭐ Der FUENFTE Weg — und der einzige, den die vier oben nicht sehen:
     # ein blanker Name in einer Liste, der erst zur Laufzeit zu einem
-    # Modulnamen zusammengesetzt wird. Genau so blieben `'bergbau'` und
-    # `'schiffe'` in `tools/abnahme.py` monatelang tot stehen — und am
-    # 12.09.2026 `'orte'` und `'routen'` gleich noch einmal, obwohl ein
-    # Kommentar direkt darueber davor warnt.
+    # Modulnamen zusammengesetzt wird (etwa `'orte'`, `'routen'` in
+    # `tools/abnahme.py`).
     #
-    # ⛔ **Der erste Reparaturversuch durchsuchte den Quelltext** nach
-    # `for`-Schleifen mit `'scbp.' + x`. Der Pruefer hat ihn zerlegt, und die
-    # Messung gab ihm recht — VIER von fuenf Schreibweisen fielen durch:
+    # ⛔ **Den Quelltext nach Schreibweisen zu durchsuchen taugt nicht.** Eine
+    # Suche nach `for`-Schleifen mit `'scbp.' + x` uebersieht:
     #
-    #     f'scbp.{m}'            nicht gefunden
-    #     'scbp.{}'.format(m)    nicht gefunden
-    #     MODULE = (...)         nicht gefunden (ausgelagerte Liste)
-    #     [... for m in (...)]   nicht gefunden (Comprehension)
+    #     f'scbp.{m}'
+    #     'scbp.{}'.format(m)
+    #     MODULE = (...)         (ausgelagerte Liste)
+    #     [... for m in (...)]   (Comprehension)
     #
-    # Dazu maskierte die Mindestzahl `>= 5` den Rest: Bleiben fuenf gueltige
-    # Namen im erkannten Muster und wandern zwei veraltete in eine
-    # f-String-Schleife, meldet die Wache brav „5 geprueft, tot: keiner".
+    # Dazu maskiert eine Mindestzahl den Rest: Bleiben genug gueltige Namen
+    # im erkannten Muster und wandern veraltete in eine f-String-Schleife,
+    # sieht die Wache keinen toten Namen.
     #
     # ⭐ **Eine Suche nach Schreibweisen ist immer nur so gut wie ihre
-    # Fallliste.** Deshalb wird jetzt gar nicht mehr gesucht: Die Liste steht
+    # Fallliste.** Deshalb wird gar nicht gesucht: Die Liste steht
     # in `tools/ablagen.py`, und beide Seiten IMPORTIEREN sie — die Abnahme und
     # diese Pruefung. Eine gemeinsame Quelle statt zweier Kopien.
     #
-    # ⚠⚠⚠ **Und zwar `ablagen`, NICHT `abnahme`.** Der erste Versuch importierte
-    # `tools/abnahme.py` — das ruft auf Modulebene `unsichtbar.sicherstellen()`
-    # auf (ohne `messend`), und ab da ist jedes weitere Fenster versteckt. Ein
-    # verstecktes Fenster hat keine Geometrie: Pruefung 189 fand danach keine
-    # Rollleiste mehr, drei Pruefungen fielen.
-    #
-    # Belegt statt vermutet — zwei Erklaerungen waren vorher falsch:
-    #
-    #   „189 schwankt"          -> zweimal identisch rot, also nicht
-    #   „Windows zeichnet nicht" -> Fenster gemessen: 500x400, sichtbar
-    #   eigener Arbeitsbaum auf dem Stand davor -> dort 2101 GRUEN
-    #
-    # Erst der Arbeitsbaum hat es entschieden. Dieselbe Falle kostete am
-    # 07.09.2026 schon einmal den halben Selbsttest — sie kommt hier durch die
-    # Hintertuer eines harmlos aussehenden Imports zurueck.
+    # ⚠⚠⚠ **Und zwar `ablagen`, NICHT `abnahme`.** `tools/abnahme.py` ruft
+    # auf Modulebene `unsichtbar.sicherstellen()` auf (ohne `messend`), und ab
+    # da ist jedes weitere Fenster versteckt. Ein verstecktes Fenster hat
+    # keine Geometrie: Pruefung 189 faende danach keine Rollleiste mehr. Die
+    # Falle kommt durch die Hintertuer eines harmlos aussehenden Imports.
     _sys190 = __import__('sys')
     if os.path.join(_wurzelpfad, 'tools') not in _sys190.path:
         _sys190.path.insert(0, os.path.join(_wurzelpfad, 'tools'))
     # ⚠⚠⚠ **Die Gefahr ist keine Import-ZEILE, sondern eine Nebenwirkung.**
-    # Die erste Wache suchte nach `Import`-Knoten im Syntaxbaum. Der Pruefer hat
-    # sie zerlegt: `__import__('unsichtbar').sicherstellen()` erzeugt gar keinen
-    # solchen Knoten — und beliebiger anderer Code auf Modulebene auch nicht.
+    # Eine Suche nach `Import`-Knoten im Syntaxbaum genuegt nicht:
+    # `__import__('unsichtbar').sicherstellen()` erzeugt gar keinen solchen
+    # Knoten — und beliebiger anderer Code auf Modulebene auch nicht.
     # **Importfrei heisst nicht nebenwirkungsfrei.**
     #
     # Geprueft wird deshalb die WIRKUNG, und zwar genau die, die einmal
     # zugeschlagen hat: Nimmt der Import einem Fenster die Geometrie?
     # (`abnahme.py` tat das, weil es auf Modulebene `sicherstellen()` ruft.)
     # ⚠⚠ **In einem FRISCHEN Prozess, und um den ganzen Arbeitsschritt herum.**
-    # Die erste Fassung mass nur `import_module('ablagen')` — und das ist
-    # gleich doppelt daneben:
+    # Nur `import_module('ablagen')` zu messen ist gleich doppelt daneben:
     #
     #   · `import_module` laedt NICHT neu, wenn das Modul schon im Speicher
     #     ist. Gemessen wurde also oft gar kein Import.
@@ -17687,9 +17198,9 @@ def main():
 
     # ⭐⭐ **Vollstaendigkeit, nicht nur Gueltigkeit.** Eine gemeinsame Quelle
     # verhindert auseinanderlaufende Kopien — gemeinsame AUSLASSUNGEN verhindert
-    # sie nicht. Die Liste war von Hand gepflegt und beim Anlegen schon falsch:
-    # `selling` und `gamebuild` fehlten, `mining` stand drin OHNE Ablage.
-    # `len >= 5` und „alles importierbar" waren trotzdem erfuellt.
+    # sie nicht. Eine von Hand gepflegte Liste kann Module vergessen oder
+    # welche OHNE Ablage fuehren, und Mindestzahl und Importierbarkeit waeren
+    # trotzdem erfuellt.
     #
     # Deshalb wird die Menge gegen die TATSAECHLICH vorhandenen Ablagen
     # gehalten, ermittelt auf einem zweiten Weg.
@@ -17751,9 +17262,8 @@ def main():
         pruefe(_da190, 'scbp.%s laesst sich importieren' % _neu190)
 
     print('\n182. Der Datenschutz-Scanner')
-    # ⚠⚠ Die Regel „nach aussen heisst der Entwickler nur `Xharig`" war bis
-    # zum 11.09.2026 reine Disziplin — zwei Riegel auf einem einzigen Rechner,
-    # sonst nichts. Und **aus dem aktuellen Stand entfernen reicht nicht**:
+    # ⚠⚠ Private Angaben duerfen nicht ins Repo — ein Scanner statt reiner
+    # Disziplin. Und **aus dem aktuellen Stand entfernen reicht nicht**:
     # Die Historie behaelt alles. Der Fund muss VOR dem Push passieren.
     import subprocess as _sp182
     import tempfile as _tf182
@@ -17838,10 +17348,9 @@ def main():
            'ruff laeuft nur als Bericht, ohne den Lauf rot zu machen')
     # ⚠ Und er darf NICHT bauen: Was baut, dauert, und was dauert, wird umgangen.
     #
-    # ⚠⚠ **Nur Nicht-Kommentarzeilen.** Der erste Anlauf suchte im ganzen Text
-    # und fand „kein AppImage" im **eigenen erklaerenden Kommentar** des
-    # Ablaufs. Dieselbe Falle wie bei Pruefung 181 eine Stunde vorher — und
-    # genau der Befund, den der Pruefer an der Release-Wache erhoben hatte.
+    # ⚠⚠ **Nur Nicht-Kommentarzeilen.** Eine Suche im ganzen Text faende den
+    # gesuchten Text auch im **eigenen erklaerenden Kommentar** des Ablaufs.
+    # Dieselbe Falle wie bei Pruefung 181.
     _echte182 = [z for z in _py182.splitlines() if not z.lstrip().startswith('#')]
     _echt182 = '\n'.join(_echte182).lower()
     pruefe('pyinstaller' not in _echt182 and 'appimage' not in _echt182,
@@ -17894,12 +17403,10 @@ def main():
     # Dasein. Der Text sagt ausdruecklich, welcher Fall gerade gilt: Eine
     # Pruefung, die stillschweigend nichts tut, prueft nichts.
     #
-    # ⚠⚠ **Nur ausserhalb von Kommentaren zaehlen.** Der erste Anlauf suchte
-    # `--require-hashes` im ganzen Text — und fand es in einem **Kommentar**
-    # aus P0, der die Sache bloss beschreibt. Die Pruefung schlug an, obwohl
-    # nichts damit gebaut wird. Derselbe Fehler, den der Pruefer kurz zuvor an
-    # der Release-Wache beanstandet hatte; einmal gelesen ist eben nicht
-    # einmal verstanden.
+    # ⚠⚠ **Nur ausserhalb von Kommentaren zaehlen.** Eine Suche nach
+    # `--require-hashes` im ganzen Text faende es auch in einem **Kommentar**,
+    # der die Sache bloss beschreibt, und schluege an, obwohl nichts damit
+    # gebaut wird.
     def _wirklich181(text, wort):
         return any(wort in z and not z.lstrip().startswith('#')
                    for z in text.splitlines())
@@ -17924,10 +17431,9 @@ def main():
                'auch nicht mit --require-hashes bauen (sonst bricht jeder Lauf)')
 
     print('\n180. Ein Update ohne gueltige Pruefsumme wird nicht eingespielt')
-    # ⚠⚠ Bis v3.28.x pruefte der Updater nur die **Herkunft** (`_url_ok`: kommt
-    # von github.com), nicht den **Inhalt**. Was durch diesen Filter kam, wurde
-    # ungeprueft eingespielt. Entschieden am 10.09.2026: keine gueltige Summe,
-    # keine Installation — kein Schalter, kein „trotzdem".
+    # ⚠⚠ Die **Herkunft** (`_url_ok`: kommt von github.com) allein sagt nichts
+    # ueber den **Inhalt**. Keine gueltige Summe, keine Installation — kein
+    # Schalter, kein Trotzdem.
     #
     # ⚠ Geprueft wird der **echte** Weg `herunterladen()`, mit einem
     # vorgetaeuschten Netz. Wer nur `summe_rechnen()` prueft, prueft hashlib.
@@ -18016,9 +17522,9 @@ def main():
                'die verworfene Datei bleibt nicht liegen')
 
         # -- 2b. ⚠⚠ **Die Leitung bricht MITTEN im Schreiben ab.**
-        #        Dann wird die Summe nie gerechnet — und der erste Anlauf
-        #        raeumte nur bei falscher Summe auf. Ein Bruchstueck blieb
-        #        also neben dem laufenden AppImage liegen, ungeprueft.
+        #        Dann wird die Summe nie gerechnet — wer nur bei falscher
+        #        Summe aufraeumt, laesst ein Bruchstueck neben dem laufenden
+        #        AppImage liegen, ungeprueft.
         class _Abriss180(_Netz180):
             def read(self, *a):
                 stueck = _Netz180.read(self, *a)
@@ -18055,9 +17561,8 @@ def main():
         # -- 5. Ohne Freigabe gar nicht erst anfangen: Wer den Aufruf ohne sie
         #       baut, haette den Schutz abgeschaltet.
         #
-        # ⚠ Der erste Anlauf dieser Pruefung reichte trotzdem eine Freigabe
-        #   durch (nur eben eine ohne Summen) und pruefte damit **nicht**, was
-        #   sie zu pruefen vorgab. Jetzt wird `herunterladen()` wirklich ohne
+        # ⚠ Eine Freigabe ohne Summen durchzureichen pruefte **nicht**, was
+        #   hier zu pruefen ist. Deshalb wird `herunterladen()` wirklich ohne
         #   das Argument gerufen — so, wie ein unachtsamer Umbau es taete.
         try:
             _ak180.download({'name': _name180, 'url': _url180})
@@ -18084,9 +17589,7 @@ def main():
         #       Rueckfallnamen `update.bin` hereinkommen.
         # ⚠⚠ Die Summe fuer `update.bin` muss die **echte** des Inhalts sein.
         #    Sonst scheitert der Versuch an der Summe statt am Namen — die
-        #    Pruefung waere gruen, ohne den Riegel zu beruehren. Genau das ist
-        #    ihr beim ersten Anlauf passiert und erst in der Gegenprobe
-        #    aufgefallen.
+        #    Pruefung waere gruen, ohne den Riegel zu beruehren.
         _frei180 = _freigabe180()
         _antwort180['summen'] += '%s  update.bin\n' % _summe180
         _boese_frei180 = {'dateien': [
@@ -18128,12 +17631,11 @@ def main():
         #    `SHA256SUMS.txt` legt den Update-Weg fuer alle still. Die Strenge
         #    ist gewollt; sie darf nur nicht daran scheitern, dass jemand den
         #    Bau-Schritt herausnimmt, ohne die Folge zu kennen.
-        # ⚠⚠ **Der erste Anlauf dieser Wache suchte freie Textfragmente** und
-        #    schnitt beim ERSTEN `files:` im ganzen YAML ab. Damit haette sie
-        #    auch bestanden, wenn die Datei irgendwo im Ablauf auftaucht, aber
-        #    nicht am Release haengt — oder wenn sie erst NACH dem Hochladen
-        #    erzeugt wird. Jetzt wird der konkrete Schritt genommen und die
-        #    Reihenfolge geprueft.
+        # ⚠⚠ **Keine freien Textfragmente.** Ein Schnitt beim ERSTEN
+        #    `files:` im ganzen YAML bestuende auch, wenn die Datei irgendwo
+        #    im Ablauf auftaucht, aber nicht am Release haengt — oder wenn sie
+        #    erst NACH dem Hochladen erzeugt wird. Deshalb wird der konkrete
+        #    Schritt genommen und die Reihenfolge geprueft.
         _abl180 = os.path.join(_wurzelpfad, '.github', 'workflows', 'release.yml')
         _yml180 = open(_abl180, encoding='utf-8').read()
 
@@ -18165,9 +17667,7 @@ def main():
         shutil.rmtree(_ordner180, ignore_errors=True)
 
     print('\n179. Der Erkennungskern der Scan-Signatur')
-    # ⚠⚠ **655 Zeilen ohne eine einzige Pruefung** — so lag das Werkzeug bis
-    # zum 10.09.2026 da. „Selbsttest gruen" sagte ueber diesen Teil schlicht
-    # nichts. Der Abgriff vom Bildschirm braucht ein laufendes Star Citizen und
+    # ⚠⚠ Der Abgriff vom Bildschirm braucht ein laufendes Star Citizen und
     # ist hier nicht pruefbar; **alles danach** ist reine Rechnerei und laesst
     # sich vollstaendig aus einem selbstgebauten Bild pruefen. Genau das
     # passiert hier — kein Spiel, keine Fremddatei, kein Ueberspringen.
@@ -18181,11 +17681,9 @@ def main():
         # -- Ein Bild bauen: dunkler Grund, zwei helle Zeichen nebeneinander.
         #
         # ⚠⚠ Sie muessen sich in der **Form** unterscheiden, nicht in der
-        # Groesse. Der erste Anlauf nahm zwei verschieden grosse Rechtecke —
-        # die sind nach dem Normieren zwangslaeufig gleich, denn genau das ist
-        # dessen Aufgabe. Die Pruefung fiel dadurch zu Recht durch und hat den
-        # Fehler im Pruefaufbau selbst gefunden. Also: ein voller Balken und
-        # ein L.
+        # Groesse. Zwei verschieden grosse Rechtecke sind nach dem Normieren
+        # zwangslaeufig gleich, denn genau das ist dessen Aufgabe. Also: ein
+        # voller Balken und ein L.
         _hoch179, _breit179 = 24, 40
         _bild179 = [[20] * _breit179 for _ in range(_hoch179)]
         for _y in range(4, 20):                       # Zeichen 1: voller Block
@@ -18259,9 +17757,9 @@ def main():
                'ein unbekanntes Zeichen wird abgelehnt statt geraten')
 
         # -- ⚠⚠ **Die Farblage kommt aus dem Bild, nicht aus einer Annahme.**
-        #    Bis zum 10.09.2026 las der Abgriff die Bytes stumpf als `B G R`
-        #    und setzte 24 Bit voraus. Auf einem MSBFirst-Server oder bei 10
-        #    Bit je Kanal (Tiefe 30) kaeme dabei keine Fehlermeldung heraus,
+        #    Wer die Bytes stumpf als `B G R` liest und 24 Bit voraussetzt,
+        #    bekommt auf einem MSBFirst-Server oder bei 10 Bit je Kanal
+        #    (Tiefe 30) keine Fehlermeldung,
         #    sondern eine **falsche Helligkeit** — und die heisst hier still
         #    falsch gelesene Zahlen. Das laesst sich ohne X11 pruefen: Die
         #    Umrechnung ist reine Rechnerei.
@@ -18354,9 +17852,9 @@ def main():
         pruefe('/RESTARTAPPLICATIONS' not in _v182,
                'kein /RESTARTAPPLICATIONS — sonst startet ein zweiter Weg')
         # ⚠ GAR keine Pipe. Eine Pipe laesst cmd jede Seite noch einmal
-        # zerlegen, samt %-Erweiterung — und `find` am Ende einer Pipe hing im
-        # ersten Echttest (11.09.2026) in einem eigenen Fenster und wartete auf
-        # die Tastatur. Zwischendateien sind langweilig, und sie haengen nie.
+        # zerlegen, samt %-Erweiterung — und `find` am Ende einer Pipe kann in
+        # einem eigenen Fenster haengen und auf die Tastatur warten.
+        # Zwischendateien sind langweilig, und sie haengen nie.
         _pipes182 = [z for z in _v182.splitlines() if '|' in z]
         pruefe(not _pipes182, 'keine Pipe in der Vorlage (%s)'
                % ('; '.join(_pipes182) or 'keine'))
@@ -18384,7 +17882,7 @@ def main():
 
         print('\n183. Die Update-Sperre laesst genau einen Lauf zu — und verwaist nicht')
         # ⚠ Bewusst keine Portbindung: Unter Windows bindet ein zweiter Prozess
-        # mit SO_REUSEADDR denselben Port (gemessen 11.09.2026).
+        # mit SO_REUSEADDR denselben Port (gemessen).
         _sp183 = _ul182._path(_ul182.LOCK_FILE)
         _ul182.release_lock()
         pruefe(_ul182.take_lock() is True, 'die erste Anfrage bekommt die Sperre')
@@ -18485,8 +17983,8 @@ def main():
             sys.executable = _exe185
             # ⚠ So sieht die Umgebung in der gepackten .exe aus: Der
             # Bootloader setzt `_PYI_*`. Erbt der neu gestartete Watcher das,
-            # haelt er sich fuer ein Bootloader-Kind und bricht ab (Echttest
-            # 11.09.2026: Update fertig, Neustart „Security validation failure").
+            # haelt er sich fuer ein Bootloader-Kind und bricht ab (beim
+            # Neustart nach dem Update: `Security validation failure`).
             os.environ['_PYI_PARENT_PROCESS_LEVEL'] = '1'
             os.environ['_PYI_APPLICATION_HOME_DIR'] = _home182
             _ak185._CHECKED.clear()
@@ -18581,21 +18079,16 @@ def main():
         _q187 = _in187.getsource(_se187._fetch_version)
         pruefe('s_ub_hinweis_neustart' not in _q187,
                'kein Hinweisfenster mehr vor dem Einspielen')
-        # ⚠⚠ **Diese Pruefung ist am 12.09.2026 rot geworden** — durch die
-        # Umbenennung von `update_run`, und das war richtig so: Sie suchte
-        # die Funktionsnamen als **Zeichenkette im Quelltext**. Ein
-        # Kommentar „hier muesste sperre_nehmen stehen" haette sie genauso
-        # gruen gefaerbt wie der echte Aufruf.
+        # ⚠⚠ **Keine Suche nach Funktionsnamen als Zeichenkette im
+        # Quelltext.** Ein Kommentar, der den Namen erwaehnt, faerbte sie
+        # genauso gruen wie der echte Aufruf.
         #
         # `co_names` fuehrt die Namen, die der Code wirklich **nachschlaegt**.
         # Ein Kommentar steht da nicht drin, ein toter Import auch nicht.
         # Siehe Pruefung 175, die denselben Weg geht.
-        # ⚠ **Und rekursiv.** Der erste Anlauf fand nur `take_lock`: Die
-        # Freigabe steht in einem verschachtelten Rueckruf, und der hat sein
-        # eigenes Code-Objekt in `co_consts`. `getsource()` hatte beide
-        # gesehen, weil es schlicht den Text las — der Umstieg auf `co_names`
-        # haette hier also beinahe eine LUECKE gerissen statt eine zu
-        # schliessen. Gemessen, nicht vermutet.
+        # ⚠ **Und rekursiv.** Die Freigabe steht in einem verschachtelten
+        # Rueckruf, und der hat sein eigenes Code-Objekt in `co_consts` — nur
+        # die oberste Ebene fande allein `take_lock`.
         def _namen187(code):
             heraus = set(code.co_names)
             for wert in code.co_consts:
@@ -18652,10 +18145,9 @@ def main():
                 env.update({'SCBP_WARTEN': warten, 'SCBP_NEUSTART': 'X',
                             'SCBP_ERGEBNIS': _erg188, 'SCBP_LOG': _log188})
                 # ⚠⚠ GENAU so wie das Programm: dieselbe Befehlszeile, dieselben
-                # Schalter (`helfer_flags`). Die erste Fassung dieser Pruefung
-                # startete mit eigenen Schaltern — und uebersah dadurch, dass
-                # `DETACHED_PROCESS` im echten Update `find` haengen und
-                # `certutil` ins Leere schreiben liess (Echttest 11.09.2026).
+                # Schalter (`helfer_flags`). Mit eigenen Schaltern bliebe
+                # unsichtbar, dass `DETACHED_PROCESS` im echten Update `find`
+                # haengen und `certutil` ins Leere schreiben laesst.
                 _p188 = subprocess.Popen('cmd /c ""%s""' % _hf188, env=env,
                                          cwd=tempfile.gettempdir(),
                                          creationflags=_ul182.helper_flags())
@@ -18691,8 +18183,8 @@ def main():
         shutil.rmtree(_home182, ignore_errors=True)
 
     print('\n189. Die Rollleiste einer Aufklappliste klappt sie nicht zu')
-    # Gemeldet am 11.09.2026 zu „Was steckt drin?": Mausrad geht, die Leiste
-    # rechts anfassen laesst die Auswahl verschwinden. Geprueft wird der echte
+    # Bei „Was steckt drin?": Die Leiste rechts anzufassen darf die Auswahl
+    # nicht verschwinden lassen. Geprueft wird der echte
     # Weg: Klick auf die Leiste, danach das `<FocusOut>`, das die Fensterregel
     # `_bind_click_on_empty` in genau diesem Moment ausloest, dann die
     # 200 ms bis zum verzoegerten Zumachen.
@@ -18790,15 +18282,14 @@ def main():
     # wenn das Werkzeug einen neuen Namen bekommt.
     #
     # Der Grundsatz: **Was der Nutzer SIEHT, wechselt. Was ihn WIEDERFINDET,
-    # bleibt.** Am 12.09.2026 gemessen: Die Vorab-Analyse zur
-    # VerseKit-Umbenennung nannte drei solcher Anker, es sind zehn.
+    # bleibt.** Es sind zehn solcher Anker.
     #
     # ⚠ Wer hier einen Wert aendert, muss zuerst erklaeren, wie die vorhandene
     # Installation den neuen findet. Ohne Migrationsweg ist die Antwort: nicht.
     # ⚠ Je Anker die ERWARTETE ANZAHL, nicht blosse Anwesenheit. Der
     # Ablageordner steht zweimal in paths.py — eine Wache, die nur fragt
     # "kommt der Text vor", merkt es nicht, wenn eines der beiden
-    # Vorkommen wechselt. Gefunden von der Gegenprobe am 12.09.2026.
+    # Vorkommen wechselt.
     _anker191 = [
         ('packaging/installer.iss', 1,
          'AppId={{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}',
@@ -18813,9 +18304,8 @@ def main():
          'Registry-Wertname des Autostarts — sonst zwei Eintraege'),
         ('scbp/autostart.py', 1, "'sc-bp-watcher.desktop'",
          'Autostart-Datei unter Linux — dasselbe'),
-        # ⚠ Der BEZEICHNER heisst seit der Sprachmigration FILENAME bzw.
-        # ICON_NAME — der WERT ist der Anker und bleibt. Genau diese Prüfung
-        # hat den Wechsel gemeldet, als die Konstanten umbenannt wurden.
+        # ⚠ Der BEZEICHNER heisst FILENAME bzw. ICON_NAME — der WERT ist der
+        # Anker und bleibt.
         ('scbp/desktop_entry.py', 1, "FILENAME = 'sc-bp-watcher.desktop'",
          'Verknuepfung — sonst zwei Eintraege im Startmenue'),
         ('scbp/desktop_entry.py', 1, "ICON_NAME = 'sc-bp-watcher.png'",
@@ -18828,9 +18318,9 @@ def main():
         ('scbp/update_run.py', 1, 'and paths.is_ours(installer)',
          'Installer-Aufraeumen kennt beide Namen (sonst bleibt er liegen)'),
         ('scbp/updater.py', 1,
-         # ⚠ Der Anker ist die **GUID**, nicht der Name der Konstanten. Der
-         # Name wurde am 12.09.2026 zu `INNO_KEY`; die GUID steht so in der
-         # Registry jedes Windows-Nutzers und wechselt nie.
+         # ⚠ Der Anker ist die **GUID**, nicht der Name der Konstanten. Die
+         # GUID steht so in der Registry jedes Windows-Nutzers und wechselt
+         # nie.
          "INNO_KEY = '{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}_is1'",
          'Deinstallations-Kennung — dieselbe GUID wie AppId'),
     ]
@@ -18844,34 +18334,26 @@ def main():
 
     # (Die AppImage-Pruefung steckt jetzt im Anker-Katalog oben.)
 
-    # ⛔⛔ **HIER STAND DAS GEGENTEIL — widerlegt am 18.09.2026 durch Messung.**
+    # ⛔⛔ **`StartupWMClass` haengt NICHT am Fenstertitel** — gemessen.
     #
-    # Der Satz lautete: „Der einzige unsichtbare Anker, der MITWECHSELN muss:
-    # StartupWMClass haengt am Fenstertitel." Diese Pruefung erzwang genau das
-    # (`StartupWMClass == hf_titel`) — und bewachte damit einen Zustand, der
-    # nie funktioniert hat.
-    #
-    # `xprop WM_CLASS` am laufenden v3.52.1 unter KDE/Wayland:
+    # `xprop WM_CLASS` am laufenden Programm unter KDE/Wayland, ohne eigene
+    # Klasse:
     #
     #     Wurzelfenster (Overlay)  ("tk #2",     "Tk")
     #     Hauptfenster (Toplevel)  ("!toplevel", "Toplevel")
     #
-    # Kein Fenster hiess „Verse-Kit". Linux vergleicht nicht mit dem Titel,
-    # sondern mit der **Fensterklasse** — die setzt Tk aus `className=`
-    # (Wurzel) bzw. `class_=` (Toplevel), sonst heisst sie `Tk`/`Toplevel`.
-    # Die alte Regel stammte aus der Umbenennung vom 12.09.2026, war am
-    # Quelltext abgeleitet und nie an einem Fenster gemessen.
+    # Linux vergleicht nicht mit dem Titel, sondern mit der
+    # **Fensterklasse** — die setzt Tk aus `className=` (Wurzel) bzw.
+    # `class_=` (Toplevel), sonst heisst sie `Tk`/`Toplevel`.
     #
     # ⭐ Richtig ist: **`Name` wechselt mit, `StartupWMClass` bleibt** — es
     # gehoert zu den Ankern wie `AppId` und `OWN_FILENAMES`.
     # ⭐ Die WIRKUNG pruefen, nicht den Quelltext: anlegen() in einem
     # Wegwerf-Ordner laufen lassen und die ERZEUGTE Datei lesen.
     #
-    # ⚠ Bis zum 12.09.2026 las diese Pruefung den Quelltext von
-    # desktop_entry.py. Als der Wert dort zu einem Platzhalter wurde (der Name
-    # kommt jetzt aus language.py), meldete sie '%s' vs 'VerseKit' — ein
-    # Fehlalarm. Dieselbe Schwaeche wie bei Pruefung 74 und 30: Form
-    # gemessen, wo Wirkung zaehlt.
+    # ⚠ Der Quelltext von desktop_entry.py traegt nur einen Platzhalter (der
+    # Name kommt aus language.py) — ihn zu lesen hiesse Form messen, wo
+    # Wirkung zaehlt.
     from scbp import language as _spr191, desktop_entry as _vk191
     # Der Text, den anlegen() schreiben WUERDE — ohne Dateisystem, damit die
     # Pruefung auch unter Windows laeuft (Regel: nichts stillschweigend
@@ -18898,9 +18380,8 @@ def main():
     pruefe(_vk191.FILENAME == 'sc-bp-watcher.desktop',
            'die .desktop behaelt ihren Dateinamen (%r)' % _vk191.FILENAME)
     # ⚠⚠ **Es gibt ZWEI .desktop-Dateien** — die selbst erzeugte oben und die
-    # mitgelieferte im AppImage (`packaging/`). Bei der Umbenennung zu
-    # „Verse-Kit" (17.09.2026) wurde nur die erste mitgezogen; die zweite
-    # hiess noch am 18.09. `Name=VerseKit`, weil keine Pruefung sie ansah.
+    # mitgelieferte im AppImage (`packaging/`). Beide muessen dieselben
+    # Angaben tragen.
     _pack191 = {}
     with open(os.path.join(WURZEL, 'packaging', 'sc-bp-watcher.desktop'),
               encoding='utf-8') as _f191:
@@ -18915,8 +18396,8 @@ def main():
            and _pack191.get('Exec') == 'SC-BP-Watcher',
            'und behaelt Symbol und Programmdatei (%r, %r)'
            % (_pack191.get('Icon'), _pack191.get('Exec')))
-    # ⚠ In dieser Datei fehlte `StartupWMClass` bis zum 18.09.2026 ganz — das
-    # AppImage-Menuelement konnte sein Fenster also nie zuordnen.
+    # ⚠ Ohne `StartupWMClass` in dieser Datei kann das AppImage-Menuelement
+    # sein Fenster nie zuordnen.
     pruefe(_pack191.get('StartupWMClass') == _pf191.WM_CLASS,
            'und traegt dieselbe Fensterklasse wie die erzeugte (%r)'
            % _pack191.get('StartupWMClass'))
@@ -18928,12 +18409,10 @@ def main():
     # faellt sonst erst dem Nutzer auf.)
     #
     # ⛔⛔ **Und BEIDE Wege messen, nicht nur einen.** Tk normalisiert
-    # `className=` (Wurzel) auf „erster Buchstabe gross, Rest klein", nimmt
+    # `className=` (Wurzel) auf erster Buchstabe gross, Rest klein, nimmt
     # `class_=` (Toplevel) aber woertlich. Von 'VerseKit' bleibt an der Wurzel
     # 'Versekit' uebrig — Overlay und Hauptfenster haetten dann
     # VERSCHIEDENE Klassen, und `StartupWMClass` kann nur eine treffen.
-    # Genau so war der erste Anlauf dieser Korrektur am 18.09.2026 gebaut;
-    # aufgefallen ist es nur, weil nachgemessen wurde statt angenommen.
     import tkinter as _tk191
     _wz191 = _tk191.Tk(className=_pf191.WM_CLASS)
     _wz191.withdraw()
@@ -19207,11 +18686,11 @@ def main():
            ' Verknuepfung des Nutzers weg — Fall 6 belegt also etwas'
            ' (Rest: %r)' % [n for n, _d in _rest191])
 
-    # ⭐⭐ Fall 8 — die Mischform, an einer echten Installation gefunden
-    # (19.09.2026): Ordner „VerseKit", die Links darin heissen noch
-    # „SC BP Watcher". Keine Regel traf das, `dirifempty` liess den Ordner
-    # stehen — nach dem Update auf Verse-Kit standen zwei Eintraege im
-    # Startmenue. Geprueft wird der ECHTE Zustand gegen die ECHTEN Regeln.
+    # ⭐⭐ Fall 8 — die Mischform einer echten Installation: Ordner
+    # `VerseKit`, die Links darin heissen noch `SC BP Watcher`. Trifft das
+    # keine Regel, laesst `dirifempty` den Ordner stehen — nach dem Update
+    # auf Verse-Kit stuenden zwei Eintraege im Startmenue. Geprueft wird der
+    # ECHTE Zustand gegen die ECHTEN Regeln.
     _gruppe_vk191 = r'{autoprograms}\VerseKit'
     _regeln_vk191 = [(_a191, _n191) for _a191, _n191, _t191 in _regeln191
                      if _n191 == _gruppe_vk191
@@ -19238,10 +18717,9 @@ def main():
            % [n for n, _d in _rest191])
     # ------------------------------------ Hinweis IM Eingabefeld (192)
     print('\n192. Der Hinweis steht IM Feld, nicht darueber')
-    # ⚠⚠ Bis zum 12.09.2026 lag ein `tk.Label` ueber dem Suchfeld. Es sah
-    # gleich aus und fing die Mausklicks ab: Wer auf den Hinweistext klickte,
-    # klickte nicht ins Feld — man musste NEBEN den Text treffen. Gemeldet
-    # als „alles andere als intuitiv".
+    # ⚠⚠ Ein `tk.Label` ueber dem Suchfeld saehe gleich aus, finge aber die
+    # Mausklicks ab: Wer auf den Hinweistext klickt, klickt nicht ins Feld —
+    # man muesste NEBEN den Text treffen.
     #
     # ⭐ Geprueft wird die Wirkung am **frischen** Fenster: was im Feld steht,
     # und was die Filtervariable sieht. Nicht, welches Bauteil es gibt.
@@ -19257,9 +18735,8 @@ def main():
         pruefe(_f192.get() == _hin192,
                'das leere Suchfeld sagt, dass es auch Auftraege findet (%r)'
                % _f192.get())
-        # ⭐⭐ Der Punkt, an dem die Label-Loesung scheiterte und weshalb es
-        # frueher ueberhaupt ein Label war: Die Filtervariable darf den
-        # Hinweis NIE sehen — sonst filtert die Liste danach und ist leer.
+        # ⭐⭐ Der Kern: Die Filtervariable darf den Hinweis NIE sehen — sonst
+        # filtert die Liste danach und ist leer.
         pruefe(_liste192.suche.get() == '',
                'der Hinweis steht NICHT in der Filtervariable (%r)'
                % _liste192.suche.get())
@@ -19279,8 +18756,8 @@ def main():
     #     * der erste Tastendruck raeumt den Hinweis weg
     #     * `suche.set('titan')` von aussen bringt den Text ins Feld
     #
-    # Beide sind am 12.09.2026 in einem echten Fenster gemessen worden und
-    # stimmen dort (`tools/probe_hinweisfeld.py`). Im Selbsttest-Rahmen sind
+    # Beide sind in einem echten Fenster gemessen und stimmen dort
+    # (`tools/probe_hinweisfeld.py`). Im Selbsttest-Rahmen sind
     # sie nicht nachstellbar: Dort haengen weitere Beobachter an derselben
     # Variable, und ein `event_generate('<Key>')` kommt nicht verlaesslich an.
     #
@@ -19309,8 +18786,8 @@ def main():
         """Wie oft wird der Name neu belegt, unter dem abgelegt wird?
 
         Rueckgabe `(name, anzahl)` — `anzahl` muss 1 sein. Alles darueber
-        heisst: Zwischen „Schluessel bilden" und „ablegen" schreibt jemand
-        denselben Namen um, und abgelegt wird unter etwas anderem.
+        heisst: Zwischen Schluesselbildung und Ablage wird derselbe Name
+        umgeschrieben, und abgelegt wird unter etwas anderem.
         """
         for knoten in _ast193.walk(_ast193.parse(quelltext)):
             if not (isinstance(knoten, _ast193.FunctionDef)
@@ -19352,10 +18829,9 @@ def main():
            % _merk_schluessel193(_kaputt193, 'klarnamen', '_KLARNAMEN')[1])
 
     # Die Marke muss die Dateien beobachten, die wirklich gelesen werden.
-    # ⚠ **Ohne den Beschreibungstext.** Die erste Fassung dieser Pruefung
-    # dumpte die ganze Funktion und fiel ueber ihr eigenes Handbuch: Dort
-    # steht `defaultProfile.xml` als Erklaerung, warum sie NICHT beobachtet
-    # wird. Geprueft gehoert der Rumpf, nicht die Begruendung.
+    # ⚠ **Ohne den Beschreibungstext.** Wer die ganze Funktion durchsucht,
+    # faellt ueber ihr eigenes Handbuch: Dort steht `defaultProfile.xml` als
+    # Erklaerung, warum sie NICHT beobachtet wird. Geprueft gehoert der Rumpf, nicht die Begruendung.
     _mark193 = ''
     for _k193 in _ast193.walk(_ast193.parse(_q193)):
         if (isinstance(_k193, _ast193.FunctionDef)
@@ -19454,11 +18930,6 @@ def main():
     # stehen Modul- UND Funktionsname in Zeichenketten. Weder ein
     # Syntaxbaum-Scanner noch der Selbsttest melden etwas — die Stelle
     # bricht erst, wenn ein Nutzer einen Fehlerbericht baut.
-    #
-    # Am 12.09.2026 war das bei der Umbenennung der Update-Module die
-    # EINZIGE Stelle im Projekt, die nach dem gruenen Lauf noch falsch war.
-    # Gefunden nur, weil ich danach das ganze Repo nach alten Namen
-    # durchsucht habe.
     import importlib as _im194
     _fehler194 = []
     _gezaehlt194 = 0
@@ -19511,9 +18982,9 @@ def main():
               '' if not _fehler194 else ' — FEHLT: ' + '; '.join(_fehler194)))
     # ⭐ Gegenprobe: Die Pruefung muss einen erfundenen Namen auch finden.
     # ⚠ Der erfundene Name wird ZUSAMMENGESETZT, nicht als Zeichenkette
-    # hingeschrieben: Pruefung 195 sucht genau solche Konstanten und haette
-    # sonst diese Gegenprobe als Fund gemeldet — eine Wache, die die andere
-    # anschlaegt.
+    # hingeschrieben: Pruefung 195 sucht genau solche Konstanten und
+    # schluege sonst bei dieser Gegenprobe an — eine Wache, die die andere
+    # ausloest.
     _erfunden194 = 'gibt_es' + '_nicht_194'
     pruefe(not hasattr(_im194.import_module('scbp.updater'), _erfunden194),
            'Gegenprobe: ein erfundener Name wuerde auffallen')
@@ -19523,14 +18994,13 @@ def main():
 
     # ------------------------ Namen in Zeichenketten zeigen ins Leere (195)
     print('\n195. `getattr` & Co. zeigen auf Namen, die es gibt')
-    # ⛔⛔ **Der stillste Ausfall von allen.** Bei der Umbenennung der
-    # Log-Module am 13.09.2026 blieb
+    # ⛔⛔ **Der stillste Ausfall von allen.** Ein Rest wie
     #     getattr(self.tail, 'auftrag_muster', None)
-    # stehen. Das wirft **keinen Fehler** — es liefert den Standardwert.
-    # Die Auftragserkennung waere stumm ausgefallen: kein Absturz, keine
-    # Meldung, nur „es kommt halt nichts mehr".
+    # wirft **keinen Fehler** — er liefert den Standardwert. Die
+    # Auftragserkennung fiele stumm aus: kein Absturz, keine Meldung, es kaeme
+    # nur nichts mehr.
     #
-    # Zum Vergleich: Der dynamische Import aus Pruefung 194 warf wenigstens
+    # Zum Vergleich: Der dynamische Import aus Pruefung 194 wirft wenigstens
     # einen AttributeError.
     #
     # ⚠ Geprueft wird gegen die Felder und Methoden, die es im Projekt
@@ -19559,27 +19029,24 @@ def main():
                 _bekannt195.add(_k195.attr)
             elif isinstance(_k195, _ast193.Name):
                 _bekannt195.add(_k195.id)
-    # ⛔⛔ **Die Luecke, die diese Pruefung selbst hatte (13.09.2026).**
-    # Sie sah nur die Zeichenkette, die DIREKT im Aufruf steht. Genau so
-    # stand es aber nicht da:
+    # ⛔⛔ **Nicht nur die Zeichenkette, die DIREKT im Aufruf steht.** Auch
+    # diese Form muss erkannt werden:
     #
     #     for name in ('listenfenster', 'hauptfenster'):
     #         fenster = getattr(self, name, None)
     #
-    # Das zweite Argument ist eine **Variable** — die Pruefung sprang ab,
-    # und beide Namen zeigten seit Monaten ins Leere (es heisst `_fenster`).
-    # Die Schleife lief zweimal leer, das Overlay blendete beim Verlassen
-    # ab, obwohl die Bauplan-Liste offen davorstand. Kein Fehler, keine
-    # Meldung — der stille Ausfall, den diese Pruefung verhindern soll.
+    # Das zweite Argument ist eine **Variable**. Zeigen die Namen ins Leere,
+    # laeuft die Schleife leer — kein Fehler, keine Meldung, der stille
+    # Ausfall, den diese Pruefung verhindern soll.
     #
     # Deshalb werden Namen aus einer **festen Aufzaehlung** mit aufgeloest —
     # aber nur fuer Aufrufe **innerhalb genau dieser Schleife**.
     #
-    # ⚠ Ein erster Versuch fuehrte das Register projektweit je Variablenname:
-    # `for name in (...)` gibt es an sieben Stellen, und `getattr(x, name)`
-    # bekam dann die Namen aller sieben. Ergebnis 259 Fehlalarme statt einem
-    # Befund. Ein Register, das nicht zum Gueltigkeitsbereich passt, ist
-    # keine schaerfere Pruefung, sondern Rauschen.
+    # ⚠ Ein Register projektweit je Variablenname taugt nicht:
+    # `for name in (...)` gibt es an mehreren Stellen, und `getattr(x, name)`
+    # bekaeme dann die Namen aller. Ein Register, das nicht zum
+    # Gueltigkeitsbereich passt, ist keine schaerfere Pruefung, sondern
+    # Rauschen.
     def _aus_schleife195(_aufruf, _baum):
         """Die Zeichenketten, die diese `getattr`-Variable annehmen kann."""
         _heraus = set()
@@ -19631,7 +19098,7 @@ def main():
                                 'CREATE_NO_WINDOW',
                                 'CREATE_NEW_PROCESS_GROUP',
                                 # os-Schalter, gibt es nur unter Windows
-                                # (secret_store, dpop_reference; v3.60.0)
+                                # (secret_store, dpop_reference)
                                 'O_BINARY'):
                     continue
                 if _name195 not in _bekannt195:
@@ -19648,9 +19115,9 @@ def main():
     pruefe(len(_bekannt195) > 500,
            'und die Namensliste ist vollstaendig genug (%d Namen aus %d '
            'Dateien)' % (len(_bekannt195), len(_baeume195)))
-    # ⭐⭐ Gegenprobe fuer die Aufzaehlung (13.09.2026): Genau diese Form hat
-    # die Pruefung monatelang durchgelassen. Sie muss sie jetzt aufloesen —
-    # sonst prueft die Erweiterung nichts und sieht trotzdem gruen aus.
+    # ⭐⭐ Gegenprobe fuer die Aufzaehlung: Genau diese Form muss die Pruefung
+    # aufloesen — sonst prueft die Erweiterung nichts und sieht trotzdem
+    # gruen aus.
     _probe195 = _ast193.parse(
         "for _n in ('gibtesnicht195a', 'gibtesnicht195b'):\n"
         "    getattr(x, _n, None)\n"
@@ -19659,9 +19126,9 @@ def main():
         "getattr(y, _n, None)\n")
     # ⚠ Nach ZEILE aussuchen, nicht nach der Reihenfolge von `ast.walk()`.
     # Die laeuft in die Breite: Der Aufruf ausserhalb der Schleife liegt
-    # flacher und kommt deshalb ZUERST. Beim ersten Versuch waren dadurch
-    # beide Gegenproben vertauscht — und meldeten brav einen Fehler, den es
-    # nicht gab.
+    # flacher und kommt deshalb ZUERST. Nach Reihenfolge ausgesucht, waeren
+    # beide Gegenproben vertauscht und schluegen an, ohne dass ein Fehler da
+    # ist.
     _rufe195 = {_k.lineno: _k for _k in _ast193.walk(_probe195)
                 if isinstance(_k, _ast193.Call)
                 and isinstance(_k.func, _ast193.Name)
@@ -19678,13 +19145,12 @@ def main():
     print('196. Die Bauplaene DB von Star Citizen Deutsch — einlesen')
     # ⚠⚠ Die Bauplan-Uebersicht im Browser
     # (`rjcncpt.github.io/StarCitizen-Deutsch-INI/`). ⛔ Das ist NICHT „der
-    # Launcher als Webseite" — der SC Deutsch Launcher bleibt das Programm
-    # fuer die Uebersetzung. Am 13.09.2026 stand das einen Tag lang falsch,
-    # bis in den Changelog.
+    # Launcher als Webseite" — der SC Deutsch Launcher ist das Programm fuer
+    # die Uebersetzung.
     #
     # Sie schreibt dieselben `key`-Eintraege wie das Launcher-Programm, haengt
-    # aber `isDone` („habe ich") und `isMarked` („will ich") an jeden — und
-    # sie bietet „Alle als JSON" an. Ohne Unterscheidung stuende danach die
+    # aber `isDone` (im Besitz) und `isMarked` (vorgemerkt) an jeden — und sie
+    # bietet einen Export aller Eintraege als JSON an. Ohne Unterscheidung stuende danach die
     # halbe Datenbank im Bestand und das Werkzeug meldete nie wieder einen
     # Fund. Dieselbe Falle wie `completed` bei scmdb.
     from scbp import importer as _imp196, export as _exp196
@@ -19732,9 +19198,8 @@ def main():
         pruefe(len(_imp196.read(_datei196b)[1]) == 2,
                'Gegenprobe: ohne Schalter kommen weiterhin alle Eintraege mit')
 
-        # --- Die Gegenrichtung (Ausgabe FUER die Bauplaene DB) ist seit dem
-        # 30.09.2026 entfernt. Einlesen bleibt — wer von dort kommt, soll
-        # seinen Bestand mitnehmen koennen.
+        # --- Eine Ausgabe FUER die Bauplaene DB gibt es nicht. Einlesen
+        # bleibt — wer von dort kommt, soll seinen Bestand mitnehmen koennen.
         pruefe(not any('bpdb' in _n for _n in dir(_exp196))
                and 'bpdb' not in _exp196.FILENAMES,
                'keine Ausgabe mehr fuer die Bauplaene DB')
@@ -19747,9 +19212,9 @@ def main():
 
     # ------------------------- Der Rueckweg nach einem Seitensprung (197)
     print('\n197. Ein Seitensprung bietet den Rueckweg an')
-    # ⭐ Gewuenscht von Bushwick (13.09.2026): Wer in der Bauplan-Liste einen
-    # Eintrag anklickt, landet in der Herstellung — und kam von dort nur ueber
-    # die Seitenleiste zurueck, also ohne Suchbegriff und ohne Filter.
+    # ⭐ Wer in der Bauplan-Liste einen Eintrag anklickt, landet in der
+    # Herstellung — und kommt von dort mit Suchbegriff und Filter zurueck,
+    # nicht nur ueber die Seitenleiste.
     #
     # ⚠ Geprueft wird die **Unterscheidung**: `jump_to()` bietet den Rueckweg
     # an, ein gewoehnliches `open_page()` nicht. Ohne diese zweite Haelfte
@@ -19814,21 +19279,19 @@ def main():
 
     # ------------- Die Leiste wird beim Einklappen nicht breiter (198)
     print('\n198. Die Leiste springt beim Einklappen nicht in die Breite')
-    # ⛔⛔ Gemeldet am 13.09.2026: „wenn ich von ausgeklappt in eingeklappt
-    # wechsle, dann wird die Leiste ein klein bisschen groesser" — und zwar in
-    # der BREITE. Gemessen an v3.31.2: **+61 px**.
+    # ⛔⛔ Beim Wechsel von ausgeklappt zu eingeklappt darf die Leiste nicht
+    # in die BREITE springen (gemessen: bis zu **+61 px**).
     #
-    # Die Ursache war eine Drift zwischen zwei Rechnungen, die dieselbe sind:
-    #   * `_mindestgroesse_setzen()` lief EINMAL beim Start
+    # Die Falle ist eine Drift zwischen zwei Rechnungen, die dieselbe sind:
+    #   * `_mindestgroesse_setzen()` laeuft beim Start
     #   * `_leisten_breite()` wird bei JEDEM Einklappen neu gemessen
-    # `schriftgroesse_anwenden()` vergroessert die Symbole — und liess die
-    # offene Grenze stehen. Damit liess sich das Fenster schmaler ziehen, als
-    # der Streifen braucht, und das erste Zuklappen zog es hoch.
+    # Vergroessert `schriftgroesse_anwenden()` die Symbole und laesst die
+    # offene Grenze stehen, laesst sich das Fenster schmaler ziehen, als der
+    # Streifen braucht, und das erste Zuklappen zieht es hoch.
     #
     # ⚠⚠ **Kein Aufklappen zwischendurch!** `klappzustand_setzen(False)` setzt
-    # `minsize()` selbst neu und verdeckt den Fehler vollstaendig. Der erste
-    # Anlauf dieser Probe meldete deshalb auch gegen den alten Stand „alles
-    # gut". Der echte Weg ist: Schrift umstellen, schmaler ziehen, einklappen.
+    # `minsize()` selbst neu und verdeckt den Fehler vollstaendig. Der echte
+    # Weg ist: Schrift umstellen, schmaler ziehen, einklappen.
     import tkinter as _tk198
     import sc_bp_watcher as _wat198
     _w198 = _tk198.Tk()
@@ -19880,14 +19343,13 @@ def main():
 
     # ---------- Verschieben hebt die Ecke auf, Leistenseite waehlbar (199)
     print('\n199. Wer das Overlay verschiebt, entscheidet — nicht die Ecke')
-    # ⭐ Gemeldet am 13.09.2026: „beim Schliessen des Einstellungsfensters wird
-    # die Position des Overlays wieder zurueckgesetzt, ich wollte es auf meinen
-    # 2. Bildschirm ziehen" — bei eingestellter Ecke „unten links". Jeder
-    # Anlass (Start, Klappen, `verhalten_anwenden`) setzte es zurueck.
+    # ⭐ Wer das Overlay verschiebt (etwa auf einen zweiten Bildschirm), behaelt
+    # die Lage, auch bei eingestellter Ecke — kein Anlass (Start, Klappen,
+    # `verhalten_anwenden`, Schliessen der Einstellungen) setzt es zurueck.
     #
-    # ⚠ Und die Folge daraus: Bis dahin hing die Seite der Leiste an der Ecke.
-    # Wer verschiebt, haette sie damit immer nach oben bekommen — deshalb eine
-    # eigene Einstellung, und Bestandsnutzer behalten ohne sie ihr Verhalten.
+    # ⚠ Und die Folge daraus: Hinge die Seite der Leiste an der Ecke, bekaeme
+    # wer verschiebt sie immer nach oben — deshalb eine eigene Einstellung,
+    # und Bestandsnutzer behalten ohne sie ihr Verhalten.
     import tkinter as _tk199
     import sc_bp_watcher as _wat199
     from scbp import overlay as _ov199
@@ -19901,7 +19363,7 @@ def main():
             _ov.root.update()
             _ov.root.update_idletasks()
 
-        # --- Die Leistenseite ist eine eigene Entscheidung ---------------
+        # --- Die Leistenseite ist eine eigene Einstellung ---------------
         _pf199.set_setting('overlay_leiste', '')
         _pf199.set_setting('overlay_ecke', 'unten-links')
         pruefe(_ov._leiste_seite_wunsch() == 'bottom',
@@ -19933,13 +19395,11 @@ def main():
                'und die Auswahlliste in den Einstellungen erfaehrt davon')
 
         # --- Der Ziehgriff gehoert auf die leistenfreie Seite ------------
-        # ⛔⛔ Gemeldet am 13.09.2026, unmittelbar nach v3.32.0: „wenn man
-        # unten auswaehlt, muss der Groessenschieber aber auch nach oben."
-        # Bis dahin bezog der Griff seine Ecke allein aus `overlay_ecke` —
-        # und das ging gut, solange die Leiste ihre Seite von der Ecke bezog.
-        # Seit sie eine eigene Einstellung ist, entsteht der alte Fehler ueber
-        # einen zweiten Weg: „frei verschiebbar" + „Leiste unten" setzte den
-        # Griff unten rechts, mitten auf die Symbole, und er deckte das ✕ zu.
+        # ⛔⛔ Steht die Leiste unten, gehoert der Groessenschieber nach oben.
+        # Bezoege der Griff seine Ecke allein aus `overlay_ecke`, saesse er
+        # bei frei verschiebbarem Overlay mit Leiste unten unten rechts,
+        # mitten auf den Symbolen, und deckte das ✕ zu — die Leistenseite ist
+        # eine eigene Einstellung.
         #
         # ⚠ Geprueft wird das VERHALTEN, nicht die Schreibweise: Vier
         # Kombinationen aus Ecke und Leistenseite, und jedes Mal muss der
@@ -19968,19 +19428,18 @@ def main():
 
     # === 200 · Der richtige Auftrag — und lieber keiner als ein falscher =====
     #
-    # ⛔⛔ Am 13.09.2026 meldete das Overlay „6 Baupläne · du hast alle" fuer
-    # einen Auftrag, von dem der Spieler zwei von sieben hatte. Es waren die
-    # Bauplaene einer **anderen** Mission. Drei Fehler in einer Kette:
+    # ⛔⛔ Das Overlay darf einem Auftrag nicht die Bauplaene einer
+    # **anderen** Mission zuordnen. Drei Fallen in einer Kette:
     #
-    #   1. Der ini-Schluessel `…_Title,P` wurde mit Variantenkennung verglichen
-    #      und fand den Katalog nicht -> 16 Missionen unsichtbar.
-    #   2. Den Platz nahm ein Nachbar ein, dessen Muster auf ein blosses
+    #   1. Der ini-Schluessel `…_Title,P` mit Variantenkennung verglichen
+    #      findet den Katalog nicht -> Missionen unsichtbar.
+    #   2. Den Platz nimmt ein Nachbar ein, dessen Muster auf ein blosses
     #      Praefix zusammenfaellt (`^Orange Lvl. Contract: Protect .+$`).
-    #   3. Derselbe Auftrag stand zweimal in der Liste, roh und aufgeloest.
+    #   3. Derselbe Auftrag steht zweimal in der Liste, roh und aufgeloest.
     #
     # ⚠ Diese Pruefung prueft das VERHALTEN, nicht die Schreibweise: Sie baut
     # die Lage nach und fragt nach dem Ergebnis. Eine Textsuche nach `_VARIANT`
-    # waere gruen gewesen, waehrend der Fehler dastand.
+    # bliebe auch bei falscher Zuordnung gruen.
     print('200. Auftragszuordnung — der richtige Auftrag oder gar keiner')
     import tempfile as _tmp200
     from scbp import contracts as _au200
@@ -19990,15 +19449,14 @@ def main():
         _ordner200 = _tmp200.mkdtemp(prefix='scbp_auftrag_')
         _ini200 = os.path.join(_ordner200, 'global.ini')
         with open(_ini200, 'w', encoding='utf-8') as _f200:
-            # ⚠ Genau die Lage von damals: der GENAUE Auftrag traegt `,P`,
-            # der unspezifische Nachbar nicht.
+            # ⚠ Die echte Lage: der GENAUE Auftrag traegt `,P`, der
+            # unspezifische Nachbar nicht.
             #
-            # ⛔⛔ Und der unspezifische steht ZUERST — mit Absicht. Stand er
-            # hinten, traefe auch die alte Regel („das erste passende Muster
-            # gewinnt") zufaellig das Richtige, und die Pruefung waere gruen,
-            # ohne irgendetwas zu belegen. Genau so war ihre erste Fassung:
-            # Die Gegenprobe meldete 0 rote Pruefungen, obwohl die Korrektur
-            # ausgebaut war. Eine Pruefung, die von der Reihenfolge lebt,
+            # ⛔⛔ Und der unspezifische steht ZUERST — mit Absicht. Stuende er
+            # hinten, traefe auch eine Regel, nach der das erste passende
+            # Muster gewinnt, zufaellig das Richtige, und die Pruefung waere
+            # gruen, ohne irgendetwas zu belegen. Eine Pruefung, die von der
+            # Reihenfolge lebt,
             # prueft die Reihenfolge — nicht die Regel.
             _f200.write('Weit_Title_001=Orange Lvl. Contract: Protect '
                         '~mission(Objects)\n')
@@ -20041,15 +19499,11 @@ def main():
         (_au200._missions, _au200._index, _au200._pattern_index,
          _au200._ini_files) = _alt200
 
-    # e) ⛔⛔ Derselbe Auftrag, zweimal gemeldet — WÖRTLICH wie im echten Log.
+    # e) ⛔⛔ Derselbe Auftrag, zweimal im Log — WÖRTLICH wie im echten Log.
     #
-    # ⚠⚠ Die erste Fassung dieser Pruefung baute den falschen Fall nach: zwei
-    # „angenommen" mit derselben MissionId. So steht es im Log NICHT — und die
-    # Korrektur, die daran gebaut wurde, half beim echten Fehler kein Stueck.
-    # Sie ging mit v3.32.2 raus und war beim ersten Neustart widerlegt.
-    #
-    # ⭐ Die Lehre: Wer eine Pruefung aus der Vorstellung baut statt aus der
-    # Quelle, prueft seine Vorstellung. Die echten Zeilen (13.09.2026):
+    # ⚠⚠ Nicht zwei Annahmen mit derselben MissionId nachbauen: So steht es
+    # im Log NICHT. Wer eine Pruefung aus der Vorstellung baut statt aus der
+    # Quelle, prueft seine Vorstellung. Die echten Zeilen:
     _roh200 = 'Orange Lvl. Contract: Protect ~mission(Objects) and Escort Employees'
     _fein200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort Employees'
     _null200 = _au200.NULL_ID
@@ -20062,12 +19516,11 @@ def main():
         % (_roh200, _null200, _fein200, _mid200))
     # ⛔⛔ **BEIDE Buchfuehrungen pruefen — nicht nur eine.**
     #
-    # v3.32.3 filterte den Platzhalter-Titel in `state_from_text`. Das ist die
-    # Buchfuehrung fuer den START. Der laufende Betrieb (`_auftraege_melden`
-    # im Watcher) baut seine Liste aber DIREKT aus `events_from_text` —
-    # dort griff nichts. Beim naechsten angenommenen Auftrag stand der
-    # Doppeleintrag wieder da, und zwar bei einem ganz anderen Auftrag
-    # („Stop Rival Attack at ~mission(Location)"), also kein Einzelfall.
+    # `state_from_text` ist die Buchfuehrung fuer den START. Der laufende
+    # Betrieb (`_auftraege_melden` im Watcher) baut seine Liste DIREKT aus
+    # `events_from_text` — ein Filter nur an der ersten Stelle laesst den
+    # Doppeleintrag im Betrieb stehen, bei jedem Auftrag mit Platzhalter-Titel
+    # (etwa `Stop Rival Attack at ~mission(Location)`).
     #
     # Dieselbe Falle wie bei den zwei Schreibwegen in die `global.ini`: Wer
     # eine von zwei Stellen anfasst, baut die Haelfte.
@@ -20120,13 +19573,10 @@ def main():
 
     # === 202 · Der Vertrag schlaegt den Titel (Region) ======================
     #
-    # ⭐⭐ Gemeldet am 13.09.2026: „insgesamt gibt es in der quest ja noch mehr
-    # BP … du hast 3/14 z.b. oder wie würdest du es sinnig anzeigen?" — und
-    # dahinter steckte, dass die gemeldete Gesamtzahl gar nicht zum
-    # Auftragsfenster passte.
+    # ⭐⭐ Die angezeigte Gesamtzahl muss zum Auftragsfenster passen.
     #
     # Der Katalog fasst alle Varianten eines Auftragstexts zusammen (und das
-    # muss er, siehe `catalog._missions`, Morkhans Fund vom 28.08.2026):
+    # muss er, siehe `catalog._missions`):
     #
     #     Foxwell_DefendEntitesAndEscort_H_Title   54   zusammengefasst
     #       ├─ …_Nyx_Hard      23
@@ -20175,8 +19625,7 @@ def main():
         (_au202._missions, _au202._index, _au202._pattern_index,
          _au202._contract_defs) = _alt202
 
-    # e) Die Kennung muss aus einer ECHTEN Logzeile kommen — woertlich so, wie
-    #    sie am 13.09.2026 dastand.
+    # e) Die Kennung muss aus einer ECHTEN Logzeile kommen — woertlich.
     _zeile202 = (
         '<2026-09-13T17:08:02.053Z> [Notice] '
         '<CLocalMissionPhaseMarker::CreateMarker> Creating objective marker: '
@@ -20212,14 +19661,10 @@ def main():
 
     # === 203 · Ein neuer Katalog wirkt SOFORT, nicht erst beim Neustart =====
     #
-    # ⛔⛔ Gemeldet am 13.09.2026, keine halbe Stunde nach v3.33.0: Das Overlay
-    # zeigte weiter `Baupläne 27/54` statt `12/23`, obwohl der Katalog schon
-    # Format 3 mit 672 Vertraegen hatte.
-    #
-    # `contracts` merkt sich `missions` und `contract_definitions` beim ersten
-    # Zugriff — der Katalog ist rund 1 MB gross. `contracts.forget()` gibt es genau
-    # dafuer, und sie hatte **keinen einzigen Aufrufer**. Die ganze Funktion
-    # war gebaut, belegt, ausgeliefert — und im Feld wirkungslos.
+    # ⛔⛔ `contracts` merkt sich `missions` und `contract_definitions` beim
+    # ersten Zugriff — der Katalog ist rund 1 MB gross. `contracts.forget()`
+    # gibt es genau dafuer; ohne Aufrufer zeigt das Overlay nach einem neuen
+    # Katalog weiter die alten Zahlen (`Baupläne 27/54` statt `12/23`).
     #
     # ⚠ Geprueft wird ueber `__code__.co_names`, nicht ueber eine Textsuche:
     # dieselbe Machart wie Pruefung 175 bei den zwei Schreibwegen. Ein
@@ -20242,11 +19687,9 @@ def main():
 
     # === 204 · Der Bericht nennt BEIDE Sprachen ============================
     #
-    # ⛔⛔ Zweimal derselbe Support-Fall, am 29.08.2026 und am 13.09.2026:
-    # „Ich sehe deine Angaben im Spiel nicht." Beide Male war nichts kaputt —
-    # der Watcher pflegte `english/global.ini`, das Spiel las
-    # `german_(germany)/global.ini`. Und beide Male liess sich das aus dem
-    # Bericht NICHT ablesen; es musste erschlossen werden.
+    # ⛔⛔ Pflegt der Watcher `english/global.ini` und liest das Spiel
+    # `german_(germany)/global.ini`, fehlen die Angaben im Spiel, ohne dass
+    # etwas kaputt ist. Das muss sich aus dem Bericht ablesen lassen.
     #
     # ⚠ Geprueft wird das VERHALTEN: Die Zeile muss beide Angaben tragen, und
     # zwar unterscheidbar. Eine Textsuche nach `game_language` waere gruen,
@@ -20278,17 +19721,14 @@ def main():
 
     # === 205 · Auftragstitel mit Platzhalter sind anklickbar ===============
     #
-    # ⛔⛔ Gemeldet am 13.09.2026: „Stop Rival Attack at Asteroiden
-    # Bergbaubasis" hat **55 Bauplaene** und meldete „Zu diesem Auftrag steht
-    # kein Bauplan in der Liste".
+    # ⛔⛔ In den Herkunftsdaten steht `'Stop Rival Attack at [LOCATION]'`, im
+    # Spiel der aufgeloeste Name (`Stop Rival Attack at Asteroiden
+    # Bergbaubasis`, 55 Bauplaene). Ein WOERTLICHER Vergleich gegen
+    # `q['auftrag']` kann das nie treffen.
     #
-    # Zwei Stellen verglichen den Titel WOERTLICH gegen `q['auftrag']` —
-    # `pages._to_contract()` und `collection_window.zum_auftrag()`. In den
-    # Herkunftsdaten steht aber `'Stop Rival Attack at [LOCATION]'`, im Spiel
-    # der aufgeloeste Name. Ein exakter Vergleich kann das nie treffen.
-    #
-    # ⚠ **Regel 7.41 zum dritten Mal an einem Tag**: zwei Wege, dieselbe
-    # Frage, verschiedene Antworten. Deshalb gibt es jetzt EINE Aufloesung —
+    # ⚠ **Regel 7.41**: zwei Wege (`pages._to_contract()` und
+    # `collection_window.zum_auftrag()`), dieselbe Frage. Deshalb gibt es
+    # EINE Aufloesung —
     # `catalog.blueprints_for_contract` — und diese Pruefung fragt sie
     # zusammen mit BEIDEN Nutzern ab.
     print('\n205. Auftragstitel mit Platzhalter finden ihre Bauplaene')
@@ -20314,7 +19754,7 @@ def main():
             _kat205data, 'Stop Rival Attack at [LOCATION]')
             == {'alpha bp', 'beta bp'},
             'der Name aus den Herkunftsdaten findet seine Bauplaene')
-        # b) ⭐ Der gemeldete Fall: der aufgeloeste Titel aus dem Spiel.
+        # b) ⭐ Der aufgeloeste Titel aus dem Spiel.
         pruefe(_kat205.blueprints_for_contract(
             _kat205data, 'Stop Rival Attack at Asteroiden Bergbaubasis')
             == {'alpha bp', 'beta bp'},
@@ -20328,8 +19768,8 @@ def main():
     finally:
         _au205._missions, _au205._index, _au205._pattern_index = _alt205
 
-    # d) ⚠⚠ **Beide Nutzer der Aufloesung**, nicht nur einer. Genau daran ist
-    #    v3.32.3 gescheitert: Der Filter sass in einer von zwei Stellen.
+    # d) ⚠⚠ **Beide Nutzer der Aufloesung**, nicht nur einer. Ein Filter in
+    #    nur einer von zwei Stellen laesst den Fehler an der anderen stehen.
     import ast as _ast205
     for _datei205, _funk205 in (('scbp/pages.py', '_to_contract'),
                                 ('scbp/collection_window.py', 'zum_auftrag')):
@@ -20348,10 +19788,9 @@ def main():
     #    `self.auftrag_bp` setzen.** Sonst filtert eine alte Menge weiter —
     #    dieselbe Sorte wie ein Zwischenspeicher, den niemand leert.
     #
-    # ⚠ Hier stand zuerst ein ZAEHLVERGLEICH („mindestens so viele wie"). Die
-    # Gegenprobe hat ihn entlarvt: Nimmt man eine Zuweisung weg, stimmt die
-    # Zahl immer noch. **Eine Zaehlung ist keine Pruefung** — gefragt wird
-    # jetzt je Funktion, nicht in Summe.
+    # ⚠ Kein ZAEHLVERGLEICH: Nimmt man eine Zuweisung weg, stimmt die Zahl
+    # immer noch. **Eine Zaehlung ist keine Pruefung** — gefragt wird je
+    # Funktion, nicht in Summe.
     _q205 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                  encoding='utf-8').read()
     _fehlt205 = []
@@ -20376,22 +19815,21 @@ def main():
 
     # === 201 · Die gewaehlte Leistenseite gilt auch beim START ==============
     #
-    # ⛔⛔ Gemeldet am 13.09.2026, direkt nach einem Neustart mit v3.32.2:
-    # „nach dem neustart ist die leiste auch oben und das dreieck zum groesse
-    # aendern auch." Eingestellt war „unten", Ecke „frei".
+    # ⛔⛔ Eingestellt „unten", Ecke „frei": Nach dem Neustart muss die
+    # Leiste unten haengen, nicht oben.
     #
-    # `_leiste_ausrichten()` wurde nur aus den Einstellungen, beim Klappen und
-    # beim Ecke-Anwenden gerufen — nie im Aufbau. Bei Ecke „frei" passierte
-    # beim Start also gar nichts, und die Leiste blieb, wo sie gepackt wurde.
+    # Wird `_leiste_ausrichten()` nur aus den Einstellungen, beim Klappen und
+    # beim Ecke-Anwenden gerufen — nie im Aufbau —, passiert bei Ecke „frei"
+    # beim Start gar nichts, und die Leiste bleibt, wo sie gepackt wurde.
     #
     # ⚠ Und der Griff rechnet aus der EINSTELLUNG (`_verankert`), nicht aus dem
-    # tatsaechlichen Stand: Er setzte sich nach oben, auf dieselbe Seite wie
-    # die falsch gebliebene Leiste. Beide uebereinander.
+    # tatsaechlichen Stand: Er saesse dann auf derselben Seite wie die falsch
+    # gebliebene Leiste. Beide uebereinander.
     #
     # ⚠⚠ Diese Pruefung baut ein ECHTES Overlay und sieht nach, wo die Leiste
     # haengt — nicht, ob irgendwo `_leiste_ausrichten` im Quelltext steht. Eine
-    # Textsuche waere gruen gewesen, waehrend der Fehler dastand: Die Funktion
-    # gab es ja, sie wurde nur nicht gerufen.
+    # Textsuche waere auch gruen, wenn die Funktion existiert, aber nicht
+    # gerufen wird.
     print('\n201. Die gewaehlte Leistenseite gilt auch nach einem Neustart')
     import tkinter as _tk201
     import sc_bp_watcher as _wat201
@@ -20404,27 +19842,23 @@ def main():
     try:
         for _seite201, _erwartet201 in (('unten', 'bottom'), ('oben', 'top')):
             _pf201.set_setting('overlay_leiste', _seite201)
-            # ⚠ Ecke „frei" ist der gemeldete Fall: Dann greift auch
+            # ⚠ Ecke „frei" ist der gepruefte Fall: Dann greift auch
             # `ecke_anwenden()` nicht, das sonst zufaellig mit ausrichtet.
             _pf201.set_setting('overlay_ecke', 'frei')
             # ⛔⛔ **Und der Anzeigemodus MUSS hier gesetzt werden.**
-            # Ihre erste Fassung liess ihn stehen, wie eine fruehere Pruefung
-            # ihn hinterlassen hatte. Der Klapp-Pfad (`klappzustand_setzen`)
-            # richtet die Leiste naemlich mit aus — damit war sie gruen, auch
-            # als der Startaufruf ganz fehlte. Die Gegenprobe hat es gemeldet:
-            # „0 rot", obwohl die Korrektur ausgebaut war. Zum zweiten Mal an
-            # einem Abend eine Pruefung, die einen Vorzustand misst statt der
+            # Bliebe er stehen, wie eine fruehere Pruefung ihn hinterlassen
+            # hat, richtet der Klapp-Pfad (`klappzustand_setzen`) die Leiste
+            # mit aus — dann waere die Pruefung gruen, auch wenn der
+            # Startaufruf ganz fehlt. Sie maesse einen Vorzustand statt der
             # Sache.
             _pf201.set_setting('overlay_modus', 'immer')
             # ⛔⛔ **Und „eingeklappt" MUSS aus sein.** Steht es an, laeuft beim
             # Start `klappzustand_setzen(True)` — und DAS richtet die Leiste
-            # nebenbei mit aus. Die Pruefung war dadurch gruen, auch als der
-            # Startaufruf ganz fehlte: Sie mass einen Zustand, den eine
-            # fruehere Pruefung hinterlassen hatte.
+            # nebenbei mit aus. Die Pruefung waere dadurch gruen, auch wenn
+            # der Startaufruf ganz fehlt: Sie maesse einen Zustand, den eine
+            # fruehere Pruefung hinterlassen hat.
             #
-            # ⚠ Dritter Anlauf an einem Abend. Zweimal war die Pruefung gruen,
-            # ohne etwas zu belegen — beide Male hat es die Gegenprobe gesagt,
-            # nicht der Lauf. Der gemeldete Fall ist: frei stehend, offen.
+            # ⚠ Der gepruefte Fall ist: frei stehend, offen.
             _pf201.set_setting('eingeklappt', False)
             _w201 = _tk201.Tk()
             _ov201 = _wat201.Overlay(wurzel=_w201)
@@ -20456,32 +19890,25 @@ def main():
 
     # === 206 · Ein Buendel darf kein System verschlucken ====================
     #
-    # ⛔⛔ Gemeldet am 14.09.2026 zu v3.34.0: „sind in Pyro keine Raffenerien?
-    # sehe in der Raffenerien Uebersicht nur Stanton und Nyx." Es gibt fuenf in
-    # Pyro — sie standen nur unter Stanton.
+    # ⛔⛔ Raffinerien mit gleichem Profil werden zu EINER Spalte gebuendelt.
+    # Profil `3c47572dd971` deckt acht Stationen in drei Systemen ab. Merkt
+    # sich das Buendel das System der **zuerst eingelesenen** Station (HUR-L1,
+    # Stanton), heisst die ganze Spalte Stanton — und Pyro kommt in der
+    # Uebersicht ueberhaupt nicht mehr vor.
     #
-    # Raffinerien mit gleichem Profil werden zu EINER Spalte gebuendelt. Das
-    # Buendel merkte sich das System der **zuerst eingelesenen** Station. Profil
-    # `3c47572dd971` deckt acht Stationen in drei Systemen ab; die erste war
-    # HUR-L1 (Stanton), also hiess die ganze Spalte Stanton — und Pyro kam in
-    # der Uebersicht ueberhaupt nicht mehr vor.
+    # ⚠ Dazu ein sichtbarer Widerspruch: Die Spaltenueberschrift nimmt die
+    # **alphabetisch** erste Station (`Checkmate`, Pyro), das System kaeme von
+    # der **in den Daten** ersten (`HUR-L1`, Stanton). In der Legende stuende
+    # `Checkmate — Stanton` — zwei verschiedene Stationen in einer Zeile, und
+    # keine der beiden Angaben fuer sich falsch.
     #
-    # ⚠ Dazu der sichtbare Widerspruch: Die Spaltenueberschrift nimmt die
-    # **alphabetisch** erste Station (`Checkmate`, Pyro), das System kam von der
-    # **in den Daten** ersten (`HUR-L1`, Stanton). In der Legende stand deshalb
-    # woertlich „Checkmate — Stanton". Zwei verschiedene Stationen in einer
-    # Zeile, und keine der beiden Angaben war fuer sich falsch.
+    # ⛔⛔ Alle Systeme des Buendels in EINE Zelle zu schreiben hilft auch
+    # nicht: Eine Spalte, die zu drei Orten gehoert, beantwortet nicht, wohin
+    # man fliegt.
     #
-    # ⛔⛔ **Die erste Reparatur war auch falsch.** Sie schrieb alle Systeme des
-    # Buendels in EINE Zelle — „Nyx, Pyro, Stanton". Noch am selben Tag:
-    # „das rafft niemand wie das gemeint ist, nichtmal ich verstehe es."
-    # Eine Spalte, die zu drei Orten gehoert, beantwortet keine Frage, die
-    # jemand hat. Gefragt wird „wohin fliege ich?".
-    #
-    # Jetzt wird **je System** gebuendelt: Jede Spalte gehoert zu genau einem
-    # Ort. Das kostet zwei Spalten (12 statt 10) und macht eine Aussage
-    # sichtbar, die vorher unterging - in Pyro sind alle fuenf Stationen
-    # gleich.
+    # Deshalb wird **je System** gebuendelt: Jede Spalte gehoert zu genau
+    # einem Ort. Das kostet zwei Spalten (12 statt 10) und macht sichtbar,
+    # dass in Pyro alle fuenf Stationen gleich sind.
     #
     # ⚠⚠ Dieselbe Stelle gibt es ZWEIMAL: `refinery_matrix()` (Uebersichtsseite)
     # und `refineries_for()` (Kasten auf der Bergbau-Seite). Beide gepruefen —
@@ -20571,8 +19998,8 @@ def main():
            'die Legende nennt die Zahl der gebuendelten Stationen')
 
     # ⛔⛔ Keine Spaltenueberschrift darf breiter sein als ihre Spalte.
-    # Gemessen am 14.09.2026: „Checkmate" braucht 63 px, die Spalte hat 46 —
-    # Tk kuerzte das ohne Meldung auf „Checkm". Jetzt bricht es zweizeilig um.
+    # Gemessen: `Checkmate` braucht 63 px, die Spalte hat 46 — Tk kuerzt das
+    # ohne Meldung auf `Checkm`. Deshalb bricht es zweizeilig um.
     #
     # ⚠ Diese Pruefung braucht KEIN Fenster: Die Spaltenbreite steht in
     # Zeichen da, also wird in Zeichen geprueft. Eine Pixelmessung haette ein
@@ -20598,9 +20025,9 @@ def main():
     #
     # ⚠⚠ Die Probe nimmt **absichtlich unsortierte** Spalten (Nyx, Nyx, Pyro,
     # Nyx). Mit sortierten kaeme dieselbe Antwort heraus, egal ob nach
-    # Nachbarschaft oder nach „kenne ich das System schon" gebuendelt wird —
+    # Nachbarschaft oder nach bereits bekanntem System gebuendelt wird —
     # die Probe koennte die beiden gar nicht unterscheiden und waere gruen aus
-    # Versehen. Genau so gemessen beim Gegenpruefen am 14.09.2026.
+    # Versehen.
     #
     # Richtig ist die Nachbarschaft: Eine Leiste kann sich nur ueber
     # **nebeneinanderliegende** Spalten legen. Wer das dritte Nyx zum ersten
@@ -20617,17 +20044,13 @@ def main():
 
     # ⛔⛔ Die Tafel rollt waagerecht in EIGENER Flaeche.
     #
-    # Im Quelltext stand seit dem ersten Tag ein Kommentar, sie habe eine —
-    # sie hatte sie nie. Bei zehn Spalten fiel das nicht auf; ausgeliefert
-    # fehlten bei „sehr gross" drei Spalten, weil Tk still abschneidet.
+    # Ohne sie fehlen bei „sehr gross" Spalten, weil Tk still abschneidet.
     # **Ein Kommentar ist kein Bauteil**, deshalb fragt diese Pruefung nach
     # dem Aufruf und nicht nach dem Kommentar.
     #
-    # ⛔⛔ **Im Syntaxbaum suchen, nicht im Text.** Die erste Fassung fragte
-    # `'_wide_area(' in _ab206` — und blieb beim Gegenpruefen am 14.09.2026
-    # gruen, obwohl der Aufruf weg war: Die Sabotage hatte ihn als
-    # **Kommentar** stehen lassen, und der Name stand damit weiter im Text.
-    # Eine Textsuche kann Code nicht von einem Kommentar unterscheiden.
+    # ⛔⛔ **Im Syntaxbaum suchen, nicht im Text.** `'_wide_area(' in _ab206`
+    # bliebe gruen, wenn der Aufruf nur noch als **Kommentar** dasteht. Eine
+    # Textsuche kann Code nicht von einem Kommentar unterscheiden.
     import ast as _ast206
     _baum206 = _ast206.parse(_q206)
     _fn206 = next((f for f in _baum206.body
@@ -20651,11 +20074,10 @@ def main():
 
     # === 207 · Kein Werkzeug stirbt an seiner eigenen Ausgabe ===============
     #
-    # ⛔⛔ Am 14.09.2026, beim Prueflauf VOR dem Release von v3.34.1:
-    # `launcher_pruefen.py` brach in Zeile 205 mit einem UnicodeEncodeError ab —
-    # an einem einzigen `↔`. Die Windows-Konsole schreibt `cp1252`; Umlaute
-    # gehen darin, Pfeile nicht. Inhaltlich war alles in Ordnung: Mit
-    # PYTHONIOENCODING=utf-8 lief derselbe Lauf durch und bestand.
+    # ⛔⛔ Ein einziges `↔` in der Ausgabe genuegt fuer einen
+    # UnicodeEncodeError: Die Windows-Konsole schreibt `cp1252`; Umlaute
+    # gehen darin, Pfeile nicht. Mit PYTHONIOENCODING=utf-8 liefe derselbe
+    # Lauf durch.
     #
     # ⚠ Das Tueckische ist nicht der Absturz, sondern wie er aussieht: wie ein
     # durchgefallener Pruflauf, kurz vor einer Veroeffentlichung. Wer da nicht
@@ -20664,7 +20086,7 @@ def main():
     # ⚠ Unter Linux ist die Ausgabe ohnehin UTF-8 — deshalb faellt so etwas beim
     # Entwickeln nie auf und erst auf dem Zweitsystem.
     #
-    # ⚠⚠ Die Pruefung fragt NICHT nach den acht Werkzeugen von damals, sondern
+    # ⚠⚠ Die Pruefung fragt NICHT nach einer Liste von Werkzeugen, sondern
     # nach der Eigenschaft: Wer solche Zeichen ueberhaupt in der Datei hat, ruft
     # `ausgabe.utf8()`. Damit greift sie auch fuer das naechste Werkzeug, das
     # noch niemand geschrieben hat. Eine Liste von Dateinamen waere am Tag ihrer
@@ -20710,9 +20132,8 @@ def main():
 
     # === 208 · Anklickbare Symbole heben sich beim Ueberfahren ab ===========
     #
-    # ⭐ Gewuenscht von Blackd0g84 (KRT) am 14.09.2026: „wenn man ueber Symbole
-    # hovert, sollten diese farblich markiert werden, damit man besser weiss,
-    # was die Maus anklicken wuerde."
+    # ⭐ Ueberfahrene Symbole werden farblich markiert, damit klar ist, was
+    # die Maus anklicken wuerde.
     #
     # ⚠⚠ Die Pruefung baut ECHTE Symbole und loest ECHTE Ereignisse aus. Eine
     # Textsuche nach `bind('<Enter>'` waere gruen geblieben, sobald die Zeile
@@ -20720,9 +20141,9 @@ def main():
     # dahinter nicht funktioniert (Regel 7.48).
     #
     # ⚠ `update()` statt nur `update_idletasks()`: Ein frisch gepacktes Label
-    # ist sonst noch nicht fertig, und `<Enter>` feuert nicht. Beim Messen am
-    # 14.09.2026 sah es dadurch zweimal so aus, als greife die Rueckmeldung
-    # nicht — sie griff, nur war das Widget noch nicht da.
+    # ist sonst noch nicht fertig, und `<Enter>` feuert nicht. Dann sieht es
+    # so aus, als greife die Rueckmeldung nicht — sie greift, nur ist das
+    # Widget noch nicht da.
     print('\n208. Anklickbare Symbole heben sich beim Ueberfahren ab')
     import tkinter as _tk208
     from scbp import icons as _ic208
@@ -20759,8 +20180,7 @@ def main():
                 _bauer208, _name208, _farbe208, True)
             # ⚠ Der Vorgabewert muss derselbe sein wie in `icons.show()`.
             # Steht er hier falsch, prueft die Pruefung ihre eigene
-            # Vorstellung — sie war am 14.09.2026 auf `LIGHT` stehengeblieben,
-            # nachdem die Rueckmeldung auf die Markenfarbe umgestellt wurde.
+            # Vorstellung.
             _soll208 = _ic208._HOVER.get(_farbe208, _ic208.GREEN)
             # ⚠ Beim Ueberfahren ist das Bild **eine Stufe groesser** — die
             # Ruhegroesse hier zu erwarten war der Stand vor der
@@ -20775,9 +20195,8 @@ def main():
             pruefe(_z208 == _r208,
                    '  und kehrt danach zur Ausgangsfarbe zurueck')
 
-        # 2. ⛔ Ein Symbol OHNE Aufgabe darf sich NICHT abheben — sonst sagt
-        #    die Oberflaeche „hier kannst du klicken", wo nichts passiert.
-        #    Genau das ist der Punkt des Wunsches.
+        # 2. ⛔ Ein Symbol OHNE Aufgabe darf sich NICHT abheben — sonst
+        #    verspricht die Oberflaeche einen Klick, wo nichts passiert.
         _r208, _d208, _z208, _ = _probe208(_ic208.button, 'einstellungen',
                                            _ic208.GREY, False)
         pruefe(_d208 == _r208,
@@ -20805,11 +20224,9 @@ def main():
         _wurzel208.destroy()
 
     # ⛔⛔ **Und jetzt die ECHTE Oberflaeche.** Die Proben oben bauen eigene
-    # Symbole — das prueft den Baustein, nicht das Programm. Genau daran ist
-    # es am 14.09.2026 vorbeigegangen: Pruefung 208 war gruen, und gemessen
-    # hob sich im Overlay 9 von 9 Symbolen ab, in der **Reiterleiste 0 von
-    # 39**. Dort wird das Symbol ohne `action` gebaut, anklickbar ist die
-    # ganze Zeile.
+    # Symbole — das prueft den Baustein, nicht das Programm. In der
+    # **Reiterleiste** etwa wird das Symbol ohne `action` gebaut, anklickbar
+    # ist die ganze Zeile.
     #
     # > Eine Pruefung, die sich ihren Prueflíng selbst baut, prueft den
     # > Prueflíng — nicht das Programm.
@@ -20859,8 +20276,7 @@ def main():
             # ⚠ Gefordert wird die Rueckmeldung nur dort, wo es auch etwas zu
             # klicken gibt — am Symbol selbst oder an der Zeile darum. Ein
             # Statuspunkt ist Anzeige, kein Bedienelement; ihn aufleuchten zu
-            # lassen waere genau das Versprechen, gegen das dieser Wunsch
-            # geschrieben wurde.
+            # lassen versprache einen Klick, der nichts tut.
             if not any(_teil208.bind('<Button-1>') for _teil208 in _k208):
                 continue
             _vor208 = str(_s208.cget('image'))
@@ -20884,9 +20300,8 @@ def main():
 
         # ⛔⛔ **Die Hervorhebung darf beim Weiterfahren nicht abreissen.**
         # Tk schickt der Zeile ein `<Leave>`, sobald die Maus in ein KIND
-        # darin wandert — von aussen ist das kein Verlassen. Gemeldet am
-        # 14.09.2026: „er erscheint kurz ist aber sofort wieder weg links in
-        # der Leiste."
+        # darin wandert — von aussen ist das kein Verlassen. Ohne Abfangen
+        # erscheint die Hervorhebung in der Leiste nur kurz.
         #
         # ⚠ Genau diese Folge wird hier nachgestellt: Zeile betreten, Zeile
         # verlassen, Kind betreten. `event_generate('<Enter>')` allein
@@ -20922,7 +20337,6 @@ def main():
                    '  und geht aus, wenn die Maus die Zeile wirklich verlaesst')
 
             # ⭐⭐ **Groesser werden — ohne dass etwas springt.**
-            # Gewuenscht von Blackd0g84 (KRT) zusammen mit der Signalfarbe.
             # Der Kasten steht deshalb immer in der GROSSEN Stufe; nur das
             # Bild darin wechselt. Taeuscht man sich hier, springt die ganze
             # Liste darunter um vier Pixel (gemessen: Zeile 36 -> 40 px).
@@ -20947,11 +20361,10 @@ def main():
             # Und die Vergroesserung gilt in jeder Stufe, die es im CODE gibt.
             #
             # ⚠ Das sind vier — die Oberflaeche bietet aber nur **drei** an:
-            # „sehr gross" ist seit dem 30.08.2026 nicht mehr waehlbar (die
-            # Mindesthoehe wurde damals groesser als ein Bildschirm). Der Wert
-            # bleibt gueltig fuer alle, die ihn frueher gespeichert haben —
-            # deshalb wird er hier mitgeprueft, und deshalb heisst es „Stufe",
-            # nicht „waehlbare Schriftgroesse".
+            # „sehr gross" ist nicht waehlbar (die Mindesthoehe waere groesser
+            # als ein Bildschirm). Ein gespeicherter Wert bleibt aber gueltig —
+            # deshalb wird er hier mitgeprueft, und deshalb heisst es Stufe,
+            # nicht waehlbare Schriftgroesse.
             _ohne208 = [s for s in _ic208._STUFEN
                         if _ic208.BUTTON[s] >= _ic208.hover_px(_ic208.BUTTON)]
             _merk208 = _ic208.level()
@@ -20968,10 +20381,10 @@ def main():
                    % (len(_ic208._STUFEN),
                       ' — NICHT bei: ' + ', '.join(_ohne208)
                       if _ohne208 else ''))
-            # ⚠⚠ **Und das Hover-BILD gibt es auch** (17.09.2026). Die Zeile
-            # darueber prueft nur die Rechnung — auf „sehr gross" ergab sie
-            # 34 px, gebaut waren aber nur Bilder bis 30 px. Beim Ueberfahren
-            # passierte dort gar nichts, und die Pruefung war gruen.
+            # ⚠⚠ **Und das Hover-BILD gibt es auch.** Die Zeile darueber
+            # prueft nur die Rechnung — ergibt sie 34 px und sind nur Bilder
+            # bis 30 px gebaut, passiert beim Ueberfahren gar nichts, und die
+            # Rechnung allein waere gruen.
             _fehlt208 = []
             _merk208 = _ic208.level()
             try:
@@ -20994,11 +20407,11 @@ def main():
     finally:
         _f208.root.destroy()
 
-    # ⛔ **Grün heißt genau eine Sache: „die Maus ist drauf".**
-    # Das Listen-Symbol im Overlay blieb grün, solange das grosse Fenster offen
-    # war — eine zweite Bedeutung auf derselben Farbe, seit die Hervorhebung
-    # die Markenfarbe benutzt. Die Angabe war ohnehin ueberfluessig: Das
-    # Fenster steht sichtbar da, und ein zweiter Klick holt es nur nach vorn.
+    # ⛔ **Grün heißt genau eine Sache: Die Maus ist drauf.**
+    # Bliebe das Listen-Symbol im Overlay grün, solange das grosse Fenster
+    # offen ist, truege dieselbe Farbe zwei Bedeutungen. Die Angabe waere
+    # ohnehin ueberfluessig: Das Fenster steht sichtbar da, und ein zweiter
+    # Klick holt es nur nach vorn.
     #
     # ⚠ Glocke und Schloss behalten ihr Gruen — die tragen eine Angabe, die
     # man sonst nirgends sieht, und wechseln beim Ueberfahren auf `hell`.
@@ -21030,20 +20443,15 @@ def main():
 
     # === 209 · Kein Aufruf mit einem Schluesselwort, das es nicht gibt ======
     #
-    # ⛔⛔ Gemeldet am 14.09.2026 von Blackd0g84 (KRT): „Neu ausmessen bei
-    # Blickwinkel — da kommt nichts." Nachgestellt und reproduziert:
+    # ⛔⛔ Ein Aufruf mit einem Schluesselwort, das die Funktion nicht kennt:
     #
     #     TypeError: calibrate() got an unexpected keyword argument 'schrift'
     #
-    # Rueckstand der Sprachumstellung (P4): Die Funktion heisst ihre Parameter
-    # laengst `font`/`small`/`start_width`, der Aufrufer gab weiter die
-    # deutschen Namen. Der Knopf tat dann nichts.
+    # Der Knopf tut dann nichts.
     #
     # ⚠⚠ **Das faellt beim Bauen NICHT auf.** Ein falsches Schluesselwort ist
     # gueltiger Python-Code; es knallt erst, wenn der Aufruf wirklich laeuft —
-    # also beim Klick des Nutzers. Genau deshalb ueberlebte derselbe Fehler in
-    # vier weiteren Aufrufen bis in die ausgelieferte Fassung:
-    # `VersionWindow`, `BindingWindow`, `show_large`, `swap_id`.
+    # also beim Klick des Nutzers.
     #
     # ⚠ Nur Funktionen mit **eindeutigem** Namen und **ohne** `**kwargs`
     # werden geprueft — sonst raet die Pruefung, welche gemeint ist, und
@@ -21053,10 +20461,10 @@ def main():
 
     _dateien209 = ['sc_bp_watcher.py']
     for _w209, _o209, _n209 in os.walk(os.path.join(WURZEL, 'scbp')):
-        # ⚠ Ohne übernommenen Fremdcode (v3.60.0, `dpop_reference`, MIT,
-        # unverändert): Dort heißt eine Klassenmethode `open` — die Prüfung
-        # ordnet über Namen zu und hielt danach jedes `open(encoding=…)` im
-        # Projekt für einen Aufruf dieser Methode.
+        # ⚠ Ohne übernommenen Fremdcode (`dpop_reference`, MIT, unverändert):
+        # Dort heißt eine Klassenmethode `open` — die Prüfung ordnet über
+        # Namen zu und hielte sonst jedes `open(encoding=…)` im Projekt für
+        # einen Aufruf dieser Methode.
         if 'dpop_reference' in _w209:
             continue
         for _f209 in _n209:
@@ -21106,12 +20514,10 @@ def main():
                     _schuld209.append('%s:%d %s(%s=…)'
                                       % (_d209.replace(os.sep, '/'),
                                          _k209.lineno, _name209, _kw209.arg))
-    # ⚠⚠ **Zweiter Durchgang: Aufrufe ueber einen Modulnamen** (27.09.2026).
-    # Der erste uebergeht jeden Namen, den es mehrfach gibt — so blieb
-    # `fov_modul.remember(mm_je_pixel=…)` zwei Wochen unentdeckt, weil es
-    # `remember` auch in `logsource` und `phrases` gibt. Die FOV-Seite
-    # speicherte seit dem 14.09.2026 weder Kalibrierung noch Sitzabstand.
-    # Ruft eine Datei `modul.name(…)` und ist `modul` ein Import aus `scbp`,
+    # ⚠⚠ **Zweiter Durchgang: Aufrufe ueber einen Modulnamen.** Der erste
+    # uebergeht jeden Namen, den es mehrfach gibt — etwa
+    # `fov_modul.remember(mm_je_pixel=…)`, weil es `remember` auch in
+    # `logsource` und `phrases` gibt. Ruft eine Datei `modul.name(…)` und ist `modul` ein Import aus `scbp`,
     # steht fest, welche Funktion gemeint ist — dann wird auch geprueft.
     _modsig209 = {}
     for _d209 in _dateien209:
@@ -21159,13 +20565,12 @@ def main():
     # ----------------------------------------------------------------- 210 --
     # === 210 · Kein Modulname verdeckt einen eingebauten Namen ========
     print('\n210. Kein Modulname verdeckt einen eingebauten Namen')
-    # ⚠⚠ **Beinahe passiert am 14.09.2026.** In der Sprachumstellung wurde
-    # `autostart.setzen` zu `autostart.set` — und damit hiess eine Funktion auf
-    # Modulebene wie der eingebaute Typ `set`. In DIESER Datei wurde `set()`
-    # gerade nicht gebraucht, also fiel nichts auf; wer dort spaeter ein
-    # `set(...)` schreibt, schaltet den Autostart.
+    # ⚠⚠ Heisst eine Funktion auf Modulebene wie ein eingebauter Name (etwa
+    # `autostart.set`), faellt das nicht auf, solange die Datei `set()` nicht
+    # braucht; wer dort spaeter ein `set(...)` schreibt, schaltet den
+    # Autostart.
     #
-    # ⛔ Kein Werkzeug faengt das: `pyflakes` schweigt, der Selbsttest lief
+    # ⛔ Kein Werkzeug faengt das: `pyflakes` schweigt, der Selbsttest laeuft
     # gruen, und der Fehler zeigt sich erst in einer spaeteren Aenderung an
     # ganz anderer Stelle. Deshalb die Regel statt der Aufmerksamkeit.
     #
@@ -21199,14 +20604,13 @@ def main():
            'die Pruefung hat die Module ueberhaupt gelesen (%d)' % _dateien210)
 
     print('\n211. „Original" ersetzt StarStrings, wenn das Werkzeug es selbst eingesetzt hat')
-    # ⚠⚠ Gemeldet von zwaersch am 15.09.2026: StarStrings im Werkzeug gewaehlt,
-    # danach auf „Original" — und MrKrakens Kennzeichnungen standen weiter im
-    # Spiel. Ursache: `gametext.fetch()` liess eine vorhandene englische Datei
-    # grundsaetzlich liegen („dort koennte die Uebersetzung eines anderen
-    # Projekts liegen"), und StarStrings liegt in genau diesem Ordner. Die
-    # Regel schuetzt fremde Dateien zu Recht — nur war diese nicht fremd: Das
-    # Werkzeug hatte sie selbst hingelegt und wusste das (Vermerk in
-    # `uebersetzung.json`).
+    # ⚠⚠ Erst StarStrings im Werkzeug gewaehlt, danach „Original" — dann
+    # duerfen die StarStrings-Kennzeichnungen nicht im Spiel bleiben.
+    # `gametext.fetch()` laesst eine vorhandene englische Datei liegen, weil
+    # dort die Uebersetzung eines anderen Projekts liegen koennte, und
+    # StarStrings liegt in genau diesem Ordner. Die Regel schuetzt fremde
+    # Dateien zu Recht — nur ist diese nicht fremd: Das Werkzeug hat sie
+    # selbst hingelegt und weiss das (Vermerk in `uebersetzung.json`).
     #
     # Geprueft wird die WIRKUNG an einer Wegwerf-Installation, mit einer
     # Archiv-Attrappe: Die vier Leseschritte aus dem `Data.p4k` sind ersetzt,
@@ -21269,7 +20673,7 @@ def main():
         pruefe(_ok211 and 'behalten' in _m211,
                'ohne Vermerk wird die Originaldatei beim naechsten Mal behalten')
 
-        # d) ⚠ Gegenprobe: Ohne die neue Entscheidung bliebe StarStrings
+        # d) ⚠ Gegenprobe: Ohne den Vermerk bliebe StarStrings
         #    stehen — sonst prueft b) nur, dass nichts geknallt ist.
         _tr211.note('starstrings', 'probe')
         _fremd211()
@@ -21287,9 +20691,8 @@ def main():
         shutil.rmtree(_wiese211, ignore_errors=True)
 
     print('\n212. Das Menue neben der Uhr kennt seine Punkte')
-    # Gewuenscht am 15.09.2026 nach dem Vorbild des SC Deutsch Launchers:
-    # Statt „Fenster zeigen"/„Beenden" ein Menue mit Launcher, Einstellungen,
-    # Uebersetzung, Discord, Ko-fi und Version. Geprueft wird ohne Windows:
+    # Ein Menue mit Launcher, Einstellungen, Uebersetzung, Discord, Ko-fi und
+    # Version. Geprueft wird ohne Windows:
     # `menu_set()` und die Befehlszuordnung in `_handle()` sind reines Python,
     # nur `_show_menu()` braucht die Taskleiste.
     from scbp import tray_icon as _ti212
@@ -21328,18 +20731,17 @@ def main():
                   'tray_version', 'tray_beenden'):
         pruefe("'%s'" % _k212 in _blk212,
                'das Menue neben der Uhr hat den Punkt %s' % _k212)
-    # ⚠ Seit 28.09.2026 über `_im_tk` statt `root.after(0, …)` — `after` aus
-    # einem fremden Faden warf `main thread is not in main loop` (Prüfung 292).
+    # ⚠ Über `_im_tk` statt `root.after(0, …)` — `after` aus einem fremden
+    # Faden wirft `main thread is not in main loop` (Prüfung 292).
     pruefe('self._im_tk(' in _blk212 and 'root.after(0' not in _blk212,
            'jeder Punkt ruft ueber `_im_tk` in den Tk-Faden zurueck')
 
     print('\n213. Der Hangar-Import liest die Hangar Extension UND den XPLORer')
-    # ⚠ Seit 15.09.2026 die empfohlene Erweiterung: AlyxOnes Fork des XPLORer
-    # schreibt ein anderes JSON — `manufacturer` als Woerterbuch, `code` statt
+    # ⚠ Der empfohlene Fork des XPLORer schreibt ein anderes JSON — `manufacturer` als Woerterbuch, `code` statt
     # `ship_code`, keine Pledge-Angaben, dafuer `includedWith`. Beide Formen
     # muessen durch denselben Erkenner, auch gemischt in einer Datei; die
-    # Erkennung haengt am Woerterbuch, nicht am Dateinamen. Nachgebaut aus dem
-    # echten Export vom 15.09.2026 (43 Schiffe), hier drei davon.
+    # Erkennung haengt am Woerterbuch, nicht am Dateinamen. Nachgebaut aus
+    # einem echten Export, hier drei Schiffe davon.
     from scbp import fleet as _fl213
     _ext213 = json.dumps([
         {'manufacturer': {'code': 'ARGO', 'name': 'Argo Astronautics',
@@ -21385,7 +20787,7 @@ def main():
            'der XPLORer-Eintrag behaelt LTI und Paketname')
     pruefe(all(s['lti'] is False for s in _s213[:4]),
            'die Extension kennt kein LTI — es wird nicht erfunden')
-    # Und ueber `read()`: erkannt am Inhalt, gemeldet mit leerem Fehlertext.
+    # Und ueber `read()`: erkannt am Inhalt, mit leerem Fehlertext.
     _wiese213 = tempfile.mkdtemp(prefix='sc-bp-hangar-ext-')
     try:
         _datei213 = os.path.join(_wiese213, 'my-fleet-2026-09-15.json')
@@ -21412,11 +20814,10 @@ def main():
            'der Hangar-Hilfetext nennt die empfohlene Erweiterung')
 
     print('\n214. Ein zweiter Hangar-Import aus einer anderen Quelle verdoppelt nichts')
-    # ⚠ Am 15.09.2026 standen nach dem ersten Import aus der Hangar Extension
-    # in einen XPLORer-Hangar vier Schiffe doppelt: Der XPLORer schreibt
-    # „Musashi Industrial & Starflight Concern" / „Banu Souli", die Extension
-    # „MISC" / „Banu" — und Doppelte wurden nur ueber Herstellername + Name
-    # erkannt. Dazu „Idris-P Frigate" gegen „Idris-P" bei gleichem Kuerzel.
+    # ⚠ Der XPLORer schreibt `Musashi Industrial & Starflight Concern` /
+    # `Banu Souli`, die Extension `MISC` / `Banu` — ueber Herstellername +
+    # Name allein erkannt, stuenden Schiffe doppelt da. Dazu `Idris-P Frigate`
+    # gegen `Idris-P` bei gleichem Kuerzel.
     # ⚠ Und die Gegenrichtung: Der XPLORer gibt der „ATLS GEO" dasselbe
     # Kuerzel wie der „ATLS" — ein Kuerzel allein darf NICHT zusammenfuehren.
     from scbp import fleet as _fl214
@@ -21520,9 +20921,9 @@ def main():
         shutil.rmtree(_heim214, ignore_errors=True)
 
     print('\n215. Paketbeilage im Hangar und das Menue neben der Uhr in Markenfarben')
-    # Vorschlag AlyxOne (15.09.2026): „bei einer Carrack ob der URSA davon
-    # herruehrt" — `includedWith` aus der Hangar Extension nennt das Schiff.
-    # ⚠ Beim XPLORer steht unter `paket` der Pledge-Name („Standalone Ship"),
+    # Bei einer Carrack etwa zeigt der Hangar, dass der URSA daher ruehrt —
+    # `includedWith` aus der Hangar Extension nennt das Schiff.
+    # ⚠ Beim XPLORer steht unter `paket` der Pledge-Name (`Standalone Ship`),
     # der darf NICHT als Beilage erscheinen: Beilage ist nur, was ein anderes
     # Schiff im eigenen Hangar nennt.
     from scbp import fleet as _fl215
@@ -21570,7 +20971,7 @@ def main():
                   encoding='utf-8').read()
     _blk215 = _q215w.split('def _ablage_menue_zeigen')[1].split('\n    def ')[0]
     # ⚠ Kein `tk.Menu`: Dessen Rahmen zeichnet Windows — weiss um ein dunkles
-    # Menue (15.09.2026, „sieht unschoen aus"). Eigenes rahmenloses Fenster
+    # Menue. Eigenes rahmenloses Fenster
     # wie die Auswahllisten, mit BORDER aussen und ACCENT beim Ueberfahren.
     pruefe('overrideredirect(True)' in _blk215 and 'bg=BORDER' in _blk215
            and 'bg=ACCENT' in _blk215 and 'fg=SUB' in _blk215
@@ -21580,8 +20981,8 @@ def main():
     pruefe("'<FocusOut>'" in _blk215 and 'screen_at' in _blk215
            and 'y = y - hoch' in _blk215,
            'es schliesst bei Fokusverlust und klappt am unteren Rand nach oben')
-    # ⚠ Erster Bildschirmtest (15.09.2026): Menue stand bei 0/0 statt am
-    # Zeiger. Deshalb: Zeiger von Windows (`GetCursorPos`), Fenster erst
+    # ⚠ Ohne eigene Lage steht das Menue bei 0/0 statt am Zeiger. Deshalb:
+    # Zeiger von Windows (`GetCursorPos`), Fenster erst
     # platzieren, dann zeigen, Lage nachmessen und in den Startverlauf.
     pruefe('_zeiger_lage()' in _blk215 and 'fenster.withdraw()' in _blk215
            and 'fenster.deiconify()' in _blk215
@@ -21593,9 +20994,9 @@ def main():
 
     print('\n216. Das CSV der Hangar Extension bringt die Versicherungsdauer')
     # Der Komplett-Export der Erweiterung: eine Zeile je Pledge-Inhalt, die
-    # Versicherung als eigene Zeile je Pledge („Lifetime Insurance", „120
-    # Month Insurance"). Nachgebaut nach einem echten Export vom 15.09.2026
-    # (751 Zeilen, 42 Schiffe) — mit erfundenen Nummern und Preisen.
+    # Versicherung als eigene Zeile je Pledge (`Lifetime Insurance`, `120
+    # Month Insurance`). Nachgebaut nach einem echten Export — mit erfundenen
+    # Nummern und Preisen.
     from scbp import fleet as _fl216
     _csv216 = '\n'.join([
         'Pledge ID,Pledge Date,Pledge Cost,Meltable,Giftable,Pledge Name,'
@@ -21696,10 +21097,7 @@ def main():
     # auf GitHub Pages. Ihr Rundgang baut die Seitenleiste des Programms nach —
     # und trägt die Reiternamen als **eigene Zeichenketten**. Das ist eine
     # zweite Wahrheit: Wer in `main_window.py` einen Reiter umbenennt oder
-    # verschiebt, aendert die Seite nicht mit, und niemand merkt es. Genau so
-    # ist die README in vier Wochen veraltet — nachgewiesen am 16.09.2026, als
-    # sie noch „Blickwinkel" und „Laeden" nannte, waehrend das Programm laengst
-    # `FOV` und `Shops` sagte.
+    # verschiebt, aendert die Seite nicht mit, und niemand merkt es.
     #
     # ⭐ **Geprueft wird das PAAR (deutsch, englisch), nicht jede Sprache fuer
     # sich.** Wer nur eine Seite umbenennt, faellt sonst durchs Raster: Beide
@@ -21740,10 +21138,8 @@ def main():
            % _fehlg217)
 
     # ⭐⭐ **Und JEDER Reiter des Programms steht im Rundgang, in derselben
-    # Reihenfolge** (27.09.2026). Bis dahin prüfte 217 nur, dass die Namen
-    # stimmen — nicht, dass keiner fehlt. So fehlten nach v3.58.0 sechzehn
-    # Reiter, darunter die ganze Statistik-Gruppe, obwohl die Regel lautet:
-    # Die Seite zeigt das Werkzeug mit ALLEN Original-Reitern.
+    # Reihenfolge.** Dass die Namen stimmen, sagt nicht, dass keiner fehlt —
+    # die Seite zeigt das Werkzeug mit ALLEN Original-Reitern.
     # Die Reiter kommen aus der Quelle (`self._tab('kennung'` in
     # `main_window.py`, die Fortgeschrittenen-Reiter eingeschlossen), nicht
     # aus einer abgeschriebenen Liste.
@@ -21783,8 +21179,8 @@ def main():
            == [k for k in _prog217 if k in _seite217],
            'der Rundgang hat die Reihenfolge des Programms')
 
-    # ⭐ Unter „Darstellung" zeigt die Seite jedes Farbschema einzeln
-    # (Wunsch vom 27.09.2026). Ein neues Schema in `theme.SCHEMES` ohne
+    # ⭐ Unter „Darstellung" zeigt die Seite jedes Farbschema einzeln.
+    # Ein neues Schema in `theme.SCHEMES` ohne
     # Eintrag oder ohne Bild fiele sonst nicht auf.
     from scbp import theme as _th217
     _fs217 = re.findall(r'\{schema:"([a-z]+)"', _html217)
@@ -21829,17 +21225,14 @@ def main():
            'die Seite laedt nichts von fremden Servern (%r)' % _fremd217)
 
     print('\n218. Jeder Methodenaufruf trifft eine Methode, die es gibt')
-    # ⚠⚠ **Warum es diese Pruefung gibt.** Am 16.09.2026 rief
-    # `wizard.start()` noch `a.durchlaufen()`, obwohl die Methode bei der
-    # Umbenennung `run()` geworden war. Python merkt das erst beim Ausfuehren —
-    # und ausgerechnet diese Zeile laeuft **nur beim allerersten Start**. Jeder
-    # Tester hatte das Werkzeug laengst eingerichtet, also fiel es niemandem
-    # auf. Gesehen hat es zuerst ein Nutzer, bei dem gar nichts mehr ansprang.
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Ruft etwa `wizard.start()` eine
+    # Methode unter ihrem alten Namen, merkt Python das erst beim Ausfuehren —
+    # und ausgerechnet diese Zeile laeuft **nur beim allerersten Start**, den
+    # eingerichtete Installationen nie mehr sehen.
     #
-    # ⚠ `pyflakes` findet das nicht — es prueft keine Attributzugriffe. Die
-    # Umbenennung laeuft weiter, also braucht es eine Wache, die mitlaeuft.
+    # ⚠ `pyflakes` findet das nicht — es prueft keine Attributzugriffe.
     #
-    # ⭐ **Bewusst vorsichtig.** Gemeldet wird nur, was sicher ins Leere geht:
+    # ⭐ **Bewusst vorsichtig.** Genannt wird nur, was sicher ins Leere geht:
     # Klassen **ohne** Basisklasse (sonst koennte die Methode geerbt sein) und
     # Module **ohne** `setattr` (sonst koennte sie zur Laufzeit entstehen).
     # Lieber ein paar Faelle nicht sehen als Fehlalarme sammeln — eine Pruefung,
@@ -21926,11 +21319,10 @@ def main():
            'kein Aufruf geht ins Leere (%r)' % _tot218[:5])
 
     print('\n219. Jeder sichtbare Text im Installer folgt der Sprachwahl')
-    # ⚠⚠ **Warum es diese Pruefung gibt.** Bis v3.42.2 standen „Mit Windows
-    # starten" und die Ueberschrift darueber **fest** im Installer. Wer ihn auf
-    # Englisch durchlief, bekam zwei deutsche Zeilen mitten in einer englischen
-    # Maske. Aufgefallen ist es einem Nutzer, nicht uns — die Datei wird beim
-    # Bauen nie auf Englisch angesehen.
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Steht ein Text wie „Mit Windows
+    # starten" **fest** im Installer, bekommt, wer ihn auf Englisch
+    # durchlaeuft, deutsche Zeilen mitten in einer englischen Maske — und
+    # beim Bauen wird die Datei nie auf Englisch angesehen.
     #
     # ⚠ `texte_pruefen.py` greift hier nicht: Es liest Python, nicht `.iss`.
     _iss219 = io.open(os.path.join(WURZEL, 'packaging', 'installer.iss'),
@@ -22006,17 +21398,14 @@ def main():
            'beide Auswahlreihen bieten select und select_quiet (%r)' % _fehlt221)
 
     print('\n220. Die Versionsmeldung passt in eine Discord-Nachricht')
-    # ⚠⚠ **Warum es diese Pruefung gibt.** Die zweisprachige Meldung (seit
-    # 16.09.2026) stellt deutsch und englisch untereinander — damit ist die
-    # Zeichengrenze von Discord zum ersten Mal wirklich erreichbar. Die
-    # Kuerzung dafuer lief am echten CHANGELOG **nie** an: Jede bisherige
-    # Version blieb unter 1400 Zeichen. Ungeprueft war sie damit genau bis zu
-    # dem Tag, an dem sie gebraucht wird.
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Die zweisprachige Meldung stellt
+    # deutsch und englisch untereinander — damit ist die Zeichengrenze von
+    # Discord wirklich erreichbar. Am echten CHANGELOG laeuft die Kuerzung
+    # dafuer kaum je an.
     #
     # ⭐ Die Pruefung legt sich ihre Faelle deshalb **selbst** hin, statt auf
-    # einen langen CHANGELOG zu warten. Der letzte ist der, der beim ersten
-    # Versuch durchfiel: Ein einziger ueberlanger Satz laesst sich nicht an
-    # Satzenden kuerzen — die Meldung stand bei 6270 Zeichen.
+    # einen langen CHANGELOG zu warten. Der letzte ist der schwerste: Ein
+    # einziger ueberlanger Satz laesst sich nicht an Satzenden kuerzen.
     import discord_post as _dp220
     _echt220 = _dp220._teile
     try:
@@ -22049,16 +21438,16 @@ def main():
     # ------------------------------------------------------------------
     # 222. Die Geraeteliste unter Windows fasst keinen Joystick-Treiber an
     #
-    # ⛔⛔ Am 12.09.2026 riss ein harter Absturz VerseKit herunter:
-    # `Windows fatal exception: code 0xc0000374` in `joyGetDevCapsW`, gerufen
-    # alle drei Sekunden vom Takt der Geraete-Seite — waehrend `wait()` in
-    # einem eigenen Faden ebenfalls `winmm` abfragen kann. Seit v3.43.1 kommt
-    # die Liste ueber Raw Input. Die Pruefung haelt fest, dass `winmm` nicht
-    # zurueck in den Takt wandert, und dass jeder ctypes-Aufruf dort Typen hat.
+    # ⛔⛔ `joyGetDevCapsW` im Takt der Geraete-Seite (alle drei Sekunden)
+    # kann VerseKit hart herunterreissen (`Windows fatal exception: code
+    # 0xc0000374`) — waehrend `wait()` in einem eigenen Faden ebenfalls
+    # `winmm` abfragen kann. Die Liste kommt deshalb ueber Raw Input. Die
+    # Pruefung haelt fest, dass `winmm` nicht zurueck in den Takt wandert,
+    # und dass jeder ctypes-Aufruf dort Typen hat.
     #
     # Und der Bericht: Die Absturzdatei ueberlebt beliebig viele saubere
-    # Laeufe. Ohne Datum stand der Absturz vom 12.09. am 16.09. noch als
-    # „beim vorigen Lauf" im Bericht.
+    # Laeufe. Ohne Datum stuende ein Tage alter Absturz noch als juengster
+    # im Bericht.
     print()
     print('222. Geraeteliste ohne winmm, Absturz mit Datum')
     import ast as _ast222
@@ -22135,8 +21524,7 @@ def main():
     # ------------------------------------------------------------------
     # 223. Automatisches Update — nie mitten im Spiel, nie doppelt
     #
-    # Seit v3.44.0 spielt VerseKit neue Fassungen selbst ein (alle 30 Minuten
-    # nachsehen). Die teuren Fehler waeren: mitten im Flug abtreten, eine
+    # VerseKit spielt neue Fassungen selbst ein (regelmaessig nachsehen). Die teuren Fehler waeren: mitten im Flug abtreten, eine
     # Warteschleife je Takt ansammeln, nach dem Update ungefragt ein Fenster
     # aufreissen, oder eine frisch hochgeladene Datei im Schneckentempo holen.
     print()
@@ -22300,12 +21688,12 @@ def main():
          _ur223.take_lock, _ur223.release_lock) = _alt223
         _w223.destroy()
 
-    # 224. Die Spielsprache wird bei jedem Start geprueft (16.09.2026)
+    # 224. Die Spielsprache wird bei jedem Start geprueft
     #
-    # Gemeldet: Nach einem Spiel-Patch war das Spiel englisch, obwohl die
-    # deutsche Datei dalag — in der `user.cfg` fehlte `g_language`. Gesetzt
-    # wurde die Zeile nur beim Holen einer neuen Uebersetzungsfassung; beim
-    # Start und in der Sechs-Stunden-Wache fragte niemand nach.
+    # Ein Spiel-Patch kann `g_language` aus der `user.cfg` entfernen — dann
+    # ist das Spiel englisch, obwohl die deutsche Datei daliegt. Die Zeile
+    # wird deshalb auch beim Start und in der Sechs-Stunden-Wache geprueft,
+    # nicht nur beim Holen einer neuen Uebersetzungsfassung.
     print()
     print('224. Spielsprache in der user.cfg')
     import queue as _qu224
@@ -22368,10 +21756,10 @@ def main():
         import shutil as _sh224
         _sh224.rmtree(_spiel224, ignore_errors=True)
 
-    # 225. Beim Spielende sofort nach einer neuen Fassung sehen (16.09.2026)
+    # 225. Beim Spielende sofort nach einer neuen Fassung sehen
     #
-    # Wunsch: Nach Spielende soll das Update nicht bis zu 30 Minuten auf den
-    # naechsten Takt warten. Die teuren Fehler waeren: gar nicht fragen, den
+    # Nach Spielende wartet das Update nicht auf den naechsten Takt. Die
+    # teuren Fehler waeren: gar nicht fragen, den
     # Zwischenspeicher fragen (dann kommt nichts Neues), oder bei einem
     # abstuerzenden Spiel jede Minute GitHub anfragen.
     print()
@@ -22475,8 +21863,8 @@ def main():
         _ti225.sleep(0.2)
         pruefe(len(_fragen225) == 1,
                'ist das automatische Update aus, fragt das Spielende nicht')
-        # ⚠ Der normale 30-Minuten-Takt fragt WIRKLICH nach (17.09.2026) —
-        # sonst verschiebt ein Blick von Hand auf „Update & Über" das
+        # ⚠ Der normale Takt fragt WIRKLICH nach — sonst verschiebt ein
+        # Blick von Hand auf „Update & Über" das
         # automatische Update um eine halbe Stunde (Zwischenspeicher).
         ov3 = _Ov225()
         _vorher225 = len(_fragen225)
@@ -22504,7 +21892,7 @@ def main():
     finally:
         _au225.game_running, _au225.enabled, _up225.check = _alt225
 
-    # 226. Das Suchfeld im Hangar filtert auch „Meine Schiffe" (16.09.2026)
+    # 226. Das Suchfeld im Hangar filtert auch „Meine Schiffe"
     print()
     print('226. Hangar-Suche filtert die eigene Liste')
     from scbp import pages as _se226
@@ -22534,12 +21922,11 @@ def main():
     pruefe('_hangar_matches' in _ruft226, 'die Liste wird wirklich gefiltert')
     pruefe('trace_add' in _ruft226, 'und beim Tippen neu gezeichnet')
 
-    # 227. Kein Feld wird gelesen, das nirgends gesetzt wird (16.09.2026)
+    # 227. Kein Feld wird gelesen, das nirgends gesetzt wird
     #
-    # Seit P4 Stufe 10a (v3.39.0) las der Watcher `self._offene_contracts` —
-    # das Feld hiess weiter `_offene_auftraege`. Beim ersten Auftrag starb der
-    # Watcher-Faden mit AttributeError, und das Overlay zeigte weder Auftraege
-    # noch Bauplaene mehr an. Kein Pruefpunkt rief den Weg; pyflakes sieht
+    # Liest der Watcher ein Feld unter einem Namen, unter dem es nie gesetzt
+    # wird, stirbt der Watcher-Faden beim ersten Auftrag mit AttributeError,
+    # und das Overlay zeigt weder Auftraege noch Bauplaene. pyflakes sieht
     # Attribute nicht. Deshalb hier fuer das GANZE Projekt: Jedes `self.X`,
     # das gelesen wird, muss irgendwo gesetzt werden (Zuweisung, Methode,
     # Klassenattribut oder setattr).
@@ -22600,10 +21987,9 @@ def main():
     pruefe(_stand227 == [('Auftrag A', 'Zeile A', [])],
            'der Auftragsstand fuer die Anzeige laesst sich bilden (%r)' % (_stand227,))
 
-    # 228. Bauplan-Fortschritt nur fuer die Merkliste (16.09.2026)
+    # 228. Bauplan-Fortschritt nur fuer die Merkliste
     #
-    # Wunsch Aeternitas26 (KRT): den Fortschritt nur fuer die markierten
-    # Bauplaene sehen. Gezaehlt wird nur, was auf der Merkliste steht — und
+    # Gezaehlt wird nur, was auf der Merkliste steht — und
     # das Erledigte muss mitzaehlen (siehe 171).
     print()
     print('228. Fortschritt nur Merkliste')
@@ -22651,10 +22037,10 @@ def main():
     pruefe('if not drin or watched:' in _cw228,
            'ein erledigter gemerkter Bauplan behaelt seinen Stern')
 
-    # 229. „Was ich farmen muss" kennt die Fundorte (16.09.2026)
+    # 229. „Was ich farmen muss" kennt die Fundorte
     #
-    # Wunsch Aeternitas26 (KRT): was ich farmen muss UND wo — und wo ich
-    # mehrere Erze auf einmal bekomme. Die Rezepte sagen `Titanium`, der
+    # Was zu farmen ist UND wo — und wo es mehrere Erze auf einmal gibt.
+    # Die Rezepte sagen `Titanium`, der
     # Bergbau `Titanium (Ore)`; ohne Angleichen findet sich nichts.
     print()
     print('229. Farmliste mit Fundorten')
@@ -22687,11 +22073,10 @@ def main():
     pruefe('farm_locations(' in _q229 and '_farm_gathering(' in _q229,
            'die Farmliste zeigt Fundorte und Sammelorte an')
 
-    # 230. Update gut eine Minute nach Spielende (17.09.2026)
+    # 230. Update gut eine Minute nach Spielende
     #
-    # Wunsch Bushwick4712 (KRT). Bis dahin galt das Spiel immer noch fuenf
-    # Minuten nach dem letzten Log-Eintrag als laufend — auch wenn die
-    # Prozessliste laengst sagte, dass es zu ist.
+    # Sagt die Prozessliste, dass das Spiel zu ist, gilt es nicht noch fuenf
+    # Minuten nach dem letzten Log-Eintrag als laufend.
     print()
     print('230. Spielende ueber die Prozessliste')
     from scbp import auto_update as _au230, paths as _pf230
@@ -22728,10 +22113,9 @@ def main():
 
     # 231. Die Log schlaegt den Launcher
     #
-    # Bis v3.46.1 fuehrte `collection.RANK` den Launcher mit Rang 4 ganz oben.
-    # Ein Bauplan aus Log UND Launcher hiess damit `launcher` — und die Warnung
-    # beim Zuruecksetzen zaehlte ihn als verloren, obwohl er aus den
-    # Protokollen wiederkommt. Geprueft in BEIDEN Reihenfolgen: Kam der
+    # Fuehrte `collection.RANK` den Launcher ganz oben, hiesse ein Bauplan aus
+    # Log UND Launcher `launcher` — und die Warnung beim Zuruecksetzen zaehlte
+    # ihn als verloren, obwohl er aus den Protokollen wiederkommt. Geprueft in BEIDEN Reihenfolgen: Kam der
     # Launcher zuerst, muss die Log aufwerten; kam die Log zuerst, darf der
     # Launcher nicht herabstufen.
     print()
@@ -22765,10 +22149,9 @@ def main():
 
     # 232. Ein Export ersetzt den Pledge-Hangar
     #
-    # Am 17.09.2026: Prospector per Upgrade zur Sabre Raven EX gemacht, neuer
-    # CSV-Export eingelesen — die Raven kam dazu, die Prospector blieb. Der
-    # Import fuegte nur hinzu. Jetzt faellt ein Echtgeld-Schiff heraus, das im
-    # Export fehlt; ein im Spiel gekauftes bleibt, das kennt kein Export.
+    # Wird eine Prospector per Upgrade zur Sabre Raven EX, darf nach dem neuen
+    # CSV-Export nicht beides dastehen. Ein Echtgeld-Schiff, das im Export
+    # fehlt, faellt heraus; ein im Spiel gekauftes bleibt, das kennt kein Export.
     print()
     print('232. Ein Export ersetzt den Pledge-Hangar')
     from scbp import fleet as _fl232
@@ -22801,8 +22184,7 @@ def main():
 
     # 233. Ein X im Suchfeld
     #
-    # Gewuenscht am 17.09.2026 fuer „Mein Hangar": „ein X ins Suchfeld, ist
-    # intuitiver". Gebaut in `round_entry(clearable=True)`, eingeschaltet in
+    # Gebaut in `round_entry(clearable=True)`, eingeschaltet in
     # `_combo_box` — damit steht es in JEDEM Auswahlfeld gleich. Geprueft am
     # echten Feld, nicht am Quelltext: Ein X, das nie erscheint oder nichts
     # leert, sieht im Code genauso aus wie eines, das geht.
@@ -22839,7 +22221,7 @@ def main():
             _w233.update()
         pruefe(_v233.get() == '', 'ein Klick aufs X leert das Feld (%r)' % _v233.get())
         pruefe(_zustand233() == 'hidden', 'und das X verschwindet wieder')
-        # ⚠ Seit 17.09.2026 ist das X Standard in JEDEM Feld — ab Werk an.
+        # ⚠ Das X ist Standard in JEDEM Feld — ab Werk an.
         # Abschalten geht weiterhin ausdruecklich (`clearable=False`).
         _ohne233 = _mw233.round_entry(_w233, _tk233.StringVar(_w233),
                                       ('Segoe UI', 10), '#0c1017', '#333333',
@@ -22861,8 +22243,8 @@ def main():
 
     # 234. Ruf-Stufen an den Rangnamen
     #
-    # Gewuenscht von KynoTnis (ADI), 16.09.2026: Im Reputationsmenue steht nur
-    # ein Balken. „Gildenmitglied [ab 10.000]" macht ihn lesbar. Geprueft wird
+    # Im Reputationsmenue steht nur ein Balken; eine Angabe wie
+    # Gildenmitglied [ab 10.000] macht ihn lesbar. Geprueft wird
     # an einer echten Wegwerf-`global.ini` ueber BEIDE Schreibwege (die Lehre
     # aus Pruefung 175), dazu Zuruecksetzen, zweiter Lauf und Schalter — und
     # dass unplausible Rohdaten KEINE Zahl ergeben.
@@ -22944,8 +22326,8 @@ def main():
         pruefe('RepStanding_Bounty_MidLevel_Name=Guild Member\n' in _text234(),
                'Zuruecksetzen bringt den Rangnamen ohne Zahl zurueck')
 
-        # ⚠ Bis 30.09.2026 lief der Rest ueber den SCDL-Weg; seitdem gibt es
-        # nur noch `apply_texts` (ueber `setup`, den echten Einstiegspunkt).
+        # ⚠ Der einzige Schreibweg ist `apply_texts` (ueber `setup`, den
+        # echten Einstiegspunkt).
         _frisch234()
         _in234.apply_texts(_ini234, 'german_(germany)', catalog_data=_kat234)
         pruefe('Guild Member [ab 10.000]' in _text234(),
@@ -22971,9 +22353,8 @@ def main():
     # 235. Die Fehlermarken in `injection` nennen eine echte Funktion
     #
     # In `scbp/injection.py` folgt jede Marke der Form `injection.<funktion>`.
-    # Drei trugen nach der Umbenennung (P4) noch alte Namen —
-    # `injection.ruf_zeile`, `.reputation`, `.spielsprache` — und zeigten im
-    # Fehlerbericht auf Stellen, die niemand findet. Behoben 17.09.2026.
+    # Eine Marke mit einem Namen, den es nicht gibt, zeigt im Fehlerbericht auf
+    # eine Stelle, die niemand findet.
     #
     # ⚠ Bewusst NUR dieses Modul: Im uebrigen Projekt sind 196 von 274 Marken
     # absichtlich Bereichsnamen (`overlay.schloss`), keine Funktionsnamen —
@@ -23002,11 +22383,9 @@ def main():
 
     # 236. Ein Update schreibt die Texte im Spiel neu
     #
-    # Am 17.09.2026 mit Bildschirmfoto: Nach v3.48.0 standen im Reputationsmenue
-    # keine Ruf-Stufen. Die `global.ini` war zuletzt VOR dem Release geschrieben
-    # worden — neu eingespielt wurde nur bei neuem Bauplan, Patch oder fehlender
-    # Einfuegung, nie wegen einer neuen VerseKit-Fassung. Die Marke traegt
-    # deshalb jetzt die Fassung mit.
+    # Neu eingespielt wird bei neuem Bauplan, Patch, fehlender Einfuegung —
+    # und bei einer neuen VerseKit-Fassung, sonst fehlen deren Neuerungen
+    # (etwa Ruf-Stufen) im Spiel. Die Marke traegt deshalb die Fassung mit.
     print()
     print('236. Ein Update schreibt die Texte im Spiel neu')
     import sc_bp_watcher as _sw236
@@ -23044,10 +22423,9 @@ def main():
 
     # 237. Eine zu frische Freigabe wartet nur die RESTZEIT
     #
-    # Am 17.09.2026: v3.48.0 um 03:08:29 erschienen, der 30-Minuten-Takt fand
-    # sie 9 1/2 Minuten alt und plante volle zehn Minuten spaeter nachzusehen.
-    # Das Spiel ging um 03:19 zu; die Spielende-Wache fand die Fassung, durfte
-    # wegen des geplanten Termins aber nichts tun — Update von Hand.
+    # Ist eine Fassung 9 1/2 Minuten alt, darf der Takt nicht volle zehn
+    # Minuten spaeter nachsehen — sonst findet die Spielende-Wache die Fassung,
+    # darf wegen des geplanten Termins aber nichts tun.
     print()
     print('237. Eine zu frische Freigabe wartet nur die Restzeit')
     from scbp import auto_update as _au237
@@ -23061,8 +22439,7 @@ def main():
     pruefe(_au237.wait_left(_rel237, _pub237 + _frist237) == 0
            and _au237.ripe(_rel237, _pub237 + _frist237),
            'mit Ablauf der Frist ist sie reif')
-    # ⚠⚠ Der Takt selbst: mehrfach gewuenscht „30 Minuten ist zu lang",
-    # entschieden 17.09.2026 auf 10 Minuten. Die drei Stellen muessen
+    # ⚠⚠ Der Takt selbst: 10 Minuten. Die drei Stellen muessen
     # zusammenpassen, sonst liefert der Zwischenspeicher den alten Stand.
     import sc_bp_watcher as _sw237
     from scbp import updater as _up237
@@ -23084,10 +22461,9 @@ def main():
 
     # 238. Das Overlay bleibt im Bildschirm
     #
-    # Am 17.09.2026 mit Bildschirmfotos: Ein 1000 px hohes Overlay rutschte nach
-    # „Unten rechts" aus dem Bild, die Leiste — der Griff zum Verschieben — lag
-    # darunter. Die Standardgroesse 440x1000 passt dazu auf keinen Laptop.
-    # Gewuenscht: „die Groesse begrenzen, dass das bei niemandem passieren kann."
+    # Ein 1000 px hohes Overlay kann bei der Ecke unten rechts aus dem Bild
+    # rutschen, mit der Leiste — dem Griff zum Verschieben — darunter. Die
+    # Groesse wird deshalb auf den Bildschirm begrenzt.
     print()
     print('238. Das Overlay bleibt im Bildschirm')
     import sc_bp_watcher as _w238
@@ -23183,9 +22559,9 @@ def main():
 
     # 239. Schiffe mit kleingeschriebenem `vehicle_name…` lassen sich benennen
     #
-    # Am 17.09.2026 mit Bildschirmfoto: „Paladin — In der Sprachdatei nicht
-    # gefunden". CIG schreibt fuenf Schluessel mit kleinem n (Carrack, Carrack
-    # Expedition, Paladin, Starlancer MAX/TAC); gelesen wurde nur `vehicle_Name`.
+    # CIG schreibt fuenf Schluessel mit kleinem n (Carrack, Carrack
+    # Expedition, Paladin, Starlancer MAX/TAC); `vehicle_Name` allein findet
+    # sie nicht.
     print()
     print('239. Schiffe mit kleingeschriebenem Schluessel lassen sich benennen')
     from scbp import asop as _as239
@@ -23211,9 +22587,9 @@ def main():
 
     # 240. Die deutsche Uebersetzung kommt aus dem Repo, nicht vom Release
     #
-    # Am 17.09.2026: Die Datei stand auf 29.08. — rjcncpt veroeffentlicht keine
-    # Releases mehr (neuestes 2026.09.08-LIVE), gepflegt wird `live/global.ini`
-    # im Repo. VerseKit fragte nur nach Releases und sah nie etwas Neues.
+    # rjcncpt veroeffentlicht keine Releases mehr, gepflegt wird
+    # `live/global.ini` im Repo. Wer nur nach Releases fragt, sieht nie etwas
+    # Neues.
     print()
     print('240. Die deutsche Uebersetzung kommt aus dem Repo')
     from scbp import translation as _tr240
@@ -23250,7 +22626,7 @@ def main():
 
         # Rueckfall aufs Release NUR, wenn das Repo die Datei nicht kennt.
         # ⚠ Scheitert die Abfrage selbst (403), gibt es keinen Rueckfall — das
-        # Release ist aelter und galte sonst als „neue Fassung" (siehe 242).
+        # Release ist aelter und galte sonst als neuere Fassung (siehe 242).
         def _ohne_git240(url, raw=False):
             if '/commits?' in url:
                 return []
@@ -23273,9 +22649,9 @@ def main():
 
     # 241. Fehlende Schiffsnamen kommen aus der englischen Datei
     #
-    # Am 17.09.2026 mit Bild aus dem Flottenmanager: `@vehicle_NameAEGS_Sabre_Raven_EX`
-    # in der deutschen Datei nicht vorhanden -> „Schiffe benennen" kuerzte den
-    # Namen und schrieb Stern und Name an die normale Sabre Raven.
+    # Fehlt `@vehicle_NameAEGS_Sabre_Raven_EX` in der deutschen Datei, darf
+    # „Schiffe benennen" den Namen nicht kuerzen und Stern und Name an die
+    # normale Sabre Raven schreiben.
     print()
     print('241. Fehlende Schiffsnamen kommen aus der englischen Datei')
     from scbp import injection as _in241, asop as _as241
@@ -23342,10 +22718,10 @@ def main():
            '„Schiffe benennen" sieht dieselben ergaenzten Namen')
 
     # 242. Der Spieler erkennt, ob seine Uebersetzung aktuell ist
-    # ⚠ Vorher stand nur `git-082b11db5e73` auf der Seite — daran erkennt
-    # niemand etwas. Jetzt: Datum der Fassung und wann zuletzt nachgesehen
-    # wurde, mit Ergebnis. Dazu: Scheitert die Abfrage der Repo-Datei, darf
-    # NICHT das (veraltete) Release als „neue Fassung" gelten.
+    # ⚠ Eine Kennung wie `git-082b11db5e73` sagt niemandem etwas. Die Seite
+    # nennt das Datum der Fassung und wann zuletzt nachgesehen wurde, mit
+    # Ergebnis. Dazu: Scheitert die Abfrage der Repo-Datei, darf NICHT das
+    # (veraltete) Release als neuere Fassung gelten.
     print('242. Der Spieler erkennt, ob seine Uebersetzung aktuell ist')
     from scbp import translation as _tr242
     _heim242 = tempfile.mkdtemp(prefix='pruefung242-')
@@ -23452,14 +22828,10 @@ def main():
     from scbp import signature_scan as _ss243, signature_watch as _sw243
     from scbp import screen_grab as _sg243, paths as _pa243
     # ⚠⚠ **Eigener Ziffernsatz fuer die gezeichneten Bilder, nicht die
-    # Beilage** (21.09.2026). Bis dahin zeichnete dieser Abschnitt seine
-    # Ziffern AUS `daten/signatur-ziffern.json` und las sie GEGEN dieselbe
-    # Datei — gemessen wurde damit die Selbstaehnlichkeit der Beilage, nicht
-    # die Logik (Komma, Abstimmung, Verwerfen). Als die Beilage gegen echte
-    # Aufnahmen getauscht wurde, fielen schlagartig drei Pruefungen um,
-    # obwohl an echten Bildern alles besser wurde (9 → 45 von 58).
-    # Die Beilage wird jetzt dort geprueft, wo sie hingehoert: an echten
-    # Aufnahmen („ab Werk werden … Bilder gelesen").
+    # Beilage.** Wer Ziffern AUS `daten/signatur-ziffern.json` zeichnet und
+    # GEGEN dieselbe Datei liest, misst die Selbstaehnlichkeit der Beilage,
+    # nicht die Logik (Komma, Abstimmung, Verwerfen). Die Beilage wird dort
+    # geprueft, wo sie hingehoert: an echten Aufnahmen.
     _vorl243 = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
                                            'signatur-ziffern-gezeichnet.json'),
                               encoding='utf-8'))['ziffern']
@@ -23524,13 +22896,13 @@ def main():
             elif _erg['wert'] is not None:
                 _falsch243.append((_v, _erg['wert']))
     pruefe(not _falsch243, 'keine FALSCH gelesene Signatur (%r)' % _falsch243[:5])
-    # Gezeichnete Ziffern sind nicht das Spiel: An 82 echten Aufnahmen vom
-    # 10.09.2026 las derselbe Kern am 17.09.2026 72 richtig, 1 falsch; hier
+    # Gezeichnete Ziffern sind nicht das Spiel: An 82 echten Aufnahmen las
+    # derselbe Kern 72 richtig, 1 falsch; hier
     # zaehlt vor allem, dass NICHTS falsch gelesen wird (gemessen 28 von 48).
     pruefe(_richtig243 >= 24, 'die meisten Signaturen werden gelesen (%d von 48)'
            % _richtig243)
     # ⚠⚠ Schmale Schrift (unter Windows 5x11 statt 9x11) und ein Komma, das bei
-    # hoher Schwelle verschwindet — so am 17.09.2026 im Spiel gemessen.
+    # hoher Schwelle verschwindet — so im Spiel gemessen.
     _schmal243, _schmalfalsch243 = 0, []
     for _v in _werte243[6:24]:
         _erg = _ss243.read(_bild243('{:,}'.format(_v), schmal=0.6, blasses_komma=True),
@@ -23566,8 +22938,7 @@ def main():
             _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)),
             'anlernen legt eigene Vorlagen ab (%r, %r)' % (_grund243, _neu243))
         # ⚠⚠ „Bekannt" = vorher schon richtig gelesen. Dasselbe Bild zweimal
-        # angelernt: beim zweiten Mal ist nichts mehr neu (vorher hiess es bei
-        # jedem Anlernen „4 neu gespeichert" — „das Fenster luegt").
+        # angelernt: beim zweiten Mal ist nichts mehr neu.
         _zweit243 = _ss243.learn(_bild243('3,170'), '3,170')[2]
         pruefe(_zweit243.get('neu') == 0 and _zweit243.get('bekannt') == 4,
                'zweimal dasselbe angelernt: alles bekannt (%r)' % _zweit243)
@@ -23587,9 +22958,8 @@ def main():
                and _ss243.OWN_TEMPLATE_FILE in _namen243
                and _ss243.archive_name() == 'scan-bilder.zip',
                'Scan-Bilder und Vorlagen lassen sich als ZIP mitschicken (%r)' % _namen243)
-        # ⭐ **Steht ein Melder-Name da, tragen ZIP und Ordner ihn** (21.09.2026):
-        # „sonst weiss ich im Download-Ordner nicht, wem die Bilder gehoeren."
-        # Alles Unbrauchbare im Dateinamen wird ersetzt, der Name selbst geht
+        # ⭐ **Steht ein Melder-Name da, tragen ZIP und Ordner ihn**, damit die
+        # Bilder im Download-Ordner zuzuordnen sind. Alles Unbrauchbare im Dateinamen wird ersetzt, der Name selbst geht
         # ohnehin oben im Bericht mit.
         _pa243.set_setting('melder_name', 'F_i_r_e/KRT')
         try:
@@ -23623,10 +22993,8 @@ def main():
             '_diagnostics'),
             'der Absende-Knopf nimmt den Namen mit dem Melder darin')
 
-        # ⚠⚠ **Der Schalter ist nicht der Betrieb.** Bis zum 21.09.2026 stand
-        # im Bericht nur „an" — die Einstellung. Ob der Wach-Faden lebt, war
-        # nirgends abzulesen, und eine Meldung „zeigt nichts mehr an" damit
-        # nicht zu beantworten. Gemessen wird die WIRKUNG am fertigen Bericht,
+        # ⚠⚠ **Der Schalter ist nicht der Betrieb.** Der Bericht muss nennen,
+        # ob der Wach-Faden lebt, nicht nur die Einstellung. Gemessen wird die WIRKUNG am fertigen Bericht,
         # nicht ein Wort im Quelltext.
         from scbp import signature_watch as _sw243
         from scbp.language import t as _t243
@@ -23693,9 +23061,8 @@ def main():
                 return os.path.join(_heim243, 'gibt-es-nicht.json')
             return _bundled243(name)
 
-        # ⚠⚠ Echte Bilder aus dem Spiel unter Windows (17.09.2026): kleine
-        # Schrift, blasses Komma, Griff im Bild. RC 2 lernte „2,000" nicht an
-        # („Ziffern passen nicht") und las „19,275" nie.
+        # ⚠⚠ Echte Bilder aus dem Spiel unter Windows: kleine Schrift, blasses
+        # Komma, Griff im Bild.
         _echt243 = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
                                                'signatur-windows-klein.json'),
                                   encoding='utf-8'))['bilder']
@@ -23709,17 +23076,17 @@ def main():
         _andere243 = [_ss243.read(_echt243[k], None, _ew243)['wert']
                       for k in ('19,275#2', '19,275#5')]
         # Nach EINEM Anlernen: mindestens eins richtig, keins falsch (schweigen
-        # ist erlaubt — seit der strengeren Lochpruefung schweigt eins).
+        # ist erlaubt — mit der strengen Lochpruefung schweigt eins).
         pruefe(19275 in _andere243 and set(_andere243) <= {19275, None},
                'nach einmal Anlernen: andere Bilder richtig oder still, nie falsch (%r)'
                % _andere243)
-        # ⚠⚠⚠ **Der dreigeteilte Lauf misst OHNE die Beilage.** Seit dem
-        # 21.09.2026 stecken in `daten/signatur-ziffern.json` Muster aus
-        # **denselben Aufnahmen** wie dieser Pruefsatz. Mit ihr gemessen waere
-        # der Lauf gegen die eigenen Trainingsdaten gerichtet: immer gruen,
-        # ohne noch etwas nachzuweisen. Was die Beilage taugt, wird weiter
-        # unten getrennt geprueft („ab Werk werden … Bilder gelesen").
-        # ⚠ Nur DIESER Lauf. Die Pruefungen davor („nach einmal Anlernen …")
+        # ⚠⚠⚠ **Der dreigeteilte Lauf misst OHNE die Beilage.** In
+        # `daten/signatur-ziffern.json` stecken Muster aus **denselben
+        # Aufnahmen** wie dieser Pruefsatz. Mit ihr gemessen waere der Lauf
+        # gegen die eigenen Trainingsdaten gerichtet: immer gruen, ohne noch
+        # etwas nachzuweisen. Was die Beilage taugt, wird weiter unten getrennt
+        # geprueft.
+        # ⚠ Nur DIESER Lauf. Die Pruefungen davor (nach einmal Anlernen)
         # bilden den Nutzerfall ab, und der Nutzer HAT die Beilage — ohne sie
         # gemessen fielen sie faelschlich um.
         _pa243.bundled_file = _ohne_beilage243
@@ -23729,9 +23096,9 @@ def main():
         pruefe(not _ss243.templates(),
                'Vorbedingung: fuer den dreigeteilten Lauf ist die Beilage weg')
         # ⚠⚠ Alle echten Windows-Bilder, dreigeteilt: mit zwei Dritteln
-        # anlernen, das dritte lesen. NICHTS darf falsch herauskommen — vor dem
-        # 17.09.2026 wurde hier 16,960 als 10,800 gelesen (Loch der 6 galt als
-        # Loch der 0), und die Ziffern wurden stur gleichmaessig getrennt.
+        # anlernen, das dritte lesen. NICHTS darf falsch herauskommen — etwa
+        # 16,960 als 10,800 (Loch der 6 als Loch der 0) oder Ziffern, die stur
+        # gleichmaessig getrennt werden.
         _schluessel243 = sorted(_echt243)
         _alle_werte243 = sorted(set(_ew243) | {int(k.split('#')[0].replace(',', ''))
                                                for k in _schluessel243}
@@ -23758,7 +23125,7 @@ def main():
                'echte Windows-Bilder: %d von %d gelesen (gemessen 41 von 54)'
                % (_kr243, len(_schluessel243)))
         # ⚠⚠ Ein Wert, den die Bergbaudaten NICHT kennen, darf nicht auf einen
-        # anderen einrasten: „1,700" wurde am 17.09.2026 als „7,200" gelesen.
+        # anderen einrasten (etwa 1,700 als 7,200).
         _eigen243 = _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)
         if os.path.exists(_eigen243):
             os.remove(_eigen243)
@@ -23792,10 +23159,8 @@ def main():
                'Lochlage trennt 6 von 0, laesst aber 6 als 6 durch')
 
         # ⭐⭐ **Was die Beilage taugt — mit ihr, ohne irgendetwas Angelerntes.**
-        # Bis zum 21.09.2026 stammten die mitgelieferten Vorlagen aus dem
-        # Linux-Entwurf und trafen die Windows-Schrift kaum: 9 von 58 Bildern.
-        # Ein Spieler, der nichts anlernt, sah also so gut wie nie eine Zahl —
-        # und „lern es dir selbst an" ist keine Auslieferung.
+        # Ein Spieler, der nichts anlernt, muss ab Werk Zahlen sehen; Anlernen
+        # als Pflicht ist keine Auslieferung.
         _pa243.bundled_file = _bundled243          # Beilage wieder da
         if os.path.exists(_eigen243):
             os.remove(_eigen243)
@@ -23825,14 +23190,13 @@ def main():
                '(gemessen 45, vor dem 21.09.2026 waren es 9)'
                % (_abwerk243, len(_schluessel243)))
 
-        # ⚠⚠ **Ein einzelner Bildpunkt darf die Erkennung nicht stilllegen**
-        # (21.09.2026). Im HUD schnuerte eine Punktreihe die obere Oeffnung
-        # einer Null ab; sie zaehlte zwei Loecher, bekam den Aufschlag von 0,25
-        # auf ihren Abstand von 0,09 — und 0,34 liegt ueber MAX_DIGIT_DISTANCE.
-        # Damit fiel die Ziffer heraus, kein moeglicher Wert blieb uebrig, und
-        # die Freilesung schwieg mit. Auf dem Rechner des Melders wurde
-        # dadurch NIE eine Signatur angezeigt, und Anlernen half nicht: Dieselbe
-        # Pruefung lehnte die Null auch dort ab.
+        # ⚠⚠ **Ein einzelner Bildpunkt darf die Erkennung nicht stilllegen.**
+        # Schnuert im HUD eine Punktreihe die obere Oeffnung einer Null ab,
+        # zaehlt sie zwei Loecher, bekommt den Aufschlag von 0,25 auf ihren
+        # Abstand von 0,09 — und 0,34 liegt ueber MAX_DIGIT_DISTANCE. Dann
+        # faellt die Ziffer heraus, kein moeglicher Wert bleibt uebrig, und die
+        # Freilesung schweigt mit. Anlernen hilft nicht: Dieselbe Pruefung
+        # lehnt die Null auch dort ab.
         def _null243(abgeschnuert):
             _m = [0] * (_ss243.NORM_W * _ss243.NORM_H)
             for _y in range(_ss243.NORM_H):
@@ -23841,7 +23205,7 @@ def main():
                             or (4 <= _y <= 19 and (2 <= _x <= 4 or 11 <= _x <= 13)):
                         _m[_y * _ss243.NORM_W + _x] = 1
             if abgeschnuert:
-                # Sechs Punkte bleiben oben uebrig — genau der gemeldete Fall.
+                # Sechs Punkte bleiben oben uebrig — die Oeffnung ist abgeschnuert.
                 for _x in (8, 9, 10):
                     _m[4 * _ss243.NORM_W + _x] = _m[5 * _ss243.NORM_W + _x] = 1
                 for _x in range(5, 11):
@@ -23855,8 +23219,8 @@ def main():
                'eine abgeschnuerte Null bleibt eine Null, kein zweites Loch (%r/%r)'
                % (_sauber243, _eng243))
         # Gegenprobe: Die echten zwei Loecher der Acht bleiben zwei — die
-        # Mindestgroesse darf das Merkmal nicht wegraeumen, an dem am
-        # 10.09.2026 60 von 63 Fehlschlaegen hingen.
+        # Mindestgroesse darf das Merkmal nicht wegraeumen, das die Acht von
+        # anderen Ziffern trennt.
         _acht243 = [0] * (_ss243.NORM_W * _ss243.NORM_H)
         for _y in range(_ss243.NORM_H):
             for _x in range(_ss243.NORM_W):
@@ -23939,7 +23303,7 @@ def main():
            == (100, 40, 220, 44)
            and _sg243.to_physical((100, 40, 220, 44), 1.25) == (125, 50, 275, 55),
            'logisch und physisch rechnen sauber hin und zurueck')
-    # ⚠⚠ Die Pille wandert mit dem gescannten Brocken (17.09.2026) — die Wache
+    # ⚠⚠ Die Pille wandert mit dem gescannten Brocken — die Wache
     # SUCHT sie in der Bildmitte, statt einen festen Bereich zu lesen.
     _swin243 = open(os.path.join(WURZEL, 'scbp', 'scan_window.py'),
                     encoding='utf-8').read()
@@ -24016,7 +23380,7 @@ def main():
     pruefe('_signature_scanner(' in rumpf(_pq243, '_mining'),
            'die Bergbau-Seite traegt Schalter und Scan-Bereich')
     # ⚠ Geschlossenes Hauptfenster: die Seite meldet sich bei der Wache ab
-    # (sonst „bad window path name", Bericht vom 17.09.2026).
+    # (sonst `bad window path name`).
     _ssc243 = rumpf(_pq243, '_signature_scanner')
     pruefe(_ssc243.count('signature_watch.unlisten(read_value)') >= 2
            and 'winfo_exists()' in _ssc243,
@@ -24028,7 +23392,7 @@ def main():
                          encoding='utf-8').read(), 'build')
     pruefe("t('b_scanner')" in _ber243,
            'der Fehlerbericht nennt den Stand des Signatur-Scanners')
-    # Das Auge in der Overlay-Leiste schaltet den Scanner (17.09.2026).
+    # Das Auge in der Overlay-Leiste schaltet den Scanner.
     pruefe("icons.button(bar, 'signatur', self._scanner_umschalten" in _swq243
            and 'signature_watch.set_enabled(' in methode(_swq243, 'Overlay', '_scanner_umschalten')
            and "'signatur'" in open(os.path.join(WURZEL, 'scbp', 'icons.py'),
@@ -24036,7 +23400,7 @@ def main():
            'das Auge in der Overlay-Leiste schaltet den Signatur-Scanner')
     # ⚠⚠ Auge und Schalter auf der Bergbau-Seite zeigen DENSELBEN Stand: beide
     # schalten ueber `set_enabled`, beide Anzeigen melden sich ueber `on_switch`
-    # („mach ich das Auge grau, bleibt der Button auf an", 17.09.2026).
+    # (sonst bliebe der Schalter an, wenn das Auge grau wird).
     pruefe('signature_watch.set_enabled(' in _ssc243
            and 'signature_watch.on_switch(' in _ssc243
            and "paths.set_setting(signature_watch.SETTING" not in _ssc243
@@ -24068,7 +23432,7 @@ def main():
     # Absenden: EIN Haken statt zweier Rueckfrage-Fenster; ohne Haken nichts.
     _dia243 = rumpf(_pq243, '_diagnosis') if 'def _diagnosis(' in _pq243 else _pq243
     _ab243 = _dia243[_dia243.find('def absenden():'):_dia243.find('def absenden():') + 2500]
-    # Der Haken wird gemerkt, sobald er einmal gesetzt ist (17.09.2026).
+    # Der Haken wird gemerkt, sobald er einmal gesetzt ist.
     pruefe("bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}" in _pq243
            and 'paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt' in _pq243,
            'die Zustimmung zum Absenden wird gemerkt')
@@ -24080,10 +23444,10 @@ def main():
         'SETTING, False') == 1, 'der Scanner steht ab Werk auf Aus')
 
     # 244. Der Assistent fragt die wichtigsten Einstellungen ab
-    # ⚠ Wunsch 17.09.2026: Overlay-Modus, Schrift, Durchsichtigkeit, Spielzeit,
-    # Autostart, Ablagesymbol und die vier Schalter der Texte im Spiel gehoeren
-    # in den Assistenten — thematisch auf Karten verteilt. Geprueft wird, dass
-    # jede Zeile da ist UND wirkt, dass „Angaben" vor „Texte" kommt, dass
+    # ⚠ Overlay-Modus, Schrift, Durchsichtigkeit, Spielzeit, Autostart,
+    # Ablagesymbol und die vier Schalter der Texte im Spiel stehen im
+    # Assistenten — thematisch auf Karten verteilt. Geprueft wird, dass
+    # jede Zeile da ist UND wirkt, dass der Schritt Angaben vor Texte kommt, dass
     # ausgeschaltete Angaben im Texte-Schritt nicht doch eingetragen werden,
     # und dass die Wahl im laufenden Programm nachgezogen wird.
     print('244. Der Assistent fragt die wichtigsten Einstellungen ab')
@@ -24113,10 +23477,9 @@ def main():
                              (_rt244.SETTING, True)])
             if _pa244.WINDOWS:
                 _bool244['tray'] = True
-            # ⚠ `schrift_voreinstellung` statt `schriftgroesse` (28.09.2026):
+            # ⚠ `schrift_voreinstellung` statt `schriftgroesse`:
             # Der Assistent bietet dieselben Voreinstellungen an wie die Seite
-            # *Darstellung* (Auto, Full HD, WQHD …), nicht mehr die alten vier
-            # Stufen. Gesetzt wird `schriftgroesse` weiterhin — aber als
+            # *Darstellung* (Auto, Full HD, WQHD …). Gesetzt wird `schriftgroesse` weiterhin — aber als
             # Ergebnis der Punktzahl, nicht als Auswahl.
             _wahl244 = {'overlay_modus': 'popup',
                         'schrift_voreinstellung': 'fullhd',
@@ -24141,9 +23504,8 @@ def main():
                 _a244.schritt = _i244 + 1
                 _a244._draw()
                 # ⚠ Ein Widget, das in ein SPÄTER angelegtes Geschwister gepackt
-                # ist (`pack(in_=…)`), liegt darunter und ist unsichtbar — so
-                # standen Overlay-Modus und Schriftgröße in v3.50.0 als leere
-                # Lücke da, obwohl jede Zeile funktionierte.
+                # ist (`pack(in_=…)`), liegt darunter und ist unsichtbar — dann
+                # steht eine leere Lücke da, obwohl jede Zeile funktioniert.
                 for _w244 in _kinder244(_a244.buehne):
                     try:
                         _in244 = str(_w244.pack_info().get('in'))
@@ -24152,9 +23514,8 @@ def main():
                     if _in244 != str(_w244.master):
                         _verdeckt244.append('%s:%s' % (_s244, _w244))
                 if _s244 == 'anzeige':
-                    # ⚠⚠ Jedes Farbschema zeigt sich in SEINEN Farben
-                    # (28.09.2026). rc4 hatte die Vorschau gebaut, aber hier
-                    # standen weiter nur die Namen — ein Neuling wählte blind.
+                    # ⚠⚠ Jedes Farbschema zeigt sich in SEINEN Farben — nur
+                    # Namen ließen einen Neuling blind wählen.
                     # Geprüft wird die Eigenschaft: Zu jedem Schema gibt es
                     # eine Leinwand, die in dessen Hintergrundfarbe malt.
                     from scbp import theme as _th244
@@ -24303,8 +23664,8 @@ def main():
 
     # 245. Eis hat drei Namen — Lager, Fundort und Raffinerie finden einander
     # ⚠ Im Lager und in den Rezepten `Pressurized Ice`, an den Fundorten
-    # `Ice (Raw)`, im Raffinerie-Profil `Raw Ice`. Bis 17.09.2026 stand im Lager
-    # deshalb keine Abbauart und an jeder Raffinerie 0 % Bonus.
+    # `Ice (Raw)`, im Raffinerie-Profil `Raw Ice`. Ohne Angleichen steht im
+    # Lager keine Abbauart und an jeder Raffinerie 0 % Bonus.
     # Kleine Daten im Wegwerf-Ordner, nach dem Muster der echten Datei.
     print('245. Eis hat drei Namen — Lager, Fundort und Raffinerie finden einander')
     from scbp import mining as _mi245
@@ -24358,8 +23719,8 @@ def main():
 
     # 246. Eine kurz gesperrte Einstellungsdatei verschluckt keine Wahl
     # ⚠ Unter Windows sperrt z. B. der Virenscanner eine eben geschriebene
-    # Datei fuer Millisekunden; `os.replace` wirft dann PermissionError. Der
-    # Bau von v3.50.0 fiel so zweimal an wechselnden Prüfungen.
+    # Datei fuer Millisekunden; `os.replace` wirft dann PermissionError, und
+    # Prüfungen fallen an wechselnden Stellen.
     print('246. Eine kurz gesperrte Einstellungsdatei verschluckt keine Wahl')
     from scbp import paths as _pa246
     _heim246 = tempfile.mkdtemp(prefix='pruefung246-')
@@ -24406,7 +23767,7 @@ def main():
         shutil.rmtree(_heim246, ignore_errors=True)
 
     # 247. Eingabefelder im Hausstil: Hinweis nicht anklickbar, Pfeil im Feld
-    # ⚠ Beides gilt als Standard fuer das ganze Werkzeug (17.09.2026) — deshalb
+    # ⚠ Beides gilt als Standard fuer das ganze Werkzeug — deshalb
     # am gemeinsamen Baustein geprueft, nicht an einer Seite:
     #   * Steht der graue Hinweis im Feld, landet ein Klick NICHT mitten darin;
     #     die Schreibmarke steht am Anfang, nichts ist markiert.
@@ -24514,9 +23875,9 @@ def main():
             pass
 
     # 248. Der Launcher ist keine Quelle mehr — weder im Katalog noch in der Anzeige
-    # ⚠ Die Launcher-Datei steht seit 26.08.2026 still. `load_types()` nahm sie
-    # trotzdem zuerst, und die Statuszeile schrieb „mit Launcher", sobald ihr
-    # alter Ordner noch auf der Platte lag.
+    # ⚠ Die Launcher-Datei wird nicht mehr gepflegt. `load_types()` darf sie
+    # nicht nehmen, und die Statuszeile darf den Launcher nicht nennen, nur
+    # weil sein alter Ordner noch auf der Platte liegt.
     print('248. Der Launcher ist keine Quelle mehr — weder im Katalog noch in der Anzeige')
     import sc_bp_watcher as _sw248
     from scbp import language as _sp248
@@ -24559,11 +23920,10 @@ def main():
            'die Statuszeile nennt keinen Launcher mehr (%r)' % _zeilen248)
 
     # 250. Das Programm startet MIT scmdb-Daten
-    # ⛔⛔ v3.50.3 starb bei jedem Nutzer mit scmdb-Zwischenspeicher sofort beim
-    # Start („NameError: name 'scmdb_of' is not defined") — ein Aufruf auf
-    # Modulebene stand vor der Funktion, die er brauchte. Der Selbsttest
-    # importierte das Programm nur in einem Wegwerf-Ordner OHNE scmdb-Daten;
-    # der Zweig lief nie. Deshalb hier ein frischer Prozess mit Daten.
+    # ⛔⛔ Steht ein Aufruf auf Modulebene vor der Funktion, die er braucht,
+    # stirbt das Programm mit scmdb-Zwischenspeicher sofort beim Start
+    # (NameError). Ein Import im Wegwerf-Ordner OHNE scmdb-Daten liefe an
+    # diesem Zweig vorbei. Deshalb hier ein frischer Prozess mit Daten.
     print('250. Das Programm startet MIT scmdb-Daten')
     import subprocess as _sp250
     _heim250 = tempfile.mkdtemp(prefix='pruefung250-')
@@ -24589,9 +23949,7 @@ def main():
         shutil.rmtree(_heim250, ignore_errors=True)
 
     # 249. Bergbau: Auswahl im Feld klappt den Eintrag direkt auf
-    # ⭐ Wunsch 08.09.2026: „wenn man eine Auswahl trifft, machs so, dass das
-    # betreffende direkt aufgeklappt ist". Lag bis 17.09.2026 nur als
-    # Wegwerf-Skript vor. Drei Faelle: Ort gewaehlt -> aufgeklappt, Auswahl
+    # Drei Faelle: Ort gewaehlt -> aufgeklappt, Auswahl
     # geloescht -> zu, Rohstoff gewaehlt -> Fundorte da.
     # ⚠ Gezaehlt werden die ANTEILE („75 %"), nicht der Erzname — den zeigt die
     # Kopfzeile auch zugeklappt. Der Hilfetext enthaelt ebenfalls ein „%",
@@ -24692,13 +24050,13 @@ def main():
         shutil.rmtree(_heim249, ignore_errors=True)
 
     # 251. Keine Zutat faellt unter den Tisch — egal welchen Typ sie hat
-    # ⛔⛔ Bis zum 17.09.2026 las `crafting._ingredients()` nur Optionen mit
-    # `type="resource"`. Die zweite Sorte — `type="item"` mit **`itemName`**,
-    # die gesammelten Edelsteine — verschwand **spurlos**: keine Zeile, keine
-    # Luecke, kein Hinweis. Beim Attrition-5 Repeater fehlte so das Hadanite
-    # (gemeldet von Bushwick4712), insgesamt 298 Zutaten in 255 Bauplaenen.
+    # ⛔⛔ Neben `type="resource"` gibt es eine zweite Sorte — `type="item"`
+    # mit **`itemName`**, die gesammelten Edelsteine (z. B. Hadanite im
+    # Attrition-5 Repeater). Liest `crafting._ingredients()` nur die erste,
+    # verschwindet die zweite **spurlos**: keine Zeile, keine Luecke, kein
+    # Hinweis.
     #
-    # ⚠ **Gezaehlt wird nicht die 298.** Eine Zahl geht rot, sobald CIG etwas
+    # ⚠ **Gezaehlt wird keine feste Zahl.** Eine Zahl geht rot, sobald CIG etwas
     # hinzufuegt, und gruen, obwohl ein NEUER Typ durchfaellt. Nachgewiesen
     # wird die Eigenschaft: **jeder Slot mit einer Option ergibt eine Zutat.**
     # Damit schlaegt die Pruefung auch bei einem Typ an, den es heute noch
@@ -24798,7 +24156,7 @@ def main():
         shutil.rmtree(_heim251, ignore_errors=True)
 
     # Kein Eingabefeld am Baustein vorbei — sonst fehlt dort das X oder der
-    # Hinweis landet wieder als Label darueber (wie bei „Schiffe benennen").
+    # Hinweis landet als Label darueber.
     import ast as _ast247
     import glob
     _erlaubt247 = {
@@ -24831,9 +24189,8 @@ def main():
     # `"insurance": "LTI"` oder `"insurance": "<int>MI"`. Fehlt es, gibt es
     # keine Angabe — dann steht die Zeile ohne Versicherung da.
     #
-    # Die ersten zwei Eintraege sind das Muster, das der Autor der Erweiterung
-    # am 17.09.2026 aus seiner Storefassung gegeben hat — Feld fuer Feld, nicht
-    # geraten. Die uebrigen decken die Randfaelle ab.
+    # Die ersten zwei Eintraege folgen Feld fuer Feld dem Muster der
+    # Storefassung der Erweiterung. Die uebrigen decken die Randfaelle ab.
     from scbp import fleet as _fl252
     _json252 = json.dumps([
         {'manufacturer': {'code': 'AEGS', 'name': 'Aegis Dynamics',
@@ -24903,14 +24260,13 @@ def main():
            'ein Export ohne Versicherungsfeld loescht kein vorhandenes LTI')
 
     print('\n253. Leiste unten: beim Klappen bleibt die UNTERE Kante stehen')
-    # ⚠⚠ Gemeldet am 17.09.2026 mit zwei Bildschirmfotos: „eingeklappt klappt
-    # die Leiste oben hin statt unten". Die Leiste war korrekt `side='bottom'`
-    # gepackt (nachgemessen ueber `pack_info()`) — das FENSTER schrumpfte nach
-    # oben weg, weil `_klapp_ecke()` bei freier Lage die obere Kante festhielt.
-    # Gemessen: Unterkante offen 1220, eingeklappt 246 — 974 px Sprung.
+    # ⚠⚠ Die Leiste ist `side='bottom'` gepackt (nachpruefbar ueber
+    # `pack_info()`) — trotzdem schrumpft das FENSTER nach oben weg, wenn
+    # `_klapp_ecke()` bei freier Lage die obere Kante festhaelt (Unterkante
+    # offen 1220, eingeklappt 246 — 974 px Sprung).
     #
-    # ⭐ Die Regel gab es schon fuer das Ziehen am Griff (`_verankert`), nur
-    # nicht fuers Klappen. Deshalb prueft das hier BEIDE Wege gegeneinander.
+    # ⭐ Dieselbe Regel gilt fuer das Ziehen am Griff (`_verankert`) und fuers
+    # Klappen. Deshalb prueft das hier BEIDE Wege gegeneinander.
     import tkinter as _tk253
     from scbp import paths as _pf253, screen as _bs253
     _heim253 = tempfile.mkdtemp(prefix='pruefung253-')
@@ -24920,8 +24276,8 @@ def main():
     # ⚠⚠ **Feste Arbeitsflaeche.** Ohne sie rechnet die Pruefung gegen den
     # ECHTEN Bildschirm des Entwicklers: `_in_arbeitsflaeche()` klemmt das
     # Fenster dann an einen Rand, und die Messung zeigt einen Sprung, den es
-    # auf einem normalen Schirm nicht gibt. Erster Anlauf ging so rot —
-    # gemessen wurde die Testumgebung, nicht der Code. Dasselbe Mittel wie in
+    # auf einem normalen Schirm nicht gibt — gemessen wuerde die
+    # Testumgebung, nicht der Code. Dasselbe Mittel wie in
     # Pruefung 238.
     _echt253 = _bs253.work_area
     _bs253.work_area = lambda *a, **k: (0, 0, 1920, 1040)
@@ -24995,13 +24351,12 @@ def main():
         shutil.rmtree(_heim253, ignore_errors=True)
 
     print('\n254. „Zum Farmen vormerken" wirklich druecken')
-    # ⚠⚠ Bisher prueften wir nur `fleet.notepad_add()` (Pruefung „ein
-    # Gegenstand laesst sich vormerken"). Ob der KNOPF das tut, ob danach
-    # „Vorgemerkt ✓" daneben steht und ob die Farmliste den Eintrag zeigt,
-    # prueft nur, wer klickt — die Lehre vom 06.09.2026, die `durchklicken.py`
-    # und `abnahme.py` begruendet hat.
+    # ⚠⚠ `fleet.notepad_add()` allein zu pruefen reicht nicht. Ob der KNOPF
+    # das tut, ob danach „Vorgemerkt ✓" daneben steht und ob die Farmliste den
+    # Eintrag zeigt, prueft nur, wer klickt (wie `durchklicken.py` und
+    # `abnahme.py`).
     #
-    # Drei Stolpersteine, alle beim ersten Anlauf am 17.09.2026 getroffen:
+    # Drei Stolpersteine:
     #   * Ohne Rezeptdaten gibt es keinen Bauplan — ein Minimal-Cache wird
     #     hier selbst angelegt (Muster aus Pruefung 251), kein Abruf.
     #   * Der Knopf ist eine LEINWAND mit gezeichnetem Text; `cget('text')`
@@ -25062,9 +24417,9 @@ def main():
         # ⚠⚠ **Nur die EINE Seite durchsuchen, nicht das ganze Fenster.**
         # Seiten werden einmal gebaut und danach nur ein- und ausgeblendet —
         # die Herstellung bleibt also eingehaengt, waehrend die Farmliste
-        # offen ist. Der erste Anlauf suchte im ganzen Fenster und fand den
-        # Bauplannamen auf der versteckten Herstellungsseite: Die Gegenprobe
-        # (Knopf speichert nichts) liess „die Farmliste zeigt ihn an" GRUEN.
+        # offen ist. Eine Suche im ganzen Fenster faende den Bauplannamen auf
+        # der versteckten Herstellungsseite, und die Gegenprobe (Knopf
+        # speichert nichts) bliebe GRUEN.
         def _beschriftungen254(seite):
             wurzel = _fe254.pages.get(seite)
             if wurzel is None:
@@ -25114,19 +24469,17 @@ def main():
 
     print('\n255. Die Discord-Meldung holt das AKTUELLE Symbol')
     # ⭐ Discord laedt Bilder ueber einen eigenen Zwischenspeicher und merkt
-    # sie sich **je URL**. Stand dort immer dieselbe Adresse, zeigte die
-    # Ankuendigung von v3.53.0 noch das Symbol von vor dem Wechsel — obwohl
-    # auf GitHub laengst das neue lag. Fuer den Leser sah es aus, als waere
-    # das Update nicht angekommen.
+    # sie sich **je URL**. Steht dort immer dieselbe Adresse, zeigt eine
+    # Ankuendigung noch das Symbol von vor einem Wechsel — obwohl auf GitHub
+    # laengst das neue liegt.
     #
     # Geprueft wird die **Eigenschaft**, nicht der Wortlaut: Zwei Fassungen
     # muessen zwei verschiedene URLs ergeben. Wer den Zusatz wieder entfernt
     # oder ihn an etwas haengt, das sich nicht aendert, faellt hier durch.
     # ⛔ **Nicht im Quelltext nach `logo_url(tag)` suchen** — der Name steht
     # dort auch in der Funktionsdefinition, die Suche geht also selbst dann
-    # durch, wenn die Karte wieder eine feste Adresse einsetzt. Genau so ist
-    # der erste Anlauf dieser Pruefung am 18.09.2026 durch die eigene
-    # Gegenprobe gefallen. Geprueft wird deshalb die **gebaute Karte**.
+    # durch, wenn die Karte wieder eine feste Adresse einsetzt. Geprueft wird
+    # deshalb die **gebaute Karte**.
     sys.path.insert(0, os.path.join(WURZEL, '.github', 'scripts'))
     import discord_release as _dr255
 
@@ -25146,12 +24499,10 @@ def main():
            % _a255.split('?')[0])
 
     print('\n256. Der Joystick-Platz kommt aus der Registry, nicht vom Treiber')
-    # ⛔⛔ `joyGetDevCapsW` hat am 12.09.2026 ein Windows mit HOTAS-Aufbau hart
-    # heruntergerissen (`0xc0000374`, Heap-Beschaedigung). Aus der
-    # Geraeteabfrage ist der Aufruf seit v3.43.1 raus — in `_windows_wait`
-    # stand er bis zum 20.09.2026 **immer noch**. Genau der Fall, vor dem die
-    # Projektregel warnt: dasselbe wird an zwei Stellen ausgewertet, repariert
-    # wurde eine.
+    # ⛔⛔ `joyGetDevCapsW` kann ein Windows mit HOTAS-Aufbau hart
+    # herunterreissen (`0xc0000374`, Heap-Beschaedigung). Er darf weder in der
+    # Geraeteabfrage noch in `_windows_wait` stehen — dasselbe wird an zwei
+    # Stellen ausgewertet, beide muessen ohne ihn auskommen.
     #
     # ⚠ Geprueft wird die **Auswertung**, nicht die Registry — deshalb ist
     # `_slots_from_values` von der Abfrage getrennt. So laeuft die Pruefung
@@ -25169,11 +24520,11 @@ def main():
     _karte256 = _ein256._slots_from_values(_werte256)
 
     # a) Der Versatz. ⚠⚠ **Das ist der Kern der Pruefung**: Die Registry zaehlt
-    #    ab 1, `winmm` ab 0. Am 20.09.2026 an drei VIRPIL-Geraeten gemessen —
-    #    Platz 0 trug `VID_3344&PID_03F3` und hiess dort `Joystick1OEMName`.
+    #    ab 1, `winmm` ab 0. An drei VIRPIL-Geraeten gemessen — Platz 0 trug
+    #    `VID_3344&PID_03F3` und hiess dort `Joystick1OEMName`.
     #    Wer den Versatz herausnimmt, ordnet jede Belegung dem falschen Stick
     #    zu, und **auffallen wuerde das niemandem**.
-    #    Gegenprobe am 20.09.2026: `- 1` entfernt → diese Zeile wird rot.
+    #    Gegenprobe: `- 1` entfernt → diese Zeile wird rot.
     pruefe(_karte256.get(0) == _ein256.ident_from_ids(0x3344, 0x03F3),
            'Joystick1 aus der Registry landet auf winmm-Platz 0 (%r)'
            % _karte256.get(0))
@@ -25190,7 +24541,8 @@ def main():
            % _karte256.get(1))
 
     # d) Leere Eingabe ergibt leere Karte — der Aufrufer faellt dann auf
-    #    „nur ein Geraet" zurueck und sonst auf die Eingabe von Hand.
+    #    den Fall mit nur einem Geraet zurueck und sonst auf die Eingabe von
+    #    Hand.
     pruefe(_ein256._slots_from_values([]) == {},
            'ohne Registry-Werte wird nichts geraten')
 
@@ -25209,26 +24561,23 @@ def main():
            ' (%d Fundstellen)' % len(_rufe256))
 
     print('\n257. Der nachgereichte Vertrag baut die Auftragszeile neu')
-    # ⚠⚠ Das Spiel meldet „geteilt" und „angenommen" Sekunden auseinander. Die
+    # ⚠⚠ Das Spiel schreibt geteilt und angenommen Sekunden auseinander. Die
     # geteilte Meldung traegt die Nullkennung und findet nie einen Vertrag —
     # die Zeile entsteht ueber den Titelweg, mit der ueber alle Regionen
     # zusammengefassten Zahl. Liegen beide Meldungen im selben Abschnitt,
     # faellt das nicht auf; liegen sie in ZWEI, bliebe die grobe Zahl fuer
     # immer stehen.
     #
-    # ⛔⛔ **Warum diese Pruefung den Watcher wirklich baut.** Der Randfall war
-    # seit dem 13.09.2026 als offen notiert: „begruendet, aber nicht geprueft".
-    # Die drei Pruefungen, die es vorher gab (58d, 89h), suchen **Zeichenketten
-    # im Quelltext** (`'mission_events' in _ab58`). So eine Suche geht auch
+    # ⛔⛔ **Warum diese Pruefung den Watcher wirklich baut.** Die Pruefungen
+    # 58d und 89h suchen **Zeichenketten im Quelltext** (`'mission_events' in _ab58`). So eine Suche geht auch
     # dann durch, wenn die Zeile nie ersetzt wird. Hier laeuft stattdessen ein
     # echter `Watcher` ueber zwei Abschnitte, und gemessen wird die **Zahl in
     # der Zeile**.
     #
     # ⚠ Der Nachweis haengt daran, dass die beiden Wege VERSCHIEDENE Zahlen
-    # liefern (Titelweg 4, Vertragsweg 2). Beim ersten Anlauf stand hier ein
-    # frei erfundener Titel — `key_for` gab `None`, der Titelweg lieferte gar
-    # keine Zeile, und Abschnitt 1 war leer. Die Pruefung haette „in
-    # Abschnitt 2 kam eine Zeile" gemeldet und damit NICHTS belegt.
+    # liefern (Titelweg 4, Vertragsweg 2). Mit einem frei erfundenen Titel
+    # gaebe `key_for` `None`, der Titelweg lieferte gar keine Zeile, und
+    # Abschnitt 1 waere leer — eine Zeile in Abschnitt 2 belegte dann NICHTS.
     import queue as _qu257
     from scbp import contracts as _ct257
     import sc_bp_watcher as _sw257
@@ -25292,7 +24641,7 @@ def main():
         _zweite257 = _zeilen257()
         # ⚠ Das ist die Prüfung. Ohne den Quellen-Vergleich in
         # `_auftraege_melden` bleibt diese Liste LEER und die 0/4 steht fuer
-        # immer. Gegenprobe am 20.09.2026 genau so gefahren.
+        # immer.
         pruefe(len(_zweite257) == 1 and '0/2' in _zweite257[0],
                'Abschnitt 2 mit Vertrag: die Zeile wird NEU gebaut, mit der'
                ' feinen Zahl (%r)' % (_zweite257,))
@@ -25309,10 +24658,9 @@ def main():
          _ct257._index, _ct257._pattern_index) = _alt257
 
     print('\n258. Ein unuebersetzter Bauplanname kommt nicht in den Bestand')
-    # ⚠⚠ Gemeldet am 20.09.2026 (Bushwick4712, v3.53.3): Drei Bauplaene standen
-    # als `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` im Bestand. Konnte das
-    # Spiel den Namen nicht uebersetzen, schreibt es den rohen Schluessel in
-    # die Meldung — und im Bestand IST der Name der Schluessel. Die Zeile im
+    # ⚠⚠ Kann das Spiel einen Namen nicht uebersetzen, schreibt es den rohen
+    # Schluessel in die Meldung (`@Nozzle_FuelGiver_GRIN_NozzleSecure_Name`)
+    # — und im Bestand IST der Name der Schluessel. Die Zeile im
     # Flottenmanager heilt, sobald die Uebersetzung nachzieht; ein so
     # gespeicherter Bauplan nicht, er stuende beim naechsten Fund doppelt da.
     #
@@ -25360,7 +24708,7 @@ def main():
         shutil.rmtree(_dir258, ignore_errors=True)
 
     print('\n259. Die Originalnamen aus der Data.p4k')
-    # Teil 2 zum Fall vom 20.09.2026: Wer weder eine gepflegte Uebersetzung
+    # Ergaenzung zu Pruefung 258: Wer weder eine gepflegte Uebersetzung
     # noch eine entpackte englische `global.ini` hat, bekommt sonst keinen
     # Namen. Die englische Datei liegt in JEDER Installation im Archiv.
     from scbp import gametext as _gt259
@@ -25427,21 +24775,19 @@ def main():
                '%s holt die Originalnamen ueber die gemeinsame Stelle'
                % _datei259)
 
-    # e) ⚠⚠ **Der Fall, mit dem alles anfing: die SCHIFFSNAMEN im ASOP.**
-    #    Gemeldet mit einem Bild des Flottenmanagers, in dem eine Zeile
-    #    `@vehicle_NameAEGS_Sabre_Raven_EX` hiess. Ohne englische `global.ini`
-    #    daneben gab `_added_ship_names()` frueher **leer** zurueck — und die
-    #    Zeile blieb, wie sie war.
+    # e) ⚠⚠ **Die SCHIFFSNAMEN im ASOP.** Ohne englische `global.ini` daneben
+    #    darf `_added_ship_names()` nicht **leer** zurueckgeben — sonst bleibt
+    #    im Flottenmanager eine Zeile wie `@vehicle_NameAEGS_Sabre_Raven_EX`
+    #    stehen.
     #
     #    ⛔ Geprueft wird `_added_ship_names()` selbst, NICHT `missing_names()`.
-    #    Der erste Entwurf dieser Pruefung rief die Hilfsfunktion direkt und
-    #    waere auch dann gruen geblieben, wenn der neue Zweig in
-    #    `_added_ship_names` gar nicht existierte.
+    #    Ein Aufruf der Hilfsfunktion bliebe auch dann gruen, wenn der Zweig
+    #    in `_added_ship_names` gar nicht existierte.
     from scbp import injection as _inj259
     _dir259b = tempfile.mkdtemp(prefix='pruefung259b-')
     _altg259 = _gt259.names_or_fetch
     try:
-        # Eine deutsche Sprachdatei OHNE englische daneben — Bushwicks Lage.
+        # Eine deutsche Sprachdatei OHNE englische daneben.
         _de259 = os.path.join(_dir259b, 'german_(germany)')
         os.makedirs(_de259)
         _ini259b = os.path.join(_de259, 'global.ini')
@@ -25468,22 +24814,17 @@ def main():
 
     # ------------------------------------------------------------------
     print('\n260. Der neueste Changelog-Block hat genau drei Abschnitte')
-    # ⚠⚠ **Ein Regelwiderspruch, der mehrere Releases lang Zeit gekostet hat.**
-    # Die Release-Checkliste verlangte einen Abschnitt „Dank" / „Thanks", die
-    # Regel zwei Absaetze darueber verbot einen vierten Abschnitt. Beide
-    # klangen gleich verbindlich; entschieden wurde am 21.09.2026 fuer DREI
-    # Abschnitte — der Dank lebt als „Gemeldet von …" am Punkt und auf der
-    # Danke-Seite im Programm.
+    # ⚠⚠ Ein Block hat DREI Abschnitte (Neu, Verbessert, Behoben) — kein
+    # Dank-Abschnitt; der Dank steht am Punkt und auf der Danke-Seite im
+    # Programm.
     #
     # ⚠ Warum es auffallen MUSS: `updater.points_by_kind()` setzt die Art nur
     # um, wenn die Ueberschrift eines der Stichwoerter traegt — sonst bleibt
     # die vorherige stehen. Ein `### Dank` nach „Behoben" erscheint im Fenster
     # „Was ist neu" also als **Fehlerbehebung**, ganz vorn als **Neuerung**.
     #
-    # ⚠ Geprueft wird NUR der oberste Block. Die 25 deutschen und 26
-    # englischen Alt-Bloecke bleiben bewusst stehen (Entscheidung 21.09.2026:
-    # alte Versionen liest kaum jemand nach, 51 Stellen umzubauen waere Risiko
-    # ohne Nutzen).
+    # ⚠ Geprueft wird NUR der oberste Block; aeltere Bloecke mit Dank-
+    # Abschnitt bleiben unangetastet.
     from scbp import updater as _up260
     _ERLAUBT260 = {
         'CHANGELOG.md': ('neu', 'verbessert', 'behoben'),
@@ -25491,8 +24832,8 @@ def main():
     }
     for _datei260, _erlaubt260 in sorted(_ERLAUBT260.items()):
         _text260 = open(os.path.join(WURZEL, _datei260), encoding='utf-8').read()
-        # Der oberste veroeffentlichte Block — „Unveroeffentlicht"/„Unreleased"
-        # ueberspringen, der ist beim Sammeln absichtlich leer.
+        # Der oberste veroeffentlichte Block — den Sammelblock
+        # (Unveroeffentlicht/Unreleased) ueberspringen, der ist absichtlich leer.
         _bloecke260 = re.split(r'(?m)^## ', _text260)[1:]
         _block260 = None
         for _b260 in _bloecke260:
@@ -25528,9 +24869,8 @@ def main():
     # ------------------------------------------------------------------
     print('\n261. Der Guetegrad kommt aus dem Spiel, nicht aus scmdb')
     # ⚠⚠ scmdb fuehrt Draug, Elsen und Pelerous als Grade A — CIGs eigene
-    # Sprachdatei sagt C, B und C (gemessen an 4.10.1, 26.09.2026). Die Liste
-    # nahm den Grad ungefiltert von scmdb; die Rangfolge „Spiel vor scmdb"
-    # galt nur im Overlay und auch dort nur mit Launcher.
+    # Sprachdatei sagt C, B und C (gemessen an Spielstand 4.10.1). Die
+    # Rangfolge Spiel vor scmdb muss an beiden Wegen gelten.
     #
     # Geprueft wird die WIRKUNG an beiden Wegen: der gebaute Katalog
     # (`catalog.build`) und der Zwischenspeicher des Overlays
@@ -25707,9 +25047,9 @@ def main():
            'angezeigt wird trotzdem die volle Bezeichnung')
 
     print('\n263. Das Overlay ist eine App, kein Werkzeugfenster (Windows)')
-    # Als Werkzeugfenster fehlte es in Taskleiste und Alt+Tab, und der
-    # Task-Manager fuehrte es unter „Hintergrundprozesse". Gemessen am
-    # 26.09.2026: Als App-Fenster nimmt das Aufblenden dem Spiel KEINEN Fokus —
+    # Als Werkzeugfenster fehlt es in Taskleiste und Alt+Tab, und der
+    # Task-Manager fuehrt es unter „Hintergrundprozesse". Gemessen: Als
+    # App-Fenster nimmt das Aufblenden dem Spiel KEINEN Fokus —
     # das gilt aber nur, solange `_popup_zeigen` sich nicht selbst nach vorn
     # holt. Genau das haelt die zweite Pruefung fest.
     _src263 = open(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'),
@@ -25756,9 +25096,9 @@ def main():
 
     print('\n264. Geraeteliste: langer Windows-Pfad schneidet nichts ab')
     # Unter Windows ist der Systempfad ueber 100 Zeichen lang
-    # (`\\?\HID#VID_…&PID_…#…{GUID}`). Er schob den Zustand „bereit" um 19 px
-    # aus der Zeile (randpruefung, 26.09.2026) — gesehen nur auf einem Rechner
-    # mit echtem Stick, also nie im Selbsttest. Hier wird die Zeile mit einem
+    # (`\\?\HID#VID_…&PID_…#…{GUID}`). Er kann den Zustand „bereit" um 19 px
+    # aus der Zeile schieben — zu sehen nur auf einem Rechner mit echtem
+    # Stick, also nie im Selbsttest. Hier wird die Zeile mit einem
     # solchen Pfad in eine ENGE Tafel gebaut und nachgemessen.
     from scbp import pages as _pg264, device_hub as _dh264
     import tkinter as _tk264
@@ -25785,8 +25125,8 @@ def main():
     _dh264.Watchdog = _Wache264
     # ⚠ Zwei Breiten, weil es zwei Reparaturen sind. Bei 640 px faellt nur der
     # ungekuerzte Pfad auf. Die REIHENFOLGE (Zustand vor Pfad gepackt) greift
-    # erst, wenn es wirklich eng wird — die erste Fassung dieser Pruefung hatte
-    # nur 640 px und blieb gruen, als die Reihenfolge zurueckgedreht wurde.
+    # erst, wenn es wirklich eng wird — mit nur 640 px bliebe die Pruefung
+    # gruen, auch wenn die Reihenfolge zurueckgedreht ist.
     _w264 = _tk264.Tk()
     try:
         _sch264 = _tf264.Font(root=_w264, size=10)
@@ -25874,15 +25214,10 @@ def main():
         for f in fehler:
             print('  ·', f)
         return 1
-    # ⭐⭐ **Die ZAHL gehoert auch in die Erfolgsmeldung.** Bis zum 12.09.2026
-    # stand hier nur „Alle Prüfungen bestanden." — die Zahl nannte der Lauf
-    # ausschliesslich im Fehlerfall. Damit war ausgerechnet der gefaehrlichste
-    # Fall unsichtbar: ein **gruener** Lauf mit weniger Pruefungen als vorher.
-    #
-    # Genau das ist am selben Tag zweimal passiert. Einmal auffaellig (2090
-    # statt 2094, weil eine Reparatur vier `global.ini`-Pruefungen stillgelegt
-    # hatte) — und einmal beinahe unbemerkt, weil die Erfolgsmeldung keine Zahl
-    # hergab und erst das Nachzaehlen der Ausgabe sie lieferte.
+    # ⭐⭐ **Die ZAHL gehoert auch in die Erfolgsmeldung.** Ohne sie ist
+    # ausgerechnet der gefaehrlichste Fall unsichtbar: ein **gruener** Lauf
+    # mit weniger Pruefungen als vorher (etwa weil eine Reparatur Pruefungen
+    # stillgelegt hat).
     #
     # Ein gruener Lauf mit weniger Pruefungen sieht besser aus als ein roter und
     # ist schlechter. Wer vergleichen soll, braucht die Zahl ohne Nachzaehlen.
@@ -25896,9 +25231,8 @@ def _versionierte_dateien(wurzel, endungen=('.py', '.md', '.yml')):
     ⚠ **Nicht `os.walk`.** Der Maßstab ist nicht, was auf der Platte liegt,
     sondern was im Repo landet: Eine Anleitung, die per `.gitignore`
     ausgeschlossen ist, darf privates Beiwerk enthalten — sie geht niemanden
-    an, weil sie nirgends hinkommt. Am 30.08.2026 meldete die Pruefung genau
-    so eine Datei, waehrend der Bau-Laeufer sie gar nicht kannte: lokal rot,
-    im Bau gruen. Zwei verschiedene Wahrheiten ueber dieselbe Frage.
+    an, weil sie nirgends hinkommt. Mit `os.walk` waere die Pruefung lokal
+    rot und auf dem Bau-Laeufer gruen — zwei Wahrheiten ueber dieselbe Frage.
 
     Ohne Git (entpacktes Archiv) faellt die Pruefung auf das Dateisystem
     zurueck — dann lieber zu viel pruefen als zu wenig.
@@ -25925,8 +25259,8 @@ def _pruefung_265():
     """265. Baupläne zählen nur vom eigenen Account."""
     print('\n265. Baupläne zählen nur vom eigenen Account')
     # ⚠⚠ Wer zwei Accounts auf einem Rechner spielt, hat beider Protokolle in
-    # `logbackups/`. Bis v3.56 landeten die Baupläne des zweiten still im
-    # eigenen Bestand. Geprüft wird die WIRKUNG an allen drei Wegen —
+    # `logbackups/`. Die Baupläne des zweiten dürfen nicht still im eigenen
+    # Bestand landen. Geprüft wird die WIRKUNG an allen drei Wegen —
     # Nachlesen, Mitlesen, Entfernen — mit einer eigenen Installation, in der
     # zwei Accounts gespielt haben.
     import queue as _qu
@@ -26082,7 +25416,7 @@ def _pruefung_267():
         sys.path.pop(0)
     from scbp import exchange_sync as _xs, paths as _pa
 
-    # ⚠⚠ Erst muss sich der Pruefer beweisen — an gelucs eigenen Beispielen.
+    # ⚠⚠ Erst muss sich der Pruefer beweisen — an den Beispielen der Anleitung.
     # Jede gueltige Datei muss durchgehen, jede ungueltige haengen bleiben.
     # Ein Pruefer, der alles durchwinkt, machte jede Zeile darunter wertlos.
     _bsp = _sp.check_examples()
@@ -26262,7 +25596,7 @@ def _pruefung_267():
            '1201 Bauplaene gehen in drei gueltigen Sendungen hinaus (%r)'
            % [len(s['ops']) for s, _t in _sets])
 
-    # gelucs Feld-Beispiel laesst sich zusammensetzen
+    # Das Feld-Beispiel der Anleitung laesst sich zusammensetzen
     with open(os.path.join(_sp.EXAMPLES, 'page--blueprintPage', 'valid',
                            'feed.json'), encoding='utf-8') as _f:
         _seite = _js.load(_f)
@@ -26275,10 +25609,10 @@ def _pruefung_267():
 def _pruefung_268():
     """268. Zeiten beim Export nach UTC, beim Import zurück in Ortszeit."""
     print('\n268. Export und Import rechnen die Zeitzone wirklich um')
-    # ⚠⚠ Der Bestand haelt ORTSZEIT. Bis v3.57.3 haengte der Basetool-Export
-    # nur ein `Z` an, und der Import schnitt es wieder ab — beides lag im
-    # Sommer zwei Stunden daneben, und weil sich die Fehler gegenseitig
-    # aufhoben, fiel es beim Rundlauf nie auf.
+    # ⚠⚠ Der Bestand haelt ORTSZEIT. Haengt der Basetool-Export nur ein `Z`
+    # an und schneidet der Import es wieder ab, liegt beides im Sommer zwei
+    # Stunden daneben — und weil sich die Fehler gegenseitig aufheben, faellt
+    # es beim Rundlauf nie auf.
     import time as _ti
     from scbp import export as _ex, importer as _im
     _ort = '2026-09-26 14:05:00'
@@ -26310,8 +25644,7 @@ def _pruefung_268():
 def _pruefung_269():
     """269. Statistik: nur Belegtes zählen, dauerhaft festhalten."""
     print('\n269. Statistik: zaehlt Belegtes und behaelt es, auch ohne Logs')
-    # Nachgebaut nach echten Zeilen (27.09.2026, 181 Protokolle). Geprueft
-    # wird die WIRKUNG ueber `catch_up` und `summary`, den Weg, den Start und
+    # Nachgebaut nach echten Zeilen. Geprueft wird die WIRKUNG ueber `catch_up` und `summary`, den Weg, den Start und
     # Seite nehmen — nicht `read_log` allein.
     import tempfile as _tf269
     import time as _ti269
@@ -26433,8 +25766,8 @@ def _pruefung_270():
     """270. Statistik-Unterseiten: Schiffe, Waffen, Ziele, Stabilitaet."""
     print('\n270. Statistik-Unterseiten zaehlen nur Eigenes und bleiben bei '
           'Neuauswertung')
-    # Nachgebaut nach echten Zeilen (27.09.2026, 181 Protokolle). Geprueft
-    # wird ueber `catch_up`, den Weg, den Start und Seiten nehmen.
+    # Nachgebaut nach echten Zeilen. Geprueft wird ueber `catch_up`, den Weg,
+    # den Start und Seiten nehmen.
     import tempfile as _tf270
     import json as _js270
     from scbp import play_stats as _ps, paths as _pa270
@@ -26453,7 +25786,7 @@ def _pruefung_270():
             'Status_Character> Character: ... - name Xharig - state '
             'STATE_CURRENT',
             '<2026-09-20T18:01:00.000Z> OnClientSpawned',
-            # dieselbe Waffe zweimal gemeldet (Umziehen) -> einmal
+            # dieselbe Waffe zweimal im Log (Umziehen) -> einmal
             _waffe(2, 'Xharig', 'behr_lmg_ballistic_01', '11', 'wep_stocked_2'),
             _waffe(3, 'Xharig', 'behr_lmg_ballistic_01', '11', 'wep_stocked_2'),
             _waffe(4, 'Xharig', 'klwe_pistol_energy_01', '12', 'wep_sidearm'),
@@ -26581,10 +25914,10 @@ def _pruefung_270():
         # Automatik: ab Werk an, abschaltbar — und dann liest der Start nichts
         pruefe(_ps.auto_enabled(), '„Automatisch auswerten" ist ab Werk an')
         # ⚠⚠ Die Weiche steckt in `startup_catch_up` und wird DIREKT
-        # geprueft. Der erste Anlauf ging ueber `scan_backlog` — im Gesamtlauf
-        # haben fruehere Pruefungen dort Module neu geladen und Ordner
-        # verbogen, und die Falle hing am falschen Objekt: einzeln gruen,
-        # im Gesamtlauf rot (Zustand von vorher). Dass der Start die Weiche
+        # geprueft. Ueber `scan_backlog` haengt die Falle im Gesamtlauf am
+        # falschen Objekt, weil fruehere Pruefungen dort Module neu laden und
+        # Ordner verbiegen: einzeln gruen, im Gesamtlauf rot (Zustand von
+        # vorher). Dass der Start die Weiche
         # auch benutzt, haelt der Codeverweis darunter fest (wie Pruefung 175).
         _gerufen = []
         _alt_cu = _ps.catch_up
@@ -26619,7 +25952,7 @@ def _pruefung_270():
                'der Start (`scan_backlog`) geht ueber die Weiche, nicht '
                'direkt an `catch_up`')
 
-        # rc3: Die zwei Schalter auf „Update & Ueber" (`pages._switch`) sind
+        # Die zwei Schalter auf „Update & Ueber" (`pages._switch`) sind
         # echte Schiebeschalter — keine Schrift „an"/„aus" auf einem Kasten.
         import tkinter as _tk270
         from scbp import pages as _pg270
@@ -26857,8 +26190,8 @@ def _pruefung_272():
            % _fehlt272[:3])
     pruefe(_ic272.GREEN == _th272.ICON_SET,
            'die Symbole nehmen den Satz des Schemas')
-    # ⚠ Kein Rollbalken des Betriebssystems (27.09.2026 an den user.cfg-
-    # Kaesten gemeldet): Er laesst sich nicht einfaerben und faellt in jedem
+    # ⚠ Kein Rollbalken des Betriebssystems (auch nicht an den user.cfg-
+    # Kaesten): Er laesst sich nicht einfaerben und faellt in jedem
     # Schema aus dem Bild. Standard ist `round_scrollbar`.
     import ast as _ast272
     _roh272 = []
@@ -26946,8 +26279,7 @@ def _pruefung_273():
     from scbp import theme as _th273, overlay as _ov273, pages as _pg273
     from scbp import stats_pages as _sp273, language as _la273
 
-    # --- Runde Ecken: in JEDEM Schema (rc8, Rueckmeldung am Release), und
-    # nur nach dem Einblenden
+    # --- Runde Ecken: in JEDEM Schema, und nur nach dem Einblenden
     import inspect as _in273
     pruefe('SQUARE' not in _in273.getsource(_ov273.round_corners)
            .split('"""')[-1],
@@ -27046,7 +26378,7 @@ def _pruefung_273():
                '_wrap_self bleibt bei einem Label ohne expand stehen '
                '(%d -> %d px)' % (_br273, _ws273.winfo_width()))
         # Eingeengt (fester Rahmen, 160 px): Ohne Abzug der Polsterung
-        # wuenschte sich „Bergbau-Regler" 153 px und bekam 148.
+        # verlangt „Bergbau-Regler" 153 px und bekommt 148.
         _en273 = _tk273.Frame(_w273, width=160, height=200)
         _en273.pack_propagate(False)
         _en273.pack(anchor='w')
@@ -27067,7 +26399,7 @@ def _pruefung_273():
     # --- Flaggen auch an der Textquelle des Spiels
     _qp273 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
-    # ⭐ Seit v3.59.0 steht die Auswahl auf „Übersetzung" und kommt aus
+    # ⭐ Die Auswahl steht auf „Übersetzung" und kommt aus
     # `translation.SOURCES` — geprüft wird deshalb die Eigenschaft: jede
     # Quelle trägt eine Flagge, und das Bild dazu gibt es in jeder Größe.
     from scbp import translation as _tr273
@@ -27082,13 +26414,12 @@ def _pruefung_273():
            and "_flag(flagge) if flagge else None" in _qp273,
            'Textquelle: jede Quelle mit Flagge, Deutsch deutsch, StarStrings '
            'und Original britisch (ohne: %r)' % _ohne273)
-    # ⚠⚠ **Hier stand bis zum 28.09.2026 die Verdrahtung als Vorschrift**: Die
-    # Pruefung verlangte woertlich die drei Zeilen `('inj_quelle_de',
-    # 'deutsch', 'de')` usw. in `settings_window.py` und `wizard.py`. Damit hat
-    # sie den Fehler nicht gefunden, sondern **festgeschrieben** — jede neue
-    # Sprache erschien im Reiter und an diesen beiden Stellen nie.
+    # ⚠⚠ **Keine Verdrahtung als Vorschrift.** Wer woertlich Zeilen wie
+    # `('inj_quelle_de', 'deutsch', 'de')` in `settings_window.py` und
+    # `wizard.py` verlangt, schreibt den Fehler fest — jede neue Sprache
+    # erschiene dann nur im Reiter.
     #
-    # Geprueft wird jetzt die Eigenschaft: Beide holen die Liste aus
+    # Geprueft wird die Eigenschaft: Beide holen die Liste aus
     # `grouped_sources()`, nennen keine Quelle beim Namen und halten das Bild
     # fest. Siehe Pruefung 288.
     for _d273 in ('settings_window.py', 'wizard.py'):
@@ -27109,8 +26440,8 @@ def _pruefung_274():
     from scbp import theme as _th274, icons as _ic274, pages as _pg274
     from scbp import language as _la274
     # ⚠ `symbole_bauen` NICHT importieren: Es verlangt Pillow und beendet
-    # sonst den ganzen Lauf („Pillow fehlt") — auf dem Bau-Laeufer ist Pillow
-    # nicht installiert, rc8 scheiterte daran. Die Farbtabelle wird aus dem
+    # sonst den ganzen Lauf — auf dem Bau-Laeufer ist Pillow nicht
+    # installiert. Die Farbtabelle wird aus dem
     # Syntaxbaum gelesen.
     import ast as _ast274
     _baum274 = _ast274.parse(io.open(
@@ -27207,12 +26538,12 @@ def _pruefung_274():
 
 
 def _pruefung_275():
-    """275. Wer neu startet, beendet auch die alte Fassung (rc8)."""
+    """275. Wer neu startet, beendet auch die alte Instanz."""
     print('\n275. Neustart: die alte Fassung geht auch — kein zweites Overlay')
     import ast as _ast275
-    # ⚠ Am rc8 gemeldet: Nach „Jetzt neu starten" beim Farbschema lief das
-    # alte Overlay unter dem neuen weiter. `updater.restart()` startet nur die
-    # neue Fassung; beenden muss sich die alte selbst.
+    # ⚠ Nach „Jetzt neu starten" beim Farbschema darf das alte Overlay nicht
+    # unter dem neuen weiterlaufen. `updater.restart()` startet nur die neue
+    # Instanz; beenden muss sich die alte selbst.
     _uebergabe275 = ('_hand_over_after_restart', 'new_version_alive',
                      '_hand_over')
     _ohne275, _als_wert275 = [], []
@@ -27248,7 +26579,7 @@ def _pruefung_275():
             if _ruft275 and not _gibt_ab275:
                 _ohne275.append('%s:%s' % (_d275, _f275.name))
     # Eine aeussere Funktion, deren innere die Uebergabe macht, zaehlt mit:
-    # gemeldet wird nur die innerste, die restart ruft.
+    # genannt wird nur die innerste, die restart ruft.
     pruefe(not _als_wert275,
            'updater.restart wird nie ungerufen als Knopf-Aktion uebergeben '
            '(%r)' % _als_wert275)
@@ -27306,8 +26637,8 @@ def _pruefung_276():
                and not os.path.exists(os.path.join(_nach276, 'Fotos')),
                'Fremdes kommt nicht mit')
 
-        # Nach dem Kopieren schreibt der Watcher weiter — am NEUEN Ort. Die
-        # alte Fassung darf dann nicht geloescht werden.
+        # Nach dem Kopieren schreibt der Watcher weiter — am NEUEN Ort. Der
+        # alte Stand darf dann nicht geloescht werden.
         _schreib276(os.path.join(_nach276, 'Diagnose', 'fehler.json'),
                     '[1]')
         _weg276, _bleibt276 = _pa276.remove_old_storage(_von276, _nach276)
@@ -27377,13 +26708,13 @@ def _pruefung_277():
     print('\n277. Tempo: Grundpreis je Seitenwechsel und erstes Oeffnen des '
           'Hauptfensters bleiben klein')
     # ⚠⚠ **Gezählt, nicht gestoppt.** Die Uhrzeit hängt davon ab, was sonst
-    # läuft — am 27.09.2026 belegte Star Citizen 65 % des Rechners, und jede
-    # Zeitmessung war wertlos. Tk-Aufrufe sind bei jedem Lauf gleich.
+    # läuft — belegt Star Citizen einen Großteil des Rechners, ist jede
+    # Zeitmessung wertlos. Tk-Aufrufe sind bei jedem Lauf gleich.
     #
     # Die Grenzen stammen aus der Messung mit `tools/tempo_messen.py`:
-    # Seitenwechsel vorher 568 Aufrufe (alle Reiter neu gefärbt und
-    # vermessen), danach 64; erstes Öffnen vorher rund 11 800 (Umbrüche gegen
-    # eine Fantasiebreite, 70 Runden), danach rund 3 000.
+    # Seitenwechsel rund 64 Aufrufe (568, wenn alle Reiter neu gefärbt und
+    # vermessen werden); erstes Öffnen rund 3 000 (rund 11 800 mit Umbrüchen
+    # gegen eine Fantasiebreite, 70 Runden).
     import tkinter as _tk277
     from scbp import main_window as _mw277
 
@@ -27441,9 +26772,9 @@ def _pruefung_278():
     """278. Frische Installation: Bauplan-Angaben trotz leerem Katalog."""
     print('\n278. Frische Installation: der Rueckfallweg holt den Katalog, '
           'statt aufzugeben')
-    # ⚠ Gemeldet am 27.09.2026 aus dem Einrichtungsassistenten (Schritt 7,
-    # StarStrings gewählt): „Hat nicht geklappt: Katalog kennt keine
-    # Missionen". Der Katalog wird sonst erst nach der Einrichtung geholt.
+    # ⚠ Im Einrichtungsassistenten (Schritt 7, StarStrings gewählt) darf es
+    # nicht an einem leeren Katalog scheitern („Katalog kennt keine
+    # Missionen"). Der Katalog wird sonst erst nach der Einrichtung geholt.
     import tempfile as _tf278
     from scbp import injection as _in278
     _heim278 = _tf278.mkdtemp(prefix='frisch278-')
@@ -27498,8 +26829,8 @@ def _pruefung_279():
     """279. Ein Klick aufs Overlay nimmt dem Spiel nie den Fokus (rc11)."""
     print('\n279. Overlay: ein Klick aktiviert das Fenster nicht — das Spiel '
           'behaelt den Fokus')
-    # ⚠ Gemeldet am 27.09.2026 beim Spielen: Der Fokus sprang immer wieder aus
-    # Star Citizen. Gemessen: Tk beantwortet WM_MOUSEACTIVATE selbst mit
+    # ⚠ Der Fokus darf nicht aus Star Citizen springen. Gemessen: Tk
+    # beantwortet WM_MOUSEACTIVATE selbst mit
     # „aktivieren" (1), auch mit WS_EX_NOACTIVATE. Gefragt wird deshalb das
     # echte Fenster, nicht der Stil.
     from scbp import overlay as _ov279
@@ -27560,9 +26891,8 @@ def _pruefung_279():
 def _pruefung_280():
     """280. Aus Nebenfäden fasst niemand Tk an — der Neustart tritt wirklich ab.
 
-    ⚠⚠ Gemeldet am v3.59.0-rc1 (27.09.2026), zum ZWEITEN Mal: Nach dem
-    Farbwechsel blieb das alte Overlay unter dem neuen stehen. v3.58.0 hatte es
-    „behoben" — aber der Prüf-Faden rief `root.after()`, und das wirft
+    ⚠⚠ Nach dem Farbwechsel darf das alte Overlay nicht unter dem neuen
+    stehen bleiben. Ruft ein Prüf-Faden `root.after()`, wirft das
     `main thread is not in main loop`, sobald der Hauptfaden gerade nicht in
     `mainloop()` steckt (Rückfrage, `update()`-Schleife, Abbau). Deshalb hier
     genau diese Lage: echtes Tk, `update()`-Schleife, Nebenfaden."""
@@ -27642,16 +26972,13 @@ def _pruefung_280():
 def _pruefung_281():
     """281. Eine sichtbare „Neu"-Marke lässt sich immer wegklicken.
 
-    ⚠⚠ Gemeldet am 28.09.2026 (Linux, v3.58.0): An mehreren Reitern blieb die
-    Marke stehen, egal wie oft man sie anklickte.
-
-    Die Ursache ist eine Zeitlücke: Die Marke entsteht beim **Bau** des Reiters
-    (`_tab`), weggeräumt wird sie beim **Klick** (`open_page`) — und dazwischen
-    wurde `news.is_new` ein zweites Mal gefragt. Sagt `gesehen.json` inzwischen
+    ⚠⚠ Die Falle ist eine Zeitlücke: Die Marke entsteht beim **Bau** des
+    Reiters (`_tab`), weggeräumt wird sie beim **Klick** (`open_page`). Fragt
+    der Klick `news.is_new` ein zweites Mal und sagt `gesehen.json` inzwischen
     etwas anderes, liefert die zweite Frage `False`, der Block wird
-    übersprungen, und die angezeigte Marke ist unzerstörbar. Ausgelöst hat es
+    übersprungen, und die angezeigte Marke ist unzerstörbar. Auslösen kann es
     der Wechsel des Ablage-Ordners in den Einstellungen: Der neue Ordner
-    brachte seine eigene `gesehen.json` mit.
+    bringt seine eigene `gesehen.json` mit.
 
     Geprüft wird beides — dass die Lage wirklich eintreten KANN (Wirkung an
     `news`), und dass das Wegräumen nicht mehr daran hängt (Struktur von
@@ -27744,9 +27071,8 @@ def _pruefung_281():
 
     # --- Teil 3: kein int() mehr auf einer Tk-Massangabe -------------------
     # `cget()` liefert unter Linux/Tk 8.6 ein `_tkinter.Tcl_Obj`; `int()` wirft
-    # darauf einen TypeError, den `except tk.TclError` nicht faengt. Am
-    # 28.09.2026 kamen so 8 von 8 aufgehobenen Fehlern aus `pages.py` — obwohl
-    # `_pixels` als Loesung laengst dastand und an anderer Stelle benutzt wurde.
+    # darauf einen TypeError, den `except tk.TclError` nicht faengt. `_pixels`
+    # ist der Weg dafuer.
     _pq281 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
     _pbaum281 = _ast281.parse(_pq281)
@@ -27768,9 +27094,6 @@ def _pruefung_281():
 
 def _pruefung_282():
     """282. Ein neues Programmsymbol erreicht auch Bestandsnutzer.
-
-    ⚠⚠ Gemeldet am 28.09.2026 (Linux): Im Startmenü stand noch das alte
-    Symbol — das neue („Figur im Ring") lag seit dem 18.09.2026 bei.
 
     Die Lücke sitzt zwischen zwei Wegen: `_write_icon()` läuft nur in
     `create()`, und `create()` läuft beim Update nicht (der Eintrag gilt als
@@ -27846,11 +27169,9 @@ def _pruefung_282():
 def _pruefung_283():
     """283. Der Assistent zeigt den Weg „keine Übersetzung" als Knopf.
 
-    ⚠⚠ Vorschlag von Choopa (28.09.2026): „Was wenn ich das nicht direkt will?"
-    Der Weg existierte seit jeher — weiterklicken ohne Wahl ließ die
-    Installation unverändert, und der Docstring von `_step_texts` nannte ihn
-    ausdrücklich („Drei Wege plus ‚jetzt nicht'"). Im Fenster stand davon
-    nichts. **Ein Weg, den man nicht sieht, ist für den Nutzer keiner.**
+    Weiterklicken ohne Wahl lässt die Installation unverändert — dieser Weg
+    muss im Fenster als eigener Knopf stehen. **Ein Weg, den man nicht sieht,
+    ist für den Nutzer keiner.**
 
     Gemessen wird der gebaute Schritt, nicht der Quelltext: vier anklickbare
     Zeilen statt drei, und der vierte darf nichts schreiben.
@@ -27882,8 +27203,7 @@ def _pruefung_283():
         _a283._paragraph = lambda *_a, **_k: None
         _a283._step_texts()
 
-        # Anklickbar ist, was auf <Button-1> hoert — seit dem 28.09.2026 auch
-        # eine Ebene tiefer: Die Quellen stehen in einer Reihe je Sprache.
+        # Anklickbar ist, was auf <Button-1> hoert — auch eine Ebene tiefer: Die Quellen stehen in einer Reihe je Sprache.
         def _klickbare283(behaelter):
             gefunden = []
             for w in behaelter.winfo_children():
@@ -27917,7 +27237,8 @@ def _pruefung_283():
     finally:
         _root283.destroy()
 
-    # Und der Melder wird genannt — alle drei Stellen, siehe CLAUDE.md.
+    # Der Melder steht an drei Stellen: CHANGELOG.md, CHANGELOG.en.md und
+    # die Danke-Seite.
     pruefe('s_dk_choopa_idee' in _la283.TEXTS, 'Choopa steht auf der Danke-Seite')
     _pq283 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
@@ -27930,13 +27251,11 @@ def _pruefung_283():
 def _pruefung_284():
     """284. Das „Made by the Community"-Zeichen bleibt scharf.
 
-    ⚠⚠ Gemeldet von Choopa (28.09.2026): „Bei der DPI und Schärfe musst Du was
-    tun. Es wird unscharf ab 128 % Skalierung."
-
-    Ursache war `subsample()`: Tk verkleinert damit über **ganze Teiler** und
-    nimmt jeden n-ten Pixel, ohne zu mitteln. Bei der feinen Ringschrift franst
-    das aus — und der ganzzahlige Teiler sprang bei hoher Skalierung von 240/3
-    auf 240/2. Jetzt liegen die Größen fertig gerendert daneben.
+    ⚠⚠ `subsample()` taugt dafür nicht: Tk verkleinert damit über **ganze
+    Teiler** und nimmt jeden n-ten Pixel, ohne zu mitteln. Bei der feinen
+    Ringschrift franst das aus — und der ganzzahlige Teiler springt bei hoher
+    Skalierung (ab 128 %) von 240/3 auf 240/2. Deshalb liegen die Größen
+    fertig gerendert daneben.
 
     Geprüft wird, dass jede eingetragene Stufe wirklich existiert **und** die
     richtige Kantenlänge hat — eine fehlende Datei fiele sonst still auf den
@@ -28029,10 +27348,9 @@ def _pruefung_284():
 
 
 def _pruefung_285():
-    """285. Baupläne ohne bekannten Weg: standardmäßig aus, auf Wunsch dabei.
+    """285. Baupläne ohne bekannten Weg: standardmäßig aus, per Schalter dabei.
 
-    ⭐ Vorschlag von Choopa (28.09.2026): „einen Toggle zu setzen in den
-    Settings — dann kann man die selber ein- und ausblenden."
+    Ein Schalter in den Einstellungen blendet sie ein und aus.
 
     Drei Dinge müssen stimmen, und jedes einzeln:
       1. **Standard aus.** Der Fortschritt bleibt die Zahl, die
@@ -28040,8 +27358,8 @@ def _pruefung_285():
       2. **Gefiltert wird in `load()`**, nicht an den 88 Lesestellen. Sonst
          zählt der nächste neue Bereich anders als der Rest.
       3. **Kein Patch-Zugang.** Die Einträge gab es längst; sie standen nur
-         nicht im Katalog. Ohne diese Regel meldete der erste Lauf nach dem
-         Update 853 Baupläne als „neu craftbar geworden".
+         nicht im Katalog. Ohne diese Regel meldet der erste Lauf nach dem
+         Update 853 Baupläne als neu craftbar.
     """
     print('\n285. Bauplaene ohne bekannten Weg: Standard aus, Schalter wirkt')
     import json as _js285
@@ -28131,11 +27449,9 @@ def _pruefung_285():
     pruefe(_kat285.FORMAT >= 5,
            'FORMAT ist hochgezaehlt (%d)' % _kat285.FORMAT)
 
-    # ⚠⚠ **Und die Verdrahtung — die Luecke, durch die es ausgeliefert wurde.**
-    # Diese Pruefung mass bis zum 28.09.2026 nur `load()`. Der Schalter in der
-    # Oberflaeche war dabei falsch angeschlossen (Rueckruf mit Parameter statt
-    # ohne, ohne Rueckgabe) und tat gar nichts — gemeldet mit „den Schalter
-    # kann ich nicht einschalten", nachdem das rc schon draussen war.
+    # ⚠⚠ **Und die Verdrahtung.** `load()` allein zu messen reicht nicht: Ein
+    # falsch angeschlossener Schalter (Rueckruf mit Parameter, ohne Rueckgabe)
+    # tut gar nichts.
     #
     # `toggle_switch` ruft `toggle()` **ohne Argument** und zeichnet nach
     # `bool(toggle())`. Ein Rueckruf mit Pflichtparameter wirft einen
@@ -28185,13 +27501,12 @@ def _pruefung_285():
 def _pruefung_286():
     """286. Textquellen: erst alle deutschen, dann die englischen, dann der Rest.
 
-    ⭐ Wunsch vom 28.09.2026. Vorher lief die Liste in der Reihenfolge des
-    Wörterbuchs durch und wurde stur alle drei Knöpfe umgebrochen — „Deutsch
-    (Dymerz)" stand dadurch neben „Français" statt neben „Deutsch (rjcncpt)".
+    Gleichsprachige Quellen stehen in einer Reihe, statt in der Reihenfolge
+    des Wörterbuchs stur alle drei Knöpfe umzubrechen.
 
     Geprüft wird die Gruppierung an den echten Quellen und der Umbruch an
     `_choice_rows` — ein `None` muss eine neue Reihe beginnen, sonst wäre die
-    Sortierung zwar richtig, sähe aber aus wie vorher.
+    Sortierung zwar richtig, aber nicht zu sehen.
     """
     print('\n286. Textquellen: deutsche Reihe, englische Reihe, Rest')
     import tkinter as _tk286
@@ -28237,7 +27552,7 @@ def _pruefung_286():
     _quelle286 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                          encoding='utf-8').read()
     _baum286 = _ast286.parse(_quelle286)
-    # ⚠ Die Sortierung steckt seit dem 28.09.2026 in
+    # ⚠ Die Sortierung steckt in
     # `translation.grouped_sources()` — der einen Stelle, aus der Assistent,
     # Einstellungsfenster und Reiter sie holen (Pruefung 288).
     _baum286t = _ast286.parse(io.open(
@@ -28256,11 +27571,10 @@ def _pruefung_286():
 def _pruefung_287():
     """287. „Nicht anfassen" gibt es an JEDEM Kanal — mit der Folge dabei.
 
-    ⚠⚠ Gemeldet am 28.09.2026: Der Knopf stand nur an den Nebenkanälen. An der
-    Hauptinstallation gab es keinen sichtbaren Weg, VerseKit die Textdatei in
-    Ruhe lassen zu lassen — obwohl der Zustand „keine Textquelle gewählt"
-    längst vorgesehen war. Dieselbe Form wie im Einrichtungsassistenten: ein
-    Weg, den es gibt und den niemand sieht.
+    ⚠⚠ Auch an der Hauptinstallation, nicht nur an den Nebenkanälen, muss es
+    einen sichtbaren Weg geben, VerseKit die Textdatei in Ruhe lassen zu
+    lassen — der Zustand „keine Textquelle gewählt" ist vorgesehen. Ein Weg,
+    den es gibt und den niemand sieht, ist keiner.
 
     ⚠ Und die Folge muss **vorher** dastehen: Ohne Textdatei trägt der Watcher
     keine Bauplan-Angaben ins Spiel ein. Wer das erst im Spiel merkt, sucht an
@@ -28332,16 +27646,11 @@ def _pruefung_287():
 def _pruefung_288():
     """288. Assistent und Reiter bieten dieselben Textquellen an.
 
-    ⚠⚠ Gemeldet am 28.09.2026: Im Einrichtungsassistenten standen **drei**
-    Sprachen zur Wahl, im Reiter „Übersetzung" vierzehn. Der Assistent hatte
-    seine Liste fest verdrahtet (`deutsch`, `starstrings`, `original`), der
-    Reiter baute sie aus `SOURCES` — jede neue Quelle landete nur an einer der
-    beiden Stellen. Bei v3.60.0 kannte der Assistent **2 von 14**.
-
-    Aufgefallen ist es nur, weil jemand hinsah: Kaputt war nichts, es fehlte
-    bloß. Die richtige Frage dazu lautet „tritt das bei jeder neuen Sprache
-    wieder auf?", und die Antwort soll ab jetzt „nein" sein. Deshalb prüft das
-    hier die **Struktur**, nicht die Zahl: Alle Ansichten müssen durch
+    ⚠⚠ Eine fest verdrahtete Liste im Assistenten (`deutsch`, `starstrings`,
+    `original`) neben einer aus `SOURCES` gebauten im Reiter läuft
+    auseinander — jede neue Quelle landet dann nur an einer der beiden
+    Stellen. Kaputt ist dabei nichts, es fehlt bloß. Deshalb prüft das hier
+    die **Struktur**, nicht die Zahl: Alle Ansichten müssen durch
     `translation.grouped_sources()` gehen.
     """
     print('\n288. Assistent und Reiter: dieselben Textquellen')
@@ -28400,11 +27709,10 @@ def _pruefung_288():
 
     from scbp import language as _la288
 
-    # ⚠⚠ **Kein Versprechen, das das Werkzeug nicht hält** (28.09.2026).
-    # Der Schlussschritt sagte „du musst dich durch keine Menüs klicken" —
-    # und um die Einrichtung zu wiederholen, muss man genau das: oben in der
-    # Titelleiste auf „Einrichtung starten". Wer einem Satz glaubt, der nicht
-    # stimmt, sucht danach etwas, das es nicht gibt.
+    # ⚠⚠ **Kein Versprechen, das das Werkzeug nicht hält.** Um die
+    # Einrichtung zu wiederholen, muss man oben in der Titelleiste auf
+    # „Einrichtung starten" klicken. Ein Schlusstext, der das verschweigt,
+    # schickt den Spieler auf die Suche nach etwas, das es nicht gibt.
     #
     # Geprüft wird die Eigenschaft: Wo der Hinweis auf die Wiederholung steht,
     # muss auch stehen, WO der Knopf ist — sein Name kommt aus derselben
@@ -28430,7 +27738,7 @@ def _pruefung_288():
     # ⭐ Und die Namen: Ein Schritt im Assistenten heißt wie die Seite, auf der
     # dasselbe später steht. Der Schritt hieß „Anzeige", die Seite
     # „Darstellung" — wer in der Einrichtung etwas gesehen hat, sucht es danach
-    # unter dem falschen Wort (gemeldet 28.09.2026).
+    # unter dem falschen Wort.
     for _schritt288, _seite288 in (('schritt_anzeige', 'hf_darstellung'),):
         pruefe(_la288.TEXTS[_schritt288] == _la288.TEXTS[_seite288],
                'der Schritt „%s" heißt wie die Seite dahinter (%r / %r)'
@@ -28447,9 +27755,9 @@ def _wurzel():
 
 
 def _pruefung_289():
-    """289. Basetool-Abgleich: die Regeln aus gelucs Sync-Anleitung, ohne Netz.
+    """289. Basetool-Abgleich: die Regeln aus der Sync-Anleitung, ohne Netz.
 
-    ⭐ v3.60.0. Das Basetool prüft vor der Freigabe genau diese Regeln
+    Das Basetool prüft vor der Freigabe genau diese Regeln
     (`docs/exchange/client-security.md`, „Sync behaviour"). Jede steht hier als
     eigene Zeile, damit eine gebrochene Regel beim Namen genannt wird."""
     print('\n289. Basetool-Abgleich: Regeln der Sync-Anleitung (ohne Netz)')
@@ -28632,7 +27940,7 @@ def _handler290(outer):
 class _Basetool290:
     """Ein kleiner Nachbau von Keycloak und dem Basetool-Gateway.
 
-    Er prüft jeden DPoP-Nachweis so, wie gelucs Gateway es tut (Signatur mit
+    Er prüft jeden DPoP-Nachweis so, wie das echte Gateway es tut (Signatur mit
     dem Schlüssel aus dem Kopf, htm, htu, ath, nonce, jti) und führt eine
     Bauplan-Liste mit Änderungsfeed. Alles auf 127.0.0.1, kein Netz."""
 
@@ -29039,7 +28347,7 @@ class _Basetool290:
 def _pruefung_290():
     """290. Basetool-Verbindung und Abgleich gegen einen Nachbau (127.0.0.1).
 
-    ⭐ v3.60.0. Prüft den ganzen Weg: Aussteller festgenagelt, Geräte-Anmeldung,
+    Prüft den ganzen Weg: Aussteller festgenagelt, Geräte-Anmeldung,
     DPoP bei jeder Anfrage (vom Nachbau so geprüft wie vom echten Gateway),
     Nonce-Wiederholung, Token-Erneuerung, Absagen, Abgleich in beide
     Richtungen, Trennen. ⚠ Nie der Schlüssel oder die Ablage des Spielers —
@@ -29056,8 +28364,8 @@ def _pruefung_290():
     _altes_konto = _lg.own_account
     # ⚠⚠ Frühere Prüfungen lassen echte Watcher-Fäden laufen, und deren Takt
     # (`basetool_sync.tick`) sähe hier eine Verbindung und glieche mit ab —
-    # gleichzeitig mit dieser Prüfung. So am 28.09.2026 einmal von vier
-    # Läufen rot geworden. Für die Dauer der Prüfung: kein Takt.
+    # gleichzeitig mit dieser Prüfung, und die Prüfung würde zufällig rot.
+    # Für die Dauer der Prüfung: kein Takt.
     _alter_takt = _bs.tick
     _bs.tick = lambda watcher: None
     try:
@@ -29247,7 +28555,7 @@ def _pruefung_290():
                and _bs.load_state('inst-1')['cursor'] != 'c-alt',
                'nach CURSOR_EXPIRED: neuer Schnappschuss, neuer Cursor')
 
-        # Zu alte Fassung: gar nicht erst abgleichen, zum Update auffordern
+        # Zu alte Version: gar nicht erst abgleichen, zum Update auffordern
         from scbp import errors as _er290
         _alt_ver = _er290.VERSION[0]
         _er290.VERSION[0] = '3.60.0-rc6'
@@ -29373,11 +28681,10 @@ def _pruefung_291():
 def _pruefung_292():
     """292. Kein Nebenfaden im Overlay ruft `after` — Tk nur über `_im_tk`.
 
-    ⚠⚠ Gemeldet am 28.09.2026 im eigenen Fehlerbericht: `RuntimeError: main
-    thread is not in main loop`, alle zehn Minuten. Das Nachsehen nach neuen
-    Versionen lief im Nebenfaden und rief `root.after(0, …)` — immer dann,
-    wenn es eine neue Fassung GEFUNDEN hatte. Update-Hinweis und
-    automatisches Update kamen nie an.
+    ⚠⚠ Ruft ein Nebenfaden `root.after(0, …)`, wirft Tk `RuntimeError: main
+    thread is not in main loop`. Das Nachsehen nach neuen Versionen läuft im
+    Nebenfaden — riefe es `after`, kämen Update-Hinweis und automatisches
+    Update genau dann nie an, wenn es eine neue Fassung GEFUNDEN hat.
 
     Geprüft wird per Syntaxbaum: Jede Funktion, die in `sc_bp_watcher.py`
     oder `scbp/pages.py` als `threading.Thread(target=…)` startet (oder als
@@ -29385,10 +28692,7 @@ def _pruefung_292():
     keinen Aufruf von `.after(` — auch nicht in ihren inneren Funktionen und
     Lambdas. Ausgenommen ist nur, was sie ausdrücklich an den Tk-Faden
     übergibt (`_im_tk`, `_in_tk`, `_from_thread`, `_TK_CALLS.put`): Das läuft
-    dort, und dort ist `after` richtig.
-
-    In `pages.py` standen am 28.09.2026 noch 24 solche Stellen; der Prüflauf
-    `randpruefung.py` zeigte dieselben Tracebacks."""
+    dort, und dort ist `after` richtig."""
     print('\n292. Nebenfäden in Overlay und Seiten fassen Tk nicht an')
     import ast as _ast292
 
@@ -29492,7 +28796,7 @@ def _pruefung_292():
 def _pruefung_293():
     """293. Basetool: Lager und Hangar — die Regeln, ohne Netz.
 
-    ⭐ v3.60.x. Wie 289 für die Baupläne: jede Regel aus gelucs Anleitung
+    Wie 289 für die Baupläne: jede Regel aus der Anleitung des Basetools
     (`resources/stock.md`, `resources/ships.md`, Sync-Anleitung) als eigene
     Zeile, und jede Sendung gegen den Vertrag."""
     print('\n293. Basetool: Lager und Hangar (ohne Netz)')
@@ -29713,7 +29017,7 @@ def _pruefung_293():
 def _pruefung_294():
     """294. Basetool: Lager und Hangar über das Netz (Nachbau, 127.0.0.1).
 
-    ⭐ v3.60.x. Der ganze Weg wie in 290, jetzt für Lager und Hangar: Rechte
+    Der ganze Weg wie in 290, für Lager und Hangar: Rechte
     je Bereich, Lagerorte, Namensauflösung, erster Abgleich, Entscheidung,
     Änderung hier und dort. ⚠ Eigener Wegwerf-Ordner und eigene Ablage."""
     print('\n294. Basetool: Lager und Hangar über das Netz (Nachbau)')
@@ -29946,11 +29250,10 @@ def _pruefung_295():
 def _pruefung_296():
     """296. Basetool-Seite: nach einem Klick weiter unten nicht schwarz.
 
-    ⭐ v3.61.1. Gemeldet am 28.09.2026 mit Bild: „beim Klicken auf Buttons wird
-    das Fenster schwarz". Die Seite baut sich bei jedem Klick neu. Wer
-    heruntergerollt hatte, stand danach im Leeren — der neue Inhalt lag
-    außerhalb der Ansicht, maß sich dort nicht neu (183 statt 813 px), und
-    die Ansicht zeigte darunter. Gemessen wird, ob danach etwas SICHTBAR ist."""
+    Die Seite baut sich bei jedem Klick neu. Wer heruntergerollt hat, darf
+    danach nicht im Leeren stehen — liegt der neue Inhalt außerhalb der
+    Ansicht, misst er sich dort nicht neu (183 statt 813 px), und die Ansicht
+    zeigt darunter. Gemessen wird, ob danach etwas SICHTBAR ist."""
     print('\n296. Basetool-Seite: Neuaufbau nach dem Herunterrollen')
     import tkinter as _tk296
     from scbp import main_window as _mw296, paths as _pa296, \
@@ -29993,8 +29296,7 @@ def _pruefung_296():
                     and x.winfo_width() == 44 and x.winfo_ismapped()]
 
         # ⚠ Die Rollfläche ÜBER einem Schalter — nicht die erste beste: Die
-        # erste Fassung dieser Prüfung erwischte die Seitenleiste links und
-        # war deshalb auch ohne Reparatur grün.
+        # Seitenleiste links wäre auch ohne Reparatur grün.
         _roll = None
         _erst = _schalter()
         _x = _erst[0].master if _erst else None
@@ -30040,7 +29342,7 @@ def _pruefung_296():
 def _pruefung_297():
     """297. Hangar: Schiffslisten aus Fleetview, Fleetyards und StarJump.
 
-    ⭐ v3.62.0 — dieselben drei Formate, die das KRT Profit Basetool einliest
+    Dieselben drei Formate, die das KRT Profit Basetool einliest
     (Beispiele wie in dessen `HangarImportServiceTest`). Geprüft wird vor
     allem, was schiefgehen kann: Eine Liste darf den Pledge-Hangar nicht
     ausräumen, und ein klein geschriebener Name ohne Hersteller darf kein
@@ -30141,8 +29443,8 @@ def _pruefung_297():
 def _pruefung_298():
     """298. Erklärtexte bleiben im Bild — auch am unteren rechten Rand.
 
-    Gemeldet von Aeternitas26 (29.09.2026): Das Overlay lag unten rechts am
-    Monitor, die Hinweise liefen rechts und unten aus dem Bild. Geprüft wird
+    Liegt das Overlay unten rechts am Monitor, dürfen die Hinweise nicht
+    rechts und unten aus dem Bild laufen. Geprüft wird
     die Rechnung (`notice.position`) UND dass das echte Hinweisfenster sie
     benutzt — ein Bildschirm von 800×600, Mauszeiger in der Ecke."""
     print('\n298. Erklärtexte bleiben im Bild')
@@ -30242,11 +29544,10 @@ def _pruefung_298():
 def _pruefung_299():
     """299. Ein Datenordner, in den nichts geschrieben werden darf, bleibt nicht stumm.
 
-    Gemeldet am 29.09.2026 bei Parsul: Verse-Kit nahm still den Dokumente-
-    Ordner (nach OneDrive umgeleitet, von Windows gesperrt). Einstellungen,
-    Bestand, Statistik, Bergbau-Daten — nichts ließ sich speichern, und der
-    Bericht sagte „keine Fehler". Geprüft wird jede der Stellen, die das
-    verschwiegen oder ihn festgehalten haben."""
+    Lage: Der Dokumente-Ordner ist nach OneDrive umgeleitet und von Windows
+    gesperrt. Einstellungen, Bestand, Statistik, Bergbau-Daten lassen sich
+    nicht speichern. Geprüft wird jede Stelle, die das verschweigen oder den
+    Spieler darin festhalten könnte."""
     print('\n299. Gesperrter Datenordner: gefragt, gemeldet, nicht festgesetzt')
     import tkinter as _tk299
     from scbp import (mining as _mi299, paths as _pa299, wizard as _wz299,
@@ -30341,7 +29642,7 @@ def _pruefung_299():
 
         # ⚠ Erst einen Zustand herstellen, in dem die Einrichtung NICHT käme —
         # sonst kommt sie im frischen Prüfordner ohnehin, und die Zeile darunter
-        # misst nichts (so bei der ersten Gegenprobe am 29.09.2026 gesehen).
+        # misst nichts.
         _pa299.set_setting('einrichtung_ohne_spiel', True)
         pruefe(_wz299.needed() is False,
                'Gegenstück: mit beschreibbarem Ordner kommt die Einrichtung nicht')
@@ -30430,7 +29731,7 @@ def _pruefung_299():
 def _pruefung_300():
     """300. Update-Knopf in der Kopfzeile — grün, sobald es etwas Neues gibt.
 
-    ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026). Geprüft am echten Hauptfenster:
+    Geprüft am echten Hauptfenster:
     Der Knopf steht ganz rechts, nennt eine bekannte neuere Version in der
     Akzentfarbe, führt zu „Update & Über" — und fragt dafür NIE selbst im
     Netz (er läuft im Tk-Faden; das Nachfragen macht das Overlay)."""
@@ -30518,9 +29819,9 @@ def _pruefung_300():
 def _pruefung_304():
     """304. Region im Auftragstext — aus scmdb, ohne SCDL.
 
-    Bis v3.63.1 kam die Region vom SCDL-Weg. Seit 30.09.2026 aus derselben
-    scmdb-Datei wie die Ruf-Zeile (`reputation.prepare_regions`). Eine
-    Gefahrenstufe gibt es dort nicht und wird nicht erfunden.
+    Die Region kommt aus derselben scmdb-Datei wie die Ruf-Zeile
+    (`reputation.prepare_regions`). Eine Gefahrenstufe gibt es dort nicht und
+    wird nicht erfunden.
     """
     print('\n304. Region im Auftragstext (scmdb)')
     from scbp import reputation as _rp303, injection as _in303
@@ -30576,11 +29877,10 @@ def _pruefung_304():
 def _pruefung_302():
     """302. Scan-Signatur bei großer HUD-Schrift: Symbolkopf und verklebte Ziffern.
 
-    ⭐ Fünf echte Bilder (3440×1440, alle „3,400"), gemeldet von F_i_r_e (KRT).
-    Vorher wurden davon 2 gelesen — auch nach dem Anlernen, weil es an der
-    ZERLEGUNG scheiterte, nicht an den Vorlagen: Der Kopf der Stecknadel ist so
-    hoch wie eine Ziffer und blieb als erste „Ziffer" stehen, und „400" samt
-    Komma war eine einzige Fläche. Geprüft wird der Nutzerfall: vier Bilder
+    Fünf echte Bilder (3440×1440, alle „3,400"). Die Falle steckt in der
+    ZERLEGUNG, nicht in den Vorlagen: Der Kopf der Stecknadel ist so hoch wie
+    eine Ziffer und bliebe als erste „Ziffer" stehen, und „400" samt Komma ist
+    eine einzige Fläche. Geprüft wird der Nutzerfall: vier Bilder
     anlernen, das fünfte lesen — jedes Bild einmal. Harte Bedingung: nichts
     falsch. Dazu je eine Gegenprobe, dass BEIDE Reparaturen gebraucht werden.
     """
@@ -30657,7 +29957,7 @@ def _pruefung_302():
 def _pruefung_301():
     """301. Grüner Update-Knopf installiert direkt — aber nie ohne Rückfrage.
 
-    ⭐ Vorschlag Blackd0g84 (KRT, 29.09.2026). Grün ist der Knopf fast nur
+    Grün ist der Knopf fast nur
     mitten im Spiel (das Auto-Update wartet dann); ein Fehlklick darf das
     Overlay nicht schließen. Geprüft am echten Hauptfenster, mit
     untergeschobener Rückfrage und untergeschobenem Einspielen — es wird
@@ -30774,12 +30074,10 @@ def _pruefung_301():
 def _pruefung_303():
     """303. Racks, Raketen, Bomben, Lackierungen: Auswahl nach der Spielregel.
 
-    ⚠⚠ **Warum es diese Prüfung gibt.** Am Torpedoplatz der Eclipse ließ sich
-    kein Bomben-Rack wählen, bei erkul schon (gemeldet 30.09.2026), und
-    Lackierungen ließen sich an keinem Schiff ändern. Die Auswahl kannte nur
-    Art und Größe — Racks und Lacke hängen aber an Kennzeichnungen und stehen
-    in keinem Laden. Geprüft wird die **Wirkung** an selbst gebauten Daten,
-    ohne Netz:
+    ⚠⚠ Nur nach Art und Größe gewählt, fehlt am Torpedoplatz der Eclipse der
+    Bomben-Rack, und Lackierungen sind an keinem Schiff wählbar — Racks und
+    Lacke hängen an Kennzeichnungen und stehen in keinem Laden. Geprüft wird
+    die **Wirkung** an selbst gebauten Daten, ohne Netz:
 
     - ein Rack eines anderen Schiffs (gleiche Art, gleiche Größe) fehlt;
     - der Bomben-Rack der Größe 3 im Platz der Größe 10 steht zur Wahl;
@@ -31174,7 +30472,7 @@ def _pruefung_306():
                 os.environ[_name] = _wert
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # Die Danke-Seite nennt den Vorschlag.
+    # Die Danke-Seite führt den Eintrag.
     from scbp import language as _sp306
     pruefe(_sp306.TEXTS.get('s_dk_blackdog_idee3'),
            'Danke-Seite: Vorschlag Shader-Cache steht drin')

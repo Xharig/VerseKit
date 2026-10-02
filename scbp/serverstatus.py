@@ -25,7 +25,7 @@ Werkzeug beantwortet die Frage vorher.
 
 ⚠️ **Das hier ist eine Meldung von CIG, keine Messung.** Die Statusseite wird von
 Hand gepflegt. Vergisst jemand, eine Meldung zu schließen, steht dort weiter
-„Wartung"; stürzen die Server ab, bevor jemand schreibt, steht dort „läuft".
+`maintenance`; stürzen die Server ab, bevor jemand schreibt, `operational`.
 Deshalb gehört an die Anzeige **immer** die Uhrzeit des Abrufs und die Quelle —
 und sie darf nie als eigene Feststellung auftreten.
 
@@ -33,7 +33,7 @@ und sie darf nie als eigene Feststellung auftreten.
 `major_outage`). Eine Übersetzung wäre eine Aussage, die RSI nie gemacht hat —
 und im Zweifel eine falsche.
 
-Die Quelle (geprüft 26.08.2026):
+Die Quelle:
 
     index.json                       Lage aller Systeme, rund 3 KB
     issues/<datei>/index.json        ein Vorfall im Volltext
@@ -161,8 +161,8 @@ def _timestamp(raw):
     ⚠ **Die Seite rechnet in UTC**, auch wo keine Zone dabeisteht (`buildTimezone`
     sagt es für die ganze Datei). Wer das mit `time.mktime` liest, verschiebt
     jede Angabe um den eigenen Zeitunterschied — in Deutschland um ein bis zwei
-    Stunden. Ein Vorfall von vor zehn Minuten stünde dann als „in zwei Stunden"
-    da. Deshalb `calendar.timegm`, das ausdrücklich UTC liest.
+    Stunden. Ein Vorfall von vor zehn Minuten stünde dann zwei Stunden in der
+    Zukunft. Deshalb `calendar.timegm`, das ausdrücklich UTC liest.
 
     cState schreibt außerdem mehrere Formate in dieselbe Datei: mit Zone
     (`+0000 UTC`), mit doppelter Zone, ganz ohne — und `buildTime` sogar **ohne
@@ -238,16 +238,16 @@ def state(force=False, deadline=None):
 
     try:
         # ⚠ Beim erzwungenen Abruf **ohne** ETag fragen. Sonst antwortet der
-        # Server mit 304, und „jetzt nachsehen" liefert genau die Daten zurück,
+        # Server mit 304, und der Knopf zum Nachsehen liefert genau die Daten zurück,
         # die schon dastanden — der Knopf wirkt kaputt, obwohl alles läuft.
         data, etag = _fetch('/index.json',
                             None if force else stored.get('etag'))
     except Exception:
-        # ⚠ **Sagen, dass es am Netz lag.** Vorher kam hier nur der alte Stand
-        # zurück — oder `{}`, wenn es nie einen gab. Die Seite konnte „noch nie
-        # abgerufen" und „gerade keine Verbindung" nicht auseinanderhalten und
-        # bat, auf „Jetzt nachsehen" zu klicken. Ohne Internet führt dieser
-        # Klick zu nichts, und der Nutzer sucht den Fehler bei sich.
+        # ⚠ **Sagen, dass es am Netz lag.** Nur der gespeicherte Stand (oder
+        # `{}`) ließe die Seite nicht unterscheiden zwischen noch nie
+        # abgerufen und gerade keine Verbindung — sie bäte dann um einen
+        # Klick zum Nachsehen, der ohne Internet zu nichts führt, und der
+        # Nutzer suchte den Fehler bei sich.
         old = dict(old) if old else {}
         old['kein_netz'] = True
         return old
@@ -353,7 +353,7 @@ def incident(file_name):
 def messages(months=2, at_most=12):
     """Die Meldungen der letzten Monate — im Volltext, wie auf der Statusseite.
 
-    Die Seite zeigt unter „Latest incidents" **auch erledigte** Vorfälle. Das ist
+    Die Seite zeigt unter *Latest incidents* **auch erledigte** Vorfälle. Das ist
     der eigentliche Nutzen: Wer abends nicht ins Spiel kommt, will sehen, ob es
     heute Nachmittag eine Wartung gab — nicht nur, ob gerade eine läuft.
 
@@ -399,7 +399,7 @@ def messages(months=2, at_most=12):
 def history(at_most=20):
     """Die letzten Vorfälle — neueste zuerst.
 
-    Gedacht zum Nachsehen („war gestern etwas?") und als Prüfstoff: Solange
+    Gedacht zum Nachsehen (war gestern etwas?) und als Prüfstoff: Solange
     alles läuft, gibt es keine offene Meldung, mit der sich die Anzeige testen
     ließe. Ein alter Vorfall füllt diese Lücke."""
     try:

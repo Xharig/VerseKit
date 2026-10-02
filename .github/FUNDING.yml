@@ -1,8 +1,8 @@
-# Bringt den Knopf „Sponsor" oben ins Repo — neben „Watch" und „Fork".
+# Bringt den Sponsor-Knopf oben ins Repo — neben Watch und Fork.
 # Ohne diese Datei gibt es ihn nicht, egal wie viele Spendenlinks im
 # Programm selbst stehen.
 #
-# Derselbe Ko-fi-Zugang wie der Knopf „Kaffee spendieren" im Werkzeug
-# (`KOFI_ADRESSE` in scbp/hauptfenster.py) — wer den einen ändert, ändert
+# Derselbe Ko-fi-Zugang wie der Ko-fi-Knopf im Werkzeug
+# (`KOFI_URL` in scbp/main_window.py) — wer den einen ändert, ändert
 # den anderen mit.
 ko_fi: xharig

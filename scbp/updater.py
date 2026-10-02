@@ -19,15 +19,14 @@
 """
 Neue Versionen bemerken, nachlesen und holen.
 
-Niemand geht regelmäßig auf GitHub nachsehen, ob es etwas Neues gibt. Also
-schaut das Programm selbst nach, sagt Bescheid und holt die neue Version auf
-Knopfdruck. Und weil „es gibt eine neue Version" allein nichts wert ist, kann
-man **nachlesen, was sich geändert hat** — auch bei älteren Versionen.
+Das Programm sieht selbst auf GitHub nach, sagt Bescheid und holt die neue
+Version auf Knopfdruck. Dazu lässt sich **nachlesen, was sich geändert hat** —
+auch bei älteren Versionen.
 
 Drei Teile:
 
-  **Nachsehen.** Einmal am Tag gegen die GitHub-API, im Hintergrund. Ohne Netz
-  passiert nichts und es wird auch nichts gemeldet.
+  **Nachsehen.** Im Hintergrund gegen die GitHub-API. Ohne Netz passiert
+  nichts, und es erscheint keine Meldung.
   **Nachlesen.** Das Änderungsprotokoll liegt als `CHANGELOG.en.md` bei; neuere
   Einträge kommen aus den Release-Texten. Beides zusammen ergibt die Historie.
   **Holen.** Die zur eigenen Verpackung passende Datei (`.exe` oder AppImage)
@@ -57,34 +56,26 @@ import urllib.request
 from . import errors
 from . import paths
 
-# ⚠ Seit 15.09.2026 heisst das Repo `Xharig/VerseKit`. GitHub leitet die alte
-# Adresse `Xharig/SC-BP-Watcher` dauerhaft um (Web, Clone und API) — solange
-# nie wieder ein Repo mit dem alten Namen angelegt wird. Aeltere Installationen
-# fragen weiter die alte Adresse und landen ueber die Umleitung hier.
+# ⚠ GitHub leitet die alte Adresse `Xharig/SC-BP-Watcher` dauerhaft auf
+# `Xharig/VerseKit` um (Web, Clone und API) — solange nie wieder ein Repo mit
+# dem alten Namen angelegt wird. Installationen mit der alten Adresse landen
+# ueber die Umleitung hier.
 REPO = 'Xharig/VerseKit'
 API = 'https://api.github.com/repos/%s/releases' % REPO
-# ⚠ **Kein `/releases/latest` mehr (28.08.2026).** Der Link führte auf
-# **v2.0.0**: GitHub blendet dort Vorabversionen aus, und alle rc-Fassungen
-# sind welche. Wer ihn weitergab, schickte Leute auf einen Stand von vor
-# Monaten — und bekam prompt Fehler gemeldet, die längst behoben waren.
-# Die Übersicht zeigt alles, auch die Vorabversionen.
+# ⚠ **Nicht `/releases/latest`.** GitHub blendet dort Vorabversionen aus, und
+# alle rc-Fassungen sind welche — der Link zeigt dann auf einen veralteten
+# Stand. Die Übersicht zeigt alles, auch die Vorabversionen.
 PAGE = 'https://github.com/%s/releases' % REPO
 # ⚠ Der User-Agent geht an FREMDE Server (GitHub, scmdb, UEX) — ihre Betreiber
-# sehen ihn. Deshalb nennt er nach der Umbenennung (12.09.2026) **beide** Namen:
-# Wer den alten in einer Freigabeliste stehen hat, erkennt uns weiter, und wer
-# nur den neuen kennt, auch. Die Adresse dahinter ist seit 15.09.2026 die neue.
+# sehen ihn. Deshalb nennt er **beide** Namen: Wer den alten in einer
+# Freigabeliste stehen hat, erkennt uns weiter, und wer nur den neuen kennt,
+# auch. Die Adresse dahinter ist die neue.
 USER_AGENT = 'VerseKit (ehemals SC-BP-Watcher) (+https://github.com/%s)' % REPO
 CACHE = 'versionen.json'
-# Wie lange ein Blick auf GitHub gilt. Früher standen hier 24 Stunden — „einmal
-# am Tag reicht". Tut es nicht: Wer das Programm mehrmals startet, bekam beim
-# zweiten Mal nichts mehr zu sehen, obwohl inzwischen eine neue Version
-# vorlag. Gemeldet am 24.08.2026, an einem Tag mit zehn Vorabversionen.
+# Wie lange ein Blick auf GitHub gilt. Ist der Wert zu lang, sieht ein
+# erneuter Start eine inzwischen erschienene Version nicht.
 #
-# Eine Stunde ist der Kompromiss: Beim Starten wird praktisch immer nachgesehen,
-# im Dauerbetrieb bleibt es bei ein paar Abfragen am Tag.
-#
-# ⚠ Seit dem automatischen Update (16.09.2026) im Takt von
-# `auto_update.CHECK_INTERVAL_S` — seit 17.09.2026 zehn Minuten, also höchstens
+# ⚠ Im Takt von `auto_update.CHECK_INTERVAL_S`: zehn Minuten, also höchstens
 # 6 Anfragen je Stunde, weit unter GitHubs 60 ohne Anmeldung.
 MIN_INTERVAL = 600
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
@@ -116,9 +107,8 @@ def _version_key(version):
 
     ⚠⚠ **Nicht `_teile` benutzen, wo Fassungen unterschieden werden müssen.**
     `_teile('v3.15.0-rc13')` ergibt `(3, 15, 0)` — genau wie `-rc1`. Im
-    Änderungsverlauf galten dadurch alle dreizehn Testfassungen als dieselbe
-    Version, und zwölf davon flogen als Doppelung heraus. Am 05.09.2026
-    gemeldet: „Dann müsste man auch jeden rc anzeigen, nicht nur den letzten."
+    Änderungsverlauf gälten dadurch alle Testfassungen als dieselbe Version
+    und flögen bis auf eine als Doppelung heraus.
 
     Die fertige Version steht über ihren Vorabfassungen — deshalb `9999`.
     """
@@ -179,16 +169,11 @@ def fetch_succeeded():
     """Hat der letzte Blick zu GitHub wirklich stattgefunden?
 
     ⚠ **Ohne das kann „nichts Neues" zweierlei heißen** — und die zwei sind das
-    Gegenteil voneinander: entweder „du bist aktuell" oder „ich konnte gar nicht
-    nachsehen". Der Prüfknopf meldete bisher in beiden Fällen Entwarnung.
+    Gegenteil voneinander: entweder aktuell oder gar nicht nachgesehen.
 
-    Aufgefallen am 27.08.2026: Bomb20 drückte „Auf Aktualität prüfen", bekam „du
-    hast die neueste rc67" — und rc68 war seit zwei Minuten draußen. GitHub
-    erlaubt anonym nur **60 Abfragen pro Stunde und Adresse**; wer an einem
-    Vormittag viel klickt, läuft dagegen. Der Abruf scheiterte, der Code fing das
-    still ab und rechnete mit dem alten Stand weiter.
-
-    Ein Prüfknopf, der fälschlich Entwarnung gibt, ist schlimmer als keiner.
+    GitHub erlaubt anonym nur **60 Abfragen pro Stunde und Adresse**; wer viel
+    klickt, läuft dagegen. Scheitert der Abruf, darf „Auf Aktualität prüfen"
+    keine Entwarnung geben.
     """
     return _FETCH['ok']
 
@@ -204,24 +189,22 @@ def check(own_version, force=False):
     Gefragt wird höchstens einmal je `ABSTAND` (eine Stunde); dazwischen gilt
     der gemerkte Stand.
 
-    ⚠ Der Abstand allein macht noch keine Wiederholung: Bis v3.0.1 rief diese
-    Funktion **niemand** ein zweites Mal, und ein laufender Watcher erfuhr nie
-    von einer neuen Fassung. Wer den Takt ändert, ändert ihn an **zwei** Stellen
+    ⚠ Der Abstand allein macht noch keine Wiederholung: Ruft niemand diese
+    Funktion ein zweites Mal, erfährt ein laufender Watcher nie von einer
+    neuen Fassung. Wer den Takt ändert, ändert ihn an **zwei** Stellen
     — hier und in `Overlay.VERSION_TAKT`.
     Fehler sind kein Drama — ohne Netz meldet sich das Programm einfach nicht."""
     cached = _cache_read()
     # `SC_BP_NO_NET` verbietet das **Abfragen**, nicht das Wissen: Was schon
-    # bekannt ist, darf weiter gemeldet werden — das ist keine Netzverbindung.
+    # bekannt ist, wird weiter angezeigt — das ist keine Netzverbindung.
     old_enough = time.time() - cached.get('geprueft', 0) > MIN_INTERVAL
     if not OFF and (force or old_enough):
         try:
-            # ⚠ **20 reicht längst nicht.** Bei 83 Freigaben und einer
-            # Testversion nach der anderen war unter den letzten 20 **keine
-            # einzige stabile** — `neueste(False)` fand nichts, und im Kasten
-            # „Stabile Version" stand statt eines Knopfes „Erst oben auf ‚Jetzt
-            # nachsehen' drücken". Eine Sackgasse: Wer die stabile Version wollte,
-            # sah keinen Weg, sondern eine Hausaufgabe. Gemessen am 27.08.2026:
-            # 20 Freigaben → 0 stabile, 100 Freigaben → 3.
+            # ⚠ **20 reicht nicht.** Bei vielen Testversionen in Folge ist
+            # unter den letzten 20 oft **keine einzige stabile** —
+            # `neueste(False)` findet dann nichts, und der Kasten „Stabile
+            # Version" bietet keinen Knopf. Gemessen: 20 Freigaben → 0 stabile,
+            # 100 Freigaben → 3.
             #
             # 100 ist das Höchste, was GitHub in einer Abfrage hergibt, und es
             # bleibt **eine** Abfrage — die Stundengrenze zählt Anfragen, nicht
@@ -248,8 +231,8 @@ def check(own_version, force=False):
             _FETCH['ok'] = True
             _FETCH['grenze'] = False
         except Exception as ausnahme:
-            # ⚠ Nicht mehr stillschweigend: Ob der Blick stattgefunden hat, ist
-            # eine andere Auskunft als „es gibt nichts Neues". Siehe
+            # ⚠ Nicht stillschweigend: Ob der Blick stattgefunden hat, ist
+            # eine andere Auskunft als „nichts Neues". Siehe
             # `abruf_geglueckt()`.
             _FETCH['ok'] = False
             _FETCH['grenze'] = '403' in str(ausnahme) or 'rate limit' in str(
@@ -291,9 +274,8 @@ def _best_newer(cached, own_version):
                         or paths.setting_bool('vorabversionen', False))
     # ⚠ **Nicht** den ersten Treffer nehmen, sondern den höchsten.
     # GitHub gibt die Freigaben nach Erstellungszeit des Tags zurück, nicht nach
-    # Versionsnummer — und das ist nicht dasselbe: In der Liste stand `rc10`
-    # hinter `rc9`, weshalb Nutzern die **vorletzte** Version als „neu" gemeldet
-    # wurde. Gemeldet am 24.08.2026.
+    # Versionsnummer — und das ist nicht dasselbe: `rc10` kann hinter `rc9`
+    # stehen, dann gälte die **vorletzte** Version als neu.
     best = None
     for f in cached.get('freigaben') or []:
         if not f.get('version'):
@@ -312,8 +294,8 @@ def latest(with_prerelease):
 
     ⚠ Nicht dasselbe wie `nachsehen()`. Das meldet nur, was **neuer** ist als die
     laufende Version — richtig für eine Update-Meldung, unbrauchbar für einen
-    Knopf „hol mir die letzte fertige Version". Wer eine Testfassung fährt, will
-    ja gerade zurück auf die fertige können.
+    Knopf, der die letzte fertige Version holt: Von einer Testfassung aus muss
+    der Weg zurück auf die fertige offen sein.
     """
     best = None
     for f in releases():
@@ -417,10 +399,8 @@ def points_by_kind(text):
         indented = line[:1].isspace()
         stripped = line.strip()
         if stripped.startswith('#'):
-            # ⚠ Hiess bis zum 12.09.2026 `klein` — derselbe Name, den zwei
-            # andere Funktionen fuer die **Nebenversionsnummer** benutzen.
-            # Eine maschinelle Umbenennung haette daraus `minor` gemacht.
-            # Mehrdeutigkeit gehoert VOR dem Umbenennen aufgeloest.
+            # ⚠ Nicht `klein` nennen — so heisst in zwei anderen Funktionen
+            # die **Nebenversionsnummer**.
             kleinschrift = stripped.lstrip('#').strip().lower()
             for tag, words in _KINDS:
                 if any(w in kleinschrift for w in words):
@@ -432,9 +412,9 @@ def points_by_kind(text):
         elif indented and stripped and not stripped.startswith(('- ', '* ')) and out_list:
             # Eine eingerückte Zeile **ohne** Aufzählungszeichen ist die
             # Fortsetzung des Punktes darüber — im Markdown umgebrochen, im
-            # Fenster gehört sie an denselben Satz. Wer sie verwirft, zeigt
-            # abgeschnittene Sätze („… ganz unten") und merkt es nicht, weil
-            # es wie ein Zeilenumbruch aussieht.
+            # Fenster gehört sie an denselben Satz. Wird sie verworfen,
+            # erscheinen abgeschnittene Sätze, die wie ein Zeilenumbruch
+            # aussehen.
             out_list[-1][1] = (out_list[-1][1] + ' ' + stripped).strip()
     return [(a, z) for a, z in out_list]
 
@@ -449,8 +429,8 @@ def history():
     ⚠ Der mitgelieferte Changelog hat Vorrang, **weil nur er die Sprache kennt**.
     Der Release-Text auf GitHub ist bewusst zweisprachig aufgebaut: Englisch oben,
     Deutsch in einem aufklappbaren Block darunter. Auf der Release-Seite ist das
-    richtig — im Fenster wurde daraus eine englische Liste für jemanden, der die
-    Oberfläche auf Deutsch stehen hat. Genau so gemeldet.
+    richtig — im Fenster würde daraus eine englische Liste, auch wenn die
+    Oberfläche auf Deutsch steht.
 
     GitHub springt nur dort ein, wo der Changelog nichts hat: bei Versionen, die
     neuer sind als die eigene.
@@ -467,7 +447,7 @@ def history():
             heading, _, rest = block.partition('\n')
             version = heading.split('—')[0].split(' - ')[0].strip()
             if _parts(version) == (0, 0, 0):
-                continue        # „Unveröffentlicht" ist nichts für Nutzer
+                continue        # „Unveröffentlicht" wird nicht angezeigt
             # ⚠ Je **Fassung**, nicht je Versionsnummer — sonst gilt rc1 als
             # dasselbe wie rc13. Siehe `_fassungsschluessel`.
             key = _version_key(version)
@@ -505,27 +485,22 @@ def history():
 def history_grouped():
     """Dasselbe wie `protokoll()`, aber Patch-Versionen unter ihrer Reihe.
 
-    ⭐⭐ **Aus v3.13.0, .1, .2 und .3 wird ein Eintrag „v3.13".** Am 05.09.2026
-    gefragt: „Ist es nicht sinnvoller, 3.13.x, 3.14.x zusammenzufassen?" Ja —
-    die vier standen alle vom selben Tag untereinander, zusammen neun Punkte.
-    Vier Zeilen für das, was eine Sache ist, ist Buchführung, kein
-    Änderungsprotokoll; und niemand denkt in „3.13.2", sondern in „3.13".
+    ⭐⭐ **Aus v3.13.0, .1, .2 und .3 wird ein Eintrag „v3.13".** Eine Reihe
+    ist eine Sache und steht als ein Eintrag da.
 
-    ⚠ **Vorabversionen bleiben einzeln.** Wer eine Testfassung fährt, will
-    sehen, was **diese** gebracht hat — gebündelt stünden dreizehn rc als ein
-    Klumpen da, und die Rückmeldung „was ist seit gestern anders?" wäre nicht
-    mehr zu beantworten. Sobald die fertige Version erscheint, verschwinden
-    sie ohnehin aus der Liste.
+    ⚠ **Vorabversionen bleiben einzeln.** Wer eine Testfassung fährt, sieht,
+    was **diese** gebracht hat — gebündelt stünden alle rc als ein Klumpen
+    da. Sobald die fertige Version erscheint, verschwinden sie ohnehin aus
+    der Liste.
 
     ⚠ Der Vorspann kommt von der **neuesten** Fassung der Reihe; die Punkte
     aller Fassungen stehen darunter, in derselben Reihenfolge wie bisher.
     """
     all_items = history()
     # ⚠⚠ **Eine Testfassung verschwindet, sobald ihre fertige Version da ist.**
-    # Sonst stünden 91 rc-Blöcke im Verlauf und verdrängten alles andere. Am
-    # 05.09.2026: „Sobald es live ist, kommen die eh weg." Genau so — und
-    # solange es die fertige noch nicht gibt, ist jede einzelne sichtbar, denn
-    # dann testet gerade jemand und will wissen, was seine Fassung gebracht hat.
+    # Sonst stünden Dutzende rc-Blöcke im Verlauf und verdrängten alles
+    # andere. Solange es die fertige noch nicht gibt, ist jede einzelne
+    # sichtbar.
     final_versions = set(_parts(e['version']) for e in all_items
                     if not _is_prerelease(e.get('version') or ''))
     out, by_series = [], {}
@@ -567,11 +542,8 @@ def own_appimage():
     einem Terminal, das man daraus öffnet, und in allem, was von dort aus läuft.
     Wer nur auf sie schaut, hält jedes beliebige Programm für sich selbst.
 
-    Das ist am 25.08.2026 teuer geworden: Ein Testlauf des Selbst-Updates lief in
-    einer Umgebung, in der `APPIMAGE` auf eine **fremde** Anwendung zeigte — und
-    das Update hat prompt diese fremde Datei überschrieben (234 MB durch 12 MB
-    ersetzt). Zurückzuholen war sie nur, weil das fremde Programm noch lief und
-    die alte Inode über `/proc/<pid>/exe` offen hielt.
+    Zeigt `APPIMAGE` auf eine **fremde** Anwendung, überschreibt das
+    Selbst-Update sonst diese fremde Datei.
 
     Verlässlich ist erst der zweite Teil: Zu einem AppImage gehört `APPDIR`, der
     Ort, an dem es entpackt eingehängt ist. Nur wenn **unser eigener Code** von
@@ -580,17 +552,17 @@ def own_appimage():
     path = os.environ.get('APPIMAGE')
     if not path or not os.path.isfile(path):
         return None
-    # ⚠ Der erste Anlauf verglich den eigenen Code mit `APPDIR`. Das ging schief:
-    # PyInstaller entpackt sich in ein **eigenes** Verzeichnis (`sys._MEIPASS`,
-    # etwa `/tmp/_MEIabc123`), nicht in den AppImage-Einhängepunkt. Der Vergleich
-    # schlug also **immer** fehl — das Programm hielt sich für eine `.exe`, ging in
-    # den Windows-Zweig und meldete „[Errno 2] No such file or directory: 'cmd'".
+    # ⚠ Nicht den eigenen Code mit `APPDIR` vergleichen: PyInstaller entpackt
+    # sich in ein **eigenes** Verzeichnis (`sys._MEIPASS`, etwa
+    # `/tmp/_MEIabc123`), nicht in den AppImage-Einhängepunkt. Der Vergleich
+    # schlägt **immer** fehl — das Programm hält sich für eine `.exe`, geht in
+    # den Windows-Zweig und stirbt mit `[Errno 2] No such file or directory: 'cmd'`.
     #
     # Maßgeblich ist stattdessen der Dateiname: Zeigt `APPIMAGE` auf eine Datei,
-    # die nach diesem Programm heißt, ist es unsere. Ein fremdes AppImage — der
-    # Unfall, um den es hier geht — heißt anders und fällt durch.
+    # die nach diesem Programm heißt, ist es unsere. Ein fremdes AppImage heißt
+    # anders und fällt durch.
     #
-    # ⚠⚠ **BEIDE Namen, dauerhaft** (Umbenennung zu VerseKit, 12.09.2026).
+    # ⚠⚠ **BEIDE Namen, dauerhaft** (alter Name und VerseKit).
     # Zwei Fälle, die gleichzeitig gelten:
     #   * Bestandsnutzer: Beim Update wird die VORHANDENE Datei an ihrem Platz
     #     ersetzt. Sie heißt danach weiter `SC-BP-Watcher-x86_64.AppImage` und
@@ -616,43 +588,32 @@ def packaging():
 
 # Welcher Anhang unter Windows geholt wird — und warum es der Installer ist.
 #
-# Seit v3.0.0 hängen nur noch **zwei** Dateien an einer Freigabe:
+# An einer Freigabe hängen **zwei** Dateien:
 #
 #     SC-BP-Watcher-Setup.exe          der Installer  ← der einzige Windows-Weg
 #     SC-BP-Watcher-x86_64.AppImage    Linux
 #
-# ⚠ Die nackte `SC-BP-Watcher.exe` ist bewusst weg (bewusste Entscheidung,
-# 27.08.2026: „ich will die exe ohne install loswerden … sie belastet mich
-# nur"). Sie war eine Maßnahme aus der Anfangszeit — ein unsigniertes Programm
-# ohne Installer wirkt harmloser, und es ging darum, Vertrauen aufzubauen. Das
-# ist erreicht; zwei Auslieferungswege heißen ab jetzt nur noch zwei
-# Fehlerquellen und doppelte Unterstützung. „Nun wollen wir es funktionierend
-# und einfach."
+# Eine nackte `SC-BP-Watcher.exe` gibt es nicht; ein zweiter Auslieferungsweg
+# hieße zwei Fehlerquellen.
 #
-# **Und v2.0.0, die es nur als nackte .exe gab?** Deren Update-Logik nimmt die
-# erste Datei auf `.exe` — jetzt also den Installer — und ihr Hilfsskript
+# **v2.0.0, die es nur als nackte .exe gab:** Deren Update-Logik nimmt die
+# erste Datei auf `.exe` — also den Installer — und ihr Hilfsskript
 # **startet** die getauschte Datei anschließend (`start "" "<ziel>"`). Der
-# Installer läuft damit von selbst und richtet alles ordentlich ein. Was früher
-# der Fehler war (der Installer landete unter dem Namen des Programms), ist
-# damit genau der Weg hinaus.
+# Installer läuft damit von selbst und richtet alles ordentlich ein.
 #
-# ⚠ Bis rc39 wurde hier nach der **ersten** Datei auf `.exe` gesucht. GitHub
-# liefert sie alphabetisch, ein `-` (0x2D) steht vor einem `.` (0x2E), also kam
-# `-Setup.exe` zuerst — und die alte `einspielen()` schob diesen Fund roh über
-# die laufende `SC-BP-Watcher.exe`, ohne ihn je auszuführen. Am 26.08.2026 im
-# Test bestätigt: geladen wurden 14.812.324 Bytes statt 13.015.189.
+# ⚠ GitHub liefert die Anhänge alphabetisch, ein `-` (0x2D) steht vor einem
+# `.` (0x2E), also kommt `-Setup.exe` vor `.exe`. Wer nach der **ersten**
+# Datei auf `.exe` sucht, bekommt den Installer.
 #
-# Seitdem ist es **Absicht**, den Installer zu holen — er wird gestartet statt
-# kopiert. Inno beendet das laufende Programm selbst
-# (`CloseApplications=force`), ersetzt die Datei, pflegt den Eintrag in
-# „Apps & Features" und startet den Watcher danach wieder. Denselben Weg geht
-# der SC-Deutsch-Launcher.
+# Den Installer zu holen ist **Absicht** — er wird gestartet statt kopiert.
+# Inno beendet das laufende Programm selbst (`CloseApplications=force`),
+# ersetzt die Datei und pflegt den Eintrag in „Apps & Features".
 #
 # Unter Linux bleibt es beim Tausch des AppImage — dort gibt es keinen
 # Installer, und ein laufendes AppImage darf ersetzt werden.
 #
-# ⚠ `-setup.exe` steht vorn und bleibt: Genau danach suchen die Testfassungen
-# rc39–rc75. Wird der Installer je umbenannt, bekommen sie nie wieder ein
+# ⚠ `-setup.exe` steht vorn und bleibt: Genau danach suchen ältere
+# Testfassungen. Wird der Installer je umbenannt, bekommen sie nie wieder ein
 # Update angeboten.
 WINDOWS_INSTALLER = ('-setup.exe', '-installer.exe', '_setup.exe')
 
@@ -693,12 +654,11 @@ def _url_ok(url):
 # ------------------------------------------------------------ Prüfsummen
 #
 # ⚠⚠ **Herkunft ist nicht Inhalt.** `_url_ok()` stellt sicher, dass die Datei
-# von GitHub kommt — nicht, dass es **die richtige** Datei ist. Bis v3.28.x
-# wurde alles eingespielt, was durch diesen Filter kam.
+# von GitHub kommt — nicht, dass es **die richtige** Datei ist.
 #
-# Seit P1 gilt: **Keine gültige Prüfsumme, keine Installation.** Kein Schalter,
-# kein „trotzdem installieren", kein stilles Durchwinken. Wer die Prüfung nicht
-# bestehen kann, bekommt den Weg von Hand über die Release-Seite genannt.
+# Deshalb: **Keine gültige Prüfsumme, keine Installation.** Kein Schalter,
+# kein Übergehen, kein stilles Durchwinken. Scheitert die Prüfung, wird der
+# Weg von Hand über die Release-Seite genannt.
 #
 # ⚠ Ältere ausgelieferte Fassungen lassen sich nicht nachrüsten — ihr Updater
 # ist längst beim Nutzer. Das ist eine Tatsache, kein Schlupfloch für Neues.
@@ -713,14 +673,13 @@ def safe_filename(name, fallback='update.bin', verified=False):
     """Aus einem Asset-Namen einen harmlosen Dateinamen machen.
 
     ⚠⚠ **Mit `geprueft=True` gibt es KEINEN Rückfall — dann kommt `None`.**
-    Das ist der Unterschied zwischen „irgendwohin schreiben" und „darf das
-    hier überhaupt sein": Ein Rückfallname ist für Notpfade recht, aber eine
-    Sicherheitsentscheidung darf er nicht tragen. Sonst hinge alles daran,
-    dass in keiner Summen-Datei je ein Eintrag `update.bin` steht.
+    Ein Rückfallname ist für Notpfade recht, aber eine Sicherheitsprüfung darf
+    er nicht tragen. Sonst hinge alles daran, dass in keiner Summen-Datei je
+    ein Eintrag `update.bin` steht.
 
-    ⚠⚠ Der Name kommt aus der Antwort des Servers und wurde bisher **roh** als
-    Pfadbestandteil benutzt. Ein Name wie `../../autostart/boese.exe` hätte die
-    Datei damit an einen ganz anderen Ort gelegt. Dass GitHub so etwas nicht
+    ⚠⚠ Der Name kommt aus der Antwort des Servers. **Roh** als Pfadbestandteil
+    benutzt, legte ein Name wie `../../autostart/boese.exe` die Datei an einen
+    ganz anderen Ort. Dass GitHub so etwas nicht
     vergibt, ist kein Argument: Der Wert ist trotzdem Fremdeingabe.
 
     Deshalb: nur der reine Dateiname, keine Pfadtrenner, keine Punkte-Namen —
@@ -785,10 +744,9 @@ def parse_checksums(text):
 def fetch_checksums(release):
     """Die Prüfsummen einer Freigabe. Gibt `(tabelle, grund)`.
 
-    `grund` ist `''`, wenn alles gut ging, sonst sagt es **warum nicht** — und
-    das ist der Punkt: „Die Datei gibt es nicht" ist etwas anderes als „das
-    Netz war weg". Die zweite Lage darf nicht wie ein manipuliertes Update
-    aussehen, sonst erschrickt jemand grundlos.
+    `grund` ist `''`, wenn alles gut ging, sonst sagt es **warum nicht**: Eine
+    fehlende Datei ist etwas anderes als ein fehlendes Netz. Die zweite Lage
+    darf nicht wie ein manipuliertes Update aussehen.
     """
     for asset in release.get('dateien') or []:
         if (asset.get('name') or '') != CHECKSUM_FILE:
@@ -814,17 +772,15 @@ def _download_target(name):
 
     **Windows** — in den Temp-Ordner. Geholt wird dort ein Installer, der nur
     einmal gestartet und danach nie wieder gebraucht wird; Windows räumt den
-    Ordner von selbst auf. Früher lag er neben dem Programm, und wenn das Update
-    scheiterte, blieben dort 14 MB liegen, die niemand zuordnen konnte.
+    Ordner von selbst auf. Neben dem Programm blieben bei einem gescheiterten
+    Update Dateien liegen, die niemand zuordnen kann.
 
     **Linux** — **neben** das laufende AppImage.
 
-    ⚠ Hier lag ein Fehler, der jedes Selbst-Update unter Linux scheitern ließ:
-    Geladen wurde nach `/tmp`, eingespielt mit `os.replace()`. Auf so gut wie
+    ⚠ Nicht nach `/tmp`: Eingespielt wird mit `os.replace()`. Auf so gut wie
     jedem Linux ist `/tmp` ein eigenes Dateisystem (tmpfs), und `os.replace` kann
     nicht über Dateisystemgrenzen verschieben — es endet mit
-    „[Errno 18] Invalid cross-device link". Gemeldet am 25.08.2026 direkt aus dem
-    Fenster.
+    `[Errno 18] Invalid cross-device link`.
 
     Nebenbei ist das Einspielen dadurch **atomar**: Innerhalb eines Dateisystems
     ist `os.replace` unteilbar, es gibt keinen Moment, in dem die Datei halb da
@@ -871,7 +827,7 @@ def download(asset, progress=None, release=None):
     # wegzuwerfen, wäre unhöflich gegenüber jeder Leitung.
     if release is None:
         raise ValueError(language.t('up_ohne_pruefung'))
-    # ⚠⚠ **Kein Rückfallname für eine Sicherheitsentscheidung.** `geprueft=True`
+    # ⚠⚠ **Kein Rückfallname für eine Sicherheitsprüfung.** `geprueft=True`
     # gibt bei einem unbrauchbaren Asset-Namen `None` statt `update.bin`
     # zurück. Sonst könnte ein Anhang mit fremder Endung durchrutschen, sobald
     # in der Summen-Datei zufällig ein Eintrag `update.bin` stünde — der
@@ -883,8 +839,8 @@ def download(asset, progress=None, release=None):
     table, reason = fetch_checksums(release)
     expected = table.get(name)
     if not expected:
-        # Vier Lagen, vier Sätze — „kein Netz" darf nicht wie „manipuliert"
-        # klingen, „diese Fassung hat noch keine Prüfsummen" auch nicht, und
+        # Vier Lagen, vier Sätze — ein fehlendes Netz darf nicht wie eine
+        # Manipulation klingen, eine Fassung ohne Prüfsummen auch nicht, und
         # eine Summen-Datei von fremdem Server ist etwas anderes als gar keine.
         raise ValueError(language.t({
             'netz': 'up_summen_netz',
@@ -896,8 +852,8 @@ def download(asset, progress=None, release=None):
     #
     # Bricht die Leitung mitten im Schreiben ab, wird die Summe nie gerechnet,
     # und ein Bruchstück bleibt liegen: unter Linux **neben** dem laufenden
-    # AppImage. Genau das soll P1 verhindern, und der erste Anlauf räumte nur
-    # bei falscher Summe auf. Deshalb umschliesst der Fehlerpfad jetzt das
+    # AppImage. Genau das soll P1 verhindern, und ein Aufräumen nur bei
+    # falscher Summe reicht dafür nicht. Deshalb umschliesst der Fehlerpfad das
     # ganze Stück von der ersten geschriebenen Zeile bis zur bestandenen
     # Prüfung.
     try:
@@ -940,16 +896,11 @@ def _fetch_and_verify(url, target, expected, progress=None):
             loaded += len(block)
             if progress and total:
                 # ⚠ **Die Anzeige darf den Download nicht umbringen.** Sie ist
-                # Beiwerk, das Herunterladen ist der Zweck — und genau
-                # andersherum lief es: Der Rückruf zeichnet ins Fenster, und
-                # wenn das aus einem Nebenfaden schiefgeht (`RuntimeError: main
-                # thread is not in main loop`), riss die Ausnahme den ganzen
-                # Faden mit. Der Nutzer sah: nichts. Kein Fortschritt, kein
-                # Update, keine Meldung.
-                #
-                # Bomb20 am 27.08.2026, dreimal in Folge im Diagnosebericht:
-                # „und ich habe auf get 68 geklickt, aber da kam nix mit restart
-                # oder install." Es wurde nie etwas geladen.
+                # Beiwerk, das Herunterladen ist der Zweck. Der Rückruf
+                # zeichnet ins Fenster, und wenn das aus einem Nebenfaden
+                # schiefgeht (`RuntimeError: main thread is not in main loop`),
+                # reißt die Ausnahme sonst den ganzen Faden mit — kein
+                # Fortschritt, kein Update, keine Meldung.
                 try:
                     progress(round(100 * loaded / total))
                 except Exception:
@@ -961,44 +912,35 @@ def _fetch_and_verify(url, target, expected, progress=None):
         raise ValueError(language.t('up_summe_falsch'))
 
 
-# ⚠ Hier stand einmal ein Hilfsskript, das die laufende `.exe` selbst tauschte —
-# und das ist am 26.08.2026 im Test auf eine Verklemmung gelaufen, die niemand
-# vorhergesehen hatte:
+# ⚠ Kein Hilfsskript, das die laufende `.exe` selbst tauscht — das läuft auf
+# eine Verklemmung:
 #
 #   * Die App beendet sich, aber der PyInstaller-Bootloader lebt weiter: Er
 #     räumt seinen Ordner unter `%TEMP%` auf. Zwei Laufzeit-Bibliotheken
-#     (`VCRUNTIME140.dll`, `VCRUNTIME140_1.dll`) blieben gesperrt, und er stand
+#     (`VCRUNTIME140.dll`, `VCRUNTIME140_1.dll`) bleiben gesperrt, und er steht
 #     im Fenster "Failed to remove temporary directory" still.
 #   * Solange dieses Fenster steht, hält der Bootloader die `.exe`.
-#   * Das Skript wartete also auf eine Freigabe, die erst kam, wenn der Nutzer
-#     eine Warnung wegklickte, von der er nicht wusste, dass sie zum Update
-#     gehört. Nach zwei Minuten gab es auf — und im Programmordner blieb eine
-#     verwaiste 14-MB-Datei liegen. **Bei jedem Versuch aufs Neue.**
+#   * Das Skript wartet also auf eine Freigabe, die erst kommt, wenn der Nutzer
+#     eine Warnung wegklickt, die er nicht dem Update zuordnet.
 #
-# Der Eigenbau ist deshalb weg. Unter Windows startet jetzt der Installer, und
-# der kann all das, was hier mühsam nachgebaut war: Er beendet das laufende
+# Unter Windows startet deshalb der Installer: Er beendet das laufende
 # Programm über den Restart Manager (`CloseApplications=force` in
 # `installer.iss`), ersetzt die Datei und pflegt den Eintrag in
 # „Apps & Features“.
 #
-# ⚠ **Zwei Angaben standen hier falsch** und haben am 28.08.2026 die Fehlersuche
-# in die Irre geschickt. Wer hier nachliest, soll den Stand aus `installer.iss`
-# bekommen, nicht den von vorgestern:
+# ⚠ Maßgeblich ist der Stand in `installer.iss`:
 #
-#   * „erkannt über `AppMutex`“ — **nein.** Der Restart Manager erkennt ein
-#     laufendes Programm an den Dateien, die es offen hält; einen Mutex braucht
-#     er dafür nicht. `AppMutex` stand einmal in `installer.iss` und hat den
-#     Update-Weg am 26.08.2026 vollständig blockiert — die Begründung steht
-#     ausführlich dort.
-#   * „startet den Watcher danach wieder (`RestartApplications=yes`)“ —
-#     **nein.** Dort steht `RestartApplications=no`, mit Absicht: Der Restart
-#     Manager fährt nur wieder hoch, was er selbst *sanft* geschlossen hat, und
+#   * Der Restart Manager erkennt ein laufendes Programm an den Dateien, die
+#     es offen hält; einen Mutex braucht er dafür nicht. `AppMutex` blockiert
+#     den Update-Weg — die Begründung steht ausführlich in `installer.iss`.
+#   * Dort steht `RestartApplications=no`, mit Absicht: Der Restart Manager
+#     fährt nur wieder hoch, was er selbst *sanft* geschlossen hat, und
 #     `force` schliesst hart. Nach einem stillen Update startet **niemand** den
 #     Watcher — der Nutzer macht das selbst, angesagt über
 #     `s_ub_hinweis_neustart`.
 #
 # ⚠ Der Installer hält das Programm auch nicht *unten*: Ein Autostart-Eintrag
-# kann es mitten in der Installation wieder hochfahren — gemessen am 28.08.2026,
+# kann es mitten in der Installation wieder hochfahren — gemessen:
 # `DeleteFile ... in use (5)`. Dagegen steht `PrepareToInstall` im
 # `[Code]`-Abschnitt von `installer.iss`.
 
@@ -1079,10 +1021,8 @@ def install(new_file, target_version='', previous_version='', automatic=False):
     target = own_appimage() or sys.executable
 
     # ⚠ Letzter Riegel vor dem Überschreiben: Der Dateiname muss zu uns gehören.
-    # Selbst wenn die Erkennung oben irgendwann wieder danebenliegt, wird dadurch
-    # keine fremde Datei ersetzt. Genau dieser Riegel hätte den Unfall vom
-    # 25.08.2026 verhindert, bei dem ein fremdes AppImage überschrieben wurde,
-    # weil `APPIMAGE` auf ein anderes Programm zeigte.
+    # Selbst wenn die Erkennung oben danebenliegt, wird dadurch keine fremde
+    # Datei ersetzt — etwa wenn `APPIMAGE` auf ein anderes Programm zeigt.
     # ⚠⚠ Auch hier beide Namen — siehe `paths.is_ours()`.
     if not paths.is_ours(target):
         from . import language
@@ -1117,15 +1057,13 @@ def install(new_file, target_version='', previous_version='', automatic=False):
                 shutil.move(new_file, target)
             os.chmod(target, 0o755)
             return True, ''
-        # Windows: den Installer starten. Er bringt alles mit, was hier frueher
-        # von Hand nachgebaut war — siehe die Erklaerung oben.
+        # Windows: den Installer starten — siehe die Erklaerung oben.
         #
         # `/SILENT` zeigt nur einen Fortschrittsbalken statt des ganzen
         # Assistenten, `/NORESTART` verbietet ihm, den Rechner neu zu starten,
         # und `/CLOSEAPPLICATIONS` laesst ihn den laufenden Watcher schliessen.
         #
-        # ⚠ **Kein `/RESTARTAPPLICATIONS`.** Das war ein Fehler und hat am
-        # 26.08.2026 den Selbststart zerschossen. Der Schalter uebersteuert
+        # ⚠ **Kein `/RESTARTAPPLICATIONS`.** Der Schalter uebersteuert
         # `RestartApplications=no` aus `installer.iss` — und dann starten
         # **zwei** Wege den Watcher: der Restart Manager und der
         # `[Run]`-Abschnitt. Im Protokoll steht beides direkt untereinander:
@@ -1133,26 +1071,23 @@ def install(new_file, target_version='', previous_version='', automatic=False):
         #     Attempting to restart applications.
         #     -- Run entry --   Filename: ...\SC-BP-Watcher.exe
         #
-        # ⚠⚠ **„Security validation failure: parent process has different
-        # executable!" kam NICHT von Inno** — richtiggestellt am 11.09.2026.
-        # Alle zehn Meldungen dieser Reihe stehen im PyInstaller-Bootloader
-        # der Watcher-`.exe` (nachgesehen), im Inno-Installer keine. Es ist die
-        # Prüfung, mit der eine gepackte `.exe` kontrolliert, ob ihr Vater ihr
-        # eigener Bootloader ist.
+        # ⚠⚠ **`Security validation failure: parent process has different
+        # executable!` kommt NICHT von Inno.** Alle Meldungen dieser Reihe
+        # stehen im PyInstaller-Bootloader der Watcher-`.exe`, im
+        # Inno-Installer keine. Es ist die Prüfung, mit der eine gepackte
+        # `.exe` kontrolliert, ob ihr Vater ihr eigener Bootloader ist.
         #
-        # Was am 26.08.2026 sehr wahrscheinlich geschah: Inno startete den
-        # Watcher über `[Run]` (bzw. den Restart Manager) neu, und der neue
-        # erbte über das Setup die `_PYI_*`-Variablen des alten. Er hielt sich
-        # für das Kind eines Bootloaders, fand als Vater aber Innos Setup —
-        # „parent process has different executable". Aus einer PowerShell
-        # heraus war das nie nachstellbar, weil es dort kein `_PYI_*` gibt.
-        # Am 11.09.2026 kam dieselbe Reihe wieder („failed to obtain
-        # executable path for parent proces", der Vater war schon beendet) —
-        # diesmal mit „Installation process succeeded" im Setup-Protokoll eine
-        # Sekunde davor. Die Installation war also nie das Problem, der
-        # Neustart war es.
+        # Startet Inno den Watcher über `[Run]` (bzw. den Restart Manager) neu,
+        # erbt der neue über das Setup die `_PYI_*`-Variablen des alten. Er
+        # hält sich für das Kind eines Bootloaders, findet als Vater aber Innos
+        # Setup — `parent process has different executable`, oder
+        # `failed to obtain executable path for parent proces`, wenn der Vater
+        # schon beendet ist. Aus einer PowerShell heraus ist das nicht
+        # nachstellbar, weil es dort kein `_PYI_*` gibt. Die Installation
+        # selbst gelingt dabei („Installation process succeeded"), der
+        # Neustart scheitert.
         #
-        # Den Neustart macht seitdem der Helfer (`update_run`) mit einer
+        # Den Neustart macht deshalb der Helfer (`update_run`) mit einer
         # Umgebung ohne `_PYI_*`. `/RESTARTAPPLICATIONS` bleibt trotzdem weg:
         # Sonst startet ein zweiter Weg den Watcher.
         _SWAP_RUNNING[0] = True
@@ -1169,28 +1104,17 @@ def install(new_file, target_version='', previous_version='', automatic=False):
                      'TIX_LIBRARY', 'MATPLOTLIBDATA'):
             env.pop(name, None)
 
-        # `__COMPAT_LAYER` fliegt weiterhin raus — als Vorsicht, nicht als
-        # Heilmittel. Am 26.08.2026 galt die Variable als DIE Ursache: Mit ihr
-        # stand „Compatibility mode: Yes (DetectorsAppHealth)" im
-        # Setup-Protokoll, ohne sie lief das Update durch. Die Messung vom
-        # 11.09.2026 konnte den Fehler mit ihr allein aber nicht nachstellen —
-        # Inno installiert damit anstandslos. Wahrscheinlich fiel das Entfernen
-        # damals mit einem Lauf zusammen, in dem der Neustart anders verlief.
-        # Schaden tut es nicht: Kein Programm, das der Helfer startet, braucht
-        # einen Kompatibilitäts-Shim.
+        # `__COMPAT_LAYER` fliegt raus — als Vorsicht, nicht als Heilmittel.
+        # Mit ihr steht „Compatibility mode: Yes (DetectorsAppHealth)" im
+        # Setup-Protokoll; einen Fehler verursacht sie allein nachweislich
+        # nicht, Inno installiert damit anstandslos. Schaden tut das Entfernen
+        # nicht: Kein Programm, das der Helfer startet, braucht einen
+        # Kompatibilitäts-Shim.
         env.pop('__COMPAT_LAYER', None)
         # ⚠ **Das Setup schreibt ein Protokoll**, und zwar immer — nicht nur im
-        # Fehlerfall. Am 26.08.2026 lagen **drei** Erklärungsversuche daneben
-        # (vererbtes Arbeitsverzeichnis, `/RESTARTAPPLICATIONS`, sterbender
-        # Elternprozess), und die vierte — `__COMPAT_LAYER` — sehr
-        # wahrscheinlich auch: Gesucht wurde im Installer, gemeldet hatte der
-        # neu gestartete Watcher. Erst das Protokoll vom 11.09.2026 trennte
-        # beides.
-        #
-        # Ohne Protokoll bleibt in so einem Fall nur Raten — und Raten hat hier
-        # drei Versionen gekostet. Mit Protokoll beantwortet der nächste
-        # Fehlerfall die Frage selbst, auch wenn er bei einem Nutzer auftritt,
-        # dessen Rechner niemand ansehen kann.
+        # Fehlerfall. Nur so lässt sich trennen, ob ein Fehler vom Installer
+        # oder vom neu gestarteten Watcher kommt — auch auf einem Rechner, den
+        # niemand ansehen kann.
         #
         # Es landet neben dem Fehlerbericht, wird also vom Diagnose-Bericht
         # miterfasst. Eine Datei pro Lauf, die alte wird überschrieben — es geht
@@ -1205,16 +1129,14 @@ def install(new_file, target_version='', previous_version='', automatic=False):
         except Exception:
             pass                     # ohne Protokoll ist der Weg derselbe
 
-        # ⚠⚠ **Seit dem Ein-Klick-Update startet nicht mehr der Watcher den
-        # Installer, sondern ein Helfer** (`update_run`). Bis v3.29.0 lief der
-        # Installer still, startete bei `/SILENT` absichtlich nichts, und der
-        # Watcher blieb unten. Jetzt wartet eine `.cmd` in `%TEMP%` auf unser
-        # Ende, prüft die Summe erneut, startet den Installer mit
-        # `/SUPPRESSMSGBOXES` und fährt uns danach wieder hoch.
+        # ⚠⚠ **Nicht der Watcher startet den Installer, sondern ein Helfer**
+        # (`update_run`). Eine `.cmd` in `%TEMP%` wartet auf unser Ende, prüft
+        # die Summe erneut, startet den Installer mit `/SUPPRESSMSGBOXES` und
+        # fährt uns danach wieder hoch.
         #
-        # Gemessen am 11.09.2026, bevor gebaut wurde:
+        # Gemessen:
         #   * Ein `cmd` als Elternprozess stört Inno nicht — lebend wie sterbend.
-        #   * Der Restart Manager meldete den laufenden Watcher **nicht**
+        #   * Der Restart Manager findet den laufenden Watcher **nicht**
         #     („found no applications"). Deshalb wartet der Helfer selbst auf
         #     unsere PID, statt sich auf `CloseApplications` zu verlassen.
         #   * Ohne `/SUPPRESSMSGBOXES` hängt ein echter Fehler an einem
@@ -1225,9 +1147,7 @@ def install(new_file, target_version='', previous_version='', automatic=False):
         # zwei Kopien.
         #
         # v2.0.0 wurde **nur** als nackte `SC-BP-Watcher.exe` ausgeliefert; alle
-        # ihre Nutzer laufen zwangsläufig „portabel", ohne es gewollt zu haben.
-        # Gemeldet am 27.08.2026: „niemand nutzt sowas portabel … niemand
-        # schiebt es auf nen Stick, um an nem anderen PC SC zu spielen."
+        # ihre Nutzer laufen zwangsläufig „portabel".
         #
         # Ohne `/DIR` nimmt Inno seinen Standardordner
         # (`%LOCALAPPDATA%\Programs\…`) — die alte Datei bliebe daneben liegen,
@@ -1249,10 +1169,10 @@ def install(new_file, target_version='', previous_version='', automatic=False):
 
         # ⚠⚠ Wie der Helfer gestartet wird, steht an EINER Stelle
         # (`update_run.helfer_flags`) — der Selbsttest startet ihn genauso.
-        # Hier stand `DETACHED_PROCESS`: Der Helfer lief ohne Konsole, jedes
-        # Konsolenprogramm darin bekam eine eigene, sichtbare, und ignorierte
-        # die Umleitungen. Im ersten Echttest am 11.09.2026 hing `find` in
-        # einem Fenster, und `certutil` schrieb seine Summe ins Leere.
+        # Nicht `DETACHED_PROCESS`: Dann läuft der Helfer ohne Konsole, jedes
+        # Konsolenprogramm darin bekommt eine eigene, sichtbare, und ignoriert
+        # die Umleitungen — `find` hängt in einem Fenster, und `certutil`
+        # schreibt seine Summe ins Leere.
         from . import update_run
         flags = update_run.helper_flags()
 
@@ -1335,10 +1255,8 @@ def new_version_alive(wait=3.0):
 def _report_death(exit_code):
     """Warum die neue Fassung gestorben ist — ins Fehlerprotokoll damit.
 
-    ⚠ Ohne das steht im Diagnosebericht **gar nichts**: Bis rc69 wurde nur die
-    Meldung ins Fenster geschrieben, und wer den Bericht schickte, hatte keinen
-    einzigen Eintrag dazu. Am 27.08.2026: Neustart klappte nicht,
-    Protokoll leer, Ursache im Dunkeln.
+    ⚠ Ohne das steht im Diagnosebericht **gar nichts**: Die Meldung im Fenster
+    allein landet in keinem Bericht.
     """
     text = ''
     asset = _OUTPUT[0]
@@ -1359,8 +1277,8 @@ def restart():
     """Das Programm durch die frisch eingespielte Version ersetzen.
 
     Nach einem Update läuft weiter die alte Version — der Prozess hält seine alte
-    Inode. „Beim nächsten Start läuft die neue" stimmt zwar, heißt aber: selbst
-    beenden und selbst wieder starten. Das nimmt dieser Weg ab.
+    Inode. Die neue liefe erst nach Beenden und erneutem Starten — das nimmt
+    dieser Weg ab.
 
     ⚠ Reihenfolge: erst den Einzelinstanz-Wächter schließen, dann starten. Sonst
     sieht die neue Version den belegten Port, hält sich für die zweite Instanz und
@@ -1380,20 +1298,15 @@ def restart():
         if _SWAP_RUNNING[0]:
             return True
 
-        # ⚠ **Hier stand `dict(os.environ)`** — und genau daran ist der Neustart
-        # unter Linux gescheitert. Entfernt wurden nur `APPIMAGE` und Freunde;
-        # `LD_LIBRARY_PATH`, `PYTHONHOME` und `PYTHONPATH` blieben stehen, und
-        # die zeigen im AppImage in den **entpackten Mount der alten Version**.
-        # Zwei Sekunden später beendet sich die alte, ihr Mount verschwindet —
-        # und die neue sucht ihre Bibliotheken in einem Verzeichnis, das es nicht
-        # mehr gibt. Sie stirbt, bevor ein Fenster kommt.
+        # ⚠ **Nicht `dict(os.environ)`.** `LD_LIBRARY_PATH`, `PYTHONHOME` und
+        # `PYTHONPATH` zeigen im AppImage in den **entpackten Mount der alten
+        # Version**. Zwei Sekunden später beendet sich die alte, ihr Mount
+        # verschwindet — und die neue sucht ihre Bibliotheken in einem
+        # Verzeichnis, das es nicht mehr gibt. Sie stirbt, bevor ein Fenster
+        # kommt.
         #
-        # Für den Nutzer sah das so aus: „es geht dann aus aber startet nicht"
-        # (Bomb20, 27.08.2026), am selben Tag nachgestellt.
-        #
-        # `paths.clean_environment()` macht genau diese Wäsche — sie war längst da,
-        # nur benutzte der Neustart eine eigene, unvollständige Version davon.
-        # Zwei Wäschen sind eine zu viel.
+        # `paths.clean_environment()` macht genau diese Wäsche — an einer
+        # Stelle, nicht in einer zweiten, eigenen Fassung.
         from . import paths as paths_module
         env = paths_module.clean_environment()
         # Die Variablen des laufenden AppImage gehören der **alten** Version.
@@ -1407,8 +1320,7 @@ def restart():
         # `%TEMP%\_MEIxxxxxx` und zeigt mit `TCL_LIBRARY` und `TK_LIBRARY`
         # dorthin. Erbt die neue Version diese Variablen, sucht sie ihre
         # Tcl-Dateien im Ordner der **alten** — den die alte beim Beenden
-        # gerade aufräumt. Ergebnis, so beim Testen gemeldet (Haldjas,
-        # 25.08.2026):
+        # gerade aufräumt. Ergebnis:
         #
         #     Failed to execute script 'sc_bp_watcher' due to unhandled
         #     exception: Can't find a usable init.tcl in the following
@@ -1420,13 +1332,10 @@ def restart():
         for name in ('_MEIPASS', '_MEIPASS2', 'TCL_LIBRARY', 'TK_LIBRARY',
                      'TIX_LIBRARY', 'MATPLOTLIBDATA'):
             env.pop(name, None)
-        # ⚠ **`stderr` NICHT wegwerfen.** Hier stand `DEVNULL` — und genau
-        # deshalb war der gescheiterte Neustart unter Linux monatelang nicht
-        # aufzuklären: Die neue Fassung schrieb ihren Grund brav auf die
-        # Fehlerausgabe, und wir haben ihn ins Nichts geleitet. Übrig blieb
-        # „geht aus, kommt nicht wieder" und Raten.
+        # ⚠ **`stderr` NICHT wegwerfen** (kein `DEVNULL`): Die neue Fassung
+        # schreibt den Grund ihres Scheiterns auf die Fehlerausgabe.
         #
-        # Jetzt läuft die Ausgabe in eine Datei neben den Diagnosebericht. Kommt
+        # Die Ausgabe läuft in eine Datei neben den Diagnosebericht. Kommt
         # die neue Fassung nicht hoch, steht dort, woran es lag — und
         # `neue_fassung_laeuft()` hängt es ins Fehlerprotokoll, wo es im Bericht
         # auftaucht.
@@ -1448,10 +1357,8 @@ def restart():
 def update_windows_entry(own_version):
     """Die angezeigte Version in Windows nachziehen. True, wenn geändert.
 
-    ⚠ Der Schlüssel liegt **nicht** immer unter HKCU. Der Kommentar über
-    `INNO_KENNUNG` behauptete das jahrelang, und die Funktion suchte nur dort —
-    also fand sie am 26.08.2026 auf dem Testrechner gar nichts, obwohl der
-    Eintrag existierte. Er lag unter **HKLM**.
+    ⚠ Der Schlüssel liegt **nicht** immer unter HKCU, sondern je nach
+    Installation auch unter **HKLM**.
 
     Grund: `installer.iss` hat zwar `PrivilegesRequired=lowest`, dazu aber
     `PrivilegesRequiredOverridesAllowed=dialog`. Inno fragt damit beim

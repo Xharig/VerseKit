@@ -22,8 +22,8 @@ Was ein fertiges Teil im Laden kostet — und wo es dort liegt.
 ## Die Frage, die nur dieses Werkzeug beantworten kann
 
 Der Watcher kennt das **Rezept** (`crafting.py`) und die **Rohstoffpreise**
-(`prices.py`). Daraus ergibt sich, was Selberbauen kostet. Fehlte bisher die
-andere Hälfte: Was kostet dasselbe Teil fertig im Regal?
+(`prices.py`). Daraus ergibt sich, was Selberbauen kostet. Dieses Modul liefert
+die andere Hälfte: Was kostet dasselbe Teil fertig im Regal?
 
 Erst beide Zahlen nebeneinander beantworten die Frage, um die es wirklich geht
 — **lohnt der Aufwand überhaupt?** Keine fremde Seite kann das, weil keine
@@ -37,13 +37,13 @@ Jeder Bauplan in unseren Rezeptdaten trägt eine Entitäts-Kennung, und das ist
     BlastChill  →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a
                 →  items_prices?uuid=94ea5bb5-…   →  vier Läden mit Preis
 
-⚠⚠ **Deshalb wird NIE über den Namen zugeordnet.** Genau daran ist es hier
-schon einmal schiefgegangen: `commodity_name=Gold` liefert `Golden Medmon`
-gleich mit, dessen 71.000 aUEC wie ein sagenhafter Goldpreis aussahen. Über
+⚠⚠ **Deshalb wird NIE über einen Teil des Namens zugeordnet.**
+`commodity_name=Gold` liefert `Golden Medmon` gleich mit, dessen 71.000 aUEC
+wie ein sagenhafter Goldpreis aussehen. Über
 eine Kennung gibt es diese Fehlerklasse nicht — entweder es ist dasselbe Teil
 oder gar keins.
 
-**Gemessen am 04.09.2026** über alle 1.604 Baupläne mit Kennung: **1.169 (72,9 %)
+**Gemessen** über alle 1.604 Baupläne mit Kennung: **1.169 (72,9 %)
 kennt UEX**, und bei **1.118 davon (95,6 %) stimmt sogar der Name überein**.
 Diese Namensgleichheit ist die eigentliche Gegenprobe — eine falsche Kennung
 ergäbe zufällige Paarungen, keine tausend Treffer mit demselben Namen.
@@ -90,25 +90,23 @@ CACHE = 'laeden.json'
 CATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
 
-# ⚠ Eigene Formatnummer für den Katalog. Er hat seit v3.15.0 eine andere
-# Struktur (er führt die kaufbaren Teile selbst, seit `3` samt Hersteller und
-# Größe); der Preis-Zwischenspeicher daneben ist unverändert und soll deshalb
+# ⚠ Eigene Formatnummer für den Katalog. Er hat eine eigene Struktur (er
+# führt die kaufbaren Teile selbst, ab `3` samt Hersteller und Größe); der
+# Preis-Zwischenspeicher daneben ändert sich damit nicht und soll deshalb
 # nicht mit weggeworfen werden.
 # 6: je Teil die Orte, an denen es zu kaufen ist (`o`), für den Ort-Filter.
 FORMAT_CATALOG = 6
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
-# Rocket Launcher, nach dem am 04.09.2026 gefragt wurde. Für die wäre `fetch()`
+# Rocket Launcher. Für die wäre `fetch()`
 # ohne diesen Umweg blind. Der Schlüssel `id:123` unterscheidet sich von jeder
 # echten Kennung, also bleiben Ablage, Alter und Nachschlagen unverändert.
 ID_PREFIX = 'id:'
 
-# ⚠⚠ **Die Kennung trägt nicht überall — gemeldet und nachgemessen 04.09.2026.**
+# ⚠⚠ **Die Kennung trägt nicht überall — nachgemessen.**
 #
-# Xharig: „CF-Repeater sind nicht alle in den Läden abrufbar, da sollten aber
-# alle Größen kaufbar sein." Stimmt: Von neun CF-Teilen hatten nur zwei einen
-# Ladenpreis. Nachgegangen, statt es auf UEX zu schieben:
+# Von neun CF-Teilen hatten über die Kennung nur zwei einen Ladenpreis:
 #
 # | Befund | Anzahl |
 # |---|---|
@@ -116,13 +114,12 @@ ID_PREFIX = 'id:'
 # | **UEX führt es unter einer ANDEREN Kennung** | **3** |
 # | ordentlich zugeordnet | 2 |
 #
-# Die drei mittleren waren **unser** Fehler. Über alle Baupläne gerechnet:
+# Die drei mittleren holt der Namens-Rückfall. Über alle Baupläne gerechnet:
 # über die Kennung 1.167 von 1.599 (73,0 %), mit Namens-Rückfall **1.542
 # (96,4 %)** — 375 Teile mehr, davon rund ein Drittel mit echten Kaufpreisen.
 #
 # ⚠ **Der Rückfall vergleicht den GANZEN Namen, nie einen Teiltext.** Die
-# Teiltext-Suche ist die Falle, an der es hier schon einmal schiefging: `Gold`
-# liefert `Golden Medmon` mit. Gleichheit hat dieses Problem nicht.
+# Teiltext-Suche ist die Falle: `Gold` liefert `Golden Medmon` mit. Gleichheit hat dieses Problem nicht.
 #
 # ⚠ **Und die Kennung bleibt zuerst dran.** Bei 6 Teilen zeigen Kennung und
 # Name auf **verschiedene** UEX-Einträge — dort gewinnt die Kennung, weil sie
@@ -135,13 +132,9 @@ SECTIONS = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
 
 # ⭐⭐ **Ladenpreise hängen am Patch, nicht an der Uhr.** Sie ändern sich, wenn
 # CIG etwas ändert — anders als die Warenpreise im Handel, die täglich
-# schwanken. Deshalb `patch_bound=True` unten und hier nur noch eine
-# Notfrist: Sie greift, wenn sich die Spielversion nicht ermitteln lässt.
-#
-# Am 05.09.2026 angeregt: „Damit die Listen schneller laden — wäre es möglich,
-# die als Datenbank beim Spieler abzulegen und nur bei Bedarf zu
-# aktualisieren? Schiffspreise, Waffenpreise erneuern sich ja nicht so
-# häufig." Die Ablage gab es schon; sie warf ihren Inhalt nur zu oft weg.
+# schwanken. Deshalb `patch_bound=True` unten und hier nur eine Notfrist:
+# Sie greift, wenn sich die Spielversion nicht ermitteln lässt. So laden die
+# Listen schnell aus der Ablage, statt sie ständig neu zu holen.
 SHELF_LIFE = 30 * uex.DAY
 
 # ⚠ Wieviele Gegenstände die Ablage höchstens behält. Ohne Grenze wüchse sie
@@ -174,12 +167,11 @@ def _save_catalog(progress=None):
     höchstens einmal pro Woche — und nur, wenn jemand die Ladenliste öffnet
     oder eine Zuordnung über die Kennung leer ausgeht.
 
-    ⭐⭐ **Warum die zweite Hälfte dazugehört.** Xharig am 04.09.2026: „FPS-
-    Waffen, die gar nicht kaufbar sind, machen in der Liste auch keinen Sinn —
-    bzw. alles, was nicht kaufbar ist." Er hat recht: Ein Reiter, der zeigt, wo
-    ein Teil im Regal steht, darf nicht mit 910 Rüstungsteilen anfangen, von
-    denen die meisten nirgends verkauft werden. Man wählt aus, klickt, und
-    bekommt „dazu liegen keine Preise vor" — jedes Mal.
+    ⭐⭐ **Warum die zweite Hälfte dazugehört.** Was nicht kaufbar ist, gehört
+    nicht in die Liste: Ein Reiter, der zeigt, wo ein Teil im Regal steht,
+    darf nicht mit 910 Rüstungsteilen anfangen, von denen die meisten
+    nirgends verkauft werden — jeder Klick ergäbe dann, dass keine Preise
+    vorliegen.
 
     Ein Abruf **je Kategorie** liefert alle Preiszeilen darin auf einmal
     (gemessen: 4.282 Zeilen in sechs Kategorien, davon 710 kaufbare Teile).
@@ -205,15 +197,13 @@ def _save_catalog(progress=None):
     duplicates = set()
     id_to_uuid = {}
     # ⭐⭐ **Die kaufbaren Teile werden mitgeschrieben, nicht nur gezählt.**
-    # Bis v3.14.0 speiste sich die Ladenliste aus den **Bauplänen** — sie
-    # zeigte also nur, was man auch herstellen kann. Am 04.09.2026 gefragt:
-    # „Wie soll man da wissen, wo es Boomtube-Raketen gibt?" Gar nicht: Der
-    # Boomtube Rocket Launcher ist nicht craftbar und stand deshalb nirgends,
-    # obwohl UEX seine Läden kennt.
+    # Eine Ladenliste aus den **Bauplänen** zeigte nur, was man auch
+    # herstellen kann — der Boomtube Rocket Launcher etwa ist nicht craftbar
+    # und stünde nirgends, obwohl UEX seine Läden kennt.
     #
     # Gemessen über die 38 Kategorien unserer Abschnitte: **3.958 Teile,
     # davon 1.528 mit Kaufpreis** — gegenüber 893 craftbaren. Die Abrufe
-    # dafür laufen ohnehin schon; bisher wurde das Ergebnis weggeworfen.
+    # dafür laufen ohnehin.
     categories = []
     items_out = []
     for number, k in enumerate(chosen, start=1):
@@ -392,8 +382,8 @@ def catalog_items():
     in der Anzeige — hier bleibt stehen, was die Quelle sagt.
 
     ⚠ **Das ist die Liste für den Laden-Reiter**, nicht `crafting.all_items()`.
-    Der Unterschied ist der Zweck: Die Herstellung fragt „was kann ich
-    bauen", der Laden „was kann ich kaufen". Das zweite ist die größere
+    Der Unterschied ist der Zweck: Die Herstellung zeigt, was sich bauen
+    lässt, der Laden, was sich kaufen lässt. Das zweite ist die größere
     Menge — und die, nach der jemand sucht, der ein Teil braucht.
     """
     data = _catalog.load() or {}
@@ -460,9 +450,9 @@ def shops_for(ident):
     """Alle Läden, die dieses Teil führen — teuerster zuletzt.
 
     Je Eintrag: `laden`, `ort`, `system`, `preis`, `zustand`.
-    Leere Liste heißt **„UEX kennt das Teil nicht"**, `None` heißt
-    **„noch nicht nachgesehen"**. Der Unterschied gehört in die Anzeige:
-    einmal „nirgends im Handel", einmal gar nichts.
+    Leere Liste heißt **UEX kennt das Teil nicht**, `None` heißt
+    **noch nicht nachgesehen**. Der Unterschied gehört in die Anzeige:
+    einmal nirgends im Handel, einmal gar nichts.
     """
     entry = _all().get(ident or '')
     if entry is None:
@@ -484,34 +474,31 @@ def fetch(ident, name='', force=False):
 
     `name` ist der **Rückfall**: Kommt über die Kennung nichts, wird der
     ganze Name im UEX-Katalog gesucht (siehe `SECTIONS` im Kopf). Ohne
-    `name` bleibt es beim alten Verhalten.
+    `name` zählt nur die Kennung.
 
     Gibt `True` zurück, wenn danach ein Stand vorliegt — auch ein leerer
-    („UEX kennt es nicht" ist ein gültiges Ergebnis und wird gemerkt, sonst
+    (ein unbekanntes Teil ist ein gültiges Ergebnis und wird gemerkt, sonst
     fragt das Werkzeug bei jedem Blick erneut nach).
     """
     if not ident:
         return False
-    # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung.** Am 06.09.2026
-    # landete ein Bauplan**name** im Kennungsfeld eines Merkzettel-Postens, und
-    # daraus wurde eine kaputte Adresse:
+    # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung.** Ein
+    # Bauplan**name** im Kennungsfeld ergibt eine kaputte Adresse:
     #
     #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
     #     InvalidURL: URL can't contain control characters
     #
-    # Der Abruf scheiterte, es wurde nichts gemerkt — und weil nichts gemerkt
-    # war, versuchte es die Seite beim nächsten Blick sofort wieder. „Was noch
-    # fehlt" blieb leer und lud endlos: *„der sucht als was und will was
-    # laden, hört aber nicht auf."*
+    # Der Abruf scheitert, es wird nichts gemerkt — und weil nichts gemerkt
+    # ist, versucht es die Seite beim nächsten Blick sofort wieder. „Was noch
+    # fehlt" bliebe leer und lüde endlos.
     #
     # ⚠ Die Wache steht HIER und nicht nur an der Fundstelle: Sie fängt jede
     # künftige Stelle mit, die versehentlich einen Namen weiterreicht. Ein
     # falscher Aufruf soll gar nicht erst hinausgehen.
     if any(z.isspace() for z in ident) or '"' in ident:
         # ⚠ `errors` lokal importieren — auf Modulebene wäre es ein
-        # Zirkelbezug (`errors.py` importiert selbst `paths`). Steht so in den
-        # Projektregeln; beim ersten Anlauf stand der Aufruf hier ohne jeden
-        # Import und hätte beim ersten Auslösen einen `NameError` geworfen.
+        # Zirkelbezug (`errors.py` importiert selbst `paths`). Ohne den Import
+        # hier wirft der erste Aufruf einen `NameError`.
         from . import errors as _f
         _f.record('shops.fetch',
                   ValueError('keine Kennung, sondern ein Name: %r'
@@ -548,10 +535,10 @@ def fetch(ident, name='', force=False):
     rows = []
     for x in raw:
         price = float(x.get('price_buy') or 0)
-        # ⚠ `price_buy = 0` heisst „dieses Terminal verkauft es nicht", nicht
-        # „es ist umsonst". Dieselbe Falle wie bei den Ankaufgeboten in
-        # `selling.py` — einmal vergessen, und im Reiter steht ein Laden mit
-        # „0 aUEC" ganz oben, weil er der billigste zu sein scheint.
+        # ⚠ `price_buy = 0` heisst: dieses Terminal verkauft es nicht — nicht
+        # umsonst. Dieselbe Falle wie bei den Ankaufgeboten in `selling.py` —
+        # einmal vergessen, und im Reiter steht ein Laden mit 0 aUEC ganz
+        # oben, weil er der billigste zu sein scheint.
         if price <= 0:
             continue
         rows.append({

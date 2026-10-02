@@ -1,35 +1,27 @@
 # -*- coding: utf-8 -*-
 """Die Symbole der Oberfläche — fertige Bilder statt Schriftzeichen.
 
-**Warum überhaupt Bilder?** Bis v3.0.0-rc55 waren die Symbole Schriftzeichen
-(`✕ 🗑 ⚙ ⟳ ▶ …`), zwei davon von Hand auf eine Leinwand gemalt. Auslöser der
-Umstellung war ein Satz von Gemeldet am 27.08.2026: „die sollen alle gleich groß
-sein, sind aber unterschiedlich groß, und die glocke ist sogar die Größte."
+**Warum überhaupt Bilder?** Schriftzeichen als Symbole (`✕ 🗑 ⚙ ⟳ ▶ …`) sind
+unterschiedlich groß: Ein Schriftzeichen füllt seine Box nur zu 50–70 % — und
+jedes anders, je nach Schrift. Dazu zwei Probleme, die sich durch bloßes
+Größerstellen nicht lösen lassen:
 
-Der Grund stand im Code: Die gemalte Glocke füllte ihr Feld randlos aus, ein
-Schriftzeichen füllt seine Box aber nur zu 50–70 % — und jedes anders, weil das
-der Schriftdesigner so entschieden hat. Dazu zwei Probleme, die sich durch
-bloßes Größerstellen nicht lösen ließen:
+* **Der Stil passt nicht.** `🗑` und `▶` sind gefüllte Flächen, `⚙ ⟳ ⏻ ✕` dünne
+  Striche. Mehrere Handschriften in einer Leiste.
+* **Jedes System zeigt etwas anderes.** Windows greift zu `Segoe UI Symbol`,
+  macOS und Linux zu etwas ganz anderem. Am eigenen Rechner lässt sich nicht
+  beurteilen, was auf einem anderen System ankommt.
 
-* **Der Stil passte nicht.** `🗑` und `▶` sind gefüllte Flächen, `⚙ ⟳ ⏻ ✕` dünne
-  Striche, die gemalten wieder gefüllt. Drei Handschriften in einer Leiste.
-* **Jedes System zeigte etwas anderes.** Windows greift zu `Segoe UI Symbol`,
-  macOS und Linux zu etwas ganz anderem. Entwickelt wird auf allen dreien
-  und sah am Mac buchstäblich andere Zeichen als seine Nutzer unter Windows — er
-  konnte am eigenen Rechner nicht beurteilen, was draußen ankommt.
-
-Am schlimmsten waren die farbigen Emoji (`🟢 🟡 🔵 ⭐`) vor jeder Bauplanzeile:
-Die liegen über `U+FFFF`, Windows malt sie über die Farb-Emoji-Schrift als bunte
-Klötzchen — und die **ignorieren die eingestellte Farbe**. Ausgerechnet an der
-Stelle, die man am häufigsten sieht.
+Farbige Emoji (`🟢 🟡 🔵 ⭐`) liegen über `U+FFFF`; Windows malt sie über die
+Farb-Emoji-Schrift als bunte Klötzchen — und die **ignorieren die eingestellte
+Farbe**.
 
 **Kein Zusatzpaket.** `tk.PhotoImage` liest PNG seit Tk 8.6 von sich aus; Pillow
 wird nur im Bau-Werkzeug `tools/symbole_bauen.py` gebraucht, nie zur Laufzeit.
-Die eiserne Projektregel „reine Standardbibliothek" bleibt unangetastet, und die
-fertige `.exe` ist dadurch nicht dicker geworden.
+Zur Laufzeit gilt weiter: nur die Standardbibliothek.
 
 **Ein Symbol ändern:** nicht hier — in `tools/symbole_bauen.py`. Dort steht die
-Zuordnung „Bedeutung → Lucide-Vorlage". Dieses Modul lädt nur, was dort
+Zuordnung Bedeutung → Lucide-Vorlage. Dieses Modul lädt nur, was dort
 herauskam. Übersicht aller Symbole: siehe Projektnotizen.
 """
 
@@ -42,12 +34,12 @@ from . import theme
 
 # Die drei Farben, in denen jedes Symbol vorliegt (siehe `symbole_bauen.py`).
 # Namen statt Farbwerten, damit der Code sagt, **was** gemeint ist:
-# `recolor(GREEN)` heißt „hervorheben", nicht „nimm #9ce430".
-# ⚠ `GREEN` heißt „hervorgehoben" — welcher Bildsatz das ist, sagt das
+# `recolor(GREEN)` heißt hervorheben, nicht einen festen Farbwert nehmen.
+# ⚠ `GREEN` heißt hervorgehoben — welcher Bildsatz das ist, sagt das
 # Farbschema (`theme.ICON_SET`: grün im Original, orange bei KRT).
 GREY, GREEN, LIGHT = 'grau', theme.ICON_SET, 'hell'
-# Die beiden Zustandsfarben der Bauplanzeilen — Gelb heißt „aus der Game.log,
-# noch nicht vom Launcher bestätigt", Blau „neu im Spiel craftbar".
+# Die beiden Zustandsfarben der Bauplanzeilen — Gelb: aus der Game.log, noch
+# nicht bestätigt; Blau: neu im Spiel craftbar.
 YELLOW, BLUE = 'gelb', 'blau'
 # Die Schriftfarbe für Wörter, die **neben** einem Symbol stehen. Tk faerbt
 # Text sonst schwarz — auf dunklem Grund ist er damit unlesbar.
@@ -78,15 +70,13 @@ RED = 'rot'
 # ⭐ Welcher Satz beim Überfahren gezeigt wird. Standard ist die **Markenfarbe**
 # — ein Signal, keine Andeutung.
 #
-# ⚠⚠ Zuerst stand hier `hell` (`#e6edf3`). Das ist gegenüber `grau`
-# (`#8b98a5`) nur ein Helligkeitssprung, und die Rückmeldung am 14.09.2026
-# lautete: *„oben bei Sicherung und so funktioniert es, ist aber auch wenig
-# sichtbar, wäre eine Signalfarbe evtl nicht besser geeignet?"* — ja. Ein
-# Farbwechsel sieht man aus dem Augenwinkel, einen Helligkeitswechsel nicht.
+# ⚠⚠ Nicht `hell` (`#e6edf3`): Das ist gegenüber `grau` (`#8b98a5`) nur ein
+# Helligkeitssprung und kaum sichtbar. Einen Farbwechsel sieht man aus dem
+# Augenwinkel, einen Helligkeitswechsel nicht.
 #
 # ⚠ **Zwei Ausnahmen.** Ein Symbol, das ohnehin schon grün ist, würde sich
 # nicht ändern — es geht auf `hell`. Und ein rotes bleibt rot: Rot ist hier
-# ein Wegweiser („Fehler melden"), und es auf Grün zu drehen, sobald die Maus
+# ein Wegweiser (Fehlerbericht), und es auf Grün zu drehen, sobald die Maus
 # darüberfährt, kehrte die Aussage um. Es wird nur aufgehellt.
 _HOVER = {GREEN: LIGHT, RED: LIGHT}
 
@@ -101,8 +91,8 @@ BUTTON = {'klein': 18, 'normal': 22, 'gross': 26, 'sehrgross': 30}
 LINE = {'klein': 12, 'normal': 14, 'gross': 16, 'sehrgross': 18}
 # ⚠ Eine Stufe groesser als `LINE` — fuer Zeichen, die man **treffen** muss.
 # Das ⓘ am rechten Rand der Bauplan-Liste oeffnet den Herkunftskasten; in
-# Zeilengroesse (14 px bei „normal") war es zu klein, um es als Schaltflaeche zu
-# erkennen und sicher zu treffen. Gemeldet am 27.08.2026. Ein
+# Zeilengroesse (14 px bei `normal`) waere es zu klein, um es als Schaltflaeche
+# zu erkennen und sicher zu treffen. Ein
 # eigener Satz statt eines groesseren `LINE`, damit die Statuspunkte im Overlay
 # unveraendert bleiben — die will niemand anklicken.
 TAPPABLE = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
@@ -168,9 +158,8 @@ _STUFEN = ('klein', 'normal', 'gross', 'sehrgross')
 def hover_px(sizes=None):
     """Kantenlänge beim Überfahren — **eine Stufe größer** als die aktuelle.
 
-    ⭐ Gewünscht von Blackd0g84 (KRT) am 14.09.2026, zusammen mit der
-    Signalfarbe: *„eine leichte Vergrößerung dessen, worüber man hovert"* —
-    „deutlich sichtbarer und verständlich ohne Erklärung".
+    ⭐ Zusammen mit der Signalfarbe macht die leichte Vergrößerung deutlich,
+    worüber die Maus gerade steht — ohne Erklärung.
 
     ⚠ Auf der obersten Stufe gibt es keine nächste. Dort wird um denselben
     Betrag weitergerechnet, den die Stufen sonst auseinanderliegen (4 px),
@@ -270,9 +259,9 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
         # gebaut hat. Tk kann beides in einem Label, das spart einen Rahmen.
         #
         # ⚠ `fg` gehört hierher, nicht nur in den Notnagel oben. Lädt das Bild
-        # normal, bekam das Label bis 04.09.2026 **nie** eine Vordergrundfarbe —
-        # Tk nahm seinen Standard, und der ist Schwarz. Auf dem dunklen Grund
-        # war „n weitere Wege zu diesem Bauplan" dadurch kaum zu lesen.
+        # normal, bekäme das Label sonst **nie** eine Vordergrundfarbe —
+        # Tk nimmt seinen Standard, und der ist Schwarz. Auf dem dunklen Grund
+        # wäre der Text dadurch kaum zu lesen.
         w.configure(text=text, compound='left', padx=4, fg=TEXT_COLOR)
         if font is not None:
             w.configure(font=font)
@@ -305,8 +294,8 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
                 pass
         n = photo(w.symbol, gross if drauf else ruhe, farbe, w)
         if n is None and drauf:
-            # ⚠ Fehlt das große Bild, wenigstens die Farbe wechseln — vorher
-            # passierte dann beim Überfahren gar nichts (17.09.2026, „sehr gross").
+            # ⚠ Fehlt das große Bild (etwa bei `sehrgross`), wenigstens die
+            # Farbe wechseln — sonst passiert beim Überfahren gar nichts.
             n = photo(w.symbol, ruhe, farbe, w)
         if n is not None:
             w.configure(image=n)
@@ -318,14 +307,13 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
 
         ⚠⚠ **Der Notnagel darf nicht schlimmer sein als die Lücke.** Die Namen
         hier (`grau`, `gruen`, `hell`) benennen **Bildsätze**, keine Farben —
-        Tk kennt sie nicht. Fehlt die Bilddatei, ging genau dieser Name als
-        `fg` an Tk, und das ganze Programm brach beim Aufbau der Reiterleiste
+        Tk kennt sie nicht. Ginge bei fehlender Bilddatei genau dieser Name als
+        `fg` an Tk, bräche das ganze Programm beim Aufbau der Reiterleiste
         ab: `TclError: unknown color name "grau"`.
 
-        Damit war der Fall „Symbol noch nicht gebaut" kein fehlendes Bild,
-        sondern ein Programm, das gar nicht erst startet — und der Notnagel
-        zwei Funktionen weiter oben lief nie. Am 06.09.2026 aufgefallen, als
-        ein neuer Reiter angelegt wurde, bevor sein Bild da war.
+        Ein noch nicht gebautes Symbol wäre dann kein fehlendes Bild, sondern
+        ein Programm, das gar nicht erst startet — und der Notnagel zwei
+        Funktionen weiter oben liefe nie.
         """
         w.symbol_color = new_color
         if b is not None:
@@ -350,10 +338,8 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
         w.hoverable = not text
         show()
         w.bind('<Button-1>', lambda e: action())
-        # ⭐ **Anklickbares hebt sich beim Überfahren ab.** Gewünscht von
-        # Blackd0g84 (KRT) am 14.09.2026: „wenn man über Symbole hovert,
-        # sollten diese farblich markiert werden, damit man besser weiß, was
-        # die Maus anklicken würde."
+        # ⭐ **Anklickbares hebt sich beim Überfahren ab** — farblich, damit
+        # klar ist, was die Maus anklicken würde.
         #
         # ⚠ Die Bindung sitzt **hier**, nicht an den einzelnen Aufrufstellen:
         # `_build` ist der gemeinsame Kern von `button()`, `tappable()` und
@@ -387,11 +373,9 @@ def hover_group(trigger, *symbols):
     Bedienelement ist. In der Reiterleiste ist es das **nicht**: Dort ist die
     ganze Zeile anklickbar, und das Symbol wird ohne `action` gebaut.
 
-    Am 14.09.2026 gemessen, nachdem die Rückmeldung schon als fertig galt:
-    **Overlay 9 von 9 Symbolen, Reiterleiste 0 von 39.** Die Prüfung war
-    trotzdem grün — sie baute eigene Symbole, statt die echte Oberfläche zu
-    fragen. Eine Prüfung, die sich ihren Prüfling selbst baut, prüft den
-    Prüfling, nicht das Programm.
+    Ohne diese Funktion gemessen: **Overlay 9 von 9 Symbolen, Reiterleiste 0
+    von 39.** ⚠ Eine Prüfung, die sich ihren Prüfling selbst baut, prüft den
+    Prüfling, nicht das Programm — sie muss die echte Oberfläche fragen.
 
     `trigger` ist der Bereich, über den die Maus fährt (die Zeile), `symbols`
     sind die Symbole, die sich aufhellen sollen.
@@ -435,13 +419,9 @@ def hover_group(trigger, *symbols):
         # ⛔⛔ **Tk schickt der Zeile ein `<Leave>`, sobald die Maus in ein
         # KIND darin wandert.** Von außen ist das kein Verlassen — der Zeiger
         # steht weiter über der Zeile, nur eben über dem Symbol oder der
-        # Beschriftung. Wer das für „Maus ist weg" nimmt, lässt die
-        # Hervorhebung genau in dem Augenblick fallen, in dem der Nutzer das
-        # Ziel erreicht.
-        #
-        # Gemeldet am 14.09.2026, Stunden nach dem Einbau: „beim
-        # Einstellungsmenü ist er nicht gut umgesetzt, er erscheint kurz ist
-        # aber sofort wieder weg links in der Leiste."
+        # Beschriftung. Wer das als Verlassen nimmt, lässt die Hervorhebung
+        # genau in dem Augenblick fallen, in dem der Nutzer das Ziel erreicht
+        # — sie blitzt kurz auf und ist sofort wieder weg.
         #
         # ⚠ `event.detail` (`NotifyInferior`) wäre die saubere Antwort —
         # tkinter reicht das Feld aber **nicht** durch. Also wird gefragt,
@@ -475,15 +455,12 @@ def hover_row(trigger, ruhe, aktiv):
 
     ⛔ `hover_group()` färbt Symbole um. Es gibt aber anklickbare Zeilen, die
     gar keins haben: Die Erz- und Ortszeilen der Bergbau-Seite bestehen aus
-    zwei Textlabels. Dort passiert beim Überfahren nichts, und gemeldet wurde
-    am 14.09.2026 genau das: *„bei Bergbau funktioniert der Hover-Effekt auch
-    nicht bei den Erzen, das Fenster wirkt dadurch tot im Vergleich zu dem
-    gesamten restlichen."*
+    zwei Textlabels. Ohne diese Funktion passiert dort beim Überfahren nichts,
+    und die Seite wirkt tot im Vergleich zum Rest.
 
     ⚠ **Der Hintergrund wechselt, nicht die Schriftfarbe.** Die Beschriftungen
     tragen dort bereits eine Bedeutung in der Farbe (Zustand des Rohstoffs);
-    sie umzufärben hieße, zwei Aussagen auf eine Farbe zu legen — derselbe
-    Fehler, der beim Listen-Symbol im Overlay gerade behoben wurde.
+    sie umzufärben hieße, zwei Aussagen auf eine Farbe zu legen.
 
     ⚠ Umgefärbt wird nur, was **jetzt** auf `ruhe` steht. Ein Kind mit eigenem
     Hintergrund (eine Blase, ein Kasten) behält seinen.
@@ -532,8 +509,7 @@ def hover_fg(widget, ruhe, aktiv):
 
     ⛔ Der dritte Fall neben `hover_group()` (Symbol) und `hover_row()` (ganze
     Zeile): ein einzelnes Wort, das ein Bedienelement ist — „Löschen" im
-    Rohstofflager, das Sternchen an einem Schiff. Am 14.09.2026 gemeldet, dass
-    genau dort nichts passiert.
+    Rohstofflager, das Sternchen an einem Schiff.
 
     ⚠ `aktiv` ist bewusst ein Parameter: Bei „Löschen" ist Rot die richtige
     Antwort, bei einem gewöhnlichen Verweis die Markenfarbe. Eine Farbe für

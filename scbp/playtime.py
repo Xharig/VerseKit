@@ -19,8 +19,8 @@ Wie lange wurde gespielt — insgesamt und in dieser Sitzung.
 
 ## ⚠⚠ Warum es dafuer eine eigene Datei braucht
 
-Star Citizen hebt seine Protokolle nur begrenzt auf. Gemessen am 05.09.2026:
-188 Sicherungen, die **88 Tage** abdecken — alles davor ist weg, obwohl
+Star Citizen hebt seine Protokolle nur begrenzt auf. Gemessen: 188
+Sicherungen, die **88 Tage** abdecken — alles davor ist weg, obwohl
 laenger gespielt wurde. Wer die Spielzeit allein aus den vorhandenen Logs
 rechnet, bekommt also jeden Monat eine kleinere Vergangenheit.
 
@@ -36,7 +36,7 @@ Ladebildschirm haengen blieb.
 
 Kurze Sitzungen zaehlen dagegen mit: Wer sich einloggt, kurz nachsieht und
 wieder geht, hat gespielt. Gemessen sind das 43 Sitzungen mit zusammen 1,3
-Stunden — eine Grenze zu ziehen waere eine Behauptung ueber „richtiges"
+Stunden — eine Grenze zu ziehen waere eine Behauptung ueber richtiges
 Spielen, und die steht dem Programm nicht zu.
 
 ## ⚠ Ueberlappungen
@@ -178,14 +178,12 @@ def catch_up(files):
     werden am Startzeitpunkt erkannt und nicht doppelt gezaehlt — der
     **Dateiname** taugt dafuer nicht: Die laufende `Game.log` wird beim
     naechsten Spielstart zu einer `logbackups/…`-Datei umbenannt und waere
-    dann ein zweites Mal „neu".
+    dann ein zweites Mal neu.
 
     ⚠⚠ **Uebergeben werden ALLE Protokolle, nicht nur die frisch
-    hinzugekommenen.** Der erste Anlauf am 05.09.2026 bekam nur die Dateien,
-    die das Auftrags-Protokoll noch nicht kannte — und das kannte auf einem
-    gewachsenen Rechner laengst alle. Ergebnis: Die Anzeige stand auf
-    „0 min", obwohl 188 Protokolle mit 286 Stunden dalagen. Gemeldet mit „ich
-    dachte er liest die alten logs und zaehlt zusammen".
+    hinzugekommenen.** Nur die Dateien, die das Auftrags-Protokoll noch nicht
+    kennt, waeren auf einem gewachsenen Rechner keine — die Anzeige stuende
+    auf 0 min, obwohl Hunderte Stunden Protokolle dalaegen.
 
     Damit das nicht jeden Start eine Sekunde kostet, hat diese Datei ihren
     **eigenen** Lesestand: Dateiname und Groesse. Waechst eine Datei (die

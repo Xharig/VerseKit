@@ -21,22 +21,16 @@ Die Oberfläche wirklich bedienen — klicken, dann nachlesen, was dasteht.
 
 ## ⚠⚠ Warum es dieses Werkzeug gibt
 
-Am 06.09.2026 gingen drei Fehler an den Nutzer, die alle sichtbar gewesen
-wären, hätte jemand einmal geklickt:
+Manche Fehler sieht nur, wer einmal klickt — Beispiele:
 
-| Fehler | was auf dem Bildschirm stand |
+| Fehler | was auf dem Bildschirm steht |
 |---|---|
-| Marke zog nicht mit | alle vier abgehakt — Zeile sagte weiter „4 noch zu besorgen" |
-| Kopf zählte Erledigtes | „8 Positionen", zwei davon längst fertig |
-| Farmliste zählte Erledigtes | „für 8 Bauteile", vier davon schon gebaut |
+| Marke zieht nicht mit | alle vier abgehakt — Zeile sagt weiter „4 noch zu besorgen" |
+| Kopf zählt Erledigtes | „8 Positionen", zwei davon längst fertig |
+| Farmliste zählt Erledigtes | „für 8 Bauteile", vier davon schon gebaut |
 
-Die Rückmeldung dazu: *„testest du deine Funktionen gar nicht mehr in echt,
-oder machst du das immer erst nachdem ich Fehler gefunden habe?"* — und
-danach: *„du machst es mir einfacher, wenn du das live klickst und testest,
-bevor du es mir präsentierst."*
-
-**Jede einzelne Funktion war richtig.** Falsch war, wer nach einer Änderung
-neu zeichnet — und das findet keine Prüfung, die nur Funktionen aufruft. Die
+**Jede einzelne Funktion kann dabei richtig sein.** Falsch ist, wer nach einer
+Änderung neu zeichnet — und das findet keine Prüfung, die nur Funktionen aufruft. Die
 Frage ist nicht „gibt die Funktion den richtigen Wert zurück", sondern
 **„steht danach das Richtige auf dem Bildschirm"**.
 
@@ -90,11 +84,9 @@ def pruefe(bedingung, text):
 def texte(widget, raus=None):
     """Alle sichtbaren Beschriftungen unterhalb eines Widgets — der Reihe nach.
 
-    ⚠⚠ **Gepackt, nicht `winfo_ismapped()`.** Der erste Anlauf filterte über
-    `ismapped` — und das ist bei einem Fenster mit `withdraw()` **immer**
-    falsch, also war jede Liste leer und alle sechs Pruefungen rot. Dieselbe
-    Falle hatte kurz zuvor schon Pruefung 155 im Bau-Lauf umgeworfen
-    („rechte Kante None"), dort unter Windows.
+    ⚠⚠ **Gepackt, nicht `winfo_ismapped()`.** `ismapped` ist bei einem
+    Fenster mit `withdraw()` **immer** falsch — jede Liste waere leer und
+    jede Pruefung rot. Dieselbe Falle betrifft Pruefung 155 unter Windows.
     `winfo_manager()` sagt dagegen, ob ein Widget ueberhaupt eingehaengt ist —
     unabhaengig davon, ob das Fenster gerade sichtbar auf einem Schirm liegt.
     """
@@ -143,10 +135,10 @@ def _ablage_vorbereiten():
     """
     ordner = tempfile.mkdtemp(prefix='sc-bp-klick-')
     os.environ['SC_BP_HOME'] = ordner
-    # ⚠ **Die Formatnummer aus dem Modul holen, nicht hinschreiben.** Der
-    # erste Anlauf setzte hier eine 4 — `fleet.FORMAT` ist aber 1, und eine
-    # Datei aus der Zukunft wird stillschweigend verworfen. Ergebnis: null
-    # Schiffe, zwei rote Pruefungen, und der Fehler lag im Pruefaufbau.
+    # ⚠ **Die Formatnummer aus dem Modul holen, nicht hinschreiben.** Eine
+    # zu hohe Zahl macht die Datei zu einer aus der Zukunft, und die wird
+    # stillschweigend verworfen. Ergebnis: null Schiffe, rote Pruefungen, und
+    # der Fehler laege im Pruefaufbau.
     from scbp import fleet as _hg
     hangar = {
         'format': _hg.FORMAT,

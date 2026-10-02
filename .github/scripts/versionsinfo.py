@@ -22,7 +22,7 @@ from version_pruefen import version_im_code  # noqa: E402
 
 
 def zahlen(version):
-    """„3.56.0-rc1" → (3, 56, 0, 0). Windows verlangt reine Zahlen."""
+    """`3.56.0-rc1` → (3, 56, 0, 0). Windows verlangt reine Zahlen."""
     teile = version.split('-', 1)[0].split('.')
     werte = [int(t) for t in teile if t.isdigit()][:4]
     return tuple(werte + [0] * (4 - len(werte)))

@@ -1,32 +1,28 @@
 # -*- coding: utf-8 -*-
 """Erzeugt die Symbol-Bilder der Oberfläche aus den Lucide-Vorlagen.
 
-**Wozu das gut ist.** Bis v3.0.0-rc55 waren die Symbole der Melde-Leiste
-Schriftzeichen (`✕ 🗑 ⚙ ⟳ …`). Das hatte drei Nachteile, die alle denselben
-Kern haben — *die Schrift entscheidet, nicht wir*:
+**Wozu das gut ist.** Schriftzeichen als Symbole (`✕ 🗑 ⚙ ⟳ …`) haben drei
+Nachteile, die alle denselben Kern haben — *die Schrift bestimmt, nicht wir*:
 
 1. **Ungleiche Größen.** Ein Schriftzeichen füllt seine Box nur zu 50–70 %, und
-   jedes Zeichen anders. Neben den zwei selbstgemalten Symbolen (Glocke,
-   Klemmbrett), die ihre Fläche voll nutzten, wirkte alles andere geschrumpft.
+   jedes Zeichen anders.
 2. **Ungleicher Stil.** `🗑` und `▶` sind gefüllte Flächen, `⚙ ⟳ ⏻ ✕` dünne
    Striche. Die stammen von verschiedenen Schriftdesignern und passen nicht
    zusammen.
 3. **Je System ein anderes Bild.** Windows greift zu `Segoe UI Symbol`, macOS
-   und Linux zu etwas ganz anderem. Entwickelt wird auf allen dreien — er
-   sah am Mac buchstäblich andere Zeichen als seine Nutzer unter Windows.
+   und Linux zu etwas ganz anderem — jedes System zeigt andere Zeichen.
 
 Ein PNG kennt diese Probleme nicht: feste Pixel, überall gleich.
 
 **Warum Lucide.** Alle Symbole sind von denselben Leuten auf einem 24×24-Raster
 mit 2 px Strichstärke gezeichnet. Einheitlichkeit ist damit eingebaut und muss
-nicht von Hand hergestellt werden — der Punkt, an dem die selbstgemalte Glocke
-zwei Anläufe gebraucht hat. Lizenz ISC, Mitliefern erlaubt (siehe
+nicht von Hand hergestellt werden. Lizenz ISC, Mitliefern erlaubt (siehe
 `assets/symbole/LIZENZ.txt`).
 
 **Warum ein eigener Zeichner statt `cairosvg`.** Die üblichen SVG-Wandler hängen
 an der System-Bibliothek *cairo*. Die ist unter Windows ein Ärgernis (fehlende
-DLLs) — und der Autor soll dieses Skript auf **jedem** seiner drei Rechner selbst
-laufen lassen können, ohne vorher etwas zu installieren. Deshalb liest es die
+DLLs) — und dieses Skript soll auf **jedem** System laufen, ohne vorher etwas zu
+installieren. Deshalb liest es die
 Pfade selbst und malt mit Pillow, das ohnehin schon Bau-Werkzeug ist
 (`tools/make_icon_from_art.py`).
 
@@ -97,10 +93,9 @@ ZEILE = {'klein': 12, 'normal': 14, 'gross': 16, 'sehrgross': 18}
 # Zeichen verschwindet bei „sehr gross" stillschweigend (`bild()` gibt `None`).
 ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 
-# ⚠ **Kein 2×-Satz für hochauflösende Bildschirme.** Der Gedanke lag nahe —
-# Retina-Macs und Windows mit 125 % Skalierung blasen ein kleines Bild auf, eine
-# scharfe Version daneben müsste helfen. Am 27.08.2026 nachgemessen: **Tk kann
-# das nicht.** Es zeichnet einen Bildpunkt als einen Punkt, ohne umzurechnen —
+# ⚠ **Kein 2×-Satz für hochauflösende Bildschirme.** Retina-Macs und Windows mit
+# 125 % Skalierung blasen ein kleines Bild auf, eine scharfe Version daneben
+# müsste helfen — nachgemessen: **Tk kann das nicht.** Es zeichnet einen Bildpunkt als einen Punkt, ohne umzurechnen —
 # ein 44-px-Symbol erscheint schlicht doppelt so groß, nicht doppelt so scharf.
 # Verkleinern ginge nur mit `PhotoImage.subsample()`, und das wirft jeden zweiten
 # Pixel weg, statt zu glätten: Das Ergebnis wäre schlechter als das direkt in der
@@ -119,13 +114,13 @@ FARBEN = {
     'cyan':     '#38d6f5',   # „Eis"
     'violett':  '#a78bfa',   # „Nebel"
     'glut':     '#ff5a4f',   # „Glut"
-    'kontrast': '#ffd400',   # „Hoher Kontrast"
+    'kontrast': '#ffd400',   # Schema Hoher Kontrast
     'hell':  '#e6edf3',      # FG     — Mauszeiger darüber
     # Die beiden Zustandsfarben der Bauplanzeilen. Ohne sie müsste ein gelber
     # Punkt grün gemalt werden, und die Zeile verlöre ihre Aussage.
     'gelb':  '#d8a03a',      # PROV   — aus der Game.log, noch nicht bestätigt
     'blau':  '#4aa3d8',      # CATA   — neu im Spiel craftbar, kein eigener Fund
-    'rot':   '#e05252',      # ROT    — „hier meldest du, wenn etwas klemmt“
+    'rot':   '#e05252',      # ROT    — Fehler melden, wenn etwas klemmt
 }
 
 # Welche Lucide-Vorlage wofür steht. Der Schlüssel ist der Name, unter dem das
@@ -137,16 +132,14 @@ FARBEN = {
 KNOPF_SYMBOLE = {
     # --- Melde-Leiste (Overlay) ---
     'starten':      'rocket',            # ⚠ nicht `play`: ein Abspielpfeil heißt
-                                         # „Video ab", nicht „Programm starten".
+                                         # Video ab, nicht Programm starten.
                                          # Eine Rakete sagt beides — starten und
-                                         # Weltraum. Gemeldet am 27.08.2026:
-                                         # „SC Starten ist das symbol nicht
-                                         # eindeutig genug".
+                                         # Weltraum.
     'glocke':       'bell',              # neue Version verfügbar
     'liste':        'clipboard-list',    # die Bauplan-Liste
     'einstellungen': 'settings',
     'einklappen':   'chevron-down',    # Zustand „offen" — Klick klappt zu
-    'aufklappen':   'chevron-right',   # Zustand „zusammengeklappt"
+    'aufklappen':   'chevron-right',   # Zustand: zusammengeklappt
     'ausklappen':   'chevron-up',
     'leeren':       'eraser',            # ⚠ nicht `trash`: der Knopf löscht
                                          # nichts, er räumt nur die angezeigten
@@ -154,10 +147,10 @@ KNOPF_SYMBOLE = {
                                          # Ein Mülleimer verspricht Vernichtung
                                          # und schreckt vom Klicken ab.
     'schliessen':   'x',
-    # ⚠ Für „diesen Auftrag ausblenden" — **nicht** `x`. Das Kreuz steht im
-    # Programm für „Fenster schliessen"; hier wird eine einzelne Zeile
-    # weggenommen. Der durchgestrichene Kreis sagt „gilt nicht mehr", und er
-    # ist deutlich zu sehen: „nen Blinder findet das sonst nicht mehr."
+    # ⚠ Zum Ausblenden eines Auftrags — **nicht** `x`. Das Kreuz steht im
+    # Programm für Fenster schliessen; hier wird eine einzelne Zeile
+    # weggenommen. Der durchgestrichene Kreis heißt: gilt nicht mehr, und er
+    # ist deutlich zu sehen.
     'ausblenden':   'ban',
     # Klicks werden ins Spiel durchgereicht (zu) oder abgefangen (offen). Das
     # Schloss bleibt als einziges Element klickbar — sonst käme man aus dem
@@ -167,9 +160,9 @@ KNOPF_SYMBOLE = {
     'ziehgriff':    'grip',              # die Ecke zum Größerziehen
     # ⚠ Vier Richtungen statt einer. Der Griff sitzt an der FREIEN Ecke des
     # Fensters — bei einer unteren Bildschirmecke also oben, bei einer rechten
-    # links. Der Pfeil zeigt dorthin, wohin sich das Fenster ziehen laesst.
-    # Vorher stand dort fest das Schriftzeichen „◢" und wies in drei von vier
-    # Ecken gegen den Bildschirmrand, wo kein Platz ist. Gemeldet 02.09.2026.
+    # links. Der Pfeil zeigt dorthin, wohin sich das Fenster ziehen laesst —
+    # ein festes Zeichen wiese in drei von vier Ecken gegen den
+    # Bildschirmrand, wo kein Platz ist.
     'ziehen_ol':    'arrow-up-left',
     'ziehen_or':    'arrow-up-right',
     'ziehen_ul':    'arrow-down-left',
@@ -216,10 +209,10 @@ KNOPF_SYMBOLE = {
     'serverstatus': 'server',
     'ordner':       'folder',
     'erkennung':    'scan-search',
-    # Signatur-Scanner an/aus in der Overlay-Leiste (17.09.2026). `scan-eye`,
+    # Signatur-Scanner an/aus in der Overlay-Leiste. `scan-eye`,
     # nicht `eye` — das Auge trägt schon der Blickwinkel.
     'signatur':     'scan-eye',
-    # ⭐ Signatur anlernen, direkt in der Overlay-Leiste (21.09.2026). Ein
+    # ⭐ Signatur anlernen, direkt in der Overlay-Leiste. Ein
     # Doktorhut, kein zweites Lupensymbol: `scan-search` trägt schon der
     # Reiter „Erkennung", und zwei fast gleiche Zeichen nebeneinander sind
     # schlimmer als gar keins.
@@ -260,16 +253,16 @@ KNOPF_SYMBOLE = {
     'eigenbuch':    'notebook-pen',
     'abhaken':      'check-check',
     'einrichtung':  'wand-sparkles',     # der Assistent — ein Zauberstab ist das
-                                         # übliche Bild für „führt dich durch".
+                                         # übliche Bild für einen Assistenten.
     'neustart':     'rotate-cw',
     'herunterladen': 'download',
     # ⚠ Nicht `download` mitbenutzen: Der Pfeil steht im Programm schon für
-    # „neue Version holen". Ein Schild sagt „in Sicherheit gebracht", und das
+    # neue Version holen. Ein Schild heißt: in Sicherheit gebracht, und das
     # ist es, was der Knopf tut. Dieselbe Vorlage steht bereits unter
     # `nurlesend` — die taucht aber nur in der Anleitung auf, nie in der
     # Leiste, also gibt es nichts zu verwechseln.
     'sicherung':    'shield-check',
-    # Die Spielzeit in der Kopfzeile (05.09.2026).
+    # Die Spielzeit in der Kopfzeile.
     'zeit':         'clock',
     'zurueck':      'undo-2',            # auf eine ältere Version zurück
     # --- Gruppe „Handel" (v3.4.0) ---
@@ -278,7 +271,7 @@ KNOPF_SYMBOLE = {
     # demselben Bild sind in einer Leiste nicht auseinanderzuhalten.
     'verkauf':      'coins',
     'handelslager': 'warehouse',
-    # Der eigene Hangar. Bewusst **nicht** `rocket` — das ist seit v3.0.0 der
+    # Der eigene Hangar. Bewusst **nicht** `rocket` — das ist der
     # Startknopf für das Spiel, und zwei verschiedene Dinge dürfen nicht
     # dasselbe Bild tragen. Auch nicht `warehouse`: Die Halle steht schon für
     # den Handelsbestand. Ein Fluggerät ist das, was hier drinsteht.
@@ -287,8 +280,8 @@ KNOPF_SYMBOLE = {
     # steht — und er ist im Programm noch frei: Die Beobachtungsliste bei den
     # Bauplänen malt kein Symbol, sie färbt ihre Zeile golden.
     #
-    # ⚠ Bewusst **nicht** `heart`: Ein Herz heißt „gefällt mir", ein Stern
-    # „will ich haben". Auf einer Liste, die Kaufpreise trägt, ist der
+    # ⚠ Bewusst **nicht** `heart`: Ein Herz heißt gefällt mir, ein Stern
+    # will ich haben. Auf einer Liste, die Kaufpreise trägt, ist der
     # Unterschied nicht bloß Geschmack.
     'wunschliste':  'star',
     # Die Farmliste: was noch im Boden liegt. Ein Kristall ist das Nächste am
@@ -302,7 +295,7 @@ KNOPF_SYMBOLE = {
     # die Raute genau einmal vor.
     'farmliste':    'diamond',
     # Der Zerlege-Rechner: Was gibt der Fabricator zurück? Ein
-    # Schraubenschlüssel steht für „auseinandernehmen" — und ist im Satz noch
+    # Schraubenschlüssel steht fürs Auseinandernehmen — und ist im Satz noch
     # frei. Bewusst **nicht** `package` (das trägt das Lager) und nicht
     # `sicherung` (das ist die Bergungs-Seite daneben; zwei Reiter in
     # derselben Gruppe müssen unterscheidbar bleiben).
@@ -312,8 +305,8 @@ KNOPF_SYMBOLE = {
     # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.
     'laeden':       'store',
     # Die Route: zwei Punkte, ein Weg dazwischen. Nicht `compass` (das trägt
-    # `herkunft`) — dort geht es um „wo kommt es her", hier um „in welcher
-    # Reihenfolge fahre ich".
+    # `herkunft`) — dort geht es um die Herkunft, hier um die Reihenfolge der
+    # Stationen.
     'routen':       'route',
     # Die Einkaufsliste über alle Schiffe — Teile und Wunschschiffe mit
     # Gesamtpreis und Einzelaufstellung.
@@ -325,8 +318,7 @@ KNOPF_SYMBOLE = {
     # wo ein Teil im Regal steht).
     #
     # Ein Kassenbon ist das Bild, das die Sache trifft: eine Aufstellung mit
-    # Summe darunter. Der Wunsch war wörtlich „eine Einzelaufstellung, so wie
-    # jede Rechnung die man bekommen würde".
+    # Summe darunter, wie bei jeder Rechnung.
     'einkaufsliste': 'receipt',
 }
 
@@ -351,8 +343,8 @@ ZEILEN_SYMBOLE = {
     # ⚠ Steht **auch** unter KNOPF_SYMBOLE. Das Kreuz schließt nicht nur
     # Fenster (groß, in der Leiste), sondern auch Kästen mitten auf einer
     # Seite (klein, in der Zeile) — etwa den Herkunftskasten der Bauplan-
-    # Liste. Fehlte die kleine Version, blieb dort eine leere Lücke statt
-    # eines Kreuzes; gemeldet von am 27.08.2026 gemeldet.
+    # Liste. Fehlt die kleine Version, bleibt dort eine leere Lücke statt
+    # eines Kreuzes.
     'schliessen':   'x',
     # Steht ebenfalls in beiden Tabellen: Im Overlay sitzt es in einer Zeile
     # (klein), im grossen Fenster koennte es als Knopf gebraucht werden.
@@ -375,11 +367,11 @@ for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),
                         (ANTIPPBAR_SYMBOLE, ANTIPPBAR)):
     for _n, _v in _tabelle.items():
         _vorlage, _groessen = SYMBOLE.get(_n, (_v, set()))
-        # ⚠⚠ **Plus die Hover-Größe der obersten Stufe** (17.09.2026). Beim
-        # Überfahren zeigt `icons.show()` das Symbol eine Stufe größer; auf
-        # „sehr gross" gibt es keine nächste, dort sind es +4 px. Diese Bilder
-        # (Knöpfe: 34 px) wurden nie gebaut — auf „sehr gross" passierte beim
-        # Überfahren deshalb gar nichts, nicht einmal der Farbwechsel.
+        # ⚠⚠ **Plus die Hover-Größe der obersten Stufe.** Beim Überfahren
+        # zeigt `icons.show()` das Symbol eine Stufe größer; auf `sehrgross`
+        # gibt es keine nächste, dort sind es +4 px (Knöpfe: 34 px). Fehlen
+        # diese Bilder, passiert dort beim Überfahren gar nichts, nicht einmal
+        # der Farbwechsel.
         SYMBOLE[_n] = (_vorlage, _groessen | set(_satz.values())
                        | {max(_satz.values()) + 4})
 
@@ -410,7 +402,7 @@ def _bogen(start, rx, ry, dreh, gross, richtung, ende, schritte=24):
     Das ist der einzige wirklich sperrige Teil eines SVG-Pfads: Die Angabe
     beschreibt den Bogen über *Zielpunkt und Radien*, gezeichnet wird aber über
     *Mittelpunkt und Winkel*. Die Umrechnung steht so in der SVG-Spezifikation
-    (Abschnitt „Elliptical arc implementation notes") und ist hier nur
+    (Abschnitt *Elliptical arc implementation notes*) und ist hier nur
     nachgebaut.
     """
     x1, y1 = start

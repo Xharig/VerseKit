@@ -61,12 +61,11 @@ def command():
     ebenfalls „frozen", und `sys.executable` zeigt darin auf den **temporären
     Einhängepunkt** (`/tmp/.mount_SC-BP-ji95vH/usr/bin/SC-BP-Watcher`). Den
     gibt es beim nächsten Start nicht mehr — er bekommt jedes Mal einen neuen
-    Zufallsnamen. Stand die Reihenfolge andersherum, schrieb „Mit System
-    starten" genau diesen Wegwerf-Pfad in die Autostart-Datei, und der Watcher
-    startete nach einem Neustart **nie** wieder — ohne Fehlermeldung, die Datei
-    sah ja richtig aus. Gefunden am 29.08.2026 auf einem Entwicklerrechner, wo der
-    Eintrag seit dem Umstieg auf Linux tot dalag. Die Variable `APPIMAGE` setzt
-    das AppImage selbst und sie zeigt auf die **echte** Datei."""
+    Zufallsnamen. Andersherum schriebe der Autostart genau diesen
+    Wegwerf-Pfad in die Autostart-Datei, und der Watcher startete nach einem
+    Neustart **nie** wieder — ohne Fehlermeldung, die Datei sähe ja richtig
+    aus. Die Variable `APPIMAGE` setzt das AppImage selbst und sie zeigt auf
+    die **echte** Datei."""
     appimage = os.environ.get('APPIMAGE')
     if appimage:
         return appimage

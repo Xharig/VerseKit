@@ -25,11 +25,11 @@ selbst schreibt. `xml.etree` steigt dort sofort aus.
 
 Gebraucht wird es fuer `Data/Libs/Config/defaultProfile.xml`: Dort steht, wie
 die Aktionen des Spiels **heissen** — `v_eject` traegt das Etikett
-`@ui_CIEject`, das wiederum in der `global.ini` zu „Aussteigen" bzw. „Eject"
+`@ui_CIEject`, das wiederum in der `global.ini` zu `Aussteigen` bzw. `Eject`
 wird. Ohne diese Datei blieben in der Belegungsliste die technischen Namen
 stehen.
 
-## Das Format — an der echten Datei vermessen (04.09.2026)
+## Das Format — an der echten Datei vermessen
 
 Der Kopf ist 44 Bytes: acht Bytes Signatur, danach neun 32-Bit-Zahlen.
 

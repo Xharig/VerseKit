@@ -30,7 +30,7 @@ Laderaum hat, muss dort dreimal fragen und die Ergebnisse selbst
 übereinanderlegen. Genau diese Arbeit nimmt dieser Reiter ab, weil er das
 Handelslager kennt.
 
-Gemessen am 30.08.2026 für je 100 SCU Gold, Copper und Iron:
+Gemessen für je 100 SCU Gold, Copper und Iron:
 
 | Weg | Erlös |
 |---|---|
@@ -57,10 +57,10 @@ geholt — dieselbe Regel wie bei scmdb, `prices.py` und `places.py`. Und
 benutzt; liegt keine da, bleibt der Reiter leer und sagt das auch. Kein Fehler,
 kein Absturz.
 
-## ⚠⚠ Zwei Fallen, die beim Bauen zugeschnappt sind
+## ⚠⚠ Zwei Fallen
 
 **1. Der Namensfilter von UEX sucht Teiltexte.** `commodity_name=Gold` liefert
-`Golden Medmon` gleich mit — und dessen 71.000 aUEC/SCU sahen aus wie ein
+`Golden Medmon` gleich mit — und dessen 71.000 aUEC/SCU sehen aus wie ein
 sagenhafter Goldpreis, während Gold tatsächlich bei 33.000 liegt. Deshalb wird
 hier **ausschliesslich exakt** verglichen, nie mit `in` oder `startswith`.
 
@@ -78,17 +78,15 @@ mit verschiedenen Preisen**:
 | Gold (Ore) | kein Ankauf |
 
 Wer das zusammenwirft, verspricht jemandem das 3,7-fache. Beide Prüfungen
-stehen in `tools/selbsttest.py`, damit sie nicht wieder hereinrutschen.
+stehen in `tools/selbsttest.py`.
 
 ## Gestohlene Ware
 
 Als gestohlen markierte Ladung nimmt nicht jedes Terminal an. UEX kennzeichnet
 die Stellen, die keine Fragen stellen, mit `is_nqa` (*no questions asked*) —
 **15 Terminals**, davon 7 mit Ankaufgeboten (Brio's Breaker Yard, GrimHEX,
-Nuen Waste Management, Raven's Roost und drei weitere). Der Reiter blendet auf
-Wunsch auf diese Auswahl ein.
-
-Die Idee zu diesem Reiter stammt von **Morkhan (KRT)** (30.08.2026).
+Nuen Waste Management, Raven's Roost und drei weitere). Der Reiter kann auf
+diese Auswahl einblenden.
 """
 import time
 
@@ -113,10 +111,10 @@ TIMEOUT = 30
 # und nimmt die Ladung nicht — obwohl der Preis noch dransteht. Wer das erst
 # nach dem Anflug merkt, hat die Strecke umsonst gemacht.
 #
-# ⚠⚠ **Gemessen am 04.09.2026 über alle 1.880 Ankaufzeilen: 90,2 % stehen auf
-# Stufe 1** (leer, nimmt alles). Eine Ampel, die zu neun Zehnteln grün leuchtet,
-# ist keine Ampel, sondern Farbe. Deshalb bleiben die unauffälligen Stufen
-# **stumm** — angezeigt wird nur, was eine Entscheidung ändert:
+# ⚠⚠ **Gemessen über alle 1.880 Ankaufzeilen: 90,2 % stehen auf Stufe 1**
+# (leer, nimmt alles). Eine Ampel, die zu neun Zehnteln grün leuchtet, ist
+# keine Ampel, sondern Farbe. Deshalb bleiben die unauffälligen Stufen
+# **stumm** — angezeigt wird nur, was die Wahl des Spielers ändert:
 #
 # | Stufe | Lager | wird gezeigt |
 # |---|---|---|
@@ -135,8 +133,8 @@ NO_DEMAND = 6
 SHELF_LIFE = uex.DAY
 
 # Ab wann eine Meldung als alt gilt und in der Anzeige abgesetzt wird.
-# Gemessen am 30.08.2026 über alle 1.880 Ankauf-Einträge: 98,5 % waren jünger
-# als eine Woche, die Hälfte jünger als 2,2 Tage, der älteste 15 Tage. Eine
+# Gemessen über alle 1.880 Ankauf-Einträge: 98,5 % sind jünger als eine
+# Woche, die Hälfte jünger als 2,2 Tage, der älteste 15 Tage. Eine
 # Woche trennt also sauber zwischen „normal" und „schau genau hin".
 OLD = 7 * 24 * 60 * 60
 
@@ -250,13 +248,12 @@ def update(force=False, progress=None):
     #
     # Die Preisdaten führen keinen (`commodities_prices_all` hat kein
     # `game_version`), und das Feld an den Terminals bedeutet etwas anderes:
-    # „in dieser Version zuletzt gesehen". Gemessen am 30.08.2026 über 826
-    # Terminals verteilt es sich auf 3.24.2 (151×), 4.6.0 (126×), 4.0 (106×)
-    # und 84 ohne Angabe — der häufigste Wert wäre also `3.24.2` gewesen,
-    # während die Preise tatsächlich aus 4.10.0 stammten.
+    # „in dieser Version zuletzt gesehen". Gemessen über 826 Terminals
+    # verteilt es sich auf 3.24.2 (151×), 4.6.0 (126×), 4.0 (106×) und 84
+    # ohne Angabe — der häufigste Wert wäre also `3.24.2`, während die Preise
+    # tatsächlich aus 4.10.0 stammen.
     #
-    # Zwei Anläufe, beide falsch. Statt einen dritten Kniff zu suchen, sagt der
-    # Reiter, was er **weiss**: wie alt die Meldungen sind (`age()`). Eine
+    # Deshalb sagt der Reiter, was er **weiss**: wie alt die Meldungen sind (`age()`). Eine
     # Versionsnummer, die man nicht belegen kann, ist schlimmer als keine.
     terminals = {}
     for x in spots:
@@ -269,22 +266,20 @@ def update(force=False, progress=None):
             'o': place,
             's': x.get('star_system_name') or '',
             'q': 1 if x.get('is_nqa') else 0,
-            # ⚠⚠ **Der Terminalname gehört dazu.** Ohne ihn standen im
+            # ⚠⚠ **Der Terminalname gehört dazu.** Ohne ihn stehen im
             # Routen-Reiter acht Zeilen „Seraphim Station · Stanton"
             # untereinander — eine Station hat viele Terminals (Admin, TDD,
             # Läden), und die verkaufen Verschiedenes. Wer auswählen soll,
-            # muss unterscheiden können. Gemeldet am 04.09.2026.
+            # muss unterscheiden können.
             'n': (x.get('name') or '').strip(),
             # ⚠⚠ **Die Art des Terminals — und die entscheidet, ob es für
-            # Handel überhaupt taugt.** Gemessen am 04.09.2026 über alle 826:
-            # nur **161 `commodity`** und **23 `commodity_raw`**; die übrigen
+            # Handel überhaupt taugt.** Gemessen über alle 826: nur
+            # **161 `commodity`** und **23 `commodity_raw`**; die übrigen
             # 642 sind Läden (`item`, 481), Tankstellen (`fuel`, 99),
             # Miet- und Kaufstationen für Schiffe.
             #
-            # Xharig dazu: „Wer kauft Schiffswaffen und verkauft die? Wir
-            # wollen den Leuten sinnvolle Routen geben, nicht die komplette
-            # Liste aller Shops." Seraphim Station hat 16 Terminals — und
-            # **genau eines** davon handelt mit Ware.
+            # Sinnvolle Routen statt einer Liste aller Läden: Seraphim Station
+            # hat 16 Terminals — und **genau eines** davon handelt mit Ware.
             't': (x.get('type') or '').strip(),
         }
 
@@ -372,7 +367,7 @@ def places_for(names, nqa_only=False):
         Ein Ort, der alle drei Waren nimmt, steht über einem, der nur die
         teuerste nimmt.
 
-    Das ist der ganze Sinn des Reiters. Gemessen am 30.08.2026 kostet der
+    Das ist der ganze Sinn des Reiters. Gemessen kostet der
     Umweg über mehrere Terminals mehr Zeit, als er einbringt — zwei Prozent
     Mehrerlös für zwei zusätzliche Anflüge (siehe Kopf).
 
@@ -438,11 +433,11 @@ def places_for(names, nqa_only=False):
 
 # Waren, die in der Bestenliste nichts zu suchen haben.
 #
-# ⚠⚠ **Das sind Event-Geschenke, keine Handelsware.** Gemeldet am 08.09.2026:
-# „die ersten 2 auf der Liste sind Karten vom Event, die gibt es gar nicht als
-# 1 SCU." Sie tragen einen Preis, weil ein Terminal sie ankauft — aber niemand
-# fliegt eine SCU davon irgendwohin. In der Bestenliste standen sie auf Platz
-# 1 und 2 und verdrängten alles, womit sich wirklich Geld verdienen lässt.
+# ⚠⚠ **Das sind Event-Geschenke, keine Handelsware** — Karten, die es gar
+# nicht als 1 SCU gibt. Sie tragen einen Preis, weil ein Terminal sie ankauft
+# — aber niemand fliegt eine SCU davon irgendwohin. In der Bestenliste stünden
+# sie auf Platz 1 und 2 und verdrängten alles, womit sich wirklich Geld
+# verdienen lässt.
 #
 # ⚠ Ausgeschlossen wird nur die BESTENLISTE. Wer den Namen sucht, bekommt
 # weiterhin seine Ortsliste — die Ware verschwindet nicht aus dem Programm.
@@ -463,7 +458,7 @@ def in_top_list(name):
 
 # Ab welchem Vielfachen des zweithöchsten Gebots ein Preis als Ausreißer gilt.
 #
-# ⚠ **Die Zahl ist gemessen, nicht gesetzt.** Am 08.09.2026 über alle 114 Waren
+# ⚠ **Die Zahl ist gemessen, nicht gesetzt.** Über alle 114 Waren
 # geprüft: Genau **zwei** liegen über Faktor 3, und beide sind offensichtlich
 # falsch — „Year of the Rat Envelope" 82.200.000 gegen 2.200.000 sonst
 # (Faktor 37), „Luminalia Gift" 95.500.000 gegen 5.500.000 (Faktor 17), beide

@@ -17,23 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Startprogramme: weitere Programme mit dem Spiel starten (v3.58.0-rc4).
+Startprogramme: weitere Programme mit dem Spiel starten.
 
-Wunsch vom 27.09.2026 nach dem Vorbild des SC Deutsch Launchers. Jeder
-Eintrag sagt, **wann** er startet:
+Jeder Eintrag sagt, **wann** er startet:
 
 | `wann` | Auslöser |
 |---|---|
-| `launcher` | zusammen mit dem RSI Launcher (Knopf „RSI Launcher starten") |
+| `launcher` | zusammen mit dem RSI Launcher (Knopf `RSI Launcher starten`) |
 | `spiel` | sobald Star Citizen läuft (die Spielende-Wache sieht alle 20 s nach) |
 | `ersetzt` | **statt** des RSI Launchers — der Startknopf öffnet dann dieses Programm |
 
 ⚠⚠ **Es wird genau das ausgeführt, was der Spieler einträgt — nichts sonst.**
-Keine Vorschläge, keine Voreinträge, kein Befehl aus dem Netz. Der Hinweis
-auf der Seite sagt das („auf eigenes Risiko").
+Keine Voreinträge, kein Befehl aus dem Netz. Der Hinweis auf der Seite sagt
+das (eigenes Risiko).
 
-⚠⚠ **Ein Prüflauf startet nie etwas** (Projektregel „Ein Prüflauf öffnet
-NICHTS"). Alles läuft über `_popen`, das die Prüfung ersetzt.
+⚠⚠ **Ein Prüflauf startet nie etwas.** Alles läuft über `_popen`, das die
+Prüfung ersetzt.
 """
 import os
 import threading
@@ -149,7 +148,7 @@ def replacement():
 
 
 def on_launcher():
-    """Mit dem RSI Launcher: alle Einträge „mit dem RSI Launcher"."""
+    """Mit dem RSI Launcher: alle Einträge mit `wann='launcher'`."""
     for entry in _active('launcher'):
         launch(entry)
 
@@ -160,7 +159,7 @@ def on_game_started():
 
 
 def on_game_ended():
-    """Beim Spielende: was mit „wieder beenden" gestartet wurde, beenden."""
+    """Beim Spielende: was mit der Option zum Wiederbeenden gestartet wurde, beenden."""
     while _RUNNING:
         process = _RUNNING.pop()
         try:

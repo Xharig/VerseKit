@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 """Gegenprobe: Beschreibt der Abdruck der Bauplan-Liste wirklich das Bild?
 
-Zwei Ausgaenge von `_zeichnen()` fuehren am Ende der Funktion vorbei — und
-genau die hat der Pruefer am 12.09.2026 gefunden:
+Zwei Ausgaenge von `_zeichnen()` fuehren am Ende der Funktion vorbei:
 
 | Ausgang | Was passiert |
 |---|---|
 | **Leerer Katalog** | Die Zeilen sind schon zerstoert, dann `return` |
 | **Lange Liste** | Der Aufbau laeuft erst im Leerlauf (`after_idle`) |
 
-In beiden Faellen behauptete der alte Abdruck weiter, das vorige Bild stehe
-noch — und `neu_laden()` sprang ab. Auf dem Bildschirm blieb es leer.
+In beiden Faellen darf der Abdruck nicht weiter behaupten, das vorige Bild
+stehe noch — sonst springt `neu_laden()` ab, und der Bildschirm bleibt leer.
 
     python3 tools/probe_liste_abdruck.py
 

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Die neuen Einstellungsseiten „Module" und „Startprogramme" (v3.58.0-rc4).
+Die Einstellungsseiten „Module" und „Startprogramme".
 
 Eigene Datei aus demselben Grund wie `stats_pages.py`: `pages.py` ist groß
 genug. Die Bausteine kommen aus `pages`, damit alles gleich aussieht.

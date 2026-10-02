@@ -20,7 +20,7 @@ Ab wie viel Ruf ein Rang beginnt — für die Rangnamen im Reputationsmenü.
 Aus `Gildenmitglied` wird `Gildenmitglied [ab 10.000]`. Der Füllstand des
 Balkens selbst kommt vom Spielserver und steht nirgends geschrieben; die
 Schwelle macht ihn trotzdem lesbar: Man sieht, wo man steht und was als
-Nächstes kommt. Gewünscht von KynoTnis (ADI), 16.09.2026.
+Nächstes kommt.
 
 ## Woher die Zahlen kommen
 
@@ -35,9 +35,9 @@ Ergebnis (ein paar Dutzend Zahlen), gebunden an die Spielversion.
 ## ⚠⚠ Die Zuordnung ist Handarbeit — und nur belegte Stufen stehen drin
 
 Kein Datensatz verweist auf seinen Sprachschlüssel. Die Schlüssel heißen auch
-nicht gleich: `RepStanding_Bounty_MasterBountyHunter_Name` („Erfahrenes
-Gildenmitglied") ist in den Spieldaten `BountyHunter_VeteranAgent_…`. Die
-Tabelle `RANKS` unten ist deshalb am 17.09.2026 Stufe für Stufe über
+nicht gleich: `RepStanding_Bounty_MasterBountyHunter_Name` (`Erfahrenes
+Gildenmitglied`) ist in den Spieldaten `BountyHunter_VeteranAgent_…`. Die
+Tabelle `RANKS` unten ist deshalb Stufe für Stufe über
 Rangnummer bzw. Reihenfolge **und** den englischen Text belegt worden
 (43 Schlüssel).
 
@@ -45,7 +45,7 @@ Bewusst **weggelassen**:
 
 | Schlüssel | Warum |
 |---|---|
-| `RepScope_Contractor_Rank0` | Schlüssel sagt „Applicant", Spieldaten „Neutral" — unklar, was angezeigt wird |
+| `RepScope_Contractor_Rank0` | Schlüssel sagt `Applicant`, Spieldaten `Neutral` — unklar, was angezeigt wird |
 | `RepStanding_NotEligible`, `…_NotEligible_Name` | Schwelle −1000, teilen sich mehrere Parteien |
 
 Eine falsche Zahl ist schlimmer als keine: Wer „ab 40.000" liest und bei
@@ -67,7 +67,7 @@ CACHE_FILE = 'rufstufen.json'
 FORMAT = 1
 
 # Stufen ab dieser Schwelle bekommen eine Zahl. Die Einstiegsstufe (0) und
-# „nicht berechtigt" (−1000) tragen keine Auskunft.
+# die Stufe nicht berechtigt (−1000) tragen keine Auskunft.
 MIN_SHOWN = 1
 
 SETTING = 'ruf_stufen'
@@ -82,7 +82,7 @@ OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 # Gruppe -> (Datei, Scope, [(Sprachschlüssel, Stufenname in den Spieldaten), …])
 # Die Liste steht in AUFSTEIGENDER Reihenfolge — daran wird geprüft.
 # Eine Datei je Gruppe genügt: Alle Parteien desselben Scopes haben dieselben
-# Schwellen (gemessen am 17.09.2026 über 38 Dateien).
+# Schwellen (gemessen über 38 Dateien).
 RANKS = {
     'contractor': ('faction_reputation_lawful_foxwellenforcement.json',
                    'FactionReputation',
@@ -103,8 +103,8 @@ RANKS = {
                  'BountyHunter_MidLevel_BountyHuntersGuild'),
                 ('RepStanding_Bounty_Senior_Name',
                  'BountyHunter_Senior_BountyHuntersGuild'),
-                # ⚠ Die Namen tauschen hier: „Master" im Schlüssel ist
-                # „VeteranAgent" in den Spieldaten, „Legendary" ist „MasterAgent".
+                # ⚠ Die Namen tauschen hier: `Master` im Schlüssel ist
+                # `VeteranAgent` in den Spieldaten, `Legendary` ist `MasterAgent`.
                 ('RepStanding_Bounty_MasterBountyHunter_Name',
                  'BountyHunter_VeteranAgent_BountyHuntersGuild'),
                 ('RepStanding_Bounty_LegendaryBountyHunter_Name',

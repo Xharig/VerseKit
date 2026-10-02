@@ -20,17 +20,15 @@ ausgabe.utf8()
 # mit und ohne Bezugsquelle. Genug, um Liste, Filter und Herkunft zu beurteilen.
 #
 # ⚠ Alle Werte MÜSSEN im Format des echten scmdb-Katalogs stehen. Der
-# Gütegrad ist dort eine ZAHL (1–4), kein Buchstabe: Stand hier 'A', schlug
-# `kuerzel()` in einer Zahlen-Tabelle nach und schrieb „–" — in der Liste
-# stand „M/–/1" statt „M/1/A". `formate_pruefen()` unten faengt das ab.
+# Gütegrad ist dort eine ZAHL (1–4), kein Buchstabe: Mit 'A' schlägt
+# `kuerzel()` in einer Zahlen-Tabelle nach und schreibt `–` — in der Liste
+# stünde `M/–/1` statt `M/1/A`. `formate_pruefen()` unten faengt das ab.
 #
 # ⚠ Die Art MUSS die echte Kennung aus dem scmdb-Katalog sein — `WeaponGun`,
-# nicht „Ship weapon". Hier standen ausgedachte Namen, und weil
-# `catalog.KIND_GROUP` die nicht kennt, landete alles in „Sonstiges": Der
-# Filter „nur FPS-Waffen" zeigte nichts, „nur Schiffsteile" zeigte nichts, und
-# unter Sonstiges tauchte ein Netzteil namens XL-1 auf. Die Oberfläche war in
-# Ordnung — die Testdaten waren es nicht. `_arten_pruefen()` unten lässt das
-# nicht wieder durchgehen.
+# nicht `Ship weapon`. Ausgedachte Namen kennt `catalog.KIND_GROUP` nicht,
+# alles landete unter Sonstiges, und die Filter zeigten nichts — die
+# Oberfläche sähe kaputt aus, obwohl nur die Testdaten falsch sind.
+# `_arten_pruefen()` unten lässt das nicht durchgehen.
 BEISPIELE = [
     ("7CA 'Nargun'", 'Cooler', 'Military', 1, '1', True,
      [('Foxwell Enforcement', 'Red Lvl. Contract: Protect Fuel Tanks',
@@ -103,10 +101,9 @@ def main():
                                        'quelle': 'log',
                                        'zeit': '2026-08-25 01:14:03'}
         # ⚠ NICHT flach in den Zielordner schreiben: `paths.app_file()`
-        # sortiert die Dateien seit v3.0.0 in Unterordner (Bauplaene/,
-        # Intern/, Einstellungen/). Flach abgelegt findet das Programm sie
-        # nicht — die Liste bleibt leer, und es sieht aus, als fehlten die
-        # Daten. Genau so ist es passiert.
+        # sortiert die Dateien in Unterordner (Bauplaene/, Intern/,
+        # Einstellungen/). Flach abgelegt findet das Programm sie nicht — die
+        # Liste bleibt leer, und es sieht aus, als fehlten die Daten.
         from scbp import paths as pfade_modul
         with open(pfade_modul.app_file('bestand.json'), 'w',
                   encoding='utf-8') as f:
@@ -127,8 +124,8 @@ def arten_pruefen():
     dort landet, damit auch dieser Bereich etwas zu zeigen hat.
 
     Der Selbsttest ruft das auf. Grund: Ausgedachte Art-Namen in den Testdaten
-    sehen aus wie ein Fehler der Oberfläche. Genau so ist es einmal gelaufen —
-    „nur FPS-Waffen" zeigte nichts, und gesucht wurde tagelang am Filter.
+    sehen aus wie ein Fehler der Oberfläche — ein leerer Filter lenkt die
+    Suche an die falsche Stelle.
     """
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from scbp import catalog
@@ -141,12 +138,12 @@ def arten_pruefen():
 def formate_pruefen():
     """Haben die Beispieldaten dieselben Formate wie der echte Katalog?
 
-    Bisher geprüft:
+    Geprüft wird:
 
-    * **Gütegrad** als Zahl 1–4, nicht als Buchstabe. Stand hier 'A', schlug
-      `kuerzel()` in einer Zahlen-Tabelle nach, fand nichts und schrieb „–":
-      In der Liste stand „M/–/1" statt „M/1/A".
-    * **Klasse** als ausgeschriebener Name („Military"), nicht als Kürzel.
+    * **Gütegrad** als Zahl 1–4, nicht als Buchstabe. Mit 'A' schlägt
+      `kuerzel()` in einer Zahlen-Tabelle nach, findet nichts und schreibt
+      `–`: In der Liste stünde `M/–/1` statt `M/1/A`.
+    * **Klasse** als ausgeschriebener Name (`Military`), nicht als Kürzel.
 
     Beides ist derselbe Fehler wie die ausgedachten Art-Kennungen: Testdaten
     in einem Format, das es echt nicht gibt — und die Oberfläche sieht dann

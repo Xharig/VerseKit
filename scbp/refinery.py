@@ -25,7 +25,7 @@ KOSTEN`. Vergleichen kann man nur durch Durchklicken, und die Ausbeute steht
 nirgends als Zahl. Dieses Modul beantwortet die Frage vorab: Man sagt, was einem
 wichtig ist, und bekommt die Methode.
 
-**Woher die Werte stammen: aus dem Spiel, abgelesen am 03.09.2026 (Alpha 4.10).**
+**Woher die Werte stammen: aus dem Spiel, abgelesen in Alpha 4.10.**
 
 ⚠⚠ **Nicht durch Werte aus der Netz-Gemeinde ersetzen.** Der grosse
 Community-Rechner (Regolith) führt echte Faktoren statt Stufen, was verlockend
@@ -46,9 +46,8 @@ folgt, dass mehr Geld immer Tempo kauft und nie Material, und dass höherer
 Ertrag immer Zeit kostet. Deshalb braucht die Empfehlung **keine Gewichtung**:
 Erste und zweite Priorität genügen, es bleibt genau eine Methode übrig.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `raffinerie` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: die Kennungen der Methoden (`'pyrometric'`, `'gaskin'`, …)
+⚠ **Bezeichner sind englisch, Kennungen nicht.** Deutsch bzw. unverändert
+bleiben: die Kennungen der Methoden (`'pyrometric'`, `'gaskin'`, …)
 und die Achsen `'ertrag'`, `'kosten'`, `'tempo'` — über sie holt die
 Oberfläche ihre Texte (`s_rm_…`).
 """
@@ -60,14 +59,14 @@ READ_ON = '2026-09-03'
 
 # Die drei Achsen. Grössere Zahl heisst **besser für den Spieler**:
 # viel Ertrag, wenig Kosten, hohes Tempo. Damit ist jeder Vergleich im Modul
-# ein simples „grösser ist besser", ohne Sonderfall für die Kosten.
+# ein simples grösser-ist-besser, ohne Sonderfall für die Kosten.
 LOW, MODERATE, HIGH = 1, 2, 3
 VERY_SLOW, SLOW, MEDIUM, FAST = 0, 1, 2, 3
 
 # Methode -> (Ertrag, Tempo, Kostenvorteil)
 #
 # ⚠ Die dritte Zahl ist der **Kostenvorteil**, nicht der Preis: 3 heisst
-# „geringe Kosten". Im Spiel steht dort `GERINGE KOSTEN` — beim Nachtragen also
+# geringe Kosten. Im Spiel steht dort `GERINGE KOSTEN` — beim Nachtragen also
 # umdrehen, sonst empfiehlt das Werkzeug künftig die teuerste Methode.
 LEVELS = {
     'pyrometric':  (HIGH,     VERY_SLOW, HIGH),
@@ -116,10 +115,10 @@ def recommend(first=None, second=None):
     Standard-Rangfolge Ertrag → Kosten → Tempo: Sie führt auf `pyrometric`, die
     einzige Methode mit höchstem Ertrag **und** geringsten Kosten.
 
-    ⚠ Die zweite Achse darf nicht die erste sein — sonst entschiede sie nichts.
+    ⚠ Die zweite Achse darf nicht die erste sein — sonst bewirkte sie nichts.
     Sie wird in dem Fall stillschweigend übergangen, statt eine Fehlermeldung zu
-    erzeugen: Die Oberfläche lässt die Wahl zu, und ein Hinweis „das geht nicht"
-    wäre für den Spieler ohne Erkenntnisgewinn.
+    erzeugen: Die Oberfläche lässt die Wahl zu, und ein Hinweis darauf wäre für
+    den Spieler ohne Erkenntnisgewinn.
     """
     rank = [a for a in (first, second) if a in _POSITION]
     # Doppelte raus, danach den Rest in fester Reihenfolge anhängen — so ist

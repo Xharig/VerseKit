@@ -4,7 +4,7 @@
 ⚠ **Warum es dieses Modul gibt.** `tkinter.filedialog` zeichnet unter Linux
 seinen **eigenen** Dialog — den alten Motif-Kasten: eine Spaltenliste mit jedem
 versteckten Ordner (`.cache`, `.pki`, `.var`), kein Sortieren, keine Vorschau,
-kein „zuletzt benutzt". Unter **Windows und macOS** reicht Tk dagegen den echten
+keine Liste zuletzt benutzter Orte. Unter **Windows und macOS** reicht Tk dagegen den echten
 Systemdialog durch; dort ist alles in Ordnung und dieses Modul greift nicht ein.
 
 Unter Linux gibt es zwei verbreitete Helfer, die den **echten** Dialog des
@@ -12,21 +12,14 @@ Schreibtischs öffnen: `kdialog` (KDE Plasma) und `zenity` (GNOME, liegt aber au
 fast jedem System). Ist keiner da, bleibt der Tk-Dialog als Rückfall — hässlich,
 aber funktionierend ist besser als gar nichts. **Nichts hängt davon ab.**
 
-⚠ **Warum dieses Modul überhaupt entstand, obwohl es die Ordnerwahl schon gab:**
-Für Ordner stand der ganze Ablauf bereits in `pages.py` — für das Öffnen und
-Speichern von **Dateien** aber nicht, dort lief weiterhin `filedialog`. Beim
-Vorführen des Werkzeugs fiel es auf (gemeldet 27.08.2026: „bei Datei wählen
-kommt auch diese hässliche unübersichtliche Ordner-Auswahl"). Die drei Wege
-gehören zusammen und stehen deshalb jetzt an **einer** Stelle statt an dreien.
+⚠ **Ordnerwahl, Öffnen und Speichern** gehören zusammen und stehen deshalb an
+**einer** Stelle statt an dreien — sonst bekommt einer der Wege doch wieder
+den Tk-Dialog.
 
-⚠ Bis zum 11.09.2026 hieß dieses Modul `dateiwahl` (Sprachumstellung P3):
-`ordner_waehlen` → `choose_folder`, `datei_oeffnen` → `open_file`,
-`datei_speichern` → `save_file`. **Auch die Schlüsselwörter sind umbenannt**
-(`vorschlag` → `suggestion`, `endung` → `extension`, `muster` → `patterns`,
-`titel` → `title`) — und genau das ist die Stelle, an der ein vergessener
-Aufrufer erst beim Klick auf „Speichern" auffällt, weil kein Prüflauf diese
-Dialoge öffnet. Die Aufrufe wurden deshalb beim Umbenennen maschinell gegen
-die neuen Signaturen geprüft.
+⚠ Die Schlüsselwörter (`suggestion`, `extension`, `patterns`, `title`) sind
+die Stelle, an der ein falscher Aufrufer erst beim Klick auf „Speichern"
+auffällt, weil kein Prüflauf diese Dialoge öffnet. Wer sie ändert, prüft die
+Aufrufe gegen die Signaturen.
 """
 
 import os
@@ -47,11 +40,10 @@ TK_IS_NATIVE = sys.platform.startswith(('win', 'darwin'))
 def clean_environment():
     """Weiterleitung — die Wahrheit steht in `paths`.
 
-    ⚠ Sie stand hier, weil die Dateiauswahl sie zuerst brauchte. Am 27.08.2026
-    stellte sich heraus, dass der **Neustart nach einem Update** dieselbe Wäsche
-    braucht und eine eigene, unvollständige Version mitführte — mit dem Ergebnis,
-    dass sich das Werkzeug unter Linux nicht selbst neu starten konnte. Eine
-    Wäsche an einer Stelle, benutzt von allen.
+    ⚠ Auch der **Neustart nach einem Update** braucht dieselbe Wäsche; eine
+    eigene, unvollständige Fassung dort verhindert, dass sich das Werkzeug
+    unter Linux selbst neu startet. Eine Wäsche an einer Stelle, benutzt von
+    allen.
     """
     from . import paths
     return paths.clean_environment()

@@ -24,7 +24,7 @@
 // Webserver). Das Land schickt das Programm NICHT mit — es ist das Kürzel,
 // das Cloudflare selbst ermittelt (`request.cf.country`); keine Stadt, keine
 // Region. Eine Installation lässt sich damit über Tage nicht verfolgen:
-// gezählt wird „wie viele", nicht „wer".
+// gezählt wird die Menge, nicht die Person.
 
 import { dashboardHtml } from './dashboard.js';
 
@@ -212,10 +212,10 @@ export function allowed(claims, env, path) {
 
 // GitHub-Downloads je Version. ⚠⚠ Ohne Anmeldung erlaubt GitHub 60 Abrufe je
 // Stunde und Absender-Adresse — und Cloudflare-Worker teilen sich ihre
-// Adressen mit vielen anderen. Am 01.10.2026 stand deshalb plötzlich „0
-// Downloads", die Seite war leer. Seitdem:
+// Adressen mit vielen anderen. Ohne Vorsorge steht dann plötzlich 0 Downloads
+// da, die Seite ist leer. Deshalb:
 //   1. Höchstens einmal je Minute wird GitHub überhaupt gefragt.
-//   2. Mit ETag („hat sich etwas geändert?") — eine 304-Antwort zählt bei
+//   2. Mit ETag (Abfrage auf Änderung) — eine 304-Antwort zählt bei
 //      GitHub NICHT gegen die Grenze.
 //   3. Scheitert der Abruf, gelten die zuletzt gespeicherten Zahlen weiter —
 //      mit ihrer Uhrzeit, damit die Seite nicht lügt.
@@ -267,7 +267,7 @@ export async function downloads(env, now = Date.now()) {
         rows = batch.map(compact); count = batch.length;
         await store(env, 'seite:' + page, { etag: r.headers.get('etag') || '', rows, count });
       } else {
-        // Den Grund festhalten — sonst bleibt „GitHub antwortet nicht" ein Rätsel.
+        // Den Grund festhalten — sonst bleibt eine fehlende GitHub-Antwort ein Rätsel.
         await store(env, 'fehler', { status: r.status,
           rest: r.headers.get('x-ratelimit-remaining'), grenze: r.headers.get('x-ratelimit-limit'),
           text: (await r.text()).slice(0, 200) }).catch(() => {});
@@ -353,7 +353,7 @@ function shortLink(request, env, ctx, link) {
 // gesehenen Stand festhalten und eine Tageszeile schreiben. Gelöschte Releases
 // bleiben so erhalten. ⚠ Kommen keine FRISCHEN Zahlen (GitHub sperrt), wird
 // nichts geschrieben und laut abgebrochen — ein alter Stand als Tageszeile
-// sähe aus wie „heute nichts heruntergeladen".
+// sähe aus, als sei heute nichts heruntergeladen worden.
 export async function snapshot(env, now = Date.now()) {
   const dl = await downloads(env, now);
   if (dl.alt || !dl.liste.length) throw new Error('keine frischen GitHub-Zahlen');

@@ -15,18 +15,18 @@ Der zweite Fall MUSS nahe null liegen. Tut er das nicht, arbeitet beim
 Einblenden noch etwas — und das trifft den Nutzer bei **jedem** Klick, nicht
 nur beim ersten.
 
-⚠ Der Seiten-Vorbau ist seit dem 02.09.2026 abgeschaltet (siehe `PREBUILD_ON` in
+⚠ Der Seiten-Vorbau ist abgeschaltet (siehe `PREBUILD_ON` in
 `main_window.py`). Die erste Anzeige kostet deshalb genau die Bauzeit. Das ist
-gewollt — er hat nie etwas beschleunigt, sondern die Arbeit nur vorverlegt und
-dabei die Oberfläche 1,7 Sekunden eingefroren.
+gewollt — ein Vorbau beschleunigt nichts, sondern verlegt die Arbeit nur vor
+und friert dabei die Oberfläche 1,7 Sekunden ein.
 
 ## Aufruf
 
     python3 tools/seiten_messen.py
 
 ⚠ Die Zahlen schwanken. Deshalb wird das Wiederkommen **mehrfach** gemessen und
-der Mittelwert genommen — eine Einzelmessung als Beleg zu nehmen, hat hier
-schon zu falschen Schlüssen geführt.
+der Mittelwert genommen — eine Einzelmessung als Beleg führt zu falschen
+Schlüssen.
 """
 import os
 import sys
@@ -80,11 +80,10 @@ def main():
 
     # ⚠⚠ **Erst ALLE kalten Aufbauten, dann erst die Wiederbesuche.**
     #
-    # Die erste Fassung mass je Seite sofort auch das Wiederkommen — und baute
-    # dafuer die naechste Seite schon auf. Deren „erstmals" war dann in
-    # Wahrheit ein warmer Aufruf. Vom Pruefer nachgestellt (12.09.2026) mit
-    # simulierten 100 ms kalt / 1 ms warm: Zwei Seiten erschienen beide mit
-    # 1 ms als Erstoeffnung.
+    # Wer je Seite sofort auch das Wiederkommen misst, baut dafuer schon
+    # Teile der naechsten Seite auf. Deren „erstmals" ist dann in Wahrheit
+    # ein warmer Aufruf (nachgestellt mit simulierten 100 ms kalt / 1 ms warm:
+    # zwei Seiten erschienen beide mit 1 ms als Erstoeffnung).
     #
     # ⚠ Und die Startseite ist beim Bauen des Fensters **schon offen**. Ihr
     # „erstmals" laesst sich hier nicht mehr messen; sie wird deshalb

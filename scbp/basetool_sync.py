@@ -21,8 +21,8 @@ Der Bauplan-Abgleich mit dem KRT Profit Basetool — Takt, Ablauf, Stand.
 
 Die Entscheidungen trifft `exchange_sync.plan_sync` (ohne Netz, geprüft);
 dieses Modul holt und schickt und merkt sich den Stand. Die Regeln stammen aus
-gelucs Sync-Anleitung (`docs/exchange/sync-guide.md`) und werden bei der
-Freigabe gegen genau diese Liste geprüft:
+der Sync-Anleitung des Basetools (`docs/exchange/sync-guide.md`) und werden
+gegen genau diese Liste geprüft:
 
 1. **Erst holen, dann senden.** Jeder Durchgang liest zuerst den
    Änderungsfeed bis zum Ende, danach wird verglichen und gesendet, danach
@@ -250,9 +250,8 @@ def _run_guarded(watcher):
 
 
 def _after_error(error):
-    # ⚠ Ins Fehlerprotokoll — sonst stand auf der Seite nur „abgelehnt
-    # (HTTP_503)", und niemand konnte sagen, welche Anfrage es war
-    # (erster Test, 28.09.2026).
+    # ⚠ Ins Fehlerprotokoll — sonst steht auf der Seite nur „abgelehnt
+    # (HTTP_503)", und niemand kann sagen, welche Anfrage es war.
     from . import errors
     errors.record('basetool.sync', RuntimeError(error.describe()))
     action = error.action
@@ -419,10 +418,10 @@ _run_lock = threading.Lock()
 def run(watcher):
     """Ein vollständiger Durchgang. Wirft `basetool.ApiError` bei Absagen.
 
-    ⚠⚠ **Nie zwei gleichzeitig** (gefunden am 28.09.2026 im Selbsttest): Liefen
-    der Takt und ein zweiter Anstoß zugleich, las der eine den Feed, während
-    der andere schon sendete — die Löschmarke kam beim zweiten nicht mehr an,
-    und ein im Web gelöschter Bauplan ging wieder hinaus. Wer die Sperre nicht
+    ⚠⚠ **Nie zwei gleichzeitig.** Laufen der Takt und ein zweiter Anstoß
+    zugleich, liest der eine den Feed, während der andere schon sendet — die
+    Löschmarke kommt beim zweiten nicht mehr an, und ein im Web gelöschter
+    Bauplan geht wieder hinaus. Wer die Sperre nicht
     bekommt, lässt den Durchgang aus; der nächste Takt holt ihn nach."""
     if not _run_lock.acquire(blocking=False):
         return
@@ -489,7 +488,7 @@ def _run(watcher):
 
 
 def _sync_blueprints(conn, state, watcher):
-    """Baupläne — der Durchgang, wie er seit v3.60.0 läuft."""
+    """Baupläne: holen, vergleichen, senden, neu holen, übernehmen."""
     # 1) Holen
     server, stones, cursor, resync = _pull(conn, state)
 
@@ -599,7 +598,7 @@ def _sync_blueprints(conn, state, watcher):
 def _store_ok(file_name, list_key):
     """Ist die eigene Datei lesbar — oder fehlt sie ganz (dann ist leer richtig)?
 
-    ⚠⚠ Gefunden beim Bau (28.09.2026, Prüfung 294): `fleet.load()` und
+    ⚠⚠ Prüfung 294: `fleet.load()` und
     `materials.load()` liefern bei einer beschädigten Datei still eine LEERE
     Liste. Der Abgleich hielte den Hangar dann für leer, übernähme alles aus
     dem Basetool und schriebe die Datei darüber — die eigenen Einträge wären

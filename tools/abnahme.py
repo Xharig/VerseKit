@@ -21,25 +21,16 @@ Abnahme: jede Seite wirklich bedienen, bevor eine Fassung hinausgeht.
 
 ## ⚠⚠⚠ Warum es dieses Werkzeug gibt
 
-Am 06.09.2026 gingen an einem Tag reihenweise Fehler an den Nutzer, die alle
-sichtbar gewesen wären, hätte jemand einmal geklickt: eine Marke, die nach dem
-Abhaken stehenblieb; ein Fenster außerhalb aller Bildschirme, das das Programm
-unbedienbar machte; eine Wunschliste, die beim Speichern gelöscht wurde;
-Mengen, die als „0,6" statt „0,64" dastanden.
+Manche Fehler sieht nur, wer einmal klickt: eine Marke, die nach dem Abhaken
+stehenbleibt; ein Fenster außerhalb aller Bildschirme, das das Programm
+unbedienbar macht; eine Wunschliste, die beim Speichern gelöscht wird; Mengen,
+die als „0,6" statt „0,64" dastehen.
 
-Seine Ansage danach:
-
-> *„Bevor du mir was präsentierst, testest du erst alles durch. Ich habe keine
-> Lust, ständig deine Fehler zu suchen."*
-
-**Der Selbsttest findet so etwas nicht.** Er ruft Funktionen auf, und die waren
-jedes Mal richtig. Falsch war, **was danach auf dem Bildschirm steht** — und das
+**Der Selbsttest findet so etwas nicht.** Er ruft Funktionen auf, und die sind
+dabei richtig. Falsch ist, **was danach auf dem Bildschirm steht** — und das
 sieht nur, wer die Oberfläche wirklich bedient.
 
 ## Was geprüft wird
-
-Die Liste stammt von ihm, ergänzt um die Fallen, die tatsächlich zugeschlagen
-haben:
 
 | # | Frage |
 |---|---|
@@ -121,8 +112,7 @@ def texte(widget, raus=None):
     """Alle angezeigten Beschriftungen unterhalb eines Widgets.
 
     ⚠ `winfo_manager()`, nicht `winfo_ismapped()`: Letzteres ist bei einem
-    Fenster mit `withdraw()` immer falsch — daran ist die erste Fassung
-    gescheitert, und dieselbe Falle warf schon einen Bau-Lauf um.
+    Fenster mit `withdraw()` immer falsch, und die Prüfung fände nichts.
     """
     raus = [] if raus is None else raus
     for kind in widget.winfo_children():
@@ -166,8 +156,7 @@ def mit_text(widget, text, genau=True):
     ⚠⚠ **Die Knöpfe dieses Programms sind Leinwände.** Sie tragen keinen
     `text`, sondern malen ihn als Canvas-Element (das ist der Grund, warum sie
     auf jedem System gleich aussehen). Eine Suche über `cget('text')` findet
-    sie deshalb nie — die erste Fassung meldete „der Knopf ist nicht da",
-    obwohl er dastand.
+    sie deshalb nie und meldet einen Knopf als fehlend, obwohl er dasteht.
     """
     raus = []
     for k in widgets(widget):
@@ -203,8 +192,7 @@ def tippen(fenster, feld, text):
 
     ⚠⚠ **Nicht `insert()`.** Die Auswahllisten hängen an der `StringVar`; wer
     Zeichen direkt ins Widget schreibt, tippt an der Oberfläche vorbei und
-    sieht nie einen Vorschlag. Genau daran ist der erste Anlauf gescheitert —
-    und der Fehler sah aus, als sei die Liste kaputt.
+    sieht nie einen Vorschlag — und es sieht aus, als sei die Liste kaputt.
     """
     name = feld.cget('textvariable')
     if not name:
@@ -241,10 +229,10 @@ def ablage_vorbereiten():
     # Schalter hielt sich früher nur zur Hälfte an sein Versprechen.
     os.environ['SC_BP_NO_NET'] = '1'
 
-    # ⚠⚠ **Den Ablageort das Programm sagen lassen.** Der erste Anlauf riet
-    # ihn (`~/Dokumente/SC BP Watcher`) und fand nichts — der Nutzer hatte ihn
-    # verlegt. Ergebnis: „keine Spieldaten vorhanden", und ausgerechnet die
-    # Plausibilitätsprüfung fiel aus. `paths` kennt den richtigen Ort, samt
+    # ⚠⚠ **Den Ablageort das Programm sagen lassen.** Ein geratener Ort
+    # (`~/Dokumente/SC BP Watcher`) geht fehl, sobald der Nutzer ihn verlegt
+    # hat — dann fehlen die Spieldaten, und ausgerechnet die
+    # Plausibilitätsprüfung fällt aus. `paths` kennt den richtigen Ort, samt
     # Umgebungsvariable und Einstellungsdatei.
     quellen = []
     alt_heim = os.environ.pop('SC_BP_HOME', None)
@@ -322,9 +310,8 @@ SCHLUESSEL = re.compile(r'^[a-z]{1,3}_[a-z0-9_]{3,}$')
 
 # Eine Zahl, die niemand lesen will: `0.30000000000000004`.
 #
-# ⚠ **Datumsangaben sind ausgenommen.** Der erste Anlauf meldete
-# „26.08.2026 20:30" als unleserliche Zahl — `26.08` gefolgt von vier Ziffern
-# passt auf das Muster. Ein Punkt-getrenntes Datum sieht wie eine Dezimalzahl
+# ⚠ **Datumsangaben sind ausgenommen.** Ein Datum mit Uhrzeit — `TT.MM`
+# gefolgt von vier Ziffern — passt sonst auf das Muster. Ein Punkt-getrenntes Datum sieht wie eine Dezimalzahl
 # aus, ist aber keine.
 KRUMM = re.compile(r'\d+[.,]\d{4,}')
 IST_DATUM = re.compile(r'\d{1,2}\.\d{1,2}\.\d{4}')
@@ -345,8 +332,7 @@ LANGSAM_MS = 300
 # und Preisdaten. Das trifft den Spieler genau einmal je Programmlauf.
 #
 # Trotzdem gilt eine Obergrenze: Was länger blockiert, gehört in den
-# Hintergrund. Genau so kam der 9-Sekunden-Stillstand des Auftrags-Protokolls
-# heraus.
+# Hintergrund (etwa die Nachlese des Auftrags-Protokolls).
 # ⚠⚠⚠ **Warum hier 10 Sekunden stehen und nicht 2,5.**
 #
 # Der erste Durchgang läuft auf einem frischen Ordner: 205 Log-Sicherungen sind
@@ -355,30 +341,27 @@ LANGSAM_MS = 300
 # **einmal**, beim allerersten Start; danach merkt sich der Lesestand, was durch
 # ist, und es sind zwei bis drei Dateien.
 #
-# Belegt mit zwei Läufen im selben Ordner (06.09.2026):
+# Belegt mit zwei Läufen im selben Ordner:
 #
 #     erster Start:  Wunschliste 4199 ms · Einkaufsliste 3266 ms
 #     zweiter Start: Wunschliste    9 ms · Einkaufsliste   12 ms
 #
-# ⚠ **2500 hier war zu streng und hat die Prüfung wertlos gemacht** — sie war
-# dauerhaft rot beziehungsweise wurde als Hinweis weggewinkt. Eine Prüfung, die
-# immer anschlägt, wird nicht mehr gelesen; genau so ist ein echter Fehler
-# (endlose Preisabfragen durch eine kaputte Kennung) drei Releases lang
-# durchgerutscht.
+# ⚠ **2500 wäre hier zu streng und machte die Prüfung wertlos** — sie wäre
+# dauerhaft rot. Eine Prüfung, die immer anschlägt, wird nicht mehr gelesen,
+# und ein echter Fehler (etwa endlose Preisabfragen durch eine kaputte
+# Kennung) rutscht durch.
 #
 # **Die scharfe Grenze gilt im zweiten Durchgang** (`LANGSAM_MS`, englisch, mit
 # warmen Daten) — das ist der Alltag des Spielers. Ein Fehler wie der oben
-# machte JEDEN Aufruf langsam und wäre dort ebenfalls aufgefallen.
+# macht JEDEN Aufruf langsam und fällt dort ebenfalls auf.
 ERSTAUFBAU_MS = 10000
 
 
 def seiten_pruefen(hf, sprache_name):
     """Jede Seite öffnen und ansehen — der Kern der Abnahme.
 
-    ⚠ **Die Zeit wird mitgemessen.** Am 06.09.2026: „achte auch auf die
-    Geschwindigkeit, wie schnell das Tool ist, und dass es kurze Ladezeiten
-    hat" — in den Startverläufen standen einzelne Seiten mit über hundert
-    Millisekunden. Eine Seite, die spürbar hängt, fällt im Betrieb auf, aber
+    ⚠ **Die Zeit wird mitgemessen.** Eine Seite, die spürbar hängt, fällt im
+    Betrieb auf, aber
     in keiner Funktionsprüfung.
     """
     import time as _zeit
@@ -447,19 +430,14 @@ def seiten_pruefen(hf, sprache_name):
            # von der Reihenfolge der Prüfungen abhängt, darf keinen Bau
            # aufhalten.
            #
-           # ⚠⚠⚠ **Diese Begründung war zwei Drittel richtig — und genau
-           # deshalb gefährlich.** Am 06.09.2026 meldete der erste Durchgang
-           # drei Releases lang „wunschliste 7508 ms", und die Erklärung
-           # „einmaliges Beschaffen" passte scheinbar. Tatsächlich lief dort
-           # eine **kaputte Preisabfrage** in eine Endlosschleife: Der
-           # Merkzettel hatte einen Bauplannamen im Kennungsfeld, der Abruf
-           # scheiterte, es wurde nichts gemerkt — und beim nächsten Blick
-           # ging es von vorn los.
+           # ⚠⚠⚠ **Diese Begründung ist nur zwei Drittel richtig — und genau
+           # deshalb gefährlich.** Eine hohe Zahl im ersten Durchgang lässt
+           # sich leicht als „einmaliges Beschaffen" abtun, auch wenn eine
+           # **kaputte Preisabfrage** in einer Endlosschleife läuft (etwa ein
+           # Bauplanname im Kennungsfeld: Der Abruf scheitert, nichts wird
+           # gemerkt, und beim nächsten Blick geht es von vorn los).
            #
-           # Die Zahl war der Fingerzeig. Sie wurde jedes Mal gelesen und
-           # jedes Mal als bekannt abgetan.
-           #
-           # **Deshalb steht die Obergrenze jetzt auch im ersten Durchgang.**
+           # **Deshalb steht die Obergrenze auch im ersten Durchgang.**
            # `ERSTAUFBAU_MS` (2500) ist großzügig genug für echtes Beschaffen;
            # was darüber liegt, ist keine Beschaffung mehr, sondern ein Fehler.
            # Fehlen die Spieldaten ganz, bleibt es beim Hinweis — dann misst
@@ -481,8 +459,8 @@ def symbole_pruefen():
 
     ⚠ Ein fehlendes Symbol fällt sonst erst auf, wenn jemand hinsieht: Der
     Notnagel malt ein Textzeichen, und das sieht auf den ersten Blick aus wie
-    ein Symbol. Am 06.09.2026 hat ein unbekannter Symbolname sogar das ganze
-    Fenster abstürzen lassen.
+    ein Symbol. Ein unbekannter Symbolname kann sogar das ganze Fenster
+    abstürzen lassen.
     """
     from scbp import icons
     fehlt = []
@@ -570,7 +548,7 @@ def auswahllisten_pruefen(hf):
         # Zerlege-Rechner rechnet der Klick los; auf der Wunschliste trägt er
         # den Namen nur ins Feld, und eintragen tut ihn erst der Knopf
         # daneben. Wer beides gleich behandelt, meldet einen Fehler, wo die
-        # Oberfläche richtig arbeitet — die erste Fassung tat genau das.
+        # Oberfläche richtig arbeitet.
         if knopf:
             hilfe = mit_text(bereich or hf.root, knopf)
             if pruefe(bool(hilfe), '[%s] der Knopf %r ist da' % (seite, knopf)):
@@ -673,9 +651,9 @@ def schriftgroessen_pruefen():
 def schalter_pruefen():
     """Bewirkt ein Schalter auch etwas — oder setzt er nur eine Einstellung?
 
-    ⚠⚠ Aus der Fehlerliste: *„Ein Schalter, der »aus« sagt, machte nichts aus.
-    Gemessen: Schalter aus, Statuszeile »aus«, 1.217 Angaben standen weiter
-    drin."* Eine Einstellung zu speichern ist nicht dasselbe wie zu wirken.
+    ⚠⚠ Ein Schalter, der »aus« sagt, muss auch etwas ausmachen — sonst steht
+    die Statuszeile auf »aus«, und die Angaben stehen weiter drin. Eine
+    Einstellung zu speichern ist nicht dasselbe wie zu wirken.
 
     Geprüft wird stellvertretend die Injektion: Nach dem Ausschalten darf die
     Textdatei keine eigenen Marken mehr tragen.
@@ -688,9 +666,8 @@ def schalter_pruefen():
 def datenabruf_pruefen():
     """Wird oft genug geholt — und nicht zu oft? Und liegt alles beim Spieler?
 
-    ⭐⭐ **Vorgabe vom 06.09.2026:** *„Werden Daten oft genug, aber nicht zu oft
-    abgerufen, und alle nötigen Daten heruntergeladen und beim Spieler abgelegt
-    in unseren Ordnern?"*
+    ⭐⭐ Geprüft wird, ob Daten oft genug, aber nicht zu oft abgerufen und
+    alle nötigen Daten beim Spieler abgelegt werden.
 
     Beides sind echte Risiken, und sie ziehen in entgegengesetzte Richtungen:
 
@@ -737,9 +714,7 @@ def datenabruf_pruefen():
     # bei den Modulnamen oben, nur eine Ebene tiefer. `getattr(…, None)` gibt
     # bei einem umbenannten Attribut still den **Ersatzwert** zurück; die
     # Prüfung meldet dann „ohne Frist und ohne Datei", obwohl die Ablage in
-    # Ordnung ist. Genau das ist beim Umbenennen von `uex` am 12.09.2026
-    # passiert: aus `haltbar`, `patch_bindet` und `dateiname` wurden
-    # `shelf_life`, `patch_bound` und `filename`.
+    # Ordnung ist — etwa nach einer Umbenennung der Felder in `uex`.
     #
     # ⚠ Deshalb wird zuerst geprüft, dass es die Felder überhaupt GIBT. Ohne
     # diesen Schritt ist der Unterschied zwischen „Ablage ohne Frist" und
@@ -791,15 +766,9 @@ def datenabruf_pruefen():
 def bilder_pruefen():
     """Sind die Screenshots vollständig, aktuell und ohne echte Daten?
 
-    ⭐⭐ **Pflicht vor jeder Veröffentlichung** (Vorgabe vom 06.09.2026): *„Ob
-    alle Screenshots aktuell sind und Beispieldaten zeigen, ist auch eine
-    Pflichtprüfung."*
-
-    Gefunden hat diese Prüfung beim ersten Lauf: **vier englische Bilder gab es
-    gar nicht** — in der englischen README standen kaputte Verweise. Und in der
-    README stand der Satz „die Bilder zeigen einen aktuellen Stand, nicht
-    zwingend die allerneueste Version". Das ist die Ausrede dafür, dass niemand
-    sie pflegt; mit dieser Prüfung stimmt sie nicht mehr, und der Satz ist raus.
+    ⭐⭐ **Pflicht vor jeder Veröffentlichung:** Alle Screenshots sind aktuell
+    und zeigen Beispieldaten. Fehlende Bilder heißen kaputte Verweise in der
+    README.
 
     ⚠ **Beispieldaten, keine echten.** Der Hangar-Screenshot zeigt erfundene
     Schiffe — der echte verriete, welche Pledge-Pakete jemand besitzt.
@@ -1066,17 +1035,11 @@ def main():
                     print('  ?', w)
             return 1
         if warnungen:
-            # ⚠⚠⚠ **„Alle Prüfungen bestanden" stand hier auch dann, wenn
-            # Hinweise offen waren.** Genau diese Zeile hat am 06.09.2026 drei
-            # Releases lang dafür gesorgt, dass ein echter Fehler durchging:
-            # Die Abnahme meldete „wunschliste 7508 ms" — jedes Mal — und
-            # darüber stand „Alle 44 Prüfungen bestanden". Gelesen wurde die
-            # erste Zeile, weggewinkt der Rest. Der Watcher lud danach bei
-            # jedem Seitenaufbau ins Leere, und der Nutzer merkte es.
-            #
-            # Sein Satz dazu: *„eine Prüfung ohne hinzuschauen kannste dir
-            # auch sparen."* Stimmt. Deshalb sagt die Schlusszeile jetzt, dass
-            # etwas **offen** ist, und der Rückgabewert ist **nicht** 0.
+            # ⚠⚠⚠ **Kein „Alle Prüfungen bestanden", wenn Hinweise offen
+            # sind.** Gelesen wird die erste Zeile, weggewinkt der Rest — ein
+            # echter Fehler in den Hinweisen ginge so durch. Deshalb sagt die
+            # Schlusszeile, dass etwas **offen** ist, und der Rückgabewert ist
+            # **nicht** 0.
             #
             # ⚠ Der Rückgabewert 2 heißt „bestanden, aber offene Punkte" — er
             # unterscheidet sich von 1 (Fehler), damit ein Bau-Ablauf beides

@@ -21,16 +21,13 @@ Wohin ein Fehlerbericht geht, wenn der Nutzer „Absenden" drückt.
 
 **Warum es diesen Weg überhaupt gibt.** Den Bericht zu kopieren und in Discord
 einzufügen scheitert an drei Stellen: Er steckt unter „Fortgeschritten", er ist
-zu lang für eine Nachricht, und man muss wissen, wohin damit. der Autor am
-28.08.2026: „ich will nicht jedem eine Stunde erklären, wie ich zu dem Bericht
-komme, das ist nervenaufreibend." Ein Knopf ist die einzige Fassung, die bei
-Nicht-Bastlern ankommt.
+zu lang für eine Nachricht, und man muss wissen, wohin damit. Ein Knopf ist
+die einzige Fassung, die bei Nicht-Bastlern ankommt.
 
-⭐⭐ **Seit v3.57.2 geht der Bericht an eine eigene Weiterleitung, nicht mehr
-direkt an Discord.** Bis dahin setzte der Bau die Discord-Webhook-Adresse aus
-einem Secret in diese Datei — und damit stand sie in jeder veröffentlichten
-`.exe`, für jeden auslesbar, der dort sucht. Wer sie hatte, konnte in den
-Kanal schreiben, auch `@everyone`. Der alte Webhook ist gelöscht.
+⭐⭐ **Der Bericht geht an eine eigene Weiterleitung, nicht direkt an
+Discord.** Eine Discord-Webhook-Adresse in dieser Datei stünde in jeder
+veröffentlichten `.exe`, für jeden auslesbar, der dort sucht. Wer sie hat,
+kann in den Kanal schreiben, auch `@everyone`.
 
 Die Weiterleitung ist ein Cloudflare Worker (`tools/bericht-worker/`). Sie
 nimmt nur an, was wie ein Verse-Kit-Bericht aussieht, bremst die Menge je
@@ -39,9 +36,9 @@ Adresse hier ist **kein Geheimnis** — sie darf im Quelltext stehen, und genau
 deshalb braucht der Bau nichts mehr einzusetzen. Muss der Webhook getauscht
 werden, geschieht das beim Worker, ohne neue Version.
 
-Seit v3.57.3 unter der eigenen Adresse `bericht.xharig.com`. Die frühere
+Erreichbar unter der eigenen Adresse `bericht.xharig.com`. Die Adresse
 `versekit-bericht.xharig.workers.dev` bleibt beim Worker eingeschaltet —
-ältere Fassungen schicken weiter dorthin.
+ältere Fassungen schicken dorthin.
 
 ⚠ **Nie auf einem Heimserver.** Die Weiterleitung muss aus dem Internet
 erreichbar sein; ein eigener Dienst zu Hause hieße, das Heimnetz zu öffnen.

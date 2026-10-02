@@ -33,7 +33,7 @@ nur für die eine Flugfunktion. Beides zusammen ergibt, was der Spieler spürt.
 
 ## ⚠⚠ Die Kennung entscheidet, nicht der Name
 
-Gemessen am 06.09.2026 an einem echten Aufbau: Für **einen** Stick standen
+Gemessen an einem echten Aufbau: Für **einen** Stick standen
 **drei** `<deviceoptions>`-Blöcke in der Datei, alle unter demselben Namen,
 aber mit drei verschiedenen Kennungen — und nur einer davon gehörte zum
 tatsächlich angeschlossenen Gerät.
@@ -247,7 +247,7 @@ def device_axes(filename=None, folder=None):
                 target[key] = fresh
 
         # Jede bekannte Eigenschaft auftauchen lassen, auch wenn sie fehlt —
-        # „nicht gesetzt" ist eine Aussage und soll in der Oberfläche stehen.
+        # nicht gesetzt ist eine Aussage und soll in der Oberfläche stehen.
         for axis in axes:
             for key in PROPERTIES:
                 axes[axis].setdefault(key, None)
@@ -297,8 +297,8 @@ def _managed_names(gone):
 def _keep_only_managed(blocks, gone):
     """Bei mehreren Bloecken einer Kennung ist nur **einer** aktiv.
 
-    ⚠⚠⚠ **Sonst steht dasselbe Geraet zweimal in der Leiste.** Am 06.09.2026
-    zeigte die Seite fuenf Reiter fuer drei Sticks:
+    ⚠⚠⚠ **Sonst steht dasselbe Geraet zweimal in der Leiste**, etwa fuenf
+    Reiter fuer drei Sticks:
 
         L-VPC Stick WarBRD-D      <- so nennt das Linux-Spiel ihn
         LEFT VPC Stick WarBRD-D   <- so hiess er unter Windows
@@ -308,10 +308,9 @@ def _keep_only_managed(blocks, gone):
 
     Beide Namen tragen **dieselbe Kennung** — es ist ein Stick, mit einem
     alten und einem neuen Namen. `aktiv` haengt aber nur an der Kennung, und
-    die stimmt bei beiden. Also galten beide als lebendig, mit
-    verschiedenen Werten darin. Der Spieler stellte etwas ein und traf dabei
-    womoeglich den toten Eintrag: *„kuemmer dich mal um die falschen Sticks,
-    die nerven."*
+    die stimmt bei beiden. Also gaelten beide als lebendig, mit
+    verschiedenen Werten darin, und der Spieler traefe beim Einstellen
+    womoeglich den toten Eintrag.
 
     **Es gewinnt der Name, den das Spiel gerade fuehrt.** Steht kein
     gefuehrter Name zur Verfuegung (aeltere Datei, fremder Aufbau), bleibt
@@ -351,15 +350,14 @@ def _conflicts_across_blocks(blocks):
     aktive, tote gegen tote. Ein toter Block wirkt nicht; was dort steht, kann
     dem, was gilt, gar nicht widersprechen.
 
-    Seit `_nur_der_gefuehrte_bleibt` denselben Stick unter altem und neuem
-    Namen auseinanderhält, stand sonst an **jeder** Achse ein Warndreieck: Der
-    aktive Block trug die eingestellten Werte, der alte Windows-Block die
-    Werksangaben — beide zusammen ergaben einen Widerspruch, der keiner war.
-    Gemeldet am 06.09.2026 mit der Frage, was die gelben Dreiecke überhaupt
-    bedeuten. Eine Warnung, die überall steht, sagt nichts mehr.
+    Da `_nur_der_gefuehrte_bleibt` denselben Stick unter altem und neuem
+    Namen auseinanderhält, stünde sonst an **jeder** Achse ein Warndreieck: Der
+    aktive Block trägt die eingestellten Werte, der alte Windows-Block die
+    Werksangaben — beide zusammen ergäben einen Widerspruch, der keiner ist.
+    Eine Warnung, die überall steht, sagt nichts mehr.
 
-    ⚠ **Nicht einfach die toten weglassen.** Der erste Versuch tat genau das
-    und brach die ältere Prüfung: Zwei **tote** Blöcke derselben Kennung mit
+    ⚠ **Nicht einfach die toten weglassen** — das bricht die ältere
+    Prüfung: Zwei **tote** Blöcke derselben Kennung mit
     verschiedenen Werten sind sehr wohl ein Widerspruch — er gehört nur in die
     Liste der Alteinträge, nicht an eine gültige Achse. Nach Zustand gruppieren
     hält beides auseinander.
@@ -424,7 +422,7 @@ def game_axes(filename=None, folder=None):
     `kurve` ist eine Liste von `(ein, aus)`-Paaren aus `<nonlinearity_curve>`.
     ⚠ **In allen gemessenen Dateien war dieser Block leer** — das Spiel legt
     ihn an, füllt ihn aber erst, wenn der Spieler im Kurven-Bildschirm etwas
-    verschiebt. Eine leere Kurve bedeutet „gerade Linie", nicht „kaputt".
+    verschiebt. Eine leere Kurve bedeutet gerade Linie, nicht kaputt.
     """
     gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
@@ -458,11 +456,11 @@ def game_axes(filename=None, folder=None):
         axes = {}
         # ⚠⚠ **Erst den Kopf abschneiden, dann nach Kindern suchen.**
         #
-        # Der erste Entwurf suchte die Kinder im ganzen Block — und das erste,
-        # was der Regex fand, war `<options …>` **selbst**: Er verschlang alle
-        # 351 Zeichen, und weil `finditer` nicht überlappend sucht, gab es
-        # danach keinen Treffer mehr. Ergebnis: `achsen` blieb immer leer, ohne
-        # eine einzige Fehlermeldung.
+        # Sucht der Regex die Kinder im ganzen Block, findet er zuerst
+        # `<options …>` **selbst**: Er verschlingt den ganzen Block, und weil
+        # `finditer` nicht überlappend sucht, gibt es danach keinen Treffer
+        # mehr. Ergebnis: `achsen` bleibt immer leer, ohne eine einzige
+        # Fehlermeldung.
         #
         # Ein Muster, das Kinder sucht, darf das Elternelement nicht sehen
         # können. Deshalb wird hier der Bereich zwischen dem ersten `>` und
@@ -578,8 +576,8 @@ def adoptable(filename=None, folder=None, blocks=None):
                 now = (target['achsen'].get(axis) or {}).get(name)
                 # ⚠⚠ **Mit Toleranz vergleichen.** Das Spiel schreibt
                 # `0.098999992`, das Werkzeug `0.099` — zwei Zahlen, die in
-                # der Anzeige beide als „0.1" erscheinen. Ohne Toleranz stand
-                # deshalb „Totzone: war 0.1 → jetzt 0.1" im Befund: ein
+                # der Anzeige beide als 0.1 erscheinen. Ohne Toleranz stünde
+                # deshalb `Totzone: war 0.1 → jetzt 0.1` im Befund: ein
                 # Unterschied, den niemand sehen kann und der keiner ist.
                 # Ein Tausendstel Totzone spürt kein Mensch.
                 if now is not None and abs(now - previous) < 1e-3:
@@ -880,7 +878,7 @@ def apply_to_game(number, axis, prop, value, filename=None, folder=None):
 
 # Wie die Aktion in der Belegung zum Element in `<options>` heißt.
 #
-# ⚠⚠ **Gemessen, nicht geraten** (06.09.2026 an einer echten Datei):
+# ⚠⚠ **Gemessen, nicht geraten** (an einer echten Datei):
 #
 #     <action name="v_pitch">        <rebind input="js2_y"/>
 #     <options …><flight_move_pitch exponent="1.5"/>
@@ -888,7 +886,7 @@ def apply_to_game(number, axis, prop, value, filename=None, folder=None):
 # Die Belegung nennt die Aktion `v_pitch`, die Einstellung heißt
 # `flight_move_pitch`. Drei Formen kommen vor, und die Reihenfolge zählt:
 # `v_view_pitch` muss VOR `v_pitch` geprüft werden, sonst würde es als
-# „view_pitch" unter `flight_move_` einsortiert.
+# `view_pitch` unter `flight_move_` einsortiert.
 ACTION_TO_AXIS = (
     ('v_view_', 'flight_view_'),
     ('v_mining_', 'mining_'),
@@ -993,8 +991,8 @@ def clean_up(filename=None, folder=None, count_only=False):
     ⭐ **Warum das nötig ist:** Star Citizen legt bei jeder neuen
     Gerätekennung einen weiteren Block an und räumt nie auf. An einem echten
     Aufbau standen für **einen** Stick drei Blöcke — und weil sie sich
-    untereinander widersprechen, wurde man den Hinweis „diese Einstellungen
-    wirken nicht mehr" nie los: Übernahm man den einen, wich der nächste ab.
+    untereinander widersprechen, wird man den Hinweis auf wirkungslose
+    Einstellungen nie los: Übernimmt man den einen, weicht der nächste ab.
 
     Entfernt werden **nur** Blöcke, deren Kennung zu keinem verbundenen und
     zu keinem belegten Gerät gehört. Was gerade gilt, bleibt unangetastet.
@@ -1003,7 +1001,7 @@ def clean_up(filename=None, folder=None, count_only=False):
     Kennungstausch. Es wird genau der Bereich eines Blocks herausgeschnitten,
     sonst nichts; Einrückung und Kommentare des Spiels bleiben, wie sie sind.
 
-    Mit `nur_zaehlen=True` wird nichts geschrieben, sondern nur gemeldet, wie
+    Mit `nur_zaehlen=True` wird nichts geschrieben, sondern nur gezählt, wie
     viele Blöcke wegfielen — für die Rückfrage vor dem Löschen.
 
     Liefert `(erfolg, meldung, anzahl)`.

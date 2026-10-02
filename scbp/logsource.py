@@ -45,12 +45,12 @@ import time
 from . import contracts, paths, phrases
 from .language import t, Phrase, Moment
 
-# Schiffskomponenten stehen im Log MIT Zusatz „(Klasse/Size/Grade)", z. B.
-# „7CA 'Nargun' (Civ/3/A)" — der Launcher-Schlüssel ist aber „7CA 'Nargun'".
+# Schiffskomponenten stehen im Log MIT Zusatz `(Klasse/Size/Grade)`, z. B.
+# `7CA 'Nargun' (Civ/3/A)` — der Schlüssel ist aber `7CA 'Nargun'`.
 # Bewusst eng gefasst (nur die bekannten Kürzel), damit echte Namens-Klammern
-# wie „(30 cap)" oder „Singe Cannon (S2)" unangetastet bleiben.
+# wie `(30 cap)` oder `Singe Cannon (S2)` unangetastet bleiben.
 #
-# ⚠ **Die Liste muss zu `scbp/specs.py` passen.** Seit v3.0.0 schreibt das
+# ⚠ **Die Liste muss zu `scbp/specs.py` passen.** Dort schreibt das
 # Werkzeug diese Zusätze selbst an die Gegenstandsnamen (Angaben am
 # Traktorstrahl) — und das Spiel schreibt den Namen anschließend **mitsamt
 # Zusatz** in die Game.log. Wird hier einer nicht erkannt, landet der Bauplan
@@ -122,14 +122,14 @@ def _names_from_text(text, pattern):
 # `logbackups/` liegen — und bis hierher landeten die Baupläne des zweiten
 # still im eigenen Bestand. Das Spiel schreibt beim Anmelden, wer es ist:
 #
-#   <Legacy login response> [CIG-net] User Login Success - Handle[Xharig] - …
-#   <AccountLoginCharacterStatus_Character> Character: … - name Xharig - state STATE_CURRENT
+#   <Legacy login response> [CIG-net] User Login Success - Handle[Spieler] - …
+#   <AccountLoginCharacterStatus_Character> Character: … - name Spieler - state STATE_CURRENT
 #
 # Beides steht in den ersten ~50 KB. Die `nickname="…"`-Zeilen werden bewusst
 # NICHT genommen — in Verbindungszeilen können auch Mitspieler stehen.
 #
-# Die Idee stammt aus dem SC-Extractor des Profit Basetools (greluc, KRT,
-# GPL-3.0), der seine Protokolle genauso zuordnet.
+# Der SC-Extractor des Profit Basetools (GPL-3.0) ordnet seine Protokolle
+# genauso zu.
 ACCOUNT_RES = (
     re.compile(r'User Login Success - Handle\[([^\]\r\n]+)\]'),
     re.compile(r' - name (\S+) - state STATE_CURRENT'),
@@ -139,7 +139,7 @@ ACCOUNT_RES = (
 # verpasst, und begrenzt, damit 180 Sicherungen in Sekundenbruchteilen
 # durch sind.
 ACCOUNT_HEAD = 16 * 1024 * 1024
-# Einstellung: der eigene Account. `*` heißt „alle Accounts zählen".
+# Einstellung: der eigene Account. `*` heißt: alle Accounts zählen.
 ACCOUNT_SETTING = 'eigener_account'
 ALL_ACCOUNTS = '*'
 _OWN_TRIED = [0.0]
@@ -155,10 +155,10 @@ def account_from_text(text):
 
 
 def account_of_file(filename):
-    """Der Account, zu dem eine Log gehört — oder None (noch nicht angemeldet,
+    """Der Account, zu dem eine Log gehört — oder None (noch kein Login,
     unlesbar). Gelesen wird nur der Anfang.
 
-    ⭐ Gemerkt je Datei und Stand (rc9): Die Seite „Erkennung" und der Abgleich
+    ⭐ Gemerkt je Datei und Stand: Die Seite Erkennung und der Abgleich
     fremder Baupläne fragen das für alle rund 180 Sicherungen — bei jedem
     Besuch neu, 0,64 s beim ersten Öffnen (gemessen mit
     `tools/tempo_messen.py`). Eine Sicherung ändert sich nie; eine wachsende
@@ -282,12 +282,12 @@ def own_account(files=None):
     wird der Account mit den **meisten** Protokollen — nicht der der neuesten
     Log: Wer beim ersten Start gerade den Zweitaccount spielt, bekäme sonst
     dessen Bestand. Danach steht er in der Einstellung und ändert sich nur,
-    wenn der Spieler ihn umstellt (Seite „Erkennung")."""
+    wenn der Spieler ihn umstellt (Seite Erkennung)."""
     chosen = (paths.setting(ACCOUNT_SETTING) or '').strip()
     if chosen:
         return chosen
     # ⚠ Das Mitlesen fragt alle paar Sekunden. Ist noch kein Account zu
-    # erkennen (frische Installation, nie angemeldet), würde jede Frage alle
+    # erkennen (frische Installation, noch nie eingeloggt), würde jede Frage alle
     # Sicherungen anfassen — deshalb höchstens alle fünf Minuten suchen.
     if time.time() - _OWN_TRIED[0] < 300:
         return None
@@ -312,8 +312,8 @@ def foreign_only_blueprints(pattern=None, own=None):
     """Baupläne, die NUR in Protokollen anderer Accounts stehen.
 
     Grundlage für „aufräumen": Was auch der eigene Account je bekam, bleibt
-    unangetastet. ⚠ Ein Rest Unsicherheit bleibt — ist die eigene Log von
-    damals schon weggeräumt, sieht der Bauplan hier fremd aus. Deshalb schlägt
+    unangetastet. ⚠ Ein Rest Unsicherheit bleibt — ist die eigene Log mit
+    dem Fund schon weggeräumt, sieht der Bauplan hier fremd aus. Deshalb schlägt
     diese Funktion nur vor; entfernt wird erst nach Rückfrage."""
     pattern = pattern or phrases.pattern()
     own = own or own_account()
@@ -478,10 +478,10 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
         # ⚠ Auch dieser Teil darf den Lauf nicht kippen — er steht NACH der
         # Schleife, also haette eine Ausnahme hier ausgerechnet die eben
         # gelesenen Sicherungen um ihren Eintrag gebracht.
-        # ⚠ **Immer lesen, nicht nur beim allerersten Mal.** Hier stand
-        # `if aktiv and stand.aktiv_holen(aktiv) is None:` — die laufende Datei
-        # wurde also übersprungen, sobald sie einmal gelesen war. Das trifft
-        # genau den Fall, den jeder für abgedeckt hält:
+        # ⚠ **Immer lesen, nicht nur beim allerersten Mal.** Mit einer
+        # Bedingung wie `if aktiv and stand.aktiv_holen(aktiv) is None:` würde
+        # die laufende Datei übersprungen, sobald sie einmal gelesen war. Das
+        # trifft genau den Fall, den jeder für abgedeckt hält:
         #
         #   Watcher zu, Star Citizen läuft weiter, Baupläne kommen, Watcher
         #   später wieder auf.
@@ -489,8 +489,8 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
         # Dann steht der Lesestand irgendwo mitten in der Datei, das Mitlesen
         # setzt **dort** an, und alles davor ist für immer weg — es landet auch
         # nicht in `logbackups/`, denn dorthin wandert die Datei erst beim
-        # nächsten Spielstart. Gemessen am 28.08.2026: Bauplan bei Byte
-        # 11.987.664, Lesestand 12.759.872. Er wäre nie gefunden worden.
+        # nächsten Spielstart. Ein Bauplan vor dem Lesestand würde nie
+        # gefunden.
         #
         # Die Datei ganz zu lesen kostet bei 12 MB den Bruchteil einer Sekunde —
         # die Nachlese geht ohnehin über 149 Sicherungen. Doppelte fängt der
@@ -625,9 +625,9 @@ def _check_gap(before, all_names):
         weggeräumt, die niemand mehr hat."""
     # ⚠ Zurück kommt ein `Satz`, **kein fertiger Text**: Diese Meldung landet in
     # der Melde-Leiste und bleibt dort stehen. Ein fertig zusammengesetzter Satz
-    # wäre in der Sprache von damals eingefroren — wer später umstellt, hätte
-    # eine deutsche Zeile in einem englischen Fenster. Genau so gefunden am
-    # 26.08.2026. Der `Satz` merkt sich Schlüssel und Werte und lässt sich beim
+    # wäre in der Sprache dieses Moments eingefroren — wer später umstellt, hätte
+    # eine deutsche Zeile in einem englischen Fenster. Der `Satz` merkt sich
+    # Schlüssel und Werte und lässt sich beim
     # Sprachwechsel neu auswerten.
     if not all_names:
         return {'luecke': True, 'grund': Phrase('m_keine_logs')}
@@ -678,9 +678,9 @@ class LogTail:
         # getrennte Listen verlieren, was zuerst kam: Steht in einem Abschnitt
         # erst die Annahme und danach der Abschluss — genau der Fall nach einem
         # Neustart des Watchers, der einen ganzen Abend nachliest —, dann nimmt
-        # eine Auswertung „erst alle Enden, dann alle Annahmen" den Auftrag weg
-        # und stellt ihn gleich wieder hin. Er stuende als frisch angenommen da,
-        # obwohl er laengst erledigt ist. Genau so am 30.08.2026 gemessen.
+        # eine Auswertung, die erst alle Enden und dann alle Annahmen abarbeitet,
+        # den Auftrag weg und stellt ihn gleich wieder hin. Er stuende als frisch
+        # angenommen da, obwohl er laengst erledigt ist.
         # Eintraege sind `(ist_annahme, titel, mission_id, objective_id)`
         # — die beiden Kennungen entscheiden, ob ein Ende den Auftrag
         # meint oder nur ein Zwischenziel (siehe `contracts.SUFFIX`).
@@ -695,8 +695,8 @@ class LogTail:
         # nicht wieder eigene Rechenwege bekommen.
         self.objective_events = []
         # ⭐ Wem die laufende Log gehört — None, solange sich im Spiel noch
-        # niemand angemeldet hat. Baupläne eines fremden Accounts werden nicht
-        # gemeldet (siehe `account_from_text`).
+        # niemand eingeloggt hat. Baupläne eines fremden Accounts werden nicht
+        # angezeigt (siehe `account_from_text`).
         self.account = None
 
     def _locate(self):
@@ -709,7 +709,7 @@ class LogTail:
                 size = os.path.getsize(p)
             except OSError:
                 size = 0
-            # ⚠ **Drei Fälle, und der mittlere hat Baupläne verschluckt.**
+            # ⚠ **Drei Fälle, und am mittleren hängt, ob Baupläne verloren gehen.**
             #
             #   gemerkt is None      Die Datei wurde noch nie gelesen. Dann hat
             #                        `nachlesen()` sie eben von vorn durch und
@@ -723,16 +723,13 @@ class LogTail:
             #
             #   sonst                Weiterlesen, wo aufgehört wurde.
             #
-            # Bis v3.0.0 stand im zweiten Fall `groesse` statt `0`, also das
-            # **Ende** der neuen Datei. Damit übersprang der Watcher jeden
-            # Bauplan, den die frische Sitzung schon gemeldet hatte, und merkte
-            # es nie: `new_names()` hat zwar dieselbe Regel richtig
+            # Im zweiten Fall muss `0` stehen, nicht `groesse` (das **Ende** der
+            # neuen Datei). Sonst übersprange der Watcher jeden Bauplan, den
+            # die frische Sitzung schon geschrieben hat, und merkte es nie:
+            # `new_names()` hat zwar dieselbe Regel
             # (`if size < self.offset: self.offset = 0`), kommt aber nicht dazu
             # — der Stand steht dann längst auf dem Dateiende und
             # `size == self.offset` steigt sofort aus.
-            #
-            # Gemessen am 28.08.2026: Stand 12.759.872, Datei 12.758.651 Bytes.
-            # Zwei Baupläne standen in der Log, einer fehlte im Bestand.
             if remembered is None:
                 self.offset = size
             elif remembered > size:

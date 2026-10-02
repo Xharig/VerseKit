@@ -33,7 +33,7 @@ wollen — nur sollte man wissen, wo der neutrale Punkt liegt.
 ## ⚠⚠ Warum von Hand kalibriert wird und nicht automatisch
 
 Naheliegend wäre, den Rechner die Bildschirmgröße selbst herausfinden zu
-lassen. Gemessen am 06.09.2026 an einem Aufbau mit drei Bildschirmen:
+lassen. Gemessen an einem Aufbau mit drei Bildschirmen:
 
 | Quelle | Antwort | Brauchbar? |
 |---|---|---|
@@ -69,7 +69,7 @@ CARD_WIDTH_MM = 85.60
 CARD_HEIGHT_MM = 53.98
 
 # Wie weit darf der Sitzabstand vom rechnerischen Punkt abweichen, bevor es
-# gemeldet wird? Die Grenzen sind bewusst großzügig: Der neutrale Blickwinkel
+# angezeigt wird? Die Grenzen sind bewusst großzügig: Der neutrale Blickwinkel
 # ist ein Bezugspunkt, kein Gebot — viele fliegen absichtlich weiter offen.
 GREEN = 0.08   # bis 8 % Abweichung: stimmt
 YELLOW = 0.25    # bis 25 %: spürbar, aber vertretbar
@@ -158,7 +158,7 @@ def rating(actual_distance_mm, target_distance_mm):
     der Abweichung sagt die Richtung: **positiv heißt zu weit weg**, negativ
     zu nah dran.
 
-    ⚠ Rot heißt „weit daneben", nicht „falsch". Wer bewusst weiter offen
+    ⚠ Rot heißt weit daneben, nicht falsch. Wer bewusst weiter offen
     fliegt, um mehr zu sehen, macht nichts verkehrt — er soll nur wissen,
     dass er es tut.
     """
@@ -270,9 +270,9 @@ def stored():
 
     ⚠⚠ **Gelesen wird direkt aus dem Wörterbuch, nicht über die Helfer.**
     `paths.setting()` ist für **Pfade** gedacht und gibt bei allem, was
-    kein Text ist, `None` zurück — die Kalibrierung war damit nach jedem
+    kein Text ist, `None` zurück — die Kalibrierung wäre damit nach jedem
     Neustart weg, ohne eine einzige Fehlermeldung. `setting_int()`
-    wiederum liefert `int`, und „0,2330 mm je Pixel" ist keine ganze Zahl.
+    wiederum liefert `int`, und 0,2330 mm je Pixel ist keine ganze Zahl.
     Für Fließkommawerte gibt es hier keinen passenden Helfer.
     """
     try:

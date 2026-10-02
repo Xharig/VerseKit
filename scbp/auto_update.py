@@ -19,12 +19,11 @@
 """
 Neue Versionen von selbst einspielen — aber nie mitten im Spiel.
 
-Entschieden am 16.09.2026, als Patch-Versionen von der Tagesgrenze befreit
-wurden: Ein behobener Fehler soll alle erreichen, ohne dass jemand klickt.
+Ein behobener Fehler soll alle erreichen, ohne dass jemand klickt.
 
 | Frage | Antwort |
 |---|---|
-| Wie oft? | alle 10 Minuten nachsehen (bis 17.09.2026: 30) |
+| Wie oft? | alle 10 Minuten nachsehen |
 | Für wen? | für alle, abschaltbar (`update_automatisch`, Standard an) |
 | Testversionen? | ja, wenn „Auch Testversionen" an ist — das regelt `updater.check` |
 | Während Star Citizen läuft? | **nein** — erst, wenn das Spiel zu ist |
@@ -36,9 +35,9 @@ kostet er das Overlay mitten im Flug, samt Fokussprung in den Desktop. Deshalb
 zählt zusätzlich die **Prozessliste**: Steht `StarCitizen.exe` darin, wird
 gewartet, auch wenn das Log gerade schweigt.
 
-⚠ **Frisch veröffentlicht heißt noch nicht abholbereit.** Am 16.09.2026 kam
-v3.43.1 um 19:25 heraus; wer 90 Sekunden später lud, brauchte drei Minuten für
-19 MB — kurz danach dauerte dieselbe Datei 1,3 Sekunden. Eine Freigabe wird
+⚠ **Frisch veröffentlicht heißt noch nicht abholbereit.** Gemessen: 90
+Sekunden nach der Freigabe brauchten 19 MB drei Minuten — kurz danach dauerte
+dieselbe Datei 1,3 Sekunden. Eine Freigabe wird
 deshalb erst geholt, wenn sie `FRESH_WAIT` alt ist.
 
 Diese Datei entscheidet nur **ob**. Das **Wie** — Herunterladen mit Prüfsumme,
@@ -53,14 +52,11 @@ from datetime import datetime, timezone
 from . import paths
 
 # Wie oft nachgesehen wird. `updater.MIN_INTERVAL` passt dazu.
-# ⚠⚠ 10 statt 30 Minuten (17.09.2026). Mehrfach gewünscht, „30 Minuten ist zu
-# lang" — und mehrfach nur an Einzelfällen nachgebessert, statt den Takt selbst
-# zu ändern. 6 Abfragen je Stunde bleiben weit unter GitHubs 60 ohne Anmeldung.
+# ⚠⚠ 6 Abfragen je Stunde bleiben weit unter GitHubs 60 ohne Anmeldung.
 CHECK_INTERVAL_S = 10 * 60
 # Solange ein Update auf das Ende des Spiels wartet: so oft nachsehen.
-# ⚠ 20 statt 60 Sekunden (17.09.2026) — Wunsch Bushwick4712 (KRT): das Update
-# gut eine Minute nach Spielende, nicht fünf. Die Prozessliste zu lesen kostet
-# unter Windows wenige Millisekunden.
+# ⚠ Damit kommt das Update gut eine Minute nach Spielende, nicht fünf. Die
+# Prozessliste zu lesen kostet unter Windows wenige Millisekunden.
 GAME_POLL_S = 20
 # Ist die Prozessliste lesbar und das Spiel NICHT darin, gilt es als beendet,
 # sobald die `Game.log` so lange still ist. Die kurze Frist fängt das Aufräumen
@@ -68,9 +64,8 @@ GAME_POLL_S = 20
 # gilt weiter die lange Frist aus `paths.GAME_IDLE_SEC` (fünf Minuten).
 EXIT_QUIET_S = 30
 # So alt muss eine Freigabe sein, bevor sie automatisch geholt wird.
-# ⚠ 2 statt 10 Minuten (17.09.2026): Der langsame Abruf direkt nach dem
-# Veröffentlichen dauerte gemessen rund drei Minuten und war nach kurzer Zeit
-# vorbei; zehn Minuten Wartezeit standen dazu in keinem Verhältnis.
+# ⚠ Der langsame Abruf direkt nach dem Veröffentlichen dauert gemessen rund
+# drei Minuten und ist nach kurzer Zeit vorbei; zwei Minuten Wartezeit reichen.
 FRESH_WAIT_S = 2 * 60
 
 SETTING = 'update_automatisch'
@@ -95,13 +90,10 @@ def wait_left(release, now=None):
     Ohne Datum (alte Zwischenspeicher kennen nur den Tag) gilt sie als reif —
     lieber holen als nie.
 
-    ⚠⚠ **Die Restzeit, nicht die ganze Frist** (17.09.2026). Vorher wurde bei
-    einer zu frischen Freigabe stets volle `FRESH_WAIT_S` später erneut
-    gefragt — und dieser geplante Termin sperrte das Nachsehen beim
-    Spielende. Gemessen: v3.48.0 um 03:08:29 erschienen, der Takt um ~03:18
-    fand sie 9½ Minuten alt und plante 03:28; das Spiel ging um 03:19 zu, die
-    Spielende-Wache fand die Fassung, durfte wegen des Termins aber nichts
-    tun. Das Update musste von Hand eingespielt werden.
+    ⚠⚠ **Die Restzeit, nicht die ganze Frist.** Wird bei einer zu frischen
+    Freigabe stets volle `FRESH_WAIT_S` später erneut gefragt, sperrt dieser
+    geplante Termin das Nachsehen beim Spielende: Die Spielende-Wache findet
+    die Fassung, darf wegen des Termins aber nichts tun.
     """
     stamp = (release or {}).get('zeit') or ''
     if not stamp:
@@ -210,10 +202,9 @@ def game_running():
     | lesbar, Spiel **nicht** darin | läuft nur, wenn die Log in den letzten `EXIT_QUIET_S` geschrieben wurde |
     | nicht lesbar | die Log allein, mit der langen Frist (`paths.game_running`) |
 
-    ⚠ Bis zum 17.09.2026 galt die lange Frist **immer**: Das Update kam frühestens
-    fünf Minuten nach Spielende, obwohl die Prozessliste längst sagte, dass das
-    Spiel zu ist. Gemessen am selben Abend: Spiel um 00:08:25 beendet, VerseKit
-    wartete bis 00:13:25 — und um 00:13:15 lief das Spiel schon wieder.
+    ⚠ Gälte die lange Frist **immer**, käme das Update frühestens fünf Minuten
+    nach Spielende, obwohl die Prozessliste längst sagt, dass das Spiel zu ist
+    — und wer zwischendurch neu startet, bekommt es nie.
     """
     try:
         process = (_windows_game_process() if sys.platform == 'win32'

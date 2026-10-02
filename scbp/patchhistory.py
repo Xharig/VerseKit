@@ -19,11 +19,10 @@
 """
 Welcher Patch hat welche Baupläne gebracht — dauerhaft festgehalten.
 
-**Warum es dieses Modul gibt.** Der Vergleich lief früher gegen den Katalog, der
-gerade auf der Platte lag. Das ging schief: Am 26.08.2026 meldete das Werkzeug
-74 neue Baupläne, von denen **53 längst im Spiel waren**. Und nachsehen ließ es
-sich nicht mehr — scmdb hält nur die aktuelle Spielversion vor, die Daten zu
-4.9.0 waren am selben Tag schon gelöscht.
+**Warum es dieses Modul gibt.** Ein Vergleich gegen den Katalog, der gerade auf
+der Platte liegt, geht schief: Er hält Baupläne für neu, die längst im Spiel
+sind. Und nachsehen lässt es sich nicht mehr — scmdb hält nur die aktuelle
+Spielversion vor, die Daten der vorigen sind dann schon gelöscht.
 
 Daraus folgen die zwei Aufgaben hier:
 
@@ -51,7 +50,7 @@ so wie bei `daten/katalog.json` auch.
 
 Die Namen werden **im Klartext** gespeichert, nicht in der Vergleichsform. Die
 Datei liegt im Repo und soll dort lesbar sein: Wer sich einen Patch ansieht,
-soll „MISC Ore Pod" lesen und nicht „miscorepod". Verglichen wird trotzdem über
+soll `MISC Ore Pod` lesen und nicht `miscorepod`. Verglichen wird trotzdem über
 die Vergleichsform, sonst scheitert es an Schreibweisen.
 """
 import json
@@ -83,11 +82,10 @@ def _read(pfad):
 def _merge(alt, neu):
     """Zwei Einträge derselben Spielversion zu einem zusammenfassen.
 
-    ⚠ **Vereinigen, nicht ersetzen.** Hier stand einmal schlicht ein `update()`,
-    und damit warf jeder eigene Fund die mitgelieferte Liste derselben Version
-    weg. Am 28.08.2026 sah der Watcher drei nachgereichte Schiffswaffen in
-    4.10.0, schrieb sie als *die* Zugänge dieser Version — und aus dem Filter
-    „4.10.0" verschwanden die 21 mitgelieferten Baupläne. Von 24 blieben 3.
+    ⚠ **Vereinigen, nicht ersetzen.** Mit einem schlichten `update()` würfe
+    jeder eigene Fund die mitgelieferte Liste derselben Version weg: Drei
+    nachgereichte Schiffswaffen gälten als *die* Zugänge dieser Version, und
+    die mitgelieferten Baupläne verschwänden aus dem Filter.
 
     Der Grund liegt in der Natur der eigenen Funde: Was `record()` schreibt,
     ist immer nur der **Zuwachs seit dem letzten Lauf**, nie die vollständige
@@ -170,7 +168,7 @@ def version_per_blueprint():
 def rank(version):
     """Sortierschlüssel: 4.10.0 gehört hinter 4.9.0, nicht davor.
 
-    Als Text verglichen käme „4.9" nach „4.10", weil „9" größer ist als „1"."""
+    Als Text verglichen käme `4.9` nach `4.10`, weil `9` größer ist als `1`."""
     kurz = (version or '').split('-')[0]
     return [int(x) if x.isdigit() else 0 for x in kurz.split('.')]
 

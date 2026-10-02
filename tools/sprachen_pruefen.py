@@ -48,19 +48,19 @@ PAARE = [
     ('README.en.md', 'README.md', 'abschnitte'),
     ('CHANGELOG.en.md', 'CHANGELOG.md', 'versionen'),
     ('ROADMAP.en.md', 'ROADMAP.md', 'abschnitte'),
-    # ⚠ Seit 31.08.2026 auch die beiden Nebenseiten. Sie lagen bis dahin **nur**
-    # auf Englisch — in einem Projekt, dessen Hauptsprache Deutsch ist, ist
-    # ausgerechnet die Sicherheitsseite die falsche Stelle zum Sparen.
+    # ⚠ Auch die beiden Nebenseiten — in einem Projekt, dessen Hauptsprache
+    # Deutsch ist, ist ausgerechnet die Sicherheitsseite die falsche Stelle
+    # zum Sparen.
     ('SECURITY.en.md', 'SECURITY.md', 'abschnitte'),
     ('CODE_OF_CONDUCT.en.md', 'CODE_OF_CONDUCT.md', 'abschnitte'),
-    # ⚠ Seit 16.09.2026. `SUPPORT.md` sagt, wohin ein Fehler gemeldet wird —
+    # ⚠ `SUPPORT.md` sagt, wohin ein Fehler gemeldet wird —
     # eine Seite, die ausgerechnet fuer die halb fehlen wuerde, die hier auf
     # Englisch ankommen. Diese Liste ist fest verdrahtet: **Wer eine neue
     # zweisprachige Seite anlegt, traegt sie hier ein**, sonst wacht niemand
     # darueber.
     ('SUPPORT.en.md', 'SUPPORT.md', 'abschnitte'),
-    # Seit 28.09.2026 (v3.60.0): die Datenschutzerklärung, die das KRT Profit
-    # Basetool für die Freigabe verlangt.
+    # Die Datenschutzerklärung, die das KRT Profit Basetool für die Freigabe
+    # verlangt.
     ('PRIVACY.en.md', 'PRIVACY.md', 'abschnitte'),
 ]
 
@@ -161,10 +161,9 @@ def pruefe(melden=print):
 
 
 def main():
-    # ⚠ Unter Windows steht die Konsole auf cp1252 — und daran starb dieses
-    # Werkzeug mit `UnicodeEncodeError`, sobald es das erste `↔` ausgeben
-    # wollte. Geprueft wurde damit nichts mehr; wer unter Windows entwickelt,
-    # bekam nur einen Stapelabzug zu sehen. Gefunden am 27.08.2026.
+    # ⚠ Unter Windows steht die Konsole auf cp1252 — ohne Umstellung stirbt
+    # dieses Werkzeug mit `UnicodeEncodeError`, sobald es das erste `↔`
+    # ausgibt, und prueft nichts mehr.
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     except Exception:

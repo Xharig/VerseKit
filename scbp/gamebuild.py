@@ -23,29 +23,29 @@ Welcher Spielstand gerade live ist — und ob unsere Zahlen noch dazu passen.
 
 Preise, Lagerorte und Ankaufgebote gelten immer für **einen** Spielstand. Kommt
 ein Patch, wirft CIG regelmäßig Preise um, benennt Stationen um oder nimmt
-Terminals heraus. Unsere Ablage merkt davon nichts: Sie ist einen Tag lang
-„frisch" und zeigt weiter die Zahlen von vorgestern.
+Terminals heraus. Unsere Ablage merkt davon nichts: Sie gilt einen Tag lang
+als frisch und zeigt weiter die Zahlen von vorgestern.
 
 Das ist die eine Sorte Fehler, die ein Werkzeug **niemals** machen darf — es
 sagt etwas Falsches mit der gleichen Bestimmtheit wie etwas Richtiges. Ein
 leeres Feld ist ehrlich, eine alte Zahl ohne Hinweis ist es nicht.
 
-## ⚠⚠ Das ist der DRITTE Anlauf — die ersten beiden waren falsch
+## ⚠⚠ Woher der Spielstand kommt — und woher nicht
 
-In `selling.py` steht seit dem 30.08.2026 ausdrücklich, dass dort **kein**
-Spielstand hingehört. Diese Warnung bleibt richtig, und dieses Modul verstößt
-nicht dagegen — es holt die Angabe aus einer **anderen** Quelle:
+In `selling.py` steht ausdrücklich, dass dort **kein** Spielstand hingehört.
+Diese Warnung bleibt richtig, und dieses Modul verstößt nicht dagegen — es
+holt die Angabe aus einer **anderen** Quelle:
 
-| Anlauf | Woher | Warum es scheiterte |
+| Quelle | taugt? | Warum |
 |---|---|---|
-| 1. | `game_version` in den Preisdaten | Das Feld gibt es dort gar nicht |
-| 2. | `game_version` an den Terminals | Bedeutet „in dieser Version zuletzt gesehen" — verteilt sich über 826 Terminals auf 3.24.2 (151×), 4.6.0 (126×), 4.0 (106×) und 84 ohne Angabe. Der häufigste Wert wäre `3.24.2` gewesen, während die Preise aus 4.10.0 stammten |
-| 3. | **eigener Endpunkt `game_versions`** | Sagt genau eines: was gerade live ist |
+| `game_version` in den Preisdaten | nein | Das Feld gibt es dort gar nicht |
+| `game_version` an den Terminals | nein | Bedeutet: in dieser Version zuletzt gesehen — verteilt sich über 826 Terminals auf 3.24.2 (151×), 4.6.0 (126×), 4.0 (106×) und 84 ohne Angabe. Der häufigste Wert wäre `3.24.2`, während die Preise aus 4.10.0 stammen |
+| **eigener Endpunkt `game_versions`** | ja | Sagt genau eines: was gerade live ist |
 
 Der Unterschied ist nicht Geschmack, sondern Bedeutung: Die ersten beiden Felder
 beschreiben **einzelne Datensätze**, dieser Endpunkt beschreibt **das Spiel**.
 
-Gemessen am 04.09.2026 antwortet er mit `{'live': '4.10.0', 'ptu': None}` — ein
+Er antwortet etwa mit `{'live': '4.10.0', 'ptu': None}` — ein
 Wert, kein Verteilungsproblem.
 
 ## Was daraus folgt
@@ -57,7 +57,7 @@ Zahlen dann weiter, sagt aber dazu, dass ein Patch dazwischen liegt.
 
 ⚠ **Nicht wegwerfen, nur kennzeichnen.** Alte Preise sind besser als keine:
 Nach einem Patch dauert es Tage, bis die Spielergemeinde die neuen Zahlen
-gemeldet hat. Wer in dieser Zeit gar nichts sieht, ist schlechter dran als wer
+eingetragen hat. Wer in dieser Zeit gar nichts sieht, ist schlechter dran als wer
 alte Zahlen mit Warnung sieht.
 
 ⚠ **Ohne Netz gibt es keine Warnung, und das ist richtig so.** Wer den
@@ -85,7 +85,7 @@ def load():
 def live():
     """Die Versionsnummer des Live-Spiels, etwa `'4.10.0'` — oder `''`.
 
-    Leer heißt **nicht** „kein Patch", sondern „wir wissen es nicht". Der
+    Leer heißt **nicht**: kein Patch, sondern: wir wissen es nicht. Der
     Unterschied entscheidet darüber, ob eine Warnung angezeigt werden darf.
     """
     return (load() or {}).get('live') or ''

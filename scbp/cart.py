@@ -46,10 +46,9 @@ dem, was gewählt wurde.
 
 ## ⚠⚠ Vier Zustände, vier Sätze — nicht ein „geht nicht"
 
-Die teuerste Verwechslung dieses Projekts ist, „keine Daten" und „passt nicht"
-gleich aussehen zu lassen: Beides ist eine leere Liste. Am 06.09.2026 stand
-deshalb bei **jedem** Bauplan „passt in keines deiner Schiffe", obwohl nur die
-Steckplatz-Daten fehlten.
+Die teuerste Verwechslung ist, „keine Daten" und „passt nicht" gleich aussehen
+zu lassen: Beides ist eine leere Liste. Dann steht bei **jedem** Bauplan „passt
+in keines deiner Schiffe", obwohl nur die Steckplatz-Daten fehlen.
 
 Hier wird das auseinandergehalten:
 
@@ -66,8 +65,8 @@ am Schiff.
 ## ⚠ Zugeordnet wird über die Kennung, nie über den Namen
 
 Erkuls `ref`, UEX' `uuid` und die `productEntityClass` der Rezeptdaten sind
-dieselbe Entitäts-Kennung. Über Namen ist es in diesem Projekt zweimal
-schiefgegangen (`Gold` holte `Golden Medmon` mit). Auch der Bauplan zu einem
+dieselbe Entitäts-Kennung. Über Namen geht es schief (`Gold` holt
+`Golden Medmon` mit). Auch der Bauplan zu einem
 Teil wird deshalb über die Kennung gesucht, nicht über die Beschriftung.
 
 ## Die Kaufroute
@@ -114,17 +113,9 @@ SHIP = 'schiff'
 HANGAR = 'hangar'
 WISHLIST = 'wunsch'
 
-# ⭐⭐ **Der Merkzettel: Einzelteile ohne Schiff.** Bis v3.20.0 fuehrte jeder Weg
-# zum Farmen ueber ein Schiff — man legte eines auf die Wunschliste, waehlte
-# Steckplaetze, und daraus entstand die Materialliste. Fuer einen Helm, eine
-# Waffe oder ein Ruestungsteil gab es diesen Weg **gar nicht**.
-#
-# Gemeldet von Haldjas am 06.09.2026: *„‚What to farm' ist irgendwie bisschen
-# unnoetig komplex — man geht da rein, wird dann zu ‚still missing' geschickt
-# und weiss dann aber nicht so genau, was man machen soll. […] Es waere naemlich
-# auch ganz nuetzlich, wenn man nicht nur Schiffsteile, sondern auch
-# Ruestungen/Waffen fuer FPS hinzufuegen koennte zum Workshop, sind ja immerhin
-# auch Blueprints, die Ressourcen brauchen."*
+# ⭐⭐ **Der Merkzettel: Einzelteile ohne Schiff.** Ueber die Wunschliste fuehrt
+# der Weg zum Farmen ueber ein Schiff und seine Steckplaetze. Fuer einen Helm,
+# eine Waffe oder ein Ruestungsteil gibt es diesen Weg **gar nicht**.
 #
 # Ein Merkzettel-Posten hat kein Schiff und keine Position — er ist einfach
 # etwas, das man bauen oder kaufen will. Alles andere (Preis, Material, Route)
@@ -188,8 +179,8 @@ GROUP_TO_KIND = {
 #
 # Der Bauplan-Katalog kennt nur **738** der 1.597 herstellbaren Dinge — er
 # entsteht aus den Belohnungs-Töpfen, und was in keiner Mission steckt, steht
-# dort nicht. Gemessen am 06.09.2026 fiel dadurch der Militär-Quantenantrieb
-# **Crossfield** aus der Auswahl, obwohl es einen Bauplan dafür gibt.
+# dort nicht. Dadurch fiele etwa der Militär-Quantenantrieb **Crossfield** aus
+# der Auswahl, obwohl es einen Bauplan dafür gibt.
 #
 # Die Rezeptdaten selbst tragen die Angabe aber mit: `type` sagt die Gattung
 # (`quantumdrive`), `subtype` bei Komponenten die Größe (`size2`).
@@ -248,9 +239,9 @@ def _craftable(kind, size):
     """Alle **herstellbaren** Teile dieser Art und Größe — Kennung → Angaben.
 
     ⭐⭐ **Ohne diese Quelle fehlt dem Spieler die halbe Welt, und zwar
-    ausgerechnet die interessante Hälfte.** Die Auswahl speiste sich bis zum
-    06.09.2026 nur aus UEX — und UEX führt **Ladenware**. Militärkomponenten
-    gibt es im Laden nicht, also standen sie nirgends. Gemessen an den
+    ausgerechnet die interessante Hälfte.** UEX führt nur **Ladenware**.
+    Militärkomponenten gibt es im Laden nicht, aus UEX allein stünden sie
+    nirgends. Gemessen an den
     Quantenantrieben der Größe 2:
 
     | | UEX (kaufbar) | Spieldaten (herstellbar) |
@@ -261,16 +252,15 @@ def _craftable(kind, size):
     | Competition | 2 | 2 |
     | **Military** | **0** | **3** |
 
-    Der Hinweis dazu: *„ich weiß Militär ist nicht kaufbar, aber herstellbar
-    ist es."* Genau so ist es — und wer Baupläne sammelt, will die zuerst
-    sehen.
+    Militär ist nicht kaufbar, aber herstellbar — und wer Baupläne sammelt,
+    will genau das zuerst sehen.
 
     ⚠ **Verknüpft wird über den Namen — hier ausnahmsweise zu Recht.** Die
     „nie über Namen"-Regel gilt für Zuordnungen über **Quellengrenzen**
-    hinweg (dort holte `Gold` einmal `Golden Medmon` mit). Rezeptdaten und
+    hinweg (dort holt `Gold` sonst `Golden Medmon` mit). Rezeptdaten und
     Katalog stammen dagegen beide aus derselben Quelle und benutzen dieselbe
-    Namensform; `classification()` verknüpft sie längst genauso. Gemessen am
-    06.09.2026: **1.592 von 1.597 (99,7 %)** finden ihre Angaben, alle davon
+    Namensform; `classification()` verknüpft sie genauso. Gemessen:
+    **1.592 von 1.597 (99,7 %)** finden ihre Angaben, alle davon
     mit Art und Größe.
 
     ⚠ Die **Kennung** bleibt trotzdem der Schlüssel des Ergebnisses. Über sie
@@ -384,12 +374,11 @@ def choices(kind, size, slot=None):
         if already is not None:
             already['herkunft'] = BOTH
             # ⚠⚠ **UEX' Angaben gewinnen wirklich — nicht nur bei einer Lücke.**
-            # Bis zum 06.09.2026 stand hier `if wert and not schon.get(feld)`:
-            # Die Angabe aus dem Bauplan-Katalog blieb stehen, sobald sie
-            # irgendetwas enthielt. Und weil der Katalog die Güte als **Zahl**
-            # führt, stand bei `Bolt` plötzlich „2 · Tarnung", wo vorher
-            # richtig „B · Tarnung" stand — gemessen an 137 Teilen mit
-            # Herkunft „beides".
+            # Mit `if wert and not schon.get(feld)` bliebe die Angabe aus dem
+            # Bauplan-Katalog stehen, sobald sie irgendetwas enthält. Und weil
+            # der Katalog die Güte als **Zahl** führt, stünde bei `Bolt`
+            # „2 · Tarnung" statt „B · Tarnung" — betroffen sind 137 Teile
+            # mit Herkunft „beides".
             #
             # UEX pflegt Klasse und Güte für seine Ladenware gründlicher; wo
             # es etwas führt, gilt das. Der Katalog füllt nur die Lücken.
@@ -416,8 +405,8 @@ def _choices_by_rule(kind, slot):
     ⚠⚠ **Hier entscheidet der Platz, nicht der Laden.** Diese Teile hängen an
     Kennzeichnungen: Der Torpedoplatz der Eclipse nimmt genau vier Racks, die
     Lackierungen der Eclipse passen an kein anderes Schiff. Die meisten davon
-    stehen in keinem Laden und in keinem Bauplan — bis v3.63.1 blieb die
-    Auswahl deshalb leer (gemeldet 30.09.2026). Nach Art und Größe allein
+    stehen in keinem Laden und in keinem Bauplan — aus diesen Quellen bliebe
+    die Auswahl leer. Nach Art und Größe allein
     stünden dagegen 126 Racks zur Wahl, fast alle falsch.
 
     Die Liste kommt deshalb aus `erkul.compatible()`. Laden und Bauplan
@@ -468,7 +457,7 @@ def _choices_by_rule(kind, slot):
 #
 # ⚠ Alles hier arbeitet auf **einem Hangar-Eintrag** (ein Schiff aus
 # `fleet.load()['schiffe']`), nicht auf der ganzen Datei. Geschrieben wird
-# in das Feld `belegung`, das dort seit v3.19.0-rc1 leer bereitliegt — es
+# in das Feld `belegung`, das dort schon leer bereitliegt — es
 # kostet also keinen Formatwechsel und entwertet keine bestehende Datei.
 
 
@@ -539,10 +528,9 @@ def set_method(entry, path, method):
 def open_count(entry):
     """Wie viele Plätze an diesem Schiff noch offen sind — **ohne** Netz.
 
-    ⭐⭐ **Damit man es sieht, ohne aufzuklappen.** Am 06.09.2026 gefragt: *„wie
-    sehe ich ohne Aufklappen, dass ich dort noch nicht besorgte Komponenten
-    habe?"* Gar nicht — in der Hangar-Liste stand nur „gekauft · LTI · 39
-    Steckplätze", und bei vierzig Schiffen klappt niemand alle auf.
+    ⭐⭐ **Damit man es sieht, ohne aufzuklappen.** In der Hangar-Liste steht
+    sonst nur „gekauft · LTI · 39 Steckplätze", und bei vierzig Schiffen
+    klappt niemand alle auf.
 
     ⚠ **Gezählt wird die gespeicherte Auslegung, nicht `line_items()`.** Das ist
     der ganze Sinn: `line_items()` braucht die Steckplatz-Daten und läuft je
@@ -563,13 +551,8 @@ def open_count(entry):
 def fully_fitted(entry):
     """Steckt an diesem Schiff alles drin, was geplant war?
 
-    ⭐⭐ **Das ist keine Fleißmeldung, sondern eine Warnung.** Am 06.09.2026
-    erklärt: *„ich habe z. B. Super Hornet gefittet und versichert im Spiel,
-    und wenn ich das Schiff ohne Versicherung neu claime, würde ich die
-    Komponenten verlieren — also muss ich wissen, wo ich schon was fertig
-    gefittet habe, nicht nur wo ich noch was kaufen muss."*
-
-    Genau so ist es: Ein neu geclaimtes Schiff kommt in seiner
+    ⭐⭐ **Das ist keine Fleißmeldung, sondern eine Warnung.** Ein neu
+    geclaimtes Schiff kommt in seiner
     **Werksausstattung** zurück. Wer ein aufgerüstetes Schiff ohne die
     passende Versicherung claimt, verliert alles, was er eingebaut hat — und
     das können mehrere hunderttausend aUEC sein. Diese Auskunft ist im Zweifel
@@ -600,9 +583,8 @@ def set_done(entry, path, on=True):
     """Einen Posten abhaken oder den Haken wieder wegnehmen.
 
     ⭐⭐ **Warum es das braucht — das Werkzeug kann es nicht selbst merken.**
-    Am 06.09.2026 gefragt: *„wenn etwas von der Liste gekauft wurde, und im
-    Schiff eingebaut ist, wie erfährt die Einkaufsliste davon, dass das Teil
-    nun eingebaut ist?"* Die ehrliche Antwort ist: **gar nicht.**
+    Dass ein gekauftes Teil im Schiff eingebaut ist, erfährt die
+    Einkaufsliste von allein **gar nicht.**
 
     Das Spiel schreibt nicht in die `Game.log`, was in einem Schiff steckt. Der
     Watcher kennt zwei Dinge: was ab Werk verbaut ist (aus erkul) und was der
@@ -759,11 +741,9 @@ def craft_option(ref, index=None, name=''):
     Ankaufgeboten in `selling.py`.
 
     ⚠⚠⚠ **`ref` ist die Entitäts-Kennung, NICHT der Name.** Merkzettel-Posten
-    kommen aus der Herstellungsliste, und die kennt nur den Bauplannamen — beim
-    ersten Anlauf am 06.09.2026 landete der Name im `ref`-Feld, `index`
-    fand nichts, und der Posten fiel stillschweigend auf „kaufen" zurück. Auf
-    „Was ich farmen muss" stand daraufhin „Nichts auf selbst herstellen
-    gestellt", obwohl zwei Waffen vorgemerkt waren.
+    kommen aus der Herstellungsliste, und die kennt nur den Bauplannamen.
+    Landet der Name im `ref`-Feld, findet `index` nichts, und der Posten
+    fällt stillschweigend auf „kaufen" zurück.
 
     Deshalb der zweite Weg über `name`: Findet die Kennung nichts, wird der
     **Bauplanname** direkt genommen — `crafting.recipe()` sucht ohnehin über
@@ -1219,14 +1199,8 @@ def farm_list(data=None):
         if p.get('weg') != CRAFT:
             continue
         # ⚠⚠ **Was gebaut UND eingebaut ist, braucht kein Material mehr.**
-        # Bis zum 06.09.2026 zählte die Farmliste auch abgehakte Posten mit:
-        # Vier von acht Schilden waren fertig, und trotzdem stand „für 8
-        # geplante Bauteile · fehlt 8,8 Stileron" da. Dazu die Rückmeldung:
-        # „der Wert ändert sich auch nicht, wenn ich Sachen als eingebaut
-        # markiert habe — das erwartet aber jeder User, denn wenn ich es
-        # hergestellt habe, dann brauch ich das Material ja nicht mehr."
-        #
-        # Genau so. Eine Farmliste, die nach getaner Arbeit dieselbe Zahl
+        # Abgehakte Posten zählen nicht mit. Eine Farmliste, die nach getaner
+        # Arbeit dieselbe Zahl
         # zeigt, schickt den Spieler ein zweites Mal in denselben Asteroiden.
         if p.get('erledigt'):
             continue

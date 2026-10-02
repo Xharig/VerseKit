@@ -19,11 +19,10 @@
 """
 Findet Prüfungen, die mal grün und mal rot sind.
 
-**Wozu das gut ist.** Am 05./06.09.2026 wurde viermal beobachtet: Beim ersten
-Lauf schlägt eine Prüfung an, beim Wiederholen ist dieselbe grün. Welche es
-war, ließ sich hinterher nicht mehr sagen — 1794 Prüfungen ziehen am Auge
-vorbei, und wer den Lauf zweimal von Hand vergleicht, findet den Unterschied
-nicht. Ein Test, der mal so und mal so ausgeht, wird irgendwann ignoriert; und
+**Wozu das gut ist.** Schlägt eine Prüfung beim ersten Lauf an und ist beim
+Wiederholen grün, lässt sich hinterher kaum sagen, welche es war — 1794
+Prüfungen ziehen am Auge vorbei, und wer den Lauf zweimal von Hand vergleicht,
+findet den Unterschied nicht. Ein Test, der mal so und mal so ausgeht, wird irgendwann ignoriert; und
 dann fällt ein echter Fehler nicht mehr auf.
 
 Dieses Werkzeug lässt den Selbsttest mehrfach laufen und nennt **genau die
@@ -71,23 +70,21 @@ SELBSTTEST = os.path.join(WURZEL, 'tools', 'selbsttest.py')
 
 # ⚠ Die eigene Ausgabe auf UTF-8 stellen, sonst stirbt sie unter Windows.
 # Dort steht die Konsole auf cp1252, und die Pruefttexte enthalten Umlaute und
-# Pfeile. Beim ersten Versuch am 07.09.2026 brach genau hier alles ab
-# (`UnicodeEncodeError` auf `�`) — und zwar erst NACH zwei fertigen
-# Laeufen, also nach zehn Minuten Wartezeit. Dieselbe Falle wie in den
-# Riegel-Selbsttests.
+# Pfeile. Ohne das bricht alles mit `UnicodeEncodeError` ab — und zwar erst
+# NACH zwei fertigen Laeufen, also nach zehn Minuten Wartezeit.
 for _strom in (sys.stdout, sys.stderr):
     try:
         _strom.reconfigure(encoding='utf-8', errors='replace')
-    except (AttributeError, ValueError):        # sehr alte Fassungen, Umleitung
+    except (AttributeError, ValueError):        # sehr altes Python, Umleitung
         pass
 
 # `  [ok]   text` bzw. `  [FEHL] text` — so schreibt `pruefe()` in selbsttest.py.
 #
 # ⚠ `re.MULTILINE` ist Pflicht. Ohne das bindet `^` nur an den Anfang der
-# GANZEN Ausgabe, und `findall()` liefert null Treffer — beim ersten echten
-# Lauf am 07.09.2026 meldete die Fortschrittszeile brav „0 Pruefungen, 0 rot"
-# fuer beide Durchlaeufe, waehrend die Auswertung darunter 1794 zaehlte.
-# (`auswerten()` war nie betroffen: Es geht zeilenweise mit `.match()`.)
+# GANZEN Ausgabe, und `findall()` liefert null Treffer — die
+# Fortschrittszeile zeigte dann null Pruefungen, waehrend die Auswertung
+# darunter alle zaehlt. (`auswerten()` ist nicht betroffen: Es geht
+# zeilenweise mit `.match()`.)
 ZEILE = re.compile(r'^ {2}\[(ok|FEHL)\] {1,3}(.*)$', re.MULTILINE)
 # `60. Mausrad rollt die Klappliste, nicht die Seite dahinter`
 ABSCHNITT = re.compile(r'^(\d+[a-z]?)\. (.*)$')
@@ -145,12 +142,11 @@ def einmal_laufen(ablage, nummer, gesamt):
                           env=umgebung, cwd=WURZEL)
 
     # ⚠ **Nur `stdout` auswerten, `stderr` getrennt halten.** Beides
-    # aneinanderzuhaengen sah harmlos aus und war es nicht: Tk schreibt beim
-    # Aufraeumen Zeilen wie `invalid command name "…poll_queue"` ohne
-    # abschliessenden Umbruch. Die klebten dann hinten an einem Pruefttext,
-    # und aus „…nicht nur zufaellig einen" wurde „…zufaellig eneninvalid
-    # command n" — eine Pruefung, die es in keinem anderen Lauf gibt. Das
-    # Werkzeug haette also GERADE die Wackler erfunden, die es finden soll.
+    # aneinanderzuhaengen ist nicht harmlos: Tk schreibt beim Aufraeumen
+    # Zeilen wie `invalid command name "…poll_queue"` ohne abschliessenden
+    # Umbruch. Die kleben dann hinten an einem Pruefttext, und es entsteht
+    # eine Pruefung, die es in keinem anderen Lauf gibt. Das Werkzeug erfaende
+    # also GERADE die Wackler, die es finden soll.
     ausgabe = lauf.stdout or ''
     nebenher = lauf.stderr or ''
 

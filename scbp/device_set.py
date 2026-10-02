@@ -130,12 +130,12 @@ def capture(filename=None, folder=None):
         for axis, values in block['achsen'].items():
             # ⚠⚠ **Auch was NICHT gesetzt ist, gehört in den Satz.**
             #
-            # Der erste Entwurf speicherte nur belegte Werte. Ein Satz war
-            # damit keine Zustandsbeschreibung, sondern eine Ergänzungsliste:
-            # Wer für „mit Pedalen" eine Sättigung setzte und danach „ohne
-            # Pedale" anwandte, behielt sie — der Satz kannte das Feld ja gar
-            # nicht und ließ es in Ruhe. Beim Umschalten sammelten sich so
-            # Werte an, die in keinem Satz standen.
+            # Speichert ein Satz nur belegte Werte, ist er keine
+            # Zustandsbeschreibung, sondern eine Ergänzungsliste: Wer für „mit
+            # Pedalen" eine Sättigung setzt und danach „ohne Pedale" anwendet,
+            # behält sie — der Satz kennt das Feld nicht und lässt es in Ruhe.
+            # Beim Umschalten sammeln sich so Werte an, die in keinem Satz
+            # stehen.
             #
             # Ein `None` heißt beim Anwenden **löschen**. Dieselbe Regel wie
             # beim Angleichen zweier Sticks: Sonst sind zwei Zustände, die

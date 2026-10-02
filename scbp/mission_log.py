@@ -23,13 +23,12 @@ oft**. Keine Belohnungen, keine Kategorien — das steht nicht im Log.
 ## ⚠⚠ Dieses Modul erkennt KEINE Auftraege
 
 Das tut `contracts.py`, und zwar besser, als es hier je entstehen wuerde: Es
-holt die Formulierungen („Auftrag angenommen") aus der `global.ini` des
+holt die Formulierungen (`Auftrag angenommen`) aus der `global.ini` des
 Spielers statt sie einzutragen, geht auf den Missions-**Schluessel** statt auf
 den Wortlaut (sonst gilt jedes Zwischenziel als Auftrag), putzt die eigenen
 Bauplan-Marken aus dem Titel und kennt drei Enden statt einem.
 
-Der erste Entwurf dieses Moduls hat all das danebengebaut und dieselben Fallen
-einzeln neu entdeckt. **Zwei Auswertungen derselben Logzeilen laufen beim
+**Zwei Auswertungen derselben Logzeilen laufen beim
 naechsten Patch auseinander** — deshalb kommt hier jede Auftragserkennung aus
 `contracts.py`.
 
@@ -62,7 +61,7 @@ import re
 from . import contracts, errors, paths
 
 FILE = 'auftragslog.json'
-# ⚠ 2 seit dem 04.09.2026. Ein Protokoll im Format 1 enthaelt zwei Fehler, die
+# ⚠ Ein Protokoll im Format 1 enthaelt zwei Fehler, die
 # sich nicht nachtraeglich glattziehen lassen — Auftraege, die ewig „laeuft"
 # blieben, und Bauplaene, die dadurch am falschen Auftrag haengen. Beides
 # entsteht beim Lesen, also wird beim Formatwechsel **komplett neu gelesen**
@@ -84,16 +83,16 @@ RUNNING = 'laeuft'
 # Bewusst NICHT als „abgebrochen" gefuehrt: Wir wissen nur, dass er nicht mehr
 # laeuft, nicht warum. Eine Behauptung waere schlimmer als eine ehrliche Luecke.
 EXPIRED = 'verfallen'
-# ⚠⚠ **Neu am 06.09.2026 — vorher galt Scheitern als Erfolg.** Das Spiel kennt
-# vier Ausgaenge, ausgewertet wurde nur einer davon:
+# ⚠⚠ **Scheitern ist kein Erfolg.** Das Spiel kennt vier Ausgaenge (gezaehlt
+# an echten Protokollen):
 #
 #     Complete     316   abgeschlossen
 #     Abandon      110   abgebrochen
-#     Fail          57   fiel unter „abgeschlossen" — falsch
-#     Deactivate     2   fiel unter „abgeschlossen" — falsch
+#     Fail          57   fehlgeschlagen
+#     Deactivate     2   fehlgeschlagen
 #
-# 57 gescheiterte Auftraege standen gruen im Protokoll. Wer nachsieht, wie oft
-# ihm ein Auftrag misslungen ist, bekam die falsche Antwort.
+# Wer `Fail` und `Deactivate` als abgeschlossen zaehlt, zeigt gescheiterte
+# Auftraege gruen im Protokoll.
 FAILED = 'fehlgeschlagen'
 
 
@@ -120,28 +119,24 @@ def _state_for(kind):
 
 
 # Woran man erkennt, dass der Spieler wirklich im Spiel angekommen ist.
-# ⚠ An 188 echten Protokollen gemessen (05.09.2026): In 187 kommt diese Zeile
-# vor, und in KEINEM einzigen wurde ein Auftrag genannt, ohne dass sie davor
-# stand. Sie ist damit die verlaessliche Grenze zwischen „Spiel gestartet" und
-# „Spieler ist drin".
+# ⚠ An 188 echten Protokollen gemessen: In 187 kommt diese Zeile vor, und in
+# KEINEM einzigen wurde ein Auftrag genannt, ohne dass sie davor stand. Sie ist
+# damit die verlaessliche Grenze zwischen Spielstart und Ankunft im Spiel.
 SPAWN_MARKER = 'OnClientSpawned'
 
 # Wie lange eine Sitzung gelaufen sein muss, damit ihr SCHWEIGEN etwas beweist.
 #
-# ⚠⚠ **Warum es diese Zahl gibt (05.09.2026).** Wer sich ausloggt, ohne
-# abzugeben oder abzubrechen, hinterlaesst kein Ende im Log; aufgeraeumt wurde
-# so ein Auftrag nur, wenn eine spaetere Sitzung ihn nicht mehr nannte. Eine
-# Sitzung ganz OHNE Auftrag galt dabei als aussagelos — zu Recht, denn ein
-# abgebrochener Start nennt auch keinen.
+# ⚠⚠ **Warum es diese Zahl gibt.** Wer sich ausloggt, ohne abzugeben oder
+# abzubrechen, hinterlaesst kein Ende im Log; aufgeraeumt wird so ein Auftrag,
+# wenn eine spaetere Sitzung ihn nicht mehr nennt. Eine Sitzung ganz OHNE
+# Auftrag ist dabei meist aussagelos — ein abgebrochener Start nennt auch
+# keinen. Eine lange, vollstaendige Sitzung ohne jeden Auftrag dagegen
+# beweist, dass keiner mehr offen ist.
 #
-# Gemeldet wurde genau der Fall dazwischen: eine vollstaendige Sitzung von
-# 162 Minuten, in der kein einziger Auftrag vorkam, und trotzdem stand die
-# Karteileiche vom Vortag weiter da.
-#
-# ⚠ **Der erste Anlauf war falsch und wurde durch Messung widerlegt.** „Spawn
-# vorhanden, kein Auftrag" allein haette an 188 Protokollen **acht** Auftraege
-# geschlossen, die kurz danach wieder auftauchten — kurze Fehlstarts nennen
-# den Auftrag eben doch nicht immer. Mit der Mindestdauer durchgespielt:
+# ⚠ Spawn allein genuegt nicht: Spawn vorhanden und kein Auftrag haette an 188
+# Protokollen **acht** Auftraege geschlossen, die kurz danach wieder
+# auftauchten — kurze Fehlstarts nennen den Auftrag eben doch nicht immer.
+# Mit der Mindestdauer durchgespielt:
 #
 #     ohne Grenze  95 geschlossen, 8 davon falsch
 #     30 Minuten   83 geschlossen, 2 davon falsch
@@ -162,9 +157,8 @@ def _time_of(line):
 
 # Wie lange nach dem Abgeben ein Bauplan noch zum Auftrag gezaehlt wird.
 #
-# ⚠ Die Belohnung faellt NACH dem Ende, nicht davor. Gemessen am 29.08.2026:
-# Auftrag „Retake Platforms From Nine Tails" endete 17:42:00, der Bauplan
-# „H4-PBF Ammo Carrier" kam 17:42:54 — 54 Sekunden spaeter. Ohne Nachlauf
+# ⚠ Die Belohnung faellt NACH dem Ende, nicht davor. Gemessen: Ein Auftrag
+# endete 17:42:00, der Bauplan kam 17:42:54 — 54 Sekunden spaeter. Ohne Nachlauf
 # stuende er bei keinem Auftrag. Fuenf Minuten sind grosszuegig genug fuer eine
 # lahme Serververbindung und kurz genug, dass er nicht beim naechsten Auftrag
 # landet; laeuft ohnehin schon der naechste, gewinnt der (siehe `_assign_bp`).
@@ -196,26 +190,21 @@ def _assign_bp(name, when, pending, done, reported=None):
     haette sie dem neuen zugeschrieben.
 
     ⚠⚠ **Ein Auftrag gibt hoechstens EINEN Bauplan her.** Das ist eine Regel
-    des Spiels, keine Annahme. Wer sie nicht kennt, baut genau den Fehler, der
-    hier lange drinsteckte: Ein Auftrag, der faelschlich als „laeuft" stehen
-    blieb, sammelte jeden spaeter gefundenen Bauplan ein — gemessen am
-    04.09.2026 hingen an einem Auftrag vom 23.06. **zwoelf** Stueck, an einem
-    vom 07.08. sieben, darunter Teile, die es dort gar nicht gibt.
+    des Spiels, keine Annahme. Ohne sie sammelt ein Auftrag, der faelschlich
+    als laufend stehen bleibt, jeden spaeter gefundenen Bauplan ein — auch
+    Teile, die es dort gar nicht gibt.
 
     Wer schon einen hat, scheidet deshalb aus. Bleibt niemand uebrig, wird der
     Bauplan **keinem** Auftrag zugeschrieben: Er kann aus der Herstellung
     stammen oder aus einem Auftrag, dessen Annahme in keinem noch vorhandenen
     Log steht. Lieber keine Zuordnung als eine erfundene.
 
-    ⚠⚠ **`gemeldet` sind die Auftraege DIESER Sitzung.** Ein offener Auftrag
+    ⚠⚠ **`reported` sind die Auftraege DIESER Sitzung.** Ein offener Auftrag
     aus einer frueheren Sitzung, den das Spiel hier nicht mehr nennt, laeuft
     nicht mehr — er darf nichts bekommen. Das Aufraeumen in
     `_close_expired()` allein genuegt dafuer nicht: Es kann erst
-    greifen, wenn die Datei durch ist, waehrend der Bauplan mittendrin faellt.
-
-    Gemessen am 04.09.2026: „Willkommen im System" endete um 07:21:55, eine
-    Sekunde spaeter fiel „Clearcut Module" — zugeschrieben wurde es einem
-    Auftrag vom **31.08.**, der nur deshalb noch offen schien.
+    greifen, wenn die Datei durch ist, waehrend der Bauplan mittendrin faellt
+    — und ein Auftrag von vor Tagen schiene dann noch offen.
 
     Verlassen kann man sich darauf, weil das Spiel beim Einloggen jeden
     laufenden Auftrag erneut meldet, also am ANFANG der Datei — lange vor
@@ -248,9 +237,9 @@ def _read(path, pending, done, seen, ident, start_pat, end_pat,
     `offen` und `fertig` werden ueber Dateigrenzen hinweg weitergereicht —
     ein Auftrag kann in einer spaeteren Sitzung enden als er begann.
 
-    Gibt `(gemeldet, aussagekraeftig)` zurueck:
+    Gibt `(reported, aussagekraeftig)` zurueck:
 
-    - `gemeldet` sind die Titel, die diese Sitzung als angenommen gemeldet hat
+    - `reported` sind die Titel, die diese Sitzung als angenommen nennt
       — **auch die Wiederaufnahmen**. `_close_expired()` braucht das.
     - `aussagekraeftig` sagt, ob man einer Sitzung OHNE jeden Auftrag glauben
       darf, dass wirklich keiner mehr offen war. Siehe `SESSION_COUNTS_SEC`.
@@ -309,9 +298,9 @@ def _read(path, pending, done, seen, ident, start_pat, end_pat,
                 when = _time_of(line)
 
                 for is_accept, raw, mission_id, objective_id in events:
-                    # ⚠ IMMER durch `clean()`. Im Log steht der Titel mal als
-                    # „Retake Platforms From Nine Tails <EM4>[BP!]</EM4>", mal
-                    # mit „[SCBPW] … [/SCBPW]" — je nachdem, was der Watcher
+                    # ⚠ IMMER durch `clean()`. Im Log steht der Titel mal mit
+                    # `<EM4>[BP!]</EM4>`, mal mit `[SCBPW] … [/SCBPW]` —
+                    # je nachdem, was der Watcher
                     # gerade ins Spiel eingetragen hat. Ungeputzt gilt derselbe
                     # Auftrag als zwei verschiedene: gemessen 3× und 2× statt 5×.
                     title = contracts.clean(raw)
@@ -351,10 +340,9 @@ def _read(path, pending, done, seen, ident, start_pat, end_pat,
                         reported.add(title)
                         # ⚠⚠ **Wiederaufnahme ist keine neue Annahme.** Beim
                         # Einloggen meldet das Spiel jeden laufenden Auftrag
-                        # erneut als angenommen. Ohne diese Pruefung stand
-                        # „Retake Platforms From Nine Tails" 29× im Protokoll,
-                        # obwohl es fuenf Durchlaeufe waren — einmal je Sitzung,
-                        # in der er offen war.
+                        # erneut als angenommen. Ohne diese Pruefung stuende
+                        # ein Auftrag einmal je Sitzung, in der er offen war, im
+                        # Protokoll (gemessen 29× statt fuenf Durchlaeufen).
                         #
                         # Das ist auch der Grund, warum `contracts.py` beim
                         # Verlassen der Welt raeumt: Fuer die Live-Anzeige ist
@@ -378,9 +366,8 @@ def _read(path, pending, done, seen, ident, start_pat, end_pat,
                     # `which_ended()`, nicht dieses Modul. Sein erster
                     # Schritt ist der entscheidende: Steht eine ObjectiveId
                     # dabei, endet nur ein Zwischenziel und der Auftrag laeuft
-                    # weiter. Ohne diesen Filter landete „Obere Plattform
-                    # erreichen" achtmal als eigener Auftrag im Protokoll —
-                    # es ist ein Ziel innerhalb von „Retake Platforms".
+                    # weiter. Ohne diesen Filter landete jedes Zwischenziel als
+                    # eigener Auftrag im Protokoll.
                     #
                     # Und wenn nichts zugeordnet werden kann, wird NICHTS
                     # eingetragen. Ein erfundener Auftrag ist schlimmer als ein
@@ -394,7 +381,7 @@ def _read(path, pending, done, seen, ident, start_pat, end_pat,
                     # ⚠ Den AELTESTEN passenden schliessen, nicht den juengsten.
                     # Sonst bekommt ein Auftrag das Ende eines spaeteren
                     # Durchlaufs und im Protokoll steht ein Ende vor seinem
-                    # Anfang („21:26 abgeschlossen → 17:42").
+                    # Anfang (21:26 abgeschlossen, begonnen 17:42).
                     for entry in pending:
                         if entry['name'] == hit:
                             entry['zustand'] = state
@@ -454,7 +441,7 @@ def from_files(paths):
 
 
 def _reported_titles(log_path):
-    """`(gemeldete Titel, zaehlt ihr Schweigen)` — ohne die volle Auswertung.
+    """`(genannte Titel, zaehlt ihr Schweigen)` — ohne die volle Auswertung.
 
     ⚠ Wird gebraucht, um den **gespeicherten** Bestand nachzubewerten. Die
     volle Auswertung (`_read`) schreibt dabei in `offen`/`fertig` und
@@ -515,10 +502,10 @@ def _close_expired(pending, done, reported, session,
 
     ⚠⚠ **Das ist die Obergrenze, die dem Protokoll gefehlt hat.** Ausloggen
     beendet keinen Auftrag (siehe `_read`) — aber irgendwann ist er trotzdem
-    vorbei, und ohne diese Regel stand er fuer immer auf „laeuft". Gemessen am
-    04.09.2026: **43** solcher Karteileichen, die aelteste vom 23.06., und sie
-    richteten Folgeschaden an — ein scheinbar laufender Auftrag sammelt jeden
-    spaeter gefundenen Bauplan ein (siehe `_assign_bp`).
+    vorbei, und ohne diese Regel stuende er fuer immer auf `laeuft` (gemessen:
+    **43** solcher Karteileichen). Sie richten Folgeschaden an — ein scheinbar
+    laufender Auftrag sammelt jeden spaeter gefundenen Bauplan ein (siehe
+    `_assign_bp`).
 
     Die Regel kommt aus dem Spiel selbst, nicht aus einer Zeitschaetzung:
     **Beim Einloggen meldet Star Citizen jeden noch laufenden Auftrag erneut
@@ -531,12 +518,9 @@ def _close_expired(pending, done, reported, session,
     meldet gar nichts — daraus zu schliessen, alle Auftraege seien vorbei,
     waere falsch.
 
-    ⚠⚠ **Mit EINER Ausnahme, seit 05.09.2026: einer langen Sitzung.** Gemeldet
-    wurde der Fall, der bis dahin durchs Raster fiel — nach dem Ausloggen ohne
-    Abgabe blieb der letzte Auftrag fuer immer auf „laeuft", auch nachdem
-    danach 162 Minuten lang gespielt worden war, ohne dass ein einziger
-    Auftrag vorkam. Dazu: „er wurde nicht wieder gemeldet, kann er auch nicht
-    da er weg ist."
+    ⚠⚠ **Mit EINER Ausnahme: einer langen Sitzung.** Nach dem Ausloggen ohne
+    Abgabe bliebe der letzte Auftrag sonst fuer immer auf `laeuft`, auch wenn
+    danach stundenlang gespielt wird, ohne dass ein einziger Auftrag vorkommt.
 
     Wer 90 Minuten im Spiel ist und in dieser ganzen Zeit keinen Auftrag im
     Journal hat, hat keinen — anders als bei einem Fehlstart nach zwei
@@ -562,7 +546,7 @@ def _close_expired(pending, done, reported, session,
         if entry['name'] in reported:
             continue
         # ⚠ Nur was VOR dieser Sitzung begann. Ein Auftrag, der in genau
-        # dieser Sitzung angenommen wurde, steht ohnehin in `gemeldet` — und
+        # dieser Sitzung angenommen wurde, steht ohnehin in `reported` — und
         # ohne diese Grenze wuerde die Reihenfolge innerhalb einer Datei
         # zaehlen statt der Sitzungswechsel.
         if (entry.get('wann') or '') >= (session or ''):
@@ -596,12 +580,11 @@ def _session_start(path):
     """Wann diese Sitzung gespielt wurde — aus dem ersten Zeitstempel im Log.
 
     ⚠⚠ **Nicht die Aenderungszeit der Datei nehmen.** Auf einer Sicherung ist
-    das der Zeitpunkt des Kopierens: Alle zehn Logs auf der NAS trugen dieselbe
-    Zeit (03.09.2026 11:22), weil sie in einem Rutsch gesichert wurden. Die
-    Reihenfolge war damit zufaellig — und da ein Auftrag ueber mehrere Sitzungen
-    laeuft, bekam er das Ende eines fremden Durchlaufs. Im Protokoll stand dann
-    „21:26 abgeschlossen → 17:42": ein Ende vor seinem Anfang.
-    ⚠ Auch der Dateiname taugt nicht: „30 Aug 26" sortiert alphabetisch falsch.
+    das der Zeitpunkt des Kopierens: In einem Rutsch gesicherte Logs tragen
+    alle dieselbe Zeit. Die Reihenfolge ist damit zufaellig — und da ein
+    Auftrag ueber mehrere Sitzungen laeuft, bekaeme er das Ende eines fremden
+    Durchlaufs, also ein Ende vor seinem Anfang.
+    ⚠ Auch der Dateiname taugt nicht: `30 Aug 26` sortiert alphabetisch falsch.
     """
     try:
         with open(path, encoding='utf-8', errors='replace') as f:
@@ -716,7 +699,7 @@ def merge(old, new):
     """Gespeichertes und frisch Gelesenes vereinen — ohne etwas zu verlieren.
 
     ⚠ **Der neue Stand gewinnt nur, wenn er mehr weiss.** Ein Auftrag, der
-    gespeichert schon „abgeschlossen" ist, darf nicht wieder auf „laeuft"
+    gespeichert schon `abgeschlossen` ist, darf nicht wieder auf `laeuft`
     zurueckfallen, bloss weil in einem noch vorhandenen Log nur sein Anfang
     steht. Umgekehrt soll ein Ende, das erst jetzt im Log auftaucht, den alten
     Eintrag ergaenzen.
@@ -747,27 +730,26 @@ def reassess(folder=None, running_log=None):
 
     Gibt `(gesamt, neu_dazu, berichtigt)` zurueck.
 
-    ⚠⚠ **Warum es das braucht (06.09.2026).** Ein gespeicherter Auftrag wird
-    nie wieder angefasst: `scan_backlog()` liest nur Dateien hinter dem Lesestand.
-    Wird die Auswertung verbessert — an dem Tag lernte sie, `Fail` von
-    `Complete` zu unterscheiden —, wirkt das ausschliesslich auf kuenftige
-    Auftraege. Die 52 bereits falsch einsortierten blieben falsch, fuer immer.
+    ⚠⚠ **Warum es das braucht.** Ein gespeicherter Auftrag wird nie wieder
+    angefasst: `scan_backlog()` liest nur Dateien hinter dem Lesestand. Wird
+    die Auswertung verbessert (etwa `Fail` von `Complete` zu unterscheiden),
+    wirkt das ausschliesslich auf kuenftige Auftraege; bereits falsch
+    einsortierte blieben falsch, fuer immer.
 
     Ein Fix, der den Altbestand nicht erreicht, ist ein halber Fix. Deshalb
     gibt es diesen Weg: alles noch einmal lesen und die Zustaende berichtigen.
 
     ⚠ **Zusammenfuehren, nicht ersetzen.** Auftraege aus Protokollen, die das
     Spiel laengst geloescht hat, stehen nur noch hier — ein Neuaufbau wuerde
-    sie verlieren. Genau dieser Unterschied hat am 05.09.2026 einem Melder
-    seinen Bestand von 232 auf 3 gebracht.
+    sie verlieren und den Bestand auf wenige Eintraege schrumpfen lassen.
     """
     old = load()
     before = {_key(e): e.get('zustand') for e in old}
     # ⚠⚠ **Nicht `from_folder`.** Das sieht nur direkt in den uebergebenen
     # Ordner — die aufgehobenen Sitzungen liegen aber eine Ebene tiefer in
-    # `logbackups/`. Damit fand der erste Anlauf genau EINE Datei statt 199
-    # und berichtigte nichts. `paths.log_backups` kennt den richtigen Ort
-    # und nimmt seit v3.17.3 auch die Nachbarkanaele mit.
+    # `logbackups/`. Damit faende es genau EINE Datei statt aller und
+    # berichtigte nichts. `paths.log_backups` kennt den richtigen Ort
+    # und nimmt auch die Nachbarkanaele mit.
     files = list(paths.log_backups(folder) if folder else [])
     if running_log and os.path.isfile(running_log):
         files.append(running_log)
@@ -839,17 +821,16 @@ def scan_backlog():
         if read_marks.get(os.path.basename(log_path)) != mark:
             pending_files.append((log_path, mark))
 
-    # ⚠⚠⚠ **Hier stand einmal eine Begrenzung auf die neuesten 20 Protokolle
-    # — und sie war falsch.** Gemessen am 06.09.2026:
+    # ⚠⚠⚠ **Keine Begrenzung auf die neuesten N Protokolle.** Gemessen mit
+    # einer Grenze von 20:
     #
     #     erster Lauf (20 Protokolle):    423 ms
     #     zweiter Lauf (die übrigen 185): 7226 ms
     #
-    # Die Arbeit war nicht weg, nur verschoben — und beim zweiten Start
-    # bekäme der Spieler sie ungebremst ab, ohne zu wissen warum. Der Autor
-    # brachte es auf den Punkt: *„einmal beim Start, sonst die letzten 3?"*
+    # Die Arbeit wäre nicht weg, nur verschoben — und beim zweiten Start
+    # bekäme der Spieler sie ungebremst ab, ohne zu wissen warum.
     #
-    # **Genau so läuft es, und zwar schon immer:** Der Lesestand oben sorgt
+    # **Der Lesestand reicht dafür:** Der Lesestand oben sorgt
     # dafür, dass nach dem ersten Mal nur noch die gewachsenen Dateien
     # drankommen — im Alltag zwei bis drei. Die einmaligen neun Sekunden beim
     # allerersten Start sind der Preis für ein Protokoll, das rückwirkend
@@ -859,10 +840,10 @@ def scan_backlog():
     # ⚠ Wer hier wieder begrenzen will, muss zuerst den **zweiten** Start
     # messen, nicht nur den ersten.
 
-    # ⚠⚠ **ALLE Protokolle, nicht nur die hier offenen.** Der erste Anlauf gab
-    # `offen_dateien` weiter — und auf einem Rechner, dessen Auftrags-Protokoll
-    # schon eingelesen war, ist die Liste leer. Die Spielzeit stand dadurch auf
-    # „0 min", obwohl 188 Protokolle dalagen. `spielzeit` hat einen eigenen
+    # ⚠⚠ **ALLE Protokolle, nicht nur die hier offenen.** Auf einem Rechner,
+    # dessen Auftrags-Protokoll schon eingelesen ist, ist `offen_dateien` leer —
+    # die Spielzeit stuende dann auf „0 min", obwohl die Protokolle daliegen.
+    # `spielzeit` hat einen eigenen
     # Lesestand und ueberspringt selbst, was es kennt.
     try:
         from . import playtime as _sz
@@ -872,8 +853,8 @@ def scan_backlog():
     # Dieselben Protokolle für die Statistik — mit eigenem Lesestand, genau
     # wie die Spielzeit, und aus demselben Grund: Was hier gezählt ist, bleibt
     # in `statistik.json`, auch wenn die Logs später verschwinden.
-    # ⚠ Nur, wenn „Automatisch auswerten" an ist (ab Werk an, seit rc2
-    # abschaltbar) — die Weiche steckt in `startup_catch_up`. Die Spielzeit
+    # ⚠ Nur, wenn der Schalter zum automatischen Auswerten an ist (ab Werk
+    # an) — die Weiche steckt in `startup_catch_up`. Die Spielzeit
     # oben läuft davon unabhängig immer.
     try:
         from . import play_stats as _st
@@ -883,10 +864,9 @@ def scan_backlog():
 
     old = load()
 
-    # ⚠⚠ **Die Nachbewertung läuft AUCH, wenn nichts Neues da ist.** Genau
-    # das war der Fehler im ersten Anlauf: Sie stand hinter dem frühen
-    # Rücksprung — und wer alle Protokolle längst gelesen hat (also jeder im
-    # Alltag), kam nie dorthin. Gemessen: 3 Karteileichen vorher, 3 nachher.
+    # ⚠⚠ **Die Nachbewertung läuft AUCH, wenn nichts Neues da ist.** Deshalb
+    # steht sie nicht hinter dem frühen Rücksprung — wer alle Protokolle
+    # längst gelesen hat (also jeder im Alltag), käme sonst nie dorthin.
     #
     # Herangezogen werden die **jüngsten** Protokolle, nicht die neuen: Was
     # noch offen ist, entscheidet die letzte Sitzung, nicht die zuletzt

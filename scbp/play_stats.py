@@ -31,7 +31,7 @@ nicht ausdrücklich nachladbar ist) und zieht beim Rechnerwechsel mit um.
 
 ## Was gezählt wird — nur, was an echten Logs belegt ist
 
-Gemessen am 27.09.2026 an 181 Protokollen (528 MB). Gezählt wird nur, was
+Gemessen an 181 Protokollen (528 MB). Gezählt wird nur, was
 **in jeder Spielsprache gleich** im Log steht:
 
 | Zahl | Log-Zeile |
@@ -47,16 +47,13 @@ nennt den Spieler — `MissionEnded` kommt auch für Aufträge der Party. Und
 ⚠ `Abandon` (abgebrochen) und `Deactivate` werden **nicht** gezählt — eine
 dritte Zahl „abgebrochen" wäre ohne Erklärung nicht zu verstehen.
 
-⛔ **Tode, Verletzungen und Zonen werden nicht gezählt** (entschieden
-27.09.2026, noch einmal nach dem Vergleich mit dem SC Deutsch Launcher). Ein
-Tod steht in keinem eindeutigen Ereignis im Log: `[ActorState] Dead` kommt nur,
+⛔ **Tode, Verletzungen und Zonen werden nicht gezählt.** Ein Tod steht in keinem eindeutigen Ereignis im Log: `[ActorState] Dead` kommt nur,
 wenn das eigene Schiff zerbricht, und `CSCActorCorpseUtils` auch beim Plündern
 fremder Leichen. Verletzungen und Rechtsgebiete stehen nur als Einblendungstext
 in der Spielsprache. Das bräche bei englischem Client und bei jeder
-Textänderung still — lieber keine Zahl als eine falsche. Die Messung steht in
-der Vorhaben-Notiz, falls das Spiel später ein Ereignis dafür schreibt.
+Textänderung still — lieber keine Zahl als eine falsche.
 
-## Seit Format 2 (v3.58.0-rc2): die Unterseiten
+## Ab Format 2: die Unterseiten
 
 | Zahl | Log-Zeile |
 |---|---|
@@ -64,7 +61,7 @@ der Vorhaben-Notiz, falls das Spiel später ein Ereignis dafür schreibt.
 | Verlorene Schiffe | `<[ActorState] Dead> … Actor '<Name>' … ejected from zone '<Schiff>' … destroyed vehicle` |
 | Waffen | `<AttachmentReceived> Player[<Name>] Attachment[<Kennung>, <Klasse>, <Nummer>] … Port[wep_stocked_2\\|wep_sidearm\\|weapon_attach_hand_right]` |
 | Zielwahlen | `<Player Selected Quantum Target - Local> … selected point <Ort>` |
-| Startpunkte (Format 3, rc3) | die erste `<Calculate Route> … Projected Start Location is <Ort> for route` nach einer Zielwahl — im Klartext der Spielsprache |
+| Startpunkte (Format 3) | die erste `<Calculate Route> … Projected Start Location is <Ort> for route` nach einer Zielwahl — im Klartext der Spielsprache |
 | Abstürze | `crash handler taking over` · `-- GPU CRASH` |
 | Verbindungsabbrüche | `<Channel Disconnected> … reason="…"` |
 
@@ -76,14 +73,14 @@ Sitzung. Sonst gewänne, wer am häufigsten den Server wechselt.
 Warten, bis man springt; eine Zahl daraus wäre keine Reisezeit. Gezählt werden
 Zielwahlen und Ankünfte.
 
-⚠ Beim Wechsel auf ein neues Format (2 in rc2, 3 in rc3) wird jedes noch vorhandene Log **einmal neu
+⚠ Beim Wechsel auf ein neues Format wird jedes noch vorhandene Log **einmal neu
 gelesen** (der Lesestand wird verworfen). Sitzungen, deren Log schon weg ist,
 behalten ihre alten Zahlen — dort fehlen nur die neuen Felder.
 
 ## Die Wärmekarte
 
-Kommt aus `spielzeit.json`, nicht aus dieser Datei: Die hält Sitzungen seit
-dem 05.09.2026 fest, auch solche, deren Log längst weg ist. Eine eigene
+Kommt aus `spielzeit.json`, nicht aus dieser Datei: Die reicht weiter zurück
+und hält auch Sitzungen fest, deren Log längst weg ist. Eine eigene
 Zeitrechnung hier hätte weniger Vergangenheit als die Spielzeit oben in der
 Kopfzeile — zwei Zahlen für dieselbe Sache.
 """
@@ -334,8 +331,8 @@ PLACE_LABELS = {'NavPoint_Dynamic': 's_sq_p_wegpunkt',
                 MISSION_BEACON: 's_sq_p_auftrag',
                 'ObjectContainer_RestStop': 's_sq_p_rast'}
 
-# ⭐ Lesbare Ziele (v3.58.0-rc3, Wunsch vom 27.09.2026: „da stehen noch
-# kryptische Namen"). Das Log nennt nur den Container eines Ortes. Einen
+# ⭐ Lesbare Ziele statt kryptischer Namen. Das Log nennt nur den Container
+# eines Ortes. Einen
 # Anzeigenamen dafür gibt es weder in der `global.ini` noch im DataCore — die
 # Container liegen als `…/station/ser/reststop_ext/rs_ext_pyro6_leo.socpak`
 # im Archiv. Ihre **Namen folgen aber einem festen Muster**, und die Teile
@@ -417,7 +414,7 @@ _PLACES_TRIED = [False]
 def place_parts(key, names=None):
     """Ein Ziel lesbar machen -> `(textschlüssel oder None, name)`.
 
-    Mit Textschlüssel wird daraus z. B. „Raststation im Orbit von Terminus";
+    Mit Textschlüssel wird daraus z. B. `Raststation im Orbit von Terminus`;
     ohne steht der Name allein da. Die Worte kommen aus `language.py`, die
     Namen aus der `global.ini`, damit hier nichts auf Deutsch festsitzt."""
     names = place_names() if names is None else names
@@ -440,8 +437,8 @@ def place_parts(key, names=None):
             or '%s %s' % (body(found.group(1)), found.group(2).upper())
     found = _RS_JUMP.match(low)
     if found:
-        # „Magnus System" heißt das System in der `global.ini` — im
-        # Sprungpunkt „Stanton – Magnus" wäre das Wort doppelt gemoppelt.
+        # `Magnus System` heißt das System in der `global.ini` — im
+        # Sprungpunkt `Stanton – Magnus` wäre das Wort doppelt gemoppelt.
         ends = [re.sub(r'\s+System$', '', body(part))
                 for part in found.groups()]
         return 's_sq_o_sprung', '%s – %s' % tuple(ends)
@@ -576,7 +573,7 @@ def summary(own=None):
     """Alles, was die Seite zeigt — ein Wörterbuch aus fertigen Zahlen.
 
     `own`: der eigene Account (`logsource.own_account()`). Sitzungen eines
-    anderen Accounts zählen nicht mit, wie bei den Bauplänen seit v3.57.0.
+    anderen Accounts zählen nicht mit, wie bei den Bauplänen.
     Sitzungen aus `spielzeit.json` ohne Auswertung hier (Log schon weg) zählen
     für Zeit und Wärmekarte — ihr Account ist unbekannt, und unbekannt zählt."""
     from . import logsource, playtime
@@ -755,7 +752,7 @@ def load_names(fetch=False):
 
 
 def display_name(cls, vehicle=False):
-    """`AEGS_Sabre` -> „Aegis Sabre", `behr_lmg_ballistic_01` -> „FS-9 LMG".
+    """`AEGS_Sabre` -> `Aegis Sabre`, `behr_lmg_ballistic_01` -> `FS-9 LMG`.
 
     Ohne Namenstabelle bleibt der Schlüssel stehen, nur lesbarer."""
     names = load_names()

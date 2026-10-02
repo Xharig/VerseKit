@@ -1,6 +1,6 @@
 // Prüfung des Workers mit Node (node --test). Kein Netz, keine echte
 // Discord-Adresse: `fetch` wird untergeschoben und muss zuerst selbst
-// zuschnappen (Vorbedingung), sonst wäre jedes „nicht weitergeleitet" geschenkt.
+// zuschnappen (Vorbedingung), sonst wäre jedes Nicht-Weiterleiten geschenkt.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from './worker.js';

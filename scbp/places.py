@@ -19,14 +19,13 @@
 """
 Lagerorte — Stationen, Städte und Aussenposten aus Star Citizen.
 
-Das Lager fragt nach einem Lagerort. Der war bis v3.3.0-rc40 ein **freies
-Textfeld** — und damit dasselbe Problem wie beim Rohstoffnamen: Jemand tippt
-etwas Beleidigendes hinein, macht ein Bildschirmfoto und verbreitet es. Am Ende
-fragt niemand, wer getippt hat; es steht in diesem Werkzeug.
+Das Lager fragt nach einem Lagerort. Ein **freies Textfeld** hätte dasselbe
+Problem wie beim Rohstoffnamen: Jemand tippt etwas Beleidigendes hinein, macht
+ein Bildschirmfoto und verbreitet es. Am Ende fragt niemand, wer getippt hat;
+es steht in diesem Werkzeug.
 
-⚠⚠ **Also auch hier eine geschlossene Liste.** Am 30.08.2026 festgelegt:
-„Lagerort gilt exakt das Gleiche." Und: „Bei Oma im Keller ist eben keine
-Location mit Lager in SC."
+⚠⚠ **Also auch hier eine geschlossene Liste** — nur Orte, an denen es im
+Spiel wirklich ein Lager gibt.
 
 ## Woher
 

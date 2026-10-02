@@ -41,13 +41,13 @@ wichtigste Regel des Projekts, und sie wird auch hier nicht aufgeweicht.
 ## ⭐⭐ Warum sich das überhaupt anschließen lässt: dieselbe Kennung
 
 Erkuls Feld `ref` ist **exakt** die Entitäts-Kennung, unter der auch UEX und
-scmdb denselben Gegenstand führen. Gegengeprüft am 06.09.2026::
+scmdb denselben Gegenstand führen. Gegengeprüft::
 
     BlastChill  →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (in shops.py dokumentiert)
                 →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (erkul liefert dasselbe)
 
-⚠⚠ **Deshalb wird auch hier NIE über den Namen zugeordnet.** Genau daran ist es
-bei den Ladenpreisen schon einmal schiefgegangen.
+⚠⚠ **Deshalb wird auch hier NIE über den Namen zugeordnet** — Namen weichen
+zwischen den Quellen ab, die Kennung nicht.
 
 ## ⚠ Der Sparmechanismus steckt in `catalog.bin`
 
@@ -66,7 +66,7 @@ Erkul führt 194 Schiffe und 25 Bodenfahrzeuge, jedes in einer eigenen Datei von
 rund 16 KB. Alle zu holen wären 219 Abrufe für eine Frage, die sich auf drei
 oder dreißig Schiffe bezieht.
 
-Geholt wird deshalb **auf Zuruf**: Steht ein Schiff im Hangar (`fleet.py`) und
+Geholt wird deshalb **nach Bedarf**: Steht ein Schiff im Hangar (`fleet.py`) und
 fehlt in der Ablage, wird genau dieses eine geholt. Ein voller Hangar kostet
 einmalig so viele Abrufe, wie er Schiffe hat — danach nie wieder, bis CIG
 patcht.
@@ -75,8 +75,8 @@ patcht.
 
 Aus 16 KB Rohdaten je Schiff bleiben ein paar Zeilen übrig: **welche Art
 Steckplatz in welcher Größe, und wie viele davon.** Alles andere (Kennwerte,
-Beschreibungen, Schubwerte) fliegt raus. Es geht um die Frage „passt das
-hinein" — nicht darum, erkul nachzubauen.
+Beschreibungen, Schubwerte) fliegt raus. Es geht darum, ob ein Teil hineinpasst
+— nicht darum, erkul nachzubauen.
 
     {"drak_cutlass_black": {
         "name": "Drake Cutlass Black",
@@ -101,20 +101,19 @@ BRANCH = 'LIVE'
 BASE = 'https://cdn.erkul.games'
 
 CACHE = 'erkul-schiffe.json'
-# ⚠ 2 seit v3.19.0-rc4: Jeder Eintrag trägt jetzt seine **Original-Kennung**
-# (`id`, z. B. `anvl_arrow`). Ohne sie kennt die Ablage nur den geschliffenen
-# Schlüssel `anvlarrow` — ein einziges Wort, in dem die wortweise Zuordnung
-# keine Wortgrenzen mehr findet. Eine Ablage aus rc1–rc3 sieht deshalb aus wie
-# „keine Steckplatz-Daten", obwohl die Daten da sind. Aufgefallen ist das am
-# Anleitungsbild, das mit einer kopierten alten Ablage lief.
+# ⚠ Ab 2: Jeder Eintrag trägt seine **Original-Kennung** (`id`, z. B.
+# `anvl_arrow`). Ohne sie kennt die Ablage nur den geschliffenen Schlüssel
+# `anvlarrow` — ein einziges Wort, in dem die wortweise Zuordnung keine
+# Wortgrenzen mehr findet. Eine Ablage im Format 1 sieht deshalb aus, als
+# fehlten die Steckplatz-Daten, obwohl sie da sind.
 #
-# ⚠ 3: Neben der gezählten Übersicht (`plaetze`) liegt jetzt die **einzelne**
+# ⚠ Ab 3: Neben der gezählten Übersicht (`plaetze`) liegt die **einzelne**
 # Steckplatzliste (`slots`) mit dem Teil, das ab Werk darinsteckt. Ohne sie
 # lässt sich weder eine Auslegung speichern noch sagen, was am Schiff *nicht*
-# ab Werk verbaut ist — „zwei Kühlerplätze Größe 2" nennt keinen Platz, dem
-# sich ein Teil zuordnen ließe.
+# ab Werk verbaut ist — eine gezählte Angabe (zwei Kühlerplätze Größe 2)
+# nennt keinen Platz, dem sich ein Teil zuordnen ließe.
 #
-# ⚠ 4 seit 30.09.2026: Jeder Platz trägt zusätzlich `passt` (siehe
+# ⚠ Ab 4: Jeder Platz trägt zusätzlich `passt` (siehe
 # `_constraints`). Ein alter Stand ohne das Feld wird dadurch einmal neu geholt
 # — sonst bliebe die Rack- und Lackauswahl bis zum nächsten Patch leer.
 FORMAT = 4
@@ -142,7 +141,7 @@ HIDDEN = ('invisible', 'uneditable')
 # ⚠ Die Namen kommen wörtlich aus erkuls Feld `accepts[].type` — nicht
 # übersetzen, nicht schön machen. Übersetzt wird erst in der Anzeige.
 #
-# ⭐⭐ **Und sie sind bei scmdb dieselben.** Gegengeprüft am 06.09.2026 über
+# ⭐⭐ **Und sie sind bei scmdb dieselben.** Gegengeprüft über
 # alle 1.605 Gegenstände aus `crafting_items`: `WeaponGun`, `PowerPlant`,
 # `Cooler`, `Shield`, `Radar`, `QuantumDrive`, `WeaponMining`, `TractorBeam`,
 # `SalvageHead` heißen in beiden Quellen gleich. Deshalb braucht es **keine**
@@ -168,12 +167,12 @@ INTERESTING = frozenset((
 ))
 
 # ⚠⚠ **Eine eigene Menge für die Auslegung — und das ist Absicht.**
-# `INTERESTING` beantwortet „passt mein *Bauplan* hier hinein". Der Warenkorb
-# fragt etwas anderes: „was kann ich in diesen Platz überhaupt einbauen".
+# `INTERESTING` beantwortet, ob ein *Bauplan* hier hineinpasst. Der Warenkorb
+# fragt etwas anderes: was sich in diesen Platz überhaupt einbauen lässt.
 # Beides fällt auseinander, weil man Dinge kaufen kann, für die es keinen
 # Bauplan gibt.
 #
-# Gemessen an der Cutlass Black (06.09.2026): Vier tauschbare Plätze stehen ab
+# Gemessen an der Cutlass Black: Vier tauschbare Plätze stehen ab
 # Werk leer und fielen durch `INTERESTING` heraus — Batterie, Bordrechner
 # (`Avionics`), Gravitationsgenerator und der Cockpit-Anhänger. Die ersten drei
 # führt UEX in seinen Warengruppen (`Batteries`, `Avionics`), sie sind also
@@ -185,7 +184,7 @@ INTERESTING = frozenset((
 # in der Liste, zu dem es nie einen Preis gibt.
 #
 # ⚠⚠ **`INTERESTING` wird dafür NICHT erweitert.** Das würde `slot_counts()` und
-# `fits()` mit ändern, und daran hängt „passt der Bauplan in mein Schiff".
+# `fits()` mit ändern, und daran hängt, ob der Bauplan ins Schiff passt.
 # Eine Menge, die zwei Fragen zugleich beantworten soll, beantwortet die
 # zweite falsch.
 SWAPPABLE = frozenset(INTERESTING | {'Battery', 'Avionics',
@@ -194,10 +193,9 @@ SWAPPABLE = frozenset(INTERESTING | {'Battery', 'Avionics',
 
 # ⭐⭐ **Teile, die an Kennzeichnungen hängen statt nur an Art und Größe.**
 #
-# Racks, Raketen, Bomben und Lackierungen passen nicht „in jeden Platz der
-# Größe 10", sondern nur dorthin, wo die Kennzeichnungen stimmen. Beim
-# Torpedoplatz der Eclipse (gemeldet 30.09.2026: „ich kann keine Bombracks
-# auswählen, bei erkul gibt's die"):
+# Racks, Raketen, Bomben und Lackierungen passen nicht in jeden Platz der
+# passenden Größe, sondern nur dorthin, wo die Kennzeichnungen stimmen. Beim
+# Torpedoplatz der Eclipse:
 #
 #     Platz:  accepts MissileLauncher/MissileRack + BombLauncher/BombRack,
 #             minSize 3 … maxSize 10, portTags [Eclipse_BombRack],
@@ -250,7 +248,7 @@ def fits_slot(passt, part):
 
     1. Art und Untertyp stehen in der Liste des Platzes.
     2. Die Größe des Teils liegt zwischen `min` und `max` des Platzes — nicht
-       „gleich der Platzgröße" (siehe oben: Bomben-Rack S3 im Platz S10).
+       gleich der Platzgröße (siehe oben: Bomben-Rack S3 im Platz S10).
     3. Was das **Teil** verlangt, bietet der Platz (`requiredTags` ⊆ `portTags`).
     4. Was der **Platz** verlangt, trägt das Teil (`requiredTags` ⊆ `tags`).
 
@@ -449,14 +447,12 @@ def _maker_table(cat):
 
     ⭐⭐ **Erkul liefert diese Tabelle selbst mit** (152 Einträge in
     `manufacturers.<hash>.bin`, Feld `className` neben dem Klarnamen). Ohne sie
-    bleibt ein Handeintrag wie „Anvil Arrow" ohne Steckplätze: Die Kennung
-    heißt `anvl_arrow`, und `anvl` ist **kein Präfix** von „Anvil" — der Vokal
+    bleibt ein Handeintrag wie `Anvil Arrow` ohne Steckplätze: Die Kennung
+    heißt `anvl_arrow`, und `anvl` ist **kein Präfix** von `Anvil` — der Vokal
     fehlt in der Mitte. Dieselbe Zusammenziehung bei `aegs` (Aegis) und `misc`.
 
-    ⚠ Aufgefallen ist das erst am **Anleitungsbild**: Dort stand bei vier
-    erfundenen Beispielschiffen „keine Steckplatz-Daten", während der echte
-    Hangar sauber aussah — weil dort das Herstellerkürzel aus dem Pledge-Export
-    mitkommt. Von Hand eingetragene Schiffe haben es nicht.
+    ⚠ Schiffe aus dem Pledge-Export bringen das Herstellerkürzel mit; von
+    Hand eingetragene Schiffe haben es nicht und brauchen diese Tabelle.
     """
     path = next((f.get('path') for f in (cat.get('families') or [])
                  if (f.get('path') or '').startswith('manufacturers')), '')
@@ -489,7 +485,7 @@ def candidates(name, maker='', short='', maker_short=''):
     """Alle Schreibweisen, unter denen erkul dieses Schiff führen könnte.
 
     Die Reihenfolge ist die Trefferquote, gemessen an einem echten
-    Hangar-Export (42 Einträge, 06.09.2026):
+    Hangar-Export (42 Einträge):
 
     | Stufe | Treffer |
     |---|---|
@@ -498,13 +494,13 @@ def candidates(name, maker='', short='', maker_short=''):
 
     ⚠ Die restlichen acht sind **kein Zuordnungsfehler**: Crucible, Endeavor,
     Galaxy, Liberator, Merchantman und die beiden ATLS gibt es im Spiel noch
-    gar nicht. Erkul führt nur Flugfähiges — ein Fehltreffer heißt hier also
-    „noch nicht im Spiel", nicht „unbekannt". Das ist eine Auskunft, keine
+    gar nicht. Erkul führt nur Flugfähiges — ein Fehltreffer heißt hier also:
+    noch nicht im Spiel, nicht unbekannt. Das ist eine Auskunft, keine
     Panne, und wird dem Spieler auch so gesagt.
     """
     out = []
     # ⚠ Das **Kürzel** des Herstellers vor seinem ausgeschriebenen Namen:
-    # Erkul führt „Roberts Space Industries" als `rsi`. Ohne diese Zeile fand
+    # Erkul führt `Roberts Space Industries` als `rsi`. Ohne diese Zeile fände
     # die Ursa Medivac keinen Anschluss, obwohl `rsi_ursa_medivac` existiert.
     for attempt in (short, '%s %s' % (maker_short, name), name,
                     '%s %s' % (maker, name)):
@@ -524,7 +520,7 @@ def ident(name, maker='', short='', maker_short=''):
     """
     stored = load()
     known_ships = stored.get('schiffe') or {}
-    # ⚠ Auch hier: „Anvil Aerospace" muss zu `anvl` werden, sonst findet ein
+    # ⚠ Auch hier: `Anvil Aerospace` muss zu `anvl` werden, sonst findet ein
     # von Hand eingetragenes Schiff seine eigenen Daten nicht wieder.
     maker_short = maker_short or (stored.get('hersteller') or {}).get(
         _slim(maker), '')
@@ -634,9 +630,9 @@ def _matches_wordwise(erkul_id, wanted, chain=''):
     own = _words(erkul_id)
     # ⭐⭐ **Das erste Wort darf unerklärt bleiben — es ist das
     # Herstellerkürzel, und die Namen passen oft schlicht nicht zusammen.**
-    # Gemessen am 06.09.2026 über alle 280 UEX-Schiffe: UEX schreibt „C.O.
-    # Mustang Alpha", erkul `cnou_mustang_alpha`; „Greycat PTV" heißt dort
-    # `gama_ptv`, „Esperia Blade" ist `vncl_blade`. Weder Wortanfang noch
+    # Gemessen über alle 280 UEX-Schiffe: UEX schreibt `C.O. Mustang Alpha`,
+    # erkul `cnou_mustang_alpha`; `Greycat PTV` heißt dort `gama_ptv`,
+    # `Esperia Blade` ist `vncl_blade`. Weder Wortanfang noch
     # Zusammenziehung greifen da — es sind verschiedene Namen für dieselbe
     # Firma.
     #
@@ -655,24 +651,21 @@ def _matches_wordwise(erkul_id, wanted, chain=''):
         elif any(_is_abbrev(word, g) for g in wanted):
             # ⭐⭐ **Kürzel mit fehlendem Vokal in der Mitte.** Erkul zieht
             # Herstellernamen zusammen, statt sie abzuschneiden: `aegs` für
-            # „Aegis", `anvl` für „Anvil". Ein Vergleich auf Wortanfang findet
+            # `Aegis`, `anvl` für `Anvil`. Ein Vergleich auf Wortanfang findet
             # das nie — `aegs` ist kein Anfang von `aegis`, der Buchstabe `i`
             # fehlt mittendrin.
             #
             # ⚠ Eine Hersteller-Tabelle löst das NICHT, obwohl erkul eine
             # mitliefert: Dort tragen **fünf** verschiedene Kürzel den Namen
-            # „Aegis Dynamics" (`fski`, `mxox`, `prar`, `aeg`, `tras`) — und
-            # `aegs`, das die Schiffe benutzen, ist nicht darunter. Gemessen
-            # am 06.09.2026, nachdem „Aegis Gladius Valiant" als „fliegt im
-            # Spiel noch nicht" gemeldet wurde.
+            # `Aegis Dynamics` (`fski`, `mxox`, `prar`, `aeg`, `tras`) — und
+            # `aegs`, das die Schiffe benutzen, ist nicht darunter.
             score += 1
         elif chain and word in chain:
             # ⚠ Der umgekehrte Fall: erkul schreibt `alphawolf` **zusammen**,
-            # der Hangar führt „L-22 Alpha Wolf" getrennt. Dafür braucht es die
+            # der Hangar führt `L-22 Alpha Wolf` getrennt. Dafür braucht es die
             # Wörter in ihrer **Reihenfolge** — aus einer Menge verkettet käme
-            # „alphakrigl22wolf" heraus, und darin steht `alphawolf` nicht.
-            # Genau daran ist der erste Anlauf gescheitert, und Prüfung 139 hat
-            # es gefangen.
+            # `alphakrigl22wolf` heraus, und darin steht `alphawolf` nicht.
+            # Prüfung 139 hält das fest.
             score += 1
         elif where == 0 and len(own) > 1 and len(word) <= 5:
             # Das Herstellerkürzel passt zu keinem Wort — hingenommen, aber
@@ -691,7 +684,7 @@ def _matches_wordwise(erkul_id, wanted, chain=''):
 
 # ⭐⭐ **Handzuordnungen für die Fälle, die kein Verfahren löst.**
 #
-# Am 06.09.2026 wurden alle 265 Schiffe einzeln durchgeprüft. 220 fanden ihre
+# Von 265 einzeln durchgeprüften Schiffen fanden 220 ihre
 # Daten von selbst, 35 sind Konzepte — von den zehn übrigen ließen sich fünf
 # **nicht** durch bessere Regeln retten, weil die Namen schlicht verschieden
 # sind:
@@ -702,13 +695,12 @@ def _matches_wordwise(erkul_id, wanted, chain=''):
 # | Aegis Idris-P | `aegs_idris_p` | Bindestrich: `idrisp` gegen `idris`+`p` |
 # | Aopoa San tok.Yāi | `xnaa_santokyai` | anderer Hersteller, zusammengeschrieben |
 #
-# ⚠⚠ **Warum eine Liste und keine klügere Regel.** Zwei Anläufe, das Verfahren
-# zu verallgemeinern, haben mehr zerstört als repariert: Ein Bindestrich, der
-# beide Schreibweisen erzeugt, rettet die Idris — und bricht die F7C-M Super
-# Hornet, weil `f7c_mk2` und `f7cm_mk2` dann gleich gut passen. Gemessen fiel
-# die Trefferquote von 220 auf unter 200, mit Ausfällen bei Aurora, Kruger und
-# Mirai. Danach: zurück auf den funktionierenden Stand, und die Handvoll Reste
-# ausdrücklich benennen.
+# ⚠⚠ **Warum eine Liste und keine klügere Regel.** Allgemeinere Regeln
+# zerstören mehr, als sie reparieren: Ein Bindestrich, der beide
+# Schreibweisen erzeugt, rettet die Idris — und bricht die F7C-M Super Hornet,
+# weil `f7c_mk2` und `f7cm_mk2` dann gleich gut passen. Gemessen fällt die
+# Trefferquote damit von 220 auf unter 200, mit Ausfällen bei Aurora, Kruger
+# und Mirai. Deshalb werden die Reste ausdrücklich benannt.
 #
 # Dasselbe Muster wie bei `bp-overrides.json`: Eine kurze, sichtbare Liste
 # schlägt eine Regel, die niemand mehr durchschaut.
@@ -740,8 +732,8 @@ def _search_wordwise(listing, name, maker='', short='', maker_short=''):
     # `mk1` **und** `mk2` in der Suchmenge, und `anvl_hornet_f7c_mk2` wird
     # genauso gut bewertet wie `anvl_hornet_f7cm_mk2` — Gleichstand, also gar
     # keine Zuordnung. Der angezeigte Name ist die verlässlichere Angabe.
-    # ⚠ Die Handzuordnung zuerst — sie ist eine bewusste Entscheidung und
-    # schlägt jedes Verfahren.
+    # ⚠ Die Handzuordnung zuerst — sie ist ausdrücklich gesetzt und schlägt
+    # jedes Verfahren.
     manual = MANUAL_MAP.get(_slim(name))
     if manual and manual in listing:
         return manual
@@ -774,7 +766,7 @@ def _collect_slots(node, out):
     `hardpoints` sagt, *was hineinpasst* (`accepts`, `minSize`, `maxSize`),
     `slots` nur, *was gerade drinsteckt*. Wer `slots` liest, bekommt für jedes
     Schiff **null** Steckplätze zurück — kein Fehler, keine Meldung, einfach
-    eine leere Liste. Genau das ist hier beim ersten Anlauf passiert.
+    eine leere Liste.
 
     ⚠ Rekursiv bleibt es trotzdem: Bei einem Turm hängen die Waffenplätze am
     Turm-Bauteil, nicht am Rumpf. Wer nur die oberste Ebene liest, findet bei
@@ -824,7 +816,7 @@ def _hardpoint_index(node, out, path=''):
     ebenfalls sechsmal. Wer danach schlüsselt, überschreibt vier Waffen mit
     einer und merkt es nicht.
 
-    ⚠ Und `portPath` hilft nicht weiter: Gemessen am 06.09.2026 hat es bei
+    ⚠ Und `portPath` hilft nicht weiter: Gemessen hat es bei
     **allen 68** Steckplätzen der Cutlass die Länge 1 — die Verschachtelung
     steht dort gar nicht drin. Der Pfad wird deshalb hier selbst gebaut.
     """
@@ -933,11 +925,11 @@ def fetch_ship(erkul_id, path):
 
     | Feld | sagt | wofür |
     |---|---|---|
-    | `plaetze` | „zwei Kühlerplätze Größe 2" | passt mein Bauplan hinein? |
-    | `slots` | „*dieser* Platz trägt ab Werk ColdSnap" | Auslegung und Warenkorb |
+    | `plaetze` | zwei Kühlerplätze Größe 2 | passt mein Bauplan hinein? |
+    | `slots` | *dieser* Platz trägt ab Werk ColdSnap | Auslegung und Warenkorb |
 
     ⚠ Die gezählte Sicht bleibt unverändert erhalten. Sie beantwortet ihre
-    Frage besser als eine Einzelliste, und „passt in mein Schiff" hängt daran.
+    Frage besser als eine Einzelliste, und die Passt-Prüfung hängt daran.
     """
     raw = _fetch('%s/%s' % (BRANCH, path), 'schiff')
     if not isinstance(raw, dict):
@@ -954,8 +946,8 @@ def fetch_ship(erkul_id, path):
                for (a, g), n in sorted(counted.items())]
 
     # ⚠⚠ **Die Werksausstattung steht in `slots`, NICHT in einem Feld
-    # `default`.** Ein solches Feld gibt es nicht — nachgesehen am 06.09.2026
-    # über die vollständige Struktur (`default`, `defaults`, `installed`,
+    # `default`.** Ein solches Feld gibt es nicht — nachgesehen über die
+    # vollständige Struktur (`default`, `defaults`, `installed`,
     # `loadout`, `equipped`: keines vorhanden). Was drinsteckt, hängt als
     # `item` am Slot, und die tieferen Ebenen hängen an **`children`**, nicht
     # an `ports`: `ports` beschreibt wieder nur Plätze. Bei der Cutlass Black
@@ -976,8 +968,8 @@ def add_missing(rows):
     """Die genannten Schiffe holen, soweit sie noch fehlen.
 
     `rows` sind Tripel `(name, maker, short)` aus dem Hangar. Gibt
-    zurück, wie viele wirklich geholt wurden — `0` heißt „alles war schon da"
-    **oder** „kein Netz", und beides ist in Ordnung: Was fehlt, wird beim
+    zurück, wie viele wirklich geholt wurden — `0` heißt: alles war schon da
+    **oder** kein Netz, und beides ist in Ordnung: Was fehlt, wird beim
     nächsten Mal nachgeholt.
     """
     if OFF or not rows:
@@ -1001,8 +993,8 @@ def add_missing(rows):
     # `listing` hat den geschliffenen Schlüssel (`drakironcladassault`) für
     # den Buchstabenvergleich; `roh_ids` behält die Original-Kennung
     # (`drak_ironclad_assault`), weil die wortweise Suche die **Wortgrenzen**
-    # braucht. Beim ersten Anlauf gab es nur die erste Sicht — die wortweise
-    # Stufe lief damit gegen ein einziges langes Wort und traf nie etwas.
+    # braucht. Mit der ersten Sicht allein liefe die wortweise Stufe gegen
+    # ein einziges langes Wort und träfe nie etwas.
     # ⚠ Einmal je Lauf geholt, dann abgelegt — siehe `_maker_table`.
     maker_abbrev = (data.get('hersteller')
                           if data.get('spielversion') == version
@@ -1095,8 +1087,8 @@ def stock_loadout(name, maker='', short='', maker_short=''):
     Vier Gimbal-Halter desselben Typs sind ein Posten mit `anzahl: 4`.
 
     ⚠ Es ist die **Standard**-Ausstattung. Was in einem angetroffenen Schiff
-    wirklich steckt, kann jemand getauscht haben — die Anzeige sagt deshalb
-    „ab Werk steckt hier … drin", nie „in diesem Schiff liegt …".
+    wirklich steckt, kann jemand getauscht haben — die Anzeige spricht
+    deshalb von der Werksausstattung, nie vom tatsächlichen Inhalt.
     """
     counted = {}
     for slot_node in hardpoints(name, maker, short, maker_short):
@@ -1153,7 +1145,7 @@ def matching_ships(kind, size, ships):
     *dir* gehören und welche Baupläne *du* hast. Erkul kennt die Schiffe, der
     Watcher kennt den Spieler; erst zusammen ergibt es eine Antwort.
 
-    ⚠ Eine leere Liste heißt „passt nirgends hinein" — **nicht** „keine Daten".
+    ⚠ Eine leere Liste heißt: passt nirgends hinein — **nicht**: keine Daten.
     Wer beides gleich behandelt, sagt jemandem mit leerem Hangar, sein Teil
     sei nutzlos. Die Anzeige prüft deshalb vorher, ob überhaupt ein Schiff
     eingetragen ist.

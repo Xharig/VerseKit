@@ -1,9 +1,9 @@
 """Wie teuer ist jeder Reiter? — Seitenwechsel messen, ohne zu raten.
 
-Warum das ein eigenes Werkzeug ist: „Das Programm ist träger geworden" lässt
-sich nicht mit dem Auge klären. Am 27.09.2026 dauerte die Suche einen halben
-Tag — und die Uhrzeit log dabei, weil nebenher Star Citizen 65 % des Rechners
-belegte. Gefunden wurde die Ursache erst über das **Zählen**.
+Warum das ein eigenes Werkzeug ist: Ob das Programm träger geworden ist,
+lässt sich nicht mit dem Auge klären — und die Uhrzeit lügt, sobald nebenher
+etwas anderes (etwa Star Citizen) den Rechner belegt. Verlässlich ist erst
+das **Zählen**.
 
 Deshalb misst dieses Werkzeug zwei Dinge, die von fremder Last kaum abhängen:
 

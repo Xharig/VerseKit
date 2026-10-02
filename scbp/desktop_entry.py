@@ -134,19 +134,18 @@ def desktop_content(befehl, symbol):
     """Der Text einer `.desktop`-Datei — ohne Dateisystem, ohne Linux.
 
     ⭐ Steht bewusst als eigene Funktion da: So lässt sich **prüfen, was
-    entsteht**, auch auf einem System, das gar keine `.desktop`-Dateien kennt.
-    Am 12.09.2026 schlug Prüfung 191 unter Windows fehl, weil sie `anlegen()`
-    rief — und das gibt dort „nur unter Linux" zurück. Eine Prüfung, die sich
-    auf dem halben Bestand überspringt, prüft die Hälfte nicht.
+    entsteht**, auch auf einem System, das gar keine `.desktop`-Dateien kennt
+    (Prüfung 191). `anlegen()` gibt unter Windows nur einen Hinweis zurück; eine
+    Prüfung darüber übersprünge dort die Hälfte.
 
     ⚠ Name und Untertitel kommen aus `language.py` — dieselbe Quelle, aus der
     `beschriftung_nachziehen()` eine vorhandene Datei aktualisiert. Getrennt
     gepflegt wären sie nach dem ersten Wortwechsel auseinander.
 
-    ⛔ **`StartupWMClass` ist NICHT der Anzeigename** (korrigiert 18.09.2026).
-    Es ist die Fensterklasse, mit der die Arbeitsumgebung vergleicht — siehe
-    `paths.WM_CLASS`. Bis dahin stand hier `name`, und weil kein Fenster je so
-    hieß, war der Eintrag in jeder Fassung wirkungslos.
+    ⛔ **`StartupWMClass` ist NICHT der Anzeigename.** Es ist die
+    Fensterklasse, mit der die Arbeitsumgebung vergleicht — siehe
+    `paths.WM_CLASS`. Mit `name` wäre der Eintrag wirkungslos, weil kein
+    Fenster so heißt.
     """
     # Lokal importiert, weil `sprache` selbst auf `paths` aufsetzt.
     from . import language, paths
@@ -183,7 +182,7 @@ def create():
     symbol = _write_icon(symbol_ordner)
 
     # Pfade mit Leerzeichen gehören in Anführungszeichen — das AppImage liegt bei
-    # vielen unter „Programme"/„Downloads", und ohne Anführungszeichen bricht der
+    # vielen unter `Programme`/`Downloads`, und ohne Anführungszeichen bricht der
     # Start still ab.
     befehl = '"%s"' % programm
     if skript:
@@ -213,11 +212,11 @@ def create():
 def refresh_label():
     """Einen **vorhandenen** Eintrag auf den aktuellen Produktnamen bringen.
 
-    ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). `anlegen()`
-    schreibt die neuen Beschriftungen — aber beim Update läuft `anlegen()`
-    **nicht**: `vorhanden()` meldet den Eintrag als da, und damit ist die Sache
-    für den Assistenten erledigt. Bestandsnutzer behielten so dauerhaft
-    „SC BP Watcher" im Anwendungsmenü, samt altem `StartupWMClass`.
+    ⚠⚠ `anlegen()` schreibt die aktuellen Beschriftungen — aber beim Update
+    läuft `anlegen()` **nicht**: `vorhanden()` sieht den Eintrag als da, und
+    damit ist die Sache für den Assistenten erledigt. Ein geänderter
+    Produktname bliebe so dauerhaft beim alten im Anwendungsmenü, samt altem
+    `StartupWMClass`.
 
     Drei Regeln, alle drei wichtig:
 
@@ -233,7 +232,7 @@ def refresh_label():
     # ⚠ NICHT `vorhanden()` — das prüft zusätzlich, ob `Exec` auf ein
     # existierendes Programm zeigt. Hier zählt allein: **liegt die Datei da?**
     # Ein AppImage, das gerade verschoben wurde, hätte sonst für immer die alte
-    # Beschriftung behalten. Gefunden vom eigenen Migrationstest am 12.09.2026.
+    # Beschriftung behalten.
     pfad = target_file()
     if not os.path.isfile(pfad):
         return False
@@ -249,9 +248,9 @@ def refresh_label():
         'Name=': 'Name=%s\n' % name,
         'Comment=': 'Comment=%s\n' % language.TEXTS['vk_untertitel'][0],
         'Comment[en]=': 'Comment[en]=%s\n' % language.TEXTS['vk_untertitel'][1],
-        # ⛔ Die Fensterklasse, NICHT der Anzeigename (korrigiert 18.09.2026).
-        # Bestandsnutzer tragen hier noch „Verse-Kit" bzw. „VerseKit" — diese
-        # Zeile zieht beides auf den Wert nach, den die Fenster wirklich haben.
+        # ⛔ Die Fensterklasse, NICHT der Anzeigename. Ältere Einträge tragen
+        # hier `Verse-Kit` bzw. `VerseKit` — diese Zeile zieht beides auf den
+        # Wert nach, den die Fenster wirklich haben.
         'StartupWMClass=': 'StartupWMClass=%s\n' % paths.WM_CLASS,
     }
     geaendert = False
@@ -275,14 +274,12 @@ def refresh_icon():
     """Die **Bilddatei** des vorhandenen Eintrags auf den mitgelieferten Stand
     bringen. Gibt zurück, ob etwas geändert wurde.
 
-    ⚠⚠ Gemeldet am 28.09.2026: Im Startmenü stand noch das alte Symbol, obwohl
-    das neue („Figur im Ring", 18.09.2026) längst mitgeliefert wurde.
-
-    Die Lücke sitzt zwischen den beiden Wegen: `_write_icon()` läuft nur in
-    `create()` — und `create()` läuft beim Update nicht, weil der Eintrag ja
-    schon da ist. `refresh_label()` wiederum fasst `Icon` bewusst nicht an.
-    Damit wurde die Bilddatei nach dem allerersten Anlegen **nie wieder**
-    angefasst, und jedes neue Programmsymbol erreichte nur Neuinstallationen.
+    ⚠⚠ Die Lücke sitzt zwischen den beiden Wegen: `_write_icon()` läuft nur
+    in `create()` — und `create()` läuft beim Update nicht, weil der Eintrag
+    ja schon da ist. `refresh_label()` wiederum fasst `Icon` bewusst nicht
+    an. Ohne diese Funktion würde die Bilddatei nach dem allerersten Anlegen
+    **nie wieder** angefasst, und ein neues Programmsymbol erreichte nur
+    Neuinstallationen.
 
     ⛔ **Der Pfad in der `.desktop` bleibt der Anker** — er wird gelesen, nicht
     geschrieben. Aufgefrischt wird der **Inhalt** der Datei, auf die er zeigt.
@@ -313,7 +310,7 @@ def refresh_icon():
             break
     # Nur unsere eigene Symboldatei anfassen: ein absoluter Pfad, der auf den
     # Dateinamen endet, den `_write_icon()` vergibt. Ein blosser Name
-    # („sc-bp-watcher") ist eine Themen-Kennung und keine Datei.
+    # (`sc-bp-watcher`) ist eine Themen-Kennung und keine Datei.
     if (not ziel or not os.path.isabs(ziel)
             or os.path.basename(ziel) != ICON_NAME
             or not os.path.isfile(ziel)):

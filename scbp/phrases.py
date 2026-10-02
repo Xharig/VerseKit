@@ -23,9 +23,9 @@ Beim Freischalten schreibt Star Citizen eine Zeile wie
 
     <SHUDEvent_OnNotification> Added notification "Bauplan erhalten: Attrition-5 Repeater: " [136] …
 
-Der Text davor ist **übersetzt**. Bis v1.5.0 stand die deutsche Formulierung fest
-im Code — bei englischem Client griff die Sofort-Meldung deshalb gar nicht. Das
-ist unter Linux keine Randerscheinung mehr, dort spielen die meisten auf Englisch.
+Der Text davor ist **übersetzt**. Eine fest eingebaute deutsche Formulierung
+griffe bei englischem Client gar nicht — unter Linux keine Randerscheinung,
+dort spielen die meisten auf Englisch.
 
 Drei Quellen, in dieser Rangfolge:
 
@@ -42,13 +42,13 @@ Drei Quellen, in dieser Rangfolge:
   3. **Die mitgelieferte Tabelle** unten — greift immer.
 
 > Stand: **Deutsch und Englisch sind beide gemessen.** Deutsch an 127
-> Log-Sicherungen gegengeprüft; Englisch am 24.08.2026 an einem echten
-> englischen Client bestätigt — der Client schreibt:
+> Log-Sicherungen gegengeprüft; Englisch an einem echten englischen Client
+> bestätigt — der Client schreibt:
 >
 >     Added notification "Received Blueprint: Aves Shrike Helmet: "
 >
-> Damit ist die Rateliste erledigt: `Received Blueprint` steht vorn, die vier
-> übrigen Kandidaten bleiben als Rückfall stehen. Andere Sprachen erschließt
+> `Received Blueprint` steht deshalb vorn, die vier übrigen Kandidaten bleiben
+> als Rückfall stehen. Andere Sprachen erschließt
 > der Watcher sich selbst aus den Logs (siehe `selbst_finden`); wer nachhelfen
 > will, holt den Wortlaut mit `tools/extract_global_ini.py --sprache <name>`
 > aus der eigenen Installation.
@@ -70,16 +70,16 @@ TABLE = {
     # die immer. Für eine englische Werksinstallation (deren Textdatei in der
     # `Data.p4k` steckt) ist diese Liste aber das Einzige, was bleibt.
     #
-    # ⛔ Hier stand bis v3.60.0 auch „Bauplan überchoo" — die schweizerdeutsche
-    # Fassung (`live-CH`). VerseKit bietet sie nicht an, und im Bericht stand
-    # die Zeile bei jedem Nutzer unter „Spielsprache", sodass sie jedes Mal wie
-    # ein Fehler aussah. Wer die Fassung trotzdem selbst einspielt, wird über
-    # deren `global.ini` erkannt; die hat ohnehin Vorrang (Wunsch 28.09.2026).
+    # ⛔ Keine schweizerdeutsche Fassung (`live-CH`) in der Tabelle. VerseKit
+    # bietet sie nicht an, und im Bericht stünde die Zeile bei jedem Nutzer
+    # unter der Spielsprache, sodass sie jedes Mal wie ein Fehler aussähe. Wer
+    # die Fassung trotzdem selbst einspielt, wird über deren `global.ini`
+    # erkannt; die hat ohnehin Vorrang.
     'de': ['Bauplan erhalten'],                     # gemessen
-    # 'Received Blueprint' ist seit 24.08.2026 **gemessen** — an einem echten
-    # englischen Client, Zeile:
+    # 'Received Blueprint' ist **gemessen** — an einem echten englischen
+    # Client, Zeile:
     #   Added notification "Received Blueprint: Aves Shrike Helmet: "
-    # Deshalb steht es vorn. Die vier dahinter waren die übrigen Kandidaten und
+    # Deshalb steht es vorn. Die vier dahinter sind die übrigen Kandidaten und
     # bleiben stehen: Sie kosten nichts, und sollte CIG die Formulierung einmal
     # ändern, ist die Chance nicht schlecht, dass eine davon dann zutrifft.
     'en': ['Received Blueprint',                    # gemessen
@@ -97,9 +97,9 @@ FRAME_OPEN = re.compile(r'Added notification "([^":]{3,60}):\s*(.+?)\s*:\s*"')
 
 # ⚠⚠ **Ein Name, den das Spiel nicht übersetzen konnte** — Star Citizen
 # schreibt dann den rohen Textschlüssel mit `@` davor, auch in die
-# Bauplan-Meldung. Gemeldet am 20.09.2026 (Bushwick4712, v3.53.3): Drei
-# Baupläne standen als `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` im Bestand —
-# **dauerhaft**, denn der Name IST dort der Schlüssel. Die Zeile im
+# Bauplan-Meldung. Ein solcher Bauplan stünde etwa als
+# `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` im Bestand — **dauerhaft**, denn
+# der Name IST dort der Schlüssel. Die Zeile im
 # Flottenmanager heilt von selbst, sobald die Übersetzung nachzieht; ein
 # einmal so gespeicherter Bauplan nicht.
 UNRESOLVED = re.compile(r'^@([A-Za-z0-9_]+)$')
@@ -152,8 +152,8 @@ def _from_ini(path):
 
     ⭐⭐ **Und das Ergebnis wird gemerkt.** Der Fehlerbericht fragt zweimal
     nach den Formulierungen (`sammeln()` und `gemessene()`), und die
-    Diagnose-Seite baut den Bericht bei jedem Anzeigen neu. Gemessen am
-    13.09.2026: **97 ms allein für diese Funktion**, bei jedem Klick auf die
+    Diagnose-Seite baut den Bericht bei jedem Anzeigen neu. Gemessen:
+    **97 ms allein für diese Funktion**, bei jedem Klick auf die
     Seite — für eine Datei, die sich nur mit einem Spiel-Patch ändert.
 
     ⚠ Der Merker hängt an der **Quellenmarke**, nicht an der Programmsitzung:
@@ -179,10 +179,10 @@ def _read_ini(path):
                 value = line.split('=', 1)[1].strip() if '=' in line else ''
                 before, _separator, after = value.partition('%s')
                 # ⚠⚠ **Steht Text HINTER dem Namen, muss die ganze Formulierung
-                # erhalten bleiben.** Bisher wurde nur der Teil davor genommen —
-                # bei „Bauplan erhalten: %s" ist das richtig und bleibt es. Eine
-                # umgestellte Übersetzung wie „%s ist eingetroffen" hätte davor
-                # aber gar nichts stehen: `vorne` wäre leer, die Erkennung fiele
+                # erhalten bleiben.** Nur den Teil davor zu nehmen, ist bei
+                # `Bauplan erhalten: %s` richtig. Eine umgestellte Übersetzung
+                # wie `%s ist eingetroffen` hätte davor aber gar nichts
+                # stehen: `vorne` wäre leer, die Erkennung fiele
                 # auf die mitgelieferte Tabelle zurück und fände **nichts** —
                 # ohne Fehlermeldung, ohne übersprungene Datei, einfach null
                 # Baupläne. Genau diese stille Art zu scheitern ist die
@@ -227,16 +227,15 @@ def _lookup_key(key):
     # ⭐ Letzte Quelle: die Originalnamen aus der `Data.p4k`. Sie sind der
     # einzige Weg für alle, die weder eine gepflegte Übersetzung noch eine
     # entpackte englische `global.ini` haben — und das ist der Normalfall
-    # (gemeldet 20.09.2026, `inj_quelle=original`).
+    # (`inj_quelle=original`).
     # ⚠⚠ **Bestandsnutzer gehen nie wieder durch die Einrichtung.** Genau sie
     # sind betroffen: Wer das Werkzeug seit Monaten benutzt, hat den
     # Assistenten einmal gesehen und danach nie wieder (`einrichtung_fertig`).
     # Deshalb holt sich das Werkzeug die Namen beim ersten unauflösbaren
     # Schlüssel selbst, statt eine Hinweiszeile zu setzen, die niemand liest.
     #
-    # ⚠ Gemessen (4.10.1): **1,0 s** für 10 MB aus einem 144-GB-Archiv. Der
-    # frühere Verdacht „das dauert Minuten" war eine Rechnung über 1,3 Mio
-    # Verzeichniseinträge, keine Messung. Auf einer langsamen Platte kann der
+    # ⚠ Gemessen (4.10.1): **1,0 s** für 10 MB aus einem 144-GB-Archiv, trotz
+    # 1,3 Mio Verzeichniseinträgen. Auf einer langsamen Platte kann der
     # erste, kalte Zugriff länger dauern — deshalb läuft das hier, wo auch die
     # Log-Auswertung läuft (eigener Faden), und **nicht** in der Oberfläche.
     try:
@@ -306,13 +305,13 @@ def find_self(catalog_names, backups, at_most=40):
 
         Added notification "IRGENDWAS: Attrition-5 Repeater: "
 
-    und ist „Attrition-5 Repeater" ein bekannter Bauplan, dann ist IRGENDWAS die
+    und ist `Attrition-5 Repeater` ein bekannter Bauplan, dann ist IRGENDWAS die
     gesuchte Formulierung. Das funktioniert für Französisch und Spanisch genauso
     wie für Englisch — ohne dass jemand die Sprache vorher kennen muss.
 
     Verlangt werden **mindestens zwei** verschiedene Treffer für dieselbe Phrase.
     Bei nur einem könnte es Zufall sein: Ein Bauplan-Name taucht auch in anderen
-    Meldungen auf („Auftrag abgeschlossen: Attrition-5 Repeater geliefert").
+    Meldungen auf (`Auftrag abgeschlossen: Attrition-5 Repeater geliefert`).
 
     Rückgabe: die gefundene Phrase oder None.
     """
@@ -389,11 +388,10 @@ def measured():
 
     ⚠ Für den Bericht. `sammeln()` liefert eine **gemischte** Liste — belegte
     Formulierungen und die eingebaute Rückfalltabelle — dazu **eine** Herkunft
-    für alles. Im Bericht stand deshalb hinter der ganzen Liste „aus der
-    global.ini des Spiels", obwohl dort genau eine davon herkam. Wer die
-    übrigen dort sucht, sucht umsonst: am 01.09.2026 kostete das drei
-    Suchläufe, bis klar war, dass „Bauplan überchoo" aus der Tabelle stammt
-    (Schweizerdeutsch) und gar nicht in der `global.ini` stehen kann."""
+    für alles. Im Bericht stünde deshalb hinter der ganzen Liste die
+    `global.ini` als Herkunft, obwohl dort nur eine davon herkommt — wer die
+    übrigen dort sucht, sucht umsonst, denn Einträge aus der Tabelle können
+    gar nicht in der `global.ini` stehen."""
     own = []
     for p in _own():
         if p not in own:

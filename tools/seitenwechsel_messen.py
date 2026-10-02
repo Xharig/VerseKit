@@ -5,13 +5,11 @@
 
 `tools/seiten_messen.py` sagt, **wie lange** ein Seitenwechsel dauert. Es sagt
 nicht, **wo** die Zeit hingeht — und ohne das bleibt jede Verbesserung Raten.
-Genau daran sind hier schon drei Erklärungen gescheitert (Schriftgröße, Zahl
-der Symbolbilder, Zahl der Bauteile).
 
 ⚠⚠ **Und die Spur im Fehlerbericht misst zu kurz.** `open_page()` schreibt
 `Seite x: steht (440 ms)` direkt nach dem Ein- und Ausblenden — danach laufen
 aber noch `_recolor_tabs()`, `_sidebar_width_update()` und die
-„Neu"-Marken. Wer die 440 ms für den ganzen Wechsel hält, sucht an der
+Neu-Marken. Wer die 440 ms für den ganzen Wechsel hält, sucht an der
 falschen Stelle.
 
 ## Wie gemessen wird
@@ -25,25 +23,25 @@ das Werkzeug den echten Weg — nicht einen nachgebauten.
 ⚠ Gemessen wird der **warme** Fall: Die Seite ist schon gebaut und wird nur
 eingeblendet. Das ist der Fall, der den Nutzer bei **jedem** Klick trifft.
 
-## Was die erste Messung ergeben hat (13.09.2026)
+## Was die Messung ergibt
 
 | Seite | gesamt | `open_page()` | `update()` | Bauteile |
 |---|---|---|---|---|
 | joysticks | 584 ms | **35 ms** | **535 ms** | 986 |
 | wasistneu | 119 ms | 11 ms | 91 ms | **1000** |
 
-**Zwei Erklärungen sind damit erledigt:**
+**Zwei Erklärungen scheiden damit aus:**
 
-1. ⛔ *„`open_page()` ist zu langsam"* — es kostet 35 von 584 ms.
-2. ⛔ *„Es hängen noch Aufbau-Aufträge im Leerlauf"* — offen sind nur drei
-   Timer (`takt`, `nachziehen`), keine Bau-Aufträge.
+1. ⛔ `open_page()` sei zu langsam — es kostet 35 von 584 ms.
+2. ⛔ Im Leerlauf hingen noch Aufbau-Aufträge — offen sind nur drei Timer
+   (`takt`, `nachziehen`), keine Bau-Aufträge.
 
 Die Zeit steckt in `update()`, also in Tks eigenem Zeichnen.
 
-### ⛔⛔ Und eine dritte „Erkenntnis", die FALSCH war
+### ⛔⛔ Seiten untereinander vergleichen beweist nichts
 
-Hier stand zunächst, die Bauteil-Anzahl sei es nicht — begründet damit, dass
-`wasistneu` mit **1000** Bauteilen nur 91 ms braucht.
+Dass `wasistneu` mit **1000** Bauteilen nur 91 ms braucht, heißt nicht, dass
+die Bauteil-Anzahl es nicht ist.
 
 **Der Vergleich beantwortet die Frage nicht.** Zwei verschiedene Seiten
 unterscheiden sich in allem; aus ihrem Unterschied folgt nichts über die
@@ -64,8 +62,8 @@ Zahl also sehr wohl der Posten.
 offen — Tiefe (beide 8), Typ und Umbruch erklären es nicht. Das wird hier
 **nicht geraten**.
 
-⚠⚠ **Nicht zu verwechseln mit der Messung vom 12.09.2026**, wonach zehnmal
-weniger Bauteile nur 18 ms sparen. Die betraf das **Bauen** einer Seite.
+⚠⚠ **Nicht zu verwechseln mit der Messung**, wonach zehnmal weniger
+Bauteile nur 18 ms sparen. Die betraf das **Bauen** einer Seite.
 Hier geht es ums **Anzeigen** einer bereits gebauten — ein anderer Vorgang
 mit anderem Ergebnis.
 """
@@ -190,8 +188,8 @@ def main():
 
     # ⭐⭐ **Bauteile zaehlen, bevor irgendein Schluss gezogen wird.**
     # Die Tabelle sagt, dass `update()` teuer ist. Sie sagt NICHT, wovon.
-    # Ohne die Zahl daneben waere „das sind die vielen Widgets" wieder nur
-    # eine Erklaerung — davon sind hier schon drei widerlegt worden.
+    # Ohne die Zahl daneben waere die Vermutung, es laege an den vielen
+    # Widgets, wieder nur eine Erklaerung ohne Beleg.
     def _bauteile(widget):
         anzahl = 1
         for kind in widget.winfo_children():

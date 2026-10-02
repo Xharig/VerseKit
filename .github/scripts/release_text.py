@@ -33,9 +33,9 @@ def abschnitt(pfad, tag):
     """Der Block zur getaggten Version aus einer CHANGELOG-Datei.
 
     ⚠ Für eine **Vorabfassung** gibt es keinen eigenen Abschnitt: Im Changelog
-    steht `## v3.0.0`, getaggt wird aber `v3.0.0-rc5`. Vorher fand das Skript
-    dann gar nichts und schrieb den Rückfallsatz „siehe Changelog" ins Release —
-    wer testen soll, erfuhr also nicht, was zu testen ist. Deshalb wird bei einer
+    steht `## v3.0.0`, getaggt wird aber `v3.0.0-rc5`. Ohne Rückgriff stünde
+    nur der Rückfallsatz „siehe Changelog" im Release — wer testen soll,
+    erführe nicht, was zu testen ist. Deshalb wird bei einer
     Vorabfassung der Abschnitt der Grundversion genommen.
     """
     try:
@@ -94,8 +94,8 @@ VORIGER = ['']
 def zusammensetzen(englisch, deutsch):
     """Deutsch oben, Englisch aufklappbar darunter.
 
-    ⚠ **Umgedreht am 31.08.2026**, zusammen mit den Doku-Dateien:
-    Deutsch ist die Hauptsprache des Projekts, und wer die
+    ⚠ Wie bei den Doku-Dateien: Deutsch ist die Hauptsprache des Projekts,
+    und wer die
     Releases-Seite aufschlaegt, soll sie zuerst lesen. Englisch bleibt
     vollstaendig — nur eine Klappe tiefer.
     """
@@ -114,8 +114,7 @@ def zusammensetzen(englisch, deutsch):
 # „unbekannt". Auch beim Selbst-Update aus dem Werkzeug heraus. Ohne den Hinweis
 # an der Stelle, wo die Leute die Datei holen, ist das jede Woche dieselbe Frage.
 #
-# Ein Tester hielt die Meldung für einen Virenfund und schickte ein
-# „Downloading Virus"-Bild in den Discord — verständlich, wenn Windows sagt
+# Die Meldung sieht leicht nach einem Virenfund aus, wenn Windows sagt
 # „Der Computer wurde durch Windows geschützt".
 HINWEIS = """
 ---

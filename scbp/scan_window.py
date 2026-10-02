@@ -23,7 +23,7 @@
 """
 Das Scan-Fenster: der Spieler zeigt, wo die Signatur steht.
 
-⭐⭐ **Vorgabe (16.09.2026):** Der Spieler zieht ein Fenster über die Zahl — in
+⭐⭐ **Grundsatz:** Der Spieler zieht ein Fenster über die Zahl — in
 Lage UND Größe. Gemessen: Die Anzeige sitzt je Schiff woanders; ein fest
 eingebauter Bereich wäre beim zweiten Schiff falsch.
 
@@ -71,7 +71,7 @@ _open = [None]
 
 
 def describe(value):
-    """„12,680 → 4× Quantainium" — was hinter einer Signatur steckt."""
+    """`12,680 → 4× Quantainium` — was hinter einer Signatur steckt."""
     if value is None:
         return ''
     from . import mining
@@ -134,13 +134,12 @@ def png_data(raster, zoom=1):
 class ScanWindow(object):
     """Das Anlern-Fenster — ein einziges zur Zeit.
 
-    ⚠⚠ **Umgebaut am 17.09.2026.** Vorher zog der Spieler ein Fenster über die
-    Zahl, und das Fenster las live. Zwei Gründe, warum das nicht trug:
-    **die Pille wandert mit dem gescannten Brocken** (ein fester Bereich traf nur
-    zufällig), und der gelesene Wert **stand oft unter einer Sekunde** da —
-    „Lotto spielen, ob man beim Speichern die Zahl noch trifft".
+    ⚠⚠ **Kein Live-Lesen.** Ein Fenster, das live über der Zahl liest, trägt
+    nicht: **Die Pille wandert mit dem gescannten Brocken** (ein fester Bereich
+    trifft nur zufällig), und der gelesene Wert **steht oft unter einer
+    Sekunde** da — ob man ihn beim Speichern noch trifft, wäre Glückssache.
 
-    Jetzt sucht die Wache die Pille selbst (`signature_scan.search`), und dieses
+    Die Wache sucht die Pille selbst (`signature_scan.search`), und dieses
     Fenster zeigt das zuletzt gefundene Bild **stehend**. Erst „Nächstes Bild"
     holt ein neues. So bleibt Zeit, die Zahl in Ruhe einzutippen.
     """
@@ -294,8 +293,8 @@ class ScanWindow(object):
 
 
 def open_sample_folder():
-    """Den Ordner mit den angelernten Bildern öffnen (17.09.2026: „wo findet ein
-    User die gespeicherten Signaturen und Bilder?" — vorher nirgends)."""
+    """Den Ordner mit den angelernten Bildern öffnen — damit gespeicherte
+    Signaturen und Bilder auffindbar sind."""
     import os
     folder = signature_scan.sample_folder()
     try:

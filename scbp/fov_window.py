@@ -93,9 +93,9 @@ class CalibrationWindow:
             # lässt sich daraus nicht ablesen.
             # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
             # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
-            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
-            # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
-            # weil es modal war, ließ sich das Programm nicht einmal beenden.
+            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen kann das
+            # Fenster so außerhalb des sichtbaren Bereichs landen; weil es
+            # modal ist, ließe sich das Programm dann nicht einmal beenden.
             #
             # `center_over` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).

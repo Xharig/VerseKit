@@ -26,14 +26,10 @@ was man dort eingibt.**
 
 ## ⚠⚠ Warum der Hinweis KEIN eigenes Bauteil sein darf
 
-Die erste Fassung legte ein `tk.Label` über das Feld. Das sieht gleich aus und
-ist trotzdem falsch: Ein Label **fängt die Mausklicks ab**. Wer auf den
-Hinweistext klickt, klickt auf das Label — nicht ins Feld. Die Schreibmarke
-wandert nicht mit, und das Feld fühlt sich tot an.
-
-> Gemeldet am 12.09.2026: *„wenn ich ins Feld klicken muss, muss ich zwingend
-> neben den bestehenden Text klicken, da das Eingabefeld es sonst nicht
-> erkennt — das ist alles andere als intuitiv."*
+Ein `tk.Label` über dem Feld sieht gleich aus und ist trotzdem falsch: Ein
+Label **fängt die Mausklicks ab**. Wer auf den Hinweistext klickt, klickt auf
+das Label — nicht ins Feld. Die Schreibmarke wandert nicht mit, und das Feld
+fühlt sich tot an; anklickbar ist es nur neben dem Text.
 
 Ein Klick-Weiterreichen (`bind('<Button-1>', …focus_set)`) hilft nur halb: Es
 holt den Tastaturfokus, aber der Klick selbst erreicht das Feld nie. Die
@@ -44,7 +40,7 @@ Schreibmarke bleibt, wo sie war.
 Der Hinweis steht **im Feld selbst**. Es gibt kein zweites Bauteil, also auch
 nichts, was einen Klick abfangen könnte.
 
-⚠⚠ **Die Falle dabei — und der Grund, warum es früher ein Label war:** Ein
+⚠⚠ **Die Falle dabei — und der Grund, warum ein Label naheliegt:** Ein
 Suchfeld hängt an einer `StringVar`, und daran hängt der Filter. Stünde der
 Hinweis als Wert darin, würde die Liste danach filtern und wäre beim Start
 **leer**.
@@ -54,7 +50,7 @@ Deshalb wird die Variable währenddessen **abgehängt**
 Variable bleibt leer und wird kein einziges Mal beschrieben. Beim ersten
 Tastendruck wird sie wieder angehängt.
 
-Gemessen am 12.09.2026 mit Gegenprobe: Ohne das Abhängen sieht die Variable
+Gemessen mit Gegenprobe: Ohne das Abhängen sieht die Variable
 den Hinweis sehr wohl — der Trick ist also nicht Zierde, sondern das Einzige,
 was den Filter heil lässt.
 
@@ -98,11 +94,9 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
     # ⚠⚠ `sperre` ist nicht Zierde, sondern verhindert einen Kreis.
     #
     # `hide()` haengt die Variable wieder an. Genau das laesst Tk die
-    # Beobachtung feuern — die sieht „Variable leer" und zeigt den Hinweis
-    # sofort wieder an. Ergebnis: Der erste Tastendruck raeumte ihn weg und
-    # holte ihn im selben Atemzug zurueck.
-    #
-    # Gefunden vom Selbsttest am 12.09.2026, nicht beim Lesen des Codes.
+    # Beobachtung feuern — die sieht eine leere Variable und zeigt den
+    # Hinweis sofort wieder an. Ergebnis: Der erste Tastendruck raeumte ihn
+    # weg und holte ihn im selben Atemzug zurueck.
     state = {'on': False, 'lock': False}
 
     def show():
@@ -137,9 +131,9 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
         """Solange der Hinweis steht, gehört die Schreibmarke an den Anfang.
 
         ⚠⚠ Der Hinweis ist echter Text im Feld — ein Klick setzte die
-        Schreibmarke deshalb mitten hinein („Auftragsname o|der Ort"), und man
-        konnte ihn markieren. Das sah aus, als stünde dort etwas, das man erst
-        löschen muss (gemeldet 17.09.2026, Bilder von fünf Suchfeldern).
+        Schreibmarke sonst mitten hinein (`Auftragsname o|der Ort`), und man
+        könnte ihn markieren. Das sähe aus, als stünde dort etwas, das man erst
+        löschen muss.
 
         Über `after_idle`: Die eigene Bindung läuft VOR der Klassenbindung des
         Feldes, und die setzt die Marke erst danach an die Klickstelle.
@@ -174,17 +168,15 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
         filtert.** Denn solange er angezeigt wird, ist die Variable ja
         *abgehaengt*: Das Feld bekommt von `variable.set(...)` nichts mit.
 
-        Genau so passiert beim Sprung zu einem Bauplan („Woher?" → Liste):
+        Genau so beim Sprung zu einem Bauplan („Woher?" → Liste):
         `zum_bauplan()` setzt die Suche, die Liste zeigt einen Treffer — und
-        im Feld stuende weiter „Bauplan oder Auftrag suchen".
-
-        Gefunden vom Selbsttest (Pruefung 97) am 12.09.2026, nicht von Hand.
+        im Feld stuende weiter der Hinweistext. Pruefung 97 haelt das fest.
 
         ⚠ Und der Rueckweg gehoert dazu: Leert das Programm die Suche (das ✕
         im Feld tut genau das), muss der Hinweis **sofort** wieder da sein —
         nicht erst beim naechsten Fokuswechsel. Sonst steht der Nutzer vor
-        einem leeren Kasten, und das war der Ausgangszustand, den diese ganze
-        Datei behebt.
+        einem leeren Kasten — genau dem Zustand, den diese ganze Datei
+        verhindert.
         """
         if state['lock']:
             return                    # wir selbst schalten gerade um

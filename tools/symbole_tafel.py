@@ -4,14 +4,12 @@
 Wozu: Wer ein Symbol braucht, muss sehen können, was es gibt. Eine Liste von
 Namen hilft dabei nicht — man erkennt ein Symbol am Bild, nicht am Wort.
 
-Die Tafel landet in der Notizsammlung des Autors neben der Notiz
-`04 Ressourcen/Branding & Vorlagen/Symbole (Lucide).md`. Kommen Symbole dazu,
-erst `symbole_bauen.py` laufen lassen, dann dieses hier.
+Kommen Symbole dazu, erst `symbole_bauen.py` laufen lassen, dann dieses hier.
 
     python tools/symbole_tafel.py
 
-Ohne Sammlung (etwa auf einem anderen Rechner) landet die Tafel im Projektordner
-unter `assets/symbole/uebersicht.png`.
+Die Tafel landet im Projektordner unter `assets/symbole/uebersicht.png`, dazu
+als `symbole-uebersicht.png` in dem Ordner, den `SC_BP_SYMBOLTAFEL` nennt.
 """
 
 import os
@@ -30,7 +28,7 @@ import ausgabe                                                 # noqa: E402
 ausgabe.utf8()
 
 
-# Xharig-Branding: dunkler Grund, Neongrün als Akzent.
+# Markenfarben: dunkler Grund, Neongrün als Akzent.
 GRUND = '#0d0d0d'
 KASTEN = '#1c1c1c'
 NEON = '#9ce430'
@@ -104,8 +102,7 @@ def main():
     tafel = Image.new('RGB', (breite, hoehe), GRUND)
     stift = ImageDraw.Draw(tafel)
 
-    # Signature-Element des Xharig-Brandings: dünne grüne Kreisringe, teils aus
-    # dem Rand ragend. Siehe Sammlung → „Xharig Branding".
+    # Kennzeichen der Marke: dünne grüne Kreisringe, teils aus dem Rand ragend.
     for mx, my, r in ((breite - 90, 60, 150), (70, hoehe - 40, 190)):
         stift.ellipse((mx - r, my - r, mx + r, my + r), outline='#1e2a12', width=2)
 

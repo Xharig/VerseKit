@@ -32,8 +32,7 @@ Drei Sorten Pfade:
      Windows:  C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE\\
      Linux:    im Wine-Präfix, z. B. ~/Games/star-citizen/drive_c/Program Files/…
 
-(Bis v3.63.1 gab es einen dritten Ort, den Ordner des SC Deutsch Launchers.
-Er wird seit dem 30.09.2026 nicht mehr gelesen; ein eingetragener
+(Der Ordner des SC Deutsch Launchers wird nicht gelesen; ein eingetragener
 `launcher_ordner` bleibt ohne Wirkung.)
 
 **Wer die Sachen woanders liegen hat, trägt die Pfade selbst ein.** Dafür gibt es
@@ -44,7 +43,7 @@ Er wird seit dem 30.09.2026 nicht mehr gelesen; ein eingetragener
     }
 
 Die Datei wird angelegt, sobald das Spiel nicht gefunden wird — mit Kommentar
-und leeren Feldern zum Ausfüllen. Ein leeres Feld heißt „bitte suchen".
+und leeren Feldern zum Ausfüllen. Ein leeres Feld heißt: selbst suchen.
 
 Rangfolge, wenn mehrere Angaben da sind:
 
@@ -65,22 +64,15 @@ WINDOWS = sys.platform.startswith('win')
 # spielt, hat meist beides installiert, gemeint ist aber fast immer LIVE.
 #
 # ⚠⚠ **HOTFIX gehört dazu.** Legt CIG neben LIVE eine ausgebesserte Fassung auf
-# denselben Server, ist das eine eigene Installation daneben. Und der übliche
-# Weg dorthin ist nicht „nochmal 100 GB laden", sondern: **den vorhandenen
+# denselben Server, ist das eine eigene Installation daneben. Der übliche
+# Weg dorthin ist kein zweiter 100-GB-Download, sondern: **den vorhandenen
 # LIVE-Ordner in HOTFIX umbenennen**, damit der Launcher nur die Unterschiede
 # holt. Damit ist der eingetragene Spielordner von einem Tag auf den anderen
-# **weg** — und der Watcher fand gar nichts mehr, weil HOTFIX in dieser Liste
-# fehlte. Genau so gesehen am 03.09.2026 bei Haldjas: eingetragen war
-# `…\StarCitizen\LIVE`, im Bericht standen „Spiel nicht gefunden", keine
-# Game.log und 0 gelesene Protokolle.
+# **weg** — fehlt HOTFIX in dieser Liste, findet der Watcher gar nichts mehr.
 CHANNELS = ('LIVE', 'HOTFIX', 'PTU', 'EPTU', 'TECH-PREVIEW')
 
-# ⚠⚠ **Nur diese beiden teilen sich EINEN Bauplan-Bestand.**
-#
-# Am 05.09.2026 richtiggestellt, nachdem der erste Anlauf alle Kanäle
-# einbezogen hatte: „PTU EPTU und TECHNICAL-PREVIEW müssen wir aber ignorieren
-# ausschließen, die BP Bestände sind im LIVE und HOTFIX nicht verfügbar, die
-# sind getrennt davon."
+# ⚠⚠ **Nur diese beiden teilen sich EINEN Bauplan-Bestand.** PTU, EPTU und
+# TECH-PREVIEW bleiben außen vor.
 #
 # Das ist eine Regel des Spiels, keine Vermutung: Die Testumgebungen laufen auf
 # eigenen Spielständen. Wer dort Baupläne freischaltet, hat sie auf LIVE
@@ -126,39 +118,34 @@ SUBFOLDERS = {
     'update-helfer.1.txt': 'Diagnose',
 }
 FOLDER_NAME = 'SC BP Watcher'
-# ⭐ Neu angelegt wird seit v3.62.2 „Verse-Kit" (29.09.2026 — bei Parsul hieß
-# der frisch angelegte Ordner noch „SC BP Watcher"). `FOLDER_NAME` bleibt als
+# ⭐ Neu angelegt wird `NEW_FOLDER_NAME`. `FOLDER_NAME` bleibt als
 # Anker (Prüfung 191): Wer den alten Ordner hat, behält ihn samt Bestand und
 # dem Zeiger auf einen selbst gewählten Ort. Siehe `_default_folder`.
 NEW_FOLDER_NAME = 'Verse-Kit'
 SETTINGS_FILE = 'einstellungen.json'
 
-# ⚠⚠⚠ Die Fensterklasse — ein Anker, der NICHT mitwandert (18.09.2026).
+# ⚠⚠⚠ Die Fensterklasse — ein Anker, der NICHT mitwandert.
 #
 # Daran erkennt die Arbeitsumgebung, dass ein Fenster zu unserer `.desktop`
 # gehört (`StartupWMClass=`). Stimmen beide nicht überein, erscheint das
 # Programm als **zweites Symbol** in der Leiste, ohne Namen und ohne Symbol.
 #
-# ⛔ **Das ist NICHT der Anzeigename.** Bis zum 18.09.2026 schrieb
-# `desktop_entry` hier `hf_titel` hinein, also „Verse-Kit", und Prüfung 191
-# erzwang genau das. Am laufenden Programm gemessen (`xprop WM_CLASS`):
+# ⛔ **Das ist NICHT der Anzeigename** (`hf_titel`). Ohne gesetzte Klasse
+# misst `xprop WM_CLASS` am laufenden Programm:
 #
 #     Wurzelfenster (Overlay)  ("tk #2",     "Tk")
 #     Hauptfenster (Toplevel)  ("!toplevel", "Toplevel")
 #
-# Weder das eine noch das andere war „Verse-Kit" — der Eintrag konnte also nie
-# greifen, in keiner Fassung. Die Regel „StartupWMClass = Fenstertitel" stammt
-# aus der Umbenennung vom 12.09.2026, war am Quelltext abgeleitet und nie
-# gemessen. Linux vergleicht mit der **Fensterklasse**, und die setzt Tk aus
-# `className=` (Wurzel) bzw. `class_=` (Toplevel) — sonst heißt sie schlicht
-# `Tk` bzw. `Toplevel`.
+# Ein Fenstertitel in `StartupWMClass` greift also nie. Linux vergleicht mit
+# der **Fensterklasse**, und die setzt Tk aus `className=` (Wurzel) bzw.
+# `class_=` (Toplevel) — sonst heißt sie schlicht `Tk` bzw. `Toplevel`.
 #
 # Deshalb gilt hier derselbe Grundsatz wie bei `AppId` und `OWN_FILENAMES`:
 # **Was der Nutzer SIEHT, wechselt. Was ihn WIEDERFINDET, bleibt.**
 #
-# ⛔⛔ **Die Schreibweise ist NICHT frei wählbar — gemessen am 18.09.2026.**
+# ⛔⛔ **Die Schreibweise ist NICHT frei wählbar — gemessen.**
 # Tk behandelt die beiden Wege verschieden: `className=` (Wurzel) wird auf
-# „erster Buchstabe groß, Rest klein" normalisiert, `class_=` (Toplevel) wird
+# ersten Buchstaben groß, Rest klein normalisiert, `class_=` (Toplevel) wird
 # **wörtlich** übernommen. Unter Xvfb durchgemessen:
 #
 #     className=       Wurzel        Toplevel(class_=)   gleich?
@@ -170,7 +157,7 @@ SETTINGS_FILE = 'einstellungen.json'
 # Nur `'Versekit'` überlebt beide Wege unverändert. Jede andere Schreibweise
 # gäbe Overlay und Hauptfenster **verschiedene** Klassen — und ein
 # `StartupWMClass` kann nur eine davon treffen. Der naheliegende Dateiname-Stamm
-# `VerseKit` wäre also genau wieder in die alte Falle gelaufen, nur leiser.
+# `VerseKit` fiele also in dieselbe Falle.
 #
 # ⚠ Wer ein neues eigenständiges Fenster baut, gibt ihm diese Klasse mit —
 # sonst trägt es wieder `Toplevel` und fällt aus der Zuordnung.
@@ -184,9 +171,8 @@ WM_CLASS = 'Versekit'
 #   * der Riegel in `updater.einspielen()` — überschreibt nie Fremdes
 #   * `update_run._aufraeumen()` — löscht nur den eigenen Installer
 #
-# Warum beide Namen (Umbenennung zu VerseKit, 12.09.2026):
-#   `sc-bp-watcher` — so heißen die Dateien bei jedem, der vorher installiert
-#     hat. Ein AppImage wird beim Update an seinem Platz ersetzt und behält
+# Warum beide Namen:
+#   `sc-bp-watcher` — so heißen die Dateien älterer Installationen. Ein AppImage wird beim Update an seinem Platz ersetzt und behält
 #     seinen Namen.
 #   `versekit` — so heißen die Release-Dateien für alle, die neu dazukommen.
 #
@@ -243,7 +229,8 @@ def _documents():
 
 
 def legacy_app_folder():
-    """Wo die Dateien bis v2.x lagen — Rückfall und Quelle für den Umzug."""
+    """Der versteckte Ablageort (`%APPDATA%` bzw. `~/.config`) — Rückfall und
+    Quelle für den Umzug."""
     if WINDOWS:
         return os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')),
                             'sc-bp-watcher')
@@ -255,20 +242,13 @@ def _second_pointer():
     """Der Ablage-Ort ein zweites Mal — dort, wo niemand aufraeumt.
 
     ⚠⚠⚠ **Warum es diese Datei gibt.** Der Ablage-Ort haengt an einer einzigen
-    Datei mit einer einzigen Zeile, sichtbar unter Dokumente. Am 06.09.2026
-    wurde sie beim Aufraeumen im Dateimanager mit weggeworfen — zusammen mit
-    zwei danebenliegenden Altstaenden, die wirklich Muell waren und fast
-    genauso hiessen:
+    Datei mit einer einzigen Zeile, sichtbar unter Dokumente. Beim Aufraeumen
+    im Dateimanager geht sie leicht mit weg, etwa neben aehnlich benannten
+    Altstaenden.
 
-        SC BP Watcher                        <- der aktive Zeiger
-        SC BP Watcher (vor Umzug 2026-08-31) <- Altlast
-        SC-BP-Watcher-SICHERUNG-vor-v2-test  <- Altlast
-
-    Danach schaute das Programm wieder in den Standardordner, legte dort einen
-    leeren Bestand an und zeigte statt 413 Bauplaenen nur noch die 406, die es
-    zufaellig vorfand — **ohne ein Wort**. Der Spieler sah nur eine kleinere
-    Zahl und konnte sich nicht erklaeren, wieso: *„wieso aendert sich immer
-    wieder der Ordner, die ganze Zeit hat es doch geklappt?"*
+    Danach schaut das Programm wieder in den Standardordner, legt dort einen
+    leeren Bestand an und zeigt nur, was es dort zufaellig vorfindet —
+    **ohne ein Wort**.
 
     Der zweite Zeiger liegt im Konfigurationsordner (`~/.config` bzw.
     `%APPDATA%`) — dort raeumt niemand mit dem Dateimanager auf, und er faellt
@@ -349,7 +329,7 @@ def _storage_from_file():
 def app_folder():
     """Ordner für unsere eigenen Dateien. Wird bei Bedarf angelegt.
 
-    Seit v3.0.0 liegt er **sichtbar** unter Dokumente statt versteckt in
+    Er liegt **sichtbar** unter Dokumente statt versteckt in
     `%APPDATA%` bzw. `~/.config` — dort sucht kein normaler Spieler, und seinen
     Bauplan-Bestand sollte er finden können. Ein eigener Ort geht weiterhin über
     `SC_BP_HOME` oder die Einstellung `ablage_ordner`.
@@ -454,11 +434,9 @@ def migrate():
 MOVE_EXTENSIONS = ('.json', '.txt')
 
 # ⚠⚠ **Die Unterordner, die VerseKit selbst anlegt — ihr Inhalt gehört ganz
-# uns, egal welche Dateiart** (v3.58.0-rc9). Bis dahin kamen beim Umzug nur
-# `.json` und `.txt` mit: 136 Scan-Bilder (`Intern/*.png`) blieben im alten
-# Ordner, und jede Datei wurde nach ihrem Namen neu einsortiert, statt ihren
-# Platz zu behalten. Gemeldet am 27.09.2026: *„ich musste selber Daten rüber
-# schieben, und vermute, es fehlen noch welche"*.
+# uns, egal welche Dateiart.** Nur `.json` und `.txt` mitzunehmen ließe etwa
+# die Scan-Bilder (`Intern/*.png`) im alten Ordner zurück; jede Datei behält
+# beim Umzug ihren Platz.
 OWN_FOLDERS = ('Bauplaene', 'Einstellungen', 'Intern', 'Diagnose', 'Patches',
                'export')
 
@@ -467,8 +445,8 @@ def _storage_items(folder):
     """Alle eigenen Dateien eines Ablage-Ordners: `(voller Pfad, Zielpfad)`.
 
     Der Zielpfad ist relativ zur Ablage. In den eigenen Unterordnern bleibt er,
-    wie er ist (Struktur samt Unterordnern). Lose Dateien oben — die flache
-    Ablage von vor v3.0.0 — kommen nach `SUBFOLDERS` an ihren Platz.
+    wie er ist (Struktur samt Unterordnern). Lose Dateien oben — eine flache
+    Ablage ohne Unterordner — kommen nach `SUBFOLDERS` an ihren Platz.
 
     ⚠ Oben zählen nur `.json`/`.txt`: Wer seine Ablage in einen Ordner legt,
     in dem noch anderes liegt, soll das behalten. In den eigenen Unterordnern
@@ -500,9 +478,9 @@ def _storage_items(folder):
 def _storage_files(folder):
     """Alle eigenen Dateien eines Ablage-Ordners: `(voller Pfad, Name)`.
 
-    ⚠ **Rekursiv**, weil die Ablage seit v3.0.0 nach `Bauplaene/`,
+    ⚠ **Rekursiv**, weil die Ablage nach `Bauplaene/`,
     `Einstellungen/`, `Diagnose/` und `Intern/` sortiert. Ein flacher Durchlauf
-    fände dort **nichts** und meldete „nichts zu tun", während der ganze
+    fände dort **nichts** und hielte die Arbeit für getan, während der ganze
     Bestand danebenliegt. Welche Dateien zählen, sagt `_storage_items`.
     """
     return [(full, os.path.basename(full))
@@ -566,7 +544,7 @@ def move_storage(source_dir, target_dir):
     `umziehen()` weiter oben.
 
     ⚠⚠ **Jede Datei wird nach dem Kopieren gegengeprüft** (SHA-256). Ohne das
-    heißt „kopiert" nur „`copy2` hat nicht geworfen" — bei einer vollen Platte
+    heißt kopiert nur, dass `copy2` nicht geworfen hat — bei einer vollen Platte
     oder einer Netzfreigabe, die mittendrin abbricht, liegt am Ziel eine halbe
     Datei, und niemand merkt es. Eine kaputte `bestand.json` fällt erst beim
     nächsten Start auf, und dann ist der alte Ordner vielleicht schon weg.
@@ -623,14 +601,11 @@ def remove_old_storage(source_dir, target_dir):
     Gibt `(entfernt, behalten)` zurück; `behalten` ist die Liste der Dateien,
     die liegen bleiben mussten (relativ zum alten Ordner).
 
-    ⭐ **Seit v3.58.0-rc9 wird der alte Ordner geräumt** (Wunsch vom
-    27.09.2026: *„beim Umziehen muss der alte Ordner gelöscht werden"*). Zwei
-    Ordner mit scheinbar demselben Bestand verleiten dazu, im falschen
-    nachzusehen oder von Hand zu schieben — genau das ist passiert.
+    ⭐ **Der alte Ordner wird geräumt.** Zwei Ordner mit scheinbar demselben
+    Bestand verleiten dazu, im falschen nachzusehen oder von Hand zu schieben.
 
     ⚠⚠ **Gelöscht wird eine Datei nur, wenn ihr Gegenstück am neuen Ort
-    dieselbe Prüfsumme hat.** Nicht „wurde kopiert", sondern „liegt dort
-    nachweislich gleich". Hat sie sich seit dem Kopieren geändert (der Watcher
+    dieselbe Prüfsumme hat** — nicht schon, weil sie kopiert wurde. Hat sie sich seit dem Kopieren geändert (der Watcher
     schreibt im Hintergrund weiter), wird sie erst noch einmal kopiert und
     geprüft. Was sich nicht belegen lässt, bleibt liegen.
 
@@ -652,7 +627,7 @@ def remove_old_storage(source_dir, target_dir):
         if not same and os.path.exists(target):
             # Am Ziel liegt etwas ANDERES (ein Bestand vom zweiten Rechner, oder
             # der Watcher hat dort schon weitergeschrieben). Dann gilt das Ziel,
-            # und die alte Fassung bleibt als Rückweg liegen.
+            # und die Datei im alten Ordner bleibt als Rückweg liegen.
             kept.append(rel)
             continue
         if not same:
@@ -697,11 +672,9 @@ def tidy_storage(folder=None):
 
     Gibt die Zahl der einsortierten Dateien zurück.
 
-    ⭐ **Warum (27.09.2026):** Nach einem Umzug, der nicht alles mitnahm, zog
-    der Tester die Dateien von Hand in den neuen Ordner — *„ich wusste nicht, welche
-    Daten wohin gehören, das würde sicher auch einem User so passieren"*. Dann
-    liegen sie oben statt in `Intern/`, oder der ganze alte Ordner steckt als
-    Unterordner im neuen. VerseKit fand sie dort nicht.
+    ⭐ **Warum:** Wer Dateien von Hand in den neuen Ordner zieht, legt sie
+    leicht oben statt in `Intern/` ab, oder der ganze alte Ordner steckt als
+    Unterordner im neuen. Dort fände VerseKit sie nicht.
 
     Zwei Fälle, beide beim Start:
 
@@ -856,14 +829,12 @@ def settings():
 def setting(name):
     """Ein einzelner selbst gesetzter Pfad — oder None, wenn nichts eingetragen ist.
 
-    ⚠⚠ **Alles, was kein Text ist, gilt als „nicht gesetzt".** Vorher stand
-    hier `(… or '').strip()`. Bei einem Ja/Nein-Wert überlebt `True` das
-    `or ''` und `.strip()` fliegt mit einem AttributeError — und zwar nicht
-    leise: Am 03.09.2026 hat ein einziger falscher Aufruf
-    (`setting('lager_raffinerie_offen')` statt `setting_bool`) den
-    Aufbau der ganzen Lager-Seite abgerissen. Die Liste der Posten fehlte,
-    die Daten waren unversehrt, und weil eine Seite nur einmal gebaut wird,
-    half auch Zuklappen nicht mehr.
+    ⚠⚠ **Alles, was kein Text ist, gilt als nicht gesetzt.** Mit
+    `(… or '').strip()` überlebt ein Ja/Nein-Wert `True` das `or ''`, und
+    `.strip()` fliegt mit einem AttributeError — ein einziger falscher
+    Aufruf (`setting('lager_raffinerie_offen')` statt `setting_bool`) reißt
+    so den Aufbau einer ganzen Seite ab, und weil eine Seite nur einmal
+    gebaut wird, hilft auch Zuklappen nicht mehr.
 
     Ein Pfad ist immer Text. Kommt etwas anderes, ist das ein Aufruf an der
     falschen Adresse — dann `None` zurückzugeben ist richtig und kostet
@@ -883,10 +854,9 @@ def replace_file(source, target, attempts=10, pause=0.05):
     ⚠⚠ Unter Windows schlägt das Umbenennen mit `PermissionError` fehl,
     solange ein anderer Prozess die Zieldatei offen hat — typisch ist der
     Virenscanner, der eine eben geschriebene Datei prüft. Das dauert
-    Millisekunden. Ohne Nachfassen ging die Einstellung still verloren: Am
-    17.09.2026 fiel der Bau von v3.50.0 zweimal hintereinander an einer
-    jeweils ANDEREN Prüfung, die eine Einstellung schreibt und gleich wieder
-    liest. Beim Spieler hätte genau dasselbe eine Wahl verschluckt.
+    Millisekunden. Ohne Nachfassen geht die Einstellung still verloren —
+    sichtbar an Prüfungen, die eine Einstellung schreiben und gleich wieder
+    lesen und dann zufällig scheitern.
 
     Nur `PermissionError` wird wiederholt — alles andere (Platte voll, Ordner
     weg) wird durch Warten nicht besser und fliegt sofort.
@@ -906,13 +876,12 @@ def save_json(target, data, indent=1, sort_keys=False):
     """JSON schreiben — ohne Halbfertiges und mit Vorgängerfassung.
 
     Erst in eine Nebendatei, dann umbenennen: Stürzt der Rechner mitten im
-    Schreiben ab, ist die alte Datei noch vollständig da. Die vorige Fassung
+    Schreiben ab, ist die alte Datei noch vollständig da. Der vorige Stand
     bleibt als `….bak.json` liegen.
 
-    ⚠ **Warum das hier steht und nicht in jedem Modul einzeln.** `collection.py`
-    hatte diese Sicherung von Anfang an, die beiden Lager (Werkstatt und
-    Handel) nicht — sie schrieben zwar atomar, aber ohne Rückfall. Genau dort
-    stehen **eigene Eingaben**, die es nirgends sonst zu holen gibt: Ein
+    ⚠ **Warum das hier steht und nicht in jedem Modul einzeln.** Auch die
+    beiden Lager (Werkstatt und Handel) brauchen den Rückfall: Dort stehen
+    **eigene Eingaben**, die es nirgends sonst zu holen gibt — ein
     Bauplan-Bestand liesse sich aus der Game.log neu aufbauen, ein Lager nicht.
     Zwei Fassungen derselben Regel gehen irgendwann auseinander, deshalb eine.
 
@@ -966,7 +935,7 @@ def _default_folder():
 
     ⚠⚠ Nie umbenennen, was da ist: Im alten Ordner liegen Bestand und
     Einstellungen — oder der Zeiger auf einen selbst gewählten Ort. Nur wer
-    noch keinen hat, bekommt „Verse-Kit"."""
+    noch keinen hat, bekommt `NEW_FOLDER_NAME`."""
     documents = _documents()
     old = os.path.join(documents, FOLDER_NAME)
     if os.path.isdir(old):
@@ -981,10 +950,8 @@ def _set_storage_folder(value):
     nie wieder liest.** `set_setting()` schreibt ueber `app_file()`,
     und das zeigt in den **aktuellen** Ablage-Ordner. Der neue Ort landete
     damit in der Einstellungsdatei des ALTEN Ordners, waehrend
-    `_storage_from_file()` weiter den unveraenderten Zeiger unter Dokumente las.
-    Ergebnis: Die Umstellung liess sich speichern, war aber nach jedem Neustart
-    wieder weg — gemeldet am 04.09.2026, „bei jedem Neustart ist der alte Pfad
-    wieder drin".
+    `_storage_from_file()` weiter den unveraenderten Zeiger unter Dokumente
+    liest — die Umstellung waere nach jedem Neustart wieder weg.
 
     In der Zeiger-Datei steht **nur** dieses eine Feld. Zwei befuellte
     Einstellungsdateien wuerden garantiert auseinanderlaufen, und gelesen wird
@@ -1016,11 +983,11 @@ def _set_storage_folder(value):
     # Ordner, den er vor Wochen verlassen hat. Ein falscher Zeiger ist
     # schlimmer als keiner.
     #
-    # ⚠⚠ **Und die zweite auch dann, wenn die erste scheitert** (29.09.2026).
+    # ⚠⚠ **Und die zweite auch dann, wenn die erste scheitert.**
     # Die erste liegt unter Dokumente — genau dort, wo Windows' überwachter
-    # Ordnerzugriff unbekannte Programme aussperrt. Stand der zweite Zeiger im
-    # selben `try`, kam aus so einem Ordner niemand mehr heraus: Der Umzug
-    # scheiterte still, bei jedem Versuch (gemeldet bei Parsul).
+    # Ordnerzugriff unbekannte Programme aussperrt. Stünde der zweite Zeiger im
+    # selben `try`, käme aus so einem Ordner niemand mehr heraus: Der Umzug
+    # scheiterte still, bei jedem Versuch.
     second_ok = _write_pointer(_second_pointer(), value)
     return first_ok or second_ok
 
@@ -1045,8 +1012,8 @@ def set_setting(name, value):
         replace_file(temp, target)
         return True
     except OSError as exc:
-        # ⚠ Niemand prüft den Rückgabewert dieser Funktion — geprüft am
-        # 26.08.2026, alle Aufrufer werfen ihn weg. Scheitert das Schreiben
+        # ⚠ Niemand prüft den Rückgabewert dieser Funktion — alle Aufrufer
+        # werfen ihn weg. Scheitert das Schreiben
         # (volle Platte, fehlende Rechte, Ordner weg), wäre die Einstellung
         # nach dem Neustart einfach wieder alt, ohne jeden Hinweis.
         _report_error('paths.set_setting', exc)
@@ -1057,8 +1024,8 @@ def setting_int(name, default, minimum=None, maximum=None):
     """Eine Zahl aus den Einstellungen, mit Grenzen.
 
     Unsinnige Werte werden auf den erlaubten Bereich gezogen statt abgelehnt:
-    Wer 0 einträgt, meint „so oft wie möglich" und soll kein Programm bekommen,
-    das die Platte durchdreht — aber auch keine Fehlermeldung."""
+    0 wird zum Minimum statt zu einem Programm, das die Platte durchdreht —
+    und auch nicht zu einer Fehlermeldung."""
     value = settings().get(name)
     try:
         number = int(value)
@@ -1165,9 +1132,8 @@ def game_folder():
         # ⚠ Und **neben** ihm. Wird LIVE in HOTFIX umbenannt (der uebliche Weg
         # zu einer ausgebesserten Fassung, siehe KANAELE), zeigt der eingetragene
         # Pfad ins Leere, waehrend der Nachbarordner danebensteht. Ohne diesen
-        # Zweig fand nur derjenige sein Spiel wieder, der es am Standardort
-        # installiert hat — wer es auf einer zweiten Platte liegen hat, stand
-        # ohne Grund vor „Star Citizen nicht gefunden".
+        # Zweig findet nur derjenige sein Spiel wieder, der es am Standardort
+        # installiert hat — nicht, wer es auf einer zweiten Platte liegen hat.
         parent = os.path.dirname(custom.rstrip(os.sep))
         if parent and os.path.isdir(parent):
             siblings = []
@@ -1334,10 +1300,9 @@ def channel_mismatch():
     den eingetragenen Ordner also nicht mehr.
 
     Ohne diese Meldung merkt das niemand: Der Watcher findet den Nachbarkanal
-    zwar von allein, liest dann aber stillschweigend woanders — oder er meldet
-    „Star Citizen nicht gefunden", obwohl in den Einstellungen ein Pfad steht.
-    Beides sieht für den Spieler nach einem kaputten Programm aus. Gemeldet von
-    Haldjas am 03.09.2026, der genau das getan und es danach vergessen hatte.
+    zwar von allein, liest dann aber stillschweigend woanders — oder er findet
+    das Spiel nicht, obwohl in den Einstellungen ein Pfad steht. Beides sieht
+    für den Spieler nach einem kaputten Programm aus.
 
     Gibt `(eingetragen, benutzt, alle_kanaele)` zurück; `benutzt` kann None
     sein, wenn gar nichts mehr gefunden wird.
@@ -1351,7 +1316,7 @@ def channel_mismatch():
     channels = available_channels()
     if not channels:
         return None                       # gar kein Kanal da — das ist die
-                                          # bekannte Meldung „nicht gefunden",
+                                          # bekannte Meldung, das Spiel fehlt;
                                           # dafür braucht es keine Auswahl
     used = game_folder()
     return (configured, used, channels)
@@ -1394,8 +1359,8 @@ def _launcher_from_registry():
     r"""Wo der RSI Launcher laut Windows installiert ist — oder None.
 
     ⚠ Feste Pfadlisten gehen genau dann schief, wenn jemand woanders
-    installiert hat. Genau das ist am 26.08.2026 passiert: Auf einem fremden Rechner
-    fehlte der Startknopf im Overlay, weil keiner der abgesuchten Orte passte.
+    installiert hat: Dann fehlt der Startknopf im Overlay, weil keiner der
+    abgesuchten Orte passt.
 
     Der Eintrag in der Deinstallations-Liste ist verlässlicher, hat aber zwei
     Tücken, die beide geprüft sind:
@@ -1407,7 +1372,7 @@ def _launcher_from_registry():
       dessen Ordner ergibt sich der Launcher.
 
     Gesucht wird in allen drei Zweigen — der Launcher trägt sich unter HKLM ein,
-    aber eine Installation nur für den angemeldeten Nutzer landet unter HKCU.
+    aber eine Installation nur für den aktuellen Nutzer landet unter HKCU.
     """
     if not WINDOWS:
         return None
@@ -1484,10 +1449,9 @@ def clean_environment():
     # `.exe` startet sich zweimal: Der Bootloader entpackt und startet sich
     # selbst als Kind — woran das Kind sich erkennt, steht in `_PYI_*` (früher
     # `_MEIPASS2`). Erbt ein NEU gestarteter Watcher diese Variablen, hält er
-    # sich für das Kind eines Bootloaders, prüft seinen „Vater" und bricht mit
-    # „Security validation failure: … parent process" ab. Im Echttest vom
-    # 11.09.2026 war das Update fertig eingespielt — und der Neustart
-    # scheiterte genau daran. Für jedes andere Programm sind die Variablen
+    # sich für das Kind eines Bootloaders, prüft seinen Vater und bricht mit
+    # `Security validation failure: … parent process` ab — der Neustart nach
+    # einem Update scheitert genau daran. Für jedes andere Programm sind die Variablen
     # ohnehin bedeutungslos.
     for name in list(env):
         if name.upper().startswith(('_PYI_', '_MEI')):
@@ -1525,9 +1489,8 @@ def open_in_browser(url):
     gestartete Systemprogramm lädt unsere Bibliotheken statt seiner eigenen und
     stirbt sofort — `webbrowser.open()` meldet trotzdem Erfolg, weil es nur das
     Starten prüft, nicht das Überleben. Für den Nutzer sieht das aus, als täte
-    der Knopf **gar nichts**: Genau so gemeldet am 30.08.2026 für „Kaffee
-    spendieren" und „Discord", und im Fehlerbericht stand dazu **keine Zeile**,
-    weil auch keine Ausnahme flog.
+    der Knopf **gar nichts**, und im Fehlerbericht steht dazu **keine Zeile**,
+    weil auch keine Ausnahme fliegt.
 
     Deshalb: `xdg-open` selbst starten, mit der Umgebung von `clean_environment()`,
     und kurz nachsehen, ob es überlebt. Erst danach `webbrowser` als Rückfall.
@@ -1595,12 +1558,9 @@ def game_starter():
         #     …\Roberts Space Industries\StarCitizen\LIVE   ← das Spiel
         #     …\Roberts Space Industries\RSI Launcher\      ← der Launcher
         #
-        # Vorher wurden nur feste Orte unter %LOCALAPPDATA% und %PROGRAMFILES%
-        # abgesucht. Bei Haldjas liegt das Spiel in
-        # `C:\Program Files\Roberts Space Industries\…` — der Launcher damit an
-        # einer Stelle, die nicht in der Liste stand, und der Knopf erschien gar
-        # nicht erst: „nicht sicher wo sich die funktion versteckt, aber ich hab
-        # sie nicht gefunden" (25.08.2026).
+        # Feste Orte unter %LOCALAPPDATA% und %PROGRAMFILES% verfehlen etwa
+        # `C:\Program Files\Roberts Space Industries\…` — dann erscheint der
+        # Knopf gar nicht erst.
         #
         # Vom Spielordner aus zu suchen trifft jede Installation, egal wohin sie
         # gelegt wurde — statt immer neue feste Pfade nachzutragen.
@@ -1636,16 +1596,10 @@ def game_starter():
                 return place
         return None
 
-    # ⚠ **Der `lug-helper` startet das Spiel nicht.** Hier stand er trotzdem —
-    # gefunden wurde er auch zuverlässig, nur ist er das falsche Programm. Sein
-    # `--help` kennt Präfix, Wine-Runner, DXVK und Launcher-Reparatur und
-    # **keine einzige Startoption**; ohne Argumente öffnet er sein
-    # Zenity-Verwaltungsmenü.
-    #
-    # Aufgefallen am 27.08.2026: Bomb20 meldete „das Starten von SC klappt
-    # nicht", der Autor sah dasselbe auf einem System, auf dem der Helper unter
-    # `/usr/bin/lug-helper` liegt — Knopf da, Meldung „Star Citizen wird
-    # gestartet …", und nichts geschah.
+    # ⚠ **Der `lug-helper` startet das Spiel nicht** — er ist das falsche
+    # Programm. Sein `--help` kennt Präfix, Wine-Runner, DXVK und
+    # Launcher-Reparatur und **keine einzige Startoption**; ohne Argumente
+    # öffnet er sein Zenity-Verwaltungsmenü.
     #
     # Gestartet wird über das Skript, das der Helper anlegt: `sc-launch.sh`,
     # direkt im Wine-Präfix. Und das Präfix steht immer über dem Spielordner:
@@ -1691,11 +1645,10 @@ def game_starter():
 def _start_command(starter):
     """Aus dem eingetragenen Text die Liste machen, die `Popen` braucht.
 
-    ⚠ **Ein Startbefehl ist nicht immer ein Dateiname.** Hier stand
-    `Popen([starter])` — damit gilt der ganze Text als **eine** Datei. Wer
+    ⚠ **Ein Startbefehl ist nicht immer ein Dateiname.** Mit
+    `Popen([starter])` gilt der ganze Text als **eine** Datei: Bei
     `flatpak run org.starcitizen-lug.Helper` oder `lutris rungame/star-citizen`
-    einträgt, bekommt „Datei nicht gefunden", weil nach einer Datei mit
-    Leerzeichen im Namen gesucht wird.
+    wird nach einer Datei mit Leerzeichen im Namen gesucht, die es nicht gibt.
 
     `shlex.split` zerlegt so, wie eine Shell es täte — samt
     Anführungszeichen für Pfade mit Leerzeichen.
@@ -1717,9 +1670,9 @@ def _start_command(starter):
 def start_game():
     """Star Citizen starten. Gibt (True, '') oder (False, Grund) zurück.
 
-    ⭐ Seit v3.58.0-rc4 mit den Startprogrammen (`start_programs`): Ein
-    Eintrag „RSI Launcher überspringen" tritt an die Stelle des Launchers,
-    Einträge „mit dem RSI Launcher" starten nach ihm. Lokal geladen — `paths`
+    ⭐ Mit den Startprogrammen (`start_programs`): Ein Eintrag, der den RSI
+    Launcher überspringt, tritt an seine Stelle; Einträge, die mit ihm laufen,
+    starten nach ihm. Lokal geladen — `paths`
     wird sehr früh importiert."""
     from . import start_programs
     instead = start_programs.replacement()
@@ -1763,25 +1716,23 @@ def game_log(folder=None):
 # ⚠ Star Citizen schreibt im Sekundentakt — auch im Hauptmenü, auch beim
 # Herumstehen. Fünf Minuten sind deshalb sehr großzügig gewählt: Sie decken
 # einen hängenden Ladebildschirm ab und liegen trotzdem weit unter der Zeit,
-# nach der ein Mensch fragt „warum steht da noch läuft?".
+# nach der eine veraltete Anzeige auffällt.
 GAME_IDLE_SEC = 300
 
 
 def game_running(folder=None):
     """Schreibt das Spiel gerade noch — läuft es also?
 
-    ⚠⚠ **Wozu das gebraucht wird (05.09.2026).** Das Auftrags-Protokoll führte
-    einen Auftrag als „läuft", während das Spiel längst geschlossen war: Wer
-    sich ausloggt, ohne abzugeben oder abzubrechen, hinterlässt kein
-    Ende-Ereignis im Log. Gemeldet mit „Spiel ist aus, und die Quest die da
-    auf läuft steht ist von gestern nacht".
+    ⚠⚠ **Wozu das gebraucht wird.** Wer sich ausloggt, ohne abzugeben oder
+    abzubrechen, hinterlässt kein Ende-Ereignis im Log — das
+    Auftrags-Protokoll führte den Auftrag sonst als „läuft", obwohl das Spiel
+    geschlossen ist.
 
-    ⚠ **Der Zustand ist trotzdem richtig, nur das Wort war es nicht.** Der
-    Auftrag ist im Spiel weiter angenommen — beim nächsten Einloggen meldet
-    Star Citizen ihn erneut. Ihn zu beenden wäre also falsch. Falsch war
-    „läuft": Das behauptet „jetzt gerade". Mit dieser Auskunft heißt derselbe
-    Zustand bei geschlossenem Spiel „noch offen", und das stimmt in beiden
-    Fällen.
+    ⚠ **Der Zustand ist trotzdem richtig, nur das Wort nicht.** Der Auftrag
+    ist im Spiel weiter angenommen — beim nächsten Einloggen meldet Star
+    Citizen ihn erneut. Ihn zu beenden wäre also falsch. „läuft" behauptet
+    aber Gegenwart. Mit dieser Auskunft heißt derselbe Zustand bei
+    geschlossenem Spiel „noch offen", und das stimmt in beiden Fällen.
 
     ⚠ Bewusst über die Schreibzeit der Datei und nicht über die Prozessliste:
     Das ist auf jedem System gleich, braucht keine Sonderrechte und geht
@@ -1807,14 +1758,8 @@ def log_backups(folder=None):
 
     ⚠⚠ **Auch die Protokolle der NACHBARKANÄLE.** Wer von HOTFIX auf LIVE
     wechselt (oder von PTU zurück), lässt seine ganze Vorgeschichte im anderen
-    Ordner liegen — der Watcher sah davon nichts, obwohl es dieselbe Person mit
-    demselben Spielstand ist.
-
-    Am 05.09.2026 gemeldet: Nach einem Wechsel von HOTFIX auf LIVE kamen aus
-    221 Protokollen nur **drei** Baupläne heraus, weil die übrigen im
-    HOTFIX-Ordner lagen. Dazu: „er hat im HOTFIX noch alle logs liegen … können
-    wir die aus allen Ordner also Live und HOTFIX in die log durchsuchung
-    einbeziehen?"
+    Ordner liegen — ohne diesen Blick sähe der Watcher davon nichts, obwohl
+    es dieselbe Person mit demselben Spielstand ist.
 
     ⚠⚠ **Nur LIVE und HOTFIX** — siehe `SHARED_STOCK_CHANNELS`. PTU, EPTU und
     TECH-PREVIEW laufen auf eigenen Spielständen; ihre Baupläne hat man auf
@@ -1970,11 +1915,10 @@ _CREDENTIAL_RE = re.compile(
 # (`refresh_token=…` am Anfang eines Formulars oder nach einem Leerzeichen).
 _FORM_SECRET_RE = re.compile(
     r'(\b(?:refresh_token|access_token|device_code|client_secret)=)[^&\s]+')
-# ⭐ Seit v3.60.0 (Basetool): alles, was wie ein JWT aussieht — Zugangs- und
+# ⭐ Basetool: alles, was wie ein JWT aussieht — Zugangs- und
 # Erneuerungs-Token und DPoP-Nachweise beginnen mit `eyJ` (das ist `{"` in
-# Base64) und haben drei Teile. Dazu die Kopfzeilen, in denen sie reisen.
-# Verlangt von gelucs Sicherheitsanforderungen: „Redact Authorization and DPoP
-# headers and anything shaped like a JWT from everything you collect."
+# Base64) und haben drei Teile. Dazu die Kopfzeilen `Authorization` und
+# `DPoP`, in denen sie reisen (Sicherheitsanforderung des Basetools).
 _JWT_RE = re.compile(r'eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*')
 _AUTH_HEADER_RE = re.compile(
     r'((?:Authorization|DPoP|DPoP-Nonce|Idempotency-Key)\s*[:=]\s*)'
@@ -1984,7 +1928,7 @@ _AUTH_HEADER_RE = re.compile(
 def _redact_secrets(text):
     """Zugangsdaten aus einem Text nehmen, der öffentlich werden kann.
 
-    ⚠⚠ **Warum das nötig ist — gemessen, nicht vermutet (05.09.2026).** Der
+    ⚠⚠ **Warum das nötig ist — gemessen, nicht vermutet.** Der
     Fehlerbericht landet in einem öffentlichen Issue. `absenden()` gibt den
     Grund eines gescheiterten Sendeversuchs bewusst nicht zurück, weil die
     Adresse geheim ist — schreibt die Ausnahme aber eine Zeile darüber mit
@@ -2051,21 +1995,19 @@ if __name__ == '__main__':
 # typografische und die französischen. Beim Vergleichen werden sie auf ein
 # einfaches `'` gezogen.
 #
-# ⚠⚠ **Vollständig halten — eine Lücke fällt nie von allein auf.** Bis zum
-# 30.08.2026 fehlte ausgerechnet das **öffnende** typografische
-# Anführungszeichen `\u201c`. Aus `SW16BR1 “Buzzsaw” Repeater` wurde dadurch
-# `sw16br1 “buzzsaw' repeater` — das schließende war angeglichen, das öffnende
-# nicht. Drei Baupläne im Katalog tragen es, und keiner von ihnen konnte je zu
-# einem Fund aus einer anderen Quelle passen. Gefunden beim Abgleich
-# einer von Hand geführten Bauplanliste gegen den Katalog, nicht durch eine
-# Meldung: Der Bauplan gilt einfach als „fehlt", und niemand kommt auf die Idee,
-# dass ein Anführungszeichen daran schuld ist.
+# ⚠⚠ **Vollständig halten — eine Lücke fällt nie von allein auf.** Fehlt etwa
+# das **öffnende** typografische Anführungszeichen `\u201c`, wird aus
+# `SW16BR1 “Buzzsaw” Repeater` ein `sw16br1 “buzzsaw' repeater` — das
+# schließende angeglichen, das öffnende nicht. Ein solcher Bauplan passt nie
+# zu einem Fund aus einer anderen Quelle
+# und gilt einfach als fehlend; dass ein Anführungszeichen schuld ist, sieht
+# man ihm nicht an.
 #
 # Prüfung 80 im Selbsttest zieht alle hier gelisteten Zeichen durch
 # `namensform()` und verlangt dasselbe Ergebnis.
 QUOTES = str.maketrans({
     '"': "'",
-    '\u201c': "'",      # “  oeffnend, typografisch — fehlte bis 30.08.2026
+    '\u201c': "'",      # “  oeffnend, typografisch
     '\u201d': "'",      # ”  schliessend, typografisch
     '\u201e': "'",      # „  deutsches oeffnendes unten
     '\u2018': "'",      # ‘  einfach, oeffnend
@@ -2081,16 +2023,11 @@ QUOTES = str.maketrans({
 # Der Klassen-Zusatz am Namensende — `7CA 'Nargun' (Civ/3/A)`, `XL-1 (Mil/2/A)`,
 # `P4-AR Rifle (Bal)`, `'Arrow' I Missile (IR1)`.
 #
-# ⚠ **Warum das hierher gehört und nicht nur ins Log-Lesen.** Bis zum 28.08.2026
-# schnitt nur `logsource.split_names()` den Zusatz ab. Namen aus der
-# **Launcher-Datei** und aus **Importen** (Basetool, scmdb, eigene Sicherung)
-# gingen ungeschnitten in den Bestand — und `XL-1 (Mil/2/A)` findet `XL-1` nie.
-# Der Bauplan galt als fehlend, obwohl er dastand.
-#
-# Aufgefallen an Morkhan: Er hatte die Baupläne gemeinsam mit dem Autor gefarmt,
-# hatte den SC Deutsch Launcher mit gepflegter Datei — und im Spiel standen die
-# Kästchen trotzdem leer. Gemeldet: „vergleich doch mal die Logik, was habe ich,
-# mit meiner BP-Liste, und hör auf zu raten."
+# ⚠ **Warum das hierher gehört und nicht nur ins Log-Lesen.** Schneidet nur
+# `logsource.split_names()` den Zusatz ab, gehen Namen aus **Importen**
+# (Basetool, scmdb, eigene Sicherung) ungeschnitten in den Bestand — und
+# `XL-1 (Mil/2/A)` findet `XL-1` nie. Der Bauplan gälte als fehlend, obwohl
+# er dasteht.
 #
 # Bewusst eng: Nur die bekannten Kürzel, damit echte Namensklammern wie
 # `Singe Cannon (S2)` oder `(30 cap)` stehen bleiben. Die Liste muss zu
@@ -2106,16 +2043,14 @@ CLASS_CODE_RE = re.compile(
 # \u26a0\u26a0 **MrKraken StarStrings stellt dasselbe K\u00fcrzel VORAN \u2014 ohne Klammern.**
 # Wer StarStrings einsetzt, hat im Spiel `Ind/2/B Citadel` stehen, wo der
 # Katalog `Citadel` kennt; die uebliche Schreibweise waere `Citadel (Ind/2/B)`.
-# `CLASS_CODE_RE` oben faengt nur die Klammerform. Die vorangestellte blieb stehen,
-# der Name fand seinen Katalog-Eintrag nicht und galt als \u201enicht im Katalog".
+# `CLASS_CODE_RE` oben faengt nur die Klammerform. Ohne diesen Ausdruck bliebe
+# die vorangestellte stehen, und der Name faende seinen Katalog-Eintrag nicht.
 #
-# Gemessen am 04.09.2026 in der ausgelieferten StarStrings-Datei: **465**
-# Eintraege in dieser Form \u2014 Kuehler, Schilde, Kraftwerke. Bei einem Melder
-# waren vier von 26 Bauplaenen betroffen, also jeder sechste.
+# Gemessen in der ausgelieferten StarStrings-Datei: **465** Eintraege in
+# dieser Form \u2014 Kuehler, Schilde, Kraftwerke.
 #
-# \u26a0 Es liegt NICHT an der Spielsprache. Das war der erste Verdacht (der Melder
-# spielt auf Englisch), und er war falsch \u2014 er benutzt StarStrings, und das
-# schreibt die Namen so. Wer hier etwas aendert, prueft es an der echten Datei
+# \u26a0 Es liegt NICHT an der Spielsprache, sondern an StarStrings, das die
+# Namen so schreibt. Wer hier etwas aendert, prueft es an der echten Datei
 # nach (`tools/starstrings_pruefen.py` zeigt, woher sie kommt).
 #
 # Genauso eng gehalten wie oben: nur die bekannten Kuerzel, nur am Anfang, und
@@ -2131,9 +2066,9 @@ CLASS_CODE_PREFIX_RE = re.compile(
 # ⚠ **Warum das Wort weg muss und die Zahl bleibt.** Der SC Deutsch Launcher
 # liest den **englischen** Katalog und schreibt `Ravager-212 Twin Shotgun
 # Magazine (16 cap)`. Die **Log-Nachlese** liest dieselbe Kiste in der Sprache,
-# in der das Spiel laeuft — bei der Autor auf Deutsch: `... (16 Schuss)`.
+# in der das Spiel laeuft — auf Deutsch: `... (16 Schuss)`.
 # Ergebnis: derselbe Bauplan zweimal im Bestand, und die angezeigte Zahl ist zu
-# hoch. Gemessen am 29.08.2026 an einem echten Bestand: 405 angezeigt, 403 echt.
+# hoch.
 #
 # Die **Zahl** ist Teil der Identitaet — ein 40er- und ein 60er-Magazin sind
 # verschiedene Bauplaene. Deshalb wird `(16 Schuss)` zu `(16)`, nicht zu nichts.

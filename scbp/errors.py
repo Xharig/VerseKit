@@ -17,15 +17,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Fehler mitschreiben, damit aus „geht nicht" ein Befund wird.
+Fehler mitschreiben, damit aus einer vagen Beschreibung ein Befund wird.
 
 **Das Problem, das dieses Modul löst:** Im Programm stehen über 60 Stellen, die
 `except Exception` abfangen und weitermachen. Das ist richtig so — ein Overlay
-darf nicht abstürzen, weil eine Netzabfrage klemmt. Nur war der Fehler danach
-**spurlos weg**: Wer „bei mir kommt nichts an" meldet, hatte nichts zu schicken,
-und hier war nichts nachzustellen.
+darf nicht abstürzen, weil eine Netzabfrage klemmt. Nur wäre der Fehler danach
+**spurlos weg**, und es gäbe nichts zu schicken und nichts nachzustellen.
 
-Ab jetzt landet jeder unerwartete Fehler in `fehler.json` im eigenen Ordner —
+Deshalb landet jeder unerwartete Fehler in `fehler.json` im eigenen Ordner —
 mit Zeitpunkt, Stelle, Art und Meldung. Aufgehoben werden die **letzten 50**;
 alles ältere fällt hinten heraus, damit die Datei nicht wächst.
 
@@ -96,10 +95,9 @@ def trail(step):
     """Festhalten, wie weit der Start gekommen ist — überlebt einen Absturz.
 
     ⚠ Wozu: Ein `SIGSEGV` beendet den Prozess **sofort**. Kein `except` greift,
-    kein Fehlerbericht wird geschrieben, und der Nutzer kann nur sagen „es stürzt
-    ab". Genau das ist am 25.08.2026 passiert: Ein Tester meldete einen Absturz
-    beim ersten Start, reproduzierbar bei ihm — und auf dem Entwicklungsrechner
-    ließ er sich nicht nachstellen. Ohne Spur bleibt nur Raten.
+    kein Fehlerbericht wird geschrieben, und der Nutzer kann nur den Absturz
+    beschreiben. Lässt er sich anderswo nicht nachstellen, bleibt ohne Spur
+    nur Raten.
 
     Deshalb schreibt jeder Startschritt eine Zeile, **sofort auf die Platte**
     (`flush` + `fsync`, sonst steht bei einem Absturz nur ein leerer Puffer da).
@@ -163,13 +161,12 @@ def _trim_trail(path):
 
 # Die letzte Zeile des Starts. Alles danach ist Bedienung.
 #
-# ⚠ Warum ein fester Satz und keine Liste von Vorsilben: Bis rc42 galt die
-# umgekehrte Regel — „was mit ‚Seite ‘ anfängt, ist Bedienung, alles andere ist
-# Start". Das hält nur, solange niemand woanders im Programm einen neuen
-# Spur-Aufruf einbaut. Genau das passierte: `Liste: zeichnen beginnt` aus der
-# Bauplan-Liste galt als Startschritt und verdrängte mit zwölf gleichen Zeilen
-# den kompletten Startverlauf aus dem Bericht (rc42, 30.08.2026) — ausgerechnet
-# den Teil, für den die Spur gebaut wurde.
+# ⚠ Warum ein fester Satz und keine Liste von Vorsilben: Eine Regel wie „was
+# mit `Seite ` anfängt, ist Bedienung, alles andere ist Start" hält nur,
+# solange niemand woanders im Programm einen neuen Spur-Aufruf einbaut. Sonst
+# gilt etwa `Liste: zeichnen beginnt` als Startschritt und verdrängt mit
+# zwölf gleichen Zeilen den kompletten Startverlauf aus dem Bericht —
+# ausgerechnet den Teil, für den die Spur gebaut ist.
 #
 # Der Start endet an genau **einer** Stelle: wenn die Hauptschleife anläuft.
 # Dort wird getrennt. Ein neuer Spur-Aufruf irgendwo im laufenden Programm kann
@@ -206,10 +203,9 @@ def split_trail():
     """Die Spur in zwei Teile: (Startschritte, Seitenwechsel).
 
     ⚠ Wozu die Trennung: Der Bericht zeigt nur die letzten Zeilen, sonst wird
-    er unlesbar. Seit die Bedienung mitschreibt, drängten schon **fünf Klicks**
+    er unlesbar. Da die Bedienung mitschreibt, drängten schon **fünf Klicks**
     den kompletten Startverlauf hinaus — und genau der ist der Grund, warum es
-    die Spur überhaupt gibt. Im ersten rc74-Bericht (27.08.2026) stand kein
-    einziger Startschritt mehr. Beide Teile werden deshalb getrennt gedeckelt.
+    die Spur überhaupt gibt. Beide Teile werden deshalb getrennt gedeckelt.
 
     Getrennt wird an `TRAIL_BOUNDARY` — siehe die Begründung dort.
     """
@@ -227,10 +223,10 @@ CRASH_PREVIOUS = 'absturz-letzter.txt'
 # daneben, weil `faulthandler` in die Absturzdatei schreibt und eine Kopfzeile
 # dort jeden sauberen Lauf wie einen Absturz aussehen ließe (Größe > 0).
 #
-# ⚠ Wozu: Die Absturzdatei überlebt beliebig viele Updates. Am 21.09.2026
-# stand im Bericht aus 3.55.0 ein Abbruch vom 12.09. — aus einer Fassung vor
-# 3.43, deren Ursache längst ausgebaut war. Erkennbar war das nur an alten
-# Dateinamen im Aufrufweg; die Fehlerliste darunter trägt ihre Fassung längst.
+# ⚠ Wozu: Die Absturzdatei überlebt beliebig viele Updates. Ohne Fassung
+# stünde im Bericht ein Abbruch aus einer alten Fassung, deren Ursache längst
+# ausgebaut ist, und erkennbar wäre das nur an alten Dateinamen im Aufrufweg.
+# Die Fehlerliste darunter trägt ihre Fassung ebenso.
 CRASH_VERSION_FILE = 'absturz-fassung.txt'
 CRASH_VERSION_PREVIOUS = 'absturz-letzter-fassung.txt'
 
@@ -245,13 +241,9 @@ def install_crash_handler(version=''):
     ⚠ Wozu, obwohl es `install_hooks` schon gibt: Die drei Haken dort fangen
     **Python**-Ausnahmen. Ein `SIGSEGV` aus der Tk-Bibliothek ist keine —
     der Prozess ist weg, mitten im Befehl. Es gibt dann keinen Fehlereintrag,
-    keine Meldung, nichts; der Nutzer kann nur sagen „es stürzt ab".
-
-    Genau dieser Fall ist zweimal aufgetreten: am 25.08.2026 beim ersten Start
-    (zwei Tk-Instanzen) und am 27.08.2026 beim Öffnen von „Was ist neu" —
-    beide Male reproduzierbar beim Melder, beide Male auf dem
-    Entwicklungsrechner nicht nachstellbar, und beide Male stand im
-    Diagnose-Bericht **kein Wort** davon.
+    keine Meldung, nichts; der Nutzer kann nur den Absturz beschreiben, und
+    im Diagnose-Bericht steht **kein Wort** davon (etwa bei zwei
+    Tk-Instanzen).
 
     `faulthandler` schreibt beim Signal den C-nahen Aufrufweg aller Fäden in
     eine Datei — die einzige Spur, die ein solcher Abbruch hinterlässt. Beim
@@ -311,8 +303,8 @@ def crash_time():
     """Wann der festgehaltene Abbruch geschah — als Zeitstempel, oder None.
 
     ⚠ Die Datei bleibt liegen, bis ein neuer Abbruch sie ersetzt. Ohne Datum
-    stand ein Absturz vom 12.09.2026 am 16.09. noch als „beim vorigen Lauf" im
-    Bericht — aus einer Fassung, deren Dateinamen es längst nicht mehr gab.
+    stünde ein tagealter Absturz noch als Abbruch des vorigen Laufs im
+    Bericht.
     """
     try:
         return os.path.getmtime(paths.app_file(CRASH_PREVIOUS))
@@ -334,7 +326,7 @@ def crash_version():
 
 
 def clear_crash():
-    """Den festgehaltenen Abbruch wegräumen — er ist gemeldet und erledigt."""
+    """Den festgehaltenen Abbruch wegräumen — er ist berichtet und erledigt."""
     try:
         os.remove(paths.app_file(CRASH_PREVIOUS))
     except Exception:

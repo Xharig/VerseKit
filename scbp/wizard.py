@@ -33,12 +33,12 @@ Einstellungsfenster setzt voraus, dass man weiß, wonach man sucht.
     7. Texte        Übersetzung holen und die Angaben eintragen
     8. Fertig       was jetzt passiert, und wo die Liste steckt
 
-⭐ **Die wichtigsten Einstellungen gehören in den Assistenten** (17.09.2026).
+⭐ **Die wichtigsten Einstellungen gehören in den Assistenten.**
 Wer sie nur unter *Einstellungen* findet, lebt mit den Voreinstellungen — und
 erfährt nie, dass das Overlay auch nur bei einem Neuzugang aufblenden kann.
 Thematisch auf drei Karten verteilt, damit keine Seite eine Liste wird.
 
-⚠ **„Angaben" steht VOR „Texte".** Der Texte-Schritt trägt die Angaben gleich
+⚠ **Der Schritt Angaben steht VOR dem Schritt Texte.** Der Texte-Schritt trägt die Angaben gleich
 ein — mit den Schaltern, die davor gewählt wurden. Umgekehrt stünde nach dem
 Ausschalten schon etwas in der Datei.
 
@@ -67,12 +67,11 @@ SUB     = theme.SUB
 ACCENT  = theme.ACCENT
 GELB    = theme.YELLOW
 
-# ⛔ **Hier standen die Schriftstufen `klein/normal/gross/sehrgross`** — seit
-# dem 28.09.2026 nicht mehr. Der Assistent bietet dieselben Voreinstellungen an
-# wie die Seite *Darstellung* (`main_window.FONT_PRESETS`: Auto, Full HD, WQHD,
-# UHD 125 %, UHD 150 %). Zwei Namen für dieselbe Sache waren genau das, was die
-# Symmetrie-Regel verhindern soll. Die Stufen selbst gibt es weiter — sie sind
-# nur kein Auswahlmenü mehr, sondern das Ergebnis der Punktzahl
+# ⛔ **Keine Schriftstufen `klein/normal/gross/sehrgross` zur Auswahl.** Der
+# Assistent bietet dieselben Voreinstellungen an wie die Seite *Darstellung*
+# (`main_window.FONT_PRESETS`: Auto, Full HD, WQHD, UHD 125 %, UHD 150 %).
+# Zwei Namen für dieselbe Sache verletzen die Symmetrie-Regel. Die Stufen
+# selbst gibt es weiter — sie sind kein Auswahlmenü, sondern das Ergebnis der Punktzahl
 # (`main_window.level_for_points`).
 
 
@@ -118,9 +117,9 @@ class Wizard:
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
-        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
-        # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
-        # weil es modal war, ließ sich das Programm nicht einmal beenden.
+        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen kann das
+        # Fenster so außerhalb des sichtbaren Bereichs landen; weil es modal
+        # ist, ließe sich das Programm dann nicht einmal beenden.
         #
         # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
@@ -178,7 +177,7 @@ class Wizard:
         ⚠ Eine Liste statt fester Nummern: Ohne Spielordner fallen drei
         Schritte weg, und wo es weder Autostart noch ein Ablagesymbol gibt,
         entfällt die Start-Karte. Mit festen Nummern stünde dort eine leere
-        Seite, und der Zähler „Schritt 5 von 8" löge.
+        Seite, und der Schrittzähler löge.
         """
         steps = ['sprache', 'ablage', 'spiel']
         if not self.ohne_spielordner:
@@ -219,13 +218,10 @@ class Wizard:
     def _fit_window(self):
         """Das Fenster auf den Schritt einstellen, der gerade gezeichnet wurde.
 
-        ⚠⚠ **Feste 640 × 600 reichen nicht mehr** (28.09.2026). Der Schritt
-        „Bauplan-Angaben" zeigt seit dieser Fassung vierzehn Übersetzungen und
-        darunter das Feld für die eigene Adresse — das Feld lag **unterhalb des
-        Fensterrands**, und man kam nur daran, indem man das Fenster größer
-        zog. Gemeldet mit dem einzig richtigen Maßstab: *„das findet niemand und
-        wird denken, es sei kaputt, und holt sich ein anderes Tool, was nicht
-        kaputt ist."*
+        ⚠⚠ **Feste 640 × 600 reichen nicht.** Der Schritt mit den
+        Bauplan-Angaben zeigt vierzehn Übersetzungen und darunter das Feld für
+        die eigene Adresse — bei fester Größe liegt das Feld **unterhalb des
+        Fensterrands**.
 
         Ein Assistent, bei dem man am Fensterrahmen ziehen muss, um an ein
         Eingabefeld zu kommen, ist kaputt — auch wenn jede einzelne Zeile
@@ -242,8 +238,7 @@ class Wizard:
         besser als ein abgeschnittener Rand ohne Grenze.
 
         ⚠ `minsize()` zieht mit — Tk setzt eine kleinere `geometry()` sonst
-        schlicht nicht durch. Dieselbe Falle hat das Overlay schon einmal
-        außerhalb des Bildschirms landen lassen.
+        schlicht nicht durch.
         """
         try:
             self.root.update_idletasks()
@@ -251,10 +246,10 @@ class Wizard:
                          self.buehne.winfo_reqwidth(),
                          self.kopf.winfo_reqwidth())
             # ⚠⚠ **Nur Wunschmaße addieren, nie mit der aktuellen Größe
-            # mischen.** Der erste Anlauf rechnete die Fußhöhe als
-            # `root.winfo_height() - buehne - kopf` — und die Bühne trug beim
-            # Messen noch die Größe des **vorigen** Schritts. Nach einem hohen
-            # Schritt blieb das Fenster hoch, und „Fertig" stand in einer
+            # mischen.** Eine Fußhöhe aus
+            # `root.winfo_height() - buehne - kopf` ist falsch — die Bühne trägt
+            # beim Messen noch die Größe des **vorigen** Schritts. Nach einem
+            # hohen Schritt bliebe das Fenster hoch, und „Fertig" stünde in einer
             # halbleeren Fläche. Drei Wunschmaße, mehr braucht es nicht.
             hoehe = max(self.MIN_SIZE[1],
                         self.kopf.winfo_reqheight()
@@ -294,12 +289,11 @@ class Wizard:
         tk.Label(text, text=hint, bg=BG, fg=SUB, font=font(9), anchor='w',
                  justify='left', wraplength=400 if not below else 560).pack(fill='x')
         if below:
-            # ⚠⚠ **Im Textblock anlegen, nicht nur hineinpacken.** Bis v3.50.0
-            # war die Auswahlreihe ein Geschwister des Textblocks und wurde mit
-            # `pack(in_=text)` hineingesetzt. Tk zeichnet aber nach der
-            # Reihenfolge des Anlegens: Der später angelegte Textblock lag
-            # darüber, und Overlay-Modus und Schriftgröße standen als leere
-            # Lücke da — auswählen ließ sich nichts (gemeldet 17.09.2026).
+            # ⚠⚠ **Im Textblock anlegen, nicht nur hineinpacken.** Als
+            # Geschwister des Textblocks mit `pack(in_=text)` hineingesetzt,
+            # verschwindet die Auswahlreihe: Tk zeichnet nach der Reihenfolge
+            # des Anlegens, der später angelegte Textblock liegt darüber, und
+            # es bleibt eine leere Lücke, in der sich nichts auswählen lässt.
             control = tk.Frame(text, bg=BG)
             control.pack(anchor='w', pady=(6, 0))
         return control
@@ -359,12 +353,10 @@ class Wizard:
                       paths.setting('overlay_modus') or 'immer',
                       lambda k: self._set('overlay_modus', k))
 
-        # ⚠⚠ **Dieselben Voreinstellungen wie unter „Darstellung"** (28.09.2026).
-        # Hier standen noch die alten vier Stufen „Klein / Normal / Groß / Sehr
-        # groß" (`FONT_CHOICES`), während die Einstellungsseite seit v3.58.0
-        # **Auto / Full HD / WQHD / UHD 125 % / UHD 150 %** anbietet und einen
-        # stufenlosen Regler dazu. Zwei Namen für dieselbe Sache, je nachdem wo
-        # man hinsieht — genau das, was die Symmetrie-Regel verhindern soll.
+        # ⚠⚠ **Dieselben Voreinstellungen wie auf der Seite Darstellung:**
+        # **Auto / Full HD / WQHD / UHD 125 % / UHD 150 %**, nicht die vier
+        # Stufen aus `FONT_CHOICES`. Zwei Namen für dieselbe Sache, je nachdem
+        # wo man hinsieht, verletzen die Symmetrie-Regel.
         #
         # ⚠ `set_font_size` wirkt **sofort** auf das ganze Fenster, also auch
         # auf den Assistenten selbst. Das ist hier erwünscht: Man sieht beim
@@ -415,20 +407,17 @@ class Wizard:
         ziel = self._row(f, t('s_zeit'), t('as_zeit_h'))
         self._switch(ziel, 'spielzeit_zeigen', False)
 
-        # ⭐ Farbschema (28.09.2026). Es gibt sechs seit v3.58.0 — wer den
-        # Assistenten durchläuft, hat sie bis dahin nie gesehen und findet sie
-        # erst, wenn er die Einstellungen durchsucht.
+        # ⭐ Farbschema. Es gibt sechs — ohne diese Karte fände man sie erst
+        # beim Durchsuchen der Einstellungen.
         #
         # ⚠ Nur merken, nicht umfärben: Jedes Fenster hält die Farben als
         # Konstanten; ein halb umgefärbtes Programm wäre schlimmer als ein
         # ehrlicher Neustart (siehe `pages._appearance_page`). Beim ersten
         # Start stört das nicht — danach wird ohnehin neu gestartet.
         #
-        # ⚠⚠ **Mit Vorschau, nicht als Textknöpfe** (28.09.2026, v3.60.0-rc5).
-        # rc4 hat `pages._scheme_cards(compact=True)` genau dafür gebaut — und
-        # hier stand weiter `_choices` mit den bloßen Namen. Der Baustein war
-        # da, nur nicht eingehängt. Gemeldet mit der Frage, ob ein Neuling
-        # überhaupt sieht, wie es aussehen würde: Nein, sah er nicht.
+        # ⚠⚠ **Mit Vorschau, nicht als Textknöpfe** —
+        # `pages._scheme_cards(compact=True)` statt `_choices` mit den bloßen
+        # Namen. Nur so sieht ein Neuling, wie ein Schema aussieht.
         from . import theme as theme_modul
         from .pages import _scheme_cards
         ziel = self._row(f, t('s_da_schema'), t('as_schema_h'), below=True)
@@ -445,14 +434,13 @@ class Wizard:
         self.scheme_cards = cards
         self.controls[theme_modul.SETTING] = pick_scheme
 
-        # ⭐ Welche Baupläne zählen (28.09.2026, Wunsch: „Abfrage welche BP man
-        # sehen will, alle oder nur erspielbare?"). Die Einstellung gibt es
-        # seit v3.60.0 unter *Erkennung* — hier wird sie einmal bewusst
-        # entschieden, statt sie zu finden.
+        # ⭐ Welche Baupläne zählen: alle oder nur erspielbare. Die Einstellung
+        # gibt es auch unter *Erkennung* — hier wird sie einmal bewusst
+        # gewählt, statt sie suchen zu müssen.
         #
-        # ⚠ Als zwei benannte Knöpfe statt als Schalter: „Nur erspielbare" und
-        # „Alle herstellbaren" sagen beide, was sie bedeuten. Ein Schalter
-        # hieße „an/aus" von etwas, das man erst lesen muss.
+        # ⚠ Als zwei benannte Knöpfe statt als Schalter: Beide Beschriftungen
+        # sagen, was sie bedeuten. Ein Schalter hieße an/aus von etwas, das
+        # man erst lesen muss.
         from . import catalog as katalog_modul
         ziel = self._row(f, t('as_umfang'), t('as_umfang_h'), below=True)
         self._choices(
@@ -534,12 +522,11 @@ class Wizard:
     def _step_storage(self):
         """Wo die Daten liegen — gefragt, nicht still genommen.
 
-        ⚠⚠ Bis v3.62.1 nahm Verse-Kit ungefragt den Dokumente-Ordner. Bei
-        Parsul (29.09.2026) lag der in OneDrive und war für das Programm
-        gesperrt: Einstellungen, Bestand, Statistik, Bergbau-Daten — nichts
-        ließ sich speichern, und nicht einmal das Fehlerprotokoll sagte es.
-        Deshalb wird hier gefragt und **vor** dem Weiter geprüft, ob sich dort
-        schreiben lässt.
+        ⚠⚠ Der Dokumente-Ordner kann in OneDrive liegen und für das Programm
+        gesperrt sein: Einstellungen, Bestand, Statistik, Bergbau-Daten —
+        nichts ließe sich speichern, und nicht einmal das Fehlerprotokoll sagte
+        es. Deshalb wird hier gefragt und **vor** dem Weiter geprüft, ob sich
+        dort schreiben lässt.
         """
         self.titel.configure(text=t('schritt_ablage'))
         f = self._area()
@@ -563,7 +550,7 @@ class Wizard:
         self.ablage_meldung.pack(fill='x', pady=(10, 0))
         # ⚠ Geprüft wird beim Öffnen, nach „Durchsuchen" und beim Weiter — NICHT
         # bei jedem Tastendruck: Die Probe legt den Ordner an, und aus
-        # „D:\Ver" würde sonst ein echter Ordner „D:\Ver".
+        # einer halb getippten Eingabe wie `D:\Ver` würde sonst ein echter Ordner.
         self._check_storage()
 
     def _choose_storage(self):
@@ -643,12 +630,10 @@ class Wizard:
             # ⚠ Ohne diesen Ausweg sitzt fest, wer Star Citizen nicht auf
             # diesem Rechner hat: Der Weiter-Knopf bleibt grau, und weil
             # `needed()` am fehlenden Spielordner hängt, kommt der Assistent
-            # bei jedem Start wieder. Genau so ging es beim Ansehen auf einem
-            # Zweitrechner — man kam nie über diese Seite hinaus.
+            # bei jedem Start wieder — man käme nie über diese Seite hinaus.
             # ⚠ Als schlichter grauer Text sieht das aus wie ein Hinweis, nicht
-            # wie etwas zum Anklicken — genau so wurde er beim Ausprobieren
-            # übersehen. Deshalb unterstrichen und in der Akzentfarbe: Das ist
-            # im Haus die Auszeichnung für „hier kann man klicken".
+            # wie etwas zum Anklicken. Deshalb unterstrichen und in der
+            # Akzentfarbe: Das ist im Programm die Auszeichnung für Anklickbares.
             ohne = tk.Label(f, text='→  ' + t('ohne_spiel'), bg=BG, fg=ACCENT,
                             font=font(10, unterstrichen=True),
                             cursor='hand2')
@@ -750,24 +735,19 @@ class Wizard:
         self.inj_meldung = tk.Label(f, text='', bg=BG, fg=SUB, font=font(10),
                                     anchor='w', justify='left', wraplength=560)
 
-        # ⚠⚠ **Die Quellen kommen aus `translation.grouped_sources()`** — hier
-        # standen bis zum 28.09.2026 **drei fest verdrahtete Zeilen**
-        # (`deutsch`, `starstrings`, `original`). Der Reiter „Übersetzung" baute
-        # seine Liste dagegen aus `SOURCES`, und so lief beides auseinander:
-        # Bei v3.60.0 kannte der Assistent **2 von 14** Quellen. Aufgefallen ist
-        # es nur, weil jemand hinsah — kaputt war nichts, es fehlte bloß.
+        # ⚠⚠ **Die Quellen kommen aus `translation.grouped_sources()`** — wie
+        # beim Reiter „Übersetzung", der seine Liste aus `SOURCES` baut. Fest
+        # verdrahtete Zeilen liefen dagegen still auseinander.
         #
-        # Eine neue Übersetzung braucht jetzt genau **eine** Zeile in `SOURCES`.
+        # Eine neue Übersetzung braucht genau **eine** Zeile in `SOURCES`.
         #
         # ⚠ Eine Reihe je Sprache, nicht alles untereinander: Vierzehn Knöpfe
         # in einer Spalte sprengen das Fenster des Assistenten.
         from . import translation
         from .pages import _flag
-        # ⚠⚠ **Die Wahl muss man sehen** (28.09.2026): *„beim Anklicken wird das
-        # Ausgewählte nicht hervorgehoben, so weiß niemand, was er gewählt
-        # hat."* Der Reiter „Übersetzung" hebt die aktive Quelle seit jeher
-        # hervor — hier fiel es erst auf, als aus drei Knöpfen vierzehn wurden.
-        # Bei dreien ahnt man noch, was man angeklickt hat; bei vierzehn nicht.
+        # ⚠⚠ **Die Wahl muss man sehen.** Die gewählte Quelle wird
+        # hervorgehoben, wie im Reiter „Übersetzung" — bei vierzehn Knöpfen
+        # ahnt man sonst nicht mehr, was man angeklickt hat.
         self._quellknoepfe = {}
         erste = True
         for gruppe in translation.grouped_sources():
@@ -790,10 +770,9 @@ class Wizard:
         # Assistenten ein zweites Mal durchläuft, sieht seine eigene Wahl.
         self._quelle_hervorheben(paths.setting('inj_quelle') or '')
 
-        # ⭐ **Die eigene Adresse gehört auch hierher** (28.09.2026). Sie gibt es
-        # seit v3.59.0 unter „Übersetzung" — im Assistenten fehlte sie, und wer
-        # eine andere Übersetzung nutzt, hatte hier keinen Weg außer „Nicht
-        # anfassen" und später selbst suchen.
+        # ⭐ **Die eigene Adresse gehört auch hierher**, wie unter
+        # „Übersetzung" — sonst hätte, wer eine andere Übersetzung nutzt, hier
+        # keinen Weg außer „Nicht anfassen" und später selbst suchen.
         #
         # ⚠ Das Feld liegt eingeklappt darunter: Ein Eingabefeld, das immer
         # offen steht, sieht aus wie eine Pflichtangabe.
@@ -844,15 +823,13 @@ class Wizard:
         knopf_url.pack(side='right')
         knopf_url.bind('<Button-1>', eigene_uebernehmen)
 
-        # ⚠⚠ Der vierte Weg braucht einen Knopf, sonst gibt es ihn nicht.
-        # Der Docstring oben nennt ihn seit jeher („Drei Wege plus ‚jetzt
-        # nicht'"), und weiterklicken ohne Wahl tat auch genau das — nur stand
-        # im Fenster nichts davon. Gemeldet von Choopa (28.09.2026), der die
-        # Übersetzungen des SCLC nutzt: „Was wenn ich das nicht direkt will?"
-        # Ein Weg, den man nicht sieht, ist für den Nutzer keiner.
+        # ⚠⚠ Der vierte Weg (nichts holen) braucht einen Knopf, sonst gibt es
+        # ihn nicht: Weiterklicken ohne Wahl tut zwar dasselbe, aber im
+        # Fenster stünde nichts davon. Ein Weg, den man nicht sieht, ist für
+        # den Nutzer keiner.
         #
-        # Ohne Flagge: Das hier ist keine Sprache, sondern die Entscheidung,
-        # keine zu nehmen. Abgesetzt durch den größeren Abstand darüber.
+        # Ohne Flagge: Das hier ist keine Sprache, sondern die Wahl, keine zu
+        # nehmen. Abgesetzt durch den größeren Abstand darüber.
         nichts = tk.Label(f, text='  %s  ' % t('inj_quelle_nichts'), bg=FLAECHE,
                           fg=SUB, font=font(11), cursor='hand2',
                           padx=10, pady=8)
@@ -868,8 +845,7 @@ class Wizard:
 
         ⛔ Schreibt **keine** Einstellung. `inj_quelle` zu setzen hieße, auf der
         Seite „Angaben im Spiel" stünde hinterher eine Quelle angewählt, die nie
-        geholt wurde — derselbe Fehler, den Haldjas am 25.08.2026 andersherum
-        gemeldet hat. Hier ist das Nichtstun die Wahrheit, und die bleibt
+        geholt wurde. Hier ist das Nichtstun die Wahrheit, und die bleibt
         unverändert stehen.
         """
         self._quelle_hervorheben('')
@@ -895,9 +871,8 @@ class Wizard:
         from . import injection, gametext, translation
         # ⚠ Die Wahl **vor** dem Einrichten merken — genau wie auf der
         # Einstellungsseite. Fehlte das hier, holte der Assistent zwar die Texte,
-        # aber unter „Angaben im Spiel" stand danach keine der drei Quellen
-        # angewählt: Der Assistent schrieb `inj_quelle` nie. Gemeldet von
-        # Haldjas, 25.08.2026 — „alle 3 Buttons sind nicht ausgewählt".
+        # aber unter „Angaben im Spiel" stünde danach keine Quelle angewählt,
+        # weil `inj_quelle` nie geschrieben würde.
         paths.set_setting('inj_quelle', quelle)
         self.inj_meldung.configure(text=t('inj_laeuft'), fg=SUB)
         self.root.update()
@@ -1009,8 +984,8 @@ class Wizard:
     def _step_done_no_game(self):
         """Der Abschluss, wenn kein Spielordner eingetragen wurde.
 
-        Ehrlich sagen, was jetzt nicht geht — und was sehr wohl. Ein
-        „fertig eingerichtet" wäre gelogen, ein Abbruch wäre unnötig.
+        Ehrlich sagen, was jetzt nicht geht — und was sehr wohl. Eine Meldung
+        über vollständige Einrichtung wäre gelogen, ein Abbruch wäre unnötig.
         """
         self.titel.configure(text=t('ohne_spiel_titel'))
         f = self._area()
@@ -1040,12 +1015,11 @@ class Wizard:
                 paths.set_setting('einrichtung_ohne_spiel', False)
         if self.schritt >= len(self._order()):
             # ⚠ Hier wird festgehalten, dass die Einrichtung durch ist — und
-            # zwar in einer eigenen Einstellung. Vorher galt die Datei
-            # `logstand.json` als Beleg dafür; die ist aber der **Lesestand im
-            # Spielprotokoll**, kein Einrichtungsmerkmal, und ein Knopf im
-            # Programm löscht sie absichtlich („alte Protokolle neu einlesen").
-            # Wer den drückte, bekam beim nächsten Start den ganzen Assistenten
-            # vorgesetzt (30.08.2026 gemeldet).
+            # zwar in einer eigenen Einstellung. Die Datei `logstand.json` taugt
+            # nicht als Beleg: Sie ist der **Lesestand im Spielprotokoll**, kein
+            # Einrichtungsmerkmal, und ein Knopf im Programm löscht sie
+            # absichtlich, damit alte Protokolle neu eingelesen werden. Danach
+            # käme sonst beim nächsten Start der ganze Assistent.
             paths.set_setting('einrichtung_fertig', True)
             self._close()
             return
@@ -1076,15 +1050,14 @@ class Wizard:
 def is_configured():
     """Ist dieses Werkzeug hier schon einmal eingerichtet worden?
 
-    ⚠⚠ **Nicht am Lesestand festmachen.** Bis rc44 galt: keine `logstand.json`,
-    also erster Start. Das ist der Lesestand im Spielprotokoll — und unter
-    *Erkennung* gibt es einen Knopf, der ihn **mit Absicht** löscht, damit die
-    alten Protokolle noch einmal durchgegangen werden. Wer ihn drückte, bekam
-    beim nächsten Start den kompletten Einrichtungsassistenten vorgesetzt,
-    obwohl nichts fehlte (30.08.2026 gemeldet).
+    ⚠⚠ **Nicht am Lesestand festmachen.** `logstand.json` ist der Lesestand
+    im Spielprotokoll — und unter *Erkennung* gibt es einen Knopf, der ihn
+    **mit Absicht** löscht, damit die alten Protokolle noch einmal
+    durchgegangen werden. Danach käme sonst beim nächsten Start der komplette
+    Einrichtungsassistent, obwohl nichts fehlt.
 
-    Der Beleg ist jetzt die Einstellung `einrichtung_fertig`. Wer schon vorher
-    eingerichtet war, hat sie noch nicht — deshalb zählt zusätzlich ein
+    Der Beleg ist die Einstellung `einrichtung_fertig`. Ältere Installationen
+    haben sie nicht — deshalb zählt zusätzlich ein
     **eingetragener** Spielordner. Der steht nur in der Einstellungsdatei, wenn
     ihn jemand bestätigt hat (Assistent oder die Seite *Erkennung*); ein bloß
     automatisch gefundener zählt nicht, sonst bekäme ein neuer Nutzer mit
@@ -1105,8 +1078,8 @@ def needed():
     """
     # ⚠⚠ **Zuerst: Lässt sich überhaupt speichern?** Sonst merkt sich das
     # Programm nichts — auch nicht, dass es eingerichtet ist — und der Nutzer
-    # erfährt es nie (Parsul, 29.09.2026: Datenordner in OneDrive, von Windows
-    # gesperrt). Dann führt die Einrichtung zum Schritt „Datenordner".
+    # erfährt es nie (etwa ein Datenordner in OneDrive, von Windows gesperrt).
+    # Dann führt die Einrichtung zum Schritt Datenordner.
     if not storage_writable():
         return True
     if paths.setting_bool('einrichtung_ohne_spiel', False):

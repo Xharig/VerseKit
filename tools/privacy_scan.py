@@ -24,9 +24,9 @@ aktuellen Stand zu entfernen reicht nicht: **Die Historie behält alles.** Was
 einmal gepusht ist, bleibt auffindbar, auch nach dem schönsten Aufräum-Commit.
 Deshalb muss der Fund **vor** dem Push passieren.
 
-Bisher war das reine Disziplin — plus zwei Riegel, die nur auf dem Rechner des
-Autors laufen. Wer von woanders arbeitet oder eine Datei über die
-Web-Oberfläche ändert, hatte gar nichts.
+Örtliche Riegel greifen nur auf dem Rechner, auf dem sie laufen. Wer von
+woanders arbeitet oder eine Datei über die Web-Oberfläche ändert, hätte ohne
+diesen Scanner gar nichts.
 
 ## Was gesucht wird
 
@@ -43,14 +43,14 @@ verrät, wonach gesucht wird.
     oder der Pfad in der Umgebungsvariablen `SC_BP_SPERRLISTE`.
     Eine Zeile je Begriff, `#` leitet einen Kommentar ein.
 
-⛔⛔ **Der Inhalt eines Fundes wird NIE ausgegeben.** Gemeldet werden Datei,
+⛔⛔ **Der Inhalt eines Fundes wird NIE ausgegeben.** Ausgegeben werden Datei,
 Zeile und **welche** Regel angeschlagen hat — nicht der gefundene Text. Sonst
 stünde das Gesuchte am Ende im Protokoll eines öffentlichen Bau-Laufs, und der
 Scanner wäre die Lücke, die er schließen soll.
 
 ## Was ausdrücklich erlaubt ist
 
-`Xharig` ist der Name nach außen und darf überall stehen. Ebenso die
+Der öffentliche Projektname darf überall stehen. Ebenso die
 noreply-Adresse, die ohnehin in jedem Commit steht, und offensichtliche
 Platzhalter (`example.com`, `<heim>`, `<benutzer>`).
 
@@ -87,8 +87,7 @@ SPERRLISTE = os.environ.get('SC_BP_SPERRLISTE') or os.path.join(WURZEL,
 # melden.
 #
 # ⚠ Die Namen stehen hier bewusst NICHT als Beispiel: Prüfung 52s im
-# Selbsttest sucht genau danach und hat diesen Kommentar prompt gemeldet, als
-# einer darin stand.
+# Selbsttest sucht genau danach und schlüge bei diesem Kommentar an.
 AUSGENOMMEN = (
     'tools/privacy_scan.py',
     'daten/',
@@ -132,8 +131,8 @@ MUSTER = [
     ('Telefonnummer mit Laendervorwahl',
      re.compile(r'(?:\+|00)49[\s\-/]?\(?\d[\d\s\-/()]{7,}')),
     # ⚠⚠ **Zwei Muster sind hier bewusst NICHT eingebaut**, obwohl sie
-    # naheliegen: „Laufwerksbuchstabe" und „Windows-Freigabe". Am ganzen Repo
-    # gemessen (11.09.2026) ergaben sie **17 Fehlalarme und null echte Funde**
+    # naheliegen: Laufwerksbuchstabe und Windows-Freigabe. Am ganzen Repo
+    # gemessen ergaben sie **17 Fehlalarme und null echte Funde**
     # — Quelle waren verdoppelte Backslashes in Python-Zeichenketten
     # (`%APPDATA%\\sc-bp-watcher\\` sieht aus wie `\\SERVER\`) und
     # Zeitstempel-Ausdruecke (`\d\dT\d\d:\d\d` enthaelt `d:\d`). Beides ist im
@@ -170,9 +169,9 @@ def dateien_aus_git():
 
     ⚠⚠ **Und wenn Git nicht antwortet, wird trotzdem geprueft.** Im
     Bau-Container gehoert der ausgecheckte Ordner einem anderen Benutzer;
-    `git ls-files` bricht dort mit „dubious ownership" ab (Exit 128, gemessen
-    am 11.09.2026 im Release-Bau). Der erste Anlauf gab dann auf — und ein
-    Scanner, der bei Unklarheit nichts prueft, ist schlimmer als keiner:
+    `git ls-files` bricht dort mit `dubious ownership` ab (Exit 128, gemessen
+    im Release-Bau). Ein Scanner, der dann aufgibt und bei Unklarheit nichts
+    prueft, ist schlimmer als keiner:
     Er faerbt den Lauf gruen, ohne hingesehen zu haben.
     """
     try:
@@ -262,9 +261,9 @@ def main(argv):
     # Unter Windows schreibt Python in eine `cp1252`-Konsole; ein
     # Gedankenstrich im Text der Fundliste loest dort einen
     # `UnicodeEncodeError` aus — und zwar **bevor** der erste Fund gedruckt
-    # ist. Der Lauf endete dann mit Rueckgabe 1 und einer leeren Fundliste:
-    # Es sah aus, als haette der Scanner nichts gefunden, obwohl er vier
-    # Funde hatte. Gemessen am 11.09.2026 im Windows-Job des Release-Baus.
+    # ist. Der Lauf endet dann mit Rueckgabe 1 und einer leeren Fundliste:
+    # Es sieht aus, als haette der Scanner nichts gefunden (gemessen im
+    # Windows-Job des Release-Baus).
     for strom in (sys.stdout, sys.stderr):
         try:
             strom.reconfigure(errors='replace')
@@ -282,10 +281,10 @@ def main(argv):
         # ⚠⚠ **Nicht auf einen Pfad relativ zum Repo umrechnen.** Unter
         # Windows liegt der Arbeitsordner des Bau-Laeufers auf `D:` und der
         # Temp-Ordner auf `C:`; `os.path.relpath` wirft dann `ValueError`
-        # („path is on mount 'C:', start on mount 'D:'"), und das Werkzeug
-        # starb mit einem Rueckverfolgungsprotokoll statt zu pruefen.
-        # Gemessen am 11.09.2026 im Release-Bau — unter Linux faellt es nie
-        # auf, weil es dort nur einen Baum gibt.
+        # (`path is on mount 'C:', start on mount 'D:'`), und das Werkzeug
+        # stirbt mit einem Rueckverfolgungsprotokoll statt zu pruefen.
+        # Gemessen im Release-Bau — unter Linux faellt es nie auf, weil es
+        # dort nur einen Baum gibt.
         dateien = list(argv[1:])
     else:
         dateien = dateien_aus_git()

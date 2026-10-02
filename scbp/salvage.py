@@ -24,14 +24,11 @@ Was in einem Wrack steckt — und ob sich das Aussteigen lohnt.
 Vor dir treibt ein Schiff. Aussteigen kostet Zeit und ist gefährlich; der
 Laderaum ist begrenzt. **Was ist da drin, und was ist es wert?**
 
-Der Wunsch kam von **Zwaersch (KRT)** am 06.09.2026 — und er ist der Grund,
-warum dieses Werkzeug überhaupt an die Schiffsdaten angeschlossen wurde.
-
 ## ⚠⚠ Was hier NICHT beantwortet werden kann: der Verkaufserlös
 
-Naheliegend wäre „das bringt dir X aUEC". Diese Zahl gibt es nicht. Gemessen am
-06.09.2026 an der Werksausstattung einer Cutlass Black: Von vier geprüften
-Teilen hatten **drei überhaupt keinen Verkaufspreis** bei UEX, das vierte einen
+Naheliegend wäre „das bringt dir X aUEC". Diese Zahl gibt es nicht. Gemessen an
+der Werksausstattung einer Cutlass Black: Von vier geprüften Teilen hatten
+**drei überhaupt keinen Verkaufspreis** bei UEX, das vierte einen
 einzelnen Ausreißer (414 aUEC gegen 15.103 Kaufpreis). Verkaufspreise für
 Schiffskomponenten pflegt dort praktisch niemand.
 
@@ -44,17 +41,15 @@ wert als ein S3-A-Repeater, egal welche Zahl daneben steht.
 ## ⚠⚠ Es gilt für NPC-Wracks — bei Spielerschiffen NICHT
 
 Das ist keine Feinheit, sondern entscheidet, ob die ganze Auskunft etwas wert
-ist. Aus dem Spiel, am 06.09.2026:
+ist. So verhält sich das Spiel:
 
 > NPC-Wracks sind grundsätzlich lootbar, je nach Zustand. Spielerschiffe sind
 > meist unbrauchbar — bzw. werden es, sobald der Spieler die Versicherung
 > beansprucht. Damit sind auch ausgebaute Teile wertlos. Bei Spielerschiffen
 > macht deshalb nur Salvagen Sinn.
 
-⚠ **„Unbrauchbar", nicht „Brikett".** Die erste Fassung übersetzte das
-englische „brick" wörtlich. Zwaersch (KRT) dazu am 06.09.2026: *„diese 1-zu-1-
-Übersetzung — ich hätte es als unbrauchbar oder unbenutzbar beschrieben."* Wer
-die Sache kennt, benennt sie anders als ein Wörterbuch.
+⚠ **„Unbrauchbar", nicht „Brikett".** Das englische „brick" wörtlich zu
+übersetzen trifft die Sache nicht.
 
 Ein Werkzeug, das vor einem Spielerwrack „hier liegen 400.000 aUEC" meldet,
 schickt jemanden ins Feuer für nichts. Deshalb steht der Unterschied **auf der
@@ -82,7 +77,7 @@ Zwei Quellen, beide schon im Werkzeug:
 | Was ein Teil im Laden kostet | `shops.py` → UEX Corp |
 
 Verbunden über die **Entitäts-Kennung** (`ref` bei erkul, `uuid` bei UEX) —
-nie über den Namen. Über Namen ist es im Projekt schon zweimal schiefgegangen.
+nie über den Namen; Namen sind mehrdeutig.
 
 ## ⚠ Warum eigene Abrufe statt der Hangar-Ablage
 
@@ -91,9 +86,8 @@ meines" und hat deshalb nur die Schiffe im Hangar abgelegt; hier geht es um
 jedes Schiff, das einem im Verse begegnet. Deshalb wird das gewählte Schiff bei
 Bedarf einzeln geholt und getrennt abgelegt.
 
-⚠ Bis zum 12.09.2026 hieß dieses Modul `bergung` (Sprachumstellung P4,
-Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
-gleich geblieben: der Ablage-Name `bergung.json` und die Schlüssel darin
+⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Fest
+bleiben: der Ablage-Name `bergung.json` und die Schlüssel darin
 (`format`, `schiffe`, `name`, `teile`, `stand`, `spielversion`), die Schlüssel
 der Ergebnisse (`ref`, `art`, `groesse`, `guete`, `anzahl`, `rohstoff`,
 `drin`, `zurueck`, `verloren`, `anteil`, `dauer`, `gesperrt`) und die
@@ -189,9 +183,8 @@ def _collect_parts(node, result):
             # Erkul führt eine Schiffskanone als `category: AssembledWeapon`
             # (die Bauform) und `type: WeaponGun` (die Sache). Wer `category`
             # zuerst nimmt, verliert **jede Waffe** — bei der Cutlass Black
-            # waren das vier Repeater und zwei Gatlings, also ausgerechnet das
-            # Wertvollste an einem Wrack. Gemessen am 06.09.2026 beim ersten
-            # Durchlauf: 24 Stück statt 43.
+            # sind das vier Repeater und zwei Gatlings, also ausgerechnet das
+            # Wertvollste an einem Wrack (gemessen: 24 Stück statt 43).
             kind = ''
             for candidate in (item.get('type'), item.get('category')):
                 if candidate in REMOVABLE:
@@ -311,11 +304,9 @@ def dismantle(blueprint):
 
         {'rohstoff', 'drin', 'zurueck', 'verloren'}
 
-    ⭐⭐ **Die Frage eines Bergungsspielers, bevor er ausbaut.** Vorschlag vom
-    06.09.2026: *„unter Bergung ein Extra-Fenster, wo man Waffen, Komponenten
-    etc. prüfen kann, wie viel Material man rausbekommt, wenn man es im
-    Fabricator zerlegt … so kann ein Salvager gleich entscheiden, brauche ich
-    die Komponente evtl. zum Zerlegen."*
+    ⭐⭐ **Die Frage eines Bergungsspielers, bevor er ausbaut:** Wie viel
+    Material kommt heraus, wenn man Waffe oder Komponente im Fabricator
+    zerlegt — lohnt es sich, sie dafür mitzunehmen?
 
     ⚠⚠ **Manche Rohstoffe kommen NIE zurück** — und das ist die eigentliche
     Auskunft. Sechs stehen auf der Sperrliste des Fabricators, darunter
@@ -389,10 +380,7 @@ def forget():
     ⚠⚠ **Dafür gibt es einen Knopf, weil es sonst Handarbeit wäre.** Ohne ihn
     müsste jemand `bergung.json` im Ablage-Ordner suchen und löschen — und wer
     das nicht weiß, sitzt bei einem alten oder falschen Stand fest. Ein
-    Zwischenspeicher, den nur der Entwickler leeren kann, ist keiner.
-
-    Der Wunsch kam am 06.09.2026, direkt beim Bau: „denk direkt mit an den
-    Reset-Knopf, sonst muss man es per Hand löschen."
+    Zwischenspeicher, den man nur von Hand leeren kann, ist keiner.
     """
     data = load()
     count = len(data.get('schiffe') or {})

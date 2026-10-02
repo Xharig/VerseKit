@@ -48,9 +48,8 @@ Waffen       ``(Klasse/Größe/Güte)``  ``Omnisky III Cannon (Las/1/A)``
 Raketen      ``(Lenkung+Größe)``      ``'Arrow' I Missile (IR1)``
 ============ ======================== ==============================
 
-Raketen haben **keine** Civ/Mil-Klasse — dort zählt der Suchkopf. der Autor am
-27.08.2026: „Raketen sind auch nicht civ oder mil, die info kann bei raketen
-also weg, dafür brauchen wir em z.b. … im Kampf ist das entscheidend."
+Raketen haben **keine** Civ/Mil-Klasse — dort zählt der Suchkopf (etwa EM),
+und der ist im Kampf entscheidend.
 
 ⚠ Die Übersetzung ist uneinheitlich
 ------------------------------------
@@ -64,7 +63,7 @@ gibt, kann keinen Fehltreffer erzeugen.
 Wann es einen Zusatz gibt — und wann nicht
 ------------------------------------------
 
-Gemessen an der echten Datei (27.08.2026) bekommen **856** Gegenstände einen:
+Gemessen an der echten Datei bekommen **856** Gegenstände einen:
 
 =================== ===== =========================================
 Fall                Zahl  Beispiel
@@ -89,9 +88,9 @@ import re
 # --------------------------------------------------------------- Feldnamen
 #
 # Die deutschen sind **gemessen** an der Datei des SC-Deutsch-Launchers
-# (27.08.2026, 4957 Schlüssel mit Name und Beschreibung). Die englischen sind
-# Kandidaten: CIGs Originaldatei steckt in der `Data.p4k` und lag zum Zeitpunkt
-# des Baus nicht vor. Es werden alle gleichzeitig gesucht — ein Feldname, den es
+# (4957 Schlüssel mit Name und Beschreibung). Die englischen sind
+# Kandidaten: CIGs Originaldatei steckt in der `Data.p4k` und ist nicht
+# gegengeprüft. Es werden alle gleichzeitig gesucht — ein Feldname, den es
 # in der eigenen Sprache nicht gibt, kostet nichts.
 FIELDS = {
     'groesse': ('Größe', 'Grösse', 'Size'),

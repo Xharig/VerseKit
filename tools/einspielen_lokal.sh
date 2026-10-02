@@ -2,9 +2,9 @@
 #
 # Eine Fassung von GitHub holen und hier einsetzen — beenden, tauschen, starten.
 #
-# Wozu ein eigenes Skript: Beim Einsetzen von Hand ist mehrfach schiefgegangen,
-# dass die alte Fassung noch lief. Auf dem Bildschirm stand dann weiter die alte
-# Nummer, obwohl die neue Datei längst auf der Platte lag — und beim Suchen des
+# Wozu ein eigenes Skript: Beim Einsetzen von Hand läuft leicht noch das zu
+# ersetzende Programm weiter. Auf dem Bildschirm steht dann die vorige Nummer,
+# obwohl die neue Datei längst auf der Platte liegt — und beim Suchen des
 # Fehlers sucht man an der falschen Stelle.
 #
 # ⚠ Das Beenden ist die heikle Stelle. `pkill -f SC-BP-Watcher` erwischt auch die

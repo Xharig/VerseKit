@@ -17,15 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Rohstoffpreise — „kaufen oder abbauen?"
+Rohstoffpreise — kaufen oder abbauen?
 
-Die Herstellung sagt seit v3.3.0, **was fehlt**. Was sie nicht sagt: ob man das
+Die Herstellung sagt, **was fehlt**. Was sie nicht sagt: ob man das
 Zeug überhaupt kaufen kann. Genau das entscheidet aber, was man als Nächstes
 tut — losfliegen und schürfen, oder am nächsten Terminal einkaufen.
 
 ## Der eine Befund, der das Modul rechtfertigt
 
-Gemessen am 30.08.2026 über alle 26 Rohstoffe, die in Rezepten vorkommen:
+Gemessen über alle 26 Rohstoffe, die in Rezepten vorkommen:
 
 | | |
 |---|---|
@@ -34,8 +34,7 @@ Gemessen am 30.08.2026 über alle 26 Rohstoffe, die in Rezepten vorkommen:
 
 Und **fünf davon stehen gleichzeitig auf der Zerlege-Sperrliste** (Lindinium,
 Ouratite, Quantainium, Riccite, Savrilium): weder kaufbar noch aus einem
-zerlegten Stück zurückzuholen. Das sind die echten Engpässe beim Herstellen,
-und bisher stand das nirgends.
+zerlegten Stück zurückzuholen. Das sind die echten Engpässe beim Herstellen.
 
 ## Woher
 
@@ -50,18 +49,16 @@ Gast.
 
 ⚠ **Ohne Netz passiert nichts Schlimmes.** Liegt eine alte Ablage da, wird sie
 benutzt; liegt keine da, bleibt die Preisangabe einfach weg. Kein Fehler, kein
-Absturz — die Herstellung funktioniert ohne Preise genauso wie vorher.
+Absturz — die Herstellung funktioniert ohne Preise genauso.
 
 ## Was hier bewusst NICHT steht
 
 Keine Handelsrouten, keine Frachtplanung. Dieses Modul beantwortet **eine**
-Frage: „kaufen oder abbauen?"
+Frage: kaufen oder abbauen?
 
-⚠ **Die Preise je Terminal stehen seit v3.4.0 in `selling.py`** — bis dahin
-waren sie hier ausdrücklich ausgeschlossen („weitere 2,1 MB Daten und ein
-anderes Werkzeug"). Der Satz stimmte nicht mehr: Gemessen am 30.08.2026 ist
-der volle Abzug 1,04 MB und aufgeräumt abgelegt 293 KB, und die Frage „wo werde
-ich das los" gehört zum Handelslager, das der Watcher ohnehin führt.
+⚠ **Die Preise je Terminal stehen in `selling.py`.** Gemessen ist der volle
+Abzug 1,04 MB und aufgeräumt abgelegt 293 KB, und die Frage, wo man eine Ware
+los wird, gehört zum Handelslager, das der Watcher ohnehin führt.
 
 Getrennt bleiben die beiden trotzdem, und zwar an der Bedeutung von
 `price_buy` und `price_sell` (siehe `BUY_QUALITY` weiter unten): Hier zählt,
@@ -85,7 +82,7 @@ _store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE)
 # ⭐⭐ **Am Terminal gekaufte Ware hat immer Qualität 500.**
 #
 # Das ist der Punkt, der die Preisangabe erst ehrlich macht. Ohne ihn liest
-# sich „kaufen: 22.730 aUEC" wie ein gleichwertiger Weg, der nur Geld statt
+# sich ein Kaufpreis wie ein gleichwertiger Weg, der nur Geld statt
 # Zeit kostet. Ist er nicht: Q 500 ist der **Nullpunkt** der Qualitätswirkung —
 # der Faktor ist dort exakt 1,000, auf jede Eigenschaft. Wer kauft, baut
 # garantiert einen Standard-Gegenstand. Besser wird er ausschliesslich mit
@@ -106,12 +103,11 @@ _store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE)
 # | `price_buy` | was das **Terminal verlangt** | immer 500 |
 # | `price_sell` | was das Terminal dir **zahlt** | jede — auch selbst abgebautes |
 #
-# Für „kaufen oder abbauen?" zählt deshalb `price_buy`. Der Verkaufspreis wird
+# Für die Frage kaufen oder abbauen zählt deshalb `price_buy`. Der Verkaufspreis wird
 # nur mitgeführt, weil er zur selben Ware gehört.
 #
 # Der Wert 500 steht nicht in den Handelsdaten — er ergibt sich aus der
-# Bauweise der Rezepte (siehe Tabelle oben) und wurde von einem Spieler
-# bestätigt.
+# Bauweise der Rezepte (siehe Tabelle oben).
 BUY_QUALITY = 500
 
 def load():
@@ -151,8 +147,8 @@ def update(progress=None):
     # für 2.643) und als Erz (`Iron (Ore)`, nur verkaufbar). Unsere
     # Namensangleichung macht aus beiden denselben Schlüssel — wer dabei
     # einfach überschreibt, bekommt zufällig die eine oder die andere Form und
-    # damit falsche Preise. Beim ersten Versuch stand deshalb bei Iron
-    # „Kaufpreis 0" da, obwohl es für 2.643 im Regal liegt.
+    # damit falsche Preise — etwa „Kaufpreis 0" bei Iron, obwohl es für 2.643
+    # im Regal liegt.
     #
     # Also **beide Formen behalten** und erst beim Abfragen entscheiden.
     slim = {}
@@ -176,9 +172,9 @@ def price(material):
     keine Preisdaten vorliegen. `Form` ist der Name, unter dem UEX ihn führt
     (`Iron` oder `Iron (Ore)`).
 
-    ⚠ **Ein Kaufpreis von 0 heisst „nicht kaufbar"**, nicht „kostenlos". Wer
+    ⚠ **Ein Kaufpreis von 0 heisst nicht kaufbar**, nicht kostenlos. Wer
     diese Rohstoffe braucht, muss abbauen. Die Anzeige muss den Unterschied
-    machen, sonst steht dort „0 aUEC" und jemand sucht nach dem Schnäppchen.
+    machen, sonst steht dort 0 aUEC und jemand sucht nach dem Schnäppchen.
 
     ⚠ Von den beiden Formen (veredelt / Erz) wird für den Kaufpreis die
     **günstigste tatsächlich kaufbare** genommen — meist die veredelte, bei

@@ -4,10 +4,9 @@
 **Warum es das gibt.** `texte_pruefen.py` liest den Quelltext und sucht Sätze in
 Funktionsaufrufen. Das findet viel, aber nicht alles: Steht eine Beschriftung als
 Tupelpaar in einer Schleife oder in einem Wörterbuch, ist sie für eine
-Quelltext-Prüfung unsichtbar. Genau so blieben die Filterknöpfe auf „Was ist neu"
-(*Alles · Neu · Verbessert · Behoben*) monatelang auch in der englischen
-Oberfläche deutsch — direkt neben einem sauber übersetzten Änderungstext.
-Aufgefallen ist es erst auf einem Bildschirmfoto (gemeldet, 27.08.2026).
+Quelltext-Prüfung unsichtbar — etwa die Filterknöpfe auf „Was ist neu"
+(*Alles · Neu · Verbessert · Behoben*), die so in der englischen Oberfläche
+deutsch blieben, direkt neben einem sauber übersetzten Änderungstext.
 
 **Der andere Weg.** Nicht den Code fragen, sondern das fertige Fenster: Sprache
 auf Englisch stellen, alle Seiten aufbauen, jeden sichtbaren Text einsammeln —
@@ -20,14 +19,13 @@ Das ist zielsicher, weil es nichts raten muss:
   `language.py`.
 * Keine Fehlalarme durch Texte, die in beiden Sprachen gleich lauten — die
   werden vorher aussortiert.
-* Nachgemessen am 27.08.2026: 541 unterscheidbare Textpaare, **0** Beanstandungen
-  am sauberen Stand — und alle 4 Stellen gefunden, sobald der Fehler wieder
-  eingebaut wurde.
+* Gegenprobe: **0** Beanstandungen am sauberen Stand — und alle Stellen
+  gefunden, sobald der Fehler absichtlich eingebaut wird.
 
 ⚠ **Die Leinwand nicht vergessen.** Chips und Marken sind *gezeichnet*, nicht
 beschriftet; ihr Text hängt an einem Canvas-Element und ist über `cget('text')`
 nicht zu erreichen. Ohne den Canvas-Teil unten findet diese Prüfung ausgerechnet
-den Fall nicht, für den sie gebaut wurde — erst der zweite Anlauf hat gegriffen.
+den Fall nicht, für den sie gebaut wurde.
 
     python3 tools/oberflaeche_pruefen.py
 """
@@ -56,12 +54,9 @@ os.environ.setdefault('SC_BP_NO_NET', '1')
 from scbp import language                                  # noqa: E402
 from scbp.main_window import MainWindow                 # noqa: E402
 
-# ⚠⚠ **ALLE Seiten, die `scbp/pages.py` kennt** — nicht nur die, die es beim
-# Bau dieser Pruefung schon gab. Bis 31.08.2026 fehlten hier sechs: die ganze
-# Werkstatt (`herstellung`, `bergbau`, `lager`) und der ganze Handel
-# (`verkauf`, `handelslager`). Die Pruefung meldete jahrelang "kein deutscher
-# Text in der englischen Oberflaeche" — und hatte die halbe Anwendung nie
-# aufgebaut. Eine Pruefung, die eine Seite nicht besucht, prueft sie nicht.
+# ⚠⚠ **ALLE Seiten, die `scbp/pages.py` kennt.** Eine Pruefung, die eine
+# Seite nicht besucht, prueft sie nicht — und meldet trotzdem "kein deutscher
+# Text in der englischen Oberflaeche".
 #
 # Wer eine Seite dazubaut, traegt sie **hier mit ein**. `_alle_seiten_dabei()`
 # unten haelt das fest und schlaegt an, wenn eine fehlt.
@@ -86,10 +81,10 @@ def _alle_seiten_dabei():
     Gefragt wird `pages.page_ids()` — das Verzeichnis selbst, nicht seine
     Schreibweise.
 
-    ⛔ Vorher stand hier eine Textsuche nach dem Block zwischen `bauer = {` und
-    `}.get(kennung)`. Seit das Verzeichnis in eine eigene Funktion gewandert
-    ist, findet sie nichts mehr und die Pruefung meldete `[]` — also
-    "vollstaendig", ohne eine einzige Kennung gesehen zu haben. Eine Pruefung,
+    ⛔ Keine Textsuche nach dem Verzeichnis-Block im Quelltext: Wandert das
+    Verzeichnis woandershin, findet sie nichts mehr, und die Pruefung meldet
+    `[]` — also "vollstaendig", ohne eine einzige Kennung gesehen zu haben.
+    Eine Pruefung,
     die ihren Gegenstand per Textmuster sucht, geht bei der naechsten
     Umbenennung still aus.
     """
@@ -124,19 +119,15 @@ def pruefe():
     # ⚠ Zweite Ernte aus demselben Durchgang: sichtbarer Text, in dem noch die
     # Auszeichnung `**fett**` steht. Tk-Labels können kein Mischformat, also
     # muss sie vor der Anzeige heraus — sonst liest der Nutzer die Sternchen
-    # mit. Genau das stand am 28.08.2026 unter rc85 auf "Texte im Spiel":
-    # »danach ist das **ganze Spiel** in dieser Sprache«. Gefunden hat es
-    # der Autor auf einem Bildschirmfoto, nicht diese Prüfung — die sah nur
-    # nach deutschem Text. Jetzt sieht sie auch das.
+    # mit (etwa »danach ist das **ganze Spiel** in dieser Sprache«).
     marken = set()
 
     def merken(text):
         if not isinstance(text, str):
             return
         # ⚠ Auch **Rueckstriche**. Markdown kennt sie als Auszeichnung fuer
-        # Befehle und Werte — Tk nicht: Es zeigt sie mit. Auf der Bergbau-Seite
-        # stand bis rc42 woertlich »`8600` fuer genau diesen Wert«, samt der
-        # Striche (auf einem Bildschirmfoto aufgefallen, 30.08.2026). In einer
+        # Befehle und Werte — Tk nicht: Es zeigt sie mit, etwa
+        # »`8600` fuer genau diesen Wert« samt der Striche. In einer
         # Oberflaeche gehoeren Anfuehrungszeichen dorthin, keine Auszeichnung.
         if '**' in text or '`' in text:
             marken.add(text.strip())
@@ -159,9 +150,8 @@ def pruefe():
 
     # ⚠⚠ **Das Fehlerprotokoll ist die eigentliche Quelle.** `open_page()` faengt
     # jede Ausnahme selbst ab und schreibt sie nur nach `scbp.fehler` — bei der
-    # Pruefung hier kommt sie nie an. Genau deshalb blieb der TypeError in der
-    # Handelslager-Seite unbemerkt, obwohl dieser Lauf die Seite aufgebaut hat:
-    # Es gab nichts zu fangen, und gemeldet hat es niemand. Ein `try/except`
+    # Pruefung hier kommt sie nie an. Ein Fehler beim Seitenaufbau bliebe so
+    # unbemerkt, obwohl dieser Lauf die Seite aufgebaut hat. Ein `try/except`
     # allein prueft hier also NICHTS.
     from scbp import errors as errors_module
     errors_module.clear()
@@ -172,13 +162,10 @@ def pruefe():
             fenster.root.update()
             sammeln(fenster.root)
         except Exception as ausnahme:
-            # ⚠⚠ **Das ist ein FEHLER, keine Randnotiz.** Bis 31.08.2026 wurde
-            # er nur ausgedruckt, und die Pruefung meldete trotzdem „alles in
-            # Ordnung". Genau so ging v3.4.2 mit einer kaputten
-            # Handelslager-Seite an die Nutzer: Zwei Funktionen hiessen
-            # `_leeren`, die spaetere gewann, und der Aufbau der Liste starb
-            # mit einem TypeError. Der Lauf hier hat das gesehen — und
-            # geschwiegen.
+            # ⚠⚠ **Das ist ein FEHLER, keine Randnotiz.** Nur ausgedruckt,
+            # meldete die Pruefung trotzdem „alles in Ordnung" — etwa wenn
+            # zwei gleichnamige Funktionen sich ueberschreiben und der Aufbau
+            # einer Seite mit einem TypeError stirbt.
             kaputt.append((seite, ausnahme))
             print('  ! Seite %s ließ sich nicht aufbauen: %s' % (seite, ausnahme))
 
@@ -258,10 +245,9 @@ def main():
 # Absicht: Ein fehlendes Symbol ist ein Schönheitsfehler, kein Grund, das
 # Programm anzuhalten. Genau diese Nachsicht macht den Fehler aber unsichtbar.
 #
-# Am 27.08.2026 aufgeschlagen: `schliessen` stand nur unter KNOPF_SYMBOLE, wurde
-# aber mit `icons.line()` benutzt. In Zeilengröße gab es die Datei nicht, und
-# im Herkunftskasten der Bauplan-Liste blieb statt des Kreuzes eine leere Lücke.
-# Aufgefallen ist es einem Nutzer, nicht dem Selbsttest.
+# Beispiel: Steht ein Symbol nur unter KNOPF_SYMBOLE, wird aber mit
+# `icons.line()` benutzt, gibt es die Datei in Zeilengröße nicht — statt des
+# Symbols bleibt eine leere Lücke.
 
 import re                                                    # noqa: E402
 

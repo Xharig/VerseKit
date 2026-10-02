@@ -22,11 +22,10 @@ Fensterlos prüfen — hält Prüfläufe vom Bildschirm des Nutzers fern.
 Alle Werkzeuge, die Oberfläche prüfen, bauen echte tkinter-Fenster. Auf einem
 Rechner, an dem gerade jemand arbeitet oder spielt, blitzen die auf und reißen
 den Tastaturfokus mit: Wer in Star Citizen fliegt, landet mitten im Kampf auf
-dem Desktop. Genau das ist am 29.08.2026 passiert — rund zwanzig Prüfläufe
-während einer laufenden Spielsitzung.
+dem Desktop.
 
-Der Ausweg ist ein unsichtbarer Bildschirm (Xvfb). Sich daran zu erinnern hat
-nicht funktioniert, deshalb erledigt es das Werkzeug jetzt selbst: Hängt ein
+Der Ausweg ist ein unsichtbarer Bildschirm (Xvfb). Das Werkzeug erledigt das
+selbst, statt sich auf Erinnerung zu verlassen: Hängt ein
 echter Bildschirm dran, startet es sich auf einem unsichtbaren neu.
 
 Auf Windows und am Mac gibt es kein Xvfb. Dort wird stattdessen jedes Fenster
@@ -123,8 +122,8 @@ def messplatz():
     untere. Genau dort sitzt jemand und schaut zu.
 
     Gefragt wird das Betriebssystem, nicht geraten. Klappt das nicht (kein
-    Windows, kein `ctypes`), bleibt der alte Wert — er ist auf einem
-    Einzelmonitor unauffällig, und mehr war er nie.
+    Windows, kein `ctypes`), bleibt der Ersatzwert — er ist auf einem
+    Einzelmonitor unauffällig.
     """
     von_hand = os.environ.get(MESSPLATZ)
     if von_hand:
@@ -171,15 +170,13 @@ def unsichtbar_machen():
     der Fensterliste auftauchen und theoretisch Fokus ziehen. Deshalb nur dort
     einsetzen, wo gemessen wird — sonst `verstecken()`.
 
-    ⛔⛔ **„Weit daneben" ist unter Windows keine Adresse.** Bis zum 14.09.2026
-    stand hier `+9000+9000`. Das liegt außerhalb **jedes** Monitors, und
-    Windows schiebt ein vollständig unsichtbares Fenster auf den
-    nächstgelegenen zurück — bei einem Aufbau mit einem Bildschirm oben und
-    einem unten also ausgerechnet auf den unteren. Gemeldet am selben Tag:
-    „wenn du mir den Fokus klaust, kannst du das nicht wenigstens auf dem
-    oberen Bildschirm machen, unten schaue ich grad Serien."
+    ⛔⛔ **„Weit daneben" ist unter Windows keine Adresse.** `+9000+9000`
+    liegt außerhalb **jedes** Monitors, und Windows schiebt ein vollständig
+    unsichtbares Fenster auf den nächstgelegenen zurück — bei einem Aufbau
+    mit einem Bildschirm oben und einem unten also ausgerechnet auf den
+    unteren, wo meist jemand zuschaut.
 
-    Deshalb wird jetzt eine **gültige** Stelle gewählt: die obere linke Ecke
+    Deshalb wird eine **gültige** Stelle gewählt: die obere linke Ecke
     des obersten Monitors. Dort darf das Fenster stehen bleiben, und wenn es
     doch einmal Fokus zieht, passiert das nicht mitten im Bild.
     `SC_BP_MESSPLATZ='+x+y'` setzt die Stelle von Hand.
@@ -208,12 +205,10 @@ def unsichtbar_machen():
         klasse._scbp_beiseite = True
 
         # ⛔⛔ **Einmal setzen reicht nicht — das Programm setzt nach.**
-        # Am 14.09.2026 lag mitten im Selbsttest ein Overlay mit Prüfdaten
-        # sichtbar über einem laufenden Film: „es ist immer noch auf dem
-        # unteren bildschirm ^^". Das Overlay holt seine gemerkte Lage aus
-        # den Einstellungen und seine Durchsichtigkeit aus dem Regler —
-        # **nach** dem Bauen. Was hier oben gesetzt wurde, war da längst
-        # überschrieben.
+        # Das Overlay holt seine gemerkte Lage aus den Einstellungen und
+        # seine Durchsichtigkeit aus dem Regler — **nach** dem Bauen. Was
+        # hier oben gesetzt wurde, ist da längst überschrieben, und das
+        # Overlay mit Prüfdaten läge sichtbar auf dem Bildschirm.
         #
         # Deshalb werden `geometry` und `attributes` umgeleitet: Die **Größe**
         # darf das Programm bestimmen (sonst misst man nichts Echtes), die
@@ -244,14 +239,13 @@ def unsichtbar_machen():
         # Nach vorn holen bleibt auch hier verboten.
         setattr(klasse, 'lift', lambda self, *a, **k: None)
 
-        # ⚠ `focus_force` wird UMGELEITET, nicht stillgelegt (07.09.2026).
+        # ⚠ `focus_force` wird UMGELEITET, nicht stillgelegt.
         #
-        # Stillgelegt war es bis dahin — und damit fielen vier Pruefungen auf
-        # Windows durch, die den Fokus in ein Eingabefeld setzen und danach
-        # nachsehen, ob er dort steht (Abschnitt 126, Fehlerbericht). Ohne
-        # Fokus liefert `focus_get()` None, und die Pruefung meldet „nicht im
-        # Feld", ohne dass am Programm etwas fehlt. Aufgefallen erst, als der
-        # Selbsttest unter Windows ueberhaupt so weit kam.
+        # Stillgelegt fielen auf Windows die Pruefungen durch, die den Fokus
+        # in ein Eingabefeld setzen und danach nachsehen, ob er dort steht
+        # (Abschnitt 126, Fehlerbericht). Ohne Fokus liefert `focus_get()`
+        # None, und die Pruefung meldet „nicht im Feld", ohne dass am
+        # Programm etwas fehlt.
         #
         # Ganz freigeben ist keine Loesung: `focus_force` reisst den
         # Tastaturfokus auf Betriebssystem-Ebene an sich — wer gerade Star
@@ -259,7 +253,7 @@ def unsichtbar_machen():
         # schuetzt diese Datei.
         #
         # `focus_set` tut das NICHT: Es verteilt den Fokus nur innerhalb der
-        # Anwendung. Gemessen am 07.09.2026 unter Windows an einem
+        # Anwendung. Gemessen unter Windows an einem
         # durchsichtigen, weit weggeschobenen Fenster:
         #   ohne alles          -> focus_get() ist das Fenster
         #   nur focus_set()     -> focus_get() ist das Widget  ✅

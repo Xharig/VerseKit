@@ -20,13 +20,12 @@ Wem ein Auftrag Ruf gutschreibt — und welcher Art.
 ## ⚠⚠ Warum das eine eigene Quelle braucht
 
 Die Vertragsdaten, aus denen die Injektion sonst schoepft, kennen die
-Rufpunkte als blosse Zahl: „# Zu erwartende Rufpunkte: 150 XP". Bei WEM sie
+Rufpunkte als blosse Zahl (`# Zu erwartende Rufpunkte: 150 XP`). Bei WEM sie
 anfallen und ob es **Standing**, **Affinity** oder **Bounty Hunting** ist,
-steht dort nicht — gemessen am 05.09.2026 an allen 818 Eintraegen: kein
-einziges Feld dafuer.
+steht dort nicht — gemessen an allen 818 Eintraegen: kein einziges Feld
+dafuer.
 
-Gewuenscht wurde genau das: „auf SCMDB sieht man auch ob es Standing oder Rep
-bekommt, das muss auf jeden fall mit in den Questtext." Ein Auftrag kann
+Genau das gehoert aber in den Auftragstext, wie scmdb es zeigt. Ein Auftrag kann
 dabei **mehreren** Parteien Ruf bringen (Headhunters und Citizens For
 Prosperity im selben Auftrag) — deshalb je Auftrag eine Liste, kein Einzelwert.
 
@@ -34,8 +33,8 @@ Prosperity im selben Auftrag) — deshalb je Auftrag eine Liste, kein Einzelwert
 
     contract.factionRewardsIndex
       -> factionRewardsPools[i]   ->  {factionGuid, scopeGuid, amount}
-           -> factions[guid].name        = „Headhunters"
-           -> scopes[guid].displayName   = „Standing"
+           -> factions[guid].name        = "Headhunters"
+           -> scopes[guid].displayName   = "Standing"
 
 Daraus wird die Zeile `Headhunters: +50 Standing`.
 
@@ -45,12 +44,11 @@ Die Quelldatei ist **12,5 MB**; aufbereitet bleiben rund 1.300 Zeilen. Beim
 Spieler liegt nur die kleine Fassung — dieselbe Regel wie beim
 Gegenstands-Zwischenspeicher.
 
-## Und wo der Auftrag spielt (seit 30.09.2026)
+## Und wo der Auftrag spielt
 
 Aus derselben Datei kommt die **Region**: `systems`, bei Pyro `pyroRegion`
 (A–D) und die Orte je Auftrag (`locations` → `locationPools[…].planet`).
-Daraus wird `# Region: Stanton (Crusader, microTech)`. Bis v3.63.1 lieferte
-das der SCDL-Weg; der ist entfernt. ⚠ Eine **Gefahrenstufe** gibt es in diesen
+Daraus wird `# Region: Stanton (Crusader, microTech)`. ⚠ Eine **Gefahrenstufe** gibt es in diesen
 Daten nicht — sie wird nicht erfunden.
 
 ## ⚠ An den Spielstand gebunden, nicht an die Uhr
@@ -65,7 +63,7 @@ import os
 from . import errors, paths
 
 CACHE_FILE = 'auftragsruf.json'
-# ⚠ 2 seit 30.09.2026 (Regionen dazu). Ein Zwischenspeicher im alten Aufbau
+# ⚠ Ab 2 mit Regionen. Ein Zwischenspeicher im Aufbau 1
 # gilt als leer und wird beim nächsten Eintragen neu geholt — sonst stünde bis
 # zum nächsten Patch keine Region im Text.
 FORMAT = 2
@@ -74,20 +72,17 @@ FORMAT = 2
 # steht nur das System — eine lange Aufzählung liest im Auftrag niemand.
 MAX_PLANETS = 4
 
-# ⚠⚠ **Geholt wird vom GitHub-Spiegel, nicht von scmdb.net.** Krovax hat ihn
-# eigens für Programme angelegt und dazu gesagt: „Ich habs gemirrored, keine
-# Lust was bei CF falsch einzustellen und dann passieren unerwartete Dinge."
-# Wer eine fremde Quelle benutzt, benutzt den Weg, den ihr Betreiber dafür
-# vorgesehen hat — sonst hängt man an einer Einstellung, die jederzeit anders
-# gemeint sein kann.
+# ⚠⚠ **Geholt wird vom GitHub-Spiegel, nicht von scmdb.net.** Der Betreiber
+# hat den Spiegel eigens für Programme angelegt, damit Abrufe nicht an den
+# Einstellungen der Webseite (Cloudflare) hängen. Wer eine fremde Quelle
+# benutzt, benutzt den Weg, den ihr Betreiber dafür vorgesehen hat.
 BASE = ('https://raw.githubusercontent.com/KrovaxCode/SCMDB_DATA/main/data')
 # ⚠ Beim Spiegel heißt die Übersicht `game-versions.json`, auf der Webseite
 # `versions.json`. Inhalt und Aufbau sind gleich.
 VERSION_FILE = 'game-versions.json'
 
-# ⚠ **Nur als Rückfall.** Krovax hat die Nutzung seiner Webseite ausdrücklich
-# erlaubt, für den Fall, dass am Spiegel etwas fehlt. Der Spiegel bleibt
-# trotzdem der erste Weg: Er ist der, den er dafür gebaut hat.
+# ⚠ **Nur als Rückfall**, falls am Spiegel etwas fehlt — die Nutzung der
+# Webseite dafür ist vom Betreiber erlaubt. Der Spiegel bleibt der erste Weg.
 FALLBACK = 'https://scmdb.net/data'
 FALLBACK_VERSION_FILE = 'versions.json'
 
