@@ -110,10 +110,15 @@ def kommentare_js(text):
     return aus
 
 
+LIZENZKOPF = re.compile(r'Copyright \(C\) 20\d\d ')
+
+
 def funde_text(datei, text):
-    """[(Zeile, Text)] der Fundstellen in `text`, gelesen als `datei`."""
+    """[(Zeile, Text)] der Fundstellen in `text`, gelesen als `datei`.
+    Die Zeile `Copyright (C) <Jahr> …` des Lizenzkopfs zählt nicht."""
     teile = kommentare_py(text) if datei.endswith('.py') else kommentare_js(text)
-    return [(nr, z.strip()) for nr, z in teile if MUSTER.search(z)]
+    return [(nr, z.strip()) for nr, z in teile
+            if MUSTER.search(z) and not LIZENZKOPF.search(z)]
 
 
 def funde(datei):
