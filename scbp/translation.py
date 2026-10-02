@@ -369,8 +369,8 @@ def grouped_sources(channel=None, with_original=True):
     Ansichten ziehen von hier.
 
     Reihenfolge: erst Deutsch, dann Englisch, danach die übrigen Sprachen
-    alphabetisch (Wunsch vom 28.09.2026) — innerhalb einer Sprache die
-    Reihenfolge aus `SOURCES`, dort steht die gepflegteste Quelle vorn.
+    alphabetisch. Innerhalb einer Sprache: erst Luftwerft, dann rjcncpt und
+    StarStrings, danach die übrigen in der Reihenfolge aus `SOURCES`.
     """
     by_language = {}
     for key, spec in SOURCES.items():
@@ -388,7 +388,15 @@ def grouped_sources(channel=None, with_original=True):
             return (1, language)
         return (2, language)
 
-    return [by_language[language] for language in sorted(by_language, key=rank)]
+    def source_rank(source):
+        if source.startswith('luftwerft_'):
+            return 0
+        if source in ('deutsch', 'starstrings'):
+            return 1
+        return 2
+
+    return [sorted(by_language[language], key=source_rank)
+            for language in sorted(by_language, key=rank)]
 
 
 def display_name(source):

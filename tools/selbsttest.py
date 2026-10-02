@@ -31648,6 +31648,22 @@ def _pruefung_312():
                          encoding='utf-8').read()
         pruefe('name in translation.CHANNELS' in quelle312,
                'Übersetzungsseite filtert die Kanäle')
+
+        gruppen = _tr312.grouped_sources()
+        deutsch = next(g for g in _tr312.grouped_sources() if 'deutsch' in g)
+        englisch = next(g for g in _tr312.grouped_sources()
+                        if 'starstrings' in g)
+        pruefe(deutsch[:2] == ['luftwerft_de', 'deutsch'],
+               'Deutsch: Luftwerft vor rjcncpt (%s)' % deutsch)
+        pruefe(englisch[:2] == ['luftwerft_en', 'starstrings']
+               and englisch[-1] == 'original',
+               'Englisch: Luftwerft, StarStrings, Original zuletzt (%s)'
+               % englisch)
+        pruefe(all(g[0].startswith('luftwerft_') for g in gruppen
+                   if any(k.startswith('luftwerft_') for k in g)),
+               'Jede Sprache mit Luftwerft beginnt mit Luftwerft')
+        pruefe(_tr312.grouped_sources()[0] == deutsch,
+               'Deutsch bleibt die erste Sprache (Gegenprobe)')
     finally:
         _tr312._custom_latest, _tr312._fetch = alt_head, alt_fetch
 
