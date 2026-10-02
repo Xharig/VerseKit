@@ -3522,7 +3522,8 @@ def _translation_page(window, frame):
 
     main_folder = os.path.normcase(os.path.normpath(paths.game_folder() or ''))
     channels = [(name, folder) for name, folder, present
-                in usercfg.installed_channels() if present]
+                in usercfg.installed_channels()
+                if present and name in translation.CHANNELS]
     main_name = next((name for name, folder in channels
                       if os.path.normcase(os.path.normpath(folder))
                       == main_folder), None)

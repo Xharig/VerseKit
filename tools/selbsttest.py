@@ -31627,8 +31627,7 @@ def _pruefung_312():
         pruefe(len(direkte) >= 5, 'Luftwerft-Quellen vorhanden (%d)'
                % len(direkte))
         for kennung in direkte:
-            for kanal, teil in ((None, '/LIVE/'), ('TECH-PREVIEW', '/PTU/'),
-                                ('PTU', '/PTU/')):
+            for kanal, teil in ((None, '/LIVE/'), ('PTU', '/PTU/')):
                 del gefragt[:]
                 try:
                     neu = _tr312.latest(kennung, kanal)
@@ -31640,6 +31639,15 @@ def _pruefung_312():
                        % (kennung, kanal or 'LIVE', neu))
         pruefe(_tr312._direct('deutsch', _tr312.SOURCES['deutsch']) is False,
                'Repo-Quelle bleibt beim GitHub-Weg (Gegenprobe)')
+        pruefe('TECH-PREVIEW' not in _tr312.CHANNELS
+               and 'TECH-PREVIEW' not in _tr312.TEST_CHANNELS,
+               'Tech-Preview hat keine Übersetzungswahl')
+        pruefe('LIVE' in _tr312.CHANNELS and 'PTU' in _tr312.CHANNELS,
+               'LIVE und PTU bleiben wählbar (Gegenprobe)')
+        quelle312 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                         encoding='utf-8').read()
+        pruefe('name in translation.CHANNELS' in quelle312,
+               'Übersetzungsseite filtert die Kanäle')
     finally:
         _tr312._custom_latest, _tr312._fetch = alt_head, alt_fetch
 

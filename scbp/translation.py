@@ -204,8 +204,10 @@ CUSTOM = 'eigene'
 SETTING_CUSTOM = 'eigene_quelle'
 # Welche Quelle ein NICHT-Haupt-Kanal (PTU …) benutzt: {Kanal: Quelle}.
 SETTING_CHANNELS = 'kanal_quellen'
+# Kanäle, für die eine Übersetzung wählbar ist.
+CHANNELS = ('LIVE', 'HOTFIX', 'PTU', 'EPTU')
 # Kanäle, die die Testfassung einer Quelle bekommen. HOTFIX läuft wie LIVE.
-TEST_CHANNELS = ('PTU', 'EPTU', 'TECH-PREVIEW')
+TEST_CHANNELS = ('PTU', 'EPTU')
 # Die Sprachordner, die Star Citizen kennt — Auswahl für die eigene Adresse.
 GAME_LANGUAGES = ('english', 'german_(germany)', 'french_(france)',
                   'italian_(italy)', 'spanish_(spain)', 'portuguese_(brazil)',

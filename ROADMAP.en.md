@@ -77,7 +77,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Six colour schemes** with preview — original, KRT (orange), Ice, Nebula, Ember, High contrast — and the **interface size** steplessly |
 | ✅ | **Settings re-sorted**, **modules** can be hidden, **start programs** with the game, the **user.cfg** visible and editable |
 | ✅ | **The overlay never steals focus from the game** — not even when the invisible mouse pointer is over it |
-| ✅ | **Translation per channel**: which text file Star Citizen reads — set separately for LIVE, PTU and TECH-PREVIEW, with the blueprint details on your main install |
+| ✅ | **Translation per channel**: which text file Star Citizen reads — set separately for LIVE and PTU, with the blueprint details on your main install |
 | ✅ | **Seven languages**: German, French, Italian, Spanish, Portuguese, Turkish and English — plus your **own URL** if you want to use a different translation, or **none at all**, leaving the text file untouched |
 | ✅ | **All blueprints, or only the obtainable ones**: the game can craft around 1,600 things, 738 of which contracts hand out — a toggle decides what counts in the list and in your progress |
 | ✅ | **Sync with the KRT Profit Basetool**: blueprints, storage and hangar both ways — connected with a code in your browser, each area switched on separately |
