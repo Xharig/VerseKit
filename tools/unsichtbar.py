@@ -28,10 +28,15 @@ Der Ausweg ist ein unsichtbarer Bildschirm (Xvfb). Das Werkzeug erledigt das
 selbst, statt sich auf Erinnerung zu verlassen: Hängt ein
 echter Bildschirm dran, startet es sich auf einem unsichtbaren neu.
 
-Auf Windows und am Mac gibt es kein Xvfb. Dort wird stattdessen jedes Fenster
-sofort nach dem Bauen versteckt (`withdraw()`), und die drei Befehle, die ein
-Fenster nach vorn holen, laufen ins Leere. Geprueft wird dabei genauso viel —
-die Widgets stehen, die Groessen stimmen —, nur sehen tut man nichts.
+Unter Windows gibt es kein Xvfb, aber etwas Gleichwertiges: einen eigenen,
+unsichtbaren Desktop (`eigener_desktop.py`). Das Werkzeug startet sich dort neu
+— die Fenster sind echt, erreichen aber nie Bildschirm und Fokus.
+
+Am Mac (und unter Windows nur, falls der eigene Desktop nicht entsteht) wird
+stattdessen jedes Fenster sofort nach dem Bauen versteckt (`withdraw()`), und
+die drei Befehle, die ein Fenster nach vorn holen, laufen ins Leere. ⚠ Das ist
+der schwächere Schutz: Unter Windows zogen solche Fenster beim Öffnen
+trotzdem den Fokus.
 
 Einbau — ganz oben in der `main()` des Werkzeugs, vor dem ersten Fenster:
 
@@ -291,6 +296,23 @@ def sicherstellen(breite=1400, hoehe=1000, messend=False):
         # Pruefungen meldeten dort [1, 1] px, weil ein withdraw()-Fenster keine
         # Geometrie hat. Also hier nicht eingreifen.
         return
+
+    # ⭐⭐ **Windows: ein eigener, unsichtbarer Desktop** — das Gegenstück zu
+    # Xvfb. Die Fenster sind dort echt (Größen stimmen, Rückrufe laufen),
+    # erreichen aber nie den Bildschirm und nie den Fokus. Durchsichtige oder
+    # versteckte Fenster auf dem eigenen Desktop zogen beim Öffnen trotzdem
+    # den Fokus — wer gerade spielte, landete auf dem Desktop.
+    if sys.platform == 'win32':
+        import eigener_desktop
+        umgebung = dict(os.environ, **{SCHON_UNSICHTBAR: '1'})
+        try:
+            code = eigener_desktop.starten(
+                [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:],
+                env=umgebung)
+        except OSError:
+            code = None
+        if code is not None:
+            sys.exit(code)
 
     if not noetig():
         # Kein Xvfb zur Hand. Hängt trotzdem ein Bildschirm dran, muss der

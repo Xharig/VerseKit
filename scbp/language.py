@@ -4113,6 +4113,8 @@ TEXTS = {
                           '({menge} in stock, but below quality {guete})'),
     # Was man farmen muss UND wo.
     's_fl_fundorte':     ('Fundorte: %s', 'Found at: %s'),
+    's_fl_zum_bergbau':  ('Anklicken zeigt im Bergbau, wo du das farmen kannst',
+                          'Click to see in Mining where to farm this'),
     's_fl_sammel_kopf':  ('Wo du das meiste auf einmal findest',
                           'Where you find the most at once'),
     's_fl_sammel_hilfe': ('Orte, an denen mehrere deiner fehlenden Rohstoffe '

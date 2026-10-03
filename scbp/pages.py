@@ -11175,9 +11175,6 @@ def _mining(fenster, rahmen):
                    ('ort', t('s_bg_alle_orte'), [(x, x) for x in _ortnamen]),
                    ('geraet', t('s_bg_alle_geraete'), _geraete)],
                   berg_gewechselt, berg_wahl)
-    # Beim erneuten Aufrufen des Reiters wieder leer — die Seite wird nur
-    # ein- und ausgeblendet, nicht neu gebaut.
-    fenster.on_show['bergbau'] = lambda: suche_var.set('')
 
     # ⭐⭐ **Scan-Signatur — das Werkzeug, das im Spiel wirklich fehlt.**
     # Der Bergbau-Scanner zeigt eine Zahl und verrät nicht, was dahintersteckt.
@@ -11295,8 +11292,36 @@ def _mining(fenster, rahmen):
             _body_text(liste_rahmen, t('s_he_nichts'), fenster.f_small,
                         fill='x')
 
+    def jump_to_ore(name):
+        """Den Rohstoff suchen und gleich aufgeklappt zeigen — wie eine Wahl
+        im Auswahlfeld. Ohne Namen wird die Suche geleert."""
+        wanted = berg_modul.material_key(name) if name else ''
+        hit = next((e['name'] for e in erze
+                    if wanted and berg_modul.material_key(e['name']) == wanted),
+                   '')
+        offen['name'] = ('erz:' + hit) if hit else None
+        suche_var.set(hit or name or '')
+        # Sofort zeichnen — `trace_add` wartet aufs Ende des Tippens.
+        zeichnen()
+        _scroll_to_top(liste_rahmen)
+
+    def on_show():
+        """Beim erneuten Aufrufen: ein Sprung aus Rezept oder Farmliste setzt
+        den Rohstoff, sonst beginnt die Seite leer.
+
+        ⚠ Die Seite wird nur ein- und ausgeblendet, nicht neu gebaut —
+        `mining_search` muss deshalb HIER gelesen werden, nicht nur beim Bau.
+        """
+        name = getattr(fenster, 'mining_search', '') or ''
+        fenster.mining_search = ''
+        jump_to_ore(name)
+
+    fenster.on_show['bergbau'] = on_show
     suche_var.trace_add('write', after_typing(rahmen, zeichnen))
-    zeichnen()
+    if suche_var.get():
+        jump_to_ore(suche_var.get())
+    else:
+        zeichnen()
     _body_text(innen, t('s_bg_mehr_info'), fenster.f_small, fill='x')
 
 
@@ -13308,9 +13333,23 @@ def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
     row = tk.Frame(block, bg=SURFACE)
     row.pack(fill='x')
 
-    tk.Label(row, text=eintrag.get('rohstoff') or '', bg=SURFACE,
-             fg=FG if fehlend else SUB, font=fenster.f_small, anchor='w',
-             width=24).pack(side='left', padx=(12, 0), pady=4)
+    def to_mining(_event=None, name=eintrag.get('rohstoff') or ''):
+        fenster.mining_search = name
+        fenster.jump_to('bergbau')
+
+    # ⭐ Der Name selbst führt in den Bergbau — der Rohstoff steht dort
+    # aufgeklappt, mit allen Fundorten.
+    name_farbe = FG if fehlend else SUB
+    name_label = tk.Label(row, text=eintrag.get('rohstoff') or '', bg=SURFACE,
+                          fg=name_farbe, font=fenster.f_small, anchor='w',
+                          width=24, cursor='hand2')
+    name_label.pack(side='left', padx=(12, 0), pady=4)
+    name_label.bind('<Button-1>', to_mining)
+    name_label.bind('<Enter>', lambda e: name_label.configure(fg=ACCENT))
+    name_label.bind('<Leave>',
+                    lambda e: name_label.configure(fg=name_farbe))
+    from . import notice
+    notice.attach(name_label, lambda: t('s_fl_zum_bergbau'))
 
     # ⚠ **Die Fehlmenge steht rechts und in Farbe** — das ist die Zahl, mit der
     # man losfliegt. „Brauchst 4,4 · hast 0" daneben sagt, wie sie zustande
@@ -13351,11 +13390,6 @@ def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
                               anchor='w', justify='left', cursor='hand2',
                               wraplength=700)
         spot_label.pack(fill='x', padx=(24, 12), pady=(0, 4))
-
-        def to_mining(_event=None, name=eintrag.get('rohstoff') or ''):
-            fenster.mining_search = name
-            fenster.jump_to('bergbau')
-
         spot_label.bind('<Button-1>', to_mining)
 
 

@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.75.0 - 2026-10-04
+
+> The farming list now takes you to where you can farm in one click: click a
+> material, and Mining shows it expanded with every place to find it.
+
+### Improved
+
+- **From the farming list straight to the locations** — clicking a material
+  under "What to farm" opens Mining with exactly that material, expanded with
+  every place where it can be found
+
+### Fixed
+
+- **The jump to Mining only worked the first time** — from the second visit
+  on, the Mining page showed up empty instead of at the chosen material
+
 ## v3.74.0 - 2026-10-03
 
 > The farming list now counts quantities: if you want to build two suits of

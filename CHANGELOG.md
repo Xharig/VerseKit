@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.75.0 - 2026-10-04
+
+> Von der Farmliste geht es jetzt mit einem Klick dorthin, wo du farmen
+> kannst: Rohstoff anklicken, und der Bergbau zeigt ihn aufgeklappt mit allen
+> Fundorten.
+
+### Verbessert
+
+- **Von der Farmliste direkt zu den Fundorten** — ein Klick auf einen
+  Rohstoff unter „Was ich farmen muss" öffnet den Bergbau mit genau diesem
+  Rohstoff, aufgeklappt mit allen Orten, an denen es ihn gibt
+
+### Behoben
+
+- **Der Sprung in den Bergbau wirkte nur beim ersten Mal** — ab dem zweiten
+  Besuch stand die Bergbau-Seite leer da statt beim gewählten Rohstoff
+
 ## v3.74.0 - 2026-10-03
 
 > Die Farmliste rechnet jetzt mit Stückzahlen: Wer zwei Rüstungen bauen will

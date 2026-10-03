@@ -25211,6 +25211,7 @@ def main():
     _pruefung_316()
     _pruefung_317()
     _pruefung_318()
+    _pruefung_319()
 
     print()
     if fehler:
@@ -32257,6 +32258,87 @@ def _pruefung_318():
                     _x318.destroy()
             except Exception:
                 pass
+
+
+def _pruefung_319():
+    """319. Farmliste: Klick auf den Rohstoff zeigt im Bergbau, wo es ihn gibt.
+
+    Im echten Hauptfenster, zweimal hintereinander: Die Bergbau-Seite wird
+    nur einmal gebaut, beim zweiten Sprung muss sie den Rohstoff trotzdem
+    übernehmen. Rechnung und Bergbaudaten sind untergeschoben.
+    """
+    print('\n319. Farmliste: Klick auf den Rohstoff führt zu den Fundorten')
+    from scbp import cart as _ca319, mining as _bg319
+    from scbp.language import t as _t319
+
+    werte = {'posten': 1,
+             'fehlt': [{'rohstoff': 'Aslarite', 'benoetigt': 0.2,
+                        'vorhanden': 0, 'differenz': 0.2}],
+             'vollstaendig': []}
+    daten = {'format': _bg319.FORMAT, 'build': 'pruefung',
+             'locations': [{'locationName': 'Lagrange B',
+                            'presetFile': 'hpp_lagrange_b',
+                            'system': 'Stanton', 'locationType': 'lagrange',
+                            'groups': [{'groupName': 'SpaceShip_Mineables',
+                                        'groupProbability': 1.0,
+                                        'deposits': [{
+                                            'relativeProbability': 1.0,
+                                            'compositionGuid': 'g1'}]}]}],
+             'compositions': {'g1': {'parts': [
+                 {'elementName': 'Aslarite (Raw)', 'probability': 1.0,
+                  'minPercent': 40, 'maxPercent': 80}]}}}
+    alt = (_ca319.farm_list, _bg319.load)
+    _w319 = None
+    try:
+        _ca319.farm_list = lambda *a, **k: werte
+        _bg319.load = lambda: daten
+        _w319 = _wurzel()
+        from scbp import main_window as _hf319
+        fenster = _hf319.MainWindow(_w319, version='0.0.0-pruefung')
+
+        def _labels(text):
+            treffer = []
+
+            def _lauf(x):
+                try:
+                    if x.winfo_class() == 'Label' and x.cget('text') == text:
+                        treffer.append(x)
+                except Exception:
+                    pass
+                for kind in x.winfo_children():
+                    _lauf(kind)
+            _lauf(fenster.pages.get(fenster.current) or _w319)
+            return treffer
+
+        for runde in ('erster', 'zweiter'):
+            fenster.open_page('farmliste')
+            _w319.update()
+            name = _labels('Aslarite')
+            pruefe(len(name) == 1,
+                   '%s Besuch: der Rohstoff steht in der Farmliste (%d)'
+                   % (runde, len(name)))
+            if not name:
+                continue
+            pruefe(name[0].cget('cursor') == 'hand2',
+                   '%s Besuch: der Rohstoffname ist anklickbar' % runde)
+            name[0].event_generate('<Button-1>', x=2, y=2)
+            _w319.update()
+            pruefe(fenster.current == 'bergbau',
+                   '%s Besuch: der Klick führt in den Bergbau (%s)'
+                   % (runde, fenster.current))
+            pruefe(bool(_labels('ARC L5 · CRU L4 · MIC L3')),
+                   '%s Besuch: dort steht der Rohstoff aufgeklappt mit '
+                   'seinen Fundorten' % runde)
+            pruefe(not _labels(_t319('s_he_nichts')),
+                   '%s Besuch: die Liste ist nicht leer' % runde)
+    finally:
+        _ca319.farm_list, _bg319.load = alt
+        try:
+            if _w319 is not None:
+                _w319.destroy()
+        except Exception:
+            pass
+
 
 if __name__ == '__main__':
     sys.exit(main())
