@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.76.0 - 2026-10-04
+
+> VerseKit ist flotter geworden: Lange Listen wie die Steuerung bauen beim
+> Öffnen nur noch, was du siehst, und „Was ist neu" klappt ältere Versionen
+> erst auf, wenn du sie anklickst.
+
+### Verbessert
+
+- **Steuerung und andere lange Listen öffnen schneller** — beim ersten
+  Öffnen werden nur die sichtbaren Zeilen eingerichtet, der Rest kommt beim
+  Rollen. Auf der Steuerung geht das Öffnen damit rund eine Sekunde schneller
+- **„Was ist neu" öffnet schneller** — ältere Versionen werden erst gebaut,
+  wenn du sie aufklappst
+
 ## v3.75.0 - 2026-10-04
 
 > Von der Farmliste geht es jetzt mit einem Klick dorthin, wo du farmen

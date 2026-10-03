@@ -383,12 +383,27 @@ def _pack_on_demand(leinwand, zeilen, sofort=ROWS_FIRST,
                 pass
         try:
             # Nahe am Ende? Dann die nächste Portion anhängen.
-            if float(werte[1]) > 0.85:
+            if float(werte[1]) > 0.85 and _canvas_shown(leinwand):
                 nachlegen()
         except (IndexError, TypeError, ValueError):
             pass
 
     leinwand.configure(yscrollcommand=beim_rollen)
+
+
+def _canvas_shown(leinwand):
+    """Steht die Rollfläche schon auf dem Bildschirm, mit echter Höhe?
+
+    ⚠⚠ Beim ersten Aufbau meldet Tk die Sicht `(0.0, 1.0)`, solange die
+    Leinwand noch 1×1 Pixel groß und nicht gezeigt ist — also alles sichtbar.
+    Ohne diese Frage legte das sofort die zweite Portion nach; gemessen auf
+    der Steuerung 90 statt 45 Zeilen und fast eine Sekunde länger. Sobald die
+    Fläche steht, meldet Tk die Sicht erneut, und dann zählt sie.
+    """
+    try:
+        return bool(leinwand.winfo_ismapped()) and leinwand.winfo_height() > 1
+    except tk.TclError:
+        return False
 
 
 def _build_on_demand(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
@@ -433,7 +448,7 @@ def _build_on_demand(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
             except tk.TclError:
                 pass
         try:
-            if float(werte[1]) > 0.85:
+            if float(werte[1]) > 0.85 and _canvas_shown(leinwand):
                 nachlegen()
         except (IndexError, TypeError, ValueError):
             pass
@@ -5208,74 +5223,91 @@ def _version_box(fenster, eltern, eintrag, punkte, offen):
     if offen:
         koerper.pack(fill='x')
 
-    from .main_window import badge
-    # Der Vorstellungssatz der Version steht **hier**, unter ihrer Überschrift —
-    # nicht irgendwo am Seitenende. Wer eine Version aufklappt, will zuerst wissen,
-    # worum es ging, und dann die Einzelheiten.
-    from . import updater as _akt
-    lead = _akt.intro(eintrag.get('text') or '')
-    if lead:
-        satz = tk.Label(koerper, text=lead, bg=BG, fg=SUB, font=fenster.f_small,
-                        anchor='w', justify='left', wraplength=600)
-        satz.pack(fill='x', padx=24, pady=(2, 8))
+    def fuellen():
+        """Den Inhalt der Version bauen — beim ersten Aufklappen.
 
-        # Denselben Weg wie bei den Punkten: nicht rechnen, sondern nehmen, was
-        # das Label wirklich bekommt — sonst ragt der Satz bei jeder
-        # Fenstergröße heraus.
-        def lead_umbruch(ereignis, lab=satz):
-            passend = max(200, ereignis.width - 8)
-            try:
-                if abs(_pixels(lab, lab.cget('wraplength'))
-                       - passend) > 4:
-                    lab.configure(wraplength=passend)
-            except tk.TclError:
-                pass
+        ⭐ Zugeklappte Versionen bekommen keinen Inhalt, bis man
+        sie öffnet. Alle 25 voll aufzubauen kostete beim ersten
+        Öffnen der Seite rund 1.700 Tk-Aufrufe und eine halbe
+        Sekunde — gezeigt wird davon nur die neueste.
+        """
+        if gebaut[0]:
+            return
+        gebaut[0] = True
+        from .main_window import badge
+        # Der Vorstellungssatz der Version steht **hier**, unter ihrer Überschrift —
+        # nicht irgendwo am Seitenende. Wer eine Version aufklappt, will zuerst wissen,
+        # worum es ging, und dann die Einzelheiten.
+        from . import updater as _akt
+        lead = _akt.intro(eintrag.get('text') or '')
+        if lead:
+            satz = tk.Label(koerper, text=lead, bg=BG, fg=SUB, font=fenster.f_small,
+                            anchor='w', justify='left', wraplength=600)
+            satz.pack(fill='x', padx=24, pady=(2, 8))
 
-        satz.bind('<Configure>', lead_umbruch)
+            # Denselben Weg wie bei den Punkten: nicht rechnen, sondern nehmen, was
+            # das Label wirklich bekommt — sonst ragt der Satz bei jeder
+            # Fenstergröße heraus.
+            def lead_umbruch(ereignis, lab=satz):
+                passend = max(200, ereignis.width - 8)
+                try:
+                    if abs(_pixels(lab, lab.cget('wraplength'))
+                           - passend) > 4:
+                        lab.configure(wraplength=passend)
+                except tk.TclError:
+                    pass
 
-    # Alle Blasen so breit wie die längste Beschriftung — sonst flattern sie
-    # und die Texte daneben fangen an unterschiedlichen Stellen an.
-    breiteste = max(fenster.f_small.measure(_kind_word(a))
-                    for a in ('neu', 'bess', 'fix')) + 20
-    for art, zeile in punkte:
-        z = tk.Frame(koerper, bg=BG)
-        z.pack(fill='x', pady=3)
-        badge(z, _kind_word(art), _KIND_COLOR.get(art, SUB),
-              fenster.f_small, bg=BG,
-              min_width=breiteste).pack(side='left', anchor='n', padx=(0, 14))
-        # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
-        # der Text zu spät um und der Rest wird stumm abgeschnitten.
-        #
-        # Ein geschätzter Abzug („Fensterbreite minus …" für Seitenleiste,
-        # Ränder und Art-Blase) geht schief, sobald sich eines davon ändert.
-        #
-        # Deshalb wird nicht gerechnet, sondern genommen, was das Label
-        # tatsächlich bekommt — und bei jeder Größenänderung neu. Damit stimmt es
-        # auch, wenn jemand das Fenster zieht.
-        etikett = tk.Label(z, text=_clean_row(zeile), bg=BG, fg=FG,
-                           font=fenster.f_small, anchor='w', justify='left',
-                           wraplength=max(360, (fenster.root.winfo_width()
-                                                or 980) - 340))
-        etikett.pack(side='left', fill='x', expand=True)
+            satz.bind('<Configure>', lead_umbruch)
 
-        def umbruch_anpassen(ereignis, lab=etikett):
-            # Die Abfrage verhindert eine Schleife: Ein neuer Umbruch ändert die
-            # Höhe, das löst wieder ein <Configure> aus.
-            passend = max(200, ereignis.width - 8)
-            try:
-                if abs(_pixels(lab, lab.cget('wraplength'))
-                       - passend) > 4:
-                    lab.configure(wraplength=passend)
-            except tk.TclError:
-                pass
+        # Alle Blasen so breit wie die längste Beschriftung — sonst flattern sie
+        # und die Texte daneben fangen an unterschiedlichen Stellen an.
+        breiteste = max(fenster.f_small.measure(_kind_word(a))
+                        for a in ('neu', 'bess', 'fix')) + 20
+        for art, zeile in punkte:
+            z = tk.Frame(koerper, bg=BG)
+            z.pack(fill='x', pady=3)
+            badge(z, _kind_word(art), _KIND_COLOR.get(art, SUB),
+                  fenster.f_small, bg=BG,
+                  min_width=breiteste).pack(side='left', anchor='n', padx=(0, 14))
+            # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
+            # der Text zu spät um und der Rest wird stumm abgeschnitten.
+            #
+            # Ein geschätzter Abzug („Fensterbreite minus …" für Seitenleiste,
+            # Ränder und Art-Blase) geht schief, sobald sich eines davon ändert.
+            #
+            # Deshalb wird nicht gerechnet, sondern genommen, was das Label
+            # tatsächlich bekommt — und bei jeder Größenänderung neu. Damit stimmt es
+            # auch, wenn jemand das Fenster zieht.
+            etikett = tk.Label(z, text=_clean_row(zeile), bg=BG, fg=FG,
+                               font=fenster.f_small, anchor='w', justify='left',
+                               wraplength=max(360, (fenster.root.winfo_width()
+                                                    or 980) - 340))
+            etikett.pack(side='left', fill='x', expand=True)
 
-        etikett.bind('<Configure>', umbruch_anpassen)
+            def umbruch_anpassen(ereignis, lab=etikett):
+                # Die Abfrage verhindert eine Schleife: Ein neuer Umbruch ändert die
+                # Höhe, das löst wieder ein <Configure> aus.
+                passend = max(200, ereignis.width - 8)
+                try:
+                    if abs(_pixels(lab, lab.cget('wraplength'))
+                           - passend) > 4:
+                        lab.configure(wraplength=passend)
+                except tk.TclError:
+                    pass
+
+            etikett.bind('<Configure>', umbruch_anpassen)
+
+
+    gebaut = [False]
+    if offen:
+        fuellen()
 
     def umschalten(*_):
         zustand['offen'] = not zustand['offen']
         pfeil.swap_symbol('zuklappen' if zustand['offen']
                              else 'aufklappen')
         if zustand['offen']:
+            fuellen()
             # ⚠ `after=kopf` ist der ganze Witz. Ohne das packt Tk den Inhalt ans
             # **Ende** der Fläche — also unter alle anderen Versionen; wer nicht
             # weit genug rollt, hält die Version für leer. Beim ersten Zeichnen

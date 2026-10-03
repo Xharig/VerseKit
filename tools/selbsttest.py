@@ -25214,6 +25214,7 @@ def main():
     _pruefung_319()
     _pruefung_320()
     _pruefung_321()
+    _pruefung_322()
 
     print()
     if fehler:
@@ -32467,6 +32468,106 @@ def _pruefung_321():
         except Exception:
             pass
         _hw321._window.top = None
+
+
+def _pruefung_322():
+    """322. Lange Listen und „Was ist neu" bauen nur, was man sieht.
+
+    a) `_pack_on_demand` darf beim Aufbau nicht nachlegen, solange die
+       Rollfläche noch nicht steht — Tk meldet dann, alles sei sichtbar.
+    b) Zugeklappte Versionen in „Was ist neu" bekommen ihren Inhalt erst beim
+       Aufklappen; aufgeklappt steht er dann da.
+    """
+    print('\n322. Nur bauen, was man sieht')
+    import tkinter as _tk322
+    from scbp import pages as _pg322
+
+    # --- a) Rollfläche: 200 Zeilen, Platz für etwa 15 ---
+    _w322 = _wurzel()
+    try:
+        _w322.deiconify()
+        _w322.geometry('400x300')
+        rahmen = _tk322.Frame(_w322)
+        rahmen.pack(fill='both', expand=True)
+        innen = _pg322._scroll_area(rahmen, inset=0)
+        zeilen = [_tk322.Label(innen, text='Zeile %d' % i, height=1)
+                  for i in range(200)]
+        _pg322._pack_on_demand(innen.canvas, zeilen)
+        for _ in range(10):
+            _w322.update()
+        gepackt = sum(1 for z in zeilen if z.winfo_manager() == 'pack')
+        pruefe(gepackt == _pg322.ROWS_FIRST,
+               'beim Aufbau stehen nur die ersten %d Zeilen (%d)'
+               % (_pg322.ROWS_FIRST, gepackt))
+        innen.canvas.yview_moveto(1.0)
+        for _ in range(10):
+            _w322.update()
+        gepackt2 = sum(1 for z in zeilen if z.winfo_manager() == 'pack')
+        pruefe(gepackt2 > gepackt,
+               'ans Ende gerollt kommt die nächste Portion (%d -> %d)'
+               % (gepackt, gepackt2))
+    finally:
+        try:
+            _w322.destroy()
+        except Exception:
+            pass
+
+    # --- b) „Was ist neu" im echten Hauptfenster ---
+    from scbp import updater as _up322
+    from scbp.language import t as _t322
+    versionen = _up322.history_grouped()
+    pruefe(len(versionen) >= 2,
+           'Vorbedingung: mindestens zwei Versionen im Verlauf (%d)'
+           % len(versionen))
+    _w322 = _wurzel()
+    try:
+        from scbp import main_window as _hf322
+        fenster = _hf322.MainWindow(_w322, version='0.0.0-pruefung')
+        fenster.open_page('wasistneu')
+        _w322.update()
+        seite = fenster.pages['wasistneu']
+
+        def _zahl(w):
+            return 1 + sum(_zahl(k) for k in w.winfo_children())
+
+        def _kopf(version):
+            treffer = []
+
+            def _lauf(w):
+                try:
+                    if w.winfo_class() == 'Label' and w.cget('text') == version:
+                        treffer.append(w)
+                except Exception:
+                    pass
+                for k in w.winfo_children():
+                    _lauf(k)
+            _lauf(seite)
+            return treffer[0] if treffer else None
+
+        zweite = (versionen[1].get('version') if len(versionen) > 1 else '')
+        kopf = _kopf(zweite)
+        pruefe(kopf is not None,
+               'Vorbedingung: die zweite Version %s steht als Kopfzeile da'
+               % zweite)
+        if kopf is not None:
+            vorher = _zahl(seite)
+            kopf.event_generate('<Button-1>', x=2, y=2)
+            _w322.update()
+            nachher = _zahl(seite)
+            pruefe(nachher > vorher + 3,
+                   'zugeklappt ohne Inhalt, aufgeklappt gebaut '
+                   '(%d -> %d Bauteile)' % (vorher, nachher))
+            kopf.event_generate('<Button-1>', x=2, y=2)
+            kopf.event_generate('<Button-1>', x=2, y=2)
+            _w322.update()
+            pruefe(_zahl(seite) == nachher,
+                   'erneutes Aufklappen baut nichts doppelt (%d)'
+                   % _zahl(seite))
+    finally:
+        try:
+            _w322.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.76.0 - 2026-10-04
+
+> VerseKit got snappier: long lists like Controls only build what you see
+> when they open, and "What's new" only builds older versions once you click
+> them.
+
+### Improved
+
+- **Controls and other long lists open faster** — on first opening only the
+  visible rows are set up, the rest comes as you scroll. Controls opens about
+  a second faster
+- **"What's new" opens faster** — older versions are only built when you
+  expand them
+
 ## v3.75.0 - 2026-10-04
 
 > The farming list now takes you to where you can farm in one click: click a
