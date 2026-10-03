@@ -327,7 +327,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     <div class="film">
       <video id="film" src="assets/video/versekit-de.mp4" poster="assets/video/versekit-de.jpg"
              autoplay muted loop playsinline preload="metadata"
-             aria-label="Verse-Kit in 26 Sekunden"></video>
+             aria-label="Verse-Kit in 43 Sekunden"></video>
     </div>
   </div>
 </div>
@@ -886,7 +886,7 @@ function filmSprache(){
   film.setAttribute("poster", "assets/video/versekit-" + sprLage + ".jpg");
   film.setAttribute("src", ziel);
   film.setAttribute("aria-label", sprLage === "de"
-    ? "Verse-Kit in 26 Sekunden" : "Verse-Kit in 26 seconds");
+    ? "Verse-Kit in 43 Sekunden" : "Verse-Kit in 43 seconds");
   if (!wenigBewegung) { var p = film.play(); if (p && p.catch) p.catch(function(){}); }
 }
 
