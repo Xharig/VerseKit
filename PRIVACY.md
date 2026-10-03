@@ -3,8 +3,8 @@
 **Deutsch** · [English](PRIVACY.en.md)
 
 Verse-Kit läuft auf deinem Rechner. Es gibt kein Konto, keine Werbung und kein
-Tracking. Einmal am Tag meldet das Programm, dass es läuft — ohne Kennung,
-abschaltbar (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
+Tracking. Einmal am Tag meldet das Programm, dass es läuft und welche Seiten
+genutzt wurden — ohne Kennung, abschaltbar (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
 das Programm liest, was es aus dem Netz holt und was es verschickt.
 
 ## Was auf deinem Rechner gelesen wird
@@ -45,6 +45,16 @@ Einmal am Tag schickt Verse-Kit an `nutzung-versekit.xharig.com` genau diese Ang
 | wie das Overlay läuft | immer sichtbar / nur bei neuen Bauplänen |
 | ob Verse-Kit mit dem Rechner startet | ja / nein |
 | ob neue Versionen von selbst eingespielt werden | ja / nein |
+| welche Seiten im Hauptfenster du geöffnet hast, wie oft | Bauplan-Liste 12×, Shops 3× |
+| auf welchem Weg eine Seite geöffnet wurde | Seitenleiste, Sprung, Overlay, Tray-Menü, Programmstart |
+| wie viele Klicks es bis zu einer Seite brauchte | Shops: 5× nach 2 Klicks |
+| welche Seite du nach wenigen Sekunden wieder verlassen hast, und wo du danach geblieben bist | Verkauf → Shops: 7× |
+
+Die Seitenangaben sind nur Zähler seit der letzten Meldung, mit den festen
+Kennungen der Seiten — keine Inhalte, keine Suchbegriffe, keine Namen, keine
+Uhrzeiten. Sie liegen bis zur nächsten Meldung in deinem Datenordner
+(`seitennutzung.json`) und werden danach geleert. Ist die Meldung
+ausgeschaltet, wird gar nicht erst mitgezählt.
 
 Dazu das **Land**, das Cloudflare bei jeder Anfrage selbst erkennt — nur das
 Länderkürzel, keine Stadt, keine Region. Keine Kennung, kein Name, kein
@@ -54,8 +64,9 @@ Verse-Kit an einem Tag nutzen und was davon, aber nicht, wer, und auch keine
 einzelne Installation über mehrere Tage verfolgen. Die Zahlen sieht nur der
 Entwickler.
 
-Abschalten: *Einstellungen → Allgemein → Nutzung zählen*. Mit
-`SC_BP_NO_NET=1` entfällt die Meldung ebenfalls.
+Abschalten: *Einstellungen → Allgemein → Nutzung zählen lassen*. Mit
+`SC_BP_NO_NET=1` entfällt die Meldung ebenfalls — und mit ihr das Mitzählen
+der Seiten.
 
 ## Downloads über die Webseite
 

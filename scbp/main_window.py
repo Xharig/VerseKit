@@ -49,6 +49,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from . import screen, errors, fields, notice, news, paths, icons, dpi
+from . import page_usage
 from .language import t, window_title
 from . import theme
 
@@ -1838,7 +1839,7 @@ class MainWindow:
     """Der Rahmen mit der Reiterleiste. Die Seiten liefern andere Module."""
 
     def __init__(self, eltern=None, on_close=None, version='',
-                 on_font_change=None, start_page='liste'):
+                 on_font_change=None, start_page='liste', start_via='start'):
         self.on_close = on_close
         self.version = version
         # Der Basetool-Abgleich meldet hierher, welche Seiten er verändert hat
@@ -1909,7 +1910,8 @@ class MainWindow:
         # man auf den Aufbau der kompletten Bauplan-Liste, die sofort wieder
         # ausgeblendet wird (`Seite liste: steht (205 ms)` gefolgt von
         # `Seite allgemein: steht (7 ms)` — 205 der 212 ms fuer nichts).
-        self.open_page(start_page)
+        page_usage.window_opened()
+        self.open_page(start_page, via=start_via)
         # Die Mindesthöhe hängt an Schriftgröße und Skalierung — einmal messen,
         # sobald Tk die Seitenleiste gezeichnet hat.
         self.root.after(50, self._min_height_update)
@@ -2610,7 +2612,8 @@ class MainWindow:
                                    cursor='hand2', anchor='w', padx=16, pady=8)
         self.collapse_button.pack(side='left', fill='x', expand=True)
         for _teil in (self.collapse_head, self.collapse_button, self.collapse_arrow):
-            _teil.bind('<Button-1>', lambda e: self._collapse_toggle())
+            _teil.bind('<Button-1>', lambda e: (page_usage.group_toggled(),
+                                                self._collapse_toggle()))
         icons.hover_group(self.collapse_head, self.collapse_arrow)
         self.collapse_body = tk.Frame(self.collapse, bg=SURFACE)
 
@@ -2908,12 +2911,19 @@ class MainWindow:
         if not fest:
             for part in (kopf, beschriftung, pfeil):
                 part.bind('<Button-1>',
-                          lambda _e, k=kennung: self._group_toggle(k))
+                          lambda _e, k=kennung: self._group_click(k))
             # ⚠ Nur bei einer Gruppe, die sich wirklich klappen lässt. Bei
             # einer festgenagelten gibt es keinen Pfeil — und aufleuchten zu
             # lassen, was nicht reagiert, wäre genau das falsche Versprechen.
             icons.hover_group(kopf, pfeil)
         return inhalt
+
+    def _group_click(self, group_id):
+        """Klick auf einen Gruppenkopf: zählt als Klick (`page_usage`) und
+        klappt. `_group_toggle` allein zählt nicht — es läuft auch, wenn das
+        Programm eine Gruppe selbst öffnet."""
+        page_usage.group_toggled()
+        self._group_toggle(group_id)
 
     def _group_toggle(self, kennung, auf=None):
         """Eine Gruppe auf- oder zuklappen. `auf=True` erzwingt das Aufklappen."""
@@ -2985,7 +2995,8 @@ class MainWindow:
             marke_widget.pack(side='right', padx=10)
 
         for part in (zeile, z, b):
-            part.bind('<Button-1>', lambda e, k=kennung: self.open_page(k))
+            part.bind('<Button-1>', lambda e, k=kennung: self.open_page(
+                k, via='seitenleiste'))
         # ⭐ Der Reiter hellt sein Symbol auf, sobald die Maus die **Zeile**
         # trifft — anklickbar ist hier die Zeile, nicht das Symbol allein.
         # Ohne das blieb die Reiterleiste als einziger Bereich ohne
@@ -3231,13 +3242,17 @@ class MainWindow:
                 self._group_toggle(name, auf=True)
                 return
 
-    def open_page(self, kennung, zurueck_zu=None):
+    def open_page(self, kennung, zurueck_zu=None, via=None):
         """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen.
 
         `zurueck_zu` setzt **nur** `jump_to()`. Ein Klick in der Seitenleiste
         kommt ohne, und das loescht den Rueckweg — richtig so: Wer selbst
         weiterblaettert, will nicht dorthin zurueck, wo ein alter Sprung
         einmal begann.
+
+        `via` sagt `page_usage`, auf welchem Weg die Seite geöffnet wurde
+        (`seitenleiste`, `sprung`, `overlay`, `tray`, `start`). Ohne Angabe
+        zeigt das Programm die Seite selbst neu — das wird nicht gezählt.
         """
         # ⚠⚠ **Ein Seitenwechsel ist die deutlichste Nutzeraktion überhaupt.**
         # Ohne diese Zeile liefe der Vorbau weiter, während die gerade
@@ -3306,6 +3321,7 @@ class MainWindow:
             self.pages[self.current].pack_forget()
         self.pages[kennung].pack(fill='both', expand=True)
         self.current = kennung
+        page_usage.page_opened(kennung, via)
         self.came_from = zurueck_zu
         self._back_bar_update()
         errors.trail('Seite %s: steht (%.0f ms)'
@@ -3375,13 +3391,13 @@ class MainWindow:
         `open_page()`. Wer einen neuen baut, nimmt diese Methode — sonst
         bekommt genau sein Sprung als einziger keinen Rückweg.
         """
-        self.open_page(kennung, zurueck_zu=self.current)
+        self.open_page(kennung, zurueck_zu=self.current, via='sprung')
 
     def _back_jump(self):
         """Zurück zu der Seite, von der der Sprung ausging."""
         ziel = self.came_from
         if ziel and ziel in self.pages:
-            self.open_page(ziel)
+            self.open_page(ziel, via='sprung')
 
     def _back_bar_update(self):
         """Die Rückweg-Leiste zeigen oder wegnehmen.
@@ -3721,7 +3737,7 @@ class MainWindow:
         Ein Fenster über dem Fenster verdeckt genau das, was man gerade
         vergleichen will, und es gibt keinen Grund dafür: Der Platz ist da.
         """
-        self.open_page('wasistneu')
+        self.open_page('wasistneu', via='sprung')
 
     def _open_wizard(self):
         from . import wizard
@@ -3886,6 +3902,7 @@ class MainWindow:
         paths.set_setting(SIZE_KEY, wert)
 
     def close(self):
+        page_usage.window_closed()
         # Beim Zumachen noch einmal sichern: Wer das Fenster kurz nach dem
         # Ziehen schliesst, waere sonst schneller als die Drossel.
         try:

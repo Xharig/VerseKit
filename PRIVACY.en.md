@@ -3,8 +3,8 @@
 [Deutsch](PRIVACY.md) · **English**
 
 Verse-Kit runs on your computer. There is no account, no advertising and no
-tracking. Once a day the program reports that it is running — without any ID,
-and you can switch it off (see *Count usage*). This page states in full
+tracking. Once a day the program reports that it is running and which pages
+were used — without any ID, and you can switch it off (see *Count usage*). This page states in full
 what the program reads, what it fetches from the internet and what it sends.
 
 ## What is read on your computer
@@ -45,6 +45,15 @@ Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com
 | how the overlay runs | always visible / only on new blueprints |
 | whether Verse-Kit starts with your computer | yes / no |
 | whether new versions are installed automatically | yes / no |
+| which pages of the main window you opened, how often | Blueprint list 12×, Shops 3× |
+| how a page was opened | sidebar, jump, overlay, tray menu, program start |
+| how many clicks it took to reach a page | Shops: 5× after 2 clicks |
+| which page you left again after a few seconds, and where you stayed next | Selling → Shops: 7× |
+
+The page details are only counters since the last report, using the fixed
+page IDs — no content, no search terms, no names, no times of day. They stay
+in your data folder (`seitennutzung.json`) until the next report and are
+cleared afterwards. If reporting is switched off, nothing is counted at all.
 
 Plus the **country** that Cloudflare detects on every request by itself — only
 the country code, no city, no region. No ID, no name, no RSI handle, no paths.
@@ -54,7 +63,7 @@ parts, but not who, and no single installation can be followed across days.
 Only the developer sees the numbers.
 
 Switch it off: *Settings → General → Count usage*. `SC_BP_NO_NET=1` stops it
-as well.
+as well — and with it the counting of pages.
 
 ## Downloads from the website
 

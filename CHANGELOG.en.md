@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.71.0 - 2026-10-03
+
+> VerseKit should get easier to use. To help with that, the anonymous usage
+> report now also counts which pages are opened and how many clicks it takes
+> to get there — that shows what is hard to find, so it can move to the
+> front. If you'd rather not, switch it off under *Settings → General*;
+> then nothing is counted at all.
+
+### New
+
+- **Count usage now includes pages** — the daily, anonymous report also
+  says which pages of the main window are opened how often and how many
+  clicks it takes to get there. That shows what is hard to find. Only page
+  IDs, no content, no search terms. If you switch *Count usage* off, nothing
+  is counted at all
+
 ## v3.70.4 - 2026-10-03
 
 > A maintenance release: the source code is tidied up, nothing changes in

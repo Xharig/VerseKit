@@ -1,5 +1,8 @@
 -- Zähler je Tag (UTC). Keine Kennung, keine IP — nur „wie viele".
 -- Einspielen: npx wrangler d1 execute versekit-nutzung --remote --file=schema.sql
+-- ⚠ Jede Tabelle mit IF NOT EXISTS und nur CREATE: Die Datei lässt sich
+-- jederzeit erneut einspielen, vorhandene Tabellen und Zeilen bleiben
+-- unberührt (Prüfung in worker.test.mjs).
 
 -- Aktive Installationen je Tag, Programmversion, System und Land. Das Land ist
 -- das Kürzel, das Cloudflare selbst aus der Anfrage ableitet
@@ -68,4 +71,46 @@ CREATE TABLE IF NOT EXISTS download_verlauf (
   linux          INTEGER NOT NULL,
   releases_aktiv INTEGER NOT NULL,
   releases_je    INTEGER NOT NULL
+);
+
+-- Seiten des Hauptfensters, je Tag zusammengezählt aus den Meldungen. Nur
+-- Seiten-Kennungen aus pages.js — keine Inhalte, keine Zeitpunkte. Bewusst
+-- NICHT mit `tage` verknüpft (keine Version, kein Land, kein System).
+
+-- Aufrufe je Seite.
+CREATE TABLE IF NOT EXISTS seiten (
+  tag   TEXT    NOT NULL,
+  seite TEXT    NOT NULL,
+  n     INTEGER NOT NULL,
+  PRIMARY KEY (tag, seite)
+);
+
+-- Auf welchem Weg eine Seite geöffnet wurde (Seitenleiste, Sprung, Overlay,
+-- Tray-Menü, Programmstart).
+CREATE TABLE IF NOT EXISTS seiten_wege (
+  tag   TEXT    NOT NULL,
+  seite TEXT    NOT NULL,
+  weg   TEXT    NOT NULL,
+  n     INTEGER NOT NULL,
+  PRIMARY KEY (tag, seite, weg)
+);
+
+-- Klicks bis zur Zielseite: wie oft eine Seite nach `klicks` Klicks erreicht
+-- wurde. `klicks` = 10 heißt „10 oder mehr".
+CREATE TABLE IF NOT EXISTS seiten_klicks (
+  tag    TEXT    NOT NULL,
+  seite  TEXT    NOT NULL,
+  klicks INTEGER NOT NULL,
+  n      INTEGER NOT NULL,
+  PRIMARY KEY (tag, seite, klicks)
+);
+
+-- Fehlgriffe: Seite `von` nach wenigen Sekunden wieder verlassen, danach
+-- auf Seite `nach` geblieben.
+CREATE TABLE IF NOT EXISTS seiten_fehlgriffe (
+  tag  TEXT    NOT NULL,
+  von  TEXT    NOT NULL,
+  nach TEXT    NOT NULL,
+  n    INTEGER NOT NULL,
+  PRIMARY KEY (tag, von, nach)
 );

@@ -6,6 +6,11 @@
 // und Stil mit dem Einmal-Wert (`nonce`) dieser Antwort zu.
 
 import { ICON } from './icon.js';
+import { PAGES, ROUTES, MAX_CLICKS } from './pages.js';
+
+// Für das Skript der Seite: als JSON, `<` maskiert, damit kein Name das
+// Skript-Element beenden kann.
+const asScript = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
 
 export function dashboardHtml(nonce) {
   return `<!doctype html>
@@ -67,6 +72,16 @@ svg text { fill:var(--sub); font-size:11px; }
 .tab td { padding:6px 8px; border-bottom:1px solid var(--line); }
 .tab .num { text-align:right; font-variant-numeric:tabular-nums; }
 .tab th:not(:first-child) { text-align:right; }
+.cols { column-count:2; column-gap:28px; }
+@media (max-width: 900px) { .cols { column-count:1; } }
+.cols .bar { break-inside:avoid; }
+.bar .grp { color:var(--sub); font-size:11px; margin-left:6px; }
+.dim { opacity:.5; }
+.hist { display:inline-grid; grid-template-columns:repeat(${MAX_CLICKS + 1}, 16px); gap:2px;
+        align-items:end; height:26px; vertical-align:middle; }
+.hist div { background:var(--accent); border-radius:2px 2px 0 0; min-height:1px; }
+.hist.axis { height:auto; align-items:start; }
+.hist.axis span { color:var(--sub); font-size:10px; text-align:center; }
 </style>
 </head>
 <body>
@@ -111,6 +126,13 @@ const NAMES = { ui: { de: 'Deutsch', en: 'Englisch' }, overlay: { immer: 'immer 
   mod: { schiffe: 'Schiffe', werkstatt: 'Werkstatt', bergung: 'Bergung', handel: 'Handel', statistiken: 'Statistiken' } };
 const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch',
   pt: 'Portugiesisch', pl: 'Polnisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch', ru: 'Russisch', xx: 'unbekannt' }[c] || c);
+const PAGES = ${asScript(PAGES)};
+const ROUTES = ${asScript(ROUTES)};
+const MAX_CLICKS = ${MAX_CLICKS};
+const ROUTE_COLORS = { seitenleiste: 'var(--accent)', sprung: 'var(--b)', overlay: 'var(--c)',
+  tray: 'var(--d)', start: 'var(--sub)' };
+const pageName = (p) => (PAGES[p] || ['', p])[1];
+const stepName = (k) => (Number(k) >= MAX_CLICKS ? MAX_CLICKS + '+' : String(k));
 
 function card(title, wide) {
   const c = $('div', { class: 'card' + (wide ? ' wide' : '') }, [$('h2', { text: title })]);
@@ -367,8 +389,94 @@ function render(d, span) {
     ['Auto-Update an', (share('update').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
 
+  // 7.–9. Seiten des Hauptfensters über den gewählten Zeitraum — drei breite
+  // Karten unter den kleinen, damit die zwei Dreierreihen geschlossen bleiben.
+  pageBlocks(d, inSpan);
+
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
     + ' · lädt alle 10 Minuten neu';
+}
+
+function pageBlocks(d, inSpan) {
+  const sum = (rows, key) => { const m = {};
+    for (const r of rows || []) if (inSpan.has(r.tag)) { const k = key(r); m[k] = (m[k] || 0) + r.n; }
+    return m; };
+
+  // Rangliste: jede Seite aus PAGES, auch mit 0 — der Balken nach Wegen
+  // aufgeteilt. Bei gleicher Zahl gilt die Reihenfolge der Seitenleiste.
+  const views = sum(d.seiten, (r) => r.seite);
+  const ways = sum(d.seiten_wege, (r) => r.seite + '|' + r.weg);
+  const order = Object.keys(PAGES);
+  const ranked = order.slice().sort((a, b) => ((views[b] || 0) - (views[a] || 0)) || (order.indexOf(a) - order.indexOf(b)));
+  const rc = card('Seiten nach Aufrufen (Zeitraum)', true);
+  const top = Math.max(1, ...ranked.map((p) => views[p] || 0));
+  const total = ranked.reduce((a, p) => a + (views[p] || 0), 0);
+  const list = $('div', { class: 'cols' });
+  for (const p of ranked) {
+    const v = views[p] || 0;
+    const parts = Object.keys(ROUTES).map((w) => {
+      const seg = $('div', { class: 'fill' });
+      seg.style.width = (((ways[p + '|' + w] || 0) / top) * 100).toFixed(1) + '%';
+      seg.style.background = ROUTE_COLORS[w];
+      seg.title = ROUTES[w] + ': ' + (ways[p + '|' + w] || 0);
+      return seg;
+    });
+    list.appendChild($('div', { class: 'bar' + (v ? '' : ' dim') }, [
+      $('span', {}, [document.createTextNode(pageName(p)), $('span', { class: 'grp', text: PAGES[p][0] })]),
+      $('div', { class: 'track stack' }, parts),
+      $('span', { class: 'n', text: String(v) })]));
+  }
+  rc.appendChild(list);
+  rc.appendChild($('div', { class: 'legend' }, Object.keys(ROUTES).map((w) =>
+    $('span', {}, [$('i', { style: 'background:' + ROUTE_COLORS[w] }), document.createTextNode(ROUTES[w])]))));
+  rc.appendChild($('div', { class: 'note', text: total
+    ? total + ' Aufrufe im Zeitraum. Wer die Meldung abschaltet, fehlt; ältere Fassungen zählen keine Seiten.'
+    : 'Noch keine Seitenaufrufe im Zeitraum.' }));
+
+  // Klicks bis zum Ziel: je Seite die Verteilung 0 … MAX_CLICKS+ und ihr Median.
+  const dist = {};
+  for (const r of d.seiten_klicks || []) {
+    if (!inSpan.has(r.tag)) continue;
+    const k = Math.min(Number(r.klicks), MAX_CLICKS);
+    const m = dist[r.seite] = dist[r.seite] || {};
+    m[k] = (m[k] || 0) + r.n;
+  }
+  const median = (m) => { const n = Object.values(m).reduce((a, x) => a + x, 0); let run = 0;
+    for (let k = 0; k <= MAX_CLICKS; k++) { run += m[k] || 0; if (run * 2 >= n) return k; } return MAX_CLICKS; };
+  const kc = card('Klicks bis zum Ziel', true);
+  const targets = Object.keys(dist).filter((p) => PAGES[p])
+    .map((p) => [p, Object.values(dist[p]).reduce((a, x) => a + x, 0)])
+    .sort((a, b) => (b[1] - a[1]) || (order.indexOf(a[0]) - order.indexOf(b[0])));
+  if (!targets.length) {
+    kc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
+  } else {
+    const axis = $('div', { class: 'hist axis' });
+    for (let k = 0; k <= MAX_CLICKS; k++) axis.appendChild($('span', { text: stepName(k) }));
+    const head = $('tr', {}, [$('th', { text: 'Seite' }), $('th', { text: 'erreicht' }), $('th', { text: 'Median' }),
+      $('th', {}, [document.createTextNode('Verteilung (Klicks) '), axis])]);
+    const body = targets.map(([p, n]) => {
+      const m = dist[p]; const hi = Math.max(1, ...Object.values(m));
+      const hist = $('div', { class: 'hist' });
+      for (let k = 0; k <= MAX_CLICKS; k++) {
+        const b = $('div'); b.style.height = (((m[k] || 0) / hi) * 100).toFixed(0) + '%';
+        if (!m[k]) b.style.background = 'var(--line)';
+        b.title = stepName(k) + ' Klicks: ' + (m[k] || 0); hist.appendChild(b);
+      }
+      return $('tr', {}, [$('td', { text: pageName(p) }), $('td', { class: 'num', text: String(n) }),
+        $('td', { class: 'num', text: stepName(median(m)) }), $('td', { class: 'num' }, [hist])]);
+    });
+    kc.appendChild($('div', { class: 'scroll' }, [$('table', { class: 'tab' }, [$('thead', {}, [head]), $('tbody', {}, body)])]));
+  }
+  kc.appendChild($('div', { class: 'note', text: 'Ziel = eine Seite, auf der man mindestens 3 Sekunden bleibt. Klicks = Seitenwechsel und Auf- oder Zuklappen in der Seitenleiste, ab dem Öffnen des Fensters bzw. seit dem letzten Ziel. 0 = gleich beim Öffnen da, ' + MAX_CLICKS + '+ = ' + MAX_CLICKS + ' oder mehr.' }));
+
+  // Häufigste Fehlgriffe als „A → B".
+  const miss = sum(d.seiten_fehlgriffe, (r) => r.von + '>' + r.nach);
+  const pairs = Object.entries(miss).filter(([k]) => k.split('>').every((p) => PAGES[p]))
+    .sort((a, b) => b[1] - a[1]).slice(0, 15)
+    .map(([k, n]) => { const [a, b] = k.split('>'); return [pageName(a) + ' → ' + pageName(b), n]; });
+  const mc = card('Häufigste Fehlgriffe', true);
+  bars(mc, pairs, (v) => v);
+  mc.appendChild($('div', { class: 'note', text: 'Fehlgriff = Seite nach weniger als 3 Sekunden wieder verlassen. Rechts die Seite, auf der man danach geblieben ist.' }));
 }
 
 async function load() {

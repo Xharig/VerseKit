@@ -19,11 +19,44 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 | Prüfung | Grenze |
 |---|---|
 | Pfad und Methode | nur `POST /ping` |
-| Größe | höchstens 600 Byte |
-| Felder | nur `v`, `os`, `ui`, `game`, `rc`, `mods`, `overlay`, `autostart` — jedes andere Feld: abgelehnt |
-| Werte | Version `1.2.3(-rcN)`, System `windows`/`linux`, Sprachen zwei Kleinbuchstaben, Ja/Nein als echte Wahrheitswerte, Bereiche nur Kleinbuchstaben (höchstens 12) |
+| Größe | höchstens 16 KB (`MAX_BYTES`) — die größte Meldung, die das Programm bauen kann, braucht rund 12 KB |
+| Felder | nur `v`, `os`, `ui`, `game`, `rc`, `mods`, `overlay`, `autostart`, `update`, `pages`, `entry`, `clicks`, `misses` — jedes andere Feld: abgelehnt, ebenso die ganze Meldung |
+| Werte | Version `1.2.3(-rcN)`, System `windows`/`linux`, Sprachen zwei Kleinbuchstaben, Ja/Nein als echte Wahrheitswerte (`rc`, `autostart`, `update`), Bereiche nur Kleinbuchstaben (höchstens 12) |
+| Seitenzähler | nur Seiten-Kennungen aus `pages.js`, Wege nur aus `ROUTES`, Klickstufen 0–10, Fehlgriff-Paare `a>b` mit zwei verschiedenen bekannten Seiten (höchstens 20), jede Zahl eine ganze Zahl von 1 bis 9999 |
 | Menge | 5 je Absender und Minute |
-| gespeichert | nur Zähler je Tag — keine IP, keine Stadt; das Land ist Cloudflares Kürzel |
+| gespeichert | nur Zähler je Tag — keine IP, keine Stadt; das Land ist Cloudflares Kürzel. Die Seitenzähler stehen in eigenen Tabellen, **nicht** verknüpft mit Version, Land oder System |
+
+### Die Felder der Meldung
+
+| Feld | Inhalt | Tabelle |
+|---|---|---|
+| `v`, `os` | Programmversion, System | `tage` (mit Land) |
+| `ui`, `game` | Sprache der Oberfläche und des Spiels | `merkmale` |
+| `rc`, `autostart`, `update` | Testversionen, Autostart, Auto-Update (ja/nein) | `merkmale` |
+| `mods`, `overlay` | eingeschaltete Bereiche, Overlay-Betrieb | `merkmale` |
+| `pages` | Aufrufe je Seite, `{"liste": 12}` | `seiten` |
+| `entry` | Weg je Seite, `{"laeden": {"seitenleiste": 3}}` | `seiten_wege` |
+| `clicks` | Klicks bis zur Zielseite als Verteilung, `{"laeden": {"2": 5}}` (10 = 10 oder mehr) | `seiten_klicks` |
+| `misses` | Fehlgriff → nächstes Ziel, `{"verkauf>laeden": 7}` | `seiten_fehlgriffe` |
+
+Was „Klick", „Ziel" und „Fehlgriff" heißen, steht in `scbp/page_usage.py`.
+Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest
+(Prüfung 315) meldet jede Abweichung.
+
+## Seiten-Tabellen einspielen (einmalig, vor dem Hochladen)
+
+Die vier Seiten-Tabellen kommen über `schema.sql` dazu. Die Datei legt nur an,
+was fehlt (`CREATE TABLE IF NOT EXISTS`), vorhandene Tabellen und Zahlen bleiben
+unberührt. **Erst einspielen, dann den Worker hochladen:**
+
+```
+npx wrangler d1 execute versekit-nutzung --remote --file=schema.sql
+npx wrangler deploy
+```
+
+Fehlen die Tabellen doch, zählt der Worker die Installation trotzdem; nur die
+Seitenzähler dieser Meldung gehen verloren (Grund in `ablage`, Schlüssel
+`fehler_seiten`).
 
 ## Übersicht absichern — zwei Schlösser
 
@@ -95,7 +128,7 @@ Alle Befehle in diesem Ordner (`tools/nutzung-worker`) in einem Terminal.
   erhalten; daraus entstehen „Downloads gesamt (mit gelöschten)" und
   „Downloads je Tag".
 - **Sicherung außerhalb von Cloudflare:** `GET statistik-versekit.xharig.com/export`
-  liefert alle Tabellen. Erlaubt ist das dem Eigentümer **und** einem
+  liefert alle Tabellen, auch die vier Seiten-Tabellen. Erlaubt ist das dem Eigentümer **und** einem
   Cloudflare-Access-Dienst-Zeichen, dessen Client-ID als Geheimnis
   `SERVICE_ID` hinterlegt ist — dieses Zeichen darf **nur** `/export`, nicht
   die Übersicht. Abgeholt wird es von einem Skript außerhalb dieses Repos.

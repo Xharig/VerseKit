@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.70.4'
+__version__ = '3.71.0'
 
 
 def _mitgeliefert(name):
@@ -2214,7 +2214,8 @@ class Overlay:
         # Glocke für eine Nachricht — und darum geht es hier, denn das Zeichen
         # faerbt sich gruen, wenn eine neue Version bereitsteht.
         self.info_lbl = icons.button(bar, 'glocke',
-                                      lambda: self.fenster_oeffnen('ueber'),
+                                      lambda: self.fenster_oeffnen(
+                                          'ueber', via='overlay'),
                                       font=self.f_title)
         self.info_lbl.pack(side='right', padx=(0, 6))
         # ⚠ Führt ins **Hauptfenster**, nicht in ein eigenes Infofenster —
@@ -4003,10 +4004,10 @@ class Overlay:
         except tk.TclError:
             pass
 
-    def einstellungen_oeffnen(self):
+    def einstellungen_oeffnen(self, via='overlay'):
         """Beide Wege führen ins **eine** Fenster — nur auf eine andere Seite. Zwei getrennte Fenster hießen: raten, in welchem etwas
         steckt."""
-        self.fenster_oeffnen('allgemein')
+        self.fenster_oeffnen('allgemein', via=via)
 
     def einrichtung_erneut(self):
         """Den Assistenten noch einmal durchlaufen lassen."""
@@ -4014,16 +4015,18 @@ class Overlay:
         if fertig and zeige_liste:
             self.liste_oeffnen()
 
-    def liste_oeffnen(self):
+    def liste_oeffnen(self, via='start'):
         """Das große Fenster auf der Bauplan-Liste öffnen."""
-        self.fenster_oeffnen('liste')
+        self.fenster_oeffnen('liste', via=via)
 
-    def fenster_oeffnen(self, seite='liste'):
+    def fenster_oeffnen(self, seite='liste', via='start'):
         """Das Hauptfenster zeigen — und darin die Seite `seite`.
 
         Ein zweiter Klick holt das vorhandene Fenster nach vorn und wechselt die
         Seite, statt ein zweites aufzumachen. Zwei gleiche Fenster nebeneinander
-        sind für niemanden nachvollziehbar."""
+        sind für niemanden nachvollziehbar.
+
+        `via` ist der Weg für `page_usage`: `overlay`, `tray` oder `start`."""
         from scbp.main_window import MainWindow
         vorhanden = getattr(self, '_fenster', None)
         if vorhanden is not None:
@@ -4032,7 +4035,7 @@ class Overlay:
                 # ignoriert, und ein minimiertes Fenster bliebe minimiert.
                 from scbp.main_window import to_front
                 to_front(vorhanden.root)
-                vorhanden.open_page(seite)
+                vorhanden.open_page(seite, via=via)
                 return
             except Exception:
                 pass                       # war schon zu
@@ -4042,7 +4045,7 @@ class Overlay:
         self._fenster = MainWindow(self.root, on_close=self._liste_zu,
                                      version=__version__,
                                      on_font_change=self.schriftgroesse_anwenden,
-                                     start_page=seite)
+                                     start_page=seite, start_via=via)
         # ⛔ **Kein Grün, solange das Fenster offen ist.** Zwei Gründe:
         #
         # 1. **Es sagt nichts, was man nicht sieht.** Das Fenster steht auf dem
@@ -4912,8 +4915,9 @@ class Overlay:
             return lambda: self._im_tk(lambda: tat(*args))
 
         eintraege = [
-            (language.t('tray_zeigen'), im_tk(self.hervorholen)),
-            (language.t('tray_einstellungen'), im_tk(self.einstellungen_oeffnen)),
+            (language.t('tray_zeigen'), im_tk(self.hervorholen, 'tray')),
+            (language.t('tray_einstellungen'),
+             im_tk(self.einstellungen_oeffnen, 'tray')),
             None,
         ]
         # ⚠ Wie der Knopf im Overlay: nur, wenn wirklich ein Startweg da ist.
@@ -4932,7 +4936,7 @@ class Overlay:
             # Die Version als Auskunft UND als Weg: Der Klick öffnet die Seite
             # „Update & Über", dort steht die Update-Prüfung.
             (language.t('tray_version', __version__),
-             im_tk(self.fenster_oeffnen, 'ueber')),
+             im_tk(self.fenster_oeffnen, 'ueber', 'tray')),
             None,
             (language.t('tray_beenden'), im_tk(self._ganz_beenden)),
         ]
@@ -5106,19 +5110,20 @@ class Overlay:
         if not geklappt:
             self._status_setzen(language.Phrase('s_ub_auf_nein', adresse))
 
-    def hervorholen(self):
+    def hervorholen(self, via='start'):
         """Von außen gerufen: Fenster her, egal in welchem Betrieb.
 
         Das ist der Rückweg aus dem Pop-up-Betrieb. Ausgelöst wird er dadurch,
         dass jemand das Programm ein zweites Mal startet (siehe
         `scbp/overlay.py`) — auf die Verknüpfung lässt sich eine ganz normale
-        Tastenkombination des Systems legen.
+        Tastenkombination des Systems legen. Aus dem Tray-Menü kommt
+        `via='tray'`.
         """
         try:
             self.root.deiconify()
             self.root.lift()
             self.root.attributes('-topmost', True)
-            self.liste_oeffnen()
+            self.liste_oeffnen(via=via)
         except Exception as ausnahme:
             errors.record('overlay.hervorholen', ausnahme)
 

@@ -33,6 +33,14 @@ Installationen es wirklich gibt.
 | `overlay` | wie das Overlay läuft (`immer` oder `popup`) |
 | `autostart` | ob VerseKit mit dem Rechner startet (ja/nein) |
 | `update` | ob neue Versionen von selbst eingespielt werden (ja/nein) |
+| `pages` | Aufrufe je Seite des Hauptfensters (`{"liste": 12}`) |
+| `entry` | auf welchem Weg eine Seite geöffnet wurde, je Seite |
+| `clicks` | Klicks bis zur Zielseite, als Verteilung je Seite |
+| `misses` | Fehlgriff → nächste Zielseite (`{"verkauf>laeden": 7}`) |
+
+Die letzten vier sind Zähler seit der vorigen Meldung, gesammelt von
+`page_usage` — nur Seiten-Kennungen, keine Inhalte, keine Zeitpunkte. Nach dem
+Senden werden sie geleert.
 
 Keine Kennung, kein Name, kein RSI-Handle, keine Pfade. Der Empfänger
 (`tools/nutzung-worker/`, ein Cloudflare Worker) zählt je Tag nur `+1` für
@@ -86,6 +94,12 @@ def enabled():
     return paths.setting_bool(SETTING, True)
 
 
+def would_send():
+    """Ginge überhaupt je eine Meldung hinaus? Nur dann zählt `page_usage`."""
+    return (not OFF and enabled() and target().startswith('https://')
+            and _packaging() != 'quellcode')
+
+
 def today():
     return time.strftime('%Y-%m-%d', time.gmtime())
 
@@ -96,7 +110,7 @@ def system():
 
 
 FIELDS = ('v', 'os', 'ui', 'game', 'rc', 'mods', 'overlay', 'autostart',
-          'update')
+          'update', 'pages', 'entry', 'clicks', 'misses')
 
 # Sprachordner des Spiels (`german_(germany)`) -> Kürzel. Unbekanntes wird
 # `xx` — nie der Ordnername selbst, der könnte alles Mögliche enthalten.
@@ -145,10 +159,18 @@ def _auto_update():
     return bool(auto_update.enabled())
 
 
-def payload(version, system_name=None):
+def _navigation(state):
+    from . import page_usage
+    return page_usage.outgoing(page_usage.stored() if state is None else state)
+
+
+def payload(version, system_name=None, navigation=None):
     """Genau das, was hinausgeht — als eigene Funktion, damit es sich prüfen
     lässt und nirgends heimlich mehr dazukommt. Jede Angabe für sich
-    abgesichert: Scheitert eine, geht ein neutraler Wert statt keiner Meldung."""
+    abgesichert: Scheitert eine, geht ein neutraler Wert statt keiner Meldung.
+
+    `navigation` sind die Seitenzähler aus `page_usage.stored()`; fehlt die
+    Angabe, werden sie hier gelesen."""
     return {
         'v': version,
         'os': system_name or system(),
@@ -159,6 +181,8 @@ def payload(version, system_name=None):
         'overlay': _safe(_overlay, 'immer'),
         'autostart': _safe(_autostart, False),
         'update': _safe(_auto_update, True),
+        **_safe(lambda: _navigation(navigation),
+                {'pages': {}, 'entry': {}, 'clicks': {}, 'misses': {}}),
     }
 
 
@@ -182,7 +206,9 @@ def send_if_due(version, day=None, opener=None):
     day = day or today()
     if paths.setting(LAST) == day:
         return 'schon'
-    data = json.dumps(payload(version)).encode('utf-8')
+    from . import page_usage
+    state = _safe(page_usage.stored, None)
+    data = json.dumps(payload(version, navigation=state)).encode('utf-8')
     request = urllib.request.Request(
         target(), data=data, method='POST',
         headers={'Content-Type': 'application/json',
@@ -194,6 +220,8 @@ def send_if_due(version, day=None, opener=None):
     except Exception:
         return 'fehler'
     paths.set_setting(LAST, day)
+    if state is not None:
+        _safe(lambda: page_usage.forget(state), None)
     return 'gesendet'
 
 

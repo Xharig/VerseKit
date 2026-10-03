@@ -8,6 +8,23 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.71.0 - 2026-10-03
+
+> VerseKit soll leichter zu bedienen werden. Dafür zählt die anonyme
+> Nutzungsmeldung jetzt auch, welche Seiten geöffnet werden und wie viele
+> Klicks es bis dorthin braucht — so lässt sich sehen, was schwer zu finden
+> ist, und es kann nach vorn rücken. Wer das nicht möchte, schaltet es unter
+> *Einstellungen → Allgemein* ab; dann wird gar nichts gezählt.
+
+### Neu
+
+- **Nutzung zählen umfasst jetzt auch die Seiten** — die tägliche, anonyme
+  Meldung sagt zusätzlich, welche Seiten im Hauptfenster wie oft geöffnet
+  werden und wie viele Klicks es bis dorthin braucht. So lässt sich sehen,
+  was schwer zu finden ist. Nur Seiten-Kennungen, keine Inhalte, keine
+  Suchbegriffe. Wer *Nutzung zählen lassen* ausschaltet, wird gar nicht erst
+  mitgezählt
+
 ## v3.70.4 - 2026-10-03
 
 > Eine Wartungsfassung: Der Quelltext ist aufgeräumt, an der Bedienung

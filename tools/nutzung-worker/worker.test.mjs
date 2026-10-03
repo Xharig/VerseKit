@@ -112,7 +112,7 @@ test('falsche Werte werden abgelehnt', async () => {
 test('kein JSON und zu groß werden abgelehnt', async () => {
   const e = env();
   assert.equal((await worker.fetch(ping('hallo'), e)).status, 400);
-  assert.equal((await worker.fetch(ping('x'.repeat(900)), e)).status, 413);
+  assert.equal((await worker.fetch(ping('x'.repeat(MAX_BYTES + 1)), e)).status, 413);
   assert.equal(e.DB.calls.length, 0);
 });
 
@@ -339,7 +339,7 @@ test('innerhalb einer Minute wird GitHub gar nicht gefragt', async () => {
   await downloads(env, 1_000_000);
   let asked = 0;
   globalThis.fetch = async () => { asked++; return new Response('[]'); };
-  const r = await downloads(env, Date.now());
+  const r = await downloads(env, 1_000_000 + 30_000);
   assert.equal(asked, 0);
   assert.equal(r.liste.length, 1);
 });
@@ -441,13 +441,140 @@ test('Rechte: Eigentümer überall, das Dienst-Zeichen NUR beim Export', () => {
     'ohne hinterlegte Kennung gibt es den Weg nicht');
 });
 
+// ---------------------------------------------------------------- Seitenzähler
+
+import { PAGES, ROUTES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
+import { MAX_BYTES } from './worker.js';
+
+const NAV = {
+  pages: { liste: 3, verkauf: 1, laeden: 1 },
+  entry: { liste: { start: 1, seitenleiste: 2 }, verkauf: { seitenleiste: 1 }, laeden: { seitenleiste: 1 } },
+  clicks: { liste: { 0: 1 }, laeden: { 4: 1 } },
+  misses: { 'verkauf>laeden': 1 },
+};
+
+function navPing(extra = {}) { return ping({ ...FULL, ...NAV, ...extra }); }
+
+function rows(db, table) {
+  return db.prepare('SELECT * FROM ' + table + ' ORDER BY 1, 2, 3').all().map((r) => ({ ...r }));
+}
+
+test('Vorbedingung: Seitenzähler landen in den vier Tabellen (echtes SQLite)', async () => {
+  const e = { ...env(), DB: realD1() };
+  const r = await worker.fetch(navPing(), e);
+  assert.equal(r.status, 204);
+  const day = new Date().toISOString().slice(0, 10);
+  assert.deepEqual(rows(e.DB.db, 'seiten').map((x) => [x.tag, x.seite, x.n]),
+    [[day, 'laeden', 1], [day, 'liste', 3], [day, 'verkauf', 1]]);
+  assert.deepEqual(rows(e.DB.db, 'seiten_wege').map((x) => [x.seite, x.weg, x.n]),
+    [['laeden', 'seitenleiste', 1], ['liste', 'seitenleiste', 2], ['liste', 'start', 1], ['verkauf', 'seitenleiste', 1]]);
+  assert.deepEqual(rows(e.DB.db, 'seiten_klicks').map((x) => [x.seite, x.klicks, x.n]),
+    [['laeden', 4, 1], ['liste', 0, 1]]);
+  assert.deepEqual(rows(e.DB.db, 'seiten_fehlgriffe').map((x) => [x.von, x.nach, x.n]), [['verkauf', 'laeden', 1]]);
+  // Eine zweite Meldung am selben Tag zählt dazu, statt zu überschreiben.
+  await worker.fetch(navPing(), e);
+  assert.equal(e.DB.db.prepare("SELECT n FROM seiten WHERE seite = 'liste'").get().n, 6);
+  assert.equal(e.DB.db.prepare("SELECT n FROM seiten_fehlgriffe WHERE von = 'verkauf'").get().n, 2);
+  // Die Installation zählt weiterhin genau einmal je Meldung.
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 2);
+});
+
+test('Seitenzähler sind nicht mit Version, Land oder System verknüpft', async () => {
+  const e = { ...env(), DB: realD1() };
+  await worker.fetch(navPing(), e);
+  for (const t of ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']) {
+    const cols = e.DB.db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+    for (const c of cols) assert.ok(!['version', 'land', 'system'].includes(c), `${t}.${c}`);
+  }
+});
+
+test('falsche Seitenzähler werden abgelehnt — die ganze Meldung', async () => {
+  const pairs = Object.fromEntries(Array.from({ length: MAX_MISS_PAIRS + 1 }, (_, i) =>
+    [Object.keys(PAGES)[i] + '>' + Object.keys(PAGES)[i + 1], 1]));
+  const bad = [
+    { pages: { unbekannt: 1 } }, { pages: { liste: 0 } }, { pages: { liste: 1.5 } }, { pages: { liste: '3' } },
+    { pages: { liste: MAX_COUNT + 1 } }, { pages: [['liste', 1]] }, { pages: JSON.parse('{"__proto__": 1}') },
+    { pages: { 'Suche: Gladius': 1 } },
+    { entry: { liste: { browser: 1 } } }, { entry: { liste: 1 } }, { entry: { fremd: { start: 1 } } },
+    { clicks: { liste: { [MAX_CLICKS + 1]: 1 } } }, { clicks: { liste: { '-1': 1 } } }, { clicks: { liste: { '01': 1 } } },
+    { clicks: { liste: { a: 1 } } },
+    { misses: { 'liste>liste': 1 } }, { misses: { 'liste>fremd': 1 } }, { misses: { 'a>b>c': 1 } },
+    { misses: { liste: 1 } }, { misses: pairs },
+  ];
+  for (const b of bad) {
+    const e = env();
+    const r = await worker.fetch(navPing(b), e);
+    assert.equal(r.status, 400, JSON.stringify(b));
+    assert.equal(e.DB.calls.length, 0, JSON.stringify(b));
+  }
+});
+
+test('die größte mögliche Meldung passt unter MAX_BYTES und wird angenommen', async () => {
+  const ids = Object.keys(PAGES);
+  const longest = ids.slice().sort((a, b) => b.length - a.length);
+  const big = {
+    ...FULL,
+    mods: ['schiffe', 'werkstatt', 'bergung', 'handel', 'statistiken'],
+    pages: Object.fromEntries(ids.map((p) => [p, MAX_COUNT])),
+    entry: Object.fromEntries(ids.map((p) => [p, Object.fromEntries(Object.keys(ROUTES).map((w) => [w, MAX_COUNT]))])),
+    clicks: Object.fromEntries(ids.map((p) => [p, Object.fromEntries(
+      Array.from({ length: MAX_CLICKS + 1 }, (_, k) => [String(k), MAX_COUNT]))])),
+    misses: Object.fromEntries(Array.from({ length: MAX_MISS_PAIRS }, (_, i) =>
+      [longest[i % 4] + '>' + longest[4 + (i % 16)], MAX_COUNT])),
+  };
+  const size = new TextEncoder().encode(JSON.stringify(big)).length;
+  assert.ok(size <= MAX_BYTES, `${size} Byte > ${MAX_BYTES}`);
+  const e = { ...env(), DB: realD1() };
+  assert.equal((await worker.fetch(ping(big), e)).status, 204, `${size} Byte`);
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM seiten_klicks').get().n, ids.length * (MAX_CLICKS + 1));
+});
+
+test('fehlen die Seiten-Tabellen noch, zählt die Installation trotzdem', async () => {
+  const e = { ...env(), DB: realD1() };
+  for (const t of ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']) e.DB.db.exec('DROP TABLE ' + t);
+  const r = await worker.fetch(navPing(), e);
+  assert.equal(r.status, 204);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 1);
+  globalThis.fetch = async () => new Response('[]');
+  const d = await (await worker.fetch(statsReq('/daten?tage=30', await token()), e, undefined, verify)).json();
+  assert.deepEqual([d.seiten, d.seiten_klicks], [[], []], 'die Übersicht bleibt erreichbar');
+});
+
+test('schema.sql erneut einspielen lässt vorhandene Daten unberührt', async () => {
+  const sql = readFileSync(new URL('./schema.sql', import.meta.url), 'utf-8');
+  const code = sql.replace(/--[^\n]*/g, '');
+  const statements = code.split(';').map((s) => s.trim()).filter(Boolean);
+  for (const s of statements) assert.match(s, /^CREATE TABLE IF NOT EXISTS \w+ \(/, s.slice(0, 60));
+  const e = { ...env(), DB: realD1() };
+  await worker.fetch(navPing(), e);
+  const before = ['tage', 'merkmale', 'seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']
+    .map((t) => JSON.stringify(rows(e.DB.db, t)));
+  e.DB.db.exec(sql);
+  const after = ['tage', 'merkmale', 'seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']
+    .map((t) => JSON.stringify(rows(e.DB.db, t)));
+  assert.deepEqual(after, before);
+  assert.ok(before.every((x) => x !== '[]'), 'Vorbedingung: in jeder Tabelle stand etwas');
+});
+
+test('die Übersicht bekommt die Seitenzähler', async () => {
+  const e = { ...env(), DB: realD1() };
+  await worker.fetch(navPing(), e);
+  globalThis.fetch = async () => new Response('[]');
+  const d = await (await worker.fetch(statsReq('/daten?tage=30', await token()), e, undefined, verify)).json();
+  assert.equal(d.seiten.length, 3);
+  assert.equal(d.seiten_wege.length, 4);
+  assert.equal(d.seiten_klicks.length, 2);
+  assert.deepEqual(d.seiten_fehlgriffe.map((r) => [r.von, r.nach, r.n]), [['verkauf', 'laeden', 1]]);
+});
+
 test('Export über den echten Weg: Dienst-Zeichen bekommt alle Tabellen', async () => {
   const env = { ...env0(), DB: realD1(), SERVICE_ID: 'abc.access' };
   const jwt = await token({ email: undefined, common_name: 'abc.access' });
   const r = await worker.fetch(statsReq('/export', jwt), env, undefined, verify);
   assert.equal(r.status, 200);
   const j = await r.json();
-  for (const t of ['tage', 'merkmale', 'downloads', 'download_bestand', 'download_verlauf']) assert.ok(Array.isArray(j[t]), t);
+  for (const t of ['tage', 'merkmale', 'downloads', 'download_bestand', 'download_verlauf',
+                   'seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']) assert.ok(Array.isArray(j[t]), t);
   const r2 = await worker.fetch(statsReq('/daten', jwt), env, undefined, verify);
   assert.equal(r2.status, 403, 'das Dienst-Zeichen sieht die Übersicht nicht');
 });

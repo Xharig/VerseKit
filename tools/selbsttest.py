@@ -9569,7 +9569,7 @@ def main():
     pruefe('deiconify()' in _code98c,
            'und am Ende wieder gezeigt')
     # ⚠ Die Reihenfolge ist der ganze Punkt: zeigen NACH dem Bauen.
-    pruefe(_code98c.index('withdraw()') < _code98c.index('open_page(start_page)')
+    pruefe(_code98c.index('withdraw()') < _code98c.index('open_page(start_page')
            < _code98c.index('deiconify()'),
            'und zwar in dieser Reihenfolge: verstecken, bauen, zeigen')
 
@@ -25207,6 +25207,7 @@ def main():
     _pruefung_312()
     _pruefung_313()
     _pruefung_314()
+    _pruefung_315()
 
     print()
     if fehler:
@@ -30260,7 +30261,8 @@ def _pruefung_305():
                'Vorbedingung: die Gegenstelle fängt die Meldung ab (%r, %d)'
                % (erg, len(gesendet)))
         _erlaubt305 = sorted(['v', 'os', 'ui', 'game', 'rc', 'mods',
-                              'overlay', 'autostart', 'update'])
+                              'overlay', 'autostart', 'update',
+                              'pages', 'entry', 'clicks', 'misses'])
         pruefe(gesendet and sorted(gesendet[0]) == _erlaubt305,
                'es gehen GENAU die Felder aus PRIVACY.md hinaus (%r)'
                % (sorted(gesendet[0]) if gesendet else None))
@@ -30312,7 +30314,8 @@ def _pruefung_305():
         # ⚠ Gegenprobe: Schmuggelt `payload` ein drittes Feld hinein, muss die
         # Prüfung oben rot werden — sonst beweist sie nichts.
         _echt_payload = _up305.payload
-        _up305.payload = lambda v, s=None: dict(_echt_payload(v, s), id='x')
+        _up305.payload = lambda v, s=None, **k: dict(_echt_payload(v, s, **k),
+                                                     id='x')
         try:
             gesendet.clear()
             _up305.send_if_due('3.65.0', day='2026-10-07', opener=_gegenstelle)
@@ -31443,6 +31446,285 @@ def _pruefung_308():
         shutil.rmtree(tmp, ignore_errors=True)
     pruefe(not _pa308.setting_bool(_sb308.SETTING, False),
            'Ab Werk aus')
+
+
+def _pruefung_315():
+    """315. Seitennutzung: Aufrufe, Wege, Klicks bis zum Ziel, Fehlgriffe.
+
+    Der Durchlauf geht durch das **echte Hauptfenster**: Klicks auf
+    Gruppenköpfe und Reiter lösen dieselben Bindungen aus wie die Maus. Die
+    Uhr von `page_usage` ist untergeschoben, damit Verweildauern feststehen.
+    Danach: Neustart am selben Tag, Senden über `send_if_due`, Leeren,
+    Abschalten, fremde Kennungen, Obergrenzen — und dass `pages.js` des
+    Workers dieselben Seiten mit denselben Namen kennt wie das Programm.
+    """
+    print('\n315. Seitennutzung (Aufrufe, Wege, Klicks bis zum Ziel, Fehlgriffe)')
+    import ast as _ast315
+    import types as _ty315
+    import json as _js315
+    from scbp import (paths as _pf315, usage_ping as _up315,
+                      page_usage as _pu315, pages as _pg315,
+                      language as _la315)
+
+    uhr = [0.0]
+    alt = (_up315.OFF, _up315._packaging, os.environ.get('SC_BP_NUTZUNG_ZIEL'),
+           _pf315.setting(_up315.SETTING), _pf315.setting(_up315.LAST),
+           _pu315.time)
+    datei = _pf315.app_file(_pu315.FILE)
+    gesendet = []
+
+    class _Antwort:
+        status = 204
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _gegenstelle(req, timeout=0):
+        gesendet.append(_js315.loads(req.data.decode('utf-8')))
+        return _Antwort()
+
+    def _an():
+        _up315.OFF = False
+        _up315._packaging = lambda: 'exe'
+        os.environ.pop('SC_BP_NUTZUNG_ZIEL', None)
+        _pf315.set_setting(_up315.SETTING, True)
+
+    erwartet = {
+        'pages': {'liste': 1, 'verkauf': 1, 'laeden': 1},
+        'entry': {'liste': {'start': 1}, 'verkauf': {'seitenleiste': 1},
+                  'laeden': {'seitenleiste': 1}},
+        'clicks': {'liste': {'0': 1}, 'laeden': {'4': 1}},
+        'misses': {'verkauf>laeden': 1},
+    }
+    _w315 = None
+    try:
+        _an()
+        _pu315.time = _ty315.SimpleNamespace(monotonic=lambda: uhr[0])
+        _pu315.reset_for_test()
+        if os.path.exists(datei):
+            os.remove(datei)
+        pruefe(_pu315.active(), 'Vorbedingung: mit eingeschalteter Meldung wird gezählt')
+
+        # --- Der Durchlauf im echten Fenster ---
+        _w315 = _wurzel()
+        from scbp import main_window as _hf315
+        fenster = _hf315.MainWindow(_w315, version='0.0.0-pruefung')
+        _w315.update()
+
+        def _klick(widget, sekunden):
+            uhr[0] += sekunden
+            widget.event_generate('<Button-1>', x=2, y=2)
+            _w315.update()
+
+        werkstatt = fenster.groups.get('werkstatt')
+        handel = fenster.groups.get('handel')
+        pruefe(fenster.current == 'liste' and werkstatt and handel,
+               'Vorbedingung: Fenster steht auf der Liste, Werkstatt und Handel da')
+        if handel and not handel['offen']:
+            fenster._group_toggle('handel', auf=True)
+        if werkstatt and not werkstatt['offen']:
+            fenster._group_toggle('werkstatt', auf=True)
+        _klick(werkstatt['kopf'], 10)                       # Werkstatt zu
+        pruefe(not werkstatt['offen'], 'Vorbedingung: der Klick klappt Werkstatt zu')
+        _klick(fenster.buttons['verkauf'][0], 2)             # Handel → Verkauf
+        pruefe(fenster.current == 'verkauf', 'Vorbedingung: Verkauf ist offen')
+        _klick(werkstatt['kopf'], 1)                        # Werkstatt auf
+        _klick(fenster.buttons['laeden'][0], 1)              # Werkstatt → Shops
+        pruefe(fenster.current == 'laeden', 'Vorbedingung: Shops sind offen')
+        uhr[0] += 20
+        fenster.close()
+        fenster = None
+
+        stand = _pu315.stored()
+
+        # --- Overlay und Tray: der echte Weg über `fenster_oeffnen` ---
+        import sc_bp_watcher as _sw315
+        _ov315 = _ty315.SimpleNamespace(
+            root=_w315, _fenster=None, schriftgroesse_anwenden=lambda *a: None)
+        _ov315._liste_zu = lambda: setattr(_ov315, '_fenster', None)
+        uhr[0] += 5
+        _sw315.Overlay.fenster_oeffnen(_ov315, 'ueber', via='overlay')
+        uhr[0] += 5
+        _sw315.Overlay.fenster_oeffnen(_ov315, 'allgemein', via='tray')
+        uhr[0] += 5
+        if _ov315._fenster is not None:
+            _ov315._fenster.close()
+        wege = _pu315.stored()['entry']
+        pruefe(wege.get('ueber') == {'overlay': 1} and wege.get('allgemein') == {'tray': 1},
+               'Overlay öffnet das Fenster, Tray wechselt im offenen die Seite — '
+               'beide Wege gezählt (%s)' % {k: wege.get(k) for k in ('ueber', 'allgemein')})
+        _pu315.forget(_pu315.stored())
+        for feld, wert in stand.items():
+            _pu315._load()[feld].update(_js315.loads(_js315.dumps(wert)))
+        _pu315._save()
+
+        pruefe(stand == erwartet,
+               'Durchlauf: Aufrufe, Wege, 4 Klicks bis Shops, Verkauf > Shops '
+               'als Fehlgriff (%s)' % _js315.dumps(stand, sort_keys=True))
+
+        # --- Neustart am selben Tag: die Zähler kommen von der Platte ---
+        _pu315.reset_for_test()
+        pruefe(_pu315.stored() == erwartet, 'nach einem Neustart sind die Zähler noch da')
+        with open(datei, encoding='utf-8') as f:
+            roh = f.read()
+        pruefe(not re.search(r'\d{4}-\d\d-\d\d|\d{2}:\d{2}', roh),
+               'auf der Platte stehen keine Zeitpunkte')
+
+        # --- Programmweg ohne Nutzeraktion zählt nicht ---
+        _pu315.window_opened()
+        _pu315.page_opened('liste', 'start', clock=100.0)
+        _pu315.page_opened('liste', None, clock=101.0)          # Neuaufbau
+        _pu315.page_opened('Suche: Gladius', 'seitenleiste', clock=102.0)
+        _pu315.page_opened('verkauf', 'browser', clock=103.0)
+        _pu315.window_closed(clock=110.0)
+        nachher = _pu315.stored()
+        pruefe(nachher['pages'] == {'liste': 2, 'verkauf': 1, 'laeden': 1}
+               and 'Suche: Gladius' not in _js315.dumps(nachher),
+               'Neuaufbau, fremde Kennungen und unbekannte Wege zählen nicht (%s)'
+               % nachher['pages'])
+
+        # --- Senden: genau diese Felder, danach geleert ---
+        _pf315.set_setting(_up315.LAST, '')
+        erg = _up315.send_if_due('3.65.0', day='2026-10-01', opener=_gegenstelle)
+        pruefe(erg == 'gesendet' and len(gesendet) == 1,
+               'Vorbedingung: die Gegenstelle fängt die Meldung ab (%r)' % erg)
+        if gesendet:
+            pruefe(gesendet[0]['pages'] == nachher['pages']
+                   and gesendet[0]['misses'] == {'verkauf>laeden': 1}
+                   and gesendet[0]['clicks'] == {'liste': {'0': 2}, 'laeden': {'4': 1}},
+                   'die Meldung trägt die Seitenzähler (%s)'
+                   % _js315.dumps({k: gesendet[0][k] for k in _pu315.FIELDS}))
+        pruefe(_pu315.stored() == _pu315.empty() and not os.path.exists(datei),
+               'nach dem Senden sind die Zähler leer und die Datei weg')
+
+        # --- Was nach dem Abschreiben dazukommt, bleibt ---
+        _pu315.window_opened()
+        _pu315.page_opened('liste', 'start', clock=200.0)
+        zwischen = _pu315.stored()
+        _pu315.page_opened('lager', 'seitenleiste', clock=210.0)
+        _pu315.forget(zwischen)
+        pruefe(_pu315.stored()['pages'] == {'lager': 1},
+               'was nach dem Abschreiben dazukam, bleibt für die nächste Meldung')
+        _pu315.window_closed(clock=211.0)
+
+        # --- Nach einem Ziel zählt der nächste Weg von vorn ---
+        _pu315.forget(_pu315.stored())
+        _pu315.window_opened()
+        _pu315.page_opened('liste', 'start', clock=220.0)
+        _pu315.page_opened('verkauf', 'seitenleiste', clock=230.0)   # 1 Klick
+        _pu315.group_toggled()                                      # auf Verkauf
+        _pu315.page_opened('lager', 'seitenleiste', clock=240.0)     # 2 Klicks
+        _pu315.window_closed(clock=250.0)
+        klicks = _pu315.stored()['clicks']
+        pruefe(klicks.get('verkauf') == {'1': 1} and klicks.get('lager') == {'2': 1},
+               'nach einem Ziel beginnt die Zählung neu, Klappen auf dem Ziel '
+               'zählt zum nächsten Weg (%s)' % klicks)
+
+        # --- Abgeschaltet: gar nicht erst zählen, Vorhandenes verwerfen ---
+        for name, schalter in (
+                ('Schalter aus', lambda: _pf315.set_setting(_up315.SETTING, False)),
+                ('SC_BP_NO_NET', lambda: setattr(_up315, 'OFF', True)),
+                ('Quellcode-Start', lambda: setattr(_up315, '_packaging', lambda: 'quellcode'))):
+            _an()
+            _pu315.window_opened()
+            _pu315.page_opened('liste', 'start', clock=300.0)
+            pruefe(os.path.exists(datei), 'Vorbedingung (%s): eingeschaltet wird gezählt' % name)
+            # Bei offenem Fenster umgeschaltet: der nächste Seitenwechsel
+            # verwirft, ohne dass ein neues Fenster aufgeht.
+            schalter()
+            _pu315.page_opened('verkauf', 'seitenleiste', clock=310.0)
+            _pu315.group_toggled()
+            pruefe(not os.path.exists(datei) and _pu315.stored() == _pu315.empty(),
+                   '%s: nichts gezählt, Vorhandenes verworfen' % name)
+            # Und beim Öffnen eines Fensters, ohne jeden Seitenwechsel.
+            _an()
+            _pu315.window_opened()
+            _pu315.page_opened('liste', 'start', clock=320.0)
+            schalter()
+            _pu315.window_opened()
+            pruefe(not os.path.exists(datei),
+                   '%s: ein neues Fenster verwirft Vorhandenes' % name)
+        _an()
+
+        # --- Obergrenzen ---
+        _pu315.reset_for_test()
+        _pu315.window_opened()
+        _pu315.page_opened('liste', 'start', clock=400.0)
+        for _ in range(15):
+            _pu315.group_toggled()
+        _pu315.page_opened('laeden', 'seitenleiste', clock=401.0)
+        _pu315.window_closed(clock=500.0)
+        pruefe(_pu315.stored()['clicks'].get('laeden') == {str(_pu315.MAX_CLICKS): 1},
+               'mehr als %d Klicks landen in der Stufe %d' % (_pu315.MAX_CLICKS, _pu315.MAX_CLICKS))
+        ids = sorted(_pg315.page_ids(), key=len, reverse=True)
+        gross = {
+            'pages': {p: 50000 for p in ids},
+            'entry': {p: {r: 50000 for r in _pu315.ROUTES} for p in ids},
+            'clicks': {p: {str(k): 50000 for k in range(_pu315.MAX_CLICKS + 1)} for p in ids},
+            'misses': {'%s>%s' % (a, b): 7 for a in ids[:10] for b in ids[10:20]},
+        }
+        raus = _pu315.outgoing(gross)
+        pruefe(len(raus['misses']) == _pu315.MAX_MISS_PAIRS
+               and max(raus['pages'].values()) == _pu315.MAX_COUNT,
+               'gekappt: %d Paare, Zähler höchstens %d' % (len(raus['misses']), _pu315.MAX_COUNT))
+        meldung = dict(_up315.payload('3.65.0', navigation=gross))
+        with open(os.path.join(WURZEL, 'tools', 'nutzung-worker', 'worker.js'),
+                  encoding='utf-8') as f:
+            worker_js = f.read()
+        grenze = re.search(r'MAX_BYTES = (\d+)', worker_js)
+        groesse = len(_js315.dumps(meldung).encode('utf-8'))
+        pruefe(grenze and groesse <= int(grenze.group(1)),
+               'die größte Meldung (%d Byte) passt unter MAX_BYTES des Workers (%s)'
+               % (groesse, grenze.group(1) if grenze else '?'))
+    finally:
+        try:
+            if _w315 is not None:
+                _w315.destroy()
+        except Exception:
+            pass
+        _up315.OFF, _up315._packaging = alt[0], alt[1]
+        _pu315.time = alt[5]
+        if alt[2] is not None:
+            os.environ['SC_BP_NUTZUNG_ZIEL'] = alt[2]
+        _pf315.set_setting(_up315.SETTING, alt[3] if alt[3] is not None else True)
+        _pf315.set_setting(_up315.LAST, alt[4] or '')
+        _pu315.reset_for_test()
+        if os.path.exists(datei):
+            os.remove(datei)
+
+    # --- pages.js des Workers kennt dieselben Seiten unter denselben Namen ---
+    with open(os.path.join(WURZEL, 'tools', 'nutzung-worker', 'pages.js'),
+              encoding='utf-8') as f:
+        pages_js = f.read()
+    block = pages_js.split('export const PAGES = {', 1)[-1].split('};', 1)[0]
+    im_worker = dict(re.findall(r"^\s*(\w+): \['[^']*', '([^']*)'\],", block, re.M))
+    with open(os.path.join(WURZEL, 'scbp', 'main_window.py'), encoding='utf-8') as f:
+        baum = _ast315.parse(f.read())
+    reiter = {}
+    for knoten in _ast315.walk(baum):
+        if (isinstance(knoten, _ast315.Call)
+                and getattr(knoten.func, 'attr', '') == '_tab'
+                and len(knoten.args) >= 3
+                and isinstance(knoten.args[2], _ast315.Call)):
+            reiter[knoten.args[0].value] = _la315.TEXTS[knoten.args[2].args[0].value][0]
+    seiten = set(_pg315.page_ids())
+    pruefe(im_worker and set(im_worker) == seiten,
+           'pages.js kennt genau die Seiten aus pages.page_ids() (fehlt: %s, zu viel: %s)'
+           % (sorted(seiten - set(im_worker)), sorted(set(im_worker) - seiten)))
+    falsch = sorted(p for p in im_worker if reiter.get(p) != im_worker[p])
+    pruefe(not falsch, 'pages.js nennt jede Seite wie ihr Reiter (abweichend: %s)'
+           % ['%s: %r statt %r' % (p, im_worker[p], reiter.get(p)) for p in falsch])
+    wege = re.findall(r'^\s*(\w+): \'', pages_js.split('export const ROUTES = {', 1)[-1]
+                      .split('};', 1)[0], re.M)
+    pruefe(tuple(wege) == _pu315.ROUTES,
+           'pages.js kennt dieselben Wege wie page_usage.ROUTES (%s)' % wege)
+    for name in ('MAX_CLICKS', 'MAX_COUNT', 'MAX_MISS_PAIRS'):
+        wert = re.search(r'export const %s = (\d+);' % name, pages_js)
+        pruefe(wert and int(wert.group(1)) == getattr(_pu315, name),
+               'pages.js und page_usage: %s gleich' % name)
 
 
 if __name__ == '__main__':

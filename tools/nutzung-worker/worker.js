@@ -27,15 +27,19 @@
 // gezählt wird die Menge, nicht die Person.
 
 import { dashboardHtml } from './dashboard.js';
+import { PAGES, ROUTES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
 
-const MAX_BYTES = 600;
+// Reicht für die größte Meldung, die das Programm bauen kann: jede Seite mit
+// jedem Weg und jeder Klickstufe, dazu alle Fehlgriff-Paare (Prüfung im Test).
+export const MAX_BYTES = 16384;
 const VERSION_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}(?:-rc\d{1,4})?$/;
 const SYSTEMS = ['windows', 'linux'];
 const LANG_RE = /^[a-z]{2}$/;
 const MODULE_RE = /^[a-z]{1,20}$/;
 const MAX_MODULES = 12;
 const OVERLAY = ['immer', 'popup'];
-const FIELDS = ['autostart', 'game', 'mods', 'os', 'overlay', 'rc', 'ui', 'update', 'v'];
+const FIELDS = ['autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os', 'overlay',
+                'pages', 'rc', 'ui', 'update', 'v'];
 const COUNTRY_RE = /^[A-Z][A-Z0-9]$/;   // ISO-Kürzel; Cloudflare nutzt auch T1 (Tor), XX (unbekannt)
 const STATS_HOST = 'statistik-versekit.xharig.com';
 const MAX_DAYS = 400;
@@ -107,7 +111,72 @@ export async function check(request) {
       out.traits.push(['mod', m]);
     }
   }
+  out.nav = navigation(d);
   return out;
+}
+
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const isMap = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
+const isCount = (n) => Number.isInteger(n) && n >= 1 && n <= MAX_COUNT;
+const isStep = (k) => /^\d{1,2}$/.test(k) && String(Number(k)) === k && Number(k) <= MAX_CLICKS;
+
+// Die Seitenzähler (`pages`, `entry`, `clicks`, `misses`). Jede Seite muss in
+// PAGES stehen, jeder Weg in ROUTES, jede Zahl zwischen 1 und MAX_COUNT —
+// sonst wird die ganze Meldung abgelehnt. Ältere Fassungen schicken die
+// Felder nicht; dann bleiben die Listen leer.
+export function navigation(d) {
+  const nav = { pages: [], entry: [], clicks: [], misses: [] };
+  const bad = (key) => { throw { status: 400, text: key }; };
+  if (d.pages !== undefined) {
+    if (!isMap(d.pages)) bad('pages');
+    for (const [page, n] of Object.entries(d.pages)) {
+      if (!own(PAGES, page) || !isCount(n)) bad('pages');
+      nav.pages.push([page, n]);
+    }
+  }
+  for (const [field, keyOk] of [['entry', (k) => own(ROUTES, k)], ['clicks', isStep]]) {
+    if (d[field] === undefined) continue;
+    if (!isMap(d[field])) bad(field);
+    for (const [page, inner] of Object.entries(d[field])) {
+      if (!own(PAGES, page) || !isMap(inner)) bad(field);
+      for (const [key, n] of Object.entries(inner)) {
+        if (!keyOk(key) || !isCount(n)) bad(field);
+        nav[field].push(field === 'clicks' ? [page, Number(key), n] : [page, key, n]);
+      }
+    }
+  }
+  if (d.misses !== undefined) {
+    if (!isMap(d.misses) || Object.keys(d.misses).length > MAX_MISS_PAIRS) bad('misses');
+    for (const [pair, n] of Object.entries(d.misses)) {
+      const parts = pair.split('>');
+      if (parts.length !== 2 || !own(PAGES, parts[0]) || !own(PAGES, parts[1])
+          || parts[0] === parts[1] || !isCount(n)) bad('misses');
+      nav.misses.push([parts[0], parts[1], n]);
+    }
+  }
+  return nav;
+}
+
+// Je Tabelle EINE Anweisung, die Zeilen als JSON-Liste (`json_each`) — so
+// bleibt es bei vier Abfragen, egal wie viele Seiten in der Meldung stehen.
+const NAV_SQL = {
+  pages: 'INSERT INTO seiten (tag, seite, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
+    'json_extract(value, \'$[1]\') FROM json_each(?2) WHERE true ' +
+    'ON CONFLICT (tag, seite) DO UPDATE SET n = n + excluded.n',
+  entry: 'INSERT INTO seiten_wege (tag, seite, weg, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
+    'json_extract(value, \'$[1]\'), json_extract(value, \'$[2]\') FROM json_each(?2) WHERE true ' +
+    'ON CONFLICT (tag, seite, weg) DO UPDATE SET n = n + excluded.n',
+  clicks: 'INSERT INTO seiten_klicks (tag, seite, klicks, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
+    'json_extract(value, \'$[1]\'), json_extract(value, \'$[2]\') FROM json_each(?2) WHERE true ' +
+    'ON CONFLICT (tag, seite, klicks) DO UPDATE SET n = n + excluded.n',
+  misses: 'INSERT INTO seiten_fehlgriffe (tag, von, nach, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
+    'json_extract(value, \'$[1]\'), json_extract(value, \'$[2]\') FROM json_each(?2) WHERE true ' +
+    'ON CONFLICT (tag, von, nach) DO UPDATE SET n = n + excluded.n',
+};
+
+export function navStatements(db, day, nav) {
+  return Object.keys(NAV_SQL).filter((k) => nav[k].length)
+    .map((k) => db.prepare(NAV_SQL[k]).bind(day, JSON.stringify(nav[k])));
 }
 
 async function ping(request, env) {
@@ -139,6 +208,16 @@ async function ping(request, env) {
     ).bind(day, trait, value));
   }
   await env.DB.batch(statements);
+  // ⚠ Getrennt und abgefangen: Fehlen die Seiten-Tabellen noch (schema.sql
+  // nicht eingespielt), zählt die Installation trotzdem.
+  const nav = navStatements(env.DB, day, c.nav);
+  if (nav.length) {
+    try {
+      await env.DB.batch(nav);
+    } catch (e) {
+      await store(env, 'fehler_seiten', { ausnahme: String(e && e.message).slice(0, 200) }).catch(() => {});
+    }
+  }
   return new Response(null, { status: 204 });
 }
 
@@ -232,11 +311,11 @@ async function stored(env, key) {
   }
 }
 
-async function store(env, key, data) {
+async function store(env, key, data, zeit = Date.now()) {
   await env.DB.prepare(
     'INSERT INTO ablage (schluessel, inhalt, zeit) VALUES (?1, ?2, ?3) ' +
     'ON CONFLICT (schluessel) DO UPDATE SET inhalt = ?2, zeit = ?3'
-  ).bind(key, JSON.stringify(data), Date.now()).run();
+  ).bind(key, JSON.stringify(data), zeit).run();
 }
 
 function compact(rel) {
@@ -276,7 +355,9 @@ export async function downloads(env, now = Date.now()) {
       all.push(...rows);
       if (count < 100) break;
     }
-    await store(env, 'downloads', all);
+    // ⚠ Mit `now`, nicht der Uhr: Die Minutensperre oben vergleicht gegen
+    // genau diesen Wert.
+    await store(env, 'downloads', all, now);
     return { liste: all, stand: now, alt: false };
   } catch (e) {
     if (!String(e && e.message).startsWith('GitHub ')) {
@@ -298,10 +379,17 @@ async function data(env, ctx, days) {
     env.DB.prepare('SELECT version, windows, linux, gesamt, veroeffentlicht, vorab, zuletzt FROM download_bestand').all(),
     env.DB.prepare('SELECT * FROM download_verlauf ORDER BY tag').all(),
   ]);
+  // Fehlen die Seiten-Tabellen noch, bleiben die Blöcke leer statt der Seite.
+  const nav = await Promise.all(NAV_TABLES.map((table) =>
+    env.DB.prepare(`SELECT * FROM ${table} WHERE tag >= ?1`).bind(since).all()
+      .then((r) => r.results || []).catch(() => [])));
   return { tage: t.results || [], merkmale: m.results || [], downloads: dl.liste,
            downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [],
-           bestand: bestand.results || [], verlauf: verlauf.results || [] };
+           bestand: bestand.results || [], verlauf: verlauf.results || [],
+           seiten: nav[0], seiten_wege: nav[1], seiten_klicks: nav[2], seiten_fehlgriffe: nav[3] };
 }
+
+const NAV_TABLES = ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe'];
 
 // ------------------------------------------------------------ Kurzlinks
 
@@ -383,6 +471,10 @@ async function exportAll(env) {
   const out = { erstellt: new Date().toISOString() };
   for (const t of tables) {
     out[t] = (await env.DB.prepare('SELECT * FROM ' + t).all()).results || [];
+  }
+  for (const t of NAV_TABLES) {
+    out[t] = await env.DB.prepare('SELECT * FROM ' + t).all()
+      .then((r) => r.results || []).catch(() => []);
   }
   return out;
 }
