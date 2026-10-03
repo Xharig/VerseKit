@@ -25208,6 +25208,7 @@ def main():
     _pruefung_313()
     _pruefung_314()
     _pruefung_315()
+    _pruefung_316()
 
     print()
     if fehler:
@@ -31733,6 +31734,199 @@ def _pruefung_315():
         wert = re.search(r'export const %s = (\d+);' % name, pages_js)
         pruefe(wert and int(wert.group(1)) == getattr(_pu315, name),
                'pages.js und page_usage: %s gleich' % name)
+
+
+def _pruefung_316():
+    """316. Auftragsverlauf: Suche im Issue Council mit dem englischen Titel.
+
+    Erst die Übersetzung des Titels an einem Minimalbeispiel — deutsche und
+    englische Sprachdatei, Platzhalter, Marken, mehrdeutige Titel. Dann der
+    Klick auf den Käfer im **echten** Hauptfenster, mit untergeschobenem
+    Browser.
+    """
+    print('\n316. Auftragsverlauf: Suche im Issue Council')
+    import json as _js316
+    import urllib.parse as _up316
+    from scbp import (issue_council as _ic316, paths as _pf316,
+                      mission_log as _ml316, icons as _io316)
+
+    original = {
+        'Story02_title': 'Emergency: Blinding Hope in Trouble',
+        'Patrol_title': 'Yellow Level Contract: Routine Patrol',
+        'Bounty_title_001': 'Pro Tem Bounty Assignment: ~mission(TargetName)',
+        'Help_title': 'Help Headhunters at ~mission(Location)',
+        'Crew_title': "Crew Hasn't Checked In",
+        'Any_title': '~mission(Title)',
+        'Twin_A_title': 'Verified Bounty: ~mission(TargetName) | HRT',
+        'Twin_B_title': 'Verified Bounty: ~mission(TargetName) | VHRT',
+        'Same_A_title': 'Cargo Run Alpha',
+        'Same_B_title': 'Deliver Beta',
+        'Kin_A_title': 'Bounty Hunt: ~mission(TargetName) | HRT',
+        'Kin_B_title': 'Bounty Hunt: ~mission(TargetName) | VHRT',
+    }
+    deutsch = '\n'.join([
+        'Story02_title=Notfall: Blinding Hope in Schwierigkeiten',
+        'Patrol_title,P=Gelber Auftrag: Streife <EM4>[10 Rep] [BP]*</EM4>',
+        'Bounty_title_001=Pro-Tem-Kopfgeld: ~mission(TargetName)',
+        'Help_title=Hilf Kopfgeldjägern bei ~mission(Location)',
+        'Same_A_title=Frachtlauf',
+        'Same_B_title=Frachtlauf',
+        'Kin_A_title=Kopfgeldjagd: ~mission(TargetName)',
+        'Kin_B_title=Kopfgeldjagd: ~mission(TargetName)',
+        'Story02_desc=Notfall: Blinding Hope in Schwierigkeiten',
+    ])
+
+    def such(titel):
+        return _ic316.search_text(titel, original, [deutsch])
+
+    pruefe(such('Notfall: Blinding Hope in Schwierigkeiten')
+           == 'Emergency: Blinding Hope in Trouble',
+           'ein deutscher Titel wird zum englischen Original')
+    pruefe(such('Gelber Auftrag: Streife <EM4>[BP]</EM4>')
+           == 'Yellow Level Contract: Routine Patrol',
+           'Marken fallen weg, die Textvariante ,P stört nicht')
+    pruefe(such('Yellow Level Contract: Routine Patrol [BP]')
+           == 'Yellow Level Contract: Routine Patrol',
+           'ein schon englischer Titel bleibt, nur die Marke fällt weg')
+    pruefe(such('Pro-Tem-Kopfgeld: Deepesh Fabre')
+           == 'Pro Tem Bounty Assignment',
+           'der eingesetzte Name eines Platzhalters fällt weg')
+    pruefe(such('Hilf Kopfgeldjägern bei Asteroiden Bergbaubasis')
+           == 'Help Headhunters',
+           'das Verbindungswort vor einem Platzhalter fällt mit weg (%r)'
+           % such('Hilf Kopfgeldjägern bei Asteroiden Bergbaubasis'))
+    pruefe(such("Crew Hasn't Checked In") == "Crew Hasn't Checked In",
+           'ohne Platzhalter bleibt ein Wort am Ende stehen, auch „In"')
+    pruefe(such('Verified Bounty: Wilford Shimura | HRT')
+           == 'Verified Bounty: HRT',
+           'ein Trennstrich ohne Platzhalter daneben fällt weg (%r)'
+           % such('Verified Bounty: Wilford Shimura | HRT'))
+    pruefe(such('Kopfgeldjagd: Chen Bey') == 'Bounty Hunt',
+           'mehrere passende Fassungen: die gemeinsame Anfangsfolge (%r)'
+           % such('Kopfgeldjagd: Chen Bey'))
+    pruefe(such('Frachtlauf') == 'Frachtlauf',
+           'zwei verschiedene englische Titel ohne gemeinsamen Anfang: '
+           'der angezeigte Titel, kein geratener')
+    pruefe(such('Etwas ganz anderes [BP]') == 'Etwas ganz anderes',
+           'ein unbekannter Titel wird nicht vom reinen Platzhalter-Titel '
+           'verschluckt')
+    pruefe(_ic316.search_text('Notfall [BP]', {}, [deutsch]) == 'Notfall',
+           'ohne Originaltitel gilt der angezeigte Titel ohne Marken')
+
+    adresse = _ic316.url_for('Notfall: Blinding Hope in Schwierigkeiten',
+                             original, [deutsch])
+    teile = _up316.urlsplit(adresse)
+    abfrage = _up316.parse_qs(teile.query)
+    pruefe(adresse.startswith(_ic316.BASE_URL + '?'),
+           'die Adresse zeigt auf die Issue-Council-Suche')
+    pruefe(abfrage.get('search') == ['Emergency: Blinding Hope in Trouble']
+           and abfrage.get('sort') == ['relevance']
+           and abfrage.get('statuses') == ['open'],
+           'Suchbegriff, Sortierung und Status stehen in der Adresse (%s)'
+           % teile.query)
+    pruefe('+' not in teile.query and '%20' in teile.query,
+           'Leerzeichen als %20, nicht als +')
+
+    pruefe('issue_council' in _io316.LINE_NAMES,
+           'das Käfer-Symbol ist eingetragen')
+    for px in _io316.TAPPABLE.values():
+        bild = os.path.join(WURZEL, 'assets', 'symbole', str(px),
+                            'issue_council-grau.png')
+        pruefe(os.path.isfile(bild),
+               'das Käfer-Symbol liegt in %d px vor' % px)
+
+    # --- Der Klick im echten Fenster ---
+    geoeffnet = []
+    alt_browser = _pf316.open_in_browser
+    ablage = _pf316.app_file(_ic316.TITLES_FILE)
+    alt_ablage = None
+    if os.path.exists(ablage):
+        with open(ablage, encoding='utf-8') as f:
+            alt_ablage = f.read()
+    alt_log = _ml316.load()
+    titel = 'Yellow Level Contract: Routine Patrol <EM4>[BP]</EM4>'
+    _w316 = None
+    try:
+        _pf316.open_in_browser = lambda url: geoeffnet.append(url) or True
+        _pf316.open_in_browser('falle')
+        pruefe(geoeffnet == ['falle'],
+               'Vorbedingung: der Browser ist untergeschoben')
+        del geoeffnet[:]
+        with open(ablage, 'w', encoding='utf-8') as f:
+            _js316.dump({'archiv': None, 'titel': original}, f)
+        _ml316.save([{'name': titel, 'wann': '2099-01-01T12:00:00',
+                      'zustand': _ml316.COMPLETED, 'bauplaene': [],
+                      'quelle': 'Game.log'}])
+
+        _w316 = _wurzel()
+        from scbp import main_window as _hf316
+        fenster = _hf316.MainWindow(_w316, version='0.0.0-pruefung')
+        fenster.open_page('auftragslog')
+        _w316.update()
+
+        kaefer = []
+
+        def _suche(w):
+            if getattr(w, 'symbol', None) == 'issue_council':
+                kaefer.append(w)
+            for kind in w.winfo_children():
+                _suche(kind)
+
+        _suche(_w316)
+        pruefe(bool(kaefer), 'jede Zeile im Auftragsverlauf hat den Käfer')
+        if kaefer:
+            pruefe(kaefer[0].cget('cursor') == 'hand2',
+                   'der Käfer zeigt die Hand — er ist anklickbar')
+            kaefer[0].event_generate('<Button-1>', x=2, y=2)
+            _w316.update()
+            pruefe(len(geoeffnet) == 1,
+                   'ein Klick öffnet genau eine Adresse (%d)' % len(geoeffnet))
+            if geoeffnet:
+                q = _up316.parse_qs(_up316.urlsplit(geoeffnet[0]).query)
+                pruefe(q.get('search')
+                       == ['Yellow Level Contract: Routine Patrol'],
+                       'gesucht wird mit dem Titel ohne Marke (%s)'
+                       % q.get('search'))
+
+        from scbp.language import t as _t316
+        forum = []
+
+        def _suche_text(w):
+            try:
+                if w.cget('text') == _t316('s_al_spectrum'):
+                    forum.append(w)
+            except Exception:
+                pass
+            for kind in w.winfo_children():
+                _suche_text(kind)
+
+        _suche_text(_w316)
+        pruefe(len(forum) == 1,
+               'der Spectrum-Verweis steht genau einmal auf der Seite (%d)'
+               % len(forum))
+        if forum:
+            del geoeffnet[:]
+            forum[0].event_generate('<Button-1>', x=2, y=2)
+            _w316.update()
+            pruefe(geoeffnet
+                   == ['https://robertsspaceindustries.com/spectrum/community/SC'],
+                   'ein Klick darauf öffnet das Spectrum-Forum (%s)' % geoeffnet)
+    finally:
+        _pf316.open_in_browser = alt_browser
+        try:
+            if _w316 is not None:
+                _w316.destroy()
+        except Exception:
+            pass
+        _ml316.save(alt_log)
+        if alt_ablage is None:
+            try:
+                os.remove(ablage)
+            except OSError:
+                pass
+        else:
+            with open(ablage, 'w', encoding='utf-8') as f:
+                f.write(alt_ablage)
 
 
 if __name__ == '__main__':

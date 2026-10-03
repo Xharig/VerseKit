@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.73.0 - 2026-10-03
+
+> Hängt ein Auftrag? Im Auftragsverlauf sitzt jetzt an jeder Zeile ein Käfer,
+> der den Auftrag im Issue Council sucht — mit dem englischen Titel, auch wenn
+> du das Spiel auf Deutsch spielst. So siehst du sofort, ob der Fehler schon
+> gemeldet ist, und kannst ihn bestätigen.
+
+### Neu
+
+- **Aufträge im Issue Council suchen** — der Käfer an jeder Zeile im
+  Auftragsverlauf öffnet die Suche im Issue Council. Gesucht wird immer mit
+  dem englischen Originaltitel; Marken wie `[BP]` und eingesetzte Namen oder
+  Orte fallen dabei weg, damit die Suche alle Aufträge dieser Art findet.
+  Vorschlag von Zwaersch
+- **Verweis zum Spectrum-Forum** — oben im Auftragsverlauf, für alles, was
+  im Issue Council noch keine Meldung hat
+
 ## v3.72.0 - 2026-10-03
 
 > Zwei kleine Verbesserungen: Beim Benennen von Schiffen steht jetzt dabei,

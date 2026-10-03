@@ -588,6 +588,6 @@ BUTTON_NAMES = (
 LINE_NAMES = (
     'bestaetigt', 'vorlaeufig', 'punkt', 'gemerkt', 'haken', 'offen',
     'standard', 'aufklappen', 'zuklappen', 'hinweiszeile', 'kaffee',
-    'ausblenden',
+    'ausblenden', 'issue_council',
 )
 ALL_NAMES = BUTTON_NAMES + LINE_NAMES

@@ -26,7 +26,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Where each blueprint drops** — faction, contract, required standing, payout; a button in Crafting leads straight there |
 | ✅ | **When you accept a contract**: does it carry blueprints, and which are you missing? |
 | ✅ | **What to do next** — the open objectives are listed under their contract |
-| ✅ | **Missions & log** — which missions were played when, how often, and which blueprint came out of it; any mission can simply be looked up as well |
+| ✅ | **Missions & log** — which missions were played when, how often, and which blueprint came out of it; any mission can simply be looked up as well, and searched on the Issue Council with one click |
 | ✅ | **Backup** — everything of yours into one file and back again, for moving to another PC |
 | ✅ | **Clear shader cache** — empty the shader caches of Star Citizen and the graphics drivers with one button, graphics settings stay |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |

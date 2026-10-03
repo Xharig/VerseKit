@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.73.0 - 2026-10-03
+
+> Mission bugged? Every row in the mission log now has a bug icon that
+> searches the Issue Council for that mission — with the English title, even
+> if you play the game in another language. You see right away whether the
+> bug is already reported, and can confirm it.
+
+### New
+
+- **Search missions on the Issue Council** — the bug icon on every row of the
+  mission log opens the Issue Council search. It always searches with the
+  original English title; markers like `[BP]` and filled-in names or places
+  are left out, so the search finds every mission of that kind. Suggested by
+  Zwaersch
+- **Link to the Spectrum forum** — at the top of the mission log, for anything
+  that has no report on the Issue Council yet
+
 ## v3.72.0 - 2026-10-03
 
 > Two small improvements: when renaming ships, the page now says the name also

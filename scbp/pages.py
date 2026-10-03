@@ -3824,6 +3824,9 @@ def _contract_log(fenster, rahmen):
     _heading(fenster, rahmen, t('hf_auftragslog'), t('s_al_lead'))
     innen = _scroll_area(rahmen)
     _body_text(innen, t('s_al_hinweis'), fenster.f_small, fill='x')
+    from . import issue_council
+    _source_link(fenster, innen, t('s_al_spectrum'),
+                 issue_council.SPECTRUM_URL)
 
     # ⚠⚠ **Die Daten werden bei JEDEM Zeigen neu geholt, nicht nur beim Bauen.**
     # Die Nachlese der alten Protokolle läuft kurz nach dem Start in einem
@@ -4001,6 +4004,25 @@ def _contract_log(fenster, rahmen):
                      font=fenster.f_small, width=17,
                      anchor='w').pack(side='left')
 
+            # ⭐ Rechts, vor der Mitte gepackt: Die Mitte nimmt sich mit
+            # `expand` den Rest, ein danach gepacktes Element fiele heraus.
+            # Der Suchbegriff entsteht erst beim Klick — das Nachschlagen des
+            # englischen Titels liest die Sprachdateien.
+            def im_issue_council(_ereignis=None,
+                                 titel=eintrag.get('name') or ''):
+                _open_issue_council(fenster, titel)
+
+            ic_knopf = icons.tappable(zeile, 'issue_council',
+                                      background=SURFACE,
+                                      text=t('s_al_ic'),
+                                      font=fenster.f_small)
+            ic_knopf.configure(cursor='hand2', padx=10)
+            ic_knopf.pack(side='right')
+            ic_knopf.bind('<Button-1>', im_issue_council)
+            icons.hover_group(ic_knopf)
+            from . import notice
+            notice.attach(ic_knopf, lambda: t('s_al_ic_tipp'))
+
             mitte = tk.Frame(zeile, bg=SURFACE)
             mitte.pack(side='left', fill='x', expand=True)
             # ⚠ Lange Namen brechen um, statt rechts abgeschnitten zu werden.
@@ -4031,7 +4053,6 @@ def _contract_log(fenster, rahmen):
                     pass
             name_lab.bind('<Enter>', lambda e, w=name_lab: w.configure(fg=ACCENT))
             name_lab.bind('<Leave>', lambda e, w=name_lab: w.configure(fg=FG))
-            from . import notice
             notice.attach(name_lab, lambda: t('s_al_klick'))
             # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
             # beendeten waere er Ballast — er ist ja fertig.
@@ -7899,6 +7920,21 @@ def _to_contract(fenster, titel):
         fenster.say(t('s_fo_lohnt_nichts'))
     except Exception as ausnahme:
         errors.record('pages.zum_auftrag', ausnahme)
+
+
+def _open_issue_council(window, title):
+    """Die Issue-Council-Suche nach diesem Auftrag im Browser öffnen.
+
+    ⚠ Über `paths.open_in_browser`, nie `webbrowser.open()` direkt — siehe die
+    Begründung dort.
+    """
+    try:
+        from . import issue_council
+        address = issue_council.url_for(title)
+        if not paths.open_in_browser(address):
+            window.say(t('s_ub_auf_nein') % address)
+    except Exception as exception:
+        errors.record('pages.issue_council', exception)
 
 
 def _to_kind(fenster, art):

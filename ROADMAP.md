@@ -26,7 +26,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Herkunft je Bauplan** — Fraktion, Auftrag, nötiger Ruf, Belohnung; aus der Herstellung führt ein Knopf direkt hin |
 | ✅ | **Beim Annehmen eines Auftrags**: bringt er Baupläne, und welche fehlen dir noch? |
 | ✅ | **Was gerade zu tun ist** — die offenen Zwischenziele stehen unter ihrem Auftrag |
-| ✅ | **Aufträge & Protokoll** — welche Aufträge wann gespielt wurden, wie oft, und welcher Bauplan dabei herauskam; jeder Auftrag lässt sich auch einfach nachschlagen |
+| ✅ | **Aufträge & Protokoll** — welche Aufträge wann gespielt wurden, wie oft, und welcher Bauplan dabei herauskam; jeder Auftrag lässt sich auch einfach nachschlagen und mit einem Klick im Issue Council suchen |
 | ✅ | **Sicherung** — alles Eigene in eine Datei und wieder zurück, für den Rechnerwechsel |
 | ✅ | **Shader-Cache leeren** — Shader-Speicher von Star Citizen und Grafiktreiber per Knopf leeren, Grafikeinstellungen bleiben |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |

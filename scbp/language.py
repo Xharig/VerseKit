@@ -971,6 +971,16 @@ TEXTS = {
     's_al_anzahl':     ('%d Aufträge', '%d missions'),
     's_al_bp':         ('Bauplan: %s', 'Blueprint: %s'),
     's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
+    # Der Käfer an jeder Zeile: diesen Auftrag im Issue Council suchen.
+    's_al_ic':         ('Issue Council', 'Issue Council'),
+    's_al_ic_tipp':    ('Hängt dieser Auftrag? Sucht im Issue Council nach '
+                        'Meldungen dazu, mit dem englischen Titel. Dort '
+                        'kannst du bestätigen oder selbst melden.',
+                          'Mission bugged? Searches the Issue Council for '
+                          'reports about it, using the English title. There '
+                          'you can confirm one or file your own.'),
+    's_al_spectrum':   ('Auftrag verbuggt? Im Spectrum-Forum nachfragen',
+                          'Mission bugged? Ask on the Spectrum forum'),
     # Die Joystick-Seite — welcher Stick ist welche Nummer, und was liegt drauf.
     # ⚠ „Steuerung", nicht „Joysticks": Auf der Seite stehen auch Tastatur,
     # Maus und Gamepad. Wer sucht, wo seine Tastenbelegung ist, klickt keinen
@@ -2745,14 +2755,20 @@ TEXTS = {
                               'Schiffsdaten entstanden, und damit auch „passt '
                               'der Bauplan in mein Schiff". Und der Hinweis, '
                               'dass niemand erkennt, wonach die Bauplan-Liste '
-                              'alles sucht — jetzt steht es im Feld.',
+                              'alles sucht — jetzt steht es im Feld. Und die '
+                              'Idee, einen verbuggten Auftrag direkt im '
+                              '**Issue Council** zu suchen — daraus ist der '
+                              'Käfer im Auftragsverlauf geworden.',
                               '**What is inside a wreck?** Wanting to know '
                               'whether salvaging is worth it before you get '
                               'out — that is where the whole ship-data '
                               'connection came from, and with it „does this '
                               'blueprint fit my ship". And the note that nobody '
                               'can tell what the blueprint list actually '
-                              'searches — now the field says so.'),
+                              'searches — now the field says so. And the idea '
+                              'of looking up a bugged mission right on the '
+                              '**Issue Council** — that became the bug icon in '
+                              'the mission log.'),
     's_dk_zwaersch_bugs':    ('Dass Ein- **und** Ausfuhr das neuere Format von '
                               'scmdb.net nicht kannten, und dass ein '
                               'Kanalwechsel die ganze Vorgeschichte kostete — '
