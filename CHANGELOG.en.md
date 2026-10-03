@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.77.0 - 2026-10-04
+
+> The main window now closes without freezing the overlay: it disappears at
+> once, and the cleanup happens afterwards in small steps.
+
+### Improved
+
+- **Closing the main window without a hitch** — the overlay used to stand
+  still for up to a second on closing, longer the more pages were open. Now
+  the window disappears at once, and the cleanup runs in small portions with
+  the overlay staying responsive in between
+
 ## v3.76.0 - 2026-10-04
 
 > VerseKit got snappier: long lists like Controls only build what you see

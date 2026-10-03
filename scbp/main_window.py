@@ -430,10 +430,11 @@ def fast_destroy(window):
     steht. Beim Hauptfenster sind das rund 6500 Elemente: **2,2 Sekunden**,
     in denen das Fenster sichtbar stehen bleibt (gemessen unter Tk 9).
 
-    Hier verschwindet es zuerst vom Bildschirm, dann räumt Tk das ganze
-    Fenster in einem Aufruf ab (ohne Zwischen-Neuanordnung), und zuletzt wird
-    auf Python-Seite nur noch die Buchhaltung erledigt: die registrierten
-    Rückrufe freigeben — genau das, was `Misc.destroy` tut.
+    Hier verschwindet es zuerst vom Bildschirm, dann räumt Tk es in wenigen
+    großen Teilbäumen ab (je einer ein Aufruf, ohne Zwischen-Neuanordnung),
+    mit kurzen Pausen dazwischen, und auf Python-Seite wird nur noch die
+    Buchhaltung erledigt: die registrierten Rückrufe freigeben — genau das,
+    was `Misc.destroy` tut.
 
     Nur für `Toplevel`: Die Tk-Wurzel beendet beim Abbauen das Programm und
     geht deshalb weiter den gewohnten Weg.
@@ -445,21 +446,88 @@ def fast_destroy(window):
         window.withdraw()
     except tk.TclError:
         pass
+
+    # ⭐⭐ **In Portionen, mit Pausen dazwischen.** Auch der eine Tk-Aufruf
+    # braucht bei rund 7000 Elementen über eine Sekunde — und so lange stünde
+    # das Overlay, das im selben Faden läuft, still. Das Fenster ist schon
+    # weg; abgebaut wird jetzt Teilbaum für Teilbaum, und zwischen zwei
+    # Portionen kommt das Overlay dran.
+    portionen = _destroy_batches(_destroy_chunks(window, DESTROY_CHUNK),
+                                 DESTROY_CHUNK)
+    takt = window.master
+
+    def schritt():
+        while portionen:
+            for teil in portionen.pop(0):
+                _destroy_now(teil)
+            if portionen:
+                try:
+                    takt.after(DESTROY_PAUSE_MS, schritt)
+                    return
+                except (tk.TclError, AttributeError, RuntimeError):
+                    continue           # kein Takt mehr — dann sofort weiter
+
+    schritt()
+
+
+# Höchstens so viele Elemente je Portion beim Abbauen, und so lange Pause
+# dazwischen. Eine Portion dieser Größe kostet rund 70 ms.
+DESTROY_CHUNK = 400
+DESTROY_PAUSE_MS = 15
+
+
+def _widget_count(widget):
+    """Wie viele Elemente hängen an diesem Teilbaum (es selbst mitgezählt)?"""
+    return 1 + sum(_widget_count(c) for c in widget.children.values())
+
+
+def _destroy_chunks(widget, limit):
+    """Teilbäume von höchstens `limit` Elementen — Kinder vor ihren Eltern."""
+    if _widget_count(widget) <= limit:
+        return [widget]
+    out = []
+    for child in list(widget.children.values()):
+        out.extend(_destroy_chunks(child, limit))
+    out.append(widget)
+    return out
+
+
+def _destroy_batches(chunks, limit):
+    """Kleine Teilbäume zu Portionen von etwa `limit` Elementen bündeln.
+
+    ⚠ Ohne Bündeln wird jede Seitenzeile ein eigener Schritt — gemessen über
+    90 Schritte mit je einer Pause, und der Abbau zog sich über Sekunden.
+    """
+    batches, current, size = [], [], 0
+    for chunk in chunks:
+        n = _widget_count(chunk)
+        if current and size + n > limit:
+            batches.append(current)
+            current, size = [], 0
+        current.append(chunk)
+        size += n
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _destroy_now(widget):
+    """Einen Teilbaum mit einem Tk-Aufruf abbauen, dann die Buchhaltung."""
     try:
-        window.tk.call('destroy', window._w)
+        widget.tk.call('destroy', widget._w)
     except tk.TclError:
         pass
 
-    def forget(widget):
-        for child in list(widget.children.values()):
+    def forget(w):
+        for child in list(w.children.values()):
             forget(child)
-        widget.children.clear()
-        tk.Misc.destroy(widget)      # nur die Rückrufe, kein Tk-Aufruf
+        w.children.clear()
+        tk.Misc.destroy(w)           # nur die Rückrufe, kein Tk-Aufruf
 
-    forget(window)
+    forget(widget)
     try:
-        if window.master.children.get(window._name) is window:
-            del window.master.children[window._name]
+        if widget.master.children.get(widget._name) is widget:
+            del widget.master.children[widget._name]
     except (AttributeError, KeyError):
         pass
 

@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.77.0 - 2026-10-04
+
+> Das große Fenster schließt jetzt, ohne das Overlay anzuhalten: Es ist
+> sofort weg, aufgeräumt wird danach in kleinen Schritten.
+
+### Verbessert
+
+- **Schließen des Hauptfensters ohne Hänger** — bisher stand das Overlay
+  beim Schließen bis zu einer Sekunde still, je mehr Seiten offen waren,
+  desto länger. Jetzt verschwindet das Fenster sofort, und der Abbau läuft
+  in kleinen Portionen, zwischen denen das Overlay weiter reagiert
+
 ## v3.76.0 - 2026-10-04
 
 > VerseKit ist flotter geworden: Lange Listen wie die Steuerung bauen beim

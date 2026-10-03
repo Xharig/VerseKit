@@ -25215,6 +25215,7 @@ def main():
     _pruefung_320()
     _pruefung_321()
     _pruefung_322()
+    _pruefung_323()
 
     print()
     if fehler:
@@ -32566,6 +32567,67 @@ def _pruefung_322():
     finally:
         try:
             _w322.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_323():
+    """323. Schließen des Hauptfensters: sofort weg, Abbau in Portionen.
+
+    Gemessen wird am echten Hauptfenster mit mehreren geöffneten Seiten:
+    Nach `close()` ist es nicht mehr sichtbar, aber noch nicht vollständig
+    abgebaut — der Rest folgt in Takten, zwischen denen das Hauptprogramm
+    (das Overlay) wieder dran ist. Am Ende ist alles weg.
+    """
+    print('\n323. Hauptfenster schließen: sofort weg, Abbau in Portionen')
+    import time as _ti323
+    from scbp import main_window as _hf323
+
+    _w323 = _wurzel()
+    try:
+        fenster = _hf323.MainWindow(_w323, version='0.0.0-pruefung')
+        for seite in ('wasistneu', 'joysticks', 'danke', 'liste'):
+            fenster.open_page(seite)
+            _w323.update()
+        oben = fenster.root
+        gesamt = _hf323._widget_count(oben)
+        pruefe(gesamt > _hf323.DESTROY_CHUNK,
+               'Vorbedingung: das Fenster hat mehr Elemente als eine Portion '
+               '(%d)' % gesamt)
+
+        takte = []
+        echt_after = _w323.after
+
+        def _after(ms, fn=None, *a):
+            takte.append(ms)
+            return echt_after(ms, fn, *a)
+        _w323.after = _after
+        try:
+            beginn = _ti323.perf_counter()
+            fenster.close()
+            dauer = _ti323.perf_counter() - beginn
+        finally:
+            del _w323.after
+        pruefe(not oben.winfo_exists() or not oben.winfo_viewable(),
+               'nach close() ist das Fenster sofort nicht mehr sichtbar')
+        rest = _hf323._widget_count(oben)
+        pruefe(rest < gesamt and oben.winfo_exists(),
+               'close() kehrt zurück, bevor alles abgebaut ist '
+               '(%d von %d Elementen übrig, %.0f ms)'
+               % (rest, gesamt, dauer * 1000))
+        pruefe(bool(takte),
+               'der Rest ist als Takt angemeldet (%d)' % len(takte))
+        ende = _ti323.time() + 5
+        while oben.winfo_exists() and _ti323.time() < ende:
+            _w323.update()
+            _ti323.sleep(0.01)
+        pruefe(not oben.winfo_exists(),
+               'nach den Takten ist das Fenster vollständig abgebaut')
+        pruefe(oben._name not in _w323.children,
+               'und auch auf der Python-Seite ausgetragen')
+    finally:
+        try:
+            _w323.destroy()
         except Exception:
             pass
 
