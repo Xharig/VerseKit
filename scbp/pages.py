@@ -2410,7 +2410,7 @@ def _folders(fenster, rahmen):
     tk.Label(innen, text=t('s_eigene'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', pady=(20, 0))
     _body_text(innen, t('s_eigene_h'), fenster.f_small, fill='x')
-    ablage = tk.StringVar(value=paths.app_folder())
+    ablage = tk.StringVar(rahmen, value=paths.app_folder())
 
     def ablage_oeffnen():
         # Nur melden, was auch stimmt: „Ordner geöffnet" zu sagen, während gar
@@ -2668,7 +2668,7 @@ def _start_command_field(fenster, innen):
     _body_text(innen, t('s_or_start_bsp'), fenster.f_small, color=SUB,
                 fill='x', pady=(2, 0))
 
-    wert = tk.StringVar(value=paths.setting('spielstarter') or '')
+    wert = tk.StringVar(innen, value=paths.setting('spielstarter') or '')
 
     def uebernehmen():
         text = (wert.get() or '').strip()
@@ -3311,7 +3311,7 @@ def _translation_page(window, frame):
                    pady=(4, 4))
         # ⚠ Mit eigener Variable: Ein Feld mit grauem Hinweis liest sonst den
         # Hinweis als Eingabe (`round_entry` verweigert das deshalb).
-        url_value = tk.StringVar(value=custom.get('url') or '')
+        url_value = tk.StringVar(custom_box, value=custom.get('url') or '')
         url_field = round_entry(custom_box, url_value, window.f_small,
                                 theme.FIELD, LINE, ACCENT, FG,
                                 placeholder=t('s_tq_url_platz'))
@@ -3864,7 +3864,7 @@ def _contract_log(fenster, rahmen):
     # Der Fingerabdruck der zuletzt gezeichneten Liste — siehe `zeichnen()`.
     zuletzt = {'stand': None}
 
-    suche = tk.StringVar()
+    suche = tk.StringVar(rahmen)
     liste_rahmen = tk.Frame(innen, bg=BG)
 
     block = tk.Frame(innen, bg=BG)
@@ -4449,7 +4449,7 @@ def _joysticks(fenster, rahmen):
     _device_hub(fenster, innen)
 
     daten = {}
-    suche = tk.StringVar()
+    suche = tk.StringVar(rahmen)
     nur = {'geraet': '', 'sicht': joysticks.ALL}
 
     # ⚠⚠ **Das Suchfeld wird EINMAL gebaut und danach nie wieder angefasst.**
@@ -7203,7 +7203,7 @@ def _diagnostics(fenster, rahmen):
     # Benutzernamen des Systems. Das Werkzeug sammelt sonst nichts über den
     # Nutzer („no telemetry"); ein heimlich mitgeschickter Name wäre ein
     # Wortbruch.
-    melder_var = tk.StringVar(value=(paths.setting('melder_name') or ''))
+    melder_var = tk.StringVar(rahmen, value=(paths.setting('melder_name') or ''))
     ziel_melder = _setting_row(fenster, innen, t('s_melder'), t('s_melder_h'))
     from .main_window import round_entry
     melder_feld = round_entry(ziel_melder, melder_var, fenster.f_small,
@@ -7593,7 +7593,7 @@ def _crafting(fenster, rahmen):
     # aufgeklappt zu zeigen — deshalb hier gemerkt und nicht nur ins Suchfeld
     # geschrieben.
     gesprungen = getattr(fenster, 'crafting_search', '') or ''
-    suche_var = tk.StringVar(value=gesprungen)
+    suche_var = tk.StringVar(rahmen, value=gesprungen)
     fenster.crafting_search = ''
     ziel_suche = _setting_row(fenster, innen, t('s_he_suche'), '')
     suchfeld = round_entry(ziel_suche, suche_var, fenster.f_small, theme.FIELD,
@@ -8014,9 +8014,9 @@ def _routes(fenster, rahmen):
                'stumm_schiff': False, 'modus': 'ab_hier', 'ort_offen': False}
     # ⚠ 120: Das ist der Laderaum der Freelancer MAX. Ein Standardwert soll einem echten Schiff entsprechen und
     # nicht geraten sein.
-    scu_var = tk.StringVar(value='120')
-    geld_var = tk.StringVar(value='500000')
-    ortsuche = tk.StringVar()
+    scu_var = tk.StringVar(rahmen, value='120')
+    geld_var = tk.StringVar(rahmen, value='500000')
+    ortsuche = tk.StringVar(rahmen)
 
     # ⚠⚠ **Die Eingaben bleiben stehen, nur das Ergebnis rollt.** Lägen sie
     # **in** der Rollfläche, verlöre wer zu den Fahrten hinunterrollt
@@ -8118,7 +8118,7 @@ def _routes(fenster, rahmen):
     schiff_rahmen.pack(fill='x', pady=(10, 0))
     tk.Label(schiff_rahmen, text=t('s_rt_schiff'), bg=BG, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
-    schiffsuche = tk.StringVar()
+    schiffsuche = tk.StringVar(rahmen)
     schifffeld = _feld_rund(schiff_rahmen, schiffsuche, fenster.f_base,
                             SURFACE, LINE, ACCENT, FG,
                             placeholder=t('s_rt_schiff_platz'))
@@ -8919,7 +8919,7 @@ def _shops(fenster, rahmen):
 
     _heading(fenster, rahmen, t('hf_laeden'), t('s_ld_lead'))
 
-    suche = tk.StringVar()
+    suche = tk.StringVar(rahmen)
     gewaehlt = {'name': '', 'kennung': ''}
     laeuft = {'ja': False}
     # ⚠⚠ **Die Reihenfolge ist die Kaskade.** Jedes Menü zeigt nur, was zur
@@ -8954,7 +8954,7 @@ def _shops(fenster, rahmen):
 
     # Ort: tippen oder aufklappen, wie der Lagerort im Lager. Gefiltert wird,
     # sobald ein bekannter Ort im Feld steht.
-    ort = tk.StringVar()
+    ort = tk.StringVar(rahmen)
     ort_wahl = {'ort': ''}
     ort_rahmen = tk.Frame(kopf, bg=BG)
     ort_rahmen.pack(fill='x', padx=24, pady=(8, 0))
@@ -10046,7 +10046,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # ⭐ Stückzahl daneben. Wer zehn Stück am Stück baut, soll einmal
         # klicken statt zehnmal — beim elften Klick stimmt der Bestand sonst
         # nicht mehr, und niemand merkt es.
-        anzahl_var = tk.StringVar(value='1')
+        anzahl_var = tk.StringVar(eltern, value='1')
 
         # ⚠⚠ **Die eingestellte Qualität gilt auch fürs Lager.** Zählte
         # „hast du" jeden Posten ab der Mindestgüte des Rezepts, läse wer den
@@ -10747,7 +10747,7 @@ def _salvage(fenster, rahmen):
                 color=GOLD, bg=SURFACE, fill='x', padx=16, pady=12,
                 inset=56)
 
-    schiff = tk.StringVar()
+    schiff = tk.StringVar(rahmen)
     ergebnis = tk.Frame(innen, bg=BG)
     meldung = {'text': '', 'farbe': SUB}
 
@@ -11086,7 +11086,7 @@ def _mining_missing(window, page, inner):
 
     # Der Scanner liest die Zahl aus dem Bild — dafür braucht er keine
     # Fundorte. Nur der Rechner daneben braucht sie.
-    _signature_scanner(window, inner, tk.StringVar(value=''))
+    _signature_scanner(window, inner, tk.StringVar(inner, value=''))
 
     def on_show():
         try:
@@ -11992,7 +11992,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
                          justify='left')
     _rf_hilfe.pack(fill='x', pady=(2, 0))
     _wrap(_rf_hilfe, reference=kasten, inset=10)
-    einheit = tk.StringVar(value='cscu')
+    einheit = tk.StringVar(eltern, value='cscu')
     zeile = tk.Frame(ziel, bg=BG)
     zeile.pack(fill='x', pady=(6, 4))
     tk.Label(zeile, text=t('s_rf_einheit'), bg=BG, fg=SUB,
@@ -12009,7 +12009,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     #
     # Vorbelegt mit dem Ort von oben, für alle, die immer am selben Ort
     # einlagern.
-    ort_raff = tk.StringVar(value=(ort_var.get() or '').strip())
+    ort_raff = tk.StringVar(eltern, value=(ort_var.get() or '').strip())
     ortblock = tk.Frame(ziel, bg=BG)
     ortblock.pack(fill='x', pady=(4, 0))
     tk.Label(ortblock, text=t('s_rf_ort'), bg=BG, fg=FG,
@@ -12136,7 +12136,7 @@ def _hangar(fenster, rahmen):
     daten = {'stand': meine.load()}
     meldung = {'text': '', 'farbe': SUB}
     liste_rahmen = tk.Frame(innen, bg=BG)
-    schiff = tk.StringVar()
+    schiff = tk.StringVar(rahmen)
 
     def neu_zeichnen():
         _liste_fuellen()
@@ -12433,7 +12433,7 @@ def _wishlist(fenster, rahmen):
 
     daten = {'stand': meine.load()}
     meldung = {'text': '', 'farbe': SUB}
-    wunsch = tk.StringVar()
+    wunsch = tk.StringVar(rahmen)
 
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(14, 0))
@@ -12561,7 +12561,7 @@ def _asop(fenster, rahmen):
     # „Hornet" tippt, meint das Schiff; wer „Leitschiff" tippt, meint den
     # Namen, den er selbst vergeben hat. Nur nach einem von beiden zu suchen
     # wäre auf der Hälfte der Fälle nutzlos.
-    suche = tk.StringVar()
+    suche = tk.StringVar(rahmen)
     such_zeile = tk.Frame(kopf, bg=BG)
     such_zeile.pack(fill='x', padx=24, pady=(0, 6))
     from .main_window import round_entry as _rundes_feld_such
@@ -12823,8 +12823,8 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):
         return
 
     eigen, stern = asop_modul.entry(daten['stand'], e['schluessel'])
-    wert = tk.StringVar(value=eigen)
-    stern_an = tk.BooleanVar(value=stern)
+    wert = tk.StringVar(eltern, value=eigen)
+    stern_an = tk.BooleanVar(eltern, value=stern)
 
     reihe = tk.Frame(kasten, bg=SURFACE)
     reihe.pack(fill='x', padx=12, pady=(0, 10))
@@ -13026,7 +13026,7 @@ def _dismantle(fenster, rahmen):
                                        n=len(regeln['gesperrt'])),
                 fenster.f_small, fill='x')
 
-    gewaehlt = tk.StringVar()
+    gewaehlt = tk.StringVar(rahmen)
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(14, 0))
 
@@ -14326,7 +14326,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
                         bg=SURFACE, fill='x', padx=(22, 0), inset=90)
             return
         nach_name = dict((m['name'], m) for m in moeglich)
-        gewaehlt_var = tk.StringVar()
+        gewaehlt_var = tk.StringVar(auswahl_rahmen)
 
         def uebernehmen(*args):
             # ⚠⚠ **Der Name kommt als Argument, nicht aus dem Feld.** Wer
@@ -14697,12 +14697,12 @@ def _storage(fenster, rahmen):
     _body_text(innen, t('s_lg_hinweis'), fenster.f_small, fill='x')
 
     from .main_window import round_entry
-    material = tk.StringVar()
-    menge = tk.StringVar()
-    guete = tk.StringVar()
+    material = tk.StringVar(rahmen)
+    menge = tk.StringVar(rahmen)
+    guete = tk.StringVar(rahmen)
     # Der zuletzt benutzte Lagerort steht schon drin — siehe unten beim
     # Eintragen, warum.
-    ort = tk.StringVar(value=paths.setting('lager_ort') or '')
+    ort = tk.StringVar(rahmen, value=paths.setting('lager_ort') or '')
     # ⭐ In welcher Einheit das Mengenfeld rechnet. Das Raffinerie-Terminal im
     # Spiel zeigt **cSCU**, die Gegenstands-Anzeige im Lager **SCU** — und vom
     # Terminal abzutippen ist bequemer, weil man dort nicht jeden Stapel
@@ -14913,7 +14913,7 @@ def _storage(fenster, rahmen):
     # statt ihn zu sehen. Spaltenköpfe sortieren auf Klick, das Feld darüber
     # filtert.
     sortier = {'nach': 'material', 'ab': False}
-    filter_var = tk.StringVar()
+    filter_var = tk.StringVar(rahmen)
 
     SPALTEN = (('material', 's_lg_sp_material', 22, 'w'),
                ('menge',    's_lg_sp_menge',     9, 'e'),
@@ -15802,7 +15802,7 @@ def _selling(fenster, rahmen):
     # Die ausgewählten Waren. Liste statt Menge, damit die Reihenfolge der
     # Auswahl erhalten bleibt — wer zuerst Gold eintippt, sieht Gold zuerst.
     auswahl = []
-    suche = tk.StringVar()
+    suche = tk.StringVar(rahmen)
     # Von Hand eingetragene Mengen — sie ergänzen das Handelslager, ohne dass
     # etwas eingelagert werden muss. Siehe `waehlen`.
     # Von Hand eingetragene Mengen je Ware — sie ergänzen das Handelslager,
@@ -16006,7 +16006,7 @@ def _selling(fenster, rahmen):
             tk.Label(marke, text=name, bg=SURFACE, fg=FG,
                      font=fenster.f_small, padx=8, pady=3).pack(side='left')
 
-            var = tk.StringVar(value=str(eigene_mengen.get(name) or ''))
+            var = tk.StringVar(marke, value=str(eigene_mengen.get(name) or ''))
             # ⚠ Nur ein Wort: Das Feld ist fünf Zeichen breit. Ein
             # abgeschnittener Hinweis wäre schlimmer als keiner — und die
             # Einheit steht ohnehin als Etikett daneben.
@@ -16281,9 +16281,9 @@ def _trade_storage(fenster, rahmen):
     innen = _scroll_area(rahmen)
     _body_text(innen, t('s_hl_hinweis'), fenster.f_small, fill='x')
 
-    ware = tk.StringVar()
-    menge = tk.StringVar()
-    ort = tk.StringVar(value=paths.setting('handel_ort') or '')
+    ware = tk.StringVar(rahmen)
+    menge = tk.StringVar(rahmen)
+    ort = tk.StringVar(rahmen, value=paths.setting('handel_ort') or '')
     gestohlen = [False]
     meldung = {'text': '', 'farbe': SUB}
     # Welche Zeile gerade zum Ändern offen ist. `None` heisst: neuer Posten.
@@ -16771,7 +16771,7 @@ def _view_angle(fenster, rahmen):
     inhalt = tk.Frame(innen, bg=BG)
     inhalt.pack(fill='both', expand=True, padx=24, pady=(4, 12))
 
-    zustand = {'abstand': tk.StringVar(value='')}
+    zustand = {'abstand': tk.StringVar(rahmen, value='')}
 
     def _gespeichertes():
         daten = fov_modul.stored()
@@ -17337,7 +17337,7 @@ def _axes(fenster, rahmen):
             tk.Label(zeile, text=beschriftung, bg=BG, fg=FG,
                      font=fenster.f_small, anchor='w',
                      width=14).pack(side='left')
-            var = tk.DoubleVar(value=(ruhe if ist is None else ist))
+            var = tk.DoubleVar(zeile, value=(ruhe if ist is None else ist))
             # ⚠ Die Zahl steht RECHTS vom Regler und wird zuerst gepackt —
             # sonst nimmt der Regler ihr den Platz weg, sobald das Fenster
             # schmal wird, und der Wert ist nicht mehr zu lesen.
@@ -17632,7 +17632,7 @@ def _axes(fenster, rahmen):
         # Neuen Satz anlegen: Feld und Knopf in einer Zeile.
         neu = tk.Frame(eltern, bg=BG)
         neu.pack(fill='x', pady=(12, 0))
-        name = tk.StringVar()
+        name = tk.StringVar(eltern)
         from .main_window import round_entry as _feld_rund
         feld = _feld_rund(neu, name, fenster.f_small, SURFACE, LINE, ACCENT,
                           # 18 statt 22 Zeichen: Mit 22 ragte „Speichern"
@@ -17796,7 +17796,7 @@ def _axes(fenster, rahmen):
         zeile.pack(fill='x', pady=(8, 0))
         tk.Label(zeile, text=klar, bg=BG, fg=FG, font=fenster.f_small,
                  anchor='w', width=20).pack(side='left')
-        var = tk.DoubleVar(value=(ruhe if ist is None else ist))
+        var = tk.DoubleVar(eltern, value=(ruhe if ist is None else ist))
         anzeige = tk.Label(zeile, text='', bg=BG, fg=ACCENT,
                            font=fenster.f_small, width=5, anchor='e')
         anzeige.pack(side='right', padx=(8, 0))

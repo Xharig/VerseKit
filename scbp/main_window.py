@@ -4187,7 +4187,7 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
                  anchor='w', justify='left',
                  wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        value = tk.StringVar(value=preset)
+        value = tk.StringVar(parent, value=preset)
 
         if choices:
             if choices_title:

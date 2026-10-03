@@ -108,7 +108,7 @@ class CalibrationWindow:
                                   bd=0, cursor='sb_h_double_arrow')
         self.canvas.pack(fill='both', expand=True)
 
-        self.width = tk.DoubleVar(value=float(start_width or 320))
+        self.width = tk.DoubleVar(parent, value=float(start_width or 320))
         self.canvas.bind('<Configure>', lambda _e: self._draw())
         self.canvas.bind('<B1-Motion>', self._drag)
         self.window.bind('<Left>', lambda _e: self._stufe(-1))

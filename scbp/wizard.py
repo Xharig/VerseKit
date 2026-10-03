@@ -534,7 +534,7 @@ class Wizard:
         if paths.WINDOWS:
             self._paragraph(f, t('schritt_ablage_hilfe'), SUB, 10, oben=10)
 
-        self.ablage = tk.StringVar(value=paths.app_folder())
+        self.ablage = tk.StringVar(self.root, value=paths.app_folder())
         zeile = tk.Frame(f, bg=BG)
         zeile.pack(fill='x', pady=(18, 0))
         from .main_window import round_entry
@@ -604,7 +604,7 @@ class Wizard:
         self._paragraph(f, t('schritt_spiel_text'), FG, 11)
         self._paragraph(f, t('schritt_spiel_hilfe'), SUB, 10, oben=10)
 
-        self.pfad = tk.StringVar(value=gefunden or '')
+        self.pfad = tk.StringVar(self.root, value=gefunden or '')
         self.pfad.trace_add('write', lambda *_: self._check_path())
         zeile = tk.Frame(f, bg=BG)
         zeile.pack(fill='x', pady=(18, 0))
@@ -777,7 +777,7 @@ class Wizard:
         # ⚠ Das Feld liegt eingeklappt darunter: Ein Eingabefeld, das immer
         # offen steht, sieht aus wie eine Pflichtangabe.
         eigene_kasten = tk.Frame(f, bg=BG)
-        self.eigene_url = tk.StringVar(
+        self.eigene_url = tk.StringVar(self.root, 
             value=(translation._custom_settings(None).get('url') or ''))
 
         def eigene_zeigen(_=None):

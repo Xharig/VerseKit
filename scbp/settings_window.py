@@ -86,14 +86,14 @@ class SettingsWindow:
 
         # Werte laden. Leere Felder heißen: selbst suchen — das bleibt so,
         # ein leeres Feld ist hier kein Fehler.
-        self.sprache_wahl = tk.StringVar(value=paths.settings().get('sprache')
+        self.sprache_wahl = tk.StringVar(rahmen, value=paths.settings().get('sprache')
                                          or 'auto')
-        self.spiel = tk.StringVar(value=paths.settings().get('spiel_ordner') or '')
-        self.intervall = tk.StringVar(
+        self.spiel = tk.StringVar(rahmen, value=paths.settings().get('spiel_ordner') or '')
+        self.intervall = tk.StringVar(rahmen, 
             value=str(paths.setting_int('pruefintervall_sekunden', 3,
                                              INTERVALL_MIN, INTERVALL_MAX)))
-        self.ton = tk.BooleanVar(value=paths.setting_bool('signalton', True))
-        self.deckkraft = tk.IntVar(
+        self.ton = tk.BooleanVar(rahmen, value=paths.setting_bool('signalton', True))
+        self.deckkraft = tk.IntVar(rahmen, 
             value=paths.setting_int('deckkraft_prozent', 93, 30, 100))
 
         if self.eingebettet:

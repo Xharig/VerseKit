@@ -186,7 +186,7 @@ def _entry_card(window, parent, index, entry, store, redraw):
                  width=14, anchor='w').pack(side='left')
         # ⚠ Gelesen wird über die Variable, nie über `box.get()`: Steht der
         # graue Hinweis im Feld, lieferte `get()` ihn als Wert (`fields.hint`).
-        variable = tk.StringVar(value=str(entry.get(key) or ''))
+        variable = tk.StringVar(row, value=str(entry.get(key) or ''))
         box = round_entry(row, variable, window.f_small, theme.FIELD, LINE,
                           ACCENT, FG, placeholder=placeholder or None)
         box.variable = variable

@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.77.1 - 2026-10-04
+
+> A safeguard under the hood: input fields, switches and sliders are now
+> firmly bound to their window.
+
+### Fixed
+
+- **Fields that did not react to typing** — search and input fields,
+  switches and sliders are now bound to their own window. With a second
+  window of the program open, a search could otherwise silently go nowhere
+
 ## v3.77.0 - 2026-10-04
 
 > The main window now closes without freezing the overlay: it disappears at

@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.77.1 - 2026-10-04
+
+> Eine Absicherung im Hintergrund: Eingabefelder, Schalter und Regler hängen
+> jetzt fest an ihrem Fenster.
+
+### Behoben
+
+- **Felder, die aufs Tippen nicht reagierten** — Such- und Eingabefelder,
+  Schalter und Regler sind jetzt fest an ihr Fenster gebunden. Lief nebenher
+  ein zweites Fenster des Programms, konnte eine Suche sonst still ins Leere
+  laufen
+
 ## v3.77.0 - 2026-10-04
 
 > Das große Fenster schließt jetzt, ohne das Overlay anzuhalten: Es ist

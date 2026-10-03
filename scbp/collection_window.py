@@ -337,7 +337,7 @@ class Bestandsfenster:
                        round(_ms_katalog),
                        len(self.katalog.get('bauplaene') or {})))
         self.filter = 'alle'
-        self.suche = tk.StringVar()
+        self.suche = tk.StringVar(eltern)
         from .main_window import after_typing
         self.suche.trace_add('write', after_typing(
             self.root, lambda: self._zeichnen(nach_oben=True)))

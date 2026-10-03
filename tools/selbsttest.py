@@ -25216,6 +25216,7 @@ def main():
     _pruefung_321()
     _pruefung_322()
     _pruefung_323()
+    _pruefung_324()
 
     print()
     if fehler:
@@ -32630,6 +32631,43 @@ def _pruefung_323():
             _w323.destroy()
         except Exception:
             pass
+
+
+def _pruefung_324():
+    """324. Jede Tk-Variable hat ein Elternteil.
+
+    Ohne Elternteil hängt tkinter eine `StringVar` (und Verwandte) an das
+    zuerst geöffnete Fenster. Lebt davon noch ein anderes, beobachtet ein
+    `trace_add` eine Variable, in die das Feld nie schreibt — die Seite
+    reagiert nicht, ohne Fehlermeldung. Gesucht wird per Syntaxbaum.
+    """
+    print('\n324. Jede Tk-Variable hat ein Elternteil')
+    import ast as _ast324
+    import glob as _gl324
+    arten = {'StringVar', 'IntVar', 'BooleanVar', 'DoubleVar'}
+    dateien = sorted(_gl324.glob(os.path.join(WURZEL, 'scbp', '*.py')))
+    dateien.append(os.path.join(WURZEL, 'sc_bp_watcher.py'))
+    ohne = []
+    gesehen = 0
+    for pfad in dateien:
+        with open(pfad, encoding='utf-8') as f:
+            baum = _ast324.parse(f.read())
+        for knoten in _ast324.walk(baum):
+            if not isinstance(knoten, _ast324.Call):
+                continue
+            fn = knoten.func
+            name = (fn.attr if isinstance(fn, _ast324.Attribute)
+                    else getattr(fn, 'id', ''))
+            if name not in arten:
+                continue
+            gesehen += 1
+            if not (knoten.args
+                    or any(k.arg == 'master' for k in knoten.keywords)):
+                ohne.append('%s:%d' % (os.path.basename(pfad), knoten.lineno))
+    pruefe(gesehen > 40,
+           'Vorbedingung: die Suche findet die Tk-Variablen (%d)' % gesehen)
+    pruefe(not ohne, 'keine Tk-Variable ohne Elternteil%s'
+           % (' — FEHLT in: ' + ', '.join(ohne) if ohne else ''))
 
 
 if __name__ == '__main__':
