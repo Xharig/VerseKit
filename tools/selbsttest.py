@@ -30536,7 +30536,14 @@ def _pruefung_307():
     # --- Stopp-Code: kein Zeitgeber, auch nicht nach eigener Änderung -----
     alt_sched = dict(_bs307._schedule)
     alt_enabled = _bs307.enabled
+    # ⚠⚠ Watcher-Fäden früherer Prüfungen rufen `basetool_sync.tick`, und die
+    # Verbindung steht nach den Basetool-Prüfungen noch auf verbunden. Mit
+    # `enabled` auf True startete ein solcher Takt einen echten Abgleich,
+    # `running` stünde, und `due()` sagte zufällig nein. Für die Dauer des
+    # Blocks: kein Takt (wie in Prüfung 290).
+    alt_takt = _bs307.tick
     try:
+        _bs307.tick = lambda watcher: None
         _bs307.enabled = lambda: True
         _bs307.request_now()
         for code in ('CLIENT_SUSPENDED', 'CLIENT_NOT_ALLOWED', 'SCOPE_MISSING',
@@ -30555,6 +30562,7 @@ def _pruefung_307():
         _bs307._schedule.clear()
         _bs307._schedule.update(alt_sched)
         _bs307.enabled = alt_enabled
+        _bs307.tick = alt_takt
         _bs307._set(state='idle', code='')
 
     # --- Ohne installationId keine gemeinsame Datei -----------------------
