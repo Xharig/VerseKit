@@ -6,7 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.72.0 - 2026-10-03
+
+> Two small improvements: when renaming ships, the page now says the name also
+> applies to other players' ships. And the main window is called
+> "Verse-Kit — Settings" — streamers can now show the overlay in OBS on its
+> own.
 
 ### Improved
 
@@ -14,6 +19,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   applies to every ship of that model in the game, including other players'
   ships when scanning. The note on the page now says so, so nobody is
   surprised in game
+- **The main window is now called "Verse-Kit — Settings"** — so it can be told
+  apart from the overlay. Streamers can show the overlay in OBS as its own
+  window capture without the main window ending up on screen by accident
 
 ## v3.71.0 - 2026-10-03
 

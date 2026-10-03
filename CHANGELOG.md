@@ -6,7 +6,12 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.72.0 - 2026-10-03
+
+> Zwei kleine Verbesserungen: Beim Benennen von Schiffen steht jetzt dabei,
+> dass der Name auch für die Schiffe anderer Spieler gilt. Und das
+> Hauptfenster heißt „Verse-Kit — Einstellungen" — wer streamt, kann das
+> Overlay damit in OBS gezielt einblenden.
 
 ### Verbessert
 
@@ -14,6 +19,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   eigener Name gilt für jedes Schiff dieses Musters im Spiel, auch für die
   Schiffe anderer Spieler beim Scannen. Der Hinweis auf der Seite nennt das
   jetzt, damit niemand im Spiel davon überrascht wird
+- **Das Hauptfenster heißt jetzt „Verse-Kit — Einstellungen"** — so lässt es
+  sich vom Overlay unterscheiden. Wer streamt, kann das Overlay in OBS als
+  eigene Fensteraufnahme zeigen, ohne dass versehentlich das Hauptfenster im
+  Bild landet
 
 ## v3.71.0 - 2026-10-03
 

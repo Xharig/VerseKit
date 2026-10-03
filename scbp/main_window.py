@@ -1870,7 +1870,9 @@ class MainWindow:
         # langsam. Das `deiconify()` am Ende von `__init__` gehoert untrennbar
         # hierher.
         self.root.withdraw()
-        self.root.title(window_title(t('hf_titel')))
+        # Eigener Titel, damit sich Hauptfenster und Overlay (`hf_titel`)
+        # unterscheiden lassen, z. B. von einer Fensteraufnahme in OBS.
+        self.root.title(window_title(t('titel_einstellungen')))
         self.root.configure(bg=BG)
         # Start = die zuletzt eingestellte Groesse, sonst die Mindestgroesse —
         # mittig auf dem Hauptbildschirm. Mittig, damit das Fenster bei
