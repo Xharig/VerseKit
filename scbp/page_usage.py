@@ -63,7 +63,7 @@ FIELDS = ('pages', 'entry', 'clicks', 'misses')
 ROUTES = ('seitenleiste', 'sprung', 'overlay', 'tray', 'start')
 
 MISS_SECONDS = 3.0
-MAX_CLICKS = 10                 # die Stufe 10 heißt „10 oder mehr"
+MAX_CLICKS = 10                 # Stufe 10 steht für 10 und mehr Klicks
 MAX_COUNT = 9999                # höchster Wert je Zähler in einer Meldung
 MAX_MISS_PAIRS = 20             # so viele Paare gehen höchstens hinaus
 MAX_STORED_PAIRS = 200          # so viele Paare werden höchstens aufgehoben

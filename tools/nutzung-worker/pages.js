@@ -63,7 +63,7 @@ export const ROUTES = {
   start: 'Programmstart',
 };
 
-// Die Stufe MAX_CLICKS heißt „so viele oder mehr" (`page_usage.MAX_CLICKS`).
+// Die Stufe MAX_CLICKS steht für so viele Klicks und mehr (`page_usage.MAX_CLICKS`).
 export const MAX_CLICKS = 10;
 export const MAX_COUNT = 9999;
 export const MAX_MISS_PAIRS = 20;
