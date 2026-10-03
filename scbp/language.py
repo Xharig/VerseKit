@@ -5216,14 +5216,19 @@ TEXTS = {
     # ⚠⚠ Diese Grenze gehoert auf die Seite, nicht in eine Notiz. Wer sie erst
     # im Spiel bemerkt, haelt das Werkzeug fuer kaputt.
     's_as_grenze':       ('Ein Name gehört zum Muster, nicht zum einzelnen '
-                          'Schiff: Zwei gleiche Hornets bekommen denselben '
-                          'Namen. Abwandlungen lassen sich unterscheiden — '
-                          'F7C, F7C-M, Mk I und Mk II sind für das Spiel '
-                          'verschiedene Muster.',
+                          'Schiff: Jedes Schiff dieses Musters heißt bei dir '
+                          'im Spiel so — auch die Schiffe anderer Spieler, '
+                          'etwa beim Scannen. Wähle deshalb Namen, die auch '
+                          'an fremden Schiffen passen. Abwandlungen lassen '
+                          'sich unterscheiden — F7C, F7C-M, Mk I und Mk II '
+                          'sind für das Spiel verschiedene Muster.',
                           'A name belongs to the model, not to the individual '
-                          'ship: two identical Hornets get the same name. '
-                          'Variants can be told apart — F7C, F7C-M, Mk I and '
-                          'Mk II are different models to the game.'),
+                          'ship: every ship of this model shows it in your '
+                          'game — including other players\' ships, for '
+                          'example when scanning. So pick names that also fit '
+                          'ships that are not yours. Variants can be told '
+                          'apart — F7C, F7C-M, Mk I and Mk II are different '
+                          'models to the game.'),
     # ⚠ Kein gemaltes Sternzeichen als Beschriftung: Das Projekt malt keine
     # Symbole, und `U+2605` kennt cp1252 nicht — daran stirbt ein Bau-Lauf
     # (Pruefung 144). Das Sternchen selbst steht in

@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Schiffe benennen sagt jetzt klar, wo der Name überall steht** — ein
+  eigener Name gilt für jedes Schiff dieses Musters im Spiel, auch für die
+  Schiffe anderer Spieler beim Scannen. Der Hinweis auf der Seite nennt das
+  jetzt, damit niemand im Spiel davon überrascht wird
+
 ## v3.71.0 - 2026-10-03
 
 > VerseKit soll leichter zu bedienen werden. Dafür zählt die anonyme

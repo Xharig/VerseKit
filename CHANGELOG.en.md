@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **Rename ships now says clearly where the name shows up** — your own name
+  applies to every ship of that model in the game, including other players'
+  ships when scanning. The note on the page now says so, so nobody is
+  surprised in game
+
 ## v3.71.0 - 2026-10-03
 
 > VerseKit should get easier to use. To help with that, the anonymous usage
