@@ -2793,7 +2793,9 @@ TEXTS = {
                               'Original war — die Datei blieb liegen, samt '
                               'fremder Kennzeichnungen. Und dass scmdb.net die '
                               'ausgegebene Datei ablehnte und der richtige '
-                              'Knopf dafür nicht zu finden war.',
+                              'Knopf dafür nicht zu finden war. Und dass die '
+                              'Issue-Council-Suche bei alten deutschen Titeln '
+                              'auf Deutsch suchte.',
                               'That "I cannot see your entries in the game" can '
                               'have two entirely different causes — nothing is '
                               'written, or it is written to the language file '
@@ -2804,7 +2806,8 @@ TEXTS = {
                               'the file stayed, foreign marks included. And '
                               'that scmdb.net rejected the exported file, and '
                               'the right button for it was nowhere to be '
-                              'found.'),
+                              'found. And that the Issue Council search used '
+                              'old German titles as they were.'),
     's_dk_rurudotorg_bugs2': ('Dass die Schiffsauswahl bei „Was steckt drin?" '
                               'zuklappte, sobald man die Rollleiste anfasste — '
                               'mit dem Mausrad ging es, mit der Leiste nicht.',
@@ -4946,16 +4949,22 @@ TEXTS = {
                           'weapons too, not only ship parts.'),
     's_mz_weg':          ('Streichen', 'Remove'),
     's_mz_stueck':       ('Stück', 'Qty'),
-    # ⚠ **Das Material gehört an den Eintrag.** Die Summe unten sagt, wie
+    's_mz_mehr':         ('Eins mehr bauen — die Summe oben rechnet mit',
+                          'Build one more — the total above counts it'),
+    's_mz_weniger':      ('Eins weniger bauen', 'Build one fewer'),
+    's_mz_weniger_aus':  ('Mindestens eins — zum Entfernen „Streichen" '
+                          'drücken',
+                          'At least one — press "Remove" to take it off'),
+    # ⚠ **Das Material gehört an den Eintrag.** Die Summe darüber sagt, wie
     # viel Erz insgesamt fehlt; hier steht, wofür.
     # ⚠ `%s` und nicht `%.2f` — die Zahl kommt fertig formatiert aus
     # `_menge_text()`, mit Komma und ohne Nullenschwanz. Ein `%.2f` schriebe
     # „4.64" mit Punkt, während zehn Zeilen tiefer „8,8" steht.
     #
     # ⚠⚠ **Kein „hast".** Es zeigte den vollen Lagerbestand, während die
-    # Summe darunter den für diesen Bedarf zugeteilten Anteil nennt — zwei
+    # Summe darüber den für diesen Bedarf zugeteilten Anteil nennt — zwei
     # „hast"-Werte auf einer Seite sind ein Fehler, auch wenn beide richtig
-    # gerechnet sind. Was fehlt, sagt die Farbe und die Summe darunter.
+    # gerechnet sind. Was fehlt, sagt die Farbe und die Summe darüber.
     's_mz_braucht':      ('braucht %s', 'needs %s'),
     's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
                           'No recipe available for this blueprint.'),
@@ -5152,6 +5161,13 @@ TEXTS = {
                           'Auswertungen stehen auf scmdb.net',
                           'The full mining data and further analyses are at '
                           'scmdb.net'),
+    # Hinweise hinter Bergbau-Orten, die im Spiel keinen eigenen Namen haben
+    # (siehe `mining.IN_GAME_HINTS`).
+    'bg_ort_ohne':       ('kein fester Ort im Spiel', 'no fixed place in game'),
+    'bg_ort_claim':      ('Mining Claims an den Lagrange-Punkten in Stanton',
+                          'mining claims at the Stanton Lagrange points'),
+    'bg_ort_tiefraum':   ('Cluster und RMB-Stationen in Pyro',
+                          'clusters and RMB stations in Pyro'),
     's_bg_keine_daten':  ('Die Bergbau-Daten sind noch nicht geladen. Sie kommen '
                           'beim nächsten Katalog-Abruf dazu.',
                           'The mining data is not loaded yet. It arrives with the '

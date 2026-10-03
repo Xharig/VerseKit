@@ -3827,6 +3827,9 @@ def _contract_log(fenster, rahmen):
     from . import issue_council
     _source_link(fenster, innen, t('s_al_spectrum'),
                  issue_council.SPECTRUM_URL)
+    # Der Käfer an jeder Zeile braucht die englischen Titel — schon jetzt im
+    # Hintergrund laden, damit der erste Klick nicht wartet.
+    issue_council.warm_up()
 
     # ⚠⚠ **Die Daten werden bei JEDEM Zeigen neu geholt, nicht nur beim Bauen.**
     # Die Nachlese der alten Protokolle läuft kurz nach dem Start in einem
@@ -11105,7 +11108,11 @@ def _mining(fenster, rahmen):
 
     from .main_window import round_entry
     # Der Sprung aus einem Rezept setzt hier den Rohstoff hinein.
-    suche_var = tk.StringVar(value=getattr(fenster, 'mining_search', '') or '')
+    # ⚠ Mit ausdrücklichem Elternteil: Ohne hängt Tk die Variable an das
+    # zuerst geöffnete Fenster. Lebt davon noch ein anderes, beobachtet die
+    # Suche eine Variable, in die das Feld nie schreibt.
+    suche_var = tk.StringVar(innen, value=getattr(fenster, 'mining_search', '')
+                             or '')
     fenster.mining_search = ''
     ziel_suche = _setting_row(fenster, innen, t('s_bg_suche'), '')
     feld = round_entry(ziel_suche, suche_var, fenster.f_small, theme.FIELD,
@@ -11182,7 +11189,7 @@ def _mining(fenster, rahmen):
     # ⚠ Das Feld wird **hier** gebaut, nicht in `zeichnen()`. Läge es darin,
     # verlöre es bei jedem Tastendruck den Cursor (wie beim Suchfeld im
     # Lager).
-    sig_var = tk.StringVar(value='')
+    sig_var = tk.StringVar(innen, value='')
     ziel_sig = _setting_row(fenster, innen, t('s_bg_sig_feld'), '')
     sig_feld = round_entry(ziel_sig, sig_var, fenster.f_small, theme.FIELD,
                            LINE, ACCENT, FG, placeholder=t('s_pl_signatur'))
@@ -11271,10 +11278,15 @@ def _mining(fenster, rahmen):
         # Die Auswahl schreibt in dasselbe Suchfeld — ein gewählter Ort füllt
         # `text` also und erscheint dadurch von selbst.
         if text:
+            # ⚠ Die Stationen heißen `CRU-L4 …`, die Punkte `CRU L4` — wer
+            # mit Strich tippt, soll den Punkt trotzdem finden.
+            ohne_strich = text.replace('-', ' ')
             for o in orte:
                 if geraet and not (o.get('je_geraet') or {}).get(geraet):
                     continue
                 if (text in o['name'].lower()
+                        or ohne_strich in o['name'].lower()
+                        or text in (o.get('vorlage') or '').lower()
                         or text in (o['system'] or '').lower()):
                     _mining_place(fenster, liste_rahmen, o, offen,
                               aufklappen, geraet)
@@ -13100,7 +13112,7 @@ def _farm_list(fenster, rahmen):
         """
         eintraege = meine.notepad()
         rahmen_mz = tk.Frame(koerper, bg=BG)
-        rahmen_mz.pack(fill='x', pady=(0, 14))
+        rahmen_mz.pack(fill='x', pady=(18, 0))
         tk.Label(rahmen_mz, text=t('s_mz_titel'), bg=BG, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x')
         if not eintraege:
@@ -13113,14 +13125,22 @@ def _farm_list(fenster, rahmen):
             meine.save(stand)
             neu_zeichnen()
 
+        def _set_count(name, count):
+            # Die Summe oben rechnet mit der Stückzahl — nach jeder Änderung
+            # wird die ganze Seite neu gerechnet.
+            stand = meine.load()
+            if meine.notepad_set_count(stand, name, count):
+                meine.save(stand)
+            neu_zeichnen()
+
         # ⚠⚠ **Das Material gehört an den Eintrag, nicht nur in die Summe
-        # unten.** Die Summe unten beantwortet
+        # darüber.** Die Summe beantwortet
         # „wie viel Erz brauche ich insgesamt", hier steht „und wofür".
         from . import crafting as _mz_herst
         # ⚠⚠⚠ **Die Fehlmengen kommen aus DERSELBEN Rechnung wie die Summe
-        # darunter.** Das Lager direkt zu fragen ergäbe oben den vollen
-        # Lagerbestand und unten den für diesen Bedarf zugeteilten Anteil —
-        # zwei Zahlen mit derselben Beschriftung auf einer Seite.
+        # darüber.** Das Lager direkt zu fragen ergäbe hier den vollen
+        # Lagerbestand und in der Summe den für diesen Bedarf zugeteilten
+        # Anteil — zwei Zahlen mit derselben Beschriftung auf einer Seite.
         #
         # Der Einzelposten sagt nur, **was er braucht**; ob es reicht, sagt
         # die Farbe, und die stammt aus der Gesamtrechnung. Eine Seite, eine
@@ -13145,10 +13165,8 @@ def _farm_list(fenster, rahmen):
                    lambda n=e.get('name'): _streichen(n)).pack(side='right',
                                                                padx=(8, 0))
             menge = int(e.get('anzahl') or 1)
-            if menge > 1:
-                tk.Label(zeile, text='%d× %s' % (menge, t('s_mz_stueck')),
-                         bg=BG, fg=SUB, font=fenster.f_small,
-                         anchor='e').pack(side='right', padx=(8, 0))
+            _count_stepper(fenster, zeile, menge,
+                           lambda neu, n=e.get('name'): _set_count(n, neu))
             tk.Label(zeile, text=e.get('name') or '', bg=BG, fg=FG,
                      font=fenster.f_base, anchor='w').pack(side='left',
                                                             fill='x',
@@ -13181,11 +13199,11 @@ def _farm_list(fenster, rahmen):
                              width=20).pack(side='left')
                     # ⚠ Grün heißt „reicht", Gold „fehlt" — dieselbe Sprache
                     # wie überall im Werkzeug, und die Farbe stammt aus
-                    # derselben Rechnung wie die Summe darunter.
+                    # derselben Rechnung wie die Summe darüber.
                     #
                     # ⚠ `_menge_text()` statt `%.2f`: Deutsche Zahlen haben
-                    # ein Komma. Sonst stünde oben „4.64" und unten „8,8" auf
-                    # derselben Seite.
+                    # ein Komma. Sonst stünde hier „4.64" und in der Summe
+                    # „8,8" auf derselben Seite.
                     tk.Label(zutat,
                              text=t('s_mz_braucht') % _amount_text(braucht),
                              bg=BG, fg=GOLD if knapp else ACCENT,
@@ -13198,14 +13216,17 @@ def _farm_list(fenster, rahmen):
         sufficient = values.get('vollstaendig') or []
         count = values.get('posten') or 0
 
-        _merkzettel_block(values)
-
+        # ⭐ **Erst die Summe, dann die Posten.** Die Summe beantwortet die
+        # Frage der Seite — was muss ich farmen. Die vorgemerkten Bauteile
+        # darunter sagen nur, wofür.
+        #
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall hier:
         # „nichts geplant", „alles da" und „nichts zu tun" sehen im Code gleich
         # aus. Wer sie zusammenwirft, sagt jemandem ohne Plan, er sei fertig.
         if not count:
             _body_text(koerper, t('s_fl_nichts_geplant'), fenster.f_small,
                         fill='x')
+            _merkzettel_block(values)
             return
 
         tk.Label(koerper, text=t('s_fl_kopf').format(n=count), bg=BG, fg=FG,
@@ -13239,8 +13260,45 @@ def _farm_list(fenster, rahmen):
                                                      teile=', '.join(without_recipe)),
                         fenster.f_small, color=GOLD, fill='x', pady=(12, 0))
 
+        _merkzettel_block(values)
+
     fenster.on_show['farmliste'] = neu_zeichnen
     _aufbauen()
+
+
+def _count_stepper(window, row, count, on_change):
+    """Minus, Stückzahl, Plus — rechts in einer Zeile, vor dem Streichen-Knopf.
+
+    ⚠ Bei eins ist das Minus grau und tut nichts. Weg kommt ein Posten nur
+    über den Streichen-Knopf — ein Klick zu viel auf Minus soll ihn nicht
+    löschen.
+    ⚠ Von rechts nach links gepackt: Plus, Zahl, Minus. So steht es da als
+    Minus, Stückzahl, Plus.
+    """
+    from . import notice
+    plus = icons.tappable(row, 'stueck_mehr', color=icons.GREEN, background=BG)
+    plus.configure(cursor='hand2', padx=4)
+    plus.pack(side='right')
+    plus.bind('<Button-1>', lambda _e: on_change(count + 1))
+    icons.hover_group(plus)
+    notice.attach(plus, lambda: t('s_mz_mehr'))
+
+    tk.Label(row, text='%d %s' % (count, t('s_mz_stueck')), bg=BG, fg=FG,
+             font=window.f_small, anchor='center').pack(side='right', padx=2)
+
+    can_lower = count > 1
+    minus = icons.tappable(row, 'stueck_weniger',
+                           color=icons.GREEN if can_lower else icons.GREY,
+                           background=BG)
+    minus.configure(padx=4)
+    minus.pack(side='right', padx=(8, 0))
+    if can_lower:
+        minus.configure(cursor='hand2')
+        minus.bind('<Button-1>', lambda _e: on_change(count - 1))
+        icons.hover_group(minus)
+    notice.attach(minus, lambda: t('s_mz_weniger' if can_lower
+                                   else 's_mz_weniger_aus'))
+    return minus, plus
 
 
 def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):

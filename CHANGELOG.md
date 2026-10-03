@@ -6,6 +6,44 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.74.0 - 2026-10-03
+
+> Die Farmliste rechnet jetzt mit Stückzahlen: Wer zwei Rüstungen bauen will
+> — eine für sich, eine für einen Freund —, stellt am vorgemerkten Teil auf 2,
+> und die Summe oben zeigt sofort, wie viel insgesamt zu farmen ist. Im
+> Bergbau stehen die Lagrange-Punkte jetzt so da, wie sie im Spiel heißen, und
+> die Issue-Council-Suche findet auch alte, übersetzte Auftragstitel.
+
+### Neu
+
+- **Stückzahl an vorgemerkten Teilen** — mit Minus und Plus neben
+  „Streichen" stellst du ein, wie oft ein Teil gebaut werden soll. Die Summe
+  der fehlenden Rohstoffe rechnet sofort mit
+
+### Verbessert
+
+- **„Was ich farmen muss" zeigt zuerst die Summe** — was dir insgesamt an
+  Rohstoffen fehlt, samt Fundorten, steht jetzt oben. Die vorgemerkten
+  Bauteile mit ihren Zutaten folgen darunter
+
+- **Der Käfer im Auftragsverlauf reagiert sofort** — die englischen Titel
+  werden schon beim Öffnen der Seite im Hintergrund geladen, statt beim
+  ersten Klick
+
+### Behoben
+
+- **Bergbau-Orte heißen jetzt wie im Spiel** — statt „Lagrange B" steht dort
+  „ARC L5 · CRU L4 · MIC L3", statt „Pyro Belt (Cool 2)" „PYR6 L1–L5". Die
+  alten Namen waren Vorlagen aus den Daten, die im Spiel niemand findet. Die
+  Suche findet den Punkt auch mit Strich („CRU-L4"). Zwei Vorlagen ohne Ort im
+  Spiel sagen das jetzt dazu
+- **Issue-Council-Suche bei alten übersetzten Titeln** — ein Auftrag, der
+  noch mit einer früheren Übersetzung im Verlauf steht („Notfall: Blinding
+  Hope in Schwierigkeiten"), wird jetzt mit dem englischen Titel gesucht
+  („Emergency: Blinding Hope in Trouble") statt auf Deutsch. Und englische
+  Ortsangaben wie „Fuel Tanks" bleiben im Suchbegriff, statt wegzufallen.
+  Gemeldet von Zwaersch
+
 ## v3.73.0 - 2026-10-03
 
 > Hängt ein Auftrag? Im Auftragsverlauf sitzt jetzt an jeder Zeile ein Käfer,

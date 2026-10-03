@@ -88,6 +88,56 @@ KINDS = {
     'GroundVehicle_Mineables':  'fahrzeug',
 }
 
+# ⭐⭐ **Manche Orte in den Bergbaudaten sind Vorlagen, keine Orte.**
+# `Lagrange B` oder `Pyro Belt (Cool 2)` findet niemand im Spiel — es sind
+# Namen von Gesteinsvorlagen (`presetFile`), die an mehreren echten Punkten
+# hängen. Welche Punkte das sind, steht nicht in den Bergbaudaten, sondern in
+# den ObjectContainern der `Data.p4k`: Die Wolke
+# `pu/system/stanton/lagrangepoints/childclouds/childcloud_sN_lM_0X.socpak`
+# trägt im `HarvestableProviderComponent` die `preset`-GUID der Vorlage, ihr
+# Eltern-Container nennt über `starMapRecord` den Punkt (`HUR L1-A` → `HUR L1`).
+# Stand 4.10.1. Die Schreibweise ist die des Spiels: `HUR L1` ohne Strich.
+#
+# ⚠ Gesucht wird weiter auch nach dem Vorlagennamen (`vorlage` in
+# `locations()`), damit ein Name aus einer anderen Quelle nicht ins Leere geht.
+IN_GAME_NAMES = {
+    'hpp_lagrange_a': 'HUR L1 · HUR L4',
+    'hpp_lagrange_b': 'ARC L5 · CRU L4 · MIC L3',
+    'hpp_lagrange_c': 'CRU L3 · HUR L5 · MIC L1 · MIC L2 · MIC L5',
+    'hpp_lagrange_d': 'ARC L3 · CRU L5 · MIC L4',
+    'hpp_lagrange_e': 'CRU L1 · CRU L2 · HUR L3',
+    'hpp_lagrange_f': 'ARC L1 · ARC L2 · ARC L4 · HUR L2',
+    'hpp_pyro_cool01': 'PYR5 L1–L5',
+    'hpp_pyro_cool02': 'PYR6 L1–L5',
+    'hpp_pyro_warm01': 'PYR1 L1–L5 · PYR2 L1–L5',
+    'hpp_pyro_warm02': 'PYR3 L1–L5',
+}
+
+# Vorlagen ohne festen, benannten Ort — sie behalten ihren Namen und bekommen
+# einen Hinweis, wo sie im Spiel tatsächlich liegen. Der Text steht in
+# `language.py`.
+#
+# ⚠ `hpp_lagrange_g` und `hpp_lagrange_occupied` bindet kein Container im
+# Spiel ein. Sie stehen in den Daten, sind aber nicht anzufliegen — das wird
+# gesagt, statt einen Ort zu erfinden.
+IN_GAME_HINTS = {
+    'hpp_lagrange_g': 'bg_ort_ohne',
+    'hpp_lagrange_occupied': 'bg_ort_ohne',
+    'asteroidcluster_low_yield': 'bg_ort_claim',
+    'asteroidcluster_medium_yield': 'bg_ort_claim',
+    'hpp_pyro_deepspaceasteroids': 'bg_ort_tiefraum',
+}
+
+
+def in_game_name(location):
+    """Der Name, unter dem ein Spieler den Ort im Spiel findet."""
+    original = location.get('locationName') or '?'
+    preset = location.get('presetFile') or ''
+    if preset in IN_GAME_NAMES:
+        return IN_GAME_NAMES[preset]
+    if preset in IN_GAME_HINTS:
+        return '%s (%s)' % (original, t(IN_GAME_HINTS[preset]))
+    return original
 
 
 
@@ -392,7 +442,8 @@ def locations():
         ores_, shares, per_device = _at_location(o, comp)
         if not ores_:
             continue
-        result.append({'name': o.get('locationName') or '?',
+        result.append({'name': in_game_name(o),
+                       'vorlage': o.get('locationName') or '',
                        'system': o.get('system') or '',
                        'typ': o.get('locationType') or '',
                        'erze': ores_,

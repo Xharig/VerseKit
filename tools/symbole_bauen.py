@@ -351,6 +351,9 @@ ZEILEN_SYMBOLE = {
     'ausblenden':   'ban',
     # Im Auftragsverlauf: diesen Auftrag im Issue Council suchen.
     'issue_council': 'bug',
+    # Stückzahl eines vorgemerkten Teils auf der Farmliste.
+    'stueck_mehr':    'plus',
+    'stueck_weniger': 'minus',
 }
 
 # Alles zusammen, mit dem passenden Größensatz.
@@ -362,7 +365,8 @@ ZEILEN_SYMBOLE = {
 # Zeichen, die in einer Zeile sitzen, aber angeklickt werden — sie brauchen
 # zusaetzlich die Reihe aus `ANTIPPBAR`.
 ANTIPPBAR_SYMBOLE = {n: ZEILEN_SYMBOLE[n]
-                     for n in ('hinweiszeile', 'zuklappen', 'issue_council')}
+                     for n in ('hinweiszeile', 'zuklappen', 'issue_council',
+                               'stueck_mehr', 'stueck_weniger')}
 
 SYMBOLE = {}
 for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),

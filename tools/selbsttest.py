@@ -25209,6 +25209,8 @@ def main():
     _pruefung_314()
     _pruefung_315()
     _pruefung_316()
+    _pruefung_317()
+    _pruefung_318()
 
     print()
     if fehler:
@@ -31763,7 +31765,16 @@ def _pruefung_316():
         'Same_B_title': 'Deliver Beta',
         'Kin_A_title': 'Bounty Hunt: ~mission(TargetName) | HRT',
         'Kin_B_title': 'Bounty Hunt: ~mission(TargetName) | VHRT',
+        'Guard_title': 'Protect ~mission(Objects) and Escort Employees',
+        'Wrap_title': '~mission(Title) (~mission(Item))',
+        'Arena_title': 'Combat Gauntlet - Scenario #5',
     }
+    # Der englische Wortschatz des Spiels: Was darin steht, gilt als englisch.
+    # `deepesh` steht mit Absicht darin — ein Name bleibt trotzdem draußen.
+    woerter = set()
+    for _v316 in original.values():
+        woerter.update(_ic316.words_of(_v316))
+    woerter.update({'fuel', 'tanks', 'deepesh', 'fabre', 'wilford', 'shimura'})
     deutsch = '\n'.join([
         'Story02_title=Notfall: Blinding Hope in Schwierigkeiten',
         'Patrol_title,P=Gelber Auftrag: Streife <EM4>[10 Rep] [BP]*</EM4>',
@@ -31777,7 +31788,7 @@ def _pruefung_316():
     ])
 
     def such(titel):
-        return _ic316.search_text(titel, original, [deutsch])
+        return _ic316.search_text(titel, original, [deutsch], woerter)
 
     pruefe(such('Notfall: Blinding Hope in Schwierigkeiten')
            == 'Emergency: Blinding Hope in Trouble',
@@ -31810,6 +31821,31 @@ def _pruefung_316():
     pruefe(such('Etwas ganz anderes [BP]') == 'Etwas ganz anderes',
            'ein unbekannter Titel wird nicht vom reinen Platzhalter-Titel '
            'verschluckt')
+    pruefe(such('Etwas ganz anderes (Kiste)') == 'Etwas ganz anderes (Kiste)',
+           'eine Vorlage ohne eigenes Wort füllt keinen Titel (%r)'
+           % such('Etwas ganz anderes (Kiste)'))
+    pruefe(such('Protect Fuel Tanks and Escort Employees')
+           == 'Protect Fuel Tanks and Escort Employees',
+           'ein englischer Ort im Platzhalter bleibt im Suchbegriff (%r)'
+           % such('Protect Fuel Tanks and Escort Employees'))
+    pruefe(such('Pro Tem Bounty Assignment: Deepesh Fabre')
+           == 'Pro Tem Bounty Assignment',
+           'ein Name fällt weg, auch wenn seine Wörter englisch sind')
+    pruefe(such('Combat Gauntlet - Scenario #5')
+           == 'Combat Gauntlet - Scenario #5',
+           'ohne Platzhalter bleibt ein Strich im Titel stehen')
+    pruefe(such('Alarm: Blinding Hope in Gefahr')
+           == 'Emergency: Blinding Hope in Trouble',
+           'ein alter übersetzter Titel ohne Sprachdatei findet über seine '
+           'englischen Wörter zum Original (%r)'
+           % such('Alarm: Blinding Hope in Gefahr'))
+    pruefe(such('Verified Bounty: Wilford Shimura | HRT (Großes Schiff)')
+           == 'Verified Bounty: HRT',
+           'ein übersetzter Platzhalter-Inhalt: der englische Titel, dessen '
+           'Wörter alle dastehen (%r)'
+           % such('Verified Bounty: Wilford Shimura | HRT (Großes Schiff)'))
+    pruefe(such('Ganz und gar Deutsch') == 'Ganz und gar Deutsch',
+           'ohne englische Wörter bleibt der angezeigte Titel')
     pruefe(_ic316.search_text('Notfall [BP]', {}, [deutsch]) == 'Notfall',
            'ohne Originaltitel gilt der angezeigte Titel ohne Marken')
 
@@ -31852,8 +31888,11 @@ def _pruefung_316():
         pruefe(geoeffnet == ['falle'],
                'Vorbedingung: der Browser ist untergeschoben')
         del geoeffnet[:]
+        _alt_archiv316 = _ic316._ARCHIVE_TRIED[0]
+        _ic316._ARCHIVE_TRIED[0] = True
         with open(ablage, 'w', encoding='utf-8') as f:
-            _js316.dump({'archiv': None, 'titel': original}, f)
+            _js316.dump({'archiv': None, 'titel': original,
+                         'woerter': sorted(woerter)}, f)
         _ml316.save([{'name': titel, 'wann': '2099-01-01T12:00:00',
                       'zustand': _ml316.COMPLETED, 'bauplaene': [],
                       'quelle': 'Game.log'}])
@@ -31861,8 +31900,12 @@ def _pruefung_316():
         _w316 = _wurzel()
         from scbp import main_window as _hf316
         fenster = _hf316.MainWindow(_w316, version='0.0.0-pruefung')
+        _ic316._WARMED[0] = False
         fenster.open_page('auftragslog')
         _w316.update()
+        pruefe(_ic316._WARMED[0],
+               'das Öffnen des Auftragsverlaufs lädt die englischen Titel '
+               'im Hintergrund vor')
 
         kaefer = []
 
@@ -31911,8 +31954,15 @@ def _pruefung_316():
             pruefe(geoeffnet
                    == ['https://robertsspaceindustries.com/spectrum/community/SC'],
                    'ein Klick darauf öffnet das Spectrum-Forum (%s)' % geoeffnet)
+        pruefe(_ic316.original_titles(fetch=False) == original,
+               'die abgelegten Originaltitel werden gelesen, ohne das '
+               'Spielarchiv anzufassen')
     finally:
         _pf316.open_in_browser = alt_browser
+        try:
+            _ic316._ARCHIVE_TRIED[0] = _alt_archiv316
+        except NameError:
+            pass
         try:
             if _w316 is not None:
                 _w316.destroy()
@@ -31928,6 +31978,285 @@ def _pruefung_316():
             with open(ablage, 'w', encoding='utf-8') as f:
                 f.write(alt_ablage)
 
+
+def _pruefung_317():
+    """317. Farmliste: erst die Summe, darunter die vorgemerkten Posten.
+
+    Gemessen an der Packreihenfolge im echten Hauptfenster: Die Überschrift
+    der Summe steht vor dem Block mit den vorgemerkten Teilen. Die Rechnung
+    ist untergeschoben, damit die Seite ohne Lager und Rezepte etwas zeigt.
+    Dazu die Stückzahl: Plus und Minus am Posten ändern sie, gespeichert und
+    sichtbar, und unter eins geht es nicht.
+    """
+    print('\n317. Farmliste: Summe oben, vorgemerkte Bauteile darunter')
+    from scbp import cart as _ca317, fleet as _fl317
+    from scbp.language import t as _t317
+
+    import copy as _cp317
+    alt = _ca317.farm_list
+    werte = {'posten': 2,
+             'fehlt': [{'rohstoff': 'Ouratite', 'benoetigt': 0.2,
+                        'vorhanden': 0, 'differenz': 0.2}],
+             'vollstaendig': [{'rohstoff': 'Aslarite', 'benoetigt': 0.07,
+                               'vorhanden': 0.07, 'differenz': 0}]}
+    alt_hangar = _cp317.deepcopy(_fl317.load())
+    _w317 = None
+    try:
+        _ca317.farm_list = lambda *a, **k: werte
+        _stand317 = _fl317.load()
+        _stand317['merkzettel'] = []
+        _fl317.notepad_add(_stand317, 'Testteil', count=1)
+        pruefe(_fl317.save(_stand317) is not False,
+               'Vorbedingung: ein Testteil steht auf dem Merkzettel')
+        _w317 = _wurzel()
+        from scbp import main_window as _hf317
+        fenster = _hf317.MainWindow(_w317, version='0.0.0-pruefung')
+        fenster.open_page('farmliste')
+        _w317.update()
+
+        def _finde(text):
+            treffer = []
+
+            def _lauf(w):
+                try:
+                    if w.cget('text') == text:
+                        treffer.append(w)
+                except Exception:
+                    pass
+                for kind in w.winfo_children():
+                    _lauf(kind)
+            _lauf(_w317)
+            return treffer[0] if treffer else None
+
+        kopf = _finde(_t317('s_fl_kopf').format(n=2))
+        vorgemerkt = _finde(_t317('s_mz_titel'))
+        pruefe(kopf is not None and vorgemerkt is not None,
+               'Vorbedingung: Summe und „Vorgemerkt" stehen beide auf der Seite')
+        if kopf is not None and vorgemerkt is not None:
+            # Die Überschrift der Summe sitzt direkt im Seitenkörper, die
+            # vorgemerkten Teile in einem eigenen Rahmen darin.
+            koerper = kopf.master
+            pruefe(vorgemerkt.master.master is koerper,
+                   'Vorbedingung: beide sitzen im selben Seitenkörper')
+            if vorgemerkt.master.master is koerper:
+                folge = koerper.pack_slaves()
+                stelle_kopf = folge.index(kopf)
+                stelle_mz = folge.index(vorgemerkt.master)
+                pruefe(stelle_kopf < stelle_mz,
+                       'die Summe steht vor den vorgemerkten Bauteilen '
+                       '(Summe an Stelle %d, Vorgemerkt an Stelle %d)'
+                       % (stelle_kopf, stelle_mz))
+
+        # --- Die Stückzahl ---
+        def _symbol(name):
+            treffer = []
+
+            def _lauf(w):
+                if getattr(w, 'symbol', None) == name:
+                    treffer.append(w)
+                for kind in w.winfo_children():
+                    _lauf(kind)
+            _lauf(_w317)
+            return treffer[0] if treffer else None
+
+        def _anzahl():
+            for m in _fl317.notepad(_fl317.load()):
+                if m.get('name') == 'Testteil':
+                    return int(m.get('anzahl') or 1)
+            return None
+
+        def _klick(w):
+            w.event_generate('<Button-1>', x=2, y=2)
+            _w317.update()
+
+        stueck = _t317('s_mz_stueck')
+        pruefe(_finde('1 %s' % stueck) is not None,
+               'die Stückzahl steht am Posten (1 %s)' % stueck)
+        minus = _symbol('stueck_weniger')
+        plus = _symbol('stueck_mehr')
+        pruefe(minus is not None and plus is not None,
+               'Minus und Plus stehen am Posten')
+        if minus is not None and plus is not None:
+            pruefe(minus.cget('cursor') != 'hand2',
+                   'bei eins ist Minus nicht anklickbar')
+            _klick(minus)
+            pruefe(_anzahl() == 1,
+                   'Minus bei eins löscht nichts und senkt nicht (%s)'
+                   % _anzahl())
+            _klick(plus)
+            pruefe(_anzahl() == 2,
+                   'Plus erhöht die gespeicherte Stückzahl auf 2 (%s)'
+                   % _anzahl())
+            pruefe(_finde('2 %s' % stueck) is not None,
+                   'und die Seite zeigt danach 2 %s' % stueck)
+            minus = _symbol('stueck_weniger')
+            pruefe(minus is not None and minus.cget('cursor') == 'hand2',
+                   'bei zwei ist Minus anklickbar')
+            if minus is not None:
+                _klick(minus)
+                pruefe(_anzahl() == 1,
+                       'Minus senkt wieder auf 1 (%s)' % _anzahl())
+    finally:
+        _ca317.farm_list = alt
+        try:
+            if _w317 is not None:
+                _w317.destroy()
+        except Exception:
+            pass
+        _fl317.save(alt_hangar)
+
+
+def _pruefung_318():
+    """318. Bergbau: Vorlagen heißen wie die Orte im Spiel.
+
+    Die Bergbaudaten führen `Lagrange B` oder `Pyro Belt (Cool 2)` — Namen von
+    Gesteinsvorlagen, die im Spiel niemand findet. Angezeigt werden die
+    echten Punkte; der Vorlagenname bleibt suchbar. Die Daten sind
+    untergeschoben, die Suche läuft im echten Hauptfenster.
+    """
+    print('\n318. Bergbau: Vorlagen heißen wie die Orte im Spiel')
+    from scbp import mining as _bg318
+    from scbp.language import t as _t318
+
+    def _ort(name, preset):
+        return {'locationName': name, 'presetFile': preset,
+                'system': 'Stanton', 'locationType': 'lagrange',
+                'groups': [{'groupName': 'SpaceShip_Mineables',
+                            'groupProbability': 1.0,
+                            'deposits': [{'relativeProbability': 1.0,
+                                          'compositionGuid': 'g1'}]}]}
+
+    daten = {'format': _bg318.FORMAT, 'build': 'pruefung',
+             'locations': [_ort('Lagrange B', 'hpp_lagrange_b'),
+                           _ort('Lagrange G', 'hpp_lagrange_g'),
+                           _ort('Pyro Belt (Cool 2)', 'hpp_pyro_cool02'),
+                           _ort('Daymar', 'hpp_stanton2b')],
+             'compositions': {'g1': {'parts': [
+                 {'elementName': 'Aslarite (Raw)', 'probability': 1.0,
+                  'minPercent': 40, 'maxPercent': 80}]}}}
+    alt = _bg318.load
+    _w318 = None
+    try:
+        _bg318.load = lambda: daten
+        orte = {o['vorlage']: o['name'] for o in _bg318.locations()}
+        pruefe(orte.get('Lagrange B') == 'ARC L5 · CRU L4 · MIC L3',
+               'Lagrange B heißt wie die drei Punkte im Spiel (%r)'
+               % orte.get('Lagrange B'))
+        pruefe(orte.get('Pyro Belt (Cool 2)') == 'PYR6 L1–L5',
+               'Pyro Belt (Cool 2) heißt PYR6 L1–L5 (%r)'
+               % orte.get('Pyro Belt (Cool 2)'))
+        pruefe(orte.get('Lagrange G')
+               == 'Lagrange G (%s)' % _t318('bg_ort_ohne'),
+               'eine Vorlage ohne Ort im Spiel sagt das, statt einen zu '
+               'erfinden (%r)' % orte.get('Lagrange G'))
+        pruefe(orte.get('Daymar') == 'Daymar',
+               'ein echter Ort behält seinen Namen')
+        fundorte = [e[0] for e in
+                    (_bg318.locations_for('Aslarite') or {}).get('orte', [])]
+        pruefe('ARC L5 · CRU L4 · MIC L3' in fundorte,
+               'auch die Fundorte eines Erzes zeigen die echten Punkte (%s)'
+               % fundorte)
+        for vorlage, preset in (('Lagrange A', 'hpp_lagrange_a'),
+                                ('Lagrange C', 'hpp_lagrange_c'),
+                                ('Lagrange D', 'hpp_lagrange_d'),
+                                ('Lagrange E', 'hpp_lagrange_e'),
+                                ('Lagrange F', 'hpp_lagrange_f')):
+            name = _bg318.in_game_name({'locationName': vorlage,
+                                        'presetFile': preset})
+            pruefe('Lagrange' not in name and ' L' in name,
+                   '%s wird zu echten Punkten (%s)' % (vorlage, name))
+
+        # --- Die Suche im echten Fenster: mit Strich, ohne, nach Vorlage ---
+        #
+        # ⚠⚠ Erst ein ZWEITES, altes Fenster öffnen. Eine Variable ohne
+        # Elternteil hängt Tk an das zuerst geöffnete Fenster; lebt das noch,
+        # beobachtet die Suche eine Variable, in die das Feld nie schreibt.
+        # Im Gesamtlauf passiert das von selbst, einzeln nur so.
+        import tkinter as _tk318
+        import time as _ti318
+        _alt_fenster318 = _tk318.Tk()
+        _alt_fenster318.withdraw()
+        _w318 = _wurzel()
+        from scbp import main_window as _hf318
+        fenster = _hf318.MainWindow(_w318, version='0.0.0-pruefung')
+        fenster.open_page('bergbau')
+        _w318.update()
+
+        def _alle(w, art):
+            treffer = []
+
+            def _lauf(x):
+                if x.winfo_class() == art:
+                    treffer.append(x)
+                for kind in x.winfo_children():
+                    _lauf(kind)
+            _lauf(w)
+            return treffer
+
+        def _texte():
+            out = []
+            for lab in _alle(_w318, 'Label'):
+                try:
+                    out.append(lab.cget('text'))
+                except Exception:
+                    pass
+            return out
+
+        def _warte(bedingung):
+            """Bis zu zwei Sekunden, bis `bedingung()` stimmt."""
+            ende = _ti318.time() + 2.0
+            while not bedingung() and _ti318.time() < ende:
+                _w318.update()
+                _ti318.sleep(0.02)
+            return bedingung()
+
+        # ⚠ Auf der Seite stehen mehrere Eingabefelder. Gemeint ist das in
+        # derselben Zeile wie die Beschriftung der Suche.
+        felder = []
+        for lab in _alle(_w318, 'Label'):
+            try:
+                if lab.cget('text') == _t318('s_bg_suche'):
+                    felder = _alle(lab.master.master, 'Entry')
+                    break
+            except Exception:
+                pass
+        pruefe(len(felder) == 1,
+               'Vorbedingung: genau ein Suchfeld neben der Beschriftung '
+               'der Suche (%d)' % len(felder))
+        if felder:
+            feld = felder[0]
+            punkt = 'ARC L5 · CRU L4 · MIC L3'
+            # ⚠ Ohne Suche stehen alle Rohstoffe da. Ob die Seite auf das
+            # Tippen reagiert, zeigt erst ein Begriff, der sie verschwinden
+            # lässt.
+            feld.delete(0, 'end')
+            feld.insert(0, 'zzz')
+            pruefe(_warte(lambda: 'Aslarite (Raw)' not in _texte()),
+                   'die Suche reagiert aufs Tippen, auch wenn noch ein '
+                   'anderes Fenster lebt')
+            for suche, was in (('CRU-L4', 'mit Strich wie die Station'),
+                               ('cru l4', 'ohne Strich'),
+                               ('Lagrange B', 'nach dem Vorlagennamen')):
+                # Erst ein Begriff, der den Punkt nicht trifft — sonst stünde
+                # noch das Ergebnis der vorigen Suche da.
+                feld.delete(0, 'end')
+                feld.insert(0, 'Daymar')
+                pruefe(_warte(lambda: punkt not in _texte()),
+                       'Vorbedingung: vor der Suche „%s" ist die Liste '
+                       'geleert' % suche)
+                feld.delete(0, 'end')
+                feld.insert(0, suche)
+                pruefe(_warte(lambda: punkt in _texte()),
+                       'die Suche „%s" findet den Punkt (%s)' % (suche, was))
+    finally:
+        _bg318.load = alt
+        for _f318 in ('_w318', '_alt_fenster318'):
+            try:
+                _x318 = locals().get(_f318)
+                if _x318 is not None:
+                    _x318.destroy()
+            except Exception:
+                pass
 
 if __name__ == '__main__':
     sys.exit(main())

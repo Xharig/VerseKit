@@ -32,21 +32,24 @@ nichts.
 | Schritt | Woher |
 |---|---|
 | 1. Angezeigter Titel → Textschlüssel | Rückwärtssuche in den `global.ini` des Spielordners |
-| 2. Textschlüssel → englischer Titel | die Original-`global.ini` aus der `Data.p4k`, einmal gelesen und als kleine Datei abgelegt |
-| 3. Rückfall | der angezeigte Titel selbst, ohne Marken |
+| 2. Textschlüssel → englischer Titel | die Original-`global.ini` aus der `Data.p4k`, einmal gelesen und als kleine Datei abgelegt (Titel und Wortschatz) |
+| 3. Kein Schlüssel, aber englische Wörter im Titel | `guess()` — ein alter Titel aus einer Übersetzung, die nicht mehr eingerichtet ist |
+| 4. Rückfall | der angezeigte Titel selbst, ohne Marken |
 
 ## ⚠ Was vor der Suche aus dem Titel heraus muss
 
 1. **Marken in eckigen Klammern** — `[BP]`, `[10 Rep] [BP]*`, `[800 Rep]`.
    Sie stehen nur in der Textdatei, nicht im Issue Council.
-2. **Platzhalter** — `Pro Tem Bounty Assignment: ~mission(TargetName)`. Im
-   Spiel steht dort ein Name, der in jeder Meldung ein anderer ist. Gesucht
-   wird nur mit dem festen Teil, sonst findet die Suche genau diesen einen
-   Auftrag und keinen der gleichen Art.
+2. **Namen und übersetzte Orte in Platzhaltern** — `Pro Tem Bounty
+   Assignment: ~mission(TargetName)`. Dort steht in jeder Meldung ein anderer
+   Name; gesucht wird nur mit dem festen Teil. Ein englischer Inhalt, der
+   keine Person ist (`Protect Fuel Tanks and Escort Employees`), bleibt — er
+   sagt, um welchen Auftrag es geht. Siehe `fill()`.
 """
 import json
 import os
 import re
+import threading
 import urllib.parse
 
 from . import contracts, errors, paths
@@ -77,9 +80,44 @@ _DANGLING = {'at', 'in', 'on', 'near', 'from', 'for', 'to', 'of', 'the',
              'and', 'with', 'by'}
 # Steht beim Aufräumen dort, wo ein Platzhalter war.
 _GAP = '\x00'
+_PLACEHOLDER_NAME = re.compile(r'~mission\(([^)]*)\)')
+# Platzhalter für Personen — ihr Inhalt ist in jedem Auftrag ein anderer und
+# hilft der Suche nie, auch wenn der Name englisch klingt.
+_PERSON = re.compile(r'name|target', re.I)
+_WORD = re.compile(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’-]*")
+# Wie viele englische Wörter ein fremdsprachiger Titel mindestens enthalten
+# muss, damit danach gesucht wird. Ein einzelnes Wort trifft zu viel.
+_MIN_GUESS_WORDS = 2
 
 _ARCHIVE_TRIED = [False]
 _LOCAL_CACHE = {}
+# Hält Vorladen und Klick auseinander: Wer zuerst kommt, baut den Index, der
+# andere wartet und nimmt ihn.
+_BUILD_LOCK = threading.RLock()
+_WARMED = [False]
+
+
+def warm_up():
+    """Originaltitel und Index im Hintergrund vorbereiten — einmal je Lauf.
+
+    Der allererste Klick läse sonst die `Data.p4k` (gemessen 2,4 s), jeder
+    erste Klick nach einem Programmstart die Sprachdateien (0,2 s). Gerufen
+    beim Öffnen des Auftragsverlaufs, damit beides fertig ist, bevor jemand
+    auf den Käfer klickt.
+    """
+    if _WARMED[0]:
+        return
+    _WARMED[0] = True
+
+    def work():
+        try:
+            originals, _words = _original_data()
+            if originals:
+                _cached_index(originals)
+        except Exception as exception:
+            errors.record('issue_council.warm_up', exception)
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def clean(title):
@@ -101,8 +139,10 @@ def clean(title):
     while words and words[0].strip(_EDGE) in ('', _GAP):
         words.pop(0)
     # Was nach einer Lücke mitten im Titel nur noch Satzzeichen ist (`|`),
-    # trennt nichts mehr.
-    words = [w for w in words if w.strip(_EDGE) not in ('', _GAP)]
+    # trennt nichts mehr. ⚠ Nur wenn es eine Lücke gab: `Combat Gauntlet -
+    # Scenario #5` behält seinen Strich.
+    if any(w.strip(_EDGE) == _GAP for w in words):
+        words = [w for w in words if w.strip(_EDGE) not in ('', _GAP)]
     return ' '.join(words).strip(_EDGE)
 
 
@@ -143,8 +183,45 @@ def titles_from_ini(data):
     return out
 
 
+def words_of(text):
+    """Die Wörter eines Textes, klein geschrieben."""
+    return [w.lower() for w in _WORD.findall(text or '')]
+
+
+def words_from_ini(data):
+    """Jedes Wort, das in der englischen `global.ini` vorkommt.
+
+    Daran lässt sich ablesen, ob ein Wort englisch ist: `Fuel Tanks` steht
+    darin, `Asteroiden Bergbaubasis` nicht.
+    """
+    if isinstance(data, bytes):
+        data = data.decode('utf-8-sig', 'ignore')
+    found = set()
+    for line in data.splitlines():
+        _key, sep, value = line.partition('=')
+        if sep:
+            found.update(words_of(value))
+    return found
+
+
 def original_titles(fetch=True):
-    """Die englischen Originaltitel — abgelegt, sonst einmal aus der `Data.p4k`.
+    """Die englischen Originaltitel — abgelegt, sonst einmal aus der `Data.p4k`."""
+    return _original_data(fetch)[0]
+
+
+def original_words(fetch=True):
+    """Der englische Wortschatz des Spiels — siehe `words_from_ini`."""
+    return _original_data(fetch)[1]
+
+
+def _original_data(fetch=True):
+    """`(titel, wörter)` — siehe `_load_original_data`, nie zweimal zugleich."""
+    with _BUILD_LOCK:
+        return _load_original_data(fetch)
+
+
+def _load_original_data(fetch=True):
+    """`(titel, wörter)` aus der Ablage, sonst einmal aus der `Data.p4k`.
 
     ⚠ Bewusst nicht aus einer losen `english/global.ini` im Spielordner: Dort
     liegt oft eine bearbeitete Fassung (StarStrings), manchmal sogar eine
@@ -152,16 +229,17 @@ def original_titles(fetch=True):
     """
     target = paths.app_file(TITLES_FILE)
     stamp = _archive_stamp()
-    saved = {}
+    saved = ({}, set())
     try:
         with open(target, encoding='utf-8') as f:
             data = json.load(f)
-        if isinstance(data, dict) and isinstance(data.get('titel'), dict):
-            saved = data['titel']
+        if (isinstance(data, dict) and isinstance(data.get('titel'), dict)
+                and isinstance(data.get('woerter'), list)):
+            saved = (data['titel'], set(data['woerter']))
             # ⚠ Ein Spiel-Patch bringt neue Aufträge. Gilt die Ablage noch für
             # dieselbe `Data.p4k`, oder ist das Archiv nicht da (dann gibt es
             # nichts Neueres), bleibt sie.
-            if saved and (stamp is None or data.get('archiv') == stamp):
+            if saved[0] and (stamp is None or data.get('archiv') == stamp):
                 return saved
     except (OSError, ValueError):
         pass
@@ -177,13 +255,15 @@ def original_titles(fetch=True):
     found = titles_from_ini(raw) if raw else {}
     if not found:
         return saved
+    words = words_from_ini(raw)
     try:
         with open(target + '.neu', 'w', encoding='utf-8') as f:
-            json.dump({'archiv': stamp, 'titel': found}, f, ensure_ascii=False)
+            json.dump({'archiv': stamp, 'titel': found,
+                       'woerter': sorted(words)}, f, ensure_ascii=False)
         os.replace(target + '.neu', target)
     except OSError as exception:
         errors.record('issue_council.original_titles', exception)
-    return found
+    return found, words
 
 
 def _archive_stamp():
@@ -205,7 +285,10 @@ def build_index(texts, known):
     `texts` sind die Inhalte der `global.ini` (Zeichenketten), `known` die
     Schlüssel, die es im Original gibt. Rückgabe `(wörtlich, muster)`:
     `wörtlich` ist `{titel_klein: {schlüssel}}`, `muster` eine Liste
-    `(kompiliertes Muster, schlüssel)` für Titel mit Platzhalter.
+    `(kompiliertes Muster, schlüssel, platzhalter, rangmuster)` für Titel mit
+    Platzhalter. Das Muster fängt jeden Platzhalter als Gruppe; `platzhalter`
+    nennt ihre Namen in derselben Reihenfolge, `rangmuster` ist dieselbe Form
+    ohne Gruppen für die Rangfolge aus `contracts`.
     """
     exact, patterns = {}, []
     for text in texts:
@@ -216,10 +299,17 @@ def build_index(texts, known):
             if not plain:
                 continue
             if '~mission(' in plain:
-                raw = '^' + '.+'.join(
-                    re.escape(part) for part in _PLACEHOLDER.split(plain)) + '$'
+                # ⚠ Eine Vorlage ohne eigenes Wort (`~mission(Title)
+                # (~mission(Item))`) passt auf jeden Titel und füllte ihn mit
+                # dem, was gerade dasteht — samt Namen und Übersetzung.
+                if not words_of(_PLACEHOLDER.sub(' ', plain)):
+                    continue
+                parts = [re.escape(part) for part in _PLACEHOLDER.split(plain)]
                 try:
-                    patterns.append((re.compile(raw, re.I), key))
+                    patterns.append((
+                        re.compile('^' + '(.+)'.join(parts) + '$', re.I), key,
+                        _PLACEHOLDER_NAME.findall(plain),
+                        '^' + '.+'.join(parts) + '$'))
                 except re.error:
                     pass
             else:
@@ -227,25 +317,108 @@ def build_index(texts, known):
     return exact, patterns
 
 
-def keys_for(title, exact, patterns):
-    """Die Schlüssel, die zu einem angezeigten Titel passen — leer, wenn keiner.
+def matches_for(title, exact, patterns):
+    """Was zu einem angezeigten Titel passt — `{schlüssel: {platzhalter: wert}}`.
 
-    Erst wörtlich, dann über die Muster; unter den Mustern zählen nur die
-    genauesten (dieselbe Rangfolge wie `contracts.key_for`).
+    Erst wörtlich (dann ohne Werte), dann über die Muster; unter den Mustern
+    zählen nur die genauesten (dieselbe Rangfolge wie `contracts.key_for`).
+    Leer, wenn nichts passt.
     """
     plain = ' '.join(contracts.clean(title or '').split())
     if not plain:
-        return set()
+        return {}
     hit = exact.get(plain.lower())
     if hit:
-        return set(hit)
-    matching = [(m.pattern, key) for m, key in patterns if m.match(plain)]
+        return {k: {} for k in hit}
+    matching = []
+    for pattern, key, names, rank_pattern in patterns:
+        found = pattern.match(plain)
+        if found:
+            matching.append((rank_pattern, key,
+                             dict(zip(names, found.groups()))))
     if not matching:
-        return set()
+        return {}
     rank = max((not contracts._pattern_weak(p), contracts._weight(p))
-               for p, _k in matching)
-    return {k for p, k in matching
+               for p, _k, _v in matching)
+    return {k: v for p, k, v in matching
             if (not contracts._pattern_weak(p), contracts._weight(p)) == rank}
+
+
+def keys_for(title, exact, patterns):
+    """Die Schlüssel, die zu einem angezeigten Titel passen — leer, wenn keiner."""
+    return set(matches_for(title, exact, patterns))
+
+
+def fill(template, values, vocabulary):
+    """Den englischen Titel mit den Werten aus dem Spiel füllen — wo es hilft.
+
+    Ein Wert bleibt nur, wenn er ganz aus englischen Wörtern besteht und keine
+    Person ist: `Protect Fuel Tanks and Escort Employees` behält die
+    Treibstofftanks, `Help Headhunters at Asteroiden Bergbaubasis` verliert den
+    deutschen Ort, `High-Risk Bounty: Brendon Broad` den Namen. Alles, was
+    wegfällt, räumt `clean()` auf.
+    """
+    def _substitute(found):
+        name = found.group(1)
+        value = (values.get(name) or '').strip()
+        words = words_of(value)
+        if (value and words and not _PERSON.search(name)
+                and all(w in vocabulary for w in words)):
+            return value
+        return found.group(0)
+    return _PLACEHOLDER_NAME.sub(_substitute, template)
+
+
+def guess(title, originals, vocabulary):
+    """Ein fremdsprachiger Titel ohne Eintrag in den Sprachdateien.
+
+    Das passiert, wenn das Spiel den Titel mit einer Übersetzung geschrieben
+    hat, die heute nicht mehr eingerichtet ist: `Notfall: Blinding Hope in
+    Schwierigkeiten` steht im Verlauf, aber in keiner Datei mehr. Die
+    englischen Wörter darin — hier `Blinding Hope` — führen zum Original,
+    wenn genau ein englischer Titel sie alle enthält.
+
+    Zweiter Weg, für übersetzte Platzhalter-Inhalte: `Verified Bounty: Name |
+    HRT (Großes Mehrbesatzungsschiff …)`. Dort passt der englische Titel, dessen
+    eigene Wörter (ohne Platzhalter) **alle** im angezeigten Titel stehen — bei
+    mehreren der mit den meisten.
+
+    Gibt `''` zurück, wenn der Titel schon englisch ist oder nichts eindeutig
+    passt; dann gilt der angezeigte Titel.
+    """
+    plain = clean(title)
+    shown = _WORD.findall(plain)
+    if not shown or all(w.lower() in vocabulary for w in shown):
+        return ''
+    shown_lower = set(w.lower() for w in shown)
+
+    significant = set(w.lower() for w in shown
+                      if w.lower() in vocabulary and w.lower() not in _DANGLING
+                      and len(w) > 2)
+    if len(significant) >= _MIN_GUESS_WORDS:
+        candidates = {clean(v) for v in originals.values()
+                      if significant <= set(words_of(v))}
+        candidates.discard('')
+        if len(candidates) == 1:
+            return candidates.pop()
+        if len(candidates) > 1:
+            common = _common_start(candidates)
+            if common:
+                return common
+
+    best, best_size = set(), 0
+    for value in originals.values():
+        own = set(words_of(_PLACEHOLDER.sub(' ', value))) - _DANGLING
+        if len(own) < _MIN_GUESS_WORDS or not own <= shown_lower:
+            continue
+        if len(own) > best_size:
+            best, best_size = {clean(value)}, len(own)
+        elif len(own) == best_size:
+            best.add(clean(value))
+    best.discard('')
+    if len(best) == 1:
+        return best.pop()
+    return _common_start(best) if best else ''
 
 
 def _local_texts():
@@ -277,6 +450,12 @@ def _cached_index(originals):
     """`build_index` über den Spielordner — einmal gebaut, bis sich eine
     Sprachdatei ändert. Zwei Dateien zu je zehn Megabyte bei jedem Klick neu zu
     lesen, kostet spürbar Zeit."""
+    with _BUILD_LOCK:
+        return _build_cached_index(originals)
+
+
+def _build_cached_index(originals):
+    """Der eigentliche Bau hinter `_cached_index` — nur unter der Sperre."""
     texts = _local_texts()
     stamp = (_LOCAL_CACHE.get('stamp'), len(originals))
     if _LOCAL_CACHE.get('index_stamp') != stamp:
@@ -286,26 +465,32 @@ def _cached_index(originals):
     return _LOCAL_CACHE['index']
 
 
-def search_text(title, originals=None, texts=None):
+def search_text(title, originals=None, texts=None, vocabulary=None):
     """Der Suchbegriff für einen Auftrag — englisch, wenn er sich finden lässt.
 
-    `originals` und `texts` sind nur zum Prüfen da; sonst kommen sie aus dem
-    Archiv und dem Spielordner. Zeigen mehrere Schlüssel auf verschiedene
-    englische Titel, gilt der angezeigte Titel — lieber ungenau suchen als nach
-    einem anderen Auftrag.
+    `originals`, `texts` und `vocabulary` sind nur zum Prüfen da; sonst kommen
+    sie aus dem Archiv und dem Spielordner. Zeigen mehrere Schlüssel auf
+    verschiedene englische Titel, gilt ihre gemeinsame Anfangsfolge, sonst der
+    angezeigte Titel — lieber ungenau suchen als nach einem anderen Auftrag.
     """
     fallback = clean(title)
     try:
         if originals is None:
-            originals = original_titles()
+            originals, vocabulary = _original_data()
         if not originals:
             return fallback
+        if vocabulary is None:
+            vocabulary = set()
+            for value in originals.values():
+                vocabulary.update(words_of(value))
         if texts is None:
             exact, patterns = _cached_index(originals)
         else:
             exact, patterns = build_index(
                 list(texts) + [originals_as_ini(originals)], originals)
-        english = {clean(originals[k]) for k in keys_for(title, exact, patterns)}
+        found = matches_for(title, exact, patterns)
+        english = {clean(fill(originals[k], values, vocabulary))
+                   for k, values in found.items()}
         # ⚠ Ein Titel, der nur aus Platzhaltern besteht (`~mission(Title)`),
         # passt auf jeden Auftrag und lässt nach dem Aufräumen nichts übrig.
         english.discard('')
@@ -313,6 +498,7 @@ def search_text(title, originals=None, texts=None):
             return english.pop()
         if len(english) > 1:
             return _common_start(english) or fallback
+        return guess(title, originals, vocabulary) or fallback
     except Exception as exception:
         errors.record('issue_council.search_text', exception)
     return fallback
@@ -327,10 +513,10 @@ def originals_as_ini(originals):
     return '\n'.join('%s=%s' % (k, v) for k, v in originals.items())
 
 
-def url_for(title, originals=None, texts=None):
+def url_for(title, originals=None, texts=None, vocabulary=None):
     """Die Adresse der Issue-Council-Suche nach diesem Auftrag."""
     query = urllib.parse.urlencode(
-        {'search': search_text(title, originals, texts),
+        {'search': search_text(title, originals, texts, vocabulary),
          'sort': 'relevance', 'statuses': 'open'},
         quote_via=urllib.parse.quote)
     return BASE_URL + '?' + query

@@ -6,6 +6,44 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.74.0 - 2026-10-03
+
+> The farming list now counts quantities: if you want to build two suits of
+> armour — one for you, one for a friend — set the part on your list to 2,
+> and the total at the top shows right away how much there is to farm. Mining
+> now lists the Lagrange points under their in-game names, and the Issue
+> Council search finds old, translated mission titles too.
+
+### New
+
+- **Quantity on parts in your list** — minus and plus next to "Remove" set
+  how many of a part you want to build. The total of missing materials
+  updates right away
+
+### Improved
+
+- **"What to farm" shows the total first** — what you are missing in raw
+  materials overall, with the places to find it, is now at the top. The
+  parts on your list follow below, with their ingredients
+
+- **The bug icon in the mission log responds right away** — the English
+  titles are loaded in the background when the page opens, not on the first
+  click
+
+### Fixed
+
+- **Mining locations now have their in-game names** — instead of "Lagrange
+  B" it now says "ARC L5 · CRU L4 · MIC L3", instead of "Pyro Belt (Cool 2)"
+  "PYR6 L1–L5". The old names were templates from the data that nobody finds
+  in the game. The search finds a point with a dash too ("CRU-L4"). Two
+  templates with no place in the game now say so
+- **Issue Council search for old translated titles** — a mission still
+  listed under an earlier translation ("Notfall: Blinding Hope in
+  Schwierigkeiten") is now searched with its English title ("Emergency:
+  Blinding Hope in Trouble") instead of the translated one. And English place
+  names like "Fuel Tanks" now stay in the search instead of being dropped.
+  Reported by Zwaersch
+
 ## v3.73.0 - 2026-10-03
 
 > Mission bugged? Every row in the mission log now has a bug icon that
