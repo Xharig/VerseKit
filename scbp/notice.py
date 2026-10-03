@@ -129,7 +129,16 @@ class _Window:
         if not text:
             return
         try:
-            if self.top is None or not self.top.winfo_exists():
+            # ⚠ Das gemerkte Fenster kann zu einer Tk-Anwendung gehören, die
+            # es nicht mehr gibt, oder zu einem anderen Hauptfenster. Dann
+            # wirft schon die Frage `winfo_exists()` — ohne diese Prüfung
+            # erschiene danach nie wieder ein Hinweis.
+            try:
+                usable = (self.top is not None and self.top.tk is parent.tk
+                          and self.top.winfo_exists())
+            except tk.TclError:
+                usable = False
+            if not usable:
                 self.top = tk.Toplevel(parent)
                 self.top.overrideredirect(True)      # keine Fensterdekoration
                 self.top.attributes('-topmost', True)

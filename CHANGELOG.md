@@ -10,13 +10,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 > Von der Farmliste geht es jetzt mit einem Klick dorthin, wo du farmen
 > kannst: Rohstoff anklicken, und der Bergbau zeigt ihn aufgeklappt mit allen
-> Fundorten.
+> Fundorten. Außerdem startet VerseKit spürbar schneller.
 
 ### Verbessert
 
 - **Von der Farmliste direkt zu den Fundorten** — ein Klick auf einen
   Rohstoff unter „Was ich farmen muss" öffnet den Bergbau mit genau diesem
   Rohstoff, aufgeklappt mit allen Orten, an denen es ihn gibt
+- **Schnellerer Start** — die Textdatei des Spiels wird je Programmlauf nur
+  noch einmal aus der `Data.p4k` gelesen statt dreimal, und die Suche darin
+  dauert Hundertstel statt Sekunden. Gerade beim ersten Start nach der
+  Installation oder nach einem Spiel-Patch reagiert VerseKit dadurch deutlich
+  früher
 
 ### Behoben
 

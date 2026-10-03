@@ -45,6 +45,7 @@ import os
 import struct
 import subprocess
 import tempfile
+import threading
 
 from . import paths
 from .language import t
@@ -92,36 +93,81 @@ def read_directory(f, groesse):
 
 def find_entry(cd, zielname):
     """Findet den Eintrag und löst die ZIP64-Platzhalter im Extra-Feld auf.
-    Gibt (methode, komprimierte_groesse, rohgroesse, lokaler_offset) zurück."""
+    Gibt (methode, komprimierte_groesse, rohgroesse, lokaler_offset) zurück.
+
+    ⭐ Erst der schnelle Weg: den Namen direkt als Bytes suchen und den Kopf
+    davor prüfen. Das Verzeichnis hat über eine Million Einträge; sie einzeln
+    in Python abzulaufen kostete 2–3,5 Sekunden je Suche. Findet der schnelle
+    Weg nichts (andere Schreibweise), läuft der vollständige wie bisher.
+    """
     ziel = zielname.lower().replace('/', '\\')
+    schnell = _find_entry_fast(cd, zielname, ziel)
+    if schnell is not None:
+        return schnell
     i = 0
     while i < len(cd) - 46:
         if cd[i:i + 4] != b'PK\x01\x02':
             i += 1
             continue
-        (_, _, _, _, methode, _, _, _, cs, rs,
-         n_len, e_len, k_len, _, _, _, off) = struct.unpack('<IHHHHHHIIIHHHHHII', cd[i:i + 46])
-        name = cd[i + 46:i + 46 + n_len].decode('utf-8', 'replace')
+        name, werte, weiter = _entry_at(cd, i)
         if name.lower().replace('/', '\\') == ziel:
-            extra = cd[i + 46 + n_len:i + 46 + n_len + e_len]
-            # ZIP64-Feld (0x0001): die überlaufenen Werte stehen dort der Reihe nach
-            j = 0
-            while j < len(extra) - 4:
-                hid, hlen = struct.unpack('<HH', extra[j:j + 4])
-                if hid == 0x0001:
-                    daten, k = extra[j + 4:j + 4 + hlen], 0
-                    for feld in ('rs', 'cs', 'off'):
-                        grenze = {'rs': rs, 'cs': cs, 'off': off}[feld]
-                        if grenze == 0xFFFFFFFF and k + 8 <= len(daten):
-                            wert = struct.unpack('<Q', daten[k:k + 8])[0]
-                            k += 8
-                            if feld == 'rs':   rs = wert
-                            elif feld == 'cs': cs = wert
-                            else:              off = wert
-                    break
-                j += 4 + hlen
-            return methode, cs, rs, off
-        i += 46 + n_len + e_len + k_len
+            return werte
+        i = weiter
+    return None
+
+
+def _entry_at(cd, i):
+    """Der Verzeichniseintrag ab Stelle `i` — `(name, werte, nächste_stelle)`.
+
+    `werte` ist `(methode, komprimierte_groesse, rohgroesse, lokaler_offset)`,
+    die ZIP64-Platzhalter schon aufgelöst.
+    """
+    (_, _, _, _, methode, _, _, _, cs, rs,
+     n_len, e_len, k_len, _, _, _, off) = struct.unpack('<IHHHHHHIIIHHHHHII', cd[i:i + 46])
+    name = cd[i + 46:i + 46 + n_len].decode('utf-8', 'replace')
+    extra = cd[i + 46 + n_len:i + 46 + n_len + e_len]
+    # ZIP64-Feld (0x0001): die überlaufenen Werte stehen dort der Reihe nach
+    j = 0
+    while j < len(extra) - 4:
+        hid, hlen = struct.unpack('<HH', extra[j:j + 4])
+        if hid == 0x0001:
+            daten, k = extra[j + 4:j + 4 + hlen], 0
+            for feld in ('rs', 'cs', 'off'):
+                grenze = {'rs': rs, 'cs': cs, 'off': off}[feld]
+                if grenze == 0xFFFFFFFF and k + 8 <= len(daten):
+                    wert = struct.unpack('<Q', daten[k:k + 8])[0]
+                    k += 8
+                    if feld == 'rs':   rs = wert
+                    elif feld == 'cs': cs = wert
+                    else:              off = wert
+            break
+        j += 4 + hlen
+    return name, (methode, cs, rs, off), i + 46 + n_len + e_len + k_len
+
+
+def _find_entry_fast(cd, zielname, ziel):
+    """Den Namen als Bytes suchen — in beiden Schreibweisen des Trenners.
+
+    Gilt nur, wenn vor dem Treffer ein echter Kopf steht, dessen Namenslänge
+    passt; sonst `None`, und `find_entry` läuft den langen Weg.
+    """
+    varianten = {zielname, zielname.replace('/', '\\'),
+                 zielname.replace('\\', '/')}
+    for text in varianten:
+        roh = text.encode('utf-8')
+        start = 0
+        while True:
+            pos = cd.find(roh, start)
+            if pos < 0:
+                break
+            kopf = pos - 46
+            if (kopf >= 0 and cd[kopf:kopf + 4] == b'PK\x01\x02'
+                    and struct.unpack('<H', cd[kopf + 28:kopf + 30])[0]
+                    == len(roh)):
+                name, werte, _weiter = _entry_at(cd, kopf)
+                if name.lower().replace('/', '\\') == ziel:
+                    return werte
+            start = pos + 1
     return None
 
 
@@ -297,6 +343,34 @@ def read_from_archive(sprache='english', spielordner=None, fortschritt=None):
     archiv = p4k_path(spielordner)
     if not archiv:
         return None, t('m_kein_p4k')
+    # ⭐⭐ **Einmal je Lauf und Archivstand.** Namen, Orte und Auftragstitel
+    # holen sich dieselbe Datei — dreimal hintereinander gelesen kostete das
+    # beim ersten Start mehrere Sekunden. Ein Spiel-Patch ändert Größe oder
+    # Zeitstempel der `Data.p4k`, dann wird neu gelesen.
+    # ⚠ Unter der Sperre: Die drei Aufrufer laufen in eigenen Fäden und
+    # kommen oft gleichzeitig.
+    with _ARCHIVE_LOCK:
+        try:
+            info = os.stat(archiv)
+            schluessel = (archiv, info.st_size, info.st_mtime_ns, sprache)
+        except OSError:
+            schluessel = None
+        if schluessel is not None and schluessel in _ARCHIVE_CACHE:
+            daten = _ARCHIVE_CACHE[schluessel]
+            return daten, '%.1f MB' % (len(daten) / 1048576.0)
+        daten, meldung = _read_from_archive(archiv, sprache, melde)
+        if daten and schluessel is not None:
+            _ARCHIVE_CACHE.clear()
+            _ARCHIVE_CACHE[schluessel] = daten
+        return daten, meldung
+
+
+_ARCHIVE_CACHE = {}
+_ARCHIVE_LOCK = threading.Lock()
+
+
+def _read_from_archive(archiv, sprache, melde):
+    """Der eigentliche Lesevorgang hinter `read_from_archive`."""
     melde(t('z_originaltexte'))
     try:
         groesse = os.path.getsize(archiv)

@@ -9,13 +9,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 ## v3.75.0 - 2026-10-04
 
 > The farming list now takes you to where you can farm in one click: click a
-> material, and Mining shows it expanded with every place to find it.
+> material, and Mining shows it expanded with every place to find it. And
+> VerseKit starts noticeably faster.
 
 ### Improved
 
 - **From the farming list straight to the locations** — clicking a material
   under "What to farm" opens Mining with exactly that material, expanded with
   every place where it can be found
+- **Faster start** — the game's text file is now read from `Data.p4k` once
+  per run instead of three times, and finding it takes hundredths of a second
+  instead of seconds. Especially on the first start after installing or after
+  a game patch, VerseKit responds noticeably sooner
 
 ### Fixed
 

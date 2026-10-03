@@ -25212,6 +25212,8 @@ def main():
     _pruefung_317()
     _pruefung_318()
     _pruefung_319()
+    _pruefung_320()
+    _pruefung_321()
 
     print()
     if fehler:
@@ -32338,6 +32340,133 @@ def _pruefung_319():
                 _w319.destroy()
         except Exception:
             pass
+
+
+def _pruefung_320():
+    """320. Spielarchiv: schnelle Suche findet dasselbe, Lesen einmal je Lauf.
+
+    Das Verzeichnis wird aus einem echten, kleinen ZIP gebaut — mit
+    Lockvögeln: ein Name, der den gesuchten enthält, und ein Eintrag, dessen
+    Inhalt den Namen als Text trägt. Verglichen wird gegen den langen Weg,
+    nicht gegen eine Erwartung von Hand.
+    """
+    print('\n320. Spielarchiv: schnelle Suche und einmaliges Lesen')
+    import io as _io320
+    import struct as _st320
+    import tempfile as _tf320
+    import zipfile as _zf320
+    from scbp import gametext as _gt320
+
+    ziel = 'Data/Localization/english/global.ini'
+    puffer = _io320.BytesIO()
+    with _zf320.ZipFile(puffer, 'w') as z:
+        z.writestr('Data/Localization/english/global.ini.bak', b'alt')
+        z.writestr('Notizen.txt', ziel.encode('utf-8'))
+        z.writestr('Data/Localization/german_(germany)/global.ini', b'de')
+        z.writestr(ziel, b'en')
+        z.writestr('Data\\Localization\\french_(france)\\global.ini', b'fr')
+    roh = puffer.getvalue()
+    ende = roh.rfind(b'PK\x05\x06')
+    groesse, start = _st320.unpack('<II', roh[ende + 12:ende + 20])
+    cd = roh[start:start + groesse]
+
+    def _lang(name):
+        """Der vollständige Weg — ohne den schnellen davor."""
+        echt = _gt320._find_entry_fast
+        _gt320._find_entry_fast = lambda *a: None
+        try:
+            return _gt320.find_entry(cd, name)
+        finally:
+            _gt320._find_entry_fast = echt
+
+    for name in (ziel, 'Data/Localization/german_(germany)/global.ini',
+                 'Data/Localization/french_(france)/global.ini',
+                 'data/localization/english/GLOBAL.ini',
+                 'Data/Localization/fehlt/global.ini'):
+        schnell = _gt320.find_entry(cd, name)
+        pruefe(schnell == _lang(name),
+               'schnelle Suche = langer Weg für %s (%r)' % (name, schnell))
+    treffer = _gt320.find_entry(cd, ziel)
+    pruefe(treffer is not None
+           and roh[treffer[3] + 30 + len(ziel):][:2] == b'en',
+           'die Suche zeigt auf genau den gesuchten Eintrag, nicht auf '
+           'einen Lockvogel')
+
+    # --- Einmal je Lauf und Archivstand ---
+    gelesen = []
+    alt = (_gt320.p4k_path, _gt320._read_from_archive)
+    _gt320._ARCHIVE_CACHE.clear()
+    with _tf320.NamedTemporaryFile(suffix='.p4k', delete=False) as f:
+        f.write(b'x')
+        archiv = f.name
+    try:
+        _gt320.p4k_path = lambda spielordner=None: archiv
+        _gt320._read_from_archive = (
+            lambda a, s, m: (gelesen.append(s) or b'DATEN', 'ok'))
+        erst = _gt320.read_from_archive('english')
+        zweit = _gt320.read_from_archive('english')
+        pruefe(erst[0] == zweit[0] == b'DATEN' and gelesen == ['english'],
+               'zweimal gefragt, einmal gelesen (%s)' % gelesen)
+        with open(archiv, 'ab') as f:
+            f.write(b'y')
+        _gt320.read_from_archive('english')
+        pruefe(gelesen == ['english', 'english'],
+               'ein geändertes Archiv (Spiel-Patch) wird neu gelesen (%s)'
+               % gelesen)
+    finally:
+        _gt320.p4k_path, _gt320._read_from_archive = alt
+        _gt320._ARCHIVE_CACHE.clear()
+        try:
+            os.remove(archiv)
+        except OSError:
+            pass
+
+
+def _pruefung_321():
+    """321. Ein Hinweis nach einem geschlossenen Hauptfenster erscheint wieder.
+
+    Das Hinweisfenster wird gemerkt. Gehört es zu einer Tk-Anwendung, die
+    inzwischen zerstört ist (im Selbsttest der Normalfall, unter Linux im Bau
+    zieht der Mauszeiger dort Hinweise auf), darf das nicht jeden weiteren
+    Hinweis verschlucken.
+    """
+    print('\n321. Hinweisfenster überlebt ein geschlossenes Hauptfenster')
+    import tkinter as _tk321
+    from scbp import notice as _hw321
+
+    erstes = _tk321.Tk()
+    erstes.withdraw()
+    _hw321._window.show(erstes, 'erster Hinweis', 50, 50)
+    erstes.update_idletasks()
+    pruefe(_hw321._window.top is not None,
+           'Vorbedingung: der erste Hinweis steht')
+    erstes.destroy()
+
+    zweites = _wurzel()
+    gesetzt = []
+    alt = _tk321.Toplevel.wm_geometry
+
+    def _merken(selbst, neu=None):
+        if neu is not None:
+            gesetzt.append(neu)
+        return alt(selbst, neu)
+    _tk321.Toplevel.wm_geometry = _merken
+    try:
+        _hw321._window.show(zweites, 'zweiter Hinweis', 60, 60)
+        pruefe(bool(gesetzt) and _hw321._window.top is not None,
+               'nach dem Schließen des ersten Fensters erscheint der nächste '
+               'Hinweis (%r)' % gesetzt)
+        pruefe(_hw321._window.top is not None
+               and _hw321._window.top.tk is zweites.tk,
+               'und er gehört zum neuen Fenster')
+    finally:
+        _tk321.Toplevel.wm_geometry = alt
+        _hw321._window.hide()
+        try:
+            zweites.destroy()
+        except Exception:
+            pass
+        _hw321._window.top = None
 
 
 if __name__ == '__main__':
