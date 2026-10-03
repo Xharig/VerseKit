@@ -76,7 +76,8 @@ header{
 .kopf nav a{color:var(--text-leise);font-size:15px}
 .kopf nav a:hover{color:var(--neon);text-decoration:none}
 /* Link zur Startseite aller Werkzeuge, durch einen Strich von der Seitennavigation getrennt */
-.kopf nav a.alle{padding-right:22px;border-right:1px solid var(--rand)}
+.kopf nav a.alle{padding-right:22px;border-right:1px solid var(--rand);display:inline-flex;align-items:center;gap:6px}
+.kopf nav a.alle .ic{width:1.15em;height:1.15em;flex:none}
 @media (max-width:600px){.kopf nav{gap:12px}.kopf nav a.alle{padding-right:12px}}
 @media (max-width:420px){.kopf .marke{display:none}}
 .sprache{display:flex;border:1px solid var(--rand);border-radius:999px;overflow:hidden}
@@ -280,7 +281,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     <img src="assets/icon.png" alt="">
     <span class="marke">Verse-Kit</span>
     <nav>
-      <a class="alle" href="https://xharig.com/" data-de="xharig.com" data-en="xharig.com">xharig.com</a>
+      <a class="alle" href="https://xharig.com/"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg><span>xharig.com</span></a>
       <a class="weg" href="#tour" data-de="Ansehen" data-en="Take a look">Ansehen</a>
       <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">Was es kann</a>
       <a href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
