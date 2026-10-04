@@ -32881,9 +32881,11 @@ def _pruefung_327():
 
         texte = _texte()
         pruefe('Iron (3)' in texte, 'Iron steht als eine Zeile mit 3 Posten')
-        pruefe('22' in texte and '500–900' in texte
+        pruefe('22 SCU' in texte and '500–900' in texte
                and _t327('s_lg_orte_n') % 2 in texte,
-               'mit Summe 22, Güte 500–900 und 2 Orten')
+               'mit Summe 22 SCU, Güte 500–900 und 2 Orten')
+        pruefe('3 SCU' in texte,
+               'jede Menge trägt ihre Einheit (Gold: 3 SCU)')
         pruefe('Orison' not in texte,
                'zugeklappt sind die einzelnen Posten nicht zu sehen')
         pruefe('Gold' in texte,
@@ -32894,7 +32896,8 @@ def _pruefung_327():
             kopf[0].event_generate('<Button-1>', x=2, y=2)
             _w327.update()
             texte = _texte()
-            pruefe('Orison' in texte and '10' in texte and '7' in texte,
+            pruefe('Orison' in texte and '10 SCU' in texte
+                   and '7 SCU' in texte,
                    'ein Klick klappt auf: alle Posten mit Menge und Ort')
 
             kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
@@ -32917,11 +32920,12 @@ def _pruefung_327():
             # und die stehen dann aufgeklappt da, nicht hinter einer Summe.
             filterfeld.insert(0, 'Levski')
             ende = _ti327.time() + 2
-            while '7' not in _texte() and _ti327.time() < ende:
+            while '7 SCU' not in _texte() and _ti327.time() < ende:
                 _w327.update()
                 _ti327.sleep(0.02)
             texte = _texte()
-            pruefe('10' in texte and '7' in texte and 'Orison' not in texte,
+            pruefe('10 SCU' in texte and '7 SCU' in texte
+                   and 'Orison' not in texte,
                    'die Suche nach einem Ort klappt das Material von selbst '
                    'auf und zeigt nur dessen Posten')
     finally:
@@ -32969,6 +32973,29 @@ def _pruefung_328():
         pruefe(_ma328.worst_quality('Iron') == 500.0
                and _ma328.worst_quality('Iron', 600) == 900.0,
                'worst_quality: niedrigste brauchbare Güte ab der Untergrenze')
+
+        # Wie am Terminal: Reicht die beste Güte nicht, wird mit der
+        # nächstbesten aufgefüllt — Durchschnitt und Abzug gemischt.
+        _ma328.save([{'material': 'Aslarite', 'menge': 6.673, 'qualitaet': 287,
+                      'ort': ''},
+                     {'material': 'Aslarite', 'menge': 0.24, 'qualitaet': 741,
+                      'ort': ''},
+                     {'material': 'Aslarite', 'menge': 0.01, 'qualitaet': 927,
+                      'ort': ''}])
+        beste = _ma328.quality_for('Aslarite', 0.02, best=True)
+        schlechteste = _ma328.quality_for('Aslarite', 0.02, best=False)
+        pruefe(beste == 834 and schlechteste == 287,
+               'Bestes Material: 0,01 von Q 927 reicht nicht, aufgefüllt mit '
+               'Q 741, Schnitt 834; schlechtestes Q 287 (%s / %s)'
+               % (beste, schlechteste))
+        ok, _f = _ma328.deduct([('Liner', 'Aslarite', 0.02, 0)],
+                               order={'Aslarite': 'best'})
+        mengen = {float(p['qualitaet']): round(float(p['menge']), 3)
+                  for p in _ma328.load()}
+        pruefe(ok and 927.0 not in mengen and mengen.get(741.0) == 0.23
+               and mengen.get(287.0) == 6.673,
+               'Abzug mit bestem Material nimmt Q 927 ganz und 0,01 von Q 741, '
+               'Q 287 bleibt (%s)' % mengen)
     finally:
         _ma328.save(alt_lager)
 
@@ -32998,7 +33025,7 @@ def _pruefung_328():
         stand = _fl328.load()
         _fl328.notepad_add(stand, 'Testkanone 328', count=3)
         _fl328.save(stand)
-        _ma328.save([{'material': 'Iron', 'menge': 5.0, 'qualitaet': 800,
+        _ma328.save([{'material': 'Iron', 'menge': 0.5, 'qualitaet': 800,
                       'ort': ''},
                      {'material': 'Iron', 'menge': 5.0, 'qualitaet': 300,
                       'ort': ''}])
@@ -33058,9 +33085,14 @@ def _pruefung_328():
         def knopf_x():
             return regler.coords(regler.find_all()[-1])[0] + 8
 
-        pruefe(feld_wert() == '800',
-               'ab Werk „Bestes Material": das Feld zeigt Q 800 (%s)'
+        pruefe(feld_wert() == '550',
+               'ab Werk „Bestes Material": 0,5 von Q 800 reicht nicht, '
+               'aufgefüllt mit Q 300 — das Feld zeigt Ø 550 (%s)'
                % feld_wert())
+        texte = [x.cget('text') for x in _alle(rahmen, 'Label', [])]
+        pruefe(_t328('s_lg_da') % 5.5 in texte,
+               'und es heißt „hast du: 5.5", nicht „dir fehlt", obwohl Q 800 '
+               'allein nicht reicht')
 
         # b) Getippt — der Regler läuft mit.
         feld.delete(0, 'end')
@@ -33092,6 +33124,10 @@ def _pruefung_328():
             pruefe(feld is not None and feld_wert() == '300',
                    '„Schlechtestes Material" stellt die Güte auf Q 300 (%s)'
                    % (feld_wert() if feld is not None else '—'))
+            soll = 8 + 0.3 * (int(regler.cget('width')) - 16)
+            pruefe(abs(knopf_x() - soll) < 1.5,
+                   'und der Regler steht sichtbar auf Q 300 (x %.1f, soll %.1f)'
+                   % (knopf_x(), soll))
             pruefe(_pa328.setting('herstellung_fuellen') == 'worst',
                    'und die Wahl bleibt gespeichert')
 
@@ -33108,14 +33144,44 @@ def _pruefung_328():
             mengen = {float(p['qualitaet']): float(p['menge'])
                       for p in _ma328.load()}
             pruefe(bool(bauen) and abs(mengen.get(300.0, 0) - 4.0) < 1e-6
-                   and abs(mengen.get(800.0, 0) - 5.0) < 1e-6,
+                   and abs(mengen.get(800.0, 0) - 0.5) < 1e-6,
                    '„Hergestellt" nimmt Q 300, das bessere Q 800 bleibt (%s)'
                    % mengen)
+            rueck = [x for x in _alle(rahmen, 'Label', [])
+                     if x.cget('text') == _t328('s_lg_abgezogen')]
+            pruefe(bool(rueck) and bool(bauen)
+                   and rueck[0].master is not bauen[0].master,
+                   'die Rückmeldung steht unter der Knopfreihe, nicht darin '
+                   '(sonst schiebt sie Knöpfe aus dem Fenster)')
             merk = [m for m in _fl328.notepad()
                     if m.get('name') == 'Testkanone 328']
             pruefe(merk and int(merk[0].get('anzahl') or 0) == 2,
                    'und auf „Was ich farmen muss" sinkt die Stückzahl von 3 auf 2 '
                    '(%s)' % (merk[0].get('anzahl') if merk else 'weg'))
+
+            # e2) Mit bestem Material gebaut: erst Q 800 (0,5), dann mit
+            #     Q 300 aufgefüllt — wie am Terminal.
+            def _knopf(schluessel):
+                return [c for c in _alle(rahmen, 'Canvas', [])
+                        if getattr(c, 'is_button', False)
+                        and any(c.type(i) == 'text'
+                                and c.itemcget(i, 'text').lower()
+                                == _t328(schluessel).lower()
+                                for i in c.find_all())]
+            bestes = _knopf('s_he_bestes')
+            if bestes:
+                bestes[0].event_generate('<Button-1>', x=2, y=2)
+                w.update()
+            bauen = _knopf('s_lg_bauen')
+            if bauen:
+                bauen[0].event_generate('<Button-1>', x=2, y=2)
+                w.update()
+            mengen = {float(p['qualitaet']): round(float(p['menge']), 3)
+                      for p in _ma328.load()}
+            pruefe(bool(bestes) and bool(bauen) and 800.0 not in mengen
+                   and mengen.get(300.0) == 3.5,
+                   'mit bestem Material: Q 800 aufgebraucht, Rest aus Q 300 '
+                   '(%s)' % mengen)
 
         # f) Gebaut bis null — der Posten fällt vom Merkzettel.
         stand = _fl328.load()

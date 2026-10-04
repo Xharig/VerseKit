@@ -409,6 +409,43 @@ def worst_quality(material, min_quality=0):
     return worst
 
 
+def quality_for(material, needed, min_quality=0, best=True):
+    """Die Durchschnittsgüte, die das Fertigungsterminal für diese Menge nähme.
+
+    Wie im Spiel: Bestes Material füllt den Slot von der höchsten Güte
+    abwärts, schlechtestes von der niedrigsten aufwärts, bis die Menge
+    erreicht ist — reicht eine Güte nicht, kommt die nächste dazu, und es
+    zählt der gewichtete Durchschnitt. `deduct(..., order=…)` nimmt in
+    derselben Reihenfolge ab. Reicht der ganze Bestand nicht, der
+    Durchschnitt über alles Vorhandene. Ohne Bestand `None`.
+    """
+    wanted = norm_material(material)
+    per_quality = {}
+    for p in load():
+        if norm_material(p.get('material')) != wanted:
+            continue
+        amount = float(p.get('menge') or 0)
+        q = float(p.get('qualitaet') or 0)
+        if amount <= 0 or q < float(min_quality or 0):
+            continue
+        per_quality[q] = per_quality.get(q, 0.0) + amount
+    if not per_quality:
+        return None
+    remaining = float(needed or 0)
+    if remaining <= 1e-9:
+        q = (max if best else min)(per_quality)
+        return q
+    total = weighted = 0.0
+    for q in sorted(per_quality, reverse=best):
+        taken = min(per_quality[q], remaining)
+        total += taken
+        weighted += taken * q
+        remaining -= taken
+        if remaining <= 1e-9:
+            break
+    return round(weighted / total) if total > 0 else None
+
+
 def stock():
     """{Material: Gesamtmenge} — für die Anzeige im Rezept."""
     result = {}
@@ -576,7 +613,7 @@ def check(ingredients, count=1):
     return result
 
 
-def deduct(ingredients, count=1):
+def deduct(ingredients, count=1, order=None):
     """Die Zutaten eines Rezepts aus dem Lager nehmen — `count` mal.
 
     ⚠ **`count` gibt es, damit niemand zählen muss.** Wer zehn Stück am Stück
@@ -603,6 +640,10 @@ def deduct(ingredients, count=1):
     Posten genau dieser Güte, dann die nächstbessere. Bei gleicher Güte der
     ältere Posten zuerst. Ohne diese Reihenfolge nähme ein Bau mit Q 500 auch
     einen älteren Posten Q 900 weg, und das gute Material wäre verbraucht.
+
+    `order` ({Material: 'best' | 'worst'}) nimmt dieses Material wie das
+    Fertigungsterminal: von der besten Güte abwärts bzw. von der
+    schlechtesten aufwärts — dieselbe Reihenfolge wie `quality_for`.
     """
     entries = load()
     factor = max(1, int(count or 1))
@@ -631,10 +672,12 @@ def deduct(ingredients, count=1):
         return False, missing
 
     # --- Zweiter Durchgang: jetzt wirklich nehmen. ---
+    order = {norm_material(m): o for m, o in (order or {}).items()}
     for (wanted, minimum), (_name, needed) in demand.items():
         remaining = needed
         # `sorted` ist stabil: Bei gleicher Güte bleibt der ältere vorn.
-        for p in sorted(entries, key=lambda e: float(e.get('qualitaet') or 0)):
+        for p in sorted(entries, key=lambda e: float(e.get('qualitaet') or 0),
+                        reverse=order.get(wanted) == 'best'):
             if remaining <= 1e-9:
                 break
             if norm_material(p.get('material')) != wanted:

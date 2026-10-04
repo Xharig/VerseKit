@@ -10071,8 +10071,13 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # Funktion, die man suchen muss, ist für den Nutzer nicht vorhanden.
         reihe = tk.Frame(block, bg=theme.FIELD)
         reihe.pack(fill='x', padx=12, pady=(8, 2))
-        rueck = tk.Label(reihe, text='', bg=theme.FIELD, fg=SUB,
-                         font=fenster.f_small, anchor='w')
+        # ⚠⚠ Die Rückmeldung steht in einer eigenen Zeile unter den Knöpfen
+        # und bricht um. In der Knopfreihe verdrängte eine lange Fehlliste
+        # den Knopf rechts daneben aus dem Fenster.
+        rueck = tk.Label(block, text='', bg=theme.FIELD, fg=SUB,
+                         font=fenster.f_small, anchor='w', justify='left')
+        rueck.pack(fill='x', padx=12)
+        _wrap_self(rueck)
 
         # ⭐ Stückzahl daneben. Wer zehn Stück am Stück baut, soll einmal
         # klicken statt zehnmal — beim elften Klick stimmt der Bestand sonst
@@ -10086,9 +10091,16 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # `gewaehlt` hält je Material den Reglerwert; die Regler weiter unten
         # schreiben hinein, Lagerzeile und Abzug lesen daraus.
         gewaehlt = {}
+        # ⭐ Materialien, deren Güte aus der Wahl bestes oder schlechtestes
+        # Material stammt ({Material: 'best' | 'worst'}). Sie werden wie am Terminal
+        # abgezogen — von oben bzw. unten aufgefüllt, gemischt, wenn eine Güte
+        # nicht reicht — und zählen dafür ab der Mindestgüte des Rezepts.
+        # Von Hand gesetzte Güten zählen ab dem Reglerwert.
+        auto_fill = {}
 
         def _zutaten_jetzt(zutaten=stufe['zutaten'], wahl=gewaehlt):
-            return [(s, r, m, max(float(g or 0), float(wahl.get(r, 0))))
+            return [(s, r, m, float(g or 0) if r in auto_fill
+                     else max(float(g or 0), float(wahl.get(r, 0))))
                     for s, r, m, g in zutaten]
 
         def hergestellt(_e=None, jetzt=_zutaten_jetzt, lbl=rueck,
@@ -10098,7 +10110,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             # Unsinn im Feld heisst 1 — lieber einmal abziehen als gar nichts
             # tun und den Nutzer raten lassen, warum nichts passiert.
             wie_oft = 1 if not wie_oft or wie_oft < 1 else int(wie_oft)
-            ok, fehlt = lager.deduct(zutaten, wie_oft)
+            ok, fehlt = lager.deduct(zutaten, wie_oft, order=dict(auto_fill))
             if ok:
                 text = (t('s_lg_abgezogen') if wie_oft == 1
                         else t('s_lg_abgezogen_n') % wie_oft)
@@ -10163,7 +10175,6 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                                   theme.FIELD, LINE, ACCENT, FG)
         _anzahl_feld.holder.configure(width=70)
         _anzahl_feld.holder.pack(side='left')
-        rueck.pack(side='left', padx=(10, 0))
 
         # ⭐⭐ **Vormerken — der kurze Weg zur Materialliste**, ohne Umweg
         # über Wunschliste und Steckplätze eines Schiffs. Auch für Helme,
@@ -10254,13 +10265,18 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             menge_lbl.pack(side='right', padx=12)
             lage_lbl = tk.Label(z, text='', bg=theme.FIELD, fg=GOLD,
                                 font=fenster.f_small, anchor='e')
-            guete_lbl = tk.Label(z, text='', bg=theme.FIELD, fg=SUB,
+            # ⚠ Güte-Hinweis und Kaufpreis stehen in einer zweiten Zeile
+            # darunter. In einer Zeile mit Name, Lage und Menge schoben sie
+            # sich bei schmalem Fenster über den Materialnamen.
+            z2 = tk.Frame(block, bg=theme.FIELD)
+            z2.pack(fill='x', padx=12)
+            guete_lbl = tk.Label(z2, text='', bg=theme.FIELD, fg=SUB,
                                  font=fenster.f_small, anchor='e')
             # ⭐ „kaufen oder abbauen?" — die Frage, die nach „dir fehlt X"
             # kommt. Sieben der 26 Rohstoffe lassen sich NIRGENDS kaufen; fünf
             # davon stehen zusätzlich auf der Zerlege-Sperrliste. Wer das nicht
             # weiß, sucht am Terminal nach etwas, das es dort nie gibt.
-            preis_lbl = tk.Label(z, text='', bg=theme.FIELD, fg=SUB,
+            preis_lbl = tk.Label(z2, text='', bg=theme.FIELD, fg=SUB,
                                  font=fenster.f_small, anchor='e')
             zutat_widgets.append((rohstoff, menge, menge_lbl, lage_lbl,
                                   guete_lbl, preis_lbl))
@@ -10371,22 +10387,27 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # Spiel. Die Wahl bleibt gespeichert.
         fill_mode = {'mode': paths.setting('herstellung_fuellen') or 'best'}
         min_quality = {}
+        per_piece = {}
         for _slot, _roh, _mg, _gt in stufe['zutaten']:
             if _roh:
                 min_quality[_roh] = max(min_quality.get(_roh, 0.0),
                                         float(_gt or 0))
+                per_piece[_roh] = per_piece.get(_roh, 0.0) + float(_mg or 0)
         qualitaeten = {}
 
         def stock_qualities():
-            pick = (lager.worst_quality if fill_mode['mode'] == 'worst'
-                    else lager.best_quality)
+            """Die Güte, die das Terminal für die eingestellte Stückzahl nähme."""
+            pieces = lager.parse_number(anzahl_var.get())
+            pieces = 1 if not pieces or pieces < 1 else int(pieces)
             qualitaeten.clear()
             for mat, lowest in min_quality.items():
-                found = pick(mat, lowest)
+                found = lager.quality_for(mat, per_piece[mat] * pieces, lowest,
+                                          best=fill_mode['mode'] != 'worst')
                 if found is not None:
                     qualitaeten[mat] = found
 
         stock_qualities()
+        auto_fill.update({m: fill_mode['mode'] for m in qualitaeten})
         # ⚠ **Auch ohne Lager anzeigen.** Die Frage „was bringt mir Erz mit
         # Qualität X?" stellt man, BEVOR man es hat — genau dafür ist der
         # Regler unten da. Ohne Lagerstand wird mit Q 500 (Mitte) begonnen.
@@ -10608,9 +10629,14 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                         return t('s_he_regler_lager')
                     return ''
 
-                def quality_set(wert, mat, from_field=False, redraw=True):
+                def quality_set(wert, mat, from_field=False, redraw=True,
+                                auto=False):
                     wert = max(0.0, min(1000.0, float(wert)))
                     stand[mat] = wert
+                    if auto:
+                        auto_fill[mat] = fill_mode['mode']
+                    else:
+                        auto_fill.pop(mat, None)
                     q_var, quelle_lbl, regler, sync = regler_zeilen[mat]
                     if not from_field:
                         sync['still'] = True
@@ -10760,8 +10786,24 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
             def zurueck_zum_lager(_e=None):
                 for _m in alle_materialien:
-                    quality_set(qualitaeten.get(_m, 500.0), _m, redraw=False)
+                    quality_set(qualitaeten.get(_m, 500.0), _m, redraw=False,
+                                auto=_m in qualitaeten)
                 werte_zeichnen()
+
+            def refill(*_a):
+                """Andere Stückzahl, andere Menge — die Terminal-Güte neu
+                rechnen, aber nur für Materialien, die nicht von Hand
+                verstellt sind."""
+                if not auto_fill:
+                    return
+                stock_qualities()
+                for _m in list(auto_fill):
+                    if _m in qualitaeten:
+                        quality_set(qualitaeten[_m], _m, redraw=False,
+                                    auto=True)
+                werte_zeichnen()
+
+            anzahl_var.trace_add('write', refill)
 
             if qualitaeten:
                 zurueck.pack(anchor='w', padx=12, pady=(2, 0))
@@ -15061,7 +15103,7 @@ def _storage(fenster, rahmen):
     filter_var = tk.StringVar(rahmen)
 
     SPALTEN = (('material', 's_lg_sp_material', 22, 'w'),
-               ('menge',    's_lg_sp_menge',     9, 'e'),
+               ('menge',    's_lg_sp_menge',    13, 'e'),
                ('qualitaet', 's_lg_sp_q',        9, 'e'),
                # ⭐ Womit man das holt — Hand, Fahrzeug oder Schiff. Steht in
                # den Bergbaudaten und beantwortet die Frage, die nach „habe
@@ -15215,7 +15257,8 @@ def _storage(fenster, rahmen):
             # `texte_pruefen.py` als festen Oberflächentext „material" und
             # meldet ihn — ein Fehlalarm, der die Prüfung rot färbt.
             name_txt = p.get('material') or '?'
-            menge_txt = '%g' % _menge(p)
+            # Die Einheit steht an jeder Zahl: SCU oder Stück (Edelsteine).
+            menge_txt = '%g %s' % (_menge(p), _einheit(name_txt))
             q_txt = ('%g' % float(p['qualitaet'])) if p.get('qualitaet') else '—'
             abbau_txt = _abbau_text(name_txt) or '—'
             ort_txt = p.get('ort') or '—'
@@ -15296,7 +15339,8 @@ def _storage(fenster, rahmen):
             pfeil.bind('<Button-1>', lambda _e, f=umschalten: f())
             kopf_labels = spalten(kopf_z, BG, (
                 (name_txt, SPALTEN[0], FG, fenster.f_base),
-                ('%g' % summe, SPALTEN[1], ACCENT, fenster.f_base),
+                ('%g %s' % (summe, _einheit(ps[0].get('material') or '')),
+                 SPALTEN[1], ACCENT, fenster.f_base),
                 (q_txt, SPALTEN[2], SUB, fenster.f_small),
                 (_abbau_text(ps[0].get('material') or '') or '—', SPALTEN[3],
                  SUB, fenster.f_small),

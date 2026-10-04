@@ -6,15 +6,32 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.79.1 - 2026-10-04
+## v3.80.0 - 2026-10-04
 
-> Unfold without hunting: the list stays where you were.
+> Best and worst material now work exactly like the fabricator terminal:
+> if one quality is not enough, the next one fills up. Material storage
+> shows the unit at every amount, and unfolding keeps the list where you
+> were.
+
+### Improved
+
+- **Best / Worst material like in the game** — if the best (or worst)
+  quality does not cover the amount, the next one fills up. The slider shows
+  the average quality, "you have" counts your whole stock, and deduction
+  follows exactly that order. Changing the count recalculates
+- **Unit at every amount in material storage** — SCU or pieces right next
+  to the number
+- **Ingredient lines in crafting** — the quality note and buy price sit on
+  their own line and no longer slide over the material name
 
 ### Fixed
 
 - **Page jumped to the top when unfolding** — in Mining, in material
   storage and wherever something unfolds or gets deleted, the clicked line
   now stays in place
+- **Cut-off button row in crafting** — the message after "Crafted" now sits
+  on its own line below and wraps; "Add to farming list" is no longer pushed
+  out of the window
 
 ## v3.79.0 - 2026-10-04
 

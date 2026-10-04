@@ -233,6 +233,10 @@ def datenstand_kopieren():
             except Exception:
                 pass
     _gefaehrliches_abschalten(ziel)
+    # ⚠⚠ Hier setzen, nicht dem Aufrufer überlassen: Wer die Kopie anlegt und
+    # das Setzen vergisst, schreibt mit dem nächsten `save()` in die echten
+    # Daten.
+    os.environ['SC_BP_HOME'] = ziel
     return ziel
 
 

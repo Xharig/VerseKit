@@ -6,15 +6,34 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.79.1 - 2026-10-04
+## v3.80.0 - 2026-10-04
 
-> Aufklappen ohne Suchen: Die Liste bleibt stehen, wo du warst.
+> Bestes und schlechtestes Material rechnen jetzt genau wie das
+> Fertigungsterminal: Reicht eine Güte nicht, wird mit der nächsten
+> aufgefüllt. Dazu steht im Lager die Einheit an jeder Menge, und
+> Aufklappen lässt die Liste stehen, wo du warst.
+
+### Verbessert
+
+- **Bestes / Schlechtestes Material wie im Spiel** — reicht die beste (bzw.
+  schlechteste) Güte nicht für die Menge, wird mit der nächsten aufgefüllt.
+  Der Regler zeigt die Durchschnittsgüte, „hast du" zählt den ganzen
+  Bestand, und abgezogen wird in genau dieser Reihenfolge. Ändert sich die
+  Anzahl, wird neu gerechnet
+- **Einheit an jeder Menge im Rohstofflager** — SCU oder Stück steht direkt
+  an der Zahl
+- **Zutatenzeilen in der Herstellung** — Güte-Hinweis und Kaufpreis stehen
+  in einer eigenen Zeile und schieben sich nicht mehr über den
+  Materialnamen
 
 ### Behoben
 
 - **Seite sprang beim Aufklappen nach oben** — im Bergbau, im Rohstofflager
   und überall, wo sich etwas aufklappen oder löschen lässt, bleibt die
   geklickte Zeile jetzt an ihrer Stelle
+- **Abgeschnittene Knopfzeile in der Herstellung** — die Rückmeldung nach
+  „Hergestellt" steht jetzt in einer eigenen Zeile darunter und bricht um;
+  „Zum Farmen vormerken" wird nicht mehr aus dem Fenster geschoben
 
 ## v3.79.0 - 2026-10-04
 
