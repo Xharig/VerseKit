@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.86.1 - 2026-10-04
+
+> "Still missing" shows only what your ships need again.
+
+### Fixed
+
+- **Blueprints added for crafting under "Still missing"** — what you add
+  for crafting now only shows under "What to farm", no longer as a ship part
+
 ## v3.86.0 - 2026-10-04
 
 > The blueprint list now explains its marks itself: a legend at the top

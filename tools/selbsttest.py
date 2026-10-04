@@ -25226,6 +25226,7 @@ def main():
     _pruefung_335()
     _pruefung_336()
     _pruefung_337()
+    _pruefung_338()
 
     print()
     if fehler:
@@ -33915,6 +33916,56 @@ def _pruefung_337():
         else:
             os.environ['SC_BP_HOME'] = _altheim337
         shutil.rmtree(_heim337, ignore_errors=True)
+
+
+def _pruefung_338():
+    """338. Was noch fehlt: zum Bauen Vorgemerktes steht dort nicht.
+
+    Der Merkzettel gehört auf die Farmliste. Die Rechnung selbst führt ihn
+    weiter, sonst fehlte der Farmliste das Material.
+    """
+    print('\n338. Was noch fehlt: ohne Merkzettel')
+    import copy as _cp338
+    from scbp import cart as _ca338, fleet as _fl338, main_window as _hf338
+
+    teil = 'Monde Arms Purgatory Camo'
+    alt = _cp338.deepcopy(_fl338.load())
+    _w338 = None
+    try:
+        stand = _fl338.load()
+        stand['schiffe'] = []
+        _fl338.add(stand, 'Avenger Titan', 'Aegis Dynamics')
+        stand['merkzettel'] = []
+        _fl338.notepad_add(stand, teil)
+        _fl338.save(stand)
+        pruefe(any(p.get('name') == teil
+                   for p in _ca338.invoice(_fl338.load())['posten']),
+               'die Rechnung fuehrt den Merkzettel weiter (fuer die Farmliste)')
+
+        _w338 = _wurzel()
+        fenster = _hf338.MainWindow(_w338, version='0.0.0-pruefung')
+        fenster.open_page('einkaufsliste')
+        _w338.update()
+        seite = fenster.pages['einkaufsliste']
+        texte = []
+
+        def _lauf(x):
+            try:
+                texte.append(str(x.cget('text')))
+            except Exception:
+                pass
+            for k in x.winfo_children():
+                _lauf(k)
+        _lauf(seite)
+        pruefe(not any(teil in s for s in texte),
+               'der vorgemerkte Bauplan steht nicht auf Was noch fehlt')
+    finally:
+        try:
+            if _w338 is not None:
+                _w338.destroy()
+        except Exception:
+            pass
+        _fl338.save(alt)
 
 
 def _alle_eingaben(w):

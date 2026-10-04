@@ -13292,7 +13292,10 @@ def _shopping_list(fenster, rahmen):
         stand = meine.load()
         werte = cart.invoice(stand)
         daten['stand'] = stand
-        posten = werte.get('posten') or []
+        # Nur, was zu Schiffen gehört. Zum Bauen Vorgemerktes steht mit
+        # seinem Material auf der Farmliste.
+        posten = [p for p in (werte.get('posten') or [])
+                  if p.get('quelle') != cart.NOTEPAD]
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall in diesem
         # Bereich: „nichts eingetragen", „nichts zu besorgen" und „keine Daten"

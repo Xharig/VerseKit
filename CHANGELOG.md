@@ -6,6 +6,16 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.86.1 - 2026-10-04
+
+> „Was noch fehlt" zeigt wieder nur, was deinen Schiffen fehlt.
+
+### Behoben
+
+- **Vorgemerkte Baupläne unter „Was noch fehlt"** — was du zum Bauen
+  vormerkst, steht nur noch unter „Was ich farmen muss", nicht mehr als
+  Schiffsteil
+
 ## v3.86.0 - 2026-10-04
 
 > Die Bauplan-Liste erklärt ihre Zeichen jetzt selbst: Oben steht eine
