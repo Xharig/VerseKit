@@ -6,11 +6,28 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.84.1 - 2026-10-04
+## v3.85.0 - 2026-10-04
 
-> Feinschliff an den Texten: ein Name, überall gleich geschrieben.
+> Direkt aus der Bauplan-Liste zum Farmen vormerken — und an jeder Zeile
+> sehen, was schon vorgemerkt ist. Dazu ein Name, überall gleich
+> geschrieben.
+
+### Neu
+
+- **Zum Farmen vormerken in der Bauplan-Liste** — an jedem Bauplan, den du
+  hast, sitzt ein Zeichen: ein Klick merkt ihn mit seinen Rohstoffen unter
+  „Was ich farmen muss" vor, ein zweiter nimmt ihn wieder herunter.
+  Vorgemerktes steht in Markenfarbe
+
+### Verbessert
+
+- **Tippen in der Bauplan-Liste** — die Merkliste wird beim Filtern nicht
+  mehr für jede Zeile neu gelesen
 
 ### Behoben
+
+- **„Vorgemerkt" abgeschnitten** — in der Herstellung steht der Hinweis
+  jetzt in einer eigenen Zeile unter den Knöpfen
 
 - **Einheitlicher Name** — in allen Texten steht jetzt Verse-Kit, nicht
   mal so, mal so

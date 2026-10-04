@@ -6,11 +6,27 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.84.1 - 2026-10-04
+## v3.85.0 - 2026-10-04
 
-> Polishing the texts: one name, spelled the same everywhere.
+> Add to the farming list straight from the blueprint list — and see on
+> every row what is already on it. Plus one name, spelled the same
+> everywhere.
+
+### New
+
+- **Add to farming list in the blueprint list** — every blueprint you own
+  has a mark: one click adds it with its materials to "What to farm", a
+  second click removes it. Listed ones show in the brand colour
+
+### Improved
+
+- **Typing in the blueprint list** — the watchlist is no longer read again
+  for every row while filtering
 
 ### Fixed
+
+- **"On the list" cut off** — in crafting the note now sits on its own line
+  below the buttons
 
 - **Consistent name** — every text now says Verse-Kit, not one way here
   and another there

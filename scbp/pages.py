@@ -10333,11 +10333,14 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
         _button(fenster, reihe, t('s_mz_knopf'),
                _vormerken).pack(side='left', padx=(12, 0))
+        # ⚠ In einer eigenen Zeile unter den Knöpfen — in der Knopfreihe
+        # wurde der Text bei schmalem Fenster abgeschnitten.
         merk_stand = tk.Label(
-            reihe, bg=theme.FIELD, fg=ACCENT, font=fenster.f_small,
+            block, bg=theme.FIELD, fg=ACCENT, font=fenster.f_small,
+            anchor='w',
             text=(t('s_mz_drauf') if _mz_hangar.notepad_contains(
                 _mz_hangar.load(), _mz_name) else ''))
-        merk_stand.pack(side='left', padx=(8, 0))
+        merk_stand.pack(fill='x', padx=12, after=reihe)
 
         # Eine Zeile, die sagt, was der Knopf tut — sonst rät man.
         _body_text(block, t('s_lg_bauen_hilfe'), fenster.f_small, fill='x')

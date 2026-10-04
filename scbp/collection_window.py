@@ -33,6 +33,7 @@ Drei Dinge, für die es da ist:
 Bedienung: tippen filtert, Klick auf eine Zeile setzt oder entfernt das Häkchen,
 Klick auf ⓘ klappt die Bezugsquellen aus.
 """
+import os
 import time
 import tkinter as tk
 
@@ -1545,7 +1546,9 @@ class Bestandsfenster:
                 self.filter, self.suche.get(), repr(self.fein),
                 self.auftrag, getattr(self, 'katalog_art', ''),
                 self.alle_zeigen, repr(sorted(self.offen)),
-                repr(getattr(self, 'bereiche_aus', None)))
+                repr(getattr(self, 'bereiche_aus', None)),
+                # Die Zeilen zeigen, was zum Farmen vorgemerkt ist.
+                repr(self._farm_stand().get('merkzettel')))
 
     def _zeichnen(self, nach_oben=False):
         """Die Liste neu aufbauen.
@@ -2242,6 +2245,23 @@ class Bestandsfenster:
             notice.attach(star, lambda n=name: t('nicht_mehr_merken')
                               if merk.contains(n) else t('merken'))
 
+        # ⭐ Zum Farmen vormerken — für Baupläne, die man hat: Was man bauen
+        # kann, landet mit seinen Rohstoffen auf der Farmliste.
+        # Vorgemerktes steht in Markenfarbe, ein zweiter Klick nimmt es weg.
+        if drin:
+            from . import fleet as _farm
+            vorgemerkt = _farm.notepad_contains(self._farm_stand(), name)
+            farm = icons.button(row, 'farmliste',
+                                color=icons.GREEN if vorgemerkt else icons.GREY,
+                                background=shade)
+            farm.configure(cursor='hand2', padx=6)
+            farm.pack(side='right')
+            farm.bind('<Button-1>', lambda e, n=name: self._farm_umschalten(n))
+            icons.hover_group(farm)
+            notice.attach(farm, lambda n=name: t('s_bp_farm_drauf')
+                          if _farm.notepad_contains(self._farm_stand(), n)
+                          else t('s_bp_farm_merken'))
+
 
     def _herkunft_zeichnen(self):
         """Den festen Block neu füllen — für den gerade gewählten Bauplan."""
@@ -2458,6 +2478,34 @@ class Bestandsfenster:
     def _merken(self, name):
         """Stern an oder aus — sofort auf die Platte, kein Speichern-Knopf."""
         merk.toggle(name)
+        self._zeichnen()
+
+    def _farm_stand(self):
+        """Hangar-Daten mit Merkzettel — je Zeitstempel der Datei gemerkt.
+
+        Die Liste fragt je Zeile; jede Zeile läse die Datei sonst neu.
+        """
+        from . import fleet as _farm
+        try:
+            info = os.stat(paths.app_file(_farm.FILE))
+            stempel = (info.st_mtime_ns, info.st_size)
+        except OSError:
+            stempel = None
+        merker = getattr(self, '_farm_merker', None)
+        if merker is None or stempel is None or merker[0] != stempel:
+            self._farm_merker = (stempel, _farm.load())
+        return self._farm_merker[1]
+
+    def _farm_umschalten(self, name):
+        """Zum Farmen vormerken oder wieder herunternehmen."""
+        from . import fleet as _farm
+        stand = _farm.load()
+        if _farm.notepad_contains(stand, name):
+            _farm.notepad_remove(stand, name)
+        else:
+            _farm.notepad_add(stand, name)
+        _farm.save(stand)
+        self._farm_merker = None
         self._zeichnen()
 
     def _herkunft_umschalten(self, name):

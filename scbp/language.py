@@ -4991,6 +4991,12 @@ TEXTS = {
     # nicht. Der Knopf sitzt deshalb direkt in der Herstellung.
     's_mz_knopf':        ('Zum Farmen vormerken', 'Add to farming list'),
     's_mz_drauf':        ('Vorgemerkt ✓', 'On the list ✓'),
+    's_bp_farm_merken':  ('Zum Farmen vormerken — landet mit seinen Rohstoffen '
+                          'unter „Was ich farmen muss"',
+                          'Add to farming list — shows up with its materials '
+                          'under "What to farm"'),
+    's_bp_farm_drauf':   ('Zum Farmen vorgemerkt — Klick nimmt es wieder herunter',
+                          'On the farming list — click to remove it'),
     's_mz_hilfe':        ('Landet unter »Was ich farmen muss« — mit dem '
                           'Material, das dafür nötig ist. Auch für Rüstung '
                           'und FPS-Waffen.',

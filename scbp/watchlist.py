@@ -120,8 +120,25 @@ def save(data):
 
 # ---------------------------------------------------------------- Nach außen
 def names(data=None):
-    """Die angeklickten Namen in Vergleichsform."""
-    return {_norm(n) for n in (data or load())['namen']}
+    """Die angeklickten Namen in Vergleichsform.
+
+    Ohne `data` aus der Datei — gemerkt je Zeitstempel und Größe: Die
+    Bauplan-Liste fragt je Zeile, und jede Zeile läse sonst die Datei neu.
+    """
+    if data is not None:
+        return {_norm(n) for n in data['namen']}
+    try:
+        info = os.stat(path())
+        stamp = (info.st_mtime_ns, info.st_size)
+    except OSError:
+        stamp = None
+    if stamp is None or _NAMES_CACHE.get('stamp') != stamp:
+        _NAMES_CACHE['stamp'] = stamp
+        _NAMES_CACHE['names'] = {_norm(n) for n in load()['namen']}
+    return set(_NAMES_CACHE['names'])
+
+
+_NAMES_CACHE = {'stamp': None, 'names': set()}
 
 
 def contains(name, data=None):

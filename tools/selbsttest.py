@@ -25223,6 +25223,7 @@ def main():
     _pruefung_332()
     _pruefung_333()
     _pruefung_334()
+    _pruefung_335()
 
     print()
     if fehler:
@@ -33173,6 +33174,12 @@ def _pruefung_328():
                    and abs(mengen.get(800.0, 0) - 0.5) < 1e-6,
                    '„Hergestellt" nimmt Q 300, das bessere Q 800 bleibt (%s)'
                    % mengen)
+            merk_lbl = [x for x in _alle(rahmen, 'Label', [])
+                        if x.cget('text') == _t328('s_mz_drauf')]
+            pruefe(bool(merk_lbl) and bool(bauen)
+                   and merk_lbl[0].master is not bauen[0].master,
+                   '„Vorgemerkt" steht unter der Knopfreihe, nicht abgeschnitten '
+                   'darin')
             rueck = [x for x in _alle(rahmen, 'Label', [])
                      if x.cget('text') == _t328('s_lg_abgezogen')]
             pruefe(bool(rueck) and bool(bauen)
@@ -33716,6 +33723,43 @@ def _pruefung_334():
                 w.destroy()
         except Exception:
             pass
+
+
+def _pruefung_335():
+    """335. Bauplan-Liste: zum Farmen vormerken und wieder herunternehmen.
+
+    Der Klick schaltet den Eintrag auf dem Merkzettel um, und der
+    Fingerabdruck der Liste ändert sich mit — sonst stünde das Zeichen nach
+    dem Klick unverändert da.
+    """
+    print('\n335. Bauplan-Liste: zum Farmen vormerken')
+    import copy as _cp335
+    from scbp import collection_window as _cw335, fleet as _fl335
+
+    alt = _cp335.deepcopy(_fl335.load())
+    try:
+        _fl335.save({})
+
+        class _Liste:
+            gezeichnet = 0
+
+            def _zeichnen(self):
+                self.gezeichnet += 1
+
+        liste = _Liste()
+        liste._farm_stand = lambda: _cw335.Bestandsfenster._farm_stand(liste)
+        _cw335.Bestandsfenster._farm_umschalten(liste, 'Monde Arms')
+        pruefe(_fl335.notepad_contains(_fl335.load(), 'Monde Arms')
+               and liste.gezeichnet == 1,
+               'ein Klick merkt den Bauplan zum Farmen vor und zeichnet neu')
+        drauf = repr(liste._farm_stand().get('merkzettel'))
+        _cw335.Bestandsfenster._farm_umschalten(liste, 'Monde Arms')
+        pruefe(not _fl335.notepad_contains(_fl335.load(), 'Monde Arms'),
+               'ein zweiter Klick nimmt ihn wieder herunter')
+        pruefe(repr(liste._farm_stand().get('merkzettel')) != drauf,
+               'der Stand, aus dem die Liste zeichnet, folgt dem Klick')
+    finally:
+        _fl335.save(alt)
 
 
 def _alle_eingaben(w):
