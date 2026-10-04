@@ -6,6 +6,16 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.79.1 - 2026-10-04
+
+> Aufklappen ohne Suchen: Die Liste bleibt stehen, wo du warst.
+
+### Behoben
+
+- **Seite sprang beim Aufklappen nach oben** — im Bergbau, im Rohstofflager
+  und überall, wo sich etwas aufklappen oder löschen lässt, bleibt die
+  geklickte Zeile jetzt an ihrer Stelle
+
 ## v3.79.0 - 2026-10-04
 
 > Herstellen wie am Terminal im Spiel: Bestes oder schlechtestes Material

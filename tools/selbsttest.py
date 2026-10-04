@@ -25217,6 +25217,7 @@ def main():
     _pruefung_326()
     _pruefung_327()
     _pruefung_328()
+    _pruefung_329()
 
     print()
     if fehler:
@@ -33159,6 +33160,89 @@ def _pruefung_328():
     finally:
         _he328.load = alt_load
         _fl328.save(alt_flotte)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_329():
+    """329. Aufklappen hält die Rollstelle — im echten Lager.
+
+    40 Materialien mit je zwei Posten, die Seite ein Stück hinuntergerollt,
+    dann eine Materialzeile aufgeklappt. Die geklickte Zeile muss danach an
+    derselben Stelle im Bild stehen, nicht oben am Anfang der Liste.
+    """
+    print('\n329. Aufklappen hält die Rollstelle')
+    import copy as _cp329
+    import time as _ti329
+    from scbp import materials as _ma329, main_window as _hf329
+
+    alt = _cp329.deepcopy(_ma329.load())
+    w = None
+    try:
+        _ma329.save([])
+        for i in range(40):
+            _ma329.add('Erz%02d' % i, 5, 500, 'Levski')
+            _ma329.add('Erz%02d' % i, 3, 800, 'Orison')
+        w = _wurzel()
+        fenster = _hf329.MainWindow(w, version='0.0.0-pruefung')
+        fenster.open_page('lager')
+        ende = _ti329.time() + 1.5
+        while _ti329.time() < ende:
+            w.update()
+            _ti329.sleep(0.01)
+        seite = fenster.pages['lager']
+
+        def _koepfe():
+            out = []
+
+            def _lauf(x):
+                if x.winfo_class() == 'Label':
+                    txt = x.cget('text')
+                    if isinstance(txt, str) and txt.startswith('Erz') \
+                            and txt.endswith('(2)'):
+                        out.append(x)
+                for k in x.winfo_children():
+                    _lauf(k)
+            _lauf(seite)
+            return out
+
+        koepfe = _koepfe()
+        leinwand = koepfe[0] if koepfe else None
+        while leinwand is not None and leinwand.winfo_class() != 'Canvas':
+            leinwand = leinwand.master
+        pruefe(leinwand is not None and leinwand.winfo_height() > 100,
+               'Vorbedingung: die Liste steht in einer Rollfläche')
+        if leinwand is None:
+            return
+        leinwand.yview_moveto(0.35)
+        w.update()
+        ziel = None
+        for k in koepfe:
+            y = k.winfo_rooty() - leinwand.winfo_rooty()
+            if 20 < y < leinwand.winfo_height() - 20:
+                ziel = (k.cget('text'), y, k)
+                break
+        pruefe(ziel is not None and leinwand.yview()[0] > 0.2,
+               'Vorbedingung: hinuntergerollt, eine Zeile im Bild')
+        if ziel is None:
+            return
+        name, y_vorher, kopf = ziel
+        kopf.event_generate('<Button-1>', x=2, y=2)
+        ende = _ti329.time() + 0.5
+        while _ti329.time() < ende:
+            w.update()
+            _ti329.sleep(0.01)
+        nach = [k for k in _koepfe() if k.cget('text') == name]
+        y_nachher = (nach[0].winfo_rooty() - leinwand.winfo_rooty()
+                     if nach else None)
+        pruefe(y_nachher is not None and abs(y_nachher - y_vorher) <= 2,
+               'die aufgeklappte Zeile bleibt an ihrer Stelle '
+               '(vorher y %s, nachher y %s)' % (y_vorher, y_nachher))
+    finally:
+        _ma329.save(alt)
         try:
             if w is not None:
                 w.destroy()

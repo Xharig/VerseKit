@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.79.1 - 2026-10-04
+
+> Unfold without hunting: the list stays where you were.
+
+### Fixed
+
+- **Page jumped to the top when unfolding** — in Mining, in material
+  storage and wherever something unfolds or gets deleted, the clicked line
+  now stays in place
+
 ## v3.79.0 - 2026-10-04
 
 > Crafting like at the in-game terminal: best or worst material in one

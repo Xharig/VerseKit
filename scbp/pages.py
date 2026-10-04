@@ -562,23 +562,49 @@ def _keep_scroll(widget, action):
     if leinwand is None:
         action()
         return
+
+    def region_height():
+        try:
+            region = [float(v) for v in
+                      str(leinwand.cget('scrollregion')).split()]
+            return region[3] - region[1] if len(region) == 4 else 0.0
+        except (tk.TclError, ValueError):
+            return 0.0
+
+    # ⚠⚠ **Gemerkt wird der Abstand in Pixeln, nicht der Anteil.** Klappt
+    # etwas auf, wächst der Inhalt; derselbe Anteil zeigte dann eine andere
+    # Stelle. Was über dem Geklickten steht, ändert sich nicht — sein Abstand
+    # vom Anfang bleibt also gleich.
     try:
-        stelle = leinwand.yview()[0]
+        oben = leinwand.yview()[0] * region_height()
     except Exception:
-        stelle = None
+        oben = None
     action()
-    if stelle is None:
+    if oben is None:
         return
 
     def zurueck():
         try:
-            if leinwand.winfo_exists():
-                leinwand.yview_moveto(stelle)
+            if not leinwand.winfo_exists():
+                return
+            # ⚠⚠ Erst das Layout fertig rechnen, dann den Rollbereich neu
+            # setzen. Sonst zieht Tk die Leinwand während des Neuaufbaus kurz
+            # auf einen fast leeren Rollbereich zusammen, klemmt die Sicht
+            # dabei auf den Anfang und lässt sie dort stehen.
+            leinwand.update_idletasks()
+            leinwand.configure(scrollregion=leinwand.bbox('all'))
+            hoehe = region_height()
+            if hoehe > 0:
+                leinwand.yview_moveto(oben / hoehe)
         except Exception:
             pass
 
+    zurueck()
+    # Ein später Größenwechsel (Umbrüche, die erst beim Zeigen rechnen)
+    # setzt den Rollbereich noch einmal — dann die Stelle erneut halten.
     try:
         leinwand.after_idle(zurueck)
+        leinwand.after(60, zurueck)
     except Exception:
         pass
 
