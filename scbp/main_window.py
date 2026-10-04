@@ -2504,11 +2504,8 @@ class MainWindow:
         # der beiden Reiter über ihr, nicht ein dritter Anfang.
         self._tab('einkaufsliste', 'einkaufsliste',
                      t('hf_einkaufsliste'), g_schiff)
-        # ⚠ Danach, nicht davor: Namen vergeben ist Feinarbeit an dem, was man
-        # schon hat — die Kette habe → will → kostet bleibt vorn. Und es
-        # gehört in diese Gruppe, weil es Schiffe betrifft; eine eigene Gruppe
-        # für einen Reiter wäre keine Gliederung mehr.
-        self._tab('asop', 'hangar', t('hf_asop'), g_schiff)
+        # Die eigenen Schiffsnamen stehen im Hangar an jedem Schiff — die
+        # Seite `asop` ist ein Verweis dorthin und hat keinen Reiter.
 
         g_werk = self._group(t('hf_gruppe_herst'), 'werkstatt')
         self._tab('lager', 'bestand', t('hf_lager'), g_werk)

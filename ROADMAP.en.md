@@ -63,7 +63,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **My hangar**: which ships you own — pulled from the pledge store or added by hand, with origin and slot counts |
 | ✅ | **Swap racks and paints** — only the ones that fit your ship; after a rack swap its own slots show up below it |
 | ✅ | **Ship lists from other tools**: Fleetview (CCU Game), Fleetyards and StarJump FleetViewer — they only add to the hangar, wanted ships go to the wishlist |
-| ✅ | **Rename ships**: your own names at the retrieval terminal (ASOP) instead of the factory ones, a star as a marker — and the factory name comes back character for character |
+| ✅ | **Names in the game** (in the hangar, at each ship): your own names at the retrieval terminal (ASOP) instead of the factory ones, a star as a marker — and the factory name comes back character for character |
 | ✅ | **Fits your ship**: every blueprint tells you which of your ships the part belongs in, and how many slots it has there |
 | ✅ | **Ship data**: cargo capacity, purchase and rental price — pick your ship in the route planner and the cargo hold fills itself in |
 | ✅ | **Bindings included in backups**: keyboard and joystick bindings go into the backup file and can be saved as a named profile where Star Citizen finds it |

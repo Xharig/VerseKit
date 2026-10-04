@@ -88,7 +88,7 @@ def modules_page(window, frame):
 
 # Beschriftung je Seite — dieselben Texte wie in der Leiste.
 _TAB_LABELS = {'hangar': 'hf_hangar', 'wunschliste': 'hf_wunschliste',
-               'einkaufsliste': 'hf_einkaufsliste', 'asop': 'hf_asop',
+               'einkaufsliste': 'hf_einkaufsliste',
                'lager': 'hf_lager', 'herstellung': 'hf_herstellung',
                'bergbau': 'hf_bergbau', 'raffinerien': 'hf_raffinerien',
                'laeden': 'hf_laeden', 'farmliste': 'hf_farmliste',

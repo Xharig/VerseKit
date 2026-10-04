@@ -41,7 +41,7 @@ from . import paths
 # Gruppe -> ihre Seiten. Muss zu `main_window._body` passen; Prüfung 271
 # vergleicht beides.
 SWITCHABLE = {
-    'schiffe': ('hangar', 'wunschliste', 'einkaufsliste', 'asop'),
+    'schiffe': ('hangar', 'wunschliste', 'einkaufsliste'),
     'werkstatt': ('lager', 'herstellung', 'bergbau', 'raffinerien', 'laeden',
                   'farmliste'),
     'bergung': ('bergung', 'zerlegen'),

@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.78.0 - 2026-10-04
+
+> One tab fewer: you now give your ships their retrieval-terminal names
+> right in the hangar, at each ship. And the picture when teaching digits is
+> much larger.
+
+### Improved
+
+- **Names in the game right in the hangar** — every ship in the hangar has a
+  "Name in the game" field with its star; what you enter reaches the game on
+  its own as before. The hangar search finds a ship by your own name too. The
+  separate "Rename ships" tab is gone
+- **Teaching digits with a larger picture** — the scanned snippet is
+  enlarged several times in the teaching window, so the digits are easy to
+  read
+
 ## v3.77.1 - 2026-10-04
 
 > A safeguard under the hood: input fields, switches and sliders are now

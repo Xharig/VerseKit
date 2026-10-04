@@ -16575,29 +16575,25 @@ def main():
            and not any(z in x for x in _stern_text176 for z in _sterne176),
            'die Beschriftung malt kein Sternzeichen')
 
-    # -- Und die Seite selbst: Suche oben, Knopf unten, nur die Liste rollt.
-    #
-    # ⚠⚠ Die Pack-Reihenfolge entscheidet, ob der Knopf in der langen Liste
-    # sichtbar bleibt — die Rollfläche mit `expand=True` schiebt alles aus dem
-    # Fenster, was NACH ihr gepackt wird.
-    #
-    # ⚠ Geprüft wird die **Pack-Reihenfolge**, nicht eine Pixellage: Eine
-    # Pixellage ist unter Linux grün und im Bau-Lauf unter Windows rot, weil
-    # dort nichts gemappt ist (siehe Prüfung 155).
+    # -- Die Seite `asop` selbst ist nur noch ein Verweis auf den Hangar
+    # (Prüfung 325 prüft die Namen dort).
     _seite176 = tk.Frame(_w176)
     _seite176.pack(fill='both', expand=True)
     _se176._asop(_f176, _seite176)
     _w176.update_idletasks()
+    _texte176 = []
 
-    _reihen176 = [(k, k.pack_info().get('side'), k.pack_info().get('expand'))
-                  for k in _seite176.winfo_children() if k.winfo_manager() == 'pack']
-    _unten176 = [i for i, (_k, s, _e) in enumerate(_reihen176) if s == 'bottom']
-    _dehnt176 = [i for i, (_k, _s, e) in enumerate(_reihen176) if str(e) in ('1', 'True')]
-    pruefe(bool(_unten176), 'die Seite hat einen fest verankerten Fuss')
-    pruefe(bool(_dehnt176), 'und eine Flaeche, die den Rest bekommt')
-    if _unten176 and _dehnt176:
-        pruefe(max(_unten176) < min(_dehnt176),
-               'der Fuss wird VOR der Rollflaeche gepackt — sonst faellt er heraus')
+    def _text176(w):
+        try:
+            _texte176.append(w.cget('text'))
+        except Exception:
+            pass
+        for k in w.winfo_children():
+            _text176(k)
+    _text176(_seite176)
+    pruefe(_sp97.TEXTS['s_as_umgezogen'][0] in _texte176
+           or _sp97.TEXTS['s_as_umgezogen'][1] in _texte176,
+           'die Seite asop sagt, dass die Namen im Hangar stehen')
 
     try:
         _w176.destroy()
@@ -25217,6 +25213,8 @@ def main():
     _pruefung_322()
     _pruefung_323()
     _pruefung_324()
+    _pruefung_325()
+    _pruefung_326()
 
     print()
     if fehler:
@@ -31731,6 +31729,10 @@ def _pruefung_315():
     pruefe(im_worker and set(im_worker) == seiten,
            'pages.js kennt genau die Seiten aus pages.page_ids() (fehlt: %s, zu viel: %s)'
            % (sorted(seiten - set(im_worker)), sorted(set(im_worker) - seiten)))
+    # Seiten ohne Reiter (ein Verweis wie `asop`) tragen den Namen ihrer
+    # Überschrift — die Kennung bleibt, damit ältere Meldungen gültig sind.
+    for _ohne315 in _pg315.PAGES_WITHOUT_TAB:
+        reiter.setdefault(_ohne315, _la315.TEXTS['hf_' + _ohne315][0])
     falsch = sorted(p for p in im_worker if reiter.get(p) != im_worker[p])
     pruefe(not falsch, 'pages.js nennt jede Seite wie ihr Reiter (abweichend: %s)'
            % ['%s: %r statt %r' % (p, im_worker[p], reiter.get(p)) for p in falsch])
@@ -32668,6 +32670,167 @@ def _pruefung_324():
            'Vorbedingung: die Suche findet die Tk-Variablen (%d)' % gesehen)
     pruefe(not ohne, 'keine Tk-Variable ohne Elternteil%s'
            % (' — FEHLT in: ' + ', '.join(ohne) if ohne else ''))
+
+
+def _pruefung_325():
+    """325. Hangar: an jedem Schiff der Name im Spiel, kein eigener Reiter.
+
+    Im echten Hauptfenster, mit untergeschobener Sprachdatei: Jedes Schiff
+    hat ein Feld, ein vergebener Name wird gemerkt und ins Spiel geschrieben,
+    die Suche findet das Schiff auch über den eigenen Namen, unter der Liste
+    stehen Stand und Knopf — und die Leiste hat keinen Reiter `asop` mehr.
+    """
+    print('\n325. Hangar: Namen im Spiel an jedem Schiff')
+    import copy as _cp325
+    import tempfile as _tf325
+    import time as _ti325
+    from scbp import (asop as _as325, fleet as _fl325, injection as _in325,
+                      main_window as _hf325)
+    from scbp.language import t as _t325
+
+    ini = _tf325.NamedTemporaryFile('w', suffix='.ini', delete=False,
+                                    encoding='utf-8')
+    ini.write('vehicle_NameAEGS_Avenger_Titan=Avenger Titan\n'
+              'vehicle_NameANVL_Hornet_F7C=F7C Hornet\n')
+    ini.close()
+    geschrieben = []
+    alt = (_in325.ini_file, _in325._added_ship_names, _in325.refresh,
+           _in325.load_origtext)
+    alt_hangar = _cp325.deepcopy(_fl325.load())
+    alt_namen = _cp325.deepcopy(_as325.load())
+    _w325 = None
+    try:
+        _in325.ini_file = lambda *a, **k: (ini.name, 'english', 'pruefung')
+        _in325._added_ship_names = lambda *a, **k: {}
+        _in325.load_origtext = lambda *a, **k: {}
+        _in325.refresh = (lambda pfad, ordner: geschrieben.append(pfad)
+                          or (True, 1, 'ok'))
+        stand = _fl325.load()
+        stand['schiffe'] = []
+        _fl325.add(stand, 'Avenger Titan', 'Aegis Dynamics')
+        _fl325.add(stand, 'F7C Hornet', 'Anvil Aerospace')
+        _fl325.save(stand)
+        _as325.save(_as325.empty())
+
+        _w325 = _wurzel()
+        fenster = _hf325.MainWindow(_w325, version='0.0.0-pruefung')
+        pruefe('asop' not in getattr(fenster, 'buttons', {}),
+               'die Leiste hat keinen Reiter Schiffe benennen mehr')
+        fenster.open_page('hangar')
+        _w325.update()
+        seite = fenster.pages['hangar']
+
+        def _alle(w, art=None):
+            out = []
+
+            def _lauf(x):
+                if art is None or x.winfo_class() == art:
+                    out.append(x)
+                for k in x.winfo_children():
+                    _lauf(k)
+            _lauf(w)
+            return out
+
+        def _texte():
+            out = []
+            for x in _alle(seite, 'Label'):
+                try:
+                    out.append(x.cget('text'))
+                except Exception:
+                    pass
+            return out
+
+        beschriftungen = [x for x in _alle(seite, 'Label')
+                          if x.cget('text') == _t325('s_hg_name_feld')]
+        pruefe(len(beschriftungen) == 2,
+               'jedes der zwei Schiffe hat ein Feld Name im Spiel (%d)'
+               % len(beschriftungen))
+        pruefe(_t325('s_hg_namen_titel') in _texte(),
+               'unter der Liste stehen Stand und Hinweise der Namen')
+        felder = [e for b in beschriftungen for e in _alle(b.master, 'Entry')]
+        if felder:
+            # Das Feld der Titan — die Liste ist nach Namen sortiert.
+            feld = felder[0]
+            feld.delete(0, 'end')
+            feld.insert(0, 'Leitschiff')
+            # ⚠ Tastenereignisse gehen an das Feld mit dem Fokus.
+            feld.focus_force()
+            _w325.update()
+            feld.event_generate('<Return>')
+            _w325.update()
+            name, _stern = _as325.entry(_as325.load(),
+                                        'vehicle_NameAEGS_Avenger_Titan')
+            pruefe(name == 'Leitschiff',
+                   'ein vergebener Name wird gemerkt (%r)' % name)
+            ende = _ti325.time() + 3
+            while not geschrieben and _ti325.time() < ende:
+                _w325.update()
+                _ti325.sleep(0.02)
+            pruefe(bool(geschrieben),
+                   'und von selbst ins Spiel geschrieben')
+
+            # ⚠ Das Suchfeld liegt außerhalb der Schiffsliste; die
+            # Namensfelder stehen im Baum davor.
+            # Die Schiffsliste ist der nächste gemeinsame Rahmen beider Karten.
+            teile = [str(b2).split('.') for b2 in beschriftungen]
+            gemeinsam = []
+            for stuecke in zip(*teile):
+                if len(set(stuecke)) != 1:
+                    break
+                gemeinsam.append(stuecke[0])
+            liste = '.'.join(gemeinsam)
+            suchfelder = [e for e in _alle(seite, 'Entry')
+                          if not str(e).startswith(liste + '.')]
+            if suchfelder:
+                suchfelder[0].delete(0, 'end')
+                suchfelder[0].insert(0, 'Leitschiff')
+                ende = _ti325.time() + 2
+                while _ti325.time() < ende:
+                    _w325.update()
+                    _ti325.sleep(0.02)
+                # Nur die Kartentitel der Liste — in Fettschrift; die
+                # Vorschläge des Eingabefelds tragen dieselben Namen.
+                namen = [x.cget('text') for x in _alle(seite, 'Label')
+                         if x.cget('text') in ('Avenger Titan', 'F7C Hornet')
+                         and str(x.cget('font')) == str(fenster.f_bold)]
+                pruefe('Avenger Titan' in namen and 'F7C Hornet' not in namen,
+                       'die Suche findet das Schiff über den eigenen Namen '
+                       '(%s)' % namen)
+    finally:
+        (_in325.ini_file, _in325._added_ship_names, _in325.refresh,
+         _in325.load_origtext) = alt
+        try:
+            if _w325 is not None:
+                _w325.destroy()
+        except Exception:
+            pass
+        _fl325.save(alt_hangar)
+        _as325.save(alt_namen)
+        try:
+            os.remove(ini.name)
+        except OSError:
+            pass
+
+
+def _pruefung_326():
+    """326. Anlernen: der Ausschnitt ist groß genug zum Abtippen.
+
+    Ein typischer Signatur-Ausschnitt ist rund 120 × 40 Pixel. Die Vorschau im
+    Anlern-Fenster muss ihn mehrfach vergrößern, und das vergrößerte Bild muss
+    in die Vorschau passen.
+    """
+    print('\n326. Anlernen: Vorschau vergrößert den Ausschnitt')
+    from scbp import scan_window as _sw326
+    breite, hoehe = _sw326.PANEL_W - 12, _sw326.PREVIEW_H
+    for b, h in ((122, 38), (90, 30), (160, 50)):
+        bild = _sw326.fit_preview([[0] * b for _ in range(h)], breite, hoehe)
+        zoom = len(bild[0]) // b
+        pruefe(zoom >= 3,
+               'ein Ausschnitt von %d × %d wird mindestens dreifach '
+               'vergrößert (%d-fach)' % (b, h, zoom))
+        pruefe(len(bild[0]) <= breite and len(bild) <= hoehe,
+               'und passt in die Vorschau (%d × %d in %d × %d)'
+               % (len(bild[0]), len(bild), breite, hoehe))
 
 
 if __name__ == '__main__':

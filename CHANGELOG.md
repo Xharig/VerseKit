@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.78.0 - 2026-10-04
+
+> Ein Reiter weniger: Die eigenen Schiffsnamen für das Abrufterminal vergibst
+> du jetzt direkt im Hangar, an jedem Schiff. Und beim Anlernen der Ziffern
+> ist das Bild deutlich größer.
+
+### Verbessert
+
+- **Namen im Spiel direkt im Hangar** — jedes Schiff im Hangar hat ein Feld
+  „Name im Spiel" samt Stern; was du einträgst, landet wie bisher von selbst
+  im Spiel. Die Suche im Hangar findet ein Schiff auch über deinen eigenen
+  Namen. Der eigene Reiter „Schiffe benennen" entfällt
+- **Anlernen mit größerem Bild** — der gescannte Ausschnitt wird im
+  Anlern-Fenster mehrfach vergrößert, die Ziffern sind gut zu lesen
+
 ## v3.77.1 - 2026-10-04
 
 > Eine Absicherung im Hintergrund: Eingabefelder, Schalter und Regler hängen

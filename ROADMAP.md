@@ -64,7 +64,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Mein Hangar**: welche Schiffe dir gehören — aus dem Pledge-Store geholt oder von Hand eingetragen, mit Herkunft und Steckplätzen |
 | ✅ | **Racks und Lackierungen tauschen** — nur die, die an dein Schiff passen; nach einem Rack-Tausch stehen dessen Plätze darunter |
 | ✅ | **Schiffslisten anderer Werkzeuge**: Fleetview (CCU Game), Fleetyards und StarJump FleetViewer — sie ergänzen den Hangar nur, Wunschschiffe landen auf der Wunschliste |
-| ✅ | **Schiffe benennen**: eigene Namen im Abrufterminal (ASOP) statt der Werksnamen, ein Sternchen als Merker — und der Werksname kommt zeichengenau zurück |
+| ✅ | **Namen im Spiel** (im Hangar, an jedem Schiff): eigene Namen im Abrufterminal (ASOP) statt der Werksnamen, ein Sternchen als Merker — und der Werksname kommt zeichengenau zurück |
 | ✅ | **Passt in dein Schiff**: zu jedem Bauplan steht, in welche deiner Schiffe das Teil hineingehört und in wie viele Steckplätze |
 | ✅ | **Wunschliste**: Schiffe, die du dir vornimmst — mit Kaufpreis, Ort und einer Ausstattung, die sich planen lässt, bevor du das Schiff besitzt |
 | ✅ | **Was noch fehlt**: die Rechnung über alle Schiffe — je Steckplatz kaufen oder selbst bauen, mit Güte und Klasse an jedem Teil, Summe und Einkaufsroute; Eingebautes hakst du ab |

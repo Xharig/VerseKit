@@ -62,10 +62,15 @@ HOLE = '#010203'           # die Farbe, die Windows durchsichtig macht
 START_W, START_H = 220, 44
 MIN_W, MIN_H = 40, 14
 PREVIEW_MS = 400
-PANEL_W, PANEL_H = 360, 250
+PANEL_W, PANEL_H = 560, 250
 GRIP = 12
 ALPHA = 0.6
-PREVIEW_H = 60
+# ⚠ Hoch genug, dass ein typischer Ausschnitt (rund 120 × 40 Pixel) mehrfach
+# vergrößert wird. Bei 60 Pixeln Höhe bliebe er 1:1 — die Ziffern wären zum
+# Abtippen zu klein.
+PREVIEW_H = 160
+# Höchste Vergrößerung — darüber werden die Pixel nur noch Klötze.
+PREVIEW_ZOOM_MAX = 6
 
 _open = [None]
 
@@ -92,7 +97,7 @@ def fit_preview(raster, width, height):
     cols = len(raster[0]) if rows else 0
     if not rows or not cols:
         return [[0]]
-    zoom = max(1, min(4, width // cols, height // rows))
+    zoom = max(1, min(PREVIEW_ZOOM_MAX, width // cols, height // rows))
     if zoom > 1:
         return [[v for v in row for _ in range(zoom)]
                 for row in raster for _ in range(zoom)]

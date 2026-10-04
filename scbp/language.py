@@ -5242,6 +5242,18 @@ TEXTS = {
     # es schon kennt. Im Spiel heisst das Terminal so, im Werkzeug heisst es,
     # was es tut.
     'hf_asop':           ('Schiffe benennen', 'Rename ships'),
+    # Die Schiffsnamen stehen im Hangar; die Seite `asop` verweist dorthin.
+    's_as_umgezogen':    ('Die eigenen Schiffsnamen stehen jetzt direkt im '
+                          'Hangar — an jedem Schiff ein Feld „Name im Spiel".',
+                          'Your own ship names now live right in the hangar — '
+                          'every ship has a "Name in the game" field.'),
+    's_as_zum_hangar':   ('Zum Hangar', 'Go to hangar'),
+    's_hg_namen_titel':  ('Namen im Spiel', 'Names in the game'),
+    's_hg_name_feld':    ('Name im Spiel', 'Name in the game'),
+    's_hg_name_alle':    ('Gilt für alle %d × %s — das Spiel unterscheidet '
+                          'gleiche Schiffe nicht.',
+                          'Applies to all %d × %s — the game does not tell '
+                          'identical ships apart.'),
     's_as_lead':         ('Gib deinen Schiffen eigene Namen — so stehen sie im '
                           'Abrufterminal (ASOP), statt mit dem Werksnamen.',
                           'Give your ships your own names — that is how they '
