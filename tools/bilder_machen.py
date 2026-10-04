@@ -104,6 +104,14 @@ WEIT_WEG = (9000, 9000)
 if sys.platform != 'win32':
     WEIT_WEG = (0, 0)
 
+# ⚠⚠ Auf dem eigenen, unsichtbaren Desktop (`eigener_desktop.py`) steht das
+# Fenster ebenfalls bei 0,0. Ausserhalb des Bildschirms bekommt es von Windows
+# keine Zeichen-Auftraege: Was nach dem Rollen neu sichtbar wird, zeichnet
+# niemand, und `PrintWindow` liefert die alten Pixel an der neuen Stelle —
+# Seitenleiste und Hangar standen so doppelt uebereinander.
+if sys.platform == 'win32' and os.environ.get('SC_BP_UNSICHTBAR'):
+    WEIT_WEG = (0, 0)
+
 # Welche Seite unter welchem Namen abgelegt wird. Die Kennungen sind die aus
 # `scbp/pages.py`.
 SEITEN = {
