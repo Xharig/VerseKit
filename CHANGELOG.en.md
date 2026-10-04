@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.90.0 - 2026-10-04
+
+> Whatever belongs to the KRT Profit Basetool is now recognisable at a
+> glance: its buttons wear the Basetool's orange.
+
+### Improved
+
+- **Basetool buttons in KRT orange** — "Sync now" in the storage, the
+  buttons on the Basetool page and the Basetool-format export, in every
+  colour scheme
+
 ## v3.89.0 - 2026-10-04
 
 > In the material storage you now open what you actually use: the single

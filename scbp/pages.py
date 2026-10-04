@@ -749,8 +749,13 @@ def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand, lead=0):
     return nachmessen
 
 
-def _button(window, parent, text, action, strong=False, danger=False):
-    """Ein Knopf im Stil der Vorschau — Rand, Farbe beim Überfahren."""
+def _button(window, parent, text, action, strong=False, danger=False,
+            brand=None):
+    """Ein Knopf im Stil der Vorschau — Rand, Farbe beim Überfahren.
+
+    `brand` färbt Rand und Schrift dauerhaft in einer Fremdfarbe — für Knöpfe,
+    die zu einem anderen Dienst gehören (`theme.KRT_ORANGE` für das Basetool).
+    """
     from .main_window import _round_rect
     # Schema „KRT": starke Knöpfe in Großbuchstaben (Design-System `.btn`).
     if strong and not danger and theme.FILLED_BUTTONS:
@@ -763,8 +768,11 @@ def _button(window, parent, text, action, strong=False, danger=False):
     # gesehen hat man ihn dann längst.
     farbe = RED if danger else (ACCENT if strong else FG)
     rand = RED if danger else (ACCENT if strong else LINE)
+    if brand and not danger:
+        farbe = rand = brand
     # Schema „KRT": starke Knöpfe orange gefüllt, Schrift dunkel.
-    gefuellt = strong and not danger and theme.FILLED_BUTTONS
+    gefuellt = (strong and not danger and not brand
+                and theme.FILLED_BUTTONS)
     if gefuellt:
         farbe = BG
     c = tk.Canvas(parent, width=breite, height=hoehe, bg=BG,
@@ -789,6 +797,11 @@ def _button(window, parent, text, action, strong=False, danger=False):
     def rein(_=None):
         if gefuellt:
             # Gefüllt bleibt die Schrift dunkel — orange auf Orange wäre weg.
+            c.itemconfigure(flaeche[0], outline=FG)
+            return
+        if brand and not danger:
+            # Die Fremdfarbe bleibt; der Rand wird hell, damit das Überfahren
+            # trotzdem sichtbar ist.
             c.itemconfigure(flaeche[0], outline=FG)
             return
         c.itemconfigure(flaeche[0], outline=RED if danger else ACCENT)
@@ -3571,7 +3584,9 @@ def _collection(fenster, rahmen):
         # ⚠ Der Knopf zuerst: `pack` quetscht, was zuletzt kommt — bei der
         # größten Schrift fehlten ihm sonst 15 px (tools/randpruefung.py).
         _button(fenster, z, t('s_be_speichern_kurz'),
-               lambda a=art: einzeln(a)).pack(side='right')
+               lambda a=art: einzeln(a),
+               brand=theme.KRT_ORANGE if art == 'basetool' else None
+               ).pack(side='right')
         # ⚠ Die Breite trägt den LÄNGSTEN Namen — auch einen übersetzten.
         # Ein Label mit zu kleiner `width` wächst über sie hinaus
         # und schiebt die Spalte daneben nach rechts: Dann steht „413
@@ -16287,7 +16302,8 @@ def _storage_sync_button(fenster, reihe, vor, meldung, neu_zeichnen):
         basetool_sync.request_now()
         meldung.configure(text=t('s_lg_sync_laeuft'), fg=SUB)
 
-    knopf = _button(fenster, reihe, t('s_lg_sync'), klick)
+    knopf = _button(fenster, reihe, t('s_lg_sync'), klick,
+                    brand=theme.KRT_ORANGE)
 
     def sichtbar_setzen():
         try:

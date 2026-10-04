@@ -68,7 +68,8 @@ def _buttons(window, card, entries):
     row.pack(fill='x', padx=16, pady=(0, 12))
     for text, action, kind in entries:
         _button(window, row, text, action, strong=kind == 'strong',
-                danger=kind == 'danger').pack(side='left', padx=(0, 8))
+                danger=kind == 'danger',
+                brand=theme.KRT_ORANGE).pack(side='left', padx=(0, 8))
     return row
 
 
@@ -602,14 +603,15 @@ def _login_box(window, card, login, redraw):
     tk.Label(code_row, text=device.user_code, bg=SURFACE, fg=ACCENT,
              font=window.f_title, anchor='w').pack(side='left')
     _button(window, code_row, t('s_bt_kopieren'),
-            lambda: _copy(window, device.user_code)).pack(side='left',
-                                                          padx=(12, 0))
+            lambda: _copy(window, device.user_code),
+            brand=theme.KRT_ORANGE).pack(side='left', padx=(12, 0))
     address_row = tk.Frame(card, bg=SURFACE)
     address_row.pack(fill='x', padx=16, pady=(6, 4))
     tk.Label(address_row, text=t('s_bt_adresse_h'), bg=SURFACE, fg=FG,
              font=window.f_small).pack(side='left', padx=(0, 6))
     _button(window, address_row, t('s_bt_kopieren'),
-            lambda: _copy(window, device.verification_uri)).pack(side='right')
+            lambda: _copy(window, device.verification_uri),
+            brand=theme.KRT_ORANGE).pack(side='right')
     link_box = tk.Frame(address_row, bg=SURFACE)
     link_box.pack(side='left', fill='x', expand=True)
     _link(window, link_box, device.verification_uri, device.verification_uri,

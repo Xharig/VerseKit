@@ -49,6 +49,10 @@ from . import paths
 
 SETTING = 'farbschema'
 
+# Hausfarbe des KRT Profit Basetools — für Knöpfe, die dorthin gehören, in
+# jedem Farbschema gleich.
+KRT_ORANGE = '#e77e23'
+
 SCHEMES = {
     'original': {
         'label': 's_da_original',

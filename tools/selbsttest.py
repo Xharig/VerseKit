@@ -35881,6 +35881,28 @@ def _pruefung_377():
                and _pf381.setting_bool('lager_hand_offen', False) is True,
                'öffnen() klappt wieder auf (Bearbeiten eines Postens)')
         _pf381.set_setting('lager_hand_offen', _alt381)
+
+        print('\n382. Basetool-Knöpfe in KRT-Orange')
+        from scbp import theme as _th382
+
+        def _farben382(knopf):
+            return {knopf.itemcget(i, 'fill' if knopf.type(i) == 'text'
+                                   else 'outline').lower()
+                    for i in knopf.find_all()}
+        _orange382 = _pg380._button(_f380, _rahmen381, 'Probe', lambda: None,
+                                    brand=_th382.KRT_ORANGE)
+        _normal382 = _pg380._button(_f380, _rahmen381, 'Probe', lambda: None)
+        pruefe(_th382.KRT_ORANGE in _farben382(_orange382),
+               'ein Basetool-Knopf trägt Rand und Schrift in KRT-Orange')
+        pruefe(_th382.KRT_ORANGE not in _farben382(_normal382)
+               or _th382.ACCENT.lower() == _th382.KRT_ORANGE,
+               'Gegenprobe: ein gewöhnlicher Knopf nicht')
+        _sync382 = [k for k in _knoepfe380 if any(
+            str(k.itemcget(i, 'text')) == _la380.t('s_lg_sync')
+            for i in k.find_all() if k.type(i) == 'text')]
+        pruefe(len(_sync382) == 1
+               and _th382.KRT_ORANGE in _farben382(_sync382[0]),
+               '„Jetzt übertragen" im Lager ist orange')
     finally:
         _pg380._storage_sync_ready = _bereit380
         try:

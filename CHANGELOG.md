@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.90.0 - 2026-10-04
+
+> Was zum KRT Profit Basetool gehört, erkennst du jetzt auf einen Blick: Die
+> Knöpfe dafür stehen in dessen Orange.
+
+### Verbessert
+
+- **Basetool-Knöpfe in KRT-Orange** — „Jetzt übertragen" im Lager, die
+  Knöpfe auf der Basetool-Seite und der Export im Basetool-Format, in jedem
+  Farbschema
+
 ## v3.89.0 - 2026-10-04
 
 > Im Rohstofflager klappst du jetzt auf, was du wirklich nutzt: die
