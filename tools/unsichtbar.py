@@ -284,7 +284,12 @@ def sicherstellen(breite=1400, hoehe=1000, messend=False):
     Linux mit Xvfb: startet sich selbst auf einem unsichtbaren Bildschirm neu —
     dann endet der Prozess hier mit dem Rückgabewert des Kindprozesses.
     Sonst (Windows, Mac): versteckt die Fenster und kehrt zurück.
+
+    ⚠ Schaltet auch den Seiten-Vorbau ab: Ein Prüflauf baut viele Fenster,
+    und jedes baute sonst im Leerlauf alle Seiten nach — Zeit, Netz und
+    Zählungen, die nicht zur Prüfung gehören. Erbt jeder Kindprozess.
     """
+    os.environ['SC_BP_NO_PREBUILD'] = '1'
     if os.environ.get(SICHTBAR_GEWOLLT):
         return
     if os.environ.get(SCHON_UNSICHTBAR):

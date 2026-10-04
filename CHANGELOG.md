@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.83.0 - 2026-10-04
+
+> Schneller umschalten: Verse-Kit baut die Seiten jetzt vor, während du
+> nichts tust — beim Anklicken stehen sie sofort da. Läuft Star Citizen,
+> wartet es damit.
+
+### Verbessert
+
+- **Seiten stehen sofort da** — ist das Fenster offen und du klickst
+  gerade nicht, baut Verse-Kit die übrigen Seiten nacheinander vor, die
+  meistbenutzten zuerst. Jede Eingabe hat Vorrang, und solange Star Citizen
+  läuft, wird nichts vorgebaut
+
 ## v3.82.0 - 2026-10-04
 
 > Ein Bild im ganzen Programm: Jede Liste hat jetzt Streifen, damit du

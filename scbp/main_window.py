@@ -101,24 +101,17 @@ COMMUNITY_SIZES = (64, 80, 96, 112, 128, 160, 200)
 # ihre Gruppen sind klappbar — was nicht hinpasst, rollt.
 MIN_WIDTH, MIN_HEIGHT = 1160, 380
 
-# ⚠⚠ **Der Seiten-Vorbau ist ABGESCHALTET.**
+# ⭐ **Der Seiten-Vorbau.** Er baut die übrigen Seiten im Leerlauf vor, damit
+# sie beim Anklicken sofort dastehen — die meistbenutzten zuerst.
 #
-# Er baut alle uebrigen Seiten im Hintergrund vor, damit sie beim Anklicken
-# sofort dastehen. Tk zeichnet aber einstraengig, und der Vorbau haelt die
-# Oberflaeche **1,7 Sekunden** am Stueck fest (gemessen ueber 17 Seiten:
-# `wasistneu` 181 ms, `diagnose` 162 ms, `liste` 87 ms). Getroffen wird
-# jeweils das, was der Nutzer gerade anfasst — **wechselnde Symptome, eine
-# Ursache.** Er laeuft auch weiter, waehrend die frisch geoeffnete Seite noch
-# gezeichnet wird — sie meldet `steht (3 ms)` und ist trotzdem nicht zu sehen.
-#
-# ⚠ **Er beschleunigt nichts:** Dieselbe Arbeit faellt weiter an, nur bevor
-# jemand darauf wartet. Ohne ihn kostet die erste Anzeige einer Seite genau
-# ihre Bauzeit, und die ist gemessen vertretbar: Bauplan-Liste 87 ms,
-# teuerste Seite 178 ms, alle uebrigen unter 40 ms.
-#
-# Wer ihn wieder einschaltet, muss zuerst das Zeichnen der angeklickten Seite
-# sicherstellen.
-PREBUILD_ON = False
+# ⚠⚠ Tk zeichnet einsträngig: Eine Seite im Bau hält die Oberfläche fest
+# (Hangar und Steuerung rund eine Sekunde). Deshalb baut er nur, wenn
+# `PREBUILD_IDLE_S` lang keine Eingabe kam, eine Seite je Durchlauf, und nie,
+# solange Star Citizen läuft — dort kostete jede Sekunde Bildrate.
+PREBUILD_ON = True
+# Seiten, die beim Bauen einen großen Abruf anstoßen — die Shops holen dann
+# den ganzen Ladenkatalog. Das gehört zum Anklicken, nicht in den Leerlauf.
+PREBUILD_SKIP = frozenset(('laeden',))
 
 # Die zuletzt eingestellte Fenstergroesse. Nur die **Groesse**, keine Lage:
 # Eine gemerkte Position zeigt auf einem anderen Rechner ins Nichts (siehe
@@ -3395,7 +3388,7 @@ class MainWindow:
         # Ketten parallel erzeugt.
         if not getattr(self, '_prebuild_running', False):
             self._prebuild_running = True
-            if PREBUILD_ON:
+            if PREBUILD_ON and not os.environ.get('SC_BP_NO_PREBUILD'):
                 self._last_action = time.monotonic()
                 # ⚠ Jede Eingabe verschiebt den Vorbau nach hinten — siehe
                 # `_prebuild_pages`. `add='+'` ist Pflicht, sonst verdraengt
@@ -3695,8 +3688,9 @@ class MainWindow:
     # fest. Gemessen, waehrend das Fenster bedient wird: `wasistneu` 181 ms,
     # `diagnose` 153 ms, in Summe **1,7 Sekunden** ueber 17 Seiten — ein
     # Stocken an wechselnder Stelle, je nachdem, was gerade angefasst wird.
-    PREBUILD_IDLE_S = 1.2
+    PREBUILD_IDLE_S = 1.5
     PREBUILD_RECHECK_MS = 400
+    PREBUILD_GAME_S = 30
 
     def _remember_action(self, _ereignis=None):
         """Zeitpunkt der letzten Eingabe — der Vorbau richtet sich danach."""
@@ -3731,8 +3725,29 @@ class MainWindow:
             if rest is None:
                 from . import pages
                 rest = [k for k in pages.page_ids()
-                        if k not in self.drawn]
+                        if k not in self.drawn and k not in PREBUILD_SKIP]
+                # Die meistbenutzten Seiten zuerst — `sorted` ist stabil, bei
+                # gleicher Zahl bleibt die Reihenfolge der Leiste.
+                try:
+                    zahl = (page_usage.stored().get('pages') or {})
+                    rest.sort(key=lambda k: -int(zahl.get(k) or 0))
+                except Exception:
+                    pass
             if not rest:
+                return
+            # ⚠⚠ Nie bei laufendem Spiel — eine Seite im Bau kostet dort
+            # Bildrate. Nachgesehen wird höchstens alle `PREBUILD_GAME_S`.
+            jetzt = time.monotonic()
+            if jetzt - getattr(self, '_game_checked', -1e9) >= self.PREBUILD_GAME_S:
+                self._game_checked = jetzt
+                try:
+                    from . import auto_update
+                    self._game_on = bool(auto_update.game_running())
+                except Exception:
+                    self._game_on = False
+            if getattr(self, '_game_on', False):
+                self.root.after(self.PREBUILD_GAME_S * 1000,
+                                lambda r=rest: self._prebuild_pages(r))
                 return
             # ⚠⚠ **Erst bauen, wenn der Nutzer eine Weile nichts getan hat.**
             # Ohne das lief der Vorbau mitten in die Bedienung hinein und hielt

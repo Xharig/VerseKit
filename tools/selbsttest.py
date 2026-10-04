@@ -9642,32 +9642,31 @@ def main():
         _hs98d.load = _echt_laden98d
 
 
-    # 98e. Der Seiten-Vorbau bleibt abgeschaltet
+    # 98e. Der Seiten-Vorbau: nur im Leerlauf, nie im Spiel, nie im Prüflauf
     #
-    # ⚠ Er baute alle Seiten im Hintergrund vor und hielt Tk dabei **1,7 s**
-    # am Stueck fest (17 Seiten; `wasistneu` 181 ms, `diagnose` 162 ms).
-    # Getroffen wird jeweils das, was der Nutzer gerade anfasst — mal die
-    # Seitenleiste, mal die Bauplan-Liste. Beschleunigt hat er nie etwas, er
-    # verlagert nur.
-    #
-    # ⚠ Diese Pruefung verbietet ihn NICHT — sie sorgt dafuer, dass ein
-    # Wiedereinschalten bewusst geschieht und nicht aus Versehen
-    # passiert. Wer ihn zurueckholt, muss zuerst das Zeichnen der angeklickten
-    # Seite sicherstellen und diese Pruefung mit anfassen.
+    # ⚠ Eine Seite im Bau hält Tk fest (Hangar, Steuerung rund eine
+    # Sekunde). Gebaut wird deshalb nur nach einer Pause ohne Eingabe, eine
+    # Seite je Durchlauf, nicht bei laufendem Spiel — und nie in einem
+    # Prüflauf, der sonst in jedem Fenster alle Seiten nachbaute.
     print()
-    print('98e. Der Seiten-Vorbau ist abgeschaltet')
+    print('98e. Der Seiten-Vorbau wartet auf Leerlauf und Spielende')
     _q98e = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                  encoding='utf-8').read()
-    pruefe('PREBUILD_ON = False' in _q98e,
-           'die Abschaltung steht als eigene Konstante da')
     _code98e = chr(10).join(_z for _z in _q98e.split(chr(10))
                             if not _z.strip().startswith('#'))
-    pruefe('if PREBUILD_ON:' in _code98e,
-           'und der Start haengt wirklich daran')
+    _vorbau98e = _code98e.split('def _prebuild_pages')[1].split('\n    def ')[0]
+    pruefe("PREBUILD_ON and not os.environ.get('SC_BP_NO_PREBUILD')"
+           in _code98e,
+           'der Start hängt am Schalter und an der Sperre für Prüfläufe')
     _start98e = _code98e.index('after(400, self._prebuild_pages)')
-    _schalter98e = _code98e.index('if PREBUILD_ON:')
+    _schalter98e = _code98e.index('if PREBUILD_ON and')
     pruefe(_schalter98e < _start98e,
            'der Schalter steht VOR dem Start, nicht daneben')
+    pruefe('auto_update.game_running()' in _vorbau98e
+           and 'PREBUILD_IDLE_S' in _vorbau98e,
+           'gebaut wird nur ohne Spiel und nach einer Pause ohne Eingabe')
+    pruefe(os.environ.get('SC_BP_NO_PREBUILD') == '1',
+           'im Prüflauf ist der Vorbau gesperrt')
 
 
     # 99. Man sieht, welcher Bauplan in der Herstellung aufgeklappt ist
@@ -25223,6 +25222,7 @@ def main():
     _pruefung_331()
     _pruefung_332()
     _pruefung_333()
+    _pruefung_334()
 
     print()
     if fehler:
@@ -33663,6 +33663,47 @@ def _pruefung_333():
                                           knoten.lineno, name))
     pruefe(not ohne, 'kein Eingabefeld ohne Hinweistext (%d: %s)'
            % (len(ohne), ', '.join(ohne[:8])))
+
+
+def _pruefung_334():
+    """334. Seiten-Vorbau: meistbenutzte Seite zuerst, nie bei laufendem Spiel.
+
+    Im echten Hauptfenster, ein Durchlauf von Hand angestoßen: Läuft das
+    Spiel, wird nichts gebaut. Sonst genau eine Seite — die meistbenutzte.
+    """
+    print('\n334. Seiten-Vorbau')
+    from scbp import main_window as _hf334, auto_update as _au334
+    from scbp import page_usage as _pu334
+    alt = (_au334.game_running, _pu334.stored)
+    w = None
+    try:
+        w = _wurzel()
+        fenster = _hf334.MainWindow(w, version='0.0.0-pruefung')
+        w.update()
+        fenster._last_action = -1e9
+        _pu334.stored = lambda: {'pages': {'raffinerien': 9, 'hangar': 2}}
+
+        _au334.game_running = lambda: True
+        fenster._game_checked = -1e9
+        vorher = set(fenster.drawn)
+        fenster._prebuild_pages()
+        pruefe(set(fenster.drawn) == vorher,
+               'läuft das Spiel, baut der Vorbau nichts')
+
+        _au334.game_running = lambda: False
+        fenster._game_checked = -1e9
+        fenster._prebuild_pages()
+        neu = set(fenster.drawn) - vorher
+        pruefe(neu == {'raffinerien'},
+               'sonst genau eine Seite, die meistbenutzte zuerst (%s)'
+               % sorted(neu))
+    finally:
+        _au334.game_running, _pu334.stored = alt
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
 
 
 def _alle_eingaben(w):

@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.83.0 - 2026-10-04
+
+> Faster switching: Verse-Kit now builds pages ahead while you are idle —
+> click one and it is already there. While Star Citizen runs, it waits.
+
+### Improved
+
+- **Pages are there right away** — while the window is open and you are
+  not clicking, Verse-Kit builds the remaining pages one by one, most used
+  first. Any input comes first, and nothing is built while Star Citizen is
+  running
+
 ## v3.82.0 - 2026-10-04
 
 > One look across the whole program: every list now has stripes, so rows

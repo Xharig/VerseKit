@@ -15,10 +15,9 @@ Der zweite Fall MUSS nahe null liegen. Tut er das nicht, arbeitet beim
 Einblenden noch etwas — und das trifft den Nutzer bei **jedem** Klick, nicht
 nur beim ersten.
 
-⚠ Der Seiten-Vorbau ist abgeschaltet (siehe `PREBUILD_ON` in
-`main_window.py`). Die erste Anzeige kostet deshalb genau die Bauzeit. Das ist
-gewollt — ein Vorbau beschleunigt nichts, sondern verlegt die Arbeit nur vor
-und friert dabei die Oberfläche 1,7 Sekunden ein.
+⚠ Im Messlauf ist der Seiten-Vorbau gesperrt (`SC_BP_NO_PREBUILD`, gesetzt
+von `unsichtbar.sicherstellen`). Gemessen wird also die reine Bauzeit einer
+Seite beim ersten Anzeigen.
 
 ## Aufruf
 
