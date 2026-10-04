@@ -6845,7 +6845,8 @@ def _thanks(fenster, rahmen):
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
              + t('s_dk_greluc_idee2'), t('s_dk_greluc_bugs')),
             ('Parsul', 'KRT', '', t('s_dk_parsul_bugs') + '\n\n'
-             + t('s_dk_parsul_bugs2') + '\n\n' + t('s_dk_parsul_bugs3')),
+             + t('s_dk_parsul_bugs2') + '\n\n' + t('s_dk_parsul_bugs3')
+             + '\n\n' + t('s_dk_parsul_bugs4')),
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.
@@ -12573,7 +12574,9 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         if stand['liest']:
             return
         if not refinery_scan.supported():
-            lese_zeigen(t('s_rf_lesen_nur_windows'), GOLD)
+            lese_zeigen(t('s_rf_lesen_aus' if sys.platform == 'win32'
+                          and not refinery_scan.OCR_ENABLED
+                          else 's_rf_lesen_nur_windows'), GOLD)
             return
         stand['liest'] = True
         lese_zeigen(t('s_rf_lesen_warten'))

@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.91.1 - 2026-10-05
+
+> Windows Defender wrongly reported Verse-Kit as a trojan and removed it.
+> The trigger was the refinery scanner's text recognition — it is switched
+> off until there is a way no antivirus misreads.
+
+> [!important]
+> If Windows removed Verse-Kit: install this version again. The refinery
+> button "Read screen" only says it is switched off for now — typing the
+> lines works as before.
+
+### Fixed
+
+- **Windows Defender reported Verse-Kit as a trojan** — the refinery
+  scanner no longer starts text recognition in the background. Reported by
+  Parsul (KRT)
+
 ## v3.91.0 - 2026-10-05
 
 > The refinery scanner now prefers reading too little over reading wrong:

@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.91.1 - 2026-10-05
+
+> Windows Defender hat Verse-Kit fälschlich als Trojaner gemeldet und
+> entfernt. Auslöser war die Texterkennung des Raffinerie-Scanners — sie ist
+> abgeschaltet, bis es einen Weg gibt, den kein Virenschutz missversteht.
+
+> [!important]
+> Hat Windows Verse-Kit entfernt: diese Version neu installieren. Der
+> Raffinerie-Knopf „Bildschirm lesen" sagt bis auf Weiteres nur, dass er
+> abgeschaltet ist — Abtippen geht wie gewohnt.
+
+### Behoben
+
+- **Windows Defender meldete Verse-Kit als Trojaner** — der
+  Raffinerie-Scanner startet keine Texterkennung im Hintergrund mehr.
+  Gemeldet von Parsul (KRT)
+
 ## v3.91.0 - 2026-10-05
 
 > Der Raffinerie-Scanner liest jetzt lieber zu wenig als falsch: Zahlen, bei

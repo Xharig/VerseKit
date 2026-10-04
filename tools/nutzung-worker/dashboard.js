@@ -6,7 +6,7 @@
 // und Stil mit dem Einmal-Wert (`nonce`) dieser Antwort zu.
 
 import { ICON } from './icon.js';
-import { PAGES, ROUTES, ACTIONS, MAX_CLICKS } from './pages.js';
+import { PAGES, ROUTES, ACTIONS, MERGED, MAX_CLICKS } from './pages.js';
 
 // Für das Skript der Seite: als JSON, `<` maskiert, damit kein Name das
 // Skript-Element beenden kann.
@@ -129,7 +129,10 @@ const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es
 const PAGES = ${asScript(PAGES)};
 const ROUTES = ${asScript(ROUTES)};
 const ACTIONS = ${asScript(ACTIONS)};
+const MERGED = ${asScript(MERGED)};
 const MAX_CLICKS = ${MAX_CLICKS};
+// Seite, unter der eine Kennung gezählt wird (MERGED, sonst sie selbst).
+const alias = (p) => MERGED[p] || p;
 const ROUTE_COLORS = { seitenleiste: 'var(--accent)', sprung: 'var(--b)', overlay: 'var(--c)',
   tray: 'var(--d)', start: 'var(--sub)' };
 const pageName = (p) => (PAGES[p] || ['', p])[1];
@@ -406,9 +409,9 @@ function pageBlocks(d, inSpan) {
 
   // Rangliste: jede Seite aus PAGES, auch mit 0 — der Balken nach Wegen
   // aufgeteilt. Bei gleicher Zahl gilt die Reihenfolge der Seitenleiste.
-  const views = sum(d.seiten, (r) => r.seite);
-  const ways = sum(d.seiten_wege, (r) => r.seite + '|' + r.weg);
-  const order = Object.keys(PAGES);
+  const views = sum(d.seiten, (r) => alias(r.seite));
+  const ways = sum(d.seiten_wege, (r) => alias(r.seite) + '|' + r.weg);
+  const order = Object.keys(PAGES).filter((p) => !MERGED[p]);
   const ranked = order.slice().sort((a, b) => ((views[b] || 0) - (views[a] || 0)) || (order.indexOf(a) - order.indexOf(b)));
   const rc = card('Seiten nach Aufrufen (Zeitraum)', true);
   const top = Math.max(1, ...ranked.map((p) => views[p] || 0));
@@ -440,7 +443,7 @@ function pageBlocks(d, inSpan) {
   for (const r of d.seiten_klicks || []) {
     if (!inSpan.has(r.tag)) continue;
     const k = Math.min(Number(r.klicks), MAX_CLICKS);
-    const m = dist[r.seite] = dist[r.seite] || {};
+    const m = dist[alias(r.seite)] = dist[alias(r.seite)] || {};
     m[k] = (m[k] || 0) + r.n;
   }
   const median = (m) => { const n = Object.values(m).reduce((a, x) => a + x, 0); let run = 0;
@@ -472,7 +475,7 @@ function pageBlocks(d, inSpan) {
   kc.appendChild($('div', { class: 'note', text: 'Ziel = eine Seite, auf der man mindestens 3 Sekunden bleibt. Klicks = Seitenwechsel und Auf- oder Zuklappen in der Seitenleiste, ab dem Öffnen des Fensters bzw. seit dem letzten Ziel. 0 = gleich beim Öffnen da, ' + MAX_CLICKS + '+ = ' + MAX_CLICKS + ' oder mehr.' }));
 
   // Häufigste Fehlgriffe als „A → B".
-  const miss = sum(d.seiten_fehlgriffe, (r) => r.von + '>' + r.nach);
+  const miss = sum(d.seiten_fehlgriffe, (r) => alias(r.von) + '>' + alias(r.nach));
   const pairs = Object.entries(miss).filter(([k]) => k.split('>').every((p) => PAGES[p]))
     .sort((a, b) => b[1] - a[1]).slice(0, 15)
     .map(([k, n]) => { const [a, b] = k.split('>'); return [pageName(a) + ' → ' + pageName(b), n]; });

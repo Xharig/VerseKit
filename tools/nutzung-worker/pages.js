@@ -54,6 +54,13 @@ export const PAGES = {
   startprogramme: ['Für Fortgeschrittene', 'Startprogramme'],
 };
 
+// Seiten ohne eigenen Reiter: Der Worker nimmt sie weiter an (ältere
+// Fassungen melden sie), die Übersicht zählt sie bei der genannten Seite mit
+// und zeigt sie nicht als eigene Zeile.
+export const MERGED = {
+  asop: 'hangar',
+};
+
 // Die Wege, auf denen eine Seite geöffnet wird (`page_usage.ROUTES`).
 export const ROUTES = {
   seitenleiste: 'Seitenleiste',

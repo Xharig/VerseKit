@@ -222,6 +222,12 @@ TEXTS = {
                         'improve the scanner.'),
     's_rf_lesen_unsicher': ('Nicht sicher gelesen, bitte selbst eintippen: %s',
                             'Not read reliably, please type in yourself: %s'),
+    's_rf_lesen_aus':  ('Bildschirm lesen ist vorübergehend abgeschaltet — '
+                        'Virenschutz-Programme hielten die Texterkennung für '
+                        'einen Angriff. Bitte die Zeilen abtippen.',
+                        'Reading the screen is switched off for now — '
+                        'antivirus programs mistook the text recognition for '
+                        'an attack. Please type the lines in.'),
     's_rf_lesen_nur_windows': ('Bildschirm lesen geht bisher nur unter Windows.',
                                'Reading the screen only works on Windows so '
                                'far.'),
@@ -2714,6 +2720,12 @@ TEXTS = {
                               'heißt nur ihr interner Typ im Spiel.',
                               '**The fuel nozzles were called "docking collars"** — '
                               'that is only their internal type in the game.'),
+    's_dk_parsul_bugs4':     ('**Windows Defender hielt Verse-Kit für einen '
+                              'Trojaner** — ausgelöst von der Texterkennung des '
+                              'Raffinerie-Scanners, die seitdem abgeschaltet ist.',
+                              '**Windows Defender took Verse-Kit for a trojan** — '
+                              'triggered by the refinery scanner\'s text '
+                              'recognition, which has been switched off since.'),
     's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
                               'seine Übersetzungen für dieses Werkzeug '
                               'freigegeben. Dazu drei Anstöße an einem '

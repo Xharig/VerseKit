@@ -35563,9 +35563,12 @@ def _pruefung_347():
         aufrufe[:] = []
         feld.scan_read()
         w.update()
-        pruefe(feld.scan_message.cget('text') == _la347.t('s_rf_lesen_nur_windows')
+        _erwartet347 = ('s_rf_lesen_aus' if sys.platform == 'win32'
+                        and not _rs347.OCR_ENABLED
+                        else 's_rf_lesen_nur_windows')
+        pruefe(feld.scan_message.cget('text') == _la347.t(_erwartet347)
                and aufrufe == [],
-               'ohne Windows: Hinweis, kein Lesen')
+               'ohne Texterkennung: Hinweis, kein Lesen')
     finally:
         (_rs347.supported, _rs347.wait_for_game, _rs347.read_screen,
          _cr347.storable, _up347.would_send) = echt
@@ -36044,6 +36047,27 @@ def _pruefung_377():
         pruefe(len(_sync382) == 1
                and _th382.KRT_ORANGE in _farben382(_sync382[0]),
                '„Jetzt übertragen" im Lager ist orange')
+
+        print('\n383. Kein verschleiert gestartetes PowerShell im Programm')
+        # Ein unsichtbares powershell.exe mit -EncodedCommand oder
+        # -ExecutionPolicy Bypass werten Virenschutz-Programme als Angriff.
+        _funde383 = []
+        for _wurzel383, _, _dateien383 in os.walk(os.path.join(WURZEL, 'scbp')):
+            for _n383 in _dateien383:
+                if not _n383.endswith('.py'):
+                    continue
+                with open(os.path.join(_wurzel383, _n383),
+                          encoding='utf-8') as _f383:
+                    _q383 = _f383.read()
+                for _muster383 in ('-EncodedCommand', "'Bypass'",
+                                   '-ExecutionPolicy'):
+                    if _muster383 in _q383:
+                        _funde383.append('%s: %s' % (_n383, _muster383))
+        pruefe(not _funde383, 'kein -EncodedCommand/Bypass in scbp (%s)'
+               % (', '.join(_funde383) or 'keins'))
+        from scbp import refinery_scan as _rs383
+        pruefe(_rs383.supported() is False and _rs383.OCR_ENABLED is False,
+               'der Bildschirm-Scanner ist abgeschaltet')
     finally:
         _pg380._storage_sync_ready = _bereit380
         try:

@@ -21,7 +21,7 @@ Das Raffinerie-Terminal vom Bildschirm lesen.
 
 Ablauf: Star-Citizen-Fenster abgreifen (`screen_grab`), als BMP in den
 Temp-Ordner legen, mit der Texterkennung von Windows lesen
-(`Windows.Media.Ocr` über `powershell.exe`, ohne Fenster). Zuerst wird das
+(derzeit abgeschaltet, siehe `OCR_ENABLED`). Zuerst wird das
 ganze Bild in vergrößerten Kacheln nach der Kopfzeile der Ausbeute-Tabelle
 abgesucht (`search_jobs`, `find_table`) — das Terminal kann irgendwo auf
 einem breiten Bildschirm stehen. Danach wird nur dieser Ausschnitt mehrfach
@@ -34,7 +34,7 @@ Knopf dort.
 
 | System | Stand |
 |---|---|
-| Windows 10/11 | gebaut — braucht eine installierte OCR-Sprache (de oder en) |
+| Windows 10/11 | abgeschaltet (`OCR_ENABLED`) |
 | Linux | nicht unterstützt (`supported()` ist False) |
 
 ⚠ Die Erkennung arbeitet auf Wörtern mit Begrenzungsrahmen, nicht auf den
@@ -48,134 +48,12 @@ verschiedener Vergrößerung (`PASSES`), und ein Wert gilt erst, wenn
 mindestens zwei Lesungen ihn gleich lasen (`merge_passes`). Unsichere
 Werte bleiben frei und werden namentlich als unsicher angezeigt.
 """
-import base64
 import difflib
-import json
 import os
 import re
-import subprocess
 import sys
 import tempfile
 import time
-
-_CREATE_NO_WINDOW = 0x08000000
-
-# Liest das Bild aus `VK_OCR_IMAGE` einmal je Auftrag aus `VK_OCR_JOBS`
-# (`x,y,b,h,vergrößerung,art`, getrennt durch `;`) und schreibt je Auftrag
-# die Wörter mit Rahmen als JSON — in Bildpunkten des Originals. Wahlweise
-# legt es vorher das ganze Bild (`VK_OCR_SAVE`) und einen Ausschnitt
-# (`VK_OCR_SAVE_CROP` = `x,y,b,h|pfad`) als PNG ab. Nimmt die Sprache des
-# Benutzerprofils, sonst die erste installierte.
-_PS_SCRIPT = r'''
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-try {
-Add-Type -AssemblyName System.Runtime.WindowsRuntime
-$null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics, ContentType = WindowsRuntime]
-$asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
-    $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and
-    $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' } | Select-Object -First 1
-function Await($op, [Type]$type) {
-    $task = $asTask.MakeGenericMethod($type).Invoke($null, @($op))
-    $null = $task.Wait(-1)
-    $task.Result
-}
-$langs = @([Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages | ForEach-Object { $_.LanguageTag })
-$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
-if ($null -eq $engine -and $langs.Count) {
-    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new($langs[0]))
-}
-if ($null -eq $engine) { Write-Output '{"error":"no_engine"}'; exit 0 }
-Add-Type -AssemblyName System.Drawing
-$source = [System.Drawing.Bitmap]::new($env:VK_OCR_IMAGE)
-$fw = [int]$source.Width; $fh = [int]$source.Height
-if ($env:VK_OCR_SAVE) {
-    $maxw = [int]$env:VK_OCR_SAVE_MAXW
-    if ($maxw -gt 0 -and $fw -gt $maxw) {
-        $small = [System.Drawing.Bitmap]::new($maxw, [int][Math]::Round($fh * $maxw / $fw))
-        $gs = [System.Drawing.Graphics]::FromImage($small)
-        $gs.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $gs.DrawImage($source, 0, 0, $small.Width, $small.Height); $gs.Dispose()
-        $small.Save($env:VK_OCR_SAVE, [System.Drawing.Imaging.ImageFormat]::Png); $small.Dispose()
-    } else {
-        $source.Save($env:VK_OCR_SAVE, [System.Drawing.Imaging.ImageFormat]::Png)
-    }
-}
-if ($env:VK_OCR_SAVE_CROP) {
-    $sc = $env:VK_OCR_SAVE_CROP.Split('|'); $c = $sc[0].Split(',') | ForEach-Object { [int]$_ }
-    $sx = [Math]::Max(0, $c[0]); $sy = [Math]::Max(0, $c[1])
-    $part = $source.Clone([System.Drawing.Rectangle]::new($sx, $sy,
-        [Math]::Min($c[2], $fw - $sx), [Math]::Min($c[3], $fh - $sy)), $source.PixelFormat)
-    $part.Save($sc[1], [System.Drawing.Imaging.ImageFormat]::Png); $part.Dispose()
-}
-$limit = [Windows.Media.Ocr.OcrEngine]::MaxImageDimension
-$inv = [Globalization.CultureInfo]::InvariantCulture
-$passes = foreach ($job in $env:VK_OCR_JOBS.Split(';')) {
-    $spec = $job.Split(',')
-    $cx = [Math]::Max(0, [int]$spec[0]); $cy = [Math]::Max(0, [int]$spec[1])
-    $cw = [Math]::Min([int]$spec[2], $fw - $cx); $ch = [Math]::Min([int]$spec[3], $fh - $cy)
-    if ($cw -le 0 -or $ch -le 0) { continue }
-    $scale = [double]::Parse($spec[4], $inv)
-    $mode = $spec[5]
-    if ($scale -le 0) { $scale = 1.0 }
-    if ([Math]::Max($cw, $ch) * $scale -gt $limit) { $scale = $limit / [Math]::Max($cw, $ch) }
-    $tw = [int][Math]::Floor($cw * $scale); $th = [int][Math]::Floor($ch * $scale)
-    $target = [System.Drawing.Bitmap]::new($tw, $th, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
-    $g = [System.Drawing.Graphics]::FromImage($target)
-    $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-    $attr = [System.Drawing.Imaging.ImageAttributes]::new()
-    if ($mode -eq 'gray') {
-        # grayscale, stretched contrast; light text stays light
-        $k = 1.8
-        $m = [System.Drawing.Imaging.ColorMatrix]::new()
-        foreach ($o in 0, 1, 2) {
-            $m.Item(0, $o) = 0.30 * $k; $m.Item(1, $o) = 0.59 * $k
-            $m.Item(2, $o) = 0.11 * $k; $m.Item(4, $o) = -0.25
-        }
-        $m.Item(3, 3) = 1.0; $m.Item(4, 4) = 1.0
-        $attr.SetColorMatrix($m)
-    }
-    if ($mode -eq 'dark') {
-        # grayscale, inverted, contrast stretched by 1/0.7: dark text on light
-        $m = [System.Drawing.Imaging.ColorMatrix]::new()
-        foreach ($o in 0, 1, 2) {
-            $m.Item(0, $o) = -0.30 / 0.7; $m.Item(1, $o) = -0.59 / 0.7
-            $m.Item(2, $o) = -0.11 / 0.7; $m.Item(4, $o) = 1.0 / 0.7
-        }
-        $m.Item(3, 3) = 1.0; $m.Item(4, 4) = 1.0
-        $attr.SetColorMatrix($m)
-    }
-    $g.DrawImage($source, [System.Drawing.Rectangle]::new(0, 0, $tw, $th), $cx, $cy, $cw, $ch,
-                 [System.Drawing.GraphicsUnit]::Pixel, $attr)
-    $g.Dispose()
-    $memory = [System.IO.MemoryStream]::new()
-    $target.Save($memory, [System.Drawing.Imaging.ImageFormat]::Bmp)
-    $target.Dispose()
-    $memory.Position = 0
-    $stream = [System.IO.WindowsRuntimeStreamExtensions]::AsRandomAccessStream($memory)
-    $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
-    $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
-    $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
-    $memory.Dispose()
-    $words = foreach ($line in $result.Lines) {
-        foreach ($w in $line.Words) {
-            $r = $w.BoundingRect
-            @{ t = $w.Text; x = [int]($cx + $r.X / $scale); y = [int]($cy + $r.Y / $scale);
-               w = [int]($r.Width / $scale); h = [int]($r.Height / $scale) }
-        }
-    }
-    @{ box = @($cx, $cy, $cw, $ch); scale = $scale; mode = $mode; words = @($words) }
-}
-$source.Dispose()
-@{ width = $fw; height = $fh;
-   lang = $engine.RecognizerLanguage.LanguageTag; passes = @($passes) } | ConvertTo-Json -Depth 5 -Compress
-} catch {
-    @{ error = 'failed'; detail = $_.Exception.Message } | ConvertTo-Json -Compress
-}
-'''
-
 
 class ScanError(Exception):
     """Lesen nicht möglich — `reason` ist ein Kennwort für die Oberfläche."""
@@ -186,9 +64,15 @@ class ScanError(Exception):
         self.detail = detail
 
 
+# Ein unsichtbar gestartetes `powershell.exe` mit verschlüsseltem Befehl
+# werten Virenschutz-Programme als Schadsoftware. Ohne einen anderen Weg zur
+# Texterkennung ist das Lesen deshalb abgeschaltet.
+OCR_ENABLED = False
+
+
 def supported():
     """Gibt es auf diesem System eine Texterkennung, die wir nutzen?"""
-    return sys.platform == 'win32'
+    return OCR_ENABLED and sys.platform == 'win32'
 
 
 # --------------------------------------------------------------- Abgriff
@@ -250,66 +134,12 @@ def grab_game(rect):
 
 
 # ------------------------------------------------------------------ OCR
-def _powershell():
-    root = os.environ.get('SystemRoot') or r'C:\Windows'
-    path = os.path.join(root, 'System32', 'WindowsPowerShell', 'v1.0',
-                        'powershell.exe')
-    return path if os.path.isfile(path) else 'powershell.exe'
-
-
 def ocr_image(path, jobs, save=None, save_crop=None, timeout=180):
-    """Ein Bild mit der Windows-Texterkennung lesen. Gibt das Ergebnis-dict
-    `{'width', 'height', 'lang', 'passes': [{'box', 'scale', 'mode',
-    'words'}, …]}`.
-
-    Startet `powershell.exe` (Windows PowerShell 5.1 kennt die
-    WinRT-Typen, PowerShell 7 nicht) ohne Fenster. Je Eintrag in `jobs`
-    ein Durchgang `((x, y, b, h), vergrößerung, art)` über diesen Ausschnitt —
-    Art `plain` (unverändert) oder `gray` (Graustufe mit gespreiztem
-    Kontrast). Die Vergrößerung endet bei `OcrEngine.MaxImageDimension`. Die
-    Wortrahmen stehen immer in Bildpunkten des Originals. `save` legt das
-    ganze Bild als PNG ab, verkleinert auf höchstens `KEEP_MAX_WIDTH`
-    Bildpunkte Breite; `save_crop` = `((x, y, b, h), pfad)` einen
-    Ausschnitt in voller Auflösung. Das Bild muss BMP, PNG oder JPEG sein.
-    """
-    if not supported():
-        raise ScanError('nicht_unterstuetzt')
-    encoded = base64.b64encode(_PS_SCRIPT.encode('utf-16-le')).decode('ascii')
-    startup = subprocess.STARTUPINFO()
-    startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    startup.wShowWindow = 0
-    env = dict(os.environ, VK_OCR_IMAGE=os.path.abspath(path),
-               VK_OCR_JOBS=';'.join(
-                   '%d,%d,%d,%d,%.3f,%s' % (tuple(int(v) for v in box)
-                                            + (float(scale), mode))
-                   for box, scale, mode in jobs),
-               VK_OCR_SAVE=os.path.abspath(save) if save else '',
-               VK_OCR_SAVE_MAXW=str(int(KEEP_MAX_WIDTH)),
-               VK_OCR_SAVE_CROP=('%s|%s' % (','.join(str(int(v)) for v in
-                                                     save_crop[0]),
-                                            os.path.abspath(save_crop[1]))
-                                 if save_crop else ''))
-    try:
-        done = subprocess.run(
-            [_powershell(), '-NoProfile', '-NonInteractive',
-             '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
-            capture_output=True, env=env, timeout=timeout,
-            creationflags=_CREATE_NO_WINDOW, startupinfo=startup)
-    except (OSError, subprocess.SubprocessError) as error:
-        raise ScanError('ocr', str(error))
-    text = done.stdout.decode('utf-8', 'replace').strip()
-    try:
-        data = json.loads(text[text.find('{'):]) if '{' in text else {}
-    except ValueError:
-        data = {}
-    if data.get('error') == 'no_engine':
-        raise ScanError('keine_sprache')
-    if isinstance(data.get('passes'), dict):
-        data['passes'] = [data['passes']]
-    if data.get('error') or not isinstance(data.get('passes'), list):
-        raise ScanError('ocr', data.get('detail') or
-                        done.stderr.decode('utf-8', 'replace')[:300])
-    return data
+    """Ein Bild mit der Texterkennung lesen — derzeit abgeschaltet
+    (`OCR_ENABLED`). Gibt das Ergebnis-dict `{'width', 'height', 'lang',
+    'passes': [{'box', 'scale', 'mode', 'words'}, …]}` zurück, sobald es
+    wieder einen Weg gibt; bis dahin `ScanError('nicht_unterstuetzt')`."""
+    raise ScanError('nicht_unterstuetzt')
 
 
 # ------------------------------------------------------- Zeilen bauen
