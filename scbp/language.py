@@ -1596,14 +1596,21 @@ TEXTS = {
                         'und näher, als es ist.',
                           'You are sitting {:.0f} cm too close. Everything '
                           'looks bigger and closer than it is.'),
-    's_fv_untergrenze': ('Enger als etwa {:.0f}° lässt Star Citizen das '
-                         'Sichtfeld bei deiner Auflösung nicht stellen — den '
-                         'neutralen Wert erreichst du also nicht. Am nächsten '
-                         'kommst du mit dem kleinsten Wert im Menü.',
-                           'Star Citizen does not let you set the field of '
-                           'view narrower than about {:.0f}° at your '
-                           'resolution, so the neutral value is out of reach. '
-                           'The smallest value in the menu gets you closest.'),
+    's_fv_neutral_unerreichbar': ('Bei deiner Auflösung nicht einstellbar — '
+                                  'Star Citizen geht nur bis etwa {:.0f}° '
+                                  'herunter.',
+                                  'Not reachable at your resolution — Star '
+                                  'Citizen only goes down to about {:.0f}°.'),
+    's_fv_am_minimum': ('Passt — enger geht es im Spiel nicht. Du bist so nah '
+                        'am neutralen Wert, wie es dein Bildschirm zulässt.',
+                        'Good — the game cannot go any narrower. You are as '
+                        'close to neutral as your screen allows.'),
+    's_fv_zum_minimum': ('Stell im Spiel unter „Sichtfeld" den kleinsten Wert '
+                         'ein (etwa {:.0f}°) — näher an den neutralen kommst '
+                         'du nicht.',
+                         'Set "Field of View" in the game to its lowest value '
+                         '(about {:.0f}°) — that is as close to neutral as '
+                         'you can get.'),
     's_fv_kein_spielwert': ('Im Spiel wurde noch kein Wert gefunden — starte '
                             'Star Citizen einmal.',
                               'No value found in the game yet — start Star '

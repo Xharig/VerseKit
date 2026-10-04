@@ -17561,10 +17561,20 @@ def _view_angle(fenster, rahmen):
         neutral = fov_modul.field_of_view(breite_mm, abstand_mm)
         if neutral is None:
             return
-        _wert_zeile(inhalt, t('s_fv_neutral'), '%.1f°' % neutral,
-                    hilfe=t('s_fv_neutral_hilfe'), farbe=ACCENT)
-
         spiel = fov_modul.game_setting()
+        # Liegt der neutrale Wert unter dem engsten, den das Spiel bei dieser
+        # Auflösung zulässt, ist er nicht einstellbar — dann wird nicht zum
+        # Eintragen aufgefordert, und der Sitzabstand wird nicht bewertet.
+        engste = fov_modul.narrowest_horizontal(spiel)
+        unerreichbar = engste is not None and neutral < engste - 0.5
+        if unerreichbar:
+            _wert_zeile(inhalt, t('s_fv_neutral'), '%.1f°' % neutral,
+                        hilfe=t('s_fv_neutral_unerreichbar').format(engste),
+                        farbe=GOLD)
+        else:
+            _wert_zeile(inhalt, t('s_fv_neutral'), '%.1f°' % neutral,
+                        hilfe=t('s_fv_neutral_hilfe'), farbe=ACCENT)
+
         if spiel.get('fov') is None:
             _body_text(inhalt, t('s_fv_kein_spielwert'), fenster.f_small,
                         fill='x')
@@ -17586,15 +17596,23 @@ def _view_angle(fenster, rahmen):
         optimal_mm = fov_modul.distance_for(breite_mm, im_spiel)
         if optimal_mm is None:
             return
-        _wert_zeile(inhalt, t('s_fv_optimalpunkt'),
-                    '%.0f cm' % (optimal_mm / 10.0),
-                    hilfe=t('s_fv_optimalpunkt_hilfe'))
+        if not unerreichbar:
+            _wert_zeile(inhalt, t('s_fv_optimalpunkt'),
+                        '%.0f cm' % (optimal_mm / 10.0),
+                        hilfe=t('s_fv_optimalpunkt_hilfe'))
 
         # --- 4. Rot / Gelb / Grün --------------------------------------
         note, abweichung = fov_modul.rating(abstand_mm, optimal_mm)
         farbe = {'gruen': ACCENT, 'gelb': GOLD}.get(note, RED)
         unterschied_cm = abs(abstand_mm - optimal_mm) / 10.0
-        if note == 'gruen':
+        if unerreichbar:
+            # Ein Sitzabstand von wenigen Zentimetern ist kein Rat. Bewertet
+            # wird nur, ob der engste mögliche Wert eingestellt ist.
+            if im_spiel <= engste + 1.5:
+                text, farbe = t('s_fv_am_minimum'), ACCENT
+            else:
+                text, farbe = t('s_fv_zum_minimum').format(engste), GOLD
+        elif note == 'gruen':
             text = t('s_fv_passt_gut')
         elif abweichung > 0:
             text = t('s_fv_zu_weit').format(unterschied_cm)
@@ -17609,10 +17627,6 @@ def _view_angle(fenster, rahmen):
                  font=fenster.f_bold, anchor='w',
                  padx=12, pady=10).pack(side='left', fill='x', expand=True)
 
-        engste = fov_modul.narrowest_horizontal(spiel)
-        if engste is not None and neutral < engste - 0.5:
-            _body_text(inhalt, t('s_fv_untergrenze').format(engste),
-                        fenster.f_small, fill='x')
         _body_text(inhalt, t('s_fv_hinweis_deutung'), fenster.f_small,
                     fill='x')
 

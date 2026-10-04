@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.87.1 - 2026-10-04
+
+> Auf sehr breiten Bildschirmen ist der neutrale Blickwinkel im Spiel gar
+> nicht einstellbar. Die FOV-Seite sagt das jetzt, statt einen Wert zum
+> Eintragen und einen unmöglichen Sitzabstand zu nennen.
+
+### Behoben
+
+- **FOV-Seite auf 32:9** — liegt der neutrale Wert unter dem kleinsten, den
+  das Spiel zulässt, steht dort „nicht einstellbar" und der Rat, den
+  kleinsten Wert zu nehmen; am kleinsten Wert heißt es „Passt"
+
 ## v3.87.0 - 2026-10-04
 
 > Der Verkauf zeigt auf Knopfdruck alles, was du abbauen kannst, sortiert

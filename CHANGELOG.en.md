@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.87.1 - 2026-10-04
+
+> On very wide screens the neutral field of view cannot be set in the game
+> at all. The FOV page now says so instead of naming a value to enter and an
+> impossible seating distance.
+
+### Fixed
+
+- **FOV page on 32:9** — if the neutral value is below the lowest the game
+  allows, it reads "not reachable" with the advice to use the lowest value;
+  at the lowest value it says "Good"
+
 ## v3.87.0 - 2026-10-04
 
 > Selling now shows everything you can mine at the push of a button, sorted

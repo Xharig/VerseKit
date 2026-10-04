@@ -34489,6 +34489,87 @@ def _pruefung_338():
         except Exception:
             pass
 
+    print('\n345. FOV: unerreichbarer neutraler Wert — kein Eintragen, kein Abstand')
+    # 32:9, 116,6 cm breit, 87 cm Abstand: neutral 67,6°, das Spiel geht nur
+    # bis ~123° herunter. Dann fordert die Seite nicht zum Eintragen auf und
+    # bewertet den Sitzabstand nicht.
+    _alt_fov345 = _fv343.game_setting
+    _alt_kal345 = _fv343.stored()
+    _w345 = None
+    _alt_sprache345 = _la342.current()
+    _la342.set_language('de')
+
+    def _seite345(datei_fov):
+        _fv343.game_setting = lambda *a, **k: {
+            'fov': datei_fov, 'breite': 5120.0, 'hoehe': 1440.0, 'datei': 'x'}
+        _w = _wurzel()
+        _f = _mw344.MainWindow(_w, version='0.0.0-pruefung')
+        _f.open_page('blickwinkel')
+        _w.update()
+        out = []
+
+        def _lauf(x):
+            try:
+                out.append(str(x.cget('text')))
+            except Exception:
+                pass
+            for k in x.winfo_children():
+                _lauf(k)
+        _lauf(_f.pages['blickwinkel'])
+        return _w, ' | '.join(out)
+
+    try:
+        _fv343.remember(mm_per_px=1166.0 / 5120.0, width_px=5120,
+                        distance_mm=870)
+        _w345, _t345 = _seite345(54.7681)
+        pruefe(_la342.t('s_fv_am_minimum') in _t345,
+               'am kleinsten Wert: „Passt — enger geht es nicht"')
+        pruefe('zu weit weg' not in _t345 and 'Optimalpunkt' not in _t345,
+               'kein „zu weit weg", kein Optimalpunkt von wenigen cm')
+        pruefe(_la342.t('s_fv_neutral_hilfe') not in _t345
+               and 'nicht einstellbar' in _t345,
+               'der neutrale Wert heisst nicht einstellbar statt „eintragen"')
+        _w345.destroy()
+        _w345, _t345 = _seite345(67.1)
+        pruefe('kleinsten Wert' in _t345 and 'zu weit weg' not in _t345,
+               'weiter offen: Rat zum kleinsten Wert statt Abstand')
+        _w345.destroy()
+        # Gegenprobe: 16:9, 120 cm breit, 60 cm Abstand — neutral 90°, das
+        # Spiel erlaubt ab ~88°: erreichbar, also wird der Abstand bewertet.
+        _fv343.game_setting = lambda *a, **k: {
+            'fov': 60.0, 'breite': 2560.0, 'hoehe': 1440.0, 'datei': 'x'}
+        _fv343.remember(mm_per_px=1200.0 / 2560.0, width_px=2560,
+                        distance_mm=600)
+        _w345 = _wurzel()
+        _f345 = _mw344.MainWindow(_w345, version='0.0.0-pruefung')
+        _f345.open_page('blickwinkel')
+        _w345.update()
+        _t345 = []
+
+        def _lauf345(x):
+            try:
+                _t345.append(str(x.cget('text')))
+            except Exception:
+                pass
+            for k in x.winfo_children():
+                _lauf345(k)
+        _lauf345(_f345.pages['blickwinkel'])
+        pruefe('Optimalpunkt' in ' | '.join(_t345),
+               'Gegenprobe: erreichbar, also wird der Optimalpunkt gezeigt')
+    finally:
+        _la342.set_language(_alt_sprache345)
+        _fv343.game_setting = _alt_fov345
+        if _alt_kal345:
+            _fv343.remember(
+                mm_per_px=_alt_kal345.get('fov_mm_je_pixel'),
+                width_px=_alt_kal345.get('fov_pixelbreite'),
+                distance_mm=_alt_kal345.get('fov_abstand_mm'))
+        try:
+            if _w345 is not None:
+                _w345.destroy()
+        except Exception:
+            pass
+
 
 def _alle_eingaben(w):
     """Alle Eingabefelder unter `w`, in Baumreihenfolge."""
