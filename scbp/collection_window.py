@@ -338,7 +338,7 @@ class Bestandsfenster:
                        round(_ms_katalog),
                        len(self.katalog.get('bauplaene') or {})))
         self.filter = 'alle'
-        self.suche = tk.StringVar(eltern)
+        self.suche = tk.StringVar(self.root)
         from .main_window import after_typing
         self.suche.trace_add('write', after_typing(
             self.root, lambda: self._zeichnen(nach_oben=True)))
@@ -1605,6 +1605,10 @@ class Bestandsfenster:
         self._zeichen_lauf = getattr(self, '_zeichen_lauf', 0) + 1
         lauf = self._zeichen_lauf
 
+        # Die Zeilen verborgen abräumen und neu bauen; sichtbar wird die
+        # Liste wieder im Leerlauf (`hide_until_idle`).
+        from .main_window import hide_until_idle
+        hide_until_idle(self.leinwand, self.fenster)
         for kind in self.inhalt.winfo_children():
             kind.destroy()
 

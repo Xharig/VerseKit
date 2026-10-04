@@ -25237,6 +25237,7 @@ def main():
     _pruefung_352()
     _pruefung_370()
     _pruefung_377()
+    _pruefung_390()
 
     print()
     if fehler:
@@ -36073,6 +36074,190 @@ def _pruefung_377():
         try:
             if _w380 is not None:
                 _w380.destroy()
+        except Exception:
+            pass
+
+
+class _Feld390:
+    """Ein Ersatz-Widget für `after_typing` mit eigener Uhr: Geplante
+    Rückrufe laufen erst, wenn `bis(ms)` die Uhr über ihren Termin stellt."""
+
+    def __init__(self):
+        self.jetzt = 0
+        self.plan = {}
+        self.nummer = 0
+
+    def winfo_exists(self):
+        return True
+
+    def after(self, ms, rueckruf):
+        self.nummer += 1
+        self.zuletzt_ms = ms
+        self.plan[self.nummer] = (self.jetzt + ms, rueckruf)
+        return self.nummer
+
+    def after_cancel(self, kennung):
+        self.plan.pop(kennung, None)
+
+    def bis(self, ms):
+        """Die Uhr auf `ms` stellen und alles Fällige laufen lassen."""
+        self.jetzt = ms
+        for kennung, (termin, rueckruf) in sorted(self.plan.items()):
+            if termin <= ms:
+                del self.plan[kennung]
+                rueckruf()
+
+
+# Abstände zwischen zwei Tasten innerhalb eines Worts (ms).
+_TAKT390 = (170, 240, 210, 300, 190, 260, 230, 280)
+
+
+def _neuaufbauten390(**wartezeit):
+    """Ein Wort mit neun Buchstaben im Takt `_TAKT390` tippen. Gibt die
+    Neuaufbauten WÄHREND des Worts, die danach und die geplante Wartezeit
+    zurück."""
+    from scbp import main_window as _mw390
+    feld = _Feld390()
+    laeufe = []
+    getippt = _mw390.after_typing(feld, lambda: laeufe.append(feld.jetzt),
+                                  **wartezeit)
+    zeit = 0
+    getippt()
+    for abstand in _TAKT390:
+        zeit += abstand
+        feld.bis(zeit - 1)
+        getippt()
+    waehrend = len(laeufe)
+    feld.bis(zeit + 5000)
+    return waehrend, len(laeufe) - waehrend, feld.zuletzt_ms
+
+
+def _pruefung_390():
+    """390: Suchfelder — kein Neuaufbau mitten im Wort, kein Neuaufbau und
+    kein Schreiben je Tastendruck."""
+    print('\n390. Tippen in Suchfeldern: kein Neuaufbau mitten im Wort')
+    from scbp import main_window as _mw390
+    waehrend, danach, _ms390 = _neuaufbauten390()
+    pruefe(waehrend == 0,
+           'beim Tippen im üblichen Takt baut die Liste nicht zwischen den'
+           ' Tasten neu (%d Mal, Wartezeit %d ms)' % (waehrend, _ms390))
+    pruefe(danach == 1, 'nach dem Wort genau ein Neuaufbau (%d)' % danach)
+    _gegen_w390 = _neuaufbauten390(delay=200)[0]
+    pruefe(_gegen_w390 > 0,
+           'Gegenprobe: mit 200 ms Wartezeit liefe der Neuaufbau mitten im'
+           ' Wort (%d Mal)' % _gegen_w390)
+
+    if not hat_anzeige():
+        print('  (Bauplan-Liste übersprungen: kein Bildschirm)')
+        return
+    import builtins as _bi390
+    from scbp import paths as _pf390
+    _echt_setzen390 = _pf390.set_setting
+    _echt_open390 = _bi390.open
+    _schreiben390 = [0]
+
+    def _setzen390(*a, **k):
+        _schreiben390[0] += 1
+        return _echt_setzen390(*a, **k)
+
+    def _open390(datei, modus='r', *a, **k):
+        if any(z in str(modus) for z in 'wax+'):
+            _schreiben390[0] += 1
+        return _echt_open390(datei, modus, *a, **k)
+
+    _w390 = None
+    _gegen390 = None
+    try:
+        _w390 = _wurzel()
+        _f390 = _mw390.MainWindow(_w390, start_page='liste')
+        for _ in range(6):
+            _w390.update()
+        _seite390 = getattr(_f390, 'stock_page', None)
+        pruefe(_seite390 is not None, 'die Bauplan-Liste steht')
+        if _seite390 is None:
+            return
+        _zeichnen390 = []
+        _echt_zeichnen390 = _seite390._zeichnen
+
+        def _zaehlen390(*a, **k):
+            try:
+                return _echt_zeichnen390(*a, **k)
+            finally:
+                _zeichnen390.append(_seite390.leinwand.itemcget(
+                    _seite390.fenster, 'state'))
+        _seite390._zeichnen = _zaehlen390
+        _feld390 = _seite390.suchfeld
+        # Wie beim ersten Tastendruck: Hinweis weg, Variable angehängt. Die
+        # Zeichen kommen über `insert` — dasselbe, was die Taste im Feld tut,
+        # auch bei einem versteckten Fenster.
+        _feld390.hint_hide()
+        _w390.update()
+        _pf390.set_setting = _setzen390
+        _bi390.open = _open390
+
+        def _tippen390(text):
+            je_taste = []
+            for zeichen in text:
+                vorher = (_schreiben390[0], len(_zeichnen390))
+                _feld390.insert('end', zeichen)
+                _w390.update()
+                je_taste.append((_schreiben390[0] - vorher[0],
+                                 len(_zeichnen390) - vorher[1]))
+            return je_taste
+
+        # Die Zählung muss selbst greifen: ein Schreiben über die
+        # Einstellungen wird gezählt.
+        _schreiben390[0] = 0
+        _pf390.set_setting('pruefung390', 1)
+        pruefe(_schreiben390[0] >= 1, 'die Zählung sieht ein Schreiben')
+
+        _schreiben390[0] = 0
+        _je390 = _tippen390('gol')
+        pruefe(_seite390.suche.get() == 'gol',
+               'die Tasten kommen im Suchfeld an (%r; Feld %r, Variable %r'
+               ' / %r, Zustand %r)'
+               % (_seite390.suche.get(), _feld390.get(),
+                  str(_feld390.cget('textvariable')), str(_seite390.suche),
+                  str(_feld390.cget('state'))))
+        pruefe(all(s == 0 for s, _ in _je390),
+               'kein Schreiben auf die Platte je Tastendruck (%s)'
+               % [s for s, _ in _je390])
+        pruefe(all(z == 0 for _, z in _je390),
+               'kein Neuaufbau der Liste je Tastendruck (%s)'
+               % [z for _, z in _je390])
+        _ende390 = time.time() + 2.0
+        while time.time() < _ende390 and not _zeichnen390:
+            _w390.update()
+            time.sleep(0.02)
+        pruefe(len(_zeichnen390) == 1,
+               'nach der Pause baut die Liste genau einmal neu (%d)'
+               % len(_zeichnen390))
+        pruefe(_zeichnen390[:1] == ['hidden'],
+               'während des Neuaufbaus ist die Liste verborgen (%s)'
+               % _zeichnen390[:1])
+        for _ in range(5):
+            _w390.update()
+        pruefe(_seite390.leinwand.itemcget(_seite390.fenster, 'state')
+               != 'hidden', 'danach ist die Liste wieder zu sehen')
+
+        # Gegenprobe: schreibt jede Taste in die Einstellungen, wird das
+        # gesehen.
+        _gegen390 = _seite390.suche.trace_add(
+            'write', lambda *_a: _pf390.set_setting('pruefung390', 2))
+        _je_gegen390 = _tippen390('d')
+        pruefe(any(s > 0 for s, _ in _je_gegen390),
+               'Gegenprobe: ein Schreiben je Taste fiele auf')
+    finally:
+        _pf390.set_setting = _echt_setzen390
+        _bi390.open = _echt_open390
+        try:
+            if _gegen390 is not None:
+                _seite390.suche.trace_remove('write', _gegen390)
+        except Exception:
+            pass
+        try:
+            if _w390 is not None:
+                _w390.destroy()
         except Exception:
             pass
 

@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.91.2 - 2026-10-05
+
+> Typing in the search fields no longer stutters: the list is rebuilt once
+> you pause briefly, no longer between two letters.
+
+### Fixed
+
+- **Search fields stuttered while typing** — blueprint list, crafting,
+  shops, selling, storage, hangar and mining rebuilt their results after a
+  200 ms pause, i.e. in the middle of a word; each rebuild held up input
+  for up to two seconds. The search now waits 400 ms, and the blueprint
+  list rebuilds its rows hidden
+
 ## v3.91.1 - 2026-10-05
 
 > Windows Defender wrongly reported Verse-Kit as a trojan and removed it.

@@ -884,8 +884,8 @@ def _own_scroll(start, stop):
 
 
 # Wartezeit nach dem letzten Tastendruck, bevor ein Suchfeld seine Liste neu
-# aufbaut.
-TYPING_DELAY_MS = 200
+# aufbaut — länger als die Pause zwischen zwei Tasten innerhalb eines Worts.
+TYPING_DELAY_MS = 400
 
 
 def after_typing(widget, action, delay=TYPING_DELAY_MS):
@@ -914,6 +914,30 @@ def after_typing(widget, action, delay=TYPING_DELAY_MS):
             pending['id'] = None
 
     return typed
+
+
+def hide_until_idle(canvas, item):
+    """Das Fenster-Element `item` der Leinwand verbergen, bis Tk wieder ruht.
+
+    Für einen Neuaufbau: Zeilen, die in einem verborgenen Element zerstört
+    und neu gebaut werden, zeichnet Tk nicht einzeln, sondern einmal, wenn
+    das Element im Leerlauf wieder erscheint. Ein schon verborgenes Element
+    bleibt unberührt. Gibt zurück, ob verborgen wurde.
+    """
+    def show():
+        try:
+            canvas.itemconfigure(item, state='normal')
+        except tk.TclError:
+            pass
+
+    try:
+        if canvas.itemcget(item, 'state') == 'hidden':
+            return False
+        canvas.itemconfigure(item, state='hidden')
+        canvas.after_idle(show)
+        return True
+    except tk.TclError:
+        return False
 
 
 def bind_wheel(canvas):

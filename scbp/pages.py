@@ -13010,21 +13010,7 @@ def _hangar(fenster, rahmen):
     # ganzer Block mit aufklappbarer Ausstattung, und Tk rechnet für jedes
     # gepackte Kind. Je Tastendruck neu bauen hieße bei 40 Schiffen spürbares
     # Stocken.
-    filter_warte = {'id': None}
-
-    def _filter_bald(*_args):
-        if filter_warte['id']:
-            try:
-                liste_rahmen.after_cancel(filter_warte['id'])
-            except tk.TclError:
-                pass
-        try:
-            filter_warte['id'] = liste_rahmen.after(250, _filter_jetzt)
-        except tk.TclError:
-            pass
-
     def _filter_jetzt():
-        filter_warte['id'] = None
         try:
             if liste_rahmen.winfo_exists():
                 _liste_fuellen()
@@ -13042,6 +13028,8 @@ def _hangar(fenster, rahmen):
         gesamt = max(1, innen.winfo_reqheight())
         leinwand.yview_moveto(liste_rahmen.winfo_y() / gesamt)
 
+    from .main_window import after_typing as _after_typing
+    _filter_bald = _after_typing(liste_rahmen, _filter_jetzt)
     schiff.trace_add('write', _filter_bald)
     hangar_suche.trace_add('write', _filter_bald)
 

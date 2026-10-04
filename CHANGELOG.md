@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.91.2 - 2026-10-05
+
+> Tippen in den Suchfeldern stockt nicht mehr: Die Liste wird erst neu
+> aufgebaut, wenn du kurz innehältst, nicht mehr zwischen zwei Buchstaben.
+
+### Behoben
+
+- **Suchfelder stockten beim Tippen** — Bauplan-Liste, Herstellung, Shops,
+  Verkauf, Lager, Hangar und Bergbau bauten ihre Ergebnisse schon nach
+  200 ms Pause neu auf, also mitten im Wort; jeder Neuaufbau hielt die
+  Eingabe bis zu zwei Sekunden fest. Jetzt wartet die Suche 400 ms, und die
+  Bauplan-Liste baut ihre Zeilen verdeckt um
+
 ## v3.91.1 - 2026-10-05
 
 > Windows Defender hat Verse-Kit fälschlich als Trojaner gemeldet und
