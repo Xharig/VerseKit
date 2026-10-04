@@ -42,10 +42,10 @@ from . import paths
 # vergleicht beides.
 SWITCHABLE = {
     'schiffe': ('hangar', 'wunschliste', 'einkaufsliste'),
-    'werkstatt': ('lager', 'herstellung', 'bergbau', 'raffinerien', 'laeden',
-                  'farmliste'),
+    'werkstatt': ('herstellung', 'farmliste', 'lager', 'bergbau',
+                  'raffinerien'),
     'bergung': ('bergung', 'zerlegen'),
-    'handel': ('handelslager', 'verkauf', 'routen'),
+    'handel': ('laeden', 'handelslager', 'verkauf', 'routen'),
     'statistiken': ('statistik_auswertung', 'statistik', 'statistik_schiffe',
                     'statistik_auftraege', 'statistik_quantum',
                     'statistik_stabil'),

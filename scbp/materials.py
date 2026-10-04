@@ -473,7 +473,31 @@ _BOOKING = re.compile(r'^\s*([+\-−])\s*([\d.,]+)\s*$')
 CSCU = 0.01
 
 
-def refinery_lines(text, unit='cscu'):
+# Ab dieser Menge in SCU ist eine Verwechslung mit cSCU wahrscheinlicher als
+# die Menge selbst — eine Raffinerie-Zeile über 100 SCU ist selten.
+SCU_SUSPICIOUS = 100.0
+
+UNIT_WORDS = {'cscu': 'cscu', 'scu': 'scu'}
+
+
+def unit_hint(value, unit):
+    """Textschlüssel eines Hinweises, wenn die Einheit verwechselt aussieht.
+
+    SCU ab `SCU_SUSPICIOUS` sieht nach einer cSCU-Zahl aus dem Terminal aus,
+    eine Kommazahl in cSCU nach einer SCU-Angabe. `None`, wenn nichts auffällt.
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if unit == 'scu' and value >= SCU_SUSPICIOUS:
+        return 's_lg_hinweis_scu_gross'
+    if unit == 'cscu' and abs(value - round(value)) > 1e-9:
+        return 's_lg_hinweis_cscu_komma'
+    return None
+
+
+def refinery_lines(text, unit='cscu', hints=None):
     """Die Ausbeute eines Raffinerie-Auftrags aus getipptem Text lesen.
 
     Erwartet je Zeile `Material Qualität Menge`, so wie es im Terminal steht:
@@ -493,16 +517,27 @@ def refinery_lines(text, unit='cscu'):
     ⚠ **cSCU ist die Voreinstellung**, weil das Terminal so rechnet
     (`GEWONNENE MATERIALIEN (cSCU)`). Bei der falschen Annahme steht im Lager
     alles um den Faktor 100 daneben, und die Herstellung rechnet mit Unsinn.
+
+    ⭐ Eine Zeile darf ihre Einheit selbst nennen (`Titanium 295 188 cSCU`,
+    `Titanium 295 1.88 SCU`). Dann gilt sie, egal was `unit` sagt.
+
+    `hints` (eine Liste) sammelt `(zeile, textschlüssel, menge)` für Zeilen,
+    deren Einheit verwechselt aussieht — siehe `unit_hint`. Sie werden
+    trotzdem gelesen.
     """
     from . import crafting
     from .language import t
     entries, errors = [], []
-    factor = CSCU if unit == 'cscu' else 1.0
     for raw in (text or '').splitlines():
         line = raw.strip()
         if not line:
             continue
         parts = line.replace('\t', ' ').split()
+        line_unit = unit
+        if parts and parts[-1].lower() in UNIT_WORDS:
+            line_unit = UNIT_WORDS[parts[-1].lower()]
+            parts = parts[:-1]
+        factor = CSCU if line_unit == 'cscu' else 1.0
         if len(parts) < 3:
             errors.append((line, t('s_rf_zu_kurz')))
             continue
@@ -537,6 +572,9 @@ def refinery_lines(text, unit='cscu'):
             errors.append((line, t('s_rf_menge')))
             continue
         entries.append((real, round(value * factor, 4), quality))
+        hint = unit_hint(value, line_unit)
+        if hint and hints is not None:
+            hints.append((line, hint, round(value * factor, 4)))
     return entries, errors
 
 

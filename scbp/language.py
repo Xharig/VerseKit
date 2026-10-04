@@ -177,6 +177,7 @@ TEXTS = {
                           'Storage location for this yield'),
     's_rf_einheit':    ('Menge in', 'Amount in'),
     's_rf_knopf':      ('%d Posten eintragen', 'Add %d entries'),
+    's_rf_wird_zu':    ('%s: %s SCU · Q %d', '%s: %s SCU · Q %d'),
     's_rf_nichts':     ('Noch nichts eingetippt.', 'Nothing typed yet.'),
     's_rf_zu_kurz':    ('Zu wenig Angaben — es braucht Material, Qualität und '
                         'Menge.',
@@ -686,8 +687,8 @@ TEXTS = {
     's_lg_abbau_fahrzeug': ('Fahrzeug', 'Vehicle'),
     's_lg_abbau_schiff': ('Schiff', 'Ship'),
     's_lg_suche':        ('Im Lager suchen …', 'Search stock …'),
-    's_ld_suche_platz':  ('Teil oder Hersteller suchen',
-                          'Search item or manufacturer'),
+    's_ld_suche_platz':  ('Teil, Schiff oder Hersteller suchen',
+                          'Search item, ship or manufacturer'),
     's_ld_ort':          ('Ort', 'Location'),
     's_ld_ort_unbekannt': ('An diesem Ort verkauft niemand etwas aus der Liste.',
                            'Nobody at this location sells anything from the list.'),
@@ -3605,6 +3606,12 @@ TEXTS = {
                             'selection above.'),
     's_ld_nur_kaufbar':  ('%d Teile, die wirklich jemand verkauft',
                             '%d parts that someone actually sells'),
+    's_ld_nur_kaufbar_schiffe': ('%d Teile und %d Schiffe, die wirklich '
+                                 'jemand verkauft',
+                                 '%d parts and %d ships that someone '
+                                 'actually sells'),
+    's_ld_bereiche_kopf': ('Tippe einen Namen — oder wähle einen Bereich:',
+                           'Type a name — or pick a section:'),
     # ⚠⚠ **Die Bereiche und Warengruppen von UEX — englisch in den Daten.**
     # Sie stehen in den Auswahlmenüs des Laden-Reiters, also gehören sie
     # übersetzt wie jeder andere sichtbare Text. Die Zuordnung „UEX-Name →
@@ -4635,6 +4642,16 @@ TEXTS = {
                           '»+3« adds 3, »-3« removes 3.'),
     # Die Vorschau neben dem Mengenfeld.
     's_lg_ergibt':       ('ergibt %g %s', 'makes %g %s'),
+    's_lg_wird_zu':      ('= %s SCU im Lager', '= %s SCU in stock'),
+    # ⚠ Die beiden Verwechslungen SCU/cSCU — siehe `materials.unit_hint`.
+    's_lg_hinweis_scu_gross': ('Das wären %s SCU — sehr viel. Zahlen vom '
+                               'Raffinerie-Terminal sind cSCU.',
+                               'That would be %s SCU — a lot. Numbers from '
+                               'the refinery terminal are cSCU.'),
+    's_lg_hinweis_cscu_komma': ('Kommazahl in cSCU — das wären nur %s SCU. '
+                                'Meintest du SCU?',
+                                'Decimal in cSCU — that is only %s SCU. '
+                                'Did you mean SCU?'),
     's_lg_ergibt_null':  ('ergibt 0 — der Posten wird gelöscht',
                           'makes 0 — the entry will be removed'),
     's_lg_ergibt_minus': ('mehr als vorhanden (%g %s)',
@@ -5355,7 +5372,7 @@ TEXTS = {
     'hf_bergbau':        ('Bergbau', 'Mining'),
     'hf_raffinerien':    ('Raffinerien', 'Refineries'),
     # --- Gruppe „Handel" (v3.4.0) ---
-    'hf_gruppe_handel':  ('Handel', 'Trading'),
+    'hf_gruppe_handel':  ('Handel & Einkauf', 'Trading & buying'),
     'hf_verkauf':        ('Verkauf', 'Selling'),
     'hf_handelslager':   ('Handelslager', 'Cargo hold'),
     'hf_gruppe_einst':   ('Einstellungen', 'Settings'),

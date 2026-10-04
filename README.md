@@ -136,19 +136,19 @@ Der Bauplan ist der Anfang. Die Werkstatt beantwortet, was danach kommt: **was b
 <sub><b>Raffinerien</b> — was jede Raffinerie aus deinem Erz macht: Aufschlag und Abschlag je Material</sub>
 </td>
 </tr>
+</table>
+
+### Handel & Einkauf
+
+Kaufen und verkaufen: **Wo steht ein Teil oder Schiff im Regal — und wo werde ich die Ladung los, und was bringt sie je SCU?**
+
+<table>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-laeden.png" alt="Shops" width="100%"><br>
 <sub><b>Shops</b> — wo ein fertiges Teil im Regal steht und was es dort kostet</sub>
 </td>
 </tr>
-</table>
-
-### Handel
-
-Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was bringt sie je SCU?**
-
-<table>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-handelslager.png" alt="Handelslager mit eingetragener Ladung" width="100%"><br>

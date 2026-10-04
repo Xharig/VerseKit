@@ -9402,6 +9402,35 @@ def _shops(fenster, rahmen):
         wahl['gruppe'] = gruppe
         _filter_gewechselt()
 
+    def _bereiche_zeigen():
+        """Ohne Eingabe: alle Bereiche zum Anklicken, Schiffe zuerst.
+
+        ⭐ Sonst steht unter dem Suchfeld nichts, und dass es hier auch
+        Schiffe gibt, erfährt nur, wer zufällig einen Schiffsnamen tippt.
+        """
+        bereiche = _mit_zahl('bereich')
+        if not bereiche:
+            return
+        bereiche.sort(key=lambda p: p[0] != AREA_SHIPS)
+        _liste_zeigen()
+        tk.Label(vorschlag_rahmen, text='  ' + t('s_ld_bereiche_kopf'),
+                 bg=SURFACE, fg=ACCENT, font=fenster.f_bold,
+                 anchor='w').pack(fill='x', ipady=5)
+        for wert, beschriftung in bereiche:
+            zeile = tk.Label(vorschlag_rahmen, text='   ' + beschriftung,
+                             bg=SURFACE, fg=FG, font=fenster.f_small,
+                             anchor='w', cursor='hand2')
+            zeile.pack(fill='x', ipady=4)
+            zeile.bereich = wert
+            zeile.bind('<Button-1>',
+                       lambda _=None, w=wert: _bereich_waehlen(w))
+            zeile.bind('<Enter>', lambda _=None, z=zeile: z.configure(fg=ACCENT))
+            zeile.bind('<Leave>', lambda _=None, z=zeile: z.configure(fg=FG))
+
+    def _bereich_waehlen(wert):
+        wahl['bereich'] = wert
+        _filter_gewechselt()
+
     def _vorschlaege(*_a):
         _liste_leeren()
         text = suche.get().strip().lower()
@@ -9423,6 +9452,8 @@ def _shops(fenster, rahmen):
         # tippen, soll auch etwas sehen: Die Auswahl oben füllt die Liste.
         if len(text) < 2 and not any(wahl[f] for f in FILTER_FOLGE) \
                 and not ort_wahl['ort']:
+            if not text:
+                _bereiche_zeigen()
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
@@ -9565,16 +9596,22 @@ def _shops(fenster, rahmen):
 
     def _stand_melden():
         """Sagen, wie viele Teile bereitstehen — statt einer leeren Fläche."""
-        anzahl = len([b for b in _teile() if _am_ort(b)])
-        if not anzahl:
+        vorhanden = [b for b in _teile() if _am_ort(b)]
+        if not vorhanden:
             stand_zeile.pack_forget()
             return
-        stand_zeile.configure(text=t('s_ld_nur_kaufbar') % anzahl, fg=SUB)
+        schiffe = sum(1 for b in vorhanden if b.get('bereich') == AREA_SHIPS)
+        stand_zeile.configure(
+            text=(t('s_ld_nur_kaufbar_schiffe') % (len(vorhanden) - schiffe,
+                                                   schiffe)
+                  if schiffe else t('s_ld_nur_kaufbar') % len(vorhanden)),
+            fg=SUB)
         stand_zeile.pack(side='left', fill='x', expand=True)
 
     def _katalog_anstossen():
         if laden_modul.catalog_ready() or zustand_katalog['laeuft']:
             _stand_melden()
+            _vorschlaege()
             return
         zustand_katalog['laeuft'] = True
         stand_zeile.configure(text=t('s_ld_katalog_laeuft'), fg=GOLD)
@@ -9694,6 +9731,7 @@ def _shops(fenster, rahmen):
         _leeren(ergebnis_rahmen)
         _filter_bauen()
         _stand_melden()
+        _vorschlaege()
         _scroll_to_top(innen)
 
     ld_reset.bind('<Button-1>', _ld_zuruecksetzen)
@@ -12181,19 +12219,27 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
 
     def pruefen(*_):
         """Beim Tippen mitrechnen — man sieht sofort, was hineinginge."""
+        hinweise = []
         posten, fehlerhaft = lager.refinery_lines(
-            feld.get('1.0', 'end-1c'), einheit.get())
+            feld.get('1.0', 'end-1c'), einheit.get(), hints=hinweise)
         stand['posten'] = posten
         teile = []
+        # ⭐ Die Vorschau nennt, was im Lager landet — in SCU. Wer 480 tippt
+        # und „4,8 SCU" liest, sieht eine verwechselte Einheit, bevor sie
+        # eingetragen ist.
         for name, menge, guete in posten[:8]:
-            teile.append('%s %s · Q %d' % (name, _amount_text(menge), guete))
+            teile.append(t('s_rf_wird_zu') % (name, _amount_text(menge),
+                                               guete))
         if len(posten) > 8:
             teile.append('…')
         for roh, grund in fehlerhaft[:4]:
             teile.append('⚠ %s — %s' % (roh, grund))
+        for roh, schluessel, scu in hinweise[:4]:
+            teile.append('⚠ %s — %s' % (roh, t(schluessel)
+                                         % _amount_text(scu)))
         vorschau.configure(
             text='\n'.join(teile) if teile else t('s_rf_nichts'),
-            fg=GOLD if fehlerhaft else SUB)
+            fg=GOLD if fehlerhaft or hinweise else SUB)
         for w in knopf_platz.winfo_children():
             w.destroy()
         if posten:
@@ -15064,6 +15110,24 @@ def _storage(fenster, rahmen):
             return
         roh = (menge.get() or '').strip()
         rechnung = any(z in roh[1:] for z in '+-−') or roh[:1] in '+-−'
+        if roh and not rechnung and not _stueckware():
+            # ⭐ Eine blosse Zahl: sagen, was im Lager landet, und warnen,
+            # wenn die Einheit verwechselt aussieht.
+            wert = lager.calculate(roh, 0.0)
+            if wert is not None and wert > 0:
+                hinweis = lager.unit_hint(wert, 'cscu' if cscu[0] else 'scu')
+                if hinweis:
+                    mengen_vorschau.configure(
+                        text=t(hinweis) % _amount_text(wert * _faktor()),
+                        fg=GOLD)
+                    mengen_vorschau.pack(fill='x', pady=(4, 0))
+                    return
+                if cscu[0]:
+                    mengen_vorschau.configure(
+                        text=t('s_lg_wird_zu') % _amount_text(wert * _faktor()),
+                        fg=ACCENT)
+                    mengen_vorschau.pack(fill='x', pady=(4, 0))
+                    return
         if not roh or not rechnung:
             mengen_vorschau.pack_forget()
             return
@@ -15246,13 +15310,26 @@ def _storage(fenster, rahmen):
                 kind.bind('<Button-1>', lambda _e: beim_klick())
             return labels
 
+        # ⭐ Streifen: jede zweite sichtbare Zeile heller, gezählt über
+        # Material- und aufgeklappte Postenzeilen hinweg.
+        zeilen_zahl = [0]
+
+        def streifen():
+            farbe = SURFACE if zeilen_zahl[0] % 2 else BG
+            zeilen_zahl[0] += 1
+            return farbe
+
         def posten_zeile(nummer, p, eingerueckt):
             offen = bearbeitung['nummer'] == nummer
-            # Die offene Zeile bekommt Flaeche unter sich, damit man sieht,
-            # welchen Posten die Felder oben gerade zeigen.
-            z_bg = SURFACE if offen else BG
+            # Die offene Zeile hebt sich noch über die Streifen ab, damit man
+            # sieht, welchen Posten die Felder oben gerade zeigen.
+            z_bg = streifen()
+            if offen:
+                z_bg = theme.HOVER
             z = tk.Frame(liste_rahmen, bg=z_bg)
-            z.pack(fill='x', pady=1)
+            # ⚠ Abstand nach innen (`ipady`), nicht nach außen: Sonst trennt
+            # eine Fuge in Seitenfarbe die Streifen.
+            z.pack(fill='x', ipady=1)
             # ⚠ Erst in Variablen holen. `text=p.get('material')` liest
             # `texte_pruefen.py` als festen Oberflächentext „material" und
             # meldet ihn — ein Fehlalarm, der die Prüfung rot färbt.
@@ -15320,8 +15397,9 @@ def _storage(fenster, rahmen):
                 ort_txt = t('s_lg_orte_n') % len(orte)
             name_txt = '%s (%d)' % (ps[0].get('material') or '?', len(ps))
 
-            kopf_z = tk.Frame(liste_rahmen, bg=BG)
-            kopf_z.pack(fill='x', pady=1)
+            kopf_bg = streifen()
+            kopf_z = tk.Frame(liste_rahmen, bg=kopf_bg)
+            kopf_z.pack(fill='x', ipady=1)
 
             def umschalten(s=schluessel):
                 if s in aufgeklappt:
@@ -15333,11 +15411,11 @@ def _storage(fenster, rahmen):
             # ⚠ Der Pfeil steht rechts an der Stelle von „Löschen" — so bleiben
             # die Spalten von Material- und Postenzeilen bündig.
             pfeil = icons.line(kopf_z, 'zuklappen' if offen else 'aufklappen',
-                               background=BG, font=fenster.f_small)
+                               background=kopf_bg, font=fenster.f_small)
             pfeil.configure(cursor='hand2')
             pfeil.pack(side='right', padx=(8, 4))
             pfeil.bind('<Button-1>', lambda _e, f=umschalten: f())
-            kopf_labels = spalten(kopf_z, BG, (
+            kopf_labels = spalten(kopf_z, kopf_bg, (
                 (name_txt, SPALTEN[0], FG, fenster.f_base),
                 ('%g %s' % (summe, _einheit(ps[0].get('material') or '')),
                  SPALTEN[1], ACCENT, fenster.f_base),
@@ -16944,7 +17022,7 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
         # Zebra-Streifen statt Kästen: Die Zeilen bleiben unterscheidbar, ohne
         # dass jede ihren eigenen Rahmen und damit ihre eigene Breite bekommt.
         offen = (nummer == offen_nr)
-        grund = ACCENT if offen else (SURFACE if nummer % 2 == 0 else BG)
+        grund = ACCENT if offen else (SURFACE if nummer % 2 else BG)
         vorne = BG if offen else FG
         blass = BG if offen else SUB
 

@@ -2508,25 +2508,16 @@ class MainWindow:
         # Seite `asop` ist ein Verweis dorthin und hat keinen Reiter.
 
         g_werk = self._group(t('hf_gruppe_herst'), 'werkstatt')
-        self._tab('lager', 'bestand', t('hf_lager'), g_werk)
+        # ⭐ Die Reihenfolge folgt dem Ablauf: Rezept, fehlende Rohstoffe,
+        # eigener Bestand, Fundorte, Raffinerie.
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
+        self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
+        self._tab('lager', 'bestand', t('hf_lager'), g_werk)
         self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
         # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
-        # beim Erz stellt: wo man es raffinieren lässt. Ein eigener
-        # Bereich wäre sie nicht — der Raffinerie-Kasten am Erz verlinkt
-        # hierher, und der Rückweg steht über der Seite.
+        # beim Erz stellt: wo man es raffinieren lässt. Der Raffinerie-Kasten
+        # am Erz verlinkt hierher, und der Rückweg steht über der Seite.
         self._tab('raffinerien', 'raffinerie', t('hf_raffinerien'), g_werk)
-        # ⚠ **Hier und nicht bei „Handel".** Die Kette der Werkstatt endet beim
-        # Beschaffen — und ein fertig gekauftes Teil ist die Antwort auf
-        # dieselbe Frage, nur der andere Weg: bauen oder kaufen. Bei „Handel"
-        # ginge es um Ware, die man **loswerden** will; das ist etwas anderes.
-        self._tab('laeden', 'laeden', t('hf_laeden'), g_werk)
-        # ⚠ **Hier und nicht bei den Schiffen.** Die Werkstatt-Kette ist
-        # Material → bauen → beschaffen — eine Liste fehlender Rohstoffe ist
-        # die Antwort auf die erste Frage. Bei den Schiffen ginge es um Geld, hier um Erz.
-        #
-        # Zuletzt in der Gruppe, weil sie die anderen drei zusammenfasst.
-        self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
 
         # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt.** Die Kette dort
         # endet beim Bauen (habe → brauche → beschaffe).
@@ -2549,6 +2540,9 @@ class MainWindow:
         self._tab('zerlegen', 'zerlegen', t('hf_zerlegen'), g_bergung)
 
         g_handel = self._group(t('hf_gruppe_handel'), 'handel')
+        # ⭐ Einkauf zuerst: Shops sagen, wo ein fertiges Teil oder Schiff im
+        # Regal steht. Danach die Gegenrichtung — Ware, die man loswerden will.
+        self._tab('laeden', 'laeden', t('hf_laeden'), g_handel)
         self._tab('handelslager', 'handelslager', t('hf_handelslager'),
                      g_handel)
         self._tab('verkauf', 'verkauf', t('hf_verkauf'), g_handel)

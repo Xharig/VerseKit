@@ -25218,6 +25218,7 @@ def main():
     _pruefung_327()
     _pruefung_328()
     _pruefung_329()
+    _pruefung_330()
 
     print()
     if fehler:
@@ -31550,7 +31551,7 @@ def _pruefung_315():
         _klick(fenster.buttons['verkauf'][0], 2)             # Handel → Verkauf
         pruefe(fenster.current == 'verkauf', 'Vorbedingung: Verkauf ist offen')
         _klick(werkstatt['kopf'], 1)                        # Werkstatt auf
-        _klick(fenster.buttons['laeden'][0], 1)              # Werkstatt → Shops
+        _klick(fenster.buttons['laeden'][0], 1)              # Handel → Shops
         pruefe(fenster.current == 'laeden', 'Vorbedingung: Shops sind offen')
         uhr[0] += 20
         fenster.close()
@@ -32891,6 +32892,25 @@ def _pruefung_327():
         pruefe('Gold' in texte,
                'ein Material mit einem Posten steht als normale Zeile')
 
+        def _streifen_ok(labels):
+            """Die Zeilen der Liste wechseln ab Zeile 2 auf die hellere Farbe."""
+            from scbp import theme as _th327
+            kopf = [x for x in labels if x.cget('text') == 'Iron (3)']
+            if not kopf:
+                return False
+            liste = kopf[0].master.master
+            # Die erste Zeile ist die Spaltenüberschrift, kein Posten.
+            farben = [z.cget('bg') for z in liste.winfo_children()
+                      if z.winfo_class() == 'Frame' and z.winfo_manager()][1:]
+            soll = [_th327.SURFACE if i % 2 else _th327.BG
+                    for i in range(len(farben))]
+            if farben != soll:
+                print('     Farben %s, erwartet %s' % (farben, soll))
+            return len(farben) >= 2 and farben == soll
+
+        pruefe(_streifen_ok(_labels()),
+               'zugeklappt: Zeilen im Wechsel hell und dunkel, ab Zeile 2 hell')
+
         kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
         if kopf:
             kopf[0].event_generate('<Button-1>', x=2, y=2)
@@ -32899,6 +32919,8 @@ def _pruefung_327():
             pruefe('Orison' in texte and '10 SCU' in texte
                    and '7 SCU' in texte,
                    'ein Klick klappt auf: alle Posten mit Menge und Ort')
+            pruefe(_streifen_ok(_labels()),
+                   'aufgeklappt: Zeilen im Wechsel hell und dunkel')
 
             kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
             kopf[0].event_generate('<Button-1>', x=2, y=2)
@@ -33309,6 +33331,147 @@ def _pruefung_329():
                '(vorher y %s, nachher y %s)' % (y_vorher, y_nachher))
     finally:
         _ma329.save(alt)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_330():
+    """330. SCU oder cSCU — Einheit in der Zeile, Hinweise, Vorschau; Shops.
+
+    Raffinerie-Zeilen dürfen ihre Einheit selbst nennen; eine verwechselt
+    aussehende Menge bekommt einen Hinweis; das Mengenfeld sagt, was im Lager
+    landet. Dazu die Shops-Seite: ohne Eingabe stehen die Bereiche da, die
+    Schiffe zuerst, und die Zählzeile nennt die Schiffe.
+    """
+    print('\n330. SCU oder cSCU, Shops zeigen Schiffe')
+    from scbp import materials as _ma330
+
+    # a) Einheit in der Zeile schlägt die Voreinstellung.
+    # Ohne Rezeptdaten kennt der Wegwerf-Ordner keinen Rohstoff — die
+    # Namensprüfung wird hier als bekannt durchgelassen.
+    from scbp import crafting as _he330
+    alt_name = _he330.storage_name
+    _he330.storage_name = lambda n: n
+    try:
+        _pruefung_330_zeilen(_ma330)
+    finally:
+        _he330.storage_name = alt_name
+
+
+def _pruefung_330_zeilen(_ma330):
+    """Der Ablauf von Prüfung 330, mit durchgelassenen Rohstoffnamen."""
+    import copy as _cp330
+    import time as _ti330
+    from scbp import main_window as _hf330
+    from scbp import shops as _sh330, ships as _sf330
+    from scbp.language import t as _t330
+    posten, fehler = _ma330.refinery_lines('Stileron 330 43 cSCU', 'scu')
+    pruefe(not fehler and posten and abs(posten[0][1] - 0.43) < 1e-9,
+           '„43 cSCU" in der Zeile gilt auch bei Voreinstellung SCU (%s)'
+           % posten)
+    posten, fehler = _ma330.refinery_lines('Titanium 295 1.88 SCU', 'cscu')
+    pruefe(not fehler and posten and abs(posten[0][1] - 1.88) < 1e-9,
+           '„1.88 SCU" in der Zeile gilt auch bei Voreinstellung cSCU (%s)'
+           % posten)
+
+    # b) Verwechselt aussehende Mengen bekommen einen Hinweis.
+    hinweise = []
+    _ma330.refinery_lines('Ouratite 310 480\nStileron 874 9', 'scu',
+                          hints=hinweise)
+    pruefe([h[1] for h in hinweise] == ['s_lg_hinweis_scu_gross'],
+           '480 als SCU fällt auf, 9 SCU nicht (%s)' % hinweise)
+    hinweise = []
+    _ma330.refinery_lines('Stileron 330 0.43', 'cscu', hints=hinweise)
+    pruefe([h[1] for h in hinweise] == ['s_lg_hinweis_cscu_komma'],
+           'eine Kommazahl in cSCU fällt auf (%s)' % hinweise)
+
+    # c) Das Mengenfeld im Lager sagt, was ankommt.
+    alt_lager = _cp330.deepcopy(_ma330.load())
+    w = None
+    alt_shop = (_sh330.catalog_items, _sh330.catalog_ready, _sf330.catalog)
+    try:
+        _ma330.save([])
+        w = _wurzel()
+        fenster = _hf330.MainWindow(w, version='0.0.0-pruefung')
+        fenster.open_page('lager')
+        w.update()
+        seite = fenster.pages['lager']
+
+        def _texte(s):
+            out = []
+
+            def _lauf(x):
+                if x.winfo_class() == 'Label':
+                    try:
+                        if x.winfo_manager():
+                            out.append(x.cget('text'))
+                    except Exception:
+                        pass
+                for k in x.winfo_children():
+                    _lauf(k)
+            _lauf(s)
+            return out
+
+        felder = _alle_eingaben(seite)
+        material_feld, menge_feld = (felder[0], felder[1]) if len(felder) > 1 \
+            else (None, None)
+        pruefe(menge_feld is not None, 'Vorbedingung: Material- und Mengenfeld')
+        if menge_feld is not None:
+            w.setvar(material_feld.cget('textvariable'), 'Iron')
+            w.setvar(menge_feld.cget('textvariable'), '480')
+            w.update()
+            erwartet = _t330('s_lg_hinweis_scu_gross') % '480'
+            pruefe(erwartet in _texte(seite),
+                   '480 im SCU-Feld: Hinweis auf cSCU steht da')
+    finally:
+        _ma330.save(alt_lager)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+    # d) Shops: Bereiche ohne Eingabe, Schiffe zuerst, Zählzeile mit Schiffen.
+    w = None
+    try:
+        _sh330.catalog_items = lambda: [
+            {'name': 'Civi-QD', 'kennung': 'ref-civi',
+             'kategorie': 'Quantum Drives', 'abschnitt': 'Propulsion',
+             'hersteller': 'Acme', 'groesse': '2', 'klasse': 'Civilian',
+             'guete': 'A', 'orte': []},
+            {'name': 'Kuehler', 'kennung': 'ref-kuehl',
+             'kategorie': 'Coolers', 'abschnitt': 'Propulsion',
+             'hersteller': 'Acme', 'groesse': '1', 'klasse': '',
+             'guete': '', 'orte': []}]
+        _sh330.catalog_ready = lambda: True
+        _sf330.catalog = lambda: [{'name': 'Avenger Titan', 'werft': 'Aegis'}]
+        w = _wurzel()
+        fenster = _hf330.MainWindow(w, version='0.0.0-pruefung')
+        fenster.open_page('laeden')
+        ende = _ti330.time() + 1
+        while _ti330.time() < ende:
+            w.update()
+            _ti330.sleep(0.02)
+        seite = fenster.pages['laeden']
+        texte = _texte(seite)
+        schiffe = _t330('s_ld_ber_schiffe') + ' (1)'
+        zeilen = [x.strip() for x in texte]
+        pruefe(_t330('s_ld_bereiche_kopf') in zeilen and schiffe in zeilen,
+               'ohne Eingabe stehen die Bereiche da, mit den Schiffen (%s)'
+               % [z for z in zeilen if '(' in z][:5])
+        if schiffe in zeilen:
+            kopf = zeilen.index(_t330('s_ld_bereiche_kopf'))
+            pruefe(zeilen[kopf + 1] == schiffe,
+                   'die Schiffe stehen als erster Bereich')
+        pruefe(_t330('s_ld_nur_kaufbar_schiffe') % (2, 1) in texte,
+               'die Zählzeile nennt Teile und Schiffe')
+        pruefe('Schiff' in _t330('s_ld_suche_platz'),
+               'das Suchfeld sagt, dass auch Schiffe gefunden werden')
+    finally:
+        (_sh330.catalog_items, _sh330.catalog_ready, _sf330.catalog) = alt_shop
         try:
             if w is not None:
                 w.destroy()

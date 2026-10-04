@@ -136,19 +136,19 @@ The blueprint is the start. The workshop answers what comes after it: **what do 
 <sub><b>Refineries</b> — what each refinery makes of your ore: bonus and penalty per material</sub>
 </td>
 </tr>
+</table>
+
+### Trading & buying
+
+Buying and selling: **where is a part or ship on the shelf — and where do I offload my cargo, and what does it pay per SCU?**
+
+<table>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-laeden-en.png" alt="Shops" width="100%"><br>
 <sub><b>Shops</b> — where a finished part is on the shelf and what it costs there</sub>
 </td>
 </tr>
-</table>
-
-### Trading
-
-Cargo hold full — now what? **Where do I offload it, and what does it pay per SCU?**
-
-<table>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-handelslager-en.png" alt="Cargo hold with entered goods" width="100%"><br>

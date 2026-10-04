@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.81.0 - 2026-10-04
+
+> SCU oder cSCU? VerseKit passt jetzt auf, dass Raffinerie-Zahlen nicht
+> hundertfach im Lager landen. Die Shops zeigen von Anfang an, dass es dort
+> auch Schiffe gibt, und die Seitenleiste ist neu sortiert.
+
+### Neu
+
+- **Einheit direkt in der Zeile** — beim Eintragen der Raffinerie-Ausbeute
+  darf eine Zeile ihre Einheit selbst nennen (`Stileron 330 43 cSCU`). Dann
+  gilt sie, egal was oben eingestellt ist
+- **Warnung bei verwechselter Einheit** — eine Menge ab 100 SCU oder eine
+  Kommazahl in cSCU bekommt einen Hinweis, bevor sie eingetragen wird. Beim
+  Eintippen steht außerdem da, was im Lager ankommt (`= 0,43 SCU im Lager`)
+
+### Verbessert
+
+- **Shops zeigen die Schiffe** — ohne Eingabe stehen alle Bereiche zum
+  Anklicken da, die Schiffe zuerst. Das Suchfeld sagt „Teil, Schiff oder
+  Hersteller", und die Zählzeile nennt Teile und Schiffe
+- **Seitenleiste neu sortiert** — die Werkstatt folgt dem Ablauf:
+  Herstellung, Was ich farmen muss, Rohstofflager, Bergbau, Raffinerien. Die
+  Shops stehen jetzt unter „Handel & Einkauf"
+- **Streifen im Lager** — im Rohstofflager und im Handelslager ist ab der
+  zweiten Zeile jede zweite heller hinterlegt, zugeklappt wie aufgeklappt.
+  Der Posten, den du gerade bearbeitest, hebt sich noch einmal ab
+
 ## v3.80.0 - 2026-10-04
 
 > Bestes und schlechtestes Material rechnen jetzt genau wie das

@@ -6,6 +6,33 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.81.0 - 2026-10-04
+
+> SCU or cSCU? VerseKit now makes sure refinery numbers do not land in
+> storage a hundred times too large. Shops show from the start that ships
+> are there too, and the sidebar is sorted anew.
+
+### New
+
+- **Unit right in the line** — when adding a refinery yield, a line may
+  name its own unit (`Stileron 330 43 cSCU`). It then applies whatever is
+  set above
+- **Warning on a mixed-up unit** — an amount of 100 SCU or more, or a
+  decimal in cSCU, gets a hint before it is added. While typing, the form
+  also shows what lands in storage (`= 0,43 SCU in stock`)
+
+### Improved
+
+- **Shops show the ships** — with nothing typed, every section is listed to
+  click, ships first. The search field says "item, ship or manufacturer",
+  and the count line names parts and ships
+- **Sidebar sorted anew** — the workshop follows the flow: Crafting, What to
+  farm, Material storage, Mining, Refineries. Shops now sit under
+  "Trading & buying"
+- **Stripes in storage** — in material storage and the cargo hold, every
+  second row from the second one on is lighter, folded or unfolded. The
+  entry you are editing stands out once more
+
 ## v3.80.0 - 2026-10-04
 
 > Best and worst material now work exactly like the fabricator terminal:
