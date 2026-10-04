@@ -6,6 +6,37 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.79.0 - 2026-10-04
+
+> Crafting like at the in-game terminal: best or worst material in one
+> click, type the exact quality too — and exactly the material you set is
+> deducted. Plus a tidier material storage.
+
+### New
+
+- **Best / Worst material** — in crafting, one click fills every ingredient
+  with the best or the worst quality from your stock, just like the
+  fabricator terminal. Your choice is remembered
+- **Type the quality** — every quality slider has a field next to it. Type a
+  quality and the slider follows; drag the slider and the value shows in the
+  field
+- **From "What to farm" straight to crafting** — click a noted item
+  to open its recipe. Build it there and the noted count drops by exactly the
+  amount built, and only the material for that amount is deducted: ten
+  noted, one built, nine left
+
+### Improved
+
+- **The material you set is what gets deducted** — "Crafted" first takes
+  entries of exactly the set quality, then the next better one. Good material
+  stays put when you build with worse
+
+- **Same materials grouped** — when a material is stored in several
+  qualities or at several locations, storage shows one line with the total
+  amount, the quality range (e.g. 500–900) and the location or number of
+  locations. A click unfolds the individual entries and folds them again.
+  Search for a location and the matching material unfolds by itself
+
 ## v3.78.0 - 2026-10-04
 
 > One tab fewer: you now give your ships their retrieval-terminal names

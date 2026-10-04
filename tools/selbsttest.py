@@ -25215,6 +25215,8 @@ def main():
     _pruefung_324()
     _pruefung_325()
     _pruefung_326()
+    _pruefung_327()
+    _pruefung_328()
 
     print()
     if fehler:
@@ -32831,6 +32833,350 @@ def _pruefung_326():
         pruefe(len(bild[0]) <= breite and len(bild) <= hoehe,
                'und passt in die Vorschau (%d × %d in %d × %d)'
                % (len(bild[0]), len(bild), breite, hoehe))
+
+
+def _pruefung_327():
+    """327. Rohstofflager: gleiche Materialien zugeklappt, Posten beim Aufklappen.
+
+    Im echten Hauptfenster: Iron an zwei Orten in zwei Güten steht als eine
+    Zeile mit Summe, Güte-Spanne und Ortszahl; Gold mit einem Posten als
+    normale Zeile. Ein Klick klappt Iron auf, die Suche nach einem Ort klappt
+    von selbst auf.
+    """
+    print('\n327. Rohstofflager: gleiche Materialien gebündelt')
+    import copy as _cp327
+    import time as _ti327
+    from scbp import materials as _ma327, main_window as _hf327
+    from scbp.language import t as _t327
+
+    alt = _cp327.deepcopy(_ma327.load())
+    _w327 = None
+    try:
+        _ma327.save([])
+        _ma327.add('Iron', 10, 500, 'Levski')
+        _ma327.add('Iron', 5, 800, 'Orison')
+        _ma327.add('Iron', 7, 900, 'Levski')
+        _ma327.add('Gold', 3, 600, 'Levski')
+
+        _w327 = _wurzel()
+        fenster = _hf327.MainWindow(_w327, version='0.0.0-pruefung')
+        fenster.open_page('lager')
+        _w327.update()
+        seite = fenster.pages['lager']
+
+        def _labels():
+            out = []
+
+            def _lauf(x):
+                if x.winfo_class() == 'Label':
+                    out.append(x)
+                for k in x.winfo_children():
+                    _lauf(k)
+            _lauf(seite)
+            return out
+
+        def _texte():
+            return [x.cget('text') for x in _labels()]
+
+        texte = _texte()
+        pruefe('Iron (3)' in texte, 'Iron steht als eine Zeile mit 3 Posten')
+        pruefe('22' in texte and '500–900' in texte
+               and _t327('s_lg_orte_n') % 2 in texte,
+               'mit Summe 22, Güte 500–900 und 2 Orten')
+        pruefe('Orison' not in texte,
+               'zugeklappt sind die einzelnen Posten nicht zu sehen')
+        pruefe('Gold' in texte,
+               'ein Material mit einem Posten steht als normale Zeile')
+
+        kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
+        if kopf:
+            kopf[0].event_generate('<Button-1>', x=2, y=2)
+            _w327.update()
+            texte = _texte()
+            pruefe('Orison' in texte and '10' in texte and '7' in texte,
+                   'ein Klick klappt auf: alle Posten mit Menge und Ort')
+
+            kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
+            kopf[0].event_generate('<Button-1>', x=2, y=2)
+            _w327.update()
+            pruefe('Orison' not in _texte(), 'ein zweiter Klick klappt zu')
+
+        suchfelder = [x for x in _alle_eingaben(seite)]
+        filterfeld = None
+        for e in suchfelder:
+            try:
+                if e.cget('textvariable') and _w327.getvar(
+                        e.cget('textvariable')) == '':
+                    filterfeld = e
+            except Exception:
+                pass
+        pruefe(filterfeld is not None, 'Vorbedingung: das Suchfeld ist da')
+        if filterfeld is not None:
+            # Zwei Iron-Posten liegen in Levski — die Suche lässt beide übrig,
+            # und die stehen dann aufgeklappt da, nicht hinter einer Summe.
+            filterfeld.insert(0, 'Levski')
+            ende = _ti327.time() + 2
+            while '7' not in _texte() and _ti327.time() < ende:
+                _w327.update()
+                _ti327.sleep(0.02)
+            texte = _texte()
+            pruefe('10' in texte and '7' in texte and 'Orison' not in texte,
+                   'die Suche nach einem Ort klappt das Material von selbst '
+                   'auf und zeigt nur dessen Posten')
+    finally:
+        _ma327.save(alt)
+        try:
+            if _w327 is not None:
+                _w327.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_328():
+    """328. Herstellung: Güte per Hand, Bestes/Schlechtestes, Abzug genau dieser Güte.
+
+    Iron liegt zweimal im Lager — Q 800 (älter) und Q 300. Das Q-Feld neben
+    dem Regler zeigt die Güte, getippt läuft der Regler mit, gezogen schreibt
+    der Regler ins Feld. Der Knopf für das schlechteste Material stellt auf
+    Q 300, und der Bau nimmt dann den Q-300-Posten, nicht den älteren Q 800.
+    """
+    print('\n328. Herstellung: Güte wählen und genau diese abziehen')
+    import copy as _cp328
+    import tkinter as _tk328
+    import tkinter.font as _tf328
+    from scbp import pages as _se328, crafting as _he328
+    from scbp import materials as _ma328, paths as _pa328
+    from scbp.language import t as _t328
+
+    # a) Der Abzug selbst: Untergrenze Q 500, genommen wird ab ihr aufwärts.
+    from scbp import fleet as _fl328
+    alt_lager = _cp328.deepcopy(_ma328.load())
+    alt_flotte = _cp328.deepcopy(_fl328.load())
+    alt_modus = _pa328.setting('herstellung_fuellen')
+    try:
+        _ma328.save([{'material': 'Iron', 'menge': 5.0, 'qualitaet': 900,
+                      'ort': ''},
+                     {'material': 'Iron', 'menge': 5.0, 'qualitaet': 500,
+                      'ort': ''}])
+        ok, _f = _ma328.deduct([('Frame', 'Iron', 3.0, 500)])
+        mengen = {float(p['qualitaet']): float(p['menge'])
+                  for p in _ma328.load()}
+        pruefe(ok and abs(mengen.get(500.0, 0) - 2.0) < 1e-6
+               and abs(mengen.get(900.0, 0) - 5.0) < 1e-6,
+               'Abzug mit Q 500 nimmt den Q-500-Posten, nicht den älteren '
+               'Q 900 (%s)' % mengen)
+        pruefe(_ma328.worst_quality('Iron') == 500.0
+               and _ma328.worst_quality('Iron', 600) == 900.0,
+               'worst_quality: niedrigste brauchbare Güte ab der Untergrenze')
+    finally:
+        _ma328.save(alt_lager)
+
+    daten = {
+        'format': _he328.FORMAT, 'build': 'selbsttest328',
+        'blueprints': [{
+            'tag': 'BP_TEST_328', 'productName': 'Testkanone 328',
+            'productEntityClass': 'uuid-328', 'manufacturer': 'Behring',
+            'type': 'weapons', 'subtype': 'energy',
+            'tiers': [{'craftTimeSeconds': 60, 'slots': [
+                {'name': 'Frame',
+                 'options': [{'type': 'resource', 'quantity': 1.0,
+                              'minQuality': 0, 'resourceName': 'Iron'}],
+                 'modifiers': [{'startQuality': 0, 'endQuality': 1000,
+                                'modifierAtStart': 0.9, 'modifierAtEnd': 1.1,
+                                'propertyName': 'Impact Force',
+                                'propertyKey': 'weapon_damage'}]}]}]}],
+        'dismantle': {'efficiency': 0.5, 'blacklistedResources': []},
+        'products': {}}
+
+    alt_load = _he328.load
+    w = _tk328.Tk()
+    w.withdraw()
+    try:
+        _he328.load = lambda: daten
+        _pa328.set_setting('herstellung_fuellen', 'best')
+        stand = _fl328.load()
+        _fl328.notepad_add(stand, 'Testkanone 328', count=3)
+        _fl328.save(stand)
+        _ma328.save([{'material': 'Iron', 'menge': 5.0, 'qualitaet': 800,
+                      'ort': ''},
+                     {'material': 'Iron', 'menge': 5.0, 'qualitaet': 300,
+                      'ort': ''}])
+        schrift = _tf328.Font(root=w, family='TkDefaultFont', size=10)
+
+        class _Fenster:
+            f_base = f_small = f_item = f_bold = f_title = f_sub = schrift
+            on_show = {}
+            mining_search = ''
+
+            def open_page(self, _n):
+                pass
+
+            def say(self, *_a):
+                pass
+
+        rahmen = _tk328.Frame(w)
+        rahmen.pack(fill='both', expand=True)
+        _se328._crafting_row(_Fenster(), rahmen,
+                             {'name': 'Testkanone 328', 'basis': 'Testkanone 328',
+                              'tag': 'BP_TEST_328', 'habe': True,
+                              'hersteller': 'Behring'},
+                             {'name': 'Testkanone 328'}, lambda: None)
+
+        def _alle(x, art, out):
+            if x.winfo_class() == art:
+                out.append(x)
+            for k in x.winfo_children():
+                _alle(k, art, out)
+            return out
+
+        def q_feld():
+            for e in _alle(rahmen, 'Entry', []):
+                h = e
+                while h is not None and not hasattr(h, 'quality_of'):
+                    h = h.master
+                if h is not None:
+                    return e
+            return None
+
+        regler = [c for c in _alle(rahmen, 'Canvas', [])
+                  if hasattr(c, 'on_drag')]
+        feld = q_feld()
+        pruefe(feld is not None and len(regler) == 1,
+               'neben dem Regler steht ein Feld für die Güte')
+        if feld is None or not regler:
+            return
+        regler = regler[0]
+        # ⚠ Ein Klick per `event_generate` erreicht nur ein abgebildetes
+        # Fenster. Der Lauf steht auf eigenem Desktop bzw. unter Xvfb.
+        w.deiconify()
+        w.update()
+
+        def feld_wert():
+            return w.getvar(feld.cget('textvariable'))
+
+        def knopf_x():
+            return regler.coords(regler.find_all()[-1])[0] + 8
+
+        pruefe(feld_wert() == '800',
+               'ab Werk „Bestes Material": das Feld zeigt Q 800 (%s)'
+               % feld_wert())
+
+        # b) Getippt — der Regler läuft mit.
+        feld.delete(0, 'end')
+        feld.insert(0, '650')
+        w.update()
+        soll = 8 + 0.65 * (int(regler.cget('width')) - 16)
+        pruefe(abs(knopf_x() - soll) < 1.5,
+               'getippte Q 650 schiebt den Regler mit (x %.1f, soll %.1f)'
+               % (knopf_x(), soll))
+
+        # c) Gezogen — das Feld läuft mit.
+        regler.on_drag(420)
+        pruefe(feld_wert() == '420',
+               'ein Zug am Regler schreibt die Güte ins Feld (%s)'
+               % feld_wert())
+
+        # d) Der Knopf für das schlechteste Material stellt auf Q 300.
+        knoepfe = [c for c in _alle(rahmen, 'Canvas', [])
+                   if getattr(c, 'is_button', False)
+                   and any(c.type(i) == 'text'
+                           and c.itemcget(i, 'text').lower()
+                           == _t328('s_he_schlechtestes').lower()
+                           for i in c.find_all())]
+        pruefe(len(knoepfe) == 1, 'der Knopf „Schlechtestes Material" ist da')
+        if knoepfe:
+            knoepfe[0].event_generate('<Button-1>', x=2, y=2)
+            w.update()
+            feld = q_feld()
+            pruefe(feld is not None and feld_wert() == '300',
+                   '„Schlechtestes Material" stellt die Güte auf Q 300 (%s)'
+                   % (feld_wert() if feld is not None else '—'))
+            pruefe(_pa328.setting('herstellung_fuellen') == 'worst',
+                   'und die Wahl bleibt gespeichert')
+
+            # e) „Hergestellt" zieht den Q-300-Posten ab.
+            bauen = [c for c in _alle(rahmen, 'Canvas', [])
+                     if getattr(c, 'is_button', False)
+                     and any(c.type(i) == 'text'
+                             and c.itemcget(i, 'text').lower()
+                             == _t328('s_lg_bauen').lower()
+                             for i in c.find_all())]
+            if bauen:
+                bauen[0].event_generate('<Button-1>', x=2, y=2)
+                w.update()
+            mengen = {float(p['qualitaet']): float(p['menge'])
+                      for p in _ma328.load()}
+            pruefe(bool(bauen) and abs(mengen.get(300.0, 0) - 4.0) < 1e-6
+                   and abs(mengen.get(800.0, 0) - 5.0) < 1e-6,
+                   '„Hergestellt" nimmt Q 300, das bessere Q 800 bleibt (%s)'
+                   % mengen)
+            merk = [m for m in _fl328.notepad()
+                    if m.get('name') == 'Testkanone 328']
+            pruefe(merk and int(merk[0].get('anzahl') or 0) == 2,
+                   'und auf „Was ich farmen muss" sinkt die Stückzahl von 3 auf 2 '
+                   '(%s)' % (merk[0].get('anzahl') if merk else 'weg'))
+
+        # f) Gebaut bis null — der Posten fällt vom Merkzettel.
+        stand = _fl328.load()
+        _fl328.notepad_crafted(stand, 'Testkanone 328', 5)
+        pruefe(not _fl328.notepad_contains(stand, 'Testkanone 328'),
+               'mehr gebaut als vorgemerkt: der Posten verschwindet')
+    finally:
+        _he328.load = alt_load
+        _ma328.save(alt_lager)
+        _fl328.save(alt_flotte)
+        _pa328.set_setting('herstellung_fuellen', alt_modus)
+        try:
+            w.destroy()
+        except Exception:
+            pass
+
+    # g) Auf der Farmliste führt der Gegenstand in die Herstellung.
+    from scbp import main_window as _hf328
+    w = None
+    try:
+        _he328.load = lambda: daten
+        stand = _fl328.load()
+        _fl328.notepad_add(stand, 'Testkanone 328', count=1)
+        _fl328.save(stand)
+        w = _tk328.Tk()
+        w.withdraw()
+        fenster = _hf328.MainWindow(w, version='0.0.0-pruefung')
+        spruenge = []
+        fenster.jump_to = lambda seite: spruenge.append(
+            (seite, getattr(fenster, 'crafting_search', '')))
+        fenster.open_page('farmliste')
+        w.update()
+        namen = [x for x in _alle(fenster.pages['farmliste'], 'Label', [])
+                 if x.cget('text') == 'Testkanone 328']
+        pruefe(bool(namen), 'Vorbedingung: der Gegenstand steht auf der Seite')
+        if namen:
+            namen[0].event_generate('<Button-1>', x=2, y=2)
+            w.update()
+            pruefe(spruenge == [('herstellung', 'Testkanone 328')],
+                   'ein Klick auf den Gegenstand öffnet ihn in der '
+                   'Herstellung (%s)' % spruenge)
+    finally:
+        _he328.load = alt_load
+        _fl328.save(alt_flotte)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _alle_eingaben(w):
+    """Alle Eingabefelder unter `w`, in Baumreihenfolge."""
+    out = []
+
+    def _lauf(x):
+        if x.winfo_class() == 'Entry':
+            out.append(x)
+        for k in x.winfo_children():
+            _lauf(k)
+    _lauf(w)
+    return out
 
 
 if __name__ == '__main__':

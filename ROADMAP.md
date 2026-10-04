@@ -44,7 +44,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Angaben am Gegenstand im Spiel** — Klasse, Größe und Gütegrad am Traktorstrahl, bei Raketen der Suchkopf |
 | ✅ | **Herstellung**: zu jedem herstellbaren Gegenstand die Zutaten, die Dauer und die Werte — samt der Frage, ob du den Bauplan dafür hast; die Produktwerte als Grundwert, gebaut und Änderung |
 | ✅ | **Materialqualität wirkt sich aus** — ein Regler je Zutat zeigt, was mit *deinem* Material herauskäme, und in welcher Spanne der Wert überhaupt liegen kann |
-| ✅ | **Mein Lager**: Material, Menge, Qualität und Lagerort eintragen; im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab |
+| ✅ | **Mein Lager**: Material, Menge, Qualität und Lagerort eintragen; im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab — in der eingestellten Güte, wahlweise bestes oder schlechtestes Material; gleiche Materialien stehen gebündelt |
 | ✅ | **Bergbau** in beide Richtungen: Rohstoff → Fundorte, Ort → was es dort gibt, mit Abbauart, Raffinerie-Vergleich und Scan-Signatur |
 | ✅ | **Scan-Signatur selbst ablesen** (Windows) — beim Scannen erkennt, im Overlay angezeigt |
 | ✅ | **Wie viel davon** — Konzentration und Stufe je Erz und Fundort, getrennt nach Schiff, Fahrzeug und Handabbau |

@@ -313,6 +313,23 @@ def notepad_remove(data, name):
     return len(data['merkzettel']) != before
 
 
+def notepad_crafted(data, name, count=1):
+    """`count` Stück gebaut: Die Stückzahl sinkt, bei null fällt er weg.
+
+    Gibt zurück, ob der Gegenstand auf dem Merkzettel stand."""
+    try:
+        count = max(1, int(count))
+    except (TypeError, ValueError):
+        count = 1
+    wanted = _slim(name)
+    for entry in (data.get('merkzettel') or []):
+        if _slim(entry.get('name')) == wanted:
+            return notepad_set_count(
+                data, entry.get('name'),
+                int(entry.get('anzahl') or 1) - count) or True
+    return False
+
+
 def notepad_set_count(data, name, count):
     """Wie oft der Gegenstand gebaut werden soll. `0` streicht ihn."""
     try:

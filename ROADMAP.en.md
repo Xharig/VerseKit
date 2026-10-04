@@ -44,7 +44,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Item details in game** — class, size and grade at the tractor beam, seeker type for missiles |
 | ✅ | **Crafting**: for every craftable item the ingredients, the duration and the stats — including whether you own the blueprint for it; product stats as base, crafted and change |
 | ✅ | **Material quality matters** — one slider per ingredient shows what *your* material would yield, and the range the value can reach at all |
-| ✅ | **My storage**: record material, amount, quality and location; the recipe then shows what is missing, and a button deducts the ingredients |
+| ✅ | **My storage**: record material, amount, quality and location; the recipe then shows what is missing, and a button deducts the ingredients — in the quality you set, best or worst material by choice; the same material is grouped |
 | ✅ | **Mining** both ways: material → where it is found, location → what is found there, with mining type, refinery comparison and scan signature |
 | ✅ | **Read the scan signature automatically** (Windows) — recognised while scanning, shown in the overlay |
 | ✅ | **How much of it** — concentration and grade per ore and location, kept separate for ship, vehicle and hand mining |

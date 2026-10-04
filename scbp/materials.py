@@ -391,6 +391,24 @@ def best_quality(material, min_quality=0):
     return best
 
 
+def worst_quality(material, min_quality=0):
+    """Die niedrigste brauchbare Qualität dieses Materials im Lager — oder None.
+
+    Gegenstück zu `best_quality`: brauchbar heißt mindestens `min_quality`
+    und eine Menge über null."""
+    wanted = norm_material(material)
+    worst = None
+    for p in load():
+        if norm_material(p.get('material')) != wanted:
+            continue
+        if float(p.get('menge') or 0) <= 0:
+            continue
+        q = float(p.get('qualitaet') or 0)
+        if q >= float(min_quality or 0) and (worst is None or q < worst):
+            worst = q
+    return worst
+
+
 def stock():
     """{Material: Gesamtmenge} — für die Anzeige im Rezept."""
     result = {}
@@ -580,9 +598,11 @@ def deduct(ingredients, count=1):
     nehmen: Es wird in zwei Durchgängen gearbeitet, und der erste fasst nichts
     an.
 
-    ⚠ Abgezogen wird vom **ältesten** Posten zuerst. Wer zwei Posten desselben
-    Materials führt (verschiedene Güte oder Fundort), soll den älteren zuerst
-    leer sehen — sonst bleiben lauter Reste stehen.
+    ⚠⚠ Abgezogen wird die **eingestellte Qualität** zuerst: Die Güte einer
+    Zutat ist die Untergrenze, genommen wird aufsteigend ab ihr — erst die
+    Posten genau dieser Güte, dann die nächstbessere. Bei gleicher Güte der
+    ältere Posten zuerst. Ohne diese Reihenfolge nähme ein Bau mit Q 500 auch
+    einen älteren Posten Q 900 weg, und das gute Material wäre verbraucht.
     """
     entries = load()
     factor = max(1, int(count or 1))
@@ -613,7 +633,8 @@ def deduct(ingredients, count=1):
     # --- Zweiter Durchgang: jetzt wirklich nehmen. ---
     for (wanted, minimum), (_name, needed) in demand.items():
         remaining = needed
-        for p in entries:
+        # `sorted` ist stabil: Bei gleicher Güte bleibt der ältere vorn.
+        for p in sorted(entries, key=lambda e: float(e.get('qualitaet') or 0)):
             if remaining <= 1e-9:
                 break
             if norm_material(p.get('material')) != wanted:

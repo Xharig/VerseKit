@@ -6,6 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.79.0 - 2026-10-04
+
+> Herstellen wie am Terminal im Spiel: Bestes oder schlechtestes Material
+> mit einem Klick, die Güte auch genau eintippen — und abgezogen wird genau
+> das Material, das du eingestellt hast. Dazu ein aufgeräumtes Rohstofflager.
+
+### Neu
+
+- **Bestes / Schlechtestes Material** — in der Herstellung füllt ein Klick
+  jede Zutat mit der besten oder der schlechtesten Güte aus deinem Lager, wie
+  am Fertigungsterminal. Die Wahl bleibt gespeichert
+- **Güte per Hand eingeben** — neben jedem Qualitätsregler steht ein Feld.
+  Tippst du eine Güte ein, läuft der Regler mit; ziehst du am Regler, steht
+  der Wert im Feld
+- **Von „Was ich farmen muss" direkt zur Herstellung** — ein Klick auf einen
+  vorgemerkten Gegenstand öffnet sein Rezept. Baust du ihn dort, sinkt die
+  vorgemerkte Stückzahl um genau die gebaute Menge, und abgezogen wird auch
+  nur das Material dafür: zehn vorgemerkt, einen gebaut, bleiben neun
+
+### Verbessert
+
+- **Es wird das eingestellte Material abgezogen** — „Hergestellt" nimmt
+  zuerst die Posten genau der eingestellten Güte, dann die nächstbessere.
+  Gutes Material bleibt liegen, wenn du mit schlechterem baust
+
+- **Gleiche Materialien gebündelt** — liegt ein Material in mehreren Güten
+  oder an mehreren Orten, zeigt das Lager eine Zeile mit Gesamtmenge,
+  Güte-Spanne (etwa 500–900) und Ort bzw. Zahl der Orte. Ein Klick klappt die
+  einzelnen Posten auf und wieder zu. Suchst du nach einem Ort, klappt das
+  passende Material von selbst auf
+
 ## v3.78.0 - 2026-10-04
 
 > Ein Reiter weniger: Die eigenen Schiffsnamen für das Abrufterminal vergibst

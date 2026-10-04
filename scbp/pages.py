@@ -10089,6 +10089,14 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             # erfolgreichen Abzug zurück auf 1, damit der nächste Klick nicht
             # unbemerkt wieder zehn nimmt.
             if ok:
+                # ⭐ Was gebaut ist, muss nicht mehr gefarmt werden: Die
+                # Stückzahl auf dem Merkzettel sinkt um die gebaute Menge.
+                stand_mz = _mz_hangar.load()
+                if _mz_hangar.notepad_crafted(stand_mz, _mz_name, wie_oft):
+                    _mz_hangar.save(stand_mz)
+                    merk_stand.configure(
+                        text=(t('s_mz_drauf') if _mz_hangar.notepad_contains(
+                            stand_mz, _mz_name) else ''))
                 var.set('1')
                 neu_zeichnen()
             else:
@@ -10331,11 +10339,28 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # weil dort niemand weiß, was im eigenen Frachtraum liegt.
         #
         # ⚠ Nur zeigen, wenn das Lager etwas dazu hergibt — geraten wird nicht.
-        qualitaeten = {}
+        #
+        # ⭐ Welche Güte aus dem Lager vorgeschlagen wird, folgt der Wahl
+        # bestes oder schlechtestes Material, wie am Fertigungsterminal im
+        # Spiel. Die Wahl bleibt gespeichert.
+        fill_mode = {'mode': paths.setting('herstellung_fuellen') or 'best'}
+        min_quality = {}
         for _slot, _roh, _mg, _gt in stufe['zutaten']:
-            beste = lager.best_quality(_roh, _gt)
-            if beste is not None:
-                qualitaeten[_roh] = beste
+            if _roh:
+                min_quality[_roh] = max(min_quality.get(_roh, 0.0),
+                                        float(_gt or 0))
+        qualitaeten = {}
+
+        def stock_qualities():
+            pick = (lager.worst_quality if fill_mode['mode'] == 'worst'
+                    else lager.best_quality)
+            qualitaeten.clear()
+            for mat, lowest in min_quality.items():
+                found = pick(mat, lowest)
+                if found is not None:
+                    qualitaeten[mat] = found
+
+        stock_qualities()
         # ⚠ **Auch ohne Lager anzeigen.** Die Frage „was bringt mir Erz mit
         # Qualität X?" stellt man, BEVOR man es hat — genau dafür ist der
         # Regler unten da. Ohne Lagerstand wird mit Q 500 (Mitte) begonnen.
@@ -10486,6 +10511,37 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             _body_text(block, t('s_he_kauf_q') % preis_modul.BUY_QUALITY,
                         fenster.f_small, fill='x')
 
+            # ⭐ Automatisch füllen mit bestem oder schlechtestem Material —
+            # dieselbe Wahl wie am Fertigungsterminal. Sie setzt die Regler
+            # auf die Güte aus dem Lager, und genau diese Güte zieht
+            # „Hergestellt" später ab.
+            fuellen_reihe = tk.Frame(block, bg=theme.FIELD)
+            fuellen_reihe.pack(fill='x', padx=12, pady=(4, 2))
+
+            def fill_buttons():
+                for kind in fuellen_reihe.winfo_children():
+                    kind.destroy()
+                tk.Label(fuellen_reihe, text=t('s_he_fuellen'), bg=theme.FIELD,
+                         fg=SUB, font=fenster.f_small).pack(side='left',
+                                                            padx=(0, 8))
+                for mode, key in (('best', 's_he_bestes'),
+                                  ('worst', 's_he_schlechtestes')):
+                    _button(fenster, fuellen_reihe, t(key),
+                            lambda m=mode: choose_fill(m),
+                            strong=fill_mode['mode'] == mode).pack(
+                                side='left', padx=(0, 6))
+
+            def choose_fill(mode):
+                fill_mode['mode'] = mode
+                paths.set_setting('herstellung_fuellen', mode)
+                stock_qualities()
+                for mat in alle_materialien:
+                    aus_lager[mat] = mat in qualitaeten
+                fill_buttons()
+                zurueck_zum_lager()
+
+            fill_buttons()
+
             # ⚠⚠ **589 Rezept-Slots haben ein Material ohne jede
             # Qualitaetswirkung** — Titanium in der BUL-H4 Armor etwa. Der
             # Regler bleibt trotzdem bedienbar (scmdb.net haelt es genauso),
@@ -10511,35 +10567,62 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 # ⚠ Der Wert MUSS neben dem Regler stehen. Ohne ihn zieht man
                 # blind und weiß nicht, welche Qualität man gerade
                 # durchspielt — genau der Wert, um den es geht.
-                _wert_lbl = tk.Label(reihe_r, text=t('s_lg_q_wert')
-                                     % int(stand[_mat]),
-                                     bg=theme.FIELD, fg=ACCENT,
-                                     font=fenster.f_base, width=7, anchor='w')
+                # ⭐ Als Feld: Der Regler trifft auf 200 Pixel nicht jede
+                # Güte. Getippt wird genau, der Regler läuft beim Tippen mit;
+                # gezogen, schreibt der Regler ins Feld.
+                _q_var = tk.StringVar(reihe_r, value='%g' % stand[_mat])
+
+                def source_text(mat):
+                    """Woher die Güte im Feld kommt — Lager, verstellt, keins."""
+                    if mat not in _wirksam:
+                        return t('s_he_ohne_wirkung')
+                    if not aus_lager[mat]:
+                        return t('s_he_regler_ohne')
+                    if abs(stand[mat] - float(qualitaeten.get(mat, -1))) < 0.5:
+                        return t('s_he_regler_lager')
+                    return ''
+
+                def quality_set(wert, mat, from_field=False, redraw=True):
+                    wert = max(0.0, min(1000.0, float(wert)))
+                    stand[mat] = wert
+                    q_var, quelle_lbl, regler, sync = regler_zeilen[mat]
+                    if not from_field:
+                        sync['still'] = True
+                        q_var.set('%g' % wert)
+                        sync['still'] = False
+                    regler.draw(wert)
+                    quelle_lbl.configure(text=source_text(mat))
+                    if redraw:
+                        werte_zeichnen()
 
                 def gezogen(wert, mat=_mat):
-                    stand[mat] = float(wert)
-                    regler_zeilen[mat][0].configure(
-                        text=t('s_lg_q_wert') % int(wert))
-                    regler_zeilen[mat][1].configure(
-                        text=(t('s_he_regler_lager')
-                              if (aus_lager[mat]
-                                  and abs(float(wert)
-                                          - float(qualitaeten.get(mat, -1))) < 0.5)
-                              else ''))
-                    werte_zeichnen()
+                    quality_set(wert, mat)
+
+                def getippt(*_a, mat=_mat):
+                    q_var, _ql, _rg, sync = regler_zeilen[mat]
+                    if sync['still']:
+                        return
+                    wert = lager.parse_number(q_var.get())
+                    if wert is None or wert < 0 or wert > 1000:
+                        return
+                    quality_set(wert, mat, from_field=True)
 
                 _schieber = schieberegler(reihe_r, 0, 1000, int(stand[_mat]),
                                           gezogen, width=200, bg=theme.FIELD)
                 _schieber.pack(side='left', anchor='n')
-                _wert_lbl.pack(side='left', anchor='n', padx=(10, 0))
+                from .main_window import round_entry as _rf_q
+                _q_feld = _rf_q(reihe_r, _q_var, fenster.f_base, theme.FIELD,
+                                LINE, ACCENT, ACCENT)
+                _q_feld.holder.configure(width=84)
+                _q_feld.holder.pack(side='left', anchor='n', padx=(10, 0))
+                _q_feld.quality_of = _mat
                 _quelle_lbl = tk.Label(
-                    reihe_r,
-                    text=(t('s_he_ohne_wirkung') if _mat not in _wirksam
-                          else t('s_he_regler_lager') if aus_lager[_mat]
-                          else t('s_he_regler_ohne')),
+                    reihe_r, text=source_text(_mat),
                     bg=theme.FIELD, fg=SUB, font=fenster.f_small, anchor='w')
                 _quelle_lbl.pack(side='left', anchor='n', padx=(10, 0))
-                regler_zeilen[_mat] = (_wert_lbl, _quelle_lbl, _schieber)
+                regler_zeilen[_mat] = (_q_var, _quelle_lbl, _schieber,
+                                       {'still': False})
+                _q_var.trace_add('write', getippt)
 
                 # Rechts: jede Eigenschaft, die dieses Material verändert.
                 # ⚠ Ein Material kann in mehreren Slots stecken und mehrere
@@ -10651,17 +10734,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
             def zurueck_zum_lager(_e=None):
                 for _m in alle_materialien:
-                    stand[_m] = float(qualitaeten.get(_m, 500.0))
-                    _w, _q, _s = regler_zeilen[_m]
-                    _w.configure(text=t('s_lg_q_wert') % int(stand[_m]))
-                    _q.configure(text=(t('s_he_regler_lager') if aus_lager[_m]
-                                       else t('s_he_regler_ohne')))
-                    # `regler()` gibt seine Zeichenfunktion mit heraus —
-                    # damit steht der Knopf wieder an der richtigen Stelle.
-                    try:
-                        _s.draw(stand[_m])
-                    except Exception:
-                        pass
+                    quality_set(qualitaeten.get(_m, 500.0), _m, redraw=False)
                 werte_zeichnen()
 
             if qualitaeten:
@@ -13244,10 +13317,24 @@ def _farm_list(fenster, rahmen):
             menge = int(e.get('anzahl') or 1)
             _count_stepper(fenster, zeile, menge,
                            lambda neu, n=e.get('name'): _set_count(n, neu))
-            tk.Label(zeile, text=e.get('name') or '', bg=BG, fg=FG,
-                     font=fenster.f_base, anchor='w').pack(side='left',
-                                                            fill='x',
-                                                            expand=True)
+            # ⭐ Der Name führt in die Herstellung — dort steht das Rezept
+            # aufgeklappt, mit Güte-Wahl und dem Knopf „Hergestellt".
+            item_label = tk.Label(zeile, text=e.get('name') or '', bg=BG,
+                                  fg=FG, font=fenster.f_base, anchor='w',
+                                  cursor='hand2')
+            item_label.pack(side='left', fill='x', expand=True)
+
+            def to_crafting(_e=None, n=e.get('name') or ''):
+                fenster.crafting_search = n
+                fenster.jump_to('herstellung')
+
+            item_label.bind('<Button-1>', to_crafting)
+            item_label.bind('<Enter>',
+                            lambda _e, l=item_label: l.configure(fg=ACCENT))
+            item_label.bind('<Leave>',
+                            lambda _e, l=item_label: l.configure(fg=FG))
+            from . import notice as _mz_notice
+            _mz_notice.attach(item_label, lambda: t('s_mz_zur_herstellung'))
 
             # Die Zutaten darunter — mit der Stückzahl multipliziert und
             # gegen das Lager gehalten.
@@ -14943,6 +15030,8 @@ def _storage(fenster, rahmen):
     # statt ihn zu sehen. Spaltenköpfe sortieren auf Klick, das Feld darüber
     # filtert.
     sortier = {'nach': 'material', 'ab': False}
+    # Welche Materialien aufgeklappt sind — bleibt beim Neuzeichnen.
+    aufgeklappt = set()
     filter_var = tk.StringVar(rahmen)
 
     SPALTEN = (('material', 's_lg_sp_material', 22, 'w'),
@@ -15015,21 +15104,81 @@ def _storage(fenster, rahmen):
                     or text in (p.get('material') or '').lower()
                     or text in (p.get('ort') or '').lower()]
 
-        def schluessel_von(paar):
-            p = paar[1]
-            wert = p.get(sortier['nach'])
-            if sortier['nach'] in ('menge', 'qualitaet'):
-                return float(wert or 0)
-            return str(wert or '').lower()
-
-        sichtbar.sort(key=schluessel_von, reverse=sortier['ab'])
-
         if not sichtbar:
             _body_text(liste_rahmen, t('s_lg_nichts_da'), fenster.f_small,
                         fill='x')
             return
 
+        # ⭐⭐ **Je Material eine Zeile** — gleiche Materialien an mehreren
+        # Orten oder in mehreren Güten stehen zugeklappt mit Summe, Güte-
+        # Spanne und Ort; aufgeklappt folgen die einzelnen Posten.
+        gruppen = {}
         for nummer, p in sichtbar:
+            schluessel = (p.get('material') or '').strip().lower()
+            gruppen.setdefault(schluessel, []).append((nummer, p))
+
+        def _q(p):
+            try:
+                return float(p.get('qualitaet') or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        def _menge(p):
+            try:
+                return float(p.get('menge') or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        def gruppen_schluessel(eintraege):
+            ps = [p for _n, p in eintraege]
+            nach = sortier['nach']
+            if nach == 'menge':
+                return sum(_menge(p) for p in ps)
+            if nach == 'qualitaet':
+                return max(_q(p) for p in ps)
+            if nach == 'abbau':
+                return _abbau_text(ps[0].get('material') or '').lower()
+            if nach == 'ort':
+                return ' '.join(sorted((p.get('ort') or '').lower()
+                                       for p in ps))
+            return (ps[0].get('material') or '').lower()
+
+        def posten_schluessel(paar):
+            p = paar[1]
+            if sortier['nach'] in ('menge', 'qualitaet'):
+                return _menge(p) if sortier['nach'] == 'menge' else _q(p)
+            return str(p.get(sortier['nach']) or '').lower()
+
+        reihenfolge = sorted(gruppen.items(),
+                             key=lambda kv: gruppen_schluessel(kv[1]),
+                             reverse=sortier['ab'])
+
+        def spalten(z, z_bg, werte, beim_klick):
+            """Die fünf Spalten einer Zeile; ein Klick darauf ruft `beim_klick`."""
+            labels = []
+            for wert, (_k, _tk, breite, anker_), farbe, schrift in werte:
+                letzte = _k == SPALTEN[-1][0]
+                lbl = tk.Label(z, text=wert, bg=z_bg, fg=farbe, font=schrift,
+                               width=0 if letzte else breite, anchor=anker_,
+                               justify='left', cursor='hand2')
+                if letzte:
+                    # ⚠ Die letzte Spalte (Ort) nimmt den Rest und bricht um,
+                    # statt feste Zeichen zu fordern: Bei der größten Schrift
+                    # bekäme „Levski" sonst nur rund die Hälfte seiner Breite
+                    # (tools/randpruefung.py).
+                    lbl.pack(side='left', padx=(0, 8), fill='x', expand=True)
+                    _wrap_self(lbl)
+                else:
+                    lbl.pack(side='left', padx=(0, 8))
+                labels.append(lbl)
+            # ⚠ Auch jedes Label einzeln binden — ein Label verschluckt den
+            # Klick, sonst trifft man nur die Lücken dazwischen.
+            z.bind('<Button-1>', lambda _e: beim_klick())
+            for kind in labels:
+                kind.bind('<Button-1>', lambda _e: beim_klick())
+            return labels
+
+        def posten_zeile(nummer, p, eingerueckt):
             offen = bearbeitung['nummer'] == nummer
             # Die offene Zeile bekommt Flaeche unter sich, damit man sieht,
             # welchen Posten die Felder oben gerade zeigen.
@@ -15040,17 +15189,15 @@ def _storage(fenster, rahmen):
             # `texte_pruefen.py` als festen Oberflächentext „material" und
             # meldet ihn — ein Fehlalarm, der die Prüfung rot färbt.
             name_txt = p.get('material') or '?'
-            menge_txt = '%g' % float(p.get('menge') or 0)
+            menge_txt = '%g' % _menge(p)
             q_txt = ('%g' % float(p['qualitaet'])) if p.get('qualitaet') else '—'
             abbau_txt = _abbau_text(name_txt) or '—'
             ort_txt = p.get('ort') or '—'
             # ⚠⚠ **„Löschen" MUSS vor den Spalten gepackt werden.** Tk gibt
             # den Platz in der Reihenfolge des Packens: Was links zuerst
             # kommt, nimmt sich seine Breite, und der rechte Rest bekommt, was
-            # übrig ist — bei fünf Spalten mit fester Breite also unter
-            # Umständen nichts — es stünde „chen" statt „Löschen" da. Zuerst
-            # gepackt, reserviert es
-            # seinen Platz, und die Spalten teilen sich den Rest.
+            # übrig ist, und vom Wort bliebe nur das Ende. Zuerst gepackt,
+            # reserviert es seinen Platz, und die Spalten teilen sich den Rest.
             weg = tk.Label(z, text=t('s_lg_weg'), bg=z_bg, fg=SUB,
                            font=fenster.f_small, cursor='hand2', anchor='e')
             weg.pack(side='right', padx=(8, 4))
@@ -15065,39 +15212,75 @@ def _storage(fenster, rahmen):
             # die Schriftfarbe ab. ⚠ Rot, nicht Markenfarbe: Die
             # Warnung gehört zur Aussage.
             icons.hover_fg(weg, SUB, RED_PALE)
+            # Aufgeklappte Posten stehen eingerückt unter ihrem Material; der
+            # Name steht dort nicht noch einmal.
+            spalten(z, z_bg, (
+                ('' if eingerueckt else name_txt, SPALTEN[0], FG,
+                 fenster.f_base),
+                (menge_txt, SPALTEN[1], ACCENT, fenster.f_base),
+                (q_txt, SPALTEN[2], SUB, fenster.f_small),
+                (abbau_txt, SPALTEN[3], SUB, fenster.f_small),
+                (ort_txt, SPALTEN[4], SUB, fenster.f_small)),
+                lambda n=nummer: bearbeiten(n))
 
-            spalten_labels = []
-            for wert, (_k, _tk, breite, anker_), farbe, schrift in (
-                    (name_txt, SPALTEN[0], FG, fenster.f_base),
-                    (menge_txt, SPALTEN[1], ACCENT, fenster.f_base),
-                    (q_txt, SPALTEN[2], SUB, fenster.f_small),
-                    (abbau_txt, SPALTEN[3], SUB, fenster.f_small),
-                    (ort_txt, SPALTEN[4], SUB, fenster.f_small)):
-                letzte = _k == SPALTEN[-1][0]
-                lbl = tk.Label(z, text=wert, bg=z_bg, fg=farbe, font=schrift,
-                               width=0 if letzte else breite, anchor=anker_,
-                               justify='left', cursor='hand2')
-                if letzte:
-                    # ⚠ Die letzte Spalte (Ort) nimmt den Rest und bricht um,
-                    # statt feste Zeichen zu fordern: Bei der größten Schrift
-                    # bekäme „Levski" sonst nur rund die Hälfte seiner Breite
-                    # (tools/randpruefung.py).
-                    lbl.pack(side='left', padx=(0, 8), fill='x', expand=True)
-                    _wrap_self(lbl)
+        for schluessel, eintraege in reihenfolge:
+            if len(eintraege) == 1:
+                posten_zeile(eintraege[0][0], eintraege[0][1], False)
+                continue
+            ps = [p for _n, p in eintraege]
+            # Aufgeklappt: von Hand geöffnet, der gerade bearbeitete Posten
+            # gehört dazu, oder die Suche trifft einen Ort darin.
+            von_selbst = (any(bearbeitung['nummer'] == n for n, _p in eintraege)
+                          or (text and any(text in (p.get('ort') or '').lower()
+                                           for p in ps)))
+            offen = schluessel in aufgeklappt or von_selbst
+            summe = round(sum(_menge(p) for p in ps), 3)
+            gueten = sorted({_q(p) for p in ps if p.get('qualitaet')})
+            if not gueten:
+                q_txt = '—'
+            elif gueten[0] == gueten[-1]:
+                q_txt = '%g' % gueten[0]
+            else:
+                q_txt = '%g–%g' % (gueten[0], gueten[-1])
+            orte = sorted({(p.get('ort') or '').strip() for p in ps} - {''})
+            if not orte:
+                ort_txt = '—'
+            elif len(orte) == 1:
+                ort_txt = orte[0]
+            else:
+                ort_txt = t('s_lg_orte_n') % len(orte)
+            name_txt = '%s (%d)' % (ps[0].get('material') or '?', len(ps))
+
+            kopf_z = tk.Frame(liste_rahmen, bg=BG)
+            kopf_z.pack(fill='x', pady=1)
+
+            def umschalten(s=schluessel):
+                if s in aufgeklappt:
+                    aufgeklappt.discard(s)
                 else:
-                    lbl.pack(side='left', padx=(0, 8))
-                spalten_labels.append(lbl)
+                    aufgeklappt.add(s)
+                _keep_scroll(liste_rahmen, zeichnen)
 
-            # Die ganze Zeile oeffnet den Posten zum Berichtigen. ⚠ Auch jedes
-            # Label einzeln binden — ein Label verschluckt den Klick, sonst
-            # trifft man nur die Luecken dazwischen.
-            #
-            # ⚠ **Nur die Spalten**, nicht „Löschen": Das hat seine eigene
-            # Aufgabe. Frueher ergab sich das von selbst, weil es nach dieser
-            # Schleife entstand — jetzt wird es ausdruecklich ausgelassen.
-            z.bind('<Button-1>', lambda _e, n=nummer: bearbeiten(n))
-            for kind in spalten_labels:
-                kind.bind('<Button-1>', lambda _e, n=nummer: bearbeiten(n))
+            # ⚠ Der Pfeil steht rechts an der Stelle von „Löschen" — so bleiben
+            # die Spalten von Material- und Postenzeilen bündig.
+            pfeil = icons.line(kopf_z, 'zuklappen' if offen else 'aufklappen',
+                               background=BG, font=fenster.f_small)
+            pfeil.configure(cursor='hand2')
+            pfeil.pack(side='right', padx=(8, 4))
+            pfeil.bind('<Button-1>', lambda _e, f=umschalten: f())
+            kopf_labels = spalten(kopf_z, BG, (
+                (name_txt, SPALTEN[0], FG, fenster.f_base),
+                ('%g' % summe, SPALTEN[1], ACCENT, fenster.f_base),
+                (q_txt, SPALTEN[2], SUB, fenster.f_small),
+                (_abbau_text(ps[0].get('material') or '') or '—', SPALTEN[3],
+                 SUB, fenster.f_small),
+                (ort_txt, SPALTEN[4], SUB, fenster.f_small)), umschalten)
+            kopf_z.gruppe = schluessel
+            kopf_z.gruppe_labels = kopf_labels
+            if offen:
+                for nummer, p in sorted(eintraege, key=posten_schluessel,
+                                        reverse=sortier['ab']):
+                    posten_zeile(nummer, p, True)
 
     filter_var.trace_add('write', after_typing(rahmen, zeichnen))
 

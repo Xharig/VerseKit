@@ -4669,6 +4669,8 @@ TEXTS = {
     's_lg_berichtigt':   ('Name berichtigt: %s → %s',
                           'Name corrected: %s → %s'),
     's_lg_summe':        ('%d Posten · %d Rohstoffe', '%d entries · %d resources'),
+    # Ein Material an mehreren Lagerorten, zugeklappt.
+    's_lg_orte_n':       ('%d Orte', '%d locations'),
     # ⚠ Bewusst „dir fehlt", nicht „du kannst nicht bauen" — das Lager wird von
     # Hand gepflegt und ist irgendwann lückenhaft. Ein Hinweis darf danebenliegen,
     # eine Behauptung nicht.
@@ -4968,12 +4970,19 @@ TEXTS = {
     # „hast"-Werte auf einer Seite sind ein Fehler, auch wenn beide richtig
     # gerechnet sind. Was fehlt, sagt die Farbe und die Summe darüber.
     's_mz_braucht':      ('braucht %s', 'needs %s'),
+    's_mz_zur_herstellung': ('Anklicken öffnet die Herstellung — dort wählst '
+                             'du das Material und ziehst es nach dem Bauen '
+                             'vom Lager ab',
+                             'Click to open Crafting — choose the material '
+                             'there and deduct it from stock once built'),
     's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
                           'No recipe available for this blueprint.'),
     's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt der Watcher die Zutaten '
-                          'aus deinem Lager.',
+                          'aus deinem Lager — in der Qualität, die unten bei '
+                          'jedem Material eingestellt ist.',
                           'Built it? Then the watcher takes the ingredients out '
-                          'of your stock.'),
+                          'of your stock — in the quality set for each material '
+                          'below.'),
     's_lg_abgezogen':    ('Abgezogen.', 'Deducted.'),
     # ⚠ Nichts wird abgezogen, wenn etwas fehlt — der Text muss das sagen.
     # Ein „Abgezogen, so weit vorhanden" hinterliesse ein halb leeres Lager.
@@ -4993,6 +5002,9 @@ TEXTS = {
                              '× %g on hand, but below Q %g'),
     's_he_regler_kopf':  ('Qualität durchspielen — je Material einzeln',
                           'Try qualities — one per material'),
+    's_he_fuellen':      ('Automatisch füllen mit:', 'Auto-fill with:'),
+    's_he_bestes':       ('Bestes Material', 'Best material'),
+    's_he_schlechtestes': ('Schlechtestes Material', 'Worst material'),
     's_he_regler_lager': ('aus deinem Lager', 'from your stock'),
     's_he_regler_ohne':  ('nichts im Lager', 'nothing in stock'),
     # ⚠ 589 Rezept-Slots haben ein Material OHNE jede Qualitaetswirkung.
