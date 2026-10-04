@@ -12540,6 +12540,34 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         lese_zeigen('\n'.join(teile),
                     ACCENT if text and not unsicher else GOLD)
 
+    # Mehrere Auftragskarten auf dem Bildschirm: je Auftrag ein Knopf; der
+    # gewählte kommt ins Feld.
+    auswahl = tk.Frame(ziel, bg=BG)
+
+    def auftraege_zeigen(auftraege, aufgehoben):
+        """Ein Auftrag: gleich ins Feld. Mehrere: Auswahl unter der Meldung."""
+        from . import refinery_scan
+        for kind in auswahl.winfo_children():
+            kind.destroy()
+        if auswahl.winfo_manager():
+            auswahl.pack_forget()
+        if len(auftraege) <= 1:
+            auftrag = auftraege[0] if auftraege else {}
+            lese_ergebnis(auftrag.get('text', ''), auftrag.get('unsure', []),
+                          aufgehoben)
+            return
+        stand['liest'] = False
+        lese_zeigen(t('s_rf_auftraege') % len(auftraege), GOLD)
+        auswahl.pack(fill='x', pady=(6, 0), after=lese_meldung)
+        for auftrag in auftraege:
+            def waehlen(a=auftrag):
+                for kind in auswahl.winfo_children():
+                    kind.destroy()
+                auswahl.pack_forget()
+                lese_ergebnis(a['text'], a['unsure'], aufgehoben)
+            _button(fenster, auswahl, refinery_scan.job_label(auftrag),
+                    waehlen).pack(anchor='w', pady=(0, 4))
+
     def lesen():
         from . import refinery_scan
         if stand['liest']:
@@ -12561,10 +12589,10 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
                     _from_thread(feld, kein_spiel)
                     return
                 _from_thread(feld, lambda: lese_zeigen(t('s_rf_lesen_laeuft')))
-                text, unsicher, aufgehoben = refinery_scan.read_screen(rect)
+                auftraege, aufgehoben = refinery_scan.read_screen(rect)
                 page_usage.action('lager_scan')
-                _from_thread(feld, lambda: lese_ergebnis(text, unsicher,
-                                                          aufgehoben))
+                _from_thread(feld, lambda: auftraege_zeigen(auftraege,
+                                                            aufgehoben))
             except Exception as ausnahme:
                 grund = getattr(ausnahme, 'reason', '')
                 if grund != 'keine_sprache':
@@ -12675,6 +12703,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     feld.scan_read = lesen
     feld.scan_message = lese_meldung
     feld.scan_buttons = knopf_platz
+    feld.scan_choice = auswahl
     return feld
 
 

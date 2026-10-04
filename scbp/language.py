@@ -211,6 +211,9 @@ TEXTS = {
                           'dem Terminal vergleichen, dann eintragen.',
                           '%d lines read and placed below — compare them with '
                           'the terminal, then add them.'),
+    's_rf_auftraege': ('%d Aufträge auf dem Bildschirm — welchen eintragen?',
+                       '%d jobs on screen — which one to add?'),
+    's_rf_auftrag_summe': ('%s · %s cSCU', '%s · %s cSCU'),
     's_rf_lesen_bild': ('Das Bild dieser Lesung ist aufgehoben — schick es '
                         'mit einem Fehlerbericht (Info → Fehler melden), '
                         'dann wird der Scanner besser.',

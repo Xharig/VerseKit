@@ -543,13 +543,30 @@ def _vote(values, minimum, rival=None):
     return ranked[0][0]
 
 
-def merge_passes(passes, index=None, minimum=None):
+# Ziffern, die die OCR in der Terminal-Schrift untereinander verwechselt:
+# Die Null hat einen Schrägstrich und wird von allen Durchgängen gleich als 8
+# gelesen (und umgekehrt). Ein Wert mit einer dieser Ziffern gilt nur, wenn
+# eine zweite, unabhängige Prüfung (`confirm`) ihn bestätigt.
+CONFUSABLE = frozenset('08')
+
+
+def needs_confirm(value):
+    """Enthält die Zahl eine Ziffer aus `CONFUSABLE`?"""
+    return value is not None and bool(set(str(value)) & CONFUSABLE)
+
+
+def merge_passes(passes, index=None, minimum=None, confirm=None):
     """Mehrere Lesungen desselben Bildes zu einer Ausbeute zusammenführen.
 
     Zeilen verschiedener Durchgänge gehören zusammen, wenn ihre senkrechte
     Mitte weniger als eine halbe Zeilenhöhe auseinanderliegt. Rohstoff,
     Qualität und Menge werden je für sich abgestimmt (`_vote`): Ein Wert
     gilt erst, wenn mindestens `minimum` Durchgänge ihn gleich lasen.
+
+    Enthält ein abgestimmter Wert eine Ziffer aus `CONFUSABLE`, gilt er nur,
+    wenn `confirm(zeile, spalte, wert)` True zurückgibt — `zeile` ist die
+    senkrechte Mitte, `spalte` 0 für Qualität, 1 für Menge. Ohne `confirm`
+    ist ein solcher Wert unsicher.
 
     Gibt `(zeilen, unsicher)`: `zeilen` als `(material, qualität,
     menge_cscu)` von oben nach unten; `unsicher` als Liste der Rohstoffe,
@@ -577,6 +594,13 @@ def merge_passes(passes, index=None, minimum=None):
                        RIVAL_VOTES)
         if material is None:
             continue
+        for column, value in ((0, quality), (1, amount)):
+            if needs_confirm(value) and not (
+                    confirm and confirm(cluster['y'], column, value)):
+                if column == 0:
+                    quality = None
+                else:
+                    amount = None
         if quality is None or amount is None:
             unsure.append(material)
             continue
@@ -686,11 +710,15 @@ def _head(word, keys):
     return any(key in text for key in keys)
 
 
-def find_table(words, width, height):
-    """Den Ausschnitt der Ausbeute-Tabelle — `(x, y, b, h)` — oder None.
+def find_tables(words, width, height):
+    """Alle Ausbeute-Tabellen auf dem Bild, links nach rechts, oben nach unten.
 
-    Gesucht wird die Kopfzeile: eine Zeile mit einem Qualitäts-Kopf und
-    rechts daneben einem Ausbeute-Kopf. Die Materialliste links im Terminal
+    Gibt eine Liste von dicts: `box` = `(x, y, b, h)` und `total` — die
+    Summe als Text mit Punkt (`12.76`) oder ''. Stehen zwei Auftragskarten nebeneinander,
+    hat jede ihre eigene Kopfzeile und damit ihren eigenen Eintrag.
+
+    Eine Kopfzeile ist eine Zeile mit einem Qualitäts-Kopf und rechts
+    daneben einem Ausbeute-Kopf. Die Materialliste links im Terminal
     (Stationsprofil) hat keinen Qualitäts-Kopf und zählt deshalb nicht.
 
     Der Ausschnitt reicht
@@ -705,7 +733,7 @@ def find_table(words, width, height):
     Alles links der Materialspalte bleibt draußen — auch Wörter, die die
     Zeilenbildung derselben Zeile zuschlägt.
     """
-    best = None
+    candidates = []
     for line in rows(words):
         for quality in (w for w in line if _head(w, _HEAD_QUALITY)):
             unit = max(4, quality.get('h', 8))
@@ -717,12 +745,29 @@ def find_table(words, width, height):
             heads = [w for w in line if _head(w, _HEAD_MATERIAL)
                      and 0 < qx - w.get('x', 0) < 30 * unit]
             rights = [w for w in line if 0 <= w.get('x', 0) - qx < 25 * unit]
-            score = len(heads) + len(rights)
-            if best is None or score > best[0]:
-                best = (score, quality, unit, heads, rights)
-    if best is None:
-        return None
-    _score, quality, unit, heads, rights = best
+            candidates.append((len(heads) + len(rights), quality, unit,
+                               heads, rights))
+    # Je Kopfzeile ein Eintrag: Ein zweiter Qualitäts-Kopf in derselben
+    # Tabelle (verlesen, doppelt) liegt näher als 30 Schrifthöhen.
+    chosen = []
+    for candidate in sorted(candidates, key=lambda c: -c[0]):
+        quality, unit = candidate[1], candidate[2]
+        if any(abs(quality.get('x', 0) - other[1].get('x', 0)) < 30 * unit
+               and abs(quality.get('y', 0) - other[1].get('y', 0)) < 10 * unit
+               for other in chosen):
+            continue
+        chosen.append(candidate)
+    tables = []
+    for _score, quality, unit, heads, rights in chosen:
+        table = _table_box(words, width, height, quality, unit, heads, rights)
+        if table:
+            tables.append(table)
+    tables.sort(key=lambda t: (t['box'][0], t['box'][1]))
+    return tables
+
+
+def _table_box(words, width, height, quality, unit, heads, rights):
+    """Ausschnitt und Summe zu einer gefundenen Kopfzeile (`find_tables`)."""
     qx = quality.get('x', 0)
     left = min(w.get('x', 0) for w in heads) if heads else qx - 24 * unit
     header = heads + rights
@@ -731,12 +776,21 @@ def find_table(words, width, height):
     header_bottom = max(w.get('y', 0) + w.get('h', 0) for w in header)
     below = [w for w in words
              if w.get('y', 0) > header_bottom + 2 * unit
+             and w.get('y', 0) < header_bottom + 60 * unit
              and left - unit <= w.get('x', 0) <= right
              and (_head(w, ('SCU',))
-                  or (_head(w, _HEAD_YIELD)
-                      and w.get('x', 0) < quality.get('x', 0)))]
+                  or (_head(w, _HEAD_YIELD) and w.get('x', 0) < qx))]
+    total = ''
     if below:
         bottom = min(w.get('y', 0) for w in below)
+        line = [w for w in words
+                if abs(w.get('y', 0) - bottom) < 3 * unit
+                and left - unit <= w.get('x', 0) <= right + 4 * unit]
+        for word in sorted(line, key=lambda w: w.get('x', 0)):
+            found = re.search(r'\d+(?:[.,]\d+)?', word.get('t') or '')
+            if found:
+                total = found.group(0).replace(',', '.')
+                break
     else:
         bottom = header_bottom + 55 * unit
     x0 = max(0, int(left - unit))
@@ -745,7 +799,13 @@ def find_table(words, width, height):
     y1 = min(height, int(bottom))
     if x1 <= x0 or y1 <= y0:
         return None
-    return x0, y0, x1 - x0, y1 - y0
+    return {'box': (x0, y0, x1 - x0, y1 - y0), 'total': total}
+
+
+def find_table(words, width, height):
+    """Der Ausschnitt der ersten Ausbeute-Tabelle (`find_tables`) — oder None."""
+    tables = find_tables(words, width, height)
+    return tables[0]['box'] if tables else None
 
 
 # Wie viele missglückte Lesungen aufgehoben werden, für einen Fehlerbericht,
@@ -797,14 +857,18 @@ def keep(source, kind):
 
 
 def read_image(path, ocr=None, keep_failed=False):
-    """Ein Bild lesen: `(text, unsicher, aufgehoben)` für das Raffinerie-Feld.
+    """Ein Bild lesen: `(aufträge, aufgehoben)` für das Raffinerie-Feld.
 
-    Erst die Suche nach der Tabelle über das ganze Bild (`search_jobs`,
-    `find_table`), dann vergrößerte Lesungen nur dieses Ausschnitts
-    (`PASSES`), die `merge_passes` zusammenführt. Ohne Tabelle: kein Text,
-    nichts unsicher.
+    Erst die Suche nach den Tabellen über das ganze Bild (`search_jobs`,
+    `find_tables`), dann je Tabelle vergrößerte Lesungen nur ihres
+    Ausschnitts (`PASSES`), die `merge_passes` zusammenführt.
 
-    `keep_failed`: Bleibt die Lesung leer oder unsicher, wird ein Bild für
+    `aufträge` ist eine Liste von dicts je gefundener Tabelle, links nach
+    rechts: `text` (Zeilen für das Feld), `unsure` (Rohstoffe ohne sichere
+    Zahlen), `materials` (die gelesenen Rohstoffe in Reihenfolge) und `total`
+    (die Summe als Text oder ''). Ohne Tabelle: leere Liste.
+
+    `keep_failed`: Bleibt eine Lesung leer oder unsicher, wird ein Bild für
     den Fehlerbericht aufgehoben (`keep`) — der Tabellenausschnitt, wenn die
     Tabelle gefunden wurde, sonst das ganze Bild, verkleinert auf
     `KEEP_MAX_WIDTH`. `aufgehoben` sagt, ob das geschah.
@@ -816,23 +880,31 @@ def read_image(path, ocr=None, keep_failed=False):
     width, height = size
     base = os.path.splitext(path)[0]
     full_png = base + '-bild.png' if keep_failed else None
-    crop_png = base + '-tabelle.png' if keep_failed else None
+    temps = [full_png]
     try:
         search = ocr(path, search_jobs(width, height), save=full_png)
         words = merge_words(p.get('words') for p in search.get('passes') or ())
-        crop = find_table(words, width, height)
-        if crop is None:
-            return '', [], bool(keep_failed and keep(full_png, 'bild'))
-        data = ocr(path, [(crop, scale, mode) for scale, mode in PASSES],
-                   save_crop=(crop, crop_png) if keep_failed else None)
-        passes = [p.get('words') or [] for p in data.get('passes') or ()]
-        found, unsure = merge_passes(passes)
-        kept = False
-        if keep_failed and (unsure or not found):
-            kept = keep(crop_png, 'tabelle')
-        return as_text(found), unsure, kept
+        tables = find_tables(words, width, height)
+        if not tables:
+            return [], bool(keep_failed and keep(full_png, 'bild'))
+        jobs, kept = [], False
+        for number_, table in enumerate(tables):
+            crop = table['box']
+            crop_png = ('%s-tabelle%d.png' % (base, number_)
+                        if keep_failed else None)
+            temps.append(crop_png)
+            data = ocr(path, [(crop, scale, mode) for scale, mode in PASSES],
+                       save_crop=(crop, crop_png) if keep_failed else None)
+            passes = [p.get('words') or [] for p in data.get('passes') or ()]
+            found, unsure = merge_passes(passes)
+            if keep_failed and (unsure or not found):
+                kept = keep(crop_png, 'tabelle') or kept
+            materials = _materials_in_order(passes)
+            jobs.append({'text': as_text(found), 'unsure': unsure,
+                         'materials': materials, 'total': table['total']})
+        return jobs, kept
     finally:
-        for temp in (full_png, crop_png):
+        for temp in temps:
             if temp and os.path.isfile(temp):
                 try:
                     os.remove(temp)
@@ -840,8 +912,37 @@ def read_image(path, ocr=None, keep_failed=False):
                     pass
 
 
+def _materials_in_order(passes):
+    """Die Rohstoffe der Tabelle von oben nach unten, aus der Lesung mit den
+    meisten Rohstoffzeilen."""
+    best = []
+    for words in passes:
+        names = [r['material'] for r in material_rows(rows(words))]
+        if len(names) > len(best):
+            best = names
+    return best
+
+
+def job_label(job, most=2):
+    """Beschriftung eines Auftrags: die ersten Rohstoffe und die Summe."""
+    from .language import t, current
+    seen = []
+    for name in job.get('materials') or ():
+        if name not in seen:
+            seen.append(name)
+    names = ', '.join(seen[:most]) or '?'
+    if len(seen) > most:
+        names += ' …'
+    if job.get('total'):
+        total = job['total']
+        if current() == 'de':
+            total = total.replace('.', ',')
+        return t('s_rf_auftrag_summe') % (names, total)
+    return names
+
+
 def read_screen(rect, ocr=None):
-    """Die Spielfläche abgreifen und lesen: `(text, unsicher, aufgehoben)`.
+    """Die Spielfläche abgreifen und lesen: `(aufträge, aufgehoben)`.
 
     Die abgegriffene Datei wird danach gelöscht; aufgehoben wird nur, was
     `read_image(keep_failed=True)` bei einer leeren oder unsicheren Lesung

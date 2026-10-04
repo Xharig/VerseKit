@@ -25234,6 +25234,7 @@ def main():
     _pruefung_349()
     _pruefung_350()
     _pruefung_351()
+    _pruefung_352()
     _pruefung_370()
     _pruefung_377()
 
@@ -35162,13 +35163,152 @@ def _breitbild_351(mit_qualitaet=True):
              w('FERTIG', 2405, 561, 36, 9),
              w('GOLD', 2030, 600, 40, 12), w('553', 2235, 602, 18, 9),
              w('122', 2295, 602, 18, 9), w('122', 2350, 602, 18, 9),
-             w('TUNGSTEN', 2030, 650, 70, 12), w('530', 2235, 652, 18, 9),
+             w('TUNGSTEN', 2030, 650, 70, 12), w('531', 2235, 652, 18, 9),
              w('234', 2295, 652, 18, 9),
              w('AUSBEUTE', 2005, 990, 60, 12), w('12.76', 2270, 985, 60, 22),
              w('cSCU', 2335, 982, 25, 9)]
     if mit_qualitaet:
         worte.append(w('OUAUTiT', 2220, 560, 45, 9))
     return worte
+
+
+def _zwei_karten_352():
+    """OCR-Wörter zweier Auftragskarten nebeneinander (je Kopf, Zeilen, Summe)."""
+    links = _breitbild_351()
+    rechts = []
+    for x in _breitbild_351():
+        if x['x'] < 1990:
+            continue
+        neu = dict(x, x=x['x'] + 620)
+        if neu['t'] == 'GOLD':
+            neu['t'] = 'OURATITE'
+        if neu['t'] == 'TUNGSTEN':
+            neu['t'] = 'AGRICIUM'
+        if neu['t'] == '12.76':
+            neu['t'] = '7.33'
+        rechts.append(neu)
+    return links + rechts
+
+
+def _pruefung_352():
+    """352. Raffinerie-Scanner: verwechselbare Ziffern und mehrere Aufträge.
+
+    a) Eine Zahl mit 0 oder 8 gilt nur mit Bestätigung — auch wenn alle
+       Lesungen sie gleich lasen (Schrägstrich-Null wird als 8 gelesen).
+    b) Zwei Auftragskarten nebeneinander: beide werden gefunden und gelesen,
+       die Lager-Seite bietet je Auftrag einen Knopf, der gewählte kommt ins
+       Feld.
+    """
+    print('\n352. Raffinerie-Scanner: verwechselbare Ziffern, mehrere Aufträge')
+    from scbp import (refinery_scan as _rs352, crafting as _cr352,
+                      language as _la352, materials as _ma352)
+    _echt352 = (_cr352.storable, _rs352.read_screen, _rs352.supported,
+                _rs352.wait_for_game)
+    _alt_sprache352 = _la352.current()
+    _alt_lager352 = _ma352.load()
+    from scbp import paths as _pf352
+    _alt_offen352 = _pf352.setting_bool('lager_raffinerie_offen', False)
+    w = None
+    try:
+        _cr352.storable = lambda: list(_ROHSTOFFE_346) + [
+            'Gold', 'Tungsten', 'Savrilium', 'Iron', 'Torite']
+        # a) 985 als 905 gelesen — in allen Lesungen gleich.
+        lesung = _ocr_tabelle_346([('SAVRILIUM', 905, 183, 183),
+                                   ('TITANIUM', 516, 66, 66)])
+        gefunden, unsicher = _rs352.merge_passes([lesung] * 4)
+        pruefe(gefunden == [('Titanium', 516, 66)] and unsicher == ['Savrilium'],
+               'einstimmig 905: trotzdem unsicher, weil 0/8 verwechselbar (%s, %s)'
+               % (gefunden, unsicher))
+        bestaetigt = _rs352.merge_passes([lesung] * 4,
+                                         confirm=lambda y, s, v: True)[0]
+        pruefe(('Savrilium', 905, 183) in bestaetigt,
+               'mit Bestätigung gilt der Wert')
+        _echt_conf352 = _rs352.CONFUSABLE
+        _rs352.CONFUSABLE = frozenset()
+        try:
+            pruefe(('Savrilium', 905, 183) in _rs352.merge_passes([lesung] * 4)[0],
+                   'Gegenprobe: ohne die Regel stünde die falsche 905 im Feld')
+        finally:
+            _rs352.CONFUSABLE = _echt_conf352
+        # b) Zwei Karten.
+        worte = _zwei_karten_352()
+        tabellen = _rs352.find_tables(worte, 5120, 1440)
+        pruefe(len(tabellen) == 2 and tabellen[0]['box'][0] < tabellen[1]['box'][0]
+               and [t_['total'] for t_ in tabellen] == ['12.76', '7.33'],
+               'zwei Kopfzeilen: zwei Tabellen links nach rechts, je eigene Summe '
+               '(%s)' % tabellen)
+        pruefe(len(tabellen) == 2
+               and tabellen[0]['box'][0] + tabellen[0]['box'][2]
+               <= tabellen[1]['box'][0] + 1,
+               'die Ausschnitte überlappen nicht')
+        pruefe(len(_rs352.find_tables(_breitbild_351(), 5120, 1440)) == 1,
+               'Gegenprobe: eine Karte ergibt genau eine Tabelle')
+        heim = tempfile.mkdtemp(prefix='sc-bp-352-')
+        bild = os.path.join(heim, 'abgriff.bmp')
+        _rs352.write_bmp(bytes(5120 * 4) * 1440, 5120, 1440, bild)
+
+        def _im(b, ws):
+            return [x for x in ws if b[0] <= x['x'] and x['x'] + x['w'] <= b[0] + b[2]
+                    and b[1] <= x['y'] and x['y'] + x['h'] <= b[1] + b[3]]
+
+        def _ocr(path, jobs, save=None, save_crop=None):
+            return {'width': 5120, 'height': 1440,
+                    'passes': [{'words': _im(b, worte)} for b, _s, _m in jobs]}
+        auftraege, _kept = _rs352.read_image(bild, _ocr)
+        pruefe([a['text'] for a in auftraege]
+               == ['Gold 553 122 cSCU\nTungsten 531 234 cSCU',
+                   'Ouratite 553 122 cSCU\nAgricium 531 234 cSCU'],
+               'beide Aufträge gelesen (%s)' % [a['text'] for a in auftraege])
+        _la352.set_language('de')
+        beschriftung = _rs352.job_label(auftraege[1])
+        pruefe(beschriftung == 'Ouratite, Agricium · 7,33 cSCU',
+               'Knopf: erste Rohstoffe und Summe (%s)' % beschriftung)
+        if not hat_anzeige():
+            print('  (Oberfläche übersprungen: kein Bildschirm)')
+            return
+        _rs352.supported = lambda: True
+        _rs352.wait_for_game = lambda *a, **k: (0, 0, 5120, 1440)
+        _rs352.read_screen = lambda rect, ocr=None: (auftraege, False)
+        _ma352.save([])
+        w, f, seite = _seite_lager_346()
+        feld = _alle_346(seite, lambda x: hasattr(x, 'scan_read'))[0]
+        feld.scan_read()
+        ende = time.time() + 10
+        while time.time() < ende and not feld.scan_choice.winfo_children():
+            w.update()
+            time.sleep(0.02)
+        knoepfe = [k for k in feld.scan_choice.winfo_children()
+                   if k.winfo_class() == 'Canvas']
+        texte = [_texte_346(k) for k in knoepfe]
+        pruefe(len(knoepfe) == 2 and any('Ouratite, Agricium' in s
+                                         for s in texte[1]),
+               'zwei Aufträge: je ein Knopf (%s)' % texte)
+        pruefe(feld.get('1.0', 'end-1c') == '',
+               'vor der Wahl steht nichts im Feld')
+        if len(knoepfe) < 2:
+            return
+        if not knoepfe[1].winfo_ismapped():
+            titel = [x for x in _alle_346(seite, lambda x: x.winfo_class() == 'Label')
+                     if str(x.cget('text')) == _la352.t('s_rf_titel')]
+            titel[0].event_generate('<Button-1>', x=2, y=2)
+            w.update()
+        knoepfe[1].event_generate('<Button-1>', x=5, y=5)
+        w.update()
+        pruefe(feld.get('1.0', 'end-1c') == auftraege[1]['text']
+               and not feld.scan_choice.winfo_children(),
+               'der gewählte Auftrag steht im Feld, die Auswahl ist weg')
+        pruefe(_ma352.load() == [], 'ins Lager kam nichts')
+    finally:
+        (_cr352.storable, _rs352.read_screen, _rs352.supported,
+         _rs352.wait_for_game) = _echt352
+        _la352.set_language(_alt_sprache352)
+        _ma352.save(_alt_lager352)
+        _pf352.set_setting('lager_raffinerie_offen', _alt_offen352)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
 
 
 def _pruefung_351():
@@ -35214,7 +35354,7 @@ def _pruefung_351():
                     and b[1] <= x['y'] and x['y'] + x['h'] <= b[1] + b[3]]
         drin = _im(box, worte)
         gefunden, unsicher = _rs351.merge_passes([drin, drin])
-        pruefe(gefunden == [('Gold', 553, 122), ('Tungsten', 530, 234)]
+        pruefe(gefunden == [('Gold', 553, 122), ('Tungsten', 531, 234)]
                and unsicher == [],
                'im Ausschnitt: Gold und Tungsten, nichts unsicher (%s, %s)'
                % (gefunden, unsicher))
@@ -35246,7 +35386,7 @@ def _pruefung_351():
         lage['worte'] = [_ocr_wort_346('HANGAR', 10, 10)]
         ergebnis = _rs351.read_image(bild, _ocr, keep_failed=True)
         namen = _rs351.kept_images()
-        pruefe(ergebnis == ('', [], True) and len(namen) == 1
+        pruefe(ergebnis == ([], True) and len(namen) == 1
                and namen[0].endswith('_bild.png'),
                'nichts gefunden: das verkleinerte Spielbild wird aufgehoben (%s)'
                % namen)
@@ -35254,10 +35394,10 @@ def _pruefung_351():
                'das Spielbild wird höchstens 2560 Punkte breit abgelegt')
         lage['worte'] = _breitbild_351()
         lage['worte'] = [x for x in lage['worte'] if x['t'] != '234']
-        text, unsicher, aufgehoben = _rs351.read_image(bild, _ocr,
-                                                       keep_failed=True)
+        auftraege, aufgehoben = _rs351.read_image(bild, _ocr, keep_failed=True)
         namen = _rs351.kept_images()
-        pruefe(aufgehoben and unsicher == ['Tungsten']
+        pruefe(aufgehoben and len(auftraege) == 1
+               and auftraege[0]['unsure'] == ['Tungsten']
                and sum(1 for n in namen if n.endswith('_tabelle.png')) == 1
                and sum(1 for n in namen if n.endswith('_bild.png')) == 1,
                'Tabelle gefunden, aber unsicher: nur der Tabellenausschnitt '
@@ -35270,7 +35410,7 @@ def _pruefung_351():
         lage['worte'] = _breitbild_351()
         vorher = list(_rs351.kept_images())
         sicher = _rs351.read_image(bild, _ocr, keep_failed=True)
-        pruefe(sicher[2] is False and _rs351.kept_images() == vorher,
+        pruefe(sicher[1] is False and _rs351.kept_images() == vorher,
                'Gegenprobe: eine sichere Lesung hebt nichts auf')
         pruefe(not [f for f in os.listdir(heim) if f.endswith('.png')],
                'keine Zwischenbilder bleiben neben dem Abgriff liegen')
@@ -35370,8 +35510,9 @@ def _pruefung_347():
 
         def _lesen(rect, ocr=None):
             aufrufe.append(rect)
-            return ('Titanium 516 66 cSCU\nOuratite 310 421 cSCU', ['Aslarite'],
-                    True)
+            return ([{'text': 'Titanium 516 66 cSCU\nOuratite 310 421 cSCU',
+                      'unsure': ['Aslarite'], 'materials': ['Titanium'],
+                      'total': ''}], True)
         _rs347.read_screen = _lesen
         w, f, seite = _seite_lager_346()
         feld = _alle_346(seite, lambda x: hasattr(x, 'scan_read'))

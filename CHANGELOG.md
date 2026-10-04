@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.91.0 - 2026-10-05
+
+> Der Raffinerie-Scanner liest jetzt lieber zu wenig als falsch: Zahlen, bei
+> denen die Terminal-Schrift Verwechslungen zulässt, tippst du lieber selbst
+> nach. Und stehen mehrere Aufträge auf dem Bildschirm, wählst du, welcher
+> ins Lager soll.
+
+### Neu
+
+- **Raffinerie-Scanner: mehrere Aufträge** — stehen zwei Auftragskarten
+  nebeneinander, liest der Scanner beide und zeigt je Auftrag einen Knopf mit
+  den ersten Rohstoffen und der Summe; der gewählte kommt ins Feld
+
+### Behoben
+
+- **Raffinerie-Scanner setzte falsche Zahlen ein** — die Null der
+  Terminal-Schrift wurde als 8 gelesen. Zahlen mit 0 oder 8 stehen jetzt
+  unter „nicht sicher" und werden nicht mehr eingesetzt
+
 ## v3.90.0 - 2026-10-04
 
 > Was zum KRT Profit Basetool gehört, erkennst du jetzt auf einen Blick: Die

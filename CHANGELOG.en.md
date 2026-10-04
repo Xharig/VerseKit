@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.91.0 - 2026-10-05
+
+> The refinery scanner now prefers reading too little over reading wrong:
+> numbers where the terminal font allows mix-ups are left for you to type in.
+> And when several jobs are on screen, you choose which one goes into
+> storage.
+
+### New
+
+- **Refinery scanner: several jobs** — if two job cards sit side by side,
+  the scanner reads both and shows one button per job with its first
+  resources and the total; the chosen one goes into the field
+
+### Fixed
+
+- **Refinery scanner filled in wrong numbers** — the terminal font's zero
+  was read as 8. Numbers with 0 or 8 are now listed as "not read reliably"
+  and are no longer filled in
+
 ## v3.90.0 - 2026-10-04
 
 > Whatever belongs to the KRT Profit Basetool is now recognisable at a
