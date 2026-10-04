@@ -55,6 +55,7 @@ import urllib.request
 
 from . import errors
 from . import paths
+from . import secure_fetch
 
 # ⚠ GitHub leitet die alte Adresse `Xharig/SC-BP-Watcher` dauerhaft auf
 # `Xharig/VerseKit` um (Web, Clone und API) — solange nie wieder ein Repo mit
@@ -140,7 +141,7 @@ def is_newer(other, own):
 def _fetch(url, timeout=20):
     req = urllib.request.Request(url, headers={
         'User-Agent': USER_AGENT, 'Accept': 'application/vnd.github+json'})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with secure_fetch.open_url(req, timeout=timeout) as r:
         return json.loads(r.read().decode('utf-8'))
 
 
@@ -756,7 +757,7 @@ def fetch_checksums(release):
             return {}, 'fremd'
         try:
             req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with secure_fetch.open_url(req, timeout=30) as r:
                 # Die Datei ist ein paar hundert Byte gross; die Grenze ist
                 # nur da, damit eine falsche Antwort nicht den Speicher frisst.
                 text = r.read(64 * 1024).decode('utf-8', 'replace')
@@ -885,7 +886,7 @@ def _fetch_and_verify(url, target, expected, progress=None):
     """Herunterladen und die Summe abgleichen. Wirft bei jedem Zweifel."""
     from . import language
     req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(req, timeout=120) as r, open(target, 'wb') as f:
+    with secure_fetch.open_url(req, timeout=120) as r, open(target, 'wb') as f:
         total = int(r.headers.get('Content-Length') or 0)
         loaded = 0
         while True:

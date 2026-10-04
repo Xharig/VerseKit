@@ -33967,6 +33967,528 @@ def _pruefung_338():
             pass
         _fl338.save(alt)
 
+    print('\n339. Herstellung: Faktoren der Qualitätsregler stehen ganz im Kasten')
+    # Je Material eine Zeile: Name, Regler, Feld, Herkunft und rechts die
+    # Wirkungen. Gemessen wird am echten Fenster auf Mindestbreite und bei
+    # 1255 px, mit großer Schrift (4 Punkte, 125 % auf UHD), deutsch und
+    # englisch: Jedes Faktor-Etikett muss vollständig in seiner Zeile und im
+    # Rezeptkasten liegen, und kein Teil der Zeile darf schmaler sein, als er
+    # verlangt. Rezeptdaten legt die Prüfung selbst an.
+    import tkinter as _tk339
+    from scbp import crafting as _he339, materials as _ma339
+    from scbp import language as _sp339, paths as _pa339
+    from scbp import main_window as _mw339
+    _heim339 = tempfile.mkdtemp(prefix='pruefung339-')
+    _altheim339 = os.environ.get('SC_BP_HOME')
+    _altsprache339 = _sp339.current()
+    _altname339 = _he339.storage_name
+    os.environ['SC_BP_HOME'] = _heim339
+    _name339 = 'Probewaffe339'
+
+    def _mod339(lo, hi, name, key):
+        return {'startQuality': 0, 'endQuality': 1000, 'modifierAtStart': lo,
+                'modifierAtEnd': hi, 'propertyName': name, 'propertyKey': key}
+
+    def _opt339(mat):
+        return [{'type': 'resource', 'quantity': 1.0, 'minQuality': 0,
+                 'resourceName': mat}]
+
+    def _unter339(knoten):
+        for _k in knoten.winfo_children():
+            yield _k
+            yield from _unter339(_k)
+
+    def _messen339(sprache, breite):
+        """Liefert (Zahl der Faktoren, [Befunde]) für eine Sprache/Breite."""
+        _sp339.set_language(sprache)
+        _w = _tk339.Tk()
+        befunde = []
+        n = 0
+        try:
+            _fe = _mw339.MainWindow(_w, version='0.0.0-pruefung')
+            _fe.crafting_search = _name339
+            _fe.open_page('herstellung')
+            _w.after(800, _w.quit)
+            _w.mainloop()
+            _fe.root.geometry('%dx900' % max(breite, _fe.root.minsize()[0]))
+            _w.after(800, _w.quit)
+            _w.mainloop()
+            _w.update_idletasks()
+            echt = _fe.root.winfo_width()
+            for _x in _unter339(_fe.pages['herstellung']):
+                if (_x.winfo_class() != 'Label' or not _x.winfo_ismapped()
+                        or not str(_x.cget('text')).startswith('× ')):
+                    continue
+                n += 1
+                _wirk = _x.master
+                _zeile = _wirk.master
+                _kasten = _zeile.master
+                rechts = _x.winfo_rootx() + _x.winfo_width()
+                for nm, g in (('Wirkungsblock', _wirk), ('Zeile', _zeile),
+                              ('Rezeptkasten', _kasten)):
+                    grenze = g.winfo_rootx() + g.winfo_width()
+                    if rechts > grenze:
+                        befunde.append('%s px %d: %r ragt %d px über %s'
+                                       % (sprache, echt, _x.cget('text'),
+                                          rechts - grenze, nm))
+                for _k in list(_wirk.winfo_children()) + list(
+                        _zeile.winfo_children()):
+                    if not _k.winfo_ismapped():
+                        continue
+                    if _k.winfo_width() < _k.winfo_reqwidth():
+                        befunde.append('%s px %d: %s %r %d von %d px'
+                                       % (sprache, echt, _k.winfo_class(),
+                                          _k.cget('text') if 'text' in _k.keys()
+                                          else '', _k.winfo_width(),
+                                          _k.winfo_reqwidth()))
+        finally:
+            try:
+                _w.destroy()
+            except _tk339.TclError:
+                pass
+        return n, sorted(set(befunde))
+
+    _he339._cached['stand'] = None
+    _he339._raw_cache['stand'] = None
+    try:
+        with open(os.path.join(_heim339, _he339.CACHE), 'w',
+                  encoding='utf-8') as _f339:
+            json.dump({
+                'format': _he339.FORMAT, 'build': 'probe-339', 'dismantle': {},
+                'products': {}, 'blueprints': [{
+                    'tag': 'BP_PROBE_339', 'productName': _name339,
+                    'manufacturer': 'Aegis Dynamics', 'type': 'weapons',
+                    'subtype': 'energy', 'productEntityClass': 'e339',
+                    'tiers': [{'craftTimeSeconds': 60, 'slots': [
+                        {'name': 'Frame', 'options': _opt339('Titanium'),
+                         'modifiers': [_mod339(0.95, 1.05, 'Health',
+                                               'health_maxhealth')]},
+                        {'name': 'Barrel', 'options': _opt339('Gold'),
+                         'modifiers': [_mod339(0.9, 1.1, 'Impact Force',
+                                               'weapon_damage')]},
+                        {'name': 'Grip', 'options': _opt339('Lindinium'),
+                         'modifiers': [
+                             _mod339(1.1, 0.9, 'Recoil Kick',
+                                     'weapon_recoil_kick'),
+                             _mod339(0.9, 1.1, 'Fire Rate',
+                                     'weapon_firerate')]}]}]}]}, _f339)
+        _he339.storage_name = lambda n: n
+        _ma339.save([{'material': 'Titanium', 'menge': 5.0,
+                      'qualitaet': 622, 'ort': ''}])
+        _pa339.set_setting(_mw339.FONT_POINTS, 4)
+        _pa339.set_setting('schriftgroesse', _mw339.level_for_points(4))
+        for _spr339 in ('de', 'en'):
+            for _br339 in (0, 1255):
+                _n339, _bef339 = _messen339(_spr339, _br339)
+                _wo339 = '%s, %s' % (_spr339, 'Mindestbreite' if not _br339
+                                     else '%d px' % _br339)
+                pruefe(_n339 >= 4,
+                       'Vorbedingung (%s): die vier Wirkungen sind gebaut (%d)'
+                       % (_wo339, _n339))
+                pruefe(_n339 >= 4 and not _bef339,
+                       'Faktoren und Zeilen nicht abgeschnitten (%s)%s'
+                       % (_wo339, (': ' + '; '.join(_bef339[:4]))
+                          if _bef339 else ''))
+    finally:
+        _he339.storage_name = _altname339
+        _he339._cached['stand'] = None
+        _he339._raw_cache['stand'] = None
+        _sp339.set_language(_altsprache339)
+        if _altheim339 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim339
+        shutil.rmtree(_heim339, ignore_errors=True)
+
+    print('\n340. Originaltexte folgen dem Spiel-Patch')
+    # Die eingesetzte englische Datei verdeckt die Texte im Archiv. Bleibt sie
+    # nach einem Patch alt, stehen neue Schiffe als `@vehicle_Name…` im Spiel.
+    # Geprueft an einer Wegwerf-Installation; nur das Lesen aus dem Archiv ist
+    # ersetzt, Zielpfad, Vermerk, Stempel und Schreiben laufen echt.
+    import tempfile as _tf340
+    from scbp import gametext as _gt340, translation as _tr340
+    from scbp import paths as _pf340
+    _wiese340 = _tf340.mkdtemp(prefix='sc-bp-original-patch-')
+    _altheim340 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = os.path.join(_wiese340, 'heim')
+    os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
+    _spiel340 = os.path.join(_wiese340, 'LIVE')
+    _ziel340 = _tr340.target_ini('english', _spiel340)
+    os.makedirs(os.path.dirname(_ziel340), exist_ok=True)
+    _archiv340 = os.path.join(_wiese340, 'Data.p4k')
+    _echt340 = (_gt340.p4k_path, _gt340.read_from_archive,
+                _gt340._placed_by_us)
+    _inhalt_archiv340 = [b'vehicle_NameNEU=Neues Schiff\n']
+
+    def _archiv_schreiben340(text):
+        with open(_archiv340, 'wb') as _f:
+            _f.write(text)
+        _inhalt_archiv340[0] = text
+
+    def _datei340(text=None):
+        if text is not None:
+            with open(_ziel340, 'w', encoding='utf-8') as _f:
+                _f.write(text)
+        with open(_ziel340, encoding='utf-8') as _f:
+            return _f.read()
+
+    try:
+        _gt340.p4k_path = lambda spielordner=None: _archiv340
+        _gt340.read_from_archive = (
+            lambda sprache='english', spielordner=None, fortschritt=None:
+            (_inhalt_archiv340[0], 'probe'))
+        _archiv_schreiben340(b'vehicle_NameNEU=Neues Schiff\n')
+
+        # a) Ohne Vermerk ist die Datei nicht unsere — Finger weg.
+        _datei340('vehicle_NameALT=Altes Schiff\n')
+        pruefe(not _gt340.refresh_original(_spiel340)
+               and _datei340().startswith('vehicle_NameALT'),
+               'ohne „Original"-Vermerk bleibt die Datei unangetastet')
+
+        # b) Mit Vermerk und neuem Archivstand: frisch aus dem Archiv.
+        _tr340.note('original', 'Data.p4k')
+        pruefe(_gt340.refresh_original(_spiel340)
+               and 'vehicle_NameNEU' in _datei340(),
+               'nach einem Patch steht der neue Schiffsname in der Datei')
+        pruefe(_pf340.setting(_gt340.ORIGINAL_STAMP)
+               == _gt340.archive_stamp(_spiel340),
+               'der Archivstand ist gemerkt')
+
+        # c) Gleicher Archivstand: nicht noch einmal schreiben.
+        _datei340('von Hand geaendert\n')
+        pruefe(not _gt340.refresh_original(_spiel340)
+               and _datei340().startswith('von Hand'),
+               'ohne neuen Patch wird nichts neu geschrieben')
+
+        # d) Der naechste Patch (anderes Archiv) schreibt wieder.
+        _archiv_schreiben340(b'vehicle_NameNEU=Neues Schiff\n'
+                             b'vehicle_NameNOCHNEUER=Noch neuer\n')
+        pruefe(_gt340.refresh_original(_spiel340)
+               and 'NOCHNEUER' in _datei340(),
+               'der naechste Patch kommt ebenso an')
+
+        # e) Belegt StarStrings den Ordner, bleibt dessen Datei stehen.
+        _archiv_schreiben340(b'vehicle_NameDRITTER=Dritter\n')
+        _tr340.note('starstrings', 'probe')
+        _datei340('StarStrings <EM4>[BP]</EM4>\n')
+        pruefe(not _gt340.refresh_original(_spiel340)
+               and _datei340().startswith('StarStrings'),
+               'eine eingesetzte StarStrings-Datei wird nicht ersetzt')
+        _tr340.forget_note('starstrings')
+
+        # f) Ein erneutes „Original" von Hand holt ebenfalls frische Texte
+        #    und laesst den Vermerk stehen.
+        _datei340('vehicle_NameALT=Altes Schiff\n')
+        _ok340, _m340 = _gt340.fetch('english', _spiel340,
+                                     sprache_eintragen=False)
+        pruefe(_ok340 and 'behalten' not in _m340
+               and 'DRITTER' in _datei340(),
+               'erneutes „Original" ersetzt die alte Originaldatei (%s)'
+               % _m340)
+        pruefe(_tr340.installed('original') is not None,
+               'der „Original"-Vermerk bleibt danach stehen')
+
+        # g) Gegenprobe zu f): Ohne „Original" in `_placed_by_us` bliebe die
+        #    alte Datei liegen — sonst prueft f) nur, dass nichts knallt.
+        _gt340._placed_by_us = lambda lang: [
+            q for q in _echt340[2](lang) if q != 'original']
+        _datei340('vehicle_NameALT=Altes Schiff\n')
+        _ok340, _m340 = _gt340.fetch('english', _spiel340,
+                                     sprache_eintragen=False)
+        pruefe('behalten' in _m340 and _datei340().startswith('vehicle_NameALT'),
+               'Gegenprobe: ohne die Regel bliebe die alte Datei liegen')
+        _gt340._placed_by_us = _echt340[2]
+
+        # h) Gegenprobe zu b): Ist der neue Stand schon gemerkt, schreibt
+        #    `refresh_original` nichts — der Stempel ist also der Ausloeser.
+        _archiv_schreiben340(b'vehicle_NameVIERTER=Vierter\n')
+        _pf340.set_setting(_gt340.ORIGINAL_STAMP,
+                          _gt340.archive_stamp(_spiel340))
+        _datei340('vehicle_NameALT=Altes Schiff\n')
+        pruefe(not _gt340.refresh_original(_spiel340),
+               'Gegenprobe: gleicher Stempel, kein Neuschreiben')
+    finally:
+        (_gt340.p4k_path, _gt340.read_from_archive,
+         _gt340._placed_by_us) = _echt340
+        if _altheim340 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim340
+        shutil.rmtree(_wiese340, ignore_errors=True)
+
+    print('\n341. Update-Suche: Ausweg bei fehlendem Stammzertifikat')
+    # Fehlt unter Windows ein Stammzertifikat im Speicher, scheitert Python an
+    # der Zertifikatspruefung, und die Update-Suche bleibt fuer immer stumm.
+    # `secure_fetch.open_url` geht dann ueber WinINet. Beide Wege sind hier
+    # ersetzt — es geht kein Abruf hinaus.
+    import ssl as _ssl341
+    import urllib.error as _ue341
+    import urllib.request as _ur341
+    from scbp import secure_fetch as _sf341, updater as _up341
+    _echt341 = (_ur341.urlopen, _sf341._wininet_open, _sf341.WINDOWS,
+                os.environ.get('SC_BP_NO_NET'))
+    _rufe341 = []
+
+    class _Antwort341:
+        def read(self, n=-1):
+            return b'[{"tag_name": "v9.9.9"}]'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _zertifikat341(*a, **k):
+        raise _ue341.URLError(_ssl341.SSLCertVerificationError(
+            1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed'))
+
+    def _ausweg341(req, timeout):
+        _rufe341.append(getattr(req, 'full_url', req))
+        return _Antwort341()
+
+    try:
+        _ur341.urlopen = _zertifikat341
+        _sf341._wininet_open = _ausweg341
+        _sf341.WINDOWS = True
+        os.environ.pop('SC_BP_NO_NET', None)
+
+        # Die Falle selbst: Ein direkter Aufruf muss zuschnappen.
+        try:
+            _ur341.urlopen('https://example.invalid/')
+            _falle341 = False
+        except _ue341.URLError as _e341:
+            _falle341 = _sf341.is_certificate_error(_e341)
+        pruefe(_falle341, 'die Zertifikats-Falle schnappt zu')
+
+        # a) Zertifikatsfehler -> zweiter Weg, die Update-Suche liest weiter.
+        try:
+            _daten341 = _up341._fetch(_up341.API + '?per_page=1')
+        except Exception:
+            _daten341 = None
+        pruefe(_daten341 and _daten341[0].get('tag_name') == 'v9.9.9'
+               and len(_rufe341) == 1,
+               'bei fehlendem Stammzertifikat liest die Update-Suche weiter')
+
+        # b) Anderer Netzfehler -> kein Ausweg, der Fehler kommt an.
+        def _zeitueberschreitung341(*a, **k):
+            raise _ue341.URLError('timed out')
+        _ur341.urlopen = _zeitueberschreitung341
+        del _rufe341[:]
+        try:
+            _sf341.open_url('https://example.invalid/', 5)
+            _b341 = False
+        except _ue341.URLError as _e341:
+            _b341 = 'timed out' in str(_e341)
+        pruefe(_b341 and not _rufe341,
+               'ein gewoehnlicher Netzfehler nimmt den Ausweg nicht')
+
+        # c) Gesperrtes Netz -> auch kein WinINet.
+        _ur341.urlopen = _zertifikat341
+        os.environ['SC_BP_NO_NET'] = '1'
+        try:
+            _sf341.open_url('https://example.invalid/', 5)
+            _c341 = False
+        except _ue341.URLError:
+            _c341 = True
+        pruefe(_c341 and not _rufe341,
+               'mit SC_BP_NO_NET bleibt der WinINet-Weg zu')
+        os.environ.pop('SC_BP_NO_NET', None)
+
+        # d) Scheitert auch der Ausweg, kommt der ERSTE Fehler zurueck.
+        def _auch_kaputt341(req, timeout):
+            raise OSError(12029, 'InternetOpenUrlW')
+        _sf341._wininet_open = _auch_kaputt341
+        try:
+            _sf341.open_url('https://example.invalid/', 5)
+            _d341 = False
+        except Exception as _e341:
+            _d341 = _sf341.is_certificate_error(_e341)
+        pruefe(_d341, 'scheitern beide Wege, nennt der Fehler die Ursache')
+
+        # e) Gegenprobe: Ohne Windows bleibt es beim Zertifikatsfehler.
+        _sf341._wininet_open = _ausweg341
+        _sf341.WINDOWS = False
+        try:
+            _sf341.open_url('https://example.invalid/', 5)
+            _e_ok341 = False
+        except _ue341.URLError:
+            _e_ok341 = True
+        pruefe(_e_ok341 and not _rufe341,
+               'Gegenprobe: ohne den Ausweg bliebe der Abruf gescheitert')
+    finally:
+        (_ur341.urlopen, _sf341._wininet_open, _sf341.WINDOWS) = _echt341[:3]
+        if _echt341[3] is None:
+            os.environ.pop('SC_BP_NO_NET', None)
+        else:
+            os.environ['SC_BP_NO_NET'] = _echt341[3]
+
+    print('\n342. Herstellung: Schaden, Laserleistung und Hersteller richtig benannt')
+    # `weapon_damage` ist in den Spieldaten der Waffenschaden
+    # (`GPP_Weapon_Damage`), bei Mining-Lasern die Laserleistung. Im
+    # MaxOx-Datensatz steht der Name von Aegis Dynamics.
+    from scbp import crafting as _cr342, language as _la342
+    _alt_sprache342 = _la342.current()
+    try:
+        _la342.set_language('de')
+        pruefe(_cr342.property_name('Impact Force', 'weapon_damage',
+                                    'weapons') == 'Schaden (Aufprallkraft)',
+               'Waffe, deutsch: Schaden (Aufprallkraft)')
+        pruefe(_cr342.property_name('Impact Force', 'weapon_damage',
+                                    'mininglaser') == 'Laserleistung',
+               'Mining-Laser, deutsch: Laserleistung')
+        pruefe(_cr342.property_name('Integrity', 'health_maxhealth',
+                                    'mininglaser') == 'Integrität',
+               'andere Eigenschaften des Lasers bleiben, wie sie sind')
+        _la342.set_language('en')
+        pruefe(_cr342.property_name('Impact Force', 'weapon_damage',
+                                    'weapons') == 'Damage (Impact Force)',
+               'Waffe, englisch: Damage (Impact Force)')
+        pruefe(_cr342.property_name('Impact Force', 'weapon_damage',
+                                    'mininglaser') == 'Laser Power',
+               'Mining-Laser, englisch: Laser Power')
+        pruefe(_cr342.property_name('Integrity', 'health_maxhealth',
+                                    'weapons') == 'Integrity',
+               'englisch bleibt sonst beim Namen des Spiels')
+        # Der Schluessel entscheidet, nicht die Beschriftung.
+        pruefe(_cr342.property_name('Irgendwas Neues', 'weapon_damage',
+                                    'mininglaser') == 'Laser Power',
+               'eine geaenderte Beschriftung aendert nichts')
+    finally:
+        _la342.set_language(_alt_sprache342)
+
+    pruefe(_cr342.manufacturer_code('BP_CRAFT_MXOX_NeutronRepeater_S3')
+           == 'MXOX', 'das Herstellerkuerzel kommt aus dem Tag')
+    pruefe(_cr342.manufacturer_name('Aegis Dynamics', 'MXOX') == 'MaxOx',
+           'MaxOx statt Aegis Dynamics')
+    pruefe(_cr342.manufacturer_name('Aegis Dynamics', 'AEGS')
+           == 'Aegis Dynamics', 'Aegis bleibt Aegis')
+    pruefe(_cr342.manufacturer_name('MaxOx', 'MXOX') == 'MaxOx',
+           'steht der Name schon richtig, aendert sich nichts')
+    # Wirkung am echten Einstiegspunkt: die Liste der Herstellung.
+    _echt_load342 = _cr342.load
+    try:
+        _cr342.load = lambda *a, **k: {'blueprints': [
+            {'tag': 'BP_CRAFT_MXOX_NeutronRepeater_S3',
+             'productName': 'NDB-30 Repeater', 'manufacturer': 'Aegis Dynamics',
+             'type': 'weapons', 'tiers': []},
+            {'tag': 'BP_CRAFT_AEGS_Probe_S1', 'productName': 'Probe Aegis',
+             'manufacturer': 'Aegis Dynamics', 'type': 'weapons', 'tiers': []}]}
+        _liste342 = {e['name']: e['hersteller'] for e in _cr342.all_items()}
+        pruefe(_liste342.get('NDB-30 Repeater') == 'MaxOx'
+               and _liste342.get('Probe Aegis') == 'Aegis Dynamics',
+               'die Liste zeigt MaxOx und laesst Aegis stehen (%s)' % _liste342)
+        # Gegenprobe: ohne die Tabelle stuende dort Aegis Dynamics.
+        _tabelle342 = dict(_cr342.MANUFACTURER_BY_CODE)
+        _cr342.MANUFACTURER_BY_CODE.clear()
+        _liste342 = {e['name']: e['hersteller'] for e in _cr342.all_items()}
+        pruefe(_liste342.get('NDB-30 Repeater') == 'Aegis Dynamics',
+               'Gegenprobe: ohne die Berichtigung stuende Aegis da')
+        _cr342.MANUFACTURER_BY_CODE.update(_tabelle342)
+    finally:
+        _cr342.load = _echt_load342
+
+    print('\n343. FOV: der Wert aus der Datei wird als senkrechter gelesen')
+    # `attributes.xml` haelt unter `FOV` den senkrechten Winkel; das Menue
+    # zeigt den waagerechten. Messpunkte an 32:9 (5120x1440): Menue 134 ↔
+    # Datei 67,1, Menue 124 ↔ Datei 54,7681.
+    from scbp import fov as _fv343
+    _h343 = _fv343.game_horizontal({'fov': 67.1, 'breite': 5120,
+                                    'hoehe': 1440})
+    pruefe(_h343 is not None and abs(_h343 - 134) < 0.5,
+           'Datei 67,1 bei 32:9 ergibt Menue 134 (%s)' % _h343)
+    _e343 = _fv343.narrowest_horizontal({'breite': 5120, 'hoehe': 1440})
+    pruefe(_e343 is not None and abs(_e343 - 123.5) < 1.0,
+           'der engste Wert bei 32:9 liegt bei 123–124 (%s)' % _e343)
+    pruefe(_fv343.game_horizontal({'fov': 67.1}) is None,
+           'ohne Aufloesung wird nichts geraten')
+    # Gegenprobe: Der rohe Wert laege beim neutralen 67,6 — und haette
+    # faelschlich „passt" ergeben.
+    _neutral343 = _fv343.field_of_view(1166, 870)
+    pruefe(abs(67.1 - _neutral343) < 1 and abs(_h343 - _neutral343) > 60,
+           'Gegenprobe: roh gelesen saehe 134 wie neutral aus')
+    _alt_sprache343 = _la342.current()
+    try:
+        _la342.set_language('de')
+        pruefe('kleiner' in _la342.t('s_fv_zu_weit')
+               and 'größer' in _la342.t('s_fv_zu_nah'),
+               'zu weit weg wirkt kleiner, zu nah wirkt groesser')
+    finally:
+        _la342.set_language(_alt_sprache343)
+
+    print('\n344. Verkauf: Knoepfe „Alle Waren" und „Aus dem Bergbau"')
+    from scbp import selling as _se344, pages as _pg344
+    from scbp import main_window as _mw344, paths as _pf344
+    _preise344 = {'Ware %02d' % i: 1000000 - i * 1000 for i in range(14)}
+    _preise344.update({'Riccite (Ore)': 91000, 'Lindinium': 51000,
+                       'Gold': 31000})
+    _echt344 = (_se344.goods, _se344.best_price, _se344.in_top_list,
+                _pg344._mining_goods)
+    _alt_ansicht344 = _pf344.setting('verkauf_spitze')
+    _w344 = None
+
+    def _texte344(fenster):
+        out = []
+
+        def _lauf(x):
+            try:
+                out.append(str(x.cget('text')))
+            except Exception:
+                pass
+            # Knoepfe sind gezeichnet: ihr Text steht auf der Leinwand.
+            if x.winfo_class() == 'Canvas':
+                for _id in x.find_all():
+                    try:
+                        out.append(str(x.itemcget(_id, 'text')))
+                    except Exception:
+                        pass
+            for k in x.winfo_children():
+                _lauf(k)
+        _lauf(fenster.pages['verkauf'])
+        return out
+
+    try:
+        _se344.goods = lambda *a, **k: list(_preise344)
+        _se344.best_price = lambda ware, *a, **k: _preise344.get(ware)
+        _se344.in_top_list = lambda ware, *a, **k: True
+        _pg344._mining_goods = lambda: {_pg344._good_key(w) for w in (
+            'Riccite', 'Lindinium', 'Gold')}
+        pruefe(_pg344._good_key('Riccite (Ore)') == _pg344._good_key('Riccite'),
+               'Erz und Ware zaehlen als derselbe Rohstoff')
+
+        _pf344.set_setting('verkauf_spitze', 'alle')
+        _w344 = _wurzel()
+        _f344 = _mw344.MainWindow(_w344, version='0.0.0-pruefung')
+        _f344.open_page('verkauf')
+        _w344.update()
+        _t344 = _texte344(_f344)
+        pruefe(sum(1 for s in _t344 if s.startswith('Ware ')) == 12
+               and 'Riccite (Ore)' not in _t344,
+               '„Alle Waren" zeigt die zwoelf besten, Riccite faellt heraus')
+        pruefe(any(s.lower() == 'aus dem bergbau' or s == 'AUS DEM BERGBAU'
+                   or s == 'From mining' or s == 'FROM MINING' for s in _t344),
+               'der Knopf „Aus dem Bergbau" steht da')
+        _w344.destroy()
+
+        _pf344.set_setting('verkauf_spitze', 'bergbau')
+        _w344 = _wurzel()
+        _f344 = _mw344.MainWindow(_w344, version='0.0.0-pruefung')
+        _f344.open_page('verkauf')
+        _w344.update()
+        _t344 = _texte344(_f344)
+        pruefe(all(w in _t344 for w in ('Riccite (Ore)', 'Lindinium', 'Gold'))
+               and not any(s.startswith('Ware ') for s in _t344),
+               '„Aus dem Bergbau" zeigt nur Erze, auch unterhalb der zwoelf')
+    finally:
+        (_se344.goods, _se344.best_price, _se344.in_top_list,
+         _pg344._mining_goods) = _echt344
+        _pf344.set_setting('verkauf_spitze', _alt_ansicht344 or 'alle')
+        try:
+            if _w344 is not None:
+                _w344.destroy()
+        except Exception:
+            pass
+
 
 def _alle_eingaben(w):
     """Alle Eingabefelder unter `w`, in Baumreihenfolge."""

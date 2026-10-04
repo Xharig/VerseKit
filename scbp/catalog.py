@@ -398,6 +398,14 @@ def _norm(s):
     return paths.name_key(s)
 
 
+def _manufacturer(entry):
+    """Der Hersteller eines scmdb-Eintrags, berichtigt nach Herstellerkürzel
+    (`crafting.manufacturer_name`)."""
+    from .crafting import MANUFACTURER_BY_CODE
+    code = (entry.get('manufacturerCode') or '').upper()
+    return MANUFACTURER_BY_CODE.get(code) or entry.get('manufacturer')
+
+
 def _values(raw_items):
     """Name -> Art, Größe, Gütegrad, Klasse, Hersteller.
 
@@ -421,7 +429,7 @@ def _values(raw_items):
                 's': e.get('size'),
                 'g': e.get('grade'),
                 'c': e.get('componentClass'),
-                'm': e.get('manufacturer'),
+                'm': _manufacturer(e),
             })
     return values_
 

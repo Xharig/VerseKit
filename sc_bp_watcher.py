@@ -53,13 +53,14 @@ from scbp import (
 from scbp import theme
 from scbp import dpi
 from scbp import basetool_sync
+from scbp import gametext
 
 try:
     import winsound                     # nur Windows; unter Linux übernimmt tkinter
 except ImportError:
     winsound = None
 
-__version__ = '3.86.1'
+__version__ = '3.87.0'
 
 
 def _mitgeliefert(name):
@@ -1096,6 +1097,16 @@ class Watcher(threading.Thread):
                         'texte_erneuert',
                         translation.status_text(quelle) or kennung)))
                     neu_noetig = True
+
+        # 1b. Originaltexte aus dem Spiel: Hat ein Patch die `Data.p4k`
+        #     geändert, wird die eingesetzte englische Datei neu daraus
+        #     geschrieben. Sonst verdeckt die alte Datei die neuen Texte des
+        #     Spiels, und neue Schiffe stehen als `@vehicle_Name…` da.
+        if not nur_bestand and translation.installed('original'):
+            if gametext.refresh_original():
+                self.q.put(('status', language.Phrase(
+                    'texte_erneuert', translation.display_name('original'))))
+                neu_noetig = True
 
         # 2. Hat sich der eigene Katalog erneuert? Nach einem Patch geben
         #    Missionen anderes aus — dann gehören die Angaben neu eingetragen.

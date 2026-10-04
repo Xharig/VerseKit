@@ -7990,6 +7990,26 @@ def _auec(amount):
     return t('s_auec') % _money(amount)
 
 
+def _good_key(name):
+    """Vergleichsform einer Ware ohne den Zusatz `(Ore)` oder `(Raw)` — Erz
+    und raffinierte Ware gehören zum selben Rohstoff."""
+    from . import mining
+    base = re.sub(r'\s*\((?:ore|raw)\)\s*$', '', name or '', flags=re.I)
+    return mining.material_key(base)
+
+
+def _mining_goods():
+    """Die Vergleichsformen aller Rohstoffe, die man abbauen kann
+    (Schiff, Fahrzeug oder zu Fuß) — aus den Bergbau-Daten."""
+    from . import mining
+    try:
+        return {_good_key(o.get('name')) for o in mining.ores()
+                if o.get('name')}
+    except Exception as ausnahme:
+        errors.record('pages.mining_goods', ausnahme)
+        return set()
+
+
 def _has_source(name):
     """Kennt der Katalog diesen Bauplan — und weiss er, woher es ihn gibt?
 
@@ -10719,12 +10739,67 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
             regler_zeilen = {}
             zeilen_widgets = []
+            # Je Zeile: (Zeile, Teile links, Wirkungsblock, Platz für den
+            # längsten Herkunftstext) — für `slider_rows_arrange`.
+            regler_reihen = []
+            # Namensspalte so breit wie der längste Materialname dieses
+            # Rezepts, in Zeichen — alle Regler beginnen an derselben Stelle.
+            _zeichen = max(1, fenster.f_small.measure('0'))
+            _name_breite = 1 + max(
+                [-(-fenster.f_small.measure(m) // _zeichen)
+                 for m in alle_materialien] or [1])
             for _mat in alle_materialien:
                 reihe_r = tk.Frame(block, bg=theme.FIELD)
                 reihe_r.pack(fill='x', padx=12, pady=3)
-                tk.Label(reihe_r, text=_mat, bg=theme.FIELD, fg=ACCENT,
-                         font=fenster.f_small, width=16, anchor='w').pack(
-                             side='left', anchor='n')
+
+                # Rechts: jede Eigenschaft, die dieses Material verändert.
+                # ⚠ Ein Material kann in mehreren Slots stecken und mehrere
+                # Eigenschaften treffen — jede bekommt ihre eigene Zeile.
+                # ⚠⚠ Wird als ERSTES gepackt: Das zuletzt gepackte Element
+                # bekommt nur den Rest der Zeile, und ein zu schmaler
+                # Wirkungsblock schnitt Faktor und Prozent rechts ab.
+                wirk_rahmen = tk.Frame(reihe_r, bg=theme.FIELD)
+                wirk_rahmen.pack(side='right', anchor='n')
+                wirk_rahmen.effect_of = _mat
+                _nr = 0
+                for w in grundliste:
+                    if w['material'] != _mat:
+                        continue
+                    # ⚠ Übersetzt über den sprachneutralen Schlüssel, nicht
+                    # über den englischen Namen — siehe `crafting.property_name`.
+                    tk.Label(wirk_rahmen,
+                             text=herst_modul.property_name(
+                                 w['eigenschaft'], w.get('key'),
+                                 eintrag.get('art')),
+                             bg=theme.FIELD, fg=SUB, font=fenster.f_small,
+                             anchor='e').grid(row=_nr, column=0, sticky='e',
+                                              padx=(0, 10))
+                    # ⚠⚠ Faktor und Prozent in EIGENEN Etiketten mit fester
+                    # Breite — ein gemeinsames Etikett schnitt „+4,70 %" zu
+                    # „+4.(" ab.
+                    faktor_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
+                                          fg=ACCENT, font=fenster.f_base,
+                                          width=9, anchor='e')
+                    faktor_lbl.grid(row=_nr, column=1, sticky='e')
+                    prozent_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
+                                           fg=ACCENT, font=fenster.f_base,
+                                           width=10, anchor='e')
+                    prozent_lbl.grid(row=_nr, column=2, sticky='e')
+                    # Darunter die Spanne: Ein Faktor allein ist nicht
+                    # einzuordnen — erst „×0.9–1.1" zeigt, wie viel noch geht.
+                    spanne_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
+                                          fg=SUB, font=fenster.f_small,
+                                          anchor='e')
+                    spanne_lbl.grid(row=_nr + 1, column=0, columnspan=3,
+                                    sticky='e')
+                    zeilen_widgets.append((w, faktor_lbl, prozent_lbl,
+                                           spanne_lbl))
+                    _nr += 2
+
+                _name_lbl = tk.Label(reihe_r, text=_mat, bg=theme.FIELD,
+                                     fg=ACCENT, font=fenster.f_small,
+                                     width=_name_breite, anchor='w')
+                _name_lbl.pack(side='left', anchor='n')
 
                 # ⚠ Der Wert MUSS neben dem Regler stehen. Ohne ihn zieht man
                 # blind und weiß nicht, welche Qualität man gerade
@@ -10791,45 +10866,55 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 regler_zeilen[_mat] = (_q_var, _quelle_lbl, _schieber,
                                        {'still': False})
                 _q_var.trace_add('write', getippt)
+                # Der Herkunftstext wechselt beim Ziehen — reserviert wird
+                # der längste, den diese Zeile zeigen kann.
+                _quelle_platz = 10 + max(
+                    fenster.f_small.measure(_txt) for _txt in (
+                        (t('s_he_ohne_wirkung'),) if _mat not in _wirksam
+                        else (t('s_he_regler_ohne'), t('s_he_regler_lager'))))
+                regler_reihen.append((reihe_r,
+                                      (_name_lbl, _schieber, _q_feld.holder),
+                                      wirk_rahmen, _quelle_platz))
 
-                # Rechts: jede Eigenschaft, die dieses Material verändert.
-                # ⚠ Ein Material kann in mehreren Slots stecken und mehrere
-                # Eigenschaften treffen — jede bekommt ihre eigene Zeile.
-                wirk_rahmen = tk.Frame(reihe_r, bg=theme.FIELD)
-                wirk_rahmen.pack(side='right', anchor='n')
-                _nr = 0
-                for w in grundliste:
-                    if w['material'] != _mat:
-                        continue
-                    # ⚠ Übersetzt über den sprachneutralen Schlüssel, nicht
-                    # über den englischen Namen — siehe `crafting.property_name`.
-                    tk.Label(wirk_rahmen,
-                             text=herst_modul.property_name(w['eigenschaft'],
-                                                            w.get('key')),
-                             bg=theme.FIELD, fg=SUB, font=fenster.f_small,
-                             anchor='e').grid(row=_nr, column=0, sticky='e',
-                                              padx=(0, 10))
-                    # ⚠⚠ Faktor und Prozent in EIGENEN Etiketten mit fester
-                    # Breite — ein gemeinsames Etikett schnitt „+4,70 %" zu
-                    # „+4.(" ab.
-                    faktor_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
-                                          fg=ACCENT, font=fenster.f_base,
-                                          width=9, anchor='e')
-                    faktor_lbl.grid(row=_nr, column=1, sticky='e')
-                    prozent_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
-                                           fg=ACCENT, font=fenster.f_base,
-                                           width=10, anchor='e')
-                    prozent_lbl.grid(row=_nr, column=2, sticky='e')
-                    # Darunter die Spanne: Ein Faktor allein ist nicht
-                    # einzuordnen — erst „×0.9–1.1" zeigt, wie viel noch geht.
-                    spanne_lbl = tk.Label(wirk_rahmen, text='', bg=theme.FIELD,
-                                          fg=SUB, font=fenster.f_small,
-                                          anchor='e')
-                    spanne_lbl.grid(row=_nr + 1, column=0, columnspan=3,
-                                    sticky='e')
-                    zeilen_widgets.append((w, faktor_lbl, prozent_lbl,
-                                           spanne_lbl))
-                    _nr += 2
+            def slider_rows_arrange(_event=None):
+                """Wirkungen neben oder unter die Regler setzen.
+
+                Passen Regler, Feld, Herkunftstext und Wirkungen nicht in eine
+                Zeile, stehen die Wirkungen rechtsbündig darunter — für alle
+                Materialien gleich, damit die Zeilen untereinander gleich
+                aufgebaut bleiben.
+                """
+                if not regler_reihen:
+                    return
+                try:
+                    breite = regler_reihen[0][0].winfo_width()
+                    if breite <= 1:
+                        return
+                    darunter = False
+                    for reihe, links, wirk, quelle_platz in regler_reihen:
+                        bedarf = (sum(x.winfo_reqwidth() for x in links)
+                                  + 10 + quelle_platz + 10
+                                  + wirk.winfo_reqwidth())
+                        if bedarf > breite:
+                            darunter = True
+                            break
+                    seite = 'bottom' if darunter else 'right'
+                    for reihe, links, wirk, quelle_platz in regler_reihen:
+                        if wirk.pack_info().get('side') != seite:
+                            wirk.pack_configure(
+                                side=seite,
+                                anchor='e' if darunter else 'n',
+                                pady=(4, 0) if darunter else 0)
+                except tk.TclError:
+                    pass
+
+            if regler_reihen:
+                regler_reihen[0][0].bind('<Configure>', slider_rows_arrange,
+                                         add='+')
+                # Die Spanne wird erst nach dem Bauen beschriftet; wächst ein
+                # Wirkungsblock dadurch, wird die Anordnung neu gerechnet.
+                for _reihe, _links, _wirk, _platz in regler_reihen:
+                    _wirk.bind('<Configure>', slider_rows_arrange, add='+')
 
             def werte_zeichnen():
                 """Nur die Zahlen austauschen — keine Widgets neu bauen.
@@ -16625,20 +16710,46 @@ def _selling(fenster, rahmen):
             # ⚠ Event-Geschenke bleiben draußen, und ein einzelnes absurdes
             # Gebot wird verworfen — beides steckt in `selling.py`, damit es
             # an einer Stelle steht und nicht in der Anzeige verstreut.
+            # Zwei Ansichten: alle Waren (die zwölf besten) oder nur, was
+            # man abbauen kann — dort vollständig, damit kein Erz unter der
+            # Grenze verschwindet.
+            ansicht = paths.setting('verkauf_spitze') or 'alle'
+            bergbau = _mining_goods() if ansicht == 'bergbau' else None
             spitze = []
             for ware in preisdaten.goods():
                 if not preisdaten.in_top_list(ware):
+                    continue
+                if bergbau is not None and _good_key(ware) not in bergbau:
                     continue
                 preis = preisdaten.best_price(ware)
                 if preis:
                     spitze.append((preis, ware))
             spitze.sort(reverse=True)
+            if bergbau is None:
+                spitze = spitze[:12]
+
+            knopf_reihe = tk.Frame(ergebnis_rahmen, bg=BG)
+            knopf_reihe.pack(fill='x', pady=(14, 4))
+
+            def ansicht_waehlen(neu):
+                paths.set_setting('verkauf_spitze', neu)
+                _ergebnis()
+
+            for schluessel, text_schluessel in (
+                    ('alle', 's_vk_alle_waren'),
+                    ('bergbau', 's_vk_aus_bergbau')):
+                _button(fenster, knopf_reihe, t(text_schluessel),
+                        lambda s=schluessel: ansicht_waehlen(s),
+                        strong=ansicht == schluessel).pack(side='left',
+                                                           padx=(0, 6))
             if not spitze:
+                _body_text(ergebnis_rahmen, t('s_vk_keine_bergbau'),
+                           fenster.f_small, fill='x')
                 return
             tk.Label(ergebnis_rahmen, text=t('s_vk_spitze'), bg=BG, fg=SUB,
                      font=fenster.f_small, anchor='w').pack(fill='x',
-                                                            pady=(14, 4))
-            for preis, ware in spitze[:12]:
+                                                            pady=(8, 4))
+            for preis, ware in spitze:
                 kasten = tk.Frame(ergebnis_rahmen, bg=SURFACE,
                                   highlightthickness=1,
                                   highlightbackground=LINE)
@@ -17459,12 +17570,20 @@ def _view_angle(fenster, rahmen):
                         fill='x')
             return
 
-        _wert_zeile(inhalt, t('s_fv_im_spiel'), '%.1f°' % spiel['fov'])
+        # ⚠⚠ In der Datei steht der SENKRECHTE Winkel, der neutrale Wert
+        # oben ist der WAAGERECHTE. Verglichen wird nur Gleiches mit Gleichem:
+        # umgerechnet mit der Auflösung aus derselben Datei.
+        im_spiel = fov_modul.game_horizontal(spiel)
+        if im_spiel is None:
+            _body_text(inhalt, t('s_fv_kein_spielwert'), fenster.f_small,
+                        fill='x')
+            return
+        _wert_zeile(inhalt, t('s_fv_im_spiel'), '%.0f°' % im_spiel)
 
         # ⭐ Der Optimalpunkt: nicht „stell dein Spiel um", sondern „so weit
         # müsstest du sitzen". Wer sein FOV kennt und mag, will seinen Stuhl
         # rücken — nicht seine Einstellung.
-        optimal_mm = fov_modul.distance_for(breite_mm, spiel['fov'])
+        optimal_mm = fov_modul.distance_for(breite_mm, im_spiel)
         if optimal_mm is None:
             return
         _wert_zeile(inhalt, t('s_fv_optimalpunkt'),
@@ -17490,6 +17609,10 @@ def _view_angle(fenster, rahmen):
                  font=fenster.f_bold, anchor='w',
                  padx=12, pady=10).pack(side='left', fill='x', expand=True)
 
+        engste = fov_modul.narrowest_horizontal(spiel)
+        if engste is not None and neutral < engste - 0.5:
+            _body_text(inhalt, t('s_fv_untergrenze').format(engste),
+                        fenster.f_small, fill='x')
         _body_text(inhalt, t('s_fv_hinweis_deutung'), fenster.f_small,
                     fill='x')
 

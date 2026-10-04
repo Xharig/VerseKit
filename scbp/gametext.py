@@ -299,18 +299,97 @@ def names_or_fetch():
     Das ist der Weg für alle, die weder eine gepflegte Übersetzung noch eine
     entpackte englische `global.ini` haben. Am Spiel wird dabei **nichts**
     verändert: kein Schreiben, kein `g_language`.
+
+    ⚠ Die abgelegten Namen gehören zu einem Archivstand. Hat sich die
+    `Data.p4k` seitdem geändert (Spiel-Patch), wird neu gelesen — sonst
+    fehlten jedes neue Schiff und jeder neue Gegenstand für immer. Ohne
+    lesbares Archiv gelten die abgelegten Namen weiter.
     """
     namen = saved_names()
-    if namen:
+    stand = archive_stamp()
+    if namen and (not stand or stand == paths.setting(NAMES_STAMP)):
         return namen
     if _ARCHIVE_TRIED[0]:
-        return {}
+        return namen
     _ARCHIVE_TRIED[0] = True
     daten, _meldung = read_from_archive('english')
     if not daten:
-        return {}
-    save_names(daten)
+        return namen
+    if save_names(daten) and stand:
+        paths.set_setting(NAMES_STAMP, stand)
     return saved_names()
+
+
+# Einstellungsschlüssel: zu welchem Archivstand die abgelegten Namen und die
+# eingesetzten Originaltexte gehören.
+NAMES_STAMP = 'namen_p4k'
+ORIGINAL_STAMP = 'original_p4k'
+
+
+def archive_stamp(spielordner=None):
+    """Größe und Änderungszeit der `Data.p4k` als Text — oder None.
+
+    Ein Spiel-Patch ändert beides; gleicher Stempel heißt gleicher Inhalt."""
+    archiv = p4k_path(spielordner)
+    if not archiv:
+        return None
+    try:
+        info = os.stat(archiv)
+    except OSError:
+        return None
+    return '%d:%d' % (info.st_size, info.st_mtime_ns)
+
+
+def refresh_original(spielordner=None):
+    """Die eingesetzten Originaltexte nach einem Spiel-Patch erneuern.
+
+    Gibt True zurück, wenn die englische `global.ini` neu geschrieben wurde.
+    Danach gehören die Auftragsangaben neu eingetragen — die gemerkten
+    Originaltexte der alten Datei sind verworfen.
+
+    ⚠⚠ Die Datei verdeckt die Texte im Archiv: Star Citizen liest sie statt
+    der eigenen. Bleibt sie auf altem Stand, steht jedes Schiff, das ein Patch
+    gebracht hat, als `@vehicle_Name…` im Spiel — schlechter, als hätte man
+    gar keine Datei.
+
+    Angefasst wird nur, was das Werkzeug selbst als „Original" eingesetzt hat,
+    und nur, wenn keine andere eigene Quelle (StarStrings, eigene Adresse)
+    denselben Ordner belegt. Wirft nie."""
+    try:
+        from . import translation
+        if not translation.installed('original'):
+            return False
+        if [q for q in _placed_by_us('english') if q != 'original']:
+            return False
+        stand = archive_stamp(spielordner)
+        if not stand or stand == paths.setting(ORIGINAL_STAMP):
+            return False
+        ziel = translation.target_ini('english', spielordner)
+        if not ziel:
+            return False
+        daten, _meldung = read_from_archive('english', spielordner)
+        if not daten:
+            return False
+        _write_original(ziel, daten)
+        paths.set_setting(ORIGINAL_STAMP, stand)
+        return True
+    except Exception as ausnahme:
+        from . import errors
+        errors.record('gametext.refresh_original', ausnahme)
+        return False
+
+
+def _write_original(ziel, daten):
+    """Die Originaltexte atomar an den Zielort schreiben und die gemerkten
+    Originaltexte der alten Datei verwerfen. Wirft bei Schreibfehlern."""
+    os.makedirs(os.path.dirname(ziel), exist_ok=True)
+    with open(ziel + '.tmp', 'wb') as f:
+        f.write(daten)
+    os.replace(ziel + '.tmp', ziel)
+    # Frische Grundlage — die gemerkten Originaltexte gehören zur alten
+    # Datei. Siehe `injection.discard_origtext()`.
+    from . import injection
+    injection.discard_origtext()
 
 
 def saved_names():
@@ -449,21 +528,20 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
     if daten is None:
         return False, meldung
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'wb') as f:
-            f.write(daten)
-        os.replace(ziel + '.tmp', ziel)
-        # Frische Grundlage — die gemerkten Originaltexte gehören zur alten
-        # Datei. Siehe `injection.discard_origtext()`.
-        from . import injection
-        injection.discard_origtext()
+        _write_original(ziel, daten)
+        if sprache == 'english':
+            stand = archive_stamp(spielordner)
+            if stand:
+                paths.set_setting(ORIGINAL_STAMP, stand)
         # ⚠ Der Vermerk der ersetzten Quelle muss mit weg: Sonst gilt
         # StarStrings weiter als eingerichtet, die Lage zeigt es an, und der
         # nächste Wechsel auf „Original" ersetzt die frische Datei noch einmal.
+        # „Original" selbst bleibt vermerkt — die Datei IST das Original.
         if ersetzt:
             from . import translation
             for quelle in ersetzt:
-                translation.forget_note(quelle)
+                if quelle != 'original':
+                    translation.forget_note(quelle)
         if sprache_eintragen:
             _set_language(sprache, spielordner)
         return True, '%.1f MB' % (len(daten) / 1048576.0)
@@ -483,10 +561,15 @@ def _placed_by_us(sprache):
     Gibt die Quellen-Kennungen zurück; leer heißt: die Datei ist fremd oder
     es gibt keine. Wirft nie — ein Fehler im Vermerk darf den Abruf nicht
     anhalten, dann gilt die vorsichtige Regel (liegen lassen).
+
+    ⚠ Dazu zählt auch „Original": Die Datei hat das Werkzeug selbst aus dem
+    Archiv geschrieben. Gälte sie als fremd, holte ein erneutes „Original"
+    nach einem Patch nie die neuen Texte, sondern behielte die alten.
     """
     from . import translation
     try:
-        return [q for q in list(translation.SOURCES) + [translation.CUSTOM]
+        return [q for q in list(translation.SOURCES)
+                + [translation.CUSTOM, 'original']
                 if translation.language_folder(q) == sprache
                 and translation.installed(q)]
     except Exception:

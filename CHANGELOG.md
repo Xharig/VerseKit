@@ -6,6 +6,44 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.87.0 - 2026-10-04
+
+> Der Verkauf zeigt auf Knopfdruck alles, was du abbauen kannst, sortiert
+> nach Wert — so bleibt kein Riccite mehr liegen. Neue Schiffe heißen nach
+> einem Patch wieder richtig, die Update-Suche findet auch auf Rechnern ohne
+> passendes Zertifikat wieder neue Versionen, und die FOV-Seite liest den
+> Wert aus dem Spiel jetzt richtig.
+
+> [!important]
+> Wer seit Wochen keine Update-Meldung mehr bekommen hat: Diese Version
+> einmal von Hand laden und installieren — danach kommen Updates wieder von
+> selbst.
+
+### Neu
+
+- **Verkauf: „Alle Waren" und „Aus dem Bergbau"** — der zweite Knopf zeigt
+  jedes Erz, das man abbauen kann, vollständig und nach Preis sortiert
+
+### Behoben
+
+- **FOV-Seite verglich zwei verschiedene Winkel** — der Wert aus dem Spiel
+  steht jetzt so da wie im Menü unter „Sichtfeld", und die Bewertung stimmt.
+  Liegt der neutrale Wert unter dem, was das Spiel zulässt, steht das dabei
+
+- **Neue Schiffe als `@vehicle_Name…` im Flottenmanager** — wer die
+  Originaltexte eingerichtet hat, bekommt sie nach jedem Spiel-Patch frisch
+  aus dem Spiel. Gemeldet von Bushwick4712 (KRT)
+- **Update-Suche scheiterte still an einem fehlenden Zertifikat** — sie geht
+  dann über die Verbindung von Windows und findet neue Versionen wieder.
+  Gemeldet von Bushwick4712 (KRT)
+- **Abgeschnittene Werte in der Herstellung** — bei großer Schrift stehen
+  Faktor und Spanne unter dem Regler statt rechts abgeschnitten
+- **„Aufprallwucht" ist der Schaden** — die Herstellung nennt die Eigenschaft
+  jetzt „Schaden (Aufprallkraft)", bei Mining-Lasern „Laserleistung" wie im
+  Spiel. Gemeldet von Bushwick4712 (KRT)
+- **MaxOx-Waffen standen unter Aegis Dynamics** — NDB- und NN-Waffen zeigen
+  jetzt ihren richtigen Hersteller
+
 ## v3.86.1 - 2026-10-04
 
 > „Was noch fehlt" zeigt wieder nur, was deinen Schiffen fehlt.

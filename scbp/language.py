@@ -1588,28 +1588,34 @@ TEXTS = {
                                   'one.'),
     's_fv_passt_gut':  ('Passt — du sitzt am richtigen Punkt.',
                           'Good — you are sitting at the right spot.'),
-    's_fv_zu_weit':    ('Du sitzt {:.0f} cm zu weit weg. Alles wirkt näher, '
-                        'als es ist.',
+    's_fv_zu_weit':    ('Du sitzt {:.0f} cm zu weit weg. Alles wirkt kleiner '
+                        'und weiter weg, als es ist.',
                           'You are sitting {:.0f} cm too far away. Everything '
-                          'looks closer than it is.'),
-    's_fv_zu_nah':     ('Du sitzt {:.0f} cm zu nah dran. Alles wirkt weiter '
-                        'weg, als es ist.',
+                          'looks smaller and further away than it is.'),
+    's_fv_zu_nah':     ('Du sitzt {:.0f} cm zu nah dran. Alles wirkt größer '
+                        'und näher, als es ist.',
                           'You are sitting {:.0f} cm too close. Everything '
-                          'looks further away than it is.'),
+                          'looks bigger and closer than it is.'),
+    's_fv_untergrenze': ('Enger als etwa {:.0f}° lässt Star Citizen das '
+                         'Sichtfeld bei deiner Auflösung nicht stellen — den '
+                         'neutralen Wert erreichst du also nicht. Am nächsten '
+                         'kommst du mit dem kleinsten Wert im Menü.',
+                           'Star Citizen does not let you set the field of '
+                           'view narrower than about {:.0f}° at your '
+                           'resolution, so the neutral value is out of reach. '
+                           'The smallest value in the menu gets you closest.'),
     's_fv_kein_spielwert': ('Im Spiel wurde noch kein Wert gefunden — starte '
                             'Star Citizen einmal.',
                               'No value found in the game yet — start Star '
                               'Citizen once.'),
-    's_fv_hinweis_deutung': ('Die Zahl im Spiel wird hier als waagerechter '
-                             'FOV deiner Auflösung gelesen. Das ist an '
-                             'einem 32:9-Aufbau gegengeprüft, aber nicht im '
-                             'Spiel selbst nachgemessen — der neutrale Winkel '
-                             'oben stimmt unabhängig davon.',
-                               'The number in the game is read here as the '
-                               'horizontal field of view for your resolution. '
-                               'That was cross-checked on a 32:9 setup, but '
-                               'not verified inside the game itself — the '
-                               'neutral angle above holds regardless.'),
+    's_fv_hinweis_deutung': ('Star Citizen speichert den senkrechten Winkel. '
+                             'Hier ist er mit deiner Auflösung in den '
+                             'waagerechten umgerechnet — das ist die Zahl, '
+                             'die auch das Menü unter „Sichtfeld" zeigt.',
+                               'Star Citizen stores the vertical angle. Here '
+                               'it is converted to the horizontal one for your '
+                               'resolution — the same number the menu shows '
+                               'under "Field of View".'),
     's_fv_gespeichert': ('Ausgemessen: {:.1f} cm breit.',
                            'Measured: {:.1f} cm wide.'),
     's_fv_kein_vollbild': ('Das Messfenster ging nicht auf volle '
@@ -2692,14 +2698,20 @@ TEXTS = {
                               'der Liste stand, dass das Auftrags-Protokoll '
                               'beim ersten Öffnen nicht auffrischte, und dass '
                               'im Abrufterminal Schiffe als `@vehicle_Name…` '
-                              'standen statt mit ihrem Namen. Und die '
+                              'standen statt mit ihrem Namen — auch, als sie '
+                              'nach einem Patch wiederkamen. Dazu die '
+                              'Update-Suche, die auf manchen Rechnern still an '
+                              'einem fehlenden Zertifikat scheiterte. Und die '
                               'Idee, im Fehlerbericht ein Feld für die Meldung '
                               'einzubauen.',
                               'Plus a freshly received blueprint not showing up '
                               'in the list right away, the mission log not '
                               'refreshing the first time you opened it, and the '
                               'ASOP terminal listing ships as `@vehicle_Name…` '
-                              'instead of their name. And the '
+                              'instead of their name — including when they came '
+                              'back after a patch. Also the update check that '
+                              'silently failed on some machines over a missing '
+                              'certificate. And the '
                               'idea of a field for your message in the error '
                               'report.'),
     's_dk_bushwick_idee2':   ('**Rufpunkte und Abklingzeit in den Auftragstexten** '
@@ -3831,6 +3843,12 @@ TEXTS = {
     's_vk_aus_lager':    ('Aus meinem Handelslager', 'From my cargo hold'),
     's_vk_lager_leer':   ('Im Handelslager liegt nichts, wofür es Preise gibt.',
                           'Nothing in the cargo hold has known prices.'),
+    's_vk_alle_waren':   ('Alle Waren', 'All goods'),
+    's_vk_aus_bergbau':  ('Aus dem Bergbau', 'From mining'),
+    's_vk_keine_bergbau': ('Noch keine Bergbau-Daten geladen — sobald sie da '
+                           'sind, stehen hier alle Erze.',
+                           'No mining data loaded yet — once it arrives, '
+                           'every ore shows up here.'),
     's_vk_spitze':       ('Was gerade am besten zahlt — anklicken übernimmt es',
                             'What pays best right now — click to pick it'),
     's_vk_leer_hinweis': ('Such oben eine Ware — oder übernimm gleich alles '
@@ -6347,7 +6365,7 @@ PROPERTIES = {
     'shield_maxhealth':                'Schildstärke',
     'itemresource_powergeneration':    'Energiestufen',
     'itemresource_coolantgeneration':  'Kühlleistung',
-    'weapon_damage':                   'Aufprallwucht',
+    'weapon_damage':                   'Schaden (Aufprallkraft)',
     'weapon_firerate':                 'Feuerrate',
     'weapon_recoil_smoothness':        'Rückstoß — Gleichmäßigkeit',
     'weapon_recoil_handling':          'Rückstoß — Beherrschbarkeit',
@@ -6366,16 +6384,32 @@ PROPERTIES = {
 }
 
 
-def property_name(name, key=None):
+# Englischer Name für `weapon_damage`. Die Eigenschaft ist in den Spieldaten
+# der Waffenschaden (`GPP_Weapon_Damage`), nicht der Stoß aufs Ziel; der
+# Spielname steht in Klammern dahinter.
+DAMAGE_EN = 'Damage (Impact Force)'
+
+# Name von `weapon_damage` bei Mining-Lasern, deutsch und englisch.
+LASER_POWER = ('Laserleistung', 'Laser Power')
+
+
+def property_name(name, key=None, laser=False):
     """Der Name einer Rezept-Eigenschaft in der eingestellten Sprache.
 
-    ⚠ Englisch bleibt englisch — dort ist der Name des Spiels der richtige.
-    Übersetzt wird nur ins Deutsche, und nur was in der Tabelle steht.
+    ⚠ Englisch bleibt englisch — dort ist der Name des Spiels der richtige,
+    mit Ausnahme von `weapon_damage` (`DAMAGE_EN`). `laser=True` für
+    Mining-Laser: Dort ist `weapon_damage` die Laserleistung.
     """
     try:
-        if current() != 'de':
-            return name
+        deutsch = current() == 'de'
     except Exception:
+        return name
+    if key == 'weapon_damage':
+        if laser:
+            return LASER_POWER[0 if deutsch else 1]
+        if not deutsch:
+            return DAMAGE_EN
+    if not deutsch:
         return name
     return PROPERTIES.get(key) or name
 

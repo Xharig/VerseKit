@@ -362,7 +362,9 @@ def _row(rows, label, base, made, unit='', dec=0, kind='high'):
 def _info(item):
     parts = []
     if item.get('manufacturer'):
-        parts.append(item['manufacturer'])
+        from .crafting import manufacturer_name
+        parts.append(manufacturer_name(item['manufacturer'],
+                                       item.get('manufacturerCode')))
     if (item.get('mass') or 0) > 0:
         parts.append('%g kg' % item['mass'])
     return parts

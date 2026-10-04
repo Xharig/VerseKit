@@ -335,6 +335,28 @@ def _merge(items):
     return list(by_recipe.values())
 
 
+# Hersteller, deren Name in den Spieldaten falsch hinterlegt ist, nach
+# Herstellerkürzel. Im Datensatz von MaxOx steht der Name von Aegis Dynamics;
+# das Spiel selbst nennt die Waffen MaxOx.
+MANUFACTURER_BY_CODE = {
+    'MXOX': 'MaxOx',
+}
+
+
+def manufacturer_code(tag):
+    """Das Herstellerkürzel aus einem Bauplan-Tag (`BP_CRAFT_MXOX_…`) — oder ''."""
+    parts = (tag or '').split('_')
+    return parts[2].upper() if len(parts) > 2 and parts[0] == 'BP' else ''
+
+
+def manufacturer_name(name, code=None):
+    """Der Herstellername, berichtigt, wo die Spieldaten ihn falsch führen.
+
+    Maßgeblich ist das Kürzel, nicht der Name: Steht in den Daten schon der
+    richtige Name, kommt derselbe heraus."""
+    return MANUFACTURER_BY_CODE.get((code or '').upper()) or name or ''
+
+
 def all_items():
     """Alle herstellbaren Dinge, für die Liste in der Oberfläche.
 
@@ -370,7 +392,8 @@ def all_items():
             result.append({
                 'basis': name,
                 'name': display,
-                'hersteller': b.get('manufacturer') or '',
+                'hersteller': manufacturer_name(
+                    b.get('manufacturer'), manufacturer_code(b.get('tag'))),
                 'art': b.get('type') or '',
                 'unterart': b.get('subtype') or '',
                 'stufen': len(b.get('tiers') or []),
@@ -563,7 +586,8 @@ def recipe(name_or_tag):
                       (b.get('tag') or '').lower()):
             return {
                 'name': b.get('productName') or b.get('tag') or '?',
-                'hersteller': b.get('manufacturer') or '',
+                'hersteller': manufacturer_name(
+                    b.get('manufacturer'), manufacturer_code(b.get('tag'))),
                 'art': b.get('type') or '',
                 'stufen': [{'zeit': (t_.get('craftTimeSeconds') or 0),
                             'zutaten': _ingredients(t_)}
@@ -892,7 +916,7 @@ def slots(name_or_tag):
 # dorthin, weil die Rezeptdaten hier zu Hause sind.
 
 
-def property_name(name, key=None):
+def property_name(name, key=None, kind=None):
     """Der Name der Eigenschaft in der eingestellten Sprache.
 
     ⚠⚠ **Der SCHLÜSSEL entscheidet, nicht der englische Text.**
@@ -900,9 +924,12 @@ def property_name(name, key=None):
     Beschriftung umformuliert — dieselbe Regel wie bei den Auftragsmeldungen
     (`contracts.INI_KEYS`). Über den englischen Namen zu gehen hieße:
     beim nächsten Patch fällt die Hälfte still auf Englisch zurück.
+
+    `kind` ist die Bauplan-Art (`art`); bei `mininglaser` ist der
+    Waffenschaden die Laserleistung.
     """
     from . import language
-    return language.property_name(name, key)
+    return language.property_name(name, key, laser=kind == 'mininglaser')
 
 
 def values_with_stock(name_or_tag, quality_per_material):

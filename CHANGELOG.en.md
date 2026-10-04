@@ -6,6 +6,42 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.87.0 - 2026-10-04
+
+> Selling now shows everything you can mine at the push of a button, sorted
+> by value — no more Riccite left behind. New ships keep their proper names
+> after a patch, the update check works again on machines missing a
+> certificate, and the FOV page now reads the game's value correctly.
+
+> [!important]
+> If you haven't seen an update notice in weeks: download and install this
+> version once by hand — after that, updates arrive on their own again.
+
+### New
+
+- **Selling: "All goods" and "From mining"** — the second button lists every
+  ore you can mine, complete and sorted by price
+
+### Fixed
+
+- **FOV page compared two different angles** — the game's value now reads
+  the same as "Field of View" in the menu, and the rating is right. If the
+  neutral value is below what the game allows, it says so
+
+- **New ships shown as `@vehicle_Name…` in the fleet manager** — if you set
+  up the original texts, they are refreshed from the game after every patch.
+  Reported by Bushwick4712 (KRT)
+- **Update check silently failed over a missing certificate** — it now
+  falls back to the Windows connection and finds new versions again.
+  Reported by Bushwick4712 (KRT)
+- **Cut-off values in crafting** — with large fonts, factor and range sit
+  below the slider instead of being cut off on the right
+- **"Impact Force" is the damage** — crafting now calls the property
+  "Damage (Impact Force)", and "Laser Power" on mining lasers, as the game
+  does. Reported by Bushwick4712 (KRT)
+- **MaxOx weapons were listed under Aegis Dynamics** — NDB and NN weapons
+  now show their real manufacturer
+
 ## v3.86.1 - 2026-10-04
 
 > "Still missing" shows only what your ships need again.

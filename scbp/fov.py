@@ -151,6 +151,38 @@ def vertical_from_horizontal(horizontal_deg, aspect):
     return degrees(2.0 * math.atan(half))
 
 
+# Der kleinste senkrechte Winkel, den Star Citizen in `attributes.xml`
+# ablegt, wenn der Regler „Sichtfeld" ganz links steht — gemessen an 32:9
+# (5120×1440): Menü 124, Datei 54,7681.
+MIN_VERTICAL_DEG = 54.7681
+
+
+def game_horizontal(setting):
+    """Der waagerechte Blickwinkel aus `game_setting()` — die Zahl im Menü.
+
+    Star Citizen speichert unter `FOV` den **senkrechten** Winkel; das Menü
+    zeigt den waagerechten der eingestellten Auflösung. Gemessen an 32:9:
+    Menü 134 ↔ Datei 67,1, Menü 124 ↔ Datei 54,77. Ohne Auflösung gibt es
+    nichts umzurechnen — dann `None`."""
+    vertical = (setting or {}).get('fov')
+    width = (setting or {}).get('breite')
+    height = (setting or {}).get('hoehe')
+    if not vertical or not width or not height:
+        return None
+    return horizontal_from_vertical(vertical, float(width) / float(height))
+
+
+def narrowest_horizontal(setting):
+    """Der engste waagerechte Winkel, den das Spiel bei dieser Auflösung
+    zulässt — oder `None` ohne Auflösung."""
+    width = (setting or {}).get('breite')
+    height = (setting or {}).get('hoehe')
+    if not width or not height:
+        return None
+    return horizontal_from_vertical(MIN_VERTICAL_DEG,
+                                    float(width) / float(height))
+
+
 def rating(actual_distance_mm, target_distance_mm):
     """Wie weit liegt der tatsächliche Sitzabstand vom neutralen Punkt?
 
