@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.84.1 - 2026-10-04
+
+> Polishing the texts: one name, spelled the same everywhere.
+
+### Fixed
+
+- **Consistent name** — every text now says Verse-Kit, not one way here
+  and another there
+- **Sharp rendering without the test label** — the option is finished and
+  now says so
+
 ## v3.84.0 - 2026-10-04
 
 > Less waiting when switching: the hangar builds its ships piece by piece,

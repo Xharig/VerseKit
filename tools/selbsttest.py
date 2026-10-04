@@ -33504,6 +33504,18 @@ def _pruefung_331():
     pruefe(not alte_namen,
            'kein Oberflächentext nennt das Programm noch „Watcher" (%s)'
            % alte_namen[:5])
+    # Und überall dieselbe Schreibweise: Verse-Kit. Datei- und Ordnernamen
+    # (VerseKit-Setup.exe, VerseKit-Daten) bleiben, wie sie auf der Platte heißen.
+    import re as _re331
+    _form331 = _re331.compile(r'(?<![/@\w.-])VerseKit'
+                              r'(?!-(?:Setup|x86|Daten))(?![/\w]|\.\w)')
+    andere_form = sorted(
+        k for k, paar in _sp331.TEXTS.items()
+        if isinstance(paar, tuple)
+        and any(_form331.search(str(x)) for x in paar))
+    pruefe(not andere_form,
+           'überall „Verse-Kit" geschrieben, nirgends „VerseKit" (%s)'
+           % andere_form[:5])
     import tkinter as _tk331
     import tkinter.font as _tf331
     from scbp import pages as _se331, catalog as _kt331, fleet as _fl331

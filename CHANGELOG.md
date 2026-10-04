@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.84.1 - 2026-10-04
+
+> Feinschliff an den Texten: ein Name, überall gleich geschrieben.
+
+### Behoben
+
+- **Einheitlicher Name** — in allen Texten steht jetzt Verse-Kit, nicht
+  mal so, mal so
+- **Scharfe Darstellung ohne Test-Vermerk** — die Option ist fertig und
+  heißt auch so
+
 ## v3.84.0 - 2026-10-04
 
 > Weniger Warten beim Umschalten: Der Hangar baut seine Schiffe stückweise
