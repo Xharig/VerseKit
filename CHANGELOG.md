@@ -6,6 +6,38 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.82.0 - 2026-10-04
+
+> Ein Bild im ganzen Programm: Jede Liste hat jetzt Streifen, damit du
+> Zeilen leichter auseinanderhältst. Dazu lassen sich Filter mit einem Klick
+> zurücksetzen, und das Programm nennt sich überall Verse-Kit.
+
+### Verbessert
+
+- **Streifen in allen Listen** — ab der zweiten Zeile ist jede zweite
+  heller hinterlegt: Bergbau, Raffinerien, Herstellung samt Zutaten, Shops,
+  Was ich farmen muss, Einkaufsliste, Ausstattung, Zerlegen, Aufträge &
+  Protokoll, Bauplan-Liste, Bauplan-Fortschritt, Statistik, Steuerung,
+  Achsen, Patch-Änderungen und Serverstatus
+- **Bergbau aufgeräumt** — oben die Signatur-Werkzeuge, darunter Suche,
+  Filter und die Liste. Die Suchfelder in Bergbau und Herstellung gehen über
+  die volle Breite und sagen im Feld, was hineingehört
+- **Jedes Eingabefeld sagt, was hineingehört** — Lager, Handelslager,
+  Verkauf, Hangar, Wunschliste, Bergung, Shops, Zerlegen, Ausstattung,
+  Einstellungen, Einrichtung und Anlernen zeigen im leeren Feld einen
+  Hinweis mit Beispiel; Suchfelder ohne Beschriftung daneben
+
+### Behoben
+
+- **Zurücksetzen fehlte in den Filtern** — in Herstellung, Bergbau und den
+  übrigen Seiten mit Auswahlfeldern steht rechts „Zurücksetzen", sobald
+  etwas gewählt ist
+- **„Passt in keines deiner Schiffe" bei Rüstung** — der Hinweis steht nur
+  noch bei Schiffsteilen; Rüstung, Kleidung und FPS-Waffen bekommen ihn
+  nicht mehr
+- **Alter Name in den Texten** — wo „der Watcher" stand, steht jetzt
+  Verse-Kit
+
 ## v3.81.0 - 2026-10-04
 
 > SCU oder cSCU? VerseKit passt jetzt auf, dass Raffinerie-Zahlen nicht

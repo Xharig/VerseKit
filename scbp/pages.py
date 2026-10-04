@@ -364,7 +364,7 @@ def _pack_on_demand(leinwand, zeilen, sofort=ROWS_FIRST,
         bis = min(len(zeilen), stand['gepackt'] + schritt)
         for zeile in zeilen[stand['gepackt']:bis]:
             try:
-                zeile.pack(fill='x', pady=1)
+                zeile.pack(fill='x', ipady=1)
             except tk.TclError:
                 return            # Liste wurde inzwischen neu gezeichnet
         stand['gepackt'] = bis
@@ -609,7 +609,7 @@ def _keep_scroll(widget, action):
         pass
 
 
-def _filter_bar(window, parent, fields, on_change, state):
+def _filter_bar(window, parent, fields, on_change, state, show_reset=True):
     """Eine Reihe Auswahlfelder plus „Auswahl zurücksetzen" — für jede Seite gleich.
 
     ⚠⚠ **Ein Bedienkonzept für das ganze Programm.** Wer die
@@ -626,22 +626,47 @@ def _filter_bar(window, parent, fields, on_change, state):
     nach jeder Änderung gerufen.
 
     Gibt eine Funktion zurück, die alles zurücksetzt.
+
+    ⭐ Rechts steht ein Zurücksetzen-Knopf, sobald etwas gewählt ist. Seiten mit
+    eigenem Zurücksetzen-Knopf (Shops) übergeben `show_reset=False`.
     """
     from .main_window import round_select
     reihe = tk.Frame(parent, bg=BG)
     reihe.pack(fill='x', pady=(0, 8))
+    reset = tk.Label(reihe, text=t('s_zuruecksetzen'), bg=BG, fg=SUB,
+                     font=window.f_small, cursor='hand2', padx=10)
     links = tk.Frame(reihe, bg=BG)
     links.pack(side='left', fill='x', expand=True)
 
     gebaut = {}
     reihenfolge = []
+
+    def reset_zeigen():
+        """Den Knopf nur zeigen, wenn es etwas zurückzusetzen gibt."""
+        if not show_reset:
+            return
+        try:
+            if any(state.get(s) for s in gebaut):
+                if not reset.winfo_manager():
+                    # ⚠ `before=links` — sonst nimmt das wachsende Feld links
+                    # den ganzen Platz, und der Knopf fällt aus der Zeile.
+                    reset.pack(side='right', anchor='n', before=links)
+            else:
+                reset.pack_forget()
+        except tk.TclError:
+            pass
+
+    def gewaehlt(schluessel, wert):
+        state[schluessel] = wert
+        on_change()
+        reset_zeigen()
+
     for schluessel, beschriftung, eintraege in fields:
         if len(eintraege) <= 1:
             continue
         w = round_select(links, [('', beschriftung)] + list(eintraege),
                      state.get(schluessel, ''),
-                     lambda wert, s=schluessel: (state.__setitem__(s, wert),
-                                                 on_change()),
+                     lambda wert, s=schluessel: gewaehlt(s, wert),
                      window.f_small)
         gebaut[schluessel] = w
         reihenfolge.append(w)
@@ -655,7 +680,7 @@ def _filter_bar(window, parent, fields, on_change, state):
     if reihenfolge:
         _button_grid(links, reihenfolge, gap=8)
 
-    def zuruecksetzen():
+    def zuruecksetzen(_e=None):
         for schluessel, w in gebaut.items():
             state[schluessel] = ''
             try:
@@ -663,6 +688,13 @@ def _filter_bar(window, parent, fields, on_change, state):
             except Exception:
                 pass
         on_change()
+        reset_zeigen()
+
+    reset.bind('<Button-1>', zuruecksetzen)
+    reset.bind('<Enter>', lambda _e: reset.configure(fg=RED))
+    reset.bind('<Leave>', lambda _e: reset.configure(fg=SUB))
+    reset.reset_button = True
+    reset_zeigen()
 
     return zuruecksetzen, reihe, gebaut
 
@@ -906,10 +938,9 @@ def _path_field(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
     reihe = tk.Frame(eltern, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
     from .main_window import round_entry
-    feld = round_entry(reihe, wert, fenster.f_small, theme.FIELD, LINE, ACCENT, FG)
+    feld = round_entry(reihe, wert, fenster.f_small, theme.FIELD, LINE, ACCENT,
+                       FG, placeholder=platzhalter or None)
     feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
-    if platzhalter and not wert.get():
-        feld.configure(fg=SUB)
     _button(fenster, reihe, t('s_durchsuchen'), waehlen).pack(side='left')
     if oeffnen:
         _button(fenster, reihe, t('s_oeffnen'), oeffnen).pack(side='left', padx=(8, 0))
@@ -1327,8 +1358,12 @@ def _strip_markup(text):
     return text.replace('**', '').replace('`', '') if text else text
 
 
-def _setting_row(window, parent, caption, help_text, wide=False, top=False):
+def _setting_row(window, parent, caption, help_text, wide=False, top=False,
+                 line=True):
     """Eine Einstellungszeile: Bezeichnung, Erklärung, Platz für das Bedienelement.
+
+    `line=False` lässt die Trennlinie darunter weg — für Zeilen, auf die
+    noch etwas folgt, das dazugehört (Suche und ihre Filter).
 
     `oben=True` heftet die Beschriftung an die **Oberkante** statt sie
     mittig zu setzen. ⚠ Gebraucht bei Feldern, die im Betrieb wachsen: Klappt
@@ -1381,7 +1416,8 @@ def _setting_row(window, parent, caption, help_text, wide=False, top=False):
         if erklaerung is not None:
             _wrap(erklaerung, reference=zeile, beside=rechts, inset=26)
         _wrap(beschriftung, reference=zeile, beside=rechts, inset=26)
-    tk.Frame(parent, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
+    if line:
+        tk.Frame(parent, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
     # ⚠ Die linke Spalte haengt am Rueckgabewert. Manche Zeilen wollen dort
     # etwas unterbringen — der Namensvorschlag im Lager etwa gehoert neben das
     # Eingabefeld, nicht ans Seitenende. Ohne diesen Griff muesste der Aufrufer
@@ -1652,13 +1688,14 @@ def _best_contracts(fenster, eltern, katalog, habe):
     # Bauplan-Fenster.
     from .collection_window import ort_text
     for titel, fraktion, anzahl, uec, rang, wo in lohnend[:10]:
-        zeile = tk.Frame(kasten, bg=SURFACE)
-        zeile.pack(fill='x', padx=14, pady=3)
-        tk.Label(zeile, text=str(anzahl), bg=SURFACE, fg=ACCENT,
+        grund = _stripe(kasten, SURFACE)
+        zeile = tk.Frame(kasten, bg=grund)
+        zeile.pack(fill='x', padx=14, ipady=3)
+        tk.Label(zeile, text=str(anzahl), bg=grund, fg=ACCENT,
                  font=fenster.f_base, width=3, anchor='e').pack(side='left')
-        rechts = tk.Frame(zeile, bg=SURFACE)
+        rechts = tk.Frame(zeile, bg=grund)
         rechts.pack(side='left', fill='x', expand=True, padx=(10, 0))
-        tk.Label(rechts, text=titel, bg=SURFACE, fg=FG, font=fenster.f_small,
+        tk.Label(rechts, text=titel, bg=grund, fg=FG, font=fenster.f_small,
                  anchor='w').pack(fill='x')
         teile = [fraktion] if fraktion else []
         if uec:
@@ -1666,18 +1703,18 @@ def _best_contracts(fenster, eltern, katalog, habe):
         if rang:
             teile.append(rang)
         teile.append(t('s_fo_lohnt_topf', anzahl))
-        tk.Label(rechts, text=' · '.join(teile), bg=SURFACE, fg=SUB,
+        tk.Label(rechts, text=' · '.join(teile), bg=grund, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
         # Der Annahmeort steht direkt in der Zeile.
         ort = ort_text(wo)
         beschriftungen = []
         if ort:
-            ort_label = tk.Label(rechts, text=ort, bg=SURFACE, fg=SUB,
+            ort_label = tk.Label(rechts, text=ort, bg=grund, fg=SUB,
                                  font=fenster.f_small, anchor='w',
                                  justify='left')
             ort_label.pack(fill='x')
             beschriftungen.append(ort_label)
-        tk.Label(rechts, text=t('s_fo_lohnt_klick'), bg=SURFACE, fg=SUB,
+        tk.Label(rechts, text=t('s_fo_lohnt_klick'), bg=grund, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
 
         # ⚠⚠ **Die Zahl ist keine Antwort, sie ist eine Frage.** „44" sagt
@@ -1725,18 +1762,19 @@ def _progress_section(fenster, eltern, titel, gesamt, meine, kategorien):
             return
         for art, (art_gesamt, art_meine) in sorted(kategorien.items(),
                                                    key=lambda x: -x[1][0]):
-            zeile = tk.Frame(koerper, bg=BG)
-            zeile.pack(fill='x', pady=3)
-            beschriftung = tk.Label(zeile, text=art, bg=BG, fg=SUB,
+            grund = _stripe(koerper, BG)
+            zeile = tk.Frame(koerper, bg=grund)
+            zeile.pack(fill='x', ipady=3)
+            beschriftung = tk.Label(zeile, text=art, bg=grund, fg=SUB,
                                     font=fenster.f_small, width=22,
                                     anchor='w')
             beschriftung.pack(side='left')
             teil = max(0.0, min(1.0, art_meine / float(art_gesamt or 1)))
-            balken_zeile = round_bar(zeile, 7, teil, BG, theme.HOVER, ACCENT,
+            balken_zeile = round_bar(zeile, 7, teil, grund, theme.HOVER, ACCENT,
                                       width=260)
             balken_zeile.pack(side='left', padx=8)
             zahl = tk.Label(zeile, text='%d / %d' % (art_meine, art_gesamt),
-                            bg=BG, fg=SUB, font=fenster.f_small, width=10,
+                            bg=grund, fg=SUB, font=fenster.f_small, width=10,
                             anchor='e')
             zahl.pack(side='right')
 
@@ -2237,14 +2275,16 @@ def _display(fenster, rahmen):
 
     ziel = _setting_row(fenster, innen, t('s_ov_dauer'), t('s_ov_dauer_h'))
     from .main_window import round_entry as _zahlfeld
-    dauer = _zahlfeld(ziel, None, fenster.f_small, theme.FIELD, LINE, ACCENT, FG,
-                      width=6, justify='right')
-    dauer.insert(0, str(paths.setting_int('popup_sekunden', 6, 2, 60)))
+    duration_var = tk.StringVar(
+        ziel, value=str(paths.setting_int('popup_sekunden', 6, 2, 60)))
+    dauer = _zahlfeld(ziel, duration_var, fenster.f_small, theme.FIELD, LINE,
+                      ACCENT, FG, width=6, justify='right',
+                      placeholder=t('s_pl_dauer'))
     dauer.holder.pack()
 
     def dauer_merken(_=None):
         try:
-            wert = max(2, min(60, int(dauer.get())))
+            wert = max(2, min(60, int(duration_var.get())))
             paths.set_setting('popup_sekunden', wert)
             fenster.say(t('s_ov_dauer_sagen') % wert)
         except ValueError:
@@ -2332,16 +2372,18 @@ def _display(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_zeilen'),
                  t('s_zeilen_h'))
     from .main_window import round_entry
-    zahl = round_entry(ziel, None, fenster.f_small, theme.FIELD, LINE, ACCENT, FG,
-                       width=6, justify='right')
-    zahl.insert(0, str(paths.setting_int('max_zeilen', 20, 5, 100)))
+    rows_var = tk.StringVar(
+        ziel, value=str(paths.setting_int('max_zeilen', 20, 5, 100)))
+    zahl = round_entry(ziel, rows_var, fenster.f_small, theme.FIELD, LINE,
+                       ACCENT, FG, width=6, justify='right',
+                       placeholder=t('s_pl_zeilen'))
     zahl.holder.pack()
 
     def zahl_merken(_=None):
         try:
             paths.set_setting('max_zeilen',
-                                     max(5, min(100, int(zahl.get()))))
-            fenster.say(t('s_an_zeilen') % zahl.get())
+                                     max(5, min(100, int(rows_var.get()))))
+            fenster.say(t('s_an_zeilen') % rows_var.get())
         except ValueError:
             pass
 
@@ -2436,7 +2478,8 @@ def _folders(fenster, rahmen):
     _path_field(fenster, innen, e.spiel, spiel_waehlen,
               oeffnen=lambda: fenster.say(
                   t('s_or_geoeffnet') if _show_folder(e.spiel.get())
-                  else t('s_or_nicht_auf')))
+                  else t('s_or_nicht_auf')),
+              platzhalter=t('s_pl_spielordner'))
 
     tk.Label(innen, text=t('s_eigene'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', pady=(20, 0))
@@ -2458,7 +2501,8 @@ def _folders(fenster, rahmen):
             return
         _move_storage(fenster, ablage, gewaehlt)
 
-    _path_field(fenster, innen, ablage, ablage_waehlen, oeffnen=ablage_oeffnen)
+    _path_field(fenster, innen, ablage, ablage_waehlen, oeffnen=ablage_oeffnen,
+                platzhalter=t('s_pl_ordner'))
 
     _start_command_field(fenster, innen)
     _channel_states(fenster, innen)
@@ -2645,13 +2689,14 @@ def _hotkey_field(fenster, innen):
     reihe.pack(anchor='w')
 
     from .main_window import round_entry
-    feld = round_entry(reihe, None, fenster.f_small, theme.FIELD, LINE, ACCENT,
-                       FG, width=18)
-    feld.insert(0, paths.setting('hotkey') or hk.DEFAULT)
+    hotkey_var = tk.StringVar(reihe,
+                              value=paths.setting('hotkey') or hk.DEFAULT)
+    feld = round_entry(reihe, hotkey_var, fenster.f_small, theme.FIELD, LINE,
+                       ACCENT, FG, width=18, placeholder=t('s_pl_hotkey'))
     feld.holder.pack(side='left')
 
     def merken(_=None):
-        wunsch = feld.get().strip()
+        wunsch = hotkey_var.get().strip()
         mods, taste = hk.parse(wunsch)
         if not mods:
             fenster.say(t('s_hk_falsch'))
@@ -2714,7 +2759,8 @@ def _start_command_field(fenster, innen):
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
     from .main_window import round_entry
-    feld = round_entry(reihe, wert, fenster.f_small, theme.FIELD, LINE, ACCENT, FG)
+    feld = round_entry(reihe, wert, fenster.f_small, theme.FIELD, LINE, ACCENT,
+                       FG, placeholder=t('s_pl_startbefehl'))
     feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
     _button(fenster, reihe, t('s_or_uebernehmen'), uebernehmen).pack(side='left')
 
@@ -3900,12 +3946,10 @@ def _contract_log(fenster, rahmen):
 
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(14, 0))
-    tk.Label(block, text=t('s_al_suche'), bg=BG, fg=FG, font=fenster.f_bold,
-             anchor='w').pack(fill='x')
     from .main_window import round_entry
     feld = round_entry(block, suche, fenster.f_small, theme.FIELD, LINE,
                        ACCENT, FG, placeholder=t('s_pl_auftrag'))
-    feld.holder.pack(fill='x', pady=(4, 0))
+    feld.holder.pack(fill='x')
 
     # ⚠ Die Filterleiste wird weiter unten befuellt — die Farben und Woerter
     # dazu stehen erst danach. Gepackt wird sie hier, damit sie zwischen
@@ -4003,6 +4047,7 @@ def _contract_log(fenster, rahmen):
         wort_laufend = _wort_laufend()
         for kind in liste_rahmen.winfo_children():
             kind.destroy()
+        _stripe_reset(liste_rahmen)
         if not alle:
             # Noch gar nichts aufgezeichnet — das ist etwas anderes als „die
             # Suche findet nichts" und braucht deshalb einen eigenen Satz.
@@ -4035,11 +4080,12 @@ def _contract_log(fenster, rahmen):
         zeilen_log = []
         for eintrag in treffer[:gezeigt['anzahl']]:
             zustand = eintrag.get('zustand') or mission_log.RUNNING
-            zeile = tk.Frame(liste_rahmen, bg=SURFACE)
+            grund = _stripe(liste_rahmen, SURFACE)
+            zeile = tk.Frame(liste_rahmen, bg=grund)
             zeilen_log.append(zeile)
 
             tk.Label(zeile, text=(eintrag.get('wann') or '')[:10],
-                     bg=SURFACE, fg=SUB, font=fenster.f_small, width=11,
+                     bg=grund, fg=SUB, font=fenster.f_small, width=11,
                      anchor='w', padx=10, pady=7).pack(side='left')
             # ⚠ Breit genug fuer den laengsten Zustand — „nicht mehr offen"
             # hat 16 Zeichen.
@@ -4049,7 +4095,7 @@ def _contract_log(fenster, rahmen):
             schluessel = (wort_laufend if zustand == mission_log.RUNNING
                           else worte.get(zustand, 's_al_laeuft'))
             tk.Label(zeile, text=t(schluessel),
-                     bg=SURFACE, fg=farben.get(zustand, SUB),
+                     bg=grund, fg=farben.get(zustand, SUB),
                      font=fenster.f_small, width=17,
                      anchor='w').pack(side='left')
 
@@ -4062,7 +4108,7 @@ def _contract_log(fenster, rahmen):
                 _open_issue_council(fenster, titel)
 
             ic_knopf = icons.tappable(zeile, 'issue_council',
-                                      background=SURFACE,
+                                      background=grund,
                                       text=t('s_al_ic'),
                                       font=fenster.f_small)
             ic_knopf.configure(cursor='hand2', padx=10)
@@ -4072,13 +4118,13 @@ def _contract_log(fenster, rahmen):
             from . import notice
             notice.attach(ic_knopf, lambda: t('s_al_ic_tipp'))
 
-            mitte = tk.Frame(zeile, bg=SURFACE)
+            mitte = tk.Frame(zeile, bg=grund)
             mitte.pack(side='left', fill='x', expand=True)
             # ⚠ Lange Namen brechen um, statt rechts abgeschnitten zu werden.
             # Das Spiel liefert bis zu 109 Zeichen („Verified Bounty: … | HRT
             # (Großes Mehrbesatzungsschiff, mittlere Unterstützung)").
             name_lab = tk.Label(mitte, text=eintrag.get('name') or '',
-                                bg=SURFACE, fg=FG, font=fenster.f_small,
+                                bg=grund, fg=FG, font=fenster.f_small,
                                 anchor='w', justify='left')
             name_lab.pack(fill='x')
             _wrap(name_lab)
@@ -4110,7 +4156,7 @@ def _contract_log(fenster, rahmen):
                 tk.Label(mitte,
                          text=t('s_al_ziele', eintrag.get('ziele_fertig') or 0,
                                 eintrag['ziele_gesamt']),
-                         bg=SURFACE, fg=SUB, font=fenster.f_small,
+                         bg=grund, fg=SUB, font=fenster.f_small,
                          anchor='w').pack(fill='x')
 
             # ⭐ Was dabei herauskam — meist der Grund, warum jemand nach einem
@@ -4121,7 +4167,7 @@ def _contract_log(fenster, rahmen):
                     mitte,
                     text=t('s_al_bp' if len(bps) == 1 else 's_al_bp_mehr',
                            ' · '.join(bps)),
-                    bg=SURFACE, fg=ACCENT, font=fenster.f_small,
+                    bg=grund, fg=ACCENT, font=fenster.f_small,
                     anchor='w', justify='left')
                 bp_lab.pack(fill='x')
                 # Bei mehreren Funden wird diese Zeile laenger als der Name.
@@ -4696,7 +4742,8 @@ def _joysticks(fenster, rahmen):
         name = ask_text(
             fenster.root, t('s_js_profil'), t('s_js_profil_frage'),
             choices=vorhandene,
-            choices_title=t('s_js_profil_liste') if vorhandene else '')
+            choices_title=t('s_js_profil_liste') if vorhandene else '',
+            placeholder=t('s_pl_profilname'))
         if name is None:
             return                       # abgebrochen, nicht leer bestätigt
         ok, meldung = joysticks.check_name(name)
@@ -4864,6 +4911,7 @@ def _joysticks(fenster, rahmen):
         """Die Trefferliste — das Einzige, was beim Tippen neu entsteht."""
         for kind in liste_rahmen.winfo_children():
             kind.destroy()
+        _stripe_reset(liste_rahmen)
         alle = daten.get('belegungen') or {}
         if not alle:
             zaehler.configure(text='')
@@ -4918,7 +4966,8 @@ def _joysticks(fenster, rahmen):
         # Wechsel auf diese Seite. Siehe `_pack_on_demand`.
         gepackt = []
         for kennzeichen, e, klar, lesbar, echt in gezeigt[:200]:
-            zeile = tk.Frame(liste_rahmen, bg=SURFACE)
+            grund = _stripe(liste_rahmen, SURFACE)
+            zeile = tk.Frame(liste_rahmen, bg=grund)
             gepackt.append(zeile)
 
             # ⚠ Die Bindung muss auf **jedes** Kind gelegt werden, nicht nur
@@ -4932,11 +4981,11 @@ def _joysticks(fenster, rahmen):
                 kind.configure(cursor='hand2')
 
             _anfassen(zeile)
-            tk.Label(zeile, text=_geraetename(kennzeichen), bg=SURFACE,
+            tk.Label(zeile, text=_geraetename(kennzeichen), bg=grund,
                      fg=SUB, font=fenster.f_small, width=21, anchor='w',
                      padx=10, pady=6).pack(side='left')
             tk.Label(zeile, text=(lesbar or t('s_js_ohne_eingabe')),
-                     bg=SURFACE, fg=(ACCENT if lesbar else SUB),
+                     bg=grund, fg=(ACCENT if lesbar else SUB),
                      font=fenster.f_small, width=17, anchor='w').pack(
                          side='left')
             # ⚠⚠ **Die Marke rechts wird ZUERST gepackt.** In `tkinter`
@@ -4945,7 +4994,7 @@ def _joysticks(fenster, rahmen):
             # `side='right'`-Beschriftung aus dem Fenster. Die Abnahme prüft
             # die Textbreiten.
             if e.get('quelle') == joysticks.MINE:
-                tk.Label(zeile, text=t('s_js_q_meine'), bg=SURFACE, fg=ACCENT,
+                tk.Label(zeile, text=t('s_js_q_meine'), bg=grund, fg=ACCENT,
                          font=fenster.f_small, anchor='e', padx=10).pack(
                              side='right')
             # ⚠ Grau heißt „das ist keine Bezeichnung des Spiels, sondern der
@@ -4959,7 +5008,7 @@ def _joysticks(fenster, rahmen):
             # Drittel. Eine Zeile mehr kostet nichts, ein abgeschnittener Name
             # kostet die Auskunft.
             _name_lbl = tk.Label(zeile, text=(klar or e['aktion']),
-                                 bg=SURFACE,
+                                 bg=grund,
                                  fg=(FG if echt else SUB),
                                  font=fenster.f_small, anchor='w')
             _name_lbl.pack(side='left', fill='x', expand=True)
@@ -6310,8 +6359,9 @@ def _status_color(lage):
 
 def _system_row(fenster, eltern, sys_):
     """Ein System: Farbbalken, Name, Zustand im Wortlaut von CIG."""
-    z = tk.Frame(eltern, bg=SURFACE)
-    z.pack(fill='x', padx=16, pady=3)
+    grund = _stripe(eltern, SURFACE)
+    z = tk.Frame(eltern, bg=grund)
+    z.pack(fill='x', padx=16, ipady=3)
     # Der Balken trägt die Aussage für alle, die Farben schlecht unterscheiden,
     # zusammen mit dem ausgeschriebenen Zustand daneben — nie die Farbe allein.
     tk.Frame(z, bg=sys_.get('farbe') or FG, width=4, height=18).pack(
@@ -6321,9 +6371,9 @@ def _system_row(fenster, eltern, sys_):
     # Vorab entnommen, damit die Textprüfung die Schlüssel nicht für Sätze hält.
     name = sys_.get('name') or '?'
     zustand = sys_.get('status') or '—'
-    tk.Label(z, text=name, bg=SURFACE, fg=FG,
+    tk.Label(z, text=name, bg=grund, fg=FG,
              font=fenster.f_small, width=22, anchor='w').pack(side='left')
-    tk.Label(z, text=zustand, bg=SURFACE,
+    tk.Label(z, text=zustand, bg=grund,
              fg=sys_.get('farbe') or FG, font=fenster.f_small,
              anchor='w').pack(side='left')
 
@@ -7025,9 +7075,12 @@ def _detection(fenster, rahmen):
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
     from .main_window import round_entry
-    zahl = round_entry(reihe, None, fenster.f_small, theme.FIELD, LINE, ACCENT, FG,
-                       width=5, justify='right')
-    zahl.insert(0, str(paths.setting_int('pruefintervall_sekunden', 3, 1, 60)))
+    interval_var = tk.StringVar(
+        reihe,
+        value=str(paths.setting_int('pruefintervall_sekunden', 3, 1, 60)))
+    zahl = round_entry(reihe, interval_var, fenster.f_small, theme.FIELD, LINE,
+                       ACCENT, FG, width=5, justify='right',
+                       placeholder=t('s_pl_sekunden'))
     zahl.holder.pack(side='left')
     tk.Label(reihe, text=t('s_er_sek'), bg=BG, fg=SUB,
              font=fenster.f_small).pack(side='left')
@@ -7035,8 +7088,8 @@ def _detection(fenster, rahmen):
     def takt_merken(_=None):
         try:
             paths.set_setting('pruefintervall_sekunden',
-                                     max(1, min(60, int(zahl.get()))))
-            fenster.say(t('s_er_takt_sagen') % zahl.get())
+                                     max(1, min(60, int(interval_var.get()))))
+            fenster.say(t('s_er_takt_sagen') % interval_var.get())
         except ValueError:
             pass
 
@@ -7626,10 +7679,10 @@ def _crafting(fenster, rahmen):
     gesprungen = getattr(fenster, 'crafting_search', '') or ''
     suche_var = tk.StringVar(rahmen, value=gesprungen)
     fenster.crafting_search = ''
-    ziel_suche = _setting_row(fenster, innen, t('s_he_suche'), '')
-    suchfeld = round_entry(ziel_suche, suche_var, fenster.f_small, theme.FIELD,
+    # ⭐ Was ins Feld gehört, steht im Feld — keine Beschriftung daneben.
+    suchfeld = round_entry(innen, suche_var, fenster.f_small, theme.FIELD,
                            LINE, ACCENT, FG, placeholder=t('s_pl_herstellung'))
-    suchfeld.holder.pack(fill='x', pady=(4, 12))
+    suchfeld.holder.pack(fill='x', pady=(12, 8))
     # ⚠ Gleiches Bedienelement wie beim Bergbau. Zwei Suchfelder, die sich
     # unterschiedlich verhalten, sind schlimmer als eines ohne Kreuz.
     def _herst_frisch():
@@ -7856,6 +7909,7 @@ def _crafting(fenster, rahmen):
     def zeichnen(*_):
         for w in liste_rahmen.winfo_children():
             w.destroy()
+        _stripe_reset(liste_rahmen)
         text = suche_var.get().strip().lower()
 
         # ⭐ **Ohne Eingabe steht hier keine Liste.** 1597 Baupläne
@@ -8993,7 +9047,8 @@ def _shops(fenster, rahmen):
              font=fenster.f_bold, anchor='w').pack(fill='x')
     ort_zeile, ort_liste, _ort_zeichnen = _combo_box(
         fenster, ort_rahmen, ort, laden_modul.catalog_places, scrollable=200,
-        empty_text=t('s_ld_ort_unbekannt'))
+        empty_text=t('s_ld_ort_unbekannt'),
+        placeholder=t('s_pl_ort_filter'))
     ort_zeile.pack(fill='x', pady=(4, 0))
     ort_liste.pack(fill='x')
 
@@ -9233,6 +9288,7 @@ def _shops(fenster, rahmen):
         `pack_forget()` ist der einzige Weg, der die Höhe zuverlässig abgibt.
         """
         _leeren(vorschlag_rahmen)
+        _stripe_reset(vorschlag_rahmen)
         vorschlag_rahmen.pack_forget()
 
     def _liste_zeigen():
@@ -9416,9 +9472,11 @@ def _shops(fenster, rahmen):
         tk.Label(vorschlag_rahmen, text='  ' + t('s_ld_bereiche_kopf'),
                  bg=SURFACE, fg=ACCENT, font=fenster.f_bold,
                  anchor='w').pack(fill='x', ipady=5)
+        _stripe_reset(vorschlag_rahmen)
         for wert, beschriftung in bereiche:
             zeile = tk.Label(vorschlag_rahmen, text='   ' + beschriftung,
-                             bg=SURFACE, fg=FG, font=fenster.f_small,
+                             bg=_stripe(vorschlag_rahmen, SURFACE), fg=FG,
+                             font=fenster.f_small,
                              anchor='w', cursor='hand2')
             zeile.pack(fill='x', ipady=4)
             zeile.bereich = wert
@@ -9503,9 +9561,10 @@ def _shops(fenster, rahmen):
             sagt ihm nichts, dieselbe Liste mit „Größe 1 · Wen-Cassel" schon.
             """
             name, kennung = b['name'], b['kennung']
-            kasten = tk.Frame(vorschlag_rahmen, bg=SURFACE, cursor='hand2')
+            grund = _stripe(vorschlag_rahmen, SURFACE)
+            kasten = tk.Frame(vorschlag_rahmen, bg=grund, cursor='hand2')
             kasten.pack(fill='x')
-            zeile = tk.Label(kasten, text='   ' + name, bg=SURFACE, fg=FG,
+            zeile = tk.Label(kasten, text='   ' + name, bg=grund, fg=FG,
                              font=fenster.f_small, anchor='w',
                              cursor='hand2')
             zeile.pack(side='left', ipady=4)
@@ -9518,7 +9577,7 @@ def _shops(fenster, rahmen):
                 b.get('hersteller') or '') if x)
             teile_der_zeile = [kasten, zeile]
             if beiwerk:
-                rechts = tk.Label(kasten, text=beiwerk + '   ', bg=SURFACE,
+                rechts = tk.Label(kasten, text=beiwerk + '   ', bg=grund,
                                   fg=SUB, font=fenster.f_small, anchor='e',
                                   cursor='hand2')
                 rechts.pack(side='right', ipady=4)
@@ -9551,6 +9610,7 @@ def _shops(fenster, rahmen):
             # nicht Tausende Zeilen baut. Die größte echte Gruppe hat 201.
             (_nur_gruppe, eintraege), = gruppiert.items()
             gezeigt = eintraege[:EMERGENCY_CAP]
+            _stripe_reset(vorschlag_rahmen)
             for b in gezeigt:
                 _zeile_bauen(b)
             if len(eintraege) > len(gezeigt):
@@ -9568,6 +9628,7 @@ def _shops(fenster, rahmen):
                      text='  %s (%d)' % (_gruppenname(gruppe), len(eintraege)),
                      bg=SURFACE, fg=ACCENT, font=fenster.f_bold,
                      anchor='w').pack(fill='x', ipady=5)
+            _stripe_reset(vorschlag_rahmen)
             for b in eintraege[:PER_GROUP]:
                 _zeile_bauen(b)
             rest = len(eintraege) - PER_GROUP
@@ -9710,7 +9771,7 @@ def _shops(fenster, rahmen):
                        ('klasse', t('s_ld_alle_klassen'),
                         _mit_zahl('klasse')),
                        ('guete', t('s_ld_alle_gueten'), _mit_zahl('guete'))],
-                      _filter_gewechselt, wahl)
+                      _filter_gewechselt, wahl, show_reset=False)
 
     _filter_bauen()
 
@@ -9949,6 +10010,11 @@ def _fits_row(fenster, eltern, bauplan):
     # ohnehin nicht. Lieber nichts sagen als etwas Erfundenes.
     if not art or not groesse:
         return
+    # ⚠ Nur Schiffsteile bekommen eine Aussage. Rüstung und FPS-Waffen tragen
+    # in manchen Daten eine Größe, passen aber selbstverständlich in kein
+    # Schiff — der Hinweis darauf wäre dort Rauschen.
+    if art not in erkul.INTERESTING:
+        return
 
     schiffe = (meine.load().get('schiffe') or [])
     if not schiffe:
@@ -9999,8 +10065,9 @@ def _fits_row(fenster, eltern, bauplan):
 def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
     """Eine Zeile der Herstellungs-Liste, auf Klick klappt das Rezept auf."""
     from . import crafting as herst_modul
-    zeile = tk.Frame(eltern, bg=BG, cursor='hand2')
-    zeile.pack(fill='x', pady=1)
+    grund = _stripe(eltern, BG)
+    zeile = tk.Frame(eltern, bg=grund, cursor='hand2')
+    zeile.pack(fill='x', ipady=1)
 
     # Drei Zustände, nicht zwei: habe / fehlt / **unklar**.
     if eintrag['habe'] is True:
@@ -10009,18 +10076,18 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         zeichen_text, farbe = '?', GOLD
     else:
         zeichen_text, farbe = '·', SUB
-    tk.Label(zeile, text=zeichen_text, bg=BG, fg=farbe, font=fenster.f_base,
+    tk.Label(zeile, text=zeichen_text, bg=grund, fg=farbe, font=fenster.f_base,
              width=2).pack(side='left')
     # ⚠⚠ **Die aufgeklappte Zeile muss sich abheben.** Sähe sie aus wie jede
     # andere, wäre nach ein Stueck Rollen nicht mehr klar, welcher Bauplan
     # ausgewaehlt ist — der Name ist dann oben aus dem Bild.
     _offen = offen['name'] == eintrag['name']
-    tk.Label(zeile, text=eintrag['name'], bg=BG,
+    tk.Label(zeile, text=eintrag['name'], bg=grund,
              fg=ACCENT if _offen else FG,
              font=fenster.f_bold if _offen else fenster.f_base,
              anchor='w').pack(side='left', fill='x', expand=True)
     if eintrag['hersteller']:
-        tk.Label(zeile, text=eintrag['hersteller'], bg=BG, fg=SUB,
+        tk.Label(zeile, text=eintrag['hersteller'], bg=grund, fg=SUB,
                  font=fenster.f_small, anchor='e').pack(side='right', padx=(8, 0))
 
     def umschalten(*_):
@@ -10029,7 +10096,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
     for w in (zeile,) + tuple(zeile.winfo_children()):
         w.bind('<Button-1>', umschalten)
-    icons.hover_row(zeile, BG, SURFACE)
+    icons.hover_row(zeile, grund, theme.HOVER)
 
     if offen['name'] != eintrag['name']:
         return
@@ -10210,7 +10277,8 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                  font=fenster.f_small).pack(side='left', padx=(12, 6))
         from .main_window import round_entry as _rf_anzahl
         _anzahl_feld = _rf_anzahl(reihe, anzahl_var, fenster.f_small,
-                                  theme.FIELD, LINE, ACCENT, FG)
+                                  theme.FIELD, LINE, ACCENT, FG,
+                                  placeholder=t('s_pl_anzahl'))
         _anzahl_feld.holder.configure(width=70)
         _anzahl_feld.holder.pack(side='left')
 
@@ -10280,15 +10348,17 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # „dir fehlt" und „zu schlechte Qualität". Sie werden je nach Lage
         # ein- und ausgeblendet statt neu erzeugt — sonst springt die Höhe.
         zutat_widgets = []
+        _stripe_reset(block)
         for slot, rohstoff, menge, guete in stufe['zutaten']:
-            z = tk.Frame(block, bg=theme.FIELD)
-            z.pack(fill='x', padx=12, pady=1)
-            tk.Label(z, text=slot, bg=theme.FIELD, fg=SUB, font=fenster.f_small,
+            grund = _stripe(block, theme.FIELD)
+            z = tk.Frame(block, bg=grund)
+            z.pack(fill='x', padx=12, ipady=1)
+            tk.Label(z, text=slot, bg=grund, fg=SUB, font=fenster.f_small,
                      width=18, anchor='w').pack(side='left')
             # ⭐ Der Sprung: Klick auf den Rohstoff öffnet den Bergbau mit
             # diesem Namen in der Suche. Das ist der Grund, warum die
             # Detailfläche kurz bleiben darf — man springt, statt zu stapeln.
-            roh_lbl = tk.Label(z, text=rohstoff, bg=theme.FIELD, fg=ACCENT,
+            roh_lbl = tk.Label(z, text=rohstoff, bg=grund, fg=ACCENT,
                                font=fenster.f_base, anchor='w',
                                cursor='hand2')
             roh_lbl.pack(side='left')
@@ -10298,23 +10368,23 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 fenster.jump_to('bergbau')
 
             roh_lbl.bind('<Button-1>', zum_bergbau)
-            menge_lbl = tk.Label(z, text='', bg=theme.FIELD, fg=SUB,
+            menge_lbl = tk.Label(z, text='', bg=grund, fg=SUB,
                                  font=fenster.f_small, anchor='e')
             menge_lbl.pack(side='right', padx=12)
-            lage_lbl = tk.Label(z, text='', bg=theme.FIELD, fg=GOLD,
+            lage_lbl = tk.Label(z, text='', bg=grund, fg=GOLD,
                                 font=fenster.f_small, anchor='e')
             # ⚠ Güte-Hinweis und Kaufpreis stehen in einer zweiten Zeile
             # darunter. In einer Zeile mit Name, Lage und Menge schoben sie
             # sich bei schmalem Fenster über den Materialnamen.
-            z2 = tk.Frame(block, bg=theme.FIELD)
+            z2 = tk.Frame(block, bg=grund)
             z2.pack(fill='x', padx=12)
-            guete_lbl = tk.Label(z2, text='', bg=theme.FIELD, fg=SUB,
+            guete_lbl = tk.Label(z2, text='', bg=grund, fg=SUB,
                                  font=fenster.f_small, anchor='e')
             # ⭐ „kaufen oder abbauen?" — die Frage, die nach „dir fehlt X"
             # kommt. Sieben der 26 Rohstoffe lassen sich NIRGENDS kaufen; fünf
             # davon stehen zusätzlich auf der Zerlege-Sperrliste. Wer das nicht
             # weiß, sucht am Terminal nach etwas, das es dort nie gibt.
-            preis_lbl = tk.Label(z2, text='', bg=theme.FIELD, fg=SUB,
+            preis_lbl = tk.Label(z2, text='', bg=grund, fg=SUB,
                                  font=fenster.f_small, anchor='e')
             zutat_widgets.append((rohstoff, menge, menge_lbl, lage_lbl,
                                   guete_lbl, preis_lbl))
@@ -10702,7 +10772,8 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 _schieber.pack(side='left', anchor='n')
                 from .main_window import round_entry as _rf_q
                 _q_feld = _rf_q(reihe_r, _q_var, fenster.f_base, theme.FIELD,
-                                LINE, ACCENT, ACCENT)
+                                LINE, ACCENT, ACCENT,
+                                placeholder=t('s_pl_q_bereich'))
                 _q_feld.holder.configure(width=84)
                 _q_feld.holder.pack(side='left', anchor='n', padx=(10, 0))
                 _q_feld.quality_of = _mat
@@ -10945,7 +11016,8 @@ def _salvage(fenster, rahmen):
     zeile, auswahl, _ = _combo_box(fenster, block, schiff,
                                      alle_schiffe.all_names,
                                      empty_text=t('s_hg_nichts_gefunden'),
-                                     scrollable=200)
+                                     scrollable=200,
+                                     placeholder=t('s_pl_schiff'))
     zeile.pack(fill='x')
     auswahl.pack(fill='x')
 
@@ -11159,7 +11231,8 @@ def _signature_scanner(window, parent, signature_var):
     from .main_window import toggle_switch
     if not scan_window.available():
         return
-    row = _setting_row(window, parent, t('s_bg_scan_kopf'), t('s_bg_scan_h'))
+    row = _setting_row(window, parent, t('s_bg_scan_kopf'), t('s_bg_scan_h'),
+                       line=False)
 
     def toggle():
         # ⚠ Über `set_enabled` — derselbe Weg wie das Auge in der Overlay-Leiste,
@@ -11313,8 +11386,14 @@ def _mining(fenster, rahmen):
         _mining_missing(fenster, rahmen, innen)
         return
 
+    # ⭐ Zuerst die Signatur-Werkzeuge, darunter Suche, Filter und die Liste —
+    # was zusammengehört, steht zusammen, eine Linie trennt die beiden Teile.
+    sig_bereich = tk.Frame(innen, bg=BG)
+    sig_bereich.pack(fill='x')
+    such_bereich = tk.Frame(innen, bg=BG)
+    such_bereich.pack(fill='x')
+
     kopf = tk.Frame(innen, bg=BG)
-    kopf.pack(fill='x', pady=(0, 10))
     tk.Label(kopf, text=t('s_bg_orte') % (len(orte), len(erze)), bg=BG, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
     # ⚠ Ein Satz, kein Absatz. Die Prozentzahl in den Zeilen ist ein **Anteil**
@@ -11330,10 +11409,11 @@ def _mining(fenster, rahmen):
     suche_var = tk.StringVar(innen, value=getattr(fenster, 'mining_search', '')
                              or '')
     fenster.mining_search = ''
-    ziel_suche = _setting_row(fenster, innen, t('s_bg_suche'), '')
-    feld = round_entry(ziel_suche, suche_var, fenster.f_small, theme.FIELD,
-                       LINE, ACCENT, FG)
-    feld.holder.pack(fill='x', pady=(4, 12))
+    # ⭐ Was ins Feld gehört, steht im Feld — keine Beschriftung daneben.
+    feld = round_entry(such_bereich, suche_var, fenster.f_small, theme.FIELD,
+                       LINE, ACCENT, FG, placeholder=t('s_pl_bergbau'))
+    feld.holder.pack(fill='x', pady=(12, 8))
+    feld.mining_search_field = True
 
     # ⚠ Dieselben Auswahlfelder wie auf den anderen Seiten. Tippen bleibt
     # möglich — aber wer die 38 Rohstoffe oder 48 Orte nicht auswendig kann,
@@ -11386,11 +11466,12 @@ def _mining(fenster, rahmen):
     _geraete = [('schiff', t('s_bg_art_schiff')),
                 ('fahrzeug', t('s_bg_art_fahrzeug')),
                 ('fps', t('s_bg_art_fps'))]
-    _filter_bar(fenster, innen,
+    _filter_bar(fenster, such_bereich,
                   [('erz', t('s_bg_alle_erze'), [(x, x) for x in _erznamen]),
                    ('ort', t('s_bg_alle_orte'), [(x, x) for x in _ortnamen]),
                    ('geraet', t('s_bg_alle_geraete'), _geraete)],
                   berg_gewechselt, berg_wahl)
+    kopf.pack(in_=such_bereich, fill='x', pady=(0, 10))
 
     # ⭐⭐ **Scan-Signatur — das Werkzeug, das im Spiel wirklich fehlt.**
     # Der Bergbau-Scanner zeigt eine Zahl und verrät nicht, was dahintersteckt.
@@ -11403,17 +11484,17 @@ def _mining(fenster, rahmen):
     # verlöre es bei jedem Tastendruck den Cursor (wie beim Suchfeld im
     # Lager).
     sig_var = tk.StringVar(innen, value='')
-    ziel_sig = _setting_row(fenster, innen, t('s_bg_sig_feld'), '')
-    sig_feld = round_entry(ziel_sig, sig_var, fenster.f_small, theme.FIELD,
+    sig_feld = round_entry(sig_bereich, sig_var, fenster.f_small, theme.FIELD,
                            LINE, ACCENT, FG, placeholder=t('s_pl_signatur'))
-    sig_feld.holder.pack(fill='x', pady=(4, 2))
-    _body_text(innen, t('s_bg_sig_hilfe'), fenster.f_small, fill='x')
-    sig_rahmen = tk.Frame(innen, bg=BG)
+    sig_feld.holder.pack(fill='x', pady=(12, 2))
+    _body_text(sig_bereich, t('s_bg_sig_hilfe'), fenster.f_small, fill='x')
+    sig_rahmen = tk.Frame(sig_bereich, bg=BG)
     sig_rahmen.pack(fill='x', pady=(2, 10))
 
     def sig_zeichnen(*_):
         for w in sig_rahmen.winfo_children():
             w.destroy()
+        _stripe_reset(sig_rahmen)
         input_device = sig_var.get().strip()
         if not input_device:
             return
@@ -11431,26 +11512,28 @@ def _mining(fenster, rahmen):
         # ⚠ Höchstens zehn. Eine Bereichssuche kann dutzende Treffer haben,
         # und die Liste darunter soll nicht aus dem Bild geschoben werden.
         for name, anzahl, gesamt, ab in treffer[:10]:
-            z = tk.Frame(sig_rahmen, bg=BG)
-            z.pack(fill='x', pady=1)
-            tk.Label(z, text=t('s_bg_sig_treffer') % (anzahl, name), bg=BG,
+            grund = _stripe(sig_rahmen, BG)
+            z = tk.Frame(sig_rahmen, bg=grund)
+            z.pack(fill='x', ipady=1)
+            tk.Label(z, text=t('s_bg_sig_treffer') % (anzahl, name), bg=grund,
                      fg=ACCENT, font=fenster.f_base, anchor='w').pack(
                          side='left', padx=(4, 0))
-            tk.Label(z, text='%d' % gesamt, bg=BG, fg=FG,
+            tk.Label(z, text='%d' % gesamt, bg=grund, fg=FG,
                      font=fenster.f_small, anchor='e').pack(
                          side='right', padx=(8, 4))
             # Die Abweichung nur, wenn es eine gibt — „+0,0 %" ist Rauschen.
             if abs(ab) >= 0.05:
-                tk.Label(z, text='%+.1f %%' % ab, bg=BG, fg=SUB,
+                tk.Label(z, text='%+.1f %%' % ab, bg=grund, fg=SUB,
                          font=fenster.f_small, anchor='e').pack(
                              side='right', padx=(8, 0))
             else:
-                tk.Label(z, text=t('s_bg_sig_genau'), bg=BG, fg=SUB,
+                tk.Label(z, text=t('s_bg_sig_genau'), bg=grund, fg=SUB,
                          font=fenster.f_small, anchor='e').pack(
                              side='right', padx=(8, 0))
 
     sig_var.trace_add('write', sig_zeichnen)
-    _signature_scanner(fenster, innen, sig_var)
+    _signature_scanner(fenster, sig_bereich, sig_var)
+    tk.Frame(sig_bereich, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
 
     liste_rahmen = tk.Frame(innen, bg=BG)
     liste_rahmen.pack(fill='both', expand=True)
@@ -11471,6 +11554,7 @@ def _mining(fenster, rahmen):
     def zeichnen(*_):
         for w in liste_rahmen.winfo_children():
             w.destroy()
+        _stripe_reset(liste_rahmen)
         text = suche_var.get().strip().lower()
 
         # ⚠ **Rohstoffe zuerst, auch ohne Suche.** Gesucht wird mit „wo finde
@@ -11705,10 +11789,12 @@ def _refineries(fenster, rahmen):
                  font=fenster.f_small, width=COLUMN_VALUE,
                  anchor='se', justify='right').pack(side='left', fill='y')
 
+    _stripe_reset(karte)
     for material, werte, bester in zeilen:
-        z = tk.Frame(karte, bg=SURFACE)
-        z.pack(fill='x', padx=12, pady=1)
-        tk.Label(z, text=material, bg=SURFACE, fg=FG, font=fenster.f_small,
+        grund = _stripe(karte, SURFACE)
+        z = tk.Frame(karte, bg=grund)
+        z.pack(fill='x', padx=12, ipady=1)
+        tk.Label(z, text=material, bg=grund, fg=FG, font=fenster.f_small,
                  anchor='w', width=COLUMN_MATERIAL).pack(side='left')
         for i, wert in enumerate(werte):
             # ⚠ Drei Zustände, drei Farben: Gewinn, Verlust, weder noch.
@@ -11720,7 +11806,7 @@ def _refineries(fenster, rahmen):
             else:
                 farbe = SUB
             tk.Label(z, text=('%+d' % wert) if wert else '·',
-                     bg=SURFACE, fg=farbe, font=fenster.f_small,
+                     bg=grund, fg=farbe, font=fenster.f_small,
                      width=COLUMN_VALUE, anchor='e').pack(side='left')
 
     # ⛔⛔ **Nach System gegliedert, nicht als Liste mit Ortsspalte.**
@@ -11736,19 +11822,21 @@ def _refineries(fenster, rahmen):
                      font=fenster.f_base, anchor='w').pack(
                          fill='x', pady=(8, 2))
             _letztes = system
-        z = tk.Frame(innen, bg=BG)
-        z.pack(fill='x', pady=1)
+            _stripe_reset(innen)
+        grund = _stripe(innen)
+        z = tk.Frame(innen, bg=grund)
+        z.pack(fill='x', ipady=1)
         # ⚠ Die Zahl dahinter ist wichtig: „Checkmate" allein sieht aus wie
         # **eine** Station, tatsächlich stehen fünf in dieser Spalte — und die
         # Überschrift nennt die alphabetisch erste, nicht die einzige.
         _kurz = _refinery_short(namen)
         if len(namen) > 1:
             _kurz = t('s_bg_raff_weitere') % (_kurz, len(namen) - 1)
-        tk.Label(z, text=_kurz, bg=BG, fg=FG, font=fenster.f_small,
+        tk.Label(z, text=_kurz, bg=grund, fg=FG, font=fenster.f_small,
                  anchor='w', width=16).pack(side='left', padx=(12, 0))
         # Umbrechen: Bei der größten Schrift ist die Pyro-Liste sonst zu
         # breit (tools/randpruefung.py).
-        _namen_lbl = tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
+        _namen_lbl = tk.Label(z, text=', '.join(namen), bg=grund, fg=SUB,
                               font=fenster.f_small, anchor='w',
                               justify='left')
         _namen_lbl.pack(side='left', fill='x', expand=True)
@@ -11758,19 +11846,42 @@ def _refineries(fenster, rahmen):
                pady=(12, 0))
 
 
+def _stripe(eltern, base=None):
+    """Hintergrund der nächsten Listenzeile — Streifen ab Zeile 2.
+
+    ⭐⭐ **Ein Bild im ganzen Programm:** jede zweite Zeile heller, die erste
+    in der Grundfarbe. Gezählt wird je Behälter (`eltern.stripe_n`); wer eine
+    Liste neu zeichnet, setzt den Zähler mit `_stripe_reset` zurück.
+
+    Auf dunklem Grund (`BG`, `FIELD`) ist der Streifen `SURFACE`, auf einer
+    Fläche (`SURFACE`) die noch hellere `HOVER`.
+    """
+    base = base or BG
+    n = getattr(eltern, 'stripe_n', 0)
+    eltern.stripe_n = n + 1
+    if not n % 2:
+        return base
+    return theme.HOVER if base == SURFACE else SURFACE
+
+
+def _stripe_reset(eltern):
+    eltern.stripe_n = 0
+
+
 def _mining_header(fenster, eltern, links, rechts, farbe, aufklappen):
-    zeile = tk.Frame(eltern, bg=BG, cursor='hand2')
-    zeile.pack(fill='x', pady=1)
-    tk.Label(zeile, text=links, bg=BG, fg=farbe, font=fenster.f_base,
+    grund = _stripe(eltern)
+    zeile = tk.Frame(eltern, bg=grund, cursor='hand2')
+    zeile.pack(fill='x', ipady=1)
+    tk.Label(zeile, text=links, bg=grund, fg=farbe, font=fenster.f_base,
              anchor='w').pack(side='left', padx=(4, 0))
     if rechts:
-        tk.Label(zeile, text=rechts, bg=BG, fg=SUB, font=fenster.f_small,
+        tk.Label(zeile, text=rechts, bg=grund, fg=SUB, font=fenster.f_small,
                  anchor='e').pack(side='right', padx=(8, 4))
     for w in (zeile,) + tuple(zeile.winfo_children()):
         w.bind('<Button-1>', aufklappen)
-    # ⭐ Diese Zeile hat kein Symbol — sie hebt sich ueber den Hintergrund
-    # ab, sonst wirkt die ganze Bergbau-Seite tot.
-    icons.hover_row(zeile, BG, SURFACE)
+    # ⭐ Diese Zeile hat kein Symbol — sie hebt sich beim Überfahren ab,
+    # sonst wirkt die ganze Bergbau-Seite tot.
+    icons.hover_row(zeile, grund, theme.HOVER)
     return zeile
 
 
@@ -11826,15 +11937,16 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
             # Ohne Gerätewahl: Steht das Erz an diesem Ort für sein Gerät
             # allein da, gilt derselbe Hinweis.
             allein = list(fein.values())[0][2] <= 1
-        z = tk.Frame(block, bg=theme.FIELD)
-        z.pack(fill='x', padx=12, pady=1)
-        tk.Label(z, text=ort, bg=theme.FIELD, fg=FG, font=fenster.f_base,
+        grund = _stripe(block, theme.FIELD)
+        z = tk.Frame(block, bg=grund)
+        z.pack(fill='x', padx=12, ipady=1)
+        tk.Label(z, text=ort, bg=grund, fg=FG, font=fenster.f_base,
                  anchor='w').pack(side='left')
-        tk.Label(z, text=system, bg=theme.FIELD, fg=SUB, font=fenster.f_small,
+        tk.Label(z, text=system, bg=grund, fg=SUB, font=fenster.f_small,
                  anchor='w').pack(side='left', padx=(10, 0))
-        tk.Label(z, text=_kind_text(arten), bg=theme.FIELD, fg=SUB,
+        tk.Label(z, text=_kind_text(arten), bg=grund, fg=SUB,
                  font=fenster.f_small, anchor='e').pack(side='right', padx=12)
-        _mining_share(fenster, z, anteil, stufe, theme.FIELD, allein)
+        _mining_share(fenster, z, anteil, stufe, grund, allein)
 
     # ⭐ **Wohin damit?** Die Frage nach dem Fundort ist nur die halbe. Zwanzig
     # Raffinerien teilen sich zehn Profile, und der Unterschied ist kein
@@ -11859,9 +11971,11 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
         if not spanne:
             _body_text(block, t('s_bg_raff_egal'), fenster.f_small, fill='x')
         else:
+            _stripe_reset(block)
             for namen, system, bonus in raff:
-                z = tk.Frame(block, bg=theme.FIELD)
-                z.pack(fill='x', padx=12, pady=1)
+                grund = _stripe(block, theme.FIELD)
+                z = tk.Frame(block, bg=grund)
+                z.pack(fill='x', padx=12, ipady=1)
                 # Nur das Kürzel — „ARC-L1 Wide Forest Station" dreimal
                 # untereinander ist eine Wand aus Text. Und bei mehreren
                 # Stationen mit demselben Profil nur die erste plus Zähler:
@@ -11871,12 +11985,12 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                 kurz = (_kuerzel[0] if len(_kuerzel) == 1
                         else t('s_bg_raff_weitere') % (_kuerzel[0],
                                                        len(_kuerzel) - 1))
-                tk.Label(z, text=kurz, bg=theme.FIELD, fg=FG,
+                tk.Label(z, text=kurz, bg=grund, fg=FG,
                          font=fenster.f_base, anchor='w').pack(side='left')
-                tk.Label(z, text=system or '', bg=theme.FIELD, fg=SUB,
+                tk.Label(z, text=system or '', bg=grund, fg=SUB,
                          font=fenster.f_small, anchor='w').pack(
                              side='left', padx=(10, 0))
-                tk.Label(z, text=t('s_bg_raff_zeile') % bonus, bg=theme.FIELD,
+                tk.Label(z, text=t('s_bg_raff_zeile') % bonus, bg=grund,
                          fg=(ACCENT if bonus > 0 else GOLD if bonus < 0 else SUB),
                          font=fenster.f_base, anchor='e').pack(
                              side='right', padx=12)
@@ -11987,13 +12101,14 @@ def _method_box(fenster, eltern):
                 pass
 
         for kennung in alle:
-            z = tk.Frame(koerper, bg=BG)
-            z.pack(fill='x', pady=1)
-            tk.Label(z, text=raff.NAMES[kennung], bg=BG,
+            grund = _stripe(koerper, BG)
+            z = tk.Frame(koerper, bg=grund)
+            z.pack(fill='x', ipady=1)
+            tk.Label(z, text=raff.NAMES[kennung], bg=grund,
                      fg=(ACCENT if kennung == beste else FG),
                      font=fenster.f_base, anchor='w').pack(side='left',
                                                             padx=(4, 0))
-            tk.Label(z, text=stufentext(kennung), bg=BG, fg=SUB,
+            tk.Label(z, text=stufentext(kennung), bg=grund, fg=SUB,
                      font=fenster.f_small, anchor='e').pack(side='right',
                                                             padx=(8, 4))
 
@@ -12057,18 +12172,20 @@ def _mining_place(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
         # beantwortet das nicht. Bei gleichem Anteil entscheidet der Name,
         # damit die Reihenfolge zwischen zwei Aufrufen dieselbe bleibt.
         namen = sorted(werte, key=lambda n: (-werte[n][0], n.lower()))
+        _stripe_reset(block)
         for name in namen:
             anteil, stufe = werte[name]
-            z = tk.Frame(block, bg=theme.FIELD)
-            z.pack(fill='x', padx=12, pady=1)
-            tk.Label(z, text=name, bg=theme.FIELD, fg=FG, font=fenster.f_base,
+            grund = _stripe(block, theme.FIELD)
+            z = tk.Frame(block, bg=grund)
+            z.pack(fill='x', padx=12, ipady=1)
+            tk.Label(z, text=name, bg=grund, fg=FG, font=fenster.f_base,
                      anchor='w').pack(side='left')
             # ⚠ **Keine Art-Spalte hier.** Die Überschrift des Blocks sagt
             # bereits „Fahrzeug"; daneben in jeder Zeile noch einmal
             # „Fahrzeug" ist Rauschen — und bei einem Erz, das zu zwei Geräten
             # gehört (Carinite), stünde in beiden Blöcken dasselbe Paar und
             # damit zweimal etwas Falsches.
-            _mining_share(fenster, z, anteil, stufe, theme.FIELD,
+            _mining_share(fenster, z, anteil, stufe, grund,
                          len(werte) <= 1)
 
 
@@ -12198,8 +12315,9 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     ortblock.pack(fill='x', pady=(4, 0))
     tk.Label(ortblock, text=t('s_rf_ort'), bg=BG, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x')
-    _ozeile, _oliste, _ozeichnen = _combo_box(fenster, ortblock, ort_raff,
-                                                _orte_modul.all_places)
+    _ozeile, _oliste, _ozeichnen = _combo_box(
+        fenster, ortblock, ort_raff, _orte_modul.all_places,
+        placeholder=t('s_pl_lagerort'))
     _ozeile.pack(fill='x', pady=(4, 0))
     _oliste.pack(fill='x')
 
@@ -12409,7 +12527,8 @@ def _hangar(fenster, rahmen):
     zeile, auswahl, _ = _combo_box(fenster, block, schiff,
                                      alle_schiffe.all_names,
                                      empty_text=t('s_hg_nichts_gefunden'),
-                                     scrollable=200)
+                                     scrollable=200,
+                                     placeholder=t('s_pl_schiff'))
     zeile.pack(fill='x')
     auswahl.pack(fill='x')
 
@@ -12668,7 +12787,8 @@ def _wishlist(fenster, rahmen):
     w_zeile, w_auswahl, _ = _combo_box(fenster, block, wunsch,
                                          alle_schiffe.all_names,
                                          empty_text=t('s_hg_nichts_gefunden'),
-                                         scrollable=200)
+                                         scrollable=200,
+                                         placeholder=t('s_pl_schiff'))
     w_zeile.pack(fill='x')
     w_auswahl.pack(fill='x')
 
@@ -13019,7 +13139,8 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern, in_card=False,
     reihe.pack(fill='x', padx=innen_pad, pady=(2 if in_card else 0, 10))
 
     from .main_window import round_entry
-    feld = round_entry(reihe, wert, fenster.f_small, theme.FIELD, LINE, ACCENT, FG)
+    feld = round_entry(reihe, wert, fenster.f_small, theme.FIELD, LINE, ACCENT,
+                       FG, placeholder=t('s_pl_schiffsname'))
     feld.holder.pack(side='left', fill='x', expand=True)
 
     if count > 1:
@@ -13268,6 +13389,7 @@ def _dismantle(fenster, rahmen):
                  fg=SUB, font=fenster.f_small, anchor='w').pack(fill='x',
                                                                pady=(0, 8))
 
+        _stripe_reset(ergebnis)
         for zeile in zeilen:
             _dismantle_row(fenster, ergebnis, zeile)
 
@@ -13290,7 +13412,8 @@ def _dismantle(fenster, rahmen):
                                   on_pick=zeigen,
                                   on_confirm=lambda *_a: zeigen(),
                                   empty_text=t('s_hg_nichts_gefunden'),
-                                  scrollable=200)
+                                  scrollable=200,
+                                  placeholder=t('s_pl_gegenstand'))
     feld.pack(fill='x')
     liste.pack(fill='x')
 
@@ -13306,27 +13429,28 @@ def _dismantle(fenster, rahmen):
 
 def _dismantle_row(fenster, eltern, zeile):
     """Ein Rohstoff: was drinsteckt, was zurückkommt."""
-    rahmen = tk.Frame(eltern, bg=SURFACE)
-    rahmen.pack(fill='x', pady=(0, 2))
+    grund = _stripe(eltern, SURFACE)
+    rahmen = tk.Frame(eltern, bg=grund)
+    rahmen.pack(fill='x', ipady=1)
 
-    tk.Label(rahmen, text=zeile.get('rohstoff') or '', bg=SURFACE,
+    tk.Label(rahmen, text=zeile.get('rohstoff') or '', bg=grund,
              fg=SUB if zeile.get('verloren') else FG, font=fenster.f_small,
              anchor='w', width=22).pack(side='left', padx=(12, 0), pady=4)
 
     # ⚠ **Der Rückgabewert steht rechts und in Farbe** — das ist die Zahl, wegen
     # der jemand diese Seite öffnet. „steckt drin" daneben erklärt sie.
     if zeile.get('verloren'):
-        tk.Label(rahmen, text=t('s_zl_nichts'), bg=SURFACE, fg=GOLD,
+        tk.Label(rahmen, text=t('s_zl_nichts'), bg=grund, fg=GOLD,
                  font=fenster.f_small, anchor='e').pack(side='right',
                                                         padx=(0, 12))
     else:
         tk.Label(rahmen, text=t('s_zl_zurueck').format(
             menge=_number(zeile.get('zurueck'))),
-            bg=SURFACE, fg=ACCENT, font=fenster.f_small,
+            bg=grund, fg=ACCENT, font=fenster.f_small,
             anchor='e').pack(side='right', padx=(0, 12))
 
     tk.Label(rahmen, text=t('s_zl_drin').format(menge=_number(zeile.get('drin'))),
-             bg=SURFACE, fg=SUB, font=fenster.f_small,
+             bg=grund, fg=SUB, font=fenster.f_small,
              anchor='w').pack(side='left')
 
 
@@ -13418,22 +13542,26 @@ def _farm_list(fenster, rahmen):
         for _e in ((werte or {}).get('fehlt') or []):
             _fehlt_gesamt.add((_e.get('rohstoff') or '').strip().lower())
 
+        _stripe_reset(rahmen_mz)
         for e in eintraege:
-            zeile = tk.Frame(rahmen_mz, bg=BG)
-            zeile.pack(fill='x', pady=(6, 0))
+            grund = _stripe(rahmen_mz, BG)
+            zeile = tk.Frame(rahmen_mz, bg=grund)
+            zeile.pack(fill='x', ipady=1)
             # ⚠ Der Streichen-Knopf zuerst, dann der Name mit `expand` —
             # sonst schiebt ein langer Bauplanname ihn aus dem Fenster.
             # Dieselbe Packreihenfolge-Falle, die hier schon zweimal zugeschlagen
             # hat (Kaufen-Knopf, „geändert"-Marke).
-            _button(fenster, zeile, t('s_mz_weg'),
-                   lambda n=e.get('name'): _streichen(n)).pack(side='right',
-                                                               padx=(8, 0))
+            weg_knopf = _button(fenster, zeile, t('s_mz_weg'),
+                                lambda n=e.get('name'): _streichen(n))
+            weg_knopf.configure(bg=grund)
+            weg_knopf.pack(side='right', padx=(8, 0))
             menge = int(e.get('anzahl') or 1)
             _count_stepper(fenster, zeile, menge,
-                           lambda neu, n=e.get('name'): _set_count(n, neu))
+                           lambda neu, n=e.get('name'): _set_count(n, neu),
+                           background=grund)
             # ⭐ Der Name führt in die Herstellung — dort steht das Rezept
             # aufgeklappt, mit Güte-Wahl und dem Knopf „Hergestellt".
-            item_label = tk.Label(zeile, text=e.get('name') or '', bg=BG,
+            item_label = tk.Label(zeile, text=e.get('name') or '', bg=grund,
                                   fg=FG, font=fenster.f_base, anchor='w',
                                   cursor='hand2')
             item_label.pack(side='left', fill='x', expand=True)
@@ -13459,9 +13587,9 @@ def _farm_list(fenster, rahmen):
             if not rez or not rez.get('stufen'):
                 # ⚠ Kein Rezept ist eine Aussage, kein Grund zu schweigen —
                 # sonst steht der Eintrag ohne Erklärung nackt da.
-                tk.Label(rahmen_mz, text=t('s_mz_kein_rezept'), bg=BG, fg=SUB,
-                         font=fenster.f_small,
-                         anchor='w').pack(fill='x', padx=(18, 0))
+                tk.Label(rahmen_mz, text=t('s_mz_kein_rezept'), bg=grund,
+                         fg=SUB, font=fenster.f_small, anchor='w',
+                         padx=18).pack(fill='x')
                 continue
             for stufe in rez['stufen']:
                 for _slot, rohstoff, einzeln, guete in (stufe.get('zutaten')
@@ -13470,11 +13598,11 @@ def _farm_list(fenster, rahmen):
                         continue
                     braucht = float(einzeln or 0) * menge
                     knapp = (rohstoff or '').strip().lower() in _fehlt_gesamt
-                    zutat = tk.Frame(rahmen_mz, bg=BG)
-                    zutat.pack(fill='x', padx=(18, 0))
-                    tk.Label(zutat, text=rohstoff, bg=BG, fg=SUB,
+                    zutat = tk.Frame(rahmen_mz, bg=grund)
+                    zutat.pack(fill='x')
+                    tk.Label(zutat, text=rohstoff, bg=grund, fg=SUB,
                              font=fenster.f_small, anchor='w',
-                             width=20).pack(side='left')
+                             width=20).pack(side='left', padx=(18, 0))
                     # ⚠ Grün heißt „reicht", Gold „fehlt" — dieselbe Sprache
                     # wie überall im Werkzeug, und die Farbe stammt aus
                     # derselben Rechnung wie die Summe darüber.
@@ -13484,7 +13612,7 @@ def _farm_list(fenster, rahmen):
                     # „8,8" auf derselben Seite.
                     tk.Label(zutat,
                              text=t('s_mz_braucht') % _amount_text(braucht),
-                             bg=BG, fg=GOLD if knapp else ACCENT,
+                             bg=grund, fg=GOLD if knapp else ACCENT,
                              font=fenster.f_small,
                              anchor='w').pack(side='left')
 
@@ -13517,6 +13645,7 @@ def _farm_list(fenster, rahmen):
             # ⭐ Wo es das Fehlende gibt — einmal für alle Zeilen gerechnet.
             per_material, gathering = farm_locations(
                 [entry.get('rohstoff') or '' for entry in missing])
+            _stripe_reset(koerper)
             for entry in missing:
                 _farm_row(fenster, koerper, entry, fehlend=True,
                           spots=per_material.get(entry.get('rohstoff') or ''))
@@ -13526,6 +13655,7 @@ def _farm_list(fenster, rahmen):
             tk.Label(koerper, text=t('s_fl_reicht_kopf').format(n=len(sufficient)),
                      bg=BG, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(fill='x', pady=(14, 4))
+            _stripe_reset(koerper)
             for entry in sufficient:
                 _farm_row(fenster, koerper, entry, fehlend=False)
 
@@ -13544,7 +13674,7 @@ def _farm_list(fenster, rahmen):
     _aufbauen()
 
 
-def _count_stepper(window, row, count, on_change):
+def _count_stepper(window, row, count, on_change, background=None):
     """Minus, Stückzahl, Plus — rechts in einer Zeile, vor dem Streichen-Knopf.
 
     ⚠ Bei eins ist das Minus grau und tut nichts. Weg kommt ein Posten nur
@@ -13554,20 +13684,23 @@ def _count_stepper(window, row, count, on_change):
     Minus, Stückzahl, Plus.
     """
     from . import notice
-    plus = icons.tappable(row, 'stueck_mehr', color=icons.GREEN, background=BG)
+    background = background or BG
+    plus = icons.tappable(row, 'stueck_mehr', color=icons.GREEN,
+                          background=background)
     plus.configure(cursor='hand2', padx=4)
     plus.pack(side='right')
     plus.bind('<Button-1>', lambda _e: on_change(count + 1))
     icons.hover_group(plus)
     notice.attach(plus, lambda: t('s_mz_mehr'))
 
-    tk.Label(row, text='%d %s' % (count, t('s_mz_stueck')), bg=BG, fg=FG,
-             font=window.f_small, anchor='center').pack(side='right', padx=2)
+    tk.Label(row, text='%d %s' % (count, t('s_mz_stueck')), bg=background,
+             fg=FG, font=window.f_small, anchor='center').pack(side='right',
+                                                               padx=2)
 
     can_lower = count > 1
     minus = icons.tappable(row, 'stueck_weniger',
                            color=icons.GREEN if can_lower else icons.GREY,
-                           background=BG)
+                           background=background)
     minus.configure(padx=4)
     minus.pack(side='right', padx=(8, 0))
     if can_lower:
@@ -13581,9 +13714,10 @@ def _count_stepper(window, row, count, on_change):
 
 def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
     """Ein Rohstoff: was gebraucht wird, was da ist, was fehlt — und wo es liegt."""
-    block = tk.Frame(eltern, bg=SURFACE)
-    block.pack(fill='x', pady=(0, 2))
-    row = tk.Frame(block, bg=SURFACE)
+    grund = _stripe(eltern, SURFACE)
+    block = tk.Frame(eltern, bg=grund)
+    block.pack(fill='x', ipady=1)
+    row = tk.Frame(block, bg=grund)
     row.pack(fill='x')
 
     def to_mining(_event=None, name=eintrag.get('rohstoff') or ''):
@@ -13593,7 +13727,7 @@ def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
     # ⭐ Der Name selbst führt in den Bergbau — der Rohstoff steht dort
     # aufgeklappt, mit allen Fundorten.
     name_farbe = FG if fehlend else SUB
-    name_label = tk.Label(row, text=eintrag.get('rohstoff') or '', bg=SURFACE,
+    name_label = tk.Label(row, text=eintrag.get('rohstoff') or '', bg=grund,
                           fg=name_farbe, font=fenster.f_small, anchor='w',
                           width=24, cursor='hand2')
     name_label.pack(side='left', padx=(12, 0), pady=4)
@@ -13610,17 +13744,17 @@ def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
     if fehlend:
         tk.Label(row, text=t('s_fl_fehlt').format(
             menge=_number(eintrag.get('differenz'))),
-            bg=SURFACE, fg=GOLD, font=fenster.f_small,
+            bg=grund, fg=GOLD, font=fenster.f_small,
             anchor='e').pack(side='right', padx=(0, 12))
     else:
-        tk.Label(row, text=t('s_fl_genug'), bg=SURFACE, fg=ACCENT,
+        tk.Label(row, text=t('s_fl_genug'), bg=grund, fg=ACCENT,
                  font=fenster.f_small, anchor='e').pack(side='right',
                                                         padx=(0, 12))
 
     tk.Label(row, text=t('s_fl_stand').format(
         braucht=_number(eintrag.get('benoetigt')),
         hat=_number(eintrag.get('vorhanden'))),
-        bg=SURFACE, fg=SUB, font=fenster.f_small,
+        bg=grund, fg=SUB, font=fenster.f_small,
         anchor='w').pack(side='left')
 
     # ⚠ **Zu geringe Güte ist kein Bestand, aber auch kein Nichts.** Wer 20
@@ -13632,14 +13766,14 @@ def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
         tk.Label(row, text=t('s_fl_zu_gering').format(
             menge=_number(too_low),
             guete=_number(eintrag.get('mindestguete'))),
-            bg=SURFACE, fg=SUB, font=fenster.f_small,
+            bg=grund, fg=SUB, font=fenster.f_small,
             anchor='w').pack(side='left', padx=(10, 0))
 
     # ⭐ **Wo es liegt** — die ergiebigsten Fundorte, ein Klick öffnet den
     # Bergbau mit diesem Rohstoff (derselbe Sprung wie aus dem Rezept).
     if spots:
         spot_label = tk.Label(block, text=t('s_fl_fundorte') % _farm_spot_text(spots),
-                              bg=SURFACE, fg=ACCENT, font=fenster.f_small,
+                              bg=grund, fg=ACCENT, font=fenster.f_small,
                               anchor='w', justify='left', cursor='hand2',
                               wraplength=700)
         spot_label.pack(fill='x', padx=(24, 12), pady=(0, 4))
@@ -13658,16 +13792,19 @@ def _farm_gathering(fenster, parent, gathering):
     tk.Label(parent, text=t('s_fl_sammel_kopf'), bg=BG, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', pady=(16, 2))
     _body_text(parent, t('s_fl_sammel_hilfe'), fenster.f_small, fill='x')
+    sammel = tk.Frame(parent, bg=BG)
+    sammel.pack(fill='x', pady=(4, 0))
     for place, system, materials in gathering:
-        row = tk.Frame(parent, bg=SURFACE, cursor='hand2')
-        row.pack(fill='x', pady=(4, 0))
+        grund = _stripe(sammel, SURFACE)
+        row = tk.Frame(sammel, bg=grund, cursor='hand2')
+        row.pack(fill='x', ipady=1)
         title = tk.Label(row, text='%s (%s)' % (place, system) if system else place,
-                         bg=SURFACE, fg=FG, font=fenster.f_small, anchor='w',
+                         bg=grund, fg=FG, font=fenster.f_small, anchor='w',
                          cursor='hand2')
         title.pack(side='left', padx=(12, 0), pady=4)
         found = tk.Label(row, text=t('s_fl_sammel_zeile').format(
                              n=len(materials), erze=', '.join(materials)),
-                         bg=SURFACE, fg=SUB, font=fenster.f_small, anchor='w',
+                         bg=grund, fg=SUB, font=fenster.f_small, anchor='w',
                          cursor='hand2')
         found.pack(side='left', padx=(10, 12))
 
@@ -13798,6 +13935,7 @@ def _buy_ship_head(fenster, eltern, eintrag):
              else t('s_ek_aus_hangar'))
     tk.Label(zeile, text=marke, bg=BG, fg=SUB, font=fenster.f_small,
              anchor='w').pack(side='left', padx=(10, 0))
+    _stripe_reset(eltern)
 
 
 def _buy_row(fenster, eltern, eintrag, abhaken=None):
@@ -13805,8 +13943,9 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
     from . import cart
 
     fertig = bool(eintrag.get('erledigt'))
-    zeile = tk.Frame(eltern, bg=SURFACE)
-    zeile.pack(fill='x', pady=(0, 2))
+    grund = _stripe(eltern, SURFACE)
+    zeile = tk.Frame(eltern, bg=grund)
+    zeile.pack(fill='x', ipady=1)
 
     # ⭐⭐ **Der Haken ist die einzige Möglichkeit, das zu wissen.** Ob etwas
     # gekauft und eingebaut ist, erfährt die Einkaufsliste sonst nicht —
@@ -13814,7 +13953,7 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
     # Also wird nichts erraten, sondern abgehakt wie auf jedem Einkaufszettel.
     # Beim Selbstherstellen genauso: ein Haken für beide Wege.
     if abhaken is not None and eintrag.get('sorte') == cart.PART:
-        haken = icons.line(zeile, 'haken', background=SURFACE,
+        haken = icons.line(zeile, 'haken', background=grund,
                               color=icons.GREEN if fertig else icons.GREY,
                               font=fenster.f_small)
         haken.configure(cursor='hand2')
@@ -13834,10 +13973,10 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
     pos = eintrag.get('position') or ''
     if eintrag.get('sorte') == cart.SHIP:
         pos = t('s_ek_das_schiff')
-    tk.Label(zeile, text=pos, bg=SURFACE, fg=neben, font=fenster.f_small,
+    tk.Label(zeile, text=pos, bg=grund, fg=neben, font=fenster.f_small,
              anchor='w', width=22).pack(side='left', padx=rand, pady=4)
 
-    tk.Label(zeile, text=eintrag.get('name') or '', bg=SURFACE, fg=haupt,
+    tk.Label(zeile, text=eintrag.get('name') or '', bg=grund, fg=haupt,
              font=fenster.f_small, anchor='w').pack(side='left')
 
     # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
@@ -13845,7 +13984,7 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
     kennzeichen = (_part_label({'kennung': eintrag.get('ref')})
                    if eintrag.get('sorte') == cart.PART else '')
     if kennzeichen:
-        tk.Label(zeile, text=kennzeichen, bg=SURFACE, fg=neben,
+        tk.Label(zeile, text=kennzeichen, bg=grund, fg=neben,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         padx=(10, 0))
 
@@ -13865,11 +14004,11 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
         betrag, farbe = t('s_wk_nicht_geprueft'), SUB
     else:
         betrag, farbe = t('s_ek_kein_betrag'), GOLD
-    tk.Label(zeile, text=betrag, bg=SURFACE, fg=farbe, font=fenster.f_small,
+    tk.Label(zeile, text=betrag, bg=grund, fg=farbe, font=fenster.f_small,
              anchor='e').pack(side='right', padx=(0, 12))
     tk.Label(zeile, text=t('s_wk_kaufen') if weg == cart.BUY
              else t('s_wk_bauen'),
-             bg=SURFACE, fg=neben, font=fenster.f_small,
+             bg=grund, fg=neben, font=fenster.f_small,
              anchor='e').pack(side='right', padx=(0, 16))
 
 
@@ -14422,6 +14561,7 @@ def _slot_list(fenster, eltern, eintrag, daten, neu_zeichnen):
     # gleiches Teil ab Werk **und** dieselbe eigene Wahl. Sobald jemand einen
     # einzelnen Platz anders belegt, löst er sich aus der Gruppe und steht für
     # sich — sonst verschwände seine Abweichung hinter einem „16x".
+    _stripe_reset(eltern)
     for gruppe in _bundle_slots(plaetze, gewaehlt):
         _slot_row(fenster, eltern, eintrag, gruppe[0], gewaehlt,
                           neu_zeichnen, gruppe=gruppe)
@@ -14466,8 +14606,9 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
     # nächsten Zeichnen in „1 x geändert" und „15 x ab Werk", und niemand
     # verstünde, warum.
     alle_pfade = [(g.get('pfad') or '') for g in (gruppe or [platz])]
-    zeile = tk.Frame(eltern, bg=SURFACE, cursor='hand2')
-    zeile.pack(fill='x', padx=(46, 16), pady=1)
+    grund = _stripe(eltern, SURFACE)
+    zeile = tk.Frame(eltern, bg=grund, cursor='hand2')
+    zeile.pack(fill='x', padx=(46, 16), ipady=1)
 
     # Links: was für ein Platz das ist. Der Pfad wird **nicht** angezeigt — er
     # ist eine Kennung, keine Beschriftung, und `hardpoint_Left_Pylon_03` sagt
@@ -14477,7 +14618,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
     # erkennbar, wenn man zufällig darüberfährt.
     #
     # Überall sonst im Programm steht an aufklappbaren Zeilen dieser Pfeil.
-    pfeil = icons.line(zeile, 'aufklappen', background=SURFACE,
+    pfeil = icons.line(zeile, 'aufklappen', background=grund,
                           font=fenster.f_small)
     pfeil.pack(side='left', padx=(0, 6))
 
@@ -14489,7 +14630,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
     anzahl = len(gruppe) if gruppe else 1
     if anzahl > 1:
         art_text = '%d x %s' % (anzahl, art_text)
-    tk.Label(zeile, text=art_text, bg=SURFACE, fg=SUB, font=fenster.f_small,
+    tk.Label(zeile, text=art_text, bg=grund, fg=SUB, font=fenster.f_small,
              anchor='w', width=22).pack(side='left')
 
     eigenes = gewaehlt.get(pfad) or {}
@@ -14500,7 +14641,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
         text, farbe, kennung = werk['name'], SUB, werk.get('ref') or ''
     else:
         text, farbe, kennung = t('s_wk_ab_werk_leer'), SUB, ''
-    tk.Label(zeile, text=text, bg=SURFACE, fg=farbe, font=fenster.f_small,
+    tk.Label(zeile, text=text, bg=grund, fg=farbe, font=fenster.f_small,
              anchor='w').pack(side='left')
 
     # ⚠ **Auch hier Güte und Klasse** — nicht nur in der Auswahlliste. Sonst
@@ -14509,7 +14650,7 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
     # Angabe die Hälfte einer Auskunft.
     kennzeichen = _part_label({'kennung': kennung}) if kennung else ''
     if kennzeichen:
-        tk.Label(zeile, text=kennzeichen, bg=SURFACE, fg=SUB,
+        tk.Label(zeile, text=kennzeichen, bg=grund, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         padx=(10, 0))
 
@@ -14535,8 +14676,11 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
             if geaendert:
                 speichern()
                 neu_zeichnen()
-        _button(fenster, zeile, t('s_wk_zuruecksetzen'),
-               platz_zuruecksetzen).pack(side='right')
+        _knopf = _button(fenster, zeile, t('s_wk_zuruecksetzen'),
+                         platz_zuruecksetzen)
+        # Die Ecken des Knopfs in der Farbe der Zeile, nicht der Seite.
+        _knopf.configure(bg=grund)
+        _knopf.pack(side='right')
 
     auswahl_rahmen = tk.Frame(eltern, bg=SURFACE)
     gebaut = []
@@ -14588,7 +14732,8 @@ def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
             lambda: sorted(nach_name),
             on_pick=uebernehmen, on_confirm=uebernehmen,
             empty_text=t('s_hg_nichts_gefunden'), scrollable=200,
-            extra=lambda n: _part_label(nach_name.get(n)))
+            extra=lambda n: _part_label(nach_name.get(n)),
+            placeholder=t('s_pl_teil'))
         feld.pack(fill='x', padx=(22, 0))
         liste.pack(fill='x', padx=(22, 0))
 
@@ -15015,8 +15160,9 @@ def _storage(fenster, rahmen):
             else:
                 from . import places as _o_lg
                 quelle = _o_lg.all_places
-            zeile_, liste_, zeichnen_ = _combo_box(fenster, block, var,
-                                                     quelle)
+            zeile_, liste_, zeichnen_ = _combo_box(fenster, block, var, quelle,
+                placeholder=t('s_pl_rohstoff' if var is material
+                              else 's_pl_lagerort'))
             zeile_.pack(fill='x', pady=(4, 0))
             liste_.pack(fill='x')
             if var is material:
@@ -15031,7 +15177,8 @@ def _storage(fenster, rahmen):
             _mengenzeile = tk.Frame(block, bg=BG)
             _mengenzeile.pack(fill='x', pady=(4, 0))
             f = round_entry(_mengenzeile, var, fenster.f_small, theme.FIELD,
-                            LINE, ACCENT, FG)
+                            LINE, ACCENT, FG,
+                            placeholder=t('s_pl_lager_menge'))
             mengen_beschriftung = kopf_label
 
             def einheit_um(an):
@@ -15084,7 +15231,7 @@ def _storage(fenster, rahmen):
             mengen_vorschau.pack(fill='x')
         else:
             f = round_entry(block, var, fenster.f_small, theme.FIELD, LINE,
-                            ACCENT, FG)
+                            ACCENT, FG, placeholder=t('s_pl_qualitaet'))
             f.holder.pack(fill='x', pady=(4, 0))
 
     # ℹ Keine „Meintest du:"-Zeilen für Rohstoff und Lagerort: Das
@@ -15675,11 +15822,10 @@ def _storage(fenster, rahmen):
     from .main_window import round_entry as _rf_suche
     _such_zeile = tk.Frame(innen, bg=BG)
     _such_zeile.pack(fill='x', pady=(6, 0))
-    tk.Label(_such_zeile, text=t('s_lg_filter'), bg=BG, fg=SUB,
-             font=fenster.f_small).pack(side='left', padx=(0, 10))
     _such_feld = _rf_suche(_such_zeile, filter_var, fenster.f_small,
-                           theme.FIELD, LINE, ACCENT, FG)
-    _such_feld.holder.pack(side='left', fill='x', expand=True)
+                           theme.FIELD, LINE, ACCENT, FG,
+                           placeholder=t('s_pl_lager_filter'))
+    _such_feld.holder.pack(fill='x')
 
     liste_rahmen.pack(fill='both', expand=True, pady=(6, 0))
 
@@ -15817,7 +15963,7 @@ def _squashed(text):
 
 def _combo_box(window, parent, var, get_entries, at_most=10,
                  on_pick=None, on_confirm=None, empty_text=None,
-                 scrollable=0, extra=None):
+                 scrollable=0, extra=None, placeholder=None):
     """Ein Eingabefeld mit Aufklappliste — tippen **oder** aussuchen.
 
     Gibt `(rahmen, listen_rahmen, neu_zeichnen)` zurück. Der Aufrufer packt
@@ -15866,7 +16012,8 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     # stünden zwei Sorten Auswahlfeld untereinander. Siehe
     # `round_entry(dropdown=True)`.
     feld = round_entry(zeile, var, window.f_small, theme.FIELD, LINE, ACCENT,
-                       FG, clearable=True, dropdown=True)
+                       FG, placeholder=placeholder, clearable=True,
+                       dropdown=True)
     pfeil = feld.trailing
 
     def _leeren():
@@ -16308,14 +16455,13 @@ def _selling(fenster, rahmen):
     # ------------------------------------------------------- Suchfeld
     suchzeile = tk.Frame(innen, bg=BG)
     suchzeile.pack(fill='x', padx=24, pady=(14, 0))
-    tk.Label(suchzeile, text=t('s_vk_ware'), bg=BG, fg=SUB,
-             font=fenster.f_small, anchor='w').pack(fill='x')
     # Auswahlfeld statt blossem Suchfeld: Wer nicht weiss, wie die Ware bei UEX
     # heisst, klappt die Liste auf und sucht sie aus.
     feldzeile, feldliste, such_zeichnen = _combo_box(
         fenster, suchzeile, suche, preisdaten.goods,
         on_pick=lambda name: waehlen(name),
-        on_confirm=lambda name: waehlen(name))
+        on_confirm=lambda name: waehlen(name),
+        placeholder=t('s_pl_ware'))
     feldzeile.pack(fill='x', pady=(4, 0))
     feldliste.pack(fill='x')
 
@@ -16680,11 +16826,12 @@ def _trade_storage(fenster, rahmen):
         beschriftungen[str(var)].pack(fill='x')
         if var is menge:
             feld = round_entry(block, var, fenster.f_small, theme.FIELD, LINE,
-                               ACCENT, FG)
+                               ACCENT, FG, placeholder=t('s_pl_lager_menge'))
             feld.holder.pack(fill='x', pady=(4, 0))
             continue
         quelle = (preisdaten.goods if var is ware else ortsliste.all_places)
-        zeile, liste, zeichnen_ = _combo_box(fenster, block, var, quelle)
+        zeile, liste, zeichnen_ = _combo_box(fenster, block, var, quelle,
+            placeholder=t('s_pl_ware' if var is ware else 's_pl_lagerort'))
         zeile.pack(fill='x', pady=(4, 0))
         # Die Liste sitzt **unter** dem Feld und ist genauso breit — sie gehoert
         # sichtbar zu ihm.
@@ -17624,6 +17771,7 @@ def _axes(fenster, rahmen):
                   else curves.functions_per_axis(nummer_fuer_liste,
                                                   vorhandene))
 
+        _stripe_reset(links)
         for achse in vorhandene:
             _achsenzeile(links, gewaehlter, achse, belegt.get(achse) or [])
 
@@ -18193,8 +18341,11 @@ def _axes(fenster, rahmen):
     def _achsenzeile(eltern, block, achse, funktionen=()):
         gewaehlt = achse == wahl['achse']
         werte = block['achsen'].get(achse) or {}
-        zeile = tk.Frame(eltern, bg=BAR if gewaehlt else BG, cursor='hand2')
-        zeile.pack(fill='x', pady=(0, 2))
+        grund = _stripe(eltern, BG)
+        # Die gewählte Achse hebt sich über die Streifen ab.
+        zeile = tk.Frame(eltern, bg=theme.HOVER if gewaehlt else grund,
+                         cursor='hand2')
+        zeile.pack(fill='x', ipady=1)
 
         def _waehlen(_e=None, a=achse):
             wahl['achse'] = a
@@ -18802,9 +18953,11 @@ def _patch_changes(fenster, rahmen):
         gezeigt = [e for e in alle if not e['leer']]
         weggelassen = len(alle) - len(gezeigt)
 
+        _stripe_reset(liste)
         for eintrag in gezeigt:
-            zeile = tk.Frame(liste, bg=BG, cursor='hand2')
-            zeile.pack(fill='x', pady=(0, 4))
+            grund = _stripe(liste, BG)
+            zeile = tk.Frame(liste, bg=grund, cursor='hand2')
+            zeile.pack(fill='x', ipady=2)
             z = eintrag['summary']
             if eintrag['leer']:
                 rechts, farbe = t('s_pa_leer'), SUB
@@ -18824,13 +18977,13 @@ def _patch_changes(fenster, rahmen):
             for text, fg, breit in ((eintrag['version'], name_farbe, True),
                                     (eintrag['datum'], SUB, False),
                                     (rechts, farbe, False)):
-                tk.Label(zeile, text=text, bg=BG, fg=fg,
+                tk.Label(zeile, text=text, bg=grund, fg=fg,
                          font=fenster.f_bold if breit else fenster.f_small,
                          anchor='w').pack(side='left', padx=(0, 14))
             # ⭐ Genau der Fall, für den lokal abgelegt wird: Die Quelle führt
             # ihn nicht mehr, der Spieler hat ihn trotzdem.
             if not eintrag['bei_erkul']:
-                tk.Label(zeile, text=t('s_pa_nur_hier'), bg=BG, fg=ACCENT,
+                tk.Label(zeile, text=t('s_pa_nur_hier'), bg=grund, fg=ACCENT,
                          font=fenster.f_small, anchor='w').pack(side='left')
             # ⚠ Die Bindung muss auf die Zeile UND ihre Etiketten — ein Klick
             # landet auf dem Etikett unter dem Zeiger, nicht auf dem Rahmen

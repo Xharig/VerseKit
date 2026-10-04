@@ -4125,7 +4125,7 @@ def ask_choice(parent, title, text, button_a, button_b):
 
 
 def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
-                 choices=(), choices_title=''):
+                 choices=(), choices_title='', placeholder=None):
     """Nach einem kurzen Text fragen — im Programmstil. Gibt den Text oder `None`.
 
     `None` heisst **abgebrochen**, `''` heisst: nichts eingetippt. Der
@@ -4214,7 +4214,7 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
 
         # Über `round_entry` wie jedes Feld — mit dem X darin (Standard).
         field = round_entry(rahmen, value, font_field, SURFACE, BORDER, ACCENT,
-                            FG)
+                            FG, placeholder=placeholder)
         field.holder.pack(fill='x', pady=(14, 0))
 
         answer = {'wert': None}

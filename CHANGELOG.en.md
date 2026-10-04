@@ -6,6 +6,37 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.82.0 - 2026-10-04
+
+> One look across the whole program: every list now has stripes, so rows
+> are easier to tell apart. Filters also reset with one click, and the
+> program calls itself Verse-Kit everywhere.
+
+### Improved
+
+- **Stripes in every list** — from the second row on, every other row is
+  lighter: Mining, Refineries, Crafting including ingredients, Shops, What
+  to farm, Still missing, Loadout, Dismantling, Missions & log, Blueprint
+  list, Blueprint progress, Statistics, Controls, Axes, Patch changes and
+  Server status
+- **Mining tidied up** — the signature tools at the top, search, filters and
+  the list below. The search fields in Mining and Crafting span the full
+  width and say inside the field what goes there
+- **Every input field says what goes in** — storage, cargo hold, selling,
+  hangar, wishlist, salvage, shops, dismantling, loadout, settings, setup
+  and digit teaching show a hint with an example in the empty field; search
+  fields have no caption beside them
+
+### Fixed
+
+- **Reset was missing in the filters** — in Crafting, Mining and the other
+  pages with drop-downs, "Reset" appears on the right as soon as something
+  is selected
+- **"Fits none of your ships" on armour** — the note now only shows for
+  ship components; armour, clothing and FPS weapons no longer get it
+- **Old name in the texts** — where it said "the watcher", it now says
+  Verse-Kit
+
 ## v3.81.0 - 2026-10-04
 
 > SCU or cSCU? VerseKit now makes sure refinery numbers do not land in

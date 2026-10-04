@@ -5951,7 +5951,7 @@ def main():
     pruefe('sig_feld = round_entry' in _vor64,
            'das Scan-Feld steht ausserhalb des Neuzeichnens (Cursor bleibt)')
     from scbp import language as _sp64
-    for _k64 in ('s_bg_sig_feld', 's_bg_sig_hilfe', 's_bg_sig_treffer',
+    for _k64 in ('s_pl_signatur', 's_bg_sig_hilfe', 's_bg_sig_treffer',
                  's_bg_sig_nichts', 's_bg_sig_anzahl', 's_bg_sig_genau'):
         _w64 = _sp64.TEXTS.get(_k64)
         pruefe(bool(_w64) and len(_w64) == 2 and all(_w64),
@@ -6565,6 +6565,7 @@ def main():
         # werden koennte — auf dem Bau-Laeufer ist das der Normalfall.
         from scbp import crafting as _he68
         if _felder68 and _he68.similar_materials('sa'):
+            getattr(_felder68[0], 'hint_hide', lambda: None)()
             _felder68[0].insert(0, 'sa')
             _w68.update_idletasks()
             _v68 = _mit_text68(_rahmen68, 'Savrilium', [])
@@ -7957,7 +7958,7 @@ def main():
     # filtert beim Tippen selbst und laesst sich per Pfeil ganz aufklappen.
     # Geprueft wird deshalb, dass **beide** Felder ihre geschlossene Liste
     # bekommen — Waren aus den Preisdaten, Orte aus der Ortsliste.
-    pruefe('_combo_box(fenster, block, var, quelle)' in _hlseite84
+    pruefe('_combo_box(fenster, block, var, quelle,' in _hlseite84
            and 'preisdaten.goods if var is ware else ortsliste.all_places'
            in _hlseite84,
            'Ware und Ort sind Auswahlfelder mit geschlossener Liste')
@@ -25219,6 +25220,9 @@ def main():
     _pruefung_328()
     _pruefung_329()
     _pruefung_330()
+    _pruefung_331()
+    _pruefung_332()
+    _pruefung_333()
 
     print()
     if fehler:
@@ -32222,22 +32226,19 @@ def _pruefung_318():
                 _ti318.sleep(0.02)
             return bedingung()
 
-        # ⚠ Auf der Seite stehen mehrere Eingabefelder. Gemeint ist das in
-        # derselben Zeile wie die Beschriftung der Suche.
-        felder = []
-        for lab in _alle(_w318, 'Label'):
-            try:
-                if lab.cget('text') == _t318('s_bg_suche'):
-                    felder = _alle(lab.master.master, 'Entry')
-                    break
-            except Exception:
-                pass
+        # ⚠ Auf der Seite stehen mehrere Eingabefelder. Gemeint ist das
+        # Suchfeld der Liste.
+        felder = [e for e in _alle(_w318, 'Entry')
+                  if getattr(e, 'mining_search_field', False)]
         pruefe(len(felder) == 1,
-               'Vorbedingung: genau ein Suchfeld neben der Beschriftung '
-               'der Suche (%d)' % len(felder))
+               'Vorbedingung: genau ein Suchfeld der Liste (%d)' % len(felder))
         if felder:
             feld = felder[0]
             punkt = 'ARC L5 · CRU L4 · MIC L3'
+            # ⚠ Im leeren Feld steht der Hinweistext, und die Variable ist
+            # abgehängt, bis eine Taste kommt. Erst ein Tastendruck, dann
+            # schreiben — sonst landet der Text im Hinweis statt in der Suche.
+            getattr(feld, 'hint_hide', lambda: None)()
             # ⚠ Ohne Suche stehen alle Rohstoffe da. Ob die Seite auf das
             # Tippen reagiert, zeigt erst ein Begriff, der sie verschwinden
             # lässt.
@@ -32251,12 +32252,16 @@ def _pruefung_318():
                                ('Lagrange B', 'nach dem Vorlagennamen')):
                 # Erst ein Begriff, der den Punkt nicht trifft — sonst stünde
                 # noch das Ergebnis der vorigen Suche da.
+                # ⚠ Ein leeres Feld zeigt wieder den Hinweis — vor jedem
+                # Schreiben räumen, wie es der erste Tastendruck täte.
                 feld.delete(0, 'end')
+                getattr(feld, 'hint_hide', lambda: None)()
                 feld.insert(0, 'Daymar')
                 pruefe(_warte(lambda: punkt not in _texte()),
                        'Vorbedingung: vor der Suche „%s" ist die Liste '
                        'geleert' % suche)
                 feld.delete(0, 'end')
+                getattr(feld, 'hint_hide', lambda: None)()
                 feld.insert(0, suche)
                 pruefe(_warte(lambda: punkt in _texte()),
                        'die Suche „%s" findet den Punkt (%s)' % (suche, was))
@@ -32756,6 +32761,8 @@ def _pruefung_325():
             # Das Feld der Titan — die Liste ist nach Namen sortiert.
             feld = felder[0]
             feld.delete(0, 'end')
+            # Der Hinweis im leeren Feld weicht wie beim ersten Tastendruck.
+            getattr(feld, 'hint_hide', lambda: None)()
             feld.insert(0, 'Leitschiff')
             # ⚠ Tastenereignisse gehen an das Feld mit dem Fokus.
             feld.focus_force()
@@ -32787,6 +32794,7 @@ def _pruefung_325():
                           if not str(e).startswith(liste + '.')]
             if suchfelder:
                 suchfelder[0].delete(0, 'end')
+                getattr(suchfelder[0], 'hint_hide', lambda: None)()
                 suchfelder[0].insert(0, 'Leitschiff')
                 ende = _ti325.time() + 2
                 while _ti325.time() < ende:
@@ -32927,19 +32935,14 @@ def _pruefung_327():
             _w327.update()
             pruefe('Orison' not in _texte(), 'ein zweiter Klick klappt zu')
 
-        suchfelder = [x for x in _alle_eingaben(seite)]
-        filterfeld = None
-        for e in suchfelder:
-            try:
-                if e.cget('textvariable') and _w327.getvar(
-                        e.cget('textvariable')) == '':
-                    filterfeld = e
-            except Exception:
-                pass
+        # Das Filterfeld erkennt man am Hinweis, der im leeren Feld steht.
+        filterfeld = next((e for e in _alle_eingaben(seite)
+                           if e.get() == _t327('s_pl_lager_filter')), None)
         pruefe(filterfeld is not None, 'Vorbedingung: das Suchfeld ist da')
         if filterfeld is not None:
             # Zwei Iron-Posten liegen in Levski — die Suche lässt beide übrig,
             # und die stehen dann aufgeklappt da, nicht hinter einer Summe.
+            getattr(filterfeld, 'hint_hide', lambda: None)()
             filterfeld.insert(0, 'Levski')
             ende = _ti327.time() + 2
             while '7 SCU' not in _texte() and _ti327.time() < ende:
@@ -33118,6 +33121,7 @@ def _pruefung_328():
 
         # b) Getippt — der Regler läuft mit.
         feld.delete(0, 'end')
+        getattr(feld, 'hint_hide', lambda: None)()
         feld.insert(0, '650')
         w.update()
         soll = 8 + 0.65 * (int(regler.cget('width')) - 16)
@@ -33420,8 +33424,11 @@ def _pruefung_330_zeilen(_ma330):
             else (None, None)
         pruefe(menge_feld is not None, 'Vorbedingung: Material- und Mengenfeld')
         if menge_feld is not None:
-            w.setvar(material_feld.cget('textvariable'), 'Iron')
-            w.setvar(menge_feld.cget('textvariable'), '480')
+            # Im leeren Feld steht der Hinweis — erst räumen, dann tippen.
+            for _feld330, _text330 in ((material_feld, 'Iron'),
+                                       (menge_feld, '480')):
+                getattr(_feld330, 'hint_hide', lambda: None)()
+                _feld330.insert(0, _text330)
             w.update()
             erwartet = _t330('s_lg_hinweis_scu_gross') % '480'
             pruefe(erwartet in _texte(seite),
@@ -33477,6 +33484,185 @@ def _pruefung_330_zeilen(_ma330):
                 w.destroy()
         except Exception:
             pass
+
+
+def _pruefung_331():
+    """331. Filterleiste mit Zurücksetzen; Schiffshinweis nur für Schiffsteile.
+
+    Ist in einer Filterleiste etwas gewählt, steht rechts ein Zurücksetzen-Knopf und
+    leert die Wahl. Rüstung bekommt keinen Schiffshinweis, ein Kühler schon.
+    """
+    print('\n331. Zurücksetzen in Filterleisten, Schiffshinweis, Name')
+    # Das Programm heißt Verse-Kit. „Watcher" steht nur noch dort, wo scmdbs
+    # eigener Watcher gemeint ist.
+    from scbp import language as _sp331
+    alte_namen = sorted(
+        k for k, paar in _sp331.TEXTS.items()
+        if isinstance(paar, tuple)
+        and any('watcher' in str(x).lower() for x in paar)
+        and not any('scmdb' in str(x).lower() for x in paar))
+    pruefe(not alte_namen,
+           'kein Oberflächentext nennt das Programm noch „Watcher" (%s)'
+           % alte_namen[:5])
+    import tkinter as _tk331
+    import tkinter.font as _tf331
+    from scbp import pages as _se331, catalog as _kt331, fleet as _fl331
+    from scbp import erkul as _ek331, paths as _pa331
+    from scbp.language import t as _t331
+
+    w = _tk331.Tk()
+    w.withdraw()
+    alt = (_kt331.load, _fl331.load, _ek331.load, _ek331.matching_ships)
+    try:
+        schrift = _tf331.Font(root=w, family='TkDefaultFont', size=10)
+
+        class _Fenster:
+            f_base = f_small = f_item = f_bold = f_title = f_sub = schrift
+
+        def _reset_knopf(reihe):
+            for k in reihe.winfo_children():
+                if getattr(k, 'reset_button', False):
+                    return k
+            return None
+
+        felder = [('art', 'Alle', [('a', 'A'), ('b', 'B')])]
+        wahl = {'art': 'a'}
+        wechsel = []
+        zurueck, reihe, _g = _se331._filter_bar(
+            _Fenster(), w, felder, lambda: wechsel.append(1), wahl)
+        knopf = _reset_knopf(reihe)
+        pruefe(knopf is not None and knopf.winfo_manager() == 'pack'
+               and knopf.cget('text') == _t331('s_zuruecksetzen'),
+               'mit gewählter Art steht „Zurücksetzen" in der Leiste')
+        if knopf is not None:
+            knopf.event_generate('<Button-1>')
+            zurueck()
+        pruefe(wahl['art'] == '' and wechsel
+               and (knopf is None or not knopf.winfo_manager()),
+               'Zurücksetzen leert die Wahl und verschwindet dann')
+        wahl2 = {'art': 'a'}
+        _z, reihe2, _g = _se331._filter_bar(_Fenster(), w, felder,
+                                            lambda: None, wahl2,
+                                            show_reset=False)
+        k2 = _reset_knopf(reihe2)
+        pruefe(k2 is None or not k2.winfo_manager(),
+               'mit show_reset=False bleibt der Knopf weg (Shops)')
+
+        # Schiffshinweis: Rüstung schweigt, Kühler bekommt eine Antwort.
+        _kt331.load = lambda: {'bauplaene': {
+            _pa331.name_key('Testarm'): {'n': 'Testarm',
+                                         'a': 'Char_Armor_Arms', 's': 1},
+            _pa331.name_key('Testkuehler'): {'n': 'Testkuehler',
+                                             'a': 'Cooler', 's': 1}}}
+        _fl331.load = lambda: {'schiffe': [{'name': 'Avenger Titan'}]}
+        _ek331.load = lambda: {'schiffe': {'x': {}}}
+        _ek331.matching_ships = lambda *_a: []
+
+        def _texte(bauplan):
+            rahmen = _tk331.Frame(w)
+            _se331._fits_row(_Fenster(), rahmen, bauplan)
+            return [k.cget('text') for k in rahmen.winfo_children()
+                    if k.winfo_class() == 'Label']
+
+        pruefe(_t331('s_hg_passt_nirgends') not in _texte('Testarm'),
+               'Rüstung: kein „passt in keines deiner Schiffe"')
+        pruefe(_t331('s_hg_passt_nirgends') in _texte('Testkuehler'),
+               'ein Kühler bekommt die Antwort weiterhin')
+    finally:
+        (_kt331.load, _fl331.load, _ek331.load, _ek331.matching_ships) = alt
+        w.destroy()
+
+
+def _pruefung_332():
+    """332. Streifen: ein Baustein, dasselbe Bild in jeder Liste.
+
+    `_stripe` gibt ab der zweiten Zeile die hellere Farbe; die Kopfzeilen
+    im Bergbau und die aufgeklappten Fundorte wechseln danach ab.
+    """
+    print('\n332. Streifen in Listen')
+    import tkinter as _tk332
+    import tkinter.font as _tf332
+    from scbp import pages as _se332, theme as _th332
+
+    w = _tk332.Tk()
+    w.withdraw()
+    try:
+        schrift = _tf332.Font(root=w, family='TkDefaultFont', size=10)
+
+        class _Fenster:
+            f_base = f_small = f_item = f_bold = f_title = f_sub = schrift
+
+        rahmen = _tk332.Frame(w)
+        folge = [_se332._stripe(rahmen) for _ in range(4)]
+        pruefe(folge == [_th332.BG, _th332.SURFACE] * 2,
+               'auf dunklem Grund: dunkel, hell, dunkel, hell (%s)' % folge)
+        _se332._stripe_reset(rahmen)
+        folge = [_se332._stripe(rahmen, _th332.SURFACE) for _ in range(3)]
+        pruefe(folge == [_th332.SURFACE, _th332.HOVER, _th332.SURFACE],
+               'auf einer Fläche: Streifen noch heller (%s)' % folge)
+
+        liste = _tk332.Frame(w)
+        erz = {'name': 'Iron', 'orte': [('Daymar', 'Stanton', ('fps',)),
+                                        ('Yela', 'Stanton', ('fps',)),
+                                        ('Aberdeen', 'Stanton', ('fps',))]}
+        offen = {'name': 'erz:Iron'}
+        for name in ('Gold', 'Iron', 'Quartz'):
+            e = dict(erz, name=name)
+            _se332._mining_ore(_Fenster(), liste, e, offen, lambda: None)
+        kopf = [k.cget('bg') for k in liste.winfo_children()
+                if k.winfo_class() == 'Frame' and str(k.cget('cursor')) == 'hand2']
+        pruefe(kopf == [_th332.BG, _th332.SURFACE, _th332.BG],
+               'Bergbau: Erzzeilen wechseln ab (%s)' % kopf)
+        bloecke = [k for k in liste.winfo_children()
+                   if k.winfo_class() == 'Frame'
+                   and str(k.cget('bg')) == str(_th332.FIELD)]
+        fundorte = [z.cget('bg') for z in (bloecke[0].winfo_children()
+                                           if bloecke else [])
+                    if z.winfo_class() == 'Frame'][:3]
+        pruefe(fundorte == [_th332.FIELD, _th332.SURFACE, _th332.FIELD],
+               'Bergbau aufgeklappt: Fundorte wechseln ab (%s)' % fundorte)
+    finally:
+        w.destroy()
+
+
+def _pruefung_333():
+    """333. Jedes Eingabefeld sagt im Feld, was hineingehört.
+
+    Feste Regel: Ein Feld ohne Hinweistext ist ein verlorenes Feld. Geprüft
+    wird per Syntaxbaum jeder Aufruf von `round_entry`, `_combo_box` und
+    `_path_field` in `scbp/` — jeder muss einen Hinweis mitgeben.
+    """
+    print('\n333. Jedes Eingabefeld hat einen Hinweis im Feld')
+    import ast as _ast333
+    import glob as _gl333
+
+    pflicht = {'round_entry': ('placeholder',),
+               '_combo_box': ('placeholder',),
+               '_path_field': ('placeholder', 'platzhalter')}
+    ohne = []
+    for pfad in sorted(_gl333.glob(os.path.join(WURZEL, 'scbp', '*.py'))):
+        baum = _ast333.parse(open(pfad, encoding='utf-8').read())
+        # Auch über einen Alias geholt (`round_entry as _rf_q`).
+        alias = {a.asname: a.name for k in _ast333.walk(baum)
+                 if isinstance(k, _ast333.ImportFrom)
+                 for a in k.names if a.asname and a.name in pflicht}
+        for knoten in _ast333.walk(baum):
+            if not isinstance(knoten, _ast333.Call):
+                continue
+            f = knoten.func
+            name = (f.id if isinstance(f, _ast333.Name)
+                    else f.attr if isinstance(f, _ast333.Attribute) else '')
+            name = alias.get(name, name)
+            if name not in pflicht:
+                continue
+            woerter = {k.arg for k in knoten.keywords}
+            if None in woerter:          # **kw reicht den Hinweis weiter
+                continue
+            if not woerter & set(pflicht[name]):
+                ohne.append('%s:%d %s' % (os.path.basename(pfad),
+                                          knoten.lineno, name))
+    pruefe(not ohne, 'kein Eingabefeld ohne Hinweistext (%d: %s)'
+           % (len(ohne), ', '.join(ohne[:8])))
 
 
 def _alle_eingaben(w):

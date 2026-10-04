@@ -217,7 +217,8 @@ class SettingsWindow:
         reihe = tk.Frame(eltern, bg=BG)
         reihe.pack(fill='x')
         from .main_window import round_entry
-        feld = round_entry(reihe, variable, font(10), SURFACE, LINE, ACCENT, FG)
+        feld = round_entry(reihe, variable, font(10), SURFACE, LINE, ACCENT, FG,
+                           placeholder=t('s_pl_spielordner'))
         feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(reihe, text=' %s ' % t('e_durchsuchen'), bg=SURFACE,
                          fg=FG, font=font(10), cursor='hand2', padx=8, pady=6)

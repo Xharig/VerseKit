@@ -230,8 +230,8 @@ TEXTS = {
                           'Short beep when something appears'),
     'autostart_win':     ('Mit Windows starten', 'Start with Windows'),
     'autostart_linux':   ('Beim Anmelden starten', 'Start on login'),
-    'autostart_hilfe':   ('Trägt den Watcher in den Autostart ein',
-                          'Adds the watcher to autostart'),
+    'autostart_hilfe':   ('Trägt Verse-Kit in den Autostart ein',
+                          'Adds Verse-Kit to autostart'),
     'netz_holen':        ('Craftdaten aus dem Netz holen',
                           'Fetch crafting data from the internet'),
     'netz_holen_hilfe':  ('Nur bei neuer Spielversion',
@@ -242,11 +242,11 @@ TEXTS = {
 
     # -- Erster Start --
     'einrichtung_erklaerung': (
-        'Der Watcher liest die Game.log von Star Citizen — dort steht jeder '
+        'Verse-Kit liest die Game.log von Star Citizen — dort steht jeder '
         'freigeschaltete Bauplan. Ohne diese Datei kann er nichts anzeigen. '
         'Bitte such den Ordner heraus, in dem sie liegt (meist „LIVE"). Der '
         'Ordner darüber genügt auch, der Rest wird gefunden.',
-        'The watcher reads Star Citizen\'s Game.log — every unlocked blueprint '
+        'Verse-Kit reads Star Citizen\'s Game.log — every unlocked blueprint '
         'is written there. Without that file it cannot show anything. Please '
         'pick the folder it lives in (usually "LIVE"). The folder above works '
         'too, the rest is found automatically.'),
@@ -268,9 +268,9 @@ TEXTS = {
                           '%d blueprints taken from %d earlier sessions.'),
     'nachtragen_hinweis': (
         'Was älter ist, kannst du in der Liste von Hand abhaken — '
-        'alles andere hat der Watcher schon erledigt.',
+        'alles andere hat Verse-Kit schon erledigt.',
         'Anything older can be ticked off by hand in the list — '
-        'the watcher has already done the rest.'),
+        'Verse-Kit has already done the rest.'),
     'liste_oeffnen':     ('Liste öffnen', 'Open list'),
 
     # -- Einrichtungsassistent --
@@ -313,10 +313,10 @@ TEXTS = {
                           'report.'),
     'schritt_spiel':     ('Star Citizen finden', 'Find Star Citizen'),
     'schritt_spiel_text': (
-        'Der Watcher liest die Game.log von Star Citizen — dort schreibt das '
+        'Verse-Kit liest die Game.log von Star Citizen — dort schreibt das '
         'Spiel jeden freigeschalteten Bauplan hinein. Ohne diese Datei kann er '
         'nichts anzeigen.',
-        'The watcher reads Star Citizen\'s Game.log — the game writes every '
+        'Verse-Kit reads Star Citizen\'s Game.log — the game writes every '
         'unlocked blueprint into it. Without that file it cannot show anything.'),
     'schritt_spiel_hilfe': (
         'Such den Ordner heraus, in dem die Game.log liegt (meist „LIVE"). '
@@ -327,9 +327,9 @@ TEXTS = {
     'schritt_lesen':     ('Bisherige Baupläne holen', 'Collect past blueprints'),
     'schritt_lesen_text': (
         'Star Citizen hebt die Protokolle vergangener Spielsitzungen auf. Daraus '
-        'holt sich der Watcher deinen bisherigen Bestand — du musst nichts '
+        'holt sich Verse-Kit deinen bisherigen Bestand — du musst nichts '
         'eintippen.',
-        'Star Citizen keeps logs of past play sessions. The watcher collects '
+        'Star Citizen keeps logs of past play sessions. Verse-Kit collects '
         'your existing blueprints from them — nothing to type in.'),
 
     # Die Einstellungs-Karten im Assistenten. Die Namen der Einstellungen sind
@@ -404,9 +404,9 @@ TEXTS = {
 
     'schritt_fertig':    ('Fertig', 'All set'),
     'schritt_fertig_text': (
-        'Der Watcher läuft jetzt mit. Neue Baupläne erscheinen in der schmalen '
+        'Verse-Kit läuft jetzt mit. Neue Baupläne erscheinen in der schmalen '
         'Leiste, sobald du sie im Spiel freischaltest.',
-        'The watcher is running. New blueprints appear in the narrow bar as soon '
+        'Verse-Kit is running. New blueprints appear in the narrow bar as soon '
         'as you unlock them in the game.'),
     'tipp_liste':        ('Über das Zahnrad in der Titelleiste öffnest du '
                           'jederzeit das große Fenster — dort steht links die '
@@ -479,21 +479,21 @@ TEXTS = {
     's_be_neu':          ('Protokolle erneut einlesen', 'Read the logs again'),
     's_be_neu_h':        ('Sieht jede aufgehobene Spielsitzung noch einmal durch, '
                           'auch die schon gelesenen, und trägt nach was fehlt. '
-                          'Hilft, wenn der Watcher zu war, während Star Citizen '
+                          'Hilft, wenn Verse-Kit zu war, während Star Citizen '
                           'weiterlief: Die Baupläne dieser Sitzung stehen dann in '
-                          'einer Datei, die er für erledigt hält. Doppelte können '
+                          'einer Datei, die es für erledigt hält. Doppelte können '
                           'dabei nicht entstehen.',
                           'Goes through every stored session again, including the '
                           'ones already read, and fills in what is missing. Helps '
-                          'when the watcher was closed while Star Citizen kept '
+                          'when Verse-Kit was closed while Star Citizen kept '
                           'running: that session\'s blueprints then sit in a file '
                           'it considers done. Duplicates cannot happen.'),
     # ⚠⚠ „meldet sich", nicht „steht in der Leiste": Das Ergebnis kommt als
     # Fenster.
     's_be_neu_los':      ('Wird gelesen … das Ergebnis meldet sich, sobald es da ist.',
                           'Reading … the result will report back when it is ready.'),
-    's_be_neu_kein':     ('Dafür muss der Watcher laufen.',
-                          'The watcher needs to be running for this.'),
+    's_be_neu_kein':     ('Dafür muss Verse-Kit laufen.',
+                          'Verse-Kit needs to be running for this.'),
     'nachlese_marke':    ('nachgelesen', 'caught up'),
     # Angenommener Auftrag (ab v3.2.0) — die Zeile im Overlay.
     'auftrag_zeile':     ('Auftrag angenommen: %s',
@@ -521,7 +521,7 @@ TEXTS = {
     'hinweis_einklappen': ('Auf die Titelleiste einklappen — gibt die Sicht frei',
                            'Collapse to the title bar — frees up the view'),
     'hinweis_ausklappen': ('Wieder aufklappen', 'Expand again'),
-    'hinweis_schliessen': ('Watcher beenden', 'Quit the watcher'),
+    'hinweis_schliessen': ('Verse-Kit beenden', 'Quit Verse-Kit'),
     'hinweis_leeren':    ('Angezeigte Meldungen wegräumen — die Baupläne bleiben',
                           'Clear the messages shown — your blueprints stay'),
     'hinweis_assistent': ('Einrichtung noch einmal durchgehen',
@@ -564,10 +564,10 @@ TEXTS = {
     'hinweis_einstellungen': ('Einstellungen öffnen', 'Open settings'),
     'e_sprache':         ('Sprache', 'Language'),
     'e_sprache_hilfe':   ('Sprache dieses Fensters und aller Meldungen. Nicht zu '
-                          'verwechseln mit der Sprache im Spiel — die findet der '
-                          'Watcher selbst heraus.',
+                          'verwechseln mit der Sprache im Spiel — die findet '
+                          'Verse-Kit selbst heraus.',
                           'Language of this window and all messages. Not the same '
-                          'as your game language — the watcher works that one out '
+                          'as your game language — Verse-Kit works that one out '
                           'by itself.'),
     'e_sprache_auto':    ('Wie das System', 'Follow the system'),
     'e_spiel':           ('Star-Citizen-Ordner', 'Star Citizen folder'),
@@ -591,12 +591,12 @@ TEXTS = {
     # --- Seiten: alle sichtbaren Texte (ab v3.0.0) ---
     's_allg_lead':     ('Was fast jeder einmal einstellt und danach nie wieder anfasst.',
                           'What most people set once and never touch again.'),
-    's_sprache_h':     ('Betrifft nur die Anzeige des Werkzeugs. Welche Sprache Star Citizen spricht, erkennt der Watcher selbst.',
+    's_sprache_h':     ('Betrifft nur die Anzeige des Werkzeugs. Welche Sprache Star Citizen spricht, erkennt Verse-Kit selbst.',
                           'Affects only this tool. Which language Star Citizen speaks is detected on its own.'),
     's_ton_h':         ('Kurzer Ton, wenn ein Bauplan hereinkommt — hilfreich, wenn das Overlay verdeckt ist.',
                           'A short sound when a blueprint arrives — useful when the overlay is covered.'),
-    's_autostart_h':   ('Der Watcher startet mit angemeldetem Benutzer und wartet im Hintergrund auf das Spiel.',
-                          'The watcher starts with your session and waits in the background for the game.'),
+    's_autostart_h':   ('Verse-Kit startet mit angemeldetem Benutzer und wartet im Hintergrund auf das Spiel.',
+                          'Verse-Kit starts with your session and waits in the background for the game.'),
     's_tray':          ('Symbol in der Ablage neben der Uhr',
                           'Icon in the tray next to the clock'),
     's_tray_h':        ('Beim Schließen verschwindet das Fenster in die Ablage statt zu beenden. Ein Klick holt es zurück.',
@@ -702,11 +702,14 @@ TEXTS = {
     's_pl_auftrag':      ('Auftragsname oder Ort', 'Mission name or location'),
     's_pl_belegung':     ('Taste, Achse oder Funktion',
                           'Key, axis or function'),
-    's_pl_herstellung':  ('z. B. Arctic-Storm oder Aluminium',
-                          'e.g. Arctic-Storm or Aluminium'),
-    's_pl_bergbau':      ('z. B. Quantanium oder Yela',
-                          'e.g. Quantanium or Yela'),
-    's_pl_signatur':     ('Zahl vom Scanner', 'Number from the scanner'),
+    's_pl_herstellung':  ('Bauplan oder Rohstoff suchen — z. B. Arctic-Storm '
+                          'oder Aluminium',
+                          'Search blueprint or resource — e.g. Arctic-Storm '
+                          'or Aluminium'),
+    's_pl_signatur':     ('Signatur nachschlagen — Zahl vom Scanner',
+                          'Look up a signature — number from the scanner'),
+    's_pl_bergbau':      ('Rohstoff oder Ort suchen — z. B. Quantanium oder Daymar',
+                          'Search resource or location — e.g. Quantanium or Daymar'),
     's_pl_melder':       ('Dein Discord-Name', 'Your Discord name'),
     's_pl_intervall':    ('Sekunden, z. B. 3', 'Seconds, e.g. 3'),
     's_pl_scu':          ('z. B. 96', 'e.g. 96'),
@@ -715,6 +718,44 @@ TEXTS = {
     's_pl_abstand':      ('cm', 'cm'),
     's_pl_satzname':     ('Name für den neuen Satz', 'Name for the new set'),
     's_pl_spielordner':  ('…\\StarCitizen\\LIVE', '…\\StarCitizen\\LIVE'),
+    's_pl_ordner':       ('Ordner wählen oder Pfad einfügen',
+                          'Choose a folder or paste a path'),
+    's_pl_lagerort':     ('Lagerort suchen — z. B. Levski',
+                          'Search location — e.g. Levski'),
+    's_pl_ort_filter':   ('Ort suchen — z. B. Lorville',
+                          'Search location — e.g. Lorville'),
+    's_pl_rohstoff':     ('Rohstoff suchen — z. B. Taranite',
+                          'Search resource — e.g. Taranite'),
+    's_pl_ware':         ('Ware suchen — z. B. Laranite',
+                          'Search commodity — e.g. Laranite'),
+    's_pl_schiff':       ('Schiff suchen — z. B. Avenger Titan',
+                          'Search ship — e.g. Avenger Titan'),
+    's_pl_schiffsname':  ('Eigener Name — z. B. Nachtfalke',
+                          'Own name — e.g. Nightjar'),
+    's_pl_gegenstand':   ('Gegenstand suchen — Name eintippen oder aufklappen',
+                          'Search item — type a name or open the list'),
+    's_pl_teil':         ('Teil suchen — Name, Güte oder Klasse',
+                          'Search part — name, grade or class'),
+    's_pl_lager_menge':  ('z. B. 4,5 oder 1,04+3', 'e.g. 4.5 or 1.04+3'),
+    's_pl_qualitaet':    ('Qualität 0–1000, z. B. 523',
+                          'Quality 0–1000, e.g. 523'),
+    's_pl_zeilen':       ('5–100', '5–100'),
+    's_pl_sekunden':     ('1–60', '1–60'),
+    's_pl_hotkey':       ('z. B. Strg+Alt+B', 'e.g. Ctrl+Alt+B'),
+    's_pl_startbefehl':  ('z. B. lutris rungame/star-citizen',
+                          'e.g. lutris rungame/star-citizen'),
+    's_pl_programmname': ('z. B. TeamSpeak', 'e.g. TeamSpeak'),
+    's_pl_programmdatei': ('Programm wählen oder Pfad einfügen',
+                           'Choose a program or paste a path'),
+    's_pl_verbindungsname': ('z. B. VerseKit Linux', 'e.g. VerseKit Linux'),
+    's_pl_scanzahl':     ('z. B. 4270', 'e.g. 4270'),
+    's_pl_dauer':        ('2–60', '2–60'),
+    's_pl_anzahl':       ('z. B. 2', 'e.g. 2'),
+    's_pl_q_bereich':    ('0–1000', '0–1000'),
+    's_pl_lager_filter': ('Rohstoff oder Ort filtern — z. B. Levski',
+                          'Filter by resource or location — e.g. Levski'),
+    's_pl_profilname':   ('z. B. HOTAS_Kampf — ohne Leerzeichen',
+                          'e.g. HOTAS_Combat — no spaces'),
     's_lg_posten_weg':   ('Diesen Posten löschen', 'Delete this entry'),
     's_lg_posten_frage_t': ('Posten löschen?', 'Delete entry?'),
     's_lg_posten_frage': ('%s (%g %s) wird aus dem Lager genommen.',
@@ -762,9 +803,9 @@ TEXTS = {
     # ⚠ Der Fall, den es vorher gar nicht gab: Der Start hat geklappt, die neue
     # Version ist aber sofort wieder gestorben. Bis rc66 trat die alte trotzdem
     # ab, und der Rechner stand ohne Watcher da — ohne ein Wort dazu.
-    's_ub_neustart_tot': ('Die neue Version ist nicht hochgekommen. Der Watcher '
-                         'bleibt offen — bitte starte ihn von Hand neu.',
-                         'The new version did not come up. The watcher stays '
+    's_ub_neustart_tot': ('Die neue Version ist nicht hochgekommen. Verse-Kit '
+                         'bleibt offen — bitte starte es von Hand neu.',
+                         'The new version did not come up. Verse-Kit stays '
                          'open — please restart it by hand.'),
     's_ub_neustart_nein': ('Neustart ging nicht — bitte von Hand beenden und starten.',
                           'Restart failed — please close and start it yourself.'),
@@ -854,19 +895,19 @@ TEXTS = {
     # daraus wurde, sagt der n\u00e4chste Start (siehe `update_run.auswerten`).
     'up_laeuft_schon': ('Ein Update l\u00e4uft bereits \u2014 bitte einen Moment warten.',
                           'An update is already running \u2014 please wait a moment.'),
-    'up_wird_eingespielt': ('Wird eingespielt \u2014 der Watcher schlie\u00dft sich kurz '
+    'up_wird_eingespielt': ('Wird eingespielt \u2014 Verse-Kit schlie\u00dft sich kurz '
                           'und startet von selbst neu.',
-                          'Installing \u2014 the watcher closes briefly and '
+                          'Installing \u2014 Verse-Kit closes briefly and '
                           'restarts on its own.'),
     'up_sicherung_nein': ('Die bisherige Fassung lie\u00df sich nicht sichern \u2014 das '
                           'Update wurde nicht eingespielt.',
                           'The current version could not be backed up \u2014 the '
                           'update was not installed.'),
     'up_zurueckgerollt': ('Die neue Version ist nicht hochgekommen \u2014 die '
-                          'bisherige ist wiederhergestellt. Der Watcher bleibt '
+                          'bisherige ist wiederhergestellt. Verse-Kit bleibt '
                           'offen.',
                           'The new version did not come up \u2014 the previous one '
-                          'has been restored. The watcher stays open.'),
+                          'has been restored. Verse-Kit stays open.'),
     'up_erg_fertig':   ('Update auf %s eingespielt.', 'Updated to %s.'),
     'up_erg_abgebrochen': ('Update abgebrochen \u2014 du nutzt weiter %s.',
                           'Update cancelled \u2014 you are still on %s.'),
@@ -944,7 +985,6 @@ TEXTS = {
                           'Built from the game\'s own logs. The game keeps only a '
                           'few sessions; here they stay, long after the game has '
                           'dropped them.'),
-    's_al_suche':      ('Auftrag suchen', 'Search missions'),
     's_al_leer':       ('Noch kein Auftrag aufgezeichnet. Sobald du einen '
                         'annimmst, steht er hier.',
                           'No missions recorded yet. As soon as you accept one, '
@@ -1833,14 +1873,14 @@ TEXTS = {
                         'System aus gutem Grund nicht zu.\n\n'
                         'Der Weg dorthin führt über die Tastenkombinationen '
                         'deines Schreibtischs: Leg eine auf den Startbefehl '
-                        'unten. Läuft der Watcher schon, holt ein zweiter '
-                        'Start ihn nur nach vorn.',
+                        'unten. Läuft Verse-Kit schon, holt ein zweiter '
+                        'Start es nur nach vorn.',
                           'On Wayland no program can claim a system-wide '
                           'shortcut by itself — the system does not allow it, '
                           'for good reason.\n\n'
                           'The way there is your own desktop shortcut '
-                          'settings: put one on the start command below. If the '
-                          'watcher is already running, a second start just '
+                          'settings: put one on the start command below. If '
+                          'Verse-Kit is already running, a second start just '
                           'brings it to the front.'),
     's_durchsuchen':   ('Durchsuchen …',
                           'Browse …'),
@@ -1858,8 +1898,8 @@ TEXTS = {
                           'catalogue. Nothing is taken over until you press the '
                           'button.'),
     # -- Seite „Angaben im Spiel" --
-    's_sp_lead':       ('Der Watcher schreibt in die Auftragstexte des Spiels, welche Baupläne ein Auftrag ausschüttet — mit Haken für das, was du schon hast. Hier wählst du auch, aus welcher Quelle diese Texte kommen.',
-                          'The watcher writes into the game\'s mission text which blueprints a mission hands out — with a tick for the ones you already have. This is also where you pick which source those texts come from.'),
+    's_sp_lead':       ('Verse-Kit schreibt in die Auftragstexte des Spiels, welche Baupläne ein Auftrag ausschüttet — mit Haken für das, was du schon hast. Hier wählst du auch, aus welcher Quelle diese Texte kommen.',
+                          'Verse-Kit writes into the game\'s mission text which blueprints a mission hands out — with a tick for the ones you already have. This is also where you pick which source those texts come from.'),
     's_sp_quelle_ist': ('Quelle: %s', 'Source: %s'),
     's_sp_stand_vom':  ('Stand %s', 'Version of %s'),
     's_sp_heute':      ('heute %s', 'today %s'),
@@ -2125,16 +2165,16 @@ TEXTS = {
     's_be_genommen':   ('%d Baupläne übernommen', '%d blueprints taken over'),
 
     # -- Seite „Erkennung" --
-    's_er_lead':       ('Wie der Watcher merkt, dass ein Bauplan hereingekommen ist. Die Standardwerte passen für fast jeden — hier nur ändern, wenn etwas klemmt.',
-                          'How the watcher notices that a blueprint has arrived. The defaults suit almost everyone — only change things here if something is stuck.'),
+    's_er_lead':       ('Wie Verse-Kit merkt, dass ein Bauplan hereingekommen ist. Die Standardwerte passen für fast jeden — hier nur ändern, wenn etwas klemmt.',
+                          'How Verse-Kit notices that a blueprint has arrived. The defaults suit almost everyone — only change things here if something is stuck.'),
     's_er_takt':       ('Wie oft nachsehen', 'How often to look'),
     's_er_takt_h':     ('Sekunden zwischen zwei Blicken in die Protokolldatei. Kleiner heißt schneller und kostet etwas mehr Rechenzeit.',
                           'Seconds between two looks at the log file. Smaller means faster and costs a little more processing time.'),
     's_er_sek':        (' Sek.', ' sec.'),
     's_er_takt_sagen': ('Takt: %s Sekunden', 'Interval: %s seconds'),
     's_er_satz':       ('Erkannte Meldung', 'Detected message'),
-    's_er_satz_h':     ('Der Satz, den das Spiel schreibt. Der Watcher leitet ihn selbst aus deinen Protokollen ab — hier steht, was gefunden wurde.',
-                          'The sentence the game writes. The watcher derives it from your logs by itself — this is what it found.'),
+    's_er_satz_h':     ('Der Satz, den das Spiel schreibt. Verse-Kit leitet ihn selbst aus deinen Protokollen ab — hier steht, was gefunden wurde.',
+                          'The sentence the game writes. Verse-Kit derives it from your logs by itself — this is what it found.'),
     's_er_kat':        ('Katalog auffrischen', 'Refresh catalogue'),
     's_er_kat_h':      ('Welche Baupläne es gibt und woher sie kommen. Wird beim Start geholt, wenn eine neue Spielversion erschienen ist.',
                           'Which blueprints exist and where they come from. Fetched on start whenever a new game version has appeared.'),
@@ -2253,8 +2293,8 @@ TEXTS = {
                           'Reset did not work: %s'),
     's_be_reset_warn': ('Zurücksetzen löscht deinen Bauplan-Stand.',
                           'Resetting deletes your blueprint inventory.'),
-    's_be_reset_warn_h': ('Der Watcher liest ihn danach aus den noch vorhandenen Protokollen neu auf — was älter ist, ist weg. Vorher oben unter „Bestand ausgeben" sichern.',
-                          'The watcher then rebuilds it from the logs that remain — anything older is gone. Save it above under "Export inventory" first.'),
+    's_be_reset_warn_h': ('Verse-Kit liest ihn danach aus den noch vorhandenen Protokollen neu auf — was älter ist, ist weg. Vorher oben unter „Bestand ausgeben" sichern.',
+                          'Verse-Kit then rebuilds it from the logs that remain — anything older is gone. Save it above under "Export inventory" first.'),
     's_sc_titel':      ('Shader-Cache leeren', 'Clear shader cache'),
     's_sc_lead':       ('Hilft bei Grafikfehlern, Flackern oder Rucklern nach einem Patch. Star Citizen und der Grafiktreiber bauen die Shader beim nächsten Start neu auf — der erste Start dauert dadurch etwas länger.',
                           'Helps with graphics glitches, flicker or stutter after a patch. Star Citizen and the graphics driver rebuild the shaders on the next start — so the first start takes a little longer.'),
@@ -2445,17 +2485,17 @@ TEXTS = {
     # eigene Lizenz. Die verlangt ausdrücklich **Name UND Repository** — der
     # „SC Deutsch Launcher" allein wäre nur der Verteiler, nicht der Urheber.
     's_dk_ini':        ('Die deutsche Übersetzung des Spiels selbst — die '
-                        'Grundlage, in die der Watcher seine Bauplan-Angaben '
+                        'Grundlage, in die Verse-Kit seine Bauplan-Angaben '
                         'schreibt. Es gibt sie auch auf Schweizerdeutsch; beide '
-                        'Fassungen erkennt der Watcher.\n\n'
+                        'Fassungen erkennt Verse-Kit.\n\n'
                         'Die Datei wird nur auf deinem Rechner ergänzt und '
                         'nirgendwohin weitergegeben. Die Quellenangabe in ihrer '
                         'ersten Zeile bleibt dabei unangetastet — so verlangt es '
                         'der Autor, und so findet jeder zur ursprünglichen '
                         'Übersetzung zurück.',
-                        'The German translation of the game itself — the base the '
-                        'watcher writes its blueprint notes into. There is a Swiss '
-                        'German edition too; the watcher recognises both.\n\n'
+                        'The German translation of the game itself — the base '
+                        'Verse-Kit writes its blueprint notes into. There is a Swiss '
+                        'German edition too; Verse-Kit recognises both.\n\n'
                         'The file is only extended on your own machine and is never '
                         'passed on. The source note in its first line stays '
                         'untouched — the author asks for that, and it is how anyone '
@@ -2962,12 +3002,12 @@ TEXTS = {
                           'Install the new version'),
     's_ub_hinweis_neustart': (
         'Die neue Version wird jetzt eingespielt.\n\n'
-        'Der Watcher schließt sich dabei und startet nicht von '
-        'selbst wieder — bitte starte ihn danach über das Startmenü '
+        'Verse-Kit schließt sich dabei und startet nicht von '
+        'selbst wieder — bitte starte es danach über das Startmenü '
         'oder die Verknüpfung neu.\n\n'
         'Dein Bauplan-Bestand bleibt unangetastet.',
         'The new version is being installed now.\n\n'
-        'The watcher will close and will not start again by '
+        'Verse-Kit will close and will not start again by '
         'itself — please launch it afterwards from the start menu or '
         'your shortcut.\n\n'
         'Your blueprint collection stays untouched.'),
@@ -3180,11 +3220,11 @@ TEXTS = {
                         'Network access is switched off (SC_BP_NO_NET).'),
     'm_abgewiesen':    ('Die Seite hat den Abruf abgewiesen (403). Ihr Schutz '
                         'blockiert gerade Programme — das liegt nicht an dir. '
-                        'Der Watcher arbeitet mit dem zuletzt geladenen Stand '
+                        'Verse-Kit arbeitet mit dem zuletzt geladenen Stand '
                         'weiter; versuch es später noch einmal.',
                         'The site refused the request (403). Its protection is '
                         'currently blocking programs — this is not your fault. '
-                        'The watcher keeps working with the data it already '
+                        'Verse-Kit keeps working with the data it already '
                         'has; try again later.'),
     'm_kein_zertifikat': ('Sichere Verbindung fehlgeschlagen — die Zertifikate des Systems wurden nicht gefunden',
                           'Secure connection failed — the system certificates were not found'),
@@ -3231,8 +3271,8 @@ TEXTS = {
                           'Continue without it — I will set this up later'),
     'ohne_spiel_titel': ('Ohne Spielordner eingerichtet',
                           'Set up without a game folder'),
-    'ohne_spiel_text': ('Der Watcher kann jetzt nicht mitlesen, wenn ein Bauplan hereinkommt — dafür braucht er die Game.log. Alles andere geht: die Bauplan-Liste durchsehen, einen vorhandenen Bestand einlesen und die Merkliste pflegen.',
-                          'The watcher cannot follow along when a blueprint arrives — that needs the Game.log. Everything else works: browsing the blueprint list, importing an existing inventory and keeping the watchlist.'),
+    'ohne_spiel_text': ('Verse-Kit kann jetzt nicht mitlesen, wenn ein Bauplan hereinkommt — dafür braucht es die Game.log. Alles andere geht: die Bauplan-Liste durchsehen, einen vorhandenen Bestand einlesen und die Merkliste pflegen.',
+                          'Verse-Kit cannot follow along when a blueprint arrives — that needs the Game.log. Everything else works: browsing the blueprint list, importing an existing inventory and keeping the watchlist.'),
     'ohne_spiel_wo':   ('Nachtragen kannst du den Ordner jederzeit unter Einstellungen → Ordner.',
                           'You can add the folder any time under Settings → Folders.'),
 
@@ -3284,10 +3324,10 @@ TEXTS = {
     # ⚠ Abwaehlen muss gehen. Eine Beobachtung, die man nur anlegen, aber nicht
     # loswerden kann, wird zur Altlast.
     'merk_eigene_weg':  ('Diese Beobachtung entfernen', 'Remove this watch'),
-    'merk_eigene_h':    ('Diese stehen in keinem Katalog — der Watcher hält '
+    'merk_eigene_h':    ('Diese stehen in keinem Katalog — Verse-Kit hält '
                          'nach den Suchmustern Ausschau, sobald etwas im Spiel '
                          'freigeschaltet wird.',
-                         'These are in no catalogue — the watcher looks out '
+                         'These are in no catalogue — Verse-Kit looks out '
                          'for the search patterns whenever something is '
                          'unlocked in the game.'),
     'ff_alle_unterarten': ('Alle Unterarten', 'All subtypes'),
@@ -3472,8 +3512,6 @@ TEXTS = {
     # das ist die halbe Funktion: Wer nicht weiss, dass er einen Rohstoff
     # eintippen darf, findet nie heraus, was daraus wird. Gleiches Muster wie
     # im Bergbau („Rohstoff oder Ort …").
-    's_he_suche':        ('Bauplan oder Rohstoff …',
-                          'Blueprint or resource …'),
     's_he_von':          (' von %d herstellbar — davon hast du den Bauplan',
                           ' of %d craftable — you have the blueprint for these'),
     # ⚠ Der Zusatz hinter der Kopfzahl, wenn Bauplaene wegen mehrdeutiger
@@ -3514,7 +3552,6 @@ TEXTS = {
                           'Where to sell your cargo — and what it pays per '
                           'SCU. Pick several goods at once: places that take '
                           'all of them come first.'),
-    's_vk_ware':         ('Ware suchen', 'Search commodity'),
     's_vk_holen':        ('Preise aktualisieren', 'Refresh prices'),
     's_vk_holt':         ('holt …', 'fetching …'),
     's_vk_geholt':       ('Preise sind aktuell.', 'Prices are up to date.'),
@@ -4556,11 +4593,11 @@ TEXTS = {
                           'back. After a patch wipe, “Clear stock” empties the '
                           'hold in one go.'),
     's_lg_lead':         ('Was du an Rohstoffen hast. Trag es selbst ein — das '
-                          'Spiel verrät es nicht. Beim Herstellen zieht der '
-                          'Watcher die Zutaten ab.',
+                          'Spiel verrät es nicht. Beim Herstellen zieht '
+                          'Verse-Kit die Zutaten ab.',
                           'The resources you hold. Enter them yourself — the '
-                          'game does not reveal them. When you craft, the '
-                          'watcher deducts the ingredients.'),
+                          'game does not reveal them. When you craft, '
+                          'Verse-Kit deducts the ingredients.'),
     's_lg_material':     ('Rohstoff', 'Resource'),
     's_lg_menge':        ('Menge (SCU)', 'Amount (SCU)'),
     # ⚠ Die Beschriftung sagt immer, in welcher Einheit das Feld gerade
@@ -4739,7 +4776,6 @@ TEXTS = {
     # dahintersteckt. Genau die Luecke schliesst das Feld.
     # ⚠ Nicht „Signatur selbst ablesen": Das liest sich, als müsse der
     # Spieler selbst ablesen — gemeint ist das Gegenteil.
-    's_bg_sig_feld':     ('Signatur nachschlagen', 'Look up a signature'),
     's_bg_scan_kopf':    ('Signatur automatisch erkennen', 'Recognise signatures automatically'),
     's_bg_scan_h':       ('Beim Scannen findet Verse-Kit die Zahl selbst im Bild und zeigt im Overlay, welches Erz es ist. Wird eine Zahl nicht erkannt: „Ziffern anlernen". Nur Windows.',
                           'While you scan, Verse-Kit finds the number in the image and shows the ore in the overlay. If a number is not recognised: "Teach digits". Windows only.'),
@@ -4937,7 +4973,6 @@ TEXTS = {
     's_lg_sp_menge':     ('Menge', 'Amount'),
     's_lg_sp_q':         ('Qualität', 'Quality'),
     's_lg_sp_ort':       ('Lagerort', 'Location'),
-    's_lg_filter':       ('Filtern …', 'Filter …'),
     's_lg_nichts_da':    ('Nichts gefunden.', 'Nothing found.'),
     's_lg_teil':         ('hast %g von %g · fehlt %g',
                           'have %g of %g · missing %g'),
@@ -4994,10 +5029,10 @@ TEXTS = {
                              'there and deduct it from stock once built'),
     's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
                           'No recipe available for this blueprint.'),
-    's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt der Watcher die Zutaten '
+    's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt Verse-Kit die Zutaten '
                           'aus deinem Lager — in der Qualität, die unten bei '
                           'jedem Material eingestellt ist.',
-                          'Built it? Then the watcher takes the ingredients out '
+                          'Built it? Then Verse-Kit takes the ingredients out '
                           'of your stock — in the quality set for each material '
                           'below.'),
     's_lg_abgezogen':    ('Abgezogen.', 'Deducted.'),
@@ -5130,10 +5165,10 @@ TEXTS = {
     's_ps_strahlung':    ('Strahlung', 'Radiation'),
     's_ps_rad_schutz':   ('Strahlenschutz', 'Radiation protection'),
     's_ps_rad_abbau':    ('Strahlungsabbau', 'Radiation scrub rate'),
-    's_lg_hinweis':      ('Der Watcher kennt deinen Frachtraum nicht — das hier '
+    's_lg_hinweis':      ('Verse-Kit kennt deinen Frachtraum nicht — das hier '
                           'ist deine eigene Liste. Sie sagt dir, was fehlen '
                           'könnte, nicht ob du bauen kannst.',
-                          'The watcher cannot see your cargo hold — this is your '
+                          'Verse-Kit cannot see your cargo hold — this is your '
                           'own list. It tells you what might be missing, not '
                           'whether you can build.'),
 
@@ -5156,7 +5191,6 @@ TEXTS = {
                           'dort gibt.',
                           'Where to mine what. Type a resource for its locations '
                           '— or a location for everything found there.'),
-    's_bg_suche':        ('Rohstoff oder Ort …', 'Resource or location …'),
     's_bg_nur_orte':     ('%d Orte', '%d locations'),
     's_bg_orte':         ('%d Orte · %d Rohstoffe',
                           '%d locations · %d resources'),
@@ -6061,20 +6095,20 @@ TEXTS = {
     'e_aus':             ('aus', 'off'),
     'e_durchsuchen':     ('Suchen …', 'Browse …'),
     'e_speichern':       ('Speichern', 'Save'),
-    'e_neustart_noetig': ('Gespeichert — für Ordner und Prüfintervall den Watcher '
+    'e_neustart_noetig': ('Gespeichert — für Ordner und Prüfintervall Verse-Kit '
                           'einmal neu starten.',
-                          'Saved — restart the watcher for folder and interval '
+                          'Saved — restart Verse-Kit for folder and interval '
                           'changes to take effect.'),
     'e_pfad_fehlt':      ('Diesen Ordner gibt es nicht — bitte prüfen.',
                           'That folder does not exist — please check.'),
 
     # -- Bauplan-Angaben im Spiel (Injektion) --
     'schritt_spiel_texte': ('Bauplan-Angaben im Spiel', 'Blueprint notes in game'),
-    'inj_text':          ('Der Watcher kann die Bauplan-Angaben direkt in die '
+    'inj_text':          ('Verse-Kit kann die Bauplan-Angaben direkt in die '
                           'Missionstexte des Spiels schreiben: welche Baupläne '
                           'ein Auftrag ausschüttet, mit Kästchen für die, die du '
                           'schon hast.',
-                          'The watcher can write blueprint details straight into '
+                          'Verse-Kit can write blueprint details straight into '
                           'the game\'s mission texts: which blueprints a contract '
                           'awards, with a tick box for the ones you already have.'),
     'inj_wie':           ('Dafür wird die Textdatei des Spiels verändert '

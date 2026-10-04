@@ -486,7 +486,8 @@ def _label_row(window, card, redraw):
              font=window.f_small).pack(side='left', padx=(0, 8))
     variable = tk.StringVar(master=row, value=basetool_sync.label())
     box = round_entry(row, variable, window.f_small, theme.FIELD, LINE,
-                      ACCENT, FG, width=24)
+                      ACCENT, FG, width=24,
+                      placeholder=t('s_pl_verbindungsname'))
     box.holder.pack(side='left')
     hint = tk.Label(row, text='', bg=SURFACE, fg=theme.YELLOW,
                     font=window.f_small)

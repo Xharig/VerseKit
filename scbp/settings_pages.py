@@ -205,8 +205,8 @@ def _entry_card(window, parent, index, entry, store, redraw):
         box.bind('<Return>', keep)
         return row, box
 
-    field(t('s_pg_name'), 'name')
-    row, path_box = field(t('s_pg_datei'), 'datei')
+    field(t('s_pg_name'), 'name', t('s_pl_programmname'))
+    row, path_box = field(t('s_pg_datei'), 'datei', t('s_pl_programmdatei'))
 
     def browse():
         chosen = file_picker.open_file(

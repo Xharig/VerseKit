@@ -1944,6 +1944,14 @@ class Bestandsfenster:
     def _block_bauen(self, nummer):
         start = self._block_start[nummer]
         rahmen = tk.Frame(self.leinwand, bg=BG)
+        # Der Streifenzähler setzt dort an, wo der Block davor aufgehört hat:
+        # gezählt werden die Zeilen seit dem letzten Gruppenkopf.
+        vorlauf = 0
+        for reihe in reversed(self._reihen[:start]):
+            if reihe[0] == 'kopf':
+                break
+            vorlauf += 1
+        rahmen.stripe_n = vorlauf
         habe = bestand_datei.keys(self.bestand)
         for reihe in self._reihen[start:start + BLOCK_REIHEN]:
             if reihe[0] == 'kopf':
@@ -2107,31 +2115,35 @@ class Bestandsfenster:
                  text=t('kein_katalog_hilfe')).pack()
 
     def _gruppenkopf(self, art, treffer, habe, eltern=None):
+        from .pages import _stripe_reset
         drin = sum(1 for _, d in treffer if d)
         kopf = tk.Frame(eltern if eltern is not None else self.inhalt, bg=BG)
         kopf.pack(fill='x', pady=(14, 4))
+        _stripe_reset(eltern if eltern is not None else self.inhalt)
         tk.Label(kopf, text=art.upper(), bg=BG, fg=ACCENT, font=schrift(9, True),
                  anchor='w').pack(side='left')
         tk.Label(kopf, text='  %d/%d' % (drin, len(treffer)), bg=BG, fg=SUB,
                  font=schrift(9), anchor='w').pack(side='left')
 
     def _zeile(self, eintrag, drin, eltern=None):
+        from .pages import _stripe
         name = eintrag['n']
-        row = tk.Frame(eltern if eltern is not None else self.inhalt,
-                         bg=FLAECHE)
-        row.pack(fill='x', pady=1)
+        parent = eltern if eltern is not None else self.inhalt
+        shade = _stripe(parent, FLAECHE)
+        row = tk.Frame(parent, bg=shade)
+        row.pack(fill='x', ipady=1)
 
         check_icon = icons.line(row, 'haken' if drin else 'offen',
                               color=icons.GREEN if drin else icons.GREY,
-                              background=FLAECHE, font=schrift(12))
+                              background=shade, font=schrift(12))
         check_icon.configure(cursor='hand2', padx=10, pady=6)
         check_icon.pack(side='left')
         check_icon.bind('<Button-1>', lambda e, n=name: self._umschalten(n))
         icons.hover_group(check_icon)
 
-        middle = tk.Frame(row, bg=FLAECHE)
+        middle = tk.Frame(row, bg=shade)
         middle.pack(side='left', fill='x', expand=True)
-        name_label = tk.Label(middle, text=name, bg=FLAECHE,
+        name_label = tk.Label(middle, text=name, bg=shade,
                             fg=FG if drin else SUB, font=schrift(11),
                             anchor='w')
         name_label.pack(fill='x')
@@ -2172,7 +2184,7 @@ class Bestandsfenster:
 
         details = [t for t in (kuerzel(eintrag), eintrag.get('m')) if t]
         if details:
-            tk.Label(middle, text=' · '.join(details), bg=FLAECHE, fg=SUB,
+            tk.Label(middle, text=' · '.join(details), bg=shade, fg=SUB,
                      font=schrift(9), anchor='w').pack(fill='x')
 
         if eintrag.get('q'):
@@ -2183,7 +2195,7 @@ class Bestandsfenster:
             # ⚠⚠ **Wort dazu, nicht nur ein Zeichen.** Ein Symbol am rechten
             # Rand allein verrät nicht, dass hier steht, wo es den Bauplan
             # gibt.
-            source_button = icons.tappable(row, symbol, background=FLAECHE,
+            source_button = icons.tappable(row, symbol, background=shade,
                                      text=t('hk_knopf'), font=schrift(10))
             source_button.configure(cursor='hand2', padx=12, fg=ACCENT)
             source_button.pack(side='right')
@@ -2195,7 +2207,7 @@ class Bestandsfenster:
             # in keinem Log. Eigenes Zeichen, damit niemand nach einem Auftrag
             # sucht, den es nicht gibt.
             start_icon = icons.line(row, 'standard', color=icons.GREEN,
-                                background=FLAECHE, font=schrift(10))
+                                background=shade, font=schrift(10))
             start_icon.configure(padx=12)
             start_icon.pack(side='right')
             notice.attach(start_icon, lambda: t('hinweis_startbauplan'))
@@ -2205,7 +2217,7 @@ class Bestandsfenster:
             # sähe die Zeile aus, als hätte jemand vergessen, die Herkunft
             # einzutragen; mit ? steht da, was Sache ist: Es gibt keinen Auftrag,
             # über den man da herankommt.
-            no_source_label = tk.Label(row, text='?', bg=FLAECHE, fg=SUB,
+            no_source_label = tk.Label(row, text='?', bg=shade, fg=SUB,
                             font=schrift(11), padx=12)
             no_source_label.pack(side='right')
             notice.attach(no_source_label, lambda: t('hinweis_ohne_quelle'))
@@ -2222,7 +2234,7 @@ class Bestandsfenster:
             # klein zum Klicken und ging neben dem Namen unter.
             star = icons.line(row, 'gemerkt',
                                   color=icons.YELLOW if watched else icons.GREY,
-                                  background=FLAECHE, font=schrift(16))
+                                  background=shade, font=schrift(16))
             star.configure(cursor='hand2', padx=10)
             star.pack(side='right')
             star.bind('<Button-1>', lambda e, n=name: self._merken(n))

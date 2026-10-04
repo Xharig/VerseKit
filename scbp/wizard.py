@@ -538,7 +538,8 @@ class Wizard:
         zeile = tk.Frame(f, bg=BG)
         zeile.pack(fill='x', pady=(18, 0))
         from .main_window import round_entry
-        feld = round_entry(zeile, self.ablage, mono(10), FLAECHE, LINIE, ACCENT, FG)
+        feld = round_entry(zeile, self.ablage, mono(10), FLAECHE, LINIE, ACCENT,
+                           FG, placeholder=t('s_pl_ordner'))
         feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(zeile, text=' %s ' % t('durchsuchen'), bg=BAR, fg=FG,
                          font=font(10), cursor='hand2', padx=8, pady=6)

@@ -825,7 +825,7 @@ def vorbereiten(kennung, seite, wurzel):
     elif kennung == 'bergbau':
         auswaehlen(seite, _t('s_bg_alle_erze'), 'Iron (Ore)')
         _warten(wurzel)
-        rollen_zu(seite, _t('s_bg_suche'))
+        rollen_zu(seite, _t('s_bg_alle_erze'))
     elif kennung == 'laeden':
         tippen(seite, 'Aves')
     elif kennung == 'bergung':

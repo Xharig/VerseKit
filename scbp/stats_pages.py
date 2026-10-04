@@ -45,7 +45,7 @@ from .language import t
 # auseinanderläuft. Deshalb über das Modul, nicht abgeschrieben.
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, GOLD, RED, RED_PALE,
                     _heading, _scroll_area, _body_text, _button, _setting_row,
-                    _wrap)
+                    _wrap, _stripe)
 
 # Wie hoch eine Zeile der Wärmekarte ist — und wie viel Platz die
 # Wochentage links brauchen. Die Breite der Zellen rechnet sich aus der Seite.
@@ -203,8 +203,14 @@ def table(window, parent, headers, rows, weights=None):
                  anchor='w').grid(row=0, column=column, sticky='we',
                                   padx=(0, 14), pady=(0, 4))
     for index, cells in enumerate(rows, start=1):
+        # Ein Rahmen unter der ganzen Zeile füllt auch die Spaltenabstände.
+        shade = _stripe(grid, SURFACE)
+        if shade != SURFACE:
+            tk.Frame(grid, bg=shade).grid(row=index, column=0,
+                                          columnspan=max(1, len(cells)),
+                                          sticky='nsew')
         for column, (text, color) in enumerate(cells):
-            tk.Label(grid, text=text, bg=SURFACE, fg=color or FG,
+            tk.Label(grid, text=text, bg=shade, fg=color or FG,
                      font=window.f_small, anchor='w', justify='left',
                      wraplength=0).grid(row=index, column=column, sticky='we',
                                         padx=(0, 14), pady=2)

@@ -185,8 +185,10 @@ class ScanWindow(object):
                  font=font).pack(side='left')
         # Über `round_entry` wie jedes Feld — mit dem X darin (Standard).
         from .main_window import round_entry
-        self.typed = round_entry(learn, None, font, BG, theme.LINE2, ACCENT, FG,
-                                 width=9)
+        self.typed_var = tk.StringVar(learn)
+        self.typed = round_entry(learn, self.typed_var, font, BG, theme.LINE2,
+                                 ACCENT, FG, width=9,
+                                 placeholder=t('s_pl_scanzahl'))
         self.typed.holder.pack(side='left', padx=4)
         self.typed.bind('<Return>', lambda _e: self._learn())
         self._link(learn, t('scan_anlernen'), self._learn, ACCENT).pack(side='left')
@@ -257,7 +259,7 @@ class ScanWindow(object):
         if not self.raster:
             self.note.configure(text=t('scan_warte'), fg=SUB)
             return
-        typed = self.typed.get()
+        typed = self.typed_var.get()
         ok, reason, stats = signature_scan.learn(self.raster, typed)
         if not ok:
             self.note.configure(text=t('scan_grund_' + reason), fg=RED)
@@ -287,7 +289,7 @@ class ScanWindow(object):
             lines.append(t('scan_probe_nein'))
             color = GOLD
         self.note.configure(text='\n'.join(lines), fg=color)
-        self.typed.delete(0, 'end')
+        self.typed_var.set('')
 
     def close(self):
         _open[0] = None
