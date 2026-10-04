@@ -21,9 +21,12 @@ Das Raffinerie-Terminal vom Bildschirm lesen.
 
 Ablauf: Star-Citizen-Fenster abgreifen (`screen_grab`), als BMP in den
 Temp-Ordner legen, mit der Texterkennung von Windows lesen
-(`Windows.Media.Ocr` über `powershell.exe`, ohne Fenster), aus den
-erkannten Wörtern die Tabellenzeilen zusammensetzen und daraus Zeilen im
-Format von `materials.refinery_lines` bauen.
+(`Windows.Media.Ocr` über `powershell.exe`, ohne Fenster). Zuerst wird das
+ganze Bild in vergrößerten Kacheln nach der Kopfzeile der Ausbeute-Tabelle
+abgesucht (`search_jobs`, `find_table`) — das Terminal kann irgendwo auf
+einem breiten Bildschirm stehen. Danach wird nur dieser Ausschnitt mehrfach
+gelesen, die Tabellenzeilen zusammengesetzt und daraus Zeilen im Format von
+`materials.refinery_lines` gebaut.
 
 Geschrieben wird hier nichts ins Lager: Das Ergebnis ist Text, den die
 Oberfläche in das Raffinerie-Feld legt. Eingetragen wird erst über den
@@ -57,11 +60,12 @@ import time
 
 _CREATE_NO_WINDOW = 0x08000000
 
-# Liest das Bild aus `VK_OCR_IMAGE` (wahlweise nur den Ausschnitt
-# `VK_OCR_CROP` = x,y,b,h) einmal je Vergrößerung aus `VK_OCR_SCALES` und
-# schreibt je Durchgang die Wörter mit Rahmen als JSON — in Bildpunkten des
-# Originals. Nimmt die Sprache des Benutzerprofils, sonst die erste
-# installierte.
+# Liest das Bild aus `VK_OCR_IMAGE` einmal je Auftrag aus `VK_OCR_JOBS`
+# (`x,y,b,h,vergrößerung,art`, getrennt durch `;`) und schreibt je Auftrag
+# die Wörter mit Rahmen als JSON — in Bildpunkten des Originals. Wahlweise
+# legt es vorher das ganze Bild (`VK_OCR_SAVE`) und einen Ausschnitt
+# (`VK_OCR_SAVE_CROP` = `x,y,b,h|pfad`) als PNG ab. Nimmt die Sprache des
+# Benutzerprofils, sonst die erste installierte.
 _PS_SCRIPT = r'''
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -86,17 +90,34 @@ if ($null -eq $engine) { Write-Output '{"error":"no_engine"}'; exit 0 }
 Add-Type -AssemblyName System.Drawing
 $source = [System.Drawing.Bitmap]::new($env:VK_OCR_IMAGE)
 $fw = [int]$source.Width; $fh = [int]$source.Height
-$cx = 0; $cy = 0; $cw = $fw; $ch = $fh
-if ($env:VK_OCR_CROP) {
-    $c = $env:VK_OCR_CROP.Split(',') | ForEach-Object { [int]$_ }
-    $cx = [Math]::Max(0, $c[0]); $cy = [Math]::Max(0, $c[1])
-    $cw = [Math]::Min($c[2], $source.Width - $cx); $ch = [Math]::Min($c[3], $source.Height - $cy)
+if ($env:VK_OCR_SAVE) {
+    $maxw = [int]$env:VK_OCR_SAVE_MAXW
+    if ($maxw -gt 0 -and $fw -gt $maxw) {
+        $small = [System.Drawing.Bitmap]::new($maxw, [int][Math]::Round($fh * $maxw / $fw))
+        $gs = [System.Drawing.Graphics]::FromImage($small)
+        $gs.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $gs.DrawImage($source, 0, 0, $small.Width, $small.Height); $gs.Dispose()
+        $small.Save($env:VK_OCR_SAVE, [System.Drawing.Imaging.ImageFormat]::Png); $small.Dispose()
+    } else {
+        $source.Save($env:VK_OCR_SAVE, [System.Drawing.Imaging.ImageFormat]::Png)
+    }
+}
+if ($env:VK_OCR_SAVE_CROP) {
+    $sc = $env:VK_OCR_SAVE_CROP.Split('|'); $c = $sc[0].Split(',') | ForEach-Object { [int]$_ }
+    $sx = [Math]::Max(0, $c[0]); $sy = [Math]::Max(0, $c[1])
+    $part = $source.Clone([System.Drawing.Rectangle]::new($sx, $sy,
+        [Math]::Min($c[2], $fw - $sx), [Math]::Min($c[3], $fh - $sy)), $source.PixelFormat)
+    $part.Save($sc[1], [System.Drawing.Imaging.ImageFormat]::Png); $part.Dispose()
 }
 $limit = [Windows.Media.Ocr.OcrEngine]::MaxImageDimension
-$passes = foreach ($wanted in $env:VK_OCR_PASSES.Split(',')) {
-    $spec = $wanted.Split(':')
-    $scale = [double]::Parse($spec[0], [Globalization.CultureInfo]::InvariantCulture)
-    $mode = if ($spec.Count -gt 1) { $spec[1] } else { 'plain' }
+$inv = [Globalization.CultureInfo]::InvariantCulture
+$passes = foreach ($job in $env:VK_OCR_JOBS.Split(';')) {
+    $spec = $job.Split(',')
+    $cx = [Math]::Max(0, [int]$spec[0]); $cy = [Math]::Max(0, [int]$spec[1])
+    $cw = [Math]::Min([int]$spec[2], $fw - $cx); $ch = [Math]::Min([int]$spec[3], $fh - $cy)
+    if ($cw -le 0 -or $ch -le 0) { continue }
+    $scale = [double]::Parse($spec[4], $inv)
+    $mode = $spec[5]
     if ($scale -le 0) { $scale = 1.0 }
     if ([Math]::Max($cw, $ch) * $scale -gt $limit) { $scale = $limit / [Math]::Max($cw, $ch) }
     $tw = [int][Math]::Floor($cw * $scale); $th = [int][Math]::Floor($ch * $scale)
@@ -112,6 +133,16 @@ $passes = foreach ($wanted in $env:VK_OCR_PASSES.Split(',')) {
         foreach ($o in 0, 1, 2) {
             $m.Item(0, $o) = 0.30 * $k; $m.Item(1, $o) = 0.59 * $k
             $m.Item(2, $o) = 0.11 * $k; $m.Item(4, $o) = -0.25
+        }
+        $m.Item(3, 3) = 1.0; $m.Item(4, 4) = 1.0
+        $attr.SetColorMatrix($m)
+    }
+    if ($mode -eq 'dark') {
+        # grayscale, inverted, contrast stretched by 1/0.7: dark text on light
+        $m = [System.Drawing.Imaging.ColorMatrix]::new()
+        foreach ($o in 0, 1, 2) {
+            $m.Item(0, $o) = -0.30 / 0.7; $m.Item(1, $o) = -0.59 / 0.7
+            $m.Item(2, $o) = -0.11 / 0.7; $m.Item(4, $o) = 1.0 / 0.7
         }
         $m.Item(3, 3) = 1.0; $m.Item(4, 4) = 1.0
         $attr.SetColorMatrix($m)
@@ -135,7 +166,7 @@ $passes = foreach ($wanted in $env:VK_OCR_PASSES.Split(',')) {
                w = [int]($r.Width / $scale); h = [int]($r.Height / $scale) }
         }
     }
-    @{ scale = $scale; mode = $mode; words = @($words) }
+    @{ box = @($cx, $cy, $cw, $ch); scale = $scale; mode = $mode; words = @($words) }
 }
 $source.Dispose()
 @{ width = $fw; height = $fh;
@@ -226,17 +257,20 @@ def _powershell():
     return path if os.path.isfile(path) else 'powershell.exe'
 
 
-def ocr_image(path, passes=((1.0, 'plain'),), crop=None, timeout=90):
+def ocr_image(path, jobs, save=None, save_crop=None, timeout=180):
     """Ein Bild mit der Windows-Texterkennung lesen. Gibt das Ergebnis-dict
-    `{'width', 'height', 'lang', 'passes': [{'scale', 'mode', 'words'}, …]}`.
+    `{'width', 'height', 'lang', 'passes': [{'box', 'scale', 'mode',
+    'words'}, …]}`.
 
     Startet `powershell.exe` (Windows PowerShell 5.1 kennt die
-    WinRT-Typen, PowerShell 7 nicht) ohne Fenster. Je Eintrag in `passes`
-    ein Durchgang `(vergrößerung, art)` — Art `plain` (unverändert) oder
-    `gray` (Graustufe mit gespreiztem Kontrast). Die
-    Vergrößerung endet bei `OcrEngine.MaxImageDimension`. `crop` =
-    (x, y, b, h) liest nur diesen Ausschnitt; die Wortrahmen stehen immer in
-    Bildpunkten des Originals. Das Bild muss BMP, PNG oder JPEG sein.
+    WinRT-Typen, PowerShell 7 nicht) ohne Fenster. Je Eintrag in `jobs`
+    ein Durchgang `((x, y, b, h), vergrößerung, art)` über diesen Ausschnitt —
+    Art `plain` (unverändert) oder `gray` (Graustufe mit gespreiztem
+    Kontrast). Die Vergrößerung endet bei `OcrEngine.MaxImageDimension`. Die
+    Wortrahmen stehen immer in Bildpunkten des Originals. `save` legt das
+    ganze Bild als PNG ab, verkleinert auf höchstens `KEEP_MAX_WIDTH`
+    Bildpunkte Breite; `save_crop` = `((x, y, b, h), pfad)` einen
+    Ausschnitt in voller Auflösung. Das Bild muss BMP, PNG oder JPEG sein.
     """
     if not supported():
         raise ScanError('nicht_unterstuetzt')
@@ -245,9 +279,16 @@ def ocr_image(path, passes=((1.0, 'plain'),), crop=None, timeout=90):
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startup.wShowWindow = 0
     env = dict(os.environ, VK_OCR_IMAGE=os.path.abspath(path),
-               VK_OCR_PASSES=','.join('%.3f:%s' % (float(s), m)
-                                      for s, m in passes),
-               VK_OCR_CROP=','.join(str(int(v)) for v in crop) if crop else '')
+               VK_OCR_JOBS=';'.join(
+                   '%d,%d,%d,%d,%.3f,%s' % (tuple(int(v) for v in box)
+                                            + (float(scale), mode))
+                   for box, scale, mode in jobs),
+               VK_OCR_SAVE=os.path.abspath(save) if save else '',
+               VK_OCR_SAVE_MAXW=str(int(KEEP_MAX_WIDTH)),
+               VK_OCR_SAVE_CROP=('%s|%s' % (','.join(str(int(v)) for v in
+                                                     save_crop[0]),
+                                            os.path.abspath(save_crop[1]))
+                                 if save_crop else ''))
     try:
         done = subprocess.run(
             [_powershell(), '-NoProfile', '-NonInteractive',
@@ -475,11 +516,16 @@ def parse_rows(table, index=None):
 MIN_VOTES = 2
 
 
-def _vote(values, minimum):
+# Liest ein zweiter Wert mindestens so oft, ist die Zelle umstritten. Bei 1
+# muss jede Lesung, die überhaupt eine Zahl ergab, dieselbe Zahl ergeben.
+RIVAL_VOTES = 1
+
+
+def _vote(values, minimum, rival=None):
     """Der Wert, den die meisten Durchgänge lasen — oder None.
 
-    None, wenn er seltener als `minimum` vorkommt oder ein zweiter Wert
-    gleich oft gelesen wurde.
+    None, wenn er seltener als `minimum` vorkommt, ein zweiter Wert gleich
+    oft gelesen wurde oder ein zweiter Wert mindestens `rival`-mal vorkommt.
     """
     counts = {}
     for value in values:
@@ -491,6 +537,8 @@ def _vote(values, minimum):
     if ranked[0][1] < minimum:
         return None
     if len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
+        return None
+    if rival and len(ranked) > 1 and ranked[1][1] >= rival:
         return None
     return ranked[0][0]
 
@@ -523,8 +571,10 @@ def merge_passes(passes, index=None, minimum=None):
     found, unsure = [], []
     for cluster in clusters:
         material = _vote([r['material'] for r in cluster['rows']], 1)
-        quality = _vote([r['quality'] for r in cluster['rows']], minimum)
-        amount = _vote([r['amount'] for r in cluster['rows']], minimum)
+        quality = _vote([r['quality'] for r in cluster['rows']], minimum,
+                        RIVAL_VOTES)
+        amount = _vote([r['amount'] for r in cluster['rows']], minimum,
+                       RIVAL_VOTES)
         if material is None:
             continue
         if quality is None or amount is None:
@@ -543,56 +593,263 @@ def as_text(found):
 # Die Durchgänge über den Tabellenausschnitt. Die Ziffern im Terminal sind
 # auf einem 1440er-Bildschirm nur rund acht Bildpunkte hoch; erst vergrößert
 # liest die OCR sie, und jeder Durchgang verliest andere Ziffern.
-PASSES = ((2.0, 'plain'), (3.0, 'plain'), (4.0, 'plain'), (5.0, 'plain'),
-          (3.0, 'gray'))
-# Anker für den Ausschnitt: die Spaltenüberschrift der Ausbeute-Tabelle.
-_ANCHORS = ('materialien', 'materials', 'gewonnene', 'refined', 'cscu')
+PASSES = ((3.0, 'plain'), (5.0, 'plain'), (3.5, 'dark'), (4.0, 'dark'))
+
+# Größte Kantenlänge, die `Windows.Media.Ocr` annimmt.
+OCR_LIMIT = 10000
+# Die Suche nach der Tabelle vergrößert so, dass die Bildhöhe danach etwa
+# diesem Wert entspricht: Die Schrift des Terminals wächst mit der
+# Bildschirmhöhe, und ab rund 20 Bildpunkten Schrifthöhe liest die OCR sie.
+SEARCH_HEIGHT = 4320
+
+# Spaltenköpfe der Ausbeute-Tabelle (`refinery_ui_JobCard_Table_*` in der
+# `global.ini`, deutsch und englisch), nur Großbuchstaben. Wortteile, damit
+# auch verlesene Buchstaben noch treffen (`QUALITÄT` als `OUAUTiT`).
+_HEAD_QUALITY = ('UALI', 'UAUT', 'QUAL', 'QUAU', 'ALIT', 'AUTY')
+_HEAD_YIELD = ('AUSBEUT', 'USBEUT', 'YIELD', 'ERTRAG')
+# Die Kopfwörter der Materialspalte links davon.
+_HEAD_MATERIAL = ('WONNEN', 'GEWONN', 'MATERIA', 'ATERIAL', 'CSCU',
+                  'YIELDED', 'IELDED')
 
 
-def table_crop(words, width, height):
-    """Den Ausschnitt um die Ausbeute-Tabelle — oder None.
-
-    Gesucht wird die Überschrift (`GEWONNENE MATERIALIEN (cSCU)` bzw.
-    englisch); der Ausschnitt reicht von dort nach unten und nach rechts
-    über die Zahlenspalten.
-    """
-    hits = [w for w in words or ()
-            if any(a in (w.get('t') or '').lower() for a in _ANCHORS)]
-    if not hits:
+def image_size(path):
+    """(breite, höhe) einer BMP- oder PNG-Datei — oder None."""
+    import struct
+    try:
+        with open(path, 'rb') as handle:
+            head = handle.read(32)
+    except OSError:
         return None
-    anchor = min(hits, key=lambda w: w.get('y', 0))
-    unit = max(8, anchor.get('h', 8))
-    left = max(0, anchor.get('x', 0) - 4 * unit)
-    top = max(0, anchor.get('y', 0) - unit)
-    right = min(width, anchor.get('x', 0) + 45 * unit)
-    bottom = min(height, anchor.get('y', 0) + 60 * unit)
-    return left, top, right - left, bottom - top
+    if head[:2] == b'BM' and len(head) >= 26:
+        width, height = struct.unpack('<ii', head[18:26])
+        return width, abs(height)
+    if head[:8] == b'\x89PNG\r\n\x1a\n' and len(head) >= 24:
+        return struct.unpack('>II', head[16:24])
+    return None
 
 
-def read_image(path, ocr=None):
-    """Ein Bild lesen: `(text, unsicher)` für das Raffinerie-Feld.
+def search_jobs(width, height):
+    """Die OCR-Aufträge, mit denen die Tabelle auf dem ganzen Bild gesucht wird.
 
-    Erst eine Lesung in Originalgröße, um die Tabelle zu finden; dann
-    vergrößerte Lesungen nur dieses Ausschnitts (`PASSES`), die
-    `merge_passes` zusammenführt. Ohne Tabelle auf dem Bild: `('', [])`.
+    Überlappende Kacheln, je etwa 0,9 × 0,5 Bildhöhen groß, vergrößert auf
+    `SEARCH_HEIGHT` / Bildhöhe (1 bis 4). Eine Kachel überlappt die nächste
+    um ein Viertel, damit eine Zeile, die an einer Kante liegt, in der
+    Nachbarkachel ganz steht.
+    """
+    scale = max(1.0, min(4.0, SEARCH_HEIGHT / float(max(1, height))))
+    tile_w = min(width, int(height * 0.9))
+    tile_h = min(height, max(1, int(height * 0.5)))
+    tile_w = min(tile_w, int(OCR_LIMIT / scale))
+    tile_h = min(tile_h, int(OCR_LIMIT / scale))
+
+    def starts(total, size):
+        if size >= total:
+            return [0]
+        step = max(1, int(size * 0.75))
+        out = list(range(0, total - size, step))
+        out.append(total - size)
+        return out
+
+    return [((x, y, tile_w, tile_h), scale, 'plain')
+            for y in starts(height, tile_h) for x in starts(width, tile_w)]
+
+
+def merge_words(passes):
+    """Die Wörter mehrerer Kacheln zu einer Liste, ohne Doppelte.
+
+    Ein Wort, das in zwei überlappenden Kacheln gelesen wurde, steht einmal:
+    gleicher Text und Mitten weniger als eine halbe Wortlänge auseinander.
+    """
+    out = []
+    for words in passes:
+        for word in words or ():
+            text = (word.get('t') or '').strip()
+            if not text:
+                continue
+            cx = word.get('x', 0) + word.get('w', 0) / 2.0
+            cy = word.get('y', 0) + word.get('h', 0) / 2.0
+            limit = max(word.get('h', 1), word.get('w', 1) / 2.0)
+            for other in out:
+                if (other['t'] == text
+                        and abs(other['x'] + other['w'] / 2.0 - cx) < limit
+                        and abs(other['y'] + other['h'] / 2.0 - cy)
+                        < max(1, word.get('h', 1))):
+                    break
+            else:
+                out.append(dict(word, t=text))
+    return out
+
+
+def _head(word, keys):
+    """Enthält das Wort (nur seine Buchstaben, groß) einen der Wortteile?"""
+    text = re.sub(r'[^A-Z]', '', (word.get('t') or '').upper())
+    return any(key in text for key in keys)
+
+
+def find_table(words, width, height):
+    """Den Ausschnitt der Ausbeute-Tabelle — `(x, y, b, h)` — oder None.
+
+    Gesucht wird die Kopfzeile: eine Zeile mit einem Qualitäts-Kopf und
+    rechts daneben einem Ausbeute-Kopf. Die Materialliste links im Terminal
+    (Stationsprofil) hat keinen Qualitäts-Kopf und zählt deshalb nicht.
+
+    Der Ausschnitt reicht
+    - links bis zum Kopf der Materialspalte (`_HEAD_MATERIAL`, höchstens
+      30 Schrifthöhen links der Qualität), ohne ihn bis 24 Schrifthöhen,
+    - rechts bis zum letzten Kopfwort (höchstens 25 Schrifthöhen rechts der
+      Qualität),
+    - oben bis über die Kopfzeile,
+    - unten bis zur Summenzeile (ein `cSCU` oder ein Ausbeute-Wort links
+      von der Qualitätsspalte, unterhalb der Kopfzeile), ohne sie bis
+      55 Schrifthöhen.
+    Alles links der Materialspalte bleibt draußen — auch Wörter, die die
+    Zeilenbildung derselben Zeile zuschlägt.
+    """
+    best = None
+    for line in rows(words):
+        for quality in (w for w in line if _head(w, _HEAD_QUALITY)):
+            unit = max(4, quality.get('h', 8))
+            qx = quality.get('x', 0)
+            yield_ = [w for w in line if _head(w, _HEAD_YIELD)
+                      and 0 < w.get('x', 0) - qx < 20 * unit]
+            if not yield_:
+                continue
+            heads = [w for w in line if _head(w, _HEAD_MATERIAL)
+                     and 0 < qx - w.get('x', 0) < 30 * unit]
+            rights = [w for w in line if 0 <= w.get('x', 0) - qx < 25 * unit]
+            score = len(heads) + len(rights)
+            if best is None or score > best[0]:
+                best = (score, quality, unit, heads, rights)
+    if best is None:
+        return None
+    _score, quality, unit, heads, rights = best
+    qx = quality.get('x', 0)
+    left = min(w.get('x', 0) for w in heads) if heads else qx - 24 * unit
+    header = heads + rights
+    right = max(w.get('x', 0) + w.get('w', 0) for w in header)
+    top = min(w.get('y', 0) for w in header)
+    header_bottom = max(w.get('y', 0) + w.get('h', 0) for w in header)
+    below = [w for w in words
+             if w.get('y', 0) > header_bottom + 2 * unit
+             and left - unit <= w.get('x', 0) <= right
+             and (_head(w, ('SCU',))
+                  or (_head(w, _HEAD_YIELD)
+                      and w.get('x', 0) < quality.get('x', 0)))]
+    if below:
+        bottom = min(w.get('y', 0) for w in below)
+    else:
+        bottom = header_bottom + 55 * unit
+    x0 = max(0, int(left - unit))
+    y0 = max(0, int(top - unit))
+    x1 = min(width, int(right + 2 * unit))
+    y1 = min(height, int(bottom))
+    if x1 <= x0 or y1 <= y0:
+        return None
+    return x0, y0, x1 - x0, y1 - y0
+
+
+# Wie viele missglückte Lesungen aufgehoben werden, für einen Fehlerbericht,
+# und wie breit ein aufgehobenes Vollbild höchstens ist.
+KEEP_SCANS = 3
+KEEP_MAX_WIDTH = 2560
+KEEP_FOLDER = 'raffinerie-bilder'
+
+
+def keep_folder():
+    from . import paths
+    return os.path.join(os.path.dirname(paths.app_file('x')), KEEP_FOLDER)
+
+
+def kept_images():
+    """Die aufgehobenen Bilder (Dateinamen), älteste zuerst."""
+    folder = keep_folder()
+    try:
+        return sorted(f for f in os.listdir(folder)
+                      if f.startswith('raffinerie_') and f.endswith('.png'))
+    except OSError:
+        return []
+
+
+def keep(source, kind):
+    """Ein PNG als `raffinerie_<zeit>_<kind>.png` in `KEEP_FOLDER` legen.
+
+    Danach bleiben nur die neuesten `KEEP_SCANS` Bilder. Gibt True, wenn das
+    Bild abgelegt wurde.
+    """
+    import shutil
+    if not source or not os.path.isfile(source):
+        return False
+    folder = keep_folder()
+    try:
+        os.makedirs(folder, exist_ok=True)
+        now = time.time()
+        stamp = '%s-%03d' % (time.strftime('%Y%m%d-%H%M%S', time.localtime(now)),
+                             int(now * 1000) % 1000)
+        shutil.move(source, os.path.join(
+            folder, 'raffinerie_%s_%s.png' % (stamp, kind)))
+        for name in kept_images()[:-KEEP_SCANS]:
+            os.remove(os.path.join(folder, name))
+        return True
+    except OSError as exc:
+        from . import errors
+        errors.record('refinery_scan.keep', exc)
+        return False
+
+
+def read_image(path, ocr=None, keep_failed=False):
+    """Ein Bild lesen: `(text, unsicher, aufgehoben)` für das Raffinerie-Feld.
+
+    Erst die Suche nach der Tabelle über das ganze Bild (`search_jobs`,
+    `find_table`), dann vergrößerte Lesungen nur dieses Ausschnitts
+    (`PASSES`), die `merge_passes` zusammenführt. Ohne Tabelle: kein Text,
+    nichts unsicher.
+
+    `keep_failed`: Bleibt die Lesung leer oder unsicher, wird ein Bild für
+    den Fehlerbericht aufgehoben (`keep`) — der Tabellenausschnitt, wenn die
+    Tabelle gefunden wurde, sonst das ganze Bild, verkleinert auf
+    `KEEP_MAX_WIDTH`. `aufgehoben` sagt, ob das geschah.
     """
     ocr = ocr or ocr_image
-    first = ocr(path, passes=((1.0, 'plain'),))
-    words = (first.get('passes') or [{}])[0].get('words') or []
-    crop = table_crop(words, first.get('width') or 0, first.get('height') or 0)
-    if crop is None:
-        return '', []
-    data = ocr(path, passes=PASSES, crop=crop)
-    passes = [p.get('words') or [] for p in data.get('passes') or ()]
-    found, unsure = merge_passes(passes)
-    return as_text(found), unsure
+    size = image_size(path)
+    if size is None:
+        raise ScanError('ocr', 'image size')
+    width, height = size
+    base = os.path.splitext(path)[0]
+    full_png = base + '-bild.png' if keep_failed else None
+    crop_png = base + '-tabelle.png' if keep_failed else None
+    try:
+        search = ocr(path, search_jobs(width, height), save=full_png)
+        words = merge_words(p.get('words') for p in search.get('passes') or ())
+        crop = find_table(words, width, height)
+        if crop is None:
+            return '', [], bool(keep_failed and keep(full_png, 'bild'))
+        data = ocr(path, [(crop, scale, mode) for scale, mode in PASSES],
+                   save_crop=(crop, crop_png) if keep_failed else None)
+        passes = [p.get('words') or [] for p in data.get('passes') or ()]
+        found, unsure = merge_passes(passes)
+        kept = False
+        if keep_failed and (unsure or not found):
+            kept = keep(crop_png, 'tabelle')
+        return as_text(found), unsure, kept
+    finally:
+        for temp in (full_png, crop_png):
+            if temp and os.path.isfile(temp):
+                try:
+                    os.remove(temp)
+                except OSError:
+                    pass
 
 
 def read_screen(rect, ocr=None):
-    """Die Spielfläche abgreifen und lesen. Die Bilddatei wird danach gelöscht."""
+    """Die Spielfläche abgreifen und lesen: `(text, unsicher, aufgehoben)`.
+
+    Die abgegriffene Datei wird danach gelöscht; aufgehoben wird nur, was
+    `read_image(keep_failed=True)` bei einer leeren oder unsicheren Lesung
+    ablegt.
+    """
     path = grab_game(rect)
     try:
-        return read_image(path, ocr)
+        return read_image(path, ocr, keep_failed=True)
     finally:
         try:
             os.remove(path)

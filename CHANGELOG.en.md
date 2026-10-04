@@ -17,11 +17,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Material storage: single entry can be folded** — like the refinery
   yield; each block remembers whether it is open. Correcting an item opens
   the entry on its own
+- **Refinery scanner: picture for the bug report** — if a reading was empty
+  or unsure, Verse-Kit keeps the picture (the last three) and sends it along
+  when you send a bug report with images. Found: only the terminal's table;
+  nothing found: the game picture, scaled down
+- **Refinery scanner reads more carefully** — a number only counts if all
+  readings see it the same; otherwise the resource is listed as "not read
+  reliably"
 
 ### Fixed
 
 - **"Clear stock" was cut off** — "Sync now" and "Clear stock" now sit
   in a row of their own
+- **Refinery scanner on wide screens** — it now finds the terminal on the
+  whole picture by itself, also on 32:9, and leaves out the station profile
+  to its left
 
 ## v3.88.0 - 2026-10-04
 

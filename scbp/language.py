@@ -211,6 +211,12 @@ TEXTS = {
                           'dem Terminal vergleichen, dann eintragen.',
                           '%d lines read and placed below — compare them with '
                           'the terminal, then add them.'),
+    's_rf_lesen_bild': ('Das Bild dieser Lesung ist aufgehoben — schick es '
+                        'mit einem Fehlerbericht (Info → Fehler melden), '
+                        'dann wird der Scanner besser.',
+                        'The picture of this reading was kept — send it with '
+                        'a bug report (Info → Report a problem) to help '
+                        'improve the scanner.'),
     's_rf_lesen_unsicher': ('Nicht sicher gelesen, bitte selbst eintippen: %s',
                             'Not read reliably, please type in yourself: %s'),
     's_rf_lesen_nur_windows': ('Bildschirm lesen geht bisher nur unter Windows.',
@@ -2296,8 +2302,8 @@ TEXTS = {
                         'The report above goes to the developer as a file — exactly the text you see, nothing else.\n\nIt contains no names, no paths and no credentials; those have already been removed.\n\nSend it?'),
     's_di_ab_laeuft':  ('Wird gesendet …', 'Sending …'),
     's_di_zustimmung': ('Ich möchte den Bericht an den Entwickler senden', 'I want to send the report to the developer'),
-    's_di_zustimmung_bilder': ('Ich möchte den Bericht und meine %d Scan-Bilder an den Entwickler senden',
-                               'I want to send the report and my %d scan images to the developer'),
+    's_di_zustimmung_bilder': ('Ich möchte den Bericht und meine %d Scan-Bilder (Signatur und Raffinerie) an den Entwickler senden',
+                               'I want to send the report and my %d scan images (signature and refinery) to the developer'),
     's_di_erst_bestaetigen': ('Erst den Haken unter „Absenden" setzen.', 'Tick the box below "Send" first.'),
     's_di_ab_ok':      ('Bericht ist angekommen. Danke!', 'Report received. Thank you!'),
     's_di_ab_weg':     ('Senden ging nicht: %s', 'Sending did not work: %s'),

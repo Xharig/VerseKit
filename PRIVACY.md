@@ -84,6 +84,13 @@ seinen vollen Wortlaut gesehen hast. Er geht an `bericht.xharig.com`, eine
 Weiterleitung in den Meldekanal des Projekts auf Discord. Benutzername, Pfade
 und alles, was nach Zugangsdaten aussieht, sind vorher ersetzt.
 
+Hast du den Haken für die Bilder gesetzt, gehen die Scan-Bilder mit: bei
+Signaturen der Ausschnitt um die Zahl, beim Raffinerie-Scanner die Tabelle des
+Terminals aus einer Lesung, die nicht sicher war (die letzten drei). Nur wenn
+die Tabelle gar nicht gefunden wurde, ist es das Spielbild, verkleinert — darauf
+können dein Handle und dein aUEC-Stand zu sehen sein. Die Bilder liegen bis
+dahin in deinem Datenordner (`raffinerie-bilder`, `signatur-bilder`).
+
 ## KRT Profit Basetool
 
 Nur, wenn du Verse-Kit ausdrücklich verbindest **und** den Abgleich

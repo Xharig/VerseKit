@@ -25233,6 +25233,7 @@ def main():
     _pruefung_348()
     _pruefung_349()
     _pruefung_350()
+    _pruefung_351()
     _pruefung_370()
     _pruefung_377()
 
@@ -35060,15 +35061,15 @@ def _pruefung_346():
                'eine Lesung: vier Rohstoffzeilen, Name mit Leerzeichen ganz, '
                'fehlende Ausbeute bleibt leer statt ZU zu nehmen (%s)' % gelesen)
 
-        # Drei Lesungen: Ouratite einmal verlesen (23 statt 523), Stileron in
-        # jeder Lesung anders, Aslarite ohne Ausbeute.
+        # Drei Lesungen: Ouratite einmal nicht lesbar, Stileron in jeder
+        # Lesung anders, Aslarite ohne Ausbeute, Taranite-Qualität nur einmal.
         def _lesungen(werte_je):
             return [_ocr_tabelle_346(w) for w in werte_je]
         passes = _lesungen([
             [('TITANIUM', 516, 66, 66), ('OURATITE', 523, 41, 42),
              ('STILERON', 330, 43, 44), ('ASLARITE', 287, None, 658),
              ('TARANITE', 525, 4, 5)],
-            [('TITANIUM', 516, 66, 66), ('OURATITE', 23, 41, 42),
+            [('TITANIUM', 516, 66, 66), ('OURATITE', None, 41, 42),
              ('STILERON', 338, 43, 44), ('ASLARITE', 287, None, 658),
              ('TARANITE', None, 4, 5)],
             [('TITANIUM', 516, 66, 66), ('OURATITE', 523, 41, 42),
@@ -35077,8 +35078,21 @@ def _pruefung_346():
         ])
         gefunden, unsicher = _rs346.merge_passes(passes)
         pruefe(gefunden == [('Titanium', 516, 66), ('Ouratite', 523, 41)],
-               'abgestimmt: Titanium und Ouratite (2 von 3 Lesungen gleich) (%s)'
-               % gefunden)
+               'abgestimmt: Titanium und Ouratite (2 von 3 Lesungen gleich, '
+               'die dritte ohne Zahl) (%s)' % gefunden)
+        # Ein abweichender Wert in nur einer Lesung macht die Zelle unsicher
+        # (23 statt 523: eine weggefallene Ziffer).
+        streit = _lesungen([[('OURATITE', 523, 41, 42)], [('OURATITE', 523, 41, 42)],
+                            [('OURATITE', 23, 41, 42)]])
+        pruefe(_rs346.merge_passes(streit) == ([], ['Ouratite']),
+               'eine abweichende Lesung: unsicher statt Mehrheit')
+        _echt_rival346 = _rs346.RIVAL_VOTES
+        _rs346.RIVAL_VOTES = None
+        try:
+            pruefe(_rs346.merge_passes(streit)[0] == [('Ouratite', 523, 41)],
+                   'Gegenprobe: ohne die Regel gälte die Mehrheit 523')
+        finally:
+            _rs346.RIVAL_VOTES = _echt_rival346
         pruefe(unsicher == ['Stileron', 'Aslarite', 'Taranite'],
                'nicht sicher: Stileron (drei verschiedene Werte), Aslarite '
                '(keine Ausbeute), Taranite (Qualität nur einmal gelesen) — '
@@ -35108,10 +35122,10 @@ def _pruefung_346():
             _ocr_tabelle_346([('ASLARITE', 287, None, 658)])))
         pruefe(z_mit[0]['amount'] is None and z_ohne[0]['amount'] == 658,
                'Gegenprobe: die Überschrift hält ZU aus der Ausbeute heraus')
-        pruefe(_rs346.table_crop(_ocr_tabelle_346([]), 5120, 1440) is not None
-               and _rs346.table_crop([_ocr_wort_346('HANGAR', 10, 10)],
+        pruefe(_rs346.find_table(_ocr_tabelle_346([]), 5120, 1440) is not None
+               and _rs346.find_table([_ocr_wort_346('HANGAR', 10, 10)],
                                      5120, 1440) is None,
-               'Tabellenausschnitt nur, wenn die Überschrift da ist')
+               'Tabellenausschnitt nur, wenn die Kopfzeile da ist')
         # Das BMP, das der Abgriff schreibt: 24 Bit, oben beginnend, Zeilen
         # auf vier Byte aufgefüllt.
         import struct as _st346
@@ -35127,6 +35141,160 @@ def _pruefung_346():
     finally:
         _cr346.storable = _echt_lager346
         _rs346.MIN_VOTES = _echt_min346
+
+
+def _breitbild_351(mit_qualitaet=True):
+    """OCR-Wörter eines 5120×1440-Bildes mit Raffinerie-Terminal in der Mitte.
+
+    Links das Stationsprofil (Materialliste mit Kopf MATERIAL/AUSBEUTE, auf
+    denselben Höhen wie die Tabellenzeilen), rechts daneben die
+    Ausbeute-Tabelle mit Kopfzeile, zwei Zeilen und Summenzeile.
+    """
+    w = _ocr_wort_346
+    worte = [w('MATERIAL', 1620, 520, 60, 9), w('AUSBEUTE', 1860, 520, 55, 9),
+             w('Iron', 1650, 560, 30, 9), w('(Ore)', 1685, 560, 35, 9),
+             w('+8%', 1880, 560, 25, 9),
+             w('Torite', 1650, 625, 40, 9), w('(Ore)', 1695, 625, 35, 9),
+             w('+1%', 1880, 625, 25, 9),
+             w('GEWONNENE', 2000, 560, 60, 9), w('MATERIALIEN', 2065, 560, 70, 9),
+             w('(CSCU)', 2140, 560, 40, 9),
+             w('AUSBEUTE', 2285, 560, 55, 9), w('ZU', 2360, 556, 13, 9),
+             w('FERTIG', 2405, 561, 36, 9),
+             w('GOLD', 2030, 600, 40, 12), w('553', 2235, 602, 18, 9),
+             w('122', 2295, 602, 18, 9), w('122', 2350, 602, 18, 9),
+             w('TUNGSTEN', 2030, 650, 70, 12), w('530', 2235, 652, 18, 9),
+             w('234', 2295, 652, 18, 9),
+             w('AUSBEUTE', 2005, 990, 60, 12), w('12.76', 2270, 985, 60, 22),
+             w('cSCU', 2335, 982, 25, 9)]
+    if mit_qualitaet:
+        worte.append(w('OUAUTiT', 2220, 560, 45, 9))
+    return worte
+
+
+def _pruefung_351():
+    """351. Raffinerie-Scanner: Terminal auf breitem Bildschirm selbst finden,
+    linkes Stationsprofil weglassen, missglückte Lesungen aufheben.
+
+    Ohne echte OCR: Wortrahmen wie aus `ocr_image`, ein untergeschobenes
+    `ocr`, das Bilddateien so ablegt, wie das PowerShell-Skript es täte.
+    """
+    print('\n351. Raffinerie-Scanner: Terminal selbst finden, Bilder aufheben')
+    from scbp import (refinery_scan as _rs351, crafting as _cr351,
+                      signature_scan as _ss351, paths as _pf351)
+    _echt351 = _cr351.storable
+    _alt_heim351 = os.environ.get('SC_BP_HOME')
+    try:
+        _cr351.storable = lambda: list(_ROHSTOFFE_346) + ['Gold', 'Tungsten',
+                                                          'Iron', 'Torite']
+        # a) Kacheln decken das ganze Bild ab und bleiben unter der OCR-Grenze.
+        jobs = _rs351.search_jobs(5120, 1440)
+        gedeckt = all(any(b[0] <= x < b[0] + b[2] and b[1] <= y < b[1] + b[3]
+                          for b, _s, _m in jobs)
+                      for x in range(0, 5120, 64) for y in range(0, 1440, 64))
+        pruefe(gedeckt and all(max(b[2], b[3]) * s <= _rs351.OCR_LIMIT
+                               and s >= 2.5 for b, s, _m in jobs),
+               'Kacheln: ganzes 5120×1440-Bild, vergrößert, unter der OCR-Grenze '
+               '(%d Kacheln)' % len(jobs))
+        # b) Anker gefunden, Ausschnitt nur um die Tabelle.
+        worte = _breitbild_351()
+        box = _rs351.find_table(worte, 5120, 1440)
+        pruefe(box is not None and 1915 < box[0] <= 2000 and box[1] <= 560
+               and 900 < box[1] + box[3] <= 990 and box[0] + box[2] >= 2441,
+               'Ausschnitt: von der Materialspalte bis FERTIG, Kopf bis '
+               'Summenzeile, ohne Stationsprofil (%s)' % (box,))
+        # Doppelt gelesene Wörter aus überlappenden Kacheln stören nicht.
+        doppelt = _rs351.merge_words([worte[:20], worte[10:]])
+        pruefe(len(doppelt) == len(worte)
+               and _rs351.find_table(doppelt, 5120, 1440) == box,
+               'überlappende Kacheln: jedes Wort einmal, gleicher Ausschnitt')
+        # c) Nur was im Ausschnitt liegt, wird gelesen — das Stationsprofil
+        # liefert keine unsicheren Rohstoffe.
+        def _im(b, ws):
+            return [x for x in ws if b[0] <= x['x'] and x['x'] + x['w'] <= b[0] + b[2]
+                    and b[1] <= x['y'] and x['y'] + x['h'] <= b[1] + b[3]]
+        drin = _im(box, worte)
+        gefunden, unsicher = _rs351.merge_passes([drin, drin])
+        pruefe(gefunden == [('Gold', 553, 122), ('Tungsten', 530, 234)]
+               and unsicher == [],
+               'im Ausschnitt: Gold und Tungsten, nichts unsicher (%s, %s)'
+               % (gefunden, unsicher))
+        _g, unsicher_alles = _rs351.merge_passes([worte, worte])
+        pruefe('Torite' in unsicher_alles,
+               'Gegenprobe: ohne Ausschnitt stünde Torite aus dem '
+               'Stationsprofil als unsicher da (%s)' % unsicher_alles)
+        pruefe(_rs351.find_table(_breitbild_351(False), 5120, 1440) is None,
+               'Gegenprobe: ohne Qualitäts-Kopf ist der Kopf des '
+               'Stationsprofils kein Anker')
+        # d) Missglückte Lesungen werden aufgehoben und gehen mit dem
+        # Fehlerbericht.
+        heim = tempfile.mkdtemp(prefix='sc-bp-351-')
+        os.environ['SC_BP_HOME'] = heim
+        bild = os.path.join(heim, 'abgriff.bmp')
+        _rs351.write_bmp(bytes(5120 * 4) * 1440, 5120, 1440, bild)
+        lage = {'worte': [], 'aufrufe': []}
+
+        def _ocr(path, jobs, save=None, save_crop=None):
+            lage['aufrufe'].append((save, save_crop))
+            for ziel in (save, save_crop[1] if save_crop else None):
+                if ziel:
+                    with open(ziel, 'wb') as datei:
+                        datei.write(b'\x89PNG\r\n\x1a\n')
+            return {'width': 5120, 'height': 1440,
+                    'passes': [{'words': _im(b, lage['worte'])}
+                               for b, _s, _m in jobs]}
+
+        lage['worte'] = [_ocr_wort_346('HANGAR', 10, 10)]
+        ergebnis = _rs351.read_image(bild, _ocr, keep_failed=True)
+        namen = _rs351.kept_images()
+        pruefe(ergebnis == ('', [], True) and len(namen) == 1
+               and namen[0].endswith('_bild.png'),
+               'nichts gefunden: das verkleinerte Spielbild wird aufgehoben (%s)'
+               % namen)
+        pruefe(lage['aufrufe'][0][0] and _rs351.KEEP_MAX_WIDTH <= 2560,
+               'das Spielbild wird höchstens 2560 Punkte breit abgelegt')
+        lage['worte'] = _breitbild_351()
+        lage['worte'] = [x for x in lage['worte'] if x['t'] != '234']
+        text, unsicher, aufgehoben = _rs351.read_image(bild, _ocr,
+                                                       keep_failed=True)
+        namen = _rs351.kept_images()
+        pruefe(aufgehoben and unsicher == ['Tungsten']
+               and sum(1 for n in namen if n.endswith('_tabelle.png')) == 1
+               and sum(1 for n in namen if n.endswith('_bild.png')) == 1,
+               'Tabelle gefunden, aber unsicher: nur der Tabellenausschnitt '
+               'kommt dazu, kein Spielbild (%s)' % namen)
+        for _n in range(4):
+            _rs351.read_image(bild, _ocr, keep_failed=True)
+        pruefe(len(_rs351.kept_images()) == _rs351.KEEP_SCANS,
+               'höchstens die letzten %d Bilder bleiben (%d)'
+               % (_rs351.KEEP_SCANS, len(_rs351.kept_images())))
+        lage['worte'] = _breitbild_351()
+        vorher = list(_rs351.kept_images())
+        sicher = _rs351.read_image(bild, _ocr, keep_failed=True)
+        pruefe(sicher[2] is False and _rs351.kept_images() == vorher,
+               'Gegenprobe: eine sichere Lesung hebt nichts auf')
+        pruefe(not [f for f in os.listdir(heim) if f.endswith('.png')],
+               'keine Zwischenbilder bleiben neben dem Abgriff liegen')
+        _pf351.set_setting('melder_name', 'Testmelder')
+        archiv = _ss351.sample_archive()
+        import io as _io351
+        import zipfile as _zf351
+        inhalt = (_zf351.ZipFile(_io351.BytesIO(archiv)).namelist()
+                  if archiv else [])
+        pruefe('Testmelder' in _ss351.archive_name()
+               and len([n for n in inhalt
+                        if n.startswith('Testmelder/raffinerie/')]) == 3,
+               'der Fehlerbericht nimmt die Raffinerie-Bilder unter dem Namen '
+               'des Melders mit (%s)' % inhalt)
+        import shutil as _sh351
+        _sh351.rmtree(_rs351.keep_folder())
+        pruefe(_ss351.sample_archive() is None,
+               'Gegenprobe: ohne aufgehobene Bilder kein Anhang')
+    finally:
+        _cr351.storable = _echt351
+        if _alt_heim351 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim351
 
 
 def _seite_lager_346():
@@ -35202,7 +35370,8 @@ def _pruefung_347():
 
         def _lesen(rect, ocr=None):
             aufrufe.append(rect)
-            return ('Titanium 516 66 cSCU\nOuratite 310 421 cSCU', ['Aslarite'])
+            return ('Titanium 516 66 cSCU\nOuratite 310 421 cSCU', ['Aslarite'],
+                    True)
         _rs347.read_screen = _lesen
         w, f, seite = _seite_lager_346()
         feld = _alle_346(seite, lambda x: hasattr(x, 'scan_read'))
@@ -35220,6 +35389,8 @@ def _pruefung_347():
         pruefe(aufrufe == [(0, 0, 800, 600)], 'gelesen wurde die Spielfläche')
         pruefe('Aslarite' in feld.scan_message.cget('text'),
                'nicht sicher Gelesenes wird genannt')
+        pruefe(_la347.t('s_rf_lesen_bild') in feld.scan_message.cget('text'),
+               'die Meldung sagt, dass das Bild aufgehoben ist')
         pruefe(_ma347.load() == [], 'vor dem Bestätigen steht nichts im Lager (%s)'
                % _ma347.load())
         # Die Prüfung „Lager leer" muss einen Eintrag sehen können.

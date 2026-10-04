@@ -82,6 +82,13 @@ full text. It goes to `bericht.xharig.com`, a relay into the project's report
 channel on Discord. User name, paths and anything that looks like a credential
 are replaced beforehand.
 
+If you ticked the box for images, the scan images go along: for signatures the
+crop around the number, for the refinery scanner the terminal's table from a
+reading that was not reliable (the last three). Only if the table was not found
+at all is it the game picture, scaled down — it can show your handle and your
+aUEC balance. Until then the images stay in your data folder
+(`raffinerie-bilder`, `signatur-bilder`).
+
 ## KRT Profit Basetool
 
 Only if you explicitly connect Verse-Kit **and** turn syncing on. Both are off

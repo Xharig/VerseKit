@@ -1057,11 +1057,14 @@ def archive_name():
 
 
 def sample_archive():
-    """Scan-Bilder und eigene Ziffernvorlagen als ZIP (Bytes) — oder None.
+    """Scan-Bilder, eigene Ziffernvorlagen und die aufgehobenen Bilder des
+    Raffinerie-Scanners als ZIP (Bytes) — oder None.
 
     Für den Fehlerbericht: Bild + richtige Zahl im Dateinamen ist genau das,
-    woraus sich die Erkennung für alle verbessern lässt. Nichts Persönliches —
-    nur der Ausschnitt um die Zahl.
+    woraus sich die Erkennung für alle verbessern lässt. Signatur-Bilder
+    zeigen nur den Ausschnitt um die Zahl; Raffinerie-Bilder die Tabelle des
+    Terminals, nur wenn sie nicht gefunden wurde das verkleinerte Spielbild
+    (siehe `refinery_scan.read_image`).
 
     Alles liegt unter dem Melder-Namen, sofern einer eingetragen ist (siehe
     `reporter_folder`).
@@ -1069,8 +1072,10 @@ def sample_archive():
     import io
     import zipfile
     from . import paths
+    from . import refinery_scan
     names = samples()
-    if not names:
+    refinery = refinery_scan.kept_images()
+    if not names and not refinery:
         return None
     who = reporter_folder()
     root = who + '/' if who else ''
@@ -1079,6 +1084,10 @@ def sample_archive():
         for name in names:
             archive.write(os.path.join(sample_folder(), name),
                           root + 'bilder/' + name)
+        # Die aufgehobenen Bilder des Raffinerie-Scanners (`refinery_scan`).
+        for name in refinery:
+            archive.write(os.path.join(refinery_scan.keep_folder(), name),
+                          root + 'raffinerie/' + name)
         own = paths.app_file(OWN_TEMPLATE_FILE)
         if os.path.isfile(own):
             archive.write(own, root + OWN_TEMPLATE_FILE)

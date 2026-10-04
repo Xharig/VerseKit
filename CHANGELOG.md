@@ -17,11 +17,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Rohstofflager: Einzeleingabe einklappbar** — wie die Raffinerie-Ausbeute;
   jeder Block merkt sich, ob er offen ist. Beim Berichtigen eines Postens
   klappt die Eingabe von selbst auf
+- **Raffinerie-Scanner: Bild für den Fehlerbericht** — war eine Lesung leer
+  oder unsicher, hebt Verse-Kit das Bild auf (die letzten drei) und schickt es
+  mit, wenn du einen Fehlerbericht mit Bildern absendest. Gefunden: nur die
+  Tabelle des Terminals; nichts gefunden: das verkleinerte Spielbild
+- **Raffinerie-Scanner liest vorsichtiger** — eine Zahl gilt nur, wenn alle
+  Lesungen sie gleich sehen; sonst steht der Rohstoff unter „nicht sicher"
 
 ### Behoben
 
 - **„Lager löschen" war abgeschnitten** — „Jetzt übertragen" und „Lager
   löschen" stehen jetzt in einer eigenen Reihe
+- **Raffinerie-Scanner auf breiten Bildschirmen** — er sucht das Terminal
+  jetzt selbst auf dem ganzen Bild, auch auf 32:9, und lässt das
+  Stationsprofil links daneben aus
 
 ## v3.88.0 - 2026-10-04
 

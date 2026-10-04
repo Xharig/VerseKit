@@ -7494,8 +7494,9 @@ def _diagnostics(fenster, rahmen):
             return
         anzahl = 0
         try:
-            from . import signature_scan
-            anzahl = len(signature_scan.samples())
+            from . import signature_scan, refinery_scan
+            anzahl = (len(signature_scan.samples())
+                      + len(refinery_scan.kept_images()))
         except Exception as ausnahme:
             errors.record('pages.diagnose_scanbilder', ausnahme)
         anhaenge = []
@@ -7549,7 +7550,9 @@ def _diagnostics(fenster, rahmen):
     from .main_window import toggle_switch as _toggle
     try:
         from . import signature_scan as _scan_module
-        _anzahl_scan = len(_scan_module.samples())
+        from . import refinery_scan as _refinery_module
+        _anzahl_scan = (len(_scan_module.samples())
+                        + len(_refinery_module.kept_images()))
     except Exception:
         _anzahl_scan = 0
     zustimmung = tk.Frame(reihe.master, bg=BG)
@@ -12501,8 +12504,11 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         elif not text and lese_meldung.winfo_manager():
             lese_meldung.pack_forget()
 
-    def lese_ergebnis(text, unsicher):
-        """Gelesenes ins Feld setzen — eingetragen wird hier nichts."""
+    def lese_ergebnis(text, unsicher, aufgehoben=False):
+        """Gelesenes ins Feld setzen — eingetragen wird hier nichts.
+
+        `aufgehoben`: Der Scanner hat ein Bild für den Fehlerbericht
+        abgelegt; die Meldung sagt das dazu."""
         stand['liest'] = False
         teile = []
         if text:
@@ -12514,6 +12520,8 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
             teile.append(t('s_rf_lesen_nichts'))
         if unsicher:
             teile.append(t('s_rf_lesen_unsicher') % ', '.join(unsicher))
+        if aufgehoben:
+            teile.append(t('s_rf_lesen_bild'))
         lese_zeigen('\n'.join(teile),
                     ACCENT if text and not unsicher else GOLD)
 
@@ -12538,9 +12546,10 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
                     _from_thread(feld, kein_spiel)
                     return
                 _from_thread(feld, lambda: lese_zeigen(t('s_rf_lesen_laeuft')))
-                text, unsicher = refinery_scan.read_screen(rect)
+                text, unsicher, aufgehoben = refinery_scan.read_screen(rect)
                 page_usage.action('lager_scan')
-                _from_thread(feld, lambda: lese_ergebnis(text, unsicher))
+                _from_thread(feld, lambda: lese_ergebnis(text, unsicher,
+                                                          aufgehoben))
             except Exception as ausnahme:
                 grund = getattr(ausnahme, 'reason', '')
                 if grund != 'keine_sprache':
