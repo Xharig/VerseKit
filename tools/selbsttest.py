@@ -35493,10 +35493,16 @@ def _pruefung_350():
         pruefe(meldung[0].cget('text') == _la350.t('s_lg_sync_konflikte') % 2,
                'abweichende Mengen: Hinweis auf die Basetool-Seite')
         knopf.sync_click()
-        _bs350.STATUS.update(state='error', code='SCOPE_MISSING')
+        _bs350.STATUS.update(state='error', code='SCOPE_MISSING',
+                             running=False)
         knopf.sync_status()
+        w.update()
         from scbp.basetool_page import error_text
-        pruefe(meldung[0].cget('text') == error_text('SCOPE_MISSING'),
+        # Die Seite zeichnet nach dem Ergebnis neu; gelesen wird darum die
+        # Meldung, die jetzt dasteht, nicht das vorher gemerkte Etikett.
+        _jetzt350 = [str(x.cget('text')) for x in _alle_346(
+            seite, lambda x: x.winfo_class() == 'Label')]
+        pruefe(error_text('SCOPE_MISSING') in _jetzt350,
                'Fehler: der Grund steht da')
         verbunden[0] = False
         f.on_show['lager']()
