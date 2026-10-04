@@ -12346,6 +12346,51 @@ def _checkbox(parent, text, on, toggle, small_font):
     return rahmen
 
 
+def _storage_fold(fenster, eltern, title_key, setting_key, default_open):
+    """Ein einklappbarer Block der Lager-Seite: Kopfzeile mit Klapp-Symbol,
+    Körper darunter. Der Zustand steht unter `setting_key`.
+
+    Gibt `(körper, öffnen)` zurück; `öffnen()` klappt auf, falls zu. Gebaut
+    wie der Block `_refinery_box` — die ganze Kopfzeile ist die Schaltfläche."""
+    kasten = tk.Frame(eltern, bg=BG)
+    kasten.pack(fill='x', pady=(12, 0))
+    kopf = tk.Frame(kasten, bg=BG, cursor='hand2')
+    kopf.pack(fill='x')
+    pfeil = icons.line(kopf, 'aufklappen', background=BG,
+                       font=fenster.f_small)
+    pfeil.pack(side='left', padx=(0, 8))
+    tk.Label(kopf, text=t(title_key), bg=BG, fg=FG, font=fenster.f_bold,
+             anchor='w', cursor='hand2').pack(side='left')
+    body = tk.Frame(kasten, bg=BG)
+    state = {'open': False}
+
+    def set_open(open_):
+        if open_ == state['open']:
+            return
+        state['open'] = open_
+        if open_:
+            # `after=kopf`: sonst hinge der Körper beim zweiten Aufklappen
+            # unter allem, was inzwischen im Kasten dazugekommen ist.
+            body.pack(fill='x', after=kopf)
+            pfeil.swap_symbol('zuklappen')
+        else:
+            body.pack_forget()
+            pfeil.swap_symbol('aufklappen')
+        paths.set_setting(setting_key, open_)
+
+    def toggle(_=None):
+        set_open(not state['open'])
+        return state['open']
+
+    for part in (kopf, pfeil) + tuple(kopf.winfo_children()):
+        part.bind('<Button-1>', toggle)
+    icons.hover_group(kopf, pfeil)
+    # `setting_bool`, nicht `setting`: Der Wert ist ein Ja/Nein, kein Pfad.
+    if paths.setting_bool(setting_key, default_open):
+        set_open(True)
+    return body, lambda: set_open(True)
+
+
 def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     """Eine ganze Raffinerie-Ausbeute auf einmal eintragen.
 
@@ -15377,6 +15422,10 @@ def _storage(fenster, rahmen):
     # die Zeile zehn Zeilen hoch und Tk setzt die Beschriftung auf halbe Höhe.
     ware_zeichnen = ort_zeichnen = lambda: None
     mengen_beschriftung = None
+    # Die Einzeleingabe ist einklappbar wie die Raffinerie-Ausbeute darunter;
+    # jeder Block merkt sich, ob er offen ist (`lager_hand_offen`).
+    hand_ziel, hand_oeffnen = _storage_fold(fenster, innen, 's_lg_hand_titel',
+                                            'lager_hand_offen', True)
     # Menge und Qualität stehen nebeneinander, in zwei gleich breiten Spalten.
     # ⚠ Der Rahmen entsteht erst nach dem Rohstoff-Block: Die Tab-Reihenfolge
     # folgt der Reihenfolge, in der Tk die Elemente anlegt.
@@ -15386,7 +15435,7 @@ def _storage(fenster, rahmen):
                               (t('s_lg_qualitaet'), guete),
                               (t('s_lg_ort'), ort)):
         if var is menge:
-            paar = tk.Frame(innen, bg=BG)
+            paar = tk.Frame(hand_ziel, bg=BG)
             paar.columnconfigure(0, weight=1, uniform='lager_paar')
             paar.columnconfigure(1, weight=1, uniform='lager_paar')
             paar.pack(fill='x', padx=24, pady=(12, 0))
@@ -15397,7 +15446,7 @@ def _storage(fenster, rahmen):
             else:
                 block.grid(row=0, column=1, sticky='new', padx=(8, 0))
         else:
-            block = tk.Frame(innen, bg=BG)
+            block = tk.Frame(hand_ziel, bg=BG)
             block.pack(fill='x', padx=24, pady=(12, 0))
         kopf_label = tk.Label(block, text=beschriftung, bg=BG, fg=FG,
                               font=fenster.f_bold, anchor='w')
@@ -15856,6 +15905,8 @@ def _storage(fenster, rahmen):
         if not (0 <= nummer < len(posten)):
             return
         p = posten[nummer]
+        # Wer einen Posten berichtigen will, braucht das Formular — offen.
+        hand_oeffnen()
         bearbeitung['nummer'] = nummer
         material.set(p.get('material') or '')
         # ⚠ In der Einheit vorlegen, in der das Feld gerade rechnet — sonst
@@ -16054,11 +16105,11 @@ def _storage(fenster, rahmen):
     # ⚠ Die Knopfreihe wird neu gebaut, nicht umbeschriftet. Ein Knopf ist ein
     # Canvas mit fester Breite — „Änderung speichern" passt nicht in die
     # Breite von „Eintragen" und wuerde abgeschnitten.
-    rechenhinweis = tk.Label(innen, text='', bg=BG, fg=SUB,
+    rechenhinweis = tk.Label(hand_ziel, text='', bg=BG, fg=SUB,
                              font=fenster.f_small, anchor='w', justify='left')
     rechenhinweis.pack(fill='x', pady=(0, 4))
 
-    knopf_rahmen = tk.Frame(innen, bg=BG)
+    knopf_rahmen = tk.Frame(hand_ziel, bg=BG)
 
     def knoepfe_setzen():
         for w in knopf_rahmen.winfo_children():
@@ -16170,10 +16221,14 @@ def _storage(fenster, rahmen):
         meldung.configure(text=t('s_lg_geleert') % anzahl, fg=GOLD)
         zeichnen()
 
-    _leeren_knopf = _button(fenster, _reihe_aus, t('s_lg_leeren'), _leeren,
+    # Übertragen und Löschen stehen in einer eigenen Reihe — fünf Knöpfe
+    # passen in der Mindestbreite nicht nebeneinander, und Tk schneidet ab.
+    _reihe_lager = tk.Frame(innen, bg=BG)
+    _reihe_lager.pack(fill='x', pady=(8, 0))
+    _leeren_knopf = _button(fenster, _reihe_lager, t('s_lg_leeren'), _leeren,
                             danger=True)
-    _leeren_knopf.pack(side='left', padx=(24, 0))
-    _storage_sync_button(fenster, _reihe_aus, _leeren_knopf, meldung,
+    _leeren_knopf.pack(side='left')
+    _storage_sync_button(fenster, _reihe_lager, _leeren_knopf, meldung,
                          zeichnen)
     _body_text(innen, t('s_lg_aus_hilfe'), fenster.f_small, fill='x')
 
@@ -16229,7 +16284,7 @@ def _storage_sync_button(fenster, reihe, vor, meldung, neu_zeichnen):
         try:
             if _storage_sync_ready():
                 if not knopf.winfo_manager():
-                    knopf.pack(side='left', padx=(8, 0), before=vor)
+                    knopf.pack(side='left', padx=(0, 24), before=vor)
             elif knopf.winfo_manager():
                 knopf.pack_forget()
         except tk.TclError:

@@ -35503,7 +35503,10 @@ def _pruefung_350():
         _jetzt350 = [str(x.cget('text')) for x in _alle_346(
             seite, lambda x: x.winfo_class() == 'Label')]
         pruefe(error_text('SCOPE_MISSING') in _jetzt350,
-               'Fehler: der Grund steht da')
+               'Fehler: der Grund steht da'
+               + ('' if error_text('SCOPE_MISSING') in _jetzt350 else
+                  ' — FEHLT, Meldung: %r, Abgleich: %r' % (
+                      meldung[0].cget('text'), dict(_bs350.STATUS))))
         verbunden[0] = False
         f.on_show['lager']()
         pruefe(not knopf.winfo_manager(), 'getrennt: wieder ausgeblendet')
@@ -35533,6 +35536,7 @@ def _pruefung_377():
     Textdatei."""
     import queue as _qu377
     import tempfile as _tf377
+    import tkinter as tk
     from scbp import reputation as _re377, cig_issues as _ci377
     from scbp import injection as _in377
     import sc_bp_watcher as _sw377
@@ -35647,6 +35651,72 @@ def _pruefung_377():
            'neu geschriebene Datei wird erkannt')
     pruefe(_sw377.DATEI_POLL_SEC <= 10,
            'nachgesehen wird alle paar Sekunden (%s)' % _sw377.DATEI_POLL_SEC)
+
+    print('\n380. Rohstofflager: kein Knopf der unteren Reihen abgeschnitten')
+    from scbp import main_window as _mw380, pages as _pg380
+    from scbp import language as _la380
+    _bereit380 = _pg380._storage_sync_ready
+    _w380 = None
+    try:
+        _pg380._storage_sync_ready = lambda: True
+        _w380 = _wurzel()
+        _w380.deiconify()
+        _f380 = _mw380.MainWindow(_w380, version='0.0.0-pruefung')
+        _w380.geometry('%dx%d' % (_w380.minsize()[0], 900))
+        _f380.open_page('lager')
+        _w380.update()
+        _f380.on_show['lager']()
+        _w380.update()
+        _seite380 = _f380.pages['lager']
+        _knoepfe380 = []
+
+        def _lauf380(x):
+            if x.winfo_class() == 'Canvas' and x.winfo_manager() == 'pack':
+                _texte = [str(x.itemcget(i, 'text')) for i in x.find_all()
+                          if x.type(i) == 'text']
+                if any(t_ in (_la380.t('s_lg_leeren'), _la380.t('s_lg_sync'),
+                              _la380.t('s_lg_einlesen')) for t_ in _texte):
+                    _knoepfe380.append(x)
+            for k in x.winfo_children():
+                _lauf380(k)
+        _lauf380(_seite380)
+        pruefe(len(_knoepfe380) == 3,
+               'Vorbedingung: Einlesen, Übertragen und Löschen sind gebaut '
+               '(%d)' % len(_knoepfe380))
+        _zu_breit380 = [k for k in _knoepfe380
+                        if k.winfo_x() + k.winfo_width()
+                        > k.master.winfo_width() + 1]
+        pruefe(not _zu_breit380,
+               'jeder Knopf liegt ganz in seiner Reihe bei Mindestbreite')
+
+        print('\n381. Rohstofflager: Einzeleingabe einklappbar und gemerkt')
+        from scbp import paths as _pf381
+        _alt381 = _pf381.setting_bool('lager_hand_offen', True)
+        _rahmen381 = tk.Frame(_w380)
+        _koerper381, _oeffnen381 = _pg380._storage_fold(
+            _f380, _rahmen381, 's_lg_hand_titel', 'lager_hand_offen', True)
+        _rahmen381.pack()
+        _w380.update()
+        pruefe(bool(_koerper381.winfo_manager()), 'ab Werk offen')
+        _kopf381 = _koerper381.master.winfo_children()[0]
+        _kopf381.event_generate('<Button-1>')
+        _w380.update()
+        pruefe(not _koerper381.winfo_manager()
+               and _pf381.setting_bool('lager_hand_offen', True) is False,
+               'ein Klick auf die Kopfzeile klappt zu und merkt es sich')
+        _oeffnen381()
+        _w380.update()
+        pruefe(bool(_koerper381.winfo_manager())
+               and _pf381.setting_bool('lager_hand_offen', False) is True,
+               'öffnen() klappt wieder auf (Bearbeiten eines Postens)')
+        _pf381.set_setting('lager_hand_offen', _alt381)
+    finally:
+        _pg380._storage_sync_ready = _bereit380
+        try:
+            if _w380 is not None:
+                _w380.destroy()
+        except Exception:
+            pass
 
 
 def _alle_eingaben(w):

@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.89.0 - 2026-10-04
+
+> In the material storage you now open what you actually use: the single
+> entry, the refinery yield with the scanner, or both. And no button at the
+> bottom is cut off any more.
+
+### Improved
+
+- **Material storage: single entry can be folded** — like the refinery
+  yield; each block remembers whether it is open. Correcting an item opens
+  the entry on its own
+
+### Fixed
+
+- **"Clear stock" was cut off** — "Sync now" and "Clear stock" now sit
+  in a row of their own
+
 ## v3.88.0 - 2026-10-04
 
 > No more typing at the refinery terminal: Verse-Kit reads the screen and

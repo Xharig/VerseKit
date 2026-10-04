@@ -162,6 +162,7 @@ TEXTS = {
     # Raffinerie-Ausbeute in einem Rutsch eintragen
     's_rf_titel':      ('Raffinerie-Ausbeute eintragen',
                         'Enter refinery yield'),
+    's_lg_hand_titel': ('Einzeln eintragen', 'Add a single item'),
     's_rf_hilfe':      ('Tipp die Zeilen so ab, wie sie im Terminal stehen — '
                         'Material, Qualität, Menge. Eine Zeile je Posten. Der '
                         'Lagerort darunter gilt für die ganze Ausbeute.',

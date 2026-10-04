@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.89.0 - 2026-10-04
+
+> Im Rohstofflager klappst du jetzt auf, was du wirklich nutzt: die
+> Einzeleingabe, die Raffinerie-Ausbeute mit Scanner oder beides. Und unten
+> wird kein Knopf mehr abgeschnitten.
+
+### Verbessert
+
+- **Rohstofflager: Einzeleingabe einklappbar** — wie die Raffinerie-Ausbeute;
+  jeder Block merkt sich, ob er offen ist. Beim Berichtigen eines Postens
+  klappt die Eingabe von selbst auf
+
+### Behoben
+
+- **„Lager löschen" war abgeschnitten** — „Jetzt übertragen" und „Lager
+  löschen" stehen jetzt in einer eigenen Reihe
+
 ## v3.88.0 - 2026-10-04
 
 > Schluss mit Abtippen am Raffinerie-Terminal: Verse-Kit liest den
