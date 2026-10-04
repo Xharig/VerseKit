@@ -42,8 +42,8 @@ Wörter mit überlappender Höhe wieder zu einer Zeile zusammen.
 ⚠ Die kleinen Ziffern des Terminals liest die OCR unzuverlässig: Ziffern
 fallen weg oder werden verwechselt. Deshalb mehrere Lesungen mit
 verschiedener Vergrößerung (`PASSES`), und ein Wert gilt erst, wenn
-mindestens zwei Lesungen ihn gleich lasen (`merge_passes`). Was nicht
-sicher ist, wird gemeldet statt geraten.
+mindestens zwei Lesungen ihn gleich lasen (`merge_passes`). Unsichere
+Werte bleiben frei und werden namentlich als unsicher angezeigt.
 """
 import base64
 import difflib
