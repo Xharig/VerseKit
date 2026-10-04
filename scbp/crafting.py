@@ -136,10 +136,11 @@ _cached = {'stand': None, 'daten': None}
 
 def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
+    from . import cig_issues
     path = paths.app_file(CACHE)
     try:
         st = os.stat(path)
-        stamp = (st.st_mtime_ns, st.st_size)
+        stamp = (st.st_mtime_ns, st.st_size, cig_issues.generation())
     except OSError:
         stamp = None
     if stamp is not None and _cached['stand'] == stamp:
@@ -148,11 +149,29 @@ def load():
         with open(path, encoding='utf-8') as f:
             data = json.load(f)
         if data.get('format') == FORMAT:
+            apply_issues(data, cig_issues.issues_for(data.get('build')))
             _cached['stand'], _cached['daten'] = stamp, data
             return data
     except Exception:
         pass
     return EMPTY.copy()
+
+
+def apply_issues(data, issues):
+    """Bekannte CIG-Datenfehler in einem geladenen Stand berichtigen.
+
+    Wirkt auf die Rezepte (Modifikatoren, Produkt) und die Produkte
+    (attachType/cgItemType). Ohne Fehlerliste bleibt alles unverändert. Gibt
+    die Zahl der Änderungen zurück.
+    """
+    from . import cig_issues
+    if not issues:
+        return 0
+    products = data.get('products') or {}
+    changed = cig_issues.apply_blueprints(data.get('blueprints') or [], issues,
+                                          products)
+    changed += cig_issues.apply_items(list(products.values()), issues)
+    return changed
 
 def _save(data):
     target = paths.app_file(CACHE)
@@ -400,6 +419,7 @@ def all_items():
                 'tag': b.get('tag') or '',
                 'tags': [x.get('tag') or '' for x in part],
                 'entity': b.get('productEntityClass') or '',
+                'datenfehler': b.get('datenfehler'),
             })
     result.sort(key=lambda x: x['name'].lower())
     return result
@@ -900,10 +920,19 @@ def slots(name_or_tag):
                     'material': material,
                     'menge': amount,
                     'mindestguete': quality,
-                    'wirkungen': [{'eigenschaft': n, 'key': k, 'mods': v}
+                    'wirkungen': [{'eigenschaft': n, 'key': k, 'mods': v,
+                                   'datenfehler': _issue_of(v)}
                                   for (n, k), v in by_property.items()],
                 })
         return result
+    return None
+
+
+def _issue_of(modifiers):
+    """Die Berichtigung an einer der Spannen — oder `None`."""
+    for m in modifiers or []:
+        if m.get('datenfehler'):
+            return m['datenfehler']
     return None
 
 
@@ -961,7 +990,8 @@ def values_with_stock(name_or_tag, quality_per_material):
                            # hingehoert. Siehe `is_absolute`.
                            'absolut': is_absolute(w['mods']),
                            # Was waere ueberhaupt erreichbar? Siehe `range_of`.
-                           'spanne': range_of(w['mods'])})
+                           'spanne': range_of(w['mods']),
+                           'datenfehler': w.get('datenfehler')})
     return result
 
 

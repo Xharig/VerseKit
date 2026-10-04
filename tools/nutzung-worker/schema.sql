@@ -114,3 +114,12 @@ CREATE TABLE IF NOT EXISTS seiten_fehlgriffe (
   n    INTEGER NOT NULL,
   PRIMARY KEY (tag, von, nach)
 );
+
+-- Handlungen: wie oft eine Handlung aus ACTIONS (pages.js) genutzt wurde —
+-- nur die Anzahl, keine Mengen, keine Namen.
+CREATE TABLE IF NOT EXISTS seiten_handlungen (
+  tag      TEXT    NOT NULL,
+  handlung TEXT    NOT NULL,
+  n        INTEGER NOT NULL,
+  PRIMARY KEY (tag, handlung)
+);

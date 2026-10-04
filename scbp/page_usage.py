@@ -21,7 +21,7 @@ Welche Seiten im Hauptfenster geöffnet werden, auf welchem Weg und wie viele
 Klicks bis dorthin nötig waren — als Zähler, die mit der nächsten
 Nutzungsmeldung (`usage_ping`) hinausgehen und danach geleert werden.
 
-**Was gezählt wird** (die vier Felder der Meldung):
+**Was gezählt wird** (die fünf Felder der Meldung):
 
 | Feld | Inhalt | Beispiel |
 |---|---|---|
@@ -29,6 +29,9 @@ Nutzungsmeldung (`usage_ping`) hinausgehen und danach geleert werden.
 | `entry` | auf welchem Weg eine Seite geöffnet wurde | `{"laeden": {"seitenleiste": 3}}` |
 | `clicks` | Klicks bis zum Ziel, als Verteilung je Zielseite | `{"laeden": {"2": 5, "4": 1}}` |
 | `misses` | Fehlgriff → nächstes Ziel | `{"verkauf>laeden": 7}` |
+| `actions` | wie oft eine Handlung aus `ACTIONS` genutzt wurde | `{"lager_scan": 2}` |
+
+`actions` zählt nur, **wie oft** — keine Mengen, keine Rohstoffe, keine Namen.
 
 - **Klick:** jeder Seitenwechsel und jedes Auf- oder Zuklappen einer Gruppe
   in der Seitenleiste, ab dem Öffnen des Hauptfensters. Nach jedem
@@ -59,8 +62,10 @@ import time
 from . import paths
 
 FILE = 'seitennutzung.json'
-FIELDS = ('pages', 'entry', 'clicks', 'misses')
+FIELDS = ('pages', 'entry', 'clicks', 'misses', 'actions')
 ROUTES = ('seitenleiste', 'sprung', 'overlay', 'tray', 'start')
+# Die Handlungen, die `action()` zählt — eine feste Liste, nichts sonst.
+ACTIONS = ('lager_hand', 'lager_raffinerie', 'lager_scan', 'lager_sync')
 
 MISS_SECONDS = 3.0
 MAX_CLICKS = 10                 # Stufe 10 steht für 10 und mehr Klicks
@@ -153,6 +158,11 @@ def clean(raw):
                     and parts[0] != parts[1] and _count(n)
                     and len(out['misses']) < MAX_STORED_PAIRS):
                 out['misses'][pair] = n
+    actions = raw.get('actions')
+    if isinstance(actions, dict):
+        for key, n in actions.items():
+            if key in ACTIONS and _count(n):
+                out['actions'][key] = n
     return out
 
 
@@ -269,6 +279,20 @@ def page_opened(page, route, clock=None):
 
 
 @_guarded
+def action(key):
+    """Eine Handlung aus `ACTIONS` einmal zählen — nur wie oft, nie womit.
+    Andere Kennungen werden nicht gezählt."""
+    with _lock:
+        if not active():
+            _drop()
+            return
+        if key not in ACTIONS:
+            return
+        _add(_load()['actions'], key)
+        _save()
+
+
+@_guarded
 def window_closed(clock=None):
     """Das Hauptfenster geht zu: die letzte Seite abschließen. Fehlgriffe
     ohne folgendes Ziel fallen weg."""
@@ -309,6 +333,7 @@ def outgoing(state):
     }
     top = sorted(state['misses'].items(), key=lambda x: (-x[1], x[0]))
     out['misses'] = {pair: cap(n) for pair, n in top[:MAX_MISS_PAIRS]}
+    out['actions'] = {k: cap(n) for k, n in sorted(state['actions'].items())}
     return out
 
 
@@ -331,6 +356,8 @@ def forget(state):
                     del data[field][page]
         for pair, n in state['misses'].items():
             _take(data['misses'], pair, n)
+        for key, n in state['actions'].items():
+            _take(data['actions'], key, n)
         if any(data[field] for field in FIELDS):
             _save()
         else:

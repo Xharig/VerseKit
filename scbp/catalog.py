@@ -932,8 +932,15 @@ def build(version=None, progress=None, from_file=None):
     if not version:
         return 0, ''
 
+    # Bekannte CIG-Datenfehler: nur die Liste zu genau diesem Build, aus der
+    # Ablage (geholt in `update()`). Fehlt sie, bleibt alles roh.
+    from . import cig_issues
+    issues = cig_issues.issues_for(version)
+
     report(t('z_werte'))
-    values_ = _values(_fetch('%s/crafting_items-%s.json' % (BASE, version)))
+    raw_items = _fetch('%s/crafting_items-%s.json' % (BASE, version))
+    cig_issues.apply_items((raw_items or {}).get('items'), issues)
+    values_ = _values(raw_items)
     apply_game_grades(values_, game_grades())
 
     if from_file:                       # nur für Entwicklung und Selbsttest
@@ -943,6 +950,7 @@ def build(version=None, progress=None, from_file=None):
     else:
         report(t('z_herkunft_netz'))
         merged = _fetch('%s/merged-%s.json' % (BASE, version))
+    cig_issues.apply_merged(merged, issues)
 
     report(t('z_auswerten'))
     pools, sources = _origin(merged)
@@ -1049,7 +1057,8 @@ def build(version=None, progress=None, from_file=None):
     data = {'version': version, 'format': FORMAT,
              'geholt': time.strftime('%Y-%m-%d %H:%M'),
              'bauplaene': blueprints, 'missionen': _missions(merged),
-             'vertraege': _contracts(merged)}
+             'vertraege': _contracts(merged),
+             'datenfehler': cig_issues.fingerprint(issues)}
     target = paths.app_file(CACHE)
     temp = target + '.tmp'
     with open(temp, 'w', encoding='utf-8') as f:
@@ -1219,6 +1228,15 @@ def update(progress=None):
         # Jeweils **eigenes `try`**: Scheitert eines, soll der Katalog trotzdem
         # durchlaufen — eine leere Seite, die das sagt, ist besser als ein
         # verlorener Abruf.
+        # Die Liste bekannter CIG-Datenfehler vor allem anderen: Rezepte und
+        # Katalog berichtigen damit, was sie aus diesem Build lesen.
+        from . import cig_issues
+        try:
+            if cig_issues.update(version):
+                from . import crafting as _crafting_now
+                _crafting_now.forget()
+        except Exception as error:
+            errors.record('katalog.aktualisieren.datenfehler', error)
         try:
             from . import crafting
             crafting.update(version, progress)
@@ -1234,8 +1252,13 @@ def update(progress=None):
         except Exception as error:
             errors.record('katalog.aktualisieren.bergbau', error)
 
+        # Neu gebaut wird auch, wenn sich die Fehlerliste geändert hat —
+        # sonst blieben die Berichtigungen bis zum nächsten Patch aus.
         if not version or (version == present.get('version')
-                           and present.get('format') == FORMAT):
+                           and present.get('format') == FORMAT
+                           and (present.get('datenfehler') or '')
+                           == cig_issues.fingerprint(
+                               cig_issues.issues_for(version))):
             return False, 0, version or ''
         count, version = build(version, progress)
         # ⛔⛔ **Die Zwischenspeicher gehoeren geleert — sonst wirkt der neue
@@ -1345,7 +1368,7 @@ KIND_GROUP = {
     'Shield': 'schiff', 'Radar': 'schiff', 'WeaponGun': 'schiff',
     'WeaponMining': 'schiff', 'SalvageModifier': 'schiff',
     'SalvageHead': 'schiff', 'TractorBeam': 'schiff',
-    'DockingCollar': 'schiff', 'Cargo': 'schiff',
+    'DockingCollar': 'schiff', 'FuelNozzle': 'schiff', 'Cargo': 'schiff',
     # Was man in die Hand nimmt
     'WeaponPersonal': 'fps', 'WeaponAttachment': 'fps',
     # ⚠ scmdb führt einige Einträge unter kleingeschriebenen Sammelbegriffen

@@ -443,7 +443,7 @@ test('Rechte: Eigentümer überall, das Dienst-Zeichen NUR beim Export', () => {
 
 // ---------------------------------------------------------------- Seitenzähler
 
-import { PAGES, ROUTES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
+import { PAGES, ROUTES, ACTIONS, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
 import { MAX_BYTES } from './worker.js';
 
 const NAV = {
@@ -451,7 +451,9 @@ const NAV = {
   entry: { liste: { start: 1, seitenleiste: 2 }, verkauf: { seitenleiste: 1 }, laeden: { seitenleiste: 1 } },
   clicks: { liste: { 0: 1 }, laeden: { 4: 1 } },
   misses: { 'verkauf>laeden': 1 },
+  actions: { lager_scan: 2, lager_hand: 1 },
 };
+const NAV_TABLE_NAMES = ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe', 'seiten_handlungen'];
 
 function navPing(extra = {}) { return ping({ ...FULL, ...NAV, ...extra }); }
 
@@ -471,9 +473,12 @@ test('Vorbedingung: Seitenzähler landen in den vier Tabellen (echtes SQLite)', 
   assert.deepEqual(rows(e.DB.db, 'seiten_klicks').map((x) => [x.seite, x.klicks, x.n]),
     [['laeden', 4, 1], ['liste', 0, 1]]);
   assert.deepEqual(rows(e.DB.db, 'seiten_fehlgriffe').map((x) => [x.von, x.nach, x.n]), [['verkauf', 'laeden', 1]]);
+  assert.deepEqual(rows(e.DB.db, 'seiten_handlungen').map((x) => [x.handlung, x.n]),
+    [['lager_hand', 1], ['lager_scan', 2]]);
   // Eine zweite Meldung am selben Tag zählt dazu, statt zu überschreiben.
   await worker.fetch(navPing(), e);
   assert.equal(e.DB.db.prepare("SELECT n FROM seiten WHERE seite = 'liste'").get().n, 6);
+  assert.equal(e.DB.db.prepare("SELECT n FROM seiten_handlungen WHERE handlung = 'lager_scan'").get().n, 4);
   assert.equal(e.DB.db.prepare("SELECT n FROM seiten_fehlgriffe WHERE von = 'verkauf'").get().n, 2);
   // Die Installation zählt weiterhin genau einmal je Meldung.
   assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 2);
@@ -482,7 +487,7 @@ test('Vorbedingung: Seitenzähler landen in den vier Tabellen (echtes SQLite)', 
 test('Seitenzähler sind nicht mit Version, Land oder System verknüpft', async () => {
   const e = { ...env(), DB: realD1() };
   await worker.fetch(navPing(), e);
-  for (const t of ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']) {
+  for (const t of NAV_TABLE_NAMES) {
     const cols = e.DB.db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
     for (const c of cols) assert.ok(!['version', 'land', 'system'].includes(c), `${t}.${c}`);
   }
@@ -500,6 +505,9 @@ test('falsche Seitenzähler werden abgelehnt — die ganze Meldung', async () =>
     { clicks: { liste: { a: 1 } } },
     { misses: { 'liste>liste': 1 } }, { misses: { 'liste>fremd': 1 } }, { misses: { 'a>b>c': 1 } },
     { misses: { liste: 1 } }, { misses: pairs },
+    { actions: { unbekannt: 1 } }, { actions: { lager_scan: 0 } }, { actions: { lager_scan: '2' } },
+    { actions: { lager_scan: MAX_COUNT + 1 } }, { actions: [['lager_scan', 1]] },
+    { actions: { 'Titanium 295': 1 } }, { actions: JSON.parse('{"__proto__": 1}') },
   ];
   for (const b of bad) {
     const e = env();
@@ -521,6 +529,7 @@ test('die größte mögliche Meldung passt unter MAX_BYTES und wird angenommen',
       Array.from({ length: MAX_CLICKS + 1 }, (_, k) => [String(k), MAX_COUNT]))])),
     misses: Object.fromEntries(Array.from({ length: MAX_MISS_PAIRS }, (_, i) =>
       [longest[i % 4] + '>' + longest[4 + (i % 16)], MAX_COUNT])),
+    actions: Object.fromEntries(Object.keys(ACTIONS).map((k) => [k, MAX_COUNT])),
   };
   const size = new TextEncoder().encode(JSON.stringify(big)).length;
   assert.ok(size <= MAX_BYTES, `${size} Byte > ${MAX_BYTES}`);
@@ -531,7 +540,7 @@ test('die größte mögliche Meldung passt unter MAX_BYTES und wird angenommen',
 
 test('fehlen die Seiten-Tabellen noch, zählt die Installation trotzdem', async () => {
   const e = { ...env(), DB: realD1() };
-  for (const t of ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']) e.DB.db.exec('DROP TABLE ' + t);
+  for (const t of NAV_TABLE_NAMES) e.DB.db.exec('DROP TABLE ' + t);
   const r = await worker.fetch(navPing(), e);
   assert.equal(r.status, 204);
   assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 1);
@@ -547,10 +556,10 @@ test('schema.sql erneut einspielen lässt vorhandene Daten unberührt', async ()
   for (const s of statements) assert.match(s, /^CREATE TABLE IF NOT EXISTS \w+ \(/, s.slice(0, 60));
   const e = { ...env(), DB: realD1() };
   await worker.fetch(navPing(), e);
-  const before = ['tage', 'merkmale', 'seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']
+  const before = ['tage', 'merkmale', ...NAV_TABLE_NAMES]
     .map((t) => JSON.stringify(rows(e.DB.db, t)));
   e.DB.db.exec(sql);
-  const after = ['tage', 'merkmale', 'seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']
+  const after = ['tage', 'merkmale', ...NAV_TABLE_NAMES]
     .map((t) => JSON.stringify(rows(e.DB.db, t)));
   assert.deepEqual(after, before);
   assert.ok(before.every((x) => x !== '[]'), 'Vorbedingung: in jeder Tabelle stand etwas');
@@ -565,6 +574,7 @@ test('die Übersicht bekommt die Seitenzähler', async () => {
   assert.equal(d.seiten_wege.length, 4);
   assert.equal(d.seiten_klicks.length, 2);
   assert.deepEqual(d.seiten_fehlgriffe.map((r) => [r.von, r.nach, r.n]), [['verkauf', 'laeden', 1]]);
+  assert.equal(d.seiten_handlungen.length, 2);
 });
 
 test('Export über den echten Weg: Dienst-Zeichen bekommt alle Tabellen', async () => {
@@ -574,7 +584,7 @@ test('Export über den echten Weg: Dienst-Zeichen bekommt alle Tabellen', async 
   assert.equal(r.status, 200);
   const j = await r.json();
   for (const t of ['tage', 'merkmale', 'downloads', 'download_bestand', 'download_verlauf',
-                   'seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe']) assert.ok(Array.isArray(j[t]), t);
+                   ...NAV_TABLE_NAMES]) assert.ok(Array.isArray(j[t]), t);
   const r2 = await worker.fetch(statsReq('/daten', jwt), env, undefined, verify);
   assert.equal(r2.status, 403, 'das Dienst-Zeichen sieht die Übersicht nicht');
 });

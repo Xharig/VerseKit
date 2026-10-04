@@ -497,6 +497,35 @@ def unit_hint(value, unit):
     return None
 
 
+def amount_text(value, piece=False, decimal='.'):
+    """Eine Lagermenge für die Anzeige, ohne Einheit.
+
+    SCU wie im Spiel: immer drei Nachkommastellen, Nullen am Ende bleiben
+    (`0.020`, `3.960`); ganze Zahlen ohne Nachkommastellen (`1`, `4`).
+    Stückzahlen (`piece`) ohne festgelegte Stellen (`%g`). `decimal` ist das
+    Dezimalzeichen.
+    """
+    try:
+        value = float(value or 0)
+    except (TypeError, ValueError):
+        value = 0.0
+    if piece:
+        return ('%g' % value).replace('.', decimal)
+    rounded = round(value, 3)
+    if rounded == int(rounded):
+        return '%d' % int(rounded)
+    return ('%.3f' % rounded).replace('.', decimal)
+
+
+def piece_first(material):
+    """Sortierschlüssel: Stückware (Edelsteine) vor SCU-Ware — 0 oder 1."""
+    from . import crafting
+    try:
+        return 0 if crafting.is_piece(material) else 1
+    except Exception:
+        return 1
+
+
 def refinery_lines(text, unit='cscu', hints=None):
     """Die Ausbeute eines Raffinerie-Auftrags aus getipptem Text lesen.
 

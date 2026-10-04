@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.87.1'
+__version__ = '3.88.0'
 
 
 def _mitgeliefert(name):
@@ -160,6 +160,9 @@ TEXTE_POLL_SEC = 6 * 3600
 # (gemessen mit 407 Bauplänen), also 0,013 % eines Drei-Sekunden-Takts.
 # Geschrieben wird weiterhin nur, wenn er sich WIRKLICH geändert hat.
 BESTAND_POLL_SEC = 30
+# Wie oft nachgesehen wird, ob ein anderes Werkzeug die Textdatei neu
+# geschrieben hat — nur Größe und Zeitstempel.
+DATEI_POLL_SEC = 5
 SCMDB_TIMEOUT  = 30
 # Wer die Netzabfrage nicht will, setzt SC_BP_NO_NET=1 — dann bleibt es beim
 # zuletzt geholten Stand.
@@ -393,6 +396,10 @@ def scmdb_aktualisieren():
         # Liste Grad C und das Overlay Grad A zum selben Kühler.
         from scbp import catalog as _catalog
         spiel_grade = _catalog.game_grades()
+        # Bekannte CIG-Datenfehler (attachType/cgItemType), wie im Katalog.
+        from scbp import cig_issues as _cig_issues
+        _cig_issues.apply_items(roh.get('items'),
+                                _cig_issues.issues_for(version))
         items = {}
         for e in roh.get('items', []):
             name = e.get('name')
@@ -769,6 +776,8 @@ class Watcher(threading.Thread):
         self.kat_laeuft = False  # holt gerade ein Nebenthread den Katalog?
         self.texte_next = 0.0   # nächster Blick auf Übersetzung und Injektion
         self.bestand_next = 0.0  # nächster Blick auf den EIGENEN Bestand
+        self.datei_next = 0.0   # nächster Blick auf die Textdatei des Spiels
+        self.datei_stand = None  # Größe und Zeitstempel nach dem letzten Abgleich
         self.texte_laeuft = False
 
     # ---- scmdb-Craftdaten frisch halten ----
@@ -920,7 +929,16 @@ class Watcher(threading.Thread):
         if not faellig and jetzt >= self.bestand_next:
             self.bestand_next = jetzt + BESTAND_POLL_SEC
             bestand_neu = self._bestandsmarke_neu()
-        if not faellig and not bestand_neu:
+        # ⚠ Ein anderes Werkzeug (etwa ein Launcher, der vor jedem Spielstart
+        # die `global.ini` neu schreibt) nimmt die eigenen Angaben mit. Ein
+        # Blick auf Größe und Zeitstempel der Datei alle paar Sekunden kostet
+        # nichts und trägt sie gleich wieder ein — nicht erst im
+        # Sechs-Stunden-Lauf.
+        datei_neu = False
+        if not faellig and not bestand_neu and jetzt >= self.datei_next:
+            self.datei_next = jetzt + DATEI_POLL_SEC
+            datei_neu = self._textdatei_geaendert()
+        if not faellig and not bestand_neu and not datei_neu:
             return
 
         quelle = self._aktive_quelle()
@@ -943,7 +961,8 @@ class Watcher(threading.Thread):
                 if kanaele:
                     self._kanaele_abgleichen(kanaele)
                 if quelle or eigene_texte:
-                    self._texte_abgleichen(quelle, nur_bestand=not faellig)
+                    self._texte_abgleichen(
+                        quelle, nur_bestand=not (faellig or datei_neu))
             finally:
                 self.texte_laeuft = False
 
@@ -1029,6 +1048,32 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             errors.record('watcher.spielsprache', ausnahme)
             return False
+
+    def _textdatei_stand(self):
+        """Größe und Zeitstempel der Textdatei, in die eingetragen wird — oder
+        None, wenn es keine gibt."""
+        try:
+            quelle = self._aktive_quelle()
+            ordner = (translation.language_folder(quelle) if quelle
+                      else 'english')
+            ziel = translation.target_ini(ordner)
+            if not ziel:
+                return None
+            info = os.stat(ziel)
+            return (ziel, info.st_size, info.st_mtime_ns)
+        except Exception:
+            return None
+
+    def _textdatei_geaendert(self):
+        """Hat jemand anderes die Textdatei seit dem letzten Abgleich neu
+        geschrieben? Der erste Blick merkt sich nur den Stand."""
+        stand = self._textdatei_stand()
+        if stand is None:
+            return False
+        if self.datei_stand is None:
+            self.datei_stand = stand
+            return False
+        return stand != self.datei_stand
 
     def _bestandsmarke_neu(self):
         """Hat sich der eigene Bestand seit dem letzten Einspielen geändert?
@@ -1167,6 +1212,10 @@ class Watcher(threading.Thread):
                         paths.set_setting('inj_katalog', katalog_stand)
                 except Exception as ausnahme:
                     errors.record('watcher.inj_marke_merken', ausnahme)
+
+        # Den Stand nach dem eigenen Abgleich merken — sonst hielte die
+        # Dateiwache das eigene Schreiben für das eines anderen Werkzeugs.
+        self.datei_stand = self._textdatei_stand()
 
     # ---- Katalog-Wache: was ist NEU craftbar im Spiel? ----
     def _catalog_tick(self):

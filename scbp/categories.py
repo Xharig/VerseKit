@@ -127,7 +127,9 @@ _FROM_KIND = {
     'weaponmagazine': (GEAR, 'magazin'),
     'magazine': (GEAR, 'magazin'),
     'dockingcollar': (SHIP_TOOL, 'andockkragen'),
-    'fuelnozzle': (SHIP_TOOL, 'fuelnozzle'),
+    # Berichtigte Treibstoffdüsen (siehe `cig_issues`) bleiben in derselben
+    # Unterart wie unter ihrer Rohkennung `DockingCollar`.
+    'fuelnozzle': (SHIP_TOOL, 'andockkragen'),
     'weaponmining': (SHIP_TOOL, 'mining_laser'),
     'container': (GEAR, 'behaelter'),
     'cargomodule': (SHIP_TOOL, 'frachtmodul'),

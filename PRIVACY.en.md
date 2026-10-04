@@ -49,9 +49,11 @@ Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com
 | how a page was opened | sidebar, jump, overlay, tray menu, program start |
 | how many clicks it took to reach a page | Shops: 5× after 2 clicks |
 | which page you left again after a few seconds, and where you stayed next | Selling → Shops: 7× |
+| how often you added to the material storage by hand, added a refinery yield, read the screen or pressed "Sync now" | Screen read: 2× |
 
-The page details are only counters since the last report, using the fixed
-page IDs — no content, no search terms, no names, no times of day. They stay
+The page and action details are only counters since the last report, using
+fixed IDs — no content, no amounts, no resources, no search terms, no names, no
+times of day. They stay
 in your data folder (`seitennutzung.json`) until the next report and are
 cleared afterwards. If reporting is switched off, nothing is counted at all.
 

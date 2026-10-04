@@ -155,15 +155,19 @@ def _fetch(address):
         return json.loads(reply.read().decode('utf-8'))
 
 
-def prepare(raw):
+def prepare(raw, issues=None):
     """Aus der 12,5-MB-Datei die Tabelle bauen, die wir brauchen.
 
     Gibt `{schluessel: [{'wer':…, 'was':…, 'wieviel':…}, …]}` zurueck.
 
     ⚠ Ein Auftrag kann MEHREREN Parteien Ruf bringen — deshalb eine Liste.
-    Genau das war der Anlass: „headhunters ist ne gute quelle da gibt es
-    beides, oder citizen for prosperity."
+
+    `issues` ist die Liste bekannter CIG-Datenfehler (`cig_issues`). Nennt sie
+    für einen Vertrag (debugName) eine andere Fraktion, geht der Ruf, der in
+    den Rohdaten an die falsche Fraktion fällt, an die gemeinte; der Eintrag
+    trägt dann `datenfehler` mit dem alten Namen.
     """
+    from . import cig_issues
     contracts = raw.get('contracts') or []
     pools = raw.get('factionRewardsPools') or []
     factions = raw.get('factions') or {}
@@ -177,6 +181,10 @@ def prepare(raw):
             continue
         if idx < 0 or idx >= len(pools):
             continue
+        fix = cig_issues.faction_fix(issues, c.get('debugName'))
+        wrong = ((c.get('factionGuid') or '').lower()
+                 if fix and (c.get('factionGuid') or '').lower() != fix[0]
+                 else None)
         entries = []
         for part in (pools[idx] or []):
             if not isinstance(part, dict):
@@ -188,8 +196,14 @@ def prepare(raw):
             kind = (scopes.get(part.get('scopeGuid')) or {}).get('displayName')
             if not faction and not kind:
                 continue
-            entries.append({'wer': faction or '', 'was': kind or '',
-                              'wieviel': amount_})
+            row = {'wer': faction or '', 'was': kind or '', 'wieviel': amount_}
+            if wrong and (part.get('factionGuid') or '').lower() == wrong:
+                right = ((factions.get(fix[0]) or {}).get('name') or fix[1])
+                if right:
+                    row['wer'] = right
+                    row['datenfehler'] = {'statt': faction or '',
+                                          'note': fix[2]}
+            entries.append(row)
         if entries:
             out[key] = entries
     return out
@@ -251,15 +265,32 @@ def prepare_regions(raw):
     return out
 
 
+def same_build(full, game_version):
+    """Gehört die volle Kennung (`4.10.1-live.12660092`) zum Spielstand
+    (`4.10.1`)? Das Spiel nennt nur die Versionsnummer, scmdb hängt Kanal und
+    Buildnummer an — ein Vergleich auf Gleichheit träfe nie."""
+    full = full or ''
+    game_version = game_version or ''
+    if not full or not game_version:
+        return False
+    return full == game_version or full.startswith(game_version + '-')
+
+
 def refresh(game_version=''):
     """Die Tabelle holen, wenn sie fehlt oder zum Patch nicht mehr passt.
 
     Gibt die Zahl der Auftraege zurueck. Bei Netzfehlern bleibt der alte
     Stand stehen — eine veraltete Angabe ist besser als keine.
     """
+    from . import cig_issues
     old = load()
-    if old['auftraege'] and (not game_version
-                             or old.get('version') == game_version):
+    # Hat sich die Fehlerliste zum abgelegten Build geändert, wird neu
+    # aufbereitet — sonst blieben Berichtigungen bis zum nächsten Patch aus.
+    issues_same = ((old.get('datenfehler') or '')
+                   == cig_issues.fingerprint(
+                       cig_issues.issues_for(old.get('version'))))
+    if old['auftraege'] and issues_same and (
+            not game_version or same_build(old.get('version'), game_version)):
         return len(old['auftraege'])
     if OFF:
         return len(old['auftraege'])
@@ -279,7 +310,8 @@ def refresh(game_version=''):
         # Liste beginnt mit der PTU, und wer auf LIVE spielt, bekaeme sonst
         # Auftragsdaten einer Version, die er gar nicht hat.
         for entry in (versions_ or []):
-            if game_version and entry.get('version') == game_version:
+            if (game_version and same_build(entry.get('version'), game_version)
+                    and 'ptu' not in (entry.get('version') or '')):
                 file_name = entry.get('file')
                 break
         if not file_name:
@@ -299,13 +331,17 @@ def refresh(game_version=''):
             # anderen Weg versuchen, statt ganz aufzugeben.
             other = FALLBACK if base_url == BASE else BASE
             raw = _fetch('%s/%s' % (other, file_name))
-        contract_map = prepare(raw)
+        raw_version = raw.get('version') or game_version or ''
+        cig_issues.update(raw_version)
+        issues = cig_issues.issues_for(raw_version)
+        contract_map = prepare(raw, issues)
         if not contract_map:
             return len(old['auftraege'])
         save({'format': FORMAT,
-                 'version': raw.get('version') or game_version or '',
+                 'version': raw_version,
                  'auftraege': contract_map,
-                 'regionen': prepare_regions(raw)})
+                 'regionen': prepare_regions(raw),
+                 'datenfehler': cig_issues.fingerprint(issues)})
         return len(contract_map)
     except Exception as error:
         errors.record('reputation.refresh', error)

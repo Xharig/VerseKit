@@ -192,6 +192,46 @@ TEXTS = {
     's_rf_menge':      ('Die Menge muss größer als null sein.',
                         'The amount has to be greater than zero.'),
     's_rf_fertig':     ('%d Posten eingetragen.', '%d entries added.'),
+    's_rf_lesen':      ('Bildschirm lesen', 'Read screen'),
+    's_rf_lesen_warten': ('Wechsle jetzt ins Spiel zum Raffinerie-Terminal — '
+                          'gelesen wird, sobald Star Citizen vorn ist.',
+                          'Switch to the game at the refinery terminal now — '
+                          'the screen is read as soon as Star Citizen is in '
+                          'front.'),
+    's_rf_lesen_laeuft': ('Lese den Bildschirm …', 'Reading the screen …'),
+    's_rf_lesen_kein_spiel': ('Star Citizen kam nicht nach vorn — es wurde '
+                              'nichts gelesen.',
+                              'Star Citizen did not come to the front — '
+                              'nothing was read.'),
+    's_rf_lesen_nichts': ('Auf dem Bildschirm war keine Raffinerie-Liste zu '
+                          'erkennen.',
+                          'No refinery list could be found on the screen.'),
+    's_rf_lesen_fertig': ('%d Zeilen gelesen und unten eingesetzt — bitte mit '
+                          'dem Terminal vergleichen, dann eintragen.',
+                          '%d lines read and placed below — compare them with '
+                          'the terminal, then add them.'),
+    's_rf_lesen_unsicher': ('Nicht sicher gelesen, bitte selbst eintippen: %s',
+                            'Not read reliably, please type in yourself: %s'),
+    's_rf_lesen_nur_windows': ('Bildschirm lesen geht bisher nur unter Windows.',
+                               'Reading the screen only works on Windows so '
+                               'far.'),
+    's_rf_lesen_keine_sprache': ('Windows hat keine Texterkennung installiert. '
+                                 'Sie kommt mit einem Sprachpaket (Einstellungen '
+                                 '→ Zeit und Sprache → Sprache).',
+                                 'Windows has no text recognition installed. It '
+                                 'comes with a language pack (Settings → Time & '
+                                 'language → Language).'),
+    's_rf_lesen_fehler': ('Bildschirm lesen ging nicht.',
+                          'Reading the screen did not work.'),
+    's_lg_sync':       ('Jetzt übertragen', 'Sync now'),
+    's_lg_sync_laeuft': ('Übertrage das Lager zum Basetool …',
+                         'Syncing the storage with the Basetool …'),
+    's_lg_sync_ok':    ('Mit dem Basetool abgeglichen: %s',
+                        'Synced with the Basetool: %s'),
+    's_lg_sync_konflikte': ('%d Posten stehen im Basetool mit anderer Menge — '
+                            'entscheiden unter Einstellungen → Basetool.',
+                            '%d lots show a different amount in the Basetool — '
+                            'decide under Settings → Basetool.'),
     'ff_alle_patches':   ('alle Patches', 'all patches'),
     'neu_leer':          ('Mit dem letzten Patch kam kein neuer Bauplan dazu. '
                           'Sobald CIG welche nachreicht, stehen sie hier.',
@@ -4584,12 +4624,12 @@ TEXTS = {
                           'is for reading and sharing — it cannot be loaded '
                           'back. After a patch wipe, “Clear stock” empties the '
                           'hold in one go.'),
-    's_lg_lead':         ('Was du an Rohstoffen hast. Trag es selbst ein — das '
-                          'Spiel verrät es nicht. Beim Herstellen zieht '
-                          'Verse-Kit die Zutaten ab.',
-                          'The resources you hold. Enter them yourself — the '
-                          'game does not reveal them. When you craft, '
-                          'Verse-Kit deducts the ingredients.'),
+    's_lg_lead':         ('Deine eigene Liste der Rohstoffe — das Spiel verrät '
+                          'sie nicht. Beim Herstellen zieht Verse-Kit die '
+                          'Zutaten ab.',
+                          'Your own list of resources — the game does not '
+                          'reveal them. When you craft, Verse-Kit deducts the '
+                          'ingredients.'),
     's_lg_material':     ('Rohstoff', 'Resource'),
     's_lg_menge':        ('Menge (SCU)', 'Amount (SCU)'),
     # ⚠ Die Beschriftung sagt immer, in welcher Einheit das Feld gerade
@@ -4927,6 +4967,14 @@ TEXTS = {
     's_he_spanne':       ('Q %g–%g · ×%g–%g · Nullpunkt %g',
                           'Q %g–%g · ×%g–%g · base %g'),
     's_he_spanne_ohne':  ('Q %g–%g · ×%g–%g', 'Q %g–%g · ×%g–%g'),
+    # Hinweis an einem Wert, den VerseKit nach der Liste bekannter
+    # CIG-Datenfehler berichtigt hat.
+    's_cig_wert':        ('CIG-Datenfehler, berichtigt (Spieldaten: ×%g)',
+                          'CIG data error, corrected (game data: ×%g)'),
+    's_cig_produkt':     ('CIG-Datenfehler, berichtigt: Die Spieldaten nennen '
+                          'als Produkt „%s".',
+                          'CIG data error, corrected: the game data names '
+                          '“%s” as the product.'),
     # Zerlegen: Was NICHT zurueckkommt.
     's_he_zerlegen':     ('Beim Zerlegen kommt %.0f %% des Materials zurück — '
                           'aber nicht: %s',
@@ -5169,12 +5217,6 @@ TEXTS = {
     's_ps_strahlung':    ('Strahlung', 'Radiation'),
     's_ps_rad_schutz':   ('Strahlenschutz', 'Radiation protection'),
     's_ps_rad_abbau':    ('Strahlungsabbau', 'Radiation scrub rate'),
-    's_lg_hinweis':      ('Verse-Kit kennt deinen Frachtraum nicht — das hier '
-                          'ist deine eigene Liste. Sie sagt dir, was fehlen '
-                          'könnte, nicht ob du bauen kannst.',
-                          'Verse-Kit cannot see your cargo hold — this is your '
-                          'own list. It tells you what might be missing, not '
-                          'whether you can build.'),
 
     # --- Seite „Bergbau" -----------------------------------------------------
     'm_b_aktuell':       ('Bergbau-Daten sind aktuell (%d Orte)',
@@ -5593,8 +5635,8 @@ TEXTS = {
     's_sa_auto_h':       ('Liest neue Protokolle beim Start von Verse-Kit und beim Öffnen der Statistik von selbst. Gelesen wird nur, was neu oder gewachsen ist.',
                           'Reads new logs by itself when Verse-Kit starts and when you open the statistics. Only what is new or has grown is read.'),
     's_nutzung':         ('Nutzung zählen lassen', 'Count usage'),
-    's_nutzung_h':       ('Einmal am Tag meldet Verse-Kit Version, System, Sprache, welche Bereiche du nutzt und welche Seiten im Hauptfenster du wie oft öffnest (mit wie vielen Klicks bis dorthin) — ohne Kennung, Namen oder Handle, ohne Inhalte oder Suchbegriffe. So sehe ich, wie viele Verse-Kit wirklich nutzen, was davon und was schwer zu finden ist. Ausgeschaltet wird auch nichts mehr mitgezählt. Alles Einzelne steht in der Datenschutz-Erklärung.',
-                          'Once a day Verse-Kit reports its version, your system, language, which areas you use and which pages of the main window you open how often (and how many clicks it took to get there) — no ID, name or handle, no content or search terms. That way I can see how many people really use Verse-Kit, which parts, and what is hard to find. When switched off, nothing is counted at all. Every detail is listed in the privacy statement.'),
+    's_nutzung_h':       ('Einmal am Tag meldet Verse-Kit Version, System, Sprache, welche Bereiche du nutzt und welche Seiten im Hauptfenster du wie oft öffnest (mit wie vielen Klicks bis dorthin) und wie oft du einzelne Lager-Funktionen nutzt — ohne Kennung, Namen oder Handle, ohne Inhalte oder Suchbegriffe. So sehe ich, wie viele Verse-Kit wirklich nutzen, was davon und was schwer zu finden ist. Ausgeschaltet wird auch nichts mehr mitgezählt. Alles Einzelne steht in der Datenschutz-Erklärung.',
+                          'Once a day Verse-Kit reports its version, your system, language, which areas you use and which pages of the main window you open how often (and how many clicks it took to get there) and how often you use single storage functions — no ID, name or handle, no content or search terms. That way I can see how many people really use Verse-Kit, which parts, and what is hard to find. When switched off, nothing is counted at all. Every detail is listed in the privacy statement.'),
     's_scmdb':           ('Mit scmdb.net verbinden', 'Connect to scmdb.net'),
     's_scmdb_h':         ('Verse-Kit meldet neue Baupläne und laufende Aufträge direkt an scmdb.net — ohne Export und Hochladen, ohne zusätzliches Programm. Auf scmdb.net anmelden, oben rechts auf „Watcher" und „Enable Watcher" einschalten; die Seite muss dafür offen sein. Fragt dein Browser einmal, ob scmdb.net auf Apps auf diesem Gerät zugreifen darf: „Erlauben" und merken lassen, dann die Seite neu laden. Übernommen wird in das scmdb-Konto, mit dem du dort angemeldet bist, und nur aus LIVE und HOTFIX. Läuft schon der Watcher von scmdb, nimm einen von beiden.',
                           'Verse-Kit reports new blueprints and running missions straight to scmdb.net — no export, no upload, no extra program. Sign in on scmdb.net, click "Watcher" at the top right and turn on "Enable Watcher"; the page has to be open for that. If your browser asks once whether scmdb.net may access apps on this device: allow it, let it remember, then reload the page. Everything goes into the scmdb account you are signed in with there, and only from LIVE and HOTFIX. If scmdb\'s own watcher is already running, use one or the other.'),
@@ -6217,6 +6259,7 @@ TEXTS = {
     'art_SalvageHead':          ('Salvage-Kopf', 'Salvage head'),
     'art_TractorBeam':          ('Traktorstrahl', 'Tractor beam'),
     'art_DockingCollar':        ('Treibstoffdüse', 'Fuel nozzle'),   # siehe kat_unter_andockkragen
+    'art_FuelNozzle':           ('Treibstoffdüse', 'Fuel nozzle'),
     'art_Cooler':               ('Cooler', 'Cooler'),
     'art_Shield':               ('Schild', 'Shield'),
     'art_Radar':                ('Radar', 'Radar'),

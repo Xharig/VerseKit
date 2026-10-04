@@ -49,10 +49,11 @@ Einmal am Tag schickt Verse-Kit an `nutzung-versekit.xharig.com` genau diese Ang
 | auf welchem Weg eine Seite geöffnet wurde | Seitenleiste, Sprung, Overlay, Tray-Menü, Programmstart |
 | wie viele Klicks es bis zu einer Seite brauchte | Shops: 5× nach 2 Klicks |
 | welche Seite du nach wenigen Sekunden wieder verlassen hast, und wo du danach geblieben bist | Verkauf → Shops: 7× |
+| wie oft du im Rohstofflager von Hand eingetragen, eine Raffinerie-Ausbeute eingetragen, den Bildschirm gelesen oder „Jetzt übertragen" gedrückt hast | Bildschirm gelesen: 2× |
 
-Die Seitenangaben sind nur Zähler seit der letzten Meldung, mit den festen
-Kennungen der Seiten — keine Inhalte, keine Suchbegriffe, keine Namen, keine
-Uhrzeiten. Sie liegen bis zur nächsten Meldung in deinem Datenordner
+Die Seiten- und Handlungsangaben sind nur Zähler seit der letzten Meldung, mit
+festen Kennungen — keine Inhalte, keine Mengen, keine Rohstoffe, keine
+Suchbegriffe, keine Namen, keine Uhrzeiten. Sie liegen bis zur nächsten Meldung in deinem Datenordner
 (`seitennutzung.json`) und werden danach geleert. Ist die Meldung
 ausgeschaltet, wird gar nicht erst mitgezählt.
 

@@ -11585,8 +11585,9 @@ def main():
         _rumpf116 = _tick116.group(1)
         pruefe('if faellig:' in _rumpf116,
                'die Netzabfrage schiebt ihren Termin nur im faelligen Lauf')
-        pruefe('nur_bestand=not faellig' in _rumpf116.replace(' ', '')
-               .replace('nur_bestand=notfaellig', 'nur_bestand=not faellig'),
+        _ohne116 = re.sub(r'\s+', '', _rumpf116)
+        pruefe('nur_bestand=notfaellig' in _ohne116
+               or 'nur_bestand=not(faelligordatei_neu)' in _ohne116,
                'ein reiner Bestands-Lauf ueberspringt die fremden Pruefungen')
 
     print()
@@ -25227,6 +25228,13 @@ def main():
     _pruefung_336()
     _pruefung_337()
     _pruefung_338()
+    _pruefung_346()
+    _pruefung_347()
+    _pruefung_348()
+    _pruefung_349()
+    _pruefung_350()
+    _pruefung_370()
+    _pruefung_377()
 
     print()
     if fehler:
@@ -30281,7 +30289,8 @@ def _pruefung_305():
                % (erg, len(gesendet)))
         _erlaubt305 = sorted(['v', 'os', 'ui', 'game', 'rc', 'mods',
                               'overlay', 'autostart', 'update',
-                              'pages', 'entry', 'clicks', 'misses'])
+                              'pages', 'entry', 'clicks', 'misses',
+                              'actions'])
         pruefe(gesendet and sorted(gesendet[0]) == _erlaubt305,
                'es gehen GENAU die Felder aus PRIVACY.md hinaus (%r)'
                % (sorted(gesendet[0]) if gesendet else None))
@@ -31525,6 +31534,7 @@ def _pruefung_315():
                   'laeden': {'seitenleiste': 1}},
         'clicks': {'liste': {'0': 1}, 'laeden': {'4': 1}},
         'misses': {'verkauf>laeden': 1},
+        'actions': {},
     }
     _w315 = None
     try:
@@ -34569,6 +34579,1068 @@ def _pruefung_338():
                 _w345.destroy()
         except Exception:
             pass
+
+
+def _cig_beispiel370():
+    """Eine kleine Fehlerliste im Aufbau von `cig_data_issues-<build>.json`."""
+    return {
+        '_comment': 'Beispiel',
+        'blueprintRecords': {
+            '_comment': 'Beispiel',
+            '2663f762-5648-41d4-8746-c8dcc07e71b1': {
+                'slot': 'Segment Paneling',
+                'propertyKey': 'armor_damagemitigation',
+                'expected': {'modifierAtStart': 0.9},
+                'note': 'Beispiel: Startwert verschoben'},
+            'fa5951a5-5063-49c8-8f4c-a6b341801aea': {
+                'expected': {'entityClass': 'fda65886-0ccb-4a80-a5ee-528b186d4584',
+                             'name': 'DayBreak'},
+                'note': 'Beispiel: falsches Produkt'},
+        },
+        'blueprintPools': {
+            '_comment': 'Beispiel',
+            'ce014e33-cfcb-45e9-a12f-06f9baff9db2': {'duplicateReferences': [{
+                'blueprintRecord': '9f11679b-027f-4a0b-903d-6655f2978e76',
+                'expected': {'blueprintRecord': 'a193c4c6-87ed-4623-87db-588e59d47c04',
+                             'entityClass': '068c28b8-3ea3-409a-b08d-1d53ae1e3303',
+                             'name': 'LH86 Pistol Magazine (25 cap)'},
+                'note': 'Beispiel: doppelter Verweis'}]},
+            '6876ee7a-114b-4414-9af1-bfdcdd303204': {'duplicateReferences': [{
+                'blueprintRecord': '4885f099-b226-4a44-8cb6-03c3c176749c',
+                'expected': None, 'note': 'Beispiel: ohne Ersatz'}]},
+        },
+        'entities': {
+            '_comment': 'Beispiel',
+            'd5456c35-a30b-4e13-bae2-b5609a43909a': {
+                'expected': {'attachType': 'FuelNozzle', 'cgItemType': 'FuelNozzle'},
+                'note': 'Beispiel: falscher Typ'},
+        },
+        'contracts': {
+            '_comment': 'Beispiel',
+            'RedWind_Nyx_Medium_RecoverCargo': {
+                'field': 'factionGuid',
+                'expected': {'factionGuid': 'aa5f0bf8-f36f-423a-b9dd-73084139db23',
+                             'factionName': 'Red Wind Linehaul'},
+                'note': 'Beispiel: falsche Fraktion'},
+        },
+    }
+
+
+def _cig_rezepte370():
+    """Zwei Rezepte im Aufbau von `crafting_blueprints-<build>.json`."""
+    def _mod(start, end):
+        return {'startQuality': 0, 'endQuality': 1000, 'modifierAtStart': start,
+                'modifierAtEnd': end, 'propertyName': 'Damage Mitigation',
+                'propertyKey': 'armor_damagemitigation'}
+    return [
+        {'guid': '2663F762-5648-41D4-8746-C8DCC07E71B1',
+         'tag': 'BP_CRAFT_thp_light_legs_01_01_01',
+         'productEntityClass': 'fd0cdccb-eb52-4c8e-a872-ebdaea337d5a',
+         'productName': 'Aztalan Legs', 'manufacturer': 'Tehachapi',
+         'type': 'armour', 'subtype': 'light',
+         'tiers': [{'craftTimeSeconds': 60, 'slots': [
+             {'name': 'Segment Paneling',
+              'options': [{'type': 'resource', 'resourceName': 'Taranite',
+                           'quantity': 0.03, 'minQuality': 0}],
+              'modifiers': [_mod(9.0, 1.1)]},
+             {'name': 'Frame',
+              'options': [{'type': 'resource', 'resourceName': 'Iron',
+                           'quantity': 0.05, 'minQuality': 0}],
+              'modifiers': [_mod(9.0, 1.1)]}]}]},
+        {'guid': 'fa5951a5-5063-49c8-8f4c-a6b341801aea',
+         'tag': 'BP_CRAFT_POWR_SASU_S02_DayBreak_SCItem',
+         'productEntityClass': 'dabd2d8d-c06c-4ebf-8791-192ace67ac33',
+         'productName': 'FullForce', 'manufacturer': 'Lightning Power Ltd.',
+         'type': 'powerplant', 'subtype': 'size2',
+         'tiers': [{'craftTimeSeconds': 90, 'slots': [
+             {'name': 'Core',
+              'options': [{'type': 'resource', 'resourceName': 'Iron',
+                           'quantity': 0.2, 'minQuality': 0}],
+              'modifiers': []}]}]},
+    ]
+
+
+def _cig_merged370():
+    """Ausschnitt im Aufbau von `merged-<build>.json`."""
+    return {
+        'version': '9.9.9-live.1',
+        'factions': {
+            'aa5f0bf8-f36f-423a-b9dd-73084139db23': {'name': 'Red Wind Linehaul'},
+            '5a6914c9-3d56-47e0-9fe2-b264ee17b992': {'name': 'Citizens For Prosperity'},
+        },
+        'scopes': {'s1': {'displayName': 'Standing'}},
+        'factionRewardsPools': [[{'factionGuid': '5a6914c9-3d56-47e0-9fe2-b264ee17b992',
+                                  'scopeGuid': 's1', 'amount': 150}],
+                                [{'factionGuid': '5a6914c9-3d56-47e0-9fe2-b264ee17b992',
+                                  'scopeGuid': 's1', 'amount': 80}]],
+        'contracts': [
+            {'id': 'c1', 'debugName': 'RedWind_Nyx_Medium_RecoverCargo',
+             'titleLocKey': '@RedWind_RecoverCargo_Medium_Title',
+             'factionGuid': '5a6914c9-3d56-47e0-9fe2-b264ee17b992',
+             'factionRewardsIndex': 0},
+            {'id': 'c2', 'debugName': 'CFP_Andere_Mission',
+             'titleLocKey': '@CFP_Andere_Title',
+             'factionGuid': '5a6914c9-3d56-47e0-9fe2-b264ee17b992',
+             'factionRewardsIndex': 1},
+        ],
+        'blueprintPools': {
+            'ce014e33-cfcb-45e9-a12f-06f9baff9db2': {'name': 'BP_MISSIONREWARD_X',
+                'blueprints': [
+                    {'blueprintRecord': '87db0bbb-ff12-4a7e-8044-72dddb8ddf36',
+                     'name': 'F55 LMG'},
+                    {'blueprintRecord': '9f11679b-027f-4a0b-903d-6655f2978e76',
+                     'name': 'F55 LMG Magazine (150 cap)'},
+                    {'blueprintRecord': '9f11679b-027f-4a0b-903d-6655f2978e76',
+                     'name': 'F55 LMG Magazine (150 cap)'}]},
+            '6876ee7a-114b-4414-9af1-bfdcdd303204': {'name': 'BP_MISSIONREWARD_Y',
+                'blueprints': [
+                    {'blueprintRecord': '4885f099-b226-4a44-8cb6-03c3c176749c',
+                     'name': 'Carnifex Armor Legs'},
+                    {'blueprintRecord': '4885f099-b226-4a44-8cb6-03c3c176749c',
+                     'name': 'Carnifex Armor Legs'}]},
+            'p3': {'name': 'BP_REWARDS_PyroFoxwellEasy', 'blueprints': [
+                {'blueprintRecord': '8fe934b5-ac5a-448e-bc3c-cb22bd9cb3ab',
+                 'entityClass': 'dabd2d8d-c06c-4ebf-8791-192ace67ac33',
+                 'name': 'FullForce'},
+                {'blueprintRecord': 'fa5951a5-5063-49c8-8f4c-a6b341801aea',
+                 'entityClass': 'dabd2d8d-c06c-4ebf-8791-192ace67ac33',
+                 'name': 'FullForce'}]},
+        },
+    }
+
+
+def _pruefung_370():
+    """370–376: Bekannte CIG-Datenfehler werden berichtigt — und nur dann."""
+    import copy as _cp370
+    from scbp import (cig_issues as _ci370, crafting as _cr370,
+                      reputation as _rp370, categories as _ka370,
+                      language as _la370)
+    _bau370 = '9.9.9-live.1'
+    _alt_heim370 = os.environ.get('SC_BP_HOME')
+    _heim370 = tempfile.mkdtemp(prefix='sc-bp-cig-')
+    _echt_bp370 = _ci370.apply_blueprints
+    _echt_it370 = _ci370.apply_items
+    _echt_ff370 = _ci370.faction_fix
+
+    def _frisch370():
+        _ci370.forget()
+        _cr370._cached['stand'] = None
+        _cr370._cached['daten'] = None
+        _cr370._raw_cache['stand'] = None
+        _cr370._raw_cache['daten'] = None
+        _cr370._raw_cache['geprueft'] = 0.0
+
+    def _ablegen370(mit_liste):
+        _cr370._save({'format': _cr370.FORMAT, 'build': _bau370,
+                      'blueprints': _cig_rezepte370(), 'dismantle': {},
+                      'products': {
+                          'fda65886-0ccb-4a80-a5ee-528b186d4584': {
+                              'entityClass': 'fda65886-0ccb-4a80-a5ee-528b186d4584',
+                              'name': 'DayBreak', 'manufacturer': 'Sakura Sun',
+                              'attachType': 'PowerPlant'},
+                          'd5456c35-a30b-4e13-bae2-b5609a43909a': {
+                              'entityClass': 'd5456c35-a30b-4e13-bae2-b5609a43909a',
+                              'name': 'Norfield', 'attachType': 'DockingCollar',
+                              'cgItemType': 'DockingCollar'}}})
+        try:
+            os.remove(_ci370._path())
+        except OSError:
+            pass
+        if mit_liste:
+            _ci370._save({'format': _ci370.FORMAT, 'build': _bau370,
+                          'geholt': 0, 'daten': _cig_beispiel370()})
+        _frisch370()
+
+    def _wirkung370(slot):
+        for s in (_cr370.slots('Aztalan Legs') or []):
+            if s['slot'] == slot:
+                for w in s['wirkungen']:
+                    if w['key'] == 'armor_damagemitigation':
+                        return w
+        return None
+
+    try:
+        os.environ['SC_BP_HOME'] = _heim370
+
+        # 370 — Modifikator: Startwert über GUID + Slot + Eigenschaft.
+        print()
+        print('370. CIG-Datenfehler: Modifikator im Rezept berichtigt')
+        _ablegen370(True)
+        _w370 = _wirkung370('Segment Paneling')
+        _start370 = _w370 and _w370['mods'][0]['modifierAtStart']
+        pruefe(_start370 == 0.9,
+               'Segment Paneling: modifierAtStart 9.0 -> 0.9 (ist %r)' % _start370)
+        _rest370 = _wirkung370('Frame')
+        pruefe(_rest370 and _rest370['mods'][0]['modifierAtStart'] == 9.0
+               and not _rest370.get('datenfehler'),
+               'anderer Slot mit derselben Eigenschaft bleibt roh (%r)'
+               % (_rest370 and _rest370['mods'][0]['modifierAtStart']))
+        _werte370 = [w for w in _cr370.values_with_stock(
+            'Aztalan Legs', {'Taranite': 0}) if w['slot'] == 'Segment Paneling']
+        pruefe(_werte370 and abs(_werte370[0]['faktor'] - 0.9) < 1e-9
+               and (_werte370[0].get('datenfehler') or {}).get('statt')
+               == {'modifierAtStart': 9.0},
+               'Q0 rechnet mit 0.9 und trägt den Rohwert als Hinweis (%r)'
+               % (_werte370[:1],))
+        # Gegenprobe: ohne Anwenden bleibt 9.0 stehen — die Prüfung misst
+        # die Berichtigung, nicht die Daten.
+        _ci370.apply_blueprints = lambda *a, **k: 0
+        _frisch370()
+        _w370g = _wirkung370('Segment Paneling')
+        pruefe(_w370g and _w370g['mods'][0]['modifierAtStart'] == 9.0,
+               'Gegenprobe: ohne Anwenden bleibt 9.0 — Prüfung 370 wäre rot')
+        _ci370.apply_blueprints = _echt_bp370
+        _frisch370()
+
+        # 371 — Produkt: entityClass und Name nach der Bauplan-GUID.
+        print()
+        print('371. CIG-Datenfehler: Produkt eines Bauplans berichtigt')
+        _db371 = [e for e in _cr370.all_items()
+                  if e['tag'] == 'BP_CRAFT_POWR_SASU_S02_DayBreak_SCItem']
+        pruefe(_db371 and _db371[0]['name'] == 'DayBreak'
+               and _db371[0]['entity'] == 'fda65886-0ccb-4a80-a5ee-528b186d4584'
+               and _db371[0]['hersteller'] == 'Sakura Sun',
+               'Rezept heißt DayBreak, Kennung und Hersteller vom gemeinten '
+               'Produkt (%r)' % ([(e['name'], e['entity'], e['hersteller'])
+                                  for e in _db371],))
+        pruefe(_db371 and ((_db371[0].get('datenfehler') or {}).get('statt')
+                           or {}).get('name') == 'FullForce',
+               'der Rohname FullForce steht als Hinweis am Eintrag')
+        _m371 = _cig_merged370()
+        _ci370.apply_merged(_m371, _cig_beispiel370())
+        _namen371 = [b['name'] for b in
+                     _m371['blueprintPools']['p3']['blueprints']]
+        pruefe(_namen371 == ['FullForce', 'DayBreak'],
+               'im Belohnungstopf wird der zweite FullForce zu DayBreak (%r)'
+               % _namen371)
+        _ci370.apply_blueprints = lambda *a, **k: 0
+        _frisch370()
+        _db371g = [e['name'] for e in _cr370.all_items()
+                   if e['tag'] == 'BP_CRAFT_POWR_SASU_S02_DayBreak_SCItem']
+        pruefe(_db371g and _db371g[0] != 'DayBreak',
+               'Gegenprobe: ohne Anwenden heißt das Rezept %r — Prüfung 371 '
+               'wäre rot' % _db371g)
+        _ci370.apply_blueprints = _echt_bp370
+        _frisch370()
+
+        # 372 — Vertrag: Fraktion nach debugName.
+        print()
+        print('372. CIG-Datenfehler: Fraktion eines Auftrags berichtigt')
+        _r372 = _rp370.prepare(_cig_merged370(), _cig_beispiel370())
+        _z372 = _r372.get('redwind_recovercargo_medium_title') or []
+        pruefe([e['wer'] for e in _z372] == ['Red Wind Linehaul']
+               and (_z372[0].get('datenfehler') or {}).get('statt')
+               == 'Citizens For Prosperity',
+               'Ruf-Zeile nennt Red Wind Linehaul statt CFP (%r)' % _z372)
+        _a372 = _r372.get('cfp_andere_title') or []
+        pruefe([e['wer'] for e in _a372] == ['Citizens For Prosperity'],
+               'ein anderer CFP-Auftrag mit demselben Fraktionswert bleibt CFP '
+               '(%r)' % _a372)
+        _m372 = _cig_merged370()
+        _ci370.apply_merged(_m372, _cig_beispiel370())
+        pruefe(_m372['contracts'][0]['factionGuid']
+               == 'aa5f0bf8-f36f-423a-b9dd-73084139db23'
+               and _m372['contracts'][1]['factionGuid']
+               == '5a6914c9-3d56-47e0-9fe2-b264ee17b992',
+               'Katalog: factionGuid nur am betroffenen Vertrag umgestellt')
+        _ci370.faction_fix = lambda *a, **k: None
+        _g372 = _rp370.prepare(_cig_merged370(), _cig_beispiel370())
+        pruefe([e['wer'] for e in
+                (_g372.get('redwind_recovercargo_medium_title') or [])]
+               == ['Citizens For Prosperity'],
+               'Gegenprobe: ohne Berichtigung steht CFP — Prüfung 372 wäre rot')
+        _ci370.faction_fix = _echt_ff370
+
+        # 373 — Gegenstand: attachType/cgItemType nach entityClass.
+        print()
+        print('373. CIG-Datenfehler: Gegenstandstyp berichtigt')
+        _it373 = [{'entityClass': 'D5456C35-A30B-4E13-BAE2-B5609A43909A',
+                   'name': 'Norfield', 'attachType': 'DockingCollar',
+                   'cgItemType': 'DockingCollar'},
+                  {'entityClass': 'ffffffff-0000-0000-0000-000000000000',
+                   'name': 'Kragen', 'attachType': 'DockingCollar',
+                   'cgItemType': 'DockingCollar'}]
+        _ci370.apply_items(_it373, _cig_beispiel370())
+        pruefe(_it373[0]['attachType'] == 'FuelNozzle'
+               and _it373[0]['cgItemType'] == 'FuelNozzle'
+               and _it373[1]['attachType'] == 'DockingCollar',
+               'Norfield wird FuelNozzle, ein fremder Eintrag bleibt (%r)'
+               % [(i['name'], i['attachType']) for i in _it373])
+        pruefe(_ka370.classify(art='FuelNozzle')
+               == _ka370.classify(art='DockingCollar')
+               and 'art_FuelNozzle' in _la370.TEXTS,
+               'berichtigte Düsen bleiben in derselben Unterart und haben '
+               'einen Anzeigenamen (%r)' % (_ka370.classify(art='FuelNozzle'),))
+        from scbp import catalog as _kt373
+        _raw373 = {'items': [{'entityClass': 'd5456c35-a30b-4e13-bae2-b5609a43909a',
+                              'name': 'Norfield', 'attachType': 'DockingCollar',
+                              'cgItemType': 'DockingCollar'}]}
+        _ci370.apply_items(_raw373['items'], _cig_beispiel370())
+        pruefe(_kt373._values(_raw373)['norfield']['a'] == 'FuelNozzle',
+               'Katalogwert nach dem Anwenden: FuelNozzle')
+        _ablegen370(True)
+        _p373 = (_cr370.load().get('products') or {}).get(
+            'd5456c35-a30b-4e13-bae2-b5609a43909a') or {}
+        pruefe(_p373.get('attachType') == 'FuelNozzle'
+               and (_p373.get('datenfehler') or {}).get('statt', {}).get(
+                   'attachType') == 'DockingCollar',
+               'Produkt in den Rezeptdaten wird FuelNozzle (%r)'
+               % _p373.get('attachType'))
+        _ci370.apply_items = lambda *a, **k: 0
+        _frisch370()
+        _p373g = (_cr370.load().get('products') or {}).get(
+            'd5456c35-a30b-4e13-bae2-b5609a43909a') or {}
+        pruefe(_p373g.get('attachType') == 'DockingCollar',
+               'Gegenprobe: ohne Anwenden bleibt DockingCollar — Prüfung 373 '
+               'wäre rot (%r)' % _p373g.get('attachType'))
+        _ci370.apply_items = _echt_it370
+        _frisch370()
+
+        # 374 — Ohne Fehlerliste ändert sich nichts.
+        print()
+        print('374. CIG-Datenfehler: ohne Liste bleibt alles roh')
+        _ablegen370(False)
+        _w374 = _wirkung370('Segment Paneling')
+        pruefe(_w374 and _w374['mods'][0]['modifierAtStart'] == 9.0
+               and not _w374.get('datenfehler'),
+               'fehlende Datei: Rezept bleibt bei 9.0, kein Hinweis')
+        _m374 = _cig_merged370()
+        _vor374 = _cp370.deepcopy(_m374)
+        pruefe(_ci370.apply_merged(_m374, {}) == 0 and _m374 == _vor374
+               and _rp370.prepare(_cig_merged370(), None)
+               == _rp370.prepare(_cig_merged370(), {}),
+               'leere Liste: Sammeldatei und Ruf-Tabelle unverändert')
+        _ci370._save({'format': _ci370.FORMAT, 'build': '0.0.0-anderer',
+                      'geholt': 0, 'daten': _cig_beispiel370()})
+        _frisch370()
+        pruefe(_ci370.issues_for(_bau370) == {}
+               and _ci370.fingerprint(_ci370.issues_for(_bau370)) == '',
+               'eine Liste zu einem anderen Build gilt nicht')
+        _w374b = _wirkung370('Segment Paneling')
+        pruefe(_w374b and _w374b['mods'][0]['modifierAtStart'] == 9.0,
+               'Rezepte bleiben bei fremdem Build roh')
+
+        # 375 — Doppelte Verweise in einem Topf.
+        print()
+        print('375. CIG-Datenfehler: doppelte Verweise in Belohnungstöpfen')
+        _m375 = _cig_merged370()
+        _ci370.apply_merged(_m375, _cig_beispiel370())
+        _a375 = [b['name'] for b in _m375['blueprintPools'][
+            'ce014e33-cfcb-45e9-a12f-06f9baff9db2']['blueprints']]
+        _b375 = [b['name'] for b in _m375['blueprintPools'][
+            '6876ee7a-114b-4414-9af1-bfdcdd303204']['blueprints']]
+        pruefe(_a375 == ['F55 LMG', 'F55 LMG Magazine (150 cap)',
+                         'LH86 Pistol Magazine (25 cap)'],
+               'zweiter Verweis wird durch den gemeinten Bauplan ersetzt (%r)'
+               % _a375)
+        pruefe(_b375 == ['Carnifex Armor Legs'],
+               'ohne Ersatz fällt der zweite Verweis weg (%r)' % _b375)
+        _m375b = _cig_merged370()
+        _ci370.apply_merged(_m375b, _cig_beispiel370())
+        _ci370.apply_merged(_m375b, _cig_beispiel370())
+        pruefe([b['name'] for b in _m375b['blueprintPools'][
+            '6876ee7a-114b-4414-9af1-bfdcdd303204']['blueprints']]
+               == ['Carnifex Armor Legs'],
+               'zweimal angewendet ändert nichts mehr')
+
+        # 376 — Kein Abruf bei gesetzter Netzsperre.
+        print()
+        print('376. CIG-Datenfehler: Abruf hält sich an SC_BP_NO_NET')
+        import urllib.request as _ur376
+        _raus376 = []
+
+        def _falle376(*a, **k):
+            _raus376.append(a[0] if a else '?')
+            raise AssertionError('urlopen trotz SC_BP_NO_NET=1')
+
+        _echt376 = _ur376.urlopen
+        try:
+            _ur376.urlopen = _falle376
+            try:
+                _ur376.urlopen('https://example.invalid/')
+            except AssertionError:
+                pass
+            pruefe(len(_raus376) == 1, 'die Falle selbst greift')
+            _raus376.clear()
+            try:
+                _ergebnis376 = _ci370.update('4.10.1-live.12660092')
+            except AssertionError:
+                _ergebnis376 = None
+            pruefe(_ci370.OFF and not _raus376 and _ergebnis376 is False,
+                   'cig_issues.update geht bei gesetzter Sperre nicht ins Netz '
+                   '(%r)' % (_raus376 or 'kein Abruf'))
+        finally:
+            _ur376.urlopen = _echt376
+    finally:
+        _ci370.apply_blueprints = _echt_bp370
+        _ci370.apply_items = _echt_it370
+        _ci370.faction_fix = _echt_ff370
+        if _alt_heim370 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim370
+        _frisch370()
+        shutil.rmtree(_heim370, ignore_errors=True)
+
+
+_ROHSTOFFE_346 = ['Agricium', 'Aslarite', 'Feynmaline', 'Heart of the Woods',
+                  'Janalite', 'Ouratite', 'Stileron', 'Taranite', 'Titanium']
+
+
+def _ocr_wort_346(text, x, y, w=None, h=12):
+    return {'t': text, 'x': x, 'y': y, 'w': w or 8 * len(text), 'h': h}
+
+
+def _ocr_tabelle_346(werte):
+    """Wörter einer Raffinerie-Tabelle, wie die OCR sie liefert.
+
+    `werte`: Liste (name, qualität, ausbeute, zu) — `None` lässt eine Zelle
+    weg (nicht gelesen). Spalten: Name bei x=20, Qualität 230, Ausbeute 300,
+    ZU 360, FERTIG 410 — wie im Terminal.
+    """
+    worte = [_ocr_wort_346('GEWONNENE', 10, 10), _ocr_wort_346('MATERIALIEN', 90, 10),
+             _ocr_wort_346('(CSCU)', 190, 10, 40),
+             _ocr_wort_346('OUALITåT', 222, 10, 48), _ocr_wort_346('AUSBEUTE', 284, 10, 55),
+             _ocr_wort_346('ZU', 363, 10, 13), _ocr_wort_346('FERTIG', 400, 10, 36)]
+    for i, (name, q, menge, zu) in enumerate(werte):
+        y = 50 + i * 40
+        x = 20
+        for teil in name.split():
+            worte.append(_ocr_wort_346(teil, x, y))
+            x += 8 * len(teil) + 6
+        for wert, spalte in ((q, 240), (menge, 305), (zu, 364)):
+            if wert is not None:
+                worte.append(_ocr_wort_346(str(wert), spalte, y + 1, 18, 10))
+    worte.append(_ocr_wort_346('VERBLEIBENDE', 10, 400))
+    worte.append(_ocr_wort_346('ZEIT', 110, 400))
+    worte.append(_ocr_wort_346('57m', 300, 400))
+    worte.append(_ocr_wort_346('AUSBEUTE', 10, 360))
+    worte.append(_ocr_wort_346('3.73', 300, 360))
+    return worte
+
+
+def _pruefung_346():
+    """346. Raffinerie-Scanner: OCR-Wörter werden zu Raffinerie-Zeilen.
+
+    Ohne Netz und ohne echte OCR: Die Wörter mit Rahmen werden so gebaut, wie
+    `refinery_scan.ocr_image` sie liefert. Geprüft wird das Zusammensetzen der
+    Zeilen, die unscharfe Namenssuche, das Verwerfen von Unsinn und das
+    Abstimmen über mehrere Lesungen — ein Wert gilt erst, wenn zwei Lesungen
+    ihn gleich lasen.
+    """
+    print('\n346. Raffinerie-Scanner: OCR-Ergebnis zu Raffinerie-Zeilen')
+    from scbp import refinery_scan as _rs346, crafting as _cr346
+    from scbp import materials as _ma346
+    _echt_lager346 = _cr346.storable
+    _echt_min346 = _rs346.MIN_VOTES
+    try:
+        _cr346.storable = lambda: list(_ROHSTOFFE_346)
+        pruefe(_rs346.match_material('OURATlTE') == 'Ouratite'
+               and _rs346.match_material('AGRICIIJM') == 'Agricium'
+               and _rs346.match_material('TITANIUM') == 'Titanium',
+               'verlesene Namen (OURATlTE, AGRICIIJM) finden ihren Rohstoff')
+        pruefe(_rs346.match_material('VERBLEIBENDE ZEIT') is None
+               and _rs346.match_material('AUSBEUTE') is None
+               and _rs346.match_material('xx') is None,
+               'Überschriften und Unsinn sind kein Rohstoff')
+        pruefe(_rs346.number('4B0') == 480 and _rs346.number('1.459') == 1459
+               and _rs346.number('see') is None and _rs346.number('57m') is None,
+               'Ziffern: 4B0 wird 480, 1.459 wird 1459, „see" und „57m" sind keine Zahl')
+
+        lesung = _ocr_tabelle_346([
+            ('TITANIUM', 516, 66, 66),
+            ('OURATlTE', 310, 421, 421),
+            ('HEART OF THE WOODS', 500, 12, 12),
+            ('ASLARITE', 287, None, 658),
+        ])
+        zeilen = _rs346.parse_rows(_rs346.rows(lesung))
+        gelesen = [(z['material'], z['quality'], z['amount']) for z in zeilen]
+        pruefe(gelesen == [('Titanium', 516, 66), ('Ouratite', 310, 421),
+                           ('Heart of the Woods', 500, 12), ('Aslarite', 287, None)],
+               'eine Lesung: vier Rohstoffzeilen, Name mit Leerzeichen ganz, '
+               'fehlende Ausbeute bleibt leer statt ZU zu nehmen (%s)' % gelesen)
+
+        # Drei Lesungen: Ouratite einmal verlesen (23 statt 523), Stileron in
+        # jeder Lesung anders, Aslarite ohne Ausbeute.
+        def _lesungen(werte_je):
+            return [_ocr_tabelle_346(w) for w in werte_je]
+        passes = _lesungen([
+            [('TITANIUM', 516, 66, 66), ('OURATITE', 523, 41, 42),
+             ('STILERON', 330, 43, 44), ('ASLARITE', 287, None, 658),
+             ('TARANITE', 525, 4, 5)],
+            [('TITANIUM', 516, 66, 66), ('OURATITE', 23, 41, 42),
+             ('STILERON', 338, 43, 44), ('ASLARITE', 287, None, 658),
+             ('TARANITE', None, 4, 5)],
+            [('TITANIUM', 516, 66, 66), ('OURATITE', 523, 41, 42),
+             ('STILERON', 33, 43, 44), ('ASLARITE', None, None, 658),
+             ('TARANITE', None, 4, 5)],
+        ])
+        gefunden, unsicher = _rs346.merge_passes(passes)
+        pruefe(gefunden == [('Titanium', 516, 66), ('Ouratite', 523, 41)],
+               'abgestimmt: Titanium und Ouratite (2 von 3 Lesungen gleich) (%s)'
+               % gefunden)
+        pruefe(unsicher == ['Stileron', 'Aslarite', 'Taranite'],
+               'nicht sicher: Stileron (drei verschiedene Werte), Aslarite '
+               '(keine Ausbeute), Taranite (Qualität nur einmal gelesen) — '
+               'genannt, nicht geraten (%s)' % unsicher)
+        text = _rs346.as_text(gefunden)
+        posten, fehl = _ma346.refinery_lines(text)
+        pruefe(posten == [('Titanium', 0.66, 516), ('Ouratite', 0.41, 523)]
+               and not fehl,
+               'der Text passt in das Raffinerie-Feld: cSCU werden zu SCU (%s)'
+               % posten)
+        pruefe(_rs346.merge_passes([[_ocr_wort_346('BANANE', 20, 50),
+                                     _ocr_wort_346('500', 240, 50)]]) == ([], []),
+               'ohne bekannten Rohstoff entsteht keine Zeile')
+        # Gegenprobe: Mit einer einzigen Stimme als Grenze gälte die eine
+        # Lesung der Taranite-Qualität — ein ungeprüfter Wert im Feld.
+        _rs346.MIN_VOTES = 1
+        gefunden_1 = _rs346.merge_passes(passes)[0]
+        _rs346.MIN_VOTES = _echt_min346
+        pruefe(('Taranite', 525, 4) in gefunden_1,
+               'Gegenprobe: mit einer Stimme stünde Taranite ungeprüft im Feld')
+        # Gegenprobe zur Spaltenzuordnung: ohne Überschrift und ohne
+        # Ausbeute-Zahlen in der ganzen Tabelle rutschte ZU in die Ausbeute.
+        ohne_kopf = [w for w in _ocr_tabelle_346([('ASLARITE', 287, None, 658)])
+                     if w['y'] != 10]
+        z_ohne = _rs346.parse_rows(_rs346.rows(ohne_kopf))
+        z_mit = _rs346.parse_rows(_rs346.rows(
+            _ocr_tabelle_346([('ASLARITE', 287, None, 658)])))
+        pruefe(z_mit[0]['amount'] is None and z_ohne[0]['amount'] == 658,
+               'Gegenprobe: die Überschrift hält ZU aus der Ausbeute heraus')
+        pruefe(_rs346.table_crop(_ocr_tabelle_346([]), 5120, 1440) is not None
+               and _rs346.table_crop([_ocr_wort_346('HANGAR', 10, 10)],
+                                     5120, 1440) is None,
+               'Tabellenausschnitt nur, wenn die Überschrift da ist')
+        # Das BMP, das der Abgriff schreibt: 24 Bit, oben beginnend, Zeilen
+        # auf vier Byte aufgefüllt.
+        import struct as _st346
+        _pfad346 = os.path.join(tempfile.mkdtemp(prefix='sc-bp-346-'), 'b.bmp')
+        _rs346.write_bmp(bytes([10, 20, 30, 0] * 6), 3, 2, _pfad346)
+        with open(_pfad346, 'rb') as _f346:
+            _bmp346 = _f346.read()
+        _kopf346 = _st346.unpack('<IiiHH', _bmp346[14:30])
+        pruefe(_bmp346[:2] == b'BM' and _kopf346 == (40, 3, -2, 1, 24)
+               and len(_bmp346) == 54 + 2 * 12
+               and _bmp346[54:57] == bytes([10, 20, 30]),
+               'BMP: Kopf, Höhe negativ, 3 Punkte = 9 Byte + 3 Füllbyte je Zeile')
+    finally:
+        _cr346.storable = _echt_lager346
+        _rs346.MIN_VOTES = _echt_min346
+
+
+def _seite_lager_346():
+    """Ein Hauptfenster mit offener Lager-Seite: (wurzel, fenster, seite)."""
+    from scbp import main_window as _mw
+    w = _wurzel()
+    f = _mw.MainWindow(w, version='0.0.0-pruefung')
+    f.open_page('lager')
+    w.update()
+    return w, f, f.pages['lager']
+
+
+def _alle_346(w, bedingung):
+    out = []
+
+    def _lauf(x):
+        if bedingung(x):
+            out.append(x)
+        for k in x.winfo_children():
+            _lauf(k)
+    _lauf(w)
+    return out
+
+
+def _texte_346(w):
+    out = []
+    for x in _alle_346(w, lambda _x: True):
+        try:
+            out.append(str(x.cget('text')))
+        except Exception:
+            pass
+        if x.winfo_class() == 'Canvas':
+            for i in x.find_all():
+                try:
+                    out.append(str(x.itemcget(i, 'text')))
+                except Exception:
+                    pass
+    return out
+
+
+def _pruefung_347():
+    """347. Raffinerie-Scanner im Fenster: nichts landet vor dem Bestätigen.
+
+    Der Knopf `s_rf_lesen` mit untergeschobenem Abgriff und OCR-Ergebnis: Der
+    Text steht im Feld, das Lager bleibt leer, erst der Knopf `s_rf_knopf`
+    schreibt. Dazu: unter Linux nur ein Hinweis, und gezählt wird, wie oft
+    gelesen und eingetragen wurde.
+    """
+    print('\n347. Raffinerie-Scanner: Vorschau im Feld, Lager erst nach Bestätigung')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import (refinery_scan as _rs347, materials as _ma347,
+                      crafting as _cr347, page_usage as _pu347,
+                      usage_ping as _up347, language as _la347)
+    echt = (_rs347.supported, _rs347.wait_for_game, _rs347.read_screen,
+            _cr347.storable, _up347.would_send)
+    from scbp import paths as _pf347
+    alt_offen = _pf347.setting_bool('lager_raffinerie_offen', False)
+    alt_lager = _ma347.load()
+    alt_sprache = _la347.current()
+    w = None
+    try:
+        _la347.set_language('de')
+        _cr347.storable = lambda: list(_ROHSTOFFE_346)
+        _up347.would_send = lambda: True
+        _pu347.reset_for_test()
+        _pu347._drop()
+        _ma347.save([])
+        aufrufe = []
+        _rs347.supported = lambda: True
+        _rs347.wait_for_game = lambda *a, **k: (0, 0, 800, 600)
+
+        def _lesen(rect, ocr=None):
+            aufrufe.append(rect)
+            return ('Titanium 516 66 cSCU\nOuratite 310 421 cSCU', ['Aslarite'])
+        _rs347.read_screen = _lesen
+        w, f, seite = _seite_lager_346()
+        feld = _alle_346(seite, lambda x: hasattr(x, 'scan_read'))
+        pruefe(len(feld) == 1, 'das Raffinerie-Feld hat „Bildschirm lesen"')
+        feld = feld[0]
+        pruefe(any(s == _la347.t('s_rf_lesen') for s in _texte_346(seite)),
+               'der Knopf „Bildschirm lesen" steht in der Raffinerie-Box')
+        feld.scan_read()
+        ende = time.time() + 10
+        while time.time() < ende and 'Aslarite' not in feld.scan_message.cget('text'):
+            w.update()
+            time.sleep(0.02)
+        pruefe(feld.get('1.0', 'end-1c') == 'Titanium 516 66 cSCU\nOuratite 310 421 cSCU',
+               'die gelesenen Zeilen stehen im Feld')
+        pruefe(aufrufe == [(0, 0, 800, 600)], 'gelesen wurde die Spielfläche')
+        pruefe('Aslarite' in feld.scan_message.cget('text'),
+               'nicht sicher Gelesenes wird genannt')
+        pruefe(_ma347.load() == [], 'vor dem Bestätigen steht nichts im Lager (%s)'
+               % _ma347.load())
+        # Die Prüfung „Lager leer" muss einen Eintrag sehen können.
+        _ma347.add('Taranite', 0.04, 525, '')
+        pruefe(len(_ma347.load()) == 1, 'Gegenprobe: ein Eintrag wäre sichtbar')
+        _ma347.save([])
+        knoepfe = [k for k in feld.scan_buttons.winfo_children()
+                   if k.winfo_class() == 'Canvas']
+        pruefe(len(knoepfe) == 1 and any('2' in s for s in _texte_346(feld.scan_buttons)),
+               'der Knopf „2 Posten eintragen" steht bereit')
+        pruefe(_pu347.stored()['actions'] == {'lager_scan': 1},
+               'gezählt: einmal Bildschirm gelesen (%s)' % _pu347.stored()['actions'])
+        # Den Block aufklappen, wie der Spieler es tut, dann bestätigen.
+        if not knoepfe[0].winfo_ismapped():
+            titel = [x for x in _alle_346(seite, lambda x: x.winfo_class() == 'Label')
+                     if str(x.cget('text')) == _la347.t('s_rf_titel')]
+            titel[0].event_generate('<Button-1>', x=2, y=2)
+            w.update()
+        knoepfe[0].event_generate('<Button-1>', x=5, y=5)
+        w.update()
+        lager = sorted((p['material'], p['menge'], p['qualitaet'])
+                       for p in _ma347.load())
+        pruefe(lager == [('Ouratite', 4.21, 310), ('Titanium', 0.66, 516)],
+               'nach dem Bestätigen: zwei Posten, cSCU als SCU (%s)' % lager)
+        pruefe(_pu347.stored()['actions'] == {'lager_raffinerie': 1, 'lager_scan': 1},
+               'gezählt: einmal Ausbeute eingetragen (%s)' % _pu347.stored()['actions'])
+        # Ohne Windows: ein Hinweis, kein Abgriff.
+        _rs347.supported = lambda: False
+        aufrufe[:] = []
+        feld.scan_read()
+        w.update()
+        pruefe(feld.scan_message.cget('text') == _la347.t('s_rf_lesen_nur_windows')
+               and aufrufe == [],
+               'ohne Windows: Hinweis, kein Lesen')
+    finally:
+        (_rs347.supported, _rs347.wait_for_game, _rs347.read_screen,
+         _cr347.storable, _up347.would_send) = echt
+        _pf347.set_setting('lager_raffinerie_offen', alt_offen)
+        _ma347.save(alt_lager)
+        _pu347._drop()
+        _pu347.reset_for_test()
+        _la347.set_language(alt_sprache)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_348():
+    """348. Rohstofflager: Mengen wie im Spiel, Edelsteine zuerst, kompakt."""
+    print('\n348. Rohstofflager: SCU mit drei Stellen, Stückware zuerst')
+    from scbp import materials as _ma348, crafting as _cr348
+    from scbp import language as _la348
+    at = _ma348.amount_text
+    pruefe([at(0.02), at(0.9), at(3.96), at(0.346), at(1), at(4.0), at(1.0004)]
+           == ['0.020', '0.900', '3.960', '0.346', '1', '4', '1'],
+           'SCU: 0.020 · 0.900 · 3.960 · 0.346 · 1 · 4')
+    pruefe(at(3.96, decimal=',') == '3,960' and at(75, piece=True) == '75'
+           and at(2.5, piece=True, decimal=',') == '2,5',
+           'deutsches Komma; Stückware ohne feste Stellen')
+    pruefe(('%g' % 0.02) != at(0.02), 'Gegenprobe: %g zeigte 0.02 statt 0.020')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    echt = (_cr348.piece_materials,)
+    alt_lager = _ma348.load()
+    alt_sprache = _la348.current()
+    w = None
+    try:
+        _la348.set_language('de')
+        _cr348.piece_materials = lambda: {'feynmaline', 'janalite'}
+        _ma348.save([
+            {'material': 'Titanium', 'menge': 13.938, 'qualitaet': 295, 'ort': ''},
+            {'material': 'Feynmaline', 'menge': 29, 'qualitaet': 371, 'ort': ''},
+            {'material': 'Agricium', 'menge': 0.02, 'qualitaet': 588, 'ort': ''},
+            {'material': 'Janalite', 'menge': 1, 'qualitaet': 269, 'ort': ''},
+            {'material': 'Aslarite', 'menge': 0.9, 'qualitaet': 602, 'ort': ''},
+        ])
+
+        def _reihe(seite):
+            namen = {'Titanium', 'Feynmaline', 'Agricium', 'Janalite', 'Aslarite'}
+            labels = _alle_346(seite, lambda x: x.winfo_class() == 'Label'
+                               and str(x.cget('text')) in namen)
+            labels.sort(key=lambda x: x.winfo_rooty())
+            return [str(x.cget('text')) for x in labels]
+
+        w, f, seite = _seite_lager_346()
+        reihe = _reihe(seite)
+        pruefe(reihe == ['Feynmaline', 'Janalite', 'Agricium', 'Aslarite', 'Titanium'],
+               'nach Material: erst Stückware, dann SCU-Ware, je alphabetisch (%s)'
+               % reihe)
+        texte = _texte_346(seite)
+        pruefe('0,020 SCU' in texte and '13,938 SCU' in texte
+               and '0,900 SCU' in texte,
+               'SCU in der Liste mit drei Nachkommastellen und Komma')
+        stueck = _la348.t('s_lg_stueck')
+        pruefe('29 %s' % stueck in texte and '1 %s' % stueck in texte,
+               'Stückware ohne Nachkommastellen')
+        # Nach Menge sortieren (Spaltenkopf anklicken): die Blöcke bleiben.
+        def _kopf_menge():
+            sp = _la348.t('s_lg_sp_menge')
+            return [x for x in _alle_346(seite, lambda x: x.winfo_class() == 'Label')
+                    if str(x.cget('text')) in (sp, sp + ' ▴', sp + ' ▾')]
+        _kopf_menge()[0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        reihe = _reihe(seite)
+        pruefe(reihe == ['Janalite', 'Feynmaline', 'Agricium', 'Aslarite', 'Titanium'],
+               'nach Menge: Stückware 1 < 29 oben, SCU 0,02 < 0,9 < 13,9 darunter (%s)'
+               % reihe)
+        _kopf_menge()[0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        reihe = _reihe(seite)
+        pruefe(reihe == ['Feynmaline', 'Janalite', 'Titanium', 'Aslarite', 'Agricium'],
+               'absteigend: die Stückware bleibt trotzdem oben (%s)' % reihe)
+        # Gegenprobe: ohne die Blockbildung mischte die Mengensortierung.
+        w.destroy()
+        w = None
+        _echt_pf348 = _ma348.piece_first
+        _ma348.piece_first = lambda _m: 1
+        try:
+            w, f, seite = _seite_lager_346()
+            pruefe(_reihe(seite)[:2] != ['Feynmaline', 'Janalite'],
+                   'Gegenprobe: ohne Blockbildung stünde Stückware nicht vorn')
+        finally:
+            _ma348.piece_first = _echt_pf348
+        # Kompakt: Menge und Qualität in einer Zeile, keine zweite Erklärung.
+        felder = _alle_eingaben(seite)
+        menge = [e for e in felder if e.get() == _la348.t('s_pl_lager_menge')]
+        guete = [e for e in felder if e.get() == _la348.t('s_pl_qualitaet')]
+        pruefe(len(menge) == 1 and len(guete) == 1
+               and menge[0].winfo_rooty() == guete[0].winfo_rooty()
+               and guete[0].winfo_rootx() > menge[0].winfo_rootx(),
+               'Menge und Qualität stehen nebeneinander')
+        pruefe('s_lg_hinweis' not in _la348.TEXTS
+               and not any('Frachtraum' in s for s in _texte_346(seite)),
+               'die doppelte Erklärung oben ist weg')
+    finally:
+        (_cr348.piece_materials,) = echt
+        _ma348.save(alt_lager)
+        _la348.set_language(alt_sprache)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_349():
+    """349. Nutzungszähler `actions`: feste Liste, nur die Anzahl, nur bei
+    eingeschalteter Meldung."""
+    print('\n349. Nutzungszähler: Handlungen (actions)')
+    from scbp import page_usage as _pu349, usage_ping as _up349
+    echt = _up349.would_send
+    try:
+        _up349.would_send = lambda: True
+        _pu349.reset_for_test()
+        _pu349._drop()
+        _pu349.action('lager_scan')
+        _pu349.action('lager_scan')
+        _pu349.action('lager_hand')
+        _pu349.action('Titanium 295')
+        pruefe(_pu349.stored()['actions'] == {'lager_scan': 2, 'lager_hand': 1},
+               'gezählt nur bekannte Handlungen, je die Anzahl')
+        gesendet = _pu349.outgoing(_pu349.stored())
+        pruefe(set(gesendet['actions']) <= set(_pu349.ACTIONS),
+               'die Meldung enthält nur Handlungen aus ACTIONS')
+        daten = _up349.payload('3.88.0', 'windows', _pu349.stored())
+        pruefe(daten['actions'] == {'lager_hand': 1, 'lager_scan': 2}
+               and set(daten) == set(_up349.FIELDS),
+               'payload: Feld `actions`, und genau die Felder aus FIELDS')
+        roh = {'actions': {'lager_scan': 1, 'boese': 5, 'lager_hand': 0,
+                           'lager_sync': '3'}}
+        pruefe(_pu349.clean(roh)['actions'] == {'lager_scan': 1},
+               'clean: fremde Schlüssel, Null und Text fallen weg')
+        pruefe(len(roh['actions']) == 4,
+               'Gegenprobe: die Rohdaten trugen vier Einträge')
+        _pu349.forget(_pu349.stored())
+        pruefe(_pu349.stored()['actions'] == {},
+               'nach dem Senden sind die Zähler leer')
+        _up349.would_send = lambda: False
+        _pu349.action('lager_sync')
+        _up349.would_send = lambda: True
+        pruefe(_pu349.stored()['actions'] == {},
+               'ist die Meldung aus, wird nichts gezählt')
+        _up349.would_send = lambda: True
+        _pu349.action('lager_sync')
+        pruefe(_pu349.stored()['actions'] == {'lager_sync': 1},
+               'Gegenprobe: eingeschaltet zählt derselbe Aufruf')
+        # Der Worker nimmt dieselbe Liste an.
+        with open(os.path.join(WURZEL, 'tools', 'nutzung-worker', 'pages.js'),
+                  encoding='utf-8') as datei:
+            js = datei.read()
+        block = js[js.index('export const ACTIONS'):]
+        block = block[:block.index('};')]
+        worker = re.findall(r'^\s+([a-z_]+):', block, re.M)
+        pruefe(sorted(worker) == sorted(_pu349.ACTIONS),
+               'Worker (pages.js) und Programm kennen dieselben Handlungen (%s)'
+               % worker)
+    finally:
+        _up349.would_send = echt
+        _pu349._drop()
+        _pu349.reset_for_test()
+
+
+def _pruefung_350():
+    """350. Rohstofflager: der Knopf `s_lg_sync` nur mit Basetool-Verbindung."""
+    print('\n350. Rohstofflager: Knopf „Jetzt übertragen"')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import (basetool as _bt350, basetool_sync as _bs350,
+                      pages as _pg350, paths as _pf350, page_usage as _pu350,
+                      usage_ping as _up350, language as _la350)
+    verbunden = [False]
+    angestossen = []
+    echt = (_bt350.CONNECTION.connected, _bs350.request_now,
+            _bs350.current_state, _up350.would_send, _pg350._storage_sync_ready)
+    alt_status = dict(_bs350.STATUS)
+    alt_schalter = _pf350.setting_bool(_bs350.SETTING_STOCK, False)
+    alt_sprache = _la350.current()
+    w = None
+    try:
+        _la350.set_language('de')
+        _bt350.CONNECTION.connected = lambda: verbunden[0]
+        _bs350.request_now = lambda: angestossen.append(1)
+        _bs350.current_state = lambda: {'stock': {'conflicts': {}}}
+        _up350.would_send = lambda: True
+        _pu350.reset_for_test()
+        _pu350._drop()
+        _pf350.set_setting(_bs350.SETTING_STOCK, True)
+        w, f, seite = _seite_lager_346()
+        knopf = _alle_346(seite, lambda x: hasattr(x, 'sync_click'))
+        pruefe(len(knopf) == 1, 'der Knopf ist gebaut')
+        knopf = knopf[0]
+        pruefe(not knopf.winfo_manager(), 'nicht verbunden: ausgeblendet')
+        # Gegenprobe: Die Sichtbarkeit hängt wirklich an der Verbindung.
+        _pg350._storage_sync_ready = lambda: True
+        knopf.sync_refresh()
+        pruefe(bool(knopf.winfo_manager()),
+               'Gegenprobe: hieße es „verbunden", stünde er da')
+        _pg350._storage_sync_ready = echt[4]
+        knopf.sync_refresh()
+        verbunden[0] = True
+        f.on_show['lager']()
+        w.update()
+        pruefe(bool(knopf.winfo_manager())
+               and any(s == _la350.t('s_lg_sync') for s in _texte_346(seite)),
+               'verbunden: „Jetzt übertragen" erscheint beim Zeigen der Seite')
+        reihe = knopf.master
+        pruefe(knopf.winfo_rooty() == [k for k in reihe.winfo_children()
+                                       if k is not knopf][0].winfo_rooty(),
+               'er steht in der Knopfreihe der Sicherung')
+        knopf.event_generate('<Button-1>', x=5, y=5)
+        w.update()
+        pruefe(angestossen == [1], 'ein Klick stößt den vorhandenen Abgleich an')
+        pruefe(_pu350.stored()['actions'] == {'lager_sync': 1},
+               'gezählt: einmal übertragen')
+        meldung = [x for x in _alle_346(seite, lambda x: x.winfo_class() == 'Label')
+                   if str(x.cget('text')) == _la350.t('s_lg_sync_laeuft')]
+        pruefe(len(meldung) == 1, 'die Seite meldet, dass übertragen wird')
+        _bs350.STATUS.update(state='ok', running=False, code='',
+                             last_sync='2026-10-04 12:00:00')
+        knopf.sync_status()
+        pruefe(meldung[0].cget('text') == _la350.t('s_lg_sync_ok')
+               % '2026-10-04 12:00:00', 'danach: das Ergebnis')
+        knopf.sync_click()
+        _bs350.current_state = lambda: {'stock': {'conflicts': {'a': (1, 2),
+                                                                'b': (3, 4)}}}
+        knopf.sync_status()
+        pruefe(meldung[0].cget('text') == _la350.t('s_lg_sync_konflikte') % 2,
+               'abweichende Mengen: Hinweis auf die Basetool-Seite')
+        knopf.sync_click()
+        _bs350.STATUS.update(state='error', code='SCOPE_MISSING')
+        knopf.sync_status()
+        from scbp.basetool_page import error_text
+        pruefe(meldung[0].cget('text') == error_text('SCOPE_MISSING'),
+               'Fehler: der Grund steht da')
+        verbunden[0] = False
+        f.on_show['lager']()
+        pruefe(not knopf.winfo_manager(), 'getrennt: wieder ausgeblendet')
+    finally:
+        (_bt350.CONNECTION.connected, _bs350.request_now,
+         _bs350.current_state, _up350.would_send,
+         _pg350._storage_sync_ready) = echt
+        try:
+            del _bt350.CONNECTION.connected
+        except AttributeError:
+            pass
+        _bs350.STATUS.clear()
+        _bs350.STATUS.update(alt_status)
+        _pf350.set_setting(_bs350.SETTING_STOCK, alt_schalter)
+        _pu350._drop()
+        _pu350.reset_for_test()
+        _la350.set_language(alt_sprache)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_377():
+    """377–379: Ruf-Zwischenspeicher, Zeile im Hauptmenü, Wache über die
+    Textdatei."""
+    import queue as _qu377
+    import tempfile as _tf377
+    from scbp import reputation as _re377, cig_issues as _ci377
+    from scbp import injection as _in377
+    import sc_bp_watcher as _sw377
+
+    print('\n377. Ruf-Tabelle: Spielstand 4.10.1 passt zu 4.10.1-live.<build>')
+    pruefe(_re377.same_build('4.10.1-live.12660092', '4.10.1'),
+           'volle Kennung passt zur Versionsnummer')
+    pruefe(not _re377.same_build('4.10.10-live.1', '4.10.1'),
+           '4.10.10 ist nicht 4.10.1')
+    _echt377 = (_re377.load, _re377._fetch, _ci377.fingerprint)
+    _aus377 = _re377.OFF
+    _re377.OFF = False
+    _abrufe377 = []
+
+    def _netz377(*a, **k):
+        _abrufe377.append(a)
+        raise RuntimeError('kein Netz im Selbsttest')
+    try:
+        _re377.load = lambda: {'version': '4.10.1-live.12660092',
+                               'auftraege': {'x': 1}, 'datenfehler': ''}
+        _re377._fetch = _netz377
+        _ci377.fingerprint = lambda *a, **k: ''
+        _re377.refresh('4.10.1')
+        pruefe(not _abrufe377,
+               'passender Zwischenspeicher: kein Abruf (%d)' % len(_abrufe377))
+        # Gegenprobe: Mit dem Vergleich auf Gleichheit ginge es ins Netz.
+        _gleich377 = _re377.same_build
+        _re377.same_build = lambda full, v: (full or '') == (v or '')
+        try:
+            _re377.refresh('4.10.1')
+        except Exception:
+            pass
+        _re377.same_build = _gleich377
+        pruefe(len(_abrufe377) > 0,
+               'Gegenprobe: mit Gleichheitsvergleich ginge es jedes Mal ins Netz')
+    finally:
+        _re377.load, _re377._fetch, _ci377.fingerprint = _echt377
+        _re377.OFF = _aus377
+
+    print('\n378. Hauptmenü: eigene Zeile hinter fremden Zeilen, ohne Doppel')
+    _heim378 = _tf377.mkdtemp(prefix='sc-bp-menue-')
+    _altheim378 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim378
+    _ini378 = os.path.join(_heim378, 'global.ini')
+    _fremd378 = (r'Alpha 4.10: Siege of Orison\n\nSC Launch Configurator'
+                 r' 4.10.1\nhttps://www.luftwerft.com')
+    _rep378 = _in377._rep_table
+    _katalog378 = {'missionen': {'x': {'titel_key': 'gibtsnicht',
+                                       'text_key': 'gibtsauchnicht'}}}
+
+    def _menue378():
+        with open(_ini378, encoding='utf-8') as _f:
+            for _z in _f.read().splitlines():
+                if _z.startswith(_in377.MENU_KEY + '='):
+                    return _z.split('=', 1)[1]
+        return None
+    try:
+        _in377._rep_table = lambda: None
+        with open(_ini378, 'w', encoding='utf-8', newline='') as _f:
+            _f.write('%s=%s\nanderes=Text\n' % (_in377.MENU_KEY, _fremd378))
+        for _lauf in range(2):
+            _in377.apply_texts(_ini378, 'german_(germany)',
+                               catalog_data=_katalog378,
+                               stock={'bauplaene': {}})
+        _t378 = _menue378()
+        pruefe(_t378.startswith(_fremd378),
+               'die fremden Zeilen stehen unverändert vorn')
+        pruefe(_t378.count('Verse-Kit') == 1 and _in377.WEBSITE in _t378,
+               'eigene Zeile mit Adresse genau einmal, auch nach zwei Läufen')
+        _in377.apply_texts(_ini378, 'german_(germany)',
+                           catalog_data=_katalog378,
+                           stock={'bauplaene': {}}, remove_only=True)
+        pruefe(_menue378() == _fremd378,
+               'nach dem Entfernen steht der fremde Text wie vorher da')
+        # Gegenprobe: Ohne Urtext und ohne Abschneiden stünde die Zeile
+        # doppelt da.
+        with open(_ini378, 'w', encoding='utf-8', newline='') as _f:
+            _f.write('%s=%s%s\n' % (_in377.MENU_KEY, _fremd378,
+                                    _in377.menu_lines()))
+        _in377.discard_origtext()
+        _marke378 = _in377.MENU_MARK
+        _zeilen378 = _in377.menu_lines
+        _fest378 = _in377.menu_lines()
+        _in377.menu_lines = lambda: _fest378
+        _in377.MENU_MARK = 'nie-vorhanden'
+        try:
+            _in377.apply_texts(_ini378, 'german_(germany)',
+                               catalog_data=_katalog378,
+                               stock={'bauplaene': {}})
+        finally:
+            _in377.MENU_MARK = _marke378
+            _in377.menu_lines = _zeilen378
+        pruefe((_menue378() or '').count('Verse-Kit') == 2,
+               'Gegenprobe: ohne Abschneiden stünde die Zeile doppelt')
+    finally:
+        _in377._rep_table = _rep378
+        if _altheim378 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim378
+        shutil.rmtree(_heim378, ignore_errors=True)
+
+    print('\n379. Wache über die Textdatei: fremdes Neuschreiben fällt auf')
+    _w379 = _sw377.Watcher(_qu377.Queue())
+    _staende379 = [('a', 1, 1), ('a', 1, 1), ('a', 2, 5)]
+    _w379._textdatei_stand = lambda: _staende379.pop(0)
+    pruefe(_w379._textdatei_geaendert() is False,
+           'der erste Blick merkt sich nur den Stand')
+    pruefe(_w379._textdatei_geaendert() is False,
+           'unveränderte Datei: nichts zu tun')
+    pruefe(_w379._textdatei_geaendert() is True,
+           'neu geschriebene Datei wird erkannt')
+    pruefe(_sw377.DATEI_POLL_SEC <= 10,
+           'nachgesehen wird alle paar Sekunden (%s)' % _sw377.DATEI_POLL_SEC)
 
 
 def _alle_eingaben(w):

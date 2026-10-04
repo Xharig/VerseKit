@@ -6,6 +6,54 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.88.0 - 2026-10-04
+
+> No more typing at the refinery terminal: Verse-Kit reads the screen and
+> puts the yield into the field for you to check — nothing is added until
+> you click. The material storage is more compact, shows amounts like the
+> game and syncs with the Basetool at the press of a button.
+
+### New
+
+- **Refinery: "Read screen"** — reads the refinery terminal with Windows'
+  text recognition and puts material, quality and amount into the "Enter
+  refinery yield" field. Nothing goes into storage before you press "Add
+  entries"; lines that could not be read reliably are named instead of
+  guessed. Windows only for now
+- **Material storage: "Sync now"** — syncs the storage with the KRT Profit
+  Basetool right away; the button only appears while the storage sync is
+  connected
+- **Count usage** — the daily report now also counts how often you added to
+  the storage by hand, added a yield, read the screen or synced. Only the
+  count, no amounts or names
+- **Verse-Kit in the main menu** — the game's version box now shows the
+  Verse-Kit version and address, below the lines of other tools, which stay
+  untouched
+
+### Improved
+
+- **In-game notes come back right away** — if another tool rewrites the
+  game's text file, Verse-Kit adds its notes again within seconds instead of
+  hours
+
+- **Material storage: amounts like in the game** — SCU show three decimals
+  (0.020 · 3.960), whole amounts without
+- **Material storage: gems first** — piece goods stand as their own block at
+  the top, SCU goods below; the column sort applies within each block
+- **Material storage: more compact** — amount and quality sit side by side,
+  the doubled explanation at the top is gone
+
+### Fixed
+
+- **Known errors in CIG's game data corrected** — where the game data is
+  demonstrably off, Verse-Kit uses the intended value and says so: Aztalan
+  legs (damage mitigation at quality 0 ×0.9 instead of ×9), the DayBreak
+  blueprint (listed as FullForce), reputation for the Red Wind contract
+  "Straightforward Cargo Recovery" (Red Wind Linehaul instead of Citizens
+  For Prosperity) and the LH86 magazine from the NorthRock boss pool
+- **Reputation data reloaded on every update of the notes** — it now only
+  loads again when the game version changes
+
 ## v3.87.1 - 2026-10-04
 
 > On very wide screens the neutral field of view cannot be set in the game

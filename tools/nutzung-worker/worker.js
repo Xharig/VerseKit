@@ -27,7 +27,7 @@
 // gezählt wird die Menge, nicht die Person.
 
 import { dashboardHtml } from './dashboard.js';
-import { PAGES, ROUTES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
+import { PAGES, ROUTES, ACTIONS, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
 
 // Reicht für die größte Meldung, die das Programm bauen kann: jede Seite mit
 // jedem Weg und jeder Klickstufe, dazu alle Fehlgriff-Paare (Prüfung im Test).
@@ -38,8 +38,8 @@ const LANG_RE = /^[a-z]{2}$/;
 const MODULE_RE = /^[a-z]{1,20}$/;
 const MAX_MODULES = 12;
 const OVERLAY = ['immer', 'popup'];
-const FIELDS = ['autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os', 'overlay',
-                'pages', 'rc', 'ui', 'update', 'v'];
+const FIELDS = ['actions', 'autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os',
+                'overlay', 'pages', 'rc', 'ui', 'update', 'v'];
 const COUNTRY_RE = /^[A-Z][A-Z0-9]$/;   // ISO-Kürzel; Cloudflare nutzt auch T1 (Tor), XX (unbekannt)
 const STATS_HOST = 'statistik-versekit.xharig.com';
 const MAX_DAYS = 400;
@@ -120,12 +120,13 @@ const isMap = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
 const isCount = (n) => Number.isInteger(n) && n >= 1 && n <= MAX_COUNT;
 const isStep = (k) => /^\d{1,2}$/.test(k) && String(Number(k)) === k && Number(k) <= MAX_CLICKS;
 
-// Die Seitenzähler (`pages`, `entry`, `clicks`, `misses`). Jede Seite muss in
-// PAGES stehen, jeder Weg in ROUTES, jede Zahl zwischen 1 und MAX_COUNT —
+// Die Seitenzähler (`pages`, `entry`, `clicks`, `misses`) und die
+// Handlungszähler (`actions`). Jede Seite muss in PAGES stehen, jeder Weg in
+// ROUTES, jede Handlung in ACTIONS, jede Zahl zwischen 1 und MAX_COUNT —
 // sonst wird die ganze Meldung abgelehnt. Ältere Fassungen schicken die
 // Felder nicht; dann bleiben die Listen leer.
 export function navigation(d) {
-  const nav = { pages: [], entry: [], clicks: [], misses: [] };
+  const nav = { pages: [], entry: [], clicks: [], misses: [], actions: [] };
   const bad = (key) => { throw { status: 400, text: key }; };
   if (d.pages !== undefined) {
     if (!isMap(d.pages)) bad('pages');
@@ -154,11 +155,18 @@ export function navigation(d) {
       nav.misses.push([parts[0], parts[1], n]);
     }
   }
+  if (d.actions !== undefined) {
+    if (!isMap(d.actions)) bad('actions');
+    for (const [key, n] of Object.entries(d.actions)) {
+      if (!own(ACTIONS, key) || !isCount(n)) bad('actions');
+      nav.actions.push([key, n]);
+    }
+  }
   return nav;
 }
 
 // Je Tabelle EINE Anweisung, die Zeilen als JSON-Liste (`json_each`) — so
-// bleibt es bei vier Abfragen, egal wie viele Seiten in der Meldung stehen.
+// bleibt es bei fünf Abfragen, egal wie viele Seiten in der Meldung stehen.
 const NAV_SQL = {
   pages: 'INSERT INTO seiten (tag, seite, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
     'json_extract(value, \'$[1]\') FROM json_each(?2) WHERE true ' +
@@ -172,6 +180,9 @@ const NAV_SQL = {
   misses: 'INSERT INTO seiten_fehlgriffe (tag, von, nach, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
     'json_extract(value, \'$[1]\'), json_extract(value, \'$[2]\') FROM json_each(?2) WHERE true ' +
     'ON CONFLICT (tag, von, nach) DO UPDATE SET n = n + excluded.n',
+  actions: 'INSERT INTO seiten_handlungen (tag, handlung, n) SELECT ?1, json_extract(value, \'$[0]\'), ' +
+    'json_extract(value, \'$[1]\') FROM json_each(?2) WHERE true ' +
+    'ON CONFLICT (tag, handlung) DO UPDATE SET n = n + excluded.n',
 };
 
 export function navStatements(db, day, nav) {
@@ -386,10 +397,11 @@ async function data(env, ctx, days) {
   return { tage: t.results || [], merkmale: m.results || [], downloads: dl.liste,
            downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [],
            bestand: bestand.results || [], verlauf: verlauf.results || [],
-           seiten: nav[0], seiten_wege: nav[1], seiten_klicks: nav[2], seiten_fehlgriffe: nav[3] };
+           seiten: nav[0], seiten_wege: nav[1], seiten_klicks: nav[2], seiten_fehlgriffe: nav[3],
+           seiten_handlungen: nav[4] };
 }
 
-const NAV_TABLES = ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe'];
+const NAV_TABLES = ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe', 'seiten_handlungen'];
 
 // ------------------------------------------------------------ Kurzlinks
 

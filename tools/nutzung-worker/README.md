@@ -20,9 +20,9 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 |---|---|
 | Pfad und Methode | nur `POST /ping` |
 | Größe | höchstens 16 KB (`MAX_BYTES`) — die größte Meldung, die das Programm bauen kann, braucht rund 12 KB |
-| Felder | nur `v`, `os`, `ui`, `game`, `rc`, `mods`, `overlay`, `autostart`, `update`, `pages`, `entry`, `clicks`, `misses` — jedes andere Feld: abgelehnt, ebenso die ganze Meldung |
+| Felder | nur `v`, `os`, `ui`, `game`, `rc`, `mods`, `overlay`, `autostart`, `update`, `pages`, `entry`, `clicks`, `misses`, `actions` — jedes andere Feld: abgelehnt, ebenso die ganze Meldung |
 | Werte | Version `1.2.3(-rcN)`, System `windows`/`linux`, Sprachen zwei Kleinbuchstaben, Ja/Nein als echte Wahrheitswerte (`rc`, `autostart`, `update`), Bereiche nur Kleinbuchstaben (höchstens 12) |
-| Seitenzähler | nur Seiten-Kennungen aus `pages.js`, Wege nur aus `ROUTES`, Klickstufen 0–10, Fehlgriff-Paare `a>b` mit zwei verschiedenen bekannten Seiten (höchstens 20), jede Zahl eine ganze Zahl von 1 bis 9999 |
+| Seitenzähler | nur Seiten-Kennungen aus `pages.js`, Wege nur aus `ROUTES`, Klickstufen 0–10, Fehlgriff-Paare `a>b` mit zwei verschiedenen bekannten Seiten (höchstens 20), Handlungen nur aus `ACTIONS`, jede Zahl eine ganze Zahl von 1 bis 9999 |
 | Menge | 5 je Absender und Minute |
 | gespeichert | nur Zähler je Tag — keine IP, keine Stadt; das Land ist Cloudflares Kürzel. Die Seitenzähler stehen in eigenen Tabellen, **nicht** verknüpft mit Version, Land oder System |
 
@@ -38,14 +38,16 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 | `entry` | Weg je Seite, `{"laeden": {"seitenleiste": 3}}` | `seiten_wege` |
 | `clicks` | Klicks bis zur Zielseite als Verteilung, `{"laeden": {"2": 5}}` (10 = 10 oder mehr) | `seiten_klicks` |
 | `misses` | Fehlgriff → nächstes Ziel, `{"verkauf>laeden": 7}` | `seiten_fehlgriffe` |
+| `actions` | wie oft eine Handlung genutzt wurde, `{"lager_scan": 2}` — nur Kennungen aus `ACTIONS` | `seiten_handlungen` |
 
 Was „Klick", „Ziel" und „Fehlgriff" heißen, steht in `scbp/page_usage.py`.
 Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest
-(Prüfung 315) meldet jede Abweichung.
+(Prüfung 315) meldet jede Abweichung. Dasselbe gilt für `ACTIONS` gegen
+`page_usage.ACTIONS` (Prüfung 349).
 
 ## Seiten-Tabellen einspielen (einmalig, vor dem Hochladen)
 
-Die vier Seiten-Tabellen kommen über `schema.sql` dazu. Die Datei legt nur an,
+Die fünf Seiten-Tabellen kommen über `schema.sql` dazu. Die Datei legt nur an,
 was fehlt (`CREATE TABLE IF NOT EXISTS`), vorhandene Tabellen und Zahlen bleiben
 unberührt. **Erst einspielen, dann den Worker hochladen:**
 

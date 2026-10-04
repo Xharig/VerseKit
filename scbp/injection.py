@@ -813,6 +813,23 @@ def _stem(key):
     return ''
 
 
+# Der Versionskasten im Hauptmenü des Spiels. Andere Werkzeuge hängen dort
+# ebenfalls ihre Zeilen an; die eigene kommt dahinter.
+MENU_KEY = 'Frontend_PU_Version'
+WEBSITE = 'https://versekit.xharig.com'
+MENU_MARK = '\\n\\nVerse-Kit'
+
+
+def menu_lines():
+    """Die eigenen Zeilen für den Menükasten — mit dem `\\n` der `global.ini`."""
+    try:
+        from sc_bp_watcher import __version__ as version
+    except Exception:
+        version = ''
+    suffix = (' v%s' % version) if version else ''
+    return '%s%s\\n%s' % (MENU_MARK, suffix, WEBSITE)
+
+
 def apply_texts(ini_path, language, catalog_data=None, stock=None,
                remove_only=False, progress=None):
     """Die Angaben in eine `global.ini` schreiben.
@@ -916,7 +933,14 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
             # Zurücksetzen wieder.
             base_text, _foreign = _split_foreign_block(orig)
             touched = False
-            if key in own_ships:
+            if key == MENU_KEY:
+                # Fremde Zeilen im Menükasten bleiben vollständig stehen. Eine
+                # eigene Zeile, die ohne gemerkten Urtext übrig ist, wird
+                # vorher abgeschnitten, damit sie nicht doppelt erscheint.
+                orig = orig.split(MENU_MARK, 1)[0]
+                clean = orig + menu_lines()
+                touched = True
+            elif key in own_ships:
                 # ⚠ `grundlage` ist der **zurückgesetzte** Werksname. Nur so
                 # bleibt ein zweiter Lauf folgenlos; mit dem Wert aus der
                 # laufenden Datei stünde beim nächsten Mal ein Stern vor dem

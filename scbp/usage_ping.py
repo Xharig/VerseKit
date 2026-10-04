@@ -37,10 +37,11 @@ Installationen es wirklich gibt.
 | `entry` | auf welchem Weg eine Seite geöffnet wurde, je Seite |
 | `clicks` | Klicks bis zur Zielseite, als Verteilung je Seite |
 | `misses` | Fehlgriff → nächste Zielseite (`{"verkauf>laeden": 7}`) |
+| `actions` | wie oft eine Handlung genutzt wurde, feste Liste `page_usage.ACTIONS` (`{"lager_scan": 2}`) |
 
-Die letzten vier sind Zähler seit der vorigen Meldung, gesammelt von
-`page_usage` — nur Seiten-Kennungen, keine Inhalte, keine Zeitpunkte. Nach dem
-Senden werden sie geleert.
+Die letzten fünf sind Zähler seit der vorigen Meldung, gesammelt von
+`page_usage` — nur Seiten- und Handlungs-Kennungen, keine Inhalte, keine
+Mengen, keine Zeitpunkte. Nach dem Senden werden sie geleert.
 
 Keine Kennung, kein Name, kein RSI-Handle, keine Pfade. Der Empfänger
 (`tools/nutzung-worker/`, ein Cloudflare Worker) zählt je Tag nur `+1` für
@@ -110,7 +111,7 @@ def system():
 
 
 FIELDS = ('v', 'os', 'ui', 'game', 'rc', 'mods', 'overlay', 'autostart',
-          'update', 'pages', 'entry', 'clicks', 'misses')
+          'update', 'pages', 'entry', 'clicks', 'misses', 'actions')
 
 # Sprachordner des Spiels (`german_(germany)`) -> Kürzel. Unbekanntes wird
 # `xx` — nie der Ordnername selbst, der könnte alles Mögliche enthalten.
@@ -182,7 +183,8 @@ def payload(version, system_name=None, navigation=None):
         'autostart': _safe(_autostart, False),
         'update': _safe(_auto_update, True),
         **_safe(lambda: _navigation(navigation),
-                {'pages': {}, 'entry': {}, 'clicks': {}, 'misses': {}}),
+                {'pages': {}, 'entry': {}, 'clicks': {}, 'misses': {},
+                 'actions': {}}),
     }
 
 

@@ -6,7 +6,7 @@
 // und Stil mit dem Einmal-Wert (`nonce`) dieser Antwort zu.
 
 import { ICON } from './icon.js';
-import { PAGES, ROUTES, MAX_CLICKS } from './pages.js';
+import { PAGES, ROUTES, ACTIONS, MAX_CLICKS } from './pages.js';
 
 // Für das Skript der Seite: als JSON, `<` maskiert, damit kein Name das
 // Skript-Element beenden kann.
@@ -128,6 +128,7 @@ const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es
   pt: 'Portugiesisch', pl: 'Polnisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch', ru: 'Russisch', xx: 'unbekannt' }[c] || c);
 const PAGES = ${asScript(PAGES)};
 const ROUTES = ${asScript(ROUTES)};
+const ACTIONS = ${asScript(ACTIONS)};
 const MAX_CLICKS = ${MAX_CLICKS};
 const ROUTE_COLORS = { seitenleiste: 'var(--accent)', sprung: 'var(--b)', overlay: 'var(--c)',
   tray: 'var(--d)', start: 'var(--sub)' };
@@ -389,8 +390,9 @@ function render(d, span) {
     ['Auto-Update an', (share('update').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
 
-  // 7.–9. Seiten des Hauptfensters über den gewählten Zeitraum — drei breite
-  // Karten unter den kleinen, damit die zwei Dreierreihen geschlossen bleiben.
+  // 7.–10. Seiten des Hauptfensters und Handlungen über den gewählten
+  // Zeitraum — vier breite Karten unter den kleinen, damit die zwei
+  // Dreierreihen geschlossen bleiben.
   pageBlocks(d, inSpan);
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
@@ -477,6 +479,12 @@ function pageBlocks(d, inSpan) {
   const mc = card('Häufigste Fehlgriffe', true);
   bars(mc, pairs, (v) => v);
   mc.appendChild($('div', { class: 'note', text: 'Fehlgriff = Seite nach weniger als 3 Sekunden wieder verlassen. Rechts die Seite, auf der man danach geblieben ist.' }));
+
+  // Handlungen: jede aus ACTIONS, auch mit 0, in der Reihenfolge der Liste.
+  const done = sum(d.seiten_handlungen, (r) => r.handlung);
+  const ac = card('Handlungen (Zeitraum)', true);
+  bars(ac, Object.keys(ACTIONS).map((k) => [ACTIONS[k], done[k] || 0]), (v) => v);
+  ac.appendChild($('div', { class: 'note', text: 'Wie oft eine Handlung genutzt wurde — nur die Anzahl, keine Mengen oder Namen.' }));
 }
 
 async function load() {

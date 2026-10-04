@@ -10156,6 +10156,12 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
     if eintrag['habe'] is None:
         _body_text(block, t('s_he_unklar'), fenster.f_small, fill='x')
+    # Produkt nach der Liste bekannter CIG-Datenfehler berichtigt: der Name aus
+    # den Rohdaten steht als Hinweis darunter.
+    _issue = (eintrag.get('datenfehler') or {}).get('statt') or {}
+    if _issue.get('name'):
+        _body_text(block, t('s_cig_produkt') % _issue['name'],
+                   fenster.f_small, fill='x')
 
     # ⚠⚠ **Woher bekomme ich den Bauplan?** Die Antwort steht auf einer
     # anderen Seite; der Knopf führt direkt hin, statt dass man den Namen von
@@ -10964,6 +10970,13 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                     if not w.get('besser_hoch', True):
                         text_spanne = '%s · %s' % (t('s_he_weniger_gut'),
                                                    text_spanne)
+                    # Nach der Liste bekannter CIG-Datenfehler berichtigt:
+                    # der Rohwert steht als Hinweis dahinter.
+                    _raw_start = ((w.get('datenfehler') or {}).get('statt')
+                                  or {}).get('modifierAtStart')
+                    if _raw_start is not None:
+                        text_spanne = '%s · %s' % (
+                            text_spanne, t('s_cig_wert') % float(_raw_start))
                     spanne_lbl.configure(text=text_spanne)
 
                 # Überschrift: „mit deinem Material" nur, solange nichts
@@ -12342,12 +12355,14 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     3D-Modelle des Decks; `Aslarite`, `Agricium` und `cSCU` **kein einziges
     Mal**. Das Spiel hält diese Aufträge serverseitig.
 
-    Bilderkennung wäre der andere Weg und ist bewusst keiner: Sie bräuchte
-    Zusatzpakete, und dieses Werkzeug kommt mit der Standardbibliothek aus.
-
     Bleibt: das Abtippen erträglich machen. Sechs Posten sind über das Formular
     oben **24 Eingaben**; hier sind es sechs Zeilen, so wie sie im Terminal
     stehen.
+
+    Der Knopf `s_rf_lesen` (`refinery_scan`, nur Windows) wartet, bis Star
+    Citizen vorn ist, liest das Terminal mit der Texterkennung von Windows und
+    setzt die Zeilen ins Feld. Ins Lager kommt davon erst etwas über den Knopf
+    `s_rf_knopf` darunter — vorher ist es nur Text im Feld.
     """
     from . import crafting as herst_lager
     from . import places as _orte_modul
@@ -12423,9 +12438,81 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     vorschau = tk.Label(ziel, text=t('s_rf_nichts'), bg=BG, fg=SUB,
                         font=fenster.f_small, anchor='w', justify='left')
     vorschau.pack(fill='x')
-    knopf_platz = tk.Frame(ziel, bg=BG)
-    knopf_platz.pack(anchor='w', pady=(6, 0))
-    stand = {'posten': []}
+    # Knopfreihe: `s_rf_lesen` fest links, daneben `s_rf_knopf`, sobald etwas
+    # Lesbares im Feld steht.
+    knopf_reihe = tk.Frame(ziel, bg=BG)
+    knopf_reihe.pack(anchor='w', pady=(6, 0))
+    knopf_platz = tk.Frame(knopf_reihe, bg=BG)
+    lese_meldung = tk.Label(ziel, text='', bg=BG, fg=SUB, font=fenster.f_small,
+                            anchor='w', justify='left')
+    _wrap(lese_meldung, reference=kasten, inset=10)
+    stand = {'posten': [], 'liest': False}
+
+    def lese_zeigen(text, farbe=SUB):
+        """Die Meldung unter der Knopfreihe — leer wird sie ausgeblendet."""
+        lese_meldung.configure(text=text, fg=farbe)
+        if text and not lese_meldung.winfo_manager():
+            lese_meldung.pack(fill='x', pady=(6, 0), after=knopf_reihe)
+        elif not text and lese_meldung.winfo_manager():
+            lese_meldung.pack_forget()
+
+    def lese_ergebnis(text, unsicher):
+        """Gelesenes ins Feld setzen — eingetragen wird hier nichts."""
+        stand['liest'] = False
+        teile = []
+        if text:
+            feld.delete('1.0', 'end')
+            feld.insert('1.0', text)
+            pruefen()
+            teile.append(t('s_rf_lesen_fertig') % len(text.splitlines()))
+        else:
+            teile.append(t('s_rf_lesen_nichts'))
+        if unsicher:
+            teile.append(t('s_rf_lesen_unsicher') % ', '.join(unsicher))
+        lese_zeigen('\n'.join(teile),
+                    ACCENT if text and not unsicher else GOLD)
+
+    def lesen():
+        from . import refinery_scan
+        if stand['liest']:
+            return
+        if not refinery_scan.supported():
+            lese_zeigen(t('s_rf_lesen_nur_windows'), GOLD)
+            return
+        stand['liest'] = True
+        lese_zeigen(t('s_rf_lesen_warten'))
+
+        def arbeit():
+            from . import page_usage
+            try:
+                rect = refinery_scan.wait_for_game()
+                if not rect:
+                    def kein_spiel():
+                        stand['liest'] = False
+                        lese_zeigen(t('s_rf_lesen_kein_spiel'), GOLD)
+                    _from_thread(feld, kein_spiel)
+                    return
+                _from_thread(feld, lambda: lese_zeigen(t('s_rf_lesen_laeuft')))
+                text, unsicher = refinery_scan.read_screen(rect)
+                page_usage.action('lager_scan')
+                _from_thread(feld, lambda: lese_ergebnis(text, unsicher))
+            except Exception as ausnahme:
+                grund = getattr(ausnahme, 'reason', '')
+                if grund != 'keine_sprache':
+                    errors.record('pages.raffinerie_lesen', ausnahme)
+
+                def fehler():
+                    stand['liest'] = False
+                    lese_zeigen(t('s_rf_lesen_keine_sprache'
+                                  if grund == 'keine_sprache'
+                                  else 's_rf_lesen_fehler'), RED)
+                _from_thread(feld, fehler)
+
+        threading.Thread(target=arbeit, daemon=True,
+                         name='raffinerie-lesen').start()
+
+    _button(fenster, knopf_reihe, t('s_rf_lesen'), lesen).pack(side='left')
+    knopf_platz.pack(side='left', padx=(8, 0))
 
     def pruefen(*_):
         """Beim Tippen mitrechnen — man sieht sofort, was hineinginge."""
@@ -12470,10 +12557,13 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         #
         # Der Ort wird gegen die Ortsliste geprüft, so wie im Formular oben.
         ziel_ort = (ort_raff.get() or '').strip()
+        from . import page_usage
+        page_usage.action('lager_raffinerie')
         for name, menge, guete in stand['posten']:
             lager.add(name, menge, guete, ziel_ort)
         anzahl = len(stand['posten'])
         feld.delete('1.0', 'end')
+        lese_zeigen('')
         pruefen()
         neu_zeichnen()
         meldung.configure(text=t('s_rf_fertig') % anzahl, fg=ACCENT)
@@ -12513,6 +12603,9 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     # gebaut (siehe `open_page()`).
     if paths.setting_bool('lager_raffinerie_offen', False):
         _umschalten()
+    feld.scan_read = lesen
+    feld.scan_message = lese_meldung
+    feld.scan_buttons = knopf_platz
     return feld
 
 
@@ -15209,8 +15302,6 @@ def _storage(fenster, rahmen):
     _heading(fenster, rahmen, t('hf_lager'), t('s_lg_lead'))
     innen = _scroll_area(rahmen)
 
-    _body_text(innen, t('s_lg_hinweis'), fenster.f_small, fill='x')
-
     from .main_window import round_entry
     material = tk.StringVar(rahmen)
     menge = tk.StringVar(rahmen)
@@ -15235,6 +15326,19 @@ def _storage(fenster, rahmen):
         except Exception:
             stueck = False
         return t('s_lg_stueck') if stueck else 'SCU'
+
+    def _anzeige_menge(wert, name):
+        """Eine Menge der Liste mit Einheit — SCU mit drei Nachkommastellen
+        wie im Spiel, Stückware ganzzahlig (`materials.amount_text`)."""
+        from .language import current
+        try:
+            from . import crafting as _h_anzeige
+            stueck = _h_anzeige.is_piece(name)
+        except Exception:
+            stueck = False
+        zahl = lager.amount_text(wert, stueck,
+                                 ',' if current() == 'de' else '.')
+        return '%s %s' % (zahl, _einheit(name))
 
     def _stueckware():
         """Zählt das gerade gewählte Material in Stück statt in SCU?
@@ -15273,12 +15377,28 @@ def _storage(fenster, rahmen):
     # die Zeile zehn Zeilen hoch und Tk setzt die Beschriftung auf halbe Höhe.
     ware_zeichnen = ort_zeichnen = lambda: None
     mengen_beschriftung = None
+    # Menge und Qualität stehen nebeneinander, in zwei gleich breiten Spalten.
+    # ⚠ Der Rahmen entsteht erst nach dem Rohstoff-Block: Die Tab-Reihenfolge
+    # folgt der Reihenfolge, in der Tk die Elemente anlegt.
+    paar = None
     for beschriftung, var in ((t('s_lg_material'), material),
                               (t('s_lg_menge'), menge),
                               (t('s_lg_qualitaet'), guete),
                               (t('s_lg_ort'), ort)):
-        block = tk.Frame(innen, bg=BG)
-        block.pack(fill='x', padx=24, pady=(12, 0))
+        if var is menge:
+            paar = tk.Frame(innen, bg=BG)
+            paar.columnconfigure(0, weight=1, uniform='lager_paar')
+            paar.columnconfigure(1, weight=1, uniform='lager_paar')
+            paar.pack(fill='x', padx=24, pady=(12, 0))
+        if var is menge or var is guete:
+            block = tk.Frame(paar, bg=BG)
+            if var is menge:
+                block.grid(row=0, column=0, sticky='new', padx=(0, 8))
+            else:
+                block.grid(row=0, column=1, sticky='new', padx=(8, 0))
+        else:
+            block = tk.Frame(innen, bg=BG)
+            block.pack(fill='x', padx=24, pady=(12, 0))
         kopf_label = tk.Label(block, text=beschriftung, bg=BG, fg=FG,
                               font=fenster.f_bold, anchor='w')
         kopf_label.pack(fill='x')
@@ -15365,9 +15485,12 @@ def _storage(fenster, rahmen):
             # ⭐⭐ **Die Vorschau ist die eigentliche Erklärung.** Wer beim
             # Tippen von „1.04+3" daneben „ergibt 4,04 SCU" liest, braucht
             # keinen Satz über Auf- und Abbuchen mehr.
+            # Gepackt wird sie erst, wenn sie etwas sagt — leer nähme sie
+            # eine Zeile Platz unter dem Feld.
             mengen_vorschau = tk.Label(block, text='', bg=BG, fg=ACCENT,
-                                       font=fenster.f_small, anchor='w')
-            mengen_vorschau.pack(fill='x')
+                                       font=fenster.f_small, anchor='w',
+                                       justify='left')
+            _wrap(mengen_vorschau, reference=block)
         else:
             f = round_entry(block, var, fenster.f_small, theme.FIELD, LINE,
                             ACCENT, FG, placeholder=t('s_pl_qualitaet'))
@@ -15570,6 +15693,11 @@ def _storage(fenster, rahmen):
         reihenfolge = sorted(gruppen.items(),
                              key=lambda kv: gruppen_schluessel(kv[1]),
                              reverse=sortier['ab'])
+        # Stückware (Edelsteine) steht als eigener Block oben, darunter die
+        # SCU-Ware; die gewählte Spaltensortierung gilt innerhalb jedes
+        # Blocks. Die Sortierung ist stabil, deshalb bleibt sie erhalten.
+        reihenfolge.sort(key=lambda kv: lager.piece_first(
+            kv[1][0][1].get('material') or ''))
 
         def spalten(z, z_bg, werte, beim_klick):
             """Die fünf Spalten einer Zeile; ein Klick darauf ruft `beim_klick`."""
@@ -15621,7 +15749,7 @@ def _storage(fenster, rahmen):
             # meldet ihn — ein Fehlalarm, der die Prüfung rot färbt.
             name_txt = p.get('material') or '?'
             # Die Einheit steht an jeder Zahl: SCU oder Stück (Edelsteine).
-            menge_txt = '%g %s' % (_menge(p), _einheit(name_txt))
+            menge_txt = _anzeige_menge(_menge(p), name_txt)
             q_txt = ('%g' % float(p['qualitaet'])) if p.get('qualitaet') else '—'
             abbau_txt = _abbau_text(name_txt) or '—'
             ort_txt = p.get('ort') or '—'
@@ -15703,7 +15831,7 @@ def _storage(fenster, rahmen):
             pfeil.bind('<Button-1>', lambda _e, f=umschalten: f())
             kopf_labels = spalten(kopf_z, kopf_bg, (
                 (name_txt, SPALTEN[0], FG, fenster.f_base),
-                ('%g %s' % (summe, _einheit(ps[0].get('material') or '')),
+                (_anzeige_menge(summe, ps[0].get('material') or ''),
                  SPALTEN[1], ACCENT, fenster.f_base),
                 (q_txt, SPALTEN[2], SUB, fenster.f_small),
                 (_abbau_text(ps[0].get('material') or '') or '—', SPALTEN[3],
@@ -15900,6 +16028,8 @@ def _storage(fenster, rahmen):
         # immer in SCU. Umgerechnet wird erst hier, nach dem Rechnen: Wer in
         # cSCU „+3" tippt, meint drei cSCU, nicht drei SCU.
         wert = round(wert * _faktor(), 4)
+        from . import page_usage
+        page_usage.action('lager_hand')
         if bearbeitung['nummer'] is None:
             lager.add(name, wert, q, ort.get())
             hinweis = t('s_lg_eingetragen') % (name, wert, _einheit(name))
@@ -16040,12 +16170,95 @@ def _storage(fenster, rahmen):
         meldung.configure(text=t('s_lg_geleert') % anzahl, fg=GOLD)
         zeichnen()
 
-    _button(fenster, _reihe_aus, t('s_lg_leeren'), _leeren,
-           danger=True).pack(side='left', padx=(24, 0))
+    _leeren_knopf = _button(fenster, _reihe_aus, t('s_lg_leeren'), _leeren,
+                            danger=True)
+    _leeren_knopf.pack(side='left', padx=(24, 0))
+    _storage_sync_button(fenster, _reihe_aus, _leeren_knopf, meldung,
+                         zeichnen)
     _body_text(innen, t('s_lg_aus_hilfe'), fenster.f_small, fill='x')
 
     zeichnen()
 
+
+
+def _storage_sync_ready():
+    """Ist der Lager-Abgleich mit dem Basetool eingerichtet und verbunden?"""
+    try:
+        from . import basetool, basetool_sync
+        return (basetool_sync.area_on(basetool_sync.SETTING_STOCK)
+                and basetool.CONNECTION.connected())
+    except Exception:
+        return False
+
+
+def _storage_sync_result():
+    """Text und Farbe zum letzten Abgleich — für die Meldung der Lager-Seite."""
+    from . import basetool_sync
+    status = dict(basetool_sync.STATUS)
+    if status.get('state') == 'ok':
+        state = basetool_sync.current_state() or {}
+        conflicts = (state.get('stock') or {}).get('conflicts') or {}
+        if conflicts:
+            return t('s_lg_sync_konflikte') % len(conflicts), GOLD
+        return t('s_lg_sync_ok') % (status.get('last_sync') or ''), ACCENT
+    from .basetool_page import error_text
+    return error_text(status.get('code') or 'INTERNAL'), RED
+
+
+def _storage_sync_button(fenster, reihe, vor, meldung, neu_zeichnen):
+    """Der Knopf `s_lg_sync` in der Knopfreihe der Lager-Seite.
+
+    Sichtbar nur, solange der Lager-Abgleich eingeschaltet und das Basetool
+    verbunden ist (`_storage_sync_ready`); geprüft beim Zeigen der Seite und
+    bei jeder Statusänderung des Abgleichs. Ein Klick stößt den vorhandenen
+    Abgleich an (`basetool_sync.request_now`), der im Hintergrund läuft; das
+    Ergebnis erscheint in `meldung`.
+    """
+    from . import basetool_sync, page_usage
+    lage = {'wartet': False}
+
+    def klick():
+        page_usage.action('lager_sync')
+        lage['wartet'] = True
+        basetool_sync.request_now()
+        meldung.configure(text=t('s_lg_sync_laeuft'), fg=SUB)
+
+    knopf = _button(fenster, reihe, t('s_lg_sync'), klick)
+
+    def sichtbar_setzen():
+        try:
+            if _storage_sync_ready():
+                if not knopf.winfo_manager():
+                    knopf.pack(side='left', padx=(8, 0), before=vor)
+            elif knopf.winfo_manager():
+                knopf.pack_forget()
+        except tk.TclError:
+            pass
+
+    def ergebnis_zeigen():
+        sichtbar_setzen()
+        if not lage['wartet'] or basetool_sync.STATUS.get('running'):
+            return
+        if basetool_sync.STATUS.get('state') == 'running':
+            return
+        lage['wartet'] = False
+        text, farbe = _storage_sync_result()
+        meldung.configure(text=text, fg=farbe)
+        neu_zeichnen()
+
+    def bei_status():
+        _from_thread(knopf, ergebnis_zeigen)
+
+    basetool_sync.LISTENERS.append(bei_status)
+    knopf.bind('<Destroy>', lambda _e: (
+        bei_status in basetool_sync.LISTENERS
+        and basetool_sync.LISTENERS.remove(bei_status)), add='+')
+    fenster.on_show['lager'] = sichtbar_setzen
+    sichtbar_setzen()
+    knopf.sync_click = klick
+    knopf.sync_refresh = sichtbar_setzen
+    knopf.sync_status = ergebnis_zeigen
+    return knopf
 
 
 def _cooldown_text(rest):

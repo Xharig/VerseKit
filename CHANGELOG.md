@@ -6,6 +6,54 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.88.0 - 2026-10-04
+
+> Schluss mit Abtippen am Raffinerie-Terminal: Verse-Kit liest den
+> Bildschirm und setzt die Ausbeute zum Gegenlesen ins Feld — eingetragen
+> wird erst auf deinen Klick. Das Rohstofflager ist kompakter, zeigt Mengen
+> wie das Spiel und überträgt auf Knopfdruck sofort ans Basetool.
+
+### Neu
+
+- **Raffinerie: „Bildschirm lesen"** — liest das Raffinerie-Terminal mit der
+  Texterkennung von Windows und setzt Material, Qualität und Menge in das
+  Feld „Raffinerie-Ausbeute eintragen". Ins Lager kommt nichts, bevor du
+  „Posten eintragen" drückst; Zeilen, die nicht sicher lesbar waren, werden
+  genannt statt geraten. Vorerst nur unter Windows
+- **Rohstofflager: „Jetzt übertragen"** — gleicht das Lager sofort mit dem
+  KRT Profit Basetool ab; der Knopf erscheint nur, solange der
+  Lager-Abgleich verbunden ist
+- **Nutzung zählen** — die tägliche Meldung zählt jetzt auch, wie oft im
+  Lager von Hand eingetragen, eine Ausbeute eingetragen, der Bildschirm
+  gelesen oder übertragen wurde. Nur die Anzahl, keine Mengen oder Namen
+- **Verse-Kit im Hauptmenü** — im Versionskasten des Spiels stehen jetzt
+  Version und Adresse von Verse-Kit, hinter den Zeilen anderer Werkzeuge,
+  die unangetastet bleiben
+
+### Verbessert
+
+- **Angaben im Spiel kommen sofort zurück** — schreibt ein anderes Werkzeug
+  die Textdatei des Spiels neu, trägt Verse-Kit seine Angaben nach wenigen
+  Sekunden wieder ein statt erst nach Stunden
+
+- **Rohstofflager: Mengen wie im Spiel** — SCU stehen mit drei
+  Nachkommastellen (0,020 · 3,960), ganze Mengen ohne
+- **Rohstofflager: Edelsteine zuerst** — Stückware steht als eigener Block
+  oben, die SCU-Ware darunter; die Spaltensortierung gilt in jedem Block
+- **Rohstofflager: kompakter** — Menge und Qualität stehen nebeneinander,
+  die doppelte Erklärung oben ist weg
+
+### Behoben
+
+- **Bekannte Fehler in CIGs Spieldaten berichtigt** — wo die Spieldaten
+  nachweislich danebenliegen, rechnet Verse-Kit mit dem gemeinten Wert und
+  sagt es dazu: Aztalan-Beine (Schadensminderung bei Qualität 0 ×0,9 statt
+  ×9), Bauplan DayBreak (stand als FullForce da), Ruf beim Red-Wind-Auftrag
+  „Straightforward Cargo Recovery" (Red Wind Linehaul statt Citizens For
+  Prosperity) und das LH86-Magazin aus dem NorthRock-Boss-Topf
+- **Ruf-Angaben wurden bei jedem Eintragen neu geladen** — sie kommen jetzt
+  nur noch, wenn sich der Spielstand ändert
+
 ## v3.87.1 - 2026-10-04
 
 > Auf sehr breiten Bildschirmen ist der neutrale Blickwinkel im Spiel gar

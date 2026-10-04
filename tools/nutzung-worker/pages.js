@@ -63,6 +63,15 @@ export const ROUTES = {
   start: 'Programmstart',
 };
 
+// Die Handlungen, die das Programm zählt (`page_usage.ACTIONS`) — nur wie
+// oft, nie womit. Andere Kennungen lehnt der Worker ab.
+export const ACTIONS = {
+  lager_hand: 'Rohstofflager: von Hand eingetragen',
+  lager_raffinerie: 'Rohstofflager: Raffinerie-Ausbeute eingetragen',
+  lager_scan: 'Rohstofflager: Bildschirm gelesen',
+  lager_sync: 'Rohstofflager: Jetzt übertragen',
+};
+
 // Die Stufe MAX_CLICKS steht für so viele Klicks und mehr (`page_usage.MAX_CLICKS`).
 export const MAX_CLICKS = 10;
 export const MAX_COUNT = 9999;
