@@ -6,6 +6,40 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.86.0 - 2026-10-04
+
+> The blueprint list now explains its marks itself: a legend at the top
+> stays put while you scroll, and the star and the farming mark are the
+> same size and sit in the same spot on every row. In the hangar a search
+> field finds your ships, no more scrolling.
+
+### New
+
+- **Legend in the blueprint list** — star, farming mark and starter
+  blueprint are explained at the top and stay visible while scrolling
+- **Search field in the hangar** — fixed at the top above the list, finds
+  ships by name and by your own in-game name
+
+### Improved
+
+- **Star and farming mark the same size** — both sit in the same spot on
+  every row, even when one of them is missing
+- **Only what you can craft can be added to farming** — the mark appears
+  only on blueprints you own; listed ones can still be removed
+- **Starter blueprints get their own mark** — a gift instead of the diamond,
+  which now stands for farming
+- **Shorter hangar intro** — the texts at the top are cut down to what you
+  need
+
+### Fixed
+
+- **Farming mark there one moment, gone the next** — the mark jumped to a
+  different spot depending on the row
+- **Match count cut off** — the number next to the filter fields is shown in
+  full again
+- **Named ship without a name field** — a ship you already gave an in-game
+  name can be renamed again (e.g. the F7C-M Super Hornet Mk II)
+
 ## v3.85.0 - 2026-10-04
 
 > Add to the farming list straight from the blueprint list — and see on

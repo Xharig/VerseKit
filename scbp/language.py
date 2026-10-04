@@ -730,6 +730,10 @@ TEXTS = {
                           'Search commodity — e.g. Laranite'),
     's_pl_schiff':       ('Schiff suchen — z. B. Avenger Titan',
                           'Search ship — e.g. Avenger Titan'),
+    's_pl_schiff_eintragen': ('Schiff zum Eintragen wählen — z. B. Avenger Titan',
+                              'Pick a ship to add — e.g. Avenger Titan'),
+    's_pl_hangar_suche': ('Deine Schiffe durchsuchen — Name oder Name im Spiel',
+                          'Search your ships — name or in-game name'),
     's_pl_schiffsname':  ('Eigener Name — z. B. Nachtfalke',
                           'Own name — e.g. Nightjar'),
     's_pl_gegenstand':   ('Gegenstand suchen — Name eintippen oder aufklappen',
@@ -3977,53 +3981,22 @@ TEXTS = {
                           '%d files could not be copied safely (%d went '
                           'through) — the folder was NOT switched. Your data is '
                           'unchanged in its old place.'),
-    's_hg_lead':         ('Welche Schiffe dir gehören. Damit beantwortet das '
-                          'Werkzeug die Frage, die auf jeden neuen Bauplan '
-                          'folgt: Passt das Teil überhaupt in eines deiner '
-                          'Schiffe?',
-                          'Which ships you own. This lets the tool answer the '
-                          'question that follows every new blueprint: does the '
-                          'part even fit any of your ships?'),
-    's_hg_hinweis':      ('Das Spiel schreibt deinen Hangar nirgends auf — im '
-                          'Protokoll stehen nur Zahlen, keine Namen. Deshalb '
-                          'kommt die Liste von dir: entweder aus dem Export '
-                          'unten oder von Hand.',
-                          'The game does not record your hangar anywhere — its '
-                          'log has numbers, not names. So the list comes from '
-                          'you: either from the export below, or by hand.'),
+    's_hg_lead': ('Deine Schiffe — damit weiß Verse-Kit, ob ein neuer Bauplan zu einem davon passt.',
+                  'Your ships — so Verse-Kit knows whether a new blueprint fits one of them.'),
+    's_hg_hinweis': ('Das Spiel verrät deinen Hangar nicht: Hol ihn per Export oder trag Schiffe von Hand ein.',
+                     'The game does not reveal your hangar: import it or add ships by hand.'),
     # --- Import
     's_hg_import_titel': ('Aus dem Pledge-Store holen', 'Import from the pledge store'),
-    's_hg_import_text':  ('Die Browser-Erweiterung „Star Citizen: Hangar '
-                          'Extension" (AlyxOne) setzt auf deiner Pledge-Seite '
-                          'Export-Knöpfe. Lade dort den JSON- oder CSV-Export '
-                          'herunter und wähle die Datei hier aus. Der ältere '
-                          'Hangar XPLORer wird weiterhin gelesen.',
-                          'The browser add-on “Star Citizen: Hangar Extension” '
-                          '(AlyxOne) adds export buttons to your pledge page. '
-                          'Download the JSON or CSV export there and pick the '
-                          'file here. The older Hangar XPLORer is still read as '
-                          'well.'),
+    's_hg_import_text': ('Mit der Browser-Erweiterung „Star Citizen: Hangar Extension" (AlyxOne) den Hangar als JSON oder CSV herunterladen und hier wählen.',
+                         'Download your hangar as JSON or CSV with the browser add-on “Star Citizen: Hangar Extension” (AlyxOne) and pick the file here.'),
     # ⚠ Der Hinweis auf JSON steht bewusst dabei: Der CSV-Fassung eines
     # Exports können Schiffe fehlen, die in der JSON stehen.
     # Gelesen werden beide — empfohlen wird nur eines.
-    's_hg_import_json':  ('Am besten beide Dateien nacheinander: Die JSON bringt '
-                          'Paketzugehörigkeit und Versicherung (LTI oder '
-                          'Laufzeit), die CSV dazu Kaufdatum und Preis. Doppelt '
-                          'wird dabei nichts.',
-                          'Best import both files one after the other: the JSON '
-                          'brings the bundle relations and the insurance (LTI or '
-                          'duration), the CSV adds purchase date and price. '
-                          'Nothing gets duplicated.'),
+    's_hg_import_json': ('Tipp: beide Dateien einlesen — JSON bringt die Versicherung, CSV Kaufdatum und Preis.',
+                         'Tip: import both — JSON adds the insurance, CSV the purchase date and price.'),
     # ⭐ v3.62.0 — dieselben Listen, die das KRT Profit Basetool einliest.
-    's_hg_import_listen': ('Auch gelesen: Schiffslisten aus Fleetview (CCU '
-                           'Game), Fleetyards und StarJump FleetViewer (JSON). '
-                           'Sie ergänzen deinen Hangar nur — ausgetragen wird '
-                           'dabei nichts. Wunschschiffe aus Fleetyards landen '
-                           'auf der Wunschliste.',
-                           'Also read: ship lists from Fleetview (CCU Game), '
-                           'Fleetyards and StarJump FleetViewer (JSON). They '
-                           'only add to your hangar — nothing is removed. '
-                           'Wanted ships from Fleetyards go to the wishlist.'),
+    's_hg_import_listen': ('Listen aus Fleetview, Fleetyards und StarJump gehen auch.',
+                           'Lists from Fleetview, Fleetyards and StarJump work too.'),
     's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),
@@ -4365,12 +4338,6 @@ TEXTS = {
                           'Concept, not in the game yet (per UEX)'),
     's_hg_nichts_gefunden': ('Kein Schiff mit diesem Namen.',
                              'No ship by that name.'),
-    's_hg_such_hilfe':   ('Tipp ein paar Buchstaben, um zu suchen — oder klapp '
-                          'die Liste mit dem Pfeil auf und roll durch alle '
-                          'Schiffe. Punkte und Bindestriche kannst du weglassen.',
-                          'Type a few letters to search — or open the list with '
-                          'the arrow and scroll through every ship. You can '
-                          'leave out dots and hyphens.'),
     's_hg_ohne_erklaert': ('Für {n} Schiffe gibt es keine Steckplatz-Daten. Das '
                            'sind fast immer Schiffe, die es im Spiel noch gar '
                            'nicht gibt — sobald sie fliegen, kommen die Daten '
@@ -4995,6 +4962,12 @@ TEXTS = {
                           'unter „Was ich farmen muss"',
                           'Add to farming list — shows up with its materials '
                           'under "What to farm"'),
+    's_bp_leg_stern':    ('Merken — meldet sich, sobald du den Bauplan bekommst',
+                          'Watch — alerts you as soon as you get the blueprint'),
+    's_bp_leg_farm':     ('Vormerken — kommt mit seinen Rohstoffen auf „Was ich farmen muss"',
+                          'Add to farming — goes onto "What to farm" with its materials'),
+    's_bp_leg_start':    ('Startbauplan — hat jeder von Anfang an',
+                          'Starter blueprint — everyone has it from the start'),
     's_bp_farm_drauf':   ('Zum Farmen vorgemerkt — Klick nimmt es wieder herunter',
                           'On the farming list — click to remove it'),
     's_mz_hilfe':        ('Landet unter »Was ich farmen muss« — mit dem '

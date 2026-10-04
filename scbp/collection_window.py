@@ -354,6 +354,7 @@ class Bestandsfenster:
         _t_wz = time.perf_counter()
         self._werkzeugleiste()
         self._grenze_zeigen()
+        self._legende()
         _ms_wz = (time.perf_counter() - _t_wz) * 1000
         # ⚠ Reihenfolge: erst der feste Block unten, dann die rollende Liste.
         # Wer die Liste zuerst packt, schiebt den Block aus dem Fenster.
@@ -572,6 +573,11 @@ class Bestandsfenster:
         # angeordnet (damit sie umbrechen können), und Tk verträgt `grid` und
         # `pack` nicht im selben Elternteil — daneben liegen aber der
         # Trefferzähler und `zurücksetzen`, die gepackt sind.
+        # Der Trefferzähler wird zuerst gepackt: Er behält seine volle
+        # Breite, die Auswahlfelder bekommen den Rest und brechen darin um.
+        self.treffer_lbl = tk.Label(reihe, text='', bg=BG, fg=SUB,
+                                    font=schrift(9))
+        self.treffer_lbl.pack(side='right')
         self.fein_rahmen = tk.Frame(reihe, bg=BG)
         self.fein_rahmen.pack(side='left', fill='x', expand=True)
 
@@ -594,9 +600,6 @@ class Bestandsfenster:
         self.zuruecksetzen_lbl.bind(
             '<Leave>', lambda e: self.zuruecksetzen_lbl.configure(bg=FLAECHE))
 
-        self.treffer_lbl = tk.Label(reihe, text='', bg=BG, fg=SUB,
-                                    font=schrift(9))
-        self.treffer_lbl.pack(side='right')
         # (Das Anordnen macht `_feinfilter_felder()` selbst.)
 
     def _reihe_umbrechen(self, rahmen, elemente, rechts_frei=None):
@@ -1182,8 +1185,7 @@ class Bestandsfenster:
             self.fein_rahmen,
             [self.fein_felder[k] for k in
              ('art', 'unterart', 'klasse', 'groesse', 'quelle', 'grad', 'patch')
-             if k in self.fein_felder],
-            rechts_frei=getattr(self, 'treffer_lbl', None))
+             if k in self.fein_felder])
 
     def _unterart_von(self, eintrag):
         """Die Unterart eines Katalog-Bauplans — aus den Rezeptdaten."""
@@ -2128,6 +2130,63 @@ class Bestandsfenster:
         tk.Label(kopf, text='  %d/%d' % (drin, len(treffer)), bg=BG, fg=SUB,
                  font=schrift(9), anchor='w').pack(side='left')
 
+    def _spalte(self, row, shade, breite):
+        """Ein Halter fester Breite am rechten Zeilenrand; das Element darin
+        wird mittig gepackt. Die Breite kommt von einem 1 px hohen Abstandhalter."""
+        halter = tk.Frame(row, bg=shade)
+        halter.pack(side='right', fill='y')
+        tk.Frame(halter, bg=shade, width=breite, height=1).pack(side='top')
+        return halter
+
+    def _spalten_breiten(self):
+        """Breite der Herkunftsspalte und der Symbolspalten (Raute, Stern),
+        einmal gemessen je Schriftstufe und Sprache."""
+        schluessel = (icons.level(), t('hk_knopf'), repr(schrift(10)))
+        gemerkt = getattr(self, '_spalten_mass', None)
+        if gemerkt and gemerkt[0] == schluessel:
+            return gemerkt[1]
+        zuwachs = icons.hover_px(icons.TAPPABLE) - icons.width(icons.TAPPABLE)
+        proben = []
+        knopf = icons.tappable(self.root, 'hinweiszeile', text=t('hk_knopf'),
+                               font=schrift(10))
+        knopf.configure(padx=12)
+        proben.append(knopf)
+        start = icons.tappable(self.root, 'startbauplan')
+        start.configure(padx=12)
+        proben.append(start)
+        frage = tk.Label(self.root, text='?', font=schrift(11), padx=12)
+        proben.append(frage)
+        quelle = max(p.winfo_reqwidth() for p in proben) + zuwachs
+        stern = icons.tappable(self.root, 'gemerkt')
+        icons.hover_group(stern, stern)
+        symbol = stern.winfo_reqwidth() + 2 * 10
+        for p in proben + [stern]:
+            p.destroy()
+        self._spalten_mass = (schluessel, (quelle, symbol))
+        return quelle, symbol
+
+    def _legende(self):
+        """Was Stern, Raute und Geschenk in den Zeilen bedeuten — im festen
+        Kopfbereich, damit sie beim Rollen stehen bleibt. Die Symbole haben
+        dieselbe Größe wie in den Zeilen."""
+        halter = tk.Frame(self.root, bg=BG)
+        halter.pack(fill='x', padx=14, pady=(0, 6))
+        reihe = tk.Frame(halter, bg=BG)
+        reihe.pack(side='left', fill='x', expand=True)
+        eintraege = []
+        for symbol, farbe, schluessel in (
+                ('gemerkt', icons.YELLOW, 's_bp_leg_stern'),
+                ('farmliste', icons.GREEN, 's_bp_leg_farm'),
+                ('startbauplan', icons.GREEN, 's_bp_leg_start')):
+            # Leerzeichen vorn trennen Symbol und Text, hinten die Einträge.
+            eintrag = icons.tappable(reihe, symbol, color=farbe, background=BG,
+                                     text=' %s  ' % t(schluessel),
+                                     font=schrift(9))
+            eintrag.configure(fg=SUB, padx=0)
+            eintraege.append(eintrag)
+        self.legende = eintraege
+        self._reihe_umbrechen(reihe, eintraege)
+
     def _zeile(self, eintrag, drin, eltern=None):
         from .pages import _stripe
         name = eintrag['n']
@@ -2190,6 +2249,10 @@ class Bestandsfenster:
             tk.Label(middle, text=' · '.join(details), bg=shade, fg=SUB,
                      font=schrift(9), anchor='w').pack(fill='x')
 
+        # Die drei Spalten rechts haben feste Breiten, damit Herkunft, Raute
+        # und Stern in jeder Zeile an derselben Stelle stehen.
+        breite_quelle, breite_symbol = self._spalten_breiten()
+        quelle = self._spalte(row, shade, breite_quelle)
         if eintrag.get('q'):
             symbol = 'zuklappen' if name in self.offen else 'hinweiszeile'
             # ⚠ `antippbar()` statt `zeile()`: eine Stufe groesser. Das Zeichen
@@ -2198,10 +2261,10 @@ class Bestandsfenster:
             # ⚠⚠ **Wort dazu, nicht nur ein Zeichen.** Ein Symbol am rechten
             # Rand allein verrät nicht, dass hier steht, wo es den Bauplan
             # gibt.
-            source_button = icons.tappable(row, symbol, background=shade,
+            source_button = icons.tappable(quelle, symbol, background=shade,
                                      text=t('hk_knopf'), font=schrift(10))
             source_button.configure(cursor='hand2', padx=12, fg=ACCENT)
-            source_button.pack(side='right')
+            source_button.pack()
             source_button.bind('<Button-1>', lambda e, n=name: self._herkunft_umschalten(n))
             icons.hover_group(source_button)
             notice.attach(source_button, lambda: t('hinweis_quellen'))
@@ -2209,10 +2272,10 @@ class Bestandsfenster:
             # Startbaupläne: hat jeder von Anfang an, stehen in keinem Pool und
             # in keinem Log. Eigenes Zeichen, damit niemand nach einem Auftrag
             # sucht, den es nicht gibt.
-            start_icon = icons.line(row, 'standard', color=icons.GREEN,
-                                background=shade, font=schrift(10))
+            start_icon = icons.tappable(quelle, 'startbauplan', color=icons.GREEN,
+                                        background=shade)
             start_icon.configure(padx=12)
-            start_icon.pack(side='right')
+            start_icon.pack()
             notice.attach(start_icon, lambda: t('hinweis_startbauplan'))
         else:
             # 59 Baupläne haben in den Daten keine Bezugsquelle — überwiegend
@@ -2220,47 +2283,52 @@ class Bestandsfenster:
             # sähe die Zeile aus, als hätte jemand vergessen, die Herkunft
             # einzutragen; mit ? steht da, was Sache ist: Es gibt keinen Auftrag,
             # über den man da herankommt.
-            no_source_label = tk.Label(row, text='?', bg=shade, fg=SUB,
+            no_source_label = tk.Label(quelle, text='?', bg=shade, fg=SUB,
                             font=schrift(11), padx=12)
-            no_source_label.pack(side='right')
+            no_source_label.pack()
             notice.attach(no_source_label, lambda: t('hinweis_ohne_quelle'))
+
+        # Zum Farmen vormerken — nur, was man besitzt und damit herstellen
+        # kann, oder was schon vorgemerkt ist (zum Herunternehmen). Sonst
+        # bleibt die Spalte leer. Erklärt wird es in der Legende.
+        from . import fleet as _farm
+        vorgemerkt = _farm.notepad_contains(self._farm_stand(), name)
+        farm_spalte = self._spalte(row, shade, breite_symbol)
+        if drin or vorgemerkt:
+            farm = icons.tappable(farm_spalte, 'farmliste',
+                                  color=icons.GREEN if vorgemerkt else icons.GREY,
+                                  background=shade)
+            farm.configure(cursor='hand2')
+            farm.pack(padx=10)
+            farm_spalte.configure(cursor='hand2')
+            for w in (farm_spalte, farm):
+                w.bind('<Button-1>', lambda e, n=name: self._farm_umschalten(n))
+            icons.hover_group(farm_spalte, farm)
+            notice.attach(farm, lambda n=name: t('s_bp_farm_drauf')
+                          if _farm.notepad_contains(self._farm_stand(), n)
+                          else t('s_bp_farm_merken'))
 
         # Stern: worauf man wartet, wird auffällig angezeigt, sobald es auftaucht.
         # Bei schon vorhandenen Bauplänen wäre das Merken sinnlos — dort kein
         # Stern. ⚠ **Außer er ist schon gemerkt**: Erledigte bleiben auf der
         # Merkliste, und der Stern ist der einzige Weg, so einen
         # Eintrag wieder loszuwerden.
+        # Ohne Stern bleibt die Spalte leer stehen.
         watched = merk.contains(name)
+        stern_spalte = self._spalte(row, shade, breite_symbol)
         if not drin or watched:
-            # Größer als der Rest: Der Stern ist das einzige Zeichen in der
-            # Zeile, das man *trifft* statt liest — in Zeilenschrift war er zu
-            # klein zum Klicken und ging neben dem Namen unter.
-            star = icons.line(row, 'gemerkt',
+            star = icons.tappable(stern_spalte, 'gemerkt',
                                   color=icons.YELLOW if watched else icons.GREY,
-                                  background=shade, font=schrift(16))
-            star.configure(cursor='hand2', padx=10)
-            star.pack(side='right')
-            star.bind('<Button-1>', lambda e, n=name: self._merken(n))
-            icons.hover_group(star)
+                                  background=shade)
+            star.configure(cursor='hand2')
+            star.pack(padx=10)
+            stern_spalte.configure(cursor='hand2')
+            for w in (stern_spalte, star):
+                w.bind('<Button-1>', lambda e, n=name: self._merken(n))
+            icons.hover_group(stern_spalte, star)
             notice.attach(star, lambda n=name: t('nicht_mehr_merken')
                               if merk.contains(n) else t('merken'))
 
-        # ⭐ Zum Farmen vormerken — für Baupläne, die man hat: Was man bauen
-        # kann, landet mit seinen Rohstoffen auf der Farmliste.
-        # Vorgemerktes steht in Markenfarbe, ein zweiter Klick nimmt es weg.
-        if drin:
-            from . import fleet as _farm
-            vorgemerkt = _farm.notepad_contains(self._farm_stand(), name)
-            farm = icons.button(row, 'farmliste',
-                                color=icons.GREEN if vorgemerkt else icons.GREY,
-                                background=shade)
-            farm.configure(cursor='hand2', padx=6)
-            farm.pack(side='right')
-            farm.bind('<Button-1>', lambda e, n=name: self._farm_umschalten(n))
-            icons.hover_group(farm)
-            notice.attach(farm, lambda n=name: t('s_bp_farm_drauf')
-                          if _farm.notepad_contains(self._farm_stand(), n)
-                          else t('s_bp_farm_merken'))
 
 
     def _herkunft_zeichnen(self):

@@ -25224,6 +25224,8 @@ def main():
     _pruefung_333()
     _pruefung_334()
     _pruefung_335()
+    _pruefung_336()
+    _pruefung_337()
 
     print()
     if fehler:
@@ -32793,6 +32795,18 @@ def _pruefung_325():
             liste = '.'.join(gemeinsam)
             suchfelder = [e for e in _alle(seite, 'Entry')
                           if not str(e).startswith(liste + '.')]
+            # Die Rollfläche ist die äußerste Leinwand über der Schiffsliste.
+            stuecke = liste.split('.')
+            leinwaende = [i for i, s in enumerate(stuecke)
+                          if s.startswith('!canvas')]
+            rollflaeche = ('.'.join(stuecke[:leinwaende[0] + 1])
+                           if leinwaende else liste)
+            fest = getattr(seite, 'hangar_suchfeld', None)
+            pruefe(fest is not None and bool(suchfelder)
+                   and suchfelder[0] is fest
+                   and not str(fest).startswith(rollflaeche + '.'),
+                   'das erste Suchfeld ist das feste im Kopf, nicht in der '
+                   'Rollflaeche')
             if suchfelder:
                 suchfelder[0].delete(0, 'end')
                 getattr(suchfelder[0], 'hint_hide', lambda: None)()
@@ -33760,6 +33774,147 @@ def _pruefung_335():
                'der Stand, aus dem die Liste zeichnet, folgt dem Klick')
     finally:
         _fl335.save(alt)
+
+
+def _pruefung_336():
+    """336. Bauplan-Liste: Stern und Raute gleich groß, Spalten untereinander,
+    Raute nur an Bauplänen, die man besitzt, Legende im festen Kopfbereich."""
+    print('\n336. Bauplan-Liste: Symbolspalten und Legende')
+    import copy as _cp336
+    import tkinter as tk
+    from scbp import collection_window as _cw336, fleet as _fl336
+
+    def _symbole(w, name):
+        out = []
+        if getattr(w, 'symbol', None) == name:
+            out.append(w)
+        for k in w.winfo_children():
+            out.extend(_symbole(k, name))
+        return out
+
+    def _in(w, oben):
+        while w is not None:
+            if w is oben:
+                return True
+            w = getattr(w, 'master', None)
+        return False
+
+    alt = _cp336.deepcopy(_fl336.load())
+    try:
+        _fl336.save({})
+        _wz = _wurzel()
+        _liste = _cw336.Bestandsfenster(_wz)
+        for _ in range(3):
+            _wz.update(); _wz.update_idletasks()
+        probe = tk.Frame(_liste.inhalt)
+        probe.pack(fill='x')
+        faelle = (({'n': 'Probe Eins', 'q': ['x']}, True),
+                  ({'n': 'Probe Zwei', 'q': ['x']}, False),
+                  ({'n': 'Probe Drei', 'start': True}, True),
+                  ({'n': 'Probe Vier'}, False))
+        for eintrag, drin in faelle:
+            _liste._zeile(eintrag, drin, eltern=probe)
+        for _ in range(3):
+            _wz.update(); _wz.update_idletasks()
+        zeilen = probe.winfo_children()
+        pruefe(len(zeilen) == len(faelle), 'vier Probezeilen gebaut')
+
+        lagen = [tuple((k.winfo_x(), k.winfo_width())
+                       for k in z.winfo_children()[2:5]) for z in zeilen]
+        pruefe(len(set(lagen)) == 1,
+               'Herkunft, Raute und Stern stehen in jeder Zeile an derselben '
+               'Stelle (%s)' % lagen)
+        sterne_px = [w.winfo_width() for w in _symbole(probe, 'gemerkt')]
+        pruefe(lagen and sterne_px
+               and all(b >= max(sterne_px) + 16 for _, b in lagen[0][1:]),
+               'Raute und Stern haben Luft zum Treffen (Spalten %s, Symbol %s)'
+               % ([b for _, b in lagen[0][1:]] if lagen else [], sterne_px))
+
+        for (eintrag, drin), z in zip(faelle, zeilen):
+            hat = bool(_symbole(z, 'farmliste'))
+            pruefe(hat == drin, '%s: Raute %s'
+                   % (eintrag['n'], 'da (besessen)' if drin
+                      else 'fehlt (nicht besessen)'))
+
+        sterne = _symbole(probe, 'gemerkt')
+        rauten = _symbole(probe, 'farmliste')
+        groessen = {w.image.width() for w in sterne + rauten
+                    if getattr(w, 'image', None) is not None}
+        pruefe(sterne and rauten and len(groessen) == 1,
+               'Stern und Raute haben dieselbe Bildgroesse (%s)' % groessen)
+
+        legende = getattr(_liste, 'legende', None) or []
+        pruefe(len(legende) == 3, 'die Legende hat drei Eintraege')
+        pruefe(legende and not any(_in(w, _liste.inhalt) for w in legende),
+               'die Legende sitzt nicht in der rollenden Liste')
+        pruefe({getattr(w, 'symbol', '') for w in legende}
+               == {'gemerkt', 'farmliste', 'startbauplan'},
+               'die Legende erklaert Stern, Raute und Startbauplan')
+        lg = {w.image.width() for w in legende
+              if getattr(w, 'image', None) is not None}
+        pruefe(lg == groessen,
+               'die Legende zeigt die Symbole in derselben Groesse (%s)' % lg)
+        _wz.destroy()
+    finally:
+        _fl336.save(alt)
+
+
+def _pruefung_337():
+    """337. Hangar: ein schon benanntes Schiff wird weiter gefunden.
+
+    Nach dem Einspielen steht in der `global.ini` der eigene Name. Die
+    Zuordnung muss trotzdem den Werksnamen sehen, sonst verschwindet das
+    Namensfeld an genau dem Schiff, das schon einen Namen hat.
+    """
+    print('\n337. Hangar: benanntes Schiff bleibt benennbar')
+    from scbp import asop as _as337, injection as _in337, pages as _pg337
+    _heim337 = tempfile.mkdtemp(prefix='pruefung337-')
+    _altheim337 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim337
+    _altini337 = _in337.ini_file
+    try:
+        _de337 = os.path.join(_heim337, 'Localization', 'german_(germany)',
+                              'global.ini')
+        os.makedirs(os.path.dirname(_de337))
+        with open(_de337, 'w', encoding='utf-8', newline='') as f:
+            f.write('vehicle_NameANVL_Hornet_F7CM_Mk2=Anvil F7C-M Super Hornet Mk II\n'
+                    'vehicle_NameANVL_Hornet_F7CM=Anvil F7C-M Super Hornet Mk I\n'
+                    'mission_desc_T=Ein Auftragstext.\n'
+                    'mission_title_T=Ein Auftrag\n')
+        _kat337 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag', 'bp': ['X']}}}
+        _as337.save(_as337.set_name(_as337.empty(),
+                                    'vehicle_NameANVL_Hornet_F7CM_Mk2',
+                                    'Laser Cannons', True))
+        _in337.apply_texts(_de337, 'german_(germany)', catalog_data=_kat337)
+        pruefe('vehicle_NameANVL_Hornet_F7CM_Mk2=*Laser Cannons'
+               in open(_de337, encoding='utf-8').read(),
+               'Vorbedingung: der eigene Name steht in der global.ini')
+
+        _in337.ini_file = lambda *a, **k: (_de337, 'german_(germany)', 'test')
+
+        class _F:
+            before_close = []
+            root = None
+        _sn337 = _pg337._ship_names(_F(), None)
+        _zu337 = _sn337['zuordnen']([{'name': 'F7C-M Super Hornet Mk II',
+                                      'kurz': 'ANVL_F7C_M_Super_Hornet_Mk_I'}])
+        _e337 = _zu337.get('F7C-M Super Hornet Mk II') or {}
+        pruefe(_e337.get('schluessel') == 'vehicle_NameANVL_Hornet_F7CM_Mk2',
+               'die benannte Super Hornet Mk II wird weiter gefunden (%r)'
+               % _e337.get('schluessel'))
+        pruefe(_e337.get('werksname') == 'Anvil F7C-M Super Hornet Mk II',
+               'als Werksname steht der Name aus dem Spiel, nicht der eigene (%r)'
+               % _e337.get('werksname'))
+    finally:
+        _in337.ini_file = _altini337
+        _pg337._SHIP_NAME_TABLE['stempel'] = None
+        if _altheim337 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim337
+        shutil.rmtree(_heim337, ignore_errors=True)
 
 
 def _alle_eingaben(w):

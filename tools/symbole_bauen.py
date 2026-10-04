@@ -354,6 +354,9 @@ ZEILEN_SYMBOLE = {
     # Stückzahl eines vorgemerkten Teils auf der Farmliste.
     'stueck_mehr':    'plus',
     'stueck_weniger': 'minus',
+    # Bauplan-Liste: zum Farmen vormerken, gleiches Zeichen wie die Seite.
+    'farmliste':      'diamond',
+    'startbauplan':   'gift',
 }
 
 # Alles zusammen, mit dem passenden Größensatz.
@@ -366,7 +369,8 @@ ZEILEN_SYMBOLE = {
 # zusaetzlich die Reihe aus `ANTIPPBAR`.
 ANTIPPBAR_SYMBOLE = {n: ZEILEN_SYMBOLE[n]
                      for n in ('hinweiszeile', 'zuklappen', 'issue_council',
-                               'stueck_mehr', 'stueck_weniger')}
+                               'stueck_mehr', 'stueck_weniger',
+                               'gemerkt', 'farmliste', 'startbauplan')}
 
 SYMBOLE = {}
 for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),

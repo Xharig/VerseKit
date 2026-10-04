@@ -186,6 +186,18 @@ def read_keys(lines):
     return table
 
 
+def factory_names(table, origtext):
+    """Die Tabelle mit den Werksnamen statt der eingespielten Namen.
+
+    In der laufenden `global.ini` steht an einem benannten Schiff der eigene
+    Name. Verglichen wird aber mit dem Namen aus dem Hangar, also dem
+    Werksnamen — der steht im gemerkten Urtext. Ein Stern vorn wird
+    abgeschnitten.
+    """
+    return {k: ((origtext or {}).get(k) or v).lstrip(STAR)
+            for k, v in table.items()}
+
+
 def missing_names(lines, reference_lines):
     """Fahrzeugnamen, die die Referenz (englische Datei) kennt, `lines` nicht.
 

@@ -6,6 +6,40 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.86.0 - 2026-10-04
+
+> Die Bauplan-Liste erklärt ihre Zeichen jetzt selbst: Oben steht eine
+> Legende, die beim Rollen stehen bleibt, und Stern und Vormerken sind
+> gleich groß und stehen in jeder Zeile an derselben Stelle. Im Hangar
+> findest du deine Schiffe jetzt über ein Suchfeld, statt zu rollen.
+
+### Neu
+
+- **Legende in der Bauplan-Liste** — Stern, Vormerken und Startbauplan sind
+  oben erklärt und bleiben beim Rollen sichtbar
+- **Suchfeld im Hangar** — oben fest über der Liste, findet Schiffe nach Name
+  und nach dem eigenen Namen im Spiel
+
+### Verbessert
+
+- **Stern und Vormerken gleich groß** — beide Zeichen stehen in jeder Zeile
+  an derselben Stelle, auch wenn eines davon fehlt
+- **Vormerken nur, was du herstellen kannst** — das Zeichen sitzt nur an
+  Bauplänen, die du hast; schon Vorgemerktes lässt sich weiter herunternehmen
+- **Startbaupläne mit eigenem Zeichen** — ein Geschenk statt der Raute, die
+  jetzt fürs Vormerken steht
+- **Hangar kürzer erklärt** — die Texte oben sind auf das Nötige gekürzt
+
+### Behoben
+
+- **Vormerken mal da, mal nicht** — das Zeichen sprang je nach Zeile an eine
+  andere Stelle
+- **Trefferzahl abgeschnitten** — die Zahl rechts neben den Auswahlfeldern
+  steht wieder vollständig da
+- **Benanntes Schiff ohne Namensfeld** — ein Schiff, dem du schon einen Namen
+  im Spiel gegeben hast, lässt sich wieder umbenennen (etwa die F7C-M Super
+  Hornet Mk II)
+
 ## v3.85.0 - 2026-10-04
 
 > Direkt aus der Bauplan-Liste zum Farmen vormerken — und an jeder Zeile

@@ -12447,6 +12447,17 @@ def _hangar(fenster, rahmen):
     from . import fleet as meine, erkul, ships as alle_schiffe, file_picker
 
     _heading(fenster, rahmen, t('hf_hangar'), t('s_hg_lead'))
+    # Suche über die eigenen Schiffe — im festen Kopf über der Rollfläche,
+    # damit sie beim Rollen stehen bleibt.
+    from .main_window import round_entry
+    hangar_suche = tk.StringVar(rahmen)
+    such_kopf = tk.Frame(rahmen, bg=BG)
+    such_kopf.pack(fill='x', padx=24, pady=(0, 10))
+    hangar_feld = round_entry(such_kopf, hangar_suche, fenster.f_small,
+                              theme.FIELD, LINE, ACCENT, FG,
+                              placeholder=t('s_pl_hangar_suche'))
+    hangar_feld.holder.pack(fill='x')
+    rahmen.hangar_suchfeld = hangar_feld
     innen = _scroll_area(rahmen)
     _body_text(innen, t('s_hg_hinweis'), fenster.f_small, fill='x')
 
@@ -12517,10 +12528,6 @@ def _hangar(fenster, rahmen):
                                                    pady=(18, 2))
     _body_text(innen, t('s_hg_hand_text'), fenster.f_small, fill='x',
                 padx=24, inset=48)
-    # ⚠ Sagt, wie das Feld benutzt wird. Ohne diesen Satz haelt man die
-    # sichtbare Liste fuer das ganze Angebot.
-    _body_text(innen, t('s_hg_such_hilfe'), fenster.f_small, fill='x',
-                padx=24, inset=48)
 
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(8, 0))
@@ -12535,7 +12542,7 @@ def _hangar(fenster, rahmen):
                                      alle_schiffe.all_names,
                                      empty_text=t('s_hg_nichts_gefunden'),
                                      scrollable=200,
-                                     placeholder=t('s_pl_schiff'))
+                                     placeholder=t('s_pl_schiff_eintragen'))
     zeile.pack(fill='x')
     auswahl.pack(fill='x')
 
@@ -12644,11 +12651,11 @@ def _hangar(fenster, rahmen):
             if z.get('schluessel'):
                 je_schluessel[z['schluessel']] = (
                     je_schluessel.get(z['schluessel'], 0) + 1)
-        # ⭐ **Das Suchfeld oben filtert auch die eigene Liste**, nicht nur
-        # das Angebot zum Eintragen — sonst sähe wer „Ikti" tippt darunter
-        # weiter alle Schiffe und hielte die Suche für kaputt. Gesucht wird
-        # auch nach dem selbst vergebenen Namen im Spiel.
-        suche = (schiff.get() or '').strip()
+        # Gefiltert wird nach dem festen Suchfeld im Kopf; ist es leer, nach
+        # dem Eintragefeld, damit ein gerade gewähltes Schiff sichtbar wird.
+        # Gesucht wird auch nach dem selbst vergebenen Namen im Spiel.
+        suche = ((hangar_suche.get() or '').strip()
+                 or (schiff.get() or '').strip())
 
         def _passt(s):
             if _hangar_matches(s, suche):
@@ -12742,10 +12749,22 @@ def _hangar(fenster, rahmen):
         try:
             if liste_rahmen.winfo_exists():
                 _liste_fuellen()
+                if (hangar_suche.get() or '').strip():
+                    _zur_liste()
         except tk.TclError:
             pass
 
+    def _zur_liste():
+        """Die Rollfläche so stellen, dass die Schiffsliste oben steht."""
+        leinwand = getattr(innen, 'canvas', None)
+        if leinwand is None:
+            return
+        innen.update_idletasks()
+        gesamt = max(1, innen.winfo_reqheight())
+        leinwand.yview_moveto(liste_rahmen.winfo_y() / gesamt)
+
     schiff.trace_add('write', _filter_bald)
+    hangar_suche.trace_add('write', _filter_bald)
 
     # ⭐ **Fehlendes wird beim Öffnen nachgeholt, ohne dass jemand etwas
     # drücken muss.** Der Regelfall ist, dass nichts fehlt — dann kostet es
@@ -12984,7 +13003,9 @@ def _ship_names(fenster, rahmen):
         if stempel != alles['stempel']:
             alles['stempel'] = stempel
             zeilen = zeilen_der_ini()
-            alles['tabelle'] = asop_modul.read_keys(zeilen) if zeilen else {}
+            alles['tabelle'] = asop_modul.factory_names(
+                asop_modul.read_keys(zeilen),
+                injection.load_origtext()) if zeilen else {}
             daten['stand'] = asop_modul.load()
         return alles['tabelle']
 
