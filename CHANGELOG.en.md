@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.84.0 - 2026-10-04
+
+> Less waiting when switching: the hangar builds its ships piece by piece,
+> large game files are only read again when they changed, and every page
+> switch is a little lighter.
+
+### Improved
+
+- **Faster hangar** — ship cards appear step by step, the first ones right
+  away, the rest as you scroll. Ship names from the game's language file are
+  only read again when the file changed — also after closing and reopening
+  the window
+- **Faster controls page** — the game's language file is no longer read on
+  every build
+- **Every page switch lighter** — the logging for the error report no
+  longer slows down switching
+
 ## v3.83.0 - 2026-10-04
 
 > Faster switching: Verse-Kit now builds pages ahead while you are idle —

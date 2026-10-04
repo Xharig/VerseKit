@@ -330,6 +330,10 @@ def _scroll_area(frame, inset=24, height=None):
 # ein hohes Fenster ab.
 ROWS_FIRST = 45
 ROWS_MORE = 45
+# Hangar-Karten sind groß (Bild, Namensfeld, Ausstattung): acht füllen die
+# sichtbare Fläche.
+HANGAR_FIRST = 8
+HANGAR_MORE = 8
 
 
 def _pack_on_demand(leinwand, zeilen, sofort=ROWS_FIRST,
@@ -12679,16 +12683,32 @@ def _hangar(fenster, rahmen):
             namen['feld'](karte, z,
                           je_schluessel.get(z.get('schluessel') or '', 1))
 
-        ohne = 0
-        for eintrag in sorted(schiffsliste,
-                              key=lambda s: (s.get('name') or '').lower()):
-            ohne += _hangar_row(fenster, liste_rahmen, eintrag, daten,
-                                  meldung, neu_zeichnen,
-                                  name_line=name_zeile)
-        if ohne:
-            _body_text(liste_rahmen,
-                        t('s_hg_ohne_erklaert').format(n=ohne),
-                        fenster.f_small, fill='x', pady=(10, 0))
+        sortiert = sorted(schiffsliste,
+                          key=lambda s: (s.get('name') or '').lower())
+        ohne = {'n': 0}
+
+        def karte_bauen(i):
+            ohne['n'] += _hangar_row(fenster, liste_rahmen, sortiert[i], daten,
+                                     meldung, neu_zeichnen,
+                                     name_line=name_zeile)
+            if i == len(sortiert) - 1 and ohne['n']:
+                _body_text(liste_rahmen,
+                            t('s_hg_ohne_erklaert').format(n=ohne['n']),
+                            fenster.f_small, fill='x', pady=(10, 0))
+
+        # ⭐ Die Karten entstehen stückweise: die ersten sofort, der Rest beim
+        # Hinrollen. Jede Karte sind gut hundert Tk-Aufrufe — alle auf einmal
+        # hielten die Seite eine Sekunde fest.
+        # ⚠ Vor jedem Neuaufbau den ursprünglichen Rollempfänger zurücksetzen,
+        # sonst hängt jede Filtereingabe einen weiteren davor.
+        leinwand = getattr(innen, 'canvas', None)
+        if leinwand is not None:
+            if not hasattr(leinwand, 'hangar_ycmd'):
+                leinwand.hangar_ycmd = leinwand.cget('yscrollcommand')
+            else:
+                leinwand.configure(yscrollcommand=leinwand.hangar_ycmd)
+        _build_on_demand(leinwand, len(sortiert), karte_bauen,
+                         sofort=HANGAR_FIRST, schritt=HANGAR_MORE)
 
     _liste_fuellen()
 
@@ -12889,6 +12909,11 @@ def _asop(fenster, rahmen):
             lambda: fenster.jump_to('hangar'), strong=True).pack(side='left')
 
 
+# Schlüssel → Werksname aus der Sprachdatei, mit dem Stempel der Quellen —
+# siehe `_ship_names`.
+_SHIP_NAME_TABLE = {'stempel': None, 'tabelle': {}}
+
+
 def _ship_names(fenster, rahmen):
     """Eigene Namen für die Schiffe im Fleet Manager (ASOP) — für den Hangar.
 
@@ -12913,7 +12938,9 @@ def _ship_names(fenster, rahmen):
     from . import asop as asop_modul, fleet as meine, injection
 
     daten = {'stand': asop_modul.load()}
-    alles = {'stempel': None, 'tabelle': {}}
+    # ⚠ Auf Modulebene gemerkt: Das Hauptfenster wird beim Schließen
+    # verworfen, und jedes neue Öffnen läse sonst die zwölf Megabyte neu.
+    alles = _SHIP_NAME_TABLE
     # Je Schlüssel die Felder, die gerade dastehen — zwei gleiche Schiffe
     # zeigen denselben Namen, also zieht das eine das andere mit.
     felder = {}

@@ -99,8 +99,12 @@ def trail(step):
     beschreiben. Lässt er sich anderswo nicht nachstellen, bleibt ohne Spur
     nur Raten.
 
-    Deshalb schreibt jeder Startschritt eine Zeile, **sofort auf die Platte**
-    (`flush` + `fsync`, sonst steht bei einem Absturz nur ein leerer Puffer da).
+    Deshalb schreibt jeder Startschritt eine Zeile, **sofort aus dem Puffer**
+    (`flush` — was beim Betriebssystem liegt, übersteht auch einen harten
+    Absturz des Programms). Bis zur Grenze `TRAIL_BOUNDARY` kommt `fsync`
+    dazu, damit der Start auch einen Absturz des ganzen Rechners übersteht.
+    ⚠ Danach nicht mehr: Jeder Seitenwechsel schreibt zwei Zeilen, und
+    `fsync` kostet je Zeile bis zu 75 ms — bei jedem Klick.
     Beim nächsten Start steht die letzte Zeile im Diagnose-Bericht: Was danach
     käme, ist die Stelle, an der es geknallt hat.
 
@@ -114,7 +118,10 @@ def trail(step):
         with open(path, mode, encoding='utf-8') as f:
             f.write('%s  %s\n' % (datetime.now().strftime('%H:%M:%S'), step))
             f.flush()
-            os.fsync(f.fileno())
+            if not getattr(trail, '_bedienung', False):
+                os.fsync(f.fileno())
+        if step == TRAIL_BOUNDARY:
+            trail._bedienung = True
         # ⚠ Seit die Spur auch die Bedienung mitschreibt, wächst sie mit jedem
         # Klick. Nach oben deckeln, sonst steht am Ende ein Tagebuch aus
         # hunderten Reiterwechseln da. Gekürzt wird selten und nur um Zeilen,

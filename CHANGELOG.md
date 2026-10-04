@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.84.0 - 2026-10-04
+
+> Weniger Warten beim Umschalten: Der Hangar baut seine Schiffe stückweise
+> auf, große Spieldateien werden nur noch gelesen, wenn sie sich geändert
+> haben, und jeder Seitenwechsel ist ein Stück leichter.
+
+### Verbessert
+
+- **Hangar schneller** — die Schiffskarten entstehen nach und nach, die
+  ersten sofort, der Rest beim Hinrollen. Die Schiffsnamen aus der
+  Sprachdatei des Spiels werden nur noch neu gelesen, wenn sich die Datei
+  geändert hat — auch nach dem Schließen und erneuten Öffnen des Fensters
+- **Steuerung schneller** — die Sprachdatei des Spiels wird nicht mehr bei
+  jedem Aufbau neu gelesen
+- **Jeder Seitenwechsel leichter** — das Mitschreiben für den
+  Fehlerbericht bremst beim Umschalten nicht mehr
+
 ## v3.83.0 - 2026-10-04
 
 > Schneller umschalten: Verse-Kit baut die Seiten jetzt vor, während du

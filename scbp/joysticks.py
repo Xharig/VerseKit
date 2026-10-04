@@ -1089,6 +1089,17 @@ def _ini_texts(language, game_folder=None):
         path = os.path.join(base, folder, 'global.ini')
         if not os.path.isfile(path):
             continue
+        # ⚠ Die Datei hat rund 12 MB; gelesen wird sie nur neu, wenn sie sich
+        # geändert hat — Zeitstempel und Größe gehören zum Schlüssel.
+        try:
+            info = os.stat(path)
+            stempel = (path, info.st_mtime_ns, info.st_size)
+        except OSError:
+            stempel = None
+        if stempel is not None and stempel in _INI_CACHE:
+            if _INI_CACHE[stempel]:
+                return dict(_INI_CACHE[stempel])
+            continue
         try:
             with open(path, 'r', encoding='utf-8', errors='replace') as f:
                 for line in f:
@@ -1099,9 +1110,15 @@ def _ini_texts(language, game_folder=None):
                         out[key.strip()] = value.strip()
         except Exception:
             continue
+        if stempel is not None:
+            _INI_CACHE[stempel] = dict(out)
         if out:
             break
     return out
+
+
+# Gelesene `ui_…`-Zeilen je Datei-Stempel — siehe `_ini_texts`.
+_INI_CACHE = {}
 
 
 def _source_mark(language, game_folder=None):
