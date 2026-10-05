@@ -191,17 +191,24 @@ _DIGIT_LOOKALIKES = str.maketrans({'O': '0', 'o': '0', 'D': '0', 'Q': '0',
                                    'I': '1', 'l': '1', '|': '1', 'i': '1',
                                    '!': '1', 'S': '5', 's': '5', 'B': '8',
                                    'Z': '2', 'z': '2'})
+_DIGIT_LOOKALIKE_CHARS = frozenset('OoDQIl|i!SsBZz')
 
 
-def number(token):
+def number(token, loose=False):
     """Eine Ganzzahl aus einem OCR-Wort — oder None.
 
     Verwechselte Zeichen (O/0, l/1, S/5) werden nur in Wörtern getauscht,
-    die mindestens eine echte Ziffer enthalten. Tausenderpunkte und
+    die mindestens eine echte Ziffer enthalten — mit `loose` auch in
+    Wörtern aus mindestens zwei Zeichen, die nur aus verwechselbaren Zeichen
+    bestehen (`sos`). Das gilt nur in den Zahlenspalten hinter dem Namen. Tausenderpunkte und
     -kommas fallen weg.
     """
     text = (token or '').strip().strip('.,:;')
-    if not text or not any(c.isdigit() for c in text):
+    if not text:
+        return None
+    if not any(c.isdigit() for c in text) and not (
+            loose and len(text) >= 2
+            and all(c in _DIGIT_LOOKALIKE_CHARS for c in text)):
         return None
     text = text.translate(_DIGIT_LOOKALIKES)
     text = re.sub(r'(?<=\d)[.,\s](?=\d{3}(?!\d))', '', text)
@@ -247,7 +254,8 @@ def material_rows(table, index=None):
 
     Gibt eine Liste von dicts: `material`, `y` (senkrechte Mitte), `raw`
     (der gelesene Text) und `numbers` — die Zahlen rechts vom Namen als
-    `(x_mitte, wert)`.
+    `(x_mitte, wert)`. `loose_numbers` in derselben Form: Wörter ohne echte
+    Ziffer, nur aus verwechselbaren Zeichen (`sos`).
     """
     index = _material_index() if index is None else index
     out = []
@@ -255,7 +263,9 @@ def material_rows(table, index=None):
         words = [w for w in words if (w.get('t') or '').strip()]
         name_parts = []
         for word in words:
-            if number(word['t']) is not None:
+            # Nach dem ersten Namenswort beendet auch ein Wort aus lauter
+            # verwechselbaren Zeichen (`sos`) den Namen.
+            if number(word['t'], loose=bool(name_parts)) is not None:
                 break
             name_parts.append(word['t'].strip())
         if not name_parts or len(name_parts) > 5:
@@ -263,28 +273,35 @@ def material_rows(table, index=None):
         material = match_material(' '.join(name_parts), index)
         if material is None:
             continue
-        numbers = []
+        numbers, loose_numbers = [], []
         for word in words[len(name_parts):]:
+            middle = word.get('x', 0) + word.get('w', 0) / 2.0
             value = number(word['t'])
             if value is not None:
-                numbers.append((word.get('x', 0) + word.get('w', 0) / 2.0,
-                                value))
+                numbers.append((middle, value))
+                continue
+            value = number(word['t'], loose=True)
+            if value is not None:
+                loose_numbers.append((middle, value))
         top = min(w.get('y', 0) for w in words)
         bottom = max(w.get('y', 0) + w.get('h', 0) for w in words)
         out.append({'material': material, 'y': (top + bottom) / 2.0,
                     'height': max(1, bottom - top),
                     'raw': ' '.join(w['t'].strip() for w in words),
-                    'numbers': numbers})
+                    'numbers': numbers, 'loose_numbers': loose_numbers})
     return out
 
 
 def columns(found_rows):
     """Die Zahlenspalten als x-Mitten, links nach rechts — ohne Überschrift.
 
-    Alle Zahlen aller Rohstoffzeilen werden nach x geordnet; eine Lücke von
-    mehr als drei Zeilenhöhen beginnt eine neue Spalte.
+    Alle Zahlen aller Rohstoffzeilen werden nach x geordnet — auch die aus
+    verwechselbaren Zeichen (`loose_numbers`), damit eine Spalte nicht
+    verschwindet, wenn sie nur so gelesen wurde. Eine Lücke von mehr als drei
+    Zeilenhöhen beginnt eine neue Spalte.
     """
-    xs = sorted(x for row in found_rows for x, _v in row['numbers'])
+    xs = sorted(x for row in found_rows
+                for x, _v in row['numbers'] + list(row.get('loose_numbers') or ()))
     if not xs:
         return []
     heights = sorted(row['height'] for row in found_rows)
@@ -340,10 +357,11 @@ def parse_rows(table, index=None):
     """
     found_rows = material_rows(table, index)
     centers = header_columns(table) or columns(found_rows)
-    result = []
-    for row in found_rows:
+    def _slots(pairs):
         slots = {}
-        for x, value in row['numbers']:
+        if not centers:
+            return None, None
+        for x, value in pairs:
             nearest = min(range(len(centers)), key=lambda i: abs(centers[i] - x))
             slots.setdefault(nearest, value)
         quality, amount = slots.get(0), slots.get(1)
@@ -351,8 +369,15 @@ def parse_rows(table, index=None):
             quality = None
         if amount is not None and amount <= 0:
             amount = None
+        return quality, amount
+
+    result = []
+    for row in found_rows:
+        quality, amount = _slots(row['numbers'])
+        loose_quality, loose_amount = _slots(row.get('loose_numbers') or ())
         result.append({'material': row['material'], 'quality': quality,
-                       'amount': amount, 'y': row['y'],
+                       'amount': amount, 'loose_quality': loose_quality,
+                       'loose_amount': loose_amount, 'y': row['y'],
                        'height': row['height'], 'raw': row['raw']})
     return result
 
@@ -401,15 +426,16 @@ def needs_confirm(value):
 
 
 def _guess(values):
-    """Der am häufigsten gelesene Wert — oder None bei Gleichstand."""
-    counts = {}
-    for value in values:
+    """Der am häufigsten gelesene Wert; bei Gleichstand der zuerst gelesene.
+    None, wenn keine Lesung eine Zahl ergab."""
+    counts, first = {}, {}
+    for position, value in enumerate(values):
         if value is not None:
             counts[value] = counts.get(value, 0) + 1
-    ranked = sorted(counts.items(), key=lambda kv: -kv[1])
-    if not ranked or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):
+            first.setdefault(value, position)
+    if not counts:
         return None
-    return ranked[0][0]
+    return min(counts, key=lambda v: (-counts[v], first[v]))
 
 
 def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
@@ -477,11 +503,20 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
             if details is not None:
                 details.append({'material': material, 'y': cluster['y']})
             if guess:
+                # Echte Ziffern zuerst; Lesungen aus verwechselbaren Zeichen
+                # nur, wenn kein Durchgang echte Ziffern las.
+                rows_ = cluster['rows']
+
+                def best(key):
+                    value = _guess([r[key] for r in rows_])
+                    if value is None:
+                        value = _guess([r.get('loose_' + key) for r in rows_])
+                    return value
                 if quality is None:
-                    quality = _guess([r['quality'] for r in cluster['rows']])
+                    quality = best('quality')
                 if amount is None:
-                    amount = _guess([r['amount'] for r in cluster['rows']])
-                if quality is not None and amount is not None:
+                    amount = best('amount')
+                if quality is not None or amount is not None:
                     found.append((material, quality, amount))
             continue
         found.append((material, quality, amount))
@@ -489,8 +524,11 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
 
 
 def as_text(found):
-    """Die Zeilen im Format des Raffinerie-Felds (`Material Q Menge cSCU`)."""
-    return '\n'.join('%s %d %d cSCU' % (name, quality, amount)
+    """Die Zeilen im Format des Raffinerie-Felds (`Material Q Menge cSCU`).
+    Ein Wert, der nicht gelesen wurde (None), steht als `?` da."""
+    def cell(value):
+        return '?' if value is None else '%d' % value
+    return '\n'.join('%s %s %s cSCU' % (name, cell(quality), cell(amount))
                      for name, quality, amount in found)
 
 

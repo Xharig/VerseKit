@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.93.2 - 2026-10-05
+
+> Der Raffinerie-Scanner lässt keine Zeile mehr aus: Auch was er nur teils
+> lesen konnte, steht im Feld — eine unlesbare Zahl als „?" zum Ergänzen.
+
+### Behoben
+
+- **Zeilen fehlten im Feld** — Zeilen, deren Zahlen die Lesungen
+  unterschiedlich oder nur als Buchstaben lasen, stehen jetzt als Vorschlag
+  da; eine nicht lesbare Zahl erscheint als „?"
+- **Zahl in der falschen Spalte** — wurde die Qualität nur als Buchstaben
+  gelesen, rutschte die Ausbeute in die Qualität
+- **Verse-Kit fehlte im Hauptmenü des Spiels** — mit der Übersetzung der
+  Luftwerft stehen Name und Webadresse wieder im Versionskasten
+
 ## v3.93.1 - 2026-10-05
 
 > Der Raffinerie-Scanner liest wieder so gut wie früher und besser: Unsicher

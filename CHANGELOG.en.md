@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.93.2 - 2026-10-05
+
+> The refinery scanner no longer leaves out lines: even what it could only
+> partly read lands in the field — an unreadable number as "?" to fill in.
+
+### Fixed
+
+- **Lines missing from the field** — lines whose numbers the readings got
+  differently or only as letters now appear as a suggestion; a number that
+  could not be read shows as "?"
+- **Number in the wrong column** — when the quality was only read as
+  letters, the yield slipped into the quality
+- **Verse-Kit missing from the game's main menu** — with the Luftwerft
+  translation, the name and web address show in the version box again
+
 ## v3.93.1 - 2026-10-05
 
 > The refinery scanner reads as well as before and better: lines it could

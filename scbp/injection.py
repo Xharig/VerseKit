@@ -933,7 +933,9 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
             # Zurücksetzen wieder.
             base_text, _foreign = _split_foreign_block(orig)
             touched = False
-            if key == MENU_KEY:
+            # ⚠ Der Menükasten steht oft in der ersten Zeile; ein BOM davor
+            # gehört zum Schlüssel und bleibt beim Zurückschreiben erhalten.
+            if key.lstrip('\ufeff') == MENU_KEY:
                 # Fremde Zeilen im Menükasten bleiben vollständig stehen. Eine
                 # eigene Zeile, die ohne gemerkten Urtext übrig ist, wird
                 # vorher abgeschnitten, damit sie nicht doppelt erscheint.

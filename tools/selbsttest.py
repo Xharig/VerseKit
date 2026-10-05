@@ -35946,6 +35946,19 @@ def _pruefung_377():
                            stock={'bauplaene': {}}, remove_only=True)
         pruefe(_menue378() == _fremd378,
                'nach dem Entfernen steht der fremde Text wie vorher da')
+        # Der Menükasten in der ersten Zeile hinter einem BOM, wie in der
+        # Datei der Luftwerft.
+        _in377.discard_origtext()
+        with open(_ini378, 'w', encoding='utf-8', newline='') as _f:
+            _f.write('\ufeff%s=%s\nanderes=Text\n' % (_in377.MENU_KEY, _fremd378))
+        _in377.apply_texts(_ini378, 'german_(germany)',
+                           catalog_data=_katalog378, stock={'bauplaene': {}})
+        _roh378 = open(_ini378, 'rb').read()
+        _erste378 = _roh378.split(b'\n', 1)[0]
+        pruefe(_erste378.startswith(b'\xef\xbb\xbf'
+                                    + _in377.MENU_KEY.encode() + b'=')
+               and b'Verse-Kit' in _erste378,
+               'mit BOM in der ersten Zeile: eigene Zeile drin, BOM bleibt')
         # Gegenprobe: Ohne Urtext und ohne Abschneiden stünde die Zeile
         # doppelt da.
         with open(_ini378, 'w', encoding='utf-8', newline='') as _f:
@@ -37703,6 +37716,31 @@ def _pruefung_356():
     pruefe(gefunden == [('Gold', 588, 122)] and unsicher == ['Gold'],
            'eine unsichere Zeile kommt als Vorschlag, gemeldet als unsicher '
            '(%s, %s)' % (gefunden, unsicher))
+    # Ein Wort aus lauter verwechselbaren Zeichen (`sos`) zählt nur in den
+    # Zahlenspalten, beendet dort den Namen und tritt hinter echte Ziffern.
+    pruefe(_rs356.number('sos') is None
+           and _rs356.number('sos', loose=True) == 505
+           and _rs356.number('GOLD', loose=True) is None,
+           'sos ist nur in den Zahlenspalten 505, GOLD nie eine Zahl')
+    lose = [{'t': 'Lindinium', 'x': 0, 'y': 0, 'w': 60, 'h': 10},
+            {'t': 'sos', 'x': 100, 'y': 0, 'w': 30, 'h': 10},
+            {'t': '371', 'x': 200, 'y': 0, 'w': 30, 'h': 10}]
+    echt = [{'t': 'Lindinium', 'x': 0, 'y': 0, 'w': 60, 'h': 10},
+            {'t': '305', 'x': 100, 'y': 0, 'w': 30, 'h': 10},
+            {'t': 'tus', 'x': 200, 'y': 0, 'w': 30, 'h': 10}]
+    index_l = {'lindinium': 'Lindinium'}
+    zeile = _rs356.material_rows([lose], index_l)
+    pruefe(len(zeile) == 1 and zeile[0]['loose_numbers'][0][1] == 505,
+           'sos beendet den Namen und steht als lose Zahl (%s)' % zeile)
+    gefunden, _u = _rs356.merge_passes([lose, lose, echt, echt],
+                                       index=index_l, guess=True)
+    pruefe(gefunden == [('Lindinium', 305, 371)],
+           'echte Ziffern schlagen lose Lesungen (%s)' % gefunden)
+    gefunden, _u = _rs356.merge_passes([echt, echt], index=index_l,
+                                       guess=True)
+    pruefe(_rs356.as_text(gefunden) == 'Lindinium 305 ? cSCU',
+           'ein ungelesener Wert steht als ? im Feld (%s)'
+           % _rs356.as_text(gefunden))
     if sys.platform != 'win32':
         print('  [--]   Zeichnen nur unter Windows')
         return
