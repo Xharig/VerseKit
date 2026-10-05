@@ -49,13 +49,24 @@ def _guid(text):
     return GUID.from_buffer_copy(uuid.UUID(text).bytes_le)
 
 
-IID_OcrEngineStatics = _guid('5BFFA85A-3384-3540-9940-699120D428A8')
-IID_SoftwareBitmapFactory = _guid('C99FEB69-2D62-4D47-A6B3-4FDB6A07FDF8')
-IID_SoftwareBitmapStatics = _guid('DF0385DB-672F-4A9D-806E-C2442F343E86')
-IID_MemoryBuffer = _guid('FBC4DD2A-245B-11E4-AF98-689423260CF8')
-IID_MemoryBufferByteAccess = _guid('5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D')
-IID_Closable = _guid('30D5A829-7FA4-4026-83BB-D75BAE4EA99E')
-IID_AsyncInfo = _guid('00000036-0000-0000-C000-000000000046')
+# Schnittstellen-Kennungen der genutzten WinRT- und COM-Schnittstellen.
+_IIDS = {
+    'OcrEngineStatics': '5BFFA85A-3384-3540-9940-699120D428A8',
+    'SoftwareBitmapFactory': 'C99FEB69-2D62-4D47-A6B3-4FDB6A07FDF8',
+    'SoftwareBitmapStatics': 'DF0385DB-672F-4A9D-806E-C2442F343E86',
+    'MemoryBuffer': 'FBC4DD2A-245B-11E4-AF98-689423260CF8',
+    'MemoryBufferByteAccess': '5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D',
+    'Closable': '30D5A829-7FA4-4026-83BB-D75BAE4EA99E',
+    'AsyncInfo': '00000036-0000-0000-C000-000000000046',
+}
+
+IID_OcrEngineStatics = _guid(_IIDS['OcrEngineStatics'])
+IID_SoftwareBitmapFactory = _guid(_IIDS['SoftwareBitmapFactory'])
+IID_SoftwareBitmapStatics = _guid(_IIDS['SoftwareBitmapStatics'])
+IID_MemoryBuffer = _guid(_IIDS['MemoryBuffer'])
+IID_MemoryBufferByteAccess = _guid(_IIDS['MemoryBufferByteAccess'])
+IID_Closable = _guid(_IIDS['Closable'])
+IID_AsyncInfo = _guid(_IIDS['AsyncInfo'])
 
 BGRA8 = 87
 GRAY8 = 62
