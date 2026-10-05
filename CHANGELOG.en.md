@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.2 - 2026-10-05
+
+> The quality sliders now sit right below "Crafted" — set and deduct
+> without scrolling.
+
+### Fixed
+
+- **Sliders too far down** — fill buttons and quality sliders sit right
+  below "Crafted — deduct from stock", before the ingredient list; the item's
+  values follow at the end
+
 ## v3.94.1 - 2026-10-05
 
 > In crafting, everything you operate now sits together: set the quality,

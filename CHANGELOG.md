@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.2 - 2026-10-05
+
+> Die Qualitätsregler stehen jetzt direkt unter „Hergestellt" — einstellen
+> und abziehen, ohne zu rollen.
+
+### Behoben
+
+- **Regler zu weit unten** — Füllknöpfe und Qualitätsregler stehen gleich
+  unter „Hergestellt — vom Lager abziehen", vor der Zutatenliste; die Werte
+  des Gegenstands folgen am Ende
+
 ## v3.94.1 - 2026-10-05
 
 > In der Herstellung steht alles Bedienbare jetzt beisammen: Qualität
