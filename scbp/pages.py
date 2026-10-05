@@ -10415,8 +10415,10 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         merk_stand.pack(fill='x', padx=12, after=reihe)
 
         # Eine Zeile, die sagt, was der Knopf tut — sonst rät man.
-        _body_text(block, t('s_lg_bauen_hilfe'), fenster.f_small, fill='x')
-        _body_text(block, t('s_mz_hilfe'), fenster.f_small, fill='x')
+        _hilfe_bauen = _body_text(block, t('s_lg_bauen_hilfe'), fenster.f_small,
+                                  fill='x')
+        _hilfe_merken = _body_text(block, t('s_mz_hilfe'), fenster.f_small,
+                                   fill='x')
 
         # ⚠⚠ **Die Zutatenzeilen werden EINMAL gebaut, danach nur neu
         # beschriftet.** Sie hängen an der Stückzahl, und die ändert sich beim
@@ -11069,6 +11071,16 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 zurueck.pack(anchor='w', padx=12, pady=(2, 0))
                 zurueck.bind('<Button-1>', zurueck_zum_lager)
             werte_zeichnen()
+
+            # Bedienung beisammen: Füllknöpfe und Regler, direkt darunter
+            # Hergestellt, Stückzahl und Vormerken; die Werte folgen danach.
+            # Gebaut ist alles schon — hier wird nur neu angeordnet.
+            for _w in (reihe, rueck, merk_stand, _hilfe_bauen, _hilfe_merken,
+                       werte_kopf, tabellen_rahmen):
+                _lage = _w.pack_info()
+                _lage.pop('in', None)
+                _w.pack_forget()
+                _w.pack(**_lage)
             _body_text(block, t('s_he_werte_hinweis'), fenster.f_small,
                         fill='x')
 

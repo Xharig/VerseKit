@@ -33140,6 +33140,30 @@ def _pruefung_328():
         feld = q_feld()
         pruefe(feld is not None and len(regler) == 1,
                'neben dem Regler steht ein Feld für die Güte')
+
+        # Reihenfolge im Rezeptblock: Regler-Kopf, Füllknöpfe, Regler,
+        # Hergestellt-Reihe, danach die Werte.
+        from scbp.language import t as _t328
+        _labels = _alle(rahmen, 'Label', [])
+
+        def _stelle(text):
+            for lbl in _labels:
+                if str(lbl.cget('text')) == text:
+                    w_ = lbl
+                    while w_.master is not None and w_.master.winfo_class() == 'Frame' \
+                            and w_.master not in (rahmen,) \
+                            and w_.master.master is not rahmen:
+                        w_ = w_.master
+                    kette = w_.master.pack_slaves() if w_.master else []
+                    return kette.index(w_) if w_ in kette else -1
+            return -1
+        _werte = max(_stelle(_t328('s_he_werte')),
+                     _stelle(_t328('s_he_werte_probe_je')))
+        _reihe = [_stelle(_t328('s_he_regler_kopf')), _stelle(_t328('s_he_fuellen')),
+                  _stelle(_t328('s_lg_anzahl')), _werte]
+        pruefe(-1 not in _reihe and _reihe == sorted(_reihe),
+               'Regler, Füllknöpfe und Hergestellt stehen beisammen über den '
+               'Werten (%s)' % _reihe)
         if feld is None or not regler:
             return
         regler = regler[0]

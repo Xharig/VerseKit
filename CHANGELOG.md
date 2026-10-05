@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.1 - 2026-10-05
+
+> In der Herstellung steht alles Bedienbare jetzt beisammen: Qualität
+> einstellen, bestes oder schlechtestes Material, Hergestellt — ohne zu
+> rollen. Die Werte folgen darunter.
+
+### Verbessert
+
+- **Herstellung kompakter** — Füllknöpfe, Qualitätsregler und
+  „Hergestellt — vom Lager abziehen" stehen direkt untereinander, die
+  Werte des Gegenstands darunter
+- **Kürzere Texte** im aufgeklappten Rezept
+
 ## v3.94.0 - 2026-10-05
 
 > Der Raffinerie-Scanner lernt jetzt alle Ziffern aus deinen Korrekturen:

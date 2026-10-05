@@ -4854,15 +4854,8 @@ TEXTS = {
     # der Faktor also exakt 1,000 auf alles.
     's_he_kaufen':       ('kaufen: %s aUEC · Q %d',
                           'buy: %s aUEC · Q %d'),
-    's_he_kauf_q':       ('Am Terminal gekaufte Ware hat immer Qualität %d '
-                          '— den Nullpunkt. Ein daraus gebauter Gegenstand '
-                          'bekommt auf jede Eigenschaft genau ×1,000. '
-                          'Besser wird er ausschließlich mit selbst '
-                          'abgebautem Erz darüber.',
-                          'Goods bought at a terminal are always quality %d '
-                          '— the base point. An item made from them gets '
-                          'exactly ×1.000 on every property. It only gets '
-                          'better with self-mined ore above that.'),
+    's_he_kauf_q': ('Gekaufte Ware hat immer Qualität %d (×1,000) — besser wird es nur mit selbst abgebautem Erz.',
+                    'Bought goods are always quality %d (×1.000) — only self-mined ore makes it better.'),
     's_he_nur_abbau':    ('nicht kaufbar — nur abbaubar',
                           'cannot be bought — mining only'),
     # Raffinerien — die Frage nach „wo baue ich das ab?" ist „und wohin
@@ -5062,12 +5055,8 @@ TEXTS = {
     's_he_q_gesetzt':    ('angenommen: Q %d — nicht dein Lagerstand',
                           'assumed: Q %d — not your stock'),
     's_he_zurueck_lager': ('zurück zu deinem Lager', 'back to your stock'),
-    's_he_werte_hinweis': ('Was daraus wird, hängt an der Qualität des '
-                           'Materials. Gerechnet wird mit dem besten Posten, '
-                           'den dein Lager für diesen Bauplan hergibt.',
-                           'What you get depends on the quality of the '
-                           'material. This uses the best entry your stock has '
-                           'for this blueprint.'),
+    's_he_werte_hinweis': ('Gerechnet mit der Qualität, die oben eingestellt ist.',
+                           'Calculated with the quality set above.'),
     # ⚠ Bei einer TEILmenge muss beides dastehen. „dir fehlt 0,07" allein
     # verschweigt, dass 0,02 schon da sind — und genau das will man wissen,
     # bevor man losfliegt.
@@ -5106,11 +5095,8 @@ TEXTS = {
                           'Starter blueprint — everyone has it from the start'),
     's_bp_farm_drauf':   ('Zum Farmen vorgemerkt — Klick nimmt es wieder herunter',
                           'On the farming list — click to remove it'),
-    's_mz_hilfe':        ('Landet unter »Was ich farmen muss« — mit dem '
-                          'Material, das dafür nötig ist. Auch für Rüstung '
-                          'und FPS-Waffen.',
-                          'Goes to "What to farm" — with the material needed '
-                          'for it. Works for armour and FPS weapons too.'),
+    's_mz_hilfe': ('Vormerken setzt es mit seinem Material auf »Was ich farmen muss«.',
+                   'Add to farming list puts it on "What to farm" with its material.'),
     's_mz_titel':        ('Vorgemerkt', 'On your list'),
     's_mz_leer':         ('Noch nichts vorgemerkt. In der Herstellung legst '
                           'du mit »Zum Farmen vormerken« etwas hierher — auch '
@@ -5144,12 +5130,8 @@ TEXTS = {
                              'there and deduct it from stock once built'),
     's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
                           'No recipe available for this blueprint.'),
-    's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt Verse-Kit die Zutaten '
-                          'aus deinem Lager — in der Qualität, die unten bei '
-                          'jedem Material eingestellt ist.',
-                          'Built it? Then Verse-Kit takes the ingredients out '
-                          'of your stock — in the quality set for each material '
-                          'below.'),
+    's_lg_bauen_hilfe': ('Zieht die Zutaten in der eingestellten Qualität aus deinem Lager ab.',
+                         'Takes the ingredients out of your stock in the set quality.'),
     's_lg_abgezogen':    ('Abgezogen.', 'Deducted.'),
     # ⚠ Nichts wird abgezogen, wenn etwas fehlt — der Text muss das sagen.
     # Ein „Abgezogen, so weit vorhanden" hinterliesse ein halb leeres Lager.

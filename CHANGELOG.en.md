@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.1 - 2026-10-05
+
+> In crafting, everything you operate now sits together: set the quality,
+> best or worst material, crafted — without scrolling. The values follow
+> below.
+
+### Improved
+
+- **More compact crafting** — fill buttons, quality sliders and "Crafted —
+  deduct from stock" sit right below each other, the item's values below
+- **Shorter texts** in the expanded recipe
+
 ## v3.94.0 - 2026-10-05
 
 > The refinery scanner now learns every digit from your corrections: with
