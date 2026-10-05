@@ -3630,13 +3630,15 @@ TEXTS = {
     # und die zwei Lager im Werkzeug heißen nach demselben Muster
     # (Handelslager).
     'hf_lager':          ('Rohstofflager', 'Material storage'),
-    # ---------------------------------------------------- Reiter „Verkauf"
-    's_vk_lead':         ('Wo du deine Ware los wirst — und was sie je SCU '
-                          'bringt. Mehrere Waren auf einmal: Orte, die alles '
-                          'nehmen, stehen oben.',
-                          'Where to sell your cargo — and what it pays per '
-                          'SCU. Pick several goods at once: places that take '
-                          'all of them come first.'),
+    # -------------------------------------------- Reiter Kaufen & Verkaufen
+    's_vk_lead':         ('Wo du deine Ware los wirst und was sie je SCU '
+                          'bringt — oder wo du sie am günstigsten bekommst. '
+                          'Beim Verkaufen mehrere Waren auf einmal: Orte, die '
+                          'alles nehmen, stehen oben.',
+                          'Where to sell your cargo and what it pays per SCU '
+                          '— or where to buy it cheapest. When selling, pick '
+                          'several goods at once: places that take all of '
+                          'them come first.'),
     's_vk_holen':        ('Preise aktualisieren', 'Refresh prices'),
     's_vk_holt':         ('holt …', 'fetching …'),
     's_vk_geholt':       ('Preise sind aktuell.', 'Prices are up to date.'),
@@ -3935,6 +3937,34 @@ TEXTS = {
     's_vk_alter_frisch': ('gerade eben', 'just now'),
     's_vk_alter_stunden': ('vor {n} Std.', '{n}h ago'),
     's_vk_alter_tage':   ('vor {n} Tagen', '{n}d ago'),
+    # Kaufen & Verkaufen: der Umschalter und die Einkaufsseite.
+    's_vk_m_verkaufen':  ('Verkaufen', 'Sell'),
+    's_vk_m_kaufen':     ('Kaufen', 'Buy'),
+    's_vk_k_leer_hinweis': ('Such oben eine Ware — dann siehst du, wo es sie '
+                            'gibt, die günstigste Stelle zuerst.',
+                            'Search for a commodity above — you will see '
+                            'where to get it, cheapest place first.'),
+    's_vk_k_spitze':     ('Günstigste Einkaufspreise — oben, was beim '
+                          'Weiterverkauf am meisten übrig lässt. Anklicken '
+                          'zeigt die Orte',
+                          'Cheapest buy prices — on top, what leaves the '
+                          'biggest margin when resold. Click to see the '
+                          'places'),
+    's_vk_k_ankauf_bis': ('Ankauf bis {preis}', 'sells for up to {preis}'),
+    's_vk_k_orte':       ('Wo du {ware} kaufen kannst — günstigste zuerst',
+                          'Where to buy {ware} — cheapest first'),
+    's_vk_k_uebersicht': ('Zur Übersicht', 'Back to overview'),
+    's_vk_k_keine_orte': ('Kein Terminal bekannt, das diese Ware verkauft.',
+                          'No terminal known to sell this commodity.'),
+    's_vk_k_vorrat_1':   ('leer', 'out of stock'),
+    's_vk_k_vorrat_2':   ('fast leer', 'nearly empty'),
+    's_vk_k_vorrat_3':   ('wenig da', 'low stock'),
+    's_vk_k_vorrat_4':   ('mittel', 'medium stock'),
+    's_vk_k_vorrat_5':   ('gut gefüllt', 'well stocked'),
+    's_vk_k_vorrat_6':   ('fast voll', 'nearly full'),
+    's_vk_k_vorrat_7':   ('voll', 'full'),
+    's_vk_k_vorrat_scu': ('{n} SCU da', '{n} SCU in stock'),
+    's_vk_k_kisten':     ('Kisten: {groessen} SCU', 'Boxes: {groessen} SCU'),
     # ----------------------------------------------- Reiter „Mein Hangar"
     # ----------------------------------------------------- Reiter „Bergung"
     'hf_gruppe_bergung': ('Bergung', 'Salvage'),
@@ -5475,7 +5505,7 @@ TEXTS = {
     'hf_raffinerien':    ('Raffinerien', 'Refineries'),
     # --- Gruppe „Handel" (v3.4.0) ---
     'hf_gruppe_handel':  ('Handel & Einkauf', 'Trading & buying'),
-    'hf_verkauf':        ('Verkauf', 'Selling'),
+    'hf_verkauf':        ('Kaufen & Verkaufen', 'Buy & Sell'),
     'hf_handelslager':   ('Handelslager', 'Cargo hold'),
     'hf_gruppe_einst':   ('Einstellungen', 'Settings'),
     'hf_fortgeschritten':('Für Fortgeschrittene', 'For advanced users'),

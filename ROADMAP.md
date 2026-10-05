@@ -53,7 +53,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Handelslager**: was zum Verkauf im Laderaum liegt — getrennt vom Werkstatt-Lager, mit Kennzeichen für als gestohlen markierte Ladung |
 | ✅ | **Beide Lager sichern und zurückholen** (.json), als Tabelle ausgeben (.csv) und nach einem Patch-Wisch in einem Zug leeren |
 | ✅ | Das Fenster **behält die Größe**, die du eingestellt hast |
-| ✅ | **Verkauf**: wo du deine Ware los wirst und was sie je SCU bringt — für mehrere Waren auf einmal, sortiert danach, wie viele ein Ort abnimmt, mit Ampel für Orte, die schon voll sind |
+| ✅ | **Kaufen & Verkaufen**: wo du deine Ware los wirst und was sie je SCU bringt — für mehrere Waren auf einmal, sortiert danach, wie viele ein Ort abnimmt, mit Ampel für Orte, die schon voll sind; umgeschaltet auf Kaufen, wo es eine Ware am günstigsten gibt, mit Vorrat |
 | ✅ | **Läden**: wo ein fertiges Teil im Regal steht und was es dort kostet — die Gegenprobe zu „lohnt Selberbauen?" |
 | ✅ | **Alles Kaufbare, nicht nur Craftbares**: 1.528 Teile aus 38 Warengruppen, dazu 174 Schiffe zum Kaufen und Mieten |
 | ✅ | **Klasse, Größe, Güte und Hersteller** an jeder Zeile — und als Auswahlmenü, damit man das passende Teil auch ohne Namenskenntnis findet |

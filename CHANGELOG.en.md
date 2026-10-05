@@ -6,6 +6,36 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.92.0 - 2026-10-05
+
+> Where is gold cheapest? The "Selling" tab is now called "Buy & Sell" and
+> answers that too — no detour to a website. Switch at the top, search a
+> commodity, and the terminals are listed, cheapest place first.
+
+### New
+
+- **Buy & Sell** — the "Selling" tab is now called that and has a **Sell |
+  Buy** switch at the top; your choice is remembered
+- **Buy:** search a commodity and see which terminals sell it — cheapest
+  place first, with price per SCU, location and system, stock level (empty
+  and nearly empty in red), box sizes and the age of the report
+- **Buy without a search:** the cheapest buy price per commodity, on top
+  what leaves the biggest margin when resold — with **All goods | From
+  mining** just like selling
+
+### Improved
+
+- The signature scanner uses far less CPU: once it has found the signature
+  it only searches around it, and it checks less often while none is
+  visible. The game runs smoother, and detection is unchanged.
+
+### Fixed
+
+- Blueprints are ticked off again when the translation also translates the
+  item name (for example "Helix II Bergbaulaser" instead of "Helix II
+  Mining Laser"). Blueprints already saved that way are matched on the next
+  start.
+
 ## v3.91.2 - 2026-10-05
 
 > Typing in the search fields no longer stutters: the list is rebuilt once

@@ -16750,14 +16750,26 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
 
 
 def _selling(fenster, rahmen):
-    """Wo man seine Ware los wird — die beste Stelle zuerst."""
+    """Kaufen & Verkaufen: wo man Ware los wird (die beste Stelle zuerst)
+    und wo man sie bekommt (die günstigste zuerst).
+
+    Das Knopfpaar oben (`s_vk_m_verkaufen` | `s_vk_m_kaufen`) schaltet um;
+    die Wahl steht in der Einstellung `verkauf_modus`.
+    """
     import threading
 
     from . import trade_cargo, selling as preisdaten
-    from .main_window import round_entry
 
     _heading(fenster, rahmen, t('hf_verkauf'), t('s_vk_lead'))
     innen = _scroll_area(rahmen)
+
+    def modus():
+        return ('kaufen' if paths.setting('verkauf_modus') == 'kaufen'
+                else 'verkaufen')
+
+    # Die Ware, deren Einkaufsorte gerade gezeigt werden — `None` zeigt die
+    # Übersicht.
+    kauf_ware = [None]
 
     # Die ausgewählten Waren. Liste statt Menge, damit die Reihenfolge der
     # Auswahl erhalten bleibt — wer zuerst Gold eintippt, sieht Gold zuerst.
@@ -16774,6 +16786,31 @@ def _selling(fenster, rahmen):
 
     ergebnis_rahmen = tk.Frame(innen, bg=BG)
     chip_rahmen = tk.Frame(innen, bg=BG)
+
+    # ------------------------------------------- Umschalter Verkaufen | Kaufen
+    modus_reihe = tk.Frame(innen, bg=BG)
+    modus_reihe.pack(fill='x', padx=24, pady=(4, 0))
+
+    def _modus_knoepfe():
+        """Das Knopfpaar neu bauen — der aktive Knopf ist hervorgehoben."""
+        _leeren(modus_reihe)
+        for schluessel, text_schluessel in (
+                ('verkaufen', 's_vk_m_verkaufen'),
+                ('kaufen', 's_vk_m_kaufen')):
+            _button(fenster, modus_reihe, t(text_schluessel),
+                    lambda s=schluessel: modus_setzen(s),
+                    strong=modus() == schluessel).pack(side='left',
+                                                       padx=(0, 6))
+
+    def modus_setzen(neu):
+        if neu == modus():
+            return
+        paths.set_setting('verkauf_modus', neu)
+        kauf_ware[0] = None
+        suche.set('')
+        _modus_knoepfe()
+        _modus_zeilen()
+        neu_zeichnen()
 
     # ------------------------------------------------ Kopf: Abruf und Stand
     kopf = tk.Frame(innen, bg=BG)
@@ -16874,6 +16911,12 @@ def _selling(fenster, rahmen):
 
     # ------------------------------------------------------- Warenauswahl
     def waehlen(name):
+        if modus() == 'kaufen':
+            # Beim Einkauf zählt eine Ware und die Orte, die sie verkaufen.
+            kauf_ware[0] = name
+            suche.set('')
+            neu_zeichnen()
+            return
         if name not in auswahl:
             auswahl.append(name)
         # ⭐⭐ **Menge gleich mitnehmen, ohne Umweg übers Lager.** Wer gerade 120 SCU Gold im Laderaum hat und
@@ -16909,8 +16952,15 @@ def _selling(fenster, rahmen):
     suchzeile.pack(fill='x', padx=24, pady=(14, 0))
     # Auswahlfeld statt blossem Suchfeld: Wer nicht weiss, wie die Ware bei UEX
     # heisst, klappt die Liste auf und sucht sie aus.
+    # Die Liste hängt an der Richtung: beim Kaufen die Waren, die ein
+    # Terminal verkauft, beim Verkaufen die, die eines ankauft.
+    def _waren():
+        if modus() == 'kaufen':
+            return preisdaten.buy_goods()
+        return preisdaten.goods()
+
     feldzeile, feldliste, such_zeichnen = _combo_box(
-        fenster, suchzeile, suche, preisdaten.goods,
+        fenster, suchzeile, suche, _waren,
         on_pick=lambda name: waehlen(name),
         on_confirm=lambda name: waehlen(name),
         placeholder=t('s_pl_ware'))
@@ -16940,6 +16990,22 @@ def _selling(fenster, rahmen):
     chip_rahmen.pack(fill='x', padx=24, pady=(10, 0))
     ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(6, 20))
 
+    def _modus_zeilen():
+        """Was nur zum Verkauf gehört, ist beim Kaufen nicht zu sehen.
+
+        Der Mengenhinweis, das Kästchen für gestohlene Ware und der Knopf
+        zum Handelslager betreffen Ladung, die man schon hat.
+        """
+        if modus() == 'kaufen':
+            _menge_lbl.pack_forget()
+            schalterzeile.pack_forget()
+            return
+        if not _menge_lbl.winfo_manager():
+            _menge_lbl.pack(fill='x', pady=(6, 0))
+        if not schalterzeile.winfo_manager():
+            schalterzeile.pack(fill='x', padx=24, pady=(10, 0),
+                               before=chip_rahmen)
+
     def _leeren(halter):
         for kind in halter.winfo_children():
             kind.destroy()
@@ -16955,7 +17021,7 @@ def _selling(fenster, rahmen):
         Mit einem Feld je Marke gibt es nichts mehr zu raten.
         """
         _leeren(chip_rahmen)
-        if not auswahl:
+        if not auswahl or modus() == 'kaufen':
             return
         reihe = tk.Frame(chip_rahmen, bg=BG)
         reihe.pack(fill='x')
@@ -17001,6 +17067,96 @@ def _selling(fenster, rahmen):
             weg.bind('<Enter>', lambda e, w=weg: w.configure(fg=RED))
             weg.bind('<Leave>', lambda e, w=weg: w.configure(fg=SUB))
 
+    def _ansicht_knoepfe(ansicht):
+        """Das Knopfpaar `s_vk_alle_waren` | `s_vk_aus_bergbau` — in beiden
+        Richtungen dieselbe Einstellung `verkauf_spitze`."""
+        knopf_reihe = tk.Frame(ergebnis_rahmen, bg=BG)
+        knopf_reihe.pack(fill='x', pady=(14, 4))
+
+        def ansicht_waehlen(neu):
+            paths.set_setting('verkauf_spitze', neu)
+            _ergebnis()
+
+        for schluessel, text_schluessel in (
+                ('alle', 's_vk_alle_waren'),
+                ('bergbau', 's_vk_aus_bergbau')):
+            _button(fenster, knopf_reihe, t(text_schluessel),
+                    lambda s=schluessel: ansicht_waehlen(s),
+                    strong=ansicht == schluessel).pack(side='left',
+                                                       padx=(0, 6))
+
+    def _kauf_zurueck():
+        kauf_ware[0] = None
+        neu_zeichnen()
+
+    def _kauf_ergebnis():
+        """Kaufen: die Orte einer Ware, günstigster zuerst — ohne gewählte
+        Ware eine Übersicht der günstigsten Einkaufspreise je Ware."""
+        ware = kauf_ware[0]
+        if ware and not preisdaten.buy_known(ware):
+            kauf_ware[0] = ware = None
+        if ware:
+            kopfzeile = tk.Frame(ergebnis_rahmen, bg=BG)
+            kopfzeile.pack(fill='x', pady=(0, 6))
+            _button(fenster, kopfzeile, t('s_vk_k_uebersicht'),
+                    _kauf_zurueck).pack(side='right')
+            tk.Label(kopfzeile, text=t('s_vk_k_orte').format(ware=ware),
+                     bg=BG, fg=FG, font=fenster.f_bold,
+                     anchor='w').pack(side='left', fill='x')
+            orte = preisdaten.buy_places(ware)
+            if not orte:
+                _body_text(ergebnis_rahmen, t('s_vk_k_keine_orte'),
+                           fenster.f_small, fill='x')
+                return
+            orts_liste = tk.Frame(ergebnis_rahmen, bg=BG)
+            orts_liste.pack(fill='x')
+            for ort in orte[:40]:
+                _buy_place_row(fenster, orts_liste, ort, preisdaten.OLD)
+            return
+
+        _body_text(ergebnis_rahmen, t('s_vk_k_leer_hinweis'),
+                   fenster.f_small, fill='x')
+        # Übersicht: je Ware der günstigste Einkaufspreis. Oben steht, was
+        # zum besten Ankaufpreis die größte Spanne lässt; Waren ohne
+        # bekannten Ankäufer folgen danach, die günstigste zuerst.
+        # Dieselben Ausschlüsse wie beim Verkauf (Event-Geschenke,
+        # Ausreißer — siehe `selling.cheapest_price`), kein Abruf.
+        ansicht = paths.setting('verkauf_spitze') or 'alle'
+        bergbau = _mining_goods() if ansicht == 'bergbau' else None
+        spitze = []
+        for ware in preisdaten.buy_goods():
+            if not preisdaten.in_top_list(ware):
+                continue
+            if bergbau is not None and _good_key(ware) not in bergbau:
+                continue
+            preis = preisdaten.cheapest_price(ware)
+            if not preis:
+                continue
+            ankauf = preisdaten.best_price(ware)
+            spanne = (ankauf - preis) if ankauf else None
+            spitze.append((spanne, preis, ankauf, ware))
+        spitze.sort(key=lambda e: (e[0] is None, -(e[0] or 0), e[1]))
+        if bergbau is None:
+            spitze = spitze[:12]
+
+        _ansicht_knoepfe(ansicht)
+        if not spitze:
+            _body_text(ergebnis_rahmen,
+                       t('s_vk_keine_bergbau' if bergbau is not None
+                         else 's_vk_kein_stand'),
+                       fenster.f_small, fill='x')
+            return
+        tk.Label(ergebnis_rahmen, text=t('s_vk_k_spitze'), bg=BG, fg=SUB,
+                 font=fenster.f_small, anchor='w').pack(fill='x', pady=(8, 4))
+        spitzen_liste = tk.Frame(ergebnis_rahmen, bg=BG)
+        spitzen_liste.pack(fill='x')
+        for _spanne, preis, ankauf, ware in spitze:
+            rechts = (t('s_vk_k_ankauf_bis').format(preis=_auec(ankauf))
+                      if ankauf else '')
+            _trade_top_row(fenster, spitzen_liste,
+                           t('s_vk_je_scu').format(preis=_auec(preis)),
+                           ware, rechts, lambda x=ware: waehlen(x))
+
     def _ergebnis():
         _leeren(ergebnis_rahmen)
         if meldung['text']:
@@ -17008,6 +17164,9 @@ def _selling(fenster, rahmen):
                      fg=meldung['farbe'], font=fenster.f_small,
                      anchor='w').pack(fill='x', pady=(0, 8))
             meldung['text'] = ''
+        if modus() == 'kaufen':
+            _kauf_ergebnis()
+            return
         if not auswahl:
             _body_text(ergebnis_rahmen, t('s_vk_leer_hinweis'),
                         fenster.f_small, fill='x')
@@ -17041,20 +17200,7 @@ def _selling(fenster, rahmen):
             if bergbau is None:
                 spitze = spitze[:12]
 
-            knopf_reihe = tk.Frame(ergebnis_rahmen, bg=BG)
-            knopf_reihe.pack(fill='x', pady=(14, 4))
-
-            def ansicht_waehlen(neu):
-                paths.set_setting('verkauf_spitze', neu)
-                _ergebnis()
-
-            for schluessel, text_schluessel in (
-                    ('alle', 's_vk_alle_waren'),
-                    ('bergbau', 's_vk_aus_bergbau')):
-                _button(fenster, knopf_reihe, t(text_schluessel),
-                        lambda s=schluessel: ansicht_waehlen(s),
-                        strong=ansicht == schluessel).pack(side='left',
-                                                           padx=(0, 6))
+            _ansicht_knoepfe(ansicht)
             if not spitze:
                 _body_text(ergebnis_rahmen, t('s_vk_keine_bergbau'),
                            fenster.f_small, fill='x')
@@ -17062,32 +17208,17 @@ def _selling(fenster, rahmen):
             tk.Label(ergebnis_rahmen, text=t('s_vk_spitze'), bg=BG, fg=SUB,
                      font=fenster.f_small, anchor='w').pack(fill='x',
                                                             pady=(8, 4))
+            spitzen_liste = tk.Frame(ergebnis_rahmen, bg=BG)
+            spitzen_liste.pack(fill='x')
             for preis, ware in spitze:
-                kasten = tk.Frame(ergebnis_rahmen, bg=SURFACE,
-                                  highlightthickness=1,
-                                  highlightbackground=LINE)
-                kasten.pack(fill='x', pady=(0, 3))
-                zeile = tk.Frame(kasten, bg=SURFACE)
-                zeile.pack(fill='x', padx=12, pady=5)
-                for w in (kasten, zeile):
-                    w.configure(cursor='hand2')
                 # ⚠ `s_vk_je_scu` nutzt `{preis}`, nicht `%s`. Ein zweiter
                 # Eintrag desselben Namens verdrängt den ersten still, und
                 # `% _geld(...)` flöge auf die Nase. Ein doppelter Schlüssel
                 # fällt in einem Wörterbuch nicht auf — deshalb prüft der
                 # Selbsttest das.
-                p = tk.Label(zeile,
-                             text=t('s_vk_je_scu').format(
-                                 preis=_auec(preis)),
-                             bg=SURFACE, fg=ACCENT, font=fenster.f_small,
-                             width=20, anchor='w')
-                p.pack(side='left')
-                n = tk.Label(zeile, text=ware, bg=SURFACE, fg=FG,
-                             font=fenster.f_small, anchor='w', cursor='hand2')
-                n.pack(side='left')
-                for w in (kasten, zeile, p, n):
-                    w.bind('<Button-1>',
-                           lambda _=None, x=ware: waehlen(x))
+                _trade_top_row(fenster, spitzen_liste,
+                               t('s_vk_je_scu').format(preis=_auec(preis)),
+                               ware, '', lambda x=ware: waehlen(x))
             return
         orte = preisdaten.places_for(auswahl, nqa_only=nur_nqa[0])
         if not orte:
@@ -17136,6 +17267,8 @@ def _selling(fenster, rahmen):
     except tk.TclError:
         pass
 
+    _modus_knoepfe()
+    _modus_zeilen()
     neu_zeichnen()
     _ticker()
 
@@ -17144,6 +17277,85 @@ def _selling(fenster, rahmen):
     # soll Daten vorfinden und nicht auf einen Abruf warten — und eine Seite,
     # die beim Betreten von sich aus ins Netz greift, tut das bei jedem
     # Umschalten erneut.
+
+
+def _trade_top_row(window, parent, price_text, good, right_text, action):
+    """Eine Zeile der Übersicht in Kaufen & Verkaufen — Preis, Ware und
+    rechts eine Zusatzangabe. Gestreift, ein Klick übernimmt die Ware."""
+    base = _stripe(parent)
+    row = tk.Frame(parent, bg=base, cursor='hand2')
+    row.pack(fill='x', ipady=3)
+    price = tk.Label(row, text=price_text, bg=base, fg=ACCENT,
+                     font=window.f_small, width=20, anchor='w')
+    price.pack(side='left', padx=(8, 0))
+    name = tk.Label(row, text=good, bg=base, fg=FG, font=window.f_small,
+                    anchor='w', cursor='hand2')
+    name.pack(side='left')
+    widgets = [row, price, name]
+    if right_text:
+        extra = tk.Label(row, text=right_text, bg=base, fg=SUB,
+                         font=window.f_small, anchor='e')
+        extra.pack(side='right', padx=(8, 8))
+        widgets.append(extra)
+    for w in widgets:
+        w.bind('<Button-1>', lambda _=None: action())
+
+
+def _buy_place_row(window, parent, place, old_after):
+    """Ein Einkaufsort: Preis je SCU, Terminal mit Ort und System, Vorrat,
+    Alter der Meldung — darunter die Kistengrößen, wenn bekannt.
+
+    `place` ist ein Eintrag aus `selling.buy_places`. Meldungen älter als
+    `old_after` Sekunden stehen in Gold.
+    """
+    base = _stripe(parent)
+    row = tk.Frame(parent, bg=base)
+    row.pack(fill='x', ipady=3)
+    top = tk.Frame(row, bg=base)
+    top.pack(fill='x', padx=8)
+    tk.Label(top, text=t('s_vk_je_scu').format(preis=_auec(place['preis'])),
+             bg=base, fg=ACCENT, font=window.f_small, width=20,
+             anchor='w').pack(side='left')
+    tk.Label(top, text=place['terminal'], bg=base, fg=FG,
+             font=window.f_small, anchor='w').pack(side='left')
+    extra = ' · '.join(x for x in (place.get('ort'), place.get('system')) if x)
+    if extra:
+        tk.Label(top, text='  ' + extra, bg=base, fg=SUB, font=window.f_small,
+                 anchor='w').pack(side='left')
+    if place.get('nqa'):
+        tk.Label(top, text='  ' + t('s_vk_nqa_marke'), bg=base, fg=GOLD,
+                 font=window.f_small, anchor='w').pack(side='left')
+
+    age_text = _age_text(place.get('alter'))
+    if age_text:
+        too_old = (place.get('alter') or 0) > old_after
+        tk.Label(top, text=age_text, bg=base, fg=GOLD if too_old else SUB,
+                 font=window.f_small, anchor='e').pack(side='right')
+
+    # Vorrat: Stufe als Wort, dazu die SCU im Regal, wenn UEX sie kennt.
+    # Leer und fast leer in Rot, wenig in Gold — beim Einkauf ist ein leeres
+    # Regal der Fall, der den Anflug umsonst macht.
+    level = place.get('vorratsstufe')
+    stock_parts = []
+    color = SUB
+    if level:
+        key, severity = level
+        stock_parts.append(t(key))
+        color = {'warnung': RED, 'hinweis': GOLD}.get(severity, SUB)
+    if place.get('vorrat'):
+        stock_parts.append(t('s_vk_k_vorrat_scu').format(
+            n=_amount_text(place['vorrat'])))
+    if stock_parts:
+        tk.Label(top, text=' · '.join(stock_parts), bg=base, fg=color,
+                 font=window.f_small, anchor='e').pack(side='right',
+                                                       padx=(0, 12))
+
+    sizes = [s.strip() for s in str(place.get('kisten') or '').split(',')
+             if s.strip()]
+    if sizes:
+        tk.Label(row, text=t('s_vk_k_kisten').format(groessen=', '.join(sizes)),
+                 bg=base, fg=SUB, font=window.f_small,
+                 anchor='w').pack(fill='x', padx=8)
 
 
 def _selling_row(fenster, eltern, ort, gesucht, lagermengen,

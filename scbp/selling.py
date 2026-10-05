@@ -44,7 +44,11 @@ und das ist die Antwort, die keine der beiden Seiten von sich aus gibt.
 
 [UEX Corp](https://uexcorp.space) API 2.0, Endpunkt `commodities_prices_all` —
 2.585 Einträge, rund 1 MB. Kein Schlüssel nötig, ein einfacher GET. Behalten
-wird davon nur, was ein Ankaufgebot hat (1.880 Zeilen, rund 75 KB).
+wird davon nur, was ein Ankaufgebot hat (1.880 Zeilen, rund 75 KB) — unter
+`waren` — und getrennt davon, was ein Terminal **verkauft** (rund 700 Zeilen,
+unter `kaeufe`). Eine UEX-Zeile trägt beides; `price_sell` und `price_buy` sind
+in den Daten nie zugleich gesetzt, die beiden Listen überschneiden sich also
+nicht.
 
 Die Ortsnamen kommen aus `places.py`, das dieselbe Terminal-Liste ohnehin holt —
 so wird die fremde Schnittstelle nicht zweimal für dasselbe angefasst.
@@ -96,10 +100,11 @@ from .catalog import OFF
 SOURCE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
 # ⚠ Auf 2 gesetzt, als der Füllstand (`z`) dazukam, auf 3 mit dem Terminalnamen
-# (`n`), auf 4 mit der Terminal-Art (`t`). Eine alte Ablage hätte die Felder
+# (`n`), auf 4 mit der Terminal-Art (`t`), auf 5 mit den Einkaufsgeboten
+# (`kaeufe`). Eine alte Ablage hätte die Felder
 # nicht — ein höherer Formatstand holt sie einmal neu, statt die Anzeige einen
 # Tag lang lückenhaft zu lassen. Ein Abruf mehr, dafür sofort vollständig.
-FORMAT = 4
+FORMAT = 5
 
 # Welche Terminal-Arten mit **Ware** handeln. Alles andere taugt für eine
 # Handelsroute nicht — siehe die Begründung bei `'t'` weiter unten.
@@ -293,12 +298,16 @@ def update(force=False, progress=None):
     # Siehe die zweite Falle im Kopf: `Copper` und `Copper (Ore)` sind zwei
     # verschiedene Waren, und `norm_material()` würde sie zusammenwerfen.
     goods_map = {}
+    buys_map = {}
     for x in rows:
-        price = float(x.get('price_sell') or 0)
-        if price <= 0:
-            continue
         name = (x.get('commodity_name') or '').strip()
         if not name:
+            continue
+        buy_row = _buy_row(x)
+        if buy_row:
+            buys_map.setdefault(name, []).append(buy_row)
+        price = float(x.get('price_sell') or 0)
+        if price <= 0:
             continue
         goods_map.setdefault(name, []).append({
             't': str(x.get('id_terminal')),
@@ -311,14 +320,44 @@ def update(force=False, progress=None):
             # hat keinen Bedarf mehr und nimmt die Ladung nicht.
             'z': int(x.get('status_sell') or 0),
         })
-    if not goods_map:
+    if not goods_map and not buys_map:
         return False, 'leer'
     for lines in goods_map.values():
         lines.sort(key=lambda z: -z['p'])
-    # ⚠ `compact`: Diese Ablage ist mit rund 75 KB die grösste der drei —
+    # Einkauf: das günstigste Gebot zuerst.
+    for lines in buys_map.values():
+        lines.sort(key=lambda z: z['p'])
+    # ⚠ `compact`: Diese Ablage ist mit rund 220 KB die grösste der drei —
     # ohne Leerzeichen zwischen den Feldern spart das spürbar Platz.
-    _store.save({'terminals': terminals, 'waren': goods_map}, compact=True)
+    _store.save({'terminals': terminals, 'waren': goods_map,
+                 'kaeufe': buys_map}, compact=True)
     return True, ''
+
+
+def _buy_row(x):
+    """Das Einkaufsgebot einer UEX-Zeile in Ablageform — oder `None`.
+
+    Dieselben Kurzfelder wie bei den Ankaufgeboten (`t`, `n`, `p`, `d`, `k`,
+    `z`), dazu `m`: wie viele SCU das Terminal vorrätig hat (`scu_buy`).
+
+    ⚠ `z` ist hier `status_buy`, der Vorrat des Terminals in UEX' sieben
+    Stufen. Beim **Einkauf** ist leer das Schlechte — siehe `stock_level`.
+
+    ⚠ `price_buy = 0` heisst: Das Terminal verkauft die Ware nicht. Es heisst
+    nicht, dass sie nichts kostet — solche Zeilen fallen weg, wie beim Ankauf.
+    """
+    price = float(x.get('price_buy') or 0)
+    if price <= 0:
+        return None
+    return {
+        't': str(x.get('id_terminal')),
+        'n': (x.get('terminal_name') or '').strip(),
+        'p': price,
+        'd': int(x.get('date_modified') or 0),
+        'k': x.get('container_sizes') or '',
+        'z': int(x.get('status_buy') or 0),
+        'm': int(float(x.get('scu_buy') or 0)),
+    }
 
 
 def fill_level(row):
@@ -497,3 +536,133 @@ def best_price(name, with_outliers=False):
     if not with_outliers:
         rows = _without_outliers(rows)
     return max((z['p'] for z in rows), default=0.0)
+
+
+# ---------------------------------------------------------------- Einkauf
+#
+# Die Gegenrichtung: Wo bekommt man die Ware — und wo am günstigsten?
+# Dieselbe Ablage, dieselben Terminals, nur die Liste `kaeufe` statt `waren`.
+
+# UEX' Vorratsstufen beim Einkauf (`status_buy`), 1 = leer bis 7 = voll.
+#
+# ⭐⭐ **Beim Einkauf ist leer das Schlechte** — umgekehrt zum Verkauf. Ein
+# leeres Terminal zeigt noch seinen Preis, hat aber nichts mehr im Regal.
+#
+# Über alle rund 700 Einkaufszeilen gemessen: 70 % auf Stufe 7, 1 % auf
+# Stufe 1, 10 % auf Stufe 2. Gezeigt wird die Stufe immer, weil sie die Wahl
+# des Ortes bestimmt; gefärbt nur, was warnt.
+EMPTY = 1
+NEARLY_EMPTY = 2
+LOW = 3
+
+STOCK_KEYS = {
+    1: 's_vk_k_vorrat_1',
+    2: 's_vk_k_vorrat_2',
+    3: 's_vk_k_vorrat_3',
+    4: 's_vk_k_vorrat_4',
+    5: 's_vk_k_vorrat_5',
+    6: 's_vk_k_vorrat_6',
+    7: 's_vk_k_vorrat_7',
+}
+
+
+def stock_level(row):
+    """Was der Vorrat an einer Einkaufsstelle bedeutet — oder `None`.
+
+    Gibt `(schluessel, stufe)` zurück: den Sprachschlüssel für den Text und
+    die Stufe der Warnung — `'warnung'` (leer, fast leer), `'hinweis'`
+    (wenig) oder `''` (genug da).
+
+    ⚠ Fehlt die Stufe (`z` ist 0), wird geschwiegen — eine Angabe aus
+    fehlenden Daten wäre geraten.
+    """
+    level = (row or {}).get('z') or 0
+    key = STOCK_KEYS.get(level)
+    if not key:
+        return None
+    if level <= NEARLY_EMPTY:
+        return key, 'warnung'
+    if level == LOW:
+        return key, 'hinweis'
+    return key, ''
+
+
+def buy_goods():
+    """Alle Waren, die mindestens ein Terminal verkauft, alphabetisch.
+
+    Exakt so geschrieben wie bei UEX — siehe Falle 1 und 2 im Kopf.
+    """
+    return sorted((load() or {}).get('kaeufe') or {})
+
+
+def buy_known(name):
+    """Verkauft irgendein Terminal diese Ware? Exakter Vergleich."""
+    return name in ((load() or {}).get('kaeufe') or {})
+
+
+def _without_low_outliers(rows):
+    """Einkaufsgebote ohne den einen Preis, der absurd tief liegt.
+
+    Das Gegenstück zu `_without_outliers`: Beim Einkauf gewinnt der
+    **niedrigste** Preis, also ist dort ein Tippfehler nach unten gefährlich
+    (eine fehlende Ziffer macht aus 24.000 ein Schnäppchen von 2.400).
+    Dieselbe Grenze `OUTLIER_FACTOR`, ebenfalls erst ab drei Geboten.
+    """
+    values = sorted((z.get('p') or 0.0) for z in rows)
+    if len(values) < 3 or values[0] <= 0:
+        return rows
+    if values[1] / values[0] < OUTLIER_FACTOR:
+        return rows
+    lowest = values[0]
+    return [z for z in rows if (z.get('p') or 0.0) > lowest]
+
+
+def cheapest_price(name, with_outliers=False):
+    """Was die Ware mindestens kostet, je SCU — oder `0.0`.
+
+    ⚠ **Ein leeres Terminal zählt nicht als günstigster Ort**, solange ein
+    anderes noch Vorrat hat: Sein Preis steht zwar da, kaufen kann man dort
+    nichts. Ein absurd niedriges Gebot wird verworfen (`_without_low_outliers`);
+    `with_outliers=True` gibt den Rohwert zurück.
+    """
+    rows = ((load() or {}).get('kaeufe') or {}).get(name) or []
+    stocked = [z for z in rows if (z.get('z') or 0) != EMPTY]
+    rows = stocked or rows
+    if not with_outliers:
+        rows = _without_low_outliers(rows)
+    return min((z['p'] for z in rows), default=0.0)
+
+
+def buy_places(name, nqa_only=False):
+    """Wo man die Ware kaufen kann — der günstigste Ort zuerst.
+
+    Jeder Eintrag: `terminal`, `ort`, `system`, `nqa`, `preis` (je SCU),
+    `kisten` (Kistengrößen als Text, wie UEX sie liefert), `vorrat` (SCU im
+    Regal, `0` = unbekannt oder leer), `vorratsstufe` (siehe `stock_level`)
+    und `alter` in Sekunden (`None` ohne Datum).
+
+    ⚠ Hier stehen **alle** Gebote, auch ein Ausreißer — wer eine Ware
+    sucht, soll jedes Terminal sehen (wie `best_price(with_outliers=True)`).
+    """
+    data = load() or {}
+    rows = (data.get('kaeufe') or {}).get(name) or []
+    spots = data.get('terminals') or {}
+    now = time.time()
+    result = []
+    for row in rows:
+        spot = spots.get(row.get('t')) or {}
+        if nqa_only and not spot.get('q'):
+            continue
+        result.append({
+            'terminal': row.get('n') or '?',
+            'ort': spot.get('o') or '',
+            'system': spot.get('s') or '',
+            'nqa': bool(spot.get('q')),
+            'preis': row.get('p') or 0.0,
+            'kisten': row.get('k') or '',
+            'vorrat': row.get('m') or 0,
+            'vorratsstufe': stock_level(row),
+            'alter': (now - row['d']) if row.get('d') else None,
+        })
+    result.sort(key=lambda e: (e['preis'], e['terminal']))
+    return result

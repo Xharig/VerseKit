@@ -53,7 +53,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Cargo hold**: what you carry to sell — kept apart from the workshop stock, with a marker for cargo flagged as stolen |
 | ✅ | **Back up and restore both storages** (.json), export them as a spreadsheet (.csv) and clear them in one go after a patch wipe |
 | ✅ | The window **keeps the size** you set |
-| ✅ | **Selling**: where to offload your goods and what they pay per SCU — for several commodities at once, sorted by how many a place takes, with a signal for places that are already full |
+| ✅ | **Buy & Sell**: where to offload your goods and what they pay per SCU — for several commodities at once, sorted by how many a place takes, with a signal for places that are already full; switched to Buy, where a commodity is cheapest, with stock level |
 | ✅ | **Shops**: where a finished part sits on the shelf and what it costs there — the counter-check to "is building it worth it?" |
 | ✅ | **Everything for sale, not just what you can craft**: 1,528 parts across 38 item groups, plus 174 ships to buy or rent |
 | ✅ | **Class, size, grade and manufacturer** on every row — and as dropdowns, so you find the right part without knowing its name |

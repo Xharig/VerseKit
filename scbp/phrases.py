@@ -286,6 +286,185 @@ def resolve_key(name):
     return _KEY_CACHE[key]
 
 
+# ---------------------------------------------------- Übersetzte Gegenstände
+#
+# ⚠⚠ **Eine Übersetzung kann auch Gegenstandsnamen übersetzen.** Dann steht
+# in der Bauplan-Meldung `Helix II Bergbaulaser` statt `Helix II Mining
+# Laser`, und der Katalog (englisch) kennt den Namen nicht. Der Rückweg führt
+# über den Textschlüssel: übersetzter Text → Schlüssel in der übersetzten
+# `global.ini` → englischer Text desselben Schlüssels.
+#
+# Das Ergebnis liegt in `BACK_FILE`, gebunden an den Stand der übersetzten
+# Dateien. So kostet ein Name, der sich nicht zurückführen lässt, den
+# Dateidurchlauf nur einmal je Spiel- oder Übersetzungsstand — nicht bei
+# jedem Programmstart.
+BACK_FILE = 'namen-rueckweg.json'
+
+# {'stand': Quellenmarke, 'namen': {kleingeschrieben: [englische Namen]}}
+_BACK_CACHE = {}
+
+# Ein Archiv-Versuch je Programmlauf für die englischen Texte.
+_BACK_ARCHIVE = {}
+
+
+def _translated_files():
+    """Die entpackten `global.ini` außer der englischen."""
+    return [p for p in _ini_files()
+            if os.path.basename(os.path.dirname(p)).lower() != 'english']
+
+
+def _item_key(key):
+    """Gehört der Schlüssel zu einem Gegenstands- oder Fahrzeugnamen?"""
+    low = key.lower()
+    return low.startswith('item_') or 'name' in low
+
+
+def _plain(text):
+    """Text ohne fremde Marke und ohne angehängte Angaben, kleingeschrieben."""
+    from .logsource import split_names
+    text = text.strip().lstrip('*').strip()
+    return split_names(text)[0].strip().lower()
+
+
+# {Quellenmarke: {übersetzter Text: {Schlüssel}}} — einmal je Stand gebaut.
+_BACK_INDEX = {}
+
+
+def _keys_for(name, files, mark):
+    """Die Schlüssel, deren übersetzter Text `name` ist.
+
+    ⚠ Das Verzeichnis entsteht beim ersten Namen in einem Durchlauf über
+    alle Dateien; jeder weitere Name ist ein Nachschlagen. Ein Durchlauf je
+    Name hätte bei vielen unbekannten Namen den Programmstart gebremst.
+    """
+    if mark not in _BACK_INDEX:
+        _BACK_INDEX.clear()
+        index = {}
+        for path in files:
+            try:
+                with open(path, encoding='utf-8-sig', errors='ignore') as f:
+                    for line in f:
+                        sep = line.find('=')
+                        if sep < 1:
+                            continue
+                        key = line[:sep].split(',', 1)[0]
+                        if not _item_key(key):
+                            continue
+                        index.setdefault(_plain(line[sep + 1:]),
+                                         set()).add(key.lower())
+            except OSError:
+                continue
+        _BACK_INDEX[mark] = index
+    return _BACK_INDEX[mark].get(name.strip().lower(), set())
+
+
+def _english_texts(keys):
+    """`{schlüssel: englischer Text}` für die gesuchten Schlüssel.
+
+    Erst die entpackte englische `global.ini`, für den Rest die `Data.p4k`
+    (einmal je Programmlauf). Beide werden einmal zerlegt und im Speicher
+    gehalten; jeder weitere Name ist ein Nachschlagen.
+    """
+    found = {}
+    folder = paths.localization_folder()
+    english = os.path.join(folder, 'english', 'global.ini') if folder else ''
+    sources = []
+    if english and os.path.isfile(english):
+        english_mark = 'ini:%s' % _ini_mark(english)
+        if english_mark not in _BACK_ARCHIVE:
+            try:
+                with open(english, encoding='utf-8-sig', errors='ignore') as f:
+                    _BACK_ARCHIVE[english_mark] = _item_texts(f.read())
+            except OSError:
+                _BACK_ARCHIVE[english_mark] = {}
+        sources.append(_BACK_ARCHIVE[english_mark])
+    from .logsource import split_names
+    for texts in sources + [None]:
+        if texts is None:
+            if len(found) == len(keys):
+                break
+            if 'daten' not in _BACK_ARCHIVE:
+                try:
+                    from . import gametext
+                    data, _message = gametext.read_from_archive('english')
+                except Exception:
+                    data = None
+                _BACK_ARCHIVE['daten'] = _item_texts(
+                    data.decode('utf-8-sig', 'ignore') if data else '')
+            texts = _BACK_ARCHIVE['daten']
+        for key in keys:
+            if key not in found and texts.get(key):
+                found[key] = split_names(texts[key])[0].strip()
+    return found
+
+
+def _item_texts(text):
+    """`{schlüssel: Text}` der Gegenstandsnamen aus einer `global.ini`."""
+    out = {}
+    for line in text.splitlines():
+        sep = line.find('=')
+        if sep < 1:
+            continue
+        key = line[:sep].split(',', 1)[0]
+        if _item_key(key):
+            out.setdefault(key.lower(),
+                           line[sep + 1:].strip().lstrip('*').strip())
+    return out
+
+
+def _back_store(mark):
+    """Die abgelegten Rückwege zum Stand `mark` — sonst ein leerer Satz."""
+    if _BACK_CACHE.get('stand') == mark:
+        return _BACK_CACHE['namen']
+    names = {}
+    try:
+        with open(paths.app_file(BACK_FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, dict) and data.get('stand') == mark:
+            names = data.get('namen') or {}
+    except (OSError, ValueError):
+        pass
+    _BACK_CACHE['stand'] = mark
+    _BACK_CACHE['namen'] = names
+    return names
+
+
+def _back_save(mark, names):
+    target = paths.app_file(BACK_FILE)
+    try:
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump({'stand': mark, 'namen': names}, f, ensure_ascii=False)
+        os.replace(target + '.tmp', target)
+    except OSError as exc:
+        from . import errors
+        errors.record('phrases.back_save', exc)
+
+
+def english_names(name):
+    """Die englischen Originalnamen zu einem übersetzten Gegenstandsnamen.
+
+    Gibt eine Liste zurück — leer, wenn keine übersetzte `global.ini` den
+    Namen führt. Mehrere Einträge heißen: Der übersetzte Text steht bei
+    mehreren Schlüsseln; welcher gemeint ist, entscheidet der Aufrufer (siehe
+    `collection.catalog_name`).
+    """
+    if not name or not name.strip():
+        return []
+    files = _translated_files()
+    if not files:
+        return []
+    mark = '|'.join(_ini_mark(p) or p for p in files)
+    names = _back_store(mark)
+    wanted = name.strip().lower()
+    if wanted in names:
+        return list(names[wanted])
+    keys = _keys_for(wanted, files, mark)
+    english = sorted(set(_english_texts(keys).values())) if keys else []
+    names[wanted] = english
+    _back_save(mark, names)
+    return list(english)
+
+
 def _own():
     """Selbst ergänzte Formulierungen aus `phrasen.json` im App-Ordner.
 

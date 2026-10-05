@@ -72,6 +72,7 @@ aus `language.py`.
 """
 import json
 import os
+import re
 import struct
 import time
 import zlib
@@ -207,8 +208,86 @@ def thresholds(raster):
     return sorted({v for v in found if 8 <= v <= 245})
 
 
-def components(raster, threshold):
-    """Zusammenhängende helle Flächen als (links, oben, rechts, unten)."""
+_RUN = re.compile(rb'\x01+')
+
+
+def byte_lines(raster):
+    """Die Zeilen des Rasters als Bytes — None, wenn ein Wert keiner ist (über
+    255, Kommazahl)."""
+    try:
+        return [bytes(row) for row in raster]
+    except (TypeError, ValueError):
+        return None
+
+
+def components(raster, threshold, lines=None):
+    """Zusammenhängende helle Flächen als (links, oben, rechts, unten).
+
+    Arbeitet zeilenweise auf Läufen heller Punkte (`translate` und `re` laufen
+    in C) und verbindet Läufe benachbarter Zeilen, die sich berühren — auch
+    über Eck, wie die Flächensuche in `_components_by_pixel`. Das Ergebnis ist
+    dasselbe; Raster, die sich nicht als Bytes schreiben lassen, gehen den Weg
+    über die einzelnen Punkte. `lines` sind die Zeilen aus `byte_lines`, wenn
+    dasselbe Raster mit mehreren Schwellen zerlegt wird.
+    """
+    height = len(raster)
+    if not height:
+        return []
+    if lines is None:
+        lines = byte_lines(raster)
+    if lines is None or len(lines) != height:
+        return _components_by_pixel(raster, threshold)
+    table = bytes(1 if v > threshold else 0 for v in range(256))
+    parent = []
+    spans = []          # je Lauf [links, rechts, oben, unten]
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    previous = []
+    for y, line in enumerate(lines):
+        current = []
+        j = 0
+        for match in _RUN.finditer(line.translate(table)):
+            left, right = match.start(), match.end() - 1
+            index = len(parent)
+            parent.append(index)
+            spans.append([left, right, y, y])
+            # Läufe der Zeile darüber, die bis eine Spalte daneben reichen,
+            # gehören zur selben Fläche.
+            while j < len(previous) and previous[j][1] < left - 1:
+                j += 1
+            k = j
+            while k < len(previous) and previous[k][0] <= right + 1:
+                a, b = root(index), root(previous[k][2])
+                if a != b:
+                    parent[a] = b
+                k += 1
+            current.append((left, right, index))
+        previous = current
+    merged = {}
+    for index, (left, right, top, bottom) in enumerate(spans):
+        box = merged.get(root(index))
+        if box is None:
+            merged[root(index)] = [left, right, top, bottom]
+        else:
+            box[0] = min(box[0], left)
+            box[1] = max(box[1], right)
+            box[2] = min(box[2], top)
+            box[3] = max(box[3], bottom)
+    # Einzelne helle Punkte sind Bildrauschen, keine Ziffer.
+    boxes = [(left, top, right, bottom)
+             for left, right, top, bottom in merged.values()
+             if (right - left) >= 1 and (bottom - top) >= 3]
+    boxes.sort()
+    return boxes
+
+
+def _components_by_pixel(raster, threshold):
+    """Wie `components`, Punkt für Punkt — für Raster, die keine Bytes sind."""
     height = len(raster)
     width = len(raster[0]) if height else 0
     seen = [bytearray(width) for _ in range(height)]
@@ -709,16 +788,81 @@ def digit_table(patterns, known):
         # Aufnahmen kostet das nichts (65 → 66 richtig, weiter 1 falsch).
         filled = fill(pattern)
         own = holes(filled)
+        own_bits = _bits(filled)
         column = {}
         for digit, examples in known.items():
             if not examples:
                 continue
-            column[digit] = min(
-                sum(1 for i in range(len(filled)) if filled[i] != example[i]) / size
-                + (0.0 if _holes_match(own, example_holes) else HOLE_PENALTY)
-                for example, example_holes in examples)
+            column[digit] = _nearest(filled, own_bits, own, examples, size)
         table.append(column)
     return table
+
+
+# Bitfolgen der Vorlagen, je Vorlagenliste einmal gebildet:
+# {id: (liste, länge, bits_je_muster_oder_None, löcher_je_muster)}. Die Liste
+# bleibt mit im Eintrag, damit ihre id nicht neu vergeben wird.
+_template_bits = {}
+
+
+_BIT_TEXT = bytes(range(256)).replace(b'\x00', b'0').replace(b'\x01', b'1')
+# Gesetzte Bits zählen: `int.bit_count` ab Python 3.10, sonst über den Text.
+try:
+    _ones = int.bit_count
+except AttributeError:
+    def _ones(number):
+        return bin(number).count('1')
+
+
+def _bits(pattern):
+    """Ein 0/1-Muster als eine ganze Zahl, ein Bit je Punkt — None, wenn
+    andere Werte darin stehen.
+
+    Zwei Muster unterscheiden sich damit in genau so vielen Punkten, wie
+    `a ^ b` Bits gesetzt hat.
+    """
+    try:
+        data = bytes(pattern)
+    except (TypeError, ValueError):
+        return None
+    if not data or data.strip(b'\x00\x01'):
+        return None
+    return int(data.translate(_BIT_TEXT), 2)
+
+
+def _nearest(filled, filled_bits, own_holes, examples, size):
+    """Kleinster Abstand eines Musters zu den Vorlagen einer Ziffer.
+
+    Abstand = Anteil abweichender Punkte, dazu `HOLE_PENALTY`, wenn die
+    Lochstruktur nicht passt. Mit Bitfolgen (`_bits`) zählt `_ones(a ^ b)`
+    je Vorlage alle Punkte auf einmal, sonst wird Punkt für Punkt gezählt.
+    """
+    entry = _template_bits.get(id(examples))
+    if entry is None or entry[0] is not examples or entry[1] != len(examples):
+        if len(_template_bits) > 2000:
+            _template_bits.clear()
+        bits = [_bits(example) for example, _h in examples]
+        if any(b is None or len(example) != len(filled)
+               for b, (example, _h) in zip(bits, examples)):
+            bits = None
+        entry = (examples, len(examples), bits,
+                 [tuple(example_holes) for _e, example_holes in examples])
+        _template_bits[id(examples)] = entry
+    if filled_bits is None or entry[2] is None:
+        return min(
+            sum(1 for i in range(len(filled)) if filled[i] != example[i]) / size
+            + (0.0 if _holes_match(own_holes, example_holes) else HOLE_PENALTY)
+            for example, example_holes in examples)
+    penalties = {}
+    best = None
+    for example_bits, example_holes in zip(entry[2], entry[3]):
+        penalty = penalties.get(example_holes)
+        if penalty is None:
+            penalty = penalties[example_holes] = (
+                0.0 if _holes_match(own_holes, example_holes) else HOLE_PENALTY)
+        distance = _ones(filled_bits ^ example_bits) / size + penalty
+        if best is None or distance < best:
+            best = distance
+    return best
 
 
 def match_values(patterns, known, values):
@@ -727,6 +871,10 @@ def match_values(patterns, known, values):
     Gibt (wert, mittlerer_abstand) oder (None, abstand).
     """
     if not patterns or not known or not values:
+        return None, 1.0
+    # Kein möglicher Wert hat so viele Stellen: Der Vergleich mit den Vorlagen
+    # ergäbe nichts anderes.
+    if not any(len(str(value)) == len(patterns) for value in values):
         return None, 1.0
     table = digit_table(patterns, known)
     scored = []
@@ -806,6 +954,15 @@ def read(raster, known=None, values=None):
     best = None
     fallback = None
     levels = thresholds(raster)
+    lines = byte_lines(raster)
+    # Beide Durchgänge zerlegen mit denselben Schwellen — je Schwelle einmal.
+    boxes_at = {}
+
+    def boxes(threshold):
+        if threshold not in boxes_at:
+            boxes_at[threshold] = components(raster, threshold, lines)
+        return boxes_at[threshold]
+
     # ⚠⚠ Zwei Durchgänge: erst die gewohnte Zerlegung, und NUR wenn die nichts
     # liest, die Rückfall-Zerlegungen (`split_variants`). So kann der Rückfall
     # keine Lesung verändern, die vorher schon richtig war.
@@ -813,7 +970,7 @@ def read(raster, known=None, values=None):
         if best is not None or not known:
             break
         for threshold in levels:
-            for digits in digit_rows(components(raster, threshold), len(raster[0]),
+            for digits in digit_rows(boxes(threshold), len(raster[0]),
                                      raster, threshold, variants=variants):
                 if not variants and (fallback is None or len(digits) > len(fallback[1])):
                     fallback = (threshold, digits)
@@ -825,7 +982,7 @@ def read(raster, known=None, values=None):
                     result['abstand'] = distance
     if not known:
         for threshold in levels:
-            for digits in digit_rows(components(raster, threshold), len(raster[0]),
+            for digits in digit_rows(boxes(threshold), len(raster[0]),
                                      raster, threshold):
                 if fallback is None or len(digits) > len(fallback[1]):
                     fallback = (threshold, digits)
@@ -862,7 +1019,6 @@ def pill_candidates(raw, width, height):
     hellen Strichen in Zahlengröße; ob es wirklich eine Signatur ist,
     entscheidet danach `read` — Chat und Beschriftungen fallen dort heraus.
     """
-    import re
     span = re.compile(rb'#{1,14}')
     mask = raw[1::4].translate(_BRIGHT)          # grüner Kanal: weiße Schrift
     cells = {}
@@ -944,13 +1100,14 @@ def learn(raster, typed):
     if len(digits_typed) < 2:
         return False, 'anlernen_leer', {}
     candidates = []
+    lines = byte_lines(raster)
     # Wie beim Lesen: die Rückfall-Zerlegungen nur, wenn die gewohnte keine
     # Reihe mit der getippten Stellenzahl findet (verklebte große Schrift).
     for variants in (False, True):
         if candidates:
             break
         for threshold in thresholds(raster):
-            for digits in digit_rows(components(raster, threshold), len(raster[0]),
+            for digits in digit_rows(components(raster, threshold, lines), len(raster[0]),
                                      raster, threshold, variants=variants):
                 if len(digits) == len(digits_typed):
                     patterns = [normalize(raster, b, threshold) for b in digits]

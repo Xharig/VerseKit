@@ -24,7 +24,7 @@ export const PAGES = {
   bergung: ['Bergung', 'Was steckt drin?'],
   zerlegen: ['Bergung', 'Lohnt das Zerlegen?'],
   handelslager: ['Handel', 'Handelslager'],
-  verkauf: ['Handel', 'Verkauf'],
+  verkauf: ['Handel', 'Kaufen & Verkaufen'],
   routen: ['Handel', 'Routen'],
   statistik_auswertung: ['Statistik', 'Auswertung'],
   statistik: ['Statistik', 'Übersicht'],

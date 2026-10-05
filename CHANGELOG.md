@@ -6,6 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.92.0 - 2026-10-05
+
+> Wo gibt es Gold am günstigsten? Der Reiter „Verkauf" heißt jetzt „Kaufen &
+> Verkaufen" und beantwortet auch diese Frage — ohne Umweg über eine
+> Webseite. Oben umschalten, Ware suchen, und die Terminals stehen da, die
+> billigste Stelle zuerst.
+
+### Neu
+
+- **Kaufen & Verkaufen** — der Reiter „Verkauf" heißt jetzt so und hat oben
+  den Umschalter **Verkaufen | Kaufen**; die Wahl bleibt gemerkt
+- **Kaufen:** Ware suchen und sehen, welche Terminals sie verkaufen — die
+  günstigste Stelle zuerst, mit Preis je SCU, Ort und System, Vorrat (leer
+  und fast leer in Rot), Kistengrößen und Alter der Meldung
+- **Kaufen ohne Suche:** die günstigsten Einkaufspreise je Ware, oben, was
+  beim Weiterverkauf am meisten übrig lässt — mit **Alle Waren | Aus dem
+  Bergbau** wie beim Verkaufen
+
+### Verbessert
+
+- Der Signatur-Scanner braucht deutlich weniger Rechenzeit: Nach einem Fund
+  sucht er nur noch um die Signatur herum, und ohne Signatur sieht er
+  seltener nach. Das Spiel läuft dadurch flüssiger, erkannt wird dasselbe.
+
+### Behoben
+
+- Baupläne werden wieder abgehakt, wenn die Übersetzung den Gegenstandsnamen
+  mit übersetzt (etwa „Helix II Bergbaulaser" statt „Helix II Mining
+  Laser"). Schon so gespeicherte Baupläne werden beim nächsten Start
+  zugeordnet.
+
 ## v3.91.2 - 2026-10-05
 
 > Tippen in den Suchfeldern stockt nicht mehr: Die Liste wird erst neu

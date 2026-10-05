@@ -25238,6 +25238,10 @@ def main():
     _pruefung_370()
     _pruefung_377()
     _pruefung_390()
+    _pruefung_391()
+    _pruefung_392()
+    _pruefung_400()
+    _pruefung_410()
 
     print()
     if fehler:
@@ -36260,6 +36264,746 @@ def _pruefung_390():
                 _w390.destroy()
         except Exception:
             pass
+
+
+def _uex_zeilen391():
+    """Erfundene UEX-Zeilen für den Abruf in Prüfung 391.
+
+    Jede Zeile hat entweder ein Ankaufgebot (`price_sell`) oder ein
+    Einkaufsgebot (`price_buy`), wie in den echten Daten.
+    """
+    def zeile(ware, terminal, name, kauf=0, verkauf=0, stufe=0, scu=0):
+        return {'commodity_name': ware, 'id_terminal': terminal,
+                'terminal_name': name, 'price_buy': kauf,
+                'price_sell': verkauf, 'status_buy': stufe,
+                'status_sell': 1 if verkauf else 0, 'scu_buy': scu,
+                'container_sizes': '1,2,4,8,16,24,32' if kauf else '',
+                'date_modified': int(time.time()) - 3600}
+    return [
+        zeile('Gold', 1, 'Ankauf', verkauf=30000),
+        zeile('Gold', 2, 'Mittel', kauf=25000, stufe=7, scu=500),
+        zeile('Gold', 3, 'Billig', kauf=24000, stufe=2, scu=3),
+        zeile('Gold', 4, 'Teuer', kauf=26000, stufe=1, scu=0),
+        zeile('Copper', 2, 'Mittel', kauf=3000, stufe=7, scu=900),
+        zeile('Copper', 3, 'Billig', kauf=3100, stufe=7, scu=900),
+        zeile('Copper', 4, 'Teuer', kauf=300, stufe=7, scu=900),
+        zeile('Copper (Ore)', 2, 'Mittel', kauf=900, stufe=5, scu=40),
+        zeile('Iron', 2, 'Mittel', kauf=1500, stufe=7, scu=100),
+        zeile('Iron', 3, 'Billig', kauf=1000, stufe=1, scu=0),
+        zeile('Laranite', 2, 'Mittel', kauf=7000, stufe=4, scu=80),
+    ]
+
+
+def _abruf391(zeilen, terminals):
+    """`selling.update()` mit erfundenen Antworten. Gibt `(Ergebnis,
+    angefragte Quellen)` zurück."""
+    from scbp import selling as _se391, uex as _ux391
+    angefragt = []
+
+    def _holen(quelle, *a, **k):
+        angefragt.append(quelle)
+        if quelle == _se391.SOURCE:
+            return list(zeilen)
+        if quelle == _se391.SOURCE_TERMINALS:
+            return list(terminals)
+        return None
+
+    _echt = (_se391.OFF, _ux391.fetch)
+    try:
+        _se391.OFF, _ux391.fetch = False, _holen
+        try:
+            os.remove(_se391._store.path())
+        except OSError:
+            pass
+        return _se391.update(), angefragt
+    finally:
+        _se391.OFF, _ux391.fetch = _echt
+
+
+def _pruefung_391():
+    """391: Einkaufsgebote überstehen den Abruf und stehen getrennt vom
+    Ankauf."""
+    print('\n391. Kaufen & Verkaufen: Einkaufsgebote bleiben erhalten')
+    from scbp import selling as _se391
+    _pfad391 = _se391._store.path()
+    try:
+        with open(_pfad391, 'rb') as f:
+            _vorher391 = f.read()
+    except OSError:
+        _vorher391 = None
+    _terminals391 = [
+        {'id': 1, 'name': 'Ankauf', 'space_station_name': 'Area 18',
+         'star_system_name': 'Stanton', 'type': 'commodity'},
+        {'id': 2, 'name': 'Mittel', 'space_station_name': 'Lorville',
+         'star_system_name': 'Stanton', 'type': 'commodity'},
+        {'id': 3, 'name': 'Billig', 'space_station_name': 'Ruin Station',
+         'star_system_name': 'Pyro', 'type': 'commodity', 'is_nqa': 1},
+        {'id': 4, 'name': 'Teuer', 'space_station_name': 'Levski',
+         'star_system_name': 'Nyx', 'type': 'commodity'},
+    ]
+    try:
+        (_erg391, _quellen391) = _abruf391(_uex_zeilen391(), _terminals391)
+        # Die Falle muss selbst gegriffen haben: beide Quellen angefragt.
+        pruefe(_se391.SOURCE in _quellen391
+               and _se391.SOURCE_TERMINALS in _quellen391,
+               'der Abruf lief über die untergeschobenen Antworten (%s)'
+               % len(_quellen391))
+        pruefe(_erg391 == (True, ''), 'der Abruf meldet Erfolg (%s)'
+               % (_erg391,))
+        _daten391 = _se391.load()
+        pruefe(_daten391.get('format') == _se391.FORMAT == 5,
+               'die Ablage trägt den neuen Formatstand (%s)'
+               % _daten391.get('format'))
+        pruefe('Laranite' in _se391.buy_goods()
+               and 'Laranite' not in _se391.goods(),
+               'eine Ware nur mit Einkaufsgebot steht beim Kaufen, nicht beim'
+               ' Verkaufen')
+        _vk391 = [e['terminal'] for e in _se391.places_for(['Gold'])]
+        pruefe(_vk391 == ['Ankauf'],
+               'beim Verkaufen erscheint kein Einkaufsgebot (%s)' % _vk391)
+        pruefe(_se391.best_price('Gold') == 30000,
+               'der beste Ankaufpreis bleibt unberührt (%s)'
+               % _se391.best_price('Gold'))
+        _kf391 = _se391.buy_places('Gold')
+        pruefe([e['terminal'] for e in _kf391] == ['Billig', 'Mittel', 'Teuer'],
+               'Einkaufsorte: der günstigste zuerst (%s)'
+               % [e['terminal'] for e in _kf391])
+        pruefe(_kf391 and _kf391[0]['vorratsstufe'] == ('s_vk_k_vorrat_2',
+                                                         'warnung')
+               and _kf391[0]['vorrat'] == 3 and _kf391[0]['system'] == 'Pyro'
+               and _kf391[0]['nqa'] and _kf391[0]['kisten']
+               and _kf391[0]['alter'] is not None,
+               'ein Einkaufsort trägt Vorrat, Warnung, System, Kisten und'
+               ' Alter (%s)' % (_kf391[:1],))
+        pruefe(_se391.stock_level({'z': 7}) == ('s_vk_k_vorrat_7', '')
+               and _se391.stock_level({'z': 3})[1] == 'hinweis'
+               and _se391.stock_level({}) is None,
+               'voll warnt nicht, wenig weist hin, ohne Stufe wird geschwiegen')
+        pruefe('Copper' in _se391.buy_goods()
+               and 'Copper (Ore)' in _se391.buy_goods()
+               and [e['preis'] for e in
+                    _se391.buy_places('Copper (Ore)')][:1] == [900],
+               'Copper und Copper (Ore) bleiben auch beim Kaufen getrennt')
+        pruefe(_se391.cheapest_price('Copper') == 3000
+               and _se391.cheapest_price('Copper', with_outliers=True) == 300,
+               'ein absurd niedriges Einkaufsgebot fällt aus dem Günstigsten'
+               ' (%s / %s)' % (_se391.cheapest_price('Copper'),
+                               _se391.cheapest_price('Copper',
+                                                     with_outliers=True)))
+        pruefe(_se391.cheapest_price('Iron') == 1500,
+               'ein leeres Terminal gilt nicht als günstigster Ort (%s)'
+               % _se391.cheapest_price('Iron'))
+        pruefe([e['preis'] for e in _se391.buy_places('Copper')][:1] == [300],
+               'in der Ortsliste steht trotzdem jedes Gebot')
+
+        # Gegenprobe: ohne die Einkaufszeilen wäre `kaeufe` leer.
+        _echt_zeile391 = _se391._buy_row
+        try:
+            _se391._buy_row = lambda x: None
+            _abruf391(_uex_zeilen391(), _terminals391)
+            pruefe(not _se391.buy_goods() and 'Gold' in _se391.goods(),
+                   'Gegenprobe: wer die Einkaufsgebote verwirft, hat beim'
+                   ' Kaufen nichts')
+        finally:
+            _se391._buy_row = _echt_zeile391
+
+        # Gegenprobe zur Sortierung: absteigend abgelegt, aufsteigend gezeigt.
+        _se391._store.save({'terminals': {}, 'waren': {}, 'kaeufe': {
+            'Gold': [{'t': '9', 'n': 'Z', 'p': 900.0},
+                     {'t': '8', 'n': 'A', 'p': 100.0}]}})
+        pruefe([e['preis'] for e in _se391.buy_places('Gold')] == [100.0,
+                                                                   900.0],
+               'Gegenprobe: die Sortierung hängt nicht an der Ablage')
+
+        # Eine Ablage im alten Format gilt als fehlend und wird neu geholt.
+        with open(_pfad391, 'w', encoding='utf-8') as f:
+            json.dump({'format': 4, 'geholt': time.time(), 'terminals': {},
+                       'waren': {'Gold': []}}, f)
+        pruefe(_se391.load() == {} and _se391._store.stale(),
+               'eine Ablage im Format 4 wird einmal neu geholt')
+    finally:
+        try:
+            if _vorher391 is None:
+                os.remove(_pfad391)
+            else:
+                with open(_pfad391, 'wb') as f:
+                    f.write(_vorher391)
+        except OSError:
+            pass
+
+
+def _texte392(w):
+    """Alle Texte unter `w` — auch auf gezeichneten Knöpfen — mit dem
+    Widget, an dem sie stehen, in Baumreihenfolge."""
+    out = []
+
+    def _lauf(x):
+        try:
+            out.append((str(x.cget('text')), x))
+        except Exception:
+            pass
+        if x.winfo_class() == 'Canvas':
+            for _id in x.find_all():
+                try:
+                    out.append((str(x.itemcget(_id, 'text')), x))
+                except Exception:
+                    pass
+        for k in x.winfo_children():
+            _lauf(k)
+    _lauf(w)
+    return out
+
+
+def _sichtbar392(w):
+    """Ist `w` samt allen Eltern bis zur Seite eingepackt?"""
+    while w is not None and w.winfo_class() not in ('Tk', 'Toplevel'):
+        if not w.winfo_manager():
+            return False
+        w = w.master
+    return True
+
+
+def _pruefung_392():
+    """392: Umschalter Verkaufen | Kaufen — schaltet, merkt sich die Wahl,
+    zeigt beim Kaufen die günstigste Stelle zuerst; der Reiter heißt
+    Kaufen & Verkaufen."""
+    print('\n392. Kaufen & Verkaufen: Umschalter und Einkaufsliste')
+    from scbp import language as _la392, paths as _pf392
+    _alt_sprache392 = _la392.current()
+    try:
+        _la392.set_language('de')
+        pruefe(_la392.t('hf_verkauf') == 'Kaufen & Verkaufen',
+               'der Reiter heißt deutsch Kaufen & Verkaufen (%r)'
+               % _la392.t('hf_verkauf'))
+        _la392.set_language('en')
+        pruefe(_la392.t('hf_verkauf') == 'Buy & Sell',
+               'der Reiter heißt englisch Buy & Sell (%r)'
+               % _la392.t('hf_verkauf'))
+    finally:
+        _la392.set_language(_alt_sprache392)
+    with open(os.path.join(WURZEL, 'tools', 'nutzung-worker', 'pages.js'),
+              encoding='utf-8') as f:
+        pruefe("verkauf: ['Handel', 'Kaufen & Verkaufen']" in f.read(),
+               'die Nutzungsstatistik zeigt den neuen Namen')
+
+    if not hat_anzeige():
+        print('  (Oberfläche übersprungen: kein Bildschirm)')
+        return
+    from scbp import selling as _se392, main_window as _mw392
+    _pfad392 = _se392._store.path()
+    try:
+        with open(_pfad392, 'rb') as f:
+            _vorher392 = f.read()
+    except OSError:
+        _vorher392 = None
+    _alt_modus392 = _pf392.setting('verkauf_modus')
+    _alt_ansicht392 = _pf392.setting('verkauf_spitze')
+    _w392 = None
+
+    def _fenster():
+        nonlocal _w392
+        if _w392 is not None:
+            _w392.destroy()
+        _w392 = _wurzel()
+        f = _mw392.MainWindow(_w392, version='0.0.0-pruefung')
+        f.open_page('verkauf')
+        _w392.update()
+        return f
+
+    def _klick_text(f, text):
+        for s, w in _texte392(f.pages['verkauf']):
+            if s.lower() == text.lower() and _sichtbar392(w):
+                w.event_generate('<Button-1>', x=2, y=2)
+                _w392.update()
+                return True
+        return False
+
+    def _sichtbare(f):
+        return [s for s, w in _texte392(f.pages['verkauf'])
+                if _sichtbar392(w)]
+
+    try:
+        _la392.set_language('de')
+        _se392._store.save({
+            'terminals': {'1': {'o': 'Area 18', 's': 'Stanton', 'q': 0},
+                          '2': {'o': 'Lorville', 's': 'Stanton', 'q': 0},
+                          '3': {'o': 'Ruin Station', 's': 'Pyro', 'q': 1}},
+            'waren': {'Gold': [{'t': '1', 'n': 'Ankauf', 'p': 30000,
+                                'd': 0, 'k': ''}]},
+            'kaeufe': {'Gold': [
+                {'t': '2', 'n': 'Teuer', 'p': 27000, 'd': 0, 'k': '', 'z': 7,
+                 'm': 500},
+                {'t': '3', 'n': 'Billig', 'p': 24000, 'd': 0,
+                 'k': '1,2,4', 'z': 2, 'm': 3},
+                {'t': '1', 'n': 'Mittel', 'p': 25000, 'd': 0, 'k': '',
+                 'z': 7, 'm': 80}]}})
+        _pf392.set_setting('verkauf_modus', 'verkaufen')
+        _pf392.set_setting('verkauf_spitze', 'alle')
+        _f392 = _fenster()
+        _t392 = _texte392(_f392.pages['verkauf'])
+        pruefe(any(s == 'Kaufen & Verkaufen' for s, _ in _t392),
+               'die Überschrift trägt den neuen Namen')
+        _leiste392 = [s for s, _ in _texte392(_f392.buttons['verkauf'][0])]
+        pruefe('Kaufen & Verkaufen' in _leiste392,
+               'die Seitenleiste trägt den neuen Namen (%s)' % _leiste392)
+        _vk_hinweis392 = _la392.t('s_vk_leer_hinweis')
+        _kf_hinweis392 = _la392.t('s_vk_k_leer_hinweis')
+        _s392 = _sichtbare(_f392)
+        pruefe(_vk_hinweis392 in _s392 and _kf_hinweis392 not in _s392,
+               'Vorbedingung: die Seite steht auf Verkaufen')
+
+        pruefe(_klick_text(_f392, _la392.t('s_vk_m_kaufen')),
+               'der Knopf Kaufen ist da')
+        pruefe(_pf392.setting('verkauf_modus') == 'kaufen',
+               'ein Klick auf Kaufen schaltet um und merkt es sich')
+        _s392 = _sichtbare(_f392)
+        pruefe(_kf_hinweis392 in _s392 and _vk_hinweis392 not in _s392,
+               'beim Kaufen steht die Einkaufsübersicht')
+        pruefe(_la392.t('s_vk_nur_nqa') not in _s392,
+               'das Kästchen für gestohlene Ware ist beim Kaufen ausgeblendet')
+        pruefe(_klick_text(_f392, 'Gold'),
+               'die Übersicht bietet Gold zum Anklicken an')
+        _s392 = _sichtbare(_f392)
+        _namen392 = [s for s in _s392 if s in ('Billig', 'Mittel', 'Teuer')]
+        pruefe(_namen392 == ['Billig', 'Mittel', 'Teuer'],
+               'Gold: der günstigste Ort zuerst (%s)' % _namen392)
+        pruefe(_la392.t('s_vk_k_orte').format(ware='Gold') in _s392,
+               'über der Liste steht, wofür sie gilt')
+        pruefe(any(_la392.t('s_vk_k_vorrat_2') in s for s in _s392)
+               and any(_la392.t('s_vk_k_kisten').format(groessen='1, 2, 4')
+                       == s for s in _s392),
+               'Vorrat und Kistengrößen stehen in der Zeile')
+
+        # Die Wahl überlebt einen Neuaufbau.
+        _f392 = _fenster()
+        _s392 = _sichtbare(_f392)
+        pruefe(_kf_hinweis392 in _s392,
+               'nach dem Neuaufbau steht die Seite wieder auf Kaufen')
+        # Gegenprobe: die Einstellung entscheidet, nicht der Zufall.
+        _pf392.set_setting('verkauf_modus', 'verkaufen')
+        _f392 = _fenster()
+        _s392 = _sichtbare(_f392)
+        pruefe(_kf_hinweis392 not in _s392 and _vk_hinweis392 in _s392,
+               'Gegenprobe: mit gespeichertem Verkaufen steht Verkaufen')
+        _klick_text(_f392, _la392.t('s_vk_m_kaufen'))
+        _klick_text(_f392, _la392.t('s_vk_m_verkaufen'))
+        pruefe(_pf392.setting('verkauf_modus') == 'verkaufen'
+               and _vk_hinweis392 in _sichtbare(_f392)
+               and _la392.t('s_vk_nur_nqa') in _sichtbare(_f392),
+               'zurück auf Verkaufen: Übersicht und Kästchen sind wieder da')
+    finally:
+        _la392.set_language(_alt_sprache392)
+        _pf392.set_setting('verkauf_modus', _alt_modus392 or 'verkaufen')
+        _pf392.set_setting('verkauf_spitze', _alt_ansicht392 or 'alle')
+        try:
+            if _vorher392 is None:
+                os.remove(_pfad392)
+            else:
+                with open(_pfad392, 'wb') as f:
+                    f.write(_vorher392)
+        except OSError:
+            pass
+        try:
+            if _w392 is not None:
+                _w392.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_400():
+    """400–409: Die Signatur-Wache sucht nach einem Fund nur um die Pille,
+    ohne Fund seltener — und liest dabei dasselbe wie die volle Suche."""
+    print('\n400. Signatur-Wache: Fenster um die Pille, seltener ohne Fund')
+    import random as _zf400
+    from scbp import signature_scan as _ss400, signature_watch as _sw400
+    _heim400 = tempfile.mkdtemp(prefix='pruefung400-')
+    _alt400 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim400
+    _altgezeigt400 = _sw400._state.get('shown')
+    _altbild400 = _sw400._state.get('last_frame')
+    try:
+        _echt400 = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                                               'signatur-windows-klein.json'),
+                                  encoding='utf-8'))['bilder']
+        for _k in sorted(_echt400):
+            _ss400.learn(_echt400[_k], _k.split('#')[0])
+        _bek400 = _ss400.templates()
+        _werte400 = [2000, 3000, 4000, 6000, 8000, 12000, 21350]
+        _pille400 = _echt400['2,000']
+        _ph400, _pw400 = len(_pille400), len(_pille400[0])
+        _gw400, _gh400 = 5120, 1440
+        _spiel400 = (0, 0, _gw400, _gh400)
+        _leer400 = b'\x10\x10\x10\xff' * (_gw400 * _gh400)
+
+        def _bild400(lage):
+            """Spielbild 5120x1440, die Pille mit linker oberer Ecke bei `lage`."""
+            if lage is None:
+                return _leer400
+            _b = bytearray(_leer400)
+            for _y, _zeile in enumerate(_pille400):
+                _p = ((lage[1] + _y) * _gw400 + lage[0]) * 4
+                _b[_p:_p + _pw400 * 4] = b''.join(
+                    bytes((_v, _v, _v, 255)) for _v in _zeile)
+            return bytes(_b)
+
+        _jetzt400 = [None]
+        _griffe400 = []
+
+        def _greif400(links, oben, breite, hoehe):
+            _griffe400.append((links, oben, breite, hoehe))
+            _f = _jetzt400[0]
+            return b''.join(_f[(_y * _gw400 + links) * 4:(_y * _gw400 + links + breite) * 4]
+                            for _y in range(oben, oben + hoehe))
+
+        def _such400(roh, breite, hoehe):
+            return _ss400.search(roh, breite, hoehe, _bek400, _werte400)
+
+        def _lauf400(lagen, start=0.0, verfolger=None):
+            """Takte im Abstand INTERVAL_S; je Takt (zeit, ergebnis, griffe,
+            volle_suche_in_diesem_takt)."""
+            _v = verfolger or _sw400.Tracker(_greif400, _such400)
+            _aus = []
+            for _i, _lage in enumerate(lagen):
+                _jetzt400[0] = _bild400(_lage)
+                del _griffe400[:]
+                _t = start + _i * _sw400.INTERVAL_S
+                _vorher = _v.full_searches
+                _e = _v.look(_spiel400, _t)
+                _aus.append((_t, _e, list(_griffe400), _v.full_searches > _vorher))
+            return _v, _aus
+
+        _bereich400 = _sw400.search_area(_spiel400)
+        _flaeche400 = _bereich400[2] * _bereich400[3]
+        _lage400 = (2500, 500)
+
+        # Die Falle muss selbst greifen: Ein Takt holt das Bild ueber den
+        # untergeschobenen Abgriff, und die volle Suche findet die Pille.
+        _v400, _erst400 = _lauf400([_lage400])
+        pruefe(_erst400[0][2] == [_bereich400] and _erst400[0][1]['wert'] == 2000
+               and _v400.full_searches == 1,
+               'Vorbedingung: der Abgriff greift, die volle Suche findet die Pille (%r, %r)'
+               % (_erst400[0][2], _erst400[0][1]['wert']))
+
+        # 401. Nach dem Fund nur noch das Fenster um die Pille.
+        def _fenster_befund400(laeufe, lagen):
+            """Leer, wenn jeder Takt ausser dem ersten und den vollen Suchen
+            genau ein Fenster mit der Pille darin abgreift, kleiner als ein
+            Sechstel des Bereichs — sonst die Takte, die es nicht tun."""
+            _falsch = []
+            for (_t, _e, _g, _vs), _lage in list(zip(laeufe, lagen))[1:]:
+                if _vs:
+                    continue
+                _r = _g[0] if len(_g) == 1 else None
+                _drin = _r is not None and (
+                    _r[0] <= _lage[0] and _lage[0] + _pw400 <= _r[0] + _r[2]
+                    and _r[1] <= _lage[1] and _lage[1] + _ph400 <= _r[1] + _r[3])
+                if not _drin or _r[2] * _r[3] * 6 > _flaeche400:
+                    _falsch.append((_t, _r))
+            return _falsch
+
+        print('401. nach dem Fund wird nur das Fenster um die Pille abgegriffen')
+        _lagen401 = [_lage400] * 20
+        _v401, _l401 = _lauf400(_lagen401)
+        _voll401 = [_t for _t, _e, _g, _vs in _l401 if _vs]
+        pruefe(not _fenster_befund400(_l401, _lagen401)
+               and _v401.tracked_searches >= 15
+               and all(b - a >= _sw400.RECHECK_S - 1e-9
+                       for a, b in zip(_voll401, _voll401[1:])),
+               'Pille steht: Fenster statt Vollbild, volle Suche nur alle %.0f s '
+               '(voll bei %r, Fenster %d)' % (_sw400.RECHECK_S, _voll401,
+                                               _v401.tracked_searches))
+        # Gegenprobe: Ist das Fenster so gross wie der ganze Bereich, meldet
+        # der Befund die Takte.
+        _altrand400 = (_sw400.TRACK_MARGIN_MIN_X, _sw400.TRACK_MARGIN_MIN_Y)
+        try:
+            _sw400.TRACK_MARGIN_MIN_X, _sw400.TRACK_MARGIN_MIN_Y = 6000, 2000
+            _vg401, _lg401 = _lauf400([_lage400] * 3)
+        finally:
+            _sw400.TRACK_MARGIN_MIN_X, _sw400.TRACK_MARGIN_MIN_Y = _altrand400
+        pruefe(len(_fenster_befund400(_lg401, [_lage400] * 3)) == 2,
+               'Gegenprobe: ein Fenster ueber den ganzen Bereich faellt auf')
+
+        # 402. Gelesen wird dasselbe wie mit der vollen Suche in jedem Takt.
+        print('402. das Fenster liest dasselbe wie die volle Suche')
+        _wandert400 = [(2300 + 24 * _i, 420 + 6 * _i) for _i in range(16)]
+        _v402, _l402 = _lauf400(_wandert400)
+        _abw402 = []
+        for (_t, _e, _g, _vs), _lage in zip(_l402, _wandert400):
+            _jetzt400[0] = _bild400(_lage)
+            _voll = _such400(_greif400(*_bereich400), _bereich400[2], _bereich400[3])
+            if _e is None or _e['wert'] != _voll['wert']:
+                _abw402.append((_t, _e and _e['wert'], _voll['wert']))
+        pruefe(not _abw402 and _v402.tracked_searches >= 10,
+               'wandernde Pille: jeder Takt liest denselben Wert wie die volle Suche '
+               '(%r, Fenster %d)' % (_abw402, _v402.tracked_searches))
+
+        # 403. Das Fenster folgt der Pille.
+        print('403. das Fenster folgt der wandernden Pille')
+        _weg403 = [(_e['kasten_abs'], _lage) for (_t, _e, _g, _vs), _lage
+                   in zip(_l402, _wandert400) if _e and _e.get('kasten_abs')]
+        pruefe(len(_weg403) == len(_wandert400)
+               and not _fenster_befund400(_l402, _wandert400)
+               and all(_k[0] <= _l[0] + _pw400 // 2 < _k[0] + _k[2]
+                       and _k[1] <= _l[1] + _ph400 // 2 < _k[1] + _k[3]
+                       for _k, _l in _weg403),
+               'der gefundene Kasten liegt in jedem Takt auf der Pille (%r)' % _weg403[-1:])
+
+        # 404. Ist die Pille weg, sucht die Wache wieder im ganzen Bereich,
+        # und die Anzeige leert nach CLEAR_S.
+        print('404. verschwindet die Pille, sucht die Wache wieder voll')
+        _lagen404 = [_lage400] * 6 + [None] * 14
+        _v404, _l404 = _lauf400(_lagen404)
+        _ab404 = 6 * _sw400.INTERVAL_S
+        _voll404 = [_t for _t, _e, _g, _vs in _l404 if _vs and _t >= _ab404]
+        pruefe(_voll404 and _voll404[0] <= _ab404 + _sw400.INTERVAL_S
+               and _v404.box is None,
+               'nach dem Verschwinden: volle Suche spaetestens im zweiten Takt '
+               '(voll bei %r, Fenster %r)' % (_voll404[:3], _v404.box))
+        _sw400._state['shown'] = None
+        _verlauf404, _zuletzt404, _anzeige404 = [], 0.0, []
+        for _t, _e, _g, _vs in _l404:
+            _m, _zuletzt404 = _sw400.step(lambda *_r: _e, lambda f: f,
+                                          lambda: _e is not None, _spiel400,
+                                          _verlauf404, _t, _zuletzt404)
+            if _m is not False:
+                _sw400._state['shown'] = _m
+                _anzeige404.append((_t, _m))
+        pruefe(_anzeige404[:1] == [(0.5, 2000)] and len(_anzeige404) == 2
+               and _anzeige404[1][1] is None
+               and _anzeige404[1][0] >= 5 * _sw400.INTERVAL_S + _sw400.CLEAR_S,
+               'Anzeige: 2,000 beim zweiten Takt, geleert erst nach %.0f s (%r)'
+               % (_sw400.CLEAR_S, _anzeige404))
+
+        # 405. Lange ohne Pille: volle Suche nur alle FULL_IDLE_S, dazwischen
+        # wird nichts abgegriffen.
+        print('405. lange ohne Pille wird seltener gesucht')
+
+        def _ruhe_befund400(laeufe):
+            """Abstaende der vollen Suchen nach IDLE_AFTER_S ohne Wert, die
+            kuerzer als FULL_IDLE_S sind; dazu Takte ohne Suche mit Abgriff."""
+            _zeiten = [_t for _t, _e, _g, _vs in laeufe if _g]
+            _spaet = [_t for _t in _zeiten if _t >= _sw400.IDLE_AFTER_S + 3.0]
+            _kurz = [(a, b) for a, b in zip(_spaet, _spaet[1:])
+                     if b - a < _sw400.FULL_IDLE_S - 1e-9]
+            _stumm = [_t for _t, _e, _g, _vs in laeufe if _e is None and _g]
+            return _kurz, _stumm, _spaet
+
+        _v405, _l405 = _lauf400([_lage400] * 2 + [None] * 50)
+        _kurz405, _stumm405, _spaet405 = _ruhe_befund400(_l405)
+        # Neben der Konstante gilt ein fester Boden: in der Ruhe hoechstens
+        # eine volle Suche je 1,5 s.
+        pruefe(not _kurz405 and not _stumm405 and len(_spaet405) >= 3
+               and min(b - a for a, b in zip(_spaet405, _spaet405[1:])) >= 1.5
+               and all(_g == [_bereich400] for _t, _e, _g, _vs in _l405[3:] if _g),
+               'ohne Pille: volle Suche alle %.0f s, sonst kein Abgriff (%r, %r)'
+               % (_sw400.FULL_IDLE_S, _spaet405, _kurz405))
+        _frueh405 = [_t for _t, _e, _g, _vs in _l405 if _g and 1.0 < _t < _sw400.IDLE_AFTER_S]
+        pruefe(all(b - a >= _sw400.FULL_BUSY_S - 1e-9 for a, b in zip(_frueh405, _frueh405[1:]))
+               and len(_frueh405) >= 3,
+               'kurz nach der Pille: volle Suche alle %.0f s (%r)'
+               % (_sw400.FULL_BUSY_S, _frueh405))
+        # Gegenprobe: Mit voller Suche in jedem Takt meldet der Befund die
+        # zu kurzen Abstaende.
+        _altruhe400 = _sw400.FULL_IDLE_S
+        try:
+            _sw400.FULL_IDLE_S = _sw400.INTERVAL_S
+            _vg405, _lg405 = _lauf400([None] * 30)
+        finally:
+            _sw400.FULL_IDLE_S = _altruhe400
+        pruefe(_ruhe_befund400(_lg405)[0],
+               'Gegenprobe: volle Suche in jedem Takt faellt auf')
+
+        # 406. Taucht die Pille in der Ruhe auf, ist sie nach spaetestens
+        # FULL_IDLE_S gefunden.
+        print('406. eine neue Pille wird auch in der Ruhe bald gefunden')
+        _v406, _l406 = _lauf400([None] * 30 + [_lage400] * 6)
+        _fund406 = [_t for _t, _e, _g, _vs in _l406 if _e and _e['wert'] == 2000]
+        pruefe(_fund406 and _fund406[0] - 30 * _sw400.INTERVAL_S <= _sw400.FULL_IDLE_S,
+               'Pille nach %.1f s Ruhe: gefunden nach %r s'
+               % (30 * _sw400.INTERVAL_S,
+                  _fund406 and _fund406[0] - 30 * _sw400.INTERVAL_S))
+
+        # 407. Springt die Uhr zurueck, haelt das die volle Suche nicht an.
+        print('407. eine zurueckspringende Uhr haelt die Suche nicht an')
+        _v407, _l407 = _lauf400([None] * 3, start=5000.0)
+        _v407, _l407b = _lauf400([None] * 3, start=100.0, verfolger=_v407)
+        pruefe(_l407b[0][2] == [_bereich400],
+               'nach dem Sprung zurueck: im ersten Takt wieder volle Suche')
+
+        # 408. Die schnelle Flaechenzerlegung und der Bitvergleich ergeben
+        # dasselbe wie der Weg ueber einzelne Punkte.
+        print('408. schnelle Zerlegung und Bitvergleich: dieselben Ergebnisse')
+        _zz408 = _zf400.Random(400)
+        _raster408 = [_echt400[_k] for _k in sorted(_echt400)[:12]]
+        for _n in range(30):
+            _b, _h = _zz408.randrange(3, 60), _zz408.randrange(3, 40)
+            _raster408.append([[_zz408.choice((0, 0, 0, 200, 255)) for _x in range(_b)]
+                               for _y in range(_h)])
+        # Zwei Flaechen, die sich nur ueber Eck beruehren: eine Flaeche.
+        _eck408 = [[0] * 6 for _ in range(10)]
+        for _y in range(5):
+            _eck408[_y][1] = _eck408[_y][2] = 200
+        for _y in range(5, 10):
+            _eck408[_y][3] = _eck408[_y][4] = 200
+        _raster408.append(_eck408)
+        _abw408 = []
+        for _i, _r in enumerate(_raster408):
+            for _s in sorted(set(_ss400.thresholds(_r)) | {100}):
+                if _ss400.components(_r, _s) != _ss400._components_by_pixel(_r, _s):
+                    _abw408.append((_i, _s))
+        pruefe(not _abw408 and _ss400.components(_eck408, 100) == [(1, 0, 4, 9)],
+               'Flaechen: schnell = Punkt fuer Punkt in %d Rastern, ueber Eck '
+               'verbunden (%r)' % (len(_raster408), _abw408[:5]))
+        # Gegenprobe: Mit Kommazahlen im Raster geht es ueber die Punkte.
+        pruefe(_ss400.byte_lines([[0.5, 200]]) is None
+               and _ss400.components([[0.5, 200.0]] * 4 + [[0, 200]] * 2, 100)
+               == _ss400._components_by_pixel([[0.5, 200.0]] * 4 + [[0, 200]] * 2, 100),
+               'Raster mit Kommazahlen: Weg ueber die einzelnen Punkte')
+        _muster408 = [_ss400.fill(_ss400.normalize(_r, (0, 0, len(_r[0]) - 1, len(_r) - 1),
+                                                   120)) for _r in _raster408[:12]]
+        _abst408 = []
+        for _p in _muster408:
+            _eigen = _ss400.holes(_p)
+            for _d, _beisp in _bek400.items():
+                _schnell = _ss400._nearest(_p, _ss400._bits(_p), _eigen, _beisp, 384.0)
+                _langsam = min(
+                    sum(1 for _j in range(384) if _p[_j] != _e[_j]) / 384.0
+                    + (0.0 if _ss400._holes_match(_eigen, _hl) else _ss400.HOLE_PENALTY)
+                    for _e, _hl in _beisp)
+                if _schnell != _langsam:
+                    _abst408.append((_d, _schnell, _langsam))
+        pruefe(not _abst408 and len(_muster408) == 12,
+               'Bitvergleich: derselbe Abstand wie Punkt fuer Punkt (%r)' % _abst408[:3])
+
+        # 409. Die Wache nimmt den Verfolger, und der sucht ueber `search`.
+        print('409. die Wache sucht ueber den Verfolger')
+        _loop409 = rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
+                              encoding='utf-8').read(), '_loop')
+        pruefe('Tracker(' in _loop409 and 'tracker.look(' in _loop409
+               and 'signature_scan.search(' in _loop409
+               and 'time.monotonic()' in _loop409,
+               'die Wache sucht ueber Tracker.look, mit gleichmaessig laufender Uhr')
+    finally:
+        _sw400._state['shown'] = _altgezeigt400
+        _sw400._state['last_frame'] = _altbild400
+        if _alt400 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt400
+        shutil.rmtree(_heim400, ignore_errors=True)
+
+
+def _pruefung_410():
+    """410: Ein übersetzter Gegenstandsname findet zum Katalognamen zurück."""
+    print('\n410. Übersetzte Gegenstandsnamen: Rückweg über den Textschlüssel')
+    from scbp import phrases as _ph410, collection as _co410, paths as _pa410
+    _heim410 = tempfile.mkdtemp(prefix='pruefung410-')
+    _alt410 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim410
+    _altordner410 = _pa410.localization_folder
+    _loc410 = os.path.join(_heim410, 'Localization')
+    _de410 = os.path.join(_loc410, 'german_(germany)')
+    _en410 = os.path.join(_loc410, 'english')
+    os.makedirs(_de410)
+    os.makedirs(_en410)
+
+    def _schreib410(ordner, zeilen):
+        with open(os.path.join(ordner, 'global.ini'), 'w',
+                  encoding='utf-8-sig') as f:
+            f.write('\n'.join(zeilen) + '\n')
+
+    def _frisch410():
+        _ph410._BACK_CACHE.clear()
+        _ph410._BACK_INDEX.clear()
+        _ph410._BACK_ARCHIVE.clear()
+        # Kein echter Archivzugriff im Prüflauf.
+        _ph410._BACK_ARCHIVE['daten'] = {}
+        try:
+            os.remove(_pa410.app_file(_ph410.BACK_FILE))
+        except OSError:
+            pass
+
+    _bekannt410 = {'helix ii mining laser': {'n': 'Helix II Mining Laser'},
+                   'arbor mh1 mining laser': {'n': 'Arbor MH1 Mining Laser'},
+                   'zwilling a laser': {'n': 'Zwilling A Laser'},
+                   'zwilling b laser': {'n': 'Zwilling B Laser'}}
+    try:
+        _pa410.localization_folder = lambda *a, **k: _loc410
+        _schreib410(_de410, [
+            'Frontend_PU_Version=Test',
+            'item_Mining_MiningLaser_Thermyte_2_S2=Helix II Bergbaulaser',
+            'item_Mining_MiningLaser_Greycat_Default_S1=*Arbor MH1 Bergbaulaser (Min/1/C)',
+            'item_Zwilling_A=Zwillingslaser',
+            'item_Zwilling_B=Zwillingslaser',
+            'mission_desc_1=Helix II Bergbaulaser'])
+        _schreib410(_en410, [
+            'item_Mining_MiningLaser_Thermyte_2_S2=Helix II Mining Laser',
+            'item_Mining_MiningLaser_Greycat_Default_S1,P=Arbor MH1 Mining Laser (Min/1/C)',
+            'item_Zwilling_A=Zwilling A Laser',
+            'item_Zwilling_B=Zwilling B Laser'])
+        _frisch410()
+        _r410 = _co410.catalog_name('Helix II Bergbaulaser', _bekannt410)
+        pruefe(_r410 == 'Helix II Mining Laser',
+               'übersetzter Name -> Katalogname (%r)' % _r410)
+        _r410 = _co410.catalog_name('Arbor MH1 Bergbaulaser', _bekannt410)
+        pruefe(_r410 == 'Arbor MH1 Mining Laser',
+               'Stern und angehängte Angaben stören den Rückweg nicht (%r)' % _r410)
+        _r410 = _co410.catalog_name('Zwillingslaser', _bekannt410)
+        pruefe(_r410 == 'Zwillingslaser',
+               'zwei mögliche Katalognamen -> nicht geraten (%r)' % _r410)
+        _r410 = _co410.catalog_name('Gibt Es Nicht', _bekannt410)
+        pruefe(_r410 == 'Gibt Es Nicht', 'unbekannter Name bleibt (%r)' % _r410)
+        pruefe(os.path.isfile(_pa410.app_file(_ph410.BACK_FILE)),
+               'die Rückwege liegen abgelegt')
+
+        # Neu gestartet: Die Ablage trägt, ohne dass die Dateien gelesen werden.
+        _ph410._BACK_CACHE.clear()
+        _ph410._BACK_INDEX.clear()
+        _altkeys410 = _ph410._keys_for
+        _ph410._keys_for = lambda *a: (_ for _ in ()).throw(
+            AssertionError('Datei gelesen'))
+        try:
+            _r410 = _co410.catalog_name('Helix II Bergbaulaser', _bekannt410)
+        finally:
+            _ph410._keys_for = _altkeys410
+        pruefe(_r410 == 'Helix II Mining Laser',
+               'nach einem Neustart aus der Ablage (%r)' % _r410)
+
+        # Der Bestand: ein schon gespeicherter übersetzter Name wird angeglichen.
+        from scbp import catalog as _ka410
+        _altload410 = _ka410.load
+        _ka410.load = lambda *a, **k: {'bauplaene': _bekannt410}
+        try:
+            _daten410 = {'bauplaene': {'helix ii bergbaulaser': {
+                'name': 'Helix II Bergbaulaser', 'quelle': 'log', 'zeit': 1}}}
+            _n410 = _co410.align(_daten410)
+            pruefe(_n410 == 1 and list(_daten410['bauplaene'])
+                   == ['helix ii mining laser'],
+                   'align() gleicht den gespeicherten Namen an (%r)'
+                   % list(_daten410['bauplaene']))
+            _daten410 = {'bauplaene': {}}
+            _co410.add(_daten410, 'Helix II Bergbaulaser')
+            pruefe(list(_daten410['bauplaene']) == ['helix ii mining laser'],
+                   'add() legt den Katalognamen ab (%r)'
+                   % list(_daten410['bauplaene']))
+        finally:
+            _ka410.load = _altload410
+
+        # Gegenprobe: ohne englischen Text kein Rückweg.
+        _schreib410(_en410, ['item_Anderes=Etwas'])
+        _frisch410()
+        _r410 = _co410.catalog_name('Helix II Bergbaulaser', _bekannt410)
+        pruefe(_r410 == 'Helix II Bergbaulaser',
+               'Gegenprobe: ohne englischen Text bleibt der Name (%r)' % _r410)
+    finally:
+        _pa410.localization_folder = _altordner410
+        _frisch410()
+        _ph410._BACK_ARCHIVE.clear()
+        if _alt410 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt410
+        shutil.rmtree(_heim410, ignore_errors=True)
 
 
 def _alle_eingaben(w):

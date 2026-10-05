@@ -155,8 +155,8 @@ Buying and selling: **where is a part or ship on the shelf — and where do I of
 <sub><b>Cargo hold</b> — what you carry to sell, kept apart from your material storage</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="assets/screenshot-verkauf-en.png" alt="Selling tab with the best buyers" width="100%"><br>
-<sub><b>Selling</b> — the best buyers, sorted by how many of your goods a place takes</sub>
+<img src="assets/screenshot-verkauf-en.png" alt="Buy & Sell tab with the best buyers" width="100%"><br>
+<sub><b>Buy & Sell</b> — the best buyers, sorted by how many of your goods a place takes; switched to Buy, the cheapest places to buy</sub>
 </td>
 </tr>
 <tr>
@@ -475,7 +475,7 @@ The narrow bar sits above the game and reports new finds. Everything else is beh
 | <img src="assets/symbole/22/leeren-grau.png" width="22" alt=""> | **Eraser** — clear the messages on screen. Your blueprints stay |
 | <img src="assets/symbole/22/schliessen-grau.png" width="22" alt=""> | **Cross** — close |
 | <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Cargo hold** | What you carry to sell — deliberately kept apart from your material storage: one is building material you keep, the other is cargo you want gone. Enter commodity, location and SCU; the amount field does maths (`100+5`). Instead of a quality there is a **"marked as stolen"** tick — quality does not affect selling, and looted cargo is always Q 0 anyway |
-| <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Selling** | Where to offload your goods and what they pay **per SCU** — for **several commodities at once**. Sorted not by the highest price but by **how many of your goods a place takes**: 100 SCU gold, 40 copper and 25 iron pay 3,533,000 aUEC at one place, 3,566,000 spread over three — one percent more for two extra approaches. If the cargo is marked as stolen, the tab narrows down to the 15 terminals that ask no questions |
+| <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Buy & Sell** | Switch between **Sell** and **Buy** at the top. **Buy:** search a commodity (e.g. gold) and see which terminals sell it — cheapest place first, with stock level (empty and nearly empty are flagged), box sizes and the age of the report. **Sell:** where to offload your goods and what they pay **per SCU** — for **several commodities at once**. Sorted not by the highest price but by **how many of your goods a place takes**: 100 SCU gold, 40 copper and 25 iron pay 3,533,000 aUEC at one place, 3,566,000 spread over three — one percent more for two extra approaches. If the cargo is marked as stolen, the tab narrows down to the 15 terminals that ask no questions |
 
 | Action | How |
 |---|---|

@@ -64,6 +64,7 @@ NEW_SINCE = {
     'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0
     'hangar':      '3.78.0',   # Mein Hangar, mit den Namen im Spiel
+    'verkauf':     '3.92.0',   # Kaufen & Verkaufen: Einkaufsorte je Ware
     'wunschliste': '3.19.0',   # was ich mir vornehme, mit Preis und Ort
     'bergung':     '3.19.0',   # was in einem Wrack steckt und was es wert ist
     'auftragslog': '3.12.0',   # Auftrags-Protokoll: was wann gespielt wurde

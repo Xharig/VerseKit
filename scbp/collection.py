@@ -398,7 +398,35 @@ def catalog_name(name, known=None):
     short = SUFFIX_RE.sub('', name).strip()
     if short and short != name and norm(short) in known:
         return short
-    return _unique_match(name, known)
+    found = _unique_match(name, known)
+    if found != name:
+        return found
+    return _translated_back(short or name, known) or name
+
+
+def _translated_back(name, known):
+    """Der Katalogname zu einem übersetzten Gegenstandsnamen — oder None.
+
+    ⚠ Zugeordnet wird nur, wenn **genau ein** englischer Name des Schlüssels
+    im Katalog steht — siehe `phrases.english_names`. Mehrere Treffer bleiben
+    offen, aus demselben Grund wie bei `_unique_match`.
+    """
+    try:
+        from . import phrases
+        candidates = phrases.english_names(name)
+    except Exception as exc:
+        from . import errors
+        errors.record('collection.translated_back', exc)
+        return None
+    hits = {}
+    for english in candidates:
+        entry = known.get(norm(english))
+        if entry is not None:
+            hits[norm(english)] = ((entry.get('n') if isinstance(entry, dict)
+                                    else None) or english)
+    if len(hits) != 1:
+        return None
+    return next(iter(hits.values()))
 
 
 # Ab so vielen Wörtern darf über die Wortmenge zugeordnet werden.
