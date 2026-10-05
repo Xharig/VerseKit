@@ -35963,7 +35963,8 @@ def _pruefung_377():
         _t378 = _menue378()
         pruefe(_t378.startswith(_fremd378),
                'die fremden Zeilen stehen unverändert vorn')
-        pruefe(_t378.count('Verse-Kit') == 1 and _in377.WEBSITE in _t378,
+        pruefe(_t378.count('Verse-Kit') == 1
+               and _in377.WEBSITE.split('//', 1)[-1] in _t378,
                'eigene Zeile mit Adresse genau einmal, auch nach zwei Läufen')
         _in377.apply_texts(_ini378, 'german_(germany)',
                            catalog_data=_katalog378,
@@ -35983,6 +35984,23 @@ def _pruefung_377():
                                     + _in377.MENU_KEY.encode() + b'=')
                and b'Verse-Kit' in _erste378,
                'mit BOM in der ersten Zeile: eigene Zeile drin, BOM bleibt')
+        # Die alte, dreizeilige eigene Form (Leerzeile, Name, Adresse) wird
+        # zu genau einer Zeile ohne Leerzeile davor.
+        _in377.discard_origtext()
+        _alt378 = '\\n\\nVerse-Kit v3.93.2\\nhttps://versekit.xharig.com'
+        with open(_ini378, 'w', encoding='utf-8', newline='') as _f:
+            _f.write('%s=%s%s\nanderes=Text\n' % (_in377.MENU_KEY, _fremd378,
+                                                    _alt378))
+        _in377.apply_texts(_ini378, 'german_(germany)',
+                           catalog_data=_katalog378, stock={'bauplaene': {}})
+        _t378b = _menue378() or ''
+        pruefe(_t378b == _fremd378 + _in377.menu_lines()
+               and _t378b.count('Verse-Kit') == 1
+               and '\\n\\nVerse-Kit' not in _t378b,
+               'alte dreizeilige Form wird zu einer Zeile ohne Leerzeile (%s)'
+               % _t378b[-60:])
+        pruefe(_in377.menu_lines().count('\\n') == 1,
+               'die eigene Zeile ist genau eine Zeile')
         # Gegenprobe: Ohne Urtext und ohne Abschneiden stünde die Zeile
         # doppelt da.
         with open(_ini378, 'w', encoding='utf-8', newline='') as _f:

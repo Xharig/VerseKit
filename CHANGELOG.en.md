@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.3 - 2026-10-05
+
+> The Verse-Kit note in the game's main menu now takes a single line — the
+> menu no longer shifts.
+
+### Fixed
+
+- **Main menu pushed down** — name and address share one line with no blank
+  line before it; the version box no longer covers "Join the universe"
+
 ## v3.94.2 - 2026-10-05
 
 > The quality sliders now sit right below "Crafted" — set and deduct

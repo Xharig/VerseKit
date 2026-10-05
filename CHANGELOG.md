@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.3 - 2026-10-05
+
+> Der Verse-Kit-Hinweis im Hauptmenü des Spiels braucht nur noch eine Zeile —
+> das Menü verrutscht nicht mehr.
+
+### Behoben
+
+- **Hauptmenü nach unten verschoben** — Name und Adresse stehen in einer
+  Zeile ohne Leerzeile davor; der Versionskasten überdeckt „Dem Universum
+  beitreten" nicht mehr
+
 ## v3.94.2 - 2026-10-05
 
 > Die Qualitätsregler stehen jetzt direkt unter „Hergestellt" — einstellen

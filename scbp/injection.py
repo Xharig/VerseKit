@@ -817,17 +817,18 @@ def _stem(key):
 # ebenfalls ihre Zeilen an; die eigene kommt dahinter.
 MENU_KEY = 'Frontend_PU_Version'
 WEBSITE = 'https://versekit.xharig.com'
-MENU_MARK = '\\n\\nVerse-Kit'
+MENU_MARK = '\\nVerse-Kit'
 
 
 def menu_lines():
-    """Die eigenen Zeilen für den Menükasten — mit dem `\\n` der `global.ini`."""
+    """Die eigene Zeile für den Menükasten — eine Zeile, mit dem `\\n`
+    der `global.ini` davor. Jede Zeile mehr schiebt das Hauptmenü nach unten."""
     try:
         from sc_bp_watcher import __version__ as version
     except Exception:
         version = ''
     suffix = (' v%s' % version) if version else ''
-    return '%s%s\\n%s' % (MENU_MARK, suffix, WEBSITE)
+    return '%s%s · %s' % (MENU_MARK, suffix, WEBSITE.split('//', 1)[-1])
 
 
 def apply_texts(ini_path, language, catalog_data=None, stock=None,
@@ -940,6 +941,10 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
                 # eigene Zeile, die ohne gemerkten Urtext übrig ist, wird
                 # vorher abgeschnitten, damit sie nicht doppelt erscheint.
                 orig = orig.split(MENU_MARK, 1)[0]
+                # Zeilenumbrüche am Ende (Rest einer mehrzeiligen eigenen
+                # Zeile) fallen weg.
+                while orig.endswith('\\n'):
+                    orig = orig[:-2]
                 clean = orig + menu_lines()
                 touched = True
             elif key in own_ships:
