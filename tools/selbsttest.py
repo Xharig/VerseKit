@@ -35820,6 +35820,10 @@ def _pruefung_350():
         knopf.sync_click()
         _bs350.current_state = lambda: {'stock': {'conflicts': {'a': (1, 2),
                                                                 'b': (3, 4)}}}
+        # Den Status vor dem Lesen selbst setzen: Ein Abgleich im Hintergrund
+        # darf ihn zwischen Klick und Auswertung nicht verändert haben.
+        _bs350.STATUS.update(state='ok', running=False, code='',
+                             last_sync='2026-10-04 12:00:00')
         knopf.sync_status()
         pruefe(meldung[0].cget('text') == _la350.t('s_lg_sync_konflikte') % 2,
                'abweichende Mengen: Hinweis auf die Basetool-Seite')
