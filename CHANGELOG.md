@@ -6,6 +6,16 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.95.1 - 2026-10-05
+
+> Bauteile tragen auch mit der Luftwerft-Übersetzung wieder ihre Größe im
+> Namen, also „Glacier (Mil/1/A)" statt „Glacier (Mil/–/A)".
+
+### Behoben
+
+- **Größe im Kürzel hinter dem Namen** — wird jetzt auch gelesen, wenn die
+  Übersetzung sie ohne „S" schreibt („Größe: 1")
+
 ## v3.95.0 - 2026-10-05
 
 > Das Rohstofflager rechnet jetzt in Kisten wie das Spiel. Jede Portion beim

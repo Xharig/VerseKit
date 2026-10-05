@@ -2275,6 +2275,18 @@ def main():
                               'Klasse': 'Military (Militär)'})) == '(Mil/1/A)',
                'Komponente wird zu Klasse/Groesse/Guete')
         pruefe(an27.from_description(
+                   besch27(**{'Größe': '1', 'Grade': 'A',
+                              'Klasse': 'Militär'})) == '(Mil/1/A)',
+               'die Groesse ohne S (`Größe: 1`) wird genauso gelesen')
+        pruefe(an27.from_description(
+                   besch27(**{'Size': '2', 'Grade': 'C',
+                              'Class': 'Civilian'})) == '(Civ/2/C)',
+               'auch englisch (`Size: 2`)')
+        pruefe(an27.from_description(
+                   besch27(**{'Größe': 'Large', 'Gütegrad': 'B',
+                              'Klasse': 'Militär'})) == '(Mil/–/B)',
+               'eine Groesse ohne Zahl bleibt ein Strich')
+        pruefe(an27.from_description(
                    besch27(**{'Größe': 'S2', 'Verfolgungssignal': 'Infrarot'}))
                == '(IR2)',
                'Rakete bekommt den Suchkopf, keine Fraktion')

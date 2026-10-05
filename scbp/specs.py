@@ -172,13 +172,14 @@ def _tag(value, table):
 
 
 def _number(size):
-    """`'S3'` → `'3'`. Alles, was keine schlichte Größe ist, fällt weg.
+    """`'S3'` oder `'3'` → `'3'`. Alles, was keine schlichte Größe ist, fällt weg.
 
-    In der Datei stehen auch Werte wie `'S2 (Nur Fahrzeuge)'` oder `'Large'` —
-    die gehören nicht in ein Kürzel, das drei Zeichen breit sein soll."""
+    Je nach Übersetzung steht die Größe mit oder ohne `S` da (`Größe: S1`,
+    `Größe: 1`). Werte wie `'S2 (Nur Fahrzeuge)'` oder `'Large'` gehören
+    nicht in ein Kürzel, das drei Zeichen breit sein soll."""
     if not size:
         return None
-    hit = re.fullmatch(r'S(\d{1,2})', size.strip())
+    hit = re.fullmatch(r'S?(\d{1,2})', size.strip())
     return hit.group(1) if hit else None
 
 

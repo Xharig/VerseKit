@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.95.1 - 2026-10-05
+
+> Components show their size in the name again with the Luftwerft
+> translation too, so "Glacier (Mil/1/A)" instead of "Glacier (Mil/–/A)".
+
+### Fixed
+
+- **Size in the tag after the name** — now also read when the translation
+  writes it without the "S" ("Size: 1")
+
 ## v3.95.0 - 2026-10-05
 
 > The material storage now counts in crates, just like the game. Every
