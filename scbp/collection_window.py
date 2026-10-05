@@ -528,6 +528,7 @@ class Bestandsfenster:
                                  ('habe', t('filter_habe')),
                                  ('fehlt', t('filter_fehlt')),
                                  ('merk', t('filter_merk')),
+                                 ('vorgemerkt', t('filter_vorgemerkt')),
                                  ('neu', t('filter_neu')),
                                  ('deckel', t('filter_deckel'))):
             from .main_window import round_button
@@ -1499,6 +1500,10 @@ class Bestandsfenster:
         text = self.suche.get().strip().lower()
         habe = bestand_datei.keys(self.bestand)
         beobachtet = merk.names()
+        # Was zum Farmen vorgemerkt ist, in derselben Schreibweise wie `k`.
+        from . import fleet as _farm
+        vorgemerkt = {katalog_modul._norm(e.get('name') or '')
+                      for e in _farm.notepad(self._farm_stand())}
         # Was mit dem letzten Patch dazukam. Einmal je Durchlauf holen — die
         # Menge ist für alle Zeilen dieselbe.
         neu_im_spiel = katalog_modul.new_ones(self.katalog)
@@ -1537,6 +1542,8 @@ class Bestandsfenster:
                     if not merk.match(e['n']):
                         continue
                 if self.filter == 'neu' and k not in neu_im_spiel:
+                    continue
+                if self.filter == 'vorgemerkt' and k not in vorgemerkt:
                     continue
                 # ⚠ Filter `deckel`: nur was **fehlt** und **nur** ueber
                 # Auftraege mit Ruf-Obergrenze zu bekommen ist. Was man schon
@@ -1755,6 +1762,7 @@ class Bestandsfenster:
             empty = (t('merkliste_leer') if self.filter == 'merk'
                      else t('deckel_leer') if self.filter == 'deckel'
                      else t('neu_leer') if self.filter == 'neu'
+                     else t('vorgemerkt_leer') if self.filter == 'vorgemerkt'
                      else t('nichts_gefunden'))
             tk.Label(self.inhalt, text=empty, bg=BG, fg=SUB, font=schrift(11),
                      pady=20, wraplength=520, justify='center').pack()

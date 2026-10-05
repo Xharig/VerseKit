@@ -21,7 +21,7 @@ Das Raffinerie-Terminal vom Bildschirm lesen.
 
 Ablauf: Star-Citizen-Fenster abgreifen (`screen_grab`), als BMP in den
 Temp-Ordner legen, mit der Texterkennung von Windows lesen
-(derzeit abgeschaltet, siehe `OCR_ENABLED`). Zuerst wird das
+(`Windows.Media.Ocr` über ctypes, siehe `win_ocr`). Zuerst wird das
 ganze Bild in vergrößerten Kacheln nach der Kopfzeile der Ausbeute-Tabelle
 abgesucht (`search_jobs`, `find_table`) — das Terminal kann irgendwo auf
 einem breiten Bildschirm stehen. Danach wird nur dieser Ausschnitt mehrfach
@@ -34,7 +34,7 @@ Knopf dort.
 
 | System | Stand |
 |---|---|
-| Windows 10/11 | abgeschaltet (`OCR_ENABLED`) |
+| Windows 10/11 | gebaut — braucht eine installierte OCR-Sprache (de oder en) |
 | Linux | nicht unterstützt (`supported()` ist False) |
 
 ⚠ Die Erkennung arbeitet auf Wörtern mit Begrenzungsrahmen, nicht auf den
@@ -64,10 +64,9 @@ class ScanError(Exception):
         self.detail = detail
 
 
-# Ein unsichtbar gestartetes `powershell.exe` mit verschlüsseltem Befehl
-# werten Virenschutz-Programme als Schadsoftware. Ohne einen anderen Weg zur
-# Texterkennung ist das Lesen deshalb abgeschaltet.
-OCR_ENABLED = False
+# Die Texterkennung läuft im eigenen Prozess über `win_ocr` (ctypes), ohne
+# Skript-Interpreter und ohne Unterprozess.
+OCR_ENABLED = True
 
 
 def supported():
@@ -135,11 +134,27 @@ def grab_game(rect):
 
 # ------------------------------------------------------------------ OCR
 def ocr_image(path, jobs, save=None, save_crop=None, timeout=180):
-    """Ein Bild mit der Texterkennung lesen — derzeit abgeschaltet
-    (`OCR_ENABLED`). Gibt das Ergebnis-dict `{'width', 'height', 'lang',
-    'passes': [{'box', 'scale', 'mode', 'words'}, …]}` zurück, sobald es
-    wieder einen Weg gibt; bis dahin `ScanError('nicht_unterstuetzt')`."""
-    raise ScanError('nicht_unterstuetzt')
+    """Ein BMP mit der Texterkennung von Windows lesen. Gibt das
+    Ergebnis-dict `{'width', 'height', 'lang', 'passes': [{'box', 'scale',
+    'mode', 'words'}, …]}`.
+
+    Je Eintrag in `jobs` ein Durchgang `((x, y, b, h), vergrößerung, art)`;
+    die Wortrahmen stehen in Bildpunkten des Originals. `save` legt das
+    ganze Bild als PNG ab, verkleinert auf höchstens `KEEP_MAX_WIDTH`;
+    `save_crop` = `((x, y, b, h), pfad)` einen Ausschnitt.
+    """
+    if not supported():
+        raise ScanError('nicht_unterstuetzt')
+    from . import win_ocr
+    try:
+        return win_ocr.ocr_image(path, jobs, save=save, save_crop=save_crop,
+                                 keep_width=KEEP_MAX_WIDTH, timeout=timeout)
+    except win_ocr.OcrError as error:
+        if str(error) == 'keine_sprache':
+            raise ScanError('keine_sprache')
+        raise ScanError('ocr', str(error))
+    except (OSError, ValueError) as error:
+        raise ScanError('ocr', str(error))
 
 
 # ------------------------------------------------------- Zeilen bauen
@@ -385,7 +400,7 @@ def needs_confirm(value):
     return value is not None and bool(set(str(value)) & CONFUSABLE)
 
 
-def merge_passes(passes, index=None, minimum=None, confirm=None):
+def merge_passes(passes, index=None, minimum=None, confirm=None, details=None):
     """Mehrere Lesungen desselben Bildes zu einer Ausbeute zusammenführen.
 
     Zeilen verschiedener Durchgänge gehören zusammen, wenn ihre senkrechte
@@ -395,8 +410,12 @@ def merge_passes(passes, index=None, minimum=None, confirm=None):
 
     Enthält ein abgestimmter Wert eine Ziffer aus `CONFUSABLE`, gilt er nur,
     wenn `confirm(zeile, spalte, wert)` True zurückgibt — `zeile` ist die
-    senkrechte Mitte, `spalte` 0 für Qualität, 1 für Menge. Ohne `confirm`
-    ist ein solcher Wert unsicher.
+    senkrechte Mitte, `spalte` 0 für Qualität, 1 für Menge. Gibt `confirm`
+    eine Zahl zurück, gilt diese statt des gelesenen Werts (eine 8, die eine
+    Null ist). Ohne `confirm` ist ein solcher Wert unsicher.
+
+    `details`: Liste, an die je unsicherer Zeile `{'material', 'y'}` gehängt
+    wird.
 
     Gibt `(zeilen, unsicher)`: `zeilen` als `(material, qualität,
     menge_cscu)` von oben nach unten; `unsicher` als Liste der Rohstoffe,
@@ -425,14 +444,23 @@ def merge_passes(passes, index=None, minimum=None, confirm=None):
         if material is None:
             continue
         for column, value in ((0, quality), (1, amount)):
-            if needs_confirm(value) and not (
-                    confirm and confirm(cluster['y'], column, value)):
-                if column == 0:
-                    quality = None
-                else:
-                    amount = None
+            if not needs_confirm(value):
+                continue
+            checked = confirm(cluster['y'], column, value) if confirm else None
+            if checked is True:
+                continue
+            if isinstance(checked, int) and not isinstance(checked, bool):
+                value = checked
+            else:
+                value = None
+            if column == 0:
+                quality = value
+            else:
+                amount = value
         if quality is None or amount is None:
             unsure.append(material)
+            if details is not None:
+                details.append({'material': material, 'y': cluster['y']})
             continue
         found.append((material, quality, amount))
     return found, unsure
@@ -686,6 +714,241 @@ def keep(source, kind):
         return False
 
 
+# ------------------------------------------------------- Ziffern lernen
+# Gelernte Ziffernbilder der Terminal-Schrift, je Ziffer eine Liste von
+# Mustern. Sie entscheiden zwischen 0 und 8, die die Texterkennung nicht
+# auseinanderhält (`CONFUSABLE`).
+DIGIT_FILE = 'raffinerie-ziffern.json'
+# Größe eines Musters in Bildpunkten und Höhe, auf die eine Zelle vor dem
+# Zerlegen vergrößert wird.
+DIGIT_W, DIGIT_H = 10, 14
+CELL_HEIGHT = 42
+# Höchstens so viele Muster je Ziffer; die ältesten fallen heraus.
+DIGIT_KEEP = 40
+# Mindestzahl der Muster für 0 und für 8, ab der `classify` zuordnet.
+DIGIT_MIN = 2
+# Die andere Ziffer muss um diesen Faktor weiter weg sein als die gewählte.
+DIGIT_MARGIN = 1.3
+
+
+def load_digits():
+    """Die gelernten Muster: {'0': [[…], …], '8': …} — oder leer."""
+    import json
+    from . import paths
+    try:
+        with open(paths.app_file(DIGIT_FILE), encoding='utf-8') as handle:
+            data = json.load(handle)
+        return {k: v for k, v in data.get('ziffern', {}).items()
+                if isinstance(v, list)}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def save_digits(digits):
+    import json
+    from . import paths
+    target = paths.app_file(DIGIT_FILE)
+    try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target + '.tmp', 'w', encoding='utf-8') as handle:
+            json.dump({'format': 1, 'ziffern': digits}, handle)
+        os.replace(target + '.tmp', target)
+        return True
+    except OSError as exc:
+        from . import errors
+        errors.record('refinery_scan.save_digits', exc)
+        return False
+
+
+def cell_crop(src, box):
+    """Graustufenbild `(breite, höhe, bytes)` einer Zahlenzelle, vergrößert
+    auf `CELL_HEIGHT`. `src` ist `(breite, höhe, BGRA)` des ganzen Bildes."""
+    from . import win_ocr
+    x, y, w, h = (int(v) for v in box)
+    x, y = max(0, x), max(0, y)
+    w, h = min(w, src[0] - x), min(h, src[1] - y)
+    if w <= 0 or h <= 0:
+        return None
+    tw, th, raw = win_ocr.scaled(src, (x, y, w, h), CELL_HEIGHT / float(h))
+    return tw, th, bytes(raw[1::4])
+
+
+def glyphs(crop, count):
+    """Die `count` Ziffern einer Zelle als Muster (Liste von Zahlenreihen).
+
+    Die Schrift setzt Ziffern gleich breit: Der Bereich mit Schrift wird in
+    `count` gleiche Teile geschnitten, jeder Teil auf `DIGIT_W` × `DIGIT_H`
+    gebracht und auf Mittelwert 0 und Länge 1 gesetzt.
+    """
+    if not crop or count <= 0:
+        return []
+    width, height, gray = crop
+    low, high = min(gray), max(gray)
+    if high - low < 30:
+        return []
+    cut = (low + high) / 2.0
+    cols = [x for x in range(width)
+            if any(gray[y * width + x] > cut for y in range(height))]
+    rows_ = [y for y in range(height)
+             if any(gray[y * width + x] > cut for x in range(width))]
+    if not cols or not rows_:
+        return []
+    x0, x1 = cols[0], cols[-1] + 1
+    y0, y1 = rows_[0], rows_[-1] + 1
+    step = (x1 - x0) / float(count)
+    out = []
+    for i in range(count):
+        left = x0 + step * i
+        vector = []
+        for gy in range(DIGIT_H):
+            sy = min(height - 1, int(y0 + (gy + 0.5) * (y1 - y0) / DIGIT_H))
+            for gx in range(DIGIT_W):
+                sx = min(width - 1, int(left + (gx + 0.5) * step / DIGIT_W))
+                vector.append(gray[sy * width + sx])
+        mean = sum(vector) / float(len(vector))
+        vector = [v - mean for v in vector]
+        norm = sum(v * v for v in vector) ** 0.5 or 1.0
+        out.append([round(v / norm, 4) for v in vector])
+    return out
+
+
+def _distance(a, b):
+    return 1.0 - sum(p * q for p, q in zip(a, b))
+
+
+def classify(vector, digits, candidates='08'):
+    """Welche der `candidates` ist dieses Ziffernbild — oder None.
+
+    Nur wenn jede Kandidatin mindestens `DIGIT_MIN` Muster hat und die beste
+    um `DIGIT_MARGIN` näher liegt als die zweitbeste.
+    """
+    scores = []
+    for digit in candidates:
+        patterns = digits.get(digit) or []
+        if len(patterns) < DIGIT_MIN:
+            return None
+        scores.append((min(_distance(vector, p) for p in patterns), digit))
+    scores.sort()
+    if len(scores) > 1 and scores[0][0] * DIGIT_MARGIN > scores[1][0]:
+        return None
+    return scores[0][1]
+
+
+def _row_numbers(passes, y, tolerance):
+    """Die Zahlenwörter einer Zeile, links nach rechts, aus der Lesung mit
+    den meisten — als Liste von Wörtern mit Rahmen."""
+    best = []
+    for words in passes:
+        found = [w for w in words if number(w.get('t')) is not None
+                 and abs(w.get('y', 0) + w.get('h', 0) / 2.0 - y) <= tolerance]
+        if len(found) > len(best):
+            best = found
+    return sorted(best, key=lambda w: w.get('x', 0))
+
+
+def _confirmer(src, passes, digits):
+    """`confirm` für `merge_passes`: entscheidet jede 0 und 8 eines Werts
+    an den gelernten Mustern. Gibt den Wert (berichtigt) oder None."""
+    if not src or not digits:
+        return None
+
+    def confirm(y, column, value):
+        text = str(value)
+        heights = [w.get('h', 0) for words in passes for w in words]
+        tolerance = (sorted(heights)[len(heights) // 2] if heights else 10)
+        numbers_ = _row_numbers(passes, y, tolerance)
+        if len(numbers_) <= column:
+            return None
+        crop = cell_crop(src, (numbers_[column]['x'], numbers_[column]['y'],
+                               numbers_[column]['w'], numbers_[column]['h']))
+        found = glyphs(crop, len(text))
+        if len(found) != len(text):
+            return None
+        out = []
+        for digit, vector in zip(text, found):
+            if digit in CONFUSABLE:
+                digit = classify(vector, digits)
+                if digit is None:
+                    return None
+            out.append(digit)
+        return int(''.join(out))
+    return confirm
+
+
+def unsure_cells(src, passes, details):
+    """Zahlenzellen der unsicheren Zeilen zum späteren Lernen: je Zelle
+    `{'material', 'column', 'read', 'crop'}` — `read` ist das gelesene Wort."""
+    if not src:
+        return []
+    heights = [w.get('h', 0) for words in passes for w in words]
+    tolerance = sorted(heights)[len(heights) // 2] if heights else 10
+    cells = []
+    for row in details:
+        for column, word in enumerate(_row_numbers(passes, row['y'],
+                                                   tolerance)[:2]):
+            crop = cell_crop(src, (word['x'], word['y'], word['w'], word['h']))
+            if crop:
+                cells.append({'material': row['material'], 'column': column,
+                              'read': word.get('t') or '', 'crop': crop})
+    return cells
+
+
+def _loose(text):
+    """Ziffernfolge mit 0 und 8 gleichgesetzt — zum Zuordnen."""
+    value = number(text)
+    return None if value is None else str(value).replace('8', '0')
+
+
+def learn(cells, typed):
+    """Aus nachgetippten Werten lernen. `typed`: Liste `(material, qualität,
+    menge_cscu)`. Gibt die Zahl der gelernten Ziffern.
+
+    Eine Zelle wird dem getippten Wert desselben Rohstoffs zugeordnet, der
+    — 0 und 8 gleichgesetzt — dieselben Ziffern hat wie das gelesene Wort;
+    gibt es den Rohstoff nur einmal, genügt dieselbe Stellenzahl. Eine Zelle
+    ohne lesbares Wort lehrt nichts.
+    """
+    if not cells or not typed:
+        return 0
+    digits = load_digits()
+    learned = 0
+    for cell in cells:
+        same = [row for row in typed if row[0] == cell['material']]
+        values = [str(int(row[1 + cell['column']])) for row in same
+                  if row[1 + cell['column']] is not None]
+        loose = _loose(cell['read'])
+        if loose is None:
+            continue
+        match = [v for v in values if v.replace('8', '0') == loose]
+        if not match and len(values) == 1 and len(values[0]) == len(loose):
+            match = values
+        if len(match) != 1:
+            continue
+        value = match[0]
+        found = glyphs(cell['crop'], len(value))
+        if len(found) != len(value):
+            continue
+        for digit, vector in zip(value, found):
+            patterns = digits.setdefault(digit, [])
+            patterns.append(vector)
+            del patterns[:-DIGIT_KEEP]
+            learned += 1
+    if learned:
+        save_digits(digits)
+    return learned
+
+
+def _source(path):
+    """Das Bild als `(breite, höhe, BGRA)` für Zellbilder — oder None."""
+    if not supported():
+        return None
+    from . import win_ocr
+    try:
+        return win_ocr.read_bmp(path)
+    except (OSError, ValueError, win_ocr.OcrError):
+        return None
+
+
 def read_image(path, ocr=None, keep_failed=False):
     """Ein Bild lesen: `(aufträge, aufgehoben)` für das Raffinerie-Feld.
 
@@ -718,6 +981,8 @@ def read_image(path, ocr=None, keep_failed=False):
         if not tables:
             return [], bool(keep_failed and keep(full_png, 'bild'))
         jobs, kept = [], False
+        src = _source(path)
+        digits = load_digits()
         for number_, table in enumerate(tables):
             crop = table['box']
             crop_png = ('%s-tabelle%d.png' % (base, number_)
@@ -726,12 +991,17 @@ def read_image(path, ocr=None, keep_failed=False):
             data = ocr(path, [(crop, scale, mode) for scale, mode in PASSES],
                        save_crop=(crop, crop_png) if keep_failed else None)
             passes = [p.get('words') or [] for p in data.get('passes') or ()]
-            found, unsure = merge_passes(passes)
+            details = []
+            found, unsure = merge_passes(
+                passes, confirm=_confirmer(src, passes, digits),
+                details=details)
             if keep_failed and (unsure or not found):
                 kept = keep(crop_png, 'tabelle') or kept
             materials = _materials_in_order(passes)
             jobs.append({'text': as_text(found), 'unsure': unsure,
-                         'materials': materials, 'total': table['total']})
+                         'materials': materials, 'total': table['total'],
+                         'state': job_state(words, crop),
+                         'cells': unsure_cells(src, passes, details)})
         return jobs, kept
     finally:
         for temp in temps:
@@ -740,6 +1010,32 @@ def read_image(path, ocr=None, keep_failed=False):
                     os.remove(temp)
                 except OSError:
                     pass
+
+
+# Wortteile der Kartentitel (`refinery_ui_WorkOrderCard_Title_*`,
+# `refinery_ui_WorkOrderComplete`), deutsch und englisch, Großbuchstaben.
+_DONE_WORDS = ('ABGESCHLOSS', 'COMPLETE')
+_RUNNING_WORDS = ('VERARBEIT', 'PROCESSING')
+
+
+def job_state(words, box):
+    """Zustand der Karte über der Tafel `box`: `fertig`, `laeuft` oder ''.
+
+    Gezählt werden Wörter, deren waagerechte Mitte innerhalb der Tafel liegt.
+    Ein Abschluss-Wort schlägt ein Verarbeitungs-Wort.
+    """
+    x, _y, w, _h = box
+    state = ''
+    for word in words or ():
+        middle = word.get('x', 0) + word.get('w', 0) / 2.0
+        if not x <= middle <= x + w:
+            continue
+        text = (word.get('t') or '').upper()
+        if any(part in text for part in _DONE_WORDS):
+            return 'fertig'
+        if any(part in text for part in _RUNNING_WORDS):
+            state = 'laeuft'
+    return state
 
 
 def _materials_in_order(passes):
@@ -767,7 +1063,11 @@ def job_label(job, most=2):
         total = job['total']
         if current() == 'de':
             total = total.replace('.', ',')
-        return t('s_rf_auftrag_summe') % (names, total)
+        names = t('s_rf_auftrag_summe') % (names, total)
+    if job.get('state') == 'fertig':
+        return t('s_rf_auftrag_fertig') % names
+    if job.get('state') == 'laeuft':
+        return t('s_rf_auftrag_laeuft') % names
     return names
 
 

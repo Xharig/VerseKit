@@ -322,7 +322,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 |---|---|
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Instant** | Reads Star Citizen's `Game.log` → the blueprint is in the list **within seconds** |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Keyboard shortcut** | **Ctrl+Alt+B** brings the blueprint list to the front — from inside the full-screen game, no blind hunting for the window. Exactly that one combination is registered; nothing else is listened to |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watching / new in game*, with progress — for all blueprints or just your watchlist. Tick items with one click |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watchlist / farming / new in game*, with progress — for all blueprints or just your watchlist. Tick items with one click |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Where it drops** | The **"Where from?"** button shows faction, contract, required standing and payout — for **672 of 740** blueprints, sorted by the easiest route. From **Crafting** a button leads straight there: missing the blueprint, one click tells you which contract to run |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Contract accepted** | Accept a contract and you see right away whether blueprints are part of it — and **which of those you are still missing**. If the catalogue does not know the contract, it stays quiet rather than guessing |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **What to do next** | Every running contract lists its **open objectives** underneath — "Disable the Hartmoore inverter", "Locate and reset the node". They come from the same log and move on as soon as you finish one |
@@ -556,7 +556,7 @@ The same works across **two machines** if both use the same cloud or network fol
 
 ### Waiting for specific items
 
-Waiting for one particular blueprint? Click the **star** next to its name in the blueprint list. The search box finds it in seconds, and the **watching** filter shows what you're waiting for.
+Waiting for one particular blueprint? Click the **star** next to its name in the blueprint list. The search box finds it in seconds, and the **watchlist** filter shows what you're waiting for.
 
 When a watched blueprint appears, the watcher announces it in gold with a star and its own sound — and **ticks it off on the watchlist**. It stays there so the "Watchlist only" progress counts it; the star takes it off again.
 

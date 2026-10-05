@@ -25234,6 +25234,10 @@ def main():
     _pruefung_347()
     _pruefung_348()
     _pruefung_349()
+    _pruefung_353()
+    _pruefung_354()
+    _pruefung_355()
+    _pruefung_356()
     _pruefung_350()
     _pruefung_351()
     _pruefung_352()
@@ -36078,8 +36082,21 @@ def _pruefung_377():
         pruefe(not _funde383, 'kein -EncodedCommand/Bypass in scbp (%s)'
                % (', '.join(_funde383) or 'keins'))
         from scbp import refinery_scan as _rs383
-        pruefe(_rs383.supported() is False and _rs383.OCR_ENABLED is False,
-               'der Bildschirm-Scanner ist abgeschaltet')
+        # Die Texterkennung läuft im eigenen Prozess: kein Unterprozess,
+        # kein Skript-Interpreter in Scanner und Erkennung.
+        _ocr383 = []
+        for _n383 in ('refinery_scan.py', 'win_ocr.py'):
+            with open(os.path.join(WURZEL, 'scbp', _n383),
+                      encoding='utf-8') as _f383:
+                _q383 = _f383.read().lower()
+            for _muster383 in ('subprocess', 'powershell', 'os.system',
+                               'popen'):
+                if _muster383 in _q383:
+                    _ocr383.append('%s: %s' % (_n383, _muster383))
+        pruefe(not _ocr383, 'die Texterkennung startet keinen Prozess (%s)'
+               % (', '.join(_ocr383) or 'keiner'))
+        pruefe(_rs383.supported() == (sys.platform == 'win32'),
+               'der Bildschirm-Scanner ist unter Windows an')
     finally:
         _pg380._storage_sync_ready = _bereit380
         try:
@@ -37470,6 +37487,277 @@ def _pruefung_412():
             pass
         _fl412.unknown = _alt_unknown412
         _fl412.save(_alt_hangar412)
+
+
+def _pruefung_353():
+    """353. Bauplan-Liste: Filter vorgemerkt zeigt nur den Merkzettel.
+
+    Und wer dort die Raute klickt, nimmt den Bauplan heraus — danach ist er
+    aus der Ansicht verschwunden.
+    """
+    print('\n353. Bauplan-Liste: Filter vorgemerkt')
+    import copy as _cp339
+    from scbp import (catalog as _ka339, collection_window as _cw339,
+                      fleet as _fl339, paths as _pf339)
+    from scbp.language import t as _t339
+
+    alt = _cp339.deepcopy(_fl339.load())
+    _kat_pfad = _pf339.app_file(_ka339.CACHE)
+    _kat_alt = (open(_kat_pfad, 'rb').read()
+                if os.path.isfile(_kat_pfad) else None)
+    _wz = None
+    try:
+        with open(_kat_pfad, 'w', encoding='utf-8') as _f339:
+            json.dump({'bauplaene': {
+                'eins': {'n': 'Pruefling Vorgemerkt', 'a': 'Cooler'},
+                'zwei': {'n': 'Pruefling Nicht Vorgemerkt', 'a': 'Cooler'}}},
+                _f339)
+        _wz = _wurzel()
+        liste = _cw339.Bestandsfenster(_wz)
+        for _ in range(3):
+            _wz.update(); _wz.update_idletasks()
+        namen = [e['n'] for _og, _art, grp in _ka339.groups_ordered(liste.katalog)
+                 for e in grp][:2]
+        pruefe(len(namen) == 2, 'Vorbedingung: der Katalog hat Bauplaene')
+        if len(namen) < 2:
+            return
+        stand = _fl339.load()
+        stand['merkzettel'] = []
+        _fl339.notepad_add(stand, namen[0])
+        _fl339.save(stand)
+        pruefe('vorgemerkt' in getattr(liste, 'knoepfe', {}),
+               'die Knopfzeile hat den Filter vorgemerkt')
+        pruefe(liste.knoepfe.get('merk') is not None,
+               'der Filter Merkliste ist weiter da')
+
+        def _texte():
+            out = []
+
+            def _lauf(x):
+                try:
+                    out.append(str(x.cget('text')))
+                except Exception:
+                    pass
+                for k in x.winfo_children():
+                    _lauf(k)
+            _lauf(liste.inhalt)
+            return out
+
+        liste._filter_setzen('vorgemerkt')
+        for _ in range(3):
+            _wz.update(); _wz.update_idletasks()
+        texte = _texte()
+        pruefe(namen[0] in texte and namen[1] not in texte,
+               'nur der vorgemerkte Bauplan steht in der Liste')
+        liste._farm_umschalten(namen[0])
+        for _ in range(3):
+            _wz.update(); _wz.update_idletasks()
+        texte = _texte()
+        pruefe(namen[0] not in texte and _t339('vorgemerkt_leer') in texte,
+               'nach dem Herausnehmen ist er weg, und die Liste sagt warum')
+    finally:
+        try:
+            if _wz is not None:
+                _wz.destroy()
+        except Exception:
+            pass
+        _fl339.save(alt)
+        if _kat_alt is None:
+            try:
+                os.remove(_kat_pfad)
+            except OSError:
+                pass
+        else:
+            with open(_kat_pfad, 'wb') as _f339:
+                _f339.write(_kat_alt)
+
+
+def _pruefung_354():
+    """354. Texterkennung über ctypes: ein gezeichneter Text wird gelesen.
+
+    Zeichnet helle Schrift auf dunklen Grund (wie das Terminal) per GDI in
+    ein Bild und liest es in allen drei Arten. Ohne installierte OCR-Sprache
+    wird übersprungen — dann gibt es keine Erkennung zu prüfen.
+    """
+    print('\n354. Texterkennung ohne Unterprozess')
+    if sys.platform != 'win32':
+        print('  [--]   nur unter Windows')
+        return
+    import ctypes as _ct354
+    import tempfile as _tf354
+    from scbp import refinery_scan as _rs354, win_ocr as _wo354
+
+    breite, hoehe = 420, 60
+    gdi = _wo354._gdi()
+    gdi.CreateFontW.restype = _ct354.c_void_p
+    gdi.CreateFontW.argtypes = ((_ct354.c_int,) * 5 + (_ct354.c_uint32,) * 8
+                                + (_ct354.c_wchar_p,))
+    gdi.TextOutW.argtypes = (_ct354.c_void_p, _ct354.c_int, _ct354.c_int,
+                             _ct354.c_wchar_p, _ct354.c_int)
+    gdi.SetTextColor.argtypes = (_ct354.c_void_p, _ct354.c_uint32)
+    gdi.SetBkColor.argtypes = (_ct354.c_void_p, _ct354.c_uint32)
+    dc = gdi.CreateCompatibleDC(None)
+    bild, bits = _wo354._dib(gdi, breite, hoehe)
+    schrift = gdi.CreateFontW(-32, 0, 0, 0, 700, 0, 0, 0, 0, 0, 0, 4, 0, 'Arial')
+    try:
+        gdi.SelectObject(dc, bild)
+        gdi.SelectObject(dc, schrift)
+        gdi.SetBkColor(dc, 0x00202020)
+        gdi.SetTextColor(dc, 0x00F0F0F0)
+        _ct354.memset(bits, 0x20, breite * hoehe * 4)
+        gdi.TextOutW(dc, 10, 10, 'GOLD 553 122', 12)
+        gdi.GdiFlush()
+        roh = _ct354.string_at(bits, breite * hoehe * 4)
+    finally:
+        gdi.DeleteObject(schrift)
+        gdi.DeleteObject(bild)
+        gdi.DeleteDC(dc)
+    ordner = _tf354.mkdtemp(prefix='pruefung354-')
+    pfad = os.path.join(ordner, 'text.bmp')
+    _rs354.write_bmp(roh, breite, hoehe, pfad)
+    try:
+        daten = _rs354.ocr_image(
+            pfad, [((0, 0, breite, hoehe), 2.0, art)
+                   for art in ('plain', 'gray', 'dark')],
+            save_crop=((0, 0, 100, 40), os.path.join(ordner, 'teil.png')))
+    except _rs354.ScanError as fehler:
+        if fehler.reason == 'keine_sprache':
+            print('  [--]   keine OCR-Sprache installiert')
+            return
+        pruefe(False, 'die Erkennung laeuft (%s %s)' % (fehler.reason,
+                                                        fehler.detail))
+        return
+    durchgaenge = daten.get('passes') or []
+    pruefe(len(durchgaenge) == 3, 'drei Durchgaenge gelesen')
+    for d in durchgaenge:
+        texte = [w['t'] for w in d['words']]
+        pruefe('553' in texte and '122' in texte and
+               any('GOLD' in t.upper() for t in texte),
+               '%s: GOLD 553 122 gelesen (%s)' % (d['mode'], ' '.join(texte)))
+        zahl = [w for w in d['words'] if w['t'] == '553']
+        pruefe(bool(zahl) and 90 < zahl[0]['x'] < 150
+               and 0 <= zahl[0]['y'] < 40,
+               '%s: Rahmen in Bildpunkten des Originals (%s)'
+               % (d['mode'], zahl[:1]))
+    pruefe(open(os.path.join(ordner, 'teil.png'), 'rb').read(8)
+           == b'\x89PNG\r\n\x1a\n', 'der Ausschnitt wird als PNG abgelegt')
+
+
+def _pruefung_355():
+    """355. Raffinerie-Scanner: fertige und laufende Aufträge erkennen."""
+    print('\n355. Raffinerie-Scanner: Zustand der Auftragskarte')
+    from scbp import refinery_scan as _rs355
+    from scbp.language import t as _t355
+    links, rechts = (100, 200, 300, 400), (500, 200, 300, 400)
+    worte = [{'t': 'ABGESCHLOSSEN', 'x': 120, 'y': 150, 'w': 120, 'h': 12},
+             {'t': 'WIRD', 'x': 520, 'y': 150, 'w': 40, 'h': 12},
+             {'t': 'VERARBEITET', 'x': 565, 'y': 150, 'w': 100, 'h': 12},
+             {'t': 'FERTIG', 'x': 700, 'y': 230, 'w': 50, 'h': 12}]
+    pruefe(_rs355.job_state(worte, links) == 'fertig',
+           'Abgeschlossen ueber der linken Tafel: fertig')
+    pruefe(_rs355.job_state(worte, rechts) == 'laeuft',
+           'Wird verarbeitet ueber der rechten Tafel: laeuft (die Spalte '
+           'FERTIG zaehlt nicht)')
+    pruefe(_rs355.job_state([{'t': 'Completed', 'x': 520, 'y': 150, 'w': 90,
+                              'h': 12}], rechts) == 'fertig',
+           'englisch Completed: fertig')
+    pruefe(_rs355.job_state(worte, (900, 200, 100, 100)) == '',
+           'ohne Titel ueber der Tafel: kein Zustand')
+    beschriftung = _rs355.job_label({'materials': ['Gold'], 'total': '',
+                                     'state': 'fertig'})
+    pruefe(beschriftung == _t355('s_rf_auftrag_fertig') % 'Gold',
+           'die Auswahl nennt fertige Auftraege (%s)' % beschriftung)
+
+
+def _pruefung_356():
+    """356. Raffinerie-Scanner lernt 0 und 8 aus nachgetippten Werten.
+
+    Zeichnet Zahlen in einer Schrift mit durchgestrichener Null, lernt aus
+    zwei Zellen und muss die Ziffern einer dritten Zeichnung richtig
+    zuordnen. Dazu: Eine Bestätigung, die eine Zahl zurückgibt, ersetzt den
+    gelesenen Wert.
+    """
+    print('\n356. Raffinerie-Scanner lernt 0 und 8')
+    from scbp import refinery_scan as _rs356
+    # Ohne Bild: eine Bestätigung mit Zahl ersetzt den Wert, None macht ihn
+    # unsicher, True lässt ihn stehen.
+    worte = [{'t': 'Gold', 'x': 0, 'y': 0, 'w': 40, 'h': 10},
+             {'t': '588', 'x': 100, 'y': 0, 'w': 30, 'h': 10},
+             {'t': '122', 'x': 200, 'y': 0, 'w': 30, 'h': 10}]
+    index = {'gold': 'Gold'}
+    for antwort, erwartet in ((508, [('Gold', 508, 122)]),
+                              (True, [('Gold', 588, 122)]),
+                              (None, [])):
+        gefunden, _u = _rs356.merge_passes([worte, worte], index=index,
+                                           confirm=lambda y, s, w, a=antwort: a)
+        pruefe(gefunden == erwartet, 'Bestaetigung %r ergibt %s'
+               % (antwort, gefunden))
+    if sys.platform != 'win32':
+        print('  [--]   Zeichnen nur unter Windows')
+        return
+    import ctypes as _ct356
+    import tempfile as _tf356
+    from scbp import win_ocr as _wo356
+
+    def _zeichnen(text):
+        breite, hoehe = 200, 40
+        gdi = _wo356._gdi()
+        gdi.CreateFontW.restype = _ct356.c_void_p
+        gdi.CreateFontW.argtypes = ((_ct356.c_int,) * 5
+                                    + (_ct356.c_uint32,) * 8
+                                    + (_ct356.c_wchar_p,))
+        gdi.TextOutW.argtypes = (_ct356.c_void_p, _ct356.c_int, _ct356.c_int,
+                                 _ct356.c_wchar_p, _ct356.c_int)
+        gdi.SetTextColor.argtypes = (_ct356.c_void_p, _ct356.c_uint32)
+        gdi.SetBkColor.argtypes = (_ct356.c_void_p, _ct356.c_uint32)
+        dc = gdi.CreateCompatibleDC(None)
+        bild, bits = _wo356._dib(gdi, breite, hoehe)
+        schrift = gdi.CreateFontW(-24, 0, 0, 0, 700, 0, 0, 0, 0, 0, 0, 4, 0,
+                                  'Consolas')
+        try:
+            gdi.SelectObject(dc, bild)
+            gdi.SelectObject(dc, schrift)
+            gdi.SetBkColor(dc, 0x00202020)
+            gdi.SetTextColor(dc, 0x00F0F0F0)
+            _ct356.memset(bits, 0x20, breite * hoehe * 4)
+            gdi.TextOutW(dc, 10, 8, text, len(text))
+            gdi.GdiFlush()
+            roh = bytearray(_ct356.string_at(bits, breite * hoehe * 4))
+        finally:
+            gdi.DeleteObject(schrift)
+            gdi.DeleteObject(bild)
+            gdi.DeleteDC(dc)
+        return breite, hoehe, roh
+
+    heim = _tf356.mkdtemp(prefix='pruefung356-')
+    alt_heim = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    try:
+        zellen = []
+        for text, stoff in (('808', 'Gold'), ('800', 'Iron')):
+            quelle = _zeichnen(text)
+            zellen.append({'material': stoff, 'column': 0, 'read': '888',
+                           'crop': _rs356.cell_crop(quelle, (0, 0, 200, 40))})
+        gelernt = _rs356.learn(zellen, [('Gold', 808, 1), ('Iron', 800, 1)])
+        ziffern = _rs356.load_digits()
+        pruefe(gelernt == 6 and len(ziffern.get('0', [])) == 3
+               and len(ziffern.get('8', [])) == 3,
+               'aus zwei Zellen sechs Ziffern gelernt (%d, %s)'
+               % (gelernt, {k: len(v) for k, v in ziffern.items()}))
+        neu = _rs356.glyphs(_rs356.cell_crop(_zeichnen('0880'),
+                                             (0, 0, 200, 40)), 4)
+        gelesen = ''.join(_rs356.classify(v, ziffern) or '?' for v in neu)
+        pruefe(gelesen == '0880', 'eine neue Zeichnung 0880 wird erkannt (%s)'
+               % gelesen)
+        pruefe(_rs356.learn(zellen, [('Gold', 12, 1)]) == 0,
+               'ein Wert mit anderer Stellenzahl wird nicht zugeordnet')
+        pruefe(_rs356.learn(zellen, [('Gold', 123, 1), ('Gold', 456, 1)]) == 0,
+               'bei zwei Zeilen desselben Rohstoffs nur mit passenden Ziffern')
+    finally:
+        if alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt_heim
 
 
 def _alle_eingaben(w):

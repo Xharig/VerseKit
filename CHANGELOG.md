@@ -6,6 +6,36 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.93.0 - 2026-10-05
+
+> „Bildschirm lesen" ist zurück: Der Raffinerie-Scanner liest das Terminal
+> wieder, jetzt ohne Umweg über PowerShell, und sagt, welcher Auftrag fertig
+> ist. Dazu ein Filter für alles, was du zum Farmen vorgemerkt hast.
+
+### Neu
+
+- **„Bildschirm lesen" wieder an** — die Texterkennung läuft jetzt direkt
+  in Verse-Kit, ohne ein Hilfsprogramm zu starten, das Virenschutz-Programme
+  für einen Angriff halten
+- **Fertige Aufträge erkennen** — in der Auswahl steht „Fertig" oder „Läuft
+  noch" vor jedem gelesenen Auftrag
+- **Der Scanner lernt aus deinen Korrekturen** — tippst du eine unsicher
+  gelesene Zeile nach, merkt er sich die Ziffern; mit der Zeit liest er 0 und
+  8 der Terminal-Schrift selbst sicher
+
+- **Filter „vorgemerkt" in der Bauplan-Liste** — zeigt nur die zum Farmen
+  vorgemerkten Baupläne; ein Klick auf die Raute nimmt einen wieder heraus
+
+### Verbessert
+
+- **„beobachtet" heißt jetzt „Merkliste"** — derselbe Name wie überall sonst
+  im Werkzeug
+
+### Behoben
+
+- **Rohstofflager in schmalem Fenster** — Menge und Qualität beim einzelnen
+  Eintragen ragten über den Rand hinaus
+
 ## v3.92.1 - 2026-10-05
 
 > Suchen fühlt sich wieder flüssig an: Was du tippst, steht sofort im Feld,

@@ -91,7 +91,12 @@ TEXTS = {
     'export_fertig':     ('%s Baupläne gesichert', '%s blueprints saved'),
     'export_fehler':     ('Export fehlgeschlagen: %s', 'Export failed: %s'),
     'alle_dateien':      ('Alle Dateien', 'All files'),
-    'filter_merk':       ('beobachtet', 'watching'),
+    'filter_merk':       ('Merkliste', 'watchlist'),
+    'filter_vorgemerkt': ('vorgemerkt', 'farming'),
+    'vorgemerkt_leer':   ('Noch nichts zum Farmen vorgemerkt. Klick bei einem '
+                          'Bauplan, den du hast, auf die Raute.',
+                          'Nothing added to farming yet. Click the diamond on '
+                          'a blueprint you own.'),
     'filter_neu':        ('neu im Spiel', 'new in game'),
     # ⚠ Der Filter, der die unsichtbarste Falle sichtbar macht: 280 der 353
     # Auftraege haben eine Ruf-OBERGRENZE. Wer darueber steigt, bekommt sie nicht
@@ -214,14 +219,18 @@ TEXTS = {
     's_rf_auftraege': ('%d Aufträge auf dem Bildschirm — welchen eintragen?',
                        '%d jobs on screen — which one to add?'),
     's_rf_auftrag_summe': ('%s · %s cSCU', '%s · %s cSCU'),
+    's_rf_auftrag_fertig': ('Fertig: %s', 'Completed: %s'),
+    's_rf_auftrag_laeuft': ('Läuft noch: %s', 'Still processing: %s'),
     's_rf_lesen_bild': ('Das Bild dieser Lesung ist aufgehoben — schick es '
                         'mit einem Fehlerbericht (Info → Fehler melden), '
                         'dann wird der Scanner besser.',
                         'The picture of this reading was kept — send it with '
                         'a bug report (Info → Report a problem) to help '
                         'improve the scanner.'),
-    's_rf_lesen_unsicher': ('Nicht sicher gelesen, bitte selbst eintippen: %s',
-                            'Not read reliably, please type in yourself: %s'),
+    's_rf_lesen_unsicher': ('Nicht sicher gelesen, bitte selbst eintippen: %s '
+                            '— daraus lernt der Scanner die Ziffern.',
+                            'Not read reliably, please type in yourself: %s '
+                            '— the scanner learns the digits from it.'),
     's_rf_lesen_aus':  ('Bildschirm lesen ist vorübergehend abgeschaltet — '
                         'Virenschutz-Programme hielten die Texterkennung für '
                         'einen Angriff. Bitte die Zeilen abtippen.',
@@ -255,7 +264,7 @@ TEXTS = {
                           'as CIG adds some, they show up here.'),
     'merken':            ('Auf die Merkliste', 'Add to watchlist'),
     'nicht_mehr_merken': ('Von der Merkliste nehmen', 'Remove from watchlist'),
-    'merkliste_leer':    ('Du beobachtest noch nichts. Tippe oben einen Namen '
+    'merkliste_leer':    ('Deine Merkliste ist leer. Tippe oben einen Namen '
                           'ein und klick auf den Stern.',
                           'You are not watching anything yet. Type a name above '
                           'and click the star.'),

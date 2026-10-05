@@ -12547,12 +12547,14 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         elif not text and lese_meldung.winfo_manager():
             lese_meldung.pack_forget()
 
-    def lese_ergebnis(text, unsicher, aufgehoben=False):
+    def lese_ergebnis(text, unsicher, aufgehoben=False, zellen=None):
         """Gelesenes ins Feld setzen — eingetragen wird hier nichts.
 
         `aufgehoben`: Der Scanner hat ein Bild für den Fehlerbericht
-        abgelegt; die Meldung sagt das dazu."""
+        abgelegt; die Meldung sagt das dazu. `zellen`: Zahlenzellen der
+        unsicheren Zeilen; beim Übernehmen lernt der Scanner daran."""
         stand['liest'] = False
+        stand['zellen'] = zellen or []
         teile = []
         if text:
             feld.delete('1.0', 'end')
@@ -12582,7 +12584,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         if len(auftraege) <= 1:
             auftrag = auftraege[0] if auftraege else {}
             lese_ergebnis(auftrag.get('text', ''), auftrag.get('unsure', []),
-                          aufgehoben)
+                          aufgehoben, auftrag.get('cells'))
             return
         stand['liest'] = False
         lese_zeigen(t('s_rf_auftraege') % len(auftraege), GOLD)
@@ -12592,7 +12594,8 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
                 for kind in auswahl.winfo_children():
                     kind.destroy()
                 auswahl.pack_forget()
-                lese_ergebnis(a['text'], a['unsure'], aufgehoben)
+                lese_ergebnis(a['text'], a['unsure'], aufgehoben,
+                              a.get('cells'))
             _button(fenster, auswahl, refinery_scan.job_label(auftrag),
                     waehlen).pack(anchor='w', pady=(0, 4))
 
@@ -12688,6 +12691,17 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         page_usage.action('lager_raffinerie')
         for name, menge, guete in stand['posten']:
             lager.add(name, menge, guete, ziel_ort)
+        # Was nachgetippt wurde, lehrt den Scanner die Ziffern der Zellen,
+        # die er nicht sicher lesen konnte. Die Tafel zeigt cSCU.
+        if stand.get('zellen'):
+            from . import refinery_scan as _rs_lernen
+            try:
+                _rs_lernen.learn(stand['zellen'],
+                                 [(name, guete, int(round(menge * 100)))
+                                  for name, menge, guete in stand['posten']])
+            except Exception as ausnahme:
+                errors.record('pages.raffinerie_lernen', ausnahme)
+            stand['zellen'] = []
         anzahl = len(stand['posten'])
         feld.delete('1.0', 'end')
         lese_zeigen('')
@@ -15600,8 +15614,11 @@ def _storage(fenster, rahmen):
             # damit die Einheit dort steht, wo die Zahl entsteht.
             _mengenzeile = tk.Frame(block, bg=BG)
             _mengenzeile.pack(fill='x', pady=(4, 0))
+            # ⚠ `width` setzt die Mindestbreite in Zeichen. Ohne sie fordert
+            # die Leinwand ihre Standardbreite (378 px) an, und zwei gleich
+            # breite Spalten sprengen bei schmalem Fenster die Seite.
             f = round_entry(_mengenzeile, var, fenster.f_small, theme.FIELD,
-                            LINE, ACCENT, FG,
+                            LINE, ACCENT, FG, width=8,
                             placeholder=t('s_pl_lager_menge'))
             mengen_beschriftung = kopf_label
 
@@ -15658,7 +15675,8 @@ def _storage(fenster, rahmen):
             _wrap(mengen_vorschau, reference=block)
         else:
             f = round_entry(block, var, fenster.f_small, theme.FIELD, LINE,
-                            ACCENT, FG, placeholder=t('s_pl_qualitaet'))
+                            ACCENT, FG, width=8,
+                            placeholder=t('s_pl_qualitaet'))
             f.holder.pack(fill='x', pady=(4, 0))
 
     # ℹ Keine „Meintest du:"-Zeilen für Rohstoff und Lagerort: Das

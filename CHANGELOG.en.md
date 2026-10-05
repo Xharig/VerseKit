@@ -6,6 +6,36 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.93.0 - 2026-10-05
+
+> "Read screen" is back: the refinery scanner reads the terminal again, now
+> without going through PowerShell, and tells you which work order is done.
+> Plus a filter for everything you added to farming.
+
+### New
+
+- **"Read screen" is on again** — text recognition now runs inside
+  Verse-Kit, without starting a helper program that antivirus tools mistook
+  for an attack
+- **Finished work orders recognised** — the selection shows "Completed" or
+  "Still processing" in front of every work order read
+- **The scanner learns from your corrections** — when you type in a line it
+  could not read reliably, it remembers the digits; over time it reads the
+  terminal font's 0 and 8 reliably on its own
+
+- **"farming" filter in the blueprint list** — shows only the blueprints you
+  added to farming; one click on the diamond removes one again
+
+### Improved
+
+- **"watching" is now called "watchlist"** — the same name as everywhere else
+  in the tool
+
+### Fixed
+
+- **Material storage in a narrow window** — amount and quality for a single
+  entry ran past the edge
+
 ## v3.92.1 - 2026-10-05
 
 > Searching feels smooth again: what you type shows up in the field right
