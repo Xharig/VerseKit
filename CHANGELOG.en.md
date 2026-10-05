@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.92.1 - 2026-10-05
+
+> Searching feels smooth again: what you type shows up in the field right
+> away, and the blueprint list switches to the results without a blank
+> screen in between.
+
+### Fixed
+
+- Typing in search fields responds instantly, and the blueprint list builds
+  much faster — the old list stays visible until the new one is ready
+- The first letter is no longer lost or left grey when you type over
+  selected text in a field
+- The blueprint list's match counter is no longer cut off or shown with
+  leftovers of the old number while typing
+- "My hangar" and "Controls" also filter much faster while typing and no
+  longer freeze the window
+
 ## v3.92.0 - 2026-10-05
 
 > Where is gold cheapest? The "Selling" tab is now called "Buy & Sell" and

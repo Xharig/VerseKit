@@ -4926,10 +4926,23 @@ def _joysticks(fenster, rahmen):
                              strong=(nur['geraet'] == kennzeichen))
                       for text, kennzeichen in knoepfe])
 
+    # Gebaute Zeilen je Belegung: {Schlüssel: (Zeile, Grundfarbe)}. Beim
+    # Filtern werden sie aus- und wieder eingehängt und nur umgefärbt, statt
+    # weggeworfen und neu gebaut — Wegwerfen kostet unter Windows je Bauteil
+    # ein Systemfenster.
+    zeilen_vorrat = {}
+    VORRAT_GRENZE = 1200
+
     def liste_zeichnen(*_):
         """Die Trefferliste — das Einzige, was beim Tippen neu entsteht."""
+        if len(zeilen_vorrat) > VORRAT_GRENZE:
+            zeilen_vorrat.clear()
+        aufbewahrt = {id(z[0]) for z in zeilen_vorrat.values()}
         for kind in liste_rahmen.winfo_children():
-            kind.destroy()
+            if id(kind) in aufbewahrt:
+                kind.pack_forget()
+            else:
+                kind.destroy()
         _stripe_reset(liste_rahmen)
         alle = daten.get('belegungen') or {}
         if not alle:
@@ -4986,7 +4999,21 @@ def _joysticks(fenster, rahmen):
         gepackt = []
         for kennzeichen, e, klar, lesbar, echt in gezeigt[:200]:
             grund = _stripe(liste_rahmen, SURFACE)
+            schluessel = (kennzeichen, e['eingabe'], e['aktion'], klar,
+                          lesbar, echt, e.get('quelle'), e.get('bereich'),
+                          _geraetename(kennzeichen))
+            vorhanden = zeilen_vorrat.get(schluessel)
+            if vorhanden is not None and vorhanden[0].winfo_exists():
+                zeile, alt = vorhanden
+                if alt != grund:
+                    zeile.configure(bg=grund)
+                    for kind in zeile.winfo_children():
+                        kind.configure(bg=grund)
+                    zeilen_vorrat[schluessel] = (zeile, grund)
+                gepackt.append(zeile)
+                continue
             zeile = tk.Frame(liste_rahmen, bg=grund)
+            zeilen_vorrat[schluessel] = (zeile, grund)
             gepackt.append(zeile)
 
             # ⚠ Die Bindung muss auf **jedes** Kind gelegt werden, nicht nur
@@ -12911,9 +12938,26 @@ def _hangar(fenster, rahmen):
     # ----------------------------------------------------------- Die Liste
     liste_rahmen.pack(fill='x', padx=24, pady=(16, 20))
 
-    def _liste_fuellen():
+    # Gebaute Schiffskarten je Schiff: {Schlüssel: (Karte, Pack-Optionen,
+    # fehlende Steckplätze)}. Beim Filtern werden sie nur aus- und wieder
+    # eingehängt — Wegwerfen und Neubauen kostet unter Windows je Bauteil ein
+    # Systemfenster.
+    karten = {}
+
+    def _karten_schluessel(eintrag):
+        return (eintrag.get('name') or '', eintrag.get('hersteller') or '',
+                eintrag.get('kurz') or '', eintrag.get('herkunft') or '',
+                eintrag.get('quelle') or '')
+
+    def _liste_fuellen(behalten=False):
+        if not behalten:
+            karten.clear()
+        aufbewahrt = {id(k[0]) for k in karten.values()}
         for kind in liste_rahmen.winfo_children():
-            kind.destroy()
+            if id(kind) in aufbewahrt:
+                kind.pack_forget()
+            else:
+                kind.destroy()
         hinweis.configure(text=meldung['text'], fg=meldung['farbe'])
 
         stand = daten['stand']
@@ -12976,10 +13020,32 @@ def _hangar(fenster, rahmen):
                           key=lambda s: (s.get('name') or '').lower())
         ohne = {'n': 0}
 
+        # Zwei gleiche Schiffe bekommen je eine eigene Karte: laufende Nummer.
+        gesehen = {}
+        schluessel_je = []
+        for eintrag in sortiert:
+            grund = _karten_schluessel(eintrag)
+            gesehen[grund] = gesehen.get(grund, 0) + 1
+            schluessel_je.append(grund + (gesehen[grund],))
+
         def karte_bauen(i):
-            ohne['n'] += _hangar_row(fenster, liste_rahmen, sortiert[i], daten,
-                                     meldung, neu_zeichnen,
-                                     name_line=name_zeile)
+            schluessel = schluessel_je[i]
+            vorhanden = karten.get(schluessel)
+            if vorhanden is not None and vorhanden[0].winfo_exists():
+                vorhanden[0].pack(**vorhanden[1])
+                ohne['n'] += vorhanden[2]
+            else:
+                vorher = set(liste_rahmen.winfo_children())
+                fehlt = _hangar_row(fenster, liste_rahmen, sortiert[i], daten,
+                                    meldung, neu_zeichnen,
+                                    name_line=name_zeile)
+                ohne['n'] += fehlt
+                neu = [k for k in liste_rahmen.winfo_children()
+                       if k not in vorher]
+                if len(neu) == 1:
+                    optionen = neu[0].pack_info()
+                    optionen.pop('in', None)
+                    karten[schluessel] = (neu[0], optionen, fehlt)
             if i == len(sortiert) - 1 and ohne['n']:
                 _body_text(liste_rahmen,
                             t('s_hg_ohne_erklaert').format(n=ohne['n']),
@@ -13013,20 +13079,26 @@ def _hangar(fenster, rahmen):
     def _filter_jetzt():
         try:
             if liste_rahmen.winfo_exists():
-                _liste_fuellen()
+                _liste_fuellen(behalten=True)
                 if (hangar_suche.get() or '').strip():
-                    _zur_liste()
+                    innen.after_idle(_zur_liste)
         except tk.TclError:
             pass
 
     def _zur_liste():
-        """Die Rollfläche so stellen, dass die Schiffsliste oben steht."""
+        """Die Rollfläche so stellen, dass die Schiffsliste oben steht.
+
+        Läuft im Leerlauf nach dem Neuaufbau — dann stehen die Maße, ohne
+        dass ein erzwungenes `update_idletasks` die Oberfläche festhält.
+        """
         leinwand = getattr(innen, 'canvas', None)
         if leinwand is None:
             return
-        innen.update_idletasks()
-        gesamt = max(1, innen.winfo_reqheight())
-        leinwand.yview_moveto(liste_rahmen.winfo_y() / gesamt)
+        try:
+            gesamt = max(1, innen.winfo_reqheight())
+            leinwand.yview_moveto(liste_rahmen.winfo_y() / gesamt)
+        except tk.TclError:
+            pass
 
     from .main_window import after_typing as _after_typing
     _filter_bald = _after_typing(liste_rahmen, _filter_jetzt)

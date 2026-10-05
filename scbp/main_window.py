@@ -916,30 +916,6 @@ def after_typing(widget, action, delay=TYPING_DELAY_MS):
     return typed
 
 
-def hide_until_idle(canvas, item):
-    """Das Fenster-Element `item` der Leinwand verbergen, bis Tk wieder ruht.
-
-    Für einen Neuaufbau: Zeilen, die in einem verborgenen Element zerstört
-    und neu gebaut werden, zeichnet Tk nicht einzeln, sondern einmal, wenn
-    das Element im Leerlauf wieder erscheint. Ein schon verborgenes Element
-    bleibt unberührt. Gibt zurück, ob verborgen wurde.
-    """
-    def show():
-        try:
-            canvas.itemconfigure(item, state='normal')
-        except tk.TclError:
-            pass
-
-    try:
-        if canvas.itemcget(item, 'state') == 'hidden':
-            return False
-        canvas.itemconfigure(item, state='hidden')
-        canvas.after_idle(show)
-        return True
-    except tk.TclError:
-        return False
-
-
 def bind_wheel(canvas):
     """Das Mausrad an eine Rollfläche hängen — für das ganze Fenster.
 

@@ -18870,7 +18870,9 @@ def main():
     # ⭐ Erst ungueltig machen, dann zerstoeren. Danach schreibt jeder
     # erfolgreiche Ausgang den Abdruck selbst wieder.
     pruefe(_vor193(_q193b, '_zeichnen', 'self._letzter_stand = None',
-                   'winfo_children()'),
+                   'self._pool_begin()')
+           and _vor193(_q193b, '_pool_begin', 'pooled',
+                       'child.destroy()'),
            'die Liste macht ihren Abdruck ungueltig, BEVOR sie die Zeilen'
            ' zerstoert')
     pruefe(_vor193(_q193b, '_bloecke_aufbauen', '_bloecke_pflegen()',
@@ -25242,6 +25244,8 @@ def main():
     _pruefung_392()
     _pruefung_400()
     _pruefung_410()
+    _pruefung_411()
+    _pruefung_412()
 
     print()
     if fehler:
@@ -32835,9 +32839,12 @@ def _pruefung_325():
                     _ti325.sleep(0.02)
                 # Nur die Kartentitel der Liste — in Fettschrift; die
                 # Vorschläge des Eingabefelds tragen dieselben Namen.
+                # Ausgefilterte Karten bleiben aufbewahrt, sind aber nicht
+                # eingehängt.
                 namen = [x.cget('text') for x in _alle(seite, 'Label')
                          if x.cget('text') in ('Avenger Titan', 'F7C Hornet')
-                         and str(x.cget('font')) == str(fenster.f_bold)]
+                         and str(x.cget('font')) == str(fenster.f_bold)
+                         and x.winfo_ismapped()]
                 pruefe('Avenger Titan' in namen and 'F7C Hornet' not in namen,
                        'die Suche findet das Schiff über den eigenen Namen '
                        '(%s)' % namen)
@@ -36236,8 +36243,8 @@ def _pruefung_390():
         pruefe(len(_zeichnen390) == 1,
                'nach der Pause baut die Liste genau einmal neu (%d)'
                % len(_zeichnen390))
-        pruefe(_zeichnen390[:1] == ['hidden'],
-               'während des Neuaufbaus ist die Liste verborgen (%s)'
+        pruefe(_zeichnen390[:1] and _zeichnen390[0] != 'hidden',
+               'während des Neuaufbaus bleibt die Liste stehen (%s)'
                % _zeichnen390[:1])
         for _ in range(5):
             _w390.update()
@@ -37004,6 +37011,465 @@ def _pruefung_410():
         else:
             os.environ['SC_BP_HOME'] = _alt410
         shutil.rmtree(_heim410, ignore_errors=True)
+
+
+def _katalog411():
+    """Ein erfundener Katalog mit 240 Bauplänen in vier Arten — mit und
+    ohne Herkunft, Startbaupläne, Zusatzzeilen."""
+    woerter = ('Helix', 'Bolt', 'Nova', 'Ember', 'Frost', 'Kite')
+    arten = ('Cooler', 'Shield', 'PowerPlant', 'QuantumDrive')
+    bauplaene = {}
+    for i in range(240):
+        name = '%s %s %03d' % (woerter[i % 6], arten[i % 4], i)
+        eintrag = {'n': name, 'a': arten[i % 4], 's': 1 + i % 3}
+        if i % 3:
+            eintrag['q'] = [{'auftrag': 'Auftrag %d' % i}]
+        elif i % 7 == 0:
+            eintrag['start'] = True
+        if i % 5 == 0:
+            eintrag['m'] = 'Zusatz'
+        bauplaene[name.lower()] = eintrag
+    return {'version': 'probe', 'bauplaene': bauplaene, 'missionen': {},
+            'vertraege': {}}
+
+
+def _abbild411(w):
+    """Was von einem Bauteil zu sehen ist: Art, Texte, Farben, Symbole und
+    die gepackten Kinder in Reihenfolge."""
+    import tkinter as tk
+    teile = [w.winfo_class()]
+    for opt in ('text', 'bg', 'fg', 'cursor', 'font', 'padx', 'pady'):
+        try:
+            teile.append('%s=%s' % (opt, w.cget(opt)))
+        except tk.TclError:
+            pass
+    if getattr(w, 'symbol', None):
+        teile.append('%s/%s' % (w.symbol, w.symbol_color))
+    try:
+        teile.append(repr(sorted((k, str(v)) for k, v in w.pack_info().items()
+                                 if k != 'in')))
+    except tk.TclError:
+        pass
+    return [teile, [_abbild411(k) for k in w.pack_slaves()]]
+
+
+def _alle_namen411(w):
+    """Die Namen aller Bauteile unter `w` (ohne `w`)."""
+    out = set()
+    for k in w.winfo_children():
+        out.add(str(k))
+        out |= _alle_namen411(k)
+    return out
+
+
+def _pruefung_411():
+    """411: Tippen in Suchfeldern — der erste Buchstabe kommt an und bleibt
+    nicht grau, die Bauplan-Liste baut ihre Zeilen nicht jedes Mal neu,
+    und der Trefferzähler muss beim Umschreiben nicht wachsen."""
+    print('\n411. Tippen in Suchfeldern: Hinweis, Zeilen-Vorrat, Trefferzähler')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    import re as _re411
+    import types
+    import tkinter as tk
+    import tkinter.font as _tf411
+    from scbp import (main_window as _mw411, collection_window as _cw411,
+                      catalog as _ka411)
+    _heim411 = tempfile.mkdtemp(prefix='pruefung411-')
+    _alt411 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim411
+    _katalog = _katalog411()
+    _altload411 = _ka411.load
+    _altstempel411 = _ka411.refresh_stamp
+    _ka411.load = lambda *a, **k: _katalog
+    _ka411.refresh_stamp = lambda *a, **k: 0
+    _w411 = None
+    try:
+        _w411 = tk.Tk()
+        _w411.geometry('900x800+0+0')
+
+        def _pumpen(ms):
+            ende = time.time() + ms / 1000.0
+            while True:
+                _w411.update()
+                if time.time() >= ende:
+                    break
+                time.sleep(0.01)
+
+        def _fokus(feld):
+            feld.focus_force()
+            ende = time.time() + 2.0
+            while time.time() < ende and _w411.focus_get() is not feld:
+                _w411.update()
+                time.sleep(0.01)
+            return _w411.focus_get() is feld
+
+        def _taste(feld, zeichen):
+            feld.event_generate('<KeyPress>', keysym=zeichen)
+
+        # --- A: der erste Buchstabe, auf Baustein-Ebene und in der Liste
+        _var411 = tk.StringVar(_w411)
+        _rahmen411 = tk.Frame(_w411)
+        _rahmen411.pack(fill='x')
+        _feld_a = _mw411.round_entry(_rahmen411, _var411, ('Segoe UI', 10),
+                                     '#202020', '#404040', '#9ce430',
+                                     '#ffffff', placeholder='Hinweis')
+        _feld_a.holder.pack(fill='x')
+        _pumpen(50)
+        _pause = _mw411.TYPING_DELAY_MS + 150
+
+        def _hinweis_pruefen(_was, _feld, _var, _grau):
+            pruefe(_fokus(_feld), '%s: der Fokus sitzt im Feld' % _was)
+
+            def _lage(feld=_feld, var=_var, grau=_grau):
+                return (feld.get(), str(feld.cget('fg')).lower() == grau.lower(),
+                        var.get())
+            pruefe(_lage()[1] and not _lage()[2],
+                   '%s: leer steht der graue Hinweis (%r)' % (_was, _lage()))
+            _taste(_feld, 'n')
+            _pumpen(_pause)
+            pruefe(_lage() == ('n', False, 'n'),
+                   '%s: erste Taste ins leere Feld kommt an, nicht grau '
+                   '(Feld, grau, Variable = %r)' % (_was, _lage()))
+            _taste(_feld, 'e')
+            _pumpen(50)
+            pruefe(_lage() == ('ne', False, 'ne'),
+                   '%s: zweite Taste nach der Pause ersetzt die erste nicht '
+                   '(%r)' % (_was, _lage()))
+            # Markierten Text überschreiben — der Fall, in dem das Zeichen
+            # grau im Hinweis landete.
+            _feld.selection_range(0, 'end')
+            _feld.icursor('end')
+            _taste(_feld, 'h')
+            _pumpen(_pause)
+            pruefe(_lage() == ('h', False, 'h'),
+                   '%s: markierten Text überschreiben — das Zeichen steht '
+                   'schwarz und zählt (%r)' % (_was, _lage()))
+            _taste(_feld, 'e')
+            _pumpen(50)
+            pruefe(_lage() == ('he', False, 'he'),
+                   '%s: danach geht es weiter, nichts wird ersetzt (%r)'
+                   % (_was, _lage()))
+            # Leer getippt kommt der Hinweis zurück.
+            _taste(_feld, 'BackSpace')
+            _taste(_feld, 'BackSpace')
+            _pumpen(50)
+            pruefe(_lage()[1] and not _lage()[2],
+                   '%s: leer gelöscht steht wieder der Hinweis (%r)'
+                   % (_was, _lage()))
+
+        _hinweis_pruefen('Feld mit Hinweis', _feld_a, _var411, _mw411.SUB)
+        _liste = _cw411.Bestandsfenster(_w411)
+        _pumpen(200)
+        _feld_b = _liste.suchfeld
+        _hinweis_b = _feld_b.get()
+        _hinweis_pruefen('Suchfeld der Bauplan-Liste', _feld_b, _liste.suche,
+                         _cw411.SUB)
+        pruefe(_feld_b.get() == _hinweis_b, 'der Hinweis ist derselbe Text')
+
+        # --- B: Neuaufbau verwendet Zeilen weiter
+        _liste.bestand = {'bauplaene': {
+            k: {'name': e['n'], 'quelle': 'log', 'zeit': 1}
+            for i, (k, e) in enumerate(sorted(_katalog['bauplaene'].items()))
+            if i % 4 == 0}}
+        _liste.suche.set('')
+        _liste._zeichnen(nach_oben=True)
+        _pumpen(50)
+        _schritte = ('he', 'hel', 'helix c', 'n', '', 'frost', 'o', '')
+        _neu_je = []
+        _zeiten = []
+        _zaehler_fehler = []
+        _abweichend = []
+        _lbl = _liste.treffer_lbl
+        _schrift = _tf411.Font(root=_w411, font=_lbl.cget('font'))
+        for _text in _schritte:
+            _vorher = _alle_namen411(_liste.inhalt)
+            _breite_vorher = _lbl.winfo_width()
+            _liste.suche.set(_text)
+            _a = time.perf_counter()
+            _liste._zeichnen(nach_oben=True)
+            _zeiten.append((time.perf_counter() - _a) * 1000)
+            # Vor jeder Vermessung: Passt der neue Text in die Fläche, die
+            # der Zähler schon hat?
+            _txt = _lbl.cget('text')
+            _noetig = _schrift.measure(_txt)
+            if _breite_vorher > 1 and _breite_vorher < _noetig:
+                _zaehler_fehler.append('%r braucht %d px, hat %d px'
+                                       % (_txt, _noetig, _breite_vorher))
+            _zahlen = [int(z) for z in _re411.findall(r'\d+', _txt)]
+            if _zahlen and max(_zahlen) > len(_katalog['bauplaene']):
+                _zaehler_fehler.append('%r nennt mehr als %d'
+                                       % (_txt, len(_katalog['bauplaene'])))
+            _pumpen(30)
+            _neu = _alle_namen411(_liste.inhalt) - _vorher
+            _zeilen = [s for s in getattr(_liste, '_pool_order', [])
+                       if getattr(s, 'name', None) is not None]
+            _neu_je.append((_text, len(_neu), len(_zeilen)))
+            # Jede Zeile sieht aus wie eine frisch gebaute — der Streifen
+            # wird aus der Lage in der Liste bestimmt, nicht aus der Zeile.
+            from scbp.pages import _stripe as _streifen411
+            _zaehler411 = types.SimpleNamespace(stripe_n=0)
+            _soll411 = {}
+            for _s in getattr(_liste, '_pool_order', []):
+                if hasattr(_s, 'title'):
+                    _zaehler411.stripe_n = 0
+                else:
+                    _soll411[id(_s)] = _streifen411(_zaehler411,
+                                                    _cw411.FLAECHE)
+            _probe = tk.Frame(_liste.inhalt)
+            for _slot in _zeilen:
+                _probe.stripe_n = (0 if _soll411.get(id(_slot))
+                                   == _cw411.FLAECHE else 1)
+                _eintrag = _katalog['bauplaene'][_slot.name.lower()]
+                _liste._zeile(_eintrag, _slot.owned, eltern=_probe)
+                _frisch = _probe.winfo_children()[-1]
+                _a1 = _abbild411(_slot.frame)
+                _a2 = _abbild411(_frisch)
+                _a1[0] = [x for x in _a1[0] if not x.startswith('[')]
+                _a2[0] = [x for x in _a2[0] if not x.startswith('[')]
+                if _a1 != _a2 and len(_abweichend) < 3:
+                    _abweichend.append(_slot.name)
+            _probe.destroy()
+        print('  Neuaufbau je Suchwort (neue Bauteile / Zeilen): %s'
+              % ', '.join('%r %d/%d' % x for x in _neu_je))
+        print('  Dauer je Neuaufbau: %s ms'
+              % ', '.join('%.0f' % z for z in _zeiten))
+        _zeilen_gesamt = sum(z for _, _, z in _neu_je[1:])
+        _neu_gesamt = sum(n for _, n, _ in _neu_je[1:])
+        pruefe(_zeilen_gesamt > 100,
+               'die Probe zeigt genug Zeilen (%d)' % _zeilen_gesamt)
+        pruefe(_neu_gesamt <= 20,
+               'ein Neuaufbau verwendet die Zeilen weiter statt sie neu zu '
+               'bauen (%d neue Bauteile bei %d Zeilen)'
+               % (_neu_gesamt, _zeilen_gesamt))
+        pruefe(not _abweichend,
+               'jede weiterverwendete Zeile sieht aus wie eine frisch gebaute'
+               ' (abweichend: %s)' % _abweichend)
+        pruefe(not _zaehler_fehler,
+               'der Trefferzähler passt ohne Nachvermessen und nennt nie mehr'
+               ' als den Katalog (%s)' % _zaehler_fehler)
+        _verborgen = [s.name for s in _liste._row_pool
+                      if not s.frame.winfo_manager() and s.name]
+        pruefe(not _verborgen,
+               'abgelegte Zeilen tragen keinen Namen weiter (%s)' % _verborgen)
+
+        # --- C: Tastendruck ohne Neuaufbau, ohne neue Bauteile
+        _fokus(_feld_b)
+        _liste.suche.set('')
+        _pumpen(_pause)
+        _gezeichnet = []
+        _echt_zeichnen = _liste._zeichnen
+        _liste._zeichnen = lambda *a, **k: (_gezeichnet.append(1),
+                                            _echt_zeichnen(*a, **k))
+        _handler = []
+        _vorher = _alle_namen411(_liste.inhalt)
+        for _z in 'nova':
+            _a = time.perf_counter()
+            _taste(_feld_b, _z)
+            _handler.append((time.perf_counter() - _a) * 1000)
+            _pumpen(60)
+        _neu_taste = len(_alle_namen411(_liste.inhalt) - _vorher)
+        pruefe(not _gezeichnet and _neu_taste == 0,
+               'Tasten im Wort bauen nichts (Neuaufbauten %d, neue Bauteile %d)'
+               % (len(_gezeichnet), _neu_taste))
+        pruefe(max(_handler) < 16,
+               'jeder Tastendruck ist in unter 16 ms verarbeitet (%s ms)'
+               % ', '.join('%.1f' % h for h in _handler))
+        _pumpen(_pause)
+        pruefe(len(_gezeichnet) == 1 and _liste.suche.get() == 'nova',
+               'nach dem Wort genau ein Neuaufbau (%d, %r)'
+               % (len(_gezeichnet), _liste.suche.get()))
+    finally:
+        _ka411.load = _altload411
+        _ka411.refresh_stamp = _altstempel411
+        try:
+            if _w411 is not None:
+                _w411.destroy()
+        except Exception:
+            pass
+        if _alt411 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt411
+        shutil.rmtree(_heim411, ignore_errors=True)
+
+
+def _pruefung_412():
+    """412: Filtern in Hangar und Steuerung hängt die gebauten Zeilen nur
+    aus und wieder ein — es entsteht nichts neu, und die Streifen stimmen."""
+    print('\n412. Hangar und Steuerung: Zeilen beim Filtern weiterverwenden')
+    import copy as _cp412
+    import time as _ti412
+    from scbp import (fleet as _fl412, joysticks as _js412,
+                      main_window as _hf412, pages as _st412)
+
+    def _alle412(w, art=None):
+        out = []
+
+        def _lauf(x):
+            if art is None or x.winfo_class() == art:
+                out.append(x)
+            for k in x.winfo_children():
+                _lauf(k)
+        _lauf(w)
+        return out
+
+    def _warten412(wurzel, sekunden):
+        ende = _ti412.time() + sekunden
+        while _ti412.time() < ende:
+            wurzel.update()
+            _ti412.sleep(0.02)
+
+    def _tippen412(wurzel, feld, text):
+        feld.delete(0, 'end')
+        getattr(feld, 'hint_hide', lambda: None)()
+        if text:
+            feld.insert(0, text)
+        _warten412(wurzel, 1.0)
+
+    # ------------------------------------------------------------ Steuerung
+    _alt_js412 = (_js412.view, _js412.compare, _js412.labels)
+    _f412 = None
+    try:
+        _bel412 = {'js1': [{'eingabe': 'js1_button%d' % i,
+                            'aktion': 'aktion_%02d' % i,
+                            'bereich': 'beta' if i % 2 else 'alpha',
+                            'art': '', 'quelle': ''} for i in range(30)]}
+        _js412.view = lambda *a, **k: _cp412.deepcopy(_bel412)
+        _js412.compare = lambda *a, **k: {'zuordnung': []}
+        _js412.labels = lambda *a, **k: {}
+        _f412 = _hf412.MainWindow(version='0.0.0-test')
+        _f412.root.geometry('900x700+3000+3000')
+        _r412 = _st412.tk.Frame(_f412.root)
+        _r412.pack(fill='both', expand=True)
+        _st412.build(_f412, 'joysticks', _r412)
+        _f412.root.update()
+
+        def _zeilen412():
+            out = {}
+            for x in _alle412(_r412, 'Label'):
+                text = str(x.cget('text'))
+                if text.startswith('aktion_'):
+                    out[text] = x.master
+            return out
+
+        def _sichtbar412():
+            return sorted((z for z in _zeilen412().values()
+                           if z.winfo_ismapped()),
+                          key=lambda z: z.winfo_y())
+
+        _felder412 = [e for e in _alle412(_r412, 'Entry')]
+        pruefe(bool(_felder412), 'Vorbedingung: die Steuerung hat ein Suchfeld')
+        _vorher412 = _zeilen412()
+        pruefe(len(_vorher412) == 30,
+               'Vorbedingung: 30 Zeilen gebaut (%d)' % len(_vorher412))
+        _rahmen_vorher412 = {id(z) for z in _alle412(_r412, 'Frame')}
+        if _felder412:
+            # `beta` trifft nur die ungeraden Zeilen — vorher alle im selben
+            # Streifen; gefiltert stehen sie untereinander und müssen
+            # umgefärbt werden.
+            _tippen412(_f412.root, _felder412[0], 'beta')
+            _treffer412 = [str(z.winfo_children()[-1].cget('text'))
+                           for z in _sichtbar412()]
+            pruefe(_treffer412 == ['aktion_%02d' % i for i in range(1, 30, 2)],
+                   'der Filter zeigt genau die Treffer (%r)' % _treffer412[:4])
+            _neu412 = [z for z in _alle412(_r412, 'Frame')
+                       if id(z) not in _rahmen_vorher412]
+            pruefe(not _neu412,
+                   'beim Filtern entsteht keine neue Zeile (%d neu)'
+                   % len(_neu412))
+            _tippen412(_f412.root, _felder412[0], '')
+            _alle_zeilen412 = _sichtbar412()
+            pruefe(len(_alle_zeilen412) > 10 and all(
+                       _vorher412.get(str(z.winfo_children()[-1].cget('text')))
+                       is z for z in _alle_zeilen412),
+                   'nach dem Leeren stehen dieselben Zeilen wieder da')
+            _farben412 = [str(z.cget('bg')) for z in _alle_zeilen412]
+            _wechsel412 = all(a != b for a, b in zip(_farben412, _farben412[1:]))
+            _kinder412 = all(str(k.cget('bg')) == str(z.cget('bg'))
+                             for z in _alle_zeilen412
+                             for k in z.winfo_children())
+            pruefe(_wechsel412 and _kinder412,
+                   'die Streifen wechseln Zeile für Zeile, auch in den '
+                   'Beschriftungen (%s)' % _farben412[:4])
+            _tippen412(_f412.root, _felder412[0], 'beta')
+            _farben412 = [str(z.cget('bg')) for z in _sichtbar412()]
+            pruefe(all(a != b for a, b in zip(_farben412, _farben412[1:])),
+                   'auch gefiltert wechseln die Streifen (%s)' % _farben412[:4])
+    finally:
+        _js412.view, _js412.compare, _js412.labels = _alt_js412
+        try:
+            if _f412 is not None:
+                _f412.root.destroy()
+        except Exception:
+            pass
+
+    # --------------------------------------------------------------- Hangar
+    _alt_hangar412 = _cp412.deepcopy(_fl412.load())
+    _alt_unknown412 = _fl412.unknown
+    _w412 = None
+    try:
+        # Kein Nachladen fehlender Schiffsdaten: Das baut die Liste
+        # berechtigt neu und gehört nicht zum Filtern.
+        _fl412.unknown = lambda *a, **k: []
+        stand = _fl412.load()
+        stand['schiffe'] = []
+        for name, hersteller in (('Avenger Titan', 'Aegis Dynamics'),
+                                 ('F7C Hornet', 'Anvil Aerospace'),
+                                 ('Cutlass Black', 'Drake Interplanetary')):
+            _fl412.add(stand, name, hersteller)
+        _fl412.save(stand)
+        _w412 = _wurzel()
+        fenster = _hf412.MainWindow(_w412, version='0.0.0-pruefung')
+        fenster.open_page('hangar')
+        _w412.update()
+        seite = fenster.pages['hangar']
+        _namen412 = ('Avenger Titan', 'Cutlass Black', 'F7C Hornet')
+
+        def _karten412():
+            out = {}
+            for x in _alle412(seite, 'Label'):
+                if (x.cget('text') in _namen412
+                        and str(x.cget('font')) == str(fenster.f_bold)):
+                    out[x.cget('text')] = x
+            return out
+
+        def _sichtbar_hangar412():
+            return [n for n, x in sorted(_karten412().items(),
+                                         key=lambda p: p[1].winfo_rooty())
+                    if x.winfo_ismapped()]
+
+        _vorher412 = _karten412()
+        pruefe(sorted(_vorher412) == list(_namen412),
+               'Vorbedingung: drei Schiffskarten (%r)' % sorted(_vorher412))
+        feld = getattr(seite, 'hangar_suchfeld', None)
+        pruefe(feld is not None, 'Vorbedingung: das Suchfeld im Kopf')
+        if feld is not None:
+            _tippen412(_w412, feld, 'Hornet')
+            pruefe(_sichtbar_hangar412() == ['F7C Hornet'],
+                   'der Filter zeigt nur die Hornet (%r)'
+                   % _sichtbar_hangar412())
+            pruefe(_karten412().get('F7C Hornet') is _vorher412.get('F7C Hornet'),
+                   'die Karte der Hornet ist dieselbe, nicht neu gebaut')
+            _tippen412(_w412, feld, '')
+            pruefe(_sichtbar_hangar412() == list(_namen412),
+                   'nach dem Leeren alle Karten in Namensfolge (%r)'
+                   % _sichtbar_hangar412())
+            _anders412 = [n for n in _namen412
+                          if _karten412().get(n) is not _vorher412.get(n)]
+            pruefe(not _anders412,
+                   'und es sind dieselben Karten wie vorher%s'
+                   % (' — NEU GEBAUT: ' + ', '.join(_anders412)
+                      if _anders412 else ''))
+    finally:
+        try:
+            if _w412 is not None:
+                _w412.destroy()
+        except Exception:
+            pass
+        _fl412.unknown = _alt_unknown412
+        _fl412.save(_alt_hangar412)
 
 
 def _alle_eingaben(w):

@@ -6,6 +6,22 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.92.1 - 2026-10-05
+
+> Suchen fühlt sich wieder flüssig an: Was du tippst, steht sofort im Feld,
+> und die Bauplan-Liste wechselt ohne leeres Zwischenbild auf die Treffer.
+
+### Behoben
+
+- Tippen in Suchfeldern reagiert sofort, und die Bauplan-Liste baut deutlich
+  schneller auf — die alte Liste bleibt stehen, bis die neue fertig ist
+- Der erste Buchstabe geht nicht mehr verloren und bleibt nicht grau stehen,
+  wenn man markierten Text in einem Feld überschreibt
+- Der Trefferzähler der Bauplan-Liste wird beim Tippen nicht mehr
+  abgeschnitten oder mit Resten der alten Zahl gezeigt
+- Auch „Mein Hangar" und „Steuerung" filtern beim Tippen deutlich schneller
+  und halten die Oberfläche nicht mehr fest
+
 ## v3.92.0 - 2026-10-05
 
 > Wo gibt es Gold am günstigsten? Der Reiter „Verkauf" heißt jetzt „Kaufen &

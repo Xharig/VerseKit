@@ -35,6 +35,7 @@ Klick auf ⓘ klappt die Bezugsquellen aus.
 """
 import os
 import time
+import types
 import tkinter as tk
 
 from . import errors
@@ -270,6 +271,11 @@ def _dauer_text(minuten):
                 else t('zeit_std_min') % (std, rest))
     tage = round(minuten / (24 * 60))
     return (t('zeit_tag') if tage == 1 else t('zeit_tage')) % tage
+
+
+# Eine Zeile oder ein Gruppenkopf im Vorrat der Bauplan-Liste — die Bauteile
+# und was sie gerade zeigen.
+_PoolSlot = types.SimpleNamespace
 
 
 class Bestandsfenster:
@@ -1043,25 +1049,48 @@ class Bestandsfenster:
         """
         if not hasattr(self, 'treffer_lbl'):
             return
-        gezeigt = sum(len(treffer) for _, treffer in gruppen)
-        gesamt = len(self.katalog.get('bauplaene') or {})
-        eng = bool(self.suche.get().strip()) or self.filter != 'alle' \
+        shown = sum(len(hits) for _, hits in gruppen)
+        total = len(self.katalog.get('bauplaene') or {})
+        narrowed = bool(self.suche.get().strip()) or self.filter != 'alle' \
             or any(self.fein.values()) or bool(self.auftrag) \
             or bool(self.katalog_art)
+        self._counter_width(total)
         self.treffer_lbl.configure(
-            text=(t('ff_treffer') % (gezeigt, gesamt)) if eng
-            else (t('ff_alle_treffer') % gesamt))
+            text=(t('ff_treffer') % (shown, total)) if narrowed
+            else (t('ff_alle_treffer') % total))
 
-        self._widerspruch_pruefen(gezeigt)
+        self._widerspruch_pruefen(shown)
 
         # Die ganze Zeile ein- oder ausblenden — sie steht unter den
         # Auswahlfeldern und nimmt sonst Platz weg, wenn nichts gefiltert ist.
         # ⚠ Auch die Suche und die Zustandswahl zählen. Wer „fehlt mir"
         # gewählt hat, will genauso zurückkönnen wie nach einem Auswahlfeld.
-        if eng:
+        if narrowed:
             self.zuruecksetzen_lbl.pack(side='right', padx=(24, 0))
         else:
             self.zuruecksetzen_lbl.pack_forget()
+
+    def _counter_width(self, total):
+        """Den Trefferzähler so breit machen wie seinen längsten möglichen
+        Text, rechtsbündig.
+
+        ⚠ Wächst der Zähler erst, wenn der neue Text drinsteht, zeichnet Tk
+        den längeren Text bis zur nächsten Vermessung in die alte, schmalere
+        Fläche — abgeschnitten, mit Resten des alten Texts daneben. Mit
+        fester Breite gibt es nichts nachzuvermessen.
+        """
+        import tkinter.font as tkfont
+        key = (total, t('ff_treffer'), t('ff_alle_treffer'),
+               str(self.treffer_lbl.cget('font')))
+        if getattr(self, '_counter_key', None) == key:
+            return
+        font = tkfont.Font(root=self.treffer_lbl,
+                           font=self.treffer_lbl.cget('font'))
+        widest = max(font.measure(t('ff_treffer') % (total, total)),
+                     font.measure(t('ff_alle_treffer') % total))
+        zero = max(1, font.measure('0'))
+        self.treffer_lbl.configure(width=-(-widest // zero) + 1, anchor='e')
+        self._counter_key = key
 
     def _fein_passt(self, e, key=None):
         """Kommt dieser Bauplan durch die fünf Auswahlfelder?
@@ -1570,19 +1599,27 @@ class Bestandsfenster:
         die Liste länger, derselbe Anteil zeigt plötzlich weiter oben — und die
         angeklickte Zeile ist weg. Gemessen: 0,50 sprang auf 0,43, also ein
         halbes Fenster weit. Deshalb wird hier die **Pixelhöhe** gemerkt und
-        danach zurückgerechnet."""
-        oben_px = None
+        danach zurückgerechnet.
+
+        ⭐ Die Zeilen kommen aus einem Vorrat (`_pool_begin`, `_pool_row`,
+        `_pool_finish`): Bestehende Zeilen werden neu beschriftet und
+        umgefärbt, statt zerstört und neu gebaut. Ein neues Bauteil kostet
+        unter Windows ein eigenes Fenster des Systems, und genau das macht
+        den Neuaufbau teuer. Die alte Liste bleibt dabei stehen, bis die neue
+        fertig ist.
+        """
+        top_px = None
         if not nach_oben:
             try:
-                oben_px = self.leinwand.canvasy(0)
+                top_px = self.leinwand.canvasy(0)
             except tk.TclError:
-                oben_px = None
+                top_px = None
 
-        # ⭐⭐ **Ab hier gibt es kein gueltiges Bild mehr.** Die naechste Zeile
-        # zerstoert die Zeilen; was danach schiefgeht — ein vorzeitiges
-        # `return`, eine Ausnahme —, hinterlaesst eine halbe oder leere Liste.
-        # Der alte Abdruck wuerde sie weiter als Zustand A ausweisen, und
-        # `neu_laden()` spraenge ab, obwohl A laengst weg ist.
+        # ⭐⭐ **Ab hier gibt es kein gueltiges Bild mehr.** Was danach
+        # schiefgeht — ein vorzeitiges `return`, eine Ausnahme —, hinterlaesst
+        # eine halbe oder leere Liste. Der alte Abdruck wuerde sie weiter als
+        # Zustand A ausweisen, und `neu_laden()` spraenge ab, obwohl A laengst
+        # weg ist.
         #
         # Fall: A zeichnen → leeren Katalog zeichnen (fliegt unten raus) → A
         # wiederherstellen → `neu_laden()` — die Liste bliebe leer.
@@ -1603,20 +1640,17 @@ class Bestandsfenster:
         # ueberholte Auftrag nach dem Abdruck des neuen. **Zeilen und Abdruck
         # reisen zusammen mit dem Auftrag.**
         self._zeichen_lauf = getattr(self, '_zeichen_lauf', 0) + 1
-        lauf = self._zeichen_lauf
+        run = self._zeichen_lauf
 
-        # Die Zeilen verborgen abräumen und neu bauen; sichtbar wird die
-        # Liste wieder im Leerlauf (`hide_until_idle`).
-        from .main_window import hide_until_idle
-        hide_until_idle(self.leinwand, self.fenster)
-        for kind in self.inhalt.winfo_children():
-            kind.destroy()
+        # Alles außer den Vorratszeilen wird abgeräumt; die Vorratszeilen
+        # bleiben stehen, bis `_pool_finish()` sie neu ordnet.
+        self._pool_begin()
 
-        for schluessel, knopf in self.knoepfe.items():
-            an = schluessel == self.filter
-            knopf.restyle(fill_color=ACCENT if an else FLAECHE,
-                         border_color=ACCENT if an else LINIE,
-                         fg_color=BG if an else SUB)
+        for key, button in self.knoepfe.items():
+            active = key == self.filter
+            button.restyle(fill_color=ACCENT if active else FLAECHE,
+                           border_color=ACCENT if active else LINIE,
+                           fg_color=BG if active else SUB)
 
         # (Hier standen die vier Bereichs-Knöpfe. Sie sind den fünf
         # Auswahlfeldern gewichen — die färben sich selbst, sobald etwas
@@ -1635,24 +1669,25 @@ class Bestandsfenster:
         # ⚠⚠ **Messpunkte für den Bericht.** Zwischen `zeichnen beginnt` und
         # `steht` liegen Auswahl, Gruppierung und das Packen der Zeilen;
         # deshalb hier drei Zahlen statt einer: Auswahl, Zeilen, gesamt.
-        _t_start = time.perf_counter()
+        t_start = time.perf_counter()
         errors.trail('Liste: zeichnen beginnt')
-        _t_auswahl = time.perf_counter()
-        gruppen = self._auswahl()
-        _ms_auswahl = (time.perf_counter() - _t_auswahl) * 1000
-        habe = bestand_datei.keys(self.bestand)
-        gesamt = len(self.katalog['bauplaene'])
-        meine = sum(1 for k in self.katalog['bauplaene'] if k in habe)
-        if gesamt:
+        t_selection = time.perf_counter()
+        groups = self._auswahl()
+        ms_selection = (time.perf_counter() - t_selection) * 1000
+        owned = bestand_datei.keys(self.bestand)
+        total = len(self.katalog['bauplaene'])
+        mine = sum(1 for k in self.katalog['bauplaene'] if k in owned)
+        if total:
             self.fortschritt.configure(
-                text=t('von_gesamt', meine, gesamt,
-                       round(100 * meine / gesamt)))
+                text=t('von_gesamt', mine, total,
+                       round(100 * mine / total)))
         elif not self.katalog['bauplaene']:
             # ⚠ Auch das ist ein **fertiges** Bild, nur ein sehr kurzes. Ohne
             # diesen Abdruck bliebe die Seite auf ewig ungueltig und wuerde bei
             # jedem Anzeigen neu gebaut — der Fall ohne Katalog trifft jede
             # frische Installation.
             self._hinweis_kein_katalog()
+            self._pool_finish()
             self._letzter_stand = self._anzeige_stand()
             return
 
@@ -1663,25 +1698,25 @@ class Bestandsfenster:
         # * **Lang** (alle anzeigen ohne Filter, über 700 Zeilen): in Blöcken,
         #   weil ein einzelner Rahmen sonst höher würde, als X11 Fenster
         #   platzieren kann — siehe Abschnitt „Lange Liste in Blöcken".
-        gesamt_zeilen = sum(len(paare) for _, paare in gruppen)
-        in_bloecken = self.alle_zeigen and gesamt_zeilen > self._zeilen_deckel()
+        total_rows = sum(len(pairs) for _, pairs in groups)
+        in_blocks = self.alle_zeigen and total_rows > self._zeilen_deckel()
         # Bleibt None, wenn in Bloecken gebaut wird — dort laufen die Zeilen
         # erst im Leerlauf und gehoeren nicht in diese Messung.
-        _ms_zeilen = None
+        ms_rows = None
 
-        if in_bloecken:
-            reihen = []
-            for art, treffer in gruppen:
-                reihen.append(('kopf', art, treffer))
-                for eintrag, drin in treffer:
-                    reihen.append(('zeile', eintrag, drin))
+        if in_blocks:
+            rows = []
+            for kind, hits in groups:
+                rows.append(('kopf', kind, hits))
+                for entry, owned_row in hits:
+                    rows.append(('zeile', entry, owned_row))
             # ⚠ `stand` wird hier schon gebildet und als Vorgabewert
-            # eingefroren — er beschreibt die Daten, aus denen `reihen`
+            # eingefroren — er beschreibt die Daten, aus denen `rows`
             # entstanden ist. Er gilt erst, wenn der Aufbau geglueckt ist.
             self.root.after_idle(
-                lambda r=reihen, n=lauf, s=self._anzeige_stand():
+                lambda r=rows, n=run, s=self._anzeige_stand():
                 self._bloecke_aufbauen(r, n, s))
-            gezeichnet = gesamt_zeilen
+            drawn = total_rows
         else:
             self._bloecke_abraeumen()
             # ⚠ Eigene Beobachtungen zuerst. Sie stehen in keinem Katalog und
@@ -1690,49 +1725,50 @@ class Bestandsfenster:
             # Muster-Beobachtungen und ein Name, der nicht im Katalog steht.
             self._eigene_beobachtungen()
             self._auftragsuebersicht()
-            deckel = self._zeilen_deckel() if self.alle_zeigen else ZEILEN_ZUERST
-            gezeichnet = 0
+            limit = self._zeilen_deckel() if self.alle_zeigen else ZEILEN_ZUERST
+            drawn = 0
             # ⚠ Die Zeilen getrennt messen. „gesamt" allein sagt nicht, ob die
             # Zeit in den Zeilen steckt oder in dem, was drumherum passiert —
             # und genau diese Unterscheidung entscheidet, wo man ansetzt.
-            _t_zeilen = time.perf_counter()
-            for art, treffer in gruppen:
-                if gezeichnet >= deckel:
+            t_rows = time.perf_counter()
+            for kind, hits in groups:
+                if drawn >= limit:
                     break
-                self._gruppenkopf(art, treffer, habe)
-                for eintrag, drin in treffer:
-                    if gezeichnet >= deckel:
+                self._pool_head(kind, hits)
+                for entry, owned_row in hits:
+                    if drawn >= limit:
                         break
-                    self._zeile(eintrag, drin)
-                    gezeichnet += 1
-            _ms_zeilen = (time.perf_counter() - _t_zeilen) * 1000
+                    self._pool_row(entry, owned_row)
+                    drawn += 1
+            ms_rows = (time.perf_counter() - t_rows) * 1000
 
-            rest = gesamt_zeilen - gezeichnet
+            rest = total_rows - drawn
             if rest > 0:
-                mehr = tk.Label(self.inhalt, text=t('weitere_anzeigen', rest),
+                more = tk.Label(self.inhalt, text=t('weitere_anzeigen', rest),
                                 bg=BG, fg=ACCENT, font=schrift(10),
                                 cursor='hand2', pady=10)
-                mehr.pack(fill='x')
-                mehr.bind('<Button-1>', lambda e: self._alle())
-        self._treffer_zeigen(gruppen)
-        if not gruppen and not (self.filter == 'merk'
-                                and (merk.load().get('eintraege') or [])):
-            leer = (t('merkliste_leer') if self.filter == 'merk'
-                    else t('deckel_leer') if self.filter == 'deckel'
-                    else t('neu_leer') if self.filter == 'neu'
-                    else t('nichts_gefunden'))
-            tk.Label(self.inhalt, text=leer, bg=BG, fg=SUB, font=schrift(11),
+                more.pack(fill='x')
+                more.bind('<Button-1>', lambda e: self._alle())
+        self._treffer_zeigen(groups)
+        if not groups and not (self.filter == 'merk'
+                               and (merk.load().get('eintraege') or [])):
+            empty = (t('merkliste_leer') if self.filter == 'merk'
+                     else t('deckel_leer') if self.filter == 'deckel'
+                     else t('neu_leer') if self.filter == 'neu'
+                     else t('nichts_gefunden'))
+            tk.Label(self.inhalt, text=empty, bg=BG, fg=SUB, font=schrift(11),
                      pady=20, wraplength=520, justify='center').pack()
+        self._pool_finish()
 
-        # ⚠ Der Gegenwert zu `_t_start` oben. Steht bewusst VOR den
+        # ⚠ Der Gegenwert zu `t_start` oben. Steht bewusst VOR den
         # `after_idle`-Sprüngen: Was danach kommt, läuft erst im Leerlauf und
         # gehört nicht mehr zum Zeichnen.
         errors.trail('Liste: gezeichnet (%d Zeilen, Auswahl %d ms, Zeilen %s, '
                     'gesamt %d ms)'
-                    % (gezeichnet, round(_ms_auswahl),
-                       ('%d ms' % round(_ms_zeilen)) if _ms_zeilen is not None
+                    % (drawn, round(ms_selection),
+                       ('%d ms' % round(ms_rows)) if ms_rows is not None
                        else 'in Bloecken',
-                       round((time.perf_counter() - _t_start) * 1000)))
+                       round((time.perf_counter() - t_start) * 1000)))
 
         # Die Zeilenhöhe einmal nachmessen — sie bestimmt, wie viele Zeilen in eine
         # Ansicht passen (siehe `_zeilen_deckel`).
@@ -1743,7 +1779,7 @@ class Bestandsfenster:
             # Erst wenn Tk die neue Höhe kennt — sonst bezieht sich der Sprung
             # noch auf die Scrollfläche von vorher und landet daneben.
             self.root.after_idle(lambda: self.leinwand.yview_moveto(0))
-        elif oben_px is not None:
+        elif top_px is not None:
             # ⚠ ZWEIMAL `after_idle`, und drinnen KEIN `update_idletasks()`.
             # Der erste Durchgang packt die Zeilen, der zweite läuft, wenn Tk
             # sie vermessen hat — dann stimmt `bbox('all')` von selbst.
@@ -1754,7 +1790,7 @@ class Bestandsfenster:
             # bei 120 Zeilen eine Kaskade an. Gemessen mit cProfile — 29,4 der
             # 29,6 Sekunden steckten in dieser einen Zeile.
             self.root.after_idle(
-                lambda: self.root.after_idle(lambda: self._zurueck_zu(oben_px)))
+                lambda: self.root.after_idle(lambda: self._zurueck_zu(top_px)))
 
         # ⭐⭐ **Wer zeichnet, schreibt den Abdruck — und zwar HIER, am Ende.**
         #
@@ -1774,8 +1810,315 @@ class Bestandsfenster:
         # ist der Aufbau nur **eingeplant**; der Abdruck reist mit dem Auftrag
         # mit und wird erst gültig, wenn die Blöcke wirklich stehen. Hier gilt
         # er deshalb nur für den geradlinigen Weg.
-        if not in_bloecken:
+        if not in_blocks:
             self._letzter_stand = self._anzeige_stand()
+
+    # ------------------------------------------------- Zeilen aus dem Vorrat
+    def _pool_stamp(self):
+        """Was alle Vorratszeilen gemeinsam haben: Schriftstufe, Sprache,
+        Schriften, Farben und den Rückweg zum Hauptfenster. Ändert sich
+        etwas davon, wird der Vorrat verworfen und neu gebaut."""
+        return (icons.level(), t('hk_knopf'), repr(schrift(9)),
+                repr(schrift(10)), repr(schrift(11)), repr(schrift(12)),
+                FG, SUB, ACCENT, FLAECHE, BG,
+                getattr(self, 'hauptfenster', None) is not None)
+
+    def _pool_begin(self):
+        """Einen Zeichenvorgang beginnen: alles abräumen, was nicht aus dem
+        Vorrat stammt, und die Vorratszeilen von vorn vergeben."""
+        stamp = self._pool_stamp()
+        if getattr(self, '_pool_key', None) != stamp:
+            for slot in (getattr(self, '_row_pool', [])
+                         + getattr(self, '_head_pool', [])):
+                try:
+                    slot.frame.destroy()
+                except tk.TclError:
+                    pass
+            self._row_pool = []
+            self._head_pool = []
+            self._pool_key = stamp
+        pooled = {str(s.frame) for s in self._row_pool + self._head_pool}
+        for child in self.inhalt.winfo_children():
+            if str(child) not in pooled:
+                child.destroy()
+        self._pool_rows_used = 0
+        self._pool_heads_used = 0
+        self._pool_order = []
+        self._pool_before = None
+        # Merkzettel und Merkliste einmal je Zeichenvorgang, nicht je Zeile.
+        self._pool_farm = None
+        self._pool_watched = None
+
+    def _pool_mark_start(self):
+        """Merken, was vor der ersten Vorratszeile steht (Warnzeile,
+        eigene Beobachtungen, Aufträge)."""
+        if self._pool_before is None:
+            pooled = {str(s.frame) for s in self._row_pool + self._head_pool}
+            self._pool_before = [w for w in self.inhalt.pack_slaves()
+                                 if str(w) not in pooled]
+
+    def _pool_finish(self):
+        """Unbenutzte Vorratszeilen abnehmen und alles in die richtige
+        Reihenfolge bringen: Davor-Stehendes, Vorratszeilen, Danach-Stehendes.
+
+        Unbenutzte Zeilen behalten ihre Bauteile, verlieren aber ihre
+        Beschriftung — nichts Verborgenes trägt einen alten Namen weiter.
+        """
+        for slot in self._row_pool[self._pool_rows_used:]:
+            if slot.frame.winfo_manager():
+                slot.frame.pack_forget()
+            if slot.name is not None:
+                slot.name = None
+                slot.name_label.configure(text='')
+                slot.details.configure(text='')
+        for slot in self._head_pool[self._pool_heads_used:]:
+            if slot.frame.winfo_manager():
+                slot.frame.pack_forget()
+            slot.title.configure(text='')
+            slot.count.configure(text='')
+        pooled = {str(s.frame) for s in self._row_pool + self._head_pool}
+        used = [s.frame for s in self._pool_order]
+        others = [w for w in self.inhalt.pack_slaves()
+                  if str(w) not in pooled]
+        before = self._pool_before if self._pool_before is not None else others
+        before_names = {str(w) for w in before}
+        after = [w for w in others if str(w) not in before_names]
+        wanted = before + used + after
+        if [str(w) for w in self.inhalt.pack_slaves()] == [str(w) for w in wanted]:
+            return
+        previous = None
+        for widget in wanted:
+            slot = getattr(widget, 'pool_slot', None)
+            options = slot.pack_options if slot is not None else {}
+            if previous is None:
+                current = self.inhalt.pack_slaves()
+                if current and current[0] is not widget:
+                    widget.pack(before=current[0], **options)
+                elif not current:
+                    widget.pack(**options)
+            else:
+                widget.pack(after=previous, **options)
+            previous = widget
+
+    def _pool_head(self, kind, hits):
+        """Ein Gruppenkopf aus dem Vorrat — sieht aus wie `_gruppenkopf()`."""
+        from .pages import _stripe_reset
+        self._pool_mark_start()
+        if self._pool_heads_used < len(self._head_pool):
+            slot = self._head_pool[self._pool_heads_used]
+        else:
+            frame = tk.Frame(self.inhalt, bg=BG)
+            title = tk.Label(frame, text='', bg=BG, fg=ACCENT,
+                             font=schrift(9, True), anchor='w')
+            title.pack(side='left')
+            count = tk.Label(frame, text='', bg=BG, fg=SUB, font=schrift(9),
+                             anchor='w')
+            count.pack(side='left')
+            slot = _PoolSlot(frame=frame, title=title, count=count,
+                             pack_options={'fill': 'x', 'pady': (14, 4)})
+            frame.pool_slot = slot
+            self._head_pool.append(slot)
+        self._pool_heads_used += 1
+        owned_count = sum(1 for _, d in hits if d)
+        slot.title.configure(text=kind.upper())
+        slot.count.configure(text='  %d/%d' % (owned_count, len(hits)))
+        _stripe_reset(self.inhalt)
+        self._pool_order.append(slot)
+
+    def _pool_row_new(self):
+        """Eine leere Vorratszeile mit allen Bauteilen, die eine Zeile je
+        haben kann. Was eine Zeile gerade nicht braucht, ist nicht gepackt."""
+        from . import fleet as farm_module
+        frame = tk.Frame(self.inhalt, bg=FLAECHE)
+        slot = _PoolSlot(frame=frame, name=None, owned=False, shade=FLAECHE,
+                         source_kind=None, details_on=False, farm_on=False,
+                         star_on=False, look=None,
+                         pack_options={'fill': 'x', 'ipady': 1})
+        frame.pool_slot = slot
+
+        check = icons.line(frame, 'offen', color=icons.GREY,
+                           background=FLAECHE, font=schrift(12))
+        check.configure(cursor='hand2', padx=10, pady=6)
+        check.pack(side='left')
+        check.bind('<Button-1>', lambda e: self._umschalten(slot.name))
+        icons.hover_group(check)
+        slot.check = check
+
+        middle = tk.Frame(frame, bg=FLAECHE)
+        middle.pack(side='left', fill='x', expand=True)
+        name_label = tk.Label(middle, text='', bg=FLAECHE, fg=SUB,
+                              font=schrift(11), anchor='w')
+        name_label.pack(fill='x')
+        if getattr(self, 'hauptfenster', None) is not None:
+            name_label.configure(cursor='hand2')
+            name_label.bind('<Button-1>',
+                            lambda e: self._zur_herstellung(slot.name))
+            name_label.bind('<Enter>',
+                            lambda e: name_label.configure(fg=ACCENT))
+            name_label.bind('<Leave>', lambda e: name_label.configure(
+                fg=FG if slot.owned else SUB))
+            notice.attach(name_label, lambda: t('hinweis_zutaten'))
+        slot.name_label = name_label
+        slot.details = tk.Label(middle, text='', bg=FLAECHE, fg=SUB,
+                                font=schrift(9), anchor='w')
+
+        width_source, width_symbol = self._spalten_breiten()
+        source_column = self._spalte(frame, FLAECHE, width_source)
+        source_button = icons.tappable(source_column, 'hinweiszeile',
+                                       background=FLAECHE,
+                                       text=t('hk_knopf'), font=schrift(10))
+        source_button.configure(cursor='hand2', padx=12, fg=ACCENT)
+        source_button.bind('<Button-1>',
+                           lambda e: self._herkunft_umschalten(slot.name))
+        icons.hover_group(source_button)
+        notice.attach(source_button, lambda: t('hinweis_quellen'))
+        start_icon = icons.tappable(source_column, 'startbauplan',
+                                    color=icons.GREEN, background=FLAECHE)
+        start_icon.configure(padx=12)
+        notice.attach(start_icon, lambda: t('hinweis_startbauplan'))
+        no_source_label = tk.Label(source_column, text='?', bg=FLAECHE,
+                                   fg=SUB, font=schrift(11), padx=12)
+        notice.attach(no_source_label, lambda: t('hinweis_ohne_quelle'))
+        slot.sources = {'q': source_button, 'start': start_icon,
+                        'none': no_source_label}
+
+        farm_column = self._spalte(frame, FLAECHE, width_symbol)
+        farm = icons.tappable(farm_column, 'farmliste', color=icons.GREY,
+                              background=FLAECHE)
+        farm.configure(cursor='hand2')
+
+        def farm_click(_event=None):
+            if slot.farm_on:
+                self._farm_umschalten(slot.name)
+        for widget in (farm_column, farm):
+            widget.bind('<Button-1>', farm_click)
+        icons.hover_group(farm_column, farm)
+        notice.attach(farm, lambda: t('s_bp_farm_drauf')
+                      if farm_module.notepad_contains(self._farm_stand(),
+                                                      slot.name)
+                      else t('s_bp_farm_merken'))
+        slot.farm_column, slot.farm = farm_column, farm
+
+        star_column = self._spalte(frame, FLAECHE, width_symbol)
+        star = icons.tappable(star_column, 'gemerkt', color=icons.GREY,
+                              background=FLAECHE)
+        star.configure(cursor='hand2')
+
+        def star_click(_event=None):
+            if slot.star_on:
+                self._merken(slot.name)
+        for widget in (star_column, star):
+            widget.bind('<Button-1>', star_click)
+        icons.hover_group(star_column, star)
+        notice.attach(star, lambda: t('nicht_mehr_merken')
+                      if merk.contains(slot.name) else t('merken'))
+        slot.star_column, slot.star = star_column, star
+
+        widgets = []
+        stack = [frame]
+        while stack:
+            widget = stack.pop()
+            widgets.append(widget)
+            stack.extend(widget.winfo_children())
+        slot.colored = widgets
+        self._row_pool.append(slot)
+        return slot
+
+    def _pool_row(self, entry, owned):
+        """Eine Bauplan-Zeile aus dem Vorrat — sieht aus wie `_zeile()`."""
+        from .pages import _stripe
+        from . import fleet as farm_module
+        self._pool_mark_start()
+        if self._pool_rows_used < len(self._row_pool):
+            slot = self._row_pool[self._pool_rows_used]
+        else:
+            slot = self._pool_row_new()
+        self._pool_rows_used += 1
+        name = entry['n']
+        shade = _stripe(self.inhalt, FLAECHE)
+        slot.name = name
+        slot.owned = owned
+
+        if slot.shade != shade:
+            for widget in slot.colored:
+                widget.configure(bg=shade)
+            slot.shade = shade
+
+        self._pool_symbol(slot.check, 'haken' if owned else 'offen',
+                          icons.GREEN if owned else icons.GREY)
+
+        self._pool_set(slot.name_label, text=name, fg=FG if owned else SUB)
+        details = [d for d in (kuerzel(entry), entry.get('m')) if d]
+        self._pool_set(slot.details, text=' · '.join(details))
+        if bool(details) != slot.details_on:
+            if details:
+                slot.details.pack(fill='x')
+            else:
+                slot.details.pack_forget()
+            slot.details_on = bool(details)
+
+        source_kind = ('q' if entry.get('q')
+                       else 'start' if entry.get('start') else 'none')
+        if source_kind == 'q':
+            button = slot.sources['q']
+            self._pool_symbol(button, 'zuklappen' if name in self.offen
+                              else 'hinweiszeile', button.symbol_color)
+        if slot.source_kind != source_kind:
+            if slot.source_kind is not None:
+                slot.sources[slot.source_kind].pack_forget()
+            slot.sources[source_kind].pack()
+            slot.source_kind = source_kind
+
+        if self._pool_farm is None:
+            self._pool_farm = self._farm_stand()
+            self._pool_watched = merk.names()
+        noted = farm_module.notepad_contains(self._pool_farm, name)
+        farm_on = bool(owned or noted)
+        if farm_on:
+            self._pool_symbol(slot.farm, 'farmliste',
+                              icons.GREEN if noted else icons.GREY)
+        if farm_on != slot.farm_on:
+            if farm_on:
+                slot.farm.pack(padx=10)
+            else:
+                slot.farm.pack_forget()
+            slot.farm_column.configure(cursor='hand2' if farm_on else '')
+            slot.farm_on = farm_on
+
+        watched = merk._norm(name) in self._pool_watched
+        star_on = bool(not owned or watched)
+        if star_on:
+            self._pool_symbol(slot.star, 'gemerkt',
+                              icons.YELLOW if watched else icons.GREY)
+        if star_on != slot.star_on:
+            if star_on:
+                slot.star.pack(padx=10)
+            else:
+                slot.star.pack_forget()
+            slot.star_column.configure(cursor='hand2' if star_on else '')
+            slot.star_on = star_on
+        self._pool_order.append(slot)
+
+    @staticmethod
+    def _pool_set(widget, **values):
+        """`configure()` nur mit dem, was sich wirklich ändert — jede
+        Änderung lässt Tk das Bauteil neu zeichnen."""
+        changed = {k: v for k, v in values.items()
+                   if str(widget.cget(k)) != str(v)}
+        if changed:
+            widget.configure(**changed)
+
+    @staticmethod
+    def _pool_symbol(widget, symbol, color):
+        """Motiv und Farbe eines Symbols setzen, nicht überfahren — und das
+        Bild nur tauschen, wenn sich davon etwas ändert."""
+        if (widget.symbol, widget.symbol_color,
+                getattr(widget, 'hovered', False)) == (symbol, color, False):
+            return
+        widget.symbol = symbol
+        widget.symbol_color = color
+        widget.hovered = False
+        widget.resize()
 
     def _rollbereich_anmelden(self):
         """Die Scrollfläche neu vermessen — aber höchstens einmal je Runde.
@@ -2106,14 +2449,17 @@ class Bestandsfenster:
 
     def _zeilenhoehe_merken(self):
         """Die Höhe einer Zeile einmal nachmessen, wenn Tk sie gezeichnet hat."""
+        # ⚠ `pack_slaves()` statt `winfo_children()`: Die Vorratszeilen
+        # stehen in der Reihenfolge, in der sie gepackt sind, nicht in der,
+        # in der sie gebaut wurden, und unbenutzte sind gar nicht gepackt.
         try:
-            kinder = [k for k in self.inhalt.winfo_children()
-                      if k.winfo_height() > 1]
-            if len(kinder) >= 4:
+            children = [k for k in self.inhalt.pack_slaves()
+                        if k.winfo_height() > 1]
+            if len(children) >= 4:
                 # Der zweite bis vierte Eintrag: der erste ist ein Gruppenkopf
                 # und niedriger als eine Bauplan-Zeile.
-                hoehen = sorted(k.winfo_height() for k in kinder[1:4])
-                self._zeilenhoehe = hoehen[len(hoehen) // 2]
+                heights = sorted(k.winfo_height() for k in children[1:4])
+                self._zeilenhoehe = heights[len(heights) // 2]
         except tk.TclError:
             pass
 

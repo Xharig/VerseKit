@@ -97,7 +97,13 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
     # Beobachtung feuern — die sieht eine leere Variable und zeigt den
     # Hinweis sofort wieder an. Ergebnis: Der erste Tastendruck raeumte ihn
     # weg und holte ihn im selben Atemzug zurueck.
-    state = {'on': False, 'lock': False}
+    #
+    # `typing` steht, solange ein Tastendruck verarbeitet wird (bis Tk wieder
+    # ruht). Ersetzt eine Taste markierten Text, löscht die Klassenbindung
+    # erst die Markierung — die Variable ist kurz leer — und setzt dann das
+    # Zeichen ein. Käme der Hinweis in diesem Augenblick zurück, landete das
+    # Zeichen grau im Hinweis und die Variable bliebe abgehängt.
+    state = {'on': False, 'lock': False, 'typing': False}
 
     def show():
         if state['on'] or variable.get():
@@ -151,6 +157,16 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
         except tk.TclError:
             pass
 
+    def typing_done():
+        """Nach dem Tastendruck: ist das Feld leer geblieben, kommt der
+        Hinweis zurück."""
+        state['typing'] = False
+        try:
+            if not variable.get():
+                show()
+        except tk.TclError:
+            pass
+
     def on_key(event):
         # ⚠ Erst pruefen, DANN durchlassen: Diese Bindung laeuft vor der
         # Klassenbindung, die das Zeichen einsetzt. Wer hier nicht raeumt,
@@ -159,6 +175,12 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
             park()                    # Pfeiltasten wandern nicht in den Hinweis
             return None
         hide()
+        if not state['typing']:
+            state['typing'] = True
+            try:
+                field.after_idle(typing_done)
+            except tk.TclError:
+                state['typing'] = False
         return None
 
     def on_variable(*_args):
@@ -182,8 +204,9 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
             return                    # wir selbst schalten gerade um
         if variable.get():
             hide()
-        else:
+        elif not state['typing']:
             show()
+        # Während eines Tastendrucks entscheidet `typing_done()`.
 
     field.bind('<Key>', on_key, add='+')
     for sequence in ('<Button-1>', '<B1-Motion>', '<ButtonRelease-1>',
