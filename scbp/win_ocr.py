@@ -32,6 +32,7 @@ import struct
 import sys
 import threading
 import time
+import uuid
 import zlib
 from ctypes import wintypes
 
@@ -42,23 +43,19 @@ class GUID(ctypes.Structure):
     _fields_ = [('Data1', ctypes.c_uint32), ('Data2', ctypes.c_uint16),
                 ('Data3', ctypes.c_uint16), ('Data4', ctypes.c_ubyte * 8)]
 
-    def __init__(self, text):
-        super().__init__()
-        h = text.strip('{}').replace('-', '')
-        self.Data1 = int(h[0:8], 16)
-        self.Data2 = int(h[8:12], 16)
-        self.Data3 = int(h[12:16], 16)
-        for i in range(8):
-            self.Data4[i] = int(h[16 + 2 * i:18 + 2 * i], 16)
+
+def _guid(text):
+    """Eine GUID aus ihrer Schreibweise `XXXXXXXX-XXXX-…`."""
+    return GUID.from_buffer_copy(uuid.UUID(text).bytes_le)
 
 
-IID_OcrEngineStatics = GUID('5BFFA85A-3384-3540-9940-699120D428A8')
-IID_SoftwareBitmapFactory = GUID('C99FEB69-2D62-4D47-A6B3-4FDB6A07FDF8')
-IID_SoftwareBitmapStatics = GUID('DF0385DB-672F-4A9D-806E-C2442F343E86')
-IID_MemoryBuffer = GUID('FBC4DD2A-245B-11E4-AF98-689423260CF8')
-IID_MemoryBufferByteAccess = GUID('5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D')
-IID_Closable = GUID('30D5A829-7FA4-4026-83BB-D75BAE4EA99E')
-IID_AsyncInfo = GUID('00000036-0000-0000-C000-000000000046')
+IID_OcrEngineStatics = _guid('5BFFA85A-3384-3540-9940-699120D428A8')
+IID_SoftwareBitmapFactory = _guid('C99FEB69-2D62-4D47-A6B3-4FDB6A07FDF8')
+IID_SoftwareBitmapStatics = _guid('DF0385DB-672F-4A9D-806E-C2442F343E86')
+IID_MemoryBuffer = _guid('FBC4DD2A-245B-11E4-AF98-689423260CF8')
+IID_MemoryBufferByteAccess = _guid('5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D')
+IID_Closable = _guid('30D5A829-7FA4-4026-83BB-D75BAE4EA99E')
+IID_AsyncInfo = _guid('00000036-0000-0000-C000-000000000046')
 
 BGRA8 = 87
 GRAY8 = 62
