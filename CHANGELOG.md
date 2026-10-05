@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.93.1 - 2026-10-05
+
+> Der Raffinerie-Scanner liest wieder so gut wie früher und besser: Unsicher
+> gelesene Zeilen landen jetzt als Vorschlag im Feld, statt zu fehlen.
+
+### Verbessert
+
+- **Schärfere Lesung** — das Terminalbild wird wieder hochwertig vergrößert,
+  dadurch liest der Scanner mehr Zahlen sicher
+- **Unsichere Zeilen als Vorschlag** — sie stehen mit der besten Lesung im
+  Feld und werden zum Prüfen genannt; was du korrigierst, lernt der Scanner
+
+### Behoben
+
+- **„Keine Raffinerie-Liste zu erkennen" bei gefundenem Auftrag** — die
+  Meldung kommt nur noch, wenn wirklich keine Liste auf dem Bildschirm war
+
 ## v3.93.0 - 2026-10-05
 
 > „Bildschirm lesen" ist zurück: Der Raffinerie-Scanner liest das Terminal

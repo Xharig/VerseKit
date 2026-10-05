@@ -20,8 +20,9 @@
 
 Ohne Skript-Interpreter und ohne Zusatzpakete: Die WinRT-Klassen werden
 über `combase.dll` aktiviert und ihre Methoden über die Funktionstabellen
-der Schnittstellen gerufen. Vergrößern und Ausschneiden macht GDI
-(`StretchBlt`), die Graustufe `SoftwareBitmap.Convert`.
+der Schnittstellen gerufen. Ausschneiden, Vergrößern (bikubisch) und die
+Farbmatrix für Graustufe macht GDI+ (`gdiplus.dll`, flache Schnittstelle).
+GDI (`_gdi`, `_dib`) zeichnet nur Prüfbilder im Selbsttest.
 
 Die Nummern hinter den Methoden sind die Plätze in der Funktionstabelle:
 0–2 IUnknown, 3–5 IInspectable, ab 6 die Methoden der Schnittstelle in der
@@ -53,7 +54,6 @@ def _guid(text):
 _IIDS = {
     'OcrEngineStatics': '5BFFA85A-3384-3540-9940-699120D428A8',
     'SoftwareBitmapFactory': 'C99FEB69-2D62-4D47-A6B3-4FDB6A07FDF8',
-    'SoftwareBitmapStatics': 'DF0385DB-672F-4A9D-806E-C2442F343E86',
     'MemoryBuffer': 'FBC4DD2A-245B-11E4-AF98-689423260CF8',
     'MemoryBufferByteAccess': '5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D',
     'Closable': '30D5A829-7FA4-4026-83BB-D75BAE4EA99E',
@@ -62,14 +62,12 @@ _IIDS = {
 
 IID_OcrEngineStatics = _guid(_IIDS['OcrEngineStatics'])
 IID_SoftwareBitmapFactory = _guid(_IIDS['SoftwareBitmapFactory'])
-IID_SoftwareBitmapStatics = _guid(_IIDS['SoftwareBitmapStatics'])
 IID_MemoryBuffer = _guid(_IIDS['MemoryBuffer'])
 IID_MemoryBufferByteAccess = _guid(_IIDS['MemoryBufferByteAccess'])
 IID_Closable = _guid(_IIDS['Closable'])
 IID_AsyncInfo = _guid(_IIDS['AsyncInfo'])
 
 BGRA8 = 87
-GRAY8 = 62
 ALPHA_IGNORE = 2
 ACCESS_READ_WRITE = 1
 
@@ -257,37 +255,119 @@ def _dib(gdi, width, height):
     return handle, bits
 
 
-def scaled(src, box, scale):
-    """Ausschnitt `box` von `src` (breite, höhe, BGRA) um `scale` vergrößert.
+# ------------------------------------------------------------- GDI+
+# Farbmatrizen 5 × 5: Zeilen R, G, B, A, Versatz; Spalten die Ausgangskanäle.
+# `gray`: Graustufe mit gespreiztem Kontrast, helle Schrift bleibt hell.
+# `dark`: Graustufe umgekehrt und gespreizt, dunkle Schrift auf hellem Grund.
+def _matrix(mode):
+    if mode not in ('gray', 'dark'):
+        return None
+    m = [[0.0] * 5 for _ in range(5)]
+    for o in (0, 1, 2):
+        if mode == 'gray':
+            m[0][o], m[1][o], m[2][o], m[4][o] = 0.30 * 1.8, 0.59 * 1.8, 0.11 * 1.8, -0.25
+        else:
+            m[0][o], m[1][o], m[2][o], m[4][o] = (-0.30 / 0.7, -0.59 / 0.7,
+                                                  -0.11 / 0.7, 1.0 / 0.7)
+    m[3][3] = 1.0
+    m[4][4] = 1.0
+    return (ctypes.c_float * 25)(*[v for row in m for v in row])
+
+
+class _GdiplusInput(ctypes.Structure):
+    _fields_ = [('version', ctypes.c_uint32), ('callback', ctypes.c_void_p),
+                ('no_thread', ctypes.c_int), ('no_codecs', ctypes.c_int)]
+
+
+_GDIPLUS = []
+
+
+def _gdiplus():
+    if _GDIPLUS:
+        return _GDIPLUS[0]
+    lib = ctypes.WinDLL('gdiplus')
+    token = ctypes.c_size_t()
+    start = _GdiplusInput(1, None, 0, 0)
+    status = lib.GdiplusStartup(ctypes.byref(token), ctypes.byref(start), None)
+    if status:
+        raise OcrError('GdiplusStartup %d' % status)
+    for name, args in (
+            ('GdipCreateBitmapFromScan0', (ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                           ctypes.c_int, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p))),
+            ('GdipGetImageGraphicsContext', (ctypes.c_void_p,
+                                             ctypes.POINTER(ctypes.c_void_p))),
+            ('GdipSetInterpolationMode', (ctypes.c_void_p, ctypes.c_int)),
+            ('GdipSetPixelOffsetMode', (ctypes.c_void_p, ctypes.c_int)),
+            ('GdipCreateImageAttributes', (ctypes.POINTER(ctypes.c_void_p),)),
+            ('GdipSetImageAttributesColorMatrix', (ctypes.c_void_p, ctypes.c_int,
+                                                   ctypes.c_int, ctypes.c_void_p,
+                                                   ctypes.c_void_p, ctypes.c_int)),
+            ('GdipDrawImageRectRectI', (ctypes.c_void_p, ctypes.c_void_p,
+                                        ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_void_p, ctypes.c_void_p,
+                                        ctypes.c_void_p)),
+            ('GdipDeleteGraphics', (ctypes.c_void_p,)),
+            ('GdipDisposeImage', (ctypes.c_void_p,)),
+            ('GdipDisposeImageAttributes', (ctypes.c_void_p,))):
+        getattr(lib, name).argtypes = args
+    _GDIPLUS.append(lib)
+    return lib
+
+
+def _ok(status, what):
+    if status:
+        raise OcrError('%s %d' % (what, status))
+
+
+def scaled(src, box, scale, mode='plain'):
+    """Ausschnitt `box` von `src` (breite, höhe, BGRA) um `scale` vergrößert,
+    bikubisch (GDI+). `mode` `gray` oder `dark` setzt die Farbmatrix.
 
     Gibt (breite, höhe, BGRA-Bytes)."""
     width, height, raw = src
     x, y, w, h = box
     tw, th = max(1, int(w * scale)), max(1, int(h * scale))
-    gdi = _gdi()
-    src_dc = gdi.CreateCompatibleDC(None)
-    dst_dc = gdi.CreateCompatibleDC(None)
-    src_bmp, src_bits = _dib(gdi, width, height)
-    dst_bmp, dst_bits = _dib(gdi, tw, th)
+    lib = _gdiplus()
+    source_buffer = (ctypes.c_ubyte * len(raw)).from_buffer_copy(bytes(raw))
+    target_buffer = (ctypes.c_ubyte * (tw * th * 4))()
+    source = ctypes.c_void_p()
+    target = ctypes.c_void_p()
+    graphics = ctypes.c_void_p()
+    attributes = ctypes.c_void_p()
+    rgb32 = 0x00022009
     try:
-        ctypes.memmove(src_bits, bytes(raw), len(raw))
-        old_src = gdi.SelectObject(src_dc, src_bmp)
-        old_dst = gdi.SelectObject(dst_dc, dst_bmp)
-        gdi.SetStretchBltMode(dst_dc, 4)        # HALFTONE
-        gdi.SetBrushOrgEx(dst_dc, 0, 0, None)
-        if not gdi.StretchBlt(dst_dc, 0, 0, tw, th, src_dc, x, y, w, h,
-                              0x00CC0020):          # SRCCOPY
-            raise OcrError('StretchBlt')
-        gdi.GdiFlush()
-        out = ctypes.string_at(dst_bits, tw * th * 4)
-        gdi.SelectObject(src_dc, old_src)
-        gdi.SelectObject(dst_dc, old_dst)
+        _ok(lib.GdipCreateBitmapFromScan0(width, height, width * 4, rgb32,
+                                          source_buffer, ctypes.byref(source)),
+            'Bitmap')
+        _ok(lib.GdipCreateBitmapFromScan0(tw, th, tw * 4, rgb32, target_buffer,
+                                          ctypes.byref(target)), 'Bitmap')
+        _ok(lib.GdipGetImageGraphicsContext(target, ctypes.byref(graphics)),
+            'Graphics')
+        lib.GdipSetInterpolationMode(graphics, 7)       # HighQualityBicubic
+        lib.GdipSetPixelOffsetMode(graphics, 4)         # HighQuality
+        matrix = _matrix(mode)
+        if matrix is not None:
+            _ok(lib.GdipCreateImageAttributes(ctypes.byref(attributes)),
+                'ImageAttributes')
+            _ok(lib.GdipSetImageAttributesColorMatrix(attributes, 0, 1, matrix,
+                                                      None, 0), 'ColorMatrix')
+        _ok(lib.GdipDrawImageRectRectI(graphics, source, 0, 0, tw, th,
+                                       int(x), int(y), int(w), int(h), 2,
+                                       attributes or None, None, None),
+            'DrawImage')
     finally:
-        gdi.DeleteObject(src_bmp)
-        gdi.DeleteObject(dst_bmp)
-        gdi.DeleteDC(src_dc)
-        gdi.DeleteDC(dst_dc)
-    return tw, th, out
+        if graphics:
+            lib.GdipDeleteGraphics(graphics)
+        if attributes:
+            lib.GdipDisposeImageAttributes(attributes)
+        if target:
+            lib.GdipDisposeImage(target)
+        if source:
+            lib.GdipDisposeImage(source)
+    return tw, th, bytes(target_buffer)
 
 
 # --------------------------------------------------------- SoftwareBitmap
@@ -350,34 +430,6 @@ def _bitmap_bgra(width, height, raw):
     finally:
         _unlock(handles)
     return bitmap
-
-
-def _to_gray(bitmap, table):
-    """Graustufe aus einem BGRA-Bitmap, jedes Byte über `table` umgesetzt."""
-    rt = _runtime()
-    statics = rt.factory('Windows.Graphics.Imaging.SoftwareBitmap',
-                         IID_SoftwareBitmapStatics)
-    gray = ctypes.c_void_p()
-    try:
-        _check(_call(statics, 7, bitmap, GRAY8, ctypes.byref(gray),
-                     argtypes=(ctypes.c_void_p, ctypes.c_int,
-                               ctypes.POINTER(ctypes.c_void_p))),
-               'SoftwareBitmap.Convert')
-    finally:
-        _release(statics)
-    handles, pointer, size, plane = _lock(gray)
-    try:
-        data = ctypes.string_at(pointer.value, size)
-        ctypes.memmove(pointer.value, data.translate(table), size)
-    finally:
-        _unlock(handles)
-    return gray
-
-
-# Graustufe mit gespreiztem Kontrast (helle Schrift bleibt hell) und
-# umgekehrte Graustufe (dunkle Schrift auf hellem Grund).
-_GRAY = bytes(max(0, min(255, int(round(v * 1.8 - 0.25 * 255)))) for v in range(256))
-_DARK = bytes(max(0, min(255, int(round((255 - v) / 0.7)))) for v in range(256))
 
 
 # ------------------------------------------------------------------ OCR
@@ -536,13 +588,9 @@ def ocr_image(path, jobs, save=None, save_crop=None, keep_width=None,
             scale = float(scale) if scale > 0 else 1.0
             if max(w, h) * scale > limit:
                 scale = limit / float(max(w, h))
-            tw, th, raw = scaled(src, (x, y, w, h), scale)
+            tw, th, raw = scaled(src, (x, y, w, h), scale, mode)
             bitmap = _bitmap_bgra(tw, th, raw)
             try:
-                if mode in ('gray', 'dark'):
-                    gray = _to_gray(bitmap, _GRAY if mode == 'gray' else _DARK)
-                    _release(bitmap)
-                    bitmap = gray
                 found = recognize(engine, bitmap, timeout)
             finally:
                 _release(bitmap)

@@ -12561,7 +12561,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
             feld.insert('1.0', text)
             pruefen()
             teile.append(t('s_rf_lesen_fertig') % len(text.splitlines()))
-        else:
+        elif not unsicher:
             teile.append(t('s_rf_lesen_nichts'))
         if unsicher:
             teile.append(t('s_rf_lesen_unsicher') % ', '.join(unsicher))

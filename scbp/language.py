@@ -227,10 +227,12 @@ TEXTS = {
                         'The picture of this reading was kept — send it with '
                         'a bug report (Info → Report a problem) to help '
                         'improve the scanner.'),
-    's_rf_lesen_unsicher': ('Nicht sicher gelesen, bitte selbst eintippen: %s '
-                            '— daraus lernt der Scanner die Ziffern.',
-                            'Not read reliably, please type in yourself: %s '
-                            '— the scanner learns the digits from it.'),
+    's_rf_lesen_unsicher': ('Bitte genau prüfen, nicht sicher gelesen: %s — '
+                            'falsche Zahlen korrigieren, daraus lernt der '
+                            'Scanner die Ziffern.',
+                            'Check these closely, not read reliably: %s — '
+                            'correct wrong numbers, the scanner learns the '
+                            'digits from it.'),
     's_rf_lesen_aus':  ('Bildschirm lesen ist vorübergehend abgeschaltet — '
                         'Virenschutz-Programme hielten die Texterkennung für '
                         'einen Angriff. Bitte die Zeilen abtippen.',

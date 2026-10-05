@@ -37692,6 +37692,13 @@ def _pruefung_356():
                                            confirm=lambda y, s, w, a=antwort: a)
         pruefe(gefunden == erwartet, 'Bestaetigung %r ergibt %s'
                % (antwort, gefunden))
+    # Mit `guess` steht eine unsichere Zeile mit der häufigsten Lesung im
+    # Ergebnis und zugleich in der Liste der unsicheren.
+    gefunden, unsicher = _rs356.merge_passes(
+        [worte, worte], index=index, confirm=lambda y, s, w: None, guess=True)
+    pruefe(gefunden == [('Gold', 588, 122)] and unsicher == ['Gold'],
+           'eine unsichere Zeile kommt als Vorschlag, gemeldet als unsicher '
+           '(%s, %s)' % (gefunden, unsicher))
     if sys.platform != 'win32':
         print('  [--]   Zeichnen nur unter Windows')
         return

@@ -400,7 +400,20 @@ def needs_confirm(value):
     return value is not None and bool(set(str(value)) & CONFUSABLE)
 
 
-def merge_passes(passes, index=None, minimum=None, confirm=None, details=None):
+def _guess(values):
+    """Der am häufigsten gelesene Wert — oder None bei Gleichstand."""
+    counts = {}
+    for value in values:
+        if value is not None:
+            counts[value] = counts.get(value, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: -kv[1])
+    if not ranked or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):
+        return None
+    return ranked[0][0]
+
+
+def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
+                 guess=False):
     """Mehrere Lesungen desselben Bildes zu einer Ausbeute zusammenführen.
 
     Zeilen verschiedener Durchgänge gehören zusammen, wenn ihre senkrechte
@@ -415,7 +428,9 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None):
     Null ist). Ohne `confirm` ist ein solcher Wert unsicher.
 
     `details`: Liste, an die je unsicherer Zeile `{'material', 'y'}` gehängt
-    wird.
+    wird. `guess`: Unsichere Zeilen stehen trotzdem in `zeilen` — mit dem am
+    häufigsten gelesenen Wert (`_guess`), zum Vergleichen mit dem Terminal;
+    in `unsicher` stehen sie weiterhin.
 
     Gibt `(zeilen, unsicher)`: `zeilen` als `(material, qualität,
     menge_cscu)` von oben nach unten; `unsicher` als Liste der Rohstoffe,
@@ -461,6 +476,13 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None):
             unsure.append(material)
             if details is not None:
                 details.append({'material': material, 'y': cluster['y']})
+            if guess:
+                if quality is None:
+                    quality = _guess([r['quality'] for r in cluster['rows']])
+                if amount is None:
+                    amount = _guess([r['amount'] for r in cluster['rows']])
+                if quality is not None and amount is not None:
+                    found.append((material, quality, amount))
             continue
         found.append((material, quality, amount))
     return found, unsure
@@ -773,6 +795,31 @@ def cell_crop(src, box):
     return tw, th, bytes(raw[1::4])
 
 
+def _digit_spans(cols, count):
+    """Die waagerechten Bereiche `(links, rechts)` der `count` Ziffern.
+
+    `cols` sind die Spalten mit Schrift. Zusammenhängende Läufe sind die
+    Ziffern; sind es mehr als `count`, werden die Läufe über die kleinsten
+    Lücken zusammengelegt. Sind es weniger, wird der Schriftbereich in
+    `count` gleiche Teile geschnitten.
+    """
+    spans = [[cols[0], cols[0] + 1]]
+    for x in cols[1:]:
+        if x == spans[-1][1]:
+            spans[-1][1] = x + 1
+        else:
+            spans.append([x, x + 1])
+    while len(spans) > count:
+        gaps = [(spans[i + 1][0] - spans[i][1], i) for i in range(len(spans) - 1)]
+        _gap, i = min(gaps)
+        spans[i:i + 2] = [[spans[i][0], spans[i + 1][1]]]
+    if len(spans) == count:
+        return [tuple(s) for s in spans]
+    x0, x1 = cols[0], cols[-1] + 1
+    step = (x1 - x0) / float(count)
+    return [(x0 + step * i, x0 + step * (i + 1)) for i in range(count)]
+
+
 def glyphs(crop, count):
     """Die `count` Ziffern einer Zelle als Muster (Liste von Zahlenreihen).
 
@@ -793,12 +840,10 @@ def glyphs(crop, count):
              if any(gray[y * width + x] > cut for x in range(width))]
     if not cols or not rows_:
         return []
-    x0, x1 = cols[0], cols[-1] + 1
     y0, y1 = rows_[0], rows_[-1] + 1
-    step = (x1 - x0) / float(count)
     out = []
-    for i in range(count):
-        left = x0 + step * i
+    for left, right in _digit_spans(cols, count):
+        step = right - left
         vector = []
         for gy in range(DIGIT_H):
             sy = min(height - 1, int(y0 + (gy + 0.5) * (y1 - y0) / DIGIT_H))
@@ -994,7 +1039,7 @@ def read_image(path, ocr=None, keep_failed=False):
             details = []
             found, unsure = merge_passes(
                 passes, confirm=_confirmer(src, passes, digits),
-                details=details)
+                details=details, guess=True)
             if keep_failed and (unsure or not found):
                 kept = keep(crop_png, 'tabelle') or kept
             materials = _materials_in_order(passes)

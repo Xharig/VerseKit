@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.93.1 - 2026-10-05
+
+> The refinery scanner reads as well as before and better: lines it could
+> not read reliably now land in the field as a suggestion instead of going
+> missing.
+
+### Improved
+
+- **Sharper reading** — the terminal image is enlarged in high quality
+  again, so the scanner reads more numbers reliably
+- **Unsure lines as suggestions** — they appear in the field with the best
+  reading and are listed for checking; what you correct, the scanner learns
+
+### Fixed
+
+- **"No refinery list could be found" although a work order was found** —
+  the message only appears when there really was no list on the screen
+
 ## v3.93.0 - 2026-10-05
 
 > "Read screen" is back: the refinery scanner reads the terminal again, now
