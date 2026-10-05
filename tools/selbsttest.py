@@ -5091,6 +5091,37 @@ def main():
                'eine Nummer ausserhalb der Liste aendert nichts')
         pruefe(len(_ro53.load()) == 2,
                'und legt auch keinen neuen Posten an')
+
+        # Kisten: gleiche Ware, gleiche Güte, gleicher Ort bleibt getrennt
+        _ro53.save([])
+        _ro53.add('Savrilium', 0.02, 322, 'Levski')
+        _ro53.add('Savrilium', 4.55, 322, 'Levski')
+        _ro53.add('Savrilium', 0.10, 322, 'Levski')
+        pruefe(len(_ro53.load()) == 3,
+               'drei Kisten gleicher Güte am gleichen Ort bleiben drei Posten '
+               '(%d)' % len(_ro53.load()))
+        _ok53k, _f53k = _ro53.deduct([('S', 'Savrilium', 0.04, 0)], 2)
+        _k53 = [round(p['menge'], 3) for p in _ro53.load()]
+        pruefe(_ok53k and _k53 == [0.02, 4.55, 0.02],
+               'jede Portion kommt aus EINER Kiste, die kleinste passende '
+               'zuerst (%s)' % _k53)
+        _ok53k, _f53k = _ro53.deduct([('S', 'Savrilium', 0.04, 0)], 1)
+        _k53 = [round(p['menge'], 3) for p in _ro53.load()]
+        pruefe(_ok53k and _k53 == [0.02, 4.51, 0.02],
+               'reicht keine kleine Kiste mehr, kommt die große dran — die '
+               'Reste werden nicht zusammengelegt (%s)' % _k53)
+        _c53 = _ro53.check([('S', 'Savrilium', 0.04, 0)], 1)[0]
+        pruefe(abs(_c53[2] - 4.51) < 1e-9,
+               'vorhanden zählt nur, was in Kisten liegt, die eine Portion '
+               'fassen (%s)' % _c53[2])
+        _ro53.save([{'material': 'Savrilium', 'menge': 0.03, 'qualitaet': 322,
+                     'ort': ''},
+                    {'material': 'Savrilium', 'menge': 0.03, 'qualitaet': 322,
+                     'ort': ''}])
+        _ok53k, _f53k = _ro53.deduct([('S', 'Savrilium', 0.04, 0)], 1)
+        pruefe(not _ok53k and len(_ro53.load()) == 2,
+               'zwei Kisten mit je 0,03 ergeben keine Portion 0,04 — nichts '
+               'wird abgezogen (%s)' % (_f53k,))
     finally:
         _ro53.save(_alt53)
 
@@ -5638,7 +5669,9 @@ def main():
         pruefe(abs(_ro61.amount_of('Riccite') - 5.0) < 1e-6,
                'und das Riccite auch — kein halber Abzug (%.2f)'
                % _ro61.amount_of('Riccite'))
-        pruefe(any(n == 'Iron' and abs(f - 8.6) < 1e-6 for n, f in _weg61),
+        # Die Kiste mit 3,0 fasst zwei Portionen zu 1,16; die übrigen 0,68
+        # reichen für keine dritte. Es fehlen also acht Portionen = 9,28.
+        pruefe(any(n == 'Iron' and abs(f - 9.28) < 1e-6 for n, f in _weg61),
                'gemeldet wird die FEHLMENGE, nicht nur der Name (%s)'
                % (_weg61,))
 
@@ -33043,8 +33076,8 @@ def _pruefung_328():
                and _ma328.worst_quality('Iron', 600) == 900.0,
                'worst_quality: niedrigste brauchbare Güte ab der Untergrenze')
 
-        # Wie am Terminal: Reicht die beste Güte nicht, wird mit der
-        # nächstbesten aufgefüllt — Durchschnitt und Abzug gemischt.
+        # Wie am Terminal: Eine Portion kommt aus EINER Kiste. Die Kiste
+        # Q 927 mit 0,01 fasst 0,02 nicht — bestes Material ist dann Q 741.
         _ma328.save([{'material': 'Aslarite', 'menge': 6.673, 'qualitaet': 287,
                       'ort': ''},
                      {'material': 'Aslarite', 'menge': 0.24, 'qualitaet': 741,
@@ -33053,18 +33086,18 @@ def _pruefung_328():
                       'ort': ''}])
         beste = _ma328.quality_for('Aslarite', 0.02, best=True)
         schlechteste = _ma328.quality_for('Aslarite', 0.02, best=False)
-        pruefe(beste == 834 and schlechteste == 287,
-               'Bestes Material: 0,01 von Q 927 reicht nicht, aufgefüllt mit '
-               'Q 741, Schnitt 834; schlechtestes Q 287 (%s / %s)'
+        pruefe(beste == 741 and schlechteste == 287,
+               'Bestes Material: Kiste Q 927 (0,01) fasst die Portion 0,02 '
+               'nicht, also Q 741; schlechtestes Q 287 (%s / %s)'
                % (beste, schlechteste))
         ok, _f = _ma328.deduct([('Liner', 'Aslarite', 0.02, 0)],
                                order={'Aslarite': 'best'})
         mengen = {float(p['qualitaet']): round(float(p['menge']), 3)
                   for p in _ma328.load()}
-        pruefe(ok and 927.0 not in mengen and mengen.get(741.0) == 0.23
+        pruefe(ok and mengen.get(927.0) == 0.01 and mengen.get(741.0) == 0.22
                and mengen.get(287.0) == 6.673,
-               'Abzug mit bestem Material nimmt Q 927 ganz und 0,01 von Q 741, '
-               'Q 287 bleibt (%s)' % mengen)
+               'Abzug mit bestem Material nimmt 0,02 aus der Kiste Q 741, '
+               'Q 927 und Q 287 bleiben (%s)' % mengen)
     finally:
         _ma328.save(alt_lager)
 
@@ -33178,14 +33211,14 @@ def _pruefung_328():
         def knopf_x():
             return regler.coords(regler.find_all()[-1])[0] + 8
 
-        pruefe(feld_wert() == '550',
-               'ab Werk „Bestes Material": 0,5 von Q 800 reicht nicht, '
-               'aufgefüllt mit Q 300 — das Feld zeigt Ø 550 (%s)'
+        pruefe(feld_wert() == '300',
+               'ab Werk „Bestes Material": die Kiste Q 800 (0,5) fasst die '
+               'Portion 1,0 nicht — das Feld zeigt Q 300 (%s)'
                % feld_wert())
         texte = [x.cget('text') for x in _alle(rahmen, 'Label', [])]
-        pruefe(_t328('s_lg_da') % 5.5 in texte,
-               'und es heißt „hast du: 5.5", nicht „dir fehlt", obwohl Q 800 '
-               'allein nicht reicht')
+        pruefe(_t328('s_lg_da') % 5.0 in texte,
+               'und es heißt „hast du: 5" — die zu kleine Kiste Q 800 '
+               'zählt nicht mit')
 
         # b) Getippt — der Regler läuft mit.
         feld.delete(0, 'end')
@@ -33259,8 +33292,8 @@ def _pruefung_328():
                    'und auf „Was ich farmen muss" sinkt die Stückzahl von 3 auf 2 '
                    '(%s)' % (merk[0].get('anzahl') if merk else 'weg'))
 
-            # e2) Mit bestem Material gebaut: erst Q 800 (0,5), dann mit
-            #     Q 300 aufgefüllt — wie am Terminal.
+            # e2) Mit bestem Material gebaut: Die Kiste Q 800 fasst keine
+            #     Portion, also kommt sie aus der Kiste Q 300 — wie am Terminal.
             def _knopf(schluessel):
                 return [c for c in _alle(rahmen, 'Canvas', [])
                         if getattr(c, 'is_button', False)
@@ -33278,10 +33311,16 @@ def _pruefung_328():
                 w.update()
             mengen = {float(p['qualitaet']): round(float(p['menge']), 3)
                       for p in _ma328.load()}
-            pruefe(bool(bestes) and bool(bauen) and 800.0 not in mengen
-                   and mengen.get(300.0) == 3.5,
-                   'mit bestem Material: Q 800 aufgebraucht, Rest aus Q 300 '
-                   '(%s)' % mengen)
+            pruefe(bool(bestes) and bool(bauen) and mengen.get(800.0) == 0.5
+                   and mengen.get(300.0) == 3.0,
+                   'mit bestem Material: die zu kleine Kiste Q 800 bleibt, '
+                   'die Portion kommt aus Q 300 (%s)' % mengen)
+            pruefe(_ma328.is_leftover({'material': 'Iron', 'menge': 0.5,
+                                       'qualitaet': 800})
+                   and not _ma328.is_leftover({'material': 'Iron', 'menge': 1.0,
+                                               'qualitaet': 800}),
+                   'die Kiste Q 800 mit 0,5 ist ein Rest zum Verkaufen, eine '
+                   'mit 1,0 nicht (kleinstes Rezept: 1,0)')
 
         # f) Gebaut bis null — der Posten fällt vom Merkzettel.
         stand = _fl328.load()

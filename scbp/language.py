@@ -4820,6 +4820,8 @@ TEXTS = {
     's_lg_summe':        ('%d Posten · %d Rohstoffe', '%d entries · %d resources'),
     # Ein Material an mehreren Lagerorten, zugeklappt.
     's_lg_orte_n':       ('%d Orte', '%d locations'),
+    's_lg_kisten_n':     ('%d Kisten', '%d crates'),
+    's_lg_rest':         ('Rest — nur verkaufen', 'Leftover — sell only'),
     # ⚠ Bewusst „dir fehlt", nicht „du kannst nicht bauen" — das Lager wird von
     # Hand gepflegt und ist irgendwann lückenhaft. Ein Hinweis darf danebenliegen,
     # eine Behauptung nicht.

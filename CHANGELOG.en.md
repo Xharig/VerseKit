@@ -6,6 +6,27 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.95.0 - 2026-10-05
+
+> The material storage now counts in crates, just like the game. Every
+> portion you craft comes from a single crate that holds enough, and leftovers
+> too small to use are marked "sell only".
+
+### New
+
+- **Crates in the material storage** — every entry stays its own crate, even
+  with the same material, quality and location; such crates sit under one
+  summary line you can unfold
+- **"Leftover — sell only"** — a crate too small for any recipe is marked in
+  yellow
+
+### Improved
+
+- **Crafting like at the terminal** — each portion comes from one crate that
+  holds all of it; at equal quality the smallest one that fits. "Best" and
+  "Worst material" pick per crate as well instead of mixing qualities
+- **Available and missing amounts** only count crates that hold a portion
+
 ## v3.94.3 - 2026-10-05
 
 > The Verse-Kit note in the game's main menu now takes a single line — the

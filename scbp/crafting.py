@@ -1210,6 +1210,33 @@ def official_name(given):
 _by_material = {}
 
 
+_portions = {'daten': None, 'je_material': {}}
+
+
+def smallest_portion(material, quality=1000):
+    """Die kleinste Menge, die ein Rezept von diesem Rohstoff verlangt — oder None.
+
+    Gezählt werden nur Zutaten, deren Mindestgüte `quality` erreicht. Eine
+    Kiste mit weniger Inhalt reicht für kein Rezept mehr: Am Fertigungsterminal
+    kommt eine Zutat aus **einer** Kiste, Kisten lassen sich nicht
+    zusammenlegen. `None` heißt, kein Rezept braucht diesen Rohstoff.
+    """
+    data = load()
+    if _portions['daten'] is not data:
+        mapping = {}
+        for b in data.get('blueprints') or []:
+            for t_ in b.get('tiers') or []:
+                for _slot, name, amount, minimum in _ingredients(t_):
+                    if name and amount:
+                        mapping.setdefault(norm_material(name), []).append(
+                            (float(minimum or 0), float(amount)))
+        _portions['daten'], _portions['je_material'] = data, mapping
+    found = [amount for minimum, amount
+             in _portions['je_material'].get(norm_material(material)) or ()
+             if minimum <= float(quality or 0)]
+    return min(found) if found else None
+
+
 def blueprints_with(material):
     """Welche Baupläne brauchen diesen Rohstoff? Namen, alphabetisch.
 

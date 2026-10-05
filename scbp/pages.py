@@ -10592,7 +10592,8 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             qualitaeten.clear()
             for mat, lowest in min_quality.items():
                 found = lager.quality_for(mat, per_piece[mat] * pieces, lowest,
-                                          best=fill_mode['mode'] != 'worst')
+                                          best=fill_mode['mode'] != 'worst',
+                                          portion=per_piece[mat])
                 if found is not None:
                     qualitaeten[mat] = found
 
@@ -15950,6 +15951,11 @@ def _storage(fenster, rahmen):
             q_txt = ('%g' % float(p['qualitaet'])) if p.get('qualitaet') else '—'
             abbau_txt = _abbau_text(name_txt) or '—'
             ort_txt = p.get('ort') or '—'
+            # Eine Kiste, die für kein Rezept mehr reicht, taugt nur noch zum
+            # Verkauf — Kisten lassen sich im Spiel nicht zusammenlegen.
+            leftover = lager.is_leftover(p)
+            if leftover:
+                ort_txt = '%s · %s' % (ort_txt, t('s_lg_rest'))
             # ⚠⚠ **„Löschen" MUSS vor den Spalten gepackt werden.** Tk gibt
             # den Platz in der Reihenfolge des Packens: Was links zuerst
             # kommt, nimmt sich seine Breite, und der rechte Rest bekommt, was
@@ -15974,11 +15980,58 @@ def _storage(fenster, rahmen):
             spalten(z, z_bg, (
                 ('' if eingerueckt else name_txt, SPALTEN[0], FG,
                  fenster.f_base),
-                (menge_txt, SPALTEN[1], ACCENT, fenster.f_base),
+                (menge_txt, SPALTEN[1], GOLD if leftover else ACCENT,
+                 fenster.f_base),
                 (q_txt, SPALTEN[2], SUB, fenster.f_small),
                 (abbau_txt, SPALTEN[3], SUB, fenster.f_small),
-                (ort_txt, SPALTEN[4], SUB, fenster.f_small)),
+                (ort_txt, SPALTEN[4], GOLD if leftover else SUB,
+                 fenster.f_small)),
                 lambda n=nummer: bearbeiten(n))
+
+        def stack_row(group, stack_key, crates):
+            """Sammelzeile für mehrere Kisten gleicher Güte am gleichen Ort.
+
+            Aufgeklappt folgen die einzelnen Kisten, die größte zuerst.
+            """
+            key = (group, stack_key)
+            entries = [p for _n, p in crates]
+            is_open = (key in aufgeklappt
+                       or any(bearbeitung['nummer'] == n for n, _p in crates))
+            row_bg = streifen()
+            row = tk.Frame(liste_rahmen, bg=row_bg)
+            row.pack(fill='x', ipady=1)
+
+            def flip_stack(k=key):
+                if k in aufgeklappt:
+                    aufgeklappt.discard(k)
+                else:
+                    aufgeklappt.add(k)
+                _keep_scroll(liste_rahmen, zeichnen)
+
+            arrow = icons.line(row, 'zuklappen' if is_open else 'aufklappen',
+                               background=row_bg, font=fenster.f_small)
+            arrow.configure(cursor='hand2')
+            arrow.pack(side='right', padx=(8, 4))
+            arrow.bind('<Button-1>', lambda _e, f=flip_stack: f())
+            material_name = entries[0].get('material') or ''
+            quality = entries[0].get('qualitaet')
+            spalten(row, row_bg, (
+                (t('s_lg_kisten_n') % len(entries), SPALTEN[0], SUB,
+                 fenster.f_small),
+                (_anzeige_menge(round(sum(_menge(p) for p in entries), 3),
+                                material_name), SPALTEN[1], ACCENT,
+                 fenster.f_base),
+                (('%g' % float(quality)) if quality else '—', SPALTEN[2], SUB,
+                 fenster.f_small),
+                (_abbau_text(material_name) or '—', SPALTEN[3], SUB,
+                 fenster.f_small),
+                (entries[0].get('ort') or '—', SPALTEN[4], SUB,
+                 fenster.f_small)),
+                flip_stack)
+            if is_open:
+                for number, entry in sorted(crates,
+                                            key=lambda pair: -_menge(pair[1])):
+                    posten_zeile(number, entry, True)
 
         for schluessel, eintraege in reihenfolge:
             if len(eintraege) == 1:
@@ -16037,9 +16090,27 @@ def _storage(fenster, rahmen):
             kopf_z.gruppe = schluessel
             kopf_z.gruppe_labels = kopf_labels
             if offen:
-                for nummer, p in sorted(eintraege, key=posten_schluessel,
-                                        reverse=sortier['ab']):
-                    posten_zeile(nummer, p, True)
+                # Kisten gleicher Güte am gleichen Ort stehen unter einer
+                # Sammelzeile. Gibt es nur einen solchen Stapel, folgen die
+                # Kisten direkt — eine zweite Ebene brächte dann nichts.
+                stacks = {}
+                for nummer, p in eintraege:
+                    stacks.setdefault(
+                        (_q(p), (p.get('ort') or '').strip().lower()),
+                        []).append((nummer, p))
+                if len(stacks) == 1:
+                    for nummer, p in sorted(eintraege, key=posten_schluessel,
+                                            reverse=sortier['ab']):
+                        posten_zeile(nummer, p, True)
+                    continue
+                for stack_key, crates in sorted(
+                        stacks.items(),
+                        key=lambda kv: posten_schluessel(kv[1][0]),
+                        reverse=sortier['ab']):
+                    if len(crates) == 1:
+                        posten_zeile(crates[0][0], crates[0][1], True)
+                    else:
+                        stack_row(schluessel, stack_key, crates)
 
     filter_var.trace_add('write', after_typing(rahmen, zeichnen))
 

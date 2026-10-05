@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.95.0 - 2026-10-05
+
+> Das Rohstofflager rechnet jetzt in Kisten wie das Spiel. Jede Portion beim
+> Herstellen kommt aus einer Kiste, in der genug liegt, und zu kleine Reste
+> sind als „nur verkaufen" markiert.
+
+### Neu
+
+- **Kisten im Rohstofflager** — jeder eingetragene Posten bleibt eine eigene
+  Kiste, auch bei gleichem Material, gleicher Güte und gleichem Ort; solche
+  Kisten stehen unter einer aufklappbaren Sammelzeile
+- **„Rest — nur verkaufen"** — eine Kiste, die für kein Rezept mehr reicht,
+  ist gelb markiert
+
+### Verbessert
+
+- **Herstellen wie am Terminal** — jede Portion kommt aus einer einzigen Kiste,
+  die sie ganz fasst; bei gleicher Güte die kleinste passende. „Bestes" und
+  „Schlechtestes Material" wählen ebenso je Kiste, statt Güten zu mischen
+- **Vorhanden und Fehlmenge** zählen nur Kisten, die eine Portion fassen
+
 ## v3.94.3 - 2026-10-05
 
 > Der Verse-Kit-Hinweis im Hauptmenü des Spiels braucht nur noch eine Zeile —

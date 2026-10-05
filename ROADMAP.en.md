@@ -58,6 +58,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Everything for sale, not just what you can craft**: 1,528 parts across 38 item groups, plus 174 ships to buy or rent |
 | ✅ | **Class, size, grade and manufacturer** on every row — and as dropdowns, so you find the right part without knowing its name |
 | ✅ | **Material storage** says what it holds — matching the cargo hold next to it |
+| ✅ | **Crates like in the game**: every entry in the material storage is a crate, each crafting portion comes from one crate, leftovers too small to use show as "sell only" |
 | ✅ | **Routes**: trade routes with buy price, sell price and real profit — across several stops, as a round trip, or the best route anywhere in the verse |
 | ✅ | **Salvage**: what a ship carries from the factory and what those parts are worth in a shop — with the note that this applies to NPC wrecks, not to player ships |
 | ✅ | **My hangar**: which ships you own — pulled from the pledge store or added by hand, with origin and slot counts |

@@ -47,6 +47,13 @@ Material aus dem Lager-Abgleich mit dem Basetool herein.
 Mehrere Posten desselben Materials sind Absicht: 12 SCU Iron von Daymar mit
 80 % Güte sind etwas anderes als 3 SCU aus dem Aaron Halo.
 
+⚠⚠ **Ein SCU-Posten ist eine Kiste.** Im Spiel lassen sich Kisten nicht
+zusammenlegen, und eine Zutat kommt am Fertigungsterminal aus **einer** Kiste,
+in der genug liegt. Deshalb bleiben Posten auch bei gleichem Material, gleicher
+Güte und gleichem Ort getrennt, und `deduct` nimmt jede Portion aus einer
+einzigen Kiste. Eine Kiste, die für kein Rezept mehr reicht, meldet
+`is_leftover`. Stückware (Edelsteine) zählt weiter zusammen.
+
 ⚠ **Bezeichner sind englisch, gespeicherte Zeichenketten nicht.** Deutsch
 bleiben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
 `rohstoffe.json` und die Schlüssel `format`, `posten`, `material`, `menge`,
@@ -56,6 +63,7 @@ für die Anzeige liefert, die Einheit `'cscu'` und die Textschlüssel `s_rf_…`
 `calculate` und `parse_number` reicht `trade_cargo.py` weiter — das
 Handelslager rechnet mit denselben Regeln.
 """
+import copy
 import json
 import re
 import os
@@ -253,9 +261,10 @@ def parse_number(text):
 def same_stack(a_material, a_quality, a_place, b):
     """Sind das zwei Eintragungen für **denselben** Stapel?
 
-    Gleich heisst: gleiches Material, gleiche Qualität, gleicher Lagerort. Nur
-    dann darf zusammengezählt werden — unterschiedliche Qualität ist ein
-    anderer Stapel, und was in Orison liegt, hilft in Pyro nicht.
+    Gleich heisst: gleiches Material, gleiche Qualität, gleicher Lagerort. Die
+    Lageranzeige fasst solche Kisten unter einer Sammelzeile zusammen —
+    unterschiedliche Qualität ist ein anderer Stapel, und was in Orison
+    liegt, hilft in Pyro nicht.
 
     ⚠ Verglichen wird über `norm_material` und ohne Rücksicht auf Gross- und
     Kleinschreibung: `orison` und `Orison` sind derselbe Ort, `Iron (Ore)` und
@@ -274,24 +283,18 @@ def same_stack(a_material, a_quality, a_place, b):
 def add(material, amount, quality=None, place=''):
     """Einen Posten hinzufügen. Gibt die neue Gesamtmenge des Materials zurück.
 
-    ⚠⚠ **Gleiches Material, gleiche Qualität, gleicher Ort wird
-    ZUSAMMENGEZÄHLT**, nicht ein zweites Mal in die Liste gestellt. Wer zweimal
-    Savrilium Q 600 in Orison einträgt, hat einen Stapel mit der Summe — keine
-    zwei Zeilen, die gleich aussehen und einzeln gepflegt werden müssten.
-
-    Der Regelfall: Man trägt nach jedem Abbauflug nach und weiss nicht mehr,
-    ob der Stapel schon dasteht.
-
-    Ohne das Zusammenfassen zerfällt ein Lager mit der Zeit in Dutzende
-    Zeilen desselben Materials, und die Herstellung rechnet zwar richtig, aber
-    niemand findet mehr etwas.
+    ⚠⚠ Bei SCU-Ware ist jeder Posten eine **eigene Kiste** und wird nicht mit
+    einem gleichen Stapel zusammengezählt — siehe Modulkopf. Stückware
+    (Edelsteine) gleicher Güte am gleichen Ort wird zusammengezählt.
     """
     entries = load()
-    for p in entries:
-        if same_stack(material, quality, place, p):
-            p['menge'] = round(float(p.get('menge') or 0) + float(amount or 0), 6)
-            save(entries)
-            return amount_of(material)
+    if _is_piece(material):
+        for p in entries:
+            if same_stack(material, quality, place, p):
+                p['menge'] = round(float(p.get('menge') or 0)
+                                   + float(amount or 0), 6)
+                save(entries)
+                return amount_of(material)
     entries.append({'material': (material or '').strip(),
                     'menge': float(amount or 0),
                     'qualitaet': quality,
@@ -332,6 +335,114 @@ def remove(index):
         save(entries)
         return True
     return False
+
+
+def _is_piece(material):
+    """Stückware (Edelsteine)? Ohne Rezeptdaten gilt: nein."""
+    try:
+        from . import crafting
+        return bool(crafting.is_piece(material))
+    except Exception:
+        return False
+
+
+def _quality(entry):
+    try:
+        return float(entry.get('qualitaet') or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _amount(entry):
+    try:
+        return float(entry.get('menge') or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _pick_crate(entries, wanted, minimum, portion, mode=None):
+    """Die Kiste, aus der das Terminal eine Portion nähme — oder None.
+
+    In Frage kommt nur eine Kiste mit mindestens `minimum` Güte, in der die
+    ganze Portion liegt. `mode` 'best' nimmt die höchste Güte, sonst die
+    niedrigste. Bei gleicher Güte die kleinste Kiste, die reicht, damit
+    größere ganz bleiben; danach die ältere (`sorted` ist stabil).
+    """
+    candidates = [p for p in entries
+                  if norm_material(p.get('material')) == wanted
+                  and _quality(p) >= minimum
+                  and _amount(p) + 1e-9 >= portion]
+    if not candidates:
+        return None
+    if mode == 'best':
+        candidates.sort(key=lambda p: (-_quality(p), _amount(p)))
+    else:
+        candidates.sort(key=lambda p: (_quality(p), _amount(p)))
+    return candidates[0]
+
+
+def is_leftover(entry):
+    """Reicht diese Kiste für kein Rezept mehr? Dann taugt sie nur zum Verkauf.
+
+    Gilt nur für SCU-Ware: Ihr Inhalt liegt unter der kleinsten Menge, die ein
+    Rezept bei dieser Güte verlangt (`crafting.smallest_portion`). Braucht
+    kein Rezept den Rohstoff, ist die Kiste kein Rest, sondern Handelsware.
+    """
+    material = entry.get('material') or ''
+    if _is_piece(material):
+        return False
+    try:
+        from . import crafting
+        smallest = crafting.smallest_portion(material, _quality(entry))
+    except Exception:
+        return False
+    if smallest is None:
+        return False
+    return _amount(entry) + 1e-9 < smallest
+
+
+def _take(entries, ingredients, count, order=None):
+    """Die Zutaten `count` mal aus `entries` nehmen — verändert `entries`.
+
+    SCU-Ware Portion für Portion aus je einer Kiste (`_pick_crate`),
+    Stückware zusammengezählt über alle Posten ab der Mindestgüte. Gibt
+    ({Index der Zutat: entnommen}, {Material: (Name, Fehlmenge)}) zurück.
+    """
+    order = {norm_material(m): o for m, o in (order or {}).items()}
+    taken = {}
+    missing = {}
+    for _round in range(max(1, int(count or 1))):
+        for index, (_slot, material, amount, quality) in enumerate(ingredients):
+            wanted = norm_material(material)
+            portion = float(amount or 0)
+            minimum = float(quality or 0)
+            if portion <= 0:
+                continue
+            if _is_piece(material):
+                remaining = portion
+                for p in sorted(entries, key=_quality,
+                                reverse=order.get(wanted) == 'best'):
+                    if remaining <= 1e-9:
+                        break
+                    if (norm_material(p.get('material')) != wanted
+                            or _quality(p) < minimum):
+                        continue
+                    step = min(_amount(p), remaining)
+                    p['menge'] = round(_amount(p) - step, 6)
+                    remaining -= step
+                got = portion - remaining
+            else:
+                crate = _pick_crate(entries, wanted, minimum, portion,
+                                    order.get(wanted))
+                got = 0.0
+                if crate is not None:
+                    crate['menge'] = round(_amount(crate) - portion, 6)
+                    got = portion
+            taken[index] = taken.get(index, 0.0) + got
+            if portion - got > 1e-9:
+                name, short = missing.get(wanted, (material, 0.0))
+                missing[wanted] = (name, short + portion - got)
+    return taken, missing
 
 
 def amount_of(material):
@@ -409,7 +520,7 @@ def worst_quality(material, min_quality=0):
     return worst
 
 
-def quality_for(material, needed, min_quality=0, best=True):
+def quality_for(material, needed, min_quality=0, best=True, portion=None):
     """Die Durchschnittsgüte, die das Fertigungsterminal für diese Menge nähme.
 
     Wie im Spiel: Bestes Material füllt den Slot von der höchsten Güte
@@ -418,8 +529,30 @@ def quality_for(material, needed, min_quality=0, best=True):
     zählt der gewichtete Durchschnitt. `deduct(..., order=…)` nimmt in
     derselben Reihenfolge ab. Reicht der ganze Bestand nicht, der
     Durchschnitt über alles Vorhandene. Ohne Bestand `None`.
+
+    Bei SCU-Ware wird Kiste für Kiste gewählt wie in `deduct`: je Stück die
+    Kiste, in der die ganze `portion` (Menge je Stück) liegt; ohne `portion`
+    gilt `needed` als eine Portion. Fasst keine Kiste eine Portion, `None`.
+    Stückware füllt wie oben über alle Posten auf.
     """
     wanted = norm_material(material)
+    if not _is_piece(material):
+        portion = portion or needed
+    if portion and float(portion) > 0 and not _is_piece(material):
+        work = copy.deepcopy([p for p in load()
+                              if norm_material(p.get('material')) == wanted])
+        portion = float(portion)
+        pieces = max(1, int(round(float(needed or 0) / portion)))
+        total = weighted = 0.0
+        for _piece in range(pieces):
+            crate = _pick_crate(work, wanted, float(min_quality or 0),
+                                portion, 'best' if best else 'worst')
+            if crate is None:
+                break
+            crate['menge'] = round(_amount(crate) - portion, 6)
+            total += portion
+            weighted += portion * _quality(crate)
+        return round(weighted / total) if total > 0 else None
     per_quality = {}
     for p in load():
         if norm_material(p.get('material')) != wanted:
@@ -661,22 +794,29 @@ def check(ingredients, count=1):
     Stückzahl-Feld tippt, sieht sonst weiter den Bedarf für ein einziges Stück
     — und daneben, dass nichts fehlt, während in Wirklichkeit das Zehnfache
     gebraucht wird. Die zurückgegebene `gebraucht`-Menge ist deshalb bereits multipliziert.
+
+    ⚠ Bei SCU-Ware zählt als vorhanden nur, was in Kisten liegt, die eine
+    ganze Portion fassen. Die Fehlmenge rechnet `_take` an einer Kopie des
+    Lagers aus — Kiste für Kiste, wie beim Abziehen.
     """
     result = []
     factor = max(1, int(count or 1))
-    needed = {}
-    for _slot, material, amount, _quality in ingredients:
-        key = norm_material(material)
-        needed[key] = (needed.get(key, 0)
-                       + (amount or 0) * factor)
+    entries = load()
+    _taken, missing = _take(copy.deepcopy(entries), ingredients, factor)
     for _slot, material, amount, quality in ingredients:
         key = norm_material(material)
         # ⚠ Es zählt nur, was die geforderte Qualität erreicht. Sonst gälte
         # Erz als brauchbar, das für dieses Rezept zu schlecht ist.
         suitable, too_low = amount_with_quality(material, quality)
-        required = needed[key]
+        if not _is_piece(material):
+            portion = float(amount or 0)
+            suitable = sum(_amount(p) for p in entries
+                           if norm_material(p.get('material')) == key
+                           and _quality(p) >= float(quality or 0)
+                           and _amount(p) + 1e-9 >= portion)
         result.append((material, (amount or 0) * factor, suitable,
-                       max(0.0, required - suitable), too_low, quality))
+                       round(missing.get(key, (material, 0.0))[1], 6),
+                       too_low, quality))
     return result
 
 
@@ -702,60 +842,24 @@ def deduct(ingredients, count=1, order=None):
     nehmen: Es wird in zwei Durchgängen gearbeitet, und der erste fasst nichts
     an.
 
-    ⚠⚠ Abgezogen wird die **eingestellte Qualität** zuerst: Die Güte einer
-    Zutat ist die Untergrenze, genommen wird aufsteigend ab ihr — erst die
-    Posten genau dieser Güte, dann die nächstbessere. Bei gleicher Güte der
-    ältere Posten zuerst. Ohne diese Reihenfolge nähme ein Bau mit Q 500 auch
-    einen älteren Posten Q 900 weg, und das gute Material wäre verbraucht.
+    ⚠⚠ **Jede Portion kommt aus EINER Kiste**, in der sie ganz liegt — wie am
+    Fertigungsterminal, das Kisten nicht zusammenlegt. Ohne `order` nimmt es
+    die niedrigste Güte ab der Untergrenze der Zutat, damit ein Bau mit Q 500
+    keine Kiste Q 900 anbricht; bei gleicher Güte die kleinste Kiste, die
+    reicht. Stückware wird über alle Posten zusammengezählt.
 
     `order` ({Material: 'best' | 'worst'}) nimmt dieses Material wie das
     Fertigungsterminal: von der besten Güte abwärts bzw. von der
     schlechtesten aufwärts — dieselbe Reihenfolge wie `quality_for`.
+
+    Gerechnet wird an einer Kopie; gespeichert nur, wenn alles da war.
     """
-    entries = load()
-    factor = max(1, int(count or 1))
-
-    # Mehrfach dieselbe Zutat im Rezept? Dann zaehlt die Summe, sonst wuerde
-    # jeder Durchgang fuer sich pruefen und beide fuer machbar halten.
-    demand = {}
-    for _slot, material, amount, quality in ingredients:
-        key = (norm_material(material), float(quality or 0))
-        demand[key] = (demand.get(key, (material, 0.0))[0],
-                       demand.get(key, (material, 0.0))[1]
-                       + float(amount or 0) * factor)
-
-    # --- Erster Durchgang: nur rechnen. Nichts wird angefasst. ---
-    missing = []
-    for (wanted, minimum), (name, needed) in demand.items():
-        available = 0.0
-        for p in entries:
-            if (norm_material(p.get('material')) == wanted
-                    and float(p.get('qualitaet') or 0) >= minimum):
-                available += float(p.get('menge') or 0)
-        if available + 1e-9 < needed:
-            missing.append((name, round(needed - available, 6)))
+    work = copy.deepcopy(load())
+    _taken, missing = _take(work, ingredients, count, order)
     if missing:
         # Nichts angefasst, nichts gespeichert — das Lager bleibt, wie es war.
-        return False, missing
-
-    # --- Zweiter Durchgang: jetzt wirklich nehmen. ---
-    order = {norm_material(m): o for m, o in (order or {}).items()}
-    for (wanted, minimum), (_name, needed) in demand.items():
-        remaining = needed
-        # `sorted` ist stabil: Bei gleicher Güte bleibt der ältere vorn.
-        for p in sorted(entries, key=lambda e: float(e.get('qualitaet') or 0),
-                        reverse=order.get(wanted) == 'best'):
-            if remaining <= 1e-9:
-                break
-            if norm_material(p.get('material')) != wanted:
-                continue
-            if float(p.get('qualitaet') or 0) < minimum:
-                continue
-            available = float(p.get('menge') or 0)
-            taken = min(available, remaining)
-            p['menge'] = round(available - taken, 6)
-            remaining -= taken
+        return False, [(name, round(short, 6))
+                       for name, short in missing.values()]
     # Leere Posten verschwinden — sonst füllt sich die Liste mit Nullen.
-    entries = [p for p in entries if (p.get('menge') or 0) > 1e-9]
-    save(entries)
+    save([p for p in work if _amount(p) > 1e-9])
     return True, []

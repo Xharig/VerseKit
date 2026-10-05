@@ -58,6 +58,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Alles Kaufbare, nicht nur Craftbares**: 1.528 Teile aus 38 Warengruppen, dazu 174 Schiffe zum Kaufen und Mieten |
 | ✅ | **Klasse, Größe, Güte und Hersteller** an jeder Zeile — und als Auswahlmenü, damit man das passende Teil auch ohne Namenskenntnis findet |
 | ✅ | **Rohstofflager** heißt, was es ist — passend zum Handelslager daneben |
+| ✅ | **Kisten wie im Spiel**: Jeder Posten im Rohstofflager ist eine Kiste, jede Portion beim Herstellen kommt aus einer Kiste, zu kleine Reste stehen als „nur verkaufen" da |
 | ✅ | **Routen**: Handelsrouten mit Einkauf, Verkauf und echtem Gewinn — über mehrere Stationen, als Rundreise, oder die beste Route im ganzen Verse |
 | ✅ | **Schiffsdaten**: Frachtraum, Kaufpreis und Mietpreis — im Routenplaner wählst du dein Schiff, der Laderaum kommt von selbst |
 | ✅ | **Bergung**: was ab Werk in einem Schiff steckt und was die Teile im Laden wert sind — mit dem Hinweis, dass das für NPC-Wracks gilt und nicht für Spielerschiffe |
