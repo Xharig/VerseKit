@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.0 - 2026-10-05
+
+> Der Raffinerie-Scanner lernt jetzt alle Ziffern aus deinen Korrekturen:
+> Mit jeder nachgetippten Zeile liest er die Terminal-Schrift sicherer — und
+> was er nicht sicher erkennt, rät er nicht.
+
+### Verbessert
+
+- **Lernen für alle Ziffern** — nachgetippte Werte lehren den Scanner jede
+  Ziffer; unsichere Zellen liest er damit selbst, auch verwechselte 3 und 5
+  oder eine Zahl, die die Texterkennung gar nicht lesen konnte
+- **Kein falscher Wert als sicher** — 0 und 8 gelten nur bei deutlichem
+  Unterschied als erkannt, sonst bleibt die Zeile zum Prüfen markiert
+
 ## v3.93.2 - 2026-10-05
 
 > Der Raffinerie-Scanner lässt keine Zeile mehr aus: Auch was er nur teils

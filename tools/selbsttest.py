@@ -37798,6 +37798,25 @@ def _pruefung_356():
         gelesen = ''.join(_rs356.classify(v, ziffern) or '?' for v in neu)
         pruefe(gelesen == '0880', 'eine neue Zeichnung 0880 wird erkannt (%s)'
                % gelesen)
+        # Alle Ziffern lernen, dann eine ganze Zelle allein lesen.
+        alle = []
+        for text in ('1234', '5678', '9012', '3456', '7890'):
+            alle.append({'material': 'Gold', 'column': 0, 'read': text,
+                         'crop': _rs356.cell_crop(_zeichnen(text),
+                                                  (0, 0, 200, 40))})
+            _rs356.learn(alle[-1:], [('Gold', int(text), 1)])
+        ziffern = _rs356.load_digits()
+        zelle = _rs356.cell_crop(_zeichnen('3051'), (0, 0, 200, 40))
+        gelesen = _rs356.read_cell(zelle, ziffern)
+        pruefe(gelesen == 3051, 'eine ganze Zelle 3051 wird gelesen (%s)'
+               % gelesen)
+        ohne_drei = {k: v for k, v in ziffern.items() if k != '3'}
+        pruefe(_rs356.read_cell(zelle, ohne_drei) is None,
+               'eine nie gelernte Ziffer wird nicht geraten')
+        # Nur die 1 gelernt: Kein Vorsprung schützt, allein die Abstandsgrenze.
+        drei = _rs356.cell_crop(_zeichnen('3'), (0, 0, 200, 40))
+        pruefe(_rs356.read_cell(drei, {'1': ziffern['1']}) is None,
+               'eine 3 wird nicht zur einzigen gelernten Ziffer 1')
         pruefe(_rs356.learn(zellen, [('Gold', 12, 1)]) == 0,
                'ein Wert mit anderer Stellenzahl wird nicht zugeordnet')
         pruefe(_rs356.learn(zellen, [('Gold', 123, 1), ('Gold', 456, 1)]) == 0,

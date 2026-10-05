@@ -439,7 +439,7 @@ def _guess(values):
 
 
 def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
-                 guess=False):
+                 guess=False, reread=None):
     """Mehrere Lesungen desselben Bildes zu einer Ausbeute zusammenführen.
 
     Zeilen verschiedener Durchgänge gehören zusammen, wenn ihre senkrechte
@@ -456,7 +456,9 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
     `details`: Liste, an die je unsicherer Zeile `{'material', 'y'}` gehängt
     wird. `guess`: Unsichere Zeilen stehen trotzdem in `zeilen` — mit dem am
     häufigsten gelesenen Wert (`_guess`), zum Vergleichen mit dem Terminal;
-    in `unsicher` stehen sie weiterhin.
+    in `unsicher` stehen sie weiterhin. `reread(zeile, spalte)` liest eine
+    fehlende Zelle neu (Zahl oder None); gelingt das für beide, ist die Zeile
+    sicher.
 
     Gibt `(zeilen, unsicher)`: `zeilen` als `(material, qualität,
     menge_cscu)` von oben nach unten; `unsicher` als Liste der Rohstoffe,
@@ -498,6 +500,11 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
                 quality = value
             else:
                 amount = value
+        if reread is not None and (quality is None or amount is None):
+            if quality is None:
+                quality = reread(cluster['y'], 0)
+            if amount is None:
+                amount = reread(cluster['y'], 1)
         if quality is None or amount is None:
             unsure.append(material)
             if details is not None:
@@ -776,8 +783,8 @@ def keep(source, kind):
 
 # ------------------------------------------------------- Ziffern lernen
 # Gelernte Ziffernbilder der Terminal-Schrift, je Ziffer eine Liste von
-# Mustern. Sie entscheiden zwischen 0 und 8, die die Texterkennung nicht
-# auseinanderhält (`CONFUSABLE`).
+# Mustern. Mit ihnen werden unsichere Zellen Ziffer für Ziffer gelesen
+# (`read_cell`) und 0 und 8 auseinandergehalten (`CONFUSABLE`).
 DIGIT_FILE = 'raffinerie-ziffern.json'
 # Größe eines Musters in Bildpunkten und Höhe, auf die eine Zelle vor dem
 # Zerlegen vergrößert wird.
@@ -789,6 +796,11 @@ DIGIT_KEEP = 40
 DIGIT_MIN = 2
 # Die andere Ziffer muss um diesen Faktor weiter weg sein als die gewählte.
 DIGIT_MARGIN = 1.3
+# Weiter als das darf eine Ziffer von ihrem nächsten Muster nicht liegen —
+# sonst ist sie eine, die noch nicht gelernt wurde.
+DIGIT_MAX_DISTANCE = 0.2
+# Abstandsfaktor zwischen 0 und 8 bei der Zuordnung über alle Ziffern.
+CONFUSABLE_MARGIN = 2.0
 
 
 def load_digits():
@@ -837,9 +849,9 @@ def _digit_spans(cols, count):
     """Die waagerechten Bereiche `(links, rechts)` der `count` Ziffern.
 
     `cols` sind die Spalten mit Schrift. Zusammenhängende Läufe sind die
-    Ziffern; sind es mehr als `count`, werden die Läufe über die kleinsten
-    Lücken zusammengelegt. Sind es weniger, wird der Schriftbereich in
-    `count` gleiche Teile geschnitten.
+    Ziffern; ohne `count` werden sie so zurückgegeben. Sind es mehr als
+    `count`, werden die Läufe über die kleinsten Lücken zusammengelegt. Sind
+    es weniger, wird der Schriftbereich in `count` gleiche Teile geschnitten.
     """
     spans = [[cols[0], cols[0] + 1]]
     for x in cols[1:]:
@@ -847,6 +859,8 @@ def _digit_spans(cols, count):
             spans[-1][1] = x + 1
         else:
             spans.append([x, x + 1])
+    if count is None:
+        return [tuple(s) for s in spans]
     while len(spans) > count:
         gaps = [(spans[i + 1][0] - spans[i][1], i) for i in range(len(spans) - 1)]
         _gap, i = min(gaps)
@@ -858,14 +872,14 @@ def _digit_spans(cols, count):
     return [(x0 + step * i, x0 + step * (i + 1)) for i in range(count)]
 
 
-def glyphs(crop, count):
+def glyphs(crop, count=None):
     """Die `count` Ziffern einer Zelle als Muster (Liste von Zahlenreihen).
 
     Die Schrift setzt Ziffern gleich breit: Der Bereich mit Schrift wird in
     `count` gleiche Teile geschnitten, jeder Teil auf `DIGIT_W` × `DIGIT_H`
     gebracht und auf Mittelwert 0 und Länge 1 gesetzt.
     """
-    if not crop or count <= 0:
+    if not crop or (count is not None and count <= 0):
         return []
     width, height, gray = crop
     low, high = min(gray), max(gray)
@@ -903,7 +917,8 @@ def classify(vector, digits, candidates='08'):
     """Welche der `candidates` ist dieses Ziffernbild — oder None.
 
     Nur wenn jede Kandidatin mindestens `DIGIT_MIN` Muster hat und die beste
-    um `DIGIT_MARGIN` näher liegt als die zweitbeste.
+    um `CONFUSABLE_MARGIN` näher liegt als die zweitbeste — 0 und 8 liegen
+    in der Terminal-Schrift dicht beieinander.
     """
     scores = []
     for digit in candidates:
@@ -912,38 +927,117 @@ def classify(vector, digits, candidates='08'):
             return None
         scores.append((min(_distance(vector, p) for p in patterns), digit))
     scores.sort()
-    if len(scores) > 1 and scores[0][0] * DIGIT_MARGIN > scores[1][0]:
+    if len(scores) > 1 and scores[0][0] * CONFUSABLE_MARGIN > scores[1][0]:
         return None
     return scores[0][1]
 
 
-def _row_numbers(passes, y, tolerance):
-    """Die Zahlenwörter einer Zeile, links nach rechts, aus der Lesung mit
-    den meisten — als Liste von Wörtern mit Rahmen."""
-    best = []
+def classify_any(vector, digits):
+    """Welche Ziffer ist dieses Bild — unter allen mit mindestens
+    `DIGIT_MIN` Mustern. None, wenn die nächste weiter als
+    `DIGIT_MAX_DISTANCE` liegt oder die zweitnächste nicht um `DIGIT_MARGIN`
+    weiter weg ist."""
+    scores = sorted((min(_distance(vector, p) for p in patterns), digit)
+                    for digit, patterns in digits.items()
+                    if len(patterns) >= DIGIT_MIN)
+    if not scores or scores[0][0] > DIGIT_MAX_DISTANCE:
+        return None
+    if len(scores) > 1 and scores[0][0] * DIGIT_MARGIN > scores[1][0]:
+        return None
+    best = scores[0][1]
+    if best in CONFUSABLE:
+        # 0 und 8 sehen sich in der Terminal-Schrift fast gleich: Die andere
+        # der beiden muss um `CONFUSABLE_MARGIN` weiter weg liegen.
+        other = [s for s, d in scores if d in CONFUSABLE and d != best]
+        if not other or scores[0][0] * CONFUSABLE_MARGIN > other[0]:
+            return None
+    return best
+
+
+def read_cell(crop, digits, read=''):
+    """Eine Zahlenzelle allein an den gelernten Mustern lesen — oder None.
+
+    Die Ziffern sind die Läufe zwischen den Lücken (`glyphs` ohne Zahl);
+    jede muss `classify_any` eindeutig zuordnen. Gelingt das nicht und hat
+    das gelesene Wort `read` eine andere Stellenzahl (zwei Ziffern berühren
+    sich), wird nach dieser Stellenzahl geschnitten und noch einmal gelesen.
+    """
+    attempts = [glyphs(crop)]
+    value = number(read, loose=True)
+    if value is not None and len(str(value)) != len(attempts[0]):
+        attempts.append(glyphs(crop, len(str(value))))
+    for vectors in attempts:
+        if not 1 <= len(vectors) <= 5:
+            continue
+        out = [classify_any(v, digits) for v in vectors]
+        if None not in out:
+            return int(''.join(out))
+    return None
+
+
+def _centers(passes, index=None):
+    """Die Spaltenmitten der Tafel — aus der Lesung mit den meisten Zahlen."""
+    best, most = [], -1
     for words in passes:
-        found = [w for w in words if number(w.get('t')) is not None
-                 and abs(w.get('y', 0) + w.get('h', 0) / 2.0 - y) <= tolerance]
-        if len(found) > len(best):
-            best = found
-    return sorted(best, key=lambda w: w.get('x', 0))
+        table = rows(words)
+        found = material_rows(table, index)
+        count = sum(len(r['numbers']) + len(r.get('loose_numbers') or ())
+                    for r in found)
+        if count > most:
+            best, most = (header_columns(table) or columns(found)), count
+    return best
+
+
+def _cell_word(passes, y, column, tolerance, centers):
+    """Das Wort der Zelle in Zeile `y`, Spalte `column` (0 Qualität, 1 Menge)
+    — aus der ersten Lesung, die dort eine Zahl hat. Oder None."""
+    if len(centers) <= column:
+        return None
+    for words in passes:
+        for word in words:
+            if number(word.get('t'), loose=True) is None:
+                continue
+            if abs(word.get('y', 0) + word.get('h', 0) / 2.0 - y) > tolerance:
+                continue
+            middle = word.get('x', 0) + word.get('w', 0) / 2.0
+            nearest = min(range(len(centers)),
+                          key=lambda i: abs(centers[i] - middle))
+            if nearest == column:
+                return word
+    return None
+
+
+def _tolerance(passes):
+    heights = sorted(w.get('h', 0) for words in passes for w in words)
+    return heights[len(heights) // 2] if heights else 10
+
+
+def _cell_crop_at(src, passes, y, column, centers):
+    word = _cell_word(passes, y, column, _tolerance(passes), centers)
+    if word is None:
+        return None, None
+    return word, cell_crop(src, (word['x'], word['y'], word['w'], word['h']))
 
 
 def _confirmer(src, passes, digits):
     """`confirm` für `merge_passes`: entscheidet jede 0 und 8 eines Werts
-    an den gelernten Mustern. Gibt den Wert (berichtigt) oder None."""
+    an den gelernten Mustern. Gibt den Wert (berichtigt) oder None.
+
+    Zuerst wird die ganze Zelle gelesen (`read_cell`); gelingt das, gilt
+    dieser Wert. Sonst ordnet `classify` nur jede 0 und 8 des gelesenen Werts zu.
+    """
     if not src or not digits:
         return None
+    centers = _centers(passes)
 
     def confirm(y, column, value):
         text = str(value)
-        heights = [w.get('h', 0) for words in passes for w in words]
-        tolerance = (sorted(heights)[len(heights) // 2] if heights else 10)
-        numbers_ = _row_numbers(passes, y, tolerance)
-        if len(numbers_) <= column:
+        _word, crop = _cell_crop_at(src, passes, y, column, centers)
+        if crop is None:
             return None
-        crop = cell_crop(src, (numbers_[column]['x'], numbers_[column]['y'],
-                               numbers_[column]['w'], numbers_[column]['h']))
+        whole = read_cell(crop, digits, text)
+        if whole is not None:
+            return whole
         found = glyphs(crop, len(text))
         if len(found) != len(text):
             return None
@@ -958,18 +1052,31 @@ def _confirmer(src, passes, digits):
     return confirm
 
 
+def _rereader(src, passes, digits):
+    """`reread` für `merge_passes`: liest eine Zelle einer unsicheren Zeile
+    allein an den gelernten Mustern (`read_cell`) — oder None."""
+    if not src or not digits:
+        return None
+    centers = _centers(passes)
+
+    def reread(y, column):
+        word, crop = _cell_crop_at(src, passes, y, column, centers)
+        if crop is None:
+            return None
+        return read_cell(crop, digits, word.get('t') or '')
+    return reread
+
+
 def unsure_cells(src, passes, details):
     """Zahlenzellen der unsicheren Zeilen zum späteren Lernen: je Zelle
     `{'material', 'column', 'read', 'crop'}` — `read` ist das gelesene Wort."""
     if not src:
         return []
-    heights = [w.get('h', 0) for words in passes for w in words]
-    tolerance = sorted(heights)[len(heights) // 2] if heights else 10
+    centers = _centers(passes)
     cells = []
     for row in details:
-        for column, word in enumerate(_row_numbers(passes, row['y'],
-                                                   tolerance)[:2]):
-            crop = cell_crop(src, (word['x'], word['y'], word['w'], word['h']))
+        for column in (0, 1):
+            word, crop = _cell_crop_at(src, passes, row['y'], column, centers)
             if crop:
                 cells.append({'material': row['material'], 'column': column,
                               'read': word.get('t') or '', 'crop': crop})
@@ -978,7 +1085,7 @@ def unsure_cells(src, passes, details):
 
 def _loose(text):
     """Ziffernfolge mit 0 und 8 gleichgesetzt — zum Zuordnen."""
-    value = number(text)
+    value = number(text, loose=True)
     return None if value is None else str(value).replace('8', '0')
 
 
@@ -1077,7 +1184,8 @@ def read_image(path, ocr=None, keep_failed=False):
             details = []
             found, unsure = merge_passes(
                 passes, confirm=_confirmer(src, passes, digits),
-                details=details, guess=True)
+                details=details, guess=True,
+                reread=_rereader(src, passes, digits))
             if keep_failed and (unsure or not found):
                 kept = keep(crop_png, 'tabelle') or kept
             materials = _materials_in_order(passes)

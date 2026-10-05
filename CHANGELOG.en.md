@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.94.0 - 2026-10-05
+
+> The refinery scanner now learns every digit from your corrections: with
+> each line you type in, it reads the terminal font more reliably — and what
+> it cannot recognise for sure, it does not guess.
+
+### Improved
+
+- **Learning for all digits** — values you type in teach the scanner every
+  digit; it reads unsure cells on its own with them, including a mixed-up 3
+  and 5 or a number the text recognition could not read at all
+- **No wrong value marked as sure** — 0 and 8 only count as recognised when
+  they clearly differ, otherwise the line stays marked for checking
+
 ## v3.93.2 - 2026-10-05
 
 > The refinery scanner no longer leaves out lines: even what it could only
