@@ -94,7 +94,12 @@ OVERRIDES_FILE = os.environ.get('SC_BP_OVERRIDES') or paths.app_file(
 # in der `einstellungen.json`; 3 Sekunden sind ein Mittelweg zwischen schneller
 # Anzeige und seltenem Plattenzugriff. Grenzen 1–60, damit eine vertippte 0
 # keine Dauerschleife wird.
-POLL_SEC = paths.setting_int('pruefintervall_sekunden', 3, 1, 60)
+# ⚠ Eine Funktion, keine Konstante: Der Watcher-Thread fragt vor jedem Blick
+# neu. Eine beim Start festgehaltene Zahl ließ eine Änderung auf der Seite
+# „Allgemein" erst nach einem Neustart wirken, obwohl das Fenster sie sofort
+# bestätigte.
+def pruefintervall():
+    return paths.setting_int('pruefintervall_sekunden', 3, 1, 60)
 # Signalton bei einem Fund — manche wollen im Spiel keinen zusätzlichen Ton.
 TON_AN = paths.setting_bool('signalton', True)
 
@@ -1896,7 +1901,7 @@ class Watcher(threading.Thread):
         self._auftraege_beim_start()
         self.q.put(('status', self._statuszeile()))
         while self.running:
-            time.sleep(POLL_SEC)
+            time.sleep(pruefintervall())
 
             # -1) Hat jemand um ein erneutes Einlesen gebeten?
             if self._neu_einlesen:
@@ -3353,6 +3358,18 @@ class Overlay:
 
     # ---- Queue vom Watcher abarbeiten ----
     def _poll_queue(self):
+        # Hänger-Messung: Kommt dieser Aufruf mehr als zwei Sekunden zu spät,
+        # stand die Oberfläche so lange still. Notiert werden Dauer und die
+        # Nebenfäden, die in dem Moment liefen — der Fehlerbericht zeigt es
+        # unter den zuletzt geöffneten Seiten.
+        soll = getattr(self, '_poll_soll', None)
+        if soll is not None:
+            verspaetung = time.monotonic() - soll
+            if verspaetung > 2.0:
+                faeden = sorted(f.name for f in threading.enumerate()
+                                if f is not threading.main_thread())
+                errors.trail('Fenster stand %.1f s · Fäden: %s'
+                             % (verspaetung, ', '.join(faeden) or '—'))
         try:
             while True:
                 msg = self.q.get_nowait()
@@ -3391,6 +3408,7 @@ class Overlay:
             pass
         self._hotkey_nachsehen()
         self._scanner_nachsehen()
+        self._poll_soll = time.monotonic() + 0.3
         self.root.after(300, self._poll_queue)
 
     def _bescheid_zeigen(self, titel, text):

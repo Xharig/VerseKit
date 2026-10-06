@@ -662,6 +662,11 @@ TEXTS = {
                           'Affects only this tool. Which language Star Citizen speaks is detected on its own.'),
     's_ton_h':         ('Kurzer Ton, wenn ein Bauplan hereinkommt — hilfreich, wenn das Overlay verdeckt ist.',
                           'A short sound when a blueprint arrives — useful when the overlay is covered.'),
+    's_takt':          ('Prüfintervall der Game.log', 'Game.log check interval'),
+    's_takt_h':        ('Sekunden zwischen zwei Blicken in die Game.log (1 bis 60, Standard 3). Kleiner meldet schneller, größer schont den Rechner. Gilt sofort.',
+                          'Seconds between two looks at Game.log (1 to 60, default 3). Smaller reports faster, larger is easier on the computer. Applies at once.'),
+    's_sek':           (' Sek.', ' sec.'),
+    's_takt_sagen':    ('Prüfintervall: %s Sekunden', 'Check interval: %s seconds'),
     's_autostart_h':   ('Verse-Kit startet mit angemeldetem Benutzer und wartet im Hintergrund auf das Spiel.',
                           'Verse-Kit starts with your session and waits in the background for the game.'),
     's_tray':          ('Symbol in der Ablage neben der Uhr',
@@ -2251,11 +2256,6 @@ TEXTS = {
     # -- Seite „Erkennung" --
     's_er_lead':       ('Wie Verse-Kit merkt, dass ein Bauplan hereingekommen ist. Die Standardwerte passen für fast jeden — hier nur ändern, wenn etwas klemmt.',
                           'How Verse-Kit notices that a blueprint has arrived. The defaults suit almost everyone — only change things here if something is stuck.'),
-    's_er_takt':       ('Wie oft nachsehen', 'How often to look'),
-    's_er_takt_h':     ('Sekunden zwischen zwei Blicken in die Protokolldatei. Kleiner heißt schneller und kostet etwas mehr Rechenzeit.',
-                          'Seconds between two looks at the log file. Smaller means faster and costs a little more processing time.'),
-    's_er_sek':        (' Sek.', ' sec.'),
-    's_er_takt_sagen': ('Takt: %s Sekunden', 'Interval: %s seconds'),
     's_er_satz':       ('Erkannte Meldung', 'Detected message'),
     's_er_satz_h':     ('Der Satz, den das Spiel schreibt. Verse-Kit leitet ihn selbst aus deinen Protokollen ab — hier steht, was gefunden wurde.',
                           'The sentence the game writes. Verse-Kit derives it from your logs by itself — this is what it found.'),
@@ -2966,6 +2966,10 @@ TEXTS = {
                               'a rank starts at.'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
+    's_dk_sotth_idee':       ('**Das Prüfintervall der Game.log sichtbar unter „Allgemein"** — '
+                              'vorher nur über die Einstellungsdatei zu finden.',
+                              '**The Game.log check interval visible under “General”** — '
+                              'before, it was only reachable through the settings file.'),
     's_dk_fire_bugs':        ('**Der Signatur-Scanner zeigte bei ihm nie etwas an** — '
                               'und er hat die gescannten Bilder gleich mitgeschickt. '
                               'Darin stand die Ursache: Ein einzelner heller Bildpunkt '

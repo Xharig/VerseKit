@@ -1877,6 +1877,36 @@ def _general(fenster, rahmen):
     toggle_switch(ziel, paths.setting_bool('signalton', True),
                     ton_um).pack()
 
+    # Wie oft die Game.log angesehen wird. Der Watcher-Thread liest den Wert
+    # vor jedem Blick neu (`pruefintervall()` in `sc_bp_watcher.py`), eine
+    # Änderung gilt also ohne Neustart.
+    ziel = _setting_row(fenster, innen, t('s_takt'), t('s_takt_h'))
+    reihe = tk.Frame(ziel, bg=BG)
+    reihe.pack()
+    from .main_window import round_entry
+    interval_var = tk.StringVar(
+        reihe,
+        value=str(paths.setting_int('pruefintervall_sekunden', 3, 1, 60)))
+    zahl = round_entry(reihe, interval_var, fenster.f_small, theme.FIELD, LINE,
+                       ACCENT, FG, width=5, justify='right',
+                       placeholder=t('s_pl_sekunden'))
+    zahl.holder.pack(side='left')
+    tk.Label(reihe, text=t('s_sek'), bg=BG, fg=SUB,
+             font=fenster.f_small).pack(side='left')
+
+    def takt_merken(_=None):
+        try:
+            sekunden = max(1, min(60, int(interval_var.get())))
+        except ValueError:
+            return
+        paths.set_setting('pruefintervall_sekunden', sekunden)
+        # Den gespeicherten Wert zeigen, nicht die Eingabe — aus 0 wird 1.
+        interval_var.set(str(sekunden))
+        fenster.say(t('s_takt_sagen') % sekunden)
+
+    zahl.bind('<FocusOut>', takt_merken)
+    zahl.bind('<Return>', takt_merken)
+
     # ⚠ Standardmaessig AUS. Gezaehlt wird trotzdem von
     # Anfang an — sonst begaenne die Zaehlung erst beim Einschalten, und die
     # Protokolle davor haette Star Citizen dann laengst weggeraeumt. Was nichts
@@ -6868,6 +6898,7 @@ def _thanks(fenster, rahmen):
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
+            ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
              + t('s_dk_greluc_idee2'), t('s_dk_greluc_bugs')),
@@ -7117,31 +7148,6 @@ def _detection(fenster, rahmen):
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_erkennung'), t('s_er_lead'))
     innen = _scroll_area(rahmen)
-
-    ziel = _setting_row(fenster, innen, t('s_er_takt'), t('s_er_takt_h'))
-    reihe = tk.Frame(ziel, bg=BG)
-    reihe.pack()
-    from .main_window import round_entry
-    interval_var = tk.StringVar(
-        reihe,
-        value=str(paths.setting_int('pruefintervall_sekunden', 3, 1, 60)))
-    zahl = round_entry(reihe, interval_var, fenster.f_small, theme.FIELD, LINE,
-                       ACCENT, FG, width=5, justify='right',
-                       placeholder=t('s_pl_sekunden'))
-    zahl.holder.pack(side='left')
-    tk.Label(reihe, text=t('s_er_sek'), bg=BG, fg=SUB,
-             font=fenster.f_small).pack(side='left')
-
-    def takt_merken(_=None):
-        try:
-            paths.set_setting('pruefintervall_sekunden',
-                                     max(1, min(60, int(interval_var.get()))))
-            fenster.say(t('s_er_takt_sagen') % interval_var.get())
-        except ValueError:
-            pass
-
-    zahl.bind('<FocusOut>', takt_merken)
-    zahl.bind('<Return>', takt_merken)
 
     # ⚠ `breit=True`: Die gefundenen Sätze sind lang. Rechts neben der
     # Beschreibung lief der Kasten über die Fensterkante hinaus und war an

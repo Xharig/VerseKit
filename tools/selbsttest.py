@@ -376,7 +376,7 @@ def main():
 
         with open(os.path.join(live, 'Game.log'), 'a', encoding='utf-8') as f:
             f.write(zeile('Bauplan erhalten: Behring FS-9 LMG', 2))
-        time.sleep(w.POLL_SEC + 2)
+        time.sleep(w.pruefintervall() + 2)
         meldungen = []
         while not q.empty():
             meldungen.append(q.get())

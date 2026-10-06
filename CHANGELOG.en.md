@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Game.log check interval under “General”** — how often Verse-Kit looks at
+  Game.log (1 to 60 seconds, default 3) is now on the “General” page instead
+  of tucked away under “Detection”. Suggested by sotth
+
+### Fixed
+
+- **A changed check interval only applied after a restart** — the window
+  confirmed the new value at once, but Verse-Kit kept looking at the old pace
+  until the next start. It applies at once now
+- **The error report shows when the window hangs** — if the interface stands
+  still for more than two seconds, the report says for how long and what was
+  running in the background at that moment. Reported by sotth
+
+### Thanks
+
+- **sotth** — for the suggestion to make the check interval visible, and for
+  the precise description of when the window froze
+
 ## v3.96.0 - 2026-10-06
 
 > Updates no longer fail silently because of an old log file, and Verse-Kit
