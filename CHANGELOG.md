@@ -8,10 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v3.96.0 - 2026-10-06
 
-> Kommt ein automatisches Update gleich nach dem Start, schließt sich
-> Verse-Kit nicht mehr scheinbar grundlos: Die neue Version öffnet danach das
-> Hauptfenster und sagt, was passiert ist. Und der Fehlerbericht zeigt jetzt,
-> was beim letzten Update-Versuch geschah.
+> Updates scheitern nicht mehr still an einer alten Protokolldatei, und
+> Verse-Kit schließt sich nicht mehr scheinbar grundlos: Kommt ein Update
+> gleich nach dem Start oder klappt es nicht, geht danach das Hauptfenster
+> auf und sagt, was passiert ist. Der Fehlerbericht zeigt jetzt auch, was
+> beim letzten Update-Versuch geschah.
+
+### Behoben
+
+- **Update brach sofort ab, Verse-Kit schloss sich** — ließ sich eine alte
+  Datei im eigenen Ordner nicht überschreiben (etwa weil sie versteckt war),
+  scheiterte jedes Update, ohne etwas zu installieren. Solche Dateien werden
+  jetzt wieder überschrieben, das gilt auch für Startverlauf, Fehlerprotokoll
+  und Versionsabgleich. Gemeldet von Haldjas
+- **Kein Neustart in Schleife** — ist ein automatisches Update gescheitert,
+  wird dieselbe Version einen Tag lang nicht von selbst erneut versucht; von
+  Hand geht es jederzeit. Gemeldet von Haldjas
 
 ### Verbessert
 

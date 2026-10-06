@@ -21654,6 +21654,8 @@ def main():
            and _m223.index('should_open_window')
            < _m223.index('self.liste_oeffnen'),
            'der Start nach dem Update entscheidet ueber should_open_window')
+    pruefe('update_run.remember_failure(result)' in _m223,
+           'der Start nach dem Update merkt sich einen Fehlschlag')
     # Die Laufmarke traegt den Merker durch bis zur Auswertung.
     _ur223.begin_run('9.9.9', '0.0.1', '', '', automatic=True,
                      show_window=True)
@@ -21766,6 +21768,18 @@ def main():
                and ov._shortly_after_start(now=_s223 + _g223)
                and not ov._shortly_after_start(now=_s223 + _g223 + 1),
                'kurz nach dem Start heisst: hoechstens %d s nach dem Start' % _g223)
+        # Ist genau dieses Update eben gescheitert, wird es nicht wiederholt.
+        _ur223.remember_failure({'art': 'fehler', 'automatisch': True,
+                                 'ziel': 'v9.9.9'})
+        _geladen_vorher223 = _merk223['geladen']
+        try:
+            ov._auto_update(neu, retry=True)
+            _warten223(lambda: not getattr(ov, '_auto_laeuft', False), 1.0)
+            pruefe(_merk223['geladen'] == _geladen_vorher223,
+                   'ein eben gescheitertes Auto-Update wird nicht sofort '
+                   'wiederholt')
+        finally:
+            _pf223.set_setting(_ur223.FAILED_SETTING, '')
     finally:
         (_up223.packaging, _up223.matching_asset, _up223.download,
          _up223.install, _au223.game_running, _au223.enabled,
@@ -38032,62 +38046,123 @@ def _pruefung_413():
                'der Versionsabgleich nennt Zeitpunkt und neueste Freigabe (%s)'
                % (zeile[0].strip() if zeile else '—'))
 
-        # d) Ein gescheitertes Überschreiben steht im Bericht.
-        cache = _pf413.app_file(_up413.CACHE)
+        # d) Eine versteckte eigene Datei wird trotzdem überschrieben (Windows).
         if os.name == 'nt':
             import ctypes as _ct413
-            _ct413.windll.kernel32.SetFileAttributesW(cache, 0x2)
-            gesperrt = 'versteckten'
+            _k413 = _ct413.WinDLL('kernel32')
+            _k413.GetFileAttributesW.restype = _ct413.c_uint32
+            cache = _pf413.app_file(_up413.CACHE)
+            _k413.SetFileAttributesW(cache, 0x2 | 0x1)
+            _up413._cache_write({'geprueft': 1234.0, 'freigaben': []})
+            with open(cache, encoding='utf-8') as f:
+                _inhalt413 = f.read()
+            pruefe('1234' in _inhalt413 and not _up413.CACHE_WRITE_ERROR[0],
+                   'ein versteckter, schreibgeschützter Versionsabgleich wird '
+                   'trotzdem gespeichert')
+            pruefe(not _k413.GetFileAttributesW(cache) & 0x3,
+                   'und trägt die Kennzeichen danach nicht mehr')
+
+            spur = _pf413.app_file(_fe413.TRAIL_FILE)
+            with open(spur, 'w', encoding='utf-8') as f:
+                f.write('15:16:21  Start, Version 3.94.3, win32\n')
+            _k413.SetFileAttributesW(spur, 0x2)
+            alt_offen = getattr(_fe413.trail, '_offen', False)
+            _fe413.trail._offen = False
+            _fe413.TRAIL_WRITE_ERROR[0] = ''
+            try:
+                _fe413.trail('Start, Version 0.0.0-test, probe')
+            finally:
+                _fe413.trail._offen = alt_offen
+            with open(spur, encoding='utf-8') as f:
+                _spur413 = f.read()
+            pruefe('0.0.0-test' in _spur413 and '3.94.3' not in _spur413
+                   and not _fe413.TRAIL_WRITE_ERROR[0],
+                   'eine versteckte Startspur wird beim Start neu angelegt')
+
+            # Der Dateischutz nennt eine versteckte Datei beim Namen.
+            bestand = _pf413.app_file('bestand.json')
+            with open(bestand, 'w', encoding='utf-8') as f:
+                f.write('{}')
+            _k413.SetFileAttributesW(bestand, 0x2)
+            try:
+                bericht = _rp413.build(version='0.0.0-test')
+                pruefe('bestand.json: %s' % _t413('b_ds_versteckt') in bericht,
+                       'der Dateischutz nennt die versteckte Datei')
+            finally:
+                _k413.SetFileAttributesW(bestand, 0x80)
+                os.remove(bestand)
+
+            # Das Setup-Protokoll: eine versteckte alte Datei wird geräumt.
+            setup = _pf413.app_file('update-setup.txt')
+            with open(setup, 'w', encoding='utf-8') as f:
+                f.write('alt\n')
+            _k413.SetFileAttributesW(setup, 0x2 | 0x1)
+            frei = _up413._free_setup_log(setup)
+            pruefe(frei == setup and not os.path.exists(setup),
+                   'eine versteckte alte Setup-Protokolldatei wird geräumt')
         else:
-            os.chmod(cache, 0o444)
-            gesperrt = 'schreibgeschützten'
+            print('  [–]    Datei-Kennzeichen nur unter Windows')
+
+        # e) Lässt sich wirklich nichts schreiben, wird es gemerkt und genannt.
+        #    Ein Ordner an der Stelle der Datei sperrt auf jedem System, auch
+        #    für einen Verwalter.
+        import shutil as _sh413
+        cache = _pf413.app_file(_up413.CACHE)
+        spur = _pf413.app_file(_fe413.TRAIL_FILE)
+        for _p413 in (cache, spur):
+            if os.path.exists(_p413):
+                os.remove(_p413)
+            os.makedirs(_p413)
+        alt_offen = getattr(_fe413.trail, '_offen', False)
         try:
             _up413._cache_write({'geprueft': _ti413.time(), 'freigaben': []})
             pruefe(bool(_up413.CACHE_WRITE_ERROR[0]),
-                   'Überschreiben einer %s Datei scheitert und wird gemerkt'
-                   % gesperrt)
-            _fe413.TRAIL_WRITE_ERROR[0] = 'start-spur.txt (w): Probe'
+                   'ein unmögliches Speichern des Versionsabgleichs wird gemerkt')
+            _fe413.trail._offen = False
+            _fe413.TRAIL_WRITE_ERROR[0] = ''
+            _fe413.trail('Start, Version 0.0.0-test, probe')
+            pruefe('start-spur.txt (w)' in _fe413.TRAIL_WRITE_ERROR[0],
+                   'ein gescheitertes Neuanlegen der Startspur wird gemerkt'
+                   ' (%s)' % (_fe413.TRAIL_WRITE_ERROR[0][:60] or '—'))
             bericht = _rp413.build(version='0.0.0-test')
             zeile = [z for z in bericht.splitlines()
                      if z.startswith(_t413('b_schreibfehler'))]
             pruefe(zeile and _up413.CACHE in zeile[0]
                    and 'start-spur.txt (w)' in zeile[0],
                    'der Bericht nennt beide gescheiterten Schreibversuche')
-            merk = _t413('b_ds_versteckt' if os.name == 'nt'
-                         else 'b_ds_schreibschutz')
-            pruefe(('%s: %s' % (_up413.CACHE, merk)) in bericht,
-                   'der Dateischutz nennt die gesperrte Datei')
-
-            # Die Startspur: Neuanlegen scheitert, der Grund wird gemerkt.
-            spur = _pf413.app_file(_fe413.TRAIL_FILE)
-            with open(spur, 'w', encoding='utf-8') as f:
-                f.write('15:16:21  Start, Version 3.94.3, win32\n')
-            if os.name == 'nt':
-                _ct413.windll.kernel32.SetFileAttributesW(spur, 0x2)
-            else:
-                os.chmod(spur, 0o444)
-            alt_offen = getattr(_fe413.trail, '_offen', False)
-            _fe413.trail._offen = False
-            _fe413.TRAIL_WRITE_ERROR[0] = ''
-            try:
-                _fe413.trail('Start, Version 0.0.0-test, probe')
-                pruefe('start-spur.txt (w)' in _fe413.TRAIL_WRITE_ERROR[0],
-                       'ein gescheitertes Neuanlegen der Startspur wird gemerkt'
-                       ' (%s)' % (_fe413.TRAIL_WRITE_ERROR[0][:60] or '—'))
-            finally:
-                _fe413.trail._offen = alt_offen
-                if os.name == 'nt':
-                    _ct413.windll.kernel32.SetFileAttributesW(spur, 0x80)
-                else:
-                    os.chmod(spur, 0o644)
+            setup = _pf413.app_file('update-setup.txt')
+            os.makedirs(setup, exist_ok=True)
+            frei = _up413._free_setup_log(setup)
+            pruefe(frei and frei != setup,
+                   'lässt sich das Setup-Protokoll nicht räumen, geht es '
+                   'woandershin (%s)' % frei)
+            _sh413.rmtree(setup, ignore_errors=True)
         finally:
-            if os.name == 'nt':
-                _ct413.windll.kernel32.SetFileAttributesW(cache, 0x80)
-            else:
-                os.chmod(cache, 0o644)
+            _fe413.trail._offen = alt_offen
+            for _p413 in (cache, spur):
+                _sh413.rmtree(_p413, ignore_errors=True)
         _up413._cache_write({'geprueft': _ti413.time(), 'freigaben': []})
         pruefe(not _up413.CACHE_WRITE_ERROR[0],
                'ein später geglücktes Speichern räumt den Vermerk weg')
+
+        # f) Ein gescheitertes Auto-Update wird nicht sofort wiederholt.
+        _ur413.remember_failure({'art': 'fehler', 'automatisch': True,
+                                 'ziel': 'v3.95.1'}, now=1000.0)
+        pruefe(_ur413.failed_recently('3.95.1', now=1000.0 + 3600),
+               'eine Stunde nach dem Fehlschlag wird dieselbe Version nicht '
+               'von selbst eingespielt')
+        pruefe(not _ur413.failed_recently('3.95.2', now=1000.0 + 3600),
+               'eine neuere Version kommt trotzdem')
+        pruefe(not _ur413.failed_recently(
+                   '3.95.1', now=1000.0 + _ur413.FAILED_PAUSE + 1),
+               'nach einem Tag wird es wieder versucht')
+        _pf413.set_setting(_ur413.FAILED_SETTING, '')
+        _ur413.remember_failure({'art': 'fertig', 'automatisch': True,
+                                 'ziel': '3.95.1'}, now=1000.0)
+        _ur413.remember_failure({'art': 'fehler', 'automatisch': False,
+                                 'ziel': '3.95.1'}, now=1000.0)
+        pruefe(not _ur413.failed_recently('3.95.1', now=1000.0),
+               'ein geglücktes oder von Hand gestartetes Update sperrt nichts')
     finally:
         _fe413.TRAIL_WRITE_ERROR[0], _up413.CACHE_WRITE_ERROR[0] = alt_fehler
         if alt_heim is None:

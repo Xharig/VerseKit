@@ -471,6 +471,40 @@ def evaluate(own_version):
             'fenster': bool(run.get('fenster'))}
 
 
+FAILED_SETTING = 'auto_update_fehlschlag'
+# So lange wird eine Version nach einem gescheiterten automatischen Update
+# nicht noch einmal von selbst eingespielt.
+FAILED_PAUSE = 24 * 3600
+
+
+def remember_failure(result, now=None):
+    """Ein gescheitertes automatisches Update merken (`version|zeit`).
+
+    ⚠ Ohne das tritt jeder Start sofort wieder ab, um dasselbe scheiternde
+    Update erneut zu versuchen — das Programm ließe sich gar nicht mehr
+    benutzen.
+    """
+    if not result or not result.get('automatisch') \
+            or result.get('art') == 'fertig':
+        return False
+    now = time.time() if now is None else now
+    return paths.set_setting(FAILED_SETTING, '%s|%d' % (
+        _norm(result.get('ziel')), int(now)))
+
+
+def failed_recently(version, now=None):
+    """Ist das automatische Update auf `version` vor kurzem gescheitert?"""
+    value = paths.setting(FAILED_SETTING) or ''
+    failed_version, _sep, stamp = value.partition('|')
+    if not failed_version or failed_version != _norm(version):
+        return False
+    try:
+        age = (time.time() if now is None else now) - float(stamp)
+    except ValueError:
+        return False
+    return 0 <= age < FAILED_PAUSE
+
+
 def should_open_window(result):
     """Öffnet der Start nach einem Update das Hauptfenster?
 

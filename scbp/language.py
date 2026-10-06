@@ -2646,10 +2646,11 @@ TEXTS = {
                               'sie geht jetzt in einem Drittel der Zeit auf. Sein '
                               'Bericht brachte zuletzt zwei Dinge auf einmal: den '
                               'trägen Programmstart und die Baupläne, die mit '
-                              'StarStrings nicht mehr zum Katalog fanden. Und ein '
-                              'Update, das sich gleich nach dem Start wieder '
-                              'schloss — seitdem steht im Bericht, was ein '
-                              'Update-Versuch hinterlässt.',
+                              'StarStrings nicht mehr zum Katalog fanden. Und das '
+                              'Update, das sofort abbrach, weil sich eine alte '
+                              'Datei nicht überschreiben ließ — seitdem steht '
+                              'im Bericht auch, was ein Update-Versuch '
+                              'hinterlässt.',
                               'Plus a dozen finds around the overlay, setup and updating — '
                               'among them the collapsed overlay hanging off the screen '
                               'edge in three corners out of four, the title bar that '
@@ -2663,9 +2664,10 @@ TEXTS = {
                               'of the time. His latest report brought two things at '
                               'once: the sluggish program start, and the blueprints '
                               'that no longer matched the catalogue with StarStrings. '
-                              'And an update that closed right after starting — '
-                              'since then the report shows what an update attempt '
-                              'leaves behind.'),
+                              'And the update that aborted at once because an old '
+                              'file could not be overwritten — since then the '
+                              'report also shows what an update attempt leaves '
+                              'behind.'),
     # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.**
     # Der Dank im CHANGELOG ist das eine; diese Seite ist das, was die Leute im
     # Programm sehen. Wer einen Melder hier vergisst, hat ihm nicht gedankt.

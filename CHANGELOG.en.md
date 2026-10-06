@@ -8,10 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v3.96.0 - 2026-10-06
 
-> When an automatic update arrives right after starting, Verse-Kit no longer
-> seems to close for no reason: the new version then opens the main window
-> and says what happened. And the error report now shows what went on during
-> the last update attempt.
+> Updates no longer fail silently because of an old log file, and Verse-Kit
+> no longer seems to close for no reason: if an update arrives right after
+> starting or does not succeed, the main window opens and says what
+> happened. The error report now also shows what went on during the last
+> update attempt.
+
+### Fixed
+
+- **Update aborted at once, Verse-Kit closed** — if an old file in its own
+  folder could not be overwritten (for example because it was hidden), every
+  update failed without installing anything. Such files are overwritten
+  again now, which also covers the start trace, error log and version
+  check. Reported by Haldjas
+- **No restart loop** — after a failed automatic update, the same version is
+  not retried by itself for a day; by hand it works any time. Reported by
+  Haldjas
 
 ### Improved
 

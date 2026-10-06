@@ -120,7 +120,9 @@ def trail(step):
         path = paths.app_file(TRAIL_FILE)
         mode = 'a' if getattr(trail, '_offen', False) else 'w'
         trail._offen = True
-        with open(path, mode, encoding='utf-8') as f:
+        opened = (open(path, mode, encoding='utf-8') if mode == 'a'
+                  else paths.open_overwrite(path))
+        with opened as f:
             f.write('%s  %s\n' % (datetime.now().strftime('%H:%M:%S'), step))
             f.flush()
             if not getattr(trail, '_bedienung', False):
@@ -388,7 +390,7 @@ def record(label, exc=None, note=''):
             entries = _read()
             entries.append(entry)
             entries = entries[-MAX_ENTRIES:]
-            with open(_path(), 'w', encoding='utf-8') as f:
+            with paths.open_overwrite(_path()) as f:
                 json.dump({'eintraege': entries}, f, ensure_ascii=False, indent=1)
         return True
     except Exception:

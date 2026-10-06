@@ -155,7 +155,7 @@ def _cache_read():
 
 def _cache_write(data):
     try:
-        with open(paths.app_file(CACHE), 'w', encoding='utf-8') as f:
+        with paths.open_overwrite(paths.app_file(CACHE)) as f:
             json.dump(data, f, ensure_ascii=False)
         CACHE_WRITE_ERROR[0] = ''
     except OSError as exc:
@@ -1002,6 +1002,31 @@ def roll_back():
         return False
 
 
+def _free_setup_log(path):
+    """Den Ort für das Setup-Protokoll freiräumen — oder einen freien nehmen.
+
+    ⚠⚠ Kann das Setup seine Protokolldatei (`/LOG=`) nicht anlegen, bricht
+    es sofort mit Rückgabewert 1 ab und installiert nichts. Eine alte Datei,
+    die sich nicht überschreiben lässt, legte so jedes Update still.
+    Deshalb: Kennzeichen entfernen und löschen; bleibt sie trotzdem liegen,
+    geht das Protokoll nach `%TEMP%`.
+    """
+    import tempfile
+    candidates = (path, os.path.join(tempfile.gettempdir(),
+                                     'scbp-update-setup.txt'))
+    for candidate in candidates:
+        if not os.path.exists(candidate):
+            return candidate
+        paths.make_overwritable(candidate)
+        try:
+            os.remove(candidate)
+            return candidate
+        except OSError:
+            continue
+    return os.path.join(tempfile.gettempdir(),
+                        'scbp-update-setup-%d.txt' % int(time.time()))
+
+
 def install(new_file, target_version='', previous_version='', automatic=False,
             show_window=False):
     """Die laufende Version durch die neue ersetzen.
@@ -1134,7 +1159,7 @@ def install(new_file, target_version='', previous_version='', automatic=False,
             # macht `paths` für die GANZE Funktion lokal — und
             # `paths.clean_environment()` weiter oben fiele mit
             # `UnboundLocalError` um. Prüfung 185 hat genau das gefangen.
-            log_file = paths.app_file('update-setup.txt')
+            log_file = _free_setup_log(paths.app_file('update-setup.txt'))
         except Exception:
             pass                     # ohne Protokoll ist der Weg derselbe
 

@@ -617,6 +617,19 @@ def _tail(path, count, keywords=None):
     return rows[-count:]
 
 
+def _newest_setup_log():
+    """Das jüngste Setup-Protokoll — im Datenordner oder, wenn es dort nicht
+    angelegt werden konnte, unter `%TEMP%` (siehe `updater._free_setup_log`)."""
+    import glob
+    import tempfile
+    found = [paths.app_file('update-setup.txt')] + glob.glob(os.path.join(
+        tempfile.gettempdir(), 'scbp-update-setup*.txt'))
+    found = [p for p in found if os.path.isfile(p)]
+    if not found:
+        return ''
+    return max(found, key=os.path.getmtime)
+
+
 def _update_attempt_lines():
     """Was der letzte Update-Versuch hinterlassen hat — Helfer, Setup, Laufmarke.
 
@@ -644,7 +657,7 @@ def _update_attempt_lines():
         if rows:
             out.append(t('b_up_helfer') % (name, _stamp(path)))
             out.extend('  ' + z for z in rows)
-    setup = paths.app_file('update-setup.txt')
+    setup = _newest_setup_log()
     rows = _tail(setup, 8, _SETUP_KEYWORDS)
     if rows:
         out.append(t('b_up_setup') % _stamp(setup))

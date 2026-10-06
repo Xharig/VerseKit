@@ -3598,6 +3598,10 @@ class Overlay:
             keep_waiting = False
             handed_over = False
             try:
+                # Ist genau dieses Update eben erst gescheitert, wartet es auf
+                # den Knopf — sonst tritt jeder Start gleich wieder ab.
+                if update_run.failed_recently(version):
+                    return
                 if auto_update.game_running():
                     keep_waiting = True
                     if getattr(self, '_auto_gemeldet', '') != version:
@@ -5253,6 +5257,7 @@ class Overlay:
             result = update_run.evaluate(__version__)
             if result:
                 self.q.put(('hinweis', update_run.message(result)))
+                update_run.remember_failure(result)
                 # ⚠⚠ **Wann das Hauptfenster aufgeht, regelt
                 # `update_run.should_open_window`.** Startete nur das Overlay,
                 # sähe das bei einem Overlay auf einem anderen Bildschirm

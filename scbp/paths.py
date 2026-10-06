@@ -872,6 +872,45 @@ def replace_file(source, target, attempts=10, pause=0.05):
             time.sleep(pause)
 
 
+_BLOCKING_ATTRIBUTES = 0x1 | 0x2 | 0x4      # schreibgeschützt, versteckt, System
+
+
+def make_overwritable(path):
+    """Kennzeichen entfernen, an denen das Überschreiben einer Datei scheitert.
+
+    ⚠ Unter Windows scheitert `open(…, 'w')` an einer vorhandenen Datei, die
+    versteckt, System oder schreibgeschützt ist, mit `PermissionError` —
+    Anhängen, Neuanlegen unter anderem Namen und `os.replace` klappen weiter.
+    Nur für eigene Dateien im Datenordner gedacht. Gibt True zurück, wenn ein
+    Kennzeichen entfernt wurde.
+    """
+    if os.name != 'nt':
+        return False
+    try:
+        import ctypes
+        k = ctypes.WinDLL('kernel32')
+        k.GetFileAttributesW.restype = ctypes.c_uint32
+        attrs = k.GetFileAttributesW(str(path))
+        if attrs == 0xFFFFFFFF or not attrs & _BLOCKING_ATTRIBUTES:
+            return False
+        return bool(k.SetFileAttributesW(str(path),
+                                         (attrs & ~_BLOCKING_ATTRIBUTES)
+                                         or 0x80))
+    except Exception:
+        return False
+
+
+def open_overwrite(path, encoding='utf-8', **kwargs):
+    """`open(path, 'w')` — und bei `PermissionError` einmal nach
+    `make_overwritable()` erneut."""
+    try:
+        return open(path, 'w', encoding=encoding, **kwargs)
+    except PermissionError:
+        if not make_overwritable(path):
+            raise
+        return open(path, 'w', encoding=encoding, **kwargs)
+
+
 def save_json(target, data, indent=1, sort_keys=False):
     """JSON schreiben — ohne Halbfertiges und mit Vorgängerfassung.
 
