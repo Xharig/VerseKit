@@ -862,6 +862,11 @@ def vorbereiten(kennung, seite, wurzel):
         klicken(seite, 'TDD', genau=False)
         _warten(wurzel, 1.5)
         rollen_zu(seite, 'TDD')
+    elif kennung == 'lager':
+        # Der offene Eingabebereich füllt sonst das ganze Bild — zugeklappt
+        # rückt die Lagerliste mit den Sammelzeilen darunter ins Bild.
+        klicken(seite, _t('s_rf_titel'))
+        _warten(wurzel)
     _warten(wurzel, 1.0)
 
 
