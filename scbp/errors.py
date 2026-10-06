@@ -110,7 +110,12 @@ def trail(step):
 
     Die Datei wird bei jedem Start neu angelegt — sie soll den letzten Lauf
     zeigen, kein Tagebuch sein.
+
+    ⚠ Scheitert ein Schreibversuch, merkt sich `TRAIL_WRITE_ERROR` den ersten
+    Grund. Bleibt nur das Neuanlegen hängen, das Anhängen aber nicht, stünde
+    sonst der Start eines früheren Laufs im Bericht, ohne dass es auffällt.
     """
+    mode = '?'
     try:
         path = paths.app_file(TRAIL_FILE)
         mode = 'a' if getattr(trail, '_offen', False) else 'w'
@@ -130,8 +135,14 @@ def trail(step):
         if trail._zahl >= TRAIL_CAP:
             trail._zahl = 0
             _trim_trail(path)
-    except Exception:
-        pass
+    except Exception as exc:
+        if not TRAIL_WRITE_ERROR[0]:
+            TRAIL_WRITE_ERROR[0] = '%s (%s): %s: %s' % (
+                TRAIL_FILE, mode, type(exc).__name__, exc)
+
+
+# Der erste gescheiterte Schreibversuch der Spur in diesem Lauf, oder ''.
+TRAIL_WRITE_ERROR = ['']
 
 
 # Ab so vielen neuen Zeilen wird nachgesehen und auf `TRAIL_KEEP` gekürzt.

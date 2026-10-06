@@ -25295,6 +25295,7 @@ def main():
     _pruefung_410()
     _pruefung_411()
     _pruefung_412()
+    _pruefung_413()
 
     print()
     if fehler:
@@ -37915,6 +37916,140 @@ def _pruefung_356():
         pruefe(_rs356.learn(zellen, [('Gold', 123, 1), ('Gold', 456, 1)]) == 0,
                'bei zwei Zeilen desselben Rohstoffs nur mit passenden Ziffern')
     finally:
+        if alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt_heim
+
+
+def _pruefung_413():
+    """413. Der Bericht zeigt den letzten Update-Versuch, den Versionsabgleich
+    und Schreibversuche, die in diesem Lauf gescheitert sind."""
+    print('\n413. Bericht: Update-Versuch, Versionsabgleich, Schreibfehler')
+    import json as _js413
+    import tempfile as _tf413
+    import time as _ti413
+    from datetime import datetime as _dt413
+    from scbp import (errors as _fe413, paths as _pf413, report as _rp413,
+                      update_run as _ur413, updater as _up413)
+    from scbp.language import t as _t413
+    alt_heim = os.environ.get('SC_BP_HOME')
+    heim = _tf413.mkdtemp(prefix='scbp413-')
+    os.environ['SC_BP_HOME'] = heim
+    alt_fehler = (_fe413.TRAIL_WRITE_ERROR[0], _up413.CACHE_WRITE_ERROR[0])
+    try:
+        _fe413.TRAIL_WRITE_ERROR[0] = ''
+        _up413.CACHE_WRITE_ERROR[0] = ''
+
+        # a) Ohne Spuren eines Updates: kein Block, Dateischutz unauffällig.
+        leer = _rp413.build(version='0.0.0-test')
+        pruefe(_t413('b_up_block') not in leer,
+               'ohne Update-Spuren steht kein Update-Block im Bericht')
+        pruefe(_t413('b_ds_ok') in leer,
+               'ohne Auffälligkeiten meldet der Dateischutz nichts')
+        pruefe(_t413('b_schreibfehler') not in leer,
+               'ohne gescheiterte Schreibversuche keine Zeile dazu')
+
+        # b) Helfer-, Setup-Protokoll und Laufmarke.
+        _ur413.begin_run('3.95.1', '3.94.3', '', 'ab' * 32)
+        with open(_pf413.app_file(_ur413.RESULT_FILE), 'w') as f:
+            f.write('91\n')
+        with open(_pf413.app_file(_ur413.LOG_FILE), 'w') as f:
+            f.write('06.10.2026 11:00:01 Helper started\n'
+                    '06.10.2026 11:01:02 The old version does not exit'
+                    ' - nothing installed\n')
+        with open(_pf413.app_file(_ur413.LOG_FILE_OLD), 'w') as f:
+            f.write('05.10.2026 18:00:00 Installer finished, exit code 0\n')
+        with open(_pf413.app_file('update-setup.txt'), 'w') as f:
+            f.write('2026-10-06 11:01:00.000   Setup version: Inno Setup\n'
+                    '2026-10-06 11:01:03.000   Installation process'
+                    ' succeeded.\n'
+                    '2026-10-06 11:01:03.100   Log closed.\n')
+        bericht = _rp413.build(version='0.0.0-test')
+        pruefe(_t413('b_up_block') in bericht,
+               'der Bericht hat einen Block zum letzten Update-Versuch')
+        pruefe('does not exit - nothing installed' in bericht
+               and 'exit code 0' in bericht,
+               'beide Helfer-Protokolle stehen darin')
+        pruefe('process succeeded' in bericht
+               and 'Setup version' not in bericht,
+               'aus dem Setup-Protokoll nur die Zeilen zum Ausgang')
+        pruefe((_t413('b_up_marke') % ('3.94.3', '3.95.1', '')).split(',')[0]
+               in bericht, 'eine liegengebliebene Laufmarke wird genannt')
+        pruefe(_t413('b_up_ergebnis') % 91 in bericht,
+               'der Rückgabewert des Helfers wird genannt')
+
+        # c) Versionsabgleich: Zeitpunkt und neueste bekannte Freigabe.
+        stempel = _dt413(2026, 10, 5, 15, 16).timestamp()
+        with open(_pf413.app_file(_up413.CACHE), 'w', encoding='utf-8') as f:
+            _js413.dump({'geprueft': stempel, 'freigaben': [
+                {'version': 'v3.94.3', 'vorab': False}]}, f)
+        bericht = _rp413.build(version='0.0.0-test')
+        zeile = [z for z in bericht.splitlines()
+                 if z.startswith(_t413('b_versionsabgleich'))]
+        pruefe(zeile and _dt413.fromtimestamp(stempel).strftime(
+                   _t413('b_datum')) in zeile[0] and 'v3.94.3' in zeile[0],
+               'der Versionsabgleich nennt Zeitpunkt und neueste Freigabe (%s)'
+               % (zeile[0].strip() if zeile else '—'))
+
+        # d) Ein gescheitertes Überschreiben steht im Bericht.
+        cache = _pf413.app_file(_up413.CACHE)
+        if os.name == 'nt':
+            import ctypes as _ct413
+            _ct413.windll.kernel32.SetFileAttributesW(cache, 0x2)
+            gesperrt = 'versteckten'
+        else:
+            os.chmod(cache, 0o444)
+            gesperrt = 'schreibgeschützten'
+        try:
+            _up413._cache_write({'geprueft': _ti413.time(), 'freigaben': []})
+            pruefe(bool(_up413.CACHE_WRITE_ERROR[0]),
+                   'Überschreiben einer %s Datei scheitert und wird gemerkt'
+                   % gesperrt)
+            _fe413.TRAIL_WRITE_ERROR[0] = 'start-spur.txt (w): Probe'
+            bericht = _rp413.build(version='0.0.0-test')
+            zeile = [z for z in bericht.splitlines()
+                     if z.startswith(_t413('b_schreibfehler'))]
+            pruefe(zeile and _up413.CACHE in zeile[0]
+                   and 'start-spur.txt (w)' in zeile[0],
+                   'der Bericht nennt beide gescheiterten Schreibversuche')
+            merk = _t413('b_ds_versteckt' if os.name == 'nt'
+                         else 'b_ds_schreibschutz')
+            pruefe(('%s: %s' % (_up413.CACHE, merk)) in bericht,
+                   'der Dateischutz nennt die gesperrte Datei')
+
+            # Die Startspur: Neuanlegen scheitert, der Grund wird gemerkt.
+            spur = _pf413.app_file(_fe413.TRAIL_FILE)
+            with open(spur, 'w', encoding='utf-8') as f:
+                f.write('15:16:21  Start, Version 3.94.3, win32\n')
+            if os.name == 'nt':
+                _ct413.windll.kernel32.SetFileAttributesW(spur, 0x2)
+            else:
+                os.chmod(spur, 0o444)
+            alt_offen = getattr(_fe413.trail, '_offen', False)
+            _fe413.trail._offen = False
+            _fe413.TRAIL_WRITE_ERROR[0] = ''
+            try:
+                _fe413.trail('Start, Version 0.0.0-test, probe')
+                pruefe('start-spur.txt (w)' in _fe413.TRAIL_WRITE_ERROR[0],
+                       'ein gescheitertes Neuanlegen der Startspur wird gemerkt'
+                       ' (%s)' % (_fe413.TRAIL_WRITE_ERROR[0][:60] or '—'))
+            finally:
+                _fe413.trail._offen = alt_offen
+                if os.name == 'nt':
+                    _ct413.windll.kernel32.SetFileAttributesW(spur, 0x80)
+                else:
+                    os.chmod(spur, 0o644)
+        finally:
+            if os.name == 'nt':
+                _ct413.windll.kernel32.SetFileAttributesW(cache, 0x80)
+            else:
+                os.chmod(cache, 0o644)
+        _up413._cache_write({'geprueft': _ti413.time(), 'freigaben': []})
+        pruefe(not _up413.CACHE_WRITE_ERROR[0],
+               'ein später geglücktes Speichern räumt den Vermerk weg')
+    finally:
+        _fe413.TRAIL_WRITE_ERROR[0], _up413.CACHE_WRITE_ERROR[0] = alt_fehler
         if alt_heim is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

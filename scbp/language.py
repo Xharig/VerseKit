@@ -2646,7 +2646,10 @@ TEXTS = {
                               'sie geht jetzt in einem Drittel der Zeit auf. Sein '
                               'Bericht brachte zuletzt zwei Dinge auf einmal: den '
                               'trägen Programmstart und die Baupläne, die mit '
-                              'StarStrings nicht mehr zum Katalog fanden.',
+                              'StarStrings nicht mehr zum Katalog fanden. Und ein '
+                              'Update, das sich gleich nach dem Start wieder '
+                              'schloss — seitdem steht im Bericht, was ein '
+                              'Update-Versuch hinterlässt.',
                               'Plus a dozen finds around the overlay, setup and updating — '
                               'among them the collapsed overlay hanging off the screen '
                               'edge in three corners out of four, the title bar that '
@@ -2659,7 +2662,10 @@ TEXTS = {
                               'that stuttered when opening — it now comes up in a third '
                               'of the time. His latest report brought two things at '
                               'once: the sluggish program start, and the blueprints '
-                              'that no longer matched the catalogue with StarStrings.'),
+                              'that no longer matched the catalogue with StarStrings. '
+                              'And an update that closed right after starting — '
+                              'since then the report shows what an update attempt '
+                              'leaves behind.'),
     # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.**
     # Der Dank im CHANGELOG ist das eine; diese Seite ist das, was die Leute im
     # Programm sehen. Wer einen Melder hier vergisst, hat ihm nicht gedankt.
@@ -3262,6 +3268,30 @@ TEXTS = {
     'b_ordner_gesperrt': ('NICHT beschreibbar (%s) — es wird nichts gespeichert',
                           'NOT writable (%s) — nothing gets saved'),
     'b_einstellungen': ('Einstellungen', 'Settings'),
+    'b_dateischutz':   ('Dateischutz', 'File flags'),
+    'b_ds_ok':         ('nichts auffällig', 'nothing unusual'),
+    'b_ds_schreibschutz': ('schreibgeschützt', 'read-only'),
+    'b_ds_versteckt':  ('versteckt', 'hidden'),
+    'b_ds_system':     ('Systemdatei', 'system file'),
+    'b_ds_cloud':      ('Cloud-Platzhalter oder Verknüpfung',
+                        'cloud placeholder or link'),
+    'b_schreibfehler': ('Nicht gespeichert', 'Not saved'),
+    'b_versionsabgleich': ('Versionsabgleich', 'Version check'),
+    'b_va_wert':       ('gespeichert %s · neueste bekannte %s · dieser Lauf: %s',
+                        'saved %s · newest known %s · this run: %s'),
+    'b_va_nie':        ('nie', 'never'),
+    'b_va_offen':      ('noch nicht nachgesehen', 'not checked yet'),
+    'b_va_ok':         ('Abruf geklappt', 'fetch succeeded'),
+    'b_va_fehl':       ('Abruf gescheitert', 'fetch failed'),
+    'b_up_block':      ('Letzter Update-Versuch (Helfer- und Setup-Protokoll)',
+                        'Last update attempt (helper and setup log)'),
+    'b_up_marke':      ('Laufmarke liegt noch: %s → %s, begonnen %s',
+                        'Run marker still present: %s → %s, started %s'),
+    'b_up_ergebnis':   ('Rückgabewert des Helfers: %s',
+                        'Helper exit code: %s'),
+    'b_up_helfer':     ('%s, Stand %s', '%s, as of %s'),
+    'b_up_setup':      ('Setup-Protokoll, Stand %s (nur Zeilen zum Ausgang)',
+                        'Setup log, as of %s (outcome lines only)'),
     'b_basetool':      ('Basetool', 'Basetool'),
     'b_basetool_wert': ('Verbindung %s · Rechte %s · zuletzt abgeglichen %s · letzte Absage %s',
                         'connection %s · rights %s · last synced %s · last refusal %s'),

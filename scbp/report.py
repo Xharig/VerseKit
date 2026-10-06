@@ -523,6 +523,135 @@ def _crash_brief(lines, limit):
     return (head + blame + rest)[:limit]
 
 
+def _stamp(path):
+    """Änderungszeit einer Datei im Datumsformat des Berichts, oder `—`."""
+    try:
+        return datetime.fromtimestamp(os.path.getmtime(path)).strftime(
+            t('b_datum'))
+    except OSError:
+        return '—'
+
+
+def _version_check_line():
+    """Wann zuletzt bei GitHub nachgesehen wurde und was dabei herauskam.
+
+    ⚠ Der gespeicherte Abgleich speist die Update-Seite. Liegt sein Zeitpunkt
+    weit zurück, obwohl der Abruf in diesem Lauf geklappt hat, wurde er nicht
+    gespeichert — dann zeigt die Seite eine veraltete Freigabeliste.
+    """
+    from . import updater
+    checked = updater._cache_read().get('geprueft') or 0
+    newest = updater.latest(paths.setting_bool('vorabversionen', False))
+    when = (datetime.fromtimestamp(checked).strftime(t('b_datum'))
+            if checked else t('b_va_nie'))
+    state = {None: 'b_va_offen', True: 'b_va_ok', False: 'b_va_fehl'}.get(
+        updater.fetch_succeeded(), 'b_va_offen')
+    return t('b_va_wert') % (when, (newest or {}).get('version') or '—',
+                             t(state))
+
+
+# Dateien, die bei jedem Start oder Abgleich neu geschrieben werden.
+_REWRITTEN_FILES = ('start-spur.txt', 'versionen.json', 'fehler.json',
+                    'einstellungen.json', 'bestand.json')
+
+_ATTR_READONLY = 0x1
+_ATTR_HIDDEN = 0x2
+_ATTR_SYSTEM = 0x4
+_ATTR_REPARSE = 0x400
+_ATTR_OFFLINE = 0x1000
+_ATTR_RECALL = 0x400000
+
+
+def _file_flags_line():
+    """Schreibschutz, versteckt, System oder Cloud-Platzhalter an den eigenen Dateien.
+
+    ⚠ Unter Windows scheitert das Überschreiben (`open(…, 'w')`) einer
+    versteckten oder System-Datei mit `PermissionError`, Anhängen dagegen
+    klappt. Der Ordner gilt dabei weiter als beschreibbar.
+    """
+    found = []
+    for name in _REWRITTEN_FILES:
+        path = paths.app_file(name)
+        try:
+            info = os.stat(path)
+            attrs = info.st_file_attributes if os.name == 'nt' else 0
+        except OSError:
+            continue
+        marks = []
+        if attrs & _ATTR_READONLY or not os.access(path, os.W_OK):
+            marks.append(t('b_ds_schreibschutz'))
+        if attrs & _ATTR_HIDDEN:
+            marks.append(t('b_ds_versteckt'))
+        if attrs & _ATTR_SYSTEM:
+            marks.append(t('b_ds_system'))
+        if attrs & (_ATTR_REPARSE | _ATTR_OFFLINE | _ATTR_RECALL):
+            marks.append(t('b_ds_cloud'))
+        if marks:
+            found.append('%s: %s' % (name, ', '.join(marks)))
+    return ' · '.join(found) or t('b_ds_ok')
+
+
+def _write_failures_line():
+    """Gescheiterte Schreibversuche dieses Laufs, die sonst niemand meldet."""
+    from . import updater
+    found = [x for x in (errors.TRAIL_WRITE_ERROR[0],
+                         updater.CACHE_WRITE_ERROR[0]) if x]
+    return ' · '.join(found)
+
+
+# Protokollzeilen des Setups, die etwas über den Ausgang sagen.
+_SETUP_KEYWORDS = ('error', 'exception', 'fail', 'succeeded', 'rolling back',
+                   'exit code', 'abort', 'code 32', 'denied', 'cannot',
+                   'log closed')
+
+
+def _tail(path, count, keywords=None):
+    """Die letzten `count` nichtleeren Zeilen einer Datei, wahlweise gefiltert."""
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            rows = [z.rstrip() for z in f if z.strip()]
+    except OSError:
+        return []
+    if keywords:
+        rows = [z for z in rows if any(k in z.lower() for k in keywords)]
+    return rows[-count:]
+
+
+def _update_attempt_lines():
+    """Was der letzte Update-Versuch hinterlassen hat — Helfer, Setup, Laufmarke.
+
+    ⚠ Startet ein Update und geht das Programm danach gleich wieder zu, steht
+    der Hergang nur in diesen Dateien. Die Laufmarke bleibt liegen, solange
+    kein Start sie ausgewertet hat.
+    """
+    from . import update_run
+    out = []
+    run = update_run.read_run()
+    if run:
+        try:
+            began = datetime.fromtimestamp(float(run.get('start') or 0)) \
+                .strftime(t('b_datum'))
+        except (TypeError, ValueError, OSError):
+            began = '—'
+        out.append(t('b_up_marke') % (run.get('alt') or '?',
+                                      run.get('ziel') or '?', began))
+    code = update_run.read_result()
+    if code is not None:
+        out.append(t('b_up_ergebnis') % code)
+    for name in (update_run.LOG_FILE_OLD, update_run.LOG_FILE):
+        path = paths.app_file(name)
+        rows = _tail(path, 8)
+        if rows:
+            out.append(t('b_up_helfer') % (name, _stamp(path)))
+            out.extend('  ' + z for z in rows)
+    setup = paths.app_file('update-setup.txt')
+    rows = _tail(setup, 8, _SETUP_KEYWORDS)
+    if rows:
+        out.append(t('b_up_setup') % _stamp(setup))
+        out.extend('  ' + z for z in rows)
+    return out
+
+
 def build(version='', root=None, fehleranzahl=8, message=''):
     """Den Bericht als Text zusammensetzen."""
     lines = []
@@ -697,6 +826,11 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         '%s=%s' % (k, v) for k, v in sorted(
             (uebersicht.get('selbst_gesetzt') or {}).items()))
         or t('b_standard')))
+    line(t('b_dateischutz'), _safe(_file_flags_line))
+    _failures = _safe(_write_failures_line, '')
+    if _failures:
+        line(t('b_schreibfehler'), _failures)
+    line(t('b_versionsabgleich'), _safe(_version_check_line))
 
     def _basetool_line():
         """Verbindung zum KRT Profit Basetool — ohne Token, ohne Kennungen.
@@ -753,6 +887,13 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # Bericht. `TRAIL_KEEP` hebt 60 Zeilen auf, der Platz war also da.
         for entry in seiten[-24:]:
             lines.append('  ' + entry)
+
+    attempt = _safe(_update_attempt_lines, [])
+    if attempt:
+        lines.append('')
+        lines.append(t('b_up_block'))
+        for entry in attempt:
+            lines.append('  ' + paths.redact(entry))
 
     # ⚠ Und danach der harte Abbruch, falls es einen gab. Er steht **vor** den
     # Fehlern, weil er der schwerere Befund ist: Ein Eintrag in der Fehlerliste

@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Error report shows the last update attempt** — the update helper's log,
+  the setup outcome, a leftover run marker, when new versions were last
+  checked, and whether own files cannot be overwritten (read-only, hidden).
+  Reported by Haldjas
+
 ## v3.95.1 - 2026-10-05
 
 > Components show their size in the name again with the Luftwerft

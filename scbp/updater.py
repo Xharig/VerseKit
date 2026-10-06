@@ -157,8 +157,15 @@ def _cache_write(data):
     try:
         with open(paths.app_file(CACHE), 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False)
-    except OSError:
-        pass
+        CACHE_WRITE_ERROR[0] = ''
+    except OSError as exc:
+        # Ohne gespeicherten Stand bleibt die Update-Seite auf der alten
+        # Freigabeliste stehen — der Grund gehört in den Bericht.
+        CACHE_WRITE_ERROR[0] = '%s: %s: %s' % (CACHE, type(exc).__name__, exc)
+
+
+# Der Grund, warum der letzte Abgleich nicht gespeichert wurde, oder ''.
+CACHE_WRITE_ERROR = ['']
 
 
 # Hat der letzte erzwungene Blick zu GitHub geklappt? `None` = noch nicht

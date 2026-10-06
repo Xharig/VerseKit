@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Fehlerbericht zeigt den letzten Update-Versuch** — Protokoll des
+  Update-Helfers, Ausgang des Setups, eine liegengebliebene Laufmarke, wann
+  zuletzt nach neuen Versionen gesehen wurde, und ob sich eigene Dateien nicht
+  überschreiben lassen (schreibgeschützt, versteckt). Gemeldet von Haldjas
+
 ## v3.95.1 - 2026-10-05
 
 > Bauteile tragen auch mit der Luftwerft-Übersetzung wieder ihre Größe im
