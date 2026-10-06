@@ -6,10 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.96.0 - 2026-10-06
+
+> When an automatic update arrives right after starting, Verse-Kit no longer
+> seems to close for no reason: the new version then opens the main window
+> and says what happened. And the error report now shows what went on during
+> the last update attempt.
 
 ### Improved
 
+- **Automatic update right after starting** — the new version then opens the
+  main window and says which version it updated to, instead of carrying on
+  invisibly. The same after an update that did not succeed. Reported by
+  Haldjas
 - **Error report shows the last update attempt** — the update helper's log,
   the setup outcome, a leftover run marker, when new versions were last
   checked, and whether own files cannot be overwritten (read-only, hidden).

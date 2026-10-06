@@ -73,7 +73,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Device hub**: every input device in one place — the number Star Citizen gives it, the name the system knows it by, and whether it is plugged in right now; unplugged devices show up by themselves |
 | ✅ | **Verified updates**: every release ships its own checksum, and only a file that matches is installed — otherwise nothing, with a pointer to the manual download |
 | ✅ | **One-click update**: one click downloads, checks, installs and restarts the watcher by itself — on the next start it tells you how it went |
-| ✅ | **Automatic updates**: new versions arrive by themselves, about a minute after you quit the game — never while Star Citizen is running; can be switched off |
+| ✅ | **Automatic updates**: new versions arrive by themselves, about a minute after you quit the game — never while Star Citizen is running; can be switched off. If one arrives right after starting the program or does not succeed, the main window opens with the message |
 | ✅ | **Statistics**: play time, sessions, heat map, ships & equipment, contracts, quantum travel and stability — from your own game logs, your own account only, and kept even when the logs are deleted |
 | ✅ | **Six colour schemes** with preview — original, KRT (orange), Ice, Nebula, Ember, High contrast — and the **interface size** steplessly |
 | ✅ | **Settings re-sorted**, **modules** can be hidden, **start programs** with the game, the **user.cfg** visible and editable |

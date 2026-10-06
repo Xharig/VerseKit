@@ -1002,7 +1002,8 @@ def roll_back():
         return False
 
 
-def install(new_file, target_version='', previous_version='', automatic=False):
+def install(new_file, target_version='', previous_version='', automatic=False,
+            show_window=False):
     """Die laufende Version durch die neue ersetzen.
 
     Zwei Wege, je nach Verpackung:
@@ -1187,7 +1188,7 @@ def install(new_file, target_version='', previous_version='', automatic=False):
         # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
         # der nächste Start, dass ein Update begonnen hatte.
         update_run.begin_run(target_version, previous_version, new_file, checksum,
-                             automatic=automatic)
+                             automatic=automatic, show_window=show_window)
         update_run.start_helper(new_file, checksum, own_dir,
                                    log_file, env, flags,
                                    exe=sys.executable)

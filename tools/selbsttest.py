@@ -21635,13 +21635,34 @@ def main():
     pruefe((_ur223.read_run() or {}).get('automatisch') is True,
            'die Laufmarke merkt sich, dass das Update automatisch kam')
     _ur223._cleanup(_ur223.read_run() or {})
+    _fenster223 = _ur223.should_open_window
+    pruefe(not _fenster223({'art': 'fertig', 'automatisch': True}),
+           'nach einem geglueckten automatischen Update oeffnet sich kein Fenster')
+    pruefe(_fenster223({'art': 'fertig', 'automatisch': False}),
+           'nach einem Update auf Klick oeffnet sich das Fenster')
+    pruefe(_fenster223({'art': 'fertig', 'automatisch': True, 'fenster': True}),
+           'nach einem Auto-Update kurz nach dem Start oeffnet sich das Fenster')
+    pruefe(all(_fenster223({'art': _k223, 'automatisch': True})
+               for _k223 in ('fehler', 'unklar', 'abgebrochen')),
+           'nach einem gescheiterten Auto-Update oeffnet sich das Fenster')
+    pruefe(not _fenster223(None), 'ohne Update-Ergebnis kein Fenster')
+    # Der Start nach dem Update fragt genau diese Funktion.
     _q223 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
     _m223 = _q223[_q223.index('def _update_ergebnis_melden'):]
     _m223 = _m223[:_m223.index('\n    def ')]
-    pruefe("if not ergebnis.get('automatisch')" in _m223
-           and _m223.index("if not ergebnis.get('automatisch')")
+    pruefe('update_run.should_open_window(result)' in _m223
+           and _m223.index('should_open_window')
            < _m223.index('self.liste_oeffnen'),
-           'nach einem automatischen Update oeffnet sich kein Fenster')
+           'der Start nach dem Update entscheidet ueber should_open_window')
+    # Die Laufmarke traegt den Merker durch bis zur Auswertung.
+    _ur223.begin_run('9.9.9', '0.0.1', '', '', automatic=True,
+                     show_window=True)
+    pruefe((_ur223.read_run() or {}).get('fenster') is True,
+           'die Laufmarke merkt sich, dass das Fenster aufgehen soll')
+    _erg223 = _ur223.evaluate('9.9.9')
+    pruefe(bool(_erg223) and _erg223.get('fenster') is True
+           and _fenster223(_erg223),
+           'die Auswertung reicht den Merker weiter (%r)' % (_erg223,))
 
     # f) Der echte Ablauf in `Overlay._auto_update` — mit Attrappen fuer Netz,
     #    Installer und Spiel. Erst laeuft das Spiel, dann nicht mehr.
@@ -21679,14 +21700,18 @@ def main():
             def _im_tk(self, tat):
                 tat()
         _Ov223._auto_update = _sw223.Overlay._auto_update
+        _Ov223._shortly_after_start = _sw223.Overlay._shortly_after_start
+        _Ov223.AUTO_UPDATE_VISIBLE_S = _sw223.Overlay.AUTO_UPDATE_VISIBLE_S
         _up223.packaging = lambda: 'exe'
         _up223.matching_asset = lambda rel, kind=None: {'name': 'VerseKit-Setup.exe'}
         def _laden223(datei, progress=None, release=None):
             _merk223['geladen'] += 1
             return 'setup.exe'
         _up223.download = _laden223
-        def _einspielen223(ziel, target_version='', previous_version='', automatic=False):
+        def _einspielen223(ziel, target_version='', previous_version='',
+                           automatic=False, show_window=False):
             _merk223['install'].append(automatic)
+            _merk223.setdefault('fenster', []).append(show_window)
             return True, ''
         _up223.install = _einspielen223
         _au223.game_running = lambda: _spiel223[0]
@@ -21719,13 +21744,28 @@ def main():
                'ein weiterer Takt startet keine zweite Warteschleife')
         # Spiel zu — die Wiederholung spielt ein.
         _spiel223[0] = False
-        ov._auto_update(neu, erneut=True)
-        _warten223(lambda: bool(_merk223['uebergeben']))
+        # Gerade gestartet: Der Merker fürs Fenster muss gesetzt ankommen.
+        _start_alt223 = _sw223.PROCESS_START
+        _sw223.PROCESS_START = _ti223.time()
+        try:
+            ov._auto_update(neu, retry=True)
+            _warten223(lambda: bool(_merk223['uebergeben']))
+        finally:
+            _sw223.PROCESS_START = _start_alt223
         pruefe(_merk223['geladen'] == 1 and _merk223['install'] == [True],
                'Spiel zu: einmal geladen, als automatisch eingespielt (%s)'
                % _merk223['install'])
         pruefe(_merk223['uebergeben'] == ['v9.9.9'],
                'und danach wird an den Helfer uebergeben')
+        pruefe(_merk223.get('fenster') == [True],
+               'das Einspielen bekommt mit, ob es kurz nach dem Start kam (%s)'
+               % _merk223.get('fenster'))
+        _s223 = _sw223.PROCESS_START
+        _g223 = _sw223.Overlay.AUTO_UPDATE_VISIBLE_S
+        pruefe(ov._shortly_after_start(now=_s223 + 10)
+               and ov._shortly_after_start(now=_s223 + _g223)
+               and not ov._shortly_after_start(now=_s223 + _g223 + 1),
+               'kurz nach dem Start heisst: hoechstens %d s nach dem Start' % _g223)
     finally:
         (_up223.packaging, _up223.matching_asset, _up223.download,
          _up223.install, _au223.game_running, _au223.enabled,

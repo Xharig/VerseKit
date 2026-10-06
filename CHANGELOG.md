@@ -6,10 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.96.0 - 2026-10-06
+
+> Kommt ein automatisches Update gleich nach dem Start, schließt sich
+> Verse-Kit nicht mehr scheinbar grundlos: Die neue Version öffnet danach das
+> Hauptfenster und sagt, was passiert ist. Und der Fehlerbericht zeigt jetzt,
+> was beim letzten Update-Versuch geschah.
 
 ### Verbessert
 
+- **Automatisches Update gleich nach dem Start** — die neue Version öffnet
+  danach das Hauptfenster mit der Meldung, auf welche Version aktualisiert
+  wurde, statt unsichtbar weiterzulaufen. Ebenso nach einem Update, das nicht
+  geklappt hat. Gemeldet von Haldjas
 - **Fehlerbericht zeigt den letzten Update-Versuch** — Protokoll des
   Update-Helfers, Ausgang des Setups, eine liegengebliebene Laufmarke, wann
   zuletzt nach neuen Versionen gesehen wurde, und ob sich eigene Dateien nicht

@@ -78,7 +78,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Geräte-Hub**: alle Eingabegeräte an einem Ort — welche Nummer Star Citizen ihnen gibt, wie das System sie führt, und ob sie gerade angesteckt sind; abgezogene Geräte fallen von selbst auf |
 | ✅ | **Geprüfte Updates**: jedes Release bringt seine Prüfsumme mit, und eingespielt wird nur, was ihr entspricht — sonst gar nichts, mit Hinweis auf den Download von Hand |
 | ✅ | **Ein-Klick-Update**: ein Klick lädt, prüft, spielt ein und startet den Watcher von selbst neu — beim nächsten Start sagt er, was daraus wurde |
-| ✅ | **Automatisches Update**: neue Versionen kommen von selbst, gut eine Minute nach Spielende — nie, während Star Citizen läuft; abschaltbar |
+| ✅ | **Automatisches Update**: neue Versionen kommen von selbst, gut eine Minute nach Spielende — nie, während Star Citizen läuft; abschaltbar. Kommt eines gleich nach dem Programmstart oder klappt nicht, geht danach das Hauptfenster mit der Meldung auf |
 | ✅ | **Statistik**: Spielzeit, Sitzungen, Wärmekarte, Schiffe & Ausrüstung, Aufträge, Quantenreisen und Stabilität — aus den eigenen Spielprotokollen, nur der eigene Account, und sie bleibt, auch wenn die Protokolle gelöscht werden |
 | ✅ | **Sechs Farbschemata** mit Vorschau — Original, KRT (Orange), Eis, Nebel, Glut, Hoher Kontrast — und die **Größe der Oberfläche** stufenlos |
 | ✅ | **Einstellungen neu gegliedert**, **Module** ausblendbar, **Startprogramme** mit dem Spiel, die **user.cfg** sichtbar und bearbeitbar |

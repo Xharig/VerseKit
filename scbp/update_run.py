@@ -376,17 +376,23 @@ def lock_held():
 
 # --------------------------------------------------------------- Laufmarke
 
-def begin_run(target, previous, installer, checksum, automatic=False):
+def begin_run(target, previous, installer, checksum, automatic=False,
+              show_window=False):
     """Festhalten, was gleich passiert — bevor der Watcher abtritt.
 
     `automatic`: Das Update kam ohne Klick (`scbp/auto_update.py`). Der nächste
     Start öffnet dann **kein** Hauptfenster — niemand hat danach gefragt.
+
+    `show_window`: Das automatische Update kam kurz nach dem Programmstart.
+    Der Nutzer hat das Programm gerade erst geöffnet; ohne Fenster sähe es so
+    aus, als hätte es sich ohne Grund wieder geschlossen.
     """
     _remove(_path(RESULT_FILE))
     _json_write(_path(RUN_FILE), {
         'ziel': str(target or ''), 'alt': str(previous or ''),
         'installer': str(installer or ''), 'sha256': str(checksum or ''),
         'start': time.time(), 'automatisch': bool(automatic),
+        'fenster': bool(show_window),
     })
 
 
@@ -461,7 +467,23 @@ def evaluate(own_version):
                '–' if code is None else code)))
     return {'art': kind, 'ziel': target, 'alt': previous, 'code': code,
             'eigen': str(own_version or ''),
-            'automatisch': bool(run.get('automatisch'))}
+            'automatisch': bool(run.get('automatisch')),
+            'fenster': bool(run.get('fenster'))}
+
+
+def should_open_window(result):
+    """Öffnet der Start nach einem Update das Hauptfenster?
+
+    Ja nach einem Update auf Klick, nach einem automatischen Update kurz nach
+    dem Programmstart (`fenster`) und immer, wenn es nicht geklappt hat —
+    im Pop-up-Betrieb ist das Overlay unsichtbar, und die Meldung erreichte
+    sonst niemanden. Nein nach einem geglückten automatischen Update im
+    laufenden Betrieb: Ein Fenster, das von selbst aufgeht, nähme den Fokus.
+    """
+    if not result:
+        return False
+    return (not result.get('automatisch') or bool(result.get('fenster'))
+            or result.get('art') != 'fertig')
 
 
 def message(result):
