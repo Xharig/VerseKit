@@ -38131,6 +38131,8 @@ def _pruefung_413():
                    and 'start-spur.txt (w)' in zeile[0],
                    'der Bericht nennt beide gescheiterten Schreibversuche')
             setup = _pf413.app_file('update-setup.txt')
+            if os.path.isfile(setup):
+                os.remove(setup)
             os.makedirs(setup, exist_ok=True)
             frei = _up413._free_setup_log(setup)
             pruefe(frei and frei != setup,
