@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.96.1 - 2026-10-07
+
+> A changed check interval now applies at once and sits visibly on the
+> “General” page. If the window freezes, the error report shows for how long
+> and what was running in the background at that moment.
 
 ### Improved
 

@@ -6,7 +6,11 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.96.1 - 2026-10-07
+
+> Ein geändertes Prüfintervall gilt jetzt sofort und steht sichtbar auf der
+> Seite „Allgemein". Friert das Fenster ein, zeigt der Fehlerbericht, wie
+> lange und was in dem Moment im Hintergrund lief.
 
 ### Verbessert
 
