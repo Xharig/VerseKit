@@ -27,11 +27,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   still for more than two seconds, the report says for how long and what was
   running in the background at that moment. Reported by sotth
 
-### Thanks
-
-- **sotth** — for the suggestion to make the check interval visible, and for
-  the precise description of when the window froze
-
 ## v3.96.0 - 2026-10-06
 
 > Updates no longer fail silently because of an old log file, and Verse-Kit

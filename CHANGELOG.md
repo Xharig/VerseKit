@@ -27,11 +27,6 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   länger als zwei Sekunden still, steht im Bericht, wie lange und was in dem
   Moment im Hintergrund lief. Gemeldet von sotth
 
-### Dank
-
-- **sotth** — für den Vorschlag, das Prüfintervall sichtbar zu machen, und
-  die genaue Beschreibung, wann das Fenster einfror
-
 ## v3.96.0 - 2026-10-06
 
 > Updates scheitern nicht mehr still an einer alten Protokolldatei, und
