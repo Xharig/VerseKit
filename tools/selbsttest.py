@@ -7197,6 +7197,11 @@ def main():
         # durch die jeder Weg des Moduls laeuft.
         _wege74 = (
             ('catalog.update', lambda: _kat74.update(None)),
+            # Die drei laufen auch ohne `update()` davor: der Bergbau-Knopf
+            # ruft `current_version()` direkt, die Kommandozeile `build()`.
+            ('catalog.current_version', lambda: _kat74.current_version()),
+            ('catalog.fetch_file', lambda: _kat74.fetch_file('probe.json')),
+            ('catalog.build', lambda: _kat74.build('4.10.0')),
             ('crafting.update', lambda: _cr74.update('4.10.0', None)),
             ('mining.update', lambda: _mi74.update('4.10.0', None)),
             ('erkul._fetch', lambda: _ek74._fetch('/probe', 'probe')),

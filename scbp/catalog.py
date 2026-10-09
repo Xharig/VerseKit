@@ -324,7 +324,14 @@ def _fetch(url, timeout=TIMEOUT, tries=TRIES):
 
     Der Sammel-Dump ist rund 12 MB, und genau bei der Größe reißt die Leitung
     gern mitten drin ab (hier beim Bauen zweimal passiert). Ein einzelner
-    Fehlversuch darf deshalb nicht heißen, dass es den Katalog nicht gibt."""
+    Fehlversuch darf deshalb nicht heißen, dass es den Katalog nicht gibt.
+
+    Die Netzsperre sitzt hier, an der Engstelle: `current_version()`,
+    `fetch_file()` und `build()` gehen alle durch diese Funktion, auch wenn
+    sie nicht über `update()` gerufen werden (etwa vom Knopf auf der
+    Bergbau-Seite oder von der Kommandozeile)."""
+    if OFF:
+        raise OSError(t('m_h_kein_netz'))
     last = None
     for attempt in range(tries):
         try:
