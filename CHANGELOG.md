@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Start auf der Übersicht** — öffnet sich das große Fenster beim Start,
+  nach einem Update oder über „Verse-Kit öffnen“ im Infobereich, steht es jetzt auf
+  der Übersicht statt auf der Bauplan-Liste. Auch der Einrichtungsassistent
+  endet mit „Übersicht öffnen“
+
 ## v3.98.1 - 2026-10-10
 
 > Die Übersetzungs-Kachel passt jetzt auch bei großer Schrift.

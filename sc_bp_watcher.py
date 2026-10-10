@@ -2272,8 +2272,7 @@ class Overlay:
             errors.record('overlay.scan_knopf', ausnahme)
 
         # Kein eigener Knopf für die Bauplan-Liste: Sie ist über das große
-        # Fenster erreichbar (Reiter „Bauplan-Liste"), `liste_oeffnen` nutzen
-        # der Einrichtungsassistent und der Klick auf eine Fundmeldung.
+        # Fenster erreichbar (Reiter „Bauplan-Liste").
 
         # Das Zahnrad ist der direkte Griff in die Einstellungen. Der
         # Einrichtungs-Assistent hat hier keinen eigenen Knopf; er ist über
@@ -4146,13 +4145,14 @@ class Overlay:
         """Den Assistenten noch einmal durchlaufen lassen."""
         fertig, zeige_liste = wizard.start(self.root)
         if fertig and zeige_liste:
-            self.liste_oeffnen()
+            self.startseite_oeffnen()
 
-    def liste_oeffnen(self, via='start'):
-        """Das große Fenster auf der Bauplan-Liste öffnen."""
-        self.fenster_oeffnen('liste', via=via)
+    def startseite_oeffnen(self, via='start'):
+        """Das große Fenster auf der Übersicht öffnen — der Weg beim Start,
+        nach einem Update und beim Hervorholen."""
+        self.fenster_oeffnen('uebersicht', via=via)
 
-    def fenster_oeffnen(self, seite='liste', via='start'):
+    def fenster_oeffnen(self, seite='uebersicht', via='start'):
         """Das Hauptfenster zeigen — und darin die Seite `seite`.
 
         Ein zweiter Klick holt das vorhandene Fenster nach vorn und wechselt die
@@ -5315,7 +5315,7 @@ class Overlay:
             self.root.deiconify()
             self.root.lift()
             self.root.attributes('-topmost', True)
-            self.liste_oeffnen(via=via)
+            self.startseite_oeffnen(via=via)
         except Exception as ausnahme:
             errors.record('overlay.hervorholen', ausnahme)
 
@@ -5379,7 +5379,7 @@ class Overlay:
                 # wieder gestartet.
                 if update_run.should_open_window(result):
                     errors.trail('Nach Update: Hauptfenster wird geöffnet')
-                    self.root.after(300, self.liste_oeffnen)
+                    self.root.after(300, self.startseite_oeffnen)
         except Exception as exc:
             errors.record('start.update_ergebnis', exc)
 
@@ -5513,9 +5513,9 @@ if __name__ == '__main__':
     fenster = Overlay(wurzel=wurzel)
     errors.trail('Overlay steht')
     if zeige_liste:
-        errors.trail('Bauplan-Liste wird geöffnet')
-        fenster.liste_oeffnen()
-        errors.trail('Bauplan-Liste steht')
+        errors.trail('Startseite wird geöffnet')
+        fenster.startseite_oeffnen()
+        errors.trail('Startseite steht')
     # ⚠⚠⚠ **Die Steckplatz-Daten JETZT holen, nicht beim ersten Seitenaufruf.**
     #
     # Stößt erst die Hangar-Seite den Abruf an, landet sein Ergebnis über

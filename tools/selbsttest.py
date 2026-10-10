@@ -21672,7 +21672,7 @@ def main():
     _m223 = _m223[:_m223.index('\n    def ')]
     pruefe('update_run.should_open_window(result)' in _m223
            and _m223.index('should_open_window')
-           < _m223.index('self.liste_oeffnen'),
+           < _m223.index('self.startseite_oeffnen'),
            'der Start nach dem Update entscheidet ueber should_open_window')
     pruefe('update_run.remember_failure(result)' in _m223,
            'der Start nach dem Update merkt sich einen Fehlschlag')
@@ -39281,6 +39281,14 @@ def _pruefung_422():
     pruefe("fenster_oeffnen('uebersicht'" in
            inspect.getsource(_sb422.Overlay.einstellungen_oeffnen),
            'das Zahnrad im Overlay öffnet die Übersicht')
+    pruefe("fenster_oeffnen('uebersicht'" in
+           inspect.getsource(_sb422.Overlay.startseite_oeffnen)
+           and 'startseite_oeffnen' in inspect.getsource(_sb422.Overlay.hervorholen)
+           and 'startseite_oeffnen' in inspect.getsource(
+               _sb422.Overlay._update_ergebnis_melden)
+           and inspect.signature(_sb422.Overlay.fenster_oeffnen)
+           .parameters['seite'].default == 'uebersicht',
+           'Start, Hervorholen und Fenster nach dem Update zeigen die Übersicht')
 
     if not hat_anzeige():
         print('  (Oberfläche übersprungen: kein Bildschirm)')

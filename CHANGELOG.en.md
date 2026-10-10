@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Start on the overview** — when the main window opens at start-up, after
+  an update or via "Open Verse-Kit" in the tray, it now lands on the overview instead
+  of the blueprint list. The setup wizard ends with "Open overview" too
+
 ## v3.98.1 - 2026-10-10
 
 > The translation tile now fits with large fonts too.

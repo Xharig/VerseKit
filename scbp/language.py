@@ -339,7 +339,7 @@ TEXTS = {
         'alles andere hat Verse-Kit schon erledigt.',
         'Anything older can be ticked off by hand in the list — '
         'Verse-Kit has already done the rest.'),
-    'liste_oeffnen':     ('Liste öffnen', 'Open list'),
+    'liste_oeffnen':     ('Übersicht öffnen', 'Open overview'),
 
     # -- Einrichtungsassistent --
     'assistent':         ('Einrichtung', 'Setup'),
