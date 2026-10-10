@@ -536,7 +536,7 @@ def _tile_translation(window, cell):
 
 
 def _check_link(window, body, checks):
-    """„Jetzt nachsehen" — fragt für jeden Kanal mit gewählter Quelle nach
+    """Link zum Nachsehen: fragt für jeden Kanal mit gewählter Quelle nach
     einer neueren Fassung und holt sie gleich. Die Abfrage läuft im
     Hintergrund; geholt wird über denselben Weg wie bei der Auswahl."""
     from . import translation
