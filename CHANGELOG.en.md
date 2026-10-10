@@ -28,10 +28,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Valakkar Fang, Ranta Dung, Quasi Grazer egg and tongue and more plants can
   now be added with quality. Verse-Kit reads the list from your game after
   every patch
-- **Graphics** — set window mode, VSync, upscaling and its technique, motion
-  blur, film grain, sharpening and chromatic aberration without starting the
-  game. Verse-Kit only writes while the game is closed and backs up the file
-  first. Suggested by Blackd0g84 (KRT)
+- **Graphics** — set the renderer (Vulkan/DirectX 11), window mode, VSync,
+  upscaling with its technique and model, motion blur, film grain, sharpening
+  and chromatic aberration without starting the game. Verse-Kit only writes
+  while the game is closed and backs up the file first. Above it you see what
+  the game measures about your PC: performance index and its rating from Low
+  to Ultra. Suggested by Blackd0g84 (KRT)
 - **FAQ on the website** — connecting scmdb.net, the Windows warning,
   shortcuts, backing up your data, connecting the Basetool
 

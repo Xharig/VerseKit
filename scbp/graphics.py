@@ -56,6 +56,7 @@ SETTINGS = (
                               (4, 's_gr_up_4'))),
     ('UpscalingTechnique', 'wahl', 0, ((0, 's_gr_tech_0'), (1, 's_gr_tech_1'),
                                        (2, 's_gr_tech_2'))),
+    ('UpscalingModel', 'wahl', 0, ((0, 's_gr_modell_0'), (1, 's_gr_modell_1'))),
     ('MotionBlur', 'schalter', 1, ()),
     ('FilmGrain', 'schalter', 1, ()),
     ('Sharpening', 'regler', 0.0, ()),
@@ -64,6 +65,91 @@ SETTINGS = (
 
 _LINE = re.compile(r'^[ \t]*<Attr\s+name="([^"]*)"\s+value="([^"]*)"\s*/>[ \t]*\r?\n?',
                    re.M)
+
+
+RENDERER = 'GraphicsRenderer'
+RENDERER_CHOICES = ((1, 's_gr_renderer_1'), (0, 's_gr_renderer_0'))
+
+
+def renderer_file():
+    """`GraphicsSettings.json` der zuletzt gestarteten Spielversion, oder ''.
+
+    Liegt nicht im Spielordner, sondern unter
+    `%LOCALAPPDATA%/Star Citizen/starcitizen_(sc-alpha-<version>)_<kennung>/
+    GraphicsSettings/` — ein Ordner je Spielversion. Genommen wird der Ordner,
+    den das Spiel zuletzt angefasst hat."""
+    base = os.environ.get('LOCALAPPDATA') or ''
+    if not base:
+        return ''
+    candidates = []
+    try:
+        for top in os.listdir(base):
+            if top.lower() != 'star citizen':
+                continue
+            root = os.path.join(base, top)
+            for name in os.listdir(root):
+                path = os.path.join(root, name, 'GraphicsSettings',
+                                    'GraphicsSettings.json')
+                if name.lower().startswith('starcitizen_') \
+                        and os.path.isfile(path):
+                    candidates.append((os.path.getmtime(os.path.join(root, name)),
+                                       path))
+    except OSError:
+        return ''
+    return max(candidates)[1] if candidates else ''
+
+
+def read_renderer(path=None):
+    """1 = Vulkan, 0 = DirectX 11 — oder None, wenn die Datei fehlt."""
+    import json
+    path = path or renderer_file()
+    if not path:
+        return None
+    try:
+        with open(path, encoding='utf-8') as f:
+            value = json.load(f)['GraphicsSettings'][RENDERER]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        errors.record('graphics.read_renderer', exc)
+        return None
+    return value if value in (0, 1) else None
+
+
+def write_renderer(value, path=None):
+    """Renderer setzen, vorher sichern. `(erfolg, sicherung_oder_textschluessel)`."""
+    import json
+    path = path or renderer_file()
+    if not path:
+        return False, 's_gr_f_keine_datei'
+    if value not in (0, 1):
+        raise ValueError('renderer must be 0 or 1')
+    try:
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        settings = data['GraphicsSettings']
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        errors.record('graphics.write_renderer_read', exc)
+        return False, 's_gr_f_lesen'
+    if settings.get(RENDERER) == value:
+        return True, ''
+    settings[RENDERER] = value
+    backup = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
+    try:
+        shutil.copy2(path, backup)
+    except OSError as exc:
+        errors.record('graphics.renderer_backup', exc)
+        return False, 's_gr_f_sicherung'
+    try:
+        with open(path, 'w', encoding='utf-8', newline='\n') as f:
+            json.dump(data, f, indent=2)
+            f.write('\n')
+    except OSError as exc:
+        try:
+            shutil.copy2(backup, path)
+        except OSError:
+            pass
+        errors.record('graphics.write_renderer', exc)
+        return False, 's_gr_f_schreiben'
+    return True, os.path.basename(backup)
 
 
 def attribute_file(game_folder=None):

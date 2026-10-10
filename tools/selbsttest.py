@@ -38759,6 +38759,81 @@ def _pruefung_419():
             pruefe(True, 'unbekannte Einstellungen werden abgelehnt')
         pruefe(_gr419.read(os.path.join(_ordner419, 'fehlt.xml')) is None,
                'fehlende Datei: None statt Absturz')
+        _gr419.write({'UpscalingModel': 1}, _datei419)
+        pruefe(_gr419.read(_datei419)['UpscalingModel'] == 1,
+               'Upscaling-Modell: 1 = Transformer wird geschrieben und gelesen')
+
+        # Renderer: eigene Datei je Spielversion unter LOCALAPPDATA
+        _lokal419 = os.path.join(_ordner419, 'lokal')
+        _alt419 = os.environ.get('LOCALAPPDATA')
+        _json419 = []
+        for _name, _wert in (('starcitizen_(sc-alpha-4.10.0)_aa_0', 1),
+                             ('starcitizen_(sc-alpha-4.10.2)_bb_0', 1)):
+            _d = os.path.join(_lokal419, 'Star Citizen', _name, 'GraphicsSettings')
+            os.makedirs(_d)
+            _p = os.path.join(_d, 'GraphicsSettings.json')
+            with open(_p, 'w', encoding='utf-8') as f:
+                f.write('{\n  "GraphicsSettings": {\n    "SettingsVersion": 1,\n'
+                        '    "GraphicsRenderer": %d\n  }\n}\n' % _wert)
+            _json419.append(_p)
+        _jetzt419 = time.time()
+        os.utime(os.path.dirname(os.path.dirname(_json419[0])),
+                 (_jetzt419 - 500, _jetzt419 - 500))
+        os.utime(os.path.dirname(os.path.dirname(_json419[1])),
+                 (_jetzt419, _jetzt419))
+        try:
+            os.environ['LOCALAPPDATA'] = _lokal419
+            pruefe(_gr419.renderer_file() == _json419[1],
+                   'Renderer: der zuletzt benutzte Versionsordner (%r)'
+                   % _gr419.renderer_file())
+            pruefe(_gr419.read_renderer() == 1, 'Renderer: 1 = Vulkan gelesen')
+            _ok, _sich = _gr419.write_renderer(0)
+            with open(_json419[1], encoding='utf-8') as f:
+                _neu419 = json.load(f)
+            pruefe(_ok and _sich and _neu419['GraphicsSettings'] == {
+                'SettingsVersion': 1, 'GraphicsRenderer': 0},
+                   'Renderer: 0 = Direct3D 11 geschrieben, Rest bleibt (%r)'
+                   % _neu419)
+            with open(_json419[0], encoding='utf-8') as f:
+                pruefe('"GraphicsRenderer": 1' in f.read(),
+                       'Renderer: ältere Versionsordner bleiben unberührt')
+        finally:
+            if _alt419 is None:
+                os.environ.pop('LOCALAPPDATA', None)
+            else:
+                os.environ['LOCALAPPDATA'] = _alt419
+
+        # Was das Spiel über den Rechner ins Game.log schreibt
+        from scbp import machine_info as _mi419
+        _log419 = (
+            '<2026-10-09T23:47:20.057Z> Host CPU: AMD Ryzen 7 7800X3D 8-Core Processor\n'
+            '<2026-10-09T23:47:20.057Z> Logical CPU Count: 16\n'
+            '<2026-10-09T23:47:20.675Z> 64668MB physical memory installed, 45085MB '
+            'available, 30 percent of memory in use\n'
+            '<2026-10-09T23:47:20.680Z> Current display mode is 5120x1440x32\n'
+            '<2026-10-09T23:47:21.892Z> - NVIDIA GeForce RTX 4080 (vendor = 0x10de, '
+            'device = 0x2704)\n'
+            '<2026-10-09T23:47:23.196Z> CPU benchmark: 31.36 ms (int+mem), 27.32 ms '
+            '(fp+mem)\n'
+            '<2026-10-09T23:47:23.604Z> GPU benchmark: 17.09 ms (Adapter index: 0)\n'
+            '<2026-10-09T23:47:23.620Z> [VK] Chosen Vulkan GPU Device (NVIDIA GeForce '
+            'RTX 4080) Driver Version (610.62.0.0) Vulkan API (1.4.341) \n'
+            '<2026-10-09T23:47:24.802Z> Performance Index: 203.55 (CPU), 602.53 (GPU)\n'
+            '<2026-10-09T23:47:24.966Z> GPU: DedicatedVidMemMB = 15280\n'
+            '<2026-10-10T02:06:06.891Z> - Final rating: Machine class 4\n')
+        _m419 = _mi419.parse(_log419)
+        pruefe(_m419['cpu_index'] == 203.55 and _m419['gpu_index'] == 602.53,
+               'Game.log: Leistungsindex CPU/GPU gelesen')
+        pruefe(_m419['machine_class'] == 4 and _m419['gpu'] == 'NVIDIA GeForce RTX 4080'
+               and _m419['driver'] == '610.62.0.0' and _m419['threads'] == 16
+               and _m419['ram_mb'] == 64668 and _m419['display'] == (5120, 1440),
+               'Game.log: Einstufung, Grafikkarte, Treiber, Threads, RAM, Auflösung '
+               '(%r)' % _m419)
+        pruefe(_mi419.parse(_log419.replace('Machine class 4', 'Machine class 9'))
+               ['machine_class'] is None,
+               'Game.log: Einstufung außerhalb 1–5 wird verworfen')
+        pruefe(_mi419.parse('')['cpu_index'] is None,
+               'Game.log: leerer Text ergibt leere Werte statt Absturz')
         pruefe('graphics' in io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                                      encoding='utf-8').read()
                and 'game_running()' in _gr419.__doc__ + io.open(

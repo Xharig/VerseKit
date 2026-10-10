@@ -5581,6 +5581,37 @@ TEXTS = {
                           'without starting the game. Verse-Kit only writes '
                           'while the game is closed, and backs up the file '
                           'next to it first.'),
+    's_gr_rechner':      ('Dein Rechner laut Spiel', 'Your PC according to the game'),
+    's_gr_rechner_leer': ('Noch keine Angaben — Star Citizen schreibt sie beim '
+                          'Start ins Game.log. Einmal starten, dann stehen sie '
+                          'hier.',
+                          'No details yet — Star Citizen writes them to the '
+                          'Game.log when it starts. Start it once and they '
+                          'show up here.'),
+    's_gr_cpu':          ('Prozessor', 'Processor'),
+    's_gr_threads':      ('Threads', 'threads'),
+    's_gr_gpu':          ('Grafikkarte', 'Graphics card'),
+    's_gr_treiber':      ('Treiber', 'driver'),
+    's_gr_ram':          ('Arbeitsspeicher', 'Memory'),
+    's_gr_aufloesung':   ('Auflösung', 'Resolution'),
+    's_gr_index':        ('Leistungsindex', 'Performance index'),
+    's_gr_index_wert':   ('CPU %s · GPU %s (vom Spiel beim Start gemessen)',
+                          'CPU %s · GPU %s (measured by the game at start)'),
+    's_gr_klasse':       ('Einstufung des Spiels — diese Voreinstellung schlägt '
+                          'es für deinen Rechner vor:',
+                          'The game\'s rating — the preset it suggests for '
+                          'your PC:'),
+    's_gr_klasse_leer':  ('Das Spiel hat deinen Rechner noch nicht eingestuft. '
+                          'Das passiert, wenn du im Spiel unter Grafik eine '
+                          'Voreinstellung für die Gesamtqualität wählst.',
+                          'The game has not rated your PC yet. That happens '
+                          'when you pick an overall quality preset under '
+                          'Graphics in the game.'),
+    's_gr_stufe_1':      ('Niedrig', 'Low'),
+    's_gr_stufe_2':      ('Mittel', 'Medium'),
+    's_gr_stufe_3':      ('Hoch', 'High'),
+    's_gr_stufe_4':      ('Sehr hoch', 'Very high'),
+    's_gr_stufe_5':      ('Ultra', 'Ultra'),
     's_gr_fenstermodus': ('Fenstermodus', 'Window mode'),
     's_gr_fenster_0':    ('Windowed', 'Windowed'),
     's_gr_fenster_1':    ('Borderless', 'Borderless'),
@@ -5602,6 +5633,17 @@ TEXTS = {
     's_gr_tech_0':       ('CIG TSR', 'CIG TSR'),
     's_gr_tech_1':       ('AMD FSR', 'AMD FSR'),
     's_gr_tech_2':       ('NVIDIA DLSS/DLAA', 'NVIDIA DLSS/DLAA'),
+    's_gr_modell':       ('Upscaling-Modell', 'Upscaling model'),
+    's_gr_modell_h':     ('Wirkt nur mit NVIDIA DLSS.', 'Only applies to NVIDIA DLSS.'),
+    's_gr_modell_0':     ('Convolutional Neural Network', 'Convolutional Neural Network'),
+    's_gr_modell_1':     ('Transformer', 'Transformer'),
+    's_gr_renderer':     ('Grafik-Renderer', 'Graphics renderer'),
+    's_gr_renderer_h':   ('Vulkan ist der Standard. DirectX 11 hilft, wenn das '
+                          'Spiel mit Vulkan auf deiner Karte abstürzt.',
+                          'Vulkan is the default. DirectX 11 helps if the game '
+                          'crashes with Vulkan on your card.'),
+    's_gr_renderer_1':   ('Vulkan', 'Vulkan'),
+    's_gr_renderer_0':   ('Direct3D 11', 'Direct3D 11'),
     's_gr_unschaerfe':   ('Bewegungsunschärfe', 'Motion blur'),
     's_gr_koernung':     ('Filmkörnung', 'Film grain'),
     's_gr_schaerfen':    ('Schärfen', 'Sharpening'),

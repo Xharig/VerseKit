@@ -28,10 +28,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Valakkar Fang, Ranta Dung, Quasi-Grazer-Ei und -Zunge und weitere Pflanzen
   lassen sich jetzt mit Güte eintragen. Die Liste liest Verse-Kit nach jedem
   Patch selbst aus deinem Spiel
-- **Grafik** — Fenstermodus, VSync, Upscaling samt Technik,
-  Bewegungsunschärfe, Filmkörnung, Schärfen und chromatische Aberration
-  einstellen, ohne ins Spiel zu müssen. Geschrieben wird nur bei geschlossenem
-  Spiel, vorher wird die Datei gesichert. Vorschlag von Blackd0g84 (KRT)
+- **Grafik** — Renderer (Vulkan/DirectX 11), Fenstermodus, VSync, Upscaling
+  samt Technik und Modell, Bewegungsunschärfe, Filmkörnung, Schärfen und
+  chromatische Aberration einstellen, ohne ins Spiel zu müssen. Geschrieben
+  wird nur bei geschlossenem Spiel, vorher wird die Datei gesichert. Darüber
+  steht, was das Spiel über deinen Rechner misst: Leistungsindex und seine
+  Einstufung von Niedrig bis Ultra. Vorschlag von Blackd0g84 (KRT)
 - **Häufige Fragen auf der Webseite** — scmdb.net verbinden, Windows-Warnung,
   Tastenkombinationen, Daten sichern, Basetool verbinden
 

@@ -3824,6 +3824,7 @@ def _graphics(window, frame):
               'VSync': ('s_gr_vsync', 's_gr_vsync_h'),
               'Upscaling': ('s_gr_upscaling', 's_gr_upscaling_h'),
               'UpscalingTechnique': ('s_gr_technik', ''),
+              'UpscalingModel': ('s_gr_modell', 's_gr_modell_h'),
               'MotionBlur': ('s_gr_unschaerfe', ''),
               'FilmGrain': ('s_gr_koernung', ''),
               'Sharpening': ('s_gr_schaerfen', ''),
@@ -3843,12 +3844,26 @@ def _graphics(window, frame):
             return
         if game_blocks():
             return
-        ok, detail = graphics.write(dict(pending))
-        if not ok:
-            window.say(t(detail))
-            return
+        changes = dict(pending)
+        renderer = changes.pop(graphics.RENDERER, None)
+        backups = []
+        if renderer is not None:
+            ok, detail = graphics.write_renderer(renderer)
+            if not ok:
+                window.say(t(detail))
+                return
+            if detail:
+                backups.append(detail)
+        if changes:
+            ok, detail = graphics.write(changes)
+            if not ok:
+                window.say(t(detail))
+                return
+            if detail:
+                backups.append(detail)
         pending.clear()
-        window.say(t('s_gr_ok') % detail if detail else t('s_gr_nichts'))
+        window.say(t('s_gr_ok') % ', '.join(backups) if backups
+                   else t('s_gr_nichts'))
         draw()
 
     def control(slot, name, kind, value, choices):
@@ -3880,11 +3895,20 @@ def _graphics(window, frame):
         for child in body.winfo_children():
             child.destroy()
         pending.clear()
+        machine_slot = tk.Frame(body, bg=BG)
+        machine_slot.pack(fill='x', pady=(0, 6))
+        _machine_card_async(window, machine_slot)
         values = graphics.read()
         if values is None:
             _status(window, body, 'offen', t('s_gr_keine_datei'), '',
                     color=GOLD)
             return
+        renderer = graphics.read_renderer()
+        if renderer is not None:
+            slot = _setting_row(window, body, t('s_gr_renderer'),
+                                t('s_gr_renderer_h'))
+            control(slot, graphics.RENDERER, 'wahl', renderer,
+                    graphics.RENDERER_CHOICES)
         for name, kind, _default, choices in graphics.SETTINGS:
             caption, help_key = labels[name]
             slot = _setting_row(window, body, t(caption),
@@ -3896,6 +3920,96 @@ def _graphics(window, frame):
 
     draw()
     window.on_show['grafik'] = draw
+
+
+def _mix(color_a, color_b, share):
+    """Farbe zwischen `color_a` und `color_b` (`#rrggbb`), `share` 0…1."""
+    a = [int(color_a[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(color_b[i:i + 2], 16) for i in (1, 3, 5)]
+    return '#%02x%02x%02x' % tuple(int(round(x + (y - x) * share))
+                                   for x, y in zip(a, b))
+
+
+def _machine_card_async(window, slot):
+    """Der Kasten mit den Rechnerangaben — liest im Nebenfaden, die
+    aufgehobenen Logs können dauern."""
+    from . import machine_info
+
+    def work():
+        data = None
+        try:
+            data = machine_info.read()
+        except Exception as error:
+            errors.record('pages.machine_info', error)
+        _from_thread(slot, lambda: _machine_card(window, slot, data))
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def _machine_card(window, slot, data):
+    """Hardware, Leistungsindex und Einstufung, so wie das Spiel sie ins
+    `Game.log` schreibt. Die Einstufung als Balken in fünf Stufen von Rot nach
+    Grün."""
+    from . import machine_info
+    from .language import current
+
+    card = _card(slot)
+    tk.Label(card, text=t('s_gr_rechner'), bg=SURFACE, fg=FG,
+             font=window.f_bold, anchor='w').pack(fill='x', padx=16,
+                                                  pady=(12, 2))
+    if not data:
+        _body_text(card, t('s_gr_rechner_leer'), window.f_small, bg=SURFACE,
+                   inset=32, fill='x', padx=16, pady=(0, 12))
+        return
+    comma = current() == 'de'
+
+    def number(value, digits=2):
+        text = '%.*f' % (digits, value)
+        return text.replace('.', ',') if comma else text
+
+    rows = []
+    if data['cpu']:
+        rows.append((t('s_gr_cpu'), data['cpu'] + (
+            ' · %d %s' % (data['threads'], t('s_gr_threads'))
+            if data['threads'] else '')))
+    if data['gpu']:
+        extra = []
+        if data['vram_mb']:
+            extra.append('%s GB' % number(data['vram_mb'] / 1024.0, 1))
+        if data['driver']:
+            extra.append('%s %s' % (t('s_gr_treiber'), data['driver']))
+        rows.append((t('s_gr_gpu'), ' · '.join([data['gpu']] + extra)))
+    if data['ram_mb']:
+        rows.append((t('s_gr_ram'), '%s GB' % number(data['ram_mb'] / 1024.0, 0)))
+    if data['display']:
+        rows.append((t('s_gr_aufloesung'), '%d × %d' % data['display']))
+    if data['cpu_index'] is not None:
+        rows.append((t('s_gr_index'), t('s_gr_index_wert') % (
+            number(data['cpu_index']), number(data['gpu_index']))))
+    for caption, value in rows:
+        _value_row(window, card, caption, value)
+
+    level = data['machine_class']
+    tk.Label(card, text=t('s_gr_klasse'), bg=SURFACE, fg=FG,
+             font=window.f_small, anchor='w').pack(fill='x', padx=16,
+                                                   pady=(10, 4))
+    if level is None:
+        _body_text(card, t('s_gr_klasse_leer'), window.f_small, bg=SURFACE,
+                   inset=32, fill='x', padx=16, pady=(0, 12))
+        return
+    names = [t('s_gr_stufe_%d' % n) for n in range(1, machine_info.CLASSES + 1)]
+    row = tk.Frame(card, bg=SURFACE)
+    row.pack(fill='x', padx=16, pady=(0, 12))
+    for n, name in enumerate(names, start=1):
+        share = (n - 1) / float(machine_info.CLASSES - 1)
+        color = _mix(RED, ACCENT, share)
+        on = (n == level)
+        cell = tk.Frame(row, bg=SURFACE)
+        cell.pack(side='left', fill='x', expand=True, padx=(0 if n == 1 else 3, 0))
+        tk.Frame(cell, bg=color if n <= level else LINE,
+                 height=10 if on else 6).pack(fill='x')
+        tk.Label(cell, text=name, bg=SURFACE, fg=FG if on else SUB,
+                 font=window.f_bold if on else window.f_small).pack(pady=(4, 0))
 
 
 def _shader_cache(window, frame):
