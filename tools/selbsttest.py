@@ -38298,20 +38298,27 @@ def _pruefung_415():
                 ('CraftingQualityQuantizationRecord.Quantization_QuasiTongue', 0, 'g-qt'),
                 ('CraftingQualityQuantizationRecord.Quantization_VLKPearl', 0, 'g-vp'),
                 ('CraftingQualityQuantizationRecord.Quantization_TEMPLATE', 0, 'g-t'),
+                ('CraftingQualityQuantizationRecord.Quantization_Saldynium', 0, 'g-sal'),
                 ('ResourceType.Ore_Iron', 1, 'r-iron'),
+                ('ResourceType.Ore_Saldynium', 1, 'r-sal'),
                 ('ResourceType.KopionHorn', 1, 'r-kop'),
                 ('ResourceType.SunsetBerry', 1, 'r-sun'),
             ]
             self.inhalt = {
                 'r-iron': {'displayName': '@items_commodities_iron_ore',
+                           'refinedVersion': 'REF:00000000-0000-0000-0000-0000000000f1',
                            'properties': ['REF:00000000-0000-0000-0000-00000000000a']},
+                'r-sal': {'displayName': '@items_commodities_saldynium_ore',
+                          'refinedVersion': 'REF:00000000-0000-0000-0000-000000000000',
+                          'properties': ['REF:00000000-0000-0000-0000-00000000000c']},
                 'r-kop': {'displayName': '@items_commodities_kopionhorn',
                           'properties': ['REF:00000000-0000-0000-0000-00000000000b']},
                 'r-sun': {'displayName': '@items_commodities_sunsetberry',
                           'properties': []},
             }
             self.guid = {'g-iron': '00000000-0000-0000-0000-00000000000a',
-                         'g-kop': '00000000-0000-0000-0000-00000000000b'}
+                         'g-kop': '00000000-0000-0000-0000-00000000000b',
+                         'g-sal': '00000000-0000-0000-0000-00000000000c'}
 
         def records(self):
             for i, (name, si, g) in enumerate(self.saetze):
@@ -38325,6 +38332,7 @@ def _pruefung_415():
 
     _texte415 = {
         'items_commodities_iron_ore': 'Iron (Ore)',
+        'items_commodities_saldynium_ore': 'Saldynium (Ore)',
         'items_commodities_kopionhorn': 'Kopion Horn',
         'items_commodities_sunsetberry': 'Sunset Berries',
         'items_commodities_quasigrazertongue': 'Quasi Grazer Tongue',
@@ -38333,7 +38341,9 @@ def _pruefung_415():
     _liste415 = _qg415.extract(_Db415(), _texte415)
     _namen415 = dict(_liste415)
     pruefe(_namen415.get('Iron (Ore)') == 'scu',
-           'Erz über den Verweis gefunden und in SCU (%r)' % _namen415)
+           'Erz mit raffinierter Fassung in SCU (%r)' % _namen415)
+    pruefe(_namen415.get('Saldynium (Ore)') == 'stueck',
+           'Erz ohne raffinierte Fassung (Saldynium, Jaclium) in Stück')
     pruefe(_namen415.get('Kopion Horn') == 'stueck',
            'Tierteil über den Verweis gefunden und in Stück')
     pruefe(_namen415.get('Sunset Berries') == 'stueck',
@@ -38388,6 +38398,17 @@ def _pruefung_415():
         _gt415.read_archive_file = lambda *_a: _gelesen415.append(1) or None
         pruefe(_qg415.refresh() is False and not _gelesen415,
                'gleicher Spielstand: es wird nichts neu gelesen')
+        import json as _js415
+        with open(_qg415._path(), 'w', encoding='utf-8') as _f415:
+            _js415.dump({'stand': '1:1', 'waren': [['Kopion Horn', 'stueck']]},
+                        _f415)
+        _qg415._CACHE.update(mtime=None, daten=None)
+        _qg415.refresh()
+        pruefe(_gelesen415 == [1],
+               'Datei im alten Format: wird auch ohne Patch neu gelesen')
+        _qg415.save('1:1', [('Kopion Horn', 'stueck')])
+        _qg415._CACHE.update(mtime=None, daten=None)
+        del _gelesen415[:]
         _gt415.archive_stamp = lambda *_a: '2:2'
         _qg415.refresh()
         pruefe(_gelesen415 == [1],

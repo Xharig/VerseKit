@@ -32,9 +32,10 @@ Zugeordnet wird in dieser Reihenfolge, und nur eindeutig:
 
 Was sich so nicht benennen lässt, bleibt draußen — geraten wird nicht.
 
-Einheit: Erze und Rohmineralien (`ResourceType` beginnt mit `Ore_` oder
-`Raw`) zählen in SCU, alles andere in Stück — Edelsteine, Tierteile,
-Pflanzen.
+Einheit: Was raffiniert wird (`ResourceType` mit `refinedVersion`), zählt in
+SCU — Erze und Rohmineralien. Alles andere in Stück: Edelsteine, Tierteile,
+Pflanzen, und auch Saldynium und Jaclium, die zwar `Ore_` heißen, aber keine
+raffinierte Fassung haben.
 
 Gelesen wird einmal je Spielstand (Größe und Zeit der `Data.p4k`), im
 Hintergrund; das Ergebnis liegt als `waren-guete.json` im Datenordner.
@@ -49,7 +50,9 @@ from . import paths
 FILE = 'waren-guete.json'
 QUANT_TYPE = 'CraftingQualityQuantizationRecord'
 QUANT_PREFIX = 'Quantization_'
-SCU_PREFIXES = ('Ore_', 'Raw')
+NULL_REF = 'REF:00000000-0000-0000-0000-000000000000'
+# Ändert sich die Auswertung, wird mit neuer Nummer auch ohne Patch neu gelesen.
+FORMAT = 2
 # Weniger Treffer heißt: Datenbank nicht verstanden — dann nichts ablegen.
 MINIMUM = 20
 
@@ -99,7 +102,9 @@ def extract(db, texts):
         refs = set(re.findall(r'REF:([0-9a-f-]{36})',
                               json.dumps(data, default=str)))
         key = str(data.get('displayName') or '').lstrip('@').lower()
-        links.append((rt_name, key, {quant[g] for g in refs if g in quant}))
+        refined = data.get('refinedVersion') not in (None, '', NULL_REF)
+        links.append((rt_name, key, {quant[g] for g in refs if g in quant},
+                      refined))
     commodity_keys = [k for k in texts if k.startswith('items_commodities_')
                       and not k.endswith('_desc')]
     result = []
@@ -110,7 +115,7 @@ def extract(db, texts):
         if not matches:
             matches = [lk for lk in links if _flat(lk[0]) == _flat(stem)]
         name = None
-        for _rt, key, _q in matches:
+        for _rt, key, _q, _r in matches:
             if texts.get(key) and not texts[key].startswith('@'):
                 name = texts[key]
                 break
@@ -126,7 +131,7 @@ def extract(db, texts):
                 name = texts[hits[0]]
         if not name:
             continue
-        scu = any(rt.startswith(SCU_PREFIXES) for rt, _k, _q in matches)
+        scu = any(refined for _rt, _k, _q, refined in matches)
         result.append((name, 'scu' if scu else 'stueck'))
     return sorted(set(result), key=lambda e: e[0].lower())
 
@@ -178,7 +183,8 @@ def save(stamp, entries):
     """Die Liste mit ihrem Spielstand atomar ablegen."""
     path = _path()
     with open(path + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
-        json.dump({'stand': stamp, 'waren': [list(e) for e in entries]}, f,
+        json.dump({'format': FORMAT, 'stand': stamp,
+                   'waren': [list(e) for e in entries]}, f,
                   ensure_ascii=False, indent=1)
     os.replace(path + '.tmp', path)
 
@@ -186,11 +192,14 @@ def save(stamp, entries):
 def refresh(spielordner=None):
     """Nach einem Spiel-Patch neu lesen. True, wenn neu abgelegt wurde.
 
-    Liest nur, wenn sich der Stempel der `Data.p4k` geändert hat. Wirft nie."""
+    Liest nur, wenn sich der Stempel der `Data.p4k` oder das `FORMAT`
+    geändert hat. Wirft nie."""
     try:
         from . import datacore, gametext
         stamp = gametext.archive_stamp(spielordner)
-        if not stamp or load().get('stand') == stamp:
+        current = load()
+        if not stamp or (current.get('stand') == stamp
+                         and current.get('format') == FORMAT):
             return False
         raw = gametext.read_archive_file(datacore.ARCHIVE_PATH, spielordner)
         if not raw:
