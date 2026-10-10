@@ -2271,8 +2271,8 @@ class Overlay:
         except Exception as ausnahme:
             errors.record('overlay.scan_knopf', ausnahme)
 
-        # Kein eigener Knopf für die Bauplan-Liste: Sie ist über das große
-        # Fenster erreichbar (Reiter „Bauplan-Liste").
+        # Kein eigener Knopf für die Bauplan-Liste: Sie ist ein Reiter im
+        # großen Fenster.
 
         # Das Zahnrad ist der direkte Griff in die Einstellungen. Der
         # Einrichtungs-Assistent hat hier keinen eigenen Knopf; er ist über
