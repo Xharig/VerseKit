@@ -28,7 +28,9 @@ Zugeordnet wird in dieser Reihenfolge, und nur eindeutig:
 1. ein `ResourceType`, der auf die Stufung verweist,
 2. ein `ResourceType` mit demselben Namen (ohne `Ore_`/`Raw`, ohne `_`),
 3. ein Text `items_commodities_…`, der alle Wortteile des Namens enthält
-   und als einziger passt.
+   (kurze Teile auch als Abkürzung: `VLK` → `valakkar`) und als einziger
+   passt — oder als Anfang einer Familie (Gütestufen derselben Ware),
+4. ein Schlüssel mit knappem Vertipper, wenn genau einer so nah liegt.
 
 Was sich so nicht benennen lässt, bleibt draußen — geraten wird nicht.
 
@@ -52,7 +54,7 @@ QUANT_TYPE = 'CraftingQualityQuantizationRecord'
 QUANT_PREFIX = 'Quantization_'
 NULL_REF = 'REF:00000000-0000-0000-0000-000000000000'
 # Ändert sich die Auswertung, wird mit neuer Nummer auch ohne Patch neu gelesen.
-FORMAT = 2
+FORMAT = 3
 # Weniger Treffer heißt: Datenbank nicht verstanden — dann nichts ablegen.
 MINIMUM = 20
 
@@ -73,6 +75,53 @@ def _words(stem):
     """`QuasiTongue` → `['quasi', 'tongue']`."""
     return [w.lower() for w in re.findall(r'[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|\d+',
                                           stem)]
+
+
+def _in_order(short, word):
+    """Stehen alle Buchstaben von `short` der Reihe nach in `word`, mit
+    gleichem Anfang? `vlk` in `valakkar` — so kürzt CIG Namen ab."""
+    if not short or not word or short[0] != word[0]:
+        return False
+    rest = iter(word)
+    return all(ch in rest for ch in short)
+
+
+def _word_hit(word, key):
+    """Kommt ein Wortteil im Schlüssel vor — ganz, oder als Abkürzung?"""
+    if word in key:
+        return True
+    if len(word) <= 4:
+        return any(_in_order(word, part) for part in re.split(r'[_\W]+', key))
+    return False
+
+
+def _family_root(keys):
+    """Der eine Schlüssel, mit dem alle anderen beginnen — sonst None.
+    (`…pearl_apex_irradiated` vor `…pearl_apex_irradiated_tier1` …)"""
+    for key in keys:
+        if all(other.startswith(key) for other in keys):
+            return key
+    return None
+
+
+def _name_by_words(stem, texts, commodity_keys):
+    """Den Namen über die Wortteile des Stamms finden — nur eindeutig."""
+    import difflib
+    words = _words(stem)
+    hits = [k for k in commodity_keys if words
+            and all(_word_hit(w, k[len('items_commodities_'):]) for w in words)]
+    if len(hits) == 1:
+        return texts[hits[0]]
+    root = _family_root(hits) if hits else None
+    if root:
+        return texts[root]
+    # Knapper Vertipper im Schlüssel (`amoishi` / `amioshi`): nur, wenn genau
+    # ein Schlüssel sehr nah liegt.
+    wanted = 'items_commodities_' + stem.lower()
+    close = difflib.get_close_matches(wanted, commodity_keys, n=2, cutoff=0.9)
+    if len(close) == 1:
+        return texts[close[0]]
+    return None
 
 
 def parse_ini(raw):
@@ -124,11 +173,7 @@ def extract(db, texts):
             if direct:
                 name = direct
         if name is None:
-            words = _words(stem)
-            hits = [k for k in commodity_keys if words
-                    and all(w in k for w in words)]
-            if len(hits) == 1:
-                name = texts[hits[0]]
+            name = _name_by_words(stem, texts, commodity_keys)
         if not name:
             continue
         scu = any(refined for _rt, _k, _q, refined in matches)

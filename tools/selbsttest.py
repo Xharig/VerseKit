@@ -38299,6 +38299,8 @@ def _pruefung_415():
                 ('CraftingQualityQuantizationRecord.Quantization_VLKPearl', 0, 'g-vp'),
                 ('CraftingQualityQuantizationRecord.Quantization_TEMPLATE', 0, 'g-t'),
                 ('CraftingQualityQuantizationRecord.Quantization_Saldynium', 0, 'g-sal'),
+                ('CraftingQualityQuantizationRecord.Quantization_AmoishiPlague', 0, 'g-am'),
+                ('CraftingQualityQuantizationRecord.Quantization_Zzyzx', 0, 'g-zz'),
                 ('ResourceType.Ore_Iron', 1, 'r-iron'),
                 ('ResourceType.Ore_Saldynium', 1, 'r-sal'),
                 ('ResourceType.KopionHorn', 1, 'r-kop'),
@@ -38337,6 +38339,9 @@ def _pruefung_415():
         'items_commodities_sunsetberry': 'Sunset Berries',
         'items_commodities_quasigrazertongue': 'Quasi Grazer Tongue',
         'items_commodities_valakkarpearl_apex_irradiated': 'Irradiated Valakkar Pearl',
+        'items_commodities_valakkarpearl_apex_irradiated_tier1': 'Irradiated Valakkar Pearl (Grade AAA)',
+        'items_commodities_valakkarpearl_apex_irradiated_tier2': 'Irradiated Valakkar Pearl (Grade AA)',
+        'items_commodities_amioshiplague': 'Amioshi Plague',
     }
     _liste415 = _qg415.extract(_Db415(), _texte415)
     _namen415 = dict(_liste415)
@@ -38350,8 +38355,13 @@ def _pruefung_415():
            'Pflanze ohne Verweis über den gleichen Namen gefunden, in Stück')
     pruefe(_namen415.get('Quasi Grazer Tongue') == 'stueck',
            'ohne Rohstoff-Datensatz über die Wortteile im Text gefunden')
-    pruefe(not any('Pearl' in n for n in _namen415),
-           'was sich nicht eindeutig benennen lässt, bleibt draußen')
+    pruefe(_namen415.get('Irradiated Valakkar Pearl') == 'stueck'
+           and not any('Grade' in n for n in _namen415),
+           'Abkürzung (VLK) gefunden, bei Gütestufen gilt der Grundname')
+    pruefe(_namen415.get('Amioshi Plague') == 'stueck',
+           'ein knapper Vertipper im Schlüssel wird gefunden')
+    pruefe(not any('zzyzx' in n.lower() for n in _namen415),
+           'was sich nicht benennen lässt, bleibt draußen')
     pruefe(not any('TEMPLATE' in n.upper() for n in _namen415),
            'die Vorlage zählt nicht als Ware')
 
