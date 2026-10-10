@@ -132,6 +132,7 @@ SEITEN = {
     'zerlegen':     'screenshot-zerlegen',
     'blickwinkel':  'screenshot-blickwinkel',
     'shader':       'screenshot-shader',
+    'grafik':       'screenshot-grafik',
     'herstellung':  'screenshot-herstellung',
     'bergbau':      'screenshot-bergbau',
     'lager':        'screenshot-lager',

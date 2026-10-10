@@ -42,6 +42,7 @@ export const PAGES = {
   bestand: ['Einstellungen', 'Sichern & Zurücksetzen'],
   spiel: ['Spiel-Einstellungen', 'Spiel'],
   uebersetzung: ['Spiel-Einstellungen', 'Übersetzung'],
+  grafik: ['Spiel-Einstellungen', 'Grafik'],
   blickwinkel: ['Spiel-Einstellungen', 'FOV'],
   joysticks: ['Spiel-Einstellungen', 'Steuerung'],
   achsen: ['Spiel-Einstellungen', 'Achsen & Kurven'],

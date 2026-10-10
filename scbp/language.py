@@ -2903,10 +2903,12 @@ TEXTS = {
                               'stutter.'),
     's_dk_blackdog_idee4':   ('**Spiel-Einstellungen gebündelt** — alles, was in '
                               'die Dateien des Spiels schreibt, steht in einer '
-                              'eigenen Gruppe der Seitenleiste.',
+                              'eigenen Gruppe der Seitenleiste, dazu eine '
+                              'Grafik-Seite mit den wichtigsten Schaltern.',
                               '**Game settings in one place** — everything that '
                               'writes into the game\'s files sits in its own '
-                              'group in the sidebar.'),
+                              'group in the sidebar, plus a graphics page with '
+                              'the most important switches.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '
@@ -5570,6 +5572,71 @@ TEXTS = {
     'hf_gruppe_einst':   ('Einstellungen', 'Settings'),
     'hf_gruppe_spiel':   ('Spiel-Einstellungen', 'Game settings'),
     'hf_shader':         ('Shader-Cache', 'Shader cache'),
+    'hf_grafik':         ('Grafik', 'Graphics'),
+    's_gr_lead':         ('Die wichtigsten Grafik-Schalter von Star Citizen, '
+                          'ohne ins Spiel zu müssen. Geschrieben wird nur bei '
+                          'geschlossenem Spiel, vorher legt Verse-Kit eine '
+                          'Sicherung der Datei daneben.',
+                          'The most important Star Citizen graphics switches, '
+                          'without starting the game. Verse-Kit only writes '
+                          'while the game is closed, and backs up the file '
+                          'next to it first.'),
+    's_gr_fenstermodus': ('Fenstermodus', 'Window mode'),
+    's_gr_fenster_0':    ('Windowed', 'Windowed'),
+    's_gr_fenster_1':    ('Borderless', 'Borderless'),
+    's_gr_fenster_2':    ('Fullscreen', 'Fullscreen'),
+    's_gr_vsync':        ('VSync', 'VSync'),
+    's_gr_vsync_h':      ('Bild an die Bildwiederholrate des Monitors binden.',
+                          'Tie frames to the refresh rate of the monitor.'),
+    's_gr_upscaling':    ('Upscaling', 'Upscaling'),
+    's_gr_upscaling_h':  ('Wie viel kleiner das Spiel rechnet und dann '
+                          'hochskaliert — weniger heißt mehr Bilder pro Sekunde.',
+                          'How much smaller the game renders before scaling '
+                          'up — less means more frames per second.'),
+    's_gr_up_0':         ('Native AA', 'Native AA'),
+    's_gr_up_1':         ('Auto', 'Auto'),
+    's_gr_up_2':         ('Quality (66 %)', 'Quality (66%)'),
+    's_gr_up_3':         ('Balanced (57 %)', 'Balanced (57%)'),
+    's_gr_up_4':         ('Performance (50 %)', 'Performance (50%)'),
+    's_gr_technik':      ('Upscaling-Technik', 'Upscaling technique'),
+    's_gr_tech_0':       ('CIG TSR', 'CIG TSR'),
+    's_gr_tech_1':       ('AMD FSR', 'AMD FSR'),
+    's_gr_tech_2':       ('NVIDIA DLSS/DLAA', 'NVIDIA DLSS/DLAA'),
+    's_gr_unschaerfe':   ('Bewegungsunschärfe', 'Motion blur'),
+    's_gr_koernung':     ('Filmkörnung', 'Film grain'),
+    's_gr_schaerfen':    ('Schärfen', 'Sharpening'),
+    's_gr_aberration':   ('Chromatische Aberration', 'Chromatic aberration'),
+    's_gr_aberration_h': ('Farbsäume an den Bildrändern.',
+                          'Colour fringes at the edges of the image.'),
+    's_gr_schreiben':    ('Ins Spiel schreiben', 'Write to the game'),
+    's_gr_schreiben_h':  ('Übernimmt alle Änderungen auf dieser Seite. Beim '
+                          'nächsten Start gelten sie im Spiel.',
+                          'Applies all changes on this page. They take effect '
+                          'the next time the game starts.'),
+    's_gr_spiel':        ('Star Citizen läuft. Das Spiel überschreibt die Datei '
+                          'selbst — schließ es zuerst, dann klappt das Schreiben.',
+                          'Star Citizen is running. The game overwrites the file '
+                          'itself — close it first, then writing works.'),
+    's_gr_keine_datei':  ('Keine Grafik-Einstellungen gefunden. Star Citizen '
+                          'legt die Datei beim ersten Start an; prüf sonst den '
+                          'Spielordner unter Einstellungen → Installation & '
+                          'Pfade.',
+                          'No graphics settings found. Star Citizen creates the '
+                          'file on first start; otherwise check the game folder '
+                          'under Settings → Installation & paths.'),
+    's_gr_nichts':       ('Nichts geändert.', 'Nothing changed.'),
+    's_gr_ok':           ('Ins Spiel geschrieben. Sicherung: %s',
+                          'Written to the game. Backup: %s'),
+    's_gr_f_keine_datei': ('Die Datei mit den Grafik-Einstellungen fehlt.',
+                           'The graphics settings file is missing.'),
+    's_gr_f_lesen':      ('Die Datei ließ sich nicht lesen.',
+                          'The file could not be read.'),
+    's_gr_f_sicherung':  ('Die Sicherung ließ sich nicht anlegen — nichts '
+                          'geschrieben.',
+                          'The backup could not be created — nothing written.'),
+    's_gr_f_schreiben':  ('Schreiben hat nicht geklappt, der alte Stand ist '
+                          'wiederhergestellt.',
+                          'Writing failed, the previous state is restored.'),
     'hf_fortgeschritten':('Für Fortgeschrittene', 'For advanced users'),
     'hf_gruppe_info':    ('Info', 'Info'),
     'hf_liste':          ('Bauplan-Liste', 'Blueprint list'),

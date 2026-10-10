@@ -62,6 +62,7 @@ NEW_SINCE = {
     'startprogramme': '3.58.0',
     'uebersetzung': '3.59.0',  # Textquelle je Kanal, weitere Sprachen
     'shader':      '3.97.0',   # Shader-Cache als eigener Reiter
+    'grafik':      '3.97.0',   # Grafik-Schalter des Spiels
     'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0
     'hangar':      '3.78.0',   # Mein Hangar, mit den Namen im Spiel

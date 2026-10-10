@@ -2597,6 +2597,7 @@ class MainWindow:
         # je Kanal die Seite „Spiel" gesprengt hätten.
         self._tab('uebersetzung', 'uebersetzung', t('hf_uebersetzung'),
                   g_spiel)
+        self._tab('grafik', 'anzeige', t('hf_grafik'), g_spiel)
         self._tab('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
                   g_spiel)
         # Wie der eigene Aufbau aussieht (welcher Stick welche Nummer hat) und

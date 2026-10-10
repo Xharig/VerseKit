@@ -25375,6 +25375,7 @@ def main():
     _pruefung_416()
     _pruefung_417()
     _pruefung_418()
+    _pruefung_419()
 
     print()
     if fehler:
@@ -38620,8 +38621,8 @@ def _pruefung_418():
     import ast as _ast418
     from scbp import pages as _pg418, language as _la418
 
-    _soll418 = ['spiel', 'uebersetzung', 'blickwinkel', 'joysticks', 'achsen',
-                'shader']
+    _soll418 = ['spiel', 'uebersetzung', 'grafik', 'blickwinkel', 'joysticks',
+                'achsen', 'shader']
     with io.open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                  encoding='utf-8') as f:
         _baum418 = _ast418.parse(f.read())
@@ -38692,6 +38693,81 @@ def _pruefung_418():
                'die Seite zeigt den Knopf „%s"' % _la418.t('s_sc_knopf'))
     finally:
         _w418.destroy()
+
+
+def _pruefung_419():
+    """419. Grafik: attributes.xml lesen und schreiben wie das Spiel."""
+    print('\n419. Grafik-Einstellungen (attributes.xml)')
+    import tempfile as _tf419
+    from scbp import graphics as _gr419
+
+    _ordner419 = _tf419.mkdtemp(prefix='grafik-')
+    _datei419 = os.path.join(_ordner419, 'attributes.xml')
+    _vorher419 = ('<Attributes Version="35">\r\n'
+                  ' <Attr name="FOV" value="54.7681"/>\r\n'
+                  ' <Attr name="Sharpening" value="1"/>\r\n'
+                  ' <Attr name="SysSpec" value="3"/>\r\n'
+                  ' <Attr name="Upscaling" value="2"/>\r\n'
+                  ' <Attr name="Width" value="5120"/>\r\n'
+                  ' <Attr name="selectedShipURN" value="urn:x"/>\r\n'
+                  '</Attributes>\r\n')
+    try:
+        with open(_datei419, 'w', encoding='utf-8', newline='') as f:
+            f.write(_vorher419)
+        _w = _gr419.read(_datei419)
+        pruefe(_w and _w['Upscaling'] == 2 and _w['Sharpening'] == 1
+               and _w['WindowMode'] == 0 and _w['MotionBlur'] == 1
+               and _w['VSync'] == 1,
+               'fehlende Zeile = Grundwert, vorhandene = ihr Wert (%r)' % _w)
+        _ok, _sich = _gr419.write({'WindowMode': 2, 'MotionBlur': 0,
+                                   'Upscaling': 0, 'Sharpening': 0.35},
+                                  _datei419)
+        with open(_datei419, encoding='utf-8', newline='') as f:
+            _nach419 = f.read()
+        pruefe(_ok and os.path.isfile(os.path.join(_ordner419, _sich)),
+               'vorher wird gesichert (%r)' % _sich)
+        with open(os.path.join(_ordner419, _sich), encoding='utf-8',
+                  newline='') as f:
+            pruefe(f.read() == _vorher419, 'die Sicherung ist der alte Stand')
+        _namen419 = re.findall(r'name="([^"]+)"', _nach419)
+        pruefe('Upscaling' not in _namen419,
+               'Grundwert entfernt die Zeile (Upscaling 0)')
+        pruefe('<Attr name="WindowMode" value="2"/>' in _nach419
+               and '<Attr name="MotionBlur" value="0"/>' in _nach419
+               and '<Attr name="Sharpening" value="0.35"/>' in _nach419,
+               'neue und geänderte Werte stehen in der Schreibweise des Spiels')
+        pruefe(_namen419 == sorted(_namen419),
+               'eingefügt wird an der Stelle im Alphabet (%r)' % _namen419)
+        pruefe('\n' not in _nach419.replace('\r\n', ''),
+               'die Zeilenenden der Datei bleiben (CRLF)')
+        pruefe('<Attr name="FOV" value="54.7681"/>' in _nach419
+               and '<Attr name="selectedShipURN" value="urn:x"/>' in _nach419
+               and '<Attr name="SysSpec" value="3"/>' in _nach419,
+               'alle anderen Zeilen bleiben unberührt')
+        _w = _gr419.read(_datei419)
+        pruefe(_w['WindowMode'] == 2 and _w['Upscaling'] == 0
+               and _w['Sharpening'] == 0.35,
+               'gelesen kommt zurück, was geschrieben wurde (%r)' % _w)
+        _anzahl419 = len(os.listdir(_ordner419))
+        _ok, _sich = _gr419.write({'WindowMode': 2}, _datei419)
+        pruefe(_ok and _sich == '' and len(os.listdir(_ordner419)) == _anzahl419,
+               'ohne Änderung keine Sicherung und kein Schreiben')
+        try:
+            _gr419.write({'Resolution': 3}, _datei419)
+            pruefe(False, 'unbekannte Einstellungen werden abgelehnt')
+        except ValueError:
+            pruefe(True, 'unbekannte Einstellungen werden abgelehnt')
+        pruefe(_gr419.read(os.path.join(_ordner419, 'fehlt.xml')) is None,
+               'fehlende Datei: None statt Absturz')
+        pruefe('graphics' in io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                                     encoding='utf-8').read()
+               and 'game_running()' in _gr419.__doc__ + io.open(
+                   os.path.join(WURZEL, 'scbp', 'pages.py'),
+                   encoding='utf-8').read().split('def _graphics', 1)[1]
+               .split('\ndef ', 1)[0],
+               'die Seite prüft vor dem Schreiben, ob das Spiel läuft')
+    finally:
+        shutil.rmtree(_ordner419, ignore_errors=True)
 
 
 def _alle_eingaben(w):

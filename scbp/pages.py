@@ -133,6 +133,7 @@ def _builders():
         'joysticks':   _joysticks,
         'achsen':      _axes,
         'blickwinkel': _view_angle,
+        'grafik':      _graphics,
         'shader':      _shader_cache,
         'diagnose':    _diagnostics,
         'hangar':      _hangar,
@@ -3805,6 +3806,96 @@ def _collection(fenster, rahmen):
 
     _status(fenster, innen, '!', t('s_be_reset_warn'), t('s_be_reset_warn_h'),
             color=GOLD)
+
+
+def _graphics(window, frame):
+    """Grafik-Schalter von Star Citizen (`graphics`). Änderungen sammeln sich,
+    bis der Knopf unten sie übernimmt — bei laufendem Spiel nie, das Spiel
+    überschreibt die Datei beim Verlassen seiner Einstellungen."""
+    from . import graphics
+    from .main_window import round_select, slider, toggle_switch
+
+    _heading(window, frame, t('hf_grafik'), t('s_gr_lead'))
+    parent = _scroll_area(frame)
+    body = tk.Frame(parent, bg=BG)
+    body.pack(fill='x')
+    pending = {}
+    labels = {'WindowMode': ('s_gr_fenstermodus', ''),
+              'VSync': ('s_gr_vsync', 's_gr_vsync_h'),
+              'Upscaling': ('s_gr_upscaling', 's_gr_upscaling_h'),
+              'UpscalingTechnique': ('s_gr_technik', ''),
+              'MotionBlur': ('s_gr_unschaerfe', ''),
+              'FilmGrain': ('s_gr_koernung', ''),
+              'Sharpening': ('s_gr_schaerfen', ''),
+              'ChromaticAberration': ('s_gr_aberration', 's_gr_aberration_h')}
+
+    def game_blocks():
+        from . import auto_update
+        from .main_window import show_result
+        if auto_update.game_running():
+            show_result(window.root, t('hf_grafik'), t('s_gr_spiel'))
+            return True
+        return False
+
+    def store():
+        if not pending:
+            window.say(t('s_gr_nichts'))
+            return
+        if game_blocks():
+            return
+        ok, detail = graphics.write(dict(pending))
+        if not ok:
+            window.say(t(detail))
+            return
+        pending.clear()
+        window.say(t('s_gr_ok') % detail if detail else t('s_gr_nichts'))
+        draw()
+
+    def control(slot, name, kind, value, choices):
+        def remember(new_value):
+            pending[name] = new_value
+
+        if kind == 'wahl':
+            round_select(slot, [(v, t(key)) for v, key in choices], value,
+                         remember, window.f_small).pack()
+        elif kind == 'schalter':
+            state = [bool(value)]
+
+            def flip():
+                state[0] = not state[0]
+                remember(1 if state[0] else 0)
+                return state[0]
+            toggle_switch(slot, state[0], flip).pack()
+        else:
+            shown = tk.Label(slot, text='%d' % round(value * 100), bg=BG, fg=FG,
+                             font=window.f_small, width=4, anchor='e')
+
+            def drag(percent):
+                shown.configure(text='%d' % percent)
+                remember(percent / 100.0)
+            slider(slot, 0, 100, int(round(value * 100)), drag).pack(side='left')
+            shown.pack(side='left', padx=(8, 0))
+
+    def draw():
+        for child in body.winfo_children():
+            child.destroy()
+        pending.clear()
+        values = graphics.read()
+        if values is None:
+            _status(window, body, 'offen', t('s_gr_keine_datei'), '',
+                    color=GOLD)
+            return
+        for name, kind, _default, choices in graphics.SETTINGS:
+            caption, help_key = labels[name]
+            slot = _setting_row(window, body, t(caption),
+                                t(help_key) if help_key else '')
+            control(slot, name, kind, values[name], choices)
+        slot = _setting_row(window, body, t('s_gr_schreiben'),
+                            t('s_gr_schreiben_h'), line=False)
+        _button(window, slot, t('s_gr_schreiben'), store, strong=True).pack()
+
+    draw()
+    window.on_show['grafik'] = draw
 
 
 def _shader_cache(window, frame):
