@@ -357,11 +357,16 @@ def _chooser(window, frame, redraw):
     if not opened:
         return
     current_tiles = visible_tiles()
-    for key, label in TILES:
-        if not available(key):
-            continue
-        row = tk.Frame(frame, bg=theme.BG)
-        row.pack(fill='x', pady=(6, 0))
+    # Zwei Spalten wie die Kacheln darüber, Schalter rechts am Namen.
+    table = tk.Frame(frame, bg=theme.BG)
+    table.pack(fill='x', pady=(4, 0))
+    table.columnconfigure(0, weight=1, uniform='auswahl')
+    table.columnconfigure(1, weight=1, uniform='auswahl')
+    keys = [(key, label) for key, label in TILES if available(key)]
+    for index, (key, label) in enumerate(keys):
+        row = tk.Frame(table, bg=theme.BG)
+        row.grid(row=index // 2, column=index % 2, sticky='ew',
+                 padx=(14, 2) if index % 2 else (2, 14), pady=(6, 0))
 
         def flip(key=key):
             on = key not in visible_tiles()
