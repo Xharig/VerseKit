@@ -68,6 +68,7 @@ MODIFIERS = {
 }
 
 DEFAULT = 'Strg+Alt+B'          # B wie Bauplan
+DEFAULT_SCAN = 'Strg+Alt+R'     # R wie Raffinerie
 
 
 def parse(kombination):
@@ -147,6 +148,7 @@ PM_NOREMOVE = 0x0000
 MOD_ALT, MOD_CONTROL, MOD_SHIFT = 0x0001, 0x0002, 0x0004
 MOD_NOREPEAT = 0x4000            # nicht dauerfeuern, solange man haelt
 HOTKEY_ID = 0xB9CB                 # irgendeine Zahl, nur fuer uns
+SCAN_ID = 0xB9CC                   # die zweite Kombination: Raffinerie lesen
 
 
 def _vk(taste):
@@ -159,7 +161,8 @@ def _vk(taste):
 
 
 class _Windows:
-    def __init__(self):
+    def __init__(self, ident=HOTKEY_ID):
+        self.ident = ident
         self.angemeldet = False
         self._faden = None
         self._tid = 0
@@ -214,7 +217,7 @@ class _Windows:
             # ⚠ Die Schlange entsteht erst, wenn sie einmal angefasst wurde.
             # Ohne das geht ein `PostThreadMessage` von aussen ins Leere.
             u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_NOREMOVE)
-            if not u32.RegisterHotKey(None, HOTKEY_ID, flaggen, code):
+            if not u32.RegisterHotKey(None, self.ident, flaggen, code):
                 # ⚠⚠ **Belegt heisst belegt.** Hat ein anderes Programm die
                 # Kombination, gibt Windows sie nicht her — daran laesst sich
                 # nichts drehen. Der Nutzer muss es erfahren, sonst sucht er
@@ -233,13 +236,13 @@ class _Windows:
                 stand = u32.GetMessageW(ctypes.byref(msg), None, 0, 0)
                 if stand == 0 or stand == -1:      # 0 = WM_QUIT, -1 = Fehler
                     break
-                if msg.message == WM_HOTKEY and msg.wParam == HOTKEY_ID:
+                if msg.message == WM_HOTKEY and msg.wParam == self.ident:
                     self._treffer.set()
         except Exception:
             pass
         finally:
             try:
-                u32.UnregisterHotKey(None, HOTKEY_ID)
+                u32.UnregisterHotKey(None, self.ident)
             except Exception:
                 pass
 
@@ -406,7 +409,8 @@ class Watch:
     im selben Takt wie die übrige Warteschlange herunter.
     """
 
-    def __init__(self):
+    def __init__(self, ident=HOTKEY_ID):
+        self.ident = ident
         self.helper = None
         self.kombination = ''
         self.grund = ''
@@ -429,7 +433,8 @@ class Watch:
         if not geht:
             self.grund = warum
             return False, warum
-        helper = _Windows() if sys.platform.startswith('win') else _X11()
+        helper = (_Windows(self.ident) if sys.platform.startswith('win')
+                  else _X11())
         ok, warum = helper.register(mods, taste)
         if not ok:
             self.grund = warum

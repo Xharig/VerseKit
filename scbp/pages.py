@@ -2319,6 +2319,9 @@ def _display(fenster, rahmen):
     fenster._overlay_bar_choice = leiste
 
     _hotkey_field(fenster, innen)
+    from . import refinery_scan as _rs_feld
+    if _rs_feld.supported():
+        _hotkey_field(fenster, innen, scan=True)
 
     ziel = _setting_row(fenster, innen, t('s_ov_dauer'), t('s_ov_dauer_h'))
     from .main_window import round_entry as _zahlfeld
@@ -2714,8 +2717,10 @@ def _overlay_bar(fenster, wahl, kennung):
         steuerung.leiste_anwenden()
 
 
-def _hotkey_field(fenster, innen):
+def _hotkey_field(fenster, innen, scan=False):
     """Die Tastenkombination einstellen — oder ehrlich sagen, warum nicht.
+
+    `scan=True`: die zweite Kombination, die das Raffinerie-Terminal liest.
 
     ⚠⚠ **Unter Wayland steht hier keine Eingabe, sondern die Erklaerung.** Ein
     leeres Feld, das nichts bewirkt, waere schlimmer als gar keins: Der Nutzer
@@ -2731,15 +2736,20 @@ def _hotkey_field(fenster, innen):
     if not geht:
         return                       # kein Bildschirm, kein Windows — still
 
-    ziel = _setting_row(fenster, innen, t('s_hk'), t('s_hk_h'), wide=True)
+    schluessel = 'hotkey_scan' if scan else 'hotkey'
+    vorgabe = hk.DEFAULT_SCAN if scan else hk.DEFAULT
+    ziel = _setting_row(fenster, innen, t('s_hk_scan' if scan else 's_hk'),
+                        t('s_hk_scan_h' if scan else 's_hk_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack(anchor='w')
 
     from .main_window import round_entry
     hotkey_var = tk.StringVar(reihe,
-                              value=paths.setting('hotkey') or hk.DEFAULT)
+                              value=paths.setting(schluessel) or vorgabe)
     feld = round_entry(reihe, hotkey_var, fenster.f_small, theme.FIELD, LINE,
-                       ACCENT, FG, width=18, placeholder=t('s_pl_hotkey'))
+                       ACCENT, FG, width=18,
+                       placeholder=t('s_pl_hotkey_scan' if scan
+                                     else 's_pl_hotkey'))
     feld.holder.pack(side='left')
 
     def merken(_=None):
@@ -2748,12 +2758,12 @@ def _hotkey_field(fenster, innen):
         if not mods:
             fenster.say(t('s_hk_falsch'))
             return
-        paths.set_setting('hotkey', wunsch)
+        paths.set_setting(schluessel, wunsch)
         # ⚠ Sofort ausprobieren, nicht erst beim naechsten Start: „belegt"
         # erfaehrt man sonst zu einem Zeitpunkt, an dem niemand mehr weiss,
         # dass er etwas eingestellt hat.
         from . import overlay as ov
-        wache = getattr(ov.OVERLAY_CONTROL[0], 'hotkey', None)
+        wache = getattr(ov.OVERLAY_CONTROL[0], schluessel, None)
         if wache is None:
             fenster.say(t('e_neustart_noetig'))
             return
@@ -12765,6 +12775,19 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     # gebaut (siehe `open_page()`).
     if paths.setting_bool('lager_raffinerie_offen', False):
         _umschalten()
+
+    def aus_dem_spiel(auftraege, aufgehoben):
+        """Eine Lesung über die Tastenkombination im Spiel: Block auf, Zeilen
+        ins Feld. False bei abgebauter Seite."""
+        if not feld.winfo_exists():
+            return False
+        if not ziel.winfo_manager():
+            _umschalten()
+        auftraege_zeigen(auftraege, aufgehoben)
+        return True
+
+    from . import refinery_scan as _rs_spiel
+    _rs_spiel.listen(aus_dem_spiel)
     feld.scan_read = lesen
     feld.scan_message = lese_meldung
     feld.scan_buttons = knopf_platz

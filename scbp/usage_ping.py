@@ -79,6 +79,7 @@ SETTING = 'nutzung_melden'
 LAST = 'nutzung_zuletzt'
 VERSION_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}(?:-rc\d{1,4})?$')
 CHECK_EVERY = 3600          # Sekunden — fängt einen Lauf über Mitternacht ab
+RETRY_AFTER = 600           # Sekunden bis zum nächsten Versuch nach 'fehler'
 
 
 def target():
@@ -227,16 +228,23 @@ def send_if_due(version, day=None, opener=None):
     return 'gesendet'
 
 
+def wait_after(result):
+    """Sekunden bis zum nächsten Versuch: nach 'fehler' kurz, sonst stündlich."""
+    return RETRY_AFTER if result == 'fehler' else CHECK_EVERY
+
+
 def start(version):
-    """Im Hintergrund: gleich einmal, danach stündlich nachsehen."""
+    """Im Hintergrund: gleich einmal, danach stündlich nachsehen — nach
+    einem gescheiterten Versuch schon nach zehn Minuten."""
     def run():
         while True:
+            result = None
             try:
                 result = send_if_due(version)
                 if result == 'gesendet':
                     from . import errors
                     errors.trail('Nutzung gemeldet')
             except Exception:
-                pass
-            time.sleep(CHECK_EVERY)
+                result = 'fehler'
+            time.sleep(wait_after(result))
     threading.Thread(target=run, daemon=True, name='nutzung').start()

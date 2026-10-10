@@ -74,6 +74,55 @@ def supported():
     return OCR_ENABLED and sys.platform == 'win32'
 
 
+# Ergebnis der Tastenkombination im Spiel: Die Lager-Seite meldet sich mit
+# `listen()` an; ist sie noch nicht gebaut, wartet das Ergebnis hier.
+_HANDOVER = {'listener': None, 'pending': None}
+
+
+def listen(listener):
+    """Die Lager-Seite nimmt Lesungen aus dem Spiel entgegen — Tk-Faden.
+
+    `listener(auftraege, aufgehoben)` gibt True zurück, wenn es angekommen
+    ist. Ein Ergebnis, das vor dem Aufbau der Seite kam, wird sofort
+    nachgereicht.
+    """
+    _HANDOVER['listener'] = listener
+    pending, _HANDOVER['pending'] = _HANDOVER['pending'], None
+    if pending is not None:
+        hand_over(*pending)
+
+
+def hand_over(jobs, kept):
+    """Eine Lesung an die Lager-Seite geben — Tk-Faden.
+
+    Ohne Lager-Seite oder mit abgebauter Seite bleibt das Ergebnis liegen,
+    bis `listen()` es abholt.
+    """
+    listener = _HANDOVER['listener']
+    if listener is not None:
+        try:
+            if listener(jobs, kept):
+                return True
+        except Exception as exc:
+            from . import errors
+            errors.record('refinery_scan.hand_over', exc)
+    _HANDOVER['pending'] = (jobs, kept)
+    return False
+
+
+def scan_from_game():
+    """Lesen, während Star Citizen vorn ist — ohne zu warten.
+
+    Gibt `(aufträge, aufgehoben)` oder None, wenn das Spiel nicht vorn ist.
+    Läuft in einem Arbeitsfaden.
+    """
+    from . import screen_grab
+    rect = screen_grab.game_rect()
+    if not rect:
+        return None
+    return read_screen(rect)
+
+
 # --------------------------------------------------------------- Abgriff
 def write_bmp(raw, width, height, path):
     """BGRA-Bytes (oben beginnend) als 24-Bit-BMP schreiben."""

@@ -14931,9 +14931,36 @@ def main():
                and _f157['fehlt'][0]['benoetigt'] == 4.0,
                'der Bedarf beider Posten wird addiert (bekam: %s)'
                % ([z['benoetigt'] for z in _f157['fehlt']],))
-        pruefe(_f157['fehlt'] and _f157['fehlt'][0]['differenz'] == 1.0,
-               'es fehlt genau 1 (bekam: %s)'
+        # Eine Kiste mit 3 SCU gibt EINE Portion von 2 her; der Rest von
+        # 1 SCU reicht für keine zweite — es fehlt eine ganze Portion.
+        pruefe(_f157['fehlt'] and _f157['fehlt'][0]['differenz'] == 2.0,
+               'es fehlt eine ganze Portion von 2 (bekam: %s)'
                % (_f157['fehlt'][0]['differenz'] if _f157['fehlt'] else None))
+
+        # Zwei Kisten mit je 2 SCU ergeben keine Portion von 3 SCU.
+        _ro157.load = lambda: [
+            {'material': 'Iron', 'menge': 2.0, 'qualitaet': 500, 'ort': ''},
+            {'material': 'Iron', 'menge': 2.0, 'qualitaet': 500, 'ort': ''}]
+        _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
+            {'zeit': 100, 'zutaten': [('Frame', 'Iron', 3.0, 0)]}]}
+            if n == 'BlastChill' else None)
+        _k157 = _wk156.farm_list(_daten157)
+        pruefe(_k157['fehlt'] and _k157['fehlt'][0]['vorhanden'] == 0.0
+               and _k157['fehlt'][0]['differenz'] == 6.0,
+               'zwei Kisten zu 2 SCU decken keine Portion von 3 (bekam: %s)'
+               % ([(z['vorhanden'], z['differenz']) for z in _k157['fehlt']],))
+        # Und zwei Kisten zu 3 SCU decken beide Portionen.
+        _ro157.load = lambda: [
+            {'material': 'Iron', 'menge': 3.0, 'qualitaet': 500, 'ort': ''},
+            {'material': 'Iron', 'menge': 3.0, 'qualitaet': 500, 'ort': ''}]
+        _l157 = _wk156.farm_list(_daten157)
+        pruefe(not _l157['fehlt'] and len(_l157['vollstaendig']) == 1,
+               'zwei Kisten zu 3 SCU decken beide Portionen')
+        _ro157.load = lambda: [{'material': 'Iron', 'menge': 3.0,
+                                 'qualitaet': 500, 'ort': ''}]
+        _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
+            {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 0)]}]}
+            if n == 'BlastChill' else None)
 
         # ⚠ GEGENPROBE: Einzeln gerechnet sagt `pruefen()`, es fehle nichts —
         # genau der Fehler, den die Farmliste vermeiden muss.
@@ -25355,6 +25382,7 @@ def main():
     _pruefung_411()
     _pruefung_412()
     _pruefung_413()
+    _pruefung_414()
 
     print()
     if fehler:
@@ -30441,6 +30469,11 @@ def _pruefung_305():
         erg4 = _up305.send_if_due('3.65.0', day='2026-10-03', opener=_kaputt)
         pruefe(erg4 == 'fehler' and _pf305.setting(_up305.LAST) == '2026-10-02',
                'ohne Netz bleibt der Tag offen und wird nachgeholt (%r)' % erg4)
+        pruefe(_up305.wait_after('fehler') == 600
+               and _up305.wait_after('gesendet') == 3600
+               and _up305.wait_after('schon') == 3600,
+               'nach einem Fehlschlag kommt der nächste Versuch nach 10 Minuten, '
+               'sonst stündlich')
 
         _pf305.set_setting(_up305.SETTING, False)
         erg5 = _up305.send_if_due('3.65.0', day='2026-10-04', opener=_gegenstelle)
@@ -38176,6 +38209,59 @@ def _pruefung_413():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = alt_heim
+
+
+def _pruefung_414():
+    """414. Die zweite Tastenkombination liest das Raffinerie-Terminal; ihr
+    Ergebnis wartet, bis die Lager-Seite es abholt."""
+    print('\n414. Tastenkombination „Raffinerie lesen" und Übergabe ans Lager')
+    from scbp import hotkey as _hk414, refinery_scan as _rs414
+    from scbp import screen_grab as _sg414
+
+    pruefe(_hk414.SCAN_ID != _hk414.HOTKEY_ID,
+           'die zweite Kombination hat eine eigene Kennung')
+    pruefe(_hk414.Watch().ident == _hk414.HOTKEY_ID
+           and _hk414.Watch(_hk414.SCAN_ID).ident == _hk414.SCAN_ID,
+           'jede Wache meldet ihre Kombination unter ihrer Kennung an')
+    pruefe(_hk414._Windows(_hk414.SCAN_ID).ident == _hk414.SCAN_ID,
+           'unter Windows trägt der Faden die Kennung der Wache')
+    _mods414, _taste414 = _hk414.parse(_hk414.DEFAULT_SCAN)
+    pruefe(bool(_mods414) and _taste414 == 'R',
+           'die Vorgabe %s ist eine gültige Kombination' % _hk414.DEFAULT_SCAN)
+    pruefe(_hk414.DEFAULT_SCAN != _hk414.DEFAULT,
+           'beide Vorgaben unterscheiden sich')
+
+    alt = dict(_rs414._HANDOVER)
+    alt_rect = _sg414.game_rect
+    try:
+        _rs414._HANDOVER.update(listener=None, pending=None)
+        ergebnis = ([{'text': 'Titanium 295 188', 'unsure': []}], False)
+        pruefe(_rs414.hand_over(*ergebnis) is False
+               and _rs414._HANDOVER['pending'] == ergebnis,
+               'ohne Lager-Seite bleibt die Lesung liegen')
+        angekommen = []
+        _rs414.listen(lambda a, k: angekommen.append((a, k)) or True)
+        pruefe(angekommen == [ergebnis] and _rs414._HANDOVER['pending'] is None,
+               'baut sich die Seite auf, holt sie die liegende Lesung ab')
+        _rs414.listen(lambda a, k: False)
+        _rs414.hand_over(*ergebnis)
+        pruefe(_rs414._HANDOVER['pending'] == ergebnis,
+               'eine abgebaute Seite lässt die Lesung liegen')
+
+        def _wirft(a, k):
+            raise RuntimeError('Probe 414')
+        _rs414._HANDOVER.update(listener=_wirft, pending=None)
+        _rs414.hand_over(*ergebnis)
+        pruefe(_rs414._HANDOVER['pending'] == ergebnis,
+               'scheitert die Seite, geht die Lesung nicht verloren')
+
+        _sg414.game_rect = lambda: None
+        pruefe(_rs414.scan_from_game() is None,
+               'ist das Spiel nicht vorn, wird nicht gelesen')
+    finally:
+        _sg414.game_rect = alt_rect
+        _rs414._HANDOVER.clear()
+        _rs414._HANDOVER.update(alt)
 
 
 def _alle_eingaben(w):

@@ -2051,6 +2051,9 @@ class Overlay:
         # erst, wenn die Hauptschleife laeuft (`hotkey_anmelden`) — vorher
         # gibt es den Faden noch nicht, an dem die Nachricht haengt.
         self.hotkey = hotkey_modul.Watch()
+        # Die zweite Kombination liest das Raffinerie-Terminal (nur Windows).
+        self.hotkey_scan = hotkey_modul.Watch(hotkey_modul.SCAN_ID)
+        self._scan_laeuft = False
         _WURZEL[0] = self.root                    # damit signalton() klingeln kann
         # Damit der Knopf „Fensterlage zurücksetzen" das Overlay sofort in die Mitte
         # setzen kann, ohne dass `pages.py` das Hauptprogramm importieren müsste.
@@ -4972,14 +4975,68 @@ class Overlay:
         try:
             if paths.settings().get('hotkey_an') is False:
                 errors.trail('Hotkey: ausgeschaltet')
+            else:
+                kombi = (paths.setting('hotkey') or hotkey_modul.DEFAULT)
+                ok, grund = self.hotkey.register(kombi)
+                errors.trail('Hotkey: %s (%s)'
+                            % ('%s angemeldet' % kombi if ok else 'entfaellt',
+                               grund or 'ok'))
+        except Exception as ausnahme:
+            errors.record('overlay.hotkey', ausnahme)
+        self.hotkey_scan_anmelden()
+
+    def hotkey_scan_anmelden(self):
+        """Die Kombination für den Raffinerie-Scanner anmelden — nur dort, wo
+        der Scanner lesen kann (Windows mit Texterkennung)."""
+        try:
+            from scbp import refinery_scan
+            if not refinery_scan.supported():
                 return
-            kombi = (paths.setting('hotkey') or hotkey_modul.DEFAULT)
-            ok, grund = self.hotkey.register(kombi)
-            errors.trail('Hotkey: %s (%s)'
+            if paths.settings().get('hotkey_scan_an') is False:
+                errors.trail('Scan-Hotkey: ausgeschaltet')
+                return
+            kombi = (paths.setting('hotkey_scan')
+                     or hotkey_modul.DEFAULT_SCAN)
+            ok, grund = self.hotkey_scan.register(kombi)
+            errors.trail('Scan-Hotkey: %s (%s)'
                         % ('%s angemeldet' % kombi if ok else 'entfaellt',
                            grund or 'ok'))
         except Exception as ausnahme:
-            errors.record('overlay.hotkey', ausnahme)
+            errors.record('overlay.hotkey_scan', ausnahme)
+
+    def raffinerie_aus_dem_spiel(self):
+        """Das Raffinerie-Terminal lesen, während das Spiel vorn ist, und
+        danach das Fenster auf der Lager-Seite öffnen — mit den gelesenen
+        Zeilen im Feld."""
+        from scbp import refinery_scan, page_usage
+        if self._scan_laeuft or not refinery_scan.supported():
+            return
+        self._scan_laeuft = True
+        signalton()
+
+        def arbeit():
+            ergebnis, fehler = None, False
+            try:
+                ergebnis = refinery_scan.scan_from_game()
+                if ergebnis is not None:
+                    page_usage.action('lager_scan')
+            except Exception as ausnahme:
+                fehler = True
+                if getattr(ausnahme, 'reason', '') != 'keine_sprache':
+                    errors.record('overlay.raffinerie_hotkey', ausnahme)
+
+            def zeigen():
+                self._scan_laeuft = False
+                if ergebnis is None:
+                    self.add_hinweis(language.t(
+                        'rf_hk_fehler' if fehler else 'rf_hk_kein_spiel'))
+                    return
+                self.fenster_oeffnen('lager', via='overlay')
+                refinery_scan.hand_over(*ergebnis)
+            self._im_tk(zeigen)
+
+        threading.Thread(target=arbeit, daemon=True,
+                         name='raffinerie-hotkey').start()
 
     def _hotkey_nachsehen(self):
         """Im selben Takt wie die Warteschlange nachfragen.
@@ -4993,6 +5050,11 @@ class Overlay:
         try:
             if self.hotkey.poll():
                 self.hervorholen()
+        except Exception:
+            pass
+        try:
+            if self.hotkey_scan.poll():
+                self.raffinerie_aus_dem_spiel()
         except Exception:
             pass
 

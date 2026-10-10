@@ -1175,6 +1175,10 @@ def farm_list(data=None):
     verbraucht ein anspruchsloser Posten das gute Erz, und der anspruchsvolle
     steht ohne da.
 
+    ⚠ **SCU-Ware wird Portion für Portion einer Kiste zugeteilt.** Am
+    Fertigungsterminal kommt eine Zutat aus einer Kiste; zwei Kisten mit je
+    2 SCU ergeben keine Portion von 3 SCU. Stückware wird zusammengezählt.
+
     ⚠ Ohne Netz, ohne Schätzen: Ein Posten, dessen Rezept sich nicht lesen
     lässt, steht unter `ohne_rezept` und wird **nicht** stillschweigend mit
     null Materialbedarf verrechnet.
@@ -1234,37 +1238,51 @@ def farm_list(data=None):
         for step in rec['stufen']:
             for _slot, raw, amount, grade in (step.get('zutaten') or []):
                 key = (crafting.norm_material(raw), float(grade or 0))
-                entry = needed.setdefault(key, {'name': raw, 'menge': 0.0})
+                entry = needed.setdefault(key, {'name': raw, 'menge': 0.0,
+                                                'portionen': []})
                 entry['menge'] += float(amount or 0) * pieces
+                entry['portionen'] += [float(amount or 0)] * pieces
 
     # 2. Je Rohstoff den Bestand zuteilen — anspruchsvollste Güte zuerst.
     by_material = {}
     for (norm, grade), entry in needed.items():
         by_material.setdefault(norm, []).append(
-            (grade, entry['name'], entry['menge']))
+            (grade, entry['name'], entry['menge'], entry['portionen']))
 
     missing, complete = [], []
     for norm, groups in by_material.items():
         # ⚠ Absteigend: Wer die höchste Güte verlangt, bekommt zuerst — und
         # nimmt dabei das **gerade noch ausreichende** Erz, damit das bessere
         # für nichts verschwendet wird, das es nicht braucht.
-        groups.sort(reverse=True)
+        groups.sort(key=lambda g: g[0], reverse=True)
         stock = [dict(p) for p in materials.load()
                  if crafting.norm_material(p.get('material')) == norm]
-        for grade, name, amount in groups:
-            usable = sorted(
-                (p for p in stock
-                 if float(p.get('qualitaet') or 0) >= grade
-                 and float(p.get('menge') or 0) > 0),
-                key=lambda p: float(p.get('qualitaet') or 0))
+        pieces_ware = crafting.is_piece(groups[0][1])
+        for grade, name, amount, portions in groups:
             taken = 0.0
-            for p in usable:
-                if taken >= amount:
-                    break
-                have = float(p.get('menge') or 0)
-                take = min(have, amount - taken)
-                p['menge'] = have - take
-                taken += take
+            if pieces_ware:
+                usable = sorted(
+                    (p for p in stock
+                     if float(p.get('qualitaet') or 0) >= grade
+                     and float(p.get('menge') or 0) > 0),
+                    key=lambda p: float(p.get('qualitaet') or 0))
+                for p in usable:
+                    if taken >= amount:
+                        break
+                    have = float(p.get('menge') or 0)
+                    take = min(have, amount - taken)
+                    p['menge'] = have - take
+                    taken += take
+            else:
+                # SCU-Ware: Jede Portion kommt aus EINER Kiste, Kisten lassen
+                # sich am Terminal nicht zusammenlegen. Die größten Portionen
+                # suchen sich zuerst eine Kiste.
+                for portion in sorted(portions, reverse=True):
+                    crate = materials._pick_crate(stock, norm, grade, portion)
+                    if crate is None:
+                        continue
+                    crate['menge'] = float(crate.get('menge') or 0) - portion
+                    taken += portion
             # Was zwar da ist, aber die Güte nicht schafft — als Hinweis, nicht
             # als Bestand. Das Lager wird von Hand gepflegt und kann hinterher
             # hinken; behauptet wird deshalb nichts.

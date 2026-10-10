@@ -818,6 +818,7 @@ TEXTS = {
     's_pl_zeilen':       ('5–100', '5–100'),
     's_pl_sekunden':     ('1–60', '1–60'),
     's_pl_hotkey':       ('z. B. Strg+Alt+B', 'e.g. Ctrl+Alt+B'),
+    's_pl_hotkey_scan':  ('z. B. Strg+Alt+R', 'e.g. Ctrl+Alt+R'),
     's_pl_startbefehl':  ('z. B. lutris rungame/star-citizen',
                           'e.g. lutris rungame/star-citizen'),
     's_pl_programmname': ('z. B. TeamSpeak', 'e.g. TeamSpeak'),
@@ -1953,6 +1954,22 @@ TEXTS = {
                           'different one.'),
     's_hk_falsch':     ('Das ergibt keine Kombination. Beispiel: Strg+Alt+B',
                           'That is not a valid combination. Example: Ctrl+Alt+B'),
+    's_hk_scan':       ('Tastenkombination: Raffinerie lesen',
+                          'Keyboard shortcut: read refinery'),
+    's_hk_scan_h':     ('Steht im Spiel das Raffinerie-Terminal mit der '
+                        'Ausbeute vor dir, liest diese Kombination es aus. '
+                        'Danach öffnet sich das Lager mit den gelesenen '
+                        'Zeilen — prüfen und übernehmen.',
+                          'With the refinery terminal and its yield in front '
+                          'of you in game, this shortcut reads it. Then the '
+                          'storage page opens with the lines it read — check '
+                          'them and add them.'),
+    'rf_hk_kein_spiel': ('Raffinerie lesen: Star Citizen war nicht vorn.',
+                          'Read refinery: Star Citizen was not in front.'),
+    'rf_hk_fehler':    ('Raffinerie lesen hat nicht geklappt — im Lager '
+                        'steht der Knopf zum erneuten Versuch.',
+                          'Reading the refinery did not work — the storage '
+                          'page has a button to try again.'),
     # ⚠⚠ **Wayland kann das nicht — und das ist Absicht des Systems.** Ein
     # Programm darf dort nicht mithoeren, was in einem anderen Fenster getippt
     # wird. Statt es zu verschweigen oder so zu tun, als laege es an uns:
