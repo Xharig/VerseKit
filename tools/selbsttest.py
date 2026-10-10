@@ -25377,6 +25377,7 @@ def main():
     _pruefung_418()
     _pruefung_419()
     _pruefung_420()
+    _pruefung_421()
 
     print()
     if fehler:
@@ -38987,6 +38988,63 @@ def _pruefung_420():
                  encoding='utf-8') as f:
         pruefe('gallery.due(' in f.read(),
                'das Hauptfenster fragt beim Öffnen nach der Galerie')
+
+
+def _pruefung_421():
+    """421. Übersetzung: stündlich und nach jedem Spielende nachsehen."""
+    print('\n421. Übersetzung nach Spielende nachsehen')
+    import threading as _th421
+    import sc_bp_watcher as _sb421
+    from scbp import auto_update as _au421, start_programs as _sp421
+
+    pruefe(_sb421.TEXTE_POLL_SEC == 3600,
+           'Takt für Übersetzungen: eine Stunde (%r s)' % _sb421.TEXTE_POLL_SEC)
+
+    class _Wurzel:
+        def after(self, *_a):
+            return None
+
+    class _W:
+        texte_next = 10 ** 12
+
+    class _Ich:
+        SPIELENDE_TAKT_MS = 20000
+        root = _Wurzel()
+        watcher = _W()
+        _spiel_lief = True
+        _spielende_laeuft = False
+
+        def _im_tk(self, f):
+            pass
+
+        def _spielende_wache(self):
+            pass
+
+    _alt421 = (_au421.game_running, _sp421.on_game_ended,
+               _sp421.on_game_started)
+    _vorher = set(_th421.enumerate())
+    try:
+        _au421.game_running = lambda: False
+        _sp421.on_game_ended = lambda: None
+        _sp421.on_game_started = lambda: None
+        _ich = _Ich()
+        _sb421.Overlay._spielende_wache(_ich)
+        for _t in set(_th421.enumerate()) - _vorher:
+            _t.join(5)
+        pruefe(_ich.watcher.texte_next == 0.0,
+               'Spielende setzt den Termin für die Übersetzung auf sofort (%r)'
+               % _ich.watcher.texte_next)
+        _ich2 = _Ich()
+        _ich2.watcher = _W()
+        _ich2._spiel_lief = False
+        _sb421.Overlay._spielende_wache(_ich2)
+        for _t in set(_th421.enumerate()) - _vorher:
+            _t.join(5)
+        pruefe(_ich2.watcher.texte_next == 10 ** 12,
+               'ohne Spielende bleibt der Termin, wie er ist')
+    finally:
+        (_au421.game_running, _sp421.on_game_ended,
+         _sp421.on_game_started) = _alt421
 
 
 def _alle_eingaben(w):

@@ -157,9 +157,12 @@ CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur
 SCMDB_BASE     = 'https://scmdb.net/data'
 SCMDB_CACHE    = paths.app_file('scmdb-items.json')   # aufbereitet, klein
 SCMDB_POLL_SEC = 6 * 3600    # nur alle 6 Stunden nach einer neuen Spielversion sehen
-# Übersetzung und Bauplan-Angaben: beim Start und danach alle sechs Stunden.
-# Häufiger bringt nichts — die Quellen aktualisieren im Tagesrhythmus.
-TEXTE_POLL_SEC = 6 * 3600
+# Übersetzung und Bauplan-Angaben: beim Start, nach jedem Spielende
+# (`_spielende_wache`) und dazwischen stündlich. ⚠ Die Abfrage geht über die
+# GitHub-API, ohne Anmeldung 60 Anfragen je Stunde und Anschluss — geteilt mit
+# dem Update-Prüfen und jedem anderen Programm im selben Netz. Je Kanal eine
+# Anfrage pro Lauf; kürzer als eine Stunde riskiert Absagen.
+TEXTE_POLL_SEC = 3600
 # ⚠ Der EIGENE Bestand hat einen ganz anderen Takt und darf nicht an diesem
 # hängen: Er ändert sich, während der Spieler spielt. Am Texte-Takt gekoppelt,
 # sähe man ein freigeschaltetes Kästchen im Spiel frühestens sechs Stunden
@@ -3511,6 +3514,12 @@ class Overlay:
                 if vorher and not laeuft:
                     self._im_tk(
                         lambda: self._nach_version_sehen(spielende=True))
+                    # Übersetzung gleich nachsehen, nicht erst im Stundentakt:
+                    # Beim nächsten Spielstart soll die neueste da sein. Der
+                    # Watcher-Faden sieht den Termin bei seinem nächsten Takt.
+                    watcher = getattr(self, 'watcher', None)
+                    if watcher is not None:
+                        watcher.texte_next = 0.0
                 # Startprogramme: die Einträge für den Spielstart beim Wechsel
                 # auf laufend, das Beenden beim Wechsel auf aus. Auch der
                 # erste Blick zählt — läuft das Spiel schon beim Start von

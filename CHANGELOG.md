@@ -6,6 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Übersetzung schneller aktuell** — Verse-Kit sieht nach jedem Spielende
+  und danach stündlich nach einer neuen Übersetzung, statt alle sechs Stunden
+
 ## v3.97.1 - 2026-10-10
 
 > Zwei Klarstellungen auf der neuen Grafik-Seite.

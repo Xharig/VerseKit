@@ -6,6 +6,13 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Translations up to date sooner** — Verse-Kit checks for a new translation
+  after every game session and hourly in between, instead of every six hours
+
 ## v3.97.1 - 2026-10-10
 
 > Two clarifications on the new graphics page.
