@@ -22104,12 +22104,13 @@ def main():
     _ich227 = _ty227.SimpleNamespace(
         _auftrag_missionen={'m1': 'Auftrag A'},
         _offene_auftraege={'Auftrag A': 'Zeile A'},
+        _auftrag_unklar=set(),
         _ziele=_ty227.SimpleNamespace(open_for=lambda k: []))
     try:
         _stand227 = _sw227.Watcher._auftragsstand(_ich227)
     except Exception as _a227:
         _stand227 = _a227
-    pruefe(_stand227 == [('Auftrag A', 'Zeile A', [])],
+    pruefe(_stand227 == [('Auftrag A', 'Zeile A', [], False)],
            'der Auftragsstand fuer die Anzeige laesst sich bilden (%r)' % (_stand227,))
 
     # 228. Bauplan-Fortschritt nur fuer die Merkliste

@@ -6,7 +6,10 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.98.2 - 2026-10-10
+
+> Contracts in the overlay are now right with a group and after a server
+> change too, and Verse-Kit opens on the overview.
 
 ### Improved
 

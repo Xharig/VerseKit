@@ -6,7 +6,10 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.98.2 - 2026-10-10
+
+> Aufträge im Overlay stimmen jetzt auch mit Gruppe und nach einem
+> Serverwechsel, und Verse-Kit öffnet sich auf der Übersicht.
 
 ### Verbessert
 
