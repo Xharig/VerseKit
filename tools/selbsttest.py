@@ -39120,6 +39120,65 @@ def _pruefung_422():
            'Spielzeit: nur der Teil in den letzten 7 Tagen zählt (%r)'
            % _woche422)
 
+    _lager422 = _ov422.storage_top([
+        {'material': 'Quantanium', 'menge': 5, 'ort': 'ARC-L1'},
+        {'material': 'quantanium', 'menge': 20, 'ort': 'CRU-L1'},
+        {'material': 'Agricium', 'menge': 12, 'ort': 'ARC-L1'},
+        {'material': 'Gold', 'menge': 1, 'ort': 'HUR-L2'},
+        {'material': 'Laranite', 'menge': 2, 'ort': ''}])
+    pruefe(_lager422 == [('Quantanium', 25, 'CRU-L1'), ('Agricium', 12, 'ARC-L1'),
+                         ('Laranite', 2, '')],
+           'Lager: Summe je Rohstoff, Ort mit dem meisten, die drei größten (%r)'
+           % _lager422)
+    _stueck422 = _ov422.storage_top(
+        [{'material': 'Hadanite', 'menge': 40, 'ort': 'A'},
+         {'material': 'Gold', 'menge': 3, 'ort': 'B'}],
+        piece=lambda n: n == 'Hadanite')
+    pruefe([n for n, _m, _o in _stueck422] == ['Gold', 'Hadanite'],
+           'Lager: gezählte Rohstoffe stehen hinter den gemessenen (%r)'
+           % _stueck422)
+
+    def _check422(name, owned):
+        bring = {'Auftrag A': ['P1', 'P2', 'P3'], 'Auftrag B': ['P4']}
+        if name not in bring:
+            return None
+        return len(bring[name]), [n for n in bring[name] if not owned(n)]
+    _auftr422 = _ov422.open_contracts([
+        {'name': 'Auftrag B', 'zustand': 'laeuft'},
+        {'name': 'Auftrag A'},
+        {'name': 'Auftrag A', 'zustand': 'laeuft'},
+        {'name': 'Ohne Baupläne', 'zustand': 'laeuft'},
+        {'name': 'Fertig', 'zustand': 'abgeschlossen'}],
+        _check422, lambda n: n in ('P1', 'P4'))
+    pruefe(_auftr422 == [('Auftrag A', 3, 2), ('Auftrag B', 1, 0)],
+           'Offene Aufträge: nur laufende mit Bauplänen, je Titel einmal, '
+           'meiste fehlende zuerst (%r)' % (_auftr422,))
+    _patch422 = _ov422.patch_numbers(
+        {'version': '4.10.2-live.1',
+         'bauplaene': {'n1': {'seit': '4.10.2-live.1'},
+                       'n2': {'seit': '4.10.2-live.1'},
+                       'alt': {'seit': '4.10.1-live.9'}}},
+        {'bauplaene': {'n2': {}, 'alt': {}}})
+    pruefe(_patch422 == (2, 1, '4.10.2'),
+           'Neu im Patch: neue der jüngsten Version und davon eigene (%r)'
+           % (_patch422,))
+    _merk422 = _ov422.watch_numbers(
+        {'namen': ['Karna Rifle', 'Arden Helm'],
+         'eintraege': [{'titel': 'Alle Morozov', 'muster': ['morozov']}]},
+        {'bauplaene': {_pa422.name_key('Karna Rifle'): {}}})
+    pruefe(_merk422 == (1, 3, ['Arden Helm', 'Alle Morozov']),
+           'Merkliste: Name gefunden, wenn im Bestand; Muster bleiben offen (%r)'
+           % (_merk422,))
+    _funde422 = _ov422.latest_finds({'bauplaene': {
+        'a': {'name': 'A', 'zeit': '2026-10-09 10:00:00', 'quelle': 'log'},
+        'b': {'name': 'B', 'zeit': '2026-10-10 10:00:00', 'quelle': 'basetool'},
+        'c': {'name': 'C', 'zeit': '2026-10-10 09:00:00', 'quelle': 'log'},
+        'd': {'name': 'D', 'zeit': '2026-10-08 09:00:00', 'quelle': 'hand'},
+        'e': {'name': 'E', 'zeit': '2026-10-01 09:00:00', 'quelle': 'log'}}})
+    pruefe([n for n, _a in _funde422] == ['C', 'A', 'D'],
+           'Letzte Funde: nur aus dem Spiel, neueste zuerst, drei (%r)'
+           % _funde422)
+
     _heim422 = _tf422.mkdtemp(prefix='uebersicht-')
     _alt_heim422 = os.environ.get('SC_BP_HOME')
     try:
@@ -39141,6 +39200,18 @@ def _pruefung_422():
         pruefe(_ov422.tile_order()[0] == 'rechner'
                and sorted(_ov422.tile_order()) == sorted(_alle),
                'gemerkte Reihenfolge: Unbekanntes fällt weg, Fehlendes kommt dazu')
+        pruefe(not _ov422.available('bedarf') and _ov422.available('lager'),
+               'Bedarf der Einheit gibt es nur mit Basetool-Verbindung')
+        from scbp import backup as _bk422
+        pruefe(_bk422.last_written() == '',
+               'Sicherung: ohne Sicherung kein Zeitpunkt')
+        _ziel422 = os.path.join(_heim422, 'probe.zip')
+        _leer422 = os.path.join(_heim422, 'kein-spiel')
+        os.makedirs(_leer422)
+        _ok422 = _bk422.write(_ziel422, '0.0.0', game_folder=_leer422)[0]
+        pruefe(_ok422 and _ov422._stamp(_bk422.last_written()) is not None,
+               'Sicherung: eine gelungene Sicherung merkt sich ihren Zeitpunkt '
+               '(%r)' % _bk422.last_written())
     finally:
         if _alt_heim422 is None:
             os.environ.pop('SC_BP_HOME', None)

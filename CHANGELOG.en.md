@@ -12,8 +12,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Overview** — a start page with the essentials at a glance: game,
   blueprints with progress, translation per channel (switch it right there),
-  playtime, your PC according to the game and the state of servers, Basetool
-  and updates. Tiles can be shown, hidden and rearranged by dragging. The gear
+  playtime, your PC according to the game, the state of servers, Basetool
+  and updates, your storage, open contracts with blueprints, new this patch,
+  the watchlist, unit demand, your latest finds and the last backup. Tiles
+  can be shown, hidden and rearranged by dragging. The gear
   in the overlay now opens this page
 - **Report a problem on every page** — a red button in the footer leads
   straight to the error report

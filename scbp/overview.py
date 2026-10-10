@@ -21,12 +21,15 @@ Die Startseite: das Wichtigste aus allen Bereichen auf einen Blick, jede
 Kachel mit einem Weg zur Seite, auf der es genauer steht.
 
 Kacheln: Spiel · Baupläne · Übersetzung (Auswahl je Kanal) · Spielzeit ·
-Rechner laut Spiel · Dienste (CIG, Basetool, Update). Jede lässt sich unter
+Rechner laut Spiel · Dienste (CIG, Basetool, Update) · Lager · Offene
+Aufträge · Neu im Patch · Merkliste · Bedarf der Einheit (nur mit
+Basetool) · Letzte Funde · Sicherung. Jede lässt sich unter
 der Kachelliste ein- und ausblenden und an ihrer Überschrift auf eine andere
 ziehen, um die Plätze zu tauschen; beides wird gemerkt.
 
 Die Zahlen rechnen die reinen Funktionen oben (`blueprint_numbers`,
-`playtime_week`) — ohne Tk, damit sie sich prüfen lassen.
+`playtime_week`, `storage_top`, `open_contracts`, `patch_numbers`,
+`watch_numbers`, `latest_finds`) — ohne Tk, damit sie sich prüfen lassen.
 """
 import os
 import threading
@@ -77,6 +80,97 @@ def playtime_week(spans, now=None):
                for begin, end in spans)
 
 
+def storage_top(posts, most=3, piece=None):
+    """Die größten Rohstoffe im Lager: `[(name, menge, ort)]`, absteigend.
+
+    Die Menge ist die Summe über alle Orte und Güten; `ort` ist der Ort, an
+    dem davon am meisten liegt. `piece` (`name -> bool`) stellt gezählte
+    Rohstoffe hinter die gemessenen — Stück und SCU lassen sich nicht
+    gegeneinander aufwiegen."""
+    piece = piece or (lambda _name: False)
+    totals, places, names = {}, {}, {}
+    for post in posts or ():
+        name = (post.get('material') or '').strip()
+        if not name:
+            continue
+        key = name.lower()
+        amount = post.get('menge') or 0
+        names.setdefault(key, name)
+        totals[key] = totals.get(key, 0) + amount
+        place = (post.get('ort') or '').strip()
+        by_place = places.setdefault(key, {})
+        by_place[place] = by_place.get(place, 0) + amount
+    order = sorted(totals, key=lambda k: (bool(piece(names[k])), -totals[k],
+                                          names[k].lower()))
+    result = []
+    for key in order[:most]:
+        place = max(places[key].items(), key=lambda kv: kv[1])[0]
+        result.append((names[key], totals[key], place))
+    return result
+
+
+def open_contracts(entries, check, owned):
+    """Offene Aufträge, die Baupläne geben: `[(name, gesamt, fehlend)]`, die
+    mit den meisten fehlenden zuerst. `check` ist `contracts.check`, `owned`
+    eine Funktion `name -> bool`. Jeder Titel zählt einmal."""
+    from . import mission_log
+    seen, result = set(), []
+    for entry in entries or ():
+        if (entry.get('zustand') or mission_log.RUNNING) != mission_log.RUNNING:
+            continue
+        name = (entry.get('name') or '').strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        found = check(name, owned)
+        if found:
+            total, missing = found
+            result.append((name, total, len(missing)))
+    result.sort(key=lambda r: (-r[2], r[0].lower()))
+    return result
+
+
+def patch_numbers(catalog_data, stock):
+    """`(neu, davon_eigen, version)` für die zuletzt geholte Spielversion."""
+    from . import catalog
+    new = catalog.new_ones(catalog_data)
+    own = (stock or {}).get('bauplaene') or {}
+    version = catalog.version_short((catalog_data or {}).get('version') or '')
+    return len(new), sum(1 for key in new if key in own), version
+
+
+def watch_numbers(data, stock):
+    """`(gefunden, gesamt, [offene Titel])` der Merkliste. Ein Name gilt als
+    gefunden, sobald er im Bestand steht; ein Muster-Eintrag verschwindet
+    beim Fund und ist deshalb immer offen."""
+    from . import paths
+    own = (stock or {}).get('bauplaene') or {}
+    names = list((data or {}).get('namen') or ())
+    patterns = list((data or {}).get('eintraege') or ())
+    found = [n for n in names if paths.name_key(n) in own]
+    waiting = [n for n in sorted(names) if paths.name_key(n) not in own]
+    waiting += [e.get('titel') or '?' for e in patterns]
+    return len(found), len(names) + len(patterns), waiting
+
+
+# Herkünfte, die kein Fund im Spiel sind.
+NOT_FOUND_IN_GAME = ('basetool', 'start', 'import', 'launcher')
+
+
+def latest_finds(stock, most=3):
+    """Die zuletzt im Spiel gefundenen Baupläne: `[(name, zeitpunkt)]`."""
+    finds = []
+    for key, entry in ((stock or {}).get('bauplaene') or {}).items():
+        entry = entry or {}
+        if entry.get('quelle') in NOT_FOUND_IN_GAME:
+            continue
+        at = _stamp(entry.get('zeit') or '')
+        if at is not None:
+            finds.append((entry.get('name') or key, at))
+    finds.sort(key=lambda f: -f[1])
+    return finds[:most]
+
+
 # ------------------------------------------------------------------ Oberfläche
 def builders():
     return {'uebersicht': overview_page}
@@ -100,8 +194,12 @@ def overview_page(window, frame):
         builders_by_id = {'spiel': _tile_game, 'bauplaene': _tile_blueprints,
                           'uebersetzung': _tile_translation,
                           'spielzeit': _tile_playtime, 'rechner': _tile_machine,
-                          'dienste': _tile_services}
-        visible = visible_tiles()
+                          'dienste': _tile_services, 'lager': _tile_storage,
+                          'auftraege': _tile_contracts,
+                          'neu_patch': _tile_patch, 'merkliste': _tile_watchlist,
+                          'bedarf': _tile_demand, 'funde': _tile_finds,
+                          'sicherung': _tile_backup}
+        visible = [key for key in visible_tiles() if available(key)]
         shown = [key for key in tile_order() if key in visible]
         for index, key in enumerate(shown):
             build = builders_by_id[key]
@@ -123,8 +221,24 @@ def overview_page(window, frame):
 # Die Kacheln in ihrer Reihenfolge: (Kennung, Textschlüssel).
 TILES = (('spiel', 's_uv_spiel'), ('bauplaene', 's_uv_bauplaene'),
          ('uebersetzung', 's_uv_uebersetzung'), ('spielzeit', 's_uv_spielzeit'),
-         ('rechner', 's_uv_rechner'), ('dienste', 's_uv_dienste'))
+         ('rechner', 's_uv_rechner'), ('dienste', 's_uv_dienste'),
+         ('lager', 's_uv_lager'), ('auftraege', 's_uv_auftraege'),
+         ('neu_patch', 's_uv_neu_patch'), ('merkliste', 's_uv_merkliste'),
+         ('bedarf', 's_uv_bedarf'), ('funde', 's_uv_funde'),
+         ('sicherung', 's_uv_sicherung'))
 HIDDEN_SETTING = 'uebersicht_aus'
+
+
+def available(key):
+    """Gibt es die Kachel gerade? Der Bedarf der Einheit nur, solange es
+    seinen Reiter gibt (Basetool verbunden, Bereich an, Recht erteilt)."""
+    if key != 'bedarf':
+        return True
+    try:
+        from . import exchange_demand
+        return bool(exchange_demand.visible())
+    except Exception:
+        return False
 
 
 def visible_tiles():
@@ -238,6 +352,8 @@ def _chooser(window, frame, redraw):
         return
     current_tiles = visible_tiles()
     for key, label in TILES:
+        if not available(key):
+            continue
         row = tk.Frame(frame, bg=theme.BG)
         row.pack(fill='x', pady=(6, 0))
 
@@ -519,3 +635,161 @@ def _tile_services(window, cell):
     else:
         _line(window, body, t('s_uv_update_aktuell') % window.version,
               theme.ACCENT)
+
+
+def _amount(name, value):
+    """Menge mit Einheit — Stück oder SCU, Dezimalzeichen je Sprache."""
+    from . import crafting, materials
+    piece = False
+    try:
+        piece = crafting.is_piece(name)
+    except Exception:
+        pass
+    text = materials.amount_text(value, piece=piece,
+                                 decimal=',' if current() == 'de' else '.')
+    return text, t('s_lg_stueck') if piece else 'SCU'
+
+
+def _tile_storage(window, cell):
+    from . import materials, trade_cargo
+    body = _card(window, cell, 's_uv_lager', 'lager')
+    posts = materials.load()
+    goods = trade_cargo.load()
+    if not posts and not goods:
+        _line(window, body, t('s_uv_lager_leer'))
+        return
+    kinds = len({(p.get('material') or '').strip().lower() for p in posts
+                 if (p.get('material') or '').strip()})
+    wares = len({(g.get('ware') or '').strip().lower() for g in goods
+                 if (g.get('ware') or '').strip()})
+    _big(window, body, str(kinds + wares))
+    _line(window, body, t('s_uv_lager_posten') % (kinds, wares))
+    from . import crafting
+    for name, amount, place in storage_top(posts, piece=crafting.is_piece):
+        number, unit = _amount(name, amount)
+        text = t('s_uv_menge') % (name, number, unit)
+        if place:
+            text += ' · ' + place
+        _line(window, body, text, theme.FG)
+
+
+def _tile_contracts(window, cell):
+    from . import collection, contracts, mission_log
+    from .pages import _from_thread
+    body = _card(window, cell, 's_uv_auftraege', 'auftragslog')
+    waiting = _line(window, body, t('s_uv_lese'))
+
+    def show(found):
+        waiting.destroy()
+        if not found:
+            _line(window, body, t('s_uv_auftraege_leer'))
+            return
+        _big(window, body, str(len(found)))
+        _line(window, body, t('s_uv_auftraege_zahl') % len(found))
+        for name, total, missing in found[:3]:
+            if missing:
+                _line(window, body, t('s_uv_auftrag_fehlt')
+                      % (name, missing, total), theme.ACCENT)
+            else:
+                _line(window, body, t('s_uv_auftrag_alle') % (name, total))
+
+    def work():
+        found = []
+        try:
+            own = collection.load().get('bauplaene') or {}
+            found = open_contracts(
+                mission_log.load(), contracts.check,
+                lambda n: collection.norm(n) in own)
+        except Exception as exc:
+            errors.record('overview.contracts', exc)
+        _from_thread(body, lambda: show(found))
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def _tile_patch(window, cell):
+    from . import catalog, collection
+    body = _card(window, cell, 's_uv_neu_patch', 'liste')
+    new, owned, version = patch_numbers(catalog.load(), collection.load())
+    if not new:
+        _line(window, body, t('s_uv_neu_patch_leer') % (version or '—'))
+        return
+    _big(window, body, str(new), t('s_uv_neu_patch_zahl') % version)
+    _line(window, body, t('s_uv_neu_patch_hast') % owned,
+          theme.ACCENT if owned else None)
+
+
+def _tile_watchlist(window, cell):
+    from . import collection, watchlist
+    from .main_window import round_bar
+    body = _card(window, cell, 's_uv_merkliste', 'fortschritt')
+    found, total, waiting = watch_numbers(watchlist.load(), collection.load())
+    if not total:
+        _line(window, body, t('s_uv_merkliste_leer'))
+        return
+    _big(window, body, str(found), t('s_uv_merkliste_zahl') % (found, total))
+    round_bar(body, 7, found / float(total), theme.SURFACE, theme.HOVER,
+              theme.ACCENT).pack(fill='x', pady=(6, 6))
+    for title in waiting[:3]:
+        _line(window, body, title, theme.FG)
+
+
+def _tile_demand(window, cell):
+    from . import exchange_demand, materials
+    body = _card(window, cell, 's_uv_bedarf', 'bedarf')
+    data = exchange_demand.current()
+    if not data:
+        _line(window, body, t('s_uv_bedarf_leer'))
+        return
+    wanted = data.get('materials') or []
+    items = data.get('items') or []
+    complete = 0
+    for entry in wanted:
+        try:
+            have, _low = materials.amount_with_quality(
+                entry['name'], entry.get('min_quality') or 0)
+        except Exception:
+            have = 0
+        if have and have >= (entry.get('amount') or 0):
+            complete += 1
+    _big(window, body, str(len(wanted) + len(items)))
+    _line(window, body, t('s_uv_bedarf_zahl') % (len(wanted), len(items)))
+    _line(window, body, t('s_uv_bedarf_da') % complete,
+          theme.ACCENT if complete else None)
+
+
+def _tile_finds(window, cell):
+    from . import collection
+    body = _card(window, cell, 's_uv_funde', 'liste')
+    finds = latest_finds(collection.load())
+    if not finds:
+        _line(window, body, t('s_uv_funde_leer'))
+        return
+    for name, at in finds:
+        _line(window, body, t('s_uv_fund') % (name, _ago(at)), theme.FG)
+
+
+def _tile_backup(window, cell):
+    from . import backup, file_picker
+    body = _card(window, cell, 's_uv_sicherung', 'bestand')
+    last = _stamp(backup.last_written())
+    if last:
+        _big(window, body, _ago(last))
+        _line(window, body, t('s_uv_sicherung_zuletzt') % time.strftime(
+            '%d.%m.%Y %H:%M' if current() == 'de' else '%Y-%m-%d %H:%M',
+            time.localtime(last)))
+    else:
+        _line(window, body, t('s_uv_sicherung_nie'), theme.GOLD)
+    now = tk.Label(body, text=t('s_uv_sicherung_jetzt'), bg=theme.SURFACE,
+                   fg=theme.ACCENT, font=window.f_small, cursor='hand2',
+                   anchor='w')
+    now.pack(fill='x', pady=(6, 0))
+
+    def write(_e=None):
+        try:
+            window._backup_write(file_picker, backup)
+        except Exception as exc:
+            errors.record('overview.backup', exc)
+        if window.on_show.get('uebersicht'):
+            window.on_show['uebersicht']()
+    now.bind('<Button-1>', write)

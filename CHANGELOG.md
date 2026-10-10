@@ -12,8 +12,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Übersicht** — eine Startseite mit dem Wichtigsten auf einen Blick: Spiel,
   Baupläne mit Fortschritt, Übersetzung je Kanal (direkt umstellbar),
-  Spielzeit, dein Rechner laut Spiel und die Lage von Servern, Basetool und
-  Update. Kacheln lassen sich ein- und ausblenden und per Ziehen umsortieren.
+  Spielzeit, dein Rechner laut Spiel, die Lage von Servern, Basetool und
+  Update, dein Lager, offene Aufträge mit Bauplänen, Neu im Patch, die
+  Merkliste, der Bedarf der Einheit, die letzten Funde und die letzte
+  Sicherung. Kacheln lassen sich ein- und ausblenden und per Ziehen umsortieren.
   Das Zahnrad im Overlay öffnet jetzt diese Seite
 - **Fehler melden auf jeder Seite** — ein roter Knopf unten in der Fußzeile
   führt direkt zum Fehlerbericht

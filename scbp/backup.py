@@ -178,6 +178,15 @@ def _files():
     return sorted(found, key=lambda x: x[1])
 
 
+# Einstellung mit Datum und Uhrzeit der letzten gelungenen Sicherung.
+LAST_SETTING = 'letzte_sicherung'
+
+
+def last_written():
+    """Zeitpunkt der letzten gelungenen Sicherung als Text — oder ''."""
+    return paths.setting(LAST_SETTING) or ''
+
+
 def suggestion():
     """Ein Dateiname mit Datum — eine Sicherung hält einen Stand fest."""
     return 'SC-BP-Watcher-Sicherung-%s.zip' % time.strftime('%Y-%m-%d')
@@ -210,6 +219,7 @@ def write(target, version='', game_folder=None):
                 z.write(full, rel)
             z.writestr(INFO_FILE, _info_text(version, len(files)))
         os.replace(tmp, target)
+        paths.set_setting(LAST_SETTING, time.strftime('%Y-%m-%d %H:%M:%S'))
         return True, target, len(files)
     except (OSError, zipfile.BadZipFile) as exc:
         errors.record('backup.write', exc)
