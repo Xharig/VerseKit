@@ -39191,7 +39191,7 @@ def _pruefung_422():
         _wort422('1632.36', 860, 316, 45, 14),
         _wort422('GOLD', 785, 160), _wort422('553', 875, 160, 15, 8)]
     pruefe(_rs422.remaining_seconds(_woerter422, _karte422) == 43 * 60 + 57,
-           'Raffinerie: Restzeit der Karte gelesen (43m 57s → %r)'
+           'Raffinerie: Restzeit der Karte gelesen (43m 57s ergibt %r)'
            % _rs422.remaining_seconds(_woerter422, _karte422))
     pruefe(_rs422.remaining_seconds(_woerter422, (960, 140, 180, 200)) == 3780,
            'Raffinerie: Restzeit der Nachbarkarte getrennt, OCR-„Ih" als 1h '
@@ -39250,6 +39250,25 @@ def _pruefung_422():
         pruefe(_ok422 and _ov422._stamp(_bk422.last_written()) is not None,
                'Sicherung: eine gelungene Sicherung merkt sich ihren Zeitpunkt '
                '(%r)' % _bk422.last_written())
+        import queue as _qu422
+        import sc_bp_watcher as _sw422
+        _rj422.remember([dict(_job422, remaining=60)], now=time.time() - 120)
+        _wa422 = _sw422.Watcher(_qu422.Queue())
+        _wa422._raffinerie_tick()
+        _meld422 = []
+        while not _wa422.q.empty():
+            _meld422.append(_wa422.q.get())
+        _texte422 = [str(m[1]) for m in _meld422 if m[0] == 'hinweis']
+        pruefe(len(_texte422) == 1 and 'Gold' in _texte422[0],
+               'Raffinerie: Overlay meldet den abgelaufenen Auftrag (%r)'
+               % _texte422)
+        _wa422.raff_next = 0.0
+        _wa422._raffinerie_tick()
+        _wa422b = _sw422.Watcher(_qu422.Queue())
+        _wa422b._raffinerie_tick()
+        pruefe(_wa422.q.empty() and _wa422b.q.empty(),
+               'Raffinerie: jeder Auftrag wird nur einmal gemeldet, auch nach '
+               'einem Neustart')
     finally:
         if _alt_heim422 is None:
             os.environ.pop('SC_BP_HOME', None)

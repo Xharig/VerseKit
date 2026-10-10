@@ -221,6 +221,7 @@ TEXTS = {
     's_rf_auftrag_summe': ('%s · %s cSCU', '%s · %s cSCU'),
     's_rf_auftrag_fertig': ('Fertig: %s', 'Completed: %s'),
     's_rf_auftrag_laeuft': ('Läuft noch: %s', 'Still processing: %s'),
+    's_rf_fertig_hinweis': ('Raffinerie fertig: %s', 'Refinery done: %s'),
     's_rf_lesen_bild': ('Das Bild dieser Lesung ist aufgehoben — schick es '
                         'mit einem Fehlerbericht (Info → Fehler melden), '
                         'dann wird der Scanner besser.',

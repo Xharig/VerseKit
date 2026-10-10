@@ -26,7 +26,8 @@ Danach läuft die Zeit ohne weiteren Scan weiter, auch über einen Neustart.
 Ein Auftrag ist an seinen Rohstoffen und seiner Ausbeute zu erkennen. Ein
 neuer Scan desselben Auftrags ersetzt die Endzeit; liest er ihn als fertig,
 gilt er ab sofort als fertig. Fertige Aufträge fallen nach `KEEP_DONE_SEC`
-aus der Liste.
+aus der Liste. Das Overlay meldet jeden abgelaufenen Auftrag einmal
+(`announce_due`, Merkmal `gemeldet`).
 """
 import json
 import os
@@ -91,6 +92,8 @@ def merge(stored, scanned, now):
                            'ends': now + job['remaining']}
         elif job.get('state') == 'fertig' and key in by_key:
             by_key[key]['ends'] = min(by_key[key]['ends'], now)
+            # Wer ihn am Terminal fertig sieht, braucht keine Meldung mehr.
+            by_key[key]['gemeldet'] = True
     kept = [j for j in by_key.values() if now - j['ends'] <= KEEP_DONE_SEC]
     kept.sort(key=lambda j: j['ends'])
     return kept
@@ -105,6 +108,29 @@ def remember(scanned, now=None):
     jobs = merge(load(), scanned, now)
     _save(jobs)
     return jobs
+
+
+def due(stored, now):
+    """`(fällig, alle)` — fällig sind abgelaufene Aufträge ohne `gemeldet`;
+    in `alle` tragen sie danach `gemeldet: True`. Ohne Platte."""
+    found, jobs = [], []
+    for job in stored or ():
+        job = dict(job)
+        if job['ends'] <= now and not job.get('gemeldet'):
+            job['gemeldet'] = True
+            found.append(job)
+        jobs.append(job)
+    return found, jobs
+
+
+def announce_due(now=None):
+    """Die seit dem letzten Aufruf fertig gewordenen Aufträge — jeder genau
+    einmal, auch über einen Neustart hinweg."""
+    now = time.time() if now is None else now
+    found, jobs = due(load(), now)
+    if found:
+        _save(jobs)
+    return found
 
 
 def current(now=None):

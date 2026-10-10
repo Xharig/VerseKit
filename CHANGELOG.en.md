@@ -17,6 +17,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the watchlist, unit demand, your latest finds and the last backup. Tiles
   can be shown, hidden and rearranged by dragging. The gear
   in the overlay now opens this page
+- **Refinery timer** — Ctrl+Alt+R at the terminal now also reads the time
+  left on every running job. The overview counts it down, and the overlay
+  tells you as soon as a job is done (Windows only)
 - **Report a problem on every page** — a red button in the footer leads
   straight to the error report
 

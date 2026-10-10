@@ -681,15 +681,15 @@ def _tile_refinery(window, cell):
     body = _card(window, cell, 's_uv_raffinerie', 'lager')
     running, done = refinery_jobs.current()
     if not running and not done:
-        _line(window, body, t('s_uv_raff_leer')
-              % (paths.setting('hotkey_scan') or DEFAULT_SCAN))
+        keys = paths.setting('hotkey_scan') or DEFAULT_SCAN
+        _line(window, body, t('s_uv_raff_leer') % keys)
         return
     _big(window, body, str(len(running)),
          t('s_uv_raff_zahl') % (len(running), len(done)))
     rows = []
     for job in running[:3] + done[:max(0, 3 - len(running))]:
-        name = _line(window, body, refinery_scan.job_label(
-            {'materials': job['materials'], 'total': job['total']}), theme.FG)
+        label = refinery_scan.job_label(job)
+        name = _line(window, body, label, theme.FG)
         state = _line(window, body, '')
         rows.append((job['ends'], state))
         name.pack_configure(pady=(6, 0))

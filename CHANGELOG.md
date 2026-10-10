@@ -17,6 +17,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Merkliste, der Bedarf der Einheit, die letzten Funde und die letzte
   Sicherung. Kacheln lassen sich ein- und ausblenden und per Ziehen umsortieren.
   Das Zahnrad im Overlay öffnet jetzt diese Seite
+- **Raffinerie-Timer** — Strg+Alt+R am Terminal liest jetzt auch die
+  Restzeit jedes laufenden Auftrags. Die Übersicht zählt sie herunter, und
+  das Overlay meldet, sobald ein Auftrag fertig ist (nur Windows)
 - **Fehler melden auf jeder Seite** — ein roter Knopf unten in der Fußzeile
   führt direkt zum Fehlerbericht
 

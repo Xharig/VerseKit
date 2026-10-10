@@ -163,6 +163,8 @@ SCMDB_POLL_SEC = 6 * 3600    # nur alle 6 Stunden nach einer neuen Spielversion 
 # dem Update-Prüfen und jedem anderen Programm im selben Netz. Je Kanal eine
 # Anfrage pro Lauf; kürzer als eine Stunde riskiert Absagen.
 TEXTE_POLL_SEC = 3600
+# Wie oft nachgesehen wird, ob ein gescannter Raffinerie-Auftrag fertig ist.
+RAFF_POLL_SEC = 15
 # ⚠ Der EIGENE Bestand hat einen ganz anderen Takt und darf nicht an diesem
 # hängen: Er ändert sich, während der Spieler spielt. Am Texte-Takt gekoppelt,
 # sähe man ein freigeschaltetes Kästchen im Spiel frühestens sechs Stunden
@@ -788,6 +790,7 @@ class Watcher(threading.Thread):
         self.kat_laeuft = False  # holt gerade ein Nebenthread den Katalog?
         self.texte_next = 0.0   # nächster Blick auf Übersetzung und Injektion
         self.bestand_next = 0.0  # nächster Blick auf den EIGENEN Bestand
+        self.raff_next = 0.0    # nächster Blick auf fertige Raffinerie-Aufträge
         self.datei_next = 0.0   # nächster Blick auf die Textdatei des Spiels
         self.datei_stand = None  # Größe und Zeitstempel nach dem letzten Abgleich
         self.texte_laeuft = False
@@ -1863,6 +1866,23 @@ class Watcher(threading.Thread):
         except Exception:
             self.kat_next = time.time() + 300
 
+    def _raffinerie_tick(self):
+        """Abgelaufene Raffinerie-Aufträge im Overlay melden — jeden einmal.
+        Die Endzeit stammt aus dem Scan des Terminals (`refinery_jobs`)."""
+        jetzt = time.time()
+        if jetzt < self.raff_next:
+            return
+        self.raff_next = jetzt + RAFF_POLL_SEC
+        from scbp import refinery_jobs, refinery_scan
+        try:
+            fertig = refinery_jobs.announce_due(jetzt)
+        except Exception as ausnahme:
+            errors.record('watcher.raffinerie', ausnahme)
+            return
+        for auftrag in fertig:
+            self.q.put(('hinweis', language.Phrase(
+                's_rf_fertig_hinweis', refinery_scan.job_label(auftrag))))
+
     def run(self):
         # 0) Ohne Bauplan-Namen lässt sich die Spielsprache nicht erschließen —
         #    also zuerst den Katalog, falls er noch gar nicht da ist.
@@ -1921,6 +1941,7 @@ class Watcher(threading.Thread):
             self._katalog_tick()
             self._texte_tick()
             self._preise_tick()
+            self._raffinerie_tick()
             # Abgleich mit dem KRT Profit Basetool — nur wenn freigeschaltet,
             # verbunden und zugeschaltet; sonst kehrt das sofort zurück.
             basetool_sync.tick(self)
