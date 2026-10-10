@@ -29,6 +29,9 @@ Four things are deliberate and will stay that way:
 | ✅ | **Missions & log** — which missions were played when, how often, and which blueprint came out of it; any mission can simply be looked up as well, and searched on the Issue Council with one click |
 | ✅ | **Backup** — everything of yours into one file and back again, for moving to another PC |
 | ✅ | **Clear shader cache** — empty the shader caches of Star Citizen and the graphics drivers with one button, graphics settings stay |
+| ✅ | **Graphics** — set renderer, window mode, upscaling and image effects without the game; plus the game's performance index and rating, and which setting to lower first |
+| ✅ | **Unit demand** — what your unit's open orders in the KRT Profit Basetool need, against your own storage |
+| ✅ | **What's new as a gallery** — after an update, the main new features once, with a picture and the way there |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |
 | ✅ | **Pin the overlay to a screen corner** — required in pop-up mode where it cannot be dragged; collapsed it shrinks to strip width |
 | ✅ | Catalogue watch: reports what becomes **newly craftable** in the game, plus a watchlist |

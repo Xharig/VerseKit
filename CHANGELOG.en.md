@@ -6,11 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.97.0 - 2026-10-10
 
-> Your unit's demand from the KRT Profit Basetool as its own tab, reading the
-> refinery terminal with a keyboard shortcut, and the storage now knows animal
-> parts and all plants with quality — straight from your game.
+> Set your graphics without starting the game — with the rating the game
+> itself gives your PC, and a hint on what to turn down first. Plus your
+> unit's demand from the KRT Profit Basetool, the refinery terminal on a
+> shortcut, and all game settings in one group.
 
 ### New
 

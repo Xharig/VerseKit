@@ -6,11 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.97.0 - 2026-10-10
 
-> Der Bedarf deiner Einheit aus dem KRT Profit Basetool als eigener Reiter,
-> das Raffinerie-Terminal per Tastenkombination lesen, und das Lager kennt
-> jetzt auch Tierteile und alle Pflanzen mit Güte — direkt aus deinem Spiel.
+> Grafik einstellen, ohne ins Spiel zu müssen — samt der Einstufung, die das
+> Spiel selbst für deinen Rechner vornimmt, und dem Hinweis, was du zuerst
+> runterstellst. Dazu der Bedarf deiner Einheit aus dem KRT Profit Basetool,
+> das Raffinerie-Terminal per Tastenkombination und alle Spiel-Einstellungen
+> in einer Gruppe.
 
 ### Neu
 
