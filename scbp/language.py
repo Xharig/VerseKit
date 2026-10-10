@@ -2893,14 +2893,20 @@ TEXTS = {
                               'a new version is out. One click installs it right away — '
                               'after asking first, so a stray click in the middle of a '
                               'game closes nothing.'),
-    's_dk_blackdog_idee3':   ('**Shader-Cache leeren** — ein Knopf unter '
-                              '„Sichern & Zurücksetzen", der die Shader-Speicher '
-                              'von Star Citizen und der Grafiktreiber leert, wenn '
-                              'nach einem Patch Grafikfehler oder Ruckler auftreten.',
-                              '**Clear shader cache** — a button under '
-                              '"Backup & reset" that empties the shader caches of '
-                              'Star Citizen and the graphics drivers when a patch '
-                              'brings graphics glitches or stutter.'),
+    's_dk_blackdog_idee3':   ('**Shader-Cache leeren** — ein Knopf, der die '
+                              'Shader-Speicher von Star Citizen und der '
+                              'Grafiktreiber leert, wenn nach einem Patch '
+                              'Grafikfehler oder Ruckler auftreten.',
+                              '**Clear shader cache** — a button that empties the '
+                              'shader caches of Star Citizen and the graphics '
+                              'drivers when a patch brings graphics glitches or '
+                              'stutter.'),
+    's_dk_blackdog_idee4':   ('**Spiel-Einstellungen gebündelt** — alles, was in '
+                              'die Dateien des Spiels schreibt, steht in einer '
+                              'eigenen Gruppe der Seitenleiste.',
+                              '**Game settings in one place** — everything that '
+                              'writes into the game\'s files sits in its own '
+                              'group in the sidebar.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '
@@ -5562,6 +5568,8 @@ TEXTS = {
     'hf_verkauf':        ('Kaufen & Verkaufen', 'Buy & Sell'),
     'hf_handelslager':   ('Handelslager', 'Cargo hold'),
     'hf_gruppe_einst':   ('Einstellungen', 'Settings'),
+    'hf_gruppe_spiel':   ('Spiel-Einstellungen', 'Game settings'),
+    'hf_shader':         ('Shader-Cache', 'Shader cache'),
     'hf_fortgeschritten':('Für Fortgeschrittene', 'For advanced users'),
     'hf_gruppe_info':    ('Info', 'Info'),
     'hf_liste':          ('Bauplan-Liste', 'Blueprint list'),

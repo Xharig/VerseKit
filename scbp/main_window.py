@@ -2567,9 +2567,9 @@ class MainWindow:
                   g_stat)
         self._tab('statistik_stabil', 'st_stabil', t('hf_st_stabil'), g_stat)
 
-        # ⭐⭐ Die Reihenfolge geht vom Programm zum Spiel: wie VerseKit sich
-        # verhält → wie es aussieht → wo das Spiel liegt → was im Spiel
-        # eingestellt wird → was mit dem Spiel startet → Sichern.
+        # ⭐⭐ Die Reihenfolge: wie VerseKit sich verhält → wie es aussieht →
+        # wo das Spiel liegt → Module → Basetool → Sichern. Was in die Dateien
+        # des Spiels schreibt, steht in der eigenen Gruppe darunter.
         #
         # ⚠ Die Kennungen bleiben (`anzeige` heißt jetzt „Overlay", `bestand`
         # „Sichern & Zurücksetzen") — sie stecken in „Neu"-Marken, Sprüngen und
@@ -2579,22 +2579,6 @@ class MainWindow:
         self._tab('anzeige', 'overlay', t('hf_overlay'), g_einst)
         self._tab('darstellung', 'darstellung', t('hf_darstellung'), g_einst)
         self._tab('ordner', 'ordner', t('hf_ordner'), g_einst)
-        self._tab('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
-        # ⭐ Direkt unter „Spiel" — dort stehen die Bauplan-Angaben,
-        # hier, in welche Textdatei (und in welcher Sprache, je Kanal) sie
-        # geschrieben werden. Eigener Reiter, weil elf Quellen und eine Karte
-        # je Kanal die Seite „Spiel" gesprengt hätten.
-        self._tab('uebersetzung', 'uebersetzung', t('hf_uebersetzung'),
-                  g_einst)
-        self._tab('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
-                     g_einst)
-        # Wie der eigene Aufbau aussieht (welcher Stick welche Nummer hat) und
-        # wie die Achse reagiert — dieselbe Sache aus zwei Richtungen.
-        self._tab('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
-        # ⚠ „Achsen & Kurven" schreibt in die `actionmaps.xml` und kann dort
-        # funktionierende Werte überschreiben. Die Seite steht trotzdem offen
-        # neben „Steuerung" — sie trägt ihre Warnungen selbst.
-        self._tab('achsen', 'achsen', t('hf_achsen'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
         # ⭐ Abgleich mit dem KRT Profit Basetool
         # (Freigabe: krt-profit/basetool#2273).
@@ -2602,6 +2586,27 @@ class MainWindow:
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
+
+        # ⭐ Alles, was in die Dateien des Spiels schreibt oder dort aufräumt:
+        # Auftragstexte, Sprachdatei, FOV, Tastenbelegung, Shader-Speicher.
+        g_spiel = self._group(t('hf_gruppe_spiel'), 'spiel_einst')
+        self._tab('spiel', 'auftragstexte', t('hf_spiel'), g_spiel)
+        # ⭐ Direkt unter „Spiel" — dort stehen die Bauplan-Angaben,
+        # hier, in welche Textdatei (und in welcher Sprache, je Kanal) sie
+        # geschrieben werden. Eigener Reiter, weil elf Quellen und eine Karte
+        # je Kanal die Seite „Spiel" gesprengt hätten.
+        self._tab('uebersetzung', 'uebersetzung', t('hf_uebersetzung'),
+                  g_spiel)
+        self._tab('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
+                  g_spiel)
+        # Wie der eigene Aufbau aussieht (welcher Stick welche Nummer hat) und
+        # wie die Achse reagiert — dieselbe Sache aus zwei Richtungen.
+        self._tab('joysticks', 'joysticks', t('hf_joysticks'), g_spiel)
+        # ⚠ „Achsen & Kurven" schreibt in die `actionmaps.xml` und kann dort
+        # funktionierende Werte überschreiben. Die Seite steht trotzdem offen
+        # neben „Steuerung" — sie trägt ihre Warnungen selbst.
+        self._tab('achsen', 'achsen', t('hf_achsen'), g_spiel)
+        self._tab('shader', 'leeren', t('hf_shader'), g_spiel)
 
         # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas,
         # deshalb stehen sie nicht unter „Einstellungen".

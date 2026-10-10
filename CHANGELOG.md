@@ -33,6 +33,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Spiel-Einstellungen in einer eigenen Gruppe** — Spiel, Übersetzung, FOV,
+  Steuerung, Achsen & Kurven und das Leeren des Shader-Caches stehen jetzt
+  zusammen in der Seitenleiste. Der Shader-Cache hat einen eigenen Reiter statt
+  eines Knopfs unten auf *Sichern & Zurücksetzen*. Vorschlag von Blackd0g84 (KRT)
 - **Pflanzen, Tierteile, Saldynium und Jaclium zählen in Stück**, nicht mehr
   in SCU — wie im Spiel
 - **Kaufen & Verkaufen: Stückware je Stück** — Edelsteine, Saldynium,

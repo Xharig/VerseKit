@@ -133,6 +133,7 @@ def _builders():
         'joysticks':   _joysticks,
         'achsen':      _axes,
         'blickwinkel': _view_angle,
+        'shader':      _shader_cache,
         'diagnose':    _diagnostics,
         'hangar':      _hangar,
         'wunschliste': _wishlist,
@@ -3805,19 +3806,16 @@ def _collection(fenster, rahmen):
     _status(fenster, innen, '!', t('s_be_reset_warn'), t('s_be_reset_warn_h'),
             color=GOLD)
 
-    _shader_cache_section(fenster, innen)
 
-
-def _shader_cache_section(window, parent):
+def _shader_cache(window, frame):
     """Shader-Zwischenspeicher von Star Citizen und den Grafiktreibern leeren —
     nur, solange das Spiel nicht läuft. Suchen und Löschen laufen im
     Hintergrund, beides kann bei vielen tausend Dateien Sekunden dauern."""
     from . import shader_cache
     from .language import current
 
-    tk.Label(parent, text=t('s_sc_titel'), bg=BG, fg=FG,
-             font=window.f_title, anchor='w').pack(fill='x', pady=(28, 2))
-    _body_text(parent, t('s_sc_lead'), window.f_small, fill='x', pady=(0, 12))
+    _heading(window, frame, t('hf_shader'), t('s_sc_lead'))
+    parent = _scroll_area(frame)
     slot = _setting_row(window, parent, t('s_sc_knopf'), t('s_sc_knopf_h'))
     busy = [False]
 
@@ -6903,7 +6901,8 @@ def _thanks(fenster, rahmen):
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee') + '\n\n'
              + t('s_dk_blackdog_idee2') + '\n\n'
-             + t('s_dk_blackdog_idee3'), ''),
+             + t('s_dk_blackdog_idee3') + '\n\n'
+             + t('s_dk_blackdog_idee4'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
              + t('s_dk_aeternitas_idee2'), t('s_dk_aeternitas_bugs')),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),

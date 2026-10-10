@@ -33,6 +33,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Game settings in their own group** — Game, Translation, Field of view,
+  Controls, Axes & curves and clearing the shader cache now sit together in
+  the sidebar. The shader cache has its own tab instead of a button at the
+  bottom of *Backup & reset*. Suggested by Blackd0g84 (KRT)
 - **Plants, animal parts, Saldynium and Jaclium count in pieces**, no longer
   in SCU — as in game
 - **Buy & sell: priced per piece** — gems, Saldynium, Jaclium, animal parts

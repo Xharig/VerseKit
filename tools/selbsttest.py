@@ -25374,6 +25374,7 @@ def main():
     _pruefung_415()
     _pruefung_416()
     _pruefung_417()
+    _pruefung_418()
 
     print()
     if fehler:
@@ -38611,6 +38612,86 @@ def _pruefung_417():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim417
         shutil.rmtree(_heim417, ignore_errors=True)
+
+
+def _pruefung_418():
+    """418. Spiel-Einstellungen: eigene Gruppe, Shader-Cache als Reiter."""
+    print('\n418. Spiel-Einstellungen in einer Gruppe')
+    import ast as _ast418
+    from scbp import pages as _pg418, language as _la418
+
+    _soll418 = ['spiel', 'uebersetzung', 'blickwinkel', 'joysticks', 'achsen',
+                'shader']
+    with io.open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
+                 encoding='utf-8') as f:
+        _baum418 = _ast418.parse(f.read())
+    _je_gruppe418 = {}
+    _gruppen418 = {}
+    for _k in _ast418.walk(_baum418):
+        if (isinstance(_k, _ast418.Assign) and isinstance(_k.value, _ast418.Call)
+                and getattr(_k.value.func, 'attr', '') == '_group'
+                and len(_k.value.args) == 2):
+            _gruppen418[_k.targets[0].id] = _k.value.args[1].value
+    for _k in _ast418.walk(_baum418):
+        if (isinstance(_k, _ast418.Call)
+                and getattr(_k.func, 'attr', '') == '_tab'
+                and len(_k.args) >= 4 and isinstance(_k.args[3], _ast418.Name)):
+            _g = _gruppen418.get(_k.args[3].id, _k.args[3].id)
+            _je_gruppe418.setdefault(_g, []).append(_k.args[0].value)
+    pruefe(_je_gruppe418.get('spiel_einst') == _soll418,
+           'die Gruppe Spiel-Einstellungen führt genau %s (ist: %r)'
+           % (_soll418, _je_gruppe418.get('spiel_einst')))
+    _doppelt418 = [k for k in _soll418
+                   if k in _je_gruppe418.get('einstellungen', [])]
+    pruefe(not _doppelt418,
+           'keiner davon steht noch unter Einstellungen (%r)' % _doppelt418)
+    pruefe(_je_gruppe418.get('einstellungen', [''])[-1] == 'bestand',
+           'Sichern & Zurücksetzen bleibt letzter Reiter der Einstellungen')
+    pruefe(_la418.TEXTS['hf_gruppe_spiel'] == ('Spiel-Einstellungen',
+                                               'Game settings')
+           and _la418.TEXTS['hf_shader'][0] == 'Shader-Cache',
+           'Gruppe und Reiter tragen ihre Namen in beiden Sprachen')
+    pruefe(_pg418._builders().get('shader') is _pg418._shader_cache,
+           'der Reiter shader baut die Shader-Cache-Seite')
+    pruefe('_shader_cache' not in _pg418._collection.__code__.co_names,
+           'Sichern & Zurücksetzen baut den Shader-Knopf nicht mehr')
+
+    if not hat_anzeige():
+        print('  (Oberfläche übersprungen: kein Bildschirm)')
+        return
+    from scbp import main_window as _mw418
+    _w418 = _wurzel()
+    try:
+        _w418.deiconify()
+        _w418.geometry('1200x900')
+        _f418 = _mw418.MainWindow(_w418, version='0.0.0-pruefung')
+        _w418.update_idletasks()
+        _g418 = _f418.groups.get('spiel_einst')
+        _ist418 = [k for z in (_g418['inhalt'].winfo_children() if _g418 else [])
+                   for k, teile in _f418.buttons.items() if teile[0] is z]
+        pruefe(_ist418 == _soll418,
+               'in der Leiste stehen die Reiter in dieser Reihenfolge (%r)'
+               % _ist418)
+        _f418.open_page('shader')
+        _w418.update_idletasks()
+        _texte418 = []
+
+        def _sammeln(w):
+            try:
+                _texte418.append(w.cget('text'))
+            except Exception:
+                pass
+            if w.winfo_class() == 'Canvas':
+                for _i in w.find_all():
+                    if w.type(_i) == 'text':
+                        _texte418.append(w.itemcget(_i, 'text'))
+            for c in w.winfo_children():
+                _sammeln(c)
+        _sammeln(_f418.content)
+        pruefe(any(_la418.t('s_sc_knopf') in str(x) for x in _texte418),
+               'die Seite zeigt den Knopf „%s"' % _la418.t('s_sc_knopf'))
+    finally:
+        _w418.destroy()
 
 
 def _alle_eingaben(w):
