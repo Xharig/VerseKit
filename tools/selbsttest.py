@@ -39179,6 +39179,44 @@ def _pruefung_422():
            'Letzte Funde: nur aus dem Spiel, neueste zuerst, drei (%r)'
            % _funde422)
 
+    from scbp import refinery_scan as _rs422, refinery_jobs as _rj422
+
+    def _wort422(text, x, y, w=40, h=12):
+        return {'t': text, 'x': x, 'y': y, 'w': w, 'h': h}
+    _karte422 = (760, 140, 180, 200)
+    _woerter422 = [
+        _wort422('VERBLEIBENDE', 765, 358, 50, 8), _wort422('ZEIT', 818, 358, 20, 8),
+        _wort422('43m', 868, 356, 25, 16), _wort422('57s', 900, 356, 25, 16),
+        _wort422('Ih', 1090, 356, 18, 16), _wort422('3m', 1112, 356, 18, 16),
+        _wort422('1632.36', 860, 316, 45, 14),
+        _wort422('GOLD', 785, 160), _wort422('553', 875, 160, 15, 8)]
+    pruefe(_rs422.remaining_seconds(_woerter422, _karte422) == 43 * 60 + 57,
+           'Raffinerie: Restzeit der Karte gelesen (43m 57s → %r)'
+           % _rs422.remaining_seconds(_woerter422, _karte422))
+    pruefe(_rs422.remaining_seconds(_woerter422, (960, 140, 180, 200)) == 3780,
+           'Raffinerie: Restzeit der Nachbarkarte getrennt, OCR-„Ih" als 1h '
+           '(%r)' % _rs422.remaining_seconds(_woerter422, (960, 140, 180, 200)))
+    pruefe(_rs422.remaining_seconds(_woerter422[6:], _karte422) is None,
+           'Raffinerie: ohne Zeitzeile keine Restzeit')
+    _job422 = {'materials': ['Gold', 'Lindinium'], 'total': '1632.36',
+               'state': 'laeuft', 'remaining': 600}
+    _liste422 = _rj422.merge([], [_job422], 1000.0)
+    pruefe(_liste422 == [{'materials': ['Gold', 'Lindinium'],
+                          'total': '1632.36', 'ends': 1600.0}],
+           'Raffinerie: Endzeit = Scan + Restzeit (%r)' % _liste422)
+    _liste422 = _rj422.merge(_liste422, [dict(_job422, remaining=300)], 1100.0)
+    pruefe(len(_liste422) == 1 and _liste422[0]['ends'] == 1400.0,
+           'Raffinerie: erneuter Scan ersetzt die Endzeit (%r)' % _liste422)
+    _liste422 = _rj422.merge(_liste422, [dict(_job422, state='fertig',
+                                              remaining=None)], 1200.0)
+    pruefe(_liste422[0]['ends'] == 1200.0,
+           'Raffinerie: als fertig gelesen gilt ab sofort als fertig')
+    pruefe(_rj422.merge(_liste422, [], 1200.0 + _rj422.KEEP_DONE_SEC + 1) == [],
+           'Raffinerie: lange Fertiges fällt aus der Liste')
+    pruefe([_ov422.countdown_text(s) for s in (3780, 2637, 45, 2 * 86400 + 4 * 3600)]
+           == ['1h 3m', '43m 57s', '45s', '2d 4h'],
+           'Raffinerie: Restzeit wie im Spiel geschrieben')
+
     _heim422 = _tf422.mkdtemp(prefix='uebersicht-')
     _alt_heim422 = os.environ.get('SC_BP_HOME')
     try:

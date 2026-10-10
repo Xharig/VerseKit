@@ -21,7 +21,8 @@ Die Startseite: das Wichtigste aus allen Bereichen auf einen Blick, jede
 Kachel mit einem Weg zur Seite, auf der es genauer steht.
 
 Kacheln: Spiel · Baupläne · Übersetzung (Auswahl je Kanal) · Spielzeit ·
-Rechner laut Spiel · Dienste (CIG, Basetool, Update) · Lager · Offene
+Rechner laut Spiel · Dienste (CIG, Basetool, Update) · Raffinerie (Restzeit
+aus dem Scan, nur Windows) · Lager · Offene
 Aufträge · Neu im Patch · Merkliste · Bedarf der Einheit (nur mit
 Basetool) · Letzte Funde · Sicherung. Jede lässt sich unter
 der Kachelliste ein- und ausblenden und an ihrer Überschrift auf eine andere
@@ -194,7 +195,8 @@ def overview_page(window, frame):
         builders_by_id = {'spiel': _tile_game, 'bauplaene': _tile_blueprints,
                           'uebersetzung': _tile_translation,
                           'spielzeit': _tile_playtime, 'rechner': _tile_machine,
-                          'dienste': _tile_services, 'lager': _tile_storage,
+                          'dienste': _tile_services,
+                          'raffinerie': _tile_refinery, 'lager': _tile_storage,
                           'auftraege': _tile_contracts,
                           'neu_patch': _tile_patch, 'merkliste': _tile_watchlist,
                           'bedarf': _tile_demand, 'funde': _tile_finds,
@@ -222,7 +224,7 @@ def overview_page(window, frame):
 TILES = (('spiel', 's_uv_spiel'), ('bauplaene', 's_uv_bauplaene'),
          ('uebersetzung', 's_uv_uebersetzung'), ('spielzeit', 's_uv_spielzeit'),
          ('rechner', 's_uv_rechner'), ('dienste', 's_uv_dienste'),
-         ('lager', 's_uv_lager'), ('auftraege', 's_uv_auftraege'),
+         ('raffinerie', 's_uv_raffinerie'), ('lager', 's_uv_lager'), ('auftraege', 's_uv_auftraege'),
          ('neu_patch', 's_uv_neu_patch'), ('merkliste', 's_uv_merkliste'),
          ('bedarf', 's_uv_bedarf'), ('funde', 's_uv_funde'),
          ('sicherung', 's_uv_sicherung'))
@@ -231,7 +233,11 @@ HIDDEN_SETTING = 'uebersicht_aus'
 
 def available(key):
     """Gibt es die Kachel gerade? Der Bedarf der Einheit nur, solange es
-    seinen Reiter gibt (Basetool verbunden, Bereich an, Recht erteilt)."""
+    seinen Reiter gibt (Basetool verbunden, Bereich an, Recht erteilt); die
+    Raffinerie nur, wo das Terminal gelesen werden kann."""
+    if key == 'raffinerie':
+        from . import refinery_scan
+        return refinery_scan.supported()
     if key != 'bedarf':
         return True
     try:
@@ -648,6 +654,69 @@ def _amount(name, value):
     text = materials.amount_text(value, piece=piece,
                                  decimal=',' if current() == 'de' else '.')
     return text, t('s_lg_stueck') if piece else 'SCU'
+
+
+def countdown_text(seconds):
+    """Restzeit wie im Spiel: `1h 3m`, `43m 57s`, `2d 4h`."""
+    seconds = max(0, int(seconds))
+    days, rest = divmod(seconds, 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes, secs = divmod(rest, 60)
+    if days:
+        return '%dd %dh' % (days, hours)
+    if hours:
+        return '%dh %dm' % (hours, minutes)
+    if minutes:
+        return '%dm %ds' % (minutes, secs)
+    return '%ds' % secs
+
+
+# Takt, in dem die Restzeit auf der Kachel nachgezogen wird.
+TICK_MS = 1000
+
+
+def _tile_refinery(window, cell):
+    from . import paths, refinery_jobs, refinery_scan
+    from .hotkey import DEFAULT_SCAN
+    body = _card(window, cell, 's_uv_raffinerie', 'lager')
+    running, done = refinery_jobs.current()
+    if not running and not done:
+        _line(window, body, t('s_uv_raff_leer')
+              % (paths.setting('hotkey_scan') or DEFAULT_SCAN))
+        return
+    _big(window, body, str(len(running)),
+         t('s_uv_raff_zahl') % (len(running), len(done)))
+    rows = []
+    for job in running[:3] + done[:max(0, 3 - len(running))]:
+        name = _line(window, body, refinery_scan.job_label(
+            {'materials': job['materials'], 'total': job['total']}), theme.FG)
+        state = _line(window, body, '')
+        rows.append((job['ends'], state))
+        name.pack_configure(pady=(6, 0))
+
+    def tick():
+        now = time.time()
+        for ends, label in rows:
+            try:
+                if not label.winfo_exists():
+                    return
+                if ends > now:
+                    label.configure(
+                        text=t('s_uv_raff_noch') % (
+                            countdown_text(ends - now),
+                            time.strftime('%H:%M', time.localtime(ends))),
+                        fg=theme.SUB)
+                else:
+                    label.configure(text=t('s_uv_raff_fertig'),
+                                    fg=theme.ACCENT)
+            except tk.TclError:
+                return
+        if any(ends > now for ends, _l in rows):
+            try:
+                body.after(TICK_MS, tick)
+            except tk.TclError:
+                pass
+    tick()
 
 
 def _tile_storage(window, cell):

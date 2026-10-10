@@ -5611,6 +5611,14 @@ TEXTS = {
     's_uv_update_aktuell': ('Verse-Kit %s ist aktuell', 'Verse-Kit %s is up to date'),
     's_uv_anpassen':     ('Kacheln anpassen', 'Customise tiles'),
     's_uv_anpassen_zu':  ('Kacheln anpassen — fertig', 'Customise tiles — done'),
+    's_uv_raffinerie':   ('Raffinerie', 'Refinery'),
+    's_uv_raff_leer':    ('Kein laufender Auftrag bekannt — am Terminal %s '
+                          'drücken, dann läuft hier die Zeit mit',
+                          'No running job known — press %s at the terminal '
+                          'and the timer runs here'),
+    's_uv_raff_noch':    ('noch %s · fertig um %s', '%s left · done at %s'),
+    's_uv_raff_fertig':  ('fertig — abholen', 'done — collect it'),
+    's_uv_raff_zahl':    ('%d laufen · %d fertig', '%d running · %d done'),
     's_uv_lager':        ('Lager', 'Storage'),
     's_uv_lager_leer':   ('Noch nichts eingelagert', 'Nothing stored yet'),
     's_uv_lager_posten': ('%d Rohstoffe · %d Waren im Handelslager',

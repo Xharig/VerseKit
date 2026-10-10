@@ -120,7 +120,14 @@ def scan_from_game():
     rect = screen_grab.game_rect()
     if not rect:
         return None
-    return read_screen(rect)
+    result = read_screen(rect)
+    try:
+        from . import refinery_jobs
+        refinery_jobs.remember(result[0])
+    except Exception as exc:
+        from . import errors
+        errors.record('refinery_scan.remember', exc)
+    return result
 
 
 # --------------------------------------------------------------- Abgriff
@@ -1197,8 +1204,10 @@ def read_image(path, ocr=None, keep_failed=False):
 
     `aufträge` ist eine Liste von dicts je gefundener Tabelle, links nach
     rechts: `text` (Zeilen für das Feld), `unsure` (Rohstoffe ohne sichere
-    Zahlen), `materials` (die gelesenen Rohstoffe in Reihenfolge) und `total`
-    (die Summe als Text oder ''). Ohne Tabelle: leere Liste.
+    Zahlen), `materials` (die gelesenen Rohstoffe in Reihenfolge), `total`
+    (die Summe als Text oder ''), `state` (`job_state`) und `remaining`
+    (Restzeit in Sekunden oder None, `remaining_seconds`). Ohne Tabelle:
+    leere Liste.
 
     `keep_failed`: Bleibt eine Lesung leer oder unsicher, wird ein Bild für
     den Fehlerbericht aufgehoben (`keep`) — der Tabellenausschnitt, wenn die
@@ -1238,9 +1247,12 @@ def read_image(path, ocr=None, keep_failed=False):
             if keep_failed and (unsure or not found):
                 kept = keep(crop_png, 'tabelle') or kept
             materials = _materials_in_order(passes)
+            state = job_state(words, crop)
             jobs.append({'text': as_text(found), 'unsure': unsure,
                          'materials': materials, 'total': table['total'],
-                         'state': job_state(words, crop),
+                         'state': state,
+                         'remaining': None if state == 'fertig'
+                         else remaining_seconds(words, crop),
                          'cells': unsure_cells(src, passes, details)})
         return jobs, kept
     finally:
@@ -1276,6 +1288,47 @@ def job_state(words, box):
         if any(part in text for part in _RUNNING_WORDS):
             state = 'laeuft'
     return state
+
+
+# Die Restzeit einer Karte: `1h 3m`, `43m 57s`, `2d 4h` — Einheiten wie im
+# Spiel, deutsch und englisch gleich.
+_TIME_PART = re.compile(r'(\d+)\s*([dhms])', re.I)
+_TIME_ONLY = re.compile(r'^(?:\d+\s*[dhms]\s*)+$', re.I)
+_TIME_SECONDS = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
+# Wortteile der Beschriftung daneben (`VERBLEIBENDE ZEIT`, `TIME REMAINING`).
+_TIME_LABEL_WORDS = ('VERBLEIB', 'ZEIT', 'TIME', 'REMAIN')
+
+
+_TIME_LOOKALIKE = re.compile(r'^([\dOoDQIl|i!SsBZz]+)([dhms])$', re.I)
+
+
+def _time_digits(part):
+    """Ein Zeitwort mit verwechselten Ziffern geraderücken: `Ih` → `1h`.
+    Nur der Teil vor der Einheit wird umgesetzt, die Einheit bleibt."""
+    found = _TIME_LOOKALIKE.match(part)
+    if not found:
+        return part
+    return found.group(1).translate(_DIGIT_LOOKALIKES) + found.group(2)
+
+
+def remaining_seconds(words, box):
+    """Die Restzeit der Karte über der Tafel `box` in Sekunden — oder None.
+
+    Gesucht wird eine Zeile in der Spalte der Tafel, die außer der
+    Beschriftung nur aus Zeitangaben besteht."""
+    x, _y, w, _h = box
+    column = [word for word in words or ()
+              if x <= word.get('x', 0) + word.get('w', 0) / 2.0 <= x + w]
+    for line in rows(column):
+        parts = [(word.get('t') or '').strip() for word in line]
+        parts = [_time_digits(p) for p in parts if p and not any(
+            label in p.upper() for label in _TIME_LABEL_WORDS)]
+        text = ' '.join(parts)
+        if not text or not _TIME_ONLY.match(text):
+            continue
+        return sum(int(n) * _TIME_SECONDS[unit.lower()]
+                   for n, unit in _TIME_PART.findall(text))
+    return None
 
 
 def _materials_in_order(passes):
