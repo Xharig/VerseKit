@@ -38873,7 +38873,7 @@ def _pruefung_419():
 
 
 def _pruefung_420():
-    """420. Galerie „Was ist neu": wann sie kommt, was drinsteht."""
+    """420. Galerie nach einem Update: wann sie kommt, was drinsteht."""
     print('\n420. Galerie „Was ist neu"')
     import tempfile as _tf420
     from scbp import gallery as _ga420, language as _la420, news as _ne420

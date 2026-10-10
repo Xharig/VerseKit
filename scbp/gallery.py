@@ -41,7 +41,7 @@ SETTING = 'galerie_gesehen'
 # `art`: neu/bess/fix (wie im Changelog) · `bild`: Name unter assets/galerie ·
 # `reiter`: Kennung der Seite, die „Ansehen" öffnet · `changelog`: Anfang des
 # fett gesetzten Titels im Changelog (de, en) — diese Punkte fehlen dann in
-# der Liste „Weitere Änderungen".
+# der Schlussliste der Galerie.
 HIGHLIGHTS = {
     '3.97.0': (
         {'art': 'neu', 'bild': 'grafik', 'reiter': 'grafik',

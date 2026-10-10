@@ -131,7 +131,7 @@ def read_quality(path=None):
 def compare(levels, machine_class):
     """Die eigenen Zeilen gegen die Voreinstellung des Spiels.
 
-    Gibt `(darüber, darunter)` zurück — je eine Liste `(zeile, ist, vorschlag)`
+    Gibt `(darüber, darunter)` zurück — je eine Liste `(zeile, ist, soll)`
     in der Reihenfolge des Menüs."""
     above, below = [], []
     for row, _key in QUALITY_ROWS:
