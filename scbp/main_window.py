@@ -1996,6 +1996,17 @@ class MainWindow:
         self.root.bind_all('<Button-1>', self._click_on_empty, add='+')
 
         self.root.deiconify()
+        # Nach einem Update einmal die Galerie „Was ist neu" (`gallery`).
+        self.root.after(600, self._show_gallery)
+
+    def _show_gallery(self):
+        from . import gallery
+        try:
+            if gallery.due(self.version):
+                from . import gallery_window
+                gallery_window.show(self)
+        except Exception as exc:
+            errors.record('main_window.gallery', exc)
 
     def _click_on_empty(self, ereignis=None):
         """Wird irgendwo geklickt, das kein Eingabefeld ist: Fokus abgeben.

@@ -25376,6 +25376,7 @@ def main():
     _pruefung_417()
     _pruefung_418()
     _pruefung_419()
+    _pruefung_420()
 
     print()
     if fehler:
@@ -38869,6 +38870,99 @@ def _pruefung_419():
                'die Seite prüft vor dem Schreiben, ob das Spiel läuft')
     finally:
         shutil.rmtree(_ordner419, ignore_errors=True)
+
+
+def _pruefung_420():
+    """420. Galerie „Was ist neu": wann sie kommt, was drinsteht."""
+    print('\n420. Galerie „Was ist neu"')
+    import tempfile as _tf420
+    from scbp import gallery as _ga420, language as _la420, news as _ne420
+    from scbp import pages as _pg420, paths as _pa420
+
+    _heim420 = _tf420.mkdtemp(prefix='galerie-')
+    _alt_heim420 = os.environ.get('SC_BP_HOME')
+    try:
+        os.environ['SC_BP_HOME'] = _heim420
+        _version420 = sorted(_ga420.HIGHLIGHTS)[-1]
+        pruefe(not _ga420.due('0.0.1'),
+               'eine Version ohne Höhepunkte bringt keine Galerie')
+        pruefe(not _ga420.due(_version420)
+               and _pa420.setting(_ga420.SETTING) == _version420,
+               'frische Installation: keine Galerie, Version gemerkt')
+        _pa420.set_setting(_ga420.SETTING, '')
+        _ne420._write({'zuletzt': '3.96.1', 'bereiche': {}})
+        pruefe(_ga420.due(_version420 + '-rc1'),
+               'wer von einer älteren Fassung kommt, bekommt sie (auch als rc)')
+        _ga420.mark_shown(_version420)
+        pruefe(not _ga420.due(_version420),
+               'weggeklickt: kommt bis zum nächsten Update nicht wieder')
+        _pa420.set_setting(_ga420.SETTING, '3.90.0')
+        pruefe(_ga420.due(_version420),
+               'nach einem Update ist sie wieder da')
+    finally:
+        if _alt_heim420 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim420
+        shutil.rmtree(_heim420, ignore_errors=True)
+
+    _seiten420 = set(_pg420.page_ids())
+    _texte420 = _la420.TEXTS
+    _fehlt420, _bilder420 = [], []
+    with io.open(os.path.join(WURZEL, 'CHANGELOG.md'), encoding='utf-8') as f:
+        _de420 = f.read()
+    with io.open(os.path.join(WURZEL, 'CHANGELOG.en.md'), encoding='utf-8') as f:
+        _en420 = f.read()
+    for _version, _punkte in _ga420.HIGHLIGHTS.items():
+        for _p in _punkte:
+            for _feld in ('titel', 'text', 'weg'):
+                if _p[_feld] not in _texte420:
+                    _fehlt420.append('%s %s' % (_version, _p[_feld]))
+            if _p.get('reiter') not in _seiten420:
+                _fehlt420.append('%s Reiter %r' % (_version, _p.get('reiter')))
+            if _p['art'] not in ('neu', 'bess', 'fix'):
+                _fehlt420.append('%s Art %r' % (_version, _p['art']))
+            if ('- **' + _p['changelog'][0]) not in _de420 \
+                    or ('- **' + _p['changelog'][1]) not in _en420:
+                _fehlt420.append('%s Changelog %r' % (_version, _p['changelog']))
+            for _sprache in ('de', 'en'):
+                _pfad = _ga420.image_path(_p['bild'], _sprache)
+                if not _pfad or (_sprache == 'en'
+                                 and not _pfad.endswith('-en.png')):
+                    _bilder420.append('%s-%s' % (_p['bild'], _sprache))
+    pruefe(not _fehlt420,
+           'jeder Höhepunkt hat Texte, Reiter, Art und seinen Changelog-Punkt '
+           '(%s)' % _fehlt420)
+    pruefe(not _bilder420,
+           'jeder Höhepunkt hat sein Bild in beiden Sprachen (fehlt: %s)'
+           % _bilder420)
+    for _schluessel in ('gal_titel', 'gal_weitere', 'gal_schliessen',
+                        'gal_ansehen', 'gal_zurueck', 'gal_weiter',
+                        'gal_art_neu', 'gal_art_bess', 'gal_art_fix'):
+        if _schluessel not in _texte420:
+            _fehlt420.append(_schluessel)
+    pruefe(not _fehlt420, 'die Galerie hat alle Beschriftungen')
+    _text420 = ('### Neu\n\n- **Grafik** — x\n- **Andere Sache** — y\n'
+                '### Behoben\n\n- **Fehler weg** — z\n')
+    from scbp import updater as _up420
+    _alt_hist420 = _up420.history
+    try:
+        _up420.history = lambda: [{'version': 'v3.97.0', 'text': _text420}]
+        _rest420 = _ga420.rest('3.97.0', 'de')
+    finally:
+        _up420.history = _alt_hist420
+    pruefe(_rest420 == [('neu', 'Andere Sache'), ('fix', 'Fehler weg')],
+           'Weitere Änderungen: die übrigen Titel ohne die Höhepunkte (%r)'
+           % _rest420)
+    with io.open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
+                 encoding='utf-8') as f:
+        _yml420 = f.read()
+    pruefe(_yml420.count('assets/galerie') >= 2,
+           'die Galerie-Bilder kommen in beiden Bauten mit')
+    with io.open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
+                 encoding='utf-8') as f:
+        pruefe('gallery.due(' in f.read(),
+               'das Hauptfenster fragt beim Öffnen nach der Galerie')
 
 
 def _alle_eingaben(w):

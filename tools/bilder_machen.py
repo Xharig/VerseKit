@@ -333,6 +333,34 @@ def beispiel_bedarf():
     exchange_demand._state.update(data=daten, at=time.time(), reason='')
 
 
+def beispiel_grafik(heim):
+    """Erfundener Rechner und erfundene Grafik-Einstellungen — die echten
+    stünden sonst mit Hardware und Treiber auf der Webseite."""
+    from scbp import graphics, machine_info
+    datei = os.path.join(heim, 'beispiel-attributes.xml')
+    with open(datei, 'w', encoding='utf-8', newline='') as f:
+        f.write('<Attributes Version="35">\r\n'
+                + ''.join(' <Attr name="%s" value="%s"/>\r\n' % paar for paar in (
+                    ('ChromaticAberration', '0'), ('FilmGrain', '0'),
+                    ('MotionBlur', '0'), ('Sharpening', '0.6'),
+                    ('SysSpec_Fog', '3'), ('SysSpec_ObjectDetail', '3'),
+                    ('SysSpec_ShadowMaps', '4'), ('SysSpec_TextureQuality', '3'),
+                    ('Upscaling', '2'), ('VSync', '0'), ('WindowMode', '1')))
+                + '</Attributes>\r\n')
+    renderer = os.path.join(heim, 'beispiel-GraphicsSettings.json')
+    with open(renderer, 'w', encoding='utf-8') as f:
+        f.write('{\n  "GraphicsSettings": {\n    "SettingsVersion": 1,\n'
+                '    "GraphicsRenderer": 1\n  }\n}\n')
+    graphics.attribute_file = lambda game_folder=None: datei
+    graphics.renderer_file = lambda: renderer
+    machine_info.read = lambda folder=None: {
+        'cpu': 'AMD Ryzen 5 7600X 6-Core Processor', 'threads': 12,
+        'ram_mb': 32768, 'gpu': 'NVIDIA GeForce RTX 4070', 'driver': '581.57.0.0',
+        'vulkan': '1.4.321', 'vram_mb': 12282, 'display': (2560, 1440),
+        'dlss': True, 'cpu_bench': (38.2, 33.9), 'gpu_bench': 22.4,
+        'cpu_index': 171.4, 'gpu_index': 448.9, 'machine_class': 3}
+
+
 def beispiel_daten():
     """Erfundene Beispieldaten für JEDE Seite, die sonst leer bliebe.
 
@@ -1291,6 +1319,10 @@ def main():
     # liegen im kopierten erkul-Zwischenspeicher, das Netz braucht es nicht.
     beispiel_daten()
     beispiel_bedarf()
+    beispiel_grafik(os.environ['SC_BP_HOME'])
+    # Die Galerie „Was ist neu" läge sonst nach einem Update über jedem Bild.
+    from scbp import gallery
+    gallery.due = lambda version: False
     beispiel_steuerung(os.environ['SC_BP_HOME'])
     beispiel_bericht()
     nachlesen_abschalten()

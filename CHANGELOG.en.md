@@ -35,6 +35,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the game measures about your PC: performance index and its rating from Low
   to Ultra, plus which of your settings sit above or below what the game
   suggests for your PC. Suggested by Blackd0g84 (KRT)
+- **What's new as a gallery** — after an update Verse-Kit shows the main new
+  features once, with a picture, a short text and the way there; "Take a
+  look" jumps straight to the page. Once closed, it only comes back with the
+  next update
 - **FAQ on the website** — connecting scmdb.net, the Windows warning,
   shortcuts, backing up your data, connecting the Basetool
 

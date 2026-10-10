@@ -36,6 +36,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Einstufung von Niedrig bis Ultra, dazu, welche deiner Einstellungen über
   oder unter dem liegen, was das Spiel für deinen Rechner vorschlägt.
   Vorschlag von Blackd0g84 (KRT)
+- **Was ist neu als Galerie** — nach einem Update zeigt Verse-Kit die
+  wichtigsten Neuerungen einmal mit Bild, kurzem Text und dem Weg dorthin;
+  „Ansehen" springt direkt auf die Seite. Weggeklickt, kommt sie erst beim
+  nächsten Update wieder
 - **Häufige Fragen auf der Webseite** — scmdb.net verbinden, Windows-Warnung,
   Tastenkombinationen, Daten sichern, Basetool verbinden
 

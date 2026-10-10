@@ -5573,6 +5573,61 @@ TEXTS = {
     'hf_gruppe_spiel':   ('Spiel-Einstellungen', 'Game settings'),
     'hf_shader':         ('Shader-Cache', 'Shader cache'),
     'hf_grafik':         ('Grafik', 'Graphics'),
+    # --- Galerie „Was ist neu" ---
+    'gal_titel':         ('Was ist neu in %s', "What's new in %s"),
+    'gal_weitere':       ('Weitere Änderungen', 'More changes'),
+    'gal_schliessen':    ('Schließen', 'Close'),
+    'gal_ansehen':       ('Ansehen', 'Take a look'),
+    'gal_zurueck':       ('Zurück', 'Back'),
+    'gal_weiter':        ('Weiter', 'Next'),
+    'gal_art_neu':       ('Neu', 'New'),
+    'gal_art_bess':      ('Verbessert', 'Improved'),
+    'gal_art_fix':       ('Behoben', 'Fixed'),
+    'gal_grafik_t':      ('Grafik einstellen, ohne ins Spiel zu müssen',
+                          'Set graphics without starting the game'),
+    'gal_grafik_x':      ('Renderer, Fenstermodus, Upscaling, Schärfen und mehr. '
+                          'Dazu, was das Spiel über deinen Rechner misst — und '
+                          'welche Einstellung du zuerst runterstellst, wenn es '
+                          'ruckelt.',
+                          'Renderer, window mode, upscaling, sharpening and more. '
+                          'Plus what the game measures about your PC — and which '
+                          'setting to lower first if it stutters.'),
+    'gal_grafik_w':      ('Spiel-Einstellungen → Grafik',
+                          'Game settings → Graphics'),
+    'gal_bedarf_t':      ('Was deine Einheit gerade braucht',
+                          'What your unit needs right now'),
+    'gal_bedarf_x':      ('Die offenen Aufträge deiner Einheit aus dem KRT Profit '
+                          'Basetool — mit dem, was du davon schon im Lager hast. '
+                          'Beim Minen sagt dir das Overlay, ob das Erz gesucht '
+                          'wird.',
+                          "Your unit's open orders from the KRT Profit Basetool — "
+                          'with what you already have in stock. While mining, the '
+                          'overlay tells you whether the ore is wanted.'),
+    'gal_bedarf_w':      ('Einstellungen → Basetool → „Bedarf der Einheit" '
+                          'einschalten',
+                          'Settings → Basetool → turn on "Unit demand"'),
+    'gal_raffinerie_t':  ('Raffinerie mit einem Tastendruck eintragen',
+                          'Log the refinery with one key press'),
+    'gal_raffinerie_x':  ('Am Raffinerie-Terminal Strg+Alt+R drücken — Verse-Kit '
+                          'liest den Bildschirm und öffnet das Lager mit den '
+                          'Zeilen. Nur noch prüfen und eintragen.',
+                          'Press Ctrl+Alt+R at the refinery terminal — Verse-Kit '
+                          'reads the screen and opens the storage with the lines. '
+                          'Just check and add.'),
+    'gal_raffinerie_w':  ('Strg+Alt+R im Spiel · änderbar unter Einstellungen → '
+                          'Overlay',
+                          'Ctrl+Alt+R in game · change it under Settings → '
+                          'Overlay'),
+    'gal_spiel_t':       ('Alles fürs Spiel an einem Ort',
+                          'Everything for the game in one place'),
+    'gal_spiel_x':       ('Spiel, Übersetzung, Grafik, FOV, Steuerung, Achsen und '
+                          'der Shader-Cache stehen jetzt zusammen in einer Gruppe '
+                          'der Seitenleiste.',
+                          'Game, translation, graphics, field of view, controls, '
+                          'axes and the shader cache now sit together in one '
+                          'group of the sidebar.'),
+    'gal_spiel_w':       ('Seitenleiste → Spiel-Einstellungen',
+                          'Sidebar → Game settings'),
     's_gr_lead':         ('Die wichtigsten Grafik-Schalter von Star Citizen, '
                           'ohne ins Spiel zu müssen. Geschrieben wird nur bei '
                           'geschlossenem Spiel, vorher legt Verse-Kit eine '
