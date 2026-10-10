@@ -20,6 +20,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Graphics: quality per area** — set object detail, shadows, textures,
+  clouds and the other areas one by one, with exactly the levels the game
+  knows for each area
 - **Graphics: commands from user.cfg** — limit the frame rate, the frame rate
   in background and the in-game performance display can now be set on the
   graphics page

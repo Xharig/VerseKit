@@ -20,6 +20,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Grafik: Qualität je Bereich** — Objektdetails, Schatten, Texturen, Wolken
+  und die übrigen Bereiche einzeln einstellen, mit genau den Stufen, die das
+  Spiel für den Bereich kennt
 - **Grafik: Befehle aus der user.cfg** — Bildrate begrenzen, Bildrate im
   Hintergrund und die Leistungsanzeige im Spiel lassen sich jetzt auf der
   Grafik-Seite einstellen

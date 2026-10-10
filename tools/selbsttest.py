@@ -38875,6 +38875,19 @@ def _pruefung_419():
                'Qualität: nur Menüzeilen, nur die in der Datei (%r)'
                % _gr419.read_quality(_datei419))
 
+        # Qualitätsstufen je Bereich: setzen, Grenze je Zeile, entfernen
+        _gr419.write({'SysSpec_ShadowMaps': 5}, _datei419)
+        pruefe(_gr419.read_levels(_datei419).get('SysSpec_ShadowMaps') == 5,
+               'Qualität: Schatten auf Ultra (5) wird geschrieben')
+        try:
+            _gr419.write({'SysSpec_TextureDetail': 5}, _datei419)
+            pruefe(False, 'Qualität: Stufe über der Höchststufe wird abgelehnt')
+        except ValueError:
+            pruefe(True, 'Qualität: Stufe über der Höchststufe wird abgelehnt')
+        _gr419.write({'SysSpec_Fog': None}, _datei419)
+        pruefe('SysSpec_Fog' not in _gr419.read_levels(_datei419),
+               'Qualität: „Wie Gesamtstufe" nimmt die Zeile heraus')
+
         # user.cfg: Befehle setzen, ersetzen, entfernen — Sprache bleibt
         from scbp import usercfg as _uc419
         with open(os.path.join(_ordner419, 'user.cfg'), 'w',

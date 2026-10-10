@@ -3929,6 +3929,7 @@ def _graphics(window, frame):
             slot = _setting_row(window, body, t(caption),
                                 t(help_key) if help_key else '')
             control(slot, name, kind, values[name], choices)
+        _quality_rows(window, body, pending)
         _user_cfg_rows(window, body, pending)
         slot = _setting_row(window, body, t('s_gr_schreiben'),
                             t('s_gr_schreiben_h'), line=False)
@@ -3936,6 +3937,27 @@ def _graphics(window, frame):
 
     draw()
     window.on_show['grafik'] = draw
+
+
+def _quality_rows(window, body, pending):
+    """Die Qualitätsstufe je Bereich, wie im Grafikmenü des Spiels. Leer heißt:
+    die Zeile folgt der Gesamtstufe. Jede Zeile bietet nur die Stufen an, die
+    das Spiel für sie kennt (`graphics.TOP_LEVEL`)."""
+    from . import graphics
+    from .main_window import round_select
+    tk.Label(body, text=t('s_gr_q_titel'), bg=BG, fg=FG,
+             font=window.f_title, anchor='w').pack(fill='x', pady=(24, 2))
+    _body_text(body, t('s_gr_q_lead'), window.f_small, fill='x', pady=(0, 4))
+    levels = graphics.read_levels()
+    for row, key in graphics.EDIT_ROWS:
+        slot = _setting_row(window, body, t(key), '')
+        entries = [('', t('s_gr_q_auto'))] + [
+            (n, t('s_gr_stufe_%d' % n))
+            for n in range(1, graphics.TOP_LEVEL[row] + 1)]
+        round_select(slot, entries, levels.get(row, ''),
+                     lambda v, row=row: pending.__setitem__(
+                         row, None if v == '' else int(v)),
+                     window.f_small).pack()
 
 
 def _user_cfg_rows(window, body, pending):

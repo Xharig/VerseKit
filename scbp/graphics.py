@@ -105,6 +105,38 @@ _PRESET_EXCEPTIONS = {
 }
 
 
+# Zum Einstellen: alle Qualitätszeilen der Datei, mit ihrer höchsten Stufe —
+# aus den Abschnitten von `Engine/Config/CVarGroups/sys_spec_<Zeile>.cfg`
+# (1, 2, Standard 3, 4 und bei manchen 5). Dazu die zwei Zeilen, die im
+# Spielmenü nicht stehen; für die Hinweise (`compare`) zählen sie nicht.
+EDIT_ROWS = QUALITY_ROWS + (
+    ('SysSpec_Particles', 's_gr_q_partikel'),
+    ('SysSpec_PlanetTerrainVirtualTextures', 's_gr_q_planetentexturen'),
+)
+TOP_LEVEL = {row: 4 for row, _key in EDIT_ROWS}
+TOP_LEVEL.update({row: 5 for row in (
+    'SysSpec_ObjectDetail', 'SysSpec_ObjectViewDistance',
+    'SysSpec_TextureQuality', 'SysSpec_ShadowMaps',
+    'SysSpec_PlanetVolumetricClouds', 'SysSpec_Fog',
+    'SysSpec_PlanetTerrainVirtualTextures')})
+
+
+def read_levels(path=None):
+    """{Zeile: Stufe} für alle Zeilen aus `EDIT_ROWS`, die in der Datei stehen."""
+    path = path or attribute_file()
+    if not path:
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8', newline='') as f:
+            text = f.read()
+    except OSError as exc:
+        errors.record('graphics.read_levels', exc)
+        return {}
+    found = {m.group(1): _number(m.group(2)) for m in _LINE.finditer(text)}
+    return {row: found[row] for row, _key in EDIT_ROWS
+            if isinstance(found.get(row), int) and 1 <= found[row] <= 5}
+
+
 def preset_level(machine_class, row):
     """Die Stufe, die die Voreinstellung `machine_class` (1–5) für `row` setzt."""
     return _PRESET_EXCEPTIONS.get(machine_class, {}).get(row, machine_class)
@@ -309,7 +341,15 @@ def write(changes, path=None):
     if not path:
         return False, 's_gr_f_keine_datei'
     defaults = {name: default for name, _k, default, _c in SETTINGS}
+    # Qualitätszeilen: `None` nimmt die Zeile heraus — dann folgt die Zeile
+    # der Gesamtstufe des Spiels.
+    defaults.update({row: None for row, _key in EDIT_ROWS})
     unknown = [name for name in changes if name not in defaults]
+    bad = [name for name, value in changes.items()
+           if name in TOP_LEVEL and value is not None
+           and not (isinstance(value, int) and 1 <= value <= TOP_LEVEL[name])]
+    if bad:
+        raise ValueError('level out of range: %s' % ', '.join(bad))
     if unknown:
         raise ValueError('unknown setting: %s' % ', '.join(unknown))
     try:

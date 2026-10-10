@@ -5777,6 +5777,17 @@ TEXTS = {
     's_gr_aberration':   ('Chromatische Aberration', 'Chromatic aberration'),
     's_gr_aberration_h': ('Farbsäume an den Bildrändern.',
                           'Colour fringes at the edges of the image.'),
+    's_gr_q_titel':      ('Grafikqualität', 'Graphics quality'),
+    's_gr_q_lead':       ('Die Stufe je Bereich, wie im Spielmenü unter Grafik. '
+                          '„Wie Gesamtstufe" heißt: der Bereich folgt der '
+                          'Voreinstellung für die Gesamtqualität.',
+                          'The level per area, as in the game menu under '
+                          'Graphics. "Like overall" means the area follows '
+                          'the overall quality preset.'),
+    's_gr_q_auto':       ('Wie Gesamtstufe', 'Like overall'),
+    's_gr_q_partikel':   ('Partikel', 'Particles'),
+    's_gr_q_planetentexturen': ('Planetenoberflächen (virtuelle Texturen)',
+                                'Planet surfaces (virtual textures)'),
     's_gr_cfg_titel':    ('Erweiterte Befehle (user.cfg)',
                           'Advanced commands (user.cfg)'),
     's_gr_cfg_lead':     ('Diese Zeilen stehen in der user.cfg deines '
