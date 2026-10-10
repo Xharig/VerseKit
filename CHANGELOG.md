@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.98.1 - 2026-10-10
+
+> Die Übersetzungs-Kachel passt jetzt auch bei großer Schrift.
+
+### Behoben
+
+- **Übersicht: Übersetzungs-Kachel** — die Auswahl der Übersetzung wurde
+  bei großer Schrift rechts abgeschnitten
+
 ## v3.98.0 - 2026-10-10
 
 > Verse-Kit hat jetzt eine Startseite: Baupläne, Lager, Raffinerie,

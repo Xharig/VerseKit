@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.98.1 - 2026-10-10
+
+> The translation tile now fits with large fonts too.
+
+### Fixed
+
+- **Overview: translation tile** — the translation picker was cut off on the
+  right with large fonts
+
 ## v3.98.0 - 2026-10-10
 
 > Verse-Kit now has a start page: blueprints, storage, refinery, translation

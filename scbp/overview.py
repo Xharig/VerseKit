@@ -505,8 +505,8 @@ def _tile_translation(window, cell):
             entries.insert(0, ('', t('s_uv_keine_quelle')))
         row = tk.Frame(body, bg=theme.SURFACE)
         row.pack(fill='x', pady=(4, 0))
-        tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.FG,
-                 font=window.f_bold, width=12, anchor='w').pack(side='left')
+        row_name = tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.FG,
+                            font=window.f_bold, anchor='w')
         state = tk.Label(body, text='', bg=theme.SURFACE, fg=theme.SUB,
                          font=window.f_small, anchor='w')
 
@@ -524,8 +524,13 @@ def _tile_translation(window, cell):
                 _fetch_side(window, parts, name, folder, key, window.say)
             _status(state, key, channel)
 
-        round_select(row, entries, chosen, pick, window.f_small,
-                     bg=theme.SURFACE).pack(side='right')
+        # Erst die Auswahl, dann der Name: Tk kürzt bei Platzmangel das
+        # zuletzt gepackte Element, und das darf nur der kurze Name sein.
+        select = round_select(row, entries, chosen, pick, window.f_small,
+                              bg=theme.SURFACE)
+        select.pack(side='right')
+        select.tile_select = True
+        row_name.pack(side='left')
         state.pack(fill='x')
         _status(state, chosen, channel)
         if chosen and chosen != 'original':

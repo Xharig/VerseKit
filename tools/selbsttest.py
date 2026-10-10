@@ -39337,7 +39337,36 @@ def _pruefung_422():
         pruefe(len(_reihen) >= 2 and not _schief,
                'Kacheln einer Reihe sind gleich hoch gerahmt (%r)'
                % (_schief or _reihen))
+        # Große Schrift in einer Kachel fester Breite: Die Auswahl muss ganz
+        # bleiben, gekürzt werden darf nur der Kanalname.
         import tkinter as tk
+        import tkinter.font as _tf422
+        _alt_fonts422 = (_f422.f_bold, _f422.f_small)
+        _zelle422 = tk.Frame(_w422)
+        try:
+            _f422.f_bold = _tf422.Font(root=_w422, size=26, weight='bold')
+            _f422.f_small = _tf422.Font(root=_w422, size=20)
+            _zelle422.place(x=0, y=0, width=440, height=400)
+            _ov422._tile_translation(_f422, _zelle422)
+            _w422.update()
+            _auswahl422 = []
+
+            def _auswahl_sammeln(w):
+                if getattr(w, 'tile_select', False):
+                    _auswahl422.append(w)
+                for c in w.winfo_children():
+                    _auswahl_sammeln(c)
+            _auswahl_sammeln(_zelle422)
+            _knapp422 = [(w.winfo_width(), w.winfo_reqwidth())
+                         for w in _auswahl422
+                         if w.winfo_width() < w.winfo_reqwidth()]
+            pruefe(_auswahl422 and not _knapp422,
+                   'Übersetzungs-Kachel: Auswahl auch bei großer Schrift ganz '
+                   'zu sehen (%d Auswahlfelder, gekürzt: %r)'
+                   % (len(_auswahl422), _knapp422))
+        finally:
+            _f422.f_bold, _f422.f_small = _alt_fonts422
+            _zelle422.destroy()
         from scbp import translation as _tr422
         _echt422 = _tr422.update_available
         _gefragt422, _geholt422 = [], []
