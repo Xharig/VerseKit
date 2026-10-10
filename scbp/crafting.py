@@ -260,11 +260,15 @@ def norm_material(name):
     bei Agricium steht dort `Agricium (Ore)`. Ohne diese Angleichung findet die
     Bergbau-Sicht zu **keinem** Rohstoff einen Fundort (gemessen: 0 von 26).
 
-    Dazu die englische/amerikanische Schreibweise: `Aluminium` / `Aluminum`.
+    Dazu die englische/amerikanische Schreibweise: `Aluminium` / `Aluminum`,
+    und das vorangestellte `Raw` der Spieldatenbank: `Raw Ouratite` ist
+    `Ouratite`, `Raw Ice` ist `Ice (Raw)`.
     """
     if not name:
         return ''
     short = name.split('(')[0].strip().lower()
+    if short.startswith('raw '):
+        short = short[4:].strip()
     return short.replace('aluminium', 'aluminum')
 
 
@@ -1065,24 +1069,64 @@ def is_piece(material):
     es nicht gibt, und die niemand mit dem eigenen Inventar vergleichen kann.
     scmdb schreibt aus demselben Grund „×75".
 
-    Bei unbekanntem Namen `False`: SCU ist der Regelfall (26 von 37).
+    Stück ist, was ein Rezept als Gegenstand fordert, jede Pflanze aus den
+    Bergbaudaten und jede Ware mit Güte, die kein Erz und kein Rohmineral ist
+    (`quality_goods`) — also auch Tierteile. Bei unbekanntem Namen `False`.
     """
-    return norm_material(material) in piece_materials()
+    key = norm_material(material)
+    if key in piece_materials():
+        return True
+    aliases = plant_aliases()
+    if key in _aliases['pflanzen']:
+        return True
+    from . import quality_goods
+    return quality_goods.unit(aliases.get(key, material)) == 'stueck'
+
+
+_aliases = {'stand': None, 'map': {}, 'pflanzen': frozenset()}
+
+
+def plant_aliases():
+    """{angeglichener Pflanzenname der Bergbaudaten: Warenname mit Güte}.
+
+    Die Bergbaudaten nennen die Pflanze (`Decari`, `Sunset Berry`), die
+    Spieldatenbank die Ware (`Decari Pod`, `Sunset Berries`). Zugeordnet wird
+    über das erste Wort, und nur, wenn genau eine Ware dazu passt.
+    """
+    from . import mining, quality_goods
+    try:
+        plants = mining.plants()
+    except Exception:
+        plants = []
+    goods = [n for n, _u in quality_goods.goods()]
+    stand = (tuple(plants), tuple(goods))
+    if _aliases['stand'] == stand:
+        return _aliases['map']
+    mapping = {}
+    for plant in plants:
+        first = plant.split()[0].lower() if plant.split() else ''
+        hits = [g for g in goods if g.split() and g.split()[0].lower() == first]
+        if len(hits) == 1 and norm_material(hits[0]) != norm_material(plant):
+            mapping[norm_material(plant)] = hits[0]
+    _aliases['stand'], _aliases['map'] = stand, mapping
+    _aliases['pflanzen'] = frozenset(norm_material(p) for p in plants)
+    return mapping
 
 
 def storable():
     """**Alles**, was im Lager stehen darf — die abschliessende Liste.
 
-    Drei Quellen, alle aus den Spieldaten:
+    Vier Quellen, alle aus den Spieldaten:
 
     | Quelle | Anzahl | wofür |
     |---|---|---|
     | Rezept-Materialien | 37 | was zum Herstellen gebraucht wird (26 Erze + 11 Edelsteine) |
+    | Waren mit Güte (`quality_goods`) | 60 | aus der eigenen `Data.p4k`, auch Tierteile und Pflanzen |
     | Mineralien aus den Bergbaudaten | 39 | auch was (noch) in keinem Rezept steht |
-    | Pflanzen (`Harvestables`) | 13 | von Hand geerntet, mit Qualität |
+    | Pflanzen (`Harvestables`) | 13 | von Hand geerntet; steht dieselbe Pflanze als Ware mit Güte da, gilt deren Name (`plant_aliases`) |
 
-    ⚠ Die **Gesamtzahl ist 52** — die elf Edelsteine stehen auch in den
-    Bergbaudaten. Sie kommen aus der Rezept-Schreibweise, und damit heißt
+    ⚠ Ohne gelesene `Data.p4k` sind es **52** — die elf Edelsteine stehen
+    auch in den Bergbaudaten. Sie kommen aus der Rezept-Schreibweise, und damit heißt
     Saldynium in der
     Liste `Saldynium (Ore)` wie im Rezept. Ein vorhandener Posten `Saldynium`
     wird über `norm_material()` weiterhin gefunden und weitergezählt.
@@ -1108,11 +1152,14 @@ def storable():
     by_key = {}
     for n in material_names():
         by_key.setdefault(norm_material(n), n)
+    from . import quality_goods
     try:
         from . import mining
         more = [(e.get('name') or '').strip()
                 for e in (mining.load().get('elemente') or {}).values()]
-        more += mining.plants()
+        more += [n for n, _unit in quality_goods.goods()]
+        covered = plant_aliases()
+        more += [p for p in mining.plants() if norm_material(p) not in covered]
         for n in more:
             if n:
                 by_key.setdefault(norm_material(n), n)
@@ -1135,8 +1182,7 @@ def may_store(name):
     """Darf dieser Name im Lager stehen? Siehe `storable()`."""
     if not (name or '').strip():
         return False
-    wanted = norm_material(name)
-    return any(norm_material(n) == wanted for n in storable())
+    return storage_name(name) is not None
 
 
 def storage_name(given):
@@ -1152,7 +1198,7 @@ def storage_name(given):
     for n in storable():
         if norm_material(n) == wanted:
             return n
-    return None
+    return plant_aliases().get(wanted)
 
 
 def official_name(given):

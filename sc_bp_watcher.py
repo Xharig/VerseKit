@@ -5544,6 +5544,12 @@ if __name__ == '__main__':
         usage_ping.start(__version__)
     except Exception as ausnahme:
         errors.record('watcher.nutzung', ausnahme)
+    # Waren mit Güte aus der Spieldatenbank — nur nach einem Spiel-Patch.
+    try:
+        from scbp import quality_goods
+        quality_goods.start()
+    except Exception as ausnahme:
+        errors.record('watcher.waren_guete', ausnahme)
     # Verbindung zu scmdb.net als „Log Watcher" — nur wenn eingeschaltet.
     try:
         from scbp import scmdb_bridge

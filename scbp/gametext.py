@@ -448,6 +448,33 @@ _ARCHIVE_CACHE = {}
 _ARCHIVE_LOCK = threading.Lock()
 
 
+def read_archive_file(name, spielordner=None):
+    """Eine beliebige Datei aus der `Data.p4k` lesen — Bytes oder None.
+
+    Ohne Zwischenspeicher: gedacht für große Dateien, die nur einmal je
+    Spielstand gebraucht werden (die Spieldatenbank). Wirft nie."""
+    archiv = p4k_path(spielordner)
+    if not archiv:
+        return None
+    try:
+        groesse = os.path.getsize(archiv)
+        with open(archiv, 'rb') as f:
+            cd, _anzahl = read_directory(f, groesse)
+            treffer = find_entry(cd, name)
+            if not treffer:
+                return None
+            methode, cs, rs, off = treffer
+            roh = fetch_block(f, off, cs)
+        if methode == 100:
+            daten, _weg = unpack_zstd(roh, rs)
+            return daten or None
+        return roh
+    except Exception as ausnahme:
+        from . import errors
+        errors.record('gametext.read_archive_file', ausnahme)
+        return None
+
+
 def _read_from_archive(archiv, sprache, melde):
     """Der eigentliche Lesevorgang hinter `read_from_archive`."""
     melde(t('z_originaltexte'))

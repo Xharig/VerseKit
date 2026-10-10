@@ -25383,6 +25383,7 @@ def main():
     _pruefung_412()
     _pruefung_413()
     _pruefung_414()
+    _pruefung_415()
 
     print()
     if fehler:
@@ -38262,6 +38263,131 @@ def _pruefung_414():
         _sg414.game_rect = alt_rect
         _rs414._HANDOVER.clear()
         _rs414._HANDOVER.update(alt)
+
+
+def _pruefung_415():
+    """415. Waren mit Güte aus der Spieldatenbank: Namen, Einheit, Lager."""
+    print('\n415. Waren mit Güte: Zuordnung, Einheit, Lagerliste')
+    import tempfile as _tf415
+    from scbp import quality_goods as _qg415, crafting as _cr415
+    from scbp import mining as _mi415, gametext as _gt415
+
+    class _Db415:
+        """Nachgebaute Datenbank: Stufungen und Rohstoff-Datensätze."""
+        TYPEN = ['CraftingQualityQuantizationRecord', 'ResourceType']
+
+        def __init__(self):
+            self.saetze = [
+                ('CraftingQualityQuantizationRecord.Quantization_Iron', 0, 'g-iron'),
+                ('CraftingQualityQuantizationRecord.Quantization_KopionHorn', 0, 'g-kop'),
+                ('CraftingQualityQuantizationRecord.Quantization_SunsetBerry', 0, 'g-sun'),
+                ('CraftingQualityQuantizationRecord.Quantization_QuasiTongue', 0, 'g-qt'),
+                ('CraftingQualityQuantizationRecord.Quantization_VLKPearl', 0, 'g-vp'),
+                ('CraftingQualityQuantizationRecord.Quantization_TEMPLATE', 0, 'g-t'),
+                ('ResourceType.Ore_Iron', 1, 'r-iron'),
+                ('ResourceType.KopionHorn', 1, 'r-kop'),
+                ('ResourceType.SunsetBerry', 1, 'r-sun'),
+            ]
+            self.inhalt = {
+                'r-iron': {'displayName': '@items_commodities_iron_ore',
+                           'properties': ['REF:00000000-0000-0000-0000-00000000000a']},
+                'r-kop': {'displayName': '@items_commodities_kopionhorn',
+                          'properties': ['REF:00000000-0000-0000-0000-00000000000b']},
+                'r-sun': {'displayName': '@items_commodities_sunsetberry',
+                          'properties': []},
+            }
+            self.guid = {'g-iron': '00000000-0000-0000-0000-00000000000a',
+                         'g-kop': '00000000-0000-0000-0000-00000000000b'}
+
+        def records(self):
+            for i, (name, si, g) in enumerate(self.saetze):
+                yield name, '', si, self.guid.get(g, g), g
+
+        def type_name(self, si):
+            return self.TYPEN[si]
+
+        def read(self, si, ii, maxd=30):
+            return self.inhalt[ii]
+
+    _texte415 = {
+        'items_commodities_iron_ore': 'Iron (Ore)',
+        'items_commodities_kopionhorn': 'Kopion Horn',
+        'items_commodities_sunsetberry': 'Sunset Berries',
+        'items_commodities_quasigrazertongue': 'Quasi Grazer Tongue',
+        'items_commodities_valakkarpearl_apex_irradiated': 'Irradiated Valakkar Pearl',
+    }
+    _liste415 = _qg415.extract(_Db415(), _texte415)
+    _namen415 = dict(_liste415)
+    pruefe(_namen415.get('Iron (Ore)') == 'scu',
+           'Erz über den Verweis gefunden und in SCU (%r)' % _namen415)
+    pruefe(_namen415.get('Kopion Horn') == 'stueck',
+           'Tierteil über den Verweis gefunden und in Stück')
+    pruefe(_namen415.get('Sunset Berries') == 'stueck',
+           'Pflanze ohne Verweis über den gleichen Namen gefunden, in Stück')
+    pruefe(_namen415.get('Quasi Grazer Tongue') == 'stueck',
+           'ohne Rohstoff-Datensatz über die Wortteile im Text gefunden')
+    pruefe(not any('Pearl' in n for n in _namen415),
+           'was sich nicht eindeutig benennen lässt, bleibt draußen')
+    pruefe(not any('TEMPLATE' in n.upper() for n in _namen415),
+           'die Vorlage zählt nicht als Ware')
+
+    pruefe(_cr415.norm_material('Raw Ouratite') == 'ouratite'
+           and _cr415.norm_material('Raw Ice') == _cr415.norm_material('Ice (Raw)'),
+           'vorangestelltes „Raw" wird angeglichen')
+
+    _alt415 = (_qg415.goods, _qg415.load, _mi415.plants, _cr415.storable)
+    _alt_cache415 = dict(_cr415._aliases)
+    try:
+        _ware415 = [('Kopion Horn', 'stueck'), ('Sunset Berries', 'stueck'),
+                    ('Iron (Ore)', 'scu')]
+        _stand415 = {'waren': _ware415}
+        _qg415.goods = lambda: list(_ware415)
+        _qg415.load = lambda: _stand415
+        _mi415.plants = lambda: ['Sunset Berry', 'Amiant']
+        _cr415._aliases.update(stand=None)
+        pruefe(_cr415.plant_aliases() == {'sunset berry': 'Sunset Berries'},
+               'alter Pflanzenname wird der Ware zugeordnet (%r)'
+               % _cr415.plant_aliases())
+        pruefe(_cr415.is_piece('Kopion Horn') and _cr415.is_piece('Sunset Berry')
+               and _cr415.is_piece('Amiant'),
+               'Tierteile und Pflanzen zählen in Stück — auch ohne Güte')
+        pruefe(not _cr415.is_piece('Iron (Ore)'),
+               'Erz bleibt in SCU')
+        _cr415.storable = lambda: ['Iron', 'Kopion Horn', 'Sunset Berries', 'Amiant']
+        pruefe(_cr415.storage_name('Sunset Berry') == 'Sunset Berries'
+               and _cr415.may_store('Sunset Berry'),
+               'ein Posten mit altem Pflanzennamen findet seinen Lagernamen')
+    finally:
+        (_qg415.goods, _qg415.load, _mi415.plants, _cr415.storable) = _alt415
+        _cr415._aliases.clear()
+        _cr415._aliases.update(_alt_cache415)
+
+    _heim415 = _tf415.mkdtemp(prefix='guete-')
+    _alt_heim415 = os.environ.get('SC_BP_HOME')
+    _alt_gt415 = (_gt415.archive_stamp, _gt415.read_archive_file)
+    try:
+        os.environ['SC_BP_HOME'] = _heim415
+        _qg415._CACHE.update(mtime=None, daten=None)
+        _qg415.save('1:1', [('Kopion Horn', 'stueck')])
+        _gt415.archive_stamp = lambda *_a: '1:1'
+        _gelesen415 = []
+        _gt415.read_archive_file = lambda *_a: _gelesen415.append(1) or None
+        pruefe(_qg415.refresh() is False and not _gelesen415,
+               'gleicher Spielstand: es wird nichts neu gelesen')
+        _gt415.archive_stamp = lambda *_a: '2:2'
+        _qg415.refresh()
+        pruefe(_gelesen415 == [1],
+               'neuer Spielstand: die Datenbank wird gelesen')
+        pruefe(_qg415.goods() == [('Kopion Horn', 'stueck')],
+               'ohne lesbare Datenbank bleibt die alte Liste stehen')
+    finally:
+        _gt415.archive_stamp, _gt415.read_archive_file = _alt_gt415
+        _qg415._CACHE.update(mtime=None, daten=None)
+        if _alt_heim415 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim415
+        shutil.rmtree(_heim415, ignore_errors=True)
 
 
 def _alle_eingaben(w):
