@@ -115,6 +115,7 @@ if sys.platform == 'win32' and os.environ.get('SC_BP_UNSICHTBAR'):
 # Welche Seite unter welchem Namen abgelegt wird. Die Kennungen sind die aus
 # `scbp/pages.py`.
 SEITEN = {
+    'uebersicht':   'screenshot-uebersicht',
     'liste':        'screenshot-liste',
     'fortschritt':  'screenshot-fortschritt',
     'auftragslog':  'screenshot-auftragslog',

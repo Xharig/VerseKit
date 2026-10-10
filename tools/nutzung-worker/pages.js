@@ -8,6 +8,7 @@
 // `scbp/main_window.py` passen — der Selbsttest vergleicht beides.
 
 export const PAGES = {
+  uebersicht: ['Start', 'Übersicht'],
   liste: ['Baupläne', 'Bauplan-Liste'],
   fortschritt: ['Baupläne', 'Bauplan-Fortschritt'],
   auftragslog: ['Baupläne', 'Aufträge & Protokoll'],

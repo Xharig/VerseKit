@@ -201,6 +201,10 @@ KNOPF_SYMBOLE = {
     # Zwei Pfeile gegeneinander — der Abgleich mit dem KRT Profit Basetool
     # (v3.60.0) geht in beide Richtungen.
     'basetool':     'arrow-left-right',
+    # Vier Kacheln — die Startseite „Übersicht".
+    'uebersicht':   'layout-dashboard',
+    # Der rote Käfer in der Fußzeile — Fehler melden, auf jeder Seite.
+    'fehler':       'bug',
     'anzeige':      'monitor',
     'auftragstexte': 'message-square-text',
     'bestand':      'package',

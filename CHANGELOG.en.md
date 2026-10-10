@@ -8,6 +8,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Overview** — a start page with the essentials at a glance: game,
+  blueprints with progress, translation per channel (switch it right there),
+  playtime, your PC according to the game and the state of servers, Basetool
+  and updates. Tiles can be shown, hidden and rearranged by dragging. The gear
+  in the overlay now opens this page
+- **Report a problem on every page** — a red button in the footer leads
+  straight to the error report
+
 ### Improved
 
 - **Translations up to date sooner** — Verse-Kit checks for a new translation

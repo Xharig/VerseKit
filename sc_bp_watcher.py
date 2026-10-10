@@ -4118,8 +4118,8 @@ class Overlay:
 
     def einstellungen_oeffnen(self, via='overlay'):
         """Beide Wege führen ins **eine** Fenster — nur auf eine andere Seite. Zwei getrennte Fenster hießen: raten, in welchem etwas
-        steckt."""
-        self.fenster_oeffnen('allgemein', via=via)
+        steckt. Das Zahnrad landet auf der Übersicht."""
+        self.fenster_oeffnen('uebersicht', via=via)
 
     def einrichtung_erneut(self):
         """Den Assistenten noch einmal durchlaufen lassen."""
@@ -5088,7 +5088,7 @@ class Overlay:
         eintraege = [
             (language.t('tray_zeigen'), im_tk(self.hervorholen, 'tray')),
             (language.t('tray_einstellungen'),
-             im_tk(self.einstellungen_oeffnen, 'tray')),
+             im_tk(self.fenster_oeffnen, 'allgemein', 'tray')),
             None,
         ]
         # ⚠ Wie der Knopf im Overlay: nur, wenn wirklich ein Startweg da ist.

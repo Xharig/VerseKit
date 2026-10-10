@@ -2368,6 +2368,20 @@ class MainWindow:
                      font=self.f_small, cursor='hand2', padx=10, pady=4)
         k.pack(side='right', padx=12)
         k.bind('<Button-1>', lambda e: self.close())
+        # ⭐ „Fehler melden" fest in der Fußzeile, rot, auf jeder Seite — der
+        # Weg zum Fehlerbericht soll nicht gesucht werden müssen.
+        melden = tk.Frame(fuss, bg=BAR, cursor='hand2')
+        melden.pack(side='right', padx=(0, 4))
+        symbol = icons.button(melden, 'fehler', color=icons.RED, background=BAR,
+                              font=self.f_icon)
+        symbol.pack(side='left')
+        wort = tk.Label(melden, text=' ' + t('hf_diagnose'), bg=BAR,
+                        fg=theme.RED, font=self.f_small, cursor='hand2')
+        wort.pack(side='left')
+        melden.action = lambda: self.open_page('diagnose', via='sprung')
+        for part in (melden, symbol, wort):
+            part.bind('<Button-1>', lambda e: melden.action())
+        self.report_button = melden
 
     def say(self, text):
         """Kurze Rückmeldung in der Fußzeile — statt eines Speichern-Knopfes."""
@@ -2470,6 +2484,12 @@ class MainWindow:
         # sonst landet er beim zweiten Mal darunter.
         self.back_bar = tk.Frame(self.content, bg=BG)
         self.came_from = None
+
+        # ⭐ Die Startseite steht allein über allen Gruppen — sie gehört zu
+        # keinem Bereich, sondern fasst alle zusammen.
+        start = tk.Frame(self.sidebar, bg=SURFACE)
+        start.pack(fill='x', pady=(10, 0))
+        self._tab('uebersicht', 'uebersicht', t('hf_uebersicht'), start)
 
         g_bp = self._group(t('hf_gruppe_bp'), 'bauplaene')
         self._tab('liste', 'liste', t('hf_liste'), g_bp)

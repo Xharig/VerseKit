@@ -25378,6 +25378,7 @@ def main():
     _pruefung_419()
     _pruefung_420()
     _pruefung_421()
+    _pruefung_422()
 
     print()
     if fehler:
@@ -39045,6 +39046,103 @@ def _pruefung_421():
     finally:
         (_au421.game_running, _sp421.on_game_ended,
          _sp421.on_game_started) = _alt421
+
+
+def _pruefung_422():
+    """422. Übersicht: Zahlen, Kacheln, Reihenfolge, Zahnrad, Fehler-Knopf."""
+    print('\n422. Startseite Übersicht')
+    import tempfile as _tf422
+    from scbp import overview as _ov422, paths as _pa422
+
+    _jetzt = time.mktime(time.strptime('2026-10-10 12:00:00',
+                                       '%Y-%m-%d %H:%M:%S'))
+    _z = _ov422.blueprint_numbers(
+        {'bauplaene': {'a': {'name': 'A', 'zeit': '2026-10-09 23:40:53'},
+                       'b': {'name': 'B', 'zeit': '2026-09-01 10:00:00'},
+                       'x': {'name': 'X', 'zeit': '2026-10-10 11:00:00'}}},
+        {'bauplaene': {'a': {}, 'b': {}, 'c': {}, 'd': {}}}, now=_jetzt)
+    pruefe(_z['mine'] == 2 and _z['total'] == 4,
+           'Baupläne: nur was im Katalog steht zählt (%r)' % _z)
+    pruefe(_z['week'] == 2 and _z['newest'] == 'X',
+           'Baupläne: diese Woche und neuester (%r)' % _z)
+    # Erste Sitzung beginnt vor der Woche und endet einen Tag (minus 1 h)
+    # nach deren Anfang: Nur 23 Stunden davon zählen.
+    _woche422 = _ov422.playtime_week(
+        [(_jetzt - 8 * 86400, _jetzt - 6 * 86400 - 3600),
+         (_jetzt - 7200, _jetzt)], now=_jetzt)
+    pruefe(_woche422 == 23 * 3600 + 7200,
+           'Spielzeit: nur der Teil in den letzten 7 Tagen zählt (%r)'
+           % _woche422)
+
+    _heim422 = _tf422.mkdtemp(prefix='uebersicht-')
+    _alt_heim422 = os.environ.get('SC_BP_HOME')
+    try:
+        os.environ['SC_BP_HOME'] = _heim422
+        _alle = [k for k, _l in _ov422.TILES]
+        pruefe(_ov422.visible_tiles() == [k for k in _alle if k != 'spielzeit'],
+               'ab Werk alle Kacheln außer Spielzeit (%r)' % _ov422.visible_tiles())
+        _ov422.set_visible('dienste', False)
+        _ov422.set_visible('spielzeit', True)
+        pruefe('dienste' not in _ov422.visible_tiles()
+               and 'spielzeit' in _ov422.visible_tiles(),
+               'Kacheln ein- und ausblenden wird gemerkt')
+        pruefe(_ov422.tile_order() == _alle, 'Reihenfolge ab Werk')
+        _ov422.swap('spiel', 'rechner')
+        pruefe(_ov422.tile_order()[0] == 'rechner'
+               and _ov422.tile_order()[4] == 'spiel',
+               'Verschieben tauscht zwei Kacheln (%r)' % _ov422.tile_order())
+        _pa422.set_setting(_ov422.ORDER_SETTING, ['rechner', 'gibtsnicht'])
+        pruefe(_ov422.tile_order()[0] == 'rechner'
+               and sorted(_ov422.tile_order()) == sorted(_alle),
+               'gemerkte Reihenfolge: Unbekanntes fällt weg, Fehlendes kommt dazu')
+    finally:
+        if _alt_heim422 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim422
+        shutil.rmtree(_heim422, ignore_errors=True)
+
+    import inspect
+    import sc_bp_watcher as _sb422
+    pruefe("fenster_oeffnen('uebersicht'" in
+           inspect.getsource(_sb422.Overlay.einstellungen_oeffnen),
+           'das Zahnrad im Overlay öffnet die Übersicht')
+
+    if not hat_anzeige():
+        print('  (Oberfläche übersprungen: kein Bildschirm)')
+        return
+    from scbp import main_window as _mw422
+    _w422 = _wurzel()
+    try:
+        _w422.deiconify()
+        _w422.geometry('1200x900')
+        _f422 = _mw422.MainWindow(_w422, version='0.0.0-pruefung',
+                                  start_page='uebersicht')
+        _w422.update_idletasks()
+        _reihe = [k for k, teile in sorted(
+            _f422.buttons.items(), key=lambda kv: kv[1][0].winfo_rooty())
+            if teile[0].winfo_manager()]
+        pruefe(_reihe and _reihe[0] == 'uebersicht',
+               'Übersicht steht ganz oben in der Leiste (%r)' % _reihe[:3])
+        _seite = _f422.pages.get('uebersicht')
+        _kacheln = []
+
+        def _sammeln(w):
+            if hasattr(w, 'tile_key'):
+                _kacheln.append(w.tile_key)
+            for c in w.winfo_children():
+                _sammeln(c)
+        _sammeln(_seite)
+        pruefe(len(_kacheln) >= 4, 'die Übersicht zeigt Kacheln (%r)' % _kacheln)
+        pruefe(hasattr(_f422, 'report_button')
+               and _f422.report_button.winfo_manager() == 'pack',
+               'der rote Knopf „Fehler melden" steht in der Fußzeile')
+        _f422.report_button.action()
+        _w422.update_idletasks()
+        pruefe(_f422.current == 'diagnose',
+               'der Knopf öffnet „Fehler melden" (%r)' % _f422.current)
+    finally:
+        _w422.destroy()
 
 
 def _alle_eingaben(w):

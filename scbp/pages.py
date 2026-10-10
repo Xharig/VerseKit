@@ -109,8 +109,9 @@ def _builders():
     """
     # ⚠ Hier geladen, nicht oben im Modul: `stats_pages` holt sich seine
     # Bausteine aus diesem Modul und wäre sonst ein Zirkelbezug.
-    from . import stats_pages, settings_pages, basetool_page
+    from . import stats_pages, settings_pages, basetool_page, overview
     return {
+        **overview.builders(),
         **stats_pages.builders(),
         **settings_pages.builders(),
         **basetool_page.builders(),
@@ -3297,6 +3298,35 @@ def _choice_rows(window, parent, entries, active, action, per_row=3):
     return holder
 
 
+def _fetch_side(window, parts, channel, folder, source, say):
+    """Einen Nebenkanal (PTU …) auf eine Quelle stellen und holen — von der
+    Übersetzungsseite und von der Übersicht aus."""
+    from . import translation
+    translation.set_channel_source(channel, source)
+    if not source:
+        say(t('s_tq_unberuehrt') % channel)
+        return
+    if source != 'original' and not parts._source_confirmed(source):
+        return
+    say(t('s_sp_hole') % translation.display_name(source))
+    try:
+        if source == 'original':
+            from . import gametext
+            ok, message = gametext.fetch('english', spielordner=folder,
+                                         fortschritt=say)
+            if ok:
+                translation._note_set(translation._key('original', channel),
+                                      'Data.p4k', 'english')
+        else:
+            ok, message = translation.fetch(source, progress=say,
+                                            game_dir=folder, channel=channel)
+    except Exception as exc:
+        errors.record('pages.uebersetzung.kanal', exc)
+        ok, message = False, str(exc)
+    say(t('s_tq_fertig') % (channel, message) if ok
+        else t('inj_fehler', message))
+
+
 def _translation_page(window, frame):
     """Übersetzung — Textquelle je Kanal, mehrere Sprachen, eigene Adresse.
 
@@ -3356,31 +3386,7 @@ def _translation_page(window, frame):
         return result
 
     def fetch_side(channel, folder, source):
-        """Einen Nebenkanal (PTU …) auf eine Quelle stellen und holen."""
-        translation.set_channel_source(channel, source)
-        if not source:
-            say(t('s_tq_unberuehrt') % channel)
-            return
-        if source != 'original' and not parts._source_confirmed(source):
-            return
-        say(t('s_sp_hole') % translation.display_name(source))
-        try:
-            if source == 'original':
-                from . import gametext
-                ok, message = gametext.fetch('english', spielordner=folder,
-                                             fortschritt=say)
-                if ok:
-                    translation._note_set(translation._key('original', channel),
-                                          'Data.p4k', 'english')
-            else:
-                ok, message = translation.fetch(source, progress=say,
-                                                game_dir=folder,
-                                                channel=channel)
-        except Exception as exc:
-            errors.record('pages.uebersetzung.kanal', exc)
-            ok, message = False, str(exc)
-        say(t('s_tq_fertig') % (channel, message) if ok
-            else t('inj_fehler', message))
+        _fetch_side(window, parts, channel, folder, source, say)
 
     def card(channel_name, folder, main):
         box = tk.Frame(area, bg=BG)
