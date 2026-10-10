@@ -525,8 +525,12 @@ def _destroy_now(widget):
         pass
 
 
-def round_frame(parent, bg, border, radius=8, base_color=None):
+def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
     """Ein Kasten mit runden Ecken, in den beliebiger Inhalt kommt.
+
+    `stretch=True`: Der gemalte Rahmen reicht bis zur tatsächlichen Höhe der
+    Leinwand, auch wenn der Inhalt kürzer ist — für Kacheln in einem Raster,
+    die in einer Reihe gleich hoch stehen sollen.
 
     Tk kann Rahmen nur eckig — deshalb liegt hinter dem Inhalt eine Leinwand
     mit einem gemalten Rechteck, und der Inhalt sitzt als Fenster darauf. Die
@@ -590,6 +594,8 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
         canvas.configure(height=height + inset * 2)
         canvas.itemconfigure(window_id, width=width - inset * 2)
         bottom = height + inset * 2 - 1
+        if stretch:
+            bottom = max(bottom, canvas.winfo_height() - 1)
         canvas.coords(shape, *corners(1, 1, width - 1, bottom, radius))
         if theme.SQUARE:
             _corner_marks(canvas, width, bottom)

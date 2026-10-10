@@ -39180,6 +39180,35 @@ def _pruefung_422():
                 _sammeln(c)
         _sammeln(_seite)
         pruefe(len(_kacheln) >= 4, 'die Übersicht zeigt Kacheln (%r)' % _kacheln)
+        _w422.update()
+        _zellen = []
+
+        def _zellen_sammeln(w):
+            if hasattr(w, 'tile_key'):
+                _zellen.append(w)
+            for c in w.winfo_children():
+                _zellen_sammeln(c)
+        _zellen_sammeln(_seite)
+
+        def _leinwand(w):
+            for c in w.winfo_children():
+                if c.winfo_class() == 'Canvas':
+                    return c
+                gefunden = _leinwand(c)
+                if gefunden is not None:
+                    return gefunden
+            return None
+        _reihen = {}
+        for _z in _zellen:
+            _lw = _leinwand(_z)
+            _unten = (_lw.bbox('all') or (0, 0, 0, 0))[3] if _lw else 0
+            _reihen.setdefault(int(_z.grid_info().get('row', 0)), []).append(
+                (_z.tile_key, _unten))
+        _schief = {r: k for r, k in _reihen.items()
+                   if len(k) == 2 and abs(k[0][1] - k[1][1]) > 2}
+        pruefe(len(_reihen) >= 2 and not _schief,
+               'Kacheln einer Reihe sind gleich hoch gerahmt (%r)'
+               % (_schief or _reihen))
         pruefe(hasattr(_f422, 'report_button')
                and _f422.report_button.winfo_manager() == 'pack',
                'der rote Knopf „Fehler melden" steht in der Fußzeile')

@@ -255,7 +255,7 @@ def _card(window, cell, title_key, target=None):
     """Eine Kachel mit Überschrift und — wenn `target` — einem Weg zur Seite."""
     from .main_window import round_frame
     card = round_frame(cell, theme.SURFACE, theme.LINE, radius=8,
-                       base_color=theme.BG)
+                       base_color=theme.BG, stretch=True)
     # 2 px Rand: dort leuchtet die Zielkachel beim Ziehen (`_draggable`).
     card.holder.pack(fill='both', expand=True, padx=2, pady=2)
     head = tk.Frame(card, bg=theme.SURFACE)
