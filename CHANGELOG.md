@@ -20,6 +20,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Grafik: Befehle aus der user.cfg** — Bildrate begrenzen, Bildrate im
+  Hintergrund und die Leistungsanzeige im Spiel lassen sich jetzt auf der
+  Grafik-Seite einstellen
 - **Übersetzung schneller aktuell** — Verse-Kit sieht nach jedem Spielende
   und danach stündlich nach einer neuen Übersetzung, statt alle sechs Stunden
 

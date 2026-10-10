@@ -5575,42 +5575,42 @@ TEXTS = {
     'hf_grafik':         ('Grafik', 'Graphics'),
     # --- Startseite „Übersicht" ---
     'hf_uebersicht':     ('Übersicht', 'Overview'),
-    's_ub_lead':         ('Das Wichtigste auf einen Blick. Kacheln lassen sich '
+    's_uv_lead':         ('Das Wichtigste auf einen Blick. Kacheln lassen sich '
                           'an der Überschrift greifen und verschieben; unten '
                           'wählst du, welche zu sehen sind.',
                           'The essentials at a glance. Grab a tile by its '
                           'heading to move it; below you choose which ones '
                           'to show.'),
-    's_ub_mehr':         ('Öffnen', 'Open'),
-    's_ub_spiel':        ('Spiel', 'Game'),
-    's_ub_laeuft':       ('Läuft', 'Running'),
-    's_ub_laeuft_nicht': ('Nicht gestartet', 'Not running'),
-    's_ub_kanal':        ('Kanal: %s', 'Channel: %s'),
-    's_ub_stand':        ('Spieldaten: %s', 'Game data: %s'),
-    's_ub_bauplaene':    ('Baupläne', 'Blueprints'),
-    's_ub_von':          ('von %d · %.0f %%', 'of %d · %.0f%%'),
-    's_ub_woche':        ('Diese Woche: +%d', 'This week: +%d'),
-    's_ub_neuester':     ('Neuester: %s · %s', 'Newest: %s · %s'),
-    's_ub_uebersetzung': ('Übersetzung', 'Translation'),
-    's_ub_keine_quelle': ('Keine gewählt', 'None chosen'),
-    's_ub_spielzeit':    ('Spielzeit', 'Playtime'),
-    's_ub_sieben_tage':  ('Letzte 7 Tage: %s', 'Last 7 days: %s'),
-    's_ub_rechner':      ('Dein Rechner', 'Your PC'),
-    's_ub_lese':         ('Wird gelesen …', 'Reading …'),
-    's_ub_index':        ('Leistungsindex CPU %s · GPU %s',
+    's_uv_mehr':         ('Öffnen', 'Open'),
+    's_uv_spiel':        ('Spiel', 'Game'),
+    's_uv_laeuft':       ('Läuft', 'Running'),
+    's_uv_laeuft_nicht': ('Nicht gestartet', 'Not running'),
+    's_uv_kanal':        ('Kanal: %s', 'Channel: %s'),
+    's_uv_stand':        ('Spieldaten: %s', 'Game data: %s'),
+    's_uv_bauplaene':    ('Baupläne', 'Blueprints'),
+    's_uv_von':          ('von %d · %.0f %%', 'of %d · %.0f%%'),
+    's_uv_woche':        ('Diese Woche: +%d', 'This week: +%d'),
+    's_uv_neuester':     ('Neuester: %s · %s', 'Newest: %s · %s'),
+    's_uv_uebersetzung': ('Übersetzung', 'Translation'),
+    's_uv_keine_quelle': ('Keine gewählt', 'None chosen'),
+    's_uv_spielzeit':    ('Spielzeit', 'Playtime'),
+    's_uv_sieben_tage':  ('Letzte 7 Tage: %s', 'Last 7 days: %s'),
+    's_uv_rechner':      ('Dein Rechner', 'Your PC'),
+    's_uv_lese':         ('Wird gelesen …', 'Reading …'),
+    's_uv_index':        ('Leistungsindex CPU %s · GPU %s',
                           'Performance index CPU %s · GPU %s'),
-    's_ub_dienste':      ('Dienste', 'Services'),
-    's_ub_cig':          ('Server von CIG: %s', 'CIG servers: %s'),
-    's_ub_cig_unbekannt': ('Server von CIG: noch nicht abgefragt',
+    's_uv_dienste':      ('Dienste', 'Services'),
+    's_uv_cig':          ('Server von CIG: %s', 'CIG servers: %s'),
+    's_uv_cig_unbekannt': ('Server von CIG: noch nicht abgefragt',
                            'CIG servers: not checked yet'),
-    's_ub_basetool':     ('Basetool verbunden · abgeglichen %s',
+    's_uv_basetool':     ('Basetool verbunden · abgeglichen %s',
                           'Basetool connected · synced %s'),
-    's_ub_basetool_aus': ('Basetool nicht verbunden', 'Basetool not connected'),
-    's_ub_basetool_neu': ('Basetool verbunden', 'Basetool connected'),
-    's_ub_update_da':    ('Update verfügbar: %s', 'Update available: %s'),
-    's_ub_update_aktuell': ('Verse-Kit %s ist aktuell', 'Verse-Kit %s is up to date'),
-    's_ub_anpassen':     ('Kacheln anpassen', 'Customise tiles'),
-    's_ub_anpassen_zu':  ('Kacheln anpassen — fertig', 'Customise tiles — done'),
+    's_uv_basetool_aus': ('Basetool nicht verbunden', 'Basetool not connected'),
+    's_uv_basetool_neu': ('Basetool verbunden', 'Basetool connected'),
+    's_uv_update_da':    ('Update verfügbar: %s', 'Update available: %s'),
+    's_uv_update_aktuell': ('Verse-Kit %s ist aktuell', 'Verse-Kit %s is up to date'),
+    's_uv_anpassen':     ('Kacheln anpassen', 'Customise tiles'),
+    's_uv_anpassen_zu':  ('Kacheln anpassen — fertig', 'Customise tiles — done'),
     # --- Galerie „Was ist neu" ---
     'gal_titel':         ('Was ist neu in %s', "What's new in %s"),
     'gal_weitere':       ('Weitere Änderungen', 'More changes'),
@@ -5777,6 +5777,41 @@ TEXTS = {
     's_gr_aberration':   ('Chromatische Aberration', 'Chromatic aberration'),
     's_gr_aberration_h': ('Farbsäume an den Bildrändern.',
                           'Colour fringes at the edges of the image.'),
+    's_gr_cfg_titel':    ('Erweiterte Befehle (user.cfg)',
+                          'Advanced commands (user.cfg)'),
+    's_gr_cfg_lead':     ('Diese Zeilen stehen in der user.cfg deines '
+                          'Spielordners. Leer heißt: Verse-Kit nimmt die Zeile '
+                          'heraus, das Spiel nutzt seinen eigenen Wert.',
+                          'These lines live in the user.cfg of your game '
+                          'folder. Empty means Verse-Kit removes the line and '
+                          'the game uses its own value.'),
+    's_gr_maxfps':       ('Bildrate begrenzen', 'Limit frame rate'),
+    's_gr_maxfps_h':     ('sys_MaxFPS — höchstens so viele Bilder pro Sekunde. '
+                          'Knapp unter der Bildwiederholrate des Monitors hält '
+                          'die Grafikkarte kühler. 0 heißt keine Grenze.',
+                          'sys_MaxFPS — at most this many frames per second. '
+                          'Just below the monitor refresh rate keeps the '
+                          'graphics card cooler. 0 means no limit.'),
+    's_gr_idlefps':      ('Bildrate im Hintergrund', 'Frame rate in background'),
+    's_gr_idlefps_h':    ('sys_MaxIdleFPS — gilt, solange das Spiel nicht im '
+                          'Vordergrund ist. Spart Strom und Wärme, wenn du '
+                          'nebenbei etwas anderes machst.',
+                          'sys_MaxIdleFPS — applies while the game is not in '
+                          'the foreground. Saves power and heat while you do '
+                          'something else.'),
+    's_gr_fps_platz':    ('leer', 'empty'),
+    's_gr_info':         ('Leistungsanzeige im Spiel', 'Performance display in game'),
+    's_gr_info_h':       ('r_DisplayInfo — blendet oben rechts Werte zur '
+                          'Leistung ein. Je höher die Stufe, desto mehr Werte.',
+                          'r_DisplayInfo — shows performance figures in the '
+                          'top right. The higher the level, the more figures.'),
+    's_gr_info_0':       ('Aus', 'Off'),
+    's_gr_info_1':       ('Stufe 1', 'Level 1'),
+    's_gr_info_2':       ('Stufe 2', 'Level 2'),
+    's_gr_info_3':       ('Stufe 3', 'Level 3'),
+    's_gr_info_4':       ('Stufe 4', 'Level 4'),
+    's_gr_f_cfg':        ('Ungültige Zeile in der user.cfg, nichts geschrieben: %s',
+                          'Invalid line in user.cfg, nothing written: %s'),
     's_gr_schreiben':    ('Ins Spiel schreiben', 'Write to the game'),
     's_gr_schreiben_h':  ('Übernimmt alle Änderungen auf dieser Seite. Beim '
                           'nächsten Start gelten sie im Spiel.',

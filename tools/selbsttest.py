@@ -38874,6 +38874,27 @@ def _pruefung_419():
         pruefe(_gr419.read_quality(_datei419) == {'SysSpec_Fog': 2},
                'Qualität: nur Menüzeilen, nur die in der Datei (%r)'
                % _gr419.read_quality(_datei419))
+
+        # user.cfg: Befehle setzen, ersetzen, entfernen — Sprache bleibt
+        from scbp import usercfg as _uc419
+        with open(os.path.join(_ordner419, 'user.cfg'), 'w',
+                  encoding='utf-8') as f:
+            f.write('r_DisplayInfo = 3\nsys_maxidleFPS = 60\n'
+                    'g_language = german_(germany)\n')
+        pruefe(_uc419.value(_ordner419, 'SYS_MaxIdleFPS') == '60',
+               'user.cfg: Groß-/Kleinschreibung zählt beim Lesen nicht')
+        _ok, _ = _uc419.set_values(_ordner419, {'sys_MaxIdleFPS': '30',
+                                                'r_DisplayInfo': None,
+                                                'sys_MaxFPS': '140'})
+        _cfg419 = io.open(os.path.join(_ordner419, 'user.cfg'),
+                          encoding='utf-8').read()
+        pruefe(_ok and 'sys_MaxIdleFPS = 30' in _cfg419
+               and 'sys_maxidleFPS' not in _cfg419
+               and 'r_DisplayInfo' not in _cfg419
+               and 'sys_MaxFPS = 140' in _cfg419
+               and 'g_language = german_(germany)' in _cfg419,
+               'user.cfg: ersetzen, entfernen, anhängen, Sprachzeile bleibt (%r)'
+               % _cfg419)
         pruefe('graphics' in io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                                      encoding='utf-8').read()
                and 'game_running()' in _gr419.__doc__ + io.open(

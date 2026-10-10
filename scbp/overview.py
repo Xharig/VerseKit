@@ -17,12 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Die Startseite „Übersicht" — das Wichtigste aus allen Bereichen auf einen
-Blick, jede Kachel mit einem Weg zur Seite, auf der es genauer steht.
+Die Startseite: das Wichtigste aus allen Bereichen auf einen Blick, jede
+Kachel mit einem Weg zur Seite, auf der es genauer steht.
 
 Kacheln: Spiel · Baupläne · Übersetzung (Auswahl je Kanal) · Spielzeit ·
-Rechner laut Spiel · Dienste (CIG, Basetool, Update). Jede lässt sich ein-
-und ausblenden („Kacheln anpassen") und an ihrer Überschrift auf eine andere
+Rechner laut Spiel · Dienste (CIG, Basetool, Update). Jede lässt sich unter
+der Kachelliste ein- und ausblenden und an ihrer Überschrift auf eine andere
 ziehen, um die Plätze zu tauschen; beides wird gemerkt.
 
 Die Zahlen rechnen die reinen Funktionen oben (`blueprint_numbers`,
@@ -84,7 +84,7 @@ def builders():
 
 def overview_page(window, frame):
     from .pages import _heading, _scroll_area
-    _heading(window, frame, t('hf_uebersicht'), t('s_ub_lead'))
+    _heading(window, frame, t('hf_uebersicht'), t('s_uv_lead'))
     parent = _scroll_area(frame)
     grid = tk.Frame(parent, bg=theme.BG)
     grid.pack(fill='x')
@@ -121,9 +121,9 @@ def overview_page(window, frame):
 
 
 # Die Kacheln in ihrer Reihenfolge: (Kennung, Textschlüssel).
-TILES = (('spiel', 's_ub_spiel'), ('bauplaene', 's_ub_bauplaene'),
-         ('uebersetzung', 's_ub_uebersetzung'), ('spielzeit', 's_ub_spielzeit'),
-         ('rechner', 's_ub_rechner'), ('dienste', 's_ub_dienste'))
+TILES = (('spiel', 's_uv_spiel'), ('bauplaene', 's_uv_bauplaene'),
+         ('uebersetzung', 's_uv_uebersetzung'), ('spielzeit', 's_uv_spielzeit'),
+         ('rechner', 's_uv_rechner'), ('dienste', 's_uv_dienste'))
 HIDDEN_SETTING = 'uebersicht_aus'
 
 
@@ -218,14 +218,14 @@ def set_visible(key, on):
 
 
 def _chooser(window, frame, redraw):
-    """„Kacheln anpassen" — zugeklappt ein Link, aufgeklappt ein Schalter je
+    """Die Kachelauswahl — zugeklappt ein Link, aufgeklappt ein Schalter je
     Kachel. Jede Änderung zeichnet die Übersicht sofort neu."""
     from .main_window import toggle_switch
     for child in frame.winfo_children():
         child.destroy()
     opened = getattr(frame, 'opened', False)
-    link = tk.Label(frame, text=t('s_ub_anpassen_zu' if opened
-                                  else 's_ub_anpassen'),
+    link = tk.Label(frame, text=t('s_uv_anpassen_zu' if opened
+                                  else 's_uv_anpassen'),
                     bg=theme.BG, fg=theme.ACCENT, font=window.f_small,
                     cursor='hand2', anchor='w')
     link.pack(fill='x')
@@ -264,7 +264,7 @@ def _card(window, cell, title_key, target=None):
     tk.Label(head, text=t(title_key).upper(), bg=theme.SURFACE, fg=theme.SUB,
              font=window.f_small, anchor='w').pack(side='left')
     if target:
-        go = tk.Label(head, text=t('s_ub_mehr'), bg=theme.SURFACE,
+        go = tk.Label(head, text=t('s_uv_mehr'), bg=theme.SURFACE,
                       fg=theme.ACCENT, font=window.f_small, cursor='hand2')
         go.tile_link = True
         go.pack(side='right')
@@ -303,50 +303,50 @@ def _ago(stamp):
 
 def _tile_game(window, cell):
     from . import auto_update, catalog, paths
-    body = _card(window, cell, 's_ub_spiel', 'ordner')
+    body = _card(window, cell, 's_uv_spiel', 'ordner')
     running = False
     try:
         running = auto_update.game_running()
     except Exception as exc:
         errors.record('overview.game_running', exc)
-    _big(window, body, t('s_ub_laeuft') if running else t('s_ub_laeuft_nicht'))
+    _big(window, body, t('s_uv_laeuft') if running else t('s_uv_laeuft_nicht'))
     folder = paths.game_folder() or ''
     if folder:
-        _line(window, body, t('s_ub_kanal') % os.path.basename(
+        _line(window, body, t('s_uv_kanal') % os.path.basename(
             os.path.normpath(folder)))
     try:
         version = (catalog.load() or {}).get('version') or ''
     except Exception:
         version = ''
     if version:
-        _line(window, body, t('s_ub_stand') % version)
+        _line(window, body, t('s_uv_stand') % version)
 
 
 def _tile_blueprints(window, cell):
     from . import catalog, collection
     from .main_window import round_bar
-    body = _card(window, cell, 's_ub_bauplaene', 'fortschritt')
+    body = _card(window, cell, 's_uv_bauplaene', 'fortschritt')
     numbers = blueprint_numbers(collection.load(), catalog.load())
     total = numbers['total'] or 1
     _big(window, body, str(numbers['mine']),
-         t('s_ub_von') % (numbers['total'], 100.0 * numbers['mine'] / total))
+         t('s_uv_von') % (numbers['total'], 100.0 * numbers['mine'] / total))
     round_bar(body, 7, numbers['mine'] / float(total), theme.SURFACE,
               theme.HOVER, theme.ACCENT).pack(fill='x', pady=(6, 6))
-    _line(window, body, t('s_ub_woche') % numbers['week'],
+    _line(window, body, t('s_uv_woche') % numbers['week'],
           theme.ACCENT if numbers['week'] else None)
     if numbers['newest']:
-        _line(window, body, t('s_ub_neuester') % (numbers['newest'],
+        _line(window, body, t('s_uv_neuester') % (numbers['newest'],
                                                   _ago(numbers['newest_at'])))
 
 
 def _tile_translation(window, cell):
     """Je Kanal eine Auswahlliste der Textquellen — dieselben Wege wie auf
-    der Seite „Übersetzung". Eigene Adresse und „nicht anfassen" gibt es
+    der Übersetzungsseite. Eigene Adresse und das Unberührt-Lassen gibt es
     nur dort."""
     from . import paths, translation, usercfg
     from .main_window import round_select
     from .pages import _choose_source, _fetch_side, _settings_parts
-    body = _card(window, cell, 's_ub_uebersetzung', 'uebersetzung')
+    body = _card(window, cell, 's_uv_uebersetzung', 'uebersetzung')
     main_folder = os.path.normcase(os.path.normpath(paths.game_folder() or ''))
     channels = []
     try:
@@ -374,7 +374,7 @@ def _tile_translation(window, cell):
         if chosen and chosen not in [k for k, _n in entries]:
             entries.append((chosen, translation.display_name(chosen)))
         if not chosen:
-            entries.insert(0, ('', t('s_ub_keine_quelle')))
+            entries.insert(0, ('', t('s_uv_keine_quelle')))
         row = tk.Frame(body, bg=theme.SURFACE)
         row.pack(fill='x', pady=(4, 0))
         tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.FG,
@@ -413,22 +413,22 @@ def _status(label, source, channel):
 
 def _tile_playtime(window, cell):
     from . import playtime
-    body = _card(window, cell, 's_ub_spielzeit', 'statistik')
+    body = _card(window, cell, 's_uv_spielzeit', 'statistik')
     data = playtime.load()
     spans = playtime._merge_spans(
         [(e.get('von'), e.get('bis')) for e in data.get('sitzungen', [])
          if e.get('von') and e.get('bis')]
         + ([playtime._running_span()] if playtime._running_span() else []))
     _big(window, body, playtime.as_text(playtime.total(data)))
-    _line(window, body, t('s_ub_sieben_tage') % playtime.as_text(
+    _line(window, body, t('s_uv_sieben_tage') % playtime.as_text(
         playtime_week(spans)))
 
 
 def _tile_machine(window, cell):
     from . import machine_info
     from .pages import _from_thread, _mix
-    body = _card(window, cell, 's_ub_rechner', 'grafik')
-    waiting = _line(window, body, t('s_ub_lese'))
+    body = _card(window, cell, 's_uv_rechner', 'grafik')
+    waiting = _line(window, body, t('s_uv_lese'))
 
     def show(data):
         waiting.destroy()
@@ -451,7 +451,7 @@ def _tile_machine(window, cell):
             def number(value):
                 text = '%.0f' % value
                 return text.replace('.', ',') if comma else text
-            _line(window, body, t('s_ub_index') % (number(data['cpu_index']),
+            _line(window, body, t('s_uv_index') % (number(data['cpu_index']),
                                                    number(data['gpu_index'])))
 
     def work():
@@ -468,15 +468,15 @@ def _tile_machine(window, cell):
 def _tile_services(window, cell):
     from . import basetool, serverstatus, updater
     from .pages import _from_thread
-    body = _card(window, cell, 's_ub_dienste', 'serverstatus')
+    body = _card(window, cell, 's_uv_dienste', 'serverstatus')
     cig = _line(window, body, '')
 
     def cig_text(state):
         overall = (state or {}).get('gesamt') or ''
         if not overall:
-            return t('s_ub_cig_unbekannt'), None
+            return t('s_uv_cig_unbekannt'), None
         good = overall.lower() == 'operational'
-        return (t('s_ub_cig') % overall,
+        return (t('s_uv_cig') % overall,
                 theme.ACCENT if good else theme.GOLD)
 
     text, color = cig_text(serverstatus.stored_state())
@@ -503,10 +503,10 @@ def _tile_services(window, cell):
     if connected:
         from . import basetool_sync
         last = _stamp(basetool_sync.STATUS.get('last_sync') or '')
-        _line(window, body, t('s_ub_basetool') % _ago(last) if last
-              else t('s_ub_basetool_neu'), theme.ACCENT)
+        _line(window, body, t('s_uv_basetool') % _ago(last) if last
+              else t('s_uv_basetool_neu'), theme.ACCENT)
     else:
-        _line(window, body, t('s_ub_basetool_aus'))
+        _line(window, body, t('s_uv_basetool_aus'))
 
     newer = None
     try:
@@ -514,8 +514,8 @@ def _tile_services(window, cell):
     except Exception as exc:
         errors.record('overview.update', exc)
     if newer:
-        _line(window, body, t('s_ub_update_da') % newer.get('version'),
+        _line(window, body, t('s_uv_update_da') % newer.get('version'),
               theme.GOLD)
     else:
-        _line(window, body, t('s_ub_update_aktuell') % window.version,
+        _line(window, body, t('s_uv_update_aktuell') % window.version,
               theme.ACCENT)

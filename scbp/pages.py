@@ -3852,7 +3852,16 @@ def _graphics(window, frame):
             return
         changes = dict(pending)
         renderer = changes.pop(graphics.RENDERER, None)
+        cfg = {k[4:]: changes.pop(k) for k in list(changes)
+               if k.startswith('cfg:')}
         backups = []
+        if cfg:
+            from . import usercfg
+            ok, bad = usercfg.set_values(paths.game_folder(), cfg)
+            if not ok:
+                window.say(t('s_gr_f_cfg') % (bad[0][1] if bad else ''))
+                return
+            backups.append('user.cfg')
         if renderer is not None:
             ok, detail = graphics.write_renderer(renderer)
             if not ok:
@@ -3920,12 +3929,54 @@ def _graphics(window, frame):
             slot = _setting_row(window, body, t(caption),
                                 t(help_key) if help_key else '')
             control(slot, name, kind, values[name], choices)
+        _user_cfg_rows(window, body, pending)
         slot = _setting_row(window, body, t('s_gr_schreiben'),
                             t('s_gr_schreiben_h'), line=False)
         _button(window, slot, t('s_gr_schreiben'), store, strong=True).pack()
 
     draw()
     window.on_show['grafik'] = draw
+
+
+def _user_cfg_rows(window, body, pending):
+    """Drei Befehle aus der `user.cfg` des Spielordners: Bildrate begrenzen,
+    Bildrate im Hintergrund, Leistungsanzeige. Gemerkt wird in `pending` als
+    `cfg:<befehl>`; geschrieben mit den übrigen Grafik-Schaltern."""
+    from . import paths, usercfg
+    from .main_window import round_entry, round_select
+    folder = paths.game_folder()
+    if not folder:
+        return
+    tk.Label(body, text=t('s_gr_cfg_titel'), bg=BG, fg=FG,
+             font=window.f_title, anchor='w').pack(fill='x', pady=(24, 2))
+    _body_text(body, t('s_gr_cfg_lead'), window.f_small, fill='x', pady=(0, 4))
+
+    for key, caption, help_key in (('sys_MaxFPS', 's_gr_maxfps', 's_gr_maxfps_h'),
+                                   ('sys_MaxIdleFPS', 's_gr_idlefps',
+                                    's_gr_idlefps_h')):
+        slot = _setting_row(window, body, t(caption), t(help_key))
+        var = tk.StringVar(slot, value=usercfg.value(folder, key) or '')
+
+        def changed(*_a, key=key, var=var):
+            text = var.get().strip()
+            if text and not text.isdigit():
+                return
+            pending['cfg:' + key] = text or None
+        var.trace_add('write', changed)
+        field = round_entry(slot, var, window.f_small, theme.FIELD, LINE,
+                            ACCENT, FG, placeholder=t('s_gr_fps_platz'),
+                            width=8)
+        field.holder.pack()
+
+    slot = _setting_row(window, body, t('s_gr_info'), t('s_gr_info_h'))
+    current_info = usercfg.value(folder, 'r_DisplayInfo') or '0'
+    entries = [(str(n), t('s_gr_info_%d' % n)) for n in range(5)]
+    if current_info not in [v for v, _l in entries]:
+        current_info = '0'
+    round_select(slot, entries, current_info,
+                 lambda v: pending.__setitem__(
+                     'cfg:r_DisplayInfo', None if v == '0' else v),
+                 window.f_small).pack()
 
 
 def _mix(color_a, color_b, share):

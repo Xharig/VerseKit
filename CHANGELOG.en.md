@@ -20,6 +20,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Graphics: commands from user.cfg** — limit the frame rate, the frame rate
+  in background and the in-game performance display can now be set on the
+  graphics page
 - **Translations up to date sooner** — Verse-Kit checks for a new translation
   after every game session and hourly in between, instead of every six hours
 

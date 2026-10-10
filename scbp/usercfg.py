@@ -116,6 +116,30 @@ def check(lines):
     return bad
 
 
+def value(folder, key):
+    """Der Wert eines Befehls (Groß-/Kleinschreibung egal, wie im Spiel) —
+    die letzte Zeile gilt. `None`, wenn er nicht dasteht."""
+    found = None
+    for line in (read(folder) or '').splitlines():
+        if _key(line).lower() == key.lower():
+            found = line.split('=', 1)[1].strip()
+    return found
+
+
+def set_values(folder, changes):
+    """Befehle setzen — `{schlüssel: wert}`, `None` entfernt die Zeile.
+
+    Vorhandene Zeilen desselben Befehls werden ersetzt (alle Schreibweisen),
+    fehlende hinten angehängt. Geschrieben wird über `write_own`, die
+    Sprachzeilen bleiben also unberührt."""
+    lines = own_lines(read(folder) or '')
+    for key, new in changes.items():
+        lines = [z for z in lines if _key(z).lower() != key.lower()]
+        if new is not None and str(new).strip() != '':
+            lines.append('%s = %s' % (key, str(new).strip()))
+    return write_own(folder, lines)
+
+
 def write_own(folder, lines):
     """Die eigenen Zeilen schreiben, die verwalteten bleiben, wie sie sind.
 

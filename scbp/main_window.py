@@ -2368,8 +2368,8 @@ class MainWindow:
                      font=self.f_small, cursor='hand2', padx=10, pady=4)
         k.pack(side='right', padx=12)
         k.bind('<Button-1>', lambda e: self.close())
-        # ⭐ „Fehler melden" fest in der Fußzeile, rot, auf jeder Seite — der
-        # Weg zum Fehlerbericht soll nicht gesucht werden müssen.
+        # ⭐ Der Weg zum Fehlerbericht fest in der Fußzeile, rot, auf jeder
+        # Seite — er soll nicht gesucht werden müssen.
         melden = tk.Frame(fuss, bg=BAR, cursor='hand2')
         melden.pack(side='right', padx=(0, 4))
         symbol = icons.button(melden, 'fehler', color=icons.RED, background=BAR,
@@ -2381,6 +2381,7 @@ class MainWindow:
         melden.action = lambda: self.open_page('diagnose', via='sprung')
         for part in (melden, symbol, wort):
             part.bind('<Button-1>', lambda e: melden.action())
+        icons.hover_group(melden, symbol)
         self.report_button = melden
 
     def say(self, text):
