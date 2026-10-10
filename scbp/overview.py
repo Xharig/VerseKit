@@ -490,6 +490,7 @@ def _tile_translation(window, cell):
     rows += [(name, folder, False) for name, folder in channels
              if name != main_name]
     parts = _settings_parts(window)
+    checks = []
 
     for name, folder, main in rows:
         channel = None if main else name
@@ -527,6 +528,57 @@ def _tile_translation(window, cell):
                      bg=theme.SURFACE).pack(side='right')
         state.pack(fill='x')
         _status(state, chosen, channel)
+        if chosen and chosen != 'original':
+            checks.append((chosen, channel, state, pick))
+
+    if checks:
+        _check_link(window, body, checks)
+
+
+def _check_link(window, body, checks):
+    """„Jetzt nachsehen" — fragt für jeden Kanal mit gewählter Quelle nach
+    einer neueren Fassung und holt sie gleich. Die Abfrage läuft im
+    Hintergrund; geholt wird über denselben Weg wie bei der Auswahl."""
+    from . import translation
+    from .pages import _from_thread
+    link = tk.Label(body, text=t('s_uv_nachsehen'), bg=theme.SURFACE,
+                    fg=theme.ACCENT, font=window.f_small, cursor='hand2',
+                    anchor='w')
+    link.pack(fill='x', pady=(8, 0))
+    busy = [False]
+
+    def done(results):
+        busy[0] = False
+        link.configure(text=t('s_uv_nachsehen'), fg=theme.ACCENT)
+        fetched = False
+        for (source, channel, state, pick), newer in zip(checks, results):
+            if newer:
+                pick(source)
+                fetched = True
+            else:
+                _status(state, source, channel)
+        if not fetched:
+            window.say(t('inj_aktuell'))
+
+    def work():
+        results = []
+        for source, channel, _state, _pick in checks:
+            newer = False
+            try:
+                newer = translation.update_available(source, channel)[0]
+            except Exception as exc:
+                errors.record('overview.translation_check', exc)
+            results.append(newer)
+        _from_thread(link, lambda: done(results))
+
+    def start(_e=None):
+        if busy[0]:
+            return
+        busy[0] = True
+        link.configure(text=t('s_uv_sehe_nach'), fg=theme.SUB)
+        threading.Thread(target=work, daemon=True).start()
+    link.bind('<Button-1>', start)
+    link.check = start
 
 
 def _status(label, source, channel):

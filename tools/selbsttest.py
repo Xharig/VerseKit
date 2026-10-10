@@ -39337,6 +39337,30 @@ def _pruefung_422():
         pruefe(len(_reihen) >= 2 and not _schief,
                'Kacheln einer Reihe sind gleich hoch gerahmt (%r)'
                % (_schief or _reihen))
+        import tkinter as tk
+        from scbp import translation as _tr422
+        _echt422 = _tr422.update_available
+        _gefragt422, _geholt422 = [], []
+        try:
+            _tr422.update_available = lambda s, c=None: (
+                _gefragt422.append((s, c)) or (c == 'PTU', 'x'))
+            _kasten422 = tk.Frame(_w422)
+            _ov422._check_link(_f422, _kasten422, [
+                ('luftwerft', None, tk.Label(_kasten422), _geholt422.append),
+                ('luftwerft', 'PTU', tk.Label(_kasten422), _geholt422.append)])
+            _link422 = [c for c in _kasten422.winfo_children()
+                        if hasattr(c, 'check')][0]
+            _link422.check()
+            _ende422 = time.time() + 5
+            while not _geholt422 and time.time() < _ende422:
+                _w422.update()
+                time.sleep(0.02)
+        finally:
+            _tr422.update_available = _echt422
+        pruefe(_gefragt422 == [('luftwerft', None), ('luftwerft', 'PTU')]
+               and _geholt422 == ['luftwerft'],
+               'Übersetzung jetzt nachsehen: jeder Kanal gefragt, nur der mit '
+               'neuer Fassung geholt (%r, %r)' % (_gefragt422, _geholt422))
         pruefe(hasattr(_f422, 'report_button')
                and _f422.report_button.winfo_manager() == 'pack',
                'der rote Knopf „Fehler melden" steht in der Fußzeile')
