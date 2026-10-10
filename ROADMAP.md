@@ -29,7 +29,8 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Aufträge & Protokoll** — welche Aufträge wann gespielt wurden, wie oft, und welcher Bauplan dabei herauskam; jeder Auftrag lässt sich auch einfach nachschlagen und mit einem Klick im Issue Council suchen |
 | ✅ | **Sicherung** — alles Eigene in eine Datei und wieder zurück, für den Rechnerwechsel |
 | ✅ | **Shader-Cache leeren** — Shader-Speicher von Star Citizen und Grafiktreiber per Knopf leeren, Grafikeinstellungen bleiben |
-| ✅ | **Grafik** — Renderer, Fenstermodus, Upscaling und Bildeffekte ohne Spiel einstellen; dazu Leistungsindex und Einstufung des Spiels und welche Einstellung zuerst runter sollte |
+| ✅ | **Grafik** — Renderer, Fenstermodus, Upscaling, Bildeffekte und die Qualität je Bereich ohne Spiel einstellen; dazu Leistungsindex und Einstufung des Spiels und welche Einstellung zuerst runter sollte |
+| ✅ | **Übersicht** — Startseite mit Kacheln zum Ein- und Ausblenden und Verschieben, darunter ein Raffinerie-Timer, der fertige Aufträge im Overlay meldet |
 | ✅ | **Bedarf der Einheit** — was die offenen Aufträge der eigenen Einheit im KRT Profit Basetool brauchen, gegen das eigene Lager |
 | ✅ | **Was ist neu als Galerie** — nach einem Update einmal die wichtigsten Neuerungen mit Bild und Weg dorthin |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |

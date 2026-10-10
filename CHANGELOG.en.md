@@ -6,7 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.98.0 - 2026-10-10
+
+> Verse-Kit now has a start page: blueprints, storage, refinery, translation
+> and your PC at a glance, in tiles you arrange yourself. The refinery counts
+> down your jobs and pings you in the overlay when they're done. And graphics
+> can now be set area by area.
 
 ### New
 
@@ -16,7 +21,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   and updates, your storage, open contracts with blueprints, new this patch,
   the watchlist, unit demand, your latest finds and the last backup. Tiles
   can be shown, hidden and rearranged by dragging. The gear
-  in the overlay now opens this page
+  in the overlay now opens this page, and from there one click checks for a
+  new translation
 - **Refinery timer** — Ctrl+Alt+R at the terminal now also reads the time
   left on every running job. The overview counts it down, and the overlay
   tells you as soon as a job is done (Windows only)
@@ -27,7 +33,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Graphics: quality per area** — set object detail, shadows, textures,
   clouds and the other areas one by one, with exactly the levels the game
-  knows for each area
+  knows for each area. Overall quality sets every area the way the game does
+  at that level
 - **Graphics: commands from user.cfg** — limit the frame rate, the frame rate
   in background and the in-game performance display can now be set on the
   graphics page

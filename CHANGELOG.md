@@ -6,7 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.98.0 - 2026-10-10
+
+> Verse-Kit hat jetzt eine Startseite: Baupläne, Lager, Raffinerie,
+> Übersetzung und dein Rechner auf einen Blick, in Kacheln, die du selbst
+> anordnest. Die Raffinerie zählt deine Aufträge herunter und meldet sich im
+> Overlay, wenn sie fertig sind. Und die Grafik lässt sich jetzt Bereich für
+> Bereich einstellen.
 
 ### Neu
 
@@ -16,7 +22,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Update, dein Lager, offene Aufträge mit Bauplänen, Neu im Patch, die
   Merkliste, der Bedarf der Einheit, die letzten Funde und die letzte
   Sicherung. Kacheln lassen sich ein- und ausblenden und per Ziehen umsortieren.
-  Das Zahnrad im Overlay öffnet jetzt diese Seite
+  Das Zahnrad im Overlay öffnet jetzt diese Seite, und von dort lässt sich
+  mit einem Klick nach einer neuen Übersetzung sehen
 - **Raffinerie-Timer** — Strg+Alt+R am Terminal liest jetzt auch die
   Restzeit jedes laufenden Auftrags. Die Übersicht zählt sie herunter, und
   das Overlay meldet, sobald ein Auftrag fertig ist (nur Windows)
@@ -27,7 +34,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Grafik: Qualität je Bereich** — Objektdetails, Schatten, Texturen, Wolken
   und die übrigen Bereiche einzeln einstellen, mit genau den Stufen, die das
-  Spiel für den Bereich kennt
+  Spiel für den Bereich kennt. Die Gesamtqualität setzt alle Bereiche so, wie
+  es das Spiel bei dieser Stufe tut
 - **Grafik: Befehle aus der user.cfg** — Bildrate begrenzen, Bildrate im
   Hintergrund und die Leistungsanzeige im Spiel lassen sich jetzt auf der
   Grafik-Seite einstellen
