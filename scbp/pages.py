@@ -8053,6 +8053,18 @@ def _auec(amount):
     return t('s_auec') % _money(amount)
 
 
+def _piece_size(good):
+    """SCU je Stück, wenn die Ware Stückware mit bekannter Größe ist — sonst
+    None. Die Größe liest `quality_goods` aus den Spieldaten."""
+    try:
+        from . import crafting, quality_goods
+        if not crafting.is_piece(good):
+            return None
+        return quality_goods.piece_scu(good)
+    except Exception:
+        return None
+
+
 def _good_key(name):
     """Vergleichsform einer Ware ohne den Zusatz `(Ore)` oder `(Raw)` — Erz
     und raffinierte Ware gehören zum selben Rohstoff."""
@@ -17479,38 +17491,52 @@ def _selling(fenster, rahmen):
             # Grenze verschwindet.
             ansicht = paths.setting('verkauf_spitze') or 'alle'
             bergbau = _mining_goods() if ansicht == 'bergbau' else None
-            spitze = []
+            spitze, stueckware = [], []
             for ware in preisdaten.goods():
                 if not preisdaten.in_top_list(ware):
                     continue
                 if bergbau is not None and _good_key(ware) not in bergbau:
                     continue
                 preis = preisdaten.best_price(ware)
-                if preis:
+                if not preis:
+                    continue
+                # Stückware mit bekannter Stückgröße steht in einem eigenen
+                # Block, je Stück — Preise je SCU und je Stück lassen sich
+                # nicht in einer Rangfolge vergleichen.
+                groesse = _piece_size(ware)
+                if groesse:
+                    stueckware.append((preis * groesse, ware))
+                else:
                     spitze.append((preis, ware))
             spitze.sort(reverse=True)
+            stueckware.sort(reverse=True)
             if bergbau is None:
-                spitze = spitze[:12]
+                spitze, stueckware = spitze[:12], stueckware[:8]
 
             _ansicht_knoepfe(ansicht)
-            if not spitze:
+            if not spitze and not stueckware:
                 _body_text(ergebnis_rahmen, t('s_vk_keine_bergbau'),
                            fenster.f_small, fill='x')
                 return
-            tk.Label(ergebnis_rahmen, text=t('s_vk_spitze'), bg=BG, fg=SUB,
-                     font=fenster.f_small, anchor='w').pack(fill='x',
-                                                            pady=(8, 4))
-            spitzen_liste = tk.Frame(ergebnis_rahmen, bg=BG)
-            spitzen_liste.pack(fill='x')
-            for preis, ware in spitze:
-                # ⚠ `s_vk_je_scu` nutzt `{preis}`, nicht `%s`. Ein zweiter
-                # Eintrag desselben Namens verdrängt den ersten still, und
-                # `% _geld(...)` flöge auf die Nase. Ein doppelter Schlüssel
-                # fällt in einem Wörterbuch nicht auf — deshalb prüft der
-                # Selbsttest das.
-                _trade_top_row(fenster, spitzen_liste,
-                               t('s_vk_je_scu').format(preis=_auec(preis)),
-                               ware, '', lambda x=ware: waehlen(x))
+            for kopf, eintraege, text in (
+                    ('s_vk_spitze', spitze, 's_vk_je_scu'),
+                    ('s_vk_spitze_stueck', stueckware, 's_vk_je_stueck')):
+                if not eintraege:
+                    continue
+                tk.Label(ergebnis_rahmen, text=t(kopf), bg=BG, fg=SUB,
+                         font=fenster.f_small, anchor='w').pack(fill='x',
+                                                                pady=(8, 4))
+                spitzen_liste = tk.Frame(ergebnis_rahmen, bg=BG)
+                spitzen_liste.pack(fill='x')
+                for preis, ware in eintraege:
+                    # ⚠ `s_vk_je_scu` nutzt `{preis}`, nicht `%s`. Ein zweiter
+                    # Eintrag desselben Namens verdrängt den ersten still, und
+                    # `% _geld(...)` flöge auf die Nase. Ein doppelter Schlüssel
+                    # fällt in einem Wörterbuch nicht auf — deshalb prüft der
+                    # Selbsttest das.
+                    _trade_top_row(fenster, spitzen_liste,
+                                   t(text).format(preis=_auec(preis)),
+                                   ware, '', lambda x=ware: waehlen(x))
             return
         orte = preisdaten.places_for(auswahl, nqa_only=nur_nqa[0])
         if not orte:
@@ -17525,6 +17551,16 @@ def _selling(fenster, rahmen):
         # das, was vor drei Tagen im Lager stand.
         lagermengen = dict(trade_cargo.amounts())
         lagermengen.update(eigene_mengen)
+        # Stückware: Die Preise unten gelten je SCU — hier steht, was das je
+        # Stück heißt.
+        if len(auswahl) == 1:
+            groesse = _piece_size(auswahl[0])
+            bester = preisdaten.best_price(auswahl[0]) if groesse else 0
+            if groesse and bester:
+                _body_text(ergebnis_rahmen, t('s_vk_stueck_hinweis').format(
+                    groesse=('%g' % groesse).replace('.', ','),
+                    preis=_auec(bester * groesse)),
+                    fenster.f_small, color=GOLD, fill='x', pady=(4, 6))
         for nummer, ort in enumerate(orte[:40]):
             # ⚠ Die Spaltenüberschrift steht **nur über dem ersten Kasten**.
             # In jedem wiederholt, stünde sie bei 40 Orten vierzigmal da und

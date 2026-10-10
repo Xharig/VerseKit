@@ -38276,7 +38276,8 @@ def _pruefung_415():
 
     class _Db415:
         """Nachgebaute Datenbank: Stufungen und Rohstoff-Datensätze."""
-        TYPEN = ['CraftingQualityQuantizationRecord', 'ResourceType']
+        TYPEN = ['CraftingQualityQuantizationRecord', 'ResourceType',
+                 'EntityClassDefinition']
 
         def __init__(self):
             self.saetze = [
@@ -38291,6 +38292,8 @@ def _pruefung_415():
                 ('CraftingQualityQuantizationRecord.Quantization_Zzyzx', 0, 'g-zz'),
                 ('ResourceType.Ore_Iron', 1, 'r-iron'),
                 ('ResourceType.Ore_Saldynium', 1, 'r-sal'),
+                ('EntityClassDefinition.harvestable_trophy_1h_kopionhorn', 2, 'e-kop'),
+                ('EntityClassDefinition.harvestable_trophy_1h_kopionhorn_cave', 2, 'e-kop2'),
                 ('ResourceType.KopionHorn', 1, 'r-kop'),
                 ('ResourceType.SunsetBerry', 1, 'r-sun'),
             ]
@@ -38305,6 +38308,8 @@ def _pruefung_415():
                           'properties': ['REF:00000000-0000-0000-0000-00000000000b']},
                 'r-sun': {'displayName': '@items_commodities_sunsetberry',
                           'properties': []},
+                'e-kop': {'Components': [{'occupancy': {'microSCU': 1000}}]},
+                'e-kop2': {'Components': [{'occupancy': {'microSCU': 5000}}]},
             }
             self.guid = {'g-iron': '00000000-0000-0000-0000-00000000000a',
                          'g-kop': '00000000-0000-0000-0000-00000000000b',
@@ -38332,7 +38337,13 @@ def _pruefung_415():
         'items_commodities_amioshiplague': 'Amioshi Plague',
     }
     _liste415 = _qg415.extract(_Db415(), _texte415)
-    _namen415 = dict(_liste415)
+    _namen415 = {_n: _u for _n, _u, *_r in _liste415}
+    _groesse415 = {_n: _g for _n, _u, _g in _liste415}
+    pruefe(_groesse415.get('Kopion Horn') == 0.001,
+           'Stückgröße kommt vom Handgegenstand, nicht von einer Abart (%r)'
+           % _groesse415.get('Kopion Horn'))
+    pruefe(_groesse415.get('Iron (Ore)') is None,
+           'SCU-Ware hat keine Stückgröße')
     pruefe(_namen415.get('Iron (Ore)') == 'scu',
            'Erz mit raffinierter Fassung in SCU (%r)' % _namen415)
     pruefe(_namen415.get('Saldynium (Ore)') == 'stueck',
@@ -38375,6 +38386,16 @@ def _pruefung_415():
                'Tierteile und Pflanzen zählen in Stück — auch ohne Güte')
         pruefe(not _cr415.is_piece('Iron (Ore)'),
                'Erz bleibt in SCU')
+        _stand_g415 = {'waren': [['Kopion Horn', 'stueck', 0.001],
+                                 ['Iron (Ore)', 'scu', None]]}
+        _qg415.load = lambda: _stand_g415
+        from scbp import pages as _pg415
+        pruefe(_qg415.piece_scu('Kopion Horn') == 0.001
+               and _pg415._piece_size('Kopion Horn') == 0.001,
+               'Verkauf: Stückware mit Größe wird je Stück gerechnet')
+        pruefe(_pg415._piece_size('Iron (Ore)') is None,
+               'Verkauf: SCU-Ware bleibt je SCU')
+        _qg415.load = lambda: _stand415
         _cr415.storable = lambda: ['Iron', 'Kopion Horn', 'Sunset Berries', 'Amiant']
         pruefe(_cr415.storage_name('Sunset Berry') == 'Sunset Berries'
                and _cr415.may_store('Sunset Berry'),

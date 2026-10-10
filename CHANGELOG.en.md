@@ -35,6 +35,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Plants, animal parts, Saldynium and Jaclium count in pieces**, no longer
   in SCU — as in game
+- **Buy & sell: priced per piece** — gems, Saldynium, Jaclium, animal parts
+  and plants get their own block with the price per piece (Saldynium: about
+  34,000 aUEC instead of 34 million “per SCU”). Verse-Kit reads the piece
+  size from your game
 - **What to farm counts per box** — at the fabricator an ingredient comes
   from one box; two boxes of 2 SCU no longer make a portion of 3 SCU
 - **Sharp rendering on by default** — with Windows scaling above 100 %,

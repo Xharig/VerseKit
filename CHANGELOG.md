@@ -35,6 +35,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Pflanzen, Tierteile, Saldynium und Jaclium zählen in Stück**, nicht mehr
   in SCU — wie im Spiel
+- **Kaufen & Verkaufen: Stückware je Stück** — Edelsteine, Saldynium,
+  Jaclium, Tierteile und Pflanzen stehen in einem eigenen Block mit dem Preis
+  je Stück (Saldynium: rund 34.000 aUEC statt 34 Mio. „je SCU"). Die
+  Stückgröße liest Verse-Kit aus deinem Spiel
 - **Was ich farmen muss rechnet je Kiste** — am Fertigungsterminal kommt eine
   Zutat aus einer Kiste; zwei Kisten mit je 2 SCU ergeben keine Portion von
   3 SCU mehr

@@ -54,7 +54,7 @@ QUANT_TYPE = 'CraftingQualityQuantizationRecord'
 QUANT_PREFIX = 'Quantization_'
 NULL_REF = 'REF:00000000-0000-0000-0000-000000000000'
 # Ändert sich die Auswertung, wird mit neuer Nummer auch ohne Patch neu gelesen.
-FORMAT = 3
+FORMAT = 4
 # Weniger Treffer heißt: Datenbank nicht verstanden — dann nichts ablegen.
 MINIMUM = 20
 
@@ -134,17 +134,40 @@ def parse_ini(raw):
     return texts
 
 
+def _piece_entity(stem, harvestables):
+    """Der Handgegenstand zu einem Stamm: `harvestable_…_<stamm>` (auch mit
+    `ore` dahinter) — der kürzeste Name, also nicht `…_cave`."""
+    s = stem.lower()
+    hits = [n for n in harvestables
+            if n.endswith('_' + s) or n.endswith('_' + s + 'ore')]
+    return min(hits, key=len) if hits else None
+
+
+def piece_size(db, si, ii):
+    """SCU je Stück aus `microSCU` am Handgegenstand — oder None."""
+    hit = re.search(r'"microSCU":\s*([0-9]+)',
+                    json.dumps(db.read(si, ii, 6), default=str))
+    if not hit or not int(hit.group(1)):
+        return None
+    return int(hit.group(1)) / 1e6
+
+
 def extract(db, texts):
-    """[(name, 'stueck'|'scu')] aus einer gelesenen Datenbank.
+    """[(name, 'stueck'|'scu', SCU je Stück oder None)] aus einer gelesenen
+    Datenbank.
 
     `db` ist ein `datacore.DataCore`, `texts` das Ergebnis von `parse_ini`."""
-    quant, resource_types = {}, []
+    quant, resource_types, harvestables = {}, [], {}
     for name, _file, si, guid, ii in db.records():
         kind = db.type_name(si)
         if kind == QUANT_TYPE:
             quant[guid] = name.split('.', 1)[-1][len(QUANT_PREFIX):]
         elif kind == 'ResourceType':
             resource_types.append((name.split('.', 1)[-1], si, ii))
+        elif kind == 'EntityClassDefinition':
+            short = name.split('.', 1)[-1].lower()
+            if short.startswith('harvestable_'):
+                harvestables[short] = (si, ii)
     links = []
     for rt_name, si, ii in resource_types:
         data = db.read(si, ii, 3)
@@ -177,7 +200,12 @@ def extract(db, texts):
         if not name:
             continue
         scu = any(refined for _rt, _k, _q, refined in matches)
-        result.append((name, 'scu' if scu else 'stueck'))
+        size = None
+        if not scu:
+            entity = _piece_entity(stem, harvestables)
+            if entity:
+                size = piece_size(db, *harvestables[entity])
+        result.append((name, 'scu' if scu else 'stueck', size))
     return sorted(set(result), key=lambda e: e[0].lower())
 
 
@@ -186,7 +214,8 @@ def _path():
 
 
 def load():
-    """{'stand': …, 'waren': [[name, einheit], …]} — leer ohne Datei."""
+    """{'stand': …, 'waren': [[name, einheit, SCU je Stück], …]} — leer ohne
+    Datei."""
     with _LOCK:
         try:
             mtime = os.path.getmtime(_path())
@@ -209,19 +238,38 @@ def goods():
     """[(name, einheit)] — leer, solange nichts gelesen wurde."""
     out = []
     for entry in load().get('waren') or []:
-        if isinstance(entry, (list, tuple)) and len(entry) == 2:
+        if isinstance(entry, (list, tuple)) and len(entry) in (2, 3):
             out.append((str(entry[0]), str(entry[1])))
     return out
+
+
+def _by_name():
+    """{angeglichener Name: (einheit, SCU je Stück)} — je Datei einmal."""
+    from .crafting import norm_material
+    data = load()
+    if _CACHE.get('einheiten_von') is not data:
+        table = {}
+        for entry in data.get('waren') or []:
+            if isinstance(entry, (list, tuple)) and len(entry) in (2, 3):
+                size = entry[2] if len(entry) == 3 else None
+                table[norm_material(str(entry[0]))] = (
+                    str(entry[1]),
+                    float(size) if isinstance(size, (int, float)) and size > 0
+                    else None)
+        _CACHE['einheiten'], _CACHE['einheiten_von'] = table, data
+    return _CACHE['einheiten']
 
 
 def unit(name):
     """'stueck', 'scu' oder None, wenn die Ware hier nicht steht."""
     from .crafting import norm_material
-    data = load()
-    if _CACHE.get('einheiten_von') is not data:
-        _CACHE['einheiten'] = {norm_material(n): u for n, u in goods()}
-        _CACHE['einheiten_von'] = data
-    return _CACHE['einheiten'].get(norm_material(name))
+    return (_by_name().get(norm_material(name)) or (None, None))[0]
+
+
+def piece_scu(name):
+    """Wie viel SCU ein Stück dieser Ware einnimmt — oder None."""
+    from .crafting import norm_material
+    return (_by_name().get(norm_material(name)) or (None, None))[1]
 
 
 def save(stamp, entries):
