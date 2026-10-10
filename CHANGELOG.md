@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.97.1 - 2026-10-10
+
+> Zwei Klarstellungen auf der neuen Grafik-Seite.
+
+### Behoben
+
+- **Grafik: Überschrift der Einstufung** — sie sagt jetzt, was der Balken
+  zeigt: wie das Spiel deinen Rechner einstuft
+- **Grafik: Fußzeile** — auf dieser Seite steht jetzt, dass Änderungen erst
+  mit „Ins Spiel schreiben" gelten, nicht sofort
+
 ## v3.97.0 - 2026-10-10
 
 > Grafik einstellen, ohne ins Spiel zu müssen — samt der Einstufung, die das

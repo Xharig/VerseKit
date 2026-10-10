@@ -2374,7 +2374,7 @@ class MainWindow:
         try:
             self.message.configure(text=text, fg=ACCENT)
             self.root.after(4000, lambda: self.message.configure(
-                text=t('hf_sofort'), fg=SUB))
+                text=t(getattr(self, '_footer_key', 'hf_sofort')), fg=SUB))
         except Exception:
             pass
 
@@ -2879,6 +2879,8 @@ class MainWindow:
     # wegklappen —, und der Rest gibt seinen Platz frei. Die Reiter hier stehen auch in zugeklappter
     # Gruppe da, in ihrer gewohnten Reihenfolge.
     ALWAYS_OPEN = ()
+    # Seiten, auf denen erst ein Knopf speichert — dort sagt die Fußzeile das.
+    FOOTER_KEYS = {'grafik': 'hf_per_knopf'}
     PINNED_TABS = {'info': ('wasistneu', 'ueber', 'diagnose')}
 
     def _apply_modules(self):
@@ -3366,6 +3368,14 @@ class MainWindow:
         # Betrifft vor allem den Programmstart: Die zuletzt benutzte Seite kann
         # in einer zugeklappten Gruppe liegen.
         self._open_group_of_tab(kennung)
+        # Steht gerade eine Meldung (`say`, grün), bleibt sie stehen; danach
+        # setzt `say` den Text dieser Seite zurück.
+        self._footer_key = self.FOOTER_KEYS.get(kennung, 'hf_sofort')
+        try:
+            if self.message.cget('fg') == SUB:
+                self.message.configure(text=t(self._footer_key))
+        except (AttributeError, tk.TclError):
+            pass
         if not hasattr(self, 'on_show'):
             # kennung -> Funktion, die beim erneuten Anzeigen laeuft
             self.on_show = {}

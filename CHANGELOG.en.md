@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.97.1 - 2026-10-10
+
+> Two clarifications on the new graphics page.
+
+### Fixed
+
+- **Graphics: rating heading** — it now says what the bar shows: how the
+  game rates your PC
+- **Graphics: footer** — this page now says that changes only apply with
+  "Write to the game", not right away
+
 ## v3.97.0 - 2026-10-10
 
 > Set your graphics without starting the game — with the rating the game

@@ -38692,6 +38692,17 @@ def _pruefung_418():
         _sammeln(_f418.content)
         pruefe(any(_la418.t('s_sc_knopf') in str(x) for x in _texte418),
                'die Seite zeigt den Knopf „%s"' % _la418.t('s_sc_knopf'))
+        pruefe(_f418.message.cget('text') == _la418.t('hf_sofort'),
+               'Fußzeile auf Shader-Cache: sofort gespeichert')
+        _f418.open_page('grafik')
+        _w418.update_idletasks()
+        pruefe(_f418.message.cget('text') == _la418.t('hf_per_knopf'),
+               'Fußzeile auf Grafik: gilt erst mit dem Knopf (%r)'
+               % _f418.message.cget('text'))
+        _f418.say('Probe')
+        _f418.open_page('shader')
+        pruefe(_f418.message.cget('text') == 'Probe',
+               'eine laufende Meldung wird beim Seitenwechsel nicht überschrieben')
     finally:
         _w418.destroy()
 
@@ -38899,6 +38910,13 @@ def _pruefung_420():
         _pa420.set_setting(_ga420.SETTING, '3.90.0')
         pruefe(_ga420.due(_version420),
                'nach einem Update ist sie wieder da')
+        _patch420 = _version420.rsplit('.', 1)[0] + '.9'
+        pruefe(_ga420.highlights(_patch420) == _ga420.highlights(_version420),
+               'eine Patch-Version zeigt die Galerie ihrer Reihe')
+        _ga420.mark_shown(_version420)
+        pruefe(not _ga420.due(_patch420),
+               'wer sie in der Reihe weggeklickt hat, bekommt sie im Patch '
+               'nicht noch einmal')
     finally:
         if _alt_heim420 is None:
             os.environ.pop('SC_BP_HOME', None)
@@ -38947,13 +38965,19 @@ def _pruefung_420():
     from scbp import updater as _up420
     _alt_hist420 = _up420.history
     try:
-        _up420.history = lambda: [{'version': 'v3.97.0', 'text': _text420}]
+        _up420.history = lambda: [
+            {'version': 'v3.97.1', 'text': '### Behoben\n\n- **Patch-Fix** — p\n'},
+            {'version': 'v3.97.0', 'text': _text420},
+            {'version': 'v3.96.1', 'text': '### Behoben\n\n- **Alt** — a\n'}]
         _rest420 = _ga420.rest('3.97.0', 'de')
+        _rest_patch420 = _ga420.rest('3.97.1', 'de')
     finally:
         _up420.history = _alt_hist420
     pruefe(_rest420 == [('neu', 'Andere Sache'), ('fix', 'Fehler weg')],
            'Weitere Änderungen: die übrigen Titel ohne die Höhepunkte (%r)'
            % _rest420)
+    pruefe(_rest_patch420 == _rest420 + [('fix', 'Patch-Fix')],
+           'im Patch: die ganze Reihe, ohne ältere Reihen (%r)' % _rest_patch420)
     with io.open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
                  encoding='utf-8') as f:
         _yml420 = f.read()

@@ -68,21 +68,30 @@ def _parts(version):
     return tuple(int(x) for x in m.groups()) if m else (0, 0, 0)
 
 
+def _series(version):
+    """(Haupt, Neben) — Patch-Versionen gehören zur Galerie ihrer Reihe."""
+    return _parts(version)[:2]
+
+
 def highlights(version):
-    """Die Höhepunkte der Version (ohne Vorab-Zusatz), oder ()."""
-    return HIGHLIGHTS.get('%d.%d.%d' % _parts(version), ())
+    """Die Höhepunkte der Reihe dieser Version (3.97.1 → 3.97.0), oder ()."""
+    for key, points in HIGHLIGHTS.items():
+        if _series(key) == _series(version):
+            return points
+    return ()
 
 
 def due(version):
     """Soll die Galerie jetzt erscheinen?
 
-    Merkt sich bei einer frischen Installation die Version, ohne zu zeigen —
-    erst das nächste Update bringt eine Galerie."""
+    Einmal je Reihe: Wer sie unter 3.97.0 weggeklickt hat, bekommt sie unter
+    3.97.1 nicht noch einmal. Merkt sich bei einer frischen Installation die
+    Version, ohne zu zeigen — erst das nächste Update bringt eine Galerie."""
     if not highlights(version):
         return False
     seen = paths.setting(SETTING)
     if seen:
-        return _parts(seen) < _parts(version)
+        return _series(seen) < _series(version)
     from . import news
     if news._read().get('zuletzt'):
         return True
@@ -115,19 +124,23 @@ def _title(line):
 
 
 def rest(version, language):
-    """Die übrigen Punkte der Version: `[(art, titel)]` ohne die Höhepunkte."""
+    """Die übrigen Punkte der Reihe: `[(art, titel)]` ohne die Höhepunkte.
+
+    Gelesen werden alle Changelog-Einträge der Reihe bis zur eigenen
+    Version (3.97.0 und 3.97.1), ältere zuerst."""
     from . import updater
     own = _parts(version)
-    entry = next((e for e in updater.history()
-                  if _parts(e.get('version')) == own), None)
-    if not entry:
-        return []
+    entries = sorted((e for e in updater.history()
+                      if _series(e.get('version')) == _series(version)
+                      and _parts(e.get('version')) <= own),
+                     key=lambda e: _parts(e.get('version')))
     index = 1 if language == 'en' else 0
     skip = [h['changelog'][index] for h in highlights(version)]
     out = []
-    for kind, line in updater.points_by_kind(entry.get('text') or ''):
-        title = _title(line)
-        if any(title.startswith(s) for s in skip):
-            continue
-        out.append((kind, title))
+    for entry in entries:
+        for kind, line in updater.points_by_kind(entry.get('text') or ''):
+            title = _title(line)
+            if any(title.startswith(s) for s in skip) or (kind, title) in out:
+                continue
+            out.append((kind, title))
     return out

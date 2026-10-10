@@ -5652,10 +5652,8 @@ TEXTS = {
     's_gr_index':        ('Leistungsindex', 'Performance index'),
     's_gr_index_wert':   ('CPU %s · GPU %s (vom Spiel beim Start gemessen)',
                           'CPU %s · GPU %s (measured by the game at start)'),
-    's_gr_klasse':       ('Einstufung des Spiels — diese Voreinstellung schlägt '
-                          'es für deinen Rechner vor:',
-                          'The game\'s rating — the preset it suggests for '
-                          'your PC:'),
+    's_gr_klasse':       ('So stuft das Spiel deinen Rechner ein:',
+                          'How the game rates your PC:'),
     's_gr_klasse_leer':  ('Das Spiel hat deinen Rechner noch nicht eingestuft. '
                           'Das passiert, wenn du im Spiel unter Grafik eine '
                           'Voreinstellung für die Gesamtqualität wählst.',
@@ -5861,6 +5859,8 @@ TEXTS = {
     'hf_neu':            ('neu', 'new'),
     'hf_sofort':         ('Änderungen werden sofort gespeichert',
                           'Changes are saved right away'),
+    'hf_per_knopf':      ('Änderungen gelten erst mit „Ins Spiel schreiben"',
+                          'Changes apply once you click "Write to the game"'),
     'hf_schliessen':     ('Schließen', 'Close'),
     'hf_einrichtung':    ('Einrichtung starten', 'Run setup'),
     'hf_wasistneu':      ('Was ist neu', "What's new"),
