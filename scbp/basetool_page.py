@@ -240,7 +240,9 @@ def _draw(window, area, login, redraw):
             (basetool_sync.SETTING_STOCK, basetool.SCOPES_STOCK,
              's_bt_lager', 's_bt_lager_h'),
             (basetool_sync.SETTING_SHIPS, basetool.SCOPES_HANGAR,
-             's_bt_hangar', 's_bt_hangar_h')):
+             's_bt_hangar', 's_bt_hangar_h'),
+            (basetool_sync.SETTING_DEMAND, basetool.SCOPES_DEMAND,
+             's_bt_bedarf', 's_bt_bedarf_h')):
         _area_card(window, area, login, redraw, status, connected, granted,
                    setting, scopes, title_key, help_key)
 
@@ -311,6 +313,10 @@ def _area_card(window, area, login, redraw, status, connected, granted,
         paths.set_setting(setting, new_value)
         if new_value:
             basetool_sync.request_now()
+        elif setting == basetool_sync.SETTING_DEMAND:
+            from . import exchange_demand
+            exchange_demand.forget()
+            basetool_sync._pages_changed(['bedarf'])
         window.root.after(50, redraw)
         return new_value
 
@@ -368,6 +374,14 @@ def _area_card(window, area, login, redraw, status, connected, granted,
                 lines.append(t('s_bt_abgelehnt_n', c['rejected'],
                                ', '.join(sorted(set(
                                    (sub.get('rejected') or {}).values()))[:3])))
+    elif setting == basetool_sync.SETTING_DEMAND:
+        from . import exchange_demand
+        data = exchange_demand.current()
+        if exchange_demand.reason():
+            lines.append(t('s_bt_bedarf_kein_recht'))
+        elif data is not None:
+            lines.append(t('s_bt_bedarf_stand', len(data['materials']),
+                           len(data['items'])))
     else:
         sub = state.get('ships') or {}
         c = counts.get('ships') or {}

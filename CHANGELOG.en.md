@@ -6,6 +6,45 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+> Your unit's demand from the KRT Profit Basetool as its own tab, reading the
+> refinery terminal with a keyboard shortcut, and the storage now knows animal
+> parts and all plants with quality — straight from your game.
+
+### New
+
+- **Unit demand** — under Workshop you see what your unit's open orders in
+  the KRT Profit Basetool still need: materials with a quality floor and
+  items, next to what you have in stock and whether you own the blueprint.
+  The tab only appears with a Basetool connection (Settings → Basetool →
+  “Unit demand”). Read only and anonymous; none of it is saved
+- **Read the refinery with a shortcut** — Ctrl+Alt+R reads the refinery
+  terminal in game, then the storage opens with the lines it read. Can be
+  changed under Settings → Overlay (Windows only)
+- **Animal parts and more plants in storage** — Kopion Horn, Marok Gem,
+  Valakkar Fang, Ranta Dung, Quasi Grazer egg and tongue and more plants can
+  now be added with quality. Verse-Kit reads the list from your game after
+  every patch
+- **FAQ on the website** — connecting scmdb.net, the Windows warning,
+  shortcuts, backing up your data, connecting the Basetool
+
+### Improved
+
+- **Plants and animal parts count in pieces**, no longer in SCU — as in game
+- **What to farm counts per box** — at the fabricator an ingredient comes
+  from one box; two boxes of 2 SCU no longer make a portion of 3 SCU
+- **Sharp rendering on by default** — with Windows scaling above 100 %,
+  Verse-Kit is crisp. Reported by greluc
+
+### Fixed
+
+- **Wrong manufacturer on some parts** — Elsen, Fresnel LMG, Glacis,
+  Holdstrong, Lawson, Stellate and Thlilye now show the manufacturer the game
+  names
+- **Usage report after a connection error** — the next attempt comes after
+  ten minutes instead of an hour
+
 ## v3.96.1 - 2026-10-07
 
 > A changed check interval now applies at once and sits visibly on the

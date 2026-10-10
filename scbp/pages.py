@@ -139,6 +139,7 @@ def _builders():
         'asop':        _asop,
         'einkaufsliste': _shopping_list,
         'farmliste':   _farm_list,
+        'bedarf':      _demand,
         'bergung':     _salvage,
         'zerlegen':    _dismantle,
         'herstellung': _crafting,
@@ -13903,6 +13904,93 @@ def _dismantle_row(fenster, eltern, zeile):
     tk.Label(rahmen, text=t('s_zl_drin').format(menge=_number(zeile.get('drin'))),
              bg=grund, fg=SUB, font=fenster.f_small,
              anchor='w').pack(side='left')
+
+
+def _demand(fenster, rahmen):
+    """Was die eigene Einheit im KRT Profit Basetool noch braucht.
+
+    Rohstoffe mit Mindestgüte und offener Menge — daneben, was davon im
+    eigenen Lager liegt — und Gegenstände, mit Marke, wenn der eigene
+    Bestand den Bauplan hat. Anonym: keine Namen, keine Aufträge.
+    Die Daten liegen nur im Speicher (`exchange_demand`)."""
+    from . import basetool_sync, exchange_demand, materials as lager
+
+    _heading(fenster, rahmen, t('hf_bedarf'), t('s_bd_lead'))
+    innen = _scroll_area(rahmen)
+    koerper = tk.Frame(innen, bg=BG)
+    koerper.pack(fill='x', padx=24, pady=(10, 20))
+
+    data = exchange_demand.current()
+    if exchange_demand.reason():
+        _body_text(koerper, t('s_bt_bedarf_kein_recht'), fenster.f_small,
+                   color=theme.YELLOW, fill='x')
+        return
+    if data is None:
+        _body_text(koerper, t('s_bd_warten'), fenster.f_small, fill='x')
+
+        def jetzt():
+            basetool_sync.request_now()
+            fenster.say(t('s_bt_laeuft'))
+        _button(fenster, koerper, t('s_bt_jetzt'), jetzt).pack(
+            anchor='w', pady=(8, 0))
+        return
+
+    def titel(text):
+        tk.Label(koerper, text=text, bg=BG, fg=FG, font=fenster.f_bold,
+                 anchor='w').pack(fill='x', pady=(14, 4))
+
+    def zeile(links, rechts, unter='', farbe=FG):
+        grund = _stripe(koerper, BG)
+        z = tk.Frame(koerper, bg=grund)
+        z.pack(fill='x')
+        oben = tk.Frame(z, bg=grund)
+        oben.pack(fill='x', padx=8, pady=(5, 0 if unter else 5))
+        tk.Label(oben, text=links, bg=grund, fg=farbe, font=fenster.f_base,
+                 anchor='w').pack(side='left')
+        tk.Label(oben, text=rechts, bg=grund, fg=SUB, font=fenster.f_small,
+                 anchor='e').pack(side='right')
+        if unter:
+            tk.Label(z, text=unter, bg=grund, fg=SUB, font=fenster.f_small,
+                     anchor='w').pack(fill='x', padx=8, pady=(0, 5))
+
+    titel(t('s_bd_rohstoffe'))
+    _stripe_reset(koerper)
+    if not data['materials']:
+        _body_text(koerper, t('s_bd_nichts'), fenster.f_small, fill='x')
+    for m in data['materials']:
+        stueck = (m['unit'] or '').upper() == 'PIECE'
+        menge = lager.amount_text(m['amount'], piece=stueck)
+        einheit = t('s_lg_stueck') if stueck else 'SCU'
+        try:
+            habe, _gering = lager.amount_with_quality(m['name'],
+                                                      m['min_quality'])
+        except Exception:
+            habe = 0
+        rechts = t('s_bd_offen') % (menge, einheit)
+        if habe:
+            rechts += '  ·  ' + t('s_bd_habe') % lager.amount_text(
+                habe, piece=stueck)
+        teile = []
+        if m['min_quality']:
+            teile.append(t('s_bd_ab_q') % m['min_quality'])
+        if m['raw']:
+            teile.append(t('s_bd_aus') % ', '.join(m['raw'][:4]))
+        zeile(m['name'], rechts, '  ·  '.join(teile),
+              ACCENT if habe else FG)
+
+    titel(t('s_bd_gegenstaende'))
+    _stripe_reset(koerper)
+    if not data['items']:
+        _body_text(koerper, t('s_bd_nichts'), fenster.f_small, fill='x')
+    for i in data['items']:
+        rechts = t('s_bd_offen') % (lager.amount_text(i['amount'], piece=True),
+                                    t('s_lg_stueck'))
+        zeile(i['name'], rechts,
+              t('s_bd_kannst_bauen') if i['craftable'] else '',
+              ACCENT if i['craftable'] else FG)
+
+    _body_text(koerper, t('s_bd_hinweis'), fenster.f_small, fill='x',
+               pady=(16, 0))
 
 
 def _farm_list(fenster, rahmen):

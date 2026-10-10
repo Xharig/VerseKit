@@ -6,6 +6,47 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+> Der Bedarf deiner Einheit aus dem KRT Profit Basetool als eigener Reiter,
+> das Raffinerie-Terminal per Tastenkombination lesen, und das Lager kennt
+> jetzt auch Tierteile und alle Pflanzen mit Güte — direkt aus deinem Spiel.
+
+### Neu
+
+- **Bedarf der Einheit** — unter Werkstatt steht, was die offenen Aufträge
+  deiner Einheit im KRT Profit Basetool noch brauchen: Rohstoffe mit
+  Mindestgüte und Gegenstände, daneben, was du davon im Lager hast, und ob du
+  den Bauplan besitzt. Der Reiter erscheint nur mit Basetool-Verbindung
+  (Einstellungen → Basetool → „Bedarf der Einheit"). Nur lesend und anonym;
+  gespeichert wird davon nichts
+- **Raffinerie per Tastenkombination lesen** — Strg+Alt+R liest im Spiel das
+  Raffinerie-Terminal, danach öffnet sich das Lager mit den gelesenen Zeilen.
+  Änderbar unter Einstellungen → Overlay (nur Windows)
+- **Tierteile und weitere Pflanzen im Lager** — Kopion Horn, Marok Gem,
+  Valakkar Fang, Ranta Dung, Quasi-Grazer-Ei und -Zunge und weitere Pflanzen
+  lassen sich jetzt mit Güte eintragen. Die Liste liest Verse-Kit nach jedem
+  Patch selbst aus deinem Spiel
+- **Häufige Fragen auf der Webseite** — scmdb.net verbinden, Windows-Warnung,
+  Tastenkombinationen, Daten sichern, Basetool verbinden
+
+### Verbessert
+
+- **Pflanzen und Tierteile zählen in Stück**, nicht mehr in SCU — wie im Spiel
+- **Was ich farmen muss rechnet je Kiste** — am Fertigungsterminal kommt eine
+  Zutat aus einer Kiste; zwei Kisten mit je 2 SCU ergeben keine Portion von
+  3 SCU mehr
+- **Scharfe Darstellung ab Werk an** — bei Windows-Skalierung über 100 % ist
+  Verse-Kit gestochen scharf. Gemeldet von greluc
+
+### Behoben
+
+- **Falscher Hersteller bei einigen Teilen** — Elsen, Fresnel LMG, Glacis,
+  Holdstrong, Lawson, Stellate und Thlilye zeigen jetzt den Hersteller, den
+  das Spiel nennt
+- **Nutzungsmeldung nach Verbindungsfehler** — der nächste Versuch kommt nach
+  zehn Minuten statt nach einer Stunde
+
 ## v3.96.1 - 2026-10-07
 
 > Ein geändertes Prüfintervall gilt jetzt sofort und steht sichtbar auf der

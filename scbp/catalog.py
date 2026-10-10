@@ -496,8 +496,8 @@ def game_grades():
     `global.ini` im Spielordner — die kann von einem anderen Werkzeug
     bearbeitet sein. Die Klasse bleibt bei scmdb. Den Hersteller berichtigt
     `apply_game_makers` — nur bei echt anderem Hersteller, denn CIG schreibt
-    selbst uneinheitlich („RSI" neben „Roberts Space Industries",
-    „Lighting Power Ltd.").
+    selbst uneinheitlich: RSI neben Roberts Space Industries, Lighting statt
+    Lightning Power Ltd.
     """
     if _GAME_GRADES[0] is None:
         grades = {}

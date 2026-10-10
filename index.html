@@ -177,6 +177,17 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .karte h3{margin:0 0 8px;font-size:19px;font-weight:800}
 .karte p{margin:0;color:var(--text-leise);font-size:16px}
 
+/* ---------- Häufige Fragen ---------- */
+.faq details{background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;
+  padding:0 20px;margin-bottom:12px}
+.faq summary{cursor:pointer;padding:16px 0;font-weight:700;font-size:17px;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:"+";color:var(--neon);display:inline-block;width:22px;font-weight:800}
+.faq details[open] summary::before{content:"−"}
+.faq p,.faq ol{color:var(--text-leise);font-size:16px;margin:0 0 16px}
+.faq ol{padding-left:22px}
+.faq li{margin-bottom:6px}
+
 /* ---------- Laden ---------- */
 .laden{position:relative;overflow:hidden}
 .laden .kreis.c{width:420px;height:420px;top:-180px;right:-140px;opacity:.08}
@@ -286,6 +297,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">Was es kann</a>
       <a href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
       <a class="weg" href="#sicher" data-de="Sicher?" data-en="Safe?">Sicher?</a>
+      <a class="weg" href="#fragen" data-de="Fragen" data-en="FAQ">Fragen</a>
       <a class="weg" href="#aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <div class="sprache">
         <button id="knopf-de" class="an" onclick="sprache('de')">DE</button>
@@ -515,6 +527,48 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
   </div>
 </section>
 
+<section id="fragen">
+  <div class="mitte">
+    <div class="label" data-de="Häufige Fragen" data-en="FAQ">Häufige Fragen</div>
+    <h2 data-de="Gut zu wissen" data-en="Good to know">Gut zu wissen</h2>
+    <div class="faq">
+      <details>
+        <summary data-de="Wie verbinde ich Verse-Kit mit scmdb.net?" data-en="How do I connect Verse-Kit to scmdb.net?">Wie verbinde ich Verse-Kit mit scmdb.net?</summary>
+        <ol>
+          <li data-de="In Verse-Kit unter Einstellungen → Allgemein „Mit scmdb.net verbinden“ einschalten."
+              data-en="In Verse-Kit, turn on “Connect to scmdb.net” under Settings → General.">In Verse-Kit unter Einstellungen → Allgemein „Mit scmdb.net verbinden“ einschalten.</li>
+          <li data-de="Auf scmdb.net anmelden und dort „Watcher“ → „Enable Watcher“ wählen."
+              data-en="Sign in on scmdb.net and choose “Watcher” → “Enable Watcher”.">Auf scmdb.net anmelden und dort „Watcher“ → „Enable Watcher“ wählen.</li>
+          <li data-de="Der Browser fragt einmal, ob die Seite auf Apps auf diesem Gerät zugreifen darf: erlauben, merken lassen und die Seite neu laden."
+              data-en="Your browser asks once whether the site may access apps on this device: allow it, let it remember and reload the page.">Der Browser fragt einmal, ob die Seite auf Apps auf diesem Gerät zugreifen darf: erlauben, merken lassen und die Seite neu laden.</li>
+        </ol>
+        <p data-de="Den Watcher von scmdb musst du dafür nicht herunterladen. Es geht mit LIVE und HOTFIX."
+           data-en="You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX.">Den Watcher von scmdb musst du dafür nicht herunterladen. Es geht mit LIVE und HOTFIX.</p>
+      </details>
+      <details>
+        <summary data-de="Windows warnt beim Start — ist das normal?" data-en="Windows warns when I start it — is that normal?">Windows warnt beim Start — ist das normal?</summary>
+        <p data-de="Ja. Verse-Kit ist (noch) nicht digital signiert, deshalb zeigt Windows „Der Computer wurde durch Windows geschützt“. Auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken. Der Code liegt offen auf GitHub, und GitHub baut die Dateien selbst daraus."
+           data-en="Yes. Verse-Kit is not digitally signed (yet), so Windows shows “Windows protected your PC”. Click “More info”, then “Run anyway”. The code is public on GitHub, and GitHub builds the files from it itself.">Ja. Verse-Kit ist (noch) nicht digital signiert, deshalb zeigt Windows „Der Computer wurde durch Windows geschützt“. Auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken. Der Code liegt offen auf GitHub, und GitHub baut die Dateien selbst daraus.</p>
+      </details>
+      <details>
+        <summary data-de="Welche Tastenkombinationen gibt es im Spiel?" data-en="Which keyboard shortcuts work in game?">Welche Tastenkombinationen gibt es im Spiel?</summary>
+        <p data-de="Strg+Alt+B holt die Bauplan-Liste nach vorn. Unter Windows liest Strg+Alt+R das Raffinerie-Terminal und öffnet danach das Lager mit den gelesenen Zeilen. Beide lassen sich unter Einstellungen → Overlay ändern."
+           data-en="Ctrl+Alt+B brings the blueprint list to the front. On Windows, Ctrl+Alt+R reads the refinery terminal and then opens the storage with the lines it read. Both can be changed under Settings → Overlay.">Strg+Alt+B holt die Bauplan-Liste nach vorn. Unter Windows liest Strg+Alt+R das Raffinerie-Terminal und öffnet danach das Lager mit den gelesenen Zeilen. Beide lassen sich unter Einstellungen → Overlay ändern.</p>
+      </details>
+      <details>
+        <summary data-de="Wo liegen meine Daten, und wie sichere ich sie?" data-en="Where is my data, and how do I back it up?">Wo liegen meine Daten, und wie sichere ich sie?</summary>
+        <p data-de="Den Ordner siehst und änderst du unter Einstellungen → Installation &amp; Pfade („Ordner für deine Daten“). Eine Sicherung zum Mitnehmen gibt es unter Einstellungen → Sichern &amp; Zurücksetzen."
+           data-en="You can see and change the folder under Settings → Installation &amp; paths (“Folder for your data”). A backup to take along is under Settings → Backup &amp; reset.">Den Ordner siehst und änderst du unter Einstellungen → Installation &amp; Pfade („Ordner für deine Daten“). Eine Sicherung zum Mitnehmen gibt es unter Einstellungen → Sichern &amp; Zurücksetzen.</p>
+      </details>
+      <details>
+        <summary data-de="Wie verbinde ich das KRT Profit Basetool?" data-en="How do I connect the KRT Profit Basetool?">Wie verbinde ich das KRT Profit Basetool?</summary>
+        <p data-de="Unter Einstellungen → Basetool die gewünschten Bereiche einschalten (Baupläne, Lager, Hangar, Bedarf der Einheit) und auf „Verbinden“ klicken. Die Anmeldung läuft im Browser über dein Basetool-Konto. Der Reiter „Bedarf der Einheit“ erscheint erst mit dieser Verbindung."
+           data-en="Under Settings → Basetool, turn on the areas you want (blueprints, storage, hangar, unit demand) and click “Connect”. You sign in through your Basetool account in the browser. The “Unit demand” tab only appears with this connection.">Unter Einstellungen → Basetool die gewünschten Bereiche einschalten (Baupläne, Lager, Hangar, Bedarf der Einheit) und auf „Verbinden“ klicken. Die Anmeldung läuft im Browser über dein Basetool-Konto. Der Reiter „Bedarf der Einheit“ erscheint erst mit dieser Verbindung.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
 <section id="aenderungen">
   <div class="mitte">
     <div class="label" data-de="Verlauf" data-en="History">Verlauf</div>
@@ -619,6 +673,9 @@ var GRUPPEN = [
     {reiter:"farmliste", bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
      bde:"Dein Lager gegen alles gerechnet, was du bauen willst — über alle Posten zusammen.",
      ben:"Your storage measured against everything you want to build — across all items at once."},
+    {reiter:"bedarf", bild:"screenshot-bedarf.png", de:"Bedarf der Einheit", en:"Unit demand",
+     bde:"Mit dem KRT Profit Basetool verbunden: was die offenen Aufträge deiner Einheit noch brauchen — und was du davon schon hast.",
+     ben:"Connected to the KRT Profit Basetool: what your unit's open orders still need — and what of it you already have."},
     {reiter:"lager", bild:"screenshot-lager.png", de:"Rohstofflager", en:"Material storage",
      bde:"Was du an Material hast, mit Güte und Lagerort — im Rezept steht dann, was fehlt.",
      ben:"What material you have, with quality and location — the recipe then shows what is missing."},

@@ -85,6 +85,7 @@ SCOPE_OFFLINE = 'offline_access'
 SCOPES_BLUEPRINTS = ('exchange.blueprints.read', 'exchange.blueprints.write')
 SCOPES_STOCK = ('exchange.stock.read', 'exchange.stock.write')
 SCOPES_HANGAR = ('exchange.hangar.read', 'exchange.hangar.write')
+SCOPES_DEMAND = ('exchange.demand.read',)
 
 REFRESH_SECRET = 'refresh-token'
 KEY_SECRET = 'dpop-key'
@@ -663,6 +664,8 @@ class Connection:
         self._drop_key()
         with self._lock:
             self.granted = ()
+        from . import exchange_demand
+        exchange_demand.forget()
 
     # ------------------------------------------------------- Kurzwege
     def service_document(self):

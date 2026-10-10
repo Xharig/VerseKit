@@ -25385,6 +25385,7 @@ def main():
     _pruefung_414()
     _pruefung_415()
     _pruefung_416()
+    _pruefung_417()
 
     print()
     if fehler:
@@ -38462,6 +38463,98 @@ def _pruefung_416():
     _ka416.apply_game_makers(_fest416, _makers416, _codes416)
     pruefe(_fest416[_ka416._norm('Elsen')]['m'] == 'MaxOx',
            'ein über das Kürzel berichtigter Hersteller bleibt')
+
+
+def _pruefung_417():
+    """417. Bedarf der Einheit: lesen, nur im Speicher, Reiter nur mit Recht."""
+    print('\n417. Bedarf der Einheit (Basetool, nur lesend)')
+    import tempfile as _tf417
+    from scbp import exchange_demand as _ed417, basetool as _bt417
+    from scbp import basetool_sync as _bs417, paths as _pa417
+
+    _antwort417 = {
+        'updatedAt': '2026-10-10T12:00:00Z',
+        'materials': [
+            {'material': {'bt': 'm-agr', 'name': 'Agricium'},
+             'rawRefs': [{'bt': 'm-agr-ore', 'name': 'Agricium (Ore)'}],
+             'minQuality': 650, 'openQuantity': {'amount': 40, 'unit': 'SCU'},
+             'source': 'material-order', 'requester': 'Geheim'},
+            {'material': {'name': 'Leer'}, 'openQuantity': {'amount': 0}},
+        ],
+        'items': [{'item': {'name': 'CF-337 Panther Repeater'},
+                   'openQuantity': {'amount': 2, 'unit': 'PIECE'},
+                   'craftableByMe': True}],
+    }
+
+    class _Conn417:
+        def __init__(self, antwort):
+            self.antwort, self.pfade = antwort, []
+
+        def request(self, method, path, body=None, **_k):
+            self.pfade.append((method, path))
+            return self.antwort
+
+    _heim417 = _tf417.mkdtemp(prefix='bedarf-')
+    _alt_heim417 = os.environ.get('SC_BP_HOME')
+    _alt417 = (_bt417.CONNECTION, dict(_bs417.STATUS))
+    try:
+        os.environ['SC_BP_HOME'] = _heim417
+        _ed417.forget()
+        _conn = _Conn417(_antwort417)
+        _zahl = _ed417.refresh(_conn, now=1000.0)
+        pruefe(_conn.pfade == [('GET', '/me/org-demand')],
+               'abgefragt wird GET /me/org-demand')
+        pruefe(_zahl == {'materials': 1, 'items': 1, 'reason': ''},
+               'Zeilen ohne offene Menge fallen weg (%r)' % _zahl)
+        _d = _ed417.current(now=1000.0)
+        pruefe(_d and _d['materials'][0]['min_quality'] == 650
+               and _d['materials'][0]['raw'] == ['Agricium (Ore)']
+               and _d['items'][0]['craftable'],
+               'Mindestgüte, Roherz und „Bauplan vorhanden" kommen an')
+        pruefe('Geheim' not in repr(_d),
+               'unbekannte Felder werden nicht übernommen')
+        pruefe(not [n for n in os.listdir(_heim417) if 'bedarf' in n.lower()
+                    or 'demand' in n.lower()],
+               'nichts davon landet im Datenordner')
+        pruefe(_ed417.current(now=1000.0 + _ed417.MAX_AGE + 1) is None,
+               'nach 7 Tagen ist der Bedarf verworfen')
+
+        _ed417.refresh(_Conn417({'materials': [], 'items': [],
+                                 'reason': 'NOT_PERMITTED'}), now=2000.0)
+        pruefe(_ed417.current(now=2000.0) is None
+               and _ed417.reason() == 'NOT_PERMITTED',
+               'mit Grund wird nichts gezeigt und der Grund gemerkt')
+        _ed417.forget()
+        pruefe(_ed417.reason() == '' and _ed417.current() is None,
+               'Verwerfen räumt alles weg')
+
+        pruefe(_bt417.SCOPES_DEMAND == ('exchange.demand.read',)
+               and (_bs417.SETTING_DEMAND, _bt417.SCOPES_DEMAND) in _bs417.AREAS,
+               'eigener Bereich mit dem Recht exchange.demand.read')
+        _pa417.set_setting(_bs417.SETTING_DEMAND, False)
+        pruefe(not _ed417.visible(), 'Bereich aus: kein Reiter')
+
+        class _Verbunden417:
+            granted = ('exchange.connect', 'exchange.demand.read')
+
+            def connected(self):
+                return True
+        _bt417.CONNECTION = _Verbunden417()
+        _pa417.set_setting(_bs417.SETTING_DEMAND, True)
+        pruefe(_ed417.visible(), 'Bereich an, verbunden, Recht da: Reiter da')
+        _bt417.CONNECTION.granted = ('exchange.connect',)
+        _bs417.STATUS['capabilities'] = []
+        pruefe(not _ed417.visible(), 'ohne Recht: kein Reiter')
+    finally:
+        _bt417.CONNECTION = _alt417[0]
+        _bs417.STATUS.clear()
+        _bs417.STATUS.update(_alt417[1])
+        _ed417.forget()
+        if _alt_heim417 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim417
+        shutil.rmtree(_heim417, ignore_errors=True)
 
 
 def _alle_eingaben(w):

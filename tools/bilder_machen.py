@@ -127,6 +127,7 @@ SEITEN = {
     'wunschliste':  'screenshot-wunschliste',
     'einkaufsliste': 'screenshot-einkaufsliste',
     'farmliste':    'screenshot-farmliste',
+    'bedarf':       'screenshot-bedarf',
     'bergung':      'screenshot-bergung',
     'zerlegen':     'screenshot-zerlegen',
     'blickwinkel':  'screenshot-blickwinkel',
@@ -295,6 +296,39 @@ def _gefaehrliches_abschalten(ordner):
             json.dump(daten, datei, ensure_ascii=False, indent=1)
     except Exception:
         pass
+
+
+def beispiel_bedarf():
+    """Erfundener Bedarf einer Einheit — nur im Speicher, wie im Betrieb.
+
+    Der Reiter ist sonst nur mit Basetool-Verbindung da; für das Bild wird
+    er eingeblendet."""
+    from scbp import exchange_demand
+    exchange_demand.visible = lambda: True
+    daten = exchange_demand.parse({
+        'updatedAt': '2026-10-10T12:00:00Z',
+        'materials': [
+            {'material': {'name': 'Agricium'},
+             'rawRefs': [{'name': 'Agricium (Ore)'}], 'minQuality': 650,
+             'openQuantity': {'amount': 40, 'unit': 'SCU'},
+             'source': 'material-order'},
+            {'material': {'name': 'Taranite'},
+             'rawRefs': [{'name': 'Taranite (Raw)'}], 'minQuality': 0,
+             'openQuantity': {'amount': 12.5, 'unit': 'SCU'},
+             'source': 'item-order'},
+            {'material': {'name': 'Hadanite'}, 'rawRefs': [], 'minQuality': 0,
+             'openQuantity': {'amount': 30, 'unit': 'PIECE'},
+             'source': 'material-order'},
+        ],
+        'items': [
+            {'item': {'name': 'CF-337 Panther Repeater'},
+             'openQuantity': {'amount': 2, 'unit': 'PIECE'},
+             'craftableByMe': True},
+            {'item': {'name': 'FR-76 Shield Generator'},
+             'openQuantity': {'amount': 1, 'unit': 'PIECE'},
+             'craftableByMe': False},
+        ]})
+    exchange_demand._state.update(data=daten, at=time.time(), reason='')
 
 
 def beispiel_daten():
@@ -1254,6 +1288,7 @@ def main():
     # ⚠ Immer und für jede Seite — siehe `beispiel_daten`. Die Beispielschiffe
     # liegen im kopierten erkul-Zwischenspeicher, das Netz braucht es nicht.
     beispiel_daten()
+    beispiel_bedarf()
     beispiel_steuerung(os.environ['SC_BP_HOME'])
     beispiel_bericht()
     nachlesen_abschalten()

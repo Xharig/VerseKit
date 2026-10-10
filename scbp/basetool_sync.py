@@ -59,13 +59,15 @@ from . import basetool, collection as collection_file, exchange_sync, paths
 SETTING_BLUEPRINTS = 'basetool_bauplaene'
 SETTING_STOCK = 'basetool_lager'
 SETTING_SHIPS = 'basetool_hangar'
+SETTING_DEMAND = 'basetool_bedarf'
 SETTING_LABEL = 'basetool_name'
 
 # Die Bereiche: Schalter und die Rechte, die er braucht. Jeder ist ab Werk
 # aus, und angefragt wird nur, was eingeschaltet ist.
 AREAS = ((SETTING_BLUEPRINTS, basetool.SCOPES_BLUEPRINTS),
          (SETTING_STOCK, basetool.SCOPES_STOCK),
-         (SETTING_SHIPS, basetool.SCOPES_HANGAR))
+         (SETTING_SHIPS, basetool.SCOPES_HANGAR),
+         (SETTING_DEMAND, basetool.SCOPES_DEMAND))
 
 CADENCE = 300           # höchstens alle 5 Minuten ohne Anlass
 AFTER_CHANGE = 20       # eigene Änderungen kurz sammeln, dann einmal abgleichen
@@ -483,6 +485,12 @@ def _run(watcher):
     if SETTING_SHIPS in ready:
         counts['ships'] = _sync_ships(conn, state)
         save_state(state)
+    from . import exchange_demand
+    if SETTING_DEMAND in ready:
+        counts['demand'] = exchange_demand.refresh(conn)
+    else:
+        exchange_demand.forget()
+    _in_tk(lambda: _pages_changed(['bedarf']))
     _set(state='ok', code='SCOPE_MISSING' if missing else '', counts=counts,
          missing=missing, last_sync=time.strftime('%Y-%m-%d %H:%M:%S'))
 

@@ -2505,6 +2505,9 @@ class MainWindow:
         # eigener Bestand, Fundorte, Raffinerie.
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
+        # Nur sichtbar mit Basetool-Verbindung und Bedarf-Recht — siehe
+        # `_tab_hidden`.
+        self._tab('bedarf', 'basetool', t('hf_bedarf'), g_werk)
         self._tab('lager', 'bestand', t('hf_lager'), g_werk)
         self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
         # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
@@ -2638,6 +2641,7 @@ class MainWindow:
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
         # Zugeklappt: nur „Was ist neu", „Update & Über", „Fehler melden".
         self._apply_pins('info')
+        self._apply_pins('werkstatt')
         self._apply_modules()
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
@@ -2885,25 +2889,40 @@ class MainWindow:
         return 'gruppe_zu_%s' % kennung
 
     def _apply_pins(self, kennung):
-        """In einer Gruppe mit festen Reitern zeigen, was zu sehen sein soll.
+        """In einer Gruppe zeigen, was zu sehen sein soll.
 
-        Offen: alle Reiter. Zu: nur die festen. ⚠ Neu gepackt wird in der
-        Reihenfolge, in der die Reiter angelegt wurden — ein bloßes
+        Gruppe mit festen Reitern: offen alle, zu nur die festen. Gruppe ohne
+        feste Reiter: alle (das Zuklappen blendet dort den ganzen Inhalt aus).
+        Ausgeblendete Reiter (`_tab_hidden`) bleiben weg. ⚠ Neu gepackt wird
+        in der Reihenfolge, in der die Reiter angelegt wurden — ein bloßes
         `pack()` hängte einen wieder eingeblendeten Reiter ans Ende."""
         g = self.groups.get(kennung)
         if not g:
             return
         fest = self.PINNED_TABS.get(kennung, ())
+        ohne_feste = kennung not in self.PINNED_TABS
         nach_zeile = {teile[0]: k for k, teile in self.buttons.items()}
         try:
             zeilen = [z for z in g['inhalt'].winfo_children() if z in nach_zeile]
             for zeile in zeilen:
                 zeile.pack_forget()
             for zeile in zeilen:
-                if g['offen'] or nach_zeile[zeile] in fest:
+                reiter = nach_zeile[zeile]
+                if self._tab_hidden(reiter):
+                    continue
+                if g['offen'] or ohne_feste or reiter in fest:
                     zeile.pack(fill='x')
         except tk.TclError:
             pass
+        self._sidebar_dirty = True
+
+    def _tab_hidden(self, kennung):
+        """Reiter, die nur unter einer Bedingung da sind: „Bedarf" nur mit
+        Basetool-Verbindung und Bedarf-Recht."""
+        if kennung == 'bedarf':
+            from . import exchange_demand
+            return not exchange_demand.visible()
+        return False
 
     def _group(self, text, kennung=None):
         """Eine Gruppenüberschrift — anklicken klappt ihre Reiter weg.
@@ -3322,6 +3341,8 @@ class MainWindow:
             group = modules.group_of(kennung)
             self.say(t('s_mo_aus_hinweis') % t(modules.LABELS[group]))
             kennung = 'module'
+        if self._tab_hidden(kennung):
+            kennung = 'basetool'
         # ⚠ **Die Gruppe des Reiters muss offen sein.** Sonst steht man auf
         # einer Seite, deren Eintrag in der Leiste gar nicht zu sehen ist — das
         # sieht nach einem Fehler aus, und der Weg zurück ist nicht zu finden.
@@ -3613,6 +3634,11 @@ class MainWindow:
         sichtbare Seite beim alten Stand, träfe der nächste Klick zum Ändern
         oder Entfernen womöglich einen anderen Eintrag. Die
         Rollposition geht dabei verloren — das ist der kleinere Schaden."""
+        if 'bedarf' in kennungen:
+            self._apply_pins('werkstatt')
+            if self.current == 'bedarf' and self._tab_hidden('bedarf'):
+                kennungen = [k for k in kennungen if k != 'bedarf']
+                self.open_page('liste')
         for kennung in kennungen:
             if kennung not in self.drawn:
                 continue

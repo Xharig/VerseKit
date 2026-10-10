@@ -21,6 +21,7 @@ export const PAGES = {
   raffinerien: ['Werkstatt', 'Raffinerien'],
   laeden: ['Werkstatt', 'Shops'],
   farmliste: ['Werkstatt', 'Was ich farmen muss'],
+  bedarf: ['Werkstatt', 'Bedarf der Einheit'],
   bergung: ['Bergung', 'Was steckt drin?'],
   zerlegen: ['Bergung', 'Lohnt das Zerlegen?'],
   handelslager: ['Handel', 'Handelslager'],
