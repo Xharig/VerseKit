@@ -98,6 +98,7 @@ FIELDS = {
     'klasse':  ('Klasse', 'Class'),
     'lenkung': ('Verfolgungssignal', 'Tracking Signal', 'Signature Type',
                 'Signature'),
+    'hersteller': ('Hersteller', 'Manufacturer'),
 }
 
 # Wortteile → Kürzel. Kleingeschrieben verglichen, deshalb hier auch klein.
@@ -199,6 +200,11 @@ def _grade(value):
 def grade_from_description(text):
     """Nur der Gütegrad einer Beschreibung — `'A'` … `'D'` oder None."""
     return _grade(_field(text, 'guete')) if text else None
+
+
+def manufacturer_from_description(text):
+    """Nur der Hersteller einer Beschreibung — oder None."""
+    return _field(text, 'hersteller') if text else None
 
 
 def from_description(text):

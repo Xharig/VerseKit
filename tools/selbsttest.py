@@ -25384,6 +25384,7 @@ def main():
     _pruefung_413()
     _pruefung_414()
     _pruefung_415()
+    _pruefung_416()
 
     print()
     if fehler:
@@ -30955,7 +30956,19 @@ def _pruefung_309():
     """309. Scharfe Darstellung: Umrechnung an der Tkinter-Grenze (`dpi`)."""
     print('\n309. Scharfe Darstellung (Umrechnung logisch/physisch)')
     from scbp import dpi as _dpi309
-    pruefe(not _dpi309.active(), 'Ab Werk keine Umrechnung')
+    pruefe(not _dpi309.active(), 'Ohne install() keine Umrechnung')
+    import tempfile as _tf309
+    _alt_heim309 = os.environ.get('SC_BP_HOME')
+    _heim309 = _tf309.mkdtemp(prefix='dpi-')
+    try:
+        os.environ['SC_BP_HOME'] = _heim309
+        pruefe(_dpi309.wanted(), 'Scharfe Darstellung ist ab Werk an')
+    finally:
+        if _alt_heim309 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim309
+        shutil.rmtree(_heim309, ignore_errors=True)
     pruefe(_dpi309.px(14) == 14 and _dpi309.logical(14) == 14,
            'Ohne Faktor bleiben Masse unveraendert')
     lauf = subprocess.run([sys.executable, '-c', _KIND309, WURZEL],
@@ -38388,6 +38401,67 @@ def _pruefung_415():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim415
         shutil.rmtree(_heim415, ignore_errors=True)
+
+
+def _pruefung_416():
+    """416. Hersteller: Spiel vor scmdb — nur bei echt anderem Hersteller."""
+    print('\n416. Hersteller laut Spiel, Schreibweisen bleiben')
+    from scbp import catalog as _ka416
+    _ini416 = '\n'.join([
+        'manufacturer_NameVOLT=Verified Offworld Laser Technologies',
+        'manufacturer_NameRSI=Roberts Space Industries',
+        'item_NameCOOL_WCPR_S03_Elsen_SCItem=Elsen',
+        'item_DescCOOL_WCPR_S03_Elsen_SCItem=Manufacturer: Wen/Cassel Propulsion\\nItem Type: Cooler',
+        'item_Namevolt_lmg_energy_01=Fresnel Energy LMG',
+        'item_Descvolt_lmg_energy_01=Manufacturer: VOLT\\nItem Type: LMG',
+        'item_NameRSI_Thing=Probeteil',
+        'item_DescRSI_Thing=Manufacturer: RSI\\nSize: 1',
+        'item_NameX_A=Zwilling',
+        'item_DescX_A=Manufacturer: Aegis Dynamics',
+        'item_NameX_B=Zwilling',
+        'item_DescX_B=Manufacturer: Anvil Aerospace',
+    ])
+    _makers416, _codes416 = _ka416.makers_from_ini(_ini416)
+    pruefe(_makers416.get(_ka416._norm('Elsen')) == 'Wen/Cassel Propulsion',
+           'der Hersteller kommt aus der Beschreibung')
+    pruefe(_ka416._norm('Zwilling') not in _makers416,
+           'ein Name mit zwei Herstellern fällt heraus')
+    pruefe(_codes416.get('VOLT') == 'Verified Offworld Laser Technologies',
+           'die Kürzeltabelle wird gelesen')
+
+    for _a, _b in (('VOLT', 'Verified Offworld Laser Technologies'),
+                   ('Roberts Space Industries', 'RSI'),
+                   ('GNP', 'Groupe Nouveau Paradigme'),
+                   ('LBCO', 'Lightning Bolt Co.'),
+                   ('Lightning Power Ltd.', 'Lighting Power Ltd.'),
+                   ('PH Associated Science and Development',
+                    'Associated Science & Development'),
+                   ('Nav-E7 Gadgets', 'Nav-E7')):
+        pruefe(_ka416.same_maker(_a, _b, _codes416),
+               'Schreibweise gilt als gleich: %s / %s' % (_a, _b))
+    for _a, _b in (('Aegis Dynamics', 'Wen/Cassel Propulsion'),
+                   ('Klaus & Werner', 'Verified Offworld Laser Technologies'),
+                   ('Origin Jumpworks', 'Sakura Sun'),
+                   ('Aopoa', 'Torral Aggregate')):
+        pruefe(not _ka416.same_maker(_a, _b, _codes416),
+               'anderer Hersteller wird erkannt: %s / %s' % (_a, _b))
+
+    _werte416 = {
+        _ka416._norm('Elsen'): {'m': 'Aegis Dynamics', '_mfest': False},
+        _ka416._norm('Fresnel Energy LMG'): {'m': 'Klaus & Werner', '_mfest': False},
+        _ka416._norm('Probeteil'): {'m': 'Roberts Space Industries', '_mfest': False},
+    }
+    _n416 = _ka416.apply_game_makers(_werte416, _makers416, _codes416)
+    pruefe(_n416 == 2
+           and _werte416[_ka416._norm('Elsen')]['m'] == 'Wen/Cassel Propulsion'
+           and _werte416[_ka416._norm('Fresnel Energy LMG')]['m'] == 'VOLT'
+           and _werte416[_ka416._norm('Probeteil')]['m'] == 'Roberts Space Industries',
+           'berichtigt werden nur echte Abweichungen, die Schreibweise bleibt '
+           '(%d)' % _n416)
+    _fest416 = {_ka416._norm('Elsen'): {'m': 'MaxOx', '_mfest': True}}
+    _ka416.apply_game_makers(_fest416, _makers416, _codes416)
+    pruefe(_fest416[_ka416._norm('Elsen')]['m'] == 'MaxOx',
+           'ein über das Kürzel berichtigter Hersteller bleibt')
 
 
 def _alle_eingaben(w):

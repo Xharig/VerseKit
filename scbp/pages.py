@@ -2065,7 +2065,7 @@ def _appearance(window, frame):
 
 def _sharp_row(window, inner):
     """Scharfe Darstellung bei Windows-Skalierung über 100 % (`dpi`) — wirkt
-    nach einem Neustart, ab Werk aus."""
+    nach einem Neustart, ab Werk an."""
     from .main_window import toggle_switch
     target = _setting_row(window, inner, t('s_da_scharf'), t('s_da_scharf_h'))
     if not sys.platform.startswith('win'):

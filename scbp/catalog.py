@@ -413,6 +413,12 @@ def _manufacturer(entry):
     return MANUFACTURER_BY_CODE.get(code) or entry.get('manufacturer')
 
 
+def _manufacturer_fixed(entry):
+    """Ist der Hersteller schon über das Kürzel berichtigt (MaxOx)?"""
+    from .crafting import MANUFACTURER_BY_CODE
+    return (entry.get('manufacturerCode') or '').upper() in MANUFACTURER_BY_CODE
+
+
 def _values(raw_items):
     """Name -> Art, Größe, Gütegrad, Klasse, Hersteller.
 
@@ -437,6 +443,7 @@ def _values(raw_items):
                 'g': e.get('grade'),
                 'c': e.get('componentClass'),
                 'm': _manufacturer(e),
+                '_mfest': _manufacturer_fixed(e),
             })
     return values_
 
@@ -487,8 +494,9 @@ def game_grades():
 
     Gelesen wird die **Originaldatei aus der `Data.p4k`**, nicht eine lose
     `global.ini` im Spielordner — die kann von einem anderen Werkzeug
-    bearbeitet sein. Hersteller und Klasse bleiben bei scmdb: Dort schreibt
-    CIG selbst uneinheitlich („RSI" neben „Roberts Space Industries",
+    bearbeitet sein. Die Klasse bleibt bei scmdb. Den Hersteller berichtigt
+    `apply_game_makers` — nur bei echt anderem Hersteller, denn CIG schreibt
+    selbst uneinheitlich („RSI" neben „Roberts Space Industries",
     „Lighting Power Ltd.").
     """
     if _GAME_GRADES[0] is None:
@@ -517,6 +525,102 @@ def apply_game_grades(values_, grades):
         grade = grades.get(key)
         if grade and entry.get('c') and entry.get('g') != grade:
             entry['g'] = grade
+            changed += 1
+    return changed
+
+
+# Ein Lesevorgang je Programmlauf, wie bei den Gütegraden.
+_GAME_MAKERS = [None]
+
+
+def makers_from_ini(data):
+    """`({Vergleichsname: Hersteller}, {Kürzel: voller Name})` aus einer
+    `global.ini`.
+
+    Der Hersteller steht in der Beschreibung (`Manufacturer: …`), die Kürzel
+    unter `manufacturer_Name<KÜRZEL>`. Ein Name mit verschiedenen Herstellern
+    fällt heraus."""
+    from . import specs
+    if isinstance(data, bytes):
+        data = data.decode('utf-8-sig', 'ignore')
+    descriptions, names, codes = {}, {}, {}
+    for line in (data or '').splitlines():
+        sep = line.find('=')
+        if sep < 1:
+            continue
+        key = line[:sep].split(',', 1)[0].lower()
+        value = line[sep + 1:].strip()
+        if key.startswith('item_desc'):
+            descriptions[key[9:]] = line[sep + 1:]
+        elif key.startswith('item_name'):
+            names[key[9:]] = value.lstrip('*').strip()
+        elif key.startswith('manufacturer_name') and value:
+            codes[key[len('manufacturer_name'):].upper()] = value
+    found = {}
+    for stem, name in names.items():
+        maker = specs.manufacturer_from_description(descriptions.get(stem))
+        if maker and name:
+            found.setdefault(_norm(specs.strip_tag(name)), set()).add(maker)
+    return ({key: next(iter(m)) for key, m in found.items() if len(m) == 1},
+            codes)
+
+
+def _maker_key(name):
+    """`Klaus & Werner` → `klausandwerner` — nur Buchstaben und Ziffern."""
+    return re.sub(r'[^a-z0-9]', '', (name or '').lower().replace('&', 'and'))
+
+
+def same_maker(a, b, codes=None):
+    """Meinen zwei Angaben denselben Hersteller — nur anders geschrieben?
+
+    Gleich gelten: Kürzel und voller Name (`VOLT`, `RSI`), Anfangsbuchstaben
+    (`GNP`), ein Name im anderen (`Nav-E7` / `Nav-E7 Gadgets`) und knappe
+    Vertipper (`Lighting` / `Lightning`)."""
+    import difflib
+    codes = codes or {}
+    full_a = codes.get((a or '').strip().upper(), a)
+    full_b = codes.get((b or '').strip().upper(), b)
+    ka, kb = _maker_key(full_a), _maker_key(full_b)
+    if not ka or not kb:
+        return False
+    if ka == kb or ka in kb or kb in ka:
+        return True
+    for short, long_ in ((a, full_b), (b, full_a)):
+        initials = ''.join(w[0] for w in re.findall(r'[A-Za-z0-9]+', long_ or '')).lower()
+        s = _maker_key(short)
+        if len(initials) >= 2 and len(s) >= 2 and (s == initials
+                                                  or s.startswith(initials)):
+            return True
+    return difflib.SequenceMatcher(None, ka, kb).ratio() >= 0.85
+
+
+def game_makers():
+    """Die Hersteller laut Spiel und die Kürzeltabelle — leer ohne Spiel."""
+    if _GAME_MAKERS[0] is None:
+        result = ({}, {})
+        try:
+            from . import gametext
+            data, _message = gametext.read_from_archive('english')
+            if data:
+                result = makers_from_ini(data)
+        except Exception as error:
+            errors.record('catalog.game_makers', error)
+        _GAME_MAKERS[0] = result
+    return _GAME_MAKERS[0]
+
+
+def apply_game_makers(values_, makers, codes=None):
+    """Den Hersteller laut Spiel über den von scmdb legen — nur, wenn es
+    wirklich ein anderer Hersteller ist, nicht bloß eine andere Schreibweise.
+    Über das Kürzel Berichtigtes (`_mfest`) bleibt. Gibt die Zahl der
+    Änderungen zurück."""
+    changed = 0
+    for key, entry in values_.items():
+        maker = makers.get(key)
+        current = entry.get('m')
+        if (maker and current and not entry.get('_mfest')
+                and not same_maker(current, maker, codes)):
+            entry['m'] = maker
             changed += 1
     return changed
 
@@ -949,6 +1053,7 @@ def build(version=None, progress=None, from_file=None):
     cig_issues.apply_items((raw_items or {}).get('items'), issues)
     values_ = _values(raw_items)
     apply_game_grades(values_, game_grades())
+    apply_game_makers(values_, *game_makers())
 
     if from_file:                       # nur für Entwicklung und Selbsttest
         report(t('z_herkunft_datei') % os.path.basename(from_file))

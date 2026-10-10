@@ -66,10 +66,10 @@ def active():
 
 
 def wanted():
-    """Ist die Einstellung an (ungeachtet von System und Skalierung)?"""
+    """Ist die Einstellung an (ungeachtet von System und Skalierung)? Ab Werk an."""
     try:
         from . import paths
-        return paths.setting_bool(SETTING, False)
+        return paths.setting_bool(SETTING, True)
     except Exception:
         return False
 
