@@ -67,6 +67,84 @@ _LINE = re.compile(r'^[ \t]*<Attr\s+name="([^"]*)"\s+value="([^"]*)"\s*/>[ \t]*\
                    re.M)
 
 
+# Die Qualitätszeilen im Grafikmenü des Spiels, in dessen Reihenfolge.
+# `SysSpec_Particles` und `SysSpec_PlanetTerrainVirtualTextures` stehen in der
+# Datei, aber nicht im Menü — sie fehlen hier.
+QUALITY_ROWS = (
+    ('SysSpec_ObjectDetail', 's_gr_q_objektdetails'),
+    ('SysSpec_ObjectViewDistance', 's_gr_q_sichtweite'),
+    ('SysSpec_TextureQuality', 's_gr_q_texturqualitaet'),
+    ('SysSpec_TextureDetail', 's_gr_q_texturdetails'),
+    ('SysSpec_TextureGround', 's_gr_q_bodentexturen'),
+    ('SysSpec_TextureFiltering', 's_gr_q_texturfilter'),
+    ('SysSpec_ShadowMaps', 's_gr_q_schatten'),
+    ('SysSpec_ShadowScreenSpace', 's_gr_q_schatten_bild'),
+    ('SysSpec_PlanetVolumetricClouds', 's_gr_q_wolken'),
+    ('SysSpec_GasCloud', 's_gr_q_gaswolken'),
+    ('SysSpec_Fog', 's_gr_q_nebel'),
+    ('SysSpec_WaterCaustics', 's_gr_q_wasserkaustik'),
+    ('SysSpec_WaterSim', 's_gr_q_wassersim'),
+    ('SysSpec_Shading', 's_gr_q_shader'),
+    ('SysSpec_PostProcessing', 's_gr_q_nachbearbeitung'),
+    ('SysSpec_VideoComms', 's_gr_q_video'),
+)
+
+# Was jede Voreinstellung je Zeile setzt — aus der Vorlage des Spiels
+# (`Engine/Config/CVarGroups/sys_spec_Full.cfg`, Abschnitte 1 bis 5). Nicht
+# genannte Zeilen stehen auf der Stufe selbst.
+_PRESET_EXCEPTIONS = {
+    2: {'SysSpec_TextureFiltering': 3, 'SysSpec_TextureGround': 3},
+    4: {'SysSpec_TextureDetail': 3, 'SysSpec_TextureFiltering': 3,
+        'SysSpec_TextureGround': 3},
+    5: {'SysSpec_GasCloud': 4, 'SysSpec_PlanetVolumetricClouds': 4,
+        'SysSpec_PostProcessing': 4, 'SysSpec_Shading': 4,
+        'SysSpec_ShadowScreenSpace': 4, 'SysSpec_TextureDetail': 3,
+        'SysSpec_TextureFiltering': 3, 'SysSpec_TextureGround': 3,
+        'SysSpec_VideoComms': 4, 'SysSpec_WaterCaustics': 4,
+        'SysSpec_WaterSim': 4},
+}
+
+
+def preset_level(machine_class, row):
+    """Die Stufe, die die Voreinstellung `machine_class` (1–5) für `row` setzt."""
+    return _PRESET_EXCEPTIONS.get(machine_class, {}).get(row, machine_class)
+
+
+def read_quality(path=None):
+    """{Zeile: Stufe 1–5} für die Zeilen aus `QUALITY_ROWS`, die in der Datei
+    stehen. Fehlt eine Zeile, folgt sie der Voreinstellung — sie fehlt dann
+    auch hier."""
+    path = path or attribute_file()
+    if not path:
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8', newline='') as f:
+            text = f.read()
+    except OSError as exc:
+        errors.record('graphics.read_quality', exc)
+        return {}
+    found = {m.group(1): _number(m.group(2)) for m in _LINE.finditer(text)}
+    return {row: found[row] for row, _key in QUALITY_ROWS
+            if isinstance(found.get(row), int) and 1 <= found[row] <= 5}
+
+
+def compare(levels, machine_class):
+    """Die eigenen Zeilen gegen die Voreinstellung des Spiels.
+
+    Gibt `(darüber, darunter)` zurück — je eine Liste `(zeile, ist, vorschlag)`
+    in der Reihenfolge des Menüs."""
+    above, below = [], []
+    for row, _key in QUALITY_ROWS:
+        if row not in levels:
+            continue
+        wanted = preset_level(machine_class, row)
+        if levels[row] > wanted:
+            above.append((row, levels[row], wanted))
+        elif levels[row] < wanted:
+            below.append((row, levels[row], wanted))
+    return above, below
+
+
 RENDERER = 'GraphicsRenderer'
 RENDERER_CHOICES = ((1, 's_gr_renderer_1'), (0, 's_gr_renderer_0'))
 

@@ -4010,6 +4010,39 @@ def _machine_card(window, slot, data):
                  height=10 if on else 6).pack(fill='x')
         tk.Label(cell, text=name, bg=SURFACE, fg=FG if on else SUB,
                  font=window.f_bold if on else window.f_small).pack(pady=(4, 0))
+    _performance_hints(window, card, level, names)
+
+
+def _performance_hints(window, card, level, names):
+    """Was sich an den eigenen Einstellungen gegenüber der Voreinstellung des
+    Spiels für diesen Rechner zuerst lohnt — nur aus der Vorlage des Spiels,
+    keine geschätzten Bildraten."""
+    from . import graphics
+    lines = []
+    above, below = graphics.compare(graphics.read_quality(), level)
+    keys = dict(graphics.QUALITY_ROWS)
+
+    def listing(rows):
+        return ', '.join('%s (%s → %s)' % (t(keys[row]), names[have - 1],
+                                           names[wanted - 1])
+                         for row, have, wanted in rows)
+
+    if above:
+        lines.append((GOLD, t('s_gr_tipp_ueber') % (names[level - 1],
+                                                    listing(above))))
+    elif below:
+        lines.append((ACCENT, t('s_gr_tipp_unter') % (names[level - 1],
+                                                      listing(below))))
+    values = graphics.read() or {}
+    if values.get('Upscaling') == 0:
+        lines.append((GOLD, t('s_gr_tipp_native')))
+    if not lines:
+        lines.append((ACCENT, t('s_gr_tipp_passt') % names[level - 1]))
+    for color, text in lines:
+        line = tk.Label(card, text=text, bg=SURFACE, fg=color,
+                        font=window.f_small, anchor='w', justify='left')
+        line.pack(fill='x', padx=16, pady=(0, 10))
+        _wrap(line, inset=32)
 
 
 def _shader_cache(window, frame):

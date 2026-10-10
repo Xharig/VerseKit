@@ -5607,6 +5607,42 @@ TEXTS = {
                           'The game has not rated your PC yet. That happens '
                           'when you pick an overall quality preset under '
                           'Graphics in the game.'),
+    's_gr_tipp_ueber':   ('Wenn es ruckelt, zuerst hier runterstellen — diese '
+                          'Zeilen liegen über dem, was das Spiel bei „%s" '
+                          'setzt: %s.',
+                          'If it stutters, lower these first — they are above '
+                          'what the game sets for "%s": %s.'),
+    's_gr_tipp_unter':   ('Luft nach oben: Bei „%s" setzt das Spiel diese '
+                          'Zeilen höher: %s.',
+                          'Room to spare: for "%s" the game sets these higher: '
+                          '%s.'),
+    's_gr_tipp_native':  ('Upscaling steht auf „Native AA" — das Spiel rechnet '
+                          'in voller Auflösung. Quality, Balanced oder '
+                          'Performance rechnen kleiner und bringen mehr Bilder '
+                          'pro Sekunde.',
+                          'Upscaling is set to "Native AA" — the game renders '
+                          'at full resolution. Quality, Balanced or Performance '
+                          'render smaller and give more frames per second.'),
+    's_gr_tipp_passt':   ('Deine Qualitätszeilen entsprechen dem, was das Spiel '
+                          'bei „%s" setzt.',
+                          'Your quality settings match what the game sets for '
+                          '"%s".'),
+    's_gr_q_objektdetails': ('Objektdetails', 'Object detail'),
+    's_gr_q_sichtweite':    ('Objekt-Sichtweite', 'Object view distance'),
+    's_gr_q_texturqualitaet': ('Texturqualität', 'Texture quality'),
+    's_gr_q_texturdetails': ('Texturdetails', 'Texture detail'),
+    's_gr_q_bodentexturen': ('Bodentexturen', 'Ground textures'),
+    's_gr_q_texturfilter':  ('Texturfilterung', 'Texture filtering'),
+    's_gr_q_schatten':      ('Schattenabbildung', 'Shadow maps'),
+    's_gr_q_schatten_bild': ('Schatten im Bildschirmbereich', 'Screen space shadows'),
+    's_gr_q_wolken':        ('Volumetrische Wolken', 'Volumetric clouds'),
+    's_gr_q_gaswolken':     ('Gaswolken', 'Gas clouds'),
+    's_gr_q_nebel':         ('Nebel', 'Fog'),
+    's_gr_q_wasserkaustik': ('Wasserkaustik', 'Water caustics'),
+    's_gr_q_wassersim':     ('Wassersimulation', 'Water simulation'),
+    's_gr_q_shader':        ('Shader-Qualität', 'Shader quality'),
+    's_gr_q_nachbearbeitung': ('Nachbearbeitungseffekte', 'Post processing'),
+    's_gr_q_video':         ('Video-Kommunikation', 'Video comms'),
     's_gr_stufe_1':      ('Niedrig', 'Low'),
     's_gr_stufe_2':      ('Mittel', 'Medium'),
     's_gr_stufe_3':      ('Hoch', 'High'),

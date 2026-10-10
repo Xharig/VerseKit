@@ -38834,6 +38834,32 @@ def _pruefung_419():
                'Game.log: Einstufung außerhalb 1–5 wird verworfen')
         pruefe(_mi419.parse('')['cpu_index'] is None,
                'Game.log: leerer Text ergibt leere Werte statt Absturz')
+
+        # Hinweise: eigene Zeilen gegen die Voreinstellung des Spiels
+        pruefe(_gr419.preset_level(4, 'SysSpec_TextureDetail') == 3
+               and _gr419.preset_level(4, 'SysSpec_ShadowMaps') == 4
+               and _gr419.preset_level(5, 'SysSpec_ShadowMaps') == 5
+               and _gr419.preset_level(5, 'SysSpec_Shading') == 4,
+               'Voreinstellung je Zeile wie in sys_spec_Full.cfg')
+        _q419 = {r: 3 for r, _k in _gr419.QUALITY_ROWS}
+        _ueber419, _unter419 = _gr419.compare(_q419, 4)
+        pruefe(not _ueber419 and len(_unter419) == len(_q419) - 3
+               and 'SysSpec_TextureDetail' not in [r for r, _a, _b in _unter419],
+               'alles Hoch bei Einstufung Sehr hoch: Luft nach oben, ohne die '
+               'Texturzeilen, die dort auf Hoch bleiben (%d)' % len(_unter419))
+        _q419['SysSpec_ShadowMaps'] = 5
+        _ueber419, _unter419 = _gr419.compare(_q419, 4)
+        pruefe(_ueber419 == [('SysSpec_ShadowMaps', 5, 4)],
+               'eine Zeile über dem Vorschlag wird benannt (%r)' % _ueber419)
+        _alt_text419 = io.open(_datei419, encoding='utf-8', newline='').read()
+        with open(_datei419, 'w', encoding='utf-8', newline='') as f:
+            f.write(_alt_text419.replace(
+                '</Attributes>',
+                ' <Attr name="SysSpec_Fog" value="2"/>\r\n'
+                ' <Attr name="SysSpec_Particles" value="4"/>\r\n</Attributes>'))
+        pruefe(_gr419.read_quality(_datei419) == {'SysSpec_Fog': 2},
+               'Qualität: nur Menüzeilen, nur die in der Datei (%r)'
+               % _gr419.read_quality(_datei419))
         pruefe('graphics' in io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                                      encoding='utf-8').read()
                and 'game_running()' in _gr419.__doc__ + io.open(

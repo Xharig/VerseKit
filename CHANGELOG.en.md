@@ -33,7 +33,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   and chromatic aberration without starting the game. Verse-Kit only writes
   while the game is closed and backs up the file first. Above it you see what
   the game measures about your PC: performance index and its rating from Low
-  to Ultra. Suggested by Blackd0g84 (KRT)
+  to Ultra, plus which of your settings sit above or below what the game
+  suggests for your PC. Suggested by Blackd0g84 (KRT)
 - **FAQ on the website** — connecting scmdb.net, the Windows warning,
   shortcuts, backing up your data, connecting the Basetool
 

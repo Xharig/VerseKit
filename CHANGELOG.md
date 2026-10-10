@@ -33,7 +33,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   chromatische Aberration einstellen, ohne ins Spiel zu müssen. Geschrieben
   wird nur bei geschlossenem Spiel, vorher wird die Datei gesichert. Darüber
   steht, was das Spiel über deinen Rechner misst: Leistungsindex und seine
-  Einstufung von Niedrig bis Ultra. Vorschlag von Blackd0g84 (KRT)
+  Einstufung von Niedrig bis Ultra, dazu, welche deiner Einstellungen über
+  oder unter dem liegen, was das Spiel für deinen Rechner vorschlägt.
+  Vorschlag von Blackd0g84 (KRT)
 - **Häufige Fragen auf der Webseite** — scmdb.net verbinden, Windows-Warnung,
   Tastenkombinationen, Daten sichern, Basetool verbinden
 
