@@ -101,8 +101,18 @@ _PRESET_EXCEPTIONS = {
         'SysSpec_ShadowScreenSpace': 4, 'SysSpec_TextureDetail': 3,
         'SysSpec_TextureFiltering': 3, 'SysSpec_TextureGround': 3,
         'SysSpec_VideoComms': 4, 'SysSpec_WaterCaustics': 4,
-        'SysSpec_WaterSim': 4},
+        'SysSpec_WaterSim': 4, 'SysSpec_Particles': 4},
 }
+
+# Die Gesamtqualität (`SysSpec`) — in der Datei nur eine Merkzahl; was gilt,
+# stehen in den Zeilen. `preset_rows` setzt sie so, wie es das Spiel bei der
+# Wahl einer Voreinstellung tut.
+OVERALL = 'SysSpec'
+
+
+def preset_rows(level):
+    """{Zeile: Stufe} für alle Zeilen aus `EDIT_ROWS` bei Voreinstellung `level`."""
+    return {row: preset_level(level, row) for row, _key in EDIT_ROWS}
 
 
 # Zum Einstellen: alle Qualitätszeilen der Datei, mit ihrer höchsten Stufe —
@@ -118,7 +128,7 @@ TOP_LEVEL.update({row: 5 for row in (
     'SysSpec_ObjectDetail', 'SysSpec_ObjectViewDistance',
     'SysSpec_TextureQuality', 'SysSpec_ShadowMaps',
     'SysSpec_PlanetVolumetricClouds', 'SysSpec_Fog',
-    'SysSpec_PlanetTerrainVirtualTextures')})
+    'SysSpec_PlanetTerrainVirtualTextures', 'SysSpec')})
 
 
 def read_levels(path=None):
@@ -133,7 +143,8 @@ def read_levels(path=None):
         errors.record('graphics.read_levels', exc)
         return {}
     found = {m.group(1): _number(m.group(2)) for m in _LINE.finditer(text)}
-    return {row: found[row] for row, _key in EDIT_ROWS
+    rows = [row for row, _key in EDIT_ROWS] + [OVERALL]
+    return {row: found[row] for row in rows
             if isinstance(found.get(row), int) and 1 <= found[row] <= 5}
 
 
@@ -344,6 +355,7 @@ def write(changes, path=None):
     # Qualitätszeilen: `None` nimmt die Zeile heraus — dann folgt die Zeile
     # der Gesamtstufe des Spiels.
     defaults.update({row: None for row, _key in EDIT_ROWS})
+    defaults[OVERALL] = None
     unknown = [name for name in changes if name not in defaults]
     bad = [name for name, value in changes.items()
            if name in TOP_LEVEL and value is not None

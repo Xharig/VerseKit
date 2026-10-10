@@ -38884,6 +38884,18 @@ def _pruefung_419():
             pruefe(False, 'Qualität: Stufe über der Höchststufe wird abgelehnt')
         except ValueError:
             pruefe(True, 'Qualität: Stufe über der Höchststufe wird abgelehnt')
+        _vor419 = _gr419.preset_rows(4)
+        pruefe(_vor419['SysSpec_TextureDetail'] == 3
+               and _vor419['SysSpec_ShadowMaps'] == 4
+               and _gr419.preset_rows(5)['SysSpec_Particles'] == 4
+               and len(_vor419) == len(_gr419.EDIT_ROWS),
+               'Gesamtqualität: setzt jede Zeile wie das Spiel (sys_spec_Full.cfg)')
+        _gr419.write(dict(_vor419, SysSpec=4), _datei419)
+        _lv419 = _gr419.read_levels(_datei419)
+        pruefe(_lv419.get('SysSpec') == 4
+               and _lv419.get('SysSpec_TextureDetail') == 3,
+               'Gesamtqualität: Merkzahl und Zeilen werden geschrieben (%r)'
+               % _lv419)
         _gr419.write({'SysSpec_Fog': None}, _datei419)
         pruefe('SysSpec_Fog' not in _gr419.read_levels(_datei419),
                'Qualität: „Wie Gesamtstufe" nimmt die Zeile heraus')

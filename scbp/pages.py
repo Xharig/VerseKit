@@ -3949,15 +3949,51 @@ def _quality_rows(window, body, pending):
              font=window.f_title, anchor='w').pack(fill='x', pady=(24, 2))
     _body_text(body, t('s_gr_q_lead'), window.f_small, fill='x', pady=(0, 4))
     levels = graphics.read_levels()
-    for row, key in graphics.EDIT_ROWS:
-        slot = _setting_row(window, body, t(key), '')
-        entries = [('', t('s_gr_q_auto'))] + [
+    # Alle Auswahlfelder gleich breit — so stehen sie in beiden Spalten bündig.
+    names = [t('s_gr_q_auto')] + [t('s_gr_stufe_%d' % n) for n in range(1, 6)]
+    field_width = max(window.f_small.measure(n) for n in names) + 42
+
+    def entries(row):
+        return [('', t('s_gr_q_auto'))] + [
             (n, t('s_gr_stufe_%d' % n))
             for n in range(1, graphics.TOP_LEVEL[row] + 1)]
-        round_select(slot, entries, levels.get(row, ''),
-                     lambda v, row=row: pending.__setitem__(
-                         row, None if v == '' else int(v)),
-                     window.f_small).pack()
+
+    selects = {}
+
+    def overall(value):
+        if value == '':
+            pending[graphics.OVERALL] = None
+            return
+        level = int(value)
+        pending[graphics.OVERALL] = level
+        for row, wanted in graphics.preset_rows(level).items():
+            pending[row] = wanted
+            selects[row].select_quiet(wanted)
+
+    slot = _setting_row(window, body, t('s_gr_q_gesamt'), t('s_gr_q_gesamt_h'))
+    round_select(slot, entries(graphics.OVERALL),
+                 levels.get(graphics.OVERALL, ''), overall, window.f_small,
+                 width=field_width).pack()
+
+    grid = tk.Frame(body, bg=BG)
+    grid.pack(fill='x', pady=(10, 0))
+    grid.columnconfigure(0, weight=1, uniform='qualitaet')
+    grid.columnconfigure(1, weight=1, uniform='qualitaet')
+    for index, (row, key) in enumerate(graphics.EDIT_ROWS):
+        cell = tk.Frame(grid, bg=BG)
+        cell.grid(row=index // 2, column=index % 2, sticky='ew',
+                  padx=(16, 0) if index % 2 else (0, 16))
+        line = tk.Frame(cell, bg=BG)
+        line.pack(fill='x', pady=6)
+        tk.Label(line, text=t(key), bg=BG, fg=FG, font=window.f_bold,
+                 anchor='w').pack(side='left')
+        selects[row] = round_select(
+            line, entries(row), levels.get(row, ''),
+            lambda v, row=row: pending.__setitem__(
+                row, None if v == '' else int(v)),
+            window.f_small, width=field_width)
+        selects[row].pack(side='right')
+        tk.Frame(cell, bg=LINE, height=1).pack(fill='x')
 
 
 def _user_cfg_rows(window, body, pending):

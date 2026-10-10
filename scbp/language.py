@@ -5779,15 +5779,22 @@ TEXTS = {
                           'Colour fringes at the edges of the image.'),
     's_gr_q_titel':      ('Grafikqualität', 'Graphics quality'),
     's_gr_q_lead':       ('Die Stufe je Bereich, wie im Spielmenü unter Grafik. '
-                          '„Wie Gesamtstufe" heißt: der Bereich folgt der '
-                          'Voreinstellung für die Gesamtqualität.',
+                          '„Automatisch" heißt: Verse-Kit nimmt die Zeile aus der '
+                          'Datei, und das Spiel entscheidet selbst.',
                           'The level per area, as in the game menu under '
-                          'Graphics. "Like overall" means the area follows '
-                          'the overall quality preset.'),
-    's_gr_q_auto':       ('Wie Gesamtstufe', 'Like overall'),
+                          'Graphics. "Automatic" means Verse-Kit removes the line '
+                          'and the game decides itself.'),
+    's_gr_q_auto':       ('Automatisch', 'Automatic'),
+    's_gr_q_gesamt':     ('Gesamtqualität', 'Overall quality'),
+    's_gr_q_gesamt_h':   ('Stellt alle Bereiche so ein, wie es das Spiel bei '
+                          'dieser Stufe tut. Danach lässt sich jeder Bereich '
+                          'einzeln nachstellen.',
+                          'Sets every area the way the game does for this '
+                          'level. Afterwards each area can be adjusted on its '
+                          'own.'),
     's_gr_q_partikel':   ('Partikel', 'Particles'),
-    's_gr_q_planetentexturen': ('Planetenoberflächen (virtuelle Texturen)',
-                                'Planet surfaces (virtual textures)'),
+    's_gr_q_planetentexturen': ('Planetenoberflächen',
+                                'Planet surfaces'),
     's_gr_cfg_titel':    ('Erweiterte Befehle (user.cfg)',
                           'Advanced commands (user.cfg)'),
     's_gr_cfg_lead':     ('Diese Zeilen stehen in der user.cfg deines '
