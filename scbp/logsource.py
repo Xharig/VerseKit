@@ -694,6 +694,9 @@ class LogTail:
         # Gewertet wird in `contracts.Objectives`, damit Start und laufender Betrieb
         # nicht wieder eigene Rechenwege bekommen.
         self.objective_events = []
+        # Der Text des letzten Abschnitts — für die Prüfung nach einem
+        # Serverwechsel (`contracts.server_change_silence`).
+        self.last_text = ''
         # ⭐ Wem die laufende Log gehört — None, solange sich im Spiel noch
         # niemand eingeloggt hat. Baupläne eines fremden Accounts werden nicht
         # angezeigt (siehe `account_from_text`).
@@ -753,6 +756,7 @@ class LogTail:
         self.mission_events = []
         self.mission_contracts = {}
         self.objective_events = []
+        self.last_text = ''
         if not self._locate():
             return []
         try:
@@ -774,6 +778,7 @@ class LogTail:
         self.state.set_active(self.path, self.offset)
         self.state.save()
         text = chunk[:cut].decode('utf-8', 'ignore')
+        self.last_text = text if self.mission_pattern else ''
         # Derselbe Textabschnitt, zweiter Blick: angenommene Auftraege.
         self.missions = (self.mission_pattern.findall(text)
                           if self.mission_pattern else [])

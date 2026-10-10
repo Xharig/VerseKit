@@ -13,6 +13,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Start on the overview** — when the main window opens at start-up, after
   an update or via "Open Verse-Kit" in the tray, it now lands on the overview instead
   of the blueprint list. The setup wizard ends with "Open overview" too
+- **Contracts after a server change** — if a contract stays silent after the
+  change, it shows greyed out as "probably gone" and disappears when the game
+  closes. If it shows up again, it is back to normal
+
+### Fixed
+
+- **Shared contracts** — a contract shared by your group showed as running in
+  the overlay even if you never accepted it. It now appears once you accept it
+- **Hide a contract** — a hidden contract came back every time Verse-Kit
+  restarted. It now stays hidden
+- **Overview: moving tiles** — afterwards the view sat on an empty spot and
+  you had to scroll first
 
 ## v3.98.1 - 2026-10-10
 

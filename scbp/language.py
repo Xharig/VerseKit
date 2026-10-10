@@ -727,6 +727,10 @@ TEXTS = {
     # ausloggen musste, um einen Fehler loszuwerden.
     'ov_auftrag_weg':    ('Diesen Auftrag ausblenden',
                           'Hide this contract'),
+    'ov_auftrag_unklar': ('Nach dem Serverwechsel kein Lebenszeichen — '
+                          'vermutlich weg, verschwindet mit dem Spielende',
+                          'No sign of it since the server change — probably '
+                          'gone, disappears when the game closes'),
     # Die Zwischenziele stehen eingerueckt unter ihrem Auftrag. Passen nicht
     # alle hin, wird der Rest GEZAEHLT — eine abgeschnittene Liste, die sich
     # fuer vollstaendig ausgibt, waere schlimmer als gar keine.

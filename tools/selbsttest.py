@@ -19623,12 +19623,19 @@ def main():
            'das Ende raeumt den Auftrag restlos weg — nichts bleibt stehen')
 
     # g) ⚠ Zwei VERSCHIEDENE geteilte Auftraege duerfen sich ueber die
-    #    Nullkennung nicht gegenseitig abraeumen.
+    #    Nullkennung nicht gegenseitig abraeumen. Das Angebot selbst traegt
+    #    die Nullkennung, erst die Annahme bringt die eigene.
     _text200 = (
         'Added notification "Auftrag geteilt: Auftrag Eins: " to queue. '
         'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        'Added notification "Auftrag angenommen: Auftrag Eins: " to queue. '
+        'New queue size: 1, MissionId: [aaaaaaaa-0000-0000-0000-000000000001], '
+        'ObjectiveId: []\n'
         'Added notification "Auftrag geteilt: Auftrag Zwei: " to queue. '
         'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        'Added notification "Auftrag angenommen: Auftrag Zwei: " to queue. '
+        'New queue size: 1, MissionId: [aaaaaaaa-0000-0000-0000-000000000002], '
+        'ObjectiveId: []\n'
         % (_null200, _null200))
     _offen200, _kenn200 = _au200.state_from_text(_text200)
     pruefe(len(_offen200) == 2,
@@ -25379,6 +25386,7 @@ def main():
     _pruefung_420()
     _pruefung_421()
     _pruefung_422()
+    _pruefung_423()
 
     print()
     if fehler:
@@ -39345,6 +39353,43 @@ def _pruefung_422():
         pruefe(len(_reihen) >= 2 and not _schief,
                'Kacheln einer Reihe sind gleich hoch gerahmt (%r)'
                % (_schief or _reihen))
+        # Nach dem Verschieben bleibt die Rollstelle: Es sind Kacheln zu sehen.
+        _w422.geometry('1200x600')
+        _w422.update()
+        _lw422 = None
+        _such = [_seite]
+        while _such and _lw422 is None:
+            _x = _such.pop(0)
+            if getattr(_x, 'canvas', None) is not None:
+                _lw422 = _x.canvas
+            _such.extend(_x.winfo_children())
+        _lw422.yview_moveto(1.0)
+        _w422.update()
+        _vorher422 = _lw422.yview()[0]
+        _reihe422 = _ov422.tile_order()
+        _ov422.swap(_reihe422[0], _reihe422[1])
+        _f422.on_show['uebersicht']()
+        for _ in range(5):
+            _w422.update()
+        _oben422 = _lw422.winfo_rooty()
+        _unten422 = _oben422 + _lw422.winfo_height()
+        _sichtbar422 = []
+
+        def _kacheln_sehen(w):
+            if hasattr(w, 'tile_key') and w.winfo_ismapped():
+                y0, y1 = w.winfo_rooty(), w.winfo_rooty() + w.winfo_height()
+                if y1 > _oben422 and y0 < _unten422:
+                    _sichtbar422.append(w.tile_key)
+            for c in w.winfo_children():
+                _kacheln_sehen(c)
+        _kacheln_sehen(_seite)
+        pruefe(_vorher422 > 0 and _sichtbar422,
+               'nach dem Verschieben unten gerollt: Kacheln bleiben im Bild '
+               '(vorher %.2f, nachher %.2f, sichtbar %r)'
+               % (_vorher422, _lw422.yview()[0], _sichtbar422))
+        _ov422.swap(_reihe422[0], _reihe422[1])
+        _w422.geometry('1200x900')
+        _w422.update()
         # Große Schrift in einer Kachel fester Breite: Die Auswahl muss ganz
         # bleiben, gekürzt werden darf nur der Kanalname.
         import tkinter as tk
@@ -39407,6 +39452,113 @@ def _pruefung_422():
                'der Knopf öffnet „Fehler melden" (%r)' % _f422.current)
     finally:
         _w422.destroy()
+
+
+def _pruefung_423():
+    """423. Aufträge nach Serverwechsel und von Hand ausgeblendete."""
+    print('\n423. Aufträge: Serverwechsel und dauerhaft ausblenden')
+    import queue as _qu423
+    import tempfile as _tf423
+    import sc_bp_watcher as _sw423
+    from scbp import contracts as _ct423, contract_hidden as _ch423
+    from scbp import paths as _pa423
+
+    _id = '913098fe-665e-43a0-b8d3-995176f95694'
+    _annahme = ('<2026-10-10T13:11:30.788Z> [Notice] <SHUDEvent_OnNotification> '
+                'Added notification "Auftrag angenommen:  RSI Disc. Month: '
+                'Important Supply Haul: " [161] to queue. New queue size: 3, '
+                'MissionId: [%s], ObjectiveId: [] [Team_CoreGameplayFeatures]'
+                '[Missions][Comms]\n' % _id)
+    _wechsel = ('<2026-10-10T13:17:54.682Z> [Notice] <Change Server Start> '
+                'IsShardPersisted[1] IsServer[0] IsMultiplayer[1]\n')
+    _marker = ('<2026-10-10T13:20:01.000Z> [Notice] <CLocalMissionPhaseMarker::'
+               'CreateMarker> Creating objective marker: missionId [%s]\n' % _id)
+
+    pruefe(_ct423.server_change_silence(_annahme, [_id]) == (False, set(), {_id}),
+           'ohne Serverwechsel: nichts ist still')
+    pruefe(_ct423.server_change_silence(_annahme + _wechsel, [_id])
+           == (True, {_id}, set()),
+           'nach dem Wechsel ohne Zeile: still')
+    pruefe(_ct423.server_change_silence(_annahme + _wechsel + _marker, [_id])
+           == (True, set(), {_id}),
+           'nach dem Wechsel mit Marker: meldet sich')
+
+    _heim = _tf423.mkdtemp(prefix='auftraege-')
+    _alt_heim = os.environ.get('SC_BP_HOME')
+    _alt_log = _pa423.game_log
+    _log = os.path.join(_heim, 'Game.log')
+    try:
+        os.environ['SC_BP_HOME'] = _heim
+        _pa423.game_log = lambda: _log
+
+        def _start(text):
+            with open(_log, 'w', encoding='utf-8') as f:
+                f.write(text)
+            w = _sw423.Watcher(_qu423.Queue())
+            w._auftraege_beim_start()
+            return w
+
+        def _schluessel(w):
+            return sorted(w._offene_auftraege)
+
+        _angebot = _annahme.replace('Auftrag angenommen:  ', 'Auftrag geteilt: ').replace(
+            _id, _ct423.NULL_ID)
+        w = _start(_angebot)
+        pruefe(not w._offene_auftraege,
+               'ein geteiltes Angebot allein ist kein laufender Auftrag (%r)'
+               % _schluessel(w))
+        w = _start(_angebot + _annahme)
+        pruefe(len(w._offene_auftraege) == 1,
+               'Angebot und Annahme: genau ein laufender Auftrag (%r)'
+               % _schluessel(w))
+        w = _start(_annahme)
+        pruefe(len(w._offene_auftraege) == 1,
+               'Start: angenommener Auftrag steht da (%r)' % _schluessel(w))
+        _rein = next(iter(w._offene_auftraege), None)
+
+        w = _start(_annahme + _wechsel)
+        _stand = w._auftragsstand()
+        pruefe(_stand and _stand[0][3] is True,
+               'Start: nach Serverwechsel still, also unklar (%r)' % (_stand,))
+        w._unklar_tick(_marker)
+        pruefe(w._auftragsstand()[0][3] is False,
+               'meldet er sich wieder, ist er nicht mehr unklar')
+        w._unklar_tick(_wechsel)
+        pruefe(w._auftragsstand()[0][3] is True,
+               'nächster Wechsel ohne Zeile: wieder unklar')
+        while not w.q.empty():
+            w.q.get()
+        w.unklar_raeumen = True
+        w._unklar_tick('')
+        _weg = []
+        while not w.q.empty():
+            _m = w.q.get()
+            if _m[0] == 'auftrag_weg':
+                _weg.append(_m[1])
+        pruefe(not w._offene_auftraege and _weg == [_rein],
+               'beim Spielende fallen unklare Aufträge weg (%r)' % _weg)
+
+        w = _start(_annahme)
+        pruefe(_ch423.load() == set(), 'vorher ist nichts ausgeblendet')
+        w.auftrag_wegklicken(_rein)
+        pruefe(_ch423.load() == {_id},
+               'Ausblenden merkt sich die MissionId (%r)' % _ch423.load())
+        w = _start(_annahme)
+        pruefe(not w._offene_auftraege,
+               'nach dem Neustart bleibt der ausgeblendete Auftrag weg (%r)'
+               % _schluessel(w))
+        _neu = _annahme.replace(_id, '4127d89e-5373-49f7-9e93-06d9f8fac3af')
+        w = _start(_annahme + _neu)
+        pruefe(len(w._offene_auftraege) == 1,
+               'derselbe Auftrag neu angenommen erscheint wieder (%r)'
+               % _schluessel(w))
+    finally:
+        _pa423.game_log = _alt_log
+        if _alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 def _alle_eingaben(w):

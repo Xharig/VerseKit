@@ -737,6 +737,11 @@ class Watcher(threading.Thread):
         # spaeter ein Vertrag dazu, wird sie neu gebaut; siehe
         # `_auftraege_melden`.
         self._auftrag_zeile_quelle = {}
+        # Aufträge, die nach einem Serverwechsel still blieben — grau gezeigt,
+        # bis sie sich wieder melden oder das Spiel endet (`_unklar_tick`).
+        self._auftrag_unklar = set()
+        # Setzt die Oberfläche beim Spielende; geräumt wird im Watcher-Faden.
+        self.unklar_raeumen = False
         # Und was zu diesen Auftraegen gerade ansteht. @@ **Der Auftrag sagt,
         # ob Bauplaene drin sind — das Ziel sagt, wofuer man gerade fliegt.**
         # Beides steht im Protokoll; die Buchfuehrung dazu in `contracts.Objectives`.
@@ -1307,8 +1312,54 @@ class Watcher(threading.Thread):
         zu_mission = {}
         for kennung, rein in self._auftrag_missionen.items():
             zu_mission.setdefault(rein, kennung)
-        return [(rein, zeile, self._ziele.open_for(zu_mission.get(rein)))
+        unklar = getattr(self, '_auftrag_unklar', ())
+        return [(rein, zeile, self._ziele.open_for(zu_mission.get(rein)),
+                 rein in unklar)
                 for rein, zeile in self._offene_auftraege.items()]
+
+    def _kennungen(self, rein):
+        """Die MissionIds, die zu einem Auftrag gehören."""
+        return [k for k, v in self._auftrag_missionen.items() if v == rein]
+
+    def _unklar_tick(self, text=None):
+        """Nach einem Serverwechsel stille Aufträge als unklar markieren.
+
+        Das Spiel meldet für weiterlaufende Aufträge nach dem Wechsel wieder
+        Zeilen mit ihrer MissionId; für verlorene meldet es nichts, auch kein
+        Ende. Wer still bleibt, wird grau gezeigt; meldet er sich wieder,
+        wird er normal. Beim Spielende fallen die grauen weg."""
+        veraendert = False
+        if self.unklar_raeumen:
+            self.unklar_raeumen = False
+            for rein in list(self._auftrag_unklar):
+                if self._offene_auftraege.pop(rein, None) is not None:
+                    self.q.put(('auftrag_weg', rein))
+                    veraendert = True
+            self._auftrag_unklar.clear()
+        text = getattr(self.tail, 'last_text', '') if text is None else text
+        if text and self._offene_auftraege:
+            je_auftrag = {}
+            for kennung, rein in self._auftrag_missionen.items():
+                je_auftrag.setdefault(rein, []).append(kennung)
+            alle = [k for ks in je_auftrag.values() for k in ks]
+            gewechselt, still, gemeldet = contracts.server_change_silence(
+                text, alle)
+            for rein in list(self._offene_auftraege):
+                ids = je_auftrag.get(rein) or []
+                if not ids:
+                    continue
+                if gewechselt and all(i in still for i in ids):
+                    if rein not in self._auftrag_unklar:
+                        self._auftrag_unklar.add(rein)
+                        veraendert = True
+                elif rein in self._auftrag_unklar and any(
+                        i in gemeldet for i in ids):
+                    self._auftrag_unklar.discard(rein)
+                    veraendert = True
+        self._auftrag_unklar &= set(self._offene_auftraege)
+        if veraendert:
+            self.q.put(('auftraege', self._auftragsstand()))
+        return veraendert
 
     def auftrag_wegklicken(self, rein):
         """Einen Auftrag von Hand aus der Anzeige nehmen.
@@ -1320,8 +1371,12 @@ class Watcher(threading.Thread):
         Spieler schon. Also darf er es sagen.
 
         Der Titel bleibt in `_auftraege_gesehen`, damit er nicht beim naechsten
-        Log-Abschnitt wieder auftaucht.
+        Log-Abschnitt wieder auftaucht. Die MissionIds kommen in
+        `contract_hidden`, damit er auch nach einem Neustart weg bleibt.
         """
+        from scbp import contract_hidden
+        contract_hidden.add(self._kennungen(rein))
+        self._auftrag_unklar.discard(rein)
         if self._offene_auftraege.pop(rein, None) is not None:
             self.q.put(('auftraege', self._auftragsstand()))
         # Auch dann melden, wenn er in der Leiste schon weg war: Die Zeile in
@@ -1415,9 +1470,15 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             errors.record('watcher.ziele_start', ausnahme)
 
+        from scbp import contract_hidden
+        ausgeblendet = contract_hidden.load()
         for titel in offen:
             rein = contracts.clean(titel)
             if not rein:
+                continue
+            # Von Hand ausgeblendet: bleibt auch nach dem Neustart weg.
+            if contract_hidden.hidden(
+                    [m for m, r in missionen.items() if r == rein], ausgeblendet):
                 continue
             # Beim Start nicht in die Verlaufsliste melden — das waere ein
             # Schwall alter Nachrichten. Nur der Stand wird gesetzt.
@@ -1425,6 +1486,8 @@ class Watcher(threading.Thread):
             self._auftrag_zeile_quelle[rein] = self._auftrag_vertraege.get(rein)
             self._offene_auftraege[rein] = (self._auftrag_zeile(titel, rein)
                                             or language.Phrase('auftrag_zeile', rein))
+        # Nach einem Serverwechsel in derselben Sitzung still geblieben?
+        self._unklar_tick(text)
         if self._offene_auftraege:
             self.q.put(('auftraege', self._auftragsstand()))
 
@@ -1485,6 +1548,7 @@ class Watcher(threading.Thread):
             # Messung stehen bei `contracts.LEFT_GAME`.
             if ist_annahme is None:
                 offen_jetzt.clear()
+                self._auftrag_unklar.clear()
                 for weg in list(self._offene_auftraege):
                     del self._offene_auftraege[weg]
                     self.q.put(('auftrag_weg', weg))
@@ -1543,6 +1607,7 @@ class Watcher(threading.Thread):
                 # risse laufende Auftraege mit.
                 continue
             offen_jetzt.pop(weg, None)
+            self._auftrag_unklar.discard(weg)
             if self._offene_auftraege.pop(weg, None) is not None:
                 veraendert = True
             for kennung in [k for k, v in self._auftrag_missionen.items()
@@ -1554,7 +1619,12 @@ class Watcher(threading.Thread):
             # bliebe ein wiederholter Auftrag stumm.
             self._auftraege_gesehen.discard(weg)
 
+        from scbp import contract_hidden
+        ausgeblendet = contract_hidden.load() if offen_jetzt else set()
         for rein, titel in offen_jetzt.items():
+            # Von Hand ausgeblendet (dieselbe MissionId): nicht wieder zeigen.
+            if contract_hidden.hidden(self._kennungen(rein), ausgeblendet):
+                continue
             if rein not in self._offene_auftraege:
                 # Der blosse Titel ist noch keine Bauplan-Zusage — den darf
                 # die Anzeige auch dann führen, wenn der Katalog die Mission
@@ -1770,6 +1840,7 @@ class Watcher(threading.Thread):
         self._auftrag_missionen = {}
         self._auftrag_vertraege = {}
         self._auftrag_zeile_quelle = {}
+        self._auftrag_unklar = set()
         self._ziele = contracts.Objectives()
         self._auftraege_beim_start()
         # Und die Zeilen in der Liste dazu: Was jetzt nicht mehr offen ist,
@@ -1964,6 +2035,11 @@ class Watcher(threading.Thread):
             #     Bewusst NACH den Bauplaenen — ein frisch erhaltener Bauplan
             #     soll schon im Bestand stehen, wenn der Auftrag geprueft wird.
             self._auftraege_melden()
+            # 1c) Nach einem Serverwechsel still gebliebene Aufträge.
+            try:
+                self._unklar_tick()
+            except Exception as ausnahme:
+                errors.record('watcher.unklar', ausnahme)
 
             # 2) Katalog-Wache (selten, die Datei ändert sich nur bei SC-Patches)
             if time.time() >= self.cat_next:
@@ -3090,10 +3166,12 @@ class Overlay:
         for eintrag in paare:
             rein, zeile = eintrag[0], eintrag[1]
             ziele = list(eintrag[2]) if len(eintrag) > 2 and eintrag[2] else []
+            unklar = len(eintrag) > 3 and bool(eintrag[3])
             z = tk.Frame(self.auftragsleiste, bg=BG)
             z.pack(fill='x')
-            lbl = tk.Label(z, text=str(zeile), bg=BG, fg=FG, font=self.f_sub,
-                           anchor='w', justify='left')
+            lbl = tk.Label(z, text=str(zeile), bg=BG, fg=SUB if unklar else FG,
+                           font=self.f_sub, anchor='w', justify='left')
+            lbl.unklar = unklar
             if language.is_refreshable(zeile):
                 lbl._quelle = zeile
             lbl.pack(side='left', fill='x', expand=True, anchor='w')
@@ -3114,7 +3192,18 @@ class Overlay:
             weg.bind('<Button-1>', lambda _e, r=rein: self._auftrag_ausblenden(r))
             notice.attach(weg, lambda: language.t('ov_auftrag_weg'))
             self._auftrag_zeilen.append(lbl)
-            self._ziele_zeigen(ziele)
+            if unklar:
+                # Nach einem Serverwechsel still: Der Grund steht darunter,
+                # die Ziele wären nicht mehr verlässlich.
+                hinweis = tk.Label(self.auftragsleiste,
+                                   text=language.t('ov_auftrag_unklar'),
+                                   bg=BG, fg=SUB, font=self.f_sub, anchor='w',
+                                   justify='left')
+                hinweis.pack(fill='x', padx=(14, 0))
+                hinweis._quelle = language.Phrase('ov_auftrag_unklar')
+                self._wrap_labels.append(hinweis)
+            else:
+                self._ziele_zeigen(ziele)
 
         # ⚠ Welche Auftraege gerade in der Leiste stehen — `add_hinweis`
         # fragt danach, um denselben Text nicht ein zweites Mal darunter zu
@@ -3540,6 +3629,8 @@ class Overlay:
                     watcher = getattr(self, 'watcher', None)
                     if watcher is not None:
                         watcher.texte_next = 0.0
+                        # Unklare Aufträge laufen mit dem Spiel nicht weiter.
+                        watcher.unklar_raeumen = True
                 # Startprogramme: die Einträge für den Spielstart beim Wechsel
                 # auf laufend, das Beenden beim Wechsel auf aus. Auch der
                 # erste Blick zählt — läuft das Spiel schon beim Start von

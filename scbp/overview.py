@@ -213,11 +213,18 @@ def overview_page(window, frame):
                 build(window, cell)
             except Exception as exc:
                 errors.record('overview.%s' % build.__name__, exc)
-            _draggable(window, cell, draw)
-        _chooser(window, chooser, draw)
+            _draggable(window, cell, redraw)
+        _chooser(window, chooser, redraw)
+
+    def redraw():
+        # Neu zeichnen, ohne dass die Rollstelle verloren geht: Beim Abbau
+        # aller Kacheln schrumpft der Inhalt kurz, und die Leinwand bliebe
+        # sonst auf einer leeren Stelle stehen.
+        from .pages import _keep_scroll
+        _keep_scroll(grid, draw)
 
     draw()
-    window.on_show['uebersicht'] = draw
+    window.on_show['uebersicht'] = redraw
 
 
 # Die Kacheln in ihrer Reihenfolge: (Kennung, Textschlüssel).

@@ -69,15 +69,11 @@ import re
 from . import errors, catalog, paths
 
 # Der sprachneutrale Schlüssel für die Annahme — in jeder Sprache derselbe.
-# Dazu das Teilen in der Gruppe: Wer einen Auftrag geteilt **bekommt**, soll
-# genauso erfahren, dass darin Baupläne stecken.
-#
-# Gemessen an Logs, in denen **beide** Rollen vorkamen — geteilt und
-# geteilt bekommen: Auf jedes Teilen folgt eine Annahme. Streng genommen
-# genuegte also die Annahme allein. Das Teilen bleibt trotzdem drin, weil es
-# nichts kostet: Steht der Titel schon in der Liste, bleibt es bei einem
-# Eintrag. Faellt die Annahme in einer kuenftigen Spielfassung einmal weg,
-# steht der Auftrag trotzdem da.
+# Dazu das Teilen in der Gruppe. ⚠ Ein geteiltes Angebot ist noch keine
+# Annahme: Es trägt die `NULL_ID`, und längst nicht jedes wird angenommen
+# (gemessen an 218 Logs: 670 geteilt, 239 davon nie angenommen).
+# `events_from_text` lässt es deshalb fallen; der Titel wird hier trotzdem
+# erkannt, damit das Muster dieselbe Zeilenform abdeckt.
 INI_KEYS = ('mobiGlas_ui_MissionEvent_Activated',
                   'mobiGlas_ui_Mission_Shared')
 
@@ -417,6 +413,31 @@ ENDMISSION = re.compile(r'<EndMission>[^\n]*?MissionId\[([^\]]*)\]')
 # die Spielwelt verlassen wurde.
 LEFT_GAME = re.compile(r'CSessionManager::RequestFrontEnd\]\s*Started')
 
+# Ein Serverwechsel. Danach meldet das Spiel für Aufträge, die weiterlaufen,
+# wieder Zeilen mit ihrer MissionId (Marker, Ziele, Teilen). Die meisten
+# Aufträge bleiben danach still und sind weg, ohne dass ein Ende im Log
+# stünde; einige laufen aber weiter und melden sich erst nach Minuten.
+# Deshalb gilt ein stiller Auftrag nur als unklar, nicht als beendet.
+SERVER_CHANGE = re.compile(r'<Change Server Start>')
+
+
+def server_change_silence(text, mission_ids):
+    """`(gewechselt, still, lebend)` für einen Logtext.
+
+    `gewechselt`: steht ein Serverwechsel im Text? `still`: die Kennungen,
+    die nach dem letzten Wechsel nicht mehr vorkommen. `lebend`: die
+    Kennungen, die vorkommen — nach dem letzten Wechsel, oder ohne Wechsel
+    irgendwo im Text."""
+    ids = {i for i in mission_ids or () if i}
+    last = None
+    for hit in SERVER_CHANGE.finditer(text or ''):
+        last = hit.start()
+    if last is None:
+        return False, set(), {i for i in ids if i in (text or '')}
+    after = text[last:]
+    silent = {i for i in ids if i not in after}
+    return True, silent, ids - silent
+
 
 def identifiers(text, position):
     """`(MissionId, ObjectiveId)` der Meldung, die bei `stelle` beginnt.
@@ -498,7 +519,13 @@ def events_from_text(text, start_pat=None, end_pat=None):
         if is_accept is True and _PLACEHOLDER.search(title or ''):
             continue
         if mid is None:
-            result.append((is_accept, title) + identifiers(text, position))
+            ids = identifiers(text, position)
+            # ⛔ Ein geteiltes Angebot (`NULL_ID`) ist keine Annahme. Erst das
+            # Annehmen bringt eine eigene MissionId; ein abgelehntes oder
+            # übergangenes Angebot stünde sonst als laufender Auftrag da.
+            if is_accept is True and ids[0] == NULL_ID:
+                continue
+            result.append((is_accept, title) + ids)
         else:
             # ⚠ Keine ObjectiveId: Ein `EndMission` beendet den ganzen Auftrag,
             # nie ein Zwischenziel. Stuende hier eine, wuerde

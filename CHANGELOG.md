@@ -14,6 +14,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   nach einem Update oder über „Verse-Kit öffnen“ im Infobereich, steht es jetzt auf
   der Übersicht statt auf der Bauplan-Liste. Auch der Einrichtungsassistent
   endet mit „Übersicht öffnen“
+- **Aufträge nach einem Serverwechsel** — meldet sich ein Auftrag nach dem
+  Wechsel nicht mehr, steht er grau mit dem Hinweis „vermutlich weg“ da und
+  verschwindet mit dem Spielende. Meldet er sich wieder, ist er wieder normal
+
+### Behoben
+
+- **Geteilte Aufträge** — ein Auftrag, den die Gruppe teilt, stand als
+  laufender Auftrag im Overlay, auch wenn man ihn nie angenommen hat. Jetzt
+  erscheint er erst mit der Annahme
+- **Auftrag ausblenden** — ein ausgeblendeter Auftrag kam nach jedem
+  Neustart von Verse-Kit wieder. Jetzt bleibt er weg
+- **Übersicht: Kacheln verschieben** — danach stand die Ansicht auf einer
+  leeren Stelle, und man musste erst scrollen
 
 ## v3.98.1 - 2026-10-10
 
