@@ -6905,19 +6905,7 @@ def main():
     for _x71 in _verdaechtig71[:5]:
         print('       ·', _x71)
 
-    # Der mitgelieferte Katalog muss sagen, woher er stammt — und das muss die
-    # ENGLISCHE Datei sein.
-    _kat71 = os.path.join(WURZEL, 'daten', 'katalog.json')
-    if os.path.exists(_kat71):
-        import json as _json71
-        _d71 = _json71.load(open(_kat71, encoding='utf-8'))
-        pruefe('englisch' in str(_d71.get('quelle', '')).lower(),
-               'der mitgelieferte Katalog stammt aus der englischen Datei (%r)'
-               % _d71.get('quelle'))
-        pruefe(_d71.get('weitergabe') is True,
-               'und ist ausdruecklich als weitergebbar gekennzeichnet')
-
-    # Und der Urheber muss genannt sein — Name UND Repository, so verlangt es
+    # Der Urheber muss genannt sein — Name UND Repository, so verlangt es
     # die Lizenz.
     _q71 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe('rjcncpt' in _q71,
@@ -38547,6 +38535,22 @@ def _pruefung_417():
         pruefe(not [n for n in os.listdir(_heim417) if 'bedarf' in n.lower()
                     or 'demand' in n.lower()],
                'nichts davon landet im Datenordner')
+        _alt_sichtbar417 = _ed417.visible
+        try:
+            _ed417.refresh(_Conn417(_antwort417))
+            _ed417.visible = lambda: True
+            _zeile417 = _ed417.overlay_text(['Agricium (Ore)', 'Quartz (Raw)'])
+            pruefe('40 SCU Agricium' in _zeile417 and '650' in _zeile417,
+                   'Overlay: passendes Erz nennt Menge, Rohstoff und Güte (%r)'
+                   % _zeile417)
+            pruefe(_ed417.overlay_text(['Quartz (Raw)']) == '',
+                   'Overlay: ohne passendes Erz keine Zeile')
+            _ed417.visible = lambda: False
+            pruefe(_ed417.overlay_text(['Agricium (Ore)']) == '',
+                   'Overlay: ohne Basetool-Verbindung keine Zeile')
+        finally:
+            _ed417.visible = _alt_sichtbar417
+        _ed417.refresh(_Conn417(_antwort417), now=1000.0)
         pruefe(_ed417.current(now=1000.0 + _ed417.MAX_AGE + 1) is None,
                'nach 7 Tagen ist der Bedarf verworfen')
 

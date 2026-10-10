@@ -123,6 +123,44 @@ def current(now=None):
     return data
 
 
+def matching(names):
+    """Die gesuchten Rohstoffe, die zu einem der Namen passen — als Erz
+    (`rawRefs`) oder als Rohstoff selbst. Leer ohne Bedarf."""
+    from .crafting import norm_material
+    wanted = {norm_material(n) for n in names or () if n}
+    data = current()
+    if not data or not wanted:
+        return []
+    out = []
+    for line in data['materials']:
+        keys = {norm_material(line['name'])}
+        keys |= {norm_material(r) for r in line['raw']}
+        if keys & wanted:
+            out.append(line)
+    return out
+
+
+def overlay_text(names):
+    """Die Zeile fürs Overlay beim Minen — oder `''`, wenn nichts passt."""
+    if not visible():
+        return ''
+    lines = matching(names)
+    if not lines:
+        return ''
+    from .language import t
+    parts = []
+    for line in lines[:3]:
+        piece = (line['unit'] or '').upper() == 'PIECE'
+        amount = ('%g' % line['amount']).replace('.', ',') if not piece \
+            else '%d' % line['amount']
+        unit = t('s_lg_stueck') if piece else 'SCU'
+        text = '%s %s %s' % (amount, unit, line['name'])
+        if line['min_quality']:
+            text += ' (%s)' % (t('s_bd_ab_q') % line['min_quality'])
+        parts.append(text)
+    return t('ov_bedarf') % ' · '.join(parts)
+
+
 def reason():
     """Warum nichts gezeigt wird — `''`, wenn es keinen Grund gibt."""
     with _lock:

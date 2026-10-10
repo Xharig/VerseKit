@@ -75,15 +75,27 @@ PREVIEW_ZOOM_MAX = 6
 _open = [None]
 
 
+def _hits(value):
+    """Die Rohstoffe, die genau zu einer Signatur passen."""
+    from . import mining
+    try:
+        return [h for h in mining.find_signature(str(value)) if abs(h[3]) < 0.05]
+    except Exception:
+        return []
+
+
+def materials(value):
+    """Die Namen der Rohstoffe hinter einer Signatur — höchstens drei."""
+    if value is None:
+        return []
+    return [name for name, _count, _total, _dev in _hits(value)[:3]]
+
+
 def describe(value):
     """`12,680 → 4× Quantainium` — was hinter einer Signatur steckt."""
     if value is None:
         return ''
-    from . import mining
-    try:
-        hits = [h for h in mining.find_signature(str(value)) if abs(h[3]) < 0.05]
-    except Exception:
-        hits = []
+    hits = _hits(value)
     number = '{:,}'.format(int(value))
     if not hits:
         return number

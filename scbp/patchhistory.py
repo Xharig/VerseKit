@@ -45,8 +45,7 @@ scmdb — die steht unter CC BY-NC-ND, und das Datenbankherstellerrecht schützt
 das Sammeln unabhängig davon, wie man die Daten hinterher aufbereitet. Die
 Zugänge je Patch sind etwas anderes: eine Handvoll Namen, die dieses Werkzeug
 selbst beobachtet hat, und die Namen gehören ohnehin CIG. Deshalb steht in der
-Datei ausdrücklich, woher sie stammt und dass sie weitergegeben werden darf —
-so wie bei `daten/katalog.json` auch.
+Datei ausdrücklich, woher sie stammt und dass sie weitergegeben werden darf.
 
 Die Namen werden **im Klartext** gespeichert, nicht in der Vergleichsform. Die
 Datei liegt im Repo und soll dort lesbar sein: Wer sich einen Patch ansieht,

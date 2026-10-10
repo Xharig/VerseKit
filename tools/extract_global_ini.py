@@ -34,8 +34,7 @@ Reihenfolge:
   2. `zstandard` / `pyzstd`  (falls installiert)
   3. **7-Zip** ab Version 22 kann zstd und ist auf den meisten Rechnern ohnehin da
 
-Läuft NICHT beim Nutzer — nur hier, einmal je SC-Patch, als Vorstufe zu
-`build_catalog.py`.
+Läuft NICHT beim Nutzer — ein Werkzeug zum Nachsehen in der Sprachdatei.
 
 Aufruf:
     python tools/extract_global_ini.py

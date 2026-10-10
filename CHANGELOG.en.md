@@ -18,7 +18,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the KRT Profit Basetool still need: materials with a quality floor and
   items, next to what you have in stock and whether you own the blueprint.
   The tab only appears with a Basetool connection (Settings → Basetool →
-  “Unit demand”). Read only and anonymous; none of it is saved
+  “Unit demand”). Read only and anonymous; none of it is saved. While
+  mining, the overlay tells you under the scan signature whether your unit is
+  looking for that ore
 - **Read the refinery with a shortcut** — Ctrl+Alt+R reads the refinery
   terminal in game, then the storage opens with the lines it read. Can be
   changed under Settings → Overlay (Windows only)
@@ -31,7 +33,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
-- **Plants and animal parts count in pieces**, no longer in SCU — as in game
+- **Plants, animal parts, Saldynium and Jaclium count in pieces**, no longer
+  in SCU — as in game
 - **What to farm counts per box** — at the fabricator an ingredient comes
   from one box; two boxes of 2 SCU no longer make a portion of 3 SCU
 - **Sharp rendering on by default** — with Windows scaling above 100 %,

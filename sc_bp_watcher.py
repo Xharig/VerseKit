@@ -3109,9 +3109,13 @@ class Overlay:
                 self.signaturleiste.pack_forget()
                 self.signaturleiste.configure(text='')
                 return
-            from scbp import scan_window
-            self.signaturleiste.configure(
-                text=language.t('ov_signatur') % scan_window.describe(value))
+            from scbp import scan_window, exchange_demand
+            text = language.t('ov_signatur') % scan_window.describe(value)
+            # Sucht die eigene Einheit eins der Erze, steht es darunter.
+            gesucht = exchange_demand.overlay_text(scan_window.materials(value))
+            if gesucht:
+                text += '\n' + gesucht
+            self.signaturleiste.configure(text=text)
             if self.signaturleiste not in self._wrap_labels:
                 self._wrap_labels.append(self.signaturleiste)
             self.signaturleiste.pack(fill='x', padx=8, pady=(0, 2),

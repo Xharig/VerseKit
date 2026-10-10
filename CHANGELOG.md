@@ -19,7 +19,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Mindestgüte und Gegenstände, daneben, was du davon im Lager hast, und ob du
   den Bauplan besitzt. Der Reiter erscheint nur mit Basetool-Verbindung
   (Einstellungen → Basetool → „Bedarf der Einheit"). Nur lesend und anonym;
-  gespeichert wird davon nichts
+  gespeichert wird davon nichts. Beim Minen sagt das Overlay unter der
+  Scan-Signatur, ob die Einheit das Erz gerade sucht
 - **Raffinerie per Tastenkombination lesen** — Strg+Alt+R liest im Spiel das
   Raffinerie-Terminal, danach öffnet sich das Lager mit den gelesenen Zeilen.
   Änderbar unter Einstellungen → Overlay (nur Windows)
@@ -32,7 +33,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
-- **Pflanzen und Tierteile zählen in Stück**, nicht mehr in SCU — wie im Spiel
+- **Pflanzen, Tierteile, Saldynium und Jaclium zählen in Stück**, nicht mehr
+  in SCU — wie im Spiel
 - **Was ich farmen muss rechnet je Kiste** — am Fertigungsterminal kommt eine
   Zutat aus einer Kiste; zwei Kisten mit je 2 SCU ergeben keine Portion von
   3 SCU mehr

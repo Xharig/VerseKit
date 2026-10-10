@@ -5886,6 +5886,7 @@ TEXTS = {
     's_bd_ab_q':         ('ab Q %d', 'from Q %d'),
     's_bd_aus':          ('Erz: %s', 'ore: %s'),
     's_bd_kannst_bauen': ('Du hast den Bauplan.', 'You own the blueprint.'),
+    'ov_bedarf':         ('Die Einheit sucht: %s', 'Your unit wants: %s'),
     's_bd_hinweis':      ('Ein Auftrag für einen Gegenstand steht auch mit seinen Rohstoffen oben — beides zählt dieselbe Arbeit. Neu geholt wird mit dem Abgleich, höchstens alle 5 Minuten.',
                           'An order for an item also appears with its materials above — both count the same work. It is refreshed with the sync, at most every 5 minutes.'),
     's_bt_lager_ueberblick': ('Im Basetool: %d Posten in deinem Lager', 'In the Basetool: %d lots in your stock'),
