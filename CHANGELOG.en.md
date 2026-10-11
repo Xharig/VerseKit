@@ -6,6 +6,43 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.1 - 2026-10-11
+
+> Better protection for your data: Verse-Kit saves your collection, storage
+> and logs so that nothing is lost in a crash, and restores a damaged file
+> from the previous version. Plus less freezing and fewer silent errors.
+
+### Improved
+
+- **Your data is better protected** — collection, both storages, contract
+  log, watchlist, hangar, play time and statistics: if a file is damaged,
+  Verse-Kit moves it aside, restores the previous version and writes it to
+  the error log, instead of silently carrying on with an empty state. Saving
+  never leaves a moment without the main file. Found by Drachennarr (KRT)
+- **The game's controls and graphics** are written so that the file is never
+  left half-written or empty, even if writing fails. Found by Drachennarr
+  (KRT)
+- **Windows no longer freeze** while fetching the catalogue, sending an error
+  report or checking the translation. Found by Drachennarr (KRT)
+- **The error log** counts a repeated error instead of filling every slot
+  with it — other errors stay visible. Found by Drachennarr (KRT)
+
+### Fixed
+
+- **Feedback from the background got lost** — such as update progress, the
+  stick button while binding, or fresh statistics while another window was
+  open. Found by Drachennarr (KRT)
+- **Two settings saved at the same time** could overwrite each other. Found
+  by Drachennarr (KRT)
+- **Linux: autostart** did not start when the AppImage was in a folder with
+  spaces. Found by Drachennarr (KRT)
+- **Linux: an update** only swaps the AppImage with a verified checksum.
+  Found by Drachennarr (KRT)
+- **scmdb connection:** a foreign website can no longer read the events
+  through a name redirected to your computer. Found by Drachennarr (KRT)
+- **Error report:** if redacting a value fails, a placeholder goes out
+  instead of the plain text. Found by Drachennarr (KRT)
+
 ## v4.1.0 - 2026-10-11
 
 > Verse-Kit now knows where you are and how often you got caught: the

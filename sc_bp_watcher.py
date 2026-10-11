@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '4.1.0'
+__version__ = '4.1.1'
 
 # Zeitpunkt des Programmstarts — misst, wie lange das Programm schon läuft
 # (siehe `Overlay.AUTO_UPDATE_VISIBLE_S`).
@@ -2567,6 +2567,10 @@ class Overlay:
         # Und sobald das Spiel zugeht, gleich noch einmal — siehe dort.
         self.root.after(self.SPIELENDE_TAKT_MS, self._spielende_wache)
         self.root.after(3000, self._location_watch)
+        # Nebenfäden melden über `tk_calls` zurück — der Abholer läuft ab
+        # hier, auch wenn das Hauptfenster nie geöffnet wird.
+        from scbp import tk_calls
+        tk_calls.start_poller(self.root)
         # Kurz nach dem Start fragen, falls der Spielordner umgezogen ist.
         # Vor der Versionsprüfung: Ohne Spielordner nützt die neueste Fassung
         # nichts, und zwei Fenster hintereinander will niemand.

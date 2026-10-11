@@ -167,18 +167,13 @@ def load():
     ⚠ Ein älteres Format behält seine Sitzungen, verliert aber den Lesestand:
     So wird jedes noch vorhandene Log einmal mit den neuen Zählungen gelesen,
     und was schon weg ist, bleibt mit seinen alten Zahlen stehen."""
-    try:
-        with open(path(), encoding='utf-8') as f:
-            data = json.load(f)
-        if isinstance(data, dict) and isinstance(data.get('sitzungen'), dict):
-            if data.get('format') != FORMAT:
-                data['gelesen'] = {}
-            data.setdefault('gelesen', {})
-            return data
-    except (OSError, ValueError):
-        pass
-    except Exception as exception:
-        errors.record('play_stats.load', exception)
+    data = paths.load_json(path(), valid=lambda d: isinstance(d, dict),
+                           report_as='play_stats.load')
+    if data is not None and isinstance(data.get('sitzungen'), dict):
+        if data.get('format') != FORMAT:
+            data['gelesen'] = {}
+        data.setdefault('gelesen', {})
+        return data
     return {'format': FORMAT, 'sitzungen': {}, 'gelesen': {}}
 
 

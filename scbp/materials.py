@@ -66,7 +66,6 @@ Handelslager rechnet mit denselben Regeln.
 import copy
 import json
 import re
-import os
 
 from . import errors, paths
 from .crafting import norm_material
@@ -76,14 +75,13 @@ FORMAT = 1
 
 
 def load():
-    """Alle Posten — oder eine leere Liste."""
-    try:
-        with open(paths.app_file(FILE), encoding='utf-8') as f:
-            data = json.load(f)
-        if data.get('format') == FORMAT:
-            return data.get('posten') or []
-    except Exception:
-        pass
+    """Alle Posten — oder eine leere Liste. Eine kaputte Datei wird protokolliert
+    und durch die Vorgängerfassung ersetzt (`paths.load_json`)."""
+    data = paths.load_json(paths.app_file(FILE),
+                           valid=lambda d: isinstance(d, dict),
+                           report_as='materials.load')
+    if data and data.get('format') == FORMAT:
+        return data.get('posten') or []
     return []
 
 

@@ -43,6 +43,7 @@ eine vergessene Übersetzung soll auffallen, aber nichts kaputtmachen.
 """
 import locale
 import os
+import sys
 import time
 
 from . import paths
@@ -2996,6 +2997,8 @@ TEXTS = {
                               'a rank starts at.'),
     's_dk_drachennarr_idee': ('**Tode und Standort aus dem Spielprotokoll** — der Hinweis, dass ein Tod an der eigenen Körpernummer eindeutig zu erkennen ist und der aktuelle Ort im Log steht. Danke!',
                               '**Deaths and location from the game log** — the hint that a death can be told apart by your own body number and that the current place is in the log. Thank you!'),
+    's_dk_drachennarr_bugs': ('**Eine Prüfung des ganzen Quelltexts** — über dreißig Funde, darunter verlorene Rückmeldungen aus Nebenfäden, Nutzerdaten, die bei einem Absturz verloren gehen konnten, und Spieldateien, die halb geschrieben zurückbleiben konnten. Danke!',
+                              '**A review of the whole source code** — over thirty findings, among them feedback lost from background threads, user data that could be lost in a crash, and game files that could be left half-written. Thank you!'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
     's_dk_sotth_idee':       ('**Das Prüfintervall der Game.log sichtbar unter „Allgemein"** — '
@@ -7004,11 +7007,25 @@ def system_language():
                    os.environ.get('LANG'), os.environ.get('LC_ALL')):
         if source:
             return 'de' if source.lower().startswith('de') else 'en'
-    try:
-        ident = locale.getdefaultlocale()[0] or ''
-    except Exception:
-        ident = ''
-    return 'de' if ident.lower().startswith('de') else 'en'
+    # ⚠ Nicht `locale.getdefaultlocale()`: veraltet, und mit Python 3.15
+    # entfernt — die Sprache fiele dann still auf Englisch. Unter Windows
+    # liefert `getlocale()` Namen wie `German_Germany`, deshalb fragt es dort
+    # das System direkt (`de-DE`).
+    ident = ''
+    if sys.platform.startswith('win'):
+        try:
+            import ctypes
+            buffer = ctypes.create_unicode_buffer(85)
+            if ctypes.windll.kernel32.GetUserDefaultLocaleName(buffer, 85):
+                ident = buffer.value
+        except Exception:
+            ident = ''
+    if not ident:
+        try:
+            ident = locale.getlocale()[0] or ''
+        except Exception:
+            ident = ''
+    return 'de' if ident.lower().startswith(('de', 'german')) else 'en'
 
 
 def chosen():

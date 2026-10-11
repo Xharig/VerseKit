@@ -1072,6 +1072,16 @@ def install(new_file, target_version='', previous_version='', automatic=False,
             # genau wie bei `tools/testfassung_holen.sh`. Lässt sich die
             # Sicherung nicht anlegen, wird auch nicht getauscht — ein Update
             # ohne Rückweg ist keins.
+            #
+            # ⚠⚠ **Ohne geprüfte Summe kein Tausch** — wie unter Windows. Und
+            # die Datei wird hier noch einmal gerechnet: Zwischen Laden und
+            # Tauschen kann sie ersetzt worden sein.
+            checksum = _CHECKED.get(os.path.abspath(new_file))
+            if not checksum or compute_checksum(new_file).lower() \
+                    != str(checksum).lower():
+                from . import language
+                _discard(new_file)
+                return False, language.t('up_ohne_pruefung')
             if not _backup(target):
                 from . import language
                 _discard(new_file)

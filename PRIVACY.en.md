@@ -4,7 +4,7 @@
 
 Verse-Kit runs on your computer. There is no account, no advertising and no
 tracking. Once a day the program reports that it is running and which pages
-were used — without any ID, and you can switch it off (see *Count usage*). This page states in full
+were used — without any ID, switched on by default, and you can switch it off (see *Count usage*). This page states in full
 what the program reads, what it fetches from the internet and what it sends.
 
 ## What is read on your computer
@@ -79,8 +79,10 @@ counted here.
 
 The report is **only sent when you press "Send"** — after you have seen its
 full text. It goes to `bericht.xharig.com`, a relay into the project's report
-channel on Discord. User name, paths and anything that looks like a credential
-are replaced beforehand.
+channel on Discord. Your user name, your home folder in any path and anything
+that looks like a credential are replaced beforehand. Paths outside your home
+folder (such as a game folder on `D:\`) stay as they are — you see them
+before sending.
 
 If you ticked the box for images, the scan images go along: for signatures the
 crop around the number, for the refinery scanner the terminal's table from a
@@ -141,7 +143,8 @@ signed in with.
 in the catalogue) and, for running missions, the IDs from the game log, the
 internal contract name, start, end and how it ended — only from the current
 game session and with the game channel (LIVE, PTU …). No handle, no paths, no
-storage data. Other websites get no access. What scmdb does with it is
+storage data. Other websites get no access — not even through a name
+redirected to your computer. What scmdb does with it is
 governed by its own privacy policy at [scmdb.net](https://scmdb.net).
 
 ## Contact

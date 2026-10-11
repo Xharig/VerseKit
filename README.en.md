@@ -16,7 +16,7 @@
 [![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://xharig.com/discord)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-0a4a7a?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.14-0a4a7a?logo=python&logoColor=white)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%C2%B7%20Linux-0a4a7a)](#requirements)
 [![Star Citizen](https://img.shields.io/badge/Star%20Citizen-compatible-0a4a7a)](https://robertsspaceindustries.com/enlist?referral=STAR-YC7L-S4W2)
 
@@ -446,7 +446,7 @@ On **Linux** this message does not exist — the file just needs to be made exec
 <details>
 <summary>Running from source (for the curious and for developers)</summary>
 
-You need [Python 3.8+](https://www.python.org/downloads/) — on Windows tick **„Add Python to PATH"** during setup. No extra packages required.
+You need [Python](https://www.python.org/downloads/) — it is tested with **3.14**; older versions from 3.8 should work but are not tested. On Windows tick **„Add Python to PATH"** during setup. No extra packages required.
 
 ```bash
 git clone https://github.com/Xharig/VerseKit.git

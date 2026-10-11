@@ -42,7 +42,7 @@ import re
 import shutil
 import time
 
-from . import errors
+from . import errors, paths
 
 # (Name in der Datei, Art, Grundwert, Wahlmöglichkeiten)
 # Art `wahl`: feste Werte mit Textschlüssel · `schalter`: 0/1 ·
@@ -259,15 +259,11 @@ def write_renderer(value, path=None):
     except OSError as exc:
         errors.record('graphics.renderer_backup', exc)
         return False, 's_gr_f_sicherung'
+    # Atomar: Scheitert das Schreiben, ist die Datei unverändert.
     try:
-        with open(path, 'w', encoding='utf-8', newline='\n') as f:
-            json.dump(data, f, indent=2)
-            f.write('\n')
-    except OSError as exc:
-        try:
-            shutil.copy2(backup, path)
-        except OSError:
-            pass
+        paths.write_text_atomic(path, json.dumps(data, indent=2) + '\n',
+                                newline='\n')
+    except (OSError, TypeError, ValueError) as exc:
         errors.record('graphics.write_renderer', exc)
         return False, 's_gr_f_schreiben'
     return True, os.path.basename(backup)
@@ -448,14 +444,10 @@ def write(changes, path=None):
     except OSError as exc:
         errors.record('graphics.backup', exc)
         return False, 's_gr_f_sicherung'
+    # Atomar: Scheitert das Schreiben, ist die Datei unverändert.
     try:
-        with open(path, 'w', encoding='utf-8', newline='') as f:
-            f.write(fresh)
+        paths.write_text_atomic(path, fresh, newline='')
     except OSError as exc:
-        try:
-            shutil.copy2(backup, path)
-        except OSError:
-            pass
         errors.record('graphics.write', exc)
         return False, 's_gr_f_schreiben'
     return True, os.path.basename(backup)

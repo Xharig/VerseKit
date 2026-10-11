@@ -6,6 +6,49 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.1 - 2026-10-11
+
+> Mehr Sicherheit für deine Daten: Verse-Kit speichert Bestand, Lager und
+> Protokolle so, dass bei einem Absturz nichts verloren geht, und holt eine
+> beschädigte Datei aus der Vorgängerfassung zurück. Dazu weniger Einfrieren
+> und weniger stille Fehler.
+
+### Verbessert
+
+- **Deine Daten sind besser geschützt** — Bestand, beide Lager,
+  Auftragsprotokoll, Merkliste, Hangar, Spielzeit und Statistik: Ist eine
+  Datei beschädigt, legt Verse-Kit sie beiseite, holt die Vorgängerfassung
+  zurück und schreibt es ins Fehlerprotokoll, statt still mit einem leeren
+  Stand weiterzumachen. Beim Speichern gibt es keinen Moment mehr ohne die
+  Hauptdatei. Gefunden von Drachennarr (KRT)
+- **Steuerung und Grafik des Spiels** werden so geschrieben, dass die Datei
+  nie halb oder leer zurückbleibt, auch wenn das Schreiben scheitert.
+  Gefunden von Drachennarr (KRT)
+- **Fenster frieren nicht mehr ein** beim Katalog-Holen, beim Absenden eines
+  Fehlerberichts und beim Prüfen der Übersetzung. Gefunden von Drachennarr
+  (KRT)
+- **Das Fehlerprotokoll** zählt einen wiederholten Fehler, statt mit ihm alle
+  Plätze zu füllen — andere Fehler bleiben sichtbar. Gefunden von Drachennarr
+  (KRT)
+
+### Behoben
+
+- **Rückmeldungen aus dem Hintergrund gingen verloren** — etwa der
+  Fortschritt beim Update, das Ergebnis eines Stick-Knopfs beim Belegen oder
+  die frischen Zahlen der Statistik, wenn gerade ein anderes Fenster offen
+  war. Gefunden von Drachennarr (KRT)
+- **Zwei gleichzeitig gespeicherte Einstellungen** konnten sich gegenseitig
+  überschreiben. Gefunden von Drachennarr (KRT)
+- **Linux: Autostart** startete nicht, wenn das AppImage in einem Ordner mit
+  Leerzeichen lag. Gefunden von Drachennarr (KRT)
+- **Linux: Ein Update** tauscht das AppImage nur noch mit geprüfter
+  Prüfsumme. Gefunden von Drachennarr (KRT)
+- **scmdb-Verbindung:** Eine fremde Webseite kann die Ereignisse auch über
+  einen auf deinen Rechner umgelenkten Namen nicht mehr lesen. Gefunden von
+  Drachennarr (KRT)
+- **Fehlerbericht:** Scheitert das Schwärzen eines Werts, geht ein Platzhalter
+  hinaus statt des Klartexts. Gefunden von Drachennarr (KRT)
+
 ## v4.1.0 - 2026-10-11
 
 > Verse-Kit weiß jetzt, wo du bist und wie oft es dich erwischt hat: Die

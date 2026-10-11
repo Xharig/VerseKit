@@ -843,14 +843,13 @@ def main():
         #    auch das Fehlerprotokoll nicht mehr geschrieben werden — und genau
         #    das soll ja geprüft werden.
         #
-        # Deshalb wird **nur die Einstellungsdatei** blockiert: Dort, wo die
-        # Nebendatei `…json.tmp` entstehen müsste, liegt ein Ordner. Daran
-        # scheitert das Schreiben, unabhängig von Rechten und Benutzer — der
-        # Rest der Ablage bleibt heil.
+        # Deshalb wird **nur die Einstellungsdatei** blockiert: An ihrer
+        # Stelle liegt ein Ordner. Daran scheitert das Umbenennen der
+        # Nebendatei, unabhängig von Rechten, Benutzer und dem Namen der
+        # Nebendatei — der Rest der Ablage bleibt heil.
         sperr = os.path.join(basis, 'sperrprobe')
         os.makedirs(sperr, exist_ok=True)
-        os.makedirs(os.path.join(sperr, 'einstellungen.json.tmp'),
-                    exist_ok=True)
+        os.makedirs(os.path.join(sperr, 'einstellungen.json'), exist_ok=True)
         alt_home = os.environ.get('SC_BP_HOME')
         os.environ['SC_BP_HOME'] = sperr
         try:
@@ -4386,14 +4385,16 @@ def main():
     _alt_appimage50 = os.environ.get('APPIMAGE')
     _alt_frozen50 = getattr(sys, 'frozen', None)
     try:
-        os.environ['APPIMAGE'] = '/home/wer/Programme/SC-BP-Watcher.AppImage'
+        os.environ['APPIMAGE'] = '/home/wer/Meine Programme/SC-BP-Watcher.AppImage'
         sys.frozen = True
         _im50.reload(_as50)
         _befehl50 = _as50.command()
         pruefe('/tmp/.mount' not in _befehl50,
                'kein Wegwerf-Pfad aus dem AppImage-Einhaengepunkt')
-        pruefe(_befehl50 == '/home/wer/Programme/SC-BP-Watcher.AppImage',
-               'die echte AppImage-Datei gewinnt gegen die frozen-Abfrage')
+        pruefe(_befehl50
+               == '"/home/wer/Meine Programme/SC-BP-Watcher.AppImage"',
+               'die echte AppImage-Datei gewinnt gegen die frozen-Abfrage, '
+               'in Anfuehrungszeichen wegen des Leerzeichens (%r)' % _befehl50)
     finally:
         if _alt_appimage50 is None:
             os.environ.pop('APPIMAGE', None)
@@ -7056,7 +7057,6 @@ def main():
     # Nutzers, und genau die zeigt die Anleitung.
     _heim73 = os.environ.pop('SC_BP_HOME', None)
     try:
-        _ka73.vergessen() if hasattr(_ka73, 'vergessen') else None
         _he73.forget()
         try:
             # ⚠ `unreachable=False`: Die Anleitung nennt die **erspielbaren**
@@ -7073,7 +7073,6 @@ def main():
     finally:
         if _heim73 is not None:
             os.environ['SC_BP_HOME'] = _heim73
-        _ka73.vergessen() if hasattr(_ka73, 'vergessen') else None
         _he73.forget()
 
     if not _bp73 or not _gezeigt73:
@@ -7411,6 +7410,15 @@ def main():
     _versand77 = {'open_issue', 'to_archive', 'save', 'submit'}
     _falsch77 = []
     _richtig77 = 0
+    # Namen, denen der frische Text zugewiesen wird (`text =
+    # aktueller_bericht()` vor einem Nebenfaden, der dann sendet).
+    _frisch77 = {_z77.targets[0].id for _z77 in _ast77.walk(_baum77)
+                 if isinstance(_z77, _ast77.Assign)
+                 and len(_z77.targets) == 1
+                 and isinstance(_z77.targets[0], _ast77.Name)
+                 and isinstance(_z77.value, _ast77.Call)
+                 and isinstance(_z77.value.func, _ast77.Name)
+                 and _z77.value.func.id == 'aktueller_bericht'}
     for _k77 in _ast77.walk(_baum77):
         if not (isinstance(_k77, _ast77.Call)
                 and isinstance(_k77.func, _ast77.Attribute)
@@ -7422,9 +7430,10 @@ def main():
             continue
         erst = _k77.args[0]
         # Erlaubt ist nur der frisch geholte Text aus dem Kasten.
-        ok = (isinstance(erst, _ast77.Call)
-              and isinstance(erst.func, _ast77.Name)
-              and erst.func.id == 'aktueller_bericht')
+        ok = ((isinstance(erst, _ast77.Call)
+               and isinstance(erst.func, _ast77.Name)
+               and erst.func.id == 'aktueller_bericht')
+              or (isinstance(erst, _ast77.Name) and erst.id in _frisch77))
         if ok:
             _richtig77 += 1
         else:
@@ -7475,11 +7484,11 @@ def main():
             _bd78.norm('A03 Sniper Rifle Magazine (15 cap)'): {
                 'n': 'A03 Sniper Rifle Magazine (15 cap)',
                 'a': 'Ammunition'}}}
-        with open(_ka78.pfad() if hasattr(_ka78, 'pfad')
-                  else os.path.join(_ordner78, 'katalog-cache.json'),
+        # `catalog.load()` liest bei jedem Aufruf von der Platte — es gibt
+        # keinen Zwischenspeicher, der vergessen werden müsste.
+        with open(os.path.join(_ordner78, _ka78.CACHE),
                   'w', encoding='utf-8') as _f78:
             json.dump(_kat78, _f78)
-        _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
         pruefe(bool(_ka78.load().get('bauplaene')),
                'der Testkatalog wird gelesen')
@@ -7521,7 +7530,6 @@ def main():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = _heim78
-        _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
     _q78 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
     pruefe('bestand_datei.align(self.bestand)' in _q78,
@@ -7557,7 +7565,6 @@ def main():
         with open(os.path.join(_ordner79, 'katalog-cache.json'),
                   'w', encoding='utf-8') as _f79:
             json.dump(_kat79, _f79)
-        _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
         pruefe(_bd78.catalog_name('BlackFire Racing Flight Suit')
                == 'Neutrino Racing Flight Suit BlackFire',
@@ -7574,7 +7581,6 @@ def main():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = _heim79
-        _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
     # ------------------------------------------------------------------
     # 80. Anfuehrungszeichen duerfen Namen nicht trennen
@@ -11751,7 +11757,8 @@ def main():
     _abs118 = _block118.find('\n    def absenden():')
     if _abs118 > 0:
         _rumpf118 = _block118[_abs118:_block118.find('\n    def ', _abs118 + 10)]
-        pruefe('if geklappt:' in _rumpf118,
+        pruefe('if ok:\n                    _meldung_verbraucht()' in
+               _rumpf118.replace('\r\n', '\n'),
                'beim Absenden wird nur nach Erfolg geleert')
 
     print()
@@ -15377,7 +15384,6 @@ def main():
     os.environ['SC_BP_HOME'] = _ordner163
     try:
         from scbp import fleet as _hg163
-        _hg163.vergessen() if hasattr(_hg163, 'vergessen') else None
         with open(os.path.join(_ordner163, 'hangar.json'), 'w',
                   encoding='utf-8') as _f163:
             _js163.dump({'format': _hg163.FORMAT,
@@ -18116,6 +18122,21 @@ def main():
         try:
             _ak185.packaging = lambda: 'appimage'
             _ak185.own_appimage = lambda: _app186
+            # Ohne geprüfte Summe, und mit einer falschen: kein Tausch.
+            _ak185._CHECKED.clear()
+            _ok186x, _g186x = _ak185.install(_neu186)
+            pruefe(not _ok186x and open(_app186, 'rb').read() == b'ALT' * 100,
+                   'ohne gepruefte Summe wird unter Linux nicht getauscht')
+            with open(_neu186, 'wb') as _f186:
+                _f186.write(b'NEU' * 120)
+            _ak185._CHECKED[os.path.abspath(_neu186)] = 'ab' * 32
+            _ok186x, _g186x = _ak185.install(_neu186)
+            pruefe(not _ok186x and open(_app186, 'rb').read() == b'ALT' * 100,
+                   'eine Datei, deren Summe nicht passt, wird nicht getauscht')
+            with open(_neu186, 'wb') as _f186:
+                _f186.write(b'NEU' * 120)
+            _ak185._CHECKED[os.path.abspath(_neu186)] = \
+                _ak185.compute_checksum(_neu186)
             _ok186, _g186 = _ak185.install(_neu186)
             pruefe(_ok186, 'der Tausch gelingt (%s)' % (_g186 or 'ok'))
             pruefe(open(_app186, 'rb').read() == b'NEU' * 120,
@@ -18130,6 +18151,8 @@ def main():
             os.makedirs(_app186 + _ak185.BACKUP_SUFFIX, exist_ok=True)
             with open(_neu186, 'wb') as _f186:
                 _f186.write(b'NEU' * 120)
+            _ak185._CHECKED[os.path.abspath(_neu186)] = \
+                _ak185.compute_checksum(_neu186)
             _ok186b, _g186b = _ak185.install(_neu186)
             pruefe(not _ok186b and open(_app186, 'rb').read() == b'ALT' * 100,
                    'scheitert die Sicherung, bleibt die alte Fassung unangetastet')
@@ -25395,6 +25418,8 @@ def main():
     _pruefung_426()
     _pruefung_427()
     _pruefung_428()
+    _pruefung_429()
+    _pruefung_430()
 
     print()
     if fehler:
@@ -31638,6 +31663,21 @@ def _pruefung_308():
         with _ur308.urlopen(fremd, timeout=5) as antwort:
             pruefe(antwort.headers.get('Access-Control-Allow-Origin') is None,
                    'Fremde Seite bekommt keinen CORS-Kopf')
+        # DNS-Rebinding: Der Name der fremden Seite steht im Host-Kopf.
+        umgelenkt = _ur308.Request('http://127.0.0.1:%d/events' % nummer,
+                                   headers={'Host': 'boese.example:%d'
+                                            % nummer})
+        try:
+            _ur308.urlopen(umgelenkt, timeout=5).close()
+            abgewiesen = None
+        except _ur308.HTTPError as fehler308:
+            abgewiesen = fehler308.code
+        pruefe(abgewiesen == 403, 'fremder Host-Kopf wird abgewiesen, auch '
+               'wenn die Adresse 127.0.0.1 ist (%r)' % abgewiesen)
+        pruefe(_sb308.host_allowed('localhost:%d' % nummer, nummer)
+               and not _sb308.host_allowed('127.0.0.1:1', nummer)
+               and not _sb308.host_allowed('', nummer),
+               'erlaubt sind nur 127.0.0.1/localhost am eigenen Anschluss')
         strom = _ur308.urlopen('http://127.0.0.1:%d/events' % nummer, timeout=5)
         erst = [_js308.loads(strom.readline().decode('utf-8')[6:]),
                 strom.readline()]
@@ -39829,6 +39869,260 @@ def _pruefung_427():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim427
         shutil.rmtree(_ordner427, ignore_errors=True)
+
+
+def _pruefung_430():
+    """430. Speichern und Laden der Nutzerdaten, Fehlerprotokoll."""
+    print('\n430. Nutzerdaten: nie ohne Hauptdatei, kaputt -> Vorgängerfassung')
+    import json as _js430
+    import tempfile as _tf430
+    import threading as _th430
+    import time as _ti430
+    from scbp import (paths as _pa430, errors as _er430,
+                      collection as _co430)
+    _ordner430 = _tf430.mkdtemp(prefix='speichern-')
+    _alt_heim430 = os.environ.get('SC_BP_HOME')
+    _echt_ersetzen430 = _pa430.replace_file
+    _echt_einst430 = _pa430.settings
+    try:
+        os.environ['SC_BP_HOME'] = os.path.join(_ordner430, 'heim')
+        _ziel430 = os.path.join(_ordner430, 'daten.json')
+
+        # Scheitert das letzte Umbenennen, ist die Hauptdatei noch da (vorher
+        # war sie in diesem Moment schon zur Sicherung verschoben).
+        _pa430.save_json(_ziel430, {'stand': 1})
+
+        def _kaputt430(*_a, **_k):
+            raise PermissionError('gesperrt')
+        _pa430.replace_file = _kaputt430
+        try:
+            _pa430.save_json(_ziel430, {'stand': 2})
+        except PermissionError:
+            pass
+        _pa430.replace_file = _echt_ersetzen430
+        # ⚠ Direkt auf die Datei sehen, nicht über `load_json` — das fiele
+        # auf die Vorgängerfassung zurück und verdeckte den Fehler.
+        _da430 = os.path.exists(_ziel430)
+        pruefe(_da430 and _pa430.load_json(_ziel430) == {'stand': 1},
+               'scheitert das Ersetzen, steht die alte Hauptdatei noch da')
+        pruefe(not [n for n in os.listdir(_ordner430) if n.endswith('.tmp')],
+               'keine Nebendatei bleibt liegen')
+        _pa430.save_json(_ziel430, {'stand': 3})
+        with open(_pa430.backup_name(_ziel430), encoding='utf-8') as f:
+            pruefe(_js430.load(f) == {'stand': 1},
+                   'die Vorgängerfassung ist der Stand davor')
+
+        # Kaputte Hauptdatei: protokolliert, beiseitegelegt, Vorgängerfassung.
+        _er430.clear()
+        with open(_ziel430, 'w', encoding='utf-8') as f:
+            f.write('{"stand": 3, kaputt')
+        pruefe(_pa430.load_json(_ziel430) == {'stand': 1},
+               'kaputte Datei: die Vorgängerfassung wird gelesen')
+        _beiseite430 = [n for n in os.listdir(_ordner430) if '.kaputt-' in n]
+        pruefe(len(_beiseite430) == 1 and not os.path.exists(_ziel430),
+               'die kaputte Datei liegt beiseite, der nächste Speichervorgang '
+               'überschreibt sie nicht (%r)' % _beiseite430)
+        pruefe(any(e.get('stelle') == 'paths.load_json'
+                   for e in _er430.latest(5)),
+               'die kaputte Datei steht im Fehlerprotokoll')
+        pruefe(_pa430.load_json(os.path.join(_ordner430, 'fehlt.json'))
+               is None, 'eine fehlende Datei ist kein Fehler')
+
+        # Der echte Einstiegspunkt: der Bauplan-Bestand.
+        _bestand430 = {'bauplaene': {'a': {'name': 'Testkanone'}}}
+        _co430.save(dict(_bestand430))
+        _co430.save(dict(_bestand430, bauplaene={'a': {'name': 'Testkanone'},
+                                                 'b': {'name': 'Zweite'}}))
+        with open(_co430.path(), 'w', encoding='utf-8') as f:
+            f.write('')
+        pruefe(list(_co430.load()['bauplaene']) == ['a'],
+               'leerer Bestand auf der Platte: die Vorgängerfassung kommt '
+               'zurück statt eines leeren Bestands')
+
+        # Zwei Fäden setzen gleichzeitig verschiedene Einstellungen.
+        def _langsam430():
+            daten = _echt_einst430()
+            _ti430.sleep(0.05)
+            return daten
+        _pa430.settings = _langsam430
+        _faeden430 = [_th430.Thread(target=_pa430.set_setting,
+                                    args=('pruef_%d' % i, 'wert%d' % i))
+                      for i in range(2)]
+        for _f430 in _faeden430:
+            _f430.start()
+        for _f430 in _faeden430:
+            _f430.join()
+        _pa430.settings = _echt_einst430
+        pruefe(_pa430.setting('pruef_0') == 'wert0'
+               and _pa430.setting('pruef_1') == 'wert1',
+               'zwei Fäden setzen gleichzeitig zwei Einstellungen, keine '
+               'geht verloren')
+
+        # Fehlerprotokoll: ein Fehler in einer Schleife verdrängt nichts.
+        _er430.clear()
+        _er430.record('pruef.einzeln', ValueError('anderer Fehler'))
+        for _ in range(_er430.MAX_ENTRIES + 10):
+            _er430.record('pruef.schleife', RuntimeError('immer derselbe'))
+        _alle430 = _er430.latest(_er430.MAX_ENTRIES)
+        _schleife430 = [e for e in _alle430
+                        if e.get('stelle') == 'pruef.schleife']
+        pruefe(len(_alle430) == 2 and len(_schleife430) == 1
+               and _schleife430[0].get('anzahl') == _er430.MAX_ENTRIES + 10,
+               'ein wiederholter Fehler wird gezählt und verdrängt keinen '
+               'anderen (%d Einträge)' % len(_alle430))
+        pruefe(not os.path.exists(_er430._path() + '.neu'),
+               'das Fehlerprotokoll wird atomar geschrieben')
+        _er430.clear()
+    finally:
+        _pa430.replace_file = _echt_ersetzen430
+        _pa430.settings = _echt_einst430
+        if _alt_heim430 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim430
+        shutil.rmtree(_ordner430, ignore_errors=True)
+
+
+def _after_in_threads_429(tree):
+    """`.after(` in Faden-Körpern und in Funktionen desselben Moduls, die
+    ein Faden-Körper direkt aufruft -> [(Zeile, Faden, Funktion)].
+
+    Ausgenommen: geschachtelte def (laufen woanders), Lambdas, die schon an
+    `from_thread`/`call`/`_im_tk`/`_from_thread`/`_in_tk`/`put` gehen, und
+    Funktionen, die selbst nach `main_thread()` fragen."""
+    import ast as _a
+    safe = {'from_thread', '_from_thread', 'call', '_im_tk', '_in_tk', 'put'}
+
+    def calls(func):
+        out, stack = [], list(func.body)
+        while stack:
+            node = stack.pop()
+            if isinstance(node, (_a.FunctionDef, _a.AsyncFunctionDef,
+                                 _a.ClassDef)):
+                continue
+            if isinstance(node, _a.Call):
+                out.append(node)
+                name = getattr(node.func, 'attr', None) or getattr(
+                    node.func, 'id', None)
+                if name in safe:
+                    stack.extend(a for a in node.args
+                                 if not isinstance(a, _a.Lambda))
+                    stack.append(node.func)
+                    continue
+            stack.extend(_a.iter_child_nodes(node))
+        return out
+
+    def guarded(func):
+        return any(isinstance(n, _a.Attribute)
+                   and n.attr in ('main_thread', 'in_main_thread')
+                   for n in _a.walk(func))
+
+    funcs = {}
+    for node in _a.walk(tree):
+        if isinstance(node, (_a.FunctionDef, _a.AsyncFunctionDef)):
+            funcs.setdefault(node.name, []).append(node)
+    hits = set()
+    for node in _a.walk(tree):
+        if not isinstance(node, _a.Call):
+            continue
+        name = getattr(node.func, 'attr', None) or getattr(node.func, 'id',
+                                                            None)
+        if name != 'Thread':
+            continue
+        target = next((k.value for k in node.keywords if k.arg == 'target'),
+                      None)
+        if not isinstance(target, _a.Name):
+            continue
+        for start in funcs.get(target.id, []):
+            todo, seen = [(start, 0)], set()
+            while todo:
+                fn, depth = todo.pop()
+                if id(fn) in seen or guarded(fn):
+                    continue
+                seen.add(id(fn))
+                for c in calls(fn):
+                    if getattr(c.func, 'attr', None) == 'after':
+                        hits.add((c.lineno, target.id, fn.name))
+                    if depth == 0 and isinstance(c.func, _a.Name):
+                        todo += [(g, 1) for g in funcs.get(c.func.id, [])]
+    return sorted(hits)
+
+
+def _pruefung_429():
+    """429. Kein `root.after()` aus Nebenfäden; Übergabe über `tk_calls`."""
+    print('\n429. Nebenfäden: Tk nur über tk_calls, nie über after()')
+    import ast as _a429
+    import threading as _th429
+    import time as _ti429
+    from scbp import tk_calls as _tc429
+
+    # Gegenprobe zuerst: Der Prüfer muss einen eingebauten Fehler finden —
+    # direkt, über eine aufgerufene Funktion und über einen Rückruf.
+    _probe429 = (
+        'import threading\n'
+        'def a(root, tk_calls):\n'
+        '    def hilfe():\n'
+        '        root.after(0, print)\n'
+        '    def work():\n'
+        '        root.after(0, print)\n'
+        '        hilfe()\n'
+        '        laden(progress=lambda p: root.after(0, print))\n'
+        '        tk_calls.from_thread(root, lambda: root.after(9, print))\n'
+        '    threading.Thread(target=work).start()\n')
+    _treffer429 = _after_in_threads_429(_a429.parse(_probe429))
+    pruefe([z for z, _f, _g in _treffer429] == [4, 6, 8],
+           'Gegenprobe: der Prüfer findet after() direkt, in einer '
+           'aufgerufenen Funktion und im Rückruf, nicht aber im Lambda an '
+           'tk_calls (%r)' % _treffer429)
+
+    _funde429 = []
+    _dateien429 = [os.path.join(WURZEL, 'sc_bp_watcher.py')] + [
+        os.path.join(WURZEL, 'scbp', n)
+        for n in sorted(os.listdir(os.path.join(WURZEL, 'scbp')))
+        if n.endswith('.py')]
+    for _p429 in _dateien429:
+        with open(_p429, encoding='utf-8') as f:
+            _baum429 = _a429.parse(f.read())
+        _funde429 += ['%s:%d (Faden %s)' % (os.path.basename(_p429), z, fa)
+                      for z, fa, _g in _after_in_threads_429(_baum429)]
+    pruefe(not _funde429, 'kein after() aus einem Nebenfaden im ganzen '
+           'Programm (%s)' % ', '.join(_funde429))
+
+    # Zeitgrenze: Eine lange Schlange blockiert den Tk-Faden nicht am Stück.
+    while not _tc429.CALLS.empty():
+        _tc429.CALLS.get_nowait()
+    _lauf429 = []
+    for _ in range(10):
+        _tc429.call(lambda: (_ti429.sleep(0.02), _lauf429.append(1)))
+    _rest429 = _tc429.drain(0.05)
+    pruefe(_rest429 and 1 <= len(_lauf429) <= 4,
+           'ein Takt arbeitet höchstens seine Zeitscheibe ab (%d von 10, '
+           'Rest %s)' % (len(_lauf429), _rest429))
+    while _tc429.drain(1.0):
+        pass
+    pruefe(len(_lauf429) == 10, 'der Rest kommt in den folgenden Takten dran')
+
+    if not hat_anzeige():
+        print('  (Oberfläche übersprungen: kein Bildschirm)')
+        return
+    # Echt: Ein Nebenfaden meldet, während der Hauptfaden in einer
+    # update()-Schleife steckt — genau dort warf root.after().
+    _w429 = _wurzel()
+    try:
+        _tc429.start_poller(_w429)
+        _da429 = []
+        _th429.Thread(target=lambda: _tc429.from_thread(
+            _w429, lambda: _da429.append(_th429.current_thread()
+                                         is _th429.main_thread())),
+            daemon=True).start()
+        _ende429 = _ti429.time() + 3
+        while not _da429 and _ti429.time() < _ende429:
+            _w429.update()
+            _ti429.sleep(0.01)
+        pruefe(_da429 == [True], 'aus dem Nebenfaden gemeldet, im Tk-Faden '
+               'ausgeführt (%r)' % _da429)
+    finally:
+        _w429.destroy()
 
 
 def _pruefung_428():

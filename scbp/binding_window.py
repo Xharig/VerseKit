@@ -51,7 +51,7 @@ Aenderung ueberschreiben. Das Fenster sagt es, statt es vorauszusetzen.
 import threading
 import tkinter as tk
 
-from . import input_device, errors, joysticks
+from . import input_device, errors, joysticks, tk_calls
 from .language import t
 from . import theme
 
@@ -176,9 +176,9 @@ class BindingWindow:
     def _listen(self):
         """Auf einen Stick-Knopf warten — in einem eigenen Faden.
 
-        ⚠ Der Faden fasst **keine** Oberfläche an. Das Ergebnis wird über
-        `after` in den Faden der Oberfläche zurückgereicht; Tk ist nicht
-        nebenläufig und stürzt sonst irgendwann wortlos ab.
+        ⚠ Der Faden fasst **keine** Oberfläche an, auch nicht `after`. Das
+        Ergebnis geht über `tk_calls` in den Faden der Oberfläche; Tk ist
+        nicht nebenläufig und stürzt sonst irgendwann wortlos ab.
         """
         def arbeit():
             try:
@@ -187,10 +187,8 @@ class BindingWindow:
                 errors.record('binding_window.listen', ausnahme)
                 match = None
             if match and self._running:
-                try:
-                    self.root.after(0, lambda: self._vom_stick(match))
-                except Exception:
-                    pass
+                tk_calls.from_thread(self.root,
+                                     lambda: self._vom_stick(match))
 
         threading.Thread(target=arbeit, daemon=True).start()
 

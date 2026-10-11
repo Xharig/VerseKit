@@ -57,6 +57,7 @@ import json
 import os
 import re
 import sys
+import threading
 
 WINDOWS = sys.platform.startswith('win')
 
@@ -911,12 +912,108 @@ def open_overwrite(path, encoding='utf-8', **kwargs):
         return open(path, 'w', encoding=encoding, **kwargs)
 
 
+# Ein Schreiber zur Zeit — Einstellungen und Nutzerdaten werden auch aus
+# Nebenfäden gespeichert (Nutzungsmeldung, Basetool, Nachlese).
+_SAVE_LOCK = threading.RLock()
+
+
+def _temp_name(target):
+    """Eine Nebendatei je Prozess und Faden — zwei Schreiber derselben Datei
+    dürfen sich nicht dieselbe Nebendatei teilen."""
+    return '%s.%d-%d.tmp' % (target, os.getpid(), threading.get_ident())
+
+
+def write_text_atomic(target, text, newline=None):
+    """Text schreiben, ohne die Datei je halb oder leer zu hinterlassen:
+    erst eine Nebendatei im selben Ordner, dann umbenennen. Scheitert etwas,
+    ist die Zieldatei unverändert, und die Ausnahme fliegt.
+
+    ⚠ Für Dateien des Spiels (Steuerung, Grafik): `open(ziel, 'w')` leert
+    die Datei sofort — bricht das Schreiben danach ab, wäre sie kaputt."""
+    temp = _temp_name(target)
+    try:
+        with open(temp, 'w', encoding='utf-8', newline=newline) as f:
+            f.write(text)
+        try:
+            replace_file(temp, target)
+        except PermissionError:
+            if not make_overwritable(target):
+                raise
+            replace_file(temp, target)
+    except BaseException:
+        try:
+            os.remove(temp)
+        except OSError:
+            pass
+        raise
+
+
+def backup_name(target):
+    """`bestand.json` -> `bestand.bak.json`.
+
+    ⚠ Nicht `ziel.replace('.json', …)` — das trifft auch einen Ordnernamen,
+    der `.json` enthält. Nur die Endung zählt."""
+    return (target[:-5] + '.bak.json' if target.endswith('.json')
+            else target + '.bak')
+
+
+def load_json(target, valid=None, report_as='paths.load_json'):
+    """JSON lesen — bei einer kaputten Datei die Vorgängerfassung.
+
+    Fehlt die Datei, kommt None. Ist sie kaputt (kein JSON, oder
+    `valid(daten)` ist falsch), kommt das ins Protokoll, die Datei als
+    `….kaputt-<Zeit>.json` beiseitegelegt — sonst überschriebe sie der
+    nächste Speichervorgang endgültig — und die Vorgängerfassung
+    (`backup_name`) gelesen. Ist auch die nicht zu gebrauchen: None.
+
+    ⚠ `valid` nur so streng wie nötig (ein JSON-Objekt): Was als kaputt gilt,
+    wird verschoben. Ein Objekt mit unerwartetem Inhalt prüft der Aufrufer
+    selbst und lässt die Datei liegen."""
+    def read(path):
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        if valid is not None and not valid(data):
+            raise ValueError('unerwarteter Aufbau')
+        return data
+    try:
+        return read(target)
+    except FileNotFoundError:
+        if not os.path.isfile(backup_name(target)):
+            return None
+        broken = None
+    except ValueError as exc:
+        broken = exc
+    except OSError as exc:
+        _report_error(report_as, exc)
+        return None
+    if broken is not None:
+        _report_error(report_as, broken)
+        import time
+        aside = '%s.kaputt-%s%s' % (target[:-5] if target.endswith('.json')
+                                    else target,
+                                    time.strftime('%Y%m%d-%H%M%S'),
+                                    '.json' if target.endswith('.json') else '')
+        try:
+            os.replace(target, aside)
+        except OSError as exc:
+            _report_error(report_as, exc)
+    try:
+        return read(backup_name(target))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as exc:
+        _report_error(report_as, exc)
+        return None
+
+
 def save_json(target, data, indent=1, sort_keys=False):
     """JSON schreiben — ohne Halbfertiges und mit Vorgängerfassung.
 
     Erst in eine Nebendatei, dann umbenennen: Stürzt der Rechner mitten im
     Schreiben ab, ist die alte Datei noch vollständig da. Der vorige Stand
-    bleibt als `….bak.json` liegen.
+    wird vorher als `….bak.json` **kopiert**, nicht verschoben — so gibt es
+    zu keinem Zeitpunkt keine Hauptdatei. `load_json` liest die Kopie, wenn
+    die Hauptdatei kaputt ist.
 
     ⚠ **Warum das hier steht und nicht in jedem Modul einzeln.** Auch die
     beiden Lager (Werkstatt und Handel) brauchen den Rückfall: Dort stehen
@@ -930,33 +1027,31 @@ def save_json(target, data, indent=1, sort_keys=False):
     gäbe einen Ringschluss. Bei einem Fehlschlag fliegt die Ausnahme; die
     Nebendatei ist dann schon weggeräumt.
     """
-    temp = target + '.tmp'
-    try:
-        folder = os.path.dirname(target)
-        if folder:
-            os.makedirs(folder, exist_ok=True)
-        with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=indent,
-                      sort_keys=sort_keys)
-        if os.path.exists(target):
-            # ⚠ Nicht `ziel.replace('.json', …)` — das trifft auch einen
-            # Ordnernamen, in dem „.json" vorkommt. Nur die Endung zählt.
-            backup = (target[:-5] + '.bak.json' if target.endswith('.json')
-                         else target + '.bak')
-            try:
-                os.replace(target, backup)
-            except OSError:
-                # Kein Grund abzubrechen: Die Vorgängerfassung ist der Gürtel,
-                # das atomare Schreiben der Hosenträger. Einer genügt.
-                pass
-        replace_file(temp, target)
-        return True
-    except Exception:
+    import shutil
+    temp = _temp_name(target)
+    with _SAVE_LOCK:
         try:
-            os.remove(temp)
-        except OSError:
-            pass
-        raise
+            folder = os.path.dirname(target)
+            if folder:
+                os.makedirs(folder, exist_ok=True)
+            with open(temp, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=indent,
+                          sort_keys=sort_keys)
+            if os.path.exists(target):
+                try:
+                    shutil.copy2(target, backup_name(target))
+                except OSError:
+                    # Kein Grund abzubrechen: Die Vorgängerfassung ist der
+                    # Gürtel, das atomare Schreiben der Hosenträger.
+                    pass
+            replace_file(temp, target)
+            return True
+        except Exception:
+            try:
+                os.remove(temp)
+            except OSError:
+                pass
+            raise
 
 
 def pointer_file():
@@ -1041,16 +1136,23 @@ def set_setting(name, value):
         # ⚠ Sonderweg, siehe `_set_storage_folder`: Dieses eine Feld gehoert
         # in die Zeiger-Datei, sonst wirkt die Umstellung nur bis zum Neustart.
         return _set_storage_folder(value)
-    data = settings() or _template()
-    data[name] = value
+    # ⚠ Lesen, ändern und schreiben unter einer Sperre: Zwei Fäden, die
+    # gleichzeitig verschiedene Felder setzen, verlören sonst eines davon.
     target = app_file(SETTINGS_FILE)
-    temp = target + '.tmp'
+    temp = _temp_name(target)
     try:
-        with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        replace_file(temp, target)
+        with _SAVE_LOCK:
+            data = settings() or _template()
+            data[name] = value
+            with open(temp, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            replace_file(temp, target)
         return True
     except OSError as exc:
+        try:
+            os.remove(temp)
+        except OSError:
+            pass
         # ⚠ Niemand prüft den Rückgabewert dieser Funktion — alle Aufrufer
         # werfen ihn weg. Scheitert das Schreiben
         # (volle Platte, fehlende Rechte, Ordner weg), wäre die Einstellung
@@ -1921,6 +2023,13 @@ def redact(text):
     Vorkommen des Benutzernamens.
 
     Lieber einmal zu viel ersetzt als ein Name zu viel im Netz.
+
+    ⚠ Andere Pfade (ein Spielordner auf `D:\\…`) bleiben stehen; ersetzt
+    werden nur Heimatordner, Benutzername und Zugangsdaten.
+
+    ⚠⚠ **Scheitert das Schwärzen, geht der Text nicht ungeschwärzt hinaus**,
+    sondern ein Platzhalter — ein fehlender Satz im Bericht ist besser als
+    ein Name im öffentlichen Issue.
     """
     try:
         text = str(text)
@@ -1936,7 +2045,10 @@ def redact(text):
 
         return _redact_secrets(text)
     except Exception:
-        return str(text)
+        return REDACT_FAILED
+
+
+REDACT_FAILED = '<nicht geschwärzt, weggelassen>'
 
 
 # Adressen, die ein Geheimnis IM PFAD tragen. Bei einem Discord-Webhook ist der

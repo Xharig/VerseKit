@@ -4,7 +4,7 @@
 
 Verse-Kit läuft auf deinem Rechner. Es gibt kein Konto, keine Werbung und kein
 Tracking. Einmal am Tag meldet das Programm, dass es läuft und welche Seiten
-genutzt wurden — ohne Kennung, abschaltbar (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
+genutzt wurden — ohne Kennung, ab Werk eingeschaltet und abschaltbar (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
 das Programm liest, was es aus dem Netz holt und was es verschickt.
 
 ## Was auf deinem Rechner gelesen wird
@@ -81,8 +81,10 @@ nicht gezählt.
 
 Der Bericht wird **nur verschickt, wenn du auf „Senden" drückst** — nachdem du
 seinen vollen Wortlaut gesehen hast. Er geht an `bericht.xharig.com`, eine
-Weiterleitung in den Meldekanal des Projekts auf Discord. Benutzername, Pfade
-und alles, was nach Zugangsdaten aussieht, sind vorher ersetzt.
+Weiterleitung in den Meldekanal des Projekts auf Discord. Dein Benutzername,
+dein Heimatordner in jedem Pfad und alles, was nach Zugangsdaten aussieht,
+sind vorher ersetzt. Pfade außerhalb deines Heimatordners (etwa ein
+Spielordner auf `D:\`) bleiben stehen — du siehst sie vor dem Senden.
 
 Hast du den Haken für die Bilder gesetzt, gehen die Scan-Bilder mit: bei
 Signaturen der Ausschnitt um die Zahl, beim Raffinerie-Scanner die Tabelle des
@@ -144,7 +146,8 @@ in das scmdb-Konto ein, mit dem du angemeldet bist.
 im Katalog) und zu laufenden Aufträgen die Kennungen aus dem Spielprotokoll,
 den internen Vertragsnamen, Start, Ende und wie er endete — nur aus der
 laufenden Spielsitzung und mit dem Spielkanal (LIVE, PTU …). Kein Handle,
-keine Pfade, keine Lagerdaten. Andere Webseiten bekommen keinen Zugriff. Was
+keine Pfade, keine Lagerdaten. Andere Webseiten bekommen keinen Zugriff — auch
+nicht über einen auf deinen Rechner umgelenkten Namen. Was
 scmdb damit tut, regelt seine eigene Datenschutzerklärung auf
 [scmdb.net](https://scmdb.net).
 

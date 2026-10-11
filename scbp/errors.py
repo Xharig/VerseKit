@@ -19,14 +19,18 @@
 """
 Fehler mitschreiben, damit aus einer vagen Beschreibung ein Befund wird.
 
-**Das Problem, das dieses Modul löst:** Im Programm stehen über 60 Stellen, die
-`except Exception` abfangen und weitermachen. Das ist richtig so — ein Overlay
+**Das Problem, das dieses Modul löst:** Im Programm fangen mehrere hundert
+Stellen eine Ausnahme ab und machen weiter. Das ist richtig so — ein Overlay
 darf nicht abstürzen, weil eine Netzabfrage klemmt. Nur wäre der Fehler danach
 **spurlos weg**, und es gäbe nichts zu schicken und nichts nachzustellen.
 
-Deshalb landet jeder unerwartete Fehler in `fehler.json` im eigenen Ordner —
-mit Zeitpunkt, Stelle, Art und Meldung. Aufgehoben werden die **letzten 50**;
-alles ältere fällt hinten heraus, damit die Datei nicht wächst.
+Deshalb landet in `fehler.json` im eigenen Ordner, was die zentralen Haken
+fangen und was eine Stelle mit `record` meldet — mit Zeitpunkt, Stelle, Art
+und Meldung. ⚠ **Nicht jeder abgefangene Fehler kommt hier an:** Stellen,
+die einen erwarteten Fehler bewusst verwerfen (ein schon zerstörtes Widget,
+eine Datei, die es noch nicht gibt), melden ihn nicht. Aufgehoben werden die
+**letzten 50** verschiedenen Fehler; gleiche werden gezählt (`_merge`), alles
+ältere fällt hinten heraus, damit die Datei nicht wächst.
 
 Drei Wege hinein:
 
@@ -387,14 +391,54 @@ def record(label, exc=None, note=''):
             entry['spur'] = paths.redact(''.join(tb[-TRACE_LINES:]).strip())
 
         with _lock:
-            entries = _read()
-            entries.append(entry)
-            entries = entries[-MAX_ENTRIES:]
-            with paths.open_overwrite(_path()) as f:
-                json.dump({'eintraege': entries}, f, ensure_ascii=False, indent=1)
+            entries = _merge(_read(), entry)[-MAX_ENTRIES:]
+            _write(entries)
         return True
     except Exception:
         return False          # ein Protokoll darf nie das Programm mitreißen
+
+
+def _ident(entry):
+    return (entry.get('fassung'), entry.get('stelle'), entry.get('art'),
+            entry.get('meldung'))
+
+
+def _merge(entries, entry):
+    """Einen Eintrag anhängen — oder einen gleichen hochzählen.
+
+    ⚠ **Gleiche Fehler werden schon beim Speichern zusammengefasst** (gleiche
+    Fassung, Stelle, Art und Meldung): Ein Fehler in einer Schleife belegte
+    sonst binnen Sekunden alle `MAX_ENTRIES` Plätze und verdrängte jeden
+    anderen. Der gleiche Eintrag wandert ans Ende, zählt `anzahl` hoch und
+    trägt die letzte Zeit in `zuletzt`; `zeit` bleibt das erste Auftreten."""
+    ident = _ident(entry)
+    for index in range(len(entries) - 1, -1, -1):
+        old = entries[index]
+        if isinstance(old, dict) and _ident(old) == ident:
+            del entries[index]
+            old['anzahl'] = int(old.get('anzahl') or 1) + 1
+            old['zuletzt'] = entry['zeit']
+            if entry.get('spur'):
+                old['spur'] = entry['spur']
+            entries.append(old)
+            return entries
+    entries.append(entry)
+    return entries
+
+
+def _write(entries):
+    """Atomar schreiben: Ein Abbruch mittendrin darf das Protokoll nicht
+    kürzen — `_read` liefert bei einer kaputten Datei nur noch eine leere
+    Liste."""
+    target = _path()
+    pending = target + '.neu'
+    with open(pending, 'w', encoding='utf-8') as f:
+        json.dump({'eintraege': entries}, f, ensure_ascii=False, indent=1)
+    try:
+        paths.replace_file(pending, target)
+    except PermissionError:
+        paths.make_overwritable(target)
+        paths.replace_file(pending, target)
 
 
 def latest(count=10):
@@ -414,8 +458,7 @@ def clear():
     """Alles vergessen — z. B. nachdem ein Problem behoben wurde."""
     try:
         with _lock:
-            with open(_path(), 'w', encoding='utf-8') as f:
-                json.dump({'eintraege': []}, f)
+            _write([])
         return True
     except Exception:
         return False

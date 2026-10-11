@@ -399,6 +399,20 @@ class Bridge(object):
 _Base = BaseHTTPRequestHandler
 
 
+def host_allowed(host, port):
+    """`127.0.0.1:<port>` oder `localhost:<port>` — sonst nicht. Ohne
+    Anschluss im Kopf gilt der Name allein; ohne `Host`-Kopf nichts."""
+    if not host:
+        return False
+    host = host.strip().lower()
+    name, sep, given = host.rpartition(':')
+    if not sep or not given.isdigit():
+        name, given = host, ''
+    if given and given != str(port):
+        return False
+    return name in ('127.0.0.1', 'localhost', '[::1]')
+
+
 def _handler(bridge):
     class Handler(_Base):
         server_version = 'VerseKit'
@@ -429,12 +443,29 @@ def _handler(bridge):
             self.wfile.write(data)
             self.wfile.flush()
 
+        def _local_host(self):
+            """Kam die Anfrage an diesen Rechner? Sonst 403.
+
+            ⚠ Gegen DNS-Rebinding: Eine fremde Seite kann ihren Namen auf
+            127.0.0.1 umlenken und gilt dem Browser dann als gleiche
+            Herkunft — CORS greift nicht. Der `Host`-Kopf trägt aber weiter
+            ihren Namen."""
+            if host_allowed(self.headers.get('Host'),
+                            self.server.server_address[1]):
+                return True
+            self._head(403, [('Content-Length', '0')])
+            return False
+
         def do_OPTIONS(self):
+            if not self._local_host():
+                return
             self._head(204, [('Access-Control-Allow-Methods', 'GET, OPTIONS'),
                              ('Access-Control-Allow-Headers', '*'),
                              ('Content-Length', '0')])
 
         def do_GET(self):
+            if not self._local_host():
+                return
             route = self.path.split('?', 1)[0]
             if route == '/ping':
                 body = json.dumps({

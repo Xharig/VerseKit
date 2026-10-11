@@ -145,14 +145,13 @@ def _renew_keys(data):
 
 
 def load():
-    """Bestand von der Platte. Fehlt die Datei oder ist sie beschädigt, wird mit
-    einem leeren Bestand weitergearbeitet — der Watcher soll nie am Start scheitern."""
-    try:
-        with open(path(), encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception:
-        return empty()
-    if not isinstance(data.get('bauplaene'), dict):
+    """Bestand von der Platte. Ist die Datei beschädigt, kommt das ins Protokoll,
+    die Datei beiseitegelegt und die Vorgängerfassung gelesen
+    (`paths.load_json`); ist auch die nicht zu gebrauchen, geht es mit einem
+    leeren Bestand weiter — der Watcher soll nie am Start scheitern."""
+    data = paths.load_json(path(), valid=lambda d: isinstance(d, dict),
+                           report_as='collection.load')
+    if data is None or not isinstance(data.get('bauplaene'), dict):
         return empty()
     # ⚠ Erst umziehen, dann die Version hochsetzen — und nur dann schreiben,
     # wenn sich wirklich etwas geändert hat. Ein Schreibfehler darf den Start
@@ -298,36 +297,20 @@ def reset():
 
 
 def save(data):
-    """Schreibt den Bestand — mit Vorgängerfassung und ohne Halbfertiges.
-
-    Erst in eine Nebendatei schreiben, dann umbenennen: Stürzt der Rechner
-    mitten im Schreiben ab, ist die alte Datei noch vollständig da. Die
-    Vorgängerfassung (`bestand.bak.json`) bleibt als Rückfall liegen."""
+    """Schreibt den Bestand — mit Vorgängerfassung und ohne Halbfertiges
+    (`paths.save_json`: Nebendatei, dann umbenennen; die Vorgängerfassung
+    `bestand.bak.json` liest `load` als Rückfall)."""
     data['version'] = FILE_VERSION
     data['stand'] = _now()
     target = path()
-    tmp = target + '.tmp'
     try:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=1, sort_keys=True)
-        if os.path.exists(target):
-            bak = target.replace('.json', '.bak.json')
-            try:
-                os.replace(target, bak)
-            except OSError:
-                pass
-        os.replace(tmp, target)
+        paths.save_json(target, data, indent=1, sort_keys=True)
         _update_exports(data)
         return True
     except Exception as exc:
         # Hier ist der eigene Bauplan-Bestand betroffen — das Wichtigste, was
         # das Werkzeug hat. Ein stiller Fehlschlag wäre nicht zu verzeihen.
         errors.record('collection.save', exc, target)
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
         return False
 
 

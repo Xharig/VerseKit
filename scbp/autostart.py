@@ -65,18 +65,22 @@ def command():
     Wegwerf-Pfad in die Autostart-Datei, und der Watcher startete nach einem
     Neustart **nie** wieder — ohne Fehlermeldung, die Datei sähe ja richtig
     aus. Die Variable `APPIMAGE` setzt das AppImage selbst und sie zeigt auf
-    die **echte** Datei."""
+    die **echte** Datei.
+
+    ⚠ Jeder Pfad steht in Anführungszeichen — auf beiden Systemen. Unter
+    Linux verlangt das die Desktop-Entry-Spezifikation für `Exec=`; liegt das
+    AppImage in einem Ordner mit Leerzeichen, startete der Eintrag sonst nie."""
     appimage = os.environ.get('APPIMAGE')
     if appimage:
-        return appimage
+        return '"%s"' % appimage
     if getattr(sys, 'frozen', False):
-        return '"%s"' % sys.executable if paths.WINDOWS else sys.executable
+        return '"%s"' % sys.executable
     if paths.WINDOWS:
         pyw = os.path.join(os.path.dirname(sys.executable), 'pythonw.exe')
         if not os.path.exists(pyw):
             pyw = sys.executable
         return '"%s" "%s"' % (pyw, _start_file())
-    return '%s %s' % (sys.executable, _start_file())
+    return '"%s" "%s"' % (sys.executable, _start_file())
 
 
 # ------------------------------------------------------------------- Windows
@@ -126,17 +130,18 @@ def _linux_on():
     return os.path.isfile(_desktop_file())
 
 
-def _linux_set(an):
-    ziel = _desktop_file()
-    if not an:
+def _linux_set(on):
+    target = _desktop_file()
+    if not on:
         try:
-            os.remove(ziel)
+            os.remove(target)
         except FileNotFoundError:
             pass
-        except OSError:
+        except OSError as exception:
+            _report('autostart.set_off', exception)
             return False
         return True
-    inhalt = (
+    content = (
         '[Desktop Entry]\n'
         'Type=Application\n'
         'Name=%s\n'
@@ -146,13 +151,22 @@ def _linux_set(an):
         'X-GNOME-Autostart-enabled=true\n'
     ) % (NAME, command())
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel, 'w', encoding='utf-8') as f:
-            f.write(inhalt)
-        os.chmod(ziel, 0o755)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        paths.write_text_atomic(target, content)
+        os.chmod(target, 0o755)
         return True
-    except OSError:
+    except OSError as exception:
+        # Der Spieler hat den Schalter umgelegt und erwartet, dass es wirkt.
+        _report('autostart.set_on', exception)
         return False
+
+
+def _report(label, exception):
+    try:
+        from . import errors
+        errors.record(label, exception)
+    except Exception:
+        pass
 
 
 # ------------------------------------------------------------------ Nach außen

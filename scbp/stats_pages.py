@@ -38,7 +38,7 @@ import threading
 import time
 import tkinter as tk
 
-from . import errors, paths, theme
+from . import errors, paths, theme, tk_calls
 from .language import t
 
 # Die Farben wie in `pages` — eine eigene Kopie wäre die nächste, die
@@ -259,10 +259,8 @@ def live_page(window, frame, page_id, title, lead, render, names=False):
                         play_stats.catch_up([running])
             except Exception as exception:
                 errors.record('stats_pages.%s.refresh' % page_id, exception)
-            try:
-                window.root.after(0, lambda: holder.winfo_exists() and draw())
-            except (RuntimeError, tk.TclError):
-                pass            # Fenster ist weg — dann gibt es nichts zu zeigen
+            # Ist die Seite inzwischen weg, gibt es nichts zu zeigen.
+            tk_calls.from_thread(holder, draw)
         threading.Thread(target=work, daemon=True).start()
 
     draw()
@@ -326,10 +324,8 @@ def evaluation(window, frame):
                 if status.winfo_exists():
                     draw_status()
                 window.say(t('s_sa_fertig') % stats_count(added))
-            try:
-                window.root.after(0, done)
-            except (RuntimeError, tk.TclError):
-                pass
+            # Ohne Widget-Bezug: `busy` muss auch zurück, wenn die Seite weg ist.
+            tk_calls.call(done)
         threading.Thread(target=work, daemon=True).start()
 
     _button(window, buttons, t('s_sa_jetzt'), lambda: run(False),

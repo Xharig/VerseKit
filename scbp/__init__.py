@@ -19,16 +19,18 @@
 """
 Die Bausteine von VerseKit.
 
-Hier steckt alles, was sich zwischen Windows und Linux unterscheidet oder für
-sich allein prüfbar ist. `sc_bp_watcher.py` daneben ist Startdatei, Oberfläche
-und Überwachungs-Thread — es benutzt diese Bausteine, kennt aber selbst kein
-Betriebssystem mehr.
+Hier steckt der größte Teil dessen, was sich zwischen Windows und Linux
+unterscheidet, und alles, was für sich allein prüfbar ist.
+`sc_bp_watcher.py` daneben ist Startdatei, Oberfläche und
+Überwachungs-Thread; es enthält nur noch wenige eigene Weichen nach dem
+Betriebssystem (Fenstersymbol, Vordergrund, Einzelstart-Sperre).
 
-    pfade       wo was liegt (die einzige Stelle mit Systempfaden)
+    paths       wo was liegt (die einzige Stelle mit Systempfaden)
     logsource   Game.log mitlesen und frühere Sitzungen nachlesen
-    bestand     der eigene Bauplan-Bestand
+    collection  der eigene Bauplan-Bestand
     phrases     die Bauplan-Meldung in der jeweiligen Spielsprache erkennen
     autostart   mit dem Rechner starten
+    tk_calls    Arbeit aus Nebenfäden in den Tk-Faden bringen
 
 Reine Standardbibliothek, wie das ganze Projekt.
 """

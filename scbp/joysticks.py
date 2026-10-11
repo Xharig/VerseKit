@@ -1359,12 +1359,15 @@ def _write(path, tree, anzahl):
     except Exception as exception:
         errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
+    # Erst daneben, dann umlegen: Scheitert es, ist die Datei unverändert.
+    temp = path + '.scbpw-tmp'
     try:
-        tree.write(path, encoding='utf-8', xml_declaration=False)
+        tree.write(temp, encoding='utf-8', xml_declaration=False)
+        paths.replace_file(temp, path)
     except Exception as exception:
         try:
-            shutil.copy2(backup_file, path)
-        except Exception:
+            os.remove(temp)
+        except OSError:
             pass
         errors.record('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
@@ -1606,14 +1609,10 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
         # ohne Rueckweg — hier haengt die komplette Steuerung dran.
         errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
+    # Atomar: Scheitert das Schreiben, ist die Datei unverändert.
     try:
-        with open(path, 'w', encoding='utf-8', newline='') as f:
-            f.write(new)
+        paths.write_text_atomic(path, new, newline='')
     except Exception as exception:
-        try:
-            shutil.copy2(backup_file, path)
-        except Exception:
-            pass
         errors.record('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
     return True, backup_file, hit
@@ -1696,14 +1695,10 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
     except Exception as exception:
         errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
+    # Atomar: Scheitert das Schreiben, ist die Datei unverändert.
     try:
-        with open(path, 'w', encoding='utf-8', newline='') as f:
-            f.write(new)
+        paths.write_text_atomic(path, new, newline='')
     except Exception as exception:
-        try:
-            shutil.copy2(backup_file, path)
-        except Exception:
-            pass
         errors.record('joysticks.swap_write', exception)
         return False, 's_js_f_schreiben', 0
     return True, backup_file, swapped[0]

@@ -78,13 +78,11 @@ def path():
 
 
 def load():
-    """Die Merkliste. Fehlt die Datei, ist sie leer — das ist kein Fehler."""
-    try:
-        with open(path(), encoding='utf-8') as f:
-            d = json.load(f)
-    except Exception:
-        return {'namen': [], 'eintraege': []}
-    if not isinstance(d, dict):
+    """Die Merkliste. Fehlt die Datei, ist sie leer — das ist kein Fehler.
+    Eine kaputte Datei wird protokolliert und beiseitegelegt (`paths.load_json`)."""
+    d = paths.load_json(path(), valid=lambda x: isinstance(x, dict),
+                        report_as='watchlist.load')
+    if d is None:
         return {'namen': [], 'eintraege': []}
     d.setdefault('namen', [])
     d.setdefault('eintraege', [])

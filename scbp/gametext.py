@@ -42,6 +42,7 @@ Warum eigener Code und kein Fremdwerkzeug:
 import io
 import json
 import os
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -199,20 +200,35 @@ def unpack_zstd(roh, erwartet):
             return m.decompress(roh), modul
         except Exception:
             continue
+    failure = ''
     for exe in SEVENZIP:
-        if exe and os.path.exists(exe):
-            tmp = tempfile.mkdtemp(prefix='p4k-')
-            quelle = os.path.join(tmp, 'block.zst')
-            with io.open(quelle, 'wb') as g:
+        if not (exe and os.path.exists(exe)):
+            continue
+        # Der Arbeitsordner wird in jedem Fall weggeräumt; ohne Fenster unter
+        # Windows (sonst blitzt eine Konsole auf und nimmt dem Spiel den
+        # Fokus); mit Zeitgrenze, und ein Fehlschlag probiert den nächsten.
+        work = tempfile.mkdtemp(prefix='p4k-')
+        try:
+            source = os.path.join(work, 'block.zst')
+            with io.open(source, 'wb') as g:
                 g.write(roh)
             # 7-Zip legt die entpackte Datei ohne Endung daneben
-            r = subprocess.run([exe, 'e', quelle, '-o' + tmp, '-y'],
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            ziel = os.path.join(tmp, 'block')
-            if r.returncode == 0 and os.path.exists(ziel):
-                with io.open(ziel, 'rb') as g:
+            result = subprocess.run(
+                [exe, 'e', source, '-o' + work, '-y'],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                timeout=300,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            unpacked = os.path.join(work, 'block')
+            if result.returncode == 0 and os.path.exists(unpacked):
+                with io.open(unpacked, 'rb') as g:
                     return g.read(), '7-Zip (%s)' % os.path.basename(exe)
-            raise RuntimeError('7-Zip scheiterte:\n%s' % r.stdout.decode('utf-8', 'replace')[:400])
+            failure = result.stdout.decode('utf-8', 'replace')[:400]
+        except (OSError, subprocess.SubprocessError) as exception:
+            failure = str(exception)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+    if failure:
+        raise RuntimeError('7-Zip scheiterte:\n%s' % failure)
     raise RuntimeError(
         'Kein zstd-Entpacker gefunden. Möglichkeiten:\n'
         '  * Python 3.14 oder neuer (bringt compression.zstd mit)\n'

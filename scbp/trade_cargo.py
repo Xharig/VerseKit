@@ -66,7 +66,6 @@ Seitenname `handelslager` in Reiterleiste und Symbolsatz. `calculate` und
 `parse_number` kommen aus `materials.py`.
 """
 import json
-import os
 
 from . import errors, paths
 
@@ -96,14 +95,13 @@ def _check_amount(amount, previous=0.0):
 
 
 def load():
-    """Alle Posten — oder eine leere Liste."""
-    try:
-        with open(paths.app_file(FILE), encoding='utf-8') as f:
-            data = json.load(f)
-        if data.get('format') == FORMAT:
-            return data.get('posten') or []
-    except Exception:
-        pass
+    """Alle Posten — oder eine leere Liste. Eine kaputte Datei wird protokolliert
+    und durch die Vorgängerfassung ersetzt (`paths.load_json`)."""
+    data = paths.load_json(paths.app_file(FILE),
+                           valid=lambda d: isinstance(d, dict),
+                           report_as='trade_cargo.load')
+    if data and data.get('format') == FORMAT:
+        return data.get('posten') or []
     return []
 
 

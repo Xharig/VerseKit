@@ -635,14 +635,12 @@ def file_path():
 
 
 def load():
-    """Das gespeicherte Protokoll — oder eine leere Liste."""
-    try:
-        with open(file_path(), encoding='utf-8') as f:
-            data = json.load(f)
-        if data.get('format') == FORMAT:
-            return _clean_titles(data.get('auftraege') or [])
-    except Exception:
-        pass
+    """Das gespeicherte Protokoll — oder eine leere Liste. Eine kaputte Datei
+    wird protokolliert und durch die Vorgängerfassung ersetzt (`paths.load_json`)."""
+    data = paths.load_json(file_path(), valid=lambda d: isinstance(d, dict),
+                           report_as='mission_log.load')
+    if data and data.get('format') == FORMAT:
+        return _clean_titles(data.get('auftraege') or [])
     return []
 
 

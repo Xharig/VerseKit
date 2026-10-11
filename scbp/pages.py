@@ -3539,15 +3539,28 @@ def _translation_page(window, frame):
                 say(t('s_tq_nichts_zu_pruefen'))
                 return
             say(t('inj_laeuft'))
-            newer, ident = translation.update_available(current, channel)
-            if newer:
-                if main:
-                    _choose_source(window, parts, choice, current, lambda: None)
-                else:
-                    fetch_side(channel_name, folder, current)
-            else:
-                say(t('inj_aktuell'))
-            status()
+
+            # Die Frage ans Netz im Nebenfaden, das Umschalten danach im
+            # Tk-Faden — es zeichnet die Seite neu.
+            def work():
+                try:
+                    newer = translation.update_available(current, channel)[0]
+                except Exception as exception:
+                    errors.record('pages.translation_check', exception)
+                    newer = False
+
+                def done():
+                    if newer:
+                        if main:
+                            _choose_source(window, parts, choice, current,
+                                           lambda: None)
+                        else:
+                            fetch_side(channel_name, folder, current)
+                    else:
+                        say(t('inj_aktuell'))
+                    status()
+                _tk_calls.from_thread(row, done)
+            threading.Thread(target=work, daemon=True).start()
 
         _button(window, row, t('s_tq_pruefen'), check).pack(side='left')
         status()
@@ -6131,56 +6144,11 @@ _READY = [None]
 
 _TK_REPORTED = [False]      # siehe unten: nur der erste wird gemerkt
 
-# ⭐⭐ **Aufträge aus Nebenfäden laufen über diese Warteschlange.**
-#
-# `root.after()` aus einem Nebenfaden geht nur, solange der Hauptfaden
-# gerade IN `mainloop()` steckt — nicht während einer Rückfrage, einer
-# `update()`-Schleife oder beim Abbau, und genau da liegt ein Neustart nach
-# dem Farbwechsel. Sonst steht `main thread is not in main loop` im
-# Fehlerprotokoll und das alte Overlay bleibt stehen (Python 3.12 und 3.14
-# gleich).
-#
-# Deshalb fasst ein Nebenfaden Tk gar nicht mehr an: Er legt die Tat hier
-# ab, und der Tk-Faden holt sie alle 100 ms ab (`_start_tk_poller`, gestartet
-# beim Seitenaufbau — der läuft immer im Tk-Faden).
-import queue as _queue
-_TK_CALLS = _queue.Queue()
-_TK_POLLER = [None]
-
-
-def _start_tk_poller(root):
-    """Die Warteschlange im Tk-Faden abarbeiten — je Fenster einmal starten."""
-    # ⚠ An der Tk-Wurzel, nicht am Hauptfenster: Das ist ein `Toplevel` über
-    # dem Overlay. Ginge es zu, stünde der Abholer still, und was Nebenfäden
-    # danach ablegen (der Signatur-Lauscher etwa), sammelte sich an.
-    try:
-        root = root._root()
-    except AttributeError:
-        pass
-    if _TK_POLLER[0] is root:
-        return
-
-    def poll():
-        try:
-            while True:
-                tat = _TK_CALLS.get_nowait()
-                try:
-                    tat()
-                except Exception as ausnahme:
-                    errors.record('pages.im_tk.tat', ausnahme)
-        except _queue.Empty:
-            pass
-        try:
-            root.after(100, poll)
-        except (tk.TclError, RuntimeError):
-            if _TK_POLLER[0] is root:
-                _TK_POLLER[0] = None
-
-    try:
-        root.after(100, poll)
-        _TK_POLLER[0] = root
-    except (tk.TclError, RuntimeError) as ausnahme:
-        errors.record('pages.tk_poller', ausnahme)
+# ⭐⭐ **Aufträge aus Nebenfäden laufen über `tk_calls`.** Nie `root.after()`
+# aus einem Nebenfaden — siehe dort. Die Namen hier bleiben für die Aufrufer.
+from . import tk_calls as _tk_calls
+_TK_CALLS = _tk_calls.CALLS
+_start_tk_poller = _tk_calls.start_poller
 
 
 def _from_thread(widget, action):
@@ -6189,19 +6157,12 @@ def _from_thread(widget, action):
     ⚠⚠ **Nie `widget.after(0, …)` aus einem Nebenfaden.** Das
     wirft `RuntimeError: main thread is not in main loop`, sobald der
     Hauptfaden gerade nicht in `mainloop()` steckt — und dann kommt das
-    Ergebnis nie an. Der Weg geht über `_TK_CALLS`; Prüfung 292 bewacht das.
+    Ergebnis nie an. Der Weg geht über `tk_calls`; Prüfung 292 bewacht das.
 
     Ist `widget` inzwischen weg (Seite gewechselt, Fenster zu), passiert
     nichts.
     """
-    def run():
-        try:
-            if not widget.winfo_exists():
-                return
-        except tk.TclError:
-            return
-        action()
-    _TK_CALLS.put(run)
+    _tk_calls.from_thread(widget, action)
 
 
 def _in_tk(fenster, tat):
@@ -6320,10 +6281,15 @@ def _hand_over(fenster, notausgang=2.0, gleich=400):
         except Exception:
             pass
 
+    # Aus dem Update-Faden über die Warteschlange — `root.after` ginge dort
+    # nur, solange der Hauptfaden gerade in `mainloop()` steckt.
+    if not _tk_calls.in_main_thread():
+        _tk_calls.call(lambda: fenster.root.after(gleich, _weg))
+        return
     try:
         fenster.root.after(gleich, _weg)
-    except Exception:
-        pass
+    except Exception as exception:
+        errors.record('pages.hand_over', exception)
 
 
 
@@ -7327,7 +7293,8 @@ def _thanks(fenster, rahmen):
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
-            ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'), ''),
+            ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'),
+             t('s_dk_drachennarr_bugs')),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
@@ -7600,14 +7567,29 @@ def _detection(fenster, rahmen):
 
     ziel = _setting_row(fenster, innen, t('s_er_kat'), t('s_er_kat_h'))
 
+    catalog_busy = [False]
+
     def katalog_neu():
+        # Im Nebenfaden: Der Katalog sind gut zehn Megabyte, und das Fenster
+        # darf so lange nicht einfrieren.
+        if catalog_busy[0]:
+            return
+        catalog_busy[0] = True
         fenster.say(t('s_er_kat_holt'))
-        try:
-            katalog_modul.update()
-            fenster.say(t('s_er_kat_da') % _count_catalog())
-        except Exception as ausnahme:
-            errors.record('pages.erkennung.katalog', ausnahme)
-            fenster.say(t('s_er_kat_weg'))
+
+        def work():
+            try:
+                katalog_modul.update()
+                text = t('s_er_kat_da') % _count_catalog()
+            except Exception as exception:
+                errors.record('pages.erkennung.katalog', exception)
+                text = t('s_er_kat_weg')
+
+            def done():
+                catalog_busy[0] = False
+                fenster.say(text)
+            _tk_calls.call(done)
+        threading.Thread(target=work, daemon=True).start()
 
     _button(fenster, ziel, t('s_er_kat_jetzt'), katalog_neu).pack()
 
@@ -7953,6 +7935,7 @@ def _diagnostics(fenster, rahmen):
     # ⚠ Gemerkt, sobald der Spieler den Haken einmal setzt — wer
     # Bilder und Berichte schicken will, soll das nicht jedes Mal neu bestätigen.
     bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
+    senden_laeuft = [False]
 
     def absenden():
         """Auf Knopfdruck an den Entwickler — nach einem Haken, ohne Rückfrage.
@@ -7989,18 +7972,34 @@ def _diagnostics(fenster, rahmen):
                                      'application/zip'))
             except Exception as ausnahme:
                 errors.record('pages.diagnose_scanbilder', ausnahme)
+        if senden_laeuft[0]:
+            return
+        senden_laeuft[0] = True
         fenster.say(t('s_di_ab_laeuft'))
-        fenster.root.update_idletasks()
-        geklappt, grund = report.submit(aktueller_bericht(), fenster.version,
-                                        anhaenge)
-        fenster.say(t('s_di_ab_ok') if geklappt
-                      else t('s_di_ab_weg') % grund)
-        # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz, Dienst weg —,
-        # bleibt der Text stehen. Ihn dann zu löschen hieße, dem Melder seine
-        # Arbeit wegzunehmen, genau in dem Moment, in dem er es noch einmal
-        # versuchen will.
-        if geklappt:
-            _meldung_verbraucht()
+        # Den Text im Tk-Faden lesen, das Senden im Nebenfaden: Es wartet bis
+        # zu 30 Sekunden auf das Netz, und das Fenster darf so lange nicht
+        # einfrieren.
+        text = aktueller_bericht()
+
+        def work():
+            try:
+                ok, reason = report.submit(text, fenster.version, anhaenge)
+            except Exception as exception:
+                errors.record('pages.diagnose_absenden', exception)
+                ok, reason = False, str(exception)
+
+            def done():
+                senden_laeuft[0] = False
+                fenster.say(t('s_di_ab_ok') if ok
+                            else t('s_di_ab_weg') % reason)
+                # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz,
+                # Dienst weg —, bleibt der Text stehen. Ihn dann zu löschen
+                # hieße, dem Melder seine Arbeit wegzunehmen, genau in dem
+                # Moment, in dem er es noch einmal versuchen will.
+                if ok:
+                    _meldung_verbraucht()
+            _tk_calls.call(done)
+        threading.Thread(target=work, daemon=True).start()
 
     # ⚠ Ganz vorn und in Rot: Wer hier landet, hat ein Problem und sucht den
     # kürzesten Weg.

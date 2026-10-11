@@ -952,15 +952,19 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # Deshalb wird hier
         # gebündelt, was sich nur in der Uhrzeit unterscheidet — dieselbe Stelle,
         # dieselbe Art, dieselbe Meldung, dieselbe Fassung.
+        # Seit `errors._merge` trägt ein Eintrag seine Wiederholungen selbst
+        # (`anzahl`, `zuletzt`); ältere Dateien haben noch Einzelzeilen.
         bundled = []
         for e in letzte:
             ident = (e.get('fassung'), e.get('stelle'), e.get('art'),
                        e.get('meldung'))
+            times = int(e.get('anzahl') or 1)
+            last = e.get('zuletzt') or e.get('zeit', '—')
             if bundled and bundled[-1][0] == ident:
-                bundled[-1][2] += 1
-                bundled[-1][3] = e.get('zeit', '—')
+                bundled[-1][2] += times
+                bundled[-1][3] = last
             else:
-                bundled.append([ident, e, 1, e.get('zeit', '—')])
+                bundled.append([ident, e, times, last])
 
         for _ident, e, how_often, bis in bundled:
             # ⚠ Die Version dazuschreiben und kennzeichnen, was **nicht** aus

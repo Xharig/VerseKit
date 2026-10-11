@@ -32,7 +32,7 @@ import tkinter as tk
 
 import re
 
-from . import updater, paths, language
+from . import updater, paths, language, tk_calls
 from .language import t, window_title
 from . import theme
 
@@ -111,6 +111,9 @@ class VersionWindow:
         if parent is None or not center_over(self.root, parent, 700, 740):
             self.root.geometry('700x740')
         self.root.protocol('WM_DELETE_WINDOW', self.close)
+        # Die Nebenfäden unten melden über `tk_calls` zurück; im
+        # eigenständigen Start läuft der Abholer sonst nicht.
+        tk_calls.start_poller(self.root)
 
         head = tk.Frame(self.root, bg=BAR)
         head.pack(fill='x')
@@ -190,20 +193,22 @@ class VersionWindow:
         self.fetch.configure(bg=BAR, fg=SUB, cursor='')
         self.fetch.unbind('<Button-1>')
 
-        def arbeit():
+        def work():
             try:
-                ziel = updater.download(
-                    asset, progress=lambda p: self.root.after(
-                        0, lambda: self.message.configure(
+                target = updater.download(
+                    asset, progress=lambda p: tk_calls.from_thread(
+                        self.message, lambda: self.message.configure(
                             text=t('wird_geladen', p))),
                     release=self.newer)
-                collapsed, bg_colour = updater.install(ziel)
-                self.root.after(0, lambda: self._outcome(collapsed, bg_colour))
+                done, reason = updater.install(target)
+                tk_calls.from_thread(self.message,
+                                     lambda: self._outcome(done, reason))
             except Exception as err:
                 notice_text = str(err)
-                self.root.after(0, lambda: self._outcome(False, notice_text))
+                tk_calls.from_thread(self.message,
+                                     lambda: self._outcome(False, notice_text))
 
-        threading.Thread(target=arbeit, daemon=True).start()
+        threading.Thread(target=work, daemon=True).start()
 
     def _outcome(self, collapsed, bg_colour):
         if not collapsed:
@@ -255,7 +260,7 @@ class VersionWindow:
         def check():
             alive = updater.new_version_alive()
 
-            def weiter():
+            def proceed():
                 if not alive:
                     self.message.configure(text=t('s_ub_neustart_tot'), fg=YELLOW)
                     return
@@ -265,10 +270,7 @@ class VersionWindow:
                     self.root.destroy()
                 except Exception:
                     pass
-            try:
-                self.root.after(0, weiter)
-            except Exception:
-                pass
+            tk_calls.from_thread(self.message, proceed)
 
         threading.Thread(target=check, daemon=True).start()
 

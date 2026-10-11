@@ -117,16 +117,16 @@ def empty():
 
 
 def load():
-    """Der eigene Hangar — oder eine leere Liste."""
+    """Der eigene Hangar — oder eine leere Liste. Eine kaputte Datei wird
+    protokolliert und beiseitegelegt (`paths.load_json`)."""
+    data = paths.load_json(path(), valid=lambda d: isinstance(d, dict),
+                           report_as='fleet.load')
     try:
-        with open(path(), encoding='utf-8') as f:
-            data = json.load(f)
-        if data.get('format') == FORMAT and isinstance(data.get('schiffe'), list):
+        if data and data.get('format') == FORMAT \
+                and isinstance(data.get('schiffe'), list):
             if merge_duplicates(data):
                 save(data)
             return data
-    except FileNotFoundError:
-        pass
     except Exception as exc:
         errors.record('fleet.load', exc)
     return empty()

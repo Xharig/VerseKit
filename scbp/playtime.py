@@ -86,16 +86,12 @@ def path():
 
 
 def load():
-    """Die gespeicherten Sitzungen — `{'format':…, 'sitzungen':[…]}`."""
-    try:
-        with open(path(), encoding='utf-8') as f:
-            data = json.load(f)
-        if isinstance(data, dict) and isinstance(data.get('sitzungen'), list):
-            return data
-    except (OSError, ValueError):
-        pass
-    except Exception as ausnahme:
-        errors.record('playtime.load', ausnahme)
+    """Die gespeicherten Sitzungen — `{'format':…, 'sitzungen':[…]}`. Eine
+    kaputte Datei wird protokolliert und beiseitegelegt (`paths.load_json`)."""
+    data = paths.load_json(path(), valid=lambda d: isinstance(d, dict),
+                           report_as='playtime.load')
+    if data is not None and isinstance(data.get('sitzungen'), list):
+        return data
     return {'format': FORMAT, 'sitzungen': []}
 
 

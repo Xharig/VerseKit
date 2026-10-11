@@ -39,12 +39,10 @@ def _file():
 
 
 def load():
-    """Die ausgeblendeten MissionIds als Menge."""
-    try:
-        with open(_file(), encoding='utf-8') as f:
-            data = json.load(f)
-    except (OSError, ValueError):
-        return set()
+    """Die ausgeblendeten MissionIds als Menge. Eine kaputte Datei wird
+    protokolliert und beiseitegelegt (`paths.load_json`)."""
+    data = paths.load_json(_file(), valid=lambda d: isinstance(d, dict),
+                           report_as='contract_hidden.load')
     ids = data.get('ids') if isinstance(data, dict) else None
     return {i for i in ids or () if isinstance(i, str) and i}
 

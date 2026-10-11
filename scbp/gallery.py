@@ -34,6 +34,7 @@ import re
 import sys
 
 from . import paths
+from .updater import _parts
 
 SETTING = 'galerie_gesehen'
 
@@ -73,11 +74,6 @@ HIGHLIGHTS = {
          'changelog': ('Basetool als eigene Karte', 'Basetool as its own card')},
     ),
 }
-
-
-def _parts(version):
-    m = re.search(r'(\d+)\.(\d+)\.(\d+)', str(version or ''))
-    return tuple(int(x) for x in m.groups()) if m else (0, 0, 0)
 
 
 def _series(version):
