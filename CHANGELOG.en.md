@@ -41,9 +41,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   status bar
 - **Info** — now holds only game values, server status and thanks; What's
   new, About and Diagnostics are reachable from the header and footer
+- **Signatures the other way round** — type a resource on the mining page,
+  e.g. Quantanium, and the signatures for 1, 2, 3 … rocks appear below
 - **Overview: customise tiles at the top right** — the link now sits next to
   the heading, so it is always visible, even on small screens. The selection
   opens right above the tiles
+
+### Fixed
+
+- **Signature without a match** — the hint showed "10 %%" instead of "10 %"
 
 ## v3.98.2 - 2026-10-10
 

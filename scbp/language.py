@@ -783,8 +783,8 @@ TEXTS = {
                           'oder Aluminium',
                           'Search blueprint or resource — e.g. Arctic-Storm '
                           'or Aluminium'),
-    's_pl_signatur':     ('Signatur nachschlagen — Zahl vom Scanner',
-                          'Look up a signature — number from the scanner'),
+    's_pl_signatur':     ('Signatur nachschlagen — Zahl vom Scanner oder Rohstoff',
+                          'Look up a signature — scanner number or resource'),
     's_pl_bergbau':      ('Rohstoff oder Ort suchen — z. B. Quantanium oder Daymar',
                           'Search resource or location — e.g. Quantanium or Daymar'),
     's_pl_melder':       ('Dein Discord-Name', 'Your Discord name'),
@@ -4998,17 +4998,24 @@ TEXTS = {
     'scan_grund_anlernen_speichern': ('Anlernen konnte nicht gespeichert werden', 'Could not save what was learned'),
     's_bg_sig_hilfe':    ('Zahl aus dem Bergbau-Scanner eintippen — darunter '
                           'steht, welches Erz es ist und wie viele Brocken. '
-                          '„~8600" sucht mit 10 % Spielraum.',
+                          '„~8600" sucht mit 10 % Spielraum. Umgekehrt geht '
+                          'es auch: Rohstoff eintippen, z. B. Quantanium, '
+                          'dann stehen seine Signaturen da.',
                           'Type the number from the mining scanner — below it '
                           'shows which ore it is and how many rocks. "~8600" '
-                          'searches with 10 % tolerance.'),
+                          'searches with 10 % tolerance. It also works the '
+                          'other way round: type a resource, e.g. Quantanium, '
+                          'to see its signatures.'),
     's_bg_sig_treffer':  ('%d× %s', '%d× %s'),
     's_bg_sig_nichts':   ('Kein Erz hat diese Signatur. Mit „~" davor wird mit '
-                          '10 %% Spielraum gesucht.',
+                          '10 % Spielraum gesucht.',
                           'No ore has this signature. Put "~" in front to search '
-                          'with 10 %% tolerance.'),
+                          'with 10 % tolerance.'),
     's_bg_sig_anzahl':   ('%d mögliche Treffer', '%d possible matches'),
     's_bg_sig_genau':    ('genau', 'exact'),
+    's_bg_sig_vielfach': ('%d× %d', '%d× %d'),
+    's_bg_sig_kein_erz': ('Kein Rohstoff mit diesem Namen hat eine Signatur.',
+                          'No resource with this name has a signature.'),
     # --- Raffinerien im Vergleich ---
     # ⚠ Der Vorspann nennt die Nachteile ausdrücklich. Wer nur „hier stehen die
     # Boni" liest, überfliegt die roten Zahlen — und genau die entscheiden.
