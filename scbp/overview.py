@@ -177,23 +177,83 @@ def builders():
     return {'uebersicht': overview_page}
 
 
+# Welcher der beiden unteren Bereiche oben steht: 'kacheln' oder 'karten'.
+ORDER_SECTIONS_SETTING = 'startseite_zuerst'
+# Mindestbreite einer Kachel bei Schriftstufe 0.
+TILE_MIN_WIDTH = 340
+
+
+def sections_first():
+    """'kacheln' (Auf einen Blick zuerst) oder 'karten' (Deine Karten)."""
+    from . import paths
+    return 'karten' if paths.setting(ORDER_SECTIONS_SETTING) == 'karten' \
+        else 'kacheln'
+
+
+def _section_title(window, parent, text):
+    label = tk.Label(parent, text=text, bg=theme.BG, fg=theme.SUB,
+                     font=window.f_bold, anchor='w')
+    label.pack(fill='x', pady=(4, 8))
+    return label
+
+
 def overview_page(window, frame):
+    """Die Startseite. Kartenansicht: Hauptbereiche als Karten (fest oben),
+    darunter „Auf einen Blick" (Kacheln) und „Deine Karten" (angeheftete
+    Unterpunkte) — die beiden in wählbarer Reihenfolge. Reiteransicht: nur
+    die beiden unteren Bereiche, die Hauptbereiche stehen links."""
+    from . import cards
     from .pages import _heading, _scroll_area
     before = set(frame.winfo_children())
     _heading(window, frame, t('hf_uebersicht'), t('s_uv_lead'))
     title = [w for w in frame.winfo_children() if w not in before][0]
     parent = _scroll_area(frame)
     chooser = tk.Frame(parent, bg=theme.BG)
-    grid = tk.Frame(parent, bg=theme.BG)
-    grid.pack(fill='x', pady=(0, 16))
-    grid.columnconfigure(0, weight=1, uniform='spalte')
-    grid.columnconfigure(1, weight=1, uniform='spalte')
-    _chooser_link(window, frame, title, chooser, grid, parent,
+    karten = bool(getattr(window, 'card_mode', lambda: False)())
+
+    sections = []
+    if karten:
+        main_section = tk.Frame(parent, bg=theme.BG)
+        main_section.pack(fill='x')
+        _section_title(window, main_section, t('k_bereich_versekit'))
+        main_grid = cards.CardGrid(main_section,
+                                   cards.scaled(window, cards.MAIN_MIN_WIDTH))
+        main_grid.frame.pack(fill='x', pady=(0, 8))
+        for kennung, symbol, name_key, _pages in cards.visible_areas():
+            def build(cell, kennung=kennung, symbol=symbol, name_key=name_key):
+                cards.card(window, cell, symbol, t(name_key),
+                           t('ka_' + kennung),
+                           lambda: window.open_page(
+                               cards.area_page_id(kennung), via='karte'))
+            cell = main_grid.add(build)
+            cell.area_key = kennung
+        frame.main_grid = main_grid
+        sections.append(main_section)
+
+    tiles_section = tk.Frame(parent, bg=theme.BG)
+    _section_title(window, tiles_section, t('k_bereich_blick'))
+    grid = cards.CardGrid(tiles_section, cards.scaled(window, TILE_MIN_WIDTH))
+    grid.frame.pack(fill='x', pady=(0, 8))
+    pinned_section = tk.Frame(parent, bg=theme.BG)
+    _section_title(window, pinned_section, t('k_bereich_deine'))
+    pin_grid = cards.CardGrid(pinned_section,
+                              cards.scaled(window, cards.SUB_MIN_WIDTH))
+    pin_hint = tk.Label(pinned_section, text=t('k_deine_leer'), bg=theme.BG,
+                        fg=theme.SUB, font=window.f_small, anchor='w',
+                        justify='left')
+    lower = [tiles_section, pinned_section]
+    if sections_first() == 'karten':
+        lower.reverse()
+    for section in lower:
+        section.pack(fill='x', pady=(8, 0))
+    sections += lower
+    frame.tiles_grid = grid
+    frame.pin_grid = pin_grid
+    _chooser_link(window, frame, title, chooser, sections[0], parent,
                   lambda: redraw())
 
     def draw():
-        for child in grid.winfo_children():
-            child.destroy()
+        grid.clear()
         builders_by_id = {'spiel': _tile_game, 'bauplaene': _tile_blueprints,
                           'uebersetzung': _tile_translation,
                           'spielzeit': _tile_playtime, 'rechner': _tile_machine,
@@ -205,17 +265,18 @@ def overview_page(window, frame):
                           'sicherung': _tile_backup}
         visible = [key for key in visible_tiles() if available(key)]
         shown = [key for key in tile_order() if key in visible]
-        for index, key in enumerate(shown):
+        for key in shown:
             build = builders_by_id[key]
-            cell = tk.Frame(grid, bg=theme.BG)
+
+            def tile(cell, build=build):
+                try:
+                    build(window, cell)
+                except Exception as exc:
+                    errors.record('overview.%s' % build.__name__, exc)
+            cell = grid.add(tile)
             cell.tile_key = key
-            cell.grid(row=index // 2, column=index % 2, sticky='nsew',
-                      padx=(6, 0) if index % 2 else (0, 6), pady=(0, 12))
-            try:
-                build(window, cell)
-            except Exception as exc:
-                errors.record('overview.%s' % build.__name__, exc)
             _draggable(window, cell, redraw)
+        _draw_pinned(window, pin_grid, pin_hint, redraw)
         _chooser(window, chooser, redraw)
 
     def redraw():
@@ -223,10 +284,36 @@ def overview_page(window, frame):
         # aller Kacheln schrumpft der Inhalt kurz, und die Leinwand bliebe
         # sonst auf einer leeren Stelle stehen.
         from .pages import _keep_scroll
-        _keep_scroll(grid, draw)
+        _keep_scroll(grid.frame, draw)
 
     draw()
     window.on_show['uebersicht'] = redraw
+
+
+def _draw_pinned(window, pin_grid, hint, redraw):
+    """„Deine Karten": die angehefteten Unterpunkte, sonst ein Hinweis."""
+    from . import cards
+    pin_grid.clear()
+    pages = cards.pinned()
+    if not pages:
+        pin_grid.frame.pack_forget()
+        hint.pack(fill='x', pady=(0, 12))
+        return
+    hint.pack_forget()
+    pin_grid.frame.pack(fill='x', pady=(0, 8))
+    for page in pages:
+        def build(cell, page=page):
+            def unpin():
+                cards.set_pinned(page, False)
+                cell.after_idle(redraw)
+                return False
+            cards.card(window, cell, cards.PAGES[page][0],
+                       cards.page_title(page),
+                       t(cards.description_key(page)),
+                       lambda: window.open_page(page, via='karte'),
+                       pin=(True, unpin))
+        cell = pin_grid.add(build)
+        cell.page_key = page
 
 
 # Die Kacheln in ihrer Reihenfolge: (Kennung, Textschlüssel).

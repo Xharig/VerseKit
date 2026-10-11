@@ -2192,6 +2192,14 @@ class MainWindow:
             bar, 'herunterladen', t('hf_update'), self._update_hint,
             self._update_click)
         self._update_tick()
+        # Umschalter zwischen Reiter- und Kartenansicht, gleich neben „Update",
+        # in beiden Ansichten an derselben Stelle.
+        karten = self.card_mode()
+        self.view_button = self._titlebar_button(
+            bar, 'reiter' if karten else 'karten',
+            t('k_reiteransicht' if karten else 'k_kartenansicht'),
+            t('k_hinweis_reiter' if karten else 'k_hinweis_karten'),
+            self._toggle_view)
         self.news_button = self._titlebar_button(bar, 'wasistneu', t('hf_wasistneu'),
                                           t('hf_hinweis_neu'), self._whats_new)
         self._titlebar_button(bar, 'einrichtung', t('hf_einrichtung'),
@@ -2473,8 +2481,22 @@ class MainWindow:
         bind_wheel(self.sidebar_canvas)
         self._sidebar_remeasure = _sidebar_remeasure
 
+        # ⭐ Kartenansicht: Die Reiterliste wird trotzdem gebaut (Seitenwechsel,
+        # Module und Prüfungen greifen auf sie zu), aber nicht gezeigt. Logo und
+        # Knöpfe aus ihrem Fuß stehen dann im Band über der Statusleiste — vor
+        # dem Inhalt gepackt, sonst schöbe der Inhalt es hinaus.
+        self.card_band = None
+        if self.card_mode():
+            self.sidebar_column.pack_forget()
+            self._card_band()
+
         self.content = tk.Frame(self.root, bg=BG)
         self.content.pack(side='right', fill='both', expand=True)
+        # Pfadzeile der Kartenansicht (`_crumb_update`), über jeder Seite.
+        self.crumb_bar = tk.Frame(self.content, bg=BG)
+        self._card_area = None
+        if self.card_mode():
+            self.crumb_bar.pack(side='top', fill='x', padx=24, pady=(10, 0))
         # ⭐ **Der Rückweg nach einem Seitensprung.** Wer in der Bauplan-Liste
         # einen Eintrag anklickt, landet in der Herstellung — und käme von dort
         # sonst nur über die Seitenleiste zurück, also ohne Suchbegriff und
@@ -2784,8 +2806,12 @@ class MainWindow:
 
         self._community_mark()
 
-    def _community_mark(self):
+    def _community_mark(self, parent=None, lines=4.5, bg=None, side='bottom',
+                        pady=(8, 2)):
         """Das Made-by-the-Community-Zeichen als Wasserzeichen im Fuß.
+
+        `parent`, `lines` (Höhe in Schriftzeilen) und `bg` setzen es auch an
+        eine andere Stelle, etwa klein ins Band der Kartenansicht.
 
         ⭐ Das Zeichen stammt aus dem offiziellen Fankit von CIG und ist genau
         für Fan-Projekte gedacht; es sagt auf einen Blick, dass VerseKit kein
@@ -2814,7 +2840,7 @@ class MainWindow:
         ⚠ Das 240er Original bleibt liegen — als Rückfall, wenn eine Stufe
         fehlt, und als Quelle, wenn später eine Größe dazukommt."""
         try:
-            wanted = dpi.px(self.f_base.metrics('linespace') * 4.5)
+            wanted = dpi.px(self.f_base.metrics('linespace') * lines)
             # ⚠ Erst den Ordner auflösen, dann die Datei darin. Der Bau packt
             # `assets/community` als Ganzes ein (wie `assets/flaggen`), und die
             # Prüfung, ob der Bau die Datei mitliefert, liest den letzten Namen im
@@ -2830,7 +2856,7 @@ class MainWindow:
                         png = weg
                         break
             if png:
-                self._community_image = tk.PhotoImage(file=png)
+                image = tk.PhotoImage(file=png)
             else:
                 # Rückfall auf das Original — lieber grob verkleinert als gar
                 # kein Zeichen.
@@ -2839,12 +2865,114 @@ class MainWindow:
                 if not weg or not os.path.exists(weg):
                     return
                 full = tk.PhotoImage(file=weg)
-                divisor = max(1, min(4, int(round(full.width() / wanted))))
-                self._community_image = full.subsample(divisor, divisor)
-            tk.Label(self.sidebar_foot, image=self._community_image,
-                     bg=SURFACE).pack(side='bottom', pady=(8, 2))
+                divisor = max(1, min(8, int(round(full.width() / wanted))))
+                image = full.subsample(divisor, divisor)
+            # Jedes Zeichen behält sein eigenes Bild — Tk vergisst ein Bild,
+            # sobald nichts mehr darauf verweist.
+            mark = tk.Label(parent or self.sidebar_foot, image=image,
+                            bg=bg or SURFACE)
+            mark.image = image
+            if parent is None:
+                self._community_image = image
+            mark.pack(side=side, pady=pady)
+            return mark
         except Exception as exception:
             errors.record('main_window.community_mark', exception)
+
+    # ------------------------------------------------------------ Kartenansicht
+    # Einstellung der Ansicht: 'karten' oder 'reiter'.
+    VIEW_SETTING = 'ansicht'
+
+    def card_mode(self):
+        """Steht das Fenster in der Kartenansicht?"""
+        return paths.setting(self.VIEW_SETTING) == 'karten'
+
+    def _toggle_view(self):
+        """Zwischen Reiter- und Kartenansicht wechseln — das Fenster baut sich
+        neu auf und bleibt auf der gerade offenen Seite."""
+        paths.set_setting(self.VIEW_SETTING,
+                          'reiter' if self.card_mode() else 'karten')
+        self.rebuild()
+
+    def _has_starter(self):
+        """Gibt es einen Weg, Star Citizen zu starten (RSI Launcher bzw.
+        lug-helper oder ein eingetragener Ersatz)?"""
+        try:
+            from . import start_programs
+            return bool(paths.game_starter() or start_programs.replacement())
+        except Exception:
+            return False
+
+    def _card_band(self):
+        """Das Band der Kartenansicht über der Statusleiste: Community-Zeichen,
+        Star Citizen starten, Kaffee und Discord — dieselben Knöpfe wie unten
+        in der Reiterliste."""
+        band = tk.Frame(self.root, bg=BAR)
+        band.pack(side='bottom', fill='x')
+        tk.Frame(band, bg=BORDER, height=1).pack(side='top', fill='x')
+        reihe = tk.Frame(band, bg=BAR)
+        reihe.pack(side='top', fill='x', padx=14, pady=6)
+        self._community_mark(reihe, lines=2.4, bg=BAR, side='left',
+                             pady=0)
+        if self._has_starter():
+            self.band_play_button = round_button(
+                reihe, t('s_sp_start_knopf'), self._start_game, self.f_small,
+                BAR, ACCENT, ACCENT, BG, radius=8, padding=(14, 6))
+            self.band_play_button.pack(side='left', padx=(14, 0))
+        for text, tat, glyph in ((t('hf_kofi'), self._open_kofi, coffee_glyph),
+                                 (t('hf_discord'), self._open_discord,
+                                  discord_glyph)):
+            round_button(reihe, text, tat, self.f_small, BAR, BAR, BORDER, SUB,
+                         radius=8, padding=(12, 6), paint=glyph).pack(
+                side='left', padx=(10, 0))
+        self.card_band = band
+
+    def _crumb_update(self, kennung):
+        """Die Pfadzeile neu setzen: Haus, Übersicht › Bereich › Seite. Jedes
+        Stück außer dem letzten ist ein Weg dorthin."""
+        bar = getattr(self, 'crumb_bar', None)
+        if bar is None or not self.card_mode():
+            return
+        from . import cards
+        for child in bar.winfo_children():
+            child.destroy()
+        stuecke = [('uebersicht', t('hf_uebersicht'))]
+        if kennung.startswith('bereich_'):
+            eintrag = cards.area(kennung[len('bereich_'):])
+            if eintrag:
+                stuecke.append((kennung, t(eintrag[2])))
+        elif kennung != 'uebersicht':
+            bereich = cards.area_of(kennung, self._card_area)
+            eintrag = cards.area(bereich) if bereich else None
+            if eintrag:
+                stuecke.append((cards.area_page_id(bereich), t(eintrag[2])))
+            if kennung in cards.PAGES:
+                name = cards.page_title(kennung, bereich)
+            else:
+                knopf = self.buttons.get(kennung)
+                name = knopf[3].cget('text') if knopf else kennung
+            stuecke.append((kennung, name))
+        haus = icons.button(bar, 'haus', color=icons.LIGHT, background=BG,
+                            font=self.f_icon)
+        haus.pack(side='left')
+        haus.configure(cursor='hand2')
+        haus.bind('<Button-1>',
+                  lambda _e: self.open_page('uebersicht', via='pfad'))
+        notice.attach(haus, lambda: t('k_zur_uebersicht'))
+        for index, (ziel, text) in enumerate(stuecke):
+            letztes = index == len(stuecke) - 1
+            if index:
+                icons.line(bar, 'pfad', color=icons.GREY, background=BG,
+                           font=self.f_small).pack(side='left', padx=4)
+            label = tk.Label(bar, text=text, bg=BG,
+                             fg=FG if letztes else ACCENT,
+                             font=self.f_bold if letztes else self.f_small,
+                             cursor='' if letztes else 'hand2')
+            label.pack(side='left', padx=(8 if index == 0 else 0, 0))
+            if not letztes:
+                label.bind('<Button-1>', lambda _e, z=ziel: self.open_page(
+                    z, via='pfad'))
+        bar.crumbs = [text for _ziel, text in stuecke]
 
     def _open_kofi(self):
         """Die Ko-fi-Seite im Browser aufmachen."""
@@ -3361,7 +3489,7 @@ class MainWindow:
                 self._group_toggle(name, auf=True)
                 return
 
-    def open_page(self, kennung, zurueck_zu=None, via=None):
+    def open_page(self, kennung, zurueck_zu=None, via=None, area=None):
         """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen.
 
         `zurueck_zu` setzt **nur** `jump_to()`. Ein Klick in der Seitenleiste
@@ -3372,6 +3500,10 @@ class MainWindow:
         `via` sagt `page_usage`, auf welchem Weg die Seite geöffnet wurde
         (`seitenleiste`, `sprung`, `overlay`, `tray`, `start`). Ohne Angabe
         zeigt das Programm die Seite selbst neu — das wird nicht gezählt.
+
+        `area` ist der Bereich der Kartenansicht, aus dem die Seite geöffnet
+        wurde — die Pfadzeile nennt ihn (eine Seite kann in zwei Bereichen
+        stehen, etwa das Lager in Werkstatt und Basetool).
         """
         # ⚠⚠ **Ein Seitenwechsel ist die deutlichste Nutzeraktion überhaupt.**
         # Ohne diese Zeile liefe der Vorbau weiter, während die gerade
@@ -3453,6 +3585,11 @@ class MainWindow:
         page_usage.page_opened(kennung, via)
         self.came_from = zurueck_zu
         self._back_bar_update()
+        if area:
+            self._card_area = area
+        elif kennung.startswith('bereich_'):
+            self._card_area = kennung[len('bereich_'):]
+        self._crumb_update(kennung)
         errors.trail('Seite %s: steht (%.0f ms)'
                     % (kennung, (time.perf_counter() - _beginn) * 1000))
         # ⚠ Erst JETZT die restlichen Seiten im Leerlauf vorbauen — nachdem die

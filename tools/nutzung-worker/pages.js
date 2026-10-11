@@ -56,6 +56,17 @@ export const PAGES = {
   danke: ['Info', 'Danke & Lizenzen'],
   erkennung: ['Für Fortgeschrittene', 'Erkennung'],
   startprogramme: ['Für Fortgeschrittene', 'Startprogramme'],
+  // Bereichsseiten der Kartenansicht (`cards.area_page_id`).
+  bereich_bauplaene: ['Karten', 'Bereich Baupläne'],
+  bereich_schiffe: ['Karten', 'Bereich Schiffe'],
+  bereich_werkstatt: ['Karten', 'Bereich Werkstatt'],
+  bereich_bergung: ['Karten', 'Bereich Bergung'],
+  bereich_handel: ['Karten', 'Bereich Handel & Einkauf'],
+  bereich_statistiken: ['Karten', 'Bereich Statistik'],
+  bereich_spiel_einst: ['Karten', 'Bereich Spiel-Einstellungen'],
+  bereich_einstellungen: ['Karten', 'Bereich Einstellungen'],
+  bereich_basetool: ['Karten', 'Bereich Basetool'],
+  bereich_info: ['Karten', 'Bereich Info'],
 };
 
 // Seiten ohne eigenen Reiter: Der Worker nimmt sie weiter an (ältere
@@ -72,6 +83,8 @@ export const ROUTES = {
   overlay: 'Overlay',
   tray: 'Tray-Menü',
   start: 'Programmstart',
+  karte: 'Karte',
+  pfad: 'Pfadzeile',
 };
 
 // Die Handlungen, die das Programm zählt (`page_usage.ACTIONS`) — nur wie

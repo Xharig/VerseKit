@@ -109,9 +109,10 @@ def _builders():
     """
     # ⚠ Hier geladen, nicht oben im Modul: `stats_pages` holt sich seine
     # Bausteine aus diesem Modul und wäre sonst ein Zirkelbezug.
-    from . import stats_pages, settings_pages, basetool_page, overview
+    from . import stats_pages, settings_pages, basetool_page, overview, cards
     return {
         **overview.builders(),
+        **cards.builders(),
         **stats_pages.builders(),
         **settings_pages.builders(),
         **basetool_page.builders(),

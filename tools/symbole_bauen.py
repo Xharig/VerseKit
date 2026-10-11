@@ -210,6 +210,8 @@ KNOPF_SYMBOLE = {
     'reiter':       'panel-left',
     # Haus-Knopf der Pfadzeile — zurück zur Übersicht.
     'haus':         'house',
+    # Trenner zwischen den Stücken der Pfadzeile.
+    'pfad':         'chevron-right',
     # Stecknadel auf Unterpunkt-Karten: an die Startseite heften / lösen.
     'anheften':     'pin',
     'loesen':       'pin-off',

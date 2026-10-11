@@ -42,7 +42,7 @@ Nutzungsmeldung (`usage_ping`) hinausgehen und danach geleert werden.
 - **Fehlgriff:** eine Seite, die schneller wieder verlassen wird. Jeder
   Fehlgriff seit dem letzten Ziel wird mit dem nächsten Ziel gepaart.
 - **Weg:** `ROUTES` — Seitenleiste, Sprung innerhalb des Fensters, Overlay,
-  Tray-Menü oder Programmstart.
+  Tray-Menü, Programmstart, eine Karte der Kartenansicht oder die Pfadzeile.
 
 Nur Seiten-Kennungen aus `pages.page_ids()`: keine Inhalte, keine
 Suchbegriffe, keine Namen, keine Zeitpunkte. Die Verweildauer lebt nur im
@@ -63,7 +63,8 @@ from . import paths
 
 FILE = 'seitennutzung.json'
 FIELDS = ('pages', 'entry', 'clicks', 'misses', 'actions')
-ROUTES = ('seitenleiste', 'sprung', 'overlay', 'tray', 'start')
+ROUTES = ('seitenleiste', 'sprung', 'overlay', 'tray', 'start', 'karte',
+          'pfad')
 # Die Handlungen, die `action()` zählt — eine feste Liste, nichts sonst.
 ACTIONS = ('lager_hand', 'lager_raffinerie', 'lager_scan', 'lager_sync')
 
