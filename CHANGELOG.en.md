@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.0.2 - 2026-10-11
+
+> The thanks page describes rjcncpt's German translation correctly again.
+
+### Fixed
+
+- **Thanks page: rjcncpt's translation** — the text dated from when it was the
+  only translation. It now says it is one of the translations Verse-Kit
+  offers to choose from
+
 ## v4.0.1 - 2026-10-11
 
 > Cards now grow with their text.

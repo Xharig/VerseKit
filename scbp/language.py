@@ -2590,22 +2590,22 @@ TEXTS = {
     # ⚠⚠ Die deutsche Übersetzung selbst hat einen eigenen Urheber und eine
     # eigene Lizenz. Die verlangt ausdrücklich **Name UND Repository** — der
     # „SC Deutsch Launcher" allein wäre nur der Verteiler, nicht der Urheber.
-    's_dk_ini':        ('Die deutsche Übersetzung des Spiels selbst — die '
-                        'Grundlage, in die Verse-Kit seine Bauplan-Angaben '
-                        'schreibt. Es gibt sie auch auf Schweizerdeutsch; beide '
-                        'Fassungen erkennt Verse-Kit.\n\n'
+    's_dk_ini':        ('Eine der Übersetzungen, die Verse-Kit unter '
+                        'Spiel-Einstellungen → Übersetzung zur Auswahl anbietet. '
+                        'Wählst du sie, holt Verse-Kit die Datei aus ihrem '
+                        'Repository und ergänzt sie auf deinem Rechner um die '
+                        'Bauplan-Angaben.\n\n'
                         'Die Datei wird nur auf deinem Rechner ergänzt und '
                         'nirgendwohin weitergegeben. Die Quellenangabe in ihrer '
                         'ersten Zeile bleibt dabei unangetastet — so verlangt es '
-                        'der Autor, und so findet jeder zur ursprünglichen '
-                        'Übersetzung zurück.',
-                        'The German translation of the game itself — the base '
-                        'Verse-Kit writes its blueprint notes into. There is a Swiss '
-                        'German edition too; Verse-Kit recognises both.\n\n'
+                        'die Lizenz.',
+                        'One of the translations Verse-Kit offers under Game '
+                        'settings → Translation. If you pick it, Verse-Kit fetches '
+                        'the file from its repository and adds the blueprint notes '
+                        'on your own machine.\n\n'
                         'The file is only extended on your own machine and is never '
                         'passed on. The source note in its first line stays '
-                        'untouched — the author asks for that, and it is how anyone '
-                        'finds their way back to the original translation.'),
+                        'untouched — the licence requires that.'),
     's_dk_keine_lizenz': ('keine Lizenzangabe', 'no licence stated'),
     's_dk_erkul':      ('Welche Steckplätze ein Schiff hat und in welcher '
                         'Größe. Damit beantwortet das Werkzeug die Frage, die '

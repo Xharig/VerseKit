@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.0.2 - 2026-10-11
+
+> Die Danke-Seite beschreibt die deutsche Übersetzung von rjcncpt wieder
+> richtig.
+
+### Behoben
+
+- **Danke-Seite: Übersetzung von rjcncpt** — der Text stammte noch aus der
+  Zeit, als es nur diese eine Übersetzung gab. Jetzt steht dort, dass sie eine
+  der Übersetzungen ist, die Verse-Kit zur Auswahl anbietet
+
 ## v4.0.1 - 2026-10-11
 
 > Die Karten wachsen jetzt mit ihrem Text mit.
