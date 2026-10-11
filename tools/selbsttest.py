@@ -25388,6 +25388,7 @@ def main():
     _pruefung_421()
     _pruefung_422()
     _pruefung_423()
+    _pruefung_425()
 
     print()
     if fehler:
@@ -39497,6 +39498,85 @@ def _pruefung_422():
                'der Knopf öffnet „Fehler melden" (%r)' % _f422.current)
     finally:
         _w422.destroy()
+
+
+def _pruefung_425():
+    """425. Bergbau: vom Rohstoff zur Signatur."""
+    print('\n425. Signatur: Rohstoff eintippen, Signaturen sehen')
+    from scbp import mining as _mn425, language as _la425
+    _daten425 = {'elemente': {
+        'a': {'name': 'Quantainium (Raw)', 'scanSignature': 3170,
+              'rarity': 'legendary'},
+        'b': {'name': 'Iron (Ore)', 'scanSignature': 4270, 'rarity': 'common'},
+        'c': {'name': 'Ironwood', 'scanSignature': 0, 'rarity': 'common'}}}
+    _echt425 = _mn425.load
+    try:
+        _mn425.load = lambda: _daten425
+        _q425 = _mn425.signatures_of('quant')
+        pruefe(_q425 == [('Quantainium (Raw)', 3170, [3170, 6340])],
+               'Quantainium: Signatur je Brocken, legendär nur bis 2 Brocken '
+               '(%r)' % _q425)
+        _i425 = _mn425.signatures_of('IRON')
+        pruefe([r[0] for r in _i425] == ['Iron (Ore)']
+               and len(_i425[0][2]) == 6,
+               'Groß-/Kleinschreibung egal, ohne Signatur kein Eintrag, '
+               'verbreitet bis 6 Brocken (%r)' % _i425)
+        pruefe(_mn425.signatures_of('8600') == []
+               and _mn425.signatures_of('~8,600') == [],
+               'eine Zahl ist keine Namenssuche')
+        pruefe([r[0] for r in _mn425.signatures_of('salv')] == ['salvage'],
+               'auch die pauschalen Vorkommen (salvage) lassen sich nachschlagen')
+        pruefe(_mn425.signatures_of('gibtsnicht') == [],
+               'unbekannter Name: nichts')
+        if not hat_anzeige():
+            print('  (Oberfläche übersprungen: kein Bildschirm)')
+            return
+        from scbp import main_window as _mw425
+        _w425 = _wurzel()
+        # Die Seite baut die Suche nur mit Bergbaudaten — ein Ort genügt.
+        _orte425 = (_mn425.locations, _mn425.ores)
+        _mn425.locations = lambda *a, **k: [
+            {'name': 'Daymar', 'system': 'Stanton', 'typ': 'Mond',
+             'erze': [], 'anteile': {}}]
+        _mn425.ores = lambda *a, **k: []
+        try:
+            _f425 = _mw425.MainWindow(_w425, version='0.0.0-pruefung')
+            _f425.open_page('bergbau')
+            _w425.update()
+            _ergebnis425 = getattr(_f425, 'signature_results', None)
+            pruefe(_ergebnis425 is not None, 'die Signatur-Suche ist gebaut')
+            if _ergebnis425 is not None:
+                _ergebnis425.signature_var.set('Quantainium')
+                _w425.update()
+                _texte425 = [str(x.cget('text')) for x in
+                             _alle_346(_ergebnis425,
+                                       lambda x: x.winfo_class() == 'Label')]
+                _soll425 = '   '.join(_la425.t('s_bg_sig_vielfach') % (n, v)
+                                      for n, v in ((1, 3170), (2, 6340)))
+                pruefe('Quantainium (Raw)' in _texte425
+                       and _soll425 in _texte425,
+                       'auf der Bergbau-Seite: Name eintippen zeigt die '
+                       'Signaturen (%r)' % _texte425)
+                _ergebnis425.signature_var.set('gibtsnicht')
+                _w425.update()
+                _texte425 = [str(x.cget('text')) for x in
+                             _alle_346(_ergebnis425,
+                                       lambda x: x.winfo_class() == 'Label')]
+                pruefe(_la425.t('s_bg_sig_kein_erz') in _texte425,
+                       'unbekannter Name: der Hinweis steht da')
+                _ergebnis425.signature_var.set('99999')
+                _w425.update()
+                _texte425 = [str(x.cget('text')) for x in
+                             _alle_346(_ergebnis425,
+                                       lambda x: x.winfo_class() == 'Label')]
+                pruefe(_texte425 and not any('%%' in s for s in _texte425),
+                       'keine Signatur: Hinweis ohne doppeltes Prozentzeichen '
+                       '(%r)' % _texte425)
+        finally:
+            _mn425.locations, _mn425.ores = _orte425
+            _w425.destroy()
+    finally:
+        _mn425.load = _echt425
 
 
 def _pruefung_423():

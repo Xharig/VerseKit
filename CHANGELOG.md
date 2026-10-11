@@ -10,9 +10,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Signatur auch rückwärts** — auf der Bergbau-Seite einen Rohstoff
+  eintippen, z. B. Quantanium, und die Signaturen für 1, 2, 3 … Brocken
+  stehen darunter
 - **Übersicht: Kacheln anpassen oben rechts** — der Link steht jetzt fest
   neben der Überschrift und ist damit auch auf kleinen Bildschirmen immer zu
   sehen. Die Auswahl klappt direkt über den Kacheln auf
+
+### Behoben
+
+- **Signatur ohne Treffer** — der Hinweis zeigte „10 %%“ statt „10 %“
 
 ## v3.98.2 - 2026-10-10
 

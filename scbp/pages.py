@@ -12045,6 +12045,29 @@ def _mining(fenster, rahmen):
         input_device = sig_var.get().strip()
         if not input_device:
             return
+        # Ein Name statt einer Zahl: die Signaturen dieses Rohstoffs zeigen.
+        if any(c.isalpha() for c in input_device):
+            try:
+                ores = berg_modul.signatures_of(input_device)
+            except Exception as ausnahme:
+                errors.record('pages.signatur_name', ausnahme)
+                return
+            if not ores:
+                _body_text(sig_rahmen, t('s_bg_sig_kein_erz'), fenster.f_small,
+                           fill='x')
+                return
+            for name, _sig, multiples in ores[:10]:
+                grund = _stripe(sig_rahmen, BG)
+                z = tk.Frame(sig_rahmen, bg=grund)
+                z.pack(fill='x', ipady=1)
+                tk.Label(z, text=name, bg=grund, fg=ACCENT, font=fenster.f_base,
+                         anchor='w').pack(side='left', padx=(4, 0))
+                tk.Label(z, text='   '.join(
+                    t('s_bg_sig_vielfach') % (n, wert)
+                    for n, wert in enumerate(multiples, 1)),
+                    bg=grund, fg=FG, font=fenster.f_small, anchor='e').pack(
+                        side='right', padx=(8, 4))
+            return
         try:
             treffer = berg_modul.find_signature(input_device)
         except Exception as ausnahme:
@@ -12079,6 +12102,8 @@ def _mining(fenster, rahmen):
                              side='right', padx=(8, 0))
 
     sig_var.trace_add('write', sig_zeichnen)
+    sig_rahmen.signature_var = sig_var
+    fenster.signature_results = sig_rahmen
     _signature_scanner(fenster, sig_bereich, sig_var)
     tk.Frame(sig_bereich, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
 

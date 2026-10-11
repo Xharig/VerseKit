@@ -612,6 +612,32 @@ def find_signature(query):
     return hits
 
 
+def signatures_of(query):
+    """Der umgekehrte Weg: zu einem Rohstoffnamen die Signaturen, die der
+    Scanner zeigen kann.
+
+    `query` ist ein Teil des Namens (Groß-/Kleinschreibung egal). Gibt
+    `[(Name, Signatur eines Brockens, [Signatur bei 1, 2, … Brocken])]`,
+    alphabetisch; die Zahl der Brocken begrenzt die Seltenheit wie in
+    `find_signature`. Eine Eingabe aus Ziffern ist keine Namenssuche."""
+    text = (query or '').strip().lower()
+    if not text or not any(c.isalpha() for c in text):
+        return []
+    rows = {}
+    for _g, e in (load().get('elemente') or {}).items():
+        name = e.get('name') or ''
+        sig = e.get('scanSignature')
+        if not sig or text not in name.lower():
+            continue
+        most = MAX_CHUNKS.get(e.get('rarity'), 6)
+        rows[name] = (name, sig, [sig * n for n in range(1, most + 1)])
+    for name, sig, most in BASE_SIGNATURES:
+        if text in name:
+            rows.setdefault(name, (name, sig,
+                                   [sig * n for n in range(1, most + 1)]))
+    return sorted(rows.values(), key=lambda r: r[0].lower())
+
+
 def plants():
     """Die Pflanzen, die man von Hand ernten kann — mit lesbarem Namen.
 
