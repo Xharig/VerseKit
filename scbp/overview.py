@@ -181,6 +181,7 @@ def builders():
 ORDER_SECTIONS_SETTING = 'startseite_zuerst'
 # Mindestbreite einer Kachel bei Schriftstufe 0.
 TILE_MIN_WIDTH = 300
+TILE_PAD = 12
 
 
 def sections_first():
@@ -603,7 +604,10 @@ def _card(window, cell, title_key, target=None, extra=None):
     # 2 px Rand: dort leuchtet die Zielkachel beim Ziehen (`_draggable`).
     card.holder.pack(fill='both', expand=True, padx=2, pady=2)
     head = tk.Frame(card, bg=theme.SURFACE)
-    head.pack(fill='x', padx=16, pady=(12, 6))
+    # 12 px Innenabstand: Der Inhalt rückt schon um die Rundung (12 px) ein,
+    # zusammen 24 px bis zum Rand. Mehr Rand schneidet bei großer Schrift die
+    # Auswahlfelder der Übersetzungs-Kachel ab.
+    head.pack(fill='x', padx=TILE_PAD, pady=(12, 6))
     cell.tile_head = head
     tk.Label(head, text=t(title_key).upper(), bg=theme.SURFACE, fg=theme.SUB,
              font=window.f_small, anchor='w').pack(side='left')
@@ -623,7 +627,7 @@ def _card(window, cell, title_key, target=None, extra=None):
         more.pack(side='right', padx=(0, 6))
         cell.extra_button = more
     body = tk.Frame(card, bg=theme.SURFACE)
-    body.pack(fill='both', expand=True, padx=16, pady=(0, 12))
+    body.pack(fill='both', expand=True, padx=TILE_PAD, pady=(0, 12))
     return body
 
 

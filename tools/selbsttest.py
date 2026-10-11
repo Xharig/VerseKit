@@ -39512,6 +39512,15 @@ def _pruefung_422():
                    'Übersetzungs-Kachel: Auswahl auch bei großer Schrift ganz '
                    'zu sehen (%d Auswahlfelder, gekürzt: %r)'
                    % (len(_auswahl422), _knapp422))
+            # Unabhängig von der Schrift des Systems: Rand der Zelle (2 px),
+            # Rundung und Innenabstand zusammen höchstens 26 px je Seite.
+            # Unter Linux ist die Schrift breiter, dort schnitt schon ein
+            # Rand von 30 px ab.
+            _zeile422 = _auswahl422[0].master if _auswahl422 else None
+            pruefe(_zeile422 is not None
+                   and _zeile422.winfo_width() >= 440 - 2 * 26,
+                   'Kachel-Inhalt nutzt die Breite: Zeile %s px in 440 px'
+                   % (_zeile422.winfo_width() if _zeile422 else '?'))
         finally:
             _f422.f_bold, _f422.f_small = _alt_fonts422
             _zelle422.destroy()
