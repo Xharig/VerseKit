@@ -205,6 +205,14 @@ KNOPF_SYMBOLE = {
     'uebersicht':   'layout-dashboard',
     # Der rote Käfer in der Fußzeile — Fehler melden, auf jeder Seite.
     'fehler':       'bug',
+    # Umschalter der Ansicht in der Kopfleiste: Karten bzw. Reiterliste.
+    'karten':       'layout-grid',
+    'reiter':       'panel-left',
+    # Haus-Knopf der Pfadzeile — zurück zur Übersicht.
+    'haus':         'house',
+    # Stecknadel auf Unterpunkt-Karten: an die Startseite heften / lösen.
+    'anheften':     'pin',
+    'loesen':       'pin-off',
     'anzeige':      'monitor',
     'auftragstexte': 'message-square-text',
     'bestand':      'package',

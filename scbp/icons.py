@@ -581,6 +581,7 @@ BUTTON_NAMES = (
     'st_stabil', 'overlay', 'darstellung', 'module', 'startprogramme',
     'uebersetzung',
     'sichern', 'basetool', 'uebersicht', 'fehler',
+    'karten', 'reiter', 'haus', 'anheften', 'loesen',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
     'ziehen_ol', 'ziehen_or', 'ziehen_ul', 'ziehen_ur',
