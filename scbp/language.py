@@ -5580,12 +5580,13 @@ TEXTS = {
     'hf_grafik':         ('Grafik', 'Graphics'),
     # --- Startseite „Übersicht" ---
     'hf_uebersicht':     ('Übersicht', 'Overview'),
-    's_uv_lead':         ('Das Wichtigste auf einen Blick. Kacheln lassen sich '
-                          'an der Überschrift greifen und verschieben; oben '
-                          'rechts wählst du, welche zu sehen sind.',
-                          'The essentials at a glance. Grab a tile by its '
-                          'heading to move it; at the top right you choose '
-                          'which ones to show.'),
+    's_uv_lead':         ('Das Wichtigste auf einen Blick. Kacheln und Karten '
+                          'lassen sich an der Überschrift greifen und '
+                          'verschieben; oben rechts wählst du, was zu sehen '
+                          'ist.',
+                          'The essentials at a glance. Grab a tile or card by '
+                          'its heading to move it; at the top right you '
+                          'choose what to show.'),
     's_uv_mehr':         ('Öffnen', 'Open'),
     's_uv_spiel':        ('Spiel', 'Game'),
     's_uv_laeuft':       ('Läuft', 'Running'),
@@ -5617,8 +5618,9 @@ TEXTS = {
     's_uv_basetool_neu': ('Basetool verbunden', 'Basetool connected'),
     's_uv_update_da':    ('Update verfügbar: %s', 'Update available: %s'),
     's_uv_update_aktuell': ('Verse-Kit %s ist aktuell', 'Verse-Kit %s is up to date'),
-    's_uv_anpassen':     ('Kacheln anpassen', 'Customise tiles'),
-    's_uv_anpassen_zu':  ('Kacheln anpassen — fertig', 'Customise tiles — done'),
+    's_uv_anpassen':     ('Startseite anpassen', 'Customise start page'),
+    's_uv_anpassen_zu':  ('Startseite anpassen — fertig',
+                          'Customise start page — done'),
     's_uv_raffinerie':   ('Raffinerie', 'Refinery'),
     's_uv_raff_leer':    ('Kein laufender Auftrag bekannt — am Terminal %s '
                           'drücken, dann läuft hier die Zeit mit',
@@ -5804,6 +5806,9 @@ TEXTS = {
                          'left.'),
     'k_zur_uebersicht': ('Zur Übersicht', 'To the overview'),
     'k_bereich_versekit': ('Verse-Kit', 'Verse-Kit'),
+    'k_anpassen_bereiche': ('Hauptbereiche', 'Main areas'),
+    'k_anpassen_kacheln': ('Kacheln auf einen Blick', 'At-a-glance tiles'),
+    'k_anpassen_zuerst': ('Was steht zuerst?', 'What comes first?'),
     'k_bereich_blick': ('Auf einen Blick', 'At a glance'),
     'k_bereich_deine': ('Deine Karten', 'Your cards'),
     'k_deine_leer': ('Heft dir Unterpunkte mit der Nadel hierher — sie stehen '

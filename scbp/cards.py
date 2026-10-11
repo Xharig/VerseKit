@@ -203,6 +203,17 @@ def set_pinned(page, on):
     return current
 
 
+def swap_pinned(first, second):
+    """Zwei angeheftete Karten tauschen die Plätze."""
+    from . import paths
+    order = pinned()
+    if first in order and second in order and first != second:
+        i, j = order.index(first), order.index(second)
+        order[i], order[j] = order[j], order[i]
+        paths.set_setting(PINNED_SETTING, order)
+    return order
+
+
 def columns_for(width, min_width, gap=GAP):
     """Wie viele Karten mit `min_width` nebeneinander passen — mindestens 1."""
     return max(1, int((width + gap) // (min_width + gap)))
@@ -315,6 +326,8 @@ def card(window, cell, symbol, title, text, action, pin=None,
         notice.attach(needle, lambda: t('k_nadel_loesen' if state['on']
                                         else 'k_nadel_anheften'))
         box.needle = needle
+        # Die Nadel ist kein Griff zum Verschieben.
+        needle.tile_link = True
         skip.append(needle)
     body = tk.Label(box, text=text, bg=theme.SURFACE, fg=theme.SUB,
                     font=window.f_small, anchor='nw', justify='left')
@@ -348,10 +361,28 @@ def card(window, cell, symbol, title, text, action, pin=None,
         if inside is None:
             outline(theme.LINE)
 
+    # Öffnen beim Loslassen, nicht beim Drücken — sonst ließe sich eine Karte
+    # nicht an der Überschrift greifen und verschieben. Wer dabei mehr als ein
+    # paar Pixel zieht, öffnet nichts.
+    press = {'x': None, 'y': None}
+
+    def pressed(event):
+        press['x'], press['y'] = event.x_root, event.y_root
+
+    def released(event):
+        if press['x'] is None:
+            return
+        moved = (abs(event.x_root - press['x'])
+                 + abs(event.y_root - press['y']))
+        press['x'] = None
+        if moved <= 6:
+            action()
+
     def bind_all(widget):
         if widget in skip:
             return
-        widget.bind('<Button-1>', lambda _e: action(), add='+')
+        widget.bind('<Button-1>', pressed, add='+')
+        widget.bind('<ButtonRelease-1>', released, add='+')
         widget.bind('<Enter>', lambda _e: outline(theme.ACCENT), add='+')
         widget.bind('<Leave>', leave, add='+')
         try:
@@ -362,7 +393,9 @@ def card(window, cell, symbol, title, text, action, pin=None,
             bind_all(child)
     bind_all(box.holder)
     box.open_button = knopf
+    box.open = action
     box.title_label = name
+    cell.tile_head = head
     box.text_label = body
     cell.card = box
     return box

@@ -212,6 +212,7 @@ def overview_page(window, frame):
     karten = bool(getattr(window, 'card_mode', lambda: False)())
 
     sections = []
+    main_grid = None
     if karten:
         main_section = tk.Frame(parent, bg=theme.BG)
         main_section.pack(fill='x')
@@ -219,6 +220,13 @@ def overview_page(window, frame):
         main_grid = cards.CardGrid(main_section,
                                    cards.scaled(window, cards.MAIN_MIN_WIDTH))
         main_grid.frame.pack(fill='x', pady=(0, 8))
+        frame.main_grid = main_grid
+        sections.append(main_section)
+
+    def draw_main():
+        if main_grid is None:
+            return
+        main_grid.clear()
         for kennung, symbol, name_key, _pages in cards.visible_areas():
             def build(cell, kennung=kennung, symbol=symbol, name_key=name_key):
                 cards.card(window, cell, symbol, t(name_key),
@@ -227,8 +235,6 @@ def overview_page(window, frame):
                                cards.area_page_id(kennung), via='karte'))
             cell = main_grid.add(build)
             cell.area_key = kennung
-        frame.main_grid = main_grid
-        sections.append(main_section)
 
     tiles_section = tk.Frame(parent, bg=theme.BG)
     _section_title(window, tiles_section, t('k_bereich_blick'))
@@ -241,18 +247,30 @@ def overview_page(window, frame):
     pin_hint = tk.Label(pinned_section, text=t('k_deine_leer'), bg=theme.BG,
                         fg=theme.SUB, font=window.f_small, anchor='w',
                         justify='left')
-    lower = [tiles_section, pinned_section]
-    if sections_first() == 'karten':
-        lower.reverse()
-    for section in lower:
-        section.pack(fill='x', pady=(8, 0))
-    sections += lower
+    def reorder():
+        lower = [tiles_section, pinned_section]
+        if sections_first() == 'karten':
+            lower.reverse()
+        for section in lower:
+            section.pack_forget()
+        for section in lower:
+            section.pack(fill='x', pady=(8, 0))
+        if getattr(chooser, 'opened', False):
+            chooser.pack_forget()
+            chooser.pack(fill='x', pady=(0, 12),
+                         before=sections[0] if karten else lower[0])
+        frame.section_order = ['kacheln' if s is tiles_section else 'karten'
+                               for s in lower]
+
+    reorder()
     frame.tiles_grid = grid
     frame.pin_grid = pin_grid
-    _chooser_link(window, frame, title, chooser, sections[0], parent,
-                  lambda: redraw())
+    link = _chooser_link(window, frame, title, chooser,
+                         sections[0] if karten else tiles_section, parent,
+                         lambda: redraw(), reorder)
 
     def draw():
+        draw_main()
         grid.clear()
         builders_by_id = {'spiel': _tile_game, 'bauplaene': _tile_blueprints,
                           'uebersetzung': _tile_translation,
@@ -277,7 +295,7 @@ def overview_page(window, frame):
             cell.tile_key = key
             _draggable(window, cell, redraw)
         _draw_pinned(window, pin_grid, pin_hint, redraw)
-        _chooser(window, chooser, redraw)
+        _chooser(window, chooser, redraw, reorder)
 
     def redraw():
         # Neu zeichnen, ohne dass die Rollstelle verloren geht: Beim Abbau
@@ -288,6 +306,9 @@ def overview_page(window, frame):
 
     draw()
     window.on_show['uebersicht'] = redraw
+    if _REOPEN[0]:
+        _REOPEN[0] = False
+        link.flip()
 
 
 def _draw_pinned(window, pin_grid, hint, redraw):
@@ -314,6 +335,7 @@ def _draw_pinned(window, pin_grid, hint, redraw):
                        pin=(True, unpin))
         cell = pin_grid.add(build)
         cell.page_key = page
+        _draggable(window, cell, redraw, 'page_key', cards.swap_pinned)
 
 
 # Die Kacheln in ihrer Reihenfolge: (Kennung, Textschlüssel).
@@ -379,30 +401,43 @@ def swap(first, second):
     return order
 
 
-def _draggable(window, cell, redraw):
+def _draggable(window, cell, redraw, key_attr='tile_key', swap_keys=None):
     """Die Kachel an ihrer Überschrift greifen und auf eine andere ziehen —
-    die beiden tauschen die Plätze. Der Rand der Zielkachel leuchtet dabei."""
+    die beiden tauschen die Plätze. Der Rand der Zielkachel leuchtet dabei.
+
+    `key_attr` ist das Merkmal, an dem eine Zelle ihre Kennung trägt;
+    `swap_keys(a, b)` tauscht und merkt sich das (Standard: `swap`, die
+    Kacheln). Für Karten (`cards.card`) wird deren Rand eingefärbt."""
     head = getattr(cell, 'tile_head', None)
     if head is None:
         return
+    swap_keys = swap_keys or swap
     state = {'target': None}
 
     def cell_under(event):
         widget = window.root.winfo_containing(event.x_root, event.y_root)
-        while widget is not None and not hasattr(widget, 'tile_key'):
+        while widget is not None and not hasattr(widget, key_attr):
             widget = getattr(widget, 'master', None)
         return widget
+
+    def paint(c, on):
+        box = getattr(c, 'card', None)
+        try:
+            if box is not None:
+                box.canvas.itemconfigure(
+                    box.shape, outline=theme.ACCENT if on else theme.LINE)
+            else:
+                c.configure(bg=theme.ACCENT if on else theme.BG)
+        except tk.TclError:
+            pass
 
     def mark(target):
         old = state['target']
         if old is target:
             return
-        for c, color in ((old, theme.BG), (target, theme.ACCENT)):
+        for c, on in ((old, False), (target, True)):
             if c is not None and c is not cell:
-                try:
-                    c.configure(bg=color)
-                except tk.TclError:
-                    pass
+                paint(c, on)
         state['target'] = target
 
     def motion(event):
@@ -412,15 +447,15 @@ def _draggable(window, cell, redraw):
         target = cell_under(event)
         mark(None)
         if target is not None and target is not cell:
-            swap(cell.tile_key, target.tile_key)
+            swap_keys(getattr(cell, key_attr), getattr(target, key_attr))
             redraw()
 
     for part in [head] + list(head.winfo_children()):
         if getattr(part, 'tile_link', False):
             continue
         part.configure(cursor='fleur')
-        part.bind('<B1-Motion>', motion)
-        part.bind('<ButtonRelease-1>', release)
+        part.bind('<B1-Motion>', motion, add='+')
+        part.bind('<ButtonRelease-1>', release, add='+')
 
 
 def set_visible(key, on):
@@ -433,7 +468,8 @@ def set_visible(key, on):
     return paths.set_setting(HIDDEN_SETTING, hidden)
 
 
-def _chooser_link(window, frame, title, chooser, grid, area, redraw):
+def _chooser_link(window, frame, title, chooser, grid, area, redraw,
+                  reorder=None):
     """Der Link rechts neben der Überschrift — außerhalb der Rollfläche, also
     auch auf kleinen Bildschirmen immer zu sehen. Er klappt die Auswahl über
     den Kacheln auf und zu und rollt dabei nach oben."""
@@ -447,7 +483,7 @@ def _chooser_link(window, frame, title, chooser, grid, area, redraw):
         chooser.opened = not getattr(chooser, 'opened', False)
         link.configure(text=t('s_uv_anpassen_zu' if chooser.opened
                               else 's_uv_anpassen'))
-        _chooser(window, chooser, redraw)
+        _chooser(window, chooser, redraw, reorder)
         if chooser.opened:
             chooser.pack(fill='x', pady=(0, 12), before=grid)
         else:
@@ -460,42 +496,107 @@ def _chooser_link(window, frame, title, chooser, grid, area, redraw):
     return link
 
 
-def _chooser(window, frame, redraw):
-    """Die Kachelauswahl über den Kacheln — ein Schalter je Kachel, nur
-    solange `frame.opened` gilt (umgeschaltet über den Link neben der
-    Überschrift, `_chooser_link`). Jede Änderung zeichnet die Übersicht
-    sofort neu."""
+# Nach einem Neuaufbau des Fensters (Modul umgeschaltet) die Auswahl gleich
+# wieder aufklappen.
+_REOPEN = [False]
+
+
+def _switch_table(window, frame, entries):
+    """Zwei Spalten mit je Name links und Schalter rechts.
+    `entries`: (Text, an?, umschalten) — `umschalten()` gibt den neuen Wert."""
     from .main_window import toggle_switch
+    table = tk.Frame(frame, bg=theme.BG)
+    table.pack(fill='x', pady=(0, 6))
+    table.columnconfigure(0, weight=1, uniform='auswahl')
+    table.columnconfigure(1, weight=1, uniform='auswahl')
+    for index, (text, on, flip) in enumerate(entries):
+        row = tk.Frame(table, bg=theme.BG)
+        row.grid(row=index // 2, column=index % 2, sticky='ew',
+                 padx=(14, 2) if index % 2 else (2, 14), pady=(6, 0))
+        toggle_switch(row, on, flip).pack(side='right')
+        tk.Label(row, text=text, bg=theme.BG, fg=theme.FG,
+                 font=window.f_small, anchor='w').pack(side='left')
+    return table
+
+
+def _chooser(window, frame, redraw, reorder=None):
+    """„Startseite anpassen" über den Bereichen, nur solange `frame.opened`
+    gilt (umgeschaltet über den Link neben der Überschrift, `_chooser_link`).
+
+    Kartenansicht: zuerst die Hauptbereiche (dieselben Schalter wie unter
+    Einstellungen → Module, dazu Basetool), dann die Kacheln, dann welcher
+    der beiden unteren Bereiche oben steht. Reiteransicht: Kacheln und
+    Reihenfolge. Jede Änderung zeigt sich sofort."""
+    from . import cards, modules, paths
+    from .main_window import round_select
     for child in frame.winfo_children():
         child.destroy()
     if not getattr(frame, 'opened', False):
         return
+    karten = bool(getattr(window, 'card_mode', lambda: False)())
+
+    def heading(key):
+        tk.Label(frame, text=t(key), bg=theme.BG, fg=theme.SUB,
+                 font=window.f_bold, anchor='w').pack(fill='x', pady=(8, 0))
+
+    if karten:
+        heading('k_anpassen_bereiche')
+        entries = []
+        for group in modules.SWITCHABLE:
+            def flip(group=group):
+                new_value = not modules.enabled(group)
+                modules.set_enabled(group, new_value)
+                _REOPEN[0] = True
+                # Die Reiterliste wird beim Aufbau zusammengesetzt — erst
+                # der Neuaufbau nimmt die Gruppe dort weg oder zeigt sie.
+                window.root.after(60, window.rebuild)
+                return new_value
+            entries.append((t(modules.LABELS[group]), modules.enabled(group),
+                            flip))
+
+        def flip_basetool():
+            new_value = not cards.area_enabled('basetool')
+            paths.set_setting(cards.BASETOOL_SETTING, new_value)
+            redraw()
+            return new_value
+        entries.append((t('k_basetool_titel'), cards.area_enabled('basetool'),
+                        flip_basetool))
+        _switch_table(window, frame, entries)
+        heading('k_anpassen_kacheln')
+
     current_tiles = visible_tiles()
-    # Zwei Spalten wie die Kacheln darunter, Schalter rechts am Namen.
-    table = tk.Frame(frame, bg=theme.BG)
-    table.pack(fill='x', pady=(4, 0))
-    table.columnconfigure(0, weight=1, uniform='auswahl')
-    table.columnconfigure(1, weight=1, uniform='auswahl')
-    keys = [(key, label) for key, label in TILES if available(key)]
-    for index, (key, label) in enumerate(keys):
-        row = tk.Frame(table, bg=theme.BG)
-        row.grid(row=index // 2, column=index % 2, sticky='ew',
-                 padx=(14, 2) if index % 2 else (2, 14), pady=(6, 0))
+    entries = []
+    for key, label in TILES:
+        if not available(key):
+            continue
 
         def flip(key=key):
             on = key not in visible_tiles()
             set_visible(key, on)
             redraw()
             return on
-        toggle_switch(row, key in current_tiles, flip).pack(side='right')
-        tk.Label(row, text=t(label), bg=theme.BG, fg=theme.FG,
-                 font=window.f_small, anchor='w').pack(side='left')
+        entries.append((t(label), key in current_tiles, flip))
+    _switch_table(window, frame, entries)
+
+    row = tk.Frame(frame, bg=theme.BG)
+    row.pack(fill='x', pady=(10, 0))
+    tk.Label(row, text=t('k_anpassen_zuerst'), bg=theme.BG, fg=theme.FG,
+             font=window.f_small, anchor='w').pack(side='left', padx=(2, 0))
+
+    def pick(value):
+        paths.set_setting(ORDER_SECTIONS_SETTING, value)
+        if reorder:
+            reorder()
+    round_select(row, [('kacheln', t('k_bereich_blick')),
+                       ('karten', t('k_bereich_deine'))],
+                 sections_first(), pick, window.f_small,
+                 bg=theme.BG).pack(side='right', padx=(0, 14))
 
 
 def _card(window, cell, title_key, target=None):
     """Eine Kachel mit Überschrift und — wenn `target` — einem Weg zur Seite."""
-    from .main_window import round_frame
-    card = round_frame(cell, theme.SURFACE, theme.LINE, radius=8,
+    from .main_window import round_button, round_frame
+    card = round_frame(cell, theme.SURFACE, theme.LINE, radius=12,
                        base_color=theme.BG, stretch=True)
     # 2 px Rand: dort leuchtet die Zielkachel beim Ziehen (`_draggable`).
     card.holder.pack(fill='both', expand=True, padx=2, pady=2)
@@ -505,11 +606,13 @@ def _card(window, cell, title_key, target=None):
     tk.Label(head, text=t(title_key).upper(), bg=theme.SURFACE, fg=theme.SUB,
              font=window.f_small, anchor='w').pack(side='left')
     if target:
-        go = tk.Label(head, text=t('s_uv_mehr'), bg=theme.SURFACE,
-                      fg=theme.ACCENT, font=window.f_small, cursor='hand2')
+        go = round_button(head, t('s_uv_mehr'),
+                          lambda: window.open_page(target, via='sprung'),
+                          window.f_small, theme.SURFACE, theme.SURFACE,
+                          theme.ACCENT, theme.ACCENT, radius=8,
+                          padding=(12, 3))
         go.tile_link = True
         go.pack(side='right')
-        go.bind('<Button-1>', lambda _e: window.open_page(target, via='sprung'))
     body = tk.Frame(card, bg=theme.SURFACE)
     body.pack(fill='both', expand=True, padx=16, pady=(0, 12))
     return body
