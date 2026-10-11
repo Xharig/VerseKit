@@ -22,12 +22,15 @@ Die Bilder der Galerie „Was ist neu" bauen.
 Nimmt für jeden Höhepunkt aus `scbp/gallery.py` das Webseiten-Bild
 (`assets/screenshot-<seite>.png` und `-en.png`, siehe
 `tools/bilder_machen.py`),
-halbiert es und legt es unter `assets/galerie/<bild>.png` ab. Ohne
-Zusatzpakete: Tk kann PNG lesen, verkleinern (`subsample`) und schreiben.
+halbiert es und legt es unter `assets/galerie/<bild>.png` ab. Verkleinert
+wird mit ffmpeg, wenn es installiert ist; sonst mit Tk (`subsample`), das
+ohne Zusatzpakete auskommt, aber dünne Linien ausfransen lässt.
 
 Aufruf nach dem Bilderlauf:  python3 tools/galerie_bilder.py
 """
 import os
+import shutil
+import subprocess
 import sys
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -65,10 +68,20 @@ def main():
                 if not os.path.isfile(quelle):
                     fehlt.append(os.path.basename(quelle))
                     continue
+                ausgabe = os.path.join(ziel, bild + zusatz + '.png')
                 gross = tk.PhotoImage(master=root, file=quelle)
+                breite, hoehe = gross.width() // 2, gross.height() // 2
+                # ⚠ Mit ffmpeg weich verkleinern, wenn vorhanden: `subsample`
+                # lässt jede zweite Pixelreihe weg, dabei verschwinden
+                # 1-px-Ränder (Knöpfe) halb und Schrift franst aus.
+                if shutil.which('ffmpeg') and subprocess.run(
+                        ['ffmpeg', '-y', '-loglevel', 'error', '-i', quelle,
+                         '-vf', 'scale=%d:%d:flags=lanczos' % (breite, hoehe),
+                         ausgabe]).returncode == 0:
+                    print('ok', bild + zusatz, breite, 'x', hoehe)
+                    continue
                 klein = gross.subsample(2, 2)
-                klein.write(os.path.join(ziel, bild + zusatz + '.png'),
-                            format='png')
+                klein.write(ausgabe, format='png')
                 print('ok', bild + zusatz, klein.width(), 'x', klein.height())
     finally:
         root.destroy()
