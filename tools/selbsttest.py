@@ -40026,10 +40026,15 @@ def _pruefung_424():
             _bt424.CONNECTION.connected = lambda: _verbunden424[0]
 
             def _extras424(bereich):
-                _fr = _tk424.Frame(_rahmen424, width=1200)
-                _fr.pack(fill='x')
+                # Feste Größe: Das Hauptfenster ist auf manchem Prüfrechner
+                # kleiner als eine Karte breit sein muss.
+                _fr = _tk424.Frame(_w)
+                _fr.place(x=0, y=0, width=1200, height=900)
+                _rahmen424.extra_frames = getattr(
+                    _rahmen424, 'extra_frames', []) + [_fr]
                 _ka424.area_page(_f, _fr, bereich)
-                _w.update()
+                for _ in range(3):
+                    _w.update()
                 return {c.page_key: [k for k in c.card.extra_buttons
                                      if k.winfo_manager()]
                         for c in _fr.card_grid.cells}
@@ -40150,6 +40155,8 @@ def _pruefung_424():
              _ov424.refinery_scan_now, _bs424.request_now,
              _bs424.enabled) = _echt_x424
             _bt424.CONNECTION.connected = _echt_vb424
+            for _fr424 in getattr(_rahmen424, 'extra_frames', []):
+                _fr424.destroy()
             _rahmen424.destroy()
         # Umschalten in die Reiteransicht.
         _f._toggle_view()
