@@ -39928,6 +39928,18 @@ def _pruefung_424():
             _kopfnadel.event_generate('<Button-1>')
         pruefe(_ka424.pinned() == ['lager', 'grafik'],
                'die Nadel an der Überschrift heftet an (%r)' % _ka424.pinned())
+        _ohne_nadel424 = []
+        for _seite424 in _ka424.PAGES:
+            if _f._tab_hidden(_seite424):
+                continue
+            _f.open_page(_seite424, via='karte')
+            _w.update()
+            _n424 = getattr(_f, '_heading_pins', {}).get(_seite424)
+            if _n424 is None or not _n424.winfo_ismapped():
+                _ohne_nadel424.append(_seite424)
+        pruefe(not _ohne_nadel424, 'jede Seite der Kartenansicht hat ihre '
+               'Stecknadel oben, auch die Bauplan-Liste (ohne: %r)'
+               % _ohne_nadel424)
         _f.open_page('bereich_spiel_einst', via='pfad')
         _w.update()
         _gk = [c for c in _f.pages['bereich_spiel_einst'].card_grid.cells

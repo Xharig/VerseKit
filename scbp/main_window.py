@@ -3936,11 +3936,17 @@ class MainWindow:
                       and str(w.cget('font')) == str(self.f_title)), None)
         if titel is None:
             return
-        an = kennung in cards.pinned()
-        nadel = icons.button(rahmen, 'loesen' if an else 'anheften',
-                             color=icons.GREEN if an else icons.GREY,
-                             background=BG, font=self.f_icon)
+        nadel = self.pin_icon(kennung, rahmen, BG)
         nadel.place(in_=titel, relx=1.0, rely=0.5, anchor='e')
+
+    def pin_icon(self, kennung, parent, background):
+        """Die Stecknadel einer Seite als Symbol in `parent` — noch nicht
+        gesetzt. Auch für Seiten mit eigener Kopfzeile (Bauplan-Liste)."""
+        from . import cards
+        an = kennung in cards.pinned()
+        nadel = icons.button(parent, 'loesen' if an else 'anheften',
+                             color=icons.GREEN if an else icons.GREY,
+                             background=background, font=self.f_icon)
         nadel.configure(cursor='hand2')
 
         def zeigen(an):
@@ -3960,6 +3966,7 @@ class MainWindow:
         if not hasattr(self, '_heading_pins'):
             self._heading_pins = {}
         self._heading_pins[kennung] = nadel
+        return nadel
 
     # ⚠⚠ **So lange muss Ruhe sein, bevor im Hintergrund gebaut wird.**
     # Tk zeichnet einstraengig: Jede vorgebaute Seite haelt die Oberflaeche

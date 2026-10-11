@@ -397,9 +397,16 @@ class Bestandsfenster:
         # Im eigenständigen Fenster (ohne Hauptfenster) gibt es keine Seite
         # zum Hinspringen; dort öffnet sich der Speichern-Dialog.
         from .main_window import round_button
+        # Ganz rechts die Stecknadel wie an jeder Seitenüberschrift — nur als
+        # Seite im Hauptfenster.
+        rand = 14
+        nadel = getattr(self.hauptfenster, 'pin_icon', None)
+        if nadel is not None:
+            nadel('liste', bar, BAR).pack(side='right', padx=(0, 14))
+            rand = 12
         k = round_button(bar, t('export_einzeln'), None, schrift(9), BAR,
                          FLAECHE, LINIE, FG)
-        k.pack(side='right', padx=(0, 14))
+        k.pack(side='right', padx=(0, rand))
         k.bind('<Button-1>', lambda e: self._zum_export())
         notice.attach(k, lambda: t('hinweis_export'))
         self.export_meldung = tk.Label(bar, text='', bg=BAR, fg=ACCENT,
