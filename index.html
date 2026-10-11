@@ -268,6 +268,23 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 }
 .verlauf-mehr button:hover{background:rgba(156,228,48,.10)}
 
+/* ---------- Unterseiten (#alle-aenderungen, #fragen-alle) ----------
+   Auf der Startseite stehen nur die neueste Version und die ersten Fragen;
+   der Rest ist eine eigene Ansicht derselben Datei, in der alles andere
+   ausgeblendet ist. Welche, sagt die Klasse am body (`unterseiteSetzen`). */
+.nur-unterseite{display:none}
+body.unterseite .nur-unterseite{display:block}
+body.unterseite .nur-start,
+body.unterseite .hero,
+body.unterseite section{display:none}
+body.unterseite-verlauf #aenderungen,
+body.unterseite-fragen #fragen{display:block;padding-top:40px;min-height:70vh}
+body:not(.unterseite) #fragen details:nth-of-type(n+4){display:none}
+.zurueck{margin-bottom:18px;color:var(--neon);text-decoration:none;font-weight:700}
+body.unterseite .zurueck{display:inline-block}
+.zurueck:hover{text-decoration:underline}
+.alle-aenderungen{margin-top:14px}
+
 /* ---------- Fuß ---------- */
 footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
 .fusslinks{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;margin-bottom:26px}
@@ -297,8 +314,8 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">Was es kann</a>
       <a href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
       <a class="weg" href="#sicher" data-de="Sicher?" data-en="Safe?">Sicher?</a>
-      <a class="weg" href="#fragen" data-de="Fragen" data-en="FAQ">Fragen</a>
-      <a class="weg" href="#aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
+      <a class="weg" href="#fragen-alle" data-de="Fragen" data-en="FAQ">Fragen</a>
+      <a class="weg" href="#alle-aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <div class="sprache">
         <button id="knopf-de" class="an" onclick="sprache('de')">DE</button>
         <button id="knopf-en" onclick="sprache('en')">EN</button>
@@ -529,6 +546,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
 
 <section id="fragen">
   <div class="mitte">
+    <a class="zurueck nur-unterseite" href="#" data-de="← Zurück zur Startseite" data-en="← Back to the start page">← Zurück zur Startseite</a>
     <div class="label" data-de="Häufige Fragen" data-en="FAQ">Häufige Fragen</div>
     <h2 data-de="Gut zu wissen" data-en="Good to know">Gut zu wissen</h2>
     <div class="faq">
@@ -566,20 +584,30 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
            data-en="Under Settings → Basetool, turn on the areas you want (blueprints, storage, hangar, unit demand) and click “Connect”. You sign in through your Basetool account in the browser. The “Unit demand” tab only appears with this connection.">Unter Einstellungen → Basetool die gewünschten Bereiche einschalten (Baupläne, Lager, Hangar, Bedarf der Einheit) und auf „Verbinden“ klicken. Die Anmeldung läuft im Browser über dein Basetool-Konto. Der Reiter „Bedarf der Einheit“ erscheint erst mit dieser Verbindung.</p>
       </details>
     </div>
+    <div class="verlauf-mehr alle-aenderungen nur-start">
+      <button onclick="location.hash='fragen-alle'"
+              data-de="Alle Fragen ansehen" data-en="See all questions">Alle Fragen ansehen</button>
+    </div>
   </div>
 </section>
 
 <section id="aenderungen">
   <div class="mitte">
+    <a class="zurueck nur-unterseite" href="#" data-de="← Zurück zur Startseite" data-en="← Back to the start page">← Zurück zur Startseite</a>
     <div class="label" data-de="Verlauf" data-en="History">Verlauf</div>
     <h2 data-de="Was sich geändert hat" data-en="What has changed">Was sich geändert hat</h2>
-    <p class="einleitung"
+    <p class="einleitung nur-start"
+       data-de="Die neueste Version — alle früheren stehen unter „Alle Änderungen ansehen“."
+       data-en="The latest version — all earlier ones are under “See all changes”.">
+      Die neueste Version — alle früheren stehen unter „Alle Änderungen ansehen“.
+    </p>
+    <p class="einleitung nur-unterseite"
        data-de="Jede Version seit der ersten, mit allem, was neu, besser oder behoben ist — dieselben Texte, die das Programm unter „Was ist neu“ zeigt."
        data-en="Every version since the first, with everything that is new, improved or fixed — the same texts the program shows under “What’s new”.">
       Jede Version seit der ersten, mit allem, was neu, besser oder behoben ist — dieselben Texte, die das Programm unter „Was ist neu“ zeigt.
     </p>
 
-    <div class="verlauf-leiste">
+    <div class="verlauf-leiste nur-unterseite">
       <div class="suchfeld">
         <input type="search" id="verlauf-suche" oninput="verlaufZeigen()"
                onkeydown="if(event.key==='Escape')sucheLeeren()"
@@ -590,11 +618,15 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <label><input type="checkbox" id="verlauf-test" onchange="verlaufZeigen()"><span
         data-de="Testfassungen zeigen" data-en="Show test builds">Testfassungen zeigen</span></label>
     </div>
-    <p class="verlauf-zahl" id="verlauf-zahl"></p>
+    <p class="verlauf-zahl nur-unterseite" id="verlauf-zahl"></p>
     <div id="verlauf"></div>
     <div class="verlauf-mehr" id="verlauf-mehr" hidden>
       <button onclick="verlaufAlle=true;verlaufZeigen()"
               data-de="Ältere Versionen anzeigen" data-en="Show older versions">Ältere Versionen anzeigen</button>
+    </div>
+    <div class="verlauf-mehr alle-aenderungen nur-start">
+      <button onclick="location.hash='alle-aenderungen'"
+              data-de="Alle Änderungen ansehen" data-en="See all changes">Alle Änderungen ansehen</button>
     </div>
   </div>
 </section>
@@ -608,7 +640,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a href="https://xharig.com/discord">Discord</a>
       <a href="https://github.com/Xharig/VerseKit/blob/main/README.md"
          data-de="Anleitung" data-en="Readme">Anleitung</a>
-      <a href="#aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
+      <a href="#alle-aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <a href="https://github.com/Xharig/VerseKit/issues"
          data-de="Fehler melden" data-en="Report a bug">Fehler melden</a>
       <a href="https://ko-fi.com/xharig">Ko-fi</a>
@@ -1202,8 +1234,12 @@ function verlaufZeigen(){
     if (suche && alle[i].roh.indexOf(suche) < 0) continue;
     treffer.push(alle[i]);
   }
-  // Beim Suchen stehen alle Treffer da, sonst erst die neuesten.
-  var zeigen = (suche || verlaufAlle) ? treffer : treffer.slice(0, VERLAUF_ERSTE);
+  // Startseite: nur die neueste. Unterseite: beim Suchen alle Treffer, sonst
+  // erst die neuesten.
+  var unter = document.body.classList.contains("unterseite-verlauf");
+  if (!unter) suche = "";
+  var zeigen = !unter ? treffer.slice(0, 1)
+             : (suche || verlaufAlle) ? treffer : treffer.slice(0, VERLAUF_ERSTE);
   var ziel = document.getElementById("verlauf");
   ziel.innerHTML = "";
   for (var k = 0; k < zeigen.length; k++){
@@ -1234,8 +1270,31 @@ function verlaufZeigen(){
     : (suche ? treffer.length + " of " + sichtbar + " versions match"
              : "Showing " + zeigen.length + " of " + treffer.length + " versions");
   document.getElementById("verlauf-zahl").textContent = zahl;
-  document.getElementById("verlauf-mehr").hidden = !!suche || zeigen.length >= treffer.length;
+  document.getElementById("verlauf-mehr").hidden =
+    !unter || !!suche || zeigen.length >= treffer.length;
 }
+
+/* Unterseiten derselben Datei: Die Adresse sagt, welche (`#alle-aenderungen`,
+   `#fragen-alle`). Ohne passende Adresse ist es die Startseite; ein Sprung zu
+   einem Abschnitt der Startseite wird nach dem Umschalten nachgeholt, weil der
+   Abschnitt vorher ausgeblendet war. */
+var UNTERSEITEN = {"#alle-aenderungen": "verlauf", "#fragen-alle": "fragen"};
+
+function unterseiteSetzen(){
+  var name = UNTERSEITEN[location.hash] || "";
+  var b = document.body.classList;
+  b.toggle("unterseite", !!name);
+  b.toggle("unterseite-verlauf", name === "verlauf");
+  b.toggle("unterseite-fragen", name === "fragen");
+  verlaufZeigen();
+  if (name){
+    window.scrollTo(0, 0);
+  } else if (location.hash.length > 1){
+    var ziel = document.getElementById(location.hash.slice(1));
+    if (ziel) ziel.scrollIntoView();
+  }
+}
+window.addEventListener("hashchange", unterseiteSetzen);
 
 /* Start in der Sprache des Browsers: Deutsch nur, wenn der Browser Deutsch
    bevorzugt — sonst Englisch. Vorher begann die Seite immer deutsch, und
@@ -1248,6 +1307,7 @@ if (browserSprache.indexOf("de") === 0){
 } else {
   sprache("en");
 }
+unterseiteSetzen();
 </script>
 
 </body>
