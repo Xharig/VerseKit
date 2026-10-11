@@ -40067,8 +40067,26 @@ def _pruefung_424():
             pruefe(_reihe424[:2] == ['basetool', _ka424.SYNC_CARD],
                    'im Bereich Basetool steht die Abgleich-Karte direkt hinter '
                    'der Verbindung (%r)' % _reihe424)
+            # Jeder Zusatzknopf liegt ganz in seiner Karte — bei schmaler
+            # Karte oder breiter Schrift ragte er sonst hinaus.
+            _draussen424 = []
+            for _alle424 in (_werk424, _base424, _spiel424):
+                for _seite424, _knoepfe424 in _alle424.items():
+                    for _k424 in _knoepfe424:
+                        _fuss424 = _k424.master
+                        # Tk schiebt bei Platzmangel nichts hinaus, es
+                        # quetscht: dann ist der Knopf schmaler als gewünscht.
+                        if (_k424.winfo_x() < 0 or _k424.winfo_x()
+                                + _k424.winfo_width() > _fuss424.winfo_width()
+                                or _k424.winfo_width()
+                                < _k424.winfo_reqwidth()):
+                            _draussen424.append(_seite424)
+            pruefe(not _draussen424, 'jeder Zusatzknopf liegt ganz und '
+                   'ungekürzt in seiner Karte (nicht: %r)' % _draussen424)
+            # Ausgelöst über `invoke` — ein simulierter Mausklick kommt nicht
+            # auf jedem System an.
             for _k424 in (_werk424['lager'][0], _spiel424['uebersetzung'][1]):
-                _k424.event_generate('<Button-1>')
+                _k424.invoke()
             _ka424.sync_now(_f)
             _w.update()
             pruefe(_spur424 == ['scan', 'neu', 'sync'],

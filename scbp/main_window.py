@@ -1512,6 +1512,7 @@ def round_button(parent, text, action, font, bg, fill_color, border, fg,
     c.is_button = True          # damit tools/randpruefung.py ihn prüft
     if action:
         c.bind('<Button-1>', lambda e: action())
+        c.invoke = action
     return c
 
 
