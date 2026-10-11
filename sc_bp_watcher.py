@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '4.1.4'
+__version__ = '4.1.5'
 
 # Zeitpunkt des Programmstarts — misst, wie lange das Programm schon läuft
 # (siehe `Overlay.AUTO_UPDATE_VISIBLE_S`).
@@ -177,6 +177,17 @@ BESTAND_POLL_SEC = 30
 # Wie oft nachgesehen wird, ob ein anderes Werkzeug die Textdatei neu
 # geschrieben hat — nur Größe und Zeitstempel.
 DATEI_POLL_SEC = 5
+# So lange muss die `Data.p4k` nach einer Änderung still stehen, bevor der
+# Patch als fertig gilt — der Launcher schreibt beim Patchen immer wieder.
+PATCH_QUIET_SEC = 30
+# Nach einem Patch: so oft nach der neuen Fassung der Übersetzung sehen, bis
+# sie da ist — höchstens so lange. 6 Abfragen je Stunde und Quelle bleiben
+# unter GitHubs Grenze, zusammen mit dem Update-Prüfen.
+POST_PATCH_POLL_SEC = 10 * 60
+POST_PATCH_WINDOW_SEC = 12 * 3600
+# Einstellung: Stand der Data.p4k beim letzten erkannten Patch — so fällt auch
+# ein Patch auf, der lief, während VerseKit aus war.
+P4K_SETTING = 'p4k_stand'
 SCMDB_TIMEOUT  = 30
 # Wer die Netzabfrage nicht will, setzt SC_BP_NO_NET=1 — dann bleibt es beim
 # zuletzt geholten Stand.
@@ -798,6 +809,10 @@ class Watcher(threading.Thread):
         self.raff_next = 0.0    # nächster Blick auf fertige Raffinerie-Aufträge
         self.datei_next = 0.0   # nächster Blick auf die Textdatei des Spiels
         self.datei_stand = None  # Größe und Zeitstempel nach dem letzten Abgleich
+        self.p4k_next = 0.0     # nächster Blick auf die Data.p4k (Patch?)
+        self.p4k_stamp = None   # ihr Stand beim letzten Blick
+        self.p4k_quiet_until = 0.0  # Patch gilt als fertig, wenn bis dann still
+        self.patch_at = 0.0     # wann zuletzt ein Patch fertig wurde (0: keiner offen)
         self.texte_laeuft = False
 
     # ---- scmdb-Craftdaten frisch halten ----
@@ -958,6 +973,10 @@ class Watcher(threading.Thread):
         if not faellig and not bestand_neu and jetzt >= self.datei_next:
             self.datei_next = jetzt + DATEI_POLL_SEC
             datei_neu = self._textdatei_geaendert()
+        # Ein fertiger Spiel-Patch zählt wie der Stundenlauf: Die Textdatei
+        # verdeckt sonst bis zu einer Stunde lang die neuen Texte des Spiels.
+        if not faellig and not bestand_neu and not datei_neu:
+            faellig = self._patch_finished(jetzt)
         if not faellig and not bestand_neu and not datei_neu:
             return
 
@@ -973,7 +992,7 @@ class Watcher(threading.Thread):
         # Netzabfrage um weitere sechs Stunden — wer viel spielt, bekäme die
         # neue Übersetzung nie.
         if faellig:
-            self.texte_next = jetzt + TEXTE_POLL_SEC
+            self.texte_next = jetzt + self._texts_interval(jetzt)
         self.texte_laeuft = True
 
         def arbeit():
@@ -1069,6 +1088,47 @@ class Watcher(threading.Thread):
             errors.record('watcher.spielsprache', ausnahme)
             return False
 
+    def _patch_finished(self, now):
+        """Hat ein Spiel-Patch die `Data.p4k` geändert, und ist er fertig?
+
+        Nur Größe und Zeitstempel, im Takt der Dateiwache. Fertig heißt:
+        `PATCH_QUIET_SEC` lang keine weitere Änderung. Gibt einmal je Patch
+        True zurück; der erste Blick merkt sich nur den Stand."""
+        if now < self.p4k_next:
+            return False
+        self.p4k_next = now + DATEI_POLL_SEC
+        try:
+            stamp = gametext.archive_stamp()
+        except Exception:
+            stamp = None
+        if stamp is None:
+            return False
+        if self.p4k_stamp is None:
+            self.p4k_stamp = stamp
+            known = paths.setting(P4K_SETTING)
+            if not known:
+                paths.set_setting(P4K_SETTING, stamp)
+            elif known != stamp:
+                self.p4k_quiet_until = now + PATCH_QUIET_SEC
+            return False
+        if stamp != self.p4k_stamp:
+            self.p4k_stamp = stamp
+            self.p4k_quiet_until = now + PATCH_QUIET_SEC
+            return False
+        if self.p4k_quiet_until and now >= self.p4k_quiet_until:
+            self.p4k_quiet_until = 0.0
+            self.patch_at = now
+            paths.set_setting(P4K_SETTING, stamp)
+            return True
+        return False
+
+    def _texts_interval(self, now):
+        """Abstand bis zum nächsten Blick auf die Übersetzung: nach einem
+        Patch kurz, bis ihre neue Fassung da ist, sonst stündlich."""
+        if self.patch_at and now - self.patch_at < POST_PATCH_WINDOW_SEC:
+            return POST_PATCH_POLL_SEC
+        return TEXTE_POLL_SEC
+
     def _textdatei_stand(self):
         """Größe und Zeitstempel der Textdatei, in die eingetragen wird — oder
         None, wenn es keine gibt."""
@@ -1153,6 +1213,7 @@ class Watcher(threading.Thread):
 
         # 1. Neue Version der Übersetzung? Die schreibt die Datei komplett neu,
         #    danach ist die Injektion in jedem Fall weg.
+        neu_geholt = False
         if quelle and not nur_bestand:
             da, kennung = translation.update_available(quelle)
             if da:
@@ -1162,6 +1223,10 @@ class Watcher(threading.Thread):
                         'texte_erneuert',
                         translation.status_text(quelle) or kennung)))
                     neu_noetig = True
+                    neu_geholt = True
+                    # Die neue Fassung nach dem Patch ist da — zurück zum
+                    # Stundentakt.
+                    self.patch_at = 0.0
 
         # 1b. Originaltexte aus dem Spiel: Hat ein Patch die `Data.p4k`
         #     geändert, wird die eingesetzte englische Datei neu daraus
@@ -1171,6 +1236,19 @@ class Watcher(threading.Thread):
             if gametext.refresh_original():
                 self.q.put(('status', language.Phrase(
                     'texte_erneuert', translation.display_name('original'))))
+                neu_noetig = True
+
+        # 1c. Notlösung, solange es keine neuere Fassung gibt: Was der
+        #     gewählten Übersetzung fehlt, englisch aus dem Spiel ergänzen.
+        #     Ist sie älter als der Spielstand, stünde sonst alles, was der
+        #     Patch neu gebracht hat, als `@…` im Spiel. Kam eben eine neue
+        #     Fassung, gilt erst sie; ergänzt wird frühestens beim nächsten
+        #     Blick, wenn ihr dann noch etwas fehlt.
+        if not nur_bestand and quelle and not neu_geholt:
+            ergaenzt = gametext.fill_gaps(ziel)
+            if ergaenzt:
+                self.q.put(('status', language.Phrase('texte_ergaenzt',
+                                                      ergaenzt)))
                 neu_noetig = True
 
         # 2. Hat sich der eigene Katalog erneuert? Nach einem Patch geben

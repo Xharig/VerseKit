@@ -2250,7 +2250,8 @@ class MainWindow:
         self.view_button = self._titlebar_button(
             bar, 'reiter' if karten else 'karten',
             t('k_reiteransicht' if karten else 'k_kartenansicht'),
-            t('k_hinweis_reiter' if karten else 'k_hinweis_karten'),
+            lambda: t('k_hinweis_reiter' if self.card_mode()
+                      else 'k_hinweis_karten'),
             self._toggle_view)
         self._titlebar_button(bar, 'einrichtung', t('hf_einrichtung'),
                          t('hf_hinweis_einr'), self._open_wizard)
@@ -2920,11 +2921,57 @@ class MainWindow:
         return paths.setting(self.VIEW_SETTING) == 'karten'
 
     def _toggle_view(self):
-        """Zwischen Reiter- und Kartenansicht wechseln — das Fenster baut sich
-        neu auf und bleibt auf der gerade offenen Seite."""
+        """Zwischen Reiter- und Kartenansicht wechseln und auf der gerade
+        offenen Seite bleiben. Geht das Umstellen schief, baut sich das
+        Fenster ganz neu auf."""
         paths.set_setting(self.VIEW_SETTING,
                           'reiter' if self.card_mode() else 'karten')
-        self.rebuild()
+        try:
+            self._apply_view()
+        except Exception as exc:
+            errors.record('main_window.apply_view', exc)
+            self.rebuild()
+
+    def _apply_view(self):
+        """Die gewählte Ansicht ins stehende Fenster übernehmen.
+
+        ⚠⚠ Die Seiten bleiben stehen. Die Ansichten unterscheiden sich nur in
+        Reiterliste, Band, Pfadzeile, Umschaltknopf und Startseite; ein
+        Neuaufbau warf alle vorgebauten Seiten weg und baute sie danach
+        sekundenlang wieder vor."""
+        cards_on = self.card_mode()
+        symbol, word = self.view_button.teile
+        symbol.swap_symbol('reiter' if cards_on else 'karten')
+        word.configure(text=' ' + t('k_reiteransicht' if cards_on
+                                    else 'k_kartenansicht'))
+        current = self.current
+        if current and current in self.pages:
+            self.pages[current].pack_forget()
+        self.current = None
+        if cards_on:
+            self.sidebar_column.pack_forget()
+            if self.card_band is None:
+                self._card_band()
+                self.card_band.pack_configure(before=self.content)
+            first = self.content.pack_slaves()
+            self.crumb_bar.pack(side='top', fill='x', padx=24, pady=(10, 0),
+                                **({'before': first[0]} if first else {}))
+        else:
+            if self.card_band is not None:
+                self.card_band.destroy()
+                self.card_band = None
+            self.crumb_bar.pack_forget()
+            self.sidebar_column.pack(side='left', fill='y',
+                                     before=self.content)
+        # Die Startseite zeigt die Hauptbereiche nur in der Kartenansicht —
+        # sie wird beim nächsten Zeigen neu gebaut.
+        start = self.pages.pop('uebersicht', None)
+        self.drawn.discard('uebersicht')
+        getattr(self, 'on_show', {}).pop('uebersicht', None)
+        if start is not None:
+            start.destroy()
+        self.open_page(current or 'uebersicht')
+        self.root.after(50, self._min_height_update)
 
     def _has_starter(self):
         """Gibt es einen Weg, Star Citizen zu starten (RSI Launcher bzw.

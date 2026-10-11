@@ -6,6 +6,31 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.5 - 2026-10-11
+
+> Nach einem Spiel-Patch holt Verse-Kit die neueste Fassung deiner Übersetzung
+> sofort, statt bis zu einer Stunde zu warten — und sieht danach alle zehn
+> Minuten nach, bis sie da ist. Der Wechsel zwischen Karten- und Reiteransicht
+> geht jetzt ohne Nachladen.
+
+### Verbessert
+
+- **Übersetzung gleich nach dem Spiel-Patch** — Verse-Kit erkennt einen Patch
+  sofort, auch einen, der lief, während Verse-Kit aus war, und holt die
+  neueste Fassung der gewählten Übersetzung. Hat sie noch nicht nachgezogen,
+  wird alle zehn Minuten nachgesehen.
+- **Ansicht wechseln ohne Nachladen** — beim Umschalten zwischen Karten- und
+  Reiteransicht bleiben alle Seiten stehen; nur Leiste, Band und Startseite
+  stellen sich um. Vorher wurde danach alles neu aufgebaut, und das Fenster
+  stockte noch einige Sekunden. Gemeldet von Drachennarr
+
+### Behoben
+
+- **`@…`-Platzhalter im Spiel nach einem Patch** — solange die gewählte
+  Übersetzung den neuen Spielstand noch nicht kennt, stehen die neuen Texte
+  vorerst englisch da statt etwa als `@IASI_JOURNAL_TITLE`. Kommt ihre neue
+  Fassung, gilt wieder sie. Gemeldet von Bushwick4712 (KRT)
+
 ## v4.1.4 - 2026-10-11
 
 > Der Wechsel zwischen Karten- und Reiteransicht geht spürbar schneller: Die

@@ -2851,12 +2851,14 @@ TEXTS = {
                               'Zutaten, die im Spiel als Stück gesammelt werden '
                               '— Hadanite, Dolivine, Sadaryx und acht weitere — '
                               'standen in keiner Zutatenliste. Ein Fund an einem '
-                              'Bauplan, der in 255 steckte.',
+                              'Bauplan, der in 255 steckte. Und die `@…`-'
+                              'Platzhalter im Spiel nach einem Patch.',
                               'And the **missing Hadanite** on the Attrition-5: '
                               'ingredients the game hands out as single pieces — '
                               'Hadanite, Dolivine, Sadaryx and eight more — were '
                               'in no ingredient list at all. One find on one '
-                              'blueprint that sat in 255.'),
+                              'blueprint that sat in 255. And the `@…` '
+                              'placeholders in the game after a patch.'),
     's_dk_bushwick_idee3':   ('**Der Rückweg nach einem Seitensprung** — wer in '
                               'der Bauplan-Liste einen Eintrag anklickt, landet '
                               'in der Herstellung und kam von dort nur über die '
@@ -6947,6 +6949,12 @@ TEXTS = {
     'inj_pruefen':       ('Auf Updates prüfen', 'Check for updates'),
     'texte_erneuert':    ('Übersetzung aktualisiert (%s)',
                           'Translation updated (%s)'),
+    'texte_ergaenzt':    ('Die Übersetzung kennt den neuen Spielstand noch nicht — '
+                          '%d fehlende Texte vorerst englisch ergänzt, bis ihre '
+                          'neue Fassung kommt',
+                          'The translation does not know the new game version '
+                          'yet — %d missing texts filled in English for now, '
+                          'until its new version arrives'),
     'spielsprache_repariert': ('Spielsprache wieder eingetragen (%s) — gilt '
                                'ab dem nächsten Spielstart',
                                'Game language restored (%s) — takes effect '

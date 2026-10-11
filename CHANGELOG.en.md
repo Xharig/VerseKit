@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.5 - 2026-10-11
+
+> After a game patch, Verse-Kit fetches the newest version of your
+> translation right away instead of waiting up to an hour — and then checks
+> every ten minutes until it arrives. Switching between card view and tab view
+> now works without reloading.
+
+### Improved
+
+- **Translation right after the game patch** — Verse-Kit notices a patch
+  immediately, even one that ran while Verse-Kit was closed, and fetches the
+  newest version of the chosen translation. If it has not caught up yet, it
+  checks again every ten minutes.
+- **Switching views without reloading** — when switching between card view and
+  tab view all pages stay as they are; only the sidebar, the band and the
+  start page change. Before, everything was rebuilt afterwards and the window
+  stuttered for a few seconds. Reported by Drachennarr
+
+### Fixed
+
+- **`@…` placeholders in the game after a patch** — while the chosen
+  translation does not know the new game version yet, the new texts show in
+  English for now instead of, say, `@IASI_JOURNAL_TITLE`. Once its new version
+  arrives, it takes over again. Reported by Bushwick4712 (KRT)
+
 ## v4.1.4 - 2026-10-11
 
 > Switching between the card view and the tab view is noticeably faster: the

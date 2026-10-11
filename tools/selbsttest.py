@@ -25422,6 +25422,8 @@ def main():
     _pruefung_430()
     _pruefung_431()
     _pruefung_432()
+    _pruefung_433()
+    _pruefung_434()
 
     print()
     if fehler:
@@ -40084,8 +40086,9 @@ def _pruefung_431():
 
 
 def _pruefung_432():
-    """432. Ansichtswechsel: alter Inhalt weg vom Schirm, Abbau danach."""
-    print('\n432. Ansichtswechsel baut den alten Inhalt erst danach ab')
+    """432. Neuaufbau (Sprache, Schrift): alter Inhalt weg vom Schirm, Abbau
+    danach."""
+    print('\n432. Neuaufbau baut den alten Inhalt erst danach ab')
     import tempfile as _tf432
     import time as _ti432
     import tkinter as tk
@@ -40108,9 +40111,9 @@ def _pruefung_432():
         pruefe(_anzahl432 > 200,
                'genug alter Inhalt, damit der Abbau etwas misst (%d)'
                % _anzahl432)
-        _f432._toggle_view()
-        pruefe(_f432.card_mode() and _f432.current == 'allgemein',
-               'die Ansicht ist gewechselt, die offene Seite bleibt (%r)'
+        _f432.rebuild()
+        pruefe(_f432.current == 'allgemein',
+               'nach dem Neuaufbau bleibt die offene Seite (%r)'
                % _f432.current)
         _sichtbar432 = [str(k) for k in _alte432 if k.winfo_exists() and (
             k.winfo_manager() or (isinstance(k, tk.Toplevel)
@@ -40145,6 +40148,305 @@ def _pruefung_432():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim432
         shutil.rmtree(_heim432, ignore_errors=True)
+
+
+def _pruefung_433():
+    """433. Nach einem Spiel-Patch: sofort und dann oft nach der neuen
+    Übersetzung sehen; solange keine da ist, fehlende Texte englisch."""
+    print('\n433. Spiel-Patch: neue Übersetzung zuerst, Lücken nur notfalls')
+    import queue as _qu433
+    import tempfile as _tf433
+    import sc_bp_watcher as _sw433
+    from scbp import gametext as _gt433, paths as _pa433
+    bom = b'\xef\xbb\xbf'
+    original = (bom + b'alt_a=Old A\r\nalt_b,P=Old B\r\nneu_c=New C\r\n'
+                b'Neu_D=New D\r\nalt_e=Old E\r\n')
+    uebersetzt = bom + b'alt_a=Alt A\r\nALT_B=Alt B\r\nalt_e=Alt E\r\n'
+
+    _fehlt433 = _gt433.missing_lines(original, uebersetzt)
+    pruefe(_fehlt433 == [b'neu_c=New C', b'Neu_D=New D'],
+           'nur fehlende Schlüssel, ohne Groß/klein und ohne ,P-Zusatz (%r)'
+           % _fehlt433)
+    pruefe(_gt433.missing_lines(original, original) == [],
+           'eine vollständige Datei bekommt nichts dazu')
+
+    _heim433 = _tf433.mkdtemp(prefix='luecken-')
+    _alt_heim433 = os.environ.get('SC_BP_HOME')
+    _ziel433 = os.path.join(_heim433, 'spiel', 'global.ini')
+    _echt433 = {
+        'stamp': _gt433.archive_stamp, 'read': _gt433.read_from_archive,
+        'folder': _sw433.translation.language_folder,
+        'target': _sw433.translation.target_ini,
+        'update': _sw433.translation.update_available,
+        'installed': _sw433.translation.installed,
+        'usercfg': _sw433.translation.set_user_cfg,
+        'fetch': _sw433.translation.fetch,
+        'status': _sw433.translation.status_text,
+        'applied': _sw433.injection.is_applied,
+        'setup': _sw433.injection.setup,
+        'catalog': _sw433.katalog_modul.load,
+    }
+    _stand433 = ['stand-1']
+    _gelesen433 = []
+
+    def _lesen433(*_a, **_k):
+        _gelesen433.append(1)
+        return original, ''
+
+    def _nie433(*_a, **_k):
+        raise AssertionError('user.cfg darf im Prüflauf nicht geschrieben werden')
+    try:
+        os.environ['SC_BP_HOME'] = os.path.join(_heim433, 'heim')
+        os.makedirs(os.path.dirname(_ziel433))
+        with open(_ziel433, 'wb') as f:
+            f.write(uebersetzt)
+        _gt433.archive_stamp = lambda *_a, **_k: _stand433[0]
+        _gt433.read_from_archive = _lesen433
+        _sw433.translation.set_user_cfg = _nie433
+
+        # Die Falle selbst: Ohne Archiv wird nichts gelesen und nichts ergänzt.
+        _gt433.archive_stamp = lambda *_a, **_k: None
+        pruefe(_gt433.fill_gaps(_ziel433) == 0 and not _gelesen433,
+               'ohne Data.p4k bleibt die Datei, wie sie ist')
+        _gt433.archive_stamp = lambda *_a, **_k: _stand433[0]
+
+        pruefe(_gt433.fill_gaps(_ziel433) == 2,
+               'zwei fehlende Texte ergänzt')
+        with open(_ziel433, 'rb') as f:
+            _neu433 = f.read()
+        pruefe(_neu433.startswith(uebersetzt),
+               'der übersetzte Text bleibt Byte für Byte stehen')
+        pruefe(_neu433[len(uebersetzt):] == b'neu_c=New C\r\nNeu_D=New D\r\n',
+               'angehängt mit den Zeilenenden der Datei (%r)'
+               % _neu433[len(uebersetzt):])
+        _gelesen433[:] = []
+        pruefe(_gt433.fill_gaps(_ziel433) == 0 and not _gelesen433,
+               'beim zweiten Blick ohne Änderung wird das Archiv nicht gelesen')
+
+        # Neue Fassung der Übersetzung: Datei ersetzt, Lücken wieder da.
+        with open(_ziel433, 'wb') as f:
+            f.write(uebersetzt + b'neu_c=Neu C\r\n')
+        pruefe(_gt433.fill_gaps(_ziel433) == 1,
+               'nach einer neuen Fassung der Übersetzung wird neu ergänzt')
+        with open(_ziel433, 'rb') as f:
+            _neu433 = f.read()
+        pruefe(b'neu_c=Neu C' in _neu433 and b'New C' not in _neu433,
+               'was die Übersetzung schon hat, bleibt übersetzt')
+
+        # Patch-Erkennung im Watcher: erst nach der Ruhezeit, genau einmal.
+        _w433 = _sw433.Watcher(_qu433.Queue())
+        _t433 = 1000.0
+        pruefe(not _w433._patch_finished(_t433), 'der erste Blick merkt sich nur')
+        _stand433[0] = 'stand-2'
+        _t433 += _sw433.DATEI_POLL_SEC
+        pruefe(not _w433._patch_finished(_t433),
+               'gerade geänderte Data.p4k: der Patch läuft vielleicht noch')
+        _t433 += _sw433.PATCH_QUIET_SEC + _sw433.DATEI_POLL_SEC
+        pruefe(_w433._patch_finished(_t433),
+               'nach der Ruhezeit gilt der Patch als fertig')
+        _t433 += _sw433.DATEI_POLL_SEC
+        pruefe(not _w433._patch_finished(_t433), 'und das nur einmal')
+        pruefe(_w433._texts_interval(_t433) == _sw433.POST_PATCH_POLL_SEC,
+               'nach dem Patch wird öfter nach der Übersetzung gesehen')
+        pruefe(_w433._texts_interval(_t433 + _sw433.POST_PATCH_WINDOW_SEC + 1)
+               == _sw433.TEXTE_POLL_SEC,
+               'aber nicht ewig — danach wieder stündlich')
+        pruefe(_pa433.setting(_sw433.P4K_SETTING) == 'stand-2',
+               'der erkannte Stand wird gemerkt')
+
+        # Ein Patch, während VerseKit aus war, fällt beim Start auf.
+        _w433c = _sw433.Watcher(_qu433.Queue())
+        _stand433[0] = 'stand-3'
+        _t433 = 5000.0
+        pruefe(not _w433c._patch_finished(_t433),
+               'beim Start: neuer Stand, erst Ruhezeit abwarten')
+        _t433 += _sw433.PATCH_QUIET_SEC + _sw433.DATEI_POLL_SEC
+        pruefe(_w433c._patch_finished(_t433),
+               'ein Patch während VerseKit aus war, zählt beim Start')
+
+        # Im echten Takt: ein fertiger Patch stößt den vollen Abgleich an,
+        # obwohl der Stundenlauf noch lange nicht dran ist.
+        import time as _ti433
+        _echt_aus433 = _sw433.SCMDB_AUS
+        _echt_kanaele433 = _sw433.translation.channel_sources
+        _aufrufe433 = []
+        try:
+            _sw433.SCMDB_AUS = False
+            _sw433.translation.channel_sources = lambda *_a, **_k: {}
+            _w433b = _sw433.Watcher(_qu433.Queue())
+            _w433b._aktive_quelle = lambda: 'luftwerft_de'
+            _w433b._texte_abgleichen = (
+                lambda quelle, nur_bestand=False:
+                _aufrufe433.append((quelle, nur_bestand)))
+            _jetzt433 = _ti433.time()
+            _w433b.texte_next = _jetzt433 + 3600
+            _w433b.bestand_next = _jetzt433 + 3600
+            _w433b.datei_next = _jetzt433 + 3600
+            _w433b.p4k_stamp = _stand433[0]
+            _w433b.p4k_quiet_until = 1.0
+            _w433b._texte_tick()
+            _ende433 = _ti433.time() + 5
+            while _w433b.texte_laeuft and _ti433.time() < _ende433:
+                _ti433.sleep(0.01)
+            pruefe(_aufrufe433 == [('luftwerft_de', False)],
+                   'ein fertiger Patch startet den vollen Abgleich sofort (%r)'
+                   % _aufrufe433)
+            _abstand433 = _w433b.texte_next - _jetzt433
+            pruefe(0 < _abstand433 <= _sw433.POST_PATCH_POLL_SEC + 5,
+                   'der nächste Blick kommt im schnellen Takt (%.0f s)'
+                   % _abstand433)
+        finally:
+            _sw433.SCMDB_AUS = _echt_aus433
+            _sw433.translation.channel_sources = _echt_kanaele433
+
+        # Der echte Weg: der Abgleich des Watchers füllt die Lücken.
+        with open(_ziel433, 'wb') as f:
+            f.write(uebersetzt)
+        _sw433.translation.language_folder = lambda *_a, **_k: 'german_(germany)'
+        _sw433.translation.target_ini = lambda *_a, **_k: _ziel433
+        _sw433.translation.update_available = lambda *_a, **_k: (False, None)
+        _sw433.translation.installed = lambda *_a, **_k: None
+        _sw433.injection.is_applied = lambda *_a, **_k: True
+        _eingetragen433 = []
+        _sw433.injection.setup = (
+            lambda *_a, **_k: _eingetragen433.append(1) or (True, 0, ''))
+        _sw433.katalog_modul.load = lambda *_a, **_k: {}
+        _pa433.set_setting('inj_bestand', 'marke-433')
+        _w433._inj_mark = lambda: 'marke-433'
+        _w433._spielsprache_pruefen = lambda *_a, **_k: False
+        _w433._texte_abgleichen('luftwerft_de')
+        with open(_ziel433, 'rb') as f:
+            _neu433 = f.read()
+        pruefe(_neu433.endswith(b'neu_c=New C\r\nNeu_D=New D\r\n'),
+               'der Abgleich des Watchers ergänzt die Lücken')
+        pruefe(_eingetragen433,
+               'danach werden die Bauplan-Angaben neu eingetragen')
+        _meldungen433 = []
+        while not _w433.q.empty():
+            _meldungen433.append(_w433.q.get())
+        pruefe(any(m[0] == 'status' and getattr(m[1], 'key', '') ==
+                   'texte_ergaenzt' for m in _meldungen433),
+               'und sagt in der Statuszeile, dass ergänzt wurde')
+
+        # Gibt es eine neue Fassung der Übersetzung, gilt sie — keine
+        # Notlösung in diesem Durchgang, und der schnelle Takt endet.
+        def _holen433(*_a, **_k):
+            with open(_ziel433, 'wb') as f:
+                f.write(uebersetzt)
+            return True, ''
+        _sw433.translation.update_available = lambda *_a, **_k: (True, 'neu')
+        _sw433.translation.fetch = _holen433
+        _sw433.translation.status_text = lambda *_a, **_k: 'neu'
+        _w433.patch_at = 1.0
+        _w433._texte_abgleichen('luftwerft_de')
+        with open(_ziel433, 'rb') as f:
+            _neu433 = f.read()
+        pruefe(_neu433 == uebersetzt,
+               'neue Fassung geholt: keine englische Ergänzung dazu')
+        pruefe(_w433.patch_at == 0.0,
+               'mit der neuen Fassung endet der schnelle Takt')
+    finally:
+        _gt433.archive_stamp = _echt433['stamp']
+        _gt433.read_from_archive = _echt433['read']
+        _sw433.translation.language_folder = _echt433['folder']
+        _sw433.translation.target_ini = _echt433['target']
+        _sw433.translation.update_available = _echt433['update']
+        _sw433.translation.installed = _echt433['installed']
+        _sw433.translation.set_user_cfg = _echt433['usercfg']
+        _sw433.translation.fetch = _echt433['fetch']
+        _sw433.translation.status_text = _echt433['status']
+        _sw433.injection.is_applied = _echt433['applied']
+        _sw433.injection.setup = _echt433['setup']
+        _sw433.katalog_modul.load = _echt433['catalog']
+        if _alt_heim433 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim433
+        shutil.rmtree(_heim433, ignore_errors=True)
+
+
+def _pruefung_434():
+    """434. Ansichtswechsel stellt nur den Rahmen um, die Seiten bleiben."""
+    print('\n434. Ansichtswechsel ohne Neuaufbau der Seiten')
+    import tempfile as _tf434
+    from scbp import main_window as _mw434, paths as _pa434
+    _heim434 = _tf434.mkdtemp(prefix='ansicht2-')
+    _alt_heim434 = os.environ.get('SC_BP_HOME')
+    _w434 = None
+    try:
+        os.environ['SC_BP_HOME'] = _heim434
+        _pa434.set_setting(_mw434.MainWindow.VIEW_SETTING, 'reiter')
+        _w434 = _wurzel()
+        _f434 = _mw434.MainWindow(_w434, version='0.0.0-pruefung',
+                                  start_page='uebersicht')
+        _w434.update()
+        for _s434 in ('liste', 'allgemein', 'uebersicht', 'liste'):
+            _f434.open_page(_s434)
+            _w434.update()
+        _seiten434 = {k: v for k, v in _f434.pages.items()
+                      if k != 'uebersicht'}
+        _start434 = _f434.pages['uebersicht']
+        pruefe(len(_seiten434) >= 2
+               and getattr(_start434, 'main_grid', None) is None,
+               'Reiteransicht: Seiten gebaut, Startseite ohne Hauptkarten')
+
+        _f434._toggle_view()
+        _w434.update()
+        pruefe(_f434.card_mode(), 'umgeschaltet auf die Kartenansicht')
+        pruefe(all(_f434.pages.get(k) is v and v.winfo_exists()
+                   for k, v in _seiten434.items()),
+               'die gebauten Seiten bleiben dieselben (kein Neuaufbau)')
+        pruefe(_f434.current == 'liste'
+               and _f434.pages['liste'].winfo_manager() == 'pack',
+               'die offene Seite bleibt offen (%r)' % _f434.current)
+        pruefe(not _f434.sidebar_column.winfo_manager()
+               and _f434.card_band is not None
+               and _f434.card_band.winfo_manager()
+               and _f434.crumb_bar.winfo_manager(),
+               'Kartenansicht: Reiterliste weg, Band und Pfadzeile da')
+        pruefe(_f434.root.pack_slaves().index(_f434.card_band)
+               < _f434.root.pack_slaves().index(_f434.content),
+               'das Band ist vor dem Inhalt gepackt (sonst drückt der es weg)')
+        pruefe(_f434.content.pack_slaves()[0] is _f434.crumb_bar,
+               'die Pfadzeile steht über der Seite')
+        pruefe(_f434.view_button.teile[1].cget('text').strip()
+               == _mw434.t('k_reiteransicht'),
+               'der Umschaltknopf bietet jetzt die Reiteransicht an')
+        _f434.open_page('uebersicht')
+        _w434.update()
+        pruefe(_f434.pages['uebersicht'] is not _start434
+               and getattr(_f434.pages['uebersicht'], 'main_grid', None)
+               is not None,
+               'die Startseite ist neu gebaut, mit Hauptkarten')
+
+        _f434._toggle_view()
+        _w434.update()
+        pruefe(not _f434.card_mode()
+               and _f434.sidebar_column.winfo_manager() == 'pack'
+               and _f434.card_band is None
+               and not _f434.crumb_bar.winfo_manager(),
+               'zurück: Reiterliste da, kein Band, keine Pfadzeile')
+        pruefe(_f434.root.pack_slaves().index(_f434.sidebar_column)
+               < _f434.root.pack_slaves().index(_f434.content),
+               'die Reiterliste ist vor dem Inhalt gepackt')
+        _start434b = _f434.pages['uebersicht']
+        pruefe(_f434.current == 'uebersicht'
+               and getattr(_start434b, 'main_grid', None) is None
+               and _start434b.winfo_children(),
+               'die Startseite ist wieder ohne Hauptkarten')
+        pruefe(all(_f434.pages.get(k) is v for k, v in _seiten434.items()),
+               'auch auf dem Rückweg bleiben die Seiten dieselben')
+    finally:
+        try:
+            if _w434 is not None:
+                _w434.destroy()
+        except Exception:
+            pass
+        if _alt_heim434 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim434
+        shutil.rmtree(_heim434, ignore_errors=True)
 
 
 def _after_in_threads_429(tree):

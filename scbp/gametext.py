@@ -395,6 +395,103 @@ def refresh_original(spielordner=None):
         return False
 
 
+# Einstellung: Archivstand und Textdatei beim letzten Lückenfüllen.
+GAPS_STAMP = 'luecken_stand'
+_BOM = b'\xef\xbb\xbf'
+
+
+def _ini_key(line):
+    """Der Schlüssel einer `global.ini`-Zeile, klein geschrieben und ohne
+    Zusatz nach dem Komma (`name,P` -> `name`) — oder b''."""
+    if line.startswith(_BOM):
+        line = line[3:]
+    if b'=' not in line:
+        return b''
+    key = line.split(b'=', 1)[0].strip()
+    if key.startswith((b';', b'#')):
+        return b''
+    return key.split(b',', 1)[0].strip().lower()
+
+
+def missing_lines(original, target):
+    """Die Zeilen aus `original`, deren Schlüssel in `target` fehlt — in der
+    Reihenfolge des Originals. Beides sind Bytes einer `global.ini`.
+
+    Verglichen wird ohne Groß-/Kleinschreibung und ohne den Zusatz nach dem
+    Komma: Steht `name` schon da, kommt `name,P` nicht dazu, sonst gäbe es
+    denselben Text zweimal und der englische könnte den übersetzten
+    verdrängen."""
+    present = {_ini_key(line) for line in target.splitlines()}
+    present.discard(b'')
+    out = []
+    for line in original.splitlines():
+        key = _ini_key(line)
+        if not key or key in present:
+            continue
+        present.add(key)
+        out.append(line[3:] if line.startswith(_BOM) else line)
+    return out
+
+
+def _gaps_mark(stamp, target):
+    info = os.stat(target)
+    return '%s|%s|%d:%d' % (stamp, os.path.normcase(target), info.st_size,
+                             info.st_mtime_ns)
+
+
+def fill_gaps(target, game_folder=None):
+    """Notlösung, solange es keine neuere Übersetzung gibt: Was der Textdatei
+    `target` fehlt, mit dem englischen Originaltext aus der `Data.p4k`
+    ergänzen. Gibt die Zahl der ergänzten Zeilen zurück — 0 auch, wenn
+    nichts fehlte oder es nicht ging.
+
+    ⚠⚠ Die Textdatei verdeckt die Texte im Archiv. Ist eine Übersetzung älter
+    als der Spielstand, steht alles, was der Patch neu gebracht hat, als
+    `@schluessel` im Spiel. Angehängt wird nur, was fehlt; kein vorhandener
+    Text wird verändert. Bringt die Übersetzung ihre neue Fassung, ersetzt
+    sie die Datei samt Ergänzung.
+
+    Nachgesehen wird nur, wenn sich Archiv oder Textdatei seit dem letzten
+    Mal geändert haben (`GAPS_STAMP`). Wirft nie."""
+    temp = None
+    try:
+        if not target or not os.path.isfile(target):
+            return 0
+        stamp = archive_stamp(game_folder)
+        if not stamp:
+            return 0
+        if _gaps_mark(stamp, target) == paths.setting(GAPS_STAMP):
+            return 0
+        original, _message = read_from_archive('english', game_folder)
+        if not original:
+            return 0
+        with open(target, 'rb') as f:
+            current = f.read()
+        lines = missing_lines(original, current)
+        if lines:
+            newline = b'\r\n' if b'\r\n' in current[:65536] else b'\n'
+            extra = newline.join(lines) + newline
+            if current and not current.endswith((b'\n', b'\r')):
+                extra = newline + extra
+            temp = target + '.tmp'
+            with open(temp, 'wb') as f:
+                f.write(current + extra)
+            os.replace(temp, target)
+            temp = None
+        paths.set_setting(GAPS_STAMP, _gaps_mark(stamp, target))
+        return len(lines)
+    except Exception as exc:
+        from . import errors
+        errors.record('gametext.fill_gaps', exc)
+        return 0
+    finally:
+        if temp and os.path.exists(temp):
+            try:
+                os.remove(temp)
+            except OSError:
+                pass
+
+
 def _write_original(ziel, daten):
     """Die Originaltexte atomar an den Zielort schreiben und die gemerkten
     Originaltexte der alten Datei verwerfen. Wirft bei Schreibfehlern."""
