@@ -442,15 +442,24 @@ def fast_destroy(window):
         window.withdraw()
     except tk.TclError:
         pass
+    destroy_in_portions([window], window.master)
 
-    # ⭐⭐ **In Portionen, mit Pausen dazwischen.** Auch der eine Tk-Aufruf
-    # braucht bei rund 7000 Elementen über eine Sekunde — und so lange stünde
-    # das Overlay, das im selben Faden läuft, still. Das Fenster ist schon
-    # weg; abgebaut wird jetzt Teilbaum für Teilbaum, und zwischen zwei
-    # Portionen kommt das Overlay dran.
-    portionen = _destroy_batches(_destroy_chunks(window, DESTROY_CHUNK),
-                                 DESTROY_CHUNK)
-    takt = window.master
+
+def destroy_in_portions(widgets, clock, start_now=True):
+    """Bereits unsichtbare Teilbäume abbauen, Portion für Portion.
+    `start_now=False`: auch die erste Portion erst nach einer Pause, damit
+    vorher gezeichnet wird, was neu dasteht.
+
+    ⭐⭐ **In Portionen, mit Pausen dazwischen.** Auch der eine Tk-Aufruf
+    braucht bei rund 7000 Elementen über eine Sekunde — und so lange stünde
+    das Overlay, das im selben Faden läuft, still. Zwischen zwei Portionen
+    kommt die Ereignisschleife dran. `clock` ist das Element, an dem die
+    Pausen hängen; es muss den Abbau überleben."""
+    chunks = []
+    for widget in widgets:
+        chunks.extend(_destroy_chunks(widget, DESTROY_CHUNK))
+    portionen = _destroy_batches(chunks, DESTROY_CHUNK)
+    takt = clock
 
     def schritt():
         while portionen:
@@ -463,7 +472,13 @@ def fast_destroy(window):
                 except (tk.TclError, AttributeError, RuntimeError):
                     continue           # kein Takt mehr — dann sofort weiter
 
-    schritt()
+    if start_now:
+        schritt()
+        return
+    try:
+        takt.after(DESTROY_PAUSE_MS, schritt)
+    except (tk.TclError, AttributeError, RuntimeError):
+        schritt()
 
 
 # Höchstens so viele Elemente je Portion beim Abbauen, und so lange Pause
@@ -3876,8 +3891,20 @@ class MainWindow:
         """
         merker = self.current
         offen = self.advanced_open
-        for kind in self.root.winfo_children():
-            kind.destroy()
+        # ⚠⚠ Erst nur ausblenden, abgebaut wird nach dem Neuaufbau in
+        # Portionen: Ein `destroy()` aller rund 7000 Elemente am Stück hielt
+        # das Fenster mehrere Sekunden fest, bevor die neue Ansicht stand.
+        alte = list(self.root.winfo_children())
+        for kind in alte:
+            try:
+                if isinstance(kind, (tk.Toplevel, tk.Tk)):
+                    kind.withdraw()
+                else:
+                    {'pack': kind.pack_forget, 'grid': kind.grid_forget,
+                     'place': kind.place_forget}.get(kind.winfo_manager(),
+                                                     lambda: None)()
+            except tk.TclError:
+                pass
         self.pages, self.drawn, self.buttons = {}, set(), {}
         self._tab_states = {}
         self._sidebar_measured = None
@@ -3896,6 +3923,7 @@ class MainWindow:
         if offen:
             self._collapse_toggle()
         self.open_page(merker or 'liste')
+        destroy_in_portions(alte, self.root, start_now=False)
 
         # ⚠ Die Mindestgroesse muss mitwachsen. Sie haengt an der Hoehe der
         # Seitenleiste, und die haengt an der Schrift: Bei grosser Schrift

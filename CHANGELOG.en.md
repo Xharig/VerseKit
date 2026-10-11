@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.4 - 2026-10-11
+
+> Switching between the card view and the tab view is noticeably faster: the
+> new view appears right away, and the old one is cleared away in the
+> background afterwards.
+
+### Improved
+
+- **Switching views without a freeze** — when switching between card view and
+  tab view (and after changing the language or font size) the window stood
+  still for several seconds until the old view was taken down. Now the new
+  one appears right away. Reported by Drachennarr
+
 ## v4.1.3 - 2026-10-11
 
 > A small fix: toggle switches that rebuild their page when flipped no longer

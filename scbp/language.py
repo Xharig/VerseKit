@@ -2997,8 +2997,8 @@ TEXTS = {
                               'a rank starts at.'),
     's_dk_drachennarr_idee': ('**Tode und Standort aus dem Spielprotokoll** — der Hinweis, dass ein Tod an der eigenen Körpernummer eindeutig zu erkennen ist und der aktuelle Ort im Log steht. Danke!',
                               '**Deaths and location from the game log** — the hint that a death can be told apart by your own body number and that the current place is in the log. Thank you!'),
-    's_dk_drachennarr_bugs': ('**Eine Prüfung des ganzen Quelltexts** — über dreißig Funde, darunter verlorene Rückmeldungen aus Nebenfäden, Nutzerdaten, die bei einem Absturz verloren gehen konnten, und Spieldateien, die halb geschrieben zurückbleiben konnten. Danke!',
-                              '**A review of the whole source code** — over thirty findings, among them feedback lost from background threads, user data that could be lost in a crash, and game files that could be left half-written. Thank you!'),
+    's_dk_drachennarr_bugs': ('**Eine Prüfung des ganzen Quelltexts** — über dreißig Funde, darunter verlorene Rückmeldungen aus Nebenfäden, Nutzerdaten, die bei einem Absturz verloren gehen konnten, und Spieldateien, die halb geschrieben zurückbleiben konnten. Dazu der träge Wechsel zwischen Karten- und Reiteransicht. Danke!',
+                              '**A review of the whole source code** — over thirty findings, among them feedback lost from background threads, user data that could be lost in a crash, and game files that could be left half-written. Plus the sluggish switch between card view and tab view. Thank you!'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
     's_dk_sotth_idee':       ('**Das Prüfintervall der Game.log sichtbar unter „Allgemein"** — '

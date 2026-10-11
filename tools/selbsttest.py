@@ -25421,6 +25421,7 @@ def main():
     _pruefung_429()
     _pruefung_430()
     _pruefung_431()
+    _pruefung_432()
 
     print()
     if fehler:
@@ -40080,6 +40081,70 @@ def _pruefung_431():
                % ', '.join(repr(e) for e in _gefangen431))
     finally:
         _wz431.report_callback_exception = _echt_melden431
+
+
+def _pruefung_432():
+    """432. Ansichtswechsel: alter Inhalt weg vom Schirm, Abbau danach."""
+    print('\n432. Ansichtswechsel baut den alten Inhalt erst danach ab')
+    import tempfile as _tf432
+    import time as _ti432
+    import tkinter as tk
+    from scbp import main_window as _mw432, paths as _pa432
+    _heim432 = _tf432.mkdtemp(prefix='ansicht-')
+    _alt_heim432 = os.environ.get('SC_BP_HOME')
+    _w432 = None
+    try:
+        os.environ['SC_BP_HOME'] = _heim432
+        _pa432.set_setting(_mw432.MainWindow.VIEW_SETTING, 'reiter')
+        _w432 = _wurzel()
+        _f432 = _mw432.MainWindow(_w432, version='0.0.0-pruefung',
+                                  start_page='uebersicht')
+        _w432.update()
+        for _s432 in ('liste', 'allgemein'):
+            _f432.open_page(_s432)
+            _w432.update()
+        _alte432 = list(_f432.root.winfo_children())
+        _anzahl432 = sum(_mw432._widget_count(k) for k in _alte432)
+        pruefe(_anzahl432 > 200,
+               'genug alter Inhalt, damit der Abbau etwas misst (%d)'
+               % _anzahl432)
+        _f432._toggle_view()
+        pruefe(_f432.card_mode() and _f432.current == 'allgemein',
+               'die Ansicht ist gewechselt, die offene Seite bleibt (%r)'
+               % _f432.current)
+        _sichtbar432 = [str(k) for k in _alte432 if k.winfo_exists() and (
+            k.winfo_manager() or (isinstance(k, tk.Toplevel)
+                                  and k.winfo_ismapped()))]
+        pruefe(not _sichtbar432,
+               'kein alter Teil steht mehr im Fenster (%r)' % _sichtbar432[:3])
+        _noch432 = [k for k in _alte432 if k.winfo_exists()]
+        pruefe(len(_noch432) == len(_alte432),
+               'der Wechsel wartet nicht auf den Abbau (%d von %d schon weg)'
+               % (len(_alte432) - len(_noch432), len(_alte432)))
+        _ende432 = _ti432.time() + 15
+        while (_ti432.time() < _ende432
+               and any(k.winfo_exists() for k in _alte432)):
+            _w432.update()
+            _ti432.sleep(0.01)
+        _rest432 = [str(k) for k in _alte432 if k.winfo_exists()]
+        pruefe(not _rest432, 'danach ist der alte Inhalt ganz abgebaut (%r)'
+               % _rest432[:3])
+        pruefe(not [k for k in _alte432 if k in _f432.root.children.values()],
+               'und auch aus der Buchhaltung von tkinter verschwunden')
+        pruefe(_f432.pages.get('allgemein') is not None
+               and _f432.pages['allgemein'].winfo_exists(),
+               'die neue Seite steht noch')
+    finally:
+        try:
+            if _w432 is not None:
+                _w432.destroy()
+        except Exception:
+            pass
+        if _alt_heim432 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim432
+        shutil.rmtree(_heim432, ignore_errors=True)
 
 
 def _after_in_threads_429(tree):

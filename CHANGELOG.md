@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.4 - 2026-10-11
+
+> Der Wechsel zwischen Karten- und Reiteransicht geht spürbar schneller: Die
+> neue Ansicht steht sofort da, die alte wird erst danach im Hintergrund
+> weggeräumt.
+
+### Verbessert
+
+- **Ansicht wechseln ohne Hänger** — beim Umschalten zwischen Karten- und
+  Reiteransicht (und nach einem Sprach- oder Schriftwechsel) hielt das
+  Fenster mehrere Sekunden still, bis die alte Ansicht abgebaut war. Jetzt
+  erscheint die neue sofort. Gemeldet von Drachennarr
+
 ## v4.1.3 - 2026-10-11
 
 > Eine kleine Korrektur: Schiebeschalter, die beim Umlegen ihre Seite neu
