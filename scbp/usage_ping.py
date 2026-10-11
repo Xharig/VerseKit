@@ -29,10 +29,12 @@ Installationen es wirklich gibt.
 | `ui` | Sprache der Oberfläche (`de`, `en`) |
 | `game` | Sprache des Spiels (`de`, `en`, … — `xx`, wenn unbekannt) |
 | `rc` | ob Testversionen angeboten werden (ja/nein) |
-| `mods` | welche abschaltbaren Bereiche an sind (`schiffe`, `handel` …) |
+| `mods` | welche abschaltbaren Bereiche an sind (`schiffe`, `handel`, `basetool` …) |
 | `overlay` | wie das Overlay läuft (`immer` oder `popup`) |
 | `autostart` | ob VerseKit mit dem Rechner startet (ja/nein) |
 | `update` | ob neue Versionen von selbst eingespielt werden (ja/nein) |
+| `view` | Kartenansicht oder Reiteransicht (`karten`, `reiter`) |
+| `tiles_off` | welche Kacheln der Startseite ausgeblendet sind (feste Kennungen aus `overview.TILES`) |
 | `pages` | Aufrufe je Seite des Hauptfensters (`{"liste": 12}`) |
 | `entry` | auf welchem Weg eine Seite geöffnet wurde, je Seite |
 | `clicks` | Klicks bis zur Zielseite, als Verteilung je Seite |
@@ -112,7 +114,8 @@ def system():
 
 
 FIELDS = ('v', 'os', 'ui', 'game', 'rc', 'mods', 'overlay', 'autostart',
-          'update', 'pages', 'entry', 'clicks', 'misses', 'actions')
+          'update', 'view', 'tiles_off', 'pages', 'entry', 'clicks',
+          'misses', 'actions')
 
 # Sprachordner des Spiels (`german_(germany)`) -> Kürzel. Unbekanntes wird
 # `xx` — nie der Ordnername selbst, der könnte alles Mögliche enthalten.
@@ -142,8 +145,26 @@ def _game_language():
 
 
 def _modules():
-    from . import modules
-    return sorted(g for g in modules.SWITCHABLE if modules.enabled(g))
+    """Die eingeschalteten Bereiche — auch Basetool, das keine Gruppe in der
+    Seitenleiste hat und deshalb einen eigenen Schalter."""
+    from . import cards, modules
+    found = [g for g in modules.SWITCHABLE if modules.enabled(g)]
+    if paths.setting_bool(cards.BASETOOL_SETTING, True):
+        found.append('basetool')
+    return sorted(found)
+
+
+def _view():
+    from .main_window import MainWindow
+    return 'karten' if paths.setting(MainWindow.VIEW_SETTING) == 'karten' \
+        else 'reiter'
+
+
+def _tiles_off():
+    """Die ausgeblendeten Kacheln der Startseite — nur feste Kennungen."""
+    from . import overview
+    shown = set(overview.visible_tiles())
+    return sorted(key for key, _label in overview.TILES if key not in shown)
 
 
 def _overlay():
@@ -183,6 +204,8 @@ def payload(version, system_name=None, navigation=None):
         'overlay': _safe(_overlay, 'immer'),
         'autostart': _safe(_autostart, False),
         'update': _safe(_auto_update, True),
+        'view': _safe(_view, 'reiter'),
+        'tiles_off': _safe(_tiles_off, []),
         **_safe(lambda: _navigation(navigation),
                 {'pages': {}, 'entry': {}, 'clicks': {}, 'misses': {},
                  'actions': {}}),

@@ -41,15 +41,18 @@ Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com
 | System | Windows or Linux |
 | Language of the interface and of the game | `de`, `en` |
 | whether you are offered test versions | yes / no |
-| which areas are switched on | Ships, Workshop, Trade … |
+| which areas are switched on | Ships, Workshop, Trade, Basetool … |
 | how the overlay runs | always visible / only on new blueprints |
 | whether Verse-Kit starts with your computer | yes / no |
 | whether new versions are installed automatically | yes / no |
+| whether you use the card view or the tab view | cards / tabs |
+| which tiles of the start page you have hidden | Play time, Computer … |
 | which pages of the main window you opened, how often | Blueprint list 12×, Shops 3× |
 | how a page was opened | sidebar, jump, overlay, tray menu, program start |
 | how many clicks it took to reach a page | Shops: 5× after 2 clicks |
 | which page you left again after a few seconds, and where you stayed next | Selling → Shops: 7× |
 | how often you added to the material storage by hand, added a refinery yield, read the screen or pressed "Sync now" | Screen read: 2× |
+| how often you used the buttons on the cards (Sync now, refinery scanner, mining scanner, check or reload translation) and opened the "What's new" gallery, opened a page from it or tried the card view | Sync now: 1× |
 
 The page and action details are only counters since the last report, using
 fixed IDs — no content, no amounts, no resources, no search terms, no names, no

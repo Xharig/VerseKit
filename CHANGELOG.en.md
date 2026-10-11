@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.2 - 2026-10-11
+
+> The anonymous usage count now also covers what came with 4.0: whether the
+> card view or the tab view is used, which start-page tiles are hidden, and
+> how often the new buttons are used. As always without any ID and can be
+> switched off.
+
+### Improved
+
+- **Count usage** now also reports whether you use the card view or the tab
+  view, which start-page tiles you have hidden and whether the Basetool area
+  is on. It also counts how often the buttons on the cards (Sync now, refinery
+  scanner, mining scanner, translation) and the "What's new" gallery are
+  used — only the number, nothing about you. Listed in full in the privacy
+  policy; can be switched off under *Settings → General → Count usage*.
+
 ## v4.1.1 - 2026-10-11
 
 > Better protection for your data: Verse-Kit saves your collection, storage

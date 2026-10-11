@@ -94,6 +94,24 @@ export const ACTIONS = {
   lager_raffinerie: 'Rohstofflager: Raffinerie-Ausbeute eingetragen',
   lager_scan: 'Rohstofflager: Bildschirm gelesen',
   lager_sync: 'Rohstofflager: Jetzt übertragen',
+  abgleich_karte: 'Basetool: Karte „Jetzt abgleichen"',
+  karte_raffinerie: 'Karte: Raffinerie-Scanner',
+  karte_scanner: 'Karte: Mining-Scanner an/aus',
+  karte_tr_pruefen: 'Karte: Übersetzung prüfen',
+  karte_tr_neu: 'Karte: Übersetzung neu einlesen',
+  galerie_offen: 'Galerie „Was ist neu" geöffnet',
+  galerie_sprung: 'Galerie: zur Seite gesprungen',
+  galerie_karten: 'Galerie: Kartenansicht ausprobiert',
+};
+
+// Die Kacheln der Startseite (`overview.TILES`) — für das Merkmal der
+// ausgeblendeten Kacheln. Andere Kennungen lehnt der Worker ab.
+export const TILES = {
+  spiel: 'Spiel', standort: 'Standort', bauplaene: 'Baupläne',
+  uebersetzung: 'Übersetzung', spielzeit: 'Spielzeit', rechner: 'Rechner',
+  dienste: 'Dienste', raffinerie: 'Raffinerie', lager: 'Lager',
+  auftraege: 'Aufträge', neu_patch: 'Neu im Patch', merkliste: 'Merkliste',
+  bedarf: 'Bedarf der Einheit', funde: 'Letzte Funde', sicherung: 'Sicherung',
 };
 
 // Die Stufe MAX_CLICKS steht für so viele Klicks und mehr (`page_usage.MAX_CLICKS`).

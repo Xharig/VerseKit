@@ -66,7 +66,10 @@ FIELDS = ('pages', 'entry', 'clicks', 'misses', 'actions')
 ROUTES = ('seitenleiste', 'sprung', 'overlay', 'tray', 'start', 'karte',
           'pfad')
 # Die Handlungen, die `action()` zählt — eine feste Liste, nichts sonst.
-ACTIONS = ('lager_hand', 'lager_raffinerie', 'lager_scan', 'lager_sync')
+ACTIONS = ('lager_hand', 'lager_raffinerie', 'lager_scan', 'lager_sync',
+           'abgleich_karte', 'karte_raffinerie', 'karte_scanner',
+           'karte_tr_pruefen', 'karte_tr_neu', 'galerie_offen',
+           'galerie_sprung', 'galerie_karten')
 
 MISS_SECONDS = 3.0
 MAX_CLICKS = 10                 # Stufe 10 steht für 10 und mehr Klicks

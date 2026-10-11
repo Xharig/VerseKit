@@ -30483,9 +30483,9 @@ def _pruefung_305():
                'Vorbedingung: die Gegenstelle fängt die Meldung ab (%r, %d)'
                % (erg, len(gesendet)))
         _erlaubt305 = sorted(['v', 'os', 'ui', 'game', 'rc', 'mods',
-                              'overlay', 'autostart', 'update',
-                              'pages', 'entry', 'clicks', 'misses',
-                              'actions'])
+                              'overlay', 'autostart', 'update', 'view',
+                              'tiles_off', 'pages', 'entry', 'clicks',
+                              'misses', 'actions'])
         pruefe(gesendet and sorted(gesendet[0]) == _erlaubt305,
                'es gehen GENAU die Felder aus PRIVACY.md hinaus (%r)'
                % (sorted(gesendet[0]) if gesendet else None))
@@ -30500,8 +30500,48 @@ def _pruefung_305():
                and isinstance(_g305.get('autostart'), bool)
                and isinstance(_g305.get('update'), bool)
                and _g305.get('overlay') in ('immer', 'popup')
+               and _g305.get('view') in ('karten', 'reiter')
                and all(re.match(r'^[a-z]{1,20}$', m) for m in _g305.get('mods', [None])),
                'jede Angabe ist ein Kürzel, Ja/Nein oder ein fester Name (%r)' % _g305)
+        # Ausgeblendete Kacheln: nur feste Kennungen, und der Worker kennt
+        # genau dieselben (`TILES` in pages.js) — sonst lehnt er ab.
+        from scbp import overview as _ov305
+        _kacheln305 = [k for k, _l in _ov305.TILES]
+        pruefe(isinstance(_g305.get('tiles_off'), list)
+               and all(k in _kacheln305 for k in _g305.get('tiles_off', [])),
+               'ausgeblendete Kacheln nur als feste Kennungen (%r)'
+               % _g305.get('tiles_off'))
+        with open(os.path.join(WURZEL, 'tools', 'nutzung-worker', 'pages.js'),
+                  encoding='utf-8') as f:
+            _quelle305 = f.read()
+        _block305 = _quelle305[_quelle305.index('export const TILES'):]
+        _block305 = _block305[:_block305.index('};')]
+        _worker305 = re.findall(r'\b([a-z_]+):', _block305)
+        pruefe(sorted(_worker305) == sorted(_kacheln305),
+               'Worker (pages.js) und Programm kennen dieselben Kacheln '
+               '(Worker %r)' % sorted(_worker305))
+        pruefe('basetool' in _g305.get('mods', []),
+               'der Basetool-Bereich wird mitgemeldet, wenn er an ist')
+        # Jede Handlung aus ACTIONS wird irgendwo gezählt: als Aufruf
+        # `…action('<key>')` oder `_counted('<key>', …)` im Programm.
+        import ast as _as305
+        from scbp import page_usage as _pu305
+        _gezaehlt305 = set()
+        for _n305 in [os.path.join(WURZEL, 'sc_bp_watcher.py')] + [
+                os.path.join(WURZEL, 'scbp', x)
+                for x in os.listdir(os.path.join(WURZEL, 'scbp'))
+                if x.endswith('.py')]:
+            with open(_n305, encoding='utf-8') as f:
+                for _k305 in _as305.walk(_as305.parse(f.read())):
+                    if isinstance(_k305, _as305.Call) and _k305.args \
+                            and (getattr(_k305.func, 'attr', None) == 'action'
+                                 or getattr(_k305.func, 'id', None)
+                                 == '_counted') \
+                            and isinstance(_k305.args[0], _as305.Constant):
+                        _gezaehlt305.add(_k305.args[0].value)
+        _nie305 = sorted(set(_pu305.ACTIONS) - _gezaehlt305)
+        pruefe(not _nie305, 'jede Handlung aus ACTIONS wird im Programm '
+               'gezählt (nie: %s)' % _nie305)
 
         erg2 = _up305.send_if_due('3.65.0', day='2026-10-01', opener=_gegenstelle)
         pruefe(erg2 == 'schon' and len(gesendet) == 1,

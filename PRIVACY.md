@@ -41,15 +41,18 @@ Einmal am Tag schickt Verse-Kit an `nutzung-versekit.xharig.com` genau diese Ang
 | System | Windows oder Linux |
 | Sprache der Oberfläche und des Spiels | `de`, `en` |
 | ob du Testversionen angeboten bekommst | ja / nein |
-| welche Bereiche eingeschaltet sind | Schiffe, Werkstatt, Handel … |
+| welche Bereiche eingeschaltet sind | Schiffe, Werkstatt, Handel, Basetool … |
 | wie das Overlay läuft | immer sichtbar / nur bei neuen Bauplänen |
 | ob Verse-Kit mit dem Rechner startet | ja / nein |
 | ob neue Versionen von selbst eingespielt werden | ja / nein |
+| ob du die Karten- oder die Reiteransicht nutzt | Karten / Reiter |
+| welche Kacheln der Startseite du ausgeblendet hast | Spielzeit, Rechner … |
 | welche Seiten im Hauptfenster du geöffnet hast, wie oft | Bauplan-Liste 12×, Shops 3× |
 | auf welchem Weg eine Seite geöffnet wurde | Seitenleiste, Sprung, Overlay, Tray-Menü, Programmstart |
 | wie viele Klicks es bis zu einer Seite brauchte | Shops: 5× nach 2 Klicks |
 | welche Seite du nach wenigen Sekunden wieder verlassen hast, und wo du danach geblieben bist | Verkauf → Shops: 7× |
 | wie oft du im Rohstofflager von Hand eingetragen, eine Raffinerie-Ausbeute eingetragen, den Bildschirm gelesen oder „Jetzt übertragen" gedrückt hast | Bildschirm gelesen: 2× |
+| wie oft du die Knöpfe auf den Karten genutzt hast (Jetzt abgleichen, Raffinerie-Scanner, Mining-Scanner, Übersetzung prüfen oder neu einlesen) und die Galerie „Was ist neu" geöffnet, daraus eine Seite geöffnet oder die Kartenansicht ausprobiert hast | Jetzt abgleichen: 1× |
 
 Die Seiten- und Handlungsangaben sind nur Zähler seit der letzten Meldung, mit
 festen Kennungen — keine Inhalte, keine Mengen, keine Rohstoffe, keine

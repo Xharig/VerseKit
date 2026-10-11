@@ -60,6 +60,25 @@ test('Vorbedingung: eine vollständige Meldung wird gezählt', async () => {
                                  'overlay=popup', 'rc=nein', 'ui=de', 'update=nein']);
 });
 
+test('Ansicht und ausgeblendete Kacheln werden als Merkmale gezählt', async () => {
+  const e = env();
+  const r = await worker.fetch(ping({ ...FULL, view: 'karten', tiles_off: ['spielzeit', 'rechner'] }), e);
+  assert.equal(r.status, 204);
+  const merk = e.DB.calls.filter((c) => /INTO merkmale/.test(c.sql)).map((c) => c.args.slice(1).join('='));
+  for (const m of ['ansicht=karten', 'kachel_aus=spielzeit', 'kachel_aus=rechner']) assert.ok(merk.includes(m), m);
+});
+
+test('falsche Ansicht oder unbekannte Kachel wird abgelehnt', async () => {
+  for (const b of [{ view: 'liste' }, { view: true }, { tiles_off: 'spielzeit' },
+                   { tiles_off: ['C:/x'] }, { tiles_off: ['spielzeit', 'spielzeit'] },
+                   { tiles_off: ['gibtsnicht'] }]) {
+    const e = env();
+    const r = await worker.fetch(ping({ ...FULL, ...b }), e);
+    assert.equal(r.status, 400, JSON.stringify(b));
+    assert.equal(e.DB.calls.length, 0);
+  }
+});
+
 test('ältere Fassungen ohne Feld update werden weiter gezählt', async () => {
   const e = env();
   const { update, ...old } = FULL;

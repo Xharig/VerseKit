@@ -6,7 +6,7 @@
 // und Stil mit dem Einmal-Wert (`nonce`) dieser Antwort zu.
 
 import { ICON } from './icon.js';
-import { PAGES, ROUTES, ACTIONS, MERGED, MAX_CLICKS } from './pages.js';
+import { PAGES, ROUTES, ACTIONS, MERGED, TILES, MAX_CLICKS } from './pages.js';
 
 // Für das Skript der Seite: als JSON, `<` maskiert, damit kein Name das
 // Skript-Element beenden kann.
@@ -23,7 +23,7 @@ export function dashboardHtml(nonce) {
 <link rel="icon" type="image/png" href="${ICON}">
 <style nonce="${nonce}">
 :root { --bg:#0f1417; --card:#171e22; --line:#26313a; --fg:#e6edf0; --sub:#8a9aa3;
-        --accent:#9ce430; --b:#4fb3ff; --c:#ffb547; --d:#c792ea; }
+        --accent:#9ce430; --b:#4fb3ff; --c:#ffb547; --d:#c792ea; --e:#ff7a90; --f:#5fe0d0; }
 * { box-sizing:border-box; }
 /* ⚠ Ohne diese Zeile schlägt display:grid der Balkenzeilen das hidden —
    die eingeklappten Zeilen blieben sichtbar. */
@@ -123,18 +123,20 @@ let land;
 try { land = new Intl.DisplayNames(['de'], { type: 'region' }); } catch (e) { land = null; }
 const landName = (c) => c === 'XX' ? 'unbekannt' : c === 'T1' ? 'Tor' : (land && land.of(c)) || c;
 const NAMES = { ui: { de: 'Deutsch', en: 'Englisch' }, overlay: { immer: 'immer sichtbar', popup: 'nur bei neuen Bauplänen' },
-  mod: { schiffe: 'Schiffe', werkstatt: 'Werkstatt', bergung: 'Bergung', handel: 'Handel', statistiken: 'Statistiken' } };
+  mod: { schiffe: 'Schiffe', werkstatt: 'Werkstatt', bergung: 'Bergung', handel: 'Handel', statistiken: 'Statistiken',
+    basetool: 'Basetool' } };
 const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch',
   pt: 'Portugiesisch', pl: 'Polnisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch', ru: 'Russisch', xx: 'unbekannt' }[c] || c);
 const PAGES = ${asScript(PAGES)};
 const ROUTES = ${asScript(ROUTES)};
 const ACTIONS = ${asScript(ACTIONS)};
 const MERGED = ${asScript(MERGED)};
+const TILES = ${asScript(TILES)};
 const MAX_CLICKS = ${MAX_CLICKS};
 // Seite, unter der eine Kennung gezählt wird (MERGED, sonst sie selbst).
 const alias = (p) => MERGED[p] || p;
 const ROUTE_COLORS = { seitenleiste: 'var(--accent)', sprung: 'var(--b)', overlay: 'var(--c)',
-  tray: 'var(--d)', start: 'var(--sub)' };
+  tray: 'var(--d)', start: 'var(--sub)', karte: 'var(--e)', pfad: 'var(--f)' };
 const pageName = (p) => (PAGES[p] || ['', p])[1];
 const stepName = (k) => (Number(k) >= MAX_CLICKS ? MAX_CLICKS + '+' : String(k));
 
@@ -391,12 +393,21 @@ function render(d, span) {
     ['Testversionen an', (share('rc').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Autostart an', (share('autostart').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Auto-Update an', (share('update').find((x) => x[0] === 'ja') || [0, 0])[1]],
-    ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
+    ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v]),
+    ...share('ansicht').map(([c, v]) => [c === 'karten' ? 'Kartenansicht' : 'Reiteransicht', v])], pct);
 
   // 7.–10. Seiten des Hauptfensters und Handlungen über den gewählten
   // Zeitraum — vier breite Karten unter den kleinen, damit die zwei
   // Dreierreihen geschlossen bleiben.
   pageBlocks(d, inSpan);
+
+  // 11. Ausgeblendete Kacheln der Startseite — jede aus TILES, auch mit 0.
+  // Anteil an den Meldungen der letzten 7 Tage (ältere Fassungen melden
+  // nichts und ziehen den Anteil nach unten, bis sie ausgetauscht sind).
+  const off = Object.fromEntries(share('kachel_aus'));
+  const tc = card('Ausgeblendete Kacheln der Startseite (Ø 7 Tage)', true);
+  bars(tc, Object.keys(TILES).map((k) => [TILES[k], off[k] || 0]), pct);
+  tc.appendChild($('div', { class: 'note', text: 'Erst ab v4.1.2 gemeldet. Ab Werk ist nur die Spielzeit ausgeblendet.' }));
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
     + ' · lädt alle 10 Minuten neu';

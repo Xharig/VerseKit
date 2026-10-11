@@ -27,7 +27,7 @@
 // gezählt wird die Menge, nicht die Person.
 
 import { dashboardHtml } from './dashboard.js';
-import { PAGES, ROUTES, ACTIONS, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
+import { PAGES, ROUTES, ACTIONS, TILES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
 
 // Reicht für die größte Meldung, die das Programm bauen kann: jede Seite mit
 // jedem Weg und jeder Klickstufe, dazu alle Fehlgriff-Paare (Prüfung im Test).
@@ -38,8 +38,9 @@ const LANG_RE = /^[a-z]{2}$/;
 const MODULE_RE = /^[a-z]{1,20}$/;
 const MAX_MODULES = 12;
 const OVERLAY = ['immer', 'popup'];
+const VIEWS = ['karten', 'reiter'];
 const FIELDS = ['actions', 'autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os',
-                'overlay', 'pages', 'rc', 'ui', 'update', 'v'];
+                'overlay', 'pages', 'rc', 'tiles_off', 'ui', 'update', 'v', 'view'];
 const COUNTRY_RE = /^[A-Z][A-Z0-9]$/;   // ISO-Kürzel; Cloudflare nutzt auch T1 (Tor), XX (unbekannt)
 const STATS_HOST = 'statistik-versekit.xharig.com';
 const MAX_DAYS = 400;
@@ -109,6 +110,20 @@ export async function check(request) {
       if (typeof m !== 'string' || !MODULE_RE.test(m) || seen.has(m)) throw { status: 400, text: 'mods' };
       seen.add(m);
       out.traits.push(['mod', m]);
+    }
+  }
+  if (d.view !== undefined) {
+    if (!VIEWS.includes(d.view)) throw { status: 400, text: 'view' };
+    out.traits.push(['ansicht', d.view]);
+  }
+  if (d.tiles_off !== undefined) {
+    const keys = Object.keys(TILES);
+    if (!Array.isArray(d.tiles_off) || d.tiles_off.length > keys.length) throw { status: 400, text: 'tiles_off' };
+    const seen = new Set();
+    for (const k of d.tiles_off) {
+      if (typeof k !== 'string' || !own(TILES, k) || seen.has(k)) throw { status: 400, text: 'tiles_off' };
+      seen.add(k);
+      out.traits.push(['kachel_aus', k]);
     }
   }
   out.nav = navigation(d);

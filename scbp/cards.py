@@ -512,12 +512,22 @@ def _place_extra(widget):
     return widget
 
 
+def _counted(key, action):
+    """`action` ausführen und den Klick zählen (`page_usage.ACTIONS`)."""
+    def run(*args):
+        from . import page_usage
+        page_usage.action(key)
+        return action(*args)
+    return run
+
+
 def _scan_extra(window):
     def build(parent):
         from . import overview
         return _place_extra(_small_button(
             window, parent, t('k_raff_scanner'),
-            lambda: overview.refinery_scan_now(window)))
+            _counted('karte_raffinerie',
+                     lambda: overview.refinery_scan_now(window))))
     return build
 
 
@@ -528,7 +538,8 @@ SYNC_CARD = 'abgleich'
 def sync_now(window):
     """Den Basetool-Abgleich sofort anstoßen und das Ergebnis in der
     Statuszeile melden. Ohne Verbindung geht es zur Verbindungsseite."""
-    from . import basetool, basetool_sync, pages
+    from . import basetool, basetool_sync, page_usage, pages
+    page_usage.action('abgleich_karte')
     try:
         ready = bool(basetool.CONNECTION.connected()
                      and basetool_sync.enabled())
@@ -580,6 +591,8 @@ def _mining_scanner_extra(window):
                 button.restyle(theme.SURFACE, theme.LINE, theme.SUB)
 
         def click(_e=None):
+            from . import page_usage
+            page_usage.action('karte_scanner')
             new_value = signature_watch.set_enabled(not is_on())
             window.say(t('s_bg_scan_sagen')
                        % (t('e_an') if new_value else t('e_aus')))
@@ -605,15 +618,17 @@ def _translation_extras(window):
         from . import overview
         button = _small_button(window, parent, t('k_tr_pruefen'), None)
         button.configure(cursor='hand2')
-        button.bind('<Button-1>',
-                    lambda _e: overview.translation_check(window, button))
+        button.bind('<Button-1>', _counted(
+            'karte_tr_pruefen',
+            lambda _e: overview.translation_check(window, button)))
         return _place_extra(button)
 
     def reload(parent):
         from . import overview
         return _place_extra(_small_button(
             window, parent, t('k_tr_neu'),
-            lambda: overview.translation_reload(window)))
+            _counted('karte_tr_neu',
+                     lambda: overview.translation_reload(window))))
     # Gepackt von rechts: `k_tr_pruefen` direkt neben dem Öffnen-Knopf,
     # `k_tr_neu` links davon.
     return [check, reload]

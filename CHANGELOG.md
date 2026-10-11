@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.2 - 2026-10-11
+
+> Die anonyme Nutzungszählung kennt jetzt auch die Neuerungen von 4.0: ob die
+> Karten- oder die Reiteransicht genutzt wird, welche Startseiten-Kacheln
+> ausgeblendet sind und wie oft die neuen Knöpfe gebraucht werden. Wie immer
+> ohne Kennung und abschaltbar.
+
+### Verbessert
+
+- **Nutzung zählen** meldet zusätzlich, ob du die Karten- oder die
+  Reiteransicht nutzt, welche Kacheln der Startseite du ausgeblendet hast und
+  ob der Basetool-Bereich an ist. Dazu zählt es, wie oft die Knöpfe auf den
+  Karten (Jetzt abgleichen, Raffinerie-Scanner, Mining-Scanner, Übersetzung)
+  und die Galerie „Was ist neu" genutzt werden — nur die Anzahl, nichts
+  über dich. Steht vollständig in der Datenschutzerklärung; abschaltbar unter
+  *Einstellungen → Allgemein → Nutzung zählen*.
+
 ## v4.1.1 - 2026-10-11
 
 > Mehr Sicherheit für deine Daten: Verse-Kit speichert Bestand, Lager und

@@ -55,6 +55,8 @@ def show(window):
         errors.record('gallery_window.rest', exc)
     slides = list(points) + ([None] if rest else [])
 
+    from . import page_usage
+    page_usage.action('galerie_offen')
     win = tk.Toplevel(window.root)
     win.title(t('gal_titel') % window.version)
     win.configure(bg=BG, highlightthickness=1, highlightbackground=LINE,
@@ -89,6 +91,8 @@ def show(window):
         draw()
 
     def open_tab(tab):
+        from . import page_usage
+        page_usage.action('galerie_sprung')
         close()
         try:
             window.open_page(tab, via='sprung')
@@ -96,6 +100,8 @@ def show(window):
             errors.record('gallery_window.open_tab', exc)
 
     def try_card_view():
+        from . import page_usage
+        page_usage.action('galerie_karten')
         close()
         try:
             if not window.card_mode():
