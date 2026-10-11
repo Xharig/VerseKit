@@ -39354,6 +39354,50 @@ def _pruefung_422():
         pruefe(len(_reihen) >= 2 and not _schief,
                'Kacheln einer Reihe sind gleich hoch gerahmt (%r)'
                % (_schief or _reihen))
+        # Der Link zur Kachelauswahl steht oben neben der Überschrift, außerhalb
+        # der Rollfläche, und klappt die Auswahl über den Kacheln auf.
+        _link422 = getattr(_seite, 'chooser_link', None)
+        _w422.update()
+        _lw_a = None
+        _such_a = [_seite]
+        while _such_a and _lw_a is None:
+            _x_a = _such_a.pop(0)
+            if getattr(_x_a, 'canvas', None) is not None:
+                _lw_a = _x_a.canvas
+            _such_a.extend(_x_a.winfo_children())
+        pruefe(_link422 is not None and _link422.winfo_ismapped()
+               and _lw_a is not None
+               and _link422.winfo_rooty() + _link422.winfo_height()
+               <= _lw_a.winfo_rooty(),
+               'Kacheln anpassen steht oben, über der Rollfläche')
+        _lw_a.yview_moveto(1.0)
+        _w422.update()
+        _link422.flip()
+        _w422.update()
+        # In der Auswahl steht der Kachelname wie geschrieben, in der Kachel
+        # selbst in Großbuchstaben — so lassen sich beide unterscheiden.
+        _name422 = _ov422.t('s_uv_lager')
+        _treffer = {'auswahl': [], 'kachel': []}
+
+        def _namen_suchen(w):
+            if w.winfo_class() == 'Label' and w.winfo_ismapped():
+                if w.cget('text') == _name422:
+                    _treffer['auswahl'].append(w.winfo_rooty())
+                elif w.cget('text') == _name422.upper():
+                    _treffer['kachel'].append(w.winfo_rooty())
+            for c in w.winfo_children():
+                _namen_suchen(c)
+        _namen_suchen(_seite)
+        pruefe(_lw_a.yview()[0] == 0.0
+               and _link422.cget('text') == _ov422.t('s_uv_anpassen_zu')
+               and _treffer['auswahl'] and _treffer['kachel']
+               and max(_treffer['auswahl']) < min(_treffer['kachel']),
+               'ein Klick klappt die Auswahl über den Kacheln auf und rollt '
+               'nach oben (%r)' % _treffer)
+        _link422.flip()
+        _w422.update()
+        pruefe(_link422.cget('text') == _ov422.t('s_uv_anpassen'),
+               'ein zweiter Klick klappt sie wieder zu')
         # Nach dem Verschieben bleibt die Rollstelle: Es sind Kacheln zu sehen.
         _w422.geometry('1200x600')
         _w422.update()

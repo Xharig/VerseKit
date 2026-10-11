@@ -6,6 +6,14 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Übersicht: Kacheln anpassen oben rechts** — der Link steht jetzt fest
+  neben der Überschrift und ist damit auch auf kleinen Bildschirmen immer zu
+  sehen. Die Auswahl klappt direkt über den Kacheln auf
+
 ## v3.98.2 - 2026-10-10
 
 > Aufträge im Overlay stimmen jetzt auch mit Gruppe und nach einem

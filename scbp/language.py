@@ -5581,11 +5581,11 @@ TEXTS = {
     # --- Startseite „Übersicht" ---
     'hf_uebersicht':     ('Übersicht', 'Overview'),
     's_uv_lead':         ('Das Wichtigste auf einen Blick. Kacheln lassen sich '
-                          'an der Überschrift greifen und verschieben; unten '
-                          'wählst du, welche zu sehen sind.',
+                          'an der Überschrift greifen und verschieben; oben '
+                          'rechts wählst du, welche zu sehen sind.',
                           'The essentials at a glance. Grab a tile by its '
-                          'heading to move it; below you choose which ones '
-                          'to show.'),
+                          'heading to move it; at the top right you choose '
+                          'which ones to show.'),
     's_uv_mehr':         ('Öffnen', 'Open'),
     's_uv_spiel':        ('Spiel', 'Game'),
     's_uv_laeuft':       ('Läuft', 'Running'),

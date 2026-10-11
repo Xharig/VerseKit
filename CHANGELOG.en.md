@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Overview: customise tiles at the top right** — the link now sits next to
+  the heading, so it is always visible, even on small screens. The selection
+  opens right above the tiles
+
 ## v3.98.2 - 2026-10-10
 
 > Contracts in the overlay are now right with a group and after a server

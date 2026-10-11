@@ -179,15 +179,17 @@ def builders():
 
 def overview_page(window, frame):
     from .pages import _heading, _scroll_area
+    before = set(frame.winfo_children())
     _heading(window, frame, t('hf_uebersicht'), t('s_uv_lead'))
+    title = [w for w in frame.winfo_children() if w not in before][0]
     parent = _scroll_area(frame)
+    chooser = tk.Frame(parent, bg=theme.BG)
     grid = tk.Frame(parent, bg=theme.BG)
-    grid.pack(fill='x')
+    grid.pack(fill='x', pady=(0, 16))
     grid.columnconfigure(0, weight=1, uniform='spalte')
     grid.columnconfigure(1, weight=1, uniform='spalte')
-
-    chooser = tk.Frame(parent, bg=theme.BG)
-    chooser.pack(fill='x', pady=(4, 16))
+    _chooser_link(window, frame, title, chooser, grid, parent,
+                  lambda: redraw())
 
     def draw():
         for child in grid.winfo_children():
@@ -344,27 +346,45 @@ def set_visible(key, on):
     return paths.set_setting(HIDDEN_SETTING, hidden)
 
 
+def _chooser_link(window, frame, title, chooser, grid, area, redraw):
+    """Der Link rechts neben der Überschrift — außerhalb der Rollfläche, also
+    auch auf kleinen Bildschirmen immer zu sehen. Er klappt die Auswahl über
+    den Kacheln auf und zu und rollt dabei nach oben."""
+    link = tk.Label(frame, text=t('s_uv_anpassen'), bg=theme.BG,
+                    fg=theme.ACCENT, font=window.f_small, cursor='hand2')
+    link.place(in_=title, relx=1.0, rely=0.5, anchor='e')
+    link.lift()
+    frame.chooser_link = link
+
+    def flip(_e=None):
+        chooser.opened = not getattr(chooser, 'opened', False)
+        link.configure(text=t('s_uv_anpassen_zu' if chooser.opened
+                              else 's_uv_anpassen'))
+        _chooser(window, chooser, redraw)
+        if chooser.opened:
+            chooser.pack(fill='x', pady=(0, 12), before=grid)
+        else:
+            chooser.pack_forget()
+        canvas = getattr(area, 'canvas', None)
+        if canvas is not None:
+            canvas.yview_moveto(0)
+    link.bind('<Button-1>', flip)
+    link.flip = flip
+    return link
+
+
 def _chooser(window, frame, redraw):
-    """Die Kachelauswahl — zugeklappt ein Link, aufgeklappt ein Schalter je
-    Kachel. Jede Änderung zeichnet die Übersicht sofort neu."""
+    """Die Kachelauswahl über den Kacheln — ein Schalter je Kachel, nur
+    solange `frame.opened` gilt (umgeschaltet über den Link neben der
+    Überschrift, `_chooser_link`). Jede Änderung zeichnet die Übersicht
+    sofort neu."""
     from .main_window import toggle_switch
     for child in frame.winfo_children():
         child.destroy()
-    opened = getattr(frame, 'opened', False)
-    link = tk.Label(frame, text=t('s_uv_anpassen_zu' if opened
-                                  else 's_uv_anpassen'),
-                    bg=theme.BG, fg=theme.ACCENT, font=window.f_small,
-                    cursor='hand2', anchor='w')
-    link.pack(fill='x')
-
-    def flip_open(_e=None):
-        frame.opened = not getattr(frame, 'opened', False)
-        _chooser(window, frame, redraw)
-    link.bind('<Button-1>', flip_open)
-    if not opened:
+    if not getattr(frame, 'opened', False):
         return
     current_tiles = visible_tiles()
-    # Zwei Spalten wie die Kacheln darüber, Schalter rechts am Namen.
+    # Zwei Spalten wie die Kacheln darunter, Schalter rechts am Namen.
     table = tk.Frame(frame, bg=theme.BG)
     table.pack(fill='x', pady=(4, 0))
     table.columnconfigure(0, weight=1, uniform='auswahl')
