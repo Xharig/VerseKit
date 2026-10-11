@@ -322,6 +322,13 @@ def card(window, cell, symbol, title, text, action, pin=None,
             return 'break'
         needle.bind('<Button-1>', flip)
         needle.configure(cursor='hand2')
+
+        def set_pin(on):
+            state['on'] = bool(on)
+            needle.swap_symbol('loesen' if state['on'] else 'anheften')
+            needle.recolor(icons.GREEN if state['on'] else icons.GREY)
+        box.set_pin = set_pin
+        box.is_pinned = lambda: state['on']
         from . import notice
         notice.attach(needle, lambda: t('k_nadel_loesen' if state['on']
                                         else 'k_nadel_anheften'))
@@ -441,3 +448,14 @@ def area_page(window, frame, kennung):
         cell = grid.add(build)
         cell.page_key = page
     frame.card_grid = grid
+
+    def refresh():
+        # Angeheftet kann auch an der Seitenüberschrift werden — beim Zeigen
+        # den Stand der Nadeln nachziehen.
+        now = pinned()
+        for cell in grid.cells:
+            try:
+                cell.card.set_pin(cell.page_key in now)
+            except (AttributeError, tk.TclError):
+                pass
+    window.on_show[area_page_id(kennung)] = refresh

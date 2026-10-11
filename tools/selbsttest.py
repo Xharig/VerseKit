@@ -39676,6 +39676,19 @@ def _pruefung_424():
     _w = None
     try:
         os.environ['SC_BP_HOME'] = _heim
+        pruefe(_mw424.settle_default_view(False) == 'karten'
+               and _mw424.settle_default_view(True) == 'karten',
+               'neue Installation: Kartenansicht, und sie bleibt gewählt')
+        _pa424.set_setting('ansicht', None)
+        pruefe(_mw424.settle_default_view(True) == 'reiter',
+               'schon eingerichtet: die Reiteransicht bleibt')
+        import inspect as _in424
+        import sc_bp_watcher as _sw424
+        _quelle = _in424.getsource(_sw424)
+        pruefe('settle_default_view(wizard.is_configured())' in _quelle
+               and _quelle.index('settle_default_view')
+               < _quelle.index('if wizard.needed():'),
+               'der Start legt die Ansicht vor dem Assistenten fest')
         _pa424.set_setting('ansicht', 'karten')
         _w = _wurzel()
         _w.deiconify()
@@ -39735,6 +39748,28 @@ def _pruefung_424():
         _w.update()
         pruefe([c.page_key for c in _start.pin_grid.cells] == ['lager'],
                'die angeheftete Karte steht unter Deine Karten')
+        # Anheften an der Seitenüberschrift (für die Reiteransicht). Die
+        # Bereichsseite steht schon vorher, damit sie nachziehen muss.
+        _f.open_page('bereich_spiel_einst', via='karte')
+        _w.update()
+        _f.open_page('grafik', via='karte', area='spiel_einst')
+        _w.update()
+        _kopfnadel = getattr(_f, '_heading_pins', {}).get('grafik')
+        pruefe(_kopfnadel is not None and _kopfnadel.winfo_ismapped(),
+               'neben der Seitenüberschrift steht eine Nadel')
+        if _kopfnadel is not None:
+            _kopfnadel.event_generate('<Button-1>')
+        pruefe(_ka424.pinned() == ['lager', 'grafik'],
+               'die Nadel an der Überschrift heftet an (%r)' % _ka424.pinned())
+        _f.open_page('bereich_spiel_einst', via='pfad')
+        _w.update()
+        _gk = [c for c in _f.pages['bereich_spiel_einst'].card_grid.cells
+               if c.page_key == 'grafik'][0]
+        pruefe(_gk.card.is_pinned(),
+               'die Karte im Bereich zieht den Nadelstand nach')
+        _ka424.set_pinned('grafik', False)
+        _f.open_page('uebersicht', via='pfad')
+        _w.update()
         # Basetool ausblenden.
         _pa424.set_setting(_ka424.BASETOOL_SETTING, False)
         _f.on_show['uebersicht']()

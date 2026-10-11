@@ -5805,6 +5805,8 @@ TEXTS = {
                          'Switch to tab view: all pages as a list on the '
                          'left.'),
     'k_zur_uebersicht': ('Zur Übersicht', 'To the overview'),
+    'k_angeheftet': ('An die Startseite geheftet', 'Pinned to the start page'),
+    'k_geloest': ('Von der Startseite gelöst', 'Unpinned from the start page'),
     'k_bereich_versekit': ('Verse-Kit', 'Verse-Kit'),
     'k_anpassen_bereiche': ('Hauptbereiche', 'Main areas'),
     'k_anpassen_kacheln': ('Kacheln auf einen Blick', 'At-a-glance tiles'),

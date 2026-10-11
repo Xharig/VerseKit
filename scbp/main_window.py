@@ -525,6 +525,19 @@ def _destroy_now(widget):
         pass
 
 
+def settle_default_view(configured):
+    """Die Ansicht festlegen, falls noch keine gewählt ist — beim Start, vor
+    dem Assistenten. `configured`: war Verse-Kit schon eingerichtet? Dann die
+    Reiteransicht, sonst die Kartenansicht. Eine gewählte Ansicht bleibt.
+    Gibt die geltende Ansicht zurück."""
+    current = paths.setting(MainWindow.VIEW_SETTING)
+    if current in ('karten', 'reiter'):
+        return current
+    value = 'reiter' if configured else 'karten'
+    paths.set_setting(MainWindow.VIEW_SETTING, value)
+    return value
+
+
 def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
     """Ein Kasten mit runden Ecken, in den beliebiger Inhalt kommt.
 
@@ -3560,6 +3573,15 @@ class MainWindow:
         elif kennung.startswith('bereich_'):
             self._card_area = kennung[len('bereich_'):]
         self._crumb_update(kennung)
+        # Die Nadel an der Überschrift folgt dem Stand, auch wenn auf einer
+        # Karte angeheftet wurde.
+        nadel = getattr(self, '_heading_pins', {}).get(kennung)
+        if nadel is not None:
+            from . import cards
+            try:
+                nadel.zeigen(kennung in cards.pinned())
+            except tk.TclError:
+                pass
         errors.trail('Seite %s: steht (%.0f ms)'
                     % (kennung, (time.perf_counter() - _beginn) * 1000))
         # ⚠ Erst JETZT die restlichen Seiten im Leerlauf vorbauen — nachdem die
@@ -3869,6 +3891,44 @@ class MainWindow:
         from . import pages
         pages.build(self, kennung, rahmen)
         pages.style_headings(self, rahmen)
+        self._heading_pin(kennung, rahmen)
+
+    def _heading_pin(self, kennung, rahmen):
+        """Die Stecknadel rechts neben der Seitenüberschrift: heftet die Seite
+        an die Startseite (Deine Karten) oder löst sie — so geht das Anheften
+        auch in der Reiteransicht."""
+        from . import cards
+        if kennung not in cards.PAGES:
+            return
+        titel = next((w for w in rahmen.winfo_children()
+                      if isinstance(w, tk.Label)
+                      and str(w.cget('font')) == str(self.f_title)), None)
+        if titel is None:
+            return
+        an = kennung in cards.pinned()
+        nadel = icons.button(rahmen, 'loesen' if an else 'anheften',
+                             color=icons.GREEN if an else icons.GREY,
+                             background=BG, font=self.f_icon)
+        nadel.place(in_=titel, relx=1.0, rely=0.5, anchor='e')
+        nadel.configure(cursor='hand2')
+
+        def zeigen(an):
+            nadel.swap_symbol('loesen' if an else 'anheften')
+            nadel.recolor(icons.GREEN if an else icons.GREY)
+
+        def umschalten(_e=None):
+            an = kennung not in cards.pinned()
+            cards.set_pinned(kennung, an)
+            zeigen(an)
+            self.say(t('k_angeheftet' if an else 'k_geloest'))
+        nadel.bind('<Button-1>', umschalten)
+        notice.attach(nadel, lambda: t('k_nadel_loesen'
+                                       if kennung in cards.pinned()
+                                       else 'k_nadel_anheften'))
+        nadel.zeigen = zeigen
+        if not hasattr(self, '_heading_pins'):
+            self._heading_pins = {}
+        self._heading_pins[kennung] = nadel
 
     # ⚠⚠ **So lange muss Ruhe sein, bevor im Hintergrund gebaut wird.**
     # Tk zeichnet einstraengig: Jede vorgebaute Seite haelt die Oberflaeche

@@ -5583,6 +5583,11 @@ if __name__ == '__main__':
     language.localize_buttons(wurzel)
     errors.trail('Tk-Wurzel steht')
 
+    # Die Ansicht ab Werk, einmal festgelegt: Wer schon eingerichtet ist,
+    # behält die Reiterliste; eine neue Installation startet mit Karten.
+    from scbp import main_window as _hauptfenster
+    _hauptfenster.settle_default_view(wizard.is_configured())
+
     zeige_liste = False
     if wizard.needed():
         errors.trail('Assistent beginnt')
