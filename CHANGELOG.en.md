@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.1.0 - 2026-10-11
+
+> Verse-Kit now knows where you are and how often you got caught: the
+> overview and the overlay show your location, and the statistics count your
+> deaths and lost ships — all from your own game logs.
 
 ### New
 
@@ -15,6 +19,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   when the game creates your own body; a destroyed ship you get out of alive
   is not one. Works in every game language, and existing logs are read once
   more. Suggested by Drachennarr (KRT)
+- **Location on the overview and in the overlay** — a new tile shows which
+  station, city or outpost you are at, since when, and where you last left
+  from; the overlay shows the place in one line while the game is running. The game
+  names a place in its log only as a number; Verse-Kit learns the name from
+  your logs once you have opened your inventory there. Suggested by
+  Drachennarr (KRT)
 
 ## v4.0.3 - 2026-10-11
 

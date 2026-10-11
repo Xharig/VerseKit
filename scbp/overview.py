@@ -273,7 +273,8 @@ def overview_page(window, frame):
     def draw():
         draw_main()
         grid.clear()
-        builders_by_id = {'spiel': _tile_game, 'bauplaene': _tile_blueprints,
+        builders_by_id = {'spiel': _tile_game, 'standort': _tile_location,
+                          'bauplaene': _tile_blueprints,
                           'uebersetzung': _tile_translation,
                           'spielzeit': _tile_playtime, 'rechner': _tile_machine,
                           'dienste': _tile_services,
@@ -340,7 +341,8 @@ def _draw_pinned(window, pin_grid, hint, redraw):
 
 
 # Die Kacheln in ihrer Reihenfolge: (Kennung, Textschlüssel).
-TILES = (('spiel', 's_uv_spiel'), ('bauplaene', 's_uv_bauplaene'),
+TILES = (('spiel', 's_uv_spiel'), ('standort', 's_uv_standort'),
+         ('bauplaene', 's_uv_bauplaene'),
          ('uebersetzung', 's_uv_uebersetzung'), ('spielzeit', 's_uv_spielzeit'),
          ('rechner', 's_uv_rechner'), ('dienste', 's_uv_dienste'),
          ('raffinerie', 's_uv_raffinerie'), ('lager', 's_uv_lager'), ('auftraege', 's_uv_auftraege'),
@@ -677,6 +679,55 @@ def _tile_game(window, cell):
         version = ''
     if version:
         _line(window, body, t('s_uv_stand') % version)
+
+
+def _clock(seconds):
+    """Uhrzeit, wenn es heute war, sonst Tag und Uhrzeit."""
+    from .stats_pages import local_moment
+    if time.strftime('%Y-%m-%d', time.localtime(seconds)) \
+            == time.strftime('%Y-%m-%d'):
+        return time.strftime('%H:%M', time.localtime(seconds))
+    return local_moment(seconds)
+
+
+def _tile_location(window, cell):
+    from . import auto_update, location
+    from .pages import _from_thread
+    body = _card(window, cell, 's_uv_standort', 'statistik_quantum')
+    waiting = _line(window, body, t('s_uv_lese'))
+
+    def show(place, running):
+        waiting.destroy()
+        if not place or not place.get('nummer'):
+            _line(window, body, t('s_uv_ort_leer'))
+            return
+        if place['unterwegs']:
+            _big(window, body, t('s_uv_unterwegs'))
+            if place['vorher']:
+                _line(window, body, t('s_uv_ort_ab') % (
+                    location.display_name(place['vorher']),
+                    _clock(place['seit'])))
+            return
+        if not place['kennung']:
+            _big(window, body, t('s_uv_ort_unbekannt'))
+            _line(window, body, t('s_uv_ort_lernen'))
+            return
+        _big(window, body, location.display_name(place['kennung']))
+        if place['seit']:
+            _line(window, body, (t('s_uv_ort_seit') if running
+                                 else t('s_uv_ort_zuletzt'))
+                  % _clock(place['seit']))
+
+    def work():
+        place, running = None, False
+        try:
+            place = location.where()
+            running = auto_update.game_running()
+        except Exception as exc:
+            errors.record('overview.location', exc)
+        _from_thread(body, lambda: show(place, running))
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def _tile_blueprints(window, cell):

@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '4.0.3'
+__version__ = '4.1.0'
 
 # Zeitpunkt des Programmstarts — misst, wie lange das Programm schon läuft
 # (siehe `Overlay.AUTO_UPDATE_VISIBLE_S`).
@@ -2432,6 +2432,12 @@ class Overlay:
                                        font=self.f_sub, anchor='w',
                                        justify='left')
 
+        # --- Standort -----------------------------------------------------
+        # Eine Zeile, nur solange das Spiel läuft (siehe `scbp/location.py`).
+        self.location_bar = tk.Label(self.root, text='', bg=BG, fg=SUB,
+                                       font=self.f_sub, anchor='w',
+                                       justify='left')
+
         # --- Liste (scrollbar) ---
         wrap = tk.Frame(self.root, bg=BG)
         wrap.pack(fill='both', expand=True, padx=6, pady=(0, 6))
@@ -2560,6 +2566,7 @@ class Overlay:
         self.root.after(2000, self._nach_version_sehen)   # nicht beim Start drängeln
         # Und sobald das Spiel zugeht, gleich noch einmal — siehe dort.
         self.root.after(self.SPIELENDE_TAKT_MS, self._spielende_wache)
+        self.root.after(3000, self._location_watch)
         # Kurz nach dem Start fragen, falls der Spielordner umgezogen ist.
         # Vor der Versionsprüfung: Ohne Spielordner nützt die neueste Fassung
         # nichts, und zwei Fenster hintereinander will niemand.
@@ -3213,6 +3220,52 @@ class Overlay:
         # ⚠ Vor der Liste einordnen, sonst rutscht die Leiste ans Fensterende.
         self.auftragsleiste.pack(fill='x', padx=8, pady=(0, 2),
                                  before=self._listen_traeger)
+
+    # Wie oft die Standortzeile nachsieht. Gelesen wird nur das Ende der
+    # `Game.log`, im Nebenfaden.
+    LOCATION_TICK_MS = 10 * 1000
+
+    def _location_watch(self):
+        """Die Standortzeile auffrischen, solange das Spiel läuft."""
+        try:
+            self.root.after(self.LOCATION_TICK_MS, self._location_watch)
+        except tk.TclError:
+            return
+        if getattr(self, '_location_busy', False):
+            return
+        self._location_busy = True
+
+        def work():
+            text = ''
+            try:
+                from scbp import auto_update, location
+                if auto_update.game_running():
+                    text = location.overlay_text(location.where())
+            except Exception as exception:
+                errors.record('overlay.standort', exception)
+            finally:
+                self._location_busy = False
+            self._im_tk(lambda: self.show_location(text))
+
+        threading.Thread(target=work, daemon=True, name='standort').start()
+
+    def show_location(self, text):
+        """Den Standort zeigen — oder die Zeile ausblenden, wenn `text` leer ist."""
+        try:
+            if not text:
+                self.location_bar.pack_forget()
+                self.location_bar.configure(text='')
+                return
+            if self.location_bar.cget('text') == text \
+                    and self.location_bar.winfo_ismapped():
+                return
+            self.location_bar.configure(text=text)
+            if self.location_bar not in self._wrap_labels:
+                self._wrap_labels.append(self.location_bar)
+            self.location_bar.pack(fill='x', padx=8, pady=(0, 2),
+                                     after=self.status)
+        except Exception as exception:
+            errors.record('overlay.show_location', exception)
 
     def signatur_zeigen(self, value):
         """Die gelesene Scan-Signatur samt Rohstoff zeigen — oder die Zeile leeren."""
@@ -5704,6 +5757,12 @@ if __name__ == '__main__':
         quality_goods.start()
     except Exception as ausnahme:
         errors.record('watcher.waren_guete', ausnahme)
+    # Standort: Ortsnamen nach einem Patch, Orte aus den Logs lernen.
+    try:
+        from scbp import location
+        location.start()
+    except Exception as ausnahme:
+        errors.record('watcher.standort', ausnahme)
     # Verbindung zu scmdb.net als „Log Watcher" — nur wenn eingeschaltet.
     try:
         from scbp import scmdb_bridge

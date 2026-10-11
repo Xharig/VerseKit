@@ -33,9 +33,13 @@ lesbar sind. Passt keine, wirft der Leser `UnknownFormat` — lieber keine
 Aussage als eine falsche.
 """
 import struct
+import threading
 import uuid
 
 ARCHIVE_PATH = 'Data/Game2.dcb'
+# Die Datenbank ist über 300 MB groß: Wer sie liest, nimmt diese Sperre, damit
+# zwei Hintergrundläufe sie nicht gleichzeitig im Speicher halten.
+READ_LOCK = threading.Lock()
 
 
 class UnknownFormat(Exception):

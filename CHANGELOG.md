@@ -6,7 +6,11 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.1.0 - 2026-10-11
+
+> Verse-Kit weiß jetzt, wo du bist und wie oft es dich erwischt hat: Die
+> Übersicht und das Overlay zeigen deinen Standort, die Statistik zählt deine
+> Tode und verlorenen Schiffe — alles aus deinen eigenen Spielprotokollen.
 
 ### Neu
 
@@ -16,6 +20,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   zerstörtes Schiff, aus dem du lebend herauskommst, ist keiner. Funktioniert
   in jeder Spielsprache, und vorhandene Logs werden einmal nachgelesen.
   Vorschlag von Drachennarr (KRT)
+- **Standort auf der Übersicht und im Overlay** — eine neue Kachel zeigt, an
+  welcher Station, Stadt oder welchem Außenposten du gerade bist, seit wann,
+  und von wo du zuletzt aufgebrochen bist; im Overlay steht der Ort in einer
+  Zeile, solange das Spiel läuft. Das Spiel nennt einen Ort im Protokoll nur als
+  Nummer; den Namen lernt Verse-Kit aus deinen Logs, sobald du dort einmal
+  das Inventar geöffnet hast. Vorschlag von Drachennarr (KRT)
 
 ## v4.0.3 - 2026-10-11
 

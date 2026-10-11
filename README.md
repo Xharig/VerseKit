@@ -176,7 +176,7 @@ Kaufen und verkaufen: **Wo steht ein Teil oder Schiff im Regal — und wo werde 
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-statistik.png" alt="Statistik" width="100%"><br>
-<sub><b>Statistik</b> — Spielzeit, Sitzungen, Aufträge, Quantensprünge und wann du spielst</sub>
+<sub><b>Statistik</b> — Spielzeit, Sitzungen, Aufträge, Quantensprünge, Tode und wann du spielst</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-darstellung.png" alt="Darstellung" width="100%"><br>

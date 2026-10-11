@@ -344,8 +344,8 @@ def beispiel_bedarf():
 
 
 def beispiel_grafik(heim):
-    """Erfundener Rechner und erfundene Grafik-Einstellungen — die echten
-    stünden sonst mit Hardware und Treiber auf der Webseite."""
+    """Erfundener Rechner, erfundene Grafik-Einstellungen und ein erfundener
+    Standort — die echten stünden sonst auf der Webseite."""
     from scbp import graphics, machine_info
     datei = os.path.join(heim, 'beispiel-attributes.xml')
     with open(datei, 'w', encoding='utf-8', newline='') as f:
@@ -369,6 +369,12 @@ def beispiel_grafik(heim):
         'vulkan': '1.4.321', 'vram_mb': 12282, 'display': (2560, 1440),
         'dlss': True, 'cpu_bench': (38.2, 33.9), 'gpu_bench': 22.4,
         'cpu_index': 171.4, 'gpu_index': 448.9, 'machine_class': 3}
+    # Der echte Standort stünde sonst auf der Webseite.
+    from scbp import location
+    location.where = lambda log_path=None, learn_missing=True: {
+        'nummer': '1', 'kennung': 'RR_MIC_LEO', 'unterwegs': False,
+        'vorher': None, 'seit': int(time.time()) - 47 * 60}
+    location.display_name = lambda key: 'Port Tressler'
 
 
 def beispiel_daten():

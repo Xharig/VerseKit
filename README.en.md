@@ -176,7 +176,7 @@ Buying and selling: **where is a part or ship on the shelf — and where do I of
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-statistik-en.png" alt="Statistics" width="100%"><br>
-<sub><b>Statistics</b> — play time, sessions, contracts, quantum jumps and when you play</sub>
+<sub><b>Statistics</b> — play time, sessions, contracts, quantum jumps, deaths and when you play</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-darstellung-en.png" alt="Appearance" width="100%"><br>

@@ -25394,6 +25394,7 @@ def main():
     _pruefung_425()
     _pruefung_426()
     _pruefung_427()
+    _pruefung_428()
 
     print()
     if fehler:
@@ -39293,7 +39294,7 @@ def _pruefung_422():
         pruefe(_ov422.tile_order() == _alle, 'Reihenfolge ab Werk')
         _ov422.swap('spiel', 'rechner')
         pruefe(_ov422.tile_order()[0] == 'rechner'
-               and _ov422.tile_order()[4] == 'spiel',
+               and _ov422.tile_order()[_alle.index('rechner')] == 'spiel',
                'Verschieben tauscht zwei Kacheln (%r)' % _ov422.tile_order())
         _pa422.set_setting(_ov422.ORDER_SETTING, ['rechner', 'gibtsnicht'])
         pruefe(_ov422.tile_order()[0] == 'rechner'
@@ -39828,6 +39829,158 @@ def _pruefung_427():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim427
         shutil.rmtree(_ordner427, ignore_errors=True)
+
+
+def _pruefung_428():
+    """428. Standort: Nummer im Log, Name gelernt, Anzeigename aus den Daten."""
+    print('\n428. Standort: Orte lernen und den aktuellen zeigen')
+    import tempfile as _tf428
+    from scbp import location as _lo428, overview as _ov428
+    _ordner428 = _tf428.mkdtemp(prefix='standort-')
+    _alt_heim428 = os.environ.get('SC_BP_HOME')
+
+    def _wechsel428(zeit, alt, neu):
+        return ('<2026-10-11T%s.820Z> [Notice] <Update Inventory Location> '
+                'Player [Xharig] is changing location. Landing [%s] -> [%s]. '
+                'Location [1] -> [2]. Pending [0] [Team_CoreGameplayFeatures]'
+                '[Inventory]' % (zeit, alt, neu))
+
+    def _inventar428(zeit, kennung, nummer):
+        return ['<2026-10-11T%s.129Z> [Notice] <RequestLocationInventory> '
+                'Player[Xharig] requested inventory for Location[%s] '
+                '[Team_CoreGameplayFeatures][Inventory]' % (zeit, kennung),
+                '<2026-10-11T%s.130Z> [Notice] <Query Inventory> Request[3] '
+                'Inventory[207671730209:Location:%s] '
+                '[Team_CoreGameplayFeatures][Inventory]' % (zeit, nummer)]
+
+    def _log428(name, zeilen):
+        pfad = os.path.join(_ordner428, name)
+        with open(pfad, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(zeilen) + '\n')
+        return pfad
+
+    try:
+        os.environ['SC_BP_HOME'] = os.path.join(_ordner428, 'heim')
+        _alt428 = _log428('alt.log', [
+            _wechsel428('10:00:00', '0', '1105811199')]
+            + _inventar428('10:01:00', 'Stanton2_Orison', '1105811199')
+            + ['<2026-10-11T10:02:00.000Z> [Error] <CEntityComponentShip'
+               'InsuranceProvider::OnVehicleSpawned> x ATC Location: '
+               'Nyx_Levski [3723364946] [Team_x]',
+               # Abfrage ohne vorher genannten Ort: kein Paar
+               '<2026-10-11T10:03:00.130Z> [Notice] <Query Inventory> '
+               'Request[4] Inventory[1:Location:999] [Team_x]'])
+        pruefe(_lo428.pairs_from(_alt428)
+               == {'1105811199': 'Stanton2_Orison',
+                   '3723364946': 'Nyx_Levski'},
+               'Paare aus Inventar und Flugkontrolle, keine Abfrage ohne Ort '
+               '(%r)' % _lo428.pairs_from(_alt428))
+        pruefe(_lo428.learn([_alt428]) == 2 and _lo428.learn([_alt428]) == 0,
+               'gelernt wird einmal, eine unveränderte Datei nicht neu gelesen')
+
+        # Laufendes Log: der Ort selbst wird hier nie benannt, und hinter
+        # dem letzten Wechsel stehen über 1 MB anderer Zeilen.
+        from scbp.play_stats import _seconds as _sek428
+        _jetzt428 = _log428('Game.log', [
+            '<2026-10-11T18:00:00.000Z> Start',
+            _wechsel428('18:10:00', '0', '1105811199'),
+            _wechsel428('18:40:00', '1105811199', '0')] + ['x' * 200] * 9000)
+        _w428 = _lo428.where(_jetzt428)
+        pruefe(_w428 and _w428['unterwegs']
+               and _w428['vorher'] == 'Stanton2_Orison'
+               and _w428['seit'] == _sek428('2026-10-11T18:40:00'),
+               'abgeflogen: unterwegs, der verlassene Ort kommt aus einem '
+               'anderen Log, auch weit vor dem Ende (%r)' % (_w428,))
+        with open(_jetzt428, 'a', encoding='utf-8') as f:
+            f.write(_wechsel428('19:00:00', '0', '3723364946') + '\n')
+        _w428 = _lo428.where(_jetzt428)
+        pruefe(_w428 and not _w428['unterwegs']
+               and _w428['kennung'] == 'Nyx_Levski',
+               'gelandet: der letzte Wechsel zählt (%r)' % (_w428,))
+        with open(_jetzt428, 'a', encoding='utf-8') as f:
+            f.write(_wechsel428('19:30:00', '3723364946', '555') + '\n')
+        _w428 = _lo428.where(_jetzt428)
+        pruefe(_w428 and _w428['nummer'] == '555' and _w428['kennung'] is None,
+               'unbekannte Nummer bleibt unbenannt, nichts geraten (%r)'
+               % (_w428,))
+        with open(_jetzt428, 'a', encoding='utf-8') as f:
+            f.write('\n'.join(_inventar428('19:31:00', 'RR_MIC_LEO', '555'))
+                    + '\n')
+        _w428 = _lo428.where(_jetzt428)
+        pruefe(_w428 and _w428['kennung'] == 'RR_MIC_LEO',
+               'Inventar dort geöffnet: der Name wird nachgelernt (%r)'
+               % (_w428,))
+        pruefe(_lo428.where(_log428('leer.log', ['x']))['nummer'] is None,
+               'ohne Ortswechsel im Log: kein Ort')
+
+        # Anzeigename aus den Spieldaten
+        class _Db428:
+            satz = {0: {'name': '@ui_pregame_port_Orison_name'},
+                    1: {'name': '@LOC_EMPTY'},
+                    2: {'name': '@Stanton4_Transfer'}}
+
+            def records(self):
+                yield ('StarMapObject.Stanton2_Orison', '', 7, 'g0', 0)
+                yield ('StarMapObject.Leer', '', 7, 'g1', 1)
+                yield ('StarMapObject.RR_MIC_LEO', '', 7, 'g2', 2)
+                yield ('EntityClassDefinition.Orison', '', 8, 'g3', 0)
+
+            def type_name(self, si):
+                return 'StarMapObject' if si == 7 else 'EntityClassDefinition'
+
+            def read(self, si, ii, maxd=30):
+                return self.satz[ii]
+        _namen428 = _lo428.names_from(_Db428(), {
+            'ui_pregame_port_orison_name': 'Orison',
+            'loc_empty': '@LOC_EMPTY',
+            'stanton4_transfer': 'Port Tressler'})
+        pruefe(_namen428 == {'stanton2_orison': 'Orison',
+                             'rr_mic_leo': 'Port Tressler'},
+               'Anzeigenamen nur aus StarMapObject, Platzhalter fallen weg '
+               '(%r)' % _namen428)
+        pruefe(_lo428.display_name('RR_MIC_LEO') == 'RR MIC LEO',
+               'ohne Namenstabelle die Kennung, nur lesbarer')
+        with open(_lo428._names_path(), 'w', encoding='utf-8') as f:
+            json.dump({'format': 1, 'stand': 1, 'orte': _namen428}, f)
+        pruefe(_lo428.display_name('RR_MIC_LEO') == 'Port Tressler',
+               'mit Namenstabelle der Name aus dem Spiel')
+        pruefe(('standort', 's_uv_standort') in _ov428.TILES,
+               'die Übersicht hat eine Standort-Kachel')
+
+        # Overlay: eine Zeile, nur solange das Spiel läuft
+        from scbp import language as _la428
+        _ort428 = {'nummer': '555', 'kennung': 'RR_MIC_LEO',
+                   'unterwegs': False, 'vorher': None, 'seit': 1}
+        pruefe(_lo428.overlay_text(_ort428)
+               == _la428.t('ov_standort') % 'Port Tressler',
+               'Overlay: Standort mit Namen aus dem Spiel')
+        pruefe(_lo428.overlay_text(dict(_ort428, nummer='0', kennung=None,
+                                        unterwegs=True,
+                                        vorher='RR_MIC_LEO'))
+               == _la428.t('ov_unterwegs') % 'Port Tressler',
+               'Overlay: unterwegs mit dem verlassenen Ort')
+        pruefe(_la428.t('s_uv_ort_unbekannt') in _lo428.overlay_text(
+            dict(_ort428, kennung=None)),
+               'Overlay: unbekannter Ort wird so genannt, nicht geraten')
+        pruefe(_lo428.overlay_text(None) == ''
+               and _lo428.overlay_text({'nummer': None}) == '',
+               'Overlay: ohne Ort keine Zeile')
+        import inspect as _in428
+        import sc_bp_watcher as _sw428
+        _wache428 = _in428.getsource(_sw428.Overlay._location_watch)
+        pruefe('game_running()' in _wache428 and 'location.where()'
+               in _wache428 and 'threading.Thread' in _wache428,
+               'die Overlay-Wache liest nur bei laufendem Spiel, im '
+               'Nebenfaden')
+        pruefe('self.root.after(3000, self._location_watch)'
+               in _in428.getsource(_sw428.Overlay),
+               'die Overlay-Wache wird gestartet')
+    finally:
+        if _alt_heim428 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim428
+        shutil.rmtree(_ordner428, ignore_errors=True)
 
 
 def _pruefung_425():

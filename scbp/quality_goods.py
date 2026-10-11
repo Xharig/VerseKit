@@ -294,13 +294,14 @@ def refresh(spielordner=None):
         if not stamp or (current.get('stand') == stamp
                          and current.get('format') == FORMAT):
             return False
-        raw = gametext.read_archive_file(datacore.ARCHIVE_PATH, spielordner)
-        if not raw:
-            return False
-        ini, _meldung = gametext.read_from_archive('english', spielordner)
-        if not ini:
-            return False
-        entries = extract(datacore.DataCore(raw), parse_ini(ini))
+        with datacore.READ_LOCK:
+            raw = gametext.read_archive_file(datacore.ARCHIVE_PATH, spielordner)
+            if not raw:
+                return False
+            ini, _meldung = gametext.read_from_archive('english', spielordner)
+            if not ini:
+                return False
+            entries = extract(datacore.DataCore(raw), parse_ini(ini))
         if len(entries) < MINIMUM:
             from . import errors
             errors.trail('Waren mit Güte: nur %d erkannt, nicht abgelegt'
