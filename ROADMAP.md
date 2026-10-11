@@ -33,6 +33,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Übersicht** — Startseite mit Kacheln zum Ein- und Ausblenden und Verschieben, darunter ein Raffinerie-Timer, der fertige Aufträge im Overlay meldet |
 | ✅ | **Bedarf der Einheit** — was die offenen Aufträge der eigenen Einheit im KRT Profit Basetool brauchen, gegen das eigene Lager |
 | ✅ | **Was ist neu als Galerie** — nach einem Update einmal die wichtigsten Neuerungen mit Bild und Weg dorthin |
+| ✅ | **Kartenansicht** — jeder Bereich als Karte mit Unterpunkten, eigene Karten an der Startseite, Basetool gebündelt; Reiteransicht bleibt wählbar |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |
 | ✅ | **Overlay in eine Bildschirmecke legen** — nötig im Pop-up-Betrieb, wo es sich nicht ziehen lässt; eingeklappt schrumpft es auf Streifenbreite |
 | ✅ | Katalog-Wache: meldet, was im Spiel **neu craftbar** wird, dazu eine Merkliste |

@@ -33,6 +33,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Overview** — a start page with tiles to show, hide and move, including a refinery timer that pings finished jobs in the overlay |
 | ✅ | **Unit demand** — what your unit's open orders in the KRT Profit Basetool need, against your own storage |
 | ✅ | **What's new as a gallery** — after an update, the main new features once, with a picture and the way there |
+| ✅ | **Card view** — every area as a card with its pages, your own cards on the start page, Basetool bundled; tab view stays available |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |
 | ✅ | **Pin the overlay to a screen corner** — required in pop-up mode where it cannot be dragged; collapsed it shrinks to strip width |
 | ✅ | Catalogue watch: reports what becomes **newly craftable** in the game, plus a watchlist |

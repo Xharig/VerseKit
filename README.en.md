@@ -32,7 +32,7 @@ A small, borderless overlay that tells you **in real time** when a new blueprint
 
 > 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[xharig.com/discord](https://xharig.com/discord)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
 
-> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](https://github.com/Xharig/VerseKit/releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Info → Update & About → "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](https://github.com/Xharig/VerseKit/issues) — that is exactly what they are for.
+> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](https://github.com/Xharig/VerseKit/releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Update** (top right) **→ "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](https://github.com/Xharig/VerseKit/issues) — that is exactly what they are for.
 
 <table>
 <tr>
@@ -320,6 +320,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 
 | | |
 |---|---|
+| <img src="assets/symbole/22/karten-gruen.png" width="22" alt=""> **Card view** | Every area as a card with a short explanation, its pages below. Pin the pages you use all the time to the start page. Prefer tabs on the left? Switch at the top right |
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Instant** | Reads Star Citizen's `Game.log` → the blueprint is in the list **within seconds** |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Keyboard shortcut** | **Ctrl+Alt+B** brings the blueprint list to the front — from inside the full-screen game, no blind hunting for the window. Exactly that one combination is registered; nothing else is listened to |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watchlist / farming / new in game*, with progress — for all blueprints or just your watchlist. Tick items with one click |
@@ -585,7 +586,7 @@ In `einstellungen.json` in its own folder — a text file, not code. Restart the
 
 New versions appear **on Saturdays**. If you would rather not wait, you can get them earlier:
 
-**Info → Update & About → "Offer test versions too"**
+**Update** (top right) **→ "Offer test versions too"**
 
 From then on the tool also reports test versions (recognisable by the `rc` in the number)
 — through the same update notice as always. Nothing to download by hand, nothing to hunt for.
@@ -598,7 +599,7 @@ From then on the tool also reports test versions (recognisable by the `rc` in th
 - **Without this setting you never see a test version.** If you want peace and quiet,
   do nothing — that is the default.
 
-Found something? The quickest way is **Info → Report a problem**: there is a field
+Found something? The quickest way is **Report a problem** (bottom right): there is a field
 "What happened?" for one sentence, the finished report below it — and the red
 **Send report** button sends it straight off. That is all you need to do. The report
 holds everything needed to track a problem down and no personal information; you see

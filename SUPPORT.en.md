@@ -7,7 +7,7 @@ are read.
 
 ## 1. The tool still runs → the red button
 
-**Info → Report a problem.** There is a field for one sentence, the finished
+**Report a problem** (bottom right of the window). There is a field for one sentence, the finished
 report below it, and a red button next to it. That is all.
 
 The report contains your system, packaging, game state and the most recent

@@ -6,7 +6,7 @@ Es gibt drei Wege. Nimm den, der zu deiner Lage passt — jeder wird gelesen.
 
 ## 1. Das Programm läuft noch → der rote Knopf
 
-**Info → Fehler melden.** Dort steht ein Feld für einen Satz, darunter der
+**Fehler melden** (unten rechts im Fenster). Dort steht ein Feld für einen Satz, darunter der
 fertige Bericht, daneben ein roter Knopf. Mehr ist nicht zu tun.
 
 Der Bericht enthält System, Verpackung, Spielstand und die letzten Fehler —

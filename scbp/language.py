@@ -223,10 +223,10 @@ TEXTS = {
     's_rf_auftrag_laeuft': ('Läuft noch: %s', 'Still processing: %s'),
     's_rf_fertig_hinweis': ('Raffinerie fertig: %s', 'Refinery done: %s'),
     's_rf_lesen_bild': ('Das Bild dieser Lesung ist aufgehoben — schick es '
-                        'mit einem Fehlerbericht (Info → Fehler melden), '
-                        'dann wird der Scanner besser.',
+                        'mit einem Fehlerbericht (unten rechts: Fehler '
+                        'melden), dann wird der Scanner besser.',
                         'The picture of this reading was kept — send it with '
-                        'a bug report (Info → Report a problem) to help '
+                        'a bug report (bottom right: Report a problem) to help '
                         'improve the scanner.'),
     's_rf_lesen_unsicher': ('Bitte genau prüfen, nicht sicher gelesen: %s — '
                             'falsche Zahlen korrigieren, daraus lernt der '

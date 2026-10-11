@@ -32,7 +32,7 @@ Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald 
 
 > 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[xharig.com/discord](https://xharig.com/discord)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
 
-> 🧪 **Testversionen ausprobieren.** Vor jeder Veröffentlichung gibt es **Vorabversionen** (`-rc`) unter [Releases](https://github.com/Xharig/VerseKit/releases) — dort steht bei jeder, was sie bringt und was sich seit der vorigen geändert hat. Als Update angeboten werden sie **nur, wenn du** unter **Info → Update & Über → „Auch Testversionen"** einschaltest — alle anderen bekommen nur fertige Versionen. Wer eine ausprobiert und etwas findet, macht bitte ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — genau dafür sind sie da.
+> 🧪 **Testversionen ausprobieren.** Vor jeder Veröffentlichung gibt es **Vorabversionen** (`-rc`) unter [Releases](https://github.com/Xharig/VerseKit/releases) — dort steht bei jeder, was sie bringt und was sich seit der vorigen geändert hat. Als Update angeboten werden sie **nur, wenn du** unter **Update** (oben rechts) **→ „Auch Testversionen"** einschaltest — alle anderen bekommen nur fertige Versionen. Wer eine ausprobiert und etwas findet, macht bitte ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — genau dafür sind sie da.
 
 <table>
 <tr>
@@ -321,6 +321,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 
 | | |
 |---|---|
+| <img src="assets/symbole/22/karten-gruen.png" width="22" alt=""> **Kartenansicht** | Jeder Bereich als Karte mit kurzer Erklärung, darunter seine Unterpunkte. Die Seiten, die du ständig brauchst, heftest du mit der Nadel an die Startseite. Wer lieber Reiter links hat, schaltet oben rechts um |
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Sofort-Meldung** | Liest die Star-Citizen-`Game.log` mit → der Bauplan steht **in Sekunden** in der Liste |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Tastenkombination** | **Strg+Alt+B** holt die Bauplan-Liste nach vorn — mitten aus dem Vollbild-Spiel, ohne blind nach dem Fenster zu suchen. Angemeldet wird genau diese eine Kombination; mitgehört wird nichts |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Bauplan-Liste** | Alle Baupläne durchsuchen, nach Art gruppiert, Filter *alle / habe ich / fehlt mir / Merkliste / vorgemerkt / neu im Spiel*. Häkchen per Klick. Der eigene Reiter **Bauplan-Fortschritt** zeigt je Art, wie weit du bist — für alle Baupläne oder nur für deine Merkliste |
@@ -629,7 +630,7 @@ Die Formulierungen, an denen ein Bauplan im Log erkannt wird, stehen in `scbp/ph
 
 Neue Versionen erscheinen **samstags**. Wer nicht warten will, bekommt sie vorher:
 
-**Info → Update & Über → „Auch Testversionen"**
+**Update** (oben rechts) **→ „Auch Testversionen"**
 
 Danach meldet das Werkzeug auch Testversionen (erkennbar am `rc` in der Nummer) — über
 dieselbe Update-Meldung wie sonst. Nichts von Hand herunterladen, nichts suchen.
@@ -642,7 +643,7 @@ dieselbe Update-Meldung wie sonst. Nichts von Hand herunterladen, nichts suchen.
 - **Ohne diese Einstellung merkst du von Testversionen nichts.** Wer Ruhe will, muss
   nichts tun — das ist die Voreinstellung.
 
-Etwas gefunden? Der schnellste Weg ist **Info → Fehler melden**: Dort steht ein Feld
+Etwas gefunden? Der schnellste Weg ist **Fehler melden** (unten rechts): Dort steht ein Feld
 „Was ist passiert?" für einen Satz, darunter der fertige Bericht — und der rote Knopf
 **Fehlerbericht absenden** schickt ihn direkt. Mehr musst du nicht tun. Der Bericht
 enthält alles, was zur Fehlersuche gebraucht wird, und keine persönlichen Angaben;
