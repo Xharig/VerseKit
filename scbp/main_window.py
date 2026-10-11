@@ -2200,16 +2200,10 @@ class MainWindow:
             t('k_reiteransicht' if karten else 'k_kartenansicht'),
             t('k_hinweis_reiter' if karten else 'k_hinweis_karten'),
             self._toggle_view)
-        self.news_button = self._titlebar_button(bar, 'wasistneu', t('hf_wasistneu'),
-                                          t('hf_hinweis_neu'), self._whats_new)
         self._titlebar_button(bar, 'einrichtung', t('hf_einrichtung'),
                          t('hf_hinweis_einr'), self._open_wizard)
-        # ⚠ Gehoert hier oben hin, nicht in die Einstellungen: Wer den Rechner
-        # wechselt, sucht nicht erst in Untermenues — und wer eine Sicherung
-        # nie gesehen hat, macht auch keine. Erst ein sichtbarer Knopf wird
-        # auch benutzt.
-        self._titlebar_button(bar, 'sicherung', t('hf_sicherung'),
-                         t('hf_hinweis_sich'), self._backup)
+        # Sicherung und Was ist neu stehen in der Fußzeile (`_footer`):
+        # sichtbar auf jeder Seite, aber aus dem Weg der Kopfleiste.
         self._playtime_display(bar)
 
     # Wie oft der Update-Knopf nachsieht. Er liest nur den Zwischenspeicher
@@ -2378,14 +2372,12 @@ class MainWindow:
         self.message = tk.Label(fuss, text=t('hf_sofort'), bg=BAR, fg=SUB,
                                 font=self.f_small)
         self.message.pack(side='left', padx=14, pady=9)
-        k = tk.Label(fuss, text=' %s ' % t('hf_schliessen'), bg=SURFACE, fg=FG,
-                     font=self.f_small, cursor='hand2', padx=10, pady=4)
-        k.pack(side='right', padx=12)
-        k.bind('<Button-1>', lambda e: self.close())
+        # Geschlossen wird über das X des Fensters — einen zweiten Knopf dafür
+        # gibt es nicht.
         # ⭐ Der Weg zum Fehlerbericht fest in der Fußzeile, rot, auf jeder
         # Seite — er soll nicht gesucht werden müssen.
         melden = tk.Frame(fuss, bg=BAR, cursor='hand2')
-        melden.pack(side='right', padx=(0, 4))
+        melden.pack(side='right', padx=(0, 14))
         symbol = icons.button(melden, 'fehler', color=icons.RED, background=BAR,
                               font=self.f_icon)
         symbol.pack(side='left')
@@ -2397,6 +2389,16 @@ class MainWindow:
             part.bind('<Button-1>', lambda e: melden.action())
         icons.hover_group(melden, symbol)
         self.report_button = melden
+        # Was man nur ab und zu braucht, steht unten links vom Fehlerbericht:
+        # `Sicherung · Was ist neu · Fehler melden`.
+        self.news_button = self._titlebar_button(
+            fuss, 'wasistneu', t('hf_wasistneu'), t('hf_hinweis_neu'),
+            self._whats_new)
+        self.news_button.pack_configure(padx=(0, 14))
+        self.backup_button = self._titlebar_button(
+            fuss, 'sicherung', t('hf_sicherung'), t('hf_hinweis_sich'),
+            self._backup)
+        self.backup_button.pack_configure(padx=(0, 14))
 
     def say(self, text):
         """Kurze Rückmeldung in der Fußzeile — statt eines Speichern-Knopfes."""
@@ -2669,43 +2671,21 @@ class MainWindow:
         self._tab('achsen', 'achsen', t('hf_achsen'), g_spiel)
         self._tab('shader', 'leeren', t('hf_shader'), g_spiel)
 
-        # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas,
-        # deshalb stehen sie nicht unter „Einstellungen".
+        # Info: Seiten, die etwas erzählen statt etwas einzustellen. Was ist
+        # neu, Update und Fehler melden haben keinen Reiter — sie stehen in
+        # Kopf- und Fußleiste, die Seiten selbst gibt es weiter.
         g_info = self._group(t('hf_gruppe_info'), 'info')
-        self._tab('wasistneu', 'wasistneu', t('hf_wasistneu'), g_info)
-        # ⚠ **Direkt unter „Was ist neu", und das ist die Symmetrie:** Dort
-        # steht, was sich am WERKZEUG geändert hat — hier, was sich am SPIEL
-        # geändert hat. Dieselbe Frage, zwei Gegenstände. Beide erzählen
-        # etwas und stellen nichts ein, gehören also in diese Gruppe und
-        # nicht zu den Einstellungen.
-        #
         # ⚠ Nicht bei den Schiffen: Ein Patch ändert Schiffe, Waffen,
-        # Komponenten und Lackierungen gleichermaßen — unter „Schiffe" wäre
-        # es zu eng gefasst, und wer wissen will, ob seine Waffe generft
-        # wurde, sucht dort nicht.
+        # Komponenten und Lackierungen gleichermaßen.
         # Das Symbol `zeit` ist geliehen: Ein eigenes bräuchte eine
         # Lucide-Vorlage in `tools/symbole_bauen.py`.
         self._tab('patchaenderungen', 'zeit', t('hf_patchaenderungen'),
                      g_info)
-        self._tab('ueber', 'ueber', t('hf_ueber'), g_info)
-        # Direkt unter „Update & Über": Wer nicht ins Spiel kommt, sucht den
-        # Fehler zuerst bei sich. Ein eigener Reiter beantwortet das, statt die
-        # Auskunft unten an eine andere Seite zu hängen, wo niemand sie sucht.
         self._tab('serverstatus', 'serverstatus', t('hf_serverstatus'),
                      g_info)
-        # ⚠ **Diagnose gehört hierher, nicht unter „Fortgeschritten".** Wer die
-        # Seite braucht, hat ein Problem — und übersieht ein zugeklapptes Menü,
-        # dessen Name nach Expertenkram klingt.
-        #
-        # Mit dem roten Knopf „Fehlerbericht absenden" ist die Seite außerdem
-        # der Weg, auf dem Fehlerberichte überhaupt ankommen. Ein Weg, den man
-        # erklären muss, wird nicht benutzt.
-        self._tab('diagnose', 'diagnose', t('hf_diagnose'), g_info)
-        # ⚠ Eigener Reiter, kein Abschnitt auf „Update & Über": Die Seite dort
-        # ist mit Version, Katalogzahlen, Update-Kanal und Holen-Knopf schon
-        # voll, und wem was gehört, hat mit Updates nichts zu tun.
+        # ⚠ Eigener Reiter, kein Abschnitt auf der Update-Seite: Wem was
+        # gehört, hat mit Updates nichts zu tun.
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
-        # Zugeklappt: nur „Was ist neu", „Update & Über", „Fehler melden".
         self._apply_pins('info')
         self._apply_pins('werkstatt')
         self._apply_modules()
@@ -3017,26 +2997,16 @@ class MainWindow:
         if not ok:
             self.say(t('s_sp_start_nein', grund))
 
-    # ⚠⚠ **Diese Gruppen lassen sich NICHT zuklappen.**
-    # In „Info" steht „Fehler melden". Wer die Gruppe zuklappt, blendet damit
-    # den Weg aus, auf dem er ein Problem loswird — und sucht ihn genau dann,
-    # wenn etwas klemmt und die Geduld ohnehin am Ende ist.
-    #
-    # ⚠ Warum nicht einfach alle festnageln: Das Zuklappen gibt es aus einem
-    # guten Grund — die Seitenleiste bestimmt die Mindesthöhe des Fensters,
-    # und zugeklappte Gruppen sparen rund 400 px. Festgenagelt wird deshalb
-    # nur, was im Notfall auffindbar bleiben muss.
-    #
-    # ⭐⭐ **Info klappt — aber nicht ganz.** Fest offen kostete die Gruppe
-    # viel Platz. „Fehler melden", „Update & Über" und „Was ist neu" bleiben
-    # auch zugeklappt sichtbar (`PINNED_TABS`). Damit bleibt der Grund von
-    # oben gewahrt — der Weg, ein Problem loszuwerden, lässt sich nicht
-    # wegklappen —, und der Rest gibt seinen Platz frei. Die Reiter hier stehen auch in zugeklappter
-    # Gruppe da, in ihrer gewohnten Reihenfolge.
+    # Gruppen, die sich nicht zuklappen lassen (keine). Die Seitenleiste
+    # bestimmt die Mindesthöhe des Fensters; zugeklappte Gruppen sparen Platz.
+    # Der Weg zum Fehlerbericht steht fest in der Fußzeile und hängt nicht
+    # mehr an einer Gruppe.
     ALWAYS_OPEN = ()
     # Seiten, auf denen erst ein Knopf speichert — dort sagt die Fußzeile das.
     FOOTER_KEYS = {'grafik': 'hf_per_knopf'}
-    PINNED_TABS = {'info': ('wasistneu', 'ueber', 'diagnose')}
+    # Reiter, die auch in zugeklappter Gruppe sichtbar bleiben: Gruppe ->
+    # Kennungen. Derzeit keine.
+    PINNED_TABS = {}
 
     def _apply_modules(self):
         """Ausgeschaltete Module aus der Leiste nehmen.

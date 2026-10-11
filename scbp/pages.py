@@ -163,8 +163,9 @@ def page_ids():
 
 
 # Seiten, die es gibt, die aber keinen Reiter haben — Verweise, deren
-# Kennung bleibt, weil Nutzungsmeldungen anderer Fassungen sie nennen.
-PAGES_WITHOUT_TAB = ('asop',)
+# Kennung bleibt, weil Nutzungsmeldungen anderer Fassungen sie nennen, und
+# Seiten, die über Kopf- und Fußleiste erreicht werden.
+PAGES_WITHOUT_TAB = ('asop', 'wasistneu', 'ueber', 'diagnose')
 
 
 def build(fenster, kennung, rahmen):

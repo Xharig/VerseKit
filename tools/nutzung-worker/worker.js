@@ -31,7 +31,7 @@ import { PAGES, ROUTES, ACTIONS, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from '.
 
 // Reicht für die größte Meldung, die das Programm bauen kann: jede Seite mit
 // jedem Weg und jeder Klickstufe, dazu alle Fehlgriff-Paare (Prüfung im Test).
-export const MAX_BYTES = 16384;
+export const MAX_BYTES = 24576;
 const VERSION_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}(?:-rc\d{1,4})?$/;
 const SYSTEMS = ['windows', 'linux'];
 const LANG_RE = /^[a-z]{2}$/;

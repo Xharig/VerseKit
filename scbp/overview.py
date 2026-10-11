@@ -199,7 +199,7 @@ def _section_title(window, parent, text):
 
 def overview_page(window, frame):
     """Die Startseite. Kartenansicht: Hauptbereiche als Karten (fest oben),
-    darunter „Auf einen Blick" (Kacheln) und „Deine Karten" (angeheftete
+    darunter Auf einen Blick (Kacheln) und Deine Karten (angeheftete
     Unterpunkte) — die beiden in wählbarer Reihenfolge. Reiteransicht: nur
     die beiden unteren Bereiche, die Hauptbereiche stehen links."""
     from . import cards
@@ -312,7 +312,7 @@ def overview_page(window, frame):
 
 
 def _draw_pinned(window, pin_grid, hint, redraw):
-    """„Deine Karten": die angehefteten Unterpunkte, sonst ein Hinweis."""
+    """Deine Karten: die angehefteten Unterpunkte, sonst ein Hinweis."""
     from . import cards
     pin_grid.clear()
     pages = cards.pinned()
@@ -520,7 +520,7 @@ def _switch_table(window, frame, entries):
 
 
 def _chooser(window, frame, redraw, reorder=None):
-    """„Startseite anpassen" über den Bereichen, nur solange `frame.opened`
+    """Startseite anpassen, über den Bereichen, nur solange `frame.opened`
     gilt (umgeschaltet über den Link neben der Überschrift, `_chooser_link`).
 
     Kartenansicht: zuerst die Hauptbereiche (dieselben Schalter wie unter

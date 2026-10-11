@@ -11684,10 +11684,8 @@ def main():
            '(fehlt: %s)' % (', '.join(_fehlt117) or 'keine'))
     # Und andersherum: Kein Eintrag, den es gar nicht gibt — ein Tippfehler
     # dort waere still, die Seite zoege einfach nie nach.
-    _reiter117 = set(re.findall(r"_tab\('([a-z_]+)'",
-                                open(os.path.join(WURZEL, 'scbp',
-                                                  'main_window.py'),
-                                     encoding='utf-8').read()))
+    from scbp import pages as _pg117
+    _reiter117 = set(_pg117.page_ids())
     _tot117 = sorted(set(_HF117.STOCK_PAGES) - _reiter117)
     pruefe(not _tot117,
            'kein Eintrag in STOCK_PAGES ohne Seite (tot: %s)'
@@ -12026,7 +12024,7 @@ def main():
                 _pf121.set_setting(_s121, _wert121)
 
     print()
-    print('122. „Info" klappt zu — Fehler melden, Update und Neues bleiben sichtbar')
+    print('122. Info klappt wie jede Gruppe — Fehler melden, Update und Neues stehen fest in den Leisten')
     # ⚠⚠ Wer die Gruppe zuklappt, blendet den Weg aus, auf dem er ein
     # Problem loswird — und sucht ihn dann, wenn etwas klemmt und die Geduld
     # ohnehin am Ende ist.
@@ -12060,41 +12058,45 @@ def main():
 
         _gi122 = _f122.groups.get('info')
         _gw122 = _f122.groups.get('werkstatt')
-        pruefe(bool(_gi122 and _gi122['offen']),
-               'Info steht offen, auch mit einem alten „zu" von frueher')
         pruefe(bool(_gw122 and not _gw122['offen']),
-               'eine gewoehnliche Gruppe bleibt dagegen zugeklappt')
-        if _gi122:
-            pruefe(bool(_gi122['pfeil'].winfo_manager()),
-                   'Info hat wieder einen Klapp-Pfeil')
+               'eine gewoehnliche Gruppe bleibt zugeklappt')
+        # Info enthaelt nur noch, was nicht in Kopf- und Fussleiste steht.
+        _alle122 = [k for z in _gi122['inhalt'].winfo_children()
+                    for k, teile in _f122.buttons.items() if teile[0] is z]
+        pruefe(_alle122 == ['patchaenderungen', 'serverstatus', 'danke'],
+               'Info hat genau Spielwerte, Serverstatus, Danke (%r)' % _alle122)
+        pruefe(not ({'wasistneu', 'ueber', 'diagnose'} & set(_f122.buttons)),
+               'Was ist neu, Update und Fehler melden haben keinen Reiter mehr')
+        pruefe(_hf122.MainWindow.PINNED_TABS == {},
+               'keine festen Reiter mehr in zugeklappten Gruppen')
+        # Die drei Wege stehen dafuer fest in Kopf- und Fussleiste.
+        _fuss122 = _f122.report_button.master
+        pruefe(_f122.news_button.master is _fuss122
+               and _f122.backup_button.master is _fuss122,
+               'Was ist neu und Sicherung stehen in der Fussleiste')
+        _rechts122 = [w for w in _fuss122.pack_slaves()
+                      if w.pack_info().get('side') == 'right']
+        pruefe(_rechts122[:3] == [_f122.report_button, _f122.news_button,
+                                  _f122.backup_button],
+               'Fussleiste rechts: Sicherung · Was ist neu · Fehler melden')
+        _texte122 = []
 
-        _fest122 = _hf122.MainWindow.PINNED_TABS.get('info', ())
-        pruefe(set(_fest122) == {'wasistneu', 'ueber', 'diagnose'},
-               'fest bleiben genau Was ist neu, Update & Ueber, Fehler melden '
-               '(%r)' % (_fest122,))
-
-        def _sichtbar122():
-            return {k for k, teile in _f122.buttons.items()
-                    if teile[0].master is _gi122['inhalt']
-                    and teile[0].winfo_manager()}
-
+        def _texte_sammeln122(w):
+            try:
+                _texte122.append(w.cget('text'))
+            except tk122.TclError:
+                pass
+            for c in w.winfo_children():
+                _texte_sammeln122(c)
+        _texte_sammeln122(_fuss122)
+        pruefe(not any(_hf122.t('hf_schliessen') in str(x) for x in _texte122),
+               'kein Schliessen-Knopf in der Fussleiste')
         _f122._group_toggle('info', auf=False)
         _w122.update_idletasks()
-        _zu122 = _sichtbar122()
-        pruefe(_zu122 == {'wasistneu', 'ueber', 'diagnose'},
-               'zugeklappt stehen nur die drei festen Reiter da (%r)'
-               % sorted(_zu122))
-        pruefe(bool(_gi122['inhalt'].winfo_manager()),
-               'der Rahmen der Gruppe bleibt dafuer stehen')
+        pruefe(not _gi122['inhalt'].winfo_manager(),
+               'Info klappt zu wie jede andere Gruppe')
         _f122._group_toggle('info', auf=True)
         _w122.update_idletasks()
-        _offen122 = [k for z in _gi122['inhalt'].pack_slaves()
-                     for k, teile in _f122.buttons.items() if teile[0] is z]
-        _soll122 = [k for z in _gi122['inhalt'].winfo_children()
-                    for k, teile in _f122.buttons.items() if teile[0] is z]
-        pruefe(_offen122 == _soll122 and 'danke' in _offen122,
-               'aufgeklappt wieder alle, in der alten Reihenfolge (%r)'
-               % _offen122)
 
         # Gegenprobe: Die uebrigen lassen sich weiterhin klappen.
         _f122._group_toggle('werkstatt', auf=True)
@@ -25388,6 +25390,7 @@ def main():
     _pruefung_421()
     _pruefung_422()
     _pruefung_423()
+    _pruefung_424()
 
     print()
     if fehler:
@@ -31925,6 +31928,11 @@ def _pruefung_315():
     # Überschrift — die Kennung bleibt, damit ältere Meldungen gültig sind.
     for _ohne315 in _pg315.PAGES_WITHOUT_TAB:
         reiter.setdefault(_ohne315, _la315.TEXTS['hf_' + _ohne315][0])
+    # Bereichsseiten der Kartenansicht heißen Bereich plus Name des Bereichs.
+    from scbp import cards as _ka315
+    for _ber315 in _ka315.AREAS:
+        reiter.setdefault(_ka315.area_page_id(_ber315[0]),
+                          'Bereich ' + _la315.TEXTS[_ber315[2]][0])
     falsch = sorted(p for p in im_worker if reiter.get(p) != im_worker[p])
     pruefe(not falsch, 'pages.js nennt jede Seite wie ihr Reiter (abweichend: %s)'
            % ['%s: %r statt %r' % (p, im_worker[p], reiter.get(p)) for p in falsch])
@@ -39599,6 +39607,161 @@ def _pruefung_423():
                % _schluessel(w))
     finally:
         _pa423.game_log = _alt_log
+        if _alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_424():
+    """424. Kartenansicht: Bereiche, Karten, Pfadzeile, Anheften, Umschalten."""
+    print('\n424. Kartenansicht')
+    import ast as _ast424
+    import tempfile as _tf424
+    from scbp import cards as _ka424, language as _la424, modules as _mo424
+    from scbp import paths as _pa424
+
+    # Symbol und Name je Seite wie in der Reiterliste.
+    _baum = _ast424.parse(open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
+                               encoding='utf-8').read())
+    _reiter = {}
+    _gruppen = {}
+    _namen = {}
+    for _k in _ast424.walk(_baum):
+        if (isinstance(_k, _ast424.Assign) and isinstance(_k.value, _ast424.Call)
+                and getattr(_k.value.func, 'attr', '') == '_group'
+                and len(_k.value.args) == 2
+                and isinstance(_k.targets[0], _ast424.Name)):
+            _namen[_k.targets[0].id] = _k.value.args[1].value
+        if (isinstance(_k, _ast424.Call) and getattr(_k.func, 'attr', '') == '_tab'
+                and len(_k.args) >= 3 and isinstance(_k.args[2], _ast424.Call)):
+            _reiter[_k.args[0].value] = (_k.args[1].value,
+                                         _k.args[2].args[0].value)
+            if len(_k.args) >= 4 and isinstance(_k.args[3], _ast424.Name):
+                _gruppen.setdefault(_k.args[3].id, []).append(_k.args[0].value)
+    _abw = sorted(p for p, w in _ka424.PAGES.items() if _reiter.get(p) != w)
+    pruefe(not _abw, 'jede Karte trägt Symbol und Name ihres Reiters (%r)' % _abw)
+    _je_gruppe = {_namen[v]: k for v, k in _gruppen.items() if v in _namen}
+    _je_gruppe['einstellungen'] = (_je_gruppe.get('einstellungen', [])
+                                   + ['erkennung', 'startprogramme'])
+    _falsch = [a[0] for a in _ka424.AREAS
+               if a[0] in _je_gruppe and list(a[3]) != _je_gruppe[a[0]]]
+    pruefe(not _falsch, 'jeder Bereich zeigt genau die Reiter seiner Gruppe, '
+           'in derselben Reihenfolge (%r)' % _falsch)
+    _schl = (['ka_' + a[0] for a in _ka424.AREAS]
+             + [_ka424.description_key(p, a[0]) for a in _ka424.AREAS
+                for p in a[3]] + [a[2] for a in _ka424.AREAS])
+    _fehlt = sorted(k for k in _schl if k not in _la424.TEXTS)
+    pruefe(not _fehlt, 'jede Karte hat ihren Text, deutsch und englisch (%r)'
+           % _fehlt)
+    pruefe(_ka424.area('basetool')[3] == ('basetool', 'bedarf', 'lager',
+                                         'handelslager', 'hangar', 'liste'),
+           'Basetool bündelt Verbindung, Bedarf, Lager, Handelslager, Hangar, '
+           'Liste')
+    pruefe([_ka424.columns_for(w, 220) for w in (100, 451, 452, 940, 1500)]
+           == [1, 1, 2, 4, 6],
+           'Spalten: so viele, wie mit Mindestbreite passen, mindestens eine')
+    pruefe(_ka424.area_of('lager') == 'werkstatt'
+           and _ka424.area_of('lager', 'basetool') == 'basetool'
+           and _ka424.area_of('lager', 'info') == 'werkstatt',
+           'Bereich einer Seite: der gewählte, wenn sie dort steht')
+
+    if not hat_anzeige():
+        print('  (Oberfläche übersprungen: kein Bildschirm)')
+        return
+    from scbp import main_window as _mw424
+    _heim = _tf424.mkdtemp(prefix='karten-')
+    _alt_heim = os.environ.get('SC_BP_HOME')
+    _w = None
+    try:
+        os.environ['SC_BP_HOME'] = _heim
+        _pa424.set_setting('ansicht', 'karten')
+        _w = _wurzel()
+        _w.deiconify()
+        _w.geometry('1300x900')
+        _f = _mw424.MainWindow(_w, version='0.0.0-pruefung',
+                               start_page='uebersicht')
+        _w.update()
+        pruefe(not _f.sidebar_column.winfo_manager()
+               and _f.card_band is not None and _f.card_band.winfo_manager(),
+               'Kartenansicht: Reiterliste weg, Band über der Statusleiste da')
+        _start = _f.pages['uebersicht']
+        pruefe([c.area_key for c in _start.main_grid.cells]
+               == [a[0] for a in _ka424.AREAS],
+               'Startseite: alle Hauptbereiche als Karten, in ihrer Reihenfolge')
+        pruefe(_f.crumb_bar.crumbs == [_la424.t('hf_uebersicht')],
+               'Pfadzeile auf der Startseite: nur Übersicht')
+        # Gleich hohe Karten je Reihe.
+        _w.update()
+        _reihen = {}
+        for _c in _start.main_grid.cells:
+            # Gemessen wird der gezeichnete Rand, nicht die Zelle — die Zelle
+            # ist dank Raster immer gleich hoch, der Rand nur mit `stretch`.
+            _unten = max(_c.card.canvas.coords(_c.card.shape)[1::2])
+            _reihen.setdefault(int(_c.grid_info()['row']), set()).add(
+                round(_unten))
+        pruefe(_reihen and all(len(h) == 1 for h in _reihen.values()),
+               'Hauptkarten einer Reihe sind gleich hoch (%r)' % _reihen)
+        # Klick auf eine Hauptkarte -> Bereichsseite.
+        _start.main_grid.cells[2].card.open()
+        _w.update()
+        pruefe(_f.current == 'bereich_werkstatt'
+               and _f.crumb_bar.crumbs[-1] == _la424.t('hf_gruppe_herst'),
+               'eine Hauptkarte öffnet ihre Bereichsseite (%r)' % _f.current)
+        _bg = _f.pages['bereich_werkstatt'].card_grid
+        pruefe([c.page_key for c in _bg.cells]
+               == list(_ka424.area('werkstatt')[3]),
+               'Bereichsseite: eine Karte je Unterpunkt')
+        _bg.cells[3].card.open()
+        _w.update()
+        pruefe(_f.current == 'lager' and _f.crumb_bar.crumbs
+               == [_la424.t('hf_uebersicht'), _la424.t('hf_gruppe_herst'),
+                   _la424.t('hf_lager')],
+               'Unterpunkt-Karte öffnet die Seite, Pfadzeile mit drei Stücken '
+               '(%r)' % _f.crumb_bar.crumbs)
+        _f.open_page('lager', via='karte', area='basetool')
+        _w.update()
+        pruefe(_f.crumb_bar.crumbs[1] == _la424.t('k_basetool_titel'),
+               'aus dem Basetool geöffnet nennt die Pfadzeile Basetool')
+        # Anheften über die Nadel.
+        _f.open_page('bereich_werkstatt', via='karte')
+        _w.update()
+        _nadel = _bg.cells[3].card.needle
+        _nadel.event_generate('<Button-1>')
+        pruefe(_ka424.pinned() == ['lager'], 'die Nadel heftet an (%r)'
+               % _ka424.pinned())
+        _f.open_page('uebersicht', via='pfad')
+        _w.update()
+        pruefe([c.page_key for c in _start.pin_grid.cells] == ['lager'],
+               'die angeheftete Karte steht unter Deine Karten')
+        # Basetool ausblenden.
+        _pa424.set_setting(_ka424.BASETOOL_SETTING, False)
+        _f.on_show['uebersicht']()
+        _w.update()
+        pruefe('basetool' not in [c.area_key for c in _start.main_grid.cells],
+               'Basetool lässt sich ausblenden')
+        # Ein Modul aus: der Bereich fehlt auch als Karte.
+        _mo424.set_enabled('handel', False)
+        _f.rebuild()
+        _w.update()
+        _start = _f.pages['uebersicht']
+        pruefe('handel' not in [c.area_key for c in _start.main_grid.cells],
+               'ein ausgeschaltetes Modul fehlt auch als Hauptkarte')
+        _mo424.set_enabled('handel', True)
+        # Umschalten in die Reiteransicht.
+        _f._toggle_view()
+        _w.update()
+        pruefe(bool(_f.sidebar_column.winfo_manager())
+               and getattr(_f.pages.get('uebersicht'), 'main_grid', None) is None
+               and _f.card_band is None,
+               'Reiteransicht: Reiterliste da, keine Hauptkarten, kein Band')
+    finally:
+        try:
+            if _w is not None:
+                _w.destroy()
+        except Exception:
+            pass
         if _alt_heim is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

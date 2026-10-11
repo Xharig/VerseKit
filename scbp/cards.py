@@ -30,7 +30,7 @@ Aufbau:
 
 `AREAS` und `PAGES` müssen zur Reiterliste in `main_window._body` passen
 (Symbol und Name je Seite); eine Prüfung vergleicht beides. Die Bereiche
-„Basetool" und „Info" gibt es nur hier: Basetool bündelt Seiten aus
+Basetool und Info gibt es nur hier: Basetool bündelt Seiten aus
 verschiedenen Gruppen, Info enthält nur die Seiten, die nicht über Kopf- und
 Fußleiste erreichbar sind.
 
@@ -118,7 +118,7 @@ AREAS = (
      ('patchaenderungen', 'serverstatus', 'danke')),
 )
 
-# Unterseiten, die im Bereich „Fortgeschritten" stehen — auf der Karte als
+# Unterseiten, die im Bereich Fortgeschritten stehen — auf der Karte als
 # Zusatz am Namen.
 ADVANCED = ('erkennung', 'startprogramme')
 
@@ -378,7 +378,7 @@ def card(window, cell, symbol, title, text, action, pin=None,
         if moved <= 6:
             action()
 
-    def bind_all(widget):
+    def bind_tree(widget):
         if widget in skip:
             return
         widget.bind('<Button-1>', pressed, add='+')
@@ -390,8 +390,8 @@ def card(window, cell, symbol, title, text, action, pin=None,
         except tk.TclError:
             pass
         for child in widget.winfo_children():
-            bind_all(child)
-    bind_all(box.holder)
+            bind_tree(child)
+    bind_tree(box.holder)
     box.open_button = knopf
     box.open = action
     box.title_label = name
