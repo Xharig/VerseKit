@@ -692,14 +692,10 @@ def _tile_blueprints(window, cell):
                                                   _ago(numbers['newest_at'])))
 
 
-def _tile_translation(window, cell):
-    """Je Kanal eine Auswahlliste der Textquellen — dieselben Wege wie auf
-    der Übersetzungsseite. Eigene Adresse und das Unberührt-Lassen gibt es
-    nur dort."""
+def translation_rows():
+    """Die Kanäle mit ihrer gewählten Textquelle: (Name, Ordner, Haupt?,
+    Kanal, Quelle). Der erste ist die Hauptinstallation."""
     from . import paths, translation, usercfg
-    from .main_window import round_select
-    from .pages import _choose_source, _fetch_side, _settings_parts
-    body = _card(window, cell, 's_uv_uebersetzung', 'uebersetzung')
     main_folder = os.path.normcase(os.path.normpath(paths.game_folder() or ''))
     channels = []
     try:
@@ -715,13 +711,108 @@ def _tile_translation(window, cell):
              paths.game_folder(), True)]
     rows += [(name, folder, False) for name, folder in channels
              if name != main_name]
-    parts = _settings_parts(window)
-    checks = []
-
+    result = []
     for name, folder, main in rows:
         channel = None if main else name
         chosen = (paths.setting('inj_quelle') or '') if main else \
             translation.channel_sources().get(name, '')
+        result.append((name, folder, main, channel, chosen))
+    return result
+
+
+def translation_pick(window, parts, name, folder, main, key):
+    """Eine Textquelle für einen Kanal setzen und holen — derselbe Weg wie
+    auf der Übersetzungsseite."""
+    from .pages import _choose_source, _fetch_side
+    if not key:
+        return
+
+    class _Choice:
+        def select(self, _key):
+            pass
+    if main:
+        _choose_source(window, parts, _Choice(), key, lambda: None)
+    else:
+        _fetch_side(window, parts, name, folder, key, window.say)
+
+
+def translation_reload(window):
+    """Jede gewählte Übersetzung noch einmal holen und einsetzen — etwa wenn
+    ein Spiel-Patch die Textdatei überschrieben hat."""
+    from .pages import _settings_parts
+    parts = _settings_parts(window)
+    done = False
+    for name, folder, main, _channel, chosen in translation_rows():
+        if chosen:
+            translation_pick(window, parts, name, folder, main, chosen)
+            done = True
+    if not done:
+        window.say(t('s_tq_nichts_zu_pruefen'))
+    return done
+
+
+def translation_check(window, widget, checks=None, started=None,
+                      finished=None):
+    """Für jeden Kanal mit gewählter Quelle nach einer neueren Fassung fragen
+    und sie gleich holen. Die Abfrage läuft im Hintergrund; `checks` sind
+    (Quelle, Kanal, Statuszeile oder None, holen), ohne Angabe alle Kanäle.
+    `started()`/`finished()` melden Anfang und Ende."""
+    from . import translation
+    from .pages import _from_thread, _settings_parts
+    if checks is None:
+        parts = _settings_parts(window)
+        checks = [(chosen, channel, None,
+                   lambda key, n=name, f=folder, m=main:
+                   translation_pick(window, parts, n, f, m, key))
+                  for name, folder, main, channel, chosen in translation_rows()
+                  if chosen and chosen != 'original']
+    if not checks:
+        window.say(t('s_tq_nichts_zu_pruefen'))
+        return False
+
+    def done(results):
+        if finished:
+            finished()
+        fetched = False
+        for (source, channel, state, pick), newer in zip(checks, results):
+            if newer:
+                pick(source)
+                fetched = True
+            elif state is not None:
+                _status(state, source, channel)
+        if not fetched:
+            window.say(t('inj_aktuell'))
+
+    def work():
+        results = []
+        for source, channel, _state, _pick in checks:
+            newer = False
+            try:
+                newer = translation.update_available(source, channel)[0]
+            except Exception as exc:
+                errors.record('overview.translation_check', exc)
+            results.append(newer)
+        _from_thread(widget, lambda: done(results))
+
+    if started:
+        started()
+    window.say(t('inj_laeuft'))
+    threading.Thread(target=work, daemon=True).start()
+    return True
+
+
+def _tile_translation(window, cell):
+    """Je Kanal eine Auswahlliste der Textquellen — dieselben Wege wie auf
+    der Übersetzungsseite. Eigene Adresse und das Unberührt-Lassen gibt es
+    nur dort."""
+    from . import translation
+    from .main_window import round_select
+    from .pages import _settings_parts
+    body = _card(window, cell, 's_uv_uebersetzung', 'uebersetzung')
+    parts = _settings_parts(window)
+    checks = []
+
+    for name, folder, main, channel, chosen in translation_rows():
         entries = [(key, translation.display_name(key))
                    for group in translation.grouped_sources(channel)
                    for key in group]
@@ -736,18 +827,11 @@ def _tile_translation(window, cell):
         state = tk.Label(body, text='', bg=theme.SURFACE, fg=theme.SUB,
                          font=window.f_small, anchor='w')
 
-        class _Choice:
-            def select(self, _key):
-                pass
-
         def pick(key, main=main, name=name, folder=folder, state=state,
                  channel=channel):
             if not key:
                 return
-            if main:
-                _choose_source(window, parts, _Choice(), key, lambda: None)
-            else:
-                _fetch_side(window, parts, name, folder, key, window.say)
+            translation_pick(window, parts, name, folder, main, key)
             _status(state, key, channel)
 
         # Erst die Auswahl, dann der Name: Tk kürzt bei Platzmangel das
@@ -767,47 +851,25 @@ def _tile_translation(window, cell):
 
 
 def _check_link(window, body, checks):
-    """Link zum Nachsehen: fragt für jeden Kanal mit gewählter Quelle nach
-    einer neueren Fassung und holt sie gleich. Die Abfrage läuft im
-    Hintergrund; geholt wird über denselben Weg wie bei der Auswahl."""
-    from . import translation
-    from .pages import _from_thread
+    """Link zum Nachsehen (`translation_check`) unter den Kanälen."""
     link = tk.Label(body, text=t('s_uv_nachsehen'), bg=theme.SURFACE,
                     fg=theme.ACCENT, font=window.f_small, cursor='hand2',
                     anchor='w')
     link.pack(fill='x', pady=(8, 0))
     busy = [False]
 
-    def done(results):
+    def started():
+        busy[0] = True
+        link.configure(text=t('s_uv_sehe_nach'), fg=theme.SUB)
+
+    def finished():
         busy[0] = False
         link.configure(text=t('s_uv_nachsehen'), fg=theme.ACCENT)
-        fetched = False
-        for (source, channel, state, pick), newer in zip(checks, results):
-            if newer:
-                pick(source)
-                fetched = True
-            else:
-                _status(state, source, channel)
-        if not fetched:
-            window.say(t('inj_aktuell'))
-
-    def work():
-        results = []
-        for source, channel, _state, _pick in checks:
-            newer = False
-            try:
-                newer = translation.update_available(source, channel)[0]
-            except Exception as exc:
-                errors.record('overview.translation_check', exc)
-            results.append(newer)
-        _from_thread(link, lambda: done(results))
 
     def start(_e=None):
         if busy[0]:
             return
-        busy[0] = True
-        link.configure(text=t('s_uv_sehe_nach'), fg=theme.SUB)
-        threading.Thread(target=work, daemon=True).start()
+        translation_check(window, link, checks, started, finished)
     link.bind('<Button-1>', start)
     link.check = start
 
@@ -963,14 +1025,20 @@ def countdown_text(seconds):
 TICK_MS = 1000
 
 
+def refinery_scan_now(window):
+    """Lager öffnen, Raffinerie-Block aufklappen und das Lesen starten — es
+    liest, sobald Star Citizen vorn ist."""
+    window.open_page('lager', via='sprung')
+    read = getattr(window, 'refinery_read', None)
+    if read is not None:
+        read()
+
+
 def _tile_refinery(window, cell):
     from . import paths, refinery_jobs, refinery_scan
     from .hotkey import DEFAULT_SCAN
     def scan():
-        window.open_page('lager', via='sprung')
-        read = getattr(window, 'refinery_read', None)
-        if read is not None:
-            read()
+        refinery_scan_now(window)
     cell.scan = scan
     body = _card(window, cell, 's_uv_raffinerie', 'lager',
                  extra=(t('s_uv_scannen'), scan))

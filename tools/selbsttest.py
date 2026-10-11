@@ -35951,7 +35951,7 @@ def _pruefung_349():
 
 def _pruefung_350():
     """350. Rohstofflager: der Knopf `s_lg_sync` nur mit Basetool-Verbindung."""
-    print('\n350. Rohstofflager: Knopf „Jetzt übertragen"')
+    print('\n350. Rohstofflager: Knopf „Jetzt abgleichen"')
     if not hat_anzeige():
         print('  (übersprungen: kein Bildschirm)')
         return
@@ -35961,7 +35961,7 @@ def _pruefung_350():
     verbunden = [False]
     angestossen = []
     echt = (_bt350.CONNECTION.connected, _bs350.request_now,
-            _bs350.current_state, _up350.would_send, _pg350._storage_sync_ready)
+            _bs350.current_state, _up350.would_send, _pg350._sync_ready)
     alt_status = dict(_bs350.STATUS)
     alt_schalter = _pf350.setting_bool(_bs350.SETTING_STOCK, False)
     alt_sprache = _la350.current()
@@ -35981,22 +35981,28 @@ def _pruefung_350():
         knopf = knopf[0]
         pruefe(not knopf.winfo_manager(), 'nicht verbunden: ausgeblendet')
         # Gegenprobe: Die Sichtbarkeit hängt wirklich an der Verbindung.
-        _pg350._storage_sync_ready = lambda: True
+        _pg350._sync_ready = lambda _s: True
         knopf.sync_refresh()
         pruefe(bool(knopf.winfo_manager()),
                'Gegenprobe: hieße es „verbunden", stünde er da')
-        _pg350._storage_sync_ready = echt[4]
+        _pg350._sync_ready = echt[4]
         knopf.sync_refresh()
         verbunden[0] = True
-        f.on_show['lager']()
+        f.open_page('liste')
+        w.update()
+        f.open_page('lager')
         w.update()
         pruefe(bool(knopf.winfo_manager())
                and any(s == _la350.t('s_lg_sync') for s in _texte_346(seite)),
-               'verbunden: „Jetzt übertragen" erscheint beim Zeigen der Seite')
-        reihe = knopf.master
-        pruefe(knopf.winfo_rooty() == [k for k in reihe.winfo_children()
-                                       if k is not knopf][0].winfo_rooty(),
-               'er steht in der Knopfreihe der Sicherung')
+               'verbunden: „Jetzt abgleichen" erscheint beim Zeigen der Seite')
+        _nadel350 = f._heading_pins['lager']
+        _mitte350 = knopf.winfo_rooty() + knopf.winfo_height() // 2
+        _nmitte350 = _nadel350.winfo_rooty() + _nadel350.winfo_height() // 2
+        pruefe(abs(_mitte350 - _nmitte350) <= 4
+               and knopf.winfo_rootx() + knopf.winfo_width()
+               < _nadel350.winfo_rootx(),
+               'er steht oben an der Überschrift, links neben der Stecknadel '
+               '(Mitte %d/%d)' % (_mitte350, _nmitte350))
         knopf.event_generate('<Button-1>', x=5, y=5)
         w.update()
         pruefe(angestossen == [1], 'ein Klick stößt den vorhandenen Abgleich an')
@@ -36036,12 +36042,35 @@ def _pruefung_350():
                   ' — FEHLT, Meldung: %r, Abgleich: %r' % (
                       meldung[0].cget('text'), dict(_bs350.STATUS))))
         verbunden[0] = False
-        f.on_show['lager']()
+        f.open_page('liste')
+        w.update()
+        f.open_page('lager')
+        w.update()
         pruefe(not knopf.winfo_manager(), 'getrennt: wieder ausgeblendet')
+        _pg350._sync_ready = lambda _s: True
+        from scbp import exchange_demand as _ed350
+        _sichtbar350 = _ed350.visible
+        _ed350.visible = lambda: True
+        _ohne350 = []
+        for _p350 in _pg350.SYNC_PAGES:
+            f.open_page(_p350)
+            w.update()
+            if _p350 not in f.pages:
+                _ohne350.append('%s (Seite nicht gebaut)' % _p350)
+                continue
+            _k350 = _alle_346(f.pages[_p350],
+                              lambda x: hasattr(x, 'sync_click'))
+            if len(_k350) != 1 or not _k350[0].winfo_ismapped():
+                _ohne350.append(_p350)
+        _pg350._sync_ready = echt[4]
+        _ed350.visible = _sichtbar350
+        pruefe(not _ohne350,
+               'jede Seite mit Basetool-Abgleich hat „Jetzt abgleichen" oben '
+               '(fehlt: %r)' % _ohne350)
     finally:
         (_bt350.CONNECTION.connected, _bs350.request_now,
          _bs350.current_state, _up350.would_send,
-         _pg350._storage_sync_ready) = echt
+         _pg350._sync_ready) = echt
         try:
             del _bt350.CONNECTION.connected
         except AttributeError:
@@ -36214,17 +36243,15 @@ def _pruefung_377():
     print('\n380. Rohstofflager: kein Knopf der unteren Reihen abgeschnitten')
     from scbp import main_window as _mw380, pages as _pg380
     from scbp import language as _la380
-    _bereit380 = _pg380._storage_sync_ready
+    _bereit380 = _pg380._sync_ready
     _w380 = None
     try:
-        _pg380._storage_sync_ready = lambda: True
+        _pg380._sync_ready = lambda _s: True
         _w380 = _wurzel()
         _w380.deiconify()
         _f380 = _mw380.MainWindow(_w380, version='0.0.0-pruefung')
         _w380.geometry('%dx%d' % (_w380.minsize()[0], 900))
         _f380.open_page('lager')
-        _w380.update()
-        _f380.on_show['lager']()
         _w380.update()
         _seite380 = _f380.pages['lager']
         _knoepfe380 = []
@@ -36233,14 +36260,14 @@ def _pruefung_377():
             if x.winfo_class() == 'Canvas' and x.winfo_manager() == 'pack':
                 _texte = [str(x.itemcget(i, 'text')) for i in x.find_all()
                           if x.type(i) == 'text']
-                if any(t_ in (_la380.t('s_lg_leeren'), _la380.t('s_lg_sync'),
+                if any(t_ in (_la380.t('s_lg_leeren'),
                               _la380.t('s_lg_einlesen')) for t_ in _texte):
                     _knoepfe380.append(x)
             for k in x.winfo_children():
                 _lauf380(k)
         _lauf380(_seite380)
-        pruefe(len(_knoepfe380) == 3,
-               'Vorbedingung: Einlesen, Übertragen und Löschen sind gebaut '
+        pruefe(len(_knoepfe380) == 2,
+               'Vorbedingung: Einlesen und Löschen sind gebaut '
                '(%d)' % len(_knoepfe380))
         _zu_breit380 = [k for k in _knoepfe380
                         if k.winfo_x() + k.winfo_width()
@@ -36285,12 +36312,13 @@ def _pruefung_377():
         pruefe(_th382.KRT_ORANGE not in _farben382(_normal382)
                or _th382.ACCENT.lower() == _th382.KRT_ORANGE,
                'Gegenprobe: ein gewöhnlicher Knopf nicht')
-        _sync382 = [k for k in _knoepfe380 if any(
+        _sync382 = [k for k in _f380.pages['lager'].winfo_children()
+                    if k.winfo_class() == 'Canvas' and any(
             str(k.itemcget(i, 'text')) == _la380.t('s_lg_sync')
             for i in k.find_all() if k.type(i) == 'text')]
         pruefe(len(_sync382) == 1
                and _th382.KRT_ORANGE in _farben382(_sync382[0]),
-               '„Jetzt übertragen" im Lager ist orange')
+               '„Jetzt abgleichen" im Lager ist orange')
 
         print('\n383. Kein verschleiert gestartetes PowerShell im Programm')
         # Ein unsichtbares powershell.exe mit -EncodedCommand oder
@@ -36326,7 +36354,7 @@ def _pruefung_377():
         pruefe(_rs383.supported() == (sys.platform == 'win32'),
                'der Bildschirm-Scanner ist unter Windows an')
     finally:
-        _pg380._storage_sync_ready = _bereit380
+        _pg380._sync_ready = _bereit380
         try:
             if _w380 is not None:
                 _w380.destroy()
@@ -39676,7 +39704,13 @@ def _pruefung_424():
     _je_gruppe['einstellungen'] = (_je_gruppe.get('einstellungen', [])
                                    + ['erkennung', 'startprogramme'])
     _falsch = [a[0] for a in _ka424.AREAS
-               if a[0] in _je_gruppe and list(a[3]) != _je_gruppe[a[0]]]
+               if a[0] in _je_gruppe and list(a[3]) != [
+                   p for p in _je_gruppe[a[0]]
+                   if p not in _ka424.BASETOOL_ONLY.get(a[0], ())]]
+    pruefe(all(p in _ka424.area('basetool')[3]
+               for ps in _ka424.BASETOOL_ONLY.values() for p in ps),
+           'was im Bereich fehlt, weil es nur mit Basetool geht, steht im '
+           'Bereich Basetool')
     pruefe(not _falsch, 'jeder Bereich zeigt genau die Reiter seiner Gruppe, '
            'in derselben Reihenfolge (%r)' % _falsch)
     _schl = (['ka_' + a[0] for a in _ka424.AREAS]
@@ -39771,7 +39805,8 @@ def _pruefung_424():
         pruefe([c.page_key for c in _bg.cells]
                == list(_ka424.area('werkstatt')[3]),
                'Bereichsseite: eine Karte je Unterpunkt')
-        _bg.cells[3].card.open()
+        _lager424 = [c.page_key for c in _bg.cells].index('lager')
+        _bg.cells[_lager424].card.open()
         _w.update()
         pruefe(_f.current == 'lager' and _f.crumb_bar.crumbs
                == [_la424.t('hf_uebersicht'), _la424.t('hf_gruppe_herst'),
@@ -39792,7 +39827,7 @@ def _pruefung_424():
         # Anheften über die Nadel.
         _f.open_page('bereich_werkstatt', via='karte')
         _w.update()
-        _nadel = _bg.cells[3].card.needle
+        _nadel = _bg.cells[_lager424].card.needle
         _nadel.event_generate('<Button-1>')
         pruefe(_ka424.pinned() == ['lager'], 'die Nadel heftet an (%r)'
                % _ka424.pinned())
@@ -39836,6 +39871,97 @@ def _pruefung_424():
         pruefe('handel' not in [c.area_key for c in _start.main_grid.cells],
                'ein ausgeschaltetes Modul fehlt auch als Hauptkarte')
         _mo424.set_enabled('handel', True)
+        # Zusatzknöpfe auf den Unterpunkt-Karten. Nichts davon darf echt
+        # laufen: kein Bildschirm-Lesen, kein Scanner, kein Abgleich.
+        import tkinter as _tk424
+        from scbp import (refinery_scan as _rs424, scan_window as _sw424,
+                          signature_watch as _sg424, pages as _pg424,
+                          overview as _ov424, basetool_sync as _bs424,
+                          theme as _th424)
+        _echt_x424 = (_rs424.supported, _sw424.available, _sg424.start,
+                      _sg424.stop, _pg424._sync_ready,
+                      _ov424.translation_reload, _ov424.refinery_scan_now,
+                      _bs424.request_now)
+        _spur424 = []
+        _rahmen424 = _tk424.Frame(_w)
+        _rahmen424.pack()
+        try:
+            _rs424.supported = lambda: True
+            _sw424.available = lambda: True
+            _sg424.start = lambda: True
+            _sg424.stop = lambda: None
+            _pg424._sync_ready = lambda _s: True
+            _ov424.translation_reload = lambda _x: _spur424.append('neu')
+            _ov424.refinery_scan_now = lambda _x: _spur424.append('scan')
+            _bs424.request_now = lambda: _spur424.append('sync')
+
+            def _extras424(bereich):
+                _fr = _tk424.Frame(_rahmen424, width=1200)
+                _fr.pack(fill='x')
+                _ka424.area_page(_f, _fr, bereich)
+                _w.update()
+                return {c.page_key: [k for k in c.card.extra_buttons
+                                     if k.winfo_manager()]
+                        for c in _fr.card_grid.cells}
+
+            def _namen424(knoepfe):
+                return [k.itemcget(k.caption, 'text') for k in knoepfe]
+            _t424 = _la424.t
+            _werk424 = _extras424('werkstatt')
+            _base424 = _extras424('basetool')
+            _spiel424 = _extras424('spiel_einst')
+            _soll424 = {
+                ('werkstatt', 'lager'): [_t424('s_uv_scannen')],
+                ('werkstatt', 'bergbau'): [_t424('k_scanner')],
+                ('werkstatt', 'herstellung'): [],
+                ('basetool', 'lager'): [_t424('s_uv_scannen'),
+                                        _t424('k_abgleichen')],
+                ('basetool', 'handelslager'): [_t424('k_abgleichen')],
+                ('basetool', 'hangar'): [_t424('k_abgleichen')],
+                ('basetool', 'liste'): [_t424('k_abgleichen')],
+                ('basetool', 'bedarf'): [_t424('k_abgleichen')],
+                ('basetool', 'basetool'): [],
+                ('spiel_einst', 'uebersetzung'): [_t424('k_tr_pruefen'),
+                                                  _t424('k_tr_neu')],
+                ('spiel_einst', 'grafik'): [],
+            }
+            _ist424 = {'werkstatt': _werk424, 'basetool': _base424,
+                       'spiel_einst': _spiel424}
+            _abw424 = {k: _namen424(_ist424[k[0]].get(k[1], []))
+                       for k, v in _soll424.items()
+                       if _namen424(_ist424[k[0]].get(k[1], [])) != v}
+            pruefe(not _abw424, 'jede Unterpunkt-Karte hat ihre Zusatzknöpfe '
+                   '(abweichend: %r)' % _abw424)
+            pruefe('bedarf' not in _werk424,
+                   'Bedarf der Einheit steht nur im Bereich Basetool')
+            for _k424 in (_werk424['lager'][0], _base424['hangar'][0],
+                          _spiel424['uebersetzung'][1]):
+                _k424.event_generate('<Button-1>')
+            _w.update()
+            pruefe(_spur424 == ['scan', 'sync', 'neu'],
+                   'Scannen, Abgleichen und Neu einlesen lösen ihre Handlung '
+                   'aus (%r)' % _spur424)
+            # Der Scanner-Knopf schaltet denselben Schalter und folgt ihm.
+            _sg424.set_enabled(False)
+            _scanner424 = _werk424['bergbau'][0]
+
+            def _gefuellt424():
+                return _scanner424.itemcget(_scanner424.shape, 'fill').lower()
+            _aus424 = _gefuellt424()
+            _scanner424.toggle()
+            pruefe(_pa424.setting_bool(_sg424.SETTING, False)
+                   and _gefuellt424() == _th424.ACCENT.lower()
+                   and _aus424 != _gefuellt424(),
+                   'der Scanner-Knopf schaltet ein und ist dann grün')
+            _sg424.set_enabled(False)
+            pruefe(_gefuellt424() == _aus424,
+                   'schaltet ihn jemand anderes aus (Auge, Bergbau-Seite), '
+                   'zieht der Knopf mit')
+        finally:
+            (_rs424.supported, _sw424.available, _sg424.start, _sg424.stop,
+             _pg424._sync_ready, _ov424.translation_reload,
+             _ov424.refinery_scan_now, _bs424.request_now) = _echt_x424
+            _rahmen424.destroy()
         # Umschalten in die Reiteransicht.
         _f._toggle_view()
         _w.update()

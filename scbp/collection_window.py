@@ -405,6 +405,22 @@ class Bestandsfenster:
         self.export_meldung = tk.Label(bar, text='', bg=BAR, fg=ACCENT,
                                        font=schrift(9))
         self.export_meldung.pack(side='right', padx=(0, 10))
+        # Der Abgleich-Knopf (`s_lg_sync`) links neben dem Export, solange der
+        # Bauplan-Abgleich mit dem Basetool läuft — nur als Seite im
+        # Hauptfenster.
+        if self.hauptfenster is not None:
+            from . import pages
+
+            def show(knopf, sichtbar):
+                if not sichtbar:
+                    if knopf.winfo_manager():
+                        knopf.pack_forget()
+                elif not knopf.winfo_manager():
+                    knopf.pack(side='right', padx=(0, 10), after=k)
+            sync = pages.sync_heading_button(self.hauptfenster, bar, 'liste',
+                                             show)
+            if sync is not None:
+                sync.configure(bg=BAR)
         # Kein eigenes ✕: Dieses Fenster hat eine ganz normale Titelleiste vom
         # System, und die hat bereits eins. Zwei Kreuze übereinander sehen aus
         # wie ein Fehler — und man rät, welches was tut. (Betraf Windows genauso,

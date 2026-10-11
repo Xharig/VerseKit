@@ -16962,73 +16962,120 @@ def _storage(fenster, rahmen):
         meldung.configure(text=t('s_lg_geleert') % anzahl, fg=GOLD)
         zeichnen()
 
-    # Übertragen und Löschen stehen in einer eigenen Reihe — fünf Knöpfe
-    # passen in der Mindestbreite nicht nebeneinander, und Tk schneidet ab.
+    # Löschen steht in einer eigenen Reihe — vier Knöpfe passen in der
+    # Mindestbreite nicht nebeneinander, und Tk schneidet ab.
     _reihe_lager = tk.Frame(innen, bg=BG)
     _reihe_lager.pack(fill='x', pady=(8, 0))
     _leeren_knopf = _button(fenster, _reihe_lager, t('s_lg_leeren'), _leeren,
                             danger=True)
     _leeren_knopf.pack(side='left')
-    _storage_sync_button(fenster, _reihe_lager, _leeren_knopf, meldung,
-                         zeichnen)
+    # Der Abgleich-Knopf an der Überschrift schreibt sein Ergebnis hierher
+    # und zeichnet die Liste neu (`sync_heading_button`).
+    sync_targets(fenster)['lager'] = (meldung, zeichnen)
     _body_text(innen, t('s_lg_aus_hilfe'), fenster.f_small, fill='x')
 
     zeichnen()
 
 
 
-def _storage_sync_ready():
-    """Ist der Lager-Abgleich mit dem Basetool eingerichtet und verbunden?"""
+def _sync_setting(kennung):
+    """Der Abgleich-Schalter (`basetool_sync.SETTING_*`), über den diese Seite
+    mit dem Basetool abgeglichen wird — oder None."""
+    from . import basetool_sync
+    return {
+        'lager': basetool_sync.SETTING_STOCK,
+        'handelslager': basetool_sync.SETTING_STOCK,
+        'hangar': basetool_sync.SETTING_SHIPS,
+        'liste': basetool_sync.SETTING_BLUEPRINTS,
+        'bedarf': basetool_sync.SETTING_DEMAND,
+    }.get(kennung)
+
+
+SYNC_PAGES = ('lager', 'handelslager', 'hangar', 'liste', 'bedarf')
+
+
+def _sync_ready(setting):
+    """Ist dieser Abgleich mit dem Basetool eingeschaltet und verbunden?"""
     try:
         from . import basetool, basetool_sync
-        return (basetool_sync.area_on(basetool_sync.SETTING_STOCK)
-                and basetool.CONNECTION.connected())
+        return bool(basetool_sync.area_on(setting)
+                    and basetool.CONNECTION.connected())
     except Exception:
         return False
 
 
-def _storage_sync_result():
-    """Text und Farbe zum letzten Abgleich — für die Meldung der Lager-Seite."""
+def _storage_sync_ready():
+    """Ist der Lager-Abgleich mit dem Basetool eingerichtet und verbunden?"""
+    from . import basetool_sync
+    return _sync_ready(basetool_sync.SETTING_STOCK)
+
+
+def _storage_sync_result(setting=None):
+    """Text und Farbe zum letzten Abgleich. Abweichende Mengen gibt es nur
+    beim Lager-Abgleich."""
     from . import basetool_sync
     status = dict(basetool_sync.STATUS)
     if status.get('state') == 'ok':
-        state = basetool_sync.current_state() or {}
-        conflicts = (state.get('stock') or {}).get('conflicts') or {}
-        if conflicts:
-            return t('s_lg_sync_konflikte') % len(conflicts), GOLD
+        if setting in (None, basetool_sync.SETTING_STOCK):
+            state = basetool_sync.current_state() or {}
+            conflicts = (state.get('stock') or {}).get('conflicts') or {}
+            if conflicts:
+                return t('s_lg_sync_konflikte') % len(conflicts), GOLD
         return t('s_lg_sync_ok') % (status.get('last_sync') or ''), ACCENT
     from .basetool_page import error_text
     return error_text(status.get('code') or 'INTERNAL'), RED
 
 
-def _storage_sync_button(fenster, reihe, vor, meldung, neu_zeichnen):
-    """Der Knopf `s_lg_sync` in der Knopfreihe der Lager-Seite.
+def sync_targets(fenster):
+    """Seite -> (Meldung, neu_zeichnen) für den Abgleich-Knopf. Eine Seite,
+    die hier nichts einträgt, bekommt das Ergebnis in der Statuszeile."""
+    if not hasattr(fenster, 'sync_page_targets'):
+        fenster.sync_page_targets = {}
+    return fenster.sync_page_targets
 
-    Sichtbar nur, solange der Lager-Abgleich eingeschaltet und das Basetool
-    verbunden ist (`_storage_sync_ready`); geprüft beim Zeigen der Seite und
-    bei jeder Statusänderung des Abgleichs. Ein Klick stößt den vorhandenen
-    Abgleich an (`basetool_sync.request_now`), der im Hintergrund läuft; das
-    Ergebnis erscheint in `meldung`.
-    """
+
+def sync_heading_button(fenster, parent, kennung, show, make=None):
+    """Der Knopf `s_lg_sync` oben an einer Seite, die mit dem Basetool
+    abgleicht (`SYNC_PAGES`).
+
+    Sichtbar nur, solange ihr Abgleich eingeschaltet und das Basetool
+    verbunden ist; `show(knopf, sichtbar)` setzt ihn an seinen Platz oder nimmt ihn
+    weg. Geprüft beim Zeigen der Seite und bei jeder Statusänderung des
+    Abgleichs. Ein Klick stößt den vorhandenen Abgleich an
+    (`basetool_sync.request_now`), der im Hintergrund läuft.
+
+    `make(klick)` baut einen anderen Knopf als den der Überschrift (die
+    Karten im Bereich Basetool)."""
     from . import basetool_sync, page_usage
+    setting = _sync_setting(kennung)
+    if setting is None:
+        return None
     lage = {'wartet': False}
 
+    def melden(text, farbe):
+        # Von einer Karte aus steht die Seite nicht im Bild: Statuszeile.
+        ziel = sync_targets(fenster).get(kennung) if make is None else None
+        if ziel is not None:
+            ziel[0].configure(text=text, fg=farbe)
+        else:
+            fenster.say(text)
+
     def klick():
-        page_usage.action('lager_sync')
+        if kennung == 'lager':
+            page_usage.action('lager_sync')
         lage['wartet'] = True
         basetool_sync.request_now()
-        meldung.configure(text=t('s_lg_sync_laeuft'), fg=SUB)
+        melden(t('s_lg_sync_laeuft'), SUB)
 
-    knopf = _button(fenster, reihe, t('s_lg_sync'), klick,
-                    brand=theme.KRT_ORANGE)
+    if make is not None:
+        knopf = make(klick)
+    else:
+        knopf = _button(fenster, parent, t('s_lg_sync'), klick,
+                        brand=theme.KRT_ORANGE)
 
-    def sichtbar_setzen():
+    def sichtbar_setzen(_e=None):
         try:
-            if _storage_sync_ready():
-                if not knopf.winfo_manager():
-                    knopf.pack(side='left', padx=(0, 24), before=vor)
-            elif knopf.winfo_manager():
-                knopf.pack_forget()
+            show(knopf, _sync_ready(setting))
         except tk.TclError:
             pass
 
@@ -17039,9 +17086,11 @@ def _storage_sync_button(fenster, reihe, vor, meldung, neu_zeichnen):
         if basetool_sync.STATUS.get('state') == 'running':
             return
         lage['wartet'] = False
-        text, farbe = _storage_sync_result()
-        meldung.configure(text=text, fg=farbe)
-        neu_zeichnen()
+        text, farbe = _storage_sync_result(setting)
+        melden(text, farbe)
+        ziel = sync_targets(fenster).get(kennung)
+        if ziel is not None:
+            ziel[1]()
 
     def bei_status():
         _from_thread(knopf, ergebnis_zeigen)
@@ -17050,7 +17099,8 @@ def _storage_sync_button(fenster, reihe, vor, meldung, neu_zeichnen):
     knopf.bind('<Destroy>', lambda _e: (
         bei_status in basetool_sync.LISTENERS
         and basetool_sync.LISTENERS.remove(bei_status)), add='+')
-    fenster.on_show['lager'] = sichtbar_setzen
+    # Beim Zeigen der Seite: Ihr Rahmen wird dabei neu eingeblendet.
+    parent.bind('<Map>', sichtbar_setzen, add='+')
     sichtbar_setzen()
     knopf.sync_click = klick
     knopf.sync_refresh = sichtbar_setzen

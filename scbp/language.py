@@ -251,9 +251,9 @@ TEXTS = {
                                  'language → Language).'),
     's_rf_lesen_fehler': ('Bildschirm lesen ging nicht.',
                           'Reading the screen did not work.'),
-    's_lg_sync':       ('Jetzt übertragen', 'Sync now'),
-    's_lg_sync_laeuft': ('Übertrage das Lager zum Basetool …',
-                         'Syncing the storage with the Basetool …'),
+    's_lg_sync':       ('Jetzt abgleichen', 'Sync now'),
+    's_lg_sync_laeuft': ('Gleiche mit dem Basetool ab …',
+                         'Syncing with the Basetool …'),
     's_lg_sync_ok':    ('Mit dem Basetool abgeglichen: %s',
                         'Synced with the Basetool: %s'),
     's_lg_sync_konflikte': ('%d Posten stehen im Basetool mit anderer Menge — '
@@ -5796,6 +5796,10 @@ TEXTS = {
           'Unpin from start page'),
     'k_fortgeschritten': ('Fortgeschritten',
           'Advanced'),
+    'k_abgleichen': ('Abgleichen', 'Sync'),
+    'k_scanner': ('Mining-Scanner', 'Mining scanner'),
+    'k_tr_pruefen': ('Prüfen', 'Check'),
+    'k_tr_neu': ('Neu einlesen', 'Reload'),
     'k_kartenansicht': ('Kartenansicht', 'Card view'),
     'k_reiteransicht': ('Reiteransicht', 'Tab view'),
     'k_hinweis_karten': ('Zur Kartenansicht: jeder Bereich als Karte mit '

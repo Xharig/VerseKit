@@ -99,7 +99,7 @@ AREAS = (
     ('schiffe', 'hangar', 'hf_gruppe_schiffe',
      ('hangar', 'wunschliste', 'einkaufsliste')),
     ('werkstatt', 'blitz', 'hf_gruppe_herst',
-     ('herstellung', 'farmliste', 'bedarf', 'lager', 'bergbau', 'raffinerien')),
+     ('herstellung', 'farmliste', 'lager', 'bergbau', 'raffinerien')),
     ('bergung', 'zerlegen', 'hf_gruppe_bergung', ('bergung', 'zerlegen')),
     ('handel', 'laeden', 'hf_gruppe_handel',
      ('laeden', 'handelslager', 'verkauf', 'routen')),
@@ -117,6 +117,10 @@ AREAS = (
     ('info', 'ueber', 'hf_gruppe_info',
      ('patchaenderungen', 'serverstatus', 'danke')),
 )
+
+# Reiter einer Gruppe, die in ihrem Bereich fehlen, weil sie nur mit dem
+# Basetool etwas zeigen — sie stehen im Bereich Basetool.
+BASETOOL_ONLY = {'werkstatt': ('bedarf',)}
 
 # Unterseiten, die im Bereich Fortgeschritten stehen — auf der Karte als
 # Zusatz am Namen.
@@ -286,12 +290,13 @@ class CardGrid:
 
 
 def card(window, cell, symbol, title, text, action, pin=None,
-         button_text=None):
+         button_text=None, extras=None):
     """Eine Karte: Symbol und Name, Kurzerklärung, Knopf „Öffnen".
 
     Die ganze Karte ist klickbar; beim Überfahren leuchtet der Rand. `pin` ist
     ein Paar `(angeheftet, umschalten)` — dann steht oben rechts die
-    Stecknadel; `umschalten()` gibt den neuen Zustand zurück."""
+    Stecknadel; `umschalten()` gibt den neuen Zustand zurück. `extras` sind
+    Bausteine `build(fuß)` für Zusatzknöpfe (`page_extras`)."""
     from . import icons
     from .main_window import round_button, round_frame
     from .pages import _wrap
@@ -351,6 +356,18 @@ def card(window, cell, symbol, title, text, action, pin=None,
                          padding=(14, 5))
     knopf.pack(side='right')
     skip.append(knopf)
+    # Zusatzknöpfe links neben „Öffnen", der erste direkt daneben. Jeder
+    # Baustein packt sich selbst (manche nur unter einer Bedingung).
+    box.extra_buttons = []
+    for build in extras or ():
+        try:
+            widget = build(foot)
+        except Exception as exc:
+            errors.record('cards.extra', exc)
+            continue
+        if widget is not None:
+            skip.append(widget)
+            box.extra_buttons.append(widget)
 
     def outline(color):
         try:
@@ -428,6 +445,129 @@ def page_title(page, in_area=None):
     return title
 
 
+def _small_button(window, parent, text, action, color=None):
+    """Ein Knopf im Stil von `k_oeffnen` — `color` für Rand und Schrift."""
+    from .main_window import round_button
+    color = color or theme.ACCENT
+    return round_button(parent, text, action, window.f_small, theme.SURFACE,
+                        theme.SURFACE, color, color, radius=8, padding=(14, 5))
+
+
+def _place_extra(widget):
+    widget.pack(side='right', padx=(0, 8))
+    return widget
+
+
+def _scan_extra(window):
+    def build(parent):
+        from . import overview
+        return _place_extra(_small_button(
+            window, parent, t('s_uv_scannen'),
+            lambda: overview.refinery_scan_now(window)))
+    return build
+
+
+def _sync_extra(window, page):
+    def build(parent):
+        from . import pages
+
+        def make(click):
+            return _small_button(window, parent, t('k_abgleichen'), click,
+                                 color=theme.KRT_ORANGE)
+
+        def show(button, visible):
+            if not visible:
+                if button.winfo_manager():
+                    button.pack_forget()
+            elif not button.winfo_manager():
+                _place_extra(button)
+        return pages.sync_heading_button(window, parent, page, show, make=make)
+    return build
+
+
+def _mining_scanner_extra(window):
+    """Mining-Scanner an/aus — derselbe Schalter wie auf der Bergbau-Seite
+    und das Auge im Overlay. Grün gefüllt, solange er an ist."""
+    def build(parent):
+        from . import paths, signature_watch
+
+        def is_on():
+            return paths.setting_bool(signature_watch.SETTING, False)
+        button = _place_extra(_small_button(window, parent, t('k_scanner'),
+                                            None, color=theme.LINE))
+
+        def paint(on):
+            if on:
+                button.restyle(theme.ACCENT, theme.ACCENT, theme.BG)
+            else:
+                button.restyle(theme.SURFACE, theme.LINE, theme.SUB)
+
+        def click(_e=None):
+            new_value = signature_watch.set_enabled(not is_on())
+            window.say(t('s_bg_scan_sagen')
+                       % (t('e_an') if new_value else t('e_aus')))
+            paint(new_value)
+            return 'break'
+        button.bind('<Button-1>', click)
+
+        def follow(on):
+            # Ist die Karte weg, wirft das — dann meldet `set_enabled` sie ab.
+            if not button.winfo_exists():
+                raise tk.TclError('Karte geschlossen')
+            paint(on)
+        signature_watch.on_switch(follow)
+        paint(is_on())
+        button.toggle = click
+        button.is_on = is_on
+        return button
+    return build
+
+
+def _translation_extras(window):
+    def check(parent):
+        from . import overview
+        button = _small_button(window, parent, t('k_tr_pruefen'), None)
+        button.configure(cursor='hand2')
+        button.bind('<Button-1>',
+                    lambda _e: overview.translation_check(window, button))
+        return _place_extra(button)
+
+    def reload(parent):
+        from . import overview
+        return _place_extra(_small_button(
+            window, parent, t('k_tr_neu'),
+            lambda: overview.translation_reload(window)))
+    # Gepackt von rechts: `k_tr_pruefen` direkt neben dem Öffnen-Knopf,
+    # `k_tr_neu` links davon.
+    return [check, reload]
+
+
+def page_extras(window, page, kennung):
+    """Die Zusatzknöpfe einer Unterpunkt-Karte — was man oft braucht, ohne
+    erst die Seite zu öffnen."""
+    from . import pages
+    builders = []
+    if page == 'lager':
+        try:
+            from . import refinery_scan
+            if refinery_scan.supported():
+                builders.append(_scan_extra(window))
+        except Exception as exc:
+            errors.record('cards.scan_extra', exc)
+    if page == 'bergbau':
+        try:
+            from . import scan_window
+            if scan_window.available():
+                builders.append(_mining_scanner_extra(window))
+        except Exception as exc:
+            errors.record('cards.mining_extra', exc)
+    if page == 'uebersetzung':
+        builders.extend(_translation_extras(window))
+    if kennung == 'basetool' and page in pages.SYNC_PAGES:
+        builders.append(_sync_extra(window, page))
+    return builders
+
+
 def area_page(window, frame, kennung):
     """Die Bereichsseite: Überschrift, Erklärung, eine Karte je Unterpunkt."""
     from .pages import _heading, _scroll_area
@@ -447,7 +587,8 @@ def area_page(window, frame, kennung):
                  t(description_key(page, kennung)),
                  lambda: window.open_page(page, via='karte', area=kennung),
                  pin=(page in pinned(),
-                      lambda: page in set_pinned(page, page not in pinned())))
+                      lambda: page in set_pinned(page, page not in pinned())),
+                 extras=page_extras(window, page, kennung))
         cell = grid.add(build)
         cell.page_key = page
     frame.card_grid = grid

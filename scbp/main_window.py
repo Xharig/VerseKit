@@ -3898,6 +3898,31 @@ class MainWindow:
         pages.build(self, kennung, rahmen)
         pages.style_headings(self, rahmen)
         self._heading_pin(kennung, rahmen)
+        self._heading_sync(kennung, rahmen)
+
+    def _heading_sync(self, kennung, rahmen):
+        """Der Abgleich-Knopf (`s_lg_sync`) oben rechts an der Überschrift einer Seite, die
+        mit dem Basetool abgleicht — links neben der Stecknadel."""
+        from . import pages
+        if kennung not in pages.SYNC_PAGES:
+            return
+        titel = next((w for w in rahmen.winfo_children()
+                      if isinstance(w, tk.Label)
+                      and str(w.cget('font')) == str(self.f_title)), None)
+        if titel is None:
+            return
+        nadel = getattr(self, '_heading_pins', {}).get(kennung)
+
+        def show(knopf, sichtbar):
+            if not sichtbar:
+                if knopf.winfo_manager():
+                    knopf.place_forget()
+                return
+            abstand = (nadel.winfo_reqwidth() + 12) if nadel is not None else 0
+            knopf.place(in_=titel, relx=1.0, x=-abstand, rely=0.5, anchor='e')
+            knopf.lift()
+
+        pages.sync_heading_button(self, rahmen, kennung, show)
 
     def _heading_pin(self, kennung, rahmen):
         """Die Stecknadel rechts neben der Seitenüberschrift: heftet die Seite
