@@ -609,6 +609,12 @@ def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
         bottom = height + inset * 2 - 1
         if stretch:
             bottom = max(bottom, canvas.winfo_height() - 1)
+            # Der Inhalt reicht bis zum gestreckten Rand, damit unten Gepacktes
+            # (der Knopf einer Karte) in jeder Karte der Reihe gleich tief
+            # sitzt. Höhe 0 heißt: so hoch, wie der Inhalt verlangt.
+            spare = canvas.winfo_height() - inset * 2
+            canvas.itemconfigure(window_id,
+                                 height=spare if spare > height else 0)
         canvas.coords(shape, *corners(1, 1, width - 1, bottom, radius))
         if theme.SQUARE:
             _corner_marks(canvas, width, bottom)
@@ -2955,8 +2961,8 @@ class MainWindow:
         for index, (ziel, text) in enumerate(stuecke):
             letztes = index == len(stuecke) - 1
             if index:
-                icons.line(bar, 'pfad', color=icons.GREY, background=BG,
-                           font=self.f_small).pack(side='left', padx=4)
+                icons.button(bar, 'pfad', color=icons.GREY, background=BG,
+                             font=self.f_small).pack(side='left', padx=4)
             label = tk.Label(bar, text=text, bg=BG,
                              fg=FG if letztes else ACCENT,
                              font=self.f_bold if letztes else self.f_small,

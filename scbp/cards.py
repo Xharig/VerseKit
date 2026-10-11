@@ -266,20 +266,23 @@ class CardGrid:
             self._place(columns)
 
     def _place(self, columns):
+        # Karten in den geraden Spalten, der Abstand als eigene schmale Spalte
+        # dazwischen — so ist jede Karte gleich breit, auch die am Rand.
         old = self.columns
         self.columns = columns
-        for column in range(max(old, columns)):
-            if column < columns:
-                self.frame.columnconfigure(column, weight=1, uniform='karte')
+        for column in range(max(old, columns) * 2):
+            if column >= columns * 2 - 1:
+                self.frame.columnconfigure(column, weight=0, uniform='',
+                                           minsize=0)
+            elif column % 2:
+                self.frame.columnconfigure(column, weight=0, uniform='',
+                                           minsize=GAP)
             else:
-                self.frame.columnconfigure(column, weight=0, uniform='')
-        half = GAP // 2
+                self.frame.columnconfigure(column, weight=1, uniform='karte',
+                                           minsize=0)
         for index, cell in enumerate(self.cells):
-            column = index % columns
-            cell.grid(row=index // columns, column=column, sticky='nsew',
-                      padx=(0 if column == 0 else half,
-                            0 if column == columns - 1 else half),
-                      pady=(0, GAP))
+            cell.grid(row=index // columns, column=(index % columns) * 2,
+                      sticky='nsew', padx=0, pady=(0, GAP))
 
 
 def card(window, cell, symbol, title, text, action, pin=None,

@@ -24,6 +24,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Refinery tile: Scan** — a button right on the tile opens storage and
+  reads the refinery terminal as soon as you switch to the game
+- **Three tiles side by side** — "At a glance" makes better use of the width
 - **Customise start page** — show or hide main areas, choose tiles and decide
   whether "At a glance" or "Your cards" comes first
 - **Tidier footer** — Backup and What's new now sit at the bottom next to

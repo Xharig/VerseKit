@@ -5602,6 +5602,7 @@ TEXTS = {
     's_uv_nachsehen':    ('Jetzt nach neuer Übersetzung sehen',
                           'Check for a new translation now'),
     's_uv_sehe_nach':    ('Sehe nach …', 'Checking …'),
+    's_uv_scannen':      ('Scannen', 'Scan'),
     's_uv_spielzeit':    ('Spielzeit', 'Playtime'),
     's_uv_sieben_tage':  ('Letzte 7 Tage: %s', 'Last 7 days: %s'),
     's_uv_rechner':      ('Dein Rechner', 'Your PC'),

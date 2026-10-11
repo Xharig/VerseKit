@@ -521,6 +521,36 @@ def _scroll_to_top(widget):
         pass
 
 
+def _scroll_into_view(widget):
+    """Die Rollfläche so stellen, dass `widget` oben im Bild steht."""
+    canvas = None
+    step = widget
+    while step is not None and canvas is None:
+        canvas = (getattr(step, 'canvas', None)
+                  or getattr(step, 'leinwand', None))
+        step = getattr(step, 'master', None)
+    if canvas is None:
+        return
+
+    def move():
+        try:
+            if not (canvas.winfo_exists() and widget.winfo_exists()):
+                return
+            total = (canvas.bbox('all') or (0, 0, 0, 0))[3]
+            if total <= 0:
+                return
+            top = (widget.winfo_rooty() - canvas.winfo_rooty()
+                   + canvas.canvasy(0))
+            canvas.yview_moveto(max(0.0, min(1.0, top / float(total))))
+        except Exception:
+            pass
+
+    try:
+        canvas.after_idle(move)
+    except Exception:
+        pass
+
+
 def _files_stamp(*files):
     """Ein Fingerabdruck mehrerer Dateien: Pfad, Änderungszeit, Größe.
 
@@ -13152,6 +13182,15 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
             _umschalten()
         auftraege_zeigen(auftraege, aufgehoben)
         return True
+
+    def scan():
+        """Block aufklappen, ins Bild rollen und das Lesen starten."""
+        if not ziel.winfo_manager():
+            _umschalten()
+        _scroll_into_view(kasten)
+        lesen()
+    scan.message = lese_meldung
+    fenster.refinery_read = scan
 
     from . import refinery_scan as _rs_spiel
     _rs_spiel.listen(aus_dem_spiel)

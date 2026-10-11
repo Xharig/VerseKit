@@ -180,7 +180,7 @@ def builders():
 # Welcher der beiden unteren Bereiche oben steht: 'kacheln' oder 'karten'.
 ORDER_SECTIONS_SETTING = 'startseite_zuerst'
 # Mindestbreite einer Kachel bei Schriftstufe 0.
-TILE_MIN_WIDTH = 340
+TILE_MIN_WIDTH = 300
 
 
 def sections_first():
@@ -593,8 +593,10 @@ def _chooser(window, frame, redraw, reorder=None):
                  bg=theme.BG).pack(side='right', padx=(0, 14))
 
 
-def _card(window, cell, title_key, target=None):
-    """Eine Kachel mit Überschrift und — wenn `target` — einem Weg zur Seite."""
+def _card(window, cell, title_key, target=None, extra=None):
+    """Eine Kachel mit Überschrift und — wenn `target` — einem Weg zur Seite.
+    `extra` ist ein Paar `(Text, Aktion)` für einen zweiten Knopf links
+    daneben."""
     from .main_window import round_button, round_frame
     card = round_frame(cell, theme.SURFACE, theme.LINE, radius=12,
                        base_color=theme.BG, stretch=True)
@@ -613,6 +615,13 @@ def _card(window, cell, title_key, target=None):
                           padding=(12, 3))
         go.tile_link = True
         go.pack(side='right')
+    if extra:
+        more = round_button(head, extra[0], extra[1], window.f_small,
+                            theme.SURFACE, theme.SURFACE, theme.ACCENT,
+                            theme.ACCENT, radius=8, padding=(12, 3))
+        more.tile_link = True
+        more.pack(side='right', padx=(0, 6))
+        cell.extra_button = more
     body = tk.Frame(card, bg=theme.SURFACE)
     body.pack(fill='both', expand=True, padx=16, pady=(0, 12))
     return body
@@ -957,7 +966,14 @@ TICK_MS = 1000
 def _tile_refinery(window, cell):
     from . import paths, refinery_jobs, refinery_scan
     from .hotkey import DEFAULT_SCAN
-    body = _card(window, cell, 's_uv_raffinerie', 'lager')
+    def scan():
+        window.open_page('lager', via='sprung')
+        read = getattr(window, 'refinery_read', None)
+        if read is not None:
+            read()
+    cell.scan = scan
+    body = _card(window, cell, 's_uv_raffinerie', 'lager',
+                 extra=(t('s_uv_scannen'), scan))
     running, done = refinery_jobs.current()
     if not running and not done:
         keys = paths.setting('hotkey_scan') or DEFAULT_SCAN

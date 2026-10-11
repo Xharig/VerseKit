@@ -24,6 +24,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Raffinerie-Kachel: Scannen** — ein Knopf direkt auf der Kachel öffnet
+  das Lager und liest das Raffinerie-Terminal, sobald du ins Spiel wechselst
+- **Drei Kacheln nebeneinander** — „Auf einen Blick“ nutzt die Breite besser
 - **Startseite anpassen** — Hauptbereiche ein- und ausblenden, Kacheln
   wählen und festlegen, ob „Auf einen Blick“ oder „Deine Karten“ zuerst steht
 - **Aufgeräumter Fuß** — Sicherung und Was ist neu stehen jetzt unten neben

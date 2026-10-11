@@ -39506,6 +39506,33 @@ def _pruefung_422():
         _w422.update_idletasks()
         pruefe(_f422.current == 'diagnose',
                'der Knopf öffnet „Fehler melden" (%r)' % _f422.current)
+        # Scannen auf der Raffinerie-Kachel: Lager-Seite, Block auf, Lesen
+        # gestartet. Ohne Texterkennung meldet das Lesen genau das — daran
+        # ist zu sehen, dass es wirklich lief.
+        from scbp import refinery_scan as _rsk422
+        _echt_sup422 = _rsk422.supported
+        _zelle_r422 = tk.Frame(_w422)
+        try:
+            _rsk422.supported = lambda: False
+            _ov422._tile_refinery(_f422, _zelle_r422)
+            pruefe(getattr(_zelle_r422, 'extra_button', None) is not None,
+                   'die Raffinerie-Kachel hat einen Knopf Scannen')
+            _zelle_r422.scan()
+            _w422.update()
+            _meldung_r422 = getattr(getattr(_f422, 'refinery_read', None),
+                                    'message', None)
+            pruefe(_f422.current == 'lager' and _meldung_r422 is not None
+                   and _meldung_r422.winfo_ismapped()
+                   and _meldung_r422.cget('text') in (
+                       _ov422.t('s_rf_lesen_aus'),
+                       _ov422.t('s_rf_lesen_nur_windows')),
+                   'Scannen öffnet das Lager, klappt den Raffinerie-Block auf '
+                   'und startet das Lesen (%r, %r)' % (
+                       _f422.current, _meldung_r422 and
+                       _meldung_r422.cget('text')))
+        finally:
+            _rsk422.supported = _echt_sup422
+            _zelle_r422.destroy()
     finally:
         _w422.destroy()
 
@@ -39719,6 +39746,21 @@ def _pruefung_424():
                 round(_unten))
         pruefe(_reihen and all(len(h) == 1 for h in _reihen.values()),
                'Hauptkarten einer Reihe sind gleich hoch (%r)' % _reihen)
+        # Der Öffnen-Knopf sitzt in jeder Karte einer Reihe gleich tief —
+        # gemessen an einer Reihe, deren Texte verschieden lang umbrechen.
+        _knoepfe424 = {}
+        for _c in _start.main_grid.cells:
+            _knoepfe424.setdefault(int(_c.grid_info()['row']), set()).add(
+                _c.card.open_button.winfo_rooty())
+        pruefe(_knoepfe424
+               and all(len(y) == 1 for y in _knoepfe424.values()),
+               'Öffnen-Knöpfe einer Reihe stehen auf einer Linie (%r)'
+               % _knoepfe424)
+        _breiten424 = {_c.winfo_width() for _c in _start.main_grid.cells}
+        # Ein Pixel Rest beim Verteilen der Breite ist Rundung.
+        pruefe(max(_breiten424) - min(_breiten424) <= 1,
+               'alle Hauptkarten gleich breit, auch die am Rand (%r)'
+               % sorted(_breiten424))
         # Klick auf eine Hauptkarte -> Bereichsseite.
         _start.main_grid.cells[2].card.open()
         _w.update()
@@ -39736,6 +39778,13 @@ def _pruefung_424():
                    _la424.t('hf_lager')],
                'Unterpunkt-Karte öffnet die Seite, Pfadzeile mit drei Stücken '
                '(%r)' % _f.crumb_bar.crumbs)
+        _bilder424 = [c for c in _f.crumb_bar.winfo_children()
+                      if c.winfo_class() == 'Label'
+                      and not c.cget('text').strip()]
+        pruefe(len(_bilder424) == len(_f.crumb_bar.crumbs)
+               and all(str(c.cget('image')) for c in _bilder424),
+               'Pfadzeile: Haus und jedes Trennzeichen sind sichtbare Symbole '
+               '(%r)' % [str(c.cget('image')) for c in _bilder424])
         _f.open_page('lager', via='karte', area='basetool')
         _w.update()
         pruefe(_f.crumb_bar.crumbs[1] == _la424.t('k_basetool_titel'),
