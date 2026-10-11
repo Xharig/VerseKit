@@ -2082,8 +2082,8 @@ def _language_row(window, inner):
                           wide=True)
     choice = _choice(window, target,
                      [('auto', t('sprache_auto')),
-                      ('de', 'Deutsch', _flag('de')),
-                      ('en', 'English', _flag('gb'))],
+                      ('de', 'Deutsch', _flag('de', master=window.root)),
+                      ('en', 'English', _flag('gb', master=window.root))],
                      paths.settings().get('sprache') or 'auto',
                      lambda k: (choice.select(k), parts._choose_language(k)))
     choice.pack()
@@ -3403,7 +3403,8 @@ def _translation_page(window, frame):
                 if key == 'original':
                     flagge = 'gb'
                 result.append((key, translation.display_name(key),
-                               _flag(flagge) if flagge else None))
+                               _flag(flagge, master=window.root)
+                               if flagge else None))
             result.append(None)              # Reihenumbruch je Sprache
 
         result.append((translation.CUSTOM, t('s_sp_q_eigen'), None))

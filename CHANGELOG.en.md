@@ -6,7 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.0.0 - 2026-10-11
+
+> Verse-Kit 4.0 brings a second way to find your way around: the card view.
+> Every area as a card with a short explanation, your most-used pages pinned
+> to the start page, and everything in one place for units in the KRT Profit
+> Basetool. Like the tabs on the left? Keep them — switch at the top right.
+
+> [!important]
+> Existing installations stay in tab view; card view is one click away at
+> the top right. What's new, Backup and Report a problem now sit at the
+> bottom right, Update & About is reached via "Update" at the top right.
 
 ### New
 
@@ -35,8 +45,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   hold, hangar, blueprint list and demand have the button next to the
   heading as soon as syncing is switched on
 - **Three tiles side by side** — "At a glance" makes better use of the width
-- **Customise start page** — show or hide main areas, choose tiles and decide
-  whether "At a glance" or "Your cards" comes first
+- **Customise start page** — at the top right next to the heading: show or
+  hide main areas, choose tiles and decide whether "At a glance" or "Your
+  cards" comes first. The selection opens right above the tiles
 - **Tidier footer** — Backup and What's new now sit at the bottom next to
   "Report a problem"; the "Close" button is gone, the window closes via the X. In
   card view, logo, RSI Launcher, coffee and Discord sit in a band above the
@@ -45,9 +56,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   new, About and Diagnostics are reachable from the header and footer
 - **Signatures the other way round** — type a resource on the mining page,
   e.g. Quantanium, and the signatures for 1, 2, 3 … rocks appear below
-- **Overview: customise tiles at the top right** — the link now sits next to
-  the heading, so it is always visible, even on small screens. The selection
-  opens right above the tiles
 
 ### Fixed
 

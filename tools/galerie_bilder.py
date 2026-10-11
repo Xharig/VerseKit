@@ -71,7 +71,7 @@ def main():
                 ausgabe = os.path.join(ziel, bild + zusatz + '.png')
                 gross = tk.PhotoImage(master=root, file=quelle)
                 breite, hoehe = gross.width() // 2, gross.height() // 2
-                # ⚠ Mit ffmpeg weich verkleinern, wenn vorhanden: `subsample`
+                # Mit ffmpeg weich verkleinern, wenn vorhanden: `subsample`
                 # lässt jede zweite Pixelreihe weg, dabei verschwinden
                 # 1-px-Ränder (Knöpfe) halb und Schrift franst aus.
                 if shutil.which('ffmpeg') and subprocess.run(

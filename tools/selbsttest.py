@@ -26596,9 +26596,19 @@ def _pruefung_273():
     pruefe(not _ohne273
            and _tr273.SOURCES['deutsch']['flagge'] == 'de'
            and _tr273.SOURCES['starstrings']['flagge'] == 'gb'
-           and "_flag(flagge) if flagge else None" in _qp273,
+           and "_flag(flagge, master=window.root)" in _qp273,
            'Textquelle: jede Quelle mit Flagge, Deutsch deutsch, StarStrings '
            'und Original britisch (ohne: %r)' % _ohne273)
+    # Ohne `master` landet das Bild im ersten Tk des Prozesses — ein Fenster
+    # mit anderem Tk bricht dann beim Aufbau mit einem TclError (Bild fehlt) ab.
+    import re as _re273
+    _ohne_master273 = [_m273.group(0) for _m273 in _re273.finditer(
+        r'_flag\([^()]*\)', _qp273)
+        if 'master=' not in _m273.group(0)
+        and not _m273.group(0).startswith('_flag(code')]
+    pruefe(not _ohne_master273,
+           'jede Flagge auf den Seiten bekommt ihr Fenster mit (ohne: %r)'
+           % _ohne_master273)
     # ⚠⚠ **Keine Verdrahtung als Vorschrift.** Wer woertlich Zeilen wie
     # `('inj_quelle_de', 'deutsch', 'de')` in `settings_window.py` und
     # `wizard.py` verlangt, schreibt den Fehler fest — jede neue Sprache
@@ -39936,7 +39946,21 @@ def _pruefung_424():
             _w.update()
             _n424 = getattr(_f, '_heading_pins', {}).get(_seite424)
             if _n424 is None or not _n424.winfo_ismapped():
-                _ohne_nadel424.append(_seite424)
+                _rahmen_n424 = _f.pages.get(_seite424)
+                _titel_n424 = [
+                    str(w.cget('font')) for w in (
+                        _rahmen_n424.winfo_children() if _rahmen_n424 else ())
+                    if w.winfo_class() == 'Label']
+                from scbp import errors as _er424
+                _ohne_nadel424.append((
+                    _seite424, 'keine' if _n424 is None else
+                    'nicht sichtbar (%s)' % _n424.winfo_exists(),
+                    _f.current, str(_f.f_title), _titel_n424[:3],
+                    [(e.get('stelle'), e.get('art'),
+                      str(e.get('meldung'))[:200],
+                      str(e.get('spur') or '')[-400:])
+                     for e in _er424.latest(50)
+                     if _seite424 in str(e.get('stelle'))][-1:]))
         pruefe(not _ohne_nadel424, 'jede Seite der Kartenansicht hat ihre '
                'Stecknadel oben, auch die Bauplan-Liste (ohne: %r)'
                % _ohne_nadel424)

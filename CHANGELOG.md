@@ -6,7 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.0.0 - 2026-10-11
+
+> Verse-Kit 4.0 bringt eine zweite Art, sich zurechtzufinden: die
+> Kartenansicht. Jeder Bereich als Karte mit kurzer Erklärung, deine
+> meistgenutzten Seiten angeheftet auf der Startseite und für Einheiten im
+> KRT Profit Basetool alles an einem Ort. Wer die Reiter links mag, behält
+> sie — umschalten geht oben rechts.
+
+> [!important]
+> Bestehende Installationen bleiben in der Reiteransicht; die Kartenansicht
+> ist oben rechts einen Klick entfernt. Was ist neu, Sicherung und Fehler
+> melden stehen jetzt unten rechts, Update & Über erreichst du über „Update“
+> oben rechts.
 
 ### Neu
 
@@ -35,8 +47,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Handelslager, Hangar, Bauplan-Liste und Bedarf haben den Knopf oben neben
   der Überschrift, sobald der Abgleich eingeschaltet ist
 - **Drei Kacheln nebeneinander** — „Auf einen Blick“ nutzt die Breite besser
-- **Startseite anpassen** — Hauptbereiche ein- und ausblenden, Kacheln
-  wählen und festlegen, ob „Auf einen Blick“ oder „Deine Karten“ zuerst steht
+- **Startseite anpassen** — oben rechts neben der Überschrift: Hauptbereiche
+  ein- und ausblenden, Kacheln wählen und festlegen, ob „Auf einen Blick“
+  oder „Deine Karten“ zuerst steht. Die Auswahl klappt direkt über den
+  Kacheln auf
 - **Aufgeräumter Fuß** — Sicherung und Was ist neu stehen jetzt unten neben
   „Fehler melden“; den Knopf „Schließen“ gibt es nicht mehr, das Fenster
   schließt über das X. In der Kartenansicht sitzen Logo, RSI Launcher,
@@ -46,9 +60,6 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Signatur auch rückwärts** — auf der Bergbau-Seite einen Rohstoff
   eintippen, z. B. Quantanium, und die Signaturen für 1, 2, 3 … Brocken
   stehen darunter
-- **Übersicht: Kacheln anpassen oben rechts** — der Link steht jetzt fest
-  neben der Überschrift und ist damit auch auf kleinen Bildschirmen immer zu
-  sehen. Die Auswahl klappt direkt über den Kacheln auf
 
 ### Behoben
 

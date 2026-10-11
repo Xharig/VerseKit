@@ -3963,6 +3963,7 @@ class MainWindow:
                                        if kennung in cards.pinned()
                                        else 'k_nadel_anheften'))
         nadel.zeigen = zeigen
+        icons.hover_group(nadel)
         if not hasattr(self, '_heading_pins'):
             self._heading_pins = {}
         self._heading_pins[kennung] = nadel

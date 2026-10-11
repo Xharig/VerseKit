@@ -330,6 +330,7 @@ def card(window, cell, symbol, title, text, action, pin=None,
             return 'break'
         needle.bind('<Button-1>', flip)
         needle.configure(cursor='hand2')
+        icons.hover_group(needle)
 
         def set_pin(on):
             state['on'] = bool(on)
