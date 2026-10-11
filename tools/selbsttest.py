@@ -40084,6 +40084,32 @@ def _pruefung_424():
                             _draussen424.append(_seite424)
             pruefe(not _draussen424, 'jeder Zusatzknopf liegt ganz und '
                    'ungekürzt in seiner Karte (nicht: %r)' % _draussen424)
+            # Auch im schmalen Fenster: Das Raster nimmt dann eine Spalte
+            # weniger, statt die drei Knöpfe der Übersetzungs-Karte zu quetschen.
+            # Große Knopfschrift: Die Knopfreihe braucht dann mehr als die
+            # Mindestbreite der Karten, wie bei breiten Systemschriften.
+            import tkinter.font as _tf424
+            _klein_alt424 = _f.f_small
+            _f.f_small = _tf424.Font(root=_w, size=18)
+            _schmal424 = _tk424.Frame(_w)
+            _schmal424.place(x=0, y=0, width=900, height=700)
+            try:
+                _ka424.area_page(_f, _schmal424, 'spiel_einst')
+            finally:
+                _f.f_small = _klein_alt424
+            for _ in range(4):
+                _w.update()
+            _gequetscht424 = [
+                (c.page_key, k.winfo_width(), k.winfo_reqwidth(),
+                 c.winfo_width(), c.card.foot.winfo_reqwidth())
+                for c in _schmal424.card_grid.cells
+                for k in c.card.extra_buttons
+                if k.winfo_manager() and k.winfo_width() < k.winfo_reqwidth()]
+            pruefe(not _gequetscht424,
+                   'im schmalen Fenster bleiben die Knöpfe ganz (gequetscht: %r, '
+                   '%d Spalten)' % (_gequetscht424,
+                                     _schmal424.card_grid.columns))
+            _schmal424.destroy()
             # Ausgelöst über `invoke` — ein simulierter Mausklick kommt nicht
             # auf jedem System an.
             for _k424 in (_werk424['lager'][0], _spiel424['uebersetzung'][1]):

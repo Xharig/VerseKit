@@ -139,6 +139,9 @@ MAIN_MIN_WIDTH = 220
 SUB_MIN_WIDTH = 300
 GAP = 12
 RADIUS = 12
+# Was eine Karte links und rechts neben ihrer Knopfreihe braucht: Einzug um
+# die Rundung und Innenabstand, je Seite.
+FOOT_MARGIN = 2 * (RADIUS + 16)
 
 
 def area(kennung):
@@ -256,6 +259,20 @@ class CardGrid:
             build(cell)
         except Exception as exc:
             errors.record('cards.grid', exc)
+        # Eine Karte mit vielen Knöpfen braucht mehr als die Mindestbreite —
+        # dann gilt ihre Knopfreihe, sonst quetscht Tk die Knöpfe zusammen.
+        foot = getattr(getattr(cell, 'card', None), 'foot', None)
+        if foot is not None:
+            # Die nötige Breite steht erst nach dem Ausmessen fest.
+            foot.update_idletasks()
+            need = foot.winfo_reqwidth() + FOOT_MARGIN
+            if need > self.min_width:
+                self.min_width = need
+                width = self.frame.winfo_width()
+                if width > 1:
+                    self.columns = 0
+                    self._place(columns_for(width, self.min_width))
+                    return cell
         self._place(max(self.columns, 1))
         return cell
 
@@ -361,15 +378,46 @@ def card(window, cell, symbol, title, text, action, pin=None,
     # Zusatzknöpfe links neben „Öffnen", der erste direkt daneben. Jeder
     # Baustein packt sich selbst (manche nur unter einer Bedingung).
     box.extra_buttons = []
+    extra_bar = tk.Frame(box, bg=theme.SURFACE)
     for build in extras or ():
         try:
-            widget = build(foot)
+            widget = build(extra_bar)
         except Exception as exc:
             errors.record('cards.extra', exc)
             continue
         if widget is not None:
             skip.append(widget)
             box.extra_buttons.append(widget)
+    box.extra_bar = extra_bar
+    # Passen die Zusatzknöpfe nicht mehr neben den Öffnen-Knopf (schmale
+    # Karte, große Schrift), stehen sie in einer eigenen Zeile darüber —
+    # sonst quetscht Tk sie zusammen.
+    layout = {'wrapped': None}
+
+    def fit(_e=None):
+        if not box.extra_buttons:
+            return
+        try:
+            need = knopf.winfo_reqwidth() + extra_bar.winfo_reqwidth()
+            wrapped = need > foot.winfo_width() > 1
+            if wrapped == layout['wrapped']:
+                return
+            layout['wrapped'] = wrapped
+            extra_bar.pack_forget()
+            if wrapped:
+                # Rechts 8 px weniger: Der letzte Zusatzknopf trägt seinen
+                # Abstand zum Öffnen-Knopf selbst, so stehen beide Reihen
+                # bündig.
+                extra_bar.pack(in_=box, before=foot, anchor='e',
+                               padx=(16, 8), pady=(8, 0))
+            else:
+                extra_bar.pack(in_=foot, side='right', after=knopf)
+        except tk.TclError:
+            pass
+    extra_bar.pack(in_=foot, side='right')
+    layout['wrapped'] = False
+    foot.bind('<Configure>', fit, add='+')
+    box.fit_extras = fit
 
     def outline(color):
         try:
@@ -422,6 +470,7 @@ def card(window, cell, symbol, title, text, action, pin=None,
             bind_tree(child)
     bind_tree(box.holder)
     box.open_button = knopf
+    box.foot = foot
     box.open = action
     box.title_label = name
     cell.tile_head = head
