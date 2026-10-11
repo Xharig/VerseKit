@@ -8,8 +8,30 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Kartenansicht** — jeder Bereich als Karte mit kurzer Erklärung. Ein Klick
+  öffnet den Bereich mit seinen Unterpunkten, ein zweiter die Seite; oben
+  zeigt eine Pfadzeile, wo du bist, das Haus führt zurück zur Startseite.
+  Umschalten oben rechts zwischen Kartenansicht und Reiteransicht. Neue
+  Installationen starten mit Karten, bestehende behalten ihre Reiter
+- **Deine Karten** — mit der Nadel an jeder Unterkarte und neben jeder
+  Seitenüberschrift heftest du Seiten an die Startseite und schiebst sie in
+  die Reihenfolge, die dir passt
+- **Basetool als eigene Karte** — Verbindung, Bedarf, Lager, Handelslager,
+  Hangar und Baupläne für Einheiten im KRT Profit Basetool gebündelt an einem
+  Ort; über „Startseite anpassen“ ausblendbar
+
 ### Verbessert
 
+- **Startseite anpassen** — Hauptbereiche ein- und ausblenden, Kacheln
+  wählen und festlegen, ob „Auf einen Blick“ oder „Deine Karten“ zuerst steht
+- **Aufgeräumter Fuß** — Sicherung und Was ist neu stehen jetzt unten neben
+  „Fehler melden“; den Knopf „Schließen“ gibt es nicht mehr, das Fenster
+  schließt über das X. In der Kartenansicht sitzen Logo, RSI Launcher,
+  Kaffee und Discord in einem Band über der Statusleiste
+- **Info** — enthält nur noch Spielwerte, Serverstatus und Danke; Was ist neu,
+  Über und Diagnose sind über Kopf und Fuß erreichbar
 - **Übersicht: Kacheln anpassen oben rechts** — der Link steht jetzt fest
   neben der Überschrift und ist damit auch auf kleinen Bildschirmen immer zu
   sehen. Die Auswahl klappt direkt über den Kacheln auf

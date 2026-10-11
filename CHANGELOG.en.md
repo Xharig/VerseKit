@@ -8,8 +8,30 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Card view** — every area as a card with a short explanation. One click
+  opens the area with its pages, another opens the page; a path line at the
+  top shows where you are, and the house takes you back to the start page.
+  Switch between card view and tab view at the top right. New installations
+  start with cards, existing ones keep their tabs
+- **Your cards** — with the pin on every sub-card and next to every page
+  heading you pin pages to the start page and drag them into the order that
+  suits you
+- **Basetool as its own card** — connection, demand, storage, cargo hold,
+  hangar and blueprints for units in the KRT Profit Basetool bundled in one
+  place; can be hidden via "Customise start page"
+
 ### Improved
 
+- **Customise start page** — show or hide main areas, choose tiles and decide
+  whether "At a glance" or "Your cards" comes first
+- **Tidier footer** — Backup and What's new now sit at the bottom next to
+  "Report a problem"; the "Close" button is gone, the window closes via the X. In
+  card view, logo, RSI Launcher, coffee and Discord sit in a band above the
+  status bar
+- **Info** — now holds only game values, server status and thanks; What's
+  new, About and Diagnostics are reachable from the header and footer
 - **Overview: customise tiles at the top right** — the link now sits next to
   the heading, so it is always visible, even on small screens. The selection
   opens right above the tiles

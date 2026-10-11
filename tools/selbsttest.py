@@ -39001,7 +39001,9 @@ def _pruefung_420():
             for _feld in ('titel', 'text', 'weg'):
                 if _p[_feld] not in _texte420:
                     _fehlt420.append('%s %s' % (_version, _p[_feld]))
-            if _p.get('reiter') not in _seiten420:
+            if _p.get('aktion') not in (None, 'kartenansicht'):
+                _fehlt420.append('%s Aktion %r' % (_version, _p.get('aktion')))
+            elif not _p.get('aktion') and _p.get('reiter') not in _seiten420:
                 _fehlt420.append('%s Reiter %r' % (_version, _p.get('reiter')))
             if _p['art'] not in ('neu', 'bess', 'fix'):
                 _fehlt420.append('%s Art %r' % (_version, _p['art']))
@@ -39020,7 +39022,8 @@ def _pruefung_420():
            'jeder Höhepunkt hat sein Bild in beiden Sprachen (fehlt: %s)'
            % _bilder420)
     for _schluessel in ('gal_titel', 'gal_weitere', 'gal_schliessen',
-                        'gal_ansehen', 'gal_zurueck', 'gal_weiter',
+                        'gal_ansehen', 'gal_ausprobieren', 'gal_zurueck',
+                        'gal_weiter',
                         'gal_art_neu', 'gal_art_bess', 'gal_art_fix'):
         if _schluessel not in _texte420:
             _fehlt420.append(_schluessel)

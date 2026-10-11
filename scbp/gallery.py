@@ -60,6 +60,18 @@ HIGHLIGHTS = {
          'changelog': ('Spiel-Einstellungen in einer eigenen Gruppe',
                        'Game settings in their own group')},
     ),
+    '4.0.0': (
+        {'art': 'neu', 'bild': 'karten', 'aktion': 'kartenansicht',
+         'titel': 'gal_karten_t', 'text': 'gal_karten_x', 'weg': 'gal_karten_w',
+         'changelog': ('Kartenansicht', 'Card view')},
+        {'art': 'neu', 'bild': 'deine_karten', 'reiter': 'uebersicht',
+         'titel': 'gal_deine_t', 'text': 'gal_deine_x', 'weg': 'gal_deine_w',
+         'changelog': ('Deine Karten', 'Your cards')},
+        {'art': 'neu', 'bild': 'basetool', 'reiter': 'bereich_basetool',
+         'titel': 'gal_basetool_t', 'text': 'gal_basetool_x',
+         'weg': 'gal_basetool_w',
+         'changelog': ('Basetool als eigene Karte', 'Basetool as its own card')},
+    ),
 }
 
 
