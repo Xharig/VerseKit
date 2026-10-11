@@ -5822,6 +5822,36 @@ TEXTS = {
     'gal_weitere':       ('Weitere Änderungen', 'More changes'),
     'gal_schliessen':    ('Schließen', 'Close'),
     'gal_ansehen':       ('Ansehen', 'Take a look'),
+    'gal_ausprobieren':  ('Ausprobieren', 'Try it'),
+    'gal_karten_t':      ('Neu: die Kartenansicht', 'New: card view'),
+    'gal_karten_x':      ('Jeder Bereich als Karte mit kurzer Erklärung — '
+                          'ein Klick führt zu den Unterpunkten, ein zweiter '
+                          'zur Seite. Die Reiter links bleiben, wenn du willst.',
+                          'Every area as a card with a short explanation — '
+                          'one click leads to its pages, another to the page. '
+                          'The tabs on the left stay if you want them.'),
+    'gal_karten_w':      ('Oben rechts: Kartenansicht / Reiteransicht',
+                          'Top right: card view / tab view'),
+    'gal_deine_t':       ('Deine Karten auf der Startseite',
+                          'Your cards on the start page'),
+    'gal_deine_x':       ('Heft dir mit der Nadel die Seiten an die Startseite, '
+                          'die du ständig brauchst — und schieb sie in die '
+                          'Reihenfolge, die dir passt.',
+                          'Pin the pages you use all the time to the start '
+                          'page with the pin — and drag them into the order '
+                          'that suits you.'),
+    'gal_deine_w':       ('Nadel neben jeder Seitenüberschrift',
+                          'Pin next to every page heading'),
+    'gal_basetool_t':    ('Alles zum Basetool an einem Ort',
+                          'Everything Basetool in one place'),
+    'gal_basetool_x':    ('Für Einheiten im KRT Profit Basetool: Verbindung, '
+                          'Bedarf, Lager, Handelslager, Hangar und Baupläne '
+                          'gebündelt auf einer Karte.',
+                          'For units in the KRT Profit Basetool: connection, '
+                          'demand, storage, cargo hold, hangar and blueprints '
+                          'bundled on one card.'),
+    'gal_basetool_w':    ('Kartenansicht → Basetool',
+                          'Card view → Basetool'),
     'gal_zurueck':       ('Zurück', 'Back'),
     'gal_weiter':        ('Weiter', 'Next'),
     'gal_art_neu':       ('Neu', 'New'),

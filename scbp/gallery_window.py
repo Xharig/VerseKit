@@ -95,6 +95,14 @@ def show(window):
         except Exception as exc:
             errors.record('gallery_window.open_tab', exc)
 
+    def try_card_view():
+        close()
+        try:
+            if not window.card_mode():
+                window._toggle_view()
+        except Exception as exc:
+            errors.record('gallery_window.card_view', exc)
+
     from .main_window import _dialog_button
     _dialog_button(foot, t('gal_schliessen'), close, window.f_small,
                    strong=True).pack(side='right')
@@ -133,7 +141,13 @@ def show(window):
             label(body, t(slide['text'])).pack_configure(pady=(6, 0))
             label(body, t(slide['weg']), color=GOLD,
                   font=window.f_bold).pack_configure(pady=(8, 0))
-            if slide.get('reiter'):
+            if slide.get('aktion') == 'kartenansicht':
+                # Ausprobieren: in die Kartenansicht wechseln (schon dort:
+                # nur schließen).
+                _dialog_button(look, t('gal_ausprobieren'),
+                               lambda: try_card_view(), window.f_small,
+                               strong=True).pack()
+            elif slide.get('reiter'):
                 _dialog_button(look, t('gal_ansehen'),
                                lambda tab=slide['reiter']: open_tab(tab),
                                window.f_small).pack()
