@@ -173,7 +173,16 @@ SEITEN = {
     'erkennung':    'screenshot-erkennung',
     'startprogramme': 'screenshot-startprogramme',
     'diagnose':     'screenshot-diagnose',
+    # ⭐ Keine eigene Seite: die Übersicht in der Kartenansicht. Alle übrigen
+    # Bilder zeigen die Reiteransicht (siehe `KARTENANSICHT`).
+    'kartenansicht': 'screenshot-karten',
 }
+
+# Bilder in der Kartenansicht: Kennung in `SEITEN` -> Seite, die geöffnet wird.
+KARTENANSICHT = {'kartenansicht': 'uebersicht'}
+
+# Die angehefteten Seiten im Bild der Kartenansicht (Deine Karten).
+BEISPIEL_ANGEHEFTET = ['lager', 'grafik', 'routen']
 
 # ⚠⚠ **Das Overlay ist keine Seite.** Es ist ein eigenes Fenster einer eigenen
 # Klasse und braucht deshalb eine eigene Tk-Instanz — die Seiten teilen sich
@@ -1304,6 +1313,13 @@ def main():
     except Exception:
         _daten = {}
     _daten['farbschema'] = schema or 'original'
+    # Die Reiteransicht für alle Seiten; die Kartenansicht schaltet die
+    # Schleife unten nur für ihre Bilder um.
+    # ⚠ Schlüssel als Text (`MainWindow.VIEW_SETTING`,
+    # `cards.PINNED_SETTING`): Ein Import von `scbp` liest hier schon die
+    # Farben, bevor das Schema in der Datei steht.
+    _daten['ansicht'] = 'reiter'
+    _daten['karten_angeheftet'] = BEISPIEL_ANGEHEFTET
     with open(_pfad, 'w', encoding='utf-8', newline='\n') as _datei:
         _json.dump(_daten, _datei, ensure_ascii=False, indent=1)
     # ⚠⚠ **Der Beispiel-Hangar VOR `SC_BP_NO_NET`.** Er holt die Steckplätze
@@ -1359,6 +1375,10 @@ def main():
         name = grundname + ('-en' if englisch else '') + '.png'
         ziel = os.path.join(ziel_ordner, name)
         fenster = None
+        from scbp import paths as _pf
+        _pf.set_setting(MainWindow.VIEW_SETTING,
+                        'karten' if kennung in KARTENANSICHT else 'reiter')
+        seite_kennung = KARTENANSICHT.get(kennung, kennung)
         try:
             # Frisches Fenster **und** Puffer raeumen — erst beides zusammen
             # liefert brauchbare Bilder (siehe die Tabelle oben).
@@ -1366,13 +1386,14 @@ def main():
             fenster_richten(fenster, wurzel)
             if kennung in VOR_DEM_OEFFNEN:
                 setattr(fenster, *VOR_DEM_OEFFNEN[kennung])
-            fenster.open_page(kennung)
+            fenster.open_page(seite_kennung)
             for _ in range(12):
                 wurzel.update()
                 wurzel.update_idletasks()
             fenster_richten(fenster, wurzel)
-            leiste_zeigen(fenster, kennung, wurzel)
-            seite = fenster.pages.get(kennung)
+            if kennung not in KARTENANSICHT:
+                leiste_zeigen(fenster, kennung, wurzel)
+            seite = fenster.pages.get(seite_kennung)
             if seite is not None:
                 vorbereiten(kennung, seite, wurzel)
             puffer_leeren(fenster, wurzel)

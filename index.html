@@ -167,6 +167,11 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 
 /* ---------- Merkmale ---------- */
 /* Acht Karten: 4 + 4, sonst 2 × 4, am Telefon untereinander — nie 3 + 3 + 2. */
+/* ---------- Zwei Ansichten ---------- */
+.ansichten{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.ansichten figure{margin:0}
+@media (max-width:800px){.ansichten{grid-template-columns:1fr}}
+
 .karten{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media (max-width:1000px){.karten{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:600px){.karten{grid-template-columns:1fr}}
@@ -361,6 +366,37 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     </div>
   </div>
 </div>
+
+<section id="ansichten">
+  <div class="mitte">
+    <div class="label" data-de="Zwei Ansichten" data-en="Two views">Zwei Ansichten</div>
+    <h2 data-de="Karten oder Reiter — wie es dir lieber ist"
+        data-en="Cards or tabs — whichever you prefer">Karten oder Reiter — wie es dir lieber ist</h2>
+    <p class="einleitung"
+       data-de="Verse-Kit startet in der Kartenansicht: jeder Bereich als Karte mit kurzer Erklärung, die Seiten, die du ständig brauchst, an der Startseite angeheftet. Wer lieber alles in einer Leiste links hat, schaltet oben rechts auf die Reiteransicht um — die Seiten sind dieselben."
+       data-en="Verse-Kit starts in card view: every area as a card with a short explanation, the pages you use all the time pinned to the start page. Prefer everything in one bar on the left? Switch to tab view at the top right — the pages are the same.">
+      Verse-Kit startet in der Kartenansicht: jeder Bereich als Karte mit kurzer Erklärung, die Seiten, die du ständig brauchst, an der Startseite angeheftet. Wer lieber alles in einer Leiste links hat, schaltet oben rechts auf die Reiteransicht um — die Seiten sind dieselben.
+    </p>
+    <div class="ansichten">
+      <figure class="bild">
+        <img data-bild="screenshot-karten.png" src="assets/screenshot-karten.png" alt="">
+        <figcaption class="bu"
+           data-de="Kartenansicht — Bereiche als Karten, darunter deine angehefteten Seiten und die Kacheln auf einen Blick."
+           data-en="Card view — areas as cards, below them your pinned pages and the at-a-glance tiles.">
+          Kartenansicht — Bereiche als Karten, darunter deine angehefteten Seiten und die Kacheln auf einen Blick.
+        </figcaption>
+      </figure>
+      <figure class="bild">
+        <img data-bild="screenshot-uebersicht.png" src="assets/screenshot-uebersicht.png" alt="">
+        <figcaption class="bu"
+           data-de="Reiteransicht — alle Seiten links in einer Leiste, so wie im Rundgang unten."
+           data-en="Tab view — all pages in one bar on the left, just like in the tour below.">
+          Reiteransicht — alle Seiten links in einer Leiste, so wie im Rundgang unten.
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
 
 <section id="tour">
   <div class="mitte">
@@ -927,6 +963,12 @@ function sprache(s){
   var texte = document.querySelectorAll("[data-de]");
   for (var i = 0; i < texte.length; i++){
     texte[i].textContent = texte[i].getAttribute("data-" + s);
+  }
+  // Feste Bilder (Abschnitt „Zwei Ansichten“): englisch mit "-en" vor der Endung.
+  var bilder = document.querySelectorAll("img[data-bild]");
+  for (var b = 0; b < bilder.length; b++){
+    var name = bilder[b].getAttribute("data-bild");
+    bilder[b].src = "assets/" + (s === "en" ? name.replace(/\.png$/, "-en.png") : name);
   }
   zahlZeigen();
   filmSprache();
