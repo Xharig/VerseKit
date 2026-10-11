@@ -7327,6 +7327,7 @@ def _thanks(fenster, rahmen):
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
+            ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'), ''),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'

@@ -25393,6 +25393,7 @@ def main():
     _pruefung_424()
     _pruefung_425()
     _pruefung_426()
+    _pruefung_427()
 
     print()
     if fehler:
@@ -39725,6 +39726,108 @@ def _pruefung_426():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim426
         shutil.rmtree(_heim426, ignore_errors=True)
+
+
+def _pruefung_427():
+    """427. Statistik: Tode an der eigenen Körpernummer erkennen."""
+    print('\n427. Statistik: eigene Tode, fremde Leichen, zerstörte Schiffe')
+    import tempfile as _tf427
+    from scbp import play_stats as _ps427
+    _ordner427 = _tf427.mkdtemp(prefix='tode-')
+    _alt_heim427 = os.environ.get('SC_BP_HOME')
+
+    def _koerper427(zeit, nummer, spieler='Xharig'):
+        return ('<2026-10-01T%s.100Z> [Notice] <AttachmentReceived> '
+                'Player[%s] Attachment[body_01_noMagicPocket_%s, '
+                'body_01_noMagicPocket, %s] Status[persistent] '
+                'Port[Body_ItemPort] Elapsed[0.1] [Team_CoreGameplayFeatures]'
+                '[Inventory]' % (zeit, spieler, nummer, nummer))
+
+    def _leiche427(zeit, nummer, platz='Body_ItemPort',
+                   klasse='body_01_noMagicPocket'):
+        return ("<2026-10-01T%s.561Z> [Notice] <Adding non kept item "
+                "[CSCActorCorpseUtils::PopulateItemPortForItemRecovery"
+                "Entitlement]> Item '%s_%s - Class(%s) - Context(Streamable "
+                "Runtime-spawned) - Socpak()', Recorded data is: Port Name "
+                "'%s', Class GUID: 'dbaa8a7d', KeptId: '%s' "
+                "[Team_CoreGameplayFeatures]"
+                % (zeit, klasse, nummer, klasse, platz, nummer))
+
+    _schiff427 = ("<2026-10-01T%s.607Z> [Notice] <[ActorState] Dead> [ACTOR "
+                  "STATE][CSCActorControlStateDead::PrePhysicsUpdate] Actor "
+                  "'Xharig' [1] ejected from zone 'RSI_Constellation_Mk5_"
+                  "Centaurus_866050653233' [866050653233] to zone 'x' [2] due "
+                  "to previous zone being in a destroyed vehicle with d")
+
+    def _log427(name, zeilen):
+        pfad = os.path.join(_ordner427, name)
+        kopf = ['<2026-10-01T18:00:00.000Z> [Notice] <AccountLogin'
+                'CharacterStatus_Character> Character: ... - name Xharig - '
+                'state STATE_CURRENT',
+                '<2026-10-01T18:01:00.000Z> OnClientSpawned']
+        with open(pfad, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(kopf + zeilen) + '\n')
+        return pfad
+
+    _alles427 = [
+        _koerper427('18:02:00', '200000000218'),
+        _koerper427('18:03:00', '865475716520'),
+        # fremde Leiche geplündert
+        _leiche427('18:10:00', '781871372882'),
+        # Schiff zerstört, überlebt: keine eigene Leiche
+        _schiff427 % '18:20:00',
+        # Schiff zerstört, gestorben: 30 s später die eigene Leiche,
+        # mehrere Zeilen desselben Blocks
+        _schiff427 % '18:30:00',
+        _leiche427('18:30:30', '865475716520'),
+        _leiche427('18:30:30', '865612822075', platz='Armor_Undersuit',
+                   klasse='vgl_undersuit_01_02_01'),
+        _leiche427('18:30:31', '865475716520'),
+        # zu Fuß gestorben
+        _leiche427('18:45:00', '865475716520'),
+        '<2026-10-01T20:00:00.000Z> [Notice] <SystemQuit> x']
+    try:
+        os.environ['SC_BP_HOME'] = os.path.join(_ordner427, 'heim')
+        _e427 = _ps427.read_log(_log427('a.log', _alles427), 'Xharig')
+        _zeit427 = _ps427._seconds('2026-10-01T18:30:30')
+        pruefe(_e427 and len(_e427['tode']) == 2
+               and _e427['tode'][0] == _zeit427,
+               'zwei eigene Tode: Schiffsabsturz und zu Fuß, ein Block zählt '
+               'einmal (%r)' % (_e427 and _e427['tode'],))
+        pruefe(_e427 and len(_e427['verloren']) == 2,
+               'beide zerstörten Schiffe zählen als verloren, auch das, in '
+               'dem man überlebt hat (%r)' % (_e427 and _e427['verloren'],))
+        # Gegenprobe: Ohne die eigene Körpernummer ist jede Leiche fremd.
+        _ohne427 = [z for z in _alles427 if '<AttachmentReceived>' not in z]
+        _g427 = _ps427.read_log(_log427('b.log', _ohne427), 'Xharig')
+        pruefe(_g427 and _g427['tode'] == [],
+               'Gegenprobe: ohne eigene Körpernummer kein Tod (%r)'
+               % (_g427 and _g427['tode'],))
+        # Gegenprobe: Der Körper eines anderen Spielers macht die Leiche
+        # nicht zur eigenen.
+        _fremd427 = [_koerper427('18:03:00', '865475716520', 'Kumpel')] + [
+            z for z in _alles427 if '<AttachmentReceived>' not in z]
+        _f427 = _ps427.read_log(_log427('c.log', _fremd427), 'Xharig')
+        pruefe(_f427 and _f427['tode'] == [],
+               'Gegenprobe: der Körper eines anderen Spielers zählt nicht '
+               '(%r)' % (_f427 and _f427['tode'],))
+        _ps427.catch_up([os.path.join(_ordner427, 'a.log')])
+        _s427 = _ps427.summary('Xharig')
+        pruefe(_s427['tode'] == 2 and _s427['verloren'] == 2
+               and _s427['letzter_tod'] == _ps427._seconds(
+                   '2026-10-01T18:45:00')
+               and _s427['meist_verloren'] == 'RSI_Constellation_Mk5_Centaurus',
+               'die Übersicht bekommt Tode, letzten Tod und verlorene Schiffe '
+               '(%r)' % {k: _s427.get(k) for k in (
+                   'tode', 'letzter_tod', 'verloren', 'meist_verloren')})
+        pruefe(_ps427.load()['format'] == 4,
+               'neues Format: vorhandene Logs werden einmal neu gelesen')
+    finally:
+        if _alt_heim427 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim427
+        shutil.rmtree(_ordner427, ignore_errors=True)
 
 
 def _pruefung_425():

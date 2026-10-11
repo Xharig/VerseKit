@@ -377,7 +377,7 @@ def overview(window, frame):
     """Übersicht: wie viel, wie oft, wann gespielt wird.
 
     ⚠ Eine Zahl, die nicht aus dem Log belegt ist, steht hier nicht. Deshalb
-    keine Tode, keine Verletzungen, keine Zonen — siehe `play_stats`."""
+    keine Verletzungen, keine Zonen — siehe `play_stats`."""
     from . import play_stats, playtime
 
     def render(holder):
@@ -397,6 +397,13 @@ def overview(window, frame):
              t('s_sx_je') % stats_count(
                  round(data['spruenge'] / data['erfasst'])
                  if data['erfasst'] else 0)),
+            (t('s_sx_tode'), stats_count(data['tode']),
+             t('s_sx_letzter_tod') % local_day(data['letzter_tod'])
+             if data['letzter_tod'] else ''),
+            (t('s_sx_verloren'), stats_count(data['verloren']),
+             t('s_sx_meist_verloren') % play_stats.display_name(
+                 data['meist_verloren'], vehicle=True)
+             if data['meist_verloren'] else ''),
         ])
         tk.Label(holder, text=t('s_sx_wann'), bg=BG, fg=FG,
                  font=window.f_title, anchor='w').pack(fill='x', pady=(20, 6))
@@ -404,7 +411,7 @@ def overview(window, frame):
         _body_text(holder, t('s_sx_hinweis'), window.f_small, pady=(16, 10))
 
     live_page(window, frame, 'statistik', t('hf_st_uebersicht'),
-              t('s_sx_lead'), render)
+              t('s_sx_lead'), render, names=True)
 
 
 def _rgb(color):

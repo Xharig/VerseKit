@@ -2994,6 +2994,8 @@ TEXTS = {
                               '**Reputation thresholds on ranks** — the '
                               'reputation menu now shows how much reputation '
                               'a rank starts at.'),
+    's_dk_drachennarr_idee': ('**Tode in der Statistik** — der Hinweis, dass ein Tod im Spielprotokoll an der eigenen Körpernummer eindeutig zu erkennen ist. Danke!',
+                              '**Deaths in the statistics** — the hint that a death can be told apart in the game log by your own body number. Thank you!'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
     's_dk_sotth_idee':       ('**Das Prüfintervall der Game.log sichtbar unter „Allgemein"** — '
@@ -6260,8 +6262,8 @@ TEXTS = {
     'hf_patchaenderungen': ('Geänderte Spielwerte', 'Changed game values'),
     # --- Statistik (v3.58.0) ---
     # ⚠ Nur Zahlen, die in jeder Spielsprache gleich im Log stehen — keine
-    # Tode, keine Verletzungen, keine Zonen (siehe `play_stats`). Der Hinweis
-    # sagt das, damit niemand sie sucht und einen Fehler vermutet.
+    # Verletzungen, keine Zonen (siehe `play_stats`). Der Hinweis sagt das,
+    # damit niemand sie sucht und einen Fehler vermutet.
     's_sx_lead':         ('Wie viel, wie oft und wann du spielst — aus deinen eigenen Spielprotokollen.',
                           'How much, how often and when you play — from your own game logs.'),
     's_sx_spielzeit':    ('Spielzeit', 'Play time'),
@@ -6272,10 +6274,14 @@ TEXTS = {
     's_sx_fehl':         ('%s fehlgeschlagen', '%s failed'),
     's_sx_spruenge':     ('Quantensprünge', 'Quantum jumps'),
     's_sx_je':           ('Ø %s je Sitzung', 'avg %s per session'),
+    's_sx_tode':         ('Tode', 'Deaths'),
+    's_sx_letzter_tod':  ('zuletzt am %s', 'last on %s'),
+    's_sx_verloren':     ('Schiffe verloren', 'Ships lost'),
+    's_sx_meist_verloren': ('am häufigsten: %s', 'most often: %s'),
     's_sx_wann':         ('Wann du spielst', 'When you play'),
     's_sx_tage':         ('Mo,Di,Mi,Do,Fr,Sa,So', 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
-    's_sx_hinweis':      ('Jedes Spielprotokoll wird einmal ausgewertet und festgehalten — die Zahlen bleiben, auch wenn Star Citizen oder du die Logs löschst, und ziehen mit deinem Datenordner um. Tode, Verletzungen und Rechtsgebiete stehen nicht verlässlich im Log und werden deshalb nicht gezählt.',
-                          'Every game log is read once and kept — the numbers stay even if Star Citizen or you delete the logs, and they move with your data folder. Deaths, injuries and jurisdictions are not reliably in the log, so they are not counted.'),
+    's_sx_hinweis':      ('Jedes Spielprotokoll wird einmal ausgewertet und festgehalten — die Zahlen bleiben, auch wenn Star Citizen oder du die Logs löschst, und ziehen mit deinem Datenordner um. Ein Tod zählt, wenn das Spiel deine eigene Leiche anlegt — ein zerstörtes Schiff allein ist keiner. Verletzungen und Rechtsgebiete stehen nicht verlässlich im Log und werden deshalb nicht gezählt.',
+                          'Every game log is read once and kept — the numbers stay even if Star Citizen or you delete the logs, and they move with your data folder. A death counts when the game creates your own body — a destroyed ship alone is not one. Injuries and jurisdictions are not reliably in the log, so they are not counted.'),
     's_sx_leer':         ('Noch keine Sitzung gefunden. Sobald du einmal im Spiel warst, steht hier deine Statistik.',
                           'No session found yet. Once you have been in the game, your statistics show up here.'),
     's_sx_export':       ('Statistik speichern …', 'Save statistics …'),

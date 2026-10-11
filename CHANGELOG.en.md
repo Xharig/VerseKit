@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### New
+
+- **Deaths in the statistics** — the overview now counts your deaths and lost
+  ships, with your last death and the ship you lose most often. A death counts
+  when the game creates your own body; a destroyed ship you get out of alive
+  is not one. Works in every game language, and existing logs are read once
+  more. Suggested by Drachennarr (KRT)
+
 ## v4.0.3 - 2026-10-11
 
 > Graphics settings now arrive even while Star Citizen is running: Verse-Kit

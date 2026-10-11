@@ -512,7 +512,9 @@ def beispiel_statistik(heim):
             'absturz': absturz,
             'abbrueche': {'Nub destroyed': zufall.randint(1, 4),
                           'Remote Disconnect - Player requested disconnect':
-                              zufall.randint(0, 2)}}
+                              zufall.randint(0, 2)},
+            'tode': sorted(zufall.randint(von, bis)
+                           for _ in range(zufall.choice((0, 0, 0, 1, 2))))}
     with open(os.path.join(heim, playtime.FILE), 'w', encoding='utf-8') as f:
         json.dump({'format': playtime.FORMAT, 'sitzungen': spielzeit,
                    'gelesen': {}}, f, ensure_ascii=False)

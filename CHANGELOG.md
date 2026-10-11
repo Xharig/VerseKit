@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Tode in der Statistik** — die Übersicht zählt jetzt deine Tode und
+  verlorenen Schiffe, mit dem letzten Tod und dem Schiff, das du am häufigsten
+  verlierst. Ein Tod zählt, wenn das Spiel deine eigene Leiche anlegt; ein
+  zerstörtes Schiff, aus dem du lebend herauskommst, ist keiner. Funktioniert
+  in jeder Spielsprache, und vorhandene Logs werden einmal nachgelesen.
+  Vorschlag von Drachennarr (KRT)
+
 ## v4.0.3 - 2026-10-11
 
 > Grafik-Einstellungen kommen jetzt auch an, wenn Star Citizen gerade läuft:

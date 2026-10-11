@@ -47,11 +47,26 @@ nennt den Spieler — `MissionEnded` kommt auch für Aufträge der Party. Und
 ⚠ `Abandon` (abgebrochen) und `Deactivate` werden **nicht** gezählt — eine
 dritte Zahl „abgebrochen" wäre ohne Erklärung nicht zu verstehen.
 
-⛔ **Tode, Verletzungen und Zonen werden nicht gezählt.** Ein Tod steht in keinem eindeutigen Ereignis im Log: `[ActorState] Dead` kommt nur,
-wenn das eigene Schiff zerbricht, und `CSCActorCorpseUtils` auch beim Plündern
-fremder Leichen. Verletzungen und Rechtsgebiete stehen nur als Einblendungstext
-in der Spielsprache. Das bräche bei englischem Client und bei jeder
-Textänderung still — lieber keine Zahl als eine falsche.
+⛔ **Verletzungen und Zonen werden nicht gezählt.** Sie stehen nur als
+Einblendungstext in der Spielsprache. Das bräche bei englischem Client und bei
+jeder Textänderung still — lieber keine Zahl als eine falsche.
+
+## Ab Format 4: Tode
+
+| Zahl | Log-Zeile |
+|---|---|
+| Tode | `CSCActorCorpseUtils::PopulateItemPortForItemRecoveryEntitlement … Item '<Klasse>_<Nummer> …' … Port Name 'Body_ItemPort'` — **nur mit der Nummer des eigenen Körpers** |
+| eigener Körper | `<AttachmentReceived> Player[<Name>] Attachment[…, body_01_…, <Nummer>] … Port[Body_ItemPort]` |
+
+⚠⚠ **Die Körpernummer entscheidet, nicht die Zeile.** `CSCActorCorpseUtils`
+schreibt das Spiel für **jede** Leiche, die der eigene Client anlegt — auch
+für fremde, die man plündert. Nur wenn die Körpernummer die eigene ist, ist
+man selbst gestorben (gemessen an 221 Logs: 82 eigene, 204 fremde).
+
+⚠⚠ **`[ActorState] Dead` ist kein Tod.** Die Zeile kommt, wenn das Schiff
+zerstört wird, in dem man sitzt. Stirbt man dabei, folgt 30 s später die
+eigene Leiche; überlebt man, fehlt sie, und die Ausrüstung kommt danach mit
+denselben Nummern zurück. Die Zeile zählt deshalb nur verlorene Schiffe.
 
 ## Ab Format 2: die Unterseiten
 
@@ -92,7 +107,7 @@ import time
 from . import errors, paths
 
 FILE = 'statistik.json'
-FORMAT = 3
+FORMAT = 4
 
 # Automatisch auswerten (beim Start und beim Öffnen der Seiten). Ab Werk an.
 AUTO_SETTING = 'statistik_auto'
@@ -110,6 +125,12 @@ _DEAD = re.compile(r"<\[ActorState\] Dead>.*?Actor '([^']*)'.*?"
 _ATTACHMENT = re.compile(r'<AttachmentReceived> Player\[([^\]]*)\] '
                          r'Attachment\[[^,\]]*, ([^,\]]+), (\d+)\].*?'
                          r'Port\[([^\]]*)\]')
+_CORPSE = re.compile(r"CSCActorCorpseUtils.*?Item '[^' ]*?_(\d+) - "
+                     r".*?Port Name 'Body_ItemPort'")
+BODY_PORT = 'Body_ItemPort'
+# Eine Leiche schreibt das Spiel als einen Block in derselben Sekunde; was
+# danach kommt, ist ein neuer Tod.
+DEATH_GAP = 10
 _TARGET = re.compile(r'<Player Selected Quantum Target - Local>.*?'
                      r'selected point (\S+)')
 # Der Startpunkt steht in der Zeile direkt NACH der Zielwahl (gemessen an
@@ -211,6 +232,8 @@ def read_log(log_path, account=None, spawn_mark=None):
     starts = {}
     start_pending = False
     disconnects = {}
+    bodies = set()
+    deaths = []
 
     def own(player):
         return not account or player.lower() == account.lower()
@@ -238,13 +261,23 @@ def read_log(log_path, account=None, spawn_mark=None):
                             missions[mission_id] = kind
                 elif '<AttachmentReceived>' in line:
                     found = _ATTACHMENT.search(line)
+                    if found and own(found.group(1)) \
+                            and found.group(4) == BODY_PORT:
+                        bodies.add(found.group(3))
                     # ⚠ `Default` ist ein leerer Platzhalter des Spiels,
                     # keine Waffe (85 Mal auf dem Rücken gemessen).
-                    if found and own(found.group(1))                             and found.group(2) != 'Default':
+                    elif found and own(found.group(1)) \
+                            and found.group(2) != 'Default':
                         slot = _weapon_slot(found.group(4))
                         if slot:
                             weapons.setdefault(slot, {}).setdefault(
                                 found.group(2), set()).add(found.group(3))
+                elif 'CSCActorCorpseUtils' in line:
+                    found = _CORPSE.search(line)
+                    moment = _seconds(stamp or '')
+                    if found and found.group(1) in bodies and moment \
+                            and (not deaths or moment - deaths[-1] > DEATH_GAP):
+                        deaths.append(moment)
                 elif '<Vehicle Control Flow>' in line:
                     found = _CONTROL.search(line)
                     if found:
@@ -291,6 +324,7 @@ def read_log(log_path, account=None, spawn_mark=None):
             'spruenge': len(jumps),
             'schiffe': sorted(ships),
             'verloren': lost,
+            'tode': deaths,
             'waffen': {slot: {cls: len(ids) for cls, ids in found.items()}
                        for slot, found in weapons.items()},
             'zielwahlen': selections,
@@ -599,6 +633,12 @@ def summary(own=None):
     counted = [e for e in stats.values() if counts(e.get('account'))]
     sessions = len(merged)
     longest = max((end - start for start, end in merged), default=0)
+    deaths = [m for e in counted for m in (e.get('tode') or [])]
+    lost = {}
+    for entry in counted:
+        for ship in entry.get('verloren') or []:
+            lost[ship] = lost.get(ship, 0) + 1
+    most_lost = _top(lost, 1)
     return {
         'spielzeit': total,
         'sitzungen': sessions,
@@ -607,6 +647,10 @@ def summary(own=None):
         'auftraege': sum(e.get('auftraege', 0) for e in counted),
         'fehlgeschlagen': sum(e.get('fehlgeschlagen', 0) for e in counted),
         'spruenge': sum(e.get('spruenge', 0) for e in counted),
+        'tode': len(deaths),
+        'letzter_tod': max(deaths, default=None),
+        'verloren': sum(lost.values()),
+        'meist_verloren': most_lost[0][0] if most_lost else None,
         # Wie viele Sitzungen hier ausgewertet sind — Grundlage für „je
         # Sitzung". Nicht `sitzungen`: Die zählt auch alte Zeiten aus
         # `spielzeit.json`, deren Log zum Auszählen schon weg war.
@@ -780,6 +824,7 @@ def export(target, own=None, version=''):
             'auftraege': mine.get('auftraege'),
             'fehlgeschlagen': mine.get('fehlgeschlagen'),
             'spruenge': mine.get('spruenge'),
+            'tode': len(mine['tode']) if 'tode' in mine else None,
         })
     out = {'werkzeug': 'VerseKit', 'version': version,
            'erstellt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
