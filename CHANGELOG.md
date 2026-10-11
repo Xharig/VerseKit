@@ -25,10 +25,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 ### Verbessert
 
 - **Knöpfe direkt auf den Karten** — Scannen auf der Raffinerie-Kachel und
-  der Rohstofflager-Karte (liest das Raffinerie-Terminal, sobald du ins Spiel
-  wechselst), der Mining-Scanner zum Ein- und Ausschalten auf der
-  Bergbau-Karte (grün, solange er an ist), Prüfen und Neu einlesen auf der
-  Übersetzungs-Karte und Abgleichen auf den Basetool-Karten
+  der Raffinerie-Scanner auf den Rohstofflager-Karten (liest das
+  Raffinerie-Terminal, sobald du ins Spiel wechselst), der Mining-Scanner zum
+  Ein- und Ausschalten auf der Bergbau-Karte (grün, solange er an ist),
+  Prüfen und Neu einlesen auf der Übersetzungs-Karte
+- **Jetzt abgleichen als eigene Karte** im Bereich Basetool — mit
+  Erklärung, was abgeglichen wird und wann das von selbst passiert
 - **Jetzt abgleichen oben auf jeder Basetool-Seite** — Rohstofflager,
   Handelslager, Hangar, Bauplan-Liste und Bedarf haben den Knopf oben neben
   der Überschrift, sobald der Abgleich eingeschaltet ist

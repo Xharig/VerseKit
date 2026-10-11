@@ -290,7 +290,7 @@ class CardGrid:
 
 
 def card(window, cell, symbol, title, text, action, pin=None,
-         button_text=None, extras=None):
+         button_text=None, extras=None, button_color=None):
     """Eine Karte: Symbol und Name, Kurzerklärung, Knopf „Öffnen".
 
     Die ganze Karte ist klickbar; beim Überfahren leuchtet der Rand. `pin` ist
@@ -352,7 +352,8 @@ def card(window, cell, symbol, title, text, action, pin=None,
     foot.pack(fill='x', padx=16, pady=(8, 14))
     knopf = round_button(foot, button_text or t('k_oeffnen'), action,
                          window.f_small, theme.SURFACE, theme.SURFACE,
-                         theme.ACCENT, theme.ACCENT, radius=8,
+                         button_color or theme.ACCENT,
+                         button_color or theme.ACCENT, radius=8,
                          padding=(14, 5))
     knopf.pack(side='right')
     skip.append(knopf)
@@ -462,27 +463,50 @@ def _scan_extra(window):
     def build(parent):
         from . import overview
         return _place_extra(_small_button(
-            window, parent, t('s_uv_scannen'),
+            window, parent, t('k_raff_scanner'),
             lambda: overview.refinery_scan_now(window)))
     return build
 
 
-def _sync_extra(window, page):
-    def build(parent):
-        from . import pages
+# Kennung der Abgleich-Karte im Bereich Basetool — keine Seite.
+SYNC_CARD = 'abgleich'
 
-        def make(click):
-            return _small_button(window, parent, t('k_abgleichen'), click,
-                                 color=theme.KRT_ORANGE)
 
-        def show(button, visible):
-            if not visible:
-                if button.winfo_manager():
-                    button.pack_forget()
-            elif not button.winfo_manager():
-                _place_extra(button)
-        return pages.sync_heading_button(window, parent, page, show, make=make)
-    return build
+def sync_now(window):
+    """Den Basetool-Abgleich sofort anstoßen und das Ergebnis in der
+    Statuszeile melden. Ohne Verbindung geht es zur Verbindungsseite."""
+    from . import basetool, basetool_sync, pages
+    try:
+        ready = bool(basetool.CONNECTION.connected()
+                     and basetool_sync.enabled())
+    except Exception:
+        ready = False
+    if not ready:
+        window.say(t('k_sync_erst_verbinden'))
+        window.open_page('basetool', via='karte', area='basetool')
+        return False
+
+    def finished():
+        status = basetool_sync.STATUS
+        if status.get('running') or status.get('state') == 'running':
+            return
+        if done in basetool_sync.LISTENERS:
+            basetool_sync.LISTENERS.remove(done)
+        window.say(pages._storage_sync_result()[0])
+
+    def done():
+        pages._from_thread(window.root, finished)
+    basetool_sync.LISTENERS.append(done)
+    basetool_sync.request_now()
+    window.say(t('s_lg_sync_laeuft'))
+    return True
+
+
+def _sync_card(window, cell):
+    card(window, cell, 'neustart', t('k_sync_titel'), t('k_sync_text'),
+         lambda: sync_now(window), button_text=t('s_lg_sync'),
+         button_color=theme.KRT_ORANGE)
+    cell.page_key = SYNC_CARD
 
 
 def _mining_scanner_extra(window):
@@ -545,7 +569,6 @@ def _translation_extras(window):
 def page_extras(window, page, kennung):
     """Die Zusatzknöpfe einer Unterpunkt-Karte — was man oft braucht, ohne
     erst die Seite zu öffnen."""
-    from . import pages
     builders = []
     if page == 'lager':
         try:
@@ -563,8 +586,6 @@ def page_extras(window, page, kennung):
             errors.record('cards.mining_extra', exc)
     if page == 'uebersetzung':
         builders.extend(_translation_extras(window))
-    if kennung == 'basetool' and page in pages.SYNC_PAGES:
-        builders.append(_sync_extra(window, page))
     return builders
 
 
@@ -591,6 +612,10 @@ def area_page(window, frame, kennung):
                  extras=page_extras(window, page, kennung))
         cell = grid.add(build)
         cell.page_key = page
+        # Im Bereich Basetool steht der Abgleich als eigene Karte gleich
+        # hinter der Verbindung.
+        if kennung == 'basetool' and page == 'basetool':
+            grid.add(lambda cell: _sync_card(window, cell))
     frame.card_grid = grid
 
     def refresh():

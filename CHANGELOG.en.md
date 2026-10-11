@@ -25,10 +25,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 ### Improved
 
 - **Buttons right on the cards** — Scan on the refinery tile and the
-  material storage card (reads the refinery terminal as soon as you switch
-  to the game), the mining scanner on/off on the mining card (green while
-  it is on), Check and Reload on the translation card and Sync on the
-  Basetool cards
+  refinery scanner on the material storage cards (reads the refinery
+  terminal as soon as you switch to the game), the mining scanner on/off on
+  the mining card (green while it is on), Check and Reload on the
+  translation card
+- **Sync now as its own card** in the Basetool area — with an explanation
+  of what is synced and when it happens by itself
 - **Sync now at the top of every Basetool page** — material storage, cargo
   hold, hangar, blueprint list and demand have the button next to the
   heading as soon as syncing is switched on

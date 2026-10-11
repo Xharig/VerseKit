@@ -39958,10 +39958,13 @@ def _pruefung_424():
                           signature_watch as _sg424, pages as _pg424,
                           overview as _ov424, basetool_sync as _bs424,
                           theme as _th424)
+        from scbp import basetool as _bt424
         _echt_x424 = (_rs424.supported, _sw424.available, _sg424.start,
                       _sg424.stop, _pg424._sync_ready,
                       _ov424.translation_reload, _ov424.refinery_scan_now,
-                      _bs424.request_now)
+                      _bs424.request_now, _bs424.enabled)
+        _verbunden424 = [True]
+        _echt_vb424 = _bt424.CONNECTION.connected
         _spur424 = []
         _rahmen424 = _tk424.Frame(_w)
         _rahmen424.pack()
@@ -39974,6 +39977,8 @@ def _pruefung_424():
             _ov424.translation_reload = lambda _x: _spur424.append('neu')
             _ov424.refinery_scan_now = lambda _x: _spur424.append('scan')
             _bs424.request_now = lambda: _spur424.append('sync')
+            _bs424.enabled = lambda: True
+            _bt424.CONNECTION.connected = lambda: _verbunden424[0]
 
             def _extras424(bereich):
                 _fr = _tk424.Frame(_rahmen424, width=1200)
@@ -39991,15 +39996,14 @@ def _pruefung_424():
             _base424 = _extras424('basetool')
             _spiel424 = _extras424('spiel_einst')
             _soll424 = {
-                ('werkstatt', 'lager'): [_t424('s_uv_scannen')],
+                ('werkstatt', 'lager'): [_t424('k_raff_scanner')],
                 ('werkstatt', 'bergbau'): [_t424('k_scanner')],
                 ('werkstatt', 'herstellung'): [],
-                ('basetool', 'lager'): [_t424('s_uv_scannen'),
-                                        _t424('k_abgleichen')],
-                ('basetool', 'handelslager'): [_t424('k_abgleichen')],
-                ('basetool', 'hangar'): [_t424('k_abgleichen')],
-                ('basetool', 'liste'): [_t424('k_abgleichen')],
-                ('basetool', 'bedarf'): [_t424('k_abgleichen')],
+                ('basetool', 'lager'): [_t424('k_raff_scanner')],
+                ('basetool', 'handelslager'): [],
+                ('basetool', 'hangar'): [],
+                ('basetool', 'liste'): [],
+                ('basetool', 'bedarf'): [],
                 ('basetool', 'basetool'): [],
                 ('spiel_einst', 'uebersetzung'): [_t424('k_tr_pruefen'),
                                                   _t424('k_tr_neu')],
@@ -40014,13 +40018,17 @@ def _pruefung_424():
                    '(abweichend: %r)' % _abw424)
             pruefe('bedarf' not in _werk424,
                    'Bedarf der Einheit steht nur im Bereich Basetool')
-            for _k424 in (_werk424['lager'][0], _base424['hangar'][0],
-                          _spiel424['uebersetzung'][1]):
+            _reihe424 = list(_base424)
+            pruefe(_reihe424[:2] == ['basetool', _ka424.SYNC_CARD],
+                   'im Bereich Basetool steht die Abgleich-Karte direkt hinter '
+                   'der Verbindung (%r)' % _reihe424)
+            for _k424 in (_werk424['lager'][0], _spiel424['uebersetzung'][1]):
                 _k424.event_generate('<Button-1>')
+            _ka424.sync_now(_f)
             _w.update()
-            pruefe(_spur424 == ['scan', 'sync', 'neu'],
-                   'Scannen, Abgleichen und Neu einlesen lösen ihre Handlung '
-                   'aus (%r)' % _spur424)
+            pruefe(_spur424 == ['scan', 'neu', 'sync'],
+                   'Raffinerie-Scanner, Neu einlesen und die Abgleich-Karte '
+                   'lösen ihre Handlung aus (%r)' % _spur424)
             # Der Scanner-Knopf schaltet denselben Schalter und folgt ihm.
             _sg424.set_enabled(False)
             _scanner424 = _werk424['bergbau'][0]
@@ -40037,10 +40045,21 @@ def _pruefung_424():
             pruefe(_gefuellt424() == _aus424,
                    'schaltet ihn jemand anderes aus (Auge, Bergbau-Seite), '
                    'zieht der Knopf mit')
+            # Ohne Verbindung stößt die Abgleich-Karte nichts an, sondern
+            # führt zur Verbindung.
+            _verbunden424[0] = False
+            _vorher424 = list(_spur424)
+            _ka424.sync_now(_f)
+            _w.update()
+            pruefe(_spur424 == _vorher424 and _f.current == 'basetool',
+                   'nicht verbunden: kein Abgleich, sondern die Seite '
+                   'Verbindung & Abgleich (%r)' % _f.current)
         finally:
             (_rs424.supported, _sw424.available, _sg424.start, _sg424.stop,
              _pg424._sync_ready, _ov424.translation_reload,
-             _ov424.refinery_scan_now, _bs424.request_now) = _echt_x424
+             _ov424.refinery_scan_now, _bs424.request_now,
+             _bs424.enabled) = _echt_x424
+            _bt424.CONNECTION.connected = _echt_vb424
             _rahmen424.destroy()
         # Umschalten in die Reiteransicht.
         _f._toggle_view()

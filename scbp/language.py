@@ -5803,7 +5803,21 @@ TEXTS = {
           'Unpin from start page'),
     'k_fortgeschritten': ('Fortgeschritten',
           'Advanced'),
-    'k_abgleichen': ('Abgleichen', 'Sync'),
+    'k_raff_scanner': ('Raffinerie-Scanner', 'Refinery scanner'),
+    'k_sync_titel': ('Jetzt abgleichen', 'Sync now'),
+    'k_sync_text': ('Gleicht mit dem KRT Profit Basetool ab, was du unter '
+                    'Verbindung & Abgleich eingeschaltet hast: Baupläne, '
+                    'Rohstoff- und Handelslager, Hangar und Bedarf. Läuft '
+                    'sonst von selbst alle 5 Minuten und kurz nach jeder '
+                    'Änderung.',
+                    'Syncs with the KRT Profit Basetool whatever you switched '
+                    'on under Connection & sync: blueprints, material and '
+                    'cargo storage, hangar and demand. Otherwise runs by '
+                    'itself every 5 minutes and shortly after each change.'),
+    'k_sync_erst_verbinden': ('Erst mit dem Basetool verbinden — unter '
+                              'Verbindung & Abgleich.',
+                              'Connect to the Basetool first — under '
+                              'Connection & sync.'),
     'k_scanner': ('Mining-Scanner', 'Mining scanner'),
     'k_tr_pruefen': ('Prüfen', 'Check'),
     'k_tr_neu': ('Neu einlesen', 'Reload'),
