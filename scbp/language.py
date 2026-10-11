@@ -6093,14 +6093,6 @@ TEXTS = {
     's_gr_f_cfg':        ('Ungültige Zeile in der user.cfg, nichts geschrieben: %s',
                           'Invalid line in user.cfg, nothing written: %s'),
     's_gr_schreiben':    ('Ins Spiel schreiben', 'Write to the game'),
-    's_gr_schreiben_h':  ('Übernimmt alle Änderungen auf dieser Seite. Beim '
-                          'nächsten Start gelten sie im Spiel.',
-                          'Applies all changes on this page. They take effect '
-                          'the next time the game starts.'),
-    's_gr_spiel':        ('Star Citizen läuft. Das Spiel überschreibt die Datei '
-                          'selbst — schließ es zuerst, dann klappt das Schreiben.',
-                          'Star Citizen is running. The game overwrites the file '
-                          'itself — close it first, then writing works.'),
     's_gr_keine_datei':  ('Keine Grafik-Einstellungen gefunden. Star Citizen '
                           'legt die Datei beim ersten Start an; prüf sonst den '
                           'Spielordner unter Einstellungen → Installation & '
@@ -6109,6 +6101,26 @@ TEXTS = {
                           'file on first start; otherwise check the game folder '
                           'under Settings → Installation & paths.'),
     's_gr_nichts':       ('Nichts geändert.', 'Nothing changed.'),
+    's_gr_offen':        ('%d Änderung(en) noch nicht geschrieben — erst mit '
+                          '„Ins Spiel schreiben" gelten sie.',
+                          '%d change(s) not written yet — they only apply after '
+                          '"Write to the game".'),
+    's_gr_vorgemerkt':   ('%d Änderung(en) vorgemerkt — Star Citizen läuft. '
+                          'Verse-Kit schreibt sie, sobald das Spiel beendet ist; '
+                          'beim nächsten Start gelten sie.',
+                          '%d change(s) queued — Star Citizen is running. '
+                          'Verse-Kit writes them as soon as the game is closed; '
+                          'they apply on the next start.'),
+    's_gr_alles_drin':   ('Alles geschrieben — so steht es im Spiel.',
+                          'Everything written — this is what the game uses.'),
+    's_gr_nach_spiel_ok': ('Grafik-Einstellungen nach dem Spielende geschrieben '
+                           '(Sicherung: %s).',
+                           'Graphics settings written after the game closed '
+                           '(backup: %s).'),
+    's_gr_nach_spiel_f': ('Grafik-Einstellungen konnten nach dem Spielende nicht '
+                          'geschrieben werden: %s',
+                          'Graphics settings could not be written after the '
+                          'game closed: %s'),
     's_gr_ok':           ('Ins Spiel geschrieben. Sicherung: %s',
                           'Written to the game. Backup: %s'),
     's_gr_f_keine_datei': ('Die Datei mit den Grafik-Einstellungen fehlt.',

@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 # Zeitpunkt des Programmstarts — misst, wie lange das Programm schon läuft
 # (siehe `Overlay.AUTO_UPDATE_VISIBLE_S`).
@@ -3640,11 +3640,35 @@ class Overlay:
                     start_programs.on_game_started()
                 elif vorher and not laeuft:
                     start_programs.on_game_ended()
+                # Vorgemerkte Grafik-Einstellungen: geschrieben, sobald das
+                # Spiel nicht läuft — nach dem Spielende oder, wenn es beim
+                # Start von VerseKit schon zu ist, beim ersten Nachsehen.
+                if not laeuft:
+                    self._grafik_nachtragen()
             except Exception as ausnahme:
                 errors.record('overlay.spielende_wache', ausnahme)
             finally:
                 self._spielende_laeuft = False
         threading.Thread(target=arbeit, daemon=True).start()
+
+    def _grafik_nachtragen(self):
+        """Vorgemerkte Grafik-Einstellungen schreiben (`graphics.apply_queued`)
+        und das Ergebnis in der Statuszeile melden. Läuft im Nebenfaden der
+        Spielende-Wache; nur aufrufen, wenn das Spiel nicht läuft."""
+        from scbp import graphics
+        ergebnis = graphics.apply_queued()
+        if ergebnis is None:
+            return
+        if ergebnis[0]:
+            satz = language.Phrase('s_gr_nach_spiel_ok',
+                                   ', '.join(ergebnis[1]) or '—')
+        else:
+            _ok, schluessel, zusatz = ergebnis
+            grund = language.t(schluessel)
+            if zusatz:
+                grund = grund % zusatz
+            satz = language.Phrase('s_gr_nach_spiel_f', grund)
+        self._im_tk(lambda: self._status_setzen(satz))
 
     def _nach_version_sehen(self, spielende=False):
         """Im Hintergrund nachsehen, ob es etwas Neues gibt.

@@ -3855,10 +3855,28 @@ def _graphics(window, frame):
     from .main_window import round_select, slider, toggle_switch
 
     _heading(window, frame, t('hf_grafik'), t('s_gr_lead'))
+    # Was noch nicht geschrieben ist — auch was nach dem Spielende
+    # geschrieben werden soll. Überlebt das Neuzeichnen beim Zeigen der Seite.
+    pending = graphics.queued()
+    state = {'queued': bool(pending)}
+    # Die Schreib-Leiste steht fest über der Rollfläche: Der Knopf ist immer
+    # zu sehen, und daneben steht, was vorgemerkt ist.
+    bar = tk.Frame(frame, bg=BG)
+    bar.pack(fill='x', padx=24, pady=(0, 10))
+    bar_text = tk.Label(bar, text='', bg=BG, fg=SUB, font=window.f_small,
+                        anchor='w', justify='left')
     parent = _scroll_area(frame)
     body = tk.Frame(parent, bg=BG)
     body.pack(fill='x')
-    pending = {}
+
+    def bar_update():
+        if state['queued'] and pending:
+            bar_text.configure(text=t('s_gr_vorgemerkt') % len(pending),
+                               fg=GOLD)
+        elif pending:
+            bar_text.configure(text=t('s_gr_offen') % len(pending), fg=GOLD)
+        else:
+            bar_text.configure(text=t('s_gr_alles_drin'), fg=SUB)
     labels = {'WindowMode': ('s_gr_fenstermodus', ''),
               'VSync': ('s_gr_vsync', 's_gr_vsync_h'),
               'Upscaling': ('s_gr_upscaling', 's_gr_upscaling_h'),
@@ -3869,54 +3887,43 @@ def _graphics(window, frame):
               'Sharpening': ('s_gr_schaerfen', ''),
               'ChromaticAberration': ('s_gr_aberration', 's_gr_aberration_h')}
 
-    def game_blocks():
-        from . import auto_update
-        from .main_window import show_result
-        if auto_update.game_running():
-            show_result(window.root, t('hf_grafik'), t('s_gr_spiel'))
-            return True
-        return False
-
     def store():
+        from . import auto_update
         if not pending:
             window.say(t('s_gr_nichts'))
             return
-        if game_blocks():
+        if auto_update.game_running():
+            # Das Spiel überschreibt die Datei selbst — vormerken und nach dem
+            # Spielende schreiben (`Overlay._spielende_wache`).
+            graphics.set_queued(pending)
+            state['queued'] = True
+            bar_update()
+            window.say(t('s_gr_vorgemerkt') % len(pending))
             return
-        changes = dict(pending)
-        renderer = changes.pop(graphics.RENDERER, None)
-        cfg = {k[4:]: changes.pop(k) for k in list(changes)
-               if k.startswith('cfg:')}
-        backups = []
-        if cfg:
-            from . import usercfg
-            ok, bad = usercfg.set_values(paths.game_folder(), cfg)
-            if not ok:
-                window.say(t('s_gr_f_cfg') % (bad[0][1] if bad else ''))
-                return
-            backups.append('user.cfg')
-        if renderer is not None:
-            ok, detail = graphics.write_renderer(renderer)
-            if not ok:
-                window.say(t(detail))
-                return
-            if detail:
-                backups.append(detail)
-        if changes:
-            ok, detail = graphics.write(changes)
-            if not ok:
-                window.say(t(detail))
-                return
-            if detail:
-                backups.append(detail)
+        result = graphics.apply_all(pending)
+        if not result[0]:
+            _ok, key, extra = result
+            window.say(t(key) % extra if extra else t(key))
+            return
+        graphics.set_queued({})
+        state['queued'] = False
         pending.clear()
+        backups = result[1]
         window.say(t('s_gr_ok') % ', '.join(backups) if backups
                    else t('s_gr_nichts'))
         draw()
 
+    _button(window, bar, t('s_gr_schreiben'), store,
+            strong=True).pack(side='right')
+    bar_text.pack(side='left', fill='x', expand=True, padx=(0, 12))
+    _wrap(bar_text, inset=220)
+    window.graphics_store = store
+    window.graphics_pending = pending
+
     def control(slot, name, kind, value, choices):
         def remember(new_value):
             pending[name] = new_value
+            bar_update()
 
         if kind == 'wahl':
             round_select(slot, [(v, t(key)) for v, key in choices], value,
@@ -3942,7 +3949,12 @@ def _graphics(window, frame):
     def draw():
         for child in body.winfo_children():
             child.destroy()
-        pending.clear()
+        # Wurde Vorgemerktes inzwischen nach dem Spielende geschrieben, ist
+        # es jetzt Stand der Datei.
+        if state['queued'] and not graphics.queued():
+            pending.clear()
+            state['queued'] = False
+        bar_update()
         machine_slot = tk.Frame(body, bg=BG)
         machine_slot.pack(fill='x', pady=(0, 6))
         _machine_card_async(window, machine_slot)
@@ -3951,7 +3963,11 @@ def _graphics(window, frame):
             _status(window, body, 'offen', t('s_gr_keine_datei'), '',
                     color=GOLD)
             return
+        # Noch nicht Geschriebenes zeigen, nicht den Stand der Datei.
+        values.update({k: v for k, v in pending.items() if k in values})
         renderer = graphics.read_renderer()
+        if graphics.RENDERER in pending:
+            renderer = pending[graphics.RENDERER]
         if renderer is not None:
             slot = _setting_row(window, body, t('s_gr_renderer'),
                                 t('s_gr_renderer_h'))
@@ -3962,26 +3978,32 @@ def _graphics(window, frame):
             slot = _setting_row(window, body, t(caption),
                                 t(help_key) if help_key else '')
             control(slot, name, kind, values[name], choices)
-        _quality_rows(window, body, pending)
-        _user_cfg_rows(window, body, pending)
-        slot = _setting_row(window, body, t('s_gr_schreiben'),
-                            t('s_gr_schreiben_h'), line=False)
-        _button(window, slot, t('s_gr_schreiben'), store, strong=True).pack()
+        _quality_rows(window, body, pending, bar_update)
+        _user_cfg_rows(window, body, pending, bar_update)
 
     draw()
     window.on_show['grafik'] = draw
 
 
-def _quality_rows(window, body, pending):
+def _quality_rows(window, body, pending, changed=None):
     """Die Qualitätsstufe je Bereich, wie im Grafikmenü des Spiels. Leer heißt:
     die Zeile folgt der Gesamtstufe. Jede Zeile bietet nur die Stufen an, die
-    das Spiel für sie kennt (`graphics.TOP_LEVEL`)."""
+    das Spiel für sie kennt (`graphics.TOP_LEVEL`). Vorgemerktes aus
+    `pending` steht statt des Datei-Stands da; `changed()` nach jeder Wahl."""
     from . import graphics
     from .main_window import round_select
     tk.Label(body, text=t('s_gr_q_titel'), bg=BG, fg=FG,
              font=window.f_title, anchor='w').pack(fill='x', pady=(24, 2))
     _body_text(body, t('s_gr_q_lead'), window.f_small, fill='x', pady=(0, 4))
     levels = graphics.read_levels()
+    for row in [graphics.OVERALL] + [r for r, _k in graphics.EDIT_ROWS]:
+        if row in pending:
+            levels[row] = '' if pending[row] is None else pending[row]
+
+    def note(key, value):
+        pending[key] = value
+        if changed is not None:
+            changed()
     # Alle Auswahlfelder gleich breit — so stehen sie in beiden Spalten bündig.
     names = [t('s_gr_q_auto')] + [t('s_gr_stufe_%d' % n) for n in range(1, 6)]
     field_width = max(window.f_small.measure(n) for n in names) + 42
@@ -3995,13 +4017,13 @@ def _quality_rows(window, body, pending):
 
     def overall(value):
         if value == '':
-            pending[graphics.OVERALL] = None
+            note(graphics.OVERALL, None)
             return
         level = int(value)
-        pending[graphics.OVERALL] = level
         for row, wanted in graphics.preset_rows(level).items():
             pending[row] = wanted
             selects[row].select_quiet(wanted)
+        note(graphics.OVERALL, level)
 
     slot = _setting_row(window, body, t('s_gr_q_gesamt'), t('s_gr_q_gesamt_h'))
     round_select(slot, entries(graphics.OVERALL),
@@ -4022,17 +4044,27 @@ def _quality_rows(window, body, pending):
                  anchor='w').pack(side='left')
         selects[row] = round_select(
             line, entries(row), levels.get(row, ''),
-            lambda v, row=row: pending.__setitem__(
-                row, None if v == '' else int(v)),
+            lambda v, row=row: note(row, None if v == '' else int(v)),
             window.f_small, width=field_width)
         selects[row].pack(side='right')
         tk.Frame(cell, bg=LINE, height=1).pack(fill='x')
 
 
-def _user_cfg_rows(window, body, pending):
+def _user_cfg_rows(window, body, pending, changed=None):
     """Drei Befehle aus der `user.cfg` des Spielordners: Bildrate begrenzen,
     Bildrate im Hintergrund, Leistungsanzeige. Gemerkt wird in `pending` als
-    `cfg:<befehl>`; geschrieben mit den übrigen Grafik-Schaltern."""
+    `cfg:<befehl>`; geschrieben mit den übrigen Grafik-Schaltern. Vorgemerktes
+    steht statt des Datei-Stands da; `changed()` nach jeder Änderung."""
+
+    def current(key, fallback):
+        if 'cfg:' + key in pending:
+            return pending['cfg:' + key] or ''
+        return fallback
+
+    def note(key, value):
+        pending['cfg:' + key] = value
+        if changed is not None:
+            changed()
     from . import paths, usercfg
     from .main_window import round_entry, round_select
     folder = paths.game_folder()
@@ -4046,27 +4078,28 @@ def _user_cfg_rows(window, body, pending):
                                    ('sys_MaxIdleFPS', 's_gr_idlefps',
                                     's_gr_idlefps_h')):
         slot = _setting_row(window, body, t(caption), t(help_key))
-        var = tk.StringVar(slot, value=usercfg.value(folder, key) or '')
+        var = tk.StringVar(slot, value=current(
+            key, usercfg.value(folder, key) or ''))
 
-        def changed(*_a, key=key, var=var):
+        def typed(*_a, key=key, var=var):
             text = var.get().strip()
             if text and not text.isdigit():
                 return
-            pending['cfg:' + key] = text or None
-        var.trace_add('write', changed)
+            note(key, text or None)
+        var.trace_add('write', typed)
         field = round_entry(slot, var, window.f_small, theme.FIELD, LINE,
                             ACCENT, FG, placeholder=t('s_gr_fps_platz'),
                             width=8)
         field.holder.pack()
 
     slot = _setting_row(window, body, t('s_gr_info'), t('s_gr_info_h'))
-    current_info = usercfg.value(folder, 'r_DisplayInfo') or '0'
+    current_info = current('r_DisplayInfo',
+                           usercfg.value(folder, 'r_DisplayInfo') or '0') or '0'
     entries = [(str(n), t('s_gr_info_%d' % n)) for n in range(5)]
     if current_info not in [v for v, _l in entries]:
         current_info = '0'
     round_select(slot, entries, current_info,
-                 lambda v: pending.__setitem__(
-                     'cfg:r_DisplayInfo', None if v == '0' else v),
+                 lambda v: note('r_DisplayInfo', None if v == '0' else v),
                  window.f_small).pack()
 
 

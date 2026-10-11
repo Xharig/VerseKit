@@ -273,6 +273,73 @@ def write_renderer(value, path=None):
     return True, os.path.basename(backup)
 
 
+# Vorgemerkte Änderungen, die nach dem Spielende geschrieben werden — dieselbe
+# Form wie die Änderungen der Grafik-Seite: {Name: Wert}, dazu
+# `GraphicsRenderer` und `cfg:<befehl>` für die user.cfg.
+QUEUE_SETTING = 'grafik_vorgemerkt'
+
+
+def queued():
+    """Die vorgemerkten Änderungen, oder {}."""
+    from . import paths
+    value = paths.settings().get(QUEUE_SETTING)
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def set_queued(changes):
+    """Änderungen vormerken; {} nimmt die Vormerkung zurück."""
+    from . import paths
+    return paths.set_setting(QUEUE_SETTING, dict(changes or {}))
+
+
+def apply_all(changes, game_folder=None):
+    """Alle Änderungen der Grafik-Seite schreiben: user.cfg, Renderer,
+    attributes.xml — in dieser Reihenfolge, beim ersten Fehler Schluss.
+
+    Gibt `(True, [Sicherungen])` oder `(False, Textschlüssel, Zusatz)`. Der
+    Aufrufer prüft vorher, dass das Spiel nicht läuft."""
+    from . import paths, usercfg
+    changes = dict(changes)
+    renderer = changes.pop(RENDERER, None)
+    cfg = {k[4:]: changes.pop(k) for k in list(changes) if k.startswith('cfg:')}
+    backups = []
+    if cfg:
+        ok, bad = usercfg.set_values(game_folder or paths.game_folder(), cfg)
+        if not ok:
+            return False, 's_gr_f_cfg', bad[0][1] if bad else ''
+        backups.append('user.cfg')
+    if renderer is not None:
+        ok, detail = write_renderer(renderer)
+        if not ok:
+            return False, detail, ''
+        if detail:
+            backups.append(detail)
+    if changes:
+        path = attribute_file(game_folder) if game_folder else None
+        ok, detail = write(changes, path)
+        if not ok:
+            return False, detail, ''
+        if detail:
+            backups.append(detail)
+    return True, backups
+
+
+def apply_queued(game_folder=None):
+    """Vorgemerktes schreiben und die Vormerkung zurücknehmen — nur aufrufen,
+    wenn das Spiel nicht läuft. Gibt None (nichts vorgemerkt) oder das
+    Ergebnis von `apply_all`. Die Vormerkung fällt auch bei einem Fehler weg:
+    Er erscheint so einmal, nicht bei jedem Nachsehen erneut."""
+    changes = queued()
+    if not changes:
+        return None
+    set_queued({})
+    try:
+        return apply_all(changes, game_folder)
+    except Exception as exc:
+        errors.record('graphics.apply_queued', exc)
+        return False, 's_gr_f_schreiben', ''
+
+
 def attribute_file(game_folder=None):
     """Pfad der `attributes.xml` oder ''."""
     from . import fov

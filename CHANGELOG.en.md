@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.0.3 - 2026-10-11
+
+> Graphics settings now arrive even while Star Citizen is running: Verse-Kit
+> queues them and writes them once the game is closed.
+
+### Fixed
+
+- **Graphics settings did not reach the game** — while Star Citizen was
+  running, Verse-Kit was not allowed to write (the game overwrites the file
+  itself), and that was hard to see. "Write to the game" now sits fixed at the
+  top of the graphics page, next to what has not been written yet. If the game
+  is running, Verse-Kit queues the changes and writes them by itself as soon as
+  it is closed; they apply on the next start. Queued changes are no longer lost
+  when you switch pages
+
 ## v4.0.2 - 2026-10-11
 
 > The thanks page describes rjcncpt's German translation correctly again.

@@ -25392,6 +25392,7 @@ def main():
     _pruefung_423()
     _pruefung_424()
     _pruefung_425()
+    _pruefung_426()
 
     print()
     if fehler:
@@ -39583,6 +39584,147 @@ def _pruefung_422():
             _zelle_r422.destroy()
     finally:
         _w422.destroy()
+
+
+def _pruefung_426():
+    """426. Grafik: bei laufendem Spiel vormerken, nach dem Spielende schreiben."""
+    print('\n426. Grafik: Vormerken und Schreiben nach dem Spielende')
+    import tempfile as _tf426
+    from scbp import (graphics as _gr426, paths as _pa426,
+                      auto_update as _au426, language as _la426)
+    _heim426 = _tf426.mkdtemp(prefix='grafik-vormerken-')
+    _spiel426 = os.path.join(_heim426, 'LIVE')
+    _profil426 = os.path.join(_spiel426, 'USER', 'Client', '0', 'Profiles',
+                              'default')
+    os.makedirs(_profil426)
+    _datei426 = os.path.join(_profil426, 'attributes.xml')
+    _inhalt426 = ('<Attributes Version="35">\r\n'
+                  ' <Attr name="FilmGrain" value="0"/>\r\n'
+                  ' <Attr name="SysSpec" value="3"/>\r\n'
+                  '</Attributes>\r\n')
+    with open(_datei426, 'w', encoding='utf-8', newline='') as f:
+        f.write(_inhalt426)
+    # Ohne Game.log nimmt `paths.game_folder()` den Ordner nicht an und fällt
+    # auf die echte Installation zurück.
+    open(os.path.join(_spiel426, 'Game.log'), 'w').close()
+    _alt_heim426 = os.environ.get('SC_BP_HOME')
+    _echt_lauf426 = _au426.game_running
+    _echt_datei426 = _gr426.attribute_file
+    _laeuft426 = [True]
+    try:
+        os.environ['SC_BP_HOME'] = os.path.join(_heim426, 'heim')
+        _pa426.set_setting('spiel_ordner', _spiel426)
+        _au426.game_running = lambda: _laeuft426[0]
+        # Doppelt gesichert: Jeder Schreibweg landet in der Testdatei.
+        _gr426.attribute_file = lambda game_folder=None: _datei426
+        if (os.path.normcase(_pa426.game_folder() or '')
+                != os.path.normcase(_spiel426)):
+            pruefe(False, 'Testordner wird nicht als Spielordner erkannt — '
+                   'abgebrochen, bevor etwas geschrieben wird')
+            return
+
+        def _film426():
+            return _gr426.read(_datei426)['FilmGrain']
+
+        _gr426.set_queued({'FilmGrain': 1})
+        pruefe(_gr426.queued() == {'FilmGrain': 1},
+               'vorgemerkt wird gespeichert')
+        _erg426 = _gr426.apply_queued(_spiel426)
+        pruefe(_erg426 and _erg426[0] and _film426() == 1
+               and _gr426.queued() == {},
+               'nach dem Spielende: geschrieben, Vormerkung weg (%r)'
+               % (_erg426,))
+        pruefe(_gr426.apply_queued(_spiel426) is None,
+               'ohne Vormerkung passiert nichts')
+        _gr426.set_queued({'SysSpec_ObjectDetail': 9})
+        _erg426 = _gr426.apply_queued(_spiel426)
+        pruefe(_erg426 and not _erg426[0] and _gr426.queued() == {},
+               'ein Fehler wird einmal gemeldet, nicht bei jedem Nachsehen '
+               '(%r)' % (_erg426,))
+
+        # Die Spielende-Wache meldet das Ergebnis in der Statuszeile.
+        import sc_bp_watcher as _sw426
+
+        class _Fenster426:
+            gesetzt = []
+
+            def _im_tk(self, f):
+                f()
+
+            def _status_setzen(self, satz):
+                self.gesetzt.append(str(satz))
+        _gr426.set_queued({'FilmGrain': 0})
+        _sw426.Overlay._grafik_nachtragen(_Fenster426())
+        pruefe(_film426() == 0 and len(_Fenster426.gesetzt) == 1
+               and 'attributes.xml' in _Fenster426.gesetzt[0],
+               'die Spielende-Wache schreibt und meldet es (%r)'
+               % _Fenster426.gesetzt)
+        import inspect as _in426
+        _quelle426 = _in426.getsource(_sw426.Overlay._spielende_wache)
+        pruefe('if not laeuft:' in _quelle426
+               and 'self._grafik_nachtragen()' in _quelle426,
+               'die Spielende-Wache trägt nach, sobald das Spiel nicht läuft')
+
+        if not hat_anzeige():
+            print('  (Oberfläche übersprungen: kein Bildschirm)')
+            return
+        from scbp import main_window as _mw426
+        _w426 = _wurzel()
+        try:
+            _w426.deiconify()
+            _w426.geometry('1200x700')
+            _f426 = _mw426.MainWindow(_w426, version='0.0.0-pruefung')
+            _f426.open_page('grafik')
+            for _ in range(4):
+                _w426.update()
+            _vor426 = _f426.graphics_pending
+            _vor426['FilmGrain'] = 1
+            _laeuft426[0] = True
+            _f426.graphics_store()
+            pruefe(_gr426.queued() == {'FilmGrain': 1} and _film426() == 0,
+                   'Spiel läuft: vorgemerkt statt geschrieben')
+            _f426.on_show['grafik']()
+            _w426.update()
+            pruefe(_f426.graphics_pending.get('FilmGrain') == 1,
+                   'Vorgemerktes übersteht das Neuzeichnen der Seite')
+            _texte426 = _texte_346(_f426.pages['grafik'])
+            pruefe(_la426.t('s_gr_vorgemerkt') % 1 in _texte426,
+                   'die Leiste sagt, dass nach dem Spielende geschrieben wird')
+            # Die Leiste steht über der Rollfläche, nicht darin.
+            _knopf426 = [x for x in _alle_346(
+                _f426.pages['grafik'], lambda x: x.winfo_class() == 'Canvas'
+                and _la426.t('s_gr_schreiben') in _texte_346(x))]
+            _flaeche426 = [x for x in _alle_346(
+                _f426.pages['grafik'], lambda x: x.winfo_class() == 'Canvas'
+                and x.cget('yscrollcommand'))]
+            pruefe(_knopf426 and _flaeche426
+                   and _knopf426[0].master.master is _f426.pages['grafik']
+                   and _knopf426[0].winfo_rooty()
+                   < _flaeche426[0].winfo_rooty(),
+                   'Ins Spiel schreiben steht fest über der Rollfläche')
+            _laeuft426[0] = False
+            _sw426.Overlay._grafik_nachtragen(_Fenster426())
+            _f426.on_show['grafik']()
+            _w426.update()
+            pruefe(_film426() == 1 and not _f426.graphics_pending
+                   and _la426.t('s_gr_alles_drin')
+                   in _texte_346(_f426.pages['grafik']),
+                   'nach dem Spielende geschrieben, die Seite zeigt den '
+                   'neuen Stand')
+            _f426.graphics_pending['FilmGrain'] = 0
+            _f426.graphics_store()
+            pruefe(_film426() == 0 and _gr426.queued() == {},
+                   'Spiel zu: sofort geschrieben')
+        finally:
+            _w426.destroy()
+    finally:
+        _au426.game_running = _echt_lauf426
+        _gr426.attribute_file = _echt_datei426
+        if _alt_heim426 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim426
+        shutil.rmtree(_heim426, ignore_errors=True)
 
 
 def _pruefung_425():

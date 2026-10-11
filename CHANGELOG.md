@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.0.3 - 2026-10-11
+
+> Grafik-Einstellungen kommen jetzt auch an, wenn Star Citizen gerade läuft:
+> Verse-Kit merkt sie vor und schreibt sie nach dem Spielende.
+
+### Behoben
+
+- **Grafik-Einstellungen kamen im Spiel nicht an** — solange Star Citizen
+  lief, durfte Verse-Kit nicht schreiben (das Spiel überschreibt die Datei
+  selbst), und das war kaum zu sehen. Jetzt steht „Ins Spiel schreiben“ fest
+  oben auf der Grafik-Seite, daneben, was noch nicht geschrieben ist. Läuft
+  das Spiel, merkt Verse-Kit die Änderungen vor und schreibt sie von selbst,
+  sobald es beendet ist; beim nächsten Start gelten sie. Vorgemerktes geht
+  beim Wechsel der Seite nicht mehr verloren
+
 ## v4.0.2 - 2026-10-11
 
 > Die Danke-Seite beschreibt die deutsche Übersetzung von rjcncpt wieder
