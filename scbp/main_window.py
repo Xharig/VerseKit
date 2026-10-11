@@ -538,12 +538,19 @@ def settle_default_view(configured):
     return value
 
 
-def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
+def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False,
+                bottom=False):
     """Ein Kasten mit runden Ecken, in den beliebiger Inhalt kommt.
 
     `stretch=True`: Der gemalte Rahmen reicht bis zur tatsächlichen Höhe der
     Leinwand, auch wenn der Inhalt kürzer ist — für Kacheln in einem Raster,
     die in einer Reihe gleich hoch stehen sollen.
+
+    `bottom=True`: Am Rückgabewert hängt `.bottom`, ein zweiter Rahmen, der
+    unten am Rand sitzt — auch wenn der Kasten gestreckt ist. So stehen die
+    Knöpfe aller Karten einer Reihe auf einer Linie. Die Höhe des Kastens ist
+    Inhalt plus Boden; wächst eins von beiden (Text bricht neu um), wächst
+    der Kasten mit.
 
     Tk kann Rahmen nur eckig — deshalb liegt hinter dem Inhalt eine Leinwand
     mit einem gemalten Rechteck, und der Inhalt sitzt als Fenster darauf. Die
@@ -591,6 +598,10 @@ def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
     inset = 3 if theme.SQUARE else radius
     window_id = canvas.create_window(inset, inset, window=inner,
                                         anchor='nw')
+    foot = foot_id = None
+    if bottom:
+        foot = tk.Frame(canvas, bg=bg)
+        foot_id = canvas.create_window(inset, 10, window=foot, anchor='sw')
 
     def refresh(_=None):
         # ⚠ Solange nichts gezeichnet ist, liefert `winfo_width` eine 1. Dann
@@ -602,6 +613,8 @@ def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
         if width < 10:
             width = canvas.winfo_reqwidth()
         height = inner.winfo_reqheight()
+        if foot is not None:
+            height += foot.winfo_reqheight()
         if width < 10:
             return
         canvas.configure(height=height + inset * 2)
@@ -609,17 +622,17 @@ def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
         bottom = height + inset * 2 - 1
         if stretch:
             bottom = max(bottom, canvas.winfo_height() - 1)
-            # Der Inhalt reicht bis zum gestreckten Rand, damit unten Gepacktes
-            # (der Knopf einer Karte) in jeder Karte der Reihe gleich tief
-            # sitzt. Höhe 0 heißt: so hoch, wie der Inhalt verlangt.
-            spare = canvas.winfo_height() - inset * 2
-            canvas.itemconfigure(window_id,
-                                 height=spare if spare > height else 0)
+        if foot is not None:
+            # Der Boden sitzt am unteren Rand des (gestreckten) Kastens.
+            canvas.itemconfigure(foot_id, width=width - inset * 2)
+            canvas.coords(foot_id, inset, bottom + 1 - inset)
         canvas.coords(shape, *corners(1, 1, width - 1, bottom, radius))
         if theme.SQUARE:
             _corner_marks(canvas, width, bottom)
 
     inner.bind('<Configure>', refresh)
+    if foot is not None:
+        foot.bind('<Configure>', refresh)
     canvas.bind('<Configure>', refresh)
     canvas.bind('<Map>', refresh)
     # Merkmal für die Randprüfung: Dieser Rahmen wird bewusst auf die
@@ -631,6 +644,7 @@ def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False):
     inner.holder = holder
     inner.canvas = canvas
     inner.shape = shape
+    inner.bottom = foot
     return inner
 
 

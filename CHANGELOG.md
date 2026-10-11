@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.0.1 - 2026-10-11
+
+> Die Karten wachsen jetzt mit ihrem Text mit.
+
+### Behoben
+
+- **Zusammengedrückter Öffnen-Knopf** — kam man von einer Seite zurück zur
+  Startseite, war bei Karten mit längerem Text der Knopf „Öffnen“ nur noch
+  ein schmaler Strich. Jetzt wächst die Karte mit, und die Knöpfe einer
+  Reihe stehen weiter auf einer Linie
+
 ## v4.0.0 - 2026-10-11
 
 > Verse-Kit 4.0 bringt eine zweite Art, sich zurechtzufinden: die

@@ -39889,6 +39889,32 @@ def _pruefung_424():
                and all(len(y) == 1 for y in _knoepfe424.values()),
                'Öffnen-Knöpfe einer Reihe stehen auf einer Linie (%r)'
                % _knoepfe424)
+        # Hin und zurück und schmaler: Bricht der Text in mehr Zeilen um,
+        # wächst die Karte mit — kein Knopf wird zusammengedrückt.
+        _gedrueckt424 = []
+        _groesse424 = _w.geometry().split('+')[0]
+        for _schritt424 in ('liste', 'uebersicht', 'schmal'):
+            if _schritt424 == 'schmal':
+                _w.geometry('900x900')
+            else:
+                _f.open_page(_schritt424, via='karte')
+            for _ in range(6):
+                _w.update()
+            if _schritt424 == 'liste':
+                continue
+            for _c424 in _start.main_grid.cells:
+                _k424 = _c424.card.open_button
+                if (_k424.winfo_height() < _k424.winfo_reqheight()
+                        or _k424.winfo_rooty() + _k424.winfo_height()
+                        > _c424.winfo_rooty() + _c424.winfo_height()):
+                    _gedrueckt424.append((_schritt424, _c424.area_key,
+                                          _k424.winfo_height(),
+                                          _k424.winfo_reqheight()))
+        _w.geometry(_groesse424)
+        for _ in range(4):
+            _w.update()
+        pruefe(not _gedrueckt424, 'nach Seitenwechsel und schmalerem Fenster '
+               'ist kein Öffnen-Knopf zusammengedrückt (%r)' % _gedrueckt424)
         _breiten424 = {_c.winfo_width() for _c in _start.main_grid.cells}
         # Ein Pixel Rest beim Verteilen der Breite ist Rundung.
         pruefe(max(_breiten424) - min(_breiten424) <= 1,

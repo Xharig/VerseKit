@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.0.1 - 2026-10-11
+
+> Cards now grow with their text.
+
+### Fixed
+
+- **Squashed Open button** — after returning to the start page from another
+  page, cards with longer text showed "Open" as a thin line. The card now
+  grows with its text, and the buttons of a row still line up
+
 ## v4.0.0 - 2026-10-11
 
 > Verse-Kit 4.0 brings a second way to find your way around: the card view.

@@ -318,7 +318,7 @@ def card(window, cell, symbol, title, text, action, pin=None,
     from .main_window import round_button, round_frame
     from .pages import _wrap
     box = round_frame(cell, theme.SURFACE, theme.LINE, radius=RADIUS,
-                      base_color=theme.BG, stretch=True)
+                      base_color=theme.BG, stretch=True, bottom=True)
     box.holder.pack(fill='both', expand=True)
     head = tk.Frame(box, bg=theme.SURFACE)
     head.pack(fill='x', padx=16, pady=(14, 6))
@@ -364,9 +364,12 @@ def card(window, cell, symbol, title, text, action, pin=None,
         skip.append(needle)
     body = tk.Label(box, text=text, bg=theme.SURFACE, fg=theme.SUB,
                     font=window.f_small, anchor='nw', justify='left')
-    body.pack(fill='both', expand=True, padx=16)
+    body.pack(fill='x', padx=16)
     _wrap(body, inset=32)
-    foot = tk.Frame(box, bg=theme.SURFACE)
+    # Die Knopfzeile sitzt im Boden des Kastens — unten am Rand, in jeder
+    # Karte der Reihe gleich tief.
+    bottom = box.bottom
+    foot = tk.Frame(bottom, bg=theme.SURFACE)
     foot.pack(fill='x', padx=16, pady=(8, 14))
     knopf = round_button(foot, button_text or t('k_oeffnen'), action,
                          window.f_small, theme.SURFACE, theme.SURFACE,
@@ -378,7 +381,7 @@ def card(window, cell, symbol, title, text, action, pin=None,
     # Zusatzknöpfe links neben „Öffnen", der erste direkt daneben. Jeder
     # Baustein packt sich selbst (manche nur unter einer Bedingung).
     box.extra_buttons = []
-    extra_bar = tk.Frame(box, bg=theme.SURFACE)
+    extra_bar = tk.Frame(bottom, bg=theme.SURFACE)
     for build in extras or ():
         try:
             widget = build(extra_bar)
@@ -408,7 +411,7 @@ def card(window, cell, symbol, title, text, action, pin=None,
                 # Rechts 8 px weniger: Der letzte Zusatzknopf trägt seinen
                 # Abstand zum Öffnen-Knopf selbst, so stehen beide Reihen
                 # bündig.
-                extra_bar.pack(in_=box, before=foot, anchor='e',
+                extra_bar.pack(in_=bottom, before=foot, anchor='e',
                                padx=(16, 8), pady=(8, 0))
             else:
                 extra_bar.pack(in_=foot, side='right', after=knopf)
