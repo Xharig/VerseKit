@@ -40075,7 +40075,8 @@ def _pruefung_424():
                     for _k424 in _knoepfe424:
                         _fuss424 = _k424.master
                         # Tk schiebt bei Platzmangel nichts hinaus, es
-                        # quetscht: dann ist der Knopf schmaler als gewünscht.
+                        # quetscht: dann ist der Knopf schmaler, als er Platz
+                        # braucht.
                         if (_k424.winfo_x() < 0 or _k424.winfo_x()
                                 + _k424.winfo_width() > _fuss424.winfo_width()
                                 or _k424.winfo_width()
