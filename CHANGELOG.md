@@ -6,6 +6,16 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.3 - 2026-10-11
+
+> Eine kleine Korrektur: Schiebeschalter, die beim Umlegen ihre Seite neu
+> aufbauen, hinterlassen keinen Eintrag mehr im Fehlerprotokoll.
+
+### Behoben
+
+- Ein Schiebeschalter, der beim Umlegen seine eigene Seite neu aufbaut, schrieb
+  danach einen Fehler ins Protokoll — der landete dann in jedem Fehlerbericht.
+
 ## v4.1.2 - 2026-10-11
 
 > Die anonyme Nutzungszählung kennt jetzt auch die Neuerungen von 4.0: ob die

@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.3 - 2026-10-11
+
+> A small fix: toggle switches that rebuild their page when flipped no longer
+> leave an entry in the error log.
+
+### Fixed
+
+- A toggle switch that rebuilds its own page when flipped wrote an error to the
+  log afterwards — which then showed up in every problem report.
+
 ## v4.1.2 - 2026-10-11
 
 > The anonymous usage count now also covers what came with 4.0: whether the

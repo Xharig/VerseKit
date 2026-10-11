@@ -263,7 +263,10 @@ def toggle_switch(parent, on, toggle, bg=None):
         c.coords(dot, 5 + x, 6, 19 + x, 20)
 
     def click(_=None):
-        draw(bool(toggle()))
+        state = bool(toggle())
+        # Baut `toggle()` die eigene Seite neu, ist der Schalter danach weg.
+        if c.winfo_exists():
+            draw(state)
 
     c.bind('<Button-1>', click)
     draw(bool(on))

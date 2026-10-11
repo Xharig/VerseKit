@@ -25420,6 +25420,7 @@ def main():
     _pruefung_428()
     _pruefung_429()
     _pruefung_430()
+    _pruefung_431()
 
     print()
     if fehler:
@@ -40021,6 +40022,64 @@ def _pruefung_430():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim430
         shutil.rmtree(_ordner430, ignore_errors=True)
+
+
+def _pruefung_431():
+    """431. Schiebeschalter, dessen Rückruf die eigene Seite neu baut."""
+    print('\n431. Schalter: Klick, der den Schalter selbst entfernt, wirft nicht')
+    import tkinter as tk
+    from scbp import main_window as _mw431
+    _wz431 = _wurzel()
+    _gefangen431 = []
+    _echt_melden431 = _wz431.report_callback_exception
+
+    def _melden431(art, wert, spur):
+        _gefangen431.append(wert)
+
+    def _klicken431(schalter):
+        # Das Fenster ist versteckt, `event_generate` käme nicht an — darum
+        # die Bindung selbst aufrufen, mit den 19 Feldern eines Tk-Ereignisses.
+        befehl = re.search(r'\[(\S+)', schalter.bind('<Button-1>')).group(1)
+        felder = ['0', '1', '0', '0', '0', '0', '0', str(schalter), '5', '5',
+                  '', '0', '0', '0', str(schalter), '4', '5', '5', '0']
+        try:
+            schalter.tk.call(befehl, *felder)
+        except Exception as exc:
+            _gefangen431.append(exc)
+    _wz431.report_callback_exception = _melden431
+    try:
+        # Zuerst die Falle selbst: Ein Klick muss den Rückruf erreichen.
+        _aufrufe431 = []
+
+        def _zaehlen431():
+            _aufrufe431.append(1)
+            return True
+        _halter431 = tk.Frame(_wz431)
+        _halter431.pack()
+        _sch431 = _mw431.toggle_switch(_halter431, False, _zaehlen431)
+        _sch431.pack()
+        _klicken431(_sch431)
+        pruefe(_aufrufe431 == [1] and not _gefangen431,
+               'ein Klick erreicht den Rückruf (%d Aufrufe)' % len(_aufrufe431))
+        _halter431.destroy()
+
+        # Der Fall aus dem Fehlerbericht: der Rückruf baut die Seite neu.
+        _seite431 = tk.Frame(_wz431)
+        _seite431.pack()
+
+        def _neu_bauen431():
+            _seite431.destroy()
+            return True
+        _sch431 = _mw431.toggle_switch(_seite431, False, _neu_bauen431)
+        _sch431.pack()
+        _klicken431(_sch431)
+        pruefe(not _seite431.winfo_exists(),
+               'der Rückruf hat die Seite wirklich entfernt')
+        pruefe(not _gefangen431,
+               'kein TclError nach dem Entfernen (%s)'
+               % ', '.join(repr(e) for e in _gefangen431))
+    finally:
+        _wz431.report_callback_exception = _echt_melden431
 
 
 def _after_in_threads_429(tree):
