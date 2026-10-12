@@ -32,6 +32,7 @@ den Fall nicht, für den sie gebaut wurde.
 
 import os
 import sys
+import tempfile
 import tkinter as tk
 
 HIER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -48,7 +49,8 @@ ausgabe.utf8()
 
 
 # Eine Wegwerf-Ablage, damit die Prüfung nichts am eigenen Stand ändert.
-os.environ.setdefault('SC_BP_HOME', '/tmp/sc-bp-oberflaechenpruefung')
+os.environ.setdefault('SC_BP_HOME', os.path.join(
+    tempfile.gettempdir(), 'sc-bp-oberflaechenpruefung'))
 os.environ.setdefault('SC_BP_NO_NET', '1')
 
 from scbp import language                                  # noqa: E402
@@ -60,8 +62,13 @@ from scbp.main_window import MainWindow                 # noqa: E402
 #
 # Wer eine Seite dazubaut, traegt sie **hier mit ein**. `_alle_seiten_dabei()`
 # unten haelt das fest und schlaegt an, wenn eine fehlt.
-SEITEN = ('liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',
-          'spiel', 'bestand',
+SEITEN = ('uebersicht',
+          'bereich_bauplaene', 'bereich_schiffe', 'bereich_werkstatt',
+          'bereich_bergung', 'bereich_handel', 'bereich_statistiken',
+          'bereich_spiel_einst', 'bereich_einstellungen', 'bereich_basetool',
+          'bereich_info',
+          'liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',
+          'spiel', 'grafik', 'shader', 'bestand', 'bedarf',
           'wasistneu', 'patchaenderungen', 'ueber',
           'statistik_auswertung', 'statistik', 'statistik_schiffe',
           'statistik_auftraege', 'statistik_quantum', 'statistik_stabil',

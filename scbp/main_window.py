@@ -599,6 +599,12 @@ def round_frame(parent, bg, border, radius=8, base_color=None, stretch=False,
     holder = tk.Frame(parent, bg=base_color)
     canvas = tk.Canvas(holder, bg=base_color, highlightthickness=0, bd=0,
                          height=10)
+    if stretch:
+        # Ohne Breitenangabe verlangt eine Leinwand 10 cm (rund 380 px). Im
+        # Raster gleich breiter Spalten wird daraus die Wunschbreite jeder
+        # Spalte, und die Reihe verlangt mehr Platz, als sie bekommt. Die
+        # Breite bestimmt hier das Raster.
+        canvas.configure(width=1)
     canvas.pack(fill='both', expand=True)
     inner = tk.Frame(canvas, bg=bg)
     shape = _round_rect(canvas, 1, 1, 100, 100, radius=radius,
@@ -894,9 +900,10 @@ def round_bar(parent, height, fraction, bg, empty_color, full_color, width=None)
     einmal ausgerechneten Pixelzahl.
     """
     r = height / 2.0
-    c = tk.Canvas(parent, height=height, bg=bg, highlightthickness=0, bd=0)
-    if width:
-        c.configure(width=width)
+    # Ohne `width` füllt der Balken die Breite, die er bekommt — er darf dann
+    # nicht die 10 cm verlangen, die eine Leinwand ohne Angabe fordert.
+    c = tk.Canvas(parent, height=height, bg=bg, highlightthickness=0, bd=0,
+                  width=width or 1)
     groove = _round_rect(c, 0, 0, 100, height, radius=r, fill=empty_color,
                              outline='')
     fill_color = _round_rect(c, 0, 0, 10, height, radius=r, fill=full_color,
