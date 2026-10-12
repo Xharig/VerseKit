@@ -124,11 +124,20 @@ Alle Befehle in diesem Ordner (`tools/nutzung-worker`) in einem Terminal.
 
 ## Mitschreiben und Sicherung
 
-- **Alle 6 Stunden** (Zeitplan in `wrangler.toml`) hält der Worker je Version
+- **Stündlich** (Zeitplan in `wrangler.toml`) hält der Worker je Version
   den **höchsten je gesehenen** Download-Stand fest (`download_bestand`) und
-  schreibt eine Tageszeile (`download_verlauf`). Gelöschte Releases bleiben so
-  erhalten; daraus entstehen „Downloads gesamt (mit gelöschten)" und
-  „Downloads je Tag".
+  schreibt bzw. überschreibt die Tageszeile (`download_verlauf`). Gelöschte
+  Releases bleiben so erhalten; daraus entstehen „Downloads gesamt (mit
+  gelöschten)" und „Downloads je Tag". Antwortet GitHub nicht, wird nichts
+  geschrieben; der nächste Lauf holt es nach.
+- **GitHub-Abrufgrenze:** Ohne Anmeldung erlaubt GitHub 60 Abrufe je Stunde und
+  Absender-IP — Worker teilen sich ihre IPs mit anderen, die Grenze ist also
+  schnell erreicht (Antwort 403, Grund steht in der Tabelle `ablage` unter
+  `fehler`). Mit einem Zeichen sind es 5000 je Stunde:
+  GitHub → *Settings* → *Developer settings* → *Fine-grained tokens* →
+  *Generate new token*, *Repository access* → *Public repositories*, keine
+  weiteren Rechte. Dann `npx wrangler secret put GITHUB_TOKEN` und das Zeichen
+  einfügen. Ohne das Geheimnis fragt der Worker wie bisher ohne Anmeldung.
 - **Sicherung außerhalb von Cloudflare:** `GET statistik-versekit.xharig.com/export`
   liefert alle Tabellen, auch die vier Seiten-Tabellen. Erlaubt ist das dem Eigentümer **und** einem
   Cloudflare-Access-Dienst-Zeichen, dessen Client-ID als Geheimnis

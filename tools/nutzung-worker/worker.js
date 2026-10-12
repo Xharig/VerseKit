@@ -362,6 +362,9 @@ export async function downloads(env, now = Date.now()) {
     for (let page = 1; page <= 10; page++) {
       const before = await stored(env, 'seite:' + page);
       const headers = { 'user-agent': 'versekit-statistik', accept: 'application/vnd.github+json' };
+      // Ohne Zeichen gilt die Grenze von 60 Abrufen je Stunde und Absender-IP,
+      // und Worker teilen sich ihre IPs — mit Zeichen sind es 5000 je Stunde.
+      if (env.GITHUB_TOKEN) headers.authorization = 'Bearer ' + env.GITHUB_TOKEN;
       if (before && before.data.etag) headers['if-none-match'] = before.data.etag;
       const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100&page=${page}`, { headers });
       let rows, count;
@@ -464,8 +467,9 @@ function shortLink(request, env, ctx, link) {
 
 // ------------------------------------------------------------ Mitschreiben
 
-// Alle 6 Stunden (Zeitplan in wrangler.toml): je Version den höchsten je
-// gesehenen Stand festhalten und eine Tageszeile schreiben. Gelöschte Releases
+// Stündlich (Zeitplan in wrangler.toml): je Version den höchsten je
+// gesehenen Stand festhalten und die Tageszeile schreiben bzw. überschreiben.
+// Scheitert ein Lauf, holt der nächste ihn nach. Gelöschte Releases
 // bleiben so erhalten. ⚠ Kommen keine FRISCHEN Zahlen (GitHub sperrt), wird
 // nichts geschrieben und laut abgebrochen — ein alter Stand als Tageszeile
 // sähe aus, als sei heute nichts heruntergeladen worden.

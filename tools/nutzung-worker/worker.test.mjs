@@ -388,6 +388,21 @@ test('304 („nichts geändert") nutzt die abgelegte Seite und schickt das ETag 
   assert.equal(r.liste[0].windows, 4);
 });
 
+test('mit GITHUB_TOKEN geht das Zeichen mit, ohne nicht', async () => {
+  const seen = [];
+  globalThis.fetch = async (url, init) => { seen.push(init.headers.authorization); return new Response(JSON.stringify([rel('v3.65.0', 4, 1)])); };
+  await downloads({ DB: ablageDb(), GITHUB_TOKEN: 'ghp_test' }, 1_000_000);
+  await downloads({ DB: ablageDb() }, 1_000_000);
+  assert.deepEqual(seen, ['Bearer ghp_test', undefined]);
+});
+
+test('der Zeitplan läuft stündlich', () => {
+  const toml = readFileSync(new URL('./wrangler.toml', import.meta.url), 'utf-8');
+  const m = toml.match(/^crons\s*=\s*\["([^"]+)"\]/m);
+  assert.ok(m, 'kein crons-Eintrag in wrangler.toml');
+  assert.equal(m[1].split(/\s+/)[1], '*', 'Stundenfeld muss * sein, ist: ' + m[1]);
+});
+
 // ---------------------------------------------------------------- Mitschreiben (echtes SQLite)
 
 import { DatabaseSync } from 'node:sqlite';

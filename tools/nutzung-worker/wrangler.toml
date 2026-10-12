@@ -32,10 +32,11 @@ routes = [
 #   ERLAUBTE_MAIL  die Mail-Adresse, mit der du dich anmeldest
 # Fehlt eine, bleibt die Übersicht zu (403).
 
-# Alle 6 Stunden die Download-Zahlen je Version festhalten (snapshot in
-# worker.js) — damit gelöschte Releases nicht verschwinden.
+# Stündlich die Download-Zahlen je Version festhalten (snapshot in worker.js)
+# — damit gelöschte Releases nicht verschwinden. Jeder Lauf überschreibt die
+# Tageszeile; ein gescheiterter Lauf wird vom nächsten nachgeholt.
 [triggers]
-crons = ["17 */6 * * *"]
+crons = ["17 * * * *"]
 
 # Die Datenbank legt `npx wrangler d1 create versekit-nutzung` an; die
 # Kennung, die der Befehl ausgibt, gehört hier hinein.
