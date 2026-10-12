@@ -192,6 +192,7 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .faq p,.faq ol{color:var(--text-leise);font-size:16px;margin:0 0 16px}
 .faq ol{padding-left:22px}
 .faq li{margin-bottom:6px}
+.faq-gruppe{font-size:22px;margin:40px 0 14px}
 
 /* ---------- Laden ---------- */
 .laden{position:relative;overflow:hidden}
@@ -319,7 +320,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">Was es kann</a>
       <a href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
       <a class="weg" href="#sicher" data-de="Sicher?" data-en="Safe?">Sicher?</a>
-      <a class="weg" href="#fragen-alle" data-de="Fragen" data-en="FAQ">Fragen</a>
+      <a class="weg" href="#fragen-alle" data-de="FAQ" data-en="FAQ">FAQ</a>
       <a class="weg" href="#alle-aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <div class="sprache">
         <button id="knopf-de" class="an" onclick="sprache('de')">DE</button>
@@ -619,6 +620,68 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
         <p data-de="Unter Einstellungen → Basetool die gewünschten Bereiche einschalten (Baupläne, Lager, Hangar, Bedarf der Einheit) und auf „Verbinden“ klicken. Die Anmeldung läuft im Browser über dein Basetool-Konto. Der Reiter „Bedarf der Einheit“ erscheint erst mit dieser Verbindung."
            data-en="Under Settings → Basetool, turn on the areas you want (blueprints, storage, hangar, unit demand) and click “Connect”. You sign in through your Basetool account in the browser. The “Unit demand” tab only appears with this connection.">Unter Einstellungen → Basetool die gewünschten Bereiche einschalten (Baupläne, Lager, Hangar, Bedarf der Einheit) und auf „Verbinden“ klicken. Die Anmeldung läuft im Browser über dein Basetool-Konto. Der Reiter „Bedarf der Einheit“ erscheint erst mit dieser Verbindung.</p>
       </details>
+    </div>
+    <!-- Auf der Startseite ausgeblendet, damit sie kurz bleibt; sichtbar unter #fragen-alle. -->
+    <div class="nur-unterseite">
+      <h3 class="faq-gruppe" data-de="Wenn etwas nicht klappt" data-en="When something does not work">Wenn etwas nicht klappt</h3>
+      <div class="faq">
+        <details>
+          <summary data-de="Meine Bauplan-Angaben sind im Spiel verschwunden" data-en="My blueprint details have disappeared in the game">Meine Bauplan-Angaben sind im Spiel verschwunden</summary>
+          <p data-de="Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins."
+             data-en="Every game patch and every translation update rewrites the game's text file, which drops the details. After a patch Verse-Kit inserts them again by itself; by hand it is under Game settings → Game → “Insert again”. Then quit Star Citizen completely and start it again — the game only reads the file at startup. If a second translation tool runs alongside, the two overwrite each other: use only one.">Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins.</p>
+        </details>
+        <details>
+          <summary data-de="In der Bauplan-Liste fehlen Baupläne, die ich habe" data-en="The blueprint list is missing blueprints I own">In der Bauplan-Liste fehlen Baupläne, die ich habe</summary>
+          <p data-de="Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“."
+             data-en="Verse-Kit counts what appeared in Star Citizen's logs since setup — the game deletes older logs itself. Compare once with the fabricator in the game and tick off what is missing in the blueprint list. If your inventory is already in the Basetool, on scmdb or in a file, bring it in under Settings → Backup &amp; reset → “Import inventory”.">Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“.</p>
+        </details>
+        <details>
+          <summary data-de="Mein Virenscanner meldet Verse-Kit" data-en="My antivirus flags Verse-Kit">Mein Virenscanner meldet Verse-Kit</summary>
+          <p data-de="Ein Fehlalarm: Programme, die wie Verse-Kit zu einer einzigen Datei gepackt sind, werden oft fälschlich erkannt. Ob deine Datei echt ist, zeigt die Prüfsumme: An jeder Fassung auf GitHub hängt SHA256SUMS.txt, und der Wert dort muss zu deiner Datei passen (unter Windows: certutil -hashfile VerseKit-Setup.exe SHA256). Passt er, die Datei im Virenscanner freigeben."
+             data-en="A false alarm: programs packed into a single file like Verse-Kit are often flagged by mistake. The checksum shows whether your file is genuine: every version on GitHub comes with SHA256SUMS.txt, and the value there must match your file (on Windows: certutil -hashfile VerseKit-Setup.exe SHA256). If it matches, allow the file in your antivirus.">Ein Fehlalarm: Programme, die wie Verse-Kit zu einer einzigen Datei gepackt sind, werden oft fälschlich erkannt. Ob deine Datei echt ist, zeigt die Prüfsumme: An jeder Fassung auf GitHub hängt SHA256SUMS.txt, und der Wert dort muss zu deiner Datei passen (unter Windows: certutil -hashfile VerseKit-Setup.exe SHA256). Passt er, die Datei im Virenscanner freigeben.</p>
+        </details>
+        <details>
+          <summary data-de="Das Update klappt nicht, die Version bleibt alt" data-en="The update fails and the version stays old">Das Update klappt nicht, die Version bleibt alt</summary>
+          <p data-de="Lade die neueste Fassung oben unter „Herunterladen“ und installiere sie über die alte — deine Daten bleiben erhalten. Bleibt die Version trotzdem alt, startest du vermutlich eine alte einzelne .exe statt der Installation: Starte Verse-Kit über das Startmenü."
+             data-en="Download the latest version above under “Download” and install it over the old one — your data is kept. If the version still stays old, you are probably starting an old single .exe instead of the installation: start Verse-Kit from the Start menu.">Lade die neueste Fassung oben unter „Herunterladen“ und installiere sie über die alte — deine Daten bleiben erhalten. Bleibt die Version trotzdem alt, startest du vermutlich eine alte einzelne .exe statt der Installation: Starte Verse-Kit über das Startmenü.</p>
+        </details>
+        <details>
+          <summary data-de="Windows zeigt „Failed to remove temporary directory“" data-en="Windows shows “Failed to remove temporary directory”">Windows zeigt „Failed to remove temporary directory“</summary>
+          <ol>
+            <li data-de="Das Fenster mit OK schließen." data-en="Close the window with OK.">Das Fenster mit OK schließen.</li>
+            <li data-de="Task-Manager öffnen (Strg+Umschalt+Esc) und jeden Eintrag von Verse-Kit beenden."
+                data-en="Open Task Manager (Ctrl+Shift+Esc) and end every Verse-Kit entry.">Task-Manager öffnen (Strg+Umschalt+Esc) und jeden Eintrag von Verse-Kit beenden.</li>
+            <li data-de="Windows+R drücken, %TEMP% eingeben und die Ordner löschen, deren Name mit _MEI beginnt."
+                data-en="Press Windows+R, enter %TEMP% and delete the folders whose name starts with _MEI.">Windows+R drücken, %TEMP% eingeben und die Ordner löschen, deren Name mit _MEI beginnt.</li>
+            <li data-de="Verse-Kit neu starten." data-en="Start Verse-Kit again.">Verse-Kit neu starten.</li>
+          </ol>
+        </details>
+        <details>
+          <summary data-de="Der Signatur-Scanner zeigt beim Minen nichts an" data-en="The signature scanner shows nothing while mining">Der Signatur-Scanner zeigt beim Minen nichts an</summary>
+          <p data-de="Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Werkstatt → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows."
+             data-en="Look at the eye in the overlay bar: grey means off — click it; yellow means on but not reading — restart Verse-Kit once; green means it is reading. If a number is not recognised, teach it under Workshop → Mining → “Teach digits”. The scanner is Windows only.">Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Werkstatt → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows.</p>
+        </details>
+        <details>
+          <summary data-de="Verse-Kit merkt sich nichts, die Statistik bleibt bei 0" data-en="Verse-Kit remembers nothing, the statistics stay at 0">Verse-Kit merkt sich nichts, die Statistik bleibt bei 0</summary>
+          <p data-de="Meist liegt der Ordner für deine Daten in OneDrive oder an einer Stelle, an der Verse-Kit nicht schreiben darf. Unter Einstellungen → Installation &amp; Pfade → „Ordner für deine Daten“ einen Ordner außerhalb von OneDrive wählen, etwa auf D:."
+             data-en="Usually the folder for your data is in OneDrive or somewhere Verse-Kit may not write to. Under Settings → Installation &amp; paths → “Folder for your data”, choose a folder outside OneDrive, for example on D:.">Meist liegt der Ordner für deine Daten in OneDrive oder an einer Stelle, an der Verse-Kit nicht schreiben darf. Unter Einstellungen → Installation &amp; Pfade → „Ordner für deine Daten“ einen Ordner außerhalb von OneDrive wählen, etwa auf D:.</p>
+        </details>
+        <details>
+          <summary data-de="Die Schrift ist unscharf (4K oder Skalierung über 100 %)" data-en="The text is blurry (4K or scaling above 100 %)">Die Schrift ist unscharf (4K oder Skalierung über 100 %)</summary>
+          <p data-de="Unter Einstellungen → Darstellung „Scharfe Darstellung“ einschalten und Verse-Kit neu starten."
+             data-en="Turn on “Sharp rendering” under Settings → Appearance and restart Verse-Kit.">Unter Einstellungen → Darstellung „Scharfe Darstellung“ einschalten und Verse-Kit neu starten.</p>
+        </details>
+        <details>
+          <summary data-de="Linux: Der Startknopf startet Star Citizen nicht" data-en="Linux: the launch button does not start Star Citizen">Linux: Der Startknopf startet Star Citizen nicht</summary>
+          <p data-de="Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein."
+             data-en="On its own the button only finds the LUG Helper start script. If you play through Lutris, Heroic or Flatpak, enter your own command under Settings → Installation &amp; paths → “Launch command for Star Citizen”.">Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein.</p>
+        </details>
+        <details>
+          <summary data-de="Nichts davon hilft" data-en="None of this helps">Nichts davon hilft</summary>
+          <p data-de="Klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt. Oder frag im Discord — der Knopf steht in Verse-Kit unten links."
+             data-en="In Verse-Kit, click “Report a problem” at the bottom right. The report goes straight to the developer, with personal folder names removed first. Or ask on Discord — the button is at the bottom left in Verse-Kit.">Klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt. Oder frag im Discord — der Knopf steht in Verse-Kit unten links.</p>
+        </details>
+      </div>
     </div>
     <div class="verlauf-mehr alle-aenderungen nur-start">
       <button onclick="location.hash='fragen-alle'"
