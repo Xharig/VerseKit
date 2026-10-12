@@ -464,12 +464,22 @@ def beispiel_daten():
     except Exception:
         waren = {}
     posten = []
-    for ware, menge, ort in (('Agricium', 24, 'Area 18'), ('Laranite', 12, 'Orison'),
-                             ('Medical Supplies', 8, 'Lorville')):
+    # Beispiel-Einkaufspreise als Anteil am besten Ankaufpreis — damit die
+    # Spalte Gewinn im Bild einen Wert zeigt, einmal im Plus, einmal im Minus.
+    from scbp import selling
+    for ware, menge, ort, anteil in (('Agricium', 24, 'Area 18', 0.82),
+                                     ('Laranite', 12, 'Orison', 0.9),
+                                     ('Medical Supplies', 8, 'Lorville', 1.05)):
         formen = waren.get(ware.lower()) or []
         if any((x.get('name') or '') == ware for x in formen):
             posten.append({'ware': ware, 'menge': float(menge), 'ort': ort,
                            'gestohlen': False})
+            try:
+                bester = selling.best_price(ware)
+            except Exception:
+                bester = 0
+            if bester:
+                posten[-1][trade_cargo.COST] = float(round(bester * anteil))
     with open(os.path.join(heim, trade_cargo.FILE), 'w', encoding='utf-8') as f:
         json.dump({'format': trade_cargo.FORMAT, 'posten': posten}, f,
                   ensure_ascii=False, indent=1)

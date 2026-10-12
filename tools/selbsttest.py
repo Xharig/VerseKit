@@ -41896,15 +41896,22 @@ def _pruefung_439():
         _pa439.set_setting(_nt439.SETTING, True)
 
         # Der Watcher legt je fertigem Auftrag genau eine Systemmeldung ab.
+        # ⚠ Die fälligen Aufträge kommen hier fest vorgegeben, nicht aus der
+        # Datei: Watcher früherer Overlay-Prüfungen laufen im Hintergrund weiter
+        # und holen sich einen fälligen Auftrag aus derselben Ablage sonst
+        # zuerst (unter Windows gemessen).
         import queue as _qu439
         import sc_bp_watcher as _sw439
         from scbp import refinery_jobs as _rj439
-        importlib.reload(_rj439)
-        _rj439.remember([{'materials': ['Gold'], 'total': '10',
-                          'state': 'laeuft', 'remaining': 60}],
-                        now=time.time() - 120)
-        _wa439 = _sw439.Watcher(_qu439.Queue())
-        _wa439._raffinerie_tick()
+        _alt_faellig439 = _rj439.announce_due
+        _rj439.announce_due = lambda now=None: [
+            {'materials': ['Gold'], 'total': '10', 'ends': 0.0}]
+        try:
+            _wa439 = _sw439.Watcher(_qu439.Queue())
+            _wa439.raff_next = 0.0
+            _wa439._raffinerie_tick()
+        finally:
+            _rj439.announce_due = _alt_faellig439
         _meld439 = []
         while not _wa439.q.empty():
             _meld439.append(_wa439.q.get())
@@ -41912,6 +41919,8 @@ def _pruefung_439():
         pruefe(len(_sys439) == 1 and 'Gold' in str(_sys439[0][2]),
                'Watcher: je fertigem Auftrag genau eine Systemmeldung (%r)'
                % _sys439)
+        if not _sys439:
+            return
         # Das Overlay gibt die Meldung samt Symbol an `notify.show` weiter.
         _nt439.WINDOWS = _ti439.WINDOWS = True
         del _aufrufe439[:]
