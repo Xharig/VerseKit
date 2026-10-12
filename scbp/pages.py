@@ -1999,6 +1999,24 @@ def _general(fenster, rahmen):
         tk.Label(ziel, text=t('s_nur_win'), bg=BG, fg=SUB,
                  font=fenster.f_small).pack()
 
+    # Mitteilung des Betriebssystems, wenn ein Raffinerie-Auftrag fertig ist.
+    # Unter Windows hängt sie am Symbol neben der Uhr (Schalter darüber).
+    from . import notify
+    ziel = _setting_row(fenster, innen, t('s_systemmeldung'),
+                        t('s_systemmeldung_h'))
+    if notify.available():
+        def meldung_um():
+            neu_wert = not notify.enabled()
+            paths.set_setting(notify.SETTING, neu_wert)
+            fenster.say('%s: %s' % (t('s_systemmeldung'),
+                                    t('e_an') if neu_wert else t('e_aus')))
+            return neu_wert
+
+        toggle_switch(ziel, notify.enabled(), meldung_um).pack()
+    else:
+        tk.Label(ziel, text=t('s_systemmeldung_fehlt'), bg=BG, fg=SUB,
+                 font=fenster.f_small).pack()
+
     # Dieselbe Einstellung wie auf „Statistik → Auswertung" — hier, weil sie
     # das Programmverhalten beim Start betrifft.
     from . import play_stats
@@ -18015,6 +18033,12 @@ def _selling(fenster, rahmen):
         # das, was vor drei Tagen im Lager stand.
         lagermengen = dict(trade_cargo.amounts())
         lagermengen.update(eigene_mengen)
+        # Gewinn nur für Lagerware mit bezahltem Preis — eine selbst
+        # eingetippte Menge hat keinen.
+        _bezahlt = trade_cargo.costs()
+        _mit_preis = trade_cargo.costed_amounts()
+        einkaeufe = {w: (_bezahlt[w], _mit_preis[w]) for w in _bezahlt
+                     if w in _mit_preis and w not in eigene_mengen}
         # Stückware: Die Preise unten gelten je SCU — hier steht, was das je
         # Stück heißt.
         if len(auswahl) == 1:
@@ -18030,7 +18054,8 @@ def _selling(fenster, rahmen):
             # In jedem wiederholt, stünde sie bei 40 Orten vierzigmal da und
             # machte die Liste unruhiger, statt sie zu erklären.
             _selling_row(fenster, ergebnis_rahmen, ort, len(auswahl),
-                           lagermengen, mit_kopf=(nummer == 0))
+                           lagermengen, mit_kopf=(nummer == 0),
+                           einkaeufe=einkaeufe)
 
     def neu_zeichnen():
         _chips()
@@ -18151,8 +18176,12 @@ def _buy_place_row(window, parent, place, old_after):
 
 
 def _selling_row(fenster, eltern, ort, gesucht, lagermengen,
-                   mit_kopf=False):
-    """Ein Ankaufsort: wie viele Waren er nimmt, was er zahlt, wie alt das ist."""
+                   mit_kopf=False, einkaeufe=None):
+    """Ein Ankaufsort: wie viele Waren er nimmt, was er zahlt, wie alt das ist.
+
+    `einkaeufe` ist `{Ware: (bezahlt je SCU, Menge mit Preis)}` aus dem
+    Handelslager; daraus steht unter dem Erlös der Gewinn an diesem Ort."""
+    einkaeufe = einkaeufe or {}
     kasten = tk.Frame(eltern, bg=SURFACE, highlightthickness=1,
                       highlightbackground=LINE)
     kasten.pack(fill='x', pady=(0, 6))
@@ -18225,10 +18254,14 @@ def _selling_row(fenster, eltern, ort, gesucht, lagermengen,
                 row=0, column=spalte, sticky='ew')
 
     erloes = 0.0
+    gewinn = None
     for reihe, treffer in enumerate(ort['treffer'], start=1):
         menge = lagermengen.get(treffer['ware'])
         summe = (menge or 0) * treffer['preis']
         erloes += summe
+        if treffer['ware'] in einkaeufe:
+            bezahlt, mit_preis = einkaeufe[treffer['ware']]
+            gewinn = (gewinn or 0.0) + (treffer['preis'] - bezahlt) * mit_preis
         # ⭐ Der Füllstand steht **am Warennamen**, weil er dorthin gehört:
         # Dasselbe Terminal kann bei einer Ware randvoll und bei der nächsten
         # leer sein. Und er erscheint nur, wenn er etwas ändert — der
@@ -18258,6 +18291,11 @@ def _selling_row(fenster, eltern, ort, gesucht, lagermengen,
         tk.Label(innen, text=t('s_vk_erloes').format(summe=_money(erloes)),
                  bg=SURFACE, fg=ACCENT, font=fenster.f_small,
                  anchor='e').pack(fill='x', pady=(4, 0))
+    if gewinn is not None:
+        tk.Label(innen, text=t('s_vk_gewinn').format(
+                     summe=('+' if gewinn > 0 else '') + _money(gewinn)),
+                 bg=SURFACE, fg=ACCENT if gewinn >= 0 else RED,
+                 font=fenster.f_small, anchor='e').pack(fill='x')
 
 
 def _trade_storage(fenster, rahmen):
@@ -18272,6 +18310,7 @@ def _trade_storage(fenster, rahmen):
 
     ware = tk.StringVar(rahmen)
     menge = tk.StringVar(rahmen)
+    einkauf = tk.StringVar(rahmen)
     ort = tk.StringVar(rahmen, value=paths.setting('handel_ort') or '')
     gestohlen = [False]
     meldung = {'text': '', 'farbe': SUB}
@@ -18290,6 +18329,7 @@ def _trade_storage(fenster, rahmen):
     beschriftungen = {}
     for beschriftung, var in ((t('s_hl_ware'), ware),
                               (t('s_hl_menge'), menge),
+                              (t('s_hl_einkauf'), einkauf),
                               (t('s_hl_ort'), ort)):
         # ⚠⚠ **Beschriftung ÜBER dem Feld, nicht daneben.** Die Zeilenform aus
         # `_feld` (Bezeichnung links, Bedienelement rechts) vertraegt sich
@@ -18306,9 +18346,11 @@ def _trade_storage(fenster, rahmen):
                                             fg=FG, font=fenster.f_bold,
                                             anchor='w')
         beschriftungen[str(var)].pack(fill='x')
-        if var is menge:
+        if var is menge or var is einkauf:
             feld = round_entry(block, var, fenster.f_small, theme.FIELD, LINE,
-                               ACCENT, FG, placeholder=t('s_pl_lager_menge'))
+                               ACCENT, FG, placeholder=t(
+                                   's_pl_lager_menge' if var is menge
+                                   else 's_pl_einkauf'))
             feld.holder.pack(fill='x', pady=(4, 0))
             continue
         quelle = (preisdaten.goods if var is ware else ortsliste.all_places)
@@ -18366,10 +18408,11 @@ def _trade_storage(fenster, rahmen):
             return
         if bearbeitung['nummer'] is None:
             ok, grund = lager.add(name, menge.get(), ort.get(),
-                                        gestohlen[0])
+                                        gestohlen[0], cost=einkauf.get())
         else:
             ok, grund = lager.change(bearbeitung['nummer'], name,
-                                      menge.get(), ort.get(), gestohlen[0])
+                                      menge.get(), ort.get(), gestohlen[0],
+                                      cost=einkauf.get())
         if ok:
             bearbeitung['nummer'] = None
             # Der Lagerort bleibt stehen: Wer eine Ladung bucht, bucht meist
@@ -18378,10 +18421,12 @@ def _trade_storage(fenster, rahmen):
             paths.set_setting('handel_ort', ort.get() or '')
             ware.set('')
             menge.set('')
+            einkauf.set('')
             meldung['text'], meldung['farbe'] = t('s_hl_gebucht'), ACCENT
         else:
             meldung['text'] = {'ware': t('s_hl_fehlt_ware'),
-                               'menge': t('s_hl_fehlt_menge')}.get(
+                               'menge': t('s_hl_fehlt_menge'),
+                               'preis': t('s_hl_fehlt_preis')}.get(
                                    grund, t('s_hl_fehler'))
             meldung['farbe'] = RED
         neu_zeichnen()
@@ -18436,7 +18481,7 @@ def _trade_storage(fenster, rahmen):
 
     def abbrechen():
         bearbeitung['nummer'] = None
-        ware.set(''); menge.set(''); gestohlen[0] = False
+        ware.set(''); menge.set(''); einkauf.set(''); gestohlen[0] = False
         _mengen_beschriftung(False)
         neu_zeichnen()
 
@@ -18468,6 +18513,9 @@ def _trade_storage(fenster, rahmen):
         # tippt hinten `+5` an und hat `40+5` dastehen — die natürlichste
         # Schreibweise, und `rechnen()` versteht sie.
         menge.set(_amount_text(p.get('menge') or 0))
+        bezahlt = lager.cost_of(p)
+        einkauf.set('' if bezahlt is None
+                    else ('%.2f' % bezahlt).rstrip('0').rstrip('.'))
         ort.set(p.get('ort') or '')
         gestohlen[0] = bool(p.get('gestohlen'))
         _mengen_beschriftung(lager.is_pieces(p))
@@ -18504,6 +18552,13 @@ def _trade_storage(fenster, rahmen):
                      text=t('s_hl_gesamt').format(summe=_money(gesamt)),
                      bg=BG, fg=ACCENT, font=fenster.f_small,
                      anchor='e').pack(fill='x', pady=(8, 0))
+        gewinn = _cargo_profit(posten, preisdaten.best_price)
+        if gewinn is not None:
+            tk.Label(liste_rahmen,
+                     text=t('s_hl_gewinn_gesamt').format(
+                         summe=('+' if gewinn > 0 else '') + _money(gewinn)),
+                     bg=BG, fg=ACCENT if gewinn >= 0 else RED,
+                     font=fenster.f_small, anchor='e').pack(fill='x')
 
     def neu_zeichnen():
         ware_zeichnen()
@@ -18612,6 +18667,20 @@ def _trade_storage(fenster, rahmen):
     neu_zeichnen()
 
 
+def _cargo_profit(entries, price_of):
+    """Gewinn über alle Posten mit Einkaufs- und Ankaufpreis — oder `None`,
+    wenn kein Posten beides hat."""
+    from .trade_cargo import cost_of
+    total, known = 0.0, False
+    for entry in entries:
+        cost, price = cost_of(entry), price_of(entry.get('ware'))
+        if cost is None or not price:
+            continue
+        total += (price - cost) * float(entry.get('menge') or 0)
+        known = True
+    return total if known else None
+
+
 def _trade_table(fenster, eltern, posten, preis_von, loeschen,
                           bearbeiten, offen_nr):
     """Das Lager als echte Tabelle. Gibt den Gesamtwert zurück.
@@ -18630,18 +18699,20 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
 
     # Die Ware dehnt sich, alles andere bleibt so breit wie sein Inhalt.
     tabelle.grid_columnconfigure(0, weight=1, minsize=140)
-    for spalte, breite in ((1, 120), (2, 80), (3, 120), (4, 150), (5, 0)):
+    for spalte, breite in ((1, 120), (2, 80), (3, 120), (4, 150), (5, 130),
+                           (6, 0)):
         tabelle.grid_columnconfigure(spalte, weight=0, minsize=breite)
 
-    # Reihenfolge: Ware | Ort | SCU | Preis 1 SCU | Gesamtpreis. Die beiden
-    # Texte stehen links beieinander, die drei Zahlen rechts — so muss das Auge
-    # nicht zwischen Wort und Zahl hin und her springen.
+    # Reihenfolge: Ware | Ort | SCU | Preis 1 SCU | Gesamtpreis | Gewinn. Die
+    # beiden Texte stehen links beieinander, die Zahlen rechts — so muss das
+    # Auge nicht zwischen Wort und Zahl hin und her springen.
     kopf = (t('s_hl_sp_ware'), t('s_hl_sp_ort'), t('s_hl_sp_menge'),
-            t('s_hl_sp_je_scu'), t('s_hl_sp_gesamt'), '')
+            t('s_hl_sp_je_scu'), t('s_hl_sp_gesamt'), t('s_hl_sp_gewinn'), '')
     for spalte, titel in enumerate(kopf):
         tk.Label(tabelle, text=titel, bg=BG, fg=SUB, font=fenster.f_small,
-                 padx=8, anchor='e' if spalte in (2, 3, 4) else 'w').grid(
+                 padx=8, anchor='e' if spalte in (2, 3, 4, 5) else 'w').grid(
             row=0, column=spalte, sticky='ew', pady=(0, 4))
+    from .trade_cargo import cost_of
 
     gesamt = 0.0
     for nummer, p in enumerate(posten):
@@ -18654,6 +18725,17 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
         grund = ACCENT if offen else (SURFACE if nummer % 2 else BG)
         vorne = BG if offen else FG
         blass = BG if offen else SUB
+        # Gewinn = (bester Ankauf − bezahlt) × Menge; ohne einen der beiden
+        # Preise gibt es keine Zahl.
+        einkauf = cost_of(p)
+        gewinn = ((preis - einkauf) * float(p.get('menge') or 0)
+                  if preis and einkauf is not None else None)
+        if gewinn is None:
+            gewinn_text, gewinn_farbe = '—', blass
+        else:
+            gewinn_text = ('+' if gewinn > 0 else '') + _money(gewinn)
+            gewinn_farbe = (BG if offen else
+                            (ACCENT if gewinn > 0 else RED if gewinn < 0 else SUB))
 
         felder = (
             (p['ware'], vorne, 'w'),
@@ -18667,6 +18749,7 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
              vorne, 'e'),
             (_money(preis) if preis else '—', blass, 'e'),
             (_money(wert) if wert else '—', vorne, 'e'),
+            (gewinn_text, gewinn_farbe, 'e'),
         )
         zellen = []
         for spalte, (text, farbe, seite) in enumerate(felder):
@@ -18691,7 +18774,7 @@ def _trade_table(fenster, eltern, posten, preis_von, loeschen,
 
         kreuz = tk.Label(tabelle, text='×', bg=grund, fg=blass,
                          font=fenster.f_small, cursor='hand2', padx=8)
-        kreuz.grid(row=nummer + 1, column=5, sticky='ew', ipady=3)
+        kreuz.grid(row=nummer + 1, column=6, sticky='ew', ipady=3)
         kreuz.bind('<Button-1>', lambda _e, n=nummer: loeschen(n))
         kreuz.bind('<Enter>', lambda _e, w=kreuz: w.configure(fg=RED))
         kreuz.bind('<Leave>', lambda _e, w=kreuz, f=blass: w.configure(fg=f))

@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.2.0 - 2026-10-12
+
+> Handeln mit Überblick: Trag im Handelslager ein, was du je SCU bezahlt hast,
+> und Verse-Kit zeigt dir den Gewinn — je Posten und an jedem Verkaufsort. Und
+> wenn ein Raffinerie-Auftrag fertig ist, meldet sich jetzt auch Windows bzw.
+> Linux, nicht nur das Overlay.
+
+### Neu
+
+- **Gewinn im Handelslager** — ein neues, freiwilliges Feld „Bezahlt je SCU".
+  Die Tabelle zeigt je Posten den Gewinn am besten bekannten Ankaufsort, unten
+  steht „Gewinn höchstens". Legst du denselben Stapel zu einem anderen Preis
+  nach, rechnet Verse-Kit den Durchschnitt.
+- **Gewinn je Verkaufsort** — unter „Kaufen & Verkaufen" steht unter dem Erlös
+  jedes Orts, was dir der Verkauf dort einbringt.
+- **Systemmeldung bei fertiger Raffinerie** — zusätzlich zur Zeile im Overlay
+  eine Mitteilung von Windows (am Symbol neben der Uhr) bzw. Linux
+  (`notify-send`). Abschaltbar unter Einstellungen → Allgemein.
+
 ## v4.1.7 - 2026-10-12
 
 > Diese Fassung macht Verse-Kit sicherer. Eine Sicherung von jemand anderem

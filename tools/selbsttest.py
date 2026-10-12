@@ -327,6 +327,12 @@ def main():
     # ⚠⚠ Kein Prueflauf schickt je einen Fehlerbericht hinaus (Pruefung 34).
     os.environ['SC_BP_BERICHT_ZIEL'] = 'aus'
     os.environ.pop('SC_BP_OVERRIDES', None)
+    # ⚠⚠ Keine Mitteilung des Betriebssystems aus einem Prueflauf: Watcher
+    # aus Overlay-Pruefungen laufen weiter, und `notify-send` erreicht trotz
+    # Xvfb den echten Bildschirm. Pruefung 439 setzt eigene Fallen.
+    from scbp import notify as _nt_lauf, tray_icon as _ti_lauf
+    _nt_lauf._popen = lambda befehl: None
+    _ti_lauf._shell_notify = lambda nachricht, daten: False
 
     try:
         import queue
@@ -25427,6 +25433,8 @@ def main():
     _pruefung_435()
     _pruefung_436()
     _pruefung_437()
+    _pruefung_438()
+    _pruefung_439()
 
     print()
     if fehler:
@@ -41726,6 +41734,207 @@ def _pruefung_437():
         else:
             os.environ['SC_BP_HOME'] = _altheim437
         shutil.rmtree(_heim437, ignore_errors=True)
+
+
+def _pruefung_438():
+    """438. Handelslager: bezahlter Preis je SCU und Gewinn."""
+    print('\n438. Handelslager: Einkaufspreis und Gewinn')
+    import importlib
+    import tempfile as _tf438
+    import tkinter as _tk438
+    import types as _ty438
+    from scbp import trade_cargo as _tc438, pages as _pg438
+    _heim438 = _tf438.mkdtemp(prefix='handel438-')
+    _alt438 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim438
+    importlib.reload(_tc438)
+    try:
+        pruefe(_tc438.add('Gold', '100', 'Area18', cost='6000')[0]
+               and _tc438.cost_of(_tc438.load()[0]) == 6000.0,
+               'Vorbedingung: ein Posten mit Einkaufspreis wird gespeichert')
+        _tc438.add('Gold', '100', 'Area18', cost='7000')
+        _p438 = _tc438.load()[0]
+        pruefe(_p438['menge'] == 200.0 and _tc438.cost_of(_p438) == 6500.0,
+               'gleicher Stapel: Preis nach Menge gemittelt (%r)' % _p438)
+        _tc438.change(0, 'Gold', '200', 'Area18')
+        pruefe(_tc438.cost_of(_tc438.load()[0]) == 6500.0,
+               'Ändern ohne Preisangabe behält den Preis')
+        _tc438.add('Kupfer', '100', 'Area18')
+        _tc438.add('Kupfer', '10', 'Area18', cost='600')
+        _tc438.add('Zinn', '10', 'Area18', cost='300')
+        _tc438.add('Zinn', '100', 'Area18')
+        _gemischt438 = [_tc438.cost_of(p) for p in _tc438.load()
+                        if p['ware'] in ('Kupfer', 'Zinn')]
+        pruefe(_gemischt438 == [None, None],
+               'Stapel mit und ohne Preis: der Preis ist unbekannt, statt für '
+               'die ganze Menge zu gelten (%r)' % _gemischt438)
+        for _w in ('Kupfer', 'Zinn'):
+            _tc438.remove([p['ware'] for p in _tc438.load()].index(_w))
+        pruefe(_tc438.change(0, 'Gold', '200', 'Area18', cost='-5')
+               == (False, 'preis')
+               and _tc438.add('Gold', '1', cost='abc') == (False, 'preis'),
+               'ein unsinniger Preis wird abgelehnt')
+        _tc438.add('Eisen', '5')
+        pruefe(set(_tc438.load()[1]) == {'ware', 'menge', 'ort', 'gestohlen'},
+               'ein Posten ohne Preis bekommt kein zusätzliches Feld')
+        _tc438.add('Gold', '100', 'Lorville', cost='8500')
+        pruefe(abs(_tc438.costs()['Gold'] - (200 * 6500 + 100 * 8500) / 300)
+               < 1e-6 and 'Eisen' not in _tc438.costs()
+               and _tc438.costed_amounts() == {'Gold': 300.0},
+               'Durchschnittspreis je Ware über alle Orte (%r)' % _tc438.costs())
+        _rund438 = _tc438.from_json(_tc438.as_json())
+        pruefe(_rund438 == _tc438.load(),
+               'Ausgeben und Einlesen behält den Einkaufspreis')
+        _preise438 = {'Gold': 7500.0}
+        _gewinn438 = _pg438._cargo_profit(_tc438.load(),
+                                          lambda w: _preise438.get(w, 0))
+        pruefe(abs(_gewinn438 - (200 * 1000 + 100 * -1000)) < 1e-6,
+               'Gewinn höchstens = (Ankauf - bezahlt) * Menge (%r)' % _gewinn438)
+        _w438 = _tk438.Tk()
+        _w438.withdraw()
+        try:
+            _fen438 = _ty438.SimpleNamespace(f_small=('TkDefaultFont', 9))
+            _rahmen438 = _tk438.Frame(_w438)
+            _pg438._trade_table(_fen438, _rahmen438, _tc438.load(),
+                                lambda w: _preise438.get(w, 0),
+                                lambda n: None, lambda n: None, None)
+            _texte438 = [c.cget('text') for c in _rahmen438.winfo_children()[0]
+                         .winfo_children() if isinstance(c, _tk438.Label)]
+            pruefe(_pg438.t('s_hl_sp_gewinn') in _texte438
+                   and '+200.000' in _texte438 and '-100.000' in _texte438,
+                   'Tabelle: Spalte Gewinn je Posten, mit Vorzeichen (%r)'
+                   % [x for x in _texte438 if x[:1] in '+-'])
+        finally:
+            _w438.destroy()
+        # Verkaufs-Reiter: Gewinn an einem Ort aus dem Einkaufspreis.
+        _w438 = _tk438.Tk()
+        _w438.withdraw()
+        try:
+            _fen438 = _ty438.SimpleNamespace(f_small=('TkDefaultFont', 9))
+            _rahmen438 = _tk438.Frame(_w438)
+            _ort438 = {'anzahl': 1, 'terminal': 'Terminal X', 'ort': '',
+                       'system': '', 'treffer': [{'ware': 'Gold',
+                                                  'preis': 7500.0}]}
+            _pg438._selling_row(_fen438, _rahmen438, _ort438, 1, {'Gold': 200.0},
+                                einkaeufe={'Gold': (6500.0, 200.0)})
+            _alle438 = []
+
+            def _sammeln438(w):
+                for k in w.winfo_children():
+                    if isinstance(k, _tk438.Label):
+                        _alle438.append(k.cget('text'))
+                    _sammeln438(k)
+            _sammeln438(_rahmen438)
+            _soll438 = _pg438.t('s_vk_gewinn').format(summe='+200.000')
+            pruefe(_soll438 in _alle438,
+                   'Verkaufs-Reiter: Gewinn an diesem Ort (%r)'
+                   % [x for x in _alle438 if '200' in x])
+        finally:
+            _w438.destroy()
+        _q438 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                     encoding='utf-8').read()
+        pruefe('cost=einkauf.get()' in _q438 and 'einkaeufe=einkaeufe' in _q438,
+               'Formular und Verkaufs-Reiter geben den Einkaufspreis weiter')
+    finally:
+        if _alt438 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt438
+        importlib.reload(_tc438)
+        shutil.rmtree(_heim438, ignore_errors=True)
+
+
+def _pruefung_439():
+    """439. Systemmeldung, wenn die Raffinerie fertig ist — ohne dass ein
+    Prüflauf etwas auf dem Bildschirm zeigt."""
+    print('\n439. Systemmeldung bei fertiger Raffinerie')
+    import importlib
+    import tempfile as _tf439
+    from scbp import notify as _nt439, tray_icon as _ti439, paths as _pa439
+    _heim439 = _tf439.mkdtemp(prefix='meldung439-')
+    _alt439 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim439
+    _alt_notify439 = _ti439._shell_notify
+    _alt_popen439 = _nt439._popen
+    _alt_win439 = (_nt439.WINDOWS, _ti439.WINDOWS)
+    _alt_sender439 = _nt439._SENDER
+    _aufrufe439 = []
+    try:
+        _ti439._shell_notify = lambda nachricht, daten: (
+            _aufrufe439.append(('windows', nachricht, daten)) or True)
+        _nt439._popen = lambda befehl: _aufrufe439.append(('linux', befehl))
+
+        # Windows-Weg: eine Sprechblase am laufenden Symbol.
+        _nt439.WINDOWS = _ti439.WINDOWS = True
+        _symbol439 = _ti439.TrayIcon(titel='Verse-Kit')
+        _symbol439._laeuft, _symbol439.fenster, _symbol439._symbol = True, 1, None
+        pruefe(_nt439.show('Titel', 'Raffinerie fertig: Gold', tray=_symbol439)
+               and len(_aufrufe439) == 1
+               and _aufrufe439[0][1] == _ti439.NIM_MODIFY,
+               'Windows: die Meldung geht als Sprechblase an das Symbol')
+        _daten439 = _aufrufe439[0][2]._obj if _aufrufe439 else None
+        pruefe(_daten439 is not None
+               and _daten439.uFlags == _ti439.NIF_INFO
+               and _daten439.szInfo == 'Raffinerie fertig: Gold'
+               and _daten439.szInfoTitle == 'Titel',
+               'Windows: Titel und Text stehen in der Sprechblase')
+        del _aufrufe439[:]
+        pruefe(_nt439.show('T', 'x', tray=None) is False and not _aufrufe439,
+               'Windows: ohne Symbol keine Meldung')
+
+        # Linux-Weg: notify-send mit Titel und Text.
+        _nt439.WINDOWS = _ti439.WINDOWS = False
+        _nt439._SENDER = '/usr/bin/notify-send'
+        pruefe(_nt439.show('Titel', 'Text') and _aufrufe439
+               and _aufrufe439[-1][1][-2:] == ['Titel', 'Text'],
+               'Linux: notify-send bekommt Titel und Text (%r)'
+               % (_aufrufe439[-1:],))
+        del _aufrufe439[:]
+        _pa439.set_setting(_nt439.SETTING, False)
+        pruefe(_nt439.show('Titel', 'Text') is False and not _aufrufe439,
+               'abgeschaltet: keine Meldung')
+        _pa439.set_setting(_nt439.SETTING, True)
+
+        # Der Watcher legt je fertigem Auftrag genau eine Systemmeldung ab.
+        import queue as _qu439
+        import sc_bp_watcher as _sw439
+        from scbp import refinery_jobs as _rj439
+        importlib.reload(_rj439)
+        _rj439.remember([{'materials': ['Gold'], 'total': '10',
+                          'state': 'laeuft', 'remaining': 60}],
+                        now=time.time() - 120)
+        _wa439 = _sw439.Watcher(_qu439.Queue())
+        _wa439._raffinerie_tick()
+        _meld439 = []
+        while not _wa439.q.empty():
+            _meld439.append(_wa439.q.get())
+        _sys439 = [m for m in _meld439 if m[0] == 'systemmeldung']
+        pruefe(len(_sys439) == 1 and 'Gold' in str(_sys439[0][2]),
+               'Watcher: je fertigem Auftrag genau eine Systemmeldung (%r)'
+               % _sys439)
+        # Das Overlay gibt die Meldung samt Symbol an `notify.show` weiter.
+        _nt439.WINDOWS = _ti439.WINDOWS = True
+        del _aufrufe439[:]
+        import types as _ty439
+        _ich439 = _ty439.SimpleNamespace(_ablage=_symbol439)
+        _sw439.Overlay._systemmeldung(_ich439, _sys439[0][1], _sys439[0][2])
+        pruefe(len(_aufrufe439) == 1
+               and 'Gold' in _aufrufe439[0][2]._obj.szInfo,
+               'das Overlay zeigt die Systemmeldung des Watchers am Symbol an')
+        _q439 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                     encoding='utf-8').read()
+        pruefe("self._systemmeldung(msg[1], msg[2])" in _q439,
+               'die Overlay-Schleife leitet die Systemmeldung weiter')
+    finally:
+        _ti439._shell_notify = _alt_notify439
+        _nt439._popen = _alt_popen439
+        _nt439.WINDOWS, _ti439.WINDOWS = _alt_win439
+        _nt439._SENDER = _alt_sender439
+        if _alt439 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt439
+        shutil.rmtree(_heim439, ignore_errors=True)
 
 
 def _alle_eingaben(w):

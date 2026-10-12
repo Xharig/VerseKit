@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.2.0 - 2026-10-12
+
+> Trading with the full picture: enter in the cargo hold what you paid per
+> SCU, and Verse-Kit shows your profit — per item and at every selling
+> location. And when a refinery job is done, Windows or Linux now tells you
+> too, not just the overlay.
+
+### New
+
+- **Profit in the cargo hold** — a new, optional "Paid per SCU" field. The
+  table shows the profit per item at the best known buying location, with
+  "Profit up to" underneath. Add to the same stack at a different price and
+  Verse-Kit works out the average.
+- **Profit per selling location** — under "Buy & Sell", every location shows
+  below its revenue what selling there earns you.
+- **System notification when refining is done** — besides the line in the
+  overlay, a notification from Windows (at the icon next to the clock) or
+  Linux (`notify-send`). Can be switched off under Settings → General.
+
 ## v4.1.7 - 2026-10-12
 
 > This version makes Verse-Kit safer. A backup from someone else can no longer

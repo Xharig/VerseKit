@@ -284,6 +284,9 @@ def _gefaehrliches_abschalten(ordner):
         daten = {}
     daten['inj_auto'] = False
     daten['autostart'] = False
+    # Keine Mitteilung des Betriebssystems — unter Linux käme `notify-send`
+    # trotz Xvfb auf dem echten Bildschirm an.
+    daten['systemmeldung'] = False
     # Für die Bilder: kein Name im Fehlerbericht, und ein Beispiel-Eintrag
     # unter den Startprogrammen statt einer leeren Liste. Er
     # startet nichts — Startprogramme laufen nur beim Klick auf den Launcher.

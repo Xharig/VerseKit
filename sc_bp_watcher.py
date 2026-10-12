@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '4.1.7'
+__version__ = '4.2.0'
 
 # Zeitpunkt des Programmstarts — misst, wie lange das Programm schon läuft
 # (siehe `Overlay.AUTO_UPDATE_VISIBLE_S`).
@@ -2029,8 +2029,13 @@ class Watcher(threading.Thread):
             errors.record('watcher.raffinerie', ausnahme)
             return
         for auftrag in fertig:
-            self.q.put(('hinweis', language.Phrase(
-                's_rf_fertig_hinweis', refinery_scan.job_label(auftrag))))
+            text = language.Phrase('s_rf_fertig_hinweis',
+                                   refinery_scan.job_label(auftrag))
+            self.q.put(('hinweis', text))
+            # Zusätzlich eine Mitteilung des Betriebssystems — gezeigt vom
+            # Overlay im Tk-Faden (`notify.show`).
+            self.q.put(('systemmeldung', language.Phrase('s_rf_fertig_titel'),
+                        text))
 
     def run(self):
         # 0) Ohne Bauplan-Namen lässt sich die Spielsprache nicht erschließen —
@@ -3504,6 +3509,13 @@ class Overlay:
             row.destroy()
             self.count -= 1
 
+    def _systemmeldung(self, titel, text):
+        """Eine Mitteilung des Betriebssystems (`notify.show`) — unter Windows
+        am Symbol neben der Uhr, falls es läuft."""
+        from scbp import notify
+        return notify.show(str(titel), str(text),
+                           tray=getattr(self, '_ablage', None))
+
     def add_hinweis(self, text, auftrag=None):
         """Eine Zeile, die keine Freischaltung meldet, sondern etwas erklärt —
         etwa ein Hinweis auf eine Lücke im Bestand oder ein angenommener
@@ -3638,6 +3650,8 @@ class Overlay:
                     # wird farblich abgesetzt — eine Lücke im Bestand soll
                     # auffallen, aber kein Fenster aufreißen.
                     self.add_hinweis(*msg[1:])
+                elif msg[0] == 'systemmeldung':
+                    self._systemmeldung(msg[1], msg[2])
                 elif msg[0] == 'bescheid':
                     self._bescheid_zeigen(msg[1], msg[2])
                 elif msg[0] == 'auftraege':

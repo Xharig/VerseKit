@@ -60,7 +60,9 @@ sie stehen in der Datei jedes Nutzers und dürfen sich nicht ändern: der Datein
 `handelslager.json` und die Schlüssel `format`, `posten`, `ware`, `menge`,
 `ort` und `gestohlen`. Ein Posten kann zusätzlich `"stueck": true` tragen:
 ein Item aus dem Lager-Abgleich mit dem Basetool, gezählt in ganzen Stück
-statt in SCU. Ebenso die Kennungen `'ware'`, `'menge'`,
+statt in SCU — und `"einkauf": <Zahl>`: was der Spieler je SCU (bzw. je Stück)
+bezahlt hat, Grundlage für den Gewinn. Beide Felder stehen nur da, wenn sie
+gesetzt sind. Ebenso die Kennungen `'ware'`, `'menge'`, `'preis'`,
 `'schreiben'` und `'weg'`, über die die Oberfläche ihre Meldung wählt, und der
 Seitenname `handelslager` in Reiterleiste und Symbolsatz. `calculate` und
 `parse_number` kommen aus `materials.py`.
@@ -71,6 +73,10 @@ from . import errors, paths
 
 FILE = 'handelslager.json'
 FORMAT = 1
+# Optionales Feld eines Postens: bezahlter Preis je SCU bzw. je Stück.
+COST = 'einkauf'
+# Für `change`: den bisherigen Einkaufspreis behalten.
+KEEP = object()
 
 # ⭐ Zahleingabe **und Rechner** sind dieselben wie im Werkstatt-Lager: Komma
 # und Punkt gelten gleich, das lange Minus vom Ziffernblock wird angenommen,
@@ -92,6 +98,39 @@ def _check_amount(amount, previous=0.0):
     if number is None or number <= 0:
         return None
     return float(number)
+
+
+def _check_cost(cost):
+    """Ein Einkaufspreis als `(gültig, Zahl oder None)`.
+
+    Ein leeres Feld ist gültig und bedeutet: Preis unbekannt. Eine Zahl muss
+    größer als null sein; der Rechner gilt wie im Mengenfeld (`3400+50`)."""
+    if cost is None or (isinstance(cost, str) and not cost.strip()):
+        return True, None
+    number = calculate(cost, 0) if isinstance(cost, str) else cost
+    try:
+        number = float(number)
+    except (TypeError, ValueError):
+        return False, None
+    if number <= 0:
+        return False, None
+    return True, number
+
+
+def cost_of(entry):
+    """Der Einkaufspreis eines Postens je SCU bzw. Stück — oder `None`."""
+    try:
+        value = float(entry.get(COST))
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _set_cost(entry, cost):
+    if cost is None:
+        entry.pop(COST, None)
+    else:
+        entry[COST] = float(cost)
 
 
 def load():
@@ -218,6 +257,7 @@ def from_json(text):
                       'gestohlen': bool(p.get('gestohlen'))})
         if p.get('stueck'):
             clean[-1]['stueck'] = True
+        _set_cost(clean[-1], cost_of(p))
     return clean
 
 
@@ -237,11 +277,26 @@ def same_stack(a_goods, a_place, a_stolen, b):
             and bool(b.get('gestohlen')) == bool(a_stolen))
 
 
-def add(goods, amount, place='', stolen=False):
+def _mixed_cost(old_amount, old_cost, new_amount, new_cost):
+    """Der Einkaufspreis eines zusammengelegten Stapels.
+
+    Sind beide Preise bekannt, gilt der nach Menge gewichtete Mittelwert. Fehlt
+    einer, ist der Preis des ganzen Stapels unbekannt — sonst gälte er auch für
+    Ware, für die nie ein Preis eingetragen wurde, und der Gewinn wäre falsch."""
+    if old_cost is None or new_cost is None:
+        return None
+    total = old_amount + new_amount
+    if total <= 0:
+        return new_cost
+    return (old_amount * old_cost + new_amount * new_cost) / total
+
+
+def add(goods, amount, place='', stolen=False, cost=None):
     """Einen Zugang buchen. Gleiche Stapel werden zusammengezählt.
 
+    `cost` ist der bezahlte Preis je SCU (frei lassen, wenn unbekannt).
     Gibt `(Erfolg, Grund)` zurück; `Grund` ist eine Kennung für die Oberfläche
-    (`'ware'`, `'menge'`, `'schreiben'`) oder `''`.
+    (`'ware'`, `'menge'`, `'preis'`, `'schreiben'`) oder `''`.
     """
     goods = (goods or '').strip()
     if not goods:
@@ -249,18 +304,26 @@ def add(goods, amount, place='', stolen=False):
     number = _check_amount(amount)
     if number is None:
         return False, 'menge'
+    valid, cost = _check_cost(cost)
+    if not valid:
+        return False, 'preis'
     entries = load()
     for p in entries:
         if same_stack(goods, place, stolen, p):
-            p['menge'] = float(p.get('menge') or 0) + float(number)
+            before = float(p.get('menge') or 0)
+            _set_cost(p, _mixed_cost(before, cost_of(p), float(number), cost))
+            p['menge'] = before + float(number)
             return (True, '') if save(entries) else (False, 'schreiben')
     entries.append({'ware': goods, 'menge': float(number),
                     'ort': place or '', 'gestohlen': bool(stolen)})
+    _set_cost(entries[-1], cost)
     return (True, '') if save(entries) else (False, 'schreiben')
 
 
-def change(index, goods, amount, place='', stolen=False):
-    """Einen Posten überschreiben. `index` ist die Stelle in `load()`."""
+def change(index, goods, amount, place='', stolen=False, cost=KEEP):
+    """Einen Posten überschreiben. `index` ist die Stelle in `load()`.
+
+    `cost=KEEP` lässt den Einkaufspreis, wie er ist; leer löscht ihn."""
     entries = load()
     if not 0 <= index < len(entries):
         return False, 'weg'
@@ -275,10 +338,17 @@ def change(index, goods, amount, place='', stolen=False):
         number = round(number) or None
     if number is None:
         return False, 'menge'
+    if cost is KEEP:
+        cost = cost_of(entries[index])
+    else:
+        valid, cost = _check_cost(cost)
+        if not valid:
+            return False, 'preis'
     entries[index] = {'ware': goods, 'menge': float(number),
                       'ort': place or '', 'gestohlen': bool(stolen)}
     if pieces:
         entries[index]['stueck'] = True
+    _set_cost(entries[index], cost)
     return (True, '') if save(entries) else (False, 'schreiben')
 
 
@@ -315,6 +385,35 @@ def amounts(only_stolen=None):
         if not goods:
             continue
         total[goods] = total.get(goods, 0.0) + float(p.get('menge') or 0)
+    return total
+
+
+def costs(only_stolen=None):
+    """Was die Ware im Lager im Schnitt gekostet hat: `{Ware: Preis je SCU}`.
+
+    Gewichtet nach Menge, nur über Posten mit Einkaufspreis. Waren ohne
+    bekannten Preis fehlen im Ergebnis."""
+    paid, weight = {}, {}
+    for p in load():
+        if only_stolen is not None and bool(p.get('gestohlen')) != only_stolen:
+            continue
+        goods, cost = p.get('ware'), cost_of(p)
+        if not goods or cost is None:
+            continue
+        amount = float(p.get('menge') or 0)
+        paid[goods] = paid.get(goods, 0.0) + amount * cost
+        weight[goods] = weight.get(goods, 0.0) + amount
+    return {g: paid[g] / weight[g] for g in paid if weight[g] > 0}
+
+
+def costed_amounts(only_stolen=None):
+    """Wie viel je Ware einen Einkaufspreis hat: `{Ware: SCU}`."""
+    total = {}
+    for p in load():
+        if only_stolen is not None and bool(p.get('gestohlen')) != only_stolen:
+            continue
+        if p.get('ware') and cost_of(p) is not None:
+            total[p['ware']] = total.get(p['ware'], 0.0) + float(p.get('menge') or 0)
     return total
 
 

@@ -60,7 +60,9 @@ WM_LBUTTONUP = 0x0202
 WM_RBUTTONUP = 0x0205
 
 NIM_ADD, NIM_MODIFY, NIM_DELETE = 0, 1, 2
-NIF_MESSAGE, NIF_ICON, NIF_TIP = 0x01, 0x02, 0x04
+NIF_MESSAGE, NIF_ICON, NIF_TIP, NIF_INFO = 0x01, 0x02, 0x04, 0x10
+# Symbol in der Sprechblase: das „i" für eine Auskunft.
+NIIF_INFO = 0x01
 
 IMAGE_ICON = 1
 LR_LOADFROMFILE, LR_DEFAULTSIZE = 0x0010, 0x0040
@@ -203,6 +205,12 @@ def available():
     return WINDOWS
 
 
+def _shell_notify(message, data):
+    """`Shell_NotifyIconW` — eine eigene Stelle, damit ein Prüflauf sie
+    ersetzen kann, ohne dass etwas auf dem Bildschirm erscheint."""
+    return ctypes.windll.shell32.Shell_NotifyIconW(message, data)
+
+
 class TrayIcon(object):
     """Das Symbol neben der Uhr. `start()` und `stop()` — mehr braucht es nicht."""
 
@@ -312,6 +320,20 @@ class TrayIcon(object):
         except Exception:
             pass
         return False
+
+    def balloon(self, title, text):
+        """Eine Sprechblase am Symbol — unter Windows 10/11 erscheint sie als
+        Mitteilung unten rechts. Gibt zurück, ob Windows sie angenommen hat.
+
+        Ohne laufendes Symbol (ausgeschaltet, kein Windows) passiert nichts.
+        `Shell_NotifyIcon` darf aus jedem Faden gerufen werden."""
+        if not (WINDOWS and self._laeuft and self.fenster):
+            return False
+        daten = self._data(NIF_INFO)
+        daten.szInfoTitle = (title or '')[:63]
+        daten.szInfo = (text or ' ')[:255]
+        daten.dwInfoFlags = NIIF_INFO
+        return bool(_shell_notify(NIM_MODIFY, ctypes.byref(daten)))
 
     def menu_set(self, eintraege):
         """Das Rechtsklick-Menü festlegen — ohne dass Windows dafür laufen muss.

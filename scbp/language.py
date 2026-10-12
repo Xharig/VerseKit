@@ -214,6 +214,7 @@ TEXTS = {
     's_rf_auftrag_fertig': ('Fertig: %s', 'Completed: %s'),
     's_rf_auftrag_laeuft': ('Läuft noch: %s', 'Still processing: %s'),
     's_rf_fertig_hinweis': ('Raffinerie fertig: %s', 'Refinery done: %s'),
+    's_rf_fertig_titel': ('Verse-Kit — Raffinerie', 'Verse-Kit — Refinery'),
     's_rf_lesen_bild': ('Das Bild dieser Lesung ist aufgehoben — schick es '
                         'mit einem Fehlerbericht (unten rechts: Fehler '
                         'melden), dann wird der Scanner besser.',
@@ -668,6 +669,16 @@ TEXTS = {
                           'Closing hides the window in the tray instead of quitting. One click brings it back.'),
     's_nur_win':       ('nur unter Windows',
                           'Windows only'),
+    's_systemmeldung': ('Systemmeldung, wenn die Raffinerie fertig ist',
+                          'System notification when refining is done'),
+    's_systemmeldung_h': ('Zusätzlich zur Zeile im Overlay eine Mitteilung von '
+                          'Windows bzw. Linux — auch wenn das Overlay gerade nicht zu '
+                          'sehen ist. Unter Windows braucht sie das Symbol neben der Uhr.',
+                          'Besides the line in the overlay, a Windows or Linux '
+                          'notification — even when the overlay is not visible. On '
+                          'Windows it needs the icon next to the clock.'),
+    's_systemmeldung_fehlt': ('hier nicht möglich (notify-send fehlt)',
+                              'not available here (notify-send missing)'),
     's_nicht_moegl':   ('hier nicht möglich',
                           'not available here'),
     's_anz_lead':      ('Wie das Overlay über dem Spiel liegt. Wer nur einen Bildschirm hat, findet hier das Wichtigste.',
@@ -4657,6 +4668,14 @@ TEXTS = {
     's_hl_ware':         ('Ware', 'Commodity'),
     's_hl_menge':        ('Menge in SCU', 'Amount in SCU'),
     's_hl_menge_stueck': ('Menge in Stück', 'Amount in pieces'),
+    's_hl_einkauf':      ('Bezahlt je SCU — freiwillig', 'Paid per SCU — optional'),
+    's_pl_einkauf':      ('aUEC je SCU, z. B. 6850 — für den Gewinn',
+                          'aUEC per SCU, e.g. 6850 — for the profit'),
+    's_hl_fehlt_preis':  ('Der bezahlte Preis muss leer oder eine Zahl über null sein.',
+                          'The price paid must be empty or a number above zero.'),
+    's_hl_sp_gewinn':    ('Gewinn', 'Profit'),
+    's_hl_gewinn_gesamt': ('Gewinn höchstens: {summe}', 'Profit up to: {summe}'),
+    's_vk_gewinn':       ('Gewinn hier: {summe}', 'Profit here: {summe}'),
     's_hl_ort':          ('Lagerort (freiwillig)', 'Storage location (optional)'),
     's_hl_gestohlen':    ('als gestohlen markiert', 'marked as stolen'),
     's_hl_buchen':       ('Eintragen', 'Add'),
