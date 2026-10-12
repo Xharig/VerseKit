@@ -25424,6 +25424,9 @@ def main():
     _pruefung_432()
     _pruefung_433()
     _pruefung_434()
+    _pruefung_435()
+    _pruefung_436()
+    _pruefung_437()
 
     print()
     if fehler:
@@ -41360,6 +41363,369 @@ def _pruefung_424():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_435():
+    """435. Eine eingespielte Sicherung bringt keine scharfen Befehle mit —
+    gemessen dort, wo die Befehle gestartet würden."""
+    print('\n435. Sicherung einspielen: Startprogramme und Spielstarter nicht scharf')
+    import importlib
+    import tempfile as _tf435
+    import zipfile as _zip435
+    from scbp import backup as _sich435, paths as _pa435
+    from scbp import start_programs as _sp435
+    _wiese435 = _tf435.mkdtemp(prefix='sicherung435-')
+    _alt435 = {k: os.environ.get(k) for k in ('SC_BP_HOME', 'SC_INSTALL_DIR')}
+    _quell435 = os.path.join(_wiese435, 'quelle')
+    _ziel435 = os.path.join(_wiese435, 'ziel')
+    _spiel435 = os.path.join(_wiese435, 'spiel', 'LIVE')
+    _alt_popen435 = _sp435._popen
+    _gestartet435 = []
+
+    def _heim435(wurzel):
+        os.environ['SC_BP_HOME'] = wurzel
+        importlib.reload(_sich435)
+
+    def _einst435(daten):
+        with open(_pa435.app_file(_pa435.SETTINGS_FILE), 'w',
+                  encoding='utf-8') as f:
+            json.dump(daten, f)
+
+    def _aktiv435():
+        return sorted(e['name'] for e in _sp435._active('spiel'))
+
+    _fremd435 = {'an': True, 'name': 'Fremd', 'datei': '/bin/sh',
+                 'argumente': '-c boese', 'wann': 'spiel'}
+    _ohne_an435 = {'name': 'OhneSchalter', 'datei': '/bin/sh',
+                   'argumente': '-c auch-boese', 'wann': 'spiel'}
+    _eigen435 = {'an': True, 'name': 'Eigen', 'datei': '/opt/hotas',
+                 'argumente': '', 'wann': 'spiel'}
+    try:
+        # Eigener Spielordner mit leerer Game.log — `write()` liest sonst die
+        # Steuerung der echten Installation.
+        os.makedirs(_spiel435)
+        open(os.path.join(_spiel435, 'Game.log'), 'w').close()
+        os.environ['SC_INSTALL_DIR'] = _spiel435
+        for _o in (_quell435, _ziel435):
+            os.makedirs(_o)
+        pruefe(_pa435.game_folder() == _spiel435,
+               'Vorbedingung: der Spielordner ist der Testordner')
+
+        _heim435(_quell435)
+        _einst435({'startprogramme': [dict(_fremd435), dict(_ohne_an435),
+                                      dict(_eigen435)],
+                   'spielstarter': 'boeser-starter'})
+        pruefe(_aktiv435() == ['Eigen', 'Fremd', 'OhneSchalter'],
+               'Vorbedingung: in der Quelle sind alle drei scharf (%s)'
+               % _aktiv435())
+        _datei435 = os.path.join(_wiese435, 'sicherung.zip')
+        _sich435.write(_datei435, '9.9.9')
+        _einst_name435 = os.path.relpath(
+            _pa435.app_file(_pa435.SETTINGS_FILE), _quell435).replace(os.sep, '/')
+        with _zip435.ZipFile(_datei435) as _z:
+            pruefe('boeser-starter' in _z.read(_einst_name435).decode('utf-8'),
+                   'Vorbedingung: die Sicherung enthält die scharfen Befehle')
+        # Was eine präparierte Sicherung zusätzlich mitbringen kann.
+        _scharf435 = json.dumps({'startprogramme': [dict(_fremd435)],
+                                 'spielstarter': 'boeser-starter'})
+        with _zip435.ZipFile(_datei435, 'a') as _z:
+            _z.writestr('Einstellungen/einstellungen.json', _scharf435)
+            _z.writestr('Bauplaene/einstellungen.json', _scharf435)
+            for _n in ('./Intern/versionen.json', 'intern/VERSIONEN.json',
+                       'Bauplaene/../Intern/versionen.json'):
+                _z.writestr(_n, '{"aus": "der Sicherung"}')
+            _z.writestr('Intern/werkzeug.exe', 'MZ')
+            _z.writestr('Intern/werkzeug.EXE.', 'MZ')
+            _z.writestr('Intern/skript.ps1', 'boese')
+
+        # Die Zielablage hat den eigenen Eintrag eingeschaltet, den fremden nicht.
+        _heim435(_ziel435)
+        _einst435({'startprogramme': [dict(_eigen435)]})
+        _ok435, _m435, _n435 = _sich435.restore(_datei435)
+        pruefe(_ok435, 'die Sicherung lässt sich einspielen (%s)' % _m435)
+        pruefe(_aktiv435() == ['Eigen'],
+               'nach dem Einspielen startet beim Spielstart nur der eigene '
+               'Eintrag (%s)' % _aktiv435())
+        pruefe(_pa435.setting('spielstarter') in (None, ''),
+               'der Spielstarter aus der Sicherung wird nicht übernommen (%r)'
+               % _pa435.setting('spielstarter'))
+        pruefe(any('Fremd' in n for n in _sich435.disarmed)
+               and any('OhneSchalter' in n for n in _sich435.disarmed)
+               and 'spielstarter' in _sich435.disarmed,
+               'der Hinweis nennt, was ausgeschaltet wurde (%s)'
+               % _sich435.disarmed)
+        _ueberall435 = []
+        for _ordner, _u, _namen in os.walk(_ziel435):
+            for _n in _namen:
+                _ueberall435.append(os.path.relpath(
+                    os.path.join(_ordner, _n), _ziel435).replace(os.sep, '/'))
+        pruefe(not any(n.lower().endswith('versionen.json')
+                       for n in _ueberall435),
+               'kein Update-Zwischenspeicher aus der Sicherung, in keiner '
+               'Schreibweise (%s)' % [n for n in _ueberall435
+                                     if 'version' in n.lower()])
+        pruefe(not any(n.lower().rstrip('. ').endswith(('.exe', '.ps1'))
+                       for n in _ueberall435),
+               'keine Programmdatei aus der Sicherung landet in der Ablage')
+        _scharf_irgendwo435 = []
+        for _n in _ueberall435:
+            if not _n.lower().endswith('.json'):
+                continue
+            try:
+                with open(os.path.join(_ziel435, _n), encoding='utf-8') as f:
+                    _daten = json.load(f)
+            except ValueError:
+                continue
+            if not isinstance(_daten, dict):
+                continue
+            _fremd_an = [e for e in _daten.get('startprogramme') or []
+                         if isinstance(e, dict) and e.get('an', True)
+                         and 'boese' in str(e.get('argumente'))]
+            if _fremd_an or _daten.get('spielstarter') == 'boeser-starter':
+                _scharf_irgendwo435.append(_n)
+        pruefe(not _scharf_irgendwo435,
+               'keine Datei der Ablage hält die scharfen Befehle (%s)'
+               % _scharf_irgendwo435)
+
+        # Abbruch mitten im Einspielen: Die Einstellungen stehen vorn, danach
+        # kommt ein Eintrag, der sich nicht anlegen lässt.
+        _abbruch435 = os.path.join(_wiese435, 'abbruch.zip')
+        with _zip435.ZipFile(_abbruch435, 'w') as _z:
+            _z.writestr(_sich435.INFO_FILE,
+                        _sich435.MARKER + '\nErstellt am 01.01.2026 mit x')
+            _z.writestr(_einst_name435, _scharf435)
+            _z.writestr('Intern/sperre', 'Datei')
+            _z.writestr('Intern/sperre/darunter.json', '{}')
+        _einst435({'startprogramme': [dict(_eigen435)]})
+        _ok_ab435 = _sich435.restore(_abbruch435)[0]
+        pruefe(_ok_ab435 is False,
+               'Vorbedingung: das Einspielen bricht ab')
+        pruefe(not [n for n in _aktiv435() if n != 'Eigen']
+               and not _pa435.setting('spielstarter'),
+               'auch nach einem Abbruch ist nichts Fremdes scharf (%s)'
+               % _aktiv435())
+
+        # Spielordner, die in die Ablage, ins Netz oder auf kein lokales
+        # Laufwerk zeigen. Der letzte Pfad existiert hier und beginnt weder
+        # mit zwei Schrägstrichen noch zwei Backslashes.
+        if os.name == 'nt':
+            _kein_laufwerk435 = '\\/?/' + _spiel435.replace('\\', '/')
+        else:
+            _kein_laufwerk435 = os.path.relpath(_spiel435)
+        pruefe(os.path.exists(_kein_laufwerk435),
+               'Vorbedingung: der Pfad ohne lokales Laufwerk existiert (%s)'
+               % _kein_laufwerk435)
+        for _pfad435 in (os.path.join(_ziel435, 'Intern', 'x', 'LIVE'),
+                         '\\\\angreifer@SSL\\DavWWWRoot\\LIVE',
+                         _kein_laufwerk435):
+            _boese_ordner435 = os.path.join(_wiese435, 'ordner.zip')
+            with _zip435.ZipFile(_boese_ordner435, 'w') as _z:
+                _z.writestr(_sich435.INFO_FILE,
+                            _sich435.MARKER + '\nErstellt am 01.01.2026 mit x')
+                _z.writestr(_einst_name435,
+                            json.dumps({'spiel_ordner': _pfad435}))
+                _z.writestr('Intern/x/LIVE/Game.log', '')
+            _sich435.restore(_boese_ordner435)
+            pruefe(not _pa435.setting('spiel_ordner'),
+                   'ein Spielordner aus der Sicherung wird geleert: %s'
+                   % _pfad435)
+
+        # Die eigene Adresse der Übersetzung: Es gilt die bisherige.
+        _mein435 = {'LIVE': {'url': 'https://example.org/meine.ini',
+                             'sprache': 'german_(germany)'}}
+        _einst435({'eigene_quelle': _mein435})
+        with _zip435.ZipFile(_boese_ordner435, 'w') as _z:
+            _z.writestr(_sich435.INFO_FILE,
+                        _sich435.MARKER + '\nErstellt am 01.01.2026 mit x')
+            _z.writestr(_einst_name435, json.dumps({'eigene_quelle': {
+                'LIVE': {'url': 'https://boese.example/global.ini',
+                         'sprache': '../../x'}}}))
+            _z.writestr('Bauplaene/Intern/versionen.json', '{"aus": "x"}')
+        _sich435.restore(_boese_ordner435)
+        pruefe(_pa435.settings().get('eigene_quelle') == _mein435,
+               'die eigene Adresse der Übersetzung kommt nicht aus der '
+               'Sicherung (%s)' % _pa435.settings().get('eigene_quelle'))
+        pruefe(not os.path.exists(os.path.join(_ziel435, 'Bauplaene', 'Intern',
+                                               'versionen.json')),
+               'der Update-Zwischenspeicher kommt auch aus einem Unterordner '
+               'nicht')
+
+        # Die Startstelle selbst: ein eingeschalteter Eintrag erreicht `_popen`.
+        _sp435._popen = lambda befehl, cwd: _gestartet435.append(befehl)
+        _einst435({'startprogramme': [{'an': True, 'name': 'Echt',
+                                       'datei': sys.executable,
+                                       'wann': 'spiel'}]})
+        pruefe(_sp435.launch(_sp435._active('spiel')[0], delay=False)[0]
+               and _gestartet435,
+               'Vorbedingung: ein scharfer Eintrag erreicht die Startstelle')
+    finally:
+        _sp435._popen = _alt_popen435
+        for _k, _v in _alt435.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        importlib.reload(_sich435)
+        shutil.rmtree(_wiese435, ignore_errors=True)
+
+
+def _tf436_ordner():
+    """Ein leerer Wegwerf-Spielordner — wird beim Ende des Laufs gelöscht."""
+    import atexit
+    import tempfile
+    ordner = tempfile.mkdtemp(prefix='pruefung436-')
+    atexit.register(shutil.rmtree, ordner, True)
+    return ordner
+
+
+def _pruefung_436():
+    """436. Nur Webadressen gehen an den Browser; Basetool-Adressen nur zum
+    Basetool."""
+    print('\n436. Browser öffnet nur http(s), Basetool-Adressen nur beim Basetool')
+    from scbp import paths as _pa436, basetool as _bt436
+    from scbp import basetool_sync as _bs436
+    import webbrowser as _wb436
+
+    for _gut in ('https://example.org/x?a=1', 'http://example.org',
+                 'https://profit-base.online/auth/realms/iri/device'):
+        pruefe(_pa436.web_address(_gut), 'Webadresse wird angenommen: %s' % _gut)
+    for _boese in ('file:///C:/Windows/System32/cmd.exe',
+                   '\\\\angreifer@SSL\\DavWWWRoot\\x.exe',
+                   'search-ms:query=x', 'ms-msdt:/id x', 'javascript:alert(1)',
+                   '-https://example.org', 'https://', 'https://a b.org',
+                   'https://example.org/\nx', 'C:\\Windows\\notepad.exe', '', None):
+        pruefe(not _pa436.web_address(_boese),
+               'keine Webadresse wird abgelehnt: %r' % (_boese,))
+
+    _geoeffnet436 = []
+    _alt_cmd436 = _pa436.browser_commands
+    _alt_wb436 = _wb436.open
+    try:
+        _pa436.browser_commands = lambda url: []
+        _wb436.open = lambda url, *a, **k: _geoeffnet436.append(url) or True
+        pruefe(_pa436.open_in_browser('https://example.invalid/x') is True
+               and _geoeffnet436 == ['https://example.invalid/x'],
+               'Vorbedingung: der Browser ist untergeschoben und wird erreicht')
+        del _geoeffnet436[:]
+        for _boese in ('file:///etc/passwd', 'search-ms:query=x',
+                       '\\\\host\\share\\x.exe'):
+            pruefe(_pa436.open_in_browser(_boese) is False,
+                   'open_in_browser lehnt ab: %r' % _boese)
+        pruefe(_geoeffnet436 == [],
+               'und an den Browser geht davon nichts (%s)' % _geoeffnet436)
+    finally:
+        _pa436.browser_commands = _alt_cmd436
+        _wb436.open = _alt_wb436
+
+    _alt_env436 = {k: os.environ.pop(k) for k in _bt436.OVERRIDE_VARS
+                   if k in os.environ}
+    try:
+        for _gut in ('https://profit-base.online/bestaetigen/1',
+                     'https://ingest.profit-base.online/x',
+                     'https://www.profit-base.online/'):
+            pruefe(_bt436.trusted_address(_gut) == _gut,
+                   'Basetool-Adresse wird angenommen: %s' % _gut)
+        for _boese in ('https://example.org/x', 'http://profit-base.online/x',
+                       'https://profit-base.online.example.org/',
+                       'https://evilprofit-base.online/',
+                       'file:///C:/x.exe', 'search-ms:query=x'):
+            pruefe(_bt436.trusted_address(_boese) == '',
+                   'fremde Adresse vom Basetool wird verworfen: %s' % _boese)
+        _dl436 = _bt436.DeviceLogin({'verification_uri': 'file:///C:/x.exe'}, [])
+        pruefe(_dl436.verification_uri == _bt436.ISSUER + '/device',
+               'eine fremde Anmeldeadresse wird durch die des Ausstellers '
+               'ersetzt (%s)' % _dl436.verification_uri)
+        _gut436 = _bt436.ISSUER + '/device'
+        pruefe(_bt436.DeviceLogin({'verification_uri': _gut436}, [])
+               .verification_uri == _gut436,
+               'die echte Anmeldeadresse bleibt')
+        _fehler436 = _bt436.ApiError(
+            'MASS_CHANGE_CONFIRMATION_REQUIRED', 409,
+            problem={'confirmationUrl': '\\\\angreifer\\x.exe'})
+        pruefe(_bs436._confirm_address(_fehler436) is None,
+               'eine fremde Bestätigungsadresse ergibt keinen Knopf')
+        _fehler436.problem = {'confirmationUrl': 'https://profit-base.online/ok'}
+        pruefe(_bs436._confirm_address(_fehler436)
+               == 'https://profit-base.online/ok',
+               'die Bestätigungsadresse beim Basetool bleibt')
+    finally:
+        os.environ.update(_alt_env436)
+
+    from scbp import updater as _up436
+    for _gut in ('https://github.com/Xharig/VerseKit/releases/download/v4.1.7/'
+                 'VerseKit-Setup.exe',
+                 'https://github.com/Xharig/SC-BP-Watcher/releases/download/v3.0.0/'
+                 'SC-BP-Watcher.exe'):
+        pruefe(_up436._url_ok(_gut), 'Update-Datei des Projekts wird angenommen: %s'
+               % _gut.rsplit('/', 1)[-1])
+    for _boese in ('https://github.com/jemand/anderes/releases/download/v1/x.exe',
+                   'https://objects.githubusercontent.com/x/VerseKit-Setup.exe',
+                   'http://github.com/Xharig/VerseKit/releases/download/v1/x.exe',
+                   'https://api.github.com/Xharig/VerseKit/releases/x.exe',
+                   'https://gist.github.com/Xharig/VerseKit/releases/x.exe',
+                   'https://github.com/Xharig/VerseKit/releases/../../../jemand/'
+                   'x/releases/download/v1/x.exe',
+                   'https://github.com/Xharig/VerseKit/releases/download/'
+                   '%2e%2e/x.exe',
+                   'https://github.com/Xharig/VerseKit/releases/download/v1/a/'
+                   'x.exe'):
+        pruefe(not _up436._url_ok(_boese),
+               'Update-Datei von woanders wird abgelehnt: %s' % _boese)
+
+    from scbp import translation as _tr436
+    pruefe(_tr436.target_ini('german_(germany)', _tf436_ordner())
+           is not None, 'Vorbedingung: ein echter Sprachordner ergibt ein Ziel')
+    pruefe(_tr436.target_ini('German_(Germany)', _tf436_ordner()) is not None,
+           'ein Sprachordner in anderer Schreibweise aus der user.cfg gilt weiter')
+    for _boese in ('../../x', 'english\nr_DisplayInfo = 1', 'irgendwas'):
+        pruefe(_tr436.target_ini(_boese, _tf436_ordner()) is None
+               and _tr436.set_user_cfg(_boese, None, _tf436_ordner()) is False,
+               'ein unbekannter Sprachordner wird weder Ziel noch user.cfg-'
+               'Eintrag: %r' % _boese)
+
+
+def _pruefung_437():
+    """437. Fremde Namen mit Zeilenumbruch erzeugen keine eigene Zeile in der
+    global.ini."""
+    print('\n437. global.ini: Zeilenumbruch in fremden Daten wird keine neue Zeile')
+    import tempfile as _tf437
+    from scbp import injection as _in437
+    _heim437 = _tf437.mkdtemp(prefix='pruefung437-')
+    _altheim437 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim437
+    try:
+        _ini437 = os.path.join(_heim437, 'Localization', 'english', 'global.ini')
+        os.makedirs(os.path.dirname(_ini437), exist_ok=True)
+        with open(_ini437, 'w', encoding='utf-8', newline='') as f:
+            f.write('mission_desc_T=Ein Auftragstext von CIG.\n'
+                    'mission_title_T=Ein Auftrag\n')
+        _boese437 = ['Helm\nFrontend_Evil=gefaelscht',
+                     'Weste\u2028Frontend_Evil2=gefaelscht',
+                     'Hose\x85Frontend_Evil3=gefaelscht']
+        _kat437 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag',
+                                       'bp': list(_boese437)}}}
+        _ok437, _, _m437 = _in437.apply_texts(_ini437, 'english',
+                                              catalog_data=_kat437)
+        with open(_ini437, encoding='utf-8', newline='') as f:
+            _text437 = f.read()
+        pruefe(_ok437 and 'Helm' in _text437 and 'Weste' in _text437,
+               'Vorbedingung: die fremden Namen stehen in der Datei (%s)' % _m437)
+        _zeilen437 = _text437.splitlines()
+        pruefe(not any(z.startswith('Frontend_Evil') for z in _zeilen437),
+               'kein fremder Name wird zu einer eigenen Zeile')
+        pruefe(len(_zeilen437) == 2 and _text437.count('\n') == 2,
+               'die Datei hat danach so viele Zeilen wie vorher (%d)'
+               % len(_zeilen437))
+        pruefe(_in437._single_line('a\\nb') == 'a\\nb',
+               'der Umbruch des Spiels (Backslash n) bleibt erhalten')
+    finally:
+        if _altheim437 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim437
+        shutil.rmtree(_heim437, ignore_errors=True)
 
 
 def _alle_eingaben(w):

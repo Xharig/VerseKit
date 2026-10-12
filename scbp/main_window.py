@@ -4294,6 +4294,12 @@ class MainWindow:
         # nichts mehr reagiert. Profile dazuzulegen ist dagegen harmlos: Sie
         # liegen nur herum, bis jemand eines lädt.
         self._offer_bindings(quelle, sicherung)
+        if sicherung.disarmed:
+            labels = {sicherung.COMMAND_STARTER: t('sich_startbefehl'),
+                      sicherung.CUSTOM_SOURCE: t('sich_eigene_quelle')}
+            names = [labels.get(name, name) for name in sicherung.disarmed]
+            show_result(self.root, t('sich_titel'),
+                        t('sich_befehle_aus', '\n'.join('• ' + n for n in names)))
         self.say(t('sich_zurueck_ok', anzahl))
         # ⚠⚠ Neustart ist Pflicht, keine Hoeflichkeit: Bestand, Lager und
         # Protokoll liegen im Arbeitsspeicher und wuerden beim naechsten

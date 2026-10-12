@@ -78,6 +78,7 @@ RELOADABLE = (
     'Intern/uebersetzung.json',         # aus der global.ini des Spiels
     'Intern/verkauf.json',              # Verkaufsorte, vom Netz
     'Intern/aktionsnamen.json',         # Aktionsnamen, aus dem Spielarchiv
+    'Intern/versionen.json',            # Update-Angaben, vom Netz
     # ⚠ Der Lesestand gehört ausdrücklich NICHT mit: Er zeigt auf Logdateien
     # des alten Rechners. Am neuen wäre er falsch und würde die Nachlese
     # überspringen — das Auftrags-Protokoll bliebe leer.
@@ -154,15 +155,31 @@ def _binding_files(folder=None):
 
 
 def _include(rel):
-    """Gehört diese Datei (Pfad relativ zur Ablage) in die Sicherung?"""
-    path = rel.replace('\\', '/')
-    if path in RELOADABLE:
+    """Gehört diese Datei (Pfad relativ zur Ablage) in die Sicherung?
+
+    Ohne Rücksicht auf Groß- und Kleinschreibung — unter Windows ist
+    `intern/Versionen.json` dieselbe Datei wie `Intern/versionen.json`."""
+    path = rel.replace('\\', '/').lower()
+    if path in (name.lower() for name in RELOADABLE):
         return False
     first = path.split('/', 1)[0]
-    if first in RELOADABLE_FOLDERS:
+    if first in (name.lower() for name in RELOADABLE_FOLDERS):
         return False
     # Die Sicherung selbst nicht mitsichern, falls sie jemand in die Ablage legt.
-    return not path.lower().endswith('.zip')
+    return not path.endswith('.zip')
+
+
+# Dateiendungen, die eine Sicherung nie in die Ablage schreibt: Die Ablage
+# hält nur Daten. Eine Programmdatei darin wäre über einen eingespielten Pfad
+# (Spielordner, Startprogramm) startbar.
+BLOCKED_SUFFIXES = ('.exe', '.dll', '.bat', '.cmd', '.com', '.scr', '.msi',
+                    '.msp', '.ps1', '.psm1', '.vbs', '.vbe', '.js', '.jse',
+                    '.wsf', '.wsh', '.hta', '.cpl', '.lnk', '.url', '.pif',
+                    '.reg', '.sh', '.appimage', '.desktop', '.py', '.pyw',
+                    '.jar')
+
+# Die Dateinamen aus `RELOADABLE`, ohne Ordner.
+_RELOADABLE_NAMES = {name.rsplit('/', 1)[-1].lower() for name in RELOADABLE}
 
 
 def _files():
@@ -284,6 +301,7 @@ def restore(source):
     Arbeitsspeicher und wuerden sie beim naechsten Speichern wieder ueber die
     frisch eingespielten schreiben.
     """
+    del disarmed[:]
     ok, count, _when = check(source)
     if not ok:
         # ⚠ Ein Kennwort, kein Satz: Was der Spieler liest, steht in
@@ -292,11 +310,14 @@ def restore(source):
         return False, 'ungueltig', 0
 
     root = paths.app_folder()
+    root_abs = os.path.abspath(root)
+    before = paths.settings()
     fallback = os.path.join(
         os.path.dirname(root.rstrip(os.sep)) or root,
         'SC-BP-Watcher-vorher-%s.zip' % time.strftime('%Y-%m-%d-%H%M%S'))
     previous_ok, _m, _n = write(fallback)
 
+    turned_off = []
     try:
         with zipfile.ZipFile(source) as z:
             for name in z.namelist():
@@ -312,15 +333,44 @@ def restore(source):
                 # ⚠ Kein Pfad darf aus der Ablage herausfuehren. Eine ZIP kann
                 # `../../` enthalten (bekannt als „Zip Slip"); ohne diese
                 # Pruefung schreibt eine praeparierte Datei irgendwohin.
-                target = os.path.normpath(os.path.join(root, name))
-                if not target.startswith(os.path.abspath(root) + os.sep):
+                target = os.path.normpath(os.path.join(root_abs, name))
+                if not target.startswith(root_abs + os.sep):
                     continue
+                # Geprüft wird der aufgelöste Pfad — `./Intern/x` und
+                # `Bauplaene/../Intern/x` sind dieselbe Datei wie `Intern/x`.
+                rel = os.path.relpath(target, root_abs).replace(os.sep, '/')
+                # Windows schneidet Punkte und Leerzeichen am Namensende ab
+                # (`x.exe.` wird `x.exe`), und `name:strom` schreibt in einen
+                # Datenstrom (`x.exe::$DATA` ist `x.exe`).
+                if ':' in rel:
+                    continue
+                if not _include(rel) or \
+                        rel.lower().rstrip('. ').endswith(BLOCKED_SUFFIXES):
+                    continue
+                # Nachladbares auch nicht aus einem Unterordner: Lose Dateien
+                # sortiert `paths.tidy_storage` an ihren Platz.
+                if os.path.basename(rel).lower() in _RELOADABLE_NAMES:
+                    continue
+                with z.open(name) as src:
+                    content = src.read()
+                # Jede Einstellungsdatei wird bereinigt, BEVOR sie auf die
+                # Platte kommt — bricht das Einspielen danach ab, liegt keine
+                # scharfe Fassung herum.
+                if os.path.basename(rel).lower() in SETTINGS_NAMES:
+                    content = _safe_settings(content, before, root_abs,
+                                             turned_off)
+                    if content is None:
+                        continue
                 os.makedirs(os.path.dirname(target), exist_ok=True)
-                with z.open(name) as src, open(target, 'wb') as dst:
-                    dst.write(src.read())
+                with open(target, 'wb') as dst:
+                    dst.write(content)
     except (OSError, zipfile.BadZipFile) as exc:
         errors.record('backup.restore', exc)
         return False, str(exc), 0
+    finally:
+        for item in turned_off:
+            if item not in disarmed:
+                disarmed.append(item)
 
     _clear_foreign_paths(root)
     return True, (fallback if previous_ok else ''), count
@@ -467,3 +517,151 @@ def _clear_foreign_paths(root):
             paths.save_json(target, data)
     except Exception as exc:
         errors.record('backup.clear_foreign_paths', exc)
+
+
+# Einstellungen, deren Werte unverändert an `subprocess.Popen` gehen
+# (`start_programs._popen`, `paths.start_game`).
+COMMAND_LIST = 'startprogramme'
+COMMAND_STARTER = 'spielstarter'
+# Die eigene Adresse der Übersetzung: Von dort wird die Sprachdatei des Spiels
+# geholt und ersetzt.
+CUSTOM_SOURCE = 'eigene_quelle'
+# Einstellungen ohne Schalter: Aus einer Sicherung gilt der bisherige Wert.
+KEEP_PREVIOUS = (COMMAND_STARTER, CUSTOM_SOURCE)
+
+# Namen der Startprogramme, die das letzte `restore()` ausgeschaltet hat — für
+# den Hinweis nach dem Einspielen. Ein ersetzter Spielstarter steht als
+# `COMMAND_STARTER` darin.
+disarmed = []
+
+
+# Dateinamen, die als Einstellungsdatei gelesen werden können — wo immer sie in
+# der Sicherung liegen (`paths.tidy_storage` sortiert lose Dateien ein).
+SETTINGS_NAMES = (paths.SETTINGS_FILE.lower(),
+                  os.path.basename(paths.backup_name(paths.SETTINGS_FILE)).lower())
+
+# Wann ein Startprogramm läuft — wie `start_programs.WHEN`, unbekannt heißt
+# `launcher`.
+_WHEN = ('launcher', 'spiel', 'ersetzt')
+
+
+def _command_of(entry):
+    """Was ein Startprogramm-Eintrag ausführt — Datei, Argumente, Zeitpunkt,
+    so vervollständigt wie in `start_programs.entries()`."""
+    when = entry.get('wann', 'launcher')
+    return (str(entry.get('datei') or '').strip(),
+            str(entry.get('argumente') or '').strip(),
+            when if when in _WHEN else 'launcher')
+
+
+def _shown_name(entry):
+    """Name und Datei eines Eintrags für den Hinweis — eine Zeile, gekürzt."""
+    def line(text, limit):
+        text = ' '.join(str(text or '').split())
+        return text if len(text) <= limit else text[:limit - 1] + '…'
+    name = line(entry.get('name'), 40)
+    command = line(_command_of(entry)[0], 80) or '?'
+    return '%s (%s)' % (name, command) if name else command
+
+
+def _inside(path, root_abs):
+    """Zeigt `path` in die Ablage hinein?"""
+    try:
+        full = os.path.normcase(os.path.abspath(os.path.expanduser(path)))
+    except (TypeError, ValueError):
+        return False
+    base = os.path.normcase(root_abs)
+    return full == base or full.startswith(base + os.sep)
+
+
+def _local_path(text, root_abs):
+    """Ist `text` ein absoluter Pfad auf einem lokalen Laufwerk, außerhalb der
+    Ablage?
+
+    ⚠ Unter Windows sind `/` und `\\` gleich: `\\/host/share`, `//host/share`
+    und `\\\\?\\UNC\\host\\share` sind alle Netzwerkpfade. Deshalb wird positiv
+    geprüft — der Laufwerksteil muss genau `X:` sein."""
+    try:
+        full = os.path.normpath(os.path.expanduser(text))
+    except (TypeError, ValueError):
+        return False
+    if os.name == 'nt':
+        drive, rest = os.path.splitdrive(full)
+        if len(drive) != 2 or not drive[0].isalpha() or drive[1] != ':' \
+                or not rest.startswith(('\\', '/')):
+            return False
+    elif not os.path.isabs(full) or full.startswith('//'):
+        return False
+    return not _inside(full, root_abs)
+
+
+def _safe_settings(content, before, root_abs, turned_off):
+    """Eine Einstellungsdatei aus der Sicherung, bereinigt — als Bytes, oder
+    `None`, wenn sie nicht lesbar ist (dann wird sie nicht eingespielt).
+
+    ⚠⚠ Eine Sicherungsdatei kann von jemand anderem stammen, und diese Werte
+    gehen unverändert an `subprocess.Popen` bzw. bestimmen, was gestartet
+    wird. Deshalb:
+
+    * Ein Startprogramm bleibt nur eingeschaltet, wenn vor dem Einspielen genau
+      derselbe Befehl (Datei, Argumente, Zeitpunkt) hier schon eingeschaltet
+      war. Jedes andere kommt ausgeschaltet an und steht sichtbar in der
+      Liste — einschalten heißt dann: den Befehl gesehen haben.
+    * Spielstarter und eigene Übersetzungsadresse (`KEEP_PREVIOUS`) haben
+      keinen Schalter. Weicht der Wert vom bisherigen ab, gilt der bisherige.
+    * Pfadfelder, die nicht auf ein lokales Laufwerk außerhalb der Ablage
+      zeigen (`_local_path`), werden geleert — der Spielordner bestimmt,
+      welcher Launcher startet.
+    * `ablage_ordner` fällt immer weg (siehe `_clear_foreign_paths`).
+
+    Namen ausgeschalteter Einträge kommen in `turned_off`."""
+    import json
+    try:
+        data = json.loads(content.decode('utf-8-sig'))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    own = set()
+    for entry in before.get(COMMAND_LIST) or []:
+        if isinstance(entry, dict) and entry.get('an', True):
+            own.add(_command_of(entry))
+    items = data.get(COMMAND_LIST)
+    if isinstance(items, list):
+        kept = []
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            if _command_of(entry) not in own:
+                if entry.get('an', True):
+                    turned_off.append(_shown_name(entry))
+                entry['an'] = False
+            kept.append(entry)
+        data[COMMAND_LIST] = kept
+    elif items is not None:
+        data.pop(COMMAND_LIST, None)
+
+    for key in KEEP_PREVIOUS:
+        restored = data.get(key)
+        previous = before.get(key)
+        if restored == previous or (not restored and not previous):
+            continue
+        if previous:
+            data[key] = previous
+        else:
+            data.pop(key, None)
+        if restored:
+            turned_off.append(key)
+
+    data.pop('ablage_ordner', None)
+    for field in PATH_FIELDS:
+        value = data.get(field)
+        if not isinstance(value, str):
+            if value is not None:
+                data[field] = ''
+            continue
+        text = value.strip()
+        if text and not _local_path(text, root_abs):
+            data[field] = ''
+    return json.dumps(data, ensure_ascii=False, indent=1).encode('utf-8')

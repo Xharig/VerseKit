@@ -1622,8 +1622,38 @@ def browser_commands(url):
     return []                      # Windows: `webbrowser` macht es richtig
 
 
+def web_address(url, hosts=None):
+    """Ist `url` eine Webadresse (http/https mit Host) — und, wenn `hosts`
+    angegeben ist, eine https-Adresse auf einem dieser Hosts oder einer
+    Unterdomain davon?
+
+    ⚠ `open_in_browser` übergibt die Adresse unter Windows an `os.startfile`
+    und unter Linux an `xdg-open`. Beide öffnen auch Dateien, Netzwerkpfade
+    und beliebige Protokolle — deshalb kommt dort nur durch, was hier passt."""
+    from urllib.parse import urlsplit
+    if not isinstance(url, str) or not url:
+        return False
+    if any(ord(c) < 33 or ord(c) == 127 or c == '\\' for c in url):
+        return False
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or '').lower()
+    except ValueError:
+        return False
+    if parts.scheme.lower() not in ('http', 'https') or not host:
+        return False
+    if hosts is None:
+        return True
+    if parts.scheme.lower() != 'https':
+        return False
+    return any(host == h or host.endswith('.' + h)
+               for h in (str(x).lower().strip('.') for x in hosts) if h)
+
+
 def open_in_browser(url):
     """Eine Adresse im Browser aufmachen. Gibt zurück, ob es geklappt hat.
+
+    Nur Webadressen (`web_address`); alles andere wird nicht geöffnet.
 
     ⚠⚠ **Warum nicht einfach `webbrowser.open()`.** Im AppImage zeigen
     `LD_LIBRARY_PATH` und `PYTHONHOME` in unser entpacktes Paket. Jedes daraus
@@ -1638,6 +1668,10 @@ def open_in_browser(url):
     """
     import subprocess
     import webbrowser
+    if not web_address(url):
+        _report_error('paths.open_in_browser',
+                      ValueError('keine Webadresse: %r' % str(url)[:80]))
+        return False
     env = clean_environment()
     for command in browser_commands(url):
         try:

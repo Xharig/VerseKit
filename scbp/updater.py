@@ -80,7 +80,10 @@ CACHE = 'versionen.json'
 # 6 Anfragen je Stunde, weit unter GitHubs 60 ohne Anmeldung.
 MIN_INTERVAL = 600
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
-ALLOWED_HOSTS = ('github.com', 'objects.githubusercontent.com')
+# Pfad einer Release-Datei auf github.com: `/<Repo>/releases/download/<Tag>/
+# <Datei>` — die alte Adresse leitet GitHub auf die neue um (siehe `REPO`).
+RELEASE_PATH = re.compile(r'/(?:%s)/releases/(?:download/)?[^/]+/[^/]+' % '|'.join(
+    re.escape(name.lower()) for name in (REPO, 'Xharig/SC-BP-Watcher')))
 
 
 # ------------------------------------------------------------ Versionsvergleich
@@ -648,13 +651,19 @@ def matching_asset(release, kind=None):
 
 
 def _url_ok(url):
-    """Nur Dateien von GitHub — egal, was die Antwort sonst behauptet."""
+    """Nur Release-Dateien dieses Projekts auf github.com — egal, was die
+    Antwort oder der Zwischenspeicher sonst behauptet. Die Weiterleitung zum
+    eigentlichen Download folgt `urlopen` selbst."""
     try:
         from urllib.parse import urlparse
         parts = urlparse(url)
-        return parts.scheme == 'https' and (
-            parts.hostname in ALLOWED_HOSTS
-            or (parts.hostname or '').endswith('.github.com'))
+        path = parts.path.lower()
+        # `..` und Prozent-Kodierung könnten den Pfad beim Server in ein
+        # anderes Repo umlenken.
+        if '..' in path or '%' in path:
+            return False
+        return (parts.scheme == 'https' and parts.hostname == 'github.com'
+                and RELEASE_PATH.fullmatch(path) is not None)
     except Exception:
         return False
 

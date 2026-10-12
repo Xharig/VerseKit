@@ -126,6 +126,24 @@ def connection_config():
             'sandbox': True, 'override': True}
 
 
+def trusted_address(url):
+    """`url`, wenn es eine https-Adresse beim Basetool ist — sonst ''.
+
+    Gilt für Adressen, die der Server selbst schickt (Anmeldeseite,
+    Bestätigungsseite): Sie gehen an `paths.open_in_browser`, und nur der
+    Aussteller- und der Schnittstellen-Host samt Unterdomains kommen durch."""
+    from urllib.parse import urlsplit
+    from . import paths
+    config = connection_config()
+    hosts = []
+    for base in (config['issuer'], config['api']):
+        try:
+            hosts.append(urlsplit(base).hostname or '')
+        except ValueError:
+            continue
+    return url if paths.web_address(url, hosts) else ''
+
+
 def user_agent():
     from . import errors
     return 'VerseKit/%s (+%s)' % (errors.VERSION[0] or '0', HOMEPAGE)
@@ -374,7 +392,11 @@ class DeviceLogin:
     def __init__(self, answer, scopes):
         self.device_code = answer.get('device_code') or ''
         self.user_code = answer.get('user_code') or ''
-        self.verification_uri = answer.get('verification_uri') or ''
+        # Eine Adresse außerhalb des Basetools wird durch die Anmeldeseite des
+        # Ausstellers ersetzt (Keycloak: `<Aussteller>/device`).
+        self.verification_uri = (
+            trusted_address(answer.get('verification_uri') or '')
+            or connection_config()['issuer'].rstrip('/') + '/device')
         self.interval = max(5, int(answer.get('interval') or 5))
         self.expires_at = time.time() + int(answer.get('expires_in') or 600)
         self.scopes = scopes

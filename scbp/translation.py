@@ -710,9 +710,19 @@ def looks_like_global_ini(content):
     return b'vehicle_' in head and head.count(b'=') > 5000
 
 
+def _known_language(sprache):
+    """Ist `sprache` einer der Sprachordner des Spiels — in beliebiger
+    Groß- und Kleinschreibung, wie sie in einer `user.cfg` stehen kann?"""
+    return isinstance(sprache, str) and sprache.lower() in GAME_LANGUAGES
+
+
 def target_ini(sprache, game_dir=None):
     """Wohin die Datei gehört. Ein vorhandener `Data`-Ordner wird beibehalten,
-    sonst wird `data` angelegt — Linux unterscheidet die beiden."""
+    sonst wird `data` angelegt — Linux unterscheidet die beiden.
+
+    Nur für Sprachordner aus `GAME_LANGUAGES`; sonst `None`."""
+    if not _known_language(sprache):
+        return None
     root = game_dir or paths.game_folder()
     if not root:
         return None
@@ -763,7 +773,12 @@ def set_user_cfg(sprache, audio=None, game_dir=None):
     In dieser Datei stehen die Grafikeinstellungen des Spielers. Sie zu
     überschreiben, weil man eine Zeile ändern will, wäre ein handfester
     Schaden — deshalb wird zeilenweise gelesen und nur die betroffene Zeile
-    ausgetauscht."""
+    ausgetauscht.
+
+    Nur für Sprachordner aus `GAME_LANGUAGES` — ein Wert mit Zeilenumbruch
+    ergäbe sonst eigene Zeilen in der `user.cfg`."""
+    if not _known_language(sprache) or (audio and not _known_language(audio)):
+        return False
     root = game_dir or paths.game_folder()
     if not root:
         return False

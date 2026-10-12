@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.7 - 2026-10-12
+
+> This version makes Verse-Kit safer. A backup from someone else can no longer
+> bring programs that run by themselves when the game starts, updates only
+> come from the project itself, and Verse-Kit only opens real web addresses
+> in the browser.
+
+### Fixed
+
+- **Restoring a backup no longer starts foreign programs** — startup programs
+  from a backup arrive switched off, and a custom launch command for Star
+  Citizen is not taken over. Anything already switched on here in exactly the
+  same way stays on. After restoring, Verse-Kit shows what was switched off;
+  check and switch it on under "For advanced users" → "Startup programs".
+  A custom translation address is not taken over from a backup either.
+  Program files from a backup are not restored, and a game folder that does
+  not point to a local drive is cleared.
+- **Updates only from the project itself** — Verse-Kit only downloads updates
+  from Verse-Kit's own releases on GitHub, even if a cache claims otherwise.
+- **Only web addresses in the browser** — Verse-Kit only opens addresses
+  starting with `http://` or `https://`. Addresses sent by the Basetool
+  (sign-in, confirmation) must belong to the Basetool.
+- **Game texts stay clean** — a line break in data from scmdb can no longer
+  write extra lines into the game's language file.
+
 ## v4.1.6 - 2026-10-12
 
 > The blueprint list has a tidier header: the small "Save file …" button is

@@ -171,6 +171,18 @@ def current_state():
     return load_state(installation_id) if installation_id else None
 
 
+def _confirm_address(error):
+    """Die Bestätigungsseite aus der Fehlerantwort — nur eine https-Adresse
+    beim Basetool, sonst `None` (dann erscheint kein Knopf)."""
+    url = (error.problem or {}).get('confirmationUrl')
+    safe = basetool.trusted_address(url)
+    if url and not safe:
+        from . import errors
+        errors.record('basetool_sync.confirm_address',
+                      ValueError('Adresse außerhalb des Basetools'), str(url)[:80])
+    return safe or None
+
+
 def _set(**values):
     with _lock:
         STATUS.update(values)
@@ -519,7 +531,7 @@ def _sync_blueprints(conn, state, watcher):
                                   idempotency_key=basetool.new_idempotency_key())
         except basetool.ApiError as error:
             if error.code == 'MASS_CHANGE_CONFIRMATION_REQUIRED':
-                _set(confirm_url=(error.problem or {}).get('confirmationUrl'),
+                _set(confirm_url=_confirm_address(error),
                      confirm_until=time.time() + CONFIRM_LIFETIME)
                 break
             raise
@@ -701,7 +713,7 @@ def _send(conn, route, change_sets):
                                   idempotency_key=basetool.new_idempotency_key())
         except basetool.ApiError as error:
             if error.code == 'MASS_CHANGE_CONFIRMATION_REQUIRED':
-                _set(confirm_url=(error.problem or {}).get('confirmationUrl'),
+                _set(confirm_url=_confirm_address(error),
                      confirm_until=time.time() + CONFIRM_LIFETIME)
                 break
             raise

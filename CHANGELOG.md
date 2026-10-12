@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.7 - 2026-10-12
+
+> Diese Fassung macht Verse-Kit sicherer. Eine Sicherung von jemand anderem
+> kann keine Programme mehr mitbringen, die beim Spielstart von selbst laufen,
+> Updates kommen nur noch aus dem eigenen Projekt, und Verse-Kit öffnet im
+> Browser nur noch echte Webadressen.
+
+### Behoben
+
+- **Sicherung einspielen startet keine fremden Programme mehr** —
+  Startprogramme aus einer Sicherung kommen ausgeschaltet an, ein eigener
+  Startbefehl für Star Citizen wird nicht übernommen. Was hier schon genauso
+  eingeschaltet war, bleibt an. Nach dem Einspielen zeigt Verse-Kit, was
+  ausgeschaltet wurde; prüfen und einschalten unter „Für Fortgeschrittene" →
+  „Startprogramme". Auch eine eigene Adresse für die Übersetzung kommt nicht
+  aus der Sicherung. Programmdateien aus einer Sicherung werden nicht
+  eingespielt, und ein Spielordner, der nicht auf ein lokales Laufwerk zeigt,
+  wird geleert.
+- **Updates nur aus dem eigenen Projekt** — Verse-Kit lädt Updates nur noch
+  aus den Releases von Verse-Kit auf GitHub, auch wenn ein Zwischenspeicher
+  etwas anderes behauptet.
+- **Nur noch Webadressen im Browser** — Verse-Kit öffnet nur Adressen mit
+  `http://` oder `https://`. Adressen, die das Basetool schickt (Anmeldung,
+  Bestätigung), müssen zum Basetool gehören.
+- **Spieltexte bleiben sauber** — ein Zeilenumbruch in Daten von scmdb kann
+  keine zusätzlichen Zeilen mehr in die Sprachdatei des Spiels schreiben.
+
 ## v4.1.6 - 2026-10-12
 
 > Die Bauplan-Liste ist oben aufgeräumter: Der kleine Knopf „Datei speichern …"

@@ -6785,6 +6785,21 @@ TEXTS = {
                              'starten — dann ist alles da.',
                              'Restored. Please restart the program once — then '
                              'everything is in place.'),
+    'sich_befehle_aus':  ('Aus der Sicherung wird nichts scharf übernommen, was '
+                          'ein Programm startet. Ausgeschaltet bzw. nicht '
+                          'übernommen:\n\n%s\n\nStartprogramme stehen unter „Für '
+                          'Fortgeschrittene" → „Startprogramme" — prüfe Datei und '
+                          'Argumente, bevor du sie einschaltest. Einen eigenen '
+                          'Startbefehl trägst du unter Einstellungen → '
+                          'Installation & Pfade neu ein.',
+                          'Nothing that starts a program is taken over active '
+                          'from a backup. Switched off or not taken over:\n\n%s'
+                          '\n\nStartup programs are under "For advanced users" → '
+                          '"Startup programs" — check file and arguments before '
+                          'you switch them on. Enter your own launch command '
+                          'again under Settings → Installation & paths.'),
+    'sich_startbefehl':  ('Startbefehl für Star Citizen', 'Launch command for Star Citizen'),
+    'sich_eigene_quelle': ('Eigene Adresse der Übersetzung', 'Custom translation address'),
     # Die Beilage IN der Sicherungsdatei — wer sie in einem Jahr findet, soll
     # ohne das Programm erkennen, was er da hat.
     'sich_datei_info':   ('Erstellt am %s mit Verse-Kit %s.\n'

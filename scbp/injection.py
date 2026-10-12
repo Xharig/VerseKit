@@ -327,6 +327,20 @@ ORIGTEXT_FILE = 'injektion-urtext.json'
 ADDED = '\x00versekit-ergaenzt'
 
 
+# Alles, woran `str.splitlines()` eine Zeile trennt, dazu Wagenrücklauf und
+# Zeilenvorschub. Ein solches Zeichen in einem Wert machte beim Schreiben bzw.
+# beim nächsten Einlesen aus einer Zeile zwei — der Rest würde zu einem
+# eigenen `SCHLÜSSEL=WERT`.
+_LINE_BREAKS = dict.fromkeys(
+    (0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029), ' ')
+
+
+def _single_line(line):
+    """Eine `global.ini`-Zeile ohne Zeilenumbruch-Zeichen darin. Die Folge
+    `\\n` (Backslash und n), mit der das Spiel selbst umbricht, bleibt."""
+    return line.translate(_LINE_BREAKS)
+
+
 def _append_ship_names(new_lines, added_ships, own_ships, origtext_new):
     """Die fehlenden Schiffsnamen hinten anhängen — mit eigenem Namen, wenn es
     einen gibt — und als ergänzt merken. Gibt die Zahl der Zeilen zurück."""
@@ -1000,7 +1014,7 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
         # passiert das nicht; `tools/starstrings_pruefen.py` erkennt es unter
         # Windows am abweichenden Wortlaut nach dem Zuruecksetzen.
         with open(ini_path + '.tmp', 'w', encoding='utf-8', newline='') as f:
-            f.write('\n'.join(new) + '\n')
+            f.write('\n'.join(_single_line(line) for line in new) + '\n')
         os.replace(ini_path + '.tmp', ini_path)
     except OSError as e:
         return False, 0, 'Schreiben fehlgeschlagen: %s' % e
