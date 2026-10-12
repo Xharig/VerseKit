@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.2.1 - 2026-10-12
+
+> A small fix for the Basetool sync: after closing the main window, no
+> needless entry ends up in the bug report anymore.
+
+### Fixed
+
+- **Basetool sync with the main window closed** — the sync tried to rebuild
+  the "Demand" page of a window that was already closed and logged an error
+  doing so.
+
 ## v4.2.0 - 2026-10-12
 
 > Trading with the full picture: enter in the cargo hold what you paid per

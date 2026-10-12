@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.2.1 - 2026-10-12
+
+> Eine kleine Fehlerbehebung zum Basetool-Abgleich: Nach dem Schließen des
+> Hauptfensters landet kein unnötiger Eintrag mehr im Fehlerbericht.
+
+### Behoben
+
+- **Basetool-Abgleich bei geschlossenem Hauptfenster** — der Abgleich wollte
+  die Seite „Bedarf" eines bereits geschlossenen Fensters neu aufbauen und
+  schrieb dabei einen Fehler ins Protokoll.
+
 ## v4.2.0 - 2026-10-12
 
 > Handeln mit Überblick: Trag im Handelslager ein, was du je SCU bezahlt hast,

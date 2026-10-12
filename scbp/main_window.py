@@ -3910,6 +3910,11 @@ class MainWindow:
         sichtbare Seite beim alten Stand, träfe der nächste Klick zum Ändern
         oder Entfernen womöglich einen anderen Eintrag. Die
         Rollposition geht dabei verloren — das ist der kleinere Schaden."""
+        try:
+            if not self.root.winfo_exists():
+                return
+        except tk.TclError:
+            return
         if 'bedarf' in kennungen:
             self._apply_pins('werkstatt')
             if self.current == 'bedarf' and self._tab_hidden('bedarf'):
@@ -4371,6 +4376,11 @@ class MainWindow:
 
     def close(self):
         page_usage.window_closed()
+        # Der Abgleich darf danach nicht mehr in die abgebauten Seiten
+        # dieses Fensters greifen.
+        from . import basetool_sync
+        if basetool_sync.PAGES_CHANGED[0] == self.pages_changed:
+            basetool_sync.PAGES_CHANGED[0] = None
         # Beim Zumachen noch einmal sichern: Wer das Fenster kurz nach dem
         # Ziehen schliesst, waere sonst schneller als die Drossel.
         try:

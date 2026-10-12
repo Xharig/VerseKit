@@ -25435,6 +25435,7 @@ def main():
     _pruefung_437()
     _pruefung_438()
     _pruefung_439()
+    _pruefung_440()
 
     print()
     if fehler:
@@ -41944,6 +41945,57 @@ def _pruefung_439():
         else:
             os.environ['SC_BP_HOME'] = _alt439
         shutil.rmtree(_heim439, ignore_errors=True)
+
+
+def _pruefung_440():
+    """440. Ein geschlossenes Hauptfenster bekommt keine Abgleich-Meldungen
+    mehr — sonst greift der Abgleich in abgebaute Seiten."""
+    print('\n440. Abgleich nach geschlossenem Hauptfenster')
+    import tempfile as _tf440
+    import tkinter as _tk440
+    from scbp import (main_window as _mw440, basetool_sync as _bs440,
+                      errors as _er440)
+    _heim440 = _tf440.mkdtemp(prefix='fenster440-')
+    _alt440 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim440
+    _alt_haken440 = _bs440.PAGES_CHANGED[0]
+    _w440 = _tk440.Tk()
+    _w440.withdraw()
+    try:
+        _f440 = _mw440.MainWindow(_w440, version='0.0.0-pruefung')
+        _w440.update()
+        _seite440 = _f440.current
+        pruefe(_seite440 in _f440.drawn
+               and _bs440.PAGES_CHANGED[0] == _f440.pages_changed,
+               'offenes Fenster nimmt Abgleich-Meldungen an (Seite %s)'
+               % _seite440)
+        _f440.close()
+        _w440.update()
+        pruefe(_bs440.PAGES_CHANGED[0] is None,
+               'nach dem Schließen meldet der Abgleich nicht mehr ans Fenster')
+        _vorher440 = _er440.count()
+        _f440.pages_changed([_seite440])
+        _neu440 = [e.get('stelle') for e in
+                   _er440.latest(_er440.count() - _vorher440)]
+        pruefe(not _neu440,
+               'Meldung an ein geschlossenes Fenster schreibt keinen Fehler: %s'
+               % _neu440)
+        _g440 = _mw440.MainWindow(_w440, version='0.0.0-pruefung')
+        _w440.update()
+        pruefe(_bs440.PAGES_CHANGED[0] == _g440.pages_changed,
+               'neu geöffnetes Fenster nimmt Abgleich-Meldungen wieder an')
+        _g440.close()
+    finally:
+        _bs440.PAGES_CHANGED[0] = _alt_haken440
+        try:
+            _w440.destroy()
+        except _tk440.TclError:
+            pass
+        if _alt440 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt440
+        shutil.rmtree(_heim440, ignore_errors=True)
 
 
 def _alle_eingaben(w):
