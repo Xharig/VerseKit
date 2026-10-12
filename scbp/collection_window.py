@@ -40,7 +40,6 @@ import tkinter as tk
 
 from . import errors
 from . import collection as bestand_datei
-from . import export as export_modul
 from . import notice
 from . import catalog as katalog_modul
 from . import watchlist as merk
@@ -388,42 +387,28 @@ class Bestandsfenster:
                  font=schrift(12, True)).pack(side='left', padx=14, pady=10)
         self.fortschritt = tk.Label(bar, text='', bg=BAR, fg=SUB, font=schrift(10))
         self.fortschritt.pack(side='left')
-        # Export rechts in der Kopfzeile — dort, wo man ihn sucht, wenn man die
-        # Liste vor sich hat.
-        # ⚠⚠ **Der Knopf springt zur Seite „Sichern & Zurücksetzen", Abschnitt
-        # „Bestand ausgeben".** Dort stehen alle Formate mit Namen
-        # nebeneinander, die Ablage gleich darunter — ein zweiter Weg hier
-        # wäre doppelt.
-        # Im eigenständigen Fenster (ohne Hauptfenster) gibt es keine Seite
-        # zum Hinspringen; dort öffnet sich der Speichern-Dialog.
-        from .main_window import round_button
         # Ganz rechts die Stecknadel wie an jeder Seitenüberschrift — nur als
         # Seite im Hauptfenster.
-        rand = 14
-        nadel = getattr(self.hauptfenster, 'pin_icon', None)
-        if nadel is not None:
-            nadel('liste', bar, BAR).pack(side='right', padx=(0, 14))
-            rand = 12
-        k = round_button(bar, t('export_einzeln'), None, schrift(9), BAR,
-                         FLAECHE, LINIE, FG)
-        k.pack(side='right', padx=(0, rand))
-        k.bind('<Button-1>', lambda e: self._zum_export())
-        notice.attach(k, lambda: t('hinweis_export'))
-        self.export_meldung = tk.Label(bar, text='', bg=BAR, fg=ACCENT,
-                                       font=schrift(9))
-        self.export_meldung.pack(side='right', padx=(0, 10))
-        # Der Abgleich-Knopf (`s_lg_sync`) links neben dem Export, solange der
-        # Bauplan-Abgleich mit dem Basetool läuft — nur als Seite im
+        pin = None
+        pin_icon = getattr(self.hauptfenster, 'pin_icon', None)
+        if pin_icon is not None:
+            pin = pin_icon('liste', bar, BAR)
+            pin.pack(side='right', padx=(0, 14))
+        # Der Abgleich-Knopf (`s_lg_sync`) links neben der Stecknadel, solange
+        # der Bauplan-Abgleich mit dem Basetool läuft — nur als Seite im
         # Hauptfenster.
         if self.hauptfenster is not None:
             from . import pages
 
-            def show(knopf, sichtbar):
-                if not sichtbar:
-                    if knopf.winfo_manager():
-                        knopf.pack_forget()
-                elif not knopf.winfo_manager():
-                    knopf.pack(side='right', padx=(0, 10), after=k)
+            def show(button, visible):
+                if not visible:
+                    if button.winfo_manager():
+                        button.pack_forget()
+                elif not button.winfo_manager():
+                    if pin is not None:
+                        button.pack(side='right', padx=(0, 12), after=pin)
+                    else:
+                        button.pack(side='right', padx=(0, 14))
             sync = pages.sync_heading_button(self.hauptfenster, bar, 'liste',
                                              show)
             if sync is not None:
@@ -434,40 +419,6 @@ class Bestandsfenster:
         # die Leiste kommt dort ebenfalls vom Fenstermanager.) Das randlose
         # Overlay ist der andere Fall: Dort gibt es keine Systemleiste, deshalb
         # behält es sein eigenes ✕.
-
-    def _zum_export(self):
-        """Zu „Sichern & Zurücksetzen" springen, auf „Bestand ausgeben".
-
-        Ohne Hauptfenster (eigenständiger Start) bleibt der Speichern-Dialog."""
-        try:
-            main = getattr(self, 'hauptfenster', None)
-            if main is None:
-                self._exportieren('voll')
-                return
-            from . import pages
-            pages.show_export(main)
-        except Exception as exception:
-            errors.record('collection_window.zum_export', exception)
-
-    def _exportieren(self, art):
-        """Bestand als Datei ausgeben — Ziel wählt der Spieler."""
-        # ⚠ Siehe `file_picker` — der Systemdialog statt des Tk-Kastens.
-        from . import file_picker
-        pfad = file_picker.save_file(
-            t('export_basetool' if art == 'basetool' else 'export_alles'),
-            suggestion=export_modul.suggestion(art), extension='.json',
-            start=export_modul.archive_folder(),
-            patterns=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
-        if not pfad:
-            return
-        ok, meldung = export_modul.write(pfad, art, self.bestand,
-                                         self.katalog)
-        self.export_meldung.configure(
-            text=t('export_fertig', meldung) if ok else t('export_fehler', meldung),
-            fg=ACCENT if ok else GELB)
-        # Nach ein paar Sekunden wieder wegnehmen — eine Erfolgsmeldung, die
-        # stehen bleibt, wird zur Beschriftung und sagt dann nichts mehr.
-        self.root.after(6000, lambda: self.export_meldung.configure(text=''))
 
     def _grenze_zeigen(self):
         """Sagen, was das Werkzeug NICHT wissen kann.

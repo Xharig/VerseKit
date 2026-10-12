@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.6 - 2026-10-12
+
+> Die Bauplan-Liste ist oben aufgeräumter: Der kleine Knopf „Datei speichern …"
+> ist weg. Deine Dateien fürs Profit Basetool und für scmdb.net hält Verse-Kit
+> weiterhin von allein aktuell.
+
+### Verbessert
+
+- **Aufgeräumte Kopfzeile der Bauplan-Liste** — der Knopf „Datei speichern …"
+  ist weg. Die Dateien fürs Profit Basetool und für scmdb.net findest du wie
+  bisher unter *Einstellungen → Sichern & Zurücksetzen → Bestand ausgeben*;
+  sie werden bei jedem neuen Bauplan ohnehin von allein aktualisiert.
+
 ## v4.1.5 - 2026-10-11
 
 > Nach einem Spiel-Patch holt Verse-Kit die neueste Fassung deiner Übersetzung

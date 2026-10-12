@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.1.6 - 2026-10-12
+
+> The blueprint list has a tidier header: the small "Save file …" button is
+> gone. Verse-Kit still keeps your files for the Profit Basetool and scmdb.net
+> up to date on its own.
+
+### Improved
+
+- **Tidier header in the blueprint list** — the "Save file …" button is gone.
+  The files for the Profit Basetool and scmdb.net are still under *Settings →
+  Backup & reset → Export inventory*; they update on their own with every new
+  blueprint anyway.
+
 ## v4.1.5 - 2026-10-11
 
 > After a game patch, Verse-Kit fetches the newest version of your
