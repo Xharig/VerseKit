@@ -6,7 +6,12 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.4.0 - 2026-10-15
+
+> Mehr Ordnung in der Reiterleiste: Alles zum KRT Profit Basetool steht jetzt
+> in einer eigenen Gruppe gleich unter den Bauplänen — und wer es nicht
+> braucht, blendet es als Modul aus. Wer von der Übersicht aus springt, sieht
+> in der Leiste nur noch, was dazugehört.
 
 ### Verbessert
 

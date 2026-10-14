@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.4.0 - 2026-10-15
+
+> A tidier tab bar: everything about the KRT Profit Basetool now sits in its
+> own group right below Blueprints — and if you don't need it, hide it as a
+> module. Jumping in from the overview leaves only the matching group open.
 
 ### Improved
 

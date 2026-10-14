@@ -94,6 +94,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Alle Baupläne oder nur die erspielbaren**: Das Spiel kann rund 1.600 Dinge herstellen, über Aufträge zu bekommen sind 738 — ein Schalter entscheidet, was in Liste und Fortschritt zählt |
 | ✅ | **Abgleich mit dem KRT Profit Basetool**: Baupläne, Lager und Hangar in beide Richtungen — verbunden per Code im Browser, jeder Bereich einzeln einschaltbar |
 | ✅ | **Bilder im Fehlerbericht** — bis zu vier Bildschirmfotos gehen mit „Absenden" mit, ohne versteckte Zusatzangaben |
+| ✅ | **Basetool an einer Stelle** — eigene Gruppe unter den Bauplänen in beiden Ansichten, als Modul ausblendbar |
 
 ## Woran gearbeitet wird
 

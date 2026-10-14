@@ -94,6 +94,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Changed game values**: what a game patch changed about values — ships, weapons, quantum drives, components. Increased green, decreased red. The source only keeps the last ten patches; here they stay |
 | ✅ | **Worth dismantling?**: what the fabricator returns — including the six materials that vanish for good |
 | ✅ | **Images in the bug report** — up to four screenshots go along with "Send", without hidden extra data |
+| ✅ | **Basetool in one place** — its own group below Blueprints in both views, can be hidden as a module |
 
 ## What is being worked on
 
