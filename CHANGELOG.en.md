@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.2.2 - 2026-10-14
+
+> A fix for everyone whose "Documents" folder lives in OneDrive and is guarded
+> by Windows' controlled folder access: Verse-Kit no longer knocks there on
+> every start once your data folder lives somewhere else.
 
 ### Fixed
 

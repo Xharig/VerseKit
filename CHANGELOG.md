@@ -6,7 +6,11 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.2.2 - 2026-10-14
+
+> Eine Fehlerbehebung für alle, deren „Dokumente“ in OneDrive liegen und vom
+> Windows-Ordnerschutz bewacht werden: Verse-Kit klopft dort nicht mehr bei
+> jedem Start an, wenn dein Datenordner längst woanders liegt.
 
 ### Behoben
 
