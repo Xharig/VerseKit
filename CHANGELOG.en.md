@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Blocked access to the old folder** — if you moved your data folder out of
+  "Documents" and have controlled folder access switched on, Windows reported
+  a blocked access on every start: Verse-Kit kept trying to leave a pointer to
+  the new folder there. A locked folder is now left alone, and the bug report
+  names the lock. Reported by Parsul (KRT)
+
 ## v4.2.1 - 2026-10-12
 
 > A small fix for the Basetool sync: after closing the main window, no

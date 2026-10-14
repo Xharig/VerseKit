@@ -25436,6 +25436,7 @@ def main():
     _pruefung_438()
     _pruefung_439()
     _pruefung_440()
+    _pruefung_441()
 
     print()
     if fehler:
@@ -41996,6 +41997,103 @@ def _pruefung_440():
         else:
             os.environ['SC_BP_HOME'] = _alt440
         shutil.rmtree(_heim440, ignore_errors=True)
+
+
+def _pruefung_441():
+    """441. Ein gesperrter Zeiger unter Dokumente wird nicht bei jedem
+    Dateizugriff neu beschrieben.
+
+    Unter Windows sperrt der überwachte Ordnerzugriff Dokumente gegen
+    unbekannte Programme; jeder Schreibversuch erscheint im Schutzverlauf.
+    `app_folder()` läuft bei jedem Dateizugriff durch `_storage_from_file()`.
+    Nachgestellt wird die Sperre, indem jeder Schreibversuch auf den
+    sichtbaren Zeiger scheitert und gezählt wird."""
+    print('\n441. Gesperrter Zeiger unter Dokumente')
+    import tempfile as _tf441
+    from scbp import paths as _pa441
+    _dok441 = _tf441.mkdtemp(prefix='dokumente441-')
+    _kon441 = _tf441.mkdtemp(prefix='konfig441-')
+    _daten441 = _tf441.mkdtemp(prefix='ablage441-')
+    _alt_ort441 = _tf441.mkdtemp(prefix='alt441-')
+    _sicher441 = {k: os.environ.get(k) for k in
+                  ('SC_BP_HOME', 'XDG_CONFIG_HOME', 'APPDATA')}
+    _echt_dok441 = _pa441._documents
+    _echt_schreiben441 = _pa441._write_pointer
+    _versuche441 = []
+    _sperre441 = [True]
+    try:
+        os.environ.pop('SC_BP_HOME', None)
+        os.environ['XDG_CONFIG_HOME'] = _kon441
+        os.environ['APPDATA'] = _kon441
+        _pa441._documents = lambda: _dok441
+        _pa441._HEAL_FAILED.clear()
+        erst = _pa441.pointer_file()
+        zweit = _pa441._second_pointer()
+
+        def _schreiben441(pfad, wert, blocked=None):
+            if _pa441._same_path(pfad, erst):
+                _versuche441.append(wert)
+                if _sperre441[0]:
+                    return False
+            return _echt_schreiben441(pfad, wert, blocked)
+        _pa441._write_pointer = _schreiben441
+
+        # Die Falle muss zuschnappen, bevor gezählt wird.
+        pruefe(_pa441._write_pointer(erst, _daten441) is False
+               and len(_versuche441) == 1 and not os.path.exists(erst),
+               'Falle: Schreiben auf den sichtbaren Zeiger scheitert')
+        del _versuche441[:]
+
+        # Alter Datenordner unter Dokumente: Einstellungen ohne Zeiger-Feld,
+        # der neue Ort steht nur in der Zweitschrift.
+        os.makedirs(os.path.dirname(erst), exist_ok=True)
+        with io.open(erst, 'w', encoding='utf-8') as _f:
+            json.dump({'sprache': 'auto'}, _f)
+        os.makedirs(os.path.dirname(zweit), exist_ok=True)
+        with io.open(zweit, 'w', encoding='utf-8') as _f:
+            json.dump({'ablage_ordner': _daten441}, _f)
+
+        _orte441 = {_pa441.app_folder() for _ in range(50)}
+        pruefe(_orte441 == {_daten441},
+               'der Datenordner aus der Zweitschrift gilt: %s' % _orte441)
+        pruefe(len(_versuche441) == 1,
+               'bei 50 Zugriffen höchstens ein Schreibversuch unter Dokumente '
+               '(gezählt: %d)' % len(_versuche441))
+        pruefe(_pa441.first_pointer_blocked(),
+               'die Zweitschrift vermerkt die Sperre')
+
+        # Neuer Start: die Sperre muss von der Platte kommen, nicht aus dem
+        # Speicher des Laufs.
+        _pa441._HEAL_FAILED.clear()
+        del _versuche441[:]
+        _orte441 = {_pa441.app_folder() for _ in range(20)}
+        pruefe(_orte441 == {_daten441} and not _versuche441,
+               'nach einem Neustart kein Schreibversuch mehr (gezählt: %d)'
+               % len(_versuche441))
+
+        # Ein überholter Ort im gesperrten Zeiger verliert gegen die
+        # Zweitschrift, auch wenn es den Ordner noch gibt.
+        _sperre441[0] = False
+        _echt_schreiben441(erst, _alt_ort441)
+        pruefe(_pa441._storage_from_file() == _daten441,
+               'bei gesperrtem Zeiger gilt die Zweitschrift vor einem alten Ort')
+
+        # Umstellen hebt die Sperre auf, sobald der Zeiger wieder schreibbar ist.
+        _pa441._set_storage_folder(_daten441)
+        pruefe(not _pa441.first_pointer_blocked()
+               and _pa441._read_pointer(erst) == _daten441,
+               'gelungenes Umstellen hebt den Sperrvermerk auf')
+    finally:
+        _pa441._write_pointer = _echt_schreiben441
+        _pa441._documents = _echt_dok441
+        _pa441._HEAL_FAILED.clear()
+        for _k, _v in _sicher441.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        for _o in (_dok441, _kon441, _daten441, _alt_ort441):
+            shutil.rmtree(_o, ignore_errors=True)
 
 
 def _alle_eingaben(w):

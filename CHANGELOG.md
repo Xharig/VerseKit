@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Blockierter Zugriff auf den alten Ordner** — wer seinen Datenordner aus
+  „Dokumente“ wegverlegt hat, bekam bei eingeschaltetem überwachtem
+  Ordnerzugriff bei jedem Start eine Windows-Meldung: Verse-Kit versuchte
+  immer wieder, dort einen Verweis auf den neuen Ordner abzulegen. Ein
+  gesperrter Ordner wird jetzt in Ruhe gelassen, und der Fehlerbericht nennt
+  die Sperre. Gemeldet von Parsul (KRT)
+
 ## v4.2.1 - 2026-10-12
 
 > Eine kleine Fehlerbehebung zum Basetool-Abgleich: Nach dem Schließen des

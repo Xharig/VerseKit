@@ -831,8 +831,12 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         folder = uebersicht.get('app_ordner')
         ok, _own, reason = paths_module.storage_status(paths_module.app_folder())
         if ok:
-            return '%s · %s' % (folder, t('b_ordner_ok'))
-        return '%s · %s' % (folder, t('b_ordner_gesperrt') % reason)
+            text = '%s · %s' % (folder, t('b_ordner_ok'))
+        else:
+            text = '%s · %s' % (folder, t('b_ordner_gesperrt') % reason)
+        if paths_module.first_pointer_blocked():
+            text += ' · ' + t('b_zeiger_gesperrt')
+        return text
 
     line(t('b_ordner'), _safe(_folder_line))
     line(t('b_einstellungen'), _safe(lambda: ', '.join(

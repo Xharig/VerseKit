@@ -2770,6 +2770,15 @@ TEXTS = {
                               '**Windows Defender took Verse-Kit for a trojan** — '
                               'triggered by the refinery scanner\'s text '
                               'recognition, which has been switched off since.'),
+    's_dk_parsul_bugs5':     ('**Windows meldete bei jedem Start einen blockierten '
+                              'Zugriff auf den alten Ordner** — Verse-Kit versuchte '
+                              'dort immer wieder einen Verweis auf den neuen '
+                              'Datenordner abzulegen. Ein gesperrter Ordner wird '
+                              'jetzt in Ruhe gelassen.',
+                              '**Windows reported a blocked access to the old '
+                              'folder on every start** — Verse-Kit kept trying to '
+                              'leave a pointer to the new data folder there. A '
+                              'locked folder is now left alone.'),
     's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
                               'seine Übersetzungen für dieses Werkzeug '
                               'freigegeben. Dazu drei Anstöße an einem '
@@ -3312,6 +3321,8 @@ TEXTS = {
     'b_ordner_ok':     ('beschreibbar', 'writable'),
     'b_ordner_gesperrt': ('NICHT beschreibbar (%s) — es wird nichts gespeichert',
                           'NOT writable (%s) — nothing gets saved'),
+    'b_zeiger_gesperrt': ('Zeiger unter Dokumente gesperrt, es gilt die Zweitschrift',
+                          'pointer under Documents locked, the backup copy applies'),
     'b_einstellungen': ('Einstellungen', 'Settings'),
     'b_dateischutz':   ('Dateischutz', 'File flags'),
     'b_ds_ok':         ('nichts auffällig', 'nothing unusual'),

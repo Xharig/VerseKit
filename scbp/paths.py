@@ -278,17 +278,68 @@ def _read_pointer(pointer_path):
         return None
 
 
-def _write_pointer(pointer_path, value):
-    """Einen Zeiger anlegen — still, denn er ist nur die Zweitschrift."""
+def _write_pointer(pointer_path, value, blocked=None):
+    """Einen Zeiger anlegen — still, denn er ist nur die Zweitschrift.
+
+    `blocked` (nur in der Zweitschrift) vermerkt den Pfad eines sichtbaren
+    Zeigers, der sich nicht schreiben ließ."""
     try:
         os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
         temp = pointer_path + '.tmp'
+        data = {'ablage_ordner': value}
+        if blocked:
+            data[BLOCKED_KEY] = blocked
         with open(temp, 'w', encoding='utf-8') as f:
-            json.dump({'ablage_ordner': value}, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
         replace_file(temp, pointer_path)
         return True
     except Exception:
         return False
+
+
+# Feld der Zweitschrift: Pfad des sichtbaren Zeigers, der sich nicht schreiben
+# ließ. Solange es steht, wird dort nicht wieder geschrieben.
+BLOCKED_KEY = 'zeiger_gesperrt'
+
+# Sichtbare Zeiger, deren Wiederherstellung in diesem Lauf schon scheiterte.
+_HEAL_FAILED = set()
+
+
+def _same_path(a, b):
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(
+        os.path.abspath(b))
+
+
+def _blocked_first(second_path, first_path):
+    """Vermerkt die Zweitschrift, dass der sichtbare Zeiger gesperrt ist?"""
+    try:
+        with open(second_path, encoding='utf-8') as f:
+            value = json.load(f).get(BLOCKED_KEY)
+    except Exception:
+        return False
+    return isinstance(value, str) and _same_path(value, first_path)
+
+
+def first_pointer_blocked():
+    """Lässt sich der sichtbare Zeiger unter Dokumente nicht schreiben?"""
+    return _blocked_first(_second_pointer(), pointer_file())
+
+
+def _write_first_pointer(value):
+    """Den sichtbaren Zeiger schreiben und in der Zweitschrift festhalten,
+    ob es ging.
+
+    ⚠⚠ Unter Windows sperrt der überwachte Ordnerzugriff Dokumente gegen
+    unbekannte Programme, und jeder Schreibversuch landet als Meldung im
+    Schutzverlauf. Ein gescheiterter Versuch wird deshalb vermerkt; danach
+    schreibt nur noch eine Umstellung des Ablage-Orts dorthin.
+    """
+    first, second = pointer_file(), _second_pointer()
+    ok = _write_pointer(first, value)
+    if ok == _blocked_first(second, first):
+        _write_pointer(second, _read_pointer(second) or value,
+                       None if ok else first)
+    return ok
 
 
 def _storage_from_file():
@@ -306,12 +357,23 @@ def _storage_from_file():
     wieder an. Der Ordner muss dabei **existieren**: Ein Zeiger auf einen Ort,
     den es nicht mehr gibt, ist schlimmer als keiner, denn er wuerde einen
     leeren Ordner an falscher Stelle erzeugen.
+
+    ⚠⚠ **Ist der sichtbare gesperrt** (`zeiger_gesperrt` in der Zweitschrift),
+    gilt die Zweitschrift zuerst: Der sichtbare konnte bei der letzten
+    Umstellung nicht mitgeschrieben werden und trägt womöglich einen
+    überholten Ort. Wiederhergestellt wird er dann nicht — `app_folder()`
+    läuft bei jedem Dateizugriff hier durch, und jeder Versuch wäre unter
+    Windows eine Meldung im Schutzverlauf.
     """
     first = pointer_file()
     second = _second_pointer()
     a, b = _read_pointer(first), _read_pointer(second)
+    blocked = _blocked_first(second, first)
+    candidates = ((a, second), (b, first))
+    if blocked:
+        candidates = candidates[::-1]
 
-    for value, missing_at in ((a, second), (b, first)):
+    for value, missing_at in candidates:
         if value is None:
             continue
         if not os.path.isdir(os.path.expanduser(value)):
@@ -319,12 +381,16 @@ def _storage_from_file():
             # eingehaengt ist. Dann lieber den anderen fragen.
             continue
         if _read_pointer(missing_at) != value:
-            _write_pointer(missing_at, value)
+            if missing_at == second:
+                _write_pointer(second, value, first if blocked else None)
+            elif not blocked and (first, value) not in _HEAL_FAILED:
+                if not _write_first_pointer(value):
+                    _HEAL_FAILED.add((first, value))
         return value
 
     # Keiner von beiden taugt: den ersten unveraendert zurueckgeben, damit
     # eine Platte, die gerade nicht da ist, nicht stillschweigend verfaellt.
-    return a or b
+    return (b or a) if blocked else (a or b)
 
 
 def app_folder():
@@ -651,7 +717,7 @@ def remove_old_storage(source_dir, target_dir):
     # Die Zeiger-Datei auf ihren Zweck kürzen: nur noch der Ort der Ablage.
     if os.path.normcase(os.path.abspath(os.path.dirname(os.path.dirname(
             pointer_file())))) == os.path.normcase(os.path.abspath(source_dir)):
-        _write_pointer(pointer_file(), target_dir)
+        _write_first_pointer(target_dir)
     # Leere Ordner von unten nach oben entfernen — nur in den eigenen
     # Unterordnern und den alten Ordner selbst, nur leere, nie mit Inhalt.
     for sub in OWN_FOLDERS:
@@ -1122,7 +1188,8 @@ def _set_storage_folder(value):
     # Ordnerzugriff unbekannte Programme aussperrt. Stünde der zweite Zeiger im
     # selben `try`, käme aus so einem Ordner niemand mehr heraus: Der Umzug
     # scheiterte still, bei jedem Versuch.
-    second_ok = _write_pointer(_second_pointer(), value)
+    second_ok = _write_pointer(_second_pointer(), value,
+                               None if first_ok else target)
     return first_ok or second_ok
 
 
