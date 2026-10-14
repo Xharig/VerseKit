@@ -39,6 +39,7 @@ Drei Regeln, die nicht verhandelbar sind:
 import json
 import os
 import platform
+import re
 import sys
 from datetime import datetime
 
@@ -665,6 +666,41 @@ def _update_attempt_lines():
     return out
 
 
+TRACE_SHOWN = 4      # so viele Aufrufstellen je Fehler der laufenden Fassung
+_TRACE_CODE = 90     # so viele Zeichen der Codezeile
+_FRAME_RE = re.compile(r'^\s*File "(.+)", line (\d+), in (.+)$')
+
+
+def _trace_frames(trace):
+    """Die Aufrufstellen einer gespeicherten Rückverfolgung, je eine Zeile.
+
+    Aus `File ".../scbp/pages.py", line 12, in zeigen` und der Codezeile
+    darunter wird `scbp/pages.py:12 in zeigen: code`. Vom Pfad bleiben die
+    letzten zwei Teile. Stellen in `tkinter` selbst fallen weg, solange eine
+    andere übrig bleibt — sie stehen bei jedem Oberflächenfehler gleich da.
+    Die Fehlermeldung am Ende fehlt, sie steht schon in der Zeile darüber.
+    Jede Zeile läuft noch einmal durch `paths.redact()`."""
+    frames = []
+    for row in str(trace or '').splitlines():
+        found = _FRAME_RE.match(row)
+        if found:
+            parts = [p for p in re.split(r'[\\/]', found.group(1)) if p]
+            frames.append(['/'.join(parts[-2:]), found.group(2),
+                           found.group(3).strip(), ''])
+        elif (frames and row.startswith('    ') and not frames[-1][3]
+              and row.strip(' ^~')):
+            frames[-1][3] = row.strip()
+    own = [f for f in frames if f[0].split('/')[0].lower() != 'tkinter']
+    result = []
+    for file_name, number, function, code in (own or frames):
+        text = '%s:%s in %s' % (file_name, number, function)
+        if code:
+            text += ': ' + (code if len(code) <= _TRACE_CODE
+                            else code[:_TRACE_CODE - 1] + '…')
+        result.append(paths.redact(text))
+    return result
+
+
 def build(version='', root=None, fehleranzahl=8, message=''):
     """Den Bericht als Text zusammensetzen."""
     lines = []
@@ -970,6 +1006,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
             else:
                 bundled.append([ident, e, times, last])
 
+        traced = set()
         for _ident, e, how_often, bis in bundled:
             # ⚠ Die Version dazuschreiben und kennzeichnen, was **nicht** aus
             # der laufenden Fassung stammt. Ohne die Angabe sucht der Nächste
@@ -990,6 +1027,16 @@ def build(version='', root=None, fehleranzahl=8, message=''):
                              e.get('art', '—'), e.get('meldung', '—'), old_mark))
             if how_often > 1:
                 lines.append(t('b_fehler_mehrfach') % (how_often, bis))
+            # Die Aufrufstellen zum jüngsten Eintrag je Stelle: aus der
+            # laufenden Fassung `TRACE_SHOWN`, aus einer anderen nur die
+            # letzte, damit alte Einträge den Bericht nicht strecken.
+            if e.get('stelle') in traced:
+                continue
+            traced.add(e.get('stelle'))
+            current = not version or version_text == version
+            frames = _safe(lambda: _trace_frames(e.get('spur')), [])
+            for frame in frames[-(TRACE_SHOWN if current else 1):]:
+                lines.append(t('b_fehler_spur') % frame)
     else:
         lines.append(t('b_fehler_keine'))
 

@@ -25439,6 +25439,7 @@ def main():
     _pruefung_441()
     _pruefung_442()
     _pruefung_443()
+    _pruefung_444()
 
     print()
     if fehler:
@@ -42520,6 +42521,108 @@ def _pruefung_443():
             os.environ['SC_BP_BERICHT_ZIEL'] = _echt_ziel443
         _pa443.set_setting(_pg443.BERICHT_ZUSTIMMUNG, _echt_zust443)
         shutil.rmtree(_ordner443, ignore_errors=True)
+
+
+def _pruefung_444():
+    """444. Der Fehlerbericht zeigt zu einem Fehler, wo er geschah.
+
+    Ein echter Oberflächenfehler (Zugriff auf einen abgebauten Teil) geht
+    über `errors.record` ins Protokoll. Der auslösende Code liegt unter einem
+    Pfad im Heimatordner, dessen Dateiname den Benutzernamen trägt. Dazu ein
+    Fehler einer anderen Fassung mit tiefer Rückverfolgung."""
+    print('\n444. Aufrufstellen im Fehlerbericht')
+    import linecache
+    import tkinter as _tk444
+    from scbp import errors as _er444, report as _rep444
+    from scbp.language import t as _t444
+    _heim444 = os.path.expanduser('~')
+    _name444 = os.path.basename(_heim444.rstrip('/\\'))
+    _datei444 = os.path.join(_heim444, 'probe444', (_name444 or 'x') + '_modul.py')
+    _quelle444 = ('def anzeigen444(ziel):\n'
+                  '    ziel.configure(text="Probe444")\n'
+                  '\n'
+                  'def tief444(n):\n'
+                  '    if n:\n'
+                  '        return tief444(n - 1)\n'
+                  '    raise KeyError("alt444")\n')
+    linecache.cache[_datei444] = (len(_quelle444), None,
+                                  _quelle444.splitlines(True), _datei444)
+    _raum444 = {}
+    exec(compile(_quelle444, _datei444, 'exec'), _raum444)
+    _alt_fassung444 = _er444.VERSION[0]
+    _w444 = _tk444.Tk()
+    _w444.withdraw()
+
+    def fehlerblock(text):
+        zeilen = text.split('\n')
+        for i, zeile in enumerate(zeilen):
+            if 'probe444.' in zeile:
+                return zeilen[i:]
+        return []
+
+    try:
+        _er444.clear()
+        _teil444 = _tk444.Label(_w444)
+        _w444.tk.call('destroy', _teil444._w)
+        _er444.VERSION[0] = '0.0.0-test'
+        try:
+            _raum444['anzeigen444'](_teil444)
+        except _tk444.TclError as exc:
+            _er444.record('probe444.oberflaeche', exc)
+        _spur444 = ((_er444.latest(1) or [{}])[0]).get('spur') or ''
+        pruefe('anzeigen444' in _spur444 and 'tkinter' in _spur444
+               and 'invalid command name' in _spur444,
+               'Falle: die Spur im Protokoll trägt eigene Stelle, tkinter und '
+               'Meldung (%r)' % _spur444[-200:])
+
+        _text444 = _rep444.build(version='0.0.0-test')
+        _block444 = fehlerblock(_text444)
+        _erwartet444 = (_t444('b_fehler_spur')
+                        % ('probe444/%s_modul.py:2 in anzeigen444: '
+                           'ziel.configure(text="Probe444")'
+                           % ('<benutzer>' if len(_name444) > 2 else _name444)))
+        pruefe(_erwartet444 in _block444,
+               'die letzte eigene Aufrufstelle steht samt Codezeile unter dem '
+               'Fehler (%r)' % _block444[:6])
+        pruefe(not any('tkinter/' in z for z in _block444),
+               'die tkinter-Stellen fallen weg (%r)'
+               % [z for z in _block444 if 'tkinter/' in z])
+        pruefe(_heim444 not in _text444 and _heim444.replace('\\', '/')
+               not in _text444
+               and (len(_name444) < 3
+                    or _name444.lower() not in '\n'.join(_block444).lower()),
+               'kein Heimatpfad und kein Benutzername bei den Aufrufstellen')
+        _spurzeilen444 = [z for z in _block444
+                          if z.startswith(_t444('b_fehler_spur') % '')]
+        pruefe(1 <= len(_spurzeilen444) <= _rep444.TRACE_SHOWN,
+               'höchstens %d Aufrufstellen je Fehler (%d)'
+               % (_rep444.TRACE_SHOWN, len(_spurzeilen444)))
+
+        _er444.VERSION[0] = '0.0.1-alt'
+        try:
+            _raum444['tief444'](12)
+        except KeyError as exc:
+            _er444.record('probe444.alt', exc)
+        _spur_alt444 = ((_er444.latest(1) or [{}])[0]).get('spur') or ''
+        pruefe(_spur_alt444.count('in tief444') >= 3,
+               'Falle: der alte Fehler hat eine tiefe Spur (%d Stellen)'
+               % _spur_alt444.count('in tief444'))
+        _text_alt444 = _rep444.build(version='0.0.0-test')
+        _mehr444 = (len(_text_alt444.split('\n'))
+                    - len(_text444.split('\n')))
+        pruefe(_mehr444 <= 2,
+               'ein Fehler einer anderen Fassung kostet höchstens zwei Zeilen '
+               '(%d)' % _mehr444)
+        pruefe(_erwartet444 in _text_alt444,
+               'die Aufrufstelle des laufenden Fehlers bleibt daneben stehen')
+    finally:
+        _er444.VERSION[0] = _alt_fassung444
+        _er444.clear()
+        linecache.cache.pop(_datei444, None)
+        try:
+            _w444.destroy()
+        except Exception:
+            pass
 
 
 def _alle_eingaben(w):

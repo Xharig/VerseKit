@@ -19,6 +19,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Zusatzangaben wie der Aufnahmeort und der Dateiname gehen nicht mit.
   Angehängt wird nie etwas von selbst. Vorschlag von Parsul (KRT)
 
+### Verbessert
+
+- **Fehlerbericht zeigt, wo ein Fehler geschah** — unter den Fehlern der
+  laufenden Fassung stehen jetzt die letzten Stellen im Programm, an denen er
+  auftrat, mit Pfaden ohne deinen Namen. Fehler aus älteren Fassungen bekommen
+  nur eine Zeile. Gemeldet von Parsul (KRT)
+
 ## v4.2.3 - 2026-10-14
 
 > Noch eine kleine Fehlerbehebung: Wer das Hauptfenster schließt, bekommt

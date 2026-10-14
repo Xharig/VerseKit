@@ -2819,7 +2819,13 @@ TEXTS = {
                               '**Error entries after closing the main window** — '
                               'background work still reached into the window '
                               'that was already being taken down.'),
-    's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
+    's_dk_parsul_bugs7':     ('**Der Fehlerbericht ließ weg, wo ein Fehler '
+                              'geschah** — seine nachgeschickte Fehlerdatei zeigte '
+                              'es. Jetzt stehen die Aufrufstellen mit im Bericht.',
+                              '**The bug report left out where an error '
+                              'happened** — the error file he sent along showed '
+                              'it. The call sites are now part of the report.'),
+    's_dk_choopa_idee':     ('Entwickler des **SC Launch Configurator** — er hat '
                               'seine Übersetzungen für dieses Werkzeug '
                               'freigegeben. Dazu drei Anstöße an einem '
                               'Nachmittag: **„Nicht anfassen"** im '
@@ -3410,6 +3416,7 @@ TEXTS = {
                           'Recent errors (%s of %s kept)'),
     'b_fehler_mehrfach': ('  (%d× dasselbe, bis %s)',
                           '  (%d× the same, until %s)'),
+    'b_fehler_spur':   ('      bei %s', '      at %s'),
     'b_fehler_keine':  ('Letzte Fehler        keine aufgezeichnet',
                           'Recent errors       none recorded'),
     'b_fuss':          ('Pfade gekürzt (<heim>, <benutzer>) · keine Namen, keine Zugangsdaten',

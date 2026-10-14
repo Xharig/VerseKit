@@ -19,6 +19,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   location a photo was taken and the file name do not go along. Nothing is
   ever attached on its own. Suggested by Parsul (KRT)
 
+### Improved
+
+- **Bug report shows where an error happened** — errors from the
+  running version now list the last places in the program where it occurred,
+  with paths that leave out your name. Errors from older versions get just
+  one line. Reported by Parsul (KRT)
+
 ## v4.2.3 - 2026-10-14
 
 > One more small fix: closing the main window no longer leaves needless
