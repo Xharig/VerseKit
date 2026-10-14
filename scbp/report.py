@@ -1015,7 +1015,8 @@ def submit(text, version='', attachments=None):
     zudem das, was man lesen und aufheben kann.
 
     `attachments`: weitere Dateien als (Name, Bytes, MIME-Typ) — etwa die
-    angelernten Scan-Bilder. ⚠ Nur mit ausdrücklicher Zustimmung übergeben.
+    angelernten Scan-Bilder oder vom Nutzer gewählte Bilder (`image_files`).
+    ⚠ Nur mit ausdrücklicher Zustimmung übergeben.
     """
     from . import report_target
     target = report_target.target()
@@ -1029,6 +1030,10 @@ def submit(text, version='', attachments=None):
     head = ('**Fehlerbericht** · %s' % (version or '?'))[:1900]
 
     torso = multipart(limit, head, name, text, attachments)
+    # Die Weiterleitung lehnt größere Anfragen ab — geprüft wird vor dem
+    # Hochladen.
+    if len(torso) > SEND_LIMIT:
+        return False, t('m_bericht_zugross')
 
     try:
         request = urllib.request.Request(
@@ -1046,6 +1051,8 @@ def submit(text, version='', attachments=None):
         # kurz warten muss — nicht, dass keine Verbindung besteht.
         if getattr(exception, 'code', None) == 429:
             return False, t('m_bericht_zuviel')
+        if getattr(exception, 'code', None) == 413:
+            return False, t('m_bericht_zugross')
         # ⚠ Den Grund sonst NICHT durchreichen: In der Fehlermeldung einer
         # fehlgeschlagenen Anfrage kann die Adresse stehen.
         return False, t('m_bericht_weg')
@@ -1066,6 +1073,144 @@ def multipart(limit, head, name, text, attachments=None):
                      + data + b'\r\n')
     parts.append(('--%s--\r\n' % limit).encode('utf-8'))
     return b''.join(parts)
+
+
+# Gleiche Grenzen wie in der Weiterleitung (`tools/bericht-worker/worker.js`).
+SEND_LIMIT = 8 * 1024 * 1024
+IMAGE_LIMIT = 4
+IMAGE_BUDGET = 7 * 1024 * 1024
+IMAGE_PATTERNS = (('PNG / JPG', '*.png *.jpg *.jpeg'),)
+
+PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
+JPEG_START = b'\xff\xd8\xff'
+# Textfelder, Exif und Zeitstempel — für die Anzeige des Bildes nicht nötig.
+PNG_METADATA = frozenset((b'tEXt', b'zTXt', b'iTXt', b'eXIf', b'tIME'))
+# APP0 (JFIF), APP2 (ICC-Farbprofil) und APP14 (Adobe-Farbumwandlung) braucht
+# der Decoder; die übrigen APPn (Exif, XMP, IPTC …) und Kommentare nicht.
+JPEG_KEEP_APP = frozenset((0xE0, 0xE2, 0xEE))
+
+
+def image_kind(data):
+    """'png', 'jpg' oder None — nach den ersten Bytes, nicht nach der Endung."""
+    if data.startswith(PNG_SIGNATURE):
+        return 'png'
+    if data.startswith(JPEG_START):
+        return 'jpg'
+    return None
+
+
+def _png_without_metadata(data):
+    """Die PNG ohne Text- und Exif-Blöcke; None, wenn sie kaputt ist.
+
+    Alles nach `IEND` fällt weg — dort kann beliebiges angehängt sein."""
+    out = [PNG_SIGNATURE]
+    pos = len(PNG_SIGNATURE)
+    while pos + 12 <= len(data):
+        length = int.from_bytes(data[pos:pos + 4], 'big')
+        chunk = data[pos + 4:pos + 8]
+        end = pos + 12 + length
+        if end > len(data):
+            return None
+        if chunk not in PNG_METADATA:
+            out.append(data[pos:end])
+        pos = end
+        if chunk == b'IEND':
+            return b''.join(out)
+    return None
+
+
+def _jpeg_without_metadata(data):
+    """Die JPEG ohne Exif/XMP/IPTC und Kommentare; None, wenn sie kaputt ist.
+
+    Die Bilddaten nach jedem SOS werden bis zum nächsten echten Marker
+    übernommen (`FF 00` und `FF D0`–`D7` gehören zu den Daten). Alles nach
+    `EOI` fällt weg — dort hängen manche Kameras ganze Videos an."""
+    out = [data[:2]]
+    pos = 2
+    size = len(data)
+    while pos + 2 <= size:
+        if data[pos] != 0xFF:
+            return None
+        marker = data[pos + 1]
+        if marker == 0xFF:
+            pos += 1
+            continue
+        if marker == 0xD9:
+            out.append(data[pos:pos + 2])
+            return b''.join(out)
+        if 0xD0 <= marker <= 0xD7 or marker == 0x01:
+            out.append(data[pos:pos + 2])
+            pos += 2
+            continue
+        if pos + 4 > size:
+            return None
+        length = int.from_bytes(data[pos + 2:pos + 4], 'big')
+        end = pos + 2 + length
+        if length < 2 or end > size:
+            return None
+        if marker == 0xDA:
+            scan = end
+            while True:
+                found = data.find(b'\xff', scan)
+                if found < 0 or found + 1 >= size:
+                    return None
+                follow = data[found + 1]
+                if follow == 0x00 or 0xD0 <= follow <= 0xD7:
+                    scan = found + 2
+                elif follow == 0xFF:
+                    scan = found + 1
+                else:
+                    break
+            out.append(data[pos:found])
+            pos = found
+            continue
+        drop = marker == 0xFE or (0xE0 <= marker <= 0xEF
+                                  and marker not in JPEG_KEEP_APP)
+        if not drop:
+            out.append(data[pos:end])
+        pos = end
+    return None
+
+
+def strip_metadata(data, kind):
+    """Bildinhalt unverändert, versteckte Zusatzangaben entfernt (oder None)."""
+    if kind == 'png':
+        return _png_without_metadata(data)
+    if kind == 'jpg':
+        return _jpeg_without_metadata(data)
+    return None
+
+
+def load_image(path):
+    """Ein vom Nutzer gewähltes Bild für den Bericht einlesen.
+
+    Gibt (Bytes, Art, None) oder (None, None, Textschlüssel) zurück. Geprüft
+    wird der Inhalt, nicht die Endung: Nur echte PNG und JPEG gehen durch.
+    """
+    try:
+        with open(path, 'rb') as handle:
+            data = handle.read(IMAGE_BUDGET + 1)
+    except OSError as exception:
+        errors.record('report.load_image', exception)
+        return None, None, 's_di_bild_unlesbar'
+    if len(data) > IMAGE_BUDGET:
+        return None, None, 's_di_bild_zugross'
+    kind = image_kind(data)
+    clean = strip_metadata(data, kind) if kind else None
+    if clean is None:
+        return None, None, 's_di_bild_art'
+    return clean, kind, None
+
+
+def image_files(images):
+    """Die gewählten Bilder als Anhänge (Name, Bytes, MIME-Typ).
+
+    `images`: Liste von (Bytes, Art). Die Dateinamen werden neu vergeben —
+    der ursprüngliche Name kann den Benutzernamen oder einen Pfad tragen.
+    """
+    mime = {'png': 'image/png', 'jpg': 'image/jpeg'}
+    return [('bild-%d.%s' % (number, kind), data, mime[kind])
+            for number, (data, kind) in enumerate(images[:IMAGE_LIMIT], 1)]
 
 
 def to_archive(text, root=None):

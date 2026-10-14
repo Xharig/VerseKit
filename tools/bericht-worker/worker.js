@@ -21,6 +21,14 @@ const REPORT_NAME_RE = /^bericht-\d{4}-\d{2}-\d{2}-\d{4}\.txt$/;
 const REPORT_START = 'Verse-Kit ';
 const ALLOWED_TYPES = ['text/plain', 'image/png', 'image/jpeg', 'application/zip'];
 const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+const MAX_IMAGES = 4;                // wie IMAGE_LIMIT in scbp/report.py
+// Die ersten Bytes je Dateityp — der angegebene Typ allein beweist nichts.
+const MAGIC = {
+  'image/png': [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
+  'image/jpeg': [[0xff, 0xd8, 0xff]],
+  'application/zip': [[0x50, 0x4b, 0x03, 0x04], [0x50, 0x4b, 0x05, 0x06]],
+};
+const IMAGE_ENDING = { 'image/png': 'png', 'image/jpeg': 'jpg' };
 
 function answer(status, text) {
   return new Response(text, {
@@ -31,6 +39,11 @@ function answer(status, text) {
 
 function baseType(type) {
   return (type || '').split(';')[0].trim().toLowerCase();
+}
+
+async function startsWithAny(file, signatures) {
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  return signatures.some((sig) => sig.every((byte, i) => head[i] === byte));
 }
 
 export async function check(request) {
@@ -52,13 +65,25 @@ export async function check(request) {
 
   const files = [];
   let total = 0;
+  let images = 0;
   for (let i = 0; i < MAX_FILES + 1; i++) {
     const f = form.get(`files[${i}]`);
     if (f === null) break;
     if (i >= MAX_FILES || typeof f === 'string') throw { status: 400, text: 'Dateien' };
-    if (!ALLOWED_TYPES.includes(baseType(f.type))) throw { status: 415, text: 'Dateityp' };
+    const type = baseType(f.type);
+    if (!ALLOWED_TYPES.includes(type)) throw { status: 415, text: 'Dateityp' };
     total += f.size;
     if (total > MAX_BYTES) throw { status: 413, text: 'zu gross' };
+    if (MAGIC[type] && !(await startsWithAny(f, MAGIC[type]))) {
+      throw { status: 415, text: 'Dateiinhalt' };
+    }
+    if (IMAGE_ENDING[type]) {
+      images += 1;
+      if (images > MAX_IMAGES) throw { status: 400, text: 'zu viele Bilder' };
+      // Der Name kommt vom Absender und landet sichtbar in Discord.
+      files.push(new File([f], `bild-${images}.${IMAGE_ENDING[type]}`, { type }));
+      continue;
+    }
     files.push(f);
   }
   // Die erste Datei ist der Bericht selbst — Name und Anfang müssen passen.

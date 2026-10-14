@@ -25438,6 +25438,7 @@ def main():
     _pruefung_440()
     _pruefung_441()
     _pruefung_442()
+    _pruefung_443()
 
     print()
     if fehler:
@@ -42097,6 +42098,53 @@ def _pruefung_441():
             shutil.rmtree(_o, ignore_errors=True)
 
 
+def _png443(extra_vorn=(), extra_hinten=(), anhang=b''):
+    """Eine echte 2×2-PNG; `extra_*` sind (Typ, Daten) vor bzw. nach IDAT.
+    Gibt (Datei, erwartete Datei ohne Zusatzblöcke) zurück."""
+    import struct
+    import zlib
+
+    def block(art, daten):
+        return (struct.pack('>I', len(daten)) + art + daten
+                + struct.pack('>I', zlib.crc32(art + daten) & 0xffffffff))
+    kopf = block(b'IHDR', struct.pack('>IIBBBBB', 2, 2, 8, 2, 0, 0, 0))
+    pixel = block(b'IDAT', zlib.compress(b'\x00\xff\x00\x00\x00\xff\x00'
+                                         b'\x00\x00\x00\xff\x00\x00\xff\xff'))
+    ende = block(b'IEND', b'')
+    sig = b'\x89PNG\r\n\x1a\n'
+    datei = (sig + kopf + b''.join(block(a, d) for a, d in extra_vorn) + pixel
+             + b''.join(block(a, d) for a, d in extra_hinten) + ende + anhang)
+    return datei, sig + kopf + pixel + ende
+
+
+def _jpeg443():
+    """Eine JPEG mit allem, was entfernt werden muss, und allem, was bleibt.
+    Gibt (Datei, erwartete Datei) zurück. Dekodiert wird hier nicht, geprüft
+    wird der Aufbau: Segmente und Bilddaten bytegenau."""
+    import struct
+
+    def seg(marke, daten):
+        return b'\xff' + bytes([marke]) + struct.pack('>H', len(daten) + 2) + daten
+    soi = b'\xff\xd8'
+    app0 = seg(0xE0, b'JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00')
+    exif = seg(0xE1, b'Exif\x00\x00GEHEIM-EXIF-GPS')
+    kommentar = seg(0xFE, b'GEHEIM-KOMMENTAR')
+    icc = seg(0xE2, b'ICC_PROFILE\x00\x01\x01profil')
+    xmp = seg(0xE1, b'http://ns.adobe.com/xap/1.0/\x00GEHEIM-XMP')
+    iptc = seg(0xED, b'Photoshop 3.0\x00GEHEIM-IPTC')
+    adobe = seg(0xEE, b'Adobe\x00\x64\x00\x00\x00\x00\x01')
+    dqt = seg(0xDB, b'\x00' + bytes(range(64)))
+    # Bilddaten mit Stopfbyte, Restart-Marke und Füllbyte vor dem Marker.
+    scan1 = seg(0xDA, b'\x01\x01\x00\x00\x3f\x00') + b'\x12\x34\xff\x00\x56\xff\xd0\x78\xff'
+    dht = seg(0xC4, b'\x00' + b'\x01' * 16 + b'\x07')
+    scan2 = seg(0xDA, b'\x01\x01\x00\x01\x3f\x00') + b'\x9a\xff\x00\xbc'
+    eoi = b'\xff\xd9'
+    anhang = b'GEHEIM-ANHANG-VIDEO' * 4 + b'\xff\xd8\xff\xd9'
+    datei = (soi + app0 + exif + kommentar + icc + xmp + iptc + adobe + dqt
+             + scan1 + dht + scan2 + eoi + anhang)
+    return datei, soi + app0 + icc + adobe + dqt + scan1 + dht + scan2 + eoi
+
+
 def _pruefung_442():
     """442. Beim Schließen des Hauptfensters laufen keine Rückrufe mehr in
     schon abgebaute Teile.
@@ -42177,6 +42225,301 @@ def _pruefung_442():
         else:
             os.environ['SC_BP_HOME'] = _alt442
         shutil.rmtree(_heim442, ignore_errors=True)
+
+
+def _pruefung_443():
+    """443. Bilder im Fehlerbericht: nur echte PNG/JPEG, ohne versteckte
+    Zusatzangaben, nur vom Nutzer gewählt, nur über „Absenden".
+
+    Gesendet wird gegen eine untergeschobene `urlopen`, die zuerst selbst
+    zuschnappen muss; der gesendete Körper wird zerlegt und geprüft."""
+    print('\n443. Bilder im Fehlerbericht')
+    import tkinter as tk
+    import urllib.error as _ue443
+    import urllib.request as _ur443
+    from scbp import report as _rep443, paths as _pa443, pages as _pg443
+    from scbp import file_picker as _fp443, language
+    _ordner443 = tempfile.mkdtemp(prefix='bilder443-')
+
+    def ablegen(name, daten):
+        pfad = os.path.join(_ordner443, name)
+        with open(pfad, 'wb') as f:
+            f.write(daten)
+        return pfad
+
+    _gesendet443 = []
+    _echt_open443 = _ur443.urlopen
+    _echt_wahl443 = _fp443.open_file
+    _echt_ziel443 = os.environ.get('SC_BP_BERICHT_ZIEL')
+    _echt_zust443 = _pa443.setting(_pg443.BERICHT_ZUSTIMMUNG)
+
+    class _Antwort443(object):
+        status = 204
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    def _netz443(anfrage, *_a, **_k):
+        _gesendet443.append(anfrage.data)
+        return _Antwort443()
+
+    def teile(koerper):
+        """{Feldname: (Dateiname, Content-Type, Daten)} aus dem Körper."""
+        grenze = koerper.split(b'\r\n', 1)[0]
+        raus = {}
+        for stueck in koerper.split(grenze)[1:-1]:
+            kopf, _, daten = stueck[2:].partition(b'\r\n\r\n')
+            feld = re.search(rb'name="([^"]+)"', kopf).group(1).decode()
+            datei = re.search(rb'filename="([^"]+)"', kopf)
+            art = re.search(rb'Content-Type: ([^\r\n]+)', kopf)
+            raus[feld] = (datei.group(1).decode() if datei else None,
+                          art.group(1).decode() if art else None,
+                          daten[:-2])
+        return raus
+
+    try:
+        # --- Bereinigung: was bleibt, was geht -------------------------
+        _png443d, _png443e = _png443(
+            extra_vorn=[(b'tEXt', b'Author\x00GEHEIM-AUTOR'),
+                        (b'iTXt', b'XML:com.adobe.xmp\x00\x00\x00\x00\x00GEHEIM-XMP'),
+                        (b'eXIf', b'MM\x00*GEHEIM-EXIF')],
+            extra_hinten=[(b'tIME', b'\x07\xea\x0a\x0e\x16\x1e\x00'),
+                          (b'zTXt', b'Comment\x00\x00x\x9cGEHEIM')],
+            anhang=b'GEHEIM-HINTER-IEND')
+        _d, _k, _p = _rep443.load_image(ablegen('a.png', _png443d))
+        pruefe(_p is None and _k == 'png' and _d == _png443e,
+               'PNG: Text-, Exif- und Zeitblöcke und alles nach IEND entfernt, '
+               'Bildblöcke bytegleich (%r, %s)' % (_p, _k))
+        _jpg443d, _jpg443e = _jpeg443()
+        _d, _k, _p = _rep443.load_image(ablegen('b.jpg', _jpg443d))
+        pruefe(_p is None and _k == 'jpg' and _d == _jpg443e,
+               'JPEG: Exif, XMP, IPTC, Kommentar und alles nach EOI entfernt; '
+               'JFIF, Farbprofil, Adobe-Block und Bilddaten bytegleich')
+        pruefe(b'GEHEIM' in _png443d and b'GEHEIM' in _jpg443d,
+               'Vorbedingung: die Testbilder tragen die Zusatzangaben')
+
+        # --- Inhalt zählt, nicht die Endung ------------------------------
+        _d, _k, _p = _rep443.load_image(ablegen('eigentlich-jpeg.png', _jpg443d))
+        pruefe(_k == 'jpg', 'eine JPEG mit Endung .png wird als JPEG erkannt')
+        _d, _k, _p = _rep443.load_image(ablegen('programm.png', b'MZ\x90\x00' * 64))
+        pruefe(_d is None and _p == 's_di_bild_art',
+               'ein Programm mit Endung .png wird abgelehnt (%r)' % _p)
+        _d, _k, _p = _rep443.load_image(ablegen('kaputt.png', _png443e[:-12]))
+        pruefe(_d is None and _p == 's_di_bild_art',
+               'eine abgeschnittene PNG wird abgelehnt (%r)' % _p)
+        _d, _k, _p = _rep443.load_image(ablegen('kaputt.jpg', _jpg443e[:40]))
+        pruefe(_d is None and _p == 's_di_bild_art',
+               'eine abgeschnittene JPEG wird abgelehnt (%r)' % _p)
+        _d, _k, _p = _rep443.load_image(os.path.join(_ordner443, 'fehlt.png'))
+        pruefe(_d is None and _p == 's_di_bild_unlesbar',
+               'eine fehlende Datei meldet „nicht lesbar" (%r)' % _p)
+        _d, _k, _p = _rep443.load_image(ablegen(
+            'riesig.png', _png443e + b'\x00' * _rep443.IMAGE_BUDGET))
+        pruefe(_d is None and _p == 's_di_bild_zugross',
+               'ein zu großes Bild wird abgelehnt (%r)' % _p)
+
+        # --- Namen werden neu vergeben, Anzahl begrenzt ------------------
+        _anh443 = _rep443.image_files([(_png443e, 'png'), (_jpg443e, 'jpg')]
+                                      * _rep443.IMAGE_LIMIT)
+        pruefe([a[0] for a in _anh443[:2]] == ['bild-1.png', 'bild-2.jpg']
+               and [a[2] for a in _anh443[:2]] == ['image/png', 'image/jpeg']
+               and len(_anh443) == _rep443.IMAGE_LIMIT,
+               'Anhänge heißen bild-N, tragen den richtigen Typ, höchstens %d'
+               % _rep443.IMAGE_LIMIT)
+
+        # --- Grenzen stimmen mit der Weiterleitung überein ----------------
+        _wjs443 = open(os.path.join(WURZEL, 'tools', 'bericht-worker',
+                                    'worker.js'), encoding='utf-8').read()
+        _mb443 = re.search(r'MAX_BYTES = (\d+) \* 1024 \* 1024', _wjs443)
+        _mi443 = re.search(r'MAX_IMAGES = (\d+)', _wjs443)
+        pruefe(_mb443 and int(_mb443.group(1)) * 1024 * 1024 == _rep443.SEND_LIMIT
+               and _mi443 and int(_mi443.group(1)) == _rep443.IMAGE_LIMIT,
+               'Programm und Weiterleitung haben dieselben Grenzen')
+
+        # --- Senden: Falle zuerst ----------------------------------------
+        _ur443.urlopen = _netz443
+        os.environ['SC_BP_BERICHT_ZIEL'] = 'https://example.invalid/bericht'
+        _ok, _grund = _rep443.submit('Verse-Kit Probe', '0.0.0-test')
+        pruefe(_ok and len(_gesendet443) == 1,
+               'Falle: ein Bericht ohne Bild kommt in der Falle an')
+        _teile443 = teile(_gesendet443[0])
+        pruefe(set(_teile443) == {'content', 'files[0]'},
+               'ohne Bild geht nur der Bericht hinaus (%s)' % sorted(_teile443))
+        del _gesendet443[:]
+
+        _ok, _grund = _rep443.submit('Verse-Kit Probe', '0.0.0-test',
+                                     _rep443.image_files([(_png443e, 'png')]))
+        _teile443 = teile(_gesendet443[0]) if _gesendet443 else {}
+        pruefe(_ok and _teile443.get('files[1]') == ('bild-1.png', 'image/png',
+                                                     _png443e)
+               and (_teile443.get('files[0]') or ('',))[0].startswith('bericht-'),
+               'mit Bild: Bericht als files[0], Bild bytegleich als files[1]')
+        del _gesendet443[:]
+
+        _gross443 = [(b'\xff\xd8\xff' + b'\x00' * (3 * 1024 * 1024), 'jpg')] * 3
+        _ok, _grund = _rep443.submit('Verse-Kit Probe', '0.0.0-test',
+                                     _rep443.image_files(_gross443))
+        pruefe(not _ok and not _gesendet443
+               and _grund == _rep443.t('m_bericht_zugross'),
+               'zu große Anfrage: nichts gesendet, Meldung „zu groß" (%r)' % _grund)
+
+        def _netz413(*_a, **_k):
+            _gesendet443.append(b'413')
+            raise _ue443.HTTPError('https://example.invalid', 413, 'gross', {}, None)
+        _ur443.urlopen = _netz413
+        _ok, _grund = _rep443.submit('Verse-Kit Probe', '0.0.0-test')
+        pruefe(_gesendet443 == [b'413'] and _grund == _rep443.t('m_bericht_zugross'),
+               'lehnt die Weiterleitung als zu groß ab, sagt der Knopf das (%r)'
+               % _grund)
+        del _gesendet443[:]
+        _ur443.urlopen = _netz443
+
+        # --- Die echte Seite ---------------------------------------------
+        _pa443.set_setting(_pg443.BERICHT_ZUSTIMMUNG, True)
+        _wahl443 = []
+        _pfad443 = [ablegen('Bildschirmfoto Max Mustermann.png', _png443d)]
+
+        def _waehlen443(titel, muster=(), start=None):
+            _wahl443.append(muster)
+            return _pfad443[0]
+        _fp443.open_file = _waehlen443
+
+        _w443 = _wurzel()
+        try:
+            _w443.deiconify()
+            _w443.geometry('1200x900')
+            from scbp import main_window as _hf443
+            _f443 = _hf443.MainWindow(_w443, version='0.0.0-pruefung')
+            _f443.open_page('diagnose')
+            # Erst gezeichnet nimmt eine Leinwand erzeugte Klicks an.
+            _w443.update()
+
+            def alle():
+                raus = []
+
+                def lauf(w):
+                    for k in w.winfo_children():
+                        raus.append(k)
+                        lauf(k)
+                lauf(_f443.pages['diagnose'])
+                return raus
+
+            def knopf(text):
+                for w in alle():
+                    if isinstance(w, tk.Canvas):
+                        for i in w.find_all():
+                            try:
+                                if w.itemcget(i, 'text') == text:
+                                    return w
+                            except tk.TclError:
+                                pass
+                return None
+
+            def namen():
+                return [w.cget('text') for w in alle()
+                        if isinstance(w, tk.Label)
+                        and w.cget('text').startswith('Bildschirmfoto')]
+
+            def absenden_und_warten():
+                _knopf_ab = knopf(language.t('s_di_absenden'))
+                _knopf_ab.event_generate('<Button-1>')
+                for _ in range(200):
+                    _w443.update()
+                    if _gesendet443 and not namen():
+                        break
+                    _zeit.sleep(0.02)
+
+            _bildknopf443 = knopf(language.t('s_di_bild_waehlen'))
+            pruefe(_bildknopf443 is not None, 'der Knopf „Bild anhängen" ist da')
+            pruefe(not namen() and not _wahl443,
+                   'beim Öffnen ist nichts angehängt und keine Auswahl offen')
+
+            _bildknopf443.event_generate('<Button-1>')
+            _w443.update_idletasks()
+            pruefe(namen() == ['Bildschirmfoto Max Mustermann.png']
+                   and _wahl443 and '*.png' in _wahl443[0][0][1]
+                   and '*.jpg' in _wahl443[0][0][1],
+                   'gewählt über die Dateiauswahl mit PNG/JPG-Filter, Name '
+                   'steht in der Liste (%r)' % namen())
+
+            absenden_und_warten()
+            # Gesucht wird nach Namen: Liegen Scan-Bilder vor, steht ihre
+            # ZIP vor den Bildern.
+            _teile443 = teile(_gesendet443[0]) if _gesendet443 else {}
+            _bilder443 = [v for v in _teile443.values()
+                          if (v[0] or '').startswith('bild-')]
+            _bild443 = _bilder443[0] if _bilder443 else (None, None, b'')
+            pruefe(len(_bilder443) == 1 and _bild443[0] == 'bild-1.png'
+                   and _bild443[2] == _png443e,
+                   'Absenden schickt das Bild bereinigt und unter neuem Namen '
+                   '(%r)' % (_bild443[0],))
+            pruefe(_gesendet443
+                   and not any(b'Mustermann' in g or b'GEHEIM' in g
+                               for g in _gesendet443),
+                   'weder der Dateiname noch die Zusatzangaben gehen hinaus')
+            pruefe(not namen(), 'nach dem Senden ist die Bildliste leer')
+            del _gesendet443[:]
+
+            # Entfernen nimmt das Bild wirklich aus dem nächsten Bericht.
+            _bildknopf443.event_generate('<Button-1>')
+            _w443.update_idletasks()
+            _zeile443 = [w for w in alle() if isinstance(w, tk.Label)
+                         and w.cget('text') == 'Bildschirmfoto Max Mustermann.png']
+            _kreuz443 = [w for w in (_zeile443[0].master.winfo_children()
+                                     if _zeile443 else [])
+                         if isinstance(w, tk.Label) and w.cget('cursor') == 'hand2']
+            pruefe(len(_kreuz443) == 1, 'jede Bildzeile hat ein Entfernen-Kreuz')
+            if _kreuz443:
+                _kreuz443[0].event_generate('<Button-1>')
+                _w443.update_idletasks()
+            pruefe(not namen(), 'das Kreuz entfernt das Bild aus der Liste')
+            absenden_und_warten()
+            _teile443 = teile(_gesendet443[0]) if _gesendet443 else {}
+            pruefe(_gesendet443 and not any((v[0] or '').startswith('bild-')
+                                            for v in _teile443.values()),
+                   'ein entferntes Bild geht nicht mit (%s)' % sorted(_teile443))
+            del _gesendet443[:]
+
+            # Mehr als die Grenze lässt sich nicht anhängen.
+            for _ in range(_rep443.IMAGE_LIMIT + 2):
+                _bildknopf443.event_generate('<Button-1>')
+            _w443.update_idletasks()
+            pruefe(len(namen()) == _rep443.IMAGE_LIMIT,
+                   'höchstens %d Bilder in der Liste (%d)'
+                   % (_rep443.IMAGE_LIMIT, len(namen())))
+            # Ein falsches Bild landet nicht in der Liste.
+            for _ in range(_rep443.IMAGE_LIMIT):
+                _zeile = [w for w in alle() if isinstance(w, tk.Label)
+                          and w.cget('cursor') == 'hand2'
+                          and w.master.winfo_children()
+                          and any(isinstance(k, tk.Label)
+                                  and k.cget('text').startswith('Bildschirmfoto')
+                                  for k in w.master.winfo_children())]
+                if _zeile:
+                    _zeile[0].event_generate('<Button-1>')
+                    _w443.update_idletasks()
+            _pfad443[0] = ablegen('Bildschirmfoto falsch.png', b'MZ' * 40)
+            _bildknopf443.event_generate('<Button-1>')
+            _w443.update_idletasks()
+            pruefe(not namen(), 'ein Nicht-Bild landet nicht in der Liste (%r)'
+                   % namen())
+        finally:
+            try:
+                _w443.destroy()
+            except Exception:
+                pass
+    finally:
+        _ur443.urlopen = _echt_open443
+        _fp443.open_file = _echt_wahl443
+        if _echt_ziel443 is None:
+            os.environ.pop('SC_BP_BERICHT_ZIEL', None)
+        else:
+            os.environ['SC_BP_BERICHT_ZIEL'] = _echt_ziel443
+        _pa443.set_setting(_pg443.BERICHT_ZUSTIMMUNG, _echt_zust443)
+        shutil.rmtree(_ordner443, ignore_errors=True)
 
 
 def _alle_eingaben(w):

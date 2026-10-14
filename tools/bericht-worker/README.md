@@ -14,7 +14,8 @@ im Programm.
 | Größe | höchstens 8 MB, höchstens 10 Dateien |
 | Kopfzeile | genau `**Fehlerbericht** · <Version>` |
 | erste Datei | `bericht-JJJJ-MM-TT-HHMM.txt`, beginnt mit `Verse-Kit ` |
-| Anhänge | nur Text, PNG, JPEG, ZIP |
+| Anhänge | nur Text, PNG, JPEG, ZIP — PNG, JPEG und ZIP auch am Inhalt (erste Bytes) geprüft |
+| Bilder | höchstens 4; in Discord heißen sie `bild-1.png`, `bild-2.jpg` …, nie wie beim Absender |
 | Menge | 3 je Absender und Minute |
 | Erwähnungen | alle abgeschaltet (`allowed_mentions: {parse: []}`) |
 

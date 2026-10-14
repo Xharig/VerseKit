@@ -67,12 +67,61 @@ test('falscher Dateiname wird abgelehnt', async () => {
   assert.equal(calls.length, 0);
 });
 
-test('Scan-Bilder als Anhang gehen mit', async () => {
+const PNG_HEAD = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
+const JPEG_HEAD = [0xff, 0xd8, 0xff, 0xe0, 0, 16];
+const png = (name = 'scan-1.png') => ({ name, blob: new Blob([new Uint8Array(PNG_HEAD)], { type: 'image/png' }) });
+const jpeg = (name = 'foto.jpg') => ({ name, blob: new Blob([new Uint8Array(JPEG_HEAD)], { type: 'image/jpeg' }) });
+
+test('Bilder als Anhang gehen mit', async () => {
   const calls = trap();
-  const png = { name: 'scan-1.png', blob: new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' }) };
-  const r = await worker.fetch(report({ extra: [png] }), env());
+  const r = await worker.fetch(report({ extra: [png(), jpeg()] }), env());
   assert.equal(r.status, 204);
   assert.ok(calls[0].init.body.get('files[1]'));
+  assert.ok(calls[0].init.body.get('files[2]'));
+});
+
+test('Bildnamen vergibt der Worker, nicht der Absender', async () => {
+  const calls = trap();
+  await worker.fetch(report({ extra: [png('@everyone C_Users_Name.png'), jpeg('x.exe')] }), env());
+  assert.equal(calls[0].init.body.get('files[1]').name, 'bild-1.png');
+  assert.equal(calls[0].init.body.get('files[2]').name, 'bild-2.jpg');
+});
+
+test('ein als PNG ausgegebenes Programm wird abgelehnt', async () => {
+  const calls = trap();
+  const fake = { name: 'bild-1.png', blob: new Blob(['MZ\x90\x00 kein Bild'], { type: 'image/png' }) };
+  const r = await worker.fetch(report({ extra: [fake] }), env());
+  assert.equal(r.status, 415);
+  assert.equal(calls.length, 0);
+});
+
+test('ein als JPEG ausgegebener Text wird abgelehnt', async () => {
+  const calls = trap();
+  const fake = { name: 'bild-1.jpg', blob: new Blob(['hallo'], { type: 'image/jpeg' }) };
+  const r = await worker.fetch(report({ extra: [fake] }), env());
+  assert.equal(r.status, 415);
+  assert.equal(calls.length, 0);
+});
+
+test('mehr als vier Bilder werden abgelehnt', async () => {
+  const calls = trap();
+  const four = await worker.fetch(report({ extra: [png(), png(), jpeg(), jpeg()] }), env());
+  assert.equal(four.status, 204);
+  const five = await worker.fetch(report({ extra: [png(), png(), jpeg(), jpeg(), png()] }), env());
+  assert.equal(five.status, 400);
+  assert.equal(calls.length, 1);
+});
+
+test('Scan-ZIP älterer Fassungen geht weiter mit, falsche ZIP nicht', async () => {
+  const calls = trap();
+  const zip = { name: 'scan-bilder.zip', blob: new Blob([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 20, 0])], { type: 'application/zip' }) };
+  const ok = await worker.fetch(report({ extra: [zip] }), env());
+  assert.equal(ok.status, 204);
+  assert.equal(calls[0].init.body.get('files[1]').name, 'scan-bilder.zip');
+  const bad = { name: 'scan-bilder.zip', blob: new Blob(['MZ'], { type: 'application/zip' }) };
+  const no = await worker.fetch(report({ extra: [bad] }), env());
+  assert.equal(no.status, 415);
+  assert.equal(calls.length, 1);
 });
 
 test('ausführbare Anhänge werden abgelehnt', async () => {

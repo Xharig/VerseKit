@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+> A picture often says more than a sentence: you can now add screenshots to
+> the bug report, and "Send" delivers them straight to the developer.
+
+### New
+
+- **Images in the bug report** — on the *Report a problem* page you can
+  attach up to four images (PNG or JPG) and remove each one again. They only
+  go out with "Send", exactly as they are; hidden extra data such as the
+  location a photo was taken and the file name do not go along. Nothing is
+  ever attached on its own. Suggested by Parsul (KRT)
+
 ## v4.2.3 - 2026-10-14
 
 > One more small fix: closing the main window no longer leaves needless

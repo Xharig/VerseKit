@@ -2357,6 +2357,34 @@ TEXTS = {
     'm_bericht_weg':   ('keine Verbindung', 'no connection'),
     'm_bericht_zuviel': ('zu viele Berichte in kurzer Zeit — bitte in einer Minute noch einmal',
                           'too many reports in a short time — please try again in a minute'),
+    'm_bericht_zugross': ('zu groß — bitte weniger oder kleinere Bilder anhängen',
+                           'too large — please attach fewer or smaller images'),
+    's_bilder':        ('Bilder anhängen (freiwillig)', 'Attach images (optional)'),
+    's_bilder_h':      ('Ein Bildschirmfoto zeigt oft mehr als ein Satz. Bis zu %d Bilder '
+                        '(PNG oder JPG), zusammen höchstens %d MB, nur über „Absenden". '
+                        '**Die Bilder gehen so hinaus, wie sie sind** — anders als im '
+                        'Bericht werden Namen darauf nicht entfernt. Was niemand sehen '
+                        'soll (Chat, Spielername, Desktop), vorher abdecken oder '
+                        'wegschneiden. Versteckte Zusatzangaben wie der Aufnahmeort '
+                        'werden entfernt.',
+                        'A screenshot often shows more than a sentence. Up to %d images '
+                        '(PNG or JPG), %d MB in total, only via "Send". '
+                        '**The images go out exactly as they are** — unlike the report, '
+                        'names on them are not removed. Cover or crop anything nobody '
+                        'should see (chat, player name, desktop) first. Hidden extra '
+                        'data such as the location a photo was taken is removed.'),
+    's_di_bild_waehlen': ('Bild anhängen', 'Attach image'),
+    's_di_bild_titel': ('Bild für den Fehlerbericht wählen', 'Choose an image for the bug report'),
+    's_di_bild_unlesbar': ('Das Bild ließ sich nicht öffnen.', 'The image could not be opened.'),
+    's_di_bild_art':   ('Nur PNG- und JPG-Bilder lassen sich anhängen.',
+                        'Only PNG and JPG images can be attached.'),
+    's_di_bild_zugross': ('Zu groß — alle Bilder zusammen höchstens %d MB. Als JPG speichern '
+                          'oder einen Ausschnitt wählen.',
+                          'Too large — %d MB for all images together. Save it as JPG or '
+                          'choose a smaller area.'),
+    's_di_bild_voll':  ('Mehr als %d Bilder gehen nicht mit.', 'No more than %d images can be attached.'),
+    's_di_bild_dabei': ('Bild angehängt: %s', 'Image attached: %s'),
+    's_di_bild_weg':   ('Bild entfernt: %s', 'Image removed: %s'),
     's_di_kopieren':   ('Angaben kopieren', 'Copy details'),
     # ⚠ Nennt beide Wege, weil der eine ein GitHub-Konto voraussetzt und der
     # andere nicht. Der Discord-Knopf sitzt unten in der Seitenleiste.
@@ -2376,8 +2404,8 @@ TEXTS = {
     's_di_kopiert':    ('Angaben kopiert', 'Details copied'),
     's_di_sicher':     ('Du siehst vorher genau, was du verschickst.',
                           'You see exactly what you send before you send it.'),
-    's_di_sicher_h':   ('Der Block oben ist der ganze Inhalt — nichts wird im Hintergrund übertragen, und Pfade sind gekürzt, damit kein Benutzername in einem öffentlichen Issue landet.',
-                          'The block above is the entire content — nothing is transmitted in the background, and paths are shortened so no user name ends up in a public issue.'),
+    's_di_sicher_h':   ('Der Block oben ist der ganze Text — dazu kommen nur Bilder, die du selbst anhängst. Nichts wird im Hintergrund übertragen, und Pfade sind gekürzt, damit kein Benutzername in einem öffentlichen Issue landet.',
+                          'The block above is the entire text — the only additions are images you attach yourself. Nothing is transmitted in the background, and paths are shortened so no user name ends up in a public issue.'),
     's_di_mit':        ('Fehler mitschreiben', 'Record errors'),
     's_di_mit_h':      ('Hält die letzten 50 unerwarteten Fehler mit Zeitpunkt und Stelle fest. Kostet nichts und ist der Unterschied zwischen „geht nicht" und einer Behebung.',
                           'Keeps the last 50 unexpected errors with time and place. Costs nothing and is the difference between "it does not work" and a fix.'),
@@ -2740,6 +2768,12 @@ TEXTS = {
                               'credentials on Linux. Plus the stock sync: '
                               'materials and items land in the right store, '
                               'materials with their quality.'),
+    's_dk_parsul_idee':      ('**Bilder im Fehlerbericht** — ein Bildschirmfoto geht '
+                              'jetzt direkt mit dem Bericht hinaus, statt es '
+                              'getrennt nachzureichen.',
+                              '**Images in the bug report** — a screenshot now goes '
+                              'out right along with the report instead of being '
+                              'sent separately.'),
     's_dk_parsul_bugs':      ('**Der Einrichtungsassistent trug bei einer frischen '
                               'Installation keine Bauplan-Angaben ein** — „Katalog '
                               'kennt keine Missionen", weil der Katalog erst nach '

@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+> Ein Bild sagt oft mehr als ein Satz: Dem Fehlerbericht lassen sich jetzt
+> Bildschirmfotos beifügen, die mit „Absenden“ direkt beim Entwickler landen.
+
+### Neu
+
+- **Bilder im Fehlerbericht** — auf der Seite *Fehler melden* hängst du bis
+  zu vier Bilder (PNG oder JPG) an, jedes lässt sich wieder entfernen. Sie
+  gehen nur mit „Absenden“ hinaus und so, wie sie sind; versteckte
+  Zusatzangaben wie der Aufnahmeort und der Dateiname gehen nicht mit.
+  Angehängt wird nie etwas von selbst. Vorschlag von Parsul (KRT)
+
 ## v4.2.3 - 2026-10-14
 
 > Noch eine kleine Fehlerbehebung: Wer das Hauptfenster schließt, bekommt

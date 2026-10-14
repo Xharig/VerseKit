@@ -7279,7 +7279,7 @@ def _thanks(fenster, rahmen):
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
              + t('s_dk_greluc_idee2'), t('s_dk_greluc_bugs')),
-            ('Parsul', 'KRT', '', t('s_dk_parsul_bugs') + '\n\n'
+            ('Parsul', 'KRT', t('s_dk_parsul_idee'), t('s_dk_parsul_bugs') + '\n\n'
              + t('s_dk_parsul_bugs2') + '\n\n' + t('s_dk_parsul_bugs3')
              + '\n\n' + t('s_dk_parsul_bugs4') + '\n\n'
              + t('s_dk_parsul_bugs5') + '\n\n' + t('s_dk_parsul_bugs6')),
@@ -7776,6 +7776,68 @@ def _diagnostics(fenster, rahmen):
         except Exception:
             return ''
 
+    # Bilder kommen nur über die Dateiauswahl hinein, nie von selbst, und
+    # gehen nur über „Absenden" hinaus. Gespeichert wird nichts.
+    bilder = []          # [(angezeigter Name, Bytes, Art)]
+    ziel_bilder = _setting_row(
+        fenster, innen, t('s_bilder'),
+        t('s_bilder_h') % (report.IMAGE_LIMIT,
+                           report.IMAGE_BUDGET // (1024 * 1024)),
+        wide=True)
+    bilder_liste = tk.Frame(ziel_bilder, bg=BG)
+
+    def bilder_zeichnen():
+        for kind in bilder_liste.winfo_children():
+            kind.destroy()
+        _stripe_reset(bilder_liste)
+        for index, (shown_name, _data, _kind) in enumerate(bilder):
+            grund = _stripe(bilder_liste)
+            zeile_bild = tk.Frame(bilder_liste, bg=grund)
+            zeile_bild.pack(fill='x', ipady=3)
+            entfernen = icons.line(zeile_bild, 'schliessen', background=grund,
+                                   font=fenster.f_small)
+            entfernen.configure(cursor='hand2', padx=6)
+            entfernen.pack(side='right')
+            entfernen.bind('<Button-1>',
+                           lambda _e, i=index: bild_entfernen(i))
+            tk.Label(zeile_bild, text=shown_name, bg=grund, fg=FG,
+                     font=fenster.f_small, anchor='w'
+                     ).pack(side='left', fill='x', expand=True, padx=(6, 0))
+
+    def bild_entfernen(index):
+        if 0 <= index < len(bilder):
+            shown_name = bilder.pop(index)[0]
+            bilder_zeichnen()
+            fenster.say(t('s_di_bild_weg') % shown_name)
+
+    def bild_waehlen():
+        if len(bilder) >= report.IMAGE_LIMIT:
+            fenster.say(t('s_di_bild_voll') % report.IMAGE_LIMIT)
+            return
+        from . import file_picker
+        path = file_picker.open_file(t('s_di_bild_titel'),
+                                     report.IMAGE_PATTERNS)
+        if not path:
+            return
+        data, kind, problem = report.load_image(path)
+        if problem == 's_di_bild_zugross' or (
+                data is not None and len(data) + sum(len(b[1]) for b in bilder)
+                > report.IMAGE_BUDGET):
+            fenster.say(t('s_di_bild_zugross')
+                        % (report.IMAGE_BUDGET // (1024 * 1024)))
+            return
+        if problem:
+            fenster.say(t(problem))
+            return
+        shown_name = os.path.basename(path)
+        bilder.append((shown_name, data, kind))
+        bilder_zeichnen()
+        fenster.say(t('s_di_bild_dabei') % shown_name)
+
+    _button(fenster, ziel_bilder, t('s_di_bild_waehlen'),
+            bild_waehlen).pack(anchor='w')
+    bilder_liste.pack(fill='x', pady=(6, 0))
+
     text = ''
     try:
         text = report.build(version=fenster.version, root=fenster.root)
@@ -7953,6 +8015,8 @@ def _diagnostics(fenster, rahmen):
                                      'application/zip'))
             except Exception as ausnahme:
                 errors.record('pages.diagnose_scanbilder', ausnahme)
+        anhaenge += report.image_files([(daten, art)
+                                        for _n, daten, art in bilder])
         if senden_laeuft[0]:
             return
         senden_laeuft[0] = True
@@ -7979,6 +8043,9 @@ def _diagnostics(fenster, rahmen):
                 # Moment, in dem er es noch einmal versuchen will.
                 if ok:
                     _meldung_verbraucht()
+                    if bilder:
+                        del bilder[:]
+                        bilder_zeichnen()
             _tk_calls.call(done)
         threading.Thread(target=work, daemon=True).start()
 
