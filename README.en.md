@@ -376,7 +376,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/basetool-gruen.png" width="22" alt=""> **Sync with the KRT Profit Basetool** | Blueprints, raw-material and trade storage and your hangar sync with your Basetool — both ways. You connect with a code you type in your browser; Verse-Kit never sees a password, and the credentials stay in your system's key store. Every area is off by default. Nothing is deleted silently, you decide where amounts differ, and your ships' purchase data never leaves. What is transferred is in the [privacy statement](PRIVACY.en.md) |
 | <img src="assets/symbole/22/quellen-gruen.png" width="22" alt=""> **Connect to scmdb.net** | New blueprints and running missions land straight in your scmdb account — no export, no upload and no extra program. Turn it on under *Settings → General*, then enable "Watcher" on scmdb.net. Only LIVE and HOTFIX are taken over; it is off by default |
 | <img src="assets/symbole/22/bestaetigt-gruen.png" width="22" alt=""> **All blueprints, or only the obtainable ones** | Star Citizen can craft **1609** things — **746** of those are handed out by contracts. The rest comes from kiosks, from events, or is tied to no mission at all. Out of the box only the obtainable ones count, so your progress is a number you can measure yourself against; under *Detection* you can add the rest |
-| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Report a problem in one click** | A field for one sentence, the finished report below it, a red button beside it — that is all. The report holds system, packaging, game state and the last errors, but **no names and no paths**, and you see all of it beforehand. Prefer to write it yourself? One button hands you a prepared issue |
+| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Report a problem in one click** | A field for one sentence, the finished report below it, a red button beside it — that is all. Up to four **screenshots** can go along if you like. The report holds system, packaging, game state and the last errors, but **no names and no paths**, and you see all of it beforehand. Prefer to write it yourself? One button hands you a prepared issue |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Catch-up** | Reads stored logs of earlier sessions **and the running one** on start, picking up what was unlocked while it wasn't running — finds are reported, not added silently. A **Read the logs again** button (overlay and settings) goes through everything once more on demand |
 | 🐧 **Windows and Linux** | One build for both systems, including autostart and log language detection |
 
@@ -601,7 +601,8 @@ From then on the tool also reports test versions (recognisable by the `rc` in th
 
 Found something? The quickest way is **Report a problem** (bottom right): there is a field
 "What happened?" for one sentence, the finished report below it — and the red
-**Send report** button sends it straight off. That is all you need to do. The report
+**Send error report** button sends it straight off. **Attach image** adds up to four
+screenshots. That is all you need to do. The report
 holds everything needed to track a problem down and no personal information; you see
 all of it beforehand.
 

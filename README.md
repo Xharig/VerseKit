@@ -379,7 +379,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/basetool-gruen.png" width="22" alt=""> **Abgleich mit dem KRT Profit Basetool** | Baupläne, Rohstoff- und Handelslager und Hangar gleichen sich mit deinem Basetool ab — in beide Richtungen. Verbunden wird mit einem Code, den du im Browser eintippst; ein Passwort sieht Verse-Kit nie, die Zugangsdaten liegen im Schlüsselspeicher deines Systems. Jeder Bereich ist ab Werk aus. Gelöscht wird nie still, bei verschiedenen Mengen entscheidest du, Kaufdaten deiner Schiffe gehen nie hinaus. Was übertragen wird, steht in der [Datenschutzerklärung](PRIVACY.md) |
 | <img src="assets/symbole/22/quellen-gruen.png" width="22" alt=""> **Mit scmdb.net verbinden** | Neue Baupläne und laufende Aufträge landen direkt in deinem scmdb-Konto — ohne Export, ohne Hochladen und ohne zusätzliches Programm. Einschalten unter *Einstellungen → Allgemein*, dann auf scmdb.net „Watcher" aktivieren. Übernommen wird nur aus LIVE und HOTFIX, ab Werk ist es aus |
 | <img src="assets/symbole/22/bestaetigt-gruen.png" width="22" alt=""> **Alle Baupläne oder nur die erspielbaren** | Star Citizen kann **1609** Dinge herstellen — über Aufträge zu bekommen sind davon **746**. Der Rest kommt aus Kiosken, aus Events oder hängt an gar keiner Mission. Ab Werk zählen nur die erspielbaren, damit dein Fortschritt eine Zahl ist, an der du dich messen kannst; unter *Erkennung* schaltest du die übrigen dazu |
-| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Fehler melden in einem Klick** | Ein Feld für einen Satz, darunter der fertige Bericht, daneben ein roter Knopf — mehr ist nicht zu tun. Der Bericht enthält System, Verpackung, Spielstand und die letzten Fehler, aber **keine Namen und keine Pfade**, und du siehst ihn vorher vollständig. Wer lieber selbst schreibt, bekommt mit einem Knopf ein vorbereitetes Issue |
+| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Fehler melden in einem Klick** | Ein Feld für einen Satz, darunter der fertige Bericht, daneben ein roter Knopf — mehr ist nicht zu tun. Bis zu vier **Bildschirmfotos** gehen auf Wunsch mit. Der Bericht enthält System, Verpackung, Spielstand und die letzten Fehler, aber **keine Namen und keine Pfade**, und du siehst ihn vorher vollständig. Wer lieber selbst schreibt, bekommt mit einem Knopf ein vorbereitetes Issue |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Nachlese** | Liest beim Start die aufgehobenen Logs früherer Sitzungen **und die laufende** und holt nach, was ohne laufenden Watcher freigeschaltet wurde — die Funde werden gemeldet, nicht still eingetragen. Ein Knopf **Protokolle erneut einlesen** (Overlay und Einstellungen) geht auf Wunsch noch einmal alles durch |
 | 🐧 **Windows und Linux** | Eine Version für beide Systeme, inklusive Autostart und Spracherkennung im Log |
 
@@ -645,7 +645,8 @@ dieselbe Update-Meldung wie sonst. Nichts von Hand herunterladen, nichts suchen.
 
 Etwas gefunden? Der schnellste Weg ist **Fehler melden** (unten rechts): Dort steht ein Feld
 „Was ist passiert?" für einen Satz, darunter der fertige Bericht — und der rote Knopf
-**Fehlerbericht absenden** schickt ihn direkt. Mehr musst du nicht tun. Der Bericht
+**Fehlerbericht absenden** schickt ihn direkt. Mit **Bild anhängen** gehen bis zu vier
+Bildschirmfotos mit. Mehr musst du nicht tun. Der Bericht
 enthält alles, was zur Fehlersuche gebraucht wird, und keine persönlichen Angaben;
 du siehst ihn vorher vollständig.
 

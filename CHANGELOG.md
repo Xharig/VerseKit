@@ -6,10 +6,12 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.3.0 - 2026-10-14
 
 > Ein Bild sagt oft mehr als ein Satz: Dem Fehlerbericht lassen sich jetzt
 > Bildschirmfotos beifügen, die mit „Absenden“ direkt beim Entwickler landen.
+> Und der Bericht zeigt jetzt auch, an welcher Stelle im Programm ein Fehler
+> passiert ist — damit lässt er sich meist schon beim ersten Mal finden.
 
 ### Neu
 

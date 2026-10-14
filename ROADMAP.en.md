@@ -93,6 +93,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **What to farm**: your stock weighed against everything you want to build — across all items at once, not recipe by recipe, with a quantity per part |
 | ✅ | **Changed game values**: what a game patch changed about values — ships, weapons, quantum drives, components. Increased green, decreased red. The source only keeps the last ten patches; here they stay |
 | ✅ | **Worth dismantling?**: what the fabricator returns — including the six materials that vanish for good |
+| ✅ | **Images in the bug report** — up to four screenshots go along with "Send", without hidden extra data |
 
 ## What is being worked on
 

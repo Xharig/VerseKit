@@ -6,10 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.3.0 - 2026-10-14
 
 > A picture often says more than a sentence: you can now add screenshots to
-> the bug report, and "Send" delivers them straight to the developer.
+> the bug report, and "Send" delivers them straight to the developer. The
+> report also shows where in the program an error happened — so most of them
+> can be found on the first try.
 
 ### New
 
