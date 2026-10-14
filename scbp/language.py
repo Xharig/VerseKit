@@ -2779,6 +2779,12 @@ TEXTS = {
                               'folder on every start** — Verse-Kit kept trying to '
                               'leave a pointer to the new data folder there. A '
                               'locked folder is now left alone.'),
+    's_dk_parsul_bugs6':     ('**Fehlereinträge nach dem Schließen des '
+                              'Hauptfensters** — Hintergrundarbeiten griffen noch '
+                              'in das schon abgebaute Fenster.',
+                              '**Error entries after closing the main window** — '
+                              'background work still reached into the window '
+                              'that was already being taken down.'),
     's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
                               'seine Übersetzungen für dieses Werkzeug '
                               'freigegeben. Dazu drei Anstöße an einem '

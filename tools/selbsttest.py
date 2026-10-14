@@ -25437,6 +25437,7 @@ def main():
     _pruefung_439()
     _pruefung_440()
     _pruefung_441()
+    _pruefung_442()
 
     print()
     if fehler:
@@ -42094,6 +42095,88 @@ def _pruefung_441():
                 os.environ[_k] = _v
         for _o in (_dok441, _kon441, _daten441, _alt_ort441):
             shutil.rmtree(_o, ignore_errors=True)
+
+
+def _pruefung_442():
+    """442. Beim Schließen des Hauptfensters laufen keine Rückrufe mehr in
+    schon abgebaute Teile.
+
+    Das Fenster wird in Portionen abgebaut und fällt selbst zuletzt. Eine
+    Rückruf-Kette am Fenster (wie Seiten-Vorbau oder Fußzeilen-Text) greift
+    hier alle 5 ms in Fußzeile und Inhaltsbereich."""
+    print('\n442. Wartende Rückrufe beim Schließen des Hauptfensters')
+    import tempfile as _tf442
+    import tkinter as _tk442
+    from scbp import main_window as _mw442
+    _heim442 = _tf442.mkdtemp(prefix='schliessen442-')
+    _alt442 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim442
+    _alt_portion442 = _mw442.DESTROY_CHUNK
+    _w442 = _tk442.Tk()
+    _w442.withdraw()
+    _fehler442 = []
+    _w442.report_callback_exception = (
+        lambda typ, wert, spur: _fehler442.append(wert))
+    try:
+        # Die Falle muss zuschnappen: ein Rückruf in einen abgebauten Teil.
+        _probe442 = _tk442.Toplevel(_w442)
+        _teil442 = _tk442.Label(_probe442)
+        _w442.tk.call('destroy', _teil442._w)
+        _probe442.after(0, lambda: _teil442.configure(text='x'))
+        for _ in range(5):
+            _w442.update()
+        pruefe(len(_fehler442) == 1,
+               'Falle: ein Rückruf in einen abgebauten Teil wird gemeldet (%s)'
+               % _fehler442)
+        _probe442.destroy()
+        del _fehler442[:]
+
+        # Kleine Portionen, damit der Abbau über viele Schritte läuft.
+        _mw442.DESTROY_CHUNK = 15
+        _f442 = _mw442.MainWindow(_w442, version='0.0.0-pruefung')
+        _w442.update()
+        _laeufe442 = [0]
+
+        def _takt442():
+            _laeufe442[0] += 1
+            _f442.message.configure(text='x%d' % _laeufe442[0])
+            _tk442.Frame(_f442.content)
+            _f442.root.after(5, _takt442)
+
+        _f442.root.after(5, _takt442)
+        _ende442 = time.monotonic() + 0.3
+        while time.monotonic() < _ende442:
+            _w442.update()
+            time.sleep(0.005)
+        pruefe(_laeufe442[0] > 3 and not _fehler442,
+               'Vorbedingung: die Rückruf-Kette läuft am offenen Fenster '
+               '(%d Läufe)' % _laeufe442[0])
+        _pfad442 = _f442.root._w
+        _f442.close()
+        _ende442 = time.monotonic() + 10
+        while (time.monotonic() < _ende442
+               and int(_w442.tk.call('winfo', 'exists', _pfad442))):
+            _w442.update()
+            time.sleep(0.005)
+        for _ in range(20):
+            _w442.update()
+            time.sleep(0.005)
+        pruefe(not int(_w442.tk.call('winfo', 'exists', _pfad442)),
+               'das Hauptfenster ist danach ganz abgebaut')
+        pruefe(not _fehler442,
+               'beim Abbau läuft kein Rückruf in abgebaute Teile (%s)'
+               % [str(f) for f in _fehler442[:3]])
+    finally:
+        _mw442.DESTROY_CHUNK = _alt_portion442
+        try:
+            _w442.destroy()
+        except _tk442.TclError:
+            pass
+        if _alt442 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt442
+        shutil.rmtree(_heim442, ignore_errors=True)
 
 
 def _alle_eingaben(w):

@@ -434,6 +434,12 @@ def fast_destroy(window):
 
     Nur für `Toplevel`: Die Tk-Wurzel beendet beim Abbauen das Programm und
     geht deshalb weiter den gewohnten Weg.
+
+    ⚠⚠ **Wartende Rückrufe werden vorher gestrichen.** Das Fenster selbst
+    fällt erst mit der letzten Portion, seine Teile schon vorher. Ein
+    `after`-Rückruf, der am Fenster hängt (Seiten-Vorbau, Fußzeilen-Text),
+    liefe sonst dazwischen los und griffe in einen abgebauten Teil:
+    `bad window path name` bzw. `invalid command name`.
     """
     if not isinstance(window, tk.Toplevel):
         window.destroy()
@@ -442,7 +448,41 @@ def fast_destroy(window):
         window.withdraw()
     except tk.TclError:
         pass
+    cancel_pending(window)
     destroy_in_portions([window], window.master)
+
+
+def cancel_pending(window):
+    """Alle wartenden `after`-Rückrufe streichen, die zu `window` oder einem
+    seiner Kinder gehören. Gibt die Zahl der gestrichenen zurück."""
+    names = set()
+
+    def collect(widget):
+        names.update(widget._tclCommands or ())
+        for child in list(widget.children.values()):
+            collect(child)
+
+    collect(window)
+    if not names:
+        return 0
+    try:
+        pending = window.tk.splitlist(window.tk.call('after', 'info'))
+    except tk.TclError:
+        return 0
+    cancelled = 0
+    for ident in pending:
+        try:
+            script = window.tk.splitlist(
+                window.tk.call('after', 'info', ident))[0]
+        except (tk.TclError, IndexError):
+            continue
+        if str(script) in names:
+            try:
+                window.tk.call('after', 'cancel', ident)
+                cancelled += 1
+            except tk.TclError:
+                pass
+    return cancelled
 
 
 def destroy_in_portions(widgets, clock, start_now=True):

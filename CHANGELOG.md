@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.2.3 - 2026-10-14
+
+> Noch eine kleine Fehlerbehebung: Wer das Hauptfenster schließt, bekommt
+> keine unnötigen Einträge mehr im Fehlerbericht.
+
+### Behoben
+
+- **Fehlereinträge beim Schließen des Hauptfensters** — kurz nach dem
+  Schließen griffen noch Hintergrundarbeiten (Seiten vorbereiten,
+  Fußzeilen-Text) in das Fenster und hinterließen `TclError`-Einträge im
+  Fehlerbericht. Gemeldet von Parsul (KRT)
+
 ## v4.2.2 - 2026-10-14
 
 > Eine Fehlerbehebung für alle, deren „Dokumente“ in OneDrive liegen und vom

@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.2.3 - 2026-10-14
+
+> One more small fix: closing the main window no longer leaves needless
+> entries in the bug report.
+
+### Fixed
+
+- **Error entries when closing the main window** — right after closing,
+  background work (preparing pages, the footer text) still reached into the
+  window and left `TclError` entries in the bug report. Reported by Parsul
+  (KRT)
+
 ## v4.2.2 - 2026-10-14
 
 > A fix for everyone whose "Documents" folder lives in OneDrive and is guarded

@@ -7282,7 +7282,7 @@ def _thanks(fenster, rahmen):
             ('Parsul', 'KRT', '', t('s_dk_parsul_bugs') + '\n\n'
              + t('s_dk_parsul_bugs2') + '\n\n' + t('s_dk_parsul_bugs3')
              + '\n\n' + t('s_dk_parsul_bugs4') + '\n\n'
-             + t('s_dk_parsul_bugs5')),
+             + t('s_dk_parsul_bugs5') + '\n\n' + t('s_dk_parsul_bugs6')),
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.
