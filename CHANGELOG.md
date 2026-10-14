@@ -6,6 +6,22 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.4.1 - 2026-10-15
+
+> Die Knöpfe auf der Basetool-Seite tun wieder, was draufsteht — und der
+> Reiter „Bedarf der Einheit" erscheint nur noch, wenn er eingeschaltet ist.
+
+### Behoben
+
+- **Basetool: Knöpfe ohne Wirkung** — „Auch im Basetool entfernen" bei hier
+  entfernten Bauplänen griff auf die Schiffsliste, und eine Freigabe, die
+  während eines laufenden Abgleichs kam, ging verloren. Jetzt kommt jede
+  Entscheidung an, die Fußzeile bestätigt sie, und der Abgleich läuft gleich
+  danach.
+- **„Bedarf der Einheit" trotz ausgeschaltetem Schalter** — der Reiter stand
+  in der Leiste, obwohl der Bereich aus war, und ein Klick führte nur zurück
+  zur Verbindung.
+
 ## v4.4.0 - 2026-10-15
 
 > Mehr Ordnung in der Reiterleiste: Alles zum KRT Profit Basetool steht jetzt

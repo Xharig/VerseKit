@@ -161,8 +161,35 @@ def load_state(installation_id):
     return _empty_state(installation_id)
 
 
+# Vorgemerkte Änderungen am Stand aus der Basetool-Seite, jede mehrfach
+# anwendbar. Ein laufender Durchgang hat den Stand schon geladen und schreibt
+# ihn am Ende zurück — `save_state` wendet deshalb alles Vorgemerkte vor dem
+# Schreiben noch einmal an. Geleert wird beim Laden zu Beginn des nächsten
+# Durchgangs.
+_inbox = []
+
+
 def save_state(state):
+    with _lock:
+        pending = list(_inbox)
+    for change in pending:
+        change(state)
     paths.save_json(_state_file(state['installation_id']), state)
+
+
+def _decide(change):
+    """Eine Änderung am Stand sofort speichern, für einen laufenden Durchgang
+    vormerken und einen Abgleich anfordern. Gibt False zurück, wenn es noch
+    keinen Stand gibt."""
+    state = current_state()
+    if state is None:
+        return False
+    change(state)
+    save_state(state)
+    with _lock:
+        _inbox.append(change)
+    request_now()
+    return True
 
 
 def current_state():
@@ -214,11 +241,13 @@ def store_saved():
 
 
 def request_now():
-    """Knopf „Jetzt abgleichen" — ohne Warten, aber nie parallel."""
+    """Sofort abgleichen — ohne Warten, aber nie parallel. Läuft gerade ein
+    Durchgang, folgt der nächste direkt danach."""
     with _lock:
         _schedule['next'] = 0.0
         _schedule['attempt'] = 0
         _schedule['halted'] = False
+        _schedule['again'] = True
 
 
 def due(now=None):
@@ -242,6 +271,8 @@ def tick(watcher):
         with _lock:
             _schedule['next'] = time.time() + CADENCE
         return
+    with _lock:
+        _schedule['again'] = False
     _set(running=True)
     threading.Thread(target=_run_guarded, args=(watcher,), daemon=True).start()
 
@@ -251,7 +282,10 @@ def _run_guarded(watcher):
         run(watcher)
         with _lock:
             _schedule['attempt'] = 0
-            _schedule['next'] = time.time() + CADENCE
+            # Während des Durchgangs angefordert oder vorgemerkt: gleich noch
+            # einmal, nicht erst im nächsten Takt.
+            nochmal = _schedule.get('again') or bool(_inbox)
+            _schedule['next'] = 0.0 if nochmal else time.time() + CADENCE
             _schedule['changed_at'] = None
     except basetool.ApiError as error:
         _after_error(error)
@@ -475,6 +509,9 @@ def _run(watcher):
     if not ready:
         raise basetool.ApiError('SCOPE_MISSING', 403)
 
+    # Was bis hierher vorgemerkt wurde, steht schon in der Datei.
+    with _lock:
+        del _inbox[:]
     state = load_state(installation_id)
     wanted_label = label()
     if state.get('label_sent') != wanted_label:
@@ -1012,97 +1049,91 @@ def _catalog_names():
 
 
 # --------------------------------------------------- Entscheidungen
+def _add_to(container, key, values):
+    container[key] = sorted(set(container.get(key) or ()) | set(values))
+
+
 def release_removals(keys):
     """Der Spieler gibt frei: diese hier entfernten Baupläne auch im Basetool
     entfernen. Erst jetzt werden sie gesendet."""
-    state = current_state()
-    if state is None:
-        return
-    state['pending_removals'] = sorted(set(state.get('pending_removals') or ())
-                                       | set(keys))
-    save_state(state)
-    request_now()
+    keys = list(keys)
+    return _decide(lambda state: _add_to(state, 'pending_removals', keys))
 
 
 def keep_removed(keys, watcher=None):
     """Der Spieler will sie behalten: aus dem Basetool zurück in den Bestand."""
     watcher = watcher or _WATCHER[0]
+    keys = list(keys)
     state = current_state()
     if state is None:
-        return
+        return False
     changes = []
     for key in keys:
-        bt = (state.get('local_removed') or {}).pop(key, None)
+        bt = (state.get('local_removed') or {}).get(key)
         item = (state.get('baseline') or {}).get(bt) or {}
         name = (item.get('ref') or {}).get('name')
         if name:
             changes.append(('add', name, None))
-    save_state(state)
+
+    def change(state):
+        for key in keys:
+            (state.get('local_removed') or {}).pop(key, None)
+
+    done = _decide(change)
     if changes and watcher is not None:
         watcher.basetool_apply(changes)
+    return done
 
 
 def override_conflicts(keys):
     """Trotz Entfernung woanders wieder hochschicken — nur auf Zustimmung."""
-    state = current_state()
-    if state is None:
-        return
-    state['overrides'] = sorted(set(state.get('overrides') or ()) | set(keys))
-    save_state(state)
-    request_now()
+    keys = list(keys)
+    return _decide(lambda state: _add_to(state, 'overrides', keys))
 
 
 def stock_decide(keys, choice):
     """Lager-Konflikt: 'mine' (hier gilt) oder 'theirs' (Basetool gilt)."""
-    state = current_state()
-    if state is None:
-        return
-    sub = state.setdefault('stock', {})
-    decisions = sub.setdefault('decisions', {})
-    for key in keys:
-        decisions[key] = choice
-    sub['conflicts'] = {k: v for k, v in (sub.get('conflicts') or {}).items()
-                        if k not in keys}
-    save_state(state)
-    request_now()
+    keys = list(keys)
+
+    def change(state):
+        sub = state.setdefault('stock', {})
+        decisions = sub.setdefault('decisions', {})
+        for key in keys:
+            decisions[key] = choice
+        sub['conflicts'] = {k: v for k, v in (sub.get('conflicts') or {}).items()
+                            if k not in keys}
+
+    return _decide(change)
 
 
 def ships_release(exts):
     """Hier fehlende Schiffe auch im Basetool entfernen — nur auf Freigabe."""
-    state = current_state()
-    if state is None:
-        return
-    sub = state.setdefault('ships', {})
-    sub['pending_removals'] = sorted(set(sub.get('pending_removals') or ())
-                                     | set(exts))
-    save_state(state)
-    request_now()
+    exts = list(exts)
+    return _decide(lambda state: _add_to(state.setdefault('ships', {}),
+                                         'pending_removals', exts))
 
 
 def ships_keep(exts):
     """Im Basetool behalten: die Verknüpfung lösen, nicht mehr fragen."""
-    state = current_state()
-    if state is None:
-        return
-    sub = state.setdefault('ships', {})
-    for ext in exts:
-        (sub.get('local_removed') or {}).pop(ext, None)
-    # ⚠ Die Verknüpfung steht auch beim Server (`externalId`) — sie käme mit
-    # dem nächsten Holen zurück. Deshalb gemerkt: für diese nicht mehr fragen.
-    sub['kept'] = sorted(set(sub.get('kept') or ()) | set(exts))
-    save_state(state)
-    request_now()
+    exts = list(exts)
+
+    def change(state):
+        sub = state.setdefault('ships', {})
+        for ext in exts:
+            (sub.get('local_removed') or {}).pop(ext, None)
+        # ⚠ Die Verknüpfung steht auch beim Server (`externalId`) — sie käme
+        # mit dem nächsten Holen zurück. Deshalb gemerkt: für diese nicht mehr
+        # fragen.
+        _add_to(sub, 'kept', exts)
+
+    return _decide(change)
 
 
 def ships_override(exts):
     """Woanders entfernte Schiffe trotzdem wieder anlegen — mit Zustimmung."""
-    state = current_state()
-    if state is None:
-        return
-    sub = state.setdefault('ships', {})
-    sub['overrides'] = sorted(set(sub.get('overrides') or ()) | set(exts))
-    save_state(state)
-    request_now()
+    exts = list(exts)
+    return _decide(lambda state: _add_to(state.setdefault('ships', {}),
+                                         'overrides', exts))
 
 
 def forget_installation():

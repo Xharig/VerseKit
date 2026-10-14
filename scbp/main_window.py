@@ -2792,7 +2792,7 @@ class MainWindow:
         # gehört, hat mit Updates nichts zu tun.
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
         self._apply_pins('info')
-        self._apply_pins('werkstatt')
+        self._apply_pins(self._group_of_tab('bedarf'))
         self._apply_modules()
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
@@ -3610,14 +3610,18 @@ class MainWindow:
                 self._group_toggle(name, auf=True)
                 return
 
+    def _group_of_tab(self, kennung):
+        """In welcher Gruppe der Leiste dieser Reiter sitzt — oder None."""
+        entry = self.buttons.get(kennung)
+        if not entry or not entry[0]:
+            return None
+        return next((name for name, g in self.groups.items()
+                     if g['inhalt'] is entry[0].master), None)
+
     def _only_group_of_tab(self, kennung):
         """Alle Gruppen zuklappen außer der, in der dieser Reiter sitzt.
         Ohne Reiter in einer Gruppe bleibt die Leiste, wie sie ist."""
-        entry = self.buttons.get(kennung)
-        if not entry or not entry[0]:
-            return
-        ziel = next((name for name, g in self.groups.items()
-                     if g['inhalt'] is entry[0].master), None)
+        ziel = self._group_of_tab(kennung)
         if ziel is None:
             return
         for name in list(self.groups):
@@ -3982,7 +3986,7 @@ class MainWindow:
         except tk.TclError:
             return
         if 'bedarf' in kennungen:
-            self._apply_pins('werkstatt')
+            self._apply_pins(self._group_of_tab('bedarf'))
             if self.current == 'bedarf' and self._tab_hidden('bedarf'):
                 kennungen = [k for k in kennungen if k != 'bedarf']
                 self.open_page('liste')

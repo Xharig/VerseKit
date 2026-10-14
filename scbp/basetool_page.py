@@ -404,6 +404,19 @@ def _area_card(window, area, login, redraw, status, connected, granted,
     tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
 
 
+def _decided(window, action, *args):
+    """Rückruf für einen Knopf auf dieser Seite: `action(*args)` mit den beim
+    Bauen festgehaltenen Listen ausführen und melden, dass es vorgemerkt ist.
+
+    ⚠ Die Listen werden hier übergeben, nicht im Rückruf nachgeschlagen:
+    `_decisions` vergibt dieselben örtlichen Namen mehrfach, ein Rückruf sähe
+    beim Klick die zuletzt gebaute Liste."""
+    def run():
+        if action(*args) is not False:
+            window.say(t('s_bt_vorgemerkt'))
+    return run
+
+
 def _decisions(window, area, state):
     """Was nur der Spieler entscheiden darf: Konflikte und hier Entferntes."""
     names = {bt: (item.get('ref') or {}).get('name') or bt
@@ -415,9 +428,8 @@ def _decisions(window, area, state):
         _title(window, card, t('s_bt_konflikte', len(conflicts)))
         _note(window, card, t('s_bt_konflikte_h'), bottom=4)
         _note(window, card, _listing(conflicts, names), color=FG)
-        _buttons(window, card, [(t('s_bt_wieder_hoch'),
-                                 lambda: basetool_sync.override_conflicts(
-                                     list(conflicts)), '')])
+        _buttons(window, card, [(t('s_bt_wieder_hoch'), _decided(
+            window, basetool_sync.override_conflicts, list(conflicts)), '')])
 
     removed = state.get('local_removed') or {}
     if removed:
@@ -426,10 +438,11 @@ def _decisions(window, area, state):
         _note(window, card, t('s_bt_hier_entfernt_h'), bottom=4)
         _note(window, card, _listing(removed, names), color=FG)
         _buttons(window, card, [
-            (t('s_bt_auch_dort'),
-             lambda: basetool_sync.release_removals(list(removed)), 'danger'),
-            (t('s_bt_behalten'),
-             lambda: basetool_sync.keep_removed(list(removed)), '')])
+            (t('s_bt_auch_dort'), _decided(
+                window, basetool_sync.release_removals, list(removed)),
+             'danger'),
+            (t('s_bt_behalten'), _decided(
+                window, basetool_sync.keep_removed, list(removed)), '')])
 
     # Lager: Menge auf beiden Seiten verschieden — der Spieler entscheidet.
     stock = state.get('stock') or {}
@@ -447,10 +460,10 @@ def _decisions(window, area, state):
                if len(conflicts) > 12 else ''), color=FG)
         keys = list(conflicts)
         _buttons(window, card, [
-            (t('s_bt_meine'), lambda: basetool_sync.stock_decide(keys, 'mine'),
-             ''),
-            (t('s_bt_deren'),
-             lambda: basetool_sync.stock_decide(keys, 'theirs'), '')])
+            (t('s_bt_meine'), _decided(
+                window, basetool_sync.stock_decide, keys, 'mine'), ''),
+            (t('s_bt_deren'), _decided(
+                window, basetool_sync.stock_decide, keys, 'theirs'), '')])
 
     # Hangar: hier fehlende Schiffe — nur mit Freigabe drüben entfernen.
     ships = state.get('ships') or {}
@@ -467,10 +480,10 @@ def _decisions(window, area, state):
             color=FG)
         exts = list(removed)
         _buttons(window, card, [
-            (t('s_bt_auch_dort'), lambda: basetool_sync.ships_release(exts),
-             'danger'),
-            (t('s_bt_hangar_behalten'), lambda: basetool_sync.ships_keep(exts),
-             '')])
+            (t('s_bt_auch_dort'), _decided(
+                window, basetool_sync.ships_release, exts), 'danger'),
+            (t('s_bt_hangar_behalten'), _decided(
+                window, basetool_sync.ships_keep, exts), '')])
     elsewhere = ships.get('removed_elsewhere') or []
     if elsewhere:
         card = _card(area)
@@ -479,8 +492,8 @@ def _decisions(window, area, state):
         _note(window, card, ', '.join(sorted(ship_names.get(e, e)
                                              for e in elsewhere)), color=FG)
         _buttons(window, card, [
-            (t('s_bt_wieder_hoch'),
-             lambda: basetool_sync.ships_override(list(elsewhere)), '')])
+            (t('s_bt_wieder_hoch'), _decided(
+                window, basetool_sync.ships_override, list(elsewhere)), '')])
 
 
 def _listing(entries, names, limit=12):

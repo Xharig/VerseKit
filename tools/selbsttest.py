@@ -149,6 +149,25 @@ def pruefe(bedingung, was):
         fehler.append(was)
 
 
+def watcher_anhalten(warten=8.0):
+    """Alle noch laufenden `Watcher`-Fäden früherer Prüfungen anhalten und auf
+    ihr Ende warten. Gibt die Zahl der danach noch laufenden zurück.
+
+    ⚠⚠ Ein Watcher liest in jeder Runde die Einstellungen
+    (`pruefintervall()` → `paths.app_folder()` → `_storage_from_file()`) und
+    stellt dabei fehlende Zeiger wieder her. Biegt eine Prüfung die Zeiger auf
+    Wegwerf-Ordner um, schreibt er mitten in ihre Messung hinein."""
+    import threading
+    laeufer = [f for f in threading.enumerate()
+               if type(f).__name__ == 'Watcher' and f.is_alive()]
+    for faden in laeufer:
+        faden.running = False
+    ende = time.monotonic() + warten
+    for faden in laeufer:
+        faden.join(max(0.0, ende - time.monotonic()))
+    return sum(1 for f in laeufer if f.is_alive())
+
+
 def rumpf(quelle, name):
     """Der Quelltext **einer** Modulfunktion — und eine rote Prüfung, wenn es
     sie nicht gibt.
@@ -15808,6 +15827,10 @@ def main():
     print()
     print('169. Zwei Zeiger auf den Datenordner heilen einander')
     from scbp import paths as _pf169
+    _rest169 = watcher_anhalten()
+    pruefe(_rest169 == 0,
+           'kein Watcher früherer Prüfungen läuft mehr in die Zeiger hinein '
+           '(%d laufen noch)' % _rest169)
 
     _daten = _tf166.mkdtemp(prefix='ablage-')
     _dok = _tf166.mkdtemp(prefix='dokumente-')
@@ -25455,6 +25478,7 @@ def main():
     _pruefung_443()
     _pruefung_444()
     _pruefung_445()
+    _pruefung_446()
 
     print()
     if fehler:
@@ -42044,6 +42068,10 @@ def _pruefung_441():
     print('\n441. Gesperrter Zeiger unter Dokumente')
     import tempfile as _tf441
     from scbp import paths as _pa441
+    _rest441 = watcher_anhalten()
+    pruefe(_rest441 == 0,
+           'kein Watcher früherer Prüfungen zählt in die Schreibversuche hinein '
+           '(%d laufen noch)' % _rest441)
     _dok441 = _tf441.mkdtemp(prefix='dokumente441-')
     _kon441 = _tf441.mkdtemp(prefix='konfig441-')
     _daten441 = _tf441.mkdtemp(prefix='ablage441-')
@@ -42755,6 +42783,118 @@ def _pruefung_445():
         else:
             os.environ['SC_BP_HOME'] = _alt445
         shutil.rmtree(_heim445, ignore_errors=True)
+
+
+def _pruefung_446():
+    """446. Basetool-Seite: Knöpfe treffen ihre Liste, Freigaben überstehen
+    einen laufenden Durchgang, der Reiter Bedarf folgt seinem Schalter.
+
+    a) Bauplan- und Schiffskarte zugleich: jeder Knopf trägt seine Liste.
+    b) Ein laufender Durchgang speichert seinen vorher geladenen Stand — eine
+       Freigabe, die in der Zwischenzeit kam, bleibt trotzdem stehen.
+    c) Bedarf-Schalter aus: kein Reiter Bedarf der Einheit in der Leiste."""
+    print('\n446. Basetool: Entscheidungen und Bedarf-Reiter')
+    import tempfile as _tf446
+    import tkinter as _tk446
+    from scbp import (main_window as _mw446, basetool_page as _bp446,
+                      basetool_sync as _bs446, exchange_demand as _ed446,
+                      paths as _pa446)
+    _heim446 = _tf446.mkdtemp(prefix='basetool446-')
+    _alt446 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim446
+    _alt_status446 = dict(_bs446.STATUS)
+    _alt_inbox446 = list(_bs446._inbox)
+    _alt_funk446 = {n: getattr(_bs446, n) for n in
+                    ('release_removals', 'keep_removed', 'ships_release',
+                     'ships_keep', 'request_now')}
+    _alt_sichtbar446 = _ed446.visible
+    _w446 = _tk446.Tk()
+    _w446.withdraw()
+    try:
+        _pa446.set_setting(_mw446.MainWindow.VIEW_SETTING, 'reiter')
+        _f446 = _mw446.MainWindow(_w446, version='0.0.0-pruefung')
+        _w446.update()
+
+        # a) Jeder Knopf mit seiner Liste.
+        _aufrufe446 = []
+        for _n446 in ('release_removals', 'keep_removed', 'ships_release',
+                      'ships_keep'):
+            setattr(_bs446, _n446,
+                    lambda keys, _n=_n446: _aufrufe446.append((_n, sorted(keys))))
+        _stand446 = {
+            'baseline': {'bt-1': {'ref': {'name': 'Probe-Bauplan'}}},
+            'local_removed': {'probe-bauplan': 'bt-1'},
+            'ships': {'local_removed': {'vk-schiff': 'sid-1'},
+                      'server': {}, 'names': {'vk-schiff': 'Probe-Schiff'}}}
+        _fenster446 = _tk446.Toplevel(_w446)
+        _flaeche446 = _tk446.Frame(_fenster446)
+        _bp446._decisions(_f446, _flaeche446, _stand446)
+        _knoepfe446 = []
+
+        def sammeln(w):
+            for k in w.winfo_children():
+                if isinstance(k, _tk446.Canvas) and k.bind('<Button-1>'):
+                    _knoepfe446.append(k)
+                sammeln(k)
+        _flaeche446.pack()
+        _w446.update()
+        sammeln(_flaeche446)
+        for _k446 in _knoepfe446:
+            _k446.event_generate('<Button-1>', x=3, y=3)
+            _w446.update()
+        pruefe(len(_knoepfe446) == 4,
+               'Vorbedingung: vier Entscheidungs-Knöpfe gefunden (%d)'
+               % len(_knoepfe446))
+        pruefe(_aufrufe446 == [('release_removals', ['probe-bauplan']),
+                               ('keep_removed', ['probe-bauplan']),
+                               ('ships_release', ['vk-schiff']),
+                               ('ships_keep', ['vk-schiff'])],
+               'jeder Knopf trägt seine eigene Liste (%r)' % _aufrufe446)
+        _fenster446.destroy()
+        for _n446, _f_alt in _alt_funk446.items():
+            setattr(_bs446, _n446, _f_alt)
+
+        # b) Freigabe während eines laufenden Durchgangs.
+        _bs446.request_now = lambda: None
+        _bs446.STATUS['installation_id'] = 'pruefung446'
+        _bs446.save_state(dict(_bs446._empty_state('pruefung446'),
+                               local_removed={'probe-bauplan': 'bt-1'}))
+        del _bs446._inbox[:]
+        _im_lauf446 = _bs446.load_state('pruefung446')
+        _bs446.release_removals(['probe-bauplan'])
+        _bs446.save_state(_im_lauf446)
+        pruefe('probe-bauplan' in (_bs446.load_state('pruefung446')
+                                   .get('pending_removals') or ()),
+               'eine Freigabe während eines Durchgangs übersteht sein Speichern')
+
+        # c) Bedarf-Reiter nur mit Schalter.
+        _ed446.visible = lambda: False
+        _f446.pages_changed(['bedarf'])
+        _w446.update()
+        _zeile446 = _f446.buttons['bedarf'][0]
+        pruefe(not _zeile446.winfo_manager(),
+               'Bedarf aus: kein Reiter „Bedarf der Einheit" in der Leiste')
+        _ed446.visible = lambda: True
+        _f446.pages_changed(['bedarf'])
+        _w446.update()
+        pruefe(bool(_zeile446.winfo_manager()),
+               'Bedarf an: der Reiter steht wieder da')
+    finally:
+        for _n446, _f_alt in _alt_funk446.items():
+            setattr(_bs446, _n446, _f_alt)
+        _ed446.visible = _alt_sichtbar446
+        _bs446.STATUS.clear()
+        _bs446.STATUS.update(_alt_status446)
+        _bs446._inbox[:] = _alt_inbox446
+        try:
+            _w446.destroy()
+        except Exception:
+            pass
+        if _alt446 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt446
+        shutil.rmtree(_heim446, ignore_errors=True)
 
 
 def _alle_eingaben(w):

@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.4.1 - 2026-10-15
+
+> The buttons on the Basetool page do what they say again — and the "Unit
+> demand" tab only shows up when it is switched on.
+
+### Fixed
+
+- **Basetool: buttons without effect** — "Remove them in the Basetool too"
+  for blueprints removed here picked up the ship list, and a release that
+  came in while a sync was running got lost. Now every choice arrives, the
+  footer confirms it, and the sync runs right after.
+- **"Unit demand" despite the switch being off** — the tab sat in the bar
+  although the area was off, and a click only led back to the connection.
+
 ## v4.4.0 - 2026-10-15
 
 > A tidier tab bar: everything about the KRT Profit Basetool now sits in its
