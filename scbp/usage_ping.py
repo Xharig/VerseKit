@@ -145,13 +145,9 @@ def _game_language():
 
 
 def _modules():
-    """Die eingeschalteten Bereiche — auch Basetool, das keine Gruppe in der
-    Seitenleiste hat und deshalb einen eigenen Schalter."""
-    from . import cards, modules
-    found = [g for g in modules.SWITCHABLE if modules.enabled(g)]
-    if paths.setting_bool(cards.BASETOOL_SETTING, True):
-        found.append('basetool')
-    return sorted(found)
+    """Die eingeschalteten Module, Basetool eingeschlossen."""
+    from . import modules
+    return sorted(g for g in modules.SWITCHABLE if modules.enabled(g))
 
 
 def _view():

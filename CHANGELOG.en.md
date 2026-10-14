@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Basetool in one place** — in the tab view the KRT Profit Basetool now has
+  its own group right below Blueprints, with "Connection & sync" and "Unit
+  demand". In the card view the Basetool area also sits right after
+  Blueprints.
+- **Basetool as a module** — under *Settings → Modules* it can be hidden like
+  Trade or Salvage; the same switch applies to both views.
+- **From the overview into the tab bar** — opening a page from the overview
+  leaves only its group expanded in the bar. A click right in the bar works as
+  before.
+- **Report a problem: buttons always in view** — "Send error report", "GitHub
+  issue" and "Copy details" sit fixed at the top below the heading and no
+  longer scroll away.
+
 ## v4.3.0 - 2026-10-14
 
 > A picture often says more than a sentence: you can now add screenshots to

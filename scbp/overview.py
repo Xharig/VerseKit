@@ -527,10 +527,10 @@ def _chooser(window, frame, redraw, reorder=None):
     gilt (umgeschaltet über den Link neben der Überschrift, `_chooser_link`).
 
     Kartenansicht: zuerst die Hauptbereiche (dieselben Schalter wie unter
-    Einstellungen → Module, dazu Basetool), dann die Kacheln, dann welcher
-    der beiden unteren Bereiche oben steht. Reiteransicht: Kacheln und
-    Reihenfolge. Jede Änderung zeigt sich sofort."""
-    from . import cards, modules, paths
+    Einstellungen → Module), dann die Kacheln, dann welcher der beiden
+    unteren Bereiche oben steht. Reiteransicht: Kacheln und Reihenfolge.
+    Jede Änderung zeigt sich sofort."""
+    from . import modules, paths
     from .main_window import round_select
     for child in frame.winfo_children():
         child.destroy()
@@ -556,14 +556,6 @@ def _chooser(window, frame, redraw, reorder=None):
                 return new_value
             entries.append((t(modules.LABELS[group]), modules.enabled(group),
                             flip))
-
-        def flip_basetool():
-            new_value = not cards.area_enabled('basetool')
-            paths.set_setting(cards.BASETOOL_SETTING, new_value)
-            redraw()
-            return new_value
-        entries.append((t('k_basetool_titel'), cards.area_enabled('basetool'),
-                        flip_basetool))
         _switch_table(window, frame, entries)
         heading('k_anpassen_kacheln')
 

@@ -41,8 +41,12 @@ from . import paths
 # Gruppe -> ihre Seiten. Muss zu `main_window._body` passen; Prüfung 271
 # vergleicht beides.
 SWITCHABLE = {
+    # ⚠ Der Schlüssel `modul_basetool` ist zugleich der Schalter des
+    # Kartenbereichs Basetool (`cards.BASETOOL_SETTING`): ein Schalter für
+    # beide Ansichten.
+    'basetool': ('basetool', 'bedarf'),
     'schiffe': ('hangar', 'wunschliste', 'einkaufsliste'),
-    'werkstatt': ('herstellung', 'farmliste', 'bedarf', 'lager', 'bergbau',
+    'werkstatt': ('herstellung', 'farmliste', 'lager', 'bergbau',
                   'raffinerien'),
     'bergung': ('bergung', 'zerlegen'),
     'handel': ('laeden', 'handelslager', 'verkauf', 'routen'),
@@ -52,7 +56,7 @@ SWITCHABLE = {
 }
 
 # Die Überschrift jeder Gruppe in der Leiste — dieselben Texte wie dort.
-LABELS = {'schiffe': 'hf_gruppe_schiffe', 'werkstatt': 'hf_gruppe_herst',
+LABELS = {'basetool': 'k_basetool_titel', 'schiffe': 'hf_gruppe_schiffe', 'werkstatt': 'hf_gruppe_herst',
           'bergung': 'hf_gruppe_bergung', 'handel': 'hf_gruppe_handel',
           'statistiken': 'hf_gruppe_statistik'}
 

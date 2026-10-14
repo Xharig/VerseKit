@@ -96,6 +96,8 @@ PAGES = {
 AREAS = (
     ('bauplaene', 'liste', 'hf_gruppe_bp',
      ('liste', 'fortschritt', 'auftragslog')),
+    ('basetool', 'basetool', 'k_basetool_titel',
+     ('basetool', 'bedarf', 'lager', 'handelslager', 'hangar', 'liste')),
     ('schiffe', 'hangar', 'hf_gruppe_schiffe',
      ('hangar', 'wunschliste', 'einkaufsliste')),
     ('werkstatt', 'blitz', 'hf_gruppe_herst',
@@ -112,22 +114,22 @@ AREAS = (
     ('einstellungen', 'einstellungen', 'hf_gruppe_einst',
      ('allgemein', 'anzeige', 'darstellung', 'ordner', 'module', 'basetool',
       'bestand', 'erkennung', 'startprogramme')),
-    ('basetool', 'basetool', 'k_basetool_titel',
-     ('basetool', 'bedarf', 'lager', 'handelslager', 'hangar', 'liste')),
     ('info', 'ueber', 'hf_gruppe_info',
      ('patchaenderungen', 'serverstatus', 'danke')),
 )
 
-# Reiter einer Gruppe, die in ihrem Bereich fehlen, weil sie nur mit dem
-# Basetool etwas zeigen — sie stehen im Bereich Basetool.
-BASETOOL_ONLY = {'werkstatt': ('bedarf',)}
+# Seiten, deren Reiter in der Gruppe Basetool der Reiterleiste stehen, in
+# dieser Reihenfolge. Im Kartenbereich Basetool stehen sie vorn.
+BASETOOL_TABS = ('basetool', 'bedarf')
+# Eigene Namen dieser Seiten im Bereich Basetool und in seiner Gruppe der
+# Reiterleiste.
+BASETOOL_TITLES = {'basetool': 'k_basetool_verbindung'}
 
 # Unterseiten, die im Bereich Fortgeschritten stehen — auf der Karte als
 # Zusatz am Namen.
 ADVANCED = ('erkennung', 'startprogramme')
 
-# Basetool lässt sich wie die Module ausblenden; es hat keine Gruppe in der
-# Reiterliste und deshalb einen eigenen Schalter.
+# Der Schalter des Moduls Basetool (`modules.SWITCHABLE['basetool']`).
 BASETOOL_SETTING = 'modul_basetool'
 
 # Die angehefteten Unterseiten (Liste von Seitenkennungen, Reihenfolge wie
@@ -154,12 +156,9 @@ def area_page_id(kennung):
 
 
 def area_enabled(kennung):
-    """Ist der Bereich eingeblendet? Folgt den Modul-Schaltern; Basetool hat
-    seinen eigenen, Baupläne, Einstellungen, Spiel-Einstellungen und Info sind
-    immer da."""
-    from . import modules, paths
-    if kennung == 'basetool':
-        return paths.setting_bool(BASETOOL_SETTING, True)
+    """Ist der Bereich eingeblendet? Folgt den Modul-Schaltern; Baupläne,
+    Einstellungen, Spiel-Einstellungen und Info sind immer da."""
+    from . import modules
     return modules.enabled(kennung)
 
 
@@ -491,8 +490,8 @@ def builders():
 
 
 def page_title(page, in_area=None):
-    if in_area == 'basetool' and page == 'basetool':
-        return t('k_basetool_verbindung')
+    if in_area == 'basetool' and page in BASETOOL_TITLES:
+        return t(BASETOOL_TITLES[page])
     title = t(PAGES[page][1])
     if page in ADVANCED:
         title += ' · ' + t('k_fortgeschritten')

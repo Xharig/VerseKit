@@ -7724,6 +7724,11 @@ def _diagnostics(fenster, rahmen):
     from . import paths
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_diagnose'), t('s_di_lead'))
+    # ⭐ Die drei Knöpfe und der Zustimmungs-Schalter stehen fest unter der
+    # Überschrift, vor der rollenden Fläche gepackt: Sie rollen nicht mit
+    # und sind ohne Suchen zu sehen. Gefüllt wird der Rahmen weiter unten.
+    oben = tk.Frame(rahmen, bg=BG)
+    oben.pack(fill='x', padx=24, pady=(0, 12))
     innen = _scroll_area(rahmen)
 
     # ⭐ Wer meldet? Steht ÜBER dem Bericht, damit man sieht, was mitgeht.
@@ -7909,23 +7914,12 @@ def _diagnostics(fenster, rahmen):
     # Genau auf dieser Seite darf das am wenigsten passieren.
     fenster.on_show['diagnose'] = _bericht_neu
 
-    # ⭐ **Die Zusicherung steht zwischen Bericht und Knöpfen** — genau dort,
-    # wo man sich fürs Absenden entscheidet. *Unter* der Knopfreihe stünde
-    # sie hinter dem Klick und könnte am unteren Rand wegfallen.
-    #
-    # ⚠ **Nach oben aber nicht.** Ihr eigener Text lautet „Der Block **oben**
-    # ist der ganze Inhalt" — über dem Bericht stimmte der Bezug nicht mehr.
-    # Und die Knöpfe gehören hinter den Bericht: Erst sehen, was rausgeht,
-    # dann der Knopf. Ein Absende-Knopf über dem Inhalt lädt zum blinden
-    # Klicken ein, und das ist bei einem Knopf, der etwas ins Netz schickt,
-    # das Letzte, was man will.
-    #
-    # Hier kann sie auch nicht mehr abgeschnitten werden, ohne dass die
-    # Knöpfe gleich mit verschwinden — und die sucht jeder.
+    # ⚠ Die Zusicherung steht direkt unter dem Bericht: Ihr Text lautet „Der
+    # Block **oben** ist der ganze Inhalt".
     _status(fenster, innen, 'haken', t('s_di_sicher'), t('s_di_sicher_h'))
 
-    reihe = tk.Frame(innen, bg=BG)
-    reihe.pack(fill='x', pady=(12, 0))
+    reihe = tk.Frame(oben, bg=BG)
+    reihe.pack(fill='x')
 
     def aktueller_bericht():
         """Genau das, was im Kasten steht — und vorher den Namen übernehmen.

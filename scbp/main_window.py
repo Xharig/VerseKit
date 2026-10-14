@@ -2630,6 +2630,17 @@ class MainWindow:
         # der Bauplan-Liste, nicht in einem eigenen Bereich.
         self._tab('auftragslog', 'eigenbuch', t('hf_auftragslog'), g_bp)
 
+        # ⭐ Alles zum KRT Profit Basetool an einer Stelle, direkt unter den
+        # Bauplänen und mit denselben Namen wie im Kartenbereich Basetool
+        # (`cards.BASETOOL_TABS`). Lager, Hangar und Liste bleiben in ihren
+        # Gruppen: Ein Reiter steht nur einmal in der Leiste.
+        g_basetool = self._group(t('k_basetool_titel'), 'basetool')
+        self._tab('basetool', 'basetool', t('k_basetool_verbindung'),
+                  g_basetool)
+        # Nur sichtbar mit Basetool-Verbindung und Bedarf-Recht — siehe
+        # `_tab_hidden`.
+        self._tab('bedarf', 'basetool', t('hf_bedarf'), g_basetool)
+
         # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die Seiten
         # beantworten eine andere Frage (was wird gebraucht, wo gibt es das) als
         # der eigene Bestand (ist das schon da). Die Gruppenüberschrift gibt
@@ -2641,7 +2652,7 @@ class MainWindow:
         # Werkstatt-Kette lautet Material → bauen → beschaffen; ein Schiff ist
         # keine Zutat.
         #
-        # **Zwischen Bauplänen und Werkstatt**, weil die Frage, ob der Bauplan
+        # **Vor der Werkstatt**, weil die Frage, ob der Bauplan
         # ins eigene Schiff passt, die unmittelbare Anschlussfrage an einen
         # neuen Fund ist — sie kommt vor der Frage, woraus man ihn baut.
         g_schiff = self._group(t('hf_gruppe_schiffe'), 'schiffe')
@@ -2667,9 +2678,6 @@ class MainWindow:
         # eigener Bestand, Fundorte, Raffinerie.
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
-        # Nur sichtbar mit Basetool-Verbindung und Bedarf-Recht — siehe
-        # `_tab_hidden`.
-        self._tab('bedarf', 'basetool', t('hf_bedarf'), g_werk)
         self._tab('lager', 'bestand', t('hf_lager'), g_werk)
         self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
         # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
@@ -2742,9 +2750,6 @@ class MainWindow:
         self._tab('darstellung', 'darstellung', t('hf_darstellung'), g_einst)
         self._tab('ordner', 'ordner', t('hf_ordner'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
-        # ⭐ Abgleich mit dem KRT Profit Basetool
-        # (Freigabe: krt-profit/basetool#2273).
-        self._tab('basetool', 'basetool', t('hf_basetool'), g_einst)
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
@@ -3605,6 +3610,19 @@ class MainWindow:
                 self._group_toggle(name, auf=True)
                 return
 
+    def _only_group_of_tab(self, kennung):
+        """Alle Gruppen zuklappen außer der, in der dieser Reiter sitzt.
+        Ohne Reiter in einer Gruppe bleibt die Leiste, wie sie ist."""
+        entry = self.buttons.get(kennung)
+        if not entry or not entry[0]:
+            return
+        ziel = next((name for name, g in self.groups.items()
+                     if g['inhalt'] is entry[0].master), None)
+        if ziel is None:
+            return
+        for name in list(self.groups):
+            self._group_toggle(name, auf=(name == ziel))
+
     def open_page(self, kennung, zurueck_zu=None, via=None, area=None):
         """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen.
 
@@ -3630,13 +3648,21 @@ class MainWindow:
         # ⭐ Module: Eine Seite, deren Gruppe ausgeschaltet ist, wird
         # nicht still gezeigt — der Sprung landet auf „Module" und sagt, was
         # aus ist. Sonst stünde man auf einer Seite ohne Eintrag in der Leiste.
+        # ⚠ Erst der Ersatz für einen verborgenen Reiter, dann die Module:
+        # Der Ersatz (`basetool`) kann selbst in einem ausgeschalteten Modul
+        # liegen.
+        if self._tab_hidden(kennung):
+            kennung = 'basetool'
         from . import modules
         if kennung in modules.hidden_pages():
             group = modules.group_of(kennung)
             self.say(t('s_mo_aus_hinweis') % t(modules.LABELS[group]))
             kennung = 'module'
-        if self._tab_hidden(kennung):
-            kennung = 'basetool'
+        # ⭐ Aus der Übersicht heraus (nicht über die Leiste selbst): Nur die
+        # Gruppe der Zielseite steht danach offen, die übrigen klappen zu.
+        if (self.current == 'uebersicht' and kennung != 'uebersicht'
+                and via != 'seitenleiste' and not self.card_mode()):
+            self._only_group_of_tab(kennung)
         # ⚠ **Die Gruppe des Reiters muss offen sein.** Sonst steht man auf
         # einer Seite, deren Eintrag in der Leiste gar nicht zu sehen ist — das
         # sieht nach einem Fehler aus, und der Weg zurück ist nicht zu finden.

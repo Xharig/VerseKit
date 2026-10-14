@@ -11817,20 +11817,16 @@ def main():
                '%s bleibt lesbar' % _name119)
 
     print()
-    print('120. Melde-Seite: Feld gross genug, Zusicherung vor dem Klick')
-    # ⚠⚠ Zwei Anforderungen an dieselbe Seite:
+    print('120. Melde-Seite: Feld gross genug, Zusicherung, feste Knopfreihe')
+    # ⚠⚠ Drei Anforderungen an dieselbe Seite:
     #
     # a) Das Meldungsfeld ist mehrzeilig und breit. Ein einzeiliges `Entry`
     #    rechts neben dem Text zeigte nach zwei Saetzen nur das Ende, und vor
     #    dem Absenden liesse sich nicht nachlesen, was man schickt.
-    # b) Die Zusicherung, dass man vorher sieht, was verschickt wird, steht
-    #    VOR der Knopfreihe — dahinter kaeme sie nach dem Klick und koennte am
-    #    unteren Rand wegfallen.
-    #
-    # ⚠ Nach OBEN gehoert sie trotzdem nicht: Ihr Text verweist auf den Block
-    # oben. Ueber dem Bericht stimmte der Bezug nicht mehr.
-    # Die Pruefung haelt deshalb BEIDE Grenzen fest — hinter dem Bericht,
-    # vor den Knoepfen.
+    # b) Die Zusicherung steht hinter dem Bericht: Ihr Text verweist auf den
+    #    Block oben.
+    # c) Die Knopfreihe steht fest unter der Ueberschrift, ueber der
+    #    Rollflaeche — sie rollt nicht mit und muss nicht gesucht werden.
     import tkinter as tk
     _w120 = _wurzel()
     try:
@@ -11902,16 +11898,34 @@ def main():
                 pruefe(_i_sicher120 > _i_kasten120,
                        'die Zusicherung steht HINTER dem Bericht '
                        '(ihr Text sagt „der Block oben")')
-                _knopf120 = None
-                for _n120 in range(_i_sicher120 + 1, len(_folge120)):
-                    _lein120 = [k for k in _folge120[_n120].winfo_children()
-                                if isinstance(k, tk.Canvas)]
-                    if len(_lein120) >= 3:
-                        _knopf120 = _n120
-                        break
-                pruefe(_knopf120 is not None,
-                       'die Knopfreihe kommt NACH der Zusicherung '
-                       '(sonst steht sie hinter dem Klick)')
+        # Die Knopfreihe steht fest unter der Überschrift: Sie liegt in keiner
+        # Leinwand (sonst rollte sie mit) und ist vor der Rollfläche gepackt.
+        _seite120 = _f120.pages['diagnose']
+        _reihen120 = [w for w in _alle120 if isinstance(w, tk.Frame)
+                      and len([k for k in w.winfo_children()
+                               if isinstance(k, tk.Canvas)]) >= 3]
+        _fest120 = []
+        for _r120 in _reihen120:
+            _lauf120 = _r120.master
+            while _lauf120 is not None and _lauf120 is not _seite120:
+                if isinstance(_lauf120, tk.Canvas):
+                    break
+                _lauf120 = _lauf120.master
+            if _lauf120 is _seite120:
+                _fest120.append(_r120)
+        pruefe(len(_fest120) == 1,
+               'die Knopfreihe steht fest, nicht in der Rollfläche '
+               '(%d feste Reihen)' % len(_fest120))
+        if _fest120:
+            _folge_seite120 = _seite120.pack_slaves()
+            _oben120 = _vorfahr120(_fest120[0], _seite120)
+            _rollt120 = next((w for w in _folge_seite120
+                              if any(isinstance(k, tk.Canvas)
+                                     for k in w.winfo_children())), None)
+            pruefe(_oben120 in _folge_seite120 and _rollt120 is not None
+                   and _folge_seite120.index(_oben120)
+                   < _folge_seite120.index(_rollt120),
+                   'die Knopfreihe steht über der Rollfläche')
     finally:
         try:
             _w120.destroy()
@@ -25440,6 +25454,7 @@ def main():
     _pruefung_442()
     _pruefung_443()
     _pruefung_444()
+    _pruefung_445()
 
     print()
     if fehler:
@@ -40971,19 +40986,32 @@ def _pruefung_424():
                                          _k.args[2].args[0].value)
             if len(_k.args) >= 4 and isinstance(_k.args[3], _ast424.Name):
                 _gruppen.setdefault(_k.args[3].id, []).append(_k.args[0].value)
-    _abw = sorted(p for p, w in _ka424.PAGES.items() if _reiter.get(p) != w)
+    def _reitername424(p, w):
+        if p in _ka424.BASETOOL_TITLES:
+            return (w[0], _ka424.BASETOOL_TITLES[p])
+        return w
+    _abw = sorted(p for p, w in _ka424.PAGES.items()
+                  if _reiter.get(p) != _reitername424(p, w))
     pruefe(not _abw, 'jede Karte trägt Symbol und Name ihres Reiters (%r)' % _abw)
     _je_gruppe = {_namen[v]: k for v, k in _gruppen.items() if v in _namen}
     _je_gruppe['einstellungen'] = (_je_gruppe.get('einstellungen', [])
                                    + ['erkennung', 'startprogramme'])
+
+    def _im_bereich424(a):
+        # Der Bereich Basetool zeigt auch Seiten anderer Gruppen; seine eigene
+        # Gruppe hat nur `BASETOOL_TABS`. Andere Bereiche dürfen diese Seiten
+        # zusätzlich zeigen, ihre Gruppen haben sie nicht.
+        if a[0] == 'basetool':
+            return [p for p in a[3] if p in _ka424.BASETOOL_TABS]
+        return [p for p in a[3] if p not in _ka424.BASETOOL_TABS]
     _falsch = [a[0] for a in _ka424.AREAS
-               if a[0] in _je_gruppe and list(a[3]) != [
-                   p for p in _je_gruppe[a[0]]
-                   if p not in _ka424.BASETOOL_ONLY.get(a[0], ())]]
-    pruefe(all(p in _ka424.area('basetool')[3]
-               for ps in _ka424.BASETOOL_ONLY.values() for p in ps),
-           'was im Bereich fehlt, weil es nur mit Basetool geht, steht im '
-           'Bereich Basetool')
+               if a[0] in _je_gruppe and _im_bereich424(a) != _je_gruppe[a[0]]]
+    pruefe('basetool' in _je_gruppe
+           and _je_gruppe['basetool'] == list(_ka424.BASETOOL_TABS)
+           and list(_ka424.area('basetool')[3][:len(_ka424.BASETOOL_TABS)])
+           == list(_ka424.BASETOOL_TABS),
+           'die Reiterleiste hat eine Gruppe Basetool mit genau den Seiten, die '
+           'im Bereich Basetool vorn stehen (%r)' % _je_gruppe.get('basetool'))
     pruefe(not _falsch, 'jeder Bereich zeigt genau die Reiter seiner Gruppe, '
            'in derselben Reihenfolge (%r)' % _falsch)
     _schl = (['ka_' + a[0] for a in _ka424.AREAS]
@@ -41095,7 +41123,8 @@ def _pruefung_424():
                'alle Hauptkarten gleich breit, auch die am Rand (%r)'
                % sorted(_breiten424))
         # Klick auf eine Hauptkarte -> Bereichsseite.
-        _start.main_grid.cells[2].card.open()
+        next(_c for _c in _start.main_grid.cells
+             if getattr(_c, 'area_key', None) == 'werkstatt').card.open()
         _w.update()
         pruefe(_f.current == 'bereich_werkstatt'
                and _f.crumb_bar.crumbs[-1] == _la424.t('hf_gruppe_herst'),
@@ -41188,6 +41217,7 @@ def _pruefung_424():
         _w.update()
         pruefe('basetool' not in [c.area_key for c in _start.main_grid.cells],
                'Basetool lässt sich ausblenden')
+        _pa424.set_setting(_ka424.BASETOOL_SETTING, True)
         # Ein Modul aus: der Bereich fehlt auch als Karte.
         _mo424.set_enabled('handel', False)
         _f.rebuild()
@@ -42623,6 +42653,108 @@ def _pruefung_444():
             _w444.destroy()
         except Exception:
             pass
+
+
+def _pruefung_445():
+    """445. Reiterleiste: Gruppe Basetool, und ein Sprung aus der Übersicht
+    lässt nur die Gruppe der Zielseite offen."""
+    print('\n445. Reiterleiste: Gruppe Basetool, Sprung aus der Übersicht')
+    import tempfile as _tf445
+    import tkinter as _tk445
+    from scbp import main_window as _mw445, paths as _pa445
+    _heim445 = _tf445.mkdtemp(prefix='leiste445-')
+    _alt445 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim445
+    _pa445.set_setting(_mw445.MainWindow.VIEW_SETTING, 'reiter')
+    _w445 = _tk445.Tk()
+    _w445.withdraw()
+    try:
+        _f445 = _mw445.MainWindow(_w445, version='0.0.0-pruefung')
+        _w445.update()
+
+        def reiter_von(gruppe):
+            g = _f445.groups.get(gruppe)
+            if not g:
+                return ()
+            return tuple(k for z in g['inhalt'].winfo_children()
+                         for k, teile in _f445.buttons.items() if teile[0] is z)
+
+        pruefe(reiter_von('basetool') == ('basetool', 'bedarf'),
+               'die Gruppe Basetool hat Verbindung und Bedarf (%r)'
+               % (reiter_von('basetool'),))
+        _anderswo445 = [g for g in _f445.groups if g != 'basetool'
+                        and set(reiter_von(g)) & {'basetool', 'bedarf'}]
+        pruefe(not _anderswo445,
+               'Basetool-Reiter stehen in keiner anderen Gruppe (%r)'
+               % _anderswo445)
+
+        def alle_auf():
+            for name in list(_f445.groups):
+                _f445._group_toggle(name, auf=True)
+
+        def offen():
+            return {n for n, g in _f445.groups.items() if g['offen']}
+
+        alle_auf()
+        _f445.open_page('uebersicht')
+        _f445.open_page('lager', via='sprung')
+        pruefe(offen() == {'werkstatt'},
+               'Sprung aus der Übersicht: nur die Gruppe der Zielseite offen '
+               '(%r)' % sorted(offen()))
+
+        alle_auf()
+        _f445.open_page('uebersicht')
+        _f445.open_page('hangar', via='seitenleiste')
+        pruefe(offen() == set(_f445.groups),
+               'Klick in der Leiste bei offener Übersicht klappt nichts zu '
+               '(%r)' % sorted(set(_f445.groups) - offen()))
+
+        alle_auf()
+        _f445.open_page('liste', via='sprung')
+        pruefe(offen() == set(_f445.groups),
+               'Sprung von einer anderen Seite klappt nichts zu (%r)'
+               % sorted(set(_f445.groups) - offen()))
+
+        alle_auf()
+        _f445.open_page('uebersicht')
+        _f445.open_page('diagnose', via='sprung')
+        pruefe(offen() == set(_f445.groups),
+               'Ziel ohne Reiter: die Leiste bleibt, wie sie ist (%r)'
+               % sorted(set(_f445.groups) - offen()))
+
+        # Modul Basetool aus: Gruppe weg, Sprünge landen auf „Module", und
+        # derselbe Schalter nimmt den Kartenbereich weg.
+        from scbp import modules as _mo445, cards as _ka445
+        _mo445.set_enabled('basetool', False)
+        _f445.close()
+        _w445.update()
+        _f445 = _mw445.MainWindow(_w445, version='0.0.0-pruefung')
+        _w445.update()
+        _g445 = _f445.groups.get('basetool')
+        pruefe(_g445 is not None and not _g445['kopf'].winfo_manager()
+               and not _g445['inhalt'].winfo_manager(),
+               'Modul Basetool aus: die Gruppe ist ausgeblendet')
+        _ziele445 = []
+        for _seite445 in ('basetool', 'bedarf'):
+            _f445.open_page(_seite445, via='sprung')
+            _ziele445.append(_f445.current)
+        pruefe(_ziele445 == ['module', 'module'],
+               'Modul Basetool aus: Verbindung und Bedarf führen zu „Module" '
+               '(%r)' % _ziele445)
+        pruefe(not _ka445.area_enabled('basetool')
+               and 'basetool' not in [a[0] for a in _ka445.visible_areas()],
+               'derselbe Schalter blendet den Kartenbereich Basetool aus')
+        _mo445.set_enabled('basetool', True)
+    finally:
+        try:
+            _w445.destroy()
+        except Exception:
+            pass
+        if _alt445 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt445
+        shutil.rmtree(_heim445, ignore_errors=True)
 
 
 def _alle_eingaben(w):

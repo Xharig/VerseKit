@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Basetool an einer Stelle** — in der Reiteransicht hat das KRT Profit
+  Basetool jetzt eine eigene Gruppe direkt unter den Bauplänen, mit
+  „Verbindung & Abgleich" und „Bedarf der Einheit". In der Kartenansicht steht
+  der Bereich Basetool ebenfalls gleich hinter den Bauplänen.
+- **Basetool als Modul** — unter *Einstellungen → Module* lässt es sich wie
+  Handel oder Bergung ausblenden; derselbe Schalter gilt für beide Ansichten.
+- **Aus der Übersicht in die Reiterleiste** — wer von der Übersicht aus eine
+  Seite öffnet, sieht in der Leiste nur noch deren Gruppe aufgeklappt. Ein
+  Klick direkt in der Leiste verhält sich wie bisher.
+- **Fehler melden: Knöpfe immer sichtbar** — „Fehlerbericht absenden",
+  „GitHub Issue" und „Angaben kopieren" stehen fest oben unter der Überschrift
+  und rollen nicht mehr mit.
+
 ## v4.3.0 - 2026-10-14
 
 > Ein Bild sagt oft mehr als ein Satz: Dem Fehlerbericht lassen sich jetzt
