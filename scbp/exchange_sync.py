@@ -64,8 +64,6 @@ import uuid
 from . import paths
 
 BATCH_MAX = 500
-FORMAT_VERSION = '1.0'
-TOOL_NAME = 'VerseKit'
 
 # Quelle im Bestand -> `provenance.source` im Vertrag.
 PROVENANCE = {
@@ -109,10 +107,6 @@ def iso_utc(local_time):
     except (ValueError, TypeError, OverflowError):
         return None
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(stamp))
-
-
-def _now_utc():
-    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
 
 def item_ref(name, tag=None):
@@ -184,145 +178,6 @@ def _add_op(entry, op_id, override=False):
     return op
 
 
-def blueprint_file(collection, tags, version, when=None):
-    """Der Bestand als Offline-Datei im Vertragsformat (`basetool.blueprints`).
-
-    Für den Import im Browser, bei dem das Mitglied vorher alles prüft. ⚠ Die
-    Hülle trägt laut Vertrag **keinen** Spielernamen, keinen Ordner, keinen
-    Pfad — nur Programm und Version."""
-    items = []
-    for key, entry in sorted(local_blueprints(collection, tags).items()):
-        if entry['source'] in NEVER_SENT:
-            continue
-        op = _add_op(entry, 'x')
-        item = {'ref': op['ref'], 'provenance': op['provenance']}
-        if 'acquiredAt' in op:
-            item['acquiredAt'] = op['acquiredAt']
-        items.append(item)
-    return {'format': 'basetool.blueprints', 'formatVersion': FORMAT_VERSION,
-            'generator': {'name': TOOL_NAME, 'version': version or '0'},
-            'generatedAt': when or _now_utc(), 'items': items}
-
-
-def _match(local, server_items, links):
-    """Bestandsschlüssel -> Basetool-Schlüssel für alles, was sich findet.
-
-    Reihenfolge: gemerkte Verknüpfung, dann Tag, dann Name. Jeder
-    Basetool-Eintrag wird höchstens einmal vergeben."""
-    matched = {}
-    taken = set()
-    by_key = {item['key']: item for item in server_items}
-    for local_key, server_key in links.items():
-        if local_key in local and server_key in by_key:
-            matched[local_key] = server_key
-            taken.add(server_key)
-    by_tag, by_name = {}, {}
-    for item in server_items:
-        if item['key'] in taken:
-            continue
-        ref = item.get('ref') or {}
-        if ref.get('scRecord'):
-            by_tag.setdefault(ref['scRecord'].casefold(), item['key'])
-        if ref.get('name'):
-            by_name.setdefault(paths.name_key(ref['name']), item['key'])
-    for local_key, entry in sorted(local.items()):
-        if local_key in matched:
-            continue
-        server_key = None
-        if entry['tag']:
-            server_key = by_tag.get(entry['tag'].casefold())
-        if server_key is None:
-            server_key = by_name.get(local_key)
-        if server_key is not None and server_key not in taken:
-            matched[local_key] = server_key
-            taken.add(server_key)
-    return matched
-
-
-def plan_blueprints(local, server_items, tombstones, state):
-    """Was zu tun ist — ohne etwas zu tun.
-
-    `local`: aus `local_blueprints()`. `server_items`: die Baupläne des
-    Mitglieds laut Basetool (Einträge nach `blueprint.schema.json`).
-    `tombstones`: Löschmarken aus dem Änderungsfeed. Rückgabe::
-
-        {'add': [Schlüssel], 'remove': [(Schlüssel, Basetool-Schlüssel)],
-         'conflicts': [(Schlüssel, Grund)], 'from_server': [Eintrag],
-         'links': {Schlüssel: Basetool-Schlüssel}}
-
-    Gründe eines Konflikts: `removed_elsewhere` (Löschmarke eines anderen
-    Kanals) und `missing` (war abgeglichen, fehlt jetzt ohne Löschmarke — etwa
-    nach `CURSOR_EXPIRED`, wenn der Feed die Marke schon vergessen hat)."""
-    links = dict(state.get('links') or {})
-    pending = set(state.get('pending_removals') or ())
-    own = set(state.get('own_removed_keys') or ())
-    by_key = {item['key']: item for item in server_items}
-    matched = _match(local, server_items, links)
-    linked_back = {server_key: local_key
-                   for local_key, server_key in links.items()}
-
-    # ⚠ Eigene Löschmarken zählen auch für die Regel zu Fehlendem ohne Marke
-    # darunter — sonst ergäbe eine per Kennung erkannte eigene Entfernung
-    # dort doch noch einen Konflikt.
-    own |= {stone.get('key') for stone in tombstones
-            if _own_stone(stone, own, state.get('installation_id'))}
-    conflicts = {}
-    for stone in tombstones:
-        local_key = linked_back.get(stone.get('key'))
-        if (local_key in local and local_key not in pending
-                and not _own_stone(stone, own,
-                                   state.get('installation_id'))):
-            conflicts[local_key] = 'removed_elsewhere'
-    for local_key, server_key in links.items():
-        if (local_key in local and local_key not in pending
-                and local_key not in conflicts
-                and server_key not in by_key and server_key not in own):
-            conflicts[local_key] = 'missing'
-
-    add = [k for k, e in sorted(local.items())
-           if k not in matched and k not in conflicts and k not in pending
-           and e['source'] not in NEVER_SENT]
-
-    remove = []
-    for local_key in sorted(pending):
-        server_key = matched.get(local_key) or links.get(local_key)
-        item = by_key.get(server_key)
-        if item is not None and not item.get('isDefault'):
-            remove.append((local_key, server_key))
-
-    taken = set(matched.values()) | {s for _k, s in remove}
-    from_server = [item for key, item in sorted(by_key.items())
-                   if key not in taken]
-
-    return {'add': add, 'remove': remove,
-            'conflicts': sorted(conflicts.items()),
-            'from_server': from_server, 'links': matched}
-
-
-def build_change_sets(plan, local, override=()):
-    """Der Plan als Sendungen: [(change_set, targets)].
-
-    `targets[i]` ist der Bestandsschlüssel zu Anweisung `i` — damit lässt sich
-    die Antwort des Servers wieder zuordnen. `override`: Konflikte, bei denen
-    der Spieler zugestimmt hat, sie trotzdem erneut zu schicken."""
-    ops, targets = [], []
-    for n, local_key in enumerate(plan['add'], 1):
-        ops.append(_add_op(local[local_key], 'a%d' % n))
-        targets.append(local_key)
-    for n, local_key in enumerate(sorted(set(override)), 1):
-        if local_key in local and local_key in dict(plan['conflicts']):
-            ops.append(_add_op(local[local_key], 'o%d' % n, override=True))
-            targets.append(local_key)
-    for n, (local_key, server_key) in enumerate(plan['remove'], 1):
-        ops.append({'opId': 'r%d' % n, 'op': 'remove', 'key': server_key})
-        targets.append(local_key)
-    batches = []
-    for start in range(0, len(ops), BATCH_MAX):
-        batches.append(({'ops': ops[start:start + BATCH_MAX]},
-                        targets[start:start + BATCH_MAX]))
-    return batches
-
-
 def read_result(result, targets):
     """Die Antwort auf eine Sendung (`change-result`) -> was daraus folgt.
 
@@ -372,8 +227,8 @@ def merge_pages(pages):
 def plan_sync(local, resolved, server, stones, state, resync=False):
     """Ein Abgleich-Durchgang nach gelucs Sync-Anleitung — ohne Netz.
 
-    Anders als `plan_blueprints` (Entwurf vom 26.09.) arbeitet dieser Plan
-    über den **`bt`-Schlüssel des Basetools**, den `catalog/resolve` für jeden
+    Der Plan arbeitet über den **`bt`-Schlüssel des Basetools**, den
+    `catalog/resolve` für jeden
     Bauplan liefert. Über Namen allein ließe sich nicht sicher zuordnen: Das
     Basetool nennt manche Baupläne anders, und ein falsch zugeordneter Eintrag
     tauchte doppelt auf.
