@@ -875,8 +875,12 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         return text
 
     line(t('b_ordner'), _safe(_folder_line))
+    # Kennungen aus dem Basetool (Einheit) nur als „gesetzt" (•••) — der
+    # Bericht kann öffentlich landen.
+    _masked = {'basetool_einheit_neu'}
     line(t('b_einstellungen'), _safe(lambda: ', '.join(
-        '%s=%s' % (k, v) for k, v in sorted(
+        '%s=%s' % (k, ('•••' if v else '') if k in _masked else v)
+        for k, v in sorted(
             (uebersicht.get('selbst_gesetzt') or {}).items()))
         or t('b_standard')))
     line(t('b_dateischutz'), _safe(_file_flags_line))

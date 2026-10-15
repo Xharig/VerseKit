@@ -317,6 +317,10 @@ def _area_card(window, area, login, redraw, status, connected, granted,
             from . import exchange_demand
             exchange_demand.forget()
             basetool_sync._pages_changed(['bedarf'])
+        elif setting == basetool_sync.SETTING_SHIPS:
+            from . import exchange_orgunits
+            exchange_orgunits.forget()
+            basetool_sync._pages_changed(['hangar'])
         window.root.after(50, redraw)
         return new_value
 
@@ -397,6 +401,8 @@ def _area_card(window, area, login, redraw, status, connected, granted,
                 lines.append(t('s_bt_hangar_missionen', c['detached']))
             if c.get('unit_taken'):
                 lines.append(t('s_bt_einheit_uebernommen', c['unit_taken']))
+            if c.get('unit_refused'):
+                lines.append(t('s_bt_einheit_abgelehnt', c['unit_refused']))
             if c.get('rejected'):
                 lines.append(t('s_bt_abgelehnt_n', c['rejected'],
                                ', '.join(sorted(set(
@@ -404,8 +410,23 @@ def _area_card(window, area, login, redraw, status, connected, granted,
     for line in lines:
         _note(window, card, line, color=FG, bottom=0)
     if setting == basetool_sync.SETTING_SHIPS:
+        _orgunits_consent(window, card, granted, login, redraw)
         _new_ship_unit_row(window, card)
     tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
+
+
+def _orgunits_consent(window, card, granted, login, redraw):
+    """Nach der Freigabe: wer schon verbunden ist, hat das Recht für die
+    Einheiten-Liste noch nicht. Ein Hinweis mit Knopf — freiwillig, der
+    Hangar-Abgleich läuft auch ohne."""
+    if not basetool.REQUEST_ORGUNITS or not granted \
+            or set(basetool.SCOPES_ORGUNITS) <= granted:
+        return
+    _note(window, card, t('s_bt_einheit_recht'), color=theme.YELLOW,
+          bottom=0)
+    _buttons(window, card, [(t('s_bt_rechte_erweitern'),
+                             lambda: _start_login(window, login, redraw),
+                             'strong')])
 
 
 def _new_ship_unit_row(window, card):
@@ -427,13 +448,18 @@ def _new_ship_unit_row(window, card):
         for u in exchange_orgunits.units()]
     current = (paths.setting(basetool_sync.SETTING_NEW_SHIP_UNIT) or '').strip()
     if current not in {value for value, _ in entries}:
+        # Verlassene Einheit: auch in der Einstellung zurück auf „wie
+        # bisher" — sonst gälte sie nach einem Wiedereintritt still wieder.
+        if current:
+            paths.set_setting(basetool_sync.SETTING_NEW_SHIP_UNIT, '')
         current = ''
 
     def remember(value):
         paths.set_setting(basetool_sync.SETTING_NEW_SHIP_UNIT, value or '')
 
+    # Rechts wie die Schalter der Karte (Symmetrie).
     round_select(row, entries, current, remember, window.f_small,
-                 bg=SURFACE).pack(side='left')
+                 bg=SURFACE).pack(side='right')
     _note(window, card, t('s_bt_einheit_neu_h'), bottom=0)
 
 

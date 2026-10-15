@@ -539,6 +539,7 @@ def _run(watcher):
         counts['stock'] = _sync_stock(conn, state)
         save_state(state)
     from . import exchange_orgunits
+    units_before = [u['id'] for u in exchange_orgunits.units()]
     units_ok = False
     if SETTING_SHIPS in ready and set(basetool.SCOPES_ORGUNITS) <= capabilities:
         # ⚠ Abgefangen: Ohne die Liste fehlt nur die Auswahl — der
@@ -552,6 +553,9 @@ def _run(watcher):
             errors.record('basetool_sync.orgunits', exc)
     else:
         exchange_orgunits.forget()
+    if units_before != [u['id'] for u in exchange_orgunits.units()]:
+        # Die Auswahl auf den Schiffskarten kommt oder geht.
+        _in_tk(lambda: _pages_changed(['hangar']))
     if SETTING_SHIPS in ready:
         counts['ships'] = _sync_ships(conn, state, units_ok)
         save_state(state)
@@ -965,6 +969,11 @@ def _new_ship_unit(units_ok):
     return None
 
 
+def _known_units():
+    from . import exchange_orgunits
+    return {u['id'] for u in exchange_orgunits.units()}
+
+
 # Ablehnungen, bei denen das Basetool bei der Einheit gewinnt: VerseKit
 # übernimmt dann dessen Einheit, statt bei jedem Abgleich neu zu senden.
 UNIT_REJECTIONS = ('ORG_UNIT_NOT_ALLOWED', 'ORG_UNIT_VERSION_CONFLICT')
@@ -989,8 +998,10 @@ def _sync_ships(conn, state, units_ok=False):
     result = exchange_ships.plan(local, resolved, server, sub)
     failed, applied, extra = _send(
         conn, '/me/ships/changes',
-        exchange_ships.change_sets(result, local, resolved, server,
-                                   new_unit=_new_ship_unit(units_ok)))
+        exchange_ships.change_sets(
+            result, local, resolved, server,
+            new_unit=_new_ship_unit(units_ok),
+            known_units=_known_units() if units_ok else None))
     rejected = {ext: reason or kind for ext, kind, reason in failed}
     # Einheit abgelehnt: die des Basetools übernehmen (siehe UNIT_REJECTIONS).
     unit_reset = sorted(ext for ext, reason in rejected.items()
@@ -1051,7 +1062,9 @@ def _sync_ships(conn, state, units_ok=False):
             # Einheit-Ablehnungen sind aufgelöst (Basetool gewinnt) und zählen
             # als übernommen, nicht als abgelehnt.
             'rejected': len(set(rejected) - set(unit_reset)),
-            'unit_taken': len(set(result['unit_conflicts']) | set(unit_reset)),
+            'unit_taken': len(set(result['unit_conflicts'])
+                              - set(unit_reset)),
+            'unit_refused': len(unit_reset),
             'unresolved': len([e for e in local if e not in resolved]),
             'detached': extra.get('detachedFromMissions', 0)}
 

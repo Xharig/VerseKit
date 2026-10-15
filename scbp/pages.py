@@ -15296,17 +15296,23 @@ def _unit_choice(fenster, parent, entry, save):
     if not (_sync_ready(basetool_sync.SETTING_SHIPS)
             and exchange_orgunits.choice_visible()):
         return
+    # ⚠ Noch nie abgeglichen (`None`) ist nicht dasselbe wie „Keine Einheit"
+    # (`''`): Wer das angezeigte „Keine" anklickt, nähme das Schiff sonst
+    # ausdrücklich aus seiner Einheit.
+    UNSYNCED = '\x00offen'
     entries = [('', t('s_hg_keine_einheit'))] + [
         (u['id'], exchange_orgunits.label(u))
         for u in exchange_orgunits.units()]
-    current = entry.get('einheit') or ''
-    if current not in {value for value, _ in entries}:
-        # Eine Einheit, in der man nicht mehr ist: sichtbar, nicht wählbar.
+    stored = entry.get('einheit')
+    current = UNSYNCED if stored is None else stored
+    if stored is None:
+        entries.append((UNSYNCED, t('s_hg_einheit_offen')))
+    elif current not in {value for value, _ in entries}:
+        # Eine Einheit, in der du nicht bist: sichtbar, nicht neu wählbar.
         entries.append((current, t('s_hg_einheit_fremd')))
 
     def choose(value):
-        if value == (entry.get('einheit') or '') and \
-                entry.get('einheit') is not None:
+        if value == UNSYNCED or value == entry.get('einheit'):
             return
         entry['einheit'] = value or ''
         save()

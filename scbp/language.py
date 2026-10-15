@@ -4630,7 +4630,8 @@ TEXTS = {
     's_hg_einsatzbereit': ('Einsatzbereit', 'Ready'),
     # Einheit im Basetool auf der Schiffskarte (nur bei mehreren Einheiten).
     's_hg_keine_einheit': ('Keine Einheit', 'No unit'),
-    's_hg_einheit_fremd': ('Andere Einheit (nicht mehr deine)', 'Other unit (no longer yours)'),
+    's_hg_einheit_fremd': ('Einheit, in der du nicht bist', 'A unit you are not in'),
+    's_hg_einheit_offen': ('Wie im Basetool (noch nicht abgeglichen)', 'As in the Basetool (not synced yet)'),
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
     # Carrack) — kommt aus `includedWith` der Hangar Extension.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
@@ -6643,6 +6644,10 @@ TEXTS = {
                               'Note: %d missions in the Basetool lost a ship through this.'),
     's_bt_einheit_uebernommen': ('Einheit im Basetool geändert, übernommen: %d Schiffe.',
                                  'Unit changed in the Basetool, taken over: %d ships.'),
+    's_bt_einheit_abgelehnt': ('Einheit vom Basetool nicht angenommen, die dortige gilt: %d Schiffe.',
+                               'Unit not accepted by the Basetool, its own applies: %d ships.'),
+    's_bt_einheit_recht': ('Für die Einheit-Auswahl im Hangar fehlt noch eine Erlaubnis. Der Abgleich läuft auch ohne.',
+                           'The unit choice in the hangar still needs a permission. The sync works without it too.'),
     's_bt_einheit_neu':  ('Einheit für neue Schiffe', 'Unit for new ships'),
     's_bt_einheit_wie_bisher': ('Wie bisher (Basetool entscheidet)', 'As before (the Basetool decides)'),
     's_bt_einheit_neu_h': ('Gilt nur, wenn Verse-Kit ein Schiff neu im Basetool anlegt. Auf der Schiffskarte im Hangar lässt sich die Einheit je Schiff ändern; ändert sie jemand im Basetool, gilt die dortige.',

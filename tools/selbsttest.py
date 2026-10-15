@@ -44206,7 +44206,8 @@ def _pruefung_460():
                             'shorthand': einheit.upper(), 'kind': 'SQUADRON'}
         return s
 
-    def _lauf460(mein, drueben, vorher=None, verknuepft=True, neu=None):
+    def _lauf460(mein, drueben, vorher=None, verknuepft=True, neu=None,
+                 bekannt=('u1', 'u2', 'u5', 'u7')):
         eintrag = dict(_hangar460)
         if mein is not None:
             eintrag['einheit'] = mein
@@ -44216,8 +44217,9 @@ def _pruefung_460():
         if vorher is not None:
             stand['baseline_unit'] = {_ext460: vorher}
         plan = _xs460.plan(lok, _res460, server, stand)
-        ops = [op for s, _k in _xs460.change_sets(plan, lok, _res460, server,
-                                                  new_unit=neu)
+        ops = [op for s, _k in _xs460.change_sets(
+            plan, lok, _res460, server, new_unit=neu,
+            known_units=None if bekannt is None else set(bekannt))
                for op in s['ops'] if op['op'] == 'upsert']
         return plan, ops
 
@@ -44250,6 +44252,21 @@ def _pruefung_460():
     _p, _o = _lauf460(None, None, verknuepft=False)
     pruefe(_o and 'orgUnit' not in _o[0],
            'ohne Wahl und Einstellung: das Basetool entscheidet wie bisher')
+    _p, _o = _lauf460('u2', 'u1', vorher=None)
+    pruefe(not _o and _p['pull_fields'].get(_ext460) == ['orgUnit']
+           and not _p['unit_conflicts'],
+           'ohne Abgleichsstand (neu verbunden): das Basetool gilt, nichts '
+           'geht hinaus (%r)' % _o[:1])
+    _p, _o = _lauf460('u9', None, verknuepft=False)
+    pruefe(_o and 'orgUnit' not in _o[0],
+           'neues Schiff mit einer Einheit, in der man nicht ist: nicht '
+           'gesendet (sonst scheitert das Anlegen bei jedem Abgleich)')
+    _p, _o = _lauf460('u2', None, verknuepft=False, bekannt=None)
+    pruefe(_o and 'orgUnit' not in _o[0],
+           'ohne geholte Einheiten-Liste geht beim Anlegen keine Einheit mit')
+    _p, _o = _lauf460(None, None)
+    pruefe(not _o and not _p['pull'],
+           'Feed ohne Einheit, Eintrag ohne Einheit: nichts zu tun')
 
     _einheiten460 = _eo460.parse({'items': [
         {'id': 'a', 'name': 'Staffel Mamba', 'shorthand': 'MBA',
@@ -44260,6 +44277,13 @@ def _pruefung_460():
            and _eo460.label(_einheiten460[0]) == 'Staffel Mamba (MBA)',
            'Einheiten-Liste: ohne Kennung fällt weg, unbekannte Art bleibt '
            'wählbar')
+    with _eo460._lock:
+        _eo460._state['units'] = _einheiten460[:1]
+    _eine460 = _eo460.choice_visible()
+    with _eo460._lock:
+        _eo460._state['units'] = _einheiten460
+    pruefe(not _eine460 and _eo460.choice_visible(),
+           'Auswahl nur bei mehr als einer Einheit')
 
     _heim460 = _tf460.mkdtemp(prefix='pruefung460-')
     _altheim460 = os.environ.get('SC_BP_HOME')
@@ -44308,12 +44332,24 @@ def _pruefung_460():
         _zahl460 = _bs460._sync_ships(None, _stand460, True)
         _einheit460 = (_fl460.load()['schiffe'][0]).get('einheit')
         pruefe(any(op.get('orgUnit') == 'u2' for op in _gesendet460)
-               and _einheit460 == 'u1' and _zahl460.get('unit_taken') == 1
+               and _einheit460 == 'u1' and _zahl460.get('unit_refused') == 1
                and _zahl460.get('rejected') == 0,
                'abgelehnte Einheit: die des Basetools übernommen, gemeldet, '
                'nicht als Fehler gezählt (%r / %r)' % (_einheit460, _zahl460))
         pruefe(_stand460['ships']['baseline_unit'].get(_ext460) == 'u1',
                'der Abgleichsstand merkt sich die Einheit des Basetools')
+        pruefe(_zahl460.get('unit_refused') == 1
+               and _zahl460.get('unit_taken') == 0,
+               'Ablehnung und Änderung im Basetool werden getrennt gemeldet')
+        # Kein Dauersenden: der nächste Plan hat nichts mehr zu tun.
+        _lok2_460 = _xs460.local_ships(_fl460.load())
+        _plan2_460 = _xs460.plan(_lok2_460, _res460,
+                                 {'s-1': dict(_schiff460('u1'),
+                                              externalId=_ext460)},
+                                 _stand460['ships'])
+        pruefe(not _plan2_460['update'] and not _plan2_460['pull'],
+               'nach der Ablehnung: kein erneutes Senden (%r)'
+               % _plan2_460['update'])
     finally:
         (_bt460.REQUEST_ORGUNITS, _bs460._pull_generic, _bs460._resolve_refs,
          _bs460._send, _bs460._own_ship_names, _bs460.IN_TK[0],

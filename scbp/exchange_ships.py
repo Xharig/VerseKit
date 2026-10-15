@@ -122,7 +122,11 @@ def _unit_side(mine, theirs, before):
         return 'pull' if theirs else None
     if mine == theirs:
         return None
-    if before is None or theirs == before:
+    # ⚠ Ohne Stand vom letzten Abgleich (Zustandsdatei weg, neu verbunden)
+    # ist nicht zu sagen, wer geändert hat — dann gilt das Basetool. Eine
+    # Wahl auf der Karte geht dabei nicht verloren: `link` setzt den Stand
+    # schon einen Abgleich früher, danach greift `theirs == before`.
+    if before is not None and theirs == before:
         return 'push'
     return 'pull'
 
@@ -194,9 +198,10 @@ def plan(local, resolved, server, state):
 
     `local`: aus `local_ships()`. `resolved`: externalId -> `bt` des
     Schiffstyps. `server`: {shipId: Schiff} nach dem Holen. `state` trägt
-    `links` (externalId -> shipId), `baseline`, `baseline_name` und
-    `baseline_fitted` (externalId -> Versicherung, Name, `fitted` beim letzten
-    Abgleich), `removed_elsewhere`, `pending_removals`, `overrides`.
+    `links` (externalId -> shipId), `baseline`, `baseline_name`,
+    `baseline_fitted` und `baseline_unit` (externalId -> Versicherung, Name,
+    `fitted`, Einheit beim letzten Abgleich), `removed_elsewhere`,
+    `pending_removals`, `overrides`.
     Rückgabe::
 
         {'link': [(externalId, shipId)], 'create': [externalId],
@@ -262,8 +267,9 @@ def plan(local, resolved, server, state):
             # Beide Seiten geändert und das Basetool gewinnt — das gehört in
             # die Abgleich-Meldung.
             mine = local[ext].get('unit')
-            if 'orgUnit' in pull and mine is not None and mine != (
-                    (state.get('baseline_unit') or {}).get(ext)):
+            before = (state.get('baseline_unit') or {}).get(ext)
+            if 'orgUnit' in pull and mine is not None and before is not None \
+                    and mine != before:
                 result['unit_conflicts'].append(ext)
 
     # 2) Noch nicht verknüpfte: erst an ein vorhandenes Schiff hängen.
@@ -299,11 +305,14 @@ def plan(local, resolved, server, state):
 
 
 def change_sets(plan_result, local, resolved, server, batch=500,
-                new_unit=None):
+                new_unit=None, known_units=None):
     """Die Sendungen: [(change_set, externalIds)].
 
     `new_unit` ist die Einheit für neue Schiffe (Einstellung) — `None` heißt
-    „wie bisher", dann entscheidet das Basetool.
+    „wie bisher", dann entscheidet das Basetool. `known_units` sind die
+    Kennungen der Einheiten des Mitglieds (`None` = Liste nicht geholt):
+    Beim Anlegen geht eine Einheit nur hinaus, wenn sie darin steht — sonst
+    lehnte das Basetool das ganze Anlegen ab, bei jedem Abgleich neu.
 
     ⚠ `link` steht immer VOR dem Anlegen — so will es die Anleitung, und der
     Server entscheidet in Reihenfolge."""
@@ -330,7 +339,8 @@ def change_sets(plan_result, local, resolved, server, batch=500,
         unit = local[ext].get('unit')
         if unit is None:
             unit = new_unit
-        if unit is not None:
+        if unit is not None and known_units is not None \
+                and (unit == '' or unit in known_units):
             op['orgUnit'] = unit or None
         if ext in (plan_result.get('override') or ()):
             op['override'] = True

@@ -24,11 +24,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   which contract it comes from (easiest first), how many ingredients and how
   much time crafting takes, and where the item is cheapest to buy. Can be
   switched off on the *Game* page.
-- **Basetool: unit per ship** — members of several units choose on each ship
-  card in the hangar which unit the ship belongs to in the Basetool, and
-  under *Connection & sync* a unit for new ships. If someone changes the unit
-  in the Basetool, that one applies.
-
 ### Improved
 
 - **Damaged settings file** — if the file can no longer be read, Verse-Kit
