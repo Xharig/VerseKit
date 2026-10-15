@@ -539,7 +539,10 @@ def _run(watcher):
         counts['stock'] = _sync_stock(conn, state)
         save_state(state)
     from . import exchange_orgunits
-    units_before = [u['id'] for u in exchange_orgunits.units()]
+    def _units_seen():
+        return [(u['id'], u['name'], u['shorthand'])
+                for u in exchange_orgunits.units()]
+    units_before = _units_seen()
     units_ok = False
     if SETTING_SHIPS in ready and set(basetool.SCOPES_ORGUNITS) <= capabilities:
         # ⚠ Abgefangen: Ohne die Liste fehlt nur die Auswahl — der
@@ -553,8 +556,8 @@ def _run(watcher):
             errors.record('basetool_sync.orgunits', exc)
     else:
         exchange_orgunits.forget()
-    if units_before != [u['id'] for u in exchange_orgunits.units()]:
-        # Die Auswahl auf den Schiffskarten kommt oder geht.
+    if units_before != _units_seen():
+        # Die Auswahl auf den Schiffskarten kommt, geht oder heißt anders.
         _in_tk(lambda: _pages_changed(['hangar']))
     if SETTING_SHIPS in ready:
         counts['ships'] = _sync_ships(conn, state, units_ok)
@@ -1022,7 +1025,17 @@ def _sync_ships(conn, state, units_ok=False):
         sub['server'] = server
         server, _resync = _pull_generic(conn, sub, '/me/ships', 'shipId')
 
-    if result['take'] or result['drop'] or result['pull']:
+    # Beim Anlegen weggelassene Einheit (unbekannt oder Liste nicht geholt):
+    # im Hangar auf „wie im Basetool" zurück — sonst ginge sie einen Abgleich
+    # später doch als Änderung hinaus.
+    known = _known_units() if units_ok else None
+    result['unit_clear'] = sorted(
+        ext for ext in result['create']
+        if local.get(ext, {}).get('unit') is not None
+        and not (known is not None
+                 and (local[ext]['unit'] == '' or local[ext]['unit'] in known)))
+    if result['take'] or result['drop'] or result['pull'] \
+            or result['unit_clear']:
         _apply_ships(result, server, local)
 
     links = {}
@@ -1109,6 +1122,10 @@ def _apply_ships(result, server, local):
             key = (local.get(ext) or {}).get('asop_key')
             if 'name' in fields and key:
                 names.append((key, ship.get('name') or ''))
+        for ext in result.get('unit_clear') or ():
+            entry = by_ext.get(ext)
+            if entry is not None:
+                entry.pop('einheit', None)
         for ext in result['drop']:
             entry = by_ext.get(ext)
             if entry is not None and entry.get('herkunft') == fleet.BASETOOL:

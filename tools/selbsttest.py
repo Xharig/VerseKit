@@ -44350,6 +44350,16 @@ def _pruefung_460():
         pruefe(not _plan2_460['update'] and not _plan2_460['pull'],
                'nach der Ablehnung: kein erneutes Senden (%r)'
                % _plan2_460['update'])
+
+        # Beim Anlegen weggelassene Einheit: im Hangar zurück auf „wie im
+        # Basetool", damit sie nicht einen Abgleich später doch hinausgeht.
+        _fl460.save({'format': 1, 'schiffe': [dict(_hangar460, einheit='u9')]})
+        _bs460._pull_generic = lambda conn, sub, route, key: ({}, False)
+        _bs460._send = lambda conn, path, sets: ([], 0, {})
+        _bs460._sync_ships(None, {'ships': {}}, True)
+        pruefe('einheit' not in _fl460.load()['schiffe'][0],
+               'unbekannte Einheit beim Anlegen weggelassen: Eintrag wieder '
+               '„wie im Basetool"')
     finally:
         (_bt460.REQUEST_ORGUNITS, _bs460._pull_generic, _bs460._resolve_refs,
          _bs460._send, _bs460._own_ship_names, _bs460.IN_TK[0],

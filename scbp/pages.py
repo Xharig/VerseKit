@@ -15312,7 +15312,14 @@ def _unit_choice(fenster, parent, entry, save):
         entries.append((current, t('s_hg_einheit_fremd')))
 
     def choose(value):
-        if value == UNSYNCED or value == entry.get('einheit'):
+        if value == UNSYNCED:
+            # Zurück zu „wie im Basetool": Der nächste Abgleich übernimmt die
+            # Einheit von dort.
+            if entry.get('einheit') is not None:
+                entry.pop('einheit', None)
+                save()
+            return
+        if value == entry.get('einheit'):
             return
         entry['einheit'] = value or ''
         save()
