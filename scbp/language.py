@@ -4628,6 +4628,9 @@ TEXTS = {
     's_hg_lti':          ('LTI', 'LTI'),
     # Haken an der Schiffskarte, geht als `fitted` ins Basetool.
     's_hg_einsatzbereit': ('Einsatzbereit', 'Ready'),
+    # Einheit im Basetool auf der Schiffskarte (nur bei mehreren Einheiten).
+    's_hg_keine_einheit': ('Keine Einheit', 'No unit'),
+    's_hg_einheit_fremd': ('Andere Einheit (nicht mehr deine)', 'Other unit (no longer yours)'),
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
     # Carrack) — kommt aus `includedWith` der Hangar Extension.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
@@ -6638,6 +6641,12 @@ TEXTS = {
                               'The Basetool does not know %d ship types — they stay here only.'),
     's_bt_hangar_missionen': ('Achtung: %d Einsätze im Basetool haben dadurch ein Schiff verloren.',
                               'Note: %d missions in the Basetool lost a ship through this.'),
+    's_bt_einheit_uebernommen': ('Einheit im Basetool geändert, übernommen: %d Schiffe.',
+                                 'Unit changed in the Basetool, taken over: %d ships.'),
+    's_bt_einheit_neu':  ('Einheit für neue Schiffe', 'Unit for new ships'),
+    's_bt_einheit_wie_bisher': ('Wie bisher (Basetool entscheidet)', 'As before (the Basetool decides)'),
+    's_bt_einheit_neu_h': ('Gilt nur, wenn Verse-Kit ein Schiff neu im Basetool anlegt. Auf der Schiffskarte im Hangar lässt sich die Einheit je Schiff ändern; ändert sie jemand im Basetool, gilt die dortige.',
+                           'Applies only when Verse-Kit creates a ship in the Basetool. On the ship card in the hangar you can change the unit per ship; if someone changes it in the Basetool, that one applies.'),
     's_bt_lager_konflikte': ('Lager: Menge weicht ab (%d)', 'Storage: amounts differ (%d)'),
     's_bt_lager_konflikte_h': ('Diese Posten stehen hier und im Basetool mit verschiedener Menge. Welche gilt?',
                                'These lots show different amounts here and in the Basetool. Which one is right?'),
@@ -6686,8 +6695,8 @@ TEXTS = {
                           'Noted — the sync takes care of it in a moment.'),
     's_bt_behalten':     ('Hier wieder aufnehmen', 'Take them back here'),
     's_bt_und_mehr':     ('und %d weitere', 'and %d more'),
-    's_bt_datenschutz':  ('Verse-Kit schickt nur dorthin, womit du es ausdrücklich verbunden hast — und nur die Bereiche, die du einschaltest: Baupläne, Lagerposten (Material, Ort, Qualität, Menge), Schiffe (Typ, Versicherung — nie Preis oder Paket) und, für die Account-Prüfung, dein RSI-Handle. Zugangsdaten liegen nur im Schlüsselspeicher deines Systems, nie in deinen VerseKit-Daten, einer Sicherung oder einem Fehlerbericht.',
-                          'Verse-Kit only sends data where you explicitly connected it — and only the areas you turn on: blueprints, stock lots (material, place, quality, amount), ships (type, insurance — never price or package) and, for the account check, your RSI handle. Credentials are kept only in your system\'s key store, never in your Verse-Kit data, a backup or a problem report.'),
+    's_bt_datenschutz':  ('Verse-Kit schickt nur dorthin, womit du es ausdrücklich verbunden hast — und nur die Bereiche, die du einschaltest: Baupläne, Lagerposten (Material, Ort, Qualität, Menge), Schiffe (Typ, Versicherung, eigener Name, Einsatzbereit, Einheit — nie Preis oder Paket) und, für die Account-Prüfung, dein RSI-Handle. Zugangsdaten liegen nur im Schlüsselspeicher deines Systems, nie in deinen VerseKit-Daten, einer Sicherung oder einem Fehlerbericht.',
+                          'Verse-Kit only sends data where you explicitly connected it — and only the areas you turn on: blueprints, stock lots (material, place, quality, amount), ships (type, insurance, own name, ready, unit — never price or package) and, for the account check, your RSI handle. Credentials are kept only in your system\'s key store, never in your Verse-Kit data, a backup or a problem report.'),
     's_bt_f_allgemein':  ('Das Basetool hat abgelehnt (%s).', 'The Basetool refused (%s).'),
     's_bt_f_netz':       ('Das Basetool ist gerade nicht erreichbar. Verse-Kit versucht es später noch einmal.',
                           'The Basetool cannot be reached right now. Verse-Kit will try again later.'),

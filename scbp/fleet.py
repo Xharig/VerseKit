@@ -81,7 +81,8 @@ soll das keinen Formatwechsel kosten und keine bestehende Datei entwerten.
 bleiben: der Ablage-Name `hangar.json` und alle Schlüssel darin
 (`format`, `schiffe`, `wunsch`, `merkzettel`, `name`, `hersteller`,
 `herkunft`, `belegung`, `kurz`, `hkurz`, `lti`, `warbond`, `paket`,
-`gekauft`, `preis`, `ref`, `anzahl`, `weg`, `einsatzbereit`) sowie die Herkunftswerte
+`gekauft`, `preis`, `ref`, `anzahl`, `weg`, `einsatzbereit`, `einheit` — die
+Kennung der Einheit im Basetool, `''` = keine) sowie die Herkunftswerte
 `'pledge'` und `'ingame'` — sonst verliert jeder beim Update seinen Hangar.
 Ebenso der Seitenname `hangar` in Reiterleiste, Symbolsatz und „Neu"-Marken.
 """
@@ -652,6 +653,8 @@ def merge_duplicates(data):
         if match.get('einsatzbereit') is None \
                 and s.get('einsatzbereit') is not None:
             match['einsatzbereit'] = s['einsatzbereit']
+        if match.get('einheit') is None and s.get('einheit') is not None:
+            match['einheit'] = s['einheit']
     if changed:
         data['schiffe'] = kept
     return changed

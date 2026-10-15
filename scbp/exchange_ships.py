@@ -94,13 +94,37 @@ def local_ships(fleet_data, own_names=None):
             ref['scRecord'] = entry['kurz'][:200]
         key, own = own_names.get(name) or (None, None)
         fitted = entry.get('einsatzbereit')
+        unit = entry.get('einheit')
         out[external_id(entry)] = {
             'name': name, 'origin': entry.get('herkunft'), 'ref': ref,
             'insurance': insurance(entry),
             'own_name': None if key is None else (own or '')[:255],
             'asop_key': key,
-            'fitted': None if fitted is None else bool(fitted)}
+            'fitted': None if fitted is None else bool(fitted),
+            # `None` = nie gewählt, `''` = ausdrücklich keine Einheit.
+            'unit': None if unit is None else str(unit)}
     return out
+
+
+def server_unit(ship):
+    """Die Kennung der Einheit eines Schiffs im Basetool — `''` ohne."""
+    return str(((ship or {}).get('orgUnit') or {}).get('id') or '')
+
+
+def _unit_side(mine, theirs, before):
+    """`'push'`, `'pull'` oder `None` für die Einheit.
+
+    ⚠ **Bei einem Widerspruch gewinnt das Basetool** (anders als bei Name
+    und `fitted`): Dort ändern auch Offiziere und Admins die Einheit, und
+    VerseKit soll deren Änderung nie still rückgängig machen. Nie gewählt
+    (`None`) heißt: die Einheit von drüben übernehmen."""
+    if mine is None:
+        return 'pull' if theirs else None
+    if mine == theirs:
+        return None
+    if before is None or theirs == before:
+        return 'push'
+    return 'pull'
 
 
 def _name_side(mine, theirs, before):
@@ -158,6 +182,10 @@ def _sides(mine, ship, ext, state):
                         (state.get('baseline_fitted') or {}).get(ext))
     if side:
         (push if side == 'push' else pull).add('fitted')
+    side = _unit_side(mine.get('unit'), server_unit(ship),
+                      (state.get('baseline_unit') or {}).get(ext))
+    if side:
+        (push if side == 'push' else pull).add('orgUnit')
     return push, pull
 
 
@@ -180,7 +208,9 @@ def plan(local, resolved, server, state):
          'local_removed': {externalId: shipId},
          'removed_elsewhere': [externalId], 'links': {...}}
 
-    Felder sind `insurance`, `name` und `fitted`.
+    Felder sind `insurance`, `name`, `fitted` und `orgUnit`;
+    `unit_conflicts` nennt die Schiffe, deren Einheit auf beiden Seiten
+    geändert war (das Basetool gewinnt).
     """
     links = dict(state.get('links') or {})
     pending = set(state.get('pending_removals') or ())
@@ -197,7 +227,7 @@ def plan(local, resolved, server, state):
     result = {'link': [], 'create': [], 'update': [], 'pull': [], 'remove': [],
               'push_fields': {}, 'pull_fields': {},
               'take': [], 'drop': [], 'local_removed': {},
-              'removed_elsewhere': [], 'links': {}}
+              'removed_elsewhere': [], 'links': {}, 'unit_conflicts': []}
     taken = set()
 
     # 1) Verknüpfte: noch da? hier geändert?
@@ -229,6 +259,12 @@ def plan(local, resolved, server, state):
         if pull:                                           # dort geändert
             result['pull'].append((ext, ship_id))
             result['pull_fields'][ext] = sorted(pull)
+            # Beide Seiten geändert und das Basetool gewinnt — das gehört in
+            # die Abgleich-Meldung.
+            mine = local[ext].get('unit')
+            if 'orgUnit' in pull and mine is not None and mine != (
+                    (state.get('baseline_unit') or {}).get(ext)):
+                result['unit_conflicts'].append(ext)
 
     # 2) Noch nicht verknüpfte: erst an ein vorhandenes Schiff hängen.
     for ext in sorted(local):
@@ -262,8 +298,12 @@ def plan(local, resolved, server, state):
     return result
 
 
-def change_sets(plan_result, local, resolved, server, batch=500):
+def change_sets(plan_result, local, resolved, server, batch=500,
+                new_unit=None):
     """Die Sendungen: [(change_set, externalIds)].
+
+    `new_unit` ist die Einheit für neue Schiffe (Einstellung) — `None` heißt
+    „wie bisher", dann entscheidet das Basetool.
 
     ⚠ `link` steht immer VOR dem Anlegen — so will es die Anleitung, und der
     Server entscheidet in Reihenfolge."""
@@ -285,6 +325,13 @@ def change_sets(plan_result, local, resolved, server, batch=500):
             op['name'] = local[ext]['own_name']
         if local[ext].get('fitted') is not None:
             op['fitted'] = local[ext]['fitted']
+        # Beim Anlegen ohne Zähler. Auf der Karte gewählt geht vor der
+        # Einstellung; `''` (keine Einheit) geht als `null` hinaus.
+        unit = local[ext].get('unit')
+        if unit is None:
+            unit = new_unit
+        if unit is not None:
+            op['orgUnit'] = unit or None
         if ext in (plan_result.get('override') or ()):
             op['override'] = True
         ops.append(op)
@@ -308,6 +355,11 @@ def change_sets(plan_result, local, resolved, server, batch=500):
             op['name'] = name
         if 'fitted' in fields:
             op['fitted'] = bool(local[ext].get('fitted'))
+        # ⚠ Ohne `orgUnit` behält das Basetool die Einheit — deshalb nur,
+        # wenn sie hier geändert wurde, und dann mit ihrem eigenen Zähler.
+        if 'orgUnit' in fields:
+            op['orgUnit'] = local[ext].get('unit') or None
+            op['orgUnitVersion'] = ship.get('orgUnitVersion', 0)
         if ship.get('location'):
             op['location'] = {k: v for k, v in ship['location'].items()
                               if k in ('name', 'uex') and v}

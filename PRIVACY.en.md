@@ -102,13 +102,15 @@ by default.
 **What goes there** — depending on the areas you turn on: your blueprints
 (name, the Basetool's key, time, and how Verse-Kit knows them), your stock lots
 from raw-material and trade storage (material, place, quality, amount,
-"stolen") and your ships (type and insurance). Plus the name you give this
+"stolen") and your ships (type, insurance, own name, "ready" and the unit a
+ship belongs to). Plus the name you give this
 installation — never your computer's name — and, for the account check only,
 your RSI handle. Never purchase data (price, purchase date, package), never
 other members' data.
 
 **What comes back:** your own blueprints, stock lots and ships from the
-Basetool.
+Basetool, and for the hangar the list of units you are a member of (kept in
+memory only, for the choice on the ship card).
 
 **What is stored:** the synced state in your data folder
 (`basetool-<id>.json`, next to it the previous version

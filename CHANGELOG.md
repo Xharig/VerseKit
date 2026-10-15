@@ -24,6 +24,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   welchem Auftrag er kommt (der leichteste zuerst), wie viele Zutaten und wie
   viel Zeit das Herstellen braucht und wo es das Teil am günstigsten zu kaufen
   gibt. Auf der Seite *Spiel* abschaltbar.
+- **Basetool: Einheit am Schiff** — wer in mehreren Einheiten ist, wählt auf
+  jeder Schiffskarte im Hangar, in welcher Einheit das Schiff im Basetool
+  steht, und unter *Verbindung & Abgleich* eine Einheit für neue Schiffe.
+  Ändert jemand die Einheit im Basetool, gilt die dortige.
 
 ### Verbessert
 

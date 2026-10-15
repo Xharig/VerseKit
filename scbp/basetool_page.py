@@ -395,13 +395,46 @@ def _area_card(window, area, login, redraw, status, connected, granted,
                 lines.append(t('s_bt_hangar_unbekannt', c['unresolved']))
             if c.get('detached'):
                 lines.append(t('s_bt_hangar_missionen', c['detached']))
+            if c.get('unit_taken'):
+                lines.append(t('s_bt_einheit_uebernommen', c['unit_taken']))
             if c.get('rejected'):
                 lines.append(t('s_bt_abgelehnt_n', c['rejected'],
                                ', '.join(sorted(set(
                                    (sub.get('rejected') or {}).values()))[:3])))
     for line in lines:
         _note(window, card, line, color=FG, bottom=0)
+    if setting == basetool_sync.SETTING_SHIPS:
+        _new_ship_unit_row(window, card)
     tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
+
+
+def _new_ship_unit_row(window, card):
+    """„Einheit für neue Schiffe" — nur bei mehr als einer Einheit.
+
+    Vorgabe „wie bisher": Dann entscheidet das Basetool (die einzige
+    Einheit, sonst keine). Eine Einheit, in der das Mitglied nicht mehr ist,
+    steht nicht zur Wahl und wird beim Anlegen nicht geschickt."""
+    from . import exchange_orgunits
+    from .main_window import round_select
+    if not exchange_orgunits.choice_visible():
+        return
+    row = tk.Frame(card, bg=SURFACE)
+    row.pack(fill='x', padx=16, pady=(8, 0))
+    tk.Label(row, text=t('s_bt_einheit_neu'), bg=SURFACE, fg=SUB,
+             font=window.f_small).pack(side='left', padx=(0, 8))
+    entries = [('', t('s_bt_einheit_wie_bisher'))] + [
+        (u['id'], exchange_orgunits.label(u))
+        for u in exchange_orgunits.units()]
+    current = (paths.setting(basetool_sync.SETTING_NEW_SHIP_UNIT) or '').strip()
+    if current not in {value for value, _ in entries}:
+        current = ''
+
+    def remember(value):
+        paths.set_setting(basetool_sync.SETTING_NEW_SHIP_UNIT, value or '')
+
+    round_select(row, entries, current, remember, window.f_small,
+                 bg=SURFACE).pack(side='left')
+    _note(window, card, t('s_bt_einheit_neu_h'), bottom=0)
 
 
 def _decided(window, action, *args):

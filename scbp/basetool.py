@@ -86,6 +86,15 @@ SCOPES_BLUEPRINTS = ('exchange.blueprints.read', 'exchange.blueprints.write')
 SCOPES_STOCK = ('exchange.stock.read', 'exchange.stock.write')
 SCOPES_HANGAR = ('exchange.hangar.read', 'exchange.hangar.write')
 SCOPES_DEMAND = ('exchange.demand.read',)
+# ⚠ Eigenes, freiwilliges Recht neben dem Hangar — nicht in `SCOPES_HANGAR`:
+# sonst stünde der Hangar-Abgleich bei allen still, die es noch nicht erteilt
+# haben. Ohne dieses Recht gibt es nur keine Einheit-Auswahl.
+SCOPES_ORGUNITS = ('exchange.orgunits.read',)
+# ⚠⚠ **Erst anfragen, wenn das Basetool es für VerseKit freigegeben hat.** Ein
+# nicht freigegebenes Recht in der Anmeldung kann die ganze Anmeldung
+# scheitern lassen — dann wäre das Basetool für alle getrennt. Umlegen, sobald
+# die Freigabe bestätigt ist; bis dahin bleibt die Einheit-Auswahl unsichtbar.
+REQUEST_ORGUNITS = False
 
 REFRESH_SECRET = 'refresh-token'
 KEY_SECRET = 'dpop-key'
@@ -686,8 +695,9 @@ class Connection:
         self._drop_key()
         with self._lock:
             self.granted = ()
-        from . import exchange_demand
+        from . import exchange_demand, exchange_orgunits
         exchange_demand.forget()
+        exchange_orgunits.forget()
 
     # ------------------------------------------------------- Kurzwege
     def service_document(self):

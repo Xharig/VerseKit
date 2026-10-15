@@ -15284,6 +15284,37 @@ def _hangar_matches(eintrag, suche):
 _HANGAR_SUCHFELDER = ('name', 'hersteller', 'hkurz', 'kurz')
 
 
+def _unit_choice(fenster, parent, entry, save):
+    """Auswahl der Einheit im Basetool auf der Schiffskarte.
+
+    Nur bei verbundenem Basetool mit eingeschaltetem Hangar **und** mehr als
+    einer Einheit — wer in einer ist, bekommt sie beim Basetool von selbst.
+    Gesendet wird beim nächsten Abgleich; bei einem Widerspruch gewinnt das
+    Basetool (`exchange_ships._unit_side`)."""
+    from . import basetool_sync, exchange_orgunits
+    from .main_window import round_select
+    if not (_sync_ready(basetool_sync.SETTING_SHIPS)
+            and exchange_orgunits.choice_visible()):
+        return
+    entries = [('', t('s_hg_keine_einheit'))] + [
+        (u['id'], exchange_orgunits.label(u))
+        for u in exchange_orgunits.units()]
+    current = entry.get('einheit') or ''
+    if current not in {value for value, _ in entries}:
+        # Eine Einheit, in der man nicht mehr ist: sichtbar, nicht wählbar.
+        entries.append((current, t('s_hg_einheit_fremd')))
+
+    def choose(value):
+        if value == (entry.get('einheit') or '') and \
+                entry.get('einheit') is not None:
+            return
+        entry['einheit'] = value or ''
+        save()
+
+    round_select(parent, entries, current, choose, fenster.f_small,
+                 bg=SURFACE).pack(side='right', padx=(0, 12))
+
+
 def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
                 name_line=None):
     """Eine Schiffszeile. Gibt `1` zurück, wenn Steckplätze fehlen.
@@ -15371,6 +15402,7 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
 
     _checkbox(unten, t('s_hg_einsatzbereit'), ready, set_ready,
               fenster.f_small, bg=SURFACE).pack(side='right')
+    _unit_choice(fenster, unten, eintrag, lambda: meine.save(daten['stand']))
     tk.Label(unten, text='  ·  '.join(teile), bg=SURFACE,
              fg=farbe, font=fenster.f_small,
              anchor='w').pack(side='left')

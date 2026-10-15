@@ -61,6 +61,9 @@ SETTING_STOCK = 'basetool_lager'
 SETTING_SHIPS = 'basetool_hangar'
 SETTING_DEMAND = 'basetool_bedarf'
 SETTING_LABEL = 'basetool_name'
+# Einheit für neue Schiffe: `''` = wie bisher (das Basetool entscheidet),
+# sonst die Kennung einer Einheit.
+SETTING_NEW_SHIP_UNIT = 'basetool_einheit_neu'
 
 # Die Bereiche: Schalter und die Rechte, die er braucht. Jeder ist ab Werk
 # aus, und angefragt wird nur, was eingeschaltet ist.
@@ -111,6 +114,10 @@ def wanted_scopes():
     for setting, scopes in AREAS:
         if area_on(setting):
             out += [s for s in scopes if s not in out]
+    # Zum Hangar das freiwillige Recht für die Einheiten-Liste — erst nach
+    # der Freigabe (siehe `basetool.REQUEST_ORGUNITS`).
+    if area_on(SETTING_SHIPS) and basetool.REQUEST_ORGUNITS:
+        out += [s for s in basetool.SCOPES_ORGUNITS if s not in out]
     return out
 
 
@@ -531,8 +538,22 @@ def _run(watcher):
     if SETTING_STOCK in ready:
         counts['stock'] = _sync_stock(conn, state)
         save_state(state)
+    from . import exchange_orgunits
+    units_ok = False
+    if SETTING_SHIPS in ready and set(basetool.SCOPES_ORGUNITS) <= capabilities:
+        # ⚠ Abgefangen: Ohne die Liste fehlt nur die Auswahl — der
+        # Hangar-Abgleich selbst darf daran nicht scheitern.
+        try:
+            exchange_orgunits.refresh(conn)
+            units_ok = True
+        except Exception as exc:
+            exchange_orgunits.forget()
+            from . import errors
+            errors.record('basetool_sync.orgunits', exc)
+    else:
+        exchange_orgunits.forget()
     if SETTING_SHIPS in ready:
-        counts['ships'] = _sync_ships(conn, state)
+        counts['ships'] = _sync_ships(conn, state, units_ok)
         save_state(state)
     from . import exchange_demand
     if SETTING_DEMAND in ready:
@@ -929,7 +950,27 @@ def _apply_stock(takes, server, resolver, places, items=None):
     _in_tk(work)
 
 
-def _sync_ships(conn, state):
+def _new_ship_unit(units_ok):
+    """Die Einheit für neue Schiffe aus der Einstellung — `None` = wie bisher.
+
+    Nur mit geholter Einheiten-Liste, und nur eine Einheit, in der das
+    Mitglied noch ist: Eine verlassene ergäbe bei jedem neuen Schiff
+    `ORG_UNIT_NOT_ALLOWED`."""
+    if not units_ok:
+        return None
+    from . import exchange_orgunits
+    wanted = (paths.setting(SETTING_NEW_SHIP_UNIT) or '').strip()
+    if wanted and wanted in {u['id'] for u in exchange_orgunits.units()}:
+        return wanted
+    return None
+
+
+# Ablehnungen, bei denen das Basetool bei der Einheit gewinnt: VerseKit
+# übernimmt dann dessen Einheit, statt bei jedem Abgleich neu zu senden.
+UNIT_REJECTIONS = ('ORG_UNIT_NOT_ALLOWED', 'ORG_UNIT_VERSION_CONFLICT')
+
+
+def _sync_ships(conn, state, units_ok=False):
     """Hangar <-> Schiffe beim Basetool."""
     from . import exchange_ships, fleet
     if not _store_ok(fleet.FILE, 'schiffe'):
@@ -948,8 +989,19 @@ def _sync_ships(conn, state):
     result = exchange_ships.plan(local, resolved, server, sub)
     failed, applied, extra = _send(
         conn, '/me/ships/changes',
-        exchange_ships.change_sets(result, local, resolved, server))
+        exchange_ships.change_sets(result, local, resolved, server,
+                                   new_unit=_new_ship_unit(units_ok)))
     rejected = {ext: reason or kind for ext, kind, reason in failed}
+    # Einheit abgelehnt: die des Basetools übernehmen (siehe UNIT_REJECTIONS).
+    unit_reset = sorted(ext for ext, reason in rejected.items()
+                        if reason in UNIT_REJECTIONS
+                        and ext in result['links'])
+    for ext in unit_reset:
+        if ext not in dict(result['pull']):
+            result['pull'].append((ext, result['links'][ext]))
+        fields = set(result['pull_fields'].get(ext) or ())
+        fields.add('orgUnit')
+        result['pull_fields'][ext] = sorted(fields)
     elsewhere = set(sub.get('removed_elsewhere') or ()) \
         | set(result['removed_elsewhere']) \
         | {ext for ext, reason in rejected.items()
@@ -969,17 +1021,20 @@ def _sync_ships(conn, state):
     for ext, ship_id in result['local_removed'].items():
         links.setdefault(ext, ship_id)
     baseline, baseline_name, baseline_fitted = {}, {}, {}
+    baseline_unit = {}
     for ext, ship_id in links.items():
         ship = server.get(ship_id)
         if ship is not None:
             baseline[ext] = ship.get('insurance')
             baseline_name[ext] = ship.get('name') or ''
             baseline_fitted[ext] = bool(ship.get('fitted'))
+            baseline_unit[ext] = exchange_ships.server_unit(ship)
     done = {ext for ext, _sid in result['remove']}
     created = set(result['create']) - set(rejected)
     sub.update({'server': server, 'links': links, 'baseline': baseline,
                 'baseline_name': baseline_name,
                 'baseline_fitted': baseline_fitted,
+                'baseline_unit': baseline_unit,
                 'removed_elsewhere': sorted(elsewhere - created),
                 'local_removed': {k: v for k, v in result['local_removed'].items()
                                   if v in server and k not in done},
@@ -987,11 +1042,16 @@ def _sync_ships(conn, state):
                                            - done),
                 'overrides': sorted(set(sub.get('overrides') or ())
                                     - set(result.get('override') or ())),
-                'rejected': rejected,
+                'rejected': {k: v for k, v in rejected.items()
+                             if k not in unit_reset},
                 'names': {ext: local[ext]['name'] for ext in local}})
     return {'linked': len(result['link']), 'created': len(created),
             'updated': len(result['update']), 'taken': len(result['take']),
-            'removed': len(done), 'rejected': len(rejected),
+            'removed': len(done),
+            # Einheit-Ablehnungen sind aufgelöst (Basetool gewinnt) und zählen
+            # als übernommen, nicht als abgelehnt.
+            'rejected': len(set(rejected) - set(unit_reset)),
+            'unit_taken': len(set(result['unit_conflicts']) | set(unit_reset)),
             'unresolved': len([e for e in local if e not in resolved]),
             'detached': extra.get('detachedFromMissions', 0)}
 
@@ -1031,6 +1091,8 @@ def _apply_ships(result, server, local):
                                          else None)
             if 'fitted' in fields:
                 entry['einsatzbereit'] = bool(ship.get('fitted'))
+            if 'orgUnit' in fields:
+                entry['einheit'] = exchange_ships.server_unit(ship)
             key = (local.get(ext) or {}).get('asop_key')
             if 'name' in fields and key:
                 names.append((key, ship.get('name') or ''))

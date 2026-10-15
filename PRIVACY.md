@@ -104,13 +104,15 @@ einschaltest. Ab Werk ist beides aus.
 **Was hingeht** — je nach Bereich, den du einschaltest: deine Baupläne (Name,
 Kennung des Basetools, Zeitpunkt und woher Verse-Kit sie kennt), deine
 Lagerposten aus Rohstoff- und Handelslager (Material, Ort, Qualität, Menge,
-„gestohlen") und deine Schiffe (Typ und Versicherung). Dazu der Name, den du
+„gestohlen") und deine Schiffe (Typ, Versicherung, eigener Name,
+„Einsatzbereit" und die Einheit, in der ein Schiff steht). Dazu der Name, den du
 dieser Installation gibst — nie der Name deines Rechners — und, nur für die
 Account-Prüfung, dein RSI-Handle. Nie Kaufdaten (Preis, Kaufdatum, Paket), nie
 Daten anderer Mitglieder.
 
 **Was zurückkommt:** deine eigenen Baupläne, Lagerposten und Schiffe aus dem
-Basetool.
+Basetool, beim Hangar dazu die Liste der Einheiten, in denen du Mitglied bist
+(nur im Speicher, für die Auswahl auf der Schiffskarte).
 
 **Was gespeichert wird:** der abgeglichene Stand in deinem Datenordner
 (`basetool-<Kennung>.json`, daneben die Vorgängerfassung

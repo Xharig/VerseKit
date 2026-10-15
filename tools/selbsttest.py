@@ -25547,6 +25547,7 @@ def main():
     _pruefung_457()
     _pruefung_458()
     _pruefung_459()
+    _pruefung_460()
 
     print()
     if fehler:
@@ -44181,6 +44182,152 @@ def _pruefung_459():
         else:
             os.environ['SC_BP_HOME'] = _altheim459
         shutil.rmtree(_heim459, ignore_errors=True)
+
+
+def _pruefung_460():
+    """460. Basetool-Hangar: die Einheit eines Schiffs — lesen, senden, bei
+    Widerspruch gewinnt das Basetool, Einstellung für neue Schiffe, das
+    freiwillige Recht erst nach Freigabe."""
+    print('\n460. Basetool: Einheit am Schiff')
+    import tempfile as _tf460
+    from scbp import (exchange_ships as _xs460, basetool_sync as _bs460,
+                      basetool as _bt460, exchange_orgunits as _eo460,
+                      fleet as _fl460, paths as _pf460)
+    _hangar460 = {'name': 'Cutlass Black', 'hersteller': 'Drake', 'lti': True}
+    _ext460 = _xs460.external_id(_hangar460)
+    _res460 = {_ext460: 'st-cut'}
+
+    def _schiff460(einheit=None, version=1):
+        s = {'shipId': 's-1', 'version': 3,
+             'shipType': {'bt': 'st-cut', 'name': 'Cutlass Black'},
+             'insurance': {'kind': 'LTI'}, 'orgUnitVersion': version}
+        if einheit:
+            s['orgUnit'] = {'id': einheit, 'name': einheit,
+                            'shorthand': einheit.upper(), 'kind': 'SQUADRON'}
+        return s
+
+    def _lauf460(mein, drueben, vorher=None, verknuepft=True, neu=None):
+        eintrag = dict(_hangar460)
+        if mein is not None:
+            eintrag['einheit'] = mein
+        lok = _xs460.local_ships({'schiffe': [eintrag]})
+        server = {'s-1': _schiff460(drueben)} if verknuepft else {}
+        stand = {'links': {_ext460: 's-1'} if verknuepft else {}}
+        if vorher is not None:
+            stand['baseline_unit'] = {_ext460: vorher}
+        plan = _xs460.plan(lok, _res460, server, stand)
+        ops = [op for s, _k in _xs460.change_sets(plan, lok, _res460, server,
+                                                  new_unit=neu)
+               for op in s['ops'] if op['op'] == 'upsert']
+        return plan, ops
+
+    _p, _o = _lauf460(None, 'u1')
+    pruefe(not _o and _p['pull_fields'].get(_ext460) == ['orgUnit'],
+           'nie gewählt: die Einheit des Basetools kommt herein (%r)'
+           % _p['pull_fields'])
+    _p, _o = _lauf460('u2', 'u1', 'u1')
+    pruefe(_o and _o[0].get('orgUnit') == 'u2'
+           and _o[0].get('orgUnitVersion') == 1,
+           'hier geändert: geht mit ihrem Zähler hinaus (%r)' % _o[:1])
+    _p, _o = _lauf460('', 'u1', 'u1')
+    pruefe(_o and 'orgUnit' in _o[0] and _o[0]['orgUnit'] is None,
+           '„Keine Einheit" geht als null hinaus (%r)' % _o[:1])
+    _p, _o = _lauf460('u2', 'u3', 'u1')
+    pruefe(not _o and _p['pull_fields'].get(_ext460) == ['orgUnit']
+           and _p['unit_conflicts'] == [_ext460],
+           'beide Seiten geändert: das Basetool gewinnt und es wird gemeldet '
+           '(%r / %r)' % (_o[:1], _p['unit_conflicts']))
+    _p, _o = _lauf460('u1', 'u1', 'u1')
+    pruefe(not _o and not _p['pull'], 'gleich: nichts zu tun')
+    _p, _o = _lauf460(None, None, verknuepft=False, neu='u5')
+    pruefe(_o and _o[0].get('orgUnit') == 'u5'
+           and 'orgUnitVersion' not in _o[0],
+           'neues Schiff: Einheit aus der Einstellung, ohne Zähler (%r)'
+           % _o[:1])
+    _p, _o = _lauf460('u7', None, verknuepft=False, neu='u5')
+    pruefe(_o and _o[0].get('orgUnit') == 'u7',
+           'auf der Karte gewählt geht vor der Einstellung')
+    _p, _o = _lauf460(None, None, verknuepft=False)
+    pruefe(_o and 'orgUnit' not in _o[0],
+           'ohne Wahl und Einstellung: das Basetool entscheidet wie bisher')
+
+    _einheiten460 = _eo460.parse({'items': [
+        {'id': 'a', 'name': 'Staffel Mamba', 'shorthand': 'MBA',
+         'kind': 'SQUADRON'},
+        {'name': 'ohne Kennung'},
+        {'id': 'b', 'name': 'Neu', 'shorthand': '', 'kind': 'ZUKUNFT'}]})
+    pruefe([u['id'] for u in _einheiten460] == ['a', 'b']
+           and _eo460.label(_einheiten460[0]) == 'Staffel Mamba (MBA)',
+           'Einheiten-Liste: ohne Kennung fällt weg, unbekannte Art bleibt '
+           'wählbar')
+
+    _heim460 = _tf460.mkdtemp(prefix='pruefung460-')
+    _altheim460 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim460
+    _alt460 = (_bt460.REQUEST_ORGUNITS, _bs460._pull_generic,
+               _bs460._resolve_refs, _bs460._send, _bs460._own_ship_names,
+               _bs460.IN_TK[0], _bs460.PAGES_CHANGED[0])
+    try:
+        _pf460.set_setting(_bs460.SETTING_SHIPS, True)
+        _bt460.REQUEST_ORGUNITS = False
+        pruefe('exchange.orgunits.read' not in _bs460.wanted_scopes()
+               and 'exchange.hangar.read' in _bs460.wanted_scopes(),
+               'vor der Freigabe wird das Recht nicht angefragt')
+        _bt460.REQUEST_ORGUNITS = True
+        pruefe('exchange.orgunits.read' in _bs460.wanted_scopes(),
+               'nach der Freigabe kommt es zum Hangar dazu')
+        _bt460.REQUEST_ORGUNITS = False
+
+        with _eo460._lock:
+            _eo460._state['units'] = _einheiten460
+        _pf460.set_setting(_bs460.SETTING_NEW_SHIP_UNIT, 'b')
+        pruefe(_bs460._new_ship_unit(True) == 'b'
+               and _bs460._new_ship_unit(False) is None,
+               'Einstellung gilt nur mit geholter Einheiten-Liste')
+        _pf460.set_setting(_bs460.SETTING_NEW_SHIP_UNIT, 'weg')
+        pruefe(_bs460._new_ship_unit(True) is None,
+               'eine verlassene Einheit wird beim Anlegen nicht geschickt')
+
+        # Abgelehnt (Zähler veraltet): das Basetool gewinnt, kein Dauersenden.
+        _fl460.save({'format': 1, 'schiffe': [dict(_hangar460, einheit='u2')]})
+        _bs460._pull_generic = lambda conn, sub, route, key: (
+            {'s-1': dict(_schiff460('u1'), externalId=_ext460)}, False)
+        _bs460._resolve_refs = lambda conn, kind, refs, cache: dict(_res460)
+        _gesendet460 = []
+
+        def _senden460(conn, path, sets):
+            _gesendet460.extend(op for s, _k in sets for op in s['ops'])
+            return ([(_ext460, 'rejected', 'ORG_UNIT_VERSION_CONFLICT')], 0,
+                    {})
+        _bs460._send = _senden460
+        _bs460._own_ship_names = lambda data: {}
+        _bs460.IN_TK[0] = None
+        _bs460.PAGES_CHANGED[0] = None
+        _stand460 = {'ships': {'links': {_ext460: 's-1'},
+                               'baseline_unit': {_ext460: 'u1'}}}
+        _zahl460 = _bs460._sync_ships(None, _stand460, True)
+        _einheit460 = (_fl460.load()['schiffe'][0]).get('einheit')
+        pruefe(any(op.get('orgUnit') == 'u2' for op in _gesendet460)
+               and _einheit460 == 'u1' and _zahl460.get('unit_taken') == 1
+               and _zahl460.get('rejected') == 0,
+               'abgelehnte Einheit: die des Basetools übernommen, gemeldet, '
+               'nicht als Fehler gezählt (%r / %r)' % (_einheit460, _zahl460))
+        pruefe(_stand460['ships']['baseline_unit'].get(_ext460) == 'u1',
+               'der Abgleichsstand merkt sich die Einheit des Basetools')
+    finally:
+        (_bt460.REQUEST_ORGUNITS, _bs460._pull_generic, _bs460._resolve_refs,
+         _bs460._send, _bs460._own_ship_names, _bs460.IN_TK[0],
+         _bs460.PAGES_CHANGED[0]) = _alt460
+        _eo460.forget()
+        if _altheim460 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim460
+        shutil.rmtree(_heim460, ignore_errors=True)
+    _q460 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                 encoding='utf-8').read()
+    pruefe('_unit_choice(fenster, unten, eintrag' in _q460,
+           'die Schiffskarte hat die Einheit-Auswahl')
 
 
 def _alle_eingaben(w):
