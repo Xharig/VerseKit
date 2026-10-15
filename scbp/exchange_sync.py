@@ -43,15 +43,6 @@ auf die Platte — die Netzseite kommt als eigener Baustein darüber.
    Mitglied selbst, und entfernen lassen sie sich dort nicht.
 4. **Höchstens 500 Anweisungen je Sendung** — mehr lehnt der Server ab.
 
-**Der gemerkte Stand** (`state`) sieht so aus — gespeichert wird er erst mit
-der Netzseite::
-
-    {'cursor': None,            # Position im Änderungsfeed des Servers
-     'links': {},               # Bestandsschlüssel -> Schlüssel beim Basetool
-     'pending_removals': [],    # hier abgehakt, beim Basetool noch zu entfernen
-     'own_removed_keys': [],    # Basetool-Schlüssel, die WIR entfernt haben
-     'installation_id': None}   # unsere Kennung laut Basetool, sobald bekannt
-
 Eine Löschmarke ist unsere eigene, wenn ihr `removedBy.installationId` unsere
 `installation_id` ist — die liefert das Basetool in der Antwort auf
 `POST /me/installation` und im Service-Dokument (krt-profit/basetool#2118).
@@ -59,7 +50,6 @@ Solange sie fehlt, hilft `own_removed_keys`: Was wir selbst weggeschickt
 haben, wissen wir. Beide Wege gelten laut Basetool.
 """
 import time
-import uuid
 
 from . import paths
 
@@ -77,11 +67,6 @@ PROVENANCE = {
 
 # Diese Quellen gehen nie hinaus — siehe Regel 3 oben.
 NEVER_SENT = ('start',)
-
-
-def empty_state():
-    return {'cursor': None, 'links': {}, 'pending_removals': [],
-            'own_removed_keys': [], 'installation_id': None}
 
 
 def _own_stone(stone, own_keys, installation_id):
@@ -228,8 +213,8 @@ def plan_sync(local, resolved, server, stones, state, resync=False):
     """Ein Abgleich-Durchgang nach gelucs Sync-Anleitung — ohne Netz.
 
     Der Plan arbeitet über den **`bt`-Schlüssel des Basetools**, den
-    `catalog/resolve` für jeden
-    Bauplan liefert. Über Namen allein ließe sich nicht sicher zuordnen: Das
+    `catalog/resolve` für jeden Bauplan liefert. Über Namen allein ließe sich
+    nicht sicher zuordnen: Das
     Basetool nennt manche Baupläne anders, und ein falsch zugeordneter Eintrag
     tauchte doppelt auf.
 
@@ -351,24 +336,4 @@ def sync_change_sets(plan, local):
         targets.append(key)
     return [({'ops': ops[i:i + BATCH_MAX]}, targets[i:i + BATCH_MAX])
             for i in range(0, len(ops), BATCH_MAX)]
-
-
-def new_idempotency_key():
-    """Ein frischer Schlüssel je Sendung. ⚠ Beim Wiederholen DERSELBEN
-    Sendung denselben Schlüssel nehmen, sonst bucht der Server doppelt."""
-    return str(uuid.uuid4())
-
-
-def next_state(state, plan, sent_removals, cursor):
-    """Der neue gemerkte Stand nach einer vollständig angenommenen Sendung.
-
-    `sent_removals`: die Basetool-Schlüssel, die wir entfernt haben."""
-    done = {local_key for local_key, _s in plan['remove']}
-    return {'cursor': cursor,
-            'installation_id': state.get('installation_id'),
-            'links': dict(plan['links']),
-            'pending_removals': sorted(set(state.get('pending_removals') or ())
-                                       - done),
-            'own_removed_keys': sorted(set(state.get('own_removed_keys') or ())
-                                       | set(sent_removals))}
 
