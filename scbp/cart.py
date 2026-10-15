@@ -82,9 +82,10 @@ meisten offenen Posten deckt, bei Gleichstand der billigere. Das ist dieselbe
 Auskunft, die erkul als „1 shop · 1 stop" zeigt.
 """
 
+import os
 import re
 
-from . import erkul, errors
+from . import erkul, errors, paths
 
 # Zustände eines ganzen Warenkorbs.
 NO_DATA = 'keine_daten'
@@ -268,6 +269,20 @@ def _craftable(kind, size):
     Beschriftung.
     """
     from . import crafting, catalog
+    # ⚠ Gemerkt je Art und Größe, solange Katalog und Rezeptdaten gleich
+    # bleiben — `catalog.load()` liest die Datei bei jedem Aufruf, und jede
+    # aufgeklappte Teileauswahl im Hangar fragt hier.
+    catalog_file = paths.app_file(catalog.CACHE)
+    try:
+        info = os.stat(catalog_file)
+        stamp = (catalog_file, info.st_mtime_ns, info.st_size)
+    except OSError:
+        stamp = None
+    crafting.load()
+    key = (kind, size, stamp, crafting._cached['stand'],
+           paths.setting_bool(catalog.SETTING_ALL, False))
+    if key in _CRAFTABLE_MEMO:
+        return {k: dict(v) for k, v in _CRAFTABLE_MEMO[key].items()}
     result = {}
     try:
         values = (catalog.load() or {}).get('bauplaene') or {}
@@ -305,7 +320,16 @@ def _craftable(kind, size):
             }
     except Exception as ausnahme:
         errors.record('cart.craftable', ausnahme)
-    return result
+        return result
+    if len(_CRAFTABLE_MEMO) > 64:
+        _CRAFTABLE_MEMO.clear()
+    _CRAFTABLE_MEMO[key] = result
+    return {k: dict(v) for k, v in result.items()}
+
+
+# Ergebnis von `_craftable` je (Art, Größe, Katalogstand, Rezeptstand,
+# `catalog.SETTING_ALL`).
+_CRAFTABLE_MEMO = {}
 
 
 def choices(kind, size, slot=None):
@@ -395,7 +419,45 @@ def choices(kind, size, slot=None):
                        'klasse': part.get('klasse') or '',
                        'herkunft': BUYABLE})
     result.extend(found.values())
+    result.extend(_ship_only_parts(kind, size, slot, result))
     result.sort(key=lambda x: (x['name'] or '').lower())
+    return result
+
+
+def _ship_only_parts(kind, size, slot, known):
+    """Teile aus den Spieldaten (erkul), die weder Laden noch Bauplan kennen.
+
+    Das sind vor allem Teile aus Pledge-Paketen und Events (Helios IP-20,
+    Delphi RS-20, BriskAir IC-20). Ohne diese Quelle ließen sie sich am Schiff
+    nicht eintragen, obwohl sie eingebaut sind.
+
+    Hat der Platz Kennzeichnungen (`passt`), gilt `erkul.fits_slot`, sonst Art
+    und Größe. Was schon über Kennung oder Anzeigenamen in `known` steht,
+    kommt nicht doppelt."""
+    have_ids = {k.get('kennung') for k in known}
+    have_names = {(k.get('name') or '').strip().lower() for k in known}
+    passt = (slot or {}).get('passt')
+    result = []
+    for part in erkul.parts().values():
+        if (part.get('typ') or '') != kind:
+            continue
+        if passt:
+            if not erkul.fits_slot(passt, part):
+                continue
+        elif size is not None and part.get('groesse') is not None:
+            try:
+                if int(part['groesse']) != int(size):
+                    continue
+            except (TypeError, ValueError):
+                pass
+        name = (part.get('name') or '').strip()
+        if (not name or part['ref'] in have_ids
+                or name.lower() in have_names):
+            continue
+        have_names.add(name.lower())
+        result.append({'name': name, 'kennung': part['ref'],
+                       'hersteller': '', 'guete': part.get('guete') or '',
+                       'klasse': '', 'herkunft': SHIP_ONLY})
     return result
 
 
@@ -414,8 +476,15 @@ def _choices_by_rule(kind, slot):
     """
     from . import shops
     craft = _craftable(kind, None)
-    shop = dict((p.get('kennung'), p) for p in shops.catalog_items()
+    catalog_items = shops.catalog_items()
+    shop = dict((p.get('kennung'), p) for p in catalog_items
                 if p.get('kennung'))
+    # ⚠ UEX führt manche Ware ohne Entitäts-Kennung, nur mit `id:…` (etwa die
+    # Flight Blades). Nur diese wird über den vollen Namen gefunden — welche
+    # Teile in den Platz passen, entscheidet weiter `erkul.compatible()`.
+    shop_by_name = dict(((p.get('name') or '').strip().lower(), p)
+                        for p in catalog_items
+                        if str(p.get('kennung') or '').startswith('id:'))
     stock = ((slot or {}).get('werk') or {}).get('ref')
 
     # ⚠⚠ **Gleichnamige Varianten werden eins.** An der Cutlass Black gibt es
@@ -434,6 +503,12 @@ def _choices_by_rule(kind, slot):
     for part in best.values():
         ref = part['ref']
         in_shop, in_craft = shop.get(ref), craft.get(ref)
+        if in_shop is None:
+            in_shop = shop_by_name.get((part.get('name') or '').strip().lower())
+            if in_shop is not None:
+                # Die Kennung des Ladens, damit Preis und Laden dazu gefunden
+                # werden.
+                ref = in_shop.get('kennung')
         if in_shop and in_craft:
             origin = BOTH
         elif in_shop:
@@ -876,17 +951,34 @@ def total(items):
 # ------------------------------------------------------------- Die Kaufroute
 
 
+def _route_key(item):
+    """Ein Posten auf der Route: Schiff, Herkunft und Steckplatz.
+
+    ⚠ Der Steckplatz allein reicht nicht — zwei Schiffe haben oft Plätze
+    gleichen Namens (`hardpoint_quantum_drive`), und dann fiele einer weg.
+    """
+    return (item.get('schiff') or '', item.get('quelle') or '',
+            item.get('pfad') or '')
+
+
+def _to_buy(items):
+    """Die Posten, die noch zu kaufen sind: mit Steckplatz, nicht abgehakt."""
+    return [p for p in items if p.get('pfad') and not p.get('erledigt')
+            and p.get('weg') == BUY]
+
+
 def _offers(items):
-    """Je zu kaufendem Posten alle Läden, die ihn führen."""
+    """Je zu kaufendem Posten alle Läden, die ihn führen —
+    `{_route_key: Zeilen}`. Abgehaktes fehlt."""
     from . import shops
     result = {}
-    for p in items:
-        if p.get('weg') != BUY or not p.get('ref'):
+    for p in _to_buy(items):
+        if not p.get('ref'):
             continue
         rows = shops.shops_for(p['ref'])
         if not rows:
             continue
-        result[p['pfad']] = rows
+        result[_route_key(p)] = rows
     return result
 
 
@@ -897,7 +989,8 @@ def route(items):
 
         {'ort': 'Area18', 'system': 'Stanton',
          'laeden': ['Dumper's Depot'],
-         'posten': [{'pfad', 'name', 'preis', 'laden'}],
+         'posten': [{'pfad', 'schiff', 'name', 'preis', 'anzahl',
+                     'laden'}],
          'summe': 22730.0}
 
     `ohne` sind die Pfade der Posten, zu denen kein Laden bekannt ist.
@@ -913,12 +1006,11 @@ def route(items):
     """
     offers = _offers(items)
     # ⚠ Nur Posten mit Steckplatz — ein ganzes Schiff hat keinen, und
-    # Abgehaktes muss man nicht mehr abholen (siehe `_offers`).
-    buyable = [p for p in items if p.get('pfad') and not p.get('erledigt')]
-    by_path = dict((p['pfad'], p) for p in buyable)
+    # Abgehaktes muss man nicht mehr abholen (siehe `_to_buy`).
+    buyable = _to_buy(items)
+    by_path = dict((_route_key(p), p) for p in buyable)
     open_paths = set(offers)
-    without = [p['pfad'] for p in buyable
-               if p.get('weg') == BUY and p['pfad'] not in offers]
+    without = [p['pfad'] for p in buyable if _route_key(p) not in offers]
 
     # Ort → {Pfad → billigste Zeile dort}
     places = {}
@@ -951,10 +1043,17 @@ def route(items):
         entries = []
         for path in sorted(covers):
             row = here[path]
+            item = by_path.get(path) or {}
+            try:
+                pieces = max(1, int(item.get('anzahl') or 1))
+            except (TypeError, ValueError):
+                pieces = 1
             entries.append({
-                'pfad': path,
-                'name': (by_path.get(path) or {}).get('name') or '',
+                'pfad': path[2],
+                'schiff': path[0],
+                'name': item.get('name') or '',
                 'preis': row['preis'],
+                'anzahl': pieces,
                 'laden': row.get('laden') or '',
             })
         stops.append({
@@ -962,11 +1061,93 @@ def route(items):
             'ort': key[1],
             'laeden': sorted(set(e['laden'] for e in entries if e['laden'])),
             'posten': entries,
-            'summe': sum(e['preis'] for e in entries),
+            'summe': sum(e['preis'] * e['anzahl'] for e in entries),
         })
         open_paths -= covers
 
     return stops, without
+
+
+# Einstellung: die selbst gewählte Reihenfolge der Stopps, als Liste von
+# `stop_key()`.
+ROUTE_ORDER_SETTING = 'route_reihenfolge'
+
+
+def _saved_order():
+    value = paths.settings().get(ROUTE_ORDER_SETTING)
+    return [k for k in value if isinstance(k, str)] \
+        if isinstance(value, list) else []
+
+
+def stop_key(stop):
+    """Kennung eines Stopps für die gemerkte Reihenfolge: `System|Ort`."""
+    return '%s|%s' % (stop.get('system') or '', stop.get('ort') or '')
+
+
+def ordered_stops(stops, order=None):
+    """Die Stopps in der gemerkten Reihenfolge.
+
+    Stopps, die in `order` stehen, kommen in dieser Folge zuerst; neue
+    Stopps folgen in der Reihenfolge von `route()`. `order` fehlt → aus der
+    Einstellung.
+    """
+    if order is None:
+        order = _saved_order()
+    rank = {key: i for i, key in enumerate(order or [])}
+    return sorted(stops, key=lambda s: (rank.get(stop_key(s), len(rank)),
+                                        stops.index(s)))
+
+
+def move_stop(stops, from_index, to_index):
+    """Einen Stopp an eine andere Stelle setzen und die Reihenfolge merken.
+
+    Gibt die neue Liste zurück. Gemerkt wird die ganze Folge der gezeigten
+    Stopps; Stopps einer früheren Route, die gerade nicht vorkommen, bleiben
+    dahinter stehen.
+    """
+    stops = list(stops)
+    if not (0 <= from_index < len(stops)):
+        return stops
+    to_index = max(0, min(len(stops) - 1, to_index))
+    stops.insert(to_index, stops.pop(from_index))
+    shown = [stop_key(s) for s in stops]
+    rest = [k for k in _saved_order() if k not in shown]
+    paths.set_setting(ROUTE_ORDER_SETTING, shown + rest)
+    return stops
+
+
+def route_lines(entries):
+    """Die Posten eines Stopps, gleiche zusammengefasst.
+
+    Gleich heißt: derselbe Name im selben Laden zum selben Stückpreis.
+    Gibt `[{'name', 'laden', 'preis', 'anzahl', 'summe'}]` zurück, nach Laden
+    und Name sortiert — `preis` ist der Stückpreis.
+    """
+    groups = {}
+    for entry in entries:
+        pieces = max(1, int(entry.get('anzahl') or 1))
+        key = (entry.get('name') or '', entry.get('laden') or '',
+               entry.get('preis'))
+        line = groups.setdefault(key, {'name': key[0], 'laden': key[1],
+                                       'preis': entry.get('preis'),
+                                       'anzahl': 0, 'summe': 0.0})
+        line['anzahl'] += pieces
+        line['summe'] += (entry.get('preis') or 0) * pieces
+    return sorted(groups.values(),
+                  key=lambda g: (g['laden'].lower(), g['name'].lower()))
+
+
+def without_lines(items):
+    """Die zu kaufenden Posten, die kein Laden führt, gleiche zusammengefasst:
+    `[(Name, Anzahl)]` nach Name."""
+    offers = _offers(items)
+    count = {}
+    for p in _to_buy(items):
+        if _route_key(p) in offers:
+            continue
+        name = p.get('name') or ''
+        count[name] = count.get(name, 0) + 1
+    return sorted(count.items(), key=lambda kv: kv[0].lower())
 
 
 def invoice(data=None):

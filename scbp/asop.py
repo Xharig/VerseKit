@@ -66,6 +66,7 @@ Klartextname — deshalb ist die Leiter mehrstufig und nicht ein Nachschlagen.
 import json
 import os
 import re
+import threading
 
 from . import errors, paths
 
@@ -121,10 +122,16 @@ def save(daten):
         with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
             json.dump(daten, f, ensure_ascii=False, indent=1)
         os.replace(ziel + '.tmp', ziel)
-        return True
     except Exception as ausnahme:
         errors.record('asop.save', ausnahme)
         return False
+    # Die Namen gehen mit dem Hangar ins Basetool.
+    try:
+        from . import basetool_sync
+        basetool_sync.store_saved()
+    except Exception as exc:
+        errors.record('asop.abgleich_melden', exc)
+    return True
 
 
 def set_name(daten, schluessel, name, stern=False):
@@ -329,6 +336,78 @@ def _ladder(name, kurz, tabelle, nach_schluessel, nach_wert):
                 mehrdeutig = True
                 break
     return None, ('mehrdeutig' if mehrdeutig else 'nichts')
+
+
+# Schlüssel → Werksname aus der laufenden Sprachdatei, mit dem Stempel der
+# Dateien, aus denen sie gelesen wurde.
+_TABLE = {'stamp': None, 'table': {}}
+_TABLE_LOCK = threading.Lock()
+
+
+def _stamp(*files):
+    """Pfad, Änderungszeit und Größe je Datei — eine fehlende zählt als fehlt."""
+    result = []
+    for name in files:
+        try:
+            info = os.stat(name) if name else None
+            result.append((name, info.st_mtime_ns, info.st_size) if info
+                          else (name, None, None))
+        except OSError:
+            result.append((name, None, None))
+    return tuple(result)
+
+
+def _ini_lines():
+    """Die Zeilen der Sprachdatei, die das Spiel lädt, samt ergänzter
+    Schiffsnamen — oder nichts.
+
+    ⚠ Ergänzt wird wie beim Einspielen: Kennt die Übersetzung ein Schiff noch
+    nicht, steht es hier trotzdem mit seinem genauen Schlüssel da — sonst
+    kürzte die Zuordnung den Namen und träfe ein anderes Fahrzeug
+    (Sabre Raven EX → Sabre Raven).
+    """
+    from . import injection
+    try:
+        ini, _folder, _source = injection.ini_file()
+        if ini and os.path.isfile(ini):
+            with open(ini, encoding='utf-8', errors='ignore') as f:
+                lines = f.read().splitlines()
+            extra = injection._added_ship_names(
+                ini, lines, injection.load_origtext())
+            return lines + ['%s=%s' % kv for kv in extra.items()]
+    except Exception as exc:
+        errors.record('asop.ini_lines', exc)
+    return []
+
+
+def factory_table():
+    """Schlüssel → Werksname — nur neu gelesen, wenn sich die Sprachdatei
+    oder der gemerkte Urtext geändert hat. Die Sprachdatei hat zwölf Megabyte.
+    """
+    from . import injection
+    try:
+        ini = injection.ini_file()[0]
+    except Exception:
+        ini = None
+    stamp = _stamp(ini, paths.app_file(injection.ORIGTEXT_FILE))
+    with _TABLE_LOCK:
+        if stamp != _TABLE['stamp']:
+            lines = _ini_lines()
+            _TABLE['table'] = (factory_names(read_keys(lines),
+                                             injection.load_origtext())
+                               if lines else {})
+            _TABLE['stamp'] = stamp
+        return _TABLE['table']
+
+
+def hangar_keys(ships):
+    """`{Hangar-Name: Schlüssel}` für die Schiffe, die sich eindeutig
+    zuordnen lassen — ohne Sprachdatei leer."""
+    table = factory_table()
+    if not table or not ships:
+        return {}
+    return {e['name']: e['schluessel'] for e in match_ships(ships, table)
+            if e['schluessel']}
 
 
 # ------------------------------------------------------------ Einspielen

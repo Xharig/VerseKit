@@ -34,8 +34,11 @@ jeden Import hinweg dieselbe.
    es drüben schon gibt, per `link` an ein vorhandenes Schiff gehängt. Angelegt
    wird nur, was drüben fehlt — sonst stünde der Hangar doppelt da.
 2. **Jede Änderung schickt den aktuellen Namen und Ort mit** — ein `upsert`
-   löscht, was fehlt. VerseKit kennt beides nicht, also gehen die Werte des
-   Basetools unverändert zurück.
+   löscht, was fehlt. Den Ort kennt VerseKit nicht, er geht unverändert
+   zurück. Der Name ist der eigene Name im Fleet Manager (`asop.json`), sofern
+   sich das Schiff einem Spielnamen zuordnen lässt; sonst geht auch er
+   unverändert zurück. `fitted` ist der Haken `einsatzbereit` im Hangar —
+   fehlt er in einer Sendung, behält der Server seinen Wert.
 3. **Nie Kaufdaten.** `preis`, `gekauft`, `paket`, `warbond` bleiben hier.
 4. **Entfernt wird nur mit Freigabe** — ein Schiff, das hier fehlt (etwa weil
    ein Pledge eingeschmolzen wurde), wird dem Spieler gezeigt.
@@ -44,7 +47,7 @@ jeden Import hinweg dieselbe.
 """
 import hashlib
 
-from . import paths
+from . import asop, paths
 
 LTI = 'LTI'
 MONTHS = 'MONTHS'
@@ -69,11 +72,18 @@ def insurance(entry):
     return {'kind': MONTHS, 'months': months}
 
 
-def local_ships(fleet_data):
-    """Hangar -> {externalId: {'entry', 'ref', 'insurance'}}.
+def local_ships(fleet_data, own_names=None):
+    """Hangar -> {externalId: {'name', 'origin', 'ref', 'insurance',
+    'own_name', 'asop_key', 'fitted'}}.
+
+    `own_names` ist `{Hangar-Name: (Schlüssel, eigener Name)}` für die
+    Schiffe, die sich einem Spielnamen zuordnen lassen. Bei allen anderen
+    ist `own_name` `None` — der Name wird dann weder geschickt noch geholt.
+    `fitted` ist `None`, solange der Haken nie gesetzt wurde.
 
     ⚠ Kaufdaten werden hier schon nicht übernommen — was nicht im Ergebnis
     steht, kann auch nicht versehentlich hinausgehen."""
+    own_names = own_names or {}
     out = {}
     for entry in (fleet_data.get('schiffe') or ()):
         name = (entry.get('name') or '').strip()
@@ -82,10 +92,73 @@ def local_ships(fleet_data):
         ref = {'name': name[:200]}
         if entry.get('kurz'):
             ref['scRecord'] = entry['kurz'][:200]
-        out[external_id(entry)] = {'name': name,
-                                   'origin': entry.get('herkunft'),
-                                   'ref': ref, 'insurance': insurance(entry)}
+        key, own = own_names.get(name) or (None, None)
+        fitted = entry.get('einsatzbereit')
+        out[external_id(entry)] = {
+            'name': name, 'origin': entry.get('herkunft'), 'ref': ref,
+            'insurance': insurance(entry),
+            'own_name': None if key is None else (own or '')[:255],
+            'asop_key': key,
+            'fitted': None if fitted is None else bool(fitted)}
     return out
+
+
+def _name_side(mine, theirs, before):
+    """`'push'`, `'pull'` oder `None` für den Namen.
+
+    Ohne Stand vom letzten Abgleich: fehlt er auf einer Seite, kommt er von
+    der anderen; stehen zwei verschiedene da, geht der aus VerseKit hinaus.
+    """
+    if mine == theirs:
+        return None
+    if before is None:
+        if not theirs:
+            return 'push'
+        return 'pull' if not mine else 'push'
+    if theirs == before:
+        return 'push'
+    return 'pull' if mine == before else 'push'
+
+
+def _fitted_side(mine, theirs, before):
+    """`'push'`, `'pull'` oder `None` für `fitted`.
+
+    Ein nie gesetzter Haken (`None`) holt nur ein gesetztes `fitted` von
+    drüben — ein `false` dort ist dasselbe wie nichts.
+    """
+    if mine is None:
+        return 'pull' if theirs else None
+    if mine == theirs:
+        return None
+    if before is None or theirs == before:
+        return 'push'
+    return 'pull' if mine == before else 'push'
+
+
+def _sides(mine, ship, ext, state):
+    """Je Feld, ob es hinaus- oder hereingeht: `(push, pull)` als Mengen."""
+    push, pull = set(), set()
+    before = (state.get('baseline') or {}).get(ext)
+    ours, theirs = mine['insurance'], ship.get('insurance')
+    if before is not None and ours != before and theirs == before:
+        push.add('insurance')
+    elif before is not None and theirs != before and ours == before:
+        pull.add('insurance')
+    if mine.get('own_name') is not None:
+        # ⚠ Verglichen wird in der Länge, die der Fleet Manager fasst — ein
+        # längerer Name von drüben käme sonst gekürzt herein und ginge beim
+        # nächsten Abgleich gekürzt wieder hinaus.
+        before = (state.get('baseline_name') or {}).get(ext)
+        side = _name_side(mine['own_name'][:asop.MAX_LENGTH],
+                          (ship.get('name') or '')[:asop.MAX_LENGTH],
+                          None if before is None else before[:asop.MAX_LENGTH])
+        if side:
+            (push if side == 'push' else pull).add('name')
+    side = _fitted_side(mine.get('fitted'), bool(ship.get('fitted')),
+                        (state.get('baseline_fitted') or {}).get(ext))
+    if side:
+        (push if side == 'push' else pull).add('fitted')
+    return push, pull
 
 
 def plan(local, resolved, server, state):
@@ -93,19 +166,23 @@ def plan(local, resolved, server, state):
 
     `local`: aus `local_ships()`. `resolved`: externalId -> `bt` des
     Schiffstyps. `server`: {shipId: Schiff} nach dem Holen. `state` trägt
-    `links` (externalId -> shipId), `baseline` (externalId -> Versicherung
-    beim letzten Abgleich), `removed_elsewhere`, `pending_removals`,
-    `overrides`. Rückgabe::
+    `links` (externalId -> shipId), `baseline`, `baseline_name` und
+    `baseline_fitted` (externalId -> Versicherung, Name, `fitted` beim letzten
+    Abgleich), `removed_elsewhere`, `pending_removals`, `overrides`.
+    Rückgabe::
 
         {'link': [(externalId, shipId)], 'create': [externalId],
          'update': [(externalId, shipId)], 'pull': [(externalId, shipId)],
+         'push_fields': {externalId: [Feld]},
+         'pull_fields': {externalId: [Feld]},
          'remove': [(externalId, shipId)],
          'take': [shipId], 'drop': [externalId],
          'local_removed': {externalId: shipId},
          'removed_elsewhere': [externalId], 'links': {...}}
+
+    Felder sind `insurance`, `name` und `fitted`.
     """
     links = dict(state.get('links') or {})
-    baseline = state.get('baseline') or {}
     pending = set(state.get('pending_removals') or ())
     overrides = set(state.get('overrides') or ())
     elsewhere = set(state.get('removed_elsewhere') or ())
@@ -118,6 +195,7 @@ def plan(local, resolved, server, state):
             links[ext] = ship_id
 
     result = {'link': [], 'create': [], 'update': [], 'pull': [], 'remove': [],
+              'push_fields': {}, 'pull_fields': {},
               'take': [], 'drop': [], 'local_removed': {},
               'removed_elsewhere': [], 'links': {}}
     taken = set()
@@ -144,13 +222,13 @@ def plan(local, resolved, server, state):
             continue
         taken.add(ship_id)
         result['links'][ext] = ship_id
-        mine = local[ext]['insurance']
-        theirs = ship.get('insurance')
-        before = baseline.get(ext)
-        if before is not None and mine != before and theirs == before:
-            result['update'].append((ext, ship_id))       # hier geändert
-        elif before is not None and theirs != before and mine == before:
-            result['pull'].append((ext, ship_id))          # dort geändert
+        push, pull = _sides(local[ext], ship, ext, state)
+        if push:                                           # hier geändert
+            result['update'].append((ext, ship_id))
+            result['push_fields'][ext] = sorted(push)
+        if pull:                                           # dort geändert
+            result['pull'].append((ext, ship_id))
+            result['pull_fields'][ext] = sorted(pull)
 
     # 2) Noch nicht verknüpfte: erst an ein vorhandenes Schiff hängen.
     for ext in sorted(local):
@@ -203,21 +281,33 @@ def change_sets(plan_result, local, resolved, server, batch=500):
     for ext in plan_result['create']:
         op = {'op': 'upsert', 'externalId': ext, 'shipType': ship_type(ext),
               'insurance': local[ext]['insurance']}
+        if local[ext].get('own_name'):
+            op['name'] = local[ext]['own_name']
+        if local[ext].get('fitted') is not None:
+            op['fitted'] = local[ext]['fitted']
         if ext in (plan_result.get('override') or ()):
             op['override'] = True
         ops.append(op)
         keys.append(ext)
     for ext, ship_id in plan_result['update']:
         ship = server[ship_id]
-        # ⚠ Name und Ort des Basetools unverändert zurück — sonst löschte
-        # das `upsert` sie (Regel 2 oben).
+        fields = set((plan_result.get('push_fields') or {}).get(
+            ext, ('insurance',)))
+        # ⚠ Was nicht hinausgeht, geht mit dem Wert des Basetools zurück —
+        # sonst löschte das `upsert` Name und Ort (Regel 2 oben).
         op = {'op': 'upsert', 'externalId': ext, 'shipId': ship_id,
               'version': ship.get('version', 0),
               'shipType': {k: v for k, v in (ship.get('shipType') or {}).items()
                            if k in ('bt', 'name') and v},
-              'insurance': local[ext]['insurance']}
-        if ship.get('name'):
-            op['name'] = ship['name']
+              'insurance': (local[ext]['insurance'] if 'insurance' in fields
+                            else ship.get('insurance')
+                            or local[ext]['insurance'])}
+        name = (local[ext].get('own_name') if 'name' in fields
+                else ship.get('name'))
+        if name:
+            op['name'] = name
+        if 'fitted' in fields:
+            op['fitted'] = bool(local[ext].get('fitted'))
         if ship.get('location'):
             op['location'] = {k: v for k, v in ship['location'].items()
                               if k in ('name', 'uex') and v}

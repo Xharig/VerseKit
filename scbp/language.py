@@ -4576,6 +4576,8 @@ TEXTS = {
     's_hg_basetool':     ('aus dem Basetool', 'from the Basetool'),
     's_hg_liste':        ('aus %s', 'from %s'),
     's_hg_lti':          ('LTI', 'LTI'),
+    # Haken an der Schiffskarte, geht als `fitted` ins Basetool.
+    's_hg_einsatzbereit': ('Einsatzbereit', 'Ready'),
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
     # Carrack) — kommt aus `includedWith` der Hangar Extension.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
@@ -4692,6 +4694,15 @@ TEXTS = {
     's_wk_stopps':       ('{n} Stopps', '{n} stops'),
     's_wk_route_ohne':   ('Für {n} Posten ist kein Shop bekannt.',
                           'No shop known for {n} items.'),
+    's_wk_route_ohne_hilfe': (
+        'Diese Teile führt laut UEX kein Laden — oft kommen sie aus Events '
+        'oder Paketen. Schon eingebaut? Dann hier abhaken oder im Hangar als '
+        'eingebaut eintragen.',
+        'According to UEX no shop sells these parts — they often come from '
+        'events or packages. Already fitted? Tick them off here or enter '
+        'them as fitted in the hangar.'),
+    # Preis einer zusammengefassten Zeile: Summe und Stückpreis.
+    's_wk_route_je':     ('{summe} (je {preis})', '{summe} ({preis} each)'),
     's_wk_route_leer':   ('Nichts zu kaufen — du stellst alles selbst her.',
                           'Nothing to buy — you craft everything yourself.'),
     # --- Passt in mein Schiff

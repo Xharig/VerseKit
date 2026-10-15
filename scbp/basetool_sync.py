@@ -940,7 +940,7 @@ def _sync_ships(conn, state):
     sub = state.setdefault('ships', {})
     server, _resync = _pull_generic(conn, sub, '/me/ships', 'shipId')
     data = fleet.load()
-    local = exchange_ships.local_ships(data)
+    local = exchange_ships.local_ships(data, _own_ship_names(data))
     cache = sub.setdefault('resolved', {})
     resolved = _resolve_refs(conn, 'SHIP_TYPE',
                              {ext: ship['ref'] for ext, ship in local.items()},
@@ -968,14 +968,18 @@ def _sync_ships(conn, state):
             links[ship['externalId']] = ship_id
     for ext, ship_id in result['local_removed'].items():
         links.setdefault(ext, ship_id)
-    baseline = {}
+    baseline, baseline_name, baseline_fitted = {}, {}, {}
     for ext, ship_id in links.items():
         ship = server.get(ship_id)
         if ship is not None:
             baseline[ext] = ship.get('insurance')
+            baseline_name[ext] = ship.get('name') or ''
+            baseline_fitted[ext] = bool(ship.get('fitted'))
     done = {ext for ext, _sid in result['remove']}
     created = set(result['create']) - set(rejected)
     sub.update({'server': server, 'links': links, 'baseline': baseline,
+                'baseline_name': baseline_name,
+                'baseline_fitted': baseline_fitted,
                 'removed_elsewhere': sorted(elsewhere - created),
                 'local_removed': {k: v for k, v in result['local_removed'].items()
                                   if v in server and k not in done},
@@ -1013,14 +1017,23 @@ def _apply_ships(result, server, local):
                       lti=cover.get('kind') == 'LTI',
                       versicherung=cover.get('months')
                       if cover.get('kind') == 'MONTHS' else None)
+        names = []
         for ext, ship_id in result['pull']:
-            entry, cover = by_ext.get(ext), (server.get(ship_id) or {}).get(
-                'insurance') or {}
-            if entry is not None:
+            ship = server.get(ship_id) or {}
+            fields = (result.get('pull_fields') or {}).get(ext, ('insurance',))
+            entry, cover = by_ext.get(ext), ship.get('insurance') or {}
+            if entry is None:
+                continue
+            if 'insurance' in fields:
                 entry['lti'] = cover.get('kind') == 'LTI'
                 entry['versicherung'] = (cover.get('months')
                                          if cover.get('kind') == 'MONTHS'
                                          else None)
+            if 'fitted' in fields:
+                entry['einsatzbereit'] = bool(ship.get('fitted'))
+            key = (local.get(ext) or {}).get('asop_key')
+            if 'name' in fields and key:
+                names.append((key, ship.get('name') or ''))
         for ext in result['drop']:
             entry = by_ext.get(ext)
             if entry is not None and entry.get('herkunft') == fleet.BASETOOL:
@@ -1030,9 +1043,47 @@ def _apply_ships(result, server, local):
             fleet.save(data)
         finally:
             _applying[0] = False
+        if names:
+            _take_ship_names(names)
         _pages_changed(['hangar'])
 
     _in_tk(work)
+
+
+def _own_ship_names(fleet_data):
+    """`{Hangar-Name: (Schlüssel, eigener Name)}` für alle Schiffe, die sich
+    einem Spielnamen zuordnen lassen — ohne Sprachdatei leer."""
+    from . import asop, errors
+    try:
+        keys = asop.hangar_keys(fleet_data.get('schiffe') or [])
+        stand = asop.load()
+    except Exception as exc:
+        errors.record('basetool_sync.schiffsnamen', exc)
+        return {}
+    return {name: (key, asop.entry(stand, key)[0])
+            for name, key in keys.items()}
+
+
+def _take_ship_names(names):
+    """Im Basetool geänderte Namen in `asop.json` übernehmen und in die
+    Sprachdatei schreiben. Ein Stern bleibt, wie er war."""
+    from . import asop, errors, injection
+    stand = asop.load()
+    for key, name in names:
+        asop.set_name(stand, key, name, asop.entry(stand, key)[1])
+    _applying[0] = True
+    try:
+        saved = asop.save(stand)
+    finally:
+        _applying[0] = False
+    if not saved:
+        return
+    try:
+        ini, folder, _source = injection.ini_file()
+        if ini:
+            injection.refresh(ini, folder)
+    except Exception as exc:
+        errors.record('basetool_sync.schiffsnamen_schreiben', exc)
 
 
 def _tags():

@@ -209,11 +209,21 @@ SWAPPABLE = frozenset(INTERESTING | {'Battery', 'Avionics',
 #
 # Diese Teile stehen weder bei UEX im Laden noch unter den Bauplänen — ohne
 # erkul bleibt die Auswahl leer. Deshalb eine eigene, kleine Ablage.
-PART_FAMILIES = ('missileracks', 'rocketpods', 'missiles', 'bombs', 'paints')
+#
+# ⭐ Dazu die Komponenten (Kühler, Kraftwerke, Schilde, Quantenantriebe,
+# Radar) und Waffen: Teile aus Pledge-Paketen und Events (etwa Helios IP-20,
+# Delphi RS-20) stehen weder im Laden noch unter den Bauplänen — siehe
+# `cart.choices`. Und die Flight Blades: Sie hängen wie die Racks an
+# Kennzeichnungen des Schiffs (`RSI_Mantis_Blade`).
+PART_FAMILIES = ('missileracks', 'rocketpods', 'missiles', 'bombs', 'paints',
+                 'blades', 'coolers', 'powerplants', 'shields',
+                 'quantumdrives', 'radars', 'weapons')
 PART_KINDS = frozenset(('MissileLauncher', 'BombLauncher', 'Missile', 'Bomb',
-                        'Paints'))
+                        'Paints', 'FlightController'))
 PARTS_CACHE = 'erkul-teile.json'
-PARTS_FORMAT = 1
+# ⚠ Ab 2: mit Komponenten und Flight Blades, Kennzeichnungen ohne `$` — ein
+# Stand im Format 1 wird dadurch einmal neu geholt.
+PARTS_FORMAT = 2
 
 _parts_store = uex.Store(PARTS_CACHE, format_no=PARTS_FORMAT,
                          shelf_life=SHELF_LIFE, patch_bound=True)
@@ -296,8 +306,11 @@ def _slim_part(raw):
     part = {'ref': raw['ref'], 'name': _part_name(raw),
             'typ': raw.get('type') or '', 'untertyp': raw.get('subType') or '',
             'groesse': raw.get('size'),
-            'tags': list(raw.get('tags') or []),
-            'verlangt': list(raw.get('requiredTags') or []),
+            # ⚠ erkul schreibt Kennzeichnungen teils mit führendem `$`
+            # (`$RSI_Mantis_Blade`), am Platz ohne — siehe `_constraints`.
+            'tags': [str(x).lstrip('$') for x in (raw.get('tags') or [])],
+            'verlangt': [str(x).lstrip('$')
+                         for x in (raw.get('requiredTags') or [])],
             'guete': raw.get('grade') or ''}
     ports = []
     for port in (raw.get('ports') or []):

@@ -81,15 +81,18 @@ soll das keinen Formatwechsel kosten und keine bestehende Datei entwerten.
 bleiben: der Ablage-Name `hangar.json` und alle Schlüssel darin
 (`format`, `schiffe`, `wunsch`, `merkzettel`, `name`, `hersteller`,
 `herkunft`, `belegung`, `kurz`, `hkurz`, `lti`, `warbond`, `paket`,
-`gekauft`, `preis`, `ref`, `anzahl`, `weg`) sowie die Herkunftswerte
+`gekauft`, `preis`, `ref`, `anzahl`, `weg`, `einsatzbereit`) sowie die Herkunftswerte
 `'pledge'` und `'ingame'` — sonst verliert jeder beim Update seinen Hangar.
 Ebenso der Seitenname `hangar` in Reiterleiste, Symbolsatz und „Neu"-Marken.
 """
+import collections
+import copy
 import csv
 import io
 import json
 import os
 import re
+import threading
 
 from . import erkul, errors, paths
 
@@ -108,6 +111,9 @@ BASETOOL = 'basetool'
 LIST = 'liste'
 
 
+_SAVE_LOCK = threading.Lock()
+
+
 def path():
     return paths.app_file(FILE)
 
@@ -116,20 +122,121 @@ def empty():
     return {'format': FORMAT, 'schiffe': []}
 
 
+# Je geladenem Hangar-Objekt der Stand, den es zuletzt von der Platte kannte:
+# `id(data)` -> (data, Kopie). Das Objekt selbst steht mit drin, damit seine
+# `id` nicht an ein neues Objekt weitergegeben wird, solange der Eintrag lebt.
+_BASES = collections.OrderedDict()
+_BASES_MAX = 64
+_BASES_LOCK = threading.Lock()
+
+
+def _remember(data):
+    """`data` entspricht jetzt dem, was auf der Platte steht."""
+    with _BASES_LOCK:
+        _BASES[id(data)] = (data, copy.deepcopy(data))
+        _BASES.move_to_end(id(data))
+        while len(_BASES) > _BASES_MAX:
+            _BASES.popitem(last=False)
+
+
+def _base_of(data):
+    with _BASES_LOCK:
+        hit = _BASES.get(id(data))
+    return hit[1] if hit is not None and hit[0] is data else None
+
+
+def _read():
+    """Die Datei, wie sie liegt — oder `None`."""
+    data = paths.load_json(path(), valid=lambda d: isinstance(d, dict),
+                           report_as='fleet.load')
+    if data and data.get('format') == FORMAT \
+            and isinstance(data.get('schiffe'), list):
+        return data
+    return None
+
+
 def load():
     """Der eigene Hangar — oder eine leere Liste. Eine kaputte Datei wird
     protokolliert und beiseitegelegt (`paths.load_json`)."""
-    data = paths.load_json(path(), valid=lambda d: isinstance(d, dict),
-                           report_as='fleet.load')
     try:
-        if data and data.get('format') == FORMAT \
-                and isinstance(data.get('schiffe'), list):
+        data = _read()
+        if data is not None:
+            _remember(data)
             if merge_duplicates(data):
                 save(data)
             return data
     except Exception as exc:
         errors.record('fleet.load', exc)
-    return empty()
+    data = empty()
+    _remember(data)
+    return data
+
+
+def _entry_keys(entries):
+    """Liste -> {(Hersteller, Name, laufende Nummer): Eintrag}."""
+    seen, out = {}, {}
+    for e in entries or ():
+        if not isinstance(e, dict):
+            continue
+        base = (_slim(e.get('hersteller')), _slim(e.get('name')))
+        seen[base] = seen.get(base, 0) + 1
+        out[base + (seen[base],)] = e
+    return out
+
+
+def _merge_dict(base, mine, target):
+    """Was sich von `base` zu `mine` geändert hat, in `target` übernehmen."""
+    for key in set(base) | set(mine):
+        if mine.get(key) == base.get(key):
+            continue
+        if key in mine:
+            target[key] = copy.deepcopy(mine[key])
+        else:
+            target.pop(key, None)
+
+
+def _merge(base, mine, disk):
+    """Die eigenen Änderungen (`base` -> `mine`) auf den Stand der Platte.
+
+    ⚠⚠ **Mehrere Seiten halten je ein eigenes Hangar-Objekt.** Schreibt eine
+    davon ihren ganzen, älteren Stand zurück, sind die Haken und Wahlen der
+    anderen weg. Deshalb geht nur hinaus, was sich an diesem Objekt geändert
+    hat — je Schiff Feld für Feld, in der Auslegung Steckplatz für Steckplatz.
+    """
+    result = copy.deepcopy(disk)
+    for list_key in set(base) | set(mine) | set(disk):
+        if list_key not in ('schiffe', 'wunsch'):
+            continue
+        b = _entry_keys(base.get(list_key))
+        m = _entry_keys(mine.get(list_key))
+        target_list = result.setdefault(list_key, [])
+        d = _entry_keys(target_list)
+        for key, entry in m.items():
+            if key not in b:
+                if key not in d:
+                    target_list.append(copy.deepcopy(entry))
+                continue
+            target = d.get(key)
+            if target is None:
+                continue
+            old = b[key]
+            for field in set(old) | set(entry):
+                if field == 'belegung' and isinstance(entry.get(field), dict):
+                    _merge_dict(old.get(field) or {}, entry[field],
+                                target.setdefault(field, {}))
+                elif entry.get(field) != old.get(field):
+                    if field in entry:
+                        target[field] = copy.deepcopy(entry[field])
+                    else:
+                        target.pop(field, None)
+        gone = [d[k] for k in b if k not in m and k in d]
+        if gone:
+            result[list_key] = [e for e in target_list
+                                if not any(e is g for g in gone)]
+    _merge_dict({k: v for k, v in base.items() if k not in ('schiffe', 'wunsch')},
+                {k: v for k, v in mine.items() if k not in ('schiffe', 'wunsch')},
+                result)
+    return result
 
 
 def save(data):
@@ -141,10 +248,18 @@ def save(data):
     """
     target = path()
     try:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(target + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=1)
-        os.replace(target + '.tmp', target)
+        with _SAVE_LOCK:
+            out = data
+            base = _base_of(data)
+            if base is not None:
+                disk = _read()
+                if disk is not None and disk != base:
+                    out = _merge(base, data, disk)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target + '.tmp', 'w', encoding='utf-8') as f:
+                json.dump(out, f, ensure_ascii=False, indent=1)
+            os.replace(target + '.tmp', target)
+            _remember(data)
     except Exception as exc:
         errors.record('fleet.save', exc)
         return False
@@ -521,6 +636,9 @@ def merge_duplicates(data):
         _fill(match, **{key: s.get(key) for key in _IMPORT_KEYS})
         if not match.get('belegung') and s.get('belegung'):
             match['belegung'] = s['belegung']
+        if match.get('einsatzbereit') is None \
+                and s.get('einsatzbereit') is not None:
+            match['einsatzbereit'] = s['einsatzbereit']
     if changed:
         data['schiffe'] = kept
     return changed

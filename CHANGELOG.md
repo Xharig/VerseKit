@@ -6,6 +6,47 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.5.0 - 2026-10-15
+
+> Dein Hangar teilt mit dem Basetool jetzt mehr als Schiff und Versicherung:
+> Eigene Schiffsnamen und „Einsatzbereit" gehen in beide Richtungen. Die
+> Einkaufsroute fasst gleiche Teile zusammen, und die Stopps lassen sich in
+> die Reihenfolge ziehen, in der du fliegst.
+
+### Neu
+
+- **Schiffsnamen und „Einsatzbereit" im Basetool** — der eigene Name aus dem
+  Hangar geht ins Basetool, ein dort geänderter Name kommt zurück und steht
+  auch im Spiel. Dazu hat jede Schiffskarte den Haken „Einsatzbereit", der
+  mit „Fitted" im Basetool abgeglichen wird.
+- **Einkaufsroute umsortieren** — Stopps lassen sich am Griff links in die
+  Reihenfolge ziehen, in der du sie anfliegst. Die Reihenfolge bleibt.
+
+### Verbessert
+
+- **Hangar und „Was noch fehlt" reagieren deutlich schneller** — Teile
+  wählen, ändern und abhaken geht ohne spürbare Wartezeit.
+- **Hangar: Schiffe mit Stern und eigenem Namen stehen oben** — wie im
+  Abrufterminal im Spiel.
+- **Einkaufsroute: gleiche Teile in einer Zeile** — „32 × Dominator II
+  Missile" statt 32 Zeilen, mit Summe und Stückpreis.
+- **Teile ohne Laden stehen mit Namen da** — mit dem Hinweis, dass sie oft
+  aus Events oder Paketen stammen.
+- **Hangar: Event- und Paket-Komponenten wählbar** — Kühler, Kraftwerke,
+  Schilde, Quantenantriebe, Radar und Waffen, die kein Laden führt (etwa
+  Helios IP-20), lassen sich als eingebaut eintragen. Flight Blades ebenso,
+  je Schiff nur die passenden.
+
+### Behoben
+
+- **Abgehakte Posten kamen wieder** — wer im Hangar etwas änderte, nachdem
+  in „Was noch fehlt" etwas abgehakt war, überschrieb die Haken. Jetzt
+  bleiben beide Änderungen.
+- **Einkaufsroute: gleicher Steckplatz an zwei Schiffen** — einer der beiden
+  Posten fehlte auf der Route.
+- **Einkaufsroute ohne Laden** — führt kein Laden die Teile, stand dort
+  „Nichts zu kaufen — du stellst alles selbst her".
+
 ## v4.4.2 - 2026-10-15
 
 > Kühler, Kraftwerke und viele andere Komponenten zeigen im Spiel jetzt auch

@@ -58,6 +58,7 @@ import os
 import re
 import sys
 import threading
+import time
 
 WINDOWS = sys.platform.startswith('win')
 
@@ -393,6 +394,43 @@ def _storage_from_file():
     return (b or a) if blocked else (a or b)
 
 
+# Zuletzt gelesener Ablage-Ort, mit dem Stand beider Zeiger-Dateien.
+_STORAGE_MEMO = {'stamp': None, 'value': None, 'at': 0.0}
+_STORAGE_MEMO_SECONDS = 2.0
+
+
+def _pointer_stamp():
+    """Pfad, Änderungszeit und Größe beider Zeiger-Dateien."""
+    result = []
+    for name in (pointer_file(), _second_pointer()):
+        try:
+            info = os.stat(name)
+            result.append((name, info.st_mtime_ns, info.st_size))
+        except OSError:
+            result.append((name, None, None))
+    return tuple(result)
+
+
+def _remembered_storage():
+    """`_storage_from_file()` — gemerkt, solange beide Zeiger unverändert sind.
+
+    ⚠ `app_folder()` läuft bei jedem Dateizugriff hier durch; die Zeiger
+    jedes Mal zu lesen kostet über 1 ms, und eine Seite wie der Hangar macht
+    Hunderte Zugriffe. Neu gelesen wird, sobald sich eine der beiden Dateien
+    ändert, und spätestens nach zwei Sekunden — dann fällt auch ein Ordner
+    auf, der inzwischen fehlt (abgezogene Platte).
+    """
+    stamp = _pointer_stamp()
+    now = time.monotonic()
+    memo = _STORAGE_MEMO
+    if memo['stamp'] == stamp and now - memo['at'] < _STORAGE_MEMO_SECONDS:
+        return memo['value']
+    value = _storage_from_file()
+    # Neu stempeln: `_storage_from_file` kann einen Zeiger geheilt haben.
+    memo.update(stamp=_pointer_stamp(), value=value, at=now)
+    return value
+
+
 def app_folder():
     """Ordner für unsere eigenen Dateien. Wird bei Bedarf angelegt.
 
@@ -401,7 +439,7 @@ def app_folder():
     Bauplan-Bestand sollte er finden können. Ein eigener Ort geht weiterhin über
     `SC_BP_HOME` oder die Einstellung `ablage_ordner`.
     """
-    custom = os.environ.get('SC_BP_HOME') or _storage_from_file()
+    custom = os.environ.get('SC_BP_HOME') or _remembered_storage()
     p = os.path.expanduser(custom) if custom else _default_folder()
     try:
         os.makedirs(p, exist_ok=True)

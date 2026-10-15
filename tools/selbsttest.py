@@ -22907,8 +22907,12 @@ def main():
         else:
             os.environ['SC_BP_HOME'] = _altheim241
         shutil.rmtree(_heim241, ignore_errors=True)
+    # Hangar und Basetool-Abgleich lesen die Namen über `asop.factory_table`,
+    # und die liest die ergaenzten Namen mit.
+    _qa241 = open(os.path.join(WURZEL, 'scbp', 'asop.py'), encoding='utf-8').read()
     _qp241 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
-    pruefe('_added_ship_names(' in _qp241,
+    pruefe('_added_ship_names(' in _qa241
+           and 'asop_modul.factory_table()' in _qp241,
            '„Schiffe benennen" sieht dieselben ergaenzten Namen')
 
     # 242. Der Spieler erkennt, ob seine Uebersetzung aktuell ist
@@ -25480,6 +25484,11 @@ def main():
     _pruefung_445()
     _pruefung_446()
     _pruefung_447()
+    _pruefung_448()
+    _pruefung_449()
+    _pruefung_450()
+    _pruefung_451()
+    _pruefung_452()
 
     print()
     if fehler:
@@ -34286,6 +34295,8 @@ def _pruefung_337():
     finally:
         _in337.ini_file = _altini337
         _pg337._SHIP_NAME_TABLE['stempel'] = None
+        from scbp import asop as _as337
+        _as337._TABLE['stamp'] = None
         if _altheim337 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:
@@ -42927,6 +42938,420 @@ def _pruefung_447():
     pruefe(not _falsch447,
            'jede Schreibweise der Güte landet im Kürzel, nichts aus einem '
            'längeren Wort (%r)' % _falsch447)
+
+
+def _pruefung_448():
+    """448. Hangar-Auswahl: Teile nur aus den Spieldaten (Event, Pledge) und
+    Flight Blades nach den Kennzeichnungen des Schiffs."""
+    print('\n448. Hangar: Event-Komponenten und Flight Blades')
+    from scbp import cart as _ca448, erkul as _er448, shops as _sh448
+    _alt448 = (_er448.parts, _sh448.catalog_items, _ca448._craftable)
+    try:
+        _blade_roh448 = {'ref': 'b-mantis', 'type': 'FlightController',
+                         'size': 1, 'grade': 'A',
+                         'i18n': {'name': 'Mantis PHB Flight Blade'},
+                         'tags': ['$RSI_Mantis_Blade'],
+                         'requiredTags': ['RSI_Mantis_Blade']}
+        _blade448 = _er448._slim_part(_blade_roh448)
+        _teile448 = {
+            'p-helios': {'ref': 'p-helios', 'name': 'Helios IP-20',
+                         'typ': 'PowerPlant', 'untertyp': 'Power',
+                         'groesse': 2, 'tags': [], 'verlangt': [],
+                         'guete': 'A'},
+            'b-mantis': _blade448,
+            'b-gladius': {'ref': 'b-gladius', 'name': 'Gladius TSB Flight Blade',
+                          'typ': 'FlightController', 'untertyp': '',
+                          'groesse': 1, 'tags': ['AEGS_Gladius_Blade'],
+                          'verlangt': ['AEGS_Gladius_Blade'], 'guete': 'A'},
+        }
+        _er448.parts = lambda: _teile448
+        # Wie bei UEX: ein Blade ohne Größe und ohne Entitäts-Kennung.
+        _laden448 = [{'name': 'Gladius TSB Flight Blade', 'kennung': 'id:4711',
+                      'kategorie': 'Flight Blade', 'groesse': '',
+                      'hersteller': '', 'guete': '', 'klasse': ''}]
+        _sh448.catalog_items = lambda: _laden448
+        _ca448._craftable = lambda kind, size: {}
+
+        pruefe(_blade448.get('tags') == ['RSI_Mantis_Blade'],
+               'Kennzeichnung ohne führendes $ abgelegt (%r)'
+               % _blade448.get('tags'))
+        _s2 = _ca448.choices('PowerPlant', 2, {'art': 'PowerPlant',
+                                              'groesse': 2})
+        _s1 = _ca448.choices('PowerPlant', 1, {'art': 'PowerPlant',
+                                              'groesse': 1})
+        pruefe([(m['name'], m['herkunft'], m['guete']) for m in _s2]
+               == [('Helios IP-20', _ca448.SHIP_ONLY, 'A')] and not _s1,
+               'Event-Kraftwerk am Platz S2 wählbar, an S1 nicht (%r / %r)'
+               % ([m['name'] for m in _s2], [m['name'] for m in _s1]))
+        _platz448 = {'art': 'FlightController', 'groesse': 1,
+                     'passt': {'typen': [['FlightController', []]],
+                               'min': 1, 'max': 1,
+                               'porttags': ['RSI_Mantis_Blade'],
+                               'verlangt': ['RSI_Mantis_Blade']}}
+        _bl448 = [m['name'] for m in
+                  _ca448.choices('FlightController', 1, _platz448)]
+        pruefe(_bl448 == ['Mantis PHB Flight Blade'],
+               'am Blade-Platz der Mantis nur Mantis-Blades (%r)' % _bl448)
+    finally:
+        _er448.parts, _sh448.catalog_items, _ca448._craftable = _alt448
+
+
+def _pruefung_449():
+    """449. Basetool-Hangar: eigene Schiffsnamen und `einsatzbereit` gehen
+    in beide Richtungen, Stern und Ort bleiben, Hangar sortiert Benanntes
+    nach oben."""
+    print('\n449. Basetool: Schiffsnamen und Einsatzbereit')
+    from scbp import exchange_ships as _xs449, asop as _as449
+    from scbp import basetool_sync as _bs449, injection as _in449
+    _hangar449 = {'schiffe': [{'name': 'Cutlass Black', 'hersteller': 'Drake',
+                               'lti': True}]}
+    _ext449 = _xs449.external_id(_hangar449['schiffe'][0])
+    _srv449 = {'s-1': {'shipId': 's-1', 'version': 3,
+                       'shipType': {'bt': 'st-cut', 'name': 'Cutlass Black'},
+                       'insurance': {'kind': 'MONTHS', 'months': 2},
+                       'location': {'name': 'Area18'}}}
+    _res449 = {_ext449: 'st-cut'}
+    _links449 = {'links': {_ext449: 's-1'}}
+
+    def _lauf(eigen, srv=None, stand=None, bereit=None):
+        schiffe = [dict(_hangar449['schiffe'][0])]
+        if bereit is not None:
+            schiffe[0]['einsatzbereit'] = bereit
+        namen = {} if eigen is None else {'Cutlass Black': ('vehicle_NameX',
+                                                            eigen)}
+        lok = _xs449.local_ships({'schiffe': schiffe}, namen)
+        server = {'s-1': dict(_srv449['s-1'], **(srv or {}))}
+        plan = _xs449.plan(lok, _res449, server, dict(_links449, **(stand or {})))
+        ops = [op for s, _k in _xs449.change_sets(plan, lok, _res449, server)
+               for op in s['ops'] if op['op'] == 'upsert']
+        return plan, ops
+
+    _p, _o = _lauf('Betty')
+    pruefe(_o and _o[0].get('name') == 'Betty'
+           and _o[0]['insurance'] == {'kind': 'MONTHS', 'months': 2}
+           and _o[0].get('location', {}).get('name') == 'Area18'
+           and 'fitted' not in _o[0],
+           'eigener Name geht hinaus, Versicherung und Ort von drüben (%r)'
+           % _o[:1])
+    _p, _o = _lauf('', {'name': 'Black Betty'})
+    pruefe(not _o and _p['pull_fields'].get(_ext449) == ['name'],
+           'Name nur im Basetool: wird geholt, nicht gelöscht (%r / %r)'
+           % (_o[:1], _p['pull_fields']))
+    _p, _o = _lauf('Y', {'name': 'X'}, {'baseline_name': {_ext449: 'X'}})
+    pruefe(_o and _o[0].get('name') == 'Y',
+           'hier umbenannt: geht hinaus (%r)' % _o[:1])
+    _p, _o = _lauf('X', {'name': 'Z'}, {'baseline_name': {_ext449: 'X'}})
+    pruefe(not _o and _p['pull_fields'].get(_ext449) == ['name'],
+           'drüben umbenannt: kommt herein (%r)' % _p['pull_fields'])
+    _p, _o = _lauf(None, {'name': 'Black Betty'})
+    pruefe(not _o and not _p['pull'],
+           'Schiff ohne Spielnamen: Name wird nicht angefasst (%r)' % _o[:1])
+    _lang = 'N' * 60
+    _p, _o = _lauf(_lang[:_as449.MAX_LENGTH], {'name': _lang},
+                   {'baseline_name': {_ext449: _lang}})
+    pruefe(not _o and not _p['pull'],
+           'langer Name von drüben geht nicht gekürzt zurück (%r)' % _o[:1])
+    _p, _o = _lauf(None, {'fitted': True})
+    pruefe(_p['pull_fields'].get(_ext449) == ['fitted'],
+           'nie gesetzter Haken: fitted von drüben kommt herein (%r)'
+           % _p['pull_fields'])
+    _p, _o = _lauf(None, {'fitted': False})
+    pruefe(not _p['pull'] and not _o,
+           'nie gesetzter Haken und fitted false: nichts zu tun')
+    _p, _o = _lauf(None, {'fitted': False}, {'baseline_fitted': {_ext449: False}},
+                   bereit=True)
+    pruefe(_o and _o[0].get('fitted') is True,
+           'Haken hier gesetzt: fitted geht hinaus (%r)' % _o[:1])
+
+    # Hereinkommender Name: in asop.json, Stern bleibt
+    _alt449 = (_as449.load, _as449.save, _in449.ini_file)
+    _gespeichert449 = {}
+    try:
+        _as449.load = lambda: {'format': 1, 'namen': {
+            'vehicle_NameX': {'name': 'Alt', 'stern': True}}}
+        _as449.save = lambda d: _gespeichert449.update(d) or True
+        _in449.ini_file = lambda *a, **k: (None, None, None)
+        _bs449._take_ship_names([('vehicle_NameX', 'Neu')])
+        pruefe(_gespeichert449.get('namen', {}).get('vehicle_NameX')
+               == {'name': 'Neu', 'stern': True},
+               'Name aus dem Basetool übernommen, Stern bleibt (%r)'
+               % _gespeichert449.get('namen'))
+
+        # Hangar-Reihenfolge: Stern, dann eigener Name, dann der Rest
+        _as449.load = lambda: {'format': 1, 'namen': {
+            'k-stern': {'name': '', 'stern': True},
+            'k-name': {'name': 'Aaa', 'stern': False}}}
+
+        class _F449:
+            before_close = []
+            root = None
+        from scbp import pages as _pg449
+        _pg_rang449 = _pg449._ship_names(_F449(), None)['rang']
+        _rang449 = [_pg_rang449(k)[0] for k in ('k-stern', 'k-name', 'k-ohne', '')]
+        pruefe(_rang449 == [0, 1, 2, 2],
+               'Stufen: Stern, Name, Rest (%r)' % _rang449)
+        _schiffe449 = [{'name': n} for n in
+                       ('Arrow', 'Zeus', 'Cutlass', 'Mole', 'Buccaneer')]
+        _zu449 = {'Zeus': {'schluessel': 'k-stern'},
+                  'Mole': {'schluessel': 'k-name'},
+                  'Cutlass': {'schluessel': 'k-ohne'}}
+        _folge449 = [s['name'] for s in
+                     _pg449._hangar_order(_schiffe449, _zu449, _pg_rang449)]
+        pruefe(_folge449 == ['Zeus', 'Mole', 'Arrow', 'Buccaneer', 'Cutlass'],
+               'Hangar-Liste: Stern, eigener Name, dann alphabetisch (%r)'
+               % _folge449)
+    finally:
+        _as449.load, _as449.save, _in449.ini_file = _alt449
+
+
+def _pruefung_450():
+    """450. Hangar: Zwei Seiten mit je eigenem Stand überschreiben sich
+    nicht — Haken der Einkaufsliste überleben ein Speichern im Hangar."""
+    print('\n450. Hangar: Speichern mit älterem Stand verliert nichts')
+    from scbp import fleet as _fl450
+    _alt_heim450 = os.environ.get('SC_BP_HOME')
+    _heim450 = tempfile.mkdtemp(prefix='vk-450-')
+    os.environ['SC_BP_HOME'] = _heim450
+    try:
+        _start450 = {'format': 1, 'schiffe': [
+            {'name': 'Talon', 'hersteller': 'Esperia', 'herkunft': 'ingame',
+             'belegung': {'gun_l': {'ref': 'r-c788', 'name': 'C-788'},
+                          'gun_r': {'ref': 'r-c788', 'name': 'C-788'}}},
+            {'name': 'Arrow', 'hersteller': 'Anvil', 'herkunft': 'ingame',
+             'belegung': {}}]}
+        pruefe(_fl450.save(_start450), 'Vorbedingung: Hangar abgelegt')
+        _hangar450 = _fl450.load()       # die Hangar-Seite
+        _liste450 = _fl450.load()        # die Einkaufsliste
+        _liste450['schiffe'][0]['belegung']['gun_l']['erledigt'] = True
+        _fl450.save(_liste450)
+        _hangar450['schiffe'][0]['belegung']['gun_r']['erledigt'] = True
+        _hangar450['schiffe'][1]['einsatzbereit'] = True
+        _fl450.save(_hangar450)
+        _jetzt450 = _fl450.load()
+        _bel450 = _jetzt450['schiffe'][0]['belegung']
+        pruefe(_bel450['gun_l'].get('erledigt') and _bel450['gun_r'].get('erledigt'),
+               'beide Haken bleiben, auch nach Speichern des älteren Stands '
+               '(%r)' % _bel450)
+        pruefe(_jetzt450['schiffe'][1].get('einsatzbereit') is True,
+               'die Änderung der zweiten Seite steht auch da')
+        # Ein Schiff, das die eine Seite entfernt, kommt durch die andere
+        # nicht zurück.
+        _a450, _b450 = _fl450.load(), _fl450.load()
+        _fl450.remove(_a450, 'Arrow', 'Anvil')
+        _fl450.save(_a450)
+        _b450['schiffe'][0]['belegung']['gun_l'].pop('erledigt', None)
+        _fl450.save(_b450)
+        _jetzt450 = _fl450.load()
+        pruefe([s['name'] for s in _jetzt450['schiffe']] == ['Talon']
+               and not _jetzt450['schiffe'][0]['belegung']['gun_l'].get('erledigt')
+               and _jetzt450['schiffe'][0]['belegung']['gun_r'].get('erledigt'),
+               'entferntes Schiff bleibt weg, zurückgenommener Haken auch (%r)'
+               % _jetzt450['schiffe'])
+    finally:
+        if _alt_heim450 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim450
+        shutil.rmtree(_heim450, ignore_errors=True)
+
+
+def _pruefung_451():
+    """451. Einkaufsroute: gleiche Posten zusammengefasst, Abgehaktes und
+    gleichnamige Steckplätze zweier Schiffe richtig, Reihenfolge der Stopps
+    verschiebbar und gemerkt, Posten ohne Laden mit Namen."""
+    print('\n451. Einkaufsroute: Bündeln, Reihenfolge, ohne Laden')
+    from scbp import cart as _ca451, shops as _sh451
+    _alt_heim451 = os.environ.get('SC_BP_HOME')
+    _heim451 = tempfile.mkdtemp(prefix='vk-451-')
+    os.environ['SC_BP_HOME'] = _heim451
+    _alt451 = _sh451.shops_for
+    _regale451 = {
+        'r-dom': [{'laden': 'CenterMass', 'ort': 'Area18', 'system': 'Stanton',
+                   'preis': 350.0}],
+        'r-v880': [{'laden': 'Omega Pro', 'ort': 'New Babbage',
+                    'system': 'Stanton', 'preis': 704000.0}],
+        'r-qd': [{'laden': 'CenterMass', 'ort': 'Area18', 'system': 'Stanton',
+                  'preis': 1000.0}],
+    }
+    _sh451.shops_for = lambda ref: _regale451.get(ref)
+    try:
+        _posten451 = [{'schiff': 'Centaurus', 'quelle': 'hangar',
+                       'pfad': 'missile_%d' % i, 'name': 'Dominator II Missile',
+                       'weg': _ca451.BUY, 'ref': 'r-dom'} for i in range(32)]
+        _posten451 += [
+            {'schiff': 'Centaurus', 'quelle': 'hangar', 'pfad': 'radar',
+             'name': 'V880', 'weg': _ca451.BUY, 'ref': 'r-v880'},
+            {'schiff': 'Centaurus', 'quelle': 'hangar', 'pfad': 'qd',
+             'name': 'XL-1', 'weg': _ca451.BUY, 'ref': 'r-qd'},
+            {'schiff': 'Talon', 'quelle': 'hangar', 'pfad': 'qd',
+             'name': 'XL-1', 'weg': _ca451.BUY, 'ref': 'r-qd'},
+            {'schiff': 'Talon', 'quelle': 'hangar', 'pfad': 'gun_l',
+             'name': 'C-788', 'weg': _ca451.BUY, 'ref': 'r-c788',
+             'erledigt': True},
+            {'schiff': 'Centaurus', 'quelle': 'hangar', 'pfad': 'cool_1',
+             'name': 'Permafrost', 'weg': _ca451.BUY, 'ref': 'r-perma'},
+            {'schiff': 'Centaurus', 'quelle': 'hangar', 'pfad': 'cool_2',
+             'name': 'Permafrost', 'weg': _ca451.BUY, 'ref': 'r-perma'},
+        ]
+        _stopps451, _ohne451 = _ca451.route(_posten451)
+        _zeilen451 = {(z['name'], z['anzahl'])
+                      for s in _stopps451
+                      for z in _ca451.route_lines(s['posten'])}
+        pruefe(('Dominator II Missile', 32) in _zeilen451,
+               '32 gleiche Raketen stehen als EINE Zeile da (%r)' % _zeilen451)
+        pruefe(('XL-1', 2) in _zeilen451,
+               'gleicher Steckplatz an zwei Schiffen: beide auf der Route '
+               '(%r)' % _zeilen451)
+        pruefe(not any(z[0] == 'C-788' for z in _zeilen451),
+               'Abgehaktes steht nicht auf der Route')
+        _ohne_zeilen451 = _ca451.without_lines(_posten451)
+        pruefe(_ohne_zeilen451 == [('Permafrost', 2)] and len(_ohne451) == 2,
+               'ohne Laden: mit Namen und Anzahl, Abgehaktes nicht (%r)'
+               % _ohne_zeilen451)
+
+        _folge451 = [s['ort'] for s in _ca451.ordered_stops(_stopps451)]
+        _neu451 = _ca451.move_stop(_ca451.ordered_stops(_stopps451), 1, 0)
+        pruefe([s['ort'] for s in _neu451] == _folge451[::-1],
+               'Stopp nach oben gezogen (%r -> %r)'
+               % (_folge451, [s['ort'] for s in _neu451]))
+        _wieder451 = [s['ort'] for s in _ca451.ordered_stops(
+            _ca451.route(_posten451)[0])]
+        pruefe(_wieder451 == _folge451[::-1],
+               'die gezogene Reihenfolge bleibt beim nächsten Aufbau (%r)'
+               % _wieder451)
+    finally:
+        _sh451.shops_for = _alt451
+        if _alt_heim451 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim451
+        shutil.rmtree(_heim451, ignore_errors=True)
+
+
+def _pruefung_452():
+    """452. Hangar flott: Zwischenspeicher für Bauplanliste, herstellbare
+    Teile, Ablage-Ort und unbrauchbare Ablagen — und jeder liest neu, sobald
+    sich seine Quelle ändert."""
+    print('\n452. Hangar: Zwischenspeicher lesen bei Änderung neu')
+    from scbp import crafting as _cr452, paths as _pa452, uex as _ux452
+    from scbp import cart as _ca452
+
+    # a) Bauplanliste: einmal gebaut, Kopien zurück
+    _gebaut452 = []
+    _echt_bau452 = _cr452._build_items
+    _echt_load452 = _cr452.load
+    _daten452 = {'blueprints': [{'productName': 'Testkühler', 'tag': 'BP_X',
+                                 'tiers': [], 'type': 'Cooler'}]}
+    try:
+        _cr452.load = lambda: _daten452
+        _cr452._items_cache.update(daten=None, liste=[])
+        _cr452._build_items = lambda d: (_gebaut452.append(1)
+                                         or _echt_bau452(d))
+        _eins452 = _cr452.all_items()
+        _eins452[0]['habe'] = True
+        _zwei452 = _cr452.all_items()
+        pruefe(len(_gebaut452) == 1 and 'habe' not in _zwei452[0],
+               'Bauplanliste einmal gebaut, Änderungen am Ergebnis bleiben '
+               'draußen (%d Aufbauten)' % len(_gebaut452))
+        _daten452 = {'blueprints': []}
+        pruefe(_cr452.all_items() == [] and len(_gebaut452) == 2,
+               'neuer Rezeptstand: Liste neu gebaut')
+    finally:
+        _cr452._build_items = _echt_bau452
+        _cr452.load = _echt_load452
+        _cr452._items_cache.update(daten=None, liste=[])
+
+    _heim452 = tempfile.mkdtemp(prefix='vk-452-')
+    _alt_heim452 = os.environ.get('SC_BP_HOME')
+    _alt_zeiger452 = (_pa452.pointer_file, _pa452._second_pointer)
+    try:
+        # b) Ablage-Ort: Zeiger geändert -> sofort neu
+        os.environ.pop('SC_BP_HOME', None)
+        _erst452 = os.path.join(_heim452, 'erst.json')
+        _zweit452 = os.path.join(_heim452, 'zweit.json')
+        _ziel_a = os.path.join(_heim452, 'ablage_a')
+        _ziel_b = os.path.join(_heim452, 'ablage_b')
+        os.makedirs(_ziel_a)
+        os.makedirs(_ziel_b)
+        _pa452.pointer_file = lambda: _erst452
+        _pa452._second_pointer = lambda: _zweit452
+        for _z in (_erst452, _zweit452):
+            with open(_z, 'w', encoding='utf-8') as _f:
+                json.dump({'ablage_ordner': _ziel_a}, _f)
+        _pa452._STORAGE_MEMO.update(stamp=None, value=None, at=0.0)
+        _vorher452 = _pa452.app_folder()
+        for _z in (_erst452, _zweit452):
+            with open(_z, 'w', encoding='utf-8') as _f:
+                json.dump({'ablage_ordner': _ziel_b}, _f)
+        _nachher452 = _pa452.app_folder()
+        pruefe(_vorher452 == _ziel_a and _nachher452 == _ziel_b,
+               'Ablage-Ort: geänderter Zeiger gilt sofort (%r -> %r)'
+               % (_vorher452, _nachher452))
+        _gelesen452 = []
+        _echt_lesen452 = _pa452._read_pointer
+        _pa452._read_pointer = lambda p: (_gelesen452.append(p)
+                                          or _echt_lesen452(p))
+        for _i in range(20):
+            _pa452.app_folder()
+        _pa452._read_pointer = _echt_lesen452
+        pruefe(len(_gelesen452) == 0,
+               'Ablage-Ort: unveränderte Zeiger werden nicht neu gelesen '
+               '(%d Lesezugriffe)' % len(_gelesen452))
+        _pa452.pointer_file, _pa452._second_pointer = _alt_zeiger452
+        _pa452._STORAGE_MEMO.update(stamp=None, value=None, at=0.0)
+        os.environ['SC_BP_HOME'] = _heim452
+
+        # c) Ablage im alten Format: einmal gelesen, neu bei neuer Datei
+        _laden452 = _ux452.Store('test-452.json', format_no=2, shelf_life=60)
+        with open(_laden452.path(), 'w', encoding='utf-8') as _f:
+            json.dump({'format': 1, 'x': 1}, _f)
+        _oeffnen452 = []
+        _echt_json452 = _ux452.json.load
+        _ux452.json.load = lambda f: (_oeffnen452.append(1)
+                                      or _echt_json452(f))
+        try:
+            _laden452.load()
+            _laden452.load()
+            pruefe(len(_oeffnen452) == 1,
+                   'alte Ablage wird nicht bei jedem Zugriff neu gelesen '
+                   '(%d mal)' % len(_oeffnen452))
+            time.sleep(0.05)
+            with open(_laden452.path(), 'w', encoding='utf-8') as _f:
+                json.dump({'format': 2, 'x': 2, 'pad': 'neu'}, _f)
+            pruefe(_laden452.load().get('x') == 2,
+                   'neu geholte Ablage wird sofort gelesen')
+        finally:
+            _ux452.json.load = _echt_json452
+
+        # d) Herstellbare Teile: Kopien, neu bei geändertem Katalog
+        _aufrufe452 = []
+        from scbp import catalog as _ka452
+        _echt_kat452 = _ka452.load
+        _ka452.load = lambda *a, **k: (_aufrufe452.append(1)
+                                       or {'bauplaene': {}})
+        try:
+            _ca452._CRAFTABLE_MEMO.clear()
+            _ca452._craftable('Cooler', 1)
+            _ca452._craftable('Cooler', 1)
+            _n_vorher452 = len(_aufrufe452)
+            with open(_pa452.app_file(_ka452.CACHE), 'w',
+                      encoding='utf-8') as _f:
+                _f.write('{"bauplaene": {}}')
+            _ca452._craftable('Cooler', 1)
+            pruefe(_n_vorher452 == 1 and len(_aufrufe452) == 2,
+                   'herstellbare Teile: einmal je Katalogstand gesucht '
+                   '(%d, dann %d)' % (_n_vorher452, len(_aufrufe452)))
+        finally:
+            _ka452.load = _echt_kat452
+            _ca452._CRAFTABLE_MEMO.clear()
+    finally:
+        _pa452.pointer_file, _pa452._second_pointer = _alt_zeiger452
+        _pa452._STORAGE_MEMO.update(stamp=None, value=None, at=0.0)
+        if _alt_heim452 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim452
+        shutil.rmtree(_heim452, ignore_errors=True)
 
 
 def _alle_eingaben(w):

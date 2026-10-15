@@ -238,6 +238,11 @@ class Store:
                 return data
         except Exception:
             pass
+        # ⚠ Auch „unbrauchbar" merken — sonst liest jeder Zugriff die ganze
+        # Datei neu, bis sie neu geholt ist (alter Formatstand nach einem
+        # Update: über 600 ms je Hangar-Seite).
+        self._cached['stand'] = ident
+        self._cached['daten'] = {}
         return {}
 
     def age(self):

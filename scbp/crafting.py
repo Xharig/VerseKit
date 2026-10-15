@@ -388,9 +388,27 @@ def all_items():
 
     **Ein Eintrag je Gegenstand**, nicht je Bauplan: Gleiche Namen mit gleichem
     Rezept werden zusammengefasst (siehe `_merge`). Sonst zählt die
-    Übersicht zu hoch (gemessen: 406 herstellbare bei 404 Bauplänen)."""
+    Übersicht zu hoch (gemessen: 406 herstellbare bei 404 Bauplänen).
+
+    ⚠ Gebaut wird nur, wenn `load()` einen anderen Stand liefert — der Aufbau
+    kostet 0,2 s, und der Hangar fragt bei jeder Änderung mehrfach. Zurück
+    kommen Kopien der Einträge: Aufrufer ergänzen Felder (`habe`).
+    """
+    data = load()
+    if _items_cache['daten'] is not data:
+        _items_cache['liste'] = _build_items(data)
+        _items_cache['daten'] = data
+    return [dict(x, tags=list(x['tags'])) for x in _items_cache['liste']]
+
+
+# Zuletzt gebaute Liste aus `all_items()` und der Stand, aus dem sie stammt.
+_items_cache = {'daten': None, 'liste': []}
+
+
+def _build_items(data):
+    """Die Liste für `all_items()` aus einem geladenen Stand."""
     by_name = {}
-    for b in load().get('blueprints') or []:
+    for b in data.get('blueprints') or []:
         name = b.get('productName') or _name_from_tag(b.get('tag'))
         by_name.setdefault(_norm(name), []).append(b)
 

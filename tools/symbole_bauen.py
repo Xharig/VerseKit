@@ -371,6 +371,8 @@ ZEILEN_SYMBOLE = {
     # Bauplan-Liste: zum Farmen vormerken, gleiches Zeichen wie die Seite.
     'farmliste':      'diamond',
     'startbauplan':   'gift',
+    # Einkaufsroute: Stopp an eine andere Stelle ziehen.
+    'verschieben':    'grip-vertical',
 }
 
 # Alles zusammen, mit dem passenden Größensatz.
@@ -384,7 +386,8 @@ ZEILEN_SYMBOLE = {
 ANTIPPBAR_SYMBOLE = {n: ZEILEN_SYMBOLE[n]
                      for n in ('hinweiszeile', 'zuklappen', 'issue_council',
                                'stueck_mehr', 'stueck_weniger',
-                               'gemerkt', 'farmliste', 'startbauplan')}
+                               'gemerkt', 'farmliste', 'startbauplan',
+                               'verschieben')}
 
 SYMBOLE = {}
 for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),

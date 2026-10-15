@@ -12880,7 +12880,7 @@ def _mining_place(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
 # nicht dem Spiel.
 
 
-def _checkbox(parent, text, on, toggle, small_font):
+def _checkbox(parent, text, on, toggle, small_font, bg=None):
     """Ein anklickbares Kästchen mit Haken — für „ja/nein" neben einem Feld.
 
     ⚠ Warum kein `tk.Checkbutton`: Der ist ein Systemelement und sieht auf
@@ -12889,7 +12889,8 @@ def _checkbox(parent, text, on, toggle, small_font):
     Fremdkörper. Gezeichnet wird nichts von Hand — der Haken ist das
     Symbol `abhaken` aus dem Satz.
     """
-    rahmen = tk.Frame(parent, bg=BG, cursor='hand2')
+    bg = bg or BG
+    rahmen = tk.Frame(parent, bg=bg, cursor='hand2')
     # ⚠ Nur Symbole aus dem festgelegten Satz — `haken` steht in
     # `icons.LINE_NAMES`. Ein frei erfundener Name (`abhaken` gibt es nur
     # als Knopf-Symbol) faellt still auf den Ersatztext zurueck, und die Zeile
@@ -12903,10 +12904,10 @@ def _checkbox(parent, text, on, toggle, small_font):
             kind.destroy()
         # Aus: leerer Kreis wie in der Bauplan-Liste, an: grüner Haken.
         symbol = icons.line(rahmen, 'haken' if an_jetzt else 'offen',
-                            background=BG,
+                            background=bg,
                             color=icons.GREEN if an_jetzt else icons.GREY)
         symbol.pack(side='left')
-        lbl = tk.Label(rahmen, text=text, bg=BG,
+        lbl = tk.Label(rahmen, text=text, bg=bg,
                        fg=ACCENT if an_jetzt else SUB, font=small_font)
         lbl.pack(side='left', padx=(4, 0))
         for teil in (symbol, lbl):
@@ -13582,8 +13583,7 @@ def _hangar(fenster, rahmen):
             namen['feld'](karte, z,
                           je_schluessel.get(z.get('schluessel') or '', 1))
 
-        sortiert = sorted(schiffsliste,
-                          key=lambda s: (s.get('name') or '').lower())
+        sortiert = _hangar_order(schiffsliste, zuordnung, namen['rang'])
         ohne = {'n': 0}
 
         # Zwei gleiche Schiffe bekommen je eine eigene Karte: laufende Nummer.
@@ -13821,6 +13821,23 @@ def _wishlist(fenster, rahmen):
     _fuellen()
 
 
+def _hangar_order(ships, matches, rank):
+    """Die Hangar-Liste wie im Abrufterminal: Schiffe mit Stern zuerst, dann
+    die mit eigenem Namen, dann der Rest — je Stufe nach dem angezeigten
+    Namen.
+
+    `matches` ist `{Hangar-Name: Zuordnung}`, `rank(Schlüssel)` gibt
+    `(Stufe, eigener Name)`.
+    """
+    def order(ship):
+        hangar_name = (ship.get('name') or '').lower()
+        match = matches.get(ship.get('name') or '') or {}
+        level, own = rank(match.get('schluessel'))
+        return level, (own.lower() or hangar_name), hangar_name
+
+    return sorted(ships, key=order)
+
+
 def _asop(fenster, rahmen):
     """Die Seite `asop` — ein Verweis auf den Hangar, ohne eigenen Reiter.
 
@@ -13873,25 +13890,6 @@ def _ship_names(fenster, rahmen):
     felder = {}
     anzeige = {'stand': None}
 
-    def zeilen_der_ini():
-        """Die Zeilen der Sprachdatei, die das Spiel gerade lädt — oder nichts."""
-        try:
-            pfad, _sprachordner, _quelle = injection.ini_file()
-            if pfad and os.path.isfile(pfad):
-                with open(pfad, encoding='utf-8', errors='ignore') as f:
-                    lines = f.read().splitlines()
-                # ⚠ Dieselben ergänzten Schiffsnamen wie beim Einspielen:
-                # Kennt die Übersetzung ein Schiff noch nicht,
-                # steht es hier trotzdem mit seinem genauen Schlüssel da —
-                # sonst kürzte die Zuordnung den Namen und traf ein ANDERES
-                # Fahrzeug (Sabre Raven EX → Sabre Raven).
-                extra = injection._added_ship_names(
-                    pfad, lines, injection.load_origtext())
-                return lines + ['%s=%s' % kv for kv in extra.items()]
-        except Exception as ausnahme:
-            errors.record('pages._ship_names.ini', ausnahme)
-        return []
-
     def _stand_der_quellen():
         try:
             pfad = injection.ini_file()[0]
@@ -13907,10 +13905,7 @@ def _ship_names(fenster, rahmen):
         stempel = _stand_der_quellen()
         if stempel != alles['stempel']:
             alles['stempel'] = stempel
-            zeilen = zeilen_der_ini()
-            alles['tabelle'] = asop_modul.factory_names(
-                asop_modul.read_keys(zeilen),
-                injection.load_origtext()) if zeilen else {}
+            alles['tabelle'] = asop_modul.factory_table()
             daten['stand'] = asop_modul.load()
         return alles['tabelle']
 
@@ -13926,6 +13921,17 @@ def _ship_names(fenster, rahmen):
         if not schluessel:
             return ''
         return asop_modul.entry(daten['stand'], schluessel)[0]
+
+    def rank(key):
+        """Sortierstufe wie im Abrufterminal: Stern zuerst, dann eigene Namen.
+
+        Gibt `(Stufe, eigener Name)` zurück — Stufe 0 mit Stern, 1 mit
+        eigenem Namen, 2 ohne beides.
+        """
+        if not key:
+            return 2, ''
+        name, star = asop_modul.entry(daten['stand'], key)
+        return (0 if star else 1 if name else 2), name
 
     def _sagen(text, farbe):
         """Den Stand anzeigen — und stillhalten, wenn die Seite schon weg ist.
@@ -14043,7 +14049,7 @@ def _ship_names(fenster, rahmen):
             side='left')
 
     return {'zuordnen': zuordnen, 'feld': feld, 'eigen': eigen,
-            'fuss': fuss, 'einspielen': einspielen}
+            'rang': rank, 'fuss': fuss, 'einspielen': einspielen}
 
 
 def _asop_row(fenster, eltern, e, daten, asop_modul, sichern, in_card=False,
@@ -15259,6 +15265,16 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
         farbe = SUB
     unten = tk.Frame(karte, bg=SURFACE)
     unten.pack(fill='x', padx=16, pady=(0, 10))
+
+    # `einsatzbereit` geht als `fitted` ins Basetool und kommt von dort zurück.
+    ready = [bool(eintrag.get('einsatzbereit'))]
+
+    def set_ready(on):
+        eintrag['einsatzbereit'] = bool(on)
+        meine.save(daten['stand'])
+
+    _checkbox(unten, t('s_hg_einsatzbereit'), ready, set_ready,
+              fenster.f_small, bg=SURFACE).pack(side='right')
     tk.Label(unten, text='  ·  '.join(teile), bg=SURFACE,
              fg=farbe, font=fenster.f_small,
              anchor='w').pack(side='left')
@@ -16062,8 +16078,12 @@ def _cart_route(fenster, eltern, liste):
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=(46, 16),
                                                    pady=(10, 2))
     if not stopps:
-        _body_text(eltern, t('s_wk_route_leer'), fenster.f_small,
-                    bg=SURFACE, fill='x', padx=(46, 16), inset=78)
+        # ⚠ Ohne Stopp heißt nicht, dass alles selbst hergestellt wird: Es
+        # kann auch sein, dass kein Laden die Teile führt.
+        if not ohne:
+            _body_text(eltern, t('s_wk_route_leer'), fenster.f_small,
+                       bg=SURFACE, fill='x', padx=(46, 16), inset=78)
+        _route_without(fenster, eltern, liste, ohne)
         return
 
     zahlen = cart.route_total(stopps)
@@ -16085,29 +16105,91 @@ def _cart_route(fenster, eltern, liste):
         bg=SURFACE, fg=SUB, font=fenster.f_small, anchor='w').pack(
             fill='x', padx=(46, 16))
 
-    for stopp in stopps:
-        zeile = tk.Frame(eltern, bg=SURFACE)
-        zeile.pack(fill='x', padx=(58, 16), pady=(4, 0))
+    box = tk.Frame(eltern, bg=SURFACE)
+    box.pack(fill='x')
+    _route_stops(fenster, box, cart.ordered_stops(stopps))
+    _route_without(fenster, eltern, liste, ohne)
+
+
+def _route_without(fenster, eltern, liste, ohne):
+    """Die Posten ohne Laden — mit Namen, gleiche zusammengefasst."""
+    from . import cart
+    if not ohne:
+        return
+    _body_text(eltern, t('s_wk_route_ohne').format(n=len(ohne)),
+               fenster.f_small, color=GOLD, bg=SURFACE, fill='x',
+               padx=(46, 16), pady=(6, 0), inset=78)
+    namen = '  ·  '.join('%d × %s' % (n, name) if n > 1 else name
+                         for name, n in cart.without_lines(liste))
+    _body_text(eltern, namen, fenster.f_small, color=SUB, bg=SURFACE,
+               fill='x', padx=(58, 16), inset=90)
+    _body_text(eltern, t('s_wk_route_ohne_hilfe'), fenster.f_small,
+               color=SUB, bg=SURFACE, fill='x', padx=(58, 16), inset=90)
+
+
+def _route_stops(fenster, box, stopps):
+    """Die Stopps der Einkaufsroute, gleiche Posten zusammengefasst.
+
+    Am Griff links lässt sich ein Stopp an eine andere Stelle ziehen; die
+    Reihenfolge bleibt gemerkt (`cart.move_stop`).
+    """
+    from . import cart
+
+    for kind in box.winfo_children():
+        kind.destroy()
+    rahmen_je = []
+    zug = {'von': None}
+
+    def ziel_index(y_root):
+        """Wohin ein Stopp fällt, der bei `y_root` losgelassen wird."""
+        mitten = [r.winfo_rooty() + r.winfo_height() / 2 for r in rahmen_je]
+        return sum(1 for i, m in enumerate(mitten)
+                   if m < y_root and i != zug['von'])
+
+    def loslassen(event):
+        von, zug['von'] = zug['von'], None
+        if von is None:
+            return
+        nach = ziel_index(event.y_root)
+        if nach != von:
+            _route_stops(fenster, box, cart.move_stop(stopps, von, nach))
+
+    for i, stopp in enumerate(stopps):
+        rahmen = tk.Frame(box, bg=SURFACE)
+        rahmen.pack(fill='x', pady=(4, 0))
+        rahmen_je.append(rahmen)
+        zeile = tk.Frame(rahmen, bg=SURFACE)
+        zeile.pack(fill='x', padx=(46, 16))
+        if len(stopps) > 1:
+            griff = icons.line(zeile, 'verschieben', background=SURFACE,
+                               font=fenster.f_small)
+            griff.configure(cursor='fleur')
+            griff.pack(side='left', padx=(0, 4))
+            griff.bind('<ButtonPress-1>',
+                       lambda _e, n=i: zug.__setitem__('von', n))
+            griff.bind('<ButtonRelease-1>', loslassen)
+        else:
+            tk.Frame(zeile, bg=SURFACE, width=0).pack(side='left',
+                                                      padx=(0, 4))
         wo = ' · '.join(x for x in (stopp['system'], stopp['ort']) if x)
-        tk.Label(zeile, text=wo, bg=SURFACE, fg=FG, font=fenster.f_small,
-                 anchor='w').pack(side='left')
+        tk.Label(zeile, text='%d  %s' % (i + 1, wo), bg=SURFACE, fg=FG,
+                 font=fenster.f_small, anchor='w').pack(side='left')
         tk.Label(zeile, text=_auec(stopp['summe']), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='e').pack(side='right')
-        for eintrag_posten in stopp['posten']:
-            unter = tk.Frame(eltern, bg=SURFACE)
+        for line in cart.route_lines(stopp['posten']):
+            unter = tk.Frame(rahmen, bg=SURFACE)
             unter.pack(fill='x', padx=(70, 16))
-            tk.Label(unter, text='%s — %s' % (eintrag_posten['name'],
-                                              eintrag_posten['laden']),
+            name = ('%d × %s' % (line['anzahl'], line['name'])
+                    if line['anzahl'] > 1 else line['name'])
+            tk.Label(unter, text='%s — %s' % (name, line['laden']),
                      bg=SURFACE, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(side='left')
-            tk.Label(unter, text=_money(eintrag_posten['preis']), bg=SURFACE,
-                     fg=SUB, font=fenster.f_small,
-                     anchor='e').pack(side='right')
-
-    if ohne:
-        _body_text(eltern, t('s_wk_route_ohne').format(n=len(ohne)),
-                    fenster.f_small, color=GOLD, bg=SURFACE, fill='x',
-                    padx=(46, 16), pady=(6, 0), inset=78)
+            preis = _money(line['summe'])
+            if line['anzahl'] > 1:
+                preis = t('s_wk_route_je').format(
+                    summe=preis, preis=_money(line['preis']))
+            tk.Label(unter, text=preis, bg=SURFACE, fg=SUB,
+                     font=fenster.f_small, anchor='e').pack(side='right')
 
 
 def _storage(fenster, rahmen):

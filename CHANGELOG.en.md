@@ -6,6 +6,46 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.5.0 - 2026-10-15
+
+> Your hangar now shares more than ship and insurance with the Basetool: your
+> own ship names and "Ready" go both ways. The shopping route groups identical
+> parts, and you can drag the stops into the order you fly them.
+
+### New
+
+- **Ship names and "Ready" in the Basetool** — your own name from the hangar
+  goes to the Basetool, a name changed there comes back and shows in the game
+  too. Each ship card also has a "Ready" tick, synced with "Fitted" in the
+  Basetool.
+- **Reorder the shopping route** — drag stops by the handle on the left into
+  the order you fly them. The order is kept.
+
+### Improved
+
+- **Hangar and "Still missing" respond much faster** — choosing, changing and
+  ticking off parts no longer comes with a noticeable wait.
+- **Hangar: ships with a star or your own name come first** — like the
+  in-game ship terminal.
+- **Shopping route: identical parts in one line** — "32 × Dominator II
+  Missile" instead of 32 lines, with total and unit price.
+- **Parts without a shop are listed by name** — with a note that they often
+  come from events or packages.
+- **Hangar: event and package components selectable** — coolers, power
+  plants, shields, quantum drives, radars and weapons no shop sells (such as
+  Helios IP-20) can be entered as fitted. Flight blades too, only the ones
+  that fit each ship.
+
+### Fixed
+
+- **Ticked-off items came back** — changing something in the hangar after
+  ticking items off in "Still missing" overwrote the ticks. Both changes now
+  stay.
+- **Shopping route: same slot on two ships** — one of the two items was
+  missing from the route.
+- **Shopping route without shops** — when no shop sells the parts, it said
+  "Nothing to buy — you craft everything yourself".
+
 ## v4.4.2 - 2026-10-15
 
 > Coolers, power plants and many other components now show their grade in the
