@@ -204,6 +204,33 @@ def rumpf(quelle, name):
     return rest if ende < 0 else rest[:ende]
 
 
+def nur_code(quelle):
+    """`quelle` ohne Kommentare und ohne alleinstehende Zeichenketten
+    (Docstrings), neu geschrieben aus dem Syntaxbaum.
+
+    Fuer Textsuchen im Quelltext: Ein Aufruf, der nur noch in einem
+    Kommentar oder Docstring steht, findet sich hier nicht mehr.
+    ⚠ Die Schreibweise ist die von `ast.unparse`: einfache
+    Anfuehrungszeichen, umbrochene Aufrufe auf einer Zeile.
+    """
+    import ast as _ast
+    import textwrap as _tw
+    baum = _ast.parse(_tw.dedent(quelle))
+    for k in _ast.walk(baum):
+        for feld in ('body', 'orelse', 'finalbody'):
+            teile = getattr(k, feld, None)
+            if not isinstance(teile, list):
+                continue
+            rest = [s for s in teile
+                    if not (isinstance(s, _ast.Expr)
+                            and isinstance(s.value, _ast.Constant)
+                            and isinstance(s.value.value, str))]
+            if teile and not rest and feld == 'body':
+                rest = [_ast.Pass()]
+            setattr(k, feld, rest)
+    return _ast.unparse(baum)
+
+
 def methode(quelle, klasse, name):
     """Der Quelltext EINER Methode — ueber den Syntaxbaum, nicht per Textsuche.
 
@@ -1732,6 +1759,7 @@ def main():
             # Tastendruck muss das Eingabefeld **dasselbe Objekt** sein.
             # Gegengeprüft mit eingebautem Fehler — schlägt dann an.
             _felder_kaputt = []
+            _ohne_feld = []
             _spr.set_language('de')
             _f = _hf.MainWindow(version='0.0.0-test')
             _f.root.geometry('900x600+3000+3000')
@@ -1749,7 +1777,9 @@ def main():
 
                     _vor = []
                     _eingaben(_rahmen, _vor)
-                    if _vor:
+                    if not _vor:
+                        _ohne_feld.append(_seite)
+                    else:
                         _ziel = _vor[0]
                         _ziel.insert(0, 'a')          # ein Buchstabe
                         _f.root.update()
@@ -1768,6 +1798,10 @@ def main():
             if _felder_kaputt:
                 print('       Suchfeld wird beim Tippen neu gebaut: %s'
                       % ', '.join(_felder_kaputt))
+            # Ohne Feld liefe die Pruefung unten ins Leere und waere grün.
+            pruefe(not _ohne_feld,
+                   'die Seite hat ein Suchfeld, an dem getippt wird (%s)'
+                   % (', '.join(_ohne_feld) or 'ok'))
             pruefe(not _felder_kaputt,
                    'das Suchfeld überlebt einen Tastendruck')
 
@@ -4336,7 +4370,117 @@ def main():
     import ast as _ast49
     from scbp import language as _sp49
 
-    _RUFER49 = ('t', 'Satz', 'text')
+    # Alles, was einen Textschluessel als erstes Argument nimmt: `t()`,
+    # `language.text()` und die Klasse `language.Phrase`.
+    _RUFER49 = ('t', 'Phrase', 'text')
+
+    def _fehlende_schluessel49(_baum49, _ort49):
+        """Jeder Aufruf aus `_RUFER49` in `_baum49`, dessen Schluessel nicht
+        in `language.TEXTS` steht. [`ort:zeile  ruf('schluessel')`, …]"""
+        _raus49 = []
+        # ⚠⚠ Ein Schluessel muss NICHT direkt im Aufruf stehen. Assistent
+        # und Einstellungsseite holen ihre drei Knopftexte ueber eine
+        # Schleifenvariable:
+        #
+        #     for schluessel, quelle in (('inj_quelle_de', 'deutsch'), …):
+        #         tk.Label(text='  %s  ' % t(schluessel))
+        #
+        # Wer nur `t('literal')` sieht, haelt solche Schluessel fuer tot —
+        # raeumt man sie weg, stehen im Setup die nackten
+        # Schluesselnamen als Knopfbeschriftung.
+        #
+        # Deshalb werden Schleifen ueber feste Listen mit aufgeloest: Was die
+        # Variable annehmen KANN, wird geprueft. Steht ein Tupel als Ziel
+        # (`for a, b in …`), zaehlt nur die Stelle, die auch wirklich in den
+        # Aufruf geht — sonst laege hier gleich `'deutsch'` mit im Netz.
+        #
+        # ⚠ **Gemerkt wird der AUFRUF, nicht der Variablenname.** Werte, die
+        # dem Namen zugeordnet sind, gelten fuer die ganze Datei. In
+        # `pages.py` heisst ein Funktionsparameter ebenfalls `schluessel`
+        # (`def form(anzahl, schluessel)`) — der bekaeme die Werte einer
+        # ganz anderen Schleife untergeschoben und wuerde grundlos
+        # angemahnt. Eine Pruefung, die falsch anschlaegt, schaltet
+        # man ab; deshalb zaehlt nur, was im Koerper DIESER Schleife steht.
+        _ausschleife49 = {}
+        for _kn in _ast49.walk(_baum49):
+            if not isinstance(_kn, _ast49.For):
+                continue
+            _elts49 = getattr(_kn.iter, 'elts', None)
+            if not _elts49:
+                continue
+            _ziel49 = _kn.target
+            if isinstance(_ziel49, _ast49.Name):
+                _stellen49 = [(_ziel49.id, None)]
+            elif isinstance(_ziel49, _ast49.Tuple):
+                _stellen49 = [(_e.id, _i)
+                              for _i, _e in enumerate(_ziel49.elts)
+                              if isinstance(_e, _ast49.Name)]
+            else:
+                continue
+            for _nam49, _pos49 in _stellen49:
+                _werte49 = set()
+                for _w49 in _elts49:
+                    if _pos49 is None:
+                        _kand49 = [_w49]
+                    elif (isinstance(_w49, (_ast49.Tuple, _ast49.List))
+                          and len(_w49.elts) > _pos49):
+                        _kand49 = [_w49.elts[_pos49]]
+                    else:
+                        _kand49 = []
+                    for _k49 in _kand49:
+                        if (isinstance(_k49, _ast49.Constant)
+                                and isinstance(_k49.value, str)
+                                and _k49.value):
+                            _werte49.add(_k49.value)
+                if not _werte49:
+                    continue
+                for _rumpf49 in _kn.body:
+                    for _c49 in _ast49.walk(_rumpf49):
+                        if (isinstance(_c49, _ast49.Call) and _c49.args
+                                and isinstance(_c49.args[0], _ast49.Name)
+                                and _c49.args[0].id == _nam49):
+                            _ausschleife49.setdefault(
+                                id(_c49), set()).update(_werte49)
+
+        for _kn49 in _ast49.walk(_baum49):
+            if not isinstance(_kn49, _ast49.Call) or not _kn49.args:
+                continue
+            _f49 = _kn49.func
+            _ruf49 = (_f49.attr if isinstance(_f49, _ast49.Attribute)
+                      else (_f49.id if isinstance(_f49, _ast49.Name) else None))
+            if _ruf49 not in _RUFER49:
+                continue
+            _erst49 = _kn49.args[0]
+            if isinstance(_erst49, _ast49.Constant):
+                _moeglich49 = ([_erst49.value]
+                               if isinstance(_erst49.value, str)
+                               and _erst49.value else [])
+            elif isinstance(_erst49, _ast49.Name):
+                # Der Schluessel kommt aus einer Schleife (siehe oben).
+                _moeglich49 = sorted(_ausschleife49.get(id(_kn49), ()))
+            else:
+                _moeglich49 = []
+            for _wert49 in _moeglich49:
+                if _wert49 not in _sp49.TEXTS:
+                    _raus49.append('%s:%d  %s(%r)' % (
+                        _ort49, _kn49.lineno, _ruf49, _wert49))
+        return _raus49
+
+    # Gegenprobe: jede der drei Aufrufarten mit einem Schluessel, den es
+    # nicht gibt, muss gefunden werden.
+    _probe49 = _fehlende_schluessel49(_ast49.parse(
+        "t('gibtsnicht_probe49')\n"
+        "language.Phrase('gibtsnicht_probe49', 3)\n"
+        "Phrase('gibtsnicht_probe49')\n"
+        "language.text('gibtsnicht_probe49')\n"
+        "for k in ('gibtsnicht_probe49',):\n"
+        "    t(k)\n"), 'probe')
+    _zeilen49 = {int(_z.split(':')[1].split()[0]) for _z in _probe49}
+    pruefe(_zeilen49 == {1, 2, 3, 4, 6},
+           'Gegenprobe: t(), Phrase() mit und ohne Modul, text() und ein '
+           'Schluessel aus einer Schleife werden gefunden (Zeilen %s)'
+           % sorted(_zeilen49))
+
     _fehlend49 = []
     for _ordner49, _unter49, _dateien49 in os.walk(WURZEL):
         if any(_teil in _ordner49 for _teil in
@@ -4350,94 +4494,8 @@ def main():
                 _baum49 = _ast49.parse(open(_pfad49, encoding='utf-8').read())
             except Exception:
                 continue
-
-            # ⚠⚠ Ein Schluessel muss NICHT direkt im Aufruf stehen. Assistent
-            # und Einstellungsseite holen ihre drei Knopftexte ueber eine
-            # Schleifenvariable:
-            #
-            #     for schluessel, quelle in (('inj_quelle_de', 'deutsch'), …):
-            #         tk.Label(text='  %s  ' % t(schluessel))
-            #
-            # Wer nur `t('literal')` sieht, haelt solche Schluessel fuer tot —
-            # raeumt man sie weg, stehen im Setup die nackten
-            # Schluesselnamen als Knopfbeschriftung.
-            #
-            # Deshalb werden Schleifen ueber feste Listen mit aufgeloest: Was die
-            # Variable annehmen KANN, wird geprueft. Steht ein Tupel als Ziel
-            # (`for a, b in …`), zaehlt nur die Stelle, die auch wirklich in den
-            # Aufruf geht — sonst laege hier gleich `'deutsch'` mit im Netz.
-            #
-            # ⚠ **Gemerkt wird der AUFRUF, nicht der Variablenname.** Werte, die
-            # dem Namen zugeordnet sind, gelten fuer die ganze Datei. In
-            # `pages.py` heisst ein Funktionsparameter ebenfalls `schluessel`
-            # (`def form(anzahl, schluessel)`) — der bekaeme die Werte einer
-            # ganz anderen Schleife untergeschoben und wuerde grundlos
-            # angemahnt. Eine Pruefung, die falsch anschlaegt, schaltet
-            # man ab; deshalb zaehlt nur, was im Koerper DIESER Schleife steht.
-            _ausschleife49 = {}
-            for _kn in _ast49.walk(_baum49):
-                if not isinstance(_kn, _ast49.For):
-                    continue
-                _elts49 = getattr(_kn.iter, 'elts', None)
-                if not _elts49:
-                    continue
-                _ziel49 = _kn.target
-                if isinstance(_ziel49, _ast49.Name):
-                    _stellen49 = [(_ziel49.id, None)]
-                elif isinstance(_ziel49, _ast49.Tuple):
-                    _stellen49 = [(_e.id, _i)
-                                  for _i, _e in enumerate(_ziel49.elts)
-                                  if isinstance(_e, _ast49.Name)]
-                else:
-                    continue
-                for _nam49, _pos49 in _stellen49:
-                    _werte49 = set()
-                    for _w49 in _elts49:
-                        if _pos49 is None:
-                            _kand49 = [_w49]
-                        elif (isinstance(_w49, (_ast49.Tuple, _ast49.List))
-                              and len(_w49.elts) > _pos49):
-                            _kand49 = [_w49.elts[_pos49]]
-                        else:
-                            _kand49 = []
-                        for _k49 in _kand49:
-                            if (isinstance(_k49, _ast49.Constant)
-                                    and isinstance(_k49.value, str)
-                                    and _k49.value):
-                                _werte49.add(_k49.value)
-                    if not _werte49:
-                        continue
-                    for _rumpf49 in _kn.body:
-                        for _c49 in _ast49.walk(_rumpf49):
-                            if (isinstance(_c49, _ast49.Call) and _c49.args
-                                    and isinstance(_c49.args[0], _ast49.Name)
-                                    and _c49.args[0].id == _nam49):
-                                _ausschleife49.setdefault(
-                                    id(_c49), set()).update(_werte49)
-
-            for _kn49 in _ast49.walk(_baum49):
-                if not isinstance(_kn49, _ast49.Call) or not _kn49.args:
-                    continue
-                _f49 = _kn49.func
-                _ruf49 = (_f49.attr if isinstance(_f49, _ast49.Attribute)
-                          else (_f49.id if isinstance(_f49, _ast49.Name) else None))
-                if _ruf49 not in _RUFER49:
-                    continue
-                _erst49 = _kn49.args[0]
-                if isinstance(_erst49, _ast49.Constant):
-                    _moeglich49 = ([_erst49.value]
-                                   if isinstance(_erst49.value, str)
-                                   and _erst49.value else [])
-                elif isinstance(_erst49, _ast49.Name):
-                    # Der Schluessel kommt aus einer Schleife (siehe oben).
-                    _moeglich49 = sorted(_ausschleife49.get(id(_kn49), ()))
-                else:
-                    _moeglich49 = []
-                for _wert49 in _moeglich49:
-                    if _wert49 not in _sp49.TEXTS:
-                        _fehlend49.append('%s:%d  %s(%r)' % (
-                            os.path.relpath(_pfad49, WURZEL), _kn49.lineno,
-                            _ruf49, _wert49))
+            _fehlend49.extend(_fehlende_schluessel49(
+                _baum49, os.path.relpath(_pfad49, WURZEL)))
     for _z49 in sorted(set(_fehlend49)):
         print('         ' + _z49)
     pruefe(not _fehlend49,
@@ -9250,18 +9308,47 @@ def main():
                 encoding='utf-8').read()
     _be95 = rumpf(_q95, '_collection')
 
-    def _knopfzeile95(schluessel):
-        for _z95 in _be95.split(chr(10)):
-            if '_button(' in _z95 and schluessel in _z95:
-                return _z95
-        return ''
+    # ⚠ Ueber den Syntaxbaum, nicht zeilenweise: `danger=True` steht bei
+    # umbrochenen Aufrufen in der Folgezeile.
+    import ast as _ast95
 
-    _neu95 = _knopfzeile95("t('s_be_neu')")
-    _reset95 = _knopfzeile95("t('s_zuruecksetzen')")
-    pruefe(_neu95 and 'gefahr' not in _neu95,
-           '„Protokolle erneut einlesen" ist NICHT rot (%s)' % _neu95.strip())
-    pruefe(_reset95 and 'danger=True' in _reset95,
-           '„Bestand zuruecksetzen" ist weiterhin rot (%s)' % _reset95.strip())
+    def _rot95(quelle, schluessel):
+        """Traegt der `_button`-Aufruf mit `t(schluessel)` ein `danger`?
+        True/False — None, wenn es den Aufruf nicht gibt."""
+        try:
+            _baum95 = _ast95.parse(quelle)
+        except SyntaxError:
+            return None
+        for _k95 in _ast95.walk(_baum95):
+            if not (isinstance(_k95, _ast95.Call)
+                    and isinstance(_k95.func, _ast95.Name)
+                    and _k95.func.id == '_button'):
+                continue
+            for _a95 in _k95.args:
+                if (isinstance(_a95, _ast95.Call)
+                        and isinstance(_a95.func, _ast95.Name)
+                        and _a95.func.id == 't' and _a95.args
+                        and isinstance(_a95.args[0], _ast95.Constant)
+                        and _a95.args[0].value == schluessel):
+                    return any(
+                        _kw95.arg == 'danger'
+                        and not (isinstance(_kw95.value, _ast95.Constant)
+                                 and not _kw95.value.value)
+                        for _kw95 in _k95.keywords)
+        return None
+
+    pruefe(_rot95("def f():\n    _button(a, b, t('x'), g,\n"
+                  "            danger=True).pack()\n", 'x') is True
+           and _rot95("def f():\n    _button(a, b, t('x'), g,\n"
+                      "            danger=False).pack()\n", 'x') is False,
+           'Gegenprobe: danger=True in der Folgezeile wird erkannt, '
+           'danger=False gilt als nicht rot')
+    _neu95 = _rot95(_be95, 's_be_neu')
+    _reset95 = _rot95(_be95, 's_zuruecksetzen')
+    pruefe(_neu95 is False,
+           '„Protokolle erneut einlesen" ist NICHT rot (danger: %r)' % _neu95)
+    pruefe(_reset95 is True,
+           '„Bestand zuruecksetzen" ist weiterhin rot (danger: %r)' % _reset95)
 
     # c) Und es gibt nur noch EINEN Weg, die Protokolle neu zu lesen.
     #
@@ -10414,12 +10501,20 @@ def main():
     _baum107 = _ast107.parse(_quelle107)
 
     def _rumpf107(name):
-        """Der Quelltext einer Methode, ueber ihren Namen gefunden."""
+        """Der Code einer Methode ohne Kommentare, ueber ihren Namen
+        gefunden (`nur_code`)."""
         for knoten in _ast107.walk(_baum107):
             if (isinstance(knoten, _ast107.FunctionDef)
                     and knoten.name == name):
-                return _ast107.get_source_segment(_quelle107, knoten) or ''
+                return nur_code(
+                    _ast107.get_source_segment(_quelle107, knoten) or '')
         return ''
+
+    pruefe('_anfasser_zeigen()' not in nur_code(
+               'def f(self):\n    # self._anfasser_zeigen()\n'
+               '    """self._anfasser_zeigen()"""\n    return 1\n'),
+           'Gegenprobe: ein Aufruf nur im Kommentar oder Docstring zaehlt '
+           'nicht')
 
     # Beide Wege, die das Overlay an eine Ecke setzen.
     for _weg107 in ('ecke_anwenden', 'klappzustand_setzen'):
@@ -13118,45 +13213,32 @@ def main():
     pruefe(_ev133[1][1] == '' and _ev133[1][2],
            'das Ende kommt titellos, aber mit MissionId')
 
-    def _lauf133(wirft_titellose_weg):
-        """Der Ablauf aus `sc_bp_watcher`, auf das Noetige eingedampft."""
-        offen, missionen = {}, {}
-        for _annahme, _titel, _mid, _oid in _ev133:
-            _rein = _au133.clean(_titel)
-            if _annahme:
-                if not _rein:
-                    continue
-                offen[_rein] = _titel
-                if _mid:
-                    missionen[_mid] = _rein
-                continue
-            if wirft_titellose_weg:
-                if not _rein:
-                    continue
-            elif not _rein and not _mid:
-                continue
-            _weg = _au133.which_ended(_rein, _mid, _oid, offen, missionen)
-            if _weg is not None:
-                offen.pop(_weg, None)
-        return offen
+    # Geprueft wird der echte `Watcher._auftraege_melden`: je Log-Abschnitt
+    # ein Aufruf, gemessen wird, was danach in der Leiste steht.
+    import queue as _qu133
+    import sc_bp_watcher as _sw133
 
-    pruefe(not _lauf133(False),
+    def _leiste133(*abschnitte):
+        """Die offenen Auftraege eines frischen `Watcher` nach den
+        Abschnitten `abschnitte` (je eine Liste von Ereignissen)."""
+        _w133 = _sw133.Watcher(_qu133.Queue())
+        _w133.bestand = {'bauplaene': {}}
+        for _ereignisse133 in abschnitte:
+            _w133.tail.objective_events = []
+            _w133.tail.mission_contracts = {}
+            _w133.tail.mission_events = list(_ereignisse133)
+            _w133._auftraege_melden()
+        return dict(_w133._offene_auftraege)
+
+    _titel133 = _au133.clean(_ev133[0][1])
+    pruefe(_titel133 in _leiste133(_ev133[:1]),
+           'Vorbedingung: nach der Annahme steht der Auftrag in der Leiste')
+    pruefe(_titel133 not in _leiste133(_ev133),
            'der abgebrochene Auftrag verschwindet aus der Leiste')
-    # ⚠ Gegenprobe: Mit dem alten Verhalten muss er stehenbleiben — sonst
-    # prueft die Zeile darueber nichts.
-    pruefe(bool(_lauf133(True)),
-           'Gegenprobe: alt blieb er als laufend stehen')
-
+    pruefe(_titel133 not in _leiste133(_ev133[:1], _ev133[1:]),
+           'auch wenn Annahme und Abbruch in zwei Abschnitten liegen')
     # ⚠ Und es wird nichts geraten: ohne Titel UND ohne Kennung passiert nichts.
-    _blind133 = list(_ev133)
-    _blind133[1] = (False, '', '', '')
-    _offen133 = {'Irgendein Auftrag': 'Irgendein Auftrag'}
-    for _a, _t, _m, _o in _blind133[1:]:
-        _r = _au133.clean(_t)
-        if not _r and not _m:
-            continue
-        _offen133.pop(_au133.which_ended(_r, _m, _o, _offen133, {}), None)
-    pruefe(len(_offen133) == 1,
+    pruefe(_titel133 in _leiste133(_ev133[:1], [(False, '', '', '')]),
            'ohne Titel und ohne Kennung wird nichts geraeumt')
 
     print()
@@ -15617,14 +15699,31 @@ def main():
         """`spielachsen_auf` vortäuschen, damit die Regel prüfbar wird."""
         _kv165.game_axes_of = lambda n, a, datei=None, ordner=None: treffer
 
-    # Die Regel als Funktion nachbauen — dieselbe wie in `_exponent_fuer`.
+    # `_exponent_fuer` ist eine innere Funktion der Joystick-Seite. Ihr
+    # Quelltext wird aus `pages.py` geholt und mit `curves` ausgefuehrt —
+    # geprueft wird damit die Funktion selbst, keine Nachbildung.
+    import ast as _ast165
+    import textwrap as _tw165
+    _q165 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                 encoding='utf-8').read()
+    _def165 = [k for k in _ast165.walk(_ast165.parse(_q165))
+               if isinstance(k, _ast165.FunctionDef)
+               and k.name == '_exponent_fuer']
+    pruefe(len(_def165) == 1,
+           'pages.py hat genau eine Funktion _exponent_fuer (%d)'
+           % len(_def165))
+    _raum165 = {'curves': _kv165}
+    if _def165:
+        exec(_tw165.dedent(_ast165.get_source_segment(_q165, _def165[0])),
+             _raum165)
+    _ueberblick165 = {'spiel': [{'art': 'joystick', 'kennung': 'K1',
+                                 'nummer': 1}]}
+
     def _regel():
-        exponenten = set()
-        for eintrag in _kv165.game_axes_of(1, 'x'):
-            wert = eintrag.get('exponent')
-            if wert is not None:
-                exponenten.add(wert)
-        return exponenten.pop() if len(exponenten) == 1 else 1.0
+        _fn165 = _raum165.get('_exponent_fuer')
+        if _fn165 is None:
+            return None
+        return _fn165(_ueberblick165, {'kennung': 'K1'}, 'x')
 
     try:
         _tue_so([])
@@ -15652,6 +15751,13 @@ def main():
         pruefe(_regel() == 1.0,
                'Gegenprobe: eine Funktion OHNE eigenen Exponenten zaehlt '
                'nicht als Wert')
+
+        _tue_so([{'achse': 'a', 'exponent': 2.0}])
+        _fn165 = _raum165.get('_exponent_fuer')
+        pruefe(_fn165 is not None
+               and _fn165(_ueberblick165, {'kennung': 'fremd'}, 'x') == 1.0,
+               'ein Geraet, das das Spiel nicht kennt, bekommt die gerade '
+               'Linie')
     finally:
         _kv165.game_axes_of = _echt165
 
@@ -16979,7 +17085,6 @@ def main():
     # Einzelimport des Sammelimports. Was nicht eingecheckt ist, schuetzt
     # beim naechsten Umbau nichts.
     import ast as _ast183
-    import importlib as _il183
     import inspect as _in183
     from scbp import file_picker as _fp183
 
@@ -17080,35 +17185,10 @@ def main():
            'die Dateiauswahl wird im Programm nur auf einem Weg geholt '
            '(%d Umwege)' % len(_umwege183))
 
-    # -- b) Jeder Name aus dem Sammelimport von sc_bp_watcher.py existiert.
-    #    pyflakes prueft nicht, ob ein importiertes Modul EXISTIERT, und das
-    #    Hauptprogramm wird hier nicht gestartet: Ein zweiter Start holt ueber
-    #    einen festen Port das laufende Fenster nach vorn.
-    def _namen183(quelle):
-        return [a.name for k in _ast183.walk(_ast183.parse(quelle))
-                if isinstance(k, _ast183.ImportFrom)
-                and k.module == 'scbp' and k.level == 0
-                for a in k.names]
-
-    def _fehlen183(namen):
-        raus = []
-        for n in namen:
-            try:
-                _il183.import_module('scbp.' + n)
-            except ImportError:
-                raus.append(n)
-        return raus
-
-    pruefe(_fehlen183(_namen183('from scbp import (paths, gibtesnicht_xyz)\n'))
-           == ['gibtesnicht_xyz'],
-           'der Einzelimport erkennt einen erfundenen Modulnamen')
-    _sn183 = _namen183(open(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'),
-                            encoding='utf-8').read())
-    _fehlt183 = _fehlen183(_sn183)
-    pruefe(len(_sn183) >= 30 and not _fehlt183,
-           'alle %d Namen aus dem Sammelimport lassen sich importieren%s'
-           % (len(_sn183),
-              (' — fehlt: ' + ', '.join(_fehlt183)) if _fehlt183 else ''))
+    # -- b) Ob jedes Modul aus dem Sammelimport von sc_bp_watcher.py existiert,
+    #    entscheidet schon `import sc_bp_watcher` am Anfang von `main()`: Ein
+    #    fehlendes Modul bricht dort den ganzen Lauf mit ImportError ab und
+    #    nennt den Namen.
 
     # -- c) Die alten Namen sind WEG. Die Roadmap verbietet eine
     #    Weiterleitungsdatei, die beides am Leben haelt — das soll nicht nur
@@ -26774,8 +26854,8 @@ def _pruefung_273():
     # `grouped_sources()`, nennen keine Quelle beim Namen und halten das Bild
     # fest. Siehe Pruefung 288.
     for _d273 in ('settings_window.py', 'wizard.py'):
-        _qd273 = io.open(os.path.join(WURZEL, 'scbp', _d273),
-                         encoding='utf-8').read()
+        _qd273 = nur_code(io.open(os.path.join(WURZEL, 'scbp', _d273),
+                                  encoding='utf-8').read())
         pruefe('grouped_sources()' in _qd273
                and "('inj_quelle_de', 'deutsch', 'de')" not in _qd273
                and 'k.image = flagge' in _qd273,
@@ -27109,9 +27189,12 @@ def _pruefung_277():
         _vor277 = _z277.n
         _f277.close()
         _w277.update()
+        # Gezaehlt wird bis zur Rueckkehr von `close()` samt einem
+        # `update()`; den Rest baut `destroy_in_portions` in Takten ab
+        # (Pruefung 323). Ein `destroy()` je Element kostet hier ueber 400.
         pruefe(_z277.n - _vor277 < 100,
-               'Schliessen baut das Fenster in einem Zug ab (%d Aufrufe)'
-               % (_z277.n - _vor277))
+               'Schliessen kehrt nach wenigen Tk-Aufrufen zurueck, der Rest '
+               'folgt in Portionen (%d Aufrufe)' % (_z277.n - _vor277))
     finally:
         try:
             _w277.destroy()
@@ -27185,8 +27268,8 @@ def _pruefung_279():
     # „aktivieren" (1), auch mit WS_EX_NOACTIVATE. Gefragt wird deshalb das
     # echte Fenster, nicht der Stil.
     from scbp import overlay as _ov279
-    _q279 = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
-                    encoding='utf-8').read()
+    _q279 = nur_code(io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                             encoding='utf-8').read())
     _app279 = _q279.find('overlay.show_as_app(self.root)')
     _nie279 = _q279.find('overlay.never_activate(self.root)')
     pruefe(0 <= _app279 < _nie279,
@@ -38070,10 +38153,42 @@ def _pruefung_354():
     wird übersprungen — dann gibt es keine Erkennung zu prüfen.
     """
     print('\n354. Texterkennung ohne Unterprozess')
+    import ast as _ast354
+
+    def _startwege354(quelle):
+        """Importe und Aufrufe, ueber die ein Unterprozess startet."""
+        funde = []
+        for k in _ast354.walk(_ast354.parse(quelle)):
+            if isinstance(k, _ast354.Import):
+                funde += ['import %s' % a.name for a in k.names
+                          if a.name.split('.')[0] == 'subprocess']
+            elif isinstance(k, _ast354.ImportFrom):
+                if (k.module or '').split('.')[0] == 'subprocess':
+                    funde.append('from %s import ...' % k.module)
+            elif (isinstance(k, _ast354.Attribute)
+                  and isinstance(k.value, _ast354.Name)
+                  and k.value.id == 'os'
+                  and k.attr in ('system', 'popen', 'startfile',
+                                 'execv', 'execvp', 'spawnv', 'spawnl')):
+                funde.append('os.%s' % k.attr)
+        return funde
+
+    pruefe(len(_startwege354('import subprocess\nfrom subprocess import run\n'
+                             'os.system("x")\n')) == 3,
+           'Gegenprobe: import subprocess, from subprocess und os.system '
+           'werden erkannt')
+    for _datei354 in ('win_ocr.py', 'refinery_scan.py'):
+        _funde354 = _startwege354(open(
+            os.path.join(WURZEL, 'scbp', _datei354), encoding='utf-8').read())
+        pruefe(not _funde354,
+               '%s startet keinen Unterprozess (%s)'
+               % (_datei354, ', '.join(_funde354) or 'keiner'))
+
     if sys.platform != 'win32':
-        print('  [--]   nur unter Windows')
+        print('  [--]   Erkennung selbst nur unter Windows')
         return
     import ctypes as _ct354
+    import subprocess as _sp354
     import tempfile as _tf354
     from scbp import refinery_scan as _rs354, win_ocr as _wo354
 
@@ -38105,7 +38220,29 @@ def _pruefung_354():
     ordner = _tf354.mkdtemp(prefix='pruefung354-')
     pfad = os.path.join(ordner, 'text.bmp')
     _rs354.write_bmp(roh, breite, hoehe, pfad)
+    # Falle an `subprocess.Popen` und `os.system` waehrend der Erkennung.
+    _starts354 = []
+
+    class _Popen354(object):
+        def __init__(self, befehl, *a, **kw):
+            _starts354.append(befehl)
+            raise OSError('Pruefung 354: Unterprozess abgefangen')
+
+    def _system354(befehl):
+        _starts354.append(befehl)
+        return 1
+
+    _alt354 = (_sp354.Popen, os.system)
+    _sp354.Popen, os.system = _Popen354, _system354
     try:
+        try:
+            _sp354.run(['probe354'])
+        except OSError:
+            pass
+        pruefe(_starts354 == [['probe354']],
+               'Gegenprobe: die Falle faengt subprocess.run ab (%r)'
+               % _starts354)
+        del _starts354[:]
         daten = _rs354.ocr_image(
             pfad, [((0, 0, breite, hoehe), 2.0, art)
                    for art in ('plain', 'gray', 'dark')],
@@ -38116,6 +38253,15 @@ def _pruefung_354():
             return
         pruefe(False, 'die Erkennung laeuft (%s %s)' % (fehler.reason,
                                                         fehler.detail))
+        return
+    except OSError:
+        # Die Falle wirft — ohne Unterprozess kommt dieser Zweig nicht vor.
+        daten = None
+    finally:
+        _sp354.Popen, os.system = _alt354
+    pruefe(not _starts354,
+           'die Erkennung startet keinen Unterprozess (%r)' % _starts354)
+    if daten is None:
         return
     durchgaenge = daten.get('passes') or []
     pruefe(len(durchgaenge) == 3, 'drei Durchgaenge gelesen')
