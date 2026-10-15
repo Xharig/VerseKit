@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.4.2 - 2026-10-15
+
+> Kühler, Kraftwerke und viele andere Komponenten zeigen im Spiel jetzt auch
+> ihre Güte im Kürzel hinter dem Namen — etwa `(Mil/2/B)` statt `(Mil/2/–)`.
+
+### Behoben
+
+- **Güte fehlte im Kürzel am Gegenstand** — bei rund 200 Komponenten stand
+  statt der Güte ein Strich, weil die deutsche Übersetzung sie dort
+  „Güteklasse" oder „Güte" nennt. Nach dem Update und einem Neustart von
+  Star Citizen steht sie da.
+
 ## v4.4.1 - 2026-10-15
 
 > Die Knöpfe auf der Basetool-Seite tun wieder, was draufsteht — und der

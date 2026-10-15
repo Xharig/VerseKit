@@ -92,9 +92,13 @@ import re
 # Kandidaten: CIGs Originaldatei steckt in der `Data.p4k` und ist nicht
 # gegengeprüft. Es werden alle gleichzeitig gesucht — ein Feldname, den es
 # in der eigenen Sprache nicht gibt, kostet nichts.
+#
+# ⚠ Je Übersetzung und sogar je Gegenstand verschieden: Die Übersetzung von
+# Luftwerft schreibt die Güte als `Güteklasse:`, `Güte:` oder `Grade:` —
+# Kühler und Kraftwerke meist mit den ersten beiden.
 FIELDS = {
     'groesse': ('Größe', 'Grösse', 'Size'),
-    'guete':   ('Gütegrad', 'Guetegrad', 'Grade'),
+    'guete':   ('Gütegrad', 'Guetegrad', 'Güteklasse', 'Güte', 'Grade'),
     'klasse':  ('Klasse', 'Class'),
     'lenkung': ('Verfolgungssignal', 'Tracking Signal', 'Signature Type',
                 'Signature'),

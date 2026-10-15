@@ -25479,6 +25479,7 @@ def main():
     _pruefung_444()
     _pruefung_445()
     _pruefung_446()
+    _pruefung_447()
 
     print()
     if fehler:
@@ -42895,6 +42896,37 @@ def _pruefung_446():
         else:
             os.environ['SC_BP_HOME'] = _alt446
         shutil.rmtree(_heim446, ignore_errors=True)
+
+
+def _pruefung_447():
+    """447. Kürzel am Gegenstand: die Güte in jeder Schreibweise der
+    Übersetzungen (Gütegrad, Güteklasse, Güte, Grade), nie aus einem
+    längeren Wort."""
+    print('\n447. Güte im Kürzel am Gegenstand')
+    from scbp import specs as _sp447
+    _n = '\\n'
+    _faelle447 = (
+        ('Hersteller: Juno' + _n + 'Größe: 2' + _n + 'Güteklasse: C' + _n
+         + 'Klasse: Zivil', '(Civ/2/C)'),
+        ('Hersteller: Aegis' + _n + 'Größe: 2' + _n + 'Güte: B' + _n
+         + 'Klasse: Militär', '(Mil/2/B)'),
+        ('Größe: 2' + _n + 'Grade: A' + _n + 'Klasse: Militärisch',
+         '(Mil/2/A)'),
+        ('Größe: 3' + _n + 'Gütegrad: D' + _n + 'Klasse: Industrie',
+         '(Ind/3/D)'),
+        ('Güteklasse: D' + _n + 'Größe: 1' + _n + 'Klasse: Zivil',
+         '(Civ/1/D)'),
+        ('Größe: 2' + _n + 'Strahlungsgüte: A' + _n + 'Klasse: Zivil',
+         '(Civ/2/–)'),
+        ('Größe: 2' + _n + 'Güteklasse: Maßgefertigt' + _n + 'Klasse: Zivil',
+         '(Civ/2/–)'),
+    )
+    _falsch447 = [(erwartet, _sp447.from_description(text))
+                  for text, erwartet in _faelle447
+                  if _sp447.from_description(text) != erwartet]
+    pruefe(not _falsch447,
+           'jede Schreibweise der Güte landet im Kürzel, nichts aus einem '
+           'längeren Wort (%r)' % _falsch447)
 
 
 def _alle_eingaben(w):

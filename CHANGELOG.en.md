@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.4.2 - 2026-10-15
+
+> Coolers, power plants and many other components now show their grade in the
+> tag behind their name in the game too — such as `(Mil/2/B)` instead of
+> `(Mil/2/–)`.
+
+### Fixed
+
+- **Grade missing from the item tag** — about 200 components showed a dash
+  instead of the grade, because the German translation calls it "Güteklasse"
+  or "Güte" there. After the update and a restart of Star Citizen it shows.
+
 ## v4.4.1 - 2026-10-15
 
 > The buttons on the Basetool page do what they say again — and the "Unit
