@@ -25547,6 +25547,7 @@ def main():
     _pruefung_458()
     _pruefung_459()
     _pruefung_460()
+    _pruefung_461()
 
     print()
     if fehler:
@@ -44405,6 +44406,274 @@ def _pruefung_460():
                  encoding='utf-8').read()
     pruefe('_unit_choice(fenster, unten, eintrag' in _q460,
            'die Schiffskarte hat die Einheit-Auswahl')
+
+
+# Namen, die es in jedem Modul ohne Zuweisung gibt, dazu die, die der
+# Uebersetzer selbst anlegt. `WindowsError` steht nur unter Windows in
+# `builtins`, der Prueflauf auf dem Bau-Rechner laeuft unter Linux.
+_NAMEN_OHNE_ZUWEISUNG = frozenset((
+    '__file__', '__name__', '__doc__', '__spec__', '__loader__',
+    '__package__', '__builtins__', '__path__', '__annotations__',
+    '__conditional_annotations__', '__module__', '__qualname__',
+    '__classdict__', '__class__', 'WindowsError'))
+
+
+def undefinierte_namen(quelle, datei):
+    """Jeder Name, den `quelle` liest, ohne dass ihn irgendetwas bindet.
+
+    Rueckgabe `[(zeile, bereich, name), …]` — dieselbe Fundklasse wie
+    `undefined name` bei pyflakes, nur mit der Standardbibliothek
+    (`symtable` fuer die Bereiche, `ast` fuer die Zeile).
+
+    Aufgeloest wird wie beim Ausfuehren: Ein Name ist gebunden, wenn ihn der
+    eigene Bereich bindet (Zuweisung, Parameter, Import im Funktionskoerper),
+    ein umschliessender Funktionsbereich (`is_free`), das Modul, ein
+    `global` in irgendeiner Funktion oder `builtins`. Ein Klassenkoerper ist
+    fuer seine Methoden unsichtbar, fuer seine Annotationen nicht — die
+    lesen ihn ueber `__classdict__`.
+
+    ⚠ Annotationen als Text sieht die Pruefung nicht: unter
+    `from __future__ import annotations` und in Anfuehrungszeichen. Beim
+    Ausfuehren wertet Python sie nicht aus.
+    ⚠ Nach einem Stern-Import ist jeder Name moeglich. Er steht deshalb
+    selbst als Fund in der Rueckgabe, ebenso eine Datei, die sich nicht
+    uebersetzen laesst.
+    """
+    import ast as _ast
+    import builtins as _eingebaut
+    import symtable as _st
+    try:
+        baum = _ast.parse(quelle, datei)
+        oben = _st.symtable(quelle, datei, 'exec')
+    except SyntaxError as e:
+        return [(e.lineno or 0, '<Modul>', 'Syntaxfehler: %s' % e.msg)]
+
+    funde = []
+    for k in _ast.walk(baum):
+        if isinstance(k, _ast.ImportFrom) \
+                and any(a.name == '*' for a in k.names):
+            funde.append((k.lineno, '<Modul>',
+                          'Stern-Import aus %s' % (k.module or '.')))
+
+    bereiche = []
+    stapel = [(oben, None)]
+    while stapel:
+        tab, eltern = stapel.pop()
+        bereiche.append((tab, eltern))
+        stapel.extend((c, (tab, eltern)) for c in tab.get_children())
+
+    def _bindet(sym):
+        return sym.is_assigned() or sym.is_imported() or sym.is_parameter()
+
+    gebunden = set(dir(_eingebaut)) | _NAMEN_OHNE_ZUWEISUNG
+    gebunden.update(s.get_name() for s in oben.get_symbols() if _bindet(s))
+    for tab, _e in bereiche:
+        gebunden.update(s.get_name() for s in tab.get_symbols()
+                        if s.is_declared_global() and _bindet(s))
+
+    knoten = {}
+    for k in _ast.walk(baum):
+        if isinstance(k, (_ast.FunctionDef, _ast.AsyncFunctionDef,
+                          _ast.ClassDef)):
+            knoten.setdefault((k.lineno, k.name), k)
+    benutzt = {}
+    for k in _ast.walk(baum):
+        if isinstance(k, _ast.Name):
+            benutzt.setdefault(k.id, []).append(k.lineno)
+
+    def _zeile(tab, name):
+        zeilen = sorted(benutzt.get(name, ()))
+        k = knoten.get((tab.get_lineno(), tab.get_name()))
+        if k is not None:
+            drin = [z for z in zeilen if k.lineno <= z <= k.end_lineno]
+            zeilen = drin or zeilen
+        return zeilen[0] if zeilen else tab.get_lineno()
+
+    for tab, eltern in bereiche:
+        namen = {s.get_name(): s for s in tab.get_symbols()}
+        klasse = set()
+        if '__classdict__' in namen:
+            e = eltern
+            while e is not None and e[0].get_type() != _st.SymbolTableType.CLASS:
+                e = e[1]
+            if e is not None:
+                klasse = {s.get_name() for s in e[0].get_symbols()
+                          if _bindet(s)}
+        for name, s in namen.items():
+            if not s.is_referenced():
+                continue
+            if tab is not oben and not s.is_global():
+                continue
+            if name in gebunden or name in klasse:
+                continue
+            funde.append((_zeile(tab, name), tab.get_name(), name))
+    return sorted(funde)
+
+
+def _pruefung_461():
+    """461. Kein undefinierter Name im Programm — ohne Zusatzpaket.
+
+    Ein Name, den nichts bindet, faellt erst auf, wenn genau diese Zeile
+    laeuft. Steht sie in einem Zweig, den keine Pruefung aufbaut, bleibt der
+    Selbsttest gruen. Pruefung 20 sucht dieselbe Fundklasse ueber `pyflakes`
+    und ueberspringt sich ohne das Paket; diese hier braucht nur die
+    Standardbibliothek und laeuft immer."""
+    print('\n461. Kein undefinierter Name im Programm (ohne Zusatzpaket)')
+    import ast as _ast461
+
+    # Gueltige Bauformen: keine davon darf anschlagen.
+    _gut461 = '\n'.join((
+        'import os',
+        'try:',
+        '    import tomllib',
+        'except ImportError:',
+        '    tomllib = None',
+        '',
+        '',
+        'def lokal():',
+        '    from .main_window import toggle_switch',
+        '    import json',
+        '    return toggle_switch, json',
+        '',
+        '',
+        'def frei():',
+        '    a = 1',
+        '',
+        '    def innen():',
+        '        return a + len(lokal())',
+        '    return innen',
+        '',
+        '',
+        'def setzt():',
+        '    global SPAETER',
+        '    SPAETER = 1',
+        '',
+        '',
+        'def liest():',
+        '    return SPAETER',
+        '',
+        '',
+        'class K:',
+        '    T = int',
+        '    feld: T = 1',
+        '',
+        '    def m(self, v: T) -> T:',
+        '        return super().m(v), __class__',
+        '',
+        '',
+        'def ausdruecke(xs):',
+        '    if (n := len(xs)):',
+        '        return n',
+        '    try:',
+        '        pass',
+        '    except Exception as e:',
+        '        return e',
+        '    return ([y for y in xs], {k: v for k, v in xs},',
+        '            (lambda q: q + 1))',
+        '',
+        '',
+        'def muster(v):',
+        '    match v:',
+        '        case [a, *rest]:',
+        '            return a, rest',
+        '        case {"k": b}:',
+        '            return b',
+        '',
+        '',
+        'def typ[T](v: T) -> T:',
+        '    return v',
+        '',
+        '',
+        'type Alias = list[int]',
+        'print(__file__, __name__, WindowsError, tomllib, os)',
+        ''))
+    _fehlalarm461 = undefinierte_namen(_gut461, 'gut.py')
+    pruefe(not _fehlalarm461,
+           'Gegenprobe: lokaler Import im Funktionskoerper, Closure, global, '
+           'Klassen-Annotation, match, Typparameter schlagen nicht an (%r)'
+           % _fehlalarm461)
+
+    # Eingebaute Fehler: jeder muss mit seinem Namen gefunden werden.
+    _schlecht461 = (
+        ('fehlender Import im Funktionskoerper', 'toggle_switch',
+         'def f():\n    return toggle_switch()\n'),
+        ('Import nur in einer anderen Funktion', 'toggle_switch',
+         'def a():\n    from .main_window import toggle_switch\n'
+         '    return toggle_switch\n\n\n'
+         'def b():\n    return toggle_switch()\n'),
+        ('Tippfehler bei einer lokalen Variable', 'pfadd',
+         'def f():\n    pfad = 1\n    return pfadd\n'),
+        ('Name in einer inneren Funktion', 'gibts_nicht',
+         'def f():\n    def g():\n        return gibts_nicht\n    return g\n'),
+        ('Klassenattribut ohne self in einer Methode', 'attr',
+         'class K:\n    attr = 1\n\n    def m(self):\n        return attr\n'),
+        ('Name in einem Listenausdruck', 'unbekannt',
+         'def f(xs):\n    return [unbekannt for _ in xs]\n'),
+        ('Vorgabewert eines Parameters', 'fehlt',
+         'def f(v=fehlt):\n    return v\n'),
+        ('Annotation', 'FehlTyp', 'def f(v: FehlTyp):\n    return v\n'),
+        ('Ausnahme im except-Zweig', 'MeinFehler',
+         'def f():\n    try:\n        pass\n    except MeinFehler:\n'
+         '        pass\n'),
+        ('Stern-Import', 'Stern-Import', 'from os import *\n'),
+        ('Datei ohne gueltige Syntax', 'Syntaxfehler', 'def f(:\n'),
+    )
+    for _was461, _name461, _quelle461 in _schlecht461:
+        _f461 = undefinierte_namen(_quelle461, 'schlecht.py')
+        pruefe(any(n == _name461 or n.startswith(_name461)
+                   for _z, _b, n in _f461),
+               'Gegenprobe %s: %s wird gefunden (%r)'
+               % (_was461, _name461, _f461))
+    _f461 = undefinierte_namen(_schlecht461[1][2], 'schlecht.py')
+    pruefe({(b, n) for _z, b, n in _f461} == {('b', 'toggle_switch')},
+           'Gegenprobe: ein Import im Funktionskoerper gilt nur dort, nicht '
+           'in der Nachbarfunktion (%r)' % _f461)
+
+    # Die zurueckgenommene Reparatur in der echten pages.py.
+    _q461 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                 encoding='utf-8-sig').read()
+    _weg461 = None
+    for _k461 in _ast461.walk(_ast461.parse(_q461)):
+        if isinstance(_k461, _ast461.FunctionDef) \
+                and _k461.name == '_mangohud_field':
+            for _i461 in _ast461.walk(_k461):
+                if isinstance(_i461, _ast461.ImportFrom) and any(
+                        a.name == 'toggle_switch' and a.asname is None
+                        for a in _i461.names):
+                    _weg461 = _i461.lineno
+    pruefe(_weg461 is not None,
+           'Gegenprobe: pages._mangohud_field importiert toggle_switch im '
+           'Funktionskoerper')
+    if _weg461 is not None:
+        _zeilen461 = _q461.split('\n')
+        _ohne461 = '\n'.join(_zeilen461[:_weg461 - 1] + _zeilen461[_weg461:])
+        _f461 = undefinierte_namen(_ohne461, 'scbp/pages.py')
+        pruefe({(b, n) for _z, b, n in _f461}
+               == {('_mangohud_field', 'toggle_switch')},
+               'Gegenprobe: ohne diesen Import meldet die echte pages.py '
+               'genau toggle_switch in _mangohud_field (%r)' % _f461)
+
+    _dateien461 = sorted(
+        d.replace(os.sep, '/')
+        for d in _versionierte_dateien(WURZEL, ('.py',)))
+    pruefe('sc_bp_watcher.py' in _dateien461
+           and 'scbp/pages.py' in _dateien461,
+           'die Startdatei und scbp/pages.py werden mitgeprueft '
+           '(%d Python-Dateien)' % len(_dateien461))
+    _alle461 = []
+    for _d461 in _dateien461:
+        _pfad461 = os.path.join(WURZEL, *_d461.split('/'))
+        if not os.path.isfile(_pfad461):
+            continue
+        with open(_pfad461, encoding='utf-8-sig') as _h461:
+            _text461 = _h461.read()
+        for _z, _b, _n in undefinierte_namen(_text461, _d461):
+            _alle461.append('%s:%d: %s (in %s)' % (_d461, _z, _n, _b))
+    for _z461 in _alle461:
+        print('         ' + _z461)
+    pruefe(not _alle461,
+           'kein undefinierter Name in den versionierten Python-Dateien '
+           '(%d gefunden)' % len(_alle461))
 
 
 def _alle_eingaben(w):
