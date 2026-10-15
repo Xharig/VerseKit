@@ -44142,6 +44142,38 @@ def _pruefung_459():
         pruefe(_gespeichert459 is False
                and not _sh459.cheapest_by_entity()['namen'],
                'Preise einer Warengruppe fehlen: kein Katalog gespeichert')
+
+        # Neue Ladenpreise schreiben die Texte im Spiel neu — über die Marke.
+        import sc_bp_watcher as _sw459
+        _geholt_alt459 = _sh459.catalog_fetched
+        _st_alt459 = _sw459.injection.stock_mark
+        try:
+            _sw459.injection.stock_mark = lambda stock=None: '5-abc'
+            _sh459.catalog_fetched = lambda: 1000.0
+            _m1_459 = _sw459.Watcher._inj_mark()
+            _sh459.catalog_fetched = lambda: 2000.0
+            _m2_459 = _sw459.Watcher._inj_mark()
+            _pf459.set_setting(_ii459.SETTING, False)
+            _m3_459 = _sw459.Watcher._inj_mark()
+            _sh459.catalog_fetched = lambda: 3000.0
+            _m4_459 = _sw459.Watcher._inj_mark()
+            _pf459.set_setting(_ii459.SETTING, True)
+        finally:
+            _sh459.catalog_fetched = _geholt_alt459
+            _sw459.injection.stock_mark = _st_alt459
+        pruefe(_m1_459 != _m2_459 and _m3_459 == _m4_459,
+               'neuer Laden-Katalog ändert die Marke — nur bei eingeschaltetem '
+               'Schalter (%s / %s / %s)' % (_m1_459, _m2_459, _m3_459))
+
+        # Kennt UEX die Kennung (unverkauft), gewinnt sie über den Namen.
+        _zeile_kennung459 = _ii459._shop_line(
+            {'entity': 'uuid-x', 'basis': 'Wall Shield'},
+            {'kennung': {}, 'name': {'wall shield': (800, 'Lorville')},
+             'kennungen': {'uuid-x'}, 'namen': {'wall shield'}},
+            _in459.TEXTS['de'], str)
+        pruefe('nicht erhältlich' in _zeile_kennung459,
+               'bekannte, unverkaufte Kennung: kein Preis eines gleichnamigen '
+               'anderen Teils (%r)' % _zeile_kennung459)
     finally:
         _cr459.load, _sh459.cheapest_by_entity, _gt459.saved_names = _alt459
         if _altheim459 is None:

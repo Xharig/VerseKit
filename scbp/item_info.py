@@ -202,13 +202,16 @@ def _shop_line(item, shop_data, words, digits):
     gesucht, stünde dort fälschlich „nur Herstellen"."""
     entity = item.get('entity') or ''
     name = (item.get('basis') or '').lower()
-    hit = (shop_data.get('kennung') or {}).get(entity) \
-        or (shop_data.get('name') or {}).get(name)
+    known_ids = shop_data.get('kennungen') or ()
+    hit = (shop_data.get('kennung') or {}).get(entity)
+    # ⚠ Der Name nur, wenn UEX die Kennung gar nicht führt — sonst gewinnt
+    # die Kennung, wie in `shops.fetch` (gleicher Name, anderes Teil).
+    if not hit and entity not in known_ids:
+        hit = (shop_data.get('name') or {}).get(name)
     if hit:
         price, place = hit
         return '%s: %s · %s aUEC' % (words['it_laden'], place, digits(price))
-    if entity in (shop_data.get('kennungen') or ()) \
-            or name in (shop_data.get('namen') or ()):
+    if entity in known_ids or name in (shop_data.get('namen') or ()):
         return '%s: %s' % (words['it_laden'], words['it_nicht_laden'])
     # UEX kennt das Teil gar nicht — lieber nichts sagen als raten.
     return ''

@@ -69,6 +69,7 @@ zehnmal auf ihn schaut. Die Frist steht in `SHELF_LIFE`.
 ⚠ **Ohne Netz passiert nichts Schlimmes.** Liegt ein alter Stand da, wird er
 benutzt und sein Alter angezeigt; liegt keiner da, bleibt die Spalte leer.
 """
+import threading
 import time
 
 from . import uex
@@ -161,7 +162,18 @@ def place_of(row):
             or row.get('outpost_name') or '').strip()
 
 
+# Nur ein Aufbau zur Zeit: Laden-Reiter, `_uex_id` und der Watcher-Faden
+# können ihn gleichzeitig anstoßen — das wären doppelt so viele Abrufe.
+_CATALOG_LOCK = threading.Lock()
+
+
 def _save_catalog(progress=None, max_age=None):
+    with _CATALOG_LOCK:
+        # Wer gewartet hat, findet den Katalog meist schon frisch vor.
+        return _save_catalog_locked(progress, max_age)
+
+
+def _save_catalog_locked(progress=None, max_age=None):
     """Den Katalog aufbauen: Namen **und** wer überhaupt kaufbar ist.
 
     ⚠ Das kostet drei Abrufe je Warengruppe und dauert gemessen etwa

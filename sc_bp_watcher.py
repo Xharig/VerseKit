@@ -900,6 +900,9 @@ class Watcher(threading.Thread):
             if injection.status().get('drin'):
                 woche = uex.WEEK
             elif not shops.catalog_due(None):
+                # ⚠ Auch ein Patch wird in diesen sechs Stunden erst danach
+                # nachgeholt — dafür liest der Faden die 10-MB-Datei nicht
+                # alle paar Sekunden.
                 self.laeden_next = time.time() + 6 * 60 * 60
                 return
         if not shops.catalog_due(woche):
@@ -1221,8 +1224,16 @@ class Watcher(threading.Thread):
         ⚠⚠ Die Fassung gehört dazu: Ohne sie schreibt ein Update die Texte im
         Spiel nicht neu — eine neue Art von Zusatz käme erst an, wenn zufällig
         ein Bauplan dazukommt oder ein Patch die Datei ersetzt. Einmal neu
-        schreiben je Update kostet ein paar Sekunden."""
-        return '%s@%s' % (injection.stock_mark(), __version__)
+        schreiben je Update kostet ein paar Sekunden.
+
+        Stehen die Ladenpreise in den Beschreibungen (`item_info`), gehört
+        auch der Stand des Laden-Katalogs dazu — sonst kämen neue Preise nie
+        von selbst ins Spiel."""
+        from scbp import item_info
+        mark = '%s@%s' % (injection.stock_mark(), __version__)
+        if item_info.enabled():
+            mark += '@%s' % (shops.catalog_fetched() or '')
+        return mark
 
     def _texte_abgleichen(self, quelle, nur_bestand=False):
         """Der eigentliche Abgleich. Meldet nur, wenn sich etwas geändert hat.
