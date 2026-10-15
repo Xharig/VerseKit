@@ -2482,55 +2482,106 @@ def main():
         # ⚠ Schalter stehen im ganzen Projekt einheitlich rechts, nie mal
         # mittig, mal rechts.
         #
-        # Die Falle: `_feld(..., breit=True)` legt das Bedienelement UNTER die
-        # Beschreibung, ueber die volle Breite — ein `.pack()` ohne Anker
-        # sitzt darin **mittig**. Ohne `breit` steht es rechts neben dem
+        # Die Falle: `_setting_row(..., wide=True)` legt das Bedienelement UNTER
+        # die Beschreibung, ueber die volle Breite — ein `.pack()` ohne Anker
+        # sitzt darin **mittig**. Ohne `wide` steht es rechts neben dem
         # Text. Gemischt stehen Schiebeschalter untereinander mittig, rechts,
         # mittig.
         #
-        # `breit=True` ist fuer BREITE Bedienelemente da (Knopfreihen, die auf
+        # `wide=True` ist fuer BREITE Bedienelemente da (Knopfreihen, die auf
         # Englisch sonst abgeschnitten werden). Ein Schiebeschalter ist schmal
         # und gehoert nach rechts — wie in jeder Einstellungsliste.
+        #
+        # ⚠ Die Pruefung muss selbst nachweisen, dass sie etwas findet. Ihre
+        # erste Fassung suchte nach dem alten Namen `_feld(`, fand nach der
+        # Umbenennung keinen einzigen Aufruf mehr und blieb gruen. Deshalb
+        # zwei Wachen: Sie muss Zeilen UND Zeilen-mit-Schalter sehen, und ein
+        # eingebauter Ausreisser muss anschlagen.
         import re as _re29
         quelle29 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
-                        encoding='utf-8').read().split('\n')
+                        encoding='utf-8').read()
 
-        def _aufruf29(zeilen, start):
-            """Der VOLLSTAENDIGE `_feld(...)`-Aufruf ab `start`.
+        def _ende29(text, start):
+            """Index hinter der `)`, die die `(` bei `start` schliesst.
 
             ⚠ Nicht bei der ersten `)` abschneiden — die schliesst `t('...')`,
-            und `breit=True` steht dahinter. Wer dort abschneidet, meldet brav
+            und `wide=True` steht dahinter. Wer dort abschneidet, meldet brav
             0 Ausreisser, auch wenn absichtlich einer eingebaut ist. Deshalb
-            zaehlen."""
-            text, tiefe = '', 0
-            for _z in zeilen[start:start + 4]:
-                for _c in _z:
-                    text += _c
-                    if _c == '(':
-                        tiefe += 1
-                    elif _c == ')':
-                        tiefe -= 1
-                        if tiefe == 0:
-                            return text
-                text += ' '
-            return text
+            zaehlen — und Klammern in Zeichenketten und Kommentaren
+            ueberspringen."""
+            tiefe, i = 0, start
+            while i < len(text):
+                c = text[i]
+                if c in '\'"':
+                    i += 1
+                    while text[i] != c:
+                        i += 2 if text[i] == '\\' else 1
+                elif c == '#':
+                    i = text.index('\n', i)
+                elif c == '(':
+                    tiefe += 1
+                elif c == ')':
+                    tiefe -= 1
+                    if tiefe == 0:
+                        return i + 1
+                i += 1
+            return len(text)
 
-        offen29, falsch29 = None, []
-        for _i29, _z29 in enumerate(quelle29):
-            _m29 = _re29.search(r"_feld\(fenster, \w+, t\('([^']+)'\)", _z29)
-            if _m29:
-                _ab29 = _z29.index('_setting_row(') + 5
-                _voll29 = _aufruf29([_z29[_ab29:]] + quelle29[_i29 + 1:], 0)
-                offen29 = (_m29.group(1), 'breit=True' in _voll29, _i29 + 1)
-            elif 'toggle_switch(' in _z29 and offen29:
-                if offen29[1]:
-                    falsch29.append('%s (Zeile %d)' % (offen29[0], offen29[2]))
-                offen29 = None
+        def _ausreisser29(text):
+            """(Ausreisser, Zahl der Zeilen, Zahl der Zeilen mit Schalter).
+
+            Eine Zeile gilt als Schalterzeile, wenn nach ihrem Aufruf — vor der
+            naechsten Zeile und vor der naechsten Funktion auf oberster Ebene —
+            `toggle_switch(<ihr Ziel>` kommt."""
+            zeilen = list(_re29.finditer(
+                r'^[ \t]*(?:(\w+) = )?_setting_row\(', text, _re29.M))
+            funktionen = [m.start() for m in
+                          _re29.finditer(r'^(?:def|class) ', text, _re29.M)]
+            falsch, mit_schalter = [], 0
+            for _n, _m in enumerate(zeilen):
+                _ziel = _m.group(1)
+                _ende = _ende29(text, _m.end() - 1)
+                _spaeter = [f for f in funktionen if f > _ende]
+                if _n + 1 < len(zeilen):
+                    _spaeter.append(zeilen[_n + 1].start())
+                _grenze = min(_spaeter + [len(text)])
+                _schalter = _ziel and _re29.search(
+                    r'toggle_switch\(\s*%s\b' % _ziel, text[_ende:_grenze])
+                if not _schalter:
+                    continue
+                mit_schalter += 1
+                if _re29.search(r'\bwide\s*=\s*True\b', text[_m.end() - 1:_ende]):
+                    _beschriftung = _re29.search(r"t\('([^']+)'\)",
+                                                 text[_m.end():_ende])
+                    falsch.append((_beschriftung.group(1) if _beschriftung
+                                   else '?', text.count('\n', 0, _m.start()) + 1))
+            return falsch, len(zeilen), mit_schalter
+
+        falsch29, zeilen29, paare29 = _ausreisser29(quelle29)
         for _f29 in falsch29:
-            print('       mittig statt rechts: ' + _f29)
+            print('       mittig statt rechts: %s (Zeile %d)' % _f29)
         pruefe(not falsch29,
                'jeder Schiebeschalter steht rechts, keiner mittig (%d Ausreisser)'
                % len(falsch29))
+        pruefe(zeilen29 >= 40 and paare29 >= 20,
+               'die Pruefung sieht die Einstellungszeilen '
+               '(%d Zeilen, %d davon mit Schalter)' % (zeilen29, paare29))
+
+        # Eingebauter Ausreisser: ein schmaler Schalter in einer breiten Zeile,
+        # mit der Klammer im Text und dem `wide` in der Folgezeile, dazu eine
+        # richtige breite Zeile ohne Schalter und eine korrekte Schalterzeile.
+        probe29 = ("def seite(fenster, innen):\n"
+                   "    ziel = _setting_row(fenster, innen, t('a (neu)'), t('a_h'),\n"
+                   "                        wide=True)\n"
+                   "    toggle_switch(ziel, True, f).pack()\n"
+                   "    breit = _setting_row(fenster, innen, t('b'), t('b_h'),\n"
+                   "                         wide=True)\n"
+                   "    _choice(fenster, breit, [], '', f).pack()\n"
+                   "    ziel = _setting_row(fenster, innen, t('c'), t('c_h'))\n"
+                   "    toggle_switch(ziel, True, f).pack()\n")
+        pruefe([_a[0] for _a in _ausreisser29(probe29)[0]] == ['a (neu)'],
+               'ein eingebauter Ausreisser schlaegt an, breite Zeile und '
+               'rechter Schalter bleiben ruhig')
 
         print()
         print('30. Nur noch der Installer — und v2.0.0 kommt trotzdem mit')
