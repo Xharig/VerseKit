@@ -43734,11 +43734,43 @@ def _pruefung_457():
                and len(_kaputte457()) == 1,
                'Datei mit BOM gilt als gültig und bleibt liegen')
 
-        # e) Hauptdatei fehlt, Vorgängerfassung da: die gilt.
+        # e) Hauptdatei fehlt: selbst gelöscht heißt neu anfangen; nur nach
+        #    gescheitertem Zurückschreiben gilt die Vorgängerfassung.
         _pf457.set_setting('fuenf', 5)
         os.remove(_ziel457)
+        pruefe(_pf457.settings() == {},
+               'selbst gelöschte Hauptdatei: leer, nicht die Vorgängerfassung')
+        _pf457._SETTINGS_WRITEBACK_FAILED[0] = True
         pruefe(_pf457.settings().get('bom') is True,
-               'fehlende Hauptdatei: die Vorgängerfassung gilt')
+               'Zurückschreiben gescheitert: die Vorgängerfassung gilt')
+        _pf457._SETTINGS_WRITEBACK_FAILED[0] = False
+
+        # e2) Kaputt und die Vorgängerfassung gesperrt: nicht „Standardwerte".
+        _schreiben457(b'{kaputt')
+        _lesen_datei_alt457 = _pf457._read_settings_file
+
+        def _bak_gesperrt457(pfad):
+            if pfad == _bak457:
+                raise PermissionError('gesperrt')
+            return _lesen_datei_alt457(pfad)
+        _pf457._read_settings_file = _bak_gesperrt457
+        _pf457.SETTINGS_RECOVERED[0] = None
+        try:
+            _ok_bak457 = _pf457.set_setting('sechs', 6)
+        finally:
+            _pf457._read_settings_file = _lesen_datei_alt457
+        pruefe(_ok_bak457 is False and _pf457.SETTINGS_RECOVERED[0] is None
+               and not os.path.exists(_ziel457),
+               'Vorgängerfassung gesperrt: keine Vorlage, kein falscher Hinweis')
+        _pf457._SETTINGS_WRITEBACK_FAILED[0] = False
+
+        # f) Zeitstempel in der Zukunft gilt nicht als „gerade geschrieben".
+        _schreiben457(b'{kaputt', alt=False)
+        _t457 = time.time() + 3600
+        os.utime(_ziel457, (_t457, _t457))
+        pruefe(not _pf457._just_written(_ziel457),
+               'Zeitstempel in der Zukunft: nicht „in Arbeit"')
+        os.remove(_ziel457)
 
         for _k457 in _kaputte457():
             os.remove(_k457)
@@ -43766,6 +43798,7 @@ def _pruefung_457():
     finally:
         _pf457._settings_read = _lesen_alt457
         _pf457.SETTINGS_RECOVERED[0] = _flag_alt457
+        _pf457._SETTINGS_WRITEBACK_FAILED[0] = False
         if _home_alt457 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

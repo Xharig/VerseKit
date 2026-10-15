@@ -367,9 +367,16 @@ def restore(source):
                     # nie halb geschrieben zeigen.
                     with paths._SAVE_LOCK:
                         temp = paths._temp_name(target)
-                        with open(temp, 'wb') as dst:
-                            dst.write(content)
-                        paths.replace_file(temp, target)
+                        try:
+                            with open(temp, 'wb') as dst:
+                                dst.write(content)
+                            paths.replace_file(temp, target)
+                        except OSError:
+                            try:
+                                os.remove(temp)
+                            except OSError:
+                                pass
+                            raise
                     continue
                 with open(target, 'wb') as dst:
                     dst.write(content)

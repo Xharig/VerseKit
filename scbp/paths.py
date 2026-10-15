@@ -944,18 +944,29 @@ def _read_settings_file(path):
     return data
 
 
+# Steht auf True, wenn nach einer Wiederherstellung das Zurückschreiben der
+# Vorgängerfassung scheiterte. Nur dann gilt bei fehlender Hauptdatei die
+# Vorgängerfassung — wer die Datei selbst löscht, will neu anfangen.
+_SETTINGS_WRITEBACK_FAILED = [False]
+
+
 def _just_written(path):
+    """Jünger als `SETTINGS_FRESH_SEC`? Ein Zeitstempel in der Zukunft (Sync
+    von einem Gerät mit vorgehender Uhr) zählt nicht als frisch — sonst
+    bliebe eine kaputte Datei dauerhaft „in Arbeit"."""
     import time
     try:
-        return time.time() - os.path.getmtime(path) < SETTINGS_FRESH_SEC
+        age = time.time() - os.path.getmtime(path)
     except OSError:
         return False
+    return 0 <= age < SETTINGS_FRESH_SEC
 
 
 def _settings_read():
     """(Daten, lesbar).
 
-    * Fehlt die Datei: die Vorgängerfassung, sonst ({}, True).
+    * Fehlt die Datei: ({}, True) — nur nach gescheitertem Zurückschreiben
+      einer Wiederherstellung die Vorgängerfassung.
     * Ist sie kaputt: beiseitelegen, Vorgängerfassung nehmen
       (`_settings_recover`).
     * Gesperrt oder gerade erst geschrieben: ({}, False) — dann darf
@@ -964,10 +975,15 @@ def _settings_read():
     try:
         return _read_settings_file(target), True
     except FileNotFoundError:
+        if not _SETTINGS_WRITEBACK_FAILED[0]:
+            return {}, True
         try:
             return _read_settings_file(backup_name(target)), True
-        except (OSError, ValueError):
+        except (FileNotFoundError, ValueError):
             return {}, True
+        except OSError as exc:
+            _report_error('paths.settings', exc)
+            return {}, False
     except ValueError as exc:
         if _just_written(target):
             return {}, False
@@ -1025,17 +1041,26 @@ def _settings_recover(target, broken):
         except FileNotFoundError:
             SETTINGS_RECOVERED[0] = 'defaults'
             return {}, True
-        except (OSError, ValueError) as exc:
+        except ValueError as exc:
             _report_error('paths.settings', exc)
             SETTINGS_RECOVERED[0] = 'defaults'
             return {}, True
+        except OSError as exc:
+            # Vorgängerfassung gesperrt — nicht „Standardwerte": Sonst schriebe
+            # `set_setting` die Vorlage als Hauptdatei, und das nächste
+            # Speichern kopierte sie über die gute Vorgängerfassung.
+            _report_error('paths.settings', exc)
+            _SETTINGS_WRITEBACK_FAILED[0] = True
+            return {}, False
         try:
             write_text_atomic(target, json.dumps(data, ensure_ascii=False,
                                                  indent=2))
+            _SETTINGS_WRITEBACK_FAILED[0] = False
         except OSError as exc:
             # Die Hauptdatei fehlt dann; `_settings_read` liest in dem Fall
             # die Vorgängerfassung, es geht also nichts verloren.
             _report_error('paths.settings', exc)
+            _SETTINGS_WRITEBACK_FAILED[0] = True
         SETTINGS_RECOVERED[0] = 'backup'
         return data, True
 
