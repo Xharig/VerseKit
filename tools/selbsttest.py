@@ -2492,10 +2492,9 @@ def main():
         # Englisch sonst abgeschnitten werden). Ein Schiebeschalter ist schmal
         # und gehoert nach rechts — wie in jeder Einstellungsliste.
         #
-        # ⚠ Die Pruefung muss selbst nachweisen, dass sie etwas findet. Ihre
-        # erste Fassung suchte nach dem alten Namen `_feld(`, fand nach der
-        # Umbenennung keinen einzigen Aufruf mehr und blieb gruen. Deshalb
-        # zwei Wachen: Sie muss Zeilen UND Zeilen-mit-Schalter sehen, und ein
+        # ⚠ Die Pruefung muss selbst nachweisen, dass sie etwas findet: Sucht
+        # sie nach einem Namen, den es nicht mehr gibt, findet sie keinen
+        # Aufruf und bliebe gruen. Deshalb zwei Wachen: Sie muss Zeilen UND Zeilen-mit-Schalter sehen, und ein
         # eingebauter Ausreisser muss anschlagen.
         import re as _re29
         quelle29 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
@@ -43678,6 +43677,38 @@ def _pruefung_456():
                    'Schalter aus: start_game startet wie bisher ohne eigene '
                    'Umgebung')
 
+            if not hat_anzeige():
+                uebersprungen('Seite „Installation & Pfade" mit MangoHud bauen')
+            else:
+                import tkinter as _tk456
+                from scbp import language as _spr456
+                from scbp import main_window as _hf456, pages as _st456s
+                _texte456, _fehler456 = [], None
+
+                def _sammeln456(widget):
+                    try:
+                        _texte456.append(widget.cget('text'))
+                    except Exception:
+                        pass
+                    for _kind456 in widget.winfo_children():
+                        _sammeln456(_kind456)
+
+                _f456 = _hf456.MainWindow(version='0.0.0-test')
+                _f456.root.geometry('900x600+3000+3000')
+                _rahmen456 = _tk456.Frame(_f456.root)
+                try:
+                    _st456s.build(_f456, 'ordner', _rahmen456)
+                    _f456.root.update()
+                    _sammeln456(_rahmen456)
+                except Exception as _e456:
+                    _fehler456 = '%s: %s' % (type(_e456).__name__, _e456)
+                _f456.root.destroy()
+                pruefe(_fehler456 is None,
+                       'Seite „Installation & Pfade" baut mit installiertem '
+                       'MangoHud (%s)' % (_fehler456 or 'ok'))
+                pruefe(_spr456.t('s_mango_h') in _texte456,
+                       'dort steht der Schalter „Mit MangoHud starten"')
+
             _mh456.shutil.which = lambda name: '/usr/bin/mangohud'
             os.remove(os.path.join(_ordner456, 'MangoHud.x86_64.json'))
             pruefe(_mh456.installed(),
@@ -43724,7 +43755,7 @@ def _pruefung_457():
             with open(_ziel457, 'wb') as _f457:
                 _f457.write(inhalt)
             if alt:
-                # Älter als die Frist für „wird gerade geschrieben".
+                # Älter als die Frist für *wird gerade geschrieben*.
                 _t457 = time.time() - 60
                 os.utime(_ziel457, (_t457, _t457))
 
@@ -43798,7 +43829,7 @@ def _pruefung_457():
                'Zurückschreiben gescheitert: die Vorgängerfassung gilt')
         _pf457._SETTINGS_WRITEBACK_FAILED[0] = False
 
-        # e2) Kaputt und die Vorgängerfassung gesperrt: nicht „Standardwerte".
+        # e2) Kaputt und die Vorgängerfassung gesperrt: nicht *Standardwerte*.
         _schreiben457(b'{kaputt')
         _lesen_datei_alt457 = _pf457._read_settings_file
 
@@ -43817,7 +43848,7 @@ def _pruefung_457():
                'Vorgängerfassung gesperrt: keine Vorlage, kein falscher Hinweis')
         _pf457._SETTINGS_WRITEBACK_FAILED[0] = False
 
-        # f) Zeitstempel in der Zukunft gilt nicht als „gerade geschrieben".
+        # f) Zeitstempel in der Zukunft gilt nicht als *gerade geschrieben*.
         _schreiben457(b'{kaputt', alt=False)
         _t457 = time.time() + 3600
         os.utime(_ziel457, (_t457, _t457))
@@ -44121,7 +44152,7 @@ def _pruefung_459():
                and 'In shops: New Babbage · 12,400 aUEC' in _en459,
                'auf Englisch eigene Überschrift und Zahlenschreibweise')
         # Der Laden-Katalog: ein Aussetzer bei einer Warengruppe speichert
-        # nichts (sonst stünde die ganze Gruppe als „nicht erhältlich" da).
+        # nichts (sonst stünde die ganze Gruppe als *nicht erhältlich* da).
         from scbp import uex as _ux459
         _abruf_alt459 = _ux459.fetch
         _sh459.cheapest_by_entity = _alt459[1]
@@ -44269,12 +44300,12 @@ def _pruefung_460():
            'Feed ohne Einheit, Eintrag ohne Einheit: nichts zu tun')
 
     _einheiten460 = _eo460.parse({'items': [
-        {'id': 'a', 'name': 'Staffel Mamba', 'shorthand': 'MBA',
+        {'id': 'a', 'name': 'Staffel Alpha', 'shorthand': 'ALP',
          'kind': 'SQUADRON'},
         {'name': 'ohne Kennung'},
         {'id': 'b', 'name': 'Neu', 'shorthand': '', 'kind': 'ZUKUNFT'}]})
     pruefe([u['id'] for u in _einheiten460] == ['a', 'b']
-           and _eo460.label(_einheiten460[0]) == 'Staffel Mamba (MBA)',
+           and _eo460.label(_einheiten460[0]) == 'Staffel Alpha (ALP)',
            'Einheiten-Liste: ohne Kennung fällt weg, unbekannte Art bleibt '
            'wählbar')
     with _eo460._lock:

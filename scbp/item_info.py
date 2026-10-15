@@ -196,10 +196,10 @@ def _craft_line(blueprint, words):
 def _shop_line(item, shop_data, words, digits):
     """Günstigster Laden — über die Kennung, sonst über den Namen.
 
-    ⚠ „nicht erhältlich" nur, wenn UEX das Teil kennt (Kennung oder Name)
+    ⚠ *nicht erhältlich* nur, wenn UEX das Teil kennt (Kennung oder Name)
     und **keiner** der beiden Wege einen Preis hat. UEX führt manche Teile
     unter einer anderen Kennung als die Rezeptdaten; nur über die Kennung
-    gesucht, stünde dort fälschlich „nur Herstellen"."""
+    gesucht, stünde dort fälschlich *nur Herstellen*."""
     entity = item.get('entity') or ''
     name = (item.get('basis') or '').lower()
     known_ids = shop_data.get('kennungen') or ()

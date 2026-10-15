@@ -2878,11 +2878,12 @@ def _start_command_field(fenster, innen):
 
 
 def _mangohud_field(fenster, innen):
-    """Schalter „Mit MangoHud starten" — nur unter Linux.
+    """Schalter *Mit MangoHud starten* — nur unter Linux.
 
     Ist MangoHud nicht installiert, steht statt des Schalters der Hinweis, wo
     es herkommt. Ein Schalter, der nichts bewirkt, wäre schlimmer."""
     from . import mangohud
+    from .main_window import toggle_switch
     if not mangohud.possible():
         return
     if not mangohud.installed():
@@ -3206,7 +3207,7 @@ def _game(fenster, rahmen):
                   toggle_ranks).pack()
 
     # --- Rufschwelle im Auftragstitel ------------------------------------------
-    # „[10.000 Rep] [BP]" in der Auftragsliste. Gleich gebaut wie darüber.
+    # `[BP 10.000 Rep]` in der Auftragsliste. Gleich gebaut wie darüber.
     row = _setting_row(fenster, innen, t('s_sp_titelruf'),
                        t('s_sp_titelruf_h'))
 
@@ -15296,8 +15297,8 @@ def _unit_choice(fenster, parent, entry, save):
     if not (_sync_ready(basetool_sync.SETTING_SHIPS)
             and exchange_orgunits.choice_visible()):
         return
-    # ⚠ Noch nie abgeglichen (`None`) ist nicht dasselbe wie „Keine Einheit"
-    # (`''`): Wer das angezeigte „Keine" anklickt, nähme das Schiff sonst
+    # ⚠ Noch nie abgeglichen (`None`) ist nicht dasselbe wie *Keine Einheit*
+    # (`''`): Wer das angezeigte *Keine* anklickt, nähme das Schiff sonst
     # ausdrücklich aus seiner Einheit.
     UNSYNCED = '\x00offen'
     entries = [('', t('s_hg_keine_einheit'))] + [
@@ -15313,7 +15314,7 @@ def _unit_choice(fenster, parent, entry, save):
 
     def choose(value):
         if value == UNSYNCED:
-            # Zurück zu „wie im Basetool": Der nächste Abgleich übernimmt die
+            # Zurück zu *wie im Basetool*: Der nächste Abgleich übernimmt die
             # Einheit von dort.
             if entry.get('einheit') is not None:
                 entry.pop('einheit', None)

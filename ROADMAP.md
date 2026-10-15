@@ -47,6 +47,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | Overlay einklappen, für alle mit einem Bildschirm |
 | ✅ | **Ablage-Symbol**: neben der Uhr unter Windows, im Startmenü unter Linux — der Weg zurück zu Liste und Einstellungen, während sich das Overlay zurückhält |
 | ✅ | **Angaben am Gegenstand im Spiel** — Klasse, Größe und Gütegrad am Traktorstrahl, bei Raketen der Suchkopf |
+| ✅ | **Bauplan-Angaben in den Beschreibungen** — ob du den Bauplan hast, aus welchem Auftrag er kommt, was das Herstellen braucht und wo es das Teil zu kaufen gibt; im Auftragstitel dazu die Rufschwelle |
 | ✅ | **Herstellung**: zu jedem herstellbaren Gegenstand die Zutaten, die Dauer und die Werte — samt der Frage, ob du den Bauplan dafür hast; die Produktwerte als Grundwert, gebaut und Änderung |
 | ✅ | **Materialqualität wirkt sich aus** — ein Regler je Zutat zeigt, was mit *deinem* Material herauskäme, und in welcher Spanne der Wert überhaupt liegen kann |
 | ✅ | **Mein Lager**: Material, Menge, Qualität und Lagerort eintragen; im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab — in der eingestellten Güte, wahlweise bestes oder schlechtestes Material; gleiche Materialien stehen gebündelt |
@@ -87,7 +88,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Statistik**: Spielzeit, Sitzungen, Wärmekarte, Tode, verlorene Schiffe, Schiffe & Ausrüstung, Aufträge, Quantenreisen und Stabilität — aus den eigenen Spielprotokollen, nur der eigene Account, und sie bleibt, auch wenn die Protokolle gelöscht werden |
 | ✅ | **Standort** — an welcher Station, Stadt oder welchem Außenposten du gerade bist, auf der Übersicht und im Overlay |
 | ✅ | **Sechs Farbschemata** mit Vorschau — Original, KRT (Orange), Eis, Nebel, Glut, Hoher Kontrast — und die **Größe der Oberfläche** stufenlos |
-| ✅ | **Einstellungen neu gegliedert**, **Module** ausblendbar, **Startprogramme** mit dem Spiel, die **user.cfg** sichtbar und bearbeitbar |
+| ✅ | **Einstellungen neu gegliedert**, **Module** ausblendbar, **Startprogramme** mit dem Spiel, die **user.cfg** sichtbar und bearbeitbar, unter Linux **MangoHud** per Schalter |
 | ✅ | **Das Overlay nimmt dem Spiel nie den Fokus** — auch nicht, wenn der unsichtbare Mauszeiger darüber steht |
 | ✅ | **Übersetzung je Kanal**: welche Textdatei Star Citizen liest — für LIVE und PTU getrennt einstellbar, die Hauptinstallation dazu mit den Bauplan-Angaben |
 | ✅ | **Sieben Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst; oder **gar keine**, dann bleibt die Textdatei unberührt |

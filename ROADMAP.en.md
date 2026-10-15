@@ -47,6 +47,7 @@ Four things are deliberate and will stay that way:
 | ✅ | Collapse the overlay, for anyone on a single screen |
 | ✅ | **Tray icon**: next to the clock on Windows, in the application menu on Linux — the way back to the list and the settings while the overlay stays out of sight |
 | ✅ | **Item details in game** — class, size and grade at the tractor beam, seeker type for missiles |
+| ✅ | **Blueprint details in item descriptions** — whether you own the blueprint, which contract it comes from, what crafting takes and where to buy the item; the mission title adds the reputation threshold |
 | ✅ | **Crafting**: for every craftable item the ingredients, the duration and the stats — including whether you own the blueprint for it; product stats as base, crafted and change |
 | ✅ | **Material quality matters** — one slider per ingredient shows what *your* material would yield, and the range the value can reach at all |
 | ✅ | **My storage**: record material, amount, quality and location; the recipe then shows what is missing, and a button deducts the ingredients — in the quality you set, best or worst material by choice; the same material is grouped |
@@ -82,7 +83,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Statistics**: play time, sessions, heat map, deaths, lost ships, ships & equipment, contracts, quantum travel and stability — from your own game logs, your own account only, and kept even when the logs are deleted |
 | ✅ | **Location** — which station, city or outpost you are at, on the overview and in the overlay |
 | ✅ | **Six colour schemes** with preview — original, KRT (orange), Ice, Nebula, Ember, High contrast — and the **interface size** steplessly |
-| ✅ | **Settings re-sorted**, **modules** can be hidden, **start programs** with the game, the **user.cfg** visible and editable |
+| ✅ | **Settings re-sorted**, **modules** can be hidden, **start programs** with the game, the **user.cfg** visible and editable, **MangoHud** by switch on Linux |
 | ✅ | **The overlay never steals focus from the game** — not even when the invisible mouse pointer is over it |
 | ✅ | **Translation per channel**: which text file Star Citizen reads — set separately for LIVE and PTU, with the blueprint details on your main install |
 | ✅ | **Seven languages**: German, French, Italian, Spanish, Portuguese, Turkish and English — plus your **own URL** if you want to use a different translation, or **none at all**, leaving the text file untouched |

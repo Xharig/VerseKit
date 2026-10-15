@@ -6,7 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.6.0 - 2026-10-15
+
+> Was Verse-Kit über einen Gegenstand weiß, steht jetzt im Spiel direkt
+> darunter: ob du den Bauplan hast, aus welchem Auftrag er kommt, was das
+> Herstellen braucht und wo es das Teil am günstigsten gibt. Im Auftragstitel
+> steht dazu, ab wie viel Ruf ein Auftrag zu haben ist. Und unter Linux
+> schaltet ein Schalter MangoHud ein.
 
 ### Neu
 
@@ -24,6 +30,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   welchem Auftrag er kommt (der leichteste zuerst), wie viele Zutaten und wie
   viel Zeit das Herstellen braucht und wo es das Teil am günstigsten zu kaufen
   gibt. Auf der Seite *Spiel* abschaltbar.
+
 ### Verbessert
 
 - **Beschädigte Einstellungsdatei** — lässt sich die Datei nicht mehr lesen,
@@ -31,10 +38,6 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   dir. Vorher galten
   still die Standardwerte, und die nächste Änderung überschrieb alle übrigen
   Einstellungen.
-
-### Dank
-
-- **Rhino** — der Vorschlag, MangoHud direkt aus Verse-Kit einzuschalten.
 
 ## v4.5.0 - 2026-10-15
 

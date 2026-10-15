@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-MangoHud beim Start über „RSI Launcher starten" einschalten — nur Linux.
+MangoHud beim Start über *RSI Launcher starten* einschalten — nur Linux.
 
 MangoHud wird **nicht** mitgeliefert. Es kommt aus der Paketverwaltung des
 Systems; hier wird nur erkannt, ob es da ist, und beim Start die Variable

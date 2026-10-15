@@ -430,7 +430,7 @@ def _orgunits_consent(window, card, granted, login, redraw):
 
 
 def _new_ship_unit_row(window, card):
-    """„Einheit für neue Schiffe" — nur bei mehr als einer Einheit.
+    """*Einheit für neue Schiffe* — nur bei mehr als einer Einheit.
 
     Vorgabe „wie bisher": Dann entscheidet das Basetool (die einzige
     Einheit, sonst keine). Eine Einheit, in der das Mitglied nicht mehr ist,

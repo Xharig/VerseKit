@@ -21,7 +21,7 @@ Die Einheiten des Mitglieds aus dem KRT Profit Basetool
 (`GET /exchange/v1/me/org-units`, Recht `exchange.orgunits.read`).
 
 Gebraucht für die Auswahl, in welcher Einheit ein Schiff steht: auf der
-Schiffskarte im Hangar und als „Einheit für neue Schiffe".
+Schiffskarte im Hangar und als *Einheit für neue Schiffe*.
 
 ⚠ **Nur im Speicher**, wie der Bedarf: Die Liste ist bei jedem Abgleich neu
 geholt, denn eine Mitgliedschaft kann jederzeit beginnen oder enden (so steht
@@ -73,7 +73,7 @@ def units():
 
 
 def label(unit):
-    """Wie eine Einheit in der Auswahl heißt: `Staffel Mamba (MBA)`."""
+    """Wie eine Einheit in der Auswahl heißt: `Staffel Alpha (ALP)`."""
     name = unit.get('name') or unit.get('shorthand') or unit.get('id')
     short = unit.get('shorthand')
     return '%s (%s)' % (name, short) if short and short != name else name

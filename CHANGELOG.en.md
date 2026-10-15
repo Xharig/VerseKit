@@ -6,7 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.6.0 - 2026-10-15
+
+> What Verse-Kit knows about an item now shows in the game right below it:
+> whether you own the blueprint, which contract it comes from, what crafting
+> takes and where the item is cheapest to buy. Mission titles add how much
+> reputation a mission needs. And on Linux a switch turns on MangoHud.
 
 ### New
 
@@ -24,16 +29,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   which contract it comes from (easiest first), how many ingredients and how
   much time crafting takes, and where the item is cheapest to buy. Can be
   switched off on the *Game* page.
+
 ### Improved
 
 - **Damaged settings file** — if the file can no longer be read, Verse-Kit
   restores the state before your last change and tells you. Before, the
   defaults applied
   silently, and the next change overwrote all your other settings.
-
-### Thanks
-
-- **Rhino** — the suggestion to switch on MangoHud straight from Verse-Kit.
 
 ## v4.5.0 - 2026-10-15
 

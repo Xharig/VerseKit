@@ -953,7 +953,7 @@ _SETTINGS_WRITEBACK_FAILED = [False]
 def _just_written(path):
     """Jünger als `SETTINGS_FRESH_SEC`? Ein Zeitstempel in der Zukunft (Sync
     von einem Gerät mit vorgehender Uhr) zählt nicht als frisch — sonst
-    bliebe eine kaputte Datei dauerhaft „in Arbeit"."""
+    bliebe eine kaputte Datei dauerhaft *in Arbeit*."""
     import time
     try:
         age = time.time() - os.path.getmtime(path)
@@ -1015,9 +1015,9 @@ def _settings_recover(target, broken):
     nächste Schalter schrieb die Vorlage darüber. Alle übrigen Einstellungen
     waren dann endgültig weg.
 
-    ⚠⚠ **Jeder Fehlschlag hier heißt „nicht lesbar".** Ließe sich die kaputte
+    ⚠⚠ **Jeder Fehlschlag hier heißt *nicht lesbar*.** Ließe sich die kaputte
     Datei nicht beiseitelegen (unter Windows genügt ein Leser in einem anderen
-    Faden oder der Virenscanner), und käme trotzdem „lesbar, leer" zurück,
+    Faden oder der Virenscanner), und käme trotzdem *lesbar, leer* zurück,
     schriebe `set_setting` die Vorlage darüber — und `save_json` kopierte die
     kaputte Datei vorher über die gute Vorgängerfassung."""
     with _SAVE_LOCK:
@@ -1046,7 +1046,7 @@ def _settings_recover(target, broken):
             SETTINGS_RECOVERED[0] = 'defaults'
             return {}, True
         except OSError as exc:
-            # Vorgängerfassung gesperrt — nicht „Standardwerte": Sonst schriebe
+            # Vorgängerfassung gesperrt — nicht *Standardwerte*: Sonst schriebe
             # `set_setting` die Vorlage als Hauptdatei, und das nächste
             # Speichern kopierte sie über die gute Vorgängerfassung.
             _report_error('paths.settings', exc)

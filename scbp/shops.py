@@ -382,9 +382,9 @@ def cheapest_by_entity():
          'kennungen': {alle Kennungen, die UEX führt},
          'namen':     {alle eindeutigen UEX-Namen klein}}
 
-    Die bekannten Kennungen und Namen unterscheiden „UEX kennt das Teil, aber
-    kein Laden führt es" von „UEX kennt es gar nicht" — nur im ersten Fall
-    darf „nicht erhältlich" dastehen."""
+    Die bekannten Kennungen und Namen unterscheiden *UEX kennt das Teil, aber
+    kein Laden führt es* von *UEX kennt es gar nicht* — nur im ersten Fall
+    darf *nicht erhältlich* dastehen."""
     data = _catalog.load() or {}
     by_entity = {}
     for x in data.get('teile') or []:

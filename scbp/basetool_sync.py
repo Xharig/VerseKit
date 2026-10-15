@@ -1026,7 +1026,7 @@ def _sync_ships(conn, state, units_ok=False):
         server, _resync = _pull_generic(conn, sub, '/me/ships', 'shipId')
 
     # Beim Anlegen weggelassene Einheit (unbekannt oder Liste nicht geholt):
-    # im Hangar auf „wie im Basetool" zurück — sonst ginge sie einen Abgleich
+    # im Hangar auf *wie im Basetool* zurück — sonst ginge sie einen Abgleich
     # später doch als Änderung hinaus.
     known = _known_units() if units_ok else None
     result['unit_clear'] = sorted(
