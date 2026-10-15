@@ -3205,6 +3205,30 @@ def _game(fenster, rahmen):
     toggle_switch(row, paths.setting_bool(_ranks.SETTING, True),
                   toggle_ranks).pack()
 
+    # --- Rufschwelle im Auftragstitel ------------------------------------------
+    # „[10.000 Rep] [BP]" in der Auftragsliste. Gleich gebaut wie darüber.
+    row = _setting_row(fenster, innen, t('s_sp_titelruf'),
+                       t('s_sp_titelruf_h'))
+
+    def toggle_title_rep():
+        from . import injection as injection_module
+        new_value = not paths.setting_bool(injection_module.SETTING_TITLE_REP,
+                                           True)
+        paths.set_setting(injection_module.SETTING_TITLE_REP, new_value)
+        fenster.say(t('s_sp_titelruf_sagen')
+                    % (t('e_an') if new_value else t('e_aus')))
+        try:
+            if (paths.setting_bool('inj_an', True)
+                    and injection_module.status().get('drin')):
+                e._inj_refresh()
+                lage_zeigen()
+        except Exception as exc:
+            errors.record('pages.toggle_title_rep', exc)
+        return new_value
+
+    toggle_switch(row, paths.setting_bool(_inj.SETTING_TITLE_REP, True),
+                  toggle_title_rep).pack()
+
     ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()

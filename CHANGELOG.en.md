@@ -15,6 +15,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Launcher": frames per second, CPU and GPU load right in the game. MangoHud
   itself comes from your package manager; if it is missing, the page says
   where to get it. Suggested by Rhino.
+- **Reputation threshold in mission titles** — the blueprint mark in the
+  mission list shows how much reputation a mission needs:
+  "[BP 10,000 Rep]". Only where every tier has the same threshold; can be
+  switched off on the *Game* page.
+
+### Improved
+
+- **Damaged settings file** — if the file can no longer be read, Verse-Kit
+  restores the state before your last change and tells you. Before, the
+  defaults applied
+  silently, and the next change overwrote all your other settings.
 
 ### Thanks
 

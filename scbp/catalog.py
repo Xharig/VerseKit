@@ -108,7 +108,10 @@ CACHE = 'katalog-cache.json'
 #
 # 6: `_missions()` legt je Auftragstext die Baupläne je System ab
 # (`je_system`), für die getrennten Listen im Auftragstext.
-FORMAT = 6
+#
+# 7: `_missions()` merkt sich, ob alle Stufen mit Bauplänen dieselbe
+# Mindest-Reputation haben (`rep_eindeutig`) — für die Schwelle im Titel.
+FORMAT = 7
 
 # Einstellung: Sollen Baupläne ohne bekannten Weg mitgezählt und angezeigt
 # werden? ⛔ Standard **aus** — der Fortschritt bleibt damit die Zahl, die
@@ -930,6 +933,10 @@ def _missions(merged):
         entry['sicher'] = sure
         if from_rank:
             entry['ab'] = from_rank
+        # Nur wenn jede Stufe mit Bauplänen dieselbe Schwelle hat, steht sie im
+        # Titel — sonst wäre die Zahl für einen Teil der Stufen falsch.
+        if len(set(g['rep'] for g in with_bp)) == 1:
+            entry['rep_eindeutig'] = True
         per_system = _per_system(with_bp)
         if per_system:
             entry['je_system'] = per_system

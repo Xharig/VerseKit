@@ -25493,6 +25493,8 @@ def main():
     _pruefung_454()
     _pruefung_455()
     _pruefung_456()
+    _pruefung_457()
+    _pruefung_458()
 
     print()
     if fehler:
@@ -40009,6 +40011,7 @@ def _pruefung_430():
     _alt_heim430 = os.environ.get('SC_BP_HOME')
     _echt_ersetzen430 = _pa430.replace_file
     _echt_einst430 = _pa430.settings
+    _echt_lesen430 = _pa430._settings_read
     try:
         os.environ['SC_BP_HOME'] = os.path.join(_ordner430, 'heim')
         _ziel430 = os.path.join(_ordner430, 'daten.json')
@@ -40065,11 +40068,13 @@ def _pruefung_430():
                'zurück statt eines leeren Bestands')
 
         # Zwei Fäden setzen gleichzeitig verschiedene Einstellungen.
+        # ⚠ `set_setting` liest über `_settings_read` — dort bremsen, sonst
+        # wirkt die Verzögerung nicht und die Prüfung bliebe ohne Sperre grün.
         def _langsam430():
-            daten = _echt_einst430()
+            daten = _echt_lesen430()
             _ti430.sleep(0.05)
             return daten
-        _pa430.settings = _langsam430
+        _pa430._settings_read = _langsam430
         _faeden430 = [_th430.Thread(target=_pa430.set_setting,
                                     args=('pruef_%d' % i, 'wert%d' % i))
                       for i in range(2)]
@@ -40077,7 +40082,7 @@ def _pruefung_430():
             _f430.start()
         for _f430 in _faeden430:
             _f430.join()
-        _pa430.settings = _echt_einst430
+        _pa430._settings_read = _echt_lesen430
         pruefe(_pa430.setting('pruef_0') == 'wert0'
                and _pa430.setting('pruef_1') == 'wert1',
                'zwei Fäden setzen gleichzeitig zwei Einstellungen, keine '
@@ -40101,6 +40106,7 @@ def _pruefung_430():
     finally:
         _pa430.replace_file = _echt_ersetzen430
         _pa430.settings = _echt_einst430
+        _pa430._settings_read = _echt_lesen430
         if _alt_heim430 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:
@@ -43633,6 +43639,221 @@ def _pruefung_456():
             os.environ['SC_BP_HOME'] = _home_alt456
         import shutil as _sh456
         _sh456.rmtree(_home456, ignore_errors=True)
+
+
+def _pruefung_457():
+    """457. Kaputte Einstellungsdatei: beiseitelegen, Vorgängerfassung
+    zurückholen, sonst Standardwerte — und nie still mit der Vorlage
+    überschreiben."""
+    print('\n457. Kaputte Einstellungsdatei')
+    import glob as _gl457
+    import tempfile as _tf457
+    from scbp import paths as _pf457
+    _home_alt457 = os.environ.get('SC_BP_HOME')
+    _home457 = _tf457.mkdtemp(prefix='scbp457_')
+    os.environ['SC_BP_HOME'] = _home457
+    _flag_alt457 = _pf457.SETTINGS_RECOVERED[0]
+    _lesen_alt457 = _pf457._settings_read
+    try:
+        _ziel457 = _pf457.app_file(_pf457.SETTINGS_FILE)
+        _bak457 = _pf457.backup_name(_ziel457)
+
+        def _kaputte457():
+            return _gl457.glob(os.path.join(os.path.dirname(_ziel457),
+                                            'einstellungen.kaputt-*.json'))
+
+        _pf457.set_setting('eins', 1)
+        _pf457.set_setting('zwei', 2)
+        pruefe(os.path.isfile(_bak457),
+               'set_setting legt eine Vorgängerfassung an')
+
+        def _schreiben457(inhalt, alt=True):
+            with open(_ziel457, 'wb') as _f457:
+                _f457.write(inhalt)
+            if alt:
+                # Älter als die Frist für „wird gerade geschrieben".
+                _t457 = time.time() - 60
+                os.utime(_ziel457, (_t457, _t457))
+
+        # a) Gerade erst geschrieben: nicht kaputt, sondern „in Arbeit".
+        _pf457.SETTINGS_RECOVERED[0] = None
+        _schreiben457(b'{"eins": 1, "zw', alt=False)
+        pruefe(_pf457._settings_read() == ({}, False) and not _kaputte457(),
+               'frisch geschriebene halbe Datei: nicht lesbar, nichts verschoben')
+        pruefe(_pf457.set_setting('x', 1) is False,
+               'frisch geschriebene halbe Datei: set_setting schreibt nichts')
+
+        # b) Kaputt, aber das Beiseitelegen scheitert (gesperrt): weder die
+        #    Hauptdatei noch die Vorgängerfassung darf überschrieben werden.
+        _schreiben457(b'{kaputt')
+        with open(_bak457, encoding='utf-8') as _f457:
+            _bak_vorher457 = _f457.read()
+        _ersetzen_alt457 = _pf457.replace_file
+
+        def _gesperrt457(quelle, ziel, *a, **k):
+            if 'kaputt-' in str(ziel):
+                raise PermissionError('gesperrt')
+            return _ersetzen_alt457(quelle, ziel, *a, **k)
+        _pf457.replace_file = _gesperrt457
+        try:
+            _ok_gesperrt457 = _pf457.set_setting('c', 3)
+        finally:
+            _pf457.replace_file = _ersetzen_alt457
+        with open(_bak457, encoding='utf-8') as _f457:
+            _bak_nachher457 = _f457.read()
+        with open(_ziel457, 'rb') as _f457:
+            _haupt457 = _f457.read()
+        pruefe(_ok_gesperrt457 is False and _haupt457 == b'{kaputt'
+               and _bak_vorher457 == _bak_nachher457,
+               'kaputt und gesperrt: keine Vorlage darüber, Vorgängerfassung '
+               'unversehrt')
+
+        # c) Kaputt mit Null-Bytes: Vorgängerfassung zurück.
+        _pf457.SETTINGS_RECOVERED[0] = None
+        _schreiben457(b'{"eins": 1, "zw\x00\x00')
+        _daten457 = _pf457.settings()
+        pruefe(_daten457.get('eins') == 1 and 'zwei' not in _daten457,
+               'kaputte Datei: der Stand der Vorgängerfassung gilt (%r)'
+               % {k: v for k, v in _daten457.items() if not k.startswith('_')})
+        pruefe(_pf457.SETTINGS_RECOVERED[0] == 'backup',
+               'kaputte Datei: als „wiederhergestellt" gemerkt (%r)'
+               % _pf457.SETTINGS_RECOVERED[0])
+        pruefe(len(_kaputte457()) == 1,
+               'die kaputte Datei liegt beiseite (%d)' % len(_kaputte457()))
+        with open(_ziel457, encoding='utf-8') as _f457:
+            _neu457 = json.load(_f457)
+        pruefe(_neu457.get('eins') == 1,
+               'die Vorgängerfassung ist wieder die Hauptdatei')
+
+        # d) Gültig mit BOM (PowerShell 5, alte Editoren): kein Fall für
+        #    die Wiederherstellung.
+        _pf457.SETTINGS_RECOVERED[0] = None
+        _schreiben457(b'\xef\xbb\xbf{"bom": true}')
+        pruefe(_pf457.settings() == {'bom': True}
+               and _pf457.SETTINGS_RECOVERED[0] is None
+               and len(_kaputte457()) == 1,
+               'Datei mit BOM gilt als gültig und bleibt liegen')
+
+        # e) Hauptdatei fehlt, Vorgängerfassung da: die gilt.
+        _pf457.set_setting('fuenf', 5)
+        os.remove(_ziel457)
+        pruefe(_pf457.settings().get('bom') is True,
+               'fehlende Hauptdatei: die Vorgängerfassung gilt')
+
+        for _k457 in _kaputte457():
+            os.remove(_k457)
+        os.remove(_bak457)
+        _pf457.SETTINGS_RECOVERED[0] = None
+        _schreiben457(b'[1, 2]')
+        pruefe(_pf457.settings() == {}
+               and _pf457.SETTINGS_RECOVERED[0] == 'defaults',
+               'kein Objekt und keine Vorgängerfassung: Standardwerte, gemerkt')
+        pruefe(len(_kaputte457()) == 1,
+               'auch ohne Vorgängerfassung wird die kaputte Datei aufgehoben')
+        _pf457.set_setting('drei', 3)
+        pruefe(_pf457.settings().get('drei') == 3,
+               'danach lässt sich wieder speichern')
+
+        with open(_ziel457, encoding='utf-8') as _f457:
+            _vorher457 = _f457.read()
+        _pf457._settings_read = lambda: ({}, False)
+        _ok457 = _pf457.set_setting('vier', 4)
+        _pf457._settings_read = _lesen_alt457
+        with open(_ziel457, encoding='utf-8') as _f457:
+            _nachher457 = _f457.read()
+        pruefe(_ok457 is False and _vorher457 == _nachher457,
+               'gesperrte Datei: set_setting schreibt keine Vorlage darüber')
+    finally:
+        _pf457._settings_read = _lesen_alt457
+        _pf457.SETTINGS_RECOVERED[0] = _flag_alt457
+        if _home_alt457 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _home_alt457
+        import shutil as _sh457
+        _sh457.rmtree(_home457, ignore_errors=True)
+
+
+def _pruefung_458():
+    """458. Rufschwelle im Auftragstitel: nur bei eindeutiger Schwelle,
+    abschaltbar, und die Marke bleibt als eigene erkennbar und entfernbar."""
+    print('\n458. Rufschwelle im Auftragstitel')
+    import tempfile as _tf458
+    from scbp import catalog as _k458
+    from scbp import injection as _inj458
+    from scbp import paths as _pf458
+    _home_alt458 = os.environ.get('SC_BP_HOME')
+    _home458 = _tf458.mkdtemp(prefix='scbp458_')
+    os.environ['SC_BP_HOME'] = _home458
+    try:
+        def _vertrag458(schluessel, rep, pool='p1'):
+            return {'titleLocKey': schluessel,
+                    'blueprintRewards': [{'blueprintPool': pool, 'chance': 1}],
+                    'minStanding': {'name': 'Rang', 'minReputation': rep}}
+        _dump458 = {
+            'blueprintPools': {'p1': {'blueprints': [{'name': 'Eins'}]},
+                               'p2': {'blueprints': [{'name': 'Zwei'}]}},
+            'contracts': [_vertrag458('gleich_title', 10000),
+                          _vertrag458('gleich_title', 10000, 'p2'),
+                          _vertrag458('ungleich_title', 800),
+                          _vertrag458('ungleich_title', 38000, 'p2')]}
+        _m458 = _k458._missions(_dump458)
+        pruefe(_m458['gleich_title'].get('rep_eindeutig') is True,
+               'gleiche Schwelle in allen Stufen: eindeutig')
+        pruefe('rep_eindeutig' not in _m458['ungleich_title'],
+               'verschiedene Schwellen: nicht eindeutig')
+
+        _de458, _en458 = _inj458.TEXTS['de'], _inj458.TEXTS['en']
+        _titel458 = _inj458._title_suffix(_m458['gleich_title'], set(), _de458)
+        pruefe(_titel458 == ' <EM4>[BP 10.000 Rep]</EM4>',
+               'deutscher Titel mit Schwelle (%r)' % _titel458)
+        _titel_en458 = _inj458._title_suffix(_m458['gleich_title'], set(),
+                                             _en458)
+        pruefe(_titel_en458 == ' <EM4>[BP 10,000 Rep]</EM4>',
+               'englischer Titel mit Schwelle (%r)' % _titel_en458)
+        _hinweis458 = dict(_m458['gleich_title'], bpnote='Achtung')
+        pruefe(_inj458._title_suffix(_hinweis458, set(), _de458)
+               == ' <EM4>[BP! 10.000 Rep]</EM4>',
+               'mit Hinweiszeichen: [BP! 10.000 Rep]')
+        pruefe(_inj458._title_suffix(_m458['gleich_title'], set(),
+                                     dict(_de458, rep_an=False))
+               == ' <EM4>[BP]</EM4>',
+               'der einmal je Lauf gelesene Schalter wirkt (rep_an=False)')
+        pruefe(_inj458._title_suffix(_m458['ungleich_title'], set(), _de458)
+               == ' <EM4>[BP]</EM4>',
+               'mehrdeutige Schwelle: nur [BP]')
+        pruefe(_inj458._title_suffix({'rep': 0, 'rep_eindeutig': True},
+                                     set(), _de458) == ' <EM4>[BP]</EM4>',
+               'Schwelle 0: nur [BP]')
+
+        pruefe(_inj458._has_title_mark('Bounty' + _titel458),
+               'der Titel mit Schwelle gilt als Bauplan-Marke')
+        pruefe(_inj458._strip_old('Bounty' + _titel458) == 'Bounty'
+               and _inj458._strip_old('Bounty' + _titel_en458) == 'Bounty'
+               and _inj458._strip_old(
+                   'Bounty <EM4>[BP! 10.000 Rep]</EM4>') == 'Bounty',
+               'der Notnagel entfernt die eigene Marke mit Schwelle '
+               'vollständig')
+        _kraken458 = 'Bounty <EM4>[10 Rep] [BP]</EM4>'
+        pruefe(_inj458._strip_old(_kraken458) == _kraken458,
+               'MrKrakens Marke „[10 Rep] [BP]" bleibt beim Notnagel stehen')
+        from scbp import contracts as _au458
+        pruefe(_au458.clean('Bounty' + _titel458) == 'Bounty'
+               and _au458.clean('Bounty <EM4>[BP! 10,000 Rep]</EM4>')
+               == 'Bounty',
+               'das Auftragsprotokoll nimmt die Marke mit Schwelle ab')
+
+        _pf458.set_setting(_inj458.SETTING_TITLE_REP, False)
+        pruefe(_inj458._title_suffix(_m458['gleich_title'], set(), _de458)
+               == ' <EM4>[BP]</EM4>',
+               'Schalter aus: nur [BP]')
+    finally:
+        if _home_alt458 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _home_alt458
+        import shutil as _sh458
+        _sh458.rmtree(_home458, ignore_errors=True)
 
 
 def _alle_eingaben(w):

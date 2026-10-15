@@ -321,6 +321,24 @@ TEXTS = {
                           'erkannt.',
                           'Game language detected — blueprints are recognised '
                           'by „%s".'),
+    'einst_kaputt_bak':  ('Deine Einstellungsdatei war beschädigt. Es gilt '
+                          'wieder der Stand vor deiner letzten Änderung; die '
+                          'beschädigte Datei liegt als „einstellungen.kaputt-….json“ '
+                          'im Ordner „Einstellungen“.',
+                          'Your settings file was damaged. The state before '
+                          'your last change applies again; the damaged file is '
+                          'kept as "einstellungen.kaputt-….json" in the '
+                          '"Einstellungen" folder.'),
+    'einst_kaputt_neu':  ('Deine Einstellungsdatei war beschädigt und ließ sich '
+                          'nicht wiederherstellen. Es gelten die Standardwerte — '
+                          'sieh bitte einmal in die Einstellungen. Die '
+                          'beschädigte Datei liegt als „einstellungen.kaputt-….json“ '
+                          'im Ordner „Einstellungen“.',
+                          'Your settings file was damaged and could not be '
+                          'restored. The defaults apply — please check your '
+                          'settings once. The damaged file is kept as '
+                          '"einstellungen.kaputt-….json" in the "Einstellungen" '
+                          'folder.'),
     'lese_logs_n':       ('%d aufgehobene Spielsitzungen werden gelesen …',
                           'Reading %d stored play sessions …'),
     'lese_logs':         ('Deine bisherigen Spielsitzungen werden gelesen …',
@@ -2204,6 +2222,10 @@ TEXTS = {
     's_sp_rang_h':     ('Schreibt im Reputationsmenü hinter jeden Rang, ab wie viel Ruf er beginnt — „Gildenmitglied [ab 10.000]". Den Füllstand des Balkens kennt nur der Spielserver; mit den Stufen siehst du trotzdem, was als Nächstes kommt. Die Zahlen stammen aus den Spieldateien und werden je Patch neu geholt.',
                           'Adds to every rank in the reputation menu how much reputation it starts at — „Guild Member [10,000+]". Only the game server knows how full the bar is; with the thresholds you still see what comes next. The numbers come from the game files and are fetched again for every patch.'),
     's_sp_rang_sagen': ('Ruf-Stufen an den Rängen: %s', 'Reputation thresholds on ranks: %s'),
+    's_sp_titelruf':   ('Rufschwelle im Auftragstitel', 'Reputation threshold in mission titles'),
+    's_sp_titelruf_h': ('Schreibt in der Auftragsliste in die Bauplan-Marke, ab wie viel Ruf der Auftrag zu haben ist — „[BP 10.000 Rep]". Nur wo alle Stufen dieselbe Schwelle haben; sonst bleibt es bei „[BP]".',
+                        'Adds the reputation a mission needs to the blueprint mark in the mission list — "[BP 10,000 Rep]". Only where every tier has the same threshold; otherwise it stays "[BP]".'),
+    's_sp_titelruf_sagen': ('Rufschwelle im Auftragstitel: %s', 'Reputation threshold in mission titles: %s'),
     's_sp_hand':       ('Von Hand', 'By hand'),
     's_sp_hand_h':     ('Alles Eingefügte steht zwischen Marken und lässt sich auf den Buchstaben genau wieder entfernen.',
                           'Everything inserted sits between markers and can be removed again to the letter.'),

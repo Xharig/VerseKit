@@ -921,14 +921,128 @@ def _report_error(label, exc):
         pass
 
 
-def settings():
-    """Die selbst eingetragenen Pfade. Fehlt die Datei, ist sie leer."""
+# Was beim Lesen einer kaputten Einstellungsdatei passiert ist: None (nichts),
+# 'backup' (Vorgängerfassung übernommen) oder 'defaults' (Standardwerte).
+# Der Watcher-Faden zeigt es beim Start einmal als Hinweis an.
+SETTINGS_RECOVERED = [None]
+
+
+# Eine Datei, die jünger ist als das, gilt beim Lesen als „wird gerade
+# geschrieben" und nicht als kaputt — etwa beim Zurückspielen einer Sicherung
+# oder während jemand sie von Hand speichert.
+SETTINGS_FRESH_SEC = 2.0
+
+
+def _read_settings_file(path):
+    """Ein JSON-Objekt lesen. Wirft FileNotFoundError, ValueError (kein JSON,
+    kein Objekt) oder OSError (gesperrt). `utf-8-sig`, weil manche Editoren
+    und PowerShell 5 ein BOM davorsetzen — die Datei ist trotzdem gültig."""
+    with open(path, encoding='utf-8-sig') as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError('kein JSON-Objekt')
+    return data
+
+
+def _just_written(path):
+    import time
     try:
-        with open(app_file(SETTINGS_FILE), encoding='utf-8') as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+        return time.time() - os.path.getmtime(path) < SETTINGS_FRESH_SEC
+    except OSError:
+        return False
+
+
+def _settings_read():
+    """(Daten, lesbar).
+
+    * Fehlt die Datei: die Vorgängerfassung, sonst ({}, True).
+    * Ist sie kaputt: beiseitelegen, Vorgängerfassung nehmen
+      (`_settings_recover`).
+    * Gesperrt oder gerade erst geschrieben: ({}, False) — dann darf
+      `set_setting` nichts darüberschreiben."""
+    target = app_file(SETTINGS_FILE)
+    try:
+        return _read_settings_file(target), True
+    except FileNotFoundError:
+        try:
+            return _read_settings_file(backup_name(target)), True
+        except (OSError, ValueError):
+            return {}, True
+    except ValueError as exc:
+        if _just_written(target):
+            return {}, False
+        return _settings_recover(target, exc)
+    except OSError as exc:
+        _report_error('paths.settings', exc)
+        return {}, False
+
+
+def _aside_name(target):
+    """`einstellungen.kaputt-<Zeit>.json` — mit Zähler, falls es den Namen
+    in dieser Sekunde schon gibt."""
+    import time
+    stem = '%s.kaputt-%s' % (target[:-5], time.strftime('%Y%m%d-%H%M%S'))
+    name, number = stem + '.json', 1
+    while os.path.exists(name):
+        number += 1
+        name = '%s-%d.json' % (stem, number)
+    return name
+
+
+def _settings_recover(target, broken):
+    """Kaputte Einstellungsdatei: als `einstellungen.kaputt-<Zeit>.json`
+    beiseitelegen und die Vorgängerfassung (`einstellungen.bak.json`) wieder
+    als Hauptdatei einsetzen. Gibt es keine, gelten die Standardwerte.
+    Rückgabe wie `_settings_read`: (Daten, lesbar).
+
+    ⚠ Ohne das las `settings()` eine kaputte Datei still als leer — und der
+    nächste Schalter schrieb die Vorlage darüber. Alle übrigen Einstellungen
+    waren dann endgültig weg.
+
+    ⚠⚠ **Jeder Fehlschlag hier heißt „nicht lesbar".** Ließe sich die kaputte
+    Datei nicht beiseitelegen (unter Windows genügt ein Leser in einem anderen
+    Faden oder der Virenscanner), und käme trotzdem „lesbar, leer" zurück,
+    schriebe `set_setting` die Vorlage darüber — und `save_json` kopierte die
+    kaputte Datei vorher über die gute Vorgängerfassung."""
+    with _SAVE_LOCK:
+        # Ein anderer Faden kann es eben schon erledigt haben.
+        try:
+            return _read_settings_file(target), True
+        except FileNotFoundError:
+            pass
+        except ValueError:
+            _report_error('paths.settings', broken)
+            try:
+                replace_file(target, _aside_name(target))
+            except OSError as exc:
+                _report_error('paths.settings', exc)
+                return {}, False
+        except OSError as exc:
+            _report_error('paths.settings', exc)
+            return {}, False
+        try:
+            data = _read_settings_file(backup_name(target))
+        except FileNotFoundError:
+            SETTINGS_RECOVERED[0] = 'defaults'
+            return {}, True
+        except (OSError, ValueError) as exc:
+            _report_error('paths.settings', exc)
+            SETTINGS_RECOVERED[0] = 'defaults'
+            return {}, True
+        try:
+            write_text_atomic(target, json.dumps(data, ensure_ascii=False,
+                                                 indent=2))
+        except OSError as exc:
+            # Die Hauptdatei fehlt dann; `_settings_read` liest in dem Fall
+            # die Vorgängerfassung, es geht also nichts verloren.
+            _report_error('paths.settings', exc)
+        SETTINGS_RECOVERED[0] = 'backup'
+        return data, True
+
+
+def settings():
+    """Die selbst eingetragenen Einstellungen. Fehlt die Datei, sind sie leer."""
+    return _settings_read()[0]
 
 
 def setting(name):
@@ -1244,20 +1358,20 @@ def set_setting(name, value):
     # ⚠ Lesen, ändern und schreiben unter einer Sperre: Zwei Fäden, die
     # gleichzeitig verschiedene Felder setzen, verlören sonst eines davon.
     target = app_file(SETTINGS_FILE)
-    temp = _temp_name(target)
     try:
         with _SAVE_LOCK:
-            data = settings() or _template()
+            data, readable = _settings_read()
+            if not readable:
+                # ⚠ Gesperrt heißt nicht leer: Mit der Vorlage darüber wären
+                # alle übrigen Einstellungen weg.
+                raise OSError('Einstellungsdatei gerade nicht lesbar')
+            data = data or _template()
             data[name] = value
-            with open(temp, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            replace_file(temp, target)
+            # Mit Vorgängerfassung — aus ihr holt `_settings_recover` den
+            # Stand zurück, falls die Datei einmal kaputtgeht.
+            save_json(target, data, indent=2)
         return True
     except OSError as exc:
-        try:
-            os.remove(temp)
-        except OSError:
-            pass
         # ⚠ Niemand prüft den Rückgabewert dieser Funktion — alle Aufrufer
         # werfen ihn weg. Scheitert das Schreiben
         # (volle Platte, fehlende Rechte, Ordner weg), wäre die Einstellung

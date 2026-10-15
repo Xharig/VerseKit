@@ -907,6 +907,10 @@ class Watcher(threading.Thread):
                 neu, anzahl, version = katalog_modul.update()
                 if neu:
                     self.q.put(('status', language.Phrase('katalog_geholt', anzahl, version)))
+                    # Ein neuer Katalog bringt neue Angaben für die Texte im
+                    # Spiel — gleich nachziehen, nicht erst beim nächsten
+                    # Sechs-Stunden-Takt.
+                    self.texte_next = 0
                 else:
                     # Nichts zu tun heißt: schon aktuell — oder kein Netz. Im
                     # zweiten Fall bald noch einmal versuchen statt sechs Stunden
@@ -2037,7 +2041,19 @@ class Watcher(threading.Thread):
             self.q.put(('systemmeldung', language.Phrase('s_rf_fertig_titel'),
                         text))
 
+    def _einstellungen_geborgen(self):
+        """Eine beschädigte Einstellungsdatei einmal melden — beim Start und
+        auch, wenn sie im laufenden Betrieb kaputtgeht (von Hand bearbeitet)."""
+        geborgen = paths.SETTINGS_RECOVERED[0]
+        if geborgen:
+            paths.SETTINGS_RECOVERED[0] = None
+            self.q.put(('hinweis', language.Phrase(
+                'einst_kaputt_bak' if geborgen == 'backup'
+                else 'einst_kaputt_neu')))
+
     def run(self):
+        self._einstellungen_geborgen()
+
         # 0) Ohne Bauplan-Namen lässt sich die Spielsprache nicht erschließen —
         #    also zuerst den Katalog, falls er noch gar nicht da ist.
         self._katalog_beim_start()
@@ -2079,6 +2095,7 @@ class Watcher(threading.Thread):
         self.q.put(('status', self._statuszeile()))
         while self.running:
             time.sleep(pruefintervall())
+            self._einstellungen_geborgen()
 
             # -1) Hat jemand um ein erneutes Einlesen gebeten?
             if self._neu_einlesen:

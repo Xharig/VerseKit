@@ -15,6 +15,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Bilder pro Sekunde, Prozessor- und Grafikkarten-Last direkt im Spiel.
   MangoHud selbst kommt aus der Paketverwaltung; fehlt es, steht dort, woher.
   Vorgeschlagen von Rhino.
+- **Rufschwelle im Auftragstitel** — in der Auftragsliste steht in der
+  Bauplan-Marke, ab wie viel Ruf der Auftrag zu haben ist:
+  „[BP 10.000 Rep]". Nur wo alle Stufen dieselbe Schwelle haben; auf der
+  Seite *Spiel* abschaltbar.
+
+### Verbessert
+
+- **Beschädigte Einstellungsdatei** — lässt sich die Datei nicht mehr lesen,
+  holt Verse-Kit den Stand vor deiner letzten Änderung zurück und sagt es
+  dir. Vorher galten
+  still die Standardwerte, und die nächste Änderung überschrieb alle übrigen
+  Einstellungen.
 
 ### Dank
 

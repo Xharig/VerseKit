@@ -141,7 +141,8 @@ UNMARKED_BLOCK = re.compile(
     % '|'.join(re.escape(u) for u in _HEADINGS), re.S)
 
 UNMARKED = re.compile(
-    r'(?:\s*<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+)?!?\]</EM4>\s*$'
+    r'(?:\s*<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+)?!?(?: [\d.,]+ Rep)?\]'
+    r'</EM4>\s*$'
     # ⚠ Höchstens **zwei** Umbrüche vor der Linie schlucken, nicht beliebig viele.
     # So viele bringt unser Block selbst mit; alles darüber gehört zu CIGs Text.
     # Mit `*` fehlten am Ende zweier Aufträge je zwei Zeichen — winzig, aber es ist
@@ -168,6 +169,7 @@ UNMARKED = re.compile(
 TEXTS = {
     'de': {
         'kurz':      'BP',
+        'rep_kurz':  'Rep',
         # ⚠ **Missionstyp, nicht dieser Auftrag.** Eine Überschrift, die
         # Baupläne aus *diesem Auftrag* verspricht, sagt mehr, als die Daten
         # hergeben: Die Liste führt alle Preisstufen zusammen, weil sich 123 von
@@ -205,6 +207,7 @@ TEXTS = {
     },
     'en': {
         'kurz':      'BP',
+        'rep_kurz':  'Rep',
         'ueberschr': 'POSSIBLE BLUEPRINTS FOR THIS MISSION TYPE',
         'chance':    'Blueprint chance',
         'rep_min':   'Min. reputation',
@@ -720,7 +723,35 @@ def _title_suffix(entry, owned, words):
     davon hat, sagen die Kästchen in der Liste.
     """
     chars = '!' if (entry.get('bpnote') or '').strip() else ''
-    return ' <EM4>[%s%s]</EM4>' % (words['kurz'], chars)
+    return ' <EM4>[%s%s%s]</EM4>' % (words['kurz'], chars,
+                                     _rep_part(entry, words))
+
+
+# Name der Einstellung für die Rufschwelle im Auftragstitel. Standard **an**.
+SETTING_TITLE_REP = 'ruf_im_titel'
+
+
+def _rep_part(entry, words):
+    """` 10.000 Rep` in der eigenen Marke: `[BP 10.000 Rep]`.
+
+    ⚠ **Bewusst nicht MrKrakens Form `[10 Rep] [BP]`.** Der Notnagel in
+    `UNMARKED` entfernt, was wie unsere Marke aussieht; sähe sie aus wie
+    seine, löschte er auf einer StarStrings-Grundlage ohne Merkdatei dessen
+    Marken mit.
+
+    Nur wenn alle Stufen mit Bauplänen dieselbe Schwelle haben
+    (`rep_eindeutig`, 333 von 353 Aufträgen); bei den übrigen wäre die Zahl
+    für einen Teil der Stufen falsch. Ohne Schwelle (0) steht nichts da.
+    `words['rep_an']` setzt `apply_texts` einmal je Lauf; fehlt es, gilt die
+    Einstellung."""
+    rep = entry.get('rep')
+    wanted = words.get('rep_an')
+    if wanted is None:
+        wanted = paths.setting_bool(SETTING_TITLE_REP, True)
+    if (not wanted or not entry.get('rep_eindeutig') or isinstance(rep, bool)
+            or not isinstance(rep, (int, float)) or rep <= 0):
+        return ''
+    return ' %s %s' % (_group_digits(rep, words), words['rep_kurz'])
 
 
 # Name der Einstellung, mit der sich die Angaben am Gegenstand abschalten
@@ -876,7 +907,10 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
 
     owned = bestand_datei.keys(stock if stock is not None
                                     else bestand_datei.load())
-    words = TEXTS[_lang_code(language)]
+    # Der Schalter einmal je Lauf — nicht für jeden der rund 350 Titel neu
+    # von der Platte (ist die Datei kurz gesperrt, gälte sonst der Standard).
+    words = dict(TEXTS[_lang_code(language)],
+                 rep_an=paths.setting_bool(SETTING_TITLE_REP, True))
 
     # Beide Schlüssel-Arten in eine Tabelle: Titel bekommen das Kürzel,
     # Beschreibungen die Liste.

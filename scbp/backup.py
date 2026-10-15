@@ -362,6 +362,15 @@ def restore(source):
                     if content is None:
                         continue
                 os.makedirs(os.path.dirname(target), exist_ok=True)
+                if os.path.basename(rel).lower() in SETTINGS_NAMES:
+                    # Einstellungen werden ständig von anderen Fäden gelesen —
+                    # nie halb geschrieben zeigen.
+                    with paths._SAVE_LOCK:
+                        temp = paths._temp_name(target)
+                        with open(temp, 'wb') as dst:
+                            dst.write(content)
+                        paths.replace_file(temp, target)
+                    continue
                 with open(target, 'wb') as dst:
                     dst.write(content)
     except (OSError, zipfile.BadZipFile) as exc:
