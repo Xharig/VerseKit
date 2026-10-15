@@ -286,7 +286,7 @@ SEITEN = [
     ('auftragslog', 'Auftrags-Protokoll'),
     ('hangar', 'Mein Hangar'),
     ('wunschliste', 'Wunschliste'),
-    ('einkaufsliste', 'Was noch fehlt'),
+    ('einkaufsliste', 'Einkaufsliste'),
     ('lager', 'Rohstofflager'),
     ('herstellung', 'Herstellung'),
     ('bergbau', 'Bergbau'),

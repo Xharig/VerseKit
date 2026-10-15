@@ -155,6 +155,19 @@ def _read():
     return None
 
 
+def changed_elsewhere(data):
+    """Hat eine andere Stelle die Datei geändert, seit `data` geladen oder
+    gespeichert wurde? Für Seiten, die ihren Stand beim Zeigen auffrischen."""
+    base = _base_of(data)
+    if base is None:
+        return True
+    try:
+        disk = _read()
+    except Exception:
+        return False
+    return disk is not None and disk != base
+
+
 def load():
     """Der eigene Hangar — oder eine leere Liste. Eine kaputte Datei wird
     protokolliert und beiseitegelegt (`paths.load_json`)."""
@@ -369,7 +382,7 @@ def notepad(data=None):
         # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung, sondern ein
         # Name.** Ältere Merkzettel können so etwas enthalten; daraus wird
         # eine kaputte Preisabfrage (`items_prices?uuid=CF-447 Rhino Repeater`),
-        # und die Seite „Was noch fehlt" bleibt leer und lädt endlos.
+        # und die Einkaufsliste bleibt leer und lädt endlos.
         #
         # Hier wird es beim Lesen stillschweigend verworfen — so heilen sich
         # vorhandene Merkzettel von selbst, ohne dass jemand etwas neu eintragen

@@ -1137,6 +1137,35 @@ def route_lines(entries):
                   key=lambda g: (g['laden'].lower(), g['name'].lower()))
 
 
+def group_items(items):
+    """Gleiche Posten eines Schiffs zu einer Zeile zusammenfassen.
+
+    Gleich heißt: dasselbe Schiff, dasselbe Teil anstelle desselben
+    Werksteils, derselbe Weg und derselbe Haken. Zurück kommt je Gruppe eine
+    Kopie des ersten Postens mit `anzahl` (Stückzahl) und `pfade` (alle
+    Steckplätze der Gruppe), in der Reihenfolge des ersten Auftretens.
+    """
+    groups, order = {}, []
+    for item in items:
+        key = (item.get('schiff') or '', item.get('quelle') or '',
+               item.get('sorte') or '', item.get('ref') or item.get('name'),
+               item.get('werk_ref') or '', item.get('weg') or '',
+               bool(item.get('erledigt')))
+        if not item.get('pfad'):
+            key = key + (id(item),)
+        if key not in groups:
+            groups[key] = dict(item, anzahl=0, pfade=[])
+            order.append(key)
+        try:
+            pieces = max(1, int(item.get('anzahl') or 1))
+        except (TypeError, ValueError):
+            pieces = 1
+        groups[key]['anzahl'] += pieces
+        if item.get('pfad'):
+            groups[key]['pfade'].append(item['pfad'])
+    return [groups[k] for k in order]
+
+
 def without_lines(items):
     """Die zu kaufenden Posten, die kein Laden führt, gleiche zusammengefasst:
     `[(Name, Anzahl)]` nach Name."""

@@ -252,6 +252,14 @@ def strip_tag(name):
     return PRESENT_RE.sub('', name) if name else name
 
 
+def _loose_stem(stem):
+    """Ein Schlüsselstamm ohne führenden Unterstrich und ohne `_scitem` am Ende."""
+    stem = stem.lstrip('_')
+    if stem.endswith('_scitem'):
+        stem = stem[:-len('_scitem')]
+    return stem
+
+
 def build_table(lines):
     """Aus den Zeilen einer `global.ini` die Tabelle *Namensschlüssel → Kürzel*.
 
@@ -261,6 +269,7 @@ def build_table(lines):
     Deshalb braucht es keine Namenssuche und keinen Katalog — die Zuordnung ist
     eindeutig."""
     descriptions = {}
+    loose = {}
     name_stems = {}
     for line in lines:
         sep = line.find('=')
@@ -271,15 +280,20 @@ def build_table(lines):
         lower = key.lower()
         if lower.startswith('item_desc'):
             descriptions[lower[9:]] = line[sep + 1:]
+            loose.setdefault(_loose_stem(lower[9:]), []).append(line[sep + 1:])
         elif lower.startswith('item_name'):
             name_stems[lower[9:]] = key
 
     table = {}
     for stem, key in name_stems.items():
-        text = descriptions.get(stem)
-        if not text:
-            continue
-        tag = from_description(text)
+        # ⚠ Erst der genaue Stamm, dann der lose: CIG schreibt manche Paare
+        # ungleich — `item_NamePOWR_JUST_S03_Ginzel_SCItem` zu
+        # `item_DescPOWR_JUST_S03_Ginzel`, `item_Desc_POWR_…` mit Unterstrich.
+        # Es kann auch zwei Beschreibungen geben, von denen eine veraltet ist
+        # und keine Werte trägt — dann zählt die erste, die ein Kürzel ergibt.
+        texts = [descriptions.get(stem)] + loose.get(_loose_stem(stem), [])
+        tag = next((t_ for t_ in (from_description(x) for x in texts if x)
+                    if t_), None)
         if tag:
             table[key] = tag
     return table

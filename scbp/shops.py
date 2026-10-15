@@ -489,8 +489,8 @@ def fetch(ident, name='', force=False):
     #     InvalidURL: URL can't contain control characters
     #
     # Der Abruf scheitert, es wird nichts gemerkt — und weil nichts gemerkt
-    # ist, versucht es die Seite beim nächsten Blick sofort wieder. „Was noch
-    # fehlt" bliebe leer und lüde endlos.
+    # ist, versucht es die Seite beim nächsten Blick sofort wieder. Die
+    # Einkaufsliste bliebe leer und lüde endlos.
     #
     # ⚠ Die Wache steht HIER und nicht nur an der Fundstelle: Sie fängt jede
     # künftige Stelle mit, die versehentlich einen Namen weiterreicht. Ein

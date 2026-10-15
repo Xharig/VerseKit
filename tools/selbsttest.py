@@ -25489,6 +25489,9 @@ def main():
     _pruefung_450()
     _pruefung_451()
     _pruefung_452()
+    _pruefung_453()
+    _pruefung_454()
+    _pruefung_455()
 
     print()
     if fehler:
@@ -43352,6 +43355,194 @@ def _pruefung_452():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim452
         shutil.rmtree(_heim452, ignore_errors=True)
+
+
+def _pruefung_453():
+    """453. Hangar zeigt nach Änderungen anderer Seiten den frischen Stand —
+    und baut ohne Änderung nichts neu."""
+    print('\n453. Hangar frischt beim Zeigen auf')
+    import copy as _cp453
+    from scbp import fleet as _fl453, main_window as _hf453
+    _alt453 = _cp453.deepcopy(_fl453.load())
+    _alt_unknown453 = _fl453.unknown
+    _w453 = None
+    try:
+        _fl453.unknown = lambda *a, **k: []
+        _stand453 = _fl453.load()
+        _stand453['schiffe'] = []
+        _fl453.add(_stand453, 'Cutlass Black', 'Drake Interplanetary')
+        _fl453.save(_stand453)
+        _w453 = _wurzel()
+        _f453 = _hf453.MainWindow(_w453, version='0.0.0-pruefung')
+        _f453.open_page('hangar')
+        _w453.update()
+
+        def _karte453():
+            seite = _f453.pages['hangar']
+            gefunden = []
+
+            def _lauf(x):
+                if (x.winfo_class() == 'Label'
+                        and x.cget('text') == 'Cutlass Black'
+                        and str(x.cget('font')) == str(_f453.f_bold)):
+                    gefunden.append(x)
+                for k in x.winfo_children():
+                    _lauf(k)
+            _lauf(seite)
+            return gefunden[0] if gefunden else None
+
+        _erste453 = _karte453()
+        pruefe(_erste453 is not None, 'Vorbedingung: Schiffskarte steht da')
+        _f453.open_page('wunschliste')
+        _f453.open_page('hangar')
+        _w453.update()
+        pruefe(_karte453() is _erste453,
+               'ohne Änderung: dieselbe Karte, nichts neu gebaut')
+        _anders453 = _fl453.load()
+        _anders453['schiffe'][0]['belegung'] = {
+            'gun': {'ref': 'r-x', 'name': 'X', 'erledigt': True}}
+        _fl453.save(_anders453)
+        _f453.open_page('wunschliste')
+        _f453.open_page('hangar')
+        _w453.update()
+        _neu453 = _karte453()
+        pruefe(_neu453 is not None and _neu453 is not _erste453,
+               'nach Änderung auf einer anderen Seite: frisch aufgebaut')
+    finally:
+        try:
+            if _w453 is not None:
+                _w453.destroy()
+        except Exception:
+            pass
+        _fl453.unknown = _alt_unknown453
+        _fl453.save(_alt453)
+
+
+def _pruefung_454():
+    """454. Warenkorb und Einkaufsliste bündeln gleiche Teile — ein Haken
+    gilt für alle Plätze der Zeile."""
+    print('\n454. Warenkorb: gleiche Teile in einer Zeile')
+    import tkinter as _tk454
+    from tkinter import font as _fo454
+    from scbp import cart as _ca454, pages as _pg454
+
+    def _posten(pfad, name, ref, schiff='Centaurus', erledigt=False):
+        return {'pfad': pfad, 'name': name, 'ref': ref, 'schiff': schiff,
+                'quelle': 'hangar', 'sorte': _ca454.PART, 'werk_ref': 'w-1',
+                'weg': _ca454.BUY, 'erledigt': erledigt,
+                'kauf': {'zustand': _ca454.KNOWN, 'preis': 75145,
+                         'laden': 'Ship Weapons', 'ort': 'Orison'},
+                'bau': {'zustand': _ca454.KNOWN, 'material': 9903,
+                        'dauer': 1680}}
+
+    _liste454 = [_posten('gun_%d' % i, 'M5A Cannon', 'r-m5a')
+                 for i in range(8)]
+    _liste454 += [_posten('radar', 'V880', 'r-v880'),
+                  _posten('gun_x', 'M5A Cannon', 'r-m5a', erledigt=True),
+                  _posten('gun_t', 'M5A Cannon', 'r-m5a', schiff='Talon')]
+    _gruppen454 = _ca454.group_items(_liste454)
+    _kurz454 = [(g['schiff'], g['name'], g['anzahl'], bool(g['erledigt']))
+                for g in _gruppen454]
+    pruefe(_kurz454 == [('Centaurus', 'M5A Cannon', 8, False),
+                        ('Centaurus', 'V880', 1, False),
+                        ('Centaurus', 'M5A Cannon', 1, True),
+                        ('Talon', 'M5A Cannon', 1, False)],
+           'gebündelt je Schiff, Teil und Haken (%r)' % _kurz454)
+    pruefe(len(_gruppen454[0]['pfade']) == 8,
+           'die Zeile kennt alle acht Plätze')
+
+    _wurzel454 = _tk454.Tk()
+    _alt_speichern454 = _pg454._save_entry
+    try:
+        _wurzel454.geometry('+0+0')
+
+        class _F454:
+            pass
+        _f454 = _F454()
+        _f454.f_small = _fo454.Font(family='Calibri', size=10)
+        _f454.f_bold = _fo454.Font(family='Calibri', size=10, weight='bold')
+        _f454.on_show = {}
+        _pg454._save_entry = lambda eintrag: None
+        _schiff454 = {'name': 'Centaurus', 'belegung': {
+            'gun_%d' % i: {'ref': 'r-m5a', 'name': 'M5A Cannon'}
+            for i in range(8)}}
+        _rahmen454 = _tk454.Frame(_wurzel454)
+        _rahmen454.pack(fill='both', expand=True)
+        _neu454 = []
+        _pg454._cart_item(_f454, _rahmen454, _schiff454, _gruppen454[0],
+                          lambda: _neu454.append(1))
+        _wurzel454.update()
+        _texte454 = []
+
+        def _lauf(w):
+            try:
+                if w.cget('text'):
+                    _texte454.append((w.cget('text'), w))
+            except Exception:
+                pass
+            for k in w.winfo_children():
+                _lauf(k)
+        _lauf(_rahmen454)
+        _name454 = [w for s, w in _texte454 if s == '8 × M5A Cannon']
+        pruefe(_name454, 'die Zeile heißt „8 × M5A Cannon" (%r)'
+               % [s for s, _ in _texte454][:4])
+        pruefe(any('(je 75.145' in s or '(75.145 each' in s
+                   for s, _ in _texte454),
+               'der Preis steht für alle acht, mit Stückpreis (%r)'
+               % [s for s, _ in _texte454 if '75.145' in s])
+        if _name454:
+            _name454[0].event_generate('<Button-1>', x=2, y=2)
+            _wurzel454.update()
+        _belegt454 = [bool(v.get('erledigt'))
+                      for v in _schiff454['belegung'].values()]
+        pruefe(all(_belegt454) and _neu454,
+               'ein Klick hakt alle acht Plätze ab (%d von 8)'
+               % sum(_belegt454))
+    finally:
+        _pg454._save_entry = _alt_speichern454
+        try:
+            _wurzel454.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_455():
+    """455. Kürzel am Gegenstand auch bei ungleich geschriebenen Schlüsseln
+    (`…_SCItem`, `item_Desc_…`) und bei einer veralteten zweiten
+    Beschreibung."""
+    print('\n455. Kürzel: ungleiche Schlüssel und doppelte Beschreibungen')
+    from scbp import specs as _sp455
+    _zeilen455 = [
+        'item_DescPOWR_JUST_S03_Ginzel=Gegenstandstyp: Kraftwerk\\nHersteller: '
+        'Juno Starwerk\\nGröße: 3\\nGüteklasse: C\\nKlasse: Industrie\\n\\nText',
+        'item_NamePOWR_JUST_S03_Ginzel_SCItem=Ginzel',
+        'item_Desc_SHLD_GODI_S03_SureStop=Gegenstandstyp: Schildgenerator\\n'
+        'Hersteller: Gorgon\\nGröße: 3\\nGrade: C\\nKlasse: Militär\\n\\nText',
+        'item_Name_SHLD_GODI_S03_SureStop=SureStop',
+        'item_DescPOWR_ACOM_S01_StarHeart=Itemtyp: Kraftwerk\\nHersteller: '
+        'ACOM\\nGröße: 1\\nKlasse: B\\nKategorie: Wettkampf\\n\\nAlt',
+        'item_Desc_POWR_ACOM_S01_StarHeart=Gegenstandstyp: Kraftwerk\\n'
+        'Hersteller: ACOM\\nGröße: 1\\nGrade: B\\nKlasse: Wettkampf\\n\\nNeu',
+        'item_NamePOWR_ACOM_S01_StarHeart=StarHeart',
+        'item_DescCOOL_X_S01_Eins=Gegenstandstyp: Kühler\\nGröße: 1\\n'
+        'Grade: A\\nKlasse: Militär',
+        'item_DescCOOL_X_S01_Eins_SCItem=Gegenstandstyp: Kühler\\nGröße: 1\\n'
+        'Grade: D\\nKlasse: Zivil',
+        'item_NameCOOL_X_S01_Eins=Eins',
+    ]
+    _tab455 = _sp455.build_table(_zeilen455)
+    pruefe(_tab455.get('item_NamePOWR_JUST_S03_Ginzel_SCItem') == '(Ind/3/C)',
+           'Name mit _SCItem findet die Beschreibung ohne (%r)'
+           % _tab455.get('item_NamePOWR_JUST_S03_Ginzel_SCItem'))
+    pruefe(_tab455.get('item_Name_SHLD_GODI_S03_SureStop') == '(Mil/3/C)',
+           'Schlüssel mit Unterstrich nach Name/Desc (%r)'
+           % _tab455.get('item_Name_SHLD_GODI_S03_SureStop'))
+    pruefe(_tab455.get('item_NamePOWR_ACOM_S01_StarHeart') == '(Cmp/1/B)',
+           'veraltete Beschreibung ohne Werte: die zweite zählt (%r)'
+           % _tab455.get('item_NamePOWR_ACOM_S01_StarHeart'))
+    pruefe(_tab455.get('item_NameCOOL_X_S01_Eins') == '(Mil/1/A)',
+           'der genaue Schlüssel geht vor dem losen (%r)'
+           % _tab455.get('item_NameCOOL_X_S01_Eins'))
 
 
 def _alle_eingaben(w):

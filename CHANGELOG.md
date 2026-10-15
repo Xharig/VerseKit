@@ -9,9 +9,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 ## v4.5.0 - 2026-10-15
 
 > Dein Hangar teilt mit dem Basetool jetzt mehr als Schiff und Versicherung:
-> Eigene Schiffsnamen und „Einsatzbereit" gehen in beide Richtungen. Die
-> Einkaufsroute fasst gleiche Teile zusammen, und die Stopps lassen sich in
-> die Reihenfolge ziehen, in der du fliegst.
+> Eigene Schiffsnamen und „Einsatzbereit" gehen in beide Richtungen.
+> „Was noch fehlt" heißt jetzt Einkaufsliste, fasst gleiche Teile zusammen,
+> und die Stopps der Route lassen sich in die Reihenfolge ziehen, in der du
+> fliegst. Und der Hangar reagiert deutlich schneller.
 
 ### Neu
 
@@ -24,12 +25,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
-- **Hangar und „Was noch fehlt" reagieren deutlich schneller** — Teile
-  wählen, ändern und abhaken geht ohne spürbare Wartezeit.
+- **„Was noch fehlt" heißt jetzt Einkaufsliste** — der Name sagt, wofür
+  die Seite da ist.
+- **Hangar und Einkaufsliste reagieren deutlich schneller** — Teile wählen,
+  ändern und abhaken geht ohne spürbare Wartezeit.
+- **Gleiche Teile in einer Zeile** — im Warenkorb, in der Einkaufsliste und
+  in der Route: „8 × M5A Cannon" statt acht Zeilen, mit Summe und
+  Stückpreis. Ein Haken gilt für alle.
+- **Warenkorb im Hangar zugeklappt** — die Zahl offener Posten steht im
+  Kopf, aufgeklappt bleibt er beim Ändern offen.
 - **Hangar: Schiffe mit Stern und eigenem Namen stehen oben** — wie im
   Abrufterminal im Spiel.
-- **Einkaufsroute: gleiche Teile in einer Zeile** — „32 × Dominator II
-  Missile" statt 32 Zeilen, mit Summe und Stückpreis.
 - **Teile ohne Laden stehen mit Namen da** — mit dem Hinweis, dass sie oft
   aus Events oder Paketen stammen.
 - **Hangar: Event- und Paket-Komponenten wählbar** — Kühler, Kraftwerke,
@@ -40,8 +46,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 ### Behoben
 
 - **Abgehakte Posten kamen wieder** — wer im Hangar etwas änderte, nachdem
-  in „Was noch fehlt" etwas abgehakt war, überschrieb die Haken. Jetzt
+  in der Einkaufsliste etwas abgehakt war, überschrieb die Haken. Jetzt
   bleiben beide Änderungen.
+- **Hangar zeigte Abgehaktes weiter im Warenkorb** — was in der
+  Einkaufsliste abgehakt wurde, verschwindet jetzt auch im Hangar.
+- **Kein Kürzel bei 30 Komponenten** — etwa die Kraftwerke Ginzel,
+  Fortitude, Trommel und StarHeart standen im Spiel ganz ohne Klasse, Größe
+  und Güte. Nach dem Update und einem Neustart von Star Citizen ist es da.
+- **Farmliste verwies auf die falsche Seite** — Selbst herstellen wählt man
+  im Warenkorb des Hangars.
 - **Einkaufsroute: gleicher Steckplatz an zwei Schiffen** — einer der beiden
   Posten fehlte auf der Route.
 - **Einkaufsroute ohne Laden** — führt kein Laden die Teile, stand dort

@@ -10868,7 +10868,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
         #     InvalidURL: URL can't contain control characters
         #
-        # Die Seite „Was noch fehlt" bliebe dann leer und versuchte es
+        # Die Einkaufsliste bliebe dann leer und versuchte es
         # endlos weiter.
         #
         # Ohne Kennung ist der Posten trotzdem vollständig: Das Rezept findet
@@ -13633,6 +13633,16 @@ def _hangar(fenster, rahmen):
 
     _liste_fuellen()
 
+    # ⚠ Beim erneuten Öffnen frisch laden, wenn eine andere Seite den Hangar
+    # geändert hat — etwa Haken in der Einkaufsliste. Die Seite wird nur einmal
+    # gebaut; ohne das stünden abgehakte Teile hier weiter im Warenkorb.
+    def _beim_zeigen():
+        if meine.changed_elsewhere(daten['stand']):
+            daten['stand'] = meine.load()
+            _liste_fuellen()
+
+    fenster.on_show['hangar'] = _beim_zeigen
+
     # Unter der Liste: Stand der Namen im Spiel, Grenzen, Knopf zum Übernehmen.
     namen_fuss = tk.Frame(innen, bg=BG)
     namen_fuss.pack(fill='x', padx=24, pady=(0, 24))
@@ -14221,8 +14231,8 @@ def _shopping_list(fenster, rahmen):
                         fill='x')
             _no_data_note(fenster, koerper, werte)
             return
-        # ⚠⚠ **Die Seite heißt „Was noch fehlt" — dann steht hier auch nur
-        # das.** Abgehakte Zeilen unter „0 Positionen" wären Unfug.
+        # ⚠⚠ **Hier steht nur, was noch fehlt.** Abgehakte Zeilen unter
+        # einer Überschrift mit null Positionen wären Unfug.
         #
         # ⚠ Alles abgehakt ist etwas anderes als „nie etwas geplant" — und der
         # Unterschied gehört gesagt, sonst wirkt eine fertige Liste wie eine
@@ -14258,17 +14268,21 @@ def _shopping_list(fenster, rahmen):
             """
             quelle = (stand.get('wunsch') if posten_eintrag.get('quelle')
                       == cart.WISHLIST else stand.get('schiffe')) or []
+            pfade = (posten_eintrag.get('pfade')
+                     or [posten_eintrag.get('pfad')])
             for schiff in quelle:
                 if (schiff.get('name') or '') == posten_eintrag.get('schiff'):
-                    if cart.set_done(schiff,
-                                                 posten_eintrag.get('pfad'),
-                                                 ja):
+                    geaendert = False
+                    for pfad in pfade:
+                        if cart.set_done(schiff, pfad, ja):
+                            geaendert = True
+                    if geaendert:
                         meine.save(stand)
                     break
             neu_zeichnen()
 
         aktuelles = None
-        for eintrag in posten:
+        for eintrag in cart.group_items(posten):
             if eintrag.get('schiff') != aktuelles:
                 aktuelles = eintrag.get('schiff')
                 _buy_ship_head(fenster, koerper, eintrag)
@@ -14509,7 +14523,7 @@ def _demand(fenster, rahmen):
 def _farm_list(fenster, rahmen):
     """Was an Rohstoffen fehlt, um das Geplante selbst zu bauen.
 
-    ⭐⭐ **Die Gegenrichtung zu „Was noch fehlt".** Dort steht, was die Schiffe
+    ⭐⭐ **Die Gegenrichtung zur Einkaufsliste.** Dort steht, was die Schiffe
     brauchen und was es kostet; hier steht, was davon noch **im Boden** liegt
     — gerechnet gegen das eigene Lager.
 
@@ -15028,7 +15042,11 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
     tk.Label(zeile, text=pos, bg=grund, fg=neben, font=fenster.f_small,
              anchor='w', width=22).pack(side='left', padx=rand, pady=4)
 
-    tk.Label(zeile, text=eintrag.get('name') or '', bg=grund, fg=haupt,
+    stueck = max(1, int(eintrag.get('anzahl') or 1))
+    name = eintrag.get('name') or ''
+    if stueck > 1:
+        name = '%d × %s' % (stueck, name)
+    tk.Label(zeile, text=name, bg=grund, fg=haupt,
              font=fenster.f_small, anchor='w').pack(side='left')
 
     # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
@@ -15049,8 +15067,12 @@ def _buy_row(fenster, eltern, eintrag, abhaken=None):
         # nichts mehr, und eine durchgestrichene Zahl waere nur Ballast.
         betrag, farbe = t('s_ek_erledigt'), ACCENT
     elif angabe.get('zustand') == cart.KNOWN:
-        betrag = _money(angabe.get('preis') if weg == cart.BUY
-                       else angabe.get('material'))
+        einzeln = (angabe.get('preis') if weg == cart.BUY
+                   else angabe.get('material'))
+        betrag = (_money(einzeln) if stueck <= 1
+                  else t('s_wk_route_je').format(
+                      summe=_money((einzeln or 0) * stueck),
+                      preis=_money(einzeln)))
         farbe = FG
     elif angabe.get('zustand') == cart.NOT_CHECKED:
         betrag, farbe = t('s_wk_nicht_geprueft'), SUB
@@ -15439,18 +15461,54 @@ def _cart_content(fenster, eltern, eintrag, daten, neu_zeichnen):
     # sie zurück. Wer einen Haken versehentlich setzt, muss ihn wiederfinden —
     # „Zurücksetzen" wäre der falsche Weg zurück, das wirft auch die getroffene
     # Auswahl weg und stellt die Werksausstattung wieder her.
-    tk.Label(eltern, text=t('s_wk_posten').format(n=len(noch_offen)),
+    # ⭐ Zugeklappt, mit der Zahl im Kopf: Dieselben Posten stehen über alle
+    # Schiffe in der Einkaufsliste. Offen bleibt er je Schiff, solange das
+    # Programm läuft — sonst klappte er nach jeder Wahl wieder zu.
+    schluessel = (eintrag.get('name') or '', eintrag.get('hersteller') or '')
+    kasten = tk.Frame(eltern, bg=SURFACE)
+    kasten.pack(fill='x')
+    kopf = tk.Frame(kasten, bg=SURFACE, cursor='hand2')
+    kopf.pack(fill='x', padx=(46, 16), pady=(8, 4))
+    pfeil = icons.line(kopf, 'aufklappen', background=SURFACE,
+                       font=fenster.f_small)
+    pfeil.pack(side='left', padx=(0, 8))
+    tk.Label(kopf, text=t('s_wk_posten').format(n=len(noch_offen)),
              bg=SURFACE, fg=FG, font=fenster.f_bold, anchor='w').pack(
-                 fill='x', padx=(46, 16), pady=(8, 4))
+                 side='left')
+    koerper = tk.Frame(kasten, bg=SURFACE)
 
-    for posten in noch_offen:
-        _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen)
+    def fuellen():
+        for posten in cart.group_items(noch_offen):
+            _cart_item(fenster, koerper, eintrag, posten, neu_zeichnen)
+        if fertig:
+            _installed_items(fenster, koerper, eintrag, fertig, neu_zeichnen)
+        _cart_total(fenster, koerper, liste)
+        _cart_route(fenster, koerper, liste)
 
-    if fertig:
-        _installed_items(fenster, eltern, eintrag, fertig, neu_zeichnen)
+    def zeigen(offen):
+        if offen:
+            if not koerper.winfo_children():
+                fuellen()
+            koerper.pack(fill='x', after=kopf)
+            pfeil.swap_symbol('zuklappen')
+            _CART_OPEN.add(schluessel)
+        else:
+            koerper.pack_forget()
+            pfeil.swap_symbol('aufklappen')
+            _CART_OPEN.discard(schluessel)
 
-    _cart_total(fenster, eltern, liste)
-    _cart_route(fenster, eltern, liste)
+    def umschalten(_=None):
+        zeigen(not koerper.winfo_ismapped())
+
+    for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
+        teil.bind('<Button-1>', umschalten)
+    icons.hover_group(kopf, pfeil)
+    if schluessel in _CART_OPEN:
+        zeigen(True)
+
+
+# Schiffe (Name, Hersteller), deren Warenkorb gerade aufgeklappt ist.
+_CART_OPEN = set()
 
 
 def _fetch_cart_prices(liste, widget, neu_zeichnen):
@@ -15877,7 +15935,8 @@ def _installed_items(fenster, eltern, eintrag, fertig, neu_zeichnen):
         else:
             for kind in koerper.winfo_children():
                 kind.destroy()
-            for posten in fertig:
+            from . import cart
+            for posten in cart.group_items(fertig):
                 _cart_item(fenster, koerper, eintrag, posten,
                                   neu_zeichnen, eingerueckt=False)
             koerper.pack(fill='x', after=kopf)
@@ -15901,13 +15960,17 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
     Posten für Posten. Wer gerade kein Erz hat, kauft trotz des besseren
     Preises; wer Zeit hat, baut.
     """
-    from . import cart, fleet as meine
+    from . import cart
 
     karte = tk.Frame(eltern, bg=theme.FIELD)
     karte.pack(fill='x', padx=((46, 16) if eingerueckt else (0, 0)),
                pady=(0, 6))
 
     fertig = bool(posten.get('erledigt'))
+    # Ein gebündelter Posten (`cart.group_items`) steht für mehrere Plätze;
+    # Haken und Wahl gelten dann für alle.
+    pfade = posten.get('pfade') or [posten['pfad']]
+    stueck = max(1, int(posten.get('anzahl') or 1))
     kopf = tk.Frame(karte, bg=theme.FIELD)
     kopf.pack(fill='x', padx=12, pady=(8, 2))
 
@@ -15915,7 +15978,11 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
     # Genau hier steht man vor dem Schiff und sieht seine Plätze — hier fällt
     # einem ein, dass das Teil längst drin ist, nicht zwei Reiter weiter.
     def abhaken(_e=None):
-        if cart.set_done(eintrag, posten['pfad'], not fertig):
+        geaendert = False
+        for pfad in pfade:
+            if cart.set_done(eintrag, pfad, not fertig):
+                geaendert = True
+        if geaendert:
             _save_entry(eintrag)
             neu_zeichnen()
 
@@ -15928,7 +15995,10 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
 
     # ⚠ Erledigtes tritt zurück, bleibt aber lesbar — wer versehentlich
     # abhakt, muss die Zeile wiederfinden.
-    tk.Label(kopf, text=posten.get('name') or '', bg=theme.FIELD,
+    name = posten.get('name') or ''
+    if stueck > 1:
+        name = '%d × %s' % (stueck, name)
+    tk.Label(kopf, text=name, bg=theme.FIELD,
              fg=SUB if fertig else FG,
              font=fenster.f_bold, anchor='w', cursor='hand2').pack(side='left')
     # Wogegen getauscht wird — ohne diese Angabe ist „non-stock" eine
@@ -15953,10 +16023,21 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
 
     def waehlen(weg):
         def tat():
-            if cart.set_method(eintrag, posten['pfad'], weg):
+            geaendert = False
+            for pfad in pfade:
+                if cart.set_method(eintrag, pfad, weg):
+                    geaendert = True
+            if geaendert:
                 _save_entry(eintrag)
                 neu_zeichnen()
         return tat
+
+    def betrag(einzeln):
+        """Ein Betrag für alle Stück — bei mehreren mit Stückpreis."""
+        if stueck <= 1:
+            return _money(einzeln)
+        return t('s_wk_route_je').format(summe=_money((einzeln or 0) * stueck),
+                                         preis=_money(einzeln))
 
     for weg, schluessel, zustandsfeld in ((cart.BUY, 's_wk_kaufen',
                                            'kauf'),
@@ -15988,13 +16069,13 @@ def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
                 if ort and ort.lower() not in laden.lower():
                     stellen.append(ort)
                 text = t('s_wk_kauf_preis').format(
-                    preis=_money(angabe.get('preis')),
+                    preis=betrag(angabe.get('preis')),
                     laden=' · '.join(stellen) or '?', ort='')
                 text = text.rstrip(' ·')
             else:
                 text = t('s_wk_bau_kosten').format(
-                    preis=_money(angabe.get('material')),
-                    dauer=_duration(angabe.get('dauer')))
+                    preis=betrag(angabe.get('material')),
+                    dauer=_duration((angabe.get('dauer') or 0) * stueck))
             farbe = FG
         elif angabe.get('zustand') == cart.NO_RECIPE:
             text, farbe = t('s_wk_kein_rezept'), SUB

@@ -4378,11 +4378,12 @@ TEXTS = {
                           'to "build it yourself".'),
     's_fl_kopf':         ('Für {n} geplante Bauteile', 'For {n} planned parts'),
     's_fl_nichts_geplant': ('Nichts auf „selbst herstellen" gestellt. Wähl bei '
-                            'einem Teil unter „Was noch fehlt" das Herstellen, '
-                            'dann steht hier, was du dafür farmen musst.',
+                            'einem Teil im Warenkorb unter „Mein Hangar" das '
+                            'Herstellen, dann steht hier, was du dafür farmen '
+                            'musst.',
                             'Nothing set to "build it yourself". Choose '
-                            'building for a part under "Still missing" and '
-                            'this page shows what you need to farm.'),
+                            'building for a part in the cart under "My hangar" '
+                            'and this page shows what you need to farm.'),
     's_fl_alles_da':     ('Alles da — du kannst sofort loslegen.',
                           'Everything in stock — you can start right away.'),
     's_fl_reicht_kopf':  ('Reicht schon ({n})', 'Already enough ({n})'),
@@ -4626,7 +4627,7 @@ TEXTS = {
     # im Schiff steckt.
     #
     # ⚠ „Loadout" ist auf Englisch der eingeführte Begriff.
-    's_wk_titel':        ('Ausstattung & Warenkorb', 'Loadout & shopping list'),
+    's_wk_titel':        ('Ausstattung & Warenkorb', 'Loadout & cart'),
     's_wk_auslegung':    ('Ausstattung', 'Loadout'),
     's_wk_ab_werk':      ('ab Werk: {name}', 'stock: {name}'),
     's_wk_ab_werk_leer': ('ab Werk leer', 'empty from factory'),
@@ -4644,7 +4645,7 @@ TEXTS = {
                           'wie es ab Werk kommt.',
                           'Nothing to buy — your ship is set up exactly as it '
                           'comes from the factory.'),
-    's_wk_posten':       ('Warenkorb ({n})', 'Shopping list ({n})'),
+    's_wk_posten':       ('Warenkorb ({n})', 'Cart ({n})'),
     's_wk_statt':        ('statt {name}', 'instead of {name}'),
     's_wk_zusaetzlich':  ('zusätzlich (Platz war leer)',
                           'additional (slot was empty)'),
@@ -5655,7 +5656,7 @@ TEXTS = {
     # selbst herstellen. Der Name folgt dem Muster der anderen Reiter
     # („Was steckt drin?", „Was ist
     # neu") und sagt, welche Frage die Seite beantwortet.
-    'hf_einkaufsliste':  ('Was noch fehlt', 'Still missing'),
+    'hf_einkaufsliste':  ('Einkaufsliste', 'Shopping list'),
     'hf_farmliste':      ('Was ich farmen muss', 'What to farm'),
     'hf_bedarf':         ('Bedarf der Einheit', 'Unit demand'),
     'hf_zerlegen':       ('Lohnt das Zerlegen?', 'Worth dismantling?'),

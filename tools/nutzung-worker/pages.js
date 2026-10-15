@@ -14,7 +14,7 @@ export const PAGES = {
   auftragslog: ['Baupläne', 'Aufträge & Protokoll'],
   hangar: ['Schiffe', 'Mein Hangar'],
   wunschliste: ['Schiffe', 'Wunschliste'],
-  einkaufsliste: ['Schiffe', 'Was noch fehlt'],
+  einkaufsliste: ['Schiffe', 'Einkaufsliste'],
   asop: ['Schiffe', 'Schiffe benennen'],
   lager: ['Werkstatt', 'Rohstofflager'],
   herstellung: ['Werkstatt', 'Herstellung'],

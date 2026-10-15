@@ -9,8 +9,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 ## v4.5.0 - 2026-10-15
 
 > Your hangar now shares more than ship and insurance with the Basetool: your
-> own ship names and "Ready" go both ways. The shopping route groups identical
-> parts, and you can drag the stops into the order you fly them.
+> own ship names and "Ready" go both ways. "Still missing" is now the shopping
+> list, groups identical parts, and you can drag the route's stops into the
+> order you fly them. And the hangar responds much faster.
 
 ### New
 
@@ -23,12 +24,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
-- **Hangar and "Still missing" respond much faster** — choosing, changing and
+- **"Still missing" is now the shopping list** — the name says what the page
+  is for.
+- **Hangar and shopping list respond much faster** — choosing, changing and
   ticking off parts no longer comes with a noticeable wait.
+- **Identical parts in one line** — in the cart, the shopping list and the
+  route: "8 × M5A Cannon" instead of eight lines, with total and unit price.
+  One tick covers all of them.
+- **Hangar cart collapsed** — the number of open items shows in its header;
+  once opened, it stays open while you change things.
 - **Hangar: ships with a star or your own name come first** — like the
   in-game ship terminal.
-- **Shopping route: identical parts in one line** — "32 × Dominator II
-  Missile" instead of 32 lines, with total and unit price.
 - **Parts without a shop are listed by name** — with a note that they often
   come from events or packages.
 - **Hangar: event and package components selectable** — coolers, power
@@ -39,8 +45,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 ### Fixed
 
 - **Ticked-off items came back** — changing something in the hangar after
-  ticking items off in "Still missing" overwrote the ticks. Both changes now
-  stay.
+  ticking items off in the shopping list overwrote the ticks. Both changes
+  now stay.
+- **Hangar kept showing ticked-off items in the cart** — what you tick off
+  in the shopping list now disappears from the hangar too.
+- **No tag on 30 components** — power plants such as Ginzel, Fortitude,
+  Trommel and StarHeart showed no class, size or grade in the game. After the
+  update and a restart of Star Citizen it is there.
+- **Farming list pointed to the wrong page** — you choose to build a part
+  yourself in the hangar's cart.
 - **Shopping route: same slot on two ships** — one of the two items was
   missing from the route.
 - **Shopping route without shops** — when no shop sells the parts, it said

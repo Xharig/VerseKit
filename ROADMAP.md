@@ -73,7 +73,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Namen im Spiel** (im Hangar, an jedem Schiff): eigene Namen im Abrufterminal (ASOP) statt der Werksnamen, ein Sternchen als Merker — und der Werksname kommt zeichengenau zurück |
 | ✅ | **Passt in dein Schiff**: zu jedem Bauplan steht, in welche deiner Schiffe das Teil hineingehört und in wie viele Steckplätze |
 | ✅ | **Wunschliste**: Schiffe, die du dir vornimmst — mit Kaufpreis, Ort und einer Ausstattung, die sich planen lässt, bevor du das Schiff besitzt |
-| ✅ | **Was noch fehlt**: die Rechnung über alle Schiffe — je Steckplatz kaufen oder selbst bauen, mit Güte und Klasse an jedem Teil, Summe und Einkaufsroute; Eingebautes hakst du ab |
+| ✅ | **Einkaufsliste**: die Rechnung über alle Schiffe — je Steckplatz kaufen oder selbst bauen, mit Güte und Klasse an jedem Teil, Summe und Einkaufsroute; Eingebautes hakst du ab |
 | ✅ | **Was ich farmen muss**: dein Rohstofflager gegen alles gerechnet, was du selbst herstellen willst — über alle Posten zusammen, nicht Rezept für Rezept, mit Stückzahl je Teil |
 | ✅ | **Lohnt das Zerlegen?**: was der Fabricator zurückgibt — mit den sechs Rohstoffen, die dabei ersatzlos verschwinden |
 | ✅ | **Belegungen mitsichern**: Tastatur- und Joystick-Belegung gehen mit in die Sicherung und lassen sich als benanntes Profil dort ablegen, wo Star Citizen sie findet |
