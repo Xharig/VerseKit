@@ -36133,8 +36133,17 @@ def _pruefung_350():
     alt_status = dict(_bs350.STATUS)
     alt_schalter = _pf350.setting_bool(_bs350.SETTING_STOCK, False)
     alt_sprache = _la350.current()
+    alt_halt350 = _bs350._schedule.get('halted')
     w = None
     try:
+        # ⚠ Watcher früherer Prüfungen rufen `basetool_sync.tick()`. Steht die
+        # Verbindung hier auf verbunden, stießen sie einen echten Abgleich an,
+        # und der schriebe mitten in die Messung `NOT_CONNECTED` in den Stand.
+        watcher_anhalten()
+        _bs350._schedule['halted'] = True
+        _ende350 = time.monotonic() + 10.0
+        while _bs350.STATUS.get('running') and time.monotonic() < _ende350:
+            time.sleep(0.1)
         _la350.set_language('de')
         _bt350.CONNECTION.connected = lambda: verbunden[0]
         _bs350.request_now = lambda: angestossen.append(1)
@@ -36245,6 +36254,7 @@ def _pruefung_350():
             pass
         _bs350.STATUS.clear()
         _bs350.STATUS.update(alt_status)
+        _bs350._schedule['halted'] = alt_halt350
         _pf350.set_setting(_bs350.SETTING_STOCK, alt_schalter)
         _pu350._drop()
         _pu350.reset_for_test()
