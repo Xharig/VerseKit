@@ -117,6 +117,19 @@ header{
 }
 .film video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:7px;background:#0e131b;cursor:pointer}
 .hero .anderes{margin-top:12px;font-size:15px;color:var(--text-leise)}
+/* Kennzahlen unter den Knöpfen. Version und Größe trägt das Skript nach,
+   sobald GitHub geantwortet hat — bis dahin bleiben die Kacheln weg. */
+.kennzahlen{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:22px 0 0}
+.kennzahl{background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;
+  padding:10px 14px;flex:0 0 250px;box-sizing:border-box}
+.kennzahl[hidden]{display:none}
+@media (max-width:820px){
+  .kennzahlen{flex-direction:column;align-items:center}
+  .kennzahl{flex:none;width:100%;max-width:320px}
+}
+.kennzahl .was{display:block;font-size:12px;letter-spacing:3px;text-transform:uppercase;
+  color:var(--text-leise)}
+.kennzahl .wert{display:block;color:var(--neon);font-weight:800;font-size:17px;margin-top:2px}
 
 /* ---------- Abschnitte ---------- */
 section{padding:66px 0;position:relative}
@@ -193,6 +206,11 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .faq ol{padding-left:22px}
 .faq li{margin-bottom:6px}
 .faq-gruppe{font-size:22px;margin:40px 0 14px}
+.faq-untergruppe{font-size:13px;letter-spacing:4px;text-transform:uppercase;color:var(--neon-tief);
+  font-weight:700;margin:24px 0 10px}
+.checkliste{background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;
+  padding:16px 22px 16px 44px;color:var(--text-leise);font-size:16px;margin:0 0 6px}
+.checkliste li{margin-bottom:6px}
 
 /* ---------- Laden ---------- */
 .laden{position:relative;overflow:hidden}
@@ -212,6 +230,13 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
    GitHub geantwortet hat — bleibt sie aus, steht dort einfach nichts. */
 .laden .fassung{color:var(--text-leise);font-size:15px;margin:0 0 22px}
 .laden .fassung strong{color:var(--neon);margin-right:6px}
+.pruefsumme{background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;
+  padding:18px 22px;margin:0 0 6px;text-align:left}
+.pruefsumme h3{margin:0 0 6px;font-size:17px;font-weight:800}
+.pruefsumme p{margin:0 0 10px;color:var(--text-leise);font-size:15px}
+.pruefsumme code{display:block;color:var(--neon);font-size:14px;word-break:break-all;margin:2px 0}
+.pruefsumme .sys{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--text-leise);
+  font-weight:700;margin-top:8px}
 
 /* ---------- Änderungen ---------- */
 /* Die Texte kommen aus CHANGELOG.md / CHANGELOG.en.md im selben Repo — die
@@ -358,6 +383,20 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
        data-en="Free and open source under GPL-3.0. Download, run, done.">
       Kostenlos und quelloffen unter GPL-3.0. Herunterladen, starten, fertig.
     </p>
+    <div class="kennzahlen">
+      <div class="kennzahl" id="kz-version" hidden>
+        <span class="was" data-de="Version" data-en="Version">Version</span>
+        <span class="wert" id="kz-version-wert"></span>
+      </div>
+      <div class="kennzahl">
+        <span class="was" data-de="Läuft auf" data-en="Runs on">Läuft auf</span>
+        <span class="wert">Windows 10/11 · Linux</span>
+      </div>
+      <div class="kennzahl" id="kz-groesse" hidden>
+        <span class="was" data-de="Download" data-en="Download">Download</span>
+        <span class="wert" id="kz-groesse-wert"></span>
+      </div>
+    </div>
     <p class="zahl" id="downloads" hidden><strong id="downloads-zahl"></strong>Downloads</p>
 
     <div class="film">
@@ -520,6 +559,21 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
          data-de="Alle Fassungen ansehen" data-en="See all versions">Alle Fassungen ansehen</a>
     </p>
 
+    <div class="pruefsumme">
+      <h3 data-de="Echtheit prüfen" data-en="Check it is genuine">Echtheit prüfen</h3>
+      <p>
+        <span data-de="Zu jeder Fassung gehört eine Prüfsumme. Der Wert, den dein System ausgibt, muss in"
+              data-en="Every version comes with a checksum. The value your system prints must appear in">Zu jeder Fassung gehört eine Prüfsumme. Der Wert, den dein System ausgibt, muss in</span>
+        <a href="https://github.com/Xharig/VerseKit/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>
+        <span data-de="stehen. Sonst die Datei nicht starten."
+              data-en="— otherwise do not run the file.">stehen. Sonst die Datei nicht starten.</span>
+      </p>
+      <div class="sys" data-de="Windows (Eingabeaufforderung im Download-Ordner)" data-en="Windows (Command Prompt in your downloads folder)">Windows (Eingabeaufforderung im Download-Ordner)</div>
+      <code>certutil -hashfile VerseKit-Setup.exe SHA256</code>
+      <div class="sys">Linux</div>
+      <code>sha256sum VerseKit-x86_64.AppImage</code>
+    </div>
+
     <p class="hinweis"
        data-de="Beim ersten Start meldet Windows „Der Computer wurde durch Windows geschützt“ — das passiert bei jedem Programm ohne teures Zertifikat. Auf „Weitere Informationen“ klicken, dann auf „Trotzdem ausführen“. Die Anleitung im Verzeichnis erklärt es mit Bildern."
        data-en="On first start Windows says “Windows protected your PC” — that happens with every program without an expensive certificate. Click “More info”, then “Run anyway”. The readme explains it with pictures.">
@@ -624,17 +678,8 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     <!-- Auf der Startseite ausgeblendet, damit sie kurz bleibt; sichtbar unter #fragen-alle. -->
     <div class="nur-unterseite">
       <h3 class="faq-gruppe" data-de="Wenn etwas nicht klappt" data-en="When something does not work">Wenn etwas nicht klappt</h3>
+      <h4 class="faq-untergruppe" data-de="Installieren, starten, aktualisieren" data-en="Install, start, update">Installieren, starten, aktualisieren</h4>
       <div class="faq">
-        <details>
-          <summary data-de="Meine Bauplan-Angaben sind im Spiel verschwunden" data-en="My blueprint details have disappeared in the game">Meine Bauplan-Angaben sind im Spiel verschwunden</summary>
-          <p data-de="Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins."
-             data-en="Every game patch and every translation update rewrites the game's text file, which drops the details. After a patch Verse-Kit inserts them again by itself; by hand it is under Game settings → Game → “Insert again”. Then quit Star Citizen completely and start it again — the game only reads the file at startup. If a second translation tool runs alongside, the two overwrite each other: use only one.">Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins.</p>
-        </details>
-        <details>
-          <summary data-de="In der Bauplan-Liste fehlen Baupläne, die ich habe" data-en="The blueprint list is missing blueprints I own">In der Bauplan-Liste fehlen Baupläne, die ich habe</summary>
-          <p data-de="Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“."
-             data-en="Verse-Kit counts what appeared in Star Citizen's logs since setup — the game deletes older logs itself. Compare once with the fabricator in the game and tick off what is missing in the blueprint list. If your inventory is already in the Basetool, on scmdb or in a file, bring it in under Settings → Backup &amp; reset → “Import inventory”.">Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“.</p>
-        </details>
         <details>
           <summary data-de="Mein Virenscanner meldet Verse-Kit" data-en="My antivirus flags Verse-Kit">Mein Virenscanner meldet Verse-Kit</summary>
           <p data-de="Ein Fehlalarm: Programme, die wie Verse-Kit zu einer einzigen Datei gepackt sind, werden oft fälschlich erkannt. Ob deine Datei echt ist, zeigt die Prüfsumme: An jeder Fassung auf GitHub hängt SHA256SUMS.txt, und der Wert dort muss zu deiner Datei passen (unter Windows: certutil -hashfile VerseKit-Setup.exe SHA256). Passt er, die Datei im Virenscanner freigeben."
@@ -657,31 +702,62 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
           </ol>
         </details>
         <details>
+          <summary data-de="Linux: Der Startknopf startet Star Citizen nicht" data-en="Linux: the launch button does not start Star Citizen">Linux: Der Startknopf startet Star Citizen nicht</summary>
+          <p data-de="Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein."
+             data-en="On its own the button only finds the LUG Helper start script. If you play through Lutris, Heroic or Flatpak, enter your own command under Settings → Installation &amp; paths → “Launch command for Star Citizen”.">Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein.</p>
+        </details>
+      </div>
+      <h4 class="faq-untergruppe" data-de="Im Spiel" data-en="In the game">Im Spiel</h4>
+      <div class="faq">
+        <details>
+          <summary data-de="Meine Bauplan-Angaben sind im Spiel verschwunden" data-en="My blueprint details have disappeared in the game">Meine Bauplan-Angaben sind im Spiel verschwunden</summary>
+          <p data-de="Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins."
+             data-en="Every game patch and every translation update rewrites the game's text file, which drops the details. After a patch Verse-Kit inserts them again by itself; by hand it is under Game settings → Game → “Insert again”. Then quit Star Citizen completely and start it again — the game only reads the file at startup. If a second translation tool runs alongside, the two overwrite each other: use only one.">Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins.</p>
+        </details>
+        <details>
           <summary data-de="Der Signatur-Scanner zeigt beim Minen nichts an" data-en="The signature scanner shows nothing while mining">Der Signatur-Scanner zeigt beim Minen nichts an</summary>
           <p data-de="Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Werkstatt → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows."
              data-en="Look at the eye in the overlay bar: grey means off — click it; yellow means on but not reading — restart Verse-Kit once; green means it is reading. If a number is not recognised, teach it under Workshop → Mining → “Teach digits”. The scanner is Windows only.">Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Werkstatt → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows.</p>
+        </details>
+      </div>
+      <h4 class="faq-untergruppe" data-de="Deine Daten" data-en="Your data">Deine Daten</h4>
+      <div class="faq">
+        <details>
+          <summary data-de="In der Bauplan-Liste fehlen Baupläne, die ich habe" data-en="The blueprint list is missing blueprints I own">In der Bauplan-Liste fehlen Baupläne, die ich habe</summary>
+          <p data-de="Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“."
+             data-en="Verse-Kit counts what appeared in Star Citizen's logs since setup — the game deletes older logs itself. Compare once with the fabricator in the game and tick off what is missing in the blueprint list. If your inventory is already in the Basetool, on scmdb or in a file, bring it in under Settings → Backup &amp; reset → “Import inventory”.">Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“.</p>
         </details>
         <details>
           <summary data-de="Verse-Kit merkt sich nichts, die Statistik bleibt bei 0" data-en="Verse-Kit remembers nothing, the statistics stay at 0">Verse-Kit merkt sich nichts, die Statistik bleibt bei 0</summary>
           <p data-de="Meist liegt der Ordner für deine Daten in OneDrive oder an einer Stelle, an der Verse-Kit nicht schreiben darf. Unter Einstellungen → Installation &amp; Pfade → „Ordner für deine Daten“ einen Ordner außerhalb von OneDrive wählen, etwa auf D:."
              data-en="Usually the folder for your data is in OneDrive or somewhere Verse-Kit may not write to. Under Settings → Installation &amp; paths → “Folder for your data”, choose a folder outside OneDrive, for example on D:.">Meist liegt der Ordner für deine Daten in OneDrive oder an einer Stelle, an der Verse-Kit nicht schreiben darf. Unter Einstellungen → Installation &amp; Pfade → „Ordner für deine Daten“ einen Ordner außerhalb von OneDrive wählen, etwa auf D:.</p>
         </details>
+      </div>
+      <h4 class="faq-untergruppe" data-de="Darstellung" data-en="Display">Darstellung</h4>
+      <div class="faq">
         <details>
           <summary data-de="Die Schrift ist unscharf (4K oder Skalierung über 100 %)" data-en="The text is blurry (4K or scaling above 100 %)">Die Schrift ist unscharf (4K oder Skalierung über 100 %)</summary>
           <p data-de="Unter Einstellungen → Darstellung „Scharfe Darstellung“ einschalten und Verse-Kit neu starten."
              data-en="Turn on “Sharp rendering” under Settings → Appearance and restart Verse-Kit.">Unter Einstellungen → Darstellung „Scharfe Darstellung“ einschalten und Verse-Kit neu starten.</p>
         </details>
-        <details>
-          <summary data-de="Linux: Der Startknopf startet Star Citizen nicht" data-en="Linux: the launch button does not start Star Citizen">Linux: Der Startknopf startet Star Citizen nicht</summary>
-          <p data-de="Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein."
-             data-en="On its own the button only finds the LUG Helper start script. If you play through Lutris, Heroic or Flatpak, enter your own command under Settings → Installation &amp; paths → “Launch command for Star Citizen”.">Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein.</p>
-        </details>
-        <details>
-          <summary data-de="Nichts davon hilft" data-en="None of this helps">Nichts davon hilft</summary>
-          <p data-de="Klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt. Oder frag im Discord — der Knopf steht in Verse-Kit unten links."
-             data-en="In Verse-Kit, click “Report a problem” at the bottom right. The report goes straight to the developer, with personal folder names removed first. Or ask on Discord — the button is at the bottom left in Verse-Kit.">Klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt. Oder frag im Discord — der Knopf steht in Verse-Kit unten links.</p>
-        </details>
       </div>
+      <h3 class="faq-gruppe" data-de="Das gehört in einen Fehlerbericht" data-en="What belongs in an error report">Das gehört in einen Fehlerbericht</h3>
+      <p class="einleitung" data-de="Hilft nichts davon, klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt."
+         data-en="If none of this helps, click “Report a problem” at the bottom right in Verse-Kit. The report goes straight to the developer, with personal folder names removed first.">Hilft nichts davon, klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt.</p>
+      <ol class="checkliste">
+        <li data-de="Version, System und die letzten Fehler — trägt der Bericht selbst ein, du musst nichts abschreiben."
+            data-en="Version, system and the latest errors — the report adds them itself, nothing to copy.">Version, System und die letzten Fehler — trägt der Bericht selbst ein, du musst nichts abschreiben.</li>
+        <li data-de="Was du getan hast, kurz der Reihe nach: welcher Reiter, welcher Knopf."
+            data-en="What you did, briefly and in order: which tab, which button.">Was du getan hast, kurz der Reihe nach: welcher Reiter, welcher Knopf.</li>
+        <li data-de="Was passieren sollte und was stattdessen passiert ist."
+            data-en="What should have happened and what happened instead.">Was passieren sollte und was stattdessen passiert ist.</li>
+        <li data-de="Ein Bild davon — bis zu vier lassen sich an den Bericht hängen."
+            data-en="A picture of it — you can attach up to four to the report.">Ein Bild davon — bis zu vier lassen sich an den Bericht hängen.</li>
+        <li data-de="Betrifft es das Spiel: ob LIVE oder PTU."
+            data-en="If it concerns the game: whether LIVE or PTU.">Betrifft es das Spiel: ob LIVE oder PTU.</li>
+      </ol>
+      <p class="hinweis" data-de="Startet Verse-Kit gar nicht, frag im Discord und schick die Fehlermeldung als Bild mit — dazu Windows oder Linux und welche Version du geladen hast."
+         data-en="If Verse-Kit does not start at all, ask on Discord and send the error message as a picture — plus Windows or Linux and which version you downloaded.">Startet Verse-Kit gar nicht, frag im Discord und schick die Fehlermeldung als Bild mit — dazu Windows oder Linux und welche Version du geladen hast.</p>
     </div>
     <div class="verlauf-mehr alle-aenderungen nur-start">
       <button onclick="location.hash='fragen-alle'"
@@ -1107,8 +1183,39 @@ knopfRichten();
    (GitHub erlaubt 60 Abfragen je Stunde und Besucher). */
 var downloads = null;
 var fassung = null;      // Nummer der neuesten fertigen Fassung, z. B. "v3.53.2"
+var groessen = null;     // {windows: Bytes, linux: Bytes} der neuesten Fassung
+
+function groessenAus(release){
+  var g = {};
+  for (var k = 0; k < release.assets.length; k++){
+    var n = release.assets[k].name;
+    if (/\.exe$/i.test(n)) g.windows = release.assets[k].size;
+    if (/\.AppImage$/i.test(n)) g.linux = release.assets[k].size;
+  }
+  return (g.windows || g.linux) ? g : null;
+}
+
+function mb(bytes){
+  var z = Math.round(bytes / 1048576);
+  return z.toLocaleString(sprLage === "de" ? "de-DE" : "en-US") + " MB";
+}
+
+function kennzahlenZeigen(){
+  if (fassung){
+    document.getElementById("kz-version-wert").textContent = fassung;
+    document.getElementById("kz-version").hidden = false;
+  }
+  if (groessen){
+    var teile = [];
+    if (groessen.windows) teile.push("Windows " + mb(groessen.windows));
+    if (groessen.linux) teile.push("Linux " + mb(groessen.linux));
+    document.getElementById("kz-groesse-wert").textContent = teile.join(" · ");
+    document.getElementById("kz-groesse").hidden = false;
+  }
+}
 
 function zahlZeigen(){
+  kennzahlenZeigen();
   if (downloads === null) return;
   document.getElementById("downloads-zahl").textContent =
     downloads.toLocaleString(sprLage === "de" ? "de-DE" : "en-US");
@@ -1124,6 +1231,7 @@ function zahlHolen(seite, summe){
            die Knoepfe laden ebenfalls nur fertige Fassungen. */
         if (fassung === null && !liste[i].prerelease && !liste[i].draft){
           fassung = liste[i].tag_name;
+          groessen = groessenAus(liste[i]);
           document.getElementById("fassung").textContent = fassung;
         }
         for (var k = 0; k < liste[i].assets.length; k++){
@@ -1132,7 +1240,7 @@ function zahlHolen(seite, summe){
       }
       if (liste.length === 100) return zahlHolen(seite + 1, summe);
       downloads = summe;
-      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, v:fassung, t:Date.now()})); } catch (e) {}
+      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, v:fassung, g:groessen, t:Date.now()})); } catch (e) {}
       zahlZeigen();
     })
     .catch(function(){});
@@ -1146,6 +1254,7 @@ try {
       fassung = gemerkt.v;
       document.getElementById("fassung").textContent = fassung;
     }
+    if (gemerkt.g) groessen = gemerkt.g;
   }
 } catch (e) {}
 if (downloads === null) zahlHolen(1, 0); else zahlZeigen();
