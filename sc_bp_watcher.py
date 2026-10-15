@@ -804,6 +804,8 @@ class Watcher(threading.Thread):
         self.scmdb_next = 0.0   # nächster Blick auf die scmdb-Craftdaten
         self.kat_next = 0.0     # nächster Blick auf den Bauplan-Katalog
         self.kat_laeuft = False  # holt gerade ein Nebenthread den Katalog?
+        self.laeden_next = 0.0   # nächster Blick auf den Laden-Katalog
+        self.laeden_laeuft = False
         self.texte_next = 0.0   # nächster Blick auf Übersetzung und Injektion
         self.bestand_next = 0.0  # nächster Blick auf den EIGENEN Bestand
         self.raff_next = 0.0    # nächster Blick auf fertige Raffinerie-Aufträge
@@ -870,18 +872,56 @@ class Watcher(threading.Thread):
             errors.record('watcher.ships', ausnahme)
         # ⭐⭐ **Und der Warengruppen-Katalog für den Laden-Reiter — zuletzt.**
         #
-        # Er ist der teuerste der Abrufe (76 Stück, gemessen rund 50 s). Erst
-        # beim Öffnen der Seite geholt, wartet man eine Minute vor einer
-        # leeren Liste.
+        # Er ist der teuerste der Abrufe (drei je Warengruppe, rund eine
+        # Minute). Erst beim Öffnen der Seite geholt, wartet man eine Minute
+        # vor einer leeren Liste.
         #
-        # Hier läuft er im Hintergrund-Thread, während der Spieler etwas
-        # anderes tut — und dank der Patch-Bindung höchstens einmal je
-        # Spielversion. Er steht **hinter** den anderen, damit die schnellen
-        # Abrufe nicht auf ihn warten.
+        # ⚠ In einem **eigenen** Faden: Im Watcher-Faden stünde so lange die
+        # Bauplan-Erkennung still. Er steht **hinter** den anderen, damit die
+        # schnellen Abrufe nicht auf ihn warten.
         try:
-            shops.fetch_catalog()
+            self._laeden_katalog_anstossen()
         except Exception as ausnahme:
             errors.record('watcher.laeden_katalog', ausnahme)
+
+    def _laeden_katalog_anstossen(self):
+        """Den Laden-Katalog holen, wenn er fällig ist — im eigenen Faden.
+
+        Fällig ist er mit dem Patch. Stehen die Ladenpreise in den
+        Beschreibungen im Spiel, zusätzlich nach einer Woche. ⚠ Die Frage, ob
+        sie dort stehen (`injection.status()`), liest die ganze `global.ini`
+        — deshalb erst, wenn der Katalog eine Woche alt ist, und nach einem
+        Nein für sechs Stunden nicht wieder."""
+        if self.laeden_laeuft or time.time() < self.laeden_next:
+            return
+        from scbp import item_info, uex
+        woche = None
+        if item_info.enabled() and shops.catalog_due(uex.WEEK):
+            if injection.status().get('drin'):
+                woche = uex.WEEK
+            elif not shops.catalog_due(None):
+                self.laeden_next = time.time() + 6 * 60 * 60
+                return
+        if not shops.catalog_due(woche):
+            return
+        self.laeden_laeuft = True
+
+        def holen():
+            try:
+                vorher = shops.catalog_fetched()
+                if not shops.fetch_catalog(max_age=woche):
+                    self.laeden_next = time.time() + 30 * 60
+                elif shops.catalog_fetched() != vorher:
+                    # Neue Ladenpreise gehören gleich in die Texte im Spiel.
+                    self.texte_next = 0
+            except Exception as ausnahme:
+                errors.record('watcher.laeden_katalog', ausnahme)
+                self.laeden_next = time.time() + 30 * 60
+            finally:
+                self.laeden_laeuft = False
+
+        threading.Thread(target=holen, daemon=True,
+                         name='laeden-katalog').start()
 
     # ---- Bauplan-Katalog holen und frisch halten ----
     def _katalog_tick(self):

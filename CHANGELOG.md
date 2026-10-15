@@ -19,6 +19,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Bauplan-Marke, ab wie viel Ruf der Auftrag zu haben ist:
   „[BP 10.000 Rep]". Nur wo alle Stufen dieselbe Schwelle haben; auf der
   Seite *Spiel* abschaltbar.
+- **Bauplan-Angaben in den Beschreibungen** — unter der Beschreibung jedes
+  herstellbaren Gegenstands steht im Spiel, ob du den Bauplan hast, aus
+  welchem Auftrag er kommt (der leichteste zuerst), wie viele Zutaten und wie
+  viel Zeit das Herstellen braucht und wo es das Teil am günstigsten zu kaufen
+  gibt. Auf der Seite *Spiel* abschaltbar.
 
 ### Verbessert
 

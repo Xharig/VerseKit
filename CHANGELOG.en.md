@@ -19,6 +19,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   mission list shows how much reputation a mission needs:
   "[BP 10,000 Rep]". Only where every tier has the same threshold; can be
   switched off on the *Game* page.
+- **Blueprint details in item descriptions** — below the description of
+  every craftable item the game now shows whether you own the blueprint,
+  which contract it comes from (easiest first), how many ingredients and how
+  much time crafting takes, and where the item is cheapest to buy. Can be
+  switched off on the *Game* page.
 
 ### Improved
 

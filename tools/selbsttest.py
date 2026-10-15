@@ -25546,6 +25546,7 @@ def main():
     _pruefung_456()
     _pruefung_457()
     _pruefung_458()
+    _pruefung_459()
 
     print()
     if fehler:
@@ -43938,6 +43939,216 @@ def _pruefung_458():
             os.environ['SC_BP_HOME'] = _home_alt458
         import shutil as _sh458
         _sh458.rmtree(_home458, ignore_errors=True)
+
+
+def _pruefung_459():
+    """459. Bauplan-Angaben unter den Beschreibungen herstellbarer
+    Gegenstände: Inhalt, Zuordnung über Tag und Namen, zweiter Lauf,
+    Zurücksetzen mit und ohne Merkdatei, Schalter, Sprache."""
+    print('\n459. Bauplan-Angaben in den Item-Beschreibungen')
+    import tempfile as _tf459
+    from scbp import (injection as _in459, paths as _pf459,
+                      crafting as _cr459, shops as _sh459,
+                      gametext as _gt459, item_info as _ii459)
+    _heim459 = _tf459.mkdtemp(prefix='pruefung459-')
+    _altheim459 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim459
+    _alt459 = (_cr459.load, _sh459.cheapest_by_entity, _gt459.saved_names)
+
+    def _slot459(n):
+        return {'name': 'Slot%d' % n, 'options': [
+            {'type': 'resource', 'resourceName': 'Iron', 'quantity': 1}]}
+    _daten459 = {'format': _cr459.FORMAT, 'blueprints': [
+        {'tag': 'BP_CRAFT_COOL_JSPN_S01_FrostStar_SCItem',
+         'productName': 'FrostStar', 'productEntityClass': 'uuid-frost',
+         'tiers': [{'craftTimeSeconds': 240,
+                    'slots': [_slot459(i) for i in range(3)]}]},
+        {'tag': 'BP_CRAFT_irgendwas_anderes',
+         'productName': 'Big Gun', 'productEntityClass': 'uuid-gun',
+         'tiers': [{'craftTimeSeconds': 30, 'slots': [_slot459(0)]}]},
+        {'tag': 'BP_CRAFT_unbekannt', 'productName': 'Ghost Item',
+         'productEntityClass': 'uuid-ghost',
+         'tiers': [{'craftTimeSeconds': 30, 'slots': [_slot459(0)]}]},
+        # UEX führt es unter anderer Kennung — Preis über den Namen.
+        {'tag': 'BP_CRAFT_SHLD_X_S01_Wall', 'productName': 'Wall Shield',
+         'productEntityClass': 'uuid-wall-rezept',
+         'tiers': [{'craftTimeSeconds': 3700,
+                    'slots': [_slot459(0), _slot459(1)]}]},
+        # UEX kennt es gar nicht; aus keinem Auftrag.
+        {'tag': 'BP_CRAFT_RADR_X_S01_Eye', 'productName': 'Eye Radar',
+         'productEntityClass': 'uuid-eye',
+         'tiers': [{'craftTimeSeconds': 60, 'slots': [_slot459(0)]}]}]}
+    _desc_frost459 = 'Hersteller: J-Span\\nGröße: 1\\nKlasse: Zivil'
+    _roh459 = ('item_NameCOOL_JSPN_S01_FrostStar_SCItem=FrostStar\n'
+               'item_DescCOOL_JSPN_S01_FrostStar=%s\n'
+               'item_NameAAA_Gun=Große Kanone\n'
+               'item_DescAAA_Gun=Eine Waffe.\n'
+               'item_NameSHLD_X_S01_Wall=Wandschild\n'
+               'item_DescSHLD_X_S01_Wall=Ein Schild.\n'
+               'item_NameRADR_X_S01_Eye=Augenradar\n'
+               'item_DescRADR_X_S01_Eye=Ein Radar.\n'
+               'item_DescNICHTS_Fremd=Kein herstellbares Teil.\n'
+               'mission_title_T=Wartungsauftrag ~mission(Location)\n'
+               'mission_desc_T=Ein Auftragstext.\n'
+               'mission_title_U=Bergungsauftrag\n'
+               'mission_desc_U=Noch ein Auftragstext.\n'
+               'mission_title_V=Wartungsauftrag\n'
+               'mission_desc_V=Gleicher Titel, anderer Schlüssel.\n'
+               % _desc_frost459)
+    _kat459 = {'missionen': {
+        't': {'titel_key': 'mission_title_T', 'text_key': 'mission_desc_T',
+              'bp': ['FrostStar', 'Big Gun', 'Wall Shield'], 'rep': 800,
+              'rang': 'Junior', 'uec': 1000},
+        'u': {'titel_key': 'mission_title_U', 'text_key': 'mission_desc_U',
+              'bp': ['Big Gun'], 'rep': 5000, 'rang': 'Senior', 'uec': 9000},
+        'v': {'titel_key': 'mission_title_V', 'text_key': 'mission_desc_V',
+              'bp': ['Big Gun'], 'rep': 9000, 'rang': 'Meister',
+              'uec': 100}}}
+    _bestand459 = {'bauplaene': {_pf459.name_key('FrostStar'): {}}}
+    try:
+        _cr459.load = lambda: _daten459
+        _sh459.cheapest_by_entity = lambda: {
+            'kennung': {'uuid-frost': (12400, 'New Babbage'),
+                        'uuid-wall-uex': (800, 'Lorville')},
+            'name': {'wall shield': (800, 'Lorville')},
+            'kennungen': {'uuid-frost', 'uuid-gun', 'uuid-wall-uex'},
+            'namen': {'froststar', 'big gun', 'wall shield'}}
+        _gt459.saved_names = lambda: {'item_NameAAA_Gun': 'Big Gun'}
+        _ini459 = os.path.join(_heim459, 'Localization', 'german_(germany)',
+                               'global.ini')
+        os.makedirs(os.path.dirname(_ini459), exist_ok=True)
+
+        def _frisch459():
+            with open(_ini459, 'w', encoding='utf-8', newline='') as f:
+                f.write(_roh459)
+
+        def _zeile459(schluessel):
+            for _z in open(_ini459, encoding='utf-8').read().splitlines():
+                if _z.startswith(schluessel + '='):
+                    return _z[len(schluessel) + 1:]
+            return None
+
+        def _lauf459(**k):
+            return _in459.apply_texts(_ini459, 'german_(germany)',
+                                      catalog_data=_kat459,
+                                      stock=_bestand459, **k)
+
+        _frisch459()
+        _ok459, _, _m459 = _lauf459()
+        _frost459 = _zeile459('item_DescCOOL_JSPN_S01_FrostStar') or ''
+        _gun459 = _zeile459('item_DescAAA_Gun') or ''
+        pruefe(_ok459 and _frost459.startswith(_desc_frost459)
+               and 'VERSE-KIT: BAUPLAN & HERSTELLUNG' in _frost459,
+               'Block unter CIGs Text, Zuordnung über den Tag (%s)' % _m459)
+        pruefe('Bauplan: <EM4>[x]</EM4> vorhanden' in _frost459
+               and 'Wartungsauftrag' not in _frost459,
+               'vorhandener Bauplan: Kästchen, keine Herkunft')
+        pruefe('Herstellen: 3 Zutaten · 4 min' in _frost459,
+               'Herstellen: Anzahl Zutaten und Zeit (%r)' % _frost459[-120:])
+        pruefe('Im Laden: New Babbage · 12.400 aUEC' in _frost459,
+               'günstigster Laden mit Preis in deutscher Schreibweise')
+        pruefe('Bauplan: [  ] fehlt — aus "Wartungsauftrag", ab Rang Junior'
+               in _gun459,
+               'fehlender Bauplan: Auftrag aus der Datei, ohne Platzhalter, '
+               'mit Rang; Zuordnung über den englischen Namen (%r)'
+               % _gun459[-160:])
+        pruefe('Herstellen: 1 Zutat · 30 s' in _gun459
+               and 'Im Laden: nicht erhältlich, nur Herstellen' in _gun459,
+               'eine Zutat in der Einzahl; UEX kennt es, kein Laden führt es')
+        pruefe('Größe:' not in _frost459[len(_desc_frost459):],
+               'der Block trägt keine Feldnamen, die `specs` mitlesen würde')
+        _titel459 = _zeile459('mission_title_T') or ''
+        pruefe('[BP' in _titel459,
+               'der Auftragstitel bekommt weiter seine Marke')
+        pruefe('(+1 weitere)' in _gun459,
+               '„+N weitere" zählt nach Wortlaut: zwei Schlüssel mit gleichem '
+               'Titel sind ein Auftrag (%r)' % _gun459[-140:])
+        _wall459 = _zeile459('item_DescSHLD_X_S01_Wall') or ''
+        pruefe('Im Laden: Lorville · 800 aUEC' in _wall459
+               and 'Herstellen: 2 Zutaten · 1 h 2 min' in _wall459,
+               'andere Kennung bei UEX: Preis über den Namen, nicht „nicht '
+               'erhältlich"; Zeit in Stunden (%r)' % _wall459[-120:])
+        _eye459 = _zeile459('item_DescRADR_X_S01_Eye') or ''
+        pruefe('nicht aus Aufträgen' in _eye459 and 'Im Laden' not in _eye459,
+               'aus keinem Auftrag gesagt; UEX kennt es nicht: keine '
+               'Laden-Zeile (%r)' % _eye459[-120:])
+        pruefe(_zeile459('item_DescNICHTS_Fremd') == 'Kein herstellbares Teil.'
+               and open(_ini459, encoding='utf-8').read().count(
+                   'VERSE-KIT') == 4,
+               'nur herstellbare, zugeordnete Teile bekommen einen Block')
+
+        _lauf459()
+        pruefe((_zeile459('item_DescCOOL_JSPN_S01_FrostStar') or '').count(
+               'VERSE-KIT') == 1,
+               'ein zweiter Lauf schreibt den Block nicht doppelt')
+
+        _lauf459(remove_only=True)
+        pruefe(open(_ini459, encoding='utf-8').read() == _roh459,
+               'Zurücksetzen stellt die Datei zeichengenau wieder her')
+
+        # Ohne Merkdatei (anderer Rechner): der Notnagel erkennt den Block.
+        _lauf459()
+        os.remove(_pf459.app_file(_in459.ORIGTEXT_FILE))
+        _lauf459(remove_only=True)
+        pruefe(_zeile459('item_DescCOOL_JSPN_S01_FrostStar') == _desc_frost459
+               and _zeile459('item_DescAAA_Gun') == 'Eine Waffe.',
+               'ohne Merkdatei entfernt der Notnagel den Block vollständig')
+
+        _frisch459()
+        _lauf459()
+        _name_an459 = _zeile459('item_NameCOOL_JSPN_S01_FrostStar_SCItem')
+        _pf459.set_setting(_ii459.SETTING, False)
+        _frisch459()
+        _lauf459()
+        pruefe('VERSE-KIT' not in open(_ini459, encoding='utf-8').read(),
+               'abgeschaltet steht kein Block in den Beschreibungen')
+        pruefe(_zeile459('item_NameCOOL_JSPN_S01_FrostStar_SCItem')
+               == _name_an459,
+               'das Kürzel am Namen ist mit und ohne Block dasselbe (%r)'
+               % _name_an459)
+        _pf459.set_setting(_ii459.SETTING, True)
+
+        _ini_en459 = os.path.join(_heim459, 'Localization', 'english',
+                                  'global.ini')
+        os.makedirs(os.path.dirname(_ini_en459), exist_ok=True)
+        with open(_ini_en459, 'w', encoding='utf-8', newline='') as f:
+            f.write(_roh459)
+        _in459.apply_texts(_ini_en459, 'english', catalog_data=_kat459,
+                           stock=_bestand459)
+        _en459 = open(_ini_en459, encoding='utf-8').read()
+        pruefe('VERSE-KIT: BLUEPRINT & CRAFTING' in _en459
+               and 'In shops: New Babbage · 12,400 aUEC' in _en459,
+               'auf Englisch eigene Überschrift und Zahlenschreibweise')
+        # Der Laden-Katalog: ein Aussetzer bei einer Warengruppe speichert
+        # nichts (sonst stünde die ganze Gruppe als „nicht erhältlich" da).
+        from scbp import uex as _ux459
+        _abruf_alt459 = _ux459.fetch
+        _sh459.cheapest_by_entity = _alt459[1]
+
+        def _abruf459(url, label, timeout=None):
+            if 'categories' in url:
+                return [{'section': _sh459.SECTIONS[0], 'id': 1,
+                         'name': 'Coolers'}]
+            if 'items_prices' in url:
+                return None
+            if 'items' in url:
+                return [{'id': 1, 'name': 'FrostStar', 'uuid': 'uuid-frost'}]
+            return []
+        _ux459.fetch = _abruf459
+        try:
+            _gespeichert459 = _sh459._save_catalog()
+        finally:
+            _ux459.fetch = _abruf_alt459
+        pruefe(_gespeichert459 is False
+               and not _sh459.cheapest_by_entity()['namen'],
+               'Preise einer Warengruppe fehlen: kein Katalog gespeichert')
+    finally:
+        _cr459.load, _sh459.cheapest_by_entity, _gt459.saved_names = _alt459
+        if _altheim459 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim459
+        shutil.rmtree(_heim459, ignore_errors=True)
 
 
 def _alle_eingaben(w):

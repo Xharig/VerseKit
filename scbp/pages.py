@@ -3229,6 +3229,29 @@ def _game(fenster, rahmen):
     toggle_switch(row, paths.setting_bool(_inj.SETTING_TITLE_REP, True),
                   toggle_title_rep).pack()
 
+    # --- Bauplan-Angaben in den Beschreibungen ---------------------------------
+    # Unter CIGs Beschreibung eines herstellbaren Gegenstands: Bauplan,
+    # Herkunft, Herstellen, Laden. Gleich gebaut wie darüber.
+    row = _setting_row(fenster, innen, t('s_sp_itinfo'), t('s_sp_itinfo_h'))
+
+    def toggle_item_info():
+        from . import injection as injection_module, item_info
+        new_value = not item_info.enabled()
+        paths.set_setting(item_info.SETTING, new_value)
+        fenster.say(t('s_sp_itinfo_sagen')
+                    % (t('e_an') if new_value else t('e_aus')))
+        try:
+            if (paths.setting_bool('inj_an', True)
+                    and injection_module.status().get('drin')):
+                e._inj_refresh()
+                lage_zeigen()
+        except Exception as exc:
+            errors.record('pages.toggle_item_info', exc)
+        return new_value
+
+    from . import item_info as _item_info
+    toggle_switch(row, _item_info.enabled(), toggle_item_info).pack()
+
     ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()

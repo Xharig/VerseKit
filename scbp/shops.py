@@ -95,7 +95,9 @@ FORMAT = 1
 # Preis-Zwischenspeicher daneben ändert sich damit nicht und soll deshalb
 # nicht mit weggeworfen werden.
 # 6: je Teil die Orte, an denen es zu kaufen ist (`o`), für den Ort-Filter.
-FORMAT_CATALOG = 6
+# 7: je Teil der günstigste Kaufpreis samt Ort (`p`), für die Bauplan-Angaben
+# in den Beschreibungen im Spiel (`item_info`).
+FORMAT_CATALOG = 7
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
@@ -159,13 +161,13 @@ def place_of(row):
             or row.get('outpost_name') or '').strip()
 
 
-def _save_catalog(progress=None):
+def _save_catalog(progress=None, max_age=None):
     """Den Katalog aufbauen: Namen **und** wer überhaupt kaufbar ist.
 
-    ⚠ Das kostet rund 76 Abrufe (zwei je Kategorie) und dauert gemessen etwa
-    **70 Sekunden**. Deshalb passiert es **nicht** beim Programmstart, sondern
-    höchstens einmal pro Woche — und nur, wenn jemand die Ladenliste öffnet
-    oder eine Zuordnung über die Kennung leer ausgeht.
+    ⚠ Das kostet drei Abrufe je Warengruppe und dauert gemessen etwa
+    **70 Sekunden**. Fällig ist es mit dem Patch; stehen die Ladenpreise in
+    den Beschreibungen im Spiel, zusätzlich nach einer Woche
+    (`sc_bp_watcher._laeden_katalog_anstossen`).
 
     ⭐⭐ **Warum die zweite Hälfte dazugehört.** Was nicht kaufbar ist, gehört
     nicht in die Liste: Ein Reiter, der zeigt, wo ein Teil im Regal steht,
@@ -176,8 +178,13 @@ def _save_catalog(progress=None):
     Ein Abruf **je Kategorie** liefert alle Preiszeilen darin auf einmal
     (gemessen: 4.282 Zeilen in sechs Kategorien, davon 710 kaufbare Teile).
     Das ist unvergleichlich billiger, als 1.597 Teile einzeln zu fragen.
+
+    `max_age` (Sekunden) verkürzt die Frist — für die Ladenpreise in den
+    Beschreibungen im Spiel höchstens eine Woche alt.
     """
-    if not _catalog.stale():
+    age = _catalog.age()
+    if not _catalog.stale() and (max_age is None
+                                 or (age is not None and age < max_age)):
         return True
     # ⚠⚠ **Erst den Spielstand, dann den Katalog.** Gesichert wird mit dem
     # Stand, der in diesem Augenblick bekannt ist — fehlt er, trägt der
@@ -206,10 +213,18 @@ def _save_catalog(progress=None):
     # dafür laufen ohnehin.
     categories = []
     items_out = []
+    # Günstigster Preis je Name — für Teile, die UEX unter einer anderen
+    # Kennung führt als die Rezeptdaten (siehe `ID_PREFIX`).
+    name_prices = {}
     for number, k in enumerate(chosen, start=1):
         cat_index = len(categories)
         categories.append([k.get('section') or '', k.get('name') or ''])
         items = uex.fetch(SOURCE_ITEMS % k['id'], 'shops.catalog')
+        if items is None:
+            # ⚠ Ein Aussetzer bei einer Warengruppe: lieber den alten Stand
+            # behalten. Gespeichert stünde die ganze Gruppe als „kein Laden
+            # führt es" da — im Spiel eine falsche Aussage.
+            return False
         raw = {}
         for x in items or []:
             name = (x.get('name') or '').strip()
@@ -263,10 +278,15 @@ def _save_catalog(progress=None):
             if found.get('Size'):
                 raw[item_no]['g'] = found['Size']
         price_rows = uex.fetch(SOURCE_CATEGORY_PRICES % k['id'], 'shops.buyable')
-        # Je Teil die Orte, an denen es zu kaufen ist (für den Ort-Filter).
+        if price_rows is None:
+            return False
+        # Je Teil die Orte, an denen es zu kaufen ist (für den Ort-Filter),
+        # und der günstigste Kaufpreis samt Ort.
         sold_at = {}
+        cheapest = {}
         for x in price_rows or []:
-            if (x.get('price_buy') or 0) <= 0:
+            price = x.get('price_buy') or 0
+            if price <= 0:
                 continue
             item = str(x.get('id_item') or '')
             if not item or item not in raw:
@@ -275,16 +295,25 @@ def _save_catalog(progress=None):
             place = place_of(x)
             if place:
                 here.add(place)
+                if item not in cheapest or price < cheapest[item][0]:
+                    cheapest[item] = [price, place]
         for item, here in sold_at.items():
             entry = raw[item]
-            items_out.append({'n': entry['n'],
-                              's': id_to_uuid.get(item) or ID_PREFIX + item,
-                              'k': cat_index,
-                              'h': entry['h'],
-                              'g': entry['g'],
-                              'c': entry['c'],
-                              'q': entry['q'],
-                              'o': sorted(here)})
+            out = {'n': entry['n'],
+                   's': id_to_uuid.get(item) or ID_PREFIX + item,
+                   'k': cat_index,
+                   'h': entry['h'],
+                   'g': entry['g'],
+                   'c': entry['c'],
+                   'q': entry['q'],
+                   'o': sorted(here)}
+            if item in cheapest:
+                out['p'] = cheapest[item]
+                lower = entry['n'].lower()
+                if lower and (lower not in name_prices
+                              or cheapest[item][0] < name_prices[lower][0]):
+                    name_prices[lower] = cheapest[item]
+            items_out.append(out)
         if progress:
             progress(number, len(chosen))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
@@ -295,7 +324,10 @@ def _save_catalog(progress=None):
     items_out.sort(key=lambda x: x['n'].lower())
     return _catalog.save({'namen': names,
                              'kategorien': categories,
-                             'teile': items_out},
+                             'teile': items_out,
+                             'preise_namen': {n: p for n, p in name_prices.items()
+                                              if n in names},
+                             'kennungen': sorted(set(id_to_uuid.values()))},
                             compact=True)
 
 
@@ -309,9 +341,50 @@ def catalog_ready():
     return bool((_catalog.load() or {}).get('teile'))
 
 
-def fetch_catalog(progress=None):
+def fetch_catalog(progress=None, max_age=None):
     """Den Katalog von außen anstoßen — für die Ladenliste."""
-    return _save_catalog(progress)
+    return _save_catalog(progress, max_age)
+
+
+def catalog_due(max_age=None):
+    """Ist der Katalog fällig — veraltet (Patch, Notfrist) oder älter als
+    `max_age` Sekunden? Liest nur die Ablage, kein Netz."""
+    if _catalog.stale():
+        return True
+    if max_age is None:
+        return False
+    age = _catalog.age()
+    return age is None or age >= max_age
+
+
+def catalog_fetched():
+    """Wann der Katalog geholt wurde (Zeitstempel) — oder None."""
+    return (_catalog.load() or {}).get('geholt')
+
+
+def cheapest_by_entity():
+    """Die Ladenpreise aus dem Katalog — ohne Netz, leer ohne Katalog::
+
+        {'kennung': {Kennung: (Preis, Ort)},
+         'name':    {UEX-Name klein: (Preis, Ort)},
+         'kennungen': {alle Kennungen, die UEX führt},
+         'namen':     {alle eindeutigen UEX-Namen klein}}
+
+    Die bekannten Kennungen und Namen unterscheiden „UEX kennt das Teil, aber
+    kein Laden führt es" von „UEX kennt es gar nicht" — nur im ersten Fall
+    darf „nicht erhältlich" dastehen."""
+    data = _catalog.load() or {}
+    by_entity = {}
+    for x in data.get('teile') or []:
+        hit = x.get('p')
+        if x.get('s') and isinstance(hit, list) and len(hit) == 2:
+            by_entity[x['s']] = (hit[0], hit[1])
+    by_name = {n: (p[0], p[1])
+               for n, p in (data.get('preise_namen') or {}).items()
+               if isinstance(p, list) and len(p) == 2}
+    return {'kennung': by_entity, 'name': by_name,
+            'kennungen': set(data.get('kennungen') or ()),
+            'namen': set(data.get('namen') or {})}
 
 
 # ⚠ **UEX-Name → Sprachschlüssel.** Die Namen kommen englisch aus der Quelle
