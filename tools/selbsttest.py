@@ -25492,6 +25492,7 @@ def main():
     _pruefung_453()
     _pruefung_454()
     _pruefung_455()
+    _pruefung_456()
 
     print()
     if fehler:
@@ -43553,6 +43554,85 @@ def _pruefung_455():
     pruefe(_tab455.get('item_NameCOOL_X_S01_Eins') == '(Mil/1/A)',
            'der genaue Schlüssel geht vor dem losen (%r)'
            % _tab455.get('item_NameCOOL_X_S01_Eins'))
+
+
+def _pruefung_456():
+    """456. MangoHud: erkannt über die Vulkan-Schicht, `MANGOHUD=1` nur bei
+    eingeschaltetem Schalter, nie `MANGOHUD_CONFIG`, und der Spielstart gibt
+    die Umgebung wirklich weiter."""
+    print('\n456. MangoHud beim Spielstart')
+    import subprocess as _sp456
+    import tempfile as _tf456
+    from scbp import mangohud as _mh456
+    from scbp import paths as _pf456
+    from scbp import start_programs as _st456
+    _alt456 = (_mh456.possible, _mh456.LAYER_DIRS, _mh456.shutil.which,
+               _pf456.WINDOWS, _pf456.game_starter, _st456.replacement,
+               _st456.on_launcher, _sp456.Popen, _mh456.wanted())
+    _aufrufe456 = []
+    _home_alt456 = os.environ.get('SC_BP_HOME')
+    _home456 = _tf456.mkdtemp(prefix='scbp456_')
+    os.environ['SC_BP_HOME'] = _home456
+
+    class _Popen456(object):
+        def __init__(self, cmd, **kw):
+            _aufrufe456.append(kw)
+
+    try:
+        with _tf456.TemporaryDirectory() as _ordner456:
+            _mh456.possible = lambda: True
+            _mh456.LAYER_DIRS = (_ordner456,)
+            _mh456.shutil.which = lambda name: None
+            pruefe(not _mh456.installed(),
+                   'ohne Schicht und ohne Programm gilt MangoHud als fehlend')
+            open(os.path.join(_ordner456, 'MangoHud.x86_64.json'), 'w').close()
+            pruefe(_mh456.installed(), 'die Vulkan-Schicht wird gefunden')
+
+            _mh456.set_wanted(True)
+            os.remove(os.path.join(_ordner456, 'MangoHud.x86_64.json'))
+            pruefe(_mh456.environment({'A': '1'}) is None,
+                   'Schalter an, MangoHud fehlt: Umgebung unverändert (None)')
+            open(os.path.join(_ordner456, 'MangoHud.x86_64.json'), 'w').close()
+            _mh456.set_wanted(False)
+            pruefe(_mh456.environment({'A': '1'}) is None,
+                   'Schalter aus: die Umgebung bleibt unverändert (None)')
+            _mh456.set_wanted(True)
+            _env456 = _mh456.environment({'A': '1'})
+            pruefe(_env456 == {'A': '1', 'MANGOHUD': '1'},
+                   'Schalter an: genau MANGOHUD=1 kommt dazu (%r)' % _env456)
+            pruefe('MANGOHUD_CONFIG' not in (_env456 or {}),
+                   'MANGOHUD_CONFIG wird nie gesetzt — sonst fehlt die '
+                   'eigene MangoHud.conf')
+
+            _pf456.WINDOWS = False
+            _pf456.game_starter = lambda: '/nirgends/sc-launch.sh'
+            _st456.replacement = lambda: None
+            _st456.on_launcher = lambda: None
+            _sp456.Popen = _Popen456
+            _ok456, _ = _pf456.start_game()
+            pruefe(_ok456 and _aufrufe456
+                   and _aufrufe456[-1].get('env', {}).get('MANGOHUD') == '1',
+                   'start_game reicht MANGOHUD=1 an das Startskript weiter')
+            _mh456.set_wanted(False)
+            _pf456.start_game()
+            pruefe(len(_aufrufe456) == 2 and 'env' not in _aufrufe456[-1],
+                   'Schalter aus: start_game startet wie bisher ohne eigene '
+                   'Umgebung')
+
+            _mh456.shutil.which = lambda name: '/usr/bin/mangohud'
+            os.remove(os.path.join(_ordner456, 'MangoHud.x86_64.json'))
+            pruefe(_mh456.installed(),
+                   'ohne Schicht reicht das Programm mangohud im Suchpfad')
+    finally:
+        (_mh456.possible, _mh456.LAYER_DIRS, _mh456.shutil.which,
+         _pf456.WINDOWS, _pf456.game_starter, _st456.replacement,
+         _st456.on_launcher, _sp456.Popen, _alt_wunsch456) = _alt456
+        if _home_alt456 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _home_alt456
+        import shutil as _sh456
+        _sh456.rmtree(_home456, ignore_errors=True)
 
 
 def _alle_eingaben(w):

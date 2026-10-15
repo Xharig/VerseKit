@@ -2609,6 +2609,7 @@ def _folders(fenster, rahmen):
                 platzhalter=t('s_pl_ordner'))
 
     _start_command_field(fenster, innen)
+    _mangohud_field(fenster, innen)
     _channel_states(fenster, innen)
 
 
@@ -2874,6 +2875,31 @@ def _start_command_field(fenster, innen):
                        FG, placeholder=t('s_pl_startbefehl'))
     feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
     _button(fenster, reihe, t('s_or_uebernehmen'), uebernehmen).pack(side='left')
+
+
+def _mangohud_field(fenster, innen):
+    """Schalter „Mit MangoHud starten" — nur unter Linux.
+
+    Ist MangoHud nicht installiert, steht statt des Schalters der Hinweis, wo
+    es herkommt. Ein Schalter, der nichts bewirkt, wäre schlimmer."""
+    from . import mangohud
+    if not mangohud.possible():
+        return
+    if not mangohud.installed():
+        _setting_row(fenster, innen, t('s_mango'), t('s_mango_fehlt'),
+                     wide=True, line=False)
+        return
+    ziel = _setting_row(fenster, innen, t('s_mango'), t('s_mango_h'),
+                        line=False)
+
+    def mango_um():
+        neu_wert = not mangohud.wanted()
+        mangohud.set_wanted(neu_wert)
+        fenster.say(t('s_mango_sagen') % (t('e_an') if neu_wert
+                                          else t('e_aus')))
+        return neu_wert
+
+    toggle_switch(ziel, mangohud.wanted(), mango_um).pack()
 
 
 def _menu_entry_field(fenster, innen):
@@ -7276,6 +7302,7 @@ def _thanks(fenster, rahmen):
             ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'),
              t('s_dk_drachennarr_bugs')),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
+            ('Rhino', '', t('s_dk_rhino_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
              + t('s_dk_greluc_idee2'), t('s_dk_greluc_bugs')),

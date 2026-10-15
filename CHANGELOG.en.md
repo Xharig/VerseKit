@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### New
+
+- **Linux: Launch with MangoHud** — under *Installation & paths* there is a
+  switch that turns on MangoHud when you start through "Launch RSI
+  Launcher": frames per second, CPU and GPU load right in the game. MangoHud
+  itself comes from your package manager; if it is missing, the page says
+  where to get it. Suggested by Rhino.
+
+### Thanks
+
+- **Rhino** — the suggestion to switch on MangoHud straight from Verse-Kit.
+
 ## v4.5.0 - 2026-10-15
 
 > Your hangar now shares more than ship and insurance with the Basetool: your

@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Linux: Mit MangoHud starten** — unter *Installation & Pfade* gibt es einen
+  Schalter, der beim Start über „RSI Launcher starten" MangoHud einschaltet:
+  Bilder pro Sekunde, Prozessor- und Grafikkarten-Last direkt im Spiel.
+  MangoHud selbst kommt aus der Paketverwaltung; fehlt es, steht dort, woher.
+  Vorgeschlagen von Rhino.
+
+### Dank
+
+- **Rhino** — der Vorschlag, MangoHud direkt aus Verse-Kit einzuschalten.
+
 ## v4.5.0 - 2026-10-15
 
 > Dein Hangar teilt mit dem Basetool jetzt mehr als Schiff und Versicherung:

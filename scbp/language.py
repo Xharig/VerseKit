@@ -2503,6 +2503,27 @@ TEXTS = {
     's_or_start_weg':  ('Startbefehl entfernt — es gilt wieder der gefundene Weg.',
                         'Launch command removed — the detected route applies again.'),
     's_or_uebernehmen': ('Übernehmen', 'Apply'),
+    's_mango':         ('Mit MangoHud starten', 'Launch with MangoHud'),
+    's_mango_h':       ('Zeigt im Spiel Bilder pro Sekunde, Prozessor- und '
+                        'Grafikkarten-Last. Gilt, wenn „RSI Launcher starten" das '
+                        'Startskript des LUG Helper oder ein eigenes Startskript '
+                        'öffnet. Ein- und ausblenden im Spiel: Rechte '
+                        'Umschalttaste + F12. Wer über Lutris, Heroic, Steam oder '
+                        'Flatpak startet, schaltet MangoHud dort ein.',
+                        'Shows frames per second, CPU and GPU load in the game. '
+                        'Applies when "Launch RSI Launcher" opens the LUG Helper '
+                        'launch script or a launch script of your own. Toggle it '
+                        'in the game with Right Shift + F12. If you start through '
+                        'Lutris, Heroic, Steam or Flatpak, switch MangoHud on '
+                        'there.'),
+    's_mango_fehlt':   ('MangoHud ist auf diesem System nicht installiert. Es kommt '
+                        'aus der Paketverwaltung, meist als Paket „mangohud". '
+                        'Danach Verse-Kit neu starten.',
+                        'MangoHud is not installed on this system. Get it from '
+                        'your package manager, usually as the package "mangohud". '
+                        'Restart Verse-Kit afterwards.'),
+    's_mango_sagen':   ('MangoHud beim nächsten Start: %s',
+                        'MangoHud on the next launch: %s'),
 
     # -- Seite „Was ist neu" --
     # ⚠ Diese vier gehören hierher, nicht **fest in den Code** (`pages.py`) —
@@ -3058,6 +3079,8 @@ TEXTS = {
                               '**Deaths and location from the game log** — the hint that a death can be told apart by your own body number and that the current place is in the log. Thank you!'),
     's_dk_drachennarr_bugs': ('**Eine Prüfung des ganzen Quelltexts** — über dreißig Funde, darunter verlorene Rückmeldungen aus Nebenfäden, Nutzerdaten, die bei einem Absturz verloren gehen konnten, und Spieldateien, die halb geschrieben zurückbleiben konnten. Dazu der träge Wechsel zwischen Karten- und Reiteransicht. Danke!',
                               '**A review of the whole source code** — over thirty findings, among them feedback lost from background threads, user data that could be lost in a crash, and game files that could be left half-written. Plus the sluggish switch between card view and tab view. Thank you!'),
+    's_dk_rhino_idee':       ('**Mit MangoHud starten** — unter Linux die Leistungsanzeige direkt aus Verse-Kit einschalten. Danke!',
+                              '**Launch with MangoHud** — switching on the performance overlay on Linux straight from Verse-Kit. Thank you!'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
     's_dk_sotth_idee':       ('**Das Prüfintervall der Game.log sichtbar unter „Allgemein"** — '

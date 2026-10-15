@@ -1974,6 +1974,15 @@ def start_game():
             extra['creationflags'] = getattr(subprocess, 'DETACHED_PROCESS', 0)
         else:
             extra['start_new_session'] = True
+            # Ein Fehler hier darf den Spielstart nicht verhindern — dann
+            # eben ohne MangoHud.
+            try:
+                from . import mangohud
+                env = mangohud.environment()
+                if env is not None:
+                    extra['env'] = env
+            except Exception as exc:
+                _report_error('paths.start_game.mangohud', exc)
         subprocess.Popen(_start_command(starter), stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, **extra)
         start_programs.on_launcher()
