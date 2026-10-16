@@ -183,15 +183,47 @@ function lineChart(parent, days, series) {
     $('span', {}, [$('i', { style: 'background:' + sr.color }), document.createTextNode(sr.name)]))));
 }
 
+// Balkenlisten mit mehr als BARS_LIMIT Zeilen zeigen eingeklappt die ersten
+// BARS_SHOWN — bei jedem Laden, ohne gemerkten Zustand.
+const BARS_SHOWN = 3, BARS_LIMIT = 4;
+
 function bars(parent, rows, fmt) {
   if (!rows.length) { parent.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' })); return; }
   const max = Math.max(...rows.map((r) => r[1]), 1e-9);
-  for (const [label, v, extra] of rows) {
+  const extra = [];
+  const fold = rows.length > BARS_LIMIT;
+  rows.forEach(([label, v, more], i) => {
     const fill = $('div', { class: 'fill' }); fill.style.width = ((v / max) * 100).toFixed(1) + '%';
-    parent.appendChild($('div', { class: 'bar' }, [
+    const line = $('div', { class: 'bar' }, [
       $('span', { text: label }), $('div', { class: 'track' }, [fill]),
-      $('span', { class: 'n', text: fmt(v, extra) })]));
+      $('span', { class: 'n', text: fmt(v, more) })]);
+    if (fold && i >= BARS_SHOWN) { extra.push(line); line.hidden = true; }
+    parent.appendChild(line);
+  });
+  if (!extra.length) return;
+  let open = false;
+  const toggle = $('button', { type: 'button', class: 'mehr' });
+  const label = () => { toggle.textContent = open ? 'Nur die ersten ' + BARS_SHOWN : 'Alle zeigen (' + rows.length + ')'; };
+  label();
+  toggle.addEventListener('click', () => {
+    open = !open;
+    for (const x of extra) x.hidden = !open;
+    label();
+  });
+  parent.appendChild(toggle);
+}
+
+// Versionsnummern absteigend: 4.10.0 vor 4.9.0, eine fertige vor ihren -rc.
+function versionDesc(a, b) {
+  const part = (v) => String(v).replace(/^v/, '').split('-');
+  const [ka, pa] = part(a), [kb, pb] = part(b);
+  const na = ka.split('.').map(Number), nb = kb.split('.').map(Number);
+  for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+    const d = (nb[i] || 0) - (na[i] || 0);
+    if (d) return d;
   }
+  if (!pa !== !pb) return pa ? 1 : -1;
+  return String(pb || '').localeCompare(String(pa || ''), undefined, { numeric: true });
 }
 
 function render(d, span) {
@@ -381,7 +413,7 @@ function render(d, span) {
   const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
   const vers = {}; for (const r of d.tage) if (r.tag === lastDay) vers[r.version] = (vers[r.version] || 0) + r.n;
   bars(card('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay))),
-    Object.entries(vers).sort((a, b) => b[1] - a[1]).slice(0, 10), (v) => v);
+    Object.entries(vers).sort((a, b) => versionDesc(a[0], b[0])).slice(0, 10), (v) => v);
   const sys = { Windows: 0, Linux: 0 };
   for (const r of d.tage) if (win.has(r.tag)) sys[r.system === 'linux' ? 'Linux' : 'Windows'] += r.n;
   bars(card('System (Ø 7 Tage)'), Object.entries(sys), pct);
@@ -470,7 +502,11 @@ function pageBlocks(d, inSpan) {
     for (let k = 0; k <= MAX_CLICKS; k++) axis.appendChild($('span', { text: stepName(k) }));
     const head = $('tr', {}, [$('th', { text: 'Seite' }), $('th', { text: 'erreicht' }), $('th', { text: 'Median' }),
       $('th', {}, [document.createTextNode('Verteilung (Klicks) '), axis])]);
-    const body = targets.map(([p, n]) => {
+    // Eingeklappt auf die ersten KLICK_SHOWN Seiten — bei jedem Laden, ohne
+    // gemerkten Zustand.
+    const KLICK_SHOWN = 5;
+    const klickExtra = [];
+    const body = targets.map(([p, n], i) => {
       const m = dist[p]; const hi = Math.max(1, ...Object.values(m));
       const hist = $('div', { class: 'hist' });
       for (let k = 0; k <= MAX_CLICKS; k++) {
@@ -478,10 +514,24 @@ function pageBlocks(d, inSpan) {
         if (!m[k]) b.style.background = 'var(--line)';
         b.title = stepName(k) + ' Klicks: ' + (m[k] || 0); hist.appendChild(b);
       }
-      return $('tr', {}, [$('td', { text: pageName(p) }), $('td', { class: 'num', text: String(n) }),
+      const tr = $('tr', {}, [$('td', { text: pageName(p) }), $('td', { class: 'num', text: String(n) }),
         $('td', { class: 'num', text: stepName(median(m)) }), $('td', { class: 'num' }, [hist])]);
+      if (i >= KLICK_SHOWN) { klickExtra.push(tr); tr.hidden = true; }
+      return tr;
     });
     kc.appendChild($('div', { class: 'scroll' }, [$('table', { class: 'tab' }, [$('thead', {}, [head]), $('tbody', {}, body)])]));
+    if (klickExtra.length) {
+      let klickOpen = false;
+      const toggle = $('button', { type: 'button', class: 'mehr' });
+      const label = () => { toggle.textContent = klickOpen ? 'Nur die ersten ' + KLICK_SHOWN : 'Alle Seiten zeigen (' + targets.length + ')'; };
+      label();
+      toggle.addEventListener('click', () => {
+        klickOpen = !klickOpen;
+        for (const x of klickExtra) x.hidden = !klickOpen;
+        label();
+      });
+      kc.appendChild(toggle);
+    }
   }
   kc.appendChild($('div', { class: 'note', text: 'Ziel = eine Seite, auf der man mindestens 3 Sekunden bleibt. Klicks = Seitenwechsel und Auf- oder Zuklappen in der Seitenleiste, ab dem Öffnen des Fensters bzw. seit dem letzten Ziel. 0 = gleich beim Öffnen da, ' + MAX_CLICKS + '+ = ' + MAX_CLICKS + ' oder mehr.' }));
 
