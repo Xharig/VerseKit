@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.7.0 - 2026-10-16
+
+> Dein Hangar sagt jetzt, was deine Flotte kann: welche Spielbereiche sie
+> abdeckt, wo eine Lücke ist und welcher Snub sein Mutterschiff vermisst. Und
+> an jedem Echtgeld-Schiff steht, ob es sich schmelzen oder per CCU upgraden
+> lässt — praktisch, wenn das nächste Kaufevent kommt.
+
+### Neu
+
+- **Flottenanalyse im Hangar** — aufklappbar über deiner Schiffsliste: welche
+  Spielbereiche deine Schiffe abdecken (Fracht, Bergbau, Bergung, Jäger …),
+  in Haupt- oder Nebenrolle, wo eine Lücke ist und welche Snubs ohne ihr
+  Mutterschiff dastehen. Dazu eine Übersicht, was sich schmelzen oder per CCU
+  upgraden lässt. Idee und Schiffsdaten aus dem Fleetmanifest von
+  Maluh (KRT).
+- **Schmelz-Status an den Echtgeld-Schiffen** — der Import aus dem CSV der
+  Hangar Extension bringt mit, ob ein Pledge schmelzbar ist. Fehlt die
+  Angabe, setzt du sie an der Schiffskarte; ob CCU geht, steht in den
+  Schiffsdaten. Vorschlag von Maluh (KRT)
+
 ## v4.6.0 - 2026-10-15
 
 > Was Verse-Kit über einen Gegenstand weiß, steht jetzt im Spiel direkt

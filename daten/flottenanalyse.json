@@ -1,0 +1,2255 @@
+{
+ "_info": "Gameplay-Loops je Schiff aus dem Fleetmanifest von Maluh (github.com/MaluhTV/SC_Fleetmanifest, MIT, siehe flottenanalyse-LICENSE.txt). Die Zuordnung ist eine Einschätzung des Autors, keine Spieldaten. Felder wie dort: loops = Loop-ID -> primary/secondary/planned, motherships nur bei Snubs, upgradeable nur wenn false.",
+ "source": {
+  "repo": "https://github.com/MaluhTV/SC_Fleetmanifest",
+  "commit": "3e6acf32f2cce0457d917fb4349600e4e1fc3d51",
+  "updated": "2026-10-16"
+ },
+ "loops": [
+  {
+   "id": "cargo",
+   "de": "Fracht / Handel",
+   "en": "Cargo / Trading"
+  },
+  {
+   "id": "vehicle-transport",
+   "de": "Fahrzeug- & Schiffstransport",
+   "en": "Vehicle & ship transport"
+  },
+  {
+   "id": "mining",
+   "de": "Bergbau / Raffinerie",
+   "en": "Mining / Refining"
+  },
+  {
+   "id": "salvage",
+   "de": "Bergung (Salvage)",
+   "en": "Salvage"
+  },
+  {
+   "id": "medical",
+   "de": "Medizin / Rettung",
+   "en": "Medical / Rescue"
+  },
+  {
+   "id": "fighter",
+   "de": "Jäger (Dogfight)",
+   "en": "Fighters (dogfight)"
+  },
+  {
+   "id": "gunship",
+   "de": "Gunship / Großkampf",
+   "en": "Gunship / Heavy combat"
+  },
+  {
+   "id": "dropship",
+   "de": "Dropship / Boarding / FPS",
+   "en": "Dropship / Boarding / FPS"
+  },
+  {
+   "id": "exploration",
+   "de": "Exploration",
+   "en": "Exploration"
+  },
+  {
+   "id": "support",
+   "de": "Reparatur / Tanken / Support",
+   "en": "Repair / Refuel / Support"
+  },
+  {
+   "id": "touring",
+   "de": "Touring / Wohnen",
+   "en": "Touring / Living"
+  },
+  {
+   "id": "snub",
+   "de": "Snub / Beiboot",
+   "en": "Snub / Parasite craft"
+  },
+  {
+   "id": "ground",
+   "de": "Bodenfahrzeug",
+   "en": "Ground vehicle"
+  },
+  {
+   "id": "racing",
+   "de": "Racing",
+   "en": "Racing"
+  }
+ ],
+ "ships": [
+  {
+   "name": "100i",
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary"
+   }
+  },
+  {
+   "name": "125a",
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "135c",
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "300i",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary"
+   }
+  },
+  {
+   "name": "315p",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "325a",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "350r",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary"
+   }
+  },
+  {
+   "name": "400i",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "touring": "primary"
+   }
+  },
+  {
+   "name": "600i Explorer",
+   "aliases": [
+    "600i"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "touring": "primary",
+    "vehicle-transport": "secondary",
+    "medical": "planned"
+   }
+  },
+  {
+   "name": "600i Touring",
+   "aliases": [
+    "600i Executive Edition"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary",
+    "exploration": "secondary"
+   }
+  },
+  {
+   "name": "85X",
+   "aliases": [
+    "85X Limited"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "touring": "secondary"
+   },
+   "motherships": [
+    "890 Jump"
+   ]
+  },
+  {
+   "name": "890 Jump",
+   "size": "S6 Capital",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary",
+    "exploration": "secondary",
+    "vehicle-transport": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "A1 Spirit",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "A2 Hercules",
+   "aliases": [
+    "A2 Hercules Starlifter",
+    "Hercules Starlifter A2"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Apollo Medivac",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "medical": "primary"
+   }
+  },
+  {
+   "name": "Apollo Triage",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "medical": "primary"
+   }
+  },
+  {
+   "name": "Ares Inferno",
+   "aliases": [
+    "Ares Star Fighter Inferno"
+   ],
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Ares Ion",
+   "aliases": [
+    "Ares Star Fighter Ion"
+   ],
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Arrastra",
+   "size": "Large",
+   "status": "concept",
+   "loops": {
+    "mining": "planned"
+   }
+  },
+  {
+   "name": "Arrow",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Asgard",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary",
+    "vehicle-transport": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "ATLS",
+   "aliases": [
+    "ATLS GEO",
+    "ATLS IKTI",
+    "ATLS IKTI Akuma"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Aurora Mk I CL",
+   "aliases": [
+    "Aurora CL"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Aurora Mk I ES",
+   "aliases": [
+    "Aurora ES"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "secondary",
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Aurora Mk I LN",
+   "aliases": [
+    "Aurora LN"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Aurora Mk I LX",
+   "aliases": [
+    "Aurora LX"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary"
+   }
+  },
+  {
+   "name": "Aurora Mk I MR",
+   "aliases": [
+    "Aurora MR"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Aurora Mk I SE",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Aurora Mk II",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Avenger Stalker",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Avenger Titan",
+   "aliases": [
+    "Avenger Titan Renegade"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "fighter": "secondary"
+   }
+  },
+  {
+   "name": "Avenger Warlock",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Ballista",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Basher",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Blade",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Buccaneer",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "C1 Spirit",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "C2 Hercules",
+   "aliases": [
+    "C2 Hercules Starlifter",
+    "Hercules Starlifter C2",
+    "C2 Hercules Starlifter Starlifter"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "primary"
+   }
+  },
+  {
+   "name": "C8 Pisces",
+   "aliases": [
+    "Pisces"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "cargo": "secondary"
+   },
+   "motherships": [
+    "Carrack Expedition w/C8X"
+   ]
+  },
+  {
+   "name": "C8R Pisces Rescue",
+   "aliases": [
+    "C8R Pisces"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "medical": "primary",
+    "snub": "secondary"
+   },
+   "motherships": [
+    "Carrack Expedition w/C8X"
+   ]
+  },
+  {
+   "name": "C8X Pisces Expedition",
+   "aliases": [
+    "C8X Pisces"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "exploration": "secondary"
+   },
+   "motherships": [
+    "Carrack Expedition w/C8X"
+   ]
+  },
+  {
+   "name": "Carrack Expedition w/C8X",
+   "aliases": [
+    "Carrack Expedition",
+    "Carrack w/C8X",
+    "Carrack"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "cargo": "secondary",
+    "vehicle-transport": "secondary",
+    "medical": "secondary",
+    "snub": "secondary",
+    "support": "planned"
+   }
+  },
+  {
+   "name": "Caterpillar",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Centurion",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Clipper",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "exploration": "primary",
+    "medical": "secondary"
+   }
+  },
+  {
+   "name": "Constellation Mk IV Andromeda",
+   "aliases": [
+    "Constellation Andromeda"
+   ],
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "cargo": "primary",
+    "vehicle-transport": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "Constellation Mk IV Aquila",
+   "aliases": [
+    "Constellation Aquila"
+   ],
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "cargo": "secondary",
+    "vehicle-transport": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "Constellation Mk IV Phoenix",
+   "aliases": [
+    "Constellation Phoenix"
+   ],
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary",
+    "cargo": "secondary",
+    "vehicle-transport": "secondary",
+    "gunship": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "Constellation Mk IV Taurus",
+   "aliases": [
+    "Constellation Taurus"
+   ],
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Constellation Mk V Centaurus",
+   "aliases": [
+    "Constellation Mk V",
+    "Centaurus"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "gunship": "primary",
+    "vehicle-transport": "secondary",
+    "snub": "secondary",
+    "touring": "secondary"
+   }
+  },
+  {
+   "name": "Corsair",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "gunship": "secondary",
+    "cargo": "secondary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Crucible",
+   "size": "Large",
+   "status": "concept",
+   "loops": {
+    "support": "planned"
+   }
+  },
+  {
+   "name": "CSV-SM",
+   "aliases": [
+    "CSV"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "ground": "secondary"
+   }
+  },
+  {
+   "name": "Cutlass Black",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "fighter": "secondary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Cutlass Blue",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Cutlass Red",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "medical": "primary"
+   }
+  },
+  {
+   "name": "Cutlass Steel",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary"
+   }
+  },
+  {
+   "name": "Cutter",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Cutter Rambler",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Cutter Scout",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Cyclone",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Cyclone AA",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Cyclone MT",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Cyclone RC",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "Cyclone RN",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "exploration": "secondary"
+   }
+  },
+  {
+   "name": "Cyclone TR",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Defender",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Dragonfly Starkitten",
+   "aliases": [
+    "Dragonfly Star Kitten",
+    "Dragonfly Black",
+    "Dragonfly Yellowjacket",
+    "Dragonfly"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "E1 Spirit",
+   "size": "S3 Medium",
+   "status": "in-production",
+   "loops": {
+    "touring": "planned"
+   }
+  },
+  {
+   "name": "Eclipse",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Endeavor",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "medical": "planned",
+    "exploration": "planned"
+   }
+  },
+  {
+   "name": "Expanse",
+   "size": "Medium",
+   "status": "concept",
+   "loops": {
+    "mining": "planned"
+   }
+  },
+  {
+   "name": "F7A Hornet Mk I",
+   "aliases": [
+    "F7A Hornet Mk 1"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7A Hornet Mk II",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C Hornet Mk I",
+   "aliases": [
+    "F7C Hornet Wildfire Mk I",
+    "F7C Hornet Wildfire"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C Hornet Mk II",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C-M Hornet Heartseeker Mk II",
+   "aliases": [
+    "F7C-M Super Hornet Heartseeker Mk II",
+    "F7C-M Heartseeker Mk II"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C-M Super Hornet Heartseeker Mk I",
+   "aliases": [
+    "F7C-M Hornet Heartseeker Mk I",
+    "F7C-M Heartseeker Mk I"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C-M Super Hornet Mk I",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C-M Super Hornet Mk II",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C-R Hornet Tracker Mk I",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "fighter": "secondary"
+   }
+  },
+  {
+   "name": "F7C-R Hornet Tracker Mk II",
+   "aliases": [
+    "F7C-R Tracker Mk II"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "fighter": "secondary"
+   }
+  },
+  {
+   "name": "F7C-S Hornet Ghost Mk I",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F7C-S Hornet Ghost Mk II",
+   "aliases": [
+    "F7C-S Ghost Mk II"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "F8C Lightning Civilian",
+   "aliases": [
+    "F8C Lightning"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   },
+   "upgradeable": false
+  },
+  {
+   "name": "Fortune",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "salvage": "primary"
+   }
+  },
+  {
+   "name": "Freelancer",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "exploration": "secondary"
+   }
+  },
+  {
+   "name": "Freelancer DUR",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Freelancer MAX",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Freelancer MIS",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Fury",
+   "aliases": [
+    "Fury MX"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "fighter": "secondary"
+   },
+   "motherships": [
+    "Starlancer TAC"
+   ]
+  },
+  {
+   "name": "Fury LX",
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary",
+    "snub": "secondary"
+   },
+   "motherships": [
+    "Starlancer TAC"
+   ]
+  },
+  {
+   "name": "G12",
+   "aliases": [
+    "G12a",
+    "G12r"
+   ],
+   "size": "Ground vehicle",
+   "status": "concept",
+   "loops": {
+    "ground": "planned"
+   }
+  },
+  {
+   "name": "Galaxy",
+   "size": "Large",
+   "status": "in-production",
+   "loops": {
+    "cargo": "planned",
+    "medical": "planned",
+    "mining": "planned"
+   }
+  },
+  {
+   "name": "Genesis Starliner",
+   "aliases": [
+    "Genesis"
+   ],
+   "size": "Large",
+   "status": "concept",
+   "loops": {
+    "touring": "planned"
+   }
+  },
+  {
+   "name": "Gladiator",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "secondary",
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Gladius",
+   "aliases": [
+    "Gladius Valiant",
+    "Pirate Gladius",
+    "Gladius Pirate"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Glaive",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Golem",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "mining": "primary"
+   }
+  },
+  {
+   "name": "Golem OX",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Guardian",
+   "aliases": [
+    "Guardian MX"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Guardian QI",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Hammerhead",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Hawk",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Herald",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Hermes",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "HoverQuad",
+   "aliases": [
+    "Hover Quad"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "Hull A",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Hull B",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Hull C",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Hull D",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "cargo": "planned"
+   }
+  },
+  {
+   "name": "Hull E",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "cargo": "planned"
+   }
+  },
+  {
+   "name": "Hurricane",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Idris-P",
+   "aliases": [
+    "Idris-M",
+    "Idris-K",
+    "Idris"
+   ],
+   "size": "S6 Capital",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "vehicle-transport": "secondary",
+    "cargo": "secondary",
+    "snub": "secondary",
+    "medical": "secondary"
+   }
+  },
+  {
+   "name": "Intrepid",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Ironclad",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "secondary",
+    "dropship": "secondary"
+   }
+  },
+  {
+   "name": "Ironclad Assault",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary",
+    "vehicle-transport": "primary",
+    "cargo": "secondary",
+    "support": "secondary"
+   }
+  },
+  {
+   "name": "Javelin",
+   "size": "S6 Capital",
+   "status": "concept",
+   "loops": {
+    "gunship": "planned"
+   }
+  },
+  {
+   "name": "Khartu-al",
+   "aliases": [
+    "Khartu-Al",
+    "Khartual"
+   ],
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Kraken",
+   "size": "Capital",
+   "status": "in-production",
+   "loops": {
+    "vehicle-transport": "planned",
+    "cargo": "planned",
+    "support": "planned"
+   }
+  },
+  {
+   "name": "Kraken Privateer",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "vehicle-transport": "planned",
+    "gunship": "planned",
+    "touring": "planned"
+   }
+  },
+  {
+   "name": "L-21 Wolf",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "L-22 Alpha Wolf",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Legionnaire",
+   "size": "S2 Small",
+   "status": "in-production",
+   "loops": {
+    "dropship": "planned"
+   }
+  },
+  {
+   "name": "Liberator",
+   "size": "Large",
+   "status": "in-production",
+   "loops": {
+    "vehicle-transport": "planned",
+    "cargo": "planned"
+   }
+  },
+  {
+   "name": "Lynx",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "touring": "secondary"
+   }
+  },
+  {
+   "name": "M2 Hercules",
+   "aliases": [
+    "M2 Hercules Starlifter",
+    "Hercules Starlifter M2"
+   ],
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "primary",
+    "dropship": "secondary"
+   }
+  },
+  {
+   "name": "M50",
+   "aliases": [
+    "M50 Interceptor"
+   ],
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary"
+   }
+  },
+  {
+   "name": "M80",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Mantis",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "MDC",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Merchantman",
+   "size": "Large",
+   "status": "concept",
+   "loops": {
+    "cargo": "planned",
+    "touring": "planned"
+   }
+  },
+  {
+   "name": "Mercury Star Runner",
+   "aliases": [
+    "Mercury"
+   ],
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "exploration": "secondary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Meteor",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "MOLE",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "mining": "primary"
+   }
+  },
+  {
+   "name": "MOTH",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "salvage": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "MPUV Cargo",
+   "aliases": [
+    "MPUV-1C",
+    "MPUV C"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "MPUV Personnel",
+   "aliases": [
+    "MPUV-1P",
+    "MPUV Passenger"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "touring": "primary"
+   }
+  },
+  {
+   "name": "MPUV Tractor",
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "support": "secondary"
+   }
+  },
+  {
+   "name": "MTC",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Mule",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Mustang Alpha Vindicator",
+   "aliases": [
+    "Mustang Alpha"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "secondary",
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Mustang Beta",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Mustang Delta",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Mustang Gamma",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary"
+   }
+  },
+  {
+   "name": "Mustang Omega",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary"
+   }
+  },
+  {
+   "name": "Nautilus",
+   "size": "Large",
+   "status": "concept",
+   "loops": {
+    "gunship": "planned"
+   }
+  },
+  {
+   "name": "Nomad",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "touring": "secondary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Nova",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Nox",
+   "aliases": [
+    "Nox Kue"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "Odin",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "gunship": "planned",
+    "vehicle-transport": "planned"
+   }
+  },
+  {
+   "name": "Odyssey",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "exploration": "planned"
+   }
+  },
+  {
+   "name": "Orion",
+   "size": "Capital",
+   "status": "concept",
+   "loops": {
+    "mining": "planned"
+   }
+  },
+  {
+   "name": "P-52 Merlin",
+   "aliases": [
+    "P52 Merlin",
+    "Merlin"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "fighter": "secondary"
+   },
+   "motherships": [
+    "Constellation Mk IV Andromeda",
+    "Constellation Mk IV Aquila"
+   ]
+  },
+  {
+   "name": "P-72 Archimedes Emerald",
+   "aliases": [
+    "P-72 Archimedes",
+    "P72 Archimedes"
+   ],
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "racing": "secondary"
+   },
+   "motherships": [
+    "Constellation Mk IV Phoenix"
+   ]
+  },
+  {
+   "name": "Paladin",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Perseus",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Pioneer",
+   "size": "Capital",
+   "status": "in-production",
+   "loops": {
+    "support": "planned"
+   }
+  },
+  {
+   "name": "Pitbull",
+   "size": "S1 Snub",
+   "status": "flight-ready",
+   "loops": {
+    "snub": "primary",
+    "fighter": "secondary"
+   }
+  },
+  {
+   "name": "Polaris",
+   "size": "S6 Capital",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "cargo": "secondary",
+    "vehicle-transport": "secondary",
+    "medical": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "Prospector",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "mining": "primary"
+   }
+  },
+  {
+   "name": "Prowler",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary"
+   }
+  },
+  {
+   "name": "Prowler Utility",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "PTV",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   },
+   "upgradeable": false
+  },
+  {
+   "name": "Pulse",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "Pulse LX",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "RAFT",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Railen",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Ranger",
+   "aliases": [
+    "Ranger CV",
+    "Ranger RC",
+    "Ranger TR"
+   ],
+   "size": "Ground vehicle",
+   "status": "concept",
+   "loops": {
+    "ground": "planned"
+   }
+  },
+  {
+   "name": "RAPTOR",
+   "aliases": [
+    "Raptor"
+   ],
+   "size": "Ground vehicle",
+   "status": "concept",
+   "loops": {
+    "ground": "planned"
+   }
+  },
+  {
+   "name": "Razor",
+   "aliases": [
+    "Razor LX"
+   ],
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary"
+   }
+  },
+  {
+   "name": "Razor EX",
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Reclaimer",
+   "size": "S6 Capital",
+   "status": "flight-ready",
+   "loops": {
+    "salvage": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Redeemer",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Reliant Kore",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Reliant Mako",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Reliant Sen",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Reliant Tana",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Retaliator",
+   "aliases": [
+    "Retaliator Bomber",
+    "Retaliator Base"
+   ],
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "cargo": "secondary",
+    "dropship": "planned"
+   }
+  },
+  {
+   "name": "ROC",
+   "aliases": [
+    "Greycat ROC"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "mining": "primary",
+    "ground": "secondary"
+   }
+  },
+  {
+   "name": "ROC-DS",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "mining": "primary",
+    "ground": "secondary"
+   }
+  },
+  {
+   "name": "S-65 Stingray",
+   "aliases": [
+    "S65 Stingray"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Sabre",
+   "aliases": [
+    "Sabre Comet"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Sabre Firebird",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Sabre Peregrine",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "racing": "primary"
+   }
+  },
+  {
+   "name": "Sabre Raven",
+   "aliases": [
+    "Sabre Raven EX"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Salvation",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "salvage": "primary"
+   }
+  },
+  {
+   "name": "San'tok.yāi",
+   "aliases": [
+    "Santokyai",
+    "San'tok.yai",
+    "Santok.yai"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Scorpius",
+   "aliases": [
+    "Scorpius Antares"
+   ],
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Scythe",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Shiv",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Spartan",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary",
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "SRV",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "support": "primary"
+   }
+  },
+  {
+   "name": "Starfarer",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "support": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Starfarer Gemini",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "support": "primary",
+    "gunship": "secondary"
+   }
+  },
+  {
+   "name": "Starlancer BLD",
+   "size": "Large",
+   "status": "concept",
+   "loops": {
+    "support": "planned"
+   }
+  },
+  {
+   "name": "Starlancer MAX",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary",
+    "vehicle-transport": "secondary",
+    "touring": "secondary"
+   }
+  },
+  {
+   "name": "Starlancer TAC",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "dropship": "primary",
+    "medical": "secondary",
+    "vehicle-transport": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "Starlite",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "support": "primary"
+   }
+  },
+  {
+   "name": "Stinger",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Storm",
+   "aliases": [
+    "Storm AA"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "STV",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Syulen",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Talon",
+   "aliases": [
+    "Talon Shrike"
+   ],
+   "size": "S1 Small",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Terrapin",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary"
+   }
+  },
+  {
+   "name": "Terrapin Medic",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "medical": "primary",
+    "exploration": "secondary"
+   }
+  },
+  {
+   "name": "Tiburon",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary"
+   }
+  },
+  {
+   "name": "Tyilui",
+   "size": "S5 Large",
+   "status": "flight-ready",
+   "loops": {
+    "vehicle-transport": "primary",
+    "support": "secondary",
+    "cargo": "secondary",
+    "snub": "secondary"
+   }
+  },
+  {
+   "name": "Ursa",
+   "aliases": [
+    "Ursa Rover"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "exploration": "secondary"
+   }
+  },
+  {
+   "name": "Ursa Fortuna",
+   "aliases": [
+    "Ursa Rover Fortuna"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Ursa Medivac",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "medical": "primary",
+    "ground": "secondary"
+   }
+  },
+  {
+   "name": "UTV",
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary"
+   }
+  },
+  {
+   "name": "Valkyrie",
+   "size": "S4 Large",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary",
+    "vehicle-transport": "secondary"
+   }
+  },
+  {
+   "name": "Vanguard Harbinger",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "gunship": "primary",
+    "fighter": "secondary"
+   }
+  },
+  {
+   "name": "Vanguard Hoplite",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "dropship": "primary"
+   }
+  },
+  {
+   "name": "Vanguard Sentinel",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Vanguard Warden",
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "fighter": "primary"
+   }
+  },
+  {
+   "name": "Vulcan",
+   "size": "Medium",
+   "status": "concept",
+   "loops": {
+    "support": "planned"
+   }
+  },
+  {
+   "name": "Vulture",
+   "size": "S2 Small",
+   "status": "flight-ready",
+   "loops": {
+    "salvage": "primary"
+   }
+  },
+  {
+   "name": "X1",
+   "aliases": [
+    "X1 Base",
+    "X1 Velocity",
+    "X1 Force"
+   ],
+   "size": "Ground vehicle",
+   "status": "flight-ready",
+   "loops": {
+    "ground": "primary",
+    "racing": "secondary"
+   }
+  },
+  {
+   "name": "Zeus Mk II CL",
+   "aliases": [
+    "Zeus CL"
+   ],
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "cargo": "primary"
+   }
+  },
+  {
+   "name": "Zeus Mk II ES",
+   "aliases": [
+    "Zeus ES"
+   ],
+   "size": "S3 Medium",
+   "status": "flight-ready",
+   "loops": {
+    "exploration": "primary",
+    "cargo": "secondary"
+   }
+  },
+  {
+   "name": "Zeus Mk II MR",
+   "aliases": [
+    "Zeus MR"
+   ],
+   "size": "Medium",
+   "status": "concept",
+   "loops": {
+    "fighter": "planned"
+   }
+  }
+ ]
+}

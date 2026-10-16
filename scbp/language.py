@@ -2588,6 +2588,8 @@ TEXTS = {
                         'connection.'),
     's_dk_flaggen':    ('Die Flaggen an der Sprachwahl. © 2013 Panayiotis Lipiridis.',
                         'The flags at the language choice. © 2013 Panayiotis Lipiridis.'),
+    's_dk_fleetmanifest': ('Welche Spielbereiche ein Schiff abdeckt und welche Snubs zu welchem Mutterschiff gehören — die Grundlage der Flottenanalyse im Hangar. © 2026 MaluhTV.',
+                           'Which gameplay loops a ship covers and which snubs belong to which mothership — the basis of the fleet analysis in the hangar. © 2026 MaluhTV.'),
     's_dk_dpop':       ('Signiert die Anmeldung beim KRT Profit Basetool, ohne dass der Schlüssel deinen Rechner verlässt. © 2026 Lucas Greuloch (greluc, KRT).',
                         'Signs the sign-in to the KRT Profit Basetool without the key ever leaving your computer. © 2026 Lucas Greuloch (greluc, KRT).'),
     's_dk_symbole':    ('Alle Symbole der Oberfläche. Ein Satz, von denselben '
@@ -3101,6 +3103,8 @@ TEXTS = {
                               '**Reputation thresholds on ranks** — the '
                               'reputation menu now shows how much reputation '
                               'a rank starts at.'),
+    's_dk_maluh_idee':       ('**Die Flottenanalyse im Hangar** — welche Spielbereiche die eigene Flotte abdeckt, wo Lücken sind, welche Snubs ohne Mutterschiff dastehen und was sich schmelzen oder per CCU upgraden lässt. Idee und Schiffsdaten stammen aus seinem Fleetmanifest. Danke!',
+                              '**The fleet analysis in the hangar** — which gameplay loops your fleet covers, where the gaps are, which snubs have no mothership and what can be melted or upgraded via CCU. Idea and ship data come from his Fleetmanifest. Thank you!'),
     's_dk_drachennarr_idee': ('**Tode und Standort aus dem Spielprotokoll** — der Hinweis, dass ein Tod an der eigenen Körpernummer eindeutig zu erkennen ist und der aktuelle Ort im Log steht. Danke!',
                               '**Deaths and location from the game log** — the hint that a death can be told apart by your own body number and that the current place is in the log. Thank you!'),
     's_dk_drachennarr_bugs': ('**Eine Prüfung des ganzen Quelltexts** — über dreißig Funde, darunter verlorene Rückmeldungen aus Nebenfäden, Nutzerdaten, die bei einem Absturz verloren gehen konnten, und Spieldateien, die halb geschrieben zurückbleiben konnten. Dazu der träge Wechsel zwischen Karten- und Reiteransicht. Danke!',
@@ -4632,6 +4636,33 @@ TEXTS = {
     's_hg_keine_einheit': ('Keine Einheit', 'No unit'),
     's_hg_einheit_fremd': ('Einheit, in der du nicht bist', 'A unit you are not in'),
     's_hg_einheit_offen': ('Wie im Basetool (noch nicht abgeglichen)', 'As in the Basetool (not synced yet)'),
+    # Flottenanalyse über der Hangar-Liste (`pages._fleet_analysis`).
+    's_fa_titel':        ('Flottenanalyse', 'Fleet analysis'),
+    's_fa_text':         ('Welche Spielbereiche deine Schiffe abdecken, wo Lücken sind und welche Snubs ohne Mutterschiff dastehen. Die Zuordnung der Schiffe ist eine Einschätzung, keine Spieldaten.',
+                          'Which gameplay loops your ships cover, where the gaps are and which snubs have no mothership. The ship assignment is an assessment, not game data.'),
+    's_fa_leer':         ('Trag zuerst Schiffe ein — dann steht hier, was deine Flotte abdeckt.',
+                          'Add ships first — then this shows what your fleet covers.'),
+    's_fa_haupt':        ('Hauptrolle: {namen}', 'Primary role: {namen}'),
+    's_fa_neben':        ('Nebenrolle: {namen}', 'Secondary role: {namen}'),
+    's_fa_geplant':      ('Geplant (noch nicht im Spiel): {namen}', 'Planned (not in the game yet): {namen}'),
+    's_fa_luecke':       ('Lücke — kein Schiff in Hauptrolle', 'Gap — no ship in a primary role'),
+    's_fa_snubs_titel':  ('Snubs ohne Mutterschiff', 'Snubs without a mothership'),
+    's_fa_snub':         ('{snub} gehört zu {mutter} — nicht im Hangar.', '{snub} belongs to {mutter} — not in your hangar.'),
+    's_fa_schmelz_titel': ('Schmelzen und CCU', 'Melting and CCU'),
+    's_fa_schmelz':      ('Schmelzen + CCU: {beides} · nur Schmelzen: {nur_s} · nur CCU: {nur_c} · weder noch: {keins} · unbekannt: {offen}',
+                          'Melt + CCU: {beides} · melt only: {nur_s} · CCU only: {nur_c} · neither: {keins} · unknown: {offen}'),
+    's_fa_schmelz_hilfe': ('Kommt aus dem CSV der Hangar Extension (Spalte „Meltable"). Fehlt die Angabe, setzt du sie an der Schiffskarte.',
+                          'Comes from the Hangar Extension CSV ("Meltable" column). If it is missing, set it on the ship card.'),
+    's_fa_unbekannt':    ('Nicht ausgewertet (unbekannt): {namen}', 'Not analysed (unknown): {namen}'),
+    's_fa_quelle':       ('Spielbereiche je Schiff aus dem Fleetmanifest von Maluh (KRT), MIT-Lizenz.',
+                          'Gameplay loops per ship from the Fleetmanifest by Maluh (KRT), MIT licence.'),
+    # Schmelz-Status auf der Schiffskarte (`pages._melt_choice`).
+    's_fa_m_beides':     ('Schmelzen + CCU', 'Melt + CCU'),
+    's_fa_m_nur_s':      ('Nur Schmelzen', 'Melt only'),
+    's_fa_m_nur_c':      ('Nur CCU', 'CCU only'),
+    's_fa_m_keins':      ('Weder Schmelzen noch CCU', 'Neither melt nor CCU'),
+    's_fa_m_offen':      ('Schmelzen/CCU unbekannt', 'Melt/CCU unknown'),
+    's_fa_m_import':     ('{text} (laut Import)', '{text} (from import)'),
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
     # Carrack) — kommt aus `includedWith` der Hangar Extension.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),

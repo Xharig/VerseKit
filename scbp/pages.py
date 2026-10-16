@@ -7238,6 +7238,11 @@ def _thanks(fenster, rahmen):
     # (`scbp/dpop_reference/`, Lizenztext dort in `LICENSE`).
     _credit_box(fenster, innen, 'Basetool DPoP reference', 'MIT',
                t('s_dk_dpop'), 'https://krt-profit.github.io/basetool/')
+    # Die Loop-Zuordnung der Flottenanalyse (`daten/flottenanalyse.json`,
+    # Lizenztext daneben in `flottenanalyse-LICENSE.txt`).
+    _credit_box(fenster, innen, 'Fleetmanifest (Maluh)', 'MIT',
+               t('s_dk_fleetmanifest'),
+               'https://github.com/MaluhTV/SC_Fleetmanifest')
 
     # --- Wird geladen, nicht mitgeliefert ---
     tk.Label(innen, text=t('s_dk_extern'), bg=BG, fg=FG, font=fenster.f_title,
@@ -7349,6 +7354,7 @@ def _thanks(fenster, rahmen):
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
             ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'),
              t('s_dk_drachennarr_bugs')),
+            ('Maluh', 'KRT', t('s_dk_maluh_idee'), ''),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('Rhino', '', t('s_dk_rhino_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
@@ -13577,6 +13583,9 @@ def _hangar(fenster, rahmen):
                        anchor='w')
     hinweis.pack(fill='x', padx=24, pady=(10, 0))
 
+    # ------------------------------------------------------ Flottenanalyse
+    daten['analyse_neu'] = _fleet_analysis(fenster, innen, daten)
+
     # ----------------------------------------------------------- Die Liste
     liste_rahmen.pack(fill='x', padx=24, pady=(16, 20))
 
@@ -13594,6 +13603,7 @@ def _hangar(fenster, rahmen):
     def _liste_fuellen(behalten=False):
         if not behalten:
             karten.clear()
+            (daten.get('analyse_neu') or (lambda: None))()
         aufbewahrt = {id(k[0]) for k in karten.values()}
         for kind in liste_rahmen.winfo_children():
             if id(kind) in aufbewahrt:
@@ -15329,6 +15339,174 @@ def _unit_choice(fenster, parent, entry, save):
                  bg=SURFACE).pack(side='right', padx=(0, 12))
 
 
+def _melt_caption(state):
+    from . import fleet_analysis as fa
+    return t({fa.MELTABLE: 's_fa_m_beides', fa.MELT_ONLY: 's_fa_m_nur_s',
+              fa.UPGRADE: 's_fa_m_nur_c', fa.LOCKED: 's_fa_m_keins'}.get(
+                  state, 's_fa_m_offen'))
+
+
+def _melt_choice(fenster, parent, entry, save):
+    """Schmelz-Status auf der Schiffskarte: laut Import oder von Hand.
+
+    Schmelzbar kommt aus dem Import (`schmelzbar`) oder aus dieser Wahl
+    (`schmelz_wahl`, geht vor); ob CCU geht, aus den Daten der
+    Flottenanalyse. Im Spiel gekaufte Schiffe bekommen keine Auswahl."""
+    from . import fleet_analysis as fa
+    from .main_window import round_select
+    if not fa.melt_applies(entry):
+        return
+    up = fa.upgradeable(entry)
+    imported = entry.get('schmelzbar')
+    if isinstance(imported, bool):
+        auto = t('s_fa_m_import').format(
+            text=_melt_caption(fa.state_for(imported, up)))
+    else:
+        auto = t('s_fa_m_offen')
+    entries = [('', auto),
+               (fa.CHOICE_YES, _melt_caption(fa.state_for(True, up))),
+               (fa.CHOICE_NO, _melt_caption(fa.state_for(False, up)))]
+    current = entry.get('schmelz_wahl')
+    if current not in (fa.CHOICE_YES, fa.CHOICE_NO):
+        current = ''
+
+    def choose(value):
+        if value == (entry.get('schmelz_wahl') or ''):
+            return
+        if value:
+            entry['schmelz_wahl'] = value
+        else:
+            entry.pop('schmelz_wahl', None)
+        save()
+
+    round_select(parent, entries, current, choose, fenster.f_small,
+                 bg=SURFACE).pack(side='right', padx=(0, 12))
+
+
+def _fleet_analysis(fenster, eltern, daten):
+    """Die Flottenanalyse über der Hangar-Liste — aufklappbar.
+
+    Gebaut wird der Inhalt beim Aufklappen. Gibt eine Funktion zurück, die
+    ihn nach einer Änderung am Hangar neu aufbaut, solange er offen ist."""
+    from . import fleet_analysis as fa, language
+
+    karte = _card(eltern, padx=24, pady=(16, 0))
+    kopf = tk.Frame(karte, bg=SURFACE, cursor='hand2')
+    kopf.pack(fill='x', padx=16, pady=10)
+    pfeil = icons.line(kopf, 'aufklappen', background=SURFACE,
+                       font=fenster.f_small)
+    pfeil.pack(side='left', padx=(0, 8))
+    tk.Label(kopf, text=t('s_fa_titel'), bg=SURFACE, fg=FG,
+             font=fenster.f_bold, anchor='w').pack(side='left')
+    koerper = tk.Frame(karte, bg=SURFACE)
+
+    def ueberschrift(text):
+        tk.Label(koerper, text=text, bg=SURFACE, fg=FG, font=fenster.f_small,
+                 anchor='w').pack(fill='x', padx=16, pady=(12, 2))
+
+    def fuellen():
+        for kind in koerper.winfo_children():
+            kind.destroy()
+        _body_text(koerper, t('s_fa_text'), fenster.f_small, bg=SURFACE,
+                   fill='x', padx=16, pady=(0, 8), inset=32)
+        schiffe = daten['stand'].get('schiffe') or []
+        if not schiffe:
+            _body_text(koerper, t('s_fa_leer'), fenster.f_small, bg=SURFACE,
+                       fill='x', padx=16, pady=(0, 12), inset=32)
+            return
+        lang = language.current()
+        auswertung = fa.analyse(schiffe)
+
+        liste = tk.Frame(koerper, bg=SURFACE)
+        liste.pack(fill='x', padx=16)
+        _stripe_reset(liste)
+        for loop in fa.loops():
+            rollen = auswertung['coverage'].get(loop.get('id')) or {}
+            luecke = loop.get('id') in auswertung['gaps']
+            grund = _stripe(liste, SURFACE)
+            zeile = tk.Frame(liste, bg=grund)
+            zeile.pack(fill='x', ipady=3)
+            tk.Label(zeile, text=fa.loop_name(loop.get('id'), lang), bg=grund,
+                     fg=GOLD if luecke else FG, font=fenster.f_small,
+                     anchor='w').pack(fill='x', padx=8)
+            teile = [t('s_fa_luecke')] if luecke else []
+            for key, rolle in (('s_fa_haupt', fa.PRIMARY),
+                               ('s_fa_neben', fa.SECONDARY),
+                               ('s_fa_geplant', fa.PLANNED)):
+                if rollen.get(rolle):
+                    teile.append(t(key).format(namen=', '.join(rollen[rolle])))
+            _body_text(zeile, '\n'.join(teile), fenster.f_small,
+                       color=GOLD if luecke and len(teile) == 1 else SUB,
+                       bg=grund, fill='x', padx=(24, 8), inset=64)
+
+        if auswertung['orphan_snubs']:
+            ueberschrift(t('s_fa_snubs_titel'))
+            snubs = tk.Frame(koerper, bg=SURFACE)
+            snubs.pack(fill='x', padx=16)
+            _stripe_reset(snubs)
+            for snub, mutter in auswertung['orphan_snubs']:
+                grund = _stripe(snubs, SURFACE)
+                _body_text(snubs, t('s_fa_snub').format(
+                    snub=snub, mutter=', '.join(mutter)), fenster.f_small,
+                    color=GOLD, bg=grund, fill='x', ipady=3, padx=0,
+                    inset=32)
+
+        zaehler = {s: 0 for s in fa.MELT_STATES}
+        offen = 0
+        for s in schiffe:
+            if not fa.melt_applies(s):
+                continue
+            zustand = fa.melt_state(s)
+            if zustand is None:
+                offen += 1
+            else:
+                zaehler[zustand] += 1
+        ueberschrift(t('s_fa_schmelz_titel'))
+        _body_text(koerper, t('s_fa_schmelz').format(
+            beides=zaehler[fa.MELTABLE], nur_s=zaehler[fa.MELT_ONLY],
+            nur_c=zaehler[fa.UPGRADE], keins=zaehler[fa.LOCKED], offen=offen),
+            fenster.f_small, color=FG, bg=SURFACE, fill='x', padx=16,
+            inset=32)
+        _body_text(koerper, t('s_fa_schmelz_hilfe'), fenster.f_small,
+                   bg=SURFACE, fill='x', padx=16, inset=32)
+
+        if auswertung['unknown']:
+            _body_text(koerper, t('s_fa_unbekannt').format(
+                namen=', '.join(auswertung['unknown'])), fenster.f_small,
+                bg=SURFACE, fill='x', padx=16, pady=(10, 0), inset=32)
+        _body_text(koerper, t('s_fa_quelle'), fenster.f_small, bg=SURFACE,
+                   fill='x', padx=16, pady=(10, 12), inset=32)
+
+    # ⚠ Offen oder zu steht hier, nicht in `winfo_ismapped()`: Das meldet
+    # auch bei aufgeklapptem Kasten `False`, solange die Seite verdeckt ist.
+    offen = [False]
+
+    def umschalten(_=None):
+        if offen[0]:
+            offen[0] = False
+            koerper.pack_forget()
+            pfeil.swap_symbol('aufklappen')
+        else:
+            offen[0] = True
+            fuellen()
+            koerper.pack(fill='x', after=kopf)
+            pfeil.swap_symbol('zuklappen')
+
+    for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
+        teil.bind('<Button-1>', umschalten)
+    icons.hover_group(kopf, pfeil)
+
+    def auffrischen():
+        try:
+            if offen[0] and koerper.winfo_exists():
+                fuellen()
+        except tk.TclError:
+            pass
+
+    auffrischen.toggle = umschalten
+    return auffrischen
+
+
 def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
                 name_line=None):
     """Eine Schiffszeile. Gibt `1` zurück, wenn Steckplätze fehlen.
@@ -15355,6 +15533,14 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
         neu_zeichnen()
 
     _button(fenster, kopf, t('s_hg_entfernen'), austragen).pack(side='right')
+
+    def schmelz_gewaehlt():
+        meine.save(daten['stand'])
+        (daten.get('analyse_neu') or (lambda: None))()
+
+    # In der Kopfzeile neben dem Namen ist Platz; die Zeile darunter trägt
+    # schon Einheit, Einsatzbereit und die Angaben.
+    _melt_choice(fenster, kopf, eintrag, schmelz_gewaehlt)
 
     # Zweite Zeile: Herkunft, LTI, Steckplätze — die drei Angaben, die den
     # Unterschied machen.

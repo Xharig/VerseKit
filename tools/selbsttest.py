@@ -217,9 +217,9 @@ def nur_code(quelle):
     import textwrap as _tw
     baum = _ast.parse(_tw.dedent(quelle))
     for k in _ast.walk(baum):
-        for feld in ('body', 'orelse', 'finalbody'):
-            teile = getattr(k, feld, None)
-            if not isinstance(teile, list):
+        for feld, teile in list(_ast.iter_fields(k)):
+            if feld not in ('body', 'orelse', 'finalbody') \
+                    or not isinstance(teile, list):
                 continue
             rest = [s for s in teile
                     if not (isinstance(s, _ast.Expr)
@@ -44674,6 +44674,281 @@ def _pruefung_461():
     pruefe(not _alle461,
            'kein undefinierter Name in den versionierten Python-Dateien '
            '(%d gefunden)' % len(_alle461))
+
+    print('\n462. Flottenanalyse: Loops, Lücken, Snubs, Schmelz-Status')
+    from scbp import fleet_analysis as _fa462, fleet as _fl462, paths as _pf462
+    _doc462 = _fa462.load()
+    pruefe(len(_doc462.get('ships') or []) >= 200
+           and len(_doc462.get('loops') or []) >= 10,
+           'die mitgelieferten Daten sind da (%d Schiffe, %d Loops)'
+           % (len(_doc462.get('ships') or []), len(_doc462.get('loops') or [])))
+    _liz462 = _pf462.bundled_file(_fa462.LICENSE_FILE)
+    _liz_text462 = ''
+    if os.path.isfile(_liz462):
+        with open(_liz462, encoding='utf-8') as _h462:
+            _liz_text462 = _h462.read()
+    pruefe('MIT License' in _liz_text462 and 'MaluhTV' in _liz_text462,
+           'der MIT-Lizenztext liegt neben den Daten (die Lizenz verlangt ihn)')
+    _ids462 = {l.get('id') for l in _fa462.loops()}
+    _falsch462 = sorted(
+        '%s:%s' % (s.get('name'), k) for s in _doc462.get('ships') or []
+        for k, v in (s.get('loops') or {}).items()
+        if k not in _ids462 or v not in (_fa462.PRIMARY, _fa462.SECONDARY,
+                                         _fa462.PLANNED))
+    pruefe(not _falsch462, 'jede Rolle nennt einen bekannten Loop (%r)'
+           % _falsch462[:5])
+
+    pruefe((_fa462.match('Drake Cutlass Black') or {}).get('name')
+           == 'Cutlass Black',
+           'ein vorangestellter Hersteller stört die Zuordnung nicht')
+    pruefe((_fa462.match('Cutlass Black Best In Show Edition') or {}).get(
+        'name') == 'Cutlass Black',
+           'eine Sonderedition trifft das Grundschiff')
+    pruefe(_fa462.match('Gibt es nicht 3000') is None,
+           'ein unbekannter Name trifft nichts')
+    pruefe((_fa462.match('Carrack') or {}).get('name')
+           == 'Carrack Expedition w/C8X',
+           'ein Alias trifft sein Schiff')
+    _namen462 = {s.get('name') for s in _doc462.get('ships') or []}
+    _mfalsch462 = sorted(
+        '%s -> %s' % (s.get('name'), m) for s in _doc462.get('ships') or []
+        for m in s.get('motherships') or () if m not in _namen462)
+    pruefe(not _mfalsch462 and any(s.get('motherships')
+                                   for s in _doc462.get('ships') or []),
+           'jedes Mutterschiff ist ein Schiff der Daten (%r)' % _mfalsch462)
+    # Vorrang des Hauptnamens vor einem gleichlautenden Alias — mit
+    # eingeschleusten Daten, die echten haben (noch) keinen solchen Fall.
+    _echt462 = dict(_fa462._cache)
+    try:
+        _fa462._cache.clear()
+        _fa462._cache['doc'] = {'loops': [], 'ships': [
+            {'name': 'Alpha', 'aliases': ['Beta'], 'loops': {}},
+            {'name': 'Beta', 'loops': {}}]}
+        pruefe((_fa462.match('Beta') or {}).get('name') == 'Beta',
+               'ein Hauptname geht dem gleichlautenden Alias eines anderen '
+               'Schiffs vor')
+    finally:
+        _fa462._cache.clear()
+        _fa462._cache.update(_echt462)
+
+    _pisces462 = {'name': 'C8R Pisces Rescue', 'herkunft': 'pledge'}
+    _a462 = _fa462.analyse([_pisces462])
+    pruefe([n for n, _m in _a462['orphan_snubs']] == ['C8R Pisces Rescue'],
+           'Snub ohne Mutterschiff wird genannt (%r)' % _a462['orphan_snubs'])
+    _mutter462 = (_fa462.match('C8R Pisces Rescue') or {}).get(
+        'motherships') or ['?']
+    _a462 = _fa462.analyse([_pisces462, {'name': _mutter462[0]}])
+    pruefe(not _a462['orphan_snubs'],
+           'mit Mutterschiff im Hangar ist der Snub kein Fund (%r)'
+           % _a462['orphan_snubs'])
+    _a462 = _fa462.analyse([_pisces462, {'name': 'Carrack'}])
+    pruefe(not _a462['orphan_snubs'],
+           'auch wenn das Mutterschiff im Hangar unter einem Alias steht (%r)'
+           % _a462['orphan_snubs'])
+    _a462 = _fa462.analyse([{'name': 'ATLS GEO'}, {'name': 'ATLS IKTI'}])
+    _alle462 = sorted({n for r in _a462['coverage'].values()
+                       for ns in r.values() for n in ns})
+    pruefe(_alle462 == ['ATLS GEO', 'ATLS IKTI'],
+           'zwei Hangar-Namen auf denselben Datensatz: beide stehen da (%r)'
+           % _alle462)
+    _carrack462 = _fa462.match('Carrack') or {}
+    _geplant462 = [k for k, v in (_carrack462.get('loops') or {}).items()
+                   if v == _fa462.PLANNED]
+    _a462 = _fa462.analyse([{'name': 'Carrack'}])
+    pruefe(_geplant462 and not any(k in _a462['gaps'] for k in _geplant462),
+           'ein Loop mit geplanter Rolle ist keine Lücke (%r / %r)'
+           % (_geplant462, _a462['gaps']))
+    _cut462 = _fa462.match('Cutlass Black') or {}
+    _haupt462 = [k for k, v in (_cut462.get('loops') or {}).items()
+                 if v == _fa462.PRIMARY]
+    _a462 = _fa462.analyse([{'name': 'Cutlass Black'}])
+    pruefe(_haupt462 and not any(k in _a462['gaps'] for k in _haupt462)
+           and len(_a462['gaps']) == len(_ids462) - len(_haupt462)
+           - sum(1 for v in (_cut462.get('loops') or {}).values()
+                 if v == _fa462.PLANNED),
+           'Lücken: jeder Loop ohne Haupt- oder geplante Rolle, sonst keiner '
+           '(%r)' % _a462['gaps'])
+    pruefe(all('Cutlass Black' in _a462['coverage'][k][_fa462.PRIMARY]
+               for k in _haupt462),
+           'das Schiff steht in seinen Loops in der Hauptrolle')
+    _a462 = _fa462.analyse([{'name': 'Cutlass Black'},
+                            {'name': 'Cutlass Black'}])
+    pruefe(all(_a462['coverage'][k][_fa462.PRIMARY] == ['Cutlass Black']
+               for k in _haupt462),
+           'zweimal dasselbe Schiff zählt je Loop einmal')
+
+    _ptv462 = (_fa462.match('PTV') or {}).get('upgradeable')
+    pruefe(_ptv462 is False, 'die PTV lässt sich laut Daten nicht upgraden')
+    _faelle462 = (
+        ({'name': 'Cutlass Black', 'herkunft': 'ingame',
+          'schmelzbar': True}, None, 'im Spiel gekauft: kein Status'),
+        ({'name': 'Cutlass Black', 'herkunft': 'liste',
+          'schmelzbar': True}, None, 'aus einer Schiffsliste: kein Status'),
+        ({'name': 'Cutlass Black', 'herkunft': 'basetool',
+          'schmelzbar': True}, None, 'aus dem Basetool: kein Status'),
+        ({'name': 'Cutlass Black', 'herkunft': 'pledge'}, None,
+         'ohne Angabe: unbekannt'),
+        ({'name': 'Cutlass Black', 'herkunft': 'pledge', 'schmelzbar': True},
+         _fa462.MELTABLE, 'schmelzbar + upgradebar'),
+        ({'name': 'Cutlass Black', 'herkunft': 'pledge', 'schmelzbar': False},
+         _fa462.UPGRADE, 'nicht schmelzbar: nur CCU'),
+        ({'name': 'PTV', 'herkunft': 'pledge', 'schmelzbar': True},
+         _fa462.MELT_ONLY, 'PTV schmelzbar: nur schmelzen'),
+        ({'name': 'PTV', 'herkunft': 'pledge', 'schmelzbar': False},
+         _fa462.LOCKED, 'PTV nicht schmelzbar: weder noch'),
+        ({'name': 'Cutlass Black', 'herkunft': 'pledge', 'schmelzbar': True,
+          'schmelz_wahl': 'nein'}, _fa462.UPGRADE,
+         'die Wahl an der Karte geht dem Import vor'),
+        ({'name': 'Cutlass Black', 'herkunft': 'pledge',
+          'schmelz_wahl': 'ja'}, _fa462.MELTABLE,
+         'die Wahl an der Karte ersetzt eine fehlende Angabe'),
+    )
+    for _e462, _soll462, _was462 in _faelle462:
+        _ist462 = _fa462.melt_state(_e462)
+        pruefe(_ist462 == _soll462, 'Schmelz-Status: %s (%r)'
+               % (_was462, _ist462))
+
+    # ⚠ Meltable und Giftable stehen absichtlich verschieden — sonst bliebe
+    # eine Verwechslung der Spalten grün. Das nicht schmelzbare Exemplar der
+    # Cutlass steht oben: Nur `any()` über alle Exemplare macht sie schmelzbar.
+    _kopf462 = ('Pledge ID,Pledge Date,Pledge Cost,Meltable,Giftable,'
+                'Pledge Name,Pledge Content,Content Type')
+    _cut_nein462 = ('"3","May 03, 2026","90.00 USD","no","yes","Cutlass",'
+                    '"Drake Cutlass Black","Ship"')
+    _csv462 = '\n'.join([
+        _kopf462,
+        '"1","May 01, 2026","45.00 USD","no","yes","Pulse","Mirai Pulse",'
+        '"Ship"',
+        _cut_nein462,
+        '"2","May 02, 2026","90.00 USD","yes","no","Cutlass",'
+        '"Drake Cutlass Black","Ship"',
+        '"4","May 04, 2026","5.00 USD","","yes","Ohne Angabe",'
+        '"Anvil Arrow","Ship"',
+        '"5","May 05, 2026","5.00 USD","","no","Später",'
+        '"6 Month Insurance","Insurance"',
+        '"5","May 05, 2026","5.00 USD","yes","no","Später",'
+        '"Anvil Hornet Mk II","Ship"',
+    ])
+    _ein462 = _fl462._from_csv(_csv462)
+    _je462 = {e.get('name'): e.get('schmelzbar') for e in _ein462
+              if e.get('name') != 'Cutlass Black'}
+    pruefe(_je462 == {'Pulse': False, 'Arrow': None, 'Hornet Mk II': True},
+           'die Spalte Meltable wird gelesen (nicht Giftable), leer bleibt '
+           'unbekannt, eine spätere Zeile des Pledges zählt mit (%r)' % _je462)
+    _hg462 = {'format': 1, 'schiffe': [
+        {'name': 'Arrow', 'hersteller': 'Anvil', 'hkurz': 'ANVL',
+         'herkunft': 'pledge', 'schmelzbar': True}]}
+    _fl462.import_entries(_ein462, _hg462, save_now=False)
+    _nach462 = {s.get('name'): s.get('schmelzbar')
+                for s in _hg462['schiffe']}
+    pruefe(_nach462.get('Cutlass Black') is True,
+           'zwei Exemplare, eines schmelzbar: der Typ gilt als schmelzbar '
+           '(%r)' % _nach462)
+    pruefe(_nach462.get('Pulse') is False,
+           'nicht schmelzbar kommt als False an (%r)' % _nach462)
+    pruefe(_nach462.get('Arrow') is True,
+           'ein Export ohne Angabe lässt den gespeicherten Wert stehen (%r)'
+           % _nach462)
+    _fl462.import_entries(_fl462._from_csv('\n'.join(
+        [_kopf462, _cut_nein462])), _hg462, save_now=False)
+    pruefe({s.get('name'): s.get('schmelzbar') for s in _hg462['schiffe']}
+           .get('Cutlass Black') is False,
+           'nach dem Schmelzen des schmelzbaren Exemplars: nicht mehr '
+           'schmelzbar')
+    _dup462 = {'format': 1, 'schiffe': [
+        {'name': 'Arrow', 'hersteller': 'Anvil', 'herkunft': 'pledge'},
+        {'name': 'Arrow', 'hersteller': 'Anvil', 'herkunft': 'pledge',
+         'schmelzbar': False, 'schmelz_wahl': 'ja'}]}
+    _fl462.merge_duplicates(_dup462)
+    pruefe(len(_dup462['schiffe']) == 1
+           and _dup462['schiffe'][0].get('schmelzbar') is False
+           and _dup462['schiffe'][0].get('schmelz_wahl') == 'ja',
+           'beim Zusammenführen doppelter Einträge bleibt der Schmelz-Status '
+           '(%r)' % _dup462['schiffe'])
+
+    # Die Oberfläche: Kasten aufklappen, Inhalt lesen, nach einer Wahl neu
+    # füllen; die Auswahl an der Karte nur bei Echtgeld-Schiffen.
+    import tkinter as _tk462
+    import tkinter.font as _tf462
+    from scbp import pages as _pg462
+    from scbp.language import t as _t462
+
+    def _texte462(_w):
+        """Die Texte aller eingehängten Labels (ausgehängte zählen nicht)."""
+        _out = []
+        for _k in _w.winfo_children():
+            if not _k.winfo_manager():
+                continue
+            if _k.winfo_class() == 'Label':
+                _out.append(_k.cget('text'))
+            _out.extend(_texte462(_k))
+        return _out
+
+    _root462 = _tk462.Tk()
+    _root462.withdraw()
+    try:
+        _f462 = type('F', (), {})()
+        _f462.root = _root462
+        _f462.f_base = _tf462.Font(root=_root462)
+        _f462.f_small = _f462.f_bold = _f462.f_title = _f462.f_base
+        _rahmen462 = _tk462.Frame(_root462)
+        _cut_ui462 = {'name': 'Cutlass Black', 'herkunft': 'pledge',
+                      'schmelzbar': True}
+        _daten462 = {'stand': {'format': 1, 'schiffe': [
+            _cut_ui462, {'name': 'C8R Pisces Rescue', 'herkunft': 'pledge'}]}}
+        _neu462 = _pg462._fleet_analysis(_f462, _rahmen462, _daten462)
+        _zu462 = _texte462(_rahmen462)
+        _neu462.toggle()
+        _auf462 = _texte462(_rahmen462)
+        pruefe(len(_auf462) > len(_zu462) + 10,
+               'aufgeklappt füllt sich der Kasten (%d -> %d Texte)'
+               % (len(_zu462), len(_auf462)))
+        _haupt_text462 = _t462('s_fa_haupt').format(namen='Cutlass Black')
+        pruefe(any(_haupt_text462 in x for x in _auf462),
+               'die Cutlass steht in der Hauptrolle')
+        _snub_text462 = _t462('s_fa_snub').format(
+            snub='C8R Pisces Rescue', mutter='Carrack Expedition w/C8X')
+        pruefe(_snub_text462 in _auf462, 'der Snub ohne Mutterschiff steht da')
+        _summe462 = _t462('s_fa_schmelz').format(beides=1, nur_s=0, nur_c=0,
+                                                 keins=0, offen=1)
+        pruefe(_summe462 in _auf462,
+               'die Schmelz-Übersicht zählt richtig (%r)' % _summe462)
+        _cut_ui462['schmelz_wahl'] = 'nein'
+        _neu462()
+        _summe462 = _t462('s_fa_schmelz').format(beides=0, nur_s=0, nur_c=1,
+                                                 keins=0, offen=1)
+        pruefe(_summe462 in _texte462(_rahmen462),
+               'nach einer Wahl an der Karte füllt sich der offene Kasten neu')
+        _neu462.toggle()
+        pruefe(len(_texte462(_rahmen462)) == len(_zu462),
+               'zugeklappt ist der Inhalt wieder weg')
+
+        for _herkunft462, _soll462 in (('pledge', 1), ('ingame', 0),
+                                       ('liste', 0), ('basetool', 0)):
+            _zeile462 = _tk462.Frame(_root462)
+            _pg462._melt_choice(_f462, _zeile462,
+                                {'name': 'Cutlass Black',
+                                 'herkunft': _herkunft462},
+                                lambda: None)
+            pruefe(len(_zeile462.winfo_children()) == _soll462,
+                   'Schmelz-Auswahl bei Herkunft %s: %s' % (
+                       _herkunft462, 'ja' if _soll462 else 'nein'))
+    finally:
+        _root462.destroy()
+
+    _rumpf_zeile462 = nur_code(rumpf(
+        open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+             encoding='utf-8').read(), '_hangar_row'))
+    pruefe('_melt_choice(fenster, kopf, eintrag, schmelz_gewaehlt)'
+           in _rumpf_zeile462 and "daten.get('analyse_neu')" in _rumpf_zeile462,
+           'die Schiffskarte hat die Schmelz-Auswahl, und eine Wahl füllt die '
+           'Analyse neu')
+    _rumpf_hangar462 = nur_code(rumpf(
+        open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+             encoding='utf-8').read(), '_hangar'))
+    pruefe("daten['analyse_neu'] = _fleet_analysis(" in _rumpf_hangar462
+           and _rumpf_hangar462.count("daten.get('analyse_neu')") >= 1,
+           'die Hangar-Seite baut den Kasten und füllt ihn beim Neuzeichnen')
 
 
 def _alle_eingaben(w):

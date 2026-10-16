@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.7.0 - 2026-10-16
+
+> Your hangar now tells you what your fleet can do: which gameplay loops it
+> covers, where there is a gap and which snub is missing its mothership. And
+> every pledged ship shows whether it can be melted or upgraded via CCU —
+> handy when the next sale event comes around.
+
+### New
+
+- **Fleet analysis in the hangar** — folds open above your ship list: which
+  gameplay loops your ships cover (cargo, mining, salvage, fighters …), in a
+  primary or secondary role, where there is a gap and which snubs have no
+  mothership. Plus an overview of what can be melted or upgraded via CCU.
+  Idea and ship data from the Fleetmanifest by Maluh (KRT).
+- **Melt status on pledged ships** — importing the Hangar Extension CSV
+  brings along whether a pledge is meltable. If that is missing, set it on
+  the ship card; whether CCU works comes from the ship data. Suggested by
+  Maluh (KRT)
+
 ## v4.6.0 - 2026-10-15
 
 > What Verse-Kit knows about an item now shows in the game right below it:

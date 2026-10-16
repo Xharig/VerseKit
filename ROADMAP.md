@@ -69,6 +69,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Schiffsdaten**: Frachtraum, Kaufpreis und Mietpreis — im Routenplaner wählst du dein Schiff, der Laderaum kommt von selbst |
 | ✅ | **Bergung**: was ab Werk in einem Schiff steckt und was die Teile im Laden wert sind — mit dem Hinweis, dass das für NPC-Wracks gilt und nicht für Spielerschiffe |
 | ✅ | **Mein Hangar**: welche Schiffe dir gehören — aus dem Pledge-Store geholt oder von Hand eingetragen, mit Herkunft und Steckplätzen |
+| ✅ | **Flottenanalyse** (im Hangar): welche Spielbereiche deine Schiffe abdecken, wo Lücken sind, welche Snubs ohne Mutterschiff dastehen — dazu an jedem Echtgeld-Schiff, ob es sich schmelzen oder per CCU upgraden lässt |
 | ✅ | **Racks und Lackierungen tauschen** — nur die, die an dein Schiff passen; nach einem Rack-Tausch stehen dessen Plätze darunter |
 | ✅ | **Schiffslisten anderer Werkzeuge**: Fleetview (CCU Game), Fleetyards und StarJump FleetViewer — sie ergänzen den Hangar nur, Wunschschiffe landen auf der Wunschliste |
 | ✅ | **Namen im Spiel** (im Hangar, an jedem Schiff): eigene Namen im Abrufterminal (ASOP) statt der Werksnamen, ein Sternchen als Merker — und der Werksname kommt zeichengenau zurück |

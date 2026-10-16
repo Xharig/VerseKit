@@ -68,6 +68,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Routes**: trade routes with buy price, sell price and real profit — across several stops, as a round trip, or the best route anywhere in the verse |
 | ✅ | **Salvage**: what a ship carries from the factory and what those parts are worth in a shop — with the note that this applies to NPC wrecks, not to player ships |
 | ✅ | **My hangar**: which ships you own — pulled from the pledge store or added by hand, with origin and slot counts |
+| ✅ | **Fleet analysis** (in the hangar): which gameplay loops your ships cover, where the gaps are, which snubs have no mothership — plus on every pledged ship whether it can be melted or upgraded via CCU |
 | ✅ | **Swap racks and paints** — only the ones that fit your ship; after a rack swap its own slots show up below it |
 | ✅ | **Ship lists from other tools**: Fleetview (CCU Game), Fleetyards and StarJump FleetViewer — they only add to the hangar, wanted ships go to the wishlist |
 | ✅ | **Names in the game** (in the hangar, at each ship): your own names at the retrieval terminal (ASOP) instead of the factory ones, a star as a marker — and the factory name comes back character for character |

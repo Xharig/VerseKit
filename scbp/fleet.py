@@ -82,7 +82,8 @@ bleiben: der Ablage-Name `hangar.json` und alle Schlüssel darin
 (`format`, `schiffe`, `wunsch`, `merkzettel`, `name`, `hersteller`,
 `herkunft`, `belegung`, `kurz`, `hkurz`, `lti`, `warbond`, `paket`,
 `gekauft`, `preis`, `ref`, `anzahl`, `weg`, `einsatzbereit`, `einheit` — die
-Kennung der Einheit im Basetool, `''` = keine) sowie die Herkunftswerte
+Kennung der Einheit im Basetool, `''` = keine —, `schmelzbar` aus dem Import
+und `schmelz_wahl` mit den Werten `ja`/`nein`) sowie die Herkunftswerte
 `'pledge'` und `'ingame'` — sonst verliert jeder beim Update seinen Hangar.
 Ebenso der Seitenname `hangar` in Reiterleiste, Symbolsatz und „Neu"-Marken.
 """
@@ -655,6 +656,9 @@ def merge_duplicates(data):
             match['einsatzbereit'] = s['einsatzbereit']
         if match.get('einheit') is None and s.get('einheit') is not None:
             match['einheit'] = s['einheit']
+        for key in ('schmelzbar', 'schmelz_wahl'):
+            if match.get(key) is None and s.get(key) is not None:
+                match[key] = s[key]
     if changed:
         data['schiffe'] = kept
     return changed
@@ -1003,8 +1007,11 @@ def _from_extension_csv(rows):
                             'months': 0,
                             'name': (row.get('Pledge Name') or '').strip(),
                             'date': (row.get('Pledge Date') or '').strip(),
-                            'cost': (row.get('Pledge Cost') or '').strip()}
+                            'cost': (row.get('Pledge Cost') or '').strip(),
+                            'meltable': _yes_no(row.get('Meltable'))}
             order.append(pid)
+        if pledges[pid]['meltable'] is None:
+            pledges[pid]['meltable'] = _yes_no(row.get('Meltable'))
         kind = (row.get('Content Type') or '').strip().lower()
         content = (row.get('Pledge Content') or '').strip()
         if kind == 'ship' and content:
@@ -1036,8 +1043,19 @@ def _from_extension_csv(rows):
                 # Monate nur ohne LTI — LTI ist die Dauer.
                 'versicherung': (p['months'] if p['months'] and not p['lti']
                                  else None),
+                'schmelzbar': p['meltable'],
             })
     return result
+
+
+def _yes_no(value):
+    """`yes`/`no` aus der Spalte `Meltable` → `True`/`False`, sonst `None`."""
+    text = (value or '').strip().lower()
+    if text in ('yes', 'true', '1'):
+        return True
+    if text in ('no', 'false', '0'):
+        return False
+    return None
 
 
 def _from_csv(text):
@@ -1138,6 +1156,7 @@ def import_entries(entries, data=None, save_now=True):
             new += 1
             if e.get('quelle'):
                 data['schiffe'][-1]['quelle'] = e['quelle']
+    _apply_meltable(data, entries)
     # Fleetyards führt auch Wunschschiffe (`wanted`) — die gehören auf die
     # Wunschliste, nicht in den Hangar. ⚠ Erst NACH dem Hangar: Kam dasselbe
     # Schiff in dieser Datei auch als eigenes herein, gehört es nicht auf die
@@ -1166,6 +1185,23 @@ def import_entries(entries, data=None, save_now=True):
     if save_now:
         save(data)
     return new, len(entries) - new - wished, removed
+
+
+def _apply_meltable(data, entries):
+    """`schmelzbar` aus dem Export an die Hangar-Schiffe schreiben.
+
+    ⚠ Je Schiffstyp gibt es **einen** Eintrag (`merge_duplicates`). Steht
+    ein Typ mehrfach im Export, gilt er als schmelzbar, sobald ein Exemplar
+    es ist — dieses eine lässt sich schmelzen. Exporte ohne die Angabe
+    lassen den gespeicherten Wert stehen.
+    """
+    for ship in (data.get('schiffe') or []):
+        values = [e.get('schmelzbar') for e in entries
+                  if isinstance(e.get('schmelzbar'), bool)
+                  and _same_ship(ship, e.get('name'), e.get('hersteller'),
+                                 e.get('kurz'), e.get('hkurz'))]
+        if values:
+            ship['schmelzbar'] = any(values)
 
 
 def unknown(data=None):
