@@ -460,7 +460,11 @@ function pageBlocks(d, inSpan) {
   const top = Math.max(1, ...ranked.map((p) => views[p] || 0));
   const total = ranked.reduce((a, p) => a + (views[p] || 0), 0);
   const list = $('div', { class: 'cols' });
-  for (const p of ranked) {
+  // Eingeklappt die ersten SEITEN_SHOWN — gerade Zahl, damit beide Spalten
+  // gleich lang sind; bei jedem Laden, ohne gemerkten Zustand.
+  const SEITEN_SHOWN = 10;
+  const seitenExtra = [];
+  ranked.forEach((p, i) => {
     const v = views[p] || 0;
     const parts = Object.keys(ROUTES).map((w) => {
       const seg = $('div', { class: 'fill' });
@@ -469,12 +473,26 @@ function pageBlocks(d, inSpan) {
       seg.title = ROUTES[w] + ': ' + (ways[p + '|' + w] || 0);
       return seg;
     });
-    list.appendChild($('div', { class: 'bar' + (v ? '' : ' dim') }, [
+    const line = $('div', { class: 'bar' + (v ? '' : ' dim') }, [
       $('span', {}, [document.createTextNode(pageName(p)), $('span', { class: 'grp', text: PAGES[p][0] })]),
       $('div', { class: 'track stack' }, parts),
-      $('span', { class: 'n', text: String(v) })]));
-  }
+      $('span', { class: 'n', text: String(v) })]);
+    if (i >= SEITEN_SHOWN) { seitenExtra.push(line); line.hidden = true; }
+    list.appendChild(line);
+  });
   rc.appendChild(list);
+  if (seitenExtra.length) {
+    let seitenOpen = false;
+    const toggle = $('button', { type: 'button', class: 'mehr' });
+    const label = () => { toggle.textContent = seitenOpen ? 'Nur die ersten ' + SEITEN_SHOWN : 'Alle Seiten zeigen (' + ranked.length + ')'; };
+    label();
+    toggle.addEventListener('click', () => {
+      seitenOpen = !seitenOpen;
+      for (const x of seitenExtra) x.hidden = !seitenOpen;
+      label();
+    });
+    rc.appendChild(toggle);
+  }
   rc.appendChild($('div', { class: 'legend' }, Object.keys(ROUTES).map((w) =>
     $('span', {}, [$('i', { style: 'background:' + ROUTE_COLORS[w] }), document.createTextNode(ROUTES[w])]))));
   rc.appendChild($('div', { class: 'note', text: total
