@@ -191,6 +191,7 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
     row.pack(fill='x')
     if len(units) > 1:
         def pick(value):
+            _drop_pending(page)
             page['unit'] = value
             page['open'].clear()
             page['form'] = None
@@ -395,6 +396,7 @@ def _entry_row(window, parent, base, page, data, lot, entry, writable,
 def _open_form(page, form):
     """Ein Formular auf- oder (beim zweiten Klick) wieder zuklappen. Das
     Einbuchen steht oben, die übrigen am Eintrag in der Liste."""
+    _drop_pending(page)
     page['form'] = None if page['form'] == form else form
     page['values'] = {}
     page['message'] = ''
@@ -502,6 +504,7 @@ class _Form:
 
 def _cancel(page, redraw):
     def run():
+        _drop_pending(page)
         page['form'] = None
         page['values'] = {}
         redraw()
@@ -661,21 +664,28 @@ def _material_choices(page):
         page['materials'] = {}
         page['materials_loading'] = True
 
+        # Läuft im Tk-Faden und liest `materials_done` erst dann — so greift
+        # es auch für ein Feld, das gerade erst gebaut wird.
+        def loaded():
+            done = page.get('materials_done')
+            if done:
+                done()
+
         def work():
             try:
-                found = page['materials'] = stock_catalog.choices()
+                found = stock_catalog.choices()
+                if found:
+                    page['materials'] = found
+                    page['materials_loading'] = False
+                    _TK_CALLS.put(loaded)
                 if stock_catalog.due():
                     stock_catalog.update()
-                    found = stock_catalog.choices()
+                    page['materials'] = stock_catalog.choices()
             except Exception as exc:
                 from . import errors
                 errors.record('orgstock_page.materials', exc)
-                found = {}
-            page['materials'] = found
             page['materials_loading'] = False
-            done = page.get('materials_done')
-            if done:
-                _TK_CALLS.put(done)
+            _TK_CALLS.put(loaded)
         threading.Thread(target=work, daemon=True).start()
     return page['materials']
 
@@ -717,13 +727,18 @@ def _material_field(window, form, page, data, redraw):
 
     def pick(name):
         var.set(name)
+        _drop_pending(page)
+        page['values'].pop('material_ref', None)
+        changed = page['values'].pop('candidates', None) is not None
         entry = page['materials'].get(name.lower())
-        if entry is None or (entry['item'] is not None
-                             and entry['material'] is not None):
-            return
-        unit = orgstock.PIECE if entry['material'] is None else orgstock.SCU
-        if page['values'].get('unit') != unit:
-            page['values']['unit'] = unit
+        if entry is not None and (entry['item'] is None
+                                  or entry['material'] is None):
+            unit = orgstock.PIECE if entry['material'] is None \
+                else orgstock.SCU
+            if page['values'].get('unit') != unit:
+                page['values']['unit'] = unit
+                changed = True
+        if changed:
             form.card.after_idle(redraw)
 
     line, drop, refresh = _combo_box(
@@ -738,7 +753,7 @@ def _material_field(window, form, page, data, redraw):
         # kein Neuzeichnen, das Getipptes und den Fokus nähme.
         def done():
             try:
-                if note.winfo_exists():
+                if not page.get('materials_loading') and note.winfo_exists():
                     note.destroy()
                 if line.winfo_exists():
                     refresh()
@@ -763,21 +778,45 @@ def _material_field(window, form, page, data, redraw):
 
     for candidate in candidates:
         base = _stripe(rows, form.BG)
-        label = tk.Label(rows, text=candidate['name'], bg=base, fg=FG,
+        hit = tk.Frame(rows, bg=base, cursor='hand2')
+        hit.pack(fill='x', ipady=3)
+        label = tk.Label(hit, text=candidate['name'], bg=base, fg=FG,
                          font=window.f_small, anchor='w', cursor='hand2',
                          padx=8)
-        label.pack(fill='x', ipady=3)
-        label.bind('<Button-1>', lambda _e, c=candidate: choose(c))
-        label.bind('<Enter>', lambda _e, w=label: w.configure(fg=ACCENT))
-        label.bind('<Leave>', lambda _e, w=label: w.configure(fg=FG))
+        label.pack(side='left')
+        kind = tk.Label(hit, text=stock_catalog.kind_label(
+                            candidate.get('kind')), bg=base, fg=SUB,
+                        font=window.f_small, anchor='e', cursor='hand2',
+                        padx=8)
+        kind.pack(side='right')
+        for widget in (hit, label, kind):
+            widget.bind('<Button-1>', lambda _e, c=candidate: choose(c))
+            widget.bind('<Enter>', lambda _e, w=label: w.configure(fg=ACCENT))
+            widget.bind('<Leave>', lambda _e, w=label: w.configure(fg=FG))
 
 
-def _resolve_then(page, name, known, book):
+def _drop_pending(page):
+    """Ein laufendes Nachschlagen verwerfen: Seine Antwort bucht nicht mehr,
+    und die Seite ist wieder frei."""
+    if page.get('resolve_ticket') is not None:
+        page['resolve_ticket'] = None
+        page['busy'] = False
+        page['message'] = ''
+
+
+def _resolve_then(page, name, known, piece, form_key, book):
     """Die Ware beim Basetool nachschlagen, bevor gebucht wird: eindeutig ->
-    `book({bt, name})`, mehrdeutig -> Auswahl im Formular, unbekannt ->
-    Hinweis. In den letzten beiden Fällen wird nichts gesendet."""
+    `book({bt, name, kind})`, mehrdeutig -> Auswahl im Formular, unbekannt ->
+    Hinweis. In den letzten beiden Fällen wird nichts gesendet.
+
+    ⚠ Die Antwort bucht nur, solange ihre Marke (`resolve_ticket`) gilt, das
+    Formular `form_key` noch offen ist und dieselbe Ware im Feld steht.
+    Abbrechen, ein anderes Formular, ein Einheitswechsel oder eine andere
+    Auswahl (`_drop_pending`) nehmen die Marke weg."""
     if page['busy']:
         return
+    ticket = object()
+    page['resolve_ticket'] = ticket
     page['busy'] = True
     _say(page, t('s_sl_ware_pruefen'), SUB)
 
@@ -785,7 +824,7 @@ def _resolve_then(page, name, known, book):
         status, found, error = None, None, ''
         try:
             status, found = orgstock.resolve_material(basetool.CONNECTION,
-                                                      name, known)
+                                                      name, known, piece)
         except basetool.ApiError as exc:
             from . import errors
             from .basetool_page import error_text
@@ -797,11 +836,18 @@ def _resolve_then(page, name, known, book):
             error = t('s_sl_r_anders', type(exc).__name__)
 
         def show():
+            if page.get('resolve_ticket') is not ticket:
+                return
+            page['resolve_ticket'] = None
             page['busy'] = False
+            typed = (page['values'].get('material') or '').strip().lower()
+            if page['form'] != form_key or typed != name.strip().lower():
+                _say(page, '', FG)
+                return
             if status == 'resolved':
                 page['values']['material_ref'] = found
                 page['values'].pop('candidates', None)
-                book({'bt': found['bt'], 'name': found['name']})
+                book(found)
             elif status == 'ambiguous':
                 page['values']['candidates'] = found
                 _say(page, t('s_sl_ware_mehrdeutig') % name, theme.YELLOW)
@@ -1071,7 +1117,7 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
     unit = form.select('unit', t('s_sl_einheit_menge'),
                        [(orgstock.SCU, 'SCU'),
                         (orgstock.PIECE, t('s_lg_stueck'))],
-                       on_change=lambda _v: redraw())
+                       on_change=lambda _v: _unit_changed(page, redraw))
     form.field('amount', t('s_sl_menge'), width=12)
     if unit != orgstock.PIECE:
         form.field('quality', t('s_sl_qualitaet'), width=8, placeholder='0')
@@ -1080,9 +1126,12 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
     form.field('note', t('s_sl_notiz'))
 
     def go():
-        holder = form.value('holder')
-        name = (form.value('material') or '').strip()
-        place = (form.value('location') or '').strip()
+        # Alles, was gebucht wird, gilt so, wie es beim Klick dastand — auch
+        # wenn die Antwort vom Nachschlagen erst später kommt.
+        values = dict(page['values'])
+        holder = values.get('holder')
+        name = (values.get('material') or '').strip()
+        place = (values.get('location') or '').strip()
         if not holder:
             _say(page, t('s_sl_besitzer_fehlt'), RED)
             return
@@ -1092,45 +1141,63 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
         if not place:
             _say(page, t('s_sl_ort_fehlt'), RED)
             return
-        amount = _amount_ok(page, form, number(form.value('amount')), unit)
+        amount = _amount_ok(page, form, number(values.get('amount')), unit)
         if amount is None:
             return
-        quality = number(form.value('quality')) or 0
+        quality = number(values.get('quality')) or 0
         if not 0 <= quality <= 1000 or quality != int(quality):
             _say(page, t('s_sl_qualitaet_falsch'), RED)
             return
+        stolen = bool(values.get('stolen'))
+        note = values.get('note') or ''
+        merge = bool(values.get('merge'))
+        piece = unit == orgstock.PIECE
 
         def book(material):
-            op = orgstock.op_book_in(unit_id, holder, material,
-                                     {'name': place}, int(quality),
-                                     bool(form.value('stolen')), amount, unit,
-                                     form.value('note'),
-                                     bool(form.value('merge')))
+            # Ein Gegenstand zählt in Stück; in SCU lehnte das Basetool ihn ab.
+            if material.get('kind') == stock_catalog.ITEM and not piece:
+                _say(page, t('s_sl_ware_stueck') % material['name'], RED)
+                return
+            op = orgstock.op_book_in(unit_id, holder,
+                                     {'bt': material['bt'],
+                                      'name': material['name']},
+                                     {'name': place}, int(quality), stolen,
+                                     amount, unit, note, merge)
             _submit(window, page, data, [op], redraw)
 
-        chosen = page['values'].get('material_ref')
+        chosen = values.get('material_ref')
         if chosen and chosen['name'].lower() == name.lower():
-            book({'bt': chosen['bt'], 'name': chosen['name']})
+            book(chosen)
             return
-        known = _known_material(data, name)
+        known = _known_material(data, name, unit)
         if known:
             book(known)
             return
-        _resolve_then(page, name,
-                      stock_catalog.reference(name, unit == orgstock.PIECE),
-                      book)
+        _resolve_then(page, name, stock_catalog.reference(name, piece), piece,
+                      ('book_in', unit_id), book)
 
     form.buttons([(t('s_sl_einbuchen'), go, 'strong'),
                   (t('s_bt_abbrechen'), _cancel(page, redraw), '')])
 
 
-def _known_material(data, name):
-    """`{bt, name}` einer Ware, die schon in einem Pool liegt — sonst
-    `None` (dann löst das Basetool den Namen auf)."""
+def _unit_changed(page, redraw):
+    """Stück/SCU umgestellt: Eine gemerkte Auflösung gilt für die andere
+    Einheit nicht mehr, ein laufendes Nachschlagen auch nicht."""
+    page['values'].pop('material_ref', None)
+    _drop_pending(page)
+    redraw()
+
+
+def _known_material(data, name, unit):
+    """`{bt, name}` einer Ware, die schon in einem Pool liegt und dort in
+    `unit` (Stück/SCU) gezählt wird — sonst `None` (dann löst das Basetool
+    den Namen auf)."""
     wanted = name.strip().lower()
     for lot in (data or {}).get('lots', {}).values():
-        if lot['name'].lower() == wanted and lot['material'].get('bt'):
-            return dict(lot['material'])
+        if (lot['name'].lower() == wanted and lot['unit_q'] == unit
+                and lot['material'].get('bt')):
+            return {'bt': lot['material']['bt'],
+                    'name': lot['material'].get('name') or lot['name']}
     return None
 
 
