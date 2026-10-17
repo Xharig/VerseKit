@@ -32,7 +32,12 @@ die Seite `catalog/resolve` über `uexId`, nicht über einen geratenen Namen.
 | `commodities` | 1 |
 
 ⚠ Die Liste hängt am Patch (`patch_bound`), nicht an der Uhr: Neue Teile
-kommen mit einem Patch, und der Aufbau dauert rund eine halbe Minute.
+kommen mit einem Patch, und der Aufbau dauert rund eine halbe Minute. Trägt
+die Ablage keinen Spielstand (Spielversion beim Holen unbekannt), kann die
+Patch-Bindung nicht greifen — dann gilt sie nur `UNSTAMPED_LIFE` lang.
+
+⚠ `items?id_category=…` kennt die 500-Zeilen-Grenze anderer UEX-Endpunkte
+nicht: Die größte Gruppe (Lackierungen) kommt mit über 1.000 Zeilen am Stück.
 
 ⚠ Ein Name kann zugleich Gegenstand und Ware sein (`Golden Medmon`). Dann
 stehen beide Nummern am Eintrag; welche gilt, entscheidet die Mengeneinheit
@@ -51,8 +56,8 @@ FORMAT = 1
 ITEM = 'ITEM'
 MATERIAL = 'MATERIAL'
 
-# UEX-Bereich -> Sprachschlüssel. Ein Bereich, der hier fehlt, bleibt englisch
-# stehen.
+# UEX-Bereich -> Sprachschlüssel. Ein Bereich, der hier fehlt, steht als
+# `OTHER_KEY` da.
 SECTION_KEYS = {
     'Armor': 's_uk_armor',
     'Avionics': 's_uk_avionics',
@@ -72,23 +77,32 @@ SECTION_KEYS = {
     'Flair': 's_sl_k_flair',
 }
 COMMODITY_KEY = 's_sl_k_ware'
+OTHER_KEY = 's_sl_k_gegenstand'
+
+UNSTAMPED_LIFE = uex.WEEK
 
 _store = uex.Store(CACHE, format_no=FORMAT, shelf_life=90 * uex.DAY,
                    patch_bound=True)
 _LOCK = threading.Lock()
-_derived = {'data': None, 'choices': {}}
+# (Ablage, abgeleitete Auswahl) — ein Tupel, damit ein lesender Faden nie die
+# Auswahl zu einer anderen Ablage bekommt.
+_derived = (None, {})
 
 
 def due():
     """Muss die Liste (neu) geholt werden? Liest nur die Ablage."""
-    return _store.stale()
+    if _store.stale():
+        return True
+    age = _store.age()
+    return (not (_store.load() or {}).get('spielstand')
+            and (age is None or age >= UNSTAMPED_LIFE))
 
 
 def update():
     """Die Liste bei UEX holen, wenn sie fällig ist. `False`, wenn ein Abruf
     scheitert — dann bleibt der alte Stand liegen."""
     with _LOCK:
-        if not _store.stale():
+        if not due():
             return True
         categories = uex.fetch(SOURCE_CATEGORIES, 'stock_catalog.categories')
         if not categories:
@@ -145,9 +159,11 @@ def choices():
 
     Leer, solange nichts geholt ist. Führt UEX einen Namen mehrfach als
     Gegenstand, gilt der erste."""
+    global _derived
     data = _store.load() or {}
-    if _derived['data'] is data:
-        return _derived['choices']
+    known_data, known_choices = _derived
+    if known_data is data:
+        return known_choices
     found = {}
     for row in data.get('teile') or ():
         if not (isinstance(row, list) and len(row) == 3):
@@ -166,8 +182,7 @@ def choices():
             'name': name, 'item': None, 'material': None, 'section': ''})
         if entry['material'] is None:
             entry['material'] = number
-    _derived['data'] = data
-    _derived['choices'] = found
+    _derived = (data, found)
     return found
 
 
@@ -179,10 +194,15 @@ def label(entry):
     if entry.get('material') is not None:
         parts.append(t(COMMODITY_KEY))
     if entry.get('item') is not None:
-        section = entry.get('section') or ''
-        key = SECTION_KEYS.get(section)
-        parts.append(t(key) if key else section)
-    return ' · '.join(p for p in parts if p)
+        parts.append(t(SECTION_KEYS.get(entry.get('section') or '',
+                                        OTHER_KEY)))
+    return ' · '.join(parts)
+
+
+def kind_label(kind):
+    """Die Art eines Treffers von `catalog/resolve`: Ware oder Gegenstand."""
+    from .language import t
+    return t(COMMODITY_KEY if kind == MATERIAL else OTHER_KEY)
 
 
 def reference(name, piece):

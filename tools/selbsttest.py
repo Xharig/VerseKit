@@ -46378,17 +46378,21 @@ def _pruefung_471():
         import schema_pruefen as _sp471
     finally:
         sys.path.pop(0)
-    from scbp import (basetool as _bt471, basetool_sync as _bs471,
-                      exchange_orgstock as _og471, language as _la471,
+    from scbp import (basetool as _bt471, basetool_page as _bp471,
+                      basetool_sync as _bs471, exchange_orgstock as _og471,
+                      language as _la471, orgstock_page as _op471,
                       stock_catalog as _sc471, uex as _ux471)
     from scbp.main_window import MainWindow as _MW471
+    _sprache471 = _la471.current()
     _la471.set_language('de')
     _t471 = _la471.t
     _heim471 = tempfile.mkdtemp(prefix='pruefung471-')
     _alt_home471 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _heim471
     _alt471 = (_ux471.fetch, _bt471.CONNECTION, _og471.visible, _og471.send,
-               _og471.refresh, _th471.Thread, dict(_bs471._LOCATIONS))
+               _og471.refresh, _th471.Thread, dict(_bs471._LOCATIONS),
+               _sc471.due, _sc471.update)
+    _EchterFaden471 = _th471.Thread
     _abrufe471 = []
     _UEX471 = {
         _sc471.SOURCE_CATEGORIES: [
@@ -46399,10 +46403,13 @@ def _pruefung_471():
             {'id': 3, 'is_game_related': 1, 'type': 'service',
              'section': 'Services', 'name': 'Keine Gegenstände'},
             {'id': 4, 'is_game_related': 1, 'type': 'item',
-             'section': 'Clothing', 'name': 'Jackets'}],
+             'section': 'Clothing', 'name': 'Jackets'},
+            {'id': 5, 'is_game_related': 1, 'type': 'item',
+             'section': 'Neuland', 'name': 'Unbekannter Bereich'}],
         _sc471.SOURCE_ITEMS % 1: [{'id': 11, 'name': 'Helm A'},
                                   {'id': 12, 'name': 'Golden Medmon'}],
         _sc471.SOURCE_ITEMS % 4: [{'id': 41, 'name': 'Jacke'}],
+        _sc471.SOURCE_ITEMS % 5: [{'id': 51, 'name': 'Ding'}],
         _sc471.SOURCE_COMMODITIES: [{'id': 101, 'name': 'Laranite'},
                                     {'id': 102, 'name': 'Golden Medmon'}],
     }
@@ -46413,13 +46420,25 @@ def _pruefung_471():
 
     _anfragen471 = []
     _vertrag471 = []
+    _unerwartet471 = []
+    _im_tk471 = []
 
     def _antwort471(kind, ref):
         name = (ref.get('name') or '').lower()
-        if kind == 'ITEM' and ref.get('uexId') == 11:
+        nummer = ref.get('uexId')
+        if kind == 'ITEM' and nummer == 11:
             return {'status': 'resolved',
                     'ref': {'bt': 'bt-helm-a', 'name': 'Helm A'}}
-        if ref.get('uexId') == 77:
+        if kind == 'ITEM' and nummer == 12:
+            return {'status': 'resolved',
+                    'ref': {'bt': 'bt-gm-teil', 'name': 'Golden Medmon'}}
+        if kind == 'MATERIAL' and nummer == 102:
+            return {'status': 'resolved',
+                    'ref': {'bt': 'bt-gm-ware', 'name': 'Golden Medmon'}}
+        if kind == 'MATERIAL' and nummer == 101:
+            return {'status': 'resolved',
+                    'ref': {'bt': 'bt-laranite', 'name': 'Laranite'}}
+        if nummer is not None:
             return {'status': 'unmatched'}
         if kind == 'MATERIAL' and name == 'laranit':
             return {'status': 'ambiguous', 'candidates': [
@@ -46437,24 +46456,34 @@ def _pruefung_471():
     class _Conn471:
         def request(self, method, path, body=None, query=None,
                     idempotency_key=None):
+            if _th471.current_thread() is _th471.main_thread():
+                _im_tk471.append('%s %s' % (method, path))
             if path == '/catalog/locations':
                 return {'items': [{'name': 'Area18'}]}
             if path != '/catalog/resolve':
-                raise AssertionError('unerwartete Anfrage %s %s'
-                                     % (method, path))
+                _unerwartet471.append('%s %s' % (method, path))
+                return {}
             _anfragen471.append(_js471.loads(_js471.dumps(body)))
             _vertrag471.extend(_sp471.check(body, 'resolve-request'))
+            if body['refs'][0].get('name') == 'Fehlerware':
+                raise _bt471.ApiError('NETWORK')
             answer = {'results': [dict(index=i, **_antwort471(body['kind'], r))
                                   for i, r in enumerate(body['refs'])]}
             _vertrag471.extend(_sp471.check(answer, 'resolve-response'))
             return answer
 
-    class _Sofort471:
-        def __init__(self, target=None, daemon=None, **_k):
-            self._ziel = target
+    # Hintergrundarbeit wartet, bis die Prüfung sie mit `_laufen()` in einem
+    # echten Faden ausführt — so liegt zwischen Klick und Antwort Zeit für
+    # Abbrechen oder Umtippen, und eine Netzanfrage im Tk-Faden fiele auf.
+    _wartend471 = []
+
+    class _Spaeter471:
+        def __init__(self, target=None, args=(), kwargs=None, daemon=None,
+                     **_k):
+            self._lauf = (target, tuple(args or ()), dict(kwargs or {}))
 
         def start(self):
-            self._ziel()
+            _wartend471.append(self._lauf)
 
     _root = None
     _fe = None
@@ -46470,7 +46499,8 @@ def _pruefung_471():
         pruefe(_sc471.update() is True, 'die Liste wird aufgebaut')
         pruefe(sorted(_abrufe471) == sorted([
                    _sc471.SOURCE_CATEGORIES, _sc471.SOURCE_ITEMS % 1,
-                   _sc471.SOURCE_ITEMS % 4, _sc471.SOURCE_COMMODITIES]),
+                   _sc471.SOURCE_ITEMS % 4, _sc471.SOURCE_ITEMS % 5,
+                   _sc471.SOURCE_COMMODITIES]),
                'geholt werden nur spielbezogene Item-Warengruppen und die '
                'Waren (%r)' % _abrufe471)
         _wahl471 = _sc471.choices()
@@ -46487,10 +46517,12 @@ def _pruefung_471():
                % _gm471)
         _arten471 = (_sc471.label(_wahl471.get('helm a') or {}),
                      _sc471.label(_wahl471.get('jacke') or {}),
-                     _sc471.label(_gm471))
+                     _sc471.label(_gm471),
+                     _sc471.label(_wahl471.get('ding') or {}))
         pruefe(_arten471 == ('Rüstung', 'Kleidung',
-                             'Rohstoff/Handelsware · Rüstung'),
-               'rechts steht die Art, übersetzt (%r)' % (_arten471,))
+                             'Rohstoff/Handelsware · Rüstung', 'Gegenstand'),
+               'rechts steht die Art, übersetzt — ein unbekannter Bereich als '
+               '„Gegenstand" (%r)' % (_arten471,))
         _refs471 = [_sc471.reference('Golden Medmon', True),
                     _sc471.reference('golden medmon', False),
                     _sc471.reference('Helm A', False),
@@ -46509,57 +46541,121 @@ def _pruefung_471():
                                                 'resolve-request')]
         pruefe(not _fehler_ref471,
                'die Referenzen entsprechen dem Vertrag (%r)' % _fehler_ref471)
+
+        def _ablage_setzen(**felder):
+            with open(_sc471._store.path(), encoding='utf-8') as _f:
+                _inhalt = _js471.load(_f)
+            _inhalt.update(felder)
+            with open(_sc471._store.path(), 'w', encoding='utf-8') as _f:
+                _js471.dump(_inhalt, _f)
+
+        # Ohne Spielstand greift die Patch-Bindung nicht: dann nach einer Woche.
+        _ablage_setzen(geholt=time.time() - 8 * 86400)
+        _ohne471 = _sc471.due()
+        _ablage_setzen(spielstand='4.9.0')
+        _mit471 = _sc471.due()
+        pruefe(_ohne471 and not _mit471,
+               'ohne Spielstand ist die Liste nach einer Woche fällig, mit '
+               'Spielstand nicht (%r, %r)' % (_ohne471, _mit471))
         # Fällt eine Warengruppe aus, bleibt der alte Stand liegen.
-        with open(_sc471._store.path(), encoding='utf-8') as _f:
-            _ablage471 = _js471.load(_f)
-        _ablage471['geholt'] = 0
-        with open(_sc471._store.path(), 'w', encoding='utf-8') as _f:
-            _js471.dump(_ablage471, _f)
+        _ablage_setzen(geholt=0)
         _ganz471 = _UEX471.pop(_sc471.SOURCE_ITEMS % 4)
         pruefe(_sc471.due() and _sc471.update() is False
                and 'helm a' in _sc471.choices()
                and 'jacke' in _sc471.choices(),
                'scheitert ein Abruf, bleibt die alte Liste stehen')
         _UEX471[_sc471.SOURCE_ITEMS % 4] = _ganz471
-        pruefe(_sc471.update() is True and not _sc471.due(),
+        pruefe(_sc471.update() is True and 'jacke' in _sc471.choices(),
                'danach wird sie wieder vollständig aufgebaut')
 
         # --- Nachschlagen beim Basetool -----------------------------------
         _conn471 = _Conn471()
         _faelle471 = [
-            (('Helm A', ('ITEM', {'uexId': 11, 'name': 'Helm A'})),
-             ('resolved', {'bt': 'bt-helm-a', 'name': 'Helm A'}),
+            (('Helm A', ('ITEM', {'uexId': 11, 'name': 'Helm A'}), False),
+             ('resolved', {'bt': 'bt-helm-a', 'name': 'Helm A',
+                           'kind': 'ITEM'}),
              [('ITEM', 11, 'Helm A')]),
-            (('Jacke', None),
-             ('resolved', {'bt': 'bt-jacke', 'name': 'Jacke'}),
+            (('Jacke', None, False),
+             ('resolved', {'bt': 'bt-jacke', 'name': 'Jacke', 'kind': 'ITEM'}),
              [('MATERIAL', None, 'Jacke'), ('ITEM', None, 'Jacke')]),
-            (('Laranit', None),
-             ('ambiguous', [{'bt': 'bt-laranite', 'name': 'Laranite'},
+            (('Jacke', None, True),
+             ('resolved', {'bt': 'bt-jacke', 'name': 'Jacke', 'kind': 'ITEM'}),
+             [('ITEM', None, 'Jacke')]),
+            (('Laranit', None, False),
+             ('ambiguous', [{'bt': 'bt-laranite', 'name': 'Laranite',
+                             'kind': 'MATERIAL'},
                             {'bt': 'bt-laranite-ore',
-                             'name': 'Laranite (Ore)'},
+                             'name': 'Laranite (Ore)', 'kind': 'MATERIAL'},
                             {'bt': 'bt-laranite-statue',
-                             'name': 'Laranite Statue'}]),
+                             'name': 'Laranite Statue', 'kind': 'ITEM'}]),
              [('MATERIAL', None, 'Laranit'), ('ITEM', None, 'Laranit')]),
-            (('Quatsch', None), ('unmatched', None),
+            (('Quatsch', None, False), ('unmatched', None),
              [('MATERIAL', None, 'Quatsch'), ('ITEM', None, 'Quatsch')]),
-            (('Jacke', ('ITEM', {'uexId': 77, 'name': 'Jacke'})),
-             ('resolved', {'bt': 'bt-jacke', 'name': 'Jacke'}),
+            (('Jacke', ('ITEM', {'uexId': 77, 'name': 'Jacke'}), False),
+             ('resolved', {'bt': 'bt-jacke', 'name': 'Jacke', 'kind': 'ITEM'}),
              [('ITEM', 77, 'Jacke'), ('MATERIAL', None, 'Jacke'),
               ('ITEM', None, 'Jacke')]),
         ]
-        for (_name, _bekannt), _soll, _weg in _faelle471:
+        for (_name, _bekannt, _stueck), _soll, _weg in _faelle471:
             _anfragen471[:] = []
-            _ist471 = _og471.resolve_material(_conn471, _name, _bekannt)
+            _ist471 = _og471.resolve_material(_conn471, _name, _bekannt,
+                                              _stueck)
             _gefragt471 = [(a['kind'], a['refs'][0].get('uexId'),
                             a['refs'][0].get('name')) for a in _anfragen471]
             pruefe(_ist471 == _soll and _gefragt471 == _weg,
-                   'Nachschlagen %r über %r: %r auf dem Weg %r'
-                   % (_name, _bekannt, _ist471, _gefragt471))
-        pruefe(not _vertrag471,
-               'Anfragen und Antworten entsprechen dem Vertrag (%r)'
-               % _vertrag471[:3])
+                   'Nachschlagen %r über %r (Stück: %r): %r auf dem Weg %r'
+                   % (_name, _bekannt, _stueck, _ist471, _gefragt471))
+
+        # --- Hintergrund: Laden der Liste, Einheitswechsel ----------------
+        _th471.Thread = _Spaeter471
+
+        def _laufen():
+            for _ in range(10):
+                if not _wartend471:
+                    break
+                while _wartend471:
+                    _ziel, _a, _k = _wartend471.pop(0)
+                    _faden = _EchterFaden471(target=_ziel, args=_a, kwargs=_k,
+                                             daemon=True)
+                    _faden.start()
+                    _faden.join(10)
+                if _root is not None:
+                    _pumpen()
+
+        _beim_holen471 = []
+
+        def _update_falle():
+            _beim_holen471.append((_seite_l471['materials_loading'],
+                                   len(_seite_l471['materials'])))
+            raise RuntimeError('UEX nicht erreichbar')
+
+        _sc471.due = lambda: True
+        _sc471.update = _update_falle
+        _seite_l471 = {'materials': None}
+        _op471._material_choices(_seite_l471)
+        _laufen()
+        pruefe(_beim_holen471 == [(False, len(_wahl471))]
+               and len(_seite_l471['materials']) == len(_wahl471)
+               and not _seite_l471['materials_loading'],
+               'beim Neuholen gilt der alte Stand sofort (kein Ladehinweis), '
+               'und ein Fehler beim Holen löscht ihn nicht (%r)'
+               % _beim_holen471)
+        _sc471.due, _sc471.update = _alt471[7], _alt471[8]
+
+        _seite_e471 = {'values': {'material_ref': {'bt': 'x', 'name': 'X'}},
+                       'resolve_ticket': object(), 'busy': True,
+                       'message': 'läuft'}
+        _op471._unit_changed(_seite_e471, lambda: None)
+        pruefe('material_ref' not in _seite_e471['values']
+               and _seite_e471['resolve_ticket'] is None
+               and not _seite_e471['busy'],
+               'Stück/SCU umgestellt: gemerkte Auflösung und laufendes '
+               'Nachschlagen sind verworfen (%r)' % _seite_e471)
 
         # --- Das Formular -------------------------------------------------
+        # Die Fälle oben fragen absichtlich direkt; ab hier zählt jede Anfrage
+        # aus dem Tk-Faden.
+        _im_tk471[:] = []
         _gesendet471 = []
         _og471.visible = lambda: True
         _og471.send = lambda conn, ops: (_gesendet471.append(list(ops)) or
@@ -46569,7 +46665,6 @@ def _pruefung_471():
         _og471.refresh = lambda *a, **k: {}
         _bt471.CONNECTION = _conn471
         _bs471._LOCATIONS.update(at=0.0, places={})
-        _th471.Thread = _Sofort471
         _ga471 = {'type': 'RAW', 'commodity': True, 'raw': True}
         _lots471, _units471 = _og471.apply_pages({}, [{
             'items': [_org_lot465('k1', 'u1', 'Laranite', _ga471,
@@ -46589,7 +46684,11 @@ def _pruefung_471():
                 _root.update_idletasks()
                 time.sleep(0.03)
 
+        # Ein schon geschlossenes Formular (`None`) findet nichts, statt die
+        # Prüfung abzubrechen — der Fehler steht dann als rote Zeile da.
         def _finde(w, test):
+            if w is None:
+                return None
             try:
                 if test(w):
                     return w
@@ -46627,12 +46726,17 @@ def _pruefung_471():
             _lauf(w)
             return out
 
+        def _seite():
+            return _fe.pages['staffellager']
+
         def _formular():
-            _titel = _label(_fe.pages['staffellager'],
-                            _t471('s_sl_einbuchen_titel'))
+            _titel = _label(_seite(), _t471('s_sl_einbuchen_titel'))
             return _titel.master if _titel is not None else None
 
         def _tippen(nummer, text):
+            if _formular() is None:
+                pruefe(False, 'Vorbedingung: das Formular ist zum Tippen offen')
+                return
             _feld = _alle_eingaben(_formular())[nummer]
             # Ein leeres Feld zeigt seinen Hinweis ohne Variable
             # (`fields.hint`); `hint_hide` räumt ihn wie ein Tastendruck.
@@ -46648,32 +46752,41 @@ def _pruefung_471():
             while time.time() < _bis:
                 _pumpen()
 
-        def _einbuchen():
-            _knopf(_formular(), _t471('s_sl_einbuchen')).event_generate(
-                '<Button-1>')
+        def _klick(w):
+            if w is not None:
+                w.event_generate('<Button-1>')
             _pumpen()
+
+        def _einbuchen():
+            _klick(_knopf(_formular(), _t471('s_sl_einbuchen')))
 
         def _neu_oeffnen():
             # Ein noch offenes Formular erst schließen — der Knopf oben klappt
             # es sonst zu statt auf.
             if _formular() is not None:
-                _knopf(_formular(), _t471('s_bt_abbrechen')).event_generate(
-                    '<Button-1>')
-                _pumpen()
-            _knopf(_fe.pages['staffellager'],
-                   _t471('s_sl_einbuchen')).event_generate('<Button-1>')
-            _pumpen()
+                _klick(_knopf(_formular(), _t471('s_bt_abbrechen')))
+            _klick(_knopf(_seite(), _t471('s_sl_einbuchen')))
+            _laufen()
             pruefe(_formular() is not None,
-                   'Vorbedingung: das Formular ist wieder offen')
+                   'Vorbedingung: das Formular ist offen')
             return _formular() is not None
 
+        def _ausfuellen(ware, ort='Area18', menge='1'):
+            _tippen(0, ware)
+            _tippen(1, ort)
+            _tippen(2, menge)
+
+        def _ohne_buchung(was):
+            pruefe(not _gesendet471, '%s: nichts gesendet (%r)'
+                   % (was, _gesendet471))
+            _gesendet471[:] = []
+
         _pumpen()
-        _seite471 = _fe.pages['staffellager']
-        _knopf(_seite471, _t471('s_sl_einbuchen')).event_generate('<Button-1>')
-        _pumpen()
-        pruefe(_formular() is not None, 'Einbuchen öffnet das Formular')
-        if _formular() is None:
+        if not _neu_oeffnen():
             return
+
+        # 1. Auswahl aus der Liste: Gegenstand -> Stück; die Werte vom Klick
+        #    gelten, auch wenn danach umgetippt wird.
         _tippen(0, 'helm')
         _zeile471 = _label(_formular(), 'Helm A')
         pruefe(_zeile471 is not None
@@ -46682,8 +46795,7 @@ def _pruefung_471():
                'Art')
         if _zeile471 is None:
             return
-        _zeile471.event_generate('<Button-1>')
-        _pumpen()
+        _klick(_zeile471)
         _form471 = _formular()
         if _form471 is None:
             pruefe(False, 'nach der Auswahl steht das Formular noch')
@@ -46695,39 +46807,98 @@ def _pruefung_471():
                '(%r)' % _texte(_form471)[:12])
         _tippen(1, 'Area18')
         _tippen(2, '2')
+        _tippen(3, 'Kiste A')
         _anfragen471[:] = []
         _einbuchen()
+        _tippen(3, 'Kiste B')
+        _laufen()
         pruefe(_gesendet471 == [[{
                    'op': 'book-in', 'unit': 'u1', 'holder': 'r1',
                    'material': {'bt': 'bt-helm-a', 'name': 'Helm A'},
                    'location': {'name': 'Area18'}, 'quality': 0,
-                   'stolen': False,
+                   'stolen': False, 'note': 'Kiste A',
                    'quantity': {'amount': 2, 'unit': 'PIECE'}}]]
                and [a['refs'][0].get('uexId') for a in _anfragen471] == [11],
-               'gebucht wird mit dem bt, das das Basetool zur UEX-Nummer nennt '
-               '(%r, %r)' % (_gesendet471, _anfragen471))
-
+               'gebucht wird mit dem bt zur UEX-Nummer und mit den Werten vom '
+               'Klick (%r, %r)' % (_gesendet471, _anfragen471))
         _gesendet471[:] = []
+
+        # 2. Abbrechen während des Nachschlagens. Golden Medmon in SCU ginge
+        #    sonst als Ware hinaus (Stück/SCU passt).
         if not _neu_oeffnen():
             return
-        _tippen(0, 'Laranit')
-        _tippen(1, 'Area18')
-        _tippen(2, '5')
+        _ausfuellen('Golden Medmon')
         _einbuchen()
-        _texte471 = _texte(_fe.pages['staffellager'])
-        pruefe(not _gesendet471
-               and _t471('s_sl_ware_mehrdeutig') % 'Laranit' in _texte471
-               and 'Laranite (Ore)' in _texte471
-               and 'Laranite Statue' in _texte471,
-               'mehrdeutig: nichts gesendet, die Treffer stehen zur Wahl')
-        _treffer471 = (_label(_formular(), 'Laranite (Ore)')
-                       if _formular() is not None else None)
-        if _treffer471 is None:
+        _klick(_knopf(_formular(), _t471('s_bt_abbrechen')))
+        _laufen()
+        _ohne_buchung('abgebrochen, während nachgeschlagen wurde')
+        # Abbrechen und sofort dasselbe Formular mit derselben Ware: Die alte
+        # Antwort darf trotzdem nicht buchen.
+        if not _neu_oeffnen():
             return
-        _treffer471.event_generate('<Button-1>')
-        _pumpen()
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _klick(_knopf(_formular(), _t471('s_bt_abbrechen')))
+        _klick(_knopf(_seite(), _t471('s_sl_einbuchen')))
+        _tippen(0, 'Golden Medmon')
+        _laufen()
+        _ohne_buchung('abgebrochen und mit derselben Ware neu geöffnet')
+
+        # 3. Ware umgetippt, während nachgeschlagen wurde.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _tippen(0, 'Laranit')
+        _laufen()
+        _ohne_buchung('umgetippt, während nachgeschlagen wurde')
+
+        # 4. Ein Gegenstand in SCU: Hinweis statt Buchung.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Helm A')
+        _einbuchen()
+        _laufen()
+        pruefe(_t471('s_sl_ware_stueck') % 'Helm A' in _texte(_seite()),
+               'ein Gegenstand in SCU: der Hinweis auf Stück steht da')
+        _ohne_buchung('Gegenstand in SCU')
+
+        # 5. Mehrdeutig: Treffer mit Art; eine neue Auswahl räumt sie weg.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Laranit', menge='5')
+        _einbuchen()
+        _laufen()
+        _statue471 = _label(_formular(), 'Laranite Statue')
+        _ore471 = _label(_formular(), 'Laranite (Ore)')
+        pruefe(_statue471 is not None and _ore471 is not None
+               and _label(_statue471.master, 'Gegenstand') is not None
+               and _label(_ore471.master, 'Rohstoff/Handelsware') is not None
+               and _t471('s_sl_ware_mehrdeutig') % 'Laranit'
+               in _texte(_seite()),
+               'mehrdeutig: die Treffer stehen mit ihrer Art zur Wahl')
+        _ohne_buchung('mehrdeutig')
+        _tippen(0, 'helm')
+        _helm471 = _label(_formular(), 'Helm A')
+        if _helm471 is not None:
+            _klick(_helm471)
+        pruefe(_label(_formular(), 'Laranite Statue') is None,
+               'eine Auswahl aus der Liste räumt die alten Treffer weg')
+
+        # 6. Treffer anklicken: gebucht mit seinem bt, ohne neue Nachfrage.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Laranit', menge='5')
+        _einbuchen()
+        _laufen()
+        _ore471 = _label(_formular(), 'Laranite (Ore)')
+        if _ore471 is None:
+            pruefe(False, 'der Treffer Laranite (Ore) steht zur Wahl')
+            return
+        _klick(_ore471)
         _anfragen471[:] = []
         _einbuchen()
+        _laufen()
         pruefe(len(_gesendet471) == 1
                and _gesendet471[0][0]['material']
                == {'bt': 'bt-laranite-ore', 'name': 'Laranite (Ore)'}
@@ -46736,24 +46907,86 @@ def _pruefung_471():
                and not _anfragen471,
                'der angeklickte Treffer wird mit seinem bt gebucht, ohne neue '
                'Nachfrage (%r, %r)' % (_gesendet471, _anfragen471))
-
         _gesendet471[:] = []
+
+        # 7. Nach der Trefferwahl umgetippt: neu nachschlagen; unbekannt.
         if not _neu_oeffnen():
             return
-        _tippen(0, 'Quatsch')
-        _tippen(1, 'Area18')
-        _tippen(2, '1')
+        _ausfuellen('Laranit')
         _einbuchen()
-        pruefe(not _gesendet471 and _t471('s_sl_ware_unbekannt') % 'Quatsch'
-               in _texte(_fe.pages['staffellager']),
-               'unbekannt: Hinweis, nichts gesendet')
+        _laufen()
+        _ore471 = _label(_formular(), 'Laranite (Ore)')
+        if _ore471 is not None:
+            _klick(_ore471)
+        _tippen(0, 'Quatsch')
+        _anfragen471[:] = []
+        _einbuchen()
+        _laufen()
+        pruefe([a['refs'][0].get('name') for a in _anfragen471][:1]
+               == ['Quatsch']
+               and _t471('s_sl_ware_unbekannt') % 'Quatsch'
+               in _texte(_seite()),
+               'nach der Trefferwahl umgetippt: neu nachgeschlagen, '
+               'unbekannt mit Hinweis (%r)' % _anfragen471)
+        _ohne_buchung('unbekannt')
+
+        # 8. Schon im Pool, gleiche Einheit: ohne Nachfrage gebucht.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Laranite')
+        _anfragen471[:] = []
+        _einbuchen()
+        _laufen()
+        pruefe(len(_gesendet471) == 1 and not _anfragen471
+               and _gesendet471[0][0]['material']['bt'] == 'bt-laranite',
+               'eine Ware aus dem Pool in dessen Einheit geht ohne Nachfrage '
+               'hinaus (%r, %r)' % (_gesendet471, _anfragen471))
+        _gesendet471[:] = []
+        # Dieselbe Ware in Stück (über die Auswahl eines Gegenstands
+        # eingestellt) kürzt nicht ab, sondern wird nachgeschlagen.
+        if not _neu_oeffnen():
+            return
+        _tippen(0, 'helm')
+        _helm471 = _label(_formular(), 'Helm A')
+        if _helm471 is not None:
+            _klick(_helm471)
+        _ausfuellen('Laranite')
+        _anfragen471[:] = []
+        _einbuchen()
+        _laufen()
+        pruefe(_anfragen471[:1] == [{'kind': 'MATERIAL', 'refs': [
+                   {'uexId': 101, 'name': 'Laranite'}]}],
+               'eine Pool-Ware in einer anderen Einheit (Stück) wird '
+               'nachgeschlagen (%r)' % _anfragen471)
+        _gesendet471[:] = []
+
+        # 9. Fehler beim Nachschlagen.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Fehlerware')
+        _einbuchen()
+        _laufen()
+        pruefe(_bp471.error_text('NETWORK') in _texte(_seite()),
+               'scheitert das Nachschlagen, steht der Grund da')
+        _ohne_buchung('Fehler beim Nachschlagen')
+
+        pruefe(not _vertrag471,
+               'Anfragen und Antworten entsprechen dem Vertrag (%r)'
+               % _vertrag471[:3])
+        pruefe(not _unerwartet471,
+               'keine unerwartete Anfrage ans Basetool (%r)' % _unerwartet471)
+        pruefe(not _im_tk471,
+               'keine Anfrage ans Basetool aus dem Tk-Faden (%r)' % _im_tk471)
     finally:
         (_ux471.fetch, _bt471.CONNECTION, _og471.visible, _og471.send,
-         _og471.refresh, _th471.Thread, _alt_orte471) = _alt471
+         _og471.refresh, _th471.Thread, _alt_orte471,
+         _sc471.due, _sc471.update) = _alt471
         _bs471._LOCATIONS.clear()
         _bs471._LOCATIONS.update(_alt_orte471)
         _og471.forget()
-        _sc471._derived.update(data=None, choices={})
+        _sc471._store.forget()
+        _sc471._derived = (None, {})
+        _la471.set_language(_sprache471)
         for _w in ((_fe.root if _fe is not None else None), _root):
             try:
                 if _w is not None:

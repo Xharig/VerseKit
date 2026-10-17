@@ -24,7 +24,7 @@ bei jedem Abruf sieht die Gegenseite deine IP-Adresse.
 |---|---|
 | Neue Versionen, Katalog- und Vertragsdaten | GitHub |
 | Herstellungsdaten | scmdb.net |
-| Preise, Läden, Orte | UEX (uexcorp.space) |
+| Preise, Läden, Orte, Gegenstands- und Warenliste | UEX (uexcorp.space) |
 | Schiffswerte | erkul.games |
 | Serverstatus | status.robertsspaceindustries.com |
 | Übersetzungen, die du auswählst | die jeweilige Quelle (etwa StarStrings, Luftwerft, rjcncpt) |
@@ -122,7 +122,9 @@ Account-Prüfung, dein RSI-Handle. Nie Kaufdaten (Preis, Kaufdatum, Paket).
 Daten anderer Mitglieder nur, wenn du als Logistiker im **Lager der Einheit**
 buchst: dann die Buchung selbst — welcher Eintrag, Menge, Ort, Notiz,
 Reservierung, Verkaufserlös und der Besitzer als Pseudonym, das das Basetool
-nur für Verse-Kit vergibt.
+nur für Verse-Kit vergibt. Vor dem Einbuchen schlägt Verse-Kit die Ware beim
+Basetool nach: Dafür geht der Warenname bzw. die UEX-Nummer der Ware hin, auch
+wenn danach nichts gebucht wird.
 
 **Was zurückkommt:** deine eigenen Baupläne, Lagerposten und Schiffe aus dem
 Basetool, beim Hangar dazu die Liste der Einheiten, in denen du Mitglied bist

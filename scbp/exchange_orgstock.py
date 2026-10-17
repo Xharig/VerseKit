@@ -396,10 +396,11 @@ def _catalog_ref(raw):
 def resolve(conn, kind, ref):
     """Eine Referenz über `POST /catalog/resolve` auflösen::
 
-        ('resolved', {bt, name})
-        ('ambiguous', [{bt, name}, …])   höchstens zehn
+        ('resolved', {bt, name, kind})
+        ('ambiguous', [{bt, name, kind}, …])   höchstens zehn
         ('unmatched', None)
-    """
+
+    `kind` ist die angefragte Art (`ITEM` oder `MATERIAL`)."""
     answer = conn.request('POST', RESOLVE, {'kind': kind, 'refs': [ref]})
     for result in (answer or {}).get('results') or ():
         if not isinstance(result, dict) or result.get('index') != 0:
@@ -407,29 +408,30 @@ def resolve(conn, kind, ref):
         if result.get('status') == 'resolved':
             found = _catalog_ref(result.get('ref'))
             if found:
-                return 'resolved', found
+                return 'resolved', dict(found, kind=kind)
         elif result.get('status') == 'ambiguous':
-            candidates = [c for c in map(_catalog_ref,
-                                         result.get('candidates') or ()) if c]
+            candidates = [dict(c, kind=kind) for c in map(
+                _catalog_ref, result.get('candidates') or ()) if c]
             if candidates:
                 return 'ambiguous', candidates[:10]
     return 'unmatched', None
 
 
-def resolve_material(conn, name, known=None):
+def resolve_material(conn, name, known=None, piece=False):
     """Die Ware eines Einbuchens vorab auflösen, Rückgabe wie `resolve`.
 
     `known`: `(kind, item-ref)` aus der Warenliste (`stock_catalog`) — dann
-    zuerst über diese Referenz. Sonst, und wenn sie nichts findet, wie ein
-    Stock-Op: erst als MATERIAL, dann als ITEM, beides über den Namen.
-    Mehrdeutige Treffer beider Wege kommen zusammen in eine Auswahl."""
+    zuerst über diese Referenz. Sonst, und wenn sie nichts findet, über den
+    Namen: bei `piece` (Stück) erst als ITEM, dann als MATERIAL, bei SCU
+    umgekehrt. Mehrdeutige Treffer beider Wege kommen zusammen in eine
+    Auswahl."""
     if known:
         status, found = resolve(conn, known[0], known[1])
         if status != 'unmatched':
             return status, found
     ref = {'name': name.strip()[:200]}
     candidates = []
-    for kind in ('MATERIAL', 'ITEM'):
+    for kind in (('ITEM', 'MATERIAL') if piece else ('MATERIAL', 'ITEM')):
         status, found = resolve(conn, kind, ref)
         if status == 'resolved':
             return status, found

@@ -24,7 +24,7 @@ request, the other side sees your IP address.
 |---|---|
 | New versions, catalogue and contract data | GitHub |
 | Crafting data | scmdb.net |
-| Prices, shops, places | UEX (uexcorp.space) |
+| Prices, shops, places, list of items and goods | UEX (uexcorp.space) |
 | Ship values | erkul.games |
 | Server status | status.robertsspaceindustries.com |
 | Translations you choose | the respective source (such as StarStrings, Luftwerft, rjcncpt) |
@@ -120,7 +120,9 @@ your RSI handle. Never purchase data (price, purchase date, package). Other
 members' data only when you book in the **unit storage** as a logistician:
 then the booking itself — which entry, amount, location, note, reservation,
 sale proceeds and the owner as a pseudonym the Basetool issues for Verse-Kit
-alone.
+alone. Before booking in, Verse-Kit looks the goods up at the Basetool: for
+that the name or the UEX number of the goods goes there, even if nothing is
+booked afterwards.
 
 **What comes back:** your own blueprints, stock lots and ships from the
 Basetool, and for the hangar the list of units you are a member of (kept in

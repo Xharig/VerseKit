@@ -11,13 +11,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 ### Verbessert
 
 - **Warenauswahl beim Einbuchen ins Lager der Einheit** — das Feld „Ware"
-  ist jetzt eine Auswahlliste mit allem, was das Basetool kennt: Rüstungen,
-  Waffen, Komponenten, Kleidung, Verbrauchsgüter, Rohstoffe und
+  ist jetzt eine Auswahlliste mit den Gegenständen und Waren von UEX:
+  Rüstungen, Waffen, Komponenten, Kleidung, Verbrauchsgüter, Rohstoffe und
   Handelswaren. Tippen filtert die Liste, rechts steht die Art. Eine
   ausgewählte Ware stellt Stück oder SCU passend ein. Vor dem Buchen wird
   die Ware beim Basetool nachgeschlagen: Ist sie nicht eindeutig, stehen die
-  passenden Treffer zum Anklicken da; kennt das Basetool sie nicht, wird
-  nichts gebucht.
+  passenden Treffer samt Art zum Anklicken da; kennt das Basetool sie nicht
+  oder passt Stück/SCU nicht, geht keine Buchung hinaus.
 
 ### Behoben
 
