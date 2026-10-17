@@ -3886,6 +3886,73 @@ TEXTS = {
                           'The entry in the form has changed in the meantime '
                           '(crafting or sync) — editing cancelled, nothing '
                           'saved. Please open it again.'),
+    # Persönlich / gemeinsam (scbp/stock_split.py) — nur mit Verbindung.
+    's_ml_sicht_alle':   ('Alle', 'All'),
+    's_ml_sicht_persoenlich': ('Persönlich', 'Personal'),
+    's_ml_sicht_gemeinsam': ('Gemeinsam', 'Shared'),
+    's_ml_b_geteilt':    ('%s in der Einheit', '%s in the unit'),
+    's_ml_einheit_weg':  ('verlassene Einheit', 'unit you left'),
+    's_ml_einheit':      ('Einheit', 'Unit'),
+    's_ml_teilen':       ('Ins Lager der Einheit', 'Into unit storage'),
+    's_ml_zuruecknehmen': ('Aus dem Lager der Einheit zurücknehmen',
+                           'Take back from unit storage'),
+    's_ml_teilen_t':     ('%s ins Lager der Einheit geben',
+                          'Put %s into unit storage'),
+    's_ml_zurueck_t':    ('%s aus dem Lager der Einheit zurücknehmen',
+                          'Take %s back from unit storage'),
+    's_ml_hoechstens':   ('höchstens %s', 'at most %s'),
+    's_ml_menge_ph':     ('Menge', 'Amount'),
+    's_ml_teilen_knopf': ('Ins Lager der Einheit', 'Into unit storage'),
+    's_ml_zurueck_knopf': ('Zurücknehmen', 'Take back'),
+    's_ml_menge_teilen': ('Bitte eine Menge über 0 und höchstens %s eintragen '
+                          '— Items in ganzen Stück.',
+                          'Please enter an amount above 0 and at most %s — '
+                          'items in whole pieces.'),
+    's_ml_geteilt_ok':   ('Ins Lager der Einheit gegeben. Du bleibst der '
+                          'Besitzer; die neue Aufteilung kommt mit dem '
+                          'Abgleich gleich danach.',
+                          'Put into unit storage. You stay the owner; the new '
+                          'split arrives with the sync right after.'),
+    's_ml_zurueck_ok':   ('Zurückgenommen — wieder dein persönliches Lager. '
+                          'Die neue Aufteilung kommt mit dem Abgleich gleich '
+                          'danach.',
+                          'Taken back — your personal stock again. The new '
+                          'split arrives with the sync right after.'),
+    's_ml_r_konflikt':   ('Der Posten hat sich beim Basetool inzwischen '
+                          'geändert. Nach dem nächsten Abgleich noch einmal '
+                          'versuchen.',
+                          'The entry has changed at the Basetool in the '
+                          'meantime. Try again after the next sync.'),
+    's_ml_r_zu_viel':    ('Mehr, als dort liegt — bitte eine kleinere Menge.',
+                          'More than is there — please enter a smaller amount.'),
+    's_ml_r_zu_wenig':   ('So viel liegt dort nicht (mehr).',
+                          'That much is not (or no longer) there.'),
+    's_ml_r_reserviert': ('Ein Teil davon ist für einen Auftrag, eine Mission '
+                          'oder eine Spende reserviert — die Reservierung '
+                          'im Basetool im Browser lösen.',
+                          'Part of it is reserved for a job order, mission '
+                          'or donation — release the reservation in the '
+                          'Basetool in your browser.'),
+    's_ml_r_angeboten':  ('Ein Teil davon steht in einem Angebot an der '
+                          'Materialbörse — erst das Angebot im Basetool '
+                          'verkleinern.',
+                          'Part of it backs an offer on the Material '
+                          'Exchange — reduce the offer in the Basetool first.'),
+    's_ml_r_kein_mitglied': ('Du bist nicht (mehr) direkt in dieser Einheit.',
+                             'You are not (or no longer) directly in this '
+                             'unit.'),
+    's_ml_r_einheit':    ('Die Mengeneinheit passt nicht zur Ware — '
+                          'Items gehen nur in ganzen Stück.',
+                          'The unit does not match the material — '
+                          'items move in whole pieces only.'),
+    's_ml_r_ort':        ('Diesen Lagerort kennt das Basetool nicht.',
+                          'The Basetool does not know this location.'),
+    's_ml_r_gestohlen':  ('Das Basetool führt gerade keine Gestohlen-Marke.',
+                          'The Basetool has its stolen marking switched off.'),
+    's_ml_r_unbekannt':  ('Das Basetool erkennt diese Ware nicht eindeutig.',
+                          'The Basetool cannot tell which material this is.'),
+    's_ml_r_anders':     ('Das Basetool hat abgelehnt (%s).',
+                          'The Basetool refused (%s).'),
     's_ml_teil_herstellen': ('Zum Herstellen (Rohstoffe)',
                              'For crafting (materials)'),
     's_ml_teil_verkaufen': ('Zum Verkaufen und Items — eine gemeinsame Datei',
@@ -6778,8 +6845,8 @@ TEXTS = {
                           'You are a logistician here. Booking can be switched on under Basetool → Connection.'),
     's_sl_kein_logistiker': ('Buchen ist eingeschaltet, aber das Basetool führt dich in dieser Einheit nicht als Logistiker. Dafür braucht es den Logistiker-Haken oder einen Leitungsrang direkt in dieser Einheit — die Leitung eines übergeordneten Bereichs zählt nicht. Bis dahin gibst du eigene Sachen im Basetool im Browser für die Einheit frei.',
                              'Booking is on, but the Basetool does not list you as a logistician in this unit. That takes the logistician flag or a leadership rank directly in this unit — leading an area above it does not count. Until then, share your own items with the unit in the Basetool in your browser.'),
-    's_sl_mitglied':     ('Einlagern:Ins Lager der Einheit buchen die Logistiker. Eigene Sachen gibst du im Basetool im Browser für die Einheit frei oder bittest einen Logistiker darum — was du unter Flotte & Logistik → Mein Lager einträgst, bleibt dein persönliches Lager. Bist du Logistiker, schalte unter Basetool → Verbindung & Abgleich „Als Logistiker buchen" ein.',
-                          'Storing items: logisticians book into the unit storage. You share your own items with the unit in the Basetool in your browser, or ask a logistician — what you enter under Fleet & Logistics → My Inventory stays your personal storage. If you are a logistician, switch on "Book as a logistician" under Basetool → Connection & sync.'),
+    's_sl_mitglied':     ('Einlagern: Ins Lager der Einheit buchen die Logistiker. Eigene Sachen gibst du selbst hinein: unter Flotte & Logistik → Mein Lager mit dem Knopf „Ins Lager der Einheit" an der Zeile (mit eingeschaltetem „Lager abgleichen"); zurücknehmen geht dort genauso. Du bleibst dabei der Besitzer. Bist du Logistiker, schalte unter Basetool → Verbindung & Abgleich „Als Logistiker buchen" ein.',
+                          'Storing items: logisticians book into the unit storage. You put your own items in yourself: under Fleet & Logistics → My Inventory with the "Into unit storage" button on the row (with "Sync storage" on); taking them back works the same way. You stay the owner. If you are a logistician, switch on "Book as a logistician" under Basetool → Connection & sync.'),
     's_sl_suche':        ('Ware oder Ort suchen', 'Search goods or location'),
     's_sl_masse_h':      ('Das Basetool will diese größere Änderung erst im Browser bestätigt haben. Bis dahin ist nichts gebucht.',
                           'The Basetool wants this larger change confirmed in the browser first. Until then nothing is booked.'),
@@ -6950,6 +7017,8 @@ TEXTS = {
                                'Unit not accepted by the Basetool, its own applies: %d ships.'),
     's_bt_einheit_recht': ('Für die Einheit-Auswahl im Hangar fehlt noch eine Erlaubnis. Der Abgleich läuft auch ohne.',
                            'The unit choice in the hangar still needs a permission. The sync works without it too.'),
+    's_bt_einheit_recht_lager': ('Damit du in Mein Lager etwas ins Lager einer Einheit geben kannst, fehlt noch eine Erlaubnis für die Liste deiner Einheiten. Der Abgleich läuft auch ohne.',
+                                 'To put something from My Inventory into a unit\'s storage, a permission for the list of your units is still missing. The sync works without it too.'),
     's_bt_einheit_neu':  ('Einheit für neue Schiffe', 'Unit for new ships'),
     's_bt_einheit_wie_bisher': ('Wie bisher (Basetool entscheidet)', 'As before (the Basetool decides)'),
     's_bt_einheit_neu_h': ('Gilt nur, wenn Verse-Kit ein Schiff neu im Basetool anlegt. Auf der Schiffskarte im Hangar lässt sich die Einheit je Schiff ändern; ändert sie jemand im Basetool, gilt die dortige.',

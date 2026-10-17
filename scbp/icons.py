@@ -592,6 +592,6 @@ LINE_NAMES = (
     'ausblenden', 'issue_council', 'stueck_mehr', 'stueck_weniger',
     'farmliste', 'startbauplan', 'verschieben',
     'bearbeiten', 'loeschen', 'ausbuchen', 'verkaufen', 'umbuchen', 'notiz',
-    'gestohlen', 'reservieren',
+    'gestohlen', 'reservieren', 'teilen', 'zuruecknehmen',
 )
 ALL_NAMES = BUTTON_NAMES + LINE_NAMES

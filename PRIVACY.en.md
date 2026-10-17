@@ -112,8 +112,9 @@ by default.
 
 **What goes there** — depending on the areas you turn on: your blueprints
 (name, the Basetool's key, time, and how Verse-Kit knows them), your stock lots
-from My Inventory (materials and goods for sale; material, place, quality, amount,
-"stolen") and your ships (type, insurance, own name, "ready" and the unit a
+from My Inventory (materials, goods for sale and items; material, place, quality, amount,
+"stolen"; when you put a lot into unit storage or take it back, also the
+chosen unit and the amount) and your ships (type, insurance, own name, "ready" and the unit a
 ship belongs to). Plus the name you give this
 installation — never your computer's name — and, for the account check only,
 your RSI handle. Never purchase data (price, purchase date, package). Other
@@ -125,8 +126,9 @@ that the name or the UEX number of the goods goes there, even if nothing is
 booked afterwards.
 
 **What comes back:** your own blueprints, stock lots and ships from the
-Basetool, and for the hangar the list of units you are a member of (kept in
-memory only, for the choice on the ship card). With the *unit storage* area
+Basetool, per stock lot how much of it is personal and how much sits in which
+unit's storage, and for hangar and storage the list of units you are a member
+of (kept in memory only, for the choice on the ship card and when sharing). With the *unit storage* area
 the shared storage of your units — as a logistician including owners and
 notes —, and with the demand, as a logistician, your unit's orders with
 requester and comment. Both in memory only, for at most 7 days, never in a

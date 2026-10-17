@@ -22,6 +22,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   crafting or for selling) plus a search. Adding entries, refinery yields
   and screen reading, backing up and clearing are there as fold-out
   sections; every entry stays where it was.
+- **Put into unit storage and take back** — connected to the Basetool, your own
+  lots in "My Inventory" have a button that puts goods or items into
+  the storage of one of your units; you stay the owner. Taking back works the
+  same way. A switch All / Personal / Shared shows what lies where; a shared
+  item never counts twice.
 - **Class, size and grade on items** — both inventories show a tag such as
   `(Mil/3/A)` on the item, no internet and no Basetool needed.
 

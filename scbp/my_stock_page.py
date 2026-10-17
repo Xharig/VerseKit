@@ -49,7 +49,7 @@ from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, RED, GOLD, _heading,
                     _storage_fold, _refinery_box, _keep_scroll, _money,
                     _amount_text, after_typing, sync_targets)
 from . import icons, materials, notice, paths, stock_kinds, theme
-from . import trade_cargo
+from . import stock_split, trade_cargo
 
 PAGE = 'meinlager'
 # Alte Seitennamen -> diese Seite, mit der Vorwahl, die sie mitbringen.
@@ -105,10 +105,12 @@ def _is_piece(name):
 def entries():
     """Alle Posten beider Dateien in einer Form:
 
-    `{store, index, name, amount, piece, quality, place, stolen, cost, item}`
+    `{store, index, name, amount, piece, quality, place, stolen, cost, item,
+    leftover, lookup}`
 
     `index` ist die Stelle in der jeweiligen Datei — über sie wird
-    bearbeitet und gelöscht."""
+    bearbeitet und gelöscht. `lookup` ist der Schlüssel, unter dem der
+    Abgleich das Material auflöst (`stock_split.row_key`)."""
     rows = []
     for index, entry in enumerate(materials.load()):
         name = (entry.get('material') or '').strip()
@@ -121,12 +123,15 @@ def entries():
                      'place': (entry.get('ort') or '').strip(),
                      'stolen': bool(entry.get('gestohlen')),
                      'cost': None, 'item': False,
-                     'leftover': materials.is_leftover(entry)})
+                     'leftover': materials.is_leftover(entry),
+                     'lookup': name})
+    from . import exchange_stock
     for index, entry in enumerate(trade_cargo.load()):
         name = (entry.get('ware') or '').strip()
         piece = trade_cargo.is_pieces(entry)
         rows.append({'store': STORE_TRADE, 'index': index,
                      'name': name or '?',
+                     'lookup': exchange_stock.trade_lookup(entry),
                      'amount': _number(entry.get('menge')), 'piece': piece,
                      'quality': None,
                      'place': (entry.get('ort') or '').strip(),
@@ -171,7 +176,8 @@ def visible_rows(rows, state, server, cache):
                 and text not in row['place'].lower():
             continue
         found.append(row)
-    return found
+    return stock_split.scoped(found, state.get('scope') or
+                              stock_split.SCOPE_ALL)
 
 
 def amount_text(row_or_value, piece, unit=True):
@@ -210,9 +216,11 @@ def my_stock_page(window, frame):
         'state': {'view': view if view in (VIEW_MATERIAL, VIEW_ITEMS)
                   else VIEW_MATERIAL,
                   'kind': '', 'place': '', 'purpose': '',
+                  'scope': stock_split.SCOPE_ALL,
                   'search': tk.StringVar(master=inner, value=''),
                   'sort': 'name', 'descending': False},
         'open': set(), 'editing': None, 'forms': {},
+        'split': None, 'share_form': None, 'busy': False,
     }
 
     if is_old_user():
@@ -260,7 +268,15 @@ def my_stock_page(window, frame):
         except tk.TclError:
             return
         drop_stale_edit(page)
-        rows = entries()
+        # Persönlich/gemeinsam nur mit Verbindung; ohne gilt alles als
+        # persönlich und die Sicht steht auf Alle.
+        snap = stock_split.snapshot()
+        page['split'] = snap
+        if snap is None:
+            page['state']['scope'] = stock_split.SCOPE_ALL
+            page['share_form'] = None
+        rows = stock_split.attach(entries(), snap)
+        _check_share_form(page, rows)
         server = stock_kinds.server_kinds()
         cache = {}
         for child in controls.winfo_children():
@@ -274,6 +290,18 @@ def my_stock_page(window, frame):
 
     _backup_section(window, inner, page)
     sync_targets(window)[PAGE] = (message, redraw)
+
+    def split_changed():
+        # Neue Aufteilung beim Basetool: nur die Liste neu, die Seite bleibt.
+        try:
+            if not listing.winfo_exists():
+                return False
+        except tk.TclError:
+            return False
+        _keep_scroll(listing, redraw)
+        return True
+    from . import basetool_sync
+    basetool_sync.SPLIT_LISTENERS.append(split_changed)
 
     def on_show():
         preset = getattr(window, 'my_stock_preset', None)
@@ -320,6 +348,8 @@ def _moved_notice(window, parent):
 def _draw_controls(window, parent, page, rows, server, cache):
     from .main_window import round_select
     state = page['state']
+    # Zähler, Arten und Orte folgen der Sicht Alle/Persönlich/Gemeinsam.
+    rows = stock_split.scoped(rows, state['scope'])
     counts = {VIEW_MATERIAL: 0, VIEW_ITEMS: 0}
     for row in rows:
         counts[VIEW_ITEMS if row['item'] else VIEW_MATERIAL] += 1
@@ -355,11 +385,22 @@ def _draw_controls(window, parent, page, rows, server, cache):
 
     def pick(key):
         def run(value):
-            state[key] = value
+            # `''` ist bei jedem Feld die Grundstellung — beim Umschalter
+            # Alle, damit er nicht wie ein gesetzter Filter aussieht.
+            state[key] = (value or stock_split.SCOPE_ALL) if key == 'scope' \
+                else value
             page['redraw']()
         return run
-    selects = [('kind', [('', t('s_ml_alle_arten'))]
-                + [(k, stock_kinds.label(k)) for k in kinds if k in present])]
+    selects = []
+    # Alle / Persönlich / Gemeinsam nur mit Verbindung (`stock_split`).
+    if page.get('split') is not None:
+        selects.append(('scope', [
+            ('', t('s_ml_sicht_alle')),
+            (stock_split.SCOPE_PERSONAL, t('s_ml_sicht_persoenlich')),
+            (stock_split.SCOPE_SHARED, t('s_ml_sicht_gemeinsam'))]))
+    selects.append(('kind', [('', t('s_ml_alle_arten'))]
+                    + [(k, stock_kinds.label(k)) for k in kinds
+                       if k in present]))
     selects.append(('place', [('', t('s_ml_alle_orte'))]
                     + [(p, p) for p in places]))
     if not items:
@@ -367,7 +408,10 @@ def _draw_controls(window, parent, page, rows, server, cache):
                                     (PURPOSE_CRAFT, t('s_ml_herstellen')),
                                     (PURPOSE_SALE, t('s_ml_verkaufen'))]))
     for key, choices in selects:
-        select = round_select(line, choices, state[key], pick(key),
+        current = state[key]
+        if key == 'scope' and current == stock_split.SCOPE_ALL:
+            current = ''
+        select = round_select(line, choices, current, pick(key),
                               window.f_small)
         select.pack(side='left', padx=(0, 8))
         page['filters'][key] = select
@@ -595,6 +639,20 @@ def _post_badges(row, kind, sale_badge, nested):
     return badges
 
 
+def _split_badges(row, scope):
+    """In Alle: wie viel davon im Lager der Einheit liegt. In Gemeinsam:
+    in welcher Einheit."""
+    if not row.get('shared') or row.get('lot') is None:
+        return []
+    if scope == stock_split.SCOPE_SHARED:
+        _personal, pools = stock_split.split_of(row['lot'])
+        return [(stock_split.unit_label(unit), ACCENT) for unit, _a in pools]
+    if scope == stock_split.SCOPE_ALL:
+        return [(t('s_ml_b_geteilt') % amount_text(row['shared'],
+                                                    row['piece']), ACCENT)]
+    return []
+
+
 def _post_row(window, page, builder, row, nested):
     base = _stripe(page['listing'], BG)
     editing = page.get('editing') == (row['store'], row['index'])
@@ -603,10 +661,11 @@ def _post_row(window, page, builder, row, nested):
     items = builder['items']
     kind = kind_of(row, builder['server'], builder['cache'])
     tag = stock_kinds.tag(row['name']) if items and not nested else None
+    badges = _post_badges(row, kind, builder['sale_badge'], nested) \
+        + _split_badges(row, page['state']['scope'])
     values = {
         'name': (name_cell(window, base, '' if nested else row['name'],
-                           _post_badges(row, kind, builder['sale_badge'],
-                                        nested), tag, indent=nested,
+                           badges, tag, indent=nested,
                            extra='' if nested or items
                            else mining_text(row['name'])), FG),
         'place': (row['place'] or '—', SUB),
@@ -627,26 +686,228 @@ def _post_row(window, page, builder, row, nested):
             ('+' if profit > 0 else '') + _money(profit),
             ACCENT if profit > 0 else RED if profit < 0 else SUB)
     widgets = table_cells(window, builder, base, values)
-    bind_row(widgets, lambda: edit(page, row))
+    if whole_row(page, row):
+        bind_row(widgets, lambda: edit(page, row))
     page['row_widgets'].append(('post', row, widgets))
+    form = page.get('share_form')
+    if form and form['row'] == (row['store'], row['index']):
+        _share_form(window, page, builder, row, form)
+
+
+def whole_row(page, row):
+    """Zeigt die Zeile ihre ganze Menge? In Alle immer; in Persönlich nur,
+    wenn nichts davon geteilt ist; in Gemeinsam nie. Nur dann gelten
+    Bearbeiten und Löschen der Zeile."""
+    scope = page['state']['scope']
+    if scope == stock_split.SCOPE_SHARED:
+        return False
+    if scope == stock_split.SCOPE_PERSONAL:
+        return not row.get('shared')
+    return True
+
+
+def share_actions(page, row):
+    """Welche Teilen-Knöpfe die Zeile bekommt: `share`, wenn ihr Posten
+    beim Basetool einen persönlichen Teil hat und es eine Einheit gibt;
+    `unshare`, wenn davon etwas in einem Pool liegt."""
+    lot = row.get('lot')
+    # Ohne `split` am Posten kennt das Basetool auch die beiden Ops nicht —
+    # dann keine Knöpfe.
+    if page.get('split') is None or lot is None \
+            or not isinstance(lot.get('split'), dict):
+        return []
+    from . import exchange_orgunits
+    personal, pools = stock_split.split_of(lot)
+    out = []
+    if personal > 0 and exchange_orgunits.units() \
+            and page['state']['scope'] != stock_split.SCOPE_SHARED:
+        out.append(stock_split.SHARE)
+    if pools and page['state']['scope'] != stock_split.SCOPE_PERSONAL:
+        out.append(stock_split.UNSHARE)
+    return out
 
 
 def _actions(window, page, row, base):
     def build(cell):
-        remove_icon = icons.tappable(
-            cell, 'loeschen', lambda _e=None: remove(page, row),
-            background=base, font=window.f_small)
-        remove_icon.is_action = True
-        remove_icon.pack(side='right', padx=(4, 8))
-        notice.attach(remove_icon, lambda: t('s_lg_weg'))
-        edit_icon = icons.tappable(
-            cell, 'bearbeiten', lambda _e=None: edit(page, row),
-            background=base, font=window.f_small)
-        edit_icon.is_action = True
-        edit_icon.pack(side='right', padx=(4, 0))
-        notice.attach(edit_icon, lambda: t('s_ml_bearbeiten'))
-        cell.action_icons = (edit_icon, remove_icon)
+        cell.action_icons = {}
+        # In Gemeinsam und Persönlich steht ein Anteil als Menge — Bearbeiten
+        # und Löschen gälten aber der ganzen Zeile. Liegt etwas davon im
+        # Lager der Einheit, dort nur Teilen und Zurücknehmen.
+        shared_view = not whole_row(page, row)
+        icons_here = [] if shared_view else [
+            ('loeschen', lambda _e=None: remove(page, row), 's_lg_weg'),
+            ('bearbeiten', lambda _e=None: edit(page, row),
+             's_ml_bearbeiten')]
+        for kind in reversed(share_actions(page, row)):
+            icons_here.append((
+                'teilen' if kind == stock_split.SHARE else 'zuruecknehmen',
+                lambda _e=None, k=kind: open_share(page, row, k),
+                's_ml_teilen' if kind == stock_split.SHARE
+                else 's_ml_zuruecknehmen'))
+        for position, (name, run, text_key) in enumerate(icons_here):
+            icon = icons.tappable(cell, name, run, background=base,
+                                  font=window.f_small)
+            icon.is_action = True
+            icon.pack(side='right', padx=(4, 8) if position == 0 else (4, 0))
+            notice.attach(icon, lambda k=text_key: t(k))
+            cell.action_icons[name] = icon
     return build
+
+
+def _check_share_form(page, rows):
+    """Das offene Teilen-Formular gilt dem Posten, unter dem es geöffnet
+    wurde. Steht an seiner Stelle inzwischen eine andere Zeile (gelöscht,
+    verbraucht, Ort geändert) oder hat sie keinen Posten beim Basetool mehr,
+    geht es zu — sonst baute es die Op aus einem fremden Posten."""
+    form = page.get('share_form')
+    if not form:
+        return
+    here = next((r for r in rows
+                 if (r['store'], r['index']) == form['row']), None)
+    lot = here.get('lot') if here else None
+    if lot is None or lot.get('key') != form.get('lot_key') \
+            or here['name'] != form.get('name'):
+        page['share_form'] = None
+
+
+def open_share(page, row, kind):
+    """Das kleine Formular unter der Zeile öffnen (oder schließen, wenn es
+    dort schon offen ist)."""
+    current = page.get('share_form')
+    here = (row['store'], row['index'])
+    if current and current['row'] == here and current['kind'] == kind:
+        page['share_form'] = None
+    else:
+        page['share_form'] = {'row': here, 'kind': kind, 'unit': None,
+                              'amount': None, 'name': row['name'],
+                              'lot_key': (row.get('lot') or {}).get('key')}
+    _keep_scroll(page['listing'], page['redraw'])
+
+
+def _share_form(window, page, builder, row, form):
+    """Ins Lager der Einheit geben oder zurücknehmen: Einheit, Menge (ab
+    Werk alles), Knöpfe. Höchstens, was der Posten beim Basetool persönlich
+    bzw. im gewählten Pool hält."""
+    from .main_window import round_entry, round_select
+    from . import exchange_orgunits
+    lot = row['lot']
+    sharing = form['kind'] == stock_split.SHARE
+    personal, pools = stock_split.split_of(lot)
+    piece = (lot.get('quantity') or {}).get('unit') == stock_split.PIECE
+    if sharing:
+        choices = [(u['id'], exchange_orgunits.label(u))
+                   for u in exchange_orgunits.units()]
+    else:
+        choices = [(unit, stock_split.unit_label(unit)) for unit, _a in pools]
+    if not choices:
+        page['share_form'] = None
+        return
+    if form['unit'] not in {c[0] for c in choices}:
+        form['unit'] = choices[0][0]
+
+    def limit():
+        if sharing:
+            return personal
+        return next((a for u, a in pools if u == form['unit']), 0.0)
+    if form['amount'] is None:
+        # Am Seitenrahmen, nicht an der Tabelle: Die wird bei jedem
+        # Neuzeichnen neu gebaut, die Eingabe soll stehen bleiben.
+        form['amount'] = tk.StringVar(master=page['inner'],
+                                      value=amount_text(limit(), piece,
+                                                        unit=False))
+    holder = tk.Frame(builder['table'], bg=SURFACE)
+    holder.grid(row=builder['row'], column=0,
+                columnspan=len(builder['columns']), sticky='ew',
+                pady=(0, 6))
+    builder['row'] += 1
+    page['share_holder'] = holder
+    tk.Label(holder, text=t('s_ml_teilen_t' if sharing else 's_ml_zurueck_t')
+             % row['name'], bg=SURFACE, fg=ACCENT, font=window.f_bold,
+             anchor='w').pack(fill='x', padx=12, pady=(8, 4))
+    line = tk.Frame(holder, bg=SURFACE)
+    line.pack(fill='x', padx=12)
+
+    def pick(unit):
+        form['unit'] = unit
+        form['amount'].set(amount_text(limit(), piece, unit=False))
+        hint.configure(text=t('s_ml_hoechstens') % amount_text(limit(), piece))
+    select = round_select(line, choices, form['unit'], pick, window.f_small)
+    select.pack(side='left')
+    box = round_entry(line, form['amount'], window.f_small, theme.FIELD, LINE,
+                      ACCENT, FG, placeholder=t('s_ml_menge_ph'))
+    box.holder.pack(side='left', padx=(8, 0))
+    hint = tk.Label(line, text=t('s_ml_hoechstens') % amount_text(limit(),
+                                                                  piece),
+                    bg=SURFACE, fg=SUB, font=window.f_small)
+    hint.pack(side='left', padx=(8, 0))
+    buttons = tk.Frame(holder, bg=SURFACE)
+    buttons.pack(fill='x', padx=12, pady=(8, 10))
+
+    def go():
+        value = stock_split.check_amount(form['amount'].get(), limit(), piece)
+        if value is None:
+            page['say'](t('s_ml_menge_teilen') % amount_text(limit(), piece),
+                        RED)
+            return
+        op = (stock_split.share_op if sharing else stock_split.unshare_op)(
+            lot, form['unit'], value)
+        submit_share(window, page, op)
+
+    def cancel():
+        page['share_form'] = None
+        _keep_scroll(page['listing'], page['redraw'])
+    _button(window, buttons, t('s_ml_teilen_knopf' if sharing
+                               else 's_ml_zurueck_knopf'), go,
+            strong=True).pack(side='left')
+    _button(window, buttons, t('s_hl_abbrechen'), cancel).pack(
+        side='left', padx=(8, 0))
+    form['go'], form['pick'] = go, pick
+
+
+def submit_share(window, page, op):
+    """Die Op im Hintergrund schicken; danach gleicht der Abgleich ab, und
+    mit dem neuen Stand zeichnet die Seite die Aufteilung neu."""
+    if page['busy']:
+        page['say'](t('s_sl_noch_dran'), SUB)
+        return
+    page['busy'] = True
+    page['say'](t('s_sl_bucht'), SUB)
+    from .pages import _from_thread
+
+    def work():
+        from . import basetool, basetool_sync
+        done = False
+        try:
+            ok, reason = stock_split.send(basetool.CONNECTION, op)
+            if ok:
+                done = True
+                message, color = t('s_ml_geteilt_ok' if op['op'] ==
+                                   stock_split.SHARE else 's_ml_zurueck_ok'), \
+                    ACCENT
+            else:
+                message, color = stock_split.reason_text(reason), RED
+        except basetool.ApiError as error:
+            from . import errors
+            from .basetool_page import error_text
+            errors.record('my_stock_page.teilen', RuntimeError(
+                error.describe()))
+            message, color = error_text(error.code), RED
+        except Exception as exc:
+            from . import errors
+            errors.record('my_stock_page.teilen', exc)
+            message, color = t('s_sl_r_anders', type(exc).__name__), RED
+        # Neuer Stand: Der Abgleich holt den Feed mit der neuen Aufteilung.
+        basetool_sync.request_now()
+
+        def show():
+            page['busy'] = False
+            if done:
+                page['share_form'] = None
+                page['redraw']()
+            page['say'](message, color)
+        _from_thread(page['listing'], show)
+    import threading
+    threading.Thread(target=work, daemon=True, name='teilen').start()
 
 
 def _group_row(window, page, builder, group, key, is_open):
@@ -716,6 +977,7 @@ def remove(page, row):
             materials.remove(row['index'])
         else:
             trade_cargo.remove(row['index'])
+        page['share_form'] = None
         if page.get('editing') is not None:
             for form in page['forms'].values():
                 form['reset']()

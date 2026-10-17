@@ -22,6 +22,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Herstellen oder zum Verkaufen) und eine Suche. Eintragen, Raffinerie-Ausbeute
   und Bildschirm lesen, Sichern und Löschen sind als Klappbereiche dabei; alle
   Posten bleiben, wo sie waren.
+- **Ins Lager der Einheit geben und zurücknehmen** — mit Verbindung zum
+  Basetool tragen eigene Posten in „Mein Lager" einen Knopf, der Ware oder
+  Items in das Lager einer deiner Einheiten gibt; du bleibst der Besitzer.
+  Zurücknehmen geht genauso. Ein Umschalter Alle / Persönlich / Gemeinsam
+  zeigt, was davon wo liegt; ein geteiltes Item zählt dabei nie doppelt.
 - **Klasse, Größe und Grad an Gegenständen** — in beiden Lagern steht am
   Item das Kürzel wie `(Mil/3/A)`, ohne Netz und ohne Basetool.
 

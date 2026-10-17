@@ -436,6 +436,10 @@ def _area_card(window, area, login, redraw, status, connected, granted,
     if setting == basetool_sync.SETTING_SHIPS:
         _orgunits_consent(window, card, granted, login, redraw)
         _new_ship_unit_row(window, card)
+    elif setting == basetool_sync.SETTING_STOCK:
+        # Ohne Einheiten-Liste gibt es in Mein Lager nichts zum Teilen.
+        _orgunits_consent(window, card, granted, login, redraw,
+                          's_bt_einheit_recht_lager')
     elif setting == basetool_sync.SETTING_DEMAND:
         _optional_consent(window, card, granted, login, redraw,
                           basetool.SCOPES_DEMAND_DETAILS)
@@ -493,18 +497,18 @@ def _orgstock_write_row(window, card, redraw):
     _note(window, card, t('s_bt_staffellager_buchen_h'), bottom=0)
 
 
-def _orgunits_consent(window, card, granted, login, redraw):
+def _orgunits_consent(window, card, granted, login, redraw,
+                      text_key='s_bt_einheit_recht'):
     """Nach der Freigabe: wer schon verbunden ist, hat das Recht für die
     Einheiten-Liste noch nicht. Ein Hinweis mit Knopf — freiwillig, der
-    Hangar-Abgleich läuft auch ohne."""
+    Abgleich von Hangar und Lager läuft auch ohne."""
     if not basetool.REQUEST_ORGUNITS or not granted \
             or set(basetool.SCOPES_ORGUNITS) <= granted:
         return
     if not _askable(set(basetool.SCOPES_ORGUNITS) - granted):
         _note(window, card, t('s_bt_nicht_angeboten'), bottom=0)
         return
-    _note(window, card, t('s_bt_einheit_recht'), color=theme.YELLOW,
-          bottom=0)
+    _note(window, card, t(text_key), color=theme.YELLOW, bottom=0)
     _buttons(window, card, [(t('s_bt_rechte_erweitern'),
                              lambda: _start_login(window, login, redraw),
                              'strong')])

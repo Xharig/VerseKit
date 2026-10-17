@@ -25718,6 +25718,7 @@ def main():
     _pruefung_486()
     _pruefung_487()
     _pruefung_488()
+    _pruefung_489()
 
     print()
     if fehler:
@@ -28358,6 +28359,12 @@ class _Basetool290:
         self.places = [{'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
                        {'name': 'Seraphim Station'}]
         self.stock_ops, self.ship_ops = [], []
+        # Persönlich/gemeinsam (Prüfung 489): `split` am Posten nur mit
+        # `split_on`, Pools je Kennung, die eigenen Einheiten, Gesperrtes.
+        self.split_on = False
+        self.pools = {}                 # Kennung -> {Einheit: Menge}
+        self.my_units = []              # GET /me/org-units
+        self.earmarked = set()          # Kennungen -> STOCK_EARMARKED
         self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0),
                                                       _handler290(self))
         self.base = 'http://127.0.0.1:%d' % self.server.server_address[1]
@@ -28506,6 +28513,9 @@ class _Basetool290:
             return handler._answer(200, {'result': self.account}, nonce_header)
         if route == '/catalog/locations':
             return handler._answer(200, {'items': self.places}, nonce_header)
+        if route == '/me/org-units':
+            return handler._answer(200, {'items': list(self.my_units)},
+                                   nonce_header)
         if route in ('/me/stock', '/me/ships'):
             lots = route == '/me/stock'
             store = self.lots if lots else self.ships
@@ -28612,10 +28622,76 @@ class _Basetool290:
         if not item:
             self.lots[key]['materialKind'] = {'type': 'RAW',
                                               'commodity': commodity}
+        self._split(key)
+
+    def _split(self, key):
+        """`split` wie im Vertrag: persönlich plus Pools = Menge."""
+        lot = self.lots.get(key)
+        if lot is None or not self.split_on:
+            return
+        unit = lot['quantity']['unit']
+        pools = {u: a for u, a in (self.pools.get(key) or {}).items() if a}
+        lot['split'] = {
+            'personal': {'amount': round(lot['quantity']['amount']
+                                         - sum(pools.values()), 3),
+                         'unit': unit},
+            'pools': [{'orgUnit': {'id': u}, 'quantity': {'amount': a,
+                                                          'unit': unit}}
+                      for u, a in sorted(pools.items())]}
+
+    def _share(self, op):
+        """Ein `share`/`unshare` wie in `resources/stock.md` — Rückgabe
+        `None` (gebucht), `'unchanged'` oder der Ablehnungsgrund."""
+        place = op['location'].get('name')
+        if not any(p['name'] == place for p in self.places):
+            return 'LOCATION_UNKNOWN'
+        bt = op['material']['bt']
+        item = bt in self.item_bts
+        key = self.lot_key(bt, place, 0 if item else op['quality'],
+                           op['stolen'])
+        lot = self.lots.get(key)
+        unit = lot['quantity']['unit'] if lot else op['quantity']['unit']
+        if op['quantity']['unit'] != unit \
+                or op['expectedQuantity']['unit'] != unit:
+            return 'UNIT_MISMATCH'
+        amount = op['quantity']['amount']
+        if item and amount != int(amount):
+            return 'UNIT_MISMATCH'
+        unit_id = op['orgUnit']['id']
+        pools = self.pools.setdefault(key, {})
+        sharing = op['op'] == 'share'
+        if sharing and unit_id not in {u['id'] for u in self.my_units}:
+            return 'NOT_A_MEMBER'
+        total = lot['quantity']['amount'] if lot else 0
+        have = (total - sum(pools.values())) if sharing \
+            else pools.get(unit_id, 0)
+        if round(have, 3) != round(op['expectedQuantity']['amount'], 3):
+            return 'VERSION_CONFLICT'
+        if amount > op['expectedQuantity']['amount']:
+            return 'QUANTITY_ABOVE_EXPECTED'
+        if amount == 0:
+            return 'unchanged'
+        if key in self.earmarked:
+            return 'STOCK_EARMARKED'
+        pools[unit_id] = round(pools.get(unit_id, 0)
+                               + (amount if sharing else -amount), 3)
+        self.seq += 1
+        self._split(key)
+        return None
 
     def _stock_changes(self, ops):
         results, applied = [], 0
         for i, op in enumerate(ops):
+            if op['op'] in ('share', 'unshare'):
+                outcome = self._share(op)
+                if outcome is None:
+                    applied += 1
+                elif outcome == 'unchanged':
+                    results.append({'index': i, 'result': 'unchanged'})
+                else:
+                    results.append({'index': i, 'result': 'rejected',
+                                    'reason': outcome})
+                continue
             place = op['location'].get('name')
             if not any(p['name'] == place for p in self.places):
                 results.append({'index': i, 'result': 'rejected',
@@ -48400,6 +48476,376 @@ def _pruefung_488():
     finally:
         _ma.save(alt[0])
         _tc.save(alt[1])
+
+
+def _pruefung_489():
+    """489. Mein Lager: Persönlich/Gemeinsam und Teilen (Prüfstand).
+
+    Gegen den Nachbau auf 127.0.0.1, nie gegen das echte Basetool: Abgleich
+    mit `split`, Teilen und Zurücknehmen über `POST /me/stock/changes`,
+    jede Op gegen das Vertragsschema, die Ablehnungen und die Seite."""
+    print('\n489. Mein Lager: Persönlich/Gemeinsam und Teilen')
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import schema_pruefen as _sp
+    finally:
+        sys.path.pop(0)
+    from scbp import basetool as _bt, basetool_sync as _bs, secret_store as _ss
+    from scbp import paths as _pa, logsource as _lg, modules as _mo
+    from scbp import materials as _mat, trade_cargo as _tc
+    from scbp import exchange_orgunits as _ou, my_stock_page as _ms
+    from scbp import stock_split as _sp2, language as _la
+    _heim = tempfile.mkdtemp(prefix='pruefung489-')
+    _alt = {k: os.environ.get(k) for k in (
+        'SC_BP_HOME', 'SC_BP_SECRETS', 'SC_BP_SECRETS_FILE',
+        'SC_BP_BASETOOL_ISSUER', 'SC_BP_BASETOOL_API', 'SC_BP_BASETOOL',
+        'SC_BP_BASETOOL_KEYNAME')}
+    _srv = _Basetool290()
+    _altes_konto, _alter_takt = _lg.own_account, _bs.tick
+    _alte_orte = dict(_bs._LOCATIONS)
+    _bs.tick = lambda watcher: None
+    _sprache = _la.current()
+    _la.set_language('de')
+    w = None
+    try:
+        os.environ.update({
+            'SC_BP_HOME': _heim, 'SC_BP_SECRETS': os.path.join(_heim, 'geheim'),
+            'SC_BP_SECRETS_FILE': '1', 'SC_BP_BASETOOL': '1',
+            'SC_BP_BASETOOL_ISSUER': _srv.issuer,
+            'SC_BP_BASETOOL_API': _srv.api,
+            'SC_BP_BASETOOL_KEYNAME': 'VerseKit Pruefung489 %d' % os.getpid()})
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs._LOCATIONS.update({'at': 0.0, 'places': {}})
+        _bs.IN_TK[0] = None
+        _lg.own_account = lambda files=None: 'Spieler_1'
+        _pa.set_setting(_bs.SETTING_STOCK, True)
+        for _s in (_bs.SETTING_SHIPS, _bs.SETTING_BLUEPRINTS):
+            _pa.set_setting(_s, False)
+        _mo.set_enabled('basetool', True)
+
+        # Nur das Lager eingeschaltet: Die Einheiten-Liste wird mit
+        # angefragt, sonst gäbe es nichts zur Auswahl.
+        _conn = _bt.CONNECTION
+        _login = _conn.start_login(_bs.wanted_scopes())
+        _conn.poll_login(_login)
+        _conn.poll_login(_login)
+        pruefe('exchange.orgunits.read' in _srv.scope.split(),
+               'mit dem Lager wird die Einheiten-Liste angefragt (%r)'
+               % sorted(_srv.scope.split()))
+
+        _srv.split_on = True
+        _srv.my_units = [{'id': 'u-nord', 'name': 'Staffel Nord',
+                          'shorthand': 'NRD', 'kind': 'SQUADRON'}]
+        _srv.names.update({('MATERIAL', 'Laranite'): 'm-lar',
+                           ('ITEM', 'FR-66'): 'i-fr66'})
+        _srv.item_bts.add('i-fr66')
+        _mat.save([{'material': 'Laranite', 'menge': 20.0, 'qualitaet': 700,
+                    'ort': 'Area18'}])
+        _tc.save([{'ware': 'FR-66', 'menge': 2.0, 'ort': 'Area18',
+                   'gestohlen': False, 'stueck': True}])
+        _srv.put_lot('m-lar', 'Laranite', 'Area18', 700, False, 20.0)
+        _srv.put_lot('i-fr66', 'FR-66', 'Area18', 0, False, 2)
+        _bs.run(None)
+        pruefe(_bs.STATUS['state'] == 'ok' and _ou.units(),
+               'Abgleich und Einheiten-Liste da (%r)' % _bs.STATUS.get('code'))
+
+        def stand():
+            return {r['name']: (r['amount'], r['personal'], r['shared'])
+                    for r in _sp2.attach(_ms.entries(), _sp2.snapshot())}
+        pruefe(_sp2.snapshot() is not None
+               and stand() == {'Laranite': (20.0, 20.0, 0.0),
+                               'FR-66': (2.0, 2.0, 0.0)},
+               'vor dem Teilen ist alles persönlich (%r)' % stand())
+
+        def lot_of(name):
+            return next(r['lot'] for r in _sp2.attach(
+                _ms.entries(), _sp2.snapshot()) if r['name'] == name)
+
+        def vertrag(op):
+            # Der Teil für Lager-Änderungen — die Wurzel prüft `ops` nicht.
+            return _sp.check({'ops': [op]}, 'change-set--stockChangeSet')
+        ohne_einheit = dict(_sp2.share_op(lot_of('Laranite'), 'u-nord', 1))
+        ohne_einheit.pop('orgUnit')
+        pruefe(vertrag(ohne_einheit),
+               'Gegenstück: eine Op Teilen ohne Einheit fällt durch den '
+               'Vertrag')
+        op = _sp2.share_op(lot_of('Laranite'), 'u-nord', 8)
+        pruefe(not vertrag(op) and op['expectedQuantity']['amount'] == 20.0
+               and op['orgUnit'] == {'id': 'u-nord'},
+               'die Op Teilen passt zum Vertrag und erwartet den persönlichen '
+               'Teil (%r)' % vertrag(op))
+        pruefe(_sp2.send(_conn, op) == (True, ''), 'Teilen gebucht')
+        op = _sp2.share_op(lot_of('FR-66'), 'u-nord', 1)
+        pruefe(not vertrag(op) and op['quantity'] == {'amount': 1,
+                                                      'unit': 'PIECE'},
+               'ein Item geht in ganzen Stück (%r)' % op['quantity'])
+        _sp2.send(_conn, op)
+        _bs.run(None)
+        pruefe(stand() == {'Laranite': (20.0, 12.0, 8.0),
+                           'FR-66': (2.0, 1.0, 1.0)},
+               'nach dem Abgleich: persönlich und gemeinsam getrennt, die '
+               'Menge bleibt (%r)' % stand())
+        zeilen = _sp2.attach(_ms.entries(), _sp2.snapshot())
+        pruefe(sorted((r['name'], r['amount']) for r in _sp2.scoped(
+            zeilen, _sp2.SCOPE_SHARED)) == [('FR-66', 1.0), ('Laranite', 8.0)]
+               and sorted((r['name'], r['amount']) for r in _sp2.scoped(
+                   zeilen, _sp2.SCOPE_PERSONAL))
+               == [('FR-66', 1.0), ('Laranite', 12.0)],
+               'Gemeinsam und Persönlich zeigen ihren Anteil')
+
+        def summe(sicht):
+            return sum(r['amount'] for r in _sp2.scoped(zeilen, sicht)
+                       if r['item'])
+        pruefe(summe(_sp2.SCOPE_PERSONAL) + summe(_sp2.SCOPE_SHARED)
+               == summe(_sp2.SCOPE_ALL) == 2.0,
+               'ein geteiltes Item zählt nicht doppelt: persönlich plus '
+               'gemeinsam ergibt alle (%r)' % [summe(s) for s in _sp2.SCOPES])
+
+        # Zuordnung: zwei Zeilen in einem Posten, Ort anders geschrieben,
+        # Item mit UEX-Nummer.
+        stand_lager = {'stock': {'server': {
+            'k1': {'key': 'k1', 'material': {'bt': 'm-lar', 'name': 'Laranite'},
+                   'location': {'name': 'Area18'}, 'quality': 700,
+                   'stolen': False,
+                   'quantity': {'amount': 20.0, 'unit': 'SCU'},
+                   'split': {'personal': {'amount': 14.0, 'unit': 'SCU'},
+                             'pools': [{'orgUnit': {'id': 'u-nord'},
+                                        'quantity': {'amount': 6.0,
+                                                     'unit': 'SCU'}}]}},
+            'k2': {'key': 'k2', 'material': {'bt': 'i-x', 'name': 'Helm X'},
+                   'location': {'name': 'Area18'}, 'quality': 0,
+                   'stolen': False,
+                   'quantity': {'amount': 1, 'unit': 'PIECE'},
+                   'split': {'personal': {'amount': 0, 'unit': 'PIECE'},
+                             'pools': [{'orgUnit': {'id': 'u-nord'},
+                                        'quantity': {'amount': 1,
+                                                     'unit': 'PIECE'}}]}}},
+            'resolved_uex': {'uex:77': 'i-x'}, 'items': {'i-x': True}}}
+        zeilen2 = _sp2.attach([
+            {'store': 'raw', 'index': 0, 'name': 'Laranite', 'amount': 4.0,
+             'quality': 700, 'place': 'area18', 'stolen': False,
+             'item': False, 'lookup': 'Laranite'},
+            {'store': 'raw', 'index': 1, 'name': 'Laranite', 'amount': 16.0,
+             'quality': 700, 'place': 'Area18', 'stolen': False,
+             'item': False, 'lookup': 'Laranite'},
+            {'store': 'trade', 'index': 0, 'name': 'Helm X', 'amount': 1.0,
+             'quality': None, 'place': 'Area18', 'stolen': False,
+             'item': True, 'lookup': 'uex:77'}],
+            _sp2.snapshot(stand_lager))
+        pruefe([(r['personal'], r['shared']) for r in zeilen2]
+               == [(0.0, 4.0), (14.0, 2.0), (0.0, 1.0)],
+               'zwei Zeilen in einem Posten teilen sich den Pool, der Ort '
+               'zählt ohne Groß-/Kleinschreibung, das Item über seine '
+               'UEX-Nummer (%r)' % [(r['personal'], r['shared'])
+                                    for r in zeilen2])
+
+        # Ablehnungen, ehrlich benannt.
+        alt_lot = lot_of('Laranite')
+        veraltet = dict(_sp2.share_op(alt_lot, 'u-nord', 1),
+                        expectedQuantity={'amount': 20.0, 'unit': 'SCU'})
+        pruefe(_sp2.send(_conn, veraltet) == (False, 'VERSION_CONFLICT')
+               and _sp2.reason_text('VERSION_CONFLICT')
+               == _la.t('s_ml_r_konflikt'),
+               'veralteter Stand: VERSION_CONFLICT mit eigenem Satz')
+        pruefe(_sp2.send(_conn, _sp2.share_op(alt_lot, 'u-fremd', 1))
+               == (False, 'NOT_A_MEMBER'),
+               'eine fremde Einheit wird abgelehnt (NOT_A_MEMBER)')
+        halb = _sp2.share_op(lot_of('FR-66'), 'u-nord', 1)
+        halb['quantity'] = {'amount': 0.5, 'unit': 'PIECE'}
+        pruefe(_sp2.check_amount('0,5', 1, True) is None
+               and _sp2.check_amount('13', 12, False) is None
+               and _sp2.check_amount('12', 12, False) == 12.0,
+               'halbe Stück und mehr als da ist hält schon die Seite auf')
+        _srv.earmarked.add(_srv.lot_key('m-lar', 'Area18', 700, False))
+        pruefe(_sp2.send(_conn, _sp2.share_op(alt_lot, 'u-nord', 1))
+               == (False, 'STOCK_EARMARKED')
+               and _sp2.reason_text('STOCK_EARMARKED')
+               == _la.t('s_ml_r_reserviert'),
+               'Reserviertes: STOCK_EARMARKED mit eigenem Satz')
+        _srv.earmarked.clear()
+        pruefe(_sp2.reason_text('ETWAS_NEUES')
+               == _la.t('s_ml_r_anders') % 'ETWAS_NEUES',
+               'ein unbekannter Grund steht mit seinem Code da')
+
+        # Zurücknehmen: erwartet wird die Menge im Pool.
+        op = _sp2.unshare_op(alt_lot, 'u-nord', 8)
+        pruefe(not vertrag(op) and op['expectedQuantity']['amount'] == 8.0,
+               'die Op Zurücknehmen passt zum Vertrag und erwartet den Pool')
+        pruefe(_sp2.send(_conn, op) == (True, ''), 'Zurücknehmen gebucht')
+        _bs.run(None)
+        pruefe(stand()['Laranite'] == (20.0, 20.0, 0.0),
+               'nach dem Zurücknehmen wieder alles persönlich (%r)'
+               % (stand(),))
+        pruefe(all(op['op'] in ('share', 'unshare')
+                   for op in _srv.stock_ops),
+               'Teilen bucht nichts aus und nichts ein (nur share/unshare)')
+
+        # Ohne Verbindung keine Aufteilung — je Zustand.
+        _pa.set_setting(_bs.SETTING_STOCK, False)
+        aus = _sp2.snapshot()
+        _pa.set_setting(_bs.SETTING_STOCK, True)
+        _rechte = _bt.CONNECTION.granted
+        _bt.CONNECTION.granted = ('exchange.connect',)
+        _status_rechte = _bs.STATUS.get('capabilities')
+        _bs.STATUS['capabilities'] = []
+        _sp2._connected['at'] = -1e9
+        ohne_recht = _sp2.snapshot()
+        _bt.CONNECTION.granted = _rechte
+        _bs.STATUS['capabilities'] = _status_rechte
+        _verbunden = _bt.CONNECTION.connected
+        _bt.CONNECTION.connected = lambda: False
+        _sp2._connected['at'] = -1e9
+        getrennt = _sp2.snapshot()
+        _bt.CONNECTION.connected = _verbunden
+        _sp2._connected['at'] = -1e9
+        pruefe(aus is None and ohne_recht is None and getrennt is None
+               and _sp2.snapshot() is not None,
+               'keine Aufteilung ohne Lager-Abgleich, ohne Recht und '
+               'getrennt (%r)' % [x is None for x in (aus, ohne_recht,
+                                                      getrennt)])
+
+        if hat_anzeige():
+            w, f, seite = _lager_fenster_479({'view': _ms.VIEW_MATERIAL,
+                                              'purpose': '', 'kind': '',
+                                              'place': ''})
+            pruefe('scope' in seite['filters'],
+                   'mit Verbindung gibt es den Umschalter Alle/Persönlich/'
+                   'Gemeinsam')
+
+            def zelle(name):
+                for art, zeile, widgets in seite['row_widgets']:
+                    if art == 'post' and zeile['name'] == name:
+                        return widgets[-1]
+            pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'teilen', 'bearbeiten', 'loeschen'},
+                   'die Zeile hat den Knopf Ins Lager der Einheit (%r)'
+                   % sorted(getattr(zelle('Laranite'), 'action_icons', {})))
+            zeile = next(z for a, z, _w in seite['row_widgets']
+                         if a == 'post' and z['name'] == 'Laranite')
+            _ms.open_share(seite, zeile, _sp2.SHARE)
+            w.update()
+            form = seite['share_form']
+            pruefe(form and form['amount'].get() == '20',
+                   'das Formular schlägt alles Persönliche vor (%r)'
+                   % (form and form['amount'].get()))
+            form['amount'].set('5')
+            form['go']()
+            ende = time.time() + 10
+            while seite['busy'] and time.time() < ende:
+                w.update()
+                time.sleep(0.05)
+            vorher = seite
+            seite['state']['place'] = 'Area18'
+            _bs.run(None)
+            w.update()
+            # Der Abgleich meldet die neue Aufteilung: Die Liste zeichnet von
+            # selbst neu, die Seite bleibt dieselbe — samt Filter.
+            pruefe(f.my_stock_page is vorher
+                   and seite['state']['place'] == 'Area18'
+                   and [r.get('shared') for r in seite['shown']
+                        if r['name'] == 'Laranite'] == [5.0],
+                   'neue Aufteilung: Liste neu gezeichnet, Seite und Filter '
+                   'bleiben (%r)' % [r.get('shared') for r in seite['shown']])
+            seite['state']['place'] = ''
+            seite['redraw']()
+            w.update()
+            pruefe(stand()['Laranite'] == (20.0, 15.0, 5.0)
+                   and seite['share_form'] is None,
+                   'über die Seite geteilt, Formular zu (%r)'
+                   % (stand()['Laranite'],))
+            texte = []
+            for _a, _z, widgets in seite['row_widgets']:
+                stapel = list(widgets)
+                while stapel:
+                    x = stapel.pop()
+                    if not x.winfo_exists():
+                        continue
+                    if x.winfo_class() == 'Canvas':
+                        texte += [str(x.itemcget(i, 'text'))
+                                  for i in x.find_all()
+                                  if x.type(i) == 'text']
+                    stapel.extend(x.winfo_children())
+            pruefe(_la.t('s_ml_b_geteilt') % _ms.amount_text(5.0, False)
+                   in texte,
+                   'Alle zeigt, wie viel in der Einheit liegt (%r)' % texte)
+            seite['state']['scope'] = _sp2.SCOPE_SHARED
+            seite['redraw']()
+            w.update()
+            pruefe([(r['name'], r['amount']) for r in seite['shown']]
+                   == [('Laranite', 5.0)],
+                   'Gemeinsam zeigt den geteilten Anteil (%r)'
+                   % [(r['name'], r['amount']) for r in seite['shown']])
+            pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'zuruecknehmen'},
+                   'in Gemeinsam nur Zurücknehmen, kein Bearbeiten/Löschen')
+            seite['state']['scope'] = _sp2.SCOPE_PERSONAL
+            seite['redraw']()
+            w.update()
+            pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'teilen'},
+                   'in Persönlich bei geteiltem Anteil kein Löschen der '
+                   'ganzen Zeile')
+            seite['state']['scope'] = _sp2.SCOPE_ALL
+            seite['redraw']()
+            w.update()
+            # Zurücknehmen über die Seite: höchstens, was im Pool liegt.
+            zeile = next(z for a, z, _w in seite['row_widgets']
+                         if a == 'post' and z['name'] == 'Laranite')
+            _ms.open_share(seite, zeile, _sp2.UNSHARE)
+            w.update()
+            form = seite['share_form']
+            pruefe(form and form['amount'].get() == '5'
+                   and form['unit'] == 'u-nord',
+                   'Zurücknehmen schlägt den Pool vor (%r)'
+                   % (form and form['amount'].get()))
+            # Die Zeile verschwindet, das Formular darf nicht an die
+            # nächste rutschen.
+            _alt_roh = _mat.load()
+            _mat.save([{'material': 'Laranite', 'menge': 1.0,
+                        'qualitaet': 300, 'ort': 'Area18'}] + _alt_roh)
+            seite['redraw']()
+            w.update()
+            pruefe(seite['share_form'] is None,
+                   'rückt eine andere Zeile an die Stelle, geht das Formular '
+                   'zu')
+            _mat.save(_alt_roh)
+            w.destroy()
+            w = None
+
+            # Ohne Basetool: kein Umschalter, keine Knöpfe.
+            _mo.set_enabled('basetool', False)
+            w, f, seite = _lager_fenster_479({'view': _ms.VIEW_MATERIAL})
+            pruefe('scope' not in seite['filters']
+                   and seite['split'] is None
+                   and set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'bearbeiten', 'loeschen'},
+                   'ohne Basetool weder Umschalter noch Teilen')
+            _mo.set_enabled('basetool', True)
+        else:
+            uebersprungen('489 Seite', 'keine Anzeige')
+    finally:
+        if w is not None:
+            w.destroy()
+        _la.set_language(_sprache)
+        _lg.own_account, _bs.tick = _altes_konto, _alter_takt
+        _bs._LOCATIONS.clear()
+        _bs._LOCATIONS.update(_alte_orte)
+        try:
+            _bt.delete_key()
+        except Exception:
+            pass
+        _srv.close()
+        for _k, _v in _alt.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
+        _ou.forget()
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 def _pruefung_487():

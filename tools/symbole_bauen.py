@@ -387,6 +387,10 @@ ZEILEN_SYMBOLE = {
     'notiz':          'sticky-note',
     'gestohlen':      'shield-alert',
     'reservieren':    'bookmark',
+    # Eigener Posten in Mein Lager: ins Lager der Einheit geben, von dort
+    # zurücknehmen.
+    'teilen':         'package-plus',
+    'zuruecknehmen':  'undo-2',
 }
 
 # Alles zusammen, mit dem passenden Größensatz.
@@ -403,7 +407,8 @@ ANTIPPBAR_SYMBOLE = {n: ZEILEN_SYMBOLE[n]
                                'gemerkt', 'farmliste', 'startbauplan',
                                'verschieben', 'bearbeiten', 'loeschen',
                                'ausbuchen', 'verkaufen', 'umbuchen', 'notiz',
-                               'gestohlen', 'reservieren')}
+                               'gestohlen', 'reservieren', 'teilen',
+                               'zuruecknehmen')}
 
 SYMBOLE = {}
 for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),
