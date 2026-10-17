@@ -774,10 +774,6 @@ TEXTS = {
     's_lg_aus_csv':      ('Als Tabelle (.csv)', 'As spreadsheet (.csv)'),
     's_lg_einlesen':     ('Sicherung einlesen', 'Load backup'),
     's_lg_gespeichert':  ('Gespeichert: %s', 'Saved: %s'),
-    's_lg_eingelesen':   ('%d Posten eingelesen — dein Lager wurde ersetzt.',
-                          '%d entries loaded — your stock was replaced.'),
-    's_lg_datei_falsch': ('Diese Datei ist keine Lager-Sicherung.',
-                          'That file is not a stock backup.'),
     # ⚠ Rot und mit Rückfrage. Das Lager ist Handarbeit, die sonst nirgends
     # liegt — kein Log, keine Datenquelle, nur die eigenen Eingaben. Ein
     # versehentlicher Klick waere unwiederbringlich.
@@ -859,8 +855,6 @@ TEXTS = {
     's_pl_dauer':        ('2–60', '2–60'),
     's_pl_anzahl':       ('z. B. 2', 'e.g. 2'),
     's_pl_q_bereich':    ('0–1000', '0–1000'),
-    's_pl_lager_filter': ('Rohstoff oder Ort filtern — z. B. Levski',
-                          'Filter by resource or location — e.g. Levski'),
     's_pl_profilname':   ('z. B. HOTAS_Kampf — ohne Leerzeichen',
                           'e.g. HOTAS_Combat — no spaces'),
     's_lg_posten_weg':   ('Diesen Posten löschen', 'Delete this entry'),
@@ -879,12 +873,6 @@ TEXTS = {
                           'export first if you still need them.'),
     's_lg_geleert':      ('Lager geleert — %d Posten entfernt.',
                           'Stock cleared — %d entries removed.'),
-    's_lg_aus_hilfe':    ('Die Sicherung lässt sich hier wieder einlesen. Die '
-                          'Tabelle ist zum Ansehen und Weitergeben — sie kann '
-                          'nicht zurückgelesen werden.',
-                          'The backup can be loaded here again. The '
-                          'spreadsheet is for reading and sharing — it cannot '
-                          'be loaded back.'),
     's_lg_abgezogen_n':  ('%d× hergestellt — Zutaten abgezogen.',
                           'Made %d× — materials deducted.'),
     'ov_warte':        ('Warte auf neue Baupl\u00e4ne \u2026',
@@ -1897,8 +1885,8 @@ TEXTS = {
     's_eigene':        ('Ordner für deine Daten',
                           'Folder for your data'),
     's_eigene_h':      ('Alles, was das Werkzeug über dich weiß, liegt hier: '
-                        'Bauplan-Bestand, Merkliste, Rohstofflager, '
-                        'Handelslager, Einstellungen und die ausgegebenen '
+                        'Bauplan-Bestand, Merkliste, Mein Lager, '
+                        'Einstellungen und die ausgegebenen '
                         'Dateien — in getrennten Unterordnern.\n\n'
                         '⭐ Spielst du Windows UND Linux auf demselben '
                         'Rechner? Dann leg diesen Ordner auf eine Platte, die '
@@ -1913,8 +1901,8 @@ TEXTS = {
                         'mitkommen sollen. Der bisherige Ordner bleibt dabei '
                         'unangetastet liegen — gelöscht wird nichts.',
                           'Everything the tool knows about you lives here: '
-                          'blueprint inventory, watchlist, material storage, '
-                          'trade stock, settings and exported files — in '
+                          'blueprint inventory, watchlist, My Inventory, '
+                          'settings and exported files — in '
                           'separate subfolders.\n\n'
                           '⭐ Playing Windows AND Linux on the same machine? '
                           'Put this folder on a disk both systems can see, and '
@@ -3847,11 +3835,141 @@ TEXTS = {
                           'aus.',
                           'Type a blueprint or material — or pick a type, '
                           'manufacturer or material above.'),
-    # --- Lager (scbp/materials.py) ------------------------------------------
-    # ⚠ **„Rohstofflager", nicht „Mein Lager".** Der Name sagt, was drinliegt,
-    # und die zwei Lager im Werkzeug heißen nach demselben Muster
-    # (Handelslager).
-    'hf_lager':          ('Rohstofflager', 'Material storage'),
+    # --- Mein Lager (scbp/my_stock_page.py) ----------------------------------
+    'hf_gruppe_logistik': ('Flotte & Logistik', 'Fleet & Logistics'),
+    'hf_meinlager':      ('Mein Lager', 'My Inventory'),
+    's_ml_lead':         ('Alles, was du lagerst, an einer Stelle: Rohstoffe '
+                          'zum Herstellen, Ware zum Verkaufen und Items. '
+                          'Das Spiel verrät dein Lager nicht — du trägst es '
+                          'hier ein, beim Herstellen zieht Verse-Kit die '
+                          'Zutaten ab.',
+                          'Everything you store in one place: materials for '
+                          'crafting, goods to sell and items. The game does '
+                          'not reveal your inventory — you enter it here, and '
+                          'Verse-Kit deducts ingredients when you craft.'),
+    's_ml_material':     ('Material', 'Material'),
+    's_ml_items':        ('Items', 'Items'),
+    's_ml_alle_arten':   ('Alle Arten', 'All types'),
+    's_ml_alle_orte':    ('Alle Orte', 'All locations'),
+    's_ml_alle_zwecke':  ('Herstellen und Verkaufen', 'Crafting and selling'),
+    's_ml_herstellen':   ('Zum Herstellen', 'For crafting'),
+    's_ml_verkaufen':    ('Zum Verkaufen', 'For selling'),
+    's_ml_suche':        ('Ware oder Ort suchen …', 'Search goods or location …'),
+    's_ml_sp_bestand':   ('Bestand', 'Stock'),
+    's_ml_sp_ort':       ('Ort', 'Location'),
+    's_ml_sp_q':         ('Q', 'Q'),
+    's_ml_sp_menge':     ('Menge', 'Amount'),
+    's_ml_verkauf':      ('Verkauf', 'Sale'),
+    's_ml_rest':         ('Rest', 'Leftover'),
+    's_ml_bearbeiten':   ('Bearbeiten', 'Edit'),
+    's_ml_leer':         ('Noch nichts eingetragen. Oben trägst du einen '
+                          'Posten oder eine Raffinerie-Ausbeute ein.',
+                          'Nothing entered yet. Add an entry or a refinery '
+                          'yield above.'),
+    's_ml_item':         ('Item', 'Item'),
+    's_ml_item_h':       ('Item suchen — z. B. Artifact, FR-66, Helm …',
+                          'Search an item — e.g. Artifact, FR-66, helmet …'),
+    's_ml_stueck_h':     ('Anzahl, z. B. 2', 'Count, e.g. 2'),
+    's_ml_keine_liste':  ('Die Warenliste ist noch nicht da — sie wird im '
+                          'Hintergrund geholt.',
+                          'The goods list is not here yet — it is being '
+                          'fetched in the background.'),
+    's_ml_item_unbekannt': ('„%s“ steht nicht in der Warenliste — bitte ein '
+                            'Item aus der Liste wählen.',
+                            '“%s” is not in the goods list — please pick an '
+                            'item from the list.'),
+    's_ml_item_menge':   ('Bitte eine ganze Stückzahl ab 1 eintragen.',
+                          'Please enter a whole number of pieces, 1 or more.'),
+    's_ml_veraendert':   ('Der Posten im Formular hat sich inzwischen geändert '
+                          '(Herstellung oder Abgleich) — Bearbeiten '
+                          'abgebrochen, nichts gespeichert. Bitte neu öffnen.',
+                          'The entry in the form has changed in the meantime '
+                          '(crafting or sync) — editing cancelled, nothing '
+                          'saved. Please open it again.'),
+    's_ml_teil_herstellen': ('Zum Herstellen (Rohstoffe)',
+                             'For crafting (materials)'),
+    's_ml_teil_verkaufen': ('Zum Verkaufen und Items — eine gemeinsame Datei',
+                            'For selling and items — one shared file'),
+    's_ml_ware_leeren':  ('Ware löschen', 'Clear goods'),
+    's_ml_items_leeren': ('Items löschen', 'Clear items'),
+    's_ml_ware_frage_t': ('Wirklich die ganze Ware löschen?',
+                          'Really clear all goods?'),
+    's_ml_ware_frage':   ('%d Posten Ware werden entfernt, die Items bleiben. '
+                          'Das lässt sich nicht rückgängig machen — sichere '
+                          'vorher, wenn du sie noch brauchst.',
+                          '%d entries of goods will be removed, the items '
+                          'stay. This cannot be undone — back up first if you '
+                          'still need them.'),
+    's_ml_items_frage_t': ('Wirklich alle Items löschen?',
+                           'Really clear all items?'),
+    's_ml_items_frage':  ('%d Items werden entfernt, die Ware bleibt. Das lässt '
+                          'sich nicht rückgängig machen — sichere vorher, wenn '
+                          'du sie noch brauchst.',
+                          '%d items will be removed, the goods stay. This '
+                          'cannot be undone — back up first if you still need '
+                          'them.'),
+    's_ml_k_collectible': ('Sammlerstück', 'Collectible'),
+    's_ml_keine_items':  ('Noch keine Items. Gegenstände wie Schiffskomponenten '
+                          'kommen über den Abgleich mit dem KRT Profit Basetool '
+                          'hierher; zum Verkaufen eingetragene Items stehen '
+                          'ebenfalls hier.',
+                          'No items yet. Items such as ship components arrive '
+                          'here through the sync with the KRT Profit Basetool; '
+                          'items entered for selling show up here too.'),
+    's_ml_umzug_titel':  ('Rohstofflager und Handelslager sind jetzt hier',
+                          'Material storage and cargo hold are now here'),
+    's_ml_umzug':        ('Beide Lager stehen jetzt zusammen in „Mein Lager“. '
+                          'Oben wählst du Material oder Items, der Filter '
+                          '„Zum Herstellen“ / „Zum Verkaufen“ zeigt das '
+                          'frühere Rohstoff- bzw. Handelslager. Deine Posten '
+                          'sind alle noch da.',
+                          'Both stores are now together in “My Inventory”. '
+                          'Pick Material or Items at the top; the filter “For '
+                          'crafting” / “For selling” shows the former material '
+                          'storage or cargo hold. All your entries are still '
+                          'there.'),
+    's_ml_umzug_weg':    ('Hinweis ausblenden', 'Hide this note'),
+    's_ml_sichern_titel': ('Sichern & Löschen', 'Back up & clear'),
+    's_ml_sichern_hilfe': ('Die JSON-Sicherung lässt sich mit „Einlesen“ '
+                           'zurückholen — Verse-Kit erkennt selbst, ob sie '
+                           'Rohstoffe oder Verkaufsware enthält, und ersetzt '
+                           'nur diesen Teil. Deine Items bleiben dabei stehen; '
+                           'Items aus der Sicherung kommen dazu. Die Tabelle '
+                           'ist zum Ansehen und '
+                           'Weitergeben. Nach einem Patch, der alles '
+                           'zurücksetzt, räumt „Lager löschen“ einen Teil in '
+                           'einem Zug leer.',
+                           'Load the JSON backup back in with “Load” — '
+                           'Verse-Kit detects whether it holds materials or '
+                           'goods for sale and replaces only that part. Your '
+                           'items stay; items from the backup are added. The '
+                           'spreadsheet is for reading and sharing. After a '
+                           'patch wipe, “Clear stock” empties one part in one '
+                           'go.'),
+    's_ml_datei_falsch': ('Diese Datei ist keine Lager-Sicherung von '
+                          'Verse-Kit — oder sie enthält keinen Posten.',
+                          'This file is not a Verse-Kit inventory backup — or '
+                          'it holds no entries.'),
+    's_ml_eingelesen_raw': ('%d Rohstoff-Posten eingelesen.',
+                            '%d material entries loaded.'),
+    's_ml_eingelesen_trade': ('%d Posten Verkaufsware eingelesen, %d Items '
+                              'dazu. Deine Items bleiben stehen.',
+                              '%d entries of goods for sale loaded, %d items '
+                              'added. Your items stay.'),
+    # Arten der Posten (scbp/stock_kinds.py) — Gegenstände wie im Basetool.
+    's_ml_k_ore':        ('Erz', 'Ore'),
+    's_ml_k_refined':    ('Raffiniert', 'Refined'),
+    's_ml_k_mineral':    ('Mineral', 'Mineral'),
+    's_ml_k_plant':      ('Pflanze', 'Plant'),
+    's_ml_k_commodity':  ('Handelsware', 'Commodity'),
+    's_ml_k_other':      ('Sonstiges', 'Other'),
+    's_ml_k_vehicle_item': ('Schiffskomponente', 'Vehicle component'),
+    's_ml_k_vehicle_weapon': ('Schiffswaffe', 'Vehicle weapon'),
+    's_ml_k_weapon':     ('Handwaffe', 'Weapon'),
+    's_ml_k_weapon_attachment': ('Waffenaufsatz', 'Weapon attachment'),
+    's_ml_k_armor':      ('Rüstung', 'Armor'),
+    's_ml_k_clothing':   ('Kleidung', 'Clothing'),
+    's_ml_k_food':       ('Nahrung', 'Food'),
     # -------------------------------------------- Reiter Kaufen & Verkaufen
     's_vk_lead':         ('Wo du deine Ware los wirst und was sie je SCU '
                           'bringt — oder wo du sie am günstigsten bekommst. '
@@ -4133,9 +4251,10 @@ TEXTS = {
     's_vk_kein_stand':   ('Noch keine Preise geholt.', 'No prices fetched yet.'),
     's_vk_nur_nqa':      ('nur Orte ohne Fragen (gestohlene Ware)',
                           'only no-questions-asked places (stolen cargo)'),
-    's_vk_aus_lager':    ('Aus meinem Handelslager', 'From my cargo hold'),
-    's_vk_lager_leer':   ('Im Handelslager liegt nichts, wofür es Preise gibt.',
-                          'Nothing in the cargo hold has known prices.'),
+    's_vk_aus_lager':    ('Aus Mein Lager', 'From My Inventory'),
+    's_vk_lager_leer':   ('In Mein Lager liegt keine Ware, für die es Preise '
+                          'gibt.',
+                          'Nothing in My Inventory has known prices.'),
     's_vk_alle_waren':   ('Alle Waren', 'All goods'),
     's_vk_aus_bergbau':  ('Aus dem Bergbau', 'From mining'),
     's_vk_keine_bergbau': ('Noch keine Bergbau-Daten geladen — sobald sie da '
@@ -4145,9 +4264,9 @@ TEXTS = {
     's_vk_spitze':       ('Was gerade am besten zahlt — anklicken übernimmt es',
                             'What pays best right now — click to pick it'),
     's_vk_leer_hinweis': ('Such oben eine Ware — oder übernimm gleich alles '
-                          'aus deinem Handelslager.',
+                          'aus Mein Lager.',
                           'Search for a commodity above — or take everything '
-                          'from your cargo hold at once.'),
+                          'from My Inventory at once.'),
     's_vk_keine_orte':   ('Für diese Auswahl ist kein Ankäufer bekannt.',
                           'No buyer known for this selection.'),
     's_vk_nichts_gefunden': ('Keine Ware mit diesem Namen.',
@@ -4831,19 +4950,6 @@ TEXTS = {
                           'Add your ships under „My hangar" and this will tell '
                           'you where the part fits.'),
     # ----------------------------------------------- Reiter „Handelslager"
-    's_hl_lead':         ('Was du zum Verkauf im Laderaum hast. Getrennt vom '
-                          'Rohstofflager: Das hier willst du loswerden, '
-                          'nicht verbauen.',
-                          'What you carry to sell. Kept apart from your '
-                          'material storage: this is cargo you want to get rid '
-                          'of, not to build with.'),
-    's_hl_hinweis':      ('Keine Qualität — der Ankaufpreis hängt nicht daran, '
-                          'und erbeutete Ware hat ohnehin immer Q 0. Setz '
-                          'stattdessen den Haken, wenn die Ladung als '
-                          'gestohlen markiert ist.',
-                          'No quality here — the buy price does not depend on '
-                          'it, and looted cargo is always Q 0 anyway. Tick the '
-                          'box instead if the cargo is marked as stolen.'),
     's_hl_ware':         ('Ware', 'Commodity'),
     's_hl_menge':        ('Menge in SCU', 'Amount in SCU'),
     's_hl_menge_stueck': ('Menge in Stück', 'Amount in pieces'),
@@ -4869,10 +4975,6 @@ TEXTS = {
                           'null ein.',
                           'That comes out at zero or less — enter an amount '
                           'above zero.'),
-    's_hl_aendern_hinweis': ('Zeile anklicken zum Ändern. Im Mengenfeld darfst '
-                             'du rechnen: 40+5 oder 40−12.',
-                             'Click a row to edit it. The amount field does '
-                             'maths: 40+5 or 40−12.'),
     's_hl_gebucht':      ('Eingetragen.', 'Added.'),
     's_hl_unbekannt':    ('Diese Ware kennt der Handel nicht. Nimm einen '
                           'Vorschlag aus der Liste.',
@@ -4887,7 +4989,6 @@ TEXTS = {
                           'The amount must be a number above zero.'),
     's_hl_fehler':       ('Konnte nicht gespeichert werden.',
                           'Could not be saved.'),
-    's_hl_leer':         ('Noch nichts eingetragen.', 'Nothing entered yet.'),
     's_hl_scu':          ('{menge} SCU', '{menge} SCU'),
     # ⚠ „Freiwillig": Ohne Angabe kommt die Menge aus dem Handelslager. Mit
     # Angabe lässt sich Ware sofort verkaufen, ohne sie erst einzulagern.
@@ -4895,9 +4996,9 @@ TEXTS = {
     # daneben — siehe `_chips`. Dieser Satz sagt, wo.
     's_vk_scu_kurz':     ('SCU', 'SCU'),
     's_vk_menge_hinweis': ('Trag deine Menge direkt an der Ware unten ein — '
-                           'oder lass sie leer, dann zählt dein Handelslager.',
+                           'oder lass sie leer, dann zählt Mein Lager.',
                              'Enter your amount right on the commodity below — '
-                             'or leave it empty and your cargo hold counts.'),
+                             'or leave it empty and My Inventory counts.'),
     'b_fenstermass':     (' · Fenster %d×%d, mindestens %d×%d',
                           ' · window %d×%d, minimum %d×%d'),
     'b_fenster_zu_hoch': (' ⚠ Mindesthöhe größer als der Bildschirm',
@@ -4908,9 +5009,7 @@ TEXTS = {
                           ' · sharp rendering set but not active (100 % or restart pending)'),
     's_af_weitere':      ('… und {n} weitere — tipp weiter, um einzugrenzen',
                           '… and {n} more — keep typing to narrow it down'),
-    's_hl_sp_ware':      ('Ware', 'Commodity'),
     's_hl_sp_menge':     ('SCU', 'SCU'),
-    's_hl_sp_ort':       ('Ort', 'Location'),
     's_hl_sp_je_scu':    ('Preis 1 SCU', 'Price per SCU'),
     's_hl_sp_gesamt':    ('Gesamtpreis', 'Total'),
     's_hl_marke':        ('gestohlen', 'stolen'),
@@ -4922,44 +5021,11 @@ TEXTS = {
     # Fassungen derselben Beschriftung gehen mit der Zeit auseinander, und
     # dann heisst derselbe Knopf auf zwei Seiten verschieden. Eigene Texte
     # bekommt nur, was wirklich vom Handel spricht.
-    's_hl_ausgeben':     ('Handelslager ausgeben', 'Export cargo'),
-    's_hl_eingelesen':   ('%d Posten eingelesen — dein Handelslager wurde '
-                          'ersetzt.',
-                          '%d entries loaded — your cargo was replaced.'),
     # ⚠ Beide Lager schreiben `{"format": 1, "posten": […]}`. Wer die
     # falsche Sicherung waehlt, soll erfahren, welche hier hingehoert — sonst
     # sucht er den Fehler in der Datei.
-    's_hl_datei_falsch': ('Das ist keine Handelslager-Sicherung. Die Sicherung '
-                          'vom Rohstofflager gehört unter „Rohstofflager“.',
-                          'That is not a cargo backup. A backup from your '
-                          'material storage belongs under “Material '
-                          'storage”.'),
-    's_hl_leeren_frage_t': ('Wirklich das ganze Handelslager löschen?',
-                            'Really clear the whole cargo?'),
-    's_hl_leeren_frage': ('%d Posten werden entfernt. Das lässt sich nicht '
-                          'rückgängig machen — sichere vorher, wenn du sie '
-                          'noch brauchst.',
-                          '%d entries will be removed. This cannot be undone — '
-                          'export first if you still need them.'),
-    's_hl_geleert':      ('Handelslager geleert — %d Posten entfernt.',
-                          'Cargo cleared — %d entries removed.'),
     # ⭐ Der Patch-Hinweis steht hier und nicht im Werkstatt-Lager: Nach einem
     # Wischen ist der Laderaum leer, das Baumaterial aber oft nicht.
-    's_hl_aus_hilfe':    ('Die Sicherung lässt sich hier wieder einlesen. Die '
-                          'Tabelle ist zum Ansehen und Weitergeben — sie kann '
-                          'nicht zurückgelesen werden. Nach einem Patch, der '
-                          'alles zurücksetzt, räumt „Lager löschen“ den '
-                          'Laderaum in einem Zug leer.',
-                          'The backup can be loaded here again. The spreadsheet '
-                          'is for reading and sharing — it cannot be loaded '
-                          'back. After a patch wipe, “Clear stock” empties the '
-                          'hold in one go.'),
-    's_lg_lead':         ('Deine eigene Liste der Rohstoffe — das Spiel verrät '
-                          'sie nicht. Beim Herstellen zieht Verse-Kit die '
-                          'Zutaten ab.',
-                          'Your own list of resources — the game does not '
-                          'reveal them. When you craft, Verse-Kit deducts the '
-                          'ingredients.'),
     's_lg_material':     ('Rohstoff', 'Resource'),
     's_lg_menge':        ('Menge (SCU)', 'Amount (SCU)'),
     # ⚠ Die Beschriftung sagt immer, in welcher Einheit das Feld gerade
@@ -4994,7 +5060,6 @@ TEXTS = {
     's_lg_keine_menge':  ('Trag eine Menge ein, zum Beispiel 12,5',
                           'Enter an amount, for example 12.5'),
     's_lg_eingetragen':  ('Eingetragen: %s · %g %s', 'Added: %s · %g %s'),
-    's_lg_summe_eins':   ('%d Posten · 1 Rohstoff', '%d entries · 1 material'),
     's_lg_meinst_du':    ('Meintest du:', 'Did you mean:'),
     # ⚠⚠ Kein „Du kannst es trotzdem eintragen" — dafuer gibt es keinen
     # Knopf. Der Text steht an einer anderen Stelle als die Meldung
@@ -5013,7 +5078,6 @@ TEXTS = {
     's_lg_ort':          ('Lagerort (freiwillig)',
                           'Storage location (optional)'),
     's_lg_eintragen':    ('Eintragen', 'Add'),
-    's_lg_leer':         ('Noch nichts eingetragen.', 'Nothing entered yet.'),
     's_lg_weg':          ('Löschen', 'Remove'),
     # --- Einen vorhandenen Posten berichtigen -----------------------------
     # ⚠ Eintragen ohne Berichtigen ist halb fertig: Wer sich vertippt oder
@@ -5084,11 +5148,8 @@ TEXTS = {
                           'Enter the quality, a number from 0 to 1000'),
     's_lg_berichtigt':   ('Name berichtigt: %s → %s',
                           'Name corrected: %s → %s'),
-    's_lg_summe':        ('%d Posten · %d Rohstoffe', '%d entries · %d resources'),
     # Ein Material an mehreren Lagerorten, zugeklappt.
     's_lg_orte_n':       ('%d Orte', '%d locations'),
-    's_lg_kisten_n':     ('%d Kisten', '%d crates'),
-    's_lg_rest':         ('Rest — nur verkaufen', 'Leftover — sell only'),
     # ⚠ Bewusst „dir fehlt", nicht „du kannst nicht bauen" — das Lager wird von
     # Hand gepflegt und ist irgendwann lückenhaft. Ein Hinweis darf danebenliegen,
     # eine Behauptung nicht.
@@ -5324,10 +5385,10 @@ TEXTS = {
     # die man auf scmdb.net von Hand stellt, nur mit dem eigenen Lager als
     # Ausgangspunkt.
     's_he_kein_lager':   ('Zieh am Regler, um zu sehen, was eine bestimmte '
-                          'Qualität bringt — oder trag unter „Rohstofflager" '
+                          'Qualität bringt — oder trag unter „Mein Lager" '
                           'ein, was du hast.',
                           'Drag the slider to see what a given quality yields — '
-                          'or add what you have under "Material storage".'),
+                          'or add what you have under "My Inventory".'),
     's_he_durchspielen': ('Durchspielen', 'Try a quality'),
     's_he_q_lager':      ('dein Lager', 'your stock'),
     's_he_q_gesetzt':    ('angenommen: Q %d — nicht dein Lagerstand',
@@ -5339,10 +5400,7 @@ TEXTS = {
     # verschweigt, dass 0,02 schon da sind — und genau das will man wissen,
     # bevor man losfliegt.
     # Spaltenkoepfe der Lager-Tabelle — anklickbar zum Sortieren.
-    's_lg_sp_material':  ('Material', 'Material'),
     's_lg_sp_menge':     ('Menge', 'Amount'),
-    's_lg_sp_q':         ('Qualität', 'Quality'),
-    's_lg_sp_ort':       ('Lagerort', 'Location'),
     's_lg_nichts_da':    ('Nichts gefunden.', 'Nothing found.'),
     's_lg_teil':         ('hast %g von %g · fehlt %g',
                           'have %g of %g · missing %g'),
@@ -5618,7 +5676,7 @@ TEXTS = {
     # Zeilen liesse sich eine Meldung wie "bei mir ist das Lager leer" nicht
     # beurteilen: Man wuesste weder, ob Posten da sind, noch ob die Rezept- und
     # Bergbaudaten ueberhaupt geladen wurden.
-    'b_lager':           ('Rohstofflager', 'Material storage'),
+    'b_lager':           ('Mein Lager (Rohstoffe)', 'My Inventory (materials)'),
     'b_n_posten':        ('%d Posten · %d Materialien',
                           '%d entries · %d materials'),
     'b_rezepte':         ('Rezepte', 'Recipes'),
@@ -5782,7 +5840,6 @@ TEXTS = {
     # --- Gruppe „Handel" (v3.4.0) ---
     'hf_gruppe_handel':  ('Handel & Einkauf', 'Trading & buying'),
     'hf_verkauf':        ('Kaufen & Verkaufen', 'Buy & Sell'),
-    'hf_handelslager':   ('Handelslager', 'Cargo hold'),
     'hf_gruppe_einst':   ('Einstellungen', 'Settings'),
     'hf_gruppe_spiel':   ('Spiel-Einstellungen', 'Game settings'),
     'hf_shader':         ('Shader-Cache', 'Shader cache'),
@@ -5850,8 +5907,8 @@ TEXTS = {
     's_uv_raff_zahl':    ('%d laufen · %d fertig', '%d running · %d done'),
     's_uv_lager':        ('Lager', 'Storage'),
     's_uv_lager_leer':   ('Noch nichts eingelagert', 'Nothing stored yet'),
-    's_uv_lager_posten': ('%d Rohstoffe · %d Waren im Handelslager',
-                          '%d materials · %d goods in trade storage'),
+    's_uv_lager_posten': ('%d Rohstoffe · %d Waren · %d Items',
+                          '%d materials · %d goods · %d items'),
     's_uv_menge':        ('%s · %s %s', '%s · %s %s'),
     's_uv_auftraege':    ('Offene Aufträge', 'Open contracts'),
     's_uv_auftraege_leer': ('Kein offener Auftrag mit Bauplänen',
@@ -5888,8 +5945,10 @@ TEXTS = {
           'Which blueprints you have, which are missing and which contract gets you them.'),
     'ka_schiffe': ('Deine Schiffe, deine Wunschliste und was ihnen an Ausstattung noch fehlt.',
           'Your ships, your wishlist and what equipment they are still missing.'),
-    'ka_werkstatt': ('Herstellen, Rohstoffe lagern, Erz finden und raffinieren — alles rund ums Selberbauen.',
-          'Crafting, storing materials, finding and refining ore — everything around building it yourself.'),
+    'ka_logistik': ('Dein eigenes Lager und das deiner Einheit — Material und Items, mit Art, Ort und Menge.',
+          'Your own inventory and your unit’s — material and items, with type, location and amount.'),
+    'ka_werkstatt': ('Herstellen, Erz finden und raffinieren — alles rund ums Selberbauen.',
+          'Crafting, finding and refining ore — everything around building it yourself.'),
     'ka_bergung': ('Lohnt sich ein Wrack, und was gibt dir der Fabricator beim Zerlegen zurück?',
           'Is a wreck worth it, and what does the fabricator give back when you dismantle?'),
     'ka_handel': ('Wo es Teile zu kaufen gibt, wohin mit deiner Ladung und welche Route sich lohnt.',
@@ -5922,8 +5981,8 @@ TEXTS = {
           'Which materials you lack for everything you plan to build.'),
     'k_bedarf': ('Was die offenen Aufträge deiner Einheit im Basetool brauchen — gegen dein Lager gerechnet. Nur mit Basetool-Verbindung.',
           "What your unit's open orders in the Basetool need — checked against your storage. Basetool connection only."),
-    'k_lager': ('Deine Rohstoffe mit Güte und Ort — am Raffinerie-Terminal per Tastendruck eingelesen.',
-          'Your materials with quality and location — read in at the refinery terminal with a key press.'),
+    'k_meinlager': ('Rohstoffe, Verkaufsware und Items an einer Stelle — Raffinerie-Ausbeute per Tastendruck eingelesen.',
+          'Materials, goods for sale and items in one place — refinery yields read in with a key press.'),
     'k_bergbau': ('Wo welches Erz liegt — nach Rohstoff oder nach Ort gesucht.',
           'Where each ore is found — search by material or by location.'),
     'k_raffinerien': ('Welche Raffinerie aus deinem Erz am meisten macht.',
@@ -5934,8 +5993,6 @@ TEXTS = {
           'Which materials the fabricator gives back for a part.'),
     'k_laeden': ('Wo ein fertiges Teil im Regal steht und was es dort kostet.',
           'Where a finished part is on the shelf and what it costs there.'),
-    'k_handelslager': ('Ware in deinem Laderaum, die du verkaufen willst.',
-          'Goods in your cargo hold that you want to sell.'),
     'k_staffellager': ('Das gemeinsame Lager deiner Einheit im Basetool — Items, Rohstoffe, Handelsware und Komponenten mit Ort und Menge. Logistiker sehen, wem was gehört, und buchen ein und aus.',
           "Your unit's shared storage in the Basetool — items, materials, trade goods and components with location and amount. Logisticians see who owns what and book in and out."),
     'k_verkauf': ('Wo du deine Ware am besten los wirst — oder am günstigsten bekommst.',
@@ -5992,10 +6049,8 @@ TEXTS = {
           "What your unit's open orders still need — checked against your storage."),
     'kb_staffellager': ('Was im gemeinsamen Lager deiner Einheit liegt — als Logistiker mit Besitzern und Buchen.',
           "What is in your unit's shared storage — as a logistician with owners and booking."),
-    'kb_lager': ('Deine Rohstoffe — mit eingeschaltetem Abgleich sieht deine Einheit sie im Basetool.',
-          'Your materials — with sync on, your unit sees them in the Basetool.'),
-    'kb_handelslager': ('Deine Handelsware — mit eingeschaltetem Abgleich auch im Basetool.',
-          'Your trade goods — with sync on, also in the Basetool.'),
+    'kb_meinlager': ('Deine Rohstoffe, Handelsware und Items — mit eingeschaltetem Abgleich auch als dein persönliches Lager im Basetool.',
+          'Your materials, trade goods and items — with sync on, also as your personal stock in the Basetool.'),
     'kb_hangar': ('Deine Schiffe — mit eingeschaltetem Abgleich auch im Basetool.',
           'Your ships — with sync on, also in the Basetool.'),
     'kb_liste': ('Deine Baupläne — mit eingeschaltetem Abgleich weiß deine Einheit, was du bauen kannst.',
@@ -6022,12 +6077,12 @@ TEXTS = {
     'k_sync_titel': ('Jetzt abgleichen', 'Sync now'),
     'k_sync_text': ('Gleicht mit dem KRT Profit Basetool ab, was du unter '
                     'Verbindung & Abgleich eingeschaltet hast: Baupläne, '
-                    'Rohstoff- und Handelslager, Hangar und Bedarf. Läuft '
+                    'Mein Lager, Hangar und Bedarf. Läuft '
                     'sonst von selbst alle 5 Minuten und kurz nach jeder '
                     'Änderung.',
                     'Syncs with the KRT Profit Basetool whatever you switched '
-                    'on under Connection & sync: blueprints, material and '
-                    'cargo storage, hangar and demand. Otherwise runs by '
+                    'on under Connection & sync: blueprints, My Inventory, '
+                    'hangar and demand. Otherwise runs by '
                     'itself every 5 minutes and shortly after each change.'),
     'k_sync_erst_verbinden': ('Erst mit dem Basetool verbinden — unter '
                               'Verbindung & Abgleich.',
@@ -6661,8 +6716,8 @@ TEXTS = {
     's_bt_stand_bp':     ('Beim letzten Mal: %d hochgeschickt, %d übernommen, %d entfernt.',
                           'Last time: %d sent, %d taken over, %d removed.'),
     's_bt_lager':        ('Lager abgleichen', 'Sync storage'),
-    's_bt_lager_h':      ('Rohstofflager und Handelslager ↔ dein persönliches Lager im Basetool. Beim ersten Mal kommt nur dazu, was fehlt; steht etwas auf beiden Seiten mit verschiedener Menge, entscheidest du. Nur Orte, die das Basetool kennt.',
-                          'Raw-material and trade storage ↔ your personal stock in the Basetool. The first time, only what is missing is added; where both sides hold different amounts, you decide. Only places the Basetool knows.'),
+    's_bt_lager_h':      ('Mein Lager ↔ dein persönliches Lager im Basetool. Beim ersten Mal kommt nur dazu, was fehlt; steht etwas auf beiden Seiten mit verschiedener Menge, entscheidest du. Nur Orte, die das Basetool kennt.',
+                          'My Inventory ↔ your personal stock in the Basetool. The first time, only what is missing is added; where both sides hold different amounts, you decide. Only places the Basetool knows.'),
     's_bt_hangar':       ('Hangar abgleichen', 'Sync hangar'),
     's_bt_hangar_h':     ('Deine Schiffe ↔ dein Hangar im Basetool. Vorhandene werden erst verknüpft, dann kommt nur Fehlendes dazu — nichts doppelt. Kaufdaten (Preis, Paket) gehen nie hinaus.',
                           'Your ships ↔ your hangar in the Basetool. Existing ones are linked first, then only what is missing is added — nothing twice. Purchase data (price, package) never leaves.'),
@@ -6723,12 +6778,8 @@ TEXTS = {
                           'You are a logistician here. Booking can be switched on under Basetool → Connection.'),
     's_sl_kein_logistiker': ('Buchen ist eingeschaltet, aber das Basetool führt dich in dieser Einheit nicht als Logistiker. Dafür braucht es den Logistiker-Haken oder einen Leitungsrang direkt in dieser Einheit — die Leitung eines übergeordneten Bereichs zählt nicht. Bis dahin gibst du eigene Sachen im Basetool im Browser für die Einheit frei.',
                              'Booking is on, but the Basetool does not list you as a logistician in this unit. That takes the logistician flag or a leadership rank directly in this unit — leading an area above it does not count. Until then, share your own items with the unit in the Basetool in your browser.'),
-    's_sl_mitglied':     ('Einlagern:Ins Lager der Einheit buchen die Logistiker. Eigene Sachen gibst du im Basetool im Browser für die Einheit frei oder bittest einen Logistiker darum — was du unter Werkstatt → Rohstofflager einträgst, bleibt dein persönliches Lager. Bist du Logistiker, schalte unter Basetool → Verbindung & Abgleich „Als Logistiker buchen" ein.',
-                          'Storing items: logisticians book into the unit storage. You share your own items with the unit in the Basetool in your browser, or ask a logistician — what you enter under Workshop → Material storage stays your personal storage. If you are a logistician, switch on "Book as a logistician" under Basetool → Connection & sync.'),
-    's_sl_items':        ('Items', 'Items'),
-    's_sl_rohstoffe':    ('Rohstoffe', 'Materials'),
-    's_sl_handelsware':  ('Handelsware', 'Trade goods'),
-    's_sl_komponenten':  ('Komponenten', 'Components'),
+    's_sl_mitglied':     ('Einlagern:Ins Lager der Einheit buchen die Logistiker. Eigene Sachen gibst du im Basetool im Browser für die Einheit frei oder bittest einen Logistiker darum — was du unter Flotte & Logistik → Mein Lager einträgst, bleibt dein persönliches Lager. Bist du Logistiker, schalte unter Basetool → Verbindung & Abgleich „Als Logistiker buchen" ein.',
+                          'Storing items: logisticians book into the unit storage. You share your own items with the unit in the Basetool in your browser, or ask a logistician — what you enter under Fleet & Logistics → My Inventory stays your personal storage. If you are a logistician, switch on "Book as a logistician" under Basetool → Connection & sync.'),
     's_sl_suche':        ('Ware oder Ort suchen', 'Search goods or location'),
     's_sl_masse_h':      ('Das Basetool will diese größere Änderung erst im Browser bestätigt haben. Bis dahin ist nichts gebucht.',
                           'The Basetool wants this larger change confirmed in the browser first. Until then nothing is booked.'),
@@ -6737,7 +6788,6 @@ TEXTS = {
     's_sl_leer':         ('In dieser Sicht liegt nichts.', 'Nothing in this view.'),
     's_sl_hinweis':      ('Neu geholt wird mit dem Abgleich, höchstens alle 5 Minuten, und nach jeder eigenen Buchung.',
                           'It is refreshed with the sync, at most every 5 minutes, and after each booking of your own.'),
-    's_sl_q':            ('Q %d', 'Q %d'),
     's_sl_gestohlen':    ('gestohlen', 'stolen'),
     's_sl_res_auftraege': ('für Aufträge: %s', 'for orders: %s'),
     's_sl_res_missionen': ('für Missionen: %s', 'for missions: %s'),
@@ -6877,8 +6927,8 @@ TEXTS = {
     's_bt_lager_ueberblick': ('Im Basetool: %d Posten in deinem Lager', 'In the Basetool: %d lots in your stock'),
     's_bt_lager_stand':  ('Beim letzten Mal: %d Posten hochgeschickt, %d übernommen.',
                           'Last time: %d lots sent, %d taken over.'),
-    's_bt_lager_umgezogen': ('%d Einträge standen im falschen Lager und sind umgezogen: Materialien ins Rohstofflager, Items ins Handelslager. Am Basetool wurde dafür nichts gebucht.',
-                             '%d entries were in the wrong store and have moved: materials to the material storage, items to the cargo hold. Nothing was booked at the Basetool for this.'),
+    's_bt_lager_umgezogen': ('%d Einträge standen im falschen Lager und sind umgezogen: Materialien zu Zum Herstellen, Items zu den Items. Am Basetool wurde dafür nichts gebucht.',
+                             '%d entries were in the wrong store and have moved: materials to For crafting, items to Items. Nothing was booked at the Basetool for this.'),
     's_bt_lager_ort':    ('%d Posten bleiben hier, weil das Basetool den Ort nicht als Lagerort führt: %s',
                           '%d lots stay here because the Basetool does not list the place as a storage location: %s'),
     's_bt_lager_material': ('%d Posten bleiben hier, weil das Basetool das Material nicht kennt.',
@@ -7139,14 +7189,14 @@ TEXTS = {
                           'zurück.',
                           'Everything only you have, in one file — and back again.'),
     'sich_was':          ('Mit dabei sind dein Bauplan-Bestand, das Lager der '
-                          'Werkstatt, das Handelslager, das Auftrags-Protokoll, '
+                          'Werkstatt und die Ware (Mein Lager), das Auftrags-Protokoll, '
                           'die Merkliste, deine Einstellungen und deine '
                           'Steuerung — die aktive Belegung und alle '
                           'gespeicherten Profile. Die heruntergeladenen '
                           'Nachschlagewerke bleiben draußen — die holt sich '
                           'das Programm von allein zurück.',
                           'Included are your blueprint inventory, the workshop '
-                          'stock, the trade hold, the mission log, your watchlist, '
+                          'stock and goods (My Inventory), the mission log, your watchlist, '
                           'your settings and your controls — the active bindings '
                           'and every saved profile. The downloaded reference data '
                           'stays out — the program fetches that on its own.'),

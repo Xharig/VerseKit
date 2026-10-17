@@ -226,10 +226,21 @@ def from_description(text):
         size = _number(_field(text, 'groesse'))
         return '(%s%s)' % (guidance, size) if size else '(%s)' % guidance
 
-    item_class = _tag(_field(text, 'klasse'), CLASSES)
-    size = _number(_field(text, 'groesse'))
-    grade = _grade(_field(text, 'guete'))
+    return tag_from_values(_tag(_field(text, 'klasse'), CLASSES),
+                           _number(_field(text, 'groesse')),
+                           _grade(_field(text, 'guete')))
 
+
+def class_short(value):
+    """Ein Klassenname (`Military`, `Zivil`, `Laser` …) als Kürzel — oder
+    None."""
+    return _tag(value, CLASSES)
+
+
+def tag_from_values(item_class, size, grade):
+    """Das Kürzel aus schon zerlegten Werten — `item_class` als Kürzel
+    (`'Mil'`), `size` als Ziffernfolge, `grade` als Buchstabe; fehlende
+    Werte als None. Dieselbe Regel wie bei einer Beschreibung."""
     # Bei einer Waffe ist die Klasse für sich schon die Auskunft: ballistisch
     # oder Laser entscheidet, ob sie gegen Schilde etwas ausrichtet. Gemessen
     # haben **342** Waffen nur dieses eine Feld — Größe und Gütegrad gibt es bei

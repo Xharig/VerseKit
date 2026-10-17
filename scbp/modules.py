@@ -44,16 +44,19 @@ SWITCHABLE = {
     # ⚠ Der Schlüssel `modul_basetool` ist zugleich der Schalter des
     # Kartenbereichs Basetool (`cards.BASETOOL_SETTING`): ein Schalter für
     # beide Ansichten.
-    'basetool': ('basetool', 'bedarf', 'staffellager'),
+    'basetool': ('basetool', 'bedarf'),
     'schiffe': ('hangar', 'wunschliste', 'einkaufsliste'),
-    'werkstatt': ('herstellung', 'farmliste', 'lager', 'bergbau',
-                  'raffinerien'),
+    'werkstatt': ('herstellung', 'farmliste', 'bergbau', 'raffinerien'),
     'bergung': ('bergung', 'zerlegen'),
-    'handel': ('laeden', 'handelslager', 'verkauf', 'routen'),
+    'handel': ('laeden', 'verkauf', 'routen'),
     'statistiken': ('statistik_auswertung', 'statistik', 'statistik_schiffe',
                     'statistik_auftraege', 'statistik_quantum',
                     'statistik_stabil'),
 }
+
+# Seiten außerhalb der Gruppe, die ein Schalter trotzdem mit ausblendet
+# (`MainWindow._tab_hidden`) — damit die Seite Module sie mit nennt.
+ALSO_HIDES = {'basetool': ('staffellager',)}
 
 # Die Überschrift jeder Gruppe in der Leiste — dieselben Texte wie dort.
 LABELS = {'basetool': 'k_basetool_titel', 'schiffe': 'hf_gruppe_schiffe', 'werkstatt': 'hf_gruppe_herst',

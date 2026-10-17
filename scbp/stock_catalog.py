@@ -51,6 +51,9 @@ SOURCE_CATEGORIES = 'https://api.uexcorp.uk/2.0/categories'
 SOURCE_ITEMS = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
 SOURCE_COMMODITIES = 'https://api.uexcorp.uk/2.0/commodities'
 CACHE = 'lager-katalog.json'
+# Die mitgelieferte Startliste in `daten/` (gebaut mit
+# `tools/warenliste_bauen.py`).
+BUNDLED = 'lager-katalog.json'
 FORMAT = 1
 FETCH_WORKERS = 4
 
@@ -88,6 +91,43 @@ _LOCK = threading.Lock()
 # (Ablage, abgeleitete Auswahl) — ein Tupel, damit ein lesender Faden nie die
 # Auswahl zu einer anderen Ablage bekommt.
 _derived = (None, {})
+
+
+_bundled = {'data': None}
+
+
+def bundled():
+    """Die mitgelieferte Startliste aus `daten/` — dasselbe Format wie die
+    Ablage, `{}` wenn sie fehlt oder nicht passt. Einmal je Lauf gelesen."""
+    if _bundled['data'] is None:
+        data = {}
+        try:
+            import json
+            from . import paths
+            with open(paths.bundled_file(BUNDLED), encoding='utf-8') as handle:
+                found = json.load(handle)
+            if isinstance(found, dict) and found.get('format') == FORMAT:
+                data = found
+        except (OSError, ValueError):
+            data = {}
+        _bundled['data'] = data
+    return _bundled['data']
+
+
+def start():
+    """Im Hintergrund holen, wenn die Liste fällig ist — nicht im Tk-Faden,
+    damit beim ersten Öffnen eines Formulars niemand wartet. Bis dahin gilt
+    der alte Stand oder die Startliste. Gibt den Faden zurück."""
+    def work():
+        try:
+            if due():
+                update()
+        except Exception as exc:
+            from . import errors
+            errors.record('stock_catalog.start', exc)
+    thread = threading.Thread(target=work, daemon=True, name='warenliste')
+    thread.start()
+    return thread
 
 
 def due():
@@ -164,10 +204,10 @@ def choices():
         {Name klein: {'name': Anzeigename, 'item': UEX-Nummer oder None,
                       'material': UEX-Nummer oder None, 'section': Bereich}}
 
-    Leer, solange nichts geholt ist. Führt UEX einen Namen mehrfach als
-    Gegenstand, gilt der erste."""
+    Ohne eigene Ablage gilt die mitgelieferte Startliste (`BUNDLED`). Führt
+    UEX einen Namen mehrfach als Gegenstand, gilt der erste."""
     global _derived
-    data = _store.load() or {}
+    data = _store.load() or bundled()
     known_data, known_choices = _derived
     if known_data is data:
         return known_choices

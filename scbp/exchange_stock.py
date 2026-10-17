@@ -65,6 +65,23 @@ def _num(amount, unit):
     return round(float(amount or 0), 3)
 
 
+def uex_key(row):
+    """`uex:<Nummer>` für ein von Hand eingetragenes Item mit UEX-Nummer,
+    sonst `None`. Unter diesem Schlüssel steht sein `bt` im Auflöser — nicht
+    unter dem Namen, den eine gleichnamige Ware tragen kann."""
+    number = row.get('uex')
+    if (row.get('stueck') and isinstance(number, int)
+            and not isinstance(number, bool) and number > 0):
+        return 'uex:%d' % number
+    return None
+
+
+def trade_lookup(row):
+    """Womit eine Handelslager-Zeile aufgelöst wird: UEX-Schlüssel oder
+    Name."""
+    return uex_key(row) or row.get('ware') or ''
+
+
 def identity(material_key, location, quality, stolen):
     return '%s|%s|%d|%d' % ((material_key or '').lower(),
                             (location or '').strip().lower(),
@@ -130,8 +147,9 @@ def local_lots(raw, trade, resolve, places, is_piece, items=None):
     out, skipped = {}, {'material': [], 'location': []}
     items = items or {}
 
-    def put(store, name, amount, location, quality, stolen, index):
-        bt = resolve(name)
+    def put(store, name, amount, location, quality, stolen, index,
+            lookup=None):
+        bt = resolve(lookup or name)
         if not bt:
             skipped['material'].append(name)
             return
@@ -158,7 +176,7 @@ def local_lots(raw, trade, resolve, places, is_piece, items=None):
             row.get('gestohlen'), index)
     for index, row in enumerate(trade or ()):
         put('trade', row.get('ware') or '', row.get('menge'), row.get('ort'),
-            0, row.get('gestohlen'), index)
+            0, row.get('gestohlen'), index, trade_lookup(row))
     return out, skipped
 
 
@@ -201,7 +219,7 @@ def relocate(raw, trade, resolve, places, server, items):
 
     groups = {}
     for index, row in enumerate(trade or ()):
-        bt = resolve(row.get('ware') or '')
+        bt = resolve(trade_lookup(row))
         place = places.get((row.get('ort') or '').strip().lower())
         if not bt or not place or items.get(bt, True):
             continue

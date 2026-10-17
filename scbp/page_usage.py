@@ -167,7 +167,36 @@ def clean(raw):
         for key, n in actions.items():
             if key in ACTIONS and _count(n):
                 out['actions'][key] = n
-    return out
+    return _merge_aliases(out)
+
+
+def _merge_aliases(state):
+    """Gezähltes unter alten Seitennamen (`my_stock_page.ALIASES`) auf die
+    neue Seite legen — zusammengezählt, ohne Seitenpaar von einer Seite zu
+    sich selbst."""
+    from .my_stock_page import ALIASES
+
+    def new(page):
+        return ALIASES.get(page, page)
+    pages_ = {}
+    for page, n in state['pages'].items():
+        pages_[new(page)] = pages_.get(new(page), 0) + n
+    state['pages'] = pages_
+    for field in ('entry', 'clicks'):
+        merged = {}
+        for page, inner in state[field].items():
+            target = merged.setdefault(new(page), {})
+            for key, n in inner.items():
+                target[key] = target.get(key, 0) + n
+        state[field] = merged
+    misses = {}
+    for pair, n in state['misses'].items():
+        first, second = (new(p) for p in pair.split('>'))
+        if first != second:
+            key = '%s>%s' % (first, second)
+            misses[key] = misses.get(key, 0) + n
+    state['misses'] = misses
+    return state
 
 
 def _path():

@@ -139,8 +139,11 @@ SEITEN = {
     'grafik':       'screenshot-grafik',
     'herstellung':  'screenshot-herstellung',
     'bergbau':      'screenshot-bergbau',
-    'lager':        'screenshot-lager',
-    'handelslager': 'screenshot-handelslager',
+    'meinlager':    'screenshot-meinlager',
+    # Dieselbe Seite im Reiter Items und gefiltert auf Verkaufsware — siehe
+    # `ANSICHTEN`.
+    'meinlager_items': 'screenshot-meinlager-items',
+    'meinlager_verkauf': 'screenshot-meinlager-verkauf',
     'verkauf':      'screenshot-verkauf',
     'bestand':      'screenshot-bestand',
     'allgemein':    'screenshot-allgemein',
@@ -184,8 +187,12 @@ SEITEN = {
 # Bilder in der Kartenansicht: Kennung in `SEITEN` -> Seite, die geöffnet wird.
 KARTENANSICHT = {'kartenansicht': 'uebersicht'}
 
+# Bilder einer Seite in einer bestimmten Ansicht: Kennung in `SEITEN` ->
+# Seite, die geöffnet wird. Die Ansicht setzt `VOR_DEM_OEFFNEN`.
+ANSICHTEN = {'meinlager_items': 'meinlager', 'meinlager_verkauf': 'meinlager'}
+
 # Die angehefteten Seiten im Bild der Kartenansicht (Deine Karten).
-BEISPIEL_ANGEHEFTET = ['lager', 'grafik', 'routen']
+BEISPIEL_ANGEHEFTET = ['meinlager', 'grafik', 'routen']
 
 # ⚠⚠ **Das Overlay ist keine Seite.** Es ist ein eigenes Fenster einer eigenen
 # Klasse und braucht deshalb eine eigene Tk-Instanz — die Seiten teilen sich
@@ -359,24 +366,23 @@ def beispiel_staffellager():
     und buchen lässt. Der Reiter ist sonst nur mit Basetool-Verbindung da."""
     from scbp import exchange_orgstock
     exchange_orgstock.visible = lambda: True
-    roh = {'type': 'RAW', 'commodity': True, 'raw': True}
-    fertig = {'type': 'REFINED', 'commodity': True, 'refined': True}
-    ware = {'type': 'NO_REFINE', 'commodity': True, 'raw': False}
-    einheit = {'id': 'u1', 'name': 'Staffel Nord'}
+    raw = {'type': 'RAW', 'commodity': True, 'raw': True}
+    refined = {'type': 'REFINED', 'commodity': True, 'refined': True}
+    goods = {'type': 'NO_REFINE', 'commodity': True, 'raw': False}
+    unit = {'id': 'u1', 'name': 'Staffel Nord'}
 
-    def posten(key, name, art, ort, guete, menge, auftrag=0, eintraege=None,
-               gestohlen=False):
-        p = {'key': key, 'unit': einheit,
-             'material': {'bt': 'b-' + key, 'name': name},
-             'materialKind': art, 'location': {'name': ort},
-             'quality': guete, 'stolen': gestohlen,
-             'quantity': {'amount': menge, 'unit': 'SCU'},
-             'earmarked': {'jobOrders': {'amount': auftrag, 'unit': 'SCU'},
-                           'missions': {'amount': 0, 'unit': 'SCU'}},
-             'entries': eintraege if eintraege is not None else []}
-        return p
+    def material_lot(lot_key, lot_name, kind, place, quality, amount, job=0,
+                     entries=None, stolen=False):
+        return {'key': lot_key, 'unit': unit,
+                'material': {'bt': 'b-' + lot_key, 'name': lot_name},
+                'materialKind': kind, 'location': {'name': place},
+                'quality': quality, 'stolen': stolen,
+                'quantity': {'amount': amount, 'unit': 'SCU'},
+                'earmarked': {'jobOrders': {'amount': job, 'unit': 'SCU'},
+                              'missions': {'amount': 0, 'unit': 'SCU'}},
+                'entries': entries if entries is not None else []}
 
-    eintraege = [
+    entries = [
         {'id': 'e1', 'version': 2,
          'holder': {'withheld': False, 'name': 'Hauler One', 'ref': 'r1'},
          'quantity': {'amount': 30, 'unit': 'SCU'}, 'note': 'Hangar 3',
@@ -392,17 +398,51 @@ def beispiel_staffellager():
          'missions': [],
          'free': {'jobOrders': {'amount': 18.25, 'unit': 'SCU'},
                   'missions': {'amount': 18.25, 'unit': 'SCU'}}}]
-    seite = {'units': [einheit], 'items': [
-        posten('l1', 'Laranite', roh, 'Area18', 500, 48.25, 12, eintraege),
-        posten('l2', 'Agricium', fertig, 'Levski', 712, 6.5),
-        posten('l3', 'Taranite', roh, 'Lorville', 300, 12, gestohlen=True),
-        posten('l4', 'Medical Supplies', ware, 'Lorville', 0, 20)]}
-    lots, units = exchange_orgstock.apply_pages({}, [seite], True)
+    def item_lot(lot_key, lot_name, place, amount, entries=None):
+        none_reserved = {'amount': 0, 'unit': 'PIECE'}
+        return {'key': lot_key, 'unit': unit,
+                'material': {'bt': 'b-' + lot_key, 'name': lot_name},
+                'location': {'name': place}, 'quality': 0, 'stolen': False,
+                'quantity': {'amount': amount, 'unit': 'PIECE'},
+                'earmarked': {'jobOrders': none_reserved, 'missions': none_reserved},
+                'entries': entries if entries is not None else []}
+
+    item_entries = [
+        {'id': 'e3', 'version': 1,
+         'holder': {'withheld': False, 'name': 'Hauler One', 'ref': 'r1'},
+         'quantity': {'amount': 2, 'unit': 'PIECE'}, 'jobOrders': [],
+         'missions': [],
+         'free': {'jobOrders': {'amount': 2, 'unit': 'PIECE'},
+                  'missions': {'amount': 2, 'unit': 'PIECE'}}}]
+    page_data = {'units': [unit], 'items': [
+        material_lot('l1', 'Laranite', raw, 'Area18', 500, 48.25, 12, entries),
+        material_lot('l2', 'Agricium', refined, 'Levski', 712, 6.5),
+        material_lot('l3', 'Taranite', raw, 'Lorville', 300, 12, stolen=True),
+        material_lot('l4', 'Medical Supplies', goods, 'Lorville', 0, 20),
+        item_lot('l5', 'FR-66', 'Levski', 2, item_entries),
+        item_lot('l6', 'TS-2', 'Area18', 1)]}
+    all_lots, all_units = exchange_orgstock.apply_pages({}, [page_data], True)
     exchange_orgstock._state.update(
-        lots=lots, units=units, cursor='c', at=time.time(), details=True,
-        write=True, logistician={'u1'},
+        lots=all_lots, units=all_units, cursor='c', at=time.time(),
+        details=True, write=True, logistician={'u1'},
         rosters={'u1': [{'ref': 'r1', 'name': 'Hauler One'},
                         {'ref': 'r2', 'name': 'Quartermaster'}]})
+
+
+def beispiel_meinlager():
+    """Erfundene Items im kopierten Handelslager, falls die Kopie keine hat —
+    sonst bliebe der Reiter Items im Bild leer."""
+    from scbp import trade_cargo
+    rows = trade_cargo.load()
+    if any(row.get('stueck') for row in rows):
+        return
+    rows += [{'ware': 'FR-66', 'menge': 2, 'ort': 'Levski',
+              'gestohlen': False, 'stueck': True},
+             {'ware': 'TS-2', 'menge': 1, 'ort': 'Area18',
+              'gestohlen': False, 'stueck': True},
+             {'ware': 'Spicule', 'menge': 1, 'ort': 'Levski',
+              'gestohlen': False, 'stueck': True}]
+    trade_cargo.save(rows)
 
 
 def beispiel_grafik(heim):
@@ -1016,11 +1056,6 @@ def vorbereiten(kennung, seite, wurzel):
         klicken(seite, 'TDD', genau=False)
         _warten(wurzel, 1.5)
         rollen_zu(seite, 'TDD')
-    elif kennung == 'lager':
-        # Der offene Eingabebereich füllt sonst das ganze Bild — zugeklappt
-        # rückt die Lagerliste mit den Sammelzeilen darunter ins Bild.
-        klicken(seite, _t('s_rf_titel'))
-        _warten(wurzel)
     elif kennung == 'staffellager':
         # Aufgeklappt zeigt der Posten die Besitzer und die Buchungsknöpfe.
         klicken(seite, 'Laranite')
@@ -1033,6 +1068,10 @@ def vorbereiten(kennung, seite, wurzel):
 VOR_DEM_OEFFNEN = {
     'herstellung': ('crafting_search', 'Aves Helmet'),
     'bergbau': ('mining_search', 'Iron'),
+    'meinlager': ('my_stock_preset', {'view': 'material'}),
+    'meinlager_items': ('my_stock_preset', {'view': 'items'}),
+    'meinlager_verkauf': ('my_stock_preset', {'view': 'material',
+                                              'purpose': 'sale'}),
 }
 
 
@@ -1404,6 +1443,12 @@ def main():
     # Farben, bevor das Schema in der Datei steht.
     _daten['ansicht'] = 'reiter'
     _daten['karten_angeheftet'] = BEISPIEL_ANGEHEFTET
+    # Mein Lager mit zugeklappten Eingabebereichen und ohne den einmaligen
+    # Hinweis — die Liste steht im Bild.
+    _daten['meinlager_eintragen_offen'] = False
+    _daten['lager_raffinerie_offen'] = False
+    _daten['lager_umzug_gesehen'] = True
+    _daten['staffellager_sicht'] = 'rohstoffe'
     with open(_pfad, 'w', encoding='utf-8', newline='\n') as _datei:
         _json.dump(_daten, _datei, ensure_ascii=False, indent=1)
     # ⚠⚠ **Der Beispiel-Hangar VOR `SC_BP_NO_NET`.** Er holt die Steckplätze
@@ -1421,6 +1466,7 @@ def main():
     beispiel_daten()
     beispiel_bedarf()
     beispiel_staffellager()
+    beispiel_meinlager()
     beispiel_grafik(os.environ['SC_BP_HOME'])
     # Die Galerie „Was ist neu" läge sonst nach einem Update über jedem Bild.
     from scbp import gallery
@@ -1463,7 +1509,8 @@ def main():
         from scbp import paths as _pf
         _pf.set_setting(MainWindow.VIEW_SETTING,
                         'karten' if kennung in KARTENANSICHT else 'reiter')
-        seite_kennung = KARTENANSICHT.get(kennung, kennung)
+        seite_kennung = KARTENANSICHT.get(kennung,
+                                          ANSICHTEN.get(kennung, kennung))
         try:
             # Frisches Fenster **und** Puffer raeumen — erst beides zusammen
             # liefert brauchbare Bilder (siehe die Tabelle oben).
@@ -1477,7 +1524,7 @@ def main():
                 wurzel.update_idletasks()
             fenster_richten(fenster, wurzel)
             if kennung not in KARTENANSICHT:
-                leiste_zeigen(fenster, kennung, wurzel)
+                leiste_zeigen(fenster, seite_kennung, wurzel)
             seite = fenster.pages.get(seite_kennung)
             if seite is not None:
                 vorbereiten(kennung, seite, wurzel)

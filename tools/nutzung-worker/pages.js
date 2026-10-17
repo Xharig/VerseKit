@@ -9,6 +9,11 @@
 
 export const PAGES = {
   uebersicht: ['Start', 'Übersicht'],
+  meinlager: ['Lager', 'Mein Lager'],
+  staffellager: ['Lager', 'Lager der Einheit'],
+  // Alte Seitennamen, die ältere Fassungen melden (siehe MERGED).
+  lager: ['Lager', 'Rohstofflager'],
+  handelslager: ['Lager', 'Handelslager'],
   liste: ['Baupläne', 'Bauplan-Liste'],
   fortschritt: ['Baupläne', 'Bauplan-Fortschritt'],
   auftragslog: ['Baupläne', 'Aufträge & Protokoll'],
@@ -16,17 +21,14 @@ export const PAGES = {
   wunschliste: ['Schiffe', 'Wunschliste'],
   einkaufsliste: ['Schiffe', 'Einkaufsliste'],
   asop: ['Schiffe', 'Schiffe benennen'],
-  lager: ['Werkstatt', 'Rohstofflager'],
   herstellung: ['Werkstatt', 'Herstellung'],
   bergbau: ['Werkstatt', 'Bergbau'],
   raffinerien: ['Werkstatt', 'Raffinerien'],
   laeden: ['Werkstatt', 'Shops'],
   farmliste: ['Werkstatt', 'Was ich farmen muss'],
   bedarf: ['Basetool', 'Bedarf der Einheit'],
-  staffellager: ['Basetool', 'Lager der Einheit'],
   bergung: ['Bergung', 'Was steckt drin?'],
   zerlegen: ['Bergung', 'Lohnt das Zerlegen?'],
-  handelslager: ['Handel', 'Handelslager'],
   verkauf: ['Handel', 'Kaufen & Verkaufen'],
   routen: ['Handel', 'Routen'],
   statistik_auswertung: ['Statistik', 'Auswertung'],
@@ -58,6 +60,7 @@ export const PAGES = {
   erkennung: ['Für Fortgeschrittene', 'Erkennung'],
   startprogramme: ['Für Fortgeschrittene', 'Startprogramme'],
   // Bereichsseiten der Kartenansicht (`cards.area_page_id`).
+  bereich_logistik: ['Karten', 'Bereich Flotte & Logistik'],
   bereich_bauplaene: ['Karten', 'Bereich Baupläne'],
   bereich_schiffe: ['Karten', 'Bereich Schiffe'],
   bereich_werkstatt: ['Karten', 'Bereich Werkstatt'],
@@ -75,6 +78,8 @@ export const PAGES = {
 // und zeigt sie nicht als eigene Zeile.
 export const MERGED = {
   asop: 'hangar',
+  lager: 'meinlager',
+  handelslager: 'meinlager',
 };
 
 // Die Wege, auf denen eine Seite geöffnet wird (`page_usage.ROUTES`).
@@ -91,10 +96,10 @@ export const ROUTES = {
 // Die Handlungen, die das Programm zählt (`page_usage.ACTIONS`) — nur wie
 // oft, nie womit. Andere Kennungen lehnt der Worker ab.
 export const ACTIONS = {
-  lager_hand: 'Rohstofflager: von Hand eingetragen',
-  lager_raffinerie: 'Rohstofflager: Raffinerie-Ausbeute eingetragen',
-  lager_scan: 'Rohstofflager: Bildschirm gelesen',
-  lager_sync: 'Rohstofflager: Jetzt übertragen',
+  lager_hand: 'Mein Lager: Rohstoff von Hand eingetragen',
+  lager_raffinerie: 'Mein Lager: Raffinerie-Ausbeute eingetragen',
+  lager_scan: 'Mein Lager: Bildschirm gelesen',
+  lager_sync: 'Mein Lager: Jetzt übertragen',
   abgleich_karte: 'Basetool: Karte „Jetzt abgleichen"',
   karte_raffinerie: 'Karte: Raffinerie-Scanner',
   karte_scanner: 'Karte: Mining-Scanner an/aus',

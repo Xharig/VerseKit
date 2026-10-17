@@ -55,13 +55,12 @@ PAGES = {
     'farmliste': ('farmliste', 'hf_farmliste'),
     'bedarf': ('basetool', 'hf_bedarf'),
     'staffellager': ('staffellager', 'hf_staffellager'),
-    'lager': ('bestand', 'hf_lager'),
+    'meinlager': ('bestand', 'hf_meinlager'),
     'bergbau': ('herkunft', 'hf_bergbau'),
     'raffinerien': ('raffinerie', 'hf_raffinerien'),
     'bergung': ('sicherung', 'hf_bergung'),
     'zerlegen': ('zerlegen', 'hf_zerlegen'),
     'laeden': ('laeden', 'hf_laeden'),
-    'handelslager': ('handelslager', 'hf_handelslager'),
     'verkauf': ('verkauf', 'hf_verkauf'),
     'routen': ('routen', 'hf_routen'),
     'statistik_auswertung': ('st_auswertung', 'hf_st_auswertung'),
@@ -95,18 +94,17 @@ PAGES = {
 # Unterseiten). Die Kennung ist die der Gruppe in der Reiterliste (für das
 # Ausblenden über `modules`), „basetool" ist eigen.
 AREAS = (
+    ('logistik', 'bestand', 'hf_gruppe_logistik', ('meinlager', 'staffellager')),
     ('bauplaene', 'liste', 'hf_gruppe_bp',
      ('liste', 'fortschritt', 'auftragslog')),
     ('basetool', 'basetool', 'k_basetool_titel',
-     ('basetool', 'bedarf', 'staffellager', 'lager', 'handelslager', 'hangar',
-      'liste')),
+     ('basetool', 'bedarf', 'staffellager', 'meinlager', 'hangar', 'liste')),
     ('schiffe', 'hangar', 'hf_gruppe_schiffe',
      ('hangar', 'wunschliste', 'einkaufsliste')),
     ('werkstatt', 'blitz', 'hf_gruppe_herst',
-     ('herstellung', 'farmliste', 'lager', 'bergbau', 'raffinerien')),
+     ('herstellung', 'farmliste', 'bergbau', 'raffinerien')),
     ('bergung', 'zerlegen', 'hf_gruppe_bergung', ('bergung', 'zerlegen')),
-    ('handel', 'laeden', 'hf_gruppe_handel',
-     ('laeden', 'handelslager', 'verkauf', 'routen')),
+    ('handel', 'laeden', 'hf_gruppe_handel', ('laeden', 'verkauf', 'routen')),
     ('statistiken', 'statistik', 'hf_gruppe_statistik',
      ('statistik_auswertung', 'statistik', 'statistik_schiffe',
       'statistik_auftraege', 'statistik_quantum', 'statistik_stabil')),
@@ -122,7 +120,7 @@ AREAS = (
 
 # Seiten, deren Reiter in der Gruppe Basetool der Reiterleiste stehen, in
 # dieser Reihenfolge. Im Kartenbereich Basetool stehen sie vorn.
-BASETOOL_TABS = ('basetool', 'bedarf', 'staffellager')
+BASETOOL_TABS = ('basetool', 'bedarf')
 # Eigene Namen dieser Seiten im Bereich Basetool und in seiner Gruppe der
 # Reiterleiste.
 BASETOOL_TITLES = {'basetool': 'k_basetool_verbindung'}
@@ -189,11 +187,14 @@ def description_key(page, in_area=None):
 
 
 def pinned():
-    """Die angehefteten Seiten, nur bekannte, ohne Doppelte."""
+    """Die angehefteten Seiten, nur bekannte, ohne Doppelte. Alte
+    Seitennamen (`my_stock_page.ALIASES`) zählen als ihre neue Seite."""
     from . import paths
+    from .my_stock_page import ALIASES
     saved = (paths.settings() or {}).get(PINNED_SETTING)
     result = []
     for page in saved if isinstance(saved, list) else []:
+        page = ALIASES.get(page, page)
         if page in PAGES and page not in result:
             result.append(page)
     return result
@@ -302,9 +303,20 @@ class CardGrid:
             else:
                 self.frame.columnconfigure(column, weight=1, uniform='karte',
                                            minsize=0)
-        for index, cell in enumerate(self.cells):
+        shown = [c for c in self.cells if not getattr(c, 'hidden', False)]
+        for cell in self.cells:
+            if getattr(cell, 'hidden', False):
+                cell.grid_remove()
+        for index, cell in enumerate(shown):
             cell.grid(row=index // columns, column=(index % columns) * 2,
                       sticky='nsew', padx=0, pady=(0, GAP))
+
+    def set_hidden(self, cell, hidden):
+        """Eine Karte aus- oder wieder einblenden, ohne sie neu zu bauen."""
+        if bool(getattr(cell, 'hidden', False)) == bool(hidden):
+            return
+        cell.hidden = bool(hidden)
+        self._place(max(self.columns, 1))
 
 
 def card(window, cell, symbol, title, text, action, pin=None,
@@ -639,7 +651,7 @@ def page_extras(window, page, kennung):
     """Die Zusatzknöpfe einer Unterpunkt-Karte — was man oft braucht, ohne
     erst die Seite zu öffnen."""
     builders = []
-    if page == 'lager':
+    if page == 'meinlager':
         try:
             from . import refinery_scan
             if refinery_scan.supported():
@@ -696,4 +708,19 @@ def area_page(window, frame, kennung):
                 cell.card.set_pin(cell.page_key in now)
             except (AttributeError, tk.TclError):
                 pass
+            # Eine Seite, die die Leiste gerade nicht zeigt (Lager der
+            # Einheit ohne Verbindung), hat auch keine Karte.
+            page = getattr(cell, 'page_key', None)
+            if page:
+                grid.set_hidden(cell, page_hidden(window, page))
     window.on_show[area_page_id(kennung)] = refresh
+    refresh()
+
+
+def page_hidden(window, page):
+    """Blendet die Leiste diese Seite gerade aus?"""
+    hidden = getattr(window, '_tab_hidden', None)
+    try:
+        return bool(hidden(page)) if hidden else False
+    except Exception:
+        return False

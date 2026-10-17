@@ -6,6 +6,43 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Gruppe Flotte & Logistik** direkt unter der Übersicht: „Mein Lager" und
+  „Lager der Einheit" stehen an einer Stelle.
+- **Items von Hand eintragen** — in „Mein Lager" neben Rohstoff und Ware
+  jetzt auch Gegenstände aus der Warenliste: Artefakte, Rüstung, Kleidung,
+  Waffen, Komponenten, Medaillen … mit Stückzahl und Ort. Der Abgleich mit
+  dem Basetool findet sie über ihre Kennung, nicht über den Namen.
+- **Mein Lager** fasst Rohstofflager und Handelslager zusammen. Oben die
+  Reiter Material und Items, darunter Filter nach Art (Erz, Raffiniert,
+  Mineral, Handelsware, Schiffskomponente, Rüstung …), Ort und Zweck (zum
+  Herstellen oder zum Verkaufen) und eine Suche. Eintragen, Raffinerie-Ausbeute
+  und Bildschirm lesen, Sichern und Löschen sind als Klappbereiche dabei; alle
+  Posten bleiben, wo sie waren.
+- **Klasse, Größe und Grad an Gegenständen** — in beiden Lagern steht am
+  Item das Kürzel wie `(Mil/3/A)`, ohne Netz und ohne Basetool.
+
+### Verbessert
+
+- **Gegenstände wie TS-2 oder FR-66** stehen jetzt unter Items mit ihrer
+  Art statt als „1 Stück" in der Handelsware.
+- **Lager der Einheit ist kompakter** — wie Mein Lager mit den Reitern
+  Material und Items, Filter nach Art und Ort und einer Zeile je Posten mit
+  Art, Kürzel, Ort, Qualität und Menge; aufgeklappt eine Zeile je Besitzer,
+  die sechs Buchungen als Symbole mit Erklärtext beim Überfahren. Mengen
+  stehen in beiden Lagern im selben Format.
+- **Die Warenliste wartet nicht mehr** — sie liegt dem Programm bei und wird
+  im Hintergrund aufgefrischt, statt beim ersten Öffnen des Formulars
+  geholt zu werden.
+- **Lager löschen nach einem Patch** räumt die Ware und die Items getrennt,
+  je mit eigener Rückfrage.
+- Wer Rohstoff- oder Handelslager schon benutzt hat, sieht in Mein Lager
+  einmal einen Hinweis, wo beides jetzt liegt. Angeheftete Karten und alle
+  Sprünge zu den alten Seiten führen nach Mein Lager.
+
 ## v4.9.1 - 2026-10-17
 
 > Die Warenauswahl beim Einbuchen findet jetzt, was man sucht: Wer „TS-“

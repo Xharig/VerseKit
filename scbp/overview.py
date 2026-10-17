@@ -317,7 +317,7 @@ def _draw_pinned(window, pin_grid, hint, redraw):
     """Deine Karten: die angehefteten Unterpunkte, sonst ein Hinweis."""
     from . import cards
     pin_grid.clear()
-    pages = cards.pinned()
+    pages = [p for p in cards.pinned() if not cards.page_hidden(window, p)]
     if not pages:
         pin_grid.frame.pack_forget()
         hint.pack(fill='x', pady=(0, 12))
@@ -1073,9 +1073,9 @@ TICK_MS = 1000
 
 
 def refinery_scan_now(window):
-    """Lager öffnen, Raffinerie-Block aufklappen und das Lesen starten — es
-    liest, sobald Star Citizen vorn ist."""
-    window.open_page('lager', via='sprung')
+    """Mein Lager öffnen, Raffinerie-Block aufklappen und das Lesen starten —
+    es liest, sobald Star Citizen vorn ist."""
+    window.open_page('meinlager', via='sprung')
     read = getattr(window, 'refinery_read', None)
     if read is not None:
         read()
@@ -1087,7 +1087,7 @@ def _tile_refinery(window, cell):
     def scan():
         refinery_scan_now(window)
     cell.scan = scan
-    body = _card(window, cell, 's_uv_raffinerie', 'lager',
+    body = _card(window, cell, 's_uv_raffinerie', 'meinlager',
                  extra=(t('s_uv_scannen'), scan))
     running, done = refinery_jobs.current()
     if not running and not done:
@@ -1131,18 +1131,21 @@ def _tile_refinery(window, cell):
 
 def _tile_storage(window, cell):
     from . import materials, trade_cargo
-    body = _card(window, cell, 's_uv_lager', 'lager')
+    body = _card(window, cell, 's_uv_lager', 'meinlager')
     posts = materials.load()
     goods = trade_cargo.load()
     if not posts and not goods:
         _line(window, body, t('s_uv_lager_leer'))
         return
-    kinds = len({(p.get('material') or '').strip().lower() for p in posts
-                 if (p.get('material') or '').strip()})
-    wares = len({(g.get('ware') or '').strip().lower() for g in goods
-                 if (g.get('ware') or '').strip()})
-    _big(window, body, str(kinds + wares))
-    _line(window, body, t('s_uv_lager_posten') % (kinds, wares))
+    def names(rows, field):
+        return len({(r.get(field) or '').strip().lower() for r in rows
+                    if (r.get(field) or '').strip()})
+    # Items im Handelslager sind keine Ware — eigens gezählt.
+    kinds = names(posts, 'material')
+    wares = names([g for g in goods if not trade_cargo.is_pieces(g)], 'ware')
+    items = names([g for g in goods if trade_cargo.is_pieces(g)], 'ware')
+    _big(window, body, str(kinds + wares + items))
+    _line(window, body, t('s_uv_lager_posten') % (kinds, wares, items))
     from . import crafting
     for name, amount, place in storage_top(posts, piece=crafting.is_piece):
         number, unit = _amount(name, amount)

@@ -2630,6 +2630,14 @@ class MainWindow:
         start.pack(fill='x', pady=(10, 0))
         self._tab('uebersicht', 'uebersicht', t('hf_uebersicht'), start)
 
+        # Das eigene Lager und das der Einheit an einer Stelle, direkt unter
+        # der Übersicht — die Gruppe heißt wie im Basetool. Lager der Einheit
+        # nur mit Basetool-Verbindung und Recht (`_tab_hidden`).
+        g_logistik = self._group(t('hf_gruppe_logistik'), 'logistik')
+        self._tab('meinlager', 'bestand', t('hf_meinlager'), g_logistik)
+        self._tab('staffellager', 'staffellager', t('hf_staffellager'),
+                  g_logistik)
+
         g_bp = self._group(t('hf_gruppe_bp'), 'bauplaene')
         self._tab('liste', 'liste', t('hf_liste'), g_bp)
         self._tab('fortschritt', 'fortschritt', t('hf_fortschritt'), g_bp)
@@ -2640,17 +2648,14 @@ class MainWindow:
 
         # ⭐ Alles zum KRT Profit Basetool an einer Stelle, direkt unter den
         # Bauplänen und mit denselben Namen wie im Kartenbereich Basetool
-        # (`cards.BASETOOL_TABS`). Lager, Hangar und Liste bleiben in ihren
-        # Gruppen: Ein Reiter steht nur einmal in der Leiste.
+        # (`cards.BASETOOL_TABS`). Die Lager, Hangar und Liste bleiben in
+        # ihren Gruppen: Ein Reiter steht nur einmal in der Leiste.
         g_basetool = self._group(t('k_basetool_titel'), 'basetool')
         self._tab('basetool', 'basetool', t('k_basetool_verbindung'),
                   g_basetool)
         # Nur sichtbar mit Basetool-Verbindung und Bedarf-Recht — siehe
         # `_tab_hidden`.
         self._tab('bedarf', 'basetool', t('hf_bedarf'), g_basetool)
-        # Nur sichtbar mit Basetool-Verbindung und Staffellager-Recht.
-        self._tab('staffellager', 'staffellager', t('hf_staffellager'),
-                  g_basetool)
 
         # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die Seiten
         # beantworten eine andere Frage (was wird gebraucht, wo gibt es das) als
@@ -2686,10 +2691,10 @@ class MainWindow:
 
         g_werk = self._group(t('hf_gruppe_herst'), 'werkstatt')
         # ⭐ Die Reihenfolge folgt dem Ablauf: Rezept, fehlende Rohstoffe,
-        # eigener Bestand, Fundorte, Raffinerie.
+        # Fundorte, Raffinerie. Der eigene Bestand steht unter Flotte &
+        # Logistik (Mein Lager).
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
-        self._tab('lager', 'bestand', t('hf_lager'), g_werk)
         self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
         # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
         # beim Erz stellt: wo man es raffinieren lässt. Der Raffinerie-Kasten
@@ -2700,10 +2705,8 @@ class MainWindow:
         # endet beim Bauen (habe → brauche → beschaffe).
         # Handel ist die Gegenrichtung: Ware, die man **loswerden** will. Wer
         # verkauft, denkt nicht an Rezepte — und wer baut, will sein Baumaterial
-        # nicht in einer Verkaufsliste sehen.
-        #
-        # Reihenfolge wie in der Werkstatt-Gruppe: erst der Bestand, dann was
-        # man damit tut.
+        # nicht in einer Verkaufsliste sehen. Der Bestand dazu steht in Mein
+        # Lager.
         # ⚠ **Eigene Gruppe, nicht bei „Bergbau".** Bergbau ist Erz aus
         # Felsen, Bergung ist ein Wrack ausschlachten — zwei Spielarten, die
         # nur im deutschen Wort nah beieinander liegen. Ein eigener
@@ -2720,8 +2723,6 @@ class MainWindow:
         # ⭐ Einkauf zuerst: Shops sagen, wo ein fertiges Teil oder Schiff im
         # Regal steht. Danach die Gegenrichtung — Ware, die man loswerden will.
         self._tab('laeden', 'laeden', t('hf_laeden'), g_handel)
-        self._tab('handelslager', 'handelslager', t('hf_handelslager'),
-                     g_handel)
         self._tab('verkauf', 'verkauf', t('hf_verkauf'), g_handel)
         # ⚠ Nach „Verkauf", weil es die größere Frage ist: Dort geht es um
         # Ware, die man **schon hat**; hier um die Fahrt, die man erst plant.
@@ -2804,6 +2805,7 @@ class MainWindow:
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
         self._apply_pins('info')
         self._apply_pins(self._group_of_tab('bedarf'))
+        self._apply_pins(self._group_of_tab('staffellager'))
         self._apply_modules()
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
@@ -3224,13 +3226,17 @@ class MainWindow:
 
     def _tab_hidden(self, page_id):
         """Reiter, die nur unter einer Bedingung da sind: Bedarf und Lager
-        der Einheit nur mit Basetool-Verbindung und ihrem Recht."""
+        der Einheit nur mit Basetool-Verbindung und ihrem Recht; Lager der
+        Einheit steht in der Gruppe Flotte & Logistik und folgt dem Modul
+        Basetool deshalb hier. Karten und angeheftete Karten fragen hier
+        ebenso (`cards.page_hidden`)."""
         if page_id == 'bedarf':
             from . import exchange_demand
             return not exchange_demand.visible()
         if page_id == 'staffellager':
-            from . import exchange_orgstock
-            return not exchange_orgstock.visible()
+            from . import exchange_orgstock, modules
+            return not (modules.enabled('basetool')
+                        and exchange_orgstock.visible())
         return False
 
     def _group(self, text, kennung=None):
@@ -3641,10 +3647,10 @@ class MainWindow:
         for name in list(self.groups):
             self._group_toggle(name, auf=(name == ziel))
 
-    def open_page(self, kennung, zurueck_zu=None, via=None, area=None):
+    def open_page(self, page_id, back_to=None, via=None, area=None):
         """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen.
 
-        `zurueck_zu` setzt **nur** `jump_to()`. Ein Klick in der Seitenleiste
+        `back_to` setzt **nur** `jump_to()`. Ein Klick in der Seitenleiste
         kommt ohne, und das loescht den Rueckweg — richtig so: Wer selbst
         weiterblaettert, will nicht dorthin zurueck, wo ein alter Sprung
         einmal begann.
@@ -3655,7 +3661,7 @@ class MainWindow:
 
         `area` ist der Bereich der Kartenansicht, aus dem die Seite geöffnet
         wurde — die Pfadzeile nennt ihn (eine Seite kann in zwei Bereichen
-        stehen, etwa das Lager in Werkstatt und Basetool).
+        stehen, etwa Mein Lager unter Flotte & Logistik und Basetool).
         """
         # ⚠⚠ **Ein Seitenwechsel ist die deutlichste Nutzeraktion überhaupt.**
         # Ohne diese Zeile liefe der Vorbau weiter, während die gerade
@@ -3663,33 +3669,39 @@ class MainWindow:
         # ist aber sekundenlang nicht zu sehen, weil Tk mit dem Vorbau der
         # nächsten Seite beschäftigt ist.
         self._remember_action()
+        # Alte Seitennamen (gespeicherte Karten, Galerie, Raffinerie-Taste)
+        # führen auf ihre neue Seite, samt Vorwahl.
+        from . import my_stock_page
+        page_id, preset = my_stock_page.resolve(page_id)
+        if preset:
+            self.my_stock_preset = dict(preset)
         # ⭐ Module: Eine Seite, deren Gruppe ausgeschaltet ist, wird
         # nicht still gezeigt — der Sprung landet auf „Module" und sagt, was
         # aus ist. Sonst stünde man auf einer Seite ohne Eintrag in der Leiste.
         # ⚠ Erst der Ersatz für einen verborgenen Reiter, dann die Module:
         # Der Ersatz (`basetool`) kann selbst in einem ausgeschalteten Modul
         # liegen.
-        if self._tab_hidden(kennung):
-            kennung = 'basetool'
+        if self._tab_hidden(page_id):
+            page_id = 'basetool'
         from . import modules
-        if kennung in modules.hidden_pages():
-            group = modules.group_of(kennung)
+        if page_id in modules.hidden_pages():
+            group = modules.group_of(page_id)
             self.say(t('s_mo_aus_hinweis') % t(modules.LABELS[group]))
-            kennung = 'module'
+            page_id = 'module'
         # ⭐ Aus der Übersicht heraus (nicht über die Leiste selbst): Nur die
         # Gruppe der Zielseite steht danach offen, die übrigen klappen zu.
-        if (self.current == 'uebersicht' and kennung != 'uebersicht'
+        if (self.current == 'uebersicht' and page_id != 'uebersicht'
                 and via != 'seitenleiste' and not self.card_mode()):
-            self._only_group_of_tab(kennung)
+            self._only_group_of_tab(page_id)
         # ⚠ **Die Gruppe des Reiters muss offen sein.** Sonst steht man auf
         # einer Seite, deren Eintrag in der Leiste gar nicht zu sehen ist — das
         # sieht nach einem Fehler aus, und der Weg zurück ist nicht zu finden.
         # Betrifft vor allem den Programmstart: Die zuletzt benutzte Seite kann
         # in einer zugeklappten Gruppe liegen.
-        self._open_group_of_tab(kennung)
+        self._open_group_of_tab(page_id)
         # Steht gerade eine Meldung (`say`, grün), bleibt sie stehen; danach
         # setzt `say` den Text dieser Seite zurück.
-        self._footer_key = self.FOOTER_KEYS.get(kennung, 'hf_sofort')
+        self._footer_key = self.FOOTER_KEYS.get(page_id, 'hf_sofort')
         try:
             if self.message.cget('fg') == SUB:
                 self.message.configure(text=t(self._footer_key))
@@ -3698,8 +3710,8 @@ class MainWindow:
         if not hasattr(self, 'on_show'):
             # kennung -> Funktion, die beim erneuten Anzeigen laeuft
             self.on_show = {}
-        if kennung not in self.pages:
-            self.pages[kennung] = tk.Frame(self.content, bg=BG)
+        if page_id not in self.pages:
+            self.pages[page_id] = tk.Frame(self.content, bg=BG)
         # ⚠ Auch beim **zweiten** Besuch eine Startzeile: Die Überschrift des
         # Berichts sagt, die letzte Zeile ohne `steht` sei die, an der es hing.
         # Ohne Startzeile beim Einblenden stimmte das nicht.
@@ -3710,57 +3722,57 @@ class MainWindow:
         # ⚠⚠ **Millisekunden, nicht nur Sekunden.** Mit sekundengenauen
         # Zeitstempeln laesst sich nicht unterscheiden, ob eine Seite 50 ms
         # oder 900 ms braucht — ohne Zahl im Bericht bleibt es beim Raten.
-        _beginn = time.perf_counter()
-        if kennung in self.drawn:
-            errors.trail('Seite %s: zeigen' % kennung)
+        started = time.perf_counter()
+        if page_id in self.drawn:
+            errors.trail('Seite %s: zeigen' % page_id)
             # ⚠ Eine Seite wird **einmal** gebaut und danach nur noch ein- und
             # ausgeblendet. Alles, was beim erneuten Aufrufen frisch sein soll,
             # muss sich deshalb hier eintragen — sonst steht etwa der
             # Suchbegriff vom letzten Besuch noch da.
-            ruf = self.on_show.get(kennung)
-            if ruf:
+            callback = self.on_show.get(page_id)
+            if callback:
                 try:
-                    ruf()
-                except Exception as ausnahme:
-                    errors.record('main_window.zeigen:%s' % kennung, ausnahme)
+                    callback()
+                except Exception as exc:
+                    errors.record('main_window.zeigen:%s' % page_id, exc)
         else:
-            self.drawn.add(kennung)
+            self.drawn.add(page_id)
             # ⚠ Die Spur führt auch über die Bedienung, nicht nur über den
             # Start: Die Fehlerhaken greifen nur bei Python-Ausnahmen, ein
             # harter Absturz beim Öffnen einer Seite stünde sonst nirgends.
             # Fehlt die zweite Zeile hier, hat es beim Bauen genau dieser
             # Seite geknallt.
-            errors.trail('Seite %s: bauen beginnt' % kennung)
+            errors.trail('Seite %s: bauen beginnt' % page_id)
             try:
-                self._fill_page(kennung, self.pages[kennung])
-            except Exception as ausnahme:
-                errors.record('main_window.seite:%s' % kennung, ausnahme)
-                tk.Label(self.pages[kennung], text='—', bg=BG, fg=SUB,
+                self._fill_page(page_id, self.pages[page_id])
+            except Exception as exc:
+                errors.record('main_window.seite:%s' % page_id, exc)
+                tk.Label(self.pages[page_id], text='—', bg=BG, fg=SUB,
                          font=self.f_base).pack(padx=20, pady=20)
 
         if self.current:
             self.pages[self.current].pack_forget()
-        self.pages[kennung].pack(fill='both', expand=True)
-        self.current = kennung
-        page_usage.page_opened(kennung, via)
-        self.came_from = zurueck_zu
+        self.pages[page_id].pack(fill='both', expand=True)
+        self.current = page_id
+        page_usage.page_opened(page_id, via)
+        self.came_from = back_to
         self._back_bar_update()
         if area:
             self._card_area = area
-        elif kennung.startswith('bereich_'):
-            self._card_area = kennung[len('bereich_'):]
-        self._crumb_update(kennung)
+        elif page_id.startswith('bereich_'):
+            self._card_area = page_id[len('bereich_'):]
+        self._crumb_update(page_id)
         # Die Nadel an der Überschrift folgt dem Stand, auch wenn auf einer
         # Karte angeheftet wurde.
-        nadel = getattr(self, '_heading_pins', {}).get(kennung)
-        if nadel is not None:
+        pin = getattr(self, '_heading_pins', {}).get(page_id)
+        if pin is not None:
             from . import cards
             try:
-                nadel.zeigen(kennung in cards.pinned())
+                pin.zeigen(page_id in cards.pinned())
             except tk.TclError:
                 pass
         errors.trail('Seite %s: steht (%.0f ms)'
-                    % (kennung, (time.perf_counter() - _beginn) * 1000))
+                    % (page_id, (time.perf_counter() - started) * 1000))
         # ⚠ Erst JETZT die restlichen Seiten im Leerlauf vorbauen — nachdem die
         # angeklickte steht. Vorher gestartet, wuerde der Vorbau genau die
         # Seite verzoegern, die der Mensch gerade sehen will.
@@ -3774,9 +3786,9 @@ class MainWindow:
                 # ⚠ Jede Eingabe verschiebt den Vorbau nach hinten — siehe
                 # `_prebuild_pages`. `add='+'` ist Pflicht, sonst verdraengt
                 # das die Haken, die andere Bausteine global gesetzt haben.
-                for ereignis in ('<Button>', '<Key>', '<MouseWheel>'):
+                for event in ('<Button>', '<Key>', '<MouseWheel>'):
                     try:
-                        self.root.bind_all(ereignis, self._remember_action,
+                        self.root.bind_all(event, self._remember_action,
                                            add='+')
                     except Exception:
                         pass
@@ -3800,20 +3812,20 @@ class MainWindow:
         # Was angezeigt wird, ist `entry[4]` — also entscheidet auch das über
         # das Wegräumen. `mark_seen` bleibt an `is_new` gebunden: Es schreibt
         # die Datei, und ohne echte Neuheit gibt es dort nichts zu schreiben.
-        if news.is_new(kennung, self.version):
-            news.mark_seen(kennung, self.version)
-        entry = self.buttons.get(kennung)
+        if news.is_new(page_id, self.version):
+            news.mark_seen(page_id, self.version)
+        entry = self.buttons.get(page_id)
         if entry and entry[4] is not None:
             entry[4].destroy()
             # ⚠ Und aus der Liste nehmen! Ein zerstörtes Widget bleibt sonst
             # im Tupel stehen, und das nächste Einfärben greift ins Leere
             # (`invalid command name`). Das schlug beim zweiten Reiterwechsel
             # zu — also bei jedem Nutzer sofort.
-            zeile, strich, z, b, _ = entry
-            self.buttons[kennung] = (zeile, strich, z, b, None)
+            row, bar, icon, label, _ = entry
+            self.buttons[page_id] = (row, bar, icon, label, None)
             self._sidebar_dirty = True
 
-    def jump_to(self, kennung):
+    def jump_to(self, page_id):
         """Auf eine andere Seite springen — und den Rückweg anbieten.
 
         ⭐ **Der Unterschied zu `open_page()`.** Ein Klick in der Seitenleiste
@@ -3826,7 +3838,7 @@ class MainWindow:
         `open_page()`. Wer einen neuen baut, nimmt diese Methode — sonst
         bekommt genau sein Sprung als einziger keinen Rückweg.
         """
-        self.open_page(kennung, zurueck_zu=self.current, via='sprung')
+        self.open_page(page_id, back_to=self.current, via='sprung')
 
     def _back_jump(self):
         """Zurück zu der Seite, von der der Sprung ausging."""

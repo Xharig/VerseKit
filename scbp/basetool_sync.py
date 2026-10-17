@@ -845,6 +845,29 @@ def _send(conn, route, change_sets):
     return failed, applied, extra
 
 
+def resolve_uex_items(conn, trade, sub):
+    """Von Hand eingetragene Items (`stueck` mit `uex`) über ihre UEX-Nummer
+    auflösen, nicht über den Namen — ein Name kann auf mehrere Gegenstände
+    passen. Der bt je Nummer bleibt im Stand (`resolved_uex`) und wird danach
+    ohne Anfrage benutzt.
+
+    Gibt `{uex:<Nummer>: bt}` zurück — je Zeile über ihren Schlüssel
+    (`exchange_stock.uex_key`), nie über den Namen: Eine gleichnamige Ware
+    bleibt eine Ware."""
+    from . import exchange_stock
+    refs = {}
+    for row in trade:
+        key = exchange_stock.uex_key(row)
+        name = (row.get('ware') or '').strip()
+        if key and name:
+            refs[key] = {'uexId': row['uex'], 'name': name[:200]}
+    if not refs:
+        return {}
+    found = _resolve_refs(conn, 'ITEM', refs,
+                          sub.setdefault('resolved_uex', {}))
+    return {key: found[key] for key in refs if found.get(key)}
+
+
 def _sync_stock(conn, state):
     """Rohstoff- und Handelslager <-> Posten beim Basetool."""
     from . import crafting, exchange_stock, materials, trade_cargo
@@ -858,12 +881,18 @@ def _sync_stock(conn, state):
     server_raw, _resync = _pull_generic(conn, sub, '/me/stock', 'key')
     places = _locations(conn)
     raw, trade = materials.load(), trade_cargo.load()
-    names = {(r.get('material') or '').strip() for r in raw} \
-        | {(r.get('ware') or '').strip() for r in trade}
+    uex_bts = resolve_uex_items(conn, trade, sub)
+    # Items mit UEX-Nummer gehen nicht in die Namenssuche; eine gleichnamige
+    # Ware oder ein gleichnamiger Rohstoff schon.
+    names = ({(r.get('material') or '').strip() for r in raw}
+             | {(r.get('ware') or '').strip() for r in trade
+                if not exchange_stock.uex_key(r)})
     cache = sub.setdefault('resolved', {})
     resolved = _resolve_refs(conn, 'MATERIAL',
                              {n.lower(): {'name': n[:200]} for n in names if n},
                              cache)
+    resolved.update(uex_bts)
+    uex_items = dict.fromkeys(uex_bts.values(), True)
 
     # Was dort schon steht, trägt sein `bt` selbst — auch ein Item, das als
     # MATERIAL nicht aufzulösen ist.
@@ -873,6 +902,7 @@ def _sync_stock(conn, state):
         if name and material.get('bt') and name not in resolved:
             resolved[name] = material['bt']
     items = exchange_stock.item_flags(server_raw.values(), sub.get('items'))
+    items.update(uex_items)
     rest = {n for n in names if n and n.lower() not in resolved}
     if rest:
         found = _resolve_refs(conn, 'ITEM',
@@ -1003,7 +1033,7 @@ def _apply_stock(takes, server, resolver, places, items=None):
                               if i not in drop_trade])
         finally:
             _applying[0] = False
-        _pages_changed(['lager', 'handelslager'])
+        _pages_changed(['meinlager'])
 
     _in_tk(work)
 
