@@ -42,7 +42,7 @@ from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, RED, GOLD, _TK_CALLS,
                     _heading, _scroll_area, _body_text, _button, _wrap,
                     _stripe, _stripe_reset, _chip, _card)
 from . import basetool, basetool_sync, exchange_orgstock as orgstock
-from . import icons, materials, paths, theme
+from . import icons, materials, paths, stock_catalog, theme
 
 PAGE = 'staffellager'
 SETTING_UNIT = 'staffellager_einheit'
@@ -110,7 +110,7 @@ def orgstock_page(window, frame):
             'search': tk.StringVar(master=inner, value=''),
             'open': set(), 'form': None, 'values': {}, 'busy': False,
             'message': '', 'message_color': FG, 'confirm_url': None,
-            'locations': None, 'targets': {}}
+            'locations': None, 'targets': {}, 'materials': None}
     if page['view'] not in orgstock.CATEGORIES:
         page['view'] = orgstock.RAW
     top = tk.Frame(inner, bg=BG)
@@ -486,6 +486,7 @@ class _Form:
                         font=self.window.f_small, anchor='w', justify='left')
         line.pack(fill='x', padx=14, pady=(2, 2))
         _wrap(line, inset=28)
+        return line
 
     def buttons(self, entries):
         row = tk.Frame(self.card, bg=self.BG)
@@ -650,6 +651,168 @@ def _location_field(window, form, page, key, label):
     drop.pack(fill='x')
     if page.get('locations_loading'):
         form.note(t('s_sl_orte_laden'))
+
+
+def _material_choices(page):
+    """Die Warenliste (`stock_catalog`) — im Hintergrund aus der Ablage
+    gelesen und, wenn fällig, bei UEX geholt. Bis dahin leer; ein älterer
+    Stand gilt schon, während der neue geholt wird."""
+    if page['materials'] is None:
+        page['materials'] = {}
+        page['materials_loading'] = True
+
+        def work():
+            try:
+                found = page['materials'] = stock_catalog.choices()
+                if stock_catalog.due():
+                    stock_catalog.update()
+                    found = stock_catalog.choices()
+            except Exception as exc:
+                from . import errors
+                errors.record('orgstock_page.materials', exc)
+                found = {}
+            page['materials'] = found
+            page['materials_loading'] = False
+            done = page.get('materials_done')
+            if done:
+                _TK_CALLS.put(done)
+        threading.Thread(target=work, daemon=True).start()
+    return page['materials']
+
+
+def _material_names(page, data):
+    """Alle Namen für die Auswahl: die Warenliste und die Waren, die schon in
+    einem Pool liegen — sortiert, je Name einmal."""
+    lots = (data or {}).get('lots') or {}
+    key = (id(page['materials']), len(lots))
+    if page.get('materials_key') != key:
+        names = {e['name'].lower(): e['name']
+                 for e in page['materials'].values()}
+        for lot in lots.values():
+            if lot['name']:
+                names.setdefault(lot['name'].lower(), lot['name'])
+        page['materials_names'] = sorted(names.values(), key=str.lower)
+        page['materials_key'] = key
+    return page['materials_names']
+
+
+def _material_field(window, form, page, data, redraw):
+    """Ware tippen oder aus der Warenliste aussuchen. Eine ausgewählte Ware
+    stellt die Mengeneinheit passend: Gegenstand -> Stück, Ware -> SCU. Hat
+    das Basetool beim Nachschlagen mehrere Treffer genannt, stehen sie
+    darunter zum Anklicken."""
+    from .pages import _combo_box
+    _material_choices(page)
+    var = tk.StringVar(master=form.card, value=page['values'].get('material',
+                                                                  ''))
+    var.trace_add('write', lambda *_a: page['values'].__setitem__('material',
+                                                                   var.get()))
+    row = form._row(t('s_sl_ware'))
+    holder = tk.Frame(row, bg=form.BG)
+    holder.pack(side='left', fill='x', expand=True)
+
+    def extra(name):
+        entry = page['materials'].get(name.lower())
+        return stock_catalog.label(entry) if entry else ''
+
+    def pick(name):
+        var.set(name)
+        entry = page['materials'].get(name.lower())
+        if entry is None or (entry['item'] is not None
+                             and entry['material'] is not None):
+            return
+        unit = orgstock.PIECE if entry['material'] is None else orgstock.SCU
+        if page['values'].get('unit') != unit:
+            page['values']['unit'] = unit
+            form.card.after_idle(redraw)
+
+    line, drop, refresh = _combo_box(
+        window, holder, var, lambda: _material_names(page, data),
+        on_pick=pick, extra=extra, placeholder=t('s_sl_ware_h'))
+    line.pack(fill='x')
+    drop.pack(fill='x')
+    if page.get('materials_loading'):
+        note = form.note(t('s_sl_waren_laden'))
+
+        # Fertig geladen: nur der Hinweis geht und die Liste zeigt die Namen —
+        # kein Neuzeichnen, das Getipptes und den Fokus nähme.
+        def done():
+            try:
+                if note.winfo_exists():
+                    note.destroy()
+                if line.winfo_exists():
+                    refresh()
+            except tk.TclError:
+                pass
+        page['materials_done'] = done
+
+    candidates = page['values'].get('candidates') or []
+    if not candidates:
+        return
+    form.note(t('s_sl_ware_vorschlaege'), theme.YELLOW)
+    rows = tk.Frame(form.card, bg=form.BG)
+    rows.pack(fill='x', padx=14, pady=(0, 4))
+    _stripe_reset(rows)
+
+    def choose(candidate):
+        page['values']['material'] = candidate['name']
+        page['values']['material_ref'] = dict(candidate)
+        page['values'].pop('candidates', None)
+        page['message'] = ''
+        redraw()
+
+    for candidate in candidates:
+        base = _stripe(rows, form.BG)
+        label = tk.Label(rows, text=candidate['name'], bg=base, fg=FG,
+                         font=window.f_small, anchor='w', cursor='hand2',
+                         padx=8)
+        label.pack(fill='x', ipady=3)
+        label.bind('<Button-1>', lambda _e, c=candidate: choose(c))
+        label.bind('<Enter>', lambda _e, w=label: w.configure(fg=ACCENT))
+        label.bind('<Leave>', lambda _e, w=label: w.configure(fg=FG))
+
+
+def _resolve_then(page, name, known, book):
+    """Die Ware beim Basetool nachschlagen, bevor gebucht wird: eindeutig ->
+    `book({bt, name})`, mehrdeutig -> Auswahl im Formular, unbekannt ->
+    Hinweis. In den letzten beiden Fällen wird nichts gesendet."""
+    if page['busy']:
+        return
+    page['busy'] = True
+    _say(page, t('s_sl_ware_pruefen'), SUB)
+
+    def work():
+        status, found, error = None, None, ''
+        try:
+            status, found = orgstock.resolve_material(basetool.CONNECTION,
+                                                      name, known)
+        except basetool.ApiError as exc:
+            from . import errors
+            from .basetool_page import error_text
+            errors.record('orgstock_page.resolve', RuntimeError(exc.describe()))
+            error = error_text(exc.code)
+        except Exception as exc:
+            from . import errors
+            errors.record('orgstock_page.resolve', exc)
+            error = t('s_sl_r_anders', type(exc).__name__)
+
+        def show():
+            page['busy'] = False
+            if status == 'resolved':
+                page['values']['material_ref'] = found
+                page['values'].pop('candidates', None)
+                book({'bt': found['bt'], 'name': found['name']})
+            elif status == 'ambiguous':
+                page['values']['candidates'] = found
+                _say(page, t('s_sl_ware_mehrdeutig') % name, theme.YELLOW)
+            elif status == 'unmatched':
+                page['values'].pop('candidates', None)
+                _say(page, t('s_sl_ware_unbekannt') % name, RED)
+            else:
+                _say(page, error, RED)
+        _TK_CALLS.put(show)
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def _form_move(window, parent, page, data, lot, entry, kind, redraw,
@@ -903,7 +1066,7 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
     else:
         form.select('holder', t('s_sl_besitzer'),
                     [(m['ref'], m['name']) for m in roster])
-    form.field('material', t('s_sl_ware'), placeholder=t('s_sl_ware_h'))
+    _material_field(window, form, page, data, redraw)
     _location_field(window, form, page, 'location', t('s_sl_ort'))
     unit = form.select('unit', t('s_sl_einheit_menge'),
                        [(orgstock.SCU, 'SCU'),
@@ -936,12 +1099,26 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
         if not 0 <= quality <= 1000 or quality != int(quality):
             _say(page, t('s_sl_qualitaet_falsch'), RED)
             return
+
+        def book(material):
+            op = orgstock.op_book_in(unit_id, holder, material,
+                                     {'name': place}, int(quality),
+                                     bool(form.value('stolen')), amount, unit,
+                                     form.value('note'),
+                                     bool(form.value('merge')))
+            _submit(window, page, data, [op], redraw)
+
+        chosen = page['values'].get('material_ref')
+        if chosen and chosen['name'].lower() == name.lower():
+            book({'bt': chosen['bt'], 'name': chosen['name']})
+            return
         known = _known_material(data, name)
-        op = orgstock.op_book_in(unit_id, holder, known or {'name': name},
-                                 {'name': place}, int(quality),
-                                 bool(form.value('stolen')), amount, unit,
-                                 form.value('note'), bool(form.value('merge')))
-        _submit(window, page, data, [op], redraw)
+        if known:
+            book(known)
+            return
+        _resolve_then(page, name,
+                      stock_catalog.reference(name, unit == orgstock.PIECE),
+                      book)
 
     form.buttons([(t('s_sl_einbuchen'), go, 'strong'),
                   (t('s_bt_abbrechen'), _cancel(page, redraw), '')])

@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **Picking the goods when booking into the unit storage** — the "Goods"
+  field is now a pick list with everything the Basetool knows: armor,
+  weapons, components, clothing, consumables, raw materials and commodities.
+  Typing filters the list, the kind stands on the right. Picked goods set
+  pieces or SCU to match. Before booking, the goods are looked up at the
+  Basetool: if they are not unique, the matching hits are there to click; if
+  the Basetool does not know them, nothing is booked.
+
 ## v4.8.2 - 2026-10-17
 
 > The unit storage now explains itself: its card on the overview says what

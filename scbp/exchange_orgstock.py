@@ -47,6 +47,7 @@ PATH = '/org-stock'
 CHANGES = '/org-stock/changes'
 MEMBERS = '/org-stock/members'
 TARGETS = '/org-stock/targets'
+RESOLVE = '/catalog/resolve'
 MAX_AGE = 7 * 24 * 3600
 PAGE_LIMIT = 500
 
@@ -380,6 +381,64 @@ def targets(conn, unit_id, material_bt):
                              'name': _text(mission.get('name')),
                              'status': _text(mission.get('status'))})
     return {'jobs': jobs, 'missions': missions}
+
+
+def _catalog_ref(raw):
+    """`{bt, name}` aus einer Antwort von `catalog/resolve` — oder `None`."""
+    if not isinstance(raw, dict):
+        return None
+    bt = _text(raw.get('bt'), 128)
+    if not bt:
+        return None
+    return {'bt': bt, 'name': _text(raw.get('name'), 200) or bt}
+
+
+def resolve(conn, kind, ref):
+    """Eine Referenz über `POST /catalog/resolve` auflösen::
+
+        ('resolved', {bt, name})
+        ('ambiguous', [{bt, name}, …])   höchstens zehn
+        ('unmatched', None)
+    """
+    answer = conn.request('POST', RESOLVE, {'kind': kind, 'refs': [ref]})
+    for result in (answer or {}).get('results') or ():
+        if not isinstance(result, dict) or result.get('index') != 0:
+            continue
+        if result.get('status') == 'resolved':
+            found = _catalog_ref(result.get('ref'))
+            if found:
+                return 'resolved', found
+        elif result.get('status') == 'ambiguous':
+            candidates = [c for c in map(_catalog_ref,
+                                         result.get('candidates') or ()) if c]
+            if candidates:
+                return 'ambiguous', candidates[:10]
+    return 'unmatched', None
+
+
+def resolve_material(conn, name, known=None):
+    """Die Ware eines Einbuchens vorab auflösen, Rückgabe wie `resolve`.
+
+    `known`: `(kind, item-ref)` aus der Warenliste (`stock_catalog`) — dann
+    zuerst über diese Referenz. Sonst, und wenn sie nichts findet, wie ein
+    Stock-Op: erst als MATERIAL, dann als ITEM, beides über den Namen.
+    Mehrdeutige Treffer beider Wege kommen zusammen in eine Auswahl."""
+    if known:
+        status, found = resolve(conn, known[0], known[1])
+        if status != 'unmatched':
+            return status, found
+    ref = {'name': name.strip()[:200]}
+    candidates = []
+    for kind in ('MATERIAL', 'ITEM'):
+        status, found = resolve(conn, kind, ref)
+        if status == 'resolved':
+            return status, found
+        if status == 'ambiguous':
+            seen = {c['bt'] for c in candidates}
+            candidates += [c for c in found if c['bt'] not in seen]
+    if candidates:
+        return 'ambiguous', candidates[:10]
+    return 'unmatched', None
 
 
 # ------------------------------------------------------------- Abfragen
