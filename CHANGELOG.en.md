@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Hangar import from the Hangar Extension** — with newer versions of the
+  extension, ships arrive with clean names again (`Reliant Kore`,
+  `Prowler Utility`), and special editions stay separate from the base
+  ship. Vehicles that come with a ship in its pledge (such as the G12 of
+  the 600i Explorer) now land in the hangar too, as part of that ship's
+  package. Reported by AlyxOne
+
 ## v4.7.0 - 2026-10-16
 
 > Your hangar now tells you what your fleet can do: which gameplay loops it

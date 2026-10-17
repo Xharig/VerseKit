@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Hangar-Import aus der Hangar Extension** — mit neueren Fassungen der
+  Erweiterung kommen die Schiffe wieder mit sauberen Namen an
+  (`Reliant Kore`, `Prowler Utility`), und Sondereditionen bleiben vom
+  Grundschiff getrennt. Fahrzeuge, die einem Schiff im Pledge beiliegen
+  (etwa der G12 der 600i Explorer), landen jetzt auch im Hangar, als Teil
+  von dessen Paket. Gemeldet von AlyxOne
+
 ## v4.7.0 - 2026-10-16
 
 > Dein Hangar sagt jetzt, was deine Flotte kann: welche Spielbereiche sie
