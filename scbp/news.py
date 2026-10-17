@@ -58,6 +58,7 @@ NEW_SINCE = {
     'statistik_stabil': '3.58.0',
     'darstellung': '3.58.0',
     'basetool':    '3.61.0',   # Einstellungen neu gegliedert (rc4)
+    'staffellager': '4.8.0',   # Lager der eigenen Einheiten im Basetool
     'module':      '3.58.0',
     'startprogramme': '3.58.0',
     'uebersetzung': '3.59.0',  # Textquelle je Kanal, weitere Sprachen

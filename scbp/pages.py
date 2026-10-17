@@ -110,12 +110,14 @@ def _builders():
     # ⚠ Hier geladen, nicht oben im Modul: `stats_pages` holt sich seine
     # Bausteine aus diesem Modul und wäre sonst ein Zirkelbezug.
     from . import stats_pages, settings_pages, basetool_page, overview, cards
+    from . import orgstock_page
     return {
         **overview.builders(),
         **cards.builders(),
         **stats_pages.builders(),
         **settings_pages.builders(),
         **basetool_page.builders(),
+        **orgstock_page.builders(),
         'darstellung': _appearance,
         'uebersetzung': _translation_page,
         'liste':       _blueprint_list,
@@ -6035,17 +6037,14 @@ def _check_now(fenster):
             return
 
         def melden():
-            # ⚠ **Erst neu aufbauen, dann sagen.** `rebuild()` zerstoert
-            # saemtliche Kinder des Fensters und baut sie neu — auch die
-            # Fusszeile, in der `say()` schreibt. Stuende das `say()` davor,
-            # existierte die Antwort ein paar Millisekunden und waere dann weg.
-            #
-            # Der Neuaufbau muss trotzdem sein: Die Kanal-Kaesten tragen die
-            # Versionsnummern und muessen mitziehen.
+            # Die Kanal-Kaesten tragen die Versionsnummern: Diese Seite wird
+            # frisch gezeichnet, dazu der Update-Knopf oben. `rebuild()`
+            # zeichnete jede Seite des Fensters.
             try:
-                fenster.rebuild()
-            except Exception:
-                pass
+                fenster.pages_changed(['ueber'])
+                fenster.refresh_update_button()
+            except Exception as ausnahme:
+                errors.record('pages.jetzt_nachsehen.zeigen', ausnahme)
             if neuere:
                 fenster.say(t('s_ub_gefunden') % neuere.get('version'))
             elif updater.fetch_succeeded() is False:
@@ -14601,8 +14600,65 @@ def _demand(fenster, rahmen):
               t('s_bd_kannst_bauen') if i['craftable'] else '',
               ACCENT if i['craftable'] else FG)
 
+    if data.get('orders') is not None:
+        _demand_orders(fenster, koerper, data['orders'], titel)
+
     _body_text(koerper, t('s_bd_hinweis'), fenster.f_small, fill='x',
                pady=(16, 0))
+
+
+def _demand_orders(window, body, orders, title):
+    """Die Aufträge der eigenen Logistiker-Einheit, einzeln — Nummer,
+    Auftraggeber, anfragende Einheit, Kommentar und was noch offen ist."""
+    from . import materials
+
+    def row(left, right, below):
+        base = _stripe(body, BG)
+        frame = tk.Frame(body, bg=base)
+        frame.pack(fill='x')
+        top = tk.Frame(frame, bg=base)
+        top.pack(fill='x', padx=8, pady=(5, 0))
+        tk.Label(top, text=left, bg=base, fg=FG, font=window.f_base,
+                 anchor='w').pack(side='left')
+        tk.Label(top, text=right, bg=base, fg=SUB, font=window.f_small,
+                 anchor='e').pack(side='right')
+        text = tk.Label(frame, text=below, bg=base, fg=SUB,
+                        font=window.f_small, anchor='w', justify='left')
+        text.pack(fill='x', padx=8, pady=(0, 5))
+        _wrap(text, inset=16)
+
+    title(t('s_bd_auftraege'))
+    _body_text(body, t('s_bd_auftraege_h'), window.f_small, fill='x',
+               pady=(0, 6))
+    _stripe_reset(body)
+    if not orders:
+        _body_text(body, t('s_bd_keine_auftraege'), window.f_small, fill='x')
+        return
+    for order in orders:
+        head = '#%s' % order['number'] if order['number'] is not None \
+            else t('s_bd_auftrag')
+        if order['handle']:
+            head += '  ·  ' + order['handle']
+        right = t('s_bd_status_' + order['status'].lower()) \
+            if order['status'] in ('OPEN', 'IN_PROGRESS') else order['status']
+        if order['priority'] is not None:
+            right += '  ·  ' + t('s_bd_prio') % order['priority']
+        parts = []
+        if order['requesting']:
+            parts.append(t('s_bd_fuer') % order['requesting'])
+        for line in order['lines'][:6]:
+            piece = (line['unit'] or '').upper() == 'PIECE'
+            text = '%s %s %s' % (
+                materials.amount_text(line['amount'], piece=piece),
+                t('s_lg_stueck') if piece else 'SCU', line['name'])
+            if line['min_quality']:
+                text += ' (%s)' % (t('s_bd_ab_q') % line['min_quality'])
+            parts.append(text)
+        if len(order['lines']) > 6:
+            parts.append(t('s_bt_und_mehr', len(order['lines']) - 6))
+        if order['comment']:
+            parts.append('„%s"' % order['comment'][:200])
+        row(head, right, '\n'.join(parts))
 
 
 def _farm_list(fenster, rahmen):
@@ -17559,10 +17615,12 @@ def _sync_setting(kennung):
         'hangar': basetool_sync.SETTING_SHIPS,
         'liste': basetool_sync.SETTING_BLUEPRINTS,
         'bedarf': basetool_sync.SETTING_DEMAND,
+        'staffellager': basetool_sync.SETTING_ORGSTOCK,
     }.get(kennung)
 
 
-SYNC_PAGES = ('lager', 'handelslager', 'hangar', 'liste', 'bedarf')
+SYNC_PAGES = ('lager', 'handelslager', 'hangar', 'liste', 'bedarf',
+              'staffellager')
 
 
 def _sync_ready(setting):

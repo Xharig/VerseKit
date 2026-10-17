@@ -54,6 +54,7 @@ PAGES = {
     'herstellung': ('blitz', 'hf_herstellung'),
     'farmliste': ('farmliste', 'hf_farmliste'),
     'bedarf': ('basetool', 'hf_bedarf'),
+    'staffellager': ('staffellager', 'hf_staffellager'),
     'lager': ('bestand', 'hf_lager'),
     'bergbau': ('herkunft', 'hf_bergbau'),
     'raffinerien': ('raffinerie', 'hf_raffinerien'),
@@ -97,7 +98,8 @@ AREAS = (
     ('bauplaene', 'liste', 'hf_gruppe_bp',
      ('liste', 'fortschritt', 'auftragslog')),
     ('basetool', 'basetool', 'k_basetool_titel',
-     ('basetool', 'bedarf', 'lager', 'handelslager', 'hangar', 'liste')),
+     ('basetool', 'bedarf', 'staffellager', 'lager', 'handelslager', 'hangar',
+      'liste')),
     ('schiffe', 'hangar', 'hf_gruppe_schiffe',
      ('hangar', 'wunschliste', 'einkaufsliste')),
     ('werkstatt', 'blitz', 'hf_gruppe_herst',
@@ -120,7 +122,7 @@ AREAS = (
 
 # Seiten, deren Reiter in der Gruppe Basetool der Reiterleiste stehen, in
 # dieser Reihenfolge. Im Kartenbereich Basetool stehen sie vorn.
-BASETOOL_TABS = ('basetool', 'bedarf')
+BASETOOL_TABS = ('basetool', 'bedarf', 'staffellager')
 # Eigene Namen dieser Seiten im Bereich Basetool und in seiner Gruppe der
 # Reiterleiste.
 BASETOOL_TITLES = {'basetool': 'k_basetool_verbindung'}

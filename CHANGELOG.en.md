@@ -6,6 +6,43 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+> Your unit's storage is here: under *Basetool* you see what is in the shared
+> storage — by items, materials, trade goods and components. Logisticians
+> also see who owns what, and book right from Verse-Kit.
+
+> [!important]
+> For the unit storage, the orders in the demand and the unit on a ship,
+> Verse-Kit asks for new permissions. If you are already connected, confirm
+> them once under *Basetool → Connection* with "Grant permission".
+
+### New
+
+- **Unit storage** — new tab under *Basetool*: what is in the shared storage
+  of your units, with location, quality, amount and reservations. As a
+  logistician you expand a lot and see the owners.
+- **Booking as a logistician** — book in, book out, sell, move (location,
+  member, unit), note, stolen marker and reservations, right at the entry.
+  Off by default, switch it on under *Basetool → Connection*.
+- **Orders one by one in the demand** — logisticians see their unit's open
+  orders with number, requester and comment.
+- **Unit on a ship** — in the hangar you can now choose which unit a ship
+  belongs to in the Basetool.
+
+### Fixed
+
+- **"Check now" no longer rebuilds the whole window** — only the update page.
+  The update button at the top shows a version it found right away.
+  Reported by Haldjas
+- **Hidden files in the data folder no longer block anything** — VerseKit
+  makes them writable again at startup. Before, settings such as the "New"
+  marks and the saved state of the game texts got lost. Reported by Haldjas
+- **The SC Extractor's blueprint file can be imported again** — under
+  *Import inventory* VerseKit now also recognises the Basetool's new file
+  format that the Extractor writes since 2.10. Until now it said "I do not
+  recognise this file". Reported by Drachennarr
+
 ## v4.7.0 - 2026-10-16
 
 > Your hangar now tells you what your fleet can do: which gameplay loops it

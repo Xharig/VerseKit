@@ -1144,6 +1144,28 @@ def make_overwritable(path):
         return False
 
 
+def unlock_data_folder():
+    """`make_overwritable()` für jede Datei im eigenen Datenordner.
+
+    ⚠ Viele Stellen schreiben ihre Datei mit `open(…, 'w')` — jede einzelne
+    über `open_overwrite` zu führen, vergisst beim nächsten neuen Schreiber
+    jemand. Einmal beim Start den ganzen Ordner freizumachen, deckt alle ab.
+    Verknüpfte Ordner werden nicht betreten. Gibt die Zahl der Dateien
+    zurück, an denen ein Kennzeichen entfernt wurde.
+    """
+    if os.name != 'nt':
+        return 0
+    unlocked = 0
+    try:
+        for folder, _subfolders, files in os.walk(app_folder()):
+            for name in files:
+                if make_overwritable(os.path.join(folder, name)):
+                    unlocked += 1
+    except Exception:
+        pass
+    return unlocked
+
+
 def open_overwrite(path, encoding='utf-8', **kwargs):
     """`open(path, 'w')` — und bei `PermissionError` einmal nach
     `make_overwritable()` erneut."""

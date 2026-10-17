@@ -23,6 +23,7 @@ export const PAGES = {
   laeden: ['Werkstatt', 'Shops'],
   farmliste: ['Werkstatt', 'Was ich farmen muss'],
   bedarf: ['Basetool', 'Bedarf der Einheit'],
+  staffellager: ['Basetool', 'Lager der Einheit'],
   bergung: ['Bergung', 'Was steckt drin?'],
   zerlegen: ['Bergung', 'Lohnt das Zerlegen?'],
   handelslager: ['Handel', 'Handelslager'],

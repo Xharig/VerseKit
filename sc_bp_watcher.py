@@ -5806,6 +5806,11 @@ if __name__ == '__main__':
     errors.install_crash_handler(__version__)
     errors.VERSION[0] = __version__
     errors.trail('Start, Version %s, %s' % (__version__, sys.platform))
+    # Versteckte, System- oder schreibgeschützte Dateien im Datenordner lassen
+    # sich unter Windows nicht mit `open(…, 'w')` überschreiben.
+    _freigemacht = paths.unlock_data_folder()
+    if _freigemacht:
+        errors.trail('Dateischutz an %d Dateien entfernt' % _freigemacht)
     # ⚠⚠ **Vor dem ersten Fenster.** Sonst haette die Wurzel — und alles, was
     # vor diesem Aufruf entsteht — weiterhin die helle Leiste des Systems.
     # Unter Linux tut der Aufruf nichts und kostet nichts.

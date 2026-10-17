@@ -107,12 +107,19 @@ Lagerposten aus Rohstoff- und Handelslager (Material, Ort, Qualität, Menge,
 „gestohlen") und deine Schiffe (Typ, Versicherung, eigener Name,
 „Einsatzbereit" und die Einheit, in der ein Schiff steht). Dazu der Name, den du
 dieser Installation gibst — nie der Name deines Rechners — und, nur für die
-Account-Prüfung, dein RSI-Handle. Nie Kaufdaten (Preis, Kaufdatum, Paket), nie
-Daten anderer Mitglieder.
+Account-Prüfung, dein RSI-Handle. Nie Kaufdaten (Preis, Kaufdatum, Paket).
+Daten anderer Mitglieder nur, wenn du als Logistiker im **Lager der Einheit**
+buchst: dann die Buchung selbst — welcher Eintrag, Menge, Ort, Notiz,
+Reservierung, Verkaufserlös und der Besitzer als Pseudonym, das das Basetool
+nur für Verse-Kit vergibt.
 
 **Was zurückkommt:** deine eigenen Baupläne, Lagerposten und Schiffe aus dem
 Basetool, beim Hangar dazu die Liste der Einheiten, in denen du Mitglied bist
-(nur im Speicher, für die Auswahl auf der Schiffskarte).
+(nur im Speicher, für die Auswahl auf der Schiffskarte). Mit dem Bereich
+*Lager der Einheit* das gemeinsame Lager deiner Einheiten — als Logistiker samt
+Besitzern und Notizen —, mit dem Bedarf als Logistiker die Aufträge deiner
+Einheit mit Auftraggeber und Kommentar. Beides nur im Speicher, höchstens
+7 Tage, nie in einer Datei oder Sicherung.
 
 **Was gespeichert wird:** der abgeglichene Stand in deinem Datenordner
 (`basetool-<Kennung>.json`, daneben die Vorgängerfassung

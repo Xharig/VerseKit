@@ -6,6 +6,45 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+> Das Lager deiner Einheit ist da: Unter *Basetool* siehst du, was im
+> gemeinsamen Lager liegt — nach Items, Rohstoffen, Handelsware und
+> Komponenten. Logistiker sehen dazu, wem was gehört, und buchen direkt aus
+> Verse-Kit.
+
+> [!important]
+> Für das Lager der Einheit, die Aufträge im Bedarf und die Einheit am Schiff
+> fragt Verse-Kit neue Erlaubnisse an. Wer schon verbunden ist, bestätigt sie
+> einmal unter *Basetool → Verbindung* mit „Erlaubnis erteilen".
+
+### Neu
+
+- **Lager der Einheit** — neuer Reiter unter *Basetool*: was im gemeinsamen
+  Lager deiner Einheiten liegt, mit Ort, Qualität, Menge und Reservierungen.
+  Als Logistiker klappst du einen Posten auf und siehst die Besitzer.
+- **Buchen als Logistiker** — einbuchen, ausbuchen, verkaufen, verschieben
+  (Ort, Mitglied, Einheit), Notiz, Gestohlen-Marke und Reservierungen, direkt
+  am Eintrag. Ab Werk aus, einzuschalten unter *Basetool → Verbindung*.
+- **Aufträge einzeln im Bedarf** — Logistiker sehen die offenen Aufträge
+  ihrer Einheit mit Nummer, Auftraggeber und Kommentar.
+- **Einheit am Schiff** — im Hangar lässt sich jetzt wählen, zu welcher
+  Einheit ein Schiff im Basetool gehört.
+
+### Behoben
+
+- **„Jetzt nachsehen" baut nicht mehr das ganze Fenster neu** — nur noch die
+  Update-Seite. Der Update-Knopf oben zeigt eine gefundene Version sofort.
+  Gemeldet von Haldjas
+- **Versteckte Dateien im Datenordner blockieren nichts mehr** — VerseKit
+  macht sie beim Start wieder überschreibbar. Vorher gingen dadurch
+  Einstellungen wie die „Neu"-Marken und der Sicherungsstand der
+  Spieltexte verloren. Gemeldet von Haldjas
+- **Die Bauplan-Datei des SC Extractors lässt sich wieder einlesen** — unter
+  *Bestand einlesen* erkennt VerseKit jetzt auch das neue Dateiformat des
+  Basetools, das der Extractor seit 2.10 schreibt. Bisher hieß es dort
+  „Diese Datei kenne ich nicht". Gemeldet von Drachennarr
+
 ## v4.7.0 - 2026-10-16
 
 > Dein Hangar sagt jetzt, was deine Flotte kann: welche Spielbereiche sie

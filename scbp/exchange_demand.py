@@ -93,9 +93,63 @@ def parse(answer):
                       'craftable': bool(line.get('craftableByMe'))})
     materials.sort(key=lambda m: (m['name'].lower(), -m['min_quality']))
     items.sort(key=lambda i: (not i['craftable'], i['name'].lower()))
-    return {'materials': materials, 'items': items,
+    orders = None
+    if isinstance(answer.get('orders'), list):
+        orders = [o for o in (_order(x) for x in answer['orders']) if o]
+        orders.sort(key=lambda o: (o['priority'] is None, o['priority'] or 0,
+                                   o['number'] or 0))
+    return {'materials': materials, 'items': items, 'orders': orders,
             'updated': str(answer.get('updatedAt') or ''),
             'reason': str(answer.get('reason') or '')}
+
+
+def _order(order):
+    """Ein Auftrag der eigenen Logistiker-Einheit — mit Nummer, Einheiten,
+    Auftraggeber, Kommentar und dem, was noch offen ist. Ohne `id` wertlos.
+
+    `orders` gibt es nur für Logistiker mit dem Recht `exchange.demand.details`;
+    sonst ist es `None`. Einen Bearbeiter nennt das Basetool nie."""
+    if not isinstance(order, dict) or not str(order.get('id') or '').strip():
+        return None
+
+    def unit_name(block):
+        return _name(block) if isinstance(block, dict) else ''
+
+    lines = []
+    for line in order.get('materials') or []:
+        if not isinstance(line, dict):
+            continue
+        amount, unit = _amount(line.get('openQuantity'))
+        name = _name(line.get('material'))
+        if not name or amount <= 0:
+            continue
+        try:
+            minimum = int(line.get('minQuality') or 0)
+        except (TypeError, ValueError):
+            minimum = 0
+        lines.append({'name': name, 'amount': amount, 'unit': unit,
+                      'min_quality': minimum, 'item': False})
+    for line in order.get('items') or []:
+        if not isinstance(line, dict):
+            continue
+        amount, unit = _amount(line.get('openQuantity'))
+        name = _name(line.get('item'))
+        if not name or amount <= 0:
+            continue
+        lines.append({'name': name, 'amount': amount, 'unit': unit or 'PIECE',
+                      'min_quality': 0, 'item': True})
+    number = order.get('number')
+    priority = order.get('priority')
+    return {'id': str(order['id']).strip(),
+            'number': number if isinstance(number, int) else None,
+            'type': str(order.get('type') or ''),
+            'status': str(order.get('status') or ''),
+            'priority': priority if isinstance(priority, int) else None,
+            'unit': unit_name(order.get('unit')),
+            'requesting': unit_name(order.get('requestingUnit')),
+            'handle': str(order.get('handle') or '').strip()[:200],
+            'comment': str(order.get('comment') or '').strip()[:2000],
+            'lines': lines}
 
 
 def refresh(conn, now=None):

@@ -990,6 +990,60 @@ def main():
         pruefe(vorher['bauplaene']['attrition-5 repeater']['quelle'] == 'log',
                'ein Import überschreibt keine bessere Quelle')
 
+        # ----------------------------------------------------------------- 13a
+        # Der Basetool-Umschlag `basetool.blueprints` — so schreibt der SC
+        # Extractor seine `blueprints.json`. Ohne Erkennung meldet die Seite
+        # eine unbekannte Datei.
+        print()
+        print('13a. Basetool-Umschlag einlesen (SC Extractor)')
+        _umschlag13a = {
+            'format': 'basetool.blueprints', 'formatVersion': '1.0',
+            'generator': {'name': 'SC Extractor', 'version': '2.10.0'},
+            'generatedAt': '2026-10-17T10:00:00Z',
+            'items': [
+                {'ref': {'name': 'Oracle Helmet'},
+                 'acquiredAt': '2026-09-26T12:00:00Z',
+                 'provenance': {'source': 'log'}},
+                {'ref': {'locKey': 'item_Name_Probe13a_Helmet'},
+                 'provenance': {'source': 'log',
+                                'observedAt': '2026-09-27T08:30:00Z'}},
+                {'ref': {'bt': 'bp-probe13a-nur-schluessel'}},
+            ]}
+        pruefe(importer.detect(_umschlag13a) == 'basetool',
+               'der Umschlag wird als Basetool-Datei erkannt')
+        pruefe(importer.detect(dict(_umschlag13a, formatVersion='2.0')) is None,
+               'ein Umschlag mit anderer Hauptfassung gilt als unbekannt')
+        pruefe(importer.detect({'format': 'basetool.ships',
+                                'formatVersion': '1.0', 'items': []}) is None,
+               'ein Umschlag mit anderem Inhalt gilt nicht als Bauplan-Datei')
+
+        _datei13a = os.path.join(basis, 'umschlag13a.json')
+        with open(_datei13a, 'w', encoding='utf-8') as f:
+            json.dump(_umschlag13a, f)
+        # Die Auflösung des Schlüssels wird vorgegeben, damit die Prüfung
+        # nicht an den Spieltexten der Installation hängt.
+        from scbp import phrases as _ph13a
+        _ph13a._KEY_CACHE['item_Name_Probe13a_Helmet'] = 'Probe13a Helm'
+        try:
+            _art13a, _ein13a = importer.read(_datei13a)
+        finally:
+            _ph13a._KEY_CACHE.pop('item_Name_Probe13a_Helmet', None)
+        _namen13a = [e['name'] for e in _ein13a]
+        pruefe(_art13a == 'basetool',
+               'die Extractor-Datei wird gelesen (Art: %r)' % (_art13a,))
+        pruefe(_namen13a == ['Oracle Helmet', 'Probe13a Helm'],
+               'Name aus ref.name, ein reiner locKey über die Spieltexte '
+               '(gelesen: %s)' % _namen13a)
+        pruefe(len(_ein13a) == 2,
+               'ein Eintrag nur mit Basetool-Schlüssel bleibt draußen')
+        _erwartet13a = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(
+            1790424000))                  # acquiredAt oben, in Sekunden
+        pruefe(bool(_ein13a) and _ein13a[0]['zeit'] == _erwartet13a,
+               'acquiredAt (UTC) steht in Ortszeit im Eintrag')
+        pruefe(len(_ein13a) > 1 and (_ein13a[1]['zeit'] or '')[:10]
+               in ('2026-09-26', '2026-09-27', '2026-09-28'),
+               'ohne acquiredAt zählt provenance.observedAt')
+
         # ----------------------------------------------------------------- 13b
         # Der Ablage-Ort muss einen Neustart ueberleben.
         #
@@ -25628,6 +25682,10 @@ def main():
     _pruefung_459()
     _pruefung_460()
     _pruefung_461()
+    _pruefung_463()
+    _pruefung_465()
+    _pruefung_466()
+    _pruefung_467()
 
     print()
     if fehler:
@@ -36221,6 +36279,9 @@ def _pruefung_350():
         from scbp import exchange_demand as _ed350
         _sichtbar350 = _ed350.visible
         _ed350.visible = lambda: True
+        from scbp import exchange_orgstock as _og350
+        _sichtbar_og350 = _og350.visible
+        _og350.visible = lambda: True
         _ohne350 = []
         for _p350 in _pg350.SYNC_PAGES:
             f.open_page(_p350)
@@ -36234,6 +36295,7 @@ def _pruefung_350():
                 _ohne350.append(_p350)
         _pg350._sync_ready = echt[4]
         _ed350.visible = _sichtbar350
+        _og350.visible = _sichtbar_og350
         pruefe(not _ohne350,
                'jede Seite mit Basetool-Abgleich hat „Jetzt abgleichen" oben '
                '(fehlt: %r)' % _ohne350)
@@ -41129,10 +41191,11 @@ def _pruefung_424():
     _fehlt = sorted(k for k in _schl if k not in _la424.TEXTS)
     pruefe(not _fehlt, 'jede Karte hat ihren Text, deutsch und englisch (%r)'
            % _fehlt)
-    pruefe(_ka424.area('basetool')[3] == ('basetool', 'bedarf', 'lager',
-                                         'handelslager', 'hangar', 'liste'),
-           'Basetool bündelt Verbindung, Bedarf, Lager, Handelslager, Hangar, '
-           'Liste')
+    pruefe(_ka424.area('basetool')[3] == ('basetool', 'bedarf', 'staffellager',
+                                         'lager', 'handelslager', 'hangar',
+                                         'liste'),
+           'Basetool bündelt Verbindung, Bedarf, Lager der Einheit, Lager, '
+           'Handelslager, Hangar, Liste')
     pruefe([_ka424.columns_for(w, 220) for w in (100, 451, 452, 940, 1500)]
            == [1, 1, 2, 4, 6],
            'Spalten: so viele, wie mit Mindestbreite passen, mindestens eine')
@@ -41393,6 +41456,7 @@ def _pruefung_424():
                 ('basetool', 'hangar'): [],
                 ('basetool', 'liste'): [],
                 ('basetool', 'bedarf'): [],
+                ('basetool', 'staffellager'): [],
                 ('basetool', 'basetool'): [],
                 ('spiel_einst', 'uebersetzung'): [_t424('k_tr_pruefen'),
                                                   _t424('k_tr_neu')],
@@ -42792,11 +42856,12 @@ def _pruefung_445():
             return tuple(k for z in g['inhalt'].winfo_children()
                          for k, teile in _f445.buttons.items() if teile[0] is z)
 
-        pruefe(reiter_von('basetool') == ('basetool', 'bedarf'),
-               'die Gruppe Basetool hat Verbindung und Bedarf (%r)'
-               % (reiter_von('basetool'),))
+        pruefe(reiter_von('basetool') == ('basetool', 'bedarf', 'staffellager'),
+               'die Gruppe Basetool hat Verbindung, Bedarf und Lager der '
+               'Einheit (%r)' % (reiter_von('basetool'),))
         _anderswo445 = [g for g in _f445.groups if g != 'basetool'
-                        and set(reiter_von(g)) & {'basetool', 'bedarf'}]
+                        and set(reiter_von(g)) & {'basetool', 'bedarf',
+                                                  'staffellager'}]
         pruefe(not _anderswo445,
                'Basetool-Reiter stehen in keiner anderen Gruppe (%r)'
                % _anderswo445)
@@ -42848,12 +42913,12 @@ def _pruefung_445():
                and not _g445['inhalt'].winfo_manager(),
                'Modul Basetool aus: die Gruppe ist ausgeblendet')
         _ziele445 = []
-        for _seite445 in ('basetool', 'bedarf'):
+        for _seite445 in ('basetool', 'bedarf', 'staffellager'):
             _f445.open_page(_seite445, via='sprung')
             _ziele445.append(_f445.current)
-        pruefe(_ziele445 == ['module', 'module'],
-               'Modul Basetool aus: Verbindung und Bedarf führen zu „Module" '
-               '(%r)' % _ziele445)
+        pruefe(_ziele445 == ['module', 'module', 'module'],
+               'Modul Basetool aus: Verbindung, Bedarf und Lager der Einheit '
+               'führen zu „Module" (%r)' % _ziele445)
         pruefe(not _ka445.area_enabled('basetool')
                and 'basetool' not in [a[0] for a in _ka445.visible_areas()],
                'derselbe Schalter blendet den Kartenbereich Basetool aus')
@@ -44949,6 +45014,650 @@ def _pruefung_461():
     pruefe("daten['analyse_neu'] = _fleet_analysis(" in _rumpf_hangar462
            and _rumpf_hangar462.count("daten.get('analyse_neu')") >= 1,
            'die Hangar-Seite baut den Kasten und füllt ihn beim Neuzeichnen')
+
+
+def _pruefung_463():
+    """463. Versteckte Dateien im Datenordner werden beim Start freigemacht;
+    der Knopf zum Nachsehen zeichnet die Update-Seite und den Update-Knopf."""
+    print('\n463. Datenordner freimachen · Update-Suche ohne Neuaufbau')
+    import threading as _th463
+    from scbp import paths as _pa463, news as _nw463, updater as _up463
+    from scbp import pages as _sei463, language as _sp463
+    from scbp.main_window import MainWindow as _MW463
+    _sp463.set_language('de')
+    _heim463 = tempfile.mkdtemp(prefix='pruefung463-')
+    _alt_home463 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim463
+    try:
+        if os.name != 'nt':
+            pruefe(_pa463.unlock_data_folder() == 0,
+                   'außerhalb von Windows tut das Freimachen nichts')
+        else:
+            import ctypes as _ct463
+            _k463 = _ct463.WinDLL('kernel32')
+            _k463.GetFileAttributesW.restype = _ct463.c_uint32
+            _oben463 = _pa463.app_file(_nw463.FILE)
+            _unten463 = os.path.join(_heim463, 'Intern', 'probe.json')
+            os.makedirs(os.path.dirname(_unten463), exist_ok=True)
+            for _d463 in (_oben463, _unten463):
+                with open(_d463, 'w', encoding='utf-8') as f:
+                    f.write('{}')
+                _k463.SetFileAttributesW(_d463, 0x2 | 0x4)
+            try:
+                open(_unten463, 'w').close()
+                _gesperrt463 = False
+            except PermissionError:
+                _gesperrt463 = True
+            pruefe(_gesperrt463,
+                   'Vorbedingung: eine versteckte System-Datei lässt sich nicht '
+                   'mit open(…, "w") überschreiben')
+            _zahl463 = _pa463.unlock_data_folder()
+            pruefe(_zahl463 == 2,
+                   'beide Dateien freigemacht, auch im Unterordner (%d)' % _zahl463)
+            pruefe(all(not _k463.GetFileAttributesW(_d463) & 0x7
+                       for _d463 in (_oben463, _unten463)),
+                   'danach trägt keine mehr versteckt, System oder Schreibschutz')
+            pruefe(_nw463._write({'probe': 1}) is True,
+                   'news._write überschreibt die Datei danach')
+            pruefe(_pa463.unlock_data_folder() == 0,
+                   'ein zweiter Lauf findet nichts mehr')
+        _start463 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                         encoding='utf-8').read()
+        _spur463 = _start463.index("errors.trail('Start, Version")
+        _fenster463 = _start463.index('tk.Tk(className=')
+        _frei463 = _start463.find('paths.unlock_data_folder()')
+        pruefe(_spur463 < _frei463 < _fenster463,
+               'der Start macht den Datenordner frei, bevor das erste Fenster '
+               'entsteht')
+    finally:
+        if _alt_home463 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home463
+        shutil.rmtree(_heim463, ignore_errors=True)
+
+    _heim463 = tempfile.mkdtemp(prefix='pruefung463b-')
+    _alt_home463 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim463
+    _alt463 = (_up463.check, _up463.fetch_succeeded, _up463._fetch,
+               _sei463._from_thread, _th463.Thread)
+    _root463 = _wurzel()
+    _fe463 = None
+
+    class _SofortFaden463:
+        def __init__(self, target=None, daemon=None, **_k):
+            self._ziel = target
+
+        def start(self):
+            self._ziel()
+
+    def _kein_netz463(*_a, **_k):
+        raise RuntimeError('Pruefung 463: kein Netz')
+    try:
+        _up463._fetch = _kein_netz463
+        _up463._cache_write({'geprueft': time.time(), 'freigaben': [
+            {'version': 'v3.0.0', 'vorab': False}]})
+        _fe463 = _MW463(_root463, version='3.62.3')
+        _fe463.root.update()
+        _fe463.open_page('danke')
+        _fe463.open_page('ueber')
+        _fe463.root.update()
+        _andere463 = list(_fe463.pages['danke'].winfo_children())
+        _alt_ueber463 = list(_fe463.pages['ueber'].winfo_children())
+        pruefe(bool(_andere463) and bool(_alt_ueber463),
+               'Vorbedingung: „Danke" und „Update & Über" sind gebaut')
+        _neu_aufgebaut463 = []
+        _fe463.rebuild = lambda: _neu_aufgebaut463.append(1)
+        _up463._cache_write({'geprueft': time.time(), 'freigaben': [
+            {'version': 'v3.0.0', 'vorab': False},
+            {'version': 'v99.1.0', 'vorab': False}]})
+        _up463.check = lambda *_a, **_k: {'version': 'v99.1.0'}
+        _up463.fetch_succeeded = lambda: True
+        _sei463._from_thread = lambda _w, tat: tat()
+        _th463.Thread = _SofortFaden463
+        _sei463._check_now(_fe463)
+        _fe463.root.update()
+        pruefe(not _neu_aufgebaut463,
+               'die Update-Suche baut nicht das ganze Fenster neu')
+        pruefe(all(w.winfo_exists() for w in _andere463),
+               'die übrigen Seiten bleiben stehen')
+        pruefe(not any(w.winfo_exists() for w in _alt_ueber463)
+               and _fe463.pages['ueber'].winfo_children(),
+               'die Update-Seite ist neu gebaut')
+        _z463, _w463 = _fe463.update_button.teile
+        pruefe('v99.1.0' in _w463.cget('text'),
+               'der Update-Knopf oben nennt die gefundene Version sofort (%r)'
+               % _w463.cget('text'))
+    finally:
+        (_up463.check, _up463.fetch_succeeded, _up463._fetch,
+         _sei463._from_thread, _th463.Thread) = _alt463
+        for _w in (_fe463.root if _fe463 is not None else None, _root463):
+            try:
+                if _w is not None:
+                    _w.destroy()
+            except Exception:
+                pass
+        if _alt_home463 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home463
+        shutil.rmtree(_heim463, ignore_errors=True)
+
+
+class _OrgConn465:
+    """Ein nachgebautes Basetool für das Lager der Einheit: Antworten je
+    Anfrage aus einer Liste, jede Anfrage wird mitgeschrieben."""
+
+    def __init__(self, answers=None):
+        self.calls = []
+        self.answers = answers or {}
+
+    def request(self, method, path, body=None, query=None,
+                idempotency_key=None):
+        self.calls.append((method, path, dict(query or {}), body,
+                           idempotency_key))
+        key = (method, path, (query or {}).get('cursor')
+               or (query or {}).get('unit'))
+        answer = self.answers.get(key, self.answers.get((method, path)))
+        if callable(answer):
+            answer = answer(query, body)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer if answer is not None else {}
+
+
+def _org_lot465(key, unit, name, kind=None, place='Area18', quality=500,
+                amount=10.0, unit_q='SCU', entries=None, stolen=False):
+    """Ein Posten in der Form der Anleitung (`org-stock-lot`)."""
+    item = {'key': key, 'unit': {'id': unit, 'name': 'Einheit ' + unit},
+            'material': {'bt': 'bt-' + name.lower(), 'name': name},
+            'location': {'name': place}, 'quality': quality,
+            'stolen': stolen, 'quantity': {'amount': amount, 'unit': unit_q},
+            'earmarked': {'jobOrders': {'amount': 0, 'unit': unit_q},
+                          'missions': {'amount': 0, 'unit': unit_q}}}
+    if kind is not None:
+        item['materialKind'] = kind
+    if entries is not None:
+        item['entries'] = entries
+    return item
+
+
+# Der Eintrag aus `docs/exchange/examples/v1/org-stock-lot/valid/with-entries.json`.
+_ORG_ENTRY465 = {
+    'id': '9a7c2e10-4f3b-4d21-8c6e-2b1a0f9d8e31', 'version': 3,
+    'holder': {'withheld': False, 'name': 'Hauler One',
+               'ref': 'q0Fh3kB9xV7m2LwP5nR8tY1cZ4dE6gJ0sU3aH7bK9fM'},
+    'quantity': {'amount': 30, 'unit': 'SCU'}, 'note': 'Hangar 3, Kiste links',
+    'jobOrders': [{'id': '4b2d6f80-1a3c-4e57-9b0d-7c5e3a1f2d42', 'number': 412,
+                   'quantity': {'amount': 12, 'unit': 'SCU'},
+                   'delivered': False}],
+    'missions': [{'id': '6e8a0c24-5b7d-4f91-a3c6-8d2f4b6e0a53',
+                  'name': 'Op Nordlicht',
+                  'quantity': {'amount': 4, 'unit': 'SCU'}}],
+    'free': {'jobOrders': {'amount': 18, 'unit': 'SCU'},
+             'missions': {'amount': 26, 'unit': 'SCU'}}}
+_ORG_HIDDEN465 = {
+    'id': '1f3e5a7c-9b2d-4c64-8e0a-3d5f7b9c1e75', 'version': 0,
+    'holder': {'withheld': True}, 'quantity': {'amount': 18.25, 'unit': 'SCU'},
+    'jobOrders': [], 'missions': [],
+    'free': {'jobOrders': {'amount': 18.25, 'unit': 'SCU'},
+             'missions': {'amount': 18.25, 'unit': 'SCU'}}}
+
+
+def _pruefung_465():
+    """465. Lager der Einheit: Einlesen, Feed, Einordnung, Buchungen."""
+    print('\n465. Lager der Einheit: Einlesen, Feed, Einordnung, Buchungen')
+    from scbp import exchange_orgstock as _og, basetool as _bt
+    _og.forget()
+    _ga465 = {'type': 'RAW', 'commodity': True, 'raw': True}
+
+    # --- Einlesen ---
+    _lot = _og.parse_lot(_org_lot465('k1', 'u1', 'Laranite', _ga465,
+                                     entries=[_ORG_ENTRY465, _ORG_HIDDEN465]))
+    _e1, _e2 = _lot['entries']
+    pruefe(_e1['holder'] == 'Hauler One' and _e1['ref'].startswith('q0Fh')
+           and _e1['version'] == 3 and _e1['note'] == 'Hangar 3, Kiste links'
+           and _e1['jobs'][0]['number'] == 412
+           and _e1['missions'][0]['name'] == 'Op Nordlicht'
+           and (_e1['free_jobs'], _e1['free_missions']) == (18.0, 26.0),
+           'ein Eintrag bringt Besitzer, Version, Notiz, Reservierungen und '
+           'Freies mit')
+    pruefe(_e2['withheld'] and not _e2['holder'] and not _e2['ref']
+           and not _e2['note'],
+           'ein verborgener Besitzer hat weder Namen noch Pseudonym noch Notiz')
+    pruefe(_og.parse_lot({'key': 'x', 'material': {'name': 'Laranite'}})
+           is None, 'ein Posten ohne Einheit taugt nicht')
+    pruefe(_og.parse_lot(_org_lot465('k2', 'u1', 'Laranite'))['entries']
+           is None, 'ohne `entries` ist der Posten nicht aufklappbar (None)')
+
+    # --- Feed: Löschmarken, Einheiten ---
+    _snap = {'items': [_org_lot465('a', 'u1', 'Laranite', _ga465),
+                       _org_lot465('b', 'u2', 'Agricium', _ga465)],
+             'removed': [], 'units': [{'id': 'u1'}, {'id': 'u2'}]}
+    _lots, _units = _og.apply_pages({}, [_snap], False)
+    pruefe(set(_lots) == {'a', 'b'} and len(_units) == 2,
+           'Schnappschuss: zwei Posten in zwei Einheiten')
+    _feed = {'items': [_org_lot465('c', 'u1', 'Iron', _ga465)],
+             'removed': [{'key': 'a'}], 'units': [{'id': 'u1'}]}
+    _lots2, _ = _og.apply_pages(_lots, [_feed], False)
+    pruefe(set(_lots2) == {'c'},
+           'Feed: Löschmarke entfernt, Neues kommt dazu, die verlassene '
+           'Einheit fällt samt Posten weg (%s)' % sorted(_lots2))
+    _mit = {'items': [_org_lot465('d', 'u1', 'Iron', _ga465,
+                                  entries=[_ORG_ENTRY465])],
+            'units': [{'id': 'u1'}]}
+    pruefe(_og.apply_pages({}, [_mit], False)[0]['d']['entries'] is None,
+           'ohne das Recht `details` fallen Einträge weg')
+
+    # --- Abruf mit Cursor, abgelaufener Cursor, Recht dazu ---
+    _conn = _OrgConn465({
+        ('GET', '/org-stock', None): {'items': [_org_lot465(
+            'a', 'u1', 'Laranite', _ga465)], 'units': [{'id': 'u1'}],
+            'nextCursor': 'c1', 'hasMore': False},
+        ('GET', '/org-stock', 'c1'): {'items': [_org_lot465(
+            'b', 'u1', 'Iron', _ga465)], 'units': [{'id': 'u1'}],
+            'nextCursor': 'c2', 'hasMore': False},
+        ('GET', '/org-stock', 'c2'): _bt.ApiError('CURSOR_EXPIRED', 410)})
+    _og.refresh(_conn, details=False)
+    _og.refresh(_conn, details=False)
+    _cur = [c[2].get('cursor') for c in _conn.calls]
+    pruefe(_cur == [None, 'c1']
+           and set((_og.current() or {}).get('lots') or {}) == {'a', 'b'},
+           'erst Schnappschuss, dann Feed mit Cursor (%r)' % _cur)
+    _og.refresh(_conn, details=False)
+    _cur = [c[2].get('cursor') for c in _conn.calls]
+    pruefe(_cur[2:] == ['c2', None]
+           and set(_og.current()['lots']) == {'a'},
+           'abgelaufener Cursor: neuer Schnappschuss ersetzt den Stand (%r)'
+           % _cur)
+    _n = len(_conn.calls)
+    _og.refresh(_conn, details=True)
+    pruefe(_conn.calls[_n][2].get('cursor') is None,
+           'kommt das Recht `details` dazu, wird neu geholt (ohne Cursor)')
+    pruefe(_og.current(now=_og.current()['at'] + _og.MAX_AGE + 1) is None,
+           'nach mehr als 7 Tagen ist der Stand verworfen')
+
+    # --- Logistiker über die Mitgliederliste ---
+    _og.forget()
+    _conn = _OrgConn465({
+        ('GET', '/org-stock', None): {'items': [], 'units': [
+            {'id': 'u1', 'name': 'Iridium'}, {'id': 'u2', 'name': 'Nord'}]},
+        ('GET', '/org-stock/members', 'u1'): {'unit': {'id': 'u1'}, 'items': [
+            {'ref': 'r1', 'name': 'Hauler One'}, {'name': 'ohne Pseudonym'}]},
+        ('GET', '/org-stock/members', 'u2'): _bt.ApiError('NOT_PERMITTED',
+                                                          403)})
+    _og.refresh(_conn, details=True, write=True)
+    _d = _og.current()
+    pruefe(_og.can_write(_d, 'u1') and not _og.can_write(_d, 'u2'),
+           'Buchen nur, wo die Mitgliederliste kommt; NOT_PERMITTED heißt '
+           'kein Logistiker')
+    pruefe(_d['rosters'].get('u1') == [{'ref': 'r1', 'name': 'Hauler One'}],
+           'ein Mitglied ohne Pseudonym fällt aus der Liste')
+    _og.refresh(_conn, details=True, write=False)
+    pruefe(not _og.can_write(_og.current(), 'u1'),
+           'ohne eingeschaltetes Buchen kein Buchen')
+    _og.forget()
+
+    # --- Einordnung ---
+    _alt_comp = _og._is_component
+    try:
+        _og._is_component = lambda name: name == 'Teil'
+        _faelle = [
+            ({'type': 'RAW', 'commodity': True, 'raw': True}, _og.RAW),
+            ({'type': 'REFINED', 'commodity': True, 'refined': True}, _og.RAW),
+            ({'type': 'NO_REFINE', 'commodity': True, 'raw': False,
+              'mineral': False}, _og.TRADE),
+            ({'type': 'RAW', 'commodity': True}, _og.RAW),
+            ({'type': 'NO_REFINE', 'commodity': True}, _og.TRADE),
+            ({'type': 'NO_REFINE', 'commodity': False}, _og.RAW),
+        ]
+        _falsch = [(k, s) for k, s in _faelle
+                   if _og.category({'kind': k, 'name': 'X'}) != s]
+        pruefe(not _falsch, 'Materialien: Erz/Raffiniertes Rohstoff, Rest mit '
+               'commodity Handelsware, ohne UEX-Kennzeichen nach `type` (%r)'
+               % _falsch)
+        pruefe(_og.category({'kind': None, 'name': 'Teil'}) == _og.COMPONENTS
+               and _og.category({'kind': None, 'name': 'Helm'}) == _og.ITEMS,
+               'Items: Schiffsteile Komponenten, der Rest Items')
+    finally:
+        _og._is_component = _alt_comp
+    from scbp import crafting as _cr465
+    _alt_raw = _cr465.recipe_raw
+    try:
+        _og._component_cache.clear()
+        _cr465.recipe_raw = lambda name: (
+            {'tag': 'BP_CRAFT_KLWE_BallisticGatling_S4', 'type': 'weapons'}
+            if name == 'Probe-Gatling' else {})
+        pruefe(_og._is_component('Probe-Gatling')
+               and not _og._is_component('Probe-Helm'),
+               'Schiffswaffe aus dem Rezept-Tag ist Komponente, Unbekanntes '
+               'nicht')
+    finally:
+        _cr465.recipe_raw = _alt_raw
+        _og._component_cache.clear()
+
+    # --- Anweisungen in der Form der Anleitung (org-stock.md, A change set) ---
+    _u = '7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10'
+    _ref = 'q0Fh3kB9xV7m2LwP5nR8tY1cZ4dE6gJ0sU3aH7bK9fM'
+    _ein = {'id': '9a7c2e10-4f3b-4d21-8c6e-2b1a0f9d8e31', 'version': 3}
+    _zwei = {'id': '1f3e5a7c-9b2d-4c64-8e0a-3d5f7b9c1e75', 'version': 0}
+    _ist = [
+        _og.op_book_in(_u, _ref, {'bt': 'c3b1e0c2-8a4e-4f64-9a51-2b9f5c7e0a11',
+                                  'name': 'Laranite'},
+                       {'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
+                       500, False, 12.5, 'SCU', note='Hangar 3'),
+        _og.op_book_out(_u, _ein, 14, 'SCU',
+                        {'4b2d6f80-1a3c-4e57-9b0d-7c5e3a1f2d42': 2}),
+        _og.op_sell(_u, _zwei, 6, 'SCU', 'TDD Area18', 48250),
+        _og.op_move_holder(_u, dict(_zwei, version=1), 4, 'SCU', _u, _ref),
+        _og.op_stolen(_u, dict(_ein, version=4), True, 2, 'SCU'),
+    ]
+    _soll = [
+        {'op': 'book-in', 'unit': _u, 'holder': _ref,
+         'material': {'bt': 'c3b1e0c2-8a4e-4f64-9a51-2b9f5c7e0a11',
+                      'name': 'Laranite'},
+         'location': {'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
+         'quality': 500, 'stolen': False,
+         'quantity': {'amount': 12.5, 'unit': 'SCU'}, 'note': 'Hangar 3'},
+        {'op': 'book-out', 'unit': _u, 'entry': _ein['id'], 'version': 3,
+         'quantity': {'amount': 14, 'unit': 'SCU'},
+         'fromJobOrders': [{'jobOrder': '4b2d6f80-1a3c-4e57-9b0d-7c5e3a1f2d42',
+                            'quantity': {'amount': 2, 'unit': 'SCU'}}]},
+        {'op': 'sell', 'unit': _u, 'entry': _zwei['id'], 'version': 0,
+         'quantity': {'amount': 6, 'unit': 'SCU'}, 'terminal': 'TDD Area18',
+         'proceeds': 48250},
+        {'op': 'move-holder', 'unit': _u, 'entry': _zwei['id'], 'version': 1,
+         'quantity': {'amount': 4, 'unit': 'SCU'}, 'toUnit': _u,
+         'holder': _ref},
+        {'op': 'stolen', 'unit': _u, 'entry': _ein['id'], 'version': 4,
+         'stolen': True, 'quantity': {'amount': 2, 'unit': 'SCU'}},
+    ]
+    for _i, (_a, _b) in enumerate(zip(_ist, _soll)):
+        pruefe(_a == _b, 'Anweisung %s wie im Beispiel der Anleitung (%r)'
+               % (_b['op'], {k: v for k, v in _a.items() if _b.get(k) != v}))
+    pruefe(_og.op_note(_u, _ein, '   ') == {'op': 'note', 'unit': _u,
+                                            'entry': _ein['id'], 'version': 3},
+           'eine leere Notiz geht ohne `note` hinaus (= löschen)')
+    pruefe(_og.op_move_pool(_u, _ein, 'u9') == {
+        'op': 'move-pool', 'unit': _u, 'entry': _ein['id'], 'version': 3,
+        'toUnit': 'u9'}, 'Einheit wechseln ohne Menge: der ganze Eintrag')
+    pruefe(_og.op_allocation('remove', _u, _ein, 'mission', 'm1') == {
+        'op': 'allocation-remove', 'unit': _u, 'entry': _ein['id'],
+        'version': 3, 'mission': 'm1'}
+        and _og.op_allocation('add', _u, _ein, 'jobOrder', 'j1', 3,
+                              'PIECE')['quantity'] == {'amount': 3,
+                                                       'unit': 'PIECE'},
+        'Reservierung: entfernen ohne Menge, Stück ganzzahlig')
+    pruefe(_og.op_book_in(_u, _ref, {'name': 'Helm'}, {'name': 'Area18'}, 700,
+                          False, 2, 'PIECE', merge_scu=True)['quality'] == 0
+           and 'mergeScu' not in _og.op_book_in(
+               _u, _ref, {'name': 'Helm'}, {'name': 'Area18'}, 700, False, 2,
+               'PIECE', merge_scu=True),
+           'ein Item geht mit Qualität 0 und ohne mergeScu hinaus')
+
+    # --- Senden ---
+    _ergebnis = {'applied': 1, 'unchanged': 1, 'results': [
+        {'index': 1, 'result': 'unchanged'},
+        {'index': 2, 'result': 'rejected', 'reason': 'VERSION_CONFLICT'}],
+        'offersReduced': 1}
+    _conn = _OrgConn465({('POST', '/org-stock/changes'): _ergebnis})
+    _r = _og.send(_conn, [{'op': 'note'}])
+    pruefe(_r['failed'] == [(2, 'rejected', 'VERSION_CONFLICT')]
+           and _r['offers'] == 1 and _conn.calls[0][4]
+           and _conn.calls[0][3] == {'ops': [{'op': 'note'}]},
+           'Senden: mit Idempotency-Key, Ablehnungen samt Grund gelesen')
+    _alt_env = {k: os.environ.pop(k) for k in _bt.OVERRIDE_VARS
+                if k in os.environ}
+    try:
+        for _url, _soll_url in (('https://profit-base.online/ok',
+                                 'https://profit-base.online/ok'),
+                                ('https://evil.example/x', None),
+                                ('file:///C:/x.exe', None)):
+            _conn = _OrgConn465({('POST', '/org-stock/changes'): _bt.ApiError(
+                'MASS_CHANGE_CONFIRMATION_REQUIRED', 409,
+                problem={'confirmationUrl': _url})})
+            pruefe(_og.send(_conn, [{'op': 'book-out'}])['confirm_url']
+                   == _soll_url,
+                   'Massenänderung: Bestätigungsadresse nur beim Basetool '
+                   '(%s)' % _url)
+    finally:
+        os.environ.update(_alt_env)
+
+
+def _pruefung_466():
+    """466. Lager der Einheit: Seite, Knöpfe nur für Logistiker, Formular
+    baut die Anweisung."""
+    print('\n466. Lager der Einheit: Seite und Buchen')
+    import threading as _th466
+    import tkinter as tk
+    from scbp import exchange_orgstock as _og, language as _sp466
+    from scbp.main_window import MainWindow as _MW466
+    _sp466.set_language('de')
+    _heim466 = tempfile.mkdtemp(prefix='pruefung466-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim466
+    _alt466 = (_og.visible, _og.send, _og.refresh, _th466.Thread)
+    _root = _wurzel()
+    _fe = None
+    _gesendet = []
+
+    class _Sofort:
+        def __init__(self, target=None, daemon=None, **_k):
+            self._ziel = target
+
+        def start(self):
+            self._ziel()
+
+    def _stand(write):
+        _ga = {'type': 'RAW', 'commodity': True, 'raw': True}
+        _seite = {'items': [_org_lot465('k1', 'u1', 'Laranite', _ga,
+                                        entries=[_ORG_ENTRY465])],
+                  'units': [{'id': 'u1', 'name': 'Iridium'}]}
+        _lots, _units = _og.apply_pages({}, [_seite], True)
+        _og._state.update(lots=_lots, units=_units, cursor='c', at=time.time(),
+                          details=True, write=write, logistician={'u1'},
+                          rosters={'u1': [{'ref': 'r1', 'name': 'Hauler One'}]})
+
+    def _texte(w, out):
+        try:
+            if isinstance(w, tk.Label):
+                out.append(w.cget('text'))
+            if isinstance(w, tk.Canvas):
+                for _i in w.find_all():
+                    if w.type(_i) == 'text':
+                        out.append(w.itemcget(_i, 'text'))
+        except tk.TclError:
+            pass
+        for _k in w.winfo_children():
+            _texte(_k, out)
+        return out
+
+    def _knopf(w, text):
+        if isinstance(w, tk.Canvas):
+            try:
+                for _i in w.find_all():
+                    if w.type(_i) == 'text' and \
+                            w.itemcget(_i, 'text').lower() == text.lower():
+                        return w
+            except tk.TclError:
+                pass
+        for _k in w.winfo_children():
+            _f = _knopf(_k, text)
+            if _f is not None:
+                return _f
+        return None
+
+    def _label(w, text):
+        if isinstance(w, tk.Label):
+            try:
+                if w.cget('text') == text:
+                    return w
+            except tk.TclError:
+                pass
+        for _k in w.winfo_children():
+            _f = _label(_k, text)
+            if _f is not None:
+                return _f
+        return None
+
+    def _pumpen():
+        # Auch die Rückmeldung aus dem Buchungsfaden kommt über
+        # `pages._TK_CALLS` — der Abholer läuft im Takt von `after`.
+        for _ in range(8):
+            _root.update()
+            _root.update_idletasks()
+            time.sleep(0.03)
+
+    try:
+        _og.visible = lambda: True
+        _og.send = lambda conn, ops: (_gesendet.append(list(ops)) or
+                                      {'applied': 1, 'unchanged': 0,
+                                       'failed': [], 'offers': 0,
+                                       'confirm_url': None})
+        _og.refresh = lambda *a, **k: {}
+        _th466.Thread = _Sofort
+        _stand(write=False)
+        _fe = _MW466(_root, version='4.7.0')
+        _fe.open_page('staffellager')
+        _pumpen()
+        _seite = _fe.pages['staffellager']
+        pruefe(_label(_seite, 'Laranite') is not None,
+               'die Seite zeigt den Posten der Einheit')
+        _label(_seite, 'Laranite').event_generate('<Button-1>')
+        _pumpen()
+        pruefe('Hauler One' in _texte(_seite, []),
+               'aufgeklappt: der Eintrag nennt den Besitzer')
+        pruefe(_knopf(_seite, _sp466.t('s_sl_ausbuchen')) is None
+               and _knopf(_seite, _sp466.t('s_sl_einbuchen')) is None,
+               'ohne eingeschaltetes Buchen: keine Buchungsknöpfe')
+
+        _stand(write=True)
+        _fe.pages_changed(['staffellager'])
+        _pumpen()
+        _seite = _fe.pages['staffellager']
+        pruefe(_knopf(_seite, _sp466.t('s_sl_einbuchen')) is not None,
+               'Logistiker mit Buchen: der Knopf Einbuchen steht oben')
+        _label(_seite, 'Laranite').event_generate('<Button-1>')
+        _pumpen()
+        _k = _knopf(_seite, _sp466.t('s_sl_ausbuchen'))
+        pruefe(_k is not None, 'am Eintrag steht Ausbuchen')
+        _k.event_generate('<Button-1>')
+        _pumpen()
+        pruefe(_label(_seite, _sp466.t('s_sl_ausbuchen_titel')
+                      % ('Laranite', 'Hauler One')) is not None,
+               'Ausbuchen öffnet das Formular am Eintrag')
+        # Die Menge steht vorbelegt auf dem freien Teil (18); abschicken.
+        _titel = _sp466.t('s_sl_ausbuchen_titel') % ('Laranite', 'Hauler One')
+        _form = _label(_seite, _titel).master
+        _knopf(_form, _sp466.t('s_sl_ausbuchen')).event_generate('<Button-1>')
+        _pumpen()
+        pruefe(_gesendet == [[{'op': 'book-out', 'unit': 'u1',
+                               'entry': _ORG_ENTRY465['id'], 'version': 3,
+                               'quantity': {'amount': 18.0, 'unit': 'SCU'}}]],
+               'das Formular schickt die Anweisung mit Eintrag, Version und '
+               'Menge (%r)' % _gesendet)
+        _gesendet[:] = []
+        _og.send = lambda conn, ops: {'applied': 0, 'unchanged': 0,
+                                      'failed': [(0, 'rejected',
+                                                  'VERSION_CONFLICT')],
+                                      'offers': 0, 'confirm_url': None}
+        _label(_seite, 'Laranite').event_generate('<Button-1>') \
+            if _label(_seite, 'Hauler One') is None else None
+        _pumpen()
+        _knopf(_seite, _sp466.t('s_sl_notiz')).event_generate('<Button-1>')
+        _pumpen()
+        _titel = _sp466.t('s_sl_notiz_titel') % ('Laranite', 'Hauler One')
+        _form = _label(_seite, _titel).master
+        _knopf(_form, _sp466.t('s_sl_speichern')).event_generate('<Button-1>')
+        _pumpen()
+        pruefe(_sp466.t('s_sl_r_version_conflict') in _texte(_seite, []),
+               'eine Ablehnung steht als Satz über der Liste')
+    finally:
+        (_og.visible, _og.send, _og.refresh, _th466.Thread) = _alt466
+        _og.forget()
+        for _w in ((_fe.root if _fe is not None else None), _root):
+            try:
+                if _w is not None:
+                    _w.destroy()
+            except Exception:
+                pass
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim466, ignore_errors=True)
+
+
+def _pruefung_467():
+    """467. Bedarf mit Aufträgen; freiwillige Rechte nur für eingeschaltete
+    Bereiche."""
+    print('\n467. Bedarf mit Aufträgen · freiwillige Rechte')
+    from scbp import exchange_demand as _ed, basetool_sync as _bs, paths as _pa
+    _beispiel = {
+        'materials': [], 'items': [],
+        'orders': [{
+            'id': '0b9a6f0e-4c1d-4a8e-9a3f-5c2d7e8f9a10', 'number': 412,
+            'type': 'MATERIAL', 'status': 'OPEN', 'priority': 3,
+            'unit': {'id': 'u1', 'name': 'Alpha Squadron'},
+            'requestingUnit': {'id': 'u2', 'name': 'Bravo Squadron'},
+            'handle': 'Quartermaster',
+            'comment': 'Deliver to the hangar at Lorville.',
+            'materials': [{'material': {'bt': 'm-agr', 'name': 'Agricium'},
+                           'minQuality': 650,
+                           'openQuantity': {'amount': 40, 'unit': 'SCU'}}],
+            'items': []}, {'number': 5}]}
+    _d = _ed.parse(_beispiel)
+    _o = (_d['orders'] or [{}])[0]
+    pruefe(len(_d['orders']) == 1 and _o['number'] == 412
+           and _o['requesting'] == 'Bravo Squadron'
+           and _o['handle'] == 'Quartermaster' and _o['priority'] == 3
+           and _o['lines'] == [{'name': 'Agricium', 'amount': 40.0,
+                                'unit': 'SCU', 'min_quality': 650,
+                                'item': False}],
+           'Aufträge: Nummer, anfragende Einheit, Auftraggeber, offene Zeilen; '
+           'ohne `id` fällt einer weg')
+    pruefe(_ed.parse({'materials': [], 'items': []})['orders'] is None,
+           'ohne `orders` (kein Logistiker): keine Auftragsliste')
+
+    _schalter = (_bs.SETTING_DEMAND, _bs.SETTING_ORGSTOCK,
+                 _bs.SETTING_ORGSTOCK_WRITE, _bs.SETTING_SHIPS,
+                 _bs.SETTING_STOCK, _bs.SETTING_BLUEPRINTS)
+    _heim = tempfile.mkdtemp(prefix='pruefung467-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    try:
+        for _s in _schalter:
+            _pa.set_setting(_s, False)
+        pruefe(_bs.wanted_scopes() == [], 'alles aus: kein Recht angefragt')
+        _pa.set_setting(_bs.SETTING_DEMAND, True)
+        pruefe(_bs.wanted_scopes() == ['exchange.demand.read',
+                                       'exchange.demand.details'],
+               'Bedarf an: Lesen und die Aufträge einzeln (%r)'
+               % _bs.wanted_scopes())
+        _pa.set_setting(_bs.SETTING_DEMAND, False)
+        _pa.set_setting(_bs.SETTING_ORGSTOCK_WRITE, True)
+        pruefe(_bs.wanted_scopes() == [],
+               'Buchen ohne das Lager: nichts angefragt')
+        _pa.set_setting(_bs.SETTING_ORGSTOCK, True)
+        pruefe(_bs.wanted_scopes() == ['exchange.orgstock.read',
+                                       'exchange.orgstock.details',
+                                       'exchange.orgstock.write'],
+               'Lager mit Buchen: Lesen, Einträge, Buchen (%r)'
+               % _bs.wanted_scopes())
+        pruefe(_bs.missing_optional(['exchange.orgstock.read',
+                                     'exchange.orgstock.details'])
+               == ['exchange.orgstock.write'],
+               'fehlt nur das Buchen, meldet missing_optional genau das')
+        pruefe(dict(_bs.AREAS)[_bs.SETTING_ORGSTOCK]
+               == ('exchange.orgstock.read',),
+               'der Bereich selbst braucht nur das Lesen — die Zusätze '
+               'halten ihn nicht an')
+    finally:
+        if _alt_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 def _alle_eingaben(w):

@@ -90,11 +90,18 @@ SCOPES_DEMAND = ('exchange.demand.read',)
 # sonst stünde der Hangar-Abgleich bei allen still, die es noch nicht erteilt
 # haben. Ohne dieses Recht gibt es nur keine Einheit-Auswahl.
 SCOPES_ORGUNITS = ('exchange.orgunits.read',)
-# ⚠⚠ **Erst anfragen, wenn das Basetool es für VerseKit freigegeben hat.** Ein
+# ⚠⚠ **Nur anfragen, was das Basetool für VerseKit freigegeben hat.** Ein
 # nicht freigegebenes Recht in der Anmeldung kann die ganze Anmeldung
-# scheitern lassen — dann wäre das Basetool für alle getrennt. Umlegen, sobald
-# die Freigabe bestätigt ist; bis dahin bleibt die Einheit-Auswahl unsichtbar.
-REQUEST_ORGUNITS = False
+# scheitern lassen — dann wäre das Basetool für alle getrennt.
+REQUEST_ORGUNITS = True
+# Die Aufträge einzeln im Bedarf — nur für Logistiker gefüllt, für alle
+# anderen bleibt die Antwort wie ohne. Freiwillig neben `SCOPES_DEMAND`.
+SCOPES_DEMAND_DETAILS = ('exchange.demand.details',)
+# Das Lager der eigenen Einheiten. Lesen ist der Bereich; die Einträge je
+# Besitzer und das Buchen sind freiwillige Rechte dazu.
+SCOPES_ORGSTOCK = ('exchange.orgstock.read',)
+SCOPES_ORGSTOCK_DETAILS = ('exchange.orgstock.details',)
+SCOPES_ORGSTOCK_WRITE = ('exchange.orgstock.write',)
 
 REFRESH_SECRET = 'refresh-token'
 KEY_SECRET = 'dpop-key'
@@ -695,9 +702,10 @@ class Connection:
         self._drop_key()
         with self._lock:
             self.granted = ()
-        from . import exchange_demand, exchange_orgunits
+        from . import exchange_demand, exchange_orgstock, exchange_orgunits
         exchange_demand.forget()
         exchange_orgunits.forget()
+        exchange_orgstock.forget()
 
     # ------------------------------------------------------- Kurzwege
     def service_document(self):

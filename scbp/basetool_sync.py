@@ -60,6 +60,9 @@ SETTING_BLUEPRINTS = 'basetool_bauplaene'
 SETTING_STOCK = 'basetool_lager'
 SETTING_SHIPS = 'basetool_hangar'
 SETTING_DEMAND = 'basetool_bedarf'
+SETTING_ORGSTOCK = 'basetool_staffellager'
+# Buchen im Staffellager als Logistiker — nur zusammen mit dem Lesen.
+SETTING_ORGSTOCK_WRITE = 'basetool_staffellager_buchen'
 SETTING_LABEL = 'basetool_name'
 # Einheit für neue Schiffe: `''` = wie bisher (das Basetool entscheidet),
 # sonst die Kennung einer Einheit.
@@ -70,7 +73,8 @@ SETTING_NEW_SHIP_UNIT = 'basetool_einheit_neu'
 AREAS = ((SETTING_BLUEPRINTS, basetool.SCOPES_BLUEPRINTS),
          (SETTING_STOCK, basetool.SCOPES_STOCK),
          (SETTING_SHIPS, basetool.SCOPES_HANGAR),
-         (SETTING_DEMAND, basetool.SCOPES_DEMAND))
+         (SETTING_DEMAND, basetool.SCOPES_DEMAND),
+         (SETTING_ORGSTOCK, basetool.SCOPES_ORGSTOCK))
 
 CADENCE = 300           # höchstens alle 5 Minuten ohne Anlass
 AFTER_CHANGE = 20       # eigene Änderungen kurz sammeln, dann einmal abgleichen
@@ -118,7 +122,30 @@ def wanted_scopes():
     # der Freigabe (siehe `basetool.REQUEST_ORGUNITS`).
     if area_on(SETTING_SHIPS) and basetool.REQUEST_ORGUNITS:
         out += [s for s in basetool.SCOPES_ORGUNITS if s not in out]
+    for scopes in optional_scopes():
+        out += [s for s in scopes if s not in out]
     return out
+
+
+def optional_scopes():
+    """Die freiwilligen Rechte eingeschalteter Bereiche — ohne sie läuft der
+    Bereich, nur ohne das Zusätzliche (Aufträge einzeln, Einträge je
+    Besitzer, Buchen)."""
+    out = []
+    if area_on(SETTING_DEMAND):
+        out.append(basetool.SCOPES_DEMAND_DETAILS)
+    if area_on(SETTING_ORGSTOCK):
+        out.append(basetool.SCOPES_ORGSTOCK_DETAILS)
+        if area_on(SETTING_ORGSTOCK_WRITE):
+            out.append(basetool.SCOPES_ORGSTOCK_WRITE)
+    return out
+
+
+def missing_optional(granted):
+    """Freiwillige Rechte, die eingeschaltet, aber nicht erteilt sind."""
+    granted = set(granted or ())
+    return [s for scopes in optional_scopes() for s in scopes
+            if s not in granted]
 
 
 def _in_tk(work):
@@ -568,6 +595,26 @@ def _run(watcher):
     else:
         exchange_demand.forget()
     _in_tk(lambda: _pages_changed(['bedarf']))
+    from . import exchange_orgstock
+    if SETTING_ORGSTOCK in ready:
+        # ⚠ Abgefangen wie die Einheiten: Ein Fehler hier hält die übrigen
+        # Bereiche nicht an, die Seite zeigt dann den letzten Stand.
+        try:
+            counts['orgstock'] = exchange_orgstock.refresh(
+                conn,
+                details=set(basetool.SCOPES_ORGSTOCK_DETAILS) <= capabilities,
+                write=area_on(SETTING_ORGSTOCK_WRITE)
+                and set(basetool.SCOPES_ORGSTOCK_WRITE) <= capabilities)
+        except basetool.ApiError as error:
+            if error.action != 'retry':
+                exchange_orgstock.forget()
+            from . import errors
+            errors.record('basetool_sync.orgstock',
+                          RuntimeError(error.describe()))
+            counts['orgstock'] = {'error': error.code}
+    else:
+        exchange_orgstock.forget()
+    _in_tk(lambda: _pages_changed(['staffellager']))
     _set(state='ok', code='SCOPE_MISSING' if missing else '', counts=counts,
          missing=missing, last_sync=time.strftime('%Y-%m-%d %H:%M:%S'))
 

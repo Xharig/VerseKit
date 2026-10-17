@@ -580,7 +580,7 @@ BUTTON_NAMES = (
     'statistik', 'st_auswertung', 'st_schiffe', 'st_auftraege', 'st_quantum',
     'st_stabil', 'overlay', 'darstellung', 'module', 'startprogramme',
     'uebersetzung',
-    'sichern', 'basetool', 'uebersicht', 'fehler',
+    'sichern', 'basetool', 'staffellager', 'uebersicht', 'fehler',
     'karten', 'reiter', 'haus', 'anheften', 'loesen', 'pfad',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).

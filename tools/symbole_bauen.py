@@ -285,6 +285,10 @@ KNOPF_SYMBOLE = {
     # demselben Bild sind in einer Leiste nicht auseinanderzuhalten.
     'verkauf':      'coins',
     'handelslager': 'warehouse',
+    # Das Lager der Einheit im Basetool: gestapelte Kisten, mehrere Besitzer
+    # in einem Bestand. Nicht `package` (Lager) und nicht `warehouse`
+    # (Handelslager) — beide stehen in derselben Basetool-Gruppe.
+    'staffellager': 'boxes',
     # Der eigene Hangar. Bewusst **nicht** `rocket` — das ist der
     # Startknopf für das Spiel, und zwei verschiedene Dinge dürfen nicht
     # dasselbe Bild tragen. Auch nicht `warehouse`: Die Halle steht schon für

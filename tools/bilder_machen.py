@@ -129,6 +129,9 @@ SEITEN = {
     'einkaufsliste': 'screenshot-einkaufsliste',
     'farmliste':    'screenshot-farmliste',
     'bedarf':       'screenshot-bedarf',
+    # ⚠ Erfundener Pool — siehe `beispiel_staffellager()`. Es ist der Bestand
+    # anderer Mitglieder, der gehört nie ins Bild.
+    'staffellager': 'screenshot-staffellager',
     'bergung':      'screenshot-bergung',
     'zerlegen':     'screenshot-zerlegen',
     'blickwinkel':  'screenshot-blickwinkel',
@@ -344,6 +347,59 @@ def beispiel_bedarf():
              'craftableByMe': False},
         ]})
     exchange_demand._state.update(data=daten, at=time.time(), reason='')
+
+
+def beispiel_staffellager():
+    """Erfundenes Lager einer Einheit — nur im Speicher, wie im Betrieb.
+
+    Mit einem Logistiker-Eintrag, damit das Bild zeigt, was sich aufklappen
+    und buchen lässt. Der Reiter ist sonst nur mit Basetool-Verbindung da."""
+    from scbp import exchange_orgstock
+    exchange_orgstock.visible = lambda: True
+    roh = {'type': 'RAW', 'commodity': True, 'raw': True}
+    fertig = {'type': 'REFINED', 'commodity': True, 'refined': True}
+    ware = {'type': 'NO_REFINE', 'commodity': True, 'raw': False}
+    einheit = {'id': 'u1', 'name': 'Staffel Nord'}
+
+    def posten(key, name, art, ort, guete, menge, auftrag=0, eintraege=None,
+               gestohlen=False):
+        p = {'key': key, 'unit': einheit,
+             'material': {'bt': 'b-' + key, 'name': name},
+             'materialKind': art, 'location': {'name': ort},
+             'quality': guete, 'stolen': gestohlen,
+             'quantity': {'amount': menge, 'unit': 'SCU'},
+             'earmarked': {'jobOrders': {'amount': auftrag, 'unit': 'SCU'},
+                           'missions': {'amount': 0, 'unit': 'SCU'}},
+             'entries': eintraege if eintraege is not None else []}
+        return p
+
+    eintraege = [
+        {'id': 'e1', 'version': 2,
+         'holder': {'withheld': False, 'name': 'Hauler One', 'ref': 'r1'},
+         'quantity': {'amount': 30, 'unit': 'SCU'}, 'note': 'Hangar 3',
+         'jobOrders': [{'id': 'j1', 'number': 412,
+                        'quantity': {'amount': 12, 'unit': 'SCU'},
+                        'delivered': False}],
+         'missions': [],
+         'free': {'jobOrders': {'amount': 18, 'unit': 'SCU'},
+                  'missions': {'amount': 30, 'unit': 'SCU'}}},
+        {'id': 'e2', 'version': 0,
+         'holder': {'withheld': False, 'name': 'Quartermaster', 'ref': 'r2'},
+         'quantity': {'amount': 18.25, 'unit': 'SCU'}, 'jobOrders': [],
+         'missions': [],
+         'free': {'jobOrders': {'amount': 18.25, 'unit': 'SCU'},
+                  'missions': {'amount': 18.25, 'unit': 'SCU'}}}]
+    seite = {'units': [einheit], 'items': [
+        posten('l1', 'Laranite', roh, 'Area18', 500, 48.25, 12, eintraege),
+        posten('l2', 'Agricium', fertig, 'Levski', 712, 6.5),
+        posten('l3', 'Taranite', roh, 'Lorville', 300, 12, gestohlen=True),
+        posten('l4', 'Medical Supplies', ware, 'Lorville', 0, 20)]}
+    lots, units = exchange_orgstock.apply_pages({}, [seite], True)
+    exchange_orgstock._state.update(
+        lots=lots, units=units, cursor='c', at=time.time(), details=True,
+        write=True, logistician={'u1'},
+        rosters={'u1': [{'ref': 'r1', 'name': 'Hauler One'},
+                        {'ref': 'r2', 'name': 'Quartermaster'}]})
 
 
 def beispiel_grafik(heim):
@@ -962,6 +1018,10 @@ def vorbereiten(kennung, seite, wurzel):
         # rückt die Lagerliste mit den Sammelzeilen darunter ins Bild.
         klicken(seite, _t('s_rf_titel'))
         _warten(wurzel)
+    elif kennung == 'staffellager':
+        # Aufgeklappt zeigt der Posten die Besitzer und die Buchungsknöpfe.
+        klicken(seite, 'Laranite')
+        _warten(wurzel)
     _warten(wurzel, 1.0)
 
 
@@ -1357,6 +1417,7 @@ def main():
     # liegen im kopierten erkul-Zwischenspeicher, das Netz braucht es nicht.
     beispiel_daten()
     beispiel_bedarf()
+    beispiel_staffellager()
     beispiel_grafik(os.environ['SC_BP_HOME'])
     # Die Galerie „Was ist neu" läge sonst nach einem Update über jedem Bild.
     from scbp import gallery

@@ -2311,10 +2311,21 @@ class MainWindow:
     UPDATE_TICK_MS = 60 * 1000
 
     def _update_tick(self):
-        """Den Update-Knopf grün färben, sobald eine neuere Version bekannt ist."""
+        """Den Update-Knopf jede Minute auffrischen."""
+        if not self.refresh_update_button():
+            return
+        try:
+            self.root.after(self.UPDATE_TICK_MS, self._update_tick)
+        except tk.TclError:
+            pass
+
+    def refresh_update_button(self):
+        """Den Update-Knopf grün färben, sobald eine neuere Version bekannt ist.
+
+        Gibt False zurück, wenn der Knopf nicht mehr existiert."""
         try:
             if not self.update_button.winfo_exists():
-                return
+                return False
             from . import updater
             newer = updater.known_newer(self.version or '0.0.0')
             version = (newer or {}).get('version') or None
@@ -2329,10 +2340,7 @@ class MainWindow:
                     z.recolor(icons.GREY)
         except Exception as ausnahme:
             errors.record('main_window.update_knopf', ausnahme)
-        try:
-            self.root.after(self.UPDATE_TICK_MS, self._update_tick)
-        except tk.TclError:
-            pass
+        return True
 
     def _update_hint(self):
         version = self._update_state[0]
@@ -2640,6 +2648,9 @@ class MainWindow:
         # Nur sichtbar mit Basetool-Verbindung und Bedarf-Recht — siehe
         # `_tab_hidden`.
         self._tab('bedarf', 'basetool', t('hf_bedarf'), g_basetool)
+        # Nur sichtbar mit Basetool-Verbindung und Staffellager-Recht.
+        self._tab('staffellager', 'staffellager', t('hf_staffellager'),
+                  g_basetool)
 
         # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die Seiten
         # beantworten eine andere Frage (was wird gebraucht, wo gibt es das) als
@@ -3211,12 +3222,15 @@ class MainWindow:
             pass
         self._sidebar_dirty = True
 
-    def _tab_hidden(self, kennung):
-        """Reiter, die nur unter einer Bedingung da sind: „Bedarf" nur mit
-        Basetool-Verbindung und Bedarf-Recht."""
-        if kennung == 'bedarf':
+    def _tab_hidden(self, page_id):
+        """Reiter, die nur unter einer Bedingung da sind: Bedarf und Lager
+        der Einheit nur mit Basetool-Verbindung und ihrem Recht."""
+        if page_id == 'bedarf':
             from . import exchange_demand
             return not exchange_demand.visible()
+        if page_id == 'staffellager':
+            from . import exchange_orgstock
+            return not exchange_orgstock.visible()
         return False
 
     def _group(self, text, kennung=None):
@@ -3971,7 +3985,7 @@ class MainWindow:
                 errors.record('main_window.bestand_verwerfen:%s' % kennung,
                               ausnahme)
 
-    def pages_changed(self, kennungen):
+    def pages_changed(self, page_ids):
         """Seiten neu aufbauen, deren Daten sich von außen geändert haben —
         durch den Abgleich mit dem KRT Profit Basetool.
 
@@ -3985,31 +3999,31 @@ class MainWindow:
                 return
         except tk.TclError:
             return
-        if 'bedarf' in kennungen:
-            self._apply_pins(self._group_of_tab('bedarf'))
-            if self.current == 'bedarf' and self._tab_hidden('bedarf'):
-                kennungen = [k for k in kennungen if k != 'bedarf']
+        for conditional in ('bedarf', 'staffellager'):
+            if conditional not in page_ids:
+                continue
+            self._apply_pins(self._group_of_tab(conditional))
+            if self.current == conditional and self._tab_hidden(conditional):
+                page_ids = [p for p in page_ids if p != conditional]
                 self.open_page('liste')
-        for kennung in kennungen:
-            if kennung not in self.drawn:
+        for page_id in page_ids:
+            if page_id not in self.drawn:
                 continue
             try:
-                rahmen = self.pages.get(kennung)
-                if rahmen is not None:
-                    for kind in rahmen.winfo_children():
-                        kind.destroy()
-                self.drawn.discard(kennung)
-            except Exception as ausnahme:
+                frame = self.pages.get(page_id)
+                if frame is not None:
+                    for child in frame.winfo_children():
+                        child.destroy()
+                self.drawn.discard(page_id)
+            except Exception as exc:
                 from . import errors
-                errors.record('main_window.seite_verwerfen:%s' % kennung,
-                              ausnahme)
-        if self.current in kennungen:
+                errors.record('main_window.seite_verwerfen:%s' % page_id, exc)
+        if self.current in page_ids:
             try:
                 self.open_page(self.current)
-            except Exception as ausnahme:
+            except Exception as exc:
                 from . import errors
-                errors.record('main_window.seite_neu:%s' % self.current,
-                              ausnahme)
+                errors.record('main_window.seite_neu:%s' % self.current, exc)
 
     def rebuild(self):
         """Alles neu zeichnen — nach einem Sprachwechsel.

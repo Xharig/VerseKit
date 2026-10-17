@@ -31,7 +31,8 @@ Four things are deliberate and will stay that way:
 | ✅ | **Clear shader cache** — empty the shader caches of Star Citizen and the graphics drivers with one button, graphics settings stay |
 | ✅ | **Graphics** — set renderer, window mode, upscaling, image effects and the quality per area without the game; plus the game's performance index and rating, and which setting to lower first |
 | ✅ | **Overview** — a start page with tiles to show, hide and move, including a refinery timer that pings finished jobs in the overlay |
-| ✅ | **Unit demand** — what your unit's open orders in the KRT Profit Basetool need, against your own storage |
+| ✅ | **Unit demand** — what your unit's open orders in the KRT Profit Basetool need, against your own storage; logisticians see the orders one by one |
+| ✅ | **Unit storage** — the shared storage of your units in the Basetool, by items, materials, trade goods and components; logisticians book directly |
 | ✅ | **What's new as a gallery** — after an update, the main new features once, with a picture and the way there |
 | ✅ | **Card view** — every area as a card with its pages, your own cards on the start page, Basetool bundled; tab view stays available |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |

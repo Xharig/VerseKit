@@ -242,7 +242,9 @@ def _draw(window, area, login, redraw):
             (basetool_sync.SETTING_SHIPS, basetool.SCOPES_HANGAR,
              's_bt_hangar', 's_bt_hangar_h'),
             (basetool_sync.SETTING_DEMAND, basetool.SCOPES_DEMAND,
-             's_bt_bedarf', 's_bt_bedarf_h')):
+             's_bt_bedarf', 's_bt_bedarf_h'),
+            (basetool_sync.SETTING_ORGSTOCK, basetool.SCOPES_ORGSTOCK,
+             's_bt_staffellager', 's_bt_staffellager_h')):
         _area_card(window, area, login, redraw, status, connected, granted,
                    setting, scopes, title_key, help_key)
 
@@ -321,6 +323,10 @@ def _area_card(window, area, login, redraw, status, connected, granted,
             from . import exchange_orgunits
             exchange_orgunits.forget()
             basetool_sync._pages_changed(['hangar'])
+        elif setting == basetool_sync.SETTING_ORGSTOCK:
+            from . import exchange_orgstock
+            exchange_orgstock.forget()
+            basetool_sync._pages_changed(['staffellager'])
         window.root.after(50, redraw)
         return new_value
 
@@ -386,6 +392,18 @@ def _area_card(window, area, login, redraw, status, connected, granted,
         elif data is not None:
             lines.append(t('s_bt_bedarf_stand', len(data['materials']),
                            len(data['items'])))
+            if data.get('orders') is not None:
+                lines.append(t('s_bt_bedarf_auftraege', len(data['orders'])))
+    elif setting == basetool_sync.SETTING_ORGSTOCK:
+        c = counts.get('orgstock') or {}
+        if c.get('error'):
+            lines.append(error_text(c['error']))
+        elif c:
+            lines.append(t('s_bt_staffellager_stand', c.get('units', 0),
+                           c.get('lots', 0)))
+            if c.get('logistician'):
+                lines.append(t('s_bt_staffellager_logistiker',
+                               c['logistician']))
     else:
         sub = state.get('ships') or {}
         c = counts.get('ships') or {}
@@ -412,7 +430,51 @@ def _area_card(window, area, login, redraw, status, connected, granted,
     if setting == basetool_sync.SETTING_SHIPS:
         _orgunits_consent(window, card, granted, login, redraw)
         _new_ship_unit_row(window, card)
+    elif setting == basetool_sync.SETTING_DEMAND:
+        _optional_consent(window, card, granted, login, redraw,
+                          basetool.SCOPES_DEMAND_DETAILS)
+    elif setting == basetool_sync.SETTING_ORGSTOCK:
+        _orgstock_write_row(window, card, redraw)
+        wanted = basetool.SCOPES_ORGSTOCK_DETAILS + (
+            basetool.SCOPES_ORGSTOCK_WRITE
+            if basetool_sync.area_on(basetool_sync.SETTING_ORGSTOCK_WRITE)
+            else ())
+        _optional_consent(window, card, granted, login, redraw, wanted)
     tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
+
+
+def _optional_consent(window, card, granted, login, redraw, scopes):
+    """Ein freiwilliges Recht fehlt der bestehenden Verbindung — Hinweis mit
+    Knopf. Der Bereich läuft auch ohne, nur ohne das Zusätzliche."""
+    if not granted or set(scopes) <= granted:
+        return
+    _note(window, card, t('s_bt_rechte_zusatz'), color=theme.YELLOW,
+          bottom=0)
+    _buttons(window, card, [(t('s_bt_rechte_erweitern'),
+                             lambda: _start_login(window, login, redraw),
+                             'strong')])
+
+
+def _orgstock_write_row(window, card, redraw):
+    """Buchen im Staffellager — nur für Logistiker der Einheit, ab Werk aus."""
+    from .main_window import toggle_switch
+    row = tk.Frame(card, bg=SURFACE)
+    row.pack(fill='x', padx=16, pady=(8, 0))
+    setting = basetool_sync.SETTING_ORGSTOCK_WRITE
+
+    def flip():
+        new_value = not paths.setting_bool(setting, False)
+        paths.set_setting(setting, new_value)
+        basetool_sync.request_now()
+        window.root.after(50, redraw)
+        return new_value
+
+    toggle_switch(row, paths.setting_bool(setting, False), flip,
+                  bg=SURFACE).pack(side='right')
+    tk.Label(row, text=t('s_bt_staffellager_buchen'), bg=SURFACE, fg=FG,
+             font=window.f_small, anchor='w').pack(side='left', fill='x',
+                                                   expand=True)
+    _note(window, card, t('s_bt_staffellager_buchen_h'), bottom=0)
 
 
 def _orgunits_consent(window, card, granted, login, redraw):

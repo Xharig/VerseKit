@@ -79,7 +79,32 @@ SEITEN = ('uebersicht',
           'hangar', 'wunschliste', 'asop', 'einkaufsliste', 'farmliste',
           'bergung', 'zerlegen',
           'herstellung', 'bergbau', 'raffinerien', 'lager',
-          'verkauf', 'handelslager', 'laeden', 'routen', 'basetool')
+          'verkauf', 'handelslager', 'laeden', 'routen', 'basetool',
+          'staffellager')
+
+
+def _beispiel_staffellager():
+    """Ein erfundener Pool im Speicher — ohne ihn zeigt die Seite nur den
+    Wartesatz, und ihre Bedienung bliebe ungeprüft."""
+    import time
+    from scbp import exchange_orgstock
+    exchange_orgstock.visible = lambda: True
+    kind = {'type': 'RAW', 'commodity': True, 'raw': True}
+    seite = {'units': [{'id': 'u1', 'name': 'Probe'},
+                       {'id': 'u2', 'name': 'Zweite'}],
+             'items': [{'key': 'k1', 'unit': {'id': 'u1', 'name': 'Probe'},
+                        'material': {'bt': 'b1', 'name': 'Laranite'},
+                        'materialKind': kind, 'location': {'name': 'Area18'},
+                        'quality': 500, 'stolen': True,
+                        'quantity': {'amount': 5, 'unit': 'SCU'},
+                        'earmarked': {'jobOrders': {'amount': 1, 'unit': 'SCU'},
+                                      'missions': {'amount': 1,
+                                                   'unit': 'SCU'}},
+                        'entries': []}]}
+    lots, units = exchange_orgstock.apply_pages({}, [seite], True)
+    exchange_orgstock._state.update(
+        lots=lots, units=units, cursor='c', at=time.time(), details=False,
+        write=False, logistician={'u1'}, rosters={})
 
 
 def _alle_seiten_dabei():
@@ -117,6 +142,7 @@ def _sollbestand():
 def pruefe():
     tabelle = _sollbestand()
     language.set_language('en')
+    _beispiel_staffellager()
 
     wurzel = tk.Tk()
     wurzel.withdraw()

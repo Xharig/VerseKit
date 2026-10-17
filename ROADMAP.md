@@ -31,7 +31,8 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Shader-Cache leeren** — Shader-Speicher von Star Citizen und Grafiktreiber per Knopf leeren, Grafikeinstellungen bleiben |
 | ✅ | **Grafik** — Renderer, Fenstermodus, Upscaling, Bildeffekte und die Qualität je Bereich ohne Spiel einstellen; dazu Leistungsindex und Einstufung des Spiels und welche Einstellung zuerst runter sollte |
 | ✅ | **Übersicht** — Startseite mit Kacheln zum Ein- und Ausblenden und Verschieben, darunter ein Raffinerie-Timer, der fertige Aufträge im Overlay meldet |
-| ✅ | **Bedarf der Einheit** — was die offenen Aufträge der eigenen Einheit im KRT Profit Basetool brauchen, gegen das eigene Lager |
+| ✅ | **Bedarf der Einheit** — was die offenen Aufträge der eigenen Einheit im KRT Profit Basetool brauchen, gegen das eigene Lager; Logistiker sehen die Aufträge einzeln |
+| ✅ | **Lager der Einheit** — das gemeinsame Lager der eigenen Einheiten im Basetool, nach Items, Rohstoffen, Handelsware und Komponenten; Logistiker buchen direkt |
 | ✅ | **Was ist neu als Galerie** — nach einem Update einmal die wichtigsten Neuerungen mit Bild und Weg dorthin |
 | ✅ | **Kartenansicht** — jeder Bereich als Karte mit Unterpunkten, eigene Karten an der Startseite, Basetool gebündelt; Reiteransicht bleibt wählbar |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |

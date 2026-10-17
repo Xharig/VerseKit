@@ -44,7 +44,7 @@ SWITCHABLE = {
     # ⚠ Der Schlüssel `modul_basetool` ist zugleich der Schalter des
     # Kartenbereichs Basetool (`cards.BASETOOL_SETTING`): ein Schalter für
     # beide Ansichten.
-    'basetool': ('basetool', 'bedarf'),
+    'basetool': ('basetool', 'bedarf', 'staffellager'),
     'schiffe': ('hangar', 'wunschliste', 'einkaufsliste'),
     'werkstatt': ('herstellung', 'farmliste', 'lager', 'bergbau',
                   'raffinerien'),
