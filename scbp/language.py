@@ -3158,6 +3158,22 @@ TEXTS = {
                               'concept and the original design are his, the '
                               'current graphic implementation was made here. '
                               'Thank you!'),
+    's_dk_alyxone_bugs':     ('**Saubere Schiffsnamen im JSON-Export** — er hat '
+                              'die Namen in seiner Hangar Extension aufgeteilt, '
+                              'in Kurzform und Namen aus der Ship-Matrix, die '
+                              'beigelegten Fahrzeuge eines Pledges dazugelegt '
+                              'und Bescheid gegeben, damit der Import mitzieht. '
+                              'So kommen die Schiffe mit sauberen Namen an, '
+                              'Sondereditionen bleiben vom Grundschiff getrennt, '
+                              'und Beilagen wie der G12 landen im Hangar.',
+                              '**Clean ship names in the JSON export** — he '
+                              'split the names in his Hangar Extension into a '
+                              'short form and the Ship Matrix name, added the '
+                              'vehicles that come with a pledge, and let us '
+                              'know so the import could follow. Ships now '
+                              'arrive with clean names, special editions stay '
+                              'separate from the base ship, and extras like '
+                              'the G12 land in the hangar.'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '

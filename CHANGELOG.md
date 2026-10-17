@@ -44,6 +44,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   *Bestand einlesen* erkennt VerseKit jetzt auch das neue Dateiformat des
   Basetools, das der Extractor seit 2.10 schreibt. Bisher hieß es dort
   „Diese Datei kenne ich nicht". Gemeldet von Drachennarr
+- **Hangar-Import aus der Hangar Extension** — mit neueren Fassungen der
+  Erweiterung kommen die Schiffe wieder mit sauberen Namen an
+  (`Reliant Kore`, `Prowler Utility`), und Sondereditionen bleiben vom
+  Grundschiff getrennt. Fahrzeuge, die einem Schiff im Pledge beiliegen
+  (etwa der G12 der 600i Explorer), landen jetzt auch im Hangar, als Teil
+  von dessen Paket. Gemeldet von AlyxOne
 
 ## v4.7.0 - 2026-10-16
 

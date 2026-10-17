@@ -42,6 +42,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   *Import inventory* VerseKit now also recognises the Basetool's new file
   format that the Extractor writes since 2.10. Until now it said "I do not
   recognise this file". Reported by Drachennarr
+- **Hangar import from the Hangar Extension** — with newer versions of the
+  extension, ships arrive with clean names again (`Reliant Kore`,
+  `Prowler Utility`), and special editions stay separate from the base
+  ship. Vehicles that come with a ship in its pledge (such as the G12 of
+  the 600i Explorer) now land in the hangar too, as part of that ship's
+  package. Reported by AlyxOne
 
 ## v4.7.0 - 2026-10-16
 

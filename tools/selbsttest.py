@@ -21081,7 +21081,7 @@ def main():
          'code': 'ARGO_MPUV_Personnel', 'matrix': 'MPUV Personnel',
          'focus': 'Passenger', 'status': 'Flight-Ready',
          'name': 'MPUV Personnel', 'includedWith': 'Idris-P'},
-        # ⚠ `name` vor `matrix` — die Ausfuehrung, nicht der Grundtyp.
+        # ⚠ `matrix` vor `name` — der Name aus der Ship-Matrix.
         {'manufacturer': {'code': 'TMBL', 'name': 'Tumbril', 'shortName': 'Tumbril'},
          'code': 'TMBL_L22_AlphaWolf', 'matrix': 'L-22 Alpha Wolf',
          'focus': 'Fighter', 'status': 'In-Concept', 'name': 'L22-AlphaWolf'},
@@ -21094,7 +21094,7 @@ def main():
     ])
     _s213 = _fl213._from_json(_ext213)
     _namen213 = [s['name'] for s in _s213]
-    pruefe(_namen213 == ['ATLS', 'Idris-P', 'MPUV Personnel', 'L22-AlphaWolf',
+    pruefe(_namen213 == ['ATLS', 'Idris-P', 'MPUV Personnel', 'L-22 Alpha Wolf',
                          'Vulture'],
            'beide Formen werden gelesen, das Nicht-Schiff nicht (%r)' % _namen213)
     _atls213 = _s213[0]
@@ -21104,8 +21104,8 @@ def main():
            'Woerterbuch (%r)' % _atls213)
     pruefe(_s213[2]['paket'] == 'Idris-P',
            'die Paketzugehoerigkeit landet unter `paket` (%r)' % _s213[2]['paket'])
-    pruefe(_s213[3]['name'] == 'L22-AlphaWolf',
-           '`name` schlaegt `matrix` — die Ausfuehrung, nicht der Grundtyp')
+    pruefe(_s213[3]['name'] == 'L-22 Alpha Wolf',
+           '`matrix` schlaegt `name` — der Name aus der Ship-Matrix')
     pruefe(_s213[4]['lti'] is True and _s213[4]['paket'] == 'Vulture - LTI',
            'der XPLORer-Eintrag behaelt LTI und Paketname')
     pruefe(all(s['lti'] is False for s in _s213[:4]),
@@ -25686,6 +25686,7 @@ def main():
     _pruefung_465()
     _pruefung_466()
     _pruefung_467()
+    _pruefung_468()
 
     print()
     if fehler:
@@ -45658,6 +45659,266 @@ def _pruefung_467():
         else:
             os.environ['SC_BP_HOME'] = _alt_home
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_468():
+    """468. Hangar Extension: Schiffsname aus `matrix`, Sondereditionen
+    getrennt, Paket in der Form der Pledge-Seite, Beilagen aus
+    `includedShips`.
+
+    Neuere Exporte schreiben in `name` die Kurzform der Pledge-Seite
+    (`reliant kore - mini hauler`), in `matrix` den Namen aus der
+    Ship-Matrix, und am Träger `includedShips`. Jede Stelle in `fleet.py`
+    hat eine eigene Gegenprobe: `matrix` vor `name`, die Sperre bei
+    geteilter `matrix`, `bundled_with` bis zum ersten ` - `, das Lesen von
+    `includedShips`, der Abgleich gegen Doppel im Export und der
+    Namensabgleich im Hangar für Beilagen ohne Hersteller."""
+    print('\n468. Hangar Extension: Name aus matrix, Editionen getrennt, '
+          'includedShips')
+    from scbp import fleet as _fl468
+
+    def _schiff468(code, maker, matrix, name, **mehr):
+        _hk, _hn = maker
+        _e = {'manufacturer': {'code': _hk, 'name': _hn, 'shortName': _hk},
+              'code': code, 'name': name, 'focus': '', 'status': 'Flight-Ready',
+              'insurance': 'LTI'}
+        if matrix is not None:
+            _e['matrix'] = matrix
+        _e.update(mehr)
+        return _e
+
+    _misc468 = ('MISC', 'Musashi Industrial & Starflight Concern')
+    _argo468 = ('ARGO', 'Argo Astronautics')
+    _drak468 = ('DRAK', 'Drake Interplanetary')
+    _aegs468 = ('AEGS', 'Aegis Dynamics')
+    _orig468 = ('ORIG', 'Origin Jumpworks')
+    _export468 = json.dumps([
+        _schiff468('MISC_Reliant_Kore', _misc468, 'Reliant Kore',
+                   'reliant kore - mini hauler'),
+        _schiff468('ESPR_Prowler_Utility', ('ESPR', 'Esperia'),
+                   'Prowler Utility', 'prowler-utility'),
+        _schiff468('ARGO_ATLS', _argo468, 'ATLS', 'atls'),
+        _schiff468('ARGO_ATLS_GEO', _argo468, 'ATLS GEO', 'atls-geo'),
+        # Grundtyp und Sonderedition ohne eigenen Matrix-Eintrag: dieselbe
+        # `matrix`, verschiedener `code`.
+        _schiff468('DRAK_Caterpillar', _drak468, 'Caterpillar', 'caterpillar'),
+        _schiff468('DRAK_Caterpillar_Pirate', _drak468, 'Caterpillar',
+                   'caterpillar-pirate-edition'),
+        # Die Beilage steht als eigener Eintrag UND in `includedShips`.
+        _schiff468('AEGS_Idris_P', _aegs468, 'Idris-P', 'idris p - frigate',
+                   includedShips=['MPUV Personnel']),
+        _schiff468('ARGO_MPUV_Personnel', _argo468, 'MPUV Personnel',
+                   'mpuv personnel', includedWith='idris p - frigate'),
+        # Die Beilage steht NUR in `includedShips`, bei zwei Trägern.
+        _schiff468('ORIG_600i_Explorer', _orig468, '600i Explorer', '600i',
+                   includedShips=['G12']),
+        _schiff468('ORIG_600i_Executive', _orig468, '600i Executive Edition',
+                   '600i executive edition', includedShips=['G12']),
+        # Ohne `matrix` bleibt `name`, auch ein sauberer.
+        _schiff468('ANVL_Hornet_Mk_II', ('ANVL', 'Anvil Aerospace'), None,
+                   'Hornet Mk II'),
+        _schiff468('ORIG_600i_Touring', _orig468, None, '600i Touring'),
+    ])
+    _alle468 = ['Reliant Kore', 'Prowler Utility', 'ATLS', 'ATLS GEO',
+                'caterpillar', 'caterpillar-pirate-edition', 'Idris-P',
+                'MPUV Personnel', '600i Explorer', '600i Executive Edition',
+                'Hornet Mk II', '600i Touring', 'G12']
+    # Ein Hangar aus einem älteren Export derselben Erweiterung, jedes
+    # Schiff mit Belegung.
+    _alt_namen468 = [
+        ('Reliant Kore', _misc468, 'MISC_Reliant_Kore'),
+        ('Prowler Utility', ('ESPR', 'Esperia'), 'ESPR_Prowler_Utility'),
+        ('ATLS', _argo468, 'ARGO_ATLS'),
+        ('ATLS GEO', _argo468, 'ARGO_ATLS_GEO'),
+        ('Caterpillar', _drak468, 'DRAK_Caterpillar'),
+        ('Caterpillar Pirate Edition', _drak468, 'DRAK_Caterpillar_Pirate'),
+        ('Idris-P', _aegs468, 'AEGS_Idris_P'),
+        ('MPUV Personnel', _argo468, 'ARGO_MPUV_Personnel'),
+        ('600i Explorer', _orig468, 'ORIG_600i_Explorer'),
+        ('600i Executive Edition', _orig468, 'ORIG_600i_Executive'),
+        ('Hornet Mk II', ('ANVL', 'Anvil Aerospace'), 'ANVL_Hornet_Mk_II'),
+        ('600i Touring', _orig468, 'ORIG_600i_Touring'),
+        # Mit Hersteller aus einem früheren Import; die Beilage aus
+        # `includedShips` hat ohne Schiffskatalog keinen.
+        ('G12', _orig468, 'ORIG_G12'),
+    ]
+
+    def _faelle468():
+        """Alle Fälle einmal durch `read()` und `import_entries`. Gibt
+        `{fall: (ok, beleg)}` zurück."""
+        _out = {}
+        _ordner = tempfile.mkdtemp(prefix='sc-bp-matrix-')
+        try:
+            _datei = os.path.join(_ordner, 'hangar.json')
+            with open(_datei, 'w', encoding='utf-8') as _f:
+                _f.write(_export468)
+            _ein, _fehl = _fl468.read(_datei)
+        finally:
+            shutil.rmtree(_ordner, ignore_errors=True)
+        _namen = [e['name'] for e in _ein]
+        _je = {e['name']: e for e in _ein}
+        _kore = _je.get('Reliant Kore') or {}
+        _out['kore'] = (
+            _fehl == '' and 'Reliant Kore' in _namen
+            and 'Prowler Utility' in _namen
+            and _kore.get('hersteller') == _misc468[1]
+            and _kore.get('hkurz') == 'MISC', (_namen, _fehl))
+        _out['ohne_matrix'] = ('Hornet Mk II' in _namen
+                               and '600i Touring' in _namen, _namen)
+        _out['alle'] = (_namen == _alle468, _namen)
+        _out['kein_doppel'] = (
+            _namen.count('MPUV Personnel') == 1 and _namen.count('G12') == 1,
+            _namen)
+
+        _leer = {'format': 1, 'schiffe': []}
+        _erg = _fl468.import_entries(_ein, _leer, save_now=False)
+        _da = [s.get('name') for s in _leer['schiffe']]
+        _out['atls'] = ('ATLS' in _da and 'ATLS GEO' in _da, _da)
+        _out['edition'] = (
+            'caterpillar' in _da and 'caterpillar-pirate-edition' in _da
+            and _erg == (len(_alle468), 0, []), (_erg, _da))
+        _mpuv = next((s for s in _leer['schiffe']
+                      if s.get('name') == 'MPUV Personnel'), {})
+        _out['beilage'] = (_fl468.bundled_with(_leer, _mpuv) == 'Idris-P',
+                           (_mpuv.get('paket'),
+                            _fl468.bundled_with(_leer, _mpuv)))
+        _g12 = [s for s in _leer['schiffe'] if s.get('name') == 'G12']
+        _out['g12'] = (
+            len(_g12) == 1 and _g12[0].get('herkunft') == 'pledge'
+            and _g12[0].get('lti') is True
+            and _fl468.bundled_with(_leer, _g12[0]) == '600i Explorer',
+            [(s.get('paket'), s.get('lti'), _fl468.bundled_with(_leer, s))
+             for s in _g12])
+
+        _alt = {'format': 1, 'schiffe': [
+            {'name': _n, 'hersteller': _m[1], 'hkurz': _m[0], 'kurz': _k,
+             'herkunft': 'pledge', 'lti': True,
+             'belegung': {'Platz 1': 'Belegt %d' % _i}}
+            for _i, (_n, _m, _k) in enumerate(_alt_namen468)]}
+        _erg = _fl468.import_entries(_ein, _alt, save_now=False)
+        _belegt = all(s.get('belegung') == {'Platz 1': 'Belegt %d' % _i}
+                      for _i, s in enumerate(_alt['schiffe']))
+        _out['alt'] = (
+            _erg == (0, len(_alle468), []) and _belegt
+            and [s.get('name') for s in _alt['schiffe']]
+            == [_n for _n, _m, _k in _alt_namen468],
+            (_erg, [s.get('name') for s in _alt['schiffe']]))
+        return _out
+
+    _texte468 = {
+        'kore': 'Name aus `matrix`, Hersteller getrennt (Reliant Kore, '
+                'Prowler Utility)',
+        'ohne_matrix': 'ein Eintrag ohne `matrix` behält `name` (Hornet Mk '
+                       'II, 600i Touring)',
+        'alle': 'die Namen des ganzen Exports, die Beilage aus '
+                '`includedShips` am Ende',
+        'kein_doppel': 'eine Beilage, die auch als eigener Eintrag oder bei '
+                       'zwei Trägern steht, gibt es einmal',
+        'g12': 'die G12 aus `includedShips` landet im Paket der 600i '
+               'Explorer, mit deren Versicherung',
+        'atls': 'ATLS und ATLS GEO bleiben zwei Schiffe',
+        'edition': 'Grundtyp und Edition mit gleicher `matrix` bleiben zwei',
+        'beilage': '`includedWith` in der Form der Pledge-Seite findet die '
+                   'Idris-P',
+        'alt': 'Neu-Import in einen älteren Hangar: (0, n, []), Namen und '
+               'Belegung bleiben',
+    }
+    _ist468 = _faelle468()
+    for _k468, _text468 in _texte468.items():
+        _ok468, _beleg468 = _ist468[_k468]
+        pruefe(_ok468, '%s (%r)' % (_text468, _beleg468))
+
+    # Paketnamen des XPLORer bleiben, was sie sind: keine Beilage.
+    _xp468 = {'format': 1, 'schiffe': [
+        {'name': 'Idris-P', 'paket': 'Standalone Ship'},
+        {'name': 'Endeavor', 'paket': 'Package - Dominus Pack'}]}
+    pruefe(all(_fl468.bundled_with(_xp468, s) == ''
+               for s in _xp468['schiffe']),
+           'Pledge-Namen wie Standalone Ship oder Package - … sind keine '
+           'Beilage')
+
+    # Gegenproben: jede Reparatur einzeln zur Laufzeit zurücknehmen. Jede
+    # Falle prüft zuerst, dass sie greift.
+    _orig_eintrag468 = _fl468._hangar_extension_entry
+    _orig_beilage468 = _fl468.bundled_with
+    _orig_enthalten468 = _fl468._included_ships
+
+    def _enthalten_doppelt468(raw, ships):
+        """`_included_ships` ohne den Abgleich mit dem Export."""
+        _out = []
+        for _e, _s in zip(raw, ships):
+            for _n in (_e.get('includedShips') or ()) if _s else ():
+                _out.append({'name': _n, 'hersteller': '', 'kurz': '',
+                             'hkurz': '', 'lti': _s.get('lti'),
+                             'paket': _s['name'], 'beilage': True})
+        return _out
+
+    def _enthalten_ohne_marke468(raw, ships):
+        """`_included_ships` ohne die Marke, die `import_entries` den
+        Abgleich über den Namen erlaubt."""
+        _out = _orig_enthalten468(raw, ships)
+        for _e in _out:
+            _e.pop('beilage', None)
+        return _out
+
+    def _beilage_ungekuerzt468(data, entry):
+        _wanted = _fl468._slim(entry.get('paket'))
+        if not _wanted or _wanted == _fl468._slim(entry.get('name')):
+            return ''
+        for _s in (data.get('schiffe') or []):
+            if _s is not entry and _fl468._slim(_s.get('name')) == _wanted:
+                return _s.get('name') or ''
+        return ''
+
+    _proben468 = (
+        ('name vor matrix', 'kore',
+         lambda: setattr(_fl468, '_hangar_extension_entry',
+                         lambda e, name_first=False:
+                         _orig_eintrag468(e, name_first=True)),
+         lambda: _fl468._hangar_extension_entry(
+             {'manufacturer': {}, 'matrix': 'A', 'name': 'b'})['name'] == 'b'),
+        ('ohne Sperre bei geteilter matrix', 'edition',
+         lambda: setattr(_fl468, '_hangar_extension_entry',
+                         lambda e, name_first=False:
+                         _orig_eintrag468(e, name_first=False)),
+         lambda: _fl468._from_json(json.dumps([
+             {'manufacturer': {}, 'code': 'X1', 'matrix': 'A', 'name': 'a'},
+             {'manufacturer': {}, 'code': 'X2', 'matrix': 'A',
+              'name': 'a-ed'}]))[1]['name'] == 'A'),
+        ('Paket ungekürzt verglichen', 'beilage',
+         lambda: setattr(_fl468, 'bundled_with', _beilage_ungekuerzt468),
+         lambda: _fl468.bundled_with(
+             {'schiffe': [{'name': 'Idris-P'}]},
+             {'name': 'M', 'paket': 'idris p - frigate'}) == ''),
+        ('includedShips nicht gelesen', 'g12',
+         lambda: setattr(_fl468, '_included_ships', lambda raw, ships: []),
+         lambda: _fl468._included_ships([{'includedShips': ['X']}],
+                                        [{'name': 'Y'}]) == []),
+        ('Beilage ohne Abgleich mit dem Export', 'kein_doppel',
+         lambda: setattr(_fl468, '_included_ships', _enthalten_doppelt468),
+         lambda: len(_fl468._included_ships(
+             [{'name': 'x', 'includedShips': ['x']}], [{'name': 'x'}])) == 1),
+        ('Beilage ohne Namensabgleich im Hangar', 'alt',
+         lambda: setattr(_fl468, '_included_ships', _enthalten_ohne_marke468),
+         lambda: all('beilage' not in _e for _e in _fl468._included_ships(
+             [{'includedShips': ['Gibt es nicht 3000']}], [{'name': 'Y'}]))),
+    )
+    for _was468, _fall468, _sabotage468, _greift468 in _proben468:
+        try:
+            _sabotage468()
+            pruefe(_greift468(), 'Gegenprobe %s: die Falle greift' % _was468)
+            _rot468, _beleg468 = _faelle468()[_fall468]
+            pruefe(not _rot468, 'Gegenprobe %s: Fall %s wird rot (%r)'
+                   % (_was468, _fall468, _beleg468))
+        finally:
+            _fl468._hangar_extension_entry = _orig_eintrag468
+            _fl468.bundled_with = _orig_beilage468
+            _fl468._included_ships = _orig_enthalten468
+    pruefe(_fl468._hangar_extension_entry is _orig_eintrag468
+           and _fl468.bundled_with is _orig_beilage468
+           and _fl468._included_ships is _orig_enthalten468
+           and all(v[0] for v in _faelle468().values()),
+           'nach den Gegenproben ist alles zurückgesetzt und wieder grün')
 
 
 def _alle_eingaben(w):

@@ -615,8 +615,11 @@ def bundled_with(data, entry):
     XPLORer steht unter `paket` dagegen der **Pledge-Name** (`Standalone
     Ship`, `Package - Dominus Pack`) — das ist keine Beilage. Unterschieden
     wird deshalb daran, ob der Wert ein Schiff **im eigenen Hangar** nennt.
+
+    ⚠ Verglichen wird nur bis zum ersten ` - `: Die Pledge-Seite schreibt
+    `idris p - frigate`, gemeint ist die `Idris-P`.
     """
-    wanted = _slim(entry.get('paket'))
+    wanted = _slim((entry.get('paket') or '').split(' - ', 1)[0])
     if not wanted or wanted == _slim(entry.get('name')):
         return ''
     for s in (data.get('schiffe') or []):
@@ -717,7 +720,7 @@ def _extension_insurance(entry):
     return lti, months
 
 
-def _hangar_extension_entry(entry):
+def _hangar_extension_entry(entry, name_first=False):
     """Ein Schiff aus dem JSON der **Star Citizen: Hangar Extension** (AlyxOne).
 
     Die empfohlene Erweiterung — ein gepflegter Fork des XPLORer, MIT. Ihr
@@ -728,11 +731,22 @@ def _hangar_extension_entry(entry):
          "code": "ARGO_ATLS", "matrix": "ATLS", "name": "ATLS",
          "focus": "Cargo", "status": "Flight-Ready",
          "insurance": "LTI",                   # oder "120MI", wenn vorhanden
-         "includedWith": "Idris-P"}            # nur bei Paket-Beilagen
+         "includedWith": "Idris-P",            # nur bei Paket-Beilagen
+         "includedShips": ["G12"]}             # Fahrzeuge im selben Pledge
 
-    ⚠ `name` vor `matrix` — dieselbe Regel wie beim XPLORer (`name` vor
-    `ship_name`): `matrix` ist der Grundtyp (`L-22 Alpha Wolf`), `name` die
-    Ausführung, wie der Store sie führt (`L22-AlphaWolf`).
+    ⚠ `matrix` vor `name`: `matrix` ist der Name aus der Ship-Matrix, je
+    Ausführung eindeutig (`Prowler Utility`, `ATLS GEO`) und ohne
+    Hersteller. `name` ist die Kurzform der Pledge-Seite (`prowler-utility`,
+    `reliant kore - mini hauler`) und Rückfall, wenn `matrix` fehlt — dann
+    ist `name` wieder der saubere Name.
+
+    ⚠ Sondereditionen tragen in `matrix` ihren eigenen Namen (`Caterpillar
+    Pirate Edition`). Teilen sich trotzdem zwei Einträge mit verschiedenem
+    `code` eine `matrix`, wären sie über `_same_ship` ein Schiff. Die Sperre
+    dagegen sitzt in `_from_json`, weil sie den ganzen Export braucht; sie
+    ruft diese Funktion dann mit `name_first=True`.
+
+    `includedShips` liest `_included_ships`, nicht diese Funktion.
 
     ⚠ **Warbond, Kaufdatum und Preis stehen nur im CSV-Export** — der JSON
     führt Schiffe und Fahrzeuge samt ihrer Beziehungen, dazu die Versicherung
@@ -741,7 +755,9 @@ def _hangar_extension_entry(entry):
     XPLORer `pledge_name` heißt, und landet deshalb unter `paket`.
     """
     maker = entry.get('manufacturer') or {}
-    name = (entry.get('name') or entry.get('matrix') or '').strip()
+    matrix = (entry.get('matrix') or '').strip()
+    label = (entry.get('name') or '').strip()
+    name = (label or matrix) if name_first else (matrix or label)
     if not name:
         return None
     lti, months = _extension_insurance(entry)
@@ -758,6 +774,49 @@ def _hangar_extension_entry(entry):
         'gekauft': '',
         'preis': '',
     }
+
+
+def _included_ships(raw, ships):
+    """Die Fahrzeuge aus `includedShips`, die der Export nicht selbst führt.
+
+    `raw` sind die Einträge des Exports, `ships` die daraus gelesenen
+    Schiffe in derselben Reihenfolge (`None` für übergangene). Ein genanntes
+    Fahrzeug wird ein eigenes Schiff mit dem Träger unter `paket` — wie
+    `includedWith`, damit `bundled_with` es dem Träger zuordnet.
+
+    ⚠ Kein Doppel: Steht das Fahrzeug schon als eigener Eintrag im Export
+    (oft mit `includedWith`), bleibt es bei diesem. Nennen mehrere Träger
+    dasselbe Fahrzeug, entsteht es einmal.
+
+    Den Hersteller nennt der Export hier nicht; er kommt aus dem
+    Schiffskatalog (`_catalog_name`). Ohne Katalog bleibt er leer, und
+    `beilage` sagt `import_entries`, dass dann der Name zählt.
+    """
+    known = set()
+    for entry, ship in zip(raw, ships):
+        if ship:
+            for value in (ship.get('name'), entry.get('matrix'),
+                          entry.get('name')):
+                if _slim(value):
+                    known.add(_slim(value))
+    result = []
+    for entry, ship in zip(raw, ships):
+        if not ship:
+            continue
+        for included in entry.get('includedShips') or ():
+            if not isinstance(included, str) or not _slim(included):
+                continue
+            if _slim(included) in known:
+                continue
+            known.add(_slim(included))
+            name, maker, maker_code = _catalog_name(included.strip())
+            result.append({
+                'name': name, 'hersteller': maker, 'kurz': '',
+                'hkurz': maker_code, 'lti': ship.get('lti'),
+                'warbond': False, 'versicherung': ship.get('versicherung'),
+                'paket': ship['name'], 'gekauft': '', 'preis': '',
+                'beilage': True})
+    return result
 
 
 # ------------------------------------------------ Schiffslisten
@@ -872,25 +931,45 @@ def _from_json(text):
 
     | | Hangar XPLORer (dolkensp) | Hangar Extension (AlyxOne) |
     |---|---|---|
-    | Eintrag | flach: `name`, `ship_name`, `manufacturer_name`, `manufacturer_code`, `ship_code`, `lti`, `pledge_*` | `name`, `matrix`, `code`, `manufacturer` als **Wörterbuch** |
+    | Eintrag | flach: `name`, `ship_name`, `manufacturer_name`, `manufacturer_code`, `ship_code`, `lti`, `pledge_*` | `matrix`, `name`, `code`, `manufacturer` als **Wörterbuch** |
+    | Schiffsname | `name` vor `ship_name` | `matrix` vor `name` — außer bei geteilter `matrix` (unten) |
     | Umfang | Schiffe **und** Ausrüstung, Farben, Anzüge (`entity_type`) | nur Schiffe und Fahrzeuge |
     | Pledge-Angaben | LTI, Warbond, Paket, Datum, Preis | Versicherung und Paket — kein Warbond, Datum, Preis (siehe `_hangar_extension_entry`) |
+    | Beilagen | eigene Einträge | eigene Einträge mit `includedWith`, dazu `includedShips` am Träger (siehe `_included_ships`) |
 
     Erkannt wird **je Eintrag** am Wörterbuch `manufacturer` — kein Werkzeug
     schreibt das Feld des anderen. Beide werden eingelesen, auch ältere
     XPLORer-Exporte.
+
+    ⚠ **Geteilte `matrix`:** Tragen Einträge mit verschiedenem `code`
+    dieselbe `matrix` (Grundtyp und Sonderedition ohne eigenen
+    Matrix-Eintrag), behalten genau diese Einträge `name`. Sonst hießen
+    beide gleich und `_same_ship` machte beim Import eines daraus.
     """
     raw = json.loads(text)
     if _is_starjump(raw):
         return _from_starjump(raw)
     if not isinstance(raw, list):
         return []
+    codes_by_matrix = {}
+    for entry in raw:
+        if isinstance(entry, dict) and isinstance(entry.get('manufacturer'),
+                                                  dict):
+            matrix = _slim(entry.get('matrix'))
+            if matrix:
+                codes_by_matrix.setdefault(matrix, set()).add(
+                    (entry.get('code') or '').strip())
+    shared = {m for m, codes in codes_by_matrix.items() if len(codes) > 1}
     result = []
+    ext_raw, ext_ships = [], []
     for entry in raw:
         if not isinstance(entry, dict):
             continue
         if isinstance(entry.get('manufacturer'), dict):
-            ship = _hangar_extension_entry(entry)
+            ship = _hangar_extension_entry(
+                entry, name_first=_slim(entry.get('matrix')) in shared)
+            ext_raw.append(entry)
+            ext_ships.append(ship)
             if ship:
                 result.append(ship)
             continue
@@ -937,6 +1016,7 @@ def _from_json(text):
             'gekauft': (entry.get('pledge_date') or '').strip(),
             'preis': (entry.get('pledge_cost') or '').strip(),
         })
+    result.extend(_included_ships(ext_raw, ext_ships))
     return result
 
 
@@ -1134,17 +1214,23 @@ def import_entries(entries, data=None, save_now=True):
     pledge_export = all((e.get('herkunft') or PLEDGE) == PLEDGE
                         for e in entries)
     wishes = [e for e in entries if e.get('wunsch')]
+    by_name = []
     for e in entries:
         origin = e.get('herkunft') or PLEDGE
         if e.get('wunsch'):
             continue
-        if origin == LIST and not e.get('hkurz') and not e.get('hersteller'):
+        if (origin == LIST or e.get('beilage')) \
+                and not e.get('hkurz') and not e.get('hersteller'):
             # Ohne Hersteller greift `_same_ship` nicht (Name allein reicht
             # dort bewusst nicht). Steht genau EIN Schiff dieses Namens schon
             # drin, ist es dieses — sonst stünde es gleich doppelt da.
             same = [s for s in (data.get('schiffe') or [])
                     if _slim(s.get('name')) == _slim(e.get('name'))]
             if len(same) == 1:
+                if origin != LIST:
+                    _fill(same[0], paket=e.get('paket'), lti=e.get('lti'),
+                          versicherung=e.get('versicherung'))
+                by_name.append(same[0])
                 continue
         is_new = add(data, e.get('name'), e.get('hersteller'),
                      origin=origin, kurz=e.get('kurz'),
@@ -1173,9 +1259,10 @@ def import_entries(entries, data=None, save_now=True):
     if entries and pledge_export:
         kept = []
         for ship in (data.get('schiffe') or []):
-            in_export = any(_same_ship(ship, e.get('name'), e.get('hersteller'),
-                                       e.get('kurz'), e.get('hkurz'))
-                            for e in entries)
+            in_export = any(ship is s for s in by_name) or any(
+                _same_ship(ship, e.get('name'), e.get('hersteller'),
+                           e.get('kurz'), e.get('hkurz'))
+                for e in entries)
             if ship.get('herkunft') == PLEDGE and not in_export:
                 removed.append(ship.get('name') or '')
             else:

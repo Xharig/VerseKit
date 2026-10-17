@@ -7367,7 +7367,7 @@ def _thanks(fenster, rahmen):
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.
-            ('AlyxOne', '', t('s_dk_alyxone_idee'), '')):
+            ('AlyxOne', '', t('s_dk_alyxone_idee'), t('s_dk_alyxone_bugs'))):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
