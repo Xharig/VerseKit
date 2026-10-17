@@ -1,0 +1,1 @@
+hangar-schiffe-beispiel.json: unveraenderte Beispieldatei des Hangar-Exporters (Drachennarr), Datei beispiele/hangar-schiffe-beispiel.json, Commit a9d06d3, Lizenz GPL-3.0. Erfundene Werte, Format "hangar-schiffe" Version 1. Prueft den Hangar-Import (Pruefung 474).

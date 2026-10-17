@@ -13488,24 +13488,36 @@ def _hangar(fenster, rahmen):
                 padx=24, inset=48)
 
     def importieren():
-        pfad = file_picker.open_file(
+        file_path = file_picker.open_file(
             t('s_hg_import_knopf'),
             # JSON zuerst — das ist der empfohlene Weg. CSV bleibt wählbar.
             patterns=(('JSON', '*.json'), ('CSV', '*.csv')))
-        if not pfad:
+        if not file_path:
             return
-        eintraege, fehlertext = meine.read(pfad)
-        if fehlertext:
+        entries, error_text = meine.read(file_path)
+        if error_text == meine.UNSUPPORTED_VERSION:
+            meldung['text'], meldung['farbe'] = t('s_hg_import_version'), RED
+        elif error_text == meine.TRANSFER_FILE:
+            meldung['text'], meldung['farbe'] = t('s_hg_import_uebergabe'), RED
+        elif error_text:
             meldung['text'], meldung['farbe'] = t('s_hg_import_fehler'), RED
-        elif not eintraege:
+        elif not entries:
             meldung['text'], meldung['farbe'] = t('s_hg_import_leer'), RED
         else:
-            added, existing, removed = meine.import_entries(eintraege,
+            added, existing, removed = meine.import_entries(entries,
                                                            daten['stand'])
             meldung['text'] = t('s_hg_import_ok').format(neu=added, alt=existing)
             if removed:
                 meldung['text'] += ' ' + t('s_hg_import_weg').format(
                     anzahl=len(removed), namen=', '.join(removed))
+            # Die Schiffsliste `hangar-schiffe` ordnet manche Titel nur
+            # ungefähr einem Schiff zu — die stehen hier mit ihrem Titel aus
+            # dem Pledge.
+            approximations = ['%s (%s)' % (e['name'], e['naeherung'])
+                              for e in entries if e.get('naeherung')]
+            if approximations:
+                meldung['text'] += ' ' + t('s_hg_import_naeherung').format(
+                    namen=', '.join(approximations))
             meldung['farbe'] = ACCENT
             _steckplaetze_holen(still=True)
         neu_zeichnen()
