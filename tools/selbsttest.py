@@ -25680,6 +25680,7 @@ def main():
     _pruefung_470()
     _pruefung_471()
     _pruefung_472()
+    _pruefung_473()
 
     print()
     if fehler:
@@ -46149,7 +46150,7 @@ def _pruefung_472():
            'ohne Zeigerauskunft bleibt alles, wie es ist')
     pruefe(_f(None, (True, 10, 10), _rect) is True
            and _f(True, (False, 10, 10), _rect) is False,
-           'daneben: versteckt → durchreichen, sichtbar → anklickbar')
+           'daneben: versteckt: durchreichen, sichtbar: anklickbar')
     pruefe(_f(False, (True, 150, 150), _rect) is None
            and _f(None, (True, 150, 150), _rect) is None,
            'über dem anklickbaren Overlay wird nicht entschieden')
@@ -46998,6 +46999,61 @@ def _pruefung_471():
         else:
             os.environ['SC_BP_HOME'] = _alt_home471
         shutil.rmtree(_heim471, ignore_errors=True)
+
+
+def _pruefung_473():
+    """Raffinerie-Feld: Stückware wird nicht in SCU umgerechnet."""
+    print('\n473. Raffinerie-Feld: Stückware bleibt eine Stückzahl')
+    from scbp import crafting as _cr473, materials as _ma473
+    # Ohne Rezeptdaten kennt der Wegwerf-Ordner weder Rohstoffe noch
+    # Stückware — beides wird hier vorgegeben.
+    echt = (_cr473.storage_name, _cr473.piece_materials, _ma473._is_piece)
+    try:
+        _cr473.storage_name = lambda n: n
+        _cr473.piece_materials = lambda: {'glacosite', 'dolivine',
+                                          'feynmaline'}
+        # Die Falle muss selbst greifen, sonst misst der Rest nichts.
+        pruefe(_ma473._is_piece('Glacosite')
+               and not _ma473._is_piece('Titanium'),
+               'Vorgabe greift: Glacosite ist Stückware, Titanium nicht')
+
+        posten, fehl = _ma473.refinery_lines('Glacosite 567 5')
+        pruefe(posten == [('Glacosite', 5.0, 567)] and not fehl,
+               '„Glacosite 567 5" ergibt 5 Stück, nicht 0,05 (%s)' % posten)
+        posten, fehl = _ma473.refinery_lines(
+            'Dolivine 500 3 cSCU\nFeynmaline 400 2 SCU')
+        pruefe(posten == [('Dolivine', 3.0, 500), ('Feynmaline', 2.0, 400)]
+               and not fehl,
+               'eine angehängte Einheit rechnet Stückware nicht um (%s)'
+               % posten)
+        posten, fehl = _ma473.refinery_lines('Glacosite 567 5', 'scu')
+        pruefe(posten == [('Glacosite', 5.0, 567)] and not fehl,
+               'Voreinstellung SCU lässt Stückware ebenso stehen (%s)' % posten)
+        posten, fehl = _ma473.refinery_lines('Titanium 295 188')
+        pruefe(posten == [('Titanium', 1.88, 295)] and not fehl,
+               'SCU-Ware wird weiter aus cSCU umgerechnet (%s)' % posten)
+
+        hinweise = []
+        _ma473.refinery_lines('Glacosite 567 480\nTitanium 295 480', 'scu',
+                              hints=hinweise)
+        pruefe([h[0] for h in hinweise] == ['Titanium 295 480'],
+               'Stückware löst keinen Einheiten-Hinweis aus, SCU-Ware schon '
+               '(%s)' % hinweise)
+        hinweise = []
+        _ma473.refinery_lines('Feynmaline 400 2.5', 'cscu', hints=hinweise)
+        pruefe(not hinweise,
+               'auch eine Kommazahl bei Stückware bleibt ohne Hinweis (%s)'
+               % hinweise)
+
+        # Gegenprobe: Ohne Stückware-Erkennung wären es 0,05 SCU.
+        _ma473._is_piece = lambda m: False
+        posten, _ = _ma473.refinery_lines('Glacosite 567 5')
+        pruefe(posten == [('Glacosite', 0.05, 567)],
+               'Gegenprobe: ohne Stückware-Erkennung stünden 0,05 im Lager '
+               '(%s)' % posten)
+    finally:
+        (_cr473.storage_name, _cr473.piece_materials,
+         _ma473._is_piece) = echt
 
 
 def _alle_eingaben(w):

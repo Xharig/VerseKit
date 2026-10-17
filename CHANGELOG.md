@@ -28,6 +28,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   ist wie gewohnt bedienbar, sobald er sichtbar ist (mobiGlas, Menüs,
   Desktop). Das Schloss braucht es dafür nicht; abschaltbar unter
   *Anzeige*.
+- **Edelsteine aus der Raffinerie-Ausbeute um den Faktor 100 zu klein** —
+  Stückware wie Glacosite, Dolivine oder Feynmaline landete aus dem Feld
+  „Raffinerie-Ausbeute eintragen" als Hundertstel im Lager (5 Stück wurden
+  0,05). Jetzt kommt die Stückzahl so an, wie sie eingetippt ist, auch mit
+  angehängtem cSCU oder SCU.
 
 ## v4.8.2 - 2026-10-17
 

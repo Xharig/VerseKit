@@ -681,6 +681,10 @@ def refinery_lines(text, unit='cscu', hints=None):
     ⭐ Eine Zeile darf ihre Einheit selbst nennen (`Titanium 295 188 cSCU`,
     `Titanium 295 1.88 SCU`). Dann gilt sie, egal was `unit` sagt.
 
+    ⚠ Stückware (Edelsteine) kennt keine Einheit: Ihre Menge ist eine
+    Stückzahl und wird weder mit `unit` noch mit einer angehängten Einheit
+    umgerechnet.
+
     `hints` (eine Liste) sammelt `(zeile, textschlüssel, menge)` für Zeilen,
     deren Einheit verwechselt aussieht — siehe `unit_hint`. Sie werden
     trotzdem gelesen.
@@ -697,7 +701,6 @@ def refinery_lines(text, unit='cscu', hints=None):
         if parts and parts[-1].lower() in UNIT_WORDS:
             line_unit = UNIT_WORDS[parts[-1].lower()]
             parts = parts[:-1]
-        factor = CSCU if line_unit == 'cscu' else 1.0
         if len(parts) < 3:
             errors.append((line, t('s_rf_zu_kurz')))
             continue
@@ -731,6 +734,13 @@ def refinery_lines(text, unit='cscu', hints=None):
         if value <= 0:
             errors.append((line, t('s_rf_menge')))
             continue
+        # ⚠ Stückware nie umrechnen, auch nicht bei angehängter Einheit:
+        # 5 Glacosite sind 5 Stück, nicht 0,05. Ohne Einheit gibt es auch
+        # nichts zu verwechseln, also keinen Hinweis.
+        if _is_piece(real):
+            entries.append((real, value, quality))
+            continue
+        factor = CSCU if line_unit == 'cscu' else 1.0
         entries.append((real, round(value * factor, 4), quality))
         hint = unit_hint(value, line_unit)
         if hint and hints is not None:

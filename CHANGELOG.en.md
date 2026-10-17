@@ -28,6 +28,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the pointer is hidden, and works as usual as soon as it is visible
   (mobiGlas, menus, desktop). No lock needed; can be switched off under
   *Display*.
+- **Gems from the refinery yield 100 times too small** — piece goods such as
+  Glacosite, Dolivine or Feynmaline went from the "Enter refinery yield"
+  field into storage as hundredths (5 pieces became 0.05). The count now
+  arrives as typed, even with cSCU or SCU appended.
 
 ## v4.8.2 - 2026-10-17
 
