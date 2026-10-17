@@ -25681,6 +25681,7 @@ def main():
     _pruefung_471()
     _pruefung_472()
     _pruefung_473()
+    _pruefung_475()
 
     print()
     if fehler:
@@ -47263,6 +47264,59 @@ def _pruefung_473():
     finally:
         (_cr473.storage_name, _cr473.piece_materials,
          _ma473._is_piece) = echt
+
+
+def _pruefung_475():
+    """Einbuchen ins Lager der Einheit: Besitzer ist vorab man selbst."""
+    print('\n475. Einbuchen: der eigene Account steht als Besitzer vorne')
+    from scbp import logsource as _ls475, orgstock_page as _op475
+    liste = [{'ref': 'r-a', 'name': 'Anderer'},
+             {'ref': 'r-x', 'name': 'Xharig'},
+             {'ref': 'r-c', 'name': 'Dritter'}]
+    pruefe(_op475.own_member(liste, 'xharig') == 'r-x'
+           and _op475.own_member(liste, ' XHARIG ') == 'r-x',
+           'der eigene Eintrag wird ohne Rücksicht auf Groß- und '
+           'Kleinschreibung gefunden')
+    pruefe(_op475.own_member(liste, 'Fremder') == ''
+           and _op475.own_member(liste, '') == '',
+           'fehlt der Account in der Liste, bleibt die Vorauswahl leer')
+
+    gewaehlt = {}
+
+    class _Formular:
+        def __init__(self, *a, **k):
+            pass
+
+        def select(self, key, label, entries, default='', on_change=None):
+            gewaehlt[key] = default
+            return default
+
+        def __getattr__(self, name):
+            return lambda *a, **k: ''
+
+    echt = (_op475._Form, _op475._material_field, _op475._location_field,
+            _ls475.own_account)
+    try:
+        _op475._Form = _Formular
+        _op475._material_field = lambda *a, **k: None
+        _op475._location_field = lambda *a, **k: None
+        daten = {'rosters': {'u1': liste}}
+        _ls475.own_account = lambda *a, **k: 'Xharig'
+        _op475._form_book_in(None, None, {'values': {}}, daten, 'u1',
+                             lambda: None, lambda: None)
+        pruefe(gewaehlt.get('holder') == 'r-x',
+               'das Einbuchen-Formular wählt den eigenen Account als Besitzer '
+               'vor, nicht den ersten der Liste (%r)' % gewaehlt)
+        gewaehlt.clear()
+        _ls475.own_account = lambda *a, **k: _ls475.ALL_ACCOUNTS
+        _op475._form_book_in(None, None, {'values': {}}, daten, 'u1',
+                             lambda: None, lambda: None)
+        pruefe(gewaehlt.get('holder') == '',
+               'zählen alle Accounts, gibt es keine Vorauswahl (%r)'
+               % gewaehlt)
+    finally:
+        (_op475._Form, _op475._material_field, _op475._location_field,
+         _ls475.own_account) = echt
 
 
 def _alle_eingaben(w):

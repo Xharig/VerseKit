@@ -1146,6 +1146,24 @@ def _earmark_line(window, form, page, lot, entry, target_kind, target_id,
             danger=True).pack(side='left', padx=(8, 0))
 
 
+def own_member(roster, account=None):
+    """Die `ref` des eigenen Eintrags in der Mitgliederliste — gefunden über
+    den Spiel-Account, ohne Rücksicht auf Groß- und Kleinschreibung. Leer,
+    wenn der Account unbekannt ist oder in der Liste fehlt."""
+    if account is None:
+        from . import logsource
+        account = logsource.own_account()
+        if account == logsource.ALL_ACCOUNTS:
+            account = None
+    wanted = (account or '').strip().casefold()
+    if not wanted:
+        return ''
+    for member in roster:
+        if (member.get('name') or '').strip().casefold() == wanted:
+            return member['ref']
+    return ''
+
+
 def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
     form = _Form(window, parent, page, t('s_sl_einbuchen_titel'))
     roster = data['rosters'].get(unit_id) or []
@@ -1153,7 +1171,8 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
         form.note(t('s_sl_keine_mitglieder'), theme.YELLOW)
     else:
         form.select('holder', t('s_sl_besitzer'),
-                    [(m['ref'], m['name']) for m in roster])
+                    [(m['ref'], m['name']) for m in roster],
+                    default=own_member(roster))
     _material_field(window, form, page, data, redraw)
     _location_field(window, form, page, 'location', t('s_sl_ort'))
     unit = form.select('unit', t('s_sl_einheit_menge'),

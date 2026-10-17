@@ -6,7 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.9.0 - 2026-10-17
+
+> Einbuchen ins Lager der Einheit geht jetzt per Auswahlliste: Rüstung,
+> Waffen, Komponenten und Waren antippen, Verse-Kit klärt den Namen vorher mit
+> dem Basetool. Das Overlay darf über dem Spiel bleiben, denn in der Ego-Sicht
+> und im Flug reicht es Maus und Klicks einfach durch. Und Edelsteine aus der
+> Raffinerie kommen wieder in voller Stückzahl im Lager an.
 
 ### Verbessert
 
@@ -18,6 +24,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   die Ware beim Basetool nachgeschlagen: Ist sie nicht eindeutig, stehen die
   passenden Treffer samt Art zum Anklicken da; kennt das Basetool sie nicht
   oder passt Stück/SCU nicht, geht keine Buchung hinaus.
+- **Besitzer beim Einbuchen** — vorausgewählt ist jetzt der eigene
+  Spielname statt des ersten Mitglieds der Liste.
 
 ### Behoben
 

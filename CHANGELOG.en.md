@@ -6,7 +6,13 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.9.0 - 2026-10-17
+
+> Booking into the unit storage now works from a pick list: tap armor,
+> weapons, components or goods, and Verse-Kit checks the name with the
+> Basetool first. The overlay can stay on top of the game, because in first
+> person and in flight it simply passes mouse and clicks through. And gems
+> from the refinery arrive in storage at their full count again.
 
 ### Improved
 
@@ -18,6 +24,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Basetool: if they are not unique, the matching hits are there to click,
   with their kind; if the Basetool does not know them or pieces/SCU do not
   fit, no booking goes out.
+- **Owner when booking in** — your own in-game name is now preselected
+  instead of the first member of the list.
 
 ### Fixed
 
