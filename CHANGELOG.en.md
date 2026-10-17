@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.8.2 - 2026-10-17
+
+> The unit storage now explains itself: its card on the overview says what
+> is in it, and anyone who is not a logistician reads on the page how their
+> items still get into the unit storage.
+
+### Improved
+
+- **Note on storing items in the unit storage** — anyone who is not a
+  logistician sees on the page who books there, how their own items get into
+  the unit storage through the Basetool, and that the material storage in the
+  workshop stays their personal storage. If "Book as a logistician" is on but
+  the Basetool does not list you as a logistician of the unit, the page says
+  so instead of just showing no button.
+
+### Fixed
+
+- **"Unit storage" card without description** — pinned on the overview it
+  showed only an internal name instead of the description.
+
 ## v4.8.1 - 2026-10-17
 
 > A quick fix for the Basetool page: "Grant permission" no longer fails on

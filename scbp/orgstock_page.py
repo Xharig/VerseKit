@@ -214,6 +214,13 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
     elif logistician and not data['write']:
         _body_text(top, t('s_sl_buchen_aus'), window.f_small, fill='x',
                    pady=(6, 0))
+    elif not logistician:
+        # Ohne Logistiker-Rolle gibt es hier nichts zu buchen — der Hinweis
+        # sagt, wie Sachen trotzdem ins Lager der Einheit kommen. Ist Buchen
+        # schon eingeschaltet, hat das Basetool die Rolle verneint.
+        _body_text(top, t('s_sl_kein_logistiker' if data['write']
+                          else 's_sl_mitglied'),
+                   window.f_small, fill='x', pady=(6, 0))
 
     chips = tk.Frame(top, bg=BG)
     chips.pack(fill='x', pady=(10, 0))

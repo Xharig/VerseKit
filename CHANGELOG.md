@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.8.2 - 2026-10-17
+
+> Das Lager der Einheit erklärt sich jetzt selbst: Die Karte auf der
+> Übersicht sagt, was drinsteckt, und wer kein Logistiker ist, liest auf der
+> Seite, wie seine Sachen trotzdem ins Lager der Einheit kommen.
+
+### Verbessert
+
+- **Hinweis zum Einlagern im Lager der Einheit** — wer kein Logistiker ist,
+  sieht auf der Seite, wer dort bucht, wie eigene Sachen über das Basetool
+  in das Lager der Einheit kommen und dass das Rohstofflager in der
+  Werkstatt das persönliche Lager bleibt. Ist „Als Logistiker buchen" an,
+  das Basetool führt dich aber nicht als Logistiker der Einheit, sagt die
+  Seite das, statt einfach keinen Knopf zu zeigen.
+
+### Behoben
+
+- **Karte „Lager der Einheit" ohne Erklärtext** — angeheftet auf der
+  Übersicht stand dort nur ein interner Name statt der Beschreibung.
+
 ## v4.8.1 - 2026-10-17
 
 > Eine schnelle Korrektur zur Basetool-Seite: „Erlaubnis erteilen" scheitert

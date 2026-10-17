@@ -41185,9 +41185,12 @@ def _pruefung_424():
            'im Bereich Basetool vorn stehen (%r)' % _je_gruppe.get('basetool'))
     pruefe(not _falsch, 'jeder Bereich zeigt genau die Reiter seiner Gruppe, '
            'in derselben Reihenfolge (%r)' % _falsch)
+    # Angeheftete Karten auf der Übersicht nehmen den Text ohne Bereich —
+    # also auch jede anheftbare Seite, die nur im Basetool-Bereich steht.
     _schl = (['ka_' + a[0] for a in _ka424.AREAS]
              + [_ka424.description_key(p, a[0]) for a in _ka424.AREAS
-                for p in a[3]] + [a[2] for a in _ka424.AREAS])
+                for p in a[3]] + [a[2] for a in _ka424.AREAS]
+             + [_ka424.description_key(p) for p in _ka424.PAGES])
     _fehlt = sorted(k for k in _schl if k not in _la424.TEXTS)
     pruefe(not _fehlt, 'jede Karte hat ihren Text, deutsch und englisch (%r)'
            % _fehlt)
@@ -45448,14 +45451,15 @@ def _pruefung_466():
         def start(self):
             self._ziel()
 
-    def _stand(write):
+    def _stand(write, logistiker=True):
         _ga = {'type': 'RAW', 'commodity': True, 'raw': True}
         _seite = {'items': [_org_lot465('k1', 'u1', 'Laranite', _ga,
                                         entries=[_ORG_ENTRY465])],
                   'units': [{'id': 'u1', 'name': 'Iridium'}]}
         _lots, _units = _og.apply_pages({}, [_seite], True)
         _og._state.update(lots=_lots, units=_units, cursor='c', at=time.time(),
-                          details=True, write=write, logistician={'u1'},
+                          details=True, write=write,
+                          logistician={'u1'} if logistiker else set(),
                           rosters={'u1': [{'ref': 'r1', 'name': 'Hauler One'}]})
 
     def _texte(w, out):
@@ -45516,11 +45520,29 @@ def _pruefung_466():
                                        'confirm_url': None})
         _og.refresh = lambda *a, **k: {}
         _th466.Thread = _Sofort
-        _stand(write=False)
+        # Ohne Logistiker-Rolle: kein Einbuchen, aber der Hinweis, wie Sachen
+        # trotzdem ins Lager der Einheit kommen.
+        _stand(write=True, logistiker=False)
         _fe = _MW466(_root, version='4.7.0')
         _fe.open_page('staffellager')
         _pumpen()
         _seite = _fe.pages['staffellager']
+        pruefe(_knopf(_seite, _sp466.t('s_sl_einbuchen')) is None
+               and _sp466.t('s_sl_kein_logistiker') in _texte(_seite, []),
+               'Buchen an, aber kein Logistiker: kein Einbuchen, dafür der '
+               'Hinweis, woran es liegt')
+        _stand(write=False, logistiker=False)
+        _fe.pages_changed(['staffellager'])
+        _pumpen()
+        _seite = _fe.pages['staffellager']
+        pruefe(_sp466.t('s_sl_mitglied') in _texte(_seite, []),
+               'Buchen aus, kein Logistiker: der Hinweis zum Einlagern')
+        _stand(write=False)
+        _fe.pages_changed(['staffellager'])
+        _pumpen()
+        _seite = _fe.pages['staffellager']
+        pruefe(_sp466.t('s_sl_mitglied') not in _texte(_seite, []),
+               'als Logistiker steht der Mitglieder-Hinweis nicht da')
         pruefe(_label(_seite, 'Laranite') is not None,
                'die Seite zeigt den Posten der Einheit')
         _label(_seite, 'Laranite').event_generate('<Button-1>')
