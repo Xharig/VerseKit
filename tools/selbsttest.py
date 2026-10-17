@@ -25682,6 +25682,7 @@ def main():
     _pruefung_472()
     _pruefung_473()
     _pruefung_475()
+    _pruefung_476()
 
     print()
     if fehler:
@@ -47317,6 +47318,31 @@ def _pruefung_475():
     finally:
         (_op475._Form, _op475._material_field, _op475._location_field,
          _ls475.own_account) = echt
+
+
+def _pruefung_476():
+    """Namenszusatz: `Grad:` in der Beschreibung zählt als Gütegrad."""
+    print('\n476. Namenszusatz liest den Grad auch aus „Grad:"')
+    from scbp import specs as _sp476
+    zeilen = [
+        'item_DescQDRV_RACO_S02_Spicule_SCItem=Typ: Quantum Drive\\n'
+        'Hersteller: RAMP Corporation\\nGröße: 2\\nGrad: A \\n'
+        'Klasse: Tarnung\\n\\nEben noch da.',
+        'item_NameQDRV_RACO_S02_Spicule_SCItem=Spicule',
+        'item_DescCOOL_X_S01_Probe=Typ: Kühler\\nGröße: 1\\n'
+        'Grade: C\\nKlasse: Zivil\\n\\nText.',
+        'item_NameCOOL_X_S01_Probe=Probe',
+    ]
+    tabelle = _sp476.build_table(zeilen)
+    pruefe(tabelle.get('item_NameQDRV_RACO_S02_Spicule_SCItem')
+           == '(Sth/2/A)',
+           'Spicule mit „Grad: A" bekommt (Sth/2/A) statt (Sth/2/–) (%r)'
+           % tabelle)
+    pruefe(tabelle.get('item_NameCOOL_X_S01_Probe') == '(Civ/1/C)',
+           '„Grade:" wird nicht als „Grad:" missverstanden (%r)' % tabelle)
+    pruefe(_sp476.grade_from_description(
+               'Typ: Waffe\\nWirkungsgrad: 3\\nKlasse: Laser') is None,
+           'ein Feld, das nur auf „grad:" endet, ist kein Gütegrad')
 
 
 def _alle_eingaben(w):

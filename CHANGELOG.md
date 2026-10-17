@@ -41,6 +41,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   „Raffinerie-Ausbeute eintragen" als Hundertstel im Lager (5 Stück wurden
   0,05). Jetzt kommt die Stückzahl so an, wie sie eingetippt ist, auch mit
   angehängtem cSCU oder SCU.
+- **Gütegrad fehlte im Namen von rund hundert Komponenten** — steht in der
+  Beschreibung „Grad: A", hieß es im Namen trotzdem „Spicule (Sth/2/–)".
+  Jetzt steht dort „(Sth/2/A)", passend zur Beschreibung.
 
 ## v4.8.2 - 2026-10-17
 

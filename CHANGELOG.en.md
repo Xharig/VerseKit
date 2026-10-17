@@ -40,6 +40,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Glacosite, Dolivine or Feynmaline went from the "Enter refinery yield"
   field into storage as hundredths (5 pieces became 0.05). The count now
   arrives as typed, even with cSCU or SCU appended.
+- **Grade missing from the name of about a hundred components** — when the
+  German description said "Grad: A", the name still read "Spicule
+  (Sth/2/–)". It now reads "(Sth/2/A)", matching the description.
 
 ## v4.8.2 - 2026-10-17
 

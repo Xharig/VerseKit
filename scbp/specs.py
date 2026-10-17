@@ -94,11 +94,12 @@ import re
 # in der eigenen Sprache nicht gibt, kostet nichts.
 #
 # ⚠ Je Übersetzung und sogar je Gegenstand verschieden: Die Übersetzung von
-# Luftwerft schreibt die Güte als `Güteklasse:`, `Güte:` oder `Grade:` —
-# Kühler und Kraftwerke meist mit den ersten beiden.
+# Luftwerft schreibt die Güte als `Güteklasse:`, `Güte:`, `Grade:` oder
+# `Grad:` — Kühler und Kraftwerke meist mit den ersten beiden.
 FIELDS = {
     'groesse': ('Größe', 'Grösse', 'Size'),
-    'guete':   ('Gütegrad', 'Guetegrad', 'Güteklasse', 'Güte', 'Grade'),
+    'guete':   ('Gütegrad', 'Guetegrad', 'Güteklasse', 'Güte', 'Grade',
+                'Grad'),
     'klasse':  ('Klasse', 'Class'),
     'lenkung': ('Verfolgungssignal', 'Tracking Signal', 'Signature Type',
                 'Signature'),
