@@ -89,6 +89,17 @@ dein Heimatordner in jedem Pfad und alles, was nach Zugangsdaten aussieht,
 sind vorher ersetzt. Pfade außerhalb deines Heimatordners (etwa ein
 Spielordner auf `D:\`) bleiben stehen — du siehst sie vor dem Senden.
 
+Oben im Bericht steht, **wer meldet**, damit Rückfragen ankommen. Solange du
+dort nichts Eigenes einträgst, ist das Feld mit deinem Spiel-Account
+vorausgefüllt, sofern auf der Seite *Erkennung* einer gewählt ist. Du siehst
+es vor dem Senden, kannst es ändern oder leeren — leer geht kein Name mit.
+Derselbe Name benennt auch die ZIP mit den Bildern und ihren Ordner. Sonst
+steht er nirgends im Bericht.
+
+Statt zu senden kannst du den Bericht auch kopieren oder mit dem Knopf
+**GitHub Issue …** in ein Formular legen lassen. Ein Issue ist **öffentlich**
+— mitsamt dem Namen oben, falls du ihn stehen lässt.
+
 Hast du den Haken für die Bilder gesetzt, gehen die Scan-Bilder mit: bei
 Signaturen der Ausschnitt um die Zahl, beim Raffinerie-Scanner die Tabelle des
 Terminals aus einer Lesung, die nicht sicher war (die letzten drei). Nur wenn
@@ -140,8 +151,9 @@ Stand — `basetool-<Kennung>.json` **und** `basetool-<Kennung>.bak.json`. Was
 schon in einer Sicherungs-ZIP steckt, bleibt dort, bis du sie löschst.
 
 **Fehlerbericht:** Er kann die Namen von Bauplänen enthalten, die Verse-Kit
-nicht zuordnen kann — darunter auch solche, die aus dem Basetool kamen. Dein
-RSI-Handle und die Zugangsdaten stehen nicht darin, und er geht nur hinaus,
+nicht zuordnen kann — darunter auch solche, die aus dem Basetool kamen. Die
+Zugangsdaten stehen nie darin, dein RSI-Handle nur oben als Melder, solange du
+das Feld nicht änderst oder leerst (siehe [Fehlerbericht](#fehlerbericht)), und er geht nur hinaus,
 wenn du ihn selbst abschickst. Was das Basetool selbst mit deinen Daten tut,
 regelt seine eigene Datenschutzerklärung auf
 [profit-base.online](https://profit-base.online).

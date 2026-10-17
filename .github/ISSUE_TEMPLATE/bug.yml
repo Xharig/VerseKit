@@ -10,8 +10,9 @@ body:
         Thanks for taking the time.
 
         If you got here from the tool, the report below is already filled in — all
-        that is missing is **what happened**. It contains no names and no
-        credentials; paths are shortened.
+        that is missing is **what happened**. It contains no credentials, paths
+        are shortened; a name appears only at the top under "From" if you left
+        it in the tool. The issue is public.
 
   - type: textarea
     id: was

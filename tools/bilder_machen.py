@@ -294,6 +294,9 @@ def _gefaehrliches_abschalten(ordner):
     # unter den Startprogrammen statt einer leeren Liste. Er
     # startet nichts — Startprogramme laufen nur beim Klick auf den Launcher.
     daten['melder_name'] = ''
+    # ⚠ Ohne diese Marke gilt das leere Feld als nie eingetragen, und der
+    # Bericht zeigt den Spiel-Account der kopierten Einstellungen.
+    daten['melder_leer_gewollt'] = True
     # ⚠⚠ **Immer `original` — schon hier, beim Kopieren.** Das Overlay-Bild
     # entsteht in einem EIGENEN Prozess (`--nur-overlay`), der `main()` nicht
     # erreicht; stünde das Schema erst dort, zeigte das Overlay das Schema der

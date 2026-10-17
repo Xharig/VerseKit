@@ -31,6 +31,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Einheit am Schiff** — im Hangar lässt sich jetzt wählen, zu welcher
   Einheit ein Schiff im Basetool gehört.
 
+### Verbessert
+
+- **Fehlerbericht mit deinem Namen vorausgefüllt** — das Feld *Dein Name*
+  trägt jetzt deinen Spiel-Account, damit Rückfragen ankommen. Du siehst es
+  vor dem Senden und kannst es ändern oder leeren.
+
 ### Behoben
 
 - **„Jetzt nachsehen" baut nicht mehr das ganze Fenster neu** — nur noch die

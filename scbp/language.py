@@ -2369,8 +2369,8 @@ TEXTS = {
     's_di_melden':     ('GitHub Issue …', 'GitHub issue …'),
     's_di_absenden':   ('Fehlerbericht absenden', 'Send error report'),
     's_di_ab_frage_t': ('Fehlerbericht absenden?', 'Send error report?'),
-    's_di_ab_frage':   ('Der Bericht oben geht als Datei an den Entwickler — genau der Text, den du siehst, nichts weiter.\n\nEr enthält keine Namen, keine Pfade und keine Zugangsdaten; die sind bereits herausgenommen.\n\nAbsenden?',
-                        'The report above goes to the developer as a file — exactly the text you see, nothing else.\n\nIt contains no names, no paths and no credentials; those have already been removed.\n\nSend it?'),
+    's_di_ab_frage':   ('Der Bericht oben geht als Datei an den Entwickler — genau der Text, den du siehst, nichts weiter.\n\nDein Benutzername, deine Pfade und Zugangsdaten sind bereits herausgenommen. Ein Name steht nur oben bei „Von", so wie im Feld darüber.\n\nAbsenden?',
+                        'The report above goes to the developer as a file — exactly the text you see, nothing else.\n\nYour user name, your paths and credentials have already been removed. A name appears only at the top under "From", as in the field above.\n\nSend it?'),
     's_di_ab_laeuft':  ('Wird gesendet …', 'Sending …'),
     's_di_zustimmung': ('Ich möchte den Bericht an den Entwickler senden', 'I want to send the report to the developer'),
     's_di_zustimmung_bilder': ('Ich möchte den Bericht und meine %d Scan-Bilder (Signatur und Raffinerie) an den Entwickler senden',
@@ -3493,8 +3493,8 @@ TEXTS = {
     'b_fehler_spur':   ('      bei %s', '      at %s'),
     'b_fehler_keine':  ('Letzte Fehler        keine aufgezeichnet',
                           'Recent errors       none recorded'),
-    'b_fuss':          ('Pfade gekürzt (<heim>, <benutzer>) · keine Namen, keine Zugangsdaten',
-                          'Paths shortened (<home>, <user>) · no names, no credentials'),
+    'b_fuss':          ('Pfade gekürzt (<heim>, <benutzer>) · keine Zugangsdaten · ein Name nur oben bei „Von"',
+                          'Paths shortened (<home>, <user>) · no credentials · a name only at the top under "From"'),
 
     # -- Kurzmeldungen aus den Bausteinen (Injektion, Übersetzung, Logs) --
     # Sie kommen als Rückgabewert aus einem Modul und landen über
@@ -5610,10 +5610,6 @@ TEXTS = {
                           'nächsten Katalog-Abruf dazu.',
                           'The recipes are not loaded yet. They arrive with the '
                           'next catalogue update.'),
-    # Name des Melders im Fehlerbericht — **freiwillig**.
-    # ⚠ Wird NIE vorausgefüllt (auch nicht mit dem Windows-/Linux-Benutzernamen).
-    # Das Werkzeug sammelt sonst nichts über den Nutzer, und im Discord-Post
-    # steht „no telemetry" — ein heimlich mitgeschickter Name wäre ein Bruch.
     # ⚠ Der Bericht muss mit jeder neuen Funktion mitwachsen. Ohne diese drei
     # Zeilen liesse sich eine Meldung wie "bei mir ist das Lager leer" nicht
     # beurteilen: Man wuesste weder, ob Posten da sind, noch ob die Rezept- und
@@ -5649,15 +5645,22 @@ TEXTS = {
                             'update". It then appears at the top of the '
                             'report instead of having to go somewhere else. '
                             'Not stored: it belongs to this one report.'),
+    # Name des Melders im Fehlerbericht — **freiwillig und sichtbar**.
+    # Vorausgefüllt mit dem gewählten Spiel-Account (nie mit dem Benutzernamen
+    # des Systems); was im Feld steht, geht mit, ein leeres Feld schickt
+    # keinen Namen (`report.reporter_name`).
     's_melder':          ('Dein Name (freiwillig)', 'Your name (optional)'),
     's_melder_h':        ('Steht im Fehlerbericht, damit sich Rückfragen '
-                          'zuordnen lassen. Am besten der Discord-Name. Leer '
-                          'lassen ist völlig in Ordnung — dann wird nichts '
-                          'mitgeschickt.',
+                          'zuordnen lassen. Ist auf der Seite Erkennung ein '
+                          'Spiel-Account gewählt, steht er hier schon drin — '
+                          'am besten trägst du deinen Discord-Namen ein. '
+                          'Leeren ist völlig in Ordnung — dann wird kein '
+                          'Name mitgeschickt.',
                           'Appears in the report so follow-up questions can be '
-                          'matched to you. Your Discord name works best. '
-                          'Leaving it empty is perfectly fine — then nothing '
-                          'is sent.'),
+                          'matched to you. If a game account is chosen on the '
+                          'Detection page, it is already filled in — your '
+                          'Discord name works best. Clearing it is perfectly '
+                          'fine — then no name is sent.'),
     's_melder_leer':     ('nicht angegeben', 'not given'),
     'hf_gruppe_bp':      ('Baupläne', 'Blueprints'),
     # `hf_gruppe_herst` heisst „Werkstatt": Die Gruppe umfasst Herstellung,
@@ -6656,8 +6659,8 @@ TEXTS = {
     's_bt_hangar_h':     ('Deine Schiffe ↔ dein Hangar im Basetool. Vorhandene werden erst verknüpft, dann kommt nur Fehlendes dazu — nichts doppelt. Kaufdaten (Preis, Paket) gehen nie hinaus.',
                           'Your ships ↔ your hangar in the Basetool. Existing ones are linked first, then only what is missing is added — nothing twice. Purchase data (price, package) never leaves.'),
     's_bt_bedarf':       ('Bedarf der Einheit', 'Unit demand'),
-    's_bt_bedarf_h':     ('Zeigt unter Basetool → Bedarf der Einheit, was die offenen Aufträge deiner Einheit noch brauchen — Rohstoffe mit Mindestgüte und Gegenstände. Nur lesend und anonym, ohne Namen. Gespeichert wird nichts davon.',
-                          'Shows under Basetool → Unit demand what your unit\'s open orders still need — materials with a quality floor, and items. Read only and anonymous, no names. None of it is saved.'),
+    's_bt_bedarf_h':     ('Zeigt unter Basetool → Bedarf der Einheit, was die offenen Aufträge deiner Einheit noch brauchen — Rohstoffe mit Mindestgüte und Gegenstände. Nur lesend; Logistiker sehen dazu die einzelnen Aufträge mit Auftraggeber. Gespeichert wird nichts davon.',
+                          'Shows under Basetool → Unit demand what your unit\'s open orders still need — materials with a quality floor, and items. Read only; logisticians also see the individual orders with their requester. None of it is saved.'),
     's_bt_bedarf_stand': ('Gerade gesucht: %d Rohstoffe, %d Gegenstände.',
                           'Wanted right now: %d materials, %d items.'),
     's_bt_bedarf_kein_recht': ('Den Bedarf sehen nur Mitglieder einer Einheit, die an der Gewinnbeteiligung teilnimmt. Für dein Konto gibt das Basetool ihn nicht frei.',

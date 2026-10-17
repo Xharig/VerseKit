@@ -7635,7 +7635,7 @@ def main():
     pruefe(not _falsch77,
            'keiner nimmt eine aeltere Fassung (%s)'
            % (', '.join(_falsch77) or 'keiner'))
-    pruefe('melder_uebernehmen()' in _q77,
+    pruefe('store_reporter()' in _q77,
            'und der eingetippte Name wird vorher uebernommen')
 
     # ------------------------------------------------------------------
@@ -12799,24 +12799,8 @@ def main():
             pruefe(_fokus126(_namen126[0]) is not _namen126[0],
                    'ein Klick ins Leere nimmt den Fokus aus dem Namensfeld')
 
-            # ⚠⚠ **Warum hier NICHT geprueft wird, ob der Name im Bericht
-            # landet.** Nicht aus Bequemlichkeit — die Ursache ist gemessen:
-            # Das Namensfeld haengt an einer `tk.StringVar()` ohne
-            # ausdrueckliche Wurzel, und die bindet sich an die ERSTE
-            # Tk-Instanz des Prozesses. Im Selbsttest ist die laengst
-            # zerstoert (jede Pruefung baut ihr eigenes Fenster), also liefert
-            # `.get()` dort nichts, und `melder_uebernehmen` schreibt eine
-            # leere Zeichenkette.
-            #
-            # Im Programm gibt es genau EINE Wurzel; dort tritt das nicht auf.
-            # In einem eigenen Lauf gegengeprueft, mit echtem Klick auf eine
-            # Beschriftung, in beiden Reihenfolgen — der Name kommt jedes Mal
-            # im Bericht an.
-            #
-            # Der Meldungstext oben deckt dieselbe Kette ab (er haengt nicht
-            # an einer StringVar). Eine Zeile, die je nach Wurzel gruen oder
-            # rot ist, waere schlimmer als keine: Sie wuerde irgendwann
-            # ignoriert.
+            # Ob der Name gespeichert wird und im Bericht landet, prueft 469
+            # (`_seite469`) ueber `<FocusOut>`; hier geht es nur um den Fokus.
             pruefe('<FocusOut>' in (_namen126[0].bind() or ()),
                    'am Namensfeld haengt die Uebernahme am Fokusverlust')
 
@@ -23334,6 +23318,9 @@ def main():
         # Fuer den Discord-Bericht: Bilder + eigene Vorlagen als ZIP, als
         # weitere Datei im selben Absenden.
         import zipfile as _zip243, io as _io243
+        # Bewusst ohne Namen — sonst hinge der Aufbau am Spiel-Account.
+        _pa243.set_setting('melder_name', '')
+        _pa243.set_setting('melder_leer_gewollt', True)
         _arch243 = _ss243.sample_archive()
         _namen243 = _zip243.ZipFile(_io243.BytesIO(_arch243)).namelist() if _arch243 else []
         pruefe(any(n.startswith('bilder/3170_') for n in _namen243)
@@ -23356,7 +23343,8 @@ def main():
                    and not any(c in _ss243.reporter_folder() for c in '/\\:'),
                    'aus dem Melder-Namen wird nie ein Pfad')
         finally:
-            _pa243.set_setting('melder_name', None)
+            _pa243.set_setting('melder_name', '')
+            _pa243.set_setting('melder_leer_gewollt', True)
         pruefe(_ss243.archive_name() == 'scan-bilder.zip'
                and all(n.startswith(('bilder/', _ss243.OWN_TEMPLATE_FILE))
                        for n in _zip243.ZipFile(
@@ -23369,8 +23357,9 @@ def main():
                and _koerper243.endswith(b'--GRENZE--\r\n')
                and b'name="files[1]"' not in _rep243.multipart('GRENZE', 'kopf', 'b.txt', 'text'),
                'der Bericht traegt die ZIP nur, wenn sie uebergeben wird')
-        # Und der Knopf schickt den Namen wirklich mit, statt ihn nur zu bauen.
-        pruefe("append((signature_scan.archive_name()" in rumpf(
+        # Und der Knopf schickt den Namen wirklich mit, statt ihn nur zu bauen
+        # (die Wirkung beim Absenden misst 469).
+        pruefe("append((signature_scan.archive_name(sender)" in rumpf(
             open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read(),
             '_diagnostics'),
             'der Absende-Knopf nimmt den Namen mit dem Melder darin')
@@ -23819,7 +23808,7 @@ def main():
            and 'paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt' in _pq243,
            'die Zustimmung zum Absenden wird gemerkt')
     pruefe("if not bestaetigt['an']:" in _ab243 and 'ask_yes_no' not in _ab243
-           and 'sample_archive()' in _ab243,
+           and 'sample_archive(sender)' in _ab243,
            'Absenden: ohne Haken nichts, mit Haken Bericht und Scan-Bilder, keine Rueckfrage')
     pruefe(rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
                       encoding='utf-8').read(), 'start_if_enabled').count(
@@ -25687,6 +25676,7 @@ def main():
     _pruefung_466()
     _pruefung_467()
     _pruefung_468()
+    _pruefung_469()
 
     print()
     if fehler:
@@ -45919,6 +45909,266 @@ def _pruefung_468():
            and _fl468._included_ships is _orig_enthalten468
            and all(v[0] for v in _faelle468().values()),
            'nach den Gegenproben ist alles zurückgesetzt und wieder grün')
+
+
+def _pruefung_469():
+    """469. Einstellungen mit Basetool-Kennungen (Einheiten) stehen im Bericht
+    nur als •••."""
+    print('\n469. Bericht: Einheiten-Kennungen aus dem Basetool geschwärzt')
+    import re as _re469
+    from scbp import paths as _pa469, report as _rp469
+    from scbp import basetool_sync as _bs469, orgstock_page as _op469
+
+    # Jede Einstellung, die eine Einheit speichert, muss maskiert sein.
+    _schluessel469 = set()
+    for _modul469 in (_bs469, _op469):
+        for _name469, _wert469 in vars(_modul469).items():
+            if _name469.startswith('SETTING') and isinstance(_wert469, str) \
+                    and 'einheit' in _wert469:
+                _schluessel469.add(_wert469)
+    pruefe(_schluessel469 >= {'basetool_einheit_neu', 'staffellager_einheit'},
+           'Vorbedingung: die Einheiten-Einstellungen werden gefunden (%s)'
+           % sorted(_schluessel469))
+    pruefe(_schluessel469 <= _rp469.MASKED_SETTINGS,
+           'jede Einheiten-Einstellung ist im Bericht maskiert (fehlt: %s)'
+           % sorted(_schluessel469 - _rp469.MASKED_SETTINGS))
+
+    def _bericht469():
+        return _rp469.build(version='0.0.0-test')
+
+    _alt469 = {k: _pa469.setting(k) for k in
+               ('basetool_einheit_neu', 'staffellager_einheit')}
+    try:
+        _pa469.set_setting('basetool_einheit_neu', 'einheit-geheim-469a')
+        _pa469.set_setting('staffellager_einheit', 'einheit-geheim-469b')
+        _text469 = _bericht469()
+        pruefe('basetool_einheit_neu=' in _text469
+               and 'staffellager_einheit=' in _text469,
+               'Vorbedingung: beide Einstellungen stehen im Bericht')
+        pruefe('einheit-geheim-469' not in _text469,
+               'keine Einheiten-Kennung im Klartext im Bericht')
+        pruefe(len(_re469.findall(r'(?:basetool_einheit_neu|staffellager_einheit)'
+                                  r'=•••', _text469)) == 2,
+               'beide stehen als „gesetzt" (•••)')
+
+        # Gegenprobe: ohne Maske muss die Kennung im Bericht stehen.
+        _maske469 = _rp469.MASKED_SETTINGS
+        try:
+            _rp469.MASKED_SETTINGS = frozenset({'basetool_einheit_neu'})
+            pruefe('einheit-geheim-469b' in _bericht469(),
+                   'Gegenprobe: ohne Maske stünde die Kennung im Bericht')
+        finally:
+            _rp469.MASKED_SETTINGS = _maske469
+    finally:
+        for _k469, _v469 in _alt469.items():
+            _pa469.set_setting(_k469, _v469 or '')
+
+    # Melder: ohne eigenen Eintrag der Spiel-Account, sichtbar oben im
+    # Bericht; bewusst geleert kein Name; der Name steht sonst nirgends.
+    from scbp import logsource as _ls469
+    pruefe({_ls469.ACCOUNT_SETTING, _rp469.REPORTER_SETTING}
+           <= _rp469.MASKED_SETTINGS,
+           'Spiel-Account und Melder-Name sind in den Einstellungen maskiert')
+    _roh469 = {k: _pa469.settings().get(k)
+               for k in (_rp469.REPORTER_SETTING, _rp469.REPORTER_CLEARED,
+                         _ls469.ACCOUNT_SETTING)}
+
+    def _stand469(melder, account, geleert=None):
+        _pa469.set_setting(_rp469.REPORTER_SETTING, melder)
+        _pa469.set_setting(_rp469.REPORTER_CLEARED, geleert)
+        _pa469.set_setting(_ls469.ACCOUNT_SETTING, account)
+
+    def _fall469(melder, account, geleert=None):
+        _stand469(melder, account, geleert)
+        return _rp469.reporter_name(), _bericht469()
+
+    def _melder_zeile469(text):
+        return next((z for z in text.splitlines()
+                     if z.startswith(_t469('b_melder'))), '')
+
+    from scbp.language import t as _t469
+    try:
+        _name469, _text469 = _fall469(None, 'Testpilot469')
+        pruefe(_name469 == 'Testpilot469'
+               and 'Testpilot469' in _melder_zeile469(_text469),
+               'nie eingetragen: oben steht der Spiel-Account (%r)'
+               % _melder_zeile469(_text469))
+        pruefe(_text469.count('Testpilot469') == 1
+               and 'eigener_account=•••' in _text469,
+               'der Account steht nur oben, in den Einstellungen als •••')
+        _name469, _text469 = _fall469('', 'Testpilot469', True)
+        pruefe(_name469 == '' and 'Testpilot469' not in _text469
+               and _t469('s_melder_leer') in _melder_zeile469(_text469),
+               'bewusst geleert: kein Name im ganzen Bericht')
+        _name469, _text469 = _fall469('', 'Testpilot469')
+        pruefe(_name469 == 'Testpilot469',
+               'leerer Eintrag ohne Leer-Marke gilt als nie eingetragen')
+        _name469, _text469 = _fall469('Discord469', 'Testpilot469')
+        pruefe(_name469 == 'Discord469'
+               and 'Testpilot469' not in _text469
+               and _text469.count('Discord469') == 1,
+               'eigener Eintrag gilt, genau einmal oben, der Account bleibt '
+               'draußen')
+        _name469, _text469 = _fall469(None, _ls469.ALL_ACCOUNTS)
+        pruefe(_name469 == '', 'mit „alle Accounts" gibt es keinen Vorschlag')
+
+        # Gegenprobe: ohne Rückfall auf den Account bleibt oben der Name leer.
+        _neu469 = _rp469.reporter_name
+        try:
+            _rp469.reporter_name = lambda: (
+                _pa469.setting('melder_name') or '').strip()
+            _name469, _text469 = _fall469(None, 'Testpilot469')
+            pruefe('Testpilot469' not in _melder_zeile469(_text469),
+                   'Gegenprobe: ohne Vorschlag stünde oben kein Name')
+        finally:
+            _rp469.reporter_name = _neu469
+
+        _seite469(_stand469)
+    finally:
+        for _k469, _v469 in _roh469.items():
+            _pa469.set_setting(_k469, _v469)
+
+
+def _seite469(stand):
+    """469 (Seite Fehler melden): Das Namensfeld folgt dem Account, bis jemand
+    etwas Eigenes einträgt; gespeichert wird nur eine Abweichung."""
+    import tkinter as tk469
+    from scbp import paths as _pa469, report as _rp469
+    from scbp import logsource as _ls469
+    from scbp import main_window as _hf469
+    from scbp import pages as _pg469
+    from scbp.language import t as _t469
+    stand(None, 'Testpilot469')
+    _zust469 = _pa469.settings().get(_pg469.BERICHT_ZUSTIMMUNG)
+    _pa469.set_setting(_pg469.BERICHT_ZUSTIMMUNG, True)
+    _w469 = _wurzel()
+    try:
+        _w469.deiconify()
+        _w469.geometry('1200x900')
+        _f469 = _hf469.MainWindow(_w469, version='0.0.0-pruefung')
+        _f469.open_page('diagnose')
+        _w469.update_idletasks()
+        _alle469 = []
+
+        def _sammeln469(w):
+            for kind in w.winfo_children():
+                _alle469.append(kind)
+                _sammeln469(kind)
+
+        _sammeln469(_f469.pages['diagnose'])
+        _feld469 = [w for w in _alle469 if isinstance(w, tk469.Entry)]
+        pruefe(bool(_feld469), 'Vorbedingung: das Namensfeld ist da')
+        if not _feld469:
+            return
+        _feld469 = _feld469[0]
+        # ⚠ Über die Variable, nicht über das Feld: Ein leeres Feld trägt den
+        # grauen Hinweis als Text, und `get()` am Feld liefert dann ihn.
+        _var469 = str(_feld469.cget('textvariable'))
+        pruefe(bool(_var469), 'Vorbedingung: das Feld hängt an einer Variable')
+        if not _var469:
+            return
+
+        class _Wert469:
+            @staticmethod
+            def get():
+                return _w469.getvar(_var469)
+
+        # ⚠ Ein echter Fokuswechsel: Ein nachgestelltes `<FocusOut>` per
+        # `event_generate` filtert Tk weg, der Handler liefe nie.
+        _anderes469 = [w for w in _alle469 if isinstance(w, tk469.Text)]
+        pruefe(bool(_anderes469), 'Vorbedingung: ein zweites Feld für den Fokus')
+        if not _anderes469:
+            return
+
+        def _raus469(text=None):
+            _w469.focus_force()
+            _w469.update()
+            _feld469.focus_set()
+            _w469.update()
+            if text is not None:
+                _w469.setvar(_var469, text)
+            _anderes469[0].focus_set()
+            _w469.update()
+
+        def _gespeichert469():
+            return _pa469.settings().get(_rp469.REPORTER_SETTING)
+
+        pruefe(_Wert469.get() == 'Testpilot469',
+               'das Feld ist mit dem Spiel-Account vorausgefüllt (%r)'
+               % _Wert469.get())
+        _raus469()
+        pruefe(_gespeichert469() is None,
+               'unverändert verlassen: nichts gespeichert (%r)'
+               % _gespeichert469())
+        _pa469.set_setting(_ls469.ACCOUNT_SETTING, 'Zweitpilot469')
+        _f469.on_show['diagnose']()
+        pruefe(_Wert469.get() == 'Zweitpilot469',
+               'nach einem Account-Wechsel zeigt das Feld den neuen (%r)'
+               % _Wert469.get())
+        _raus469()
+        pruefe(_gespeichert469() is None,
+               'und auch dann wird der alte Account nicht festgeschrieben (%r)'
+               % _gespeichert469())
+        _raus469('')
+        pruefe(_gespeichert469() == ''
+               and _pa469.setting_bool(_rp469.REPORTER_CLEARED, False)
+               and _rp469.reporter_name() == '',
+               'geleert: leer gespeichert, mit Leer-Marke, kein Name')
+        _pa469.set_setting(_ls469.ACCOUNT_SETTING, 'Drittpilot469')
+        _f469.on_show['diagnose']()
+        pruefe(_Wert469.get() == '',
+               'ein geleertes Feld bleibt leer, auch bei neuem Account')
+        _raus469('Discord469')
+        pruefe(_gespeichert469() == 'Discord469'
+               and _rp469.reporter_name() == 'Discord469',
+               'ein eigener Name wird gespeichert und gilt')
+
+        # Feld geleert und sofort „Absenden", ohne dass das Feld den Fokus
+        # verliert: Bericht UND Bilder-ZIP tragen dann keinen Namen.
+        _absenden469 = None
+        for _w in _alle469:
+            if isinstance(_w, tk469.Canvas) and getattr(_w, 'is_button', False):
+                for _i in _w.find_all():
+                    if _w.type(_i) == 'text' and _w.itemcget(_i, 'text') \
+                            == _t469('s_di_absenden'):
+                        _absenden469 = _w
+        pruefe(_absenden469 is not None,
+               'Vorbedingung: der Knopf Absenden ist da')
+        if _absenden469 is None:
+            return
+        from scbp import signature_scan as _ss469
+        _gesendet469 = []
+        _alt_send469 = (_rp469.submit, _ss469.samples, _ss469.sample_archive)
+        try:
+            _rp469.submit = lambda text, version, anhaenge: (
+                _gesendet469.append((text, [a[0] for a in anhaenge]))
+                or (True, ''))
+            _ss469.samples = lambda: ['probe.png']
+            _ss469.sample_archive = lambda name=None: b'PK'
+            _w469.setvar(_var469, '')
+            _absenden469.event_generate('<Button-1>')
+            import time as _ti469
+            _bis469 = _ti469.time() + 5
+            while not _gesendet469 and _ti469.time() < _bis469:
+                _w469.update()
+                _ti469.sleep(0.02)
+        finally:
+            _rp469.submit, _ss469.samples, _ss469.sample_archive = _alt_send469
+        _text_ab469, _anh469 = (_gesendet469[0] if _gesendet469
+                                else ('', []))
+        _von469 = next((z for z in _text_ab469.splitlines()
+                        if z.startswith(_t469('b_melder'))), '')
+        pruefe(bool(_gesendet469) and 'scan-bilder.zip' in _anh469
+               and 'Discord469' not in ' '.join(_anh469)
+               and _t469('s_melder_leer') in _von469,
+               'geleert und sofort abgesendet: kein Name in Bericht und ZIP '
+               '(%r, %r)' % (_von469, _anh469))
+    finally:
+        _pa469.set_setting(_pg469.BERICHT_ZUSTIMMUNG, _zust469)
+        try:
+            _w469.destroy()
+        except Exception:
+            pass
 
 
 def _alle_eingaben(w):

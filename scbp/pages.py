@@ -7815,17 +7815,19 @@ def _diagnostics(fenster, rahmen):
     # Ohne Absender lässt sich ein Bericht niemandem zuordnen, und
     # Rückfragen laufen ins Leere.
     #
-    # ⚠ **Freiwillig und nie vorausgefüllt** — auch nicht mit dem
-    # Benutzernamen des Systems. Das Werkzeug sammelt sonst nichts über den
-    # Nutzer („no telemetry"); ein heimlich mitgeschickter Name wäre ein
-    # Wortbruch.
-    melder_var = tk.StringVar(rahmen, value=(paths.setting('melder_name') or ''))
-    ziel_melder = _setting_row(fenster, innen, t('s_melder'), t('s_melder_h'))
+    # ⚠ **Freiwillig und sichtbar.** Ohne eigenen Eintrag steht hier der
+    # gewählte Spiel-Account (Seite Erkennung), nie der Benutzername des
+    # Systems. Was hier steht, geht mit; wer das Feld leert, schickt keinen
+    # Namen (`report.reporter_name`). `suggested` hält den Wert, den das Feld
+    # zuletzt von selbst bekam: Nur eine Abweichung davon wird gespeichert.
+    suggested = [report.reporter_name()]
+    reporter_var = tk.StringVar(rahmen, value=suggested[0])
+    reporter_row = _setting_row(fenster, innen, t('s_melder'), t('s_melder_h'))
     from .main_window import round_entry
-    melder_feld = round_entry(ziel_melder, melder_var, fenster.f_small,
-                              theme.FIELD, LINE, ACCENT, FG,
-                              placeholder=t('s_pl_melder'))
-    melder_feld.holder.pack(fill='x', pady=(8, 0))
+    reporter_field = round_entry(reporter_row, reporter_var, fenster.f_small,
+                                 theme.FIELD, LINE, ACCENT, FG,
+                                 placeholder=t('s_pl_melder'))
+    reporter_field.holder.pack(fill='x', pady=(8, 0))
 
     # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.** Ohne
     # eigenes Feld landet die Meldung im **Namensfeld**, weil es das einzige
@@ -7926,7 +7928,8 @@ def _diagnostics(fenster, rahmen):
 
     text = ''
     try:
-        text = report.build(version=fenster.version, root=fenster.root)
+        text = report.build(version=fenster.version, root=fenster.root,
+                            reporter=suggested[0])
     except Exception as ausnahme:
         errors.record('pages.diagnose', ausnahme)
 
@@ -7952,7 +7955,8 @@ def _diagnostics(fenster, rahmen):
         try:
             frisch = report.build(version=fenster.version,
                                    root=fenster.root,
-                                   message=meldung_text())
+                                   message=meldung_text(),
+                                   reporter=current_reporter())
         except Exception as ausnahme:
             errors.record('pages.diagnose_melder', ausnahme)
             return
@@ -7961,15 +7965,47 @@ def _diagnostics(fenster, rahmen):
         feld.insert('1.0', frisch)
         feld.configure(state='disabled')
 
-    def melder_uebernehmen(*_):
-        """Den Namen sichern — er gilt dauerhaft, anders als die Meldung."""
-        neu_wert = melder_var.get().strip()
-        if neu_wert != (paths.setting('melder_name') or ''):
-            paths.set_setting('melder_name', neu_wert)
+    def current_reporter():
+        """Der Name, wie er gerade im Feld steht — nur er geht hinaus, in den
+        Bericht wie in den Namen der Bilder-ZIP."""
+        return reporter_var.get().strip()
+
+    def follow_account():
+        """Solange nichts Eigenes gespeichert ist und das Feld noch den
+        vorausgefüllten Wert trägt, folgt es dem gewählten Spiel-Account.
+
+        ⚠ Nur beim Zeigen der Seite: Ein Knopf darf den Namen nicht ändern,
+        sonst ginge er hinaus, ohne dass er vorher im Feld stand."""
+        if report.own_reporter() is not None:
+            return
+        if reporter_var.get().strip() != suggested[0]:
+            return
+        suggested[0] = report.reporter_name()
+        if reporter_var.get() != suggested[0]:
+            reporter_var.set(suggested[0])
+
+    def store_reporter(*_):
+        """Den Namen sichern — er gilt dauerhaft, anders als die Meldung.
+
+        Gespeichert wird nur eine Abweichung vom vorausgefüllten Wert: Bleibt der
+        vorausgefüllte Spiel-Account stehen, folgt das Feld weiter dem
+        Account; ein geleertes Feld wird als leer gespeichert."""
+        new_value = current_reporter()
+        if new_value != suggested[0]:
+            # ⚠ Erst die Leer-Marke: Scheitert danach das Schreiben des
+            # Namens, gilt der alte Stand weiter, nie ein leerer Name ohne Marke.
+            if not new_value:
+                paths.set_setting(report.REPORTER_CLEARED, True)
+            paths.set_setting(report.REPORTER_SETTING, new_value)
+            suggested[0] = new_value
         _bericht_neu()
 
-    melder_feld.bind('<FocusOut>', melder_uebernehmen)
-    melder_feld.bind('<Return>', melder_uebernehmen)
+    def on_show():
+        follow_account()
+        _bericht_neu()
+
+    reporter_field.bind('<FocusOut>', store_reporter)
+    reporter_field.bind('<Return>', store_reporter)
     # ⚠ Die Meldung wird **nicht** gespeichert — sie gehört zu diesem einen
     # Bericht. Deshalb nur den Text neu bauen, nichts ablegen.
     # ⚠ **Kein `<Return>`.** In einem mehrzeiligen Feld ist die Eingabetaste
@@ -7992,7 +8028,7 @@ def _diagnostics(fenster, rahmen):
     # Meldungsfeld leeren — jemand tippt seine Fehlerbeschreibung, wechselt
     # kurz auf eine andere Seite, um etwas nachzusehen, und der Text ist weg.
     # Genau auf dieser Seite darf das am wenigsten passieren.
-    fenster.on_show['diagnose'] = _bericht_neu
+    fenster.on_show['diagnose'] = on_show
 
     # ⚠ Die Zusicherung steht direkt unter dem Bericht: Ihr Text lautet „Der
     # Block **oben** ist der ganze Inhalt".
@@ -8005,7 +8041,7 @@ def _diagnostics(fenster, rahmen):
         """Genau das, was im Kasten steht — und vorher den Namen übernehmen.
 
         ⚠⚠ **Nicht der Bericht vom Öffnen der Seite.** Wer seinen Namen
-        eintippt, sieht ihn sofort im Kasten (`melder_uebernehmen` zeichnet
+        eintippt, sieht ihn sofort im Kasten (`store_reporter` zeichnet
         ihn neu) — der beim Öffnen gebaute `text` enthielte ihn nicht, und
         hinaus ginge „Von: nicht angegeben".
 
@@ -8014,7 +8050,7 @@ def _diagnostics(fenster, rahmen):
         auch genau das verschickt werden. Und der Name wird vorher übernommen,
         falls das Feld noch den Tastaturfokus hat.
         """
-        melder_uebernehmen()
+        store_reporter()
         return feld.get('1.0', 'end-1c')
 
     def _meldung_verbraucht():
@@ -8064,14 +8100,23 @@ def _diagnostics(fenster, rahmen):
 
         ⚠⚠ **Zustimmung per Haken, nicht per Rückfrage-Fenster** — ein
         Fenster für den Bericht und ein zweites für die Scan-Bilder wären
-        umständlich. Im Bericht
-        und in den Bildern steckt nichts Heikles (Namen und Pfade sind
-        herausgenommen, die Bilder zeigen nur die Zahl). Ohne Haken wird nichts
-        gesendet; der Knopf sagt dann, was fehlt.
+        umständlich. Der Bericht steht vollständig im Kasten; Benutzername und
+        Pfade sind herausgenommen, ein Name steht nur oben, so wie im Feld.
+        Ohne Haken wird nichts gesendet; der Knopf sagt dann, was fehlt.
+
+        ⚠ **Zuerst den Namen übernehmen** (`aktueller_bericht`), dann die
+        Anhänge bauen: Die ZIP trägt denselben Namen wie der Bericht.
         """
         if not bestaetigt['an']:
             fenster.say(t('s_di_erst_bestaetigen'))
             return
+        if senden_laeuft[0]:
+            return
+        # Den Text im Tk-Faden lesen, das Senden im Nebenfaden: Es wartet bis
+        # zu 30 Sekunden auf das Netz, und das Fenster darf so lange nicht
+        # einfrieren.
+        text = aktueller_bericht()
+        sender = current_reporter()
         anzahl = 0
         try:
             from . import signature_scan, refinery_scan
@@ -8082,24 +8127,18 @@ def _diagnostics(fenster, rahmen):
         anhaenge = []
         if anzahl:
             try:
-                archiv = signature_scan.sample_archive()
+                archiv = signature_scan.sample_archive(sender)
                 if archiv:
                     # ⭐ Der Dateiname trägt den Melder, sonst heißen im
                     # Download-Ordner alle Archive gleich.
-                    anhaenge.append((signature_scan.archive_name(), archiv,
-                                     'application/zip'))
+                    anhaenge.append((signature_scan.archive_name(sender),
+                                     archiv, 'application/zip'))
             except Exception as ausnahme:
                 errors.record('pages.diagnose_scanbilder', ausnahme)
         anhaenge += report.image_files([(daten, art)
                                         for _n, daten, art in bilder])
-        if senden_laeuft[0]:
-            return
         senden_laeuft[0] = True
         fenster.say(t('s_di_ab_laeuft'))
-        # Den Text im Tk-Faden lesen, das Senden im Nebenfaden: Es wartet bis
-        # zu 30 Sekunden auf das Netz, und das Fenster darf so lange nicht
-        # einfrieren.
-        text = aktueller_bericht()
 
         def work():
             try:
@@ -14522,8 +14561,9 @@ def _demand(fenster, rahmen):
 
     Rohstoffe mit Mindestgüte und offener Menge — daneben, was davon im
     eigenen Lager liegt — und Gegenstände, mit Marke, wenn der eigene
-    Bestand den Bauplan hat. Anonym: keine Namen, keine Aufträge.
-    Die Daten liegen nur im Speicher (`exchange_demand`)."""
+    Bestand den Bauplan hat. Für Logistiker darunter die Aufträge ihrer
+    Einheit einzeln (`_demand_orders`). Die Daten liegen nur im Speicher
+    (`exchange_demand`)."""
     from . import basetool_sync, exchange_demand, materials as lager
 
     _heading(fenster, rahmen, t('hf_bedarf'), t('s_bd_lead'))

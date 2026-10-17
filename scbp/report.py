@@ -27,9 +27,10 @@ was steht im Katalog — und was ist zuletzt schiefgegangen.
 
 Drei Regeln, die nicht verhandelbar sind:
 
-  1. **Keine Namen.** Jeder Wert läuft durch `paths.redact()`; aus
-     `/home/spieler/…` wird `<heim>/…`. Ein Bericht landet in einem
-     **öffentlichen** Issue.
+  1. **Kein Benutzername, keine Kennungen.** Jeder Wert läuft durch
+     `paths.redact()`; aus `/home/spieler/…` wird `<heim>/…`. Ein Name steht
+     nur oben als Melder, so wie im Feld der Seite (`reporter_name`). Ein
+     Bericht kann in einem **öffentlichen** Issue landen.
   2. **Nichts wird verschickt.** Das Modul gibt Text zurück, mehr nicht. Ob er
      jemanden erreicht, entscheidet allein der Spieler.
   3. **Der Bericht darf nie scheitern.** Jede Angabe wird einzeln geholt; was
@@ -701,8 +702,58 @@ def _trace_frames(trace):
     return result
 
 
-def build(version='', root=None, fehleranzahl=8, message=''):
-    """Den Bericht als Text zusammensetzen."""
+REPORTER_SETTING = 'melder_name'
+# Ja, sobald jemand das vorausgefüllte Feld geleert hat. Ein leerer
+# `melder_name` ohne diese Marke gilt als nie eingetragen.
+REPORTER_CLEARED = 'melder_leer_gewollt'
+
+
+def own_reporter():
+    """Der selbst eingetragene Melder-Name — oder None, wenn keiner gilt.
+
+    Ein leerer Eintrag gilt nur mit `REPORTER_CLEARED`; sonst greift der
+    Rückfall auf den Spiel-Account (`reporter_name`)."""
+    raw = paths.settings().get(REPORTER_SETTING)
+    if not isinstance(raw, str):
+        return None
+    name = raw.strip()
+    if name or paths.setting_bool(REPORTER_CLEARED, False):
+        return name
+    return None
+
+
+def reporter_name():
+    """Wer den Bericht schickt.
+
+    Selbst eingetragen → dieser Name, auch ein bewusst geleerter (dann
+    keiner). Sonst der gewählte Spiel-Account der Seite Erkennung. Das Feld
+    auf der Seite Fehler melden zeigt genau diesen Wert, er geht also nie
+    ungesehen hinaus."""
+    own = own_reporter()
+    if own is not None:
+        return own
+    from . import logsource
+    account = (paths.setting(logsource.ACCOUNT_SETTING) or '').strip()
+    return '' if account == logsource.ALL_ACCOUNTS else account
+
+
+# Einstellungen, die Kennungen aus dem Basetool (Einheiten), den
+# Spiel-Account oder den Melder-Namen tragen: im Bericht steht statt des
+# Werts nur •••, denn der Bericht kann öffentlich landen. Der Name steht,
+# wenn gewollt, einmal oben als Melder (`reporter_name`).
+# `eigener_account` ist `logsource.ACCOUNT_SETTING` (Prüfung 469 hält das fest).
+MASKED_SETTINGS = frozenset({'basetool_einheit_neu', 'staffellager_einheit',
+                             'eigener_account', REPORTER_SETTING})
+# Einstellungen, die in der Einstellungszeile gar nicht erscheinen.
+HIDDEN_SETTINGS = frozenset({REPORTER_CLEARED})
+
+
+def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
+    """Den Bericht als Text zusammensetzen.
+
+    `reporter` ist der Name, der oben als Melder steht — die Seite Fehler
+    melden gibt den Wert aus ihrem Feld mit; ohne Angabe gilt
+    `reporter_name()`."""
     lines = []
 
     def line(label, value):
@@ -714,9 +765,11 @@ def build(version='', root=None, fehleranzahl=8, message=''):
 
     # ⭐ Wer meldet das? Steht bewusst ganz oben — mit vielen Nutzern ist ein
     # Bericht ohne Absender kaum zuzuordnen, und Rückfragen laufen ins Leere.
-    # **Freiwillig**: Ist nichts eingetragen, steht hier `nicht angegeben`; der
-    # Watcher füllt das Feld nie von selbst.
-    reporter = (paths.setting('melder_name') or '').strip()
+    # **Freiwillig**: Ohne eigenen Eintrag steht hier der gewählte Spiel-Account,
+    # sichtbar vorausgefüllt auf der Seite Fehler melden; bewusst geleert
+    # steht hier `nicht angegeben` (`reporter_name`).
+    if reporter is None:
+        reporter = reporter_name()
     # ⚠ **Ohne `kuerzen()`.** Jede andere Zeile läuft durch die Anonymisierung,
     # die Benutzernamen durch `<benutzer>` ersetzt — und das träfe den
     # Absender-Namen, wenn er dem Systemkonto gleicht. Ausgerechnet die
@@ -875,13 +928,11 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         return text
 
     line(t('b_ordner'), _safe(_folder_line))
-    # Kennungen aus dem Basetool (Einheit) nur als „gesetzt" (•••) — der
-    # Bericht kann öffentlich landen.
-    _masked = {'basetool_einheit_neu'}
     line(t('b_einstellungen'), _safe(lambda: ', '.join(
-        '%s=%s' % (k, ('•••' if v else '') if k in _masked else v)
+        '%s=%s' % (k, ('•••' if v else '') if k in MASKED_SETTINGS else v)
         for k, v in sorted(
-            (uebersicht.get('selbst_gesetzt') or {}).items()))
+            (uebersicht.get('selbst_gesetzt') or {}).items())
+        if k not in HIDDEN_SETTINGS)
         or t('b_standard')))
     line(t('b_dateischutz'), _safe(_file_flags_line))
     _failures = _safe(_write_failures_line, '')

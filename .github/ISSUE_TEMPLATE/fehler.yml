@@ -11,8 +11,9 @@ body:
         Danke, dass du dir die Zeit nimmst.
 
         Kommst du aus dem Werkzeug hierher, ist der Bericht unten schon ausgefüllt —
-        dann fehlt nur noch, **was passiert ist**. Er enthält keine Namen und keine
-        Zugangsdaten; Pfade sind gekürzt.
+        dann fehlt nur noch, **was passiert ist**. Er enthält keine Zugangsdaten,
+        Pfade sind gekürzt; ein Name steht nur oben bei „Von", wenn du ihn
+        im Werkzeug stehen gelassen hast. Das Issue ist öffentlich.
 
   - type: textarea
     id: was

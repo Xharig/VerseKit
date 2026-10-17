@@ -30,6 +30,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Unit on a ship** — in the hangar you can now choose which unit a ship
   belongs to in the Basetool.
 
+### Improved
+
+- **Problem report pre-filled with your name** — the *Your name* field now
+  carries your game account, so follow-up questions reach you. You see it
+  before sending and can change or clear it.
+
 ### Fixed
 
 - **"Check now" no longer rebuilds the whole window** — only the update page.

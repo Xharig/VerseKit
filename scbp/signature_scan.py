@@ -1191,29 +1191,31 @@ def samples():
         return []
 
 
-def reporter_folder():
-    """Der eingetragene Melder-Name, tauglich als Ordner- und Dateiname.
+def reporter_folder(name=None):
+    """Der Melder-Name, tauglich als Ordner- und Dateiname — `name` oder,
+    ohne Angabe, `report.reporter_name`.
 
     ⭐ **Ohne ihn weiß niemand, wessen Bilder das sind.** Mehrere
     Archive liegen nebeneinander im Download-Ordner und heißen alle gleich; wer
-    sie auspackt, bekommt jedes Mal denselben Ordner `bilder`. Der Name ist
-    freiwillig eingetragen und geht ohnehin oben im Bericht mit — hier kommt
-    nichts dazu, was nicht schon mitgeschickt würde. Ist keiner eingetragen,
-    bleibt es beim Ordner `bilder`.
+    sie auspackt, bekommt jedes Mal denselben Ordner `bilder`. Es ist derselbe
+    Name, der oben im Bericht steht (`report.reporter_name`) — hier kommt
+    nichts dazu, was nicht schon mitgeschickt würde. Ist er leer, bleibt es
+    beim Ordner `bilder`.
     """
-    from . import paths
-    raw = (paths.setting('melder_name') or '').strip()
-    clean = ''.join(c if (c.isalnum() or c in '-_. ') else '_' for c in raw)
+    if name is None:
+        from . import report
+        name = report.reporter_name()
+    clean = ''.join(c if (c.isalnum() or c in '-_. ') else '_' for c in name)
     return clean.strip(' ._')[:40]
 
 
-def archive_name():
-    """Wie die ZIP heißen soll — mit dem Melder darin, wenn er einen angab."""
-    who = reporter_folder()
+def archive_name(name=None):
+    """Wie die ZIP heißen soll — mit dem Melder darin, wenn es einen gibt."""
+    who = reporter_folder(name)
     return 'scan-bilder-%s.zip' % who if who else 'scan-bilder.zip'
 
 
-def sample_archive():
+def sample_archive(name=None):
     """Scan-Bilder, eigene Ziffernvorlagen und die aufgehobenen Bilder des
     Raffinerie-Scanners als ZIP (Bytes) — oder None.
 
@@ -1223,7 +1225,7 @@ def sample_archive():
     Terminals, nur wenn sie nicht gefunden wurde das verkleinerte Spielbild
     (siehe `refinery_scan.read_image`).
 
-    Alles liegt unter dem Melder-Namen, sofern einer eingetragen ist (siehe
+    Alles liegt unter dem Melder-Namen, sofern es einen gibt (siehe
     `reporter_folder`).
     """
     import io
@@ -1234,7 +1236,7 @@ def sample_archive():
     refinery = refinery_scan.kept_images()
     if not names and not refinery:
         return None
-    who = reporter_folder()
+    who = reporter_folder(name)
     root = who + '/' if who else ''
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:

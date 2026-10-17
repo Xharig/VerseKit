@@ -10,8 +10,9 @@ Es gibt drei Wege. Nimm den, der zu deiner Lage passt — jeder wird gelesen.
 fertige Bericht, daneben ein roter Knopf. Mehr ist nicht zu tun.
 
 Der Bericht enthält System, Verpackung, Spielstand und die letzten Fehler —
-aber **keine Namen und keine Pfade**. Du siehst ihn vorher vollständig, und es
-geht nichts im Hintergrund raus.
+aber **weder deinen Benutzernamen noch deine Pfade**. Ein Name steht nur oben als
+Melder, so wie im Feld darüber, und lässt sich leeren. Du siehst ihn vorher
+vollständig, und es geht nichts im Hintergrund raus.
 
 ## 2. Das Programm startet nicht → Discord
 

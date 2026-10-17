@@ -87,6 +87,17 @@ that looks like a credential are replaced beforehand. Paths outside your home
 folder (such as a game folder on `D:\`) stay as they are — you see them
 before sending.
 
+At the top the report says **who is reporting**, so follow-up questions reach
+you. As long as you enter nothing of your own there, the field is pre-filled
+with your game account, if one is chosen on the *Detection* page. You see it
+before sending and can change or clear it — cleared, no name goes out. The
+same name also labels the zip with the images and its folder. Otherwise it
+appears nowhere in the report.
+
+Instead of sending, you can also copy the report or have the **GitHub issue …**
+button put it into a form. An issue is **public** — including the name at the
+top, if you leave it in.
+
 If you ticked the box for images, the scan images go along: for signatures the
 crop around the number, for the refinery scanner the terminal's table from a
 reading that was not reliable (the last three). Only if the table was not found
@@ -138,8 +149,9 @@ credentials (refresh token and this installation's key) and the synced state —
 backup zip stays there until you delete it.
 
 **Problem report:** It can contain the names of blueprints Verse-Kit cannot
-match — including ones that came from the Basetool. Your RSI handle and the
-credentials are not in it, and it only goes out when you send it yourself. What the Basetool itself does with your data
+match — including ones that came from the Basetool. The credentials are never
+in it, your RSI handle only at the top as the reporter unless you change or
+clear that field (see [Problem report](#problem-report)), and it only goes out when you send it yourself. What the Basetool itself does with your data
 is governed by its own privacy policy at
 [profit-base.online](https://profit-base.online).
 

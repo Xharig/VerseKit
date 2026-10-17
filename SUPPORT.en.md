@@ -11,8 +11,9 @@ are read.
 report below it, and a red button next to it. That is all.
 
 The report contains your system, packaging, game state and the most recent
-errors — but **no names and no file paths**. You see all of it beforehand, and
-nothing is sent in the background.
+errors — but **neither your user name nor your file paths**. A name appears only
+at the top as the reporter, as in the field above it, and can be cleared. You
+see all of it beforehand, and nothing is sent in the background.
 
 ## 2. The tool does not start → Discord
 
