@@ -119,6 +119,8 @@ fehler = []
 # errechnet (`len(fehler) + 0`) — sonst läse sich ein einzelner Fehler unter
 # zweihundert Prüfungen als 1 von 1, als hätte gar nichts geklappt.
 geprueft = [0]
+# `joysticks.game_lock`, bevor `main()` es für den Lauf abschaltet.
+ECHTE_SPIELSPERRE = [None]
 
 
 def hat_anzeige():
@@ -379,6 +381,12 @@ def main():
     from scbp import notify as _nt_lauf, tray_icon as _ti_lauf
     _nt_lauf._popen = lambda befehl: None
     _ti_lauf._shell_notify = lambda nachricht, daten: False
+    # Die Spielsperre der Steuerung fragt die echte Prozessliste. Läuft Star
+    # Citizen neben dem Prüflauf, ginge sonst jede Prüfung rot, die in eine
+    # Test-actionmaps.xml schreibt. Prüfung 490 setzt die echte Sperre ein.
+    from scbp import joysticks as _js_lauf
+    ECHTE_SPIELSPERRE[0] = _js_lauf.game_lock
+    _js_lauf.game_lock = lambda: None
 
     try:
         import queue
@@ -25682,6 +25690,8 @@ def main():
     _pruefung_472()
     _pruefung_473()
     _pruefung_475()
+    _pruefung_490()
+    _pruefung_491()
     _pruefung_476()
     _pruefung_477()
 
@@ -40015,6 +40025,301 @@ def _pruefung_426():
         else:
             os.environ['SC_BP_HOME'] = _alt_heim426
         shutil.rmtree(_heim426, ignore_errors=True)
+
+
+_A490 = 'AAAA1111-0000-0000-0000-504944564944'
+_B490 = 'BBBB2222-0000-0000-0000-504944564944'
+_C490 = 'CCCC3333-0000-0000-0000-504944564944'
+_XML490 = (
+    '<ActionMaps version="1" optionsVersion="2" rebindVersion="2" '
+    'profileName="default">\n'
+    ' <CustomisationUIHeader label="test">\n'
+    '  <deviceoptions name="Links  {%s}">\n'
+    '   <option input="x" deadzone="0.1"/>\n'
+    '   <option input="x" saturation="0.8"/>\n'
+    '  </deviceoptions>\n'
+    '  <deviceoptions name="Rechts  {%s}">\n'
+    '   <option input="x" deadzone="0.2"/>\n'
+    '  </deviceoptions>\n'
+    '  <deviceoptions name="Altgeraet  {DDDD4444-0000-0000-0000-5049}">\n'
+    '   <option input="x" deadzone="0.9"/>\n'
+    '  </deviceoptions>\n'
+    ' </CustomisationUIHeader>\n'
+    ' <options type="joystick" instance="1" Product="Links  {%s}">\n'
+    '  <flight_move_pitch exponent="1.5"/>\n'
+    ' </options>\n'
+    ' <options type="joystick" instance="2" Product="Rechts  {%s}"/>\n'
+    ' <ActionProfiles>\n'
+    '  <actionmap name="spaceship_general">\n'
+    '   <action name="v_eject"><rebind input="js1_button1"/></action>\n'
+    '   <action name="v_brake"><rebind input="js2_button2"/></action>\n'
+    '  </actionmap>\n'
+    ' </ActionProfiles>\n'
+    '</ActionMaps>\n'
+) % (_A490, _B490, _A490, _B490)
+
+
+def _pruefung_490():
+    """490. Steuerung: Solange Star Citizen läuft, schreibt kein Weg in die
+    actionmaps.xml — und jeder dieser Wege schreibt, sobald es zu ist."""
+    print('\n490. Steuerung: nichts schreiben, solange das Spiel läuft')
+    import tempfile as _tf490
+    import zipfile as _zf490
+    from scbp import (auto_update as _au490, backup as _bk490,
+                      curves as _kv490, device_hub as _dh490,
+                      device_set as _gs490, joysticks as _js490,
+                      language as _la490, paths as _pa490)
+    _heim490 = _tf490.mkdtemp(prefix='steuerung-sperre-')
+    _spiel490 = os.path.join(_heim490, 'LIVE')
+    _profil490 = os.path.join(_spiel490, 'USER', 'Client', '0', 'Profiles',
+                              'default')
+    os.makedirs(_profil490)
+    _datei490 = os.path.join(_profil490, 'actionmaps.xml')
+    _attr490 = os.path.join(_profil490, 'attributes.xml')
+    _attr_inhalt490 = ('<Attributes Version="35">\n'
+                       ' <Attr name="FilmGrain" value="0"/>\n'
+                       '</Attributes>\n')
+    # Ohne Game.log nimmt `paths.game_folder()` den Ordner nicht an und fällt
+    # auf die echte Installation zurück.
+    open(os.path.join(_spiel490, 'Game.log'), 'w').close()
+    _quelle490 = os.path.join(_heim490, 'eingelesen.xml')
+    with open(_quelle490, 'w', encoding='utf-8') as f:
+        f.write(_XML490.replace('js1_button1', 'js1_button7'))
+    _zip490 = os.path.join(_heim490, 'sicherung.zip')
+    with _zf490.ZipFile(_zip490, 'w') as z:
+        z.writestr(_bk490.INFO_FILE, _bk490.MARKER + '\r\n')
+        # Die attributes.xml steht vor der Belegung — kommt sie zurück,
+        # bevor die Sperre der Belegung greift, ändert sich trotzdem etwas.
+        z.writestr(_bk490.CONTROLS + 'attributes.xml',
+                   _attr_inhalt490.replace('"0"', '"1"'))
+        z.writestr(_bk490.CONTROLS + 'actionmaps.xml',
+                   _XML490.replace('js2_button2', 'js2_button9'))
+
+    def _grundstand():
+        for name in os.listdir(_profil490):
+            if os.path.isfile(os.path.join(_profil490, name)):
+                os.remove(os.path.join(_profil490, name))
+        with open(_datei490, 'w', encoding='utf-8', newline='') as f:
+            f.write(_XML490)
+        with open(_attr490, 'w', encoding='utf-8', newline='') as f:
+            f.write(_attr_inhalt490)
+
+    def _abbild():
+        out = {}
+        for ordner, _u, namen in os.walk(_spiel490):
+            for name in namen:
+                voll = os.path.join(ordner, name)
+                with open(voll, 'rb') as f:
+                    out[os.path.relpath(voll, _spiel490)] = f.read()
+        return out
+
+    _alt_heim490 = os.environ.get('SC_BP_HOME')
+    _alt_install490 = os.environ.get('SC_INSTALL_DIR')
+    _echt_lauf490 = _au490.game_running
+    _echt_pfad490 = _js490._actionmaps_path
+    _lauf_sperre490 = _js490.game_lock
+    _laeuft490 = [True]
+    try:
+        _js490.game_lock = ECHTE_SPIELSPERRE[0] or _js490.game_lock
+        os.environ['SC_BP_HOME'] = os.path.join(_heim490, 'heim')
+        # `SC_INSTALL_DIR` geht dem eingetragenen Spielordner vor.
+        os.environ['SC_INSTALL_DIR'] = _spiel490
+        _pa490.set_setting('spiel_ordner', _spiel490)
+        _au490.game_running = lambda: _laeuft490[0]
+        # Doppelt gesichert: Jeder Schreibweg landet in der Testdatei.
+        _js490._actionmaps_path = lambda folder=None: _datei490
+        if (os.path.normcase(_pa490.game_folder() or '')
+                != os.path.normcase(_spiel490)):
+            pruefe(False, 'Testordner wird nicht als Spielordner erkannt — '
+                   'abgebrochen, bevor etwas geschrieben wird')
+            return
+
+        pruefe(_js490.game_lock() == _js490.GAME_RUNNING,
+               'die Falle greift: Spiel läuft -> Sperre')
+        _laeuft490[0] = False
+        pruefe(_js490.game_lock() is None, 'Spiel zu -> keine Sperre')
+
+        # Der Gerätesatz stellt die Totzone 0.5 ein, die Grunddatei hat 0.1.
+        _grundstand()
+        with open(_datei490, 'w', encoding='utf-8', newline='') as f:
+            f.write(_XML490.replace('deadzone="0.1"', 'deadzone="0.5"'))
+        pruefe(_gs490.save('Satz490')[0], 'Gerätesatz angelegt')
+
+        _wege490 = [
+            ('Belegen', lambda: _js490.bind_action(
+                'v_eject', 'spaceship_general', 'js1', 'button5')),
+            ('Zurücksetzen', lambda: _js490.reset()),
+            ('Einlesen', lambda: _js490.import_file(_quelle490)),
+            ('Kennung tauschen', lambda: _js490.swap_id(_A490, _C490)),
+            ('Gerät umhängen', lambda: _dh490.reassign(_A490, _C490)),
+            ('Sticks über Kreuz', lambda: _js490.swap_bindings(
+                _A490, _B490)),
+            ('Totzone', lambda: _kv490.apply(_A490, 'x', 'deadzone', 0.3)),
+            ('Spielachse', lambda: _kv490.apply_to_game(
+                1, 'flight_move_pitch', 'exponent', 2.0)),
+            ('Angleichen', lambda: _kv490.align(_A490, _B490)),
+            ('Aufräumen', lambda: _kv490.clean_up()),
+            ('Gerätesatz', lambda: _gs490.apply('Satz490')),
+            ('Steuerung aus der Sicherung', lambda: _bk490.restore_bindings(
+                _zip490, with_active=True, game_folder=_spiel490)),
+        ]
+        for _name490, _weg490 in _wege490:
+            _grundstand()
+            _vor490 = _abbild()
+            _laeuft490[0] = True
+            _erg490 = _weg490()
+            _nach490 = _abbild()
+            _anders490 = sorted(set(_vor490) ^ set(_nach490)) + sorted(
+                k for k in set(_vor490) & set(_nach490)
+                if _vor490[k] != _nach490[k])
+            pruefe(not _erg490[0] and _erg490[1] == _js490.GAME_RUNNING
+                   and not _anders490,
+                   'Spiel läuft, %s: nichts geschrieben, Grund genannt '
+                   '(%r, verändert: %r)' % (_name490, _erg490[:2],
+                                            _anders490))
+            _laeuft490[0] = False
+            _erg490 = _weg490()
+            with open(_datei490, encoding='utf-8') as f:
+                _jetzt490 = f.read()
+            pruefe(_erg490[0] and _jetzt490 != _XML490,
+                   'Spiel zu, %s: schreibt wirklich (%r)'
+                   % (_name490, _erg490[:2]))
+
+        _de490 = _la490.TEXTS['s_js_f_spiel']
+        pruefe(all(_de490) and _de490[0] != _de490[1],
+               'die Meldung steht deutsch und englisch da')
+    finally:
+        _au490.game_running = _echt_lauf490
+        _js490._actionmaps_path = _echt_pfad490
+        _js490.game_lock = _lauf_sperre490
+        for _name490, _wert490 in (('SC_BP_HOME', _alt_heim490),
+                                   ('SC_INSTALL_DIR', _alt_install490)):
+            if _wert490 is None:
+                os.environ.pop(_name490, None)
+            else:
+                os.environ[_name490] = _wert490
+        shutil.rmtree(_heim490, ignore_errors=True)
+
+
+def _pruefung_491():
+    """491. Sicherungen neben den Spieldateien: die neuesten zehn bleiben."""
+    print('\n491. Sicherungen der Spieldateien: nur die neuesten zehn bleiben')
+    import tempfile as _tf491
+    from scbp import (auto_update as _au491, curves as _kv491,
+                      graphics as _gr491, joysticks as _js491)
+    _ordner491 = _tf491.mkdtemp(prefix='sicherungen-kuerzen-')
+    _datei491 = os.path.join(_ordner491, 'actionmaps.xml')
+    _alt491 = ['actionmaps.xml.scbpw-202601%02d-120000' % tag
+               for tag in range(1, 14)]
+    _fremd491 = ['actionmaps.xml.scbpw-2026',
+                 'actionmaps.xml.scbpw-20200101-000000.bak',
+                 'xactionmaps.xml.scbpw-20200101-000000',
+                 'attributes.xml.scbpw-20200101-000000']
+
+    def _anlegen(namen, inhalt=b'alt'):
+        for name in namen:
+            with open(os.path.join(_ordner491, name), 'wb') as f:
+                f.write(inhalt + name.encode())
+
+    def _muster():
+        return sorted(n for n in os.listdir(_ordner491)
+                      if re.match(r'^actionmaps\.xml\.scbpw-\d{8}-\d{6}$', n)
+                      and os.path.isfile(os.path.join(_ordner491, n)))
+
+    _echt_lauf491 = _au491.game_running
+    try:
+        with open(_datei491, 'w', encoding='utf-8') as f:
+            f.write(_XML490)
+        _anlegen(_alt491)
+        _anlegen(_fremd491, b'fremd')
+        # Ein Ordner mit passendem Namen ist keine Sicherung.
+        os.mkdir(os.path.join(_ordner491,
+                              'actionmaps.xml.scbpw-20190101-000000'))
+        _au491.game_running = lambda: False
+        _ok491, _sich491, _n491 = _js491.bind_action(
+            'v_eject', 'spaceship_general', 'js1', 'button5',
+            filename=_datei491)
+        _neu491 = os.path.basename(_sich491) if _ok491 else ''
+        _bleibt491 = _muster()
+        pruefe(_ok491 and _neu491 in _bleibt491,
+               'Belegen: die neue Sicherung ist da (%r)' % _neu491)
+        pruefe(len(_bleibt491) == 10
+               and set(_bleibt491) == set(_alt491[-9:] + [_neu491]),
+               'Belegen: 14 Sicherungen auf die neuesten 10 gekürzt (%r)'
+               % _bleibt491)
+        _unberuehrt491 = []
+        for name in _fremd491:
+            try:
+                with open(os.path.join(_ordner491, name), 'rb') as f:
+                    if f.read() != b'fremd' + name.encode():
+                        _unberuehrt491.append(name)
+            except OSError:
+                _unberuehrt491.append(name)
+        pruefe(not _unberuehrt491 and os.path.isdir(os.path.join(
+                   _ordner491, 'actionmaps.xml.scbpw-20190101-000000')),
+               'Dateien und Ordner mit anderem Namen bleiben (verändert: %r)'
+               % _unberuehrt491)
+
+        # Liegen zehn Sicherungen mit späterem Zeitstempel da, bleibt die
+        # neue trotzdem.
+        _anlegen(['actionmaps.xml.scbpw-2099%02d01-000000' % m
+                  for m in range(1, 11)])
+        _ok491, _sich491, _n491 = _kv491.clean_up(filename=_datei491,
+                                                  folder=_ordner491)
+        _bleibt491 = _muster()
+        pruefe(_ok491 and os.path.basename(_sich491) in _bleibt491
+               and len(_bleibt491) == 11
+               and all(n.startswith('actionmaps.xml.scbpw-2099')
+                       or n == os.path.basename(_sich491)
+                       for n in _bleibt491),
+               'Aufräumen: die gerade angelegte bleibt, auch wenn zehn '
+               'jüngere daliegen (%r)' % _bleibt491)
+
+        # Dieselbe Hilfsfunktion für die Grafik-Dateien.
+        _attr491 = os.path.join(_ordner491, 'attributes.xml')
+        with open(_attr491, 'w', encoding='utf-8') as f:
+            f.write('<Attributes Version="35">\n'
+                    ' <Attr name="FilmGrain" value="0"/>\n</Attributes>\n')
+        _anlegen(['attributes.xml.scbpw-202602%02d-120000' % t
+                  for t in range(1, 13)])
+        _ok491, _sich491 = _gr491.write({'FilmGrain': 1}, _attr491)
+        _attr_rest491 = sorted(
+            n for n in os.listdir(_ordner491)
+            if re.match(r'^attributes\.xml\.scbpw-\d{8}-\d{6}$', n))
+        pruefe(_ok491 and _sich491 in _attr_rest491
+               and len(_attr_rest491) == 10
+               and 'attributes.xml.scbpw-20200101-000000' not in _attr_rest491,
+               'Grafik: attributes.xml-Sicherungen auf 10 gekürzt (%r)'
+               % _attr_rest491)
+        _ren491 = os.path.join(_ordner491, 'renderer.json')
+        with open(_ren491, 'w', encoding='utf-8') as f:
+            json.dump({'GraphicsSettings': {_gr491.RENDERER: 0}}, f)
+        _anlegen(['renderer.json.scbpw-202603%02d-120000' % t
+                  for t in range(1, 13)])
+        _ok491, _sich491 = _gr491.write_renderer(1, _ren491)
+        _ren_rest491 = [n for n in os.listdir(_ordner491)
+                        if n.startswith('renderer.json.scbpw-')]
+        pruefe(_ok491 and _sich491 in _ren_rest491
+               and len(_ren_rest491) == 10,
+               'Grafik: Renderer-Sicherungen auf 10 gekürzt (%r)'
+               % sorted(_ren_rest491))
+
+        # Keine Sicherung entsteht an der Hilfsfunktion vorbei.
+        _eigen491 = []
+        for name in sorted(os.listdir(os.path.join(WURZEL, 'scbp'))):
+            if not name.endswith('.py') or name == 'paths.py':
+                continue
+            with io.open(os.path.join(WURZEL, 'scbp', name),
+                         encoding='utf-8') as f:
+                for nr, zeile in enumerate(f, 1):
+                    if ".scbpw-%s'" in zeile or 'scbpw-%Y' in zeile:
+                        _eigen491.append('%s:%d' % (name, nr))
+        pruefe(not _eigen491,
+               'alle Sicherungen entstehen über paths.backup_game_file '
+               '(eigene Namensbildung: %r)' % _eigen491)
+    finally:
+        _au491.game_running = _echt_lauf491
+        shutil.rmtree(_ordner491, ignore_errors=True)
 
 
 def _pruefung_427():

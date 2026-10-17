@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Controls: changes made while the game was running were lost** — Star
+  Citizen overwrote them on exit. Binding, resetting, importing, swapping
+  identifiers, axes & curves, device sets and restoring the controls from a
+  backup now write nothing while the game is running, and say that it has
+  to be closed first.
+- **Backups piled up in the game's profile folder** — Verse-Kit now keeps
+  only its ten newest backups per file there and clears older ones the next
+  time it saves.
+
 ## v4.9.1 - 2026-10-17
 
 > The goods picker when booking in now finds what you look for: typing

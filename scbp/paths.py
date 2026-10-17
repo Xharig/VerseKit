@@ -1213,6 +1213,59 @@ def write_text_atomic(target, text, newline=None):
         raise
 
 
+# So viele Sicherungen je Spieldatei bleiben neben der Datei liegen.
+GAME_BACKUPS_KEPT = 10
+
+
+def backup_game_file(target, keep=GAME_BACKUPS_KEPT):
+    """`<datei>.scbpw-<JJJJMMTT-HHMMSS>` neben eine Datei des Spiels kopieren
+    (`actionmaps.xml`, `attributes.xml`, Renderer-Einstellung) und ältere
+    Sicherungen derselben Datei auf `keep` kürzen.
+
+    Gibt den Pfad der Sicherung zurück. Scheitert das Kopieren, fliegt die
+    Ausnahme — der Aufrufer schreibt dann nicht."""
+    import shutil
+    import time
+    backup = '%s.scbpw-%s' % (target, time.strftime('%Y%m%d-%H%M%S'))
+    shutil.copy2(target, backup)
+    prune_game_backups(target, keep, backup)
+    return backup
+
+
+def prune_game_backups(target, keep=GAME_BACKUPS_KEPT, fresh=None):
+    """Von den Sicherungen `<datei>.scbpw-<JJJJMMTT-HHMMSS>` nur die neuesten
+    `keep` behalten. Gibt die Zahl der gelöschten zurück.
+
+    Gelöscht werden nur Dateien mit genau diesem Namensmuster, `fresh` nie.
+    ⚠ Die Reihenfolge kommt aus dem Zeitstempel im Namen, nicht aus der
+    Änderungszeit: `shutil.copy2` übernimmt die der Quelle. Scheitert das
+    Löschen einer Datei, landet das im Fehlerprotokoll, und die übrigen
+    werden trotzdem gelöscht."""
+    folder = os.path.dirname(os.path.abspath(target))
+    pattern = re.compile(r'^%s\.scbpw-\d{8}-\d{6}$'
+                         % re.escape(os.path.basename(target)),
+                         re.IGNORECASE if os.name == 'nt' else 0)
+    try:
+        names = sorted((name for name in os.listdir(folder)
+                        if pattern.match(name)),
+                       key=lambda name: name[-15:], reverse=True)
+    except OSError as exc:
+        _report_error('paths.prune_game_backups', exc)
+        return 0
+    spared = os.path.basename(fresh).lower() if fresh else None
+    removed = 0
+    for name in names[max(keep, 0):]:
+        path = os.path.join(folder, name)
+        if name.lower() == spared or not os.path.isfile(path):
+            continue
+        try:
+            os.remove(path)
+            removed += 1
+        except OSError as exc:
+            _report_error('paths.prune_game_backups', exc)
+    return removed
+
+
 def backup_name(target):
     """`bestand.json` -> `bestand.bak.json`.
 

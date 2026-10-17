@@ -82,12 +82,11 @@ als das, was sie ist — eine begründete Annahme, keine Messung.
 
 Es schreibt nichts von allein — wie das ganze Nachbarmodul `joysticks.py`.
 Gelesen wird jederzeit, geschrieben nur auf Knopfdruck, und dann über
-`joysticks._write()`, das vorher eine Sicherung anlegt.
+`joysticks._write()`, das vorher eine Sicherung anlegt und nichts schreibt,
+solange Star Citizen läuft.
 """
 import os
 import re
-import shutil
-import time
 
 from . import joysticks
 
@@ -1014,8 +1013,8 @@ def clean_up(filename=None, folder=None, count_only=False):
     try:
         with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
-    except Exception as ausnahme:
-        errors.record('curves.aufraeumen_lesen', ausnahme)
+    except Exception as exception:
+        errors.record('curves.aufraeumen_lesen', exception)
         return False, 's_js_f_lesen', 0
 
     alive = valid_idents(folder, filename)
@@ -1048,23 +1047,8 @@ def clean_up(filename=None, folder=None, count_only=False):
             before -= 1
         fresh = fresh[:before] + fresh[to_value:]
 
-    backup = '%s.scbpw-%s' % (gone, time.strftime('%Y%m%d-%H%M%S'))
-    try:
-        shutil.copy2(gone, backup)
-    except Exception as ausnahme:
-        errors.record('curves.aufraeumen_sicherung', ausnahme)
-        return False, 's_js_f_sicherung', 0
-    try:
-        with open(gone, 'w', encoding='utf-8', newline='') as f:
-            f.write(fresh)
-    except Exception as ausnahme:
-        try:
-            shutil.copy2(backup, gone)
-        except Exception:
-            pass
-        errors.record('curves.aufraeumen_schreiben', ausnahme)
-        return False, 's_js_f_schreiben', 0
-    return True, backup, len(cuts)
+    # Sicherung, Spielsperre und Schreiben wie bei jedem anderen Schreibweg.
+    return joysticks._write(gone, fresh, len(cuts))
 
 
 def align(from_ident, by_ident, filename=None, folder=None):
