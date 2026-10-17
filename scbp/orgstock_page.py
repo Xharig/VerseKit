@@ -185,7 +185,12 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
         _body_text(top, t('s_sl_keine_einheit'), window.f_small, fill='x')
         return
     if page['unit'] not in {u['id'] for u in units}:
+        # Die gewählte Einheit ist weg: Ein Formular für sie und ein
+        # laufendes Nachschlagen gelten nicht mehr.
+        _drop_pending(page)
         page['unit'] = units[0]['id']
+        page['form'] = None
+        page['values'] = {}
 
     row = tk.Frame(top, bg=BG)
     row.pack(fill='x')
@@ -715,8 +720,23 @@ def _material_field(window, form, page, data, redraw):
     _material_choices(page)
     var = tk.StringVar(master=form.card, value=page['values'].get('material',
                                                                   ''))
-    var.trace_add('write', lambda *_a: page['values'].__setitem__('material',
-                                                                   var.get()))
+    # Die Treffer-Liste unten: Weicht der Text vom Namen der Anfrage ab,
+    # verschwindet sie sofort — ohne Neuzeichnen, das den Fokus nähme.
+    shown = []
+
+    def typed(*_a):
+        text = var.get()
+        page['values']['material'] = text
+        if ('candidates' in page['values'] and text.strip().lower()
+                != page['values'].get('candidates_for')):
+            page['values'].pop('candidates', None)
+            for widget in shown:
+                try:
+                    widget.destroy()
+                except tk.TclError:
+                    pass
+            shown[:] = []
+    var.trace_add('write', typed)
     row = form._row(t('s_sl_ware'))
     holder = tk.Frame(row, bg=form.BG)
     holder.pack(side='left', fill='x', expand=True)
@@ -726,10 +746,10 @@ def _material_field(window, form, page, data, redraw):
         return stock_catalog.label(entry) if entry else ''
 
     def pick(name):
-        var.set(name)
-        _drop_pending(page)
-        page['values'].pop('material_ref', None)
         changed = page['values'].pop('candidates', None) is not None
+        var.set(name)
+        changed = _drop_pending(page) or changed
+        page['values'].pop('material_ref', None)
         entry = page['materials'].get(name.lower())
         if entry is not None and (entry['item'] is None
                                   or entry['material'] is None):
@@ -764,12 +784,14 @@ def _material_field(window, form, page, data, redraw):
     candidates = page['values'].get('candidates') or []
     if not candidates:
         return
-    form.note(t('s_sl_ware_vorschlaege'), theme.YELLOW)
+    shown.append(form.note(t('s_sl_ware_vorschlaege'), theme.YELLOW))
     rows = tk.Frame(form.card, bg=form.BG)
     rows.pack(fill='x', padx=14, pady=(0, 4))
+    shown.append(rows)
     _stripe_reset(rows)
 
     def choose(candidate):
+        _drop_pending(page)
         page['values']['material'] = candidate['name']
         page['values']['material_ref'] = dict(candidate)
         page['values'].pop('candidates', None)
@@ -797,23 +819,35 @@ def _material_field(window, form, page, data, redraw):
 
 def _drop_pending(page):
     """Ein laufendes Nachschlagen verwerfen: Seine Antwort bucht nicht mehr,
-    und die Seite ist wieder frei."""
-    if page.get('resolve_ticket') is not None:
-        page['resolve_ticket'] = None
-        page['busy'] = False
-        page['message'] = ''
+    und die Seite ist wieder frei. `True`, wenn eines lief."""
+    if page.get('resolve_ticket') is None:
+        return False
+    page['resolve_ticket'] = None
+    page['busy'] = False
+    page['message'] = ''
+    return True
 
 
-def _resolve_then(page, name, known, piece, form_key, book):
+# Was im Formular steht, ohne das, was erst das Nachschlagen dazuschreibt.
+_RESOLVE_KEYS = ('candidates', 'candidates_for', 'material_ref')
+
+
+def _form_state(values):
+    return {k: v for k, v in values.items() if k not in _RESOLVE_KEYS}
+
+
+def _resolve_then(page, name, known, piece, form_key, snapshot, book):
     """Die Ware beim Basetool nachschlagen, bevor gebucht wird: eindeutig ->
     `book({bt, name, kind})`, mehrdeutig -> Auswahl im Formular, unbekannt ->
     Hinweis. In den letzten beiden Fällen wird nichts gesendet.
 
     ⚠ Die Antwort bucht nur, solange ihre Marke (`resolve_ticket`) gilt, das
-    Formular `form_key` noch offen ist und dieselbe Ware im Feld steht.
+    Formular `form_key` noch offen ist, in der Einheit noch gebucht werden
+    darf und das Formular noch so dasteht wie beim Klick (`snapshot`).
     Abbrechen, ein anderes Formular, ein Einheitswechsel oder eine andere
     Auswahl (`_drop_pending`) nehmen die Marke weg."""
     if page['busy']:
+        _say(page, t('s_sl_noch_dran'), SUB)
         return
     ticket = object()
     page['resolve_ticket'] = ticket
@@ -840,9 +874,16 @@ def _resolve_then(page, name, known, piece, form_key, book):
                 return
             page['resolve_ticket'] = None
             page['busy'] = False
-            typed = (page['values'].get('material') or '').strip().lower()
-            if page['form'] != form_key or typed != name.strip().lower():
+            if page['form'] != form_key:
                 _say(page, '', FG)
+                return
+            current = orgstock.current()
+            if current is None or not orgstock.can_write(current,
+                                                         form_key[1]):
+                _say(page, t('s_sl_nicht_mehr'), RED)
+                return
+            if _form_state(page['values']) != _form_state(snapshot):
+                _say(page, t('s_sl_ware_geaendert'), theme.YELLOW)
                 return
             if status == 'resolved':
                 page['values']['material_ref'] = found
@@ -850,6 +891,7 @@ def _resolve_then(page, name, known, piece, form_key, book):
                 book(found)
             elif status == 'ambiguous':
                 page['values']['candidates'] = found
+                page['values']['candidates_for'] = name.strip().lower()
                 _say(page, t('s_sl_ware_mehrdeutig') % name, theme.YELLOW)
             elif status == 'unmatched':
                 page['values'].pop('candidates', None)
@@ -1144,14 +1186,15 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
         amount = _amount_ok(page, form, number(values.get('amount')), unit)
         if amount is None:
             return
-        quality = number(values.get('quality')) or 0
+        piece = unit == orgstock.PIECE
+        # Bei Stück steht kein Qualitätsfeld da — ein alter Wert zählt nicht.
+        quality = 0 if piece else number(values.get('quality')) or 0
         if not 0 <= quality <= 1000 or quality != int(quality):
             _say(page, t('s_sl_qualitaet_falsch'), RED)
             return
         stolen = bool(values.get('stolen'))
         note = values.get('note') or ''
         merge = bool(values.get('merge'))
-        piece = unit == orgstock.PIECE
 
         def book(material):
             # Ein Gegenstand zählt in Stück; in SCU lehnte das Basetool ihn ab.
@@ -1174,7 +1217,7 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
             book(known)
             return
         _resolve_then(page, name, stock_catalog.reference(name, piece), piece,
-                      ('book_in', unit_id), book)
+                      ('book_in', unit_id), values, book)
 
     form.buttons([(t('s_sl_einbuchen'), go, 'strong'),
                   (t('s_bt_abbrechen'), _cancel(page, redraw), '')])
@@ -1203,10 +1246,13 @@ def _known_material(data, name, unit):
 
 # --------------------------------------------------------------- Senden
 def _submit(window, page, data, ops, redraw):
-    """Den Änderungssatz im Hintergrund schicken, danach den Feed holen."""
+    """Den Änderungssatz im Hintergrund schicken, danach den Feed holen.
+    Gebucht schließt das Formular nur, wenn noch dasselbe offen ist."""
     if page['busy']:
+        _say(page, t('s_sl_noch_dran'), SUB)
         return
     page['busy'] = True
+    form_at = page['form']
     _say(page, t('s_sl_bucht'), SUB)
 
     def work():
@@ -1246,7 +1292,9 @@ def _submit(window, page, data, ops, redraw):
 
         def show():
             page['busy'] = False
-            if done:
+            # `is`: Ein abgebrochenes und neu geöffnetes Formular ist ein
+            # neues Tupel, auch wenn es gleich aussieht.
+            if done and page['form'] is form_at:
                 page['form'] = None
                 page['values'] = {}
             _say(page, message, color)
