@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.8.1 - 2026-10-17
+
+> Eine schnelle Korrektur zur Basetool-Seite: „Erlaubnis erteilen" scheitert
+> nicht mehr an Erlaubnissen, die das Basetool noch freischaltet, die Hinweise
+> sagen, welcher Bereich etwas braucht, und die Seite springt beim
+> Aktualisieren nicht mehr.
+
+### Behoben
+
+- **„Erlaubnis erteilen" scheiterte mit „invalid_scope"** — Verse-Kit fragt
+  nur noch Erlaubnisse an, die das Basetool auch anbietet. Was es noch nicht
+  anbietet, steht beim Bereich als Hinweis; der Knopf erscheint, sobald das
+  Basetool die Erlaubnis freischaltet. Gemeldet von Drachennarr
+- **Hinweise nannten immer die Baupläne** — „Für den Abgleich fehlt die
+  Erlaubnis für Baupläne" stand auch dann da, wenn ein anderer Bereich etwas
+  brauchte. Jetzt heißt es allgemein, beim jeweiligen Bereich.
+- **Die Basetool-Seite baute sich sichtbar neu auf** — beim Erteilen einer
+  Erlaubnis und bei jedem Abgleich sprang sie nach oben und wieder zurück.
+  Jetzt wird der neue Stand in einem Zug getauscht, die Rollstelle bleibt.
+
 ## v4.8.0 - 2026-10-17
 
 > Das Lager deiner Einheit ist da: Unter *Basetool* siehst du, was im

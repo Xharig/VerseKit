@@ -615,7 +615,11 @@ def _run(watcher):
     else:
         exchange_orgstock.forget()
     _in_tk(lambda: _pages_changed(['staffellager']))
-    _set(state='ok', code='SCOPE_MISSING' if missing else '', counts=counts,
+    # Gemahnt wird nur, wo eine neue Anmeldung hilft: Rechte, die das Basetool
+    # noch nicht anbietet, kann niemand erteilen.
+    askable = [setting for setting, scopes in AREAS if setting in missing
+               and set(scopes) - capabilities - set(conn.not_offered(scopes))]
+    _set(state='ok', code='SCOPE_MISSING' if askable else '', counts=counts,
          missing=missing, last_sync=time.strftime('%Y-%m-%d %H:%M:%S'))
 
 

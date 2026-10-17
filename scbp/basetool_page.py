@@ -118,39 +118,40 @@ def error_text(code):
 def basetool_page(window, frame):
     _heading(window, frame, t('hf_basetool'), t('s_bt_lead'))
     inner = _scroll_area(frame)
-    area = tk.Frame(inner, bg=BG)
-    area.pack(fill='x')
+    area = [tk.Frame(inner, bg=BG)]
+    area[0].pack(fill='x')
     login = {'current': None, 'message': ''}
+    shown = {'code': None}
 
     def redraw():
+        old = area[0]
         try:
-            if not area.winfo_exists():
+            if not old.winfo_exists():
                 return
         except tk.TclError:
             return
-        # ⚠⚠ Erst nach oben, dann neu bauen, dann die Stelle wiederherstellen.
-        # Wer heruntergerollt hat, stünde nach dem Neubau sonst im Leeren
-        # (das Fenster wirkt schwarz): Außerhalb der Ansicht blendet die
-        # Leinwand den Inhalt aus, er misst sich dann nicht neu (183 statt
-        # 813 px), und die Ansicht zeigt unter ihm.
-        canvas = _canvas_of(area)
-        top = canvas.canvasy(0) if canvas is not None else 0
-        if canvas is not None:
-            canvas.yview_moveto(0)
-        for child in area.winfo_children():
-            child.destroy()
-        _draw(window, area, login, redraw)
-        if canvas is not None and top > 0:
-            def back():
-                try:
-                    canvas.update_idletasks()
-                    canvas.configure(scrollregion=canvas.bbox('all'))
-                    height = (canvas.bbox('all') or (0, 0, 0, 0))[3]
-                    if height > 0:
-                        canvas.yview_moveto(top / height)
-                except tk.TclError:
-                    pass
-            canvas.after_idle(back)
+        # ⚠⚠ Der neue Inhalt entsteht fertig neben dem alten und ersetzt ihn
+        # in einem Zug — ohne Zwischenstand, in dem die Seite leer ist oder
+        # nach oben springt. Die Rollstelle bleibt, weil der alte Inhalt bis
+        # zum Tausch sichtbar ist und die Leinwand ihn weiter mitmisst.
+        new = tk.Frame(inner, bg=BG)
+        _draw(window, new, login, redraw)
+        new.pack(fill='x', after=old)
+        # ⚠ Erst vermessen lassen, solange der alte Inhalt die Fläche noch
+        # hält: Sonst schrumpft sie auf den unvermessenen neuen Inhalt, die
+        # Ansicht steht im Leeren, und die Leinwand blendet ihn ganz aus.
+        new.update_idletasks()
+        old.destroy()
+        area[0] = new
+        canvas = _canvas_of(inner)
+        device = login['current']
+        if canvas is not None and device not in (None, 'starting') \
+                and shown['code'] is not device:
+            # Ein neuer Anmeldecode steht oben in der Verbindung — dorthin
+            # rollen, damit man ihn sieht, auch wenn der Knopf weiter unten
+            # lag.
+            shown['code'] = device
+            canvas.after_idle(lambda: canvas.yview_moveto(0))
 
     def on_status():
         # Der Abgleich-Hinweis vom Knopfdruck gilt, bis ein Durchgang fertig
@@ -160,7 +161,8 @@ def basetool_page(window, frame):
         _TK_CALLS.put(redraw)
 
     basetool_sync.LISTENERS.append(on_status)
-    area.bind('<Destroy>', lambda _e: (
+    # ⚠ An `inner`, nicht am Inhalt: Der wird bei jedem Neuzeichnen ersetzt.
+    inner.bind('<Destroy>', lambda _e: (
         on_status in basetool_sync.LISTENERS
         and basetool_sync.LISTENERS.remove(on_status)))
     redraw()
@@ -340,6 +342,10 @@ def _area_card(window, area, login, redraw, status, connected, granted,
         _note(window, card, t('s_bt_code_oben'), color=theme.YELLOW)
         return
     if granted and not set(scopes) <= granted:
+        if not _askable(set(scopes) - granted):
+            _note(window, card, t('s_bt_nicht_angeboten'), bottom=0)
+            tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
+            return
         _note(window, card, t('s_bt_rechte_fehlen'), color=theme.YELLOW,
               bottom=0)
         _buttons(window, card, [(t('s_bt_rechte_erweitern'),
@@ -443,10 +449,20 @@ def _area_card(window, area, login, redraw, status, connected, granted,
     tk.Frame(card, bg=SURFACE, height=10).pack(fill='x')
 
 
+def _askable(scopes):
+    """Die fehlenden Rechte, die das Basetool auch anbietet — nur für die
+    lohnt eine neue Anmeldung. Die übrigen lehnte es mit `invalid_scope` ab."""
+    refused = set(basetool.CONNECTION.not_offered(sorted(scopes)))
+    return [s for s in scopes if s not in refused]
+
+
 def _optional_consent(window, card, granted, login, redraw, scopes):
     """Ein freiwilliges Recht fehlt der bestehenden Verbindung — Hinweis mit
     Knopf. Der Bereich läuft auch ohne, nur ohne das Zusätzliche."""
     if not granted or set(scopes) <= granted:
+        return
+    if not _askable(set(scopes) - granted):
+        _note(window, card, t('s_bt_nicht_angeboten'), bottom=0)
         return
     _note(window, card, t('s_bt_rechte_zusatz'), color=theme.YELLOW,
           bottom=0)
@@ -483,6 +499,9 @@ def _orgunits_consent(window, card, granted, login, redraw):
     Hangar-Abgleich läuft auch ohne."""
     if not basetool.REQUEST_ORGUNITS or not granted \
             or set(basetool.SCOPES_ORGUNITS) <= granted:
+        return
+    if not _askable(set(basetool.SCOPES_ORGUNITS) - granted):
+        _note(window, card, t('s_bt_nicht_angeboten'), bottom=0)
         return
     _note(window, card, t('s_bt_einheit_recht'), color=theme.YELLOW,
           bottom=0)

@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.8.1 - 2026-10-17
+
+> A quick fix for the Basetool page: "Grant permission" no longer fails on
+> permissions the Basetool is still enabling, the notes say which area needs
+> something, and the page no longer jumps when it updates.
+
+### Fixed
+
+- **"Grant permission" failed with "invalid_scope"** — Verse-Kit now only
+  asks for permissions the Basetool actually offers. Anything it does not
+  offer yet shows as a note at the area; the button appears as soon as the
+  Basetool enables that permission. Reported by Drachennarr
+- **Notes always named the blueprints** — "Permission for blueprints is
+  missing" showed even when a different area needed something. It now reads
+  generally, at the area concerned.
+- **The Basetool page visibly rebuilt itself** — when granting a permission
+  and on every sync it jumped to the top and back. The new state is now
+  swapped in one go, and the scroll position stays.
+
 ## v4.8.0 - 2026-10-17
 
 > Your unit's storage is here: under *Basetool* you see what is in the shared

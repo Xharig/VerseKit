@@ -430,6 +430,9 @@ class Connection:
         self._access = None
         self._access_until = 0.0
         self._endpoints = None
+        # Die Rechte, die der Aussteller anbietet (`scopes_supported`) — None,
+        # solange das Discovery-Dokument noch nicht gelesen ist.
+        self._offered = None
         self._clock = _Clock()
         self._nonces = None
         self.granted = ()
@@ -483,20 +486,42 @@ class Connection:
                  'revoke': doc.get('revocation_endpoint')}
         if not found['device'] or not found['token']:
             raise ApiError('ISSUER_MISMATCH', status)
+        offered = doc.get('scopes_supported')
         with self._lock:
             self._endpoints = found
+            self._offered = (frozenset(s for s in offered if isinstance(s, str))
+                             if isinstance(offered, list) and offered else None)
         return found
+
+    def offered_scopes(self):
+        """Die Rechte, die das Basetool anbietet — aus dem schon gelesenen
+        Discovery-Dokument, ohne Abruf. None, solange es unbekannt ist."""
+        with self._lock:
+            return self._offered
+
+    def not_offered(self, scopes):
+        """Die Rechte aus `scopes`, die das Basetool nachweislich (noch) nicht
+        anbietet. Unbekannt heißt: keines."""
+        offered = self.offered_scopes()
+        if offered is None:
+            return []
+        return [s for s in scopes if s not in offered]
 
     # ------------------------------------------------------- Anmeldung
     def start_login(self, scopes):
         """Schritt 1–2: Schlüssel bereit, Gerätecode holen. Noch kein Token."""
         self._key_ready()
         cfg = connection_config()
-        wanted = [SCOPE_CONNECT] + [s for s in scopes if s != SCOPE_CONNECT]
+        url = self.endpoints()['device']
+        # ⚠⚠ Ein Recht, das der Aussteller nicht anbietet, lässt die ganze
+        # Anmeldung mit `invalid_scope` scheitern — also nur anfragen, was er
+        # anbietet. Die übrigen erscheinen von selbst, sobald er sie führt.
+        missing = set(self.not_offered(scopes))
+        wanted = [SCOPE_CONNECT] + [s for s in scopes
+                                    if s != SCOPE_CONNECT and s not in missing]
         wanted.append(SCOPE_OFFLINE)
         body = urllib.parse.urlencode({'client_id': cfg['client_id'],
                                        'scope': ' '.join(wanted)}).encode()
-        url = self.endpoints()['device']
         status, headers, raw = _http(
             'POST', url, {'User-Agent': user_agent(),
                           'Content-Type': 'application/x-www-form-urlencoded',

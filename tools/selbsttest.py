@@ -25677,6 +25677,7 @@ def main():
     _pruefung_467()
     _pruefung_468()
     _pruefung_469()
+    _pruefung_470()
 
     print()
     if fehler:
@@ -29650,6 +29651,11 @@ def _pruefung_296():
         pruefe(len(_s) >= 1, 'heruntergerollt: ein Schalter ist sichtbar')
         if not _s:
             return
+        # Jede Rollbewegung mitschreiben: Ein Sprung nach oben mitten im
+        # Neuzeichnen sähe aus, als baue die Seite sich kaputt neu auf.
+        _gerollt = []
+        _alt_roll = _roll.yview_moveto
+        _roll.yview_moveto = lambda f: (_gerollt.append(f), _alt_roll(f))[1]
         _s[-1].event_generate('<Button-1>', x=10, y=10)
         _ende = time.time() + 1.5
         while time.time() < _ende:
@@ -29658,6 +29664,9 @@ def _pruefung_296():
                'nach dem Klick ist die Seite nicht leer (Schalter sichtbar)')
         pruefe(_roll.canvasy(0) > 0,
                'die Rollstelle bleibt, wo sie war — nicht zurück nach oben')
+        pruefe(0 not in _gerollt and 0.0 not in _gerollt,
+               'beim Neuzeichnen springt die Seite nicht zwischendurch nach '
+               'oben (%r)' % _gerollt)
     finally:
         _bs296.tick = _alt_takt
         for _k, _v in _bereiche.items():
@@ -46027,6 +46036,77 @@ def _pruefung_469():
     finally:
         for _k469, _v469 in _roh469.items():
             _pa469.set_setting(_k469, _v469)
+
+
+def _pruefung_470():
+    """470. Basetool: nur Rechte anfragen, die der Aussteller anbietet.
+
+    Ein Recht außerhalb von `scopes_supported` lässt die ganze
+    Geräte-Anmeldung mit `invalid_scope` scheitern."""
+    print('\n470. Basetool: nur angebotene Rechte anfragen')
+    import json as _js470
+    from urllib.parse import parse_qs as _pq470
+    from scbp import basetool as _bt470, basetool_page as _bp470
+    _cfg470 = _bt470.connection_config()
+    _gesendet470 = []
+    _angebot470 = [None]
+
+    def _http470(method, url, headers, body, cfg):
+        if url.endswith('/.well-known/openid-configuration'):
+            doc = {'issuer': _cfg470['issuer'],
+                   'device_authorization_endpoint': _cfg470['issuer'] + '/device-auth',
+                   'token_endpoint': _cfg470['issuer'] + '/token'}
+            if _angebot470[0] is not None:
+                doc['scopes_supported'] = _angebot470[0]
+            return 200, {}, _js470.dumps(doc).encode()
+        _gesendet470.append(_pq470(body.decode()).get('scope', [''])[0].split())
+        return 200, {}, _js470.dumps({'device_code': 'dc', 'user_code': 'AB-CD',
+                                      'verification_uri': '',
+                                      'expires_in': 600}).encode()
+
+    def _anmelden470(angebot, scopes):
+        _angebot470[0] = angebot
+        conn = _bt470.Connection()
+        conn._key_ready = lambda: None
+        conn.start_login(scopes)
+        return conn, _gesendet470[-1]
+
+    _alt_http470 = _bt470._http
+    _alt_conn470 = _bt470.CONNECTION
+    _gewollt470 = ['exchange.blueprints.read', 'exchange.orgstock.read']
+    try:
+        _bt470._http = _http470
+        _angeboten470 = ['exchange.connect', 'exchange.blueprints.read',
+                         'offline_access']
+        _conn470, _scope470 = _anmelden470(_angeboten470, _gewollt470)
+        pruefe('exchange.blueprints.read' in _scope470
+               and 'exchange.orgstock.read' not in _scope470
+               and 'exchange.connect' in _scope470
+               and 'offline_access' in _scope470,
+               'nicht angebotene Rechte werden nicht angefragt (%s)' % _scope470)
+        pruefe(_conn470.not_offered(_gewollt470) == ['exchange.orgstock.read'],
+               'die Verbindung weiß, welches Recht fehlt')
+        _bt470.CONNECTION = _conn470
+        pruefe(_bp470._askable({'exchange.orgstock.read'}) == []
+               and _bp470._askable({'exchange.blueprints.read'})
+               == ['exchange.blueprints.read'],
+               'die Seite bietet „Erlaubnis erteilen" nur für Angebotenes an')
+        _conn470, _scope470 = _anmelden470(None, _gewollt470)
+        pruefe('exchange.orgstock.read' in _scope470
+               and _conn470.not_offered(_gewollt470) == [],
+               'ohne Angebotsliste wird alles angefragt wie bisher')
+        # Gegenprobe: ohne Filter ginge das fremde Recht mit hinaus.
+        _alt_no470 = _bt470.Connection.not_offered
+        try:
+            _bt470.Connection.not_offered = lambda self, scopes: []
+            _conn470, _scope470 = _anmelden470(_angeboten470, _gewollt470)
+            pruefe('exchange.orgstock.read' in _scope470,
+                   'Gegenprobe: ohne Filter stünde das Recht in der Anfrage')
+        finally:
+            _bt470.Connection.not_offered = _alt_no470
+    finally:
+        _bt470._http = _alt_http470
+        _bt470.CONNECTION = _alt_conn470
 
 
 def _seite469(stand):
