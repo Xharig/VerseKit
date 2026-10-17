@@ -6,7 +6,7 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.8.0 - 2026-10-17
 
 > Your unit's storage is here: under *Basetool* you see what is in the shared
 > storage — by items, materials, trade goods and components. Logisticians

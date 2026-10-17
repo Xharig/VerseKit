@@ -6,7 +6,7 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.8.0 - 2026-10-17
 
 > Das Lager deiner Einheit ist da: Unter *Basetool* siehst du, was im
 > gemeinsamen Lager liegt — nach Items, Rohstoffen, Handelsware und

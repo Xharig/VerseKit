@@ -711,7 +711,7 @@ Verse-Kit ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **kein
 
 Es wird weitergebaut — was genau, steht in keiner Liste. Was eine Version gebracht hat, liest du im [`CHANGELOG.md`](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.md) oder direkt im Werkzeug unter **„Was ist neu"**.
 
-**An welcher Version gerade gearbeitet wird**, steht im Änderungsprotokoll des Arbeitszweigs: [CHANGELOG auf `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.md). Dort sammelt sich, was fertig gebaut, aber noch nicht veröffentlicht ist — wer eine [Testfassung](https://github.com/Xharig/VerseKit/releases) ausprobiert, liest dort nach, was drin ist. Diese Seite hier zeigt immer die **veröffentlichte** Version.
+**Was in einer Testfassung steckt**, steht in ihrem Release-Text unter [Releases](https://github.com/Xharig/VerseKit/releases). Diese Seite hier zeigt immer die **veröffentlichte** Version.
 
 Wünsche und Fehlermeldungen gern als [Issue](https://github.com/Xharig/VerseKit/issues) oder im [Discord](https://xharig.com/discord) — Vorschläge landen eher im nächsten Bau als Gedankenlesen.
 

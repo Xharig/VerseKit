@@ -667,7 +667,7 @@ Verse-Kit is an independent, unofficial companion tool with **no** official conn
 
 Work continues — what exactly is not on a list. What a build brought you can read in [`CHANGELOG.en.md`](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.en.md) or right in the tool under **„What's new"**.
 
-**Which version is being worked on right now** is in the changelog of the working branch: [CHANGELOG on `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.en.md). That is where finished but unreleased work collects — if you try a [test build](https://github.com/Xharig/VerseKit/releases), that is where you read what is in it. This page always shows the **released** version.
+**What a test build contains** is in its release notes under [Releases](https://github.com/Xharig/VerseKit/releases). This page always shows the **released** version.
 
 Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/VerseKit/issues) or on [Discord](https://xharig.com/discord) — suggestions make it into the next build more reliably than mind reading.
 
