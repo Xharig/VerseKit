@@ -423,24 +423,33 @@ def resolve_material(conn, name, known=None, piece=False):
     `known`: `(kind, item-ref)` aus der Warenliste (`stock_catalog`) — dann
     zuerst über diese Referenz. Sonst, und wenn sie nichts findet, über den
     Namen: bei `piece` (Stück) erst als ITEM, dann als MATERIAL, bei SCU
-    umgekehrt. Mehrdeutige Treffer beider Wege kommen zusammen in eine
-    Auswahl."""
+    umgekehrt. Ist die erste Art eindeutig, gilt sie. Ist sie mehrdeutig,
+    bleibt das Ergebnis mehrdeutig — auch wenn die zweite Art eindeutig
+    ist; deren Treffer kommt dann als weiterer Kandidat dazu (und bleibt
+    auch bei zehn Kandidaten in der Auswahl)."""
     if known:
         status, found = resolve(conn, known[0], known[1])
         if status != 'unmatched':
             return status, found
     ref = {'name': name.strip()[:200]}
-    candidates = []
+    candidates, sure = [], []
     for kind in (('ITEM', 'MATERIAL') if piece else ('MATERIAL', 'ITEM')):
         status, found = resolve(conn, kind, ref)
         if status == 'resolved':
-            return status, found
-        if status == 'ambiguous':
-            seen = {c['bt'] for c in candidates}
-            candidates += [c for c in found if c['bt'] not in seen]
-    if candidates:
-        return 'ambiguous', candidates[:10]
-    return 'unmatched', None
+            if not candidates:
+                return status, found
+            sure.append(found)
+        elif status == 'ambiguous':
+            candidates += found
+    if not candidates and not sure:
+        return 'unmatched', None
+    out = []
+    for candidate in sure + candidates:
+        if candidate['bt'] not in {c['bt'] for c in out}:
+            out.append(candidate)
+    keep = [c for c in out if c in sure]
+    rest = [c for c in out if c not in sure]
+    return 'ambiguous', rest[:10 - len(keep)] + keep
 
 
 # ------------------------------------------------------------- Abfragen

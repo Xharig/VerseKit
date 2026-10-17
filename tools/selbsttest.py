@@ -46452,6 +46452,14 @@ def _pruefung_471():
         if kind == 'ITEM' and name == 'jacke':
             return {'status': 'resolved',
                     'ref': {'bt': 'bt-jacke', 'name': 'Jacke'}}
+        if kind == 'MATERIAL' and name in ('mixt', 'viel'):
+            anzahl = 2 if name == 'mixt' else 10
+            return {'status': 'ambiguous', 'candidates': [
+                {'bt': 'bt-%s-%d' % (name, i), 'name': '%s %d' % (name, i)}
+                for i in range(anzahl)]}
+        if kind == 'ITEM' and name in ('mixt', 'viel'):
+            return {'status': 'resolved',
+                    'ref': {'bt': 'bt-%s-teil' % name, 'name': name + ' Teil'}}
         return {'status': 'unmatched'}
 
     class _Conn471:
@@ -46606,9 +46614,29 @@ def _pruefung_471():
             pruefe(_ist471 == _soll and _gefragt471 == _weg,
                    'Nachschlagen %r über %r (Stück: %r): %r auf dem Weg %r'
                    % (_name, _bekannt, _stueck, _ist471, _gefragt471))
+        # Die bevorzugte Art mehrdeutig, die andere eindeutig: bleibt
+        # mehrdeutig, der eindeutige Treffer steht mit zur Wahl — auch neben
+        # zehn anderen.
+        _mixt471 = _og471.resolve_material(_conn471, 'Mixt', None, False)
+        _viel471 = _og471.resolve_material(_conn471, 'Viel', None, False)
+
+        def _kennungen(ergebnis):
+            if ergebnis[0] != 'ambiguous':
+                return ergebnis
+            return [(c['bt'], c['kind']) for c in ergebnis[1]]
+        _km471, _kv471 = _kennungen(_mixt471), _kennungen(_viel471)
+        pruefe(_km471 == [('bt-mixt-0', 'MATERIAL'), ('bt-mixt-1', 'MATERIAL'),
+                          ('bt-mixt-teil', 'ITEM')]
+               and isinstance(_kv471, list) and len(_kv471) == 10
+               and _kv471[-1] == ('bt-viel-teil', 'ITEM'),
+               'ein eindeutiger Treffer der zweiten Art sticht die '
+               'Mehrdeutigkeit der ersten nicht (%r, %r)' % (_km471, _kv471))
 
         # --- Hintergrund: Laden der Liste, Einheitswechsel ----------------
-        _th471.Thread = _Spaeter471
+        # Nur die Fäden der Seite warten auf `_laufen()`; fremde Module
+        # behalten den echten `threading.Thread`.
+        import types as _ty471
+        _op471.threading = _ty471.SimpleNamespace(Thread=_Spaeter471)
 
         def _laufen():
             for _ in range(10):
@@ -46677,7 +46705,11 @@ def _pruefung_471():
             rosters={'u1': [{'ref': 'r1', 'name': 'Hauler One'}]})
         _root = _wurzel()
         _fe = _MW471(_root, version='4.8.2')
+        _hoerer_vorher471 = list(_bs471.LISTENERS)
         _fe.open_page('staffellager')
+        # Der Rückruf, über den `basetool_sync` genau diese Seite neu zeichnet.
+        _hoerer471 = [h for h in _bs471.LISTENERS
+                      if h not in _hoerer_vorher471]
 
         def _pumpen():
             for _ in range(8):
@@ -46747,9 +46779,10 @@ def _pruefung_471():
             pruefe(bool(_name), 'Vorbedingung: Feld %d hat seine Variable'
                    % nummer)
             _root.setvar(_name, text)
-            # Die Auswahlliste filtert erst nach der Tipp-Pause
-            # (`main_window.TYPING_DELAY_MS`).
-            _bis = time.time() + 0.6
+            # Die Auswahlliste der Ware filtert erst nach der Tipp-Pause
+            # (`main_window.TYPING_DELAY_MS`); die übrigen Felder nicht.
+            _bis = time.time() + (0.6 if nummer == 0 else 0)
+            _pumpen()
             while time.time() < _bis:
                 _pumpen()
 
@@ -46760,6 +46793,12 @@ def _pruefung_471():
 
         def _einbuchen():
             _klick(_knopf(_formular(), _t471('s_sl_einbuchen')))
+
+        def _waehlen(text):
+            _ziel = _label(_formular(), text)
+            pruefe(_ziel is not None, 'Vorbedingung: %r steht zum Anklicken da'
+                   % text)
+            _klick(_ziel)
 
         def _neu_oeffnen():
             # Ein noch offenes Formular erst schließen — der Knopf oben klappt
@@ -46811,7 +46850,6 @@ def _pruefung_471():
         _tippen(3, 'Kiste A')
         _anfragen471[:] = []
         _einbuchen()
-        _tippen(3, 'Kiste B')
         _laufen()
         pruefe(_gesendet471 == [[{
                    'op': 'book-in', 'unit': 'u1', 'holder': 'r1',
@@ -46820,8 +46858,8 @@ def _pruefung_471():
                    'stolen': False, 'note': 'Kiste A',
                    'quantity': {'amount': 2, 'unit': 'PIECE'}}]]
                and [a['refs'][0].get('uexId') for a in _anfragen471] == [11],
-               'gebucht wird mit dem bt zur UEX-Nummer und mit den Werten vom '
-               'Klick (%r, %r)' % (_gesendet471, _anfragen471))
+               'gebucht wird mit dem bt zur UEX-Nummer und mit allen Werten '
+               'des Formulars (%r, %r)' % (_gesendet471, _anfragen471))
         _gesendet471[:] = []
 
         # 2. Abbrechen während des Nachschlagens. Golden Medmon in SCU ginge
@@ -46833,15 +46871,15 @@ def _pruefung_471():
         _klick(_knopf(_formular(), _t471('s_bt_abbrechen')))
         _laufen()
         _ohne_buchung('abgebrochen, während nachgeschlagen wurde')
-        # Abbrechen und sofort dasselbe Formular mit derselben Ware: Die alte
-        # Antwort darf trotzdem nicht buchen.
+        # Abbrechen und sofort dasselbe Formular mit genau denselben Angaben:
+        # Die alte Antwort darf trotzdem nicht buchen.
         if not _neu_oeffnen():
             return
         _ausfuellen('Golden Medmon')
         _einbuchen()
         _klick(_knopf(_formular(), _t471('s_bt_abbrechen')))
         _klick(_knopf(_seite(), _t471('s_sl_einbuchen')))
-        _tippen(0, 'Golden Medmon')
+        _ausfuellen('Golden Medmon')
         _laufen()
         _ohne_buchung('abgebrochen und mit derselben Ware neu geöffnet')
 
@@ -46880,9 +46918,7 @@ def _pruefung_471():
                'mehrdeutig: die Treffer stehen mit ihrer Art zur Wahl')
         _ohne_buchung('mehrdeutig')
         _tippen(0, 'helm')
-        _helm471 = _label(_formular(), 'Helm A')
-        if _helm471 is not None:
-            _klick(_helm471)
+        _waehlen('Helm A')
         pruefe(_label(_formular(), 'Laranite Statue') is None,
                'eine Auswahl aus der Liste räumt die alten Treffer weg')
 
@@ -46916,9 +46952,7 @@ def _pruefung_471():
         _ausfuellen('Laranit')
         _einbuchen()
         _laufen()
-        _ore471 = _label(_formular(), 'Laranite (Ore)')
-        if _ore471 is not None:
-            _klick(_ore471)
+        _waehlen('Laranite (Ore)')
         _tippen(0, 'Quatsch')
         _anfragen471[:] = []
         _einbuchen()
@@ -46948,9 +46982,7 @@ def _pruefung_471():
         if not _neu_oeffnen():
             return
         _tippen(0, 'helm')
-        _helm471 = _label(_formular(), 'Helm A')
-        if _helm471 is not None:
-            _klick(_helm471)
+        _waehlen('Helm A')
         _ausfuellen('Laranite')
         _anfragen471[:] = []
         _einbuchen()
@@ -46971,6 +47003,182 @@ def _pruefung_471():
                'scheitert das Nachschlagen, steht der Grund da')
         _ohne_buchung('Fehler beim Nachschlagen')
 
+        # 10. Doppelklick: ein Satz statt stiller Pause, eine Buchung.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _einbuchen()
+        pruefe(_t471('s_sl_noch_dran') in _texte(_seite()),
+               'ein Klick, während nachgeschlagen wird, sagt das')
+        _laufen()
+        pruefe(len(_gesendet471) == 1, 'Doppelklick: genau eine Buchung (%r)'
+               % _gesendet471)
+        _gesendet471[:] = []
+
+        # 11. Menge geändert und erneut geklickt: Die erste Antwort bucht den
+        #     alten Stand nicht; der nächste Klick bucht den neuen.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon', menge='1')
+        _einbuchen()
+        _tippen(2, '3')
+        _einbuchen()
+        _laufen()
+        pruefe(_t471('s_sl_ware_geaendert') in _texte(_seite()),
+               'geändert während des Nachschlagens: der Hinweis steht da')
+        _ohne_buchung('Menge geändert während des Nachschlagens')
+        _einbuchen()
+        _laufen()
+        pruefe(len(_gesendet471) == 1 and _gesendet471[0][0]['quantity']
+               == {'amount': 3.0, 'unit': 'SCU'},
+               'der nächste Klick bucht die neue Menge (%r)' % _gesendet471)
+        _gesendet471[:] = []
+
+        # 12. Schalter nach dem Klick umgelegt.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _zeile_g471 = _label(_formular(), _t471('s_sl_gestohlen_feld'))
+        _schalter471 = [w for w in (_zeile_g471.master.winfo_children()
+                                    if _zeile_g471 is not None else ())
+                        if isinstance(w, tk.Canvas)]
+        pruefe(bool(_schalter471), 'Vorbedingung: der Schalter „gestohlen"')
+        if _schalter471:
+            _klick(_schalter471[0])
+        _laufen()
+        _ohne_buchung('„gestohlen" umgelegt während des Nachschlagens')
+
+        # 13. Anderes Formular während des Nachschlagens.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _klick(_label(_seite(), 'Laranite'))
+        _notiz471 = _knopf(_seite(), _t471('s_sl_notiz'))
+        pruefe(_notiz471 is not None, 'Vorbedingung: Knopf Notiz am Eintrag')
+        _klick(_notiz471)
+        _laufen()
+        _ohne_buchung('anderes Formular geöffnet während des Nachschlagens')
+
+        # 14. Die Einheit verschwindet während des Nachschlagens; danach
+        #     öffnet der Knopf das Formular für die verbliebene Einheit.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _og471._state.update(units=[{'id': 'u2', 'name': 'Rhodium'}],
+                             logistician={'u2'},
+                             rosters={'u2': [{'ref': 'r2', 'name': 'Zwei'}]})
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
+        _laufen()
+        _ohne_buchung('Einheit verschwunden während des Nachschlagens')
+        pruefe(_formular() is None,
+               'mit der Einheit ist auch ihr Formular weg')
+        _klick(_knopf(_seite(), _t471('s_sl_einbuchen')))
+        _laufen()
+        pruefe(_formular() is not None
+               and 'Zwei' in _texte(_formular()),
+               'der Knopf Einbuchen öffnet das Formular der verbliebenen '
+               'Einheit')
+        _og471._state.update(units=_units471, logistician={'u1'},
+                             rosters={'u1': [{'ref': 'r1',
+                                              'name': 'Hauler One'}]})
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
+
+        # 15. Buchen abgeschaltet während des Nachschlagens.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _og471._state['write'] = False
+        _laufen()
+        _og471._state['write'] = True
+        pruefe(_t471('s_sl_nicht_mehr') in _texte(_seite()),
+               'Buchen abgeschaltet: der Hinweis steht da')
+        _ohne_buchung('Buchen abgeschaltet während des Nachschlagens')
+
+        # 16. Auswahl, während nachgeschlagen wird: der Satz „wird
+        #     nachgeschlagen" geht weg, nichts wird gebucht. Golden Medmon ist
+        #     Gegenstand und Ware — die Auswahl stellt die Einheit also nicht
+        #     um und zeichnet nur wegen des verworfenen Nachschlagens neu.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Golden Medmon')
+        _einbuchen()
+        _tippen(0, 'golden')
+        _waehlen('Golden Medmon')
+        pruefe(_t471('s_sl_ware_pruefen') not in _texte(_seite()),
+               'nach einer Auswahl steht „wird nachgeschlagen" nicht mehr da')
+        _laufen()
+        _ohne_buchung('Auswahl während des Nachschlagens')
+
+        # 17. Umgetippt: alte Treffer verschwinden sofort.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Laranit')
+        _einbuchen()
+        _laufen()
+        pruefe(_label(_formular(), 'Laranite Statue') is not None,
+               'Vorbedingung: die Treffer stehen da')
+        _tippen(0, 'Laranitx')
+        pruefe(_label(_formular(), 'Laranite Statue') is None,
+               'umgetippt: die alten Treffer sind weg')
+
+        # 18. Treffer gewählt, während schon wieder nachgeschlagen wird: der
+        #     nächste Klick bucht den Treffer, die alte Antwort nichts.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Laranit')
+        _einbuchen()
+        _laufen()
+        _einbuchen()
+        _waehlen('Laranite (Ore)')
+        _einbuchen()
+        _laufen()
+        pruefe(len(_gesendet471) == 1 and _gesendet471[0][0]['material']['bt']
+               == 'bt-laranite-ore',
+               'nach der Trefferwahl wird der nächste Klick nicht verschluckt '
+               '(%r)' % _gesendet471)
+        _gesendet471[:] = []
+
+        # 19. Eine ungültige Qualität aus SCU blockiert Stück nicht.
+        if not _neu_oeffnen():
+            return
+        _tippen(3, '5000')
+        _tippen(0, 'helm')
+        _waehlen('Helm A')
+        _tippen(1, 'Area18')
+        _tippen(2, '1')
+        _einbuchen()
+        _laufen()
+        pruefe(len(_gesendet471) == 1
+               and _t471('s_sl_qualitaet_falsch') not in _texte(_seite()),
+               'Stück bucht trotz alter, versteckter Qualität (%r)'
+               % _gesendet471)
+        _gesendet471[:] = []
+
+        # 20. Gebucht schließt nur das Formular, das noch dasselbe ist.
+        if not _neu_oeffnen():
+            return
+        _ausfuellen('Laranite')
+        _einbuchen()
+        _klick(_knopf(_formular(), _t471('s_bt_abbrechen')))
+        _klick(_knopf(_seite(), _t471('s_sl_einbuchen')))
+        _tippen(0, 'Neu offen')
+        _laufen()
+        pruefe(len(_gesendet471) == 1 and _formular() is not None
+               and _root.getvar(_alle_eingaben(_formular())[0]
+                                .cget('textvariable')) == 'Neu offen',
+               'eine fertige Buchung lässt ein neu geöffnetes Formular stehen '
+               '(%r)' % _gesendet471)
+        _gesendet471[:] = []
+
         pruefe(not _vertrag471,
                'Anfragen und Antworten entsprechen dem Vertrag (%r)'
                % _vertrag471[:3])
@@ -46982,6 +47190,7 @@ def _pruefung_471():
         (_ux471.fetch, _bt471.CONNECTION, _og471.visible, _og471.send,
          _og471.refresh, _th471.Thread, _alt_orte471,
          _sc471.due, _sc471.update) = _alt471
+        _op471.threading = _th471
         _bs471._LOCATIONS.clear()
         _bs471._LOCATIONS.update(_alt_orte471)
         _og471.forget()
