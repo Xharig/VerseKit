@@ -259,6 +259,91 @@ def never_activate(window):
         return False
 
 
+# --------------------------------------- Durchreichen, solange der Zeiger fehlt
+
+# Einstellung: Klicks von selbst durchreichen, solange der Mauszeiger versteckt
+# ist. Ab Werk an; das Schloss (`durchklickbar`) geht immer vor.
+AUTO_SETTING = 'durchklick_auto'
+CURSOR_SHOWING = 0x00000001
+
+
+def pointer_state():
+    """`(versteckt, x, y)` des Mauszeigers in Bildschirmpunkten — oder None,
+    wenn das System es nicht sagt (nur Windows).
+
+    ⚠ Star Citizen versteckt den Zeiger in der Ego-Sicht und im Flug, bewegt
+    ihn aber weiter. `GetCursorInfo` meldet dann `CURSOR_SHOWING` nicht.
+    Steht der Zeiger über einem anklickbaren Overlay, gilt dessen Sichtbarkeit
+    — siehe `auto_through_wanted`."""
+    if not WINDOWS:
+        return None
+    try:
+        from ctypes import wintypes
+
+        class CursorInfo(ctypes.Structure):
+            _fields_ = [('cbSize', wintypes.DWORD), ('flags', wintypes.DWORD),
+                        ('hCursor', wintypes.HANDLE),
+                        ('ptScreenPos', wintypes.POINT)]
+
+        info = CursorInfo()
+        info.cbSize = ctypes.sizeof(CursorInfo)
+        if not ctypes.windll.user32.GetCursorInfo(ctypes.byref(info)):
+            return None
+        # Versteckt heißt: nicht sichtbar geschaltet ODER ohne Zeigerbild —
+        # manche Spiele setzen statt des Schalters ein leeres Bild.
+        hidden = not (info.flags & CURSOR_SHOWING) or not info.hCursor
+        return hidden, info.ptScreenPos.x, info.ptScreenPos.y
+    except Exception:
+        return None
+
+
+def window_rect(window):
+    """`(links, oben, rechts, unten)` des Fensters in Bildschirmpunkten, wie
+    `GetCursorInfo` sie zählt — oder None (nur Windows)."""
+    if not WINDOWS:
+        return None
+    try:
+        from ctypes import wintypes
+        handle = (int(window.wm_frame(), 16)
+                  or ctypes.windll.user32.GetParent(window.winfo_id()))
+        rect = wintypes.RECT()
+        if not ctypes.windll.user32.GetWindowRect(handle, ctypes.byref(rect)):
+            return None
+        return rect.left, rect.top, rect.right, rect.bottom
+    except Exception:
+        return None
+
+
+def auto_through_wanted(current, state, rect):
+    """Soll das Overlay gerade durchreichen? True/False — oder None, wenn
+    sich das jetzt nicht sagen lässt und alles bleibt, wie es ist.
+
+    `current`: reicht es gerade durch (None = unbekannt). `state`: Ergebnis
+    von `pointer_state`. `rect`: Ergebnis von `window_rect`.
+
+    ⚠ Über dem **anklickbaren** Overlay zeigt Windows den Zeiger, auch wenn
+    das Spiel ihn versteckt — dort gilt die Sichtbarkeit des Overlays, nicht
+    die des Spiels. Umgeschaltet wird deshalb nur, solange der Zeiger daneben
+    steht oder das Overlay schon durchreicht (dann liegt er über dem Spiel).
+    Wer mit verstecktem Zeiger hineinfährt, trifft ein Overlay, das schon
+    vorher durchlässig geschaltet wurde."""
+    if state is None:
+        return None
+    hidden, x, y = state
+    inside = bool(rect) and rect[0] <= x < rect[2] and rect[1] <= y < rect[3]
+    if inside and not current:
+        return None
+    return bool(hidden)
+
+
+def set_auto_click_through(window, on):
+    """Durchreichen für den versteckten Zeiger — ohne das Schloss umzustellen
+    (`set_click_through` meldet jede Änderung ans Schloss). Nur Windows."""
+    if not WINDOWS:
+        return False
+    return _windows_click_through(window, on)
+
+
 def _x11_click_through(fenster, an):
     """Die Eingabe-Region auf leer setzen — dann fällt jeder Klick hindurch.
 

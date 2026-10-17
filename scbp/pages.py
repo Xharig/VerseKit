@@ -2423,6 +2423,17 @@ def _display(fenster, rahmen):
         # Auf Modulebene waere es ein Zirkelbezug.
         from . import overlay as _ov
         _ov.CLICK_THROUGH_DISPLAY[0] = _nachziehen
+        if _ov.WINDOWS:
+            auto_row = _setting_row(fenster, innen, t('s_ov_durch_auto'),
+                                    t('s_ov_durch_auto_h'))
+
+            def auto_flip():
+                new_value = not paths.setting_bool(_ov.AUTO_SETTING, True)
+                paths.set_setting(_ov.AUTO_SETTING, new_value)
+                return new_value
+
+            toggle_switch(auto_row, paths.setting_bool(_ov.AUTO_SETTING, True),
+                          auto_flip).pack()
     else:
         # Ehrlich statt still: Unter nativem Wayland kann ein gewöhnliches Fenster
         # keine Klicks weiterreichen. Ein Schalter, der nichts bewirkt, wäre

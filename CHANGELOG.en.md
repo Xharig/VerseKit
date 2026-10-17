@@ -18,6 +18,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Basetool: if they are not unique, the matching hits are there to click; if
   the Basetool does not know them, nothing is booked.
 
+### Fixed
+
+- **Overlay swallowed looking and shooting in game** — in first person and
+  in flight Star Citizen hides the mouse pointer, but it keeps moving. When
+  it drifted over the overlay, mouse movement and clicks landed there
+  instead of in the game. The overlay now passes everything through while
+  the pointer is hidden, and works as usual as soon as it is visible
+  (mobiGlas, menus, desktop). No lock needed; can be switched off under
+  *Display*.
+
 ## v4.8.2 - 2026-10-17
 
 > The unit storage now explains itself: its card on the overview says what

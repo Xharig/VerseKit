@@ -19,6 +19,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   passenden Treffer zum Anklicken da; kennt das Basetool sie nicht, wird
   nichts gebucht.
 
+### Behoben
+
+- **Overlay schluckt im Spiel Blick und Schuss** — in der Ego-Sicht und im
+  Flug versteckt Star Citizen den Mauszeiger, er wandert aber weiter. Fuhr er
+  über das Overlay, landeten Mausbewegung und Klicks dort statt im Spiel.
+  Jetzt reicht das Overlay alles durch, solange der Zeiger versteckt ist, und
+  ist wie gewohnt bedienbar, sobald er sichtbar ist (mobiGlas, Menüs,
+  Desktop). Das Schloss braucht es dafür nicht; abschaltbar unter
+  *Anzeige*.
+
 ## v4.8.2 - 2026-10-17
 
 > Das Lager der Einheit erklärt sich jetzt selbst: Die Karte auf der

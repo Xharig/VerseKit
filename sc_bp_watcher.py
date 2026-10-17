@@ -2358,6 +2358,12 @@ class Overlay:
         # `overlay.never_activate`. Nach `show_as_app`, das den Rahmen anlegt.
         overlay.never_activate(self.root)
         self.root.after(500, lambda: overlay.never_activate(self.root))
+        # Solange der Zeiger im Spiel versteckt ist, reicht das Overlay Klicks
+        # von selbst durch — siehe `_pointer_watch`.
+        self._auto_through = None
+        self._pointer_ticks = 0
+        self._auto_allowed = False
+        self.root.after(1000, self._pointer_watch)
         # ⚠ Erst wenn alles gebaut ist, kennt die Kopfleiste ihre Breite —
         # deshalb ueber `after_idle` und nicht hier direkt.
         self.root.after_idle(self._mindestgroesse_setzen)
@@ -4662,10 +4668,50 @@ class Overlay:
                 anzeigen(an and geklappt)
         except Exception as ausnahme:
             errors.record('overlay.durchklick_anzeige', ausnahme)
+        # Das Schloss hat den Fensterstil gerade selbst gesetzt — die
+        # Zeiger-Wache entscheidet beim nächsten Takt neu.
+        self._auto_through = None
+        self._pointer_ticks = 0
         # ⚠ Der Rückgabewert wird gebraucht: Der Schloss-Knopf in der Leiste
         # muss die Einstellung zurücknehmen, wenn das System nicht mitspielt —
         # sonst steht dort durchklickbar, während nichts durchgereicht wird.
         return geklappt
+
+    def _pointer_watch(self):
+        """Klicks durchreichen, solange der Mauszeiger versteckt ist.
+
+        In der Ego-Sicht und im Flug versteckt Star Citizen den Zeiger, bewegt
+        ihn aber weiter. Fährt er über das Overlay, landen Mausbewegung und
+        Schüsse dort statt im Spiel. Versteckt heißt deshalb: durchlässig;
+        sichtbar (mobiGlas, Menüs, Desktop) heißt: anklickbar wie bisher.
+
+        Nur Windows. Ist das Schloss (`durchklickbar`) an, führt es, und die
+        Wache tut nichts. Die Einstellungen werden alle 2 s gelesen, der
+        Zeiger alle 200 ms."""
+        try:
+            if self._pointer_ticks % 10 == 0:
+                values = paths.settings()
+                manual = bool(values.get('durchklickbar', False))
+                auto = values.get(overlay.AUTO_SETTING, True) is not False
+                self._auto_allowed = auto and not manual
+                if (manual or not auto) and self._auto_through:
+                    if not manual:
+                        overlay.set_auto_click_through(self.root, False)
+                    self._auto_through = None
+            self._pointer_ticks += 1
+            if self._auto_allowed:
+                wanted = overlay.auto_through_wanted(
+                    self._auto_through, overlay.pointer_state(),
+                    overlay.window_rect(self.root))
+                if wanted is not None and wanted != self._auto_through:
+                    if overlay.set_auto_click_through(self.root, wanted):
+                        self._auto_through = wanted
+        except Exception as exc:
+            errors.record('overlay.pointer_watch', exc)
+        try:
+            self.root.after(200, self._pointer_watch)
+        except tk.TclError:
+            pass                          # Overlay ist schon zu
 
     # ---------------------------------------------- Der Anfasser holt es zurück
     #

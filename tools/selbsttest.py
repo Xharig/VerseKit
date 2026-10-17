@@ -25679,6 +25679,7 @@ def main():
     _pruefung_469()
     _pruefung_470()
     _pruefung_471()
+    _pruefung_472()
 
     print()
     if fehler:
@@ -46130,6 +46131,96 @@ def _pruefung_470():
     finally:
         _bt470._http = _alt_http470
         _bt470.CONNECTION = _alt_conn470
+
+
+def _pruefung_472():
+    """472. Overlay: Klicks durchreichen, solange der Mauszeiger versteckt ist.
+
+    Star Citizen versteckt den Zeiger in der Ego-Sicht und im Flug, bewegt ihn
+    aber weiter; fährt er übers Overlay, landen Blick und Schuss dort. Geprüft
+    wird die Regel und die Wache mit nachgestelltem Zeiger — ohne Fenster."""
+    print('\n472. Overlay: durchreichen bei verstecktem Zeiger')
+    import types
+    from scbp import overlay as _ov472
+    import sc_bp_watcher as _sw472
+    _f = _ov472.auto_through_wanted
+    _rect = (100, 100, 400, 200)
+    pruefe(_f(None, None, _rect) is None,
+           'ohne Zeigerauskunft bleibt alles, wie es ist')
+    pruefe(_f(None, (True, 10, 10), _rect) is True
+           and _f(True, (False, 10, 10), _rect) is False,
+           'daneben: versteckt → durchreichen, sichtbar → anklickbar')
+    pruefe(_f(False, (True, 150, 150), _rect) is None
+           and _f(None, (True, 150, 150), _rect) is None,
+           'über dem anklickbaren Overlay wird nicht entschieden')
+    pruefe(_f(True, (True, 150, 150), _rect) is True
+           and _f(True, (False, 150, 150), _rect) is False,
+           'über dem durchlässigen Overlay gilt die Sichtbarkeit des Spiels')
+
+    _gesetzt = []
+    _werte = {}
+
+    class _Wurzel:
+        def after(self, _ms, _fn):
+            return None
+
+    _ich = types.SimpleNamespace(root=_Wurzel(), _auto_through=None,
+                                 _pointer_ticks=0, _auto_allowed=False,
+                                 _pointer_watch=lambda: None)
+    _zeiger = [(True, 10, 10)]
+    _alt472 = (_ov472.pointer_state, _ov472.window_rect,
+               _ov472.set_auto_click_through, _sw472.paths.settings)
+    try:
+        _ov472.pointer_state = lambda: _zeiger[0]
+        _ov472.window_rect = lambda w: _rect
+        _ov472.set_auto_click_through = lambda w, on: (
+            _gesetzt.append(on) or True)
+        _sw472.paths.settings = lambda: dict(_werte)
+
+        def _takt(n=1, neu_lesen=False):
+            if neu_lesen:
+                _ich._pointer_ticks = 0
+            for _ in range(n):
+                _sw472.Overlay._pointer_watch(_ich)
+
+        _takt(neu_lesen=True)
+        pruefe(_gesetzt == [True] and _ich._auto_through is True,
+               'Zeiger versteckt: das Overlay reicht durch (%r)' % _gesetzt)
+        _zeiger[0] = (False, 10, 10)
+        _takt()
+        pruefe(_gesetzt == [True, False] and _ich._auto_through is False,
+               'Zeiger wieder sichtbar: das Overlay ist anklickbar (%r)'
+               % _gesetzt)
+        _takt(3)
+        pruefe(_gesetzt == [True, False],
+               'gleicher Zustand: kein erneutes Umschalten')
+
+        _zeiger[0] = (True, 10, 10)
+        _takt()
+        _werte['durchklickbar'] = True
+        _takt(neu_lesen=True)
+        pruefe(_gesetzt == [True, False, True] and _ich._auto_through is None,
+               'Schloss an: die Wache gibt ab, ohne den Stil zurückzunehmen')
+        _zeiger[0] = (False, 10, 10)
+        _takt(3)
+        pruefe(_gesetzt == [True, False, True],
+               'Schloss an: die Wache schaltet nichts mehr')
+
+        _werte.clear()
+        _zeiger[0] = (True, 10, 10)
+        _takt(neu_lesen=True)
+        _werte[_ov472.AUTO_SETTING] = False
+        _takt(neu_lesen=True)
+        pruefe(_gesetzt[-2:] == [True, False] and _ich._auto_through is None,
+               'Einstellung aus: das Durchreichen wird zurückgenommen (%r)'
+               % _gesetzt)
+        _anzahl = len(_gesetzt)
+        _takt(3)
+        pruefe(len(_gesetzt) == _anzahl,
+               'Einstellung aus: die Wache bleibt still')
+    finally:
+        (_ov472.pointer_state, _ov472.window_rect,
+         _ov472.set_auto_click_through, _sw472.paths.settings) = _alt472
 
 
 def _seite469(stand):
