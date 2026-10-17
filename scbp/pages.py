@@ -17840,6 +17840,19 @@ def _squashed(text):
     return re.sub(r'[^a-z0-9]', '', (text or '').lower())
 
 
+def _match_rank(name, squashed):
+    """Rang eines Treffers in der Aufklappliste: 0, wenn der Name mit dem
+    Getippten beginnt, 1, wenn eines seiner Wörter damit beginnt, sonst 2.
+    `sort` ist stabil — innerhalb eines Rangs bleibt die Reihenfolge."""
+    if _squashed(name).startswith(squashed):
+        return 0
+    words = re.split(r'[^a-z0-9]+', (name or '').lower())
+    if any(word and _squashed(' '.join(words[i:])).startswith(squashed)
+           for i, word in enumerate(words)):
+        return 1
+    return 2
+
+
 def _combo_box(window, parent, var, get_entries, at_most=10,
                  on_pick=None, on_confirm=None, empty_text=None,
                  scrollable=0, extra=None, placeholder=None):
@@ -17877,6 +17890,13 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     ⚠ **Der Zusatz wird mitgesucht.** Wer `stealth` tippt, meint die
     Tarn-Komponenten und nicht ein Teil namens Stealth — eine Liste, die den
     Text zeigt, aber nicht darauf reagiert, wirkt kaputt.
+
+    ⚠ **Treffer nach Rang** (`_match_rank`): Was mit dem Getippten beginnt,
+    steht oben. Ohne Satzzeichen bleiben von `TS-` nur zwei Buchstaben, die
+    in sehr vielen Namen stecken (`Pants`) — der TS-2 stünde sonst irgendwo
+    unter tausend Treffern.
+
+    `empty_text` darf eine Funktion sein, die beim Zeichnen gefragt wird.
     """
     from .main_window import round_entry
 
@@ -17934,10 +17954,13 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
             bei = _zusatz_text(name)
             return len(schlank) > 1 and bei and schlank in _squashed(bei)
 
-        treffer = [e for e in alle if _passt(e)] if text else list(alle)
+        treffer = ([e for e in alle if _passt(e)] if text else list(alle))
+        if schlank:
+            treffer.sort(key=lambda name: _match_rank(name, schlank))
         if not treffer:
             liste.pack(fill='x', pady=(4, 0))
-            tk.Label(liste, text=empty_text or t('s_vk_nichts_gefunden'),
+            leer = empty_text() if callable(empty_text) else empty_text
+            tk.Label(liste, text=leer or t('s_vk_nichts_gefunden'),
                      bg=BG, fg=SUB,
                      font=window.f_small, anchor='w').pack(fill='x', pady=3)
             return

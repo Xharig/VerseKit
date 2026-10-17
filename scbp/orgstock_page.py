@@ -101,6 +101,15 @@ def _canvas_of(widget):
 
 
 # --------------------------------------------------------------- Seite
+def data_key(data):
+    """Was am Stand des Lagers die Seite verändert — `None` ohne Stand."""
+    if data is None:
+        return None
+    return (data.get('at'), bool(data.get('write')), bool(data.get('details')),
+            tuple(sorted(data.get('logistician') or ())),
+            tuple(u['id'] for u in data.get('units') or ()))
+
+
 def orgstock_page(window, frame):
     from .main_window import round_entry
     _heading(window, frame, t('hf_staffellager'), t('s_sl_lead'))
@@ -124,6 +133,7 @@ def orgstock_page(window, frame):
                 return
         except tk.TclError:
             return
+        page['drawn_key'] = data_key(orgstock.current())
         canvas = _canvas_of(top)
         position = canvas.canvasy(0) if canvas is not None else 0
         if canvas is not None:
@@ -158,8 +168,23 @@ def orgstock_page(window, frame):
     page['redraw_list'] = redraw_list
     page['search'].trace_add('write', lambda *_a: redraw_list())
 
+    # Der Abgleich meldet sich mehrmals je Lauf. Neu gezeichnet wird nur, wenn
+    # sich der Stand geändert hat; ein offenes Formular bleibt dabei stehen,
+    # solange in der Einheit noch gebucht werden darf — nur die Liste wird neu.
+    def on_change():
+        data = orgstock.current()
+        key = data_key(data)
+        if key == page.get('drawn_key'):
+            return
+        if (page['form'] is not None and data is not None
+                and orgstock.can_write(data, page['unit'])):
+            page['drawn_key'] = key
+            redraw_list()
+        else:
+            redraw()
+
     def on_status():
-        _TK_CALLS.put(redraw)
+        _TK_CALLS.put(on_change)
 
     basetool_sync.LISTENERS.append(on_status)
     top.bind('<Destroy>', lambda _e: (
@@ -269,7 +294,11 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
                                              pady=(0, 12))
 
     form = page['form']
-    if form and form[0] == 'book_in':
+    if form and form[0] == 'book_in' and not orgstock.can_write(data, unit):
+        # Buchen geht hier nicht mehr — ein offenes Formular gilt nicht mehr.
+        _drop_pending(page)
+        page['form'] = None
+    elif form and form[0] == 'book_in':
         holder = tk.Frame(top, bg=BG)
         holder.pack(fill='x', pady=(10, 0))
         _form_book_in(window, holder, page, data, unit, redraw, redraw_list)
@@ -632,9 +661,13 @@ def _location_choices(page):
                 errors.record('orgstock_page.locations', exc)
                 page['locations'] = []
             page['locations_loading'] = False
-            redraw = page.get('redraw_all')
-            if redraw:
-                _TK_CALLS.put(redraw)
+
+            # Im Tk-Faden gelesen, damit es auch ein eben gebautes Feld trifft.
+            def loaded():
+                done = page.get('locations_done')
+                if done:
+                    done()
+            _TK_CALLS.put(loaded)
         threading.Thread(target=work, daemon=True).start()
     return page['locations']
 
@@ -651,14 +684,26 @@ def _location_field(window, form, page, key, label):
     row = form._row(label)
     holder = tk.Frame(row, bg=form.BG)
     holder.pack(side='left', fill='x', expand=True)
-    line, drop, _refresh = _combo_box(
+    line, drop, refresh = _combo_box(
         window, holder, var,
         lambda: list(page['locations'] or ()),
         placeholder=t('s_sl_ort_h'))
     line.pack(fill='x')
     drop.pack(fill='x')
     if page.get('locations_loading'):
-        form.note(t('s_sl_orte_laden'))
+        note = form.note(t('s_sl_orte_laden'))
+
+        # Fertig geladen: nur der Hinweis geht, die Liste zeigt die Orte —
+        # kein Neuzeichnen, das Getipptes und den Fokus nähme.
+        def done():
+            try:
+                if note.winfo_exists():
+                    note.destroy()
+                if line.winfo_exists():
+                    refresh()
+            except tk.TclError:
+                pass
+        page['locations_done'] = done
 
 
 def _material_choices(page):
@@ -761,9 +806,12 @@ def _material_field(window, form, page, data, redraw):
         if changed:
             form.card.after_idle(redraw)
 
+    # Solange die Warenliste lädt, steht statt der Leermeldung der Ladehinweis.
     line, drop, refresh = _combo_box(
         window, holder, var, lambda: _material_names(page, data),
-        on_pick=pick, extra=extra, placeholder=t('s_sl_ware_h'))
+        on_pick=pick, extra=extra, placeholder=t('s_sl_ware_h'),
+        empty_text=lambda: (t('s_sl_waren_laden')
+                            if page.get('materials_loading') else None))
     line.pack(fill='x')
     drop.pack(fill='x')
     if page.get('materials_loading'):
@@ -1220,9 +1268,10 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
             if material.get('kind') == stock_catalog.ITEM and not piece:
                 _say(page, t('s_sl_ware_stueck') % material['name'], RED)
                 return
-            op = orgstock.op_book_in(unit_id, holder,
-                                     {'bt': material['bt'],
-                                      'name': material['name']},
+            # Nur der bt: Das Basetool sucht `material` erst unter den Waren;
+            # ein Name daneben ergibt dort ungenaue Vorschläge, und die gelten
+            # als mehrdeutig, bevor der bt unter den Gegenständen greift.
+            op = orgstock.op_book_in(unit_id, holder, {'bt': material['bt']},
                                      {'name': place}, int(quality), stolen,
                                      amount, unit, note, merge)
             _submit(window, page, data, [op], redraw)

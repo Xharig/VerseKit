@@ -6,6 +6,29 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.9.1 - 2026-10-17
+
+> Die Warenauswahl beim Einbuchen findet jetzt, was man sucht: Wer „TS-“
+> tippt, bekommt den TS-2 ganz oben statt irgendwo unter tausend Treffern.
+> Die Liste ist beim ersten Mal schneller geladen, und Komponenten wie der
+> MegaFlux lassen sich wieder buchen.
+
+### Behoben
+
+- **Warenauswahl zeigte den Gesuchten nicht** — „TS-“ lieferte über
+  tausend Treffer, weil es in vielen Namen steckt. Jetzt stehen Namen, die
+  mit dem Getippten beginnen, oben, danach solche mit passendem Wortanfang.
+- **„Keine Ware mit diesem Namen“, obwohl die Liste noch lud** — bis sie
+  da ist, steht jetzt der Ladehinweis. Das erste Laden geht etwa viermal so
+  schnell.
+- **MegaFlux und ähnliche Komponenten wurden abgelehnt** („passt auf
+  mehrere Waren“), obwohl sie aus der Liste gewählt waren. Gebucht wird
+  jetzt über die eindeutige Kennung des Basetools.
+- **Einbuchen-Formular ging zu oder baute sich mehrfach neu auf** — der
+  Abgleich mit dem Basetool zeichnete die ganze Seite bei jeder Meldung
+  neu. Jetzt bleibt das offene Formular samt Getipptem stehen; nur die
+  Liste darunter wird erneuert, wenn sich wirklich etwas geändert hat.
+
 ## v4.9.0 - 2026-10-17
 
 > Einbuchen ins Lager der Einheit geht jetzt per Auswahlliste: Rüstung,
@@ -35,7 +58,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Jetzt reicht das Overlay alles durch, solange der Zeiger versteckt ist, und
   ist wie gewohnt bedienbar, sobald er sichtbar ist (mobiGlas, Menüs,
   Desktop). Das Schloss braucht es dafür nicht; abschaltbar unter
-  *Anzeige*.
+  Einstellungen → Overlay.
 - **Edelsteine aus der Raffinerie-Ausbeute um den Faktor 100 zu klein** —
   Stückware wie Glacosite, Dolivine oder Feynmaline landete aus dem Feld
   „Raffinerie-Ausbeute eintragen" als Hundertstel im Lager (5 Stück wurden

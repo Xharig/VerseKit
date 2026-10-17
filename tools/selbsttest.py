@@ -25683,6 +25683,7 @@ def main():
     _pruefung_473()
     _pruefung_475()
     _pruefung_476()
+    _pruefung_477()
 
     print()
     if fehler:
@@ -46855,7 +46856,7 @@ def _pruefung_471():
         _laufen()
         pruefe(_gesendet471 == [[{
                    'op': 'book-in', 'unit': 'u1', 'holder': 'r1',
-                   'material': {'bt': 'bt-helm-a', 'name': 'Helm A'},
+                   'material': {'bt': 'bt-helm-a'},
                    'location': {'name': 'Area18'}, 'quality': 0,
                    'stolen': False, 'note': 'Kiste A',
                    'quantity': {'amount': 2, 'unit': 'PIECE'}}]]
@@ -46940,7 +46941,7 @@ def _pruefung_471():
         _laufen()
         pruefe(len(_gesendet471) == 1
                and _gesendet471[0][0]['material']
-               == {'bt': 'bt-laranite-ore', 'name': 'Laranite (Ore)'}
+               == {'bt': 'bt-laranite-ore'}
                and _gesendet471[0][0]['quantity'] == {'amount': 5.0,
                                                       'unit': 'SCU'}
                and not _anfragen471,
@@ -47100,10 +47101,14 @@ def _pruefung_471():
         _einbuchen()
         _og471._state['write'] = False
         _laufen()
-        _og471._state['write'] = True
         pruefe(_t471('s_sl_nicht_mehr') in _texte(_seite()),
                'Buchen abgeschaltet: der Hinweis steht da')
         _ohne_buchung('Buchen abgeschaltet während des Nachschlagens')
+        # Wieder eingeschaltet kommt mit einem Abgleich.
+        _og471._state['write'] = True
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
 
         # 16. Auswahl, während nachgeschlagen wird: der Satz „wird
         #     nachgeschlagen" geht weg, nichts wird gebucht. Golden Medmon ist
@@ -47180,6 +47185,39 @@ def _pruefung_471():
                'eine fertige Buchung lässt ein neu geöffnetes Formular stehen '
                '(%r)' % _gesendet471)
         _gesendet471[:] = []
+
+        # 21. Der Abgleich meldet sich, während das Formular offen ist: Ohne
+        #     neuen Stand bleibt alles, mit neuem Stand nur die Liste neu —
+        #     dasselbe Feld, derselbe Text. Darf nicht mehr gebucht werden,
+        #     geht das Formular zu.
+        if not _neu_oeffnen():
+            return
+        _tippen(0, 'Bleibt stehen')
+        _feld471 = _alle_eingaben(_formular())[0]
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
+        pruefe(_feld471.winfo_exists() and _formular() is not None,
+               'eine Meldung des Abgleichs ohne neuen Stand baut das Formular '
+               'nicht neu')
+        _og471._state['at'] = (_og471._state.get('at') or 0) + 60
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
+        pruefe(_feld471.winfo_exists()
+               and _root.getvar(_feld471.cget('textvariable'))
+               == 'Bleibt stehen',
+               'neuer Stand bei offenem Formular: Feld und Text bleiben')
+        _og471._state['write'] = False
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
+        pruefe(_formular() is None,
+               'darf nicht mehr gebucht werden, geht das Formular zu')
+        _og471._state['write'] = True
+        for _h in _hoerer471:
+            _h()
+        _pumpen()
 
         pruefe(not _vertrag471,
                'Anfragen und Antworten entsprechen dem Vertrag (%r)'
@@ -47343,6 +47381,61 @@ def _pruefung_476():
     pruefe(_sp476.grade_from_description(
                'Typ: Waffe\\nWirkungsgrad: 3\\nKlasse: Laser') is None,
            'ein Feld, das nur auf „grad:" endet, ist kein Gütegrad')
+
+
+def _pruefung_477():
+    """Aufklappliste: Namen, die mit dem Getippten beginnen, stehen oben."""
+    print('\n477. Aufklappliste: was mit dem Getippten beginnt, steht oben')
+    import types
+    import tkinter as tk
+    import tkinter.font as _tkf477
+    from scbp import pages as _pg477
+    pruefe(_pg477._match_rank('TS-2', 'ts') == 0
+           and _pg477._match_rank('Wei-Tek TS-2', 'ts') == 1
+           and _pg477._match_rank('55-GR Pants', 'ts') == 2,
+           'Rang: Namensanfang 0, Wortanfang 1, mitten im Wort 2')
+    namen = ['10-Series Greatsword Cannon', '55-GR Pants',
+             'Ace Interceptor Flight Suit', 'Mantis', 'Spicule', 'TS-2',
+             'Wei-Tek TS-2 Mount']
+    _root = _wurzel()
+    rahmen = tk.Frame(_root)
+    rahmen.pack()
+    fenster = types.SimpleNamespace(
+        f_small=_tkf477.Font(root=_root, size=9))
+    var = tk.StringVar(master=_root, value='')
+    laedt = {'ja': True}
+    zeile, liste, neu = _pg477._combo_box(
+        fenster, rahmen, var, lambda: [] if laedt['ja'] else namen,
+        empty_text=lambda: 'LAEDT' if laedt['ja'] else None)
+    zeile.pack()
+    liste.pack()
+
+    def _texte():
+        out = []
+        for w in liste.winfo_children():
+            for x in [w] + list(w.winfo_children()):
+                if isinstance(x, tk.Label) and x.cget('anchor') == 'w':
+                    out.append(x.cget('text'))
+        return out
+    try:
+        var.set('TS-')
+        neu()
+        _root.update_idletasks()
+        pruefe(_texte() == ['LAEDT'],
+               'solange die Liste lädt, steht der Ladehinweis statt '
+               '„nichts gefunden" (%r)' % _texte())
+        laedt['ja'] = False
+        neu()
+        _root.update_idletasks()
+        gezeigt = _texte()
+        pruefe(gezeigt[:2] == ['TS-2', 'Wei-Tek TS-2 Mount']
+               and gezeigt[2:5] == ['10-Series Greatsword Cannon',
+                                    '55-GR Pants',
+                                    'Ace Interceptor Flight Suit'],
+               '„TS-" zeigt TS-2 zuerst, dann Wortanfänge, dann den Rest in '
+               'alter Reihenfolge (%r)' % gezeigt)
+    finally:
+        rahmen.destroy()
 
 
 def _alle_eingaben(w):

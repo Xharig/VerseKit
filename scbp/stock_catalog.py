@@ -52,6 +52,7 @@ SOURCE_ITEMS = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
 SOURCE_COMMODITIES = 'https://api.uexcorp.uk/2.0/commodities'
 CACHE = 'lager-katalog.json'
 FORMAT = 1
+FETCH_WORKERS = 4
 
 ITEM = 'ITEM'
 MATERIAL = 'MATERIAL'
@@ -110,10 +111,16 @@ def update():
         chosen = [c for c in categories if isinstance(c, dict)
                   and str(c.get('is_game_related')) == '1'
                   and (c.get('type') or '').lower() == 'item' and c.get('id')]
+        # Gut 50 Gruppen, je ein Abruf: vier gleichzeitig statt nacheinander.
+        # `map` liefert in der Reihenfolge der Gruppen.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:
+            fetched = list(pool.map(
+                lambda category: uex.fetch(
+                    SOURCE_ITEMS % int(category['id']),
+                    'stock_catalog.items'), chosen))
         items = []
-        for category in chosen:
-            rows = uex.fetch(SOURCE_ITEMS % int(category['id']),
-                             'stock_catalog.items')
+        for category, rows in zip(chosen, fetched):
             # ⚠ Eine fehlende Warengruppe ließe ihre Teile still aus der Liste
             # fallen — dann lieber den alten Stand behalten.
             if rows is None:

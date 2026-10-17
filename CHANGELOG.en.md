@@ -6,6 +6,29 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.9.1 - 2026-10-17
+
+> The goods picker when booking in now finds what you look for: typing
+> "TS-" puts the TS-2 at the top instead of somewhere among a thousand hits.
+> The list loads faster the first time, and components such as the MegaFlux
+> can be booked again.
+
+### Fixed
+
+- **Goods picker did not show what you searched for** — "TS-" gave over a
+  thousand hits because it is part of many names. Names that start with
+  what you typed now come first, then those with a matching word start.
+- **"No goods with that name" while the list was still loading** — until
+  it is there, the loading note shows instead. The first load is about
+  four times faster.
+- **MegaFlux and similar components were refused** ("matches several
+  goods") although they were picked from the list. Booking now uses the
+  Basetool's unique key.
+- **Booking form closed or rebuilt itself several times** — the sync with
+  the Basetool redrew the whole page on every status message. The open
+  form now stays, with what you typed; only the list below is renewed when
+  something really changed.
+
 ## v4.9.0 - 2026-10-17
 
 > Booking into the unit storage now works from a pick list: tap armor,
@@ -35,7 +58,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   instead of in the game. The overlay now passes everything through while
   the pointer is hidden, and works as usual as soon as it is visible
   (mobiGlas, menus, desktop). No lock needed; can be switched off under
-  *Display*.
+  Settings → Overlay.
 - **Gems from the refinery yield 100 times too small** — piece goods such as
   Glacosite, Dolivine or Feynmaline went from the "Enter refinery yield"
   field into storage as hundredths (5 pieces became 0.05). The count now
