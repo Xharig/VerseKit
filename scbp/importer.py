@@ -34,6 +34,7 @@ stammt, erkennt das Programm am Inhalt:
   | scmdb.net (älter) | `exportSchemaVersion`, `blueprints[].productName` + `ts` |
   | scmdb.net (neuer) | `blueprints[].tag` + `name`, nur `completed: true` |
   | KRT Profit Basetool | `blueprints[].productName` (+ `receivedAt`) |
+  | Basetool-Umschlag (SC Extractor u. a.) | `format: "basetool.blueprints"`, `formatVersion` 1.x, `items[].ref` |
   | SC Deutsch Launcher | `blueprints[].key` |
   | Baupläne DB (Star Citizen Deutsch) | `blueprints[].key` + `isDone`, nur `isDone: true` |
 
@@ -85,10 +86,30 @@ def _strip_suffix(name):
     return re.sub(r'\s*\([^()]*\)\s*$', '', name or '').strip()
 
 
+ENVELOPE_FORMAT = 'basetool.blueprints'
+
+
+def _is_envelope(data):
+    """Ist das der Basetool-Umschlag `basetool.blueprints` in Fassung 1.x?
+
+    ⚠ Eine andere Hauptfassung (`2.0`) gilt als unbekannte Datei: Das Basetool
+    selbst liest nur 1.x, und was sich in 2.x ändert, steht nirgends — lieber
+    nicht erkannt als still falsch gelesen."""
+    if data.get('format') != ENVELOPE_FORMAT:
+        return False
+    version = data.get('formatVersion')
+    return (isinstance(version, str) and version.split('.')[0] == '1'
+            and isinstance(data.get('items'), list))
+
+
 def detect(data):
     """Aus welchem Format stammt die geladene Datei? Sonst None."""
     if not isinstance(data, dict):
         return None
+    # Der Umschlag heißt für den Spieler wie die ältere Basetool-Ausgabe
+    # (`'basetool'`); `read()` unterscheidet beide über `_is_envelope`.
+    if _is_envelope(data):
+        return 'basetool'
     if data.get('werkzeug') in EIGENE_WERKZEUGNAMEN or 'bauplaene' in data:
         return 'eigen'
     items = data.get('blueprints')
@@ -191,7 +212,9 @@ def read(path):
 
     kind = detect(data)
     entries = []
-    if kind == 'eigen':
+    if kind == 'basetool' and _is_envelope(data):
+        entries = _envelope_entries(data.get('items'))
+    elif kind == 'eigen':
         for e in data.get('bauplaene') or []:
             if isinstance(e, dict) and e.get('name'):
                 entries.append({'name': e['name'], 'zeit': _time_from(e.get('zeit'))})
@@ -230,6 +253,51 @@ def read(path):
             if isinstance(e, dict) and e.get('key') and e.get('isDone'):
                 entries.append({'name': e['key'], 'zeit': None})
     return kind, entries
+
+
+def _envelope_entries(items):
+    """Die Einträge eines Basetool-Umschlags als `[{name, zeit}, …]`.
+
+    Der Name kommt aus `ref.name`, sonst aus `ref.locKey` über
+    `phrases.resolve_key` — derselbe Weg wie bei einem Fund im Log, damit
+    derselbe Bauplan nicht unter zwei Namen im Bestand landet. Ist der
+    Schlüssel nirgends übersetzt, wird er lesbar gemacht statt verworfen.
+
+    ⚠ `resolve_key` liest beim ersten unbekannten Schlüssel einmal die Namen
+    aus der `Data.p4k` (rund eine Sekunde), danach aus der Ablage.
+
+    ⚠ Ein Eintrag, der nur `bt`, `scRecord`, `scGuid` oder `uexId` trägt, hat
+    ohne Netz keinen Namen und bleibt draußen.
+
+    Zeitpunkt: `acquiredAt`, sonst `provenance.observedAt` (beide UTC).
+    """
+    from . import phrases
+    entries = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        ref = item.get('ref')
+        if not isinstance(ref, dict):
+            continue
+        name = ref.get('name')
+        name = name.strip() if isinstance(name, str) else ''
+        if not name:
+            key = ref.get('locKey')
+            key = key.strip().lstrip('@') if isinstance(key, str) else ''
+            if key:
+                name = phrases.resolve_key('@' + key)
+                # Ein Schlüssel mit Zeichen außerhalb von `phrases.UNRESOLVED`
+                # kommt unverändert zurück — dann ohne das `@`.
+                if name.startswith('@'):
+                    name = key
+        if not name:
+            continue
+        provenance = item.get('provenance')
+        observed = (provenance.get('observedAt')
+                    if isinstance(provenance, dict) else None)
+        entries.append({'name': name,
+                        'zeit': _time_from(item.get('acquiredAt') or observed)})
+    return entries
 
 
 def preview(entries, data=None, catalog_names=None):
