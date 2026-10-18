@@ -270,12 +270,12 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
                       ACCENT, FG, placeholder=t('s_sl_suche'))
     box.holder.pack(fill='x', pady=(8, 0))
 
-    if page['message']:
-        line = tk.Label(top, text=page['message'], bg=BG,
-                        fg=page['message_color'], font=window.f_small,
-                        anchor='w', justify='left')
-        line.pack(fill='x', pady=(8, 0))
-        _wrap(line)
+    # Fester Platz für die Meldung: `_say` füllt ihn, ohne die Seite neu zu
+    # zeichnen.
+    page['window'] = window
+    page['message_slot'] = tk.Frame(top, bg=BG)
+    page['message_slot'].pack(fill='x')
+    _show_message(page)
     if page['confirm_url']:
         card = _card(top, pady=(8, 0))
         tk.Label(card, text=t('s_bt_masse'), bg=SURFACE, fg=FG,
@@ -291,15 +291,20 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
                 brand=theme.KRT_ORANGE).pack(anchor='w', padx=16,
                                              pady=(0, 12))
 
+    # Fester Platz für das Einbuchen-Feld (`_place_form`).
+    page['book_in_slot'] = tk.Frame(top, bg=BG)
+    page['book_in_slot'].pack(fill='x')
     form = page['form']
     if form and form[0] == 'book_in' and not orgstock.can_write(data, unit):
         # Buchen geht hier nicht mehr — ein offenes Formular gilt nicht mehr.
         _drop_pending(page)
         page['form'] = None
     elif form and form[0] == 'book_in':
-        holder = tk.Frame(top, bg=BG)
+        holder = tk.Frame(page['book_in_slot'], bg=BG)
         holder.pack(fill='x', pady=(10, 0))
-        _form_book_in(window, holder, page, data, unit, redraw, redraw_list)
+        page['form_holder'] = holder
+        _form_book_in(window, holder, page, data, unit, redraw,
+                      lambda: _place_form(page))
 
 
 def visible_lots(page, data, unit):
@@ -401,6 +406,10 @@ def _draw_list(window, listing, page, redraw, redraw_list):
                'cells': table_cells}
     page['lot_rows'] = []
     page['entry_rows'] = []
+    page['window'] = window
+    page['builder'] = builder
+    page['folds'] = {}
+    page['entry_slots'] = {}
     for lot in lots:
         _lot_row(window, listing, builder, page, data, lot, writable, redraw,
                  redraw_list)
@@ -456,25 +465,83 @@ def _lot_row(window, listing, builder, page, data, lot, writable, redraw,
     }
     widgets = builder['cells'](window, builder, base, values)
     page['lot_rows'].append((lot, widgets))
-    if expandable:
-        def toggle():
+    if not expandable:
+        return
+    # Dahinter freie Tabellenzeilen: je Eintrag zwei (er selbst und sein
+    # Formular), ohne Einträge eine für den Hinweis. Klappen baut nur dort.
+    fold = {'lot': lot, 'base': base, 'data': data, 'writable': writable,
+            'start': builder['row'], 'size': max(1, 2 * len(lot['entries'])),
+            'built': False,
+            'arrow': getattr(widgets[builder['columns'].index('action')],
+                             'arrow', None)}
+    page['folds'][lot['key']] = fold
+    builder['row'] += fold['size']
+
+    def toggle():
+        current = page.get('folds', {}).get(lot['key'])
+        if current is not fold:
             if lot['key'] in page['open']:
                 page['open'].discard(lot['key'])
             else:
                 page['open'].add(lot['key'])
             redraw_list()
-        bind_row(widgets, toggle)
-    if not (expandable and is_open):
-        return
+            return
+        show = not fold['built']
+        if show:
+            page['open'].add(lot['key'])
+        else:
+            page['open'].discard(lot['key'])
+        _lot_fold_show(page, fold, show)
+    bind_row(widgets, toggle)
+    if is_open:
+        _lot_fold_build(page, fold)
+
+
+def _lot_fold_build(page, fold):
+    """Die Einträge eines Postens in seine freien Tabellenzeilen bauen."""
+    window, lot, base = page['window'], fold['lot'], fold['base']
+    builder = dict(page['builder'], row=fold['start'])
     if not lot['entries']:
         tk.Label(builder['table'], text=t('s_sl_keine_eintraege'), bg=base,
                  fg=SUB, font=window.f_small, anchor='w', padx=36).grid(
                      row=builder['row'], column=0,
                      columnspan=len(builder['columns']), sticky='ew', ipady=3)
-        builder['row'] += 1
     for entry in lot['entries']:
-        _entry_row(window, builder, base, page, data, lot, entry, writable,
-                   redraw, redraw_list)
+        _entry_row(window, builder, base, page, fold['data'], lot, entry,
+                   fold['writable'], page['redraw_all'],
+                   lambda: _place_form(page))
+    fold['built'] = True
+
+
+def _lot_fold_show(page, fold, show):
+    """Nur die Einträge dieses Postens zeigen oder abbauen und den Pfeil
+    tauschen — die übrige Liste bleibt stehen. Die Einträge tragen den Grund
+    ihres Postens, die Streifen der Posten verschieben sich dabei nicht."""
+    if show == fold['built']:
+        return
+    if show:
+        _lot_fold_build(page, fold)
+    else:
+        table = page['builder']['table']
+        end = fold['start'] + fold['size']
+        for widget in table.grid_slaves():
+            try:
+                if fold['start'] <= int(widget.grid_info()['row']) < end:
+                    widget.destroy()
+            except (tk.TclError, KeyError, ValueError):
+                pass
+        ids = {e['id'] for e in fold['lot']['entries']}
+        page['entry_rows'] = [r for r in page['entry_rows']
+                              if r[0]['id'] not in ids]
+        for ident in ids:
+            page['entry_slots'].pop(ident, None)
+        fold['built'] = False
+    arrow = fold.get('arrow')
+    if arrow is not None:
+        try:
+            arrow.swap_symbol('zuklappen' if show else 'aufklappen')
+        except (tk.TclError, AttributeError):
+            pass
 
 
 # Die Buchungen am Eintrag: Art, Symbol, Erklärtext.
@@ -530,18 +597,29 @@ def _entry_row(window, builder, base, page, data, lot, entry, writable,
     }
     widgets = builder['cells'](window, builder, base, values)
     page['entry_rows'].append((entry, widgets))
+    # Die freie Zeile darunter gehört seinem Formular (`_place_form`).
+    slot = builder['row']
+    builder['row'] += 1
+    page.setdefault('entry_slots', {})[entry['id']] = {
+        'row': slot, 'lot': lot, 'entry': entry, 'data': data,
+        'table': builder['table'], 'span': len(builder['columns'])}
     if not (form and form[1] == entry['id']):
         return
-    holder = tk.Frame(builder['table'], bg=BG)
-    holder.grid(row=builder['row'], column=0,
-                columnspan=len(builder['columns']), sticky='ew',
-                padx=(36, 8), pady=(4, 8))
-    builder['row'] += 1
+    _entry_form(window, page, page['entry_slots'][entry['id']], form,
+                redraw, redraw_list)
+
+
+def _entry_form(window, page, spot, form, redraw, redraw_list):
+    """Das Formular eines Eintrags in seiner freien Zeile bauen."""
+    holder = tk.Frame(spot['table'], bg=BG)
+    holder.grid(row=spot['row'], column=0, columnspan=spot['span'],
+                sticky='ew', padx=(36, 8), pady=(4, 8))
+    page['form_holder'] = holder
     form_builder = {'book_out': _form_take, 'sell': _form_take,
                     'move': _form_move, 'note': _form_note,
                     'stolen': _form_stolen, 'earmark': _form_earmark}[form[0]]
-    form_builder(window, holder, page, data, lot, entry, form[0], redraw,
-                 redraw_list)
+    form_builder(window, holder, page, spot['data'], spot['lot'],
+                 spot['entry'], form[0], redraw, redraw_list)
 
 
 def _open_form(page, form):
@@ -551,7 +629,88 @@ def _open_form(page, form):
     page['form'] = None if page['form'] == form else form
     page['values'] = {}
     page['message'] = ''
-    page['redraw_all' if form[0] == 'book_in' else 'redraw_list']()
+    _place_form(page)
+
+
+def _place_form(page):
+    """Das offene Formular an seiner Stelle neu bauen oder abbauen — oben
+    das Einbuchen, sonst in der freien Zeile unter seinem Eintrag. Liste und
+    Kopf bleiben stehen; die Meldung und die Farbe der Symbole folgen. Ist
+    die Stelle nicht gebaut, wird die Seite neu gezeichnet."""
+    holder = page.get('form_holder')
+    page['form_holder'] = None
+    try:
+        if holder is not None and holder.winfo_exists():
+            holder.destroy()
+    except tk.TclError:
+        pass
+    _paint_form_icons(page)
+    _show_message(page)
+    form = page['form']
+    if form is None:
+        return
+    data = orgstock.current()
+    window = page.get('window')
+    try:
+        if form[0] == 'book_in':
+            slot = page.get('book_in_slot')
+            if data is None or window is None or slot is None \
+                    or not slot.winfo_exists() \
+                    or not orgstock.can_write(data, form[1]):
+                page['redraw_all']()
+                return
+            holder = tk.Frame(slot, bg=BG)
+            holder.pack(fill='x', pady=(10, 0))
+            page['form_holder'] = holder
+            _form_book_in(window, holder, page, data, form[1],
+                          page['redraw_all'], lambda: _place_form(page))
+            return
+        spot = page.get('entry_slots', {}).get(form[1])
+        if window is None or spot is None or not spot['table'].winfo_exists():
+            page['redraw_list']()
+            return
+        _entry_form(window, page, spot, form, page['redraw_all'],
+                    lambda: _place_form(page))
+    except tk.TclError:
+        page['redraw_all']()
+
+
+def _paint_form_icons(page):
+    """Das Symbol des offenen Formulars grün, die übrigen grau."""
+    form = page.get('form')
+    builder = page.get('builder')
+    if not builder:
+        return
+    column = builder['columns'].index('action')
+    for entry, widgets in page.get('entry_rows', []):
+        icons_here = getattr(widgets[column], 'action_icons', {}) \
+            if column < len(widgets) else {}
+        for kind, icon in icons_here.items():
+            active = bool(form and form[0] == kind and form[1] == entry['id'])
+            try:
+                icon.recolor(icons.GREEN if active else icons.GREY)
+            except (tk.TclError, AttributeError):
+                pass
+
+
+def _show_message(page):
+    """Die Meldung (`page['message']`) in ihren festen Platz oben schreiben —
+    ohne die Seite neu zu zeichnen."""
+    slot = page.get('message_slot')
+    try:
+        if slot is None or not slot.winfo_exists():
+            return
+        for child in slot.winfo_children():
+            child.destroy()
+        if page['message']:
+            line = tk.Label(slot, text=page['message'], bg=BG,
+                            fg=page['message_color'],
+                            font=page['window'].f_small, anchor='w',
+                            justify='left')
+            line.pack(fill='x', pady=(8, 0))
+            _wrap(line)
+    except tk.TclError:
+        pass
 
 
 # ------------------------------------------------------------- Formulare
@@ -653,12 +812,13 @@ class _Form:
         return self.page['values'].get(key, default)
 
 
-def _cancel(page, redraw):
+def _cancel(page, _redraw=None):
+    """Abbrechen: nur das Formular schließen (`_place_form`)."""
     def run():
         _drop_pending(page)
         page['form'] = None
         page['values'] = {}
-        redraw()
+        _place_form(page)
     return run
 
 
@@ -707,12 +867,26 @@ def _amount_ok(page, form, value, unit, maximum=None, optional=False):
     return value
 
 
-def _say(page, text, color=FG):
+def _say(page, text, color=FG, form=False):
+    """Eine Meldung oben zeigen — nur an ihrem Platz. `form`: das offene
+    Formular dazu neu bauen (es zeigt dann etwa Vorschläge). Ohne gebauten
+    Platz wird die Seite neu gezeichnet."""
     page['message'] = text
     page['message_color'] = color
-    redraw = page.get('redraw_all')
-    if redraw:
-        redraw()
+    slot = page.get('message_slot')
+    try:
+        drawn = slot is not None and slot.winfo_exists()
+    except tk.TclError:
+        drawn = False
+    if not drawn:
+        redraw = page.get('redraw_all')
+        if redraw:
+            redraw()
+        return
+    if form:
+        _place_form(page)
+    else:
+        _show_message(page)
 
 
 def _form_take(window, parent, page, data, lot, entry, kind, redraw,
@@ -1057,10 +1231,11 @@ def _resolve_then(page, name, known, piece, form_key, snapshot, book):
             elif status == 'ambiguous':
                 page['values']['candidates'] = found
                 page['values']['candidates_for'] = name.strip().lower()
-                _say(page, t('s_sl_ware_mehrdeutig') % name, theme.YELLOW)
+                _say(page, t('s_sl_ware_mehrdeutig') % name, theme.YELLOW,
+                     form=True)
             elif status == 'unmatched':
                 page['values'].pop('candidates', None)
-                _say(page, t('s_sl_ware_unbekannt') % name, RED)
+                _say(page, t('s_sl_ware_unbekannt') % name, RED, form=True)
             else:
                 _say(page, error, RED)
         _TK_CALLS.put(show)
@@ -1211,9 +1386,8 @@ def _targets_for(page, unit_id, material_bt):
                 errors.record('orgstock_page.targets', exc)
                 found = {'jobs': [], 'missions': [], 'error': True}
             page['targets'][key] = found
-            redraw = page.get('redraw_all')
-            if redraw:
-                _TK_CALLS.put(redraw)
+            # Nur das offene Formular neu — es zeigt dann die Ziele.
+            _TK_CALLS.put(lambda: _place_form(page))
         threading.Thread(target=work, daemon=True).start()
     return page['targets'][key]
 
@@ -1330,6 +1504,8 @@ def own_member(roster, account=None):
 
 
 def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
+    """Einbuchen. `redraw` zeichnet nach dem Buchen neu, `redraw_list` baut
+    nur dieses Formular neu (Ware gewählt, Einheit umgestellt)."""
     form = _Form(window, parent, page, t('s_sl_einbuchen_titel'))
     roster = data['rosters'].get(unit_id) or []
     if not roster:
@@ -1338,12 +1514,12 @@ def _form_book_in(window, parent, page, data, unit_id, redraw, redraw_list):
         form.select('holder', t('s_sl_besitzer'),
                     [(m['ref'], m['name']) for m in roster],
                     default=own_member(roster))
-    _material_field(window, form, page, data, redraw)
+    _material_field(window, form, page, data, redraw_list)
     _location_field(window, form, page, 'location', t('s_sl_ort'))
     unit = form.select('unit', t('s_sl_einheit_menge'),
                        [(orgstock.SCU, 'SCU'),
                         (orgstock.PIECE, t('s_lg_stueck'))],
-                       on_change=lambda _v: _unit_changed(page, redraw))
+                       on_change=lambda _v: _unit_changed(page, redraw_list))
     form.field('amount', t('s_sl_menge'), width=12)
     if unit != orgstock.PIECE:
         form.field('quality', t('s_sl_qualitaet'), width=8, placeholder='0')
@@ -1482,7 +1658,14 @@ def _submit(window, page, data, ops, redraw):
             if done and page['form'] is form_at:
                 page['form'] = None
                 page['values'] = {}
-            _say(page, message, color)
+            # Gebucht (neuer Stand) oder eine Rückfrage im Browser (Karte
+            # oben): neu zeichnen. Sonst bleibt alles stehen, nur die
+            # Meldung kommt.
+            if done or page.get('confirm_url'):
+                page['message'], page['message_color'] = message, color
+                page['redraw_all']()
+            else:
+                _say(page, message, color)
         _TK_CALLS.put(show)
 
     threading.Thread(target=work, daemon=True).start()

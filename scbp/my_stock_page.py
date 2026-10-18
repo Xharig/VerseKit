@@ -452,6 +452,13 @@ def _sort_key(state, rows):
 def _draw_list(window, listing, page, rows, server, cache):
     state = page['state']
     _stripe_reset(listing)
+    # Vor den frühen Rücksprüngen leeren: Sonst zeigten sie auf die eben
+    # abgebaute Tabelle.
+    page['row_widgets'] = []
+    page['folds'] = {}
+    page['slots'] = {}
+    page['share_holder'] = None
+    page.pop('builder', None)
     shown = visible_rows(rows, state, server, cache)
     page['shown'] = shown
     if not rows:
@@ -520,12 +527,14 @@ def _draw_list(window, listing, page, rows, server, cache):
                'server': server, 'cache': cache, 'prices': prices,
                'selling': selling, 'items': items,
                'sale_badge': not items and not selling}
-    page['row_widgets'] = []
     page['builder'] = builder
     page['window'] = window
-    page['folds'] = {}
-    page['slots'] = {}
     text = (state['search'].get() or '').strip().lower()
+    # Von Hand zugeklappte Gruppen bleiben zu, solange dieselbe Suche gilt.
+    closed = page.setdefault('closed', set())
+    if page.get('closed_for') != text:
+        closed.clear()
+        page['closed_for'] = text
     for group in order:
         if len(group) == 1:
             _post_row(window, page, builder, group[0], nested=False)
@@ -534,10 +543,11 @@ def _draw_list(window, listing, page, rows, server, cache):
         if group[0]['piece'] and not items:
             key += ('stueck',)
         editing = page.get('editing')
-        auto = (editing is not None and any(
-            (r['store'], r['index']) == editing for r in group)) or (
-            text and any(text in r['place'].lower() for r in group))
-        is_open = key in page['open'] or bool(auto)
+        edited = editing is not None and any(
+            (r['store'], r['index']) == editing for r in group)
+        found = bool(text) and any(text in r['place'].lower() for r in group)
+        is_open = (key in page['open'] or edited
+                   or (found and key not in closed))
         _group_row(window, page, builder, group, key, is_open)
         if is_open:
             _fold_rows(window, page, page['folds'][key])
@@ -831,7 +841,11 @@ def _place_share_form(page):
     target = next((what for kind, what, _w in page.get('row_widgets', [])
                    if kind == 'post'
                    and (what['store'], what['index']) == form['row']), None)
-    if slot is None or target is None or 'builder' not in page:
+    try:
+        drawn = 'builder' in page and page['builder']['table'].winfo_exists()
+    except tk.TclError:
+        drawn = False
+    if slot is None or target is None or not drawn:
         _keep_scroll(page['listing'], page['redraw'])
         return
     _share_form(page['window'], page, dict(page['builder'], row=slot),
@@ -848,28 +862,47 @@ def share_buttons(window, buttons, page, store, index):
         return
     for kind in share_actions(page, row):
         def run(k=kind):
+            # Beim Klick neu fragen: Seit dem Bauen des Knopfs kann die Liste
+            # neu gezeichnet sein (andere Sicht, schon geteilt).
+            now = next((r for r in page.get('shown') or []
+                        if (r['store'], r['index']) == (store, index)), None)
+            if now is None or not whole_row(page, now) \
+                    or k not in share_actions(page, now):
+                page['say'](t('s_ml_veraendert'), GOLD)
+                return
             # Ist das Feld schon offen, nur hinrollen — `open_share` schlösse
             # es.
             current = page.get('share_form') or {}
             if current.get('row') != (store, index) or current.get('kind') != k:
-                open_share(page, row, k)
-            _bring_into_view(page, page.get('share_holder'))
+                open_share(page, now, k)
+            _bring_into_view(page)
         _button(window, buttons, t('s_ml_form_teilen' if kind ==
                                    stock_split.SHARE else 's_ml_form_zurueck'),
                 run).pack(side='left', padx=(8, 0))
 
 
-def _bring_into_view(page, widget):
-    """Die Seite so rollen, dass `widget` oben im sichtbaren Teil steht."""
-    canvas = getattr(page.get('inner'), 'canvas', None)
-    if canvas is None or widget is None:
+def _bring_into_view(page, delay_ms=150):
+    """Die Seite so rollen, dass das Teilen-Feld oben im sichtbaren Teil
+    steht. ⚠ Verzögert: `_keep_scroll` stellt die alte Rollstelle per
+    `after_idle` und `after(60)` wieder her und höbe ein sofortiges Rollen
+    auf."""
+    inner = page.get('inner')
+    canvas = getattr(inner, 'canvas', None)
+    if canvas is None:
         return
+
+    def roll():
+        widget = page.get('share_holder')
+        try:
+            if widget is None or not widget.winfo_exists():
+                return
+            height = max(1, inner.winfo_height())
+            top = widget.winfo_rooty() - inner.winfo_rooty() - 40
+            canvas.yview_moveto(max(0.0, top / height))
+        except tk.TclError:
+            pass
     try:
-        widget.update_idletasks()
-        inner = page['inner']
-        height = max(1, inner.winfo_height())
-        top = widget.winfo_rooty() - inner.winfo_rooty() - 40
-        canvas.yview_moveto(max(0.0, top / height))
+        inner.after(delay_ms, roll)
     except tk.TclError:
         pass
 
@@ -1036,10 +1069,14 @@ def _group_row(window, page, builder, group, key, is_open):
         # Nach dem, was zu sehen ist: Auch eine von der Suche oder vom
         # Bearbeiten geöffnete Gruppe klappt beim ersten Klick zu.
         show = not fold['entries']
+        closed = page.setdefault('closed', set())
         if show:
             page['open'].add(key)
+            closed.discard(key)
         else:
             page['open'].discard(key)
+            closed.add(key)
+        fold['by_edit'] = False
         _fold_show(window, page, fold, show)
 
     def arrow(cell):
@@ -1076,7 +1113,8 @@ def _group_row(window, page, builder, group, key, is_open):
     rows = sorted(group, key=lambda r: (r['place'].lower(),
                                         -(r['quality'] or 0)))
     # Je Unterzeile zwei Tabellenzeilen: sie selbst und ihr Teilen-Feld.
-    page['folds'][key] = {'head': head, 'rows': rows,
+    page['folds'][key] = {'head': head, 'rows': rows, 'key': key,
+                          'by_edit': False,
                           'start': builder['row'], 'size': 2 * len(rows),
                           'entries': [],
                           'arrow': getattr(widgets[builder['columns'].index(
@@ -1131,11 +1169,11 @@ def _restripe(page):
     vergibt: Zeile für Zeile in der Reihenfolge von `row_widgets`. Die
     Zeile im Bearbeiten (`page['editing']`) steht auf `theme.HOVER`."""
     editing = page.get('editing')
-    for n, (kind, what, widgets) in enumerate(page['row_widgets']):
+    _stripe_reset(page['listing'])
+    for kind, what, widgets in page['row_widgets']:
+        new = _stripe(page['listing'], BG)
         if kind == 'post' and editing == (what['store'], what['index']):
             new = theme.HOVER
-        else:
-            new = SURFACE if n % 2 else BG
         try:
             old = str(widgets[0].cget('bg'))
         except tk.TclError:
@@ -1143,7 +1181,6 @@ def _restripe(page):
         if old != new:
             for widget in widgets:
                 _repaint(widget, old, new)
-    page['listing'].stripe_n = len(page['row_widgets'])
 
 
 def _show_editing(page):
@@ -1159,11 +1196,17 @@ def _show_editing(page):
         page['redraw']()
         return
     editing = page.get('editing')
-    if editing is not None:
-        for fold in page.get('folds', {}).values():
-            if not fold['entries'] and any(
-                    (r['store'], r['index']) == editing for r in fold['rows']):
-                _fold_show(page['window'], page, fold, True)
+    for fold in page.get('folds', {}).values():
+        here = editing is not None and any(
+            (r['store'], r['index']) == editing for r in fold['rows'])
+        if here and not fold['entries']:
+            _fold_show(page['window'], page, fold, True)
+            fold['by_edit'] = True
+        elif not here and fold.get('by_edit'):
+            # Nur fürs Bearbeiten aufgeklappt: wieder zu.
+            fold['by_edit'] = False
+            if fold['key'] not in page['open']:
+                _fold_show(page['window'], page, fold, False)
     _restripe(page)
 
 

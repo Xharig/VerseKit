@@ -25793,6 +25793,7 @@ def main():
     _pruefung_612()
     _pruefung_613()
     _pruefung_614()
+    _pruefung_615()
 
     print()
     if fehler:
@@ -48831,16 +48832,18 @@ def _pruefung_482():
         if not name:
             return
         tabelle = name[0].master.master
+        # Belegte Reihen, nicht ihre Nummern: Hinter jedem Posten bleiben
+        # Reihen für seine Einträge frei.
         zeilen = sorted({int(z.grid_info()['row'])
                          for z in tabelle.grid_slaves()})
-        pruefe(zeilen == [0, 1, 2],
+        pruefe(len(zeilen) == 3 and zeilen[0] == 0,
                'zugeklappt: Kopf und eine Zeile je Posten (Reihen %r)' % zeilen)
         ort = [z for z in tabelle.grid_slaves(row=int(
             name[0].master.grid_info()['row']))
             if isinstance(z, tk.Label) and z.cget('text') == 'Area18']
         pruefe(bool(ort), 'Ort steht in derselben Zeile wie der Name')
         art = []
-        for z in tabelle.grid_slaves(row=1) + tabelle.grid_slaves(row=2):
+        for z in [s for r in zeilen[1:] for s in tabelle.grid_slaves(row=r)]:
             stapel = [z]
             while stapel:
                 x = stapel.pop()
@@ -55867,6 +55870,9 @@ def _stock_page613(rows_raw, rows_trade=()):
         tc.add(*args)
     w = _wurzel()
     window = hf.MainWindow(w, version='0.0.0-pruefung')
+    # Ansicht vorgeben — sonst gälte die gemerkte aus einem früheren Lauf.
+    window.my_stock_preset = {'view': 'material', 'purpose': '', 'kind': '',
+                              'place': ''}
     window.open_page('meinlager')
     w.update()
     page = window.my_stock_page
@@ -55881,12 +55887,20 @@ def _stock_page613(rows_raw, rows_trade=()):
 
 
 def _stripes_wrong613(page):
-    """Zellen, deren Hintergrund nicht zum Streifen ihrer Zeile passt — die
-    Zeile im Bearbeiten steht auf HOVER."""
+    """Zellen, deren Hintergrund nicht zum Streifen ihrer Zeile passt.
+
+    Die Reihenfolge kommt aus der Tabelle selbst (Grid-Reihe der ersten
+    Zelle), nicht aus `row_widgets`: Ab Zeile 2 abwechselnd SURFACE, die
+    Zeile im Bearbeiten auf HOVER. Dazu jede doppelt belegte Tabellenzelle
+    und ein `row_widgets`, das nicht in Tabellenreihenfolge steht."""
     from scbp import theme as th
     wrong = []
     editing = page.get('editing')
-    for n, (kind, what, cells) in enumerate(page['row_widgets']):
+    rows = sorted(page['row_widgets'],
+                  key=lambda e: int(e[2][0].grid_info()['row']))
+    if rows != page['row_widgets']:
+        wrong.append(('Reihenfolge', 'row_widgets', 'nicht wie die Tabelle'))
+    for n, (kind, what, cells) in enumerate(rows):
         if kind == 'post' and editing == (what['store'], what['index']):
             want = th.HOVER
         else:
@@ -55896,6 +55910,14 @@ def _stripes_wrong613(page):
                 if x.winfo_class() in ('Frame', 'Label', 'Canvas') \
                         and str(x.cget('bg')) != want:
                     wrong.append((n, x.winfo_class(), str(x.cget('bg'))))
+    if rows:
+        seen = {}
+        for slave in rows[0][2][0].master.grid_slaves():
+            info = slave.grid_info()
+            place = (int(info['row']), int(info['column']))
+            if place in seen:
+                wrong.append(('doppelt belegt', place, ''))
+            seen[place] = slave
     return wrong
 
 
@@ -55963,8 +55985,23 @@ def _pruefung_613():
         w.update()
         pruefe(shown_places() == {'Orison', 'Lorville'}
                and not _stripes_wrong613(page),
-               'eine zweite Gruppe darunter klappt dazu auf, Streifen stimmen '
+               'eine zweite Gruppe klappt dazu auf, Streifen stimmen '
                '(%s, %s)' % (shown_places(), _stripes_wrong613(page)[:3]))
+
+        # Die erste Gruppe zuklappen — hinter ihr liegt alles Übrige.
+        copper = head('Copper (2)')
+        nested = page['folds'][copper[1]]['entries']
+        keep = [e for e in page['row_widgets']
+                if e is not copper and e not in nested]
+        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(shown_places() == {'Orison'} and not _stripes_wrong613(page)
+               and all(c.winfo_exists() for e in keep for c in e[2])
+               and all(e in page['row_widgets'] for e in keep),
+               'die erste Gruppe klappt zu, alle Zeilen dahinter bleiben '
+               '(%s, %s)' % (shown_places(), _stripes_wrong613(page)[:3]))
+        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
 
         redraws[0] = 0
         iron = head('Iron (3)')
@@ -55983,6 +56020,32 @@ def _pruefung_613():
         pruefe(shown_places() == {'Lorville'} and not _stripes_wrong613(page),
                'nach einem echten Neuzeichnen derselbe Stand (%s)'
                % shown_places())
+
+        # Von der Suche aufgeklappt: Ein Klick klappt zu, und das bleibt so,
+        # auch wenn die Liste neu gezeichnet wird.
+        def iron_open():
+            found = head('Iron (2)')
+            return found is not None and bool(
+                page['folds'][found[1]]['entries'])
+
+        page['state']['search'].set('levski')
+        end = time.time() + 2
+        while not iron_open() and time.time() < end:
+            w.update()
+            time.sleep(0.02)
+        pruefe(iron_open(),
+               'Vorbedingung: die Suche nach dem Ort klappt Iron auf')
+        iron = head('Iron (2)')
+        if iron is not None:
+            iron[2][0].event_generate('<Button-1>', x=2, y=2)
+            w.update()
+            pruefe(not iron_open(),
+                   'eine von der Suche geöffnete Gruppe klappt beim ersten '
+                   'Klick zu')
+            page['redraw']()
+            w.update()
+            pruefe(not iron_open(), 'und bleibt nach dem Neuzeichnen zu')
+        page['state']['search'].set('')
     finally:
         ma_613.save(old_raw)
         tc_613.save(old_trade)
@@ -56094,12 +56157,13 @@ def _pruefung_614():
         sp_614.split_of = lambda _lot: (3.0, [])
         eo_614.units = lambda: [{'id': 'u614'}]
         eo_614.label = lambda _unit: 'Einheit 614'
-        slot = page['slots'][(gold_row['store'], gold_row['index'])]
+        below = int(gold[2][0].grid_info()['row']) + 1
         ms_614.open_share(page, gold_row, sp_614.SHARE)
         w.update()
         holder = page.get('share_holder')
         pruefe(redraws[0] == 0 and holder is not None and holder.winfo_exists()
-               and int(holder.grid_info()['row']) == slot,
+               and int(holder.grid_info()['row']) == below
+               and not _stripes_wrong613(page),
                'das Teilen-Feld steht ohne redraw direkt unter der Zeile '
                '(%d)' % redraws[0])
         pruefe(all(c.winfo_exists() for e in others for c in e[2]),
@@ -56122,7 +56186,50 @@ def _pruefung_614():
                'der Knopf öffnet dasselbe Teilen-Feld unter der Zeile (%d)'
                % redraws[0])
         page['forms']['raw']['reset']()
-        ms_614.open_share(page, gold_row, sp_614.SHARE)
+        ms_614.share_actions = lambda _page, row: (
+            [sp_614.UNSHARE] if row['name'] == 'Gold' else [])
+        sp_614.split_of = lambda _lot: (0.0, [('u614', 3.0)])
+        gold[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        back_text = t_614('s_ml_form_zurueck')
+        pruefe(back_text in canvas_texts(page['inner'])
+               and form_text not in canvas_texts(page['inner']),
+               'bei geteiltem Posten steht dort „%s"' % back_text)
+        pruefe(click_button(page['inner'], back_text)
+               and (page.get('share_form') or {}).get('kind')
+               == sp_614.UNSHARE and redraws[0] == 0,
+               'und öffnet das Feld zum Zurücknehmen')
+        page['forms']['raw']['reset']()
+        w.update()
+
+        # Bearbeiten, dann eine Suche, die nichts findet: Der Knopf im Feld
+        # darf in keine abgebaute Tabelle bauen.
+        ms_614.share_actions = lambda _page, row: (
+            [sp_614.SHARE] if row['name'] == 'Gold' else [])
+        sp_614.split_of = lambda _lot: (3.0, [])
+        post('Gold')[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        page['state']['search'].set('nichts-p614')
+        end = time.time() + 2
+        while page['row_widgets'] and time.time() < end:
+            w.update()
+            time.sleep(0.02)
+        pruefe(not page['row_widgets'] and 'builder' not in page,
+               'Vorbedingung: die Suche lässt keine Zeile übrig, nichts zeigt '
+               'mehr auf die alte Tabelle')
+        clicked = click_button(page['inner'], form_text)
+        said = page['message'].cget('text')
+        pruefe(clicked and page.get('share_holder') is None
+               and said == t_614('s_ml_veraendert'),
+               'der Knopf baut dann nichts und sagt, dass sich die Liste '
+               'geändert hat (%r, %r, %r)'
+               % (clicked, page.get('share_holder'), said))
+        page['state']['search'].set('')
+        end = time.time() + 2
+        while post('Copper') is None and time.time() < end:
+            w.update()
+            time.sleep(0.02)
+        page['forms']['raw']['reset']()
         w.update()
         copper = post('Copper')
         copper[2][0].event_generate('<Button-1>', x=2, y=2)
@@ -56135,7 +56242,8 @@ def _pruefung_614():
         texts = [x.cget('text') for x in page['listing'].winfo_children()
                  if x.winfo_class() == 'Label']
         value = t_614('s_hl_gesamt').format(summe=ms_614._auec(2000))
-        pruefe(value in texts and t_614('s_hl_gesamt_hinweis') in texts,
+        pruefe(value in texts and 'aUEC' in value
+               and t_614('s_hl_gesamt_hinweis') in texts,
                'unter der Liste steht der Verkaufswert mit Einheit und dem '
                'Hinweis (%r)' % texts)
 
@@ -56156,6 +56264,174 @@ def _pruefung_614():
         hf_614.ask_yes_no = real_ask
         ma_614.save(old_raw)
         tc_614.save(old_trade)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_615():
+    """615. Lager der Einheit: Klappen, Formulare, Abbrechen und Meldungen
+    ändern nur ihre Stelle.
+
+    Im echten Hauptfenster mit nachgebildetem Stand (Logistiker, Buchen an).
+    Gezählt wird, wie oft Liste (`_draw_list`) und Kopf (`_draw_top`) neu
+    gebaut werden.
+    """
+    print('\n615. Lager der Einheit: Klicks ohne Neuaufbau')
+    if not ANZEIGE:
+        uebersprungen('615')
+        return
+    import copy as copy_615
+    from scbp import (exchange_orgstock as og_615, icons as ic_615,
+                      main_window as hf_615, orgstock_page as op_615)
+    real = (og_615.visible, dict(og_615._state), op_615._draw_list,
+            op_615._draw_top)
+    builds = {'list': 0, 'top': 0}
+
+    def counted(name, function):
+        def run(*a, **k):
+            builds[name] += 1
+            return function(*a, **k)
+        return run
+    w = None
+    try:
+        entries = []
+        for n in range(2):
+            entry = copy_615.deepcopy(_ORG_HIDDEN465)
+            entry.update(id='p615-%d' % n, holder={
+                'withheld': False, 'name': 'Halter %d' % n, 'ref': 'r%d' % n})
+            entries.append(entry)
+        lots, units = og_615.apply_pages({}, [{
+            'units': [{'id': 'u1', 'name': 'Iridium'}],
+            'items': [_org_lot465('k1', 'u1', 'Laranite',
+                                  {'type': 'RAW', 'commodity': True},
+                                  entries=entries),
+                      _org_lot465('k2', 'u1', 'Quantanium',
+                                  {'type': 'RAW', 'commodity': True},
+                                  entries=[])]}], True)
+        og_615._state.clear()
+        og_615._state.update(lots=lots, units=units, cursor='c',
+                             at=time.time(), details=True, write=True,
+                             logistician={'u1'},
+                             rosters={'u1': [{'ref': 'r0',
+                                              'name': 'Halter 0'}]})
+        og_615.visible = lambda: True
+        # Sicht Material vorgeben — sonst gälte die gemerkte eines früheren
+        # Laufs, und die Rohstoffe stünden unter Items nicht da.
+        from scbp import paths as pa_615
+        old_view = pa_615.setting(op_615.SETTING_VIEW)
+        pa_615.set_setting(op_615.SETTING_VIEW, op_615.VIEW_MATERIAL)
+        op_615._draw_list = counted('list', real[2])
+        op_615._draw_top = counted('top', real[3])
+        w = _wurzel()
+        window = hf_615.MainWindow(w, version='0.0.0-pruefung')
+        window.open_page('staffellager')
+        w.update()
+        page = window.orgstock_page
+        pruefe(builds['list'] >= 1 and len(page.get('lot_rows') or []) == 2,
+               'Vorbedingung: die Zähler zählen, zwei Posten stehen da (%r)'
+               % builds)
+        if len(page.get('lot_rows') or []) != 2:
+            return
+
+        def reset():
+            builds.update(list=0, top=0)
+
+        def lot_row(name):
+            return next(c for lot, c in page['lot_rows'] if lot['name'] == name)
+        laranite = lot_row('Laranite')
+        others = lot_row('Quantanium')
+        reset()
+        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        arrow = getattr(laranite[page['builder']['columns'].index('action')],
+                        'arrow', None)
+        pruefe(builds == {'list': 0, 'top': 0}
+               and sorted(e['id'] for e, _c in page['entry_rows'])
+               == ['p615-0', 'p615-1']
+               and all(c.winfo_exists() for c in others)
+               and getattr(arrow, 'symbol', None) == 'zuklappen',
+               'Aufklappen baut nur die Einträge, der Pfeil wechselt (%r, %d)'
+               % (builds, len(page['entry_rows'])))
+
+        entry, cells = page['entry_rows'][0]
+        icon = cells[page['builder']['columns'].index('action')] \
+            .action_icons['note']
+        icon.event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        holder = page.get('form_holder')
+        slot = page['entry_slots'][entry['id']]['row']
+        pruefe(builds == {'list': 0, 'top': 0} and holder is not None
+               and holder.winfo_exists()
+               and int(holder.grid_info()['row']) == slot
+               and getattr(icon, 'symbol_color', None) == ic_615.GREEN,
+               'das Notiz-Feld steht ohne Neuaufbau unter seinem Eintrag, das '
+               'Symbol ist grün (%r)' % builds)
+
+        op_615._say(page, 'Probe 615', op_615.RED)
+        w.update()
+        message = [x.cget('text') for x in page['message_slot']
+                   .winfo_children()]
+        pruefe(builds == {'list': 0, 'top': 0} and message == ['Probe 615']
+               and holder.winfo_exists(),
+               'eine Meldung steht oben, das offene Feld bleibt stehen (%r)'
+               % message)
+
+        cancel = [x for x in _all_below(holder) if x.winfo_class() == 'Canvas'
+                  and op_615.t('s_bt_abbrechen') in [
+                      str(x.itemcget(i, 'text')) for i in x.find_all()
+                      if x.type(i) == 'text']]
+        pruefe(bool(cancel), 'Vorbedingung: das Feld hat Abbrechen')
+        if cancel:
+            cancel[0].event_generate('<Button-1>', x=3, y=3)
+            w.update()
+        pruefe(builds == {'list': 0, 'top': 0} and not holder.winfo_exists()
+               and page['form'] is None
+               and getattr(icon, 'symbol_color', None) == ic_615.GREY,
+               'Abbrechen schließt nur das Feld, das Symbol wird grau (%r)'
+               % builds)
+
+        op_615._open_form(page, ('book_in', 'u1'))
+        w.update()
+        holder = page.get('form_holder')
+        pruefe(builds == {'list': 0, 'top': 0} and holder is not None
+               and holder.master is page['book_in_slot'],
+               'das Einbuchen-Feld öffnet oben ohne Neuaufbau (%r)' % builds)
+        op_615._open_form(page, ('book_in', 'u1'))
+        w.update()
+        pruefe(builds == {'list': 0, 'top': 0} and not holder.winfo_exists(),
+               'und schließt wieder ohne Neuaufbau (%r)' % builds)
+
+        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(builds == {'list': 0, 'top': 0} and not page['entry_rows']
+               and getattr(arrow, 'symbol', None) == 'aufklappen',
+               'Zuklappen baut die Einträge ab, ohne Neuaufbau (%r)' % builds)
+
+        op_615._open_form(page, ('note', 'p615-0'))
+        w.update()
+        laranite = lot_row('Laranite')
+        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        page['redraw_all']()
+        w.update()
+        holder = page.get('form_holder')
+        pruefe(holder is not None and holder.winfo_exists()
+               and int(holder.grid_info()['row'])
+               == page['entry_slots']['p615-0']['row'],
+               'nach einem echten Neuzeichnen steht das offene Feld wieder '
+               'unter seinem Eintrag')
+    finally:
+        og_615.visible = real[0]
+        og_615._state.clear()
+        og_615._state.update(real[1])
+        op_615._draw_list, op_615._draw_top = real[2], real[3]
+        try:
+            pa_615.set_setting(op_615.SETTING_VIEW, old_view or '')
+        except NameError:
+            pass
         try:
             if w is not None:
                 w.destroy()
