@@ -25755,6 +25755,17 @@ def main():
     _pruefung_520()
     _pruefung_521()
     _pruefung_522()
+    _pruefung_530()
+    _pruefung_531()
+    _pruefung_532()
+    _pruefung_533()
+    _pruefung_534()
+    _pruefung_535()
+    _pruefung_536()
+    _pruefung_537()
+    _pruefung_538()
+    _pruefung_539()
+    _pruefung_543()
 
     print()
     if fehler:
@@ -52040,6 +52051,961 @@ def _pruefung_522():
         paths_522._read_settings_file = real_read
         paths_522._SETTINGS_STILL_LOCKED[0] = None
         language_522.set_language(old_language)
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _replace_file53x(path, text):
+    """Eine Datei so ersetzen, wie das Programm speichert: neue Datei,
+    dann `os.replace`."""
+    temp = path + '.neu'
+    with open(temp, 'w', encoding='utf-8', newline='') as f:
+        f.write(text)
+    os.replace(temp, path)
+
+
+def _pruefung_530():
+    """paths: ein vorhandener Ordner kostet kein `mkdir`, ein fehlender wird
+    angelegt."""
+    print('\n530. Ablage: app_file() legt Ordner nur an, wenn sie fehlen')
+    from scbp import paths as paths_530
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp530-')
+    os.environ['SC_BP_HOME'] = home
+    real_mkdir = os.mkdir
+    calls = []
+
+    def counting_mkdir(path, *args, **kwargs):
+        calls.append(path)
+        return real_mkdir(path, *args, **kwargs)
+    os.mkdir = counting_mkdir
+    try:
+        # Die Falle muss zuerst selbst zuschnappen.
+        probe = os.path.join(home, 'probe')
+        os.makedirs(probe, exist_ok=True)
+        pruefe(calls and os.path.normcase(calls[-1]) == os.path.normcase(probe),
+               'Selbstprüfung: os.makedirs läuft über die gezählte mkdir-Falle')
+        del calls[:]
+        target = paths_530.app_file('probe-530.json')
+        target = paths_530.app_file('probe-530.json')
+        for _ in range(50):
+            paths_530.app_file('probe-530.json')
+            paths_530.app_folder()
+        pruefe(os.path.dirname(target) == home and not calls,
+               'vorhandener Ordner: 102 Aufrufe ohne ein einziges mkdir (%d)'
+               % len(calls))
+        shutil.rmtree(home)
+        paths_530.app_file('probe-530.json')
+        pruefe(os.path.isdir(home),
+               'ein gelöschter Ablage-Ordner wird beim nächsten Aufruf '
+               'wieder angelegt')
+        sub = os.path.join(home, 'Unterordner', 'tiefer')
+        pruefe(paths_530._ensure_folder(sub) and os.path.isdir(sub),
+               'ein fehlender Unterordner wird samt Zwischenordnern angelegt')
+        blocker = os.path.join(home, 'datei-statt-ordner')
+        open(blocker, 'w').close()
+        pruefe(paths_530._ensure_folder(blocker) is False,
+               'liegt dort eine Datei, meldet _ensure_folder False statt zu '
+               'werfen')
+    finally:
+        os.mkdir = real_mkdir
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _crafting_text531(material, extra=None):
+    """Eine kleine Rezeptdatei im Format von `crafting.load()`."""
+    import json as json_531
+    from scbp import crafting as crafting_531
+    blueprints = [
+        {'productName': 'Pruefhelm', 'tag': 'BP_CRAFT_PRUEF_HELM',
+         'tiers': [{'craftTimeSeconds': 60, 'slots': [
+             {'name': 'Schale', 'options': [
+                 {'resourceName': material, 'quantity': 0.5,
+                  'minQuality': 100}]}]}]},
+        # Gleicher Produktname ein zweites Mal: gefunden wird der erste.
+        {'productName': 'Pruefhelm', 'tag': 'BP_CRAFT_PRUEF_HELM_B',
+         'tiers': [{'craftTimeSeconds': 99, 'slots': []}]},
+        {'productName': '', 'tag': 'BP_CRAFT_OHNE_NAME',
+         'tiers': [{'craftTimeSeconds': 5, 'slots': []}]},
+    ] + list(extra or [])
+    return json_531.dumps({'format': crafting_531.FORMAT, 'build': None,
+                           'blueprints': blueprints})
+
+
+class _CountingList531(list):
+    """Eine Liste, die mitzählt, wie oft jemand sie durchläuft."""
+    walks = 0
+
+    def __iter__(self):
+        type(self).walks += 1
+        return super().__iter__()
+
+
+def _pruefung_531():
+    """crafting.recipe: Index statt Suche durch alle Baupläne, neu bei
+    neuer Datei."""
+    print('\n531. Rezepte: recipe() sucht über einen Index, der der Datei folgt')
+    from scbp import crafting as crafting_531, paths as paths_531
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp531-')
+    os.environ['SC_BP_HOME'] = home
+    real_load = crafting_531.load
+    try:
+        path = paths_531.app_file(crafting_531.CACHE)
+        _replace_file53x(path, _crafting_text531('Iron'))
+
+        def linear(wanted):
+            """Die Suche von vorn, wie sie ohne Index aussähe."""
+            wanted = (wanted or '').strip().lower()
+            for b in real_load().get('blueprints') or []:
+                if wanted in ((b.get('productName') or '').lower(),
+                              (b.get('tag') or '').lower()):
+                    return b.get('tag')
+            return None
+        for name in ('Pruefhelm', 'pruefhelm ', 'BP_CRAFT_PRUEF_HELM_B',
+                     'bp_craft_ohne_name', '', 'gibt es nicht'):
+            found = crafting_531.recipe(name)
+            expected = linear(name)
+            got = None
+            if found is not None:
+                stages = found['stufen']
+                got = {60: 'BP_CRAFT_PRUEF_HELM', 99: 'BP_CRAFT_PRUEF_HELM_B',
+                       5: 'BP_CRAFT_OHNE_NAME'}.get(
+                           stages[0]['zeit'] if stages else None)
+            pruefe(got == expected,
+                   'recipe(%r) findet dasselbe wie die Suche von vorn (%r, '
+                   'erwartet %r)' % (name, got, expected))
+
+        # Wirkung: nach dem ersten Aufruf läuft niemand mehr durch die Liste.
+        # Ein NEUES Objekt — dasselbe wie eben hätte den alten Index behalten.
+        data = dict(real_load())
+        data['blueprints'] = _CountingList531(data['blueprints'])
+        _CountingList531.walks = 0
+        crafting_531.load = lambda: data
+        crafting_531.recipe('Pruefhelm')
+        pruefe(_CountingList531.walks == 1,
+               'Selbstprüfung: der erste Aufruf baut den Index aus der '
+               'gezählten Liste (%d)' % _CountingList531.walks)
+        for _ in range(40):
+            crafting_531.recipe('Pruefhelm')
+        pruefe(_CountingList531.walks == 1,
+               '40 weitere Aufrufe laufen nicht mehr durch alle Baupläne (%d)'
+               % _CountingList531.walks)
+        crafting_531.load = real_load
+
+        # Neue Datei: neuer Inhalt, sofort.
+        _replace_file53x(path, _crafting_text531('Quantanium-Neu'))
+        zutaten = crafting_531.recipe('Pruefhelm')['stufen'][0]['zutaten']
+        pruefe(zutaten and zutaten[0][1] == 'Quantanium-Neu',
+               'nach einer neuen Rezeptdatei kommt die neue Zutat (%r)'
+               % (zutaten,))
+        _replace_file53x(path, _crafting_text531('Iron', extra=[
+            {'productName': 'Spaeter Dazu', 'tag': 'BP_NEU',
+             'tiers': [{'craftTimeSeconds': 1, 'slots': []}]}]))
+        pruefe(crafting_531.recipe('Spaeter Dazu') is not None,
+               'ein neu hinzugekommener Bauplan wird gefunden')
+
+        # Die gedrosselte Abkürzung in recipe_raw() sieht die Datei nicht an
+        # — zeichnet gerade ein Wächter auf, meldet sie sie trotzdem.
+        from scbp import freshness as freshness_531
+        crafting_531.recipe_raw('Pruefhelm')
+        loads = []
+
+        def counting_load():
+            loads.append(1)
+            return real_load()
+        crafting_531.load = counting_load
+        guard = freshness_531.Guard()
+        guard.draw(lambda: crafting_531.recipe_raw('Pruefhelm'))
+        crafting_531.load = real_load
+        pruefe(not loads, 'Selbstprüfung: recipe_raw() nahm die gedrosselte '
+               'Abkürzung (%d load-Aufrufe)' % len(loads))
+        pruefe(path in (guard.files or {}),
+               'die Abkürzung meldet die Rezeptdatei beim Wächter an')
+    finally:
+        crafting_531.load = real_load
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_532():
+    """machine_info.read: Logs nur lesen, wenn sie sich geändert haben."""
+    print('\n532. Rechnerangaben: Game.log und aufgehobene Logs nur nach '
+          'Änderung lesen')
+    from scbp import machine_info as mi_532
+    game = tempfile.mkdtemp(prefix='scbp532-')
+    log = os.path.join(game, 'Game.log')
+    backups = os.path.join(game, 'logbackups')
+    os.makedirs(backups)
+    real_text = mi_532._text
+    reads = []
+
+    def counting_text(path, limit=None):
+        reads.append(os.path.basename(path))
+        return real_text(path, limit)
+    mi_532._text = counting_text
+    try:
+        _replace_file53x(log, 'Host CPU: Pruef-CPU-A\n'
+                         'Final rating: Machine class 3\n')
+        pruefe(mi_532.read(game)['machine_class'] == 3 and reads,
+               'Selbstprüfung: die Lesefalle zählt (%r)' % reads)
+        del reads[:]
+        for _ in range(10):
+            data = mi_532.read(game)
+        pruefe(data['cpu'] == 'Pruef-CPU-A' and not reads,
+               'unveränderte Game.log: zehn Abfragen ohne Lesen (%r)' % reads)
+        data['cpu'] = 'verändert'
+        pruefe(mi_532.read(game)['cpu'] == 'Pruef-CPU-A',
+               'jeder Aufruf bekommt eine eigene Kopie')
+        _replace_file53x(log, 'Host CPU: Pruef-CPU-B\n'
+                         'Final rating: Machine class 4\n')
+        data = mi_532.read(game)
+        pruefe(data['cpu'] == 'Pruef-CPU-B' and data['machine_class'] == 4,
+               'neue Game.log: neue Angaben (%r, %r)'
+               % (data['cpu'], data['machine_class']))
+        # An Ort und Stelle angehängt, wie das Spiel schreibt.
+        with open(log, 'a', encoding='utf-8') as f:
+            f.write('Final rating: Machine class 2\n')
+        pruefe(mi_532.read(game)['machine_class'] == 2,
+               'an die Game.log angehängt: die neue Einstufung gilt')
+
+        # Einstufung nur in einem aufgehobenen Log.
+        _replace_file53x(log, 'Host CPU: Pruef-CPU-C\n')
+        old = os.path.join(backups, 'Game Build(1) 01 Jan 26 (10 00 00).log')
+        _replace_file53x(old, 'Final rating: Machine class 1\n')
+        del reads[:]
+        pruefe(mi_532.read(game)['machine_class'] == 1
+               and any(r.startswith('Game Build') for r in reads),
+               'Einstufung aus dem aufgehobenen Log (%r)' % reads)
+        del reads[:]
+        for _ in range(5):
+            value = mi_532.read(game)['machine_class']
+        pruefe(value == 1 and not reads,
+               'das aufgehobene Log wird danach nicht erneut gelesen (%r)'
+               % reads)
+        _replace_file53x(old, 'Final rating: Machine class 5\n')
+        pruefe(mi_532.read(game)['machine_class'] == 5,
+               'ein ersetztes aufgehobenes Log zählt mit seinem neuen Inhalt')
+        # Ein jüngeres Log ohne Einstufung wird zuerst durchsucht und
+        # gemerkt; verschwindet es, fällt es aus dem Gedächtnis.
+        newer = os.path.join(backups, 'Game Build(2) 02 Jan 26 (10 00 00).log')
+        _replace_file53x(newer, 'nichts drin\n')
+        later = os.path.getmtime(old) + 60
+        os.utime(newer, (later, later))
+        pruefe(mi_532.read(game)['machine_class'] == 5
+               and {s[0] for s in mi_532._class_memo} == {old, newer},
+               'Selbstprüfung: beide aufgehobenen Logs sind gemerkt (%r)'
+               % sorted(os.path.basename(s[0]) for s in mi_532._class_memo))
+        os.remove(newer)
+        pruefe(mi_532.read(game)['machine_class'] == 5
+               and {s[0] for s in mi_532._class_memo} == {old},
+               'ein gelöschtes Log fällt aus dem Gedächtnis, das übrige '
+               'bleibt (%r)' % sorted(os.path.basename(s[0])
+                                     for s in mi_532._class_memo))
+    finally:
+        mi_532._text = real_text
+        mi_532._log_memo['eintrag'] = None
+        mi_532._class_memo.clear()
+        shutil.rmtree(game, ignore_errors=True)
+
+
+def _catalog_text533(names, without_way=()):
+    import json as json_533
+    from scbp import catalog as catalog_533
+    blueprints = {}
+    for name in names:
+        blueprints[catalog_533._norm(name)] = {
+            'n': name, 'ohne_weg': name in without_way}
+    return json_533.dumps({'version': '9.9.9', 'format': catalog_533.FORMAT,
+                           'geholt': '2026-01-01 00:00',
+                           'bauplaene': blueprints})
+
+
+def _pruefung_533():
+    """catalog.load: einmal lesen je Dateistand, jeder bekommt eine Kopie."""
+    print('\n533. Katalog: load() liest nur nach einer Änderung, jede Kopie '
+          'gehört dem Aufrufer')
+    from scbp import catalog as catalog_533, paths as paths_533
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp533-')
+    os.environ['SC_BP_HOME'] = home
+    real_read = catalog_533._read_aligned
+    reads = []
+
+    def counting_read(path):
+        reads.append(path)
+        return real_read(path)
+    catalog_533._read_aligned = counting_read
+    try:
+        path = paths_533.app_file(catalog_533.CACHE)
+        _replace_file53x(path, _catalog_text533(['Alpha', 'Beta'],
+                                                without_way=['Beta']))
+        first = catalog_533.load()
+        pruefe(len(reads) == 1 and set(first['bauplaene'])
+               == {catalog_533._norm('Alpha')},
+               'Selbstprüfung: der erste Aufruf liest die Datei, Beta ohne '
+               'Weg ist ausgeblendet (%r)' % sorted(first['bauplaene']))
+        pruefe(first.get('missionen') == {} and first.get('vertraege') == {},
+               'fehlende Felder werden wie bisher ergänzt')
+        for _ in range(20):
+            again = catalog_533.load()
+        pruefe(len(reads) == 1 and again == first,
+               'unveränderte Datei: 20 weitere Aufrufe ohne Lesen (%d)'
+               % len(reads))
+        # Jede Kopie gehört dem Aufrufer.
+        again['bauplaene'][catalog_533._norm('Alpha')]['n'] = 'VERDORBEN'
+        again['bauplaene']['zusatz'] = {}
+        fresh = catalog_533.load()
+        pruefe(fresh == first and 'zusatz' not in fresh['bauplaene'],
+               'wer seine Kopie ändert, ändert nicht die der anderen')
+        pruefe(set(catalog_533.load(unreachable=True)['bauplaene'])
+               == {catalog_533._norm('Alpha'), catalog_533._norm('Beta')},
+               'unreachable=True zeigt auch aus dem Gedächtnis alle')
+        # Gleich groß und mit derselben Änderungszeit: nur die Dateikennung
+        # unterscheidet die beiden Fassungen.
+        before = os.stat(path)
+        _replace_file53x(path, _catalog_text533(['Gamma', 'Zeta'],
+                                                without_way=['Zeta']))
+        os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+        after = os.stat(path)
+        pruefe(after.st_size == before.st_size
+               and after.st_mtime_ns == before.st_mtime_ns
+               and after.st_ino != before.st_ino,
+               'Selbstprüfung: neue Fassung gleich groß, gleiche Zeit, andere '
+               'Dateikennung (%d/%d Byte)' % (after.st_size, before.st_size))
+        neu = catalog_533.load()
+        pruefe(set(neu['bauplaene']) == {catalog_533._norm('Gamma')},
+               'nur die Dateikennung ist neu: der neue Inhalt kommt (%r)'
+               % sorted(neu['bauplaene']))
+        # An Ort und Stelle überschrieben, andere Größe.
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(_catalog_text533(['Epsilon-Lang']))
+        pruefe(set(catalog_533.load()['bauplaene'])
+               == {catalog_533._norm('Epsilon-Lang')},
+               'an Ort und Stelle überschrieben: der neue Inhalt kommt')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write('kein json')
+        pruefe(catalog_533.load()['bauplaene'] == {},
+               'eine kaputte Datei gibt wie bisher einen leeren Katalog')
+        os.remove(path)
+        pruefe(catalog_533.load()['bauplaene'] == {},
+               'ohne Datei ein leerer Katalog')
+    finally:
+        catalog_533._read_aligned = real_read
+        catalog_533._load_memo['eintrag'] = None
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_534():
+    """freshness.Guard: merkt sich die gelesenen Dateien und den Zusatzwert."""
+    print('\n534. Seiten-Wächter: frisch nur, solange Dateien und Zusatzwert '
+          'gleich sind')
+    import threading as threading_534
+    from scbp import freshness as fr_534, paths as paths_534
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp534-')
+    os.environ['SC_BP_HOME'] = home
+    try:
+        a = paths_534.app_file('a-534.json')
+        b = paths_534.app_file('b-534.json')
+        for path in (a, b):
+            _replace_file53x(path, '{}')
+        extra = {'wert': 1}
+        guard = fr_534.Guard(extra=lambda: extra['wert'])
+        drawn = []
+
+        def draw():
+            drawn.append(1)
+            with open(paths_534.app_file('a-534.json')) as f:
+                f.read()
+
+        pruefe(not guard.fresh(), 'vor dem ersten Zeichnen nie frisch')
+        guard.draw(draw)
+        pruefe(set(guard.files) == {a},
+               'Selbstprüfung: beim Zeichnen gelesene Datei ist gemerkt (%r)'
+               % sorted(guard.files or {}))
+        pruefe(guard.fresh(), 'nichts geändert: frisch')
+        _replace_file53x(b, '{"x": 1}')
+        pruefe(guard.fresh(), 'eine nicht gelesene Datei ändert nichts')
+        before = os.stat(a)
+        _replace_file53x(a, '{}')
+        os.utime(a, ns=(before.st_atime_ns, before.st_mtime_ns))
+        pruefe(os.stat(a).st_mtime_ns == before.st_mtime_ns
+               and os.stat(a).st_size == before.st_size,
+               'Selbstprüfung: neue Fassung gleich groß und gleich alt')
+        pruefe(not guard.fresh(),
+               'neue Fassung der gelesenen Datei, nur die Dateikennung ist '
+               'neu: nicht frisch')
+        guard.draw(draw)
+        # Ein anderer Ablage-Ordner: Die alten Dateien sind unverändert,
+        # gelesen würde aber aus dem neuen.
+        other = tempfile.mkdtemp(prefix='scbp534-anders-')
+        os.environ['SC_BP_HOME'] = other
+        try:
+            pruefe(not guard.fresh(), 'Ablage-Ordner gewechselt: nicht frisch')
+        finally:
+            os.environ['SC_BP_HOME'] = home
+            shutil.rmtree(other, ignore_errors=True)
+        pruefe(guard.fresh(), 'zurück im alten Ordner: wieder frisch')
+        os.remove(a)
+        pruefe(not guard.fresh(), 'gelesene Datei gelöscht: nicht frisch')
+        _replace_file53x(a, '{}')
+        guard.draw(draw)
+        extra['wert'] = 2
+        pruefe(not guard.fresh(), 'Zusatzwert geändert: nicht frisch')
+        guard.draw(draw)
+        pruefe(guard.fresh(), 'nach dem Neuzeichnen wieder frisch')
+
+        # Ändert sich die Datei während des Zeichnens, gilt der Stand von
+        # VOR dem Lesen — beim nächsten Mal wird noch einmal gezeichnet.
+        def draw_and_change():
+            paths_534.app_file('a-534.json')
+            _replace_file53x(a, '{"neu": true}')
+        guard.draw(draw_and_change)
+        pruefe(not guard.fresh(),
+               'während des Zeichnens geändert: danach nicht frisch')
+
+        # Während des Zeichnens verworfen (Daten aus dem Netz ausstehend).
+        guard.draw(lambda: (paths_534.app_file('a-534.json'),
+                            guard.invalidate()))
+        pruefe(not guard.fresh(), 'invalidate() während draw(): nicht frisch')
+        guard.draw(draw)
+        guard.invalidate()
+        pruefe(not guard.fresh(), 'invalidate() danach: nicht frisch')
+
+        # Ein Fehler beim Zeichnen oder im Zusatzwert: nicht frisch.
+        def broken():
+            paths_534.app_file('a-534.json')
+            raise RuntimeError('534')
+        try:
+            guard.draw(broken)
+        except RuntimeError:
+            pass
+        pruefe(not guard.fresh(), 'Fehler beim Zeichnen: nicht frisch')
+        guard.draw(draw)
+        extra['wert'] = None
+        bad = fr_534.Guard(extra=lambda: 1 / extra['wert'])
+        bad.draw(draw)
+        pruefe(not bad.fresh(), 'Zusatzwert wirft: nicht frisch')
+
+        # Was ein Nebenfaden liest, gehört nicht zur Seite.
+        def draw_with_thread():
+            worker = threading_534.Thread(
+                target=lambda: paths_534.app_file('b-534.json'))
+            worker.start()
+            worker.join()
+        guard.draw(draw_with_thread)
+        pruefe(guard.files == {}, 'im Nebenfaden gelesene Datei zählt nicht '
+               '(%r)' % (guard.files,))
+
+        # Ein äußerer Wächter erbt die Dateien des inneren.
+        inner = fr_534.Guard()
+        outer = fr_534.Guard()
+        outer.draw(lambda: inner.draw(draw))
+        pruefe(set(outer.files) == {a} and set(inner.files) == {a},
+               'Seite in der Seite: beide Wächter kennen die Datei')
+        pruefe(not fr_534.recording(),
+               'nach dem Zeichnen zeichnet niemand mehr auf')
+    finally:
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _names53x(widget):
+    """Die Tk-Namen aller Elemente unter `widget` — ein Neuaufbau erzeugt
+    neue Namen."""
+    return {str(w) for w in _alle_346(widget, lambda _w: True)}
+
+
+def _settle53x(root, window):
+    """Warten, bis keine Größensicherung mehr aussteht. Das Hauptfenster
+    schreibt seine Größe 500 ms nach jeder Änderung in die Einstellungen —
+    ein Wächter, der die Einstellungen liest, zeichnet danach einmal neu.
+    Das gehört nicht zu dem, was hier geprüft wird."""
+    for _ in range(3):
+        root.update()
+    _wait53x(root, lambda: getattr(window, '_size_pending', None) is None,
+             2.0)
+    root.update()
+
+
+def _page53x(root, window, page_id):
+    """Eine Seite öffnen, nachdem eine andere offen war — wie ein Klick."""
+    window.open_page('allgemein')
+    root.update()
+    window.open_page(page_id)
+    _settle53x(root, window)
+    return window.pages[page_id]
+
+
+def _window53x():
+    from scbp import main_window as main_window_53x
+    root = _wurzel()
+    root.deiconify()
+    root.geometry('1200x800')
+    window = main_window_53x.MainWindow(root, version='0.0.0-pruefung')
+    _settle53x(root, window)
+    return root, window
+
+
+def _pruefung_535():
+    """Farmliste: Wiederkommen ohne Neuaufbau, neue Daten sofort sichtbar."""
+    print('\n535. Farmliste: beim Wiederkommen nur nach Datenänderung neu')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import cart as cart_535, fleet as fleet_535
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp535-')
+    os.environ['SC_BP_HOME'] = home
+    real_farm = cart_535.farm_list
+    computed = []
+
+    def counting_farm(*args, **kwargs):
+        computed.append(1)
+        return real_farm(*args, **kwargs)
+    cart_535.farm_list = counting_farm
+    root = None
+    try:
+        root, window = _window53x()
+        page = _page53x(root, window, 'farmliste')
+        pruefe(computed, 'Selbstprüfung: die Farmliste wird über die '
+               'gezählte Rechnung gebaut')
+        before = _names53x(page)
+        del computed[:]
+        page = _page53x(root, window, 'farmliste')
+        pruefe(not computed and _names53x(page) == before,
+               'unverändert: Wiederkommen rechnet und baut nichts neu')
+        data = fleet_535.load()
+        fleet_535.notepad_add(data, 'Pruefhelm 535')
+        fleet_535.save(data)
+        page = _page53x(root, window, 'farmliste')
+        pruefe(computed and 'Pruefhelm 535' in _texte_346(page),
+               'neuer Eintrag im Merkzettel: die Seite zeigt ihn sofort')
+        data = fleet_535.load()
+        fleet_535.notepad_remove(data, 'Pruefhelm 535')
+        fleet_535.save(data)
+        page = _page53x(root, window, 'farmliste')
+        pruefe('Pruefhelm 535' not in _texte_346(page),
+               'gestrichen: die Seite zeigt ihn nicht mehr')
+        # Die Fehlerliste der Rezeptdaten liegt im Speicher, nicht in einer
+        # Datei, die beim Zeichnen gelesen wird.
+        from scbp import cig_issues as cig_535
+        del computed[:]
+        page = _page53x(root, window, 'farmliste')
+        pruefe(not computed, 'Selbstprüfung: wieder eingeschwungen')
+        cig_535.forget()
+        page = _page53x(root, window, 'farmliste')
+        pruefe(computed, 'neue Fehlerliste der Rezeptdaten: neu gerechnet')
+    finally:
+        cart_535.farm_list = real_farm
+        if root is not None:
+            root.destroy()
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_536():
+    """Einkaufsliste: Wiederkommen ohne Neuaufbau, offene Preise zeichnen
+    weiter neu."""
+    print('\n536. Einkaufsliste: beim Wiederkommen nur nach Datenänderung neu')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import cart as cart_536, fleet as fleet_536, shops as shops_536
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp536-')
+    os.environ['SC_BP_HOME'] = home
+    real_invoice = cart_536.invoice
+    real_missing = cart_536.missing_prices
+    real_fetch = shops_536.fetch
+    real_known = shops_536.known
+    computed = []
+
+    def counting_invoice(*args, **kwargs):
+        computed.append(1)
+        return real_invoice(*args, **kwargs)
+    cart_536.invoice = counting_invoice
+    # Kein Abruf: Der Nachhol-Faden hält jeden Preis für schon nachgesehen
+    # und zeichnet deshalb nicht von sich aus neu.
+    shops_536.fetch = lambda *a, **k: None
+    shops_536.known = lambda ident: True
+    root = None
+    try:
+        data = fleet_536.load()
+        fleet_536.wishlist_add(data, 'Pruefschiff Eins')
+        fleet_536.save(data)
+        root, window = _window53x()
+        page = _page53x(root, window, 'einkaufsliste')
+        pruefe(computed and 'Pruefschiff Eins' in _texte_346(page),
+               'Selbstprüfung: die Liste wird über die gezählte Rechnung '
+               'gebaut und zeigt das Wunschschiff')
+        before = _names53x(page)
+        del computed[:]
+        page = _page53x(root, window, 'einkaufsliste')
+        pruefe(not computed and _names53x(page) == before,
+               'unverändert: Wiederkommen rechnet und baut nichts neu')
+        data = fleet_536.load()
+        fleet_536.wishlist_add(data, 'Pruefschiff Zwei')
+        fleet_536.save(data)
+        page = _page53x(root, window, 'einkaufsliste')
+        pruefe('Pruefschiff Zwei' in _texte_346(page),
+               'neues Wunschschiff: die Seite zeigt es sofort')
+        # Steht beim Zeichnen noch ein Ladenpreis aus, wird beim nächsten
+        # Wiederkommen neu gezeichnet — sonst holte niemand ihn nach.
+        cart_536.missing_prices = lambda posten: [('pruef-536', 'Teil')]
+        data = fleet_536.load()
+        fleet_536.wishlist_add(data, 'Pruefschiff Drei')
+        fleet_536.save(data)
+        page = _page53x(root, window, 'einkaufsliste')
+        pruefe('Pruefschiff Drei' in _texte_346(page),
+               'Selbstprüfung: gezeichnet, während ein Preis aussteht')
+        for visit in (1, 2):
+            del computed[:]
+            page = _page53x(root, window, 'einkaufsliste')
+            pruefe(computed, 'ein ausstehender Preis: auch das %d. '
+                   'Wiederkommen rechnet neu' % visit)
+        cart_536.missing_prices = real_missing
+        page = _page53x(root, window, 'einkaufsliste')
+        del computed[:]
+        page = _page53x(root, window, 'einkaufsliste')
+        pruefe(not computed, 'alle Preise da: wieder ohne Neuaufbau')
+    finally:
+        cart_536.invoice = real_invoice
+        cart_536.missing_prices = real_missing
+        shops_536.fetch = real_fetch
+        shops_536.known = real_known
+        if root is not None:
+            root.destroy()
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _wait53x(root, condition, seconds=3.0):
+    """Tk arbeiten lassen, bis `condition()` stimmt oder die Zeit um ist."""
+    import time as time_53x
+    end = time_53x.monotonic() + seconds
+    while time_53x.monotonic() < end:
+        root.update()
+        if condition():
+            return True
+        time_53x.sleep(0.02)
+    return condition()
+
+
+def _pruefung_537():
+    """Grafik: Wiederkommen ohne Neuaufbau; Spieldateien, Eingabefelder und
+    Rechnerangaben bleiben aktuell."""
+    print('\n537. Grafik: beim Wiederkommen nur nach Änderung neu, '
+          'Rechnerkasten frischt sich auf')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import graphics as graphics_537, paths as paths_537
+    old_home = os.environ.get('SC_BP_HOME')
+    base = tempfile.mkdtemp(prefix='scbp537-')
+    game = os.path.join(base, 'LIVE')
+    profile = os.path.join(game, 'USER', 'Client', '0', 'Profiles', 'default')
+    os.makedirs(profile)
+    attributes = os.path.join(profile, 'attributes.xml')
+    _replace_file53x(attributes, '<Attributes Version="35">\r\n'
+                     ' <Attr name="SysSpec" value="3"/>\r\n</Attributes>\r\n')
+    _replace_file53x(os.path.join(game, 'Game.log'), 'Host CPU: Pruef-CPU-A\n')
+    _replace_file53x(os.path.join(game, 'user.cfg'), 'sys_MaxFPS = 77\n')
+    real_attribute_file = graphics_537.attribute_file
+    # `SC_INSTALL_DIR` sticht den eingetragenen Spielordner.
+    old_install = os.environ.pop('SC_INSTALL_DIR', None)
+    root = None
+    try:
+        os.environ['SC_BP_HOME'] = os.path.join(base, 'heim')
+        paths_537.set_setting('spiel_ordner', game)
+        graphics_537.attribute_file = lambda game_folder=None: attributes
+        if (os.path.normcase(paths_537.game_folder() or '')
+                != os.path.normcase(game)):
+            pruefe(False, 'Testordner wird nicht als Spielordner erkannt — '
+                   'abgebrochen')
+            return
+        root, window = _window53x()
+        page = _page53x(root, window, 'grafik')
+
+        def entries():
+            return [w.get() for w in _alle_346(
+                page, lambda w: w.winfo_class() == 'Entry')]
+
+        def card_shows(text):
+            return lambda: text in _texte_346(page)
+        pruefe('77' in entries() and _wait53x(root, card_shows('Pruef-CPU-A')),
+               'Selbstprüfung: Bildrate aus der user.cfg und CPU aus der '
+               'Game.log stehen da (%r)' % entries())
+        before = _names53x(page)
+        fields_before = {str(w) for w in _alle_346(
+            page, lambda w: w.winfo_class() == 'Entry')}
+        page = _page53x(root, window, 'grafik')
+        root.update()
+        pruefe(_names53x(page) == before,
+               'unverändert: Wiederkommen baut nichts neu')
+
+        # Die Game.log sieht der Wächter nicht — der Rechnerkasten frischt
+        # sich trotzdem auf, ohne dass die Seite neu gebaut wird.
+        _replace_file53x(os.path.join(game, 'Game.log'),
+                         'Host CPU: Pruef-CPU-B\n')
+        page = _page53x(root, window, 'grafik')
+        pruefe(_wait53x(root, card_shows('Pruef-CPU-B'))
+               and 'Pruef-CPU-A' not in _texte_346(page),
+               'neue Game.log: der Rechnerkasten zeigt die neue CPU')
+        fields_now = {str(w) for w in _alle_346(
+            page, lambda w: w.winfo_class() == 'Entry')}
+        pruefe(fields_before and fields_now == fields_before,
+               'dabei bleiben die Eingabefelder stehen (kein Neuaufbau, %d)'
+               % len(fields_before))
+
+        # user.cfg von außen geändert.
+        _replace_file53x(os.path.join(game, 'user.cfg'), 'sys_MaxFPS = 144\n')
+        page = _page53x(root, window, 'grafik')
+        pruefe('144' in entries() and '77' not in entries(),
+               'user.cfg geändert: das Feld zeigt den neuen Wert (%r)'
+               % entries())
+        # Ein ungültiger Wert steht nur im Feld — beim Wiederkommen weg.
+        field = [w for w in _alle_346(page, lambda w: w.winfo_class()
+                                      == 'Entry') if w.get() == '144'][0]
+        field.insert('end', 'x')
+        pruefe('144x' in entries(), 'Selbstprüfung: ungültiger Text steht im '
+               'Feld')
+        page = _page53x(root, window, 'grafik')
+        pruefe('144x' not in entries() and '144' in entries(),
+               'ungültiger Text: beim Wiederkommen steht wieder der Wert der '
+               'Datei (%r)' % entries())
+        # attributes.xml von außen geändert.
+        before = _names53x(page)
+        _replace_file53x(attributes, '<Attributes Version="35">\r\n'
+                         ' <Attr name="SysSpec" value="4"/>\r\n'
+                         ' <Attr name="FilmGrain" value="1"/>\r\n'
+                         '</Attributes>\r\n')
+        page = _page53x(root, window, 'grafik')
+        pruefe(_names53x(page) != before,
+               'attributes.xml geändert: die Seite wird neu gebaut')
+    finally:
+        graphics_537.attribute_file = real_attribute_file
+        if old_install is not None:
+            os.environ['SC_INSTALL_DIR'] = old_install
+        if root is not None:
+            root.destroy()
+        _home_restore520(old_home)
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def _pruefung_538():
+    """Mein Lager: Wiederkommen ohne Neuaufbau, neue Posten sofort sichtbar,
+    eine Vorgabe von außen zeichnet immer."""
+    print('\n538. Mein Lager: beim Wiederkommen nur nach Datenänderung neu')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import materials as materials_538
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp538-')
+    os.environ['SC_BP_HOME'] = home
+    root = None
+    try:
+        materials_538.add('Pruef-Erz Eins', 2.0, place='Ort 538')
+        root, window = _window53x()
+        _page53x(root, window, 'meinlager')
+        listing = window.my_stock_page['listing']
+        pruefe('Pruef-Erz Eins' in _texte_346(listing),
+               'Selbstprüfung: der Posten steht in der Liste')
+        before = _names53x(listing)
+        _page53x(root, window, 'meinlager')
+        pruefe(_names53x(listing) == before,
+               'unverändert: Wiederkommen baut die Liste nicht neu')
+        materials_538.add('Pruef-Erz Zwei', 3.0, place='Ort 538')
+        _page53x(root, window, 'meinlager')
+        pruefe('Pruef-Erz Zwei' in _texte_346(listing),
+               'neuer Posten: die Liste zeigt ihn sofort')
+        before = _names53x(listing)
+        window.my_stock_preset = {'search_text': None}
+        _page53x(root, window, 'meinlager')
+        pruefe(_names53x(listing) != before,
+               'eine Vorgabe von außen zeichnet immer neu')
+        # Ob es eine Aufteilung (Basetool) gibt, steht nur im Speicher.
+        from scbp import stock_split as split_538
+        _page53x(root, window, 'meinlager')
+        before = _names53x(listing)
+        real_available = split_538.available
+        split_538.available = lambda: not real_available()
+        try:
+            _page53x(root, window, 'meinlager')
+            pruefe(_names53x(listing) != before,
+                   'Aufteilung kommt oder geht: die Liste wird neu gebaut')
+        finally:
+            split_538.available = real_available
+        # Die Einheiten mit ihren Namen stehen nur im Speicher.
+        from scbp import exchange_orgunits as units_538
+        _page53x(root, window, 'meinlager')
+        before = _names53x(listing)
+        real_units = units_538._state['units']
+        units_538._state['units'] = [{'id': 'pruef-538', 'name': 'Einheit 538'}]
+        try:
+            _page53x(root, window, 'meinlager')
+            pruefe(_names53x(listing) != before,
+                   'neue Einheiten-Liste: die Liste wird neu gebaut')
+        finally:
+            units_538._state['units'] = real_units
+    finally:
+        if root is not None:
+            root.destroy()
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_539():
+    """Patch-Änderungen: Wiederkommen ohne Neuaufbau, neue Patch-Datei
+    sofort in der Liste."""
+    print('\n539. Patch-Änderungen: beim Wiederkommen nur nach Änderung neu')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    import json as json_539
+    from scbp import patch_changes as pa_539
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp539-')
+    os.environ['SC_BP_HOME'] = home
+    import threading as threading_539
+    real_stored = pa_539.stored
+    real_offered = pa_539.offered
+    calls = []
+    offers = {'list': [], 'main_thread': 0}
+
+    def counting_stored():
+        calls.append(1)
+        return real_stored()
+
+    def fake_offered():
+        """Was erkul anbietet — ohne Netz, und mitgezählt, wenn der
+        Oberflächen-Faden selbst fragt."""
+        if threading_539.current_thread() is threading_539.main_thread():
+            offers['main_thread'] += 1
+        return [dict(entry) for entry in offers['list']]
+
+    def erkul_patch(version):
+        return {'version': version, 'datum': '2026-01-02',
+                'summary': {'added': 3}, 'path': '', 'bytes': 0}
+    pa_539.stored = counting_stored
+    pa_539.offered = fake_offered
+    root = None
+    try:
+        root, window = _window53x()
+        page = _page53x(root, window, 'patchaenderungen')
+        pruefe(calls, 'Selbstprüfung: die Liste liest über die gezählte '
+               'Ablage')
+        before = _names53x(page)
+        del calls[:]
+        page = _page53x(root, window, 'patchaenderungen')
+        pruefe(not calls and _names53x(page) == before,
+               'unverändert: Wiederkommen liest und baut nichts neu')
+        _replace_file53x(pa_539._file('9.8.7-LIVE.539'), json_539.dumps(
+            {'version': '9.8.7-LIVE.539', 'datum': '2026-01-01',
+             'summary': {}, 'changes': []}))
+        page = _page53x(root, window, 'patchaenderungen')
+        pruefe(calls and any('9.8.7' in text for text in _texte_346(page)),
+               'neue Patch-Datei: die Liste zeigt sie sofort')
+
+        # Was erkul anbietet, wird beim Wiederkommen im Nebenfaden neu
+        # gefragt; eine neue Liste erscheint ohne lokale Änderung.
+        def shows(version):
+            return lambda: any(version in text
+                               for text in _texte_346(window.pages[
+                                   'patchaenderungen']))
+        offers['main_thread'] = 0
+        offers['list'] = [erkul_patch('9.1.0-LIVE.1')]
+        _page53x(root, window, 'patchaenderungen')
+        pruefe(_wait53x(root, shows('9.1.0')),
+               'erkul bietet einen neuen Patch an: er steht beim Wiederkommen '
+               'in der Liste')
+        offers['list'] = [erkul_patch('9.2.0-LIVE.2')]
+        _page53x(root, window, 'patchaenderungen')
+        pruefe(_wait53x(root, shows('9.2.0'))
+               and not shows('9.1.0')(),
+               'erkul bietet etwas anderes an: die Liste folgt')
+        pruefe(offers['main_thread'] == 0,
+               'beim Wiederkommen fragt der Oberflächen-Faden erkul nicht '
+               'selbst (%d)' % offers['main_thread'])
+        before = _names53x(window.pages['patchaenderungen'])
+        _page53x(root, window, 'patchaenderungen')
+        _wait53x(root, lambda: False, 0.5)
+        pruefe(_names53x(window.pages['patchaenderungen']) == before,
+               'erkul bietet dasselbe an: kein Neuaufbau')
+    finally:
+        pa_539.stored = real_stored
+        pa_539.offered = real_offered
+        if root is not None:
+            root.destroy()
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_543():
+    """Übersicht: Deine Karten bleiben stehen, die Kacheln sind frisch."""
+    print('\n543. Übersicht: Deine Karten nur nach Änderung neu, Kacheln '
+          'immer frisch')
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import cards as cards_543
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp543-')
+    os.environ['SC_BP_HOME'] = home
+    root = None
+    try:
+        cards_543.set_pinned('farmliste', True)
+        root, window = _window53x()
+        # Ein frischer Ablage-Ordner bekommt beim ersten Durchgang einmal
+        # Einstellungen geschrieben — erst danach zählt der Vergleich.
+        _page53x(root, window, 'uebersicht')
+        page = _page53x(root, window, 'uebersicht')
+        pins = page.pin_grid.frame
+        tiles = page.tiles_grid.frame
+        title = cards_543.page_title('farmliste')
+        pruefe(title in _texte_346(pins),
+               'Selbstprüfung: die angeheftete Karte steht unter Deine Karten')
+        pins_before, tiles_before = _names53x(pins), _names53x(tiles)
+        page = _page53x(root, window, 'uebersicht')
+        pruefe(_names53x(pins) == pins_before,
+               'unverändert: Deine Karten werden nicht neu gebaut')
+        pruefe(_names53x(tiles) != tiles_before,
+               'die Kacheln dagegen werden bei jedem Zeigen frisch gebaut')
+        cards_543.set_pinned('einkaufsliste', True)
+        page = _page53x(root, window, 'uebersicht')
+        pruefe(cards_543.page_title('einkaufsliste') in _texte_346(pins),
+               'neu angeheftet: die Karte steht sofort da')
+        # Blendet die Leiste eine angeheftete Seite aus, verschwindet ihre
+        # Karte — das steht nur im Fenster, nicht in einer Datei.
+        real_hidden = cards_543.page_hidden
+        cards_543.page_hidden = lambda w, p: p == 'einkaufsliste'
+        try:
+            page = _page53x(root, window, 'uebersicht')
+            pruefe(cards_543.page_title('einkaufsliste')
+                   not in _texte_346(pins),
+                   'ausgeblendete Seite: ihre Karte verschwindet')
+        finally:
+            cards_543.page_hidden = real_hidden
+        # Ein Überfahr-Rand, der beim Verlassen der Seite stehen blieb,
+        # verschwindet beim Wiederkommen, wenn der Zeiger woanders ist.
+        from scbp import theme as theme_543
+        page = _page53x(root, window, 'uebersicht')
+        box = page.pin_grid.cells[0].card
+        box.canvas.itemconfigure(box.shape, outline=theme_543.ACCENT)
+        pins_before = _names53x(pins)
+        page = _page53x(root, window, 'uebersicht')
+        pruefe(_names53x(pins) == pins_before,
+               'Selbstprüfung: die Karten blieben dabei stehen')
+        pruefe(box.canvas.itemcget(box.shape, 'outline') == theme_543.LINE,
+               'stehengebliebener Überfahr-Rand ist beim Wiederkommen weg '
+               '(%s)' % box.canvas.itemcget(box.shape, 'outline'))
+    finally:
+        if root is not None:
+            root.destroy()
         _home_restore520(old_home)
         shutil.rmtree(home, ignore_errors=True)
 

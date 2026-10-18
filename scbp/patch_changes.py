@@ -173,6 +173,22 @@ def stored():
     return versions
 
 
+def stamp():
+    """Name und Datei-Stand (`freshness.stamp`) jeder abgelegten
+    Patch-Datei. Ändert sich eine, kommt eine dazu oder fällt eine weg,
+    ändert sich auch das Ergebnis — für `freshness.Guard`, der diese Dateien
+    nicht sieht, weil sie nicht über `paths.app_file()` gelesen werden."""
+    from . import freshness
+    folder = _folder()
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return ()
+    return tuple((name, freshness.stamp(os.path.join(folder, name)))
+                 for name in names
+                 if name.startswith('patch-') and name.endswith('.json'))
+
+
 def _read_file(path):
     try:
         with open(path, encoding='utf-8') as f:
@@ -241,15 +257,18 @@ def sync():
 
 
 # ------------------------------------------------------------- Aufbereitung
-def overview():
+def overview(offered_list=None):
     """Alles, was sich anzeigen lässt: [{version, kurz, datum, …}, …].
 
     **Vereinigt beide Seiten** — was erkul gerade anbietet und was hier liegt.
     Genau darin steckt der Gewinn der lokalen Ablage: Ein Patch, den erkul
     inzwischen fallen gelassen hat, steht hier weiter, und zwar mit
-    `bei_erkul=False`. Wer nur eine der beiden Seiten liest, verliert ihn."""
+    `bei_erkul=False`. Wer nur eine der beiden Seiten liest, verliert ihn.
+
+    `offered_list` ist ein schon geholtes Ergebnis von `offered()`; ohne
+    Angabe wird erkul jetzt gefragt (ein Netzabruf)."""
     combined = {}
-    for entry in offered():
+    for entry in (offered() if offered_list is None else offered_list):
         combined[entry['version']] = {
             'version': entry['version'],
             'kurz': entry['version'].split('-')[0],

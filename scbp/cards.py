@@ -471,6 +471,9 @@ def card(window, cell, symbol, title, text, action, pin=None,
             inside = getattr(inside, 'master', None)
         if inside is None:
             outline(theme.LINE)
+    # Für eine stehengebliebene Karte: Wird die Seite ausgeblendet, während
+    # der Zeiger auf der Karte steht, kommt nicht verlässlich ein `<Leave>`.
+    box.unhover = leave
 
     # Öffnen beim Loslassen, nicht beim Drücken — sonst ließe sich eine Karte
     # nicht an der Überschrift greifen und verschieben. Wer dabei mehr als ein

@@ -98,7 +98,7 @@ import os
 import re
 import time
 
-from . import errors, paths
+from . import errors, freshness, paths
 from .catalog import OFF, fetch_file, _norm
 from .language import t
 
@@ -584,6 +584,11 @@ def recipe_raw(name):
     now = time.monotonic()
     if _raw_cache['daten'] is not None \
             and now - _raw_cache['geprueft'] < _RAW_FRESH_S:
+        # Zeichnet gerade eine Seite auf, welche Dateien sie liest, gehört
+        # die Rezeptdatei dazu, auch wenn sie hier nicht angesehen wird —
+        # siehe `freshness.Guard`.
+        if freshness.recording():
+            paths.app_file(CACHE)
         return _raw_cache['daten'].get(_key(name))
 
     data = load()
@@ -623,19 +628,45 @@ def recipe(name_or_tag):
     Gelesen werden alle Stufen; aktuell hat jeder Bauplan genau eine.
     """
     wanted = (name_or_tag or '').strip().lower()
-    for b in load().get('blueprints') or []:
-        if wanted in ((b.get('productName') or '').lower(),
-                      (b.get('tag') or '').lower()):
-            return {
-                'name': b.get('productName') or b.get('tag') or '?',
-                'hersteller': manufacturer_name(
-                    b.get('manufacturer'), manufacturer_code(b.get('tag'))),
-                'art': b.get('type') or '',
-                'stufen': [{'zeit': (t_.get('craftTimeSeconds') or 0),
-                            'zutaten': _ingredients(t_)}
-                           for t_ in (b.get('tiers') or [])],
-            }
-    return None
+    b = _recipe_index().get(wanted)
+    if b is None:
+        return None
+    return {
+        'name': b.get('productName') or b.get('tag') or '?',
+        'hersteller': manufacturer_name(
+            b.get('manufacturer'), manufacturer_code(b.get('tag'))),
+        'art': b.get('type') or '',
+        'stufen': [{'zeit': (t_.get('craftTimeSeconds') or 0),
+                    'zutaten': _ingredients(t_)}
+                   for t_ in (b.get('tiers') or [])],
+    }
+
+
+# Produktname und Kennung (klein) -> Bauplan, je geladenem Stand.
+#
+# ⚠ Gebunden an das **Objekt**, das `load()` liefert, nicht an einen
+# eigenen Zeitstempel: Liest `load()` die Datei neu, kommt ein anderes
+# Objekt, und der Index wird neu gebaut. Ohne Index läuft jeder Aufruf
+# durch alle Baupläne, und Einkaufs- und Farmliste fragen beim Aufbau
+# viele Male. Gemerkt wird das Paar (Objekt, Index) unter einem Schlüssel,
+# damit ein anderer Faden nie den Index zum falschen Objekt liest.
+_recipe_memo = {'eintrag': None}
+
+
+def _recipe_index():
+    data = load()
+    entry = _recipe_memo['eintrag']
+    if entry is None or entry[0] is not data:
+        index = {}
+        # ⚠ `setdefault` in Listenreihenfolge: Bei doppelten Namen gewinnt
+        # wie bei der Suche von vorn der erste Bauplan.
+        for b in data.get('blueprints') or []:
+            for key in ((b.get('productName') or '').lower(),
+                        (b.get('tag') or '').lower()):
+                index.setdefault(key, b)
+        entry = (data, index)
+        _recipe_memo['eintrag'] = entry
+    return entry[1]
 
 
 def material_demand():

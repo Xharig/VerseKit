@@ -12,6 +12,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Error report with Anti-AFK** — the report now says whether Anti-AFK is
   on, how often it pressed and why it was last switched off.
+- **Pages open faster** — My Inventory, What to farm, Shopping list,
+  Graphics and Changed game values now only rebuild when you come back if
+  their data has changed; the Overview only rebuilds its tiles. Changed game
+  values asks erkul in the background instead of making the page switch
+  wait. The catalog, recipes and machine details are no longer
+  re-read on every page switch, which also speeds up opening many pages for
+  the first time.
 
 ### Fixed
 

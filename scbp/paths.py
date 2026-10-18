@@ -60,6 +60,8 @@ import sys
 import threading
 import time
 
+from . import freshness
+
 WINDOWS = sys.platform.startswith('win')
 
 # Spielkanäle in der Reihenfolge, in der gesucht wird. LIVE zuerst — wer PTU
@@ -441,11 +443,25 @@ def app_folder():
     """
     custom = os.environ.get('SC_BP_HOME') or _remembered_storage()
     p = os.path.expanduser(custom) if custom else _default_folder()
-    try:
-        os.makedirs(p, exist_ok=True)
-    except OSError:
-        pass
+    _ensure_folder(p)
     return p
+
+
+def _ensure_folder(folder):
+    """Ordner anlegen, wenn er fehlt. True, wenn er danach da ist.
+
+    ⚠ Erst nachsehen, dann anlegen: `os.makedirs(…, exist_ok=True)` versucht
+    auch bei einem vorhandenen Ordner ein `mkdir` und fängt den Fehler ab —
+    unter Windows teuer, und `app_file()` läuft beim Aufbau mancher Seite
+    hunderte Male. Ein vorhandener Ordner kostet so nur ein `stat`, ein
+    gelöschter wird beim nächsten Aufruf wieder angelegt."""
+    if os.path.isdir(folder):
+        return True
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except OSError:
+        return False
+    return True
 
 
 def bundled_file(name):
@@ -473,14 +489,15 @@ def app_file(name):
     """
     base = app_folder()
     if os.environ.get('SC_BP_HOME'):
-        return os.path.join(base, name)
-    subfolder = SUBFOLDERS.get(name, 'Intern')
-    target = os.path.join(base, subfolder)
-    try:
-        os.makedirs(target, exist_ok=True)
-    except OSError:
-        return os.path.join(base, name)
-    return os.path.join(target, name)
+        path = os.path.join(base, name)
+    else:
+        subfolder = SUBFOLDERS.get(name, 'Intern')
+        target = os.path.join(base, subfolder)
+        path = os.path.join(target if _ensure_folder(target) else base, name)
+    # Zeichnet gerade eine Seite, merkt sie sich die Datei — siehe
+    # `freshness.Guard`.
+    freshness.note(path)
+    return path
 
 
 def migration_needed():

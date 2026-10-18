@@ -12,9 +12,14 @@ Deshalb misst dieses Werkzeug zwei Dinge, die von fremder Last kaum abhängen:
 | **Tk-Aufrufe** | wie viel Arbeit Tk gegeben wird — exakt, bei jedem Lauf gleich |
 | **CPU-Zeit** | wie lange DIESER Prozess gerechnet hat (`time.process_time`), nicht wie lange die Uhr lief |
 
-Gemessen wird jeder Reiter zweimal: beim **ersten** Öffnen (die Seite wird
-gebaut) und beim **Wiederkommen** (sie wird nur gezeigt und frischt sich auf).
-Dazu das erste Öffnen des Hauptfensters.
+Gemessen wird jeder Reiter beim **ersten** Öffnen (die Seite wird gebaut)
+und beim **Wiederkommen** (sie wird nur gezeigt und frischt sich auf, dreimal,
+der mittlere Wert zählt). Dazu das erste Öffnen des Hauptfensters.
+
+Die Spalte **Seite** ist die Zeit in `open_page` allein — dieselbe Zahl, die
+die Startspur je Seite in Millisekunden in den Fehlerbericht schreibt. Die
+CPU-Zeit enthält dagegen auch das anschließende `update()` (Zeichnen, andere
+fällige Rückrufe) und alle Fäden des Prozesses.
 
 Aufruf:
     python tools/tempo_messen.py              # Wegwerf-Ordner, leere Daten
@@ -97,18 +102,31 @@ def messen(fenstergroesse='1294x1284'):
     f = fenster['f']
     _ruhe(wurzel)
     seiten = list(pages.page_ids())
-    for runde in ('erst', 'wieder'):
+    for runde in ('erst', 'wieder', 'wieder', 'wieder'):
         for seite in seiten:
+            nur_seite = []
+
             def zeigen(s=seite):
+                start = time.perf_counter()
                 f.open_page(s)
+                nur_seite.append((time.perf_counter() - start) * 1000)
                 wurzel.update()
             try:
                 wert = einmal(zeigen)
+                wert['seite_ms'] = round(nur_seite[0], 1)
             except Exception as ausnahme:          # eine Seite darf nicht alles kippen
                 wert = {'fehler': str(ausnahme)}
-            ergebnis['seiten'].setdefault(seite, {})[runde] = wert
+            ergebnis['seiten'].setdefault(seite, {}).setdefault(
+                runde, []).append(wert)
             _ruhe(wurzel, 0.05)
         _ruhe(wurzel, 0.5)
+    # Je Runde ein Wert: das erste Öffnen gibt es einmal, vom Wiederkommen
+    # zählt der mittlere von drei Läufen (nach der Seitenzeit sortiert).
+    for werte in ergebnis['seiten'].values():
+        werte['erst'] = werte['erst'][0]
+        laeufe = sorted(werte['wieder'],
+                        key=lambda w: w.get('seite_ms', float('inf')))
+        werte['wieder'] = laeufe[len(laeufe) // 2]
     ergebnis['schliessen'] = einmal(lambda: (f.close(), wurzel.update()))
     try:
         wurzel.destroy()
@@ -125,26 +143,28 @@ def ausgeben(e):
     print('Hauptfenster schließen: %3d Tk-Aufrufe · %5d ms CPU · %5d ms Uhr'
           % (s['tk'], s['cpu_ms'], s['uhr_ms']))
     print()
-    print('%-22s %8s %8s | %8s %8s' % ('Reiter', 'erst Tk', 'erst CPU',
-                                        'wieder Tk', 'wied CPU'))
+    print('%-22s %8s %8s %10s | %8s %8s %10s' % (
+        'Reiter', 'erst Tk', 'erst CPU', 'erst Seite',
+        'wieder Tk', 'wied CPU', 'wied Seite'))
     zeilen = sorted(e['seiten'].items(),
-                    key=lambda kv: -(kv[1].get('erst', {}).get('cpu_ms', 0)
-                                     + kv[1].get('wieder', {}).get('cpu_ms', 0)))
-    summe = {'erst': [0, 0], 'wieder': [0, 0]}
+                    key=lambda kv: -kv[1].get('wieder', {}).get('seite_ms', 0))
+    summe = {'erst': [0, 0, 0.0], 'wieder': [0, 0, 0.0]}
     for seite, w in zeilen:
         teile = []
         for runde in ('erst', 'wieder'):
             x = w.get(runde, {})
             if 'fehler' in x:
-                teile += ['FEHLER', '']
+                teile += ['FEHLER', '', '']
                 continue
             summe[runde][0] += x.get('tk', 0)
             summe[runde][1] += x.get('cpu_ms', 0)
-            teile += ['%d' % x.get('tk', 0), '%d ms' % x.get('cpu_ms', 0)]
-        print('%-22s %8s %8s | %8s %8s' % (seite, *teile))
-    print('%-22s %8d %5d ms | %8d %5d ms' % ('Summe', summe['erst'][0],
-                                            summe['erst'][1], summe['wieder'][0],
-                                            summe['wieder'][1]))
+            summe[runde][2] += x.get('seite_ms', 0)
+            teile += ['%d' % x.get('tk', 0), '%d ms' % x.get('cpu_ms', 0),
+                      '%.0f ms' % x.get('seite_ms', 0)]
+        print('%-22s %8s %8s %10s | %8s %8s %10s' % (seite, *teile))
+    print('%-22s %8d %5d ms %7.0f ms | %8d %5d ms %7.0f ms' % (
+        'Summe', summe['erst'][0], summe['erst'][1], summe['erst'][2],
+        summe['wieder'][0], summe['wieder'][1], summe['wieder'][2]))
 
 
 if __name__ == '__main__':

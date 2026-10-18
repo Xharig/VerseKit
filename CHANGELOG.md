@@ -12,6 +12,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Fehlerbericht mit Anti-AFK** — der Bericht nennt jetzt, ob Anti-AFK an
   ist, wie oft es gedrückt hat und warum es zuletzt abgeschaltet wurde.
+- **Seiten öffnen schneller** — Mein Lager, Was ich farmen muss,
+  Einkaufsliste, Grafik und Geänderte Spielwerte bauen sich beim
+  Wiederkommen nur noch neu auf, wenn sich ihre Daten geändert haben; die
+  Übersicht baut nur noch ihre Kacheln neu. Geänderte Spielwerte fragt erkul
+  dabei im Hintergrund, statt den Seitenwechsel warten zu lassen. Katalog,
+  Rezepte und Rechnerangaben werden nicht mehr bei jedem Seitenwechsel neu
+  gelesen; das macht auch das erste Öffnen vieler Seiten schneller.
 
 ### Behoben
 

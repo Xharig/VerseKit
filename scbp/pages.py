@@ -3960,6 +3960,11 @@ def _collection(fenster, rahmen):
             color=GOLD)
 
 
+# Wie lange nach dem Zeigen der Grafik-Seite der Rechnerkasten nachsieht, ob
+# sich seine Angaben geändert haben.
+MACHINE_RECHECK_MS = 300
+
+
 def _graphics(window, frame):
     """Grafik-Schalter von Star Citizen (`graphics`). Änderungen sammeln sich,
     bis der Knopf unten sie übernimmt — bei laufendem Spiel nie, das Spiel
@@ -4059,9 +4064,18 @@ def _graphics(window, frame):
             slider(slot, 0, 100, int(round(value * 100)), drag).pack(side='left')
             shown.pack(side='left', padx=(8, 0))
 
+    # Die Eingabefelder der user.cfg (mit ihrem Text direkt nach dem
+    # Zeichnen) und der Kasten mit den Rechnerangaben — beides braucht der
+    # Wächter unten.
+    fields = []
+    fields_drawn = [()]
+    machine = {'slot': None}
+
     def draw():
         for child in body.winfo_children():
             child.destroy()
+        del fields[:]
+        fields_drawn[0] = ()
         # Wurde Vorgemerktes inzwischen nach dem Spielende geschrieben, ist
         # es jetzt Stand der Datei.
         if state['queued'] and not graphics.queued():
@@ -4070,7 +4084,9 @@ def _graphics(window, frame):
         bar_update()
         machine_slot = tk.Frame(body, bg=BG)
         machine_slot.pack(fill='x', pady=(0, 6))
-        _machine_card_async(window, machine_slot)
+        machine.clear()
+        machine['slot'] = machine_slot
+        _machine_card_async(window, machine_slot, machine)
         values = graphics.read()
         if values is None:
             _status(window, body, 'offen', t('s_gr_keine_datei'), '',
@@ -4092,10 +4108,46 @@ def _graphics(window, frame):
                                 t(help_key) if help_key else '')
             control(slot, name, kind, values[name], choices)
         _quality_rows(window, body, pending, bar_update)
-        _user_cfg_rows(window, body, pending, bar_update)
+        _user_cfg_rows(window, body, pending, bar_update, fields)
+        fields_drawn[0] = tuple(var.get() for var in fields)
 
-    draw()
-    window.on_show['grafik'] = draw
+    def game_files():
+        """Was der Wächter außerhalb der eigenen Ablage im Blick behalten
+        muss: die drei Dateien des Spiels und das Vorgemerkte."""
+        from . import usercfg
+        folder = paths.game_folder()
+        files = (graphics.attribute_file(), graphics.renderer_file(),
+                 os.path.join(folder, usercfg.FILE) if folder else '')
+        return (folder,
+                tuple((p, freshness.stamp(p) if p else None) for p in files),
+                tuple(sorted(pending.items())), state['queued'])
+
+    def fields_unchanged():
+        """Steht in den Eingabefeldern noch, was beim Zeichnen hineinkam? Ein
+        ungültiger Wert steht nur dort, nicht in `pending` — er verschwindet
+        beim Neuzeichnen, also muss dann neu gezeichnet werden."""
+        return tuple(var.get() for var in fields) == fields_drawn[0]
+
+    # ⚠ Beim Wiederkommen nur neu bauen, wenn sich etwas geändert hat —
+    # sonst baute jeder Klick auf den Reiter alle Regler neu
+    # (`freshness.Guard`). Der Kasten mit den Rechnerangaben frischt sich
+    # dann trotzdem auf: Er liest im Nebenfaden, das sieht der Wächter nicht.
+    from . import freshness
+    guard = freshness.Guard(extra=game_files)
+
+    def on_show():
+        if guard.fresh() and fields_unchanged():
+            slot = machine.get('slot')
+            if slot is not None:
+                # Erst nach dem Seitenwechsel nachsehen — der Nebenfaden
+                # bremst sonst den Wechsel selbst.
+                slot.after(MACHINE_RECHECK_MS, lambda: _machine_card_async(
+                    window, slot, machine))
+            return
+        guard.draw(draw)
+
+    guard.draw(draw)
+    window.on_show['grafik'] = on_show
 
 
 def _quality_rows(window, body, pending, changed=None):
@@ -4163,11 +4215,12 @@ def _quality_rows(window, body, pending, changed=None):
         tk.Frame(cell, bg=LINE, height=1).pack(fill='x')
 
 
-def _user_cfg_rows(window, body, pending, changed=None):
+def _user_cfg_rows(window, body, pending, changed=None, fields=None):
     """Drei Befehle aus der `user.cfg` des Spielordners: Bildrate begrenzen,
     Bildrate im Hintergrund, Leistungsanzeige. Gemerkt wird in `pending` als
     `cfg:<befehl>`; geschrieben mit den übrigen Grafik-Schaltern. Vorgemerktes
-    steht statt des Datei-Stands da; `changed()` nach jeder Änderung."""
+    steht statt des Datei-Stands da; `changed()` nach jeder Änderung. Die
+    Textvariablen der Eingabefelder landen in `fields`, wenn angegeben."""
 
     def current(key, fallback):
         if 'cfg:' + key in pending:
@@ -4193,6 +4246,8 @@ def _user_cfg_rows(window, body, pending, changed=None):
         slot = _setting_row(window, body, t(caption), t(help_key))
         var = tk.StringVar(slot, value=current(
             key, usercfg.value(folder, key) or ''))
+        if fields is not None:
+            fields.append(var)
 
         def typed(*_a, key=key, var=var):
             text = var.get().strip()
@@ -4224,10 +4279,23 @@ def _mix(color_a, color_b, share):
                                    for x, y in zip(a, b))
 
 
-def _machine_card_async(window, slot):
+def _machine_card_async(window, slot, seen=None):
     """Der Kasten mit den Rechnerangaben — liest im Nebenfaden, die
-    aufgehobenen Logs können dauern."""
+    aufgehobenen Logs können dauern.
+
+    `seen` (ein Wörterbuch) merkt sich, was im Kasten steht: Ein zweiter
+    Aufruf mit unveränderten Angaben lässt den Kasten dann stehen, mit
+    neuen baut er ihn neu."""
     from . import machine_info
+
+    def show(data):
+        if seen is not None:
+            if seen.get('shown') and seen.get('data') == data:
+                return
+            seen['shown'], seen['data'] = True, data
+        for child in slot.winfo_children():
+            child.destroy()
+        _machine_card(window, slot, data)
 
     def work():
         data = None
@@ -4235,7 +4303,7 @@ def _machine_card_async(window, slot):
             data = machine_info.read()
         except Exception as error:
             errors.record('pages.machine_info', error)
-        _from_thread(slot, lambda: _machine_card(window, slot, data))
+        _from_thread(slot, lambda: show(data))
 
     threading.Thread(target=work, daemon=True).start()
 
@@ -14493,6 +14561,10 @@ def _shopping_list(fenster, rahmen):
             return
 
         _fetch_buy_prices(posten, koerper, neu_zeichnen)
+        # Fehlt noch ein Preis, wird er beim nächsten Zeigen wieder geholt —
+        # die Seite darf dann nicht als unverändert stehen bleiben.
+        if cart.missing_prices(posten):
+            guard.invalidate()
 
         # ⚠⚠ **Der Kopf zählt, was noch zu tun ist — nicht, was einmal
         # geplant war.** Abgehakte Posten zählen nicht mit. Eine Überschrift,
@@ -14548,9 +14620,18 @@ def _shopping_list(fenster, rahmen):
         _cart_route(fenster, koerper, posten)
 
     # ⚠ Beim erneuten Öffnen frisch rechnen: Die Seite wird nur einmal gebaut,
-    # und zwischen zwei Besuchen ändert sich im Hangar fast immer etwas.
-    fenster.on_show['einkaufsliste'] = neu_zeichnen
-    _aufbauen()
+    # und zwischen zwei Besuchen ändert sich im Hangar oft etwas. Ob, sagt
+    # `freshness.Guard`; die Fehlerliste der Rezeptdaten liegt zusätzlich im
+    # Speicher (`cig_issues.generation`).
+    from . import cig_issues, freshness
+    guard = freshness.Guard(extra=cig_issues.generation)
+
+    def on_show():
+        if not guard.fresh():
+            guard.draw(neu_zeichnen)
+
+    fenster.on_show['einkaufsliste'] = on_show
+    guard.draw(_aufbauen)
 
 
 def _dismantle(fenster, rahmen):
@@ -15040,8 +15121,18 @@ def _farm_list(fenster, rahmen):
 
         _merkzettel_block(values)
 
-    fenster.on_show['farmliste'] = neu_zeichnen
-    _aufbauen()
+    # Beim Wiederkommen nur neu rechnen und zeichnen, wenn sich etwas
+    # geändert hat (`freshness.Guard`). Die Fehlerliste der Rezeptdaten liegt
+    # zusätzlich im Speicher (`cig_issues.generation`).
+    from . import cig_issues, freshness
+    guard = freshness.Guard(extra=cig_issues.generation)
+
+    def on_show():
+        if not guard.fresh():
+            guard.draw(neu_zeichnen)
+
+    fenster.on_show['farmliste'] = on_show
+    guard.draw(_aufbauen)
 
 
 def _count_stepper(window, row, count, on_change, background=None):
@@ -19725,6 +19816,14 @@ def _patch_changes(fenster, rahmen):
     ergebnis.pack(fill='x', padx=24, pady=(8, 20))
 
     zustand = {'patch': '', 'art': None}
+    # Was erkul zuletzt angeboten hat (`pa.offered()`, ein Netzabruf) —
+    # siehe `_on_show`.
+    erkul = {'list': None}
+
+    def _overview():
+        if erkul['list'] is None:
+            erkul['list'] = pa.offered()
+        return pa.overview(erkul['list'])
 
     def _leeren(*rahmen_liste):
         for r in rahmen_liste:
@@ -19809,7 +19908,7 @@ def _patch_changes(fenster, rahmen):
 
     def _eintrag_zu(version):
         """Der Übersichtseintrag zu einer Version — oder None."""
-        for eintrag in pa.overview():
+        for eintrag in _overview():
             if eintrag['version'] == version:
                 return eintrag
         return None
@@ -19864,7 +19963,7 @@ def _patch_changes(fenster, rahmen):
         # ⚠ Aber nicht spurlos: Darunter steht, **wie viele** weggelassen
         # wurden. Ohne diese Zeile sähe es aus, als fehlten Patches oder als
         # sei der Abruf unvollständig. Weglassen ja, verschweigen nein.
-        alle = pa.overview()
+        alle = _overview()
         gezeigt = [e for e in alle if not e['leer']]
         weggelassen = len(alle) - len(gezeigt)
 
@@ -19923,6 +20022,7 @@ def _patch_changes(fenster, rahmen):
             except Exception as ausnahme:
                 errors.record('pages.patch_changes.sync', ausnahme)
                 neu = None
+            offer = pa.offered()
 
             # ⚠ Zurück in den Oberflächen-Faden — Tk verträgt keine Zugriffe
             # aus einem fremden Strang. Und die Seite kann inzwischen weg
@@ -19931,6 +20031,7 @@ def _patch_changes(fenster, rahmen):
                 try:
                     if not stand.winfo_exists():
                         return
+                    erkul['list'] = offer
                     if neu is None:
                         stand.configure(text=t('s_pa_kein_netz'))
                     elif neu:
@@ -19946,24 +20047,57 @@ def _patch_changes(fenster, rahmen):
 
     _button(fenster, kopf, t('s_pa_suchen'), _suchen).pack(side='left')
 
-    _liste_zeigen()
-    # ⚠ Über `_posten_zeigen()`, nicht mit einem fest hingeschriebenen Text:
-    # `s_pa_waehlen` direkt („Wähl links einen Patch aus") stünde auch dann
-    # da, wenn links noch gar nichts Abgelegtes liegt. Die Fallunterscheidung
-    # steckt in
-    # `_posten_zeigen()`; steht sie an zwei Stellen, läuft sie auseinander.
-    _posten_zeigen()
+    def _first_draw():
+        _liste_zeigen()
+        # ⚠ Über `_posten_zeigen()`, nicht mit einem fest hingeschriebenen Text:
+        # `s_pa_waehlen` direkt („Wähl links einen Patch aus") stünde auch dann
+        # da, wenn links noch gar nichts Abgelegtes liegt. Die Fallunterscheidung
+        # steckt in
+        # `_posten_zeigen()`; steht sie an zwei Stellen, läuft sie auseinander.
+        _posten_zeigen()
 
     # ⚠ Beim erneuten Öffnen die Liste auffrischen, aber **nicht** von selbst
-    # ins Netz greifen: Die Seite wird beim Start im Leerlauf vorgebaut (siehe
+    # Patches holen: Die Seite wird beim Start im Leerlauf vorgebaut (siehe
     # `_prebuild_pages`) — ein Abruf von allein wäre ein Netzzugriff, den
     # niemand angestoßen hat. Der Knopf ist dafür da.
-    def _beim_zeigen():
+    def _refresh():
         _liste_zeigen()
         if zustand['patch']:
             _bereiche_zeigen()
             _posten_zeigen()
 
-    fenster.on_show['patchaenderungen'] = _beim_zeigen
+    # Nur neu zeichnen, wenn sich etwas geändert hat (`freshness.Guard`). Die
+    # Patch-Dateien liegen in einem eigenen Ordner und laufen nicht über
+    # `paths.app_file()` — ihr Stand kommt deshalb aus `pa.stamp()`.
+    from . import freshness
+    guard = freshness.Guard(extra=lambda: (pa.stamp(), zustand['patch'],
+                                           zustand['art'],
+                                           repr(erkul['list'])))
+    # Vor dem Zeichnen holen: Der Zusatzwert des Wächters wird vorher
+    # genommen und muss schon die Liste enthalten, die gezeichnet wird.
+    erkul['list'] = pa.offered()
+    guard.draw(_first_draw)
+
+    def _recheck_erkul():
+        """Was erkul anbietet, im Nebenfaden neu fragen — bietet es etwas
+        anderes an als beim letzten Zeichnen, wird neu gezeichnet. So
+        bleibt die Liste aktuell, ohne dass der Seitenwechsel auf das Netz
+        wartet."""
+        def work():
+            offer = pa.offered()
+
+            def apply():
+                if offer != erkul['list']:
+                    erkul['list'] = offer
+                    guard.draw(_refresh)
+            _from_thread(liste, apply)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_show():
+        if not guard.fresh():
+            guard.draw(_refresh)
+        _recheck_erkul()
+
+    fenster.on_show['patchaenderungen'] = _on_show
 
 
