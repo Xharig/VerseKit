@@ -51,6 +51,7 @@ import ctypes
 import socket
 import sys
 import threading
+import time
 
 WINDOWS = sys.platform.startswith('win')
 
@@ -58,6 +59,12 @@ WINDOWS = sys.platform.startswith('win')
 # davon geht ins Netz: gebunden wird ausschließlich an 127.0.0.1.
 WATCHDOG_PORT = 47913
 _watchdog = [None]
+# Wer gerufen wird, wenn ein zweiter Start anklopft. Der Port wird schon beim
+# Programmstart belegt, der Rückruf kommt erst mit dem fertigen Overlay dazu;
+# ein Ruf dazwischen wird gemerkt und dann nachgeholt.
+_watchdog_callback = [None]
+_watchdog_pending = [False]
+_watchdog_lock = threading.Lock()
 
 # Das Overlay-Fenster selbst. Das Hauptprogramm trägt sich beim Start ein, damit
 # die Einstellungsseite eine Änderung sofort anwenden kann, ohne das
@@ -530,7 +537,7 @@ def set_click_through(fenster, an):
 
 # ------------------------------------------------ Zweiter Start holt das Fenster
 
-def start_watchdog(beim_ruf):
+def start_watchdog(on_call):
     """Lauschen, ob jemand das Fenster hervorholen möchte.
 
     Warum überhaupt: Im Pop-up-Betrieb ist das Overlay die meiste Zeit unsichtbar.
@@ -542,39 +549,121 @@ def start_watchdog(beim_ruf):
     und beendet sich. Auf die Verknüpfung lässt sich dann eine ganz normale
     Tastenkombination legen.
 
-    `beim_ruf` wird im Lausch-Thread aufgerufen — dort nichts zeichnen, sondern
-    die Arbeit an den Tk-Thread übergeben (`after`).
-    """
-    try:
-        horcher = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        horcher.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        horcher.bind(('127.0.0.1', WATCHDOG_PORT))
-        horcher.listen(4)
-    except OSError:
-        return False                     # läuft schon — wir sind die zweite Version
-    _watchdog[0] = horcher
+    `on_call` kommt aus dem Lausch-Faden — oder, für einen gemerkten Ruf,
+    aus dem aufrufenden Faden. Dort nichts zeichnen, sondern die Arbeit an
+    den Tk-Faden übergeben.
 
-    def lauschen():
+    Hat `claim_instance()` den Port schon belegt, trägt das nur den Rückruf
+    ein. Gibt zurück, ob dieser Prozess den Port hält.
+    """
+    with _watchdog_lock:
+        _watchdog_callback[0] = on_call
+        pending = _watchdog_pending[0]
+        _watchdog_pending[0] = False
+    if _watchdog[0] is None and not claim_instance():
+        return False
+    if pending:
+        try:
+            on_call()
+        except Exception:
+            pass
+    return True
+
+
+def _bind_watchdog():
+    """Den Port exklusiv belegen. Gibt den lauschenden Socket oder None zurück.
+
+    ⚠⚠ **Unter Windows nicht `SO_REUSEADDR`.** Dort heißt die Option etwas
+    anderes als unter Linux: Zwei Sockets mit `SO_REUSEADDR` binden denselben
+    Port gleichzeitig, der zweite Start hält sich für den ersten, und es
+    laufen zwei Versionen. `SO_EXCLUSIVEADDRUSE` verweigert jede zweite
+    Bindung. Unter Linux lehnt `SO_REUSEADDR` einen zweiten Lauscher ab und
+    erlaubt nur das Neubinden neben Verbindungen in `TIME_WAIT`.
+    """
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if WINDOWS:
+            listener.setsockopt(socket.SOL_SOCKET,
+                                getattr(socket, 'SO_EXCLUSIVEADDRUSE', -5), 1)
+        else:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('127.0.0.1', WATCHDOG_PORT))
+        listener.listen(4)
+    except OSError:
+        listener.close()
+        return None
+    return listener
+
+
+def claim_instance():
+    """Den Port für diesen Prozess belegen und lauschen. True = belegt.
+
+    Läuft schon beim Programmstart, vor Assistent und Overlay: Zwischen dem
+    Anklopfen bei einer laufenden Version und dem Belegen darf kein langer
+    Aufbau liegen, sonst kommen zwei schnelle Starts beide durch. Ein Ruf,
+    bevor `start_watchdog()` den Rückruf einträgt, wird gemerkt.
+    """
+    if _watchdog[0] is not None:
+        return True
+    listener = _bind_watchdog()
+    if listener is None:
+        return False
+    _watchdog[0] = listener
+
+    def listen():
         while True:
             try:
-                verbindung, _ = horcher.accept()
+                connection, _ = listener.accept()
             except OSError:
                 return
             try:
-                verbindung.settimeout(2)
-                verbindung.recv(64)
-                beim_ruf()
+                connection.settimeout(2)
+                connection.recv(64)
+                with _watchdog_lock:
+                    callback = _watchdog_callback[0]
+                    if callback is None:
+                        _watchdog_pending[0] = True
+                if callback is not None:
+                    callback()
             except Exception:
                 pass
             finally:
                 try:
-                    verbindung.close()
+                    connection.close()
                 except OSError:
                     pass
 
-    faden = threading.Thread(target=lauschen, daemon=True)
-    faden.start()
+    threading.Thread(target=listen, daemon=True).start()
     return True
+
+
+def another_instance_running():
+    """Läuft schon eine Version? True = ja, dieser Start soll sich beenden.
+
+    Erst anklopfen (die laufende zeigt sich dann), dann den Port selbst
+    belegen. Scheitert das Belegen, ist entweder gerade eine zweite Version
+    im Anlauf — sie lauscht schon und nimmt das Anklopfen an — oder ein
+    fremdes Programm hält den Port ohne zu lauschen. Im zweiten Fall startet
+    das Programm trotzdem, nur ohne Rückweg über den zweiten Start.
+
+    ⚠ Zwischen `bind()` und `listen()` der anderen Version liegt ein kurzer
+    Moment, in dem sie den Port hält, aber noch nicht annimmt — deshalb wird
+    danach einige Male nachgefragt. Scheitert hier irgendetwas, startet das
+    Programm wie ohne andere Version: Zwei Fenster sind besser als keins, und
+    der Absturzfänger steht zu diesem Zeitpunkt noch nicht.
+    """
+    try:
+        if please_show():
+            return True
+        if claim_instance():
+            return False
+        for _attempt in range(5):
+            if please_show():
+                return True
+            time.sleep(0.2)
+    except Exception:
+        pass
+    return False
 
 
 def stop_watchdog():

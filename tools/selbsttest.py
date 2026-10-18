@@ -3198,7 +3198,10 @@ def main():
         import socket as so24
         from scbp import overlay as ov24
         alt_port24 = ov24.WATCHDOG_PORT
-        ov24.WATCHDOG_PORT = 47990
+        # ⚠ Frei ermittelt, nicht fest: 47984–47990 belegt etwa Sunshine
+        # (Spiel-Streaming) auf 0.0.0.0, und eine exklusive Bindung scheitert
+        # dann zu Recht.
+        ov24.WATCHDOG_PORT = _free_port540()
         try:
             gestartet24 = ov24.start_watchdog(lambda: None)
             pruefe(gestartet24, 'der Waechter laesst sich starten')
@@ -11997,7 +12000,7 @@ def main():
 
     # Jede der drei Knopf-Funktionen muss sie rufen. Der Rumpf reicht bis zur
     # naechsten Definition auf derselben Einrueckung.
-    for _knopf118 in ('melden', 'kopieren', 'absenden'):
+    for _knopf118 in ('melden', 'kopieren', 'send_report'):
         _pos118 = _block118.find('\n    def %s():' % _knopf118)
         if _pos118 < 0:
             pruefe(False, 'die Funktion %s() ist auffindbar' % _knopf118)
@@ -12011,7 +12014,7 @@ def main():
     # ⚠ Und die Gegenrichtung: NUR bei Erfolg. Scheitert das Senden, muss der
     # Text stehen bleiben — ihn dann zu loeschen naehme dem Melder seine
     # Arbeit, genau bevor er es noch einmal versucht.
-    _abs118 = _block118.find('\n    def absenden():')
+    _abs118 = _block118.find('\n    def send_report():')
     if _abs118 > 0:
         _rumpf118 = _block118[_abs118:_block118.find('\n    def ', _abs118 + 10)]
         pruefe('if ok:\n                    _meldung_verbraucht()' in
@@ -23834,8 +23837,8 @@ def main():
             os.environ['SC_BP_HOME'] = _alt243c
         shutil.rmtree(_heim243c, ignore_errors=True)
     # Absenden: EIN Haken statt zweier Rueckfrage-Fenster; ohne Haken nichts.
-    _dia243 = rumpf(_pq243, '_diagnosis') if 'def _diagnosis(' in _pq243 else _pq243
-    _ab243 = _dia243[_dia243.find('def absenden():'):_dia243.find('def absenden():') + 2500]
+    _dia243 = rumpf(_pq243, '_diagnostics') if 'def _diagnostics(' in _pq243 else _pq243
+    _ab243 = _dia243[_dia243.find('def send_report():'):_dia243.find('def send_report():') + 2500]
     # Der Haken wird gemerkt, sobald er einmal gesetzt ist.
     pruefe("bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}" in _pq243
            and 'paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt' in _pq243,
@@ -25757,6 +25760,9 @@ def main():
     _pruefung_522()
     _pruefung_550()
     _pruefung_551()
+    _pruefung_540()
+    _pruefung_541()
+    _pruefung_542()
 
     print()
     if fehler:
@@ -40031,9 +40037,13 @@ def _pruefung_422():
             _tr422.update_available = lambda s, c=None: (
                 _gefragt422.append((s, c)) or (c == 'PTU', 'x'))
             _kasten422 = tk.Frame(_w422)
+            # `holen(Quelle, done)` — `done()` gibt den nächsten Kanal frei.
+            def _hol422(quelle, done):
+                _geholt422.append(quelle)
+                done()
             _ov422._check_link(_f422, _kasten422, [
-                ('luftwerft', None, tk.Label(_kasten422), _geholt422.append),
-                ('luftwerft', 'PTU', tk.Label(_kasten422), _geholt422.append)])
+                ('luftwerft', None, tk.Label(_kasten422), _hol422),
+                ('luftwerft', 'PTU', tk.Label(_kasten422), _hol422)])
             _link422 = [c for c in _kasten422.winfo_children()
                         if hasattr(c, 'check')][0]
             _link422.check()
@@ -52679,6 +52689,531 @@ def _pruefung_551():
         fleet_551.CATALOG = real_catalog
         fleet_551.unknown = old_unknown
         fleet_551.save(old_hangar)
+
+
+# Ein eigener Prozess, der wie ein zweiter Programmstart den Port anfragt.
+_CHILD540 = r'''
+import sys
+sys.path.insert(0, sys.argv[1])
+from scbp import overlay
+overlay.WATCHDOG_PORT = int(sys.argv[2])
+if sys.argv[3] == 'claim':
+    print('RESULT', overlay.claim_instance())
+else:
+    print('RESULT', overlay.another_instance_running())
+'''
+
+
+def _child540(port, step):
+    """Ergebnis von `claim_instance()` bzw. `another_instance_running()` in
+    einem frischen Prozess — `'True'`, `'False'` oder die Fehlerausgabe."""
+    run = subprocess.run([sys.executable, '-c', _CHILD540, WURZEL, str(port),
+                          step], capture_output=True, text=True, timeout=30,
+                         env=dict(os.environ))
+    for row in run.stdout.splitlines():
+        if row.startswith('RESULT '):
+            return row.split(' ', 1)[1]
+    return (run.stdout + run.stderr).strip()[-300:]
+
+
+def _main_calls540():
+    """Zeilen der Aufrufe im Startblock von `sc_bp_watcher.py` und ob
+    `run()` die Rückgabe von `start_watchdog` auswertet."""
+    import ast
+    with open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8') as f:
+        tree = ast.parse(f.read())
+    calls = {}
+    checked = False
+    for node in tree.body:
+        if (isinstance(node, ast.If) and isinstance(node.test, ast.Compare)
+                and isinstance(node.test.left, ast.Name)
+                and node.test.left.id == '__name__'):
+            for sub in ast.walk(node):
+                if (isinstance(sub, ast.Call)
+                        and isinstance(sub.func, ast.Attribute)):
+                    calls[sub.func.attr] = min(
+                        calls.get(sub.func.attr, sub.lineno), sub.lineno)
+        if isinstance(node, ast.ClassDef):
+            for sub in ast.walk(node):
+                if (isinstance(sub, ast.FunctionDef) and sub.name == 'run'):
+                    for test in ast.walk(sub):
+                        if isinstance(test, ast.If):
+                            for call in ast.walk(test.test):
+                                if (isinstance(call, ast.Call)
+                                        and isinstance(call.func,
+                                                       ast.Attribute)
+                                        and call.func.attr
+                                        == 'start_watchdog'):
+                                    checked = True
+    return calls, checked
+
+
+def _free_port540():
+    """Ein Port auf 127.0.0.1, den gerade niemand hält — vom System vergeben.
+
+    ⚠ Kein fester Port: Bleibt aus einem früheren Lauf eine Verbindung in
+    `TIME_WAIT` liegen oder belegt ein anderes Programm ihn, würde die
+    Prüfung vom Zufall abhängig rot."""
+    import socket
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind(('127.0.0.1', 0))
+        return probe.getsockname()[1]
+    finally:
+        probe.close()
+
+
+def _pruefung_540():
+    """Einzelstart: ein zweiter Start bekommt den Port nie, auch nicht im
+    Anlauf der ersten Version; nach `stop_watchdog()` startet die neue."""
+    print('\n540. Einzelstart: der zweite Start bekommt den Port nie')
+    import socket as socket_540
+    from scbp import overlay as overlay_540
+    old_port = overlay_540.WATCHDOG_PORT
+    port = _free_port540()
+    overlay_540.stop_watchdog()
+    overlay_540.WATCHDOG_PORT = port
+    old_callback = overlay_540._watchdog_callback[0]
+    overlay_540._watchdog_callback[0] = None
+    overlay_540._watchdog_pending[0] = False
+    foreign = None
+    try:
+        # a) Selbstprüfung: ist der Port frei, bekommt ihn der zweite Prozess.
+        pruefe(_child540(port, 'claim') == 'True',
+               'Selbstprüfung: ein freier Port lässt sich im zweiten Prozess '
+               'belegen')
+
+        # b) Die erste Version hält den Port, noch ohne fertiges Overlay.
+        pruefe(overlay_540.another_instance_running() is False,
+               'erster Start: läuft keine Version, wird gestartet')
+        result = _child540(port, 'claim')
+        pruefe(result == 'False',
+               'zweiter Prozess kann den belegten Port nicht belegen (%s)'
+               % result)
+
+        # c) Ein zweiter Start im Anlauf: er beendet sich, der Ruf wird
+        #    gemerkt und mit dem Rückruf nachgeholt.
+        result = _child540(port, 'start')
+        pruefe(result == 'True',
+               'zweiter Start im Anlauf der ersten beendet sich (%s)' % result)
+        end = time.monotonic() + 3
+        while not overlay_540._watchdog_pending[0] and time.monotonic() < end:
+            time.sleep(0.05)
+        calls = []
+        pruefe(overlay_540.start_watchdog(lambda: calls.append(1)) is True,
+               'start_watchdog meldet den schon belegten Port als eigenen')
+        pruefe(calls == [1],
+               'der Ruf vor dem fertigen Overlay wird einmal nachgeholt (%r)'
+               % calls)
+
+        # d) Neustart nach dem Update: nach stop_watchdog BEKOMMT die neue
+        #    Version den Port — auch direkt nach der angenommenen Verbindung
+        #    aus c), deren Rest noch in TIME_WAIT liegen kann.
+        overlay_540.stop_watchdog()
+        result = _child540(port, 'claim')
+        pruefe(result == 'True',
+               'nach stop_watchdog belegt die neue Version den Port (%s)'
+               % result)
+
+        # e) Ein fremdes Programm hält den Port, ohne zu lauschen: das
+        #    Programm startet trotzdem.
+        foreign = socket_540.socket(socket_540.AF_INET,
+                                    socket_540.SOCK_STREAM)
+        try:
+            foreign.bind(('127.0.0.1', port))
+            blocked = _child540(port, 'claim')
+            result = _child540(port, 'start')
+        except OSError as exc:
+            blocked = result = 'Port nicht frei: %s' % exc
+        pruefe(blocked == 'False',
+               'Selbstprüfung: der fremde Socket verhindert das Belegen (%s)'
+               % blocked)
+        pruefe(result == 'False',
+               'fremd belegter Port ohne Lauscher: Programm startet (%s)'
+               % result)
+
+        # f) Der echte Einstiegspunkt belegt den Port vor Assistent und Tk.
+        lines, checked = _main_calls540()
+        claim = lines.get('another_instance_running')
+        later = {name: lines[name] for name in ('Tk', 'start')
+                 if name in lines}
+        pruefe(claim is not None and later
+               and all(claim < row for row in later.values()),
+               'Startblock belegt den Port vor %s (Zeile %s)'
+               % (sorted(later), claim))
+        pruefe('please_show' not in lines,
+               'Startblock fragt nicht nur an, sondern belegt (please_show '
+               'in Zeile %s)' % lines.get('please_show'))
+        pruefe(checked, 'run() wertet die Rückgabe von start_watchdog aus')
+    finally:
+        if foreign is not None:
+            foreign.close()
+        overlay_540.stop_watchdog()
+        overlay_540.WATCHDOG_PORT = old_port
+        overlay_540._watchdog_callback[0] = old_callback
+        overlay_540._watchdog_pending[0] = False
+
+
+def _workflow_findings542(text):
+    """Ausdrücke `${{ … }}` in `run:` und Schreibrechte in einem
+    GitHub-Ablauf — zeilenweise gelesen, ohne YAML-Paket.
+
+    Gibt `(stellen, schreiber, oben)` zurück: Zeilennummern mit `${{` in
+    einem `run:`-Wert, je Schreibrecht (`<recht>: write`, `write-all`, auch
+    in der Kurzform `{ … }`) der Name des Jobs (`''` = ganzer Ablauf), und
+    ob der Ablauf oben überhaupt `permissions:` setzt — ohne gilt die
+    Voreinstellung des Repos."""
+    rows = text.replace('\r\n', '\n').split('\n')
+    places, writers = [], []
+    top = False
+    jobs_at, job = None, ''
+    run_indent = None
+    for number, row in enumerate(rows, 1):
+        stripped = row.lstrip(' ')
+        indent = len(row) - len(stripped)
+        if run_indent is not None:
+            if stripped and indent <= run_indent:
+                run_indent = None
+            elif '${{' in row:
+                places.append(number)
+                continue
+            else:
+                continue
+        if not stripped or stripped.startswith('#'):
+            continue
+        writes = (re.search(r'\bwrite-all\b', stripped)
+                  or re.match(r'[\w-]+:\s*write\b', stripped)
+                  or re.match(r'permissions:\s*\{[^}]*:\s*write\b', stripped))
+        if indent == 0:
+            jobs_at = number if stripped.startswith('jobs:') else None
+            job = ''
+            if stripped.startswith('permissions:'):
+                top = True
+            if writes:
+                writers.append(job)
+            continue
+        if jobs_at is not None and indent == 2 and stripped.endswith(':'):
+            job = stripped[:-1]
+        match = re.match(r'(- )?run:\s*(.*)$', stripped)
+        if match:
+            key_indent = indent + (2 if match.group(1) else 0)
+            rest = match.group(2)
+            if rest[:1] in ('|', '>'):
+                run_indent = key_indent
+            elif '${{' in rest:
+                places.append(number)
+            continue
+        if writes:
+            writers.append(job)
+    return places, writers, top
+
+
+def _pruefung_542():
+    """Release-Abläufe: kein `${{ … }}` in `run:`, Schreibrecht nur an den
+    Jobs, die taggen oder das Release anlegen."""
+    print('\n542. Release-Abläufe: Werte über env, Schreibrecht nur am Job')
+    sample = ('permissions:\n  contents: write\njobs:\n  bau:\n    steps:\n'
+              '      - run: echo ${{ env.TAG }}\n      - name: x\n'
+              '        run: |\n          echo ok\n          echo "${{ a }}"\n'
+              '          echo "contents: write"\n'
+              '      - run: echo "$TAG"\n  rel:\n    permissions:\n'
+              '      contents: write\n  pak:\n    permissions: write-all\n'
+              '  kurz:\n    permissions: { contents: read, packages: write }\n'
+              '  id:\n    permissions:\n      id-token: write\n')
+    places, writers, top = _workflow_findings542(sample)
+    pruefe(places == [6, 10] and top
+           and writers == ['', 'rel', 'pak', 'kurz', 'id'],
+           'Selbstprüfung: der Leser findet beide Ausdrücke und jedes '
+           'Schreibrecht, auch write-all und die Kurzform (%r, %r)'
+           % (places, writers))
+    pruefe(not _workflow_findings542('jobs:\n  a:\n    steps: []\n')[2],
+           'Selbstprüfung: ein Ablauf ohne permissions oben fällt auf')
+    expected = {'release.yml': ['release'], 'geplant.yml': ['taggen', 'bauen']}
+    for name, jobs in sorted(expected.items()):
+        with open(os.path.join(WURZEL, '.github', 'workflows', name),
+                  encoding='utf-8') as f:
+            places, writers, top = _workflow_findings542(f.read())
+        pruefe(top, '%s: setzt oben permissions (nur lesen)' % name)
+        pruefe(not places, '%s: kein ${{ … }} in run: (Zeilen %s)'
+               % (name, places))
+        pruefe(writers == jobs, '%s: Schreibrecht nur für %s (gefunden: %s)'
+               % (name, jobs, ['(ganzer Ablauf)' if w == '' else w
+                               for w in writers]))
+
+
+def _drain541(until, seconds=5.0):
+    """Die Aufträge aus Nebenfäden im Tk-Faden abarbeiten, bis `until()`."""
+    from scbp import tk_calls
+    end = time.monotonic() + seconds
+    while not until() and time.monotonic() < end:
+        tk_calls.drain()
+        time.sleep(0.02)
+    tk_calls.drain()
+    return until()
+
+
+def _pruefung_541():
+    """Textquelle wählen, Nebenkanal holen und Bericht absenden: Netz- und
+    Dateiarbeit im Nebenfaden, Meldungen und Abschluss im Tk-Faden."""
+    print('\n541. Textquelle und Absenden: Netz und Dateien im Nebenfaden')
+    import threading
+    from scbp import (injection as inj_541, pages as pages_541,
+                      paths as paths_541, settings_window as sw_541,
+                      translation as tr_541)
+    from scbp.language import t as t_541
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp541-')
+    os.environ['SC_BP_HOME'] = home
+    gate = threading.Event()
+    fetched = []
+    saved = (tr_541.fetch, tr_541.target_ini, tr_541.language_folder,
+             tr_541.set_channel_source, inj_541.clean_leftover,
+             inj_541.setup, inj_541.status)
+    from scbp import overview as overview_541_mod
+    saved_update = tr_541.update_available
+    saved_rows = overview_541_mod.translation_rows
+    saved_parts = pages_541._settings_parts
+
+    def slow_fetch(source, progress=None, **_kw):
+        fetched.append(threading.current_thread() is threading.main_thread())
+        if progress is not None:
+            progress('Fortschritt 541')
+        gate.wait(3)
+        return True, 'ok541'
+
+    def is_main():
+        return threading.current_thread() is threading.main_thread()
+
+    class Window:
+        """Schreibt jede Meldung mit — und ob sie im Tk-Faden ankam."""
+        def __init__(self):
+            self.said = []
+            self.off_thread = []
+
+        def say(self, text):
+            self.said.append(text)
+            if not is_main():
+                self.off_thread.append(text)
+
+    class Choice:
+        def __init__(self):
+            self.selected = []
+
+        def select(self, key):
+            self.selected.append(key)
+
+    try:
+        tr_541.fetch = slow_fetch
+        tr_541.target_ini = lambda *a, **k: os.path.join(home, 'global.ini')
+        tr_541.language_folder = lambda *a, **k: 'english'
+        tr_541.set_channel_source = lambda *a, **k: None
+        inj_541.clean_leftover = lambda *a, **k: (False, 0)
+        inj_541.setup = lambda *a, **k: (True, 5, '')
+        inj_541.status = lambda: {'drin': False, 'stand': '', 'datei': ''}
+        parts = sw_541.SettingsWindow.__new__(sw_541.SettingsWindow)
+        window, choice, then = Window(), Choice(), []
+        parts.melder = window.say
+        parts._source_confirmed = lambda source: True
+        paths_541.set_setting('inj_quelle', '')
+
+        # a) Hauptinstallation: der Klick kehrt zurück, während das Holen
+        #    noch hängt.
+        start = time.monotonic()
+        pages_541._choose_source(window, parts, choice, 'quelle541',
+                                 lambda: then.append(is_main()))
+        took = time.monotonic() - start
+        _drain541(lambda: fetched, 2.0)
+        pruefe(fetched == [False],
+               'Selbstprüfung: das Holen läuft an, im Nebenfaden (%r)'
+               % fetched)
+        pruefe(took < 1.0 and not gate.is_set(),
+               'Textquelle wählen kehrt sofort zurück (%.2f s), das Holen '
+               'hängt noch' % took)
+
+        # b) Ein zweiter Klick währenddessen startet nichts.
+        pages_541._choose_source(window, parts, choice, 'quelle541b',
+                                 lambda: then.append('zweiter'))
+        pruefe(len(fetched) == 1
+               and paths_541.setting('inj_quelle') == 'quelle541'
+               and t_541('inj_laeuft') in window.said,
+               'zweiter Klick während des Holens: kein zweiter Lauf, die '
+               'Wahl bleibt (%r)' % paths_541.setting('inj_quelle'))
+        pruefe(then == ['zweiter'],
+               'der abgewiesene Klick meldet sich sofort ab (%r)' % then)
+        del then[:]
+
+        # c) Nach dem Holen: Fortschritt und Abschluss im Tk-Faden.
+        gate.set()
+        _drain541(lambda: then)
+        pruefe(then == [True],
+               'der Abschluss kommt genau einmal, im Tk-Faden (%r)' % then)
+        pruefe('Fortschritt 541' in window.said
+               and t_541('inj_aktiv', 5) in window.said,
+               'Fortschritt und Ergebnis erscheinen in der Meldung')
+        pruefe(not window.off_thread,
+               'jede Meldung kommt im Tk-Faden an (außerhalb: %r)'
+               % window.off_thread)
+        pruefe(not sw_541.text_work_busy(), 'danach ist nichts mehr belegt')
+
+        # d) Wirft das Holen, kommt der Abschluss trotzdem.
+        def broken_fetch(*_a, **_k):
+            raise OSError('kein Netz 541')
+        tr_541.fetch = broken_fetch
+        del then[:]
+        pages_541._choose_source(window, parts, choice, 'quelle541',
+                                 lambda: then.append(is_main()))
+        _drain541(lambda: then)
+        pruefe(then == [True] and not sw_541.text_work_busy(),
+               'Fehler beim Holen: Abschluss kommt, die Sperre ist frei (%r)'
+               % then)
+
+        # e) Nebenkanal (PTU …): derselbe Weg.
+        tr_541.fetch = slow_fetch
+        gate.clear()
+        del fetched[:]
+        side, finished = Window(), []
+        start = time.monotonic()
+        pages_541._fetch_side(window, parts, 'PTU541', home, 'quelle541',
+                              side.say, lambda: finished.append(is_main()))
+        took = time.monotonic() - start
+        _drain541(lambda: fetched, 2.0)
+        pruefe(took < 1.0 and fetched == [False],
+               'Nebenkanal holen kehrt sofort zurück (%.2f s), Holen im '
+               'Nebenfaden (%r)' % (took, fetched))
+        gate.set()
+        _drain541(lambda: finished)
+        pruefe(finished == [True]
+               and t_541('s_tq_fertig') % ('PTU541', 'ok541') in side.said
+               and 'Fortschritt 541' in side.said and not side.off_thread,
+               'Nebenkanal: Fortschritt, Ergebnis und Abschluss im Tk-Faden '
+               '(%r, außerhalb: %r)' % (finished, side.off_thread))
+
+        # g) Übersicht: translation_reload und translation_check gehen über
+        #    mehrere Kanäle — nacheinander, keiner fällt der Sperre zum Opfer.
+        from scbp import overview as overview_541
+        rows = [('LIVE', home, True, None, 'quelle541'),
+                ('PTU541', home, False, 'PTU541', 'quelle541')]
+
+        class Widget:
+            @staticmethod
+            def winfo_exists():
+                return True
+        del fetched[:]
+        overview_541.translation_rows = lambda: rows
+        pages_541._settings_parts = lambda _window: parts
+        pruefe(overview_541.translation_reload(window) is True,
+               'Selbstprüfung: Alle neu holen läuft an')
+        _drain541(lambda: len(fetched) >= 2 and not sw_541.text_work_busy())
+        pruefe(len(fetched) == 2,
+               'Alle neu holen: beide Kanäle werden geholt (%d)' % len(fetched))
+        del fetched[:]
+        tr_541.update_available = lambda *_a, **_k: (True, 'neu541')
+        pruefe(overview_541.translation_check(window, Widget()) is True,
+               'Selbstprüfung: Nach Neuem suchen läuft an')
+        _drain541(lambda: len(fetched) >= 2 and not sw_541.text_work_busy())
+        pruefe(len(fetched) == 2,
+               'Nach Neuem suchen: beide Kanäle mit Neuem werden geholt (%d)'
+               % len(fetched))
+    finally:
+        gate.set()
+        (tr_541.fetch, tr_541.target_ini, tr_541.language_folder,
+         tr_541.set_channel_source, inj_541.clean_leftover,
+         inj_541.setup, inj_541.status) = saved
+        tr_541.update_available = saved_update
+        overview_541_mod.translation_rows = saved_rows
+        pages_541._settings_parts = saved_parts
+        _drain541(lambda: not sw_541.text_work_busy())
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+    _send_report541()
+
+
+def _send_report541():
+    """541 f) „Absenden" auf der echten Seite: die ZIP der Scan-Bilder
+    entsteht im Nebenfaden, der Klick kehrt sofort zurück."""
+    if not hat_anzeige():
+        uebersprungen('541 f) Absenden auf der Seite')
+        return
+    import threading
+    import tkinter as tk
+    from scbp import (main_window as main_541, pages as pages_541,
+                      paths as paths_541, report as report_541,
+                      signature_scan as scan_541)
+    from scbp.language import t as t_541
+    consent = paths_541.settings().get(pages_541.BERICHT_ZUSTIMMUNG)
+    paths_541.set_setting(pages_541.BERICHT_ZUSTIMMUNG, True)
+    saved = (report_541.submit, scan_541.samples, scan_541.sample_archive)
+    gate = threading.Event()
+    built, sent = [], []
+
+    def slow_archive(name=None):
+        built.append(threading.current_thread() is threading.main_thread())
+        gate.wait(3)
+        return b'PK'
+
+    root = _wurzel()
+    try:
+        root.deiconify()
+        root.geometry('1200x900')
+        frame = main_541.MainWindow(root, version='0.0.0-pruefung')
+        frame.open_page('diagnose')
+        # ⚠ Erst zeichnen: ein Klick auf ein noch nicht abgebildetes Fenster
+        # verwirft Tk.
+        root.update()
+        widgets = []
+
+        def collect(widget):
+            for child in widget.winfo_children():
+                widgets.append(child)
+                collect(child)
+        collect(frame.pages['diagnose'])
+        button = None
+        for widget in widgets:
+            if isinstance(widget, tk.Canvas) and getattr(widget, 'is_button',
+                                                         False):
+                for item in widget.find_all():
+                    if (widget.type(item) == 'text' and widget.itemcget(
+                            item, 'text') == t_541('s_di_absenden')):
+                        button = widget
+        pruefe(button is not None, 'Vorbedingung: der Knopf Absenden ist da')
+        if button is None:
+            return
+        report_541.submit = lambda text, version, attachments: (
+            sent.append([a[0] for a in attachments]) or (True, ''))
+        scan_541.samples = lambda: ['probe.png']
+        scan_541.sample_archive = slow_archive
+        start = time.monotonic()
+        button.event_generate('<Button-1>')
+        took = time.monotonic() - start
+        end = time.monotonic() + 2
+        while not built and time.monotonic() < end:
+            root.update()
+            time.sleep(0.02)
+        from scbp import errors as errors_541
+        pruefe(built == [False],
+               'Selbstprüfung: die ZIP der Scan-Bilder wird gebaut, im '
+               'Nebenfaden (%r%s)' % (built, '' if built else ', zuletzt: %r'
+                                      % [e.get('stelle') for e
+                                         in errors_541.latest(3)]))
+        pruefe(took < 1.0 and not sent,
+               'Absenden kehrt sofort zurück (%.2f s), die ZIP ist noch '
+               'nicht fertig' % took)
+        gate.set()
+        end = time.monotonic() + 5
+        while not sent and time.monotonic() < end:
+            root.update()
+            time.sleep(0.02)
+        pruefe(len(sent) == 1 and any(n.endswith('.zip') for n in sent[0]),
+               'danach geht der Bericht mit der ZIP hinaus (%r)' % sent)
+    finally:
+        gate.set()
+        report_541.submit, scan_541.samples, scan_541.sample_archive = saved
+        paths_541.set_setting(pages_541.BERICHT_ZUSTIMMUNG, consent)
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

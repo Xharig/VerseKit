@@ -29,6 +29,10 @@ const MAGIC = {
   'application/zip': [[0x50, 0x4b, 0x03, 0x04], [0x50, 0x4b, 0x05, 0x06]],
 };
 const IMAGE_ENDING = { 'image/png': 'png', 'image/jpeg': 'jpg' };
+// Die Scan-ZIP trägt den Melder im Namen (`signature_scan.archive_name`):
+// Buchstaben, Ziffern, `-_. `, höchstens 40 Zeichen. Alles andere heißt
+// beim Weiterleiten schlicht `scan-bilder.zip`.
+const ZIP_NAME_RE = /^scan-bilder(?:-[\p{L}\p{N}_. -]{1,40})?\.zip$/u;
 
 function answer(status, text) {
   return new Response(text, {
@@ -82,6 +86,16 @@ export async function check(request) {
       if (images > MAX_IMAGES) throw { status: 400, text: 'zu viele Bilder' };
       // Der Name kommt vom Absender und landet sichtbar in Discord.
       files.push(new File([f], `bild-${images}.${IMAGE_ENDING[type]}`, { type }));
+      continue;
+    }
+    // Auch die übrigen Namen landen sichtbar in Discord: Nur der Bericht
+    // (erste Datei, unten geprüft) und eine passende Scan-ZIP behalten ihren.
+    if (i > 0 && type === 'application/zip' && !ZIP_NAME_RE.test(f.name)) {
+      files.push(new File([f], 'scan-bilder.zip', { type }));
+      continue;
+    }
+    if (i > 0 && type === 'text/plain') {
+      files.push(new File([f], `anhang-${i}.txt`, { type }));
       continue;
     }
     files.push(f);

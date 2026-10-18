@@ -79,8 +79,16 @@ env:
   RUNTIME_VERSION: '20251108'
   RUNTIME_SHA256: '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d'
 
+# ⚠ Ab Werk nur lesen. Schreiben darf allein der Job `release`, der das
+# Release anlegt — die Bau-Jobs fuehren fremden Code aus (pip, PyInstaller,
+# AppImageTool) und brauchen kein Schreibrecht am Repo.
 permissions:
-  contents: write             # noetig, um das Release anzulegen
+  contents: read
+
+# ⚠⚠ **Kein `${{ … }}` in `run:`.** GitHub setzt den Ausdruck als Text in das
+# Skript ein, bevor die Shell es sieht — ein Tag-Name mit `;` oder `$(…)`
+# wuerde so zu Befehlen. Werte kommen ueber `env:` und stehen im Skript als
+# `"$TAG"` (pwsh: `"$env:TAG"`).
 
 jobs:
 
@@ -104,7 +112,7 @@ jobs:
 
       - name: Version gegen den Tag pruefen
         if: inputs.tag != '' || github.ref_type == 'tag'
-        run: python .github/scripts/version_pruefen.py ${{ env.TAG }}
+        run: python .github/scripts/version_pruefen.py "$env:TAG"
 
       # pyflakes findet Zugriffe auf Namen, die es nicht gibt — Fehler, die
       # sonst erst beim Klicken auffliegen. Ohne das Paket ueberspringt der
@@ -306,6 +314,8 @@ jobs:
     needs: [windows, linux]
     if: inputs.tag != '' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write         # noetig, um das Release anzulegen
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         # ⚠ Mit voller Historie und Tags: `release_text.py` sucht die vorige
@@ -319,7 +329,7 @@ jobs:
         # Der Abschnitt zur getaggten Version wird zum Release-Text — dadurch
         # steht im Werkzeug unter "Was ist neu" dasselbe wie auf GitHub.
         run: >
-          python3 .github/scripts/release_text.py ${{ env.TAG }}
+          python3 .github/scripts/release_text.py "$TAG"
           > release-text.md
 
       - name: Vorabversion?
@@ -328,7 +338,7 @@ jobs:
         # gekennzeichnet. Das Werkzeug bietet solche Fassungen niemandem
         # ungefragt als Update an — sie sind zum Pruefen da, nicht zum Verteilen.
         run: |
-          case "${{ env.TAG }}" in
+          case "$TAG" in
             *-rc*|*-beta*|*-alpha*) echo "vorab=true"  >> "$GITHUB_OUTPUT" ;;
             *)                      echo "vorab=false" >> "$GITHUB_OUTPUT" ;;
           esac
@@ -391,7 +401,9 @@ jobs:
         if: always()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python3 .github/scripts/discord_release.py "${GITHUB_REF_NAME}"
+        # ⚠ `$TAG`, nicht `GITHUB_REF_NAME`: Beim Aufruf aus geplant.yml
+        # gehoert der github-Kontext dem Aufrufer, dort steht der Zweig.
+        run: python3 .github/scripts/discord_release.py "$TAG"
 
       # Die beiden Release-Dateien bei VirusTotal prüfen lassen und das
       # Ergebnis samt Link an die Release-Notiz hängen.

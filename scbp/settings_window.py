@@ -40,6 +40,7 @@ from . import language
 from . import translation
 from .language import t, window_title
 from . import theme
+from . import tk_calls
 
 BG      = theme.BG
 SURFACE = theme.SURFACE
@@ -55,6 +56,39 @@ INTERVALL_MIN, INTERVALL_MAX = 1, 60
 
 def font(groesse, fett=False):
     return ('Segoe UI', groesse, 'bold' if fett else 'normal')
+
+
+# Holen und Einsetzen der Textdateien läuft im Nebenfaden — immer nur ein
+# Lauf zugleich, sonst schreiben zwei in dieselbe `global.ini`.
+_TEXT_WORK = [False]
+
+
+def text_work_busy():
+    """Läuft gerade ein Holen oder Einsetzen einer Textdatei?"""
+    return _TEXT_WORK[0]
+
+
+def run_text_work(work, done, place='settings.text_work'):
+    """`work()` im Nebenfaden, danach `done(ergebnis)` im Tk-Faden.
+
+    Nur aus dem Tk-Faden aufrufen. Gibt False zurück, wenn schon ein Lauf
+    unterwegs ist — dann passiert nichts, auch kein `done`."""
+    if _TEXT_WORK[0]:
+        return False
+    _TEXT_WORK[0] = True
+
+    def finish(result):
+        _TEXT_WORK[0] = False
+        done(result)
+    try:
+        tk_calls.run_in_thread(work, finish, place)
+    except Exception as exception:
+        # Startet der Faden nicht, darf die Sperre nicht stehen bleiben.
+        _TEXT_WORK[0] = False
+        from . import errors
+        errors.record(place, exception)
+        return False
+    return True
 
 
 class SettingsWindow:
@@ -377,7 +411,7 @@ class SettingsWindow:
             k.bind('<Button-1>', lambda e, f=tat: f())
         self._show_inj_state()
 
-    def _inj_switch(self, quelle):
+    def _inj_switch(self, source, done=None):
         """Auf eine andere Textquelle umstellen — holen, einsetzen, auszeichnen.
 
         ⚠ Vor dem ersten Einsetzen einer **fremden** Quelle wird gefragt. Eine
@@ -389,11 +423,17 @@ class SettingsWindow:
 
         „Original" fragt nicht — das nimmt die Texte aus der eigenen
         Installation und ändert die Sprache nicht.
+
+        Gibt zurück, ob der Wechsel angelaufen ist; nur dann kommt `done()`
+        später im Tk-Faden.
         """
+        if text_work_busy():
+            self._say(t('inj_laeuft'))
+            return False
         # Jede fremde Quelle, nicht nur Deutsch und StarStrings.
-        if quelle != 'original' and not self._source_confirmed(quelle):
-            return
-        self._inj_switch_now(quelle)
+        if source != 'original' and not self._source_confirmed(source):
+            return False
+        return self._inj_switch_now(source, done)
 
     def _source_confirmed(self, quelle):
         """Einmal je Quelle fragen, bevor die Textdatei ersetzt wird.
@@ -420,32 +460,34 @@ class SettingsWindow:
         paths.set_setting('inj_bestaetigt', ','.join(neu))
         return True
 
-    def _inj_switch_now(self, quelle):
-        """Der eigentliche Wechsel — ohne Rückfrage."""
-        def melde(x):
-            self._say(x)
-            self._continue()
+    def _inj_switch_now(self, source, done=None):
+        """Der eigentliche Wechsel — ohne Rückfrage, im Nebenfaden.
 
-        melde(t('inj_laeuft'))
-        try:
-            if quelle == 'original':
+        ⚠ Holen und Einsetzen dauern Sekunden; im Tk-Faden stünde so lange
+        das ganze Fenster. Fortschritt, Ergebnis und `done()` kommen über
+        `tk_calls` zurück. Gibt False zurück, wenn schon ein Wechsel läuft.
+        """
+        def progress(text):
+            tk_calls.call(lambda: self._say(text))
+
+        def work():
+            if source == 'original':
                 # Holt die englische global.ini aus dem Data.p4k des Spielers —
                 # dadurch braucht die Auszeichnung **keine** Fremdquelle.
-                sprache_ordner = 'english'
-                ok, meldung = gametext.fetch(sprache_ordner, fortschritt=melde)
+                language_folder = 'english'
+                ok, message = gametext.fetch(language_folder,
+                                             fortschritt=progress)
                 if not ok:
-                    self._say(t('inj_fehler', meldung), RED)
-                    return
+                    return t('inj_fehler', message), RED
                 # `g_language` setzt `gametext.fetch()` selbst.
-                ziel = translation.target_ini(sprache_ordner)
+                target = translation.target_ini(language_folder)
                 translation.note('original', 'Data.p4k')
             else:
-                ok, meldung = translation.fetch(quelle, progress=melde)
+                ok, message = translation.fetch(source, progress=progress)
                 if not ok:
-                    self._say(t('inj_fehler', meldung), RED)
-                    return
-                sprache_ordner = translation.language_folder(quelle)
-                ziel = translation.target_ini(sprache_ordner)
+                    return t('inj_fehler', message), RED
+                language_folder = translation.language_folder(source)
+                target = translation.target_ini(language_folder)
             # ⚠⚠ **Erst die alte Datei zurücksetzen, dann die neue einrichten.**
             # Die Quellen schreiben in verschiedene Sprachordner; ohne das
             # bleiben unsere Einfügungen in einer Datei stehen, die niemand
@@ -453,16 +495,26 @@ class SettingsWindow:
             # dauerhaft einen alten Stand. Die Reihenfolge ist Pflicht:
             # `einrichten()` überschreibt den Urtext, den das Zurücksetzen
             # braucht.
-            alt, alt_n = injection.clean_leftover(ziel)
-            if alt:
-                melde(t('inj_alt_aufgeraeumt', alt_n))
-            ok, n, meldung = injection.setup(ziel, sprache_ordner,
-                                                  progress=melde)
-            self._say(t('inj_aktiv', n) if ok else t('inj_fehler', meldung),
-                         SUB if ok else RED)
-        except Exception as e:
-            self._say(t('inj_fehler', e), RED)
-        self._show_inj_state()
+            old, old_count = injection.clean_leftover(target)
+            if old:
+                progress(t('inj_alt_aufgeraeumt', old_count))
+            ok, count, message = injection.setup(target, language_folder,
+                                                 progress=progress)
+            return ((t('inj_aktiv', count), SUB) if ok
+                    else (t('inj_fehler', message), RED))
+
+        def finish(result):
+            text, color = result or (t('inj_fehler', '—'), RED)
+            self._say(text, color)
+            self._show_inj_state()
+            if done is not None:
+                done()
+
+        if text_work_busy():
+            self._say(t('inj_laeuft'))
+            return False
+        self._say(t('inj_laeuft'))
+        return run_text_work(work, finish, 'settings.inj_switch')
 
     def _inj_ini(self):
         """Die `global.ini`, um die es geht — siehe `injection.ini_file()`.
@@ -498,45 +550,69 @@ class SettingsWindow:
                 pass
 
     def _inj_refresh(self):
-        pfad, sprache_ordner, _ = self._inj_ini()
-        if not pfad:
+        """Die Angaben neu in die `global.ini` schreiben — im Tk-Faden.
+
+        ⚠ Hält dabei die Sperre von `run_text_work`: `_continue()` lässt Tk
+        zwischendurch Klicks abarbeiten, und ein Holen im Nebenfaden schriebe
+        sonst gleichzeitig in dieselbe Datei."""
+        path, language_folder, _ = self._inj_ini()
+        if not path:
             self._say(t('inj_fehler', 'global.ini'), RED)
             return
-        self._say(t('inj_laeuft'))
-        self._continue()
-        ok, n, meldung = injection.refresh(
-            pfad, sprache_ordner,
-            progress=lambda x: (self._say(x), self._continue()))
-        self._say(t('inj_aktiv', n) if ok else t('inj_fehler', meldung),
-                     SUB if ok else RED)
+        if text_work_busy():
+            self._say(t('inj_laeuft'))
+            return
+        _TEXT_WORK[0] = True
+        try:
+            self._say(t('inj_laeuft'))
+            self._continue()
+            ok, count, message = injection.refresh(
+                path, language_folder,
+                progress=lambda x: (self._say(x), self._continue()))
+        finally:
+            _TEXT_WORK[0] = False
+        self._say(t('inj_aktiv', count) if ok else t('inj_fehler', message),
+                  SUB if ok else RED)
         self._show_inj_state()
 
     def _inj_remove(self):
-        pfad, sprache_ordner, _ = self._inj_ini()
-        if not pfad:
+        path, language_folder, _ = self._inj_ini()
+        if not path:
             return
-        ok, n, meldung = injection.remove_texts(pfad, sprache_ordner)
-        self._say(meldung, SUB if ok else RED)
+        if text_work_busy():
+            self._say(t('inj_laeuft'))
+            return
+        ok, _count, message = injection.remove_texts(path, language_folder)
+        self._say(message, SUB if ok else RED)
         self._show_inj_state()
 
     def _inj_check(self):
-        """Gibt es bei der benutzten Quelle etwas Neues?"""
-        pfad, _sprache, quelle = self._inj_ini()
-        drin = bool(pfad and os.path.isfile(pfad) and injection.is_applied(pfad))
-        if not quelle:
+        """Gibt es bei der benutzten Quelle etwas Neues? Die Frage ans Netz
+        läuft im Nebenfaden (`run_text_work`)."""
+        path, _language, source = self._inj_ini()
+        applied = bool(path and os.path.isfile(path)
+                       and injection.is_applied(path))
+        if not source:
             # Keine Übersetzung vermerkt — dann bleibt nur die Aussage, ob die
             # Angaben gerade im Spiel stehen.
-            self._say(t('inj_steht') if drin else t('inj_steht_nicht'))
+            self._say(t('inj_steht') if applied else t('inj_steht_nicht'))
             return
+
+        def work():
+            return translation.update_available(source)
+
+        def finish(result):
+            newer, version = result or (False, '')
+            state = translation.status_text(source)
+            parts = [t('inj_steht') if applied else t('inj_steht_nicht')]
+            if state:
+                parts.append(state)
+            parts.append(t('inj_update_da', version) if newer
+                         else t('inj_aktuell'))
+            self._say(' · '.join(parts))
+
         self._say(t('inj_laeuft'))
-        self._continue()
-        neu, kennung = translation.update_available(quelle)
-        stand = translation.status_text(quelle)
-        teile = [t('inj_steht') if drin else t('inj_steht_nicht')]
-        if stand:
-            teile.append(stand)
-        teile.append(t('inj_update_da', kennung) if neu else t('inj_aktuell'))
-        self._say(' · '.join(teile))
+        run_text_work(work, finish, 'settings.inj_check')
 
     def _footer(self):
         fuss = tk.Frame(self.root, bg=BG)

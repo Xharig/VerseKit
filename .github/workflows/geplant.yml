@@ -44,8 +44,10 @@ on:
         type: boolean
         default: true
 
+# Ab Werk nur lesen; Schreibrecht nur fuer die Jobs, die taggen und bauen.
+# Und wie in `release.yml`: kein `${{ … }}` in `run:`, Werte ueber `env:`.
 permissions:
-  contents: write             # noetig, um den Tag zu setzen
+  contents: read
 
 jobs:
 
@@ -83,14 +85,18 @@ jobs:
         run: python3 .github/scripts/release_faellig.py
 
       - name: Ergebnis in die Zusammenfassung
+        env:
+          FAELLIG: ${{ steps.pruefung.outputs.faellig }}
+          TAG: ${{ steps.pruefung.outputs.tag }}
+          GRUND: ${{ steps.pruefung.outputs.grund }}
         run: |
           {
             echo "### Release nach Zeitplan"
             echo ""
-            if [ "${{ steps.pruefung.outputs.faellig }}" = "true" ]; then
-              echo "**${{ steps.pruefung.outputs.tag }}** ist faellig — ${{ steps.pruefung.outputs.grund }}."
+            if [ "$FAELLIG" = "true" ]; then
+              echo "**$TAG** ist faellig — $GRUND."
             else
-              echo "Nichts veroeffentlicht: ${{ steps.pruefung.outputs.grund }}."
+              echo "Nichts veroeffentlicht: $GRUND."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -98,16 +104,20 @@ jobs:
     needs: pruefen
     if: needs.pruefen.outputs.faellig == 'true' && inputs.trockenlauf != true
     runs-on: ubuntu-latest
+    permissions:
+      contents: write         # noetig, um den Tag zu setzen
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with: { fetch-depth: 0 }
 
       - name: Tag setzen und hochladen
+        env:
+          TAG: ${{ needs.pruefen.outputs.tag }}
         run: |
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag "${{ needs.pruefen.outputs.tag }}"
-          git push origin "${{ needs.pruefen.outputs.tag }}"
+          git tag "$TAG"
+          git push origin "$TAG"
 
   bauen:
     needs: [pruefen, taggen]

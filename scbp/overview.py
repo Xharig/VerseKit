@@ -784,35 +784,54 @@ def translation_rows():
     return result
 
 
-def translation_pick(window, parts, name, folder, main, key):
+def translation_pick(window, parts, name, folder, main, key, done=None):
     """Eine Textquelle für einen Kanal setzen und holen — derselbe Weg wie
-    auf der Übersetzungsseite."""
+    auf der Übersetzungsseite.
+
+    Das Holen läuft im Hintergrund; `done()` kommt genau einmal, wenn es
+    fertig ist oder gar nicht erst anläuft."""
     from .pages import _choose_source, _fetch_side
+    done = done or (lambda: None)
     if not key:
+        done()
         return
 
     class _Choice:
         def select(self, _key):
             pass
     if main:
-        _choose_source(window, parts, _Choice(), key, lambda: None)
+        _choose_source(window, parts, _Choice(), key, done)
     else:
-        _fetch_side(window, parts, name, folder, key, window.say)
+        _fetch_side(window, parts, name, folder, key, window.say, done)
+
+
+def _one_after_another(steps):
+    """`steps` sind Aufrufe `step(done)`; jeder startet erst, wenn der
+    vorige `done()` gerufen hat — es läuft immer nur ein Holen zugleich
+    (`settings_window.run_text_work`)."""
+    steps = list(steps)
+
+    def next_step():
+        if steps:
+            steps.pop(0)(next_step)
+    next_step()
 
 
 def translation_reload(window):
     """Jede gewählte Übersetzung noch einmal holen und einsetzen — etwa wenn
-    ein Spiel-Patch die Textdatei überschrieben hat."""
+    ein Spiel-Patch die Textdatei überschrieben hat. Die Kanäle kommen
+    nacheinander dran."""
     from .pages import _settings_parts
     parts = _settings_parts(window)
-    done = False
-    for name, folder, main, _channel, chosen in translation_rows():
-        if chosen:
-            translation_pick(window, parts, name, folder, main, chosen)
-            done = True
-    if not done:
+    steps = [lambda done, n=name, f=folder, m=main, c=chosen:
+             translation_pick(window, parts, n, f, m, c, done)
+             for name, folder, main, _channel, chosen in translation_rows()
+             if chosen]
+    if not steps:
         window.say(t('s_tq_nichts_zu_pruefen'))
-    return done
+        return False
+    _one_after_another(steps)
+    return True
 
 
 def translation_check(window, widget, checks=None, started=None,
@@ -820,14 +839,16 @@ def translation_check(window, widget, checks=None, started=None,
     """Für jeden Kanal mit gewählter Quelle nach einer neueren Fassung fragen
     und sie gleich holen. Die Abfrage läuft im Hintergrund; `checks` sind
     (Quelle, Kanal, Statuszeile oder None, holen), ohne Angabe alle Kanäle.
-    `started()`/`finished()` melden Anfang und Ende."""
+    `holen(Quelle, done)` muss `done()` genau einmal rufen — die Kanäle mit
+    Neuem kommen nacheinander dran. `started()`/`finished()` melden Anfang
+    und Ende."""
     from . import translation
     from .pages import _from_thread, _settings_parts
     if checks is None:
         parts = _settings_parts(window)
         checks = [(chosen, channel, None,
-                   lambda key, n=name, f=folder, m=main:
-                   translation_pick(window, parts, n, f, m, key))
+                   lambda key, done, n=name, f=folder, m=main:
+                   translation_pick(window, parts, n, f, m, key, done))
                   for name, folder, main, channel, chosen in translation_rows()
                   if chosen and chosen != 'original']
     if not checks:
@@ -837,14 +858,15 @@ def translation_check(window, widget, checks=None, started=None,
     def done(results):
         if finished:
             finished()
-        fetched = False
+        steps = []
         for (source, channel, state, pick), newer in zip(checks, results):
             if newer:
-                pick(source)
-                fetched = True
+                steps.append(lambda then, p=pick, s=source: p(s, then))
             elif state is not None:
                 _status(state, source, channel)
-        if not fetched:
+        if steps:
+            _one_after_another(steps)
+        else:
             window.say(t('inj_aktuell'))
 
     def work():
@@ -891,11 +913,18 @@ def _tile_translation(window, cell):
         state = tk.Label(body, text='', bg=theme.SURFACE, fg=theme.SUB,
                          font=window.f_small, anchor='w')
 
-        def pick(key, main=main, name=name, folder=folder, state=state,
-                 channel=channel):
+        def pick(key, done=None, main=main, name=name, folder=folder,
+                 state=state, channel=channel):
             if not key:
+                if done is not None:
+                    done()
                 return
-            translation_pick(window, parts, name, folder, main, key)
+
+            def finished():
+                _status(state, key, channel)
+                if done is not None:
+                    done()
+            translation_pick(window, parts, name, folder, main, key, finished)
             _status(state, key, channel)
 
         # Erst die Auswahl, dann der Name: Tk kürzt bei Platzmangel das

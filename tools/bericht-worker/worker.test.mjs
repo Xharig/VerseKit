@@ -124,6 +124,20 @@ test('Scan-ZIP älterer Fassungen geht weiter mit, falsche ZIP nicht', async () 
   assert.equal(calls.length, 1);
 });
 
+test('Namen weiterer Anhänge vergibt der Worker, die Scan-ZIP behält ihren Melder', async () => {
+  const calls = trap();
+  const zipBytes = () => new Blob([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 20, 0])], { type: 'application/zip' });
+  const named = { name: 'scan-bilder-Jörg_42.zip', blob: zipBytes() };
+  const odd = { name: '@everyone Gratis-Nitro.zip', blob: zipBytes() };
+  const text = { name: 'C_Users_Name passwoerter.txt', blob: new Blob(['x'], { type: 'text/plain' }) };
+  const r = await worker.fetch(report({ extra: [named, odd, text] }), env());
+  assert.equal(r.status, 204);
+  const body = calls[0].init.body;
+  assert.equal(body.get('files[1]').name, 'scan-bilder-Jörg_42.zip');
+  assert.equal(body.get('files[2]').name, 'scan-bilder.zip');
+  assert.equal(body.get('files[3]').name, 'anhang-3.txt');
+});
+
 test('ausführbare Anhänge werden abgelehnt', async () => {
   const calls = trap();
   const exe = { name: 'x.exe', blob: new Blob(['MZ'], { type: 'application/x-msdownload' }) };
