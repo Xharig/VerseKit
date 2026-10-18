@@ -3406,28 +3406,38 @@ def _user_cfg_section(window, inner):
     show()
 
 
-def _choose_source(fenster, e, wahl, kennung, danach):
+def _choose_source(window, parts, choice, key, then):
     """Eine Textquelle einrichten — das dauert, also erst ansagen.
 
     ⚠ Ohne Ansage sieht es aus, als sei nichts passiert: Das Herunterladen und
     Einsetzen braucht mehrere Sekunden.
+
+    ⚠ Die Arbeit läuft im Nebenfaden (`settings_window.run_text_work`);
+    `then` kommt genau einmal: wenn sie fertig ist — oder sofort, wenn
+    nichts anläuft (schon belegt, Rückfrage verneint).
     """
-    from . import paths
-    wahl.select(kennung)
+    from . import paths, settings_window
+    if settings_window.text_work_busy():
+        window.say(t('inj_laeuft'))
+        choice.select(paths.setting('inj_quelle') or '')
+        then()
+        return
+    choice.select(key)
     # ⚠ Die Wahl wird **vor** dem Einrichten gemerkt. Sie stand vorher dahinter,
     # und wenn das Herunterladen schiefging (kein Netz, Zertifikat, Server weg),
     # blieb die alte Quelle eingetragen — das Feld zeigte die neue, der Rest des
     # Programms rechnete mit der alten. Erst gilt, was gewählt wurde; ob es auch
     # eingerichtet werden konnte, sagt der Kasten darüber.
-    paths.set_setting('inj_quelle', kennung)
+    paths.set_setting('inj_quelle', key)
     from . import translation
-    fenster.say(t('s_sp_hole') % translation.display_name(kennung))
+    window.say(t('s_sp_hole') % translation.display_name(key))
     try:
-        e._inj_switch(kennung)
-    except Exception as ausnahme:
-        errors.record('pages.spiel.quelle', ausnahme)
-        fenster.say(t('inj_fehler', ausnahme))
-    danach()
+        if parts._inj_switch(key, then):
+            return
+    except Exception as exception:
+        errors.record('pages.spiel.quelle', exception)
+        window.say(t('inj_fehler', exception))
+    then()
 
 
 def _choice_rows(window, parent, entries, active, action, per_row=3):
@@ -3468,33 +3478,59 @@ def _choice_rows(window, parent, entries, active, action, per_row=3):
     return holder
 
 
-def _fetch_side(window, parts, channel, folder, source, say):
+def _fetch_side(window, parts, channel, folder, source, say, done=None):
     """Einen Nebenkanal (PTU …) auf eine Quelle stellen und holen — von der
-    Übersetzungsseite und von der Übersicht aus."""
-    from . import translation
+    Übersetzungsseite und von der Übersicht aus.
+
+    ⚠ Das Holen läuft im Nebenfaden (`settings_window.run_text_work`);
+    `say` und `done` kommen im Tk-Faden an. `done` kommt genau einmal: wenn
+    es fertig ist — oder sofort, wenn nichts anläuft."""
+    from . import settings_window, translation
+    done = done or (lambda: None)
+    if settings_window.text_work_busy():
+        say(t('inj_laeuft'))
+        done()
+        return
     translation.set_channel_source(channel, source)
     if not source:
         say(t('s_tq_unberuehrt') % channel)
+        done()
         return
     if source != 'original' and not parts._source_confirmed(source):
+        done()
         return
     say(t('s_sp_hole') % translation.display_name(source))
-    try:
-        if source == 'original':
-            from . import gametext
-            ok, message = gametext.fetch('english', spielordner=folder,
-                                         fortschritt=say)
-            if ok:
-                translation._note_set(translation._key('original', channel),
-                                      'Data.p4k', 'english')
-        else:
-            ok, message = translation.fetch(source, progress=say,
-                                            game_dir=folder, channel=channel)
-    except Exception as exc:
-        errors.record('pages.uebersetzung.kanal', exc)
-        ok, message = False, str(exc)
-    say(t('s_tq_fertig') % (channel, message) if ok
-        else t('inj_fehler', message))
+
+    def progress(text):
+        _tk_calls.call(lambda: say(text))
+
+    def work():
+        try:
+            if source == 'original':
+                from . import gametext
+                ok, message = gametext.fetch('english', spielordner=folder,
+                                             fortschritt=progress)
+                if ok:
+                    translation._note_set(
+                        translation._key('original', channel),
+                        'Data.p4k', 'english')
+            else:
+                ok, message = translation.fetch(source, progress=progress,
+                                                game_dir=folder,
+                                                channel=channel)
+        except Exception as exc:
+            errors.record('pages.uebersetzung.kanal', exc)
+            ok, message = False, str(exc)
+        return ok, message
+
+    def finish(result):
+        ok, message = result or (False, '—')
+        say(t('s_tq_fertig') % (channel, message) if ok
+            else t('inj_fehler', message))
+        done()
+    if not settings_window.run_text_work(work, finish,
+                                         'pages.uebersetzung.kanal'):
+        done()
 
 
 def _translation_page(window, frame):
@@ -3556,8 +3592,8 @@ def _translation_page(window, frame):
         result.append(('', t('s_tq_nichts'), None))
         return result
 
-    def fetch_side(channel, folder, source):
-        _fetch_side(window, parts, channel, folder, source, say)
+    def fetch_side(channel, folder, source, done=None):
+        _fetch_side(window, parts, channel, folder, source, say, done)
 
     def card(channel_name, folder, main):
         box = tk.Frame(area, bg=BG)
@@ -3593,9 +3629,9 @@ def _translation_page(window, frame):
                 paths.set_setting('inj_quelle', '')
                 say(t('s_tq_nichts_ok'))
             elif main:
-                _choose_source(window, parts, choice, key, lambda: None)
+                _choose_source(window, parts, choice, key, status)
             else:
-                fetch_side(channel_name, folder, key)
+                fetch_side(channel_name, folder, key, status)
             status()
 
         choice = _choice_rows(window, box, entries_for(channel), chosen, act)
@@ -3651,9 +3687,9 @@ def _translation_page(window, frame):
                 return
             if main:
                 _choose_source(window, parts, choice, translation.CUSTOM,
-                               lambda: None)
+                               status)
             else:
-                fetch_side(channel_name, folder, translation.CUSTOM)
+                fetch_side(channel_name, folder, translation.CUSTOM, status)
             status()
 
         _button(window, buttons, t('s_tq_uebernehmen'), take_over,
@@ -3691,9 +3727,9 @@ def _translation_page(window, frame):
                     if newer:
                         if main:
                             _choose_source(window, parts, choice, current,
-                                           lambda: None)
+                                           status)
                         else:
-                            fetch_side(channel_name, folder, current)
+                            fetch_side(channel_name, folder, current, status)
                     else:
                         say(t('inj_aktuell'))
                     status()
@@ -8181,7 +8217,7 @@ def _diagnostics(fenster, rahmen):
     bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
     senden_laeuft = [False]
 
-    def absenden():
+    def send_report():
         """Auf Knopfdruck an den Entwickler — nach einem Haken, ohne Rückfrage.
 
         ⚠ Der Weg für alle, die nicht basteln wollen. Kopieren und in Discord
@@ -8202,37 +8238,40 @@ def _diagnostics(fenster, rahmen):
             return
         if senden_laeuft[0]:
             return
-        # Den Text im Tk-Faden lesen, das Senden im Nebenfaden: Es wartet bis
-        # zu 30 Sekunden auf das Netz, und das Fenster darf so lange nicht
-        # einfrieren.
+        # Text und Bilderliste im Tk-Faden lesen; Anhänge bauen und Senden im
+        # Nebenfaden: Die ZIP der Scan-Bilder kostet Zeit, und das Senden
+        # wartet bis zu 30 Sekunden auf das Netz.
         text = aktueller_bericht()
         sender = current_reporter()
-        anzahl = 0
-        try:
-            from . import signature_scan, refinery_scan
-            anzahl = (len(signature_scan.samples())
-                      + len(refinery_scan.kept_images()))
-        except Exception as ausnahme:
-            errors.record('pages.diagnose_scanbilder', ausnahme)
-        anhaenge = []
-        if anzahl:
-            try:
-                archiv = signature_scan.sample_archive(sender)
-                if archiv:
-                    # ⭐ Der Dateiname trägt den Melder, sonst heißen im
-                    # Download-Ordner alle Archive gleich.
-                    anhaenge.append((signature_scan.archive_name(sender),
-                                     archiv, 'application/zip'))
-            except Exception as ausnahme:
-                errors.record('pages.diagnose_scanbilder', ausnahme)
-        anhaenge += report.image_files([(daten, art)
-                                        for _n, daten, art in bilder])
+        images = [(data, kind) for _name, data, kind in bilder]
         senden_laeuft[0] = True
         fenster.say(t('s_di_ab_laeuft'))
 
+        def attachments():
+            count = 0
+            try:
+                from . import signature_scan, refinery_scan
+                count = (len(signature_scan.samples())
+                         + len(refinery_scan.kept_images()))
+            except Exception as exception:
+                errors.record('pages.diagnose_scanbilder', exception)
+            result = []
+            if count:
+                try:
+                    archive = signature_scan.sample_archive(sender)
+                    if archive:
+                        # ⭐ Der Dateiname trägt den Melder, sonst heißen im
+                        # Download-Ordner alle Archive gleich.
+                        result.append((signature_scan.archive_name(sender),
+                                       archive, 'application/zip'))
+                except Exception as exception:
+                    errors.record('pages.diagnose_scanbilder', exception)
+            return result + report.image_files(images)
+
         def work():
             try:
-                ok, reason = report.submit(text, fenster.version, anhaenge)
+                ok, reason = report.submit(text, fenster.version,
+                                           attachments())
             except Exception as exception:
                 errors.record('pages.diagnose_absenden', exception)
                 ok, reason = False, str(exception)
@@ -8269,7 +8308,7 @@ def _diagnostics(fenster, rahmen):
     # und speichert dort. Ein Knopf für einen Zwischenschritt, den niemand geht,
     # ist Ballast auf einer Seite, auf der man ohnehin schon Ärger hat.
     _button_row(reihe, [
-        _button(fenster, reihe, t('s_di_absenden'), absenden, danger=True),
+        _button(fenster, reihe, t('s_di_absenden'), send_report, danger=True),
         _button(fenster, reihe, t('s_di_melden'), melden, strong=True),
         _button(fenster, reihe, t('s_di_kopieren'), kopieren),
     ])

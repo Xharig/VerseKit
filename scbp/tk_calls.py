@@ -114,3 +114,22 @@ def call(action):
 
 def in_main_thread():
     return threading.current_thread() is threading.main_thread()
+
+
+def run_in_thread(work, done, place='tk_calls.run_in_thread'):
+    """`work()` in einem Nebenfaden, danach `done(ergebnis)` im Tk-Faden.
+
+    Für Netz- und Dateiarbeit, die ein Knopf anstößt: Im Tk-Faden stünde so
+    lange das ganze Fenster. `done` kommt **immer** — wirft `work`, wird der
+    Fehler gemerkt und `done(None)` gerufen, damit eine Sperre gegen einen
+    zweiten Lauf nicht für immer hängen bleibt."""
+    def run():
+        result = None
+        try:
+            result = work()
+        except Exception as exception:
+            from . import errors
+            errors.record(place, exception)
+        finally:
+            CALLS.put(lambda: done(result))
+    threading.Thread(target=run, daemon=True).start()

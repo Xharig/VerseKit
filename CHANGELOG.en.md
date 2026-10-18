@@ -12,9 +12,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Error report with Anti-AFK** — the report now says whether Anti-AFK is
   on, how often it pressed and why it was last switched off.
+- **Fetching translations no longer freezes the window** — choosing a text
+  source, applying your own address, checking for updates and fetching a
+  side channel now run in the background. "Send" also packs the scan images
+  in the background.
 
 ### Fixed
 
+- **Only one Verse-Kit at a time** — two quick starts in a row no longer
+  open a second copy; the second one brings the running one to the front.
+  On Windows two copies could run side by side until now.
 - **Error report: My Inventory complete** — the line now counts materials,
   goods and items and no longer runs into its label.
 - **Settings after the update restart** — if the settings file is briefly

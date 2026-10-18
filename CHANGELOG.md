@@ -12,9 +12,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Fehlerbericht mit Anti-AFK** — der Bericht nennt jetzt, ob Anti-AFK an
   ist, wie oft es gedrückt hat und warum es zuletzt abgeschaltet wurde.
+- **Übersetzung holen, ohne dass das Fenster einfriert** — Textquelle
+  wählen, eigene Adresse übernehmen, nach Neuem suchen und einen Nebenkanal
+  holen laufen jetzt im Hintergrund. „Absenden" packt auch die Scan-Bilder
+  im Hintergrund.
 
 ### Behoben
 
+- **Nur noch ein Verse-Kit zugleich** — zwei schnelle Starts hintereinander
+  öffnen keine zweite Version mehr; der zweite holt die laufende nach vorn.
+  Unter Windows konnten bisher zwei Versionen nebeneinander laufen.
 - **Fehlerbericht: Mein Lager vollständig** — die Zeile zählt jetzt
   Rohstoffe, Waren und Items und klebt nicht mehr an ihrer Beschriftung.
 - **Einstellungen nach dem Update-Neustart** — ist die Einstellungsdatei

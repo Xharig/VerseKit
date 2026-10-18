@@ -5706,27 +5706,32 @@ class Overlay:
 
         Dasselbe wie „Jetzt eintragen" auf der Einstellungsseite
         (`settings_window._inj_refresh`), nur ohne Fenster: frische
-        Vertragsdaten holen und neu eintragen. Läuft in einem Faden, weil es
-        die 10-MB-Datei neu schreibt; die Statuszeile meldet das Ergebnis.
+        Vertragsdaten holen und neu eintragen. Läuft im Nebenfaden, weil es
+        die 10-MB-Datei neu schreibt, und über dieselbe Sperre wie das Holen
+        einer Textquelle (`settings_window.run_text_work`) — sonst schrieben
+        zwei Läufe zugleich in die Datei. Die Statuszeile meldet das Ergebnis.
         """
-        import threading
-        pfad, sprache_ordner, _quelle = injection.ini_file()
-        if not pfad:
+        path, language_folder, _source = injection.ini_file()
+        if not path:
             self._status_setzen(language.Phrase('inj_fehler', 'global.ini'))
             return
         self._status_setzen(language.Phrase('inj_laeuft'))
 
-        def arbeit():
+        def work():
             try:
-                ok, n, meldung = injection.refresh(pfad, sprache_ordner)
-            except Exception as ausnahme:
-                ok, n, meldung = False, 0, str(ausnahme)
-                errors.record('overlay.uebersetzung_erneuern', ausnahme)
-            satz = (language.Phrase('inj_aktiv', n) if ok
-                    else language.Phrase('inj_fehler', meldung))
-            self._im_tk(lambda: self._status_setzen(satz))
+                ok, count, message = injection.refresh(path, language_folder)
+            except Exception as exception:
+                ok, count, message = False, 0, str(exception)
+                errors.record('overlay.uebersetzung_erneuern', exception)
+            return (language.Phrase('inj_aktiv', count) if ok
+                    else language.Phrase('inj_fehler', message))
 
-        threading.Thread(target=arbeit, daemon=True).start()
+        def finish(phrase):
+            self._status_setzen(phrase
+                                or language.Phrase('inj_fehler', '—'))
+
+        settings_window.run_text_work(work, finish,
+                                      'overlay.uebersetzung_erneuern')
 
     def _adresse_oeffnen(self, adresse, stelle):
         """Eine Adresse im Browser aufmachen — und sagen, wenn es nicht ging.
@@ -5860,7 +5865,9 @@ class Overlay:
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —
         # deshalb die Arbeit über `_im_tk` an Tk übergeben, nicht dort erledigen.
-        overlay.start_watchdog(lambda: self._im_tk(self.hervorholen))
+        if not overlay.start_watchdog(lambda: self._im_tk(self.hervorholen)):
+            errors.trail('Einzelstart-Port belegt — kein Rückweg über den '
+                         'zweiten Start')
         # Der Basetool-Abgleich schreibt Lager und Hangar im Tk-Faden.
         basetool_sync.IN_TK[0] = self._im_tk
         self.hotkey_anmelden()
@@ -5881,7 +5888,10 @@ if __name__ == '__main__':
     # ⚠ Läuft schon eine Version? Dann keine zweite öffnen, sondern der
     # vorhandenen sagen, sie soll sich zeigen. Genau darüber führt der Weg zurück,
     # wenn das Overlay im Pop-up-Betrieb unsichtbar ist.
-    if overlay.please_show():
+    # ⚠ Der Port wird HIER belegt, nicht erst in `run()`: Dazwischen liegen
+    # Assistent und Overlay-Aufbau, und zwei schnelle Starts kämen sonst
+    # beide durch.
+    if overlay.another_instance_running():
         sys.exit(0)
 
     # ⚠ Windows-Kennzeichen, damit der Installer uns findet und vor dem
@@ -5892,7 +5902,7 @@ if __name__ == '__main__':
     #
     # Der Name muss mit `AppMutex` in `packaging/installer.iss` übereinstimmen.
     # Das Kennzeichen wird nur gesetzt, nie abgefragt — den Einzelstart regelt
-    # `overlay.please_show()` oben.
+    # `overlay.another_instance_running()` oben.
     if paths.WINDOWS:
         try:
             import ctypes
@@ -5910,7 +5920,7 @@ if __name__ == '__main__':
     # Sie bleibt versteckt, bis das Overlay sie übernimmt: Ein leeres graues
     # Fenster hinter dem Assistenten hätte niemand erklären können.
     # ⚠ Erst hier, nicht weiter oben: Eine zweite Instanz beendet sich in
-    # `please_show()` wieder, und die legt sonst die Absturzspur der laufenden
+    # `another_instance_running()` wieder, und die legt sonst die Absturzspur der laufenden
     # beiseite. Ab dieser Zeile ist ein harter Abbruch nachlesbar — ein SIGSEGV
     # aus Tk hinterlässt sonst nichts, was man melden könnte.
     errors.install_crash_handler(__version__)
