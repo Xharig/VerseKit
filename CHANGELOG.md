@@ -13,8 +13,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Anti-AFK (nur Windows)** — ein neuer Knopf in der Overlay-Leiste drückt
   alle fünf Minuten einmal Linke Alt + X (Visier abwischen), damit Star
   Citizen dich nicht wegen Untätigkeit hinauswirft. Gesendet wird nur,
-  solange das Spiel im Vordergrund ist und du selbst so lange nichts
-  gedrückt hast. Standardmäßig aus und nach jedem Start wieder aus; grün
+  solange das Spiel im Vordergrund ist und du so lange weder Tastatur, Maus
+  noch Joystick, HOTAS oder Gamepad benutzt hast. Standardmäßig aus und nach jedem Start wieder aus; grün
   heißt an. Angeregt von Blackd0g84 (KRT)
 
 ## v4.9.1 - 2026-10-17

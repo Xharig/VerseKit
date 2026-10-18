@@ -25693,6 +25693,7 @@ def main():
     _pruefung_501()
     _pruefung_502()
     _pruefung_503()
+    _pruefung_504()
 
     print()
     if fehler:
@@ -47517,18 +47518,25 @@ class _AafkFake:
 def _aafk_fake_einsetzen(_aa):
     """Falle einsetzen; gibt (Fake, Rücksetzer). Prüft, dass sie greift."""
     echt = (_aa._api, _aa.supported, _aa.HOLD, dict(_aa._state),
-            list(_aa._switch_listeners))
+            list(_aa._switch_listeners), _aa._joystick_states, _aa.JOY_POLL)
     fake = _AafkFake()
+    fake.joy = {}
     _aa._api = fake
     _aa.supported = lambda: True
     _aa.HOLD = 0
+    # Der Joystick-Faden liest nur das Ersatzbild und schläft lange — die
+    # Prüfungen rufen `joy_poll()` selbst.
+    _aa._joystick_states = lambda: dict(fake.joy)
+    _aa.JOY_POLL = 3600
 
     def zurueck():
+        _aa._joy_stop()
         (_aa._api, _aa.supported, _aa.HOLD) = echt[:3]
         _aa._state.clear()
         _aa._state.update(echt[3])
         _aa._state['on'] = False
         _aa._switch_listeners[:] = echt[4]
+        _aa._joystick_states, _aa.JOY_POLL = echt[5:7]
     return fake, zurueck
 
 
@@ -48153,6 +48161,80 @@ def _pruefung_503():
                    'https://github.com/Xharig/VerseKit/releases/latest' in z
                    for z in zeilen),
                '%s verweist für VirusTotal auf die neueste Release-Notiz' % name)
+
+
+def _pruefung_504():
+    """Anti-AFK: Joystick-Bewegung zählt als Eingabe, wie Tastatur und Maus."""
+    print('\n504. Anti-AFK: Joystick, HOTAS und Gamepad zählen als Eingabe')
+    import ast
+    from scbp import anti_afk as _aa504, input_device as _in504
+    ruhe = {0: (32767, 32767, 0, 32767, 0, 0, 0, 65535)}
+    zittern = {0: (32767 + 400, 32767 - 300, 0, 32767, 0, 0, 0, 65535)}
+    achse = {0: (32767 + 3000, 32767, 0, 32767, 0, 0, 0, 65535)}
+    knopf = {0: (32767, 32767, 0, 32767, 0, 0, 4, 65535)}
+    hut = {0: (32767, 32767, 0, 32767, 0, 0, 0, 9000)}
+    pruefe(not _in504.joystick_moved(ruhe, zittern)
+           and _in504.joystick_moved(ruhe, achse)
+           and _in504.joystick_moved(ruhe, knopf)
+           and _in504.joystick_moved(ruhe, hut)
+           and not _in504.joystick_moved({}, achse),
+           'Zittern zählt nicht; Achse, Knopf und Coolie-Hat zählen; ein '
+           'neu eingestecktes Gerät nicht')
+
+    # Gelesen wird nur über joyGetNumDevs/joyGetPosEx — joyGetDevCapsW ist
+    # der Absturzpfad (0xc0000374, siehe `_windows_devices`).
+    with open(os.path.join(WURZEL, 'scbp', 'input_device.py'),
+              encoding='utf-8') as f:
+        baum = ast.parse(f.read())
+    funktion = next(n for n in baum.body if isinstance(n, ast.FunctionDef)
+                    and n.name == 'joystick_states')
+    gerufen = {n.attr for n in ast.walk(funktion)
+               if isinstance(n, ast.Attribute)
+               and n.attr.startswith('joyGet')}
+    pruefe(gerufen == {'joyGetNumDevs', 'joyGetPosEx'},
+           'joystick_states ruft nur joyGetNumDevs und joyGetPosEx (%s)'
+           % ', '.join(sorted(gerufen)))
+
+    fake, zurueck = _aafk_fake_einsetzen(_aa504)
+    try:
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = 10_000.0                  # Tastatur und Maus ruhen lange
+        fake.joy = dict(ruhe)
+        pruefe(not _aa504.joy_running(), 'aus: kein Joystick-Faden')
+        _aa504.set_enabled(True)
+        pruefe(_aa504.joy_running(), 'an: der Joystick-Faden läuft')
+        _aa504.joy_poll(now=1000.0)
+        fake.joy = dict(zittern)
+        pruefe(not _aa504.joy_poll(now=1100.0)
+               and _aa504._state['joy_last'] is None,
+               'ein zitternder Stick setzt die Zeit nicht zurück')
+        fake.joy = dict(achse)
+        pruefe(_aa504.joy_poll(now=1290.0)
+               and _aa504._state['joy_last'] == 1290.0,
+               'eine Achsenbewegung merkt die Zeit')
+        pruefe(_aa504.tick(now=1300.0) == 'active' and not fake.sent,
+               'Achse vor 10 s bewegt: keine Taste, obwohl Tastatur und Maus '
+               'ruhen')
+        pruefe(_aa504.tick(now=1589.0) == 'active' and not fake.sent,
+               'Achse vor 4:59 min bewegt: noch keine Taste')
+        fake.joy = dict(achse)
+        pruefe(not _aa504.joy_poll(now=1590.0), 'Stick steht still')
+        pruefe(_aa504.tick(now=1591.0) == 'sent' and len(fake.sent) == 2,
+               'Gegenprobe: 5 min ohne Bewegung: einmal Alt+X')
+        fake.joy = dict(knopf)
+        _aa504.joy_poll(now=1700.0)
+        fake.idle = 10_000.0
+        pruefe(_aa504.tick(now=1999.0) == 'active' and len(fake.sent) == 2,
+               'ein Knopfdruck zählt ebenso')
+        faden = _aa504._joy['thread']
+        _aa504.set_enabled(False)
+        if faden is not None:
+            faden.join(timeout=5)
+        pruefe(faden is not None and not faden.is_alive()
+               and not _aa504.joy_running(),
+               'aus: der Joystick-Faden endet')
+    finally:
+        zurueck()
 
 
 if __name__ == '__main__':

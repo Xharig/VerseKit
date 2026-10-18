@@ -19,19 +19,23 @@
 """Anti-AFK: drückt in festem Abstand Linke Alt + X (Visier abwischen).
 
 Nur unter Windows, nur solange Star Citizen das Vordergrundfenster ist, und
-nur, wenn seit dem Abstand weder Tastatur noch Maus benutzt wurde. Gesendet
-wird mit `SendInput` aus `user32.dll` über ctypes, als Scancodes — ohne
-Tastatur-Hook, ohne Zusatzpakete, ohne eigenen Prozess.
+nur, wenn seit dem Abstand weder Tastatur, Maus noch Joystick benutzt wurde.
+Gesendet wird mit `SendInput` aus `user32.dll` über ctypes, als Scancodes —
+ohne Tastatur-Hook, ohne Zusatzpakete, ohne eigenen Prozess.
 
 Der Schalter steht nach jedem Programmstart auf aus und wird nicht
 gespeichert.
 
 `tick()` ruft die Oberfläche alle `TICK_MS` Millisekunden; dort wird
-geprüft und gesendet, nichts läuft in einem eigenen Faden.
+geprüft und gesendet. Tastatur und Maus kennt Windows selbst
+(`GetLastInputInfo`); Joysticks, HOTAS und Gamepads nicht. Für sie läuft,
+solange der Schalter an ist, ein eigener Faden, der alle `JOY_POLL` Sekunden
+`input_device.joystick_states()` vergleicht und bei Bewegung die Zeit merkt.
 """
 import ctypes
 import random
 import sys
+import threading
 import time
 
 GAME_EXE = 'starcitizen.exe'
@@ -40,6 +44,7 @@ INTERVAL = 300          # Sekunden ohne Eingabe, bis gedrückt wird
 JITTER = 0              # zufällige Streuung um den Abstand, ± Sekunden
 TICK_MS = 5000          # Takt, in dem die Oberfläche `tick()` ruft
 HOLD = 0.08             # Sekunden zwischen Drücken und Loslassen
+JOY_POLL = 3.0          # Sekunden zwischen zwei Blicken auf die Joysticks
 
 SCAN_LEFT_ALT = 0x38
 SCAN_X = 0x2D
@@ -300,8 +305,63 @@ def press(scancodes=KEYS):
 # ------------------------------------------------------------------ Zustand
 
 _state = {'on': False, 'threshold': INTERVAL, 'last_sent': None,
-          'count': 0, 'error': None}
+          'count': 0, 'error': None, 'joy_last': None}
 _switch_listeners = []
+_joy = {'stop': None, 'thread': None, 'before': None}
+
+
+def _joystick_states():
+    from . import input_device
+    return input_device.joystick_states()
+
+
+def joy_poll(now=None):
+    """Einmal auf die Joysticks sehen; bei Bewegung die Zeit merken.
+
+    Der erste Blick legt nur den Vergleichsstand an. Gibt zurück, ob sich
+    etwas bewegt hat.
+    """
+    from . import input_device
+    now = time.monotonic() if now is None else now
+    after = _joystick_states()
+    before = _joy['before']
+    _joy['before'] = after
+    if before is not None and input_device.joystick_moved(before, after):
+        _state['joy_last'] = now
+        return True
+    return False
+
+
+def _joy_loop(stop):
+    while not stop.wait(JOY_POLL):
+        try:
+            joy_poll()
+        except Exception:
+            pass
+
+
+def _joy_start():
+    _joy_stop()
+    _joy['before'] = None
+    _state['joy_last'] = None
+    stop = threading.Event()
+    thread = threading.Thread(target=_joy_loop, args=(stop,),
+                              name='anti-afk-joystick', daemon=True)
+    _joy['stop'], _joy['thread'] = stop, thread
+    thread.start()
+
+
+def _joy_stop():
+    """Den Faden anhalten, ohne auf ihn zu warten — er endet beim nächsten
+    `stop.wait`."""
+    if _joy['stop'] is not None:
+        _joy['stop'].set()
+    _joy['stop'] = _joy['thread'] = None
+
+
+def joy_running():
+    thread = _joy['thread']
+    return thread is not None and thread.is_alive()
 
 
 def _new_threshold():
@@ -347,6 +407,9 @@ def set_enabled(on):
     _state['threshold'] = _new_threshold()
     if on:
         _state['error'] = None
+        _joy_start()
+    else:
+        _joy_stop()
     _notify()
     return on
 
@@ -354,7 +417,17 @@ def set_enabled(on):
 def _fail(key):
     _state['error'] = key
     _state['on'] = False
+    _joy_stop()
     _notify()
+
+
+def idle_all(now):
+    """Sekunden seit der letzten Eingabe — Tastatur, Maus oder Joystick."""
+    idle = idle_seconds()
+    joy_last = _state['joy_last']
+    if idle is not None and joy_last is not None:
+        idle = min(idle, now - joy_last)
+    return idle
 
 
 def tick(now=None):
@@ -368,11 +441,12 @@ def tick(now=None):
         return 'off'
     if not supported():
         _state['on'] = False
+        _joy_stop()
         return 'unsupported'
     now = time.monotonic() if now is None else now
     if not game_in_front():
         return 'not_in_front'
-    idle = idle_seconds()
+    idle = idle_all(now)
     if idle is None or idle < _state['threshold']:
         return 'active'
     last = _state['last_sent']
