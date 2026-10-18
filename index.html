@@ -186,6 +186,8 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .ansichten{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .ansichten figure{margin:0}
 @media (max-width:800px){.ansichten{grid-template-columns:1fr}}
+.spielbild{max-width:560px;margin:0 auto}
+.spielbild figure{margin:0}
 
 .karten{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media (max-width:1000px){.karten{grid-template-columns:repeat(2,1fr)}}
@@ -523,6 +525,29 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
            data-en="No account, no cloud, no personal data. Verse-Kit only fetches reference data from sources that are meant for it — and counts itself once a day, without any ID, and you can switch that off.">
           Kein Konto, keine Cloud, keine persönlichen Daten. Verse-Kit holt nur Nachschlagedaten von Adressen, die dafür freigegeben sind — und zählt einmal am Tag mit, ohne Kennung und abschaltbar.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="imspiel">
+  <div class="mitte">
+    <div class="label" data-de="Im Spiel" data-en="In the game">Im Spiel</div>
+    <h2 data-de="Was Verse-Kit ins Spiel schreibt"
+        data-en="What Verse-Kit writes into the game">Was Verse-Kit ins Spiel schreibt</h2>
+    <p class="einleitung"
+       data-de="Verse-Kit ergänzt die Texte des Spiels um das, was dort fehlt. Klasse, Größe und Gütegrad stehen direkt am Namen eines Bauteils. An jedem Auftrag steht, welche Baupläne er bringt, und unter der Beschreibung eines Gegenstands, ob du den Bauplan schon hast. Jeder Teil lässt sich abschalten, und „Wieder entfernen“ stellt die Originaltexte zeichengenau her."
+       data-en="Verse-Kit adds what the game's own texts leave out. Class, size and grade sit right next to a component's name. Every contract shows which blueprints it hands out, and below an item's description you see whether you already have its blueprint. Each part can be switched off, and “Remove again” restores the original texts character for character.">
+      Verse-Kit ergänzt die Texte des Spiels um das, was dort fehlt. Klasse, Größe und Gütegrad stehen direkt am Namen eines Bauteils. An jedem Auftrag steht, welche Baupläne er bringt, und unter der Beschreibung eines Gegenstands, ob du den Bauplan schon hast. Jeder Teil lässt sich abschalten, und „Wieder entfernen“ stellt die Originaltexte zeichengenau her.
+    </p>
+    <div class="spielbild">
+      <figure class="bild">
+        <img src="assets/spiel-angaben-am-gegenstand.png" alt="Centurion (Mil/3/C)">
+        <figcaption class="bu"
+           data-de="Ein Kraftwerk im Inventar: „Centurion (Mil/3/C)“ heißt militärisch, Größe 3, Gütegrad C. Du musst dafür keine Beschreibung aufklappen."
+           data-en="A power plant in the inventory: “Centurion (Mil/3/C)” means military, size 3, grade C. You don't need to open any description for it.">
+          Ein Kraftwerk im Inventar: „Centurion (Mil/3/C)“ heißt militärisch, Größe 3, Gütegrad C. Du musst dafür keine Beschreibung aufklappen.
+        </figcaption>
+      </figure>
     </div>
   </div>
 </section>
