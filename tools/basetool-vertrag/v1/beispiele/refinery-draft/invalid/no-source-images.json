@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "orders": [
+    {
+      "panelType": "SETUP",
+      "sourceImages": [],
+      "goods": [
+        {
+          "rawMaterialName": "QUANTANIUM (RAW)",
+          "inputQuantity": 120,
+          "refine": true
+        }
+      ]
+    }
+  ]
+}
