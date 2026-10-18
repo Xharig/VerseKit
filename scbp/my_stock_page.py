@@ -303,12 +303,31 @@ def my_stock_page(window, frame):
     from . import basetool_sync
     basetool_sync.SPLIT_LISTENERS.append(split_changed)
 
+    def outside():
+        """Was der Wächter nicht über die eigenen Dateien sieht: ob es eine
+        Aufteilung gibt, mit welcher Installation abgeglichen wurde und die
+        Einheiten mit ihren Namen (Marken in der Sicht „Gemeinsam") — das
+        steht nur im Speicher."""
+        from . import basetool_sync, exchange_orgunits
+        return (stock_split.available(),
+                basetool_sync.STATUS.get('installation_id'),
+                exchange_orgunits.fetched(),
+                repr(exchange_orgunits.units()))
+
+    # Beim Wiederkommen nur neu zeichnen, wenn sich etwas geändert hat
+    # (`freshness.Guard`). Eine Vorgabe von außen (Sprung aus einer anderen
+    # Seite) zeichnet immer neu.
+    from . import freshness
+    guard = freshness.Guard(extra=outside)
+
     def on_show():
         preset = getattr(window, 'my_stock_preset', None)
         window.my_stock_preset = None
         if preset:
             page['state'].update(preset)
-        redraw()
+        elif guard.fresh():
+            return
+        guard.draw(redraw)
     window.on_show = getattr(window, 'on_show', {})
     window.on_show[PAGE] = on_show
     page['apply_preset'] = on_show

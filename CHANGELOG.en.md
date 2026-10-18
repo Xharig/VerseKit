@@ -24,6 +24,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   source, applying your own address, checking for updates and fetching a
   side channel now run in the background. "Send" also packs the scan images
   in the background.
+- **Pages open faster** — My Inventory, What to farm, Shopping list,
+  Graphics and Changed game values now only rebuild when you come back if
+  their data has changed; the Overview only rebuilds its tiles. Changed game
+  values asks erkul in the background instead of making the page switch
+  wait. The catalog, recipes and machine details are no longer
+  re-read on every page switch, which also speeds up opening many pages for
+  the first time.
 
 ### Fixed
 

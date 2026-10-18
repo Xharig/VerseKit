@@ -118,6 +118,37 @@ def parse(text):
     return out
 
 
+# Gemerkt je Datei-Stand `(Pfad, Änderungszeit in ns, Größe)`: Ändert sich die
+# Datei, ändert sich der Schlüssel, und es wird neu gelesen. Für die laufende
+# `Game.log` steht das Paar (Stand, Werte) unter einem Schlüssel, damit ein
+# anderer Faden nie den neuen Stand mit alten Werten liest.
+#
+# ⚠ Grafik-Seite und Übersicht lesen hier in Nebenfäden. Ein Nebenfaden, der
+# Logs ganz durchsucht, macht dem Oberflächen-Faden das GIL streitig — jeder
+# Tk-Aufruf der Seite wartet dann mit.
+_log_memo = {'eintrag': None}
+_class_memo = {}
+
+
+def _stamp(path):
+    info = os.stat(path)
+    return (path, info.st_mtime_ns, info.st_size)
+
+
+def _class_in(path):
+    """Die letzte gültige Einstufung in einem aufgehobenen Log, oder None."""
+    stamp = _stamp(path)
+    if stamp in _class_memo:
+        return _class_memo[stamp]
+    found = None
+    for value in reversed(_CLASS.findall(_text(path))):
+        if 1 <= int(value) <= CLASSES:
+            found = int(value)
+            break
+    _class_memo[stamp] = found
+    return found
+
+
 def _class_from_backups(folder=None):
     """Die jüngste Einstufung aus den aufgehobenen Logs, oder None."""
     try:
@@ -125,14 +156,21 @@ def _class_from_backups(folder=None):
     except Exception as exc:
         errors.record('machine_info.backups', exc)
         return None
-    for path in list(reversed(backups))[:_BACKUPS_SEARCHED]:
+    searched = list(reversed(backups))[:_BACKUPS_SEARCHED]
+    # Nur behalten, was noch durchsucht wird — sonst wächst das Gedächtnis
+    # mit jedem Spielstart.
+    # `list()` und `pop()`: Grafik-Seite und Übersicht lesen in eigenen
+    # Fäden, womöglich gleichzeitig.
+    keep = set(searched)
+    for stamp in [s for s in list(_class_memo) if s[0] not in keep]:
+        _class_memo.pop(stamp, None)
+    for path in searched:
         try:
-            found = _CLASS.findall(_text(path))
+            found = _class_in(path)
         except OSError:
             continue
-        for value in reversed(found):
-            if 1 <= int(value) <= CLASSES:
-                return int(value)
+        if found is not None:
+            return found
     return None
 
 
@@ -143,10 +181,16 @@ def read(folder=None):
     if not log:
         return None
     try:
-        head = _text(log, _HEAD_BYTES)
-        out = parse(head)
-        if out['machine_class'] is None and os.path.getsize(log) > _HEAD_BYTES:
-            out['machine_class'] = parse(_text(log))['machine_class']
+        stamp = _stamp(log)
+        entry = _log_memo['eintrag']
+        if entry is not None and entry[0] == stamp:
+            out = dict(entry[1])
+        else:
+            head = _text(log, _HEAD_BYTES)
+            out = parse(head)
+            if out['machine_class'] is None and stamp[2] > _HEAD_BYTES:
+                out['machine_class'] = parse(_text(log))['machine_class']
+            _log_memo['eintrag'] = (stamp, dict(out))
     except OSError as exc:
         errors.record('machine_info.read', exc)
         return None

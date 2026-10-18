@@ -49,6 +49,7 @@ sofort zu einer kleinen eigenen Datei eingedampft (`katalog-cache.json`, etwa
 ein Zwanzigstel davon).
 """
 import json
+import marshal
 import os
 import re
 import time
@@ -1183,6 +1184,7 @@ def build(version=None, progress=None, from_file=None):
     with open(temp, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
     os.replace(temp, target)
+    _load_memo['eintrag'] = None
     return len(blueprints), version
 
 
@@ -1207,16 +1209,25 @@ def load(unreachable=None):
 
     Deshalb wird hier nicht darauf vertraut, wie die Schlüssel einmal
     geschrieben wurden — sie werden aus dem Namen neu gebildet.
+
+    ⚠ Gelesen und abgeglichen wird nur, wenn sich die Datei geändert hat
+    (`_load_memo`). Jeder Aufruf bekommt trotzdem eine **eigene** Kopie:
+    Manche der vielen Lesestellen ändern, was sie bekommen.
     """
     try:
-        with open(paths.app_file(CACHE), encoding='utf-8') as f:
-            d = json.load(f)
-        if isinstance(d.get('bauplaene'), dict):
-            d.setdefault('missionen', {})    # Kataloge ohne Feld `missionen`
-            # ⚠ Kataloge vor FORMAT 3 kennen die Vertragsliste nicht. Fehlt
-            # sie, faellt die Zuordnung auf den Titelweg zurueck.
-            d.setdefault('vertraege', {})
-            d['bauplaene'] = _align_keys(d['bauplaene'])
+        path = paths.app_file(CACHE)
+        info = os.stat(path)
+        stamp = (path, info.st_mtime_ns, info.st_size, info.st_ino)
+        entry = _load_memo['eintrag']
+        if entry is not None and entry[0] == stamp:
+            d = marshal.loads(entry[1])
+        else:
+            d = _read_aligned(path)
+            try:
+                _load_memo['eintrag'] = (stamp, marshal.dumps(d))
+            except ValueError:
+                _load_memo['eintrag'] = None
+        if d is not None:
             # ⭐ Baupläne ohne bekannten Weg nur, wenn `SETTING_ALL` gesetzt
             # ist. **Hier** gefiltert und nirgends sonst: Am Katalog
             # hängen 88 Lesestellen — Liste, Fortschritt, Overlay, Suche,
@@ -1236,6 +1247,35 @@ def load(unreachable=None):
         pass
     return {'version': '', 'geholt': '', 'bauplaene': {}, 'missionen': {},
             'vertraege': {}}
+
+
+# Der gelesene, abgeglichene Katalog als `marshal`-Abzug, zusammen mit dem
+# Datei-Stand `(Pfad, Änderungszeit in ns, Größe, Dateikennung)`, aus dem er
+# stammt — als EIN Paar unter einem Schlüssel, damit ein anderer Faden nie
+# den neuen Stand mit dem alten Abzug liest. ⚠ Die Kennung (`st_ino`)
+# unterscheidet zwei Fassungen, die gleich groß und im selben Zeittakt
+# geschrieben wurden: Geschrieben wird über eine neue Datei und `os.replace`,
+# und die bekommt eine neue Kennung. Die eigenen Schreibwege setzen das
+# Gedächtnis zusätzlich zurück.
+#
+# Der Abzug ist eine tiefe Kopie in einem Zug: `marshal.loads` ist schneller
+# als `json.load` samt Schlüsselabgleich und teilt mit niemandem ein Objekt.
+_load_memo = {'eintrag': None}
+
+
+def _read_aligned(path):
+    """Den Katalog von der Platte lesen und die Schlüssel abgleichen — None,
+    wenn die Datei keinen brauchbaren Katalog enthält."""
+    with open(path, encoding='utf-8') as f:
+        d = json.load(f)
+    if not isinstance(d.get('bauplaene'), dict):
+        return None
+    d.setdefault('missionen', {})    # Kataloge ohne Feld `missionen`
+    # ⚠ Kataloge vor FORMAT 3 kennen die Vertragsliste nicht. Fehlt sie,
+    # faellt die Zuordnung auf den Titelweg zurueck.
+    d.setdefault('vertraege', {})
+    d['bauplaene'] = _align_keys(d['bauplaene'])
+    return d
 
 
 def _align_keys(blueprints):
@@ -1306,6 +1346,7 @@ def refresh_stamp():
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump(d, f, ensure_ascii=False)
         os.replace(temp, target)
+        _load_memo['eintrag'] = None
         return changed
     except Exception:
         return 0

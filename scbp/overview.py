@@ -289,6 +289,11 @@ def overview_page(window, frame):
 
     def draw():
         draw_main()
+        draw_tiles()
+        _draw_pinned(window, pin_grid, pin_hint, redraw)
+        _chooser(window, chooser, redraw, reorder)
+
+    def draw_tiles():
         grid.clear()
         builders_by_id = {'spiel': _tile_game, 'standort': _tile_location,
                           'bauplaene': _tile_blueprints,
@@ -313,8 +318,6 @@ def overview_page(window, frame):
             cell = grid.add(tile)
             cell.tile_key = key
             _draggable(window, cell, redraw)
-        _draw_pinned(window, pin_grid, pin_hint, redraw)
-        _chooser(window, chooser, redraw, reorder)
 
     def redraw():
         # Neu zeichnen, ohne dass die Rollstelle verloren geht: Beim Abbau
@@ -323,8 +326,45 @@ def overview_page(window, frame):
         from .pages import _keep_scroll
         _keep_scroll(grid.frame, draw)
 
-    draw()
-    window.on_show['uebersicht'] = redraw
+    # ⚠ Hauptbereiche und Deine Karten zeigen festen Text — was davon zu
+    # sehen ist, hängt an den Einstellungen und daran, welche Seiten die
+    # Leiste gerade ausblendet (`static_state`). Sie werden beim Wiederkommen
+    # nur neu gebaut, wenn sich das geändert hat (`freshness.Guard`) — jede
+    # Karte misst beim Bauen ihre Knopfreihe aus (`update_idletasks`).
+    #
+    # ⚠⚠ Die Kacheln dagegen werden bei jedem Zeigen frisch gebaut: Standort,
+    # laufendes Spiel, Rechner und Aufträge lesen in Nebenfäden, und „vor 5
+    # Min." hängt an der Uhr — das sähe kein Wächter.
+    from . import freshness
+
+    def static_state():
+        areas = (tuple(a[0] for a in cards.visible_areas(window))
+                 if main_grid is not None else ())
+        return areas, tuple(p for p in cards.pinned()
+                            if not cards.page_hidden(window, p))
+    static_guard = freshness.Guard(extra=static_state)
+
+    def on_show():
+        from .pages import _keep_scroll
+        if static_guard.fresh():
+            def tiles_and_chooser():
+                draw_tiles()
+                _chooser(window, chooser, redraw, reorder)
+            _keep_scroll(grid.frame, tiles_and_chooser)
+            # Die stehengebliebenen Karten verlieren ihren Überfahr-Rand,
+            # wenn der Zeiger nicht mehr auf ihnen steht.
+            for card_grid in (main_grid, pin_grid):
+                for cell in (card_grid.cells if card_grid is not None
+                             else ()):
+                    unhover = getattr(getattr(cell, 'card', None),
+                                      'unhover', None)
+                    if unhover is not None:
+                        unhover()
+            return
+        static_guard.draw(redraw)
+
+    static_guard.draw(draw)
+    window.on_show['uebersicht'] = on_show
     if _REOPEN[0]:
         _REOPEN[0] = False
         link.flip()
