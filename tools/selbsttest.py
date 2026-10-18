@@ -47850,15 +47850,23 @@ def _pyinstaller_ohne_noupx(text):
 
 def _pruefung_500():
     """Der Bau packt nie mit UPX: `--noupx` in jedem PyInstaller-Aufruf."""
-    print('\n500. Bau: jeder PyInstaller-Aufruf in release.yml mit --noupx')
-    with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
-              encoding='utf-8') as f:
+    print('\n500. Bau: jeder PyInstaller-Aufruf in den Workflows mit --noupx')
+    ordner = os.path.join(WURZEL, '.github', 'workflows')
+    alle, ohne_noupx = [], []
+    for name in sorted(os.listdir(ordner)):
+        if not name.endswith(('.yml', '.yaml')):
+            continue
+        with open(os.path.join(ordner, name), encoding='utf-8') as f:
+            gefunden_d, fehlt_d = _pyinstaller_ohne_noupx(f.read())
+        alle += ['%s:%s' % (name, j) for j in gefunden_d]
+        ohne_noupx += ['%s:%s' % (name, j) for j in fehlt_d]
+    pruefe({'release.yml:linux', 'release.yml:windows',
+            'messung-p1b.yml:messen'} <= set(alle),
+           'alle PyInstaller-Aufrufe werden gefunden (%s)' % ', '.join(alle))
+    pruefe(not ohne_noupx, 'jeder trägt --noupx (fehlt in: %s)'
+           % (', '.join(ohne_noupx) or 'keinem'))
+    with open(os.path.join(ordner, 'release.yml'), encoding='utf-8') as f:
         text = f.read()
-    gefunden, fehlt = _pyinstaller_ohne_noupx(text)
-    pruefe(sorted(gefunden) == ['linux', 'windows'],
-           'beide PyInstaller-Aufrufe werden gefunden (%s)' % gefunden)
-    pruefe(not fehlt, 'jeder trägt --noupx (fehlt in: %s)'
-           % (', '.join(fehlt) or 'keinem'))
     # Gegenprobe an derselben Datei: ohne --noupx im Linux-Aufruf muss genau
     # dieser Job genannt werden.
     stelle = text.find('python3 -m PyInstaller')
