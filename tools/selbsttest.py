@@ -53249,6 +53249,13 @@ def _replace_file53x(path, text):
     os.replace(temp, path)
 
 
+def _later53x(path, seconds=2):
+    """Zeitmarke einer Datei oder eines Ordners sicher hinter jede bisherige
+    stellen."""
+    when = max(os.path.getmtime(path), time.time()) + seconds
+    os.utime(path, (when, when))
+
+
 def _pruefung_530():
     """paths: ein vorhandener Ordner kostet kein `mkdir`, ein fehlender wird
     angelegt."""
@@ -53470,6 +53477,10 @@ def _pruefung_532():
                'das aufgehobene Log wird danach nicht erneut gelesen (%r)'
                % reads)
         _replace_file53x(old, 'Final rating: Machine class 5\n')
+        # ⚠ Gleiche Länge, und unter Windows kann die Zeitmarke im selben
+        # Uhrtakt (~16 ms) landen — Datei und Ordner ausdrücklich weiterstellen.
+        _later53x(old)
+        _later53x(backups)
         pruefe(mi_532.read(game)['machine_class'] == 5,
                'ein ersetztes aufgehobenes Log zählt mit seinem neuen Inhalt')
         # Ein jüngeres Log ohne Einstufung wird zuerst durchsucht und
@@ -53478,11 +53489,13 @@ def _pruefung_532():
         _replace_file53x(newer, 'nichts drin\n')
         later = os.path.getmtime(old) + 60
         os.utime(newer, (later, later))
+        _later53x(backups)
         pruefe(mi_532.read(game)['machine_class'] == 5
                and {s[0] for s in mi_532._class_memo} == {old, newer},
                'Selbstprüfung: beide aufgehobenen Logs sind gemerkt (%r)'
                % sorted(os.path.basename(s[0]) for s in mi_532._class_memo))
         os.remove(newer)
+        _later53x(backups)
         pruefe(mi_532.read(game)['machine_class'] == 5
                and {s[0] for s in mi_532._class_memo} == {old},
                'ein gelöschtes Log fällt aus dem Gedächtnis, das übrige '
