@@ -2234,6 +2234,30 @@ TEXTS = {
     's_sp_itinfo_h':   ('Schreibt unter die Beschreibung jedes herstellbaren Gegenstands, ob du den Bauplan hast, aus welchem Auftrag er kommt, was das Herstellen braucht und wo es das Teil am günstigsten zu kaufen gibt. Die Ladenpreise werden dafür höchstens einmal pro Woche und nach einem Patch bei UEX geholt.',
                         'Adds below the description of every craftable item whether you own the blueprint, which contract it comes from, what crafting it takes and where it is cheapest to buy. Shop prices are fetched from UEX at most once a week and after a patch for this.'),
     's_sp_itinfo_sagen': ('Bauplan-Angaben in den Beschreibungen: %s', 'Blueprint details in item descriptions: %s'),
+    # Anti-AFK (`scbp/anti_afk.py`) — Schalter, Hinweis, Overlay-Symbol, Abbruchgründe.
+    'aafk_titel':      ('Anti-AFK', 'Anti-AFK'),
+    'aafk_h':          ('Drückt alle 5 Minuten einmal Linke Alt + X (Visier abwischen), damit dich das Spiel nicht wegen Untätigkeit hinauswirft. Gesendet wird nur, solange Star Citizen im Vordergrund ist und du selbst so lange weder Tastatur noch Maus benutzt hast. Nach jedem Start wieder aus; umschalten geht auch über den Knopf in der Overlay-Leiste.',
+                        'Presses Left Alt + X (wipe visor) once every 5 minutes so the game does not kick you for being idle. Keys are only sent while Star Citizen is in the foreground and you have not used keyboard or mouse yourself for that long. Off again after every start; the button in the overlay bar switches it too.'),
+    'aafk_nur_windows': ('Nur unter Windows verfügbar.', 'Only available on Windows.'),
+    'aafk_hinweis':    ('CIG hat sich zu solchen Helfern nicht offiziell geäußert — die Nutzung liegt in deiner Verantwortung.',
+                        'CIG has made no official statement on helpers like this — using it is your own responsibility.'),
+    'aafk_hinweis_h':  ('Läuft Star Citizen als Administrator, lässt Windows die Taste nur durch, wenn auch Verse-Kit als Administrator läuft. Joystick und Gamepad zählen für Windows nicht als Eingabe.',
+                        'If Star Citizen runs as administrator, Windows only lets the key through when Verse-Kit runs as administrator too. Joystick and gamepad do not count as input for Windows.'),
+    'aafk_sagen':      ('Anti-AFK: %s', 'Anti-AFK: %s'),
+    'hinweis_aafk_an': ('Anti-AFK an: alle 5 Minuten Alt + X, solange das Spiel vorn ist — klicken zum Ausschalten',
+                        'Anti-AFK on: Alt + X every 5 minutes while the game is in front — click to switch off'),
+    'hinweis_aafk_aus': ('Anti-AFK aus — klicken zum Einschalten (drückt alle 5 Minuten Alt + X, solange das Spiel vorn ist und du nichts drückst)',
+                         'Anti-AFK off — click to switch on (presses Alt + X every 5 minutes while the game is in front and you press nothing)'),
+    'aafk_err_admin':  ('Anti-AFK abgeschaltet: Windows hat die Taste nicht zum Spiel durchgelassen. Läuft Star Citizen als Administrator, Verse-Kit ebenfalls als Administrator starten.',
+                        'Anti-AFK switched off: Windows did not let the key through to the game. If Star Citizen runs as administrator, start Verse-Kit as administrator too.'),
+    'aafk_err_send':   ('Anti-AFK abgeschaltet: Die Taste ließ sich nicht senden.',
+                        'Anti-AFK switched off: the key could not be sent.'),
+    's_dk_blackdog_idee5': ('**Anti-AFK** — ein Knopf im Overlay, der unter Windows alle '
+                            'fünf Minuten Alt + X drückt, solange das Spiel vorn ist '
+                            'und sonst nichts gedrückt wird. Standardmäßig aus.',
+                            '**Anti-AFK** — an overlay button that, on Windows, presses '
+                            'Alt + X every five minutes while the game is in front and '
+                            'nothing else is pressed. Off by default.'),
     's_sp_hand':       ('Von Hand', 'By hand'),
     's_sp_hand_h':     ('Alles Eingefügte steht zwischen Marken und lässt sich auf den Buchstaben genau wieder entfernen.',
                           'Everything inserted sits between markers and can be removed again to the letter.'),

@@ -25684,6 +25684,11 @@ def main():
     _pruefung_475()
     _pruefung_476()
     _pruefung_477()
+    _pruefung_495()
+    _pruefung_496()
+    _pruefung_497()
+    _pruefung_498()
+    _pruefung_499()
 
     print()
     if fehler:
@@ -47449,6 +47454,355 @@ def _alle_eingaben(w):
             _lauf(k)
     _lauf(w)
     return out
+
+
+class _AafkFake:
+    """Ersatz für user32/kernel32/advapi32 in `scbp.anti_afk` — sendet nichts.
+
+    `sent` sammelt jeden SendInput-Aufruf als Liste von (Scancode, Flags).
+    `fore` ist der Pfad des Vordergrundprozesses, `idle` die Sekunden seit der
+    letzten Eingabe. `resets` legt fest, ob ein Senden die Eingabezeit erneuert.
+    """
+
+    def __init__(self):
+        import types
+        self.sent = []
+        self.fore = 'C:\\Windows\\explorer.exe'
+        self.idle = 0.0
+        self.resets = True
+        self.accept = True
+        self.tick = 10_000_000
+        f = self
+        self.user32 = types.SimpleNamespace(
+            SendInput=f._send_input,
+            GetForegroundWindow=lambda: 0x1234,
+            GetWindowThreadProcessId=f._thread_pid,
+            GetLastInputInfo=f._last_input)
+        self.kernel32 = types.SimpleNamespace(
+            GetTickCount=lambda: f.tick,
+            OpenProcess=lambda *a: 0x99,
+            CloseHandle=lambda h: 1,
+            GetCurrentProcess=lambda: 0x98,
+            QueryFullProcessImageNameW=f._image_name)
+        self.advapi32 = types.SimpleNamespace(
+            OpenProcessToken=lambda *a: 0,
+            GetTokenInformation=lambda *a: 0)
+
+    def _send_input(self, count, events, size):
+        self.sent.append([(events[i].ki.wScan, events[i].ki.dwFlags)
+                          for i in range(count)])
+        if not self.accept:
+            return 0
+        if self.resets:
+            self.idle = 0.0
+        return count
+
+    def _thread_pid(self, hwnd, ref):
+        ref._obj.value = 4242
+        return 1
+
+    def _last_input(self, ref):
+        ref._obj.dwTime = (self.tick - int(self.idle * 1000)) & 0xFFFFFFFF
+        return 1
+
+    def _image_name(self, handle, flags, buffer, ref):
+        buffer.value = self.fore
+        return 1
+
+
+def _aafk_fake_einsetzen(_aa):
+    """Falle einsetzen; gibt (Fake, Rücksetzer). Prüft, dass sie greift."""
+    echt = (_aa._api, _aa.supported, _aa.HOLD, dict(_aa._state),
+            list(_aa._switch_listeners))
+    fake = _AafkFake()
+    _aa._api = fake
+    _aa.supported = lambda: True
+    _aa.HOLD = 0
+
+    def zurueck():
+        (_aa._api, _aa.supported, _aa.HOLD) = echt[:3]
+        _aa._state.clear()
+        _aa._state.update(echt[3])
+        _aa._state['on'] = False
+        _aa._switch_listeners[:] = echt[4]
+    return fake, zurueck
+
+
+def _pruefung_495():
+    """Anti-AFK steht nach dem Start auf aus und wird nicht gespeichert."""
+    print('\n495. Anti-AFK: standardmäßig aus, Zustand nicht gespeichert')
+    import importlib
+    from scbp import anti_afk as _aa495, paths as _pa495
+    frisch = importlib.reload(_aa495)
+    pruefe(frisch.enabled() is False and frisch.last_error() is None,
+           'nach dem Laden ist Anti-AFK aus')
+    fake, zurueck = _aafk_fake_einsetzen(frisch)
+    geschrieben = []
+    echt_set = _pa495.set_setting
+    _pa495.set_setting = lambda *a, **k: geschrieben.append(a) or True
+    try:
+        pruefe(frisch.set_enabled(True) is True and frisch.enabled(),
+               'der Schalter lässt sich einschalten')
+        frisch.set_enabled(False)
+        pruefe(not geschrieben,
+               'Umschalten schreibt keine Einstellung (%r)' % geschrieben)
+        frisch.set_enabled(True)
+        neu = importlib.reload(frisch)
+        pruefe(neu.enabled() is False,
+               'nach einem Neustart ist Anti-AFK wieder aus')
+        pruefe(neu.tick() == 'off' and not fake.sent,
+               'ausgeschaltet sendet tick() nichts')
+    finally:
+        _pa495.set_setting = echt_set
+        zurueck()
+
+
+def _pruefung_496():
+    """Anti-AFK sendet nur, wenn Star Citizen vorn ist und niemand tippt."""
+    print('\n496. Anti-AFK: nur bei Spielfenster vorn und ohne Eingabe')
+    from scbp import anti_afk as _aa496
+    fake, zurueck = _aafk_fake_einsetzen(_aa496)
+    try:
+        # Die Falle muss zuerst selbst zuschnappen — sonst misst jede Null
+        # unten nichts.
+        pruefe(_aa496._get_api() is fake, 'die Falle sitzt an der Stelle, '
+               'die `_send` benutzt')
+        _aa496.press()
+        pruefe(fake.sent == [[(0x38, 0x08), (0x2D, 0x08)],
+                             [(0x2D, 0x0A), (0x38, 0x0A)]],
+               'Selbstprüfung der Falle: Alt+X als Scancodes gedrückt und '
+               'rückwärts losgelassen (%r)' % fake.sent)
+        fake.sent.clear()
+
+        _aa496.set_enabled(True)
+        fake.fore = 'C:\\Windows\\explorer.exe'
+        fake.idle = _aa496.INTERVAL + _aa496.JITTER + 5
+        pruefe(_aa496.tick(now=1000.0) == 'not_in_front' and not fake.sent,
+               'anderes Fenster vorn: nichts gesendet (%r)' % fake.sent)
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe.bak'
+        pruefe(_aa496.tick(now=1001.0) == 'not_in_front' and not fake.sent,
+               'nur der genaue Prozessname zählt')
+
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = 299.0
+        pruefe(_aa496.tick(now=1002.0) == 'active' and not fake.sent,
+               'Spiel vorn, letzte Eingabe vor 4:59 min: nichts gesendet')
+
+        fake.idle = 301.0
+        pruefe(_aa496.tick(now=1003.0) == 'sent' and len(fake.sent) == 2,
+               'Gegenprobe: Spiel vorn, 5 min keine Eingabe: einmal Alt+X '
+               '(%r)' % fake.sent)
+        pruefe(_aa496.tick(now=1004.0) == 'active' and len(fake.sent) == 2,
+               'gleich danach nicht noch einmal')
+        fake.idle = _aa496.INTERVAL + _aa496.JITTER + 5
+        pruefe(_aa496.tick(now=1010.0) == 'too_soon' and len(fake.sent) == 2,
+               'auch bei verschluckter Eingabezeit erst nach dem Abstand')
+
+        fake.sent.clear()
+        fake.resets = False
+        pruefe(_aa496.tick(now=5000.0) == 'blocked'
+               and not _aa496.enabled()
+               and _aa496.last_error() == 'aafk_err_admin',
+               'kommt die Taste nicht an, schaltet Anti-AFK ab und nennt '
+               'den Grund')
+        fake.resets = True
+
+        _aa496.set_enabled(True)
+        fake.sent.clear()
+        fake.accept = False
+        fake.idle = _aa496.INTERVAL + _aa496.JITTER + 5
+        pruefe(_aa496.tick(now=9000.0) == 'failed'
+               and not _aa496.enabled()
+               and _aa496.last_error() == 'aafk_err_send',
+               'scheitert SendInput, ist Anti-AFK aus mit Meldung')
+        pruefe(len(fake.sent) == 2 and fake.sent[-1][0][1] & 0x02,
+               'auch nach dem Scheitern wird losgelassen (%r)' % fake.sent)
+    finally:
+        zurueck()
+
+
+def _pruefung_497():
+    """Außerhalb Windows ist Anti-AFK nicht einschaltbar und sendet nichts."""
+    print('\n497. Anti-AFK: außerhalb Windows nichts aktiv')
+    import types
+    import tkinter as tk
+    import tkinter.font as _tkf497
+    from scbp import anti_afk as _aa497, pages as _pg497, language as _la497
+    echt_supported = _aa497.supported
+    fake, zurueck = _aafk_fake_einsetzen(_aa497)
+    _aa497.supported = echt_supported
+    echt_sys = _aa497.sys
+    _aa497.sys = types.SimpleNamespace(platform='linux')
+    fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+    fake.idle = _aa497.INTERVAL + _aa497.JITTER + 5
+    _root = _wurzel()
+    rahmen = tk.Frame(_root)
+    try:
+        pruefe(_aa497.set_enabled(True) is False and not _aa497.enabled(),
+               'Einschalten bleibt wirkungslos')
+        _aa497._state['on'] = True
+        pruefe(_aa497.tick(now=1.0) == 'unsupported' and not fake.sent
+               and not _aa497.enabled(),
+               'selbst ein eingeschalteter Zustand sendet nichts')
+        pruefe(not _aa497.game_in_front() and _aa497.idle_seconds() is None,
+               'keine Abfragen außerhalb Windows')
+        schrift = _tkf497.Font(root=_root, size=9)
+        fenster = types.SimpleNamespace(f_small=schrift, f_bold=schrift,
+                                        f_base=schrift, say=lambda *a: None)
+        rahmen.pack()
+
+        def _bauen():
+            for k in rahmen.winfo_children():
+                k.destroy()
+            _pg497._anti_afk_section(fenster, rahmen)
+            _root.update_idletasks()
+            schalter, texte = [], []
+
+            def _lauf(w):
+                if (w.winfo_class() == 'Canvas'
+                        and str(w.cget('cursor')) == 'hand2'):
+                    schalter.append(w)
+                if w.winfo_class() == 'Label':
+                    texte.append(str(w.cget('text')))
+                for k in w.winfo_children():
+                    _lauf(k)
+            _lauf(rahmen)
+            return schalter, texte
+        schalter, texte = _bauen()
+        pruefe(not schalter and _la497.t('aafk_nur_windows') in texte,
+               'die Seite zeigt „nur unter Windows" statt eines Schalters '
+               '(%d Schalter)' % len(schalter))
+        _aa497.sys = echt_sys
+        _aa497.supported = lambda: True
+        schalter, texte = _bauen()
+        pruefe(len(schalter) == 1
+               and _la497.t('aafk_nur_windows') not in texte,
+               'Gegenprobe: unter Windows steht dort der Schalter')
+    finally:
+        _aa497.sys = echt_sys
+        zurueck()
+        rahmen.destroy()
+        _root.destroy()
+
+
+def _pruefung_498():
+    """Anti-AFK: jede Windows-Funktion mit Signatur, kein Hook, kein Prozess."""
+    print('\n498. Anti-AFK: ctypes-Signaturen vollständig, kein Hook, '
+          'kein Prozess')
+    import ast
+    with open(os.path.join(WURZEL, 'scbp', 'anti_afk.py'),
+              encoding='utf-8') as f:
+        quelle = f.read()
+    baum = ast.parse(quelle)
+    gesetzt = {'argtypes': set(), 'restype': set()}
+    gerufen = set()
+    for knoten in ast.walk(baum):
+        if isinstance(knoten, ast.Assign):
+            for ziel in knoten.targets:
+                if (isinstance(ziel, ast.Attribute)
+                        and ziel.attr in gesetzt
+                        and isinstance(ziel.value, ast.Attribute)):
+                    gesetzt[ziel.attr].add(ziel.value.attr)
+        if (isinstance(knoten, ast.Call)
+                and isinstance(knoten.func, ast.Attribute)
+                and isinstance(knoten.func.value, ast.Attribute)
+                and knoten.func.value.attr in ('user32', 'kernel32',
+                                               'advapi32')):
+            gerufen.add(knoten.func.attr)
+    pruefe(len(gerufen) >= 8, 'die Aufrufe der Windows-API werden gefunden '
+           '(%s)' % ', '.join(sorted(gerufen)))
+    ohne = sorted(n for n in gerufen
+                  if n not in gesetzt['argtypes'] or n not in gesetzt['restype'])
+    pruefe(not ohne, 'jede gerufene Funktion hat argtypes und restype '
+           '(fehlt: %s)' % (', '.join(ohne) or 'keine'))
+    klein = quelle.lower()
+    funde = [m for m in ('subprocess', 'powershell', 'os.system', 'popen',
+                         'setwindowshookex', 'pynput', 'import keyboard',
+                         'windll.user32', 'shell=true')
+             if m in klein]
+    pruefe(not funde, 'kein Unterprozess, kein Tastatur-Hook, keine '
+           'geteilte windll (%s)' % (', '.join(funde) or 'nichts'))
+    pruefe('KEYEVENTF_SCANCODE' in quelle
+           and "WinDLL('user32', use_last_error=True)" in quelle,
+           'gesendet wird als Scancode über eine eigene user32-Instanz')
+
+
+def _pruefung_499():
+    """Anti-AFK: Knopf in der Overlay-Leiste, grau = aus, grün = an."""
+    print('\n499. Anti-AFK: Knopf in der Overlay-Leiste schaltet und zeigt '
+          'den Zustand')
+    if not ANZEIGE:
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    import sc_bp_watcher as _w499
+    from scbp import anti_afk as _aa499, icons as _ic499, language as _la499
+    fake, zurueck = _aafk_fake_einsetzen(_aa499)
+    _wz = _wurzel()
+    ov = _w499.Overlay(_wz)
+
+    def _texte(w, out):
+        if w.winfo_class() == 'Label':
+            out.append(str(w.cget('text')))
+        for k in w.winfo_children():
+            _texte(k, out)
+        return out
+
+    def _klick():
+        ov.aafk_lbl.event_generate('<Button-1>', x=3, y=3)
+        _wz.update()
+    try:
+        ov.anti_afk_starten()
+        lbl = ov.aafk_lbl
+        pruefe(lbl is not None and lbl.master is ov.kopf
+               and lbl.winfo_manager() == 'pack'
+               and lbl.symbol == 'anti_afk_aus'
+               and lbl.symbol_color == _ic499.GREY
+               and not _aa499.enabled(),
+               'beim Start: Knopf in der Leiste, grau mit timer-off, aus')
+        # Ein Klick erreicht nur ein angezeigtes Fenster; der Lauf steht auf
+        # dem unsichtbaren Desktop bzw. unter Xvfb.
+        _wz.deiconify()
+        _wz.update()
+        _klick()
+        pruefe(_aa499.enabled() and lbl.symbol == 'anti_afk'
+               and lbl.symbol_color == _ic499.GREEN,
+               'ein Klick schaltet ein: grün mit timer')
+        pruefe(ov._hinweis_anti_afk() == _la499.t('hinweis_aafk_an'),
+               'der Erklärtext folgt dem Zustand')
+        _klick()
+        pruefe(not _aa499.enabled() and lbl.symbol == 'anti_afk_aus'
+               and lbl.symbol_color == _ic499.GREY,
+               'ein zweiter Klick schaltet aus')
+        _aa499.set_enabled(True)
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = _aa499.INTERVAL + _aa499.JITTER + 5
+        fake.resets = False
+        _aa499.tick(now=1e6)
+        _wz.update()
+        pruefe(lbl.symbol_color == _ic499.GREY
+               and _la499.t('aafk_err_admin') in _texte(ov.root, []),
+               'nach einem Abbruch grau und der Grund steht im Overlay')
+    finally:
+        zurueck()
+        try:
+            _wz.destroy()
+        except Exception:
+            pass
+    # Außerhalb Windows gibt es den Knopf nicht.
+    import types
+    echt_sys = _aa499.sys
+    _aa499.sys = types.SimpleNamespace(platform='linux')
+    _wz = _wurzel()
+    try:
+        ov = _w499.Overlay(_wz)
+        pruefe(ov.aafk_lbl is None,
+               'außerhalb Windows kein Anti-AFK-Knopf im Overlay')
+    finally:
+        _aa499.sys = echt_sys
+        try:
+            _wz.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
