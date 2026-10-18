@@ -22,6 +22,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   mehr** — steht ein Ort nicht mehr im Ortskatalog des Basetools, bleiben
   die Posten dort im Basetool unverändert, statt auf 0 gesetzt zu werden.
   Gemeldet von greluc (KRT)
+- **Mein Lager: fehlende Aufteilung wird nachgeholt** — kennt Verse-Kit zu
+  einem Posten noch nicht, wie viel davon in der Einheit liegt, holt der
+  Abgleich einmal am Tag den vollen Stand des Basetools, statt den Posten
+  weiter als ganz persönlich zu zeigen.
 
 ## v4.10.0 - 2026-10-18
 

@@ -1051,6 +1051,34 @@ def resolve_uex_items(conn, trade, sub):
     return {key: found[key] for key in refs if found.get(key)}
 
 
+# Höchstens so oft der volle Lager-Stand, wenn Posten ohne `split` dastehen.
+SPLIT_AGAIN = 24 * 3600
+
+
+def _without_split(server_raw):
+    return sorted(key for key, lot in (server_raw or {}).items()
+                  if not isinstance((lot or {}).get('split'), dict))
+
+
+def _split_complete(conn, sub, server_raw, now=None):
+    """Posten ohne `split` im gemerkten Stand: einmal den vollen Stand holen
+    (ohne Cursor), höchstens alle `SPLIT_AGAIN` Sekunden.
+
+    ⚠ Der Feed liefert nur geänderte Posten. Ein Posten, der zuletzt ohne
+    `split` ankam, bliebe sonst so, und Mein Lager zeigte ihn als ganz
+    persönlich. Was danach noch ohne `split` dasteht, steht in
+    `split_missing` (höchstens 50 Kennungen)."""
+    now = now or time.time()
+    missing = _without_split(server_raw)
+    if missing and now - float(sub.get('split_full_at') or 0) >= SPLIT_AGAIN:
+        sub['split_full_at'] = now
+        sub['cursor'] = None
+        server_raw, _resync = _pull_generic(conn, sub, '/me/stock', 'key')
+        missing = _without_split(server_raw)
+    sub['split_missing'] = missing[:50]
+    return server_raw
+
+
 def _sync_stock(conn, state):
     """Rohstoff- und Handelslager <-> Posten beim Basetool."""
     from . import crafting, exchange_stock, materials, trade_cargo
@@ -1063,6 +1091,7 @@ def _sync_stock(conn, state):
     sub = state.setdefault('stock', {})
     before = sub.get('server') or {}
     server_raw, _resync = _pull_generic(conn, sub, '/me/stock', 'key')
+    server_raw = _split_complete(conn, sub, server_raw)
     places = _locations(conn)
     raw, trade = materials.load(), trade_cargo.load()
     uex_bts = resolve_uex_items(conn, trade, sub)

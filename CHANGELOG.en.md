@@ -21,6 +21,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   lots** — if a place is no longer in the Basetool's location catalog, the
   lots there stay as they are in the Basetool instead of being set to 0.
   Reported by greluc (KRT)
+- **My Inventory: a missing split is fetched again** — if Verse-Kit does
+  not yet know how much of a lot sits in the unit, the sync fetches the
+  Basetool's full stock once a day instead of showing the lot as entirely
+  personal.
 
 ## v4.10.0 - 2026-10-18
 

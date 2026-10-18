@@ -25746,6 +25746,7 @@ def main():
     _pruefung_504()
     _pruefung_505()
     _pruefung_506()
+    _pruefung_507()
 
     print()
     if fehler:
@@ -51244,6 +51245,97 @@ def _pruefung_506():
         pruefe(((stand.get('stock') or {}).get('skipped') or {})
                .get('location') == ['Levski'],
                'die Seite nennt den übersprungenen Ort')
+    finally:
+        zustand()
+        if alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt_heim
+
+
+class _BtSplit507(_BtLager505):
+    """Lager-Attrappe mit `split`: Der volle Stand trägt ihn, der Feed
+    liefert nur Geändertes. `ohne_split` lässt ihn überall weg."""
+
+    def __init__(self):
+        _BtLager505.__init__(self)
+        self.ohne_split, self.voll = False, 0
+
+    def _item(self, key, lot):
+        item = _BtLager505._item(self, key, lot)
+        if not self.ohne_split:
+            item['split'] = {'personal': {'amount': 0, 'unit': 'PIECE'},
+                             'pools': [{'orgUnit': {'id': 'u1'},
+                                        'quantity': {'amount': 1,
+                                                     'unit': 'PIECE'}}]}
+        return item
+
+    def request(self, method, path, body=None, **k):
+        if path == '/me/stock':
+            if (k.get('query') or {}).get('cursor'):
+                return {'items': [], 'removed': [], 'nextCursor': 'c-507',
+                        'hasMore': False}
+            self.voll += 1
+        return _BtLager505.request(self, method, path, body, **k)
+
+
+def _pruefung_507():
+    """507. Lager: Posten ohne `split` holen einmal den vollen Stand."""
+    print('\n507. Lager: fehlendes split per vollem Stand nachholen')
+    import tempfile as _tf
+    from scbp import basetool_sync as _bs, materials as _mt, trade_cargo as _tc
+    heim = _tf.mkdtemp(prefix='pruefung507-')
+    alt_heim = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    zustand = _bt_zustand505()
+
+    def cache_ohne_split():
+        stand = _bs.load_state('pruefung-505')
+        for lot in stand['stock']['server'].values():
+            lot.pop('split', None)
+        _bs.save_state(stand)
+
+    def split_da(stand):
+        return all(isinstance(lot.get('split'), dict)
+                   for lot in stand['stock']['server'].values())
+    try:
+        _mt.save([])
+        _tc.save([{'ware': 'TS-2', 'menge': 1, 'ort': 'Levski',
+                   'stueck': True}])
+        kopf = _BtSplit507()
+        kopf.lots['L-1'] = {'bt': 'bt-ts-2', 'name': 'TS-2', 'ort': 'Levski',
+                            'q': 0, 'menge': 1}
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.voll == 1 and split_da(stand),
+               'Vorbedingung: der erste Abgleich holt den vollen Stand mit '
+               'split (%d)' % kopf.voll)
+        _lager_lauf505(kopf)
+        pruefe(kopf.voll == 1, 'mit split im Stand: nur der Feed (%d)'
+               % kopf.voll)
+        cache_ohne_split()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.voll == 2 and split_da(stand)
+               and not stand['stock'].get('split_missing'),
+               'Posten ohne split im Stand: einmal der volle Stand, danach '
+               'ist split da (%d, %r)' % (kopf.voll,
+                                          stand['stock'].get('split_missing')))
+        cache_ohne_split()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.voll == 2 and stand['stock'].get('split_missing')
+               == ['L-1'],
+               'am selben Tag nicht noch einmal; der Posten steht in '
+               'split_missing (%d, %r)' % (kopf.voll,
+                                           stand['stock'].get('split_missing')))
+        kopf.ohne_split = True
+        stand = _bs.load_state('pruefung-505')
+        stand['stock']['split_full_at'] = 0
+        _bs.save_state(stand)
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.voll == 3 and stand['stock'].get('split_missing')
+               == ['L-1'],
+               'liefert auch der volle Stand kein split, bleibt der Posten '
+               'in split_missing (%d, %r)' % (kopf.voll,
+                                              stand['stock'].get('split_missing')))
     finally:
         zustand()
         if alt_heim is None:
