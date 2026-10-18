@@ -4000,6 +4000,9 @@ TEXTS = {
     's_ml_menge_ph':     ('Menge', 'Amount'),
     's_ml_teilen_knopf': ('Ins Lager der Einheit', 'Into unit storage'),
     's_ml_zurueck_knopf': ('Zurücknehmen', 'Take back'),
+    # Dieselben zwei Wege als Knopf im Bearbeiten-Feld.
+    's_ml_form_teilen':  ('Ins Lager der Einheit geben', 'Put into unit storage'),
+    's_ml_form_zurueck': ('Zurücknehmen', 'Take back'),
     's_ml_menge_teilen': ('Bitte eine Menge über 0 und höchstens %s eintragen '
                           '— Items in ganzen Stück.',
                           'Please enter an amount above 0 and at most %s — '
@@ -5197,7 +5200,10 @@ TEXTS = {
     's_hl_sp_gesamt':    ('Gesamtpreis', 'Total'),
     's_hl_marke':        ('gestohlen', 'stolen'),
     's_hl_wert':         ('höchstens {summe}', 'up to {summe}'),
-    's_hl_gesamt':       ('Ladung höchstens: {summe}', 'Cargo up to: {summe}'),
+    's_hl_gesamt':       ('Verkaufswert höchstens: {summe}',
+                          'Sale value up to: {summe}'),
+    's_hl_gesamt_hinweis': ('bester Preis laut UEX, nur Ware zum Verkaufen',
+                            'best price per UEX, sale goods only'),
     # Handelslager sichern und zurueckholen — dieselben Knopfnamen wie im
     # Werkstatt-Lager (`s_lg_aus_json`/`s_lg_aus_csv`/`s_lg_einlesen`/
     # `s_lg_leeren`), die werden wiederverwendet statt hier zu doppeln: Zwei

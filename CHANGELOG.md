@@ -20,6 +20,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Hintergrund gerechnet wird, und Seitenwechsel gehen schneller. Solange du
   klickst, ziehst oder die Maus im Hauptfenster bewegst, hakt nichts mehr
   dazwischen. Gemeldet von greluc (KRT)
+- **Mein Lager baut sich nicht mehr bei jedem Klick neu auf** — Gruppen
+  auf- und zuklappen, einen Posten zum Bearbeiten anklicken, Abbrechen und
+  das Teilen-Feld öffnen oder schließen ändern nur noch die betroffene
+  Zeile; die Liste bleibt stehen. Im Bearbeiten-Feld gibt es dazu den Knopf
+  „Ins Lager der Einheit geben" bzw. „Zurücknehmen", wo das am Posten geht.
+  Unter der Liste steht jetzt „Verkaufswert höchstens" mit aUEC.
 
 ### Behoben
 

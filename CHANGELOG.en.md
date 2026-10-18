@@ -20,6 +20,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the background, and page switches are faster. While you click, drag or
   move the mouse in the main window, nothing cuts in anymore. Reported by
   greluc (KRT)
+- **My Stock no longer rebuilds on every click** — opening and closing
+  groups, clicking a lot to edit it, cancelling and opening or closing the
+  share field now only change the row concerned; the list stays put. The
+  edit field also gets a "Put into unit storage" or "Take back" button where
+  the lot allows it. Below the list it now says "Sale value up to" in aUEC.
 
 ### Fixed
 

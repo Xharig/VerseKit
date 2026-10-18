@@ -25791,6 +25791,8 @@ def main():
     _pruefung_610()
     _pruefung_611()
     _pruefung_612()
+    _pruefung_613()
+    _pruefung_614()
 
     print()
     if fehler:
@@ -55838,6 +55840,327 @@ def _pruefung_612():
         ov_612.fast_switching(None, False)
         if not real_windows:
             sys.setswitchinterval(default)
+
+
+def _all_below(widget):
+    """Das Bauteil und alles darin."""
+    out = [widget]
+    for child in widget.winfo_children():
+        out.extend(_all_below(child))
+    return out
+
+
+def _has_label_text(widget, text):
+    return any(x.winfo_class() == 'Label' and x.cget('text') == text
+               for x in _all_below(widget))
+
+
+def _stock_page613(rows_raw, rows_trade=()):
+    """Echtes Hauptfenster auf „Mein Lager" mit diesen Posten; `redraw`
+    zählt mit. Gibt (Wurzel, Fenster, Seite, Zähler) zurück."""
+    from scbp import materials as ma, main_window as hf, trade_cargo as tc
+    ma.save([])
+    tc.save([])
+    for args in rows_raw:
+        ma.add(*args)
+    for args in rows_trade:
+        tc.add(*args)
+    w = _wurzel()
+    window = hf.MainWindow(w, version='0.0.0-pruefung')
+    window.open_page('meinlager')
+    w.update()
+    page = window.my_stock_page
+    real_redraw = page['redraw']
+    redraws = [0]
+
+    def counted_redraw():
+        redraws[0] += 1
+        return real_redraw()
+    page['redraw'] = counted_redraw
+    return w, window, page, redraws
+
+
+def _stripes_wrong613(page):
+    """Zellen, deren Hintergrund nicht zum Streifen ihrer Zeile passt — die
+    Zeile im Bearbeiten steht auf HOVER."""
+    from scbp import theme as th
+    wrong = []
+    editing = page.get('editing')
+    for n, (kind, what, cells) in enumerate(page['row_widgets']):
+        if kind == 'post' and editing == (what['store'], what['index']):
+            want = th.HOVER
+        else:
+            want = th.SURFACE if n % 2 else th.BG
+        for c in cells:
+            for x in _all_below(c):
+                if x.winfo_class() in ('Frame', 'Label', 'Canvas') \
+                        and str(x.cget('bg')) != want:
+                    wrong.append((n, x.winfo_class(), str(x.cget('bg'))))
+    return wrong
+
+
+def _pruefung_613():
+    """613. Mein Lager: Auf- und Zuklappen einer Gruppe baut die Liste nicht
+    neu.
+
+    Im echten Hauptfenster: Ein Klick auf die Summenzeile ruft kein
+    `redraw`, die übrigen Zeilen bleiben dieselben Bauteile, nur die
+    Unterzeilen dieser Gruppe kommen und gehen. Danach wechseln die Streifen
+    in jeder Zelle weiter ab, und der Pfeil zeigt den neuen Zustand.
+    """
+    print('\n613. Mein Lager: Klappen ohne Neuaufbau der Liste')
+    if not ANZEIGE:
+        uebersprungen('613')
+        return
+    import copy as copy_613
+    from scbp import materials as ma_613, trade_cargo as tc_613
+    old_raw = copy_613.deepcopy(ma_613.load())
+    old_trade = copy_613.deepcopy(tc_613.load())
+    w = None
+    try:
+        w, _window, page, redraws = _stock_page613([
+            ('Iron', 10, 500, 'Levski'), ('Iron', 5, 800, 'Orison'),
+            ('Iron', 7, 900, 'Levski'), ('Gold', 3, 600, 'Levski'),
+            ('Copper', 4, 300, 'Area18'), ('Copper', 6, 400, 'Lorville')])
+
+        def head(text):
+            return next((e for e in page['row_widgets'] if e[0] == 'group'
+                         and any(_has_label_text(c, text) for c in e[2])),
+                        None)
+
+        def shown_places():
+            return {x.cget('text') for _k, _r, cells in page['row_widgets']
+                    for c in cells for x in _all_below(c)
+                    if x.winfo_class() == 'Label'
+                    and x.cget('text') in ('Orison', 'Lorville')}
+
+        iron = head('Iron (3)')
+        pruefe(iron is not None and not shown_places()
+               and not _stripes_wrong613(page),
+               'Vorbedingung: zugeklappt, Streifen stimmen (%s)'
+               % _stripes_wrong613(page)[:3])
+        others = [e for e in page['row_widgets'] if e is not iron]
+        arrow = getattr(iron[2][page['columns'].index('action')], 'arrow',
+                        None)
+
+        iron[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(redraws[0] == 0,
+               'Aufklappen ruft kein redraw (%d)' % redraws[0])
+        pruefe(all(e in page['row_widgets'] for e in others)
+               and all(c.winfo_exists() for e in others for c in e[2]),
+               'die übrigen Zeilen bleiben dieselben Bauteile')
+        pruefe(shown_places() == {'Orison'},
+               'die Posten von Iron sind zu sehen (%s)' % shown_places())
+        pruefe(not _stripes_wrong613(page),
+               'aufgeklappt: jede Zelle im Wechsel hell und dunkel (%s)'
+               % _stripes_wrong613(page)[:3])
+        pruefe(getattr(arrow, 'symbol', None) == 'zuklappen',
+               'der Pfeil zeigt zuklappen (%r)' % getattr(arrow, 'symbol', None))
+
+        copper = head('Copper (2)')
+        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(shown_places() == {'Orison', 'Lorville'}
+               and not _stripes_wrong613(page),
+               'eine zweite Gruppe darunter klappt dazu auf, Streifen stimmen '
+               '(%s, %s)' % (shown_places(), _stripes_wrong613(page)[:3]))
+
+        redraws[0] = 0
+        iron = head('Iron (3)')
+        iron[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(redraws[0] == 0,
+               'Zuklappen ruft kein redraw (%d)' % redraws[0])
+        pruefe(shown_places() == {'Lorville'} and not _stripes_wrong613(page),
+               'zugeklappt: die Posten von Iron sind weg, Streifen stimmen '
+               '(%s, %s)' % (shown_places(), _stripes_wrong613(page)[:3]))
+        pruefe(getattr(arrow, 'symbol', None) == 'aufklappen',
+               'der Pfeil zeigt wieder aufklappen')
+
+        page['redraw']()
+        w.update()
+        pruefe(shown_places() == {'Lorville'} and not _stripes_wrong613(page),
+               'nach einem echten Neuzeichnen derselbe Stand (%s)'
+               % shown_places())
+    finally:
+        ma_613.save(old_raw)
+        tc_613.save(old_trade)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_614():
+    """614. Mein Lager: Bearbeiten, Abbrechen und das Teilen-Feld ändern nur
+    ihre Zeile — dazu der Teilen-Knopf im Bearbeiten-Feld und der
+    Verkaufswert mit Einheit unter der Liste.
+
+    Im echten Hauptfenster. Die Teilen-Wege des Basetools stehen ohne
+    Verbindung nicht zur Verfügung; `share_actions`, die Aufteilung des
+    Postens und die Einheiten werden deshalb für den Posten Gold
+    nachgebildet.
+    """
+    print('\n614. Mein Lager: Bearbeiten und Teilen ohne Neuaufbau')
+    if not ANZEIGE:
+        uebersprungen('614')
+        return
+    import copy as copy_614
+    from scbp import (exchange_orgunits as eo_614, materials as ma_614,
+                      my_stock_page as ms_614, selling as vk_614,
+                      stock_split as sp_614, theme as th_614,
+                      trade_cargo as tc_614)
+    from scbp.language import t as t_614
+    old_raw = copy_614.deepcopy(ma_614.load())
+    old_trade = copy_614.deepcopy(tc_614.load())
+    from scbp import main_window as hf_614
+    real = (ms_614.share_actions, sp_614.split_of, eo_614.units,
+            eo_614.label, vk_614.best_price)
+    real_ask = hf_614.ask_yes_no
+    w = None
+    try:
+        vk_614.best_price = lambda _name: 1000
+        # Die Rückfrage beim Löschen — vor dem Bau, das Formular holt sie
+        # beim Bauen.
+        hf_614.ask_yes_no = lambda *_a, **_k: True
+        w, _window, page, redraws = _stock_page613(
+            [('Iron', 10, 500, 'Levski'), ('Iron', 5, 800, 'Orison'),
+             ('Iron', 7, 900, 'Levski'), ('Gold', 3, 600, 'Levski'),
+             ('Copper', 4, 300, 'Area18')],
+            [('Agricium', 2, 'Area18', False)])
+
+        def post(name, place=None):
+            return next(((k, r, c) for k, r, c in page['row_widgets']
+                         if k == 'post' and r['name'] == name
+                         and (place is None or r['place'] == place)), None)
+
+        def canvas_texts(widget):
+            return [str(x.itemcget(i, 'text')) for x in _all_below(widget)
+                    if x.winfo_class() == 'Canvas'
+                    for i in x.find_all() if x.type(i) == 'text']
+
+        def click_button(parent, text):
+            for x in _all_below(parent):
+                if x.winfo_class() == 'Canvas' and text in canvas_texts(x):
+                    x.event_generate('<Button-1>', x=3, y=3)
+                    w.update()
+                    return True
+            return False
+
+        gold = post('Gold')
+        pruefe(gold is not None, 'Vorbedingung: Gold steht als eigene Zeile')
+        others = [e for e in page['row_widgets'] if e is not gold]
+
+        gold[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(redraws[0] == 0
+               and page.get('editing') == (gold[1]['store'], gold[1]['index']),
+               'Klick auf die Zeile öffnet das Bearbeiten ohne redraw (%d)'
+               % redraws[0])
+        pruefe(str(gold[2][0].cget('bg')) == th_614.HOVER
+               and not _stripes_wrong613(page)
+               and all(c.winfo_exists() for e in others for c in e[2]),
+               'nur die Zeile ist hervorgehoben, die übrigen bleiben '
+               '(%s)' % _stripes_wrong613(page)[:3])
+        page['forms']['raw']['reset']()
+        w.update()
+        pruefe(redraws[0] == 0 and page.get('editing') is None
+               and not _stripes_wrong613(page),
+               'Abbrechen nimmt die Hervorhebung ohne redraw ab (%d, %s)'
+               % (redraws[0], _stripes_wrong613(page)[:3]))
+
+        orison = next(r for r in page['shown'] if r['name'] == 'Iron'
+                      and r['place'] == 'Orison')
+        pruefe(post('Iron', 'Orison') is None,
+               'Vorbedingung: Iron ist zugeklappt')
+        ms_614.edit(page, orison)
+        w.update()
+        nested = post('Iron', 'Orison')
+        pruefe(redraws[0] == 0 and nested is not None
+               and str(nested[2][0].cget('bg')) == th_614.HOVER
+               and not _stripes_wrong613(page),
+               'Bearbeiten in einer zugeklappten Gruppe klappt nur diese auf '
+               '(%d, %s)' % (redraws[0], _stripes_wrong613(page)[:3]))
+        page['forms']['raw']['reset']()
+        w.update()
+
+        gold_row = gold[1]
+        gold_row['lot'] = {'key': 'p614', 'quantity': {'unit': 'SCU'},
+                           'split': {}}
+        ms_614.share_actions = lambda _page, row: (
+            [sp_614.SHARE] if row['name'] == 'Gold' else [])
+        sp_614.split_of = lambda _lot: (3.0, [])
+        eo_614.units = lambda: [{'id': 'u614'}]
+        eo_614.label = lambda _unit: 'Einheit 614'
+        slot = page['slots'][(gold_row['store'], gold_row['index'])]
+        ms_614.open_share(page, gold_row, sp_614.SHARE)
+        w.update()
+        holder = page.get('share_holder')
+        pruefe(redraws[0] == 0 and holder is not None and holder.winfo_exists()
+               and int(holder.grid_info()['row']) == slot,
+               'das Teilen-Feld steht ohne redraw direkt unter der Zeile '
+               '(%d)' % redraws[0])
+        pruefe(all(c.winfo_exists() for e in others for c in e[2]),
+               'die übrigen Zeilen bleiben dabei stehen')
+        pruefe(click_button(holder, t_614('s_hl_abbrechen'))
+               and redraws[0] == 0 and not holder.winfo_exists()
+               and page.get('share_form') is None,
+               'Abbrechen schließt nur das Feld (%d)' % redraws[0])
+
+        gold[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        form_text = t_614('s_ml_form_teilen')
+        pruefe(form_text in canvas_texts(page['inner']),
+               'im Bearbeiten-Feld steht der Knopf „%s"' % form_text)
+        pruefe(click_button(page['inner'], form_text)
+               and (page.get('share_form') or {}).get('row')
+               == (gold_row['store'], gold_row['index'])
+               and page.get('share_holder') is not None
+               and redraws[0] == 0,
+               'der Knopf öffnet dasselbe Teilen-Feld unter der Zeile (%d)'
+               % redraws[0])
+        page['forms']['raw']['reset']()
+        ms_614.open_share(page, gold_row, sp_614.SHARE)
+        w.update()
+        copper = post('Copper')
+        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(form_text not in canvas_texts(page['inner']),
+               'ohne Teilen-Weg am Posten kein Knopf im Bearbeiten-Feld')
+        page['forms']['raw']['reset']()
+        w.update()
+
+        texts = [x.cget('text') for x in page['listing'].winfo_children()
+                 if x.winfo_class() == 'Label']
+        value = t_614('s_hl_gesamt').format(summe=ms_614._auec(2000))
+        pruefe(value in texts and t_614('s_hl_gesamt_hinweis') in texts,
+               'unter der Liste steht der Verkaufswert mit Einheit und dem '
+               'Hinweis (%r)' % texts)
+
+        copper = post('Copper')
+        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        w.update()
+        pruefe(click_button(page['inner'], t_614('s_lg_posten_weg')),
+               'Vorbedingung: der Knopf Posten löschen ist da')
+        w.update()
+        pruefe(post('Copper') is None
+               and not any(p.get('material') == 'Copper'
+                           for p in ma_614.load()),
+               'Posten löschen über das Feld: der Posten ist weg, auch aus '
+               'der Liste')
+    finally:
+        (ms_614.share_actions, sp_614.split_of, eo_614.units,
+         eo_614.label, vk_614.best_price) = real
+        hf_614.ask_yes_no = real_ask
+        ma_614.save(old_raw)
+        tc_614.save(old_trade)
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
