@@ -4546,7 +4546,7 @@ def main():
     _fehlend49 = []
     for _ordner49, _unter49, _dateien49 in os.walk(WURZEL):
         if any(_teil in _ordner49 for _teil in
-               ('.git', 'build', 'dist', '__pycache__', 'tools')):
+               ('.git', '.claude', 'build', 'dist', '__pycache__', 'tools')):
             continue
         for _name49 in _dateien49:
             if not _name49.endswith('.py'):
@@ -10329,7 +10329,8 @@ def main():
     _quellen103 = []
     for _ordner103, _unter103, _namen103 in os.walk(_wurzel103):
         _unter103[:] = [u for u in _unter103
-                        if u not in ('.git', '__pycache__', 'assets', 'daten')]
+                        if u not in ('.git', '.claude', '__pycache__', 'assets',
+                                     'daten')]
         for _n103 in _namen103:
             if not _n103.endswith('.py'):
                 continue
@@ -10417,7 +10418,8 @@ def main():
     _dateien104 = 0
     for _ordner104, _unter104, _namen104 in os.walk(_wurzel104):
         _unter104[:] = [u for u in _unter104
-                        if u not in ('.git', '__pycache__', 'assets', 'daten')]
+                        if u not in ('.git', '.claude', '__pycache__', 'assets',
+                                     'daten')]
         for _n104 in sorted(_namen104):
             if not _n104.endswith('.py') or _n104.startswith('entwurf_'):
                 continue
@@ -19243,7 +19245,7 @@ def main():
     _gezaehlt194 = 0
     for _ordner194, _unter194, _namen194 in os.walk(WURZEL):
         _unter194[:] = [_u for _u in _unter194
-                        if _u not in ('.git', '__pycache__', 'daten')]
+                        if _u not in ('.git', '.claude', '__pycache__', 'daten')]
         for _n194 in sorted(_namen194):
             if not _n194.endswith('.py'):
                 continue
@@ -19318,7 +19320,7 @@ def main():
     _quellen195 = []
     for _ordner195, _unter195, _namen195 in os.walk(WURZEL):
         _unter195[:] = [_u for _u in _unter195
-                        if _u not in ('.git', '__pycache__', 'daten')]
+                        if _u not in ('.git', '.claude', '__pycache__', 'daten')]
         for _n195 in sorted(_namen195):
             if _n195.endswith('.py'):
                 _quellen195.append(os.path.join(_ordner195, _n195))
@@ -25745,7 +25747,8 @@ def _versionierte_dateien(wurzel, endungen=('.py', '.md', '.yml')):
         pass
     raus = []
     for ordner, _o, namen in os.walk(wurzel):
-        if any(x in ordner for x in ('.git', 'assets', 'build', 'dist')):
+        if any(x in ordner for x in ('.git', '.claude', 'assets', 'build',
+                                     'dist')):
             continue
         for n in namen:
             if n.endswith(endungen):
