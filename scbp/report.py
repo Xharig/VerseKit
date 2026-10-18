@@ -758,7 +758,7 @@ def _row(label, value):
     return '%s %s' % (label.ljust(LABEL_WIDTH - 1), value)
 
 
-def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
+def build(version='', root=None, error_count=8, message='', reporter=None):
     """Den Bericht als Text zusammensetzen.
 
     `reporter` ist der Name, der oben als Melder steht — die Seite Fehler
@@ -780,7 +780,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     # steht hier `nicht angegeben` (`reporter_name`).
     if reporter is None:
         reporter = reporter_name()
-    # ⚠ **Ohne `kuerzen()`.** Jede andere Zeile läuft durch die Anonymisierung,
+    # ⚠ **Ohne `paths.redact()`.** Jede andere Zeile läuft durch die Anonymisierung,
     # die Benutzernamen durch `<benutzer>` ersetzt — und das träfe den
     # Absender-Namen, wenn er dem Systemkonto gleicht. Ausgerechnet die
     # einzige Angabe, die der Nutzer BEWUSST macht, verschwände dadurch.
@@ -794,7 +794,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     # jemand überhaupt geschrieben hat.
     #
     # ⚠ Mehrzeilig eingerückt, damit ein langer Satz die Spaltenform nicht
-    # sprengt — und durch `kuerzen()`, denn hier kann ein Pfad drinstehen.
+    # sprengt — und durch `paths.redact()`, denn hier kann ein Pfad drinstehen.
     note = (message or '').strip()
     if note:
         lines.append('')
@@ -803,9 +803,9 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
             lines.append('  ' + piece)
     lines.append('')
 
-    uebersicht = _safe(paths.overview, {})
-    if not isinstance(uebersicht, dict):
-        uebersicht = {}
+    summary = _safe(paths.overview, {})
+    if not isinstance(summary, dict):
+        summary = {}
 
     line(t('b_system'), _safe(_system))
     line(t('b_verpackung'), _safe(_packaging_readable))
@@ -824,9 +824,9 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         line(t('b_overlay'), _state)
     lines.append('')
 
-    line(t('b_spiel'), _safe(lambda: uebersicht.get('spiel_ordner')
+    line(t('b_spiel'), _safe(lambda: summary.get('spiel_ordner')
                                  or t('b_nicht_gefunden')))
-    line(t('b_gamelog'), _safe(lambda: uebersicht.get('game_log')
+    line(t('b_gamelog'), _safe(lambda: summary.get('game_log')
                                    or t('b_nicht_gefunden')))
     line(t('b_sicherungen'), _safe(_log_line))
     # ⚠ **Womit sich das Spiel starten ließe — und ob das jemand von Hand
@@ -834,7 +834,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     # Zeile nicht klären, ohne den Nutzer auszufragen.
     line(t('b_starter'), _safe(_game_launcher))
     # ⚠ `collect()` gibt ein **Tupel** zurück — (phrases, herkunft). Ein
-    # `', '.join(...)` direkt darauf bricht mit TypeError ab; `_sicher()`
+    # `', '.join(...)` direkt darauf bricht mit TypeError ab; `_safe()`
     # verschluckt den, und im Bericht stünde nur ein Strich.
     #
     # Die Herkunft wird gleich mit ausgegeben: Sie sagt, ob die Formulierung aus
@@ -853,7 +853,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         line(t('b_unbekannt'), _unknown)
     line(t('b_merkliste'), _safe(lambda: t('b_n_eintraege') % _json_size(
         __import__('scbp.watchlist', fromlist=['path']).path(), 'eintraege')))
-    # ⚠⚠ **Der gespeicherte Stand, kein Netzabruf.** `aktuelle_version()`
+    # ⚠⚠ **Der gespeicherte Stand, kein Netzabruf.** `catalog.current_version()`
     # fragt scmdb.net. Ohne Internet wartete der Bericht auf den Timeout, und
     # weil er im Hauptfaden gebaut wird, wäre das ganze Fenster so lange
     # starr — ausgerechnet die Seite, die man bei Störungen braucht.
@@ -946,7 +946,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         Fehlerprotokoll wird dann nicht geschrieben. Ohne diese Angabe liest
         sich so ein Bericht, als sei alles in Ordnung."""
         from . import paths as paths_module
-        folder = uebersicht.get('app_ordner')
+        folder = summary.get('app_ordner')
         ok, _own, reason = paths_module.storage_status(paths_module.app_folder())
         if ok:
             text = '%s · %s' % (folder, t('b_ordner_ok'))
@@ -965,7 +965,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         return ', '.join(
             '%s=%s' % (k, ('•••' if v else '') if k in MASKED_SETTINGS else v)
             for k, v in sorted(
-                (uebersicht.get('selbst_gesetzt') or {}).items())
+                (summary.get('selbst_gesetzt') or {}).items())
             if k not in HIDDEN_SETTINGS) or t('b_standard')
 
     line(t('b_einstellungen'), _safe(_settings_line))
@@ -1003,7 +1003,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     # ⚠ Start und Bedienung **getrennt** deckeln. In einem gemeinsamen Topf mit
     # den letzten zwölf Zeilen verdrängen fünf Klicks den kompletten
     # Startverlauf — ausgerechnet den Teil, für den die Spur gebaut ist.
-    start, seiten = _safe(errors.split_trail, ([], []))
+    start, page_lines = _safe(errors.split_trail, ([], []))
     # ⚠ Erst zusammenfassen, dann die letzten zwölf nehmen — andersherum wäre
     # der Ausschnitt schon leergeräumt, bevor das Zusammenfassen greift.
     start = _dense(start)
@@ -1015,10 +1015,10 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     # Die Diagnose-Seite selbst gehört nicht in die Liste: Der Bericht entsteht,
     # **während** sie gebaut wird, und stünde sonst in jedem Bericht als letzte,
     # unfertige Zeile — es sähe jedes Mal so aus, als wäre genau dort Schluss.
-    while seiten and 'Seite diagnose' in seiten[-1]:
-        seiten.pop()
-    seiten = _dense(seiten)
-    if seiten:
+    while page_lines and 'Seite diagnose' in page_lines[-1]:
+        page_lines.pop()
+    page_lines = _dense(page_lines)
+    if page_lines:
         lines.append('')
         lines.append(t('b_spur_seiten'))
         # ⚠⚠ **24 Zeilen, nicht 12 — der Weg zum Bericht frisst die Spur.**
@@ -1028,7 +1028,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         #
         # Ein Bericht, dessen Beschaffung die Beobachtung zerstört, ist kein
         # Bericht. `TRAIL_KEEP` hebt 60 Zeilen auf, der Platz war also da.
-        for entry in seiten[-24:]:
+        for entry in page_lines[-24:]:
             lines.append('  ' + entry)
 
     attempt = _safe(_update_attempt_lines, [])
@@ -1048,7 +1048,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         lines.append('')
         # ⚠ Mit Datum: Die Datei überlebt beliebig viele saubere Läufe. Der
         # Vermerk stellt fest, wann — er urteilt nicht, ob es noch zutrifft.
-        wann = _safe(errors.crash_time, None)
+        crash_at = _safe(errors.crash_time, None)
         # ⚠ Und mit Fassung, genau wie die Fehlerliste darunter — derselbe
         # Vermerk, dieselbe Regel: feststellen, nicht urteilen. Ohne sie
         # stünde ein Abbruch aus einer alten Fassung in einem neuen Bericht,
@@ -1061,18 +1061,18 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
             if version and crash_version != version:
                 version_note += '  ' + t('b_fehler_alt')
         lines.append(t('b_absturz') % (
-            datetime.fromtimestamp(wann).strftime(t('b_datum')) if wann else '—')
+            datetime.fromtimestamp(crash_at).strftime(t('b_datum')) if crash_at else '—')
             + ' · ' + version_note)
         for entry in _crash_brief(crash, 14):
             lines.append('  ' + entry)
         if len(crash) > 14:
             lines.append('  … (%d)' % (len(crash) - 14))
 
-    letzte = _safe(lambda: errors.latest(fehleranzahl), [])
+    latest = _safe(lambda: errors.latest(error_count), [])
     total = _safe(errors.count, 0)
     lines.append('')
-    if letzte:
-        lines.append(t('b_fehler') % (len(letzte), total))
+    if latest:
+        lines.append(t('b_fehler') % (len(latest), total))
         # ⚠ **Gleichartige Fehler zusammenfassen.** Ein einziger Vorfall kann
         # den ganzen Speicher belegen: Ein Fehler in einer Schleife (etwa ein
         # Fortschritt im Sekundentakt bei zugehendem Fenster) füllt alle 50
@@ -1085,7 +1085,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         # Seit `errors._merge` trägt ein Eintrag seine Wiederholungen selbst
         # (`anzahl`, `zuletzt`); ältere Dateien haben noch Einzelzeilen.
         bundled = []
-        for e in letzte:
+        for e in latest:
             ident = (e.get('fassung'), e.get('stelle'), e.get('art'),
                        e.get('meldung'))
             times = int(e.get('anzahl') or 1)
@@ -1097,7 +1097,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
                 bundled.append([ident, e, times, last])
 
         traced = set()
-        for _ident, e, how_often, bis in bundled:
+        for _ident, e, how_often, until in bundled:
             # ⚠ Die Version dazuschreiben und kennzeichnen, was **nicht** aus
             # der laufenden Fassung stammt. Ohne die Angabe sucht der Nächste
             # nach einem Fehler, den es vielleicht nicht mehr gibt.
@@ -1116,7 +1116,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
                           % (e.get('zeit', '—'), version_text, e.get('stelle', '—'),
                              e.get('art', '—'), e.get('meldung', '—'), old_mark))
             if how_often > 1:
-                lines.append(t('b_fehler_mehrfach') % (how_often, bis))
+                lines.append(t('b_fehler_mehrfach') % (how_often, until))
             # Die Aufrufstellen zum jüngsten Eintrag je Stelle: aus der
             # laufenden Fassung `TRACE_SHOWN`, aus einer anderen nur die
             # letzte, damit alte Einträge den Bericht nicht strecken.

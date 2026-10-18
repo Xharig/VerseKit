@@ -7996,16 +7996,16 @@ def _account_rows(window, inner):
     search()
 
 
-def _diagnostics(fenster, rahmen):
+def _diagnostics(window, frame):
     from . import paths
     from .main_window import toggle_switch
-    _heading(fenster, rahmen, t('hf_diagnose'), t('s_di_lead'))
+    _heading(window, frame, t('hf_diagnose'), t('s_di_lead'))
     # ⭐ Die drei Knöpfe und der Zustimmungs-Schalter stehen fest unter der
     # Überschrift, vor der rollenden Fläche gepackt: Sie rollen nicht mit
     # und sind ohne Suchen zu sehen. Gefüllt wird der Rahmen weiter unten.
-    oben = tk.Frame(rahmen, bg=BG)
-    oben.pack(fill='x', padx=24, pady=(0, 12))
-    innen = _scroll_area(rahmen)
+    top = tk.Frame(frame, bg=BG)
+    top.pack(fill='x', padx=24, pady=(0, 12))
+    inner = _scroll_area(frame)
 
     # ⭐ Wer meldet? Steht ÜBER dem Bericht, damit man sieht, was mitgeht.
     # Ohne Absender lässt sich ein Bericht niemandem zuordnen, und
@@ -8017,10 +8017,10 @@ def _diagnostics(fenster, rahmen):
     # Namen (`report.reporter_name`). `suggested` hält den Wert, den das Feld
     # zuletzt von selbst bekam: Nur eine Abweichung davon wird gespeichert.
     suggested = [report.reporter_name()]
-    reporter_var = tk.StringVar(rahmen, value=suggested[0])
-    reporter_row = _setting_row(fenster, innen, t('s_melder'), t('s_melder_h'))
+    reporter_var = tk.StringVar(frame, value=suggested[0])
+    reporter_row = _setting_row(window, inner, t('s_melder'), t('s_melder_h'))
     from .main_window import round_entry
-    reporter_field = round_entry(reporter_row, reporter_var, fenster.f_small,
+    reporter_field = round_entry(reporter_row, reporter_var, window.f_small,
                                  theme.FIELD, LINE, ACCENT, FG,
                                  placeholder=t('s_pl_melder'))
     reporter_field.holder.pack(fill='x', pady=(8, 0))
@@ -8033,7 +8033,7 @@ def _diagnostics(fenster, rahmen):
     # einem einzeiligen Feld neben dem Text sähe man bei zwei Sätzen nur das
     # Ende und könnte vor dem Absenden nicht mehr nachlesen, was man meldet.
     #
-    # Genau dafür ist `breit=True` da (siehe `_feld`): unter die Beschreibung
+    # Genau dafür ist `wide=True` da (siehe `_setting_row`): unter die Beschreibung
     # statt daneben, volle Breite. Der Name bleibt bewusst einzeilig rechts —
     # ein Name ist kurz, und ein vierzeiliges Feld dafür sähe albern aus.
     #
@@ -8041,13 +8041,13 @@ def _diagnostics(fenster, rahmen):
     # Bericht; beim nächsten Öffnen stünde er sonst noch da und würde
     # versehentlich zu einer zweiten Meldung mitgeschickt.
     from .main_window import round_textarea
-    ziel_meldung = _setting_row(fenster, innen, t('s_meldung'), t('s_meldung_h'),
+    message_row = _setting_row(window, inner, t('s_meldung'), t('s_meldung_h'),
                          wide=True)
-    meldung_feld = round_textarea(ziel_meldung, fenster.f_small,
+    message_field = round_textarea(message_row, window.f_small,
                                    theme.FIELD, LINE, ACCENT, FG, rows=4)
-    meldung_feld.holder.pack(fill='x', pady=(8, 0))
+    message_field.holder.pack(fill='x', pady=(8, 0))
 
-    def meldung_text():
+    def message_text():
         """Was gerade im Feld steht — ohne den Zeilenumbruch am Ende.
 
         ⚠ Ein `Text` hängt immer ein `\\n` an. Ohne das Abschneiden stünde im
@@ -8056,47 +8056,47 @@ def _diagnostics(fenster, rahmen):
         wird.
         """
         try:
-            return meldung_feld.get('1.0', 'end-1c').strip()
+            return message_field.get('1.0', 'end-1c').strip()
         except Exception:
             return ''
 
     # Bilder kommen nur über die Dateiauswahl hinein, nie von selbst, und
     # gehen nur über „Absenden" hinaus. Gespeichert wird nichts.
-    bilder = []          # [(angezeigter Name, Bytes, Art)]
-    ziel_bilder = _setting_row(
-        fenster, innen, t('s_bilder'),
+    pictures = []          # [(angezeigter Name, Bytes, Art)]
+    pictures_row = _setting_row(
+        window, inner, t('s_bilder'),
         t('s_bilder_h') % (report.IMAGE_LIMIT,
                            report.IMAGE_BUDGET // (1024 * 1024)),
         wide=True)
-    bilder_liste = tk.Frame(ziel_bilder, bg=BG)
+    pictures_list = tk.Frame(pictures_row, bg=BG)
 
-    def bilder_zeichnen():
-        for kind in bilder_liste.winfo_children():
+    def draw_pictures():
+        for kind in pictures_list.winfo_children():
             kind.destroy()
-        _stripe_reset(bilder_liste)
-        for index, (shown_name, _data, _kind) in enumerate(bilder):
-            grund = _stripe(bilder_liste)
-            zeile_bild = tk.Frame(bilder_liste, bg=grund)
-            zeile_bild.pack(fill='x', ipady=3)
-            entfernen = icons.line(zeile_bild, 'schliessen', background=grund,
-                                   font=fenster.f_small)
-            entfernen.configure(cursor='hand2', padx=6)
-            entfernen.pack(side='right')
-            entfernen.bind('<Button-1>',
-                           lambda _e, i=index: bild_entfernen(i))
-            tk.Label(zeile_bild, text=shown_name, bg=grund, fg=FG,
-                     font=fenster.f_small, anchor='w'
+        _stripe_reset(pictures_list)
+        for index, (shown_name, _data, _kind) in enumerate(pictures):
+            stripe_bg = _stripe(pictures_list)
+            picture_row = tk.Frame(pictures_list, bg=stripe_bg)
+            picture_row.pack(fill='x', ipady=3)
+            remove_icon = icons.line(picture_row, 'schliessen', background=stripe_bg,
+                                   font=window.f_small)
+            remove_icon.configure(cursor='hand2', padx=6)
+            remove_icon.pack(side='right')
+            remove_icon.bind('<Button-1>',
+                           lambda _e, i=index: remove_picture(i))
+            tk.Label(picture_row, text=shown_name, bg=stripe_bg, fg=FG,
+                     font=window.f_small, anchor='w'
                      ).pack(side='left', fill='x', expand=True, padx=(6, 0))
 
-    def bild_entfernen(index):
-        if 0 <= index < len(bilder):
-            shown_name = bilder.pop(index)[0]
-            bilder_zeichnen()
-            fenster.say(t('s_di_bild_weg') % shown_name)
+    def remove_picture(index):
+        if 0 <= index < len(pictures):
+            shown_name = pictures.pop(index)[0]
+            draw_pictures()
+            window.say(t('s_di_bild_weg') % shown_name)
 
-    def bild_waehlen():
-        if len(bilder) >= report.IMAGE_LIMIT:
-            fenster.say(t('s_di_bild_voll') % report.IMAGE_LIMIT)
+    def choose_picture():
+        if len(pictures) >= report.IMAGE_LIMIT:
+            window.say(t('s_di_bild_voll') % report.IMAGE_LIMIT)
             return
         from . import file_picker
         path = file_picker.open_file(t('s_di_bild_titel'),
@@ -8105,61 +8105,61 @@ def _diagnostics(fenster, rahmen):
             return
         data, kind, problem = report.load_image(path)
         if problem == 's_di_bild_zugross' or (
-                data is not None and len(data) + sum(len(b[1]) for b in bilder)
+                data is not None and len(data) + sum(len(b[1]) for b in pictures)
                 > report.IMAGE_BUDGET):
-            fenster.say(t('s_di_bild_zugross')
+            window.say(t('s_di_bild_zugross')
                         % (report.IMAGE_BUDGET // (1024 * 1024)))
             return
         if problem:
-            fenster.say(t(problem))
+            window.say(t(problem))
             return
         shown_name = os.path.basename(path)
-        bilder.append((shown_name, data, kind))
-        bilder_zeichnen()
-        fenster.say(t('s_di_bild_dabei') % shown_name)
+        pictures.append((shown_name, data, kind))
+        draw_pictures()
+        window.say(t('s_di_bild_dabei') % shown_name)
 
-    _button(fenster, ziel_bilder, t('s_di_bild_waehlen'),
-            bild_waehlen).pack(anchor='w')
-    bilder_liste.pack(fill='x', pady=(6, 0))
+    _button(window, pictures_row, t('s_di_bild_waehlen'),
+            choose_picture).pack(anchor='w')
+    pictures_list.pack(fill='x', pady=(6, 0))
 
     text = ''
     try:
-        text = report.build(version=fenster.version, root=fenster.root,
+        text = report.build(version=window.version, root=window.root,
                             reporter=suggested[0])
-    except Exception as ausnahme:
-        errors.record('pages.diagnose', ausnahme)
+    except Exception as error:
+        errors.record('pages.diagnose', error)
 
     from .main_window import round_frame
-    kasten = round_frame(innen, theme.FIELD, LINE, radius=8, base_color=BG)
-    kasten.holder.pack(fill='both', expand=True)
+    box = round_frame(inner, theme.FIELD, LINE, radius=8, base_color=BG)
+    box.holder.pack(fill='both', expand=True)
     # ⚠ `highlightthickness` steht bei Text und Entry auf 1 und wird auf dem
     # Mac als helle Linie gezeichnet — im runden Kasten sah das aus wie ein
     # zweiter, eckiger Rahmen. `relief='flat'` und `bd=0` schalten das NICHT ab.
-    feld = tk.Text(kasten, bg=theme.FIELD, fg=FG, font=('Consolas', 10),
+    report_field = tk.Text(box, bg=theme.FIELD, fg=FG, font=('Consolas', 10),
                    height=16, wrap='none', relief='flat', bd=0,
                    highlightthickness=0, insertbackground=FG, padx=14, pady=12)
-    feld.pack(fill='both', expand=True)
-    feld.insert('1.0', text)
-    feld.configure(state='disabled')
+    report_field.pack(fill='both', expand=True)
+    report_field.insert('1.0', text)
+    report_field.configure(state='disabled')
 
-    def _bericht_neu():
+    def _rebuild_report():
         """Den Bericht neu aufbauen — mit dem, was gerade in den Feldern steht.
 
         ⚠ Der Bericht wird beim Öffnen der Seite EINMAL gebaut. Ohne dieses
         Auffrischen stünde der eben eingetippte Text nicht darin — man sähe
         „nicht angegeben" und hielte das Feld für kaputt."""
         try:
-            frisch = report.build(version=fenster.version,
-                                   root=fenster.root,
-                                   message=meldung_text(),
+            fresh = report.build(version=window.version,
+                                   root=window.root,
+                                   message=message_text(),
                                    reporter=current_reporter())
-        except Exception as ausnahme:
-            errors.record('pages.diagnose_melder', ausnahme)
+        except Exception as error:
+            errors.record('pages.diagnose_melder', error)
             return
-        feld.configure(state='normal')
-        feld.delete('1.0', 'end')
-        feld.insert('1.0', frisch)
-        feld.configure(state='disabled')
+        report_field.configure(state='normal')
+        report_field.delete('1.0', 'end')
+        report_field.insert('1.0', fresh)
+        report_field.configure(state='disabled')
 
     def current_reporter():
         """Der Name, wie er gerade im Feld steht — nur er geht hinaus, in den
@@ -8194,11 +8194,11 @@ def _diagnostics(fenster, rahmen):
                 paths.set_setting(report.REPORTER_CLEARED, True)
             paths.set_setting(report.REPORTER_SETTING, new_value)
             suggested[0] = new_value
-        _bericht_neu()
+        _rebuild_report()
 
     def on_show():
         follow_account()
-        _bericht_neu()
+        _rebuild_report()
 
     reporter_field.bind('<FocusOut>', store_reporter)
     reporter_field.bind('<Return>', store_reporter)
@@ -8211,8 +8211,8 @@ def _diagnostics(fenster, rahmen):
     #
     # Gebraucht wird sie auch nicht: `<FocusOut>` feuert, sobald man irgendwo
     # hin klickt, und jeder der drei Knöpfe holt sich den Text ohnehin frisch
-    # über `aktueller_bericht()`.
-    meldung_feld.bind('<FocusOut>', lambda _=None: _bericht_neu())
+    # über `current_report()`.
+    message_field.bind('<FocusOut>', lambda _=None: _rebuild_report())
 
     # ⚠⚠ **Beim erneuten Öffnen den Bericht neu bauen.** Er enthält die eigene
     # Bauplan-Zahl, und die ändert sich beim Spielen. Ohne das stünde in einem
@@ -8224,16 +8224,16 @@ def _diagnostics(fenster, rahmen):
     # Meldungsfeld leeren — jemand tippt seine Fehlerbeschreibung, wechselt
     # kurz auf eine andere Seite, um etwas nachzusehen, und der Text ist weg.
     # Genau auf dieser Seite darf das am wenigsten passieren.
-    fenster.on_show['diagnose'] = on_show
+    window.on_show['diagnose'] = on_show
 
     # ⚠ Die Zusicherung steht direkt unter dem Bericht: Ihr Text lautet „Der
     # Block **oben** ist der ganze Inhalt".
-    _status(fenster, innen, 'haken', t('s_di_sicher'), t('s_di_sicher_h'))
+    _status(window, inner, 'haken', t('s_di_sicher'), t('s_di_sicher_h'))
 
-    reihe = tk.Frame(oben, bg=BG)
-    reihe.pack(fill='x')
+    buttons_row = tk.Frame(top, bg=BG)
+    buttons_row.pack(fill='x')
 
-    def aktueller_bericht():
+    def current_report():
         """Genau das, was im Kasten steht — und vorher den Namen übernehmen.
 
         ⚠⚠ **Nicht der Bericht vom Öffnen der Seite.** Wer seinen Namen
@@ -8247,9 +8247,9 @@ def _diagnostics(fenster, rahmen):
         falls das Feld noch den Tastaturfokus hat.
         """
         store_reporter()
-        return feld.get('1.0', 'end-1c')
+        return report_field.get('1.0', 'end-1c')
 
-    def _meldung_verbraucht():
+    def _message_used():
         """Das Feld „Was ist passiert?" leeren — der Satz ist raus.
 
         ⚠⚠ **Alle drei Knöpfe, nicht nur „Absenden".** „Angaben kopieren"
@@ -8261,31 +8261,31 @@ def _diagnostics(fenster, rahmen):
         geleert. Wer zweimal kopiert — erst in den Chat, dann ins Formular —
         bekommt beide Male denselben vollständigen Bericht; würde der Kasten
         mitgeleert, fehlte beim zweiten Mal genau der Satz, um den es geht.
-        Beim nächsten Öffnen der Seite baut `beim_zeigen['diagnose']` ihn
+        Beim nächsten Öffnen der Seite baut `window.on_show['diagnose']` ihn
         ohnehin frisch auf, dann ist er auch dort weg.
         """
-        if meldung_text():
+        if message_text():
             try:
-                meldung_feld.delete('1.0', 'end')
-            except Exception as ausnahme:
-                errors.record('pages.diagnose_meldung_leeren', ausnahme)
+                message_field.delete('1.0', 'end')
+            except Exception as error:
+                errors.record('pages.diagnose_meldung_leeren', error)
 
-    def melden():
-        if report.open_issue(aktueller_bericht()):
-            fenster.say(t('s_di_browser_ok'))
-            _meldung_verbraucht()
+    def report_issue():
+        if report.open_issue(current_report()):
+            window.say(t('s_di_browser_ok'))
+            _message_used()
         else:
-            fenster.say(t('s_di_browser_weg'))
+            window.say(t('s_di_browser_weg'))
 
-    def kopieren():
-        if report.to_archive(aktueller_bericht(), fenster.root):
-            fenster.say(t('s_di_kopiert'))
-            _meldung_verbraucht()
+    def copy_report():
+        if report.to_archive(current_report(), window.root):
+            window.say(t('s_di_kopiert'))
+            _message_used()
 
     # ⚠ Gemerkt, sobald der Spieler den Haken einmal setzt — wer
     # Bilder und Berichte schicken will, soll das nicht jedes Mal neu bestätigen.
-    bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
-    senden_laeuft = [False]
+    consent = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
+    sending = [False]
 
     def send_report():
         """Auf Knopfdruck an den Entwickler — nach einem Haken, ohne Rückfrage.
@@ -8300,22 +8300,22 @@ def _diagnostics(fenster, rahmen):
         Pfade sind herausgenommen, ein Name steht nur oben, so wie im Feld.
         Ohne Haken wird nichts gesendet; der Knopf sagt dann, was fehlt.
 
-        ⚠ **Zuerst den Namen übernehmen** (`aktueller_bericht`), dann die
+        ⚠ **Zuerst den Namen übernehmen** (`current_report`), dann die
         Anhänge bauen: Die ZIP trägt denselben Namen wie der Bericht.
         """
-        if not bestaetigt['an']:
-            fenster.say(t('s_di_erst_bestaetigen'))
+        if not consent['an']:
+            window.say(t('s_di_erst_bestaetigen'))
             return
-        if senden_laeuft[0]:
+        if sending[0]:
             return
         # Text und Bilderliste im Tk-Faden lesen; Anhänge bauen und Senden im
         # Nebenfaden: Die ZIP der Scan-Bilder kostet Zeit, und das Senden
         # wartet bis zu 30 Sekunden auf das Netz.
-        text = aktueller_bericht()
+        text = current_report()
         sender = current_reporter()
-        images = [(data, kind) for _name, data, kind in bilder]
-        senden_laeuft[0] = True
-        fenster.say(t('s_di_ab_laeuft'))
+        images = [(data, kind) for _name, data, kind in pictures]
+        sending[0] = True
+        window.say(t('s_di_ab_laeuft'))
 
         def attachments():
             count = 0
@@ -8340,25 +8340,25 @@ def _diagnostics(fenster, rahmen):
 
         def work():
             try:
-                ok, reason = report.submit(text, fenster.version,
+                ok, reason = report.submit(text, window.version,
                                            attachments())
             except Exception as exception:
                 errors.record('pages.diagnose_absenden', exception)
                 ok, reason = False, str(exception)
 
             def done():
-                senden_laeuft[0] = False
-                fenster.say(t('s_di_ab_ok') if ok
+                sending[0] = False
+                window.say(t('s_di_ab_ok') if ok
                             else t('s_di_ab_weg') % reason)
                 # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz,
                 # Dienst weg —, bleibt der Text stehen. Ihn dann zu löschen
                 # hieße, dem Melder seine Arbeit wegzunehmen, genau in dem
                 # Moment, in dem er es noch einmal versuchen will.
                 if ok:
-                    _meldung_verbraucht()
-                    if bilder:
-                        del bilder[:]
-                        bilder_zeichnen()
+                    _message_used()
+                    if pictures:
+                        del pictures[:]
+                        draw_pictures()
             _tk_calls.call(done)
         threading.Thread(target=work, daemon=True).start()
 
@@ -8377,10 +8377,10 @@ def _diagnostics(fenster, rahmen):
     # gibt denselben Text, und wer ihn wirklich als Datei braucht, fügt ihn ein
     # und speichert dort. Ein Knopf für einen Zwischenschritt, den niemand geht,
     # ist Ballast auf einer Seite, auf der man ohnehin schon Ärger hat.
-    _button_row(reihe, [
-        _button(fenster, reihe, t('s_di_absenden'), send_report, danger=True),
-        _button(fenster, reihe, t('s_di_melden'), melden, strong=True),
-        _button(fenster, reihe, t('s_di_kopieren'), kopieren),
+    _button_row(buttons_row, [
+        _button(window, buttons_row, t('s_di_absenden'), send_report, danger=True),
+        _button(window, buttons_row, t('s_di_melden'), report_issue, strong=True),
+        _button(window, buttons_row, t('s_di_kopieren'), copy_report),
     ])
 
     # ⭐ EIN Haken als Zustimmung, direkt unter „Absenden" — statt zweier
@@ -8390,23 +8390,23 @@ def _diagnostics(fenster, rahmen):
     try:
         from . import signature_scan as _scan_module
         from . import refinery_scan as _refinery_module
-        _anzahl_scan = (len(_scan_module.samples())
+        _scan_count = (len(_scan_module.samples())
                         + len(_refinery_module.kept_images()))
     except Exception:
-        _anzahl_scan = 0
-    zustimmung = tk.Frame(reihe.master, bg=BG)
-    zustimmung.pack(fill='x', pady=(6, 0))
+        _scan_count = 0
+    consent_row = tk.Frame(buttons_row.master, bg=BG)
+    consent_row.pack(fill='x', pady=(6, 0))
 
-    def zustimmung_umlegen():
-        bestaetigt['an'] = not bestaetigt['an']
-        paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt['an'])
-        return bestaetigt['an']
+    def toggle_consent():
+        consent['an'] = not consent['an']
+        paths.set_setting(BERICHT_ZUSTIMMUNG, consent['an'])
+        return consent['an']
 
-    _toggle(zustimmung, bestaetigt['an'], zustimmung_umlegen).pack(side='left')
-    tk.Label(zustimmung,
-             text=(t('s_di_zustimmung_bilder') % _anzahl_scan if _anzahl_scan
+    _toggle(consent_row, consent['an'], toggle_consent).pack(side='left')
+    tk.Label(consent_row,
+             text=(t('s_di_zustimmung_bilder') % _scan_count if _scan_count
                    else t('s_di_zustimmung')),
-             bg=BG, fg=FG, font=fenster.f_small, anchor='w', justify='left'
+             bg=BG, fg=FG, font=window.f_small, anchor='w', justify='left'
              ).pack(side='left', padx=8)
 
     # ⚠⚠ **Kein vierter Knopf** — siehe die Begründung oben. Stattdessen ein
@@ -8418,18 +8418,18 @@ def _diagnostics(fenster, rahmen):
     # wer melden will, hört an dieser Stelle auf. Der Weg über Discord braucht kein Konto bei
     # GitHub, und genau das muss **auf dieser Seite** stehen, nicht nur in der
     # Anleitung.
-    _body_text(innen, t('s_di_ohne_github'), fenster.f_small, color=SUB,
+    _body_text(inner, t('s_di_ohne_github'), window.f_small, color=SUB,
                fill='x', pady=(8, 0))
 
-    ziel = _setting_row(fenster, innen, t('s_di_mit'), t('s_di_mit_h'))
+    logging_row = _setting_row(window, inner, t('s_di_mit'), t('s_di_mit_h'))
 
-    def mitschreiben_um():
-        neu_wert = not paths.setting_bool('fehler_mitschreiben', True)
-        paths.set_setting('fehler_mitschreiben', neu_wert)
-        return neu_wert
+    def toggle_logging():
+        logging_on = not paths.setting_bool('fehler_mitschreiben', True)
+        paths.set_setting('fehler_mitschreiben', logging_on)
+        return logging_on
 
-    toggle_switch(ziel, paths.setting_bool('fehler_mitschreiben', True),
-                    mitschreiben_um).pack()
+    toggle_switch(logging_row, paths.setting_bool('fehler_mitschreiben', True),
+                    toggle_logging).pack()
 
 
 
@@ -14535,7 +14535,7 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern, in_card=False,
     feld.bind('<Return>', uebernehmen)
 
 
-def _shopping_list(fenster, rahmen):
+def _shopping_list(window, frame):
     """Alles, was noch zu besorgen ist — über alle Schiffe, wie eine Rechnung.
 
     ⭐⭐ **Der Reiter, der die ganze Ausstattungs-Arbeit zusammenführt.** Wer
@@ -14553,41 +14553,41 @@ def _shopping_list(fenster, rahmen):
     Wunschschiff kostet erst sich selbst und dann seine Ausstattung — genau die
     Frage, die vor dem Kauf im Kopf steht.
     """
-    from . import cart, fleet as meine
+    from . import cart, fleet as my_fleet
 
-    _heading(fenster, rahmen, t('hf_einkaufsliste'), t('s_ek_lead'))
-    innen = _scroll_area(rahmen)
-    daten = {'stand': None}
+    _heading(window, frame, t('hf_einkaufsliste'), t('s_ek_lead'))
+    inner = _scroll_area(frame)
+    shown = {'stand': None}
 
-    koerper = tk.Frame(innen, bg=BG)
-    koerper.pack(fill='x', padx=24, pady=(10, 20))
+    body = tk.Frame(inner, bg=BG)
+    body.pack(fill='x', padx=24, pady=(10, 20))
 
-    def neu_zeichnen():
-        for kind in koerper.winfo_children():
+    def redraw():
+        for kind in body.winfo_children():
             kind.destroy()
-        _aufbauen()
+        _build()
 
-    def _aufbauen():
-        stand = meine.load()
-        werte = cart.invoice(stand)
-        daten['stand'] = stand
+    def _build():
+        fleet_state = my_fleet.load()
+        invoice = cart.invoice(fleet_state)
+        shown['stand'] = fleet_state
         # Nur, was zu Schiffen gehört. Zum Bauen Vorgemerktes steht mit
         # seinem Material auf der Farmliste.
-        posten = [p for p in (werte.get('posten') or [])
+        items = [p for p in (invoice.get('posten') or [])
                   if p.get('quelle') != cart.NOTEPAD]
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall in diesem
         # Bereich: „nichts eingetragen", „nichts zu besorgen" und „keine Daten"
         # sehen im Code gleich aus und bedeuten Verschiedenes. Wer sie
         # zusammenwirft, sagt jemandem mit leerem Hangar, er sei fertig.
-        if not (stand.get('schiffe') or stand.get('wunsch')):
-            _body_text(koerper, t('s_ek_kein_schiff'), fenster.f_small,
+        if not (fleet_state.get('schiffe') or fleet_state.get('wunsch')):
+            _body_text(body, t('s_ek_kein_schiff'), window.f_small,
                         fill='x')
             return
-        if not posten:
-            _body_text(koerper, t('s_ek_nichts_offen'), fenster.f_small,
+        if not items:
+            _body_text(body, t('s_ek_nichts_offen'), window.f_small,
                         fill='x')
-            _no_data_note(fenster, koerper, werte)
+            _no_data_note(window, body, invoice)
             return
         # ⚠⚠ **Hier steht nur, was noch fehlt.** Abgehakte Zeilen unter
         # einer Überschrift mit null Positionen wären Unfug.
@@ -14595,73 +14595,73 @@ def _shopping_list(fenster, rahmen):
         # ⚠ Alles abgehakt ist etwas anderes als „nie etwas geplant" — und der
         # Unterschied gehört gesagt, sonst wirkt eine fertige Liste wie eine
         # leere.
-        fertige = [x for x in posten if x.get('erledigt')]
-        posten = [x for x in posten if not x.get('erledigt')]
-        if not posten:
-            _body_text(koerper,
-                        t('s_ek_alles_erledigt').format(n=len(fertige)),
-                        fenster.f_small, color=ACCENT, fill='x', pady=(0, 8))
-            _no_data_note(fenster, koerper, werte)
+        done_items = [x for x in items if x.get('erledigt')]
+        items = [x for x in items if not x.get('erledigt')]
+        if not items:
+            _body_text(body,
+                        t('s_ek_alles_erledigt').format(n=len(done_items)),
+                        window.f_small, color=ACCENT, fill='x', pady=(0, 8))
+            _no_data_note(window, body, invoice)
             return
 
-        _fetch_buy_prices(posten, koerper, neu_zeichnen)
+        _fetch_buy_prices(items, body, redraw)
         # Fehlt noch ein Preis, wird er beim nächsten Zeigen wieder geholt —
         # die Seite darf dann nicht als unverändert stehen bleiben.
-        if cart.missing_prices(posten):
+        if cart.missing_prices(items):
             guard.invalidate()
 
         # ⚠⚠ **Der Kopf zählt, was noch zu tun ist — nicht, was einmal
         # geplant war.** Abgehakte Posten zählen nicht mit. Eine Überschrift,
         # die sich beim Abarbeiten nicht ändert, ist keine Auskunft.
-        tk.Label(koerper,
-                 text=t('s_ek_kopf_1' if len(posten) == 1
+        tk.Label(body,
+                 text=t('s_ek_kopf_1' if len(items) == 1
                         else 's_ek_kopf').format(
-                            n=len(posten), schiffe=werte.get('schiffe') or 0),
-                 bg=BG, fg=FG, font=fenster.f_bold,
+                            n=len(items), schiffe=invoice.get('schiffe') or 0),
+                 bg=BG, fg=FG, font=window.f_bold,
                  anchor='w').pack(fill='x', pady=(0, 8))
 
         # Nach Schiff gruppieren — die Reihenfolge kommt schon sortiert an.
-        def abhaken(posten_eintrag, ja):
+        def tick(item, done):
             """Einen Posten als erledigt markieren — und sofort speichern.
 
             ⚠ Gesucht wird das Schiff über Name **und** Herkunft: Ein Schiff
             kann gleichzeitig im Hangar und auf der Wunschliste stehen (etwa
             ein zweites Exemplar), und der Haken gehört genau an eines davon.
             """
-            quelle = (stand.get('wunsch') if posten_eintrag.get('quelle')
-                      == cart.WISHLIST else stand.get('schiffe')) or []
-            pfade = (posten_eintrag.get('pfade')
-                     or [posten_eintrag.get('pfad')])
-            for schiff in quelle:
-                if (schiff.get('name') or '') == posten_eintrag.get('schiff'):
-                    geaendert = False
-                    for pfad in pfade:
-                        if cart.set_done(schiff, pfad, ja):
-                            geaendert = True
-                    if geaendert:
-                        meine.save(stand)
+            source = (fleet_state.get('wunsch') if item.get('quelle')
+                      == cart.WISHLIST else fleet_state.get('schiffe')) or []
+            slot_paths = (item.get('pfade')
+                     or [item.get('pfad')])
+            for ship in source:
+                if (ship.get('name') or '') == item.get('schiff'):
+                    changed = False
+                    for slot_path in slot_paths:
+                        if cart.set_done(ship, slot_path, done):
+                            changed = True
+                    if changed:
+                        my_fleet.save(fleet_state)
                     break
-            neu_zeichnen()
+            redraw()
 
-        aktuelles = None
-        for eintrag in cart.group_items(posten):
-            if eintrag.get('schiff') != aktuelles:
-                aktuelles = eintrag.get('schiff')
-                _buy_ship_head(fenster, koerper, eintrag)
-            _buy_row(fenster, koerper, eintrag, abhaken=abhaken)
+        current_ship = None
+        for entry in cart.group_items(items):
+            if entry.get('schiff') != current_ship:
+                current_ship = entry.get('schiff')
+                _buy_ship_head(window, body, entry)
+            _buy_row(window, body, entry, abhaken=tick)
 
         # Wie viel schon erledigt ist — sonst sieht eine halb abgearbeitete
         # Liste aus wie eine unangetastete.
         # ⚠ Nicht verschweigen, nur nicht auflisten: Wer weiß, dass vier
         # Posten erledigt sind, versteht auch, warum die Summe niedriger ist
         # als erwartet.
-        if fertige:
-            _body_text(koerper, t('s_ek_abgehakt').format(n=len(fertige)),
-                        fenster.f_small, color=ACCENT, fill='x', pady=(6, 0))
+        if done_items:
+            _body_text(body, t('s_ek_abgehakt').format(n=len(done_items)),
+                        window.f_small, color=ACCENT, fill='x', pady=(6, 0))
 
-        _cart_total(fenster, koerper, posten)
-        _no_data_note(fenster, koerper, werte)
-        _cart_route(fenster, koerper, posten)
+        _cart_total(window, body, items)
+        _no_data_note(window, body, invoice)
+        _cart_route(window, body, items)
 
     # ⚠ Beim erneuten Öffnen frisch rechnen: Die Seite wird nur einmal gebaut,
     # und zwischen zwei Besuchen ändert sich im Hangar oft etwas. Ob, sagt
@@ -14672,10 +14672,10 @@ def _shopping_list(fenster, rahmen):
 
     def on_show():
         if not guard.fresh():
-            guard.draw(neu_zeichnen)
+            guard.draw(redraw)
 
-    fenster.on_show['einkaufsliste'] = on_show
-    guard.draw(_aufbauen)
+    window.on_show['einkaufsliste'] = on_show
+    guard.draw(_build)
 
 
 def _dismantle(fenster, rahmen):
@@ -14949,7 +14949,7 @@ def _demand_orders(window, body, orders, title):
         row(head, right, '\n'.join(parts))
 
 
-def _farm_list(fenster, rahmen):
+def _farm_list(window, frame):
     """Was an Rohstoffen fehlt, um das Geplante selbst zu bauen.
 
     ⭐⭐ **Die Gegenrichtung zur Einkaufsliste.** Dort steht, was die Schiffe
@@ -14967,20 +14967,20 @@ def _farm_list(fenster, rahmen):
     geprüft meldet jedes „reicht", zusammen fehlt eines. Wer die Fehlmengen
     einzeln addiert, schickt den Spieler mit zu wenig Material los.
     """
-    from . import cart, fleet as meine
+    from . import cart, fleet as my_fleet
 
-    _heading(fenster, rahmen, t('hf_farmliste'), t('s_fl_lead'))
-    innen = _scroll_area(rahmen)
+    _heading(window, frame, t('hf_farmliste'), t('s_fl_lead'))
+    inner = _scroll_area(frame)
 
-    koerper = tk.Frame(innen, bg=BG)
-    koerper.pack(fill='x', padx=24, pady=(10, 20))
+    body = tk.Frame(inner, bg=BG)
+    body.pack(fill='x', padx=24, pady=(10, 20))
 
-    def neu_zeichnen():
-        for kind in koerper.winfo_children():
+    def redraw():
+        for kind in body.winfo_children():
             kind.destroy()
-        _aufbauen()
+        _build()
 
-    def _merkzettel_block(werte):
+    def _notepad_block(totals):
         """Was von Hand vorgemerkt wurde — mit Stückzahl und Streichen.
 
         ⭐⭐ **Der einzige Weg hierher, der ohne Schiff auskommt.** Alles andere
@@ -14993,33 +14993,33 @@ def _farm_list(fenster, rahmen):
         der Knopf sitzt. Ein leerer Bereich ohne Erklärung lässt einen ratlos
         zurück.
         """
-        eintraege = meine.notepad()
-        rahmen_mz = tk.Frame(koerper, bg=BG)
-        rahmen_mz.pack(fill='x', pady=(18, 0))
-        tk.Label(rahmen_mz, text=t('s_mz_titel'), bg=BG, fg=FG,
-                 font=fenster.f_bold, anchor='w').pack(fill='x')
-        if not eintraege:
-            _body_text(rahmen_mz, t('s_mz_leer'), fenster.f_small, fill='x')
+        noted = my_fleet.notepad()
+        notepad_frame = tk.Frame(body, bg=BG)
+        notepad_frame.pack(fill='x', pady=(18, 0))
+        tk.Label(notepad_frame, text=t('s_mz_titel'), bg=BG, fg=FG,
+                 font=window.f_bold, anchor='w').pack(fill='x')
+        if not noted:
+            _body_text(notepad_frame, t('s_mz_leer'), window.f_small, fill='x')
             return
 
-        def _streichen(name):
-            stand = meine.load()
-            meine.notepad_remove(stand, name)
-            meine.save(stand)
-            neu_zeichnen()
+        def _strike(name):
+            fleet_state = my_fleet.load()
+            my_fleet.notepad_remove(fleet_state, name)
+            my_fleet.save(fleet_state)
+            redraw()
 
         def _set_count(name, count):
             # Die Summe oben rechnet mit der Stückzahl — nach jeder Änderung
             # wird die ganze Seite neu gerechnet.
-            stand = meine.load()
-            if meine.notepad_set_count(stand, name, count):
-                meine.save(stand)
-            neu_zeichnen()
+            fleet_state = my_fleet.load()
+            if my_fleet.notepad_set_count(fleet_state, name, count):
+                my_fleet.save(fleet_state)
+            redraw()
 
         # ⚠⚠ **Das Material gehört an den Eintrag, nicht nur in die Summe
         # darüber.** Die Summe beantwortet
         # „wie viel Erz brauche ich insgesamt", hier steht „und wofür".
-        from . import crafting as _mz_herst
+        from . import crafting as _notepad_crafting
         # ⚠⚠⚠ **Die Fehlmengen kommen aus DERSELBEN Rechnung wie die Summe
         # darüber.** Das Lager direkt zu fragen ergäbe hier den vollen
         # Lagerbestand und in der Summe den für diesen Bedarf zugeteilten
@@ -15033,86 +15033,86 @@ def _farm_list(fenster, rahmen):
         # Schiffe und Rezepte noch einmal — gemessen **3937 ms** statt 60.
         #
         # Eine teure Rechnung gehört einmal gemacht und weitergereicht.
-        _fehlt_gesamt = set()
-        for _e in ((werte or {}).get('fehlt') or []):
-            _fehlt_gesamt.add((_e.get('rohstoff') or '').strip().lower())
+        _short_overall = set()
+        for _e in ((totals or {}).get('fehlt') or []):
+            _short_overall.add((_e.get('rohstoff') or '').strip().lower())
 
-        _stripe_reset(rahmen_mz)
-        for e in eintraege:
-            grund = _stripe(rahmen_mz, BG)
-            zeile = tk.Frame(rahmen_mz, bg=grund)
-            zeile.pack(fill='x', ipady=1)
+        _stripe_reset(notepad_frame)
+        for e in noted:
+            stripe_bg = _stripe(notepad_frame, BG)
+            row = tk.Frame(notepad_frame, bg=stripe_bg)
+            row.pack(fill='x', ipady=1)
             # ⚠ Der Streichen-Knopf zuerst, dann der Name mit `expand` —
             # sonst schiebt ein langer Bauplanname ihn aus dem Fenster.
             # Dieselbe Packreihenfolge-Falle, die hier schon zweimal zugeschlagen
             # hat (Kaufen-Knopf, „geändert"-Marke).
-            weg_knopf = _button(fenster, zeile, t('s_mz_weg'),
-                                lambda n=e.get('name'): _streichen(n))
-            weg_knopf.configure(bg=grund)
-            weg_knopf.pack(side='right', padx=(8, 0))
-            menge = int(e.get('anzahl') or 1)
-            _count_stepper(fenster, zeile, menge,
-                           lambda neu, n=e.get('name'): _set_count(n, neu),
-                           background=grund)
+            remove_button = _button(window, row, t('s_mz_weg'),
+                                lambda n=e.get('name'): _strike(n))
+            remove_button.configure(bg=stripe_bg)
+            remove_button.pack(side='right', padx=(8, 0))
+            quantity = int(e.get('anzahl') or 1)
+            _count_stepper(window, row, quantity,
+                           lambda new_count, n=e.get('name'): _set_count(n, new_count),
+                           background=stripe_bg)
             # ⭐ Der Name führt in die Herstellung — dort steht das Rezept
             # aufgeklappt, mit Güte-Wahl und dem Knopf „Hergestellt".
-            item_label = tk.Label(zeile, text=e.get('name') or '', bg=grund,
-                                  fg=FG, font=fenster.f_base, anchor='w',
+            item_label = tk.Label(row, text=e.get('name') or '', bg=stripe_bg,
+                                  fg=FG, font=window.f_base, anchor='w',
                                   cursor='hand2')
             item_label.pack(side='left', fill='x', expand=True)
 
             def to_crafting(_e=None, n=e.get('name') or ''):
-                fenster.crafting_search = n
-                fenster.jump_to('herstellung')
+                window.crafting_search = n
+                window.jump_to('herstellung')
 
             item_label.bind('<Button-1>', to_crafting)
             item_label.bind('<Enter>',
                             lambda _e, l=item_label: l.configure(fg=ACCENT))
             item_label.bind('<Leave>',
                             lambda _e, l=item_label: l.configure(fg=FG))
-            from . import notice as _mz_notice
-            _mz_notice.attach(item_label, lambda: t('s_mz_zur_herstellung'))
+            from . import notice as _notepad_notice
+            _notepad_notice.attach(item_label, lambda: t('s_mz_zur_herstellung'))
 
             # Die Zutaten darunter — mit der Stückzahl multipliziert und
             # gegen das Lager gehalten.
             try:
-                rez = _mz_herst.recipe(e.get('name') or '')
+                recipe = _notepad_crafting.recipe(e.get('name') or '')
             except Exception:
-                rez = None
-            if not rez or not rez.get('stufen'):
+                recipe = None
+            if not recipe or not recipe.get('stufen'):
                 # ⚠ Kein Rezept ist eine Aussage, kein Grund zu schweigen —
                 # sonst steht der Eintrag ohne Erklärung nackt da.
-                tk.Label(rahmen_mz, text=t('s_mz_kein_rezept'), bg=grund,
-                         fg=SUB, font=fenster.f_small, anchor='w',
+                tk.Label(notepad_frame, text=t('s_mz_kein_rezept'), bg=stripe_bg,
+                         fg=SUB, font=window.f_small, anchor='w',
                          padx=18).pack(fill='x')
                 continue
-            for stufe in rez['stufen']:
-                for _slot, rohstoff, einzeln, guete in (stufe.get('zutaten')
+            for stage in recipe['stufen']:
+                for _slot, material, per_piece, grade in (stage.get('zutaten')
                                                         or []):
-                    if not rohstoff:
+                    if not material:
                         continue
-                    braucht = float(einzeln or 0) * menge
-                    knapp = (rohstoff or '').strip().lower() in _fehlt_gesamt
-                    zutat = tk.Frame(rahmen_mz, bg=grund)
-                    zutat.pack(fill='x')
-                    tk.Label(zutat, text=rohstoff, bg=grund, fg=SUB,
-                             font=fenster.f_small, anchor='w',
+                    needed = float(per_piece or 0) * quantity
+                    short = (material or '').strip().lower() in _short_overall
+                    ingredient_row = tk.Frame(notepad_frame, bg=stripe_bg)
+                    ingredient_row.pack(fill='x')
+                    tk.Label(ingredient_row, text=material, bg=stripe_bg, fg=SUB,
+                             font=window.f_small, anchor='w',
                              width=20).pack(side='left', padx=(18, 0))
                     # ⚠ Grün heißt „reicht", Gold „fehlt" — dieselbe Sprache
                     # wie überall im Werkzeug, und die Farbe stammt aus
                     # derselben Rechnung wie die Summe darüber.
                     #
-                    # ⚠ `_menge_text()` statt `%.2f`: Deutsche Zahlen haben
+                    # ⚠ `_amount_text()` statt `%.2f`: Deutsche Zahlen haben
                     # ein Komma. Sonst stünde hier „4.64" und in der Summe
                     # „8,8" auf derselben Seite.
-                    tk.Label(zutat,
-                             text=t('s_mz_braucht') % _amount_text(braucht),
-                             bg=grund, fg=GOLD if knapp else ACCENT,
-                             font=fenster.f_small,
+                    tk.Label(ingredient_row,
+                             text=t('s_mz_braucht') % _amount_text(needed),
+                             bg=stripe_bg, fg=GOLD if short else ACCENT,
+                             font=window.f_small,
                              anchor='w').pack(side='left')
 
-    def _aufbauen():
-        values = cart.farm_list(meine.load())
+    def _build():
+        values = cart.farm_list(my_fleet.load())
         missing = values.get('fehlt') or []
         sufficient = values.get('vollstaendig') or []
         count = values.get('posten') or 0
@@ -15125,45 +15125,45 @@ def _farm_list(fenster, rahmen):
         # „nichts geplant", „alles da" und „nichts zu tun" sehen im Code gleich
         # aus. Wer sie zusammenwirft, sagt jemandem ohne Plan, er sei fertig.
         if not count:
-            _body_text(koerper, t('s_fl_nichts_geplant'), fenster.f_small,
+            _body_text(body, t('s_fl_nichts_geplant'), window.f_small,
                         fill='x')
-            _merkzettel_block(values)
+            _notepad_block(values)
             return
 
-        tk.Label(koerper, text=t('s_fl_kopf').format(n=count), bg=BG, fg=FG,
-                 font=fenster.f_bold, anchor='w').pack(fill='x', pady=(0, 8))
+        tk.Label(body, text=t('s_fl_kopf').format(n=count), bg=BG, fg=FG,
+                 font=window.f_bold, anchor='w').pack(fill='x', pady=(0, 8))
 
         if not missing:
-            _body_text(koerper, t('s_fl_alles_da'), fenster.f_small,
+            _body_text(body, t('s_fl_alles_da'), window.f_small,
                         color=ACCENT, fill='x')
         else:
             # ⭐ Wo es das Fehlende gibt — einmal für alle Zeilen gerechnet.
             per_material, gathering = farm_locations(
                 [entry.get('rohstoff') or '' for entry in missing])
-            _stripe_reset(koerper)
+            _stripe_reset(body)
             for entry in missing:
-                _farm_row(fenster, koerper, entry, fehlend=True,
+                _farm_row(window, body, entry, fehlend=True,
                           spots=per_material.get(entry.get('rohstoff') or ''))
-            _farm_gathering(fenster, koerper, gathering)
+            _farm_gathering(window, body, gathering)
 
         if sufficient:
-            tk.Label(koerper, text=t('s_fl_reicht_kopf').format(n=len(sufficient)),
-                     bg=BG, fg=SUB, font=fenster.f_small,
+            tk.Label(body, text=t('s_fl_reicht_kopf').format(n=len(sufficient)),
+                     bg=BG, fg=SUB, font=window.f_small,
                      anchor='w').pack(fill='x', pady=(14, 4))
-            _stripe_reset(koerper)
+            _stripe_reset(body)
             for entry in sufficient:
-                _farm_row(fenster, koerper, entry, fehlend=False)
+                _farm_row(window, body, entry, fehlend=False)
 
         # ⚠ Was gar nicht gerechnet werden konnte, wird genannt — eine Liste,
         # der stillschweigend Posten fehlen, ist schlimmer als eine kurze.
         without_recipe = values.get('ohne_rezept') or []
         if without_recipe:
-            _body_text(koerper,
+            _body_text(body,
                         t('s_fl_ohne_rezept').format(n=len(without_recipe),
                                                      teile=', '.join(without_recipe)),
-                        fenster.f_small, color=GOLD, fill='x', pady=(12, 0))
+                        window.f_small, color=GOLD, fill='x', pady=(12, 0))
 
-        _merkzettel_block(values)
+        _notepad_block(values)
 
     # Beim Wiederkommen nur neu rechnen und zeichnen, wenn sich etwas
     # geändert hat (`freshness.Guard`). Die Fehlerliste der Rezeptdaten liegt
@@ -15173,10 +15173,10 @@ def _farm_list(fenster, rahmen):
 
     def on_show():
         if not guard.fresh():
-            guard.draw(neu_zeichnen)
+            guard.draw(redraw)
 
-    fenster.on_show['farmliste'] = on_show
-    guard.draw(_aufbauen)
+    window.on_show['farmliste'] = on_show
+    guard.draw(_build)
 
 
 def _count_stepper(window, row, count, on_change, background=None):
@@ -19821,7 +19821,7 @@ def _pc_field_row(fenster, eltern, feld):
              anchor='w').pack(side='left', padx=(10, 0))
 
 
-def _patch_changes(fenster, rahmen):
+def _patch_changes(window, frame):
     """Was ein Spiel-Patch an Werten verändert hat — Stufe 4 der Erkul-Reihe.
 
     ⭐ **Der Gewinn steckt in der Ablage, nicht im Abruf.** Erkul hält nur die
@@ -19835,7 +19835,7 @@ def _patch_changes(fenster, rahmen):
     """
     from . import patch_changes as pa
 
-    _heading(fenster, rahmen, t('hf_patchaenderungen'), t('s_pa_lead'))
+    _heading(window, frame, t('hf_patchaenderungen'), t('s_pa_lead'))
 
     # ⚠⚠ **Patch-Liste und Bereichsknöpfe bleiben STEHEN, nur die Werte
     # rollen.** Läge alles in EINER Rollfläche, müsste wer bei „ships" durch
@@ -19845,12 +19845,12 @@ def _patch_changes(fenster, rahmen):
     # ⚠ Die Reihenfolge ist dabei die halbe Miete: Erst alles Feste packen,
     # **danach** die Rollfläche mit `expand=True`. Wird der feste Teil nach dem
     # wachsenden gepackt, schiebt der Inhalt ihn aus dem Fenster.
-    _body_text(rahmen, t('s_pa_sammlung'), fenster.f_small, fill='x',
+    _body_text(frame, t('s_pa_sammlung'), window.f_small, fill='x',
                 padx=24, inset=48)
 
-    kopf = tk.Frame(rahmen, bg=BG)
-    kopf.pack(fill='x', padx=24, pady=(12, 0))
-    stand = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_small,
+    head = tk.Frame(frame, bg=BG)
+    head.pack(fill='x', padx=24, pady=(12, 0))
+    status_label = tk.Label(head, text='', bg=BG, fg=SUB, font=window.f_small,
                      anchor='w')
 
     # ⚠⚠ **Die Patch-Liste rollt in sich selbst, mit fester Höhe.**
@@ -19862,16 +19862,16 @@ def _patch_changes(fenster, rahmen):
     # Fünf Zeilen sind sichtbar, der Rest wird gerollt: Ein fester Bereich mit veränderlichem Inhalt
     # braucht eine Höhengrenze **und** eine eigene Rollfläche — sonst wird er
     # irgendwann abgeschnitten, ohne dass es jemand merkt.
-    liste = _scroll_area(rahmen, height=_PATCH_LIST_HEIGHT)
-    bereiche = tk.Frame(rahmen, bg=BG)
-    bereiche.pack(fill='x', padx=24, pady=(10, 0))
+    patch_list = _scroll_area(frame, height=_PATCH_LIST_HEIGHT)
+    areas = tk.Frame(frame, bg=BG)
+    areas.pack(fill='x', padx=24, pady=(10, 0))
 
     # Ab hier rollt es — und nur das.
-    innen = _scroll_area(rahmen)
-    ergebnis = tk.Frame(innen, bg=BG)
-    ergebnis.pack(fill='x', padx=24, pady=(8, 20))
+    inner = _scroll_area(frame)
+    result_frame = tk.Frame(inner, bg=BG)
+    result_frame.pack(fill='x', padx=24, pady=(8, 20))
 
-    zustand = {'patch': '', 'art': None}
+    selection = {'patch': '', 'art': None}
     # Was erkul zuletzt angeboten hat (`pa.offered()`, ein Netzabruf) —
     # siehe `_on_show`.
     erkul = {'list': None}
@@ -19881,96 +19881,96 @@ def _patch_changes(fenster, rahmen):
             erkul['list'] = pa.offered()
         return pa.overview(erkul['list'])
 
-    def _leeren(*rahmen_liste):
-        for r in rahmen_liste:
+    def _clear(*frames):
+        for r in frames:
             for kind in r.winfo_children():
                 kind.destroy()
 
     # ---------------------------------------------------------- Die Anzeige
-    def _posten_zeigen():
-        _leeren(ergebnis)
-        version = zustand['patch']
+    def _show_items():
+        _clear(result_frame)
+        version = selection['patch']
         if not version:
             # ⚠ „Wähl links einen Patch aus" ist nur richtig, wenn links auch
             # etwas Auswählbares liegt. Solange nichts abgelegt ist, führt der
             # Satz in die Irre: Man wählt, bekommt nichts, und hält die Seite
             # für leer — dabei fehlt bloß ein Druck auf den Knopf darüber.
             if pa.stored():
-                _body_text(ergebnis, t('s_pa_waehlen'), fenster.f_small,
+                _body_text(result_frame, t('s_pa_waehlen'), window.f_small,
                             fill='x')
             else:
-                _body_text(ergebnis,
+                _body_text(result_frame,
                             t('s_pa_erst_holen').format(knopf=t('s_pa_suchen')),
-                            fenster.f_small, fill='x')
+                            window.f_small, fill='x')
             return
-        posten = pa.changes(version, zustand['art'])
-        if not posten:
-            _body_text(ergebnis, t('s_pa_nichts_hier'), fenster.f_small,
+        items = pa.changes(version, selection['art'])
+        if not items:
+            _body_text(result_frame, t('s_pa_nichts_hier'), window.f_small,
                         fill='x')
             return
-        for eintrag in posten[:_PATCH_MAX]:
-            kasten = tk.Frame(ergebnis, bg=BG)
-            kasten.pack(fill='x', pady=(0, 8))
-            zeile = tk.Frame(kasten, bg=BG)
-            zeile.pack(fill='x')
-            marke = {'neu': (t('s_pa_zustand_neu'), ACCENT),
+        for entry in items[:_PATCH_MAX]:
+            box = tk.Frame(result_frame, bg=BG)
+            box.pack(fill='x', pady=(0, 8))
+            row = tk.Frame(box, bg=BG)
+            row.pack(fill='x')
+            mark = {'neu': (t('s_pa_zustand_neu'), ACCENT),
                      'weg': (t('s_pa_zustand_weg'), GOLD),
-                     'geaendert': (t('s_pa_zustand_geae'), SUB)}[eintrag['zustand']]
-            tk.Label(zeile, text=marke[0], bg=BG, fg=marke[1],
-                     font=fenster.f_small, anchor='w').pack(side='left')
-            tk.Label(zeile, text=eintrag['name'], bg=BG, fg=FG,
-                     font=fenster.f_bold, anchor='w').pack(side='left',
+                     'geaendert': (t('s_pa_zustand_geae'), SUB)}[entry['zustand']]
+            tk.Label(row, text=mark[0], bg=BG, fg=mark[1],
+                     font=window.f_small, anchor='w').pack(side='left')
+            tk.Label(row, text=entry['name'], bg=BG, fg=FG,
+                     font=window.f_bold, anchor='w').pack(side='left',
                                                            padx=(10, 0))
-            if eintrag.get('groesse') is not None:
-                tk.Label(zeile,
-                         text=t('s_pa_groesse').format(n=eintrag['groesse']),
-                         bg=BG, fg=SUB, font=fenster.f_small,
+            if entry.get('groesse') is not None:
+                tk.Label(row,
+                         text=t('s_pa_groesse').format(n=entry['groesse']),
+                         bg=BG, fg=SUB, font=window.f_small,
                          anchor='w').pack(side='left', padx=(8, 0))
-            for feld in eintrag['felder']:
-                _pc_field_row(fenster, kasten, feld)
-        rest = len(posten) - _PATCH_MAX
+            for field in entry['felder']:
+                _pc_field_row(window, box, field)
+        rest = len(items) - _PATCH_MAX
         if rest > 0:
-            _body_text(ergebnis, t('s_pa_mehr').format(n=rest),
-                        fenster.f_small, fill='x', pady=(6, 0))
+            _body_text(result_frame, t('s_pa_mehr').format(n=rest),
+                        window.f_small, fill='x', pady=(6, 0))
 
-    def _bereiche_zeigen():
-        _leeren(bereiche)
-        version = zustand['patch']
+    def _show_areas():
+        _clear(areas)
+        version = selection['patch']
         if not version or not pa.load(version):
             return
-        # ⚠⚠ **`_knopfgitter` will fertige KNÖPFE, keine Beschriftungspaare.**
+        # ⚠⚠ **`_button_grid` will fertige KNÖPFE, keine Beschriftungspaare.**
         # `_reflow_grid` ruft `winfo_exists()` auf jedem Eintrag, ein
         # `(Text, Rückruf)`-Tupel hat das nicht — es flöge `AttributeError:
         # 'tuple' object has no attribute 'winfo_exists'`, und zwar aus einem
         # `after`-Rückruf heraus. Der Reiter bliebe leer, ohne sichtbare
         # Fehlermeldung, und der Selbsttest klickt ihn nicht an.
-        knoepfe = [_button(fenster, bereiche, t('s_pa_alle'),
-                          lambda: _art_waehlen(None),
-                          strong=(zustand['art'] is None))]
-        for art, anzahl in pa.categories(version):
-            knoepfe.append(_button(fenster, bereiche,
-                                  '%s (%d)' % (art, anzahl),
-                                  (lambda a=art: _art_waehlen(a)),
-                                  strong=(zustand['art'] == art)))
-        _button_grid(bereiche, knoepfe)
+        buttons = [_button(window, areas, t('s_pa_alle'),
+                          lambda: _choose_area(None),
+                          strong=(selection['art'] is None))]
+        for area, count in pa.categories(version):
+            buttons.append(_button(window, areas,
+                                  '%s (%d)' % (area, count),
+                                  (lambda a=area: _choose_area(a)),
+                                  strong=(selection['art'] == area)))
+        _button_grid(areas, buttons)
 
-    def _art_waehlen(art):
-        zustand['art'] = art
+    def _choose_area(area):
+        selection['art'] = area
         # ⚠ Die Knopfreihe mit neu bauen, sonst bleibt die Hervorhebung auf
         # dem zuvor gewählten Bereich stehen — man sieht dann Posten aus
         # „ships", während „Alle" hervorgehoben ist.
-        _bereiche_zeigen()
-        _posten_zeigen()
+        _show_areas()
+        _show_items()
 
-    def _eintrag_zu(version):
+    def _entry_for(version):
         """Der Übersichtseintrag zu einer Version — oder None."""
-        for eintrag in _overview():
-            if eintrag['version'] == version:
-                return eintrag
+        for entry in _overview():
+            if entry['version'] == version:
+                return entry
         return None
 
-    def _patch_waehlen(version):
-        zustand['patch'] = version
+    def _choose_patch(version):
+        selection['patch'] = version
         # ⚠⚠ **Nicht „Alle" vorwählen.** Die Anzeige bricht nach 60 Posten ab, und über alle
         # Bereiche hinweg stehen die alphabetisch vorn — bei 4.10.0 sind das
         # 60 Zeilen `blades`, während die 184 Schiffe dahinter nie zu sehen
@@ -19981,7 +19981,7 @@ def _patch_changes(fenster, rahmen):
         # `weapons` mit 135, ships kommt dort nur auf 70. Fest `ships` würde
         # bei einem Waffen-Patch also wieder am Wesentlichen vorbeizeigen —
         # und `categories()` liefert ohnehin schon nach Größe sortiert.
-        zustand['art'] = None
+        selection['art'] = None
         if not pa.load(version):
             # ⚠⚠ **Zwei völlig verschiedene Gründe, warum hier nichts liegt** —
             # und sie brauchen zwei verschiedene Sätze:
@@ -19991,25 +19991,25 @@ def _patch_changes(fenster, rahmen):
             #
             # Derselbe Satz für beide behauptete im zweiten Fall, es gebe
             # nichts, während der Knopf daneben genau das geholt hätte.
-            _leeren(bereiche, ergebnis)
-            eintrag = _eintrag_zu(version)
-            if eintrag is not None and not eintrag['leer']:
-                z = eintrag['summary']
-                _body_text(ergebnis, t('s_pa_nicht_geholt').format(
+            _clear(areas, result_frame)
+            entry = _entry_for(version)
+            if entry is not None and not entry['leer']:
+                z = entry['summary']
+                _body_text(result_frame, t('s_pa_nicht_geholt').format(
                     plus=z.get('added', 0), minus=z.get('removed', 0),
                     tilde=z.get('modified', 0), knopf=t('s_pa_suchen')),
-                    fenster.f_small, fill='x')
+                    window.f_small, fill='x')
             else:
-                _body_text(ergebnis, t('s_pa_leer_klick'), fenster.f_small,
+                _body_text(result_frame, t('s_pa_leer_klick'), window.f_small,
                             fill='x')
             return
-        bereiche_da = pa.categories(version)
-        zustand['art'] = bereiche_da[0][0] if bereiche_da else None
-        _bereiche_zeigen()
-        _posten_zeigen()
+        present_areas = pa.categories(version)
+        selection['art'] = present_areas[0][0] if present_areas else None
+        _show_areas()
+        _show_items()
 
-    def _liste_zeigen():
-        _leeren(liste)
+    def _show_list():
+        _clear(patch_list)
 
         # ⚠⚠ **Patches ohne Werteänderung kommen NICHT in die Liste.** Meist
         # sind es Hotfixes — von zehn Patches sind typischerweise **acht**
@@ -20019,23 +20019,23 @@ def _patch_changes(fenster, rahmen):
         # ⚠ Aber nicht spurlos: Darunter steht, **wie viele** weggelassen
         # wurden. Ohne diese Zeile sähe es aus, als fehlten Patches oder als
         # sei der Abruf unvollständig. Weglassen ja, verschweigen nein.
-        alle = _overview()
-        gezeigt = [e for e in alle if not e['leer']]
-        weggelassen = len(alle) - len(gezeigt)
+        all_entries = _overview()
+        shown = [e for e in all_entries if not e['leer']]
+        omitted = len(all_entries) - len(shown)
 
-        _stripe_reset(liste)
-        for eintrag in gezeigt:
-            grund = _stripe(liste, BG)
-            zeile = tk.Frame(liste, bg=grund, cursor='hand2')
-            zeile.pack(fill='x', ipady=2)
-            z = eintrag['summary']
-            if eintrag['leer']:
-                rechts, farbe = t('s_pa_leer'), SUB
+        _stripe_reset(patch_list)
+        for entry in shown:
+            stripe_bg = _stripe(patch_list, BG)
+            row = tk.Frame(patch_list, bg=stripe_bg, cursor='hand2')
+            row.pack(fill='x', ipady=2)
+            z = entry['summary']
+            if entry['leer']:
+                right_text, color = t('s_pa_leer'), SUB
             else:
-                rechts = t('s_pa_zaehler').format(
+                right_text = t('s_pa_zaehler').format(
                     plus=z.get('added', 0), minus=z.get('removed', 0),
                     tilde=z.get('modified', 0))
-                farbe = FG
+                color = FG
             # ⚠ **Auch die Versionsnummer zurücknehmen, nicht nur die Zahl
             # rechts.** Von zehn Patches sind acht leer; standen alle zehn in
             # voller Schriftfarbe da, sahen die zwei mit Inhalt aus wie die
@@ -20043,91 +20043,91 @@ def _patch_changes(fenster, rahmen):
             # leeren stehen. Die Liste soll auf einen Blick zeigen, wo etwas
             # zu holen ist. Weggelassen wird nichts: Ein leerer Patch ist eine
             # gültige Auskunft („in dieser Woche hat sich nichts geändert").
-            name_farbe = SUB if eintrag['leer'] else FG
-            for text, fg, breit in ((eintrag['version'], name_farbe, True),
-                                    (eintrag['datum'], SUB, False),
-                                    (rechts, farbe, False)):
-                tk.Label(zeile, text=text, bg=grund, fg=fg,
-                         font=fenster.f_bold if breit else fenster.f_small,
+            name_color = SUB if entry['leer'] else FG
+            for text, fg, bold in ((entry['version'], name_color, True),
+                                    (entry['datum'], SUB, False),
+                                    (right_text, color, False)):
+                tk.Label(row, text=text, bg=stripe_bg, fg=fg,
+                         font=window.f_bold if bold else window.f_small,
                          anchor='w').pack(side='left', padx=(0, 14))
             # ⭐ Genau der Fall, für den lokal abgelegt wird: Die Quelle führt
             # ihn nicht mehr, der Spieler hat ihn trotzdem.
-            if not eintrag['bei_erkul']:
-                tk.Label(zeile, text=t('s_pa_nur_hier'), bg=grund, fg=ACCENT,
-                         font=fenster.f_small, anchor='w').pack(side='left')
+            if not entry['bei_erkul']:
+                tk.Label(row, text=t('s_pa_nur_hier'), bg=stripe_bg, fg=ACCENT,
+                         font=window.f_small, anchor='w').pack(side='left')
             # ⚠ Die Bindung muss auf die Zeile UND ihre Etiketten — ein Klick
             # landet auf dem Etikett unter dem Zeiger, nicht auf dem Rahmen
             # darunter. Ohne die Schleife reagiert nur der schmale Rand.
-            for teil in [zeile] + list(zeile.winfo_children()):
-                teil.bind('<Button-1>',
-                          lambda _e, v=eintrag['version']: _patch_waehlen(v))
+            for widget in [row] + list(row.winfo_children()):
+                widget.bind('<Button-1>',
+                          lambda _e, v=entry['version']: _choose_patch(v))
 
-        if weggelassen:
-            tk.Label(liste, text=t('s_pa_leere_weg').format(n=weggelassen),
-                     bg=BG, fg=SUB, font=fenster.f_small,
+        if omitted:
+            tk.Label(patch_list, text=t('s_pa_leere_weg').format(n=omitted),
+                     bg=BG, fg=SUB, font=window.f_small,
                      anchor='w').pack(fill='x', pady=(6, 0))
 
     # ----------------------------------------------------------- Der Abruf
-    def _suchen():
-        stand.configure(text=t('s_pa_laeuft'))
-        stand.pack(side='left', padx=(12, 0))
+    def _search():
+        status_label.configure(text=t('s_pa_laeuft'))
+        status_label.pack(side='left', padx=(12, 0))
 
-        def arbeit():
+        def run():
             try:
-                neu = pa.sync()
-            except Exception as ausnahme:
-                errors.record('pages.patch_changes.sync', ausnahme)
-                neu = None
+                new_patches = pa.sync()
+            except Exception as error:
+                errors.record('pages.patch_changes.sync', error)
+                new_patches = None
             offer = pa.offered()
 
             # ⚠ Zurück in den Oberflächen-Faden — Tk verträgt keine Zugriffe
             # aus einem fremden Strang. Und die Seite kann inzwischen weg
             # sein, wenn jemand weitergeklickt hat.
-            def nachtragen():
+            def finish():
                 try:
-                    if not stand.winfo_exists():
+                    if not status_label.winfo_exists():
                         return
                     erkul['list'] = offer
-                    if neu is None:
-                        stand.configure(text=t('s_pa_kein_netz'))
-                    elif neu:
-                        stand.configure(text=t('s_pa_neu').format(n=len(neu)))
-                        _liste_zeigen()
+                    if new_patches is None:
+                        status_label.configure(text=t('s_pa_kein_netz'))
+                    elif new_patches:
+                        status_label.configure(text=t('s_pa_neu').format(n=len(new_patches)))
+                        _show_list()
                     else:
-                        stand.configure(text=t('s_pa_keine_neuen'))
+                        status_label.configure(text=t('s_pa_keine_neuen'))
                 except tk.TclError:
                     pass
-            _TK_CALLS.put(nachtragen)
+            _TK_CALLS.put(finish)
 
-        threading.Thread(target=arbeit, daemon=True).start()
+        threading.Thread(target=run, daemon=True).start()
 
-    _button(fenster, kopf, t('s_pa_suchen'), _suchen).pack(side='left')
+    _button(window, head, t('s_pa_suchen'), _search).pack(side='left')
 
     def _first_draw():
-        _liste_zeigen()
-        # ⚠ Über `_posten_zeigen()`, nicht mit einem fest hingeschriebenen Text:
+        _show_list()
+        # ⚠ Über `_show_items()`, nicht mit einem fest hingeschriebenen Text:
         # `s_pa_waehlen` direkt („Wähl links einen Patch aus") stünde auch dann
         # da, wenn links noch gar nichts Abgelegtes liegt. Die Fallunterscheidung
         # steckt in
-        # `_posten_zeigen()`; steht sie an zwei Stellen, läuft sie auseinander.
-        _posten_zeigen()
+        # `_show_items()`; steht sie an zwei Stellen, läuft sie auseinander.
+        _show_items()
 
     # ⚠ Beim erneuten Öffnen die Liste auffrischen, aber **nicht** von selbst
     # Patches holen: Die Seite wird beim Start im Leerlauf vorgebaut (siehe
     # `_prebuild_pages`) — ein Abruf von allein wäre ein Netzzugriff, den
     # niemand angestoßen hat. Der Knopf ist dafür da.
     def _refresh():
-        _liste_zeigen()
-        if zustand['patch']:
-            _bereiche_zeigen()
-            _posten_zeigen()
+        _show_list()
+        if selection['patch']:
+            _show_areas()
+            _show_items()
 
     # Nur neu zeichnen, wenn sich etwas geändert hat (`freshness.Guard`). Die
     # Patch-Dateien liegen in einem eigenen Ordner und laufen nicht über
     # `paths.app_file()` — ihr Stand kommt deshalb aus `pa.stamp()`.
     from . import freshness
-    guard = freshness.Guard(extra=lambda: (pa.stamp(), zustand['patch'],
-                                           zustand['art'],
+    guard = freshness.Guard(extra=lambda: (pa.stamp(), selection['patch'],
+                                           selection['art'],
                                            repr(erkul['list'])))
     # Vor dem Zeichnen holen: Der Zusatzwert des Wächters wird vorher
     # genommen und muss schon die Liste enthalten, die gezeichnet wird.
@@ -20146,7 +20146,7 @@ def _patch_changes(fenster, rahmen):
                 if offer != erkul['list']:
                     erkul['list'] = offer
                     guard.draw(_refresh)
-            _from_thread(liste, apply)
+            _from_thread(patch_list, apply)
         threading.Thread(target=work, daemon=True).start()
 
     def _on_show():
@@ -20154,6 +20154,6 @@ def _patch_changes(fenster, rahmen):
             guard.draw(_refresh)
         _recheck_erkul()
 
-    fenster.on_show['patchaenderungen'] = _on_show
+    window.on_show['patchaenderungen'] = _on_show
 
 

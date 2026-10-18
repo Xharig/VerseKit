@@ -2359,8 +2359,32 @@ def main():
                'der Bericht hat einen eigenen Abschnitt fuer die Seiten')
         pruefe("errors.last_crash" in quelle26,
                'und einen fuer den harten Abbruch')
-        pruefe("'Seite diagnose' in seiten[-1]" in quelle26,
-               'die Diagnose-Seite selbst steht nicht als letzte Zeile drin')
+        # Wirkung im echten Bericht: Endet die Seitenspur auf der
+        # Diagnose-Seite, fällt diese Zeile weg; eine Diagnose-Zeile weiter
+        # vorn bleibt stehen.
+        _spur26 = (['12:00:00  Start: Fenster steht'],
+                   ['12:00:01  Seite diagnose: steht',
+                    '12:00:02  Seite liste: bauen beginnt',
+                    '12:00:03  Seite liste: steht',
+                    '12:00:04  Seite diagnose: bauen beginnt'])
+        _alt_spur26 = fe26.split_trail
+        try:
+            fe26.split_trail = lambda: (list(_spur26[0]), list(_spur26[1]))
+            _zeilen26 = rp26.build(version='0.0.0-test').splitlines()
+        finally:
+            fe26.split_trail = _alt_spur26
+        _seiten26 = []
+        if sp26.t('b_spur_seiten') in _zeilen26:
+            for _z26 in _zeilen26[_zeilen26.index(sp26.t('b_spur_seiten')) + 1:]:
+                if not _z26.startswith('  '):
+                    break
+                _seiten26.append(_z26.strip())
+        pruefe(bool(_seiten26) and _seiten26[-1].endswith('Seite liste: steht')
+               and not any('diagnose: bauen' in _z26 for _z26 in _seiten26),
+               'die Diagnose-Seite selbst steht nicht als letzte Zeile drin (%r)'
+               % _seiten26[-1:])
+        pruefe(any('Seite diagnose: steht' in _z26 for _z26 in _seiten26),
+               'ein früherer Besuch der Diagnose-Seite bleibt in der Spur')
         quelle26b = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                          encoding='utf-8').read()
         # ⚠ Drei Stellen: `bauen beginnt` beim ersten Aufbauen, `zeigen` beim
@@ -7619,14 +7643,14 @@ def main():
     _falsch77 = []
     _richtig77 = 0
     # Namen, denen der frische Text zugewiesen wird (`text =
-    # aktueller_bericht()` vor einem Nebenfaden, der dann sendet).
+    # current_report()` vor einem Nebenfaden, der dann sendet).
     _frisch77 = {_z77.targets[0].id for _z77 in _ast77.walk(_baum77)
                  if isinstance(_z77, _ast77.Assign)
                  and len(_z77.targets) == 1
                  and isinstance(_z77.targets[0], _ast77.Name)
                  and isinstance(_z77.value, _ast77.Call)
                  and isinstance(_z77.value.func, _ast77.Name)
-                 and _z77.value.func.id == 'aktueller_bericht'}
+                 and _z77.value.func.id == 'current_report'}
     for _k77 in _ast77.walk(_baum77):
         if not (isinstance(_k77, _ast77.Call)
                 and isinstance(_k77.func, _ast77.Attribute)
@@ -7640,7 +7664,7 @@ def main():
         # Erlaubt ist nur der frisch geholte Text aus dem Kasten.
         ok = ((isinstance(erst, _ast77.Call)
                and isinstance(erst.func, _ast77.Name)
-               and erst.func.id == 'aktueller_bericht')
+               and erst.func.id == 'current_report')
               or (isinstance(erst, _ast77.Name) and erst.id in _frisch77))
         if ok:
             _richtig77 += 1
@@ -11916,8 +11940,10 @@ def main():
     from scbp import pages as _se117
     _kennung117 = dict((_f117.__name__, _k117)
                        for _k117, _f117 in _se117._builders().items())
+    # Seitenbauer heißen `(fenster, rahmen)` oder `(window, frame)`; jede
+    # Signatur ist eine Schnittkante.
     _stellen117 = [m.start() for m in
-                   re.finditer(r'^def _[a-z_]+\(fenster, rahmen\)',
+                   re.finditer(r'^def _[a-z_]+\((?:fenster, rahmen|window, frame)\)',
                                _seiten117, re.M)]
     _stellen117.append(len(_seiten117))
     _liest117 = set()
@@ -11987,20 +12013,20 @@ def main():
     _sei118 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                    encoding='utf-8').read()
 
-    # Die Diagnose-Seite herausschneiden — `melden` und `kopieren` heissen
-    # anderswo genauso, und ohne den Schnitt zaehlte die Pruefung fremde
-    # Funktionen mit.
+    # Die Diagnose-Seite herausschneiden — die Knopf-Funktionen könnten
+    # anderswo genauso heissen, und ohne den Schnitt zaehlte die Pruefung
+    # fremde Funktionen mit.
     _start118 = _sei118.find('def _diagnostics(')
     pruefe(_start118 > 0, 'die Diagnose-Seite ist auffindbar')
-    _ende118 = _sei118.find('\ndef ', _sei118.find('def aktueller_bericht'))
+    _ende118 = _sei118.find('\ndef ', _sei118.find('def current_report'))
     _block118 = _sei118[_start118:_ende118 if _ende118 > 0 else len(_sei118)]
 
-    pruefe('def _meldung_verbraucht' in _block118,
+    pruefe('def _message_used' in _block118,
            'es gibt eine Stelle, die das Meldungsfeld leert')
 
     # Jede der drei Knopf-Funktionen muss sie rufen. Der Rumpf reicht bis zur
     # naechsten Definition auf derselben Einrueckung.
-    for _knopf118 in ('melden', 'kopieren', 'send_report'):
+    for _knopf118 in ('report_issue', 'copy_report', 'send_report'):
         _pos118 = _block118.find('\n    def %s():' % _knopf118)
         if _pos118 < 0:
             pruefe(False, 'die Funktion %s() ist auffindbar' % _knopf118)
@@ -12008,7 +12034,7 @@ def main():
         _naechste118 = _block118.find('\n    def ', _pos118 + 10)
         _rumpf118 = _block118[_pos118:_naechste118 if _naechste118 > 0
                               else len(_block118)]
-        pruefe('_meldung_verbraucht()' in _rumpf118,
+        pruefe('_message_used()' in _rumpf118,
                '%s() leert das Meldungsfeld' % _knopf118)
 
     # ⚠ Und die Gegenrichtung: NUR bei Erfolg. Scheitert das Senden, muss der
@@ -12017,7 +12043,7 @@ def main():
     _abs118 = _block118.find('\n    def send_report():')
     if _abs118 > 0:
         _rumpf118 = _block118[_abs118:_block118.find('\n    def ', _abs118 + 10)]
-        pruefe('if ok:\n                    _meldung_verbraucht()' in
+        pruefe('if ok:\n                    _message_used()' in
                _rumpf118.replace('\r\n', '\n'),
                'beim Absenden wird nur nach Erfolg geleert')
 
@@ -23840,10 +23866,10 @@ def main():
     _dia243 = rumpf(_pq243, '_diagnostics') if 'def _diagnostics(' in _pq243 else _pq243
     _ab243 = _dia243[_dia243.find('def send_report():'):_dia243.find('def send_report():') + 2500]
     # Der Haken wird gemerkt, sobald er einmal gesetzt ist.
-    pruefe("bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}" in _pq243
-           and 'paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt' in _pq243,
+    pruefe("consent = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}" in _pq243
+           and 'paths.set_setting(BERICHT_ZUSTIMMUNG, consent' in _pq243,
            'die Zustimmung zum Absenden wird gemerkt')
-    pruefe("if not bestaetigt['an']:" in _ab243 and 'ask_yes_no' not in _ab243
+    pruefe("if not consent['an']:" in _ab243 and 'ask_yes_no' not in _ab243
            and 'sample_archive(sender)' in _ab243,
            'Absenden: ohne Haken nichts, mit Haken Bericht und Scan-Bilder, keine Rueckfrage')
     pruefe(rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
