@@ -5809,7 +5809,7 @@ class Overlay:
 
         ⚠ Die Version prüft **dieser** Start, nicht der Helfer davor: Er weiß
         als Einziger sicher, welche Fassung jetzt läuft. Ein Rückgabewert 0 des
-        Installers bei weiterhin alter Fassung ist deshalb kein Erfolg, und
+        Installers bei weiterhin alter Version ist deshalb kein Erfolg, und
         genau diese falsche Erfolgsmeldung soll es nicht geben.
         """
         try:

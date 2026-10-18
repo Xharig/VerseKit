@@ -973,7 +973,7 @@ _SWAP_RUNNING = [False]
 # an den Helfer weiter; ohne Eintrag hier wird dort nichts eingespielt.
 _CHECKED = {}
 
-# Die Sicherung der bisherigen Fassung unter Linux, gleich neben der Datei.
+# Die Sicherung der bisher installierten Version unter Linux, gleich neben der Datei.
 BACKUP_SUFFIX = '.vorher'
 
 

@@ -936,7 +936,7 @@ TEXTS = {
                                'version not recorded — check whether it still occurs'),
     # ⚠⚠ **Nur feststellen, nicht bewerten.** Ein Urteil wie „vermutlich
     # behoben" kann falsch sein: Wer lange kein Update gemacht hat, meldet aus
-    # einer alten Fassung womöglich einen Fehler, der noch nie aufgefallen ist
+    # einer alten Version womöglich einen Fehler, der noch nie aufgefallen ist
     # — und das Urteil lädt dazu ein, ihn abzuhaken statt ihn zu lesen.
     #
     # Ein Vermerk ist ein Zeitstempel, keine Wahrheit.

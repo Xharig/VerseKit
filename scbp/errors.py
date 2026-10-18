@@ -248,7 +248,7 @@ CRASH_PREVIOUS = 'absturz-letzter.txt'
 # dort jeden sauberen Lauf wie einen Absturz aussehen ließe (Größe > 0).
 #
 # ⚠ Wozu: Die Absturzdatei überlebt beliebig viele Updates. Ohne Fassung
-# stünde im Bericht ein Abbruch aus einer alten Fassung, deren Ursache längst
+# stünde im Bericht ein Abbruch aus einer alten Version, deren Ursache längst
 # ausgebaut ist, und erkennbar wäre das nur an alten Dateinamen im Aufrufweg.
 # Die Fehlerliste darunter trägt ihre Fassung ebenso.
 CRASH_VERSION_FILE = 'absturz-fassung.txt'

@@ -1051,7 +1051,7 @@ def build(version='', root=None, error_count=8, message='', reporter=None):
         crash_at = _safe(errors.crash_time, None)
         # ⚠ Und mit Fassung, genau wie die Fehlerliste darunter — derselbe
         # Vermerk, dieselbe Regel: feststellen, nicht urteilen. Ohne sie
-        # stünde ein Abbruch aus einer alten Fassung in einem neuen Bericht,
+        # stünde ein Abbruch aus einer alten Version in einem neuen Bericht,
         # und nichts im Kopf verriete das.
         crash_version = _safe(errors.crash_version, '')
         if not crash_version:

@@ -18833,7 +18833,7 @@ def main():
     import fnmatch as _fn191
     _iss191 = open(os.path.join(WURZEL, 'packaging', 'installer.iss'),
                    encoding='utf-8').read()
-    _altname191 = 'SC BP Watcher'          # der Name der ALTEN Fassung
+    _altname191 = 'SC BP Watcher'          # der Name in älteren Versionen
     _gruppe191 = r'{autoprograms}\%s' % _altname191
 
     def _abschnitt191(name):
@@ -18902,7 +18902,7 @@ def main():
     for _z191 in _abschnitt191('Icons'):
         _iname191 = _feldwert191(_z191, 'Name')
         _itask191 = _feldwert191(_z191, 'Tasks')
-        # Der Name, den dieselbe Verknuepfung in der ALTEN Fassung trug.
+        # Der Name, den dieselbe Verknuepfung in älteren Versionen trug.
         _alt191 = _iname191.replace('{#AppName}', _altname191)
         _alt191 = _alt191.replace('{group}', _gruppe191) + '.lnk'
         pruefe(_alt191 in _loeschen191,
@@ -31903,6 +31903,7 @@ def _pruefung_314():
                               _bestand),
            'Gegenprobe: ein Funktionskommentar bleibt grün')
     _saetze = ('# So hat die alte Fassung einsortiert.',
+               '# Aus der früheren Fassung übernommen.',
                '# Vorher war das ein eigener Knopf.',
                '# Bis zum 3. Oktober lief das anders.',
                '# Auf Wunsch so gebaut.',
@@ -42458,7 +42459,6 @@ def _pruefung_436():
         pruefe(_bs436._confirm_address(_fehler436)
                == 'https://profit-base.online/ok',
                'die Bestätigungsadresse beim Basetool bleibt')
-    finally:
 
         # Der Weg in den Speicher: `_hold` legt die Adresse per `_set` in
         # `STATUS['confirm']`, der Knopf liest sie über `confirm_link`.
@@ -42503,6 +42503,7 @@ def _pruefung_436():
         pruefe(_og436.send(_Absage436('https://profit-base.online/ok'), [])
                ['confirm_url'] == 'https://profit-base.online/ok',
                'Lager der Einheit: die Adresse beim Basetool bleibt')
+    finally:
         os.environ.update(_alt_env436)
 
     from scbp import updater as _up436

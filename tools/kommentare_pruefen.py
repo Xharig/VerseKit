@@ -39,7 +39,7 @@ BESTAND = os.path.join(WURZEL, 'tools', 'kommentare_bestand.txt')
 # Bausteine zusammengesetzt, damit diese Datei sich nicht selbst findet.
 MUSTER = re.compile('|'.join([
     r'\b\d{1,2}\.\d{1,2}\.20\d\d\b',
-    r'\b(alte|frühere|vorige|bisherige) fass' + 'ung', 'vorher w' + 'ar',
+    r'\b(alte|frühere|vorige|bisherige)[mnrs]? fass' + 'ung', 'vorher w' + 'ar',
     r'\b(bis|seit) (zum|dem) \d', r'\brob' + r'ert\b', 'wol' + r'lte\b',
     'auf zu' + 'ruf', r'\bwie gewün' + 'scht',
     r'\berste[rn]? (entw' + 'urf|anl' + 'auf|vers' + 'uch|fass' + 'ung)',
