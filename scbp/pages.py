@@ -7549,7 +7549,8 @@ def _thanks(fenster, rahmen):
             ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'),
              t('s_dk_drachennarr_bugs')),
             ('Maluh', 'KRT', t('s_dk_maluh_idee'), ''),
-            ('P6', 'KRT', t('s_dk_p6_idee'), t('s_dk_p6_bugs')),
+            ('P6', 'KRT', t('s_dk_p6_idee'), t('s_dk_p6_bugs') + '\n\n'
+             + t('s_dk_p6_bugs2')),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('Rhino', '', t('s_dk_rhino_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),

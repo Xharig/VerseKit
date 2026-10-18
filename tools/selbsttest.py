@@ -25788,6 +25788,7 @@ def main():
     _pruefung_579()
     _pruefung_580()
     _pruefung_590()
+    _pruefung_595()
     _pruefung_600()
     _pruefung_601()
     _pruefung_602()
@@ -55483,6 +55484,37 @@ def _pruefung_590():
     out = redacted(docs, line, without_fix=True)
     pruefe('pruefname590' in out.lower(),
            'Gegenprobe: ohne den Schritt bleibt der Name im Bericht (%r)' % out)
+
+
+def _pruefung_595():
+    """stock_kinds: Basetool-`harvestable` macht kein Mineral zur Pflanze."""
+    print('\n595. Mein Lager: Handabbau-Mineralien vom Basetool bleiben Mineral')
+    from scbp import stock_kinds as sk_595
+    real_names = sk_595._material_names
+    names = {'stand': 'pruef', 'plants': frozenset({'pruefpflanze'}),
+             'pieces': frozenset({'dolivine', 'beradom'}),
+             'minerals': frozenset({'dolivine', 'ouratite'})}
+    gem = {'type': 'NO_REFINE', 'commodity': True, 'mineral': True,
+           'harvestable': True, 'raw': True}
+    gem_raw = dict(gem, type='RAW', mineral=False)
+    sk_595._material_names = lambda: names
+    try:
+        kinds = [sk_595.material_kind('Dolivine', {'dolivine': gem}),
+                 sk_595.material_kind('Beradom', {'beradom': gem_raw}),
+                 sk_595.material_kind('Pruefpflanze', {'pruefpflanze': gem}),
+                 sk_595.material_kind('Unbekannt595', {'unbekannt595': gem}),
+                 sk_595.material_kind('Erz595', {'erz595': dict(gem_raw, harvestable=False)}),
+                 sk_595.material_kind('Ouratite', {'ouratite': dict(gem, raw=False)})]
+        pruefe(kinds == [sk_595.MINERAL, sk_595.MINERAL, sk_595.PLANT,
+                         sk_595.PLANT, sk_595.ORE, sk_595.ORE],
+               'Dolivine/Beradom Mineral, Pflanze bleibt Pflanze, Unbekanntes '
+               'mit harvestable Pflanze, Erz bleibt Erz, Ouratite (Bergbau, '
+               'kein Stück) Erz (%r)' % kinds)
+        names['pieces'] = names['minerals'] = frozenset()
+        pruefe(sk_595.material_kind('Dolivine', {'dolivine': gem}) == sk_595.PLANT,
+               'Gegenprobe: ohne eigene Listen entscheidet harvestable (Pflanze)')
+    finally:
+        sk_595._material_names = real_names
 
 
 class _ShipServer600:

@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **My Inventory: gems no longer show up as "Plant"** — with Basetool sync,
+  Aphorite, Beradom, Dolivine, Feynmaline, Glacosite, Janalite and Ouratite
+  were listed as plants. They are back to mineral or ore. Reported by P6
+  (KRT)
+
 ## v4.11.2 - 2026-10-19
 
 > The hangar no longer creates duplicates when ships from the Basetool

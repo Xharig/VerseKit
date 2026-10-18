@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Mein Lager: Edelsteine stehen nicht mehr als „Pflanze" da** — mit
+  Basetool-Abgleich wurden Aphorite, Beradom, Dolivine, Feynmaline, Glacosite,
+  Janalite und Ouratite als Pflanze geführt. Jetzt stehen sie wieder als
+  Mineral bzw. Erz. Gemeldet von P6 (KRT)
+
 ## v4.11.2 - 2026-10-19
 
 > Im Hangar entstehen keine Doppel mehr, wenn Schiffe aus dem Basetool

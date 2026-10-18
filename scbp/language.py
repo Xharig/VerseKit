@@ -3062,6 +3062,10 @@ TEXTS = {
                               'Basetool sync**, and an insurance that never '
                               'reached the Basetool — his exact steps made '
                               'both reproducible.'),
+    's_dk_p6_bugs2':         ('**Edelsteine als „Pflanze"** in Mein Lager, '
+                              'sobald das Basetool abgleicht.',
+                              '**Gems shown as "Plant"** in My Inventory once '
+                              'the Basetool syncs.'),
     's_dk_aeternitas_bugs':  ('**Hinweise liefen aus dem Bild**, wenn das Overlay '
                               'unten rechts am Monitor liegt. Mit der Leiste unten '
                               'stehen sie jetzt immer über dem Mauszeiger, nicht '

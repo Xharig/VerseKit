@@ -183,17 +183,22 @@ def _from_server(kind, key, names):
     item_type = (kind.get('type') or '').upper()
     if item_type == 'REFINED':
         return REFINED
-    if item_type == 'RAW':
-        if key in names['plants'] or kind.get('harvestable'):
-            return PLANT
-        if key in names['pieces']:
-            return MINERAL
+    if item_type not in ('RAW', 'NO_REFINE'):
+        return None
+    # ⚠ Das Basetool setzt `harvestable` auch bei Mineralien aus dem Hand- und
+    # Fahrzeugabbau (Dolivine, Aphorite …). Die eigenen Listen entscheiden
+    # deshalb zuerst; `harvestable` gilt nur für Namen, die keine kennt.
+    if key in names['plants']:
+        return PLANT
+    if key in names['pieces']:
+        return MINERAL
+    if key in names['minerals']:
         return ORE
-    if item_type == 'NO_REFINE':
-        if kind.get('harvestable'):
-            return PLANT
-        return COMMODITY if kind.get('commodity') else OTHER
-    return None
+    if kind.get('harvestable'):
+        return PLANT
+    if item_type == 'RAW':
+        return ORE
+    return COMMODITY if kind.get('commodity') else OTHER
 
 
 def material_kind(name, server=None, for_sale=False):
