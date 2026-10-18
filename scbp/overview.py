@@ -110,6 +110,23 @@ def storage_top(posts, most=3, piece=None):
     return result
 
 
+def storage_counts(posts, goods):
+    """Wie viel Verschiedenes in Mein Lager liegt: `(rohstoffe, waren, items)`.
+
+    `posts` sind die Posten des Werkstatt-Lagers, `goods` die des
+    Handelslagers. Gezählt werden verschiedene Namen; Items im Handelslager
+    (in Stück) sind keine Ware und zählen eigens."""
+    from . import trade_cargo
+
+    def names(rows, field):
+        return len({(r.get(field) or '').strip().lower() for r in rows
+                    if (r.get(field) or '').strip()})
+    goods = list(goods or ())
+    return (names(posts or (), 'material'),
+            names([g for g in goods if not trade_cargo.is_pieces(g)], 'ware'),
+            names([g for g in goods if trade_cargo.is_pieces(g)], 'ware'))
+
+
 def open_contracts(entries, check, owned):
     """Offene Aufträge, die Baupläne geben: `[(name, gesamt, fehlend)]`, die
     mit den meisten fehlenden zuerst. `check` ist `contracts.check`, `owned`
@@ -1137,13 +1154,7 @@ def _tile_storage(window, cell):
     if not posts and not goods:
         _line(window, body, t('s_uv_lager_leer'))
         return
-    def names(rows, field):
-        return len({(r.get(field) or '').strip().lower() for r in rows
-                    if (r.get(field) or '').strip()})
-    # Items im Handelslager sind keine Ware — eigens gezählt.
-    kinds = names(posts, 'material')
-    wares = names([g for g in goods if not trade_cargo.is_pieces(g)], 'ware')
-    items = names([g for g in goods if trade_cargo.is_pieces(g)], 'ware')
+    kinds, wares, items = storage_counts(posts, goods)
     _big(window, body, str(kinds + wares + items))
     _line(window, body, t('s_uv_lager_posten') % (kinds, wares, items))
     from . import crafting

@@ -748,6 +748,16 @@ MASKED_SETTINGS = frozenset({'basetool_einheit_neu', 'staffellager_einheit',
 HIDDEN_SETTINGS = frozenset({REPORTER_CLEARED})
 
 
+# Breite der Beschriftungsspalte. Längere Beschriftungen schieben den Wert
+# nach rechts, behalten aber immer ein Leerzeichen davor.
+LABEL_WIDTH = 18
+
+
+def _row(label, value):
+    """Eine Zeile `Beschriftung  Wert` in Spaltenform."""
+    return '%s %s' % (label.ljust(LABEL_WIDTH - 1), value)
+
+
 def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     """Den Bericht als Text zusammensetzen.
 
@@ -757,7 +767,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     lines = []
 
     def line(label, value):
-        lines.append('%-18s%s' % (label, paths.redact(value)))
+        lines.append(_row(label, paths.redact(value)))
 
     lines.append(t('b_kopf')
                   % (version or '—', datetime.now().strftime(t('b_datum'))))
@@ -774,7 +784,7 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
     # die Benutzernamen durch `<benutzer>` ersetzt — und das träfe den
     # Absender-Namen, wenn er dem Systemkonto gleicht. Ausgerechnet die
     # einzige Angabe, die der Nutzer BEWUSST macht, verschwände dadurch.
-    lines.append('%-18s%s' % (t('b_melder'), reporter or t('s_melder_leer')))
+    lines.append(_row(t('b_melder'), reporter or t('s_melder_leer')))
     # ⭐⭐ **Was ist passiert — in eigenen Worten, ganz oben.** Ohne dieses Feld
     # landet die Beschreibung im Namensfeld.
     #
@@ -854,14 +864,18 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         'scbp.catalog', fromlist=['load']).load().get('version') or None)))
     line(t('b_historie'), _safe(_patch_history))
 
-    # ⚠ Die drei Werkstatt-Seiten. Ohne sie liesse sich eine leere
+    # ⚠ Mein Lager, Rezepte und Bergbaudaten. Ohne sie liesse sich eine leere
     # Herstellungs-Seite nicht beurteilen — man saehe nicht, ob die Daten
     # ueberhaupt geladen sind.
     def _storage_line():
-        from . import materials
-        items = materials.load()
-        kinds = {(p_.get('material') or '').strip().lower() for p_ in items}
-        return t('b_n_posten') % (len(items), len(kinds - {''}))
+        # Alle Posten von Mein Lager: Rohstoffe aus dem Werkstatt-Lager,
+        # Waren und Items aus dem Handelslager — gezählt wie in der Übersicht.
+        from . import materials, overview, trade_cargo
+        posts = materials.load()
+        goods = trade_cargo.load()
+        return t('b_n_lager') % (
+            (len(posts) + len(goods),)
+            + overview.storage_counts(posts, goods))
 
     def _recipe_line():
         from . import crafting
@@ -907,6 +921,21 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
             '%.2f' % screen_grab.dpi_scale())
 
     line(t('b_scanner'), _safe(_scanner_line))
+
+    def _anti_afk_line():
+        # Der letzte Abbruch steht hier auch dann, wenn der Schalter danach
+        # wieder an ist — `last_error()` gilt nur bis zum Einschalten.
+        from . import anti_afk
+        if not anti_afk.supported():
+            return t('b_aafk_nicht')
+        failure = anti_afk.last_failure()
+        return t('b_aafk_wert') % (
+            t('e_an') if anti_afk.enabled() else t('e_aus'),
+            anti_afk.sent_count(),
+            t('e_an') if anti_afk.joy_running() else t('e_aus'),
+            '%s (%s)' % failure if failure else '—')
+
+    line(t('b_aafk'), _safe(_anti_afk_line))
     lines.append('')
 
     def _folder_line():
@@ -928,12 +957,18 @@ def build(version='', root=None, fehleranzahl=8, message='', reporter=None):
         return text
 
     line(t('b_ordner'), _safe(_folder_line))
-    line(t('b_einstellungen'), _safe(lambda: ', '.join(
-        '%s=%s' % (k, ('•••' if v else '') if k in MASKED_SETTINGS else v)
-        for k, v in sorted(
-            (uebersicht.get('selbst_gesetzt') or {}).items())
-        if k not in HIDDEN_SETTINGS)
-        or t('b_standard')))
+    def _settings_line():
+        # Eine gesperrte Datei liest sich leer — dann nicht „Standard"
+        # melden, sondern dass sie nicht lesbar war.
+        if not paths._settings_read()[1]:
+            return t('b_einst_gesperrt')
+        return ', '.join(
+            '%s=%s' % (k, ('•••' if v else '') if k in MASKED_SETTINGS else v)
+            for k, v in sorted(
+                (uebersicht.get('selbst_gesetzt') or {}).items())
+            if k not in HIDDEN_SETTINGS) or t('b_standard')
+
+    line(t('b_einstellungen'), _safe(_settings_line))
     line(t('b_dateischutz'), _safe(_file_flags_line))
     _failures = _safe(_write_failures_line, '')
     if _failures:

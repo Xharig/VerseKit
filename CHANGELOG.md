@@ -8,8 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Fehlerbericht mit Anti-AFK** — der Bericht nennt jetzt, ob Anti-AFK an
+  ist, wie oft es gedrückt hat und warum es zuletzt abgeschaltet wurde.
+
 ### Behoben
 
+- **Fehlerbericht: Mein Lager vollständig** — die Zeile zählt jetzt
+  Rohstoffe, Waren und Items und klebt nicht mehr an ihrer Beschriftung.
+- **Einstellungen nach dem Update-Neustart** — ist die Einstellungsdatei
+  beim Start kurz gesperrt, wartet Verse-Kit einen Moment und liest sie
+  erneut, statt mit Standardwerten zu starten.
 - **Basetool: eine zurückgehaltene Massenänderung wird nicht mehr alle paar
   Minuten neu geschickt** — hält das Basetool eine große Änderung an
   Lager, Bauplänen oder Hangar zurück, bis du sie im Browser bestätigst,

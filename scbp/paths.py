@@ -962,6 +962,41 @@ def _just_written(path):
     return 0 <= age < SETTINGS_FRESH_SEC
 
 
+# Gesperrte Einstellungsdatei (unter Windows hält sie etwa ein Virenscanner
+# oder der eben beendete Vorgänger nach einem Update kurz offen): so oft
+# lesen, mit dieser Pause dazwischen, bevor die Standardwerte gelten.
+SETTINGS_LOCK_TRIES = 3
+SETTINGS_LOCK_PAUSE = 0.2
+# Pfad, der nach allen Versuchen gesperrt blieb: Für ihn wird nur noch
+# einmal versucht, bis ein Lesen ein anderes Ergebnis bringt — sonst wartete
+# jeder einzelne `setting()`-Aufruf erneut.
+_SETTINGS_STILL_LOCKED = [None]
+
+
+def _read_settings_waiting(path):
+    """`_read_settings_file`, bei einer Sperre (PermissionError) bis zu
+    `SETTINGS_LOCK_TRIES`-mal mit `SETTINGS_LOCK_PAUSE` Sekunden Pause.
+
+    Unter Windows meldet auch ein Ordner an dieser Stelle PermissionError;
+    dann wird einmal gewartet, danach greift die Merke."""
+    tries = (1 if _SETTINGS_STILL_LOCKED[0] == path
+             else max(1, SETTINGS_LOCK_TRIES))
+    for attempt in range(tries):
+        try:
+            data = _read_settings_file(path)
+        except PermissionError:
+            if attempt + 1 >= tries:
+                _SETTINGS_STILL_LOCKED[0] = path
+                raise
+            time.sleep(SETTINGS_LOCK_PAUSE)
+            continue
+        except Exception:
+            _SETTINGS_STILL_LOCKED[0] = None
+            raise
+        _SETTINGS_STILL_LOCKED[0] = None
+        return data
+
+
 def _settings_read():
     """(Daten, lesbar).
 
@@ -969,11 +1004,12 @@ def _settings_read():
       einer Wiederherstellung die Vorgängerfassung.
     * Ist sie kaputt: beiseitelegen, Vorgängerfassung nehmen
       (`_settings_recover`).
-    * Gesperrt oder gerade erst geschrieben: ({}, False) — dann darf
-      `set_setting` nichts darüberschreiben."""
+    * Gesperrt (auch nach kurzem Warten, `_read_settings_waiting`) oder
+      gerade erst geschrieben: ({}, False) — dann darf `set_setting` nichts
+      darüberschreiben."""
     target = app_file(SETTINGS_FILE)
     try:
-        return _read_settings_file(target), True
+        return _read_settings_waiting(target), True
     except FileNotFoundError:
         if not _SETTINGS_WRITEBACK_FAILED[0]:
             return {}, True
@@ -1458,6 +1494,12 @@ def set_setting(name, value):
     # ⚠ Lesen, ändern und schreiben unter einer Sperre: Zwei Fäden, die
     # gleichzeitig verschiedene Felder setzen, verlören sonst eines davon.
     target = app_file(SETTINGS_FILE)
+    # Eine kurze Sperre schon vor `_SAVE_LOCK` aussitzen — sonst warteten
+    # alle anderen Speichervorgänge mit. Gelesen wird unten noch einmal.
+    try:
+        _read_settings_waiting(target)
+    except (OSError, ValueError):
+        pass
     try:
         with _SAVE_LOCK:
             data, readable = _settings_read()

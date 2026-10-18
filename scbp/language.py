@@ -3516,6 +3516,8 @@ TEXTS = {
     'b_basetool_wert': ('Verbindung %s · Rechte %s · zuletzt abgeglichen %s · letzte Absage %s',
                         'connection %s · rights %s · last synced %s · last refusal %s'),
     'b_standard':      ('alle auf Standard', 'all at default'),
+    'b_einst_gesperrt': ('Datei nicht lesbar (gesperrt) — siehe Fehler unten',
+                         'file not readable (locked) — see errors below'),
     'b_nicht_gefunden': ('nicht gefunden', 'not found'),
     # ⚠ Die wichtigste Zeile für den häufigsten Support-Fall: „ich sehe deine
     # Angaben im Spiel nicht mehr". Ursache ist fast immer, dass ein
@@ -5817,11 +5819,18 @@ TEXTS = {
     # Zeilen liesse sich eine Meldung wie "bei mir ist das Lager leer" nicht
     # beurteilen: Man wuesste weder, ob Posten da sind, noch ob die Rezept- und
     # Bergbaudaten ueberhaupt geladen wurden.
-    'b_lager':           ('Mein Lager (Rohstoffe)', 'My Inventory (materials)'),
-    'b_n_posten':        ('%d Posten · %d Materialien',
-                          '%d entries · %d materials'),
+    'b_lager':           ('Mein Lager', 'My Inventory'),
+    'b_n_lager':         ('%d Posten · %d Rohstoffe · %d Waren · %d Items',
+                          '%d entries · %d materials · %d goods · %d items'),
     'b_rezepte':         ('Rezepte', 'Recipes'),
     'b_bergbaudaten':    ('Bergbaudaten', 'Mining data'),
+    # Anti-AFK: an/aus, gesendete Tastendrücke, ob der Joystick-Faden läuft,
+    # und der letzte Abbruch (Textschlüssel und Zeitpunkt) — auch wenn der
+    # Schalter danach wieder eingeschaltet wurde.
+    'b_aafk':            ('Anti-AFK', 'Anti-AFK'),
+    'b_aafk_wert':       ('%s · %d× gesendet · Joystick-Blick %s · letzter Abbruch %s',
+                          '%s · sent %d× · joystick watch %s · last abort %s'),
+    'b_aafk_nicht':      ('nur unter Windows', 'Windows only'),
     'b_scanner':         ('Signatur-Scan', 'Signature scan'),
     'b_scan':            ('%s · %d eigene Ziffernbilder (%d Ziffern) · %d Scan-Bilder · zuletzt %s · Skalierung %s',
                           '%s · %d own digit images (%d digits) · %d scan images · last %s · scale %s'),

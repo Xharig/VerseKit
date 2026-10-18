@@ -304,8 +304,10 @@ def press(scancodes=KEYS):
 
 # ------------------------------------------------------------------ Zustand
 
+# `error` gilt bis zum nächsten Einschalten; `failure` (Textschlüssel,
+# Zeitpunkt) bleibt für den Fehlerbericht stehen.
 _state = {'on': False, 'threshold': INTERVAL, 'last_sent': None,
-          'count': 0, 'error': None, 'joy_last': None}
+          'count': 0, 'error': None, 'failure': None, 'joy_last': None}
 _switch_listeners = []
 _joy = {'stop': None, 'thread': None, 'before': None}
 
@@ -377,6 +379,12 @@ def last_error():
     return _state['error']
 
 
+def last_failure():
+    """(Textschlüssel, Zeitpunkt `JJJJ-MM-TT HH:MM`) des letzten Abbruchs seit dem
+    Programmstart — oder None. Bleibt auch nach erneutem Einschalten."""
+    return _state['failure']
+
+
 def sent_count():
     return _state['count']
 
@@ -416,6 +424,7 @@ def set_enabled(on):
 
 def _fail(key):
     _state['error'] = key
+    _state['failure'] = (key, time.strftime('%Y-%m-%d %H:%M'))
     _state['on'] = False
     _joy_stop()
     _notify()

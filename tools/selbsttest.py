@@ -25752,6 +25752,9 @@ def main():
     _pruefung_507()
     _pruefung_510()
     _pruefung_511()
+    _pruefung_520()
+    _pruefung_521()
+    _pruefung_522()
 
     print()
     if fehler:
@@ -51662,6 +51665,383 @@ def _pruefung_511():
     finally:
         paths_511.game_folder, input_device.devices = saved
         shutil.rmtree(game, ignore_errors=True)
+
+
+def _report_label_keys520():
+    """Textschlüssel aller Beschriftungen, die `report.build` über `line()`
+    oder `_row()` in die Spaltenform setzt — aus dem Syntaxbaum."""
+    import ast
+    source = os.path.join(WURZEL, 'scbp', 'report.py')
+    with open(source, encoding='utf-8') as f:
+        tree = ast.parse(f.read())
+    keys = set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id in ('line', '_row') and node.args):
+            first = node.args[0]
+            if (isinstance(first, ast.Call)
+                    and isinstance(first.func, ast.Name)
+                    and first.func.id == 't' and first.args
+                    and isinstance(first.args[0], ast.Constant)):
+                keys.add(first.args[0].value)
+    return keys
+
+
+def _home_restore520(old_home):
+    if old_home is None:
+        os.environ.pop('SC_BP_HOME', None)
+    else:
+        os.environ['SC_BP_HOME'] = old_home
+
+
+def _pruefung_520():
+    """Fehlerbericht: Mein Lager zählt alle Posten, jede Beschriftung hat
+    Abstand zum Wert."""
+    print('\n520. Fehlerbericht: Lager-Zeile vollständig und lesbar, '
+          'Beschriftung nie am Wert')
+    from scbp import (language as language_520, materials as materials_520,
+                      report as report_520, trade_cargo as cargo_520)
+    old_home = os.environ.get('SC_BP_HOME')
+    old_language = language_520.current()
+    old_t = report_520.t
+    home = tempfile.mkdtemp(prefix='scbp520-')
+    os.environ['SC_BP_HOME'] = home
+    try:
+        # a) Die Spaltenform: bis 17 Zeichen steht der Wert in Spalte 18,
+        #    längere Beschriftungen bekommen ein Leerzeichen dahinter.
+        for length in (3, 17, 18, 22, 30):
+            row = report_520._row('B' * length, 'WERT')
+            pruefe(row.endswith(' WERT') and row.index('WERT') ==
+                   max(report_520.LABEL_WIDTH, length + 1),
+                   'Beschriftung mit %d Zeichen: Wert in Spalte %d mit '
+                   'Leerzeichen davor (%r)' % (length, row.index('WERT'), row))
+
+        # b) Lager füllen: 3 Rohstoff-Posten (2 verschiedene), im
+        #    Handelslager 2 Waren (eine an zwei Orten) und 1 Item.
+        pruefe(materials_520.save([
+            {'material': 'Agricium', 'menge': 2.0, 'ort': 'A'},
+            {'material': 'agricium ', 'menge': 1.0, 'ort': 'B'},
+            {'material': 'Quantanium', 'menge': 4.0, 'ort': 'A'}]),
+            'Rohstoffe im Wegwerf-Ordner gespeichert')
+        pruefe(cargo_520.save([
+            {'ware': 'Medical Supplies', 'menge': 10, 'ort': 'A'},
+            {'ware': 'Medical Supplies', 'menge': 5, 'ort': 'B'},
+            {'ware': 'Scrap', 'menge': 3, 'ort': 'A'},
+            {'ware': 'Pulse Laser', 'menge': 2, 'ort': 'A',
+             'stueck': True}]),
+            'Handelslager im Wegwerf-Ordner gespeichert')
+        pruefe(cargo_520.is_pieces(cargo_520.load()[-1]),
+               'Selbstprüfung: das Item zählt im Handelslager als Stück')
+
+        keys = _report_label_keys520()
+        pruefe({'b_lager', 'b_spiel', 'b_aafk', 'b_einstellungen'} <= keys,
+               'Selbstprüfung: die Beschriftungen des Berichts sind aus dem '
+               'Syntaxbaum gelesen (%d)' % len(keys))
+        for lang in ('de', 'en'):
+            language_520.set_language(lang)
+            report = report_520.build(version='0.0.0-test').splitlines()
+            label = language_520.t('b_lager')
+            expected = language_520.t('b_n_lager') % (7, 2, 2, 1)
+            rows = [r for r in report if r.startswith(label)]
+            pruefe(len(rows) == 1 and rows[0].endswith(' ' + expected),
+                   '%s: Lager-Zeile nennt alle Posten mit Abstand: %r'
+                   % (lang, rows))
+            # Jede Beschriftung, die im Bericht steht, hat Abstand zum Wert.
+            stuck = []
+            for key in sorted(keys):
+                text = language_520.t(key)
+                hits = [r for r in report if r.startswith(text)]
+                if hits and not any(r[len(text):len(text) + 1].isspace()
+                                    for r in hits):
+                    stuck.append('%s → %r' % (key, hits[0][:40]))
+            pruefe(not stuck, '%s: keine Beschriftung klebt am Wert %s'
+                   % (lang, stuck))
+
+        # c) Eine Beschriftung über der Spaltenbreite durch den echten
+        #    `build()`: auch dann steht ein Leerzeichen vor dem Wert.
+        language_520.set_language('de')
+        long_label = 'L' * (report_520.LABEL_WIDTH + 4)
+        report_520.t = lambda key: (long_label if key == 'b_lager'
+                                    else old_t(key))
+        report = report_520.build(version='0.0.0-test').splitlines()
+        report_520.t = old_t
+        rows = [r for r in report if r.startswith(long_label)]
+        pruefe(len(rows) == 1 and rows[0][len(long_label)] == ' '
+               and rows[0].endswith(language_520.t('b_n_lager')
+                                    % (7, 2, 2, 1)),
+               'build(): Beschriftung mit %d Zeichen behält den Abstand (%r)'
+               % (len(long_label), rows))
+
+        # d) Leeres Lager: die Zeile steht trotzdem, mit Nullen.
+        materials_520.save([])
+        cargo_520.save([])
+        report = report_520.build(version='0.0.0-test')
+        pruefe((language_520.t('b_n_lager') % (0, 0, 0, 0)) in report,
+               'leeres Lager: die Zeile meldet überall null')
+    finally:
+        report_520.t = old_t
+        language_520.set_language(old_language)
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_521():
+    """Fehlerbericht: Anti-AFK mit Zustand und letztem Abbruchgrund."""
+    print('\n521. Fehlerbericht: Anti-AFK an/aus und letzter Abbruch')
+    from scbp import (anti_afk as aafk_521, language as language_521,
+                      report as report_521)
+    old_home = os.environ.get('SC_BP_HOME')
+    old_language = language_521.current()
+    home = tempfile.mkdtemp(prefix='scbp521-')
+    os.environ['SC_BP_HOME'] = home
+    fake, restore = _aafk_fake_einsetzen(aafk_521)
+    language_521.set_language('de')
+
+    def aafk_row():
+        label = language_521.t('b_aafk')
+        rows = [r for r in report_521.build(version='0.0.0-test').splitlines()
+                if r.startswith(label + ' ')]
+        return rows[0] if len(rows) == 1 else repr(rows)
+
+    try:
+        aafk_521._state['failure'] = None
+        aafk_521._state['count'] = 0
+        pruefe(aafk_521._get_api() is fake,
+               'Selbstprüfung: die Anti-AFK-Falle sitzt')
+        on, off = language_521.t('e_an'), language_521.t('e_aus')
+        row = aafk_row()
+        pruefe(row.endswith(language_521.t('b_aafk_wert') % (off, 0, off, '—')),
+               'nach dem Start: aus, nichts gesendet, kein Abbruch (%r)' % row)
+
+        # Über den echten Weg abbrechen lassen: Taste kommt nicht an.
+        aafk_521.set_enabled(True)
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = aafk_521.INTERVAL + aafk_521.JITTER + 5
+        fake.resets = False
+        pruefe(aafk_521.tick(now=5000.0) == 'blocked'
+               and aafk_521.last_error() == 'aafk_err_admin',
+               'Selbstprüfung: tick() bricht mit aafk_err_admin ab')
+        row = aafk_row()
+        stamp = (aafk_521.last_failure() or ('', '?'))[1]
+        pruefe(row.startswith(report_521._row(language_521.t('b_aafk'),
+                                              off + ' '))
+               and ('aafk_err_admin (%s)' % stamp) in row
+               and len(stamp) == len('2026-01-01 00:00'),
+               'nach dem Abbruch: aus und der Grund mit Datum und Uhrzeit '
+               '(%r)' % row)
+
+        # Wieder eingeschaltet: last_error() ist leer, der Bericht behält
+        # den letzten Abbruch.
+        fake.resets = True
+        aafk_521.set_enabled(True)
+        pruefe(aafk_521.last_error() is None,
+               'Selbstprüfung: Einschalten leert last_error()')
+        fake.idle = aafk_521.INTERVAL + aafk_521.JITTER + 5
+        pruefe(aafk_521.tick(now=9000.0) == 'sent',
+               'Selbstprüfung: danach wird wieder gesendet')
+        row = aafk_row()
+        pruefe(row.startswith(report_521._row(language_521.t('b_aafk'),
+                                              on + ' '))
+               and (' 1×' in row) and 'aafk_err_admin (' in row
+               and (' %s ' % on) in row.split('·')[2],
+               'wieder an: an, 1× gesendet, Joystick-Blick an, letzter '
+               'Abbruch bleibt stehen (%r)' % row)
+
+        # Außerhalb Windows: eigener Hinweis statt Zahlen.
+        aafk_521.supported = lambda: False
+        row = aafk_row()
+        pruefe(row.endswith(' ' + language_521.t('b_aafk_nicht')),
+               'außerhalb Windows: Hinweis statt Zustand (%r)' % row)
+    finally:
+        restore()
+        aafk_521._state['failure'] = None
+        aafk_521._state['count'] = 0
+        language_521.set_language(old_language)
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_522():
+    """Gesperrte einstellungen.json: kurz warten, erneut lesen."""
+    print('\n522. Einstellungen: gesperrte Datei wird nach kurzer Pause '
+          'erneut gelesen')
+    import json as json_522
+    import threading as threading_522
+    import time as time_522
+    from scbp import (errors as errors_522, language as language_522,
+                      paths as paths_522, report as report_522)
+    old_home = os.environ.get('SC_BP_HOME')
+    old_language = language_522.current()
+    home = tempfile.mkdtemp(prefix='scbp522-')
+    os.environ['SC_BP_HOME'] = home
+    real_read = paths_522._read_settings_file
+    lock = {'left': 0, 'tries': 0}
+    target = paths_522.app_file(paths_522.SETTINGS_FILE)
+    content = {'sprache': 'de', 'probe_522': 'gut'}
+    pause = paths_522.SETTINGS_LOCK_PAUSE
+
+    # Nur Lesungen aus diesem Faden zählen und sperren — Fäden früherer
+    # Prüfungen lesen die Einstellungen sonst mit, und ihr gelungenes Lesen
+    # löschte die Merke. Watcher deshalb vorher anhalten.
+    pruefe(watcher_anhalten() == 0,
+           'Selbstprüfung: keine Watcher früherer Prüfungen laufen mehr')
+    test_thread = threading_522.get_ident()
+
+    def locked_read(path):
+        if (threading_522.get_ident() == test_thread
+                and os.path.normcase(path) == os.path.normcase(target)):
+            lock['tries'] += 1
+            if lock['left'] != 0:
+                lock['left'] -= 1
+                # Wartet hier jemand, während `_SAVE_LOCK` gehalten wird?
+                lock['under_save_lock'] = (lock.get('under_save_lock')
+                                           or paths_522._SAVE_LOCK._is_owned())
+                raise PermissionError(13, 'Zugriff verweigert', path)
+        return real_read(path)
+
+    def measured():
+        lock['tries'] = 0
+        start = time_522.monotonic()
+        data, readable = paths_522._settings_read()
+        return data, readable, lock['tries'], time_522.monotonic() - start
+
+    def settings_errors():
+        return [e for e in errors_522.latest(30)
+                if e.get('stelle') == 'paths.settings']
+
+    try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, 'w', encoding='utf-8') as f:
+            json_522.dump(content, f)
+        old_time = time_522.time() - 60
+        os.utime(target, (old_time, old_time))
+        paths_522._SETTINGS_STILL_LOCKED[0] = None
+        errors_522.clear()
+        language_522.set_language('de')
+        paths_522._read_settings_file = locked_read
+
+        # Die Falle muss zuerst selbst zuschnappen.
+        lock['left'] = 1
+        try:
+            paths_522._read_settings_file(target)
+            pruefe(False, 'Selbstprüfung: die Sperre greift')
+        except PermissionError:
+            pruefe(True, 'Selbstprüfung: die Sperre greift')
+        lock['left'] = 0
+
+        # a) Zweimal gesperrt, dann frei: die Daten kommen an, nach zwei
+        #    Pausen.
+        lock['left'] = 2
+        data, readable, tries, took = measured()
+        pruefe(data == content and readable and tries == 3,
+               'zweimal gesperrt, beim dritten Versuch gelesen (%d '
+               'Versuche, %r)' % (tries, data))
+        pruefe(2 * pause * 0.9 <= took < 1.0,
+               'zwischen den Versuchen wird kurz gewartet (%.2f s, '
+               'erwartet um %.2f s)' % (took, 2 * pause))
+        pruefe(not settings_errors(),
+               'eine überbrückte Sperre landet nicht im Fehlerprotokoll')
+
+        # b) Dauerhaft gesperrt: erst nach allen Versuchen Standardwerte,
+        #    Fehler im Protokoll, nichts überschrieben, Bericht sagt es.
+        lock['left'] = -1
+        data, readable, tries, took = measured()
+        pruefe(data == {} and not readable
+               and tries == paths_522.SETTINGS_LOCK_TRIES,
+               'dauerhaft gesperrt: nach %d Versuchen Standardwerte, nicht '
+               'lesbar (%r, %r)' % (tries, data, readable))
+        pruefe(settings_errors(),
+               'die Sperre steht danach im Fehlerprotokoll')
+        pruefe(paths_522.set_setting('probe_522', 'schlecht') is False,
+               'set_setting meldet, dass nichts gespeichert wurde')
+        label = language_522.t('b_einstellungen')
+        rows = [r for r in report_522.build(version='0.0.0-test').splitlines()
+                if r.startswith(label + ' ')]
+        pruefe(len(rows) == 1
+               and rows[0].endswith(' ' + language_522.t('b_einst_gesperrt')),
+               'der Bericht meldet die Einstellungen als nicht lesbar statt '
+               '„Standard" (%r)' % rows)
+        lock['left'] = 0
+        with open(target, encoding='utf-8') as f:
+            pruefe(json_522.load(f) == content,
+                   'set_setting überschreibt die gesperrte Datei nicht')
+
+        # c) Noch immer gesperrt: der nächste Aufruf wartet nicht erneut.
+        pruefe(paths_522._SETTINGS_STILL_LOCKED[0] == target,
+               'Selbstprüfung: der gesperrte Pfad ist gemerkt')
+        lock['left'] = -1
+        data, readable, tries, took = measured()
+        pruefe(tries == 1 and took < pause,
+               'weiter gesperrt: nur ein Versuch ohne Pause (%d, %.2f s)'
+               % (tries, took))
+
+        # d) Wieder frei: gelesen, und die nächste Sperre bekommt wieder
+        #    alle Versuche.
+        lock['left'] = 0
+        data, readable, tries, took = measured()
+        pruefe(data == content and readable and tries == 1,
+               'wieder frei: sofort gelesen')
+        lock['left'] = 1
+        data, readable, tries, took = measured()
+        pruefe(data == content and tries == 2,
+               'eine neue Sperre wird wieder überbrückt (%d Versuche)' % tries)
+
+        # e) Die Merke gilt nur für den gesperrten Pfad.
+        paths_522._SETTINGS_STILL_LOCKED[0] = target + '.anderswo'
+        lock['left'] = 1
+        data, readable, tries, took = measured()
+        pruefe(data == content and tries == 2,
+               'eine Sperre auf einem anderen Pfad kürzt hier nichts (%d)'
+               % tries)
+
+        # f) set_setting sitzt eine kurze Sperre aus, ohne dabei
+        #    `_SAVE_LOCK` zu halten — sonst warteten alle Speichervorgänge.
+        lock['left'] = 2
+        lock['under_save_lock'] = False
+        saved = paths_522.set_setting('probe_522', 'neu')
+        content['probe_522'] = 'neu'
+        with open(target, encoding='utf-8') as f:
+            on_disk = json_522.load(f)
+        pruefe(saved is True and on_disk.get('probe_522') == 'neu',
+               'set_setting speichert nach einer kurzen Sperre (%r)' % on_disk)
+        pruefe(lock['left'] == 0 and not lock['under_save_lock'],
+               'gewartet wurde außerhalb von _SAVE_LOCK')
+        paths_522._read_settings_file = real_read
+
+        # g) Unter Windows mit einer echten Sperre auf der Datei.
+        if sys.platform == 'win32':
+            import msvcrt
+            handle = open(target, 'r+b')
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                try:
+                    real_read(target)
+                    pruefe(False, 'Selbstprüfung: echte Sperre wirft '
+                           'PermissionError')
+                except PermissionError:
+                    pruefe(True, 'Selbstprüfung: echte Sperre wirft '
+                           'PermissionError')
+
+                def unlock():
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                timer = threading_522.Timer(pause / 2, unlock)
+                timer.start()
+                data, readable = paths_522._settings_read()
+                timer.join()
+                pruefe(data == content and readable,
+                       'echte Sperre für %.2f s: die Einstellungen kommen '
+                       'trotzdem an (%r)' % (pause / 2, data))
+            finally:
+                handle.close()
+        else:
+            print('  [--]   echte Dateisperre nur unter Windows')
+    finally:
+        paths_522._read_settings_file = real_read
+        paths_522._SETTINGS_STILL_LOCKED[0] = None
+        language_522.set_language(old_language)
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
 
 
 if __name__ == '__main__':

@@ -8,8 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **Error report with Anti-AFK** — the report now says whether Anti-AFK is
+  on, how often it pressed and why it was last switched off.
+
 ### Fixed
 
+- **Error report: My Inventory complete** — the line now counts materials,
+  goods and items and no longer runs into its label.
+- **Settings after the update restart** — if the settings file is briefly
+  locked at startup, Verse-Kit waits a moment and reads it again instead of
+  starting with default values.
 - **Basetool: a held mass change is no longer resent every few minutes** —
   when the Basetool holds back a large change to stock, blueprints or hangar
   until you confirm it in the browser, Verse-Kit now waits with that area
