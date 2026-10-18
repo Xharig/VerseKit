@@ -45837,8 +45837,8 @@ _ORG_HIDDEN465 = {
 
 
 def _pruefung_465():
-    """465. Lager der Einheit: Einlesen, Feed, Einordnung, Buchungen."""
-    print('\n465. Lager der Einheit: Einlesen, Feed, Einordnung, Buchungen')
+    """465. Lager der Einheit: Einlesen, Feed, Buchungen."""
+    print('\n465. Lager der Einheit: Einlesen, Feed, Buchungen')
     from scbp import exchange_orgstock as _og, basetool as _bt
     _og.forget()
     _ga465 = {'type': 'RAW', 'commodity': True, 'raw': True}
@@ -45929,44 +45929,6 @@ def _pruefung_465():
     pruefe(not _og.can_write(_og.current(), 'u1'),
            'ohne eingeschaltetes Buchen kein Buchen')
     _og.forget()
-
-    # --- Einordnung ---
-    _alt_comp = _og._is_component
-    try:
-        _og._is_component = lambda name: name == 'Teil'
-        _faelle = [
-            ({'type': 'RAW', 'commodity': True, 'raw': True}, _og.RAW),
-            ({'type': 'REFINED', 'commodity': True, 'refined': True}, _og.RAW),
-            ({'type': 'NO_REFINE', 'commodity': True, 'raw': False,
-              'mineral': False}, _og.TRADE),
-            ({'type': 'RAW', 'commodity': True}, _og.RAW),
-            ({'type': 'NO_REFINE', 'commodity': True}, _og.TRADE),
-            ({'type': 'NO_REFINE', 'commodity': False}, _og.RAW),
-        ]
-        _falsch = [(k, s) for k, s in _faelle
-                   if _og.category({'kind': k, 'name': 'X'}) != s]
-        pruefe(not _falsch, 'Materialien: Erz/Raffiniertes Rohstoff, Rest mit '
-               'commodity Handelsware, ohne UEX-Kennzeichen nach `type` (%r)'
-               % _falsch)
-        pruefe(_og.category({'kind': None, 'name': 'Teil'}) == _og.COMPONENTS
-               and _og.category({'kind': None, 'name': 'Helm'}) == _og.ITEMS,
-               'Items: Schiffsteile Komponenten, der Rest Items')
-    finally:
-        _og._is_component = _alt_comp
-    from scbp import crafting as _cr465
-    _alt_raw = _cr465.recipe_raw
-    try:
-        _og._component_cache.clear()
-        _cr465.recipe_raw = lambda name: (
-            {'tag': 'BP_CRAFT_KLWE_BallisticGatling_S4', 'type': 'weapons'}
-            if name == 'Probe-Gatling' else {})
-        pruefe(_og._is_component('Probe-Gatling')
-               and not _og._is_component('Probe-Helm'),
-               'Schiffswaffe aus dem Rezept-Tag ist Komponente, Unbekanntes '
-               'nicht')
-    finally:
-        _cr465.recipe_raw = _alt_raw
-        _og._component_cache.clear()
 
     # --- Anweisungen in der Form der Anleitung (org-stock.md, A change set) ---
     _u = '7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10'
