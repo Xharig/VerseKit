@@ -4890,7 +4890,7 @@ def _system_path_label(path):
     return path if len(path) <= 24 else path[:22] + '…'
 
 
-def _device_hub(fenster, eltern):
+def _device_hub(window, parent):
     """Alle Eingabegeräte an einem Ort — mit laufender Überwachung.
 
     ## Warum das oben auf der Steuerungsseite steht
@@ -4906,7 +4906,9 @@ def _device_hub(fenster, eltern):
 
     Alle drei Sekunden wird die Geräteliste gelesen und mit der vorigen
     verglichen — kein Systemdienst, kein Fremdpaket, auf beiden Systemen
-    derselbe Weg. Das kostet unter Linux ein `listdir`.
+    derselbe Weg. Dazu kommen ein paar `stat`-Aufrufe auf Belegung und
+    Protokoll (`device_hub.source_stamp`); gelesen werden die Dateien nur,
+    wenn sich daran etwas geändert hat.
 
     ⚠ Der Takt haengt am Fenster (`after`), nicht an einem Faden: Wird die
     Seite zerstört, hört er von selbst auf. Ein Faden müsste dafür eigens
@@ -4922,80 +4924,115 @@ def _device_hub(fenster, eltern):
         """Dieselben Aufrufe wie `tkinter.messagebox`, nur im Programmstil."""
 
         @staticmethod
-        def showinfo(titel, text):
+        def showinfo(title, text):
             from .main_window import ask_yes_no
-            ask_yes_no(eltern.winfo_toplevel(), titel, text, only_ok=True)
+            ask_yes_no(parent.winfo_toplevel(), title, text, only_ok=True)
 
         @staticmethod
-        def showwarning(titel, text):
+        def showwarning(title, text):
             from .main_window import ask_yes_no
-            ask_yes_no(eltern.winfo_toplevel(), titel, text, only_ok=True)
+            ask_yes_no(parent.winfo_toplevel(), title, text, only_ok=True)
 
         @staticmethod
-        def askyesno(titel, text):
+        def askyesno(title, text):
             from .main_window import ask_yes_no
-            return ask_yes_no(eltern.winfo_toplevel(), titel, text)
+            return ask_yes_no(parent.winfo_toplevel(), title, text)
 
-    kopf = tk.Label(eltern, text=t('s_gh_titel'), bg=BG, fg=FG,
-                    font=fenster.f_bold, anchor='w')
-    kopf.pack(fill='x', pady=(6, 0))
-    _body_text(eltern, t('s_gh_lead'), fenster.f_small, fill='x')
+    head = tk.Label(parent, text=t('s_gh_titel'), bg=BG, fg=FG,
+                    font=window.f_bold, anchor='w')
+    head.pack(fill='x', pady=(6, 0))
+    _body_text(parent, t('s_gh_lead'), window.f_small, fill='x')
 
-    tafel = tk.Frame(eltern, bg=BG)
-    tafel.pack(fill='x', pady=(8, 0))
-    meldung = tk.Label(eltern, text='', bg=BG, fg=GOLD,
-                       font=fenster.f_small, anchor='w')
-    meldung.pack(fill='x')
+    board = tk.Frame(parent, bg=BG)
+    board.pack(fill='x', pady=(8, 0))
+    message = tk.Label(parent, text='', bg=BG, fg=GOLD,
+                       font=window.f_small, anchor='w', justify='left')
+    message.pack(fill='x')
+    # Umbrechen auf die Breite, die die Zeile bekommt — lange Gerätenamen
+    # sprengen sonst die Seite.
+    message.bind('<Configure>', lambda event: message.configure(
+        wraplength=max(event.width - 4, 50)))
 
-    wache = device_hub.Watchdog()
-    farben = {device_hub.READY: ACCENT, device_hub.NO_NUMBER: GOLD,
+    watchdog = device_hub.Watchdog()
+    colors = {device_hub.READY: ACCENT, device_hub.NO_NUMBER: GOLD,
               device_hub.UNPLUGGED: RED, device_hub.UNKNOWN: GOLD}
+    # Was zuletzt gezeichnet wurde (`device_hub.fingerprint`) — ein
+    # Neuzeichnen, das nichts ändert, unterbleibt.
+    drawn = [None]
+    # Seit dem Öffnen der Seite angesteckt bzw. abgezogen, je Kennung in der
+    # Reihenfolge des Auftretens.
+    plugged, unplugged = {}, {}
 
-    def _zeichnen():
-        for kind in list(tafel.winfo_children()):
-            kind.destroy()
-        ueberblick = device_hub.summary()
-        if not ueberblick['geraete']:
-            tk.Label(tafel, text=t('s_gh_kein_geraet'), bg=BG, fg=SUB,
-                     font=fenster.f_small, anchor='w').pack(fill='x')
+    def _report(added, gone):
+        """Die Meldung unter der Liste: sammelt alle Steckänderungen, statt
+        nur die letzte zu zeigen. Ein abgezogenes Gerät verlässt die Liste
+        der angesteckten und umgekehrt."""
+        for device in added:
+            ident = (device.get('kennung') or '').upper()
+            unplugged.pop(ident, None)
+            plugged.pop(ident, None)
+            plugged[ident] = device.get('name') or '?'
+        for device in gone:
+            ident = (device.get('kennung') or '').upper()
+            plugged.pop(ident, None)
+            unplugged.pop(ident, None)
+            unplugged[ident] = device.get('name') or '?'
+        lines = []
+        if plugged:
+            lines.append(t('s_gh_neu').format(', '.join(plugged.values())))
+        if unplugged:
+            lines.append(t('s_gh_weg').format(', '.join(unplugged.values())))
+        message.configure(text='\n'.join(lines))
+
+    def _draw(result=None):
+        """Die Liste neu bauen; `result` ist eine schon gelesene
+        `device_hub.summary()`, sonst wird sie hier gelesen."""
+        for child in list(board.winfo_children()):
+            child.destroy()
+        if result is None:
+            result = device_hub.summary()
+        drawn[0] = device_hub.fingerprint(result)
+        if not result['geraete']:
+            tk.Label(board, text=t('s_gh_kein_geraet'), bg=BG, fg=SUB,
+                     font=window.f_small, anchor='w').pack(fill='x')
             return
 
-        for geraet in ueberblick['geraete']:
-            zeile = tk.Frame(tafel, bg=SURFACE)
-            zeile.pack(fill='x', pady=(0, 2))
-            streifen = tk.Frame(zeile, bg=farben.get(geraet['zustand'], SUB),
-                                width=3)
-            streifen.pack(side='left', fill='y')
+        for device in result['geraete']:
+            row = tk.Frame(board, bg=SURFACE)
+            row.pack(fill='x', pady=(0, 2))
+            stripe = tk.Frame(row, bg=colors.get(device['zustand'], SUB),
+                              width=3)
+            stripe.pack(side='left', fill='y')
 
             # ⚠ Die Spiel-Nummer zuerst und in der Markenfarbe: Das ist die
             # Zahl, mit der der Spieler es im Spiel und in Anleitungen zu tun
             # hat. Der Systempfad steht daneben, damit man beide auseinander
             # halten kann — genau daran scheitern sonst alle Anleitungen.
-            nummer = ('js%d' % geraet['nummer']) if geraet['nummer'] else '—'
+            number = ('js%d' % device['nummer']) if device['nummer'] else '—'
             # ⚠ Reihenfolge = Vorrang. Tk nimmt bei Platzmangel dem ZULETZT
             # gepackten Element den Platz weg. Also erst, was nie fehlen darf
             # (Nummer, Zustand), dann der Pfad, zuletzt der dehnbare Name.
             # Hinter dem Pfad würde „bereit" bei langen Windows-Pfaden
             # abgeschnitten.
-            tk.Label(zeile, text=nummer, bg=SURFACE,
-                     fg=ACCENT if geraet['nummer'] else SUB,
-                     font=fenster.f_bold, width=5,
+            tk.Label(row, text=number, bg=SURFACE,
+                     fg=ACCENT if device['nummer'] else SUB,
+                     font=window.f_bold, width=5,
                      anchor='w', padx=8).pack(side='left', pady=6)
-            tk.Label(zeile, text=t('s_gh_' + geraet['zustand']), bg=SURFACE,
-                     fg=farben.get(geraet['zustand'], SUB),
-                     font=fenster.f_small, anchor='e',
+            tk.Label(row, text=t('s_gh_' + device['zustand']), bg=SURFACE,
+                     fg=colors.get(device['zustand'], SUB),
+                     font=window.f_small, anchor='e',
                      padx=10).pack(side='right')
-            tk.Label(zeile, text=_system_path_label(geraet['systempfad']),
-                     bg=SURFACE, fg=SUB, font=fenster.f_small,
+            tk.Label(row, text=_system_path_label(device['systempfad']),
+                     bg=SURFACE, fg=SUB, font=window.f_small,
                      anchor='e', padx=10).pack(side='right')
-            tk.Label(zeile, text=geraet['name'] or geraet['kurz'], bg=SURFACE,
-                     fg=FG, font=fenster.f_small,
+            tk.Label(row, text=device['name'] or device['kurz'], bg=SURFACE,
+                     fg=FG, font=window.f_small,
                      anchor='w').pack(side='left', fill='x', expand=True)
 
         # Ein Satz zur Lage — und nur dann einer, wenn er etwas sagt.
-        if ueberblick['alles_gut']:
-            tk.Label(tafel, text=t('s_gh_alles_gut'), bg=BG, fg=ACCENT,
-                     font=fenster.f_small, anchor='w').pack(fill='x',
+        if result['alles_gut']:
+            tk.Label(board, text=t('s_gh_alles_gut'), bg=BG, fg=ACCENT,
+                     font=window.f_small, anchor='w').pack(fill='x',
                                                             pady=(6, 0))
             return
 
@@ -5006,87 +5043,95 @@ def _device_hub(fenster, eltern):
         # Problemen aus und ist eines: Ein Stick mit neuer Kennung steht
         # zweimal da, einmal als fehlend und einmal als unbekannt. Ein
         # Handgriff behebt das.
-        tk.Label(tafel, text=t('s_gh_was_tun'), bg=BG, fg=FG,
-                 font=fenster.f_bold, anchor='w').pack(fill='x', pady=(12, 0))
+        tk.Label(board, text=t('s_gh_was_tun'), bg=BG, fg=FG,
+                 font=window.f_bold, anchor='w').pack(fill='x', pady=(12, 0))
 
-        for vorschlag in device_hub.suggestions():
-            _vorschlag_zeigen(vorschlag)
+        for suggestion in device_hub.suggestions():
+            _show_suggestion(suggestion)
 
-    def _vorschlag_zeigen(vorschlag):
+    def _show_suggestion(suggestion):
         """Ein Schritt, in einem Satz — und wo möglich mit Knopf."""
         from . import device_hub
 
-        geraet = vorschlag['geraet']
-        kasten = tk.Frame(tafel, bg=SURFACE)
-        kasten.pack(fill='x', pady=(6, 0))
+        device = suggestion['geraet']
+        box = tk.Frame(board, bg=SURFACE)
+        box.pack(fill='x', pady=(6, 0))
 
-        if vorschlag['art'] == device_hub.SWAP:
-            alt = vorschlag['alt']
-            tk.Label(kasten,
+        if suggestion['art'] == device_hub.SWAP:
+            previous = suggestion['alt']
+            tk.Label(box,
                      text=t('s_gh_tausch').format(
-                         geraet['name'] or geraet['kurz'],
-                         alt['name'] or alt['kurz']),
-                     bg=SURFACE, fg=ACCENT, font=fenster.f_bold, anchor='w',
+                         device['name'] or device['kurz'],
+                         previous['name'] or previous['kurz']),
+                     bg=SURFACE, fg=ACCENT, font=window.f_bold, anchor='w',
                      padx=12).pack(fill='x', pady=(10, 0))
-            _body_text(kasten, t('s_gh_tausch_lang'), fenster.f_small,
-                        bg=SURFACE, fill='x', inset=24)
+            _body_text(box, t('s_gh_tausch_lang'), window.f_small,
+                       bg=SURFACE, fill='x', inset=24)
 
-            def _umhaengen(neu=geraet, vorher=alt):
+            def _reassign(new_device=device, old_device=previous):
                 from . import joysticks
-                zeilen = len(joysticks.bindings() or {})
-                if not _ask(fenster, 
-                        t('hf_joysticks'),
-                        t('s_gh_tausch_frage').format(
-                            vorher['name'] or vorher['kurz'],
-                            neu['name'] or neu['kurz'], zeilen)
-                        + '\n\n' + t('s_ac_spiel_zu')):
+                line_count = len(joysticks.bindings() or {})
+                if not _ask(window,
+                            t('hf_joysticks'),
+                            t('s_gh_tausch_frage').format(
+                                old_device['name'] or old_device['kurz'],
+                                new_device['name'] or new_device['kurz'],
+                                line_count)
+                            + '\n\n' + t('s_ac_spiel_zu')):
                     return
-                erfolg, meldung, _ = device_hub.reassign(
-                    vorher['kennung'], neu['kennung'])
-                if not erfolg:
-                    _notice(fenster, t('hf_joysticks'), t(meldung))
+                ok, message, _ = device_hub.reassign(
+                    old_device['kennung'], new_device['kennung'])
+                if not ok:
+                    _notice(window, t('hf_joysticks'), t(message))
                     return
-                _notice(fenster, t('hf_joysticks'), t('s_gh_umgehaengt'))
-                _zeichnen()
+                _notice(window, t('hf_joysticks'), t('s_gh_umgehaengt'))
+                _draw()
 
             # ⚠ Der Knopf steht UNTER dem Kasten: `_knopf` zeichnet fest auf
             # `BG`, in einem `FLAECHE`-Kasten wäre das ein Farbklotz.
-            tk.Frame(kasten, bg=SURFACE, height=10).pack(fill='x')
-            reihe = tk.Frame(tafel, bg=BG)
-            reihe.pack(fill='x', pady=(6, 0))
-            _button(fenster, reihe, t('s_gh_tausch_knopf'), _umhaengen,
-                   strong=True).pack(side='left')
+            tk.Frame(box, bg=SURFACE, height=10).pack(fill='x')
+            button_row = tk.Frame(board, bg=BG)
+            button_row.pack(fill='x', pady=(6, 0))
+            _button(window, button_row, t('s_gh_tausch_knopf'), _reassign,
+                    strong=True).pack(side='left')
             return
 
         # Die beiden Fälle ohne Knopf: Da hilft kein Schreibvorgang, sondern
         # ein Handgriff am Rechner. Ein Knopf, der nur einen Rat wiederholt,
         # wäre eine Attrappe.
-        rat = (t('s_gh_starten_rat') if vorschlag['art'] == device_hub.START
-               else t('s_gh_anstecken_rat'))
-        _body_text(kasten, rat.format(geraet['name'] or geraet['kurz']),
-                    fenster.f_small, bg=SURFACE, fill='x', inset=24)
-        tk.Frame(kasten, bg=SURFACE, height=8).pack(fill='x')
+        advice = (t('s_gh_starten_rat')
+                  if suggestion['art'] == device_hub.START
+                  else t('s_gh_anstecken_rat'))
+        _body_text(box, advice.format(device['name'] or device['kurz']),
+                   window.f_small, bg=SURFACE, fill='x', inset=24)
+        tk.Frame(box, bg=SURFACE, height=8).pack(fill='x')
 
-    def _takt():
+    def _tick():
         # ⚠ `winfo_exists()` prüfen: Der Takt läuft weiter, während die Seite
         # längst zerstört sein kann (Sprachwechsel, Neuaufbau). Ohne die
         # Prüfung wirft der nächste Zugriff eine Ausnahme in einem Rückruf —
         # und die sieht in einer `.exe` niemand.
-        if not tafel.winfo_exists():
+        if not board.winfo_exists():
             return
-        dazu, weg = wache.check()
-        if dazu or weg:
-            namen = [g.get('name', '?') for g in (dazu or weg)]
-            meldung.configure(
-                text=(t('s_gh_neu') if dazu else t('s_gh_weg')).format(
-                    ', '.join(namen)))
-            _zeichnen()
-        tafel.after(3000, _takt)
+        added, gone = watchdog.check()
+        # ⚠ Auch ohne Steckänderung: Die Nummern trägt das Spiel erst beim
+        # Start in Belegung und Protokoll ein. Ohne diesen Blick bliebe ein
+        # vorher angestecktes Gerät auf „ohne Nummer" stehen.
+        files = watchdog.sources_changed()
+        if added or gone:
+            _report(added, gone)
+            _draw()
+        elif files:
+            result = device_hub.summary()
+            if device_hub.fingerprint(result) != drawn[0]:
+                _draw(result)
+        board.after(3000, _tick)
 
-    wache.check()          # Grundlage setzen, ohne zu melden
-    _zeichnen()
-    tafel.after(3000, _takt)
-    return _zeichnen
+    watchdog.check()          # Grundlage setzen, ohne zu melden
+    watchdog.sources_changed()
+    _draw()
+    board.after(3000, _tick)
+    return _draw
 
 
 def _joysticks(fenster, rahmen):

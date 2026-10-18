@@ -59,9 +59,10 @@ Belegung — je nachdem, wer es zuletzt umbenannt hat.
 | `abgesteckt` | die Belegung erwartet es, es ist aber nicht da |
 | `unbekannt` | angeschlossen, das Spiel hat es noch nie gesehen |
 """
+import os
 import time
 
-from . import input_device, joysticks
+from . import input_device, joysticks, paths
 
 # Die Zustände eines Geräts im Hub.
 READY = 'bereit'
@@ -177,6 +178,48 @@ def summary(folder=None, filename=None):
     }
 
 
+def fingerprint(result):
+    """Was von `summary()` auf dem Bildschirm steht — zum Vergleichen, ob
+    ein Neuzeichnen etwas ändern würde."""
+    return (bool(result.get('alles_gut')),
+            tuple((d.get('kennung'), d.get('zustand'), d.get('nummer'),
+                   d.get('name'), d.get('systempfad'))
+                  for d in result.get('geraete') or ()))
+
+
+def source_stamp(folder=None):
+    """Woran sich ablesen lässt, ob das Spiel seine Dateien neu geschrieben hat.
+
+    Je Belegungsdatei Pfad, Änderungszeit und Größe. Von der laufenden
+    `Game.log` die Datei selbst (Inode) und ihre Größe — die Größe nur bis
+    `joysticks.LOG_HEAD` Bytes: Ungefähr so viel liest `joysticks.devices()`
+    (dort Zeichen), und ein Protokoll, das im Spiel ständig wächst, löst
+    danach nichts mehr aus. Eine neue `Game.log` beim nächsten Spielstart hat
+    eine neue Inode.
+
+    Der Spielordner wird einmal aufgelöst und für beide Dateien benutzt."""
+    base = folder or paths.game_folder()
+    if not base:
+        return ()
+    out = []
+    for path in joysticks.all_actionmaps(base):
+        try:
+            info = os.stat(path)
+        except OSError:
+            continue
+        out.append((path, info.st_mtime_ns, info.st_size))
+    log = paths.game_log(base)
+    if log:
+        try:
+            info = os.stat(log)
+        except OSError:
+            info = None
+        if info is not None:
+            out.append((log, info.st_ino,
+                        min(info.st_size, joysticks.LOG_HEAD)))
+    return tuple(out)
+
+
 # Die Schritte, die der Assistent anbietet.
 SWAP = 'tausch'        # dasselbe Gerät unter neuer Kennung → umhängen
 START = 'starten'      # das Spiel kennt es noch nicht → einmal starten
@@ -286,6 +329,23 @@ class Watchdog:
     def __init__(self):
         self.state = None
         self.last = 0.0
+        self.stamp = None
+
+    def sources_changed(self, folder=None):
+        """Hat das Spiel seit dem letzten Aufruf Belegung oder Protokoll neu
+        geschrieben (`source_stamp`)? Der erste Aufruf setzt nur die
+        Grundlage und liefert `False`, wie bei `check()`.
+
+        ⚠ Ohne diesen Blick bleibt die Übersicht nach dem Anstecken auf
+        „ohne Nummer" stehen: Die Nummern trägt das Spiel erst beim Start in
+        die Belegung ein, und dabei steckt niemand etwas um."""
+        stamp = source_stamp(folder)
+        if self.stamp is None:
+            self.stamp = stamp
+            return False
+        changed = stamp != self.stamp
+        self.stamp = stamp
+        return changed
 
     def check(self, min_gap=0.0):
         """Was hat sich seit dem letzten Mal geändert?

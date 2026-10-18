@@ -25,6 +25,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   not yet know how much of a lot sits in the unit, the sync fetches the
   Basetool's full stock once a day instead of showing the lot as entirely
   personal.
+- **Controls, "Your devices"** — if you plug in your sticks and then start
+  the game, they now show their number as "ready" as soon as the game has
+  registered them. Until now they stayed on "no number" until you reopened
+  the page. "Plugged in" also lists every device you plugged in instead of
+  only the last one, and unplugged devices get their own line.
 
 ## v4.10.0 - 2026-10-18
 
