@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Blueprint list: "lost when ranking up" no longer freezes** — the filter
+  went through every contract once for each missing blueprint, and the list
+  stood still for many seconds. Every further click on the filter in the
+  meantime added the same wait again, until Verse-Kit stopped responding.
+  Now the list appears right away with this filter. Reported by Drachennarr
+
 ## v4.11.0 - 2026-10-18
 
 > Pages open much faster when you come back to them, and Back and Forward

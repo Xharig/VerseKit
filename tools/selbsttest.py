@@ -7940,7 +7940,7 @@ def main():
            'die Bauplan-Liste bietet den Filter an')
     pruefe("if self.filter == 'deckel':" in _q82,
            'und filtert danach')
-    pruefe('drin or not katalog_modul.reward_cap' in _q82,
+    pruefe('drin or k not in gedeckelt' in _q82,
            'was man schon hat, taucht dabei nicht auf')
 
     # --- Die drei uebrigen Auskuenfte aus denselben Vertragsdaten ---
@@ -25786,6 +25786,7 @@ def main():
     _pruefung_577()
     _pruefung_578()
     _pruefung_579()
+    _pruefung_580()
 
     print()
     if fehler:
@@ -55320,6 +55321,94 @@ def _areas579(root, window):
 def _pruefung_579():
     _run57x(579, 'alle Wege landen im Verlauf, „Zurück zu …" ist ein '
             'Schritt', _body579)
+
+
+def _pruefung_580():
+    """580. Bauplan-Liste: der Filter `deckel` geht die Aufträge einmal
+    durch, nicht einmal je Bauplan.
+
+    Gezählt werden die Aufrufe von `catalog._norm` während eines Klicks auf
+    den Filterknopf, mit 200 fehlenden Bauplänen in 21 Aufträgen. Dazu die
+    Auswahl selbst: gedeckelt nur, wo jeder Weg eine Obergrenze hat.
+    """
+    print('\n580. Bauplan-Liste: Filter weg beim Aufsteigen ohne Mehrfachdurchlauf')
+    from scbp import (catalog as _ka580, collection_window as _cw580,
+                      paths as _pf580)
+
+    namen = ['Pruefling Deckel %03d' % i for i in range(200)]
+    missionen = {}
+    for nr in range(20):
+        missionen['m%02d' % nr] = {'bp': namen[nr * 10:nr * 10 + 10]}
+        if nr % 2 == 0:
+            missionen['m%02d' % nr].update(rep_max=10000 + nr,
+                                           rang_max='Rang %d' % nr)
+    missionen['offen'] = {'bp': namen[:10]}
+    erwartet = {n for nr in range(2, 20, 2)
+                for n in namen[nr * 10:nr * 10 + 10]}
+    eintraege = sum(len(m['bp']) for m in missionen.values())
+
+    _kat_pfad = _pf580.app_file(_ka580.CACHE)
+    _kat_alt = (open(_kat_pfad, 'rb').read()
+                if os.path.isfile(_kat_pfad) else None)
+    _norm_echt = _ka580._norm
+    _wz = None
+    try:
+        with open(_kat_pfad, 'w', encoding='utf-8') as _f580:
+            json.dump({'bauplaene': {_norm_echt(n): {'n': n, 'a': 'Cooler'}
+                                     for n in namen},
+                       'missionen': missionen}, _f580)
+        _wz = _wurzel()
+        liste = _cw580.Bestandsfenster(_wz)
+        for _ in range(3):
+            _wz.update(); _wz.update_idletasks()
+        pruefe(len(liste.katalog.get('bauplaene') or {}) == len(namen),
+               'Vorbedingung: der Katalog hat %d Bauplaene' % len(namen))
+
+        aufrufe = [0]
+
+        def _norm_zaehlend(name):
+            aufrufe[0] += 1
+            return _norm_echt(name)
+
+        _ka580._norm = _norm_zaehlend
+        try:
+            liste.knoepfe['deckel'].event_generate('<Button-1>', x=5, y=5)
+            for _ in range(3):
+                _wz.update(); _wz.update_idletasks()
+        finally:
+            _ka580._norm = _norm_echt
+        pruefe(liste.filter == 'deckel', 'der Klick hat den Filter gesetzt')
+        grenze = 5 * (len(namen) + eintraege)
+        pruefe(0 < aufrufe[0] <= grenze,
+               'ein Klick auf den Filter normt hoechstens %d Namen (%d)'
+               % (grenze, aufrufe[0]))
+
+        gezeigt = {e['n'] for _art, treffer in liste._auswahl()
+                   for e, _drin in treffer}
+        pruefe(gezeigt == erwartet,
+               'gezeigt werden genau die %d Bauplaene, deren Wege alle '
+               'gedeckelt sind (%d, fremd %s, fehlend %s)'
+               % (len(erwartet), len(gezeigt),
+                  sorted(gezeigt - erwartet)[:3],
+                  sorted(erwartet - gezeigt)[:3]))
+        pruefe(_ka580.reward_cap(liste.katalog, _norm_echt(namen[25]))
+               == (10002, 'Rang 2'),
+               'die Einzelauskunft nennt Grenze und Rang des Auftrags')
+    finally:
+        _ka580._norm = _norm_echt
+        try:
+            if _wz is not None:
+                _wz.destroy()
+        except Exception:
+            pass
+        if _kat_alt is None:
+            try:
+                os.remove(_kat_pfad)
+            except OSError:
+                pass
+        else:
+            with open(_kat_pfad, 'wb') as _f580:
+                _f580.write(_kat_alt)
 
 
 if __name__ == '__main__':

@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Bauplan-Liste: „weg beim Aufsteigen" friert nicht mehr ein** — der
+  Filter ging für jeden fehlenden Bauplan alle Aufträge einzeln durch, und
+  die Liste stand dabei viele Sekunden still. Jeder weitere Klick auf den
+  Filter in der Zwischenzeit hängte dieselbe Wartezeit noch einmal an, bis
+  Verse-Kit nicht mehr reagierte. Jetzt steht die Liste mit diesem Filter
+  sofort da. Gemeldet von Drachennarr
+
 ## v4.11.0 - 2026-10-18
 
 > Seiten öffnen deutlich schneller, wenn du zu ihnen zurückkommst, und

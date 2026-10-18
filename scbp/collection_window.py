@@ -1481,6 +1481,10 @@ class Bestandsfenster:
         # Was mit dem letzten Patch dazukam. Einmal je Durchlauf holen — die
         # Menge ist für alle Zeilen dieselbe.
         neu_im_spiel = katalog_modul.new_ones(self.katalog)
+        # Ebenso die Ruf-Obergrenzen: einmal für alle Zeilen, nicht je Zeile
+        # über alle Aufträge.
+        gedeckelt = (katalog_modul.reward_caps(self.katalog)
+                     if self.filter == 'deckel' else {})
         ergebnis = []
         for og, art, liste in katalog_modul.groups_ordered(self.katalog):
             if og in self.bereiche_aus:
@@ -1524,7 +1528,7 @@ class Bestandsfenster:
                 # hat, kann nicht mehr verloren gehen; und ein einziger Weg
                 # ohne Deckel genuegt, damit nichts in Gefahr ist.
                 if self.filter == 'deckel':
-                    if drin or not katalog_modul.reward_cap(self.katalog, k):
+                    if drin or k not in gedeckelt:
                         continue
                 if text and not art_passt and not _passt(e, text):
                     continue

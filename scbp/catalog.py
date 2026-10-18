@@ -152,18 +152,26 @@ def reward_cap(catalog_data, blueprint_key):
     sagt diese Auskunft, ab wann der Weg zu ist, nicht wie viel Ruf noch
     bleibt.
     """
-    paths = []
+    return reward_caps(catalog_data).get(blueprint_key)
+
+
+def reward_caps(catalog_data):
+    """`reward_cap()` für alle Baupläne auf einmal: `{schlüssel: (rep_max, rang_max)}`.
+
+    Enthält nur die Baupläne, bei denen alle Wege gedeckelt sind. Geht die
+    Aufträge einmal durch statt einmal je Bauplan.
+    """
+    paths = {}
     for mission in (catalog_data.get('missionen') or {}).values():
-        for name in mission.get('bp') or []:
-            if _norm(name) == blueprint_key:
-                paths.append(mission)
-                break
-    if not paths:
-        return None
-    if any(not w.get('rep_max') for w in paths):
-        return None                      # ein offener Weg genügt
-    highest_one = max(paths, key=lambda w: w.get('rep_max') or 0)
-    return highest_one.get('rep_max'), highest_one.get('rang_max')
+        for key in {_norm(name) for name in mission.get('bp') or []}:
+            paths.setdefault(key, []).append(mission)
+    caps = {}
+    for key, missions in paths.items():
+        if any(not w.get('rep_max') for w in missions):
+            continue                     # ein offener Weg genügt
+        highest_one = max(missions, key=lambda w: w.get('rep_max') or 0)
+        caps[key] = (highest_one.get('rep_max'), highest_one.get('rang_max'))
+    return caps
 
 
 def blueprints_for_contract(catalog_data, title):
