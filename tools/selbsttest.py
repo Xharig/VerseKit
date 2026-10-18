@@ -25689,6 +25689,7 @@ def main():
     _pruefung_497()
     _pruefung_498()
     _pruefung_499()
+    _pruefung_500()
 
     print()
     if fehler:
@@ -47803,6 +47804,56 @@ def _pruefung_499():
             _wz.destroy()
         except Exception:
             pass
+
+
+def _pyinstaller_ohne_noupx(text):
+    """(Jobs mit PyInstaller-Aufruf, Jobs davon ohne `--noupx`) in einer
+    Bau-Datei — gelesen werden die `run:`-Blöcke, Kommentarzeilen nicht."""
+    zeilen = text.split('\n')
+    job = None
+    fehlt, gefunden = [], []
+    i = 0
+    while i < len(zeilen):
+        z = zeilen[i]
+        if re.match(r'^  [A-Za-z0-9_-]+:\s*$', z):
+            job = z.strip().rstrip(':')
+        if re.match(r'^\s+run:\s*[>|]', z):
+            tiefe = len(z) - len(z.lstrip())
+            block = []
+            i += 1
+            while i < len(zeilen) and (
+                    not zeilen[i].strip()
+                    or len(zeilen[i]) - len(zeilen[i].lstrip()) > tiefe):
+                block.append(zeilen[i])
+                i += 1
+            befehl = ' '.join(b.strip() for b in block
+                              if not b.strip().startswith('#'))
+            if '-m PyInstaller' in befehl:
+                gefunden.append(job)
+                if '--noupx' not in befehl.split():
+                    fehlt.append(job)
+            continue
+        i += 1
+    return gefunden, fehlt
+
+
+def _pruefung_500():
+    """Der Bau packt nie mit UPX: `--noupx` in jedem PyInstaller-Aufruf."""
+    print('\n500. Bau: jeder PyInstaller-Aufruf in release.yml mit --noupx')
+    with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
+              encoding='utf-8') as f:
+        text = f.read()
+    gefunden, fehlt = _pyinstaller_ohne_noupx(text)
+    pruefe(sorted(gefunden) == ['linux', 'windows'],
+           'beide PyInstaller-Aufrufe werden gefunden (%s)' % gefunden)
+    pruefe(not fehlt, 'jeder trägt --noupx (fehlt in: %s)'
+           % (', '.join(fehlt) or 'keinem'))
+    # Gegenprobe an derselben Datei: ohne --noupx im Linux-Aufruf muss genau
+    # dieser Job genannt werden.
+    stelle = text.find('python3 -m PyInstaller')
+    ohne = text[:stelle] + text[stelle:].replace(' --noupx', '', 1)
+    pruefe(stelle > 0 and _pyinstaller_ohne_noupx(ohne)[1] == ['linux'],
+           'Gegenprobe: fehlt --noupx im Linux-Aufruf, wird linux genannt')
 
 
 if __name__ == '__main__':

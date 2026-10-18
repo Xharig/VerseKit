@@ -131,9 +131,12 @@ jobs:
       - name: Versionsangaben schreiben
         run: python .github/scripts/versionsinfo.py build/versionsinfo.txt
 
+      # ⚠ `--noupx`: Mit UPX gepackte Programme melden Virenscanner häufig
+      # fälschlich. Auf dem Bau-Rechner ist UPX derzeit nicht installiert;
+      # ohne die Angabe würde PyInstaller es benutzen, sobald es da ist.
       - name: EXE bauen
         run: >
-          python -m PyInstaller --noconfirm --onefile --windowed
+          python -m PyInstaller --noconfirm --onefile --windowed --noupx
           --name "SC-BP-Watcher" --icon "icon.ico"
           --version-file "build/versionsinfo.txt"
           --add-data "CHANGELOG.en.md;." --add-data "CHANGELOG.md;."
@@ -245,9 +248,10 @@ jobs:
         # uebersprungen — geprueft werden soll aber alles.
         run: xvfb-run -a python3 tools/selbsttest.py
 
+      # `--noupx` wie im Windows-Job.
       - name: Binaerdatei bauen
         run: >
-          python3 -m PyInstaller --noconfirm --onefile --windowed
+          python3 -m PyInstaller --noconfirm --onefile --windowed --noupx
           --name "SC-BP-Watcher"
           --add-data "CHANGELOG.en.md:." --add-data "CHANGELOG.md:."
           --add-data "assets/icon.png:assets" --add-data "assets/xharig.png:assets" --add-data "assets/made-by-the-community.png:assets"
