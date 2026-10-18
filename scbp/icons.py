@@ -572,7 +572,7 @@ BUTTON_NAMES = (
     'leeren', 'schliessen', 'ziehgriff', 'fortschritt', 'anzeige',
     'auftragstexte', 'bestand', 'wasistneu', 'ueber', 'serverstatus', 'ordner',
     'erkennung', 'joysticks', 'achsen', 'blickwinkel', 'diagnose', 'signatur',
-    'anlernen',
+    'anlernen', 'anti_afk', 'anti_afk_aus',
     'einrichtung', 'neustart',
     'herunterladen',
     'zurueck', 'ausblenden', 'sicherung', 'laeden', 'routen', 'zeit', 'hangar',

@@ -25694,6 +25694,16 @@ def main():
     _pruefung_491()
     _pruefung_476()
     _pruefung_477()
+    _pruefung_495()
+    _pruefung_496()
+    _pruefung_497()
+    _pruefung_498()
+    _pruefung_499()
+    _pruefung_500()
+    _pruefung_501()
+    _pruefung_502()
+    _pruefung_503()
+    _pruefung_504()
 
     print()
     if fehler:
@@ -47754,6 +47764,790 @@ def _alle_eingaben(w):
             _lauf(k)
     _lauf(w)
     return out
+
+
+class _AafkFake:
+    """Ersatz für user32/kernel32/advapi32 in `scbp.anti_afk` — sendet nichts.
+
+    `sent` sammelt jeden SendInput-Aufruf als Liste von (Scancode, Flags).
+    `fore` ist der Pfad des Vordergrundprozesses, `idle` die Sekunden seit der
+    letzten Eingabe. `resets` legt fest, ob ein Senden die Eingabezeit erneuert.
+    """
+
+    def __init__(self):
+        import types
+        self.sent = []
+        self.fore = 'C:\\Windows\\explorer.exe'
+        self.idle = 0.0
+        self.resets = True
+        self.accept = True
+        self.tick = 10_000_000
+        f = self
+        self.user32 = types.SimpleNamespace(
+            SendInput=f._send_input,
+            GetForegroundWindow=lambda: 0x1234,
+            GetWindowThreadProcessId=f._thread_pid,
+            GetLastInputInfo=f._last_input)
+        self.kernel32 = types.SimpleNamespace(
+            GetTickCount=lambda: f.tick,
+            OpenProcess=lambda *a: 0x99,
+            CloseHandle=lambda h: 1,
+            GetCurrentProcess=lambda: 0x98,
+            QueryFullProcessImageNameW=f._image_name)
+        self.advapi32 = types.SimpleNamespace(
+            OpenProcessToken=lambda *a: 0,
+            GetTokenInformation=lambda *a: 0)
+
+    def _send_input(self, count, events, size):
+        self.sent.append([(events[i].ki.wScan, events[i].ki.dwFlags)
+                          for i in range(count)])
+        if not self.accept:
+            return 0
+        if self.resets:
+            self.idle = 0.0
+        return count
+
+    def _thread_pid(self, hwnd, ref):
+        ref._obj.value = 4242
+        return 1
+
+    def _last_input(self, ref):
+        ref._obj.dwTime = (self.tick - int(self.idle * 1000)) & 0xFFFFFFFF
+        return 1
+
+    def _image_name(self, handle, flags, buffer, ref):
+        buffer.value = self.fore
+        return 1
+
+
+def _aafk_fake_einsetzen(_aa):
+    """Falle einsetzen; gibt (Fake, Rücksetzer). Prüft, dass sie greift."""
+    echt = (_aa._api, _aa.supported, _aa.HOLD, dict(_aa._state),
+            list(_aa._switch_listeners), _aa._joystick_states, _aa.JOY_POLL)
+    fake = _AafkFake()
+    fake.joy = {}
+    _aa._api = fake
+    _aa.supported = lambda: True
+    _aa.HOLD = 0
+    # Der Joystick-Faden liest nur das Ersatzbild und schläft lange — die
+    # Prüfungen rufen `joy_poll()` selbst.
+    _aa._joystick_states = lambda: dict(fake.joy)
+    _aa.JOY_POLL = 3600
+
+    def zurueck():
+        _aa._joy_stop()
+        (_aa._api, _aa.supported, _aa.HOLD) = echt[:3]
+        _aa._state.clear()
+        _aa._state.update(echt[3])
+        _aa._state['on'] = False
+        _aa._switch_listeners[:] = echt[4]
+        _aa._joystick_states, _aa.JOY_POLL = echt[5:7]
+    return fake, zurueck
+
+
+def _pruefung_495():
+    """Anti-AFK steht nach dem Start auf aus und wird nicht gespeichert."""
+    print('\n495. Anti-AFK: standardmäßig aus, Zustand nicht gespeichert')
+    import importlib
+    from scbp import anti_afk as _aa495, paths as _pa495
+    frisch = importlib.reload(_aa495)
+    pruefe(frisch.enabled() is False and frisch.last_error() is None,
+           'nach dem Laden ist Anti-AFK aus')
+    fake, zurueck = _aafk_fake_einsetzen(frisch)
+    geschrieben = []
+    echt_set = _pa495.set_setting
+    _pa495.set_setting = lambda *a, **k: geschrieben.append(a) or True
+    try:
+        pruefe(frisch.set_enabled(True) is True and frisch.enabled(),
+               'der Schalter lässt sich einschalten')
+        frisch.set_enabled(False)
+        pruefe(not geschrieben,
+               'Umschalten schreibt keine Einstellung (%r)' % geschrieben)
+        frisch.set_enabled(True)
+        neu = importlib.reload(frisch)
+        pruefe(neu.enabled() is False,
+               'nach einem Neustart ist Anti-AFK wieder aus')
+        pruefe(neu.tick() == 'off' and not fake.sent,
+               'ausgeschaltet sendet tick() nichts')
+    finally:
+        _pa495.set_setting = echt_set
+        zurueck()
+
+
+def _pruefung_496():
+    """Anti-AFK sendet nur, wenn Star Citizen vorn ist und niemand tippt."""
+    print('\n496. Anti-AFK: nur bei Spielfenster vorn und ohne Eingabe')
+    from scbp import anti_afk as _aa496
+    fake, zurueck = _aafk_fake_einsetzen(_aa496)
+    try:
+        # Die Falle muss zuerst selbst zuschnappen — sonst misst jede Null
+        # unten nichts.
+        pruefe(_aa496._get_api() is fake, 'die Falle sitzt an der Stelle, '
+               'die `_send` benutzt')
+        _aa496.press()
+        pruefe(fake.sent == [[(0x38, 0x08), (0x2D, 0x08)],
+                             [(0x2D, 0x0A), (0x38, 0x0A)]],
+               'Selbstprüfung der Falle: Alt+X als Scancodes gedrückt und '
+               'rückwärts losgelassen (%r)' % fake.sent)
+        fake.sent.clear()
+
+        _aa496.set_enabled(True)
+        fake.fore = 'C:\\Windows\\explorer.exe'
+        fake.idle = _aa496.INTERVAL + _aa496.JITTER + 5
+        pruefe(_aa496.tick(now=1000.0) == 'not_in_front' and not fake.sent,
+               'anderes Fenster vorn: nichts gesendet (%r)' % fake.sent)
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe.bak'
+        pruefe(_aa496.tick(now=1001.0) == 'not_in_front' and not fake.sent,
+               'nur der genaue Prozessname zählt')
+
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = 299.0
+        pruefe(_aa496.tick(now=1002.0) == 'active' and not fake.sent,
+               'Spiel vorn, letzte Eingabe vor 4:59 min: nichts gesendet')
+
+        fake.idle = 301.0
+        pruefe(_aa496.tick(now=1003.0) == 'sent' and len(fake.sent) == 2,
+               'Gegenprobe: Spiel vorn, 5 min keine Eingabe: einmal Alt+X '
+               '(%r)' % fake.sent)
+        pruefe(_aa496.tick(now=1004.0) == 'active' and len(fake.sent) == 2,
+               'gleich danach nicht noch einmal')
+        fake.idle = _aa496.INTERVAL + _aa496.JITTER + 5
+        pruefe(_aa496.tick(now=1010.0) == 'too_soon' and len(fake.sent) == 2,
+               'auch bei verschluckter Eingabezeit erst nach dem Abstand')
+
+        fake.sent.clear()
+        fake.resets = False
+        pruefe(_aa496.tick(now=5000.0) == 'blocked'
+               and not _aa496.enabled()
+               and _aa496.last_error() == 'aafk_err_admin',
+               'kommt die Taste nicht an, schaltet Anti-AFK ab und nennt '
+               'den Grund')
+        fake.resets = True
+
+        _aa496.set_enabled(True)
+        fake.sent.clear()
+        fake.accept = False
+        fake.idle = _aa496.INTERVAL + _aa496.JITTER + 5
+        pruefe(_aa496.tick(now=9000.0) == 'failed'
+               and not _aa496.enabled()
+               and _aa496.last_error() == 'aafk_err_send',
+               'scheitert SendInput, ist Anti-AFK aus mit Meldung')
+        pruefe(len(fake.sent) == 2 and fake.sent[-1][0][1] & 0x02,
+               'auch nach dem Scheitern wird losgelassen (%r)' % fake.sent)
+    finally:
+        zurueck()
+
+
+def _pruefung_497():
+    """Außerhalb Windows ist Anti-AFK nicht einschaltbar und sendet nichts."""
+    print('\n497. Anti-AFK: außerhalb Windows nichts aktiv')
+    import types
+    import tkinter as tk
+    import tkinter.font as _tkf497
+    from scbp import anti_afk as _aa497, pages as _pg497, language as _la497
+    echt_supported = _aa497.supported
+    fake, zurueck = _aafk_fake_einsetzen(_aa497)
+    _aa497.supported = echt_supported
+    echt_sys = _aa497.sys
+    _aa497.sys = types.SimpleNamespace(platform='linux')
+    fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+    fake.idle = _aa497.INTERVAL + _aa497.JITTER + 5
+    _root = _wurzel()
+    rahmen = tk.Frame(_root)
+    try:
+        pruefe(_aa497.set_enabled(True) is False and not _aa497.enabled(),
+               'Einschalten bleibt wirkungslos')
+        _aa497._state['on'] = True
+        pruefe(_aa497.tick(now=1.0) == 'unsupported' and not fake.sent
+               and not _aa497.enabled(),
+               'selbst ein eingeschalteter Zustand sendet nichts')
+        pruefe(not _aa497.game_in_front() and _aa497.idle_seconds() is None,
+               'keine Abfragen außerhalb Windows')
+        schrift = _tkf497.Font(root=_root, size=9)
+        fenster = types.SimpleNamespace(f_small=schrift, f_bold=schrift,
+                                        f_base=schrift, say=lambda *a: None)
+        rahmen.pack()
+
+        def _bauen():
+            for k in rahmen.winfo_children():
+                k.destroy()
+            _pg497._anti_afk_section(fenster, rahmen)
+            _root.update_idletasks()
+            schalter, texte = [], []
+
+            def _lauf(w):
+                if (w.winfo_class() == 'Canvas'
+                        and str(w.cget('cursor')) == 'hand2'):
+                    schalter.append(w)
+                if w.winfo_class() == 'Label':
+                    texte.append(str(w.cget('text')))
+                for k in w.winfo_children():
+                    _lauf(k)
+            _lauf(rahmen)
+            return schalter, texte
+        schalter, texte = _bauen()
+        pruefe(not schalter and _la497.t('aafk_nur_windows') in texte,
+               'die Seite zeigt „nur unter Windows" statt eines Schalters '
+               '(%d Schalter)' % len(schalter))
+        _aa497.sys = echt_sys
+        _aa497.supported = lambda: True
+        schalter, texte = _bauen()
+        pruefe(len(schalter) == 1
+               and _la497.t('aafk_nur_windows') not in texte,
+               'Gegenprobe: unter Windows steht dort der Schalter')
+    finally:
+        _aa497.sys = echt_sys
+        zurueck()
+        rahmen.destroy()
+        _root.destroy()
+
+
+def _pruefung_498():
+    """Anti-AFK: jede Windows-Funktion mit Signatur, kein Hook, kein Prozess."""
+    print('\n498. Anti-AFK: ctypes-Signaturen vollständig, kein Hook, '
+          'kein Prozess')
+    import ast
+    with open(os.path.join(WURZEL, 'scbp', 'anti_afk.py'),
+              encoding='utf-8') as f:
+        quelle = f.read()
+    baum = ast.parse(quelle)
+    gesetzt = {'argtypes': set(), 'restype': set()}
+    gerufen = set()
+    for knoten in ast.walk(baum):
+        if isinstance(knoten, ast.Assign):
+            for ziel in knoten.targets:
+                if (isinstance(ziel, ast.Attribute)
+                        and ziel.attr in gesetzt
+                        and isinstance(ziel.value, ast.Attribute)):
+                    gesetzt[ziel.attr].add(ziel.value.attr)
+        if (isinstance(knoten, ast.Call)
+                and isinstance(knoten.func, ast.Attribute)
+                and isinstance(knoten.func.value, ast.Attribute)
+                and knoten.func.value.attr in ('user32', 'kernel32',
+                                               'advapi32')):
+            gerufen.add(knoten.func.attr)
+    pruefe(len(gerufen) >= 8, 'die Aufrufe der Windows-API werden gefunden '
+           '(%s)' % ', '.join(sorted(gerufen)))
+    ohne = sorted(n for n in gerufen
+                  if n not in gesetzt['argtypes'] or n not in gesetzt['restype'])
+    pruefe(not ohne, 'jede gerufene Funktion hat argtypes und restype '
+           '(fehlt: %s)' % (', '.join(ohne) or 'keine'))
+    klein = quelle.lower()
+    funde = [m for m in ('subprocess', 'powershell', 'os.system', 'popen',
+                         'setwindowshookex', 'pynput', 'import keyboard',
+                         'windll.user32', 'shell=true')
+             if m in klein]
+    pruefe(not funde, 'kein Unterprozess, kein Tastatur-Hook, keine '
+           'geteilte windll (%s)' % (', '.join(funde) or 'nichts'))
+    pruefe('KEYEVENTF_SCANCODE' in quelle
+           and "WinDLL('user32', use_last_error=True)" in quelle,
+           'gesendet wird als Scancode über eine eigene user32-Instanz')
+
+
+def _pruefung_499():
+    """Anti-AFK: Knopf in der Overlay-Leiste, grau = aus, grün = an."""
+    print('\n499. Anti-AFK: Knopf in der Overlay-Leiste schaltet und zeigt '
+          'den Zustand')
+    if not ANZEIGE:
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    import sc_bp_watcher as _w499
+    from scbp import anti_afk as _aa499, icons as _ic499, language as _la499
+    fake, zurueck = _aafk_fake_einsetzen(_aa499)
+    _wz = _wurzel()
+    ov = _w499.Overlay(_wz)
+
+    def _texte(w, out):
+        if w.winfo_class() == 'Label':
+            out.append(str(w.cget('text')))
+        for k in w.winfo_children():
+            _texte(k, out)
+        return out
+
+    def _klick():
+        ov.aafk_lbl.event_generate('<Button-1>', x=3, y=3)
+        _wz.update()
+    try:
+        ov.anti_afk_starten()
+        lbl = ov.aafk_lbl
+        pruefe(lbl is not None and lbl.master is ov.kopf
+               and lbl.winfo_manager() == 'pack'
+               and lbl.symbol == 'anti_afk_aus'
+               and lbl.symbol_color == _ic499.GREY
+               and not _aa499.enabled(),
+               'beim Start: Knopf in der Leiste, grau mit timer-off, aus')
+        # Ein Klick erreicht nur ein angezeigtes Fenster; der Lauf steht auf
+        # dem unsichtbaren Desktop bzw. unter Xvfb.
+        _wz.deiconify()
+        _wz.update()
+        _klick()
+        pruefe(_aa499.enabled() and lbl.symbol == 'anti_afk'
+               and lbl.symbol_color == _ic499.GREEN,
+               'ein Klick schaltet ein: grün mit timer')
+        pruefe(ov._hinweis_anti_afk() == _la499.t('hinweis_aafk_an'),
+               'der Erklärtext folgt dem Zustand')
+        _klick()
+        pruefe(not _aa499.enabled() and lbl.symbol == 'anti_afk_aus'
+               and lbl.symbol_color == _ic499.GREY,
+               'ein zweiter Klick schaltet aus')
+        _aa499.set_enabled(True)
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = _aa499.INTERVAL + _aa499.JITTER + 5
+        fake.resets = False
+        _aa499.tick(now=1e6)
+        _wz.update()
+        pruefe(lbl.symbol_color == _ic499.GREY
+               and _la499.t('aafk_err_admin') in _texte(ov.root, []),
+               'nach einem Abbruch grau und der Grund steht im Overlay')
+    finally:
+        zurueck()
+        try:
+            _wz.destroy()
+        except Exception:
+            pass
+    # Außerhalb Windows gibt es den Knopf nicht.
+    import types
+    echt_sys = _aa499.sys
+    _aa499.sys = types.SimpleNamespace(platform='linux')
+    _wz = _wurzel()
+    try:
+        ov = _w499.Overlay(_wz)
+        pruefe(ov.aafk_lbl is None,
+               'außerhalb Windows kein Anti-AFK-Knopf im Overlay')
+    finally:
+        _aa499.sys = echt_sys
+        try:
+            _wz.destroy()
+        except Exception:
+            pass
+
+
+def _pyinstaller_ohne_noupx(text):
+    """(Jobs mit PyInstaller-Aufruf, Jobs davon ohne `--noupx`) in einer
+    Bau-Datei — gelesen werden die `run:`-Blöcke, Kommentarzeilen nicht."""
+    zeilen = text.split('\n')
+    job = None
+    fehlt, gefunden = [], []
+    i = 0
+    while i < len(zeilen):
+        z = zeilen[i]
+        if re.match(r'^  [A-Za-z0-9_-]+:\s*$', z):
+            job = z.strip().rstrip(':')
+        if re.match(r'^\s+run:\s*[>|]', z):
+            tiefe = len(z) - len(z.lstrip())
+            block = []
+            i += 1
+            while i < len(zeilen) and (
+                    not zeilen[i].strip()
+                    or len(zeilen[i]) - len(zeilen[i].lstrip()) > tiefe):
+                block.append(zeilen[i])
+                i += 1
+            befehl = ' '.join(b.strip() for b in block
+                              if not b.strip().startswith('#'))
+            if '-m PyInstaller' in befehl:
+                gefunden.append(job)
+                if '--noupx' not in befehl.split():
+                    fehlt.append(job)
+            continue
+        i += 1
+    return gefunden, fehlt
+
+
+def _pruefung_500():
+    """Der Bau packt nie mit UPX: `--noupx` in jedem PyInstaller-Aufruf."""
+    print('\n500. Bau: jeder PyInstaller-Aufruf in den Workflows mit --noupx')
+    ordner = os.path.join(WURZEL, '.github', 'workflows')
+    alle, ohne_noupx = [], []
+    for name in sorted(os.listdir(ordner)):
+        if not name.endswith(('.yml', '.yaml')):
+            continue
+        with open(os.path.join(ordner, name), encoding='utf-8') as f:
+            gefunden_d, fehlt_d = _pyinstaller_ohne_noupx(f.read())
+        alle += ['%s:%s' % (name, j) for j in gefunden_d]
+        ohne_noupx += ['%s:%s' % (name, j) for j in fehlt_d]
+    pruefe({'release.yml:linux', 'release.yml:windows',
+            'messung-p1b.yml:messen'} <= set(alle),
+           'alle PyInstaller-Aufrufe werden gefunden (%s)' % ', '.join(alle))
+    pruefe(not ohne_noupx, 'jeder trägt --noupx (fehlt in: %s)'
+           % (', '.join(ohne_noupx) or 'keinem'))
+    with open(os.path.join(ordner, 'release.yml'), encoding='utf-8') as f:
+        text = f.read()
+    # Gegenprobe an derselben Datei: ohne --noupx im Linux-Aufruf muss genau
+    # dieser Job genannt werden.
+    stelle = text.find('python3 -m PyInstaller')
+    ohne = text[:stelle] + text[stelle:].replace(' --noupx', '', 1)
+    pruefe(stelle > 0 and _pyinstaller_ohne_noupx(ohne)[1] == ['linux'],
+           'Gegenprobe: fehlt --noupx im Linux-Aufruf, wird linux genannt')
+
+
+def _vt_schritt(text):
+    """Der VirusTotal-Schritt in `release.yml`: (Job, Zeilen) — oder (None, [])."""
+    zeilen = text.split('\n')
+    job = None
+    for i, z in enumerate(zeilen):
+        if re.match(r'^  [A-Za-z0-9_-]+:\s*$', z):
+            job = z.strip().rstrip(':')
+        if re.match(r'^      - name: .*VirusTotal', z):
+            block = [z]
+            for w in zeilen[i + 1:]:
+                if re.match(r'^      - ', w) or re.match(r'^  \S', w):
+                    break
+                block.append(w)
+            return job, block
+    return None, []
+
+
+def _vt_job_if(text, job):
+    """Die `if:`-Zeile des Jobs `job`."""
+    zeilen = text.split('\n')
+    drin = False
+    for z in zeilen:
+        if re.match(r'^  [A-Za-z0-9_-]+:\s*$', z):
+            drin = z.strip().rstrip(':') == job
+        elif drin and re.match(r'^    if:', z):
+            return z.split('if:', 1)[1].strip()
+    return ''
+
+
+def _vt_maengel(text):
+    """Was am VirusTotal-Schritt nicht stimmt — leer, wenn alles passt."""
+    job, block = _vt_schritt(text)
+    if not block:
+        return ['kein VirusTotal-Schritt']
+    maengel = []
+    befehl = [z for z in block if not z.strip().startswith('#')]
+    if job != 'release':
+        maengel.append('steht im Job %s statt release' % job)
+    if "github.ref_type == 'tag'" not in _vt_job_if(text, job):
+        maengel.append('Job läuft nicht nur bei Tags')
+    if not any(re.match(r"^\s+if: .*steps\.freigabe\.outcome == 'success'", z)
+               for z in befehl):
+        maengel.append('läuft nicht nur nach angelegtem Release')
+    if not any(re.match(r'^\s+continue-on-error:\s*true\s*$', z) for z in befehl):
+        maengel.append('kein continue-on-error')
+    if not any(z.strip() == 'VT_API_KEY: ${{ secrets.VT_API_KEY }}'
+               for z in befehl):
+        maengel.append('Schlüssel nicht über env')
+    lauf = ' '.join(befehl[next((i for i, z in enumerate(befehl)
+                                 if re.match(r'^\s+run:', z)), len(befehl)):])
+    if not lauf:
+        maengel.append('kein run')
+    for verboten in ('VT_API_KEY', 'secrets.', 'set -x', 'echo', 'printenv',
+                     'env '):
+        if verboten in lauf:
+            maengel.append('%r in der Befehlszeile' % verboten)
+    if text.count('secrets.VT_API_KEY') != 1:
+        maengel.append('Schlüssel %d-mal in der Datei'
+                       % text.count('secrets.VT_API_KEY'))
+    if text.find('id: freigabe') < 0 or text.find('id: freigabe') > \
+            text.find('\n'.join(block[:1])):
+        maengel.append('steht nicht nach dem Anlegen des Releases')
+    return maengel
+
+
+def _pruefung_501():
+    """VirusTotal im Bau: nur bei Tag-Releases, Schlüssel nur über env."""
+    print('\n501. Bau: VirusTotal-Schritt nur bei Tags, Schlüssel nie im Log')
+    with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
+              encoding='utf-8') as f:
+        text = f.read()
+    maengel = _vt_maengel(text)
+    pruefe(not maengel, 'VirusTotal-Schritt in release.yml stimmt (%s)'
+           % ('; '.join(maengel) or 'ok'))
+    # Gegenproben an derselben Datei: jede Abweichung muss benannt werden.
+    job, block = _vt_schritt(text)
+    schritt = '\n'.join(block)
+    falsch = {
+        'continue-on-error': text.replace(
+            schritt, schritt.replace('continue-on-error: true\n', '')),
+        'Befehlszeile': text.replace(
+            schritt, schritt.replace('virustotal.py "${TAG}"',
+                                     'virustotal.py "${TAG}" "$VT_API_KEY"')),
+        'Job': text.replace(schritt, '').replace(
+            '      - name: Selbsttest\n        run: python tools/selbsttest.py',
+            schritt + '\n      - name: Selbsttest\n'
+            '        run: python tools/selbsttest.py'),
+    }
+    for was, verfaelscht in falsch.items():
+        pruefe(verfaelscht != text and _vt_maengel(verfaelscht),
+               'Gegenprobe %s: wird bemängelt (%s)'
+               % (was, '; '.join(_vt_maengel(verfaelscht))))
+
+
+def _pruefung_502():
+    """virustotal.py: ohne Schlüssel still, Schlüssel nie in der Ausgabe."""
+    print('\n502. VirusTotal-Skript: übersprungen ohne Schlüssel, Schlüssel '
+          'nie ausgegeben, Notiz bleibt lesbar')
+    import contextlib
+    import io as _io
+    import json as _json
+    import urllib.error
+    sys.path.insert(0, os.path.join(WURZEL, '.github', 'scripts'))
+    try:
+        import virustotal as _vt
+    finally:
+        sys.path.pop(0)
+    from scbp import updater as _up502
+    schluessel = 'GEHEIM-502-xyz'
+    ordner = tempfile.mkdtemp(prefix='vt502-')
+    dateien = []
+    for name, inhalt in (('VerseKit-Setup.exe', b'MZ setup'),
+                         ('VerseKit-x86_64.AppImage', b'\x7fELF app')):
+        pfad = os.path.join(ordner, name)
+        with open(pfad, 'wb') as f:
+            f.write(inhalt)
+        dateien.append(pfad)
+
+    class _Antwort:
+        def __init__(self, daten):
+            self.daten = _json.dumps(daten).encode('utf-8')
+
+        def read(self):
+            return self.daten
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    anfragen = []
+
+    def _netz(antworten):
+        def opener(req, timeout=None):
+            anfragen.append(req)
+            a = antworten.pop(0)
+            if isinstance(a, Exception):
+                raise a
+            return _Antwort(a)
+        return opener
+
+    notiz_alt = ('> Kurz.\n\n### Neu\n\n- **Etwas** neu\n\n### Behoben\n\n'
+                 '- **Fehler** weg\n')
+    gh = {'body': notiz_alt, 'neu': None, 'aufrufe': []}
+
+    def _gh(args, **kw):
+        import types
+        gh['aufrufe'].append(list(args))
+        if args[:3] == ['gh', 'release', 'view']:
+            return types.SimpleNamespace(stdout=gh['body'])
+        if args[:3] == ['gh', 'release', 'edit']:
+            with open(args[args.index('--notes-file') + 1],
+                      encoding='utf-8') as f:
+                gh['neu'] = f.read()
+        return types.SimpleNamespace(stdout='')
+
+    def _lauf(env, antworten, schritt=1.0):
+        puffer = _io.StringIO()
+        pausen = []
+        zeit = [0.0]
+
+        def _uhr():
+            zeit[0] += schritt
+            return zeit[0]
+        with contextlib.redirect_stdout(puffer):
+            code = _vt.main(['v9.9.9'] + dateien, env=env,
+                            opener=_netz(antworten), sleep=pausen.append,
+                            clock=_uhr, run=_gh)
+        return code, puffer.getvalue(), pausen
+
+    try:
+        anfragen.clear()
+        code, aus, _ = _lauf({}, [])
+        pruefe(code == 0 and 'uebersprungen' in aus and not anfragen
+               and not gh['aufrufe'],
+               'ohne VT_API_KEY: Hinweis, Ende mit 0, keine Anfrage')
+
+        # Selbstprüfung der Falle: mit Schlüssel MUSS sie Anfragen sehen.
+        fertig = {'data': {'attributes': {'status': 'completed', 'stats': {
+            'malicious': 1, 'suspicious': 0, 'undetected': 60,
+            'harmless': 7, 'type-unsupported': 4}}}}
+        anfragen.clear()
+        code, aus, pausen = _lauf(
+            {'VT_API_KEY': schluessel},
+            [{'data': {'id': 'a1'}}, {'data': {'id': 'a2'}},
+             {'data': {'attributes': {'status': 'queued'}}},
+             fertig, fertig])
+        pruefe(len(anfragen) == 5, 'Selbstprüfung der Falle: fünf Anfragen '
+               'an VirusTotal (%d)' % len(anfragen))
+        pruefe(all(r.get_header('X-apikey') == schluessel for r in anfragen),
+               'jede Anfrage trägt den Schlüssel als Kopfzeile')
+        pruefe(schluessel not in aus and all(
+               schluessel not in ' '.join(a) for a in gh['aufrufe'])
+               and schluessel not in (gh['neu'] or ''),
+               'der Schlüssel steht weder in der Ausgabe noch in gh-Aufrufen '
+               'noch in der Notiz')
+        pruefe(pausen and all(p >= 15 for p in pausen),
+               'zwischen zwei Anfragen mindestens 15 s (höchstens 4 je '
+               'Minute) (%r)' % pausen)
+        neu = gh['neu'] or ''
+        sha = _vt.sha256(dateien[0])
+        pruefe('1/68' in neu and _vt.GUI + sha in neu,
+               'die Notiz nennt 1/68 und den Link zum Bericht (%r)'
+               % neu[-300:])
+        pruefe(_up502.points_by_kind(neu) == _up502.points_by_kind(notiz_alt)
+               and _up502.intro(neu) == _up502.intro(notiz_alt),
+               '„Was ist neu" liest dieselben Punkte wie ohne die Zeile')
+        gh['body'] = neu
+        _lauf({'VT_API_KEY': schluessel},
+              [{'data': {'id': 'a1'}}, {'data': {'id': 'a2'}},
+               fertig, fertig])
+        pruefe((gh['neu'] or '').count(_vt.MARK) == 1,
+               'ein zweiter Lauf ersetzt die Zeile statt sie zu doppeln')
+        gh['body'] = notiz_alt
+
+        # Fehler bei VirusTotal: Ende mit 0, kein Schlüssel im Text.
+        gh['aufrufe'].clear()
+        fehler = urllib.error.HTTPError(
+            'https://www.virustotal.com/api/v3/files', 401,
+            'Wrong key ' + schluessel, {}, None)
+        code, aus, _ = _lauf({'VT_API_KEY': schluessel}, [fehler])
+        pruefe(code == 0 and schluessel not in aus and 'HTTP 401' in aus
+               and not any(a[:3] == ['gh', 'release', 'edit']
+                           for a in gh['aufrufe']),
+               'HTTP-Fehler: Ende mit 0, Schlüssel geschwärzt, Notiz '
+               'unberührt (%r)' % aus.strip())
+
+        # Zeitüberschreitung: die Zeile sagt, dass die Analyse noch läuft.
+        offen = {'data': {'attributes': {'status': 'queued'}}}
+        code, aus, _ = _lauf({'VT_API_KEY': schluessel},
+                             [{'data': {'id': 'a1'}}, {'data': {'id': 'a2'}}]
+                             + [offen] * 40, schritt=50.0)
+        pruefe(code == 0 and 'analysis running' in (gh['neu'] or ''),
+               'nach Ablauf der Wartezeit: Link mit „Analyse läuft"')
+
+        # Große Datei: erst eine Hochlade-Adresse holen.
+        anfragen.clear()
+        grenze = _vt.DIRECT_LIMIT
+        _vt.DIRECT_LIMIT = 4
+        try:
+            _lauf({'VT_API_KEY': schluessel},
+                  [{'data': 'https://upload.example/u1'}, {'data': {'id': 'a1'}},
+                   {'data': 'https://upload.example/u2'}, {'data': {'id': 'a2'}},
+                   fertig, fertig])
+        finally:
+            _vt.DIRECT_LIMIT = grenze
+        pruefe([r.full_url for r in anfragen[:2]]
+               == [_vt.API + '/files/upload_url', 'https://upload.example/u1'],
+               'über 32 MB: erst upload_url, dann dorthin hochladen')
+    finally:
+        shutil.rmtree(ordner, ignore_errors=True)
+
+
+def _vt_seite_maengel(html, yml):
+    """Was am VirusTotal-Link der Projektseite nicht zur Bau-Datei passt."""
+    maengel = []
+    setup = re.findall(r'dateien/windows/(\S+\.exe)', yml)
+    gesucht = re.findall(r'a\.name === "([^"]+)"', html)
+    if not setup or gesucht != [setup[-1]]:
+        maengel.append('Seite sucht %r, der Bau hängt %r an' % (gesucht, setup))
+    link = re.search(r'<a id="vt-bericht" href="([^"]+)"\s+data-de="[^"]+"'
+                     r'\s+data-en="[^"]+"', html)
+    if not link or link.group(1) != \
+            'https://github.com/Xharig/VerseKit/releases/latest':
+        maengel.append('Link ohne Rückfall auf releases/latest oder ohne de/en')
+    if 'https://www.virustotal.com/gui/file/' not in html:
+        maengel.append('keine VirusTotal-Adresse im Skript')
+    return maengel
+
+
+def _pruefung_503():
+    """Projektseite und README verweisen auf den VirusTotal-Bericht."""
+    print('\n503. Projektseite und README: Link zum VirusTotal-Bericht')
+    with open(os.path.join(WURZEL, 'index.html'), encoding='utf-8') as f:
+        html = f.read()
+    with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
+              encoding='utf-8') as f:
+        yml = f.read()
+    maengel = _vt_seite_maengel(html, yml)
+    pruefe(not maengel, 'der Link sucht die Setup-Datei, die der Bau '
+           'anhängt, und fällt auf die Release-Seite zurück (%s)'
+           % ('; '.join(maengel) or 'ok'))
+    umbenannt = yml.replace('dateien/windows/VerseKit-Setup.exe',
+                            'dateien/windows/VerseKit-Installer.exe')
+    pruefe(umbenannt != yml and _vt_seite_maengel(html, umbenannt),
+           'Gegenprobe: heißt die Setup-Datei im Bau anders, wird es bemängelt')
+    for name in ('README.md', 'README.en.md'):
+        with open(os.path.join(WURZEL, name), encoding='utf-8') as f:
+            zeilen = f.read().split('\n')
+        pruefe(any('VirusTotal' in z and
+                   'https://github.com/Xharig/VerseKit/releases/latest' in z
+                   for z in zeilen),
+               '%s verweist für VirusTotal auf die neueste Release-Notiz' % name)
+
+
+def _pruefung_504():
+    """Anti-AFK: Joystick-Bewegung zählt als Eingabe, wie Tastatur und Maus."""
+    print('\n504. Anti-AFK: Joystick, HOTAS und Gamepad zählen als Eingabe')
+    import ast
+    from scbp import anti_afk as _aa504, input_device as _in504
+    ruhe = {0: (32767, 32767, 0, 32767, 0, 0, 0, 65535)}
+    zittern = {0: (32767 + 400, 32767 - 300, 0, 32767, 0, 0, 0, 65535)}
+    achse = {0: (32767 + 3000, 32767, 0, 32767, 0, 0, 0, 65535)}
+    knopf = {0: (32767, 32767, 0, 32767, 0, 0, 4, 65535)}
+    hut = {0: (32767, 32767, 0, 32767, 0, 0, 0, 9000)}
+    pruefe(not _in504.joystick_moved(ruhe, zittern)
+           and _in504.joystick_moved(ruhe, achse)
+           and _in504.joystick_moved(ruhe, knopf)
+           and _in504.joystick_moved(ruhe, hut)
+           and not _in504.joystick_moved({}, achse),
+           'Zittern zählt nicht; Achse, Knopf und Coolie-Hat zählen; ein '
+           'neu eingestecktes Gerät nicht')
+
+    # Gelesen wird nur über joyGetNumDevs/joyGetPosEx — joyGetDevCapsW ist
+    # der Absturzpfad (0xc0000374, siehe `_windows_devices`).
+    with open(os.path.join(WURZEL, 'scbp', 'input_device.py'),
+              encoding='utf-8') as f:
+        baum = ast.parse(f.read())
+    funktion = next(n for n in baum.body if isinstance(n, ast.FunctionDef)
+                    and n.name == 'joystick_states')
+    gerufen = {n.attr for n in ast.walk(funktion)
+               if isinstance(n, ast.Attribute)
+               and n.attr.startswith('joyGet')}
+    pruefe(gerufen == {'joyGetNumDevs', 'joyGetPosEx'},
+           'joystick_states ruft nur joyGetNumDevs und joyGetPosEx (%s)'
+           % ', '.join(sorted(gerufen)))
+
+    fake, zurueck = _aafk_fake_einsetzen(_aa504)
+    try:
+        fake.fore = 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe'
+        fake.idle = 10_000.0                  # Tastatur und Maus ruhen lange
+        fake.joy = dict(ruhe)
+        pruefe(not _aa504.joy_running(), 'aus: kein Joystick-Faden')
+        _aa504.set_enabled(True)
+        pruefe(_aa504.joy_running(), 'an: der Joystick-Faden läuft')
+        _aa504.joy_poll(now=1000.0)
+        fake.joy = dict(zittern)
+        pruefe(not _aa504.joy_poll(now=1100.0)
+               and _aa504._state['joy_last'] is None,
+               'ein zitternder Stick setzt die Zeit nicht zurück')
+        fake.joy = dict(achse)
+        pruefe(_aa504.joy_poll(now=1290.0)
+               and _aa504._state['joy_last'] == 1290.0,
+               'eine Achsenbewegung merkt die Zeit')
+        pruefe(_aa504.tick(now=1300.0) == 'active' and not fake.sent,
+               'Achse vor 10 s bewegt: keine Taste, obwohl Tastatur und Maus '
+               'ruhen')
+        pruefe(_aa504.tick(now=1589.0) == 'active' and not fake.sent,
+               'Achse vor 4:59 min bewegt: noch keine Taste')
+        fake.joy = dict(achse)
+        pruefe(not _aa504.joy_poll(now=1590.0), 'Stick steht still')
+        pruefe(_aa504.tick(now=1591.0) == 'sent' and len(fake.sent) == 2,
+               'Gegenprobe: 5 min ohne Bewegung: einmal Alt+X')
+        fake.joy = dict(knopf)
+        _aa504.joy_poll(now=1700.0)
+        fake.idle = 10_000.0
+        pruefe(_aa504.tick(now=1999.0) == 'active' and len(fake.sent) == 2,
+               'ein Knopfdruck zählt ebenso')
+        faden = _aa504._joy['thread']
+        _aa504.set_enabled(False)
+        if faden is not None:
+            faden.join(timeout=5)
+        pruefe(faden is not None and not faden.is_alive()
+               and not _aa504.joy_running(),
+               'aus: der Joystick-Faden endet')
+    finally:
+        zurueck()
 
 
 if __name__ == '__main__':

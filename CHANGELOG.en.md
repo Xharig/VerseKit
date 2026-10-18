@@ -8,6 +8,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Anti-AFK (Windows only)** — a new button in the overlay bar presses
+  Left Alt + X (wipe visor) once every five minutes so Star Citizen does not
+  kick you for being idle. Keys are only sent while the game is in the
+  foreground and you have not used keyboard, mouse, joystick, HOTAS or
+  gamepad for that long. Off by default and off again after every start;
+  green means on. Suggested by Blackd0g84 (KRT)
+
 ### Fixed
 
 - **Controls: changes made while the game was running were lost** — Star

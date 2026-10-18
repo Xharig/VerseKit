@@ -372,7 +372,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **user.cfg** | On the **"Game"** page: what VerseKit writes, your own lines and the whole file, per game channel. The old file is backed up before the first change |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **German and English** | Interface switchable; the in-game blueprint message is recognised in both languages |
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Updates itself** | Checks for new versions every 10 minutes and installs them on its own — **never while Star Citizen is running**, it waits until the game is closed. Can be switched off. With „What's new" to read up on, including older releases |
-| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log`. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved |
+| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log`. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved. Plus the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself |
 | <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have — no other program needed |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Play time** | The bar at the top shows **how long you have played** — in total, and while you are playing the current session next to it. Counted from the game's own logs, and **kept**: Star Citizen clears out its old logs, the count stays. The backup takes it along when you move machines |
 | <img src="assets/symbole/22/statistik-gruen.png" width="22" alt=""> **Statistics** | A section with six tabs: **play time, sessions, contracts and quantum jumps** with a heat map of **when you play** — plus **ships & equipment** (most used and lost ships, weapons carried), **contracts**, **quantum travel** and **stability** (crashes, disconnects). Only what is reliably in the log in every game language is counted; each session is kept once and stays even when the logs are deleted. Can be saved as a file |
@@ -441,7 +441,7 @@ This appears on the first launch, and it is **not a virus detection**:
 
 - The **source is open** ([here](https://github.com/Xharig/VerseKit)), and the file is not built by me but by **GitHub Actions** from exactly that source. The build is there to read: [`.github/workflows/release.yml`](.github/workflows/release.yml)
 - Every file on the releases page carries its **SHA-256 checksum** — GitHub shows it directly
-- Upload it to **[VirusTotal](https://www.virustotal.com)** if you like. Individual scanners are known to flag PyInstaller executables; that is a classic false positive
+- The build has every version checked on **VirusTotal** — the result and a link to the report sit at the bottom of the [release notes](https://github.com/Xharig/VerseKit/releases/latest). Individual scanners occasionally flag packed Python programs through machine-learning heuristics, a known false positive
 
 On **Linux** this message does not exist — the file just needs to be made executable once.
 

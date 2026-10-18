@@ -2504,6 +2504,20 @@ class Overlay:
         except Exception as ausnahme:
             errors.record('overlay.scan_knopf', ausnahme)
 
+        # Anti-AFK an/aus — nur unter Windows. Grau mit `timer-off` = aus,
+        # grün mit `timer` = an.
+        self.aafk_lbl = None
+        try:
+            from scbp import anti_afk as _aafk
+            if _aafk.supported():
+                self.aafk_lbl = icons.button(bar, 'anti_afk_aus',
+                                             self._anti_afk_umschalten,
+                                             font=self.f_title)
+                self.aafk_lbl.pack(side='right', padx=(0, 6))
+                notice.attach(self.aafk_lbl, self._hinweis_anti_afk)
+        except Exception as ausnahme:
+            errors.record('overlay.anti_afk_knopf', ausnahme)
+
         # Kein eigener Knopf für die Bauplan-Liste: Sie ist ein Reiter im
         # großen Fenster.
 
@@ -3531,6 +3545,55 @@ class Overlay:
             signature_watch.start_if_enabled()
         except Exception as ausnahme:
             errors.record('overlay.signaturwache', ausnahme)
+
+    def anti_afk_starten(self):
+        """Anti-AFK anmelden: Takt für `anti_afk.tick()` und das Leistensymbol.
+
+        Nur unter Windows; der Schalter selbst steht beim Start auf aus.
+        """
+        try:
+            from scbp import anti_afk
+            if not anti_afk.supported():
+                return
+            anti_afk.on_switch(self._anti_afk_folgen)
+            self.root.after(anti_afk.TICK_MS, self._anti_afk_takt)
+        except Exception as ausnahme:
+            errors.record('overlay.anti_afk', ausnahme)
+
+    def _anti_afk_takt(self):
+        from scbp import anti_afk
+        with errors.caught('overlay.anti_afk_takt'):
+            anti_afk.tick()
+        self.root.after(anti_afk.TICK_MS, self._anti_afk_takt)
+
+    def _anti_afk_umschalten(self):
+        """Anti-AFK an/aus — derselbe Schalter wie auf der Seite „Spiel"."""
+        try:
+            from scbp import anti_afk
+            an = anti_afk.set_enabled(not anti_afk.enabled())
+            self._status_setzen(language.Phrase(
+                'aafk_sagen', language.t('e_an') if an else language.t('e_aus')))
+        except Exception as ausnahme:
+            errors.record('overlay.anti_afk_umschalten', ausnahme)
+
+    def _hinweis_anti_afk(self):
+        from scbp import anti_afk
+        return language.t('hinweis_aafk_an' if anti_afk.enabled()
+                          else 'hinweis_aafk_aus')
+
+    def _anti_afk_folgen(self, an):
+        """Den Knopf in der Leiste färben: grün mit `timer` = an, grau = aus.
+
+        Schaltet `tick()` wegen eines Fehlers ab, steht der Grund als Hinweis
+        im Overlay.
+        """
+        from scbp import anti_afk
+        if self.aafk_lbl:
+            self.aafk_lbl.swap_symbol('anti_afk' if an else 'anti_afk_aus')
+            self.aafk_lbl.recolor(icons.GREEN if an else icons.GREY)
+        fehler = anti_afk.last_error()
+        if not an and fehler:
+            self.add_hinweis(language.t(fehler))
 
     def _ziele_zeigen(self, ziele):
         """Die Zwischenziele eines Auftrags — eingerueckt, eine Zeile je Ziel.
@@ -5793,6 +5856,7 @@ class Overlay:
         self._beschriftung_nachziehen()
         self.ablagesymbol_starten()
         self.signaturwache_starten()
+        self.anti_afk_starten()
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —
         # deshalb die Arbeit über `_im_tk` an Tk übergeben, nicht dort erledigen.

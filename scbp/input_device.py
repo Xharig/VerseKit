@@ -65,6 +65,10 @@ ausdruecklich auf „Taste druecken" gewartet hat, und laengstens ein paar
 Sekunden. Ein Werkzeug, das dauerhaft Eingabegeraete mitliest, ist genau das,
 was man von einem Overlay nicht will — und was Virenscanner zu Recht
 anstreichen.
+
+Einzige Ausnahme ist der eingeschaltete Anti-AFK (`anti_afk.py`): Er
+vergleicht alle paar Sekunden `joystick_states()` mit dem vorigen Blick und
+merkt sich nur, **ob** sich etwas bewegt hat — nicht was.
 """
 import os
 import re
@@ -582,6 +586,74 @@ def _windows_wait(duration, stop_flag=None):
     except Exception:
         return None
     return None
+
+
+def joystick_states():
+    """Achsen, Knöpfe und Coolie-Hat aller Sticks — ein Blick (Windows).
+
+    `{Platz: (X, Y, Z, R, U, V, Knöpfe, POV)}` für jeden belegten
+    `winmm`-Platz, `{}` außerhalb Windows oder bei einem Fehler.
+
+    ⛔ Derselbe Weg wie `_windows_wait`: nur `joyGetNumDevs` und
+    `joyGetPosEx`, **kein `joyGetDevCapsW`** (Absturzpfad, siehe
+    `_windows_devices`).
+    """
+    if not WINDOWS:
+        return {}
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class JOYINFOEX(ctypes.Structure):
+            _fields_ = [('dwSize', wintypes.DWORD), ('dwFlags', wintypes.DWORD),
+                        ('dwXpos', wintypes.DWORD), ('dwYpos', wintypes.DWORD),
+                        ('dwZpos', wintypes.DWORD), ('dwRpos', wintypes.DWORD),
+                        ('dwUpos', wintypes.DWORD), ('dwVpos', wintypes.DWORD),
+                        ('dwButtons', wintypes.DWORD),
+                        ('dwButtonNumber', wintypes.DWORD),
+                        ('dwPOV', wintypes.DWORD),
+                        ('dwReserved1', wintypes.DWORD),
+                        ('dwReserved2', wintypes.DWORD)]
+
+        winmm = ctypes.WinDLL('winmm')
+        winmm.joyGetNumDevs.argtypes = []
+        winmm.joyGetNumDevs.restype = wintypes.UINT
+        winmm.joyGetPosEx.argtypes = [wintypes.UINT, ctypes.c_void_p]
+        winmm.joyGetPosEx.restype = wintypes.UINT
+        out = {}
+        for i in range(winmm.joyGetNumDevs()):
+            info = JOYINFOEX()
+            info.dwSize = ctypes.sizeof(info)
+            info.dwFlags = 0x000000FF                 # JOY_RETURNALL
+            if winmm.joyGetPosEx(i, ctypes.byref(info)) != 0:
+                continue
+            out[i] = (info.dwXpos, info.dwYpos, info.dwZpos, info.dwRpos,
+                      info.dwUpos, info.dwVpos, info.dwButtons, info.dwPOV)
+        return out
+    except Exception:
+        return {}
+
+
+# Ab dieser Änderung einer Achse (Bereich 0..65535) gilt ein Stick als
+# benutzt — ruhende Achsen zittern um wenige Stellen.
+MOVE_THRESHOLD = 1000
+
+
+def joystick_moved(before, after):
+    """Hat sich zwischen zwei `joystick_states()` etwas bewegt?
+
+    Knöpfe und Coolie-Hat zählen bei jeder Änderung, Achsen erst ab
+    `MOVE_THRESHOLD`. Ein neu eingestecktes Gerät zählt nicht.
+    """
+    for slot, now in after.items():
+        old = before.get(slot)
+        if old is None:
+            continue
+        if now[6:] != old[6:]:
+            return True
+        if any(abs(a - b) >= MOVE_THRESHOLD for a, b in zip(now[:6], old[:6])):
+            return True
+    return False
 
 
 # --------------------------------------------------------- Tastatur und Maus

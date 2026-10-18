@@ -3279,7 +3279,41 @@ def _game(fenster, rahmen):
            danger=True).pack(side='left')
 
     _status(fenster, innen, '!', t('s_sp_warn'), t('s_sp_warn_h'), color=GOLD)
+    _anti_afk_section(fenster, innen)
     _user_cfg_section(fenster, innen)
+
+
+def _anti_afk_section(window, inner):
+    """Schalter für Anti-AFK samt Hinweis; außerhalb Windows nur der Hinweis.
+
+    Der Schalter geht über `anti_afk.set_enabled` — derselbe Weg wie das
+    Symbol in der Overlay-Leiste, damit beide denselben Stand zeigen.
+    """
+    from . import anti_afk
+    from .main_window import toggle_switch
+    row = _setting_row(window, inner, t('aafk_titel'), t('aafk_h'), line=False)
+    if not anti_afk.supported():
+        tk.Label(row, text=t('aafk_nur_windows'), bg=BG, fg=SUB,
+                 font=window.f_small).pack()
+    else:
+        def toggle():
+            new_value = anti_afk.set_enabled(not anti_afk.enabled())
+            window.say(t('aafk_sagen') % (t('e_an') if new_value else t('e_aus')))
+            return new_value
+
+        switch = toggle_switch(row, anti_afk.enabled(), toggle)
+        switch.pack()
+
+        def follow(on):
+            # Ist die Seite zu, wirft `draw` — dann meldet `_notify` die
+            # Anzeige ab.
+            if not switch.winfo_exists():
+                raise tk.TclError('Seite geschlossen')
+            switch.draw(on)
+
+        anti_afk.on_switch(follow)
+    _status(window, inner, 'hinweiszeile', t('aafk_hinweis'),
+            t('aafk_hinweis_h'), color=SUB)
 
 
 def _user_cfg_section(window, inner):
@@ -7356,7 +7390,8 @@ def _thanks(fenster, rahmen):
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee') + '\n\n'
              + t('s_dk_blackdog_idee2') + '\n\n'
              + t('s_dk_blackdog_idee3') + '\n\n'
-             + t('s_dk_blackdog_idee4'), ''),
+             + t('s_dk_blackdog_idee4') + '\n\n'
+             + t('s_dk_blackdog_idee5'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
              + t('s_dk_aeternitas_idee2'), t('s_dk_aeternitas_bugs')),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),

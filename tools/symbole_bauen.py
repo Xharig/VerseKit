@@ -231,6 +231,9 @@ KNOPF_SYMBOLE = {
     # Reiter „Erkennung", und zwei fast gleiche Zeichen nebeneinander sind
     # schlimmer als gar keins.
     'anlernen':     'graduation-cap',
+    # Anti-AFK-Knopf in der Overlay-Leiste: an und aus.
+    'anti_afk':     'timer',
+    'anti_afk_aus': 'timer-off',
     # ⚠ `gamepad-2` und nicht `joystick`: Lucide fuehrt keinen Joystick, und
     # der Reiter meint ohnehin alle Eingabegeraete — Sticks, Pedale, Gamepads.
     'joysticks':    'gamepad-2',
