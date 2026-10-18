@@ -445,7 +445,7 @@ Das kommt beim ersten Start, und es ist **kein Virenfund**:
 
 - Der **Quellcode ist offen** ([hier](https://github.com/Xharig/VerseKit)), und die Datei wird nicht von mir gebaut, sondern von **GitHub Actions** aus genau diesem Quellcode. Wer will, kann den Bauvorgang nachlesen: [`.github/workflows/release.yml`](.github/workflows/release.yml)
 - Jede Datei auf der Releases-Seite trägt ihre **SHA-256-Prüfsumme** — GitHub zeigt sie direkt an
-- Lade sie bei **[VirusTotal](https://www.virustotal.com)** hoch, wenn du magst. Einzelne Prüfprogramme schlagen bei PyInstaller-Dateien gern mal an, das ist ein bekannter Fehlalarm-Klassiker
+- Jede Version lässt der Bau bei **VirusTotal** prüfen — Ergebnis und Link zum Bericht stehen unten in der [Release-Notiz](https://github.com/Xharig/VerseKit/releases/latest). Einzelne Prüfprogramme melden bei gepackten Python-Programmen gelegentlich einen Treffer aus maschineller Heuristik, ein bekannter Fehlalarm
 
 Unter **Linux** gibt es diese Meldung nicht — dort muss die Datei nur einmal ausführbar gemacht werden.
 

@@ -29,6 +29,8 @@
    keine Statistik. Nichts wird gesammelt. Einzige Abfrage: die
    Downloadzahl bei api.github.com — derselbe Anbieter, der die
    Seite ausliefert. Schlaegt sie fehl, bleibt die Zeile einfach weg.
+   Aus derselben Antwort kommt die Pruefsumme fuer den Link zum
+   VirusTotal-Bericht; ohne sie zeigt er auf die Release-Seite.
    --------------------------------------------------------------- */
 :root{
   --neon:#9ce430;
@@ -237,6 +239,7 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .pruefsumme code{display:block;color:var(--neon);font-size:14px;word-break:break-all;margin:2px 0}
 .pruefsumme .sys{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--text-leise);
   font-weight:700;margin-top:8px}
+.pruefsumme p.vt{margin:14px 0 0}
 
 /* ---------- Änderungen ---------- */
 /* Die Texte kommen aus CHANGELOG.md / CHANGELOG.en.md im selben Repo — die
@@ -572,6 +575,11 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <code>certutil -hashfile VerseKit-Setup.exe SHA256</code>
       <div class="sys">Linux</div>
       <code>sha256sum VerseKit-x86_64.AppImage</code>
+      <p class="vt">
+        <span data-de="Virenprüfung:" data-en="Virus scan:">Virenprüfung:</span>
+        <a id="vt-bericht" href="https://github.com/Xharig/VerseKit/releases/latest"
+           data-de="VirusTotal-Bericht der aktuellen Version" data-en="VirusTotal report for the current version">VirusTotal-Bericht der aktuellen Version</a>
+      </p>
     </div>
 
     <p class="hinweis"
@@ -587,7 +595,8 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
      einer Auslegung, die nicht wir treffen. Jeder Satz ist am Code belegt:
      kein Zugriff auf den Spielspeicher (OpenProcess nur mit Abfragerecht),
      Bau durch GitHub Actions (release.yml), Updates nur mit passender
-     Prüfsumme (SHA256SUMS.txt), Berichte nur auf Klick. -->
+     Prüfsumme (SHA256SUMS.txt), Berichte nur auf Klick, VirusTotal je
+     Version (release.yml, .github/scripts/virustotal.py). -->
 <section id="sicher">
   <div class="mitte">
     <div class="label" data-de="Vertrauen" data-en="Trust">Vertrauen</div>
@@ -627,6 +636,11 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
         </p>
       </div>
     </div>
+    <p class="hinweis"
+       data-de="Jede Version lässt der Bau bei VirusTotal prüfen; den Bericht verlinkt „Herunterladen“. Einzelne Scanner melden bei gepackten Python-Programmen gelegentlich einen Treffer aus maschineller Heuristik — ein bekannter Fehlalarm."
+       data-en="The build has every version checked on VirusTotal; “Download” links the report. Individual scanners occasionally flag packed Python programs through machine-learning heuristics — a known false positive.">
+      Jede Version lässt der Bau bei VirusTotal prüfen; den Bericht verlinkt „Herunterladen“. Einzelne Scanner melden bei gepackten Python-Programmen gelegentlich einen Treffer aus maschineller Heuristik — ein bekannter Fehlalarm.
+    </p>
     <p class="hinweis"
        data-de="Verse-Kit ist ein inoffizielles Fanprojekt und steht in keiner Verbindung zu Cloud Imperium Games."
        data-en="Verse-Kit is an unofficial fan project and is not affiliated with Cloud Imperium Games.">
@@ -1187,6 +1201,23 @@ knopfRichten();
 var downloads = null;
 var fassung = null;      // Nummer der neuesten fertigen Fassung, z. B. "v3.53.2"
 var groessen = null;     // {windows: Bytes, linux: Bytes} der neuesten Fassung
+var vtLink = null;       // VirusTotal-Bericht der neuesten Setup.exe
+
+/* GitHub nennt zu jedem Anhang die SHA-256 (`digest`), und VirusTotal fuehrt
+   den Bericht unter genau dieser Pruefsumme. Fehlt sie, bleibt der Link auf
+   der Release-Seite stehen — dort steht die Zeile aus dem Bau. */
+function vtAus(release){
+  for (var k = 0; k < release.assets.length; k++){
+    var a = release.assets[k];
+    if (a.name === "VerseKit-Setup.exe" && /^sha256:[0-9a-f]{64}$/.test(a.digest || ""))
+      return "https://www.virustotal.com/gui/file/" + a.digest.slice(7);
+  }
+  return null;
+}
+
+function vtZeigen(){
+  if (vtLink) document.getElementById("vt-bericht").href = vtLink;
+}
 
 function groessenAus(release){
   var g = {};
@@ -1235,6 +1266,8 @@ function zahlHolen(seite, summe){
         if (fassung === null && !liste[i].prerelease && !liste[i].draft){
           fassung = liste[i].tag_name;
           groessen = groessenAus(liste[i]);
+          vtLink = vtAus(liste[i]);
+          vtZeigen();
           document.getElementById("fassung").textContent = fassung;
         }
         for (var k = 0; k < liste[i].assets.length; k++){
@@ -1243,7 +1276,7 @@ function zahlHolen(seite, summe){
       }
       if (liste.length === 100) return zahlHolen(seite + 1, summe);
       downloads = summe;
-      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, v:fassung, g:groessen, t:Date.now()})); } catch (e) {}
+      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, v:fassung, g:groessen, vt:vtLink, t:Date.now()})); } catch (e) {}
       zahlZeigen();
     })
     .catch(function(){});
@@ -1258,6 +1291,10 @@ try {
       document.getElementById("fassung").textContent = fassung;
     }
     if (gemerkt.g) groessen = gemerkt.g;
+    if (gemerkt.vt){
+      vtLink = gemerkt.vt;
+      vtZeigen();
+    }
   }
 } catch (e) {}
 if (downloads === null) zahlHolen(1, 0); else zahlZeigen();

@@ -25692,6 +25692,7 @@ def main():
     _pruefung_500()
     _pruefung_501()
     _pruefung_502()
+    _pruefung_503()
 
     print()
     if fehler:
@@ -48110,6 +48111,48 @@ def _pruefung_502():
                'über 32 MB: erst upload_url, dann dorthin hochladen')
     finally:
         shutil.rmtree(ordner, ignore_errors=True)
+
+
+def _vt_seite_maengel(html, yml):
+    """Was am VirusTotal-Link der Projektseite nicht zur Bau-Datei passt."""
+    maengel = []
+    setup = re.findall(r'dateien/windows/(\S+\.exe)', yml)
+    gesucht = re.findall(r'a\.name === "([^"]+)"', html)
+    if not setup or gesucht != [setup[-1]]:
+        maengel.append('Seite sucht %r, der Bau hängt %r an' % (gesucht, setup))
+    link = re.search(r'<a id="vt-bericht" href="([^"]+)"\s+data-de="[^"]+"'
+                     r'\s+data-en="[^"]+"', html)
+    if not link or link.group(1) != \
+            'https://github.com/Xharig/VerseKit/releases/latest':
+        maengel.append('Link ohne Rückfall auf releases/latest oder ohne de/en')
+    if 'https://www.virustotal.com/gui/file/' not in html:
+        maengel.append('keine VirusTotal-Adresse im Skript')
+    return maengel
+
+
+def _pruefung_503():
+    """Projektseite und README verweisen auf den VirusTotal-Bericht."""
+    print('\n503. Projektseite und README: Link zum VirusTotal-Bericht')
+    with open(os.path.join(WURZEL, 'index.html'), encoding='utf-8') as f:
+        html = f.read()
+    with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
+              encoding='utf-8') as f:
+        yml = f.read()
+    maengel = _vt_seite_maengel(html, yml)
+    pruefe(not maengel, 'der Link sucht die Setup-Datei, die der Bau '
+           'anhängt, und fällt auf die Release-Seite zurück (%s)'
+           % ('; '.join(maengel) or 'ok'))
+    umbenannt = yml.replace('dateien/windows/VerseKit-Setup.exe',
+                            'dateien/windows/VerseKit-Installer.exe')
+    pruefe(umbenannt != yml and _vt_seite_maengel(html, umbenannt),
+           'Gegenprobe: heißt die Setup-Datei im Bau anders, wird es bemängelt')
+    for name in ('README.md', 'README.en.md'):
+        with open(os.path.join(WURZEL, name), encoding='utf-8') as f:
+            zeilen = f.read().split('\n')
+        pruefe(any('VirusTotal' in z and
+                   'https://github.com/Xharig/VerseKit/releases/latest' in z
+                   for z in zeilen),
+               '%s verweist für VirusTotal auf die neueste Release-Notiz' % name)
 
 
 if __name__ == '__main__':

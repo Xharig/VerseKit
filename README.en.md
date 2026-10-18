@@ -441,7 +441,7 @@ This appears on the first launch, and it is **not a virus detection**:
 
 - The **source is open** ([here](https://github.com/Xharig/VerseKit)), and the file is not built by me but by **GitHub Actions** from exactly that source. The build is there to read: [`.github/workflows/release.yml`](.github/workflows/release.yml)
 - Every file on the releases page carries its **SHA-256 checksum** — GitHub shows it directly
-- Upload it to **[VirusTotal](https://www.virustotal.com)** if you like. Individual scanners are known to flag PyInstaller executables; that is a classic false positive
+- The build has every version checked on **VirusTotal** — the result and a link to the report sit at the bottom of the [release notes](https://github.com/Xharig/VerseKit/releases/latest). Individual scanners occasionally flag packed Python programs through machine-learning heuristics, a known false positive
 
 On **Linux** this message does not exist — the file just needs to be made executable once.
 
