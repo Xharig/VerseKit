@@ -58,6 +58,7 @@ NEW_SINCE = {
     'statistik_stabil': '3.58.0',
     'darstellung': '3.58.0',
     'basetool':    '3.61.0',   # Einstellungen neu gegliedert (rc4)
+    'meinlager':   '4.10.0',   # Kategorie Lager: Rohstoff- und Handelslager in einem
     'staffellager': '4.8.0',   # Lager der eigenen Einheiten im Basetool
     'module':      '3.58.0',
     'startprogramme': '3.58.0',
@@ -74,7 +75,6 @@ NEW_SINCE = {
     'auftragslog': '3.12.0',   # Auftrags-Protokoll: was wann gespielt wurde
     'herstellung': '3.3.0',
     'bergbau': '3.3.0',
-    'lager': '3.3.0',
     'liste':       '3.0.0',    # Bauplan-Liste im neuen Fenster
     'fortschritt': '3.0.0',    # Fortschritt je Art
     'bestand':     '3.0.0',    # Bestand einlesen und ausgeben
@@ -146,6 +146,12 @@ def is_new(area, own_version):
         return False          # kommt erst noch — nichts anzeigen
     seen = (_read().get('bereiche') or {}).get(area)
     return _parts(since) > _parts(seen)
+
+
+def was_seen(area):
+    """Steht der Bereich in `gesehen.json` — war er bei diesem Spieler schon
+    einmal da?"""
+    return area in (_read().get('bereiche') or {})
 
 
 def mark_seen(area, own_version):

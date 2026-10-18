@@ -380,6 +380,20 @@ ZEILEN_SYMBOLE = {
     'startbauplan':   'gift',
     # Einkaufsroute: Stopp an eine andere Stelle ziehen.
     'verschieben':    'grip-vertical',
+    # Lagerposten: bearbeiten und löschen (Mein Lager), die Buchungen am
+    # Eintrag (Lager der Einheit).
+    'bearbeiten':     'pencil',
+    'loeschen':       'trash-2',
+    'ausbuchen':      'package-minus',
+    'verkaufen':      'hand-coins',
+    'umbuchen':       'arrow-right-left',
+    'notiz':          'sticky-note',
+    'gestohlen':      'shield-alert',
+    'reservieren':    'bookmark',
+    # Eigener Posten in Mein Lager: ins Lager der Einheit geben, von dort
+    # zurücknehmen.
+    'teilen':         'package-plus',
+    'zuruecknehmen':  'undo-2',
 }
 
 # Alles zusammen, mit dem passenden Größensatz.
@@ -394,7 +408,10 @@ ANTIPPBAR_SYMBOLE = {n: ZEILEN_SYMBOLE[n]
                      for n in ('hinweiszeile', 'zuklappen', 'issue_council',
                                'stueck_mehr', 'stueck_weniger',
                                'gemerkt', 'farmliste', 'startbauplan',
-                               'verschieben')}
+                               'verschieben', 'bearbeiten', 'loeschen',
+                               'ausbuchen', 'verkaufen', 'umbuchen', 'notiz',
+                               'gestohlen', 'reservieren', 'teilen',
+                               'zuruecknehmen')}
 
 SYMBOLE = {}
 for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),

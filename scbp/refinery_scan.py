@@ -588,10 +588,18 @@ def merge_passes(passes, index=None, minimum=None, confirm=None, details=None,
 
 def as_text(found):
     """Die Zeilen im Format des Raffinerie-Felds (`Material Q Menge cSCU`).
-    Ein Wert, der nicht gelesen wurde (None), steht als `?` da."""
+    Ein Wert, der nicht gelesen wurde (None), steht als `?` da. Stückware
+    bekommt keine Einheit — sie zählt in Stück, ein angehängtes cSCU brächte
+    nur den Hinweis auf eine verwechselte Einheit."""
+    from . import materials
+
     def cell(value):
         return '?' if value is None else '%d' % value
-    return '\n'.join('%s %s %s cSCU' % (name, cell(quality), cell(amount))
+
+    def unit(name):
+        return '' if materials.counts_in_pieces(name) else ' cSCU'
+    return '\n'.join('%s %s %s%s' % (name, cell(quality), cell(amount),
+                                      unit(name))
                      for name, quality, amount in found)
 
 

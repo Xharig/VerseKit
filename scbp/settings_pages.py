@@ -67,7 +67,8 @@ def modules_page(window, frame):
     inner = _scroll_area(frame)
     for group in modules.SWITCHABLE:
         pages = ', '.join(t(_TAB_LABELS.get(p, p))
-                          for p in modules.SWITCHABLE[group])
+                          for p in modules.SWITCHABLE[group]
+                          + modules.ALSO_HIDES.get(group, ()))
 
         def flip(group=group):
             new_value = not modules.enabled(group)
@@ -89,13 +90,13 @@ def modules_page(window, frame):
 # Beschriftung je Seite — dieselben Texte wie in der Leiste.
 _TAB_LABELS = {'hangar': 'hf_hangar', 'wunschliste': 'hf_wunschliste',
                'einkaufsliste': 'hf_einkaufsliste',
-               'lager': 'hf_lager', 'herstellung': 'hf_herstellung',
+               'herstellung': 'hf_herstellung',
                'bergbau': 'hf_bergbau', 'raffinerien': 'hf_raffinerien',
                'laeden': 'hf_laeden', 'farmliste': 'hf_farmliste',
                'bedarf': 'hf_bedarf', 'staffellager': 'hf_staffellager',
                'basetool': 'k_basetool_verbindung',
                'bergung': 'hf_bergung', 'zerlegen': 'hf_zerlegen',
-               'handelslager': 'hf_handelslager', 'verkauf': 'hf_verkauf',
+               'verkauf': 'hf_verkauf',
                'routen': 'hf_routen',
                'statistik_auswertung': 'hf_st_auswertung',
                'statistik': 'hf_st_uebersicht',

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/quality.schema.json",
   "title": "Quality",
-  "description": "Material quality from 0 to 1000. Trade goods are stored at a fixed 0.",
+  "description": "Material quality from 0 to 1000, stored as sent for every material; 0 for an item, and for a material whose quality the client does not know.",
   "type": "integer",
   "minimum": 0,
   "maximum": 1000

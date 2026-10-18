@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/material-kind.schema.json",
   "title": "Material kind",
-  "description": "Read-only classification a client uses to route rows to its own lists.",
+  "description": "Read-only classification a client uses to route rows to its own lists. None of it decides a lot's quality. A UEX flag the Basetool does not know for the material is left out.",
   "type": "object",
   "properties": {
     "type": {
@@ -15,7 +15,31 @@
     },
     "commodity": {
       "type": "boolean",
-      "description": "True when the material is a UEX commodity (trade good)."
+      "description": "True when the material is listed in UEX's commodity catalogue, which holds ores, refined metals and gems as well as trade goods."
+    },
+    "mineral": {
+      "type": "boolean",
+      "description": "UEX: a mined mineral."
+    },
+    "harvestable": {
+      "type": "boolean",
+      "description": "UEX: harvested rather than mined."
+    },
+    "raw": {
+      "type": "boolean",
+      "description": "UEX: an unrefined raw material."
+    },
+    "refined": {
+      "type": "boolean",
+      "description": "UEX: the product of a refinery."
+    },
+    "buyable": {
+      "type": "boolean",
+      "description": "UEX: a terminal sells it."
+    },
+    "sellable": {
+      "type": "boolean",
+      "description": "UEX: a terminal buys it."
     }
   },
   "required": [

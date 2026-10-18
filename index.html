@@ -731,8 +731,8 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
         </details>
         <details>
           <summary data-de="Der Signatur-Scanner zeigt beim Minen nichts an" data-en="The signature scanner shows nothing while mining">Der Signatur-Scanner zeigt beim Minen nichts an</summary>
-          <p data-de="Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Werkstatt → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows."
-             data-en="Look at the eye in the overlay bar: grey means off — click it; yellow means on but not reading — restart Verse-Kit once; green means it is reading. If a number is not recognised, teach it under Workshop → Mining → “Teach digits”. The scanner is Windows only.">Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Werkstatt → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows.</p>
+          <p data-de="Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Abbau & Bergung → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows."
+             data-en="Look at the eye in the overlay bar: grey means off — click it; yellow means on but not reading — restart Verse-Kit once; green means it is reading. If a number is not recognised, teach it under Mining & Salvage → Mining → “Teach digits”. The scanner is Windows only.">Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Abbau & Bergung → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows.</p>
         </details>
       </div>
       <h4 class="faq-untergruppe" data-de="Deine Daten" data-en="Your data">Deine Daten</h4>
@@ -884,46 +884,35 @@ var GRUPPEN = [
      bde:"Welchen Auftrag du wann gespielt hast und welcher Bauplan dabei herauskam.",
      ben:"Which contract you played when, and which blueprint came out of it."}
   ]},
-  {de:"Basetool", en:"Basetool", eintraege:[
-    {reiter:"basetool", bild:"screenshot-basetool.png", de:"Verbindung & Abgleich", en:"Connection & sync",
-     bde:"Baupläne, Lager und Hangar mit dem KRT Profit Basetool abgleichen — in beide Richtungen, nur wenn du es verbindest.",
-     ben:"Sync blueprints, storage and hangar with the KRT Profit Basetool — both ways, only if you connect it."},
-    {reiter:"bedarf", bild:"screenshot-bedarf.png", de:"Bedarf der Einheit", en:"Unit demand",
-     bde:"Mit dem KRT Profit Basetool verbunden: was die offenen Aufträge deiner Einheit noch brauchen — und was du davon schon hast.",
-     ben:"Connected to the KRT Profit Basetool: what your unit's open orders still need — and what of it you already have."},
-    {reiter:"staffellager", bild:"screenshot-staffellager.png", de:"Lager der Einheit", en:"Unit storage",
-     bde:"Mit dem KRT Profit Basetool verbunden: was im gemeinsamen Lager deiner Einheit liegt. Logistiker sehen, wem was gehört, und buchen direkt.",
-     ben:"Connected to the KRT Profit Basetool: what is in your unit's shared storage. Logisticians see who owns what and book directly."}
-  ]},
-  {de:"Schiffe", en:"Ships", eintraege:[
+  {de:"Flotte & Logistik", en:"Fleet & Logistics", eintraege:[
     {reiter:"hangar", bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
      bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt — danach weiß das Werkzeug, was in welches Schiff passt. An jedem Schiff vergibst du auch seinen Namen im Abrufterminal.",
      ben:"Your fleet, pulled in from the pledge store in one go — after that the tool knows what fits into which ship. Each ship also gets its name for the retrieval terminal right there."},
     {reiter:"wunschliste", bild:"screenshot-wunschliste.png", de:"Wunschliste", en:"Wishlist",
      bde:"Was du dir vornimmst, mit Preis und Ort — die Ausstattung planst du, bevor du das Schiff hast.",
      ben:"What you are aiming for, with price and location — plan the loadout before you own the ship."},
-    {reiter:"einkaufsliste", bild:"screenshot-einkaufsliste.png", de:"Einkaufsliste", en:"Shopping list",
-     bde:"Die Rechnung über alle Schiffe: kaufen oder selbst bauen, mit Summe und Einkaufsroute.",
-     ben:"The bill across all your ships: buy or build, with a total and a shopping route."}
+    {reiter:"meinlager", bild:"screenshot-meinlager.png", de:"Mein Lager", en:"My Inventory",
+     bde:"Rohstoffe, Verkaufsware und Items an einer Stelle — mit Art, Ort, Güte und Menge, gefiltert nach Material oder Items und zum Herstellen oder Verkaufen.",
+     ben:"Materials, goods for sale and items in one place — with type, location, quality and amount, filtered by material or items and for crafting or selling."},
+    {reiter:"staffellager", bild:"screenshot-staffellager.png", de:"Lager der Einheit", en:"Unit storage",
+     bde:"Mit dem KRT Profit Basetool verbunden: was im gemeinsamen Lager deiner Einheit liegt. Logistiker sehen, wem was gehört, und buchen direkt.",
+     ben:"Connected to the KRT Profit Basetool: what is in your unit's shared storage. Logisticians see who owns what and book directly."}
   ]},
-  {de:"Werkstatt", en:"Workshop", eintraege:[
+  {de:"Herstellung", en:"Crafting", eintraege:[
     {reiter:"herstellung", bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
      bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand — und ob du den Bauplan dafür hast.",
      ben:"Ingredients, amounts and crafting time for every item — and whether you have the blueprint."},
     {reiter:"farmliste", bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
      bde:"Dein Lager gegen alles gerechnet, was du bauen willst — über alle Posten zusammen.",
-     ben:"Your storage measured against everything you want to build — across all items at once."},
-    {reiter:"lager", bild:"screenshot-lager.png", de:"Rohstofflager", en:"Material storage",
-     bde:"Was du an Material hast, mit Güte und Lagerort — im Rezept steht dann, was fehlt.",
-     ben:"What material you have, with quality and location — the recipe then shows what is missing."},
+     ben:"Your storage measured against everything you want to build — across all items at once."}
+  ]},
+  {de:"Abbau & Bergung", en:"Mining & Salvage", eintraege:[
     {reiter:"bergbau", bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
      bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt.",
      ben:"Type a material to see where it is found, or type a location to see what is there."},
     {reiter:"raffinerien", bild:"screenshot-raffinerien.png", de:"Raffinerien", en:"Refineries",
      bde:"Was jede Raffinerie aus deinem Erz macht — Aufschlag und Abschlag je Material, der beste Ort grün.",
-     ben:"What every refinery makes of your ore — bonus and penalty per material, the best place in green."}
-  ]},
-  {de:"Bergung", en:"Salvage", eintraege:[
+     ben:"What every refinery makes of your ore — bonus and penalty per material, the best place in green."},
     {reiter:"bergung", bild:"screenshot-bergung.png", de:"Was steckt drin?", en:"What's inside?",
      bde:"Was ein Wrack ab Werk an Bord hat — und was die Teile im Laden wert sind.",
      ben:"What a wreck carries from the factory — and what those parts are worth in a shop."},
@@ -931,19 +920,24 @@ var GRUPPEN = [
      bde:"Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.",
      ben:"What the fabricator gives back, before you fire up the cutter."}
   ]},
-  {de:"Handel & Einkauf", en:"Trading & buying", eintraege:[
+  {de:"Handel", en:"Trade", eintraege:[
     {reiter:"laeden", bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
      bde:"Wo das fertige Teil im Regal steht und was es dort kostet — der günstigste Laden oben.",
      ben:"Where the finished part sits on the shelf and what it costs — cheapest shop first."},
-    {reiter:"handelslager", bild:"screenshot-handelslager.png", de:"Handelslager", en:"Cargo hold",
-     bde:"Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Baumaterial.",
-     ben:"What you are carrying to sell — deliberately kept apart from building material."},
     {reiter:"verkauf", bild:"screenshot-verkauf.png", de:"Kaufen & Verkaufen", en:"Buy & Sell",
      bde:"Wo du deine Ware los wirst, sortiert danach, wie viel ein Ort auf einmal abnimmt — und wo du sie am günstigsten bekommst.",
      ben:"Where to sell your cargo, sorted by how much a location takes at once — and where to buy it cheapest."},
     {reiter:"routen", bild:"screenshot-routen.png", de:"Routen", en:"Routes",
      bde:"Sag, wo du stehst, wie viel reinpasst und was du ausgeben willst — dann rechnet Verse-Kit, welche Fahrt sich lohnt.",
      ben:"Say where you are, how much fits and what you want to spend — Verse-Kit works out which run pays."}
+  ]},
+  {de:"Beschaffung", en:"Procurement", eintraege:[
+    {reiter:"bedarf", bild:"screenshot-bedarf.png", de:"Bedarf der Einheit", en:"Unit demand",
+     bde:"Mit dem KRT Profit Basetool verbunden: was die offenen Aufträge deiner Einheit noch brauchen — und was du davon schon hast.",
+     ben:"Connected to the KRT Profit Basetool: what your unit's open orders still need — and what of it you already have."},
+    {reiter:"einkaufsliste", bild:"screenshot-einkaufsliste.png", de:"Einkaufsliste", en:"Shopping list",
+     bde:"Die Rechnung über alle Schiffe: kaufen oder selbst bauen, mit Summe und Einkaufsroute.",
+     ben:"The bill across all your ships: buy or build, with a total and a shopping route."}
   ]},
   {de:"Statistik", en:"Statistics", eintraege:[
     {reiter:"statistik_auswertung", bild:"screenshot-statistik-auswertung.png", de:"Auswertung", en:"Evaluation",
@@ -979,8 +973,11 @@ var GRUPPEN = [
      bde:"Wo Star Citizen liegt und wohin Verse-Kit deine Daten schreibt. Beim Umziehen kommt alles mit.",
      ben:"Where Star Citizen lives and where Verse-Kit keeps your data. Moving it takes everything along."},
     {reiter:"module", bild:"screenshot-module.png", de:"Module", en:"Modules",
-     bde:"Blende ganze Bereiche aus, die du nicht brauchst. Gelöscht wird nichts.",
-     ben:"Hide whole sections you do not need. Nothing gets deleted."},
+     bde:"Blende Seiten aus, die du nicht brauchst — je Modul, eine leere Gruppe verschwindet. Gelöscht wird nichts.",
+     ben:"Hide pages you do not need — per module, an empty group disappears. Nothing gets deleted."},
+    {reiter:"basetool", bild:"screenshot-basetool.png", de:"Verbindung & Abgleich", en:"Connection & sync",
+     bde:"Baupläne, Lager und Hangar mit dem KRT Profit Basetool abgleichen — in beide Richtungen, nur wenn du es verbindest.",
+     ben:"Sync blueprints, storage and hangar with the KRT Profit Basetool — both ways, only if you connect it."},
     {reiter:"bestand", bild:"screenshot-bestand.png", de:"Sichern & Zurücksetzen", en:"Backup & reset",
      bde:"Alles sichern und zurückholen, deinen Bestand austauschen — auch ohne fremde Werkzeuge.",
      ben:"Back up and restore everything, exchange your inventory — without any other tool."},

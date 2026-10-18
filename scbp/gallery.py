@@ -51,7 +51,7 @@ HIGHLIGHTS = {
         {'art': 'neu', 'bild': 'bedarf', 'reiter': 'bedarf',
          'titel': 'gal_bedarf_t', 'text': 'gal_bedarf_x', 'weg': 'gal_bedarf_w',
          'changelog': ('Bedarf der Einheit', 'Unit demand')},
-        {'art': 'neu', 'bild': 'lager', 'reiter': 'lager',
+        {'art': 'neu', 'bild': 'lager', 'reiter': 'meinlager',
          'titel': 'gal_raffinerie_t', 'text': 'gal_raffinerie_x',
          'weg': 'gal_raffinerie_w',
          'changelog': ('Raffinerie per Tastenkombination',

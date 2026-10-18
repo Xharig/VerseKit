@@ -257,6 +257,9 @@ def from_json(text):
                       'gestohlen': bool(p.get('gestohlen'))})
         if p.get('stueck'):
             clean[-1]['stueck'] = True
+        if isinstance(p.get('uex'), int) and not isinstance(p.get('uex'),
+                                                             bool):
+            clean[-1]['uex'] = p['uex']
         _set_cost(clean[-1], cost_of(p))
     return clean
 
@@ -320,6 +323,43 @@ def add(goods, amount, place='', stolen=False, cost=None):
     return (True, '') if save(entries) else (False, 'schreiben')
 
 
+def add_item(name, amount, place='', stolen=False, uex=None, index=None):
+    """Ein Item buchen (`stueck`), ganze Stück. `uex` ist die Nummer aus der
+    UEX-Warenliste — über sie gleicht der Abgleich mit dem Basetool ab.
+    Mit `index` wird dieser Posten überschrieben statt neu gebucht.
+    Rückgabe wie `add`."""
+    name = (name or '').strip()
+    if not name:
+        return False, 'ware'
+    entries = load()
+    if index is not None and not 0 <= index < len(entries):
+        return False, 'weg'
+    before = (float(entries[index].get('menge') or 0) if index is not None
+              else 0.0)
+    number = _check_amount(amount, before)
+    if number is None or number < 1:
+        return False, 'menge'
+    pieces = float(int(round(number)))
+    if index is not None:
+        entry = entries[index]
+        entry.update(ware=name, menge=pieces, ort=place or '',
+                     gestohlen=bool(stolen), stueck=True)
+    else:
+        entry = next((p for p in entries if is_pieces(p)
+                      and same_stack(name, place, stolen, p)), None)
+        if entry is not None:
+            entry['menge'] = float(entry.get('menge') or 0) + pieces
+        else:
+            entry = {'ware': name, 'menge': pieces, 'ort': place or '',
+                     'gestohlen': bool(stolen), 'stueck': True}
+            entries.append(entry)
+    if isinstance(uex, int) and not isinstance(uex, bool) and uex > 0:
+        entry['uex'] = uex
+    elif index is not None:
+        entry.pop('uex', None)
+    return (True, '') if save(entries) else (False, 'schreiben')
+
+
 def change(index, goods, amount, place='', stolen=False, cost=KEEP):
     """Einen Posten überschreiben. `index` ist die Stelle in `load()`.
 
@@ -367,18 +407,55 @@ def remove(index):
 
 
 def clear():
-    """Alles löschen — nach dem Verkauf der ganzen Ladung."""
+    """Alles löschen — Ware und Items."""
     return save([])
+
+
+def clear_goods():
+    """Nur die Ware löschen, Items bleiben — nach dem Verkauf der Ladung
+    oder einem Patch, der den Laderaum leert. Gibt die Zahl der entfernten
+    Posten zurück, `None`, wenn das Speichern scheitert."""
+    entries = load()
+    kept = [p for p in entries if is_pieces(p)]
+    return len(entries) - len(kept) if save(kept) else None
+
+
+def clear_items():
+    """Nur die Items löschen, die Ware bleibt. Rückgabe wie `clear_goods`."""
+    entries = load()
+    kept = [p for p in entries if not is_pieces(p)]
+    return len(entries) - len(kept) if save(kept) else None
+
+
+def restore(found):
+    """Eine Sicherung einlesen: Ihre Ware ersetzt die Ware, die Items hier
+    bleiben stehen. Items der Sicherung kommen dazu, wenn hier kein gleicher
+    Stapel liegt — eine ältere Sicherung räumt so keine später eingetragenen
+    Items weg. Gibt `(Ware, neue Items)` zurück, `None`, wenn das Speichern
+    scheitert."""
+    items = [p for p in load() if is_pieces(p)]
+    goods = [p for p in found if not is_pieces(p)]
+    added = [p for p in found if is_pieces(p) and not any(
+        same_stack(p.get('ware'), p.get('ort'), p.get('gestohlen'), q)
+        for q in items)]
+    if not save(goods + items + added):
+        return None
+    return len(goods), len(added)
+
+
+def goods_rows():
+    """Die Posten, die Ware sind — ohne Items (`stueck`)."""
+    return [p for p in load() if not is_pieces(p)]
 
 
 def amounts(only_stolen=None):
     """Wie viel von welcher Ware im Lager liegt: `{Ware: SCU}`.
 
     `only_stolen=True` zählt nur die markierte Ware, `False` nur die saubere,
-    `None` alles.
+    `None` alles. Items zählen nicht als Ware.
     """
     total = {}
-    for p in load():
+    for p in goods_rows():
         if only_stolen is not None and bool(p.get('gestohlen')) != only_stolen:
             continue
         goods = p.get('ware')
@@ -394,7 +471,7 @@ def costs(only_stolen=None):
     Gewichtet nach Menge, nur über Posten mit Einkaufspreis. Waren ohne
     bekannten Preis fehlen im Ergebnis."""
     paid, weight = {}, {}
-    for p in load():
+    for p in goods_rows():
         if only_stolen is not None and bool(p.get('gestohlen')) != only_stolen:
             continue
         goods, cost = p.get('ware'), cost_of(p)
@@ -409,7 +486,7 @@ def costs(only_stolen=None):
 def costed_amounts(only_stolen=None):
     """Wie viel je Ware einen Einkaufspreis hat: `{Ware: SCU}`."""
     total = {}
-    for p in load():
+    for p in goods_rows():
         if only_stolen is not None and bool(p.get('gestohlen')) != only_stolen:
             continue
         if p.get('ware') and cost_of(p) is not None:
@@ -424,4 +501,4 @@ def goods_in_stock(only_stolen=None):
 
 def has_stolen():
     """Liegt markierte Ware im Lager? Schaltet den Filter im Reiter vor."""
-    return any(p.get('gestohlen') for p in load())
+    return any(p.get('gestohlen') for p in goods_rows())

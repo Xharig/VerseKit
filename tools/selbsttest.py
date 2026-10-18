@@ -5089,20 +5089,22 @@ def main():
     # jedem getippten Buchstaben selbst, und der Cursor ist weg.
     print()
     print('52p. Suchfelder werden nicht beim Zeichnen neu gebaut')
-    with open(os.path.join(_wurzelpfad, 'scbp', 'pages.py'),
+    with open(os.path.join(_wurzelpfad, 'scbp', 'my_stock_page.py'),
               encoding='utf-8') as _fh52p:
         _qu52p = _fh52p.read()
-    # Der Lager-Abschnitt: zwischen `def _storage(` und der naechsten Seite.
-    _lager52p = rumpf(_qu52p, '_storage')
-    _ab52p = _lager52p.find('    def zeichnen():')
+    # Mein Lager: die Seite und darin ihre Zeichenfunktion `redraw`.
+    _lager52p = rumpf(_qu52p, 'my_stock_page')
+    _ab52p = _lager52p.find('    def redraw():')
     pruefe(_ab52p >= 0, 'die Zeichenfunktion der Lager-Seite ist auffindbar')
     _zeichnen52p = _lager52p[_ab52p:] if _ab52p >= 0 else ''
     # Bis zum Ende der Zeichenfunktion — der naechste Ausdruck auf gleicher
-    # Ebene ist die Anmeldung des Filters.
-    _zeichnen52p = _zeichnen52p.split('filter_var.trace_add')[0]
-    pruefe('round_entry' not in _zeichnen52p,
+    # Ebene ist ihre Anmeldung.
+    _zeichnen52p = _zeichnen52p.split("    page['redraw'] = redraw")[0]
+    pruefe('round_entry' not in _zeichnen52p
+           and 'round_entry' not in rumpf(_qu52p, '_draw_controls')
+           and 'round_entry' not in rumpf(_qu52p, '_draw_list'),
            'im Lager baut die Zeichenfunktion kein Eingabefeld mehr')
-    pruefe('_such_feld' in _lager52p,
+    pruefe("page['search_box'] = box" in _lager52p,
            'das Suchfeld entsteht einmal, ausserhalb')
 
     # 52q. Die gemerkte Fenstergroesse ueberlebt den Start
@@ -6759,7 +6761,6 @@ def main():
     print('68. Namensvorschlag am Eingabefeld')
     import tkinter as _tk68
     import tkinter.font as _tkfont68
-    from scbp import pages as _se68
 
     _w68 = _tk68.Tk()
     _w68.withdraw()                      # ⚠ kein Fenster ins Bild schieben
@@ -6780,7 +6781,11 @@ def main():
 
         _rahmen68 = _tk68.Frame(_w68)
         _rahmen68.pack(fill='both', expand=True)
-        _se68._storage(_Fenster68(), _rahmen68)
+        # Das Formular zum Eintragen steht in Mein Lager in einem Klappblock —
+        # offen, damit die Felder eine Lage haben.
+        from scbp import my_stock_page as _ms68, paths as _pf68
+        _pf68.set_setting(_ms68.SETTING_FORM_OPEN, True)
+        _ms68.my_stock_page(_Fenster68(), _rahmen68)
         _w68.update_idletasks()
 
         def _sammeln68(w, art, raus):
@@ -7011,9 +7016,14 @@ def main():
         pruefe('trotzdem' not in _w70[0].lower()
                and 'still add' not in _w70[1].lower(),
                '%s verspricht keinen Ausweg mehr' % _k70)
-    pruefe('h_modul.storage_name(name)' in _q70,
+    # Das Formular für Rohstoffe steht in Mein Lager (`_raw_form`).
+    _form70 = rumpf(open(os.path.join(WURZEL, 'scbp', 'my_stock_page.py'),
+                         encoding='utf-8').read(), '_raw_form')
+    pruefe("t('s_lg_trotzdem')" not in _form70,
+           'auch Mein Lager hat keinen Knopf „Trotzdem eintragen"')
+    pruefe('crafting.storage_name(name)' in _form70,
            'der Name wird gegen die Lagerliste geprueft')
-    pruefe('orte_modul.official_name(ort.get())' in _q70,
+    pruefe('places.official_name(place.get())' in _form70,
            'und der Lagerort gegen die Ortsliste')
 
     # b) Die Liste selbst.
@@ -7060,7 +7070,7 @@ def main():
         print('  [–]    keine Ortsliste vorhanden — Rest uebersprungen')
 
     # d) Qualitaet: nur 0 bis 1000.
-    pruefe('0 <= q <= 1000' in _q70,
+    pruefe('0 <= int(round(number)) <= 1000' in _form70,
            'die Qualitaet ist auf 0–1000 begrenzt')
 
     # ------------------------------------------------------------------
@@ -8032,10 +8042,11 @@ def main():
     finally:
         _he83.storable = _echt83
 
-    _q83 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+    _q83 = open(os.path.join(WURZEL, 'scbp', 'my_stock_page.py'),
                 encoding='utf-8').read()
-    pruefe('_refinery_box(fenster, innen, lager, ort, zeichnen, meldung)'
-           in _q83, 'die Lager-Seite bietet die Maske an')
+    pruefe('_refinery_box(window, inner, materials,'
+           in rumpf(_q83, 'my_stock_page'),
+           'die Lager-Seite bietet die Maske an')
 
     # 84. Verkauf — wo die Ware hin soll
     #
@@ -8188,18 +8199,20 @@ def main():
     # anderen darf jeder tippen, was er will.
     _q84s = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
-    _hlseite84 = rumpf(_q84s, '_trade_storage')
-    pruefe('preisdaten.known(name)' in _hlseite84,
+    # Das Formular für Verkaufsware steht in Mein Lager.
+    _hlseite84 = rumpf(open(os.path.join(WURZEL, 'scbp', 'my_stock_page.py'),
+                            encoding='utf-8').read(), '_trade_form')
+    pruefe('selling.known(name)' in _hlseite84,
            'die Ware wird gegen die Warenliste geprueft')
-    pruefe('ortsliste.knows(ort.get())' in _hlseite84,
+    pruefe('places.knows(place.get())' in _hlseite84,
            'der Lagerort wird gegen die Ortsliste geprueft')
     # ⚠ Eine „Meintest du"-Zeile gibt es nicht: Das Auswahlfeld
     # filtert beim Tippen selbst und laesst sich per Pfeil ganz aufklappen.
     # Geprueft wird deshalb, dass **beide** Felder ihre geschlossene Liste
     # bekommen — Waren aus den Preisdaten, Orte aus der Ortsliste.
-    pruefe('_combo_box(fenster, block, var, quelle,' in _hlseite84
-           and 'preisdaten.goods if var is ware else ortsliste.all_places'
-           in _hlseite84,
+    pruefe('_combo_box(window, block, goods, selling.goods,' in _hlseite84
+           and '_combo_box(window, block, place,' in _hlseite84
+           and 'places.all_places' in _hlseite84,
            'Ware und Ort sind Auswahlfelder mit geschlossener Liste')
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf des
     # Bausteins, und das soll es auch. Geprueft wird der Import: ohne ihn kann
@@ -8212,7 +8225,7 @@ def main():
     # Kennung auf die Funktion zeigt — das beantwortet die Tabelle selbst.
     from scbp import pages as _se84
     _tab84 = _se84._builders()
-    for _k84 in ('verkauf', 'handelslager'):
+    for _k84 in ('verkauf', 'meinlager'):
         pruefe(callable(_tab84.get(_k84)),
                'die Seite „%s" ist angemeldet' % _k84)
     pruefe("self._tab('verkauf', 'verkauf'" in open(
@@ -8408,13 +8421,15 @@ def main():
     pruefe("icons.line(zeile, 'aufklappen'" in _q85p,
            'auch das Auswahlfeld nutzt das Klapp-Symbol des Projekts')
 
-    # ⚠ **Ein Bild im ganzen Programm**: Werkstatt-Lager und Handelslager
-    # benutzen denselben Baustein fuer Ware/Rohstoff und Lagerort.
-    # ⚠ Beim naechsten **Modul**-`def` schneiden (Zeilenanfang), nicht beim
-    # naechsten `def` ueberhaupt: Die Lager-Seite hat innere Funktionen, und
-    # der Block endete sonst vor der Stelle, die geprueft werden soll.
-    _lagerseite85 = rumpf(_q85p, '_storage')
-    pruefe('_combo_box(fenster, block, var,' in _lagerseite85,
+    # ⚠ **Ein Bild im ganzen Programm**: Die Formulare für Rohstoffe und
+    # Verkaufsware benutzen denselben Baustein fuer Ware/Rohstoff und
+    # Lagerort.
+    _lagerseite85 = rumpf(open(os.path.join(WURZEL, 'scbp',
+                                            'my_stock_page.py'),
+                               encoding='utf-8').read(), '_raw_form')
+    pruefe('_combo_box(\n        window, block, material, material_names,'
+           in _lagerseite85
+           and '_combo_box(window, place_block, place,' in _lagerseite85,
            'auch „Mein Lager" nutzt das Auswahlfeld')
     pruefe('vorschlag_rahmen' not in _lagerseite85,
            'und nicht mehr die alte Vorschlagszeile daneben')
@@ -8653,15 +8668,23 @@ def main():
     # dieselben, in derselben Reihenfolge.
     _q86 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
-    _hlblock86 = rumpf(_q86, '_trade_storage')
+    # Sichern und Löschen stehen in Mein Lager, je Teil (Herstellen und
+    # Verkaufen) — in einem Block für beide Dateien.
+    _hlblock86 = rumpf(open(os.path.join(WURZEL, 'scbp', 'my_stock_page.py'),
+                            encoding='utf-8').read(), '_backup_section')
     for _schluessel86 in ("s_lg_aus_json", "s_lg_aus_csv", "s_lg_einlesen",
-                          "s_lg_leeren"):
-        pruefe("t('%s')" % _schluessel86 in _hlblock86,
-               'das Handelslager hat den Knopf %s' % _schluessel86)
+                          "s_lg_leeren", "s_ml_ware_leeren",
+                          "s_ml_items_leeren"):
+        pruefe("'%s'" % _schluessel86 in _hlblock86,
+               'das Lager hat den Knopf %s' % _schluessel86)
     pruefe('danger=True' in _hlblock86,
            'und „Lager loeschen" steht in Rot')
     pruefe("ask_yes_no(" in _hlblock86,
            'das Leeren fragt vorher nach')
+    pruefe('trade_cargo.clear_goods' in _hlblock86
+           and 'trade_cargo.clear_items' in _hlblock86
+           and 'materials.save([])' in _hlblock86,
+           'das Leeren raeumt Rohstoffe, Ware und Items, jeden Teil fuer sich')
 
     # Der Raffinerie-Block ist einklappbar — und merkt sich die Lage.
     _raffblock86 = _q86.split('def _refinery_box(')[-1].split('\ndef ')[0]
@@ -25697,6 +25720,20 @@ def main():
     _pruefung_491()
     _pruefung_476()
     _pruefung_477()
+    _pruefung_478()
+    _pruefung_479()
+    _pruefung_480()
+    _pruefung_481()
+    _pruefung_482()
+    _pruefung_483()
+    _pruefung_484()
+    _pruefung_485()
+    _pruefung_486()
+    _pruefung_487()
+    _pruefung_488()
+    _pruefung_489()
+    _pruefung_492()
+    _pruefung_493()
     _pruefung_495()
     _pruefung_496()
     _pruefung_497()
@@ -26424,24 +26461,24 @@ def _pruefung_271():
             _w271.geometry('1200x900')
             _f271 = _mw271.MainWindow(_w271, version='0.0.0-pruefung')
             _w271.update_idletasks()
-            _abw271 = {}
-            for gruppe, seiten in _mo271.SWITCHABLE.items():
-                # ⚠ Eine Gruppe, die es in der Leiste nicht gibt, ist ein
-                # Befund — kein Absturz der Pruefung.
-                if gruppe not in _f271.groups:
-                    _abw271[gruppe] = 'fehlt in der Leiste'
-                    continue
-                ist = tuple(k for z in _f271.groups[gruppe]['inhalt']
-                            .winfo_children()
-                            for k, teile in _f271.buttons.items()
-                            if teile[0] is z)
-                if ist != seiten:
-                    _abw271[gruppe] = ist
-            pruefe(not _abw271, 'die Module kennen genau die Reiter der '
-                   'Leiste (%r)' % _abw271)
-            pruefe(all(g not in _mo271.SWITCHABLE for g in
-                       ('bauplaene', 'einstellungen', 'info')),
-                   'Baupläne, Einstellungen, Info sind nicht abschaltbar')
+            # Ein Modul blendet seine Reiter einzeln aus, egal in welcher
+            # Gruppe sie stehen — jeder muss also einen Reiter haben.
+            _abw271 = {gruppe: [s for s in seiten if s not in _f271.buttons]
+                       for gruppe, seiten in _mo271.SWITCHABLE.items()}
+            _abw271 = {g: s for g, s in _abw271.items() if s}
+            pruefe(not _abw271, 'jede Seite eines Moduls hat einen Reiter in '
+                   'der Leiste (%r)' % _abw271)
+            def reiter271(gruppe):
+                return [k for z in _f271.groups[gruppe]['inhalt']
+                        .winfo_children() for k, teile in _f271.buttons.items()
+                        if teile[0] is z]
+            _modulseiten271 = {s for ss in _mo271.SWITCHABLE.values()
+                               for s in ss}
+            _schaltbar271 = [s for g in ('bauplaene', 'einstellungen', 'info')
+                             for s in reiter271(g) if s in _modulseiten271]
+            pruefe(_schaltbar271 == ['basetool'],
+                   'Baupläne, Einstellungen, Info sind nicht abschaltbar — bis '
+                   'auf die Basetool-Verbindung (%r)' % _schaltbar271)
             pruefe('statistiken' in _mo271.SWITCHABLE,
                    'die Statistik laesst sich ausblenden (seit 27.09.2026)')
             _w271.destroy()
@@ -28348,6 +28385,12 @@ class _Basetool290:
         self.places = [{'name': 'Area18', 'uex': {'kind': 'CITY', 'id': 4}},
                        {'name': 'Seraphim Station'}]
         self.stock_ops, self.ship_ops = [], []
+        # Persönlich/gemeinsam (Prüfung 489): `split` am Posten nur mit
+        # `split_on`, Pools je Kennung, die eigenen Einheiten, Gesperrtes.
+        self.split_on = False
+        self.pools = {}                 # Kennung -> {Einheit: Menge}
+        self.my_units = []              # GET /me/org-units
+        self.earmarked = set()          # Kennungen -> STOCK_EARMARKED
         self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0),
                                                       _handler290(self))
         self.base = 'http://127.0.0.1:%d' % self.server.server_address[1]
@@ -28496,6 +28539,9 @@ class _Basetool290:
             return handler._answer(200, {'result': self.account}, nonce_header)
         if route == '/catalog/locations':
             return handler._answer(200, {'items': self.places}, nonce_header)
+        if route == '/me/org-units':
+            return handler._answer(200, {'items': list(self.my_units)},
+                                   nonce_header)
         if route in ('/me/stock', '/me/ships'):
             lots = route == '/me/stock'
             store = self.lots if lots else self.ships
@@ -28602,10 +28648,76 @@ class _Basetool290:
         if not item:
             self.lots[key]['materialKind'] = {'type': 'RAW',
                                               'commodity': commodity}
+        self._split(key)
+
+    def _split(self, key):
+        """`split` wie im Vertrag: persönlich plus Pools = Menge."""
+        lot = self.lots.get(key)
+        if lot is None or not self.split_on:
+            return
+        unit = lot['quantity']['unit']
+        pools = {u: a for u, a in (self.pools.get(key) or {}).items() if a}
+        lot['split'] = {
+            'personal': {'amount': round(lot['quantity']['amount']
+                                         - sum(pools.values()), 3),
+                         'unit': unit},
+            'pools': [{'orgUnit': {'id': u}, 'quantity': {'amount': a,
+                                                          'unit': unit}}
+                      for u, a in sorted(pools.items())]}
+
+    def _share(self, op):
+        """Ein `share`/`unshare` wie in `resources/stock.md` — Rückgabe
+        `None` (gebucht), `'unchanged'` oder der Ablehnungsgrund."""
+        place = op['location'].get('name')
+        if not any(p['name'] == place for p in self.places):
+            return 'LOCATION_UNKNOWN'
+        bt = op['material']['bt']
+        item = bt in self.item_bts
+        key = self.lot_key(bt, place, 0 if item else op['quality'],
+                           op['stolen'])
+        lot = self.lots.get(key)
+        unit = lot['quantity']['unit'] if lot else op['quantity']['unit']
+        if op['quantity']['unit'] != unit \
+                or op['expectedQuantity']['unit'] != unit:
+            return 'UNIT_MISMATCH'
+        amount = op['quantity']['amount']
+        if item and amount != int(amount):
+            return 'UNIT_MISMATCH'
+        unit_id = op['orgUnit']['id']
+        pools = self.pools.setdefault(key, {})
+        sharing = op['op'] == 'share'
+        if sharing and unit_id not in {u['id'] for u in self.my_units}:
+            return 'NOT_A_MEMBER'
+        total = lot['quantity']['amount'] if lot else 0
+        have = (total - sum(pools.values())) if sharing \
+            else pools.get(unit_id, 0)
+        if round(have, 3) != round(op['expectedQuantity']['amount'], 3):
+            return 'VERSION_CONFLICT'
+        if amount > op['expectedQuantity']['amount']:
+            return 'QUANTITY_ABOVE_EXPECTED'
+        if amount == 0:
+            return 'unchanged'
+        if key in self.earmarked:
+            return 'STOCK_EARMARKED'
+        pools[unit_id] = round(pools.get(unit_id, 0)
+                               + (amount if sharing else -amount), 3)
+        self.seq += 1
+        self._split(key)
+        return None
 
     def _stock_changes(self, ops):
         results, applied = [], 0
         for i, op in enumerate(ops):
+            if op['op'] in ('share', 'unshare'):
+                outcome = self._share(op)
+                if outcome is None:
+                    applied += 1
+                elif outcome == 'unchanged':
+                    results.append({'index': i, 'result': 'unchanged'})
+                else:
+                    results.append({'index': i, 'result': 'rejected',
+                                    'reason': outcome})
+                continue
             place = op['location'].get('name')
             if not any(p['name'] == place for p in self.places):
                 results.append({'index': i, 'result': 'rejected',
@@ -31648,25 +31760,23 @@ def _pruefung_313():
             _r = _tc.load()[_nr]
         pruefe(_ok and _r.get('menge') == 3 and _r.get('stueck'),
                'Ändern: Stück bleibt ganzzahlig und behält die Marke (%r)' % _r)
-        import tkinter as _tk313
-        import types as _ty313
-        from scbp import pages as _pg313
-        _w = _tk313.Tk()
-        _w.withdraw()
-        try:
-            _fen = _ty313.SimpleNamespace(f_small=('TkDefaultFont', 9))
-            _rahmen = _tk313.Frame(_w)
-            _pg313._trade_table(_fen, _rahmen, _tc.load(), lambda w: 0,
-                                lambda n: None, lambda n: None, None)
-            _texte = [c.cget('text') for c in _rahmen.winfo_children()[0]
-                      .winfo_children() if isinstance(c, _tk313.Label)]
-            _stk = _pg313.t('s_lg_stueck')
-            pruefe(('3 ' + _stk) in _texte and ('40 ' + _stk) not in _texte
-                   and '40' in _texte,
-                   'Tabelle: Item mit „%s", Gold als nackte SCU-Zahl (%r)'
-                   % (_stk, [x for x in _texte if x[:1].isdigit()]))
-        finally:
-            _w.destroy()
+        # Mein Lager: Items stehen im Reiter Items und zählen in Stück, Gold
+        # steht unter Material in SCU.
+        from scbp import my_stock_page as _ms313, language as _la313
+        _zeilen313 = _ms313.entries()
+        _xbow313 = [r for r in _zeilen313 if r['name'] == 'Novian Crossbow']
+        _gold313 = [r for r in _zeilen313 if r['name'] == 'Gold']
+        _stk = _la313.t('s_lg_stueck')
+        _texte = ([_ms313.amount_text(r, r['piece']) for r in _xbow313]
+                  + [_ms313.amount_text(r, r['piece']) for r in _gold313])
+        pruefe(_xbow313 and _xbow313[0]['item']
+               and _ms313.amount_text(_xbow313[0], _xbow313[0]['piece'])
+               == '3 ' + _stk
+               and _gold313 and not _gold313[0]['item']
+               and _ms313.amount_text(_gold313[0], _gold313[0]['piece'])
+               .endswith(' SCU'),
+               'Mein Lager: Item unter Items mit „%s", Gold unter Material in '
+               'SCU (%r)' % (_stk, _texte))
     finally:
         _lg.own_account, _bs.tick = _altes_konto, _alter_takt
         _bs._LOCATIONS.clear()
@@ -32061,9 +32171,9 @@ def _pruefung_315():
         _pu315.window_opened()
         _pu315.page_opened('liste', 'start', clock=200.0)
         zwischen = _pu315.stored()
-        _pu315.page_opened('lager', 'seitenleiste', clock=210.0)
+        _pu315.page_opened('meinlager', 'seitenleiste', clock=210.0)
         _pu315.forget(zwischen)
-        pruefe(_pu315.stored()['pages'] == {'lager': 1},
+        pruefe(_pu315.stored()['pages'] == {'meinlager': 1},
                'was nach dem Abschreiben dazukam, bleibt für die nächste Meldung')
         _pu315.window_closed(clock=211.0)
 
@@ -32073,10 +32183,11 @@ def _pruefung_315():
         _pu315.page_opened('liste', 'start', clock=220.0)
         _pu315.page_opened('verkauf', 'seitenleiste', clock=230.0)   # 1 Klick
         _pu315.group_toggled()                                      # auf Verkauf
-        _pu315.page_opened('lager', 'seitenleiste', clock=240.0)     # 2 Klicks
+        _pu315.page_opened('meinlager', 'seitenleiste', clock=240.0)  # 2 Klicks
         _pu315.window_closed(clock=250.0)
         klicks = _pu315.stored()['clicks']
-        pruefe(klicks.get('verkauf') == {'1': 1} and klicks.get('lager') == {'2': 1},
+        pruefe(klicks.get('verkauf') == {'1': 1}
+               and klicks.get('meinlager') == {'2': 1},
                'nach einem Ziel beginnt die Zählung neu, Klappen auf dem Ziel '
                'zählt zum nächsten Weg (%s)' % klicks)
 
@@ -32161,16 +32272,58 @@ def _pruefung_315():
     with open(os.path.join(WURZEL, 'scbp', 'main_window.py'), encoding='utf-8') as f:
         baum = _ast315.parse(f.read())
     reiter = {}
+    _gruppenname315 = {}
+    _gruppe315 = {}
+    _folge315 = []
+    for knoten in _ast315.walk(baum):
+        if (isinstance(knoten, _ast315.Assign)
+                and isinstance(knoten.value, _ast315.Call)
+                and getattr(knoten.value.func, 'attr', '') == '_group'
+                and isinstance(knoten.value.args[0], _ast315.Call)
+                and isinstance(knoten.targets[0], _ast315.Name)):
+            _gruppenname315[knoten.targets[0].id] = _la315.TEXTS[
+                knoten.value.args[0].args[0].value][0]
     for knoten in _ast315.walk(baum):
         if (isinstance(knoten, _ast315.Call)
                 and getattr(knoten.func, 'attr', '') == '_tab'
                 and len(knoten.args) >= 3
                 and isinstance(knoten.args[2], _ast315.Call)):
             reiter[knoten.args[0].value] = _la315.TEXTS[knoten.args[2].args[0].value][0]
-    seiten = set(_pg315.page_ids())
+            if (len(knoten.args) >= 4
+                    and isinstance(knoten.args[3], _ast315.Name)
+                    and knoten.args[3].id in _gruppenname315):
+                _gruppe315[knoten.args[0].value] = _gruppenname315[
+                    knoten.args[3].id]
+                _folge315.append(knoten.args[0].value)
+    # Die Gruppe neben jeder Seite und die Reihenfolge der Seiten folgen
+    # der Leiste (das Dashboard sortiert bei Gleichstand danach).
+    _js_gruppe315 = dict(re.findall(r"^\s*(\w+): \['([^']*)', '[^']*'\],",
+                                    block, re.M))
+    _gruppe_falsch315 = sorted(p for p, g in _gruppe315.items()
+                               if _js_gruppe315.get(p) != g)
+    _js_folge315 = [p for p in re.findall(r"^\s*(\w+): \[", block, re.M)
+                    if p in _gruppe315]
+    pruefe(not _gruppe_falsch315 and _js_folge315 == _folge315,
+           'pages.js führt jede Seite in ihrer Gruppe, in der Reihenfolge der '
+           'Leiste (abweichend: %r)' % _gruppe_falsch315)
+    # Alte Seitennamen (`my_stock_page.ALIASES`, `cards.PAGE_ALIASES`) nimmt
+    # der Worker weiter an und zählt sie über MERGED bei ihrer neuen Seite.
+    from scbp import my_stock_page as _ms315, cards as _kc315
+    _alte315 = dict(_ms315.ALIASES, **_kc315.PAGE_ALIASES)
+    seiten = set(_pg315.page_ids()) | set(_alte315)
     pruefe(im_worker and set(im_worker) == seiten,
-           'pages.js kennt genau die Seiten aus pages.page_ids() (fehlt: %s, zu viel: %s)'
+           'pages.js kennt genau die Seiten aus pages.page_ids() und die alten '
+           'Namen (fehlt: %s, zu viel: %s)'
            % (sorted(seiten - set(im_worker)), sorted(set(im_worker) - seiten)))
+    _merged315 = dict(re.findall(
+        r"^\s*(\w+): '(\w+)',", pages_js.split('export const MERGED = {', 1)[-1]
+        .split('};', 1)[0], re.M))
+    pruefe(all(_merged315.get(alt) == neu
+               for alt, neu in _alte315.items()),
+           'pages.js zählt alte Seitennamen bei ihrer neuen Seite (MERGED %s)'
+           % _merged315)
+    for _alt315 in _alte315:
+        im_worker.pop(_alt315, None)
     # Seiten ohne Reiter (ein Verweis wie `asop`) tragen den Namen ihrer
     # Überschrift — die Kennung bleibt, damit ältere Meldungen gültig sind.
     for _ohne315 in _pg315.PAGES_WITHOUT_TAB:
@@ -33300,23 +33453,26 @@ def _pruefung_326():
 
 
 def _pruefung_327():
-    """327. Rohstofflager: gleiche Materialien zugeklappt, Posten beim Aufklappen.
+    """327. Mein Lager: gleiche Materialien zugeklappt, Posten beim Aufklappen.
 
     Im echten Hauptfenster: Iron an zwei Orten in zwei Güten steht als eine
     Zeile mit Summe, Güte-Spanne und Ortszahl; Gold mit einem Posten als
     normale Zeile. Ein Klick klappt Iron auf, die Suche nach einem Ort klappt
     von selbst auf.
     """
-    print('\n327. Rohstofflager: gleiche Materialien gebündelt')
+    print('\n327. Mein Lager: gleiche Materialien gebündelt')
     import copy as _cp327
     import time as _ti327
     from scbp import materials as _ma327, main_window as _hf327
+    from scbp import trade_cargo as _tc327
     from scbp.language import t as _t327
 
     alt = _cp327.deepcopy(_ma327.load())
+    alt_handel = _cp327.deepcopy(_tc327.load())
     _w327 = None
     try:
         _ma327.save([])
+        _tc327.save([])
         _ma327.add('Iron', 10, 500, 'Levski')
         _ma327.add('Iron', 5, 800, 'Orison')
         _ma327.add('Iron', 7, 900, 'Levski')
@@ -33324,9 +33480,9 @@ def _pruefung_327():
 
         _w327 = _wurzel()
         fenster = _hf327.MainWindow(_w327, version='0.0.0-pruefung')
-        fenster.open_page('lager')
+        fenster.open_page('meinlager')
         _w327.update()
-        seite = fenster.pages['lager']
+        seite = fenster.pages['meinlager']
 
         def _labels():
             out = []
@@ -33355,15 +33511,13 @@ def _pruefung_327():
                'ein Material mit einem Posten steht als normale Zeile')
 
         def _streifen_ok(labels):
-            """Die Zeilen der Liste wechseln ab Zeile 2 auf die hellere Farbe."""
+            """Die Zeilen der Liste wechseln ab Zeile 2 auf die hellere Farbe.
+            Gelesen wird die erste Zelle jeder Tabellenzeile, in der Reihe."""
             from scbp import theme as _th327
-            kopf = [x for x in labels if x.cget('text') == 'Iron (3)']
-            if not kopf:
+            if not any(x.cget('text') == 'Iron (3)' for x in labels):
                 return False
-            liste = kopf[0].master.master
-            # Die erste Zeile ist die Spaltenüberschrift, kein Posten.
-            farben = [z.cget('bg') for z in liste.winfo_children()
-                      if z.winfo_class() == 'Frame' and z.winfo_manager()][1:]
+            zeilen = fenster.my_stock_page.get('row_widgets') or []
+            farben = [zellen[0].cget('bg') for _art, _x, zellen in zeilen]
             soll = [_th327.SURFACE if i % 2 else _th327.BG
                     for i in range(len(farben))]
             if farben != soll:
@@ -33391,7 +33545,7 @@ def _pruefung_327():
 
         # Das Filterfeld erkennt man am Hinweis, der im leeren Feld steht.
         filterfeld = next((e for e in _alle_eingaben(seite)
-                           if e.get() == _t327('s_pl_lager_filter')), None)
+                           if e.get() == _t327('s_ml_suche')), None)
         pruefe(filterfeld is not None, 'Vorbedingung: das Suchfeld ist da')
         if filterfeld is not None:
             # Zwei Iron-Posten liegen in Levski — die Suche lässt beide übrig,
@@ -33409,6 +33563,7 @@ def _pruefung_327():
                    'auf und zeigt nur dessen Posten')
     finally:
         _ma327.save(alt)
+        _tc327.save(alt_handel)
         try:
             if _w327 is not None:
                 _w327.destroy()
@@ -33770,12 +33925,12 @@ def _pruefung_329():
             _ma329.add('Erz%02d' % i, 3, 800, 'Orison')
         w = _wurzel()
         fenster = _hf329.MainWindow(w, version='0.0.0-pruefung')
-        fenster.open_page('lager')
+        fenster.open_page('meinlager')
         ende = _ti329.time() + 1.5
         while _ti329.time() < ende:
             w.update()
             _ti329.sleep(0.01)
-        seite = fenster.pages['lager']
+        seite = fenster.pages['meinlager']
 
         def _koepfe():
             out = []
@@ -33890,9 +34045,9 @@ def _pruefung_330_zeilen(_ma330):
         _ma330.save([])
         w = _wurzel()
         fenster = _hf330.MainWindow(w, version='0.0.0-pruefung')
-        fenster.open_page('lager')
+        fenster.open_page('meinlager')
         w.update()
-        seite = fenster.pages['lager']
+        seite = fenster.pages['meinlager']
 
         def _texte(s):
             out = []
@@ -35896,13 +36051,15 @@ def _pruefung_351():
 
 
 def _seite_lager_346():
-    """Ein Hauptfenster mit offener Lager-Seite: (wurzel, fenster, seite)."""
-    from scbp import main_window as _mw
+    """Ein Hauptfenster mit offener Lager-Seite (Mein Lager, das Formular zum
+    Eintragen aufgeklappt): (wurzel, fenster, seite)."""
+    from scbp import main_window as _mw, my_stock_page as _ms, paths as _pf
+    _pf.set_setting(_ms.SETTING_FORM_OPEN, True)
     w = _wurzel()
     f = _mw.MainWindow(w, version='0.0.0-pruefung')
-    f.open_page('lager')
+    f.open_page('meinlager')
     w.update()
-    return w, f, f.pages['lager']
+    return w, f, f.pages['meinlager']
 
 
 def _alle_346(w, bedingung):
@@ -36094,7 +36251,7 @@ def _pruefung_348():
                'Stückware ohne Nachkommastellen')
         # Nach Menge sortieren (Spaltenkopf anklicken): die Blöcke bleiben.
         def _kopf_menge():
-            sp = _la348.t('s_lg_sp_menge')
+            sp = _la348.t('s_ml_sp_menge').upper()
             return [x for x in _alle_346(seite, lambda x: x.winfo_class() == 'Label')
                     if str(x.cget('text')) in (sp, sp + ' ▴', sp + ' ▾')]
         _kopf_menge()[0].event_generate('<Button-1>', x=2, y=2)
@@ -36120,7 +36277,15 @@ def _pruefung_348():
         finally:
             _ma348.piece_first = _echt_pf348
         # Kompakt: Menge und Qualität in einer Zeile, keine zweite Erklärung.
-        felder = _alle_eingaben(seite)
+        # Gezählt wird das gezeigte Formular (Rohstoffe); das für
+        # Verkaufsware ist ausgeblendet, hat aber auch ein Mengenfeld.
+        def _gepackt(x):
+            while x is not None and x is not seite:
+                if not x.winfo_manager():
+                    return False
+                x = x.master
+            return True
+        felder = [e for e in _alle_eingaben(seite) if _gepackt(e)]
         menge = [e for e in felder if e.get() == _la348.t('s_pl_lager_menge')]
         guete = [e for e in felder if e.get() == _la348.t('s_pl_qualitaet')]
         pruefe(len(menge) == 1 and len(guete) == 1
@@ -36248,12 +36413,12 @@ def _pruefung_350():
         verbunden[0] = True
         f.open_page('liste')
         w.update()
-        f.open_page('lager')
+        f.open_page('meinlager')
         w.update()
         pruefe(bool(knopf.winfo_manager())
                and any(s == _la350.t('s_lg_sync') for s in _texte_346(seite)),
                'verbunden: „Jetzt abgleichen" erscheint beim Zeigen der Seite')
-        _nadel350 = f._heading_pins['lager']
+        _nadel350 = f._heading_pins['meinlager']
         _mitte350 = knopf.winfo_rooty() + knopf.winfo_height() // 2
         _nmitte350 = _nadel350.winfo_rooty() + _nadel350.winfo_height() // 2
         pruefe(abs(_mitte350 - _nmitte350) <= 4
@@ -36302,7 +36467,7 @@ def _pruefung_350():
         verbunden[0] = False
         f.open_page('liste')
         w.update()
-        f.open_page('lager')
+        f.open_page('meinlager')
         w.update()
         pruefe(not knopf.winfo_manager(), 'getrennt: wieder ausgeblendet')
         _pg350._sync_ready = lambda _s: True
@@ -36503,20 +36668,24 @@ def _pruefung_377():
     pruefe(_sw377.DATEI_POLL_SEC <= 10,
            'nachgesehen wird alle paar Sekunden (%s)' % _sw377.DATEI_POLL_SEC)
 
-    print('\n380. Rohstofflager: kein Knopf der unteren Reihen abgeschnitten')
+    print('\n380. Mein Lager: kein Knopf der unteren Reihen abgeschnitten')
     from scbp import main_window as _mw380, pages as _pg380
     from scbp import language as _la380
     _bereit380 = _pg380._sync_ready
     _w380 = None
     try:
         _pg380._sync_ready = lambda _s: True
+        # Sichern & Löschen steht in einem Klappblock — offen, damit die
+        # Knöpfe eine Lage haben.
+        from scbp import my_stock_page as _ms380, paths as _pf380
+        _pf380.set_setting(_ms380.SETTING_BACKUP_OPEN, True)
         _w380 = _wurzel()
         _w380.deiconify()
         _f380 = _mw380.MainWindow(_w380, version='0.0.0-pruefung')
         _w380.geometry('%dx%d' % (_w380.minsize()[0], 900))
-        _f380.open_page('lager')
+        _f380.open_page('meinlager')
         _w380.update()
-        _seite380 = _f380.pages['lager']
+        _seite380 = _f380.pages['meinlager']
         _knoepfe380 = []
 
         def _lauf380(x):
@@ -36524,13 +36693,16 @@ def _pruefung_377():
                 _texte = [str(x.itemcget(i, 'text')) for i in x.find_all()
                           if x.type(i) == 'text']
                 if any(t_ in (_la380.t('s_lg_leeren'),
+                              _la380.t('s_ml_ware_leeren'),
+                              _la380.t('s_ml_items_leeren'),
                               _la380.t('s_lg_einlesen')) for t_ in _texte):
                     _knoepfe380.append(x)
             for k in x.winfo_children():
                 _lauf380(k)
         _lauf380(_seite380)
-        pruefe(len(_knoepfe380) == 2,
-               'Vorbedingung: Einlesen und Löschen sind gebaut '
+        # Einlesen, Rohstoffe löschen, Ware löschen, Items löschen.
+        pruefe(len(_knoepfe380) == 4,
+               'Vorbedingung: Einlesen und Löschen je Teil sind gebaut '
                '(%d)' % len(_knoepfe380))
         _zu_breit380 = [k for k in _knoepfe380
                         if k.winfo_x() + k.winfo_width()
@@ -36538,7 +36710,7 @@ def _pruefung_377():
         pruefe(not _zu_breit380,
                'jeder Knopf liegt ganz in seiner Reihe bei Mindestbreite')
 
-        print('\n381. Rohstofflager: Einzeleingabe einklappbar und gemerkt')
+        print('\n381. Mein Lager: Einzeleingabe einklappbar und gemerkt')
         from scbp import paths as _pf381
         _alt381 = _pf381.setting_bool('lager_hand_offen', True)
         _rahmen381 = tk.Frame(_w380)
@@ -36575,7 +36747,7 @@ def _pruefung_377():
         pruefe(_th382.KRT_ORANGE not in _farben382(_normal382)
                or _th382.ACCENT.lower() == _th382.KRT_ORANGE,
                'Gegenprobe: ein gewöhnlicher Knopf nicht')
-        _sync382 = [k for k in _f380.pages['lager'].winfo_children()
+        _sync382 = [k for k in _f380.pages['meinlager'].winfo_children()
                     if k.winfo_class() == 'Canvas' and any(
             str(k.itemcget(i, 'text')) == _la380.t('s_lg_sync')
             for i in k.find_all() if k.type(i) == 'text')]
@@ -39884,7 +40056,7 @@ def _pruefung_422():
             _w422.update()
             _meldung_r422 = getattr(getattr(_f422, 'refinery_read', None),
                                     'message', None)
-            pruefe(_f422.current == 'lager' and _meldung_r422 is not None
+            pruefe(_f422.current == 'meinlager' and _meldung_r422 is not None
                    and _meldung_r422.winfo_ismapped()
                    and _meldung_r422.cget('text') in (
                        _ov422.t('s_rf_lesen_aus'),
@@ -41493,21 +41665,26 @@ def _pruefung_424():
     _je_gruppe['einstellungen'] = (_je_gruppe.get('einstellungen', [])
                                    + ['erkennung', 'startprogramme'])
 
-    def _im_bereich424(a):
-        # Der Bereich Basetool zeigt auch Seiten anderer Gruppen; seine eigene
-        # Gruppe hat nur `BASETOOL_TABS`. Andere Bereiche dürfen diese Seiten
-        # zusätzlich zeigen, ihre Gruppen haben sie nicht.
-        if a[0] == 'basetool':
-            return [p for p in a[3] if p in _ka424.BASETOOL_TABS]
-        return [p for p in a[3] if p not in _ka424.BASETOOL_TABS]
+    # Der Bereich Basetool sammelt Seiten anderer Gruppen und hat keine
+    # eigene Gruppe in der Leiste; jeder andere Bereich ist seine Gruppe.
     _falsch = [a[0] for a in _ka424.AREAS
-               if a[0] in _je_gruppe and _im_bereich424(a) != _je_gruppe[a[0]]]
-    pruefe('basetool' in _je_gruppe
-           and _je_gruppe['basetool'] == list(_ka424.BASETOOL_TABS)
+               if a[0] != 'basetool'
+               and list(a[3]) != _je_gruppe.get(a[0])]
+    # Auch die Reihenfolge der Bereiche folgt der Leiste.
+    _gruppen_folge424 = [_namen[v] for v in _gruppen if v in _namen]
+    _bereich_folge424 = [a[0] for a in _ka424.AREAS if a[0] != 'basetool']
+    pruefe(_bereich_folge424 == _gruppen_folge424,
+           'die Bereiche stehen in der Reihenfolge der Gruppen (%r)'
+           % _bereich_folge424)
+    _gruppe_von = {p: g for g, ps in _je_gruppe.items() for p in ps}
+    pruefe('basetool' not in _je_gruppe
            and list(_ka424.area('basetool')[3][:len(_ka424.BASETOOL_TABS)])
-           == list(_ka424.BASETOOL_TABS),
-           'die Reiterleiste hat eine Gruppe Basetool mit genau den Seiten, die '
-           'im Bereich Basetool vorn stehen (%r)' % _je_gruppe.get('basetool'))
+           == list(_ka424.BASETOOL_TABS)
+           and _gruppe_von.get('basetool') == 'einstellungen'
+           and _gruppe_von.get('bedarf') == 'beschaffung',
+           'die Basetool-Seiten stehen im Bereich Basetool vorn, in der Leiste '
+           'unter Einstellungen und Beschaffung (%r)'
+           % [_gruppe_von.get(p) for p in _ka424.BASETOOL_TABS])
     pruefe(not _falsch, 'jeder Bereich zeigt genau die Reiter seiner Gruppe, '
            'in derselben Reihenfolge (%r)' % _falsch)
     # Angeheftete Karten auf der Übersicht nehmen den Text ohne Bereich —
@@ -41520,16 +41697,19 @@ def _pruefung_424():
     pruefe(not _fehlt, 'jede Karte hat ihren Text, deutsch und englisch (%r)'
            % _fehlt)
     pruefe(_ka424.area('basetool')[3] == ('basetool', 'bedarf', 'staffellager',
-                                         'lager', 'handelslager', 'hangar',
-                                         'liste'),
-           'Basetool bündelt Verbindung, Bedarf, Lager der Einheit, Lager, '
-           'Handelslager, Hangar, Liste')
+                                         'meinlager', 'hangar', 'liste'),
+           'Basetool bündelt Verbindung, Bedarf, Lager der Einheit, Mein '
+           'Lager, Hangar, Liste')
+    pruefe(_ka424.area('logistik')[3]
+           == ('hangar', 'wunschliste', 'meinlager', 'staffellager'),
+           'der Bereich Flotte & Logistik hat Hangar, Wunschliste, Mein Lager '
+           'und Lager der Einheit')
     pruefe([_ka424.columns_for(w, 220) for w in (100, 451, 452, 940, 1500)]
            == [1, 1, 2, 4, 6],
            'Spalten: so viele, wie mit Mindestbreite passen, mindestens eine')
-    pruefe(_ka424.area_of('lager') == 'werkstatt'
-           and _ka424.area_of('lager', 'basetool') == 'basetool'
-           and _ka424.area_of('lager', 'info') == 'werkstatt',
+    pruefe(_ka424.area_of('meinlager') == 'logistik'
+           and _ka424.area_of('meinlager', 'basetool') == 'basetool'
+           and _ka424.area_of('meinlager', 'info') == 'logistik',
            'Bereich einer Seite: der gewählte, wenn sie dort steht')
 
     if not hat_anzeige():
@@ -41624,21 +41804,21 @@ def _pruefung_424():
                % sorted(_breiten424))
         # Klick auf eine Hauptkarte -> Bereichsseite.
         next(_c for _c in _start.main_grid.cells
-             if getattr(_c, 'area_key', None) == 'werkstatt').card.open()
+             if getattr(_c, 'area_key', None) == 'logistik').card.open()
         _w.update()
-        pruefe(_f.current == 'bereich_werkstatt'
-               and _f.crumb_bar.crumbs[-1] == _la424.t('hf_gruppe_herst'),
+        pruefe(_f.current == 'bereich_logistik'
+               and _f.crumb_bar.crumbs[-1] == _la424.t('hf_gruppe_logistik'),
                'eine Hauptkarte öffnet ihre Bereichsseite (%r)' % _f.current)
-        _bg = _f.pages['bereich_werkstatt'].card_grid
+        _bg = _f.pages['bereich_logistik'].card_grid
         pruefe([c.page_key for c in _bg.cells]
-               == list(_ka424.area('werkstatt')[3]),
+               == list(_ka424.area('logistik')[3]),
                'Bereichsseite: eine Karte je Unterpunkt')
-        _lager424 = [c.page_key for c in _bg.cells].index('lager')
+        _lager424 = [c.page_key for c in _bg.cells].index('meinlager')
         _bg.cells[_lager424].card.open()
         _w.update()
-        pruefe(_f.current == 'lager' and _f.crumb_bar.crumbs
-               == [_la424.t('hf_uebersicht'), _la424.t('hf_gruppe_herst'),
-                   _la424.t('hf_lager')],
+        pruefe(_f.current == 'meinlager' and _f.crumb_bar.crumbs
+               == [_la424.t('hf_uebersicht'), _la424.t('hf_gruppe_logistik'),
+                   _la424.t('hf_meinlager')],
                'Unterpunkt-Karte öffnet die Seite, Pfadzeile mit drei Stücken '
                '(%r)' % _f.crumb_bar.crumbs)
         _bilder424 = [c for c in _f.crumb_bar.winfo_children()
@@ -41648,20 +41828,20 @@ def _pruefung_424():
                and all(str(c.cget('image')) for c in _bilder424),
                'Pfadzeile: Haus und jedes Trennzeichen sind sichtbare Symbole '
                '(%r)' % [str(c.cget('image')) for c in _bilder424])
-        _f.open_page('lager', via='karte', area='basetool')
+        _f.open_page('meinlager', via='karte', area='basetool')
         _w.update()
         pruefe(_f.crumb_bar.crumbs[1] == _la424.t('k_basetool_titel'),
                'aus dem Basetool geöffnet nennt die Pfadzeile Basetool')
         # Anheften über die Nadel.
-        _f.open_page('bereich_werkstatt', via='karte')
+        _f.open_page('bereich_logistik', via='karte')
         _w.update()
         _nadel = _bg.cells[_lager424].card.needle
         _nadel.event_generate('<Button-1>')
-        pruefe(_ka424.pinned() == ['lager'], 'die Nadel heftet an (%r)'
+        pruefe(_ka424.pinned() == ['meinlager'], 'die Nadel heftet an (%r)'
                % _ka424.pinned())
         _f.open_page('uebersicht', via='pfad')
         _w.update()
-        pruefe([c.page_key for c in _start.pin_grid.cells] == ['lager'],
+        pruefe([c.page_key for c in _start.pin_grid.cells] == ['meinlager'],
                'die angeheftete Karte steht unter Deine Karten')
         # Anheften an der Seitenüberschrift (für die Reiteransicht). Die
         # Bereichsseite steht schon vorher, damit sie nachziehen muss.
@@ -41674,7 +41854,7 @@ def _pruefung_424():
                'neben der Seitenüberschrift steht eine Nadel')
         if _kopfnadel is not None:
             _kopfnadel.event_generate('<Button-1>')
-        pruefe(_ka424.pinned() == ['lager', 'grafik'],
+        pruefe(_ka424.pinned() == ['meinlager', 'grafik'],
                'die Nadel an der Überschrift heftet an (%r)' % _ka424.pinned())
         _ohne_nadel424 = []
         for _seite424 in _ka424.PAGES:
@@ -41773,14 +41953,16 @@ def _pruefung_424():
                 return [k.itemcget(k.caption, 'text') for k in knoepfe]
             _t424 = _la424.t
             _werk424 = _extras424('werkstatt')
+            _abbau424 = _extras424('bergung')
+            _lagerb424 = _extras424('logistik')
             _base424 = _extras424('basetool')
             _spiel424 = _extras424('spiel_einst')
             _soll424 = {
-                ('werkstatt', 'lager'): [_t424('k_raff_scanner')],
-                ('werkstatt', 'bergbau'): [_t424('k_scanner')],
+                ('logistik', 'meinlager'): [_t424('k_raff_scanner')],
+                ('logistik', 'staffellager'): [],
+                ('bergung', 'bergbau'): [_t424('k_scanner')],
                 ('werkstatt', 'herstellung'): [],
-                ('basetool', 'lager'): [_t424('k_raff_scanner')],
-                ('basetool', 'handelslager'): [],
+                ('basetool', 'meinlager'): [_t424('k_raff_scanner')],
                 ('basetool', 'hangar'): [],
                 ('basetool', 'liste'): [],
                 ('basetool', 'bedarf'): [],
@@ -41790,15 +41972,18 @@ def _pruefung_424():
                                                   _t424('k_tr_neu')],
                 ('spiel_einst', 'grafik'): [],
             }
-            _ist424 = {'werkstatt': _werk424, 'basetool': _base424,
-                       'spiel_einst': _spiel424}
+            _ist424 = {'werkstatt': _werk424, 'logistik': _lagerb424,
+                       'basetool': _base424, 'spiel_einst': _spiel424,
+                       'bergung': _abbau424}
             _abw424 = {k: _namen424(_ist424[k[0]].get(k[1], []))
                        for k, v in _soll424.items()
                        if _namen424(_ist424[k[0]].get(k[1], [])) != v}
             pruefe(not _abw424, 'jede Unterpunkt-Karte hat ihre Zusatzknöpfe '
                    '(abweichend: %r)' % _abw424)
-            pruefe('bedarf' not in _werk424,
-                   'Bedarf der Einheit steht nur im Bereich Basetool')
+            pruefe([a[0] for a in _ka424.AREAS if 'bedarf' in a[3]]
+                   == ['basetool', 'beschaffung'],
+                   'Bedarf der Einheit steht in den Bereichen Basetool und '
+                   'Beschaffung')
             _reihe424 = list(_base424)
             pruefe(_reihe424[:2] == ['basetool', _ka424.SYNC_CARD],
                    'im Bereich Basetool steht die Abgleich-Karte direkt hinter '
@@ -41806,7 +41991,8 @@ def _pruefung_424():
             # Jeder Zusatzknopf liegt ganz in seiner Karte — bei schmaler
             # Karte oder breiter Schrift ragte er sonst hinaus.
             _draussen424 = []
-            for _alle424 in (_werk424, _base424, _spiel424):
+            for _alle424 in (_werk424, _abbau424, _lagerb424, _base424,
+                             _spiel424):
                 for _seite424, _knoepfe424 in _alle424.items():
                     for _k424 in _knoepfe424:
                         _fuss424 = _k424.master
@@ -41848,7 +42034,8 @@ def _pruefung_424():
             _schmal424.destroy()
             # Ausgelöst über `invoke` — ein simulierter Mausklick kommt nicht
             # auf jedem System an.
-            for _k424 in (_werk424['lager'][0], _spiel424['uebersetzung'][1]):
+            for _k424 in (_lagerb424['meinlager'][0],
+                          _spiel424['uebersetzung'][1]):
                 _k424.invoke()
             _ka424.sync_now(_f)
             _w.update()
@@ -41857,7 +42044,7 @@ def _pruefung_424():
                    'lösen ihre Handlung aus (%r)' % _spur424)
             # Der Scanner-Knopf schaltet denselben Schalter und folgt ihm.
             _sg424.set_enabled(False)
-            _scanner424 = _werk424['bergbau'][0]
+            _scanner424 = _abbau424['bergbau'][0]
 
             def _gefuellt424():
                 return _scanner424.itemcget(_scanner424.shape, 'fill').lower()
@@ -42322,25 +42509,41 @@ def _pruefung_438():
         pruefe(_rund438 == _tc438.load(),
                'Ausgeben und Einlesen behält den Einkaufspreis')
         _preise438 = {'Gold': 7500.0}
-        _gewinn438 = _pg438._cargo_profit(_tc438.load(),
-                                          lambda w: _preise438.get(w, 0))
-        pruefe(abs(_gewinn438 - (200 * 1000 + 100 * -1000)) < 1e-6,
+        from scbp import my_stock_page as _ms438, main_window as _mw438
+        from scbp import selling as _vk438
+        _verkauf438 = [r for r in _ms438.entries()
+                       if r['store'] == _ms438.STORE_TRADE]
+        _gewinn438 = _ms438._profit(_verkauf438,
+                                    lambda w: _preise438.get(w, 0))
+        pruefe(_gewinn438 is not None
+               and abs(_gewinn438 - (200 * 1000 + 100 * -1000)) < 1e-6,
                'Gewinn höchstens = (Ankauf - bezahlt) * Menge (%r)' % _gewinn438)
-        _w438 = _tk438.Tk()
-        _w438.withdraw()
+        # Mein Lager mit PURPOSE_SALE: Spalte Gewinn je Posten.
+        _bester438 = _vk438.best_price
+        _vk438.best_price = lambda w: _preise438.get(w, 0)
+        _w438 = _wurzel()
         try:
-            _fen438 = _ty438.SimpleNamespace(f_small=('TkDefaultFont', 9))
-            _rahmen438 = _tk438.Frame(_w438)
-            _pg438._trade_table(_fen438, _rahmen438, _tc438.load(),
-                                lambda w: _preise438.get(w, 0),
-                                lambda n: None, lambda n: None, None)
-            _texte438 = [c.cget('text') for c in _rahmen438.winfo_children()[0]
-                         .winfo_children() if isinstance(c, _tk438.Label)]
-            pruefe(_pg438.t('s_hl_sp_gewinn') in _texte438
+            _f438 = _mw438.MainWindow(_w438, version='0.0.0-pruefung')
+            _f438.my_stock_preset = {'view': _ms438.VIEW_MATERIAL,
+                                     'purpose': _ms438.PURPOSE_SALE}
+            _f438.open_page('meinlager')
+            _seite438 = _f438.my_stock_page
+            _seite438['open'].add((False, 'gold'))
+            _seite438['redraw']()
+            _w438.update()
+            _texte438 = [z.cget('text') for _a, _r, zellen
+                         in _seite438['row_widgets'] for z in zellen
+                         if isinstance(z, _tk438.Label)]
+            _kopf438 = [z.cget('text') for z in _seite438['listing']
+                        .winfo_children()[0].grid_slaves(row=0)]
+            pruefe(_pg438.t('s_hl_sp_gewinn').upper() in _kopf438
                    and '+200.000' in _texte438 and '-100.000' in _texte438,
-                   'Tabelle: Spalte Gewinn je Posten, mit Vorzeichen (%r)'
-                   % [x for x in _texte438 if x[:1] in '+-'])
+                   'Mein Lager, zum Verkaufen: Spalte Gewinn je Posten, mit '
+                   'Vorzeichen (%r)' % [x for x in _texte438 if x[:1] in '+-'])
+            pruefe('+100.000' in _texte438,
+                   'die Sammelzeile zählt den Gewinn ihrer Posten zusammen')
         finally:
+            _vk438.best_price = _bester438
             _w438.destroy()
         # Verkaufs-Reiter: Gewinn an einem Ort aus dem Einkaufspreis.
         _w438 = _tk438.Tk()
@@ -42369,7 +42572,9 @@ def _pruefung_438():
             _w438.destroy()
         _q438 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
-        pruefe('cost=einkauf.get()' in _q438 and 'einkaeufe=einkaeufe' in _q438,
+        _form438 = rumpf(open(os.path.join(WURZEL, 'scbp', 'my_stock_page.py'),
+                              encoding='utf-8').read(), '_trade_form')
+        pruefe('cost=cost.get()' in _form438 and 'einkaeufe=einkaeufe' in _q438,
                'Formular und Verkaufs-Reiter geben den Einkaufspreis weiter')
     finally:
         if _alt438 is None:
@@ -43184,15 +43389,28 @@ def _pruefung_445():
             return tuple(k for z in g['inhalt'].winfo_children()
                          for k, teile in _f445.buttons.items() if teile[0] is z)
 
-        pruefe(reiter_von('basetool') == ('basetool', 'bedarf', 'staffellager'),
-               'die Gruppe Basetool hat Verbindung, Bedarf und Lager der '
-               'Einheit (%r)' % (reiter_von('basetool'),))
-        _anderswo445 = [g for g in _f445.groups if g != 'basetool'
-                        and set(reiter_von(g)) & {'basetool', 'bedarf',
-                                                  'staffellager'}]
+        einst = reiter_von('einstellungen')
+        pruefe('basetool' not in _f445.groups
+               and reiter_von('beschaffung') == ('bedarf', 'einkaufsliste')
+               and einst[einst.index('module') + 1] == 'basetool'
+               and einst[einst.index('basetool') + 1] == 'bestand',
+               'keine Gruppe Basetool: der Bedarf steht unter Beschaffung, die '
+               'Verbindung unter Einstellungen zwischen Module und Sichern '
+               '(%r, %r)' % (reiter_von('beschaffung'), einst))
+        pruefe(reiter_von('logistik')
+               == ('hangar', 'wunschliste', 'meinlager', 'staffellager'),
+               'Flotte & Logistik: Hangar, Wunschliste, Mein Lager, Lager der '
+               'Einheit (%r)' % (reiter_von('logistik'),))
+        _anderswo445 = [g for g in _f445.groups if g != 'einstellungen'
+                        and 'basetool' in reiter_von(g)]
+        _anderswo445 += [g for g in _f445.groups if g != 'beschaffung'
+                         and 'bedarf' in reiter_von(g)]
+        _anderswo445 += [g for g in _f445.groups if g != 'logistik'
+                         and set(reiter_von(g)) & {'meinlager', 'staffellager',
+                                                   'lager', 'handelslager'}]
         pruefe(not _anderswo445,
-               'Basetool-Reiter stehen in keiner anderen Gruppe (%r)'
-               % _anderswo445)
+               'Basetool- und Lager-Reiter stehen in keiner anderen Gruppe '
+               '(%r)' % _anderswo445)
 
         def alle_auf():
             for name in list(_f445.groups):
@@ -43203,8 +43421,8 @@ def _pruefung_445():
 
         alle_auf()
         _f445.open_page('uebersicht')
-        _f445.open_page('lager', via='sprung')
-        pruefe(offen() == {'werkstatt'},
+        _f445.open_page('bergbau', via='sprung')
+        pruefe(offen() == {'bergung'},
                'Sprung aus der Übersicht: nur die Gruppe der Zielseite offen '
                '(%r)' % sorted(offen()))
 
@@ -43228,18 +43446,22 @@ def _pruefung_445():
                'Ziel ohne Reiter: die Leiste bleibt, wie sie ist (%r)'
                % sorted(set(_f445.groups) - offen()))
 
-        # Modul Basetool aus: Gruppe weg, Sprünge landen auf „Module", und
-        # derselbe Schalter nimmt den Kartenbereich weg.
+        # Modul Basetool aus: seine Reiter weg, Sprünge landen auf „Module",
+        # und derselbe Schalter nimmt den Kartenbereich weg.
         from scbp import modules as _mo445, cards as _ka445
         _mo445.set_enabled('basetool', False)
         _f445.close()
         _w445.update()
         _f445 = _mw445.MainWindow(_w445, version='0.0.0-pruefung')
         _w445.update()
-        _g445 = _f445.groups.get('basetool')
-        pruefe(_g445 is not None and not _g445['kopf'].winfo_manager()
-               and not _g445['inhalt'].winfo_manager(),
-               'Modul Basetool aus: die Gruppe ist ausgeblendet')
+        pruefe(not _f445.buttons['basetool'][0].winfo_manager()
+               and _f445._module_hidden('bedarf')
+               and _f445._module_hidden('basetool')
+               and not _f445.buttons['bedarf'][0].winfo_manager()
+               and _f445.buttons['einkaufsliste'][0].winfo_manager()
+               and _f445.groups['beschaffung']['kopf'].winfo_manager(),
+               'Modul Basetool aus: Verbindung und Bedarf sind ausgeblendet, '
+               'die Gruppe Beschaffung bleibt mit der Einkaufsliste')
         _ziele445 = []
         for _seite445 in ('basetool', 'bedarf', 'staffellager'):
             _f445.open_page(_seite445, via='sprung')
@@ -45829,6 +46051,15 @@ def _pruefung_466():
                 return _f
         return None
 
+    def _buchungen466(w):
+        """Die Symbole der Buchungen je Eintrag: `[{Art: Symbol}]`."""
+        out = []
+        if isinstance(getattr(w, 'action_icons', None), dict):
+            out.append(w.action_icons)
+        for _k in w.winfo_children():
+            out.extend(_buchungen466(_k))
+        return out
+
     def _pumpen():
         # Auch die Rückmeldung aus dem Buchungsfaden kommt über
         # `pages._TK_CALLS` — der Abholer läuft im Takt von `after`.
@@ -45874,7 +46105,9 @@ def _pruefung_466():
         _pumpen()
         pruefe('Hauler One' in _texte(_seite, []),
                'aufgeklappt: der Eintrag nennt den Besitzer')
-        pruefe(_knopf(_seite, _sp466.t('s_sl_ausbuchen')) is None
+        # Die Buchungen am Eintrag sind Symbole (`action_icons` an der
+        # Zelle), der Knopf Einbuchen oben ist ein Textknopf.
+        pruefe(not _buchungen466(_seite)
                and _knopf(_seite, _sp466.t('s_sl_einbuchen')) is None,
                'ohne eingeschaltetes Buchen: keine Buchungsknöpfe')
 
@@ -45886,8 +46119,13 @@ def _pruefung_466():
                'Logistiker mit Buchen: der Knopf Einbuchen steht oben')
         _label(_seite, 'Laranite').event_generate('<Button-1>')
         _pumpen()
-        _k = _knopf(_seite, _sp466.t('s_sl_ausbuchen'))
+        _symbole466 = _buchungen466(_seite)
+        _k = _symbole466[0].get('book_out') if _symbole466 else None
         pruefe(_k is not None, 'am Eintrag steht Ausbuchen')
+        pruefe(bool(_symbole466) and set(_symbole466[0])
+               == {'book_out', 'sell', 'move', 'note', 'stolen', 'earmark'},
+               'am Eintrag stehen alle sechs Buchungen als Symbole (%r)'
+               % (sorted(_symbole466[0]) if _symbole466 else None))
         _k.event_generate('<Button-1>')
         _pumpen()
         pruefe(_label(_seite, _sp466.t('s_sl_ausbuchen_titel')
@@ -45911,7 +46149,7 @@ def _pruefung_466():
         _label(_seite, 'Laranite').event_generate('<Button-1>') \
             if _label(_seite, 'Hauler One') is None else None
         _pumpen()
-        _knopf(_seite, _sp466.t('s_sl_notiz')).event_generate('<Button-1>')
+        _buchungen466(_seite)[0]['note'].event_generate('<Button-1>')
         _pumpen()
         _titel = _sp466.t('s_sl_notiz_titel') % ('Laranite', 'Hauler One')
         _form = _label(_seite, _titel).master
@@ -46825,8 +47063,11 @@ def _pruefung_471():
         pruefe(_abrufe471 == ['falle://471'],
                'Vorbedingung: die Falle für UEX-Abrufe schnappt zu')
         _abrufe471[:] = []
-        pruefe(_sc471.due() and _sc471.choices() == {},
-               'ohne Ablage ist die Liste fällig und leer')
+        pruefe(_sc471.due() and _sc471._store.load() == {}
+               and bool(_sc471.choices())
+               and _sc471.choices() is _sc471.choices(),
+               'ohne Ablage ist die Liste fällig, und es gilt die '
+               'mitgelieferte Startliste')
         pruefe(_sc471.update() is True, 'die Liste wird aufgebaut')
         pruefe(sorted(_abrufe471) == sorted([
                    _sc471.SOURCE_CATEGORIES, _sc471.SOURCE_ITEMS % 1,
@@ -47378,7 +47619,11 @@ def _pruefung_471():
         _ausfuellen('Golden Medmon')
         _einbuchen()
         _klick(_label(_seite(), 'Laranite'))
-        _notiz471 = _knopf(_seite(), _t471('s_sl_notiz'))
+        # Die Buchungen am Eintrag sind Symbole an der Zelle (`action_icons`).
+        _zelle471 = _finde(_seite(), lambda x: isinstance(
+            getattr(x, 'action_icons', None), dict))
+        _notiz471 = (_zelle471.action_icons.get('note')
+                     if _zelle471 is not None else None)
         pruefe(_notiz471 is not None, 'Vorbedingung: Knopf Notiz am Eintrag')
         _klick(_notiz471)
         _laufen()
@@ -48148,6 +48393,1599 @@ def _pruefung_474():
         _fl474.unknown = _echt_unknown474
         _fl474.save(_alt_hangar474)
         shutil.rmtree(_ordner474, ignore_errors=True)
+def _pruefung_478():
+    """478. Art eines Lagerpostens (`stock_kinds`), ohne Netz.
+
+    Material: erst das `materialKind` des Basetools, dann die Schreibweise,
+    dann die eigenen Rohstoffdaten, dann Handelsware. Gegenstände: Katalog,
+    Rezept, UEX-Bereich — sonst Sonstiges."""
+    print('\n478. Art eines Lagerpostens')
+    from scbp import stock_kinds as _sk, stock_catalog as _sc478
+    from scbp import crafting as _cr478, paths as _pa478
+    namen = {'stand': 'probe', 'plants': frozenset({'decari'}),
+             'pieces': frozenset({'hadanite'}),
+             'minerals': frozenset({'laranite', 'agricium'})}
+    alt = (_sk._material_names, _sk._catalog_entries, _sc478.choices,
+           _cr478.recipe_raw)
+    katalog = {_pa478.name_key('TS-2'): {'a': 'QuantumDrive', 'c': 'Military',
+                                          's': 3, 'g': 1},
+               _pa478.name_key('P4-AR Rifle'): {'a': 'WeaponPersonal'},
+               _pa478.name_key('Arclight'): {'a': 'Gadget', 'c': 'Civilian',
+                                              's': 1, 'g': 2}}
+    uex = {'medical supplies': {'name': 'Medical Supplies', 'item': None,
+                                'material': 7, 'section': ''},
+           'helm a': {'name': 'Helm A', 'item': 5, 'material': None,
+                      'section': 'Armor'}}
+    try:
+        _sk._material_names = lambda: namen
+        _sk._catalog_entries = lambda: katalog
+        _sc478.choices = lambda: uex
+        _cr478.recipe_raw = lambda _n: {}
+        server = {'laranite': {'type': 'RAW', 'commodity': True},
+                  'gold': {'type': 'REFINED', 'commodity': True},
+                  'scrap': {'type': 'NO_REFINE', 'commodity': True}}
+        fall = [('Laranite', server, False, _sk.ORE,
+                 'Basetool sagt RAW: Erz, obwohl der Name ohne Zusatz '
+                 'raffiniert hieße'),
+                ('Gold', server, False, _sk.REFINED, 'REFINED: Raffiniert'),
+                ('Scrap', server, False, _sk.COMMODITY,
+                 'NO_REFINE mit commodity: Handelsware'),
+                ('Laranite (Ore)', {}, False, _sk.ORE, '(Ore): Erz'),
+                ('Raw Ice', {}, False, _sk.ORE, 'Raw …: Erz'),
+                ('Decari', {}, False, _sk.PLANT, 'Pflanze aus den Bergbaudaten'),
+                ('Hadanite', {}, False, _sk.MINERAL, 'Stück-Mineral'),
+                ('Agricium', {}, False, _sk.REFINED,
+                 'abbaubares Mineral ohne Erz-Zusatz: raffiniert'),
+                ('Medical Supplies', {}, False, _sk.COMMODITY,
+                 'UEX-Ware: Handelsware'),
+                ('Etwas', {}, True, _sk.COMMODITY,
+                 'Unbekanntes im Handelslager: Handelsware'),
+                ('Etwas', {}, False, _sk.OTHER,
+                 'Unbekanntes im Rohstofflager: Sonstiges')]
+        for name, srv, verkauf, soll, was in fall:
+            ist = _sk.material_kind(name, srv, for_sale=verkauf)
+            pruefe(ist == soll, '%s (%s: %s)' % (was, name, ist))
+        for name, soll, was in (
+                ('TS-2', _sk.VEHICLE_ITEM,
+                 'TS-2 ist eine Schiffskomponente (Katalog)'),
+                ('P4-AR Rifle', _sk.WEAPON, 'Gewehr: Handwaffe'),
+                ('Arclight', _sk.VEHICLE_ITEM,
+                 'Gegenstand mit Klasse ohne feste Gruppe: Komponente'),
+                ('Helm A', _sk.ARMOR, 'UEX-Bereich Armor: Rüstung'),
+                ('Unbekannt 9000', _sk.OTHER, 'unbekannt: Sonstiges')):
+            ist = _sk.item_kind(name)
+            pruefe(ist == soll, '%s (%s)' % (was, ist))
+        from scbp import language as _la478
+        pruefe(all(_la478.TEXTS.get('s_ml_k_' + k)
+                   and all(_la478.TEXTS['s_ml_k_' + k])
+                   for k in _sk.MATERIAL_KINDS + _sk.ITEM_KINDS),
+               'jede Art hat ihren Namen, deutsch und englisch')
+    finally:
+        (_sk._material_names, _sk._catalog_entries, _sc478.choices,
+         _cr478.recipe_raw) = alt
+
+
+def _lager_fenster_479(preset=None):
+    """Ein Hauptfenster mit offener Seite Mein Lager: (wurzel, fenster,
+    Seitenzustand). `preset` geht wie ein Sprung mit Vorwahl hinein."""
+    from scbp import main_window as _mw
+    w = _wurzel()
+    f = _mw.MainWindow(w, version='0.0.0-pruefung')
+    if preset:
+        f.my_stock_preset = dict(preset)
+    f.open_page('meinlager')
+    w.update()
+    return w, f, f.my_stock_page
+
+
+def _pruefung_479():
+    """479. Mein Lager: beide Dateien, Reiter, Filter, Suche, Bearbeiten.
+
+    Im echten Hauptfenster mit zwei Rohstoffen, zwei Waren zum Verkaufen und
+    einem Item. Gezählt werden die Zeilen, die die Seite wirklich zeigt."""
+    print('\n479. Mein Lager: Reiter, Filter und Bearbeiten')
+    import copy as _cp
+    from scbp import materials as _ma, trade_cargo as _tc, my_stock_page as _ms
+    alt = (_cp.deepcopy(_ma.load()), _cp.deepcopy(_tc.load()))
+    w = None
+    try:
+        _ma.save([{'material': 'Iron', 'menge': 4.0, 'qualitaet': 500,
+                   'ort': 'Levski'},
+                  {'material': 'Gold', 'menge': 2.0, 'qualitaet': 700,
+                   'ort': 'Orison'}])
+        _tc.save([{'ware': 'Medical Supplies', 'menge': 8, 'ort': 'Lorville',
+                   'gestohlen': False},
+                  {'ware': 'Gold', 'menge': 3, 'ort': 'Area18',
+                   'gestohlen': True},
+                  {'ware': 'FR-66', 'menge': 2, 'ort': 'Levski',
+                   'gestohlen': False, 'stueck': True}])
+        if not hat_anzeige():
+            uebersprungen('479 Seite', 'keine Anzeige')
+            return
+        w, f, seite = _lager_fenster_479({'view': _ms.VIEW_MATERIAL,
+                                          'purpose': '', 'kind': '',
+                                          'place': ''})
+
+        def gezeigt():
+            return sorted((r['store'], r['name']) for r in seite['shown'])
+
+        def neu(**stand):
+            seite['state'].update(stand)
+            seite['redraw']()
+            w.update()
+        pruefe(gezeigt() == [('raw', 'Gold'), ('raw', 'Iron'),
+                             ('trade', 'Gold'), ('trade', 'Medical Supplies')],
+               'Material zeigt Rohstoffe und Handelsware, kein Item (%r)'
+               % gezeigt())
+        neu(view=_ms.VIEW_ITEMS)
+        pruefe(gezeigt() == [('trade', 'FR-66')],
+               'Items zeigt nur das Item (%r)' % gezeigt())
+        neu(view=_ms.VIEW_MATERIAL, purpose=_ms.PURPOSE_CRAFT)
+        pruefe(gezeigt() == [('raw', 'Gold'), ('raw', 'Iron')],
+               'zum Herstellen: nur das Rohstofflager (%r)' % gezeigt())
+        neu(purpose=_ms.PURPOSE_SALE)
+        pruefe(gezeigt() == [('trade', 'Gold'), ('trade', 'Medical Supplies')],
+               'zum Verkaufen: nur das Handelslager (%r)' % gezeigt())
+        neu(purpose='', place='Levski')
+        pruefe(gezeigt() == [('raw', 'Iron')], 'Ort: nur Levski (%r)'
+               % gezeigt())
+        neu(place='')
+        seite['state']['search'].set('medical')
+        seite['redraw']()
+        w.update()
+        pruefe(gezeigt() == [('trade', 'Medical Supplies')],
+               'die Suche trifft den Namen (%r)' % gezeigt())
+        seite['state']['search'].set('')
+        neu()
+
+        # Das Abzeichen Verkauf steht nur an Handelslager-Posten.
+        def abzeichen(zeile):
+            out = []
+            stapel = list(zeile)
+            while stapel:
+                x = stapel.pop()
+                if x.winfo_class() == 'Canvas':
+                    out += [str(x.itemcget(i, 'text')) for i in x.find_all()
+                            if x.type(i) == 'text']
+                stapel.extend(x.winfo_children())
+            return out
+        verkauf = _ms.t('s_ml_verkauf')
+        gold = [abzeichen(z) for art, x, z in seite['row_widgets']
+                if art == 'group' and x[1] == 'gold']
+        med = [abzeichen(z) for art, x, z in seite['row_widgets']
+               if art == 'post' and x['name'] == 'Medical Supplies']
+        eisen = [abzeichen(z) for art, x, z in seite['row_widgets']
+                 if art == 'post' and x['name'] == 'Iron']
+        pruefe(gold and verkauf in gold[0],
+               'die Sammelzeile Gold trägt Verkauf (ein Posten ist Ware)')
+        pruefe(eisen and verkauf not in eisen[0],
+               'ein Rohstoff-Posten trägt kein Verkauf (%r)' % eisen)
+        pruefe(med and verkauf in med[0],
+               'ein Handelslager-Posten trägt Verkauf (%r)' % med)
+        # Bearbeiten holt den Posten in sein Formular.
+        neu(purpose=_ms.PURPOSE_CRAFT)
+        _ms.edit(seite, next(r for r in seite['shown']
+                             if r['name'] == 'Iron'))
+        w.update()
+        roh = seite['forms'][_ms.STORE_RAW]
+        pruefe(seite['form_kind'] == _ms.STORE_RAW
+               and roh['material'].get() == 'Iron'
+               and roh['state']['index'] == 0,
+               'Bearbeiten eines Rohstoffs füllt das Rohstoff-Formular')
+        neu(purpose=_ms.PURPOSE_SALE)
+        _ms.edit(seite, next(r for r in seite['shown']
+                             if r['name'] == 'Medical Supplies'))
+        w.update()
+        ware = seite['forms'][_ms.STORE_TRADE]
+        pruefe(seite['form_kind'] == _ms.STORE_TRADE
+               and ware['goods'].get() == 'Medical Supplies'
+               and seite['forms'][_ms.STORE_RAW]['state']['index'] is None,
+               'Bearbeiten einer Ware füllt das Verkaufs-Formular und schließt '
+               'das andere')
+        # Keine Daten verschoben: Beide Dateien stehen wie vorher.
+        pruefe(len(_ma.load()) == 2 and len(_tc.load()) == 3,
+               'die Seite verschiebt nichts zwischen den Dateien')
+        pruefe(not any('ersönlich' in t_ for z in seite['row_widgets']
+                       for t_ in abzeichen(z[2])),
+               'ohne Aufteilung beim Basetool kein Persönlich/Gemeinsam')
+    finally:
+        _ma.save(alt[0])
+        _tc.save(alt[1])
+        if w is not None:
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+
+def _pruefung_480():
+    """480. Alte Seitennamen führen nach Mein Lager.
+
+    Gespeicherte Karten, Sprünge, die Galerie und gespeicherte
+    Nutzungszähler kennen noch `lager` und `handelslager`."""
+    print('\n480. Alte Seitennamen: lager und handelslager')
+    from scbp import cards as _ka, paths as _pa, page_usage as _pu
+    from scbp import my_stock_page as _ms
+    alt = (_pa.settings() or {}).get(_ka.PINNED_SETTING)
+    try:
+        _pa.set_setting(_ka.PINNED_SETTING,
+                        ['lager', 'handelslager', 'grafik'])
+        pruefe(_ka.pinned() == ['meinlager', 'grafik'],
+               'angeheftete alte Seiten werden zu Mein Lager, einmal '
+               '(%r)' % _ka.pinned())
+    finally:
+        _pa.set_setting(_ka.PINNED_SETTING, alt)
+    stand = _pu.clean({'pages': {'lager': 2, 'handelslager': 1, 'liste': 1},
+                       'clicks': {'lager': {'1': 1}, 'handelslager': {'1': 2}},
+                       'entry': {'lager': {'sprung': 1}},
+                       'misses': {'lager>handelslager': 1, 'lager>liste': 2}})
+    pruefe(stand['pages'] == {'meinlager': 3, 'liste': 1}
+           and stand['clicks'] == {'meinlager': {'1': 3}}
+           and stand['entry'] == {'meinlager': {'sprung': 1}}
+           and stand['misses'] == {'meinlager>liste': 2},
+           'gespeicherte Zähler alter Seiten zählen bei Mein Lager (%r)'
+           % stand)
+    pruefe(_ms.resolve('lager') == ('meinlager', None)
+           and _ms.resolve('handelslager')[0] == 'meinlager'
+           and _ms.resolve('handelslager')[1]['purpose'] == _ms.PURPOSE_SALE,
+           'lager führt nach Mein Lager, handelslager mit Filter Verkaufen')
+    if not hat_anzeige():
+        uebersprungen('480 im Fenster')
+        return
+    from scbp import main_window as _mw, gallery as _ga
+    w = _wurzel()
+    try:
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        pruefe(not ({'lager', 'handelslager'} & set(f.buttons))
+               and 'meinlager' in f.buttons,
+               'die Leiste hat Mein Lager und keinen alten Reiter')
+        f.open_page('lager', via='sprung')
+        w.update()
+        pruefe(f.current == 'meinlager', 'ein Sprung nach lager landet in '
+               'Mein Lager (%r)' % f.current)
+        f.open_page('liste')
+        f.open_page('handelslager', via='sprung')
+        w.update()
+        pruefe(f.current == 'meinlager'
+               and f.my_stock_page['state']['purpose'] == _ms.PURPOSE_SALE,
+               'handelslager landet in Mein Lager mit Zum Verkaufen')
+        # Der Galerie-Eintrag mit dem Lager-Bild (früher Reiter `lager`)
+        # zeigt jetzt auf Mein Lager; kein Eintrag trägt mehr einen alten
+        # Namen.
+        ziele = [e.get('reiter') for gruppe in _ga.HIGHLIGHTS.values()
+                 for e in gruppe if e.get('bild') == 'lager'
+                 or e.get('reiter') in _ms.ALIASES]
+        gelandet = []
+        for ziel in ziele:
+            f.open_page('liste')
+            f.open_page(ziel, via='sprung')
+            w.update()
+            gelandet.append(f.current)
+        pruefe(ziele and set(gelandet) == {'meinlager'}
+               and not set(ziele) & set(_ms.ALIASES),
+               'der Galerie-Eintrag zum Lager öffnet Mein Lager '
+               '(%r -> %r)' % (ziele, gelandet))
+    finally:
+        w.destroy()
+
+
+def _pruefung_481():
+    """481. Einmaliger Hinweis für alle, die die alten Lager kennen."""
+    print('\n481. Umzugshinweis in Mein Lager')
+    import copy as _cp
+    from scbp import materials as _ma, trade_cargo as _tc, my_stock_page as _ms
+    from scbp import paths as _pa, news as _ne
+    alt = (_cp.deepcopy(_ma.load()), _cp.deepcopy(_tc.load()),
+           _pa.setting_bool(_ms.SETTING_MOVED_SEEN, False), _ne.was_seen)
+    w = None
+    try:
+        _ma.save([])
+        _tc.save([])
+        _pa.set_setting(_ms.SETTING_MOVED_SEEN, False)
+        _ne.was_seen = lambda _b: False
+        pruefe(not _ms.is_old_user(),
+               'neue Installation ohne Posten: kein Hinweis')
+        _ne.was_seen = lambda b: b == 'lager'
+        pruefe(_ms.is_old_user(),
+               'wer das Rohstofflager schon geöffnet hatte, bekommt ihn')
+        _ne.was_seen = lambda _b: False
+        _ma.add('Iron', 1, 500, 'Levski')
+        pruefe(_ms.is_old_user(), 'wer Posten hat, bekommt ihn')
+        if not hat_anzeige():
+            uebersprungen('481 im Fenster')
+            return
+        w, f, seite = _lager_fenster_479()
+
+        def karte():
+            stapel = [f.pages['meinlager']]
+            while stapel:
+                x = stapel.pop()
+                if getattr(x, 'moved_notice', False):
+                    return x
+                stapel.extend(x.winfo_children())
+            return None
+        k = karte()
+        pruefe(k is not None, 'die Karte steht oben in Mein Lager')
+        if k is not None:
+            kreuz = [x for x in k.winfo_children()[0].winfo_children()
+                     if x.winfo_class() == 'Label' and str(x.cget('image'))]
+            pruefe(bool(kreuz), 'Vorbedingung: das X ist da')
+            if kreuz:
+                kreuz[0].event_generate('<Button-1>')
+                w.update()
+            pruefe(karte() is None
+                   and _pa.setting_bool(_ms.SETTING_MOVED_SEEN, False),
+                   'ein Klick aufs X nimmt sie weg und merkt es sich')
+        pruefe(not _ms.is_old_user(), 'danach kommt sie nicht wieder')
+    finally:
+        _ma.save(alt[0])
+        _tc.save(alt[1])
+        _pa.set_setting(_ms.SETTING_MOVED_SEEN, alt[2])
+        _ne.was_seen = alt[3]
+        if w is not None:
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+
+def _pruefung_482():
+    """482. Lager der Einheit: eine Zeile je Posten, Buchungen als Symbole.
+
+    Eine Tabellenzeile ist eine Zeile im Raster; aufgeklappt hat jeder
+    Eintrag eine Zeile mit sechs Symbolen, jedes mit Erklärtext. Ohne
+    Verbindung ist der Reiter weg, und ein Sprung führt zur Verbindung."""
+    print('\n482. Lager der Einheit kompakt')
+    if not hat_anzeige():
+        uebersprungen('482')
+        return
+    import tkinter as tk
+    from scbp import exchange_orgstock as _og, main_window as _mw
+    from scbp import language as _la
+    alt = (_og.visible, dict(_og._state))
+    w = None
+    try:
+        lots, units = _og.apply_pages({}, [{
+            'units': [{'id': 'u1', 'name': 'Iridium'}],
+            'items': [_org_lot465('k1', 'u1', 'Laranite',
+                                  {'type': 'RAW', 'commodity': True},
+                                  entries=[_ORG_ENTRY465]),
+                      _org_lot465('k2', 'u1', 'Agricium',
+                                  {'type': 'REFINED', 'commodity': True},
+                                  entries=[])]}], True)
+        _og._state.update(lots=lots, units=units, cursor='c',
+                          at=time.time(), details=True, write=True,
+                          logistician={'u1'},
+                          rosters={'u1': [{'ref': 'r1',
+                                           'name': 'Hauler One'}]})
+        _og.visible = lambda: True
+        w = _wurzel()
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        f.open_page('staffellager')
+        w.update()
+        pruefe(f.current == 'staffellager', 'Vorbedingung: Seite offen')
+        tabelle = None
+
+        def labels(x, out):
+            if isinstance(x, tk.Label):
+                out.append(x)
+            for k in x.winfo_children():
+                labels(k, out)
+            return out
+        name = [x for x in labels(f.pages['staffellager'], [])
+                if x.cget('text') == 'Laranite']
+        pruefe(bool(name), 'Vorbedingung: der Posten Laranite steht da')
+        if not name:
+            return
+        tabelle = name[0].master.master
+        zeilen = sorted({int(z.grid_info()['row'])
+                         for z in tabelle.grid_slaves()})
+        pruefe(zeilen == [0, 1, 2],
+               'zugeklappt: Kopf und eine Zeile je Posten (Reihen %r)' % zeilen)
+        ort = [z for z in tabelle.grid_slaves(row=int(
+            name[0].master.grid_info()['row']))
+            if isinstance(z, tk.Label) and z.cget('text') == 'Area18']
+        pruefe(bool(ort), 'Ort steht in derselben Zeile wie der Name')
+        art = []
+        for z in tabelle.grid_slaves(row=1) + tabelle.grid_slaves(row=2):
+            stapel = [z]
+            while stapel:
+                x = stapel.pop()
+                if x.winfo_class() == 'Canvas':
+                    art += [str(x.itemcget(i, 'text')) for i in x.find_all()
+                            if x.type(i) == 'text']
+                stapel.extend(x.winfo_children())
+        pruefe(_la.t('s_ml_k_ore') in art and _la.t('s_ml_k_refined') in art,
+               'jede Zeile trägt ihre Art als Abzeichen (%r)' % art)
+        name[0].event_generate('<Button-1>')
+        w.update()
+        name = [x for x in labels(f.pages['staffellager'], [])
+                if x.cget('text') == 'Laranite']
+        tabelle = name[0].master.master
+        zellen = [z for z in tabelle.grid_slaves()
+                  if isinstance(getattr(z, 'action_icons', None), dict)]
+        pruefe(len(zellen) == 1, 'aufgeklappt: eine Eintragszeile mit '
+               'Buchungen (%d)' % len(zellen))
+        if zellen:
+            symbole = zellen[0].action_icons
+            pruefe(set(symbole) == {'book_out', 'sell', 'move', 'note',
+                                    'stolen', 'earmark'},
+                   'sechs Buchungen als Symbole (%r)' % sorted(symbole))
+            # Den Erklärtext abfangen: Was `notice` zeigen würde, steht in
+            # der Liste — ohne Wartezeit.
+            from scbp import notice as _no
+            gezeigt, alt_no = [], (_no.DELAY_MS, _no._window.show)
+            _no.DELAY_MS = 0
+            _no._window.show = lambda _w, text, _x, _y: gezeigt.append(text)
+            try:
+                for art in ('book_out', 'sell', 'move', 'note', 'stolen',
+                            'earmark'):
+                    symbole[art].event_generate('<Enter>', x=2, y=2)
+                    for _ in range(3):
+                        w.update()
+                    symbole[art].event_generate('<Leave>')
+            finally:
+                _no.DELAY_MS, _no._window.show = alt_no
+            soll = [_la.t(k) for k in ('s_sl_ausbuchen', 's_sl_verkaufen',
+                                       's_sl_verschieben', 's_sl_notiz',
+                                       's_sl_marke', 's_sl_reservieren')]
+            pruefe(gezeigt == soll,
+                   'jedes Symbol erklärt sich beim Überfahren (%r)' % gezeigt)
+            reihe = int(zellen[0].grid_info()['row'])
+            besitzer = [x for z in tabelle.grid_slaves(row=reihe)
+                        for x in labels(z, [])
+                        if x.cget('text') == 'Hauler One']
+            pruefe(bool(besitzer),
+                   'Besitzer und Symbole stehen in einer Zeile')
+        # Ohne Verbindung: Reiter weg, Sprung führt zur Verbindung.
+        _og.visible = lambda: False
+        f.open_page('liste')
+        f.open_page('staffellager', via='sprung')
+        w.update()
+        pruefe(f._tab_hidden('staffellager') and f.current == 'basetool',
+               'ohne Verbindung: kein Reiter, ein Sprung landet bei der '
+               'Verbindung (%r)' % f.current)
+    finally:
+        _og.visible = alt[0]
+        _og._state.clear()
+        _og._state.update(alt[1])
+        if w is not None:
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+
+def _pruefung_483():
+    """483. Kürzel Klasse/Größe/Grad an Gegenständen (`stock_kinds.tag`)."""
+    print('\n483. Kürzel Klasse/Größe/Grad')
+    from scbp import stock_kinds as _sk, specs as _sp, paths as _pa
+    alt = _sk._catalog_entries
+    try:
+        _sk._catalog_entries = lambda: {
+            _pa.name_key('TS-2'): {'c': 'Military', 's': 3, 'g': 1},
+            _pa.name_key('Spicule'): {'c': 'Stealth', 's': 'S2', 'g': 'A'},
+            _pa.name_key('Helm A'): {'g': 2},
+            _pa.name_key("7MA 'Lorica'"): {'c': 'Civilian', 's': 1, 'g': 3}}
+        pruefe(_sk.tag('TS-2') == '(Mil/3/A)',
+               'Klasse, Größe, Grad als Zahl -> (Mil/3/A) (%r)'
+               % _sk.tag('TS-2'))
+        pruefe(_sk.tag('Spicule') == '(Sth/2/A)',
+               'Größe als S2 und Grad als Buchstabe (%r)' % _sk.tag('Spicule'))
+        pruefe(_sk.tag('7MA "Lorica"') == '(Civ/1/C)',
+               'der Name wird über die Vergleichsform gefunden (gerade '
+               'Anführungszeichen wie im Basetool, einfache im Katalog)')
+        pruefe(_sk.tag('Helm A') is None,
+               'nur ein Wert: kein Kürzel (Lärm statt Angabe)')
+        pruefe(_sk.tag('Gibtsnicht') is None,
+               'unbekannter Name: kein Kürzel statt eines geratenen')
+    finally:
+        _sk._catalog_entries = alt
+    # Die Regel teilen sich Beschreibung und Werte.
+    pruefe(_sp.from_description('Klasse: Militär\\nGröße: 3\\nGütegrad: A')
+           == _sp.tag_from_values('Mil', '3', 'A') == '(Mil/3/A)',
+           'Beschreibung und Werte ergeben dasselbe Kürzel')
+    pruefe(_sp.tag_from_values('Las', None, None) == '(Las)'
+           and _sp.tag_from_values('Mil', None, None) is None,
+           'eine Waffenklasse allein reicht, eine Fraktionsklasse nicht')
+
+
+def _pruefung_484():
+    """484. Items in Mein Lager: eintragen, getrennt von der Ware.
+
+    Ein Item liegt im Handelslager als Stück-Posten mit UEX-Nummer. Es zählt
+    nicht als Ware: keine Verkaufsmengen, kein Gewinn, und Leeren nach einem
+    Patch räumt Ware und Items je für sich."""
+    print('\n484. Items eintragen, getrennt von der Ware')
+    import copy as _cp
+    from scbp import trade_cargo as _tc, my_stock_page as _ms
+    alt = _cp.deepcopy(_tc.load())
+    try:
+        _tc.save([{'ware': 'Gold', 'menge': 10, 'ort': 'Area18',
+                   'gestohlen': False, 'einkauf': 5000}])
+        ok, grund = _tc.add_item('Small Artifact Fragment (Pristine)', '2',
+                                 'Levski', False, uex=2626)
+        pruefe(ok and _tc.load()[-1] == {
+            'ware': 'Small Artifact Fragment (Pristine)', 'menge': 2.0,
+            'ort': 'Levski', 'gestohlen': False, 'stueck': True,
+            'uex': 2626}, 'ein Item wird als Stück-Posten mit UEX-Nummer '
+               'gebucht (%r, %r)' % (grund, _tc.load()[-1:]))
+        _tc.add_item('Small Artifact Fragment (Pristine)', '1', 'Levski',
+                     False, uex=2626)
+        pruefe(len(_tc.load()) == 2 and _tc.load()[-1]['menge'] == 3.0,
+               'derselbe Stapel zählt zusammen')
+        pruefe(_tc.add_item('Helm A', '0,5', 'Levski')[1] == 'menge',
+               'keine halben Stück, keine Null')
+        pruefe(_tc.amounts() == {'Gold': 10.0}
+               and _tc.goods_in_stock() == ['Gold']
+               and _tc.costed_amounts() == {'Gold': 10.0},
+               'Items zählen nicht als Ware (%r)' % _tc.amounts())
+        pruefe(_tc.from_json(_tc.as_json())[-1].get('uex') == 2626,
+               'Sichern und Einlesen behält die UEX-Nummer')
+        zeilen = _ms.entries()
+        item = [r for r in zeilen if r['item']]
+        pruefe(len(item) == 1 and item[0]['store'] == _ms.STORE_TRADE,
+               'Mein Lager zeigt es unter Items')
+        weg = _tc.clear_goods()
+        pruefe(weg == 1 and [p['ware'] for p in _tc.load()]
+               == ['Small Artifact Fragment (Pristine)'],
+               'Ware löschen lässt die Items stehen')
+        _tc.add('Gold', '4')
+        weg = _tc.clear_items()
+        pruefe(weg == 1 and [p['ware'] for p in _tc.load()] == ['Gold'],
+               'Items löschen lässt die Ware stehen')
+        # Die Seite: Items fallen aus Verkauf-Filter und Summen.
+        if hat_anzeige():
+            from scbp import selling as _vk484
+            # Ein Item mit Einkaufspreis und ein Preis für jeden Namen: Ohne
+            # den Schutz für Items stünde darunter eine Summe.
+            _tc.save(_tc.load() + [{'ware': 'FR-66', 'menge': 1.0,
+                                    'ort': 'Levski', 'gestohlen': False,
+                                    'stueck': True, 'einkauf': 500}])
+            _preis484 = _vk484.best_price
+            _vk484.best_price = lambda _name: 1000
+            w, f, seite = _lager_fenster_479({'view': _ms.VIEW_ITEMS,
+                                              'purpose': '', 'kind': '',
+                                              'place': ''})
+            try:
+                summe = _ms.t('s_hl_gesamt').split('{')[0]
+
+                def summen():
+                    return [x.cget('text') for x in seite['listing']
+                            .winfo_children() if x.winfo_class() == 'Label'
+                            and str(x.cget('text')).startswith(summe)]
+                pruefe(not summen(),
+                       'unter Items stehen keine Ladungs- und Gewinnsummen '
+                       '(%r)' % summen())
+                seite['state'].update(view=_ms.VIEW_MATERIAL,
+                                      purpose=_ms.PURPOSE_SALE)
+                seite['redraw']()
+                w.update()
+                pruefe([r['name'] for r in seite['shown']] == ['Gold'],
+                       'Zum Verkaufen zeigt nur Ware, kein Item (%r)'
+                       % [r['name'] for r in seite['shown']])
+                pruefe(len(summen()) == 1,
+                       'Gegenstück: unter der Ware steht die Summe (%r)'
+                       % summen())
+                # Das Formular Item kennt nur die Warenliste.
+                form = seite['forms'][_ms.FORM_ITEM]
+                form['name'].set('Gibt es nicht 9000')
+                form['amount'].set('1')
+                form['save']()
+                pruefe(seite['message'].cget('text')
+                       == _ms.t('s_ml_item_unbekannt') % 'Gibt es nicht 9000',
+                       'ein Name außerhalb der Warenliste wird abgelehnt')
+                # Über das Formular: Der Name aus der Liste bringt seine
+                # Nummer mit.
+                eintrag = _ms.item_choices().get('fr-66')
+                form['name'].set('FR-66')
+                form['amount'].set('2')
+                form['place'].set('Area18')
+                form['save']()
+                neu = [p for p in _tc.load() if p.get('ort') == 'Area18']
+                pruefe(eintrag and len(neu) == 1
+                       and neu[0].get('uex') == eintrag['item'],
+                       'das Formular speichert die UEX-Nummer des Items (%r)'
+                       % neu)
+                # Ein Item, dessen Name die Liste nicht (mehr) führt: Nur die
+                # Stückzahl ändern behält die Nummer.
+                _tc.save(_tc.load() + [{'ware': 'Altname 77', 'menge': 1.0,
+                                        'ort': 'Levski', 'gestohlen': False,
+                                        'stueck': True, 'uex': 77}])
+                seite['redraw']()
+                stelle = len(_tc.load()) - 1
+                form['edit'](stelle)
+                form['amount'].set('3')
+                form['save']()
+                zeile = _tc.load()[stelle]
+                pruefe(zeile.get('menge') == 3.0 and zeile.get('uex') == 77,
+                       'Bearbeiten ohne neuen Namen behält die UEX-Nummer (%r)'
+                       % zeile)
+            finally:
+                _vk484.best_price = _preis484
+                w.destroy()
+    finally:
+        _tc.save(alt)
+
+
+def _pruefung_485():
+    """485. Abgleich: Items über ihre UEX-Nummer, nicht über den Namen."""
+    print('\n485. Abgleich: Items über die UEX-Nummer')
+    from scbp import basetool_sync as _bs
+
+    class _Conn:
+        def __init__(self):
+            self.calls = []
+
+        def request(self, method, path, body=None, **_k):
+            self.calls.append((path, body))
+            return {'results': [{'index': i, 'status': 'resolved',
+                                 'ref': {'bt': 'bt-%d' % r['uexId']}}
+                                for i, r in enumerate(body['refs'])]}
+    conn, sub = _Conn(), {}
+    lager = [{'ware': 'MegaFlux', 'menge': 1, 'stueck': True, 'uex': 4711},
+             {'ware': 'Gold', 'menge': 3},
+             {'ware': 'FR-66', 'menge': 1, 'stueck': True}]
+    bts = _bs.resolve_uex_items(conn, lager, sub)
+    pruefe(bts == {'uex:4711': 'bt-4711'},
+           'das Item mit UEX-Nummer wird über sie aufgelöst (%r)' % bts)
+    pruefe(len(conn.calls) == 1 and conn.calls[0][1]['kind'] == 'ITEM'
+           and conn.calls[0][1]['refs'] == [{'uexId': 4711,
+                                             'name': 'MegaFlux'}],
+           'gefragt wird als ITEM mit der Nummer (%r)' % conn.calls)
+    _bs.resolve_uex_items(conn, lager, sub)
+    pruefe(len(conn.calls) == 1, 'der bt bleibt gemerkt — keine zweite '
+           'Anfrage (%d)' % len(conn.calls))
+    pruefe(_bs.resolve_uex_items(conn, [{'ware': 'Gold', 'menge': 1}],
+                                 {}) == {},
+           'ohne Item mit Nummer: keine Anfrage, nichts aufgelöst')
+
+    # Der ganze Abgleich gegen eine Attrappe: das Item Golden Medmon mit
+    # UEX-Nummer und eine gleichnamige Ware am selben Ort. Beide müssen als
+    # eigene Posten hinausgehen — das Item in Stück, die Ware in SCU.
+    from scbp import materials as _mt, trade_cargo as _tc
+
+    class _Stand:
+        def __init__(self):
+            self.ops, self.names = [], []
+
+        def request(self, method, path, body=None, **_k):
+            if path == '/me/stock':
+                return {'items': [], 'removed': [], 'nextCursor': 'c-1',
+                        'hasMore': False}
+            if path == '/catalog/locations':
+                return {'items': [{'name': 'Levski'}]}
+            if path == '/catalog/resolve':
+                out = []
+                for i, ref in enumerate(body['refs']):
+                    if 'uexId' in ref:
+                        bt = 'item-%d' % ref['uexId']
+                    else:
+                        self.names.append((body['kind'], ref['name']))
+                        bt = ('ware-medmon' if body['kind'] == 'MATERIAL'
+                              and ref['name'] == 'Golden Medmon' else None)
+                    out.append({'index': i, 'status': 'resolved',
+                                'ref': {'bt': bt}} if bt
+                               else {'index': i, 'status': 'unmatched'})
+                return {'results': out}
+            if path == '/me/stock/changes':
+                self.ops += body['ops']
+                return {'applied': 0, 'results': []}
+            raise AssertionError(path)
+    alt_raw, alt_trade = _mt.load(), _tc.load()
+    try:
+        _mt.save([])
+        _tc.save([{'ware': 'Golden Medmon', 'menge': 2, 'ort': 'Levski',
+                   'stueck': True, 'uex': 212},
+                  {'ware': 'Golden Medmon', 'menge': 2.5, 'ort': 'Levski'},
+                  {'ware': 'Zeta Blade', 'menge': 1, 'ort': 'Levski',
+                   'stueck': True, 'uex': 99}])
+        stand = _Stand()
+        _bs._sync_stock(stand, {})
+        gesendet = sorted((op['material']['bt'], op['quantity']['unit'],
+                           op['quantity']['amount']) for op in stand.ops)
+        pruefe(gesendet == [('item-212', 'PIECE', 2), ('item-99', 'PIECE', 1),
+                            ('ware-medmon', 'SCU', 2.5)],
+               'Item und gleichnamige Ware gehen getrennt hinaus, jedes in '
+               'seiner Einheit (%r)' % gesendet)
+        pruefe(stand.names == [('MATERIAL', 'Golden Medmon')],
+               'nur die Ware geht in die Namenssuche, das Item nicht (%r)'
+               % stand.names)
+    finally:
+        _mt.save(alt_raw)
+        _tc.save(alt_trade)
+
+
+def _pruefung_486():
+    """486. Warenliste: Startliste ohne Netz, Holen nur im Hintergrund."""
+    print('\n486. Warenliste: Startliste und Vorladen')
+    import threading
+    from scbp import stock_catalog as _sc
+    alt = (_sc._store.load, _sc.due, _sc.update)
+    try:
+        _sc._store.load = lambda: {}
+        pruefe(bool(_sc.bundled().get('teile')),
+               'die Startliste liegt bei (daten/%s)' % _sc.BUNDLED)
+        auswahl = _sc.choices()
+        pruefe(any('artifact' in k for k in auswahl)
+               and auswahl.get('fr-66', {}).get('item') is not None,
+               'ohne Ablage und ohne Netz liefert die Liste Treffer, auch '
+               'Artefakte')
+        faden = []
+        _sc.due = lambda: True
+        _sc.update = lambda: faden.append(threading.current_thread())
+        lauf = _sc.start()
+        lauf.join(5)
+        pruefe(faden and faden[0] is not threading.main_thread(),
+               'das Vorladen läuft nicht im Tk-Faden')
+    finally:
+        _sc._store.load, _sc.due, _sc.update = alt
+    import inspect as _in
+    import sc_bp_watcher as _sw
+    _start = _in.getsource(_sw).split("if __name__ == '__main__':", 1)[-1]
+    pruefe('stock_catalog.start()' in _start,
+           'der Programmstart lädt die Warenliste vor')
+
+
+def _pruefung_488():
+    """488. Mein Lager: Bearbeiten, Einlesen, Gruppen, Kachel, Karten."""
+    print('\n488. Mein Lager: veralteter Posten, Einlesen, Einheiten')
+    import copy as _cp
+    from scbp import (materials as _ma, trade_cargo as _tc, cards as _ka,
+                      my_stock_page as _ms, paths as _pa)
+    alt = (_cp.deepcopy(_ma.load()), _cp.deepcopy(_tc.load()))
+    try:
+        # Einlesen einer Verkaufs-Sicherung: Die Ware wird ersetzt, die
+        # Items hier bleiben, neue Items der Sicherung kommen dazu.
+        _tc.save([{'ware': 'Gold', 'menge': 1.0},
+                  {'ware': 'FR-66', 'menge': 1.0, 'ort': 'Levski',
+                   'stueck': True, 'uex': 5}])
+        zahlen = _tc.restore([{'ware': 'Laranite', 'menge': 2.0},
+                              {'ware': 'FR-66', 'menge': 1.0, 'ort': 'Levski',
+                               'stueck': True, 'uex': 5},
+                              {'ware': 'Helm X', 'menge': 1.0, 'ort': 'Levski',
+                               'stueck': True}])
+        pruefe(zahlen == (1, 1) and sorted(p['ware'] for p in _tc.load())
+               == ['FR-66', 'Helm X', 'Laranite'],
+               'Einlesen ersetzt die Ware und lässt die Items stehen (%r, %r)'
+               % (zahlen, [p['ware'] for p in _tc.load()]))
+        _tc.save([{'ware': 'FR-66', 'menge': 1.0, 'stueck': True}])
+        _tc.restore([{'ware': 'Gold', 'menge': 1.0}])
+        pruefe([p['ware'] for p in _tc.load()] == ['Gold', 'FR-66'],
+               'eine Sicherung ohne Items räumt keine Items weg')
+
+        # Karten: Eine Seite, die die Leiste ausblendet, hat keine Karte.
+        class _Fenster:
+            def _tab_hidden(self, page):
+                return page == 'staffellager'
+        pruefe(_ka.page_hidden(_Fenster(), 'staffellager')
+               and not _ka.page_hidden(_Fenster(), 'meinlager')
+               and not _ka.page_hidden(object(), 'staffellager'),
+               'Karten folgen der Leiste (Lager der Einheit ohne Verbindung)')
+
+        if not hat_anzeige():
+            uebersprungen('488 Seite', 'keine Anzeige')
+            return
+        # Hadanite als Stück-Rohstoff und als SCU-Ware: zwei Gruppen.
+        _ma.save([{'material': 'Hadanite', 'menge': 75.0, 'qualitaet': 500,
+                   'ort': 'Levski'},
+                  {'material': 'Iron', 'menge': 4.0, 'qualitaet': 500,
+                   'ort': 'Levski'},
+                  {'material': 'Gold', 'menge': 2.0, 'qualitaet': 700,
+                   'ort': 'Orison'}])
+        _tc.save([{'ware': 'Hadanite', 'menge': 2.0, 'ort': 'Area18'}])
+        # Ohne Rezeptdaten wüsste der Prüflauf nicht, dass Hadanite als
+        # Rohstoff in Stück zählt.
+        _stueck488 = _ms._is_piece
+        _ms._is_piece = lambda name: name == 'Hadanite'
+        w, f, seite = _lager_fenster_479({'view': _ms.VIEW_MATERIAL,
+                                          'purpose': '', 'kind': '',
+                                          'place': ''})
+        try:
+            hadanite = [r for r in seite['shown'] if r['name'] == 'Hadanite']
+            gruppen = [z for z in seite['row_widgets'] if z[0] == 'group']
+            pruefe(sorted(r['piece'] for r in hadanite) == [False, True]
+                   and not gruppen,
+                   'Stück und SCU desselben Namens bilden keine gemeinsame '
+                   'Summe (%d Gruppen)' % len(gruppen))
+
+            # Iron bearbeiten, dann verbraucht die Herstellung Hadanite ganz:
+            # Iron rückt nach vorn, an seiner alten Stelle steht Gold.
+            roh = seite['forms'][_ms.STORE_RAW]
+            _ms.edit(seite, {'store': _ms.STORE_RAW, 'index': 1,
+                             'item': False})
+            w.update()
+            _ma.remove(0)
+            roh['amount'].set('9')
+            roh['save']()
+            w.update()
+            stand = {p['material']: p['menge'] for p in _ma.load()}
+            pruefe(stand == {'Iron': 4.0, 'Gold': 2.0},
+                   'Speichern nach Nachrücken überschreibt keinen fremden '
+                   'Posten (%r)' % stand)
+            pruefe(seite.get('editing') is None
+                   and seite['message'].cget('text')
+                   == _ms.t('s_ml_veraendert'),
+                   'das Bearbeiten wird abgebrochen und es steht dabei, '
+                   'warum')
+            # Neu zeichnen genügt schon: Die alte Stelle bleibt nicht
+            # markiert.
+            _ms.edit(seite, {'store': _ms.STORE_RAW, 'index': 1,
+                             'item': False})
+            _ma.remove(0)
+            seite['redraw']()
+            pruefe(seite.get('editing') is None,
+                   'beim Neuzeichnen fällt ein veralteter Posten aus dem '
+                   'Formular')
+        finally:
+            _ms._is_piece = _stueck488
+            w.destroy()
+
+        # Ein frischer Nutzer ohne Lager: kein Umzugshinweis, auch nicht,
+        # wenn danach der Abgleich Posten bringt.
+        _ma.save([])
+        _tc.save([])
+        _pa.set_setting(_ms.SETTING_MOVED_SEEN, False)
+        from scbp import news as _nw
+        _gesehen = _nw.was_seen
+        _nw.was_seen = lambda _bereich: False
+        try:
+            w, f, seite = _lager_fenster_479()
+            w.destroy()
+            _ma.save([{'material': 'Iron', 'menge': 1.0, 'ort': 'Levski'}])
+            pruefe(not _ms.is_old_user(),
+                   'wer beim ersten Öffnen nichts hatte, bekommt den '
+                   'Umzugshinweis auch nach dem ersten Abgleich nicht')
+        finally:
+            _nw.was_seen = _gesehen
+    finally:
+        _ma.save(alt[0])
+        _tc.save(alt[1])
+
+
+def _pruefung_489():
+    """489. Mein Lager: Persönlich/Gemeinsam und Teilen (Prüfstand).
+
+    Gegen den Nachbau auf 127.0.0.1, nie gegen das echte Basetool: Abgleich
+    mit `split`, Teilen und Zurücknehmen über `POST /me/stock/changes`,
+    jede Op gegen das Vertragsschema, die Ablehnungen und die Seite."""
+    print('\n489. Mein Lager: Persönlich/Gemeinsam und Teilen')
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import schema_pruefen as _sp
+    finally:
+        sys.path.pop(0)
+    from scbp import basetool as _bt, basetool_sync as _bs, secret_store as _ss
+    from scbp import paths as _pa, logsource as _lg, modules as _mo
+    from scbp import materials as _mat, trade_cargo as _tc
+    from scbp import exchange_orgunits as _ou, my_stock_page as _ms
+    from scbp import stock_split as _sp2, language as _la
+    _heim = tempfile.mkdtemp(prefix='pruefung489-')
+    _alt = {k: os.environ.get(k) for k in (
+        'SC_BP_HOME', 'SC_BP_SECRETS', 'SC_BP_SECRETS_FILE',
+        'SC_BP_BASETOOL_ISSUER', 'SC_BP_BASETOOL_API', 'SC_BP_BASETOOL',
+        'SC_BP_BASETOOL_KEYNAME')}
+    _srv = _Basetool290()
+    _altes_konto, _alter_takt = _lg.own_account, _bs.tick
+    _alte_orte = dict(_bs._LOCATIONS)
+    _bs.tick = lambda watcher: None
+    _sprache = _la.current()
+    _la.set_language('de')
+    w = None
+    try:
+        os.environ.update({
+            'SC_BP_HOME': _heim, 'SC_BP_SECRETS': os.path.join(_heim, 'geheim'),
+            'SC_BP_SECRETS_FILE': '1', 'SC_BP_BASETOOL': '1',
+            'SC_BP_BASETOOL_ISSUER': _srv.issuer,
+            'SC_BP_BASETOOL_API': _srv.api,
+            'SC_BP_BASETOOL_KEYNAME': 'VerseKit Pruefung489 %d' % os.getpid()})
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs._LOCATIONS.update({'at': 0.0, 'places': {}})
+        _bs.IN_TK[0] = None
+        _lg.own_account = lambda files=None: 'Spieler_1'
+        _pa.set_setting(_bs.SETTING_STOCK, True)
+        for _s in (_bs.SETTING_SHIPS, _bs.SETTING_BLUEPRINTS):
+            _pa.set_setting(_s, False)
+        _mo.set_enabled('basetool', True)
+
+        # Nur das Lager eingeschaltet: Die Einheiten-Liste wird mit
+        # angefragt, sonst gäbe es nichts zur Auswahl.
+        _conn = _bt.CONNECTION
+        _login = _conn.start_login(_bs.wanted_scopes())
+        _conn.poll_login(_login)
+        _conn.poll_login(_login)
+        pruefe('exchange.orgunits.read' in _srv.scope.split(),
+               'mit dem Lager wird die Einheiten-Liste angefragt (%r)'
+               % sorted(_srv.scope.split()))
+
+        _srv.split_on = True
+        _srv.my_units = [{'id': 'u-nord', 'name': 'Staffel Nord',
+                          'shorthand': 'NRD', 'kind': 'SQUADRON'}]
+        _srv.names.update({('MATERIAL', 'Laranite'): 'm-lar',
+                           ('ITEM', 'FR-66'): 'i-fr66'})
+        _srv.item_bts.add('i-fr66')
+        _mat.save([{'material': 'Laranite', 'menge': 20.0, 'qualitaet': 700,
+                    'ort': 'Area18'}])
+        _tc.save([{'ware': 'FR-66', 'menge': 2.0, 'ort': 'Area18',
+                   'gestohlen': False, 'stueck': True}])
+        _srv.put_lot('m-lar', 'Laranite', 'Area18', 700, False, 20.0)
+        _srv.put_lot('i-fr66', 'FR-66', 'Area18', 0, False, 2)
+        _bs.run(None)
+        pruefe(_bs.STATUS['state'] == 'ok' and _ou.units(),
+               'Abgleich und Einheiten-Liste da (%r)' % _bs.STATUS.get('code'))
+
+        def stand():
+            return {r['name']: (r['amount'], r['personal'], r['shared'])
+                    for r in _sp2.attach(_ms.entries(), _sp2.snapshot())}
+        pruefe(_sp2.snapshot() is not None
+               and stand() == {'Laranite': (20.0, 20.0, 0.0),
+                               'FR-66': (2.0, 2.0, 0.0)},
+               'vor dem Teilen ist alles persönlich (%r)' % stand())
+
+        def lot_of(name):
+            return next(r['lot'] for r in _sp2.attach(
+                _ms.entries(), _sp2.snapshot()) if r['name'] == name)
+
+        def vertrag(op):
+            # Der Teil für Lager-Änderungen — die Wurzel prüft `ops` nicht.
+            return _sp.check({'ops': [op]}, 'change-set--stockChangeSet')
+        ohne_einheit = dict(_sp2.share_op(lot_of('Laranite'), 'u-nord', 1))
+        ohne_einheit.pop('orgUnit')
+        pruefe(vertrag(ohne_einheit),
+               'Gegenstück: eine Op Teilen ohne Einheit fällt durch den '
+               'Vertrag')
+        op = _sp2.share_op(lot_of('Laranite'), 'u-nord', 8)
+        pruefe(not vertrag(op) and op['expectedQuantity']['amount'] == 20.0
+               and op['orgUnit'] == {'id': 'u-nord'},
+               'die Op Teilen passt zum Vertrag und erwartet den persönlichen '
+               'Teil (%r)' % vertrag(op))
+        pruefe(_sp2.send(_conn, op) == (True, ''), 'Teilen gebucht')
+        op = _sp2.share_op(lot_of('FR-66'), 'u-nord', 1)
+        pruefe(not vertrag(op) and op['quantity'] == {'amount': 1,
+                                                      'unit': 'PIECE'},
+               'ein Item geht in ganzen Stück (%r)' % op['quantity'])
+        _sp2.send(_conn, op)
+        _bs.run(None)
+        pruefe(stand() == {'Laranite': (20.0, 12.0, 8.0),
+                           'FR-66': (2.0, 1.0, 1.0)},
+               'nach dem Abgleich: persönlich und gemeinsam getrennt, die '
+               'Menge bleibt (%r)' % stand())
+        zeilen = _sp2.attach(_ms.entries(), _sp2.snapshot())
+        pruefe(sorted((r['name'], r['amount']) for r in _sp2.scoped(
+            zeilen, _sp2.SCOPE_SHARED)) == [('FR-66', 1.0), ('Laranite', 8.0)]
+               and sorted((r['name'], r['amount']) for r in _sp2.scoped(
+                   zeilen, _sp2.SCOPE_PERSONAL))
+               == [('FR-66', 1.0), ('Laranite', 12.0)],
+               'Gemeinsam und Persönlich zeigen ihren Anteil')
+
+        def summe(sicht):
+            return sum(r['amount'] for r in _sp2.scoped(zeilen, sicht)
+                       if r['item'])
+        pruefe(summe(_sp2.SCOPE_PERSONAL) + summe(_sp2.SCOPE_SHARED)
+               == summe(_sp2.SCOPE_ALL) == 2.0,
+               'ein geteiltes Item zählt nicht doppelt: persönlich plus '
+               'gemeinsam ergibt alle (%r)' % [summe(s) for s in _sp2.SCOPES])
+
+        # Zuordnung: zwei Zeilen in einem Posten, Ort anders geschrieben,
+        # Item mit UEX-Nummer.
+        stand_lager = {'stock': {'server': {
+            'k1': {'key': 'k1', 'material': {'bt': 'm-lar', 'name': 'Laranite'},
+                   'location': {'name': 'Area18'}, 'quality': 700,
+                   'stolen': False,
+                   'quantity': {'amount': 20.0, 'unit': 'SCU'},
+                   'split': {'personal': {'amount': 14.0, 'unit': 'SCU'},
+                             'pools': [{'orgUnit': {'id': 'u-nord'},
+                                        'quantity': {'amount': 6.0,
+                                                     'unit': 'SCU'}}]}},
+            'k2': {'key': 'k2', 'material': {'bt': 'i-x', 'name': 'Helm X'},
+                   'location': {'name': 'Area18'}, 'quality': 0,
+                   'stolen': False,
+                   'quantity': {'amount': 1, 'unit': 'PIECE'},
+                   'split': {'personal': {'amount': 0, 'unit': 'PIECE'},
+                             'pools': [{'orgUnit': {'id': 'u-nord'},
+                                        'quantity': {'amount': 1,
+                                                     'unit': 'PIECE'}}]}}},
+            'resolved_uex': {'uex:77': 'i-x'}, 'items': {'i-x': True}}}
+        zeilen2 = _sp2.attach([
+            {'store': 'raw', 'index': 0, 'name': 'Laranite', 'amount': 4.0,
+             'quality': 700, 'place': 'area18', 'stolen': False,
+             'item': False, 'lookup': 'Laranite'},
+            {'store': 'raw', 'index': 1, 'name': 'Laranite', 'amount': 16.0,
+             'quality': 700, 'place': 'Area18', 'stolen': False,
+             'item': False, 'lookup': 'Laranite'},
+            {'store': 'trade', 'index': 0, 'name': 'Helm X', 'amount': 1.0,
+             'quality': None, 'place': 'Area18', 'stolen': False,
+             'item': True, 'lookup': 'uex:77'}],
+            _sp2.snapshot(stand_lager))
+        pruefe([(r['personal'], r['shared']) for r in zeilen2]
+               == [(0.0, 4.0), (14.0, 2.0), (0.0, 1.0)],
+               'zwei Zeilen in einem Posten teilen sich den Pool, der Ort '
+               'zählt ohne Groß-/Kleinschreibung, das Item über seine '
+               'UEX-Nummer (%r)' % [(r['personal'], r['shared'])
+                                    for r in zeilen2])
+
+        # Ablehnungen, ehrlich benannt.
+        alt_lot = lot_of('Laranite')
+        veraltet = dict(_sp2.share_op(alt_lot, 'u-nord', 1),
+                        expectedQuantity={'amount': 20.0, 'unit': 'SCU'})
+        pruefe(_sp2.send(_conn, veraltet) == (False, 'VERSION_CONFLICT')
+               and _sp2.reason_text('VERSION_CONFLICT')
+               == _la.t('s_ml_r_konflikt'),
+               'veralteter Stand: VERSION_CONFLICT mit eigenem Satz')
+        pruefe(_sp2.send(_conn, _sp2.share_op(alt_lot, 'u-fremd', 1))
+               == (False, 'NOT_A_MEMBER'),
+               'eine fremde Einheit wird abgelehnt (NOT_A_MEMBER)')
+        halb = _sp2.share_op(lot_of('FR-66'), 'u-nord', 1)
+        halb['quantity'] = {'amount': 0.5, 'unit': 'PIECE'}
+        pruefe(_sp2.check_amount('0,5', 1, True) is None
+               and _sp2.check_amount('13', 12, False) is None
+               and _sp2.check_amount('12', 12, False) == 12.0,
+               'halbe Stück und mehr als da ist hält schon die Seite auf')
+        _srv.earmarked.add(_srv.lot_key('m-lar', 'Area18', 700, False))
+        pruefe(_sp2.send(_conn, _sp2.share_op(alt_lot, 'u-nord', 1))
+               == (False, 'STOCK_EARMARKED')
+               and _sp2.reason_text('STOCK_EARMARKED')
+               == _la.t('s_ml_r_reserviert'),
+               'Reserviertes: STOCK_EARMARKED mit eigenem Satz')
+        _srv.earmarked.clear()
+        pruefe(_sp2.reason_text('ETWAS_NEUES')
+               == _la.t('s_ml_r_anders') % 'ETWAS_NEUES',
+               'ein unbekannter Grund steht mit seinem Code da')
+
+        # Zurücknehmen: erwartet wird die Menge im Pool.
+        op = _sp2.unshare_op(alt_lot, 'u-nord', 8)
+        pruefe(not vertrag(op) and op['expectedQuantity']['amount'] == 8.0,
+               'die Op Zurücknehmen passt zum Vertrag und erwartet den Pool')
+        pruefe(_sp2.send(_conn, op) == (True, ''), 'Zurücknehmen gebucht')
+        _bs.run(None)
+        pruefe(stand()['Laranite'] == (20.0, 20.0, 0.0),
+               'nach dem Zurücknehmen wieder alles persönlich (%r)'
+               % (stand(),))
+        pruefe(all(op['op'] in ('share', 'unshare')
+                   for op in _srv.stock_ops),
+               'Teilen bucht nichts aus und nichts ein (nur share/unshare)')
+
+        # Ohne Verbindung keine Aufteilung — je Zustand.
+        _pa.set_setting(_bs.SETTING_STOCK, False)
+        aus = _sp2.snapshot()
+        _pa.set_setting(_bs.SETTING_STOCK, True)
+        _rechte = _bt.CONNECTION.granted
+        _bt.CONNECTION.granted = ('exchange.connect',)
+        _status_rechte = _bs.STATUS.get('capabilities')
+        _bs.STATUS['capabilities'] = []
+        _sp2._connected['at'] = -1e9
+        ohne_recht = _sp2.snapshot()
+        _bt.CONNECTION.granted = _rechte
+        _bs.STATUS['capabilities'] = _status_rechte
+        _verbunden = _bt.CONNECTION.connected
+        _bt.CONNECTION.connected = lambda: False
+        _sp2._connected['at'] = -1e9
+        getrennt = _sp2.snapshot()
+        _bt.CONNECTION.connected = _verbunden
+        _sp2._connected['at'] = -1e9
+        pruefe(aus is None and ohne_recht is None and getrennt is None
+               and _sp2.snapshot() is not None,
+               'keine Aufteilung ohne Lager-Abgleich, ohne Recht und '
+               'getrennt (%r)' % [x is None for x in (aus, ohne_recht,
+                                                      getrennt)])
+
+        if hat_anzeige():
+            w, f, seite = _lager_fenster_479({'view': _ms.VIEW_MATERIAL,
+                                              'purpose': '', 'kind': '',
+                                              'place': ''})
+            pruefe('scope' in seite['filters'],
+                   'mit Verbindung gibt es den Umschalter Alle/Persönlich/'
+                   'Gemeinsam')
+
+            def zelle(name):
+                for art, zeile, widgets in seite['row_widgets']:
+                    if art == 'post' and zeile['name'] == name:
+                        return widgets[-1]
+            pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'teilen', 'bearbeiten', 'loeschen'},
+                   'die Zeile hat den Knopf Ins Lager der Einheit (%r)'
+                   % sorted(getattr(zelle('Laranite'), 'action_icons', {})))
+            zeile = next(z for a, z, _w in seite['row_widgets']
+                         if a == 'post' and z['name'] == 'Laranite')
+            _ms.open_share(seite, zeile, _sp2.SHARE)
+            w.update()
+            form = seite['share_form']
+            pruefe(form and form['amount'].get() == '20',
+                   'das Formular schlägt alles Persönliche vor (%r)'
+                   % (form and form['amount'].get()))
+            form['amount'].set('5')
+            form['go']()
+            ende = time.time() + 10
+            while seite['busy'] and time.time() < ende:
+                w.update()
+                time.sleep(0.05)
+            vorher = seite
+            seite['state']['place'] = 'Area18'
+            _bs.run(None)
+            w.update()
+            # Der Abgleich meldet die neue Aufteilung: Die Liste zeichnet von
+            # selbst neu, die Seite bleibt dieselbe — samt Filter.
+            pruefe(f.my_stock_page is vorher
+                   and seite['state']['place'] == 'Area18'
+                   and [r.get('shared') for r in seite['shown']
+                        if r['name'] == 'Laranite'] == [5.0],
+                   'neue Aufteilung: Liste neu gezeichnet, Seite und Filter '
+                   'bleiben (%r)' % [r.get('shared') for r in seite['shown']])
+            seite['state']['place'] = ''
+            seite['redraw']()
+            w.update()
+            pruefe(stand()['Laranite'] == (20.0, 15.0, 5.0)
+                   and seite['share_form'] is None,
+                   'über die Seite geteilt, Formular zu (%r)'
+                   % (stand()['Laranite'],))
+            texte = []
+            for _a, _z, widgets in seite['row_widgets']:
+                stapel = list(widgets)
+                while stapel:
+                    x = stapel.pop()
+                    if not x.winfo_exists():
+                        continue
+                    if x.winfo_class() == 'Canvas':
+                        texte += [str(x.itemcget(i, 'text'))
+                                  for i in x.find_all()
+                                  if x.type(i) == 'text']
+                    stapel.extend(x.winfo_children())
+            pruefe(_la.t('s_ml_b_geteilt') % _ms.amount_text(5.0, False)
+                   in texte,
+                   'Alle zeigt, wie viel in der Einheit liegt (%r)' % texte)
+            seite['state']['scope'] = _sp2.SCOPE_SHARED
+            seite['redraw']()
+            w.update()
+            pruefe([(r['name'], r['amount']) for r in seite['shown']]
+                   == [('Laranite', 5.0)],
+                   'Gemeinsam zeigt den geteilten Anteil (%r)'
+                   % [(r['name'], r['amount']) for r in seite['shown']])
+            pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'zuruecknehmen'},
+                   'in Gemeinsam nur Zurücknehmen, kein Bearbeiten/Löschen')
+            seite['state']['scope'] = _sp2.SCOPE_PERSONAL
+            seite['redraw']()
+            w.update()
+            pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'teilen'},
+                   'in Persönlich bei geteiltem Anteil kein Löschen der '
+                   'ganzen Zeile')
+            seite['state']['scope'] = _sp2.SCOPE_ALL
+            seite['redraw']()
+            w.update()
+            # Zurücknehmen über die Seite: höchstens, was im Pool liegt.
+            zeile = next(z for a, z, _w in seite['row_widgets']
+                         if a == 'post' and z['name'] == 'Laranite')
+            _ms.open_share(seite, zeile, _sp2.UNSHARE)
+            w.update()
+            form = seite['share_form']
+            pruefe(form and form['amount'].get() == '5'
+                   and form['unit'] == 'u-nord',
+                   'Zurücknehmen schlägt den Pool vor (%r)'
+                   % (form and form['amount'].get()))
+            # Die Zeile verschwindet, das Formular darf nicht an die
+            # nächste rutschen.
+            _alt_roh = _mat.load()
+            _mat.save([{'material': 'Laranite', 'menge': 1.0,
+                        'qualitaet': 300, 'ort': 'Area18'}] + _alt_roh)
+            seite['redraw']()
+            w.update()
+            pruefe(seite['share_form'] is None,
+                   'rückt eine andere Zeile an die Stelle, geht das Formular '
+                   'zu')
+            _mat.save(_alt_roh)
+            w.destroy()
+            w = None
+
+            # Ohne Basetool: kein Umschalter, keine Knöpfe.
+            _mo.set_enabled('basetool', False)
+            w, f, seite = _lager_fenster_479({'view': _ms.VIEW_MATERIAL})
+            pruefe('scope' not in seite['filters']
+                   and seite['split'] is None
+                   and set(getattr(zelle('Laranite'), 'action_icons', {}))
+                   == {'bearbeiten', 'loeschen'},
+                   'ohne Basetool weder Umschalter noch Teilen')
+            _mo.set_enabled('basetool', True)
+        else:
+            uebersprungen('489 Seite', 'keine Anzeige')
+    finally:
+        if w is not None:
+            w.destroy()
+        _la.set_language(_sprache)
+        _lg.own_account, _bs.tick = _altes_konto, _alter_takt
+        _bs._LOCATIONS.clear()
+        _bs._LOCATIONS.update(_alte_orte)
+        try:
+            _bt.delete_key()
+        except Exception:
+            pass
+        _srv.close()
+        for _k, _v in _alt.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        _ss._backend_cache[0] = None
+        _bt.CONNECTION = _bt.Connection()
+        _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
+        _ou.forget()
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_492():
+    """492. Raffinerie-Feld: Stück-Wort am Zeilenende."""
+    print('\n492. Raffinerie-Feld: Stk, Stück, pcs am Zeilenende')
+    from scbp import crafting as _cr, materials as _ma, language as _la
+    echt = (_cr.storage_name, _cr.piece_materials, _ma._is_piece)
+    _sprache = _la.current()
+    _la.set_language('de')
+    try:
+        _cr.storage_name = lambda n: n
+        _cr.piece_materials = lambda: {'glacosite', 'dolivine'}
+        pruefe(_ma._is_piece('Glacosite') and not _ma._is_piece('Titanium'),
+               'Vorgabe greift: Glacosite ist Stückware, Titanium nicht')
+        gelesen = {}
+        for zeile in ('Glacosite 567 5 Stk', 'Glacosite 567 5 Stk.',
+                      'Glacosite 567 5 Stück', 'Glacosite 567 5 pcs',
+                      'Glacosite 567 5 pc', 'Glacosite 567 5Stk',
+                      'Glacosite 567 5stk.', 'Glacosite 567 5 STÜCK',
+                      'Glacosite 567 5PCS', 'Glacosite 567 5pc.',
+                      'Glacosite\t567\t5\tStk'):
+            gelesen[zeile] = _ma.refinery_lines(zeile, 'cscu')
+        falsch = [z for z, (p, f) in gelesen.items()
+                  if p != [('Glacosite', 5.0, 567)] or f]
+        pruefe(not falsch, 'jedes Stück-Wort, auch ohne Leerzeichen und in '
+               'jeder Schreibung, ergibt 5 Stück (%r)' % falsch)
+
+        hinweise = []
+        posten, fehl = _ma.refinery_lines(
+            'Glacosite 567 5 cSCU\nDolivine 500 3 SCU', 'cscu',
+            hints=hinweise)
+        pruefe(posten == [('Glacosite', 5.0, 567), ('Dolivine', 3.0, 500)]
+               and not fehl
+               and [h[1:] for h in hinweise]
+               == [('s_lg_hinweis_stueck_einheit', 5.0),
+                   ('s_lg_hinweis_stueck_einheit', 3.0)],
+               'Stückware mit cSCU/SCU: als Stück gezählt, mit Hinweis auf '
+               'die Stückzahl (%r)' % hinweise)
+        posten, fehl = _ma.refinery_lines('Glacosite 567 2,5 Stk', 'cscu')
+        pruefe(not posten and fehl
+               and fehl[0][1] == _la.t('s_rf_stueck_ganz'),
+               'mit Stück-Wort ist ein Bruchteil ein Fehler (%r)' % (fehl,))
+        from scbp import refinery_scan as _rs
+        pruefe(_rs.as_text([('Glacosite', 567, 5), ('Titanium', 295, 188)])
+               == 'Glacosite 567 5\nTitanium 295 188 cSCU',
+               'der Scanner schreibt Stückware ohne cSCU (kein Fehlalarm)')
+
+        posten, fehl = _ma.refinery_lines(
+            'Titanium 295 5 Stk\nTitanium 295 188', 'cscu')
+        pruefe(posten == [('Titanium', 1.88, 295)]
+               and len(fehl) == 1 and fehl[0][0] == 'Titanium 295 5 Stk'
+               and fehl[0][1] == _la.t('s_rf_stueck_scu') % 'Titanium',
+               'SCU-Ware mit Stück-Wort: Zeile nicht übernommen, Grund '
+               'genannt (%r)' % (fehl,))
+        posten, fehl = _ma.refinery_lines('Titanium 295 188 cSCU', 'scu')
+        pruefe(posten == [('Titanium', 1.88, 295)] and not fehl,
+               'cSCU und SCU wirken wie bisher')
+        posten, fehl = _ma.refinery_lines('Heart of the Woods 500 12', 'scu')
+        pruefe(posten == [('Heart of the Woods', 12.0, 500)] and not fehl,
+               'mehrwortige Namen bleiben lesbar')
+
+        if hat_anzeige():
+            w, f, seite = _lager_fenster_479()
+            try:
+                felder = []
+                stapel = [seite['inner']]
+                while stapel:
+                    x = stapel.pop()
+                    if hasattr(x, 'scan_read'):
+                        felder.append(x)
+                    stapel.extend(x.winfo_children())
+                pruefe(len(felder) == 1, 'Vorbedingung: das Raffinerie-Feld '
+                       'ist da (%d)' % len(felder))
+
+                def texte():
+                    out = []
+                    stapel = [seite['inner']]
+                    while stapel:
+                        x = stapel.pop()
+                        if x.winfo_class() == 'Label':
+                            out.append(str(x.cget('text')))
+                        stapel.extend(x.winfo_children())
+                    return out
+                if felder:
+                    feld = felder[0]
+                    feld.insert('1.0', 'Glacosite 567 5 Stk\nTitanium 295 188'
+                                '\nTitanium 295 5 Stk')
+                    feld.check_preview()
+                    w.update()
+                    vorschau = next((t_ for t_ in texte()
+                                     if 'Glacosite:' in t_), '')
+                    pruefe('Glacosite: 5 Stück' in vorschau
+                           and 'Titanium: 1,88 SCU' in vorschau,
+                           'die Vorschau schreibt Stückware in Stück, '
+                           'SCU-Ware in SCU (%r)' % vorschau)
+                    # Übernehmen: Die abgelehnte Zeile bleibt im Feld, der
+                    # Scanner lernt Stückware in Stück.
+                    gelernt = []
+                    _lernen = _rs.learn
+                    _rs.learn = lambda zellen, werte: gelernt.extend(werte)
+                    _alt_roh = _ma.load()
+                    try:
+                        # Als hätte der Scanner Zellen gelesen — dann lernt
+                        # das Übernehmen aus dem Getippten.
+                        feld.refinery_state['zellen'] = [{'zelle': 1}]
+                        feld.take_entries()
+                        w.update()
+                    finally:
+                        _rs.learn = _lernen
+                        _ma.save(_alt_roh)
+                    pruefe(feld.get('1.0', 'end-1c') == 'Titanium 295 5 Stk',
+                           'nach dem Übernehmen steht nur die abgelehnte '
+                           'Zeile im Feld (%r)' % feld.get('1.0', 'end-1c'))
+                    pruefe(('Glacosite', 567, 5) in gelernt
+                           and ('Titanium', 295, 188) in gelernt,
+                           'der Scanner lernt Stückware in Stück, SCU-Ware '
+                           'in cSCU (%r)' % gelernt)
+            finally:
+                w.destroy()
+        else:
+            uebersprungen('492 Vorschau', 'keine Anzeige')
+    finally:
+        (_cr.storage_name, _cr.piece_materials, _ma._is_piece) = echt
+        _la.set_language(_sprache)
+
+
+def _pruefung_493():
+    """493. Seitenleiste wie im Basetool, Menü filtern, Module je Reiter."""
+    print('\n493. Seitenleiste: Gruppen wie im Basetool, Menü filtern')
+    if not hat_anzeige():
+        uebersprungen('493', 'keine Anzeige')
+        return
+    from scbp import main_window as _mw, modules as _mo, paths as _pa
+    from scbp import language as _la, cards as _ka
+    _sprache = _la.current()
+    _la.set_language('de')
+    _heim = tempfile.mkdtemp(prefix='leiste493-')
+    _alt_heim = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _pa.set_setting(_mw.MainWindow.VIEW_SETTING, 'reiter')
+    # Gespeicherte Klappzustände: Bergung zu, dazu einer für eine Gruppe,
+    # die die Leiste nicht kennt.
+    _pa.set_setting('gruppe_zu_bergung', 'ja')
+    _pa.set_setting('gruppe_zu_basetool', 'ja')
+    w = _wurzel()
+    f = None
+    try:
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        w.update()
+
+        def sichtbare_gruppen():
+            # In der Reihenfolge, in der die Leiste sie wirklich packt.
+            kopf = {g['kopf']: k for k, g in f.groups.items()}
+            return [kopf[x] for x in f.sidebar.pack_slaves() if x in kopf]
+
+        def sichtbare_reiter():
+            inhalt = {g['inhalt']: g for g in f.groups.values()}
+            out = []
+            for x in f.sidebar.pack_slaves():
+                if x not in inhalt:
+                    continue
+                for z in x.pack_slaves():
+                    out += [k for k, teile in f.buttons.items()
+                            if teile[0] is z]
+            return out
+        pruefe(sichtbare_gruppen() == [
+            'bauplaene', 'logistik', 'werkstatt', 'bergung', 'handel',
+            'beschaffung', 'statistiken', 'einstellungen', 'spiel_einst',
+            'info'],
+               'die Gruppen stehen wie im Basetool (%r)' % sichtbare_gruppen())
+        pruefe([f.groups[k]['text'] for k in ('logistik', 'werkstatt',
+                                              'bergung', 'handel',
+                                              'beschaffung')]
+               == ['Flotte & Logistik', 'Herstellung', 'Abbau & Bergung',
+                   'Handel', 'Beschaffung'],
+               'die Gruppen heißen wie im Basetool')
+        pruefe(not f.groups['bergung']['offen']
+               and not f.groups['bergung']['inhalt'].winfo_manager()
+               and 'basetool' not in f.groups,
+               'ein alter Klappzustand gilt weiter (Bergung zu), der der '
+               'Gruppe Basetool stört nicht')
+
+        # Filter: Treffer im Reiternamen.
+        f._group_toggle('logistik', auf=False)
+        w.update()
+        f.nav_filter_var.set('lager')
+        w.update()
+        pruefe(sichtbare_reiter() == ['meinlager']
+               and sichtbare_gruppen() == ['logistik'],
+               'Filter „lager": nur Mein Lager, seine Gruppe offen, obwohl '
+               'sie zugeklappt war (%r)' % sichtbare_reiter())
+        # Treffer im Gruppennamen: die ganze Gruppe.
+        f.nav_filter_var.set('HANDEL')
+        w.update()
+        pruefe(sichtbare_reiter() == ['laeden', 'verkauf', 'routen'],
+               'Filter auf den Gruppennamen zeigt die ganze Gruppe, Groß/Klein '
+               'egal (%r)' % sichtbare_reiter())
+        einst = f.groups['einstellungen']['inhalt']
+        pruefe(f.collapse not in einst.pack_slaves(),
+               'beim Filtern fehlt der Klappteil Fortgeschritten')
+        # Ein Tastendruck kommt im unsichtbaren Fenster nicht an: Bindung und
+        # Wirkung getrennt prüfen.
+        pruefe(bool(f.nav_filter_box.bind('<Escape>'))
+               and bool(f.nav_filter_box.bind('<Return>')),
+               'Escape und Enter sind im Filterfeld gebunden')
+        f._nav_filter_clear()
+        w.update()
+        reihe = einst.pack_slaves()
+        pruefe(f.nav_filter_var.get() == '' and reihe[-1] is f.collapse
+               and reihe[-2] is f.buttons['bestand'][0],
+               'Escape leert das Feld; Fortgeschritten steht wieder ganz '
+               'unten in den Einstellungen')
+        # Klappen bei aktivem Filter: Zustand und Pfeil stimmen, die Treffer
+        # bleiben stehen.
+        f.nav_filter_var.set('lager')
+        w.update()
+        f._group_toggle('logistik', auf=True)
+        w.update()
+        pruefe(f.groups['logistik']['offen']
+               and _pa.setting('gruppe_zu_logistik') == 'nein'
+               and sichtbare_reiter() == ['meinlager'],
+               'Aufklappen bei aktivem Filter merkt den Zustand und lässt die '
+               'Treffer stehen')
+        f._group_toggle('logistik', auf=False)
+        f.nav_filter_var.set('xyzzy')
+        w.update()
+        pruefe(not sichtbare_reiter() and not sichtbare_gruppen()
+               and f.nav_filter_empty.winfo_manager()
+               and f.nav_filter_empty.cget('text') == _la.t('hf_menue_leer'),
+               'ohne Treffer: keine Gruppe, der Satz „Kein Menüeintrag '
+               'gefunden."')
+        # Enter öffnet den ersten Treffer und leert das Feld.
+        f.nav_filter_var.set('raffin')
+        w.update()
+        f._nav_filter_open()
+        w.update()
+        pruefe(f.current == 'raffinerien' and f.nav_filter_var.get() == ''
+               and not f.nav_filter_empty.winfo_manager()
+               and not f.groups['logistik']['inhalt'].winfo_manager()
+               and 'logistik' in sichtbare_gruppen(),
+               'Enter öffnet den ersten Treffer, danach steht die Leiste wie '
+               'vorher (Klappzustände bleiben)')
+        pruefe(f.groups['bergung']['inhalt'].winfo_manager(),
+               'die Gruppe der geöffneten Seite steht offen')
+
+        # Alte Bereichsseite landet im neuen Bereich.
+        f.open_page('bereich_schiffe', via='sprung')
+        w.update()
+        pruefe(f.current == 'bereich_logistik',
+               'bereich_schiffe führt zu Flotte & Logistik (%r)' % f.current)
+
+        # Module je Reiter: Werkstatt aus nimmt Herstellung, Farmliste,
+        # Bergbau und Raffinerien — die Gruppe Herstellung verschwindet,
+        # Abbau & Bergung behält Bergung und Zerlegen.
+        _mo.set_enabled('werkstatt', False)
+        _mo.set_enabled('schiffe', False)
+        f.close()
+        w.update()
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        w.update()
+        f._group_toggle('bergung', auf=True)
+        f._group_toggle('logistik', auf=True)
+        w.update()
+        reiter = sichtbare_reiter()
+        pruefe('werkstatt' not in sichtbare_gruppen()
+               and 'bergung' in sichtbare_gruppen()
+               and not {'herstellung', 'farmliste', 'bergbau', 'raffinerien',
+                        'hangar', 'wunschliste', 'einkaufsliste'} & set(reiter)
+               and {'bergung', 'zerlegen', 'meinlager'} <= set(reiter),
+               'Module blenden ihre Reiter einzeln aus, leere Gruppen '
+               'verschwinden (%r)' % sichtbare_gruppen())
+        pruefe(_ka.page_hidden(f, 'hangar')
+               and not _ka.page_hidden(f, 'meinlager')
+               and not _ka.area_enabled('werkstatt')
+               and _ka.area_enabled('logistik'),
+               'Karten und Bereiche folgen denselben Modul-Schaltern')
+        # Beschaffung: Einkaufsliste per Modul weg, Bedarf ohne Verbindung —
+        # die Hauptkarte fehlt wie die Gruppe.
+        pruefe('beschaffung' not in [a[0] for a in _ka.visible_areas(f)]
+               and 'logistik' in [a[0] for a in _ka.visible_areas(f)],
+               'ein Bereich, dessen Seiten alle ausgeblendet sind, fehlt auch '
+               'in der Kartenansicht')
+    finally:
+        _la.set_language(_sprache)
+        try:
+            w.destroy()
+        except Exception:
+            pass
+        if _alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim
+        shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_487():
+    """487. Lager der Einheit wie Mein Lager: Material | Items, Format."""
+    print('\n487. Lager der Einheit: Reiter und Mengenformat')
+    from scbp import orgstock_page as _op, my_stock_page as _ms
+    from scbp import exchange_orgstock as _og
+    pruefe([_op.view_of(v) for v in (_og.ITEMS, _og.COMPONENTS, _og.RAW,
+                                     _og.TRADE, None, 'items', 'material')]
+           == ['items', 'items', 'material', 'material', 'material', 'items',
+               'material'],
+           'die alte gespeicherte Sicht landet im passenden neuen Reiter')
+    pruefe(_op._amount(6.5, _og.SCU) == _ms.amount_text(6.5, False)
+           and _op._amount(2, _og.PIECE) == _ms.amount_text(2, True),
+           'beide Lager schreiben Mengen gleich (%r / %r)'
+           % (_op._amount(6.5, _og.SCU), _ms.amount_text(6.5, False)))
+    if not hat_anzeige():
+        uebersprungen('487 im Fenster')
+        return
+    import tkinter as tk
+    from scbp import main_window as _mw, stock_kinds as _sk, paths as _pa
+    alt = (_og.visible, dict(_og._state), _sk._catalog_entries)
+    w = None
+    try:
+        lots, units = _og.apply_pages({}, [{
+            'units': [{'id': 'u1', 'name': 'Iridium'}],
+            'items': [_org_lot465('k1', 'u1', 'Laranite',
+                                  {'type': 'RAW', 'commodity': True}),
+                      _org_lot465('k2', 'u1', 'FR-66', None, unit_q='PIECE',
+                                  quality=0, amount=2)]}], True)
+        _og._state.update(lots=lots, units=units, cursor='c',
+                          at=time.time(), details=True, write=False,
+                          logistician=set(), rosters={})
+        _og.visible = lambda: True
+        _sk._catalog_entries = lambda: {_pa.name_key('FR-66'): {
+            'a': 'Shield', 'c': 'Military', 's': 1, 'g': 1}}
+        _pa.set_setting(_op.SETTING_VIEW, _og.COMPONENTS)
+        w = _wurzel()
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        f.open_page('staffellager')
+        w.update()
+        seite = f.orgstock_page
+        pruefe(seite['view'] == 'items',
+               'die gespeicherte Sicht Komponenten öffnet den Reiter Items')
+        namen = [lot['name'] for lot, _z in seite['lot_rows']]
+        pruefe(namen == ['FR-66'], 'Items zeigt nur das Item (%r)' % namen)
+
+        def texte(zellen):
+            out = []
+            stapel = list(zellen)
+            while stapel:
+                x = stapel.pop()
+                if isinstance(x, tk.Label):
+                    out.append(str(x.cget('text')))
+                stapel.extend(x.winfo_children())
+            return out
+        zeile = texte(seite['lot_rows'][0][1])
+        pruefe('(Mil/1/A)' in zeile,
+               'das Item trägt sein Kürzel wie in Mein Lager (%r)' % zeile)
+        seite['tabs'].select('material')
+        f.orgstock_page['view'] = 'material'
+        seite['redraw_all']()
+        w.update()
+        namen = [lot['name'] for lot, _z in seite['lot_rows']]
+        pruefe(namen == ['Laranite'], 'Material zeigt den Rohstoff (%r)'
+               % namen)
+        kopf = [str(z.cget('text')) for z in seite['lot_rows'][0][1][0]
+                .master.grid_slaves(row=0)]
+        pruefe(sorted(kopf) == sorted([_ms.t(k).upper() for k in (
+                   's_ml_sp_bestand', 's_ml_sp_ort', 's_ml_sp_q',
+                   's_ml_sp_menge')] + ['']),
+               'dieselben Spalten wie in Mein Lager (%r)' % kopf)
+    finally:
+        _og.visible = alt[0]
+        _og._state.clear()
+        _og._state.update(alt[1])
+        _sk._catalog_entries = alt[2]
+        if w is not None:
+            try:
+                w.destroy()
+            except Exception:
+                pass
 
 
 def _alle_eingaben(w):

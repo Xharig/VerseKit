@@ -20,8 +20,9 @@
 Die Einheiten des Mitglieds aus dem KRT Profit Basetool
 (`GET /exchange/v1/me/org-units`, Recht `exchange.orgunits.read`).
 
-Gebraucht für die Auswahl, in welcher Einheit ein Schiff steht: auf der
-Schiffskarte im Hangar und als *Einheit für neue Schiffe*.
+Gebraucht für die Auswahl, in welcher Einheit ein Schiff steht (auf der
+Schiffskarte im Hangar und als *Einheit für neue Schiffe*) und in welche
+Einheit ein eigener Lagerposten geht (Mein Lager, `stock_split`).
 
 ⚠ **Nur im Speicher**, wie der Bedarf: Die Liste ist bei jedem Abgleich neu
 geholt, denn eine Mitgliedschaft kann jederzeit beginnen oder enden (so steht
@@ -70,6 +71,13 @@ def units():
     """Die zuletzt geholten Einheiten — leer, solange keine geholt sind."""
     with _lock:
         return list(_state['units'] or ())
+
+
+def fetched():
+    """Wurde die Liste geholt (auch leer)? Ohne das weiß niemand, ob eine
+    Einheit fehlt, weil man sie verlassen hat."""
+    with _lock:
+        return _state['units'] is not None
 
 
 def label(unit):

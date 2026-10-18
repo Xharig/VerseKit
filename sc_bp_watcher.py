@@ -5479,9 +5479,9 @@ class Overlay:
         except Exception as ausnahme:
             errors.record('overlay.hotkey_scan', ausnahme)
 
-    def raffinerie_aus_dem_spiel(self):
+    def refinery_from_game(self):
         """Das Raffinerie-Terminal lesen, während das Spiel vorn ist, und
-        danach das Fenster auf der Lager-Seite öffnen — mit den gelesenen
+        danach das Fenster auf Mein Lager öffnen — mit den gelesenen
         Zeilen im Feld."""
         from scbp import refinery_scan, page_usage
         if self._scan_laeuft or not refinery_scan.supported():
@@ -5489,28 +5489,28 @@ class Overlay:
         self._scan_laeuft = True
         signalton()
 
-        def arbeit():
-            ergebnis, fehler = None, False
+        def work():
+            result, failed = None, False
             try:
-                ergebnis = refinery_scan.scan_from_game()
-                if ergebnis is not None:
+                result = refinery_scan.scan_from_game()
+                if result is not None:
                     page_usage.action('lager_scan')
-            except Exception as ausnahme:
-                fehler = True
-                if getattr(ausnahme, 'reason', '') != 'keine_sprache':
-                    errors.record('overlay.raffinerie_hotkey', ausnahme)
+            except Exception as exc:
+                failed = True
+                if getattr(exc, 'reason', '') != 'keine_sprache':
+                    errors.record('overlay.raffinerie_hotkey', exc)
 
-            def zeigen():
+            def show():
                 self._scan_laeuft = False
-                if ergebnis is None:
+                if result is None:
                     self.add_hinweis(language.t(
-                        'rf_hk_fehler' if fehler else 'rf_hk_kein_spiel'))
+                        'rf_hk_fehler' if failed else 'rf_hk_kein_spiel'))
                     return
-                self.fenster_oeffnen('lager', via='overlay')
-                refinery_scan.hand_over(*ergebnis)
-            self._im_tk(zeigen)
+                self.fenster_oeffnen('meinlager', via='overlay')
+                refinery_scan.hand_over(*result)
+            self._im_tk(show)
 
-        threading.Thread(target=arbeit, daemon=True,
+        threading.Thread(target=work, daemon=True,
                          name='raffinerie-hotkey').start()
 
     def _hotkey_nachsehen(self):
@@ -5529,7 +5529,7 @@ class Overlay:
             pass
         try:
             if self.hotkey_scan.poll():
-                self.raffinerie_aus_dem_spiel()
+                self.refinery_from_game()
         except Exception:
             pass
 
@@ -6036,6 +6036,13 @@ if __name__ == '__main__':
         quality_goods.start()
     except Exception as ausnahme:
         errors.record('watcher.waren_guete', ausnahme)
+    # Die UEX-Warenliste für Lager und Einbuchen — wenn fällig, im
+    # Hintergrund, damit kein Formular darauf wartet.
+    try:
+        from scbp import stock_catalog
+        stock_catalog.start()
+    except Exception as exc:
+        errors.record('watcher.warenliste', exc)
     # Standort: Ortsnamen nach einem Patch, Orte aus den Logs lernen.
     try:
         from scbp import location

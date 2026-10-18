@@ -51,7 +51,7 @@ Einmal am Tag schickt Verse-Kit an `nutzung-versekit.xharig.com` genau diese Ang
 | auf welchem Weg eine Seite geöffnet wurde | Seitenleiste, Sprung, Overlay, Tray-Menü, Programmstart |
 | wie viele Klicks es bis zu einer Seite brauchte | Shops: 5× nach 2 Klicks |
 | welche Seite du nach wenigen Sekunden wieder verlassen hast, und wo du danach geblieben bist | Verkauf → Shops: 7× |
-| wie oft du im Rohstofflager von Hand eingetragen, eine Raffinerie-Ausbeute eingetragen, den Bildschirm gelesen oder „Jetzt übertragen" gedrückt hast | Bildschirm gelesen: 2× |
+| wie oft du in Mein Lager einen Rohstoff von Hand eingetragen, eine Raffinerie-Ausbeute eingetragen, den Bildschirm gelesen oder „Jetzt übertragen" gedrückt hast | Bildschirm gelesen: 2× |
 | wie oft du die Knöpfe auf den Karten genutzt hast (Jetzt abgleichen, Raffinerie-Scanner, Mining-Scanner, Übersetzung prüfen oder neu einlesen) und die Galerie „Was ist neu" geöffnet, daraus eine Seite geöffnet oder die Kartenansicht ausprobiert hast | Jetzt abgleichen: 1× |
 
 Die Seiten- und Handlungsangaben sind nur Zähler seit der letzten Meldung, mit
@@ -114,8 +114,9 @@ einschaltest. Ab Werk ist beides aus.
 
 **Was hingeht** — je nach Bereich, den du einschaltest: deine Baupläne (Name,
 Kennung des Basetools, Zeitpunkt und woher Verse-Kit sie kennt), deine
-Lagerposten aus Rohstoff- und Handelslager (Material, Ort, Qualität, Menge,
-„gestohlen") und deine Schiffe (Typ, Versicherung, eigener Name,
+Lagerposten aus Mein Lager (Rohstoffe, Verkaufsware und Items; Material, Ort, Qualität, Menge,
+„gestohlen"; gibst du einen Posten ins Lager der Einheit oder nimmst ihn
+zurück, dazu die gewählte Einheit und die Menge) und deine Schiffe (Typ, Versicherung, eigener Name,
 „Einsatzbereit" und die Einheit, in der ein Schiff steht). Dazu der Name, den du
 dieser Installation gibst — nie der Name deines Rechners — und, nur für die
 Account-Prüfung, dein RSI-Handle. Nie Kaufdaten (Preis, Kaufdatum, Paket).
@@ -127,8 +128,10 @@ Basetool nach: Dafür geht der Warenname bzw. die UEX-Nummer der Ware hin, auch
 wenn danach nichts gebucht wird.
 
 **Was zurückkommt:** deine eigenen Baupläne, Lagerposten und Schiffe aus dem
-Basetool, beim Hangar dazu die Liste der Einheiten, in denen du Mitglied bist
-(nur im Speicher, für die Auswahl auf der Schiffskarte). Mit dem Bereich
+Basetool, je Lagerposten, wie viel davon persönlich ist und wie viel im
+Lager welcher Einheit liegt, bei Hangar und Lager dazu die Liste der
+Einheiten, in denen du Mitglied bist (nur im Speicher, für die Auswahl auf
+der Schiffskarte und beim Teilen). Mit dem Bereich
 *Lager der Einheit* das gemeinsame Lager deiner Einheiten — als Logistiker samt
 Besitzern und Notizen —, mit dem Bedarf als Logistiker die Aufträge deiner
 Einheit mit Auftraggeber und Kommentar. Beides nur im Speicher, höchstens

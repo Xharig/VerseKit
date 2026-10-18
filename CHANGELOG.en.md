@@ -16,6 +16,56 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   foreground and you have not used keyboard, mouse, joystick, HOTAS or
   gamepad for that long. Off by default and off again after every start;
   green means on. Suggested by Blackd0g84 (KRT)
+- **Sidebar like the Basetool's** — the groups are named and ordered like
+  the KRT Profit Basetool's sidebar: Blueprints, Fleet & Logistics (hangar,
+  wishlist, My Inventory, unit storage), Crafting, Mining & Salvage, Trade,
+  Procurement (unit demand, shopping list), Statistics and Settings with
+  "Connection & sync". Modules switched off hide their tabs, empty groups
+  disappear.
+- **Filter menu** — a field below the overview: typing leaves only matching
+  entries, their groups open; Enter opens the first hit, Escape clears the
+  field.
+- **Add items by hand** — next to materials and goods, "My Inventory" now
+  takes items from the goods list too: artifacts, armor, clothing, weapons,
+  components, medals … with count and location. The sync with the Basetool
+  finds them by their ID, not by their name.
+- **My Inventory** brings material storage and cargo hold together. Tabs
+  Material and Items at the top, below them filters by type (ore, refined,
+  mineral, commodity, vehicle component, armor …), location and purpose (for
+  crafting or for selling) plus a search. Adding entries, refinery yields
+  and screen reading, backing up and clearing are there as fold-out
+  sections; every entry stays where it was.
+- **Put into unit storage and take back** — connected to the Basetool, your own
+  lots in "My Inventory" have a button that puts goods or items into
+  the storage of one of your units; you stay the owner. Taking back works the
+  same way. A switch All / Personal / Shared shows what lies where; a shared
+  item never counts twice.
+- **Class, size and grade on items** — both inventories show a tag such as
+  `(Mil/3/A)` on the item, no internet and no Basetool needed.
+
+### Improved
+
+- **Refinery yields understand "pcs"** — `Stk`, `Stk.`, `Stück`, `pcs` or
+  `pc` at the end of a line (also right after the number, `5pcs`) means the
+  amount is a piece count. Piece goods followed by cSCU or SCU still count
+  in pieces, now with a hint; an SCU material with a piece word is not
+  taken, the reason is shown, and the line stays in the field after
+  taking the rest. The preview writes piece goods in pieces.
+- **Items such as the TS-2 or FR-66** now sit under Items with their type
+  instead of as "1 piece" among the trade goods.
+- **Unit storage is more compact** — like My Inventory with the tabs
+  Material and Items, filters by type and location and one line per lot
+  with type, tag, location, quality and amount; expanded, one line per owner
+  with the six bookings as icons that explain themselves on hover. Amounts
+  use the same format in both inventories.
+- **The goods list no longer makes you wait** — it ships with the program
+  and is refreshed in the background instead of being fetched when you
+  first open the form.
+- **Clearing the stock after a patch** clears goods and items separately,
+  each with its own confirmation.
+- If you used the material storage or cargo hold before, My Inventory shows
+  a one-time note where both are now. Pinned cards and every jump to the
+  old pages lead to My Inventory.
 
 ### Fixed
 

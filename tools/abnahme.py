@@ -287,7 +287,7 @@ SEITEN = [
     ('hangar', 'Mein Hangar'),
     ('wunschliste', 'Wunschliste'),
     ('einkaufsliste', 'Einkaufsliste'),
-    ('lager', 'Rohstofflager'),
+    ('meinlager', 'Mein Lager'),
     ('herstellung', 'Herstellung'),
     ('bergbau', 'Bergbau'),
     ('laeden', 'Läden'),

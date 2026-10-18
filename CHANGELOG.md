@@ -16,6 +16,56 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   solange das Spiel im Vordergrund ist und du so lange weder Tastatur, Maus
   noch Joystick, HOTAS oder Gamepad benutzt hast. Standardmäßig aus und
   nach jedem Start wieder aus; grün heißt an. Angeregt von Blackd0g84 (KRT)
+- **Seitenleiste wie im Basetool** — die Gruppen heißen und stehen wie in
+  der Seitenleiste des KRT Profit Basetools: Baupläne, Flotte & Logistik
+  (Hangar, Wunschliste, Mein Lager, Lager der Einheit), Herstellung, Abbau &
+  Bergung, Handel, Beschaffung (Bedarf der Einheit, Einkaufsliste),
+  Statistik und Einstellungen mit „Verbindung & Abgleich". Ausgeschaltete
+  Module blenden ihre Reiter aus, leere Gruppen verschwinden.
+- **Menü filtern** — ein Feld unter der Übersicht: Tippen lässt nur passende
+  Einträge stehen, ihre Gruppen offen; Enter öffnet den ersten Treffer,
+  Escape leert das Feld.
+- **Items von Hand eintragen** — in „Mein Lager" neben Rohstoff und Ware
+  jetzt auch Gegenstände aus der Warenliste: Artefakte, Rüstung, Kleidung,
+  Waffen, Komponenten, Medaillen … mit Stückzahl und Ort. Der Abgleich mit
+  dem Basetool findet sie über ihre Kennung, nicht über den Namen.
+- **Mein Lager** fasst Rohstofflager und Handelslager zusammen. Oben die
+  Reiter Material und Items, darunter Filter nach Art (Erz, Raffiniert,
+  Mineral, Handelsware, Schiffskomponente, Rüstung …), Ort und Zweck (zum
+  Herstellen oder zum Verkaufen) und eine Suche. Eintragen, Raffinerie-Ausbeute
+  und Bildschirm lesen, Sichern und Löschen sind als Klappbereiche dabei; alle
+  Posten bleiben, wo sie waren.
+- **Ins Lager der Einheit geben und zurücknehmen** — mit Verbindung zum
+  Basetool tragen eigene Posten in „Mein Lager" einen Knopf, der Ware oder
+  Items in das Lager einer deiner Einheiten gibt; du bleibst der Besitzer.
+  Zurücknehmen geht genauso. Ein Umschalter Alle / Persönlich / Gemeinsam
+  zeigt, was davon wo liegt; ein geteiltes Item zählt dabei nie doppelt.
+- **Klasse, Größe und Grad an Gegenständen** — in beiden Lagern steht am
+  Item das Kürzel wie `(Mil/3/A)`, ohne Netz und ohne Basetool.
+
+### Verbessert
+
+- **Raffinerie-Ausbeute versteht „Stk"** — `Stk`, `Stk.`, `Stück`, `pcs`
+  oder `pc` am Zeilenende (auch direkt an der Zahl, `5Stk`) heißt: die Menge
+  ist eine Stückzahl. Stückware mit cSCU oder SCU dahinter zählt weiter in
+  Stück, jetzt mit Hinweis; SCU-Ware mit Stück-Wort wird nicht übernommen,
+  der Grund steht dabei, und die Zeile bleibt nach dem Übernehmen im Feld
+  stehen. Die Vorschau schreibt Stückware in Stück.
+- **Gegenstände wie TS-2 oder FR-66** stehen jetzt unter Items mit ihrer
+  Art statt als „1 Stück" in der Handelsware.
+- **Lager der Einheit ist kompakter** — wie Mein Lager mit den Reitern
+  Material und Items, Filter nach Art und Ort und einer Zeile je Posten mit
+  Art, Kürzel, Ort, Qualität und Menge; aufgeklappt eine Zeile je Besitzer,
+  die sechs Buchungen als Symbole mit Erklärtext beim Überfahren. Mengen
+  stehen in beiden Lagern im selben Format.
+- **Die Warenliste wartet nicht mehr** — sie liegt dem Programm bei und wird
+  im Hintergrund aufgefrischt, statt beim ersten Öffnen des Formulars
+  geholt zu werden.
+- **Lager löschen nach einem Patch** räumt die Ware und die Items getrennt,
+  je mit eigener Rückfrage.
+- Wer Rohstoff- oder Handelslager schon benutzt hat, sieht in Mein Lager
+  einmal einen Hinweis, wo beides jetzt liegt. Angeheftete Karten und alle
+  Sprünge zu den alten Seiten führen nach Mein Lager.
 
 ### Behoben
 

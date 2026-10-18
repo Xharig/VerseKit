@@ -20,8 +20,9 @@
 Die Seite Lager der Einheit (`staffellager`) — das Lager der eigenen Einheiten aus dem KRT Profit
 Basetool (`exchange_orgstock`).
 
-Oben die Einheit (bei mehr als einer), die vier Sichten Items · Rohstoffe ·
-Handelsware · Komponenten und die Suche. Darunter die Posten. Wer in der
+Oben die Einheit (bei mehr als einer), die Reiter Material | Items wie in
+Mein Lager, die Filter Art und Ort und die Suche. Darunter die Posten, je
+Posten eine Zeile. Wer in der
 Einheit Logistiker ist, klappt einen Posten auf und sieht die Einträge je
 Besitzer; mit eingeschaltetem Buchen stehen an jedem Eintrag die Knöpfe zum
 Ausbuchen, Verkaufen, Verschieben, für Notiz, Gestohlen-Marke und
@@ -40,7 +41,7 @@ import tkinter as tk
 from .language import t
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, RED, GOLD, _TK_CALLS,
                     _heading, _scroll_area, _body_text, _button, _wrap,
-                    _stripe, _stripe_reset, _chip, _card)
+                    _stripe, _stripe_reset, _card)
 from . import basetool, basetool_sync, exchange_orgstock as orgstock
 from . import icons, materials, paths, stock_catalog, theme
 
@@ -48,9 +49,19 @@ PAGE = 'staffellager'
 SETTING_UNIT = 'staffellager_einheit'
 SETTING_VIEW = 'staffellager_sicht'
 
-VIEW_KEYS = {orgstock.ITEMS: 's_sl_items', orgstock.RAW: 's_sl_rohstoffe',
-             orgstock.TRADE: 's_sl_handelsware',
-             orgstock.COMPONENTS: 's_sl_komponenten'}
+# Die Reiter wie in Mein Lager. Eine gespeicherte Sicht der früheren vier
+# Reiter wird auf ihren neuen abgebildet.
+VIEW_MATERIAL = 'material'
+VIEW_ITEMS = 'items'
+OLD_VIEWS = {orgstock.ITEMS: VIEW_ITEMS, orgstock.COMPONENTS: VIEW_ITEMS,
+             orgstock.RAW: VIEW_MATERIAL, orgstock.TRADE: VIEW_MATERIAL}
+
+
+def view_of(saved):
+    """Die Sicht zu einem gespeicherten Wert — alte Werte eingeschlossen."""
+    if saved in (VIEW_MATERIAL, VIEW_ITEMS):
+        return saved
+    return OLD_VIEWS.get(saved, VIEW_MATERIAL)
 
 REASON_TEXTS = {code: 's_sl_r_' + code.lower() for code in orgstock.REASONS}
 
@@ -72,9 +83,9 @@ def number(raw):
 
 
 def _amount(value, unit):
-    piece = unit == orgstock.PIECE
-    return '%s %s' % (materials.amount_text(value, piece=piece),
-                      t('s_lg_stueck') if piece else 'SCU')
+    """Eine Menge mit Einheit — dasselbe Format wie in Mein Lager."""
+    from .my_stock_page import amount_text
+    return amount_text(value, unit == orgstock.PIECE)
 
 
 def _holder(entry):
@@ -115,17 +126,18 @@ def orgstock_page(window, frame):
     _heading(window, frame, t('hf_staffellager'), t('s_sl_lead'))
     inner = _scroll_area(frame)
     page = {'unit': paths.setting(SETTING_UNIT) or '',
-            'view': paths.setting(SETTING_VIEW) or orgstock.RAW,
+            'view': view_of(paths.setting(SETTING_VIEW)),
+            'kind': '', 'place': '',
             'search': tk.StringVar(master=inner, value=''),
             'open': set(), 'form': None, 'values': {}, 'busy': False,
             'message': '', 'message_color': FG, 'confirm_url': None,
             'locations': None, 'targets': {}, 'materials': None}
-    if page['view'] not in orgstock.CATEGORIES:
-        page['view'] = orgstock.RAW
+    window.orgstock_page = page
+    # Derselbe Einzug wie in Mein Lager: Die Rollfläche bringt ihn mit.
     top = tk.Frame(inner, bg=BG)
-    top.pack(fill='x', padx=24, pady=(10, 0))
+    top.pack(fill='x', pady=(10, 0))
     listing = tk.Frame(inner, bg=BG)
-    listing.pack(fill='x', padx=24, pady=(6, 20))
+    listing.pack(fill='x', pady=(8, 20))
 
     def redraw():
         try:
@@ -253,24 +265,10 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
                           else 's_sl_mitglied'),
                    window.f_small, fill='x', pady=(6, 0))
 
-    chips = tk.Frame(top, bg=BG)
-    chips.pack(fill='x', pady=(10, 0))
-    counts = orgstock.counts(data, unit)
-    for view in orgstock.CATEGORIES:
-        chip = _chip(window, chips, '%s (%d)' % (t(VIEW_KEYS[view]),
-                                                 counts[view]),
-                     page['view'] == view)
-        chip.pack(side='left', padx=(0, 6))
-
-        def choose(_e=None, v=view):
-            page['view'] = v
-            paths.set_setting(SETTING_VIEW, v)
-            redraw()
-        chip.bind('<Button-1>', choose)
-
+    _draw_filters(window, top, page, data, unit, redraw)
     box = round_entry(top, page['search'], window.f_small, theme.FIELD, LINE,
                       ACCENT, FG, placeholder=t('s_sl_suche'))
-    box.holder.pack(fill='x', pady=(10, 0))
+    box.holder.pack(fill='x', pady=(8, 0))
 
     if page['message']:
         line = tk.Label(top, text=page['message'], bg=BG,
@@ -304,89 +302,196 @@ def _draw_top(window, top, page, redraw, redraw_list, round_entry):
         _form_book_in(window, holder, page, data, unit, redraw, redraw_list)
 
 
+def visible_lots(page, data, unit):
+    """Die Posten, die Reiter, Art, Ort und Suche durchlassen."""
+    items = page['view'] == VIEW_ITEMS
+    found = []
+    for lot in orgstock.lots_of(data, unit, None, page['search'].get()):
+        if orgstock.is_item(lot) != items:
+            continue
+        if page['kind'] and lot_kind(lot) != page['kind']:
+            continue
+        if page['place'] and (lot['place'] or '').lower() \
+                != page['place'].lower():
+            continue
+        found.append(lot)
+    return found
+
+
+def _draw_filters(window, top, page, data, unit, redraw):
+    """Reiter Material | Items und die Filter Art und Ort — wie in Mein
+    Lager."""
+    from .main_window import round_select
+    from .pages import _choice
+    from . import stock_kinds
+    every = orgstock.lots_of(data, unit)
+    counts = {VIEW_MATERIAL: 0, VIEW_ITEMS: 0}
+    for lot in every:
+        counts[VIEW_ITEMS if orgstock.is_item(lot) else VIEW_MATERIAL] += 1
+
+    def choose_view(view):
+        if view == page['view']:
+            return
+        page['view'] = view
+        page['kind'] = ''
+        paths.set_setting(SETTING_VIEW, view)
+        redraw()
+    tabs = _choice(window, top, [
+        (VIEW_MATERIAL, '%s (%d)' % (t('s_ml_material'),
+                                     counts[VIEW_MATERIAL])),
+        (VIEW_ITEMS, '%s (%d)' % (t('s_ml_items'), counts[VIEW_ITEMS]))],
+        page['view'], choose_view)
+    tabs.pack(fill='x', pady=(10, 0))
+    page['tabs'] = tabs
+    items = page['view'] == VIEW_ITEMS
+    here = [lot for lot in every if orgstock.is_item(lot) == items]
+    present = {lot_kind(lot) for lot in here}
+    if page['kind'] and page['kind'] not in present:
+        page['kind'] = ''
+    places = sorted({lot['place'] for lot in here if lot['place']},
+                    key=str.lower)
+    if page['place'] and page['place'] not in places:
+        page['place'] = ''
+    kinds = stock_kinds.ITEM_KINDS if items else stock_kinds.MATERIAL_KINDS
+    line = tk.Frame(top, bg=BG)
+    line.pack(fill='x', pady=(8, 0))
+    page['filters'] = {}
+
+    def pick(key):
+        def run(value):
+            page[key] = value
+            page['redraw_list']()
+        return run
+    for key, choices in (
+            ('kind', [('', t('s_ml_alle_arten'))]
+             + [(k, stock_kinds.label(k)) for k in kinds if k in present]),
+            ('place', [('', t('s_ml_alle_orte'))] + [(p, p) for p in places])):
+        select = round_select(line, choices, page[key], pick(key),
+                              window.f_small)
+        select.pack(side='left', padx=(0, 8))
+        page['filters'][key] = select
+
+
 def _draw_list(window, listing, page, redraw, redraw_list):
+    from .my_stock_page import table_cells
     data = orgstock.current()
     if data is None or not data['units']:
         return
     unit = page['unit']
-    lots = orgstock.lots_of(data, unit, page['view'], page['search'].get())
+    lots = visible_lots(page, data, unit)
     _stripe_reset(listing)
     if not lots:
         _body_text(listing, t('s_sl_leer'), window.f_small, fill='x')
         return
     writable = orgstock.can_write(data, unit)
+    materials_view = page['view'] == VIEW_MATERIAL
+    table = tk.Frame(listing, bg=BG)
+    table.pack(fill='x')
+    table.grid_columnconfigure(0, weight=1)
+    columns = ['name', 'place'] + (['quality'] if materials_view else []) \
+        + ['amount', 'action']
+    heads = {'name': 's_ml_sp_bestand', 'place': 's_ml_sp_ort',
+             'quality': 's_ml_sp_q', 'amount': 's_ml_sp_menge'}
+    for col, key in enumerate(columns):
+        tk.Label(table, text=t(heads[key]).upper() if key in heads else '',
+                 bg=BG, fg=SUB, font=window.f_small, padx=8,
+                 anchor='w' if key in ('name', 'place') else 'e').grid(
+                     row=0, column=col, sticky='ew', pady=(0, 2))
+    builder = {'row': 1, 'table': table, 'columns': columns,
+               'cells': table_cells}
+    page['lot_rows'] = []
+    page['entry_rows'] = []
     for lot in lots:
-        _lot_row(window, listing, page, data, lot, writable, redraw,
+        _lot_row(window, listing, builder, page, data, lot, writable, redraw,
                  redraw_list)
     _body_text(listing, t('s_sl_hinweis'), window.f_small, fill='x',
                pady=(16, 0))
 
 
-def _lot_row(window, listing, page, data, lot, writable, redraw,
+def lot_kind(lot):
+    """Die Art eines Postens (`stock_kinds`) — bei Materialien aus dem
+    `materialKind`, das der Posten mitbringt."""
+    from . import stock_kinds
+    if orgstock.is_item(lot):
+        return stock_kinds.item_kind(lot['name'])
+    return stock_kinds.material_kind(lot['name'],
+                                     {lot['name'].lower(): lot['kind']})
+
+
+def _lot_row(window, listing, builder, page, data, lot, writable, redraw,
              redraw_list):
+    from . import stock_kinds
+    from .my_stock_page import bind_row, name_cell
     base = _stripe(listing, BG)
-    row = tk.Frame(listing, bg=base)
-    row.pack(fill='x')
-    head = tk.Frame(row, bg=base)
-    head.pack(fill='x', padx=8, pady=(5, 0))
     expandable = lot['entries'] is not None
     is_open = lot['key'] in page['open']
-    arrow = None
-    if expandable:
-        arrow = icons.line(head, 'zuklappen' if is_open else 'aufklappen',
-                           background=base, font=window.f_small)
-        arrow.pack(side='left', padx=(0, 4))
-    title = tk.Label(head, text=lot['name'], bg=base,
-                     fg=GOLD if lot['stolen'] else FG, font=window.f_base,
-                     anchor='w')
-    title.pack(side='left')
-    tk.Label(head, text=_amount(lot['amount'], lot['unit_q']), bg=base, fg=FG,
-             font=window.f_small, anchor='e').pack(side='right')
-    parts = [lot['place'] or '?']
-    if not orgstock.is_item(lot):
-        parts.append(t('s_sl_q') % lot['quality'])
+    item = orgstock.is_item(lot)
+    badges = [(stock_kinds.label(lot_kind(lot)), SUB)]
     if lot['stolen']:
-        parts.append(t('s_sl_gestohlen'))
+        badges.append((t('s_sl_gestohlen'), GOLD))
+    reserved = []
     if lot['job'] > 0:
-        parts.append(t('s_sl_res_auftraege') % _amount(lot['job'],
-                                                       lot['unit_q']))
+        reserved.append(t('s_sl_res_auftraege') % _amount(lot['job'],
+                                                          lot['unit_q']))
     if lot['mission'] > 0:
-        parts.append(t('s_sl_res_missionen') % _amount(lot['mission'],
-                                                       lot['unit_q']))
-    tk.Label(row, text='  ·  '.join(parts), bg=base, fg=SUB,
-             font=window.f_small, anchor='w').pack(fill='x', padx=8,
-                                                   pady=(0, 5))
+        reserved.append(t('s_sl_res_missionen') % _amount(lot['mission'],
+                                                          lot['unit_q']))
+
+    def arrow(cell):
+        if not expandable:
+            return
+        icon = icons.line(cell, 'zuklappen' if is_open else 'aufklappen',
+                          background=base, font=window.f_small)
+        icon.pack(side='right', padx=(4, 10))
+        cell.arrow = icon
+    values = {
+        'name': (name_cell(window, base, lot['name'], badges,
+                           stock_kinds.tag(lot['name']) if item else None,
+                           extra=' · '.join(reserved),
+                           color=GOLD if lot['stolen'] else FG), FG),
+        'place': (lot['place'] or '?', SUB),
+        'quality': ('' if item else '%d' % lot['quality'], SUB),
+        'amount': (_amount(lot['amount'], lot['unit_q']), FG),
+        'action': (arrow, SUB),
+    }
+    widgets = builder['cells'](window, builder, base, values)
+    page['lot_rows'].append((lot, widgets))
     if expandable:
-        def toggle(_e=None):
+        def toggle():
             if lot['key'] in page['open']:
                 page['open'].discard(lot['key'])
             else:
                 page['open'].add(lot['key'])
             redraw_list()
-        for widget in (row, head, title, arrow):
-            widget.configure(cursor='hand2')
-            widget.bind('<Button-1>', toggle)
+        bind_row(widgets, toggle)
     if not (expandable and is_open):
         return
     if not lot['entries']:
-        tk.Label(row, text=t('s_sl_keine_eintraege'), bg=base, fg=SUB,
-                 font=window.f_small, anchor='w').pack(fill='x', padx=28,
-                                                       pady=(0, 6))
+        tk.Label(builder['table'], text=t('s_sl_keine_eintraege'), bg=base,
+                 fg=SUB, font=window.f_small, anchor='w', padx=36).grid(
+                     row=builder['row'], column=0,
+                     columnspan=len(builder['columns']), sticky='ew', ipady=3)
+        builder['row'] += 1
     for entry in lot['entries']:
-        _entry_row(window, row, base, page, data, lot, entry, writable,
+        _entry_row(window, builder, base, page, data, lot, entry, writable,
                    redraw, redraw_list)
 
 
-def _entry_row(window, parent, base, page, data, lot, entry, writable,
+# Die Buchungen am Eintrag: Art, Symbol, Erklärtext.
+ENTRY_ACTIONS = (('book_out', 'ausbuchen', 's_sl_ausbuchen'),
+                 ('sell', 'verkaufen', 's_sl_verkaufen'),
+                 ('move', 'umbuchen', 's_sl_verschieben'),
+                 ('note', 'notiz', 's_sl_notiz'),
+                 ('stolen', 'gestohlen', 's_sl_marke'),
+                 ('earmark', 'reservieren', 's_sl_reservieren'))
+
+
+def _entry_row(window, builder, base, page, data, lot, entry, writable,
                redraw, redraw_list):
-    box = tk.Frame(parent, bg=base)
-    box.pack(fill='x', padx=(28, 8), pady=(0, 6))
-    line = tk.Frame(box, bg=base)
-    line.pack(fill='x')
-    tk.Label(line, text=_holder(entry), bg=base, fg=FG, font=window.f_small,
-             anchor='w').pack(side='left')
-    tk.Label(line, text=_amount(entry['amount'], lot['unit_q']), bg=base,
-             fg=FG, font=window.f_small, anchor='e').pack(side='right')
+    """Ein Eintrag als eine Zeile: Besitzer, Notiz und Reservierungen klein
+    dahinter, die Menge, rechts die Buchungen als Symbole."""
+    from . import notice
+    from .my_stock_page import name_cell
     details = []
     if entry['note']:
         details.append(t('s_sl_notiz_text') % entry['note'])
@@ -400,31 +505,43 @@ def _entry_row(window, parent, base, page, data, lot, entry, writable,
         details.append(t('s_sl_fuer_mission') % (
             _amount(mission['amount'], lot['unit_q']),
             mission['name'] or '?'))
-    if details:
-        text = tk.Label(box, text='\n'.join(details), bg=base, fg=SUB,
-                        font=window.f_small, anchor='w', justify='left')
-        text.pack(fill='x')
-        _wrap(text, inset=80)
-    if not writable:
-        return
-    actions = tk.Frame(box, bg=base)
-    actions.pack(fill='x', pady=(4, 0))
-    for kind, key in (('book_out', 's_sl_ausbuchen'), ('sell', 's_sl_verkaufen'),
-                      ('move', 's_sl_verschieben'), ('note', 's_sl_notiz'),
-                      ('stolen', 's_sl_marke'), ('earmark', 's_sl_reservieren')):
-        button = _button(window, actions, t(key),
-                         lambda k=kind: _open_form(page, (k, entry['id'])))
-        button.configure(bg=base)
-        button.pack(side='left', padx=(0, 6), pady=(0, 2))
     form = page['form']
-    if form and form[1] == entry['id']:
-        holder = tk.Frame(box, bg=BG)
-        holder.pack(fill='x', pady=(6, 0))
-        builder = {'book_out': _form_take, 'sell': _form_take,
-                   'move': _form_move, 'note': _form_note,
-                   'stolen': _form_stolen, 'earmark': _form_earmark}[form[0]]
-        builder(window, holder, page, data, lot, entry, form[0], redraw,
-                redraw_list)
+
+    def actions(cell):
+        if not writable:
+            return
+        cell.action_icons = {}
+        for kind, symbol, key in reversed(ENTRY_ACTIONS):
+            active = bool(form and form[0] == kind and form[1] == entry['id'])
+            icon = icons.tappable(
+                cell, symbol,
+                lambda _e=None, k=kind: _open_form(page, (k, entry['id'])),
+                color=icons.GREEN if active else icons.GREY,
+                background=base, font=window.f_small)
+            icon.is_action = True
+            icon.pack(side='right', padx=(0, 10 if kind == 'earmark' else 4))
+            notice.attach(icon, lambda k=key: t(k))
+            cell.action_icons[kind] = icon
+    values = {
+        'name': (name_cell(window, base, _holder(entry), [], indent=True,
+                           extra=' · '.join(details)), FG),
+        'amount': (_amount(entry['amount'], lot['unit_q']), FG),
+        'action': (actions, SUB),
+    }
+    widgets = builder['cells'](window, builder, base, values)
+    page['entry_rows'].append((entry, widgets))
+    if not (form and form[1] == entry['id']):
+        return
+    holder = tk.Frame(builder['table'], bg=BG)
+    holder.grid(row=builder['row'], column=0,
+                columnspan=len(builder['columns']), sticky='ew',
+                padx=(36, 8), pady=(4, 8))
+    builder['row'] += 1
+    form_builder = {'book_out': _form_take, 'sell': _form_take,
+                    'move': _form_move, 'note': _form_note,
+                    'stolen': _form_stolen, 'earmark': _form_earmark}[form[0]]
+    form_builder(window, holder, page, data, lot, entry, form[0], redraw,
+                 redraw_list)
 
 
 def _open_form(page, form):
