@@ -176,6 +176,14 @@ TEXTS = {
     's_rf_einheit':    ('Menge in', 'Amount in'),
     's_rf_knopf':      ('%d Posten eintragen', 'Add %d entries'),
     's_rf_wird_zu':    ('%s: %s SCU · Q %d', '%s: %s SCU · Q %d'),
+    's_rf_wird_zu_stueck': ('%s: %s Stück · Q %d', '%s: %s pcs · Q %d'),
+    's_rf_stueck_ganz': ('Mit „Stk" ist die Menge eine Anzahl — bitte eine ganze Zahl.',
+                         'With "pcs" the amount is a count — please a whole number.'),
+    's_rf_stueck_scu': ('%s zählt in SCU, nicht in Stück — Zeile nicht '
+                        'übernommen. Ohne „Stk" wird die Zahl als cSCU '
+                        'bzw. SCU gelesen.',
+                        '%s counts in SCU, not in pieces — line not taken. '
+                        'Without "pcs" the number is read as cSCU or SCU.'),
     's_rf_nichts':     ('Noch nichts eingetippt.', 'Nothing typed yet.'),
     's_rf_zu_kurz':    ('Zu wenig Angaben — es braucht Material, Qualität und '
                         'Menge.',
@@ -5178,6 +5186,11 @@ TEXTS = {
                                'Raffinerie-Terminal sind cSCU.',
                                'That would be %s SCU — a lot. Numbers from '
                                'the refinery terminal are cSCU.'),
+    's_lg_hinweis_stueck_einheit': ('Stückware zählt in Stück — die '
+                                    'Einheit dahinter wurde nicht umgerechnet, '
+                                    'eingetragen werden %s Stück.',
+                                    'Piece goods count in pieces — the unit after it '
+                                    'was not converted, %s pieces are entered.'),
     's_lg_hinweis_cscu_komma': ('Kommazahl in cSCU — das wären nur %s SCU. '
                                 'Meintest du SCU?',
                                 'Decimal in cSCU — that is only %s SCU. '

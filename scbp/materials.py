@@ -610,6 +610,17 @@ SCU_SUSPICIOUS = 100.0
 
 UNIT_WORDS = {'cscu': 'cscu', 'scu': 'scu'}
 
+# Ein Stück-Wort am Zeilenende — auch ohne Leerzeichen an der Zahl (`5Stk`),
+# mit oder ohne Punkt, Groß- und Kleinschreibung egal. Das ü von Stück
+# steht als Unicode-Escape im Muster.
+PIECE_WORD = re.compile(r'(?<=[\d\s])(stk|st\u00fcck|pcs|pc)\.?$',
+                        re.IGNORECASE)
+
+
+def counts_in_pieces(material):
+    """Zählt der Rohstoff in Stück (Edelsteine) statt in SCU?"""
+    return _is_piece(material)
+
 
 def unit_hint(value, unit):
     """Textschlüssel eines Hinweises, wenn die Einheit verwechselt aussieht.
@@ -683,7 +694,17 @@ def refinery_lines(text, unit='cscu', hints=None):
 
     ⚠ Stückware (Edelsteine) kennt keine Einheit: Ihre Menge ist eine
     Stückzahl und wird weder mit `unit` noch mit einer angehängten Einheit
-    umgerechnet.
+    umgerechnet. Steht dort trotzdem cSCU oder SCU, kommt ein Hinweis dazu.
+
+    ⭐ Ein Stück-Wort am Ende (`Stk`, `Stk.`, `Stück`, `pcs`, `pc`, auch
+    `5Stk`) sagt: Die Menge ist eine Stückzahl. Für SCU-Ware passt das nicht
+    — die Zeile wird mit Grund abgelehnt, statt geraten.
+
+    | Zeile | Stückware | SCU-Ware |
+    |---|---|---|
+    | ohne Wort | Stück | nach `unit` |
+    | `cSCU`/`SCU` | Stück + Hinweis | nach dem Wort |
+    | `Stk` & Co. | Stück | Fehler, nicht übernommen |
 
     `hints` (eine Liste) sammelt `(zeile, textschlüssel, menge)` für Zeilen,
     deren Einheit verwechselt aussieht — siehe `unit_hint`. Sie werden
@@ -696,11 +717,17 @@ def refinery_lines(text, unit='cscu', hints=None):
         line = raw.strip()
         if not line:
             continue
-        parts = line.replace('\t', ' ').split()
+        body = line.replace('\t', ' ')
+        piece_word = PIECE_WORD.search(body)
+        if piece_word:
+            body = body[:piece_word.start()].rstrip()
+        parts = body.split()
         line_unit = unit
-        if parts and parts[-1].lower() in UNIT_WORDS:
+        unit_word = False
+        if not piece_word and parts and parts[-1].lower() in UNIT_WORDS:
             line_unit = UNIT_WORDS[parts[-1].lower()]
             parts = parts[:-1]
+            unit_word = True
         if len(parts) < 3:
             errors.append((line, t('s_rf_zu_kurz')))
             continue
@@ -735,10 +762,20 @@ def refinery_lines(text, unit='cscu', hints=None):
             errors.append((line, t('s_rf_menge')))
             continue
         # ⚠ Stückware nie umrechnen, auch nicht bei angehängter Einheit:
-        # 5 Glacosite sind 5 Stück, nicht 0,05. Ohne Einheit gibt es auch
-        # nichts zu verwechseln, also keinen Hinweis.
+        # 5 Glacosite sind 5 Stück, nicht 0,05. Nennt die Zeile trotzdem
+        # cSCU oder SCU, sagt ein Hinweis, dass in Stück gezählt wurde.
+        # Wer `Stk` schreibt, meint eine Anzahl — ein Bruchteil ist dann ein
+        # Tippfehler, kein halber Stein.
+        if piece_word and abs(value - round(value)) > 1e-9:
+            errors.append((line, t('s_rf_stueck_ganz')))
+            continue
         if _is_piece(real):
             entries.append((real, value, quality))
+            if unit_word and hints is not None:
+                hints.append((line, 's_lg_hinweis_stueck_einheit', value))
+            continue
+        if piece_word:
+            errors.append((line, t('s_rf_stueck_scu') % real))
             continue
         factor = CSCU if line_unit == 'cscu' else 1.0
         entries.append((real, round(value * factor, 4), quality))

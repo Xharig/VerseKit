@@ -32,6 +32,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Raffinerie-Ausbeute versteht „Stk"** — `Stk`, `Stk.`, `Stück`, `pcs`
+  oder `pc` am Zeilenende (auch direkt an der Zahl, `5Stk`) heißt: die Menge
+  ist eine Stückzahl. Stückware mit cSCU oder SCU dahinter zählt weiter in
+  Stück, jetzt mit Hinweis; SCU-Ware mit Stück-Wort wird nicht übernommen,
+  der Grund steht dabei, und die Zeile bleibt nach dem Übernehmen im Feld
+  stehen. Die Vorschau schreibt Stückware in Stück.
 - **Gegenstände wie TS-2 oder FR-66** stehen jetzt unter Items mit ihrer
   Art statt als „1 Stück" in der Handelsware.
 - **Lager der Einheit ist kompakter** — wie Mein Lager mit den Reitern

@@ -25719,6 +25719,7 @@ def main():
     _pruefung_487()
     _pruefung_488()
     _pruefung_489()
+    _pruefung_490()
 
     print()
     if fehler:
@@ -48846,6 +48847,130 @@ def _pruefung_489():
         _bs.STATUS.update({'state': 'idle', 'code': '', 'running': False})
         _ou.forget()
         shutil.rmtree(_heim, ignore_errors=True)
+
+
+def _pruefung_490():
+    """490. Raffinerie-Feld: Stück-Wort am Zeilenende."""
+    print('\n490. Raffinerie-Feld: Stk, Stück, pcs am Zeilenende')
+    from scbp import crafting as _cr, materials as _ma, language as _la
+    echt = (_cr.storage_name, _cr.piece_materials, _ma._is_piece)
+    _sprache = _la.current()
+    _la.set_language('de')
+    try:
+        _cr.storage_name = lambda n: n
+        _cr.piece_materials = lambda: {'glacosite', 'dolivine'}
+        pruefe(_ma._is_piece('Glacosite') and not _ma._is_piece('Titanium'),
+               'Vorgabe greift: Glacosite ist Stückware, Titanium nicht')
+        gelesen = {}
+        for zeile in ('Glacosite 567 5 Stk', 'Glacosite 567 5 Stk.',
+                      'Glacosite 567 5 Stück', 'Glacosite 567 5 pcs',
+                      'Glacosite 567 5 pc', 'Glacosite 567 5Stk',
+                      'Glacosite 567 5stk.', 'Glacosite 567 5 STÜCK',
+                      'Glacosite 567 5PCS', 'Glacosite 567 5pc.',
+                      'Glacosite\t567\t5\tStk'):
+            gelesen[zeile] = _ma.refinery_lines(zeile, 'cscu')
+        falsch = [z for z, (p, f) in gelesen.items()
+                  if p != [('Glacosite', 5.0, 567)] or f]
+        pruefe(not falsch, 'jedes Stück-Wort, auch ohne Leerzeichen und in '
+               'jeder Schreibung, ergibt 5 Stück (%r)' % falsch)
+
+        hinweise = []
+        posten, fehl = _ma.refinery_lines(
+            'Glacosite 567 5 cSCU\nDolivine 500 3 SCU', 'cscu',
+            hints=hinweise)
+        pruefe(posten == [('Glacosite', 5.0, 567), ('Dolivine', 3.0, 500)]
+               and not fehl
+               and [h[1:] for h in hinweise]
+               == [('s_lg_hinweis_stueck_einheit', 5.0),
+                   ('s_lg_hinweis_stueck_einheit', 3.0)],
+               'Stückware mit cSCU/SCU: als Stück gezählt, mit Hinweis auf '
+               'die Stückzahl (%r)' % hinweise)
+        posten, fehl = _ma.refinery_lines('Glacosite 567 2,5 Stk', 'cscu')
+        pruefe(not posten and fehl
+               and fehl[0][1] == _la.t('s_rf_stueck_ganz'),
+               'mit Stück-Wort ist ein Bruchteil ein Fehler (%r)' % (fehl,))
+        from scbp import refinery_scan as _rs
+        pruefe(_rs.as_text([('Glacosite', 567, 5), ('Titanium', 295, 188)])
+               == 'Glacosite 567 5\nTitanium 295 188 cSCU',
+               'der Scanner schreibt Stückware ohne cSCU (kein Fehlalarm)')
+
+        posten, fehl = _ma.refinery_lines(
+            'Titanium 295 5 Stk\nTitanium 295 188', 'cscu')
+        pruefe(posten == [('Titanium', 1.88, 295)]
+               and len(fehl) == 1 and fehl[0][0] == 'Titanium 295 5 Stk'
+               and fehl[0][1] == _la.t('s_rf_stueck_scu') % 'Titanium',
+               'SCU-Ware mit Stück-Wort: Zeile nicht übernommen, Grund '
+               'genannt (%r)' % (fehl,))
+        posten, fehl = _ma.refinery_lines('Titanium 295 188 cSCU', 'scu')
+        pruefe(posten == [('Titanium', 1.88, 295)] and not fehl,
+               'cSCU und SCU wirken wie bisher')
+        posten, fehl = _ma.refinery_lines('Heart of the Woods 500 12', 'scu')
+        pruefe(posten == [('Heart of the Woods', 12.0, 500)] and not fehl,
+               'mehrwortige Namen bleiben lesbar')
+
+        if hat_anzeige():
+            w, f, seite = _lager_fenster_479()
+            try:
+                felder = []
+                stapel = [seite['inner']]
+                while stapel:
+                    x = stapel.pop()
+                    if hasattr(x, 'scan_read'):
+                        felder.append(x)
+                    stapel.extend(x.winfo_children())
+                pruefe(len(felder) == 1, 'Vorbedingung: das Raffinerie-Feld '
+                       'ist da (%d)' % len(felder))
+
+                def texte():
+                    out = []
+                    stapel = [seite['inner']]
+                    while stapel:
+                        x = stapel.pop()
+                        if x.winfo_class() == 'Label':
+                            out.append(str(x.cget('text')))
+                        stapel.extend(x.winfo_children())
+                    return out
+                if felder:
+                    feld = felder[0]
+                    feld.insert('1.0', 'Glacosite 567 5 Stk\nTitanium 295 188'
+                                '\nTitanium 295 5 Stk')
+                    feld.check_preview()
+                    w.update()
+                    vorschau = next((t_ for t_ in texte()
+                                     if 'Glacosite:' in t_), '')
+                    pruefe('Glacosite: 5 Stück' in vorschau
+                           and 'Titanium: 1,88 SCU' in vorschau,
+                           'die Vorschau schreibt Stückware in Stück, '
+                           'SCU-Ware in SCU (%r)' % vorschau)
+                    # Übernehmen: Die abgelehnte Zeile bleibt im Feld, der
+                    # Scanner lernt Stückware in Stück.
+                    gelernt = []
+                    _lernen = _rs.learn
+                    _rs.learn = lambda zellen, werte: gelernt.extend(werte)
+                    _alt_roh = _ma.load()
+                    try:
+                        # Als hätte der Scanner Zellen gelesen — dann lernt
+                        # das Übernehmen aus dem Getippten.
+                        feld.refinery_state['zellen'] = [{'zelle': 1}]
+                        feld.take_entries()
+                        w.update()
+                    finally:
+                        _rs.learn = _lernen
+                        _ma.save(_alt_roh)
+                    pruefe(feld.get('1.0', 'end-1c') == 'Titanium 295 5 Stk',
+                           'nach dem Übernehmen steht nur die abgelehnte '
+                           'Zeile im Feld (%r)' % feld.get('1.0', 'end-1c'))
+                    pruefe(('Glacosite', 567, 5) in gelernt
+                           and ('Titanium', 295, 188) in gelernt,
+                           'der Scanner lernt Stückware in Stück, SCU-Ware '
+                           'in cSCU (%r)' % gelernt)
+            finally:
+                w.destroy()
+        else:
+            uebersprungen('490 Vorschau', 'keine Anzeige')
+    finally:
+        (_cr.storage_name, _cr.piece_materials, _ma._is_piece) = echt
+        _la.set_language(_sprache)
 
 
 def _pruefung_487():

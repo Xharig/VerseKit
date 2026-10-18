@@ -13306,31 +13306,42 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
 
     def pruefen(*_):
         """Beim Tippen mitrechnen — man sieht sofort, was hineinginge."""
-        hinweise = []
-        posten, fehlerhaft = lager.refinery_lines(
-            feld.get('1.0', 'end-1c'), einheit.get(), hints=hinweise)
-        stand['posten'] = posten
-        teile = []
+        hints = []
+        entries, failed = lager.refinery_lines(
+            feld.get('1.0', 'end-1c'), einheit.get(), hints=hints)
+        stand['posten'] = entries
+        stand['abgelehnt'] = [line for line, _reason in failed]
+        from .language import current
+        decimal = ',' if current() == 'de' else '.'
+
+        def amount_of(name, amount):
+            if lager.counts_in_pieces(name):
+                return lager.amount_text(amount, True, decimal)
+            return _amount_text(amount)
+        parts = []
         # ⭐ Die Vorschau nennt, was im Lager landet — in SCU. Wer 480 tippt
         # und „4,8 SCU" liest, sieht eine verwechselte Einheit, bevor sie
-        # eingetragen ist.
-        for name, menge, guete in posten[:8]:
-            teile.append(t('s_rf_wird_zu') % (name, _amount_text(menge),
-                                               guete))
-        if len(posten) > 8:
-            teile.append('…')
-        for roh, grund in fehlerhaft[:4]:
-            teile.append('⚠ %s — %s' % (roh, grund))
-        for roh, schluessel, scu in hinweise[:4]:
-            teile.append('⚠ %s — %s' % (roh, t(schluessel)
-                                         % _amount_text(scu)))
+        # eingetragen ist. Stückware steht als Stückzahl da.
+        for name, amount, quality in entries[:8]:
+            parts.append(t('s_rf_wird_zu_stueck'
+                           if lager.counts_in_pieces(name) else 's_rf_wird_zu')
+                         % (name, amount_of(name, amount), quality))
+        if len(entries) > 8:
+            parts.append('…')
+        for line, reason in failed[:4]:
+            parts.append('⚠ %s — %s' % (line, reason))
+        for line, key, amount in hints[:4]:
+            piece = key == 's_lg_hinweis_stueck_einheit'
+            parts.append('⚠ %s — %s' % (line, t(key) % (
+                lager.amount_text(amount, True, decimal) if piece
+                else _amount_text(amount))))
         vorschau.configure(
-            text='\n'.join(teile) if teile else t('s_rf_nichts'),
-            fg=GOLD if fehlerhaft or hinweise else SUB)
-        for w in knopf_platz.winfo_children():
-            w.destroy()
-        if posten:
-            _button(fenster, knopf_platz, t('s_rf_knopf') % len(posten),
+            text='\n'.join(parts) if parts else t('s_rf_nichts'),
+            fg=GOLD if failed or hints else SUB)
+        for widget in knopf_platz.winfo_children():
+            widget.destroy()
+        if entries:
+            _button(fenster, knopf_platz, t('s_rf_knopf') % len(entries),
                    uebernehmen, strong=True).pack(side='left')
 
     def uebernehmen():
@@ -13346,28 +13357,35 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         # Die ganze Ausbeute würde ohne Ort eingebucht.
         #
         # Der Ort wird gegen die Ortsliste geprüft, so wie im Formular oben.
-        ziel_ort = (ort_raff.get() or '').strip()
+        place = (ort_raff.get() or '').strip()
         from . import page_usage
         page_usage.action('lager_raffinerie')
-        for name, menge, guete in stand['posten']:
-            lager.add(name, menge, guete, ziel_ort)
+        for name, amount, quality in stand['posten']:
+            lager.add(name, amount, quality, place)
         # Was nachgetippt wurde, lehrt den Scanner die Ziffern der Zellen,
-        # die er nicht sicher lesen konnte. Die Tafel zeigt cSCU.
+        # die er nicht sicher lesen konnte. Die Tafel zeigt cSCU, Stückware
+        # als Stückzahl.
         if stand.get('zellen'):
-            from . import refinery_scan as _rs_lernen
+            from . import refinery_scan
             try:
-                _rs_lernen.learn(stand['zellen'],
-                                 [(name, guete, int(round(menge * 100)))
-                                  for name, menge, guete in stand['posten']])
-            except Exception as ausnahme:
-                errors.record('pages.raffinerie_lernen', ausnahme)
+                refinery_scan.learn(stand['zellen'], [
+                    (name, quality, int(round(
+                        amount if lager.counts_in_pieces(name)
+                        else amount * 100)))
+                    for name, amount, quality in stand['posten']])
+            except Exception as exc:
+                errors.record('pages.raffinerie_lernen', exc)
             stand['zellen'] = []
-        anzahl = len(stand['posten'])
+        count = len(stand['posten'])
+        # Abgelehnte Zeilen bleiben stehen — mit ihrem Grund in der Vorschau.
+        left = stand.get('abgelehnt') or []
         feld.delete('1.0', 'end')
+        if left:
+            feld.insert('1.0', '\n'.join(left))
         lese_zeigen('')
         pruefen()
         neu_zeichnen()
-        meldung.configure(text=t('s_rf_fertig') % anzahl, fg=ACCENT)
+        meldung.configure(text=t('s_rf_fertig') % count, fg=ACCENT)
 
     feld.bind('<KeyRelease>', pruefen)
 
@@ -13427,6 +13445,9 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     from . import refinery_scan as _rs_spiel
     _rs_spiel.listen(aus_dem_spiel)
     feld.scan_read = lesen
+    feld.check_preview = pruefen
+    feld.take_entries = uebernehmen
+    feld.refinery_state = stand
     feld.scan_message = lese_meldung
     feld.scan_buttons = knopf_platz
     feld.scan_choice = auswahl

@@ -32,6 +32,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Refinery yields understand "pcs"** — `Stk`, `Stk.`, `Stück`, `pcs` or
+  `pc` at the end of a line (also right after the number, `5pcs`) means the
+  amount is a piece count. Piece goods followed by cSCU or SCU still count
+  in pieces, now with a hint; an SCU material with a piece word is not
+  taken, the reason is shown, and the line stays in the field after
+  taking the rest. The preview writes piece goods in pieces.
 - **Items such as the TS-2 or FR-66** now sit under Items with their type
   instead of as "1 piece" among the trade goods.
 - **Unit storage is more compact** — like My Inventory with the tabs
