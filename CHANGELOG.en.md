@@ -15,6 +15,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   count without any training of your own went from 10 to 22 of 32, and
   "6,340" is no longer read as 6,740. With scan images from Aeternitas26
   (KRT) and P6 (KRT)
+- **Smoother overlay and page switches** — the overlay and the main window
+  no longer stutter while you drag or resize them, even with work running in
+  the background, and page switches are faster. While you click, drag or
+  move the mouse in the main window, nothing cuts in anymore. Reported by
+  greluc (KRT)
 
 ### Fixed
 

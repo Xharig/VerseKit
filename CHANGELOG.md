@@ -15,6 +15,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   stieg die Trefferzahl ohne eigenes Anlernen von 10 auf 22 von 32, und
   „6,340" wird nicht mehr als 6,740 gelesen. Mit Scan-Bildern von
   Aeternitas26 (KRT) und P6 (KRT)
+- **Overlay und Seitenwechsel flüssiger** — Overlay und Hauptfenster
+  ruckeln beim Verschieben und Vergrößern nicht mehr, auch wenn im
+  Hintergrund gerechnet wird, und Seitenwechsel gehen schneller. Solange du
+  klickst, ziehst oder die Maus im Hauptfenster bewegst, hakt nichts mehr
+  dazwischen. Gemeldet von greluc (KRT)
 
 ### Behoben
 

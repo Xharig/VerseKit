@@ -25788,6 +25788,9 @@ def main():
     _pruefung_579()
     _pruefung_580()
     _pruefung_590()
+    _pruefung_610()
+    _pruefung_611()
+    _pruefung_612()
 
     print()
     if fehler:
@@ -55475,6 +55478,366 @@ def _pruefung_590():
     out = redacted(docs, line, without_fix=True)
     pruefe('pruefname590' in out.lower(),
            'Gegenprobe: ohne den Schritt bleibt der Name im Bericht (%r)' % out)
+
+
+def _pruefung_610():
+    """610. Einstellungen: die Datei wird nur gelesen, wenn sie sich geändert hat.
+
+    Gezählt werden die Lesungen der Einstellungsdatei aus diesem Faden. Eine
+    Änderung an Ort und Stelle (Editor) und ein Ersetzen mit gleicher Größe
+    und gleicher Zeit (anderer Prozess, `os.replace`) müssen ankommen; eine
+    junge Datei wird jedes Mal gelesen.
+    """
+    print('\n610. Einstellungen: gemerkt, bis sich die Datei ändert')
+    import threading as threading_610
+    from scbp import modules as modules_610, paths as paths_610
+    pruefe(watcher_anhalten() == 0,
+           'Selbstprüfung: keine Watcher früherer Prüfungen laufen mehr')
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp610-')
+    os.environ['SC_BP_HOME'] = home
+    target = paths_610.app_file(paths_610.SETTINGS_FILE)
+    real_read = paths_610._read_settings_file
+    real_stamp = paths_610._settings_stamp
+    reads = [0]
+    test_thread = threading_610.get_ident()
+
+    def counted(path):
+        if (threading_610.get_ident() == test_thread
+                and os.path.normcase(path) == os.path.normcase(target)):
+            reads[0] += 1
+        return real_read(path)
+
+    def write(content, age=60, replace=False, mtime_ns=None):
+        text = json.dumps(content)
+        if replace:
+            temp = target + '.p610.tmp'
+            with open(temp, 'w', encoding='utf-8') as f:
+                f.write(text)
+            os.replace(temp, target)
+        else:
+            with open(target, 'w', encoding='utf-8') as f:
+                f.write(text)
+        if mtime_ns is not None:
+            os.utime(target, ns=(mtime_ns, mtime_ns))
+        elif age:
+            stamp = time.time() - age
+            os.utime(target, (stamp, stamp))
+
+    def twenty_calls():
+        reads[0] = 0
+        values = [paths_610.setting('probe_610') for _ in range(20)]
+        return reads[0], values
+
+    try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        paths_610._read_settings_file = counted
+        paths_610._SETTINGS_MEMO[0] = None
+        write({'probe_610': 'eins', 'liste_610': [1, 2]})
+
+        reads[0] = 0
+        paths_610._read_settings_file(target)
+        pruefe(reads[0] == 1,
+               'Selbstprüfung: der Zähler zählt Lesungen der Einstellungsdatei')
+
+        n, values = twenty_calls()
+        pruefe(n == 1 and values == ['eins'] * 20,
+               'unveränderte Datei: 20 Aufrufe, einmal gelesen (%d)' % n)
+        reads[0] = 0
+        paths_610.setting_bool('probe_bool_610', True)
+        paths_610.setting_int('probe_zahl_610', 3)
+        paths_610.settings()
+        modules_610.hidden_pages()
+        pruefe(reads[0] == 0,
+               'setting_bool, setting_int, settings und hidden_pages lesen '
+               'nicht erneut (%d)' % reads[0])
+
+        paths_610._settings_stamp = lambda _target: None
+        try:
+            n, _values = twenty_calls()
+        finally:
+            paths_610._settings_stamp = real_stamp
+        pruefe(n == 20,
+               'Gegenprobe: ohne Stempel liest jeder der 20 Aufrufe (%d)' % n)
+
+        size = os.path.getsize(target)
+        write({'probe_610': 'zwei', 'liste_610': [1, 2]})
+        pruefe(os.path.getsize(target) == size,
+               'Vorbedingung: die Änderung hat dieselbe Größe')
+        n, values = twenty_calls()
+        pruefe(values == ['zwei'] * 20 and n == 1,
+               'an Ort und Stelle geändert: neuer Wert, einmal gelesen '
+               '(%r, %d)' % (values[0], n))
+
+        mtime = os.stat(target).st_mtime_ns
+        write({'probe_610': 'drei', 'liste_610': [1, 2]}, replace=True,
+              mtime_ns=mtime)
+        pruefe(os.stat(target).st_mtime_ns == mtime
+               and os.path.getsize(target) == size,
+               'Vorbedingung: ersetzt mit gleicher Größe und gleicher Zeit')
+        n, values = twenty_calls()
+        pruefe(values == ['drei'] * 20,
+               'ersetzte Datei: neuer Wert trotz gleicher Größe und Zeit '
+               '(%r)' % values[0])
+
+        write({'probe_610': 'jung'}, age=0)
+        n, values = twenty_calls()
+        pruefe(values == ['jung'] * 20 and n == 20,
+               'junge Datei: jeder Aufruf liest (%d)' % n)
+
+        future = time.time_ns() + 3600 * 10 ** 9
+        write({'probe_610': 'vor1'}, mtime_ns=future)
+        first = paths_610.setting('probe_610')
+        write({'probe_610': 'vor2'}, mtime_ns=future)
+        pruefe(os.stat(target).st_mtime_ns == future,
+               'Vorbedingung: zweimal dieselbe Zeit in der Zukunft')
+        pruefe((first, paths_610.setting('probe_610')) == ('vor1', 'vor2'),
+               'Zeit in der Zukunft, gleiche Größe an Ort und Stelle: neuer '
+               'Wert (%r)' % ((first, paths_610.setting('probe_610')),))
+
+        write({'probe_610': 'frei', 'liste_610': [1, 2]})
+        paths_610._SETTINGS_MEMO[0] = None
+        locked = [paths_610.SETTINGS_LOCK_TRIES]
+
+        def locked_read(path):
+            if (threading_610.get_ident() == test_thread
+                    and os.path.normcase(path) == os.path.normcase(target)
+                    and locked[0] > 0):
+                locked[0] -= 1
+                raise PermissionError(13, 'gesperrt', path)
+            return counted(path)
+
+        paths_610._read_settings_file = locked_read
+        try:
+            during = paths_610.setting('probe_610')
+            after = paths_610.setting('probe_610')
+        finally:
+            paths_610._read_settings_file = counted
+            paths_610._SETTINGS_STILL_LOCKED[0] = None
+        pruefe(during is None and after == 'frei',
+               'gesperrt gelesen: nichts gemerkt, danach der echte Wert '
+               '(%r, %r)' % (during, after))
+
+        write({'probe_610': 'alt', 'liste_610': [1, 2]})
+        paths_610.settings()
+        data = paths_610.settings()
+        data['probe_610'] = 'verändert'
+        data['liste_610'].append(99)
+        pruefe(paths_610.settings() == {'probe_610': 'alt',
+                                        'liste_610': [1, 2]},
+               'wer das Ergebnis verändert, verändert nicht den gemerkten '
+               'Inhalt')
+
+        pruefe(paths_610.set_setting('probe_610', 'gesetzt') is True
+               and paths_610.setting('probe_610') == 'gesetzt',
+               'set_setting: der neue Wert gilt sofort')
+    finally:
+        paths_610._read_settings_file = real_read
+        paths_610._settings_stamp = real_stamp
+        paths_610._SETTINGS_MEMO[0] = None
+        if old_home is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = old_home
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _pruefung_611():
+    """611. Seiten-Vorbau: Linksklick, Ziehen und Bewegen im Hauptfenster
+    zählen als Eingabe.
+
+    Im echten Hauptfenster mit eingeschaltetem Vorbau. Ein zweites Fenster
+    steht für das Overlay: Klicken und Ziehen darin (`<B1-Motion>`)
+    verschieben den Vorbau, bloßes Bewegen darüber nicht.
+    """
+    print('\n611. Seiten-Vorbau: Ziehen und Bewegen zählen als Eingabe')
+    if not ANZEIGE:
+        uebersprungen('611')
+        return
+    import tkinter as tk_611
+    from scbp import main_window as hf_611
+    real_prebuild = hf_611.MainWindow._prebuild_pages
+    old_env = os.environ.pop('SC_BP_NO_PREBUILD', None)
+    w = None
+    try:
+        hf_611.MainWindow._prebuild_pages = lambda self, rest=None: None
+        w = _wurzel()
+        window = hf_611.MainWindow(w, version='0.0.0-pruefung')
+        if old_env is not None:
+            os.environ['SC_BP_NO_PREBUILD'] = old_env
+        w.update()
+        pruefe(getattr(window, '_prebuild_running', False),
+               'Vorbedingung: der Vorbau ist angelaufen')
+        other = tk_611.Toplevel(w)
+        bar = tk_611.Frame(other, width=80, height=20)
+        bar.pack()
+        w.update()
+
+        def counted(widget, sequence):
+            window._last_action = 0.0
+            widget.event_generate(sequence, x=4, y=4)
+            w.update()
+            return window._last_action > 0
+
+        pruefe(counted(bar, '<Button-3>'),
+               'Selbstprüfung: ein Rechtsklick im anderen Fenster zählt')
+        bar.event_generate('<ButtonRelease-3>', x=4, y=4)
+        pruefe(counted(bar, '<Button-1>'),
+               'ein Linksklick zählt, obwohl `<Button-1>` schon global '
+               'gebunden ist')
+        bar.event_generate('<ButtonRelease-1>', x=4, y=4)
+        pruefe(counted(bar, '<B1-Motion>'),
+               'Ziehen im anderen Fenster zählt als Eingabe')
+        pruefe(counted(window.content, '<Motion>'),
+               'Bewegen im Hauptfenster zählt als Eingabe')
+        pruefe(not counted(bar, '<Motion>'),
+               'bloßes Bewegen über dem anderen Fenster zählt nicht')
+
+        def all_scripts():
+            return {s: str(w.tk.call('bind', 'all', s))
+                    for s in {s for s, _f in window._global_bindings}
+                    | {'<Button-1>', '<B1-Motion>', '<Key>', '<Button>',
+                       '<MouseWheel>'}}
+        ours = [funcid for _s, funcid in window._global_bindings]
+        pruefe(ours and all(any(f in t for t in all_scripts().values())
+                            for f in ours),
+               'Selbstprüfung: die globalen Rückrufe des Fensters sind '
+               'gebunden (%d)' % len(ours))
+        window.root.destroy()
+        w.update()
+        left = [f for f in ours if any(f in t for t in all_scripts().values())]
+        pruefe(not left,
+               'nach dem Abbau hängt kein globaler Rückruf des Fensters mehr '
+               '(%s)' % left)
+        try:
+            w.destroy()
+            gone = None
+        except Exception as exc:
+            gone = exc
+        w = None
+        pruefe(gone is None,
+               'danach lässt sich auch die Wurzel abbauen (%r)' % (gone,))
+    finally:
+        hf_611.MainWindow._prebuild_pages = real_prebuild
+        if old_env is not None:
+            os.environ['SC_BP_NO_PREBUILD'] = old_env
+        try:
+            if w is not None:
+                w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_612():
+    """612. GIL-Intervall: kurz, solange das Overlay gezogen wird oder das
+    Hauptfenster zu sehen ist — und danach wieder wie vorher.
+
+    Über die echten Wege: `_drag_start`/`_verschoben` und der Griff am
+    Overlay, das Hauptfenster vom Zeigen über Verstecken bis zum Abbau.
+    Außerhalb von Windows schaltet `fast_switching` nichts; damit die
+    Verdrahtung auch dort geprüft wird, gilt `overlay.WINDOWS` für diese
+    Schritte als wahr (nicht beim Bau des Overlays).
+    """
+    print('\n612. GIL-Intervall: kurz nur beim Bedienen')
+    if not ANZEIGE:
+        uebersprungen('612')
+        return
+    import importlib.util as ilu_612
+    from scbp import main_window as hf_612, overlay as ov_612
+    real_windows = ov_612.WINDOWS
+    saved_holders = set(ov_612._fast_holders)
+    ov_612._fast_holders.clear()
+    ov_612.fast_switching(None, False)
+    default = sys.getswitchinterval()
+    fast = ov_612.FAST_SWITCH_S
+    w = ov = None
+
+    def settle(root, until, seconds=2.0):
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            try:
+                root.update()
+            except Exception:
+                pass
+            if until():
+                return True
+            time.sleep(0.02)
+        return until()
+    try:
+        ov_612.WINDOWS = True
+        ov_612.fast_switching('p612a', True)
+        ov_612.fast_switching('p612b', True)
+        ov_612.fast_switching('p612a', False)
+        pruefe(sys.getswitchinterval() == fast,
+               'solange noch einer eingetragen ist, gilt das kurze Intervall')
+        ov_612.fast_switching('p612b', False)
+        pruefe(sys.getswitchinterval() == default,
+               'danach wieder das vorige (%r)' % sys.getswitchinterval())
+
+        w = _wurzel()
+        window = hf_612.MainWindow(w, version='0.0.0-pruefung')
+        settle(w, lambda: sys.getswitchinterval() == fast)
+        pruefe(sys.getswitchinterval() == fast,
+               'Hauptfenster zu sehen: kurzes Intervall (%r)'
+               % sys.getswitchinterval())
+        window.root.withdraw()
+        settle(w, lambda: sys.getswitchinterval() == default)
+        pruefe(sys.getswitchinterval() == default,
+               'Hauptfenster versteckt: wieder das vorige (%r)'
+               % sys.getswitchinterval())
+        window.root.deiconify()
+        settle(w, lambda: sys.getswitchinterval() == fast)
+        pruefe(sys.getswitchinterval() == fast,
+               'wieder gezeigt: kurzes Intervall (%r)'
+               % sys.getswitchinterval())
+        window.close()
+        pruefe(settle(w, lambda: not window.root.winfo_exists()),
+               'Vorbedingung: das Hauptfenster ist abgebaut')
+        pruefe(sys.getswitchinterval() == default,
+               'Hauptfenster zu: wieder das vorige (%r)'
+               % sys.getswitchinterval())
+
+        ov_612.WINDOWS = real_windows
+        spec = ilu_612.spec_from_file_location(
+            '_scbpw612', os.path.join(WURZEL, 'sc_bp_watcher.py'))
+        module = ilu_612.module_from_spec(spec)
+        sys.modules['_scbpw612'] = module
+        spec.loader.exec_module(module)
+        ov = module.Overlay()
+        ov.root.update()
+        ov_612.WINDOWS = True
+
+        class _Event:
+            x = y = 3
+        ov._drag_start(_Event())
+        pruefe(sys.getswitchinterval() == fast,
+               'Overlay ziehen: kurzes Intervall (%r)' % sys.getswitchinterval())
+        ov._verschoben(_Event())
+        pruefe(sys.getswitchinterval() == default,
+               'Overlay losgelassen: wieder das vorige (%r)'
+               % sys.getswitchinterval())
+        ov.grip.event_generate('<Button-1>', x=2, y=2)
+        ov.root.update()
+        pruefe(sys.getswitchinterval() == fast,
+               'Griff gedrückt: kurzes Intervall (%r)' % sys.getswitchinterval())
+        ov.grip.event_generate('<ButtonRelease-1>', x=2, y=2)
+        ov.root.update()
+        pruefe(sys.getswitchinterval() == default,
+               'Griff losgelassen: wieder das vorige (%r)'
+               % sys.getswitchinterval())
+    finally:
+        for root in (ov.root if ov is not None else None, w):
+            try:
+                if root is not None:
+                    root.destroy()
+            except Exception:
+                pass
+        ov_612.WINDOWS = real_windows
+        ov_612._fast_holders.clear()
+        ov_612._fast_holders.update(saved_holders)
+        ov_612.fast_switching(None, False)
+        if not real_windows:
+            sys.setswitchinterval(default)
 
 
 if __name__ == '__main__':

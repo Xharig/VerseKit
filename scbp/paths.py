@@ -1118,9 +1118,50 @@ def _settings_recover(target, broken):
         return data, True
 
 
+# Zuletzt gelesener Inhalt der Einstellungsdatei: (Stempel, JSON-Text).
+_SETTINGS_MEMO = [None]
+
+
+def _settings_stamp(target):
+    """(Pfad, Gerät, Dateinummer, Änderungszeit in ns, Größe) — oder None,
+    wenn die Datei fehlt, jünger als `SETTINGS_FRESH_SEC` ist oder ihre
+    Zeit in der Zukunft liegt.
+
+    ⚠ Die Dateinummer erkennt ein `os.replace` (`save_json`, andere
+    Prozesse) auch bei gleicher Größe und Zeit. Eine junge Datei bekommt
+    keinen Stempel: Zwei Schreibvorgänge im selben Zeittakt des
+    Dateisystems hätten sonst denselben. Eine Zeit in der Zukunft (Uhr
+    zurückgestellt, Netzfreigabe mit vorgehender Uhr) zählt aus demselben
+    Grund als jung."""
+    try:
+        info = os.stat(target)
+    except OSError:
+        return None
+    if time.time() - info.st_mtime_ns / 1e9 < SETTINGS_FRESH_SEC:
+        return None
+    return (target, info.st_dev, info.st_ino, info.st_mtime_ns, info.st_size)
+
+
 def settings():
-    """Die selbst eingetragenen Einstellungen. Fehlt die Datei, sind sie leer."""
-    return _settings_read()[0]
+    """Die selbst eingetragenen Einstellungen. Fehlt die Datei, sind sie leer.
+
+    Gelesen und geparst wird die Datei nur, wenn sich ihr Stempel
+    (`_settings_stamp`) seit dem letzten Lesen geändert hat; sonst kommt der
+    gemerkte Inhalt. Jeder Aufruf bekommt ein eigenes, frisch aufgebautes
+    Objekt — wer es verändert, verändert nicht den gemerkten Inhalt.
+    Gemerkt wird nur, was lesbar war: Ein gesperrtes Lesen liefert `{}`,
+    und das gälte sonst bis zur nächsten Änderung der Datei. Ändert sich
+    die Datei während des Lesens, passt der Stempel beim nächsten Aufruf
+    nicht mehr, und es wird neu gelesen."""
+    target = app_file(SETTINGS_FILE)
+    stamp = _settings_stamp(target)
+    memo = _SETTINGS_MEMO[0]
+    if stamp is not None and memo is not None and memo[0] == stamp:
+        return json.loads(memo[1])
+    data, readable = _settings_read()
+    if readable and stamp is not None:
+        _SETTINGS_MEMO[0] = (stamp, json.dumps(data, ensure_ascii=False))
+    return data
 
 
 def setting(name):
