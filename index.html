@@ -596,7 +596,8 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
      kein Zugriff auf den Spielspeicher (OpenProcess nur mit Abfragerecht),
      Bau durch GitHub Actions (release.yml), Updates nur mit passender
      Prüfsumme (SHA256SUMS.txt), Berichte nur auf Klick, VirusTotal je
-     Version (release.yml, .github/scripts/virustotal.py). -->
+     Version (release.yml, .github/scripts/virustotal.py), Tasten nur
+     über den Anti-AFK (scbp/anti_afk.py). -->
 <section id="sicher">
   <div class="mitte">
     <div class="label" data-de="Vertrauen" data-en="Trust">Vertrauen</div>
@@ -609,9 +610,9 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     <div class="karten">
       <div class="karte">
         <h3 data-de="Kein Eingriff ins Spiel" data-en="No hooks into the game">Kein Eingriff ins Spiel</h3>
-        <p data-de="Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest."
-           data-en="No access to the game's memory, nothing is injected. Verse-Kit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand.">
-          Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest.
+        <p data-de="Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest. Einzige Ausnahme ist der Anti-AFK (nur Windows, standardmäßig aus): Eingeschaltet drückt er alle 5 Minuten Alt+X, wie du es selbst tun würdest."
+           data-en="No access to the game's memory, nothing is injected. Verse-Kit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself.">
+          Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest. Einzige Ausnahme ist der Anti-AFK (nur Windows, standardmäßig aus): Eingeschaltet drückt er alle 5 Minuten Alt+X, wie du es selbst tun würdest.
         </p>
       </div>
       <div class="karte">
