@@ -1345,6 +1345,12 @@ def _sync_ships(conn, state, units_ok=False):
         result = dict(result, **{
             name: [e for e in result.get(name) or () if sent(e)]
             for name in ('link', 'create', 'update', 'remove', 'override')})
+    # Beim Verknüpfen geholte Versicherung (`link_pull`) nur, wenn das `link`
+    # angenommen wurde.
+    linked = {ext for ext, _sid in result['link']} - set(rejected)
+    result['pull'] = [e for e in result['pull']
+                      if e[0] not in result.get('link_pull', ())
+                      or e[0] in linked]
     # Einheit abgelehnt: die des Basetools übernehmen (siehe UNIT_REJECTIONS).
     unit_reset = sorted(ext for ext, reason in rejected.items()
                         if reason in UNIT_REJECTIONS
@@ -1461,6 +1467,12 @@ def _apply_ships(result, server, local):
                 entry['versicherung'] = (cover.get('months')
                                          if cover.get('kind') == 'MONTHS'
                                          else None)
+                # Die Versicherung des Basetools ändert kein Import mehr
+                # (`fleet._take_over`).
+                if exchange_ships.covered(cover):
+                    entry[fleet.BASETOOL_COVER] = True
+                else:
+                    entry.pop(fleet.BASETOOL_COVER, None)
             if 'fitted' in fields:
                 entry['einsatzbereit'] = bool(ship.get('fitted'))
             if 'orgUnit' in fields:

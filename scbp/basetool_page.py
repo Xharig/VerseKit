@@ -326,6 +326,9 @@ def _area_card(window, area, login, redraw, status, connected, granted,
         paths.set_setting(setting, new_value)
         if new_value:
             basetool_sync.request_now()
+            if setting == basetool_sync.SETTING_SHIPS:
+                # Der Hinweis zum Import (`s_hg_import_basetool`).
+                basetool_sync._pages_changed(['hangar'])
         elif setting == basetool_sync.SETTING_DEMAND:
             from . import exchange_demand
             exchange_demand.forget()

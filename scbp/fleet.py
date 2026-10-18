@@ -83,8 +83,9 @@ bleiben: der Ablage-Name `hangar.json` und alle Schlüssel darin
 (`format`, `schiffe`, `wunsch`, `merkzettel`, `name`, `hersteller`,
 `herkunft`, `belegung`, `kurz`, `hkurz`, `lti`, `warbond`, `paket`,
 `gekauft`, `preis`, `ref`, `anzahl`, `weg`, `einsatzbereit`, `einheit` — die
-Kennung der Einheit im Basetool, `''` = keine —, `schmelzbar` aus dem Import
-und `schmelz_wahl` mit den Werten `ja`/`nein`) sowie die Herkunftswerte
+Kennung der Einheit im Basetool, `''` = keine —, `schmelzbar` aus dem Import,
+`schmelz_wahl` mit den Werten `ja`/`nein`, `aus_basetool` und
+`versicherung_basetool`) sowie die Herkunftswerte
 `'pledge'`, `'ingame'` und `'katalog'` — sonst verliert jeder beim Update
 seinen Hangar.
 Ebenso der Seitenname `hangar` in Reiterleiste, Symbolsatz und „Neu"-Marken.
@@ -116,6 +117,12 @@ LIST = 'liste'
 # Ein Beiboot laut Katalog (`included_vehicles`): mitgeliefert mit dem Schiff
 # unter `paket`, aber in keinem Export genannt. Kein Pledge-Inhalt.
 CATALOG = 'katalog'
+# Am Eintrag: Die Versicherung kam aus dem Basetool, kein Import ändert sie
+# (`_take_over`, `basetool_sync._apply_ships`).
+BASETOOL_COVER = 'versicherung_basetool'
+# Am Eintrag: Er kam aus dem Basetool, ein Export nennt ihn seither
+# (`_take_over`).
+FROM_BASETOOL = 'aus_basetool'
 
 
 _SAVE_LOCK = threading.Lock()
@@ -495,16 +502,18 @@ def notepad_set_count(data, name, count):
 def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
     """Meint dieser Hangar-Eintrag dasselbe Schiff?
 
-    Drei Wege, jeder für sich reicht:
+    Vier Wege, jeder für sich reicht:
 
     1. **Schiffskürzel** (`MISC_Endeavor`) — der sicherste. Beide Exporte
        (Hangar XPLORer und Hangar Extension) tragen dasselbe Kürzel.
     2. **Herstellerkürzel + Name** (`MISC` + `Endeavor`).
     3. **Herstellername + Name** in schlanker Schreibweise — der einzige Weg
        für Einträge von Hand, die kein Kürzel haben.
+    4. **Name allein, nur bei einem Schiff aus dem Basetool ohne Hersteller**
+       (`_from_basetool`) — das Basetool nennt nur `shipType.name`.
 
-    ⚠ Der Name allein reicht nicht: die Cutlass Black von Drake und eine
-    gleichnamige Variante eines anderen Herstellers wären sonst dasselbe.
+    ⚠ Sonst reicht der Name allein nicht: die Cutlass Black von Drake und
+    eine gleichnamige Variante eines anderen Herstellers wären dasselbe.
 
     ⚠ Warum drei Wege: Der XPLORer schreibt `Musashi Industrial & Starflight
     Concern`, die Hangar Extension `MISC` — ein Import aus der Erweiterung in
@@ -526,9 +535,20 @@ def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
         # das CSV der Extension hat kein Schiffskürzel, und `Idris-P` muss
         # trotzdem die `Idris-P Frigate` des XPLORer treffen.
         return _names_compatible(e_name, wanted)
+    e_maker = _slim(entry.get('hersteller'))
+    if not e_maker and not (e_hkurz and _slim(hkurz)) \
+            and _from_basetool(entry):
+        # Weg 4: Der Name entscheidet, bis auf ein Klassenwort.
+        return _names_compatible(e_name, wanted)
     if e_name != wanted:
         return False
-    return _slim(entry.get('hersteller')) == _slim(manufacturer)
+    return e_maker == _slim(manufacturer)
+
+
+def _from_basetool(entry):
+    """Kam dieser Eintrag aus dem Basetool — auch wenn ihn seither ein Export
+    nennt (`_take_over`)?"""
+    return entry.get('herkunft') == BASETOOL or bool(entry.get(FROM_BASETOOL))
 
 
 # Klassenwörter, die der Hangar XPLORer an manche Namen hängt („Idris-P
@@ -589,6 +609,8 @@ def _fill(entry, **rest):
         value = rest.get(key)
         if value in (None, ''):
             continue
+        if key in ('lti', 'versicherung') and entry.get(BASETOOL_COVER):
+            continue
         if key in ('lti', 'warbond'):
             if value is True and entry.get(key) is not True:
                 entry[key] = True
@@ -611,6 +633,13 @@ def add(data, name, manufacturer='', origin=INGAME, **rest):
     if not (name or '').strip():
         return False
     found = find(data, name, manufacturer, rest.get('kurz'), rest.get('hkurz'))
+    if found is None and origin == BASETOOL and not (manufacturer or '').strip():
+        # Aus dem Basetool kommt nur der Name: Trägt genau ein Eintrag ihn
+        # (bis auf ein Klassenwort), ist es dieser.
+        same = [s for s in (data.get('schiffe') or [])
+                if _names_compatible(_slim(s.get('name')), _slim(name))]
+        if len(same) == 1:
+            found = same[0]
     if found is None and origin != CATALOG:
         # Andere Schreibweise oder kein Hersteller (Basetool, von Hand):
         # das Beiboot laut Katalog ist trotzdem dasselbe Fahrzeug.
@@ -623,6 +652,9 @@ def add(data, name, manufacturer='', origin=INGAME, **rest):
         promoted = found.get('herkunft') == CATALOG and origin != CATALOG
         if promoted:
             _promote(found, name, manufacturer, origin, rest)
+        elif found.get('herkunft') == BASETOOL \
+                and origin not in (BASETOOL, CATALOG):
+            _take_over(found, origin, rest.get('quelle'))
         _fill(found, **rest)
         return promoted
     entry = {'name': name.strip(), 'hersteller': (manufacturer or '').strip(),
@@ -634,6 +666,29 @@ def add(data, name, manufacturer='', origin=INGAME, **rest):
         entry['quelle'] = rest['quelle']
     data.setdefault('schiffe', []).append(entry)
     return True
+
+
+def _take_over(entry, origin, source=None):
+    """Ein Schiff aus dem Basetool, das nun ein Export oder der Spieler nennt.
+
+    Es bekommt dessen Herkunft (und Quelle, bei einer Liste) und trägt
+    `FROM_BASETOOL`. Name und Hersteller bleiben — an ihnen hängt die
+    Verknüpfung mit dem Basetool (`exchange_ships.external_id`). Hat es aus
+    dem Basetool schon eine Versicherung, trägt es `BASETOOL_COVER`: Dann
+    ändert sie kein Import mehr (`_fill`), auch kein späterer."""
+    entry['herkunft'] = origin or PLEDGE
+    entry[FROM_BASETOOL] = True
+    if source:
+        entry['quelle'] = source
+    if entry.get('lti') or _months(entry.get('versicherung')):
+        entry[BASETOOL_COVER] = True
+
+
+def _months(value):
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _promote(entry, name, manufacturer, origin, rest):
@@ -686,6 +741,10 @@ def merge_duplicates(data):
     Angaben wie LTI), die späteren geben ab, was ihm fehlt, und verschwinden.
     Läuft bei jedem Laden — so räumt sich ein Hangar, der vor diesem Fix
     doppelt importiert wurde, von selbst auf.
+
+    ⚠ Ein Schiff aus dem Basetool bleibt auch als späterer Eintrag stehen und
+    nimmt den anderen auf (`_take_over`): Seine Kennung ist die, mit der es im
+    Basetool verknüpft ist.
     """
     kept = []
     changed = False
@@ -693,13 +752,18 @@ def merge_duplicates(data):
         match = None
         for k in kept:
             if _same_ship(k, s.get('name'), s.get('hersteller'),
-                          s.get('kurz'), s.get('hkurz')):
+                          s.get('kurz'), s.get('hkurz')) \
+                    or _same_ship(s, k.get('name'), k.get('hersteller'),
+                                  k.get('kurz'), k.get('hkurz')):
                 match = k
                 break
         if match is None:
             kept.append(s)
             continue
         changed = True
+        if s.get('herkunft') == BASETOOL and match.get('herkunft') != BASETOOL:
+            index = next(i for i, k in enumerate(kept) if k is match)
+            kept[index], match, s = s, s, match
         rest = {key: s.get(key) for key in _IMPORT_KEYS}
         if match.get('herkunft') == CATALOG \
                 and s.get('herkunft') != CATALOG:
@@ -708,6 +772,9 @@ def merge_duplicates(data):
         elif s.get('herkunft') == CATALOG:
             # Der Träger eines Katalog-Eintrags ist kein Paket des Pledges.
             rest['paket'] = ''
+        elif match.get('herkunft') == BASETOOL \
+                and s.get('herkunft') != BASETOOL:
+            _take_over(match, s.get('herkunft'), s.get('quelle'))
         _fill(match, **rest)
         if not match.get('belegung') and s.get('belegung'):
             match['belegung'] = s['belegung']
@@ -1449,8 +1516,8 @@ def import_entries(entries, data=None, save_now=True):
             continue
         if (origin == LIST or e.get('beilage')) \
                 and not e.get('hkurz') and not e.get('hersteller'):
-            # Ohne Hersteller greift `_same_ship` nicht (Name allein reicht
-            # dort bewusst nicht). Steht genau EIN Schiff dieses Namens schon
+            # Ohne Hersteller greift `_same_ship` nur bei Schiffen aus dem
+            # Basetool (Weg 4). Steht genau EIN Schiff dieses Namens schon
             # drin, ist es dieses — sonst stünde es gleich doppelt da.
             same = [s for s in (data.get('schiffe') or [])
                     if _slim(s.get('name')) == _slim(e.get('name'))]
@@ -1459,8 +1526,11 @@ def import_entries(entries, data=None, save_now=True):
                     _promote(same[0], e.get('name'), '', origin, e)
                     new += 1
                 if origin != LIST:
-                    _fill(same[0], paket=e.get('paket'), lti=e.get('lti'),
-                          versicherung=e.get('versicherung'))
+                    rest = {'paket': e.get('paket'), 'lti': e.get('lti'),
+                            'versicherung': e.get('versicherung')}
+                    if same[0].get('herkunft') == BASETOOL:
+                        _take_over(same[0], origin, e.get('quelle'))
+                    _fill(same[0], **rest)
                 by_name.append(same[0])
                 continue
         is_new = add(data, e.get('name'), e.get('hersteller'),

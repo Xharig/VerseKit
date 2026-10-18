@@ -265,7 +265,7 @@ def prune(data, entries=None):
 # Pledge-Angaben, die ein zurückgestuftes Beiboot nicht mehr trägt — es
 # behauptet nur noch, was der Katalog sagt.
 _PLEDGE_KEYS = ('lti', 'versicherung', 'warbond', 'gekauft', 'preis',
-                'schmelzbar', 'quelle', 'kurz')
+                'schmelzbar', 'quelle', 'kurz', 'versicherung_basetool')
 
 
 def demote(data, candidates, entries=None):

@@ -169,15 +169,38 @@ def _fitted_side(mine, theirs, before):
     return 'pull' if mine == before else 'push'
 
 
+def covered(cover):
+    """Trägt diese Versicherung eine Angabe? `MONTHS` mit 0 ist keine — so
+    sendet VerseKit ein Schiff ohne Versicherung."""
+    cover = cover or {}
+    return cover.get('kind') == LTI or bool(cover.get('months'))
+
+
+def _insurance_side(ours, theirs, before):
+    """`'push'`, `'pull'` oder `None` für die Versicherung.
+
+    ⚠ Ohne Stand vom letzten Abgleich (eben verknüpft, Zustandsdatei weg)
+    gilt die Versicherung des Basetools; nur wenn dort keine steht, geht die
+    hiesige hinaus. Sonst überschriebe der nächste Abgleich eine drüben
+    gepflegte Versicherung mit der von hier."""
+    if ours == theirs:
+        return None
+    if before is None:
+        if covered(theirs):
+            return 'pull'
+        return 'push' if covered(ours) else None
+    if theirs == before:
+        return 'push'
+    return 'pull' if ours == before else None
+
+
 def _sides(mine, ship, ext, state):
     """Je Feld, ob es hinaus- oder hereingeht: `(push, pull)` als Mengen."""
     push, pull = set(), set()
-    before = (state.get('baseline') or {}).get(ext)
-    ours, theirs = mine['insurance'], ship.get('insurance')
-    if before is not None and ours != before and theirs == before:
-        push.add('insurance')
-    elif before is not None and theirs != before and ours == before:
-        pull.add('insurance')
+    side = _insurance_side(mine['insurance'], ship.get('insurance'),
+                           (state.get('baseline') or {}).get(ext))
+    if side:
+        (push if side == 'push' else pull).add('insurance')
     if mine.get('own_name') is not None:
         # ⚠ Verglichen wird in der Länge, die der Fleet Manager fasst — ein
         # längerer Name von drüben käme sonst gekürzt herein und ginge beim
@@ -238,7 +261,8 @@ def plan(local, resolved, server, state):
     result = {'link': [], 'create': [], 'update': [], 'pull': [], 'remove': [],
               'push_fields': {}, 'pull_fields': {},
               'take': [], 'drop': [], 'local_removed': {},
-              'removed_elsewhere': [], 'links': {}, 'unit_conflicts': []}
+              'removed_elsewhere': [], 'links': {}, 'unit_conflicts': [],
+              'link_pull': []}
     taken = set()
 
     # 1) Verknüpfte: noch da? hier geändert?
@@ -279,13 +303,20 @@ def plan(local, resolved, server, state):
                 result['unit_conflicts'].append(ext)
 
     # 2) Noch nicht verknüpfte: erst an ein vorhandenes Schiff hängen.
+    # ⚠ Ein Typ, den hier schon ein verknüpftes Schiff trägt, wird weder
+    # noch einmal angelegt noch ein zweites Mal verknüpft — hier gibt es je
+    # Typ einen Eintrag, ein zweiter desselben Typs ist ein Doppel, das der
+    # Name nicht verriet.
+    linked_types = {resolved.get(ext) for ext in result['links']}
     for ext in sorted(local):
         if ext in links and links[ext] in server:
             continue
-        if ext in result['removed_elsewhere'] or ext in result['create']:
+        # Eben ausgetragen (`drop`) heißt: drüben gelöscht — nicht neu anlegen.
+        if ext in result['removed_elsewhere'] or ext in result['create'] \
+                or ext in result['drop']:
             continue
         bt = resolved.get(ext)
-        if not bt:
+        if not bt or bt in linked_types:
             continue
         match = next((sid for sid, ship in sorted(server.items())
                       if sid not in taken and not ship.get('externalId')
@@ -294,8 +325,19 @@ def plan(local, resolved, server, state):
             result['link'].append((ext, match))
             result['links'][ext] = match
             taken.add(match)
+            linked_types.add(bt)
+            # Ohne Stand vom letzten Abgleich: eine Versicherung von drüben
+            # kommt gleich herein (`_insurance_side`) — `link_pull` nennt sie,
+            # damit sie nur gilt, wenn das `link` auch angenommen wird.
+            if _insurance_side(local[ext]['insurance'],
+                               server[match].get('insurance'),
+                               None) == 'pull':
+                result['pull'].append((ext, match))
+                result['pull_fields'][ext] = ['insurance']
+                result['link_pull'].append(ext)
         elif ext not in elsewhere or ext in overrides:
             result['create'].append(ext)
+            linked_types.add(bt)
 
     # 3) Drüben Schiffe eines Typs, den es hier nicht gibt: übernehmen.
     local_types = {resolved.get(ext) for ext in local if resolved.get(ext)}

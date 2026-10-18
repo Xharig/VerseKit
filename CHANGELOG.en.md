@@ -15,9 +15,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   count without any training of your own went from 10 to 22 of 32, and
   "6,340" is no longer read as 6,740. With scan images from Aeternitas26
   (KRT) and P6 (KRT)
+- **Hangar import with the Basetool sync: a note at the import** — it now
+  says that the Basetool comes first: for ships from there, the import only
+  fills in what is missing. Reported by P6 (KRT)
 
 ### Fixed
 
+- **Hangar: no more doubles after an import and the Basetool sync** — ships
+  that came from the Basetool and the same ships from the JSON or CSV file
+  stood twice in the hangar and then went to the Basetool twice as well. Now
+  they become one ship, existing doubles included, and only one ship per
+  ship type goes to the Basetool. A leftover second ship in the Basetool is
+  offered for removal, never deleted silently. Reported by P6 (KRT)
+- **Basetool: the insurance arrives and stays** — after the hangar was
+  deleted in the Basetool, the next sync created ships without their
+  insurance. That no longer happens. Without a state from the last sync
+  (when first linking or after connecting again), an insurance entered in
+  the Basetool applies instead of being overwritten one sync later; if it
+  has none there, the one from Verse-Kit goes out. Reported by P6 (KRT)
 - **Error report: a moved Documents folder is redacted** — if the Documents
   folder is not inside your user folder, for example on another drive, its
   path, name included, used to appear in the report. It now reads

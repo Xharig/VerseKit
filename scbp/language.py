@@ -3054,6 +3054,14 @@ TEXTS = {
                               '**Scan images for the signature scanner** — '
                               'with his captures the scanner reads many more '
                               'signatures out of the box.'),
+    's_dk_p6_bugs':          ('**Doppelte Schiffe nach Hangar-Import und '
+                              'Basetool-Abgleich** und eine Versicherung, die '
+                              'nicht im Basetool ankam — sein genauer Ablauf '
+                              'machte beides nachstellbar.',
+                              '**Ships doubled after a hangar import and the '
+                              'Basetool sync**, and an insurance that never '
+                              'reached the Basetool — his exact steps made '
+                              'both reproducible.'),
     's_dk_aeternitas_bugs':  ('**Hinweise liefen aus dem Bild**, wenn das Overlay '
                               'unten rechts am Monitor liegt. Mit der Leiste unten '
                               'stehen sie jetzt immer über dem Mauszeiger, nicht '
@@ -4616,6 +4624,9 @@ TEXTS = {
     # ⭐ v3.62.0 — dieselben Listen, die das KRT Profit Basetool einliest.
     's_hg_import_listen': ('Listen aus Fleetview, Fleetyards und StarJump gehen auch.',
                            'Lists from Fleetview, Fleetyards and StarJump work too.'),
+    # Nur mit eingeschaltetem Hangar-Abgleich (`basetool_hangar`).
+    's_hg_import_basetool': ('Mit dem Basetool-Abgleich hat das Basetool Vorrang: Schiffe von dort kommen nicht doppelt, der Import ergänzt nur, was ihnen fehlt — etwa die Versicherung.',
+                             'With the Basetool sync on, the Basetool comes first: ships from there are not added twice, the import only fills in what they lack — such as the insurance.'),
     's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),

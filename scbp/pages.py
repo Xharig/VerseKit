@@ -7549,7 +7549,7 @@ def _thanks(fenster, rahmen):
             ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'),
              t('s_dk_drachennarr_bugs')),
             ('Maluh', 'KRT', t('s_dk_maluh_idee'), ''),
-            ('P6', 'KRT', t('s_dk_p6_idee'), ''),
+            ('P6', 'KRT', t('s_dk_p6_idee'), t('s_dk_p6_bugs')),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('Rhino', '', t('s_dk_rhino_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
@@ -13695,6 +13695,9 @@ def _hangar(fenster, rahmen):
                 fill='x', padx=24, inset=48)
     _body_text(innen, t('s_hg_import_listen'), fenster.f_small, fill='x',
                 padx=24, inset=48)
+    if _ships_sync_on():
+        _body_text(innen, t('s_hg_import_basetool'), fenster.f_small,
+                   color=GOLD, fill='x', padx=24, inset=48)
 
     def importieren():
         file_path = file_picker.open_file(
@@ -16947,6 +16950,15 @@ def _sync_setting(page_id):
 
 
 SYNC_PAGES = ('meinlager', 'hangar', 'liste', 'bedarf', 'staffellager')
+
+
+def _ships_sync_on():
+    """Ist der Hangar-Abgleich mit dem Basetool eingeschaltet?"""
+    try:
+        from . import basetool_sync
+        return basetool_sync.area_on(basetool_sync.SETTING_SHIPS)
+    except Exception:
+        return False
 
 
 def _sync_ready(setting):

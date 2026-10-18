@@ -25788,6 +25788,11 @@ def main():
     _pruefung_579()
     _pruefung_580()
     _pruefung_590()
+    _pruefung_600()
+    _pruefung_601()
+    _pruefung_602()
+    _pruefung_603()
+    _pruefung_604()
 
     print()
     if fehler:
@@ -43747,7 +43752,10 @@ def _pruefung_449():
                        'insurance': {'kind': 'MONTHS', 'months': 2},
                        'location': {'name': 'Area18'}}}
     _res449 = {_ext449: 'st-cut'}
-    _links449 = {'links': {_ext449: 's-1'}}
+    # Versicherung auf beiden Seiten seit dem letzten Abgleich geändert —
+    # sie bleibt, wie sie ist (`exchange_ships._insurance_side`).
+    _links449 = {'links': {_ext449: 's-1'},
+                 'baseline': {_ext449: {'kind': 'MONTHS', 'months': 1}}}
 
     def _lauf(eigen, srv=None, stand=None, bereit=None):
         schiffe = [dict(_hangar449['schiffe'][0])]
@@ -55475,6 +55483,500 @@ def _pruefung_590():
     out = redacted(docs, line, without_fix=True)
     pruefe('pruefname590' in out.lower(),
            'Gegenprobe: ohne den Schritt bleibt der Name im Bericht (%r)' % out)
+
+
+class _ShipServer600:
+    """Ein nachgebauter Schiffs-Stand des Basetools für 600–604: holt,
+    löst Namen zu Typen auf und wendet Sendungen an wie im Vertrag
+    (`link`, `upsert`, `remove`). `sent` sammelt alle Anweisungen."""
+    # `ursa` und `ursarover` sind derselbe Typ — zwei Namen, ein `bt`.
+    TYPES = {'135c': 'st-135c', 'cutlassblack': 'st-cut', 'ursa': 'st-ursa',
+             'ursarover': 'st-ursa', 'atls': 'st-atls', 'atlsgeo': 'st-geo',
+             'idrisp': 'st-idris'}
+
+    def __init__(self):
+        self.ships, self.sent, self.count = {}, [], 0
+        self.refuse_links = False      # `link` mit LINK_TARGET_TAKEN ablehnen
+
+    @staticmethod
+    def slug(name):
+        return ''.join(ch for ch in (name or '').lower() if ch.isalnum())
+
+    def add(self, name, cover, ext=None):
+        self.count += 1
+        ship_id = 's-%d' % self.count
+        ship = {'shipId': ship_id, 'version': 0,
+                'shipType': {'bt': self.TYPES[self.slug(name)], 'name': name},
+                'insurance': cover, 'fitted': False}
+        if ext:
+            ship['externalId'] = ext
+        self.ships[ship_id] = ship
+        return ship_id
+
+    def pull(self, conn, sub, route, key):
+        return json.loads(json.dumps(self.ships)), False
+
+    def resolve(self, conn, kind, refs, cache):
+        return {key: self.TYPES[self.slug(ref.get('name'))]
+                for key, ref in refs.items()
+                if self.slug(ref.get('name')) in self.TYPES}
+
+    def send(self, conn, route, change_sets):
+        applied, failed = 0, []
+        for change_set, keys in change_sets:
+            for op, key in zip(change_set['ops'], keys):
+                self.sent.append(op)
+                if op['op'] == 'link' and self.refuse_links:
+                    failed.append((key, 'rejected', 'LINK_TARGET_TAKEN'))
+                    continue
+                applied += 1
+                if op['op'] == 'link':
+                    self.ships[op['shipId']]['externalId'] = op['externalId']
+                elif op['op'] == 'remove':
+                    self.ships.pop(op['shipId'], None)
+                elif op.get('shipId'):
+                    ship = self.ships[op['shipId']]
+                    ship['insurance'] = op['insurance']
+                    ship['version'] += 1
+                else:
+                    self.add(op['shipType'].get('name'), op['insurance'],
+                             op['externalId'])
+        return failed, applied, {}
+
+
+def _ship_sync_600(server, state, rounds=1):
+    """`basetool_sync._sync_ships` gegen `server`, `rounds` Mal — ohne Netz,
+    ohne Oberfläche. Gibt die Zähler des letzten Laufs zurück."""
+    from scbp import basetool_sync as sync
+    saved = (sync._pull_generic, sync._resolve_refs, sync._send,
+             sync._own_ship_names, sync.IN_TK[0], sync.PAGES_CHANGED[0])
+    counts = None
+    try:
+        sync._pull_generic, sync._resolve_refs = server.pull, server.resolve
+        sync._send = server.send
+        sync._own_ship_names = lambda data: {}
+        sync.IN_TK[0] = sync.PAGES_CHANGED[0] = None
+        for _ in range(rounds):
+            counts = sync._sync_ships(None, state, False)
+    finally:
+        (sync._pull_generic, sync._resolve_refs, sync._send,
+         sync._own_ship_names, sync.IN_TK[0], sync.PAGES_CHANGED[0]) = saved
+    return counts
+
+
+def _home_600(tag):
+    """Wegwerf-`SC_BP_HOME` — gibt (Ordner, alter Wert) zurück."""
+    folder = tempfile.mkdtemp(prefix='pruefung%s-' % tag)
+    old = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = folder
+    return folder, old
+
+
+def _home_back_600(folder, old):
+    if old is None:
+        os.environ.pop('SC_BP_HOME', None)
+    else:
+        os.environ['SC_BP_HOME'] = old
+    shutil.rmtree(folder, ignore_errors=True)
+
+
+# Die Hangar Extension als JSON und CSV — wie sie ein Spieler hochlädt.
+_EXPORT_JSON_600 = [
+    {'manufacturer': {'code': 'ORIG', 'name': 'Origin Jumpworks'},
+     'code': 'ORIG_135c', 'matrix': '135c', 'name': '135c', 'insurance': 'LTI'},
+    {'manufacturer': {'code': 'DRAK', 'name': 'Drake Interplanetary'},
+     'code': 'DRAK_Cutlass_Black', 'matrix': 'Cutlass Black',
+     'name': 'Cutlass Black'},
+]
+_EXPORT_CSV_600 = (
+    'Pledge ID,Pledge Name,Pledge Date,Pledge Cost,Content Type,'
+    'Pledge Content,Meltable\n'
+    '1,Standalone Ship - 135c,2020-01-01,$65,Ship,Origin 135c,yes\n'
+    '1,Standalone Ship - 135c,2020-01-01,$65,Insurance,Lifetime Insurance,yes\n'
+    '2,Standalone Ship - Cutlass,2020-01-01,$110,Ship,Drake Cutlass Black,yes\n'
+    '2,Standalone Ship - Cutlass,2020-01-01,$110,Insurance,'
+    'Lifetime Insurance,yes\n')
+
+
+def _import_600(folder):
+    """Beide Exportdateien über `fleet.read` und `fleet.import_entries`
+    einlesen — der Weg des Import-Knopfs."""
+    from scbp import fleet
+    for name, text in (('hangar.json', json.dumps(_EXPORT_JSON_600)),
+                       ('hangar.csv', _EXPORT_CSV_600)):
+        file_path = os.path.join(folder, 'export-' + name)
+        with open(file_path, 'w', encoding='utf-8') as handle:
+            handle.write(text)
+        entries, error_text = fleet.read(file_path)
+        fleet.import_entries(entries, fleet.load())
+
+
+def _doubles_600(entries):
+    """Namen, die im Hangar mehr als einmal stehen."""
+    from scbp import fleet
+    seen, doubles = set(), []
+    for entry in entries:
+        key = fleet._slim(entry.get('name'))
+        if key in seen:
+            doubles.append(entry.get('name'))
+        seen.add(key)
+    return doubles
+
+
+def _pruefung_600():
+    """600. Hangar: Schiffe aus dem Basetool, danach JSON und CSV der Hangar
+    Extension eingelesen — kein Doppel, die Verknüpfung bleibt, eine
+    Versicherung aus dem Basetool hat Vorrang."""
+    print('\n600. Hangar: Import nach dem Basetool ohne Doppel')
+    from scbp import exchange_ships, fleet
+    folder, old = _home_600('600')
+    saved_take_over = fleet._take_over
+
+    def run():
+        server = _ShipServer600()
+        server.add('135c', {'kind': 'MONTHS', 'months': 0})
+        server.add('Cutlass Black', {'kind': 'MONTHS', 'months': 6})
+        fleet.save({'format': 1, 'schiffe': []})
+        state = {'ships': {}}
+        _ship_sync_600(server, state)
+        taken = {e['name']: exchange_ships.external_id(e)
+                 for e in fleet.load()['schiffe']}
+        _import_600(folder)
+        hangar = fleet.load()['schiffe']
+        _ship_sync_600(server, state, rounds=3)
+        return server, taken, hangar
+
+    try:
+        server, taken, hangar = run()
+        pruefe(len(taken) == 2, 'Vorbedingung: zwei Schiffe aus dem Basetool '
+               'übernommen (%r)' % sorted(taken))
+        pruefe(not _doubles_600(hangar),
+               'nach JSON und CSV steht kein Schiff doppelt im Hangar (%r)'
+               % _doubles_600(hangar))
+        ids = {e['name']: exchange_ships.external_id(e) for e in hangar}
+        pruefe(ids == taken, 'die Kennung beim Basetool bleibt — sonst ginge '
+               'die Verknüpfung verloren (%r)' % ids)
+        origins = {e['name']: e.get('herkunft') for e in hangar}
+        pruefe(set(origins.values()) == {fleet.PLEDGE},
+               'die Schiffe gelten nun als Pledge (%r)' % origins)
+        by_name = {e['name']: exchange_ships.insurance(e) for e in hangar}
+        pruefe(by_name.get('135c') == {'kind': 'LTI'},
+               'fehlt die Versicherung im Basetool, kommt sie aus dem Import '
+               '(%r)' % by_name.get('135c'))
+        pruefe(by_name.get('Cutlass Black') == {'kind': 'MONTHS', 'months': 6},
+               'eine Versicherung aus dem Basetool bleibt (%r)'
+               % by_name.get('Cutlass Black'))
+        created = [op for op in server.sent
+                   if op['op'] == 'upsert' and not op.get('shipId')]
+        pruefe(not created and len(server.ships) == 2,
+               'im Basetool wird kein zweites Schiff angelegt (%d Schiffe, '
+               '%r)' % (len(server.ships), created))
+        covers = {s['shipType']['name']: s['insurance']
+                  for s in server.ships.values()}
+        pruefe(covers == {'135c': {'kind': 'LTI'},
+                          'Cutlass Black': {'kind': 'MONTHS', 'months': 6}},
+               'die Versicherung aus dem Import kommt im Basetool an, die '
+               'dortige bleibt (%r)' % covers)
+
+        fleet._take_over = lambda entry, origin, source=None: None
+        _server, _taken, hangar = run()
+        by_name = {e['name']: exchange_ships.insurance(e) for e in hangar}
+        pruefe(by_name.get('Cutlass Black') != {'kind': 'MONTHS', 'months': 6},
+               'Gegenprobe ohne `_take_over`: der Import überschreibt die '
+               'Versicherung aus dem Basetool (%r)' % by_name.get('Cutlass Black'))
+    finally:
+        fleet._take_over = saved_take_over
+        _home_back_600(folder, old)
+
+
+def _pruefung_601():
+    """601. Hangar: Doppel im gespeicherten Hangar (Schiff aus dem Basetool
+    und dasselbe aus dem Import) werden beim Laden eins — in beiden
+    Reihenfolgen mit der Kennung des Basetool-Schiffs. Verschiedene Schiffe
+    und Einträge von Hand ohne Hersteller bleiben getrennt."""
+    print('\n601. Hangar: alte Doppel aus Basetool und Import zusammengeführt')
+    from scbp import exchange_ships, fleet
+    folder, old = _home_600('601')
+    from_basetool = {'name': '135c', 'hersteller': '', 'herkunft': 'basetool',
+                     'belegung': {}, 'versicherung': 0, 'einsatzbereit': True}
+    from_import = {'name': '135c', 'hersteller': 'Origin Jumpworks',
+                   'herkunft': 'pledge', 'kurz': 'ORIG_135c', 'hkurz': 'ORIG',
+                   'lti': True, 'belegung': {'waffe': 'x'}}
+    linked_id = exchange_ships.external_id(from_basetool)
+    double_id = exchange_ships.external_id(from_import)
+    try:
+        for label, order in (('Basetool zuerst', (from_basetool, from_import)),
+                             ('Import zuerst', (from_import, from_basetool))):
+            fleet.save({'format': 1,
+                        'schiffe': [json.loads(json.dumps(e)) for e in order]})
+            hangar = fleet.load()['schiffe']
+            entry = hangar[0] if len(hangar) == 1 else {}
+            pruefe(len(hangar) == 1 and exchange_ships.external_id(entry)
+                   == linked_id,
+                   '%s: ein Eintrag mit der Kennung des Basetool-Schiffs '
+                   '(%r)' % (label, [(e.get('name'), e.get('herkunft'))
+                                     for e in hangar]))
+            pruefe(entry.get('herkunft') == fleet.PLEDGE
+                   and entry.get('lti') is True
+                   and entry.get('belegung') == {'waffe': 'x'}
+                   and entry.get('einsatzbereit') is True
+                   and entry.get('kurz') == 'ORIG_135c',
+                   '%s: Herkunft, Versicherung, Auslegung und Haken bleiben '
+                   'erhalten (%r)' % (label, entry))
+
+        apart = [{'name': 'ATLS', 'hersteller': '', 'herkunft': 'basetool',
+                  'belegung': {}},
+                 {'name': 'ATLS GEO', 'hersteller': 'Argo Astronautics',
+                  'hkurz': 'ARGO', 'herkunft': 'pledge', 'belegung': {}},
+                 {'name': 'Cutlass Black', 'hersteller': 'Drake', 'hkurz': 'DRAK',
+                  'herkunft': 'pledge', 'belegung': {}},
+                 {'name': 'Cutlass Black', 'hersteller': 'Andere',
+                  'hkurz': 'ANDR', 'herkunft': 'pledge', 'belegung': {}},
+                 {'name': 'Cutlass Black', 'hersteller': '',
+                  'herkunft': 'ingame', 'belegung': {}}]
+        fleet.save({'format': 1, 'schiffe': apart})
+        names = [(e['name'], e.get('herkunft'), e.get('hkurz'))
+                 for e in fleet.load()['schiffe']]
+        pruefe(names == [(e['name'], e['herkunft'], e.get('hkurz'))
+                         for e in apart],
+               'verschiedene Schiffe bleiben getrennt — gleichnamige zweier '
+               'Hersteller und ein Eintrag von Hand ohne Hersteller (%r)'
+               % names)
+
+        # Das CSV des XPLORer trägt weder Kürzel noch Herstellerkürzel: Auch
+        # der zweite Import muss das Schiff aus dem Basetool wiederfinden.
+        fleet.save({'format': 1, 'schiffe': [dict(from_basetool)]})
+        xplorer = os.path.join(folder, 'xplorer.csv')
+        with open(xplorer, 'w', encoding='utf-8') as handle:
+            handle.write('Manufacturer, Ship, Lti, Warbond, Pledge, Date, '
+                         'Cost\nOrigin Jumpworks, 135c, true, false, '
+                         'Standalone Ship, 2020-01-01, $65\n')
+        for _ in range(2):
+            entries, _error = fleet.read(xplorer)
+            fleet.import_entries(entries, fleet.load())
+        hangar = fleet.load()['schiffe']
+        pruefe(len(hangar) == 1
+               and exchange_ships.external_id(hangar[0]) == linked_id,
+               'zweimal das CSV des XPLORer: weiter ein Eintrag mit der '
+               'Kennung des Basetool-Schiffs (%r)'
+               % [(e.get('name'), e.get('hersteller')) for e in hangar])
+
+        # Danach im Basetool: das alte Doppel hängt an der verschwundenen
+        # Kennung. Es wird dem Spieler gezeigt, nie still entfernt.
+        fleet.save({'format': 1, 'schiffe': [dict(from_basetool),
+                                             dict(from_import)]})
+        server = _ShipServer600()
+        first = server.add('135c', {'kind': 'MONTHS', 'months': 0}, linked_id)
+        second = server.add('135c', {'kind': 'LTI'}, double_id)
+        state = {'ships': {'links': {linked_id: first, double_id: second},
+                           'baseline': {linked_id: {'kind': 'MONTHS',
+                                                    'months': 0},
+                                        double_id: {'kind': 'LTI'}}}}
+        _ship_sync_600(server, state)
+        removed = [op for op in server.sent if op['op'] == 'remove']
+        pruefe(not removed and second in server.ships
+               and state['ships'].get('local_removed') == {double_id: second},
+               'Basetool: das alte Doppel wird zum Entfernen angeboten, nicht '
+               'entfernt (%r)' % state['ships'].get('local_removed'))
+        pruefe(server.ships[first]['insurance'] == {'kind': 'LTI'},
+               'Basetool: das verknüpfte Schiff bekommt die Versicherung '
+               '(%r)' % server.ships[first]['insurance'])
+    finally:
+        _home_back_600(folder, old)
+
+
+def _pruefung_602():
+    """602. Basetool: im Basetool gelöschte Schiffe werden nicht mit den
+    alten Angaben neu angelegt, und ein Typ, den ein Schiff aus dem Basetool
+    schon trägt, nicht ein zweites Mal."""
+    print('\n602. Basetool: gelöschter Hangar, ein Typ je Schiff')
+    from scbp import exchange_ships, fleet
+    folder, old = _home_600('602')
+    try:
+        from_basetool = {'name': '135c', 'hersteller': '',
+                         'herkunft': 'basetool', 'belegung': {},
+                         'versicherung': 0}
+        pledge = {'name': 'Cutlass Black', 'hersteller': 'Drake',
+                  'hkurz': 'DRAK', 'herkunft': 'pledge', 'belegung': {},
+                  'lti': True}
+        ids = [exchange_ships.external_id(e) for e in (from_basetool, pledge)]
+        fleet.save({'format': 1, 'schiffe': [dict(from_basetool),
+                                             dict(pledge)]})
+        server = _ShipServer600()
+        state = {'ships': {'links': {ids[0]: 's-1', ids[1]: 's-2'},
+                           'baseline': {ids[0]: {'kind': 'MONTHS',
+                                                 'months': 0},
+                                        ids[1]: {'kind': 'LTI'}}}}
+        _ship_sync_600(server, state)
+        names = [e['name'] for e in fleet.load()['schiffe']]
+        pruefe(not server.sent and not server.ships,
+               'Hangar im Basetool gelöscht: nichts wird neu angelegt (%r)'
+               % [(op['op'], op.get('externalId')) for op in server.sent])
+        pruefe(names == ['Cutlass Black']
+               and state['ships'].get('removed_elsewhere') == [ids[1]],
+               'das Schiff aus dem Basetool fällt weg, das eigene wird als '
+               '„woanders entfernt" gezeigt (%r / %r)'
+               % (names, state['ships'].get('removed_elsewhere')))
+
+        # Aus dem Basetool, seither von einem Export genannt (`_take_over`).
+        rover = {'name': 'Ursa Rover', 'hersteller': '', 'herkunft': 'pledge',
+                 'aus_basetool': True, 'belegung': {}, 'lti': True}
+        ursa = {'name': 'Ursa', 'hersteller': 'Roberts Space Industries',
+                'hkurz': 'RSI', 'herkunft': 'pledge', 'belegung': {}}
+        rover_id = exchange_ships.external_id(rover)
+        fleet.save({'format': 1, 'schiffe': [dict(rover), dict(ursa),
+                                             dict(pledge)]})
+        server = _ShipServer600()
+        server.add('Ursa Rover', {'kind': 'LTI'}, rover_id)
+        state = {'ships': {'links': {rover_id: 's-1'},
+                           'baseline': {rover_id: {'kind': 'LTI'}}}}
+        _ship_sync_600(server, state)
+        created = [op['shipType'].get('name') for op in server.sent
+                   if op['op'] == 'upsert' and not op.get('shipId')]
+        pruefe(created == ['Cutlass Black'],
+               'derselbe Typ unter anderem Namen wird nicht angelegt, ein '
+               'anderer schon (%r)' % created)
+
+        # Hier unbekannt (`Idris-P Frigate` löst nicht auf), im Basetool als
+        # `Idris-P`: Die Übernahme findet den vorhandenen Eintrag.
+        frigate = {'name': 'Idris-P Frigate', 'hersteller': 'Aegis Dynamics',
+                   'herkunft': 'pledge', 'belegung': {}, 'lti': True}
+        fleet.save({'format': 1, 'schiffe': [dict(frigate)]})
+        server = _ShipServer600()
+        server.add('Idris-P', {'kind': 'LTI'})
+        _ship_sync_600(server, {'ships': {}}, rounds=2)
+        hangar = [(e['name'], e.get('herkunft'))
+                  for e in fleet.load()['schiffe']]
+        pruefe(hangar == [('Idris-P Frigate', 'pledge')],
+               'Übernahme aus dem Basetool: kein zweiter Eintrag neben dem '
+               'gleichnamigen (%r)' % hangar)
+    finally:
+        _home_back_600(folder, old)
+
+
+def _pruefung_603():
+    """603. Basetool: die Versicherung ohne Stand vom letzten Abgleich (eben
+    verknüpft, Zustandsdatei weg) — eine im Basetool gepflegte gilt, eine
+    fehlende kommt von hier."""
+    print('\n603. Basetool: Versicherung beim Verknüpfen')
+    from scbp import exchange_ships, fleet
+    folder, old = _home_600('603')
+    saved_side = exchange_ships._insurance_side
+
+    def old_side(ours, theirs, before):
+        if before is not None and ours != before and theirs == before:
+            return 'push'
+        if before is not None and theirs != before and ours == before:
+            return 'pull'
+        return None
+
+    def run(mine, theirs, linked=False, refuse=False):
+        entry = dict({'name': 'Cutlass Black', 'hersteller': 'Drake',
+                      'hkurz': 'DRAK', 'herkunft': 'pledge', 'belegung': {}},
+                     **mine)
+        ext = exchange_ships.external_id(entry)
+        fleet.save({'format': 1, 'schiffe': [entry]})
+        server = _ShipServer600()
+        server.refuse_links = refuse
+        ship_id = server.add('Cutlass Black', theirs, ext if linked else None)
+        state = {'ships': {'links': {ext: ship_id}} if linked else {}}
+        _ship_sync_600(server, state, rounds=1 if refuse else 3)
+        local = exchange_ships.insurance(fleet.load()['schiffe'][0])
+        return local, server.ships[ship_id]['insurance']
+
+    try:
+        cases = (
+            ('drüben LTI, hier keine', {}, {'kind': 'LTI'},
+             ({'kind': 'LTI'}, {'kind': 'LTI'})),
+            ('drüben keine, hier LTI', {'lti': True},
+             {'kind': 'MONTHS', 'months': 0},
+             ({'kind': 'LTI'}, {'kind': 'LTI'})),
+            ('beide verschieden', {'lti': True},
+             {'kind': 'MONTHS', 'months': 6},
+             ({'kind': 'MONTHS', 'months': 6},
+              {'kind': 'MONTHS', 'months': 6})),
+        )
+        for linked in (False, True):
+            how = 'Stand verloren' if linked else 'eben verknüpft'
+            for label, mine, theirs, wanted in cases:
+                got = run(mine, theirs, linked)
+                pruefe(got == wanted, '%s, %s: hier/drüben %r (erwartet %r)'
+                       % (how, label, got, wanted))
+        got = run({}, {'kind': 'LTI'}, refuse=True)
+        pruefe(got[0] == {'kind': 'MONTHS', 'months': 0},
+               'abgelehntes `link`: die Versicherung von drüben kommt nicht '
+               'herein (%r)' % (got,))
+        run({'lti': True}, {'kind': 'MONTHS', 'months': 6})
+        fleet.import_entries([{'name': 'Cutlass Black', 'hersteller': 'Drake',
+                               'hkurz': 'DRAK', 'lti': True}], fleet.load())
+        after = exchange_ships.insurance(fleet.load()['schiffe'][0])
+        pruefe(after == {'kind': 'MONTHS', 'months': 6},
+               'eine aus dem Basetool geholte Versicherung ändert ein späterer '
+               'Import nicht (%r)' % after)
+        exchange_ships._insurance_side = old_side
+        got = run({}, {'kind': 'LTI'})
+        pruefe(got[1] != {'kind': 'LTI'},
+               'Gegenprobe mit der alten Regel: die LTI im Basetool wird '
+               'überschrieben (%r)' % (got,))
+    finally:
+        exchange_ships._insurance_side = saved_side
+        _home_back_600(folder, old)
+
+
+def _pruefung_604():
+    """604. Hangar-Seite: der Hinweis, dass beim Basetool-Abgleich das
+    Basetool Vorrang hat, steht beim Import — nur mit eingeschaltetem
+    Hangar-Abgleich."""
+    print('\n604. Hangar: Hinweis zum Basetool beim Import')
+    import tkinter
+    from scbp import (basetool_sync, fleet, language, main_window, pages,
+                      paths as app_paths)
+    folder, old = _home_600('604')
+    saved_unknown, saved_on = fleet.unknown, pages._ships_sync_on
+    try:
+        fleet.unknown = lambda *a, **k: []
+        fleet.save({'format': 1, 'schiffe': []})
+        hint = language.t('s_hg_import_basetool')
+
+        def shown(setting):
+            """Ein frisches Fenster je Fall — eine Seite wird nur beim
+            ersten Öffnen gebaut."""
+            app_paths.set_setting(basetool_sync.SETTING_SHIPS, setting)
+            window = _wurzel()
+            found = []
+            try:
+                main = main_window.MainWindow(window,
+                                              version='0.0.0-pruefung')
+                main.open_page('hangar')
+                window.update()
+
+                def walk(widget):
+                    if isinstance(widget, tkinter.Label) \
+                            and str(widget.cget('text')) == hint:
+                        found.append(widget)
+                    for child in widget.winfo_children():
+                        walk(child)
+                walk(main.pages['hangar'])
+            finally:
+                try:
+                    window.destroy()
+                except Exception:
+                    pass
+            return bool(found)
+
+        pruefe(shown(True), 'Hangar-Abgleich an: der Hinweis steht beim '
+               'Import')
+        pruefe(not shown(False), 'Hangar-Abgleich aus: kein Hinweis')
+        pages._ships_sync_on = lambda: False
+        pruefe(not shown(True), 'Gegenprobe ohne die Bedingung: der Hinweis '
+               'fehlt')
+        pruefe('Basetool' in language.t('s_hg_import_basetool')
+               and language.TEXTS['s_hg_import_basetool'][1],
+               'den Hinweis gibt es deutsch und englisch')
+    finally:
+        pages._ships_sync_on = saved_on
+        fleet.unknown = saved_unknown
+        _home_back_600(folder, old)
 
 
 if __name__ == '__main__':

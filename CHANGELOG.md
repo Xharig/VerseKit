@@ -15,9 +15,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   stieg die Trefferzahl ohne eigenes Anlernen von 10 auf 22 von 32, und
   „6,340" wird nicht mehr als 6,740 gelesen. Mit Scan-Bildern von
   Aeternitas26 (KRT) und P6 (KRT)
+- **Hangar-Import mit dem Basetool-Abgleich: Hinweis beim Import** — dort
+  steht nun, dass das Basetool Vorrang hat: Der Import ergänzt bei Schiffen
+  von dort nur, was fehlt. Gemeldet von P6 (KRT)
 
 ### Behoben
 
+- **Hangar: kein Doppel mehr nach Import und Basetool-Abgleich** — Schiffe,
+  die aus dem Basetool kamen, und dieselben Schiffe aus der JSON- oder
+  CSV-Datei standen zweimal im Hangar und gingen danach auch zweimal ins
+  Basetool. Jetzt wird daraus ein Schiff, auch bei schon vorhandenen
+  Doppeln, und ins Basetool geht je Schiffstyp nur eines. Ein übrig
+  gebliebenes zweites Schiff im Basetool wird zum Entfernen angeboten, nicht
+  still gelöscht. Gemeldet von P6 (KRT)
+- **Basetool: Versicherung kommt an und bleibt** — wurde der Hangar im
+  Basetool gelöscht, legte der nächste Abgleich Schiffe ohne Versicherung
+  neu an. Das passiert nicht mehr. Ohne Stand vom letzten Abgleich (beim
+  ersten Verknüpfen oder nach neuem Verbinden) gilt eine im Basetool
+  eingetragene Versicherung, statt einen Abgleich später überschrieben zu
+  werden; fehlt sie dort, geht die aus Verse-Kit hinaus. Gemeldet von P6
+  (KRT)
 - **Fehlerbericht: verschobener Dokumente-Ordner wird geschwärzt** — liegt
   der Dokumente-Ordner nicht im Benutzerordner, etwa auf einem anderen
   Laufwerk, stand sein Pfad bisher samt Namen im Bericht. Jetzt steht dort
