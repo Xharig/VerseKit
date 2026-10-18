@@ -97,7 +97,9 @@ Four things are deliberate and will stay that way:
 | ✅ | **Changed game values**: what a game patch changed about values — ships, weapons, quantum drives, components. Increased green, decreased red. The source only keeps the last ten patches; here they stay |
 | ✅ | **Worth dismantling?**: what the fabricator returns — including the six materials that vanish for good |
 | ✅ | **Images in the bug report** — up to four screenshots go along with "Send", without hidden extra data |
-| ✅ | **Basetool in one place** — its own group below Blueprints in both views, can be hidden as a module |
+| ✅ | **Sidebar like the Basetool's** — the same groups in the same order, with a field that filters the menu |
+| ✅ | **My Inventory**: materials, goods for sale and items in one inventory, with the tabs Material and Items; your own lots go into unit storage and back with one button |
+| ✅ | **Anti-AFK** (Windows only, off by default) — an overlay button that keeps you from being kicked for being idle |
 
 ## What is being worked on
 

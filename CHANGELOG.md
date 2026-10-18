@@ -6,7 +6,14 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.10.0 - 2026-10-18
+
+> Rohstoff- und Handelslager sind jetzt ein Lager: **Mein Lager** unter
+> Flotte & Logistik, mit den Reitern Material und Items. Dort lassen sich
+> auch Rüstung, Waffen oder Artefakte eintragen und mit dem Basetool ins
+> Lager der Einheit geben. Die Seitenleiste ist aufgebaut wie im Basetool
+> und lässt sich filtern, und ein neuer Knopf im Overlay hält dich im Spiel,
+> wenn du kurz weg bist.
 
 ### Neu
 

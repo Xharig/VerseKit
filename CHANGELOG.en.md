@@ -6,7 +6,14 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.10.0 - 2026-10-18
+
+> Material storage and cargo hold are now one inventory: **My Inventory**
+> under Fleet & Logistics, with the tabs Material and Items. You can also
+> add armor, weapons or artifacts there and, with the Basetool, put them
+> into your unit's storage. The sidebar is laid out like the Basetool's and
+> can be filtered, and a new overlay button keeps you in the game while you
+> step away.
 
 ### New
 
