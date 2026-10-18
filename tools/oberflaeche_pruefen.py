@@ -63,9 +63,9 @@ from scbp.main_window import MainWindow                 # noqa: E402
 # Wer eine Seite dazubaut, traegt sie **hier mit ein**. `_alle_seiten_dabei()`
 # unten haelt das fest und schlaegt an, wenn eine fehlt.
 SEITEN = ('uebersicht',
-          'bereich_logistik', 'bereich_bauplaene', 'bereich_schiffe',
-          'bereich_werkstatt',
-          'bereich_bergung', 'bereich_handel', 'bereich_statistiken',
+          'bereich_logistik', 'bereich_bauplaene', 'bereich_werkstatt',
+          'bereich_bergung', 'bereich_handel', 'bereich_beschaffung',
+          'bereich_statistiken',
           'bereich_spiel_einst', 'bereich_einstellungen', 'bereich_basetool',
           'bereich_info',
           'liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',

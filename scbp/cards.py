@@ -29,10 +29,9 @@ Aufbau:
 | 3 | die bisherige Seite | unverändert |
 
 `AREAS` und `PAGES` müssen zur Reiterliste in `main_window._body` passen
-(Symbol und Name je Seite); eine Prüfung vergleicht beides. Die Bereiche
-Basetool und Info gibt es nur hier: Basetool bündelt Seiten aus
-verschiedenen Gruppen, Info enthält nur die Seiten, die nicht über Kopf- und
-Fußleiste erreichbar sind.
+(Symbol und Name je Seite); eine Prüfung vergleicht beides. Jeder Bereich
+ist eine Gruppe der Reiterleiste, nur den Bereich Basetool gibt es allein
+hier: Er bündelt Seiten aus verschiedenen Gruppen.
 
 Bausteine für alle Kartenseiten: `card()` (eine Karte) und `CardGrid` (so
 viele Spalten, wie mit Mindestbreite nebeneinander passen; Karten einer Reihe
@@ -74,7 +73,7 @@ PAGES = {
     'darstellung': ('darstellung', 'hf_darstellung'),
     'ordner': ('ordner', 'hf_ordner'),
     'module': ('module', 'hf_module'),
-    'basetool': ('basetool', 'hf_basetool'),
+    'basetool': ('basetool', 'k_basetool_verbindung'),
     'bestand': ('sichern', 'hf_sichern'),
     'erkennung': ('erkennung', 'hf_erkennung'),
     'startprogramme': ('startprogramme', 'hf_startprogramme'),
@@ -91,38 +90,43 @@ PAGES = {
 }
 
 # Die Hauptbereiche in ihrer Reihenfolge: (Kennung, Symbol, Namensschlüssel,
-# Unterseiten). Die Kennung ist die der Gruppe in der Reiterliste (für das
-# Ausblenden über `modules`), „basetool" ist eigen.
+# Unterseiten). Kennung, Name und Unterseiten sind die der Gruppe in der
+# Reiterliste; „basetool" ist eigen und sammelt Seiten anderer Gruppen.
 AREAS = (
-    ('logistik', 'bestand', 'hf_gruppe_logistik', ('meinlager', 'staffellager')),
     ('bauplaene', 'liste', 'hf_gruppe_bp',
      ('liste', 'fortschritt', 'auftragslog')),
+    ('logistik', 'bestand', 'hf_gruppe_logistik',
+     ('hangar', 'wunschliste', 'meinlager', 'staffellager')),
     ('basetool', 'basetool', 'k_basetool_titel',
      ('basetool', 'bedarf', 'staffellager', 'meinlager', 'hangar', 'liste')),
-    ('schiffe', 'hangar', 'hf_gruppe_schiffe',
-     ('hangar', 'wunschliste', 'einkaufsliste')),
-    ('werkstatt', 'blitz', 'hf_gruppe_herst',
-     ('herstellung', 'farmliste', 'bergbau', 'raffinerien')),
-    ('bergung', 'zerlegen', 'hf_gruppe_bergung', ('bergung', 'zerlegen')),
+    ('werkstatt', 'blitz', 'hf_gruppe_herst', ('herstellung', 'farmliste')),
+    ('bergung', 'herkunft', 'hf_gruppe_abbau',
+     ('bergbau', 'raffinerien', 'bergung', 'zerlegen')),
     ('handel', 'laeden', 'hf_gruppe_handel', ('laeden', 'verkauf', 'routen')),
+    ('beschaffung', 'einkaufsliste', 'hf_gruppe_beschaffung',
+     ('bedarf', 'einkaufsliste')),
     ('statistiken', 'statistik', 'hf_gruppe_statistik',
      ('statistik_auswertung', 'statistik', 'statistik_schiffe',
       'statistik_auftraege', 'statistik_quantum', 'statistik_stabil')),
-    ('spiel_einst', 'joysticks', 'hf_gruppe_spiel',
-     ('spiel', 'uebersetzung', 'grafik', 'blickwinkel', 'joysticks', 'achsen',
-      'shader')),
     ('einstellungen', 'einstellungen', 'hf_gruppe_einst',
      ('allgemein', 'anzeige', 'darstellung', 'ordner', 'module', 'basetool',
       'bestand', 'erkennung', 'startprogramme')),
+    ('spiel_einst', 'joysticks', 'hf_gruppe_spiel',
+     ('spiel', 'uebersetzung', 'grafik', 'blickwinkel', 'joysticks', 'achsen',
+      'shader')),
     ('info', 'ueber', 'hf_gruppe_info',
      ('patchaenderungen', 'serverstatus', 'danke')),
 )
 
-# Seiten, deren Reiter in der Gruppe Basetool der Reiterleiste stehen, in
-# dieser Reihenfolge. Im Kartenbereich Basetool stehen sie vorn.
+# Bereichsseiten, die es nicht mehr gibt -> ihr neuer Bereich (gespeicherte
+# letzte Seite, angeheftete Sprünge).
+PAGE_ALIASES = {'bereich_schiffe': 'bereich_logistik'}
+
+# Die Seiten, die es nur mit dem Basetool gibt, in dieser Reihenfolge. Im
+# Kartenbereich Basetool stehen sie vorn; in der Reiterleiste stehen sie in
+# Einstellungen (Verbindung) und Beschaffung (Bedarf).
 BASETOOL_TABS = ('basetool', 'bedarf')
-# Eigene Namen dieser Seiten im Bereich Basetool und in seiner Gruppe der
-# Reiterleiste.
+# Eigene Namen dieser Seiten — im Bereich Basetool und in der Reiterleiste.
 BASETOOL_TITLES = {'basetool': 'k_basetool_verbindung'}
 
 # Unterseiten, die im Bereich Fortgeschritten stehen — auf der Karte als
@@ -156,14 +160,28 @@ def area_page_id(kennung):
 
 
 def area_enabled(kennung):
-    """Ist der Bereich eingeblendet? Folgt den Modul-Schaltern; Baupläne,
-    Einstellungen, Spiel-Einstellungen und Info sind immer da."""
+    """Ist der Bereich eingeblendet? Der Bereich Basetool folgt seinem
+    Modul; jeder andere ist da, solange die Modul-Schalter ihm mindestens
+    eine Seite lassen — wie seine Gruppe in der Reiterleiste."""
     from . import modules
-    return modules.enabled(kennung)
+    if kennung == 'basetool':
+        return modules.enabled('basetool')
+    entry = area(kennung)
+    if entry is None:
+        return modules.enabled(kennung)
+    hidden = modules.hidden_pages()
+    return any(page not in hidden for page in entry[3])
 
 
-def visible_areas():
-    return [a for a in AREAS if area_enabled(a[0])]
+def visible_areas(window=None):
+    """Die eingeblendeten Bereiche. Mit `window` fehlt auch ein Bereich,
+    dessen Seiten das Fenster alle ausblendet (Bedingung oder Modul) — wie
+    eine leere Gruppe in der Reiterleiste."""
+    out = [a for a in AREAS if area_enabled(a[0])]
+    if window is not None:
+        out = [a for a in out
+               if any(not page_hidden(window, page) for page in a[3])]
+    return out
 
 
 def area_of(page, preferred=None):
@@ -718,9 +736,12 @@ def area_page(window, frame, kennung):
 
 
 def page_hidden(window, page):
-    """Blendet die Leiste diese Seite gerade aus?"""
+    """Blendet die Leiste diese Seite gerade aus — Bedingung oder Modul?"""
+    shown = getattr(window, '_tab_shown', None)
     hidden = getattr(window, '_tab_hidden', None)
     try:
+        if shown:
+            return not shown(page)
         return bool(hidden(page)) if hidden else False
     except Exception:
         return False

@@ -25720,6 +25720,7 @@ def main():
     _pruefung_488()
     _pruefung_489()
     _pruefung_490()
+    _pruefung_491()
 
     print()
     if fehler:
@@ -26436,24 +26437,24 @@ def _pruefung_271():
             _w271.geometry('1200x900')
             _f271 = _mw271.MainWindow(_w271, version='0.0.0-pruefung')
             _w271.update_idletasks()
-            _abw271 = {}
-            for gruppe, seiten in _mo271.SWITCHABLE.items():
-                # ⚠ Eine Gruppe, die es in der Leiste nicht gibt, ist ein
-                # Befund — kein Absturz der Pruefung.
-                if gruppe not in _f271.groups:
-                    _abw271[gruppe] = 'fehlt in der Leiste'
-                    continue
-                ist = tuple(k for z in _f271.groups[gruppe]['inhalt']
-                            .winfo_children()
-                            for k, teile in _f271.buttons.items()
-                            if teile[0] is z)
-                if ist != seiten:
-                    _abw271[gruppe] = ist
-            pruefe(not _abw271, 'die Module kennen genau die Reiter der '
-                   'Leiste (%r)' % _abw271)
-            pruefe(all(g not in _mo271.SWITCHABLE for g in
-                       ('bauplaene', 'einstellungen', 'info')),
-                   'Baupläne, Einstellungen, Info sind nicht abschaltbar')
+            # Ein Modul blendet seine Reiter einzeln aus, egal in welcher
+            # Gruppe sie stehen — jeder muss also einen Reiter haben.
+            _abw271 = {gruppe: [s for s in seiten if s not in _f271.buttons]
+                       for gruppe, seiten in _mo271.SWITCHABLE.items()}
+            _abw271 = {g: s for g, s in _abw271.items() if s}
+            pruefe(not _abw271, 'jede Seite eines Moduls hat einen Reiter in '
+                   'der Leiste (%r)' % _abw271)
+            def reiter271(gruppe):
+                return [k for z in _f271.groups[gruppe]['inhalt']
+                        .winfo_children() for k, teile in _f271.buttons.items()
+                        if teile[0] is z]
+            _modulseiten271 = {s for ss in _mo271.SWITCHABLE.values()
+                               for s in ss}
+            _schaltbar271 = [s for g in ('bauplaene', 'einstellungen', 'info')
+                             for s in reiter271(g) if s in _modulseiten271]
+            pruefe(_schaltbar271 == ['basetool'],
+                   'Baupläne, Einstellungen, Info sind nicht abschaltbar — bis '
+                   'auf die Basetool-Verbindung (%r)' % _schaltbar271)
             pruefe('statistiken' in _mo271.SWITCHABLE,
                    'die Statistik laesst sich ausblenden (seit 27.09.2026)')
             _w271.destroy()
@@ -32247,16 +32248,45 @@ def _pruefung_315():
     with open(os.path.join(WURZEL, 'scbp', 'main_window.py'), encoding='utf-8') as f:
         baum = _ast315.parse(f.read())
     reiter = {}
+    _gruppenname315 = {}
+    _gruppe315 = {}
+    _folge315 = []
+    for knoten in _ast315.walk(baum):
+        if (isinstance(knoten, _ast315.Assign)
+                and isinstance(knoten.value, _ast315.Call)
+                and getattr(knoten.value.func, 'attr', '') == '_group'
+                and isinstance(knoten.value.args[0], _ast315.Call)
+                and isinstance(knoten.targets[0], _ast315.Name)):
+            _gruppenname315[knoten.targets[0].id] = _la315.TEXTS[
+                knoten.value.args[0].args[0].value][0]
     for knoten in _ast315.walk(baum):
         if (isinstance(knoten, _ast315.Call)
                 and getattr(knoten.func, 'attr', '') == '_tab'
                 and len(knoten.args) >= 3
                 and isinstance(knoten.args[2], _ast315.Call)):
             reiter[knoten.args[0].value] = _la315.TEXTS[knoten.args[2].args[0].value][0]
-    # Alte Seitennamen (`my_stock_page.ALIASES`) nimmt der Worker weiter an
-    # und zählt sie über MERGED bei ihrer neuen Seite.
-    from scbp import my_stock_page as _ms315
-    seiten = set(_pg315.page_ids()) | set(_ms315.ALIASES)
+            if (len(knoten.args) >= 4
+                    and isinstance(knoten.args[3], _ast315.Name)
+                    and knoten.args[3].id in _gruppenname315):
+                _gruppe315[knoten.args[0].value] = _gruppenname315[
+                    knoten.args[3].id]
+                _folge315.append(knoten.args[0].value)
+    # Die Gruppe neben jeder Seite und die Reihenfolge der Seiten folgen
+    # der Leiste (das Dashboard sortiert bei Gleichstand danach).
+    _js_gruppe315 = dict(re.findall(r"^\s*(\w+): \['([^']*)', '[^']*'\],",
+                                    block, re.M))
+    _gruppe_falsch315 = sorted(p for p, g in _gruppe315.items()
+                               if _js_gruppe315.get(p) != g)
+    _js_folge315 = [p for p in re.findall(r"^\s*(\w+): \[", block, re.M)
+                    if p in _gruppe315]
+    pruefe(not _gruppe_falsch315 and _js_folge315 == _folge315,
+           'pages.js führt jede Seite in ihrer Gruppe, in der Reihenfolge der '
+           'Leiste (abweichend: %r)' % _gruppe_falsch315)
+    # Alte Seitennamen (`my_stock_page.ALIASES`, `cards.PAGE_ALIASES`) nimmt
+    # der Worker weiter an und zählt sie über MERGED bei ihrer neuen Seite.
+    from scbp import my_stock_page as _ms315, cards as _kc315
+    _alte315 = dict(_ms315.ALIASES, **_kc315.PAGE_ALIASES)
+    seiten = set(_pg315.page_ids()) | set(_alte315)
     pruefe(im_worker and set(im_worker) == seiten,
            'pages.js kennt genau die Seiten aus pages.page_ids() und die alten '
            'Namen (fehlt: %s, zu viel: %s)'
@@ -32265,10 +32295,10 @@ def _pruefung_315():
         r"^\s*(\w+): '(\w+)',", pages_js.split('export const MERGED = {', 1)[-1]
         .split('};', 1)[0], re.M))
     pruefe(all(_merged315.get(alt) == neu
-               for alt, neu in _ms315.ALIASES.items()),
+               for alt, neu in _alte315.items()),
            'pages.js zählt alte Seitennamen bei ihrer neuen Seite (MERGED %s)'
            % _merged315)
-    for _alt315 in _ms315.ALIASES:
+    for _alt315 in _alte315:
         im_worker.pop(_alt315, None)
     # Seiten ohne Reiter (ein Verweis wie `asop`) tragen den Namen ihrer
     # Überschrift — die Kennung bleibt, damit ältere Meldungen gültig sind.
@@ -41316,21 +41346,26 @@ def _pruefung_424():
     _je_gruppe['einstellungen'] = (_je_gruppe.get('einstellungen', [])
                                    + ['erkennung', 'startprogramme'])
 
-    def _im_bereich424(a):
-        # Der Bereich Basetool zeigt auch Seiten anderer Gruppen; seine eigene
-        # Gruppe hat nur `BASETOOL_TABS`. Andere Bereiche dürfen diese Seiten
-        # zusätzlich zeigen, ihre Gruppen haben sie nicht.
-        if a[0] == 'basetool':
-            return [p for p in a[3] if p in _ka424.BASETOOL_TABS]
-        return [p for p in a[3] if p not in _ka424.BASETOOL_TABS]
+    # Der Bereich Basetool sammelt Seiten anderer Gruppen und hat keine
+    # eigene Gruppe in der Leiste; jeder andere Bereich ist seine Gruppe.
     _falsch = [a[0] for a in _ka424.AREAS
-               if a[0] in _je_gruppe and _im_bereich424(a) != _je_gruppe[a[0]]]
-    pruefe('basetool' in _je_gruppe
-           and _je_gruppe['basetool'] == list(_ka424.BASETOOL_TABS)
+               if a[0] != 'basetool'
+               and list(a[3]) != _je_gruppe.get(a[0])]
+    # Auch die Reihenfolge der Bereiche folgt der Leiste.
+    _gruppen_folge424 = [_namen[v] for v in _gruppen if v in _namen]
+    _bereich_folge424 = [a[0] for a in _ka424.AREAS if a[0] != 'basetool']
+    pruefe(_bereich_folge424 == _gruppen_folge424,
+           'die Bereiche stehen in der Reihenfolge der Gruppen (%r)'
+           % _bereich_folge424)
+    _gruppe_von = {p: g for g, ps in _je_gruppe.items() for p in ps}
+    pruefe('basetool' not in _je_gruppe
            and list(_ka424.area('basetool')[3][:len(_ka424.BASETOOL_TABS)])
-           == list(_ka424.BASETOOL_TABS),
-           'die Reiterleiste hat eine Gruppe Basetool mit genau den Seiten, die '
-           'im Bereich Basetool vorn stehen (%r)' % _je_gruppe.get('basetool'))
+           == list(_ka424.BASETOOL_TABS)
+           and _gruppe_von.get('basetool') == 'einstellungen'
+           and _gruppe_von.get('bedarf') == 'beschaffung',
+           'die Basetool-Seiten stehen im Bereich Basetool vorn, in der Leiste '
+           'unter Einstellungen und Beschaffung (%r)'
+           % [_gruppe_von.get(p) for p in _ka424.BASETOOL_TABS])
     pruefe(not _falsch, 'jeder Bereich zeigt genau die Reiter seiner Gruppe, '
            'in derselben Reihenfolge (%r)' % _falsch)
     # Angeheftete Karten auf der Übersicht nehmen den Text ohne Bereich —
@@ -41346,8 +41381,10 @@ def _pruefung_424():
                                          'meinlager', 'hangar', 'liste'),
            'Basetool bündelt Verbindung, Bedarf, Lager der Einheit, Mein '
            'Lager, Hangar, Liste')
-    pruefe(_ka424.area('logistik')[3] == ('meinlager', 'staffellager'),
-           'der Bereich Lager hat Mein Lager und Lager der Einheit')
+    pruefe(_ka424.area('logistik')[3]
+           == ('hangar', 'wunschliste', 'meinlager', 'staffellager'),
+           'der Bereich Flotte & Logistik hat Hangar, Wunschliste, Mein Lager '
+           'und Lager der Einheit')
     pruefe([_ka424.columns_for(w, 220) for w in (100, 451, 452, 940, 1500)]
            == [1, 1, 2, 4, 6],
            'Spalten: so viele, wie mit Mindestbreite passen, mindestens eine')
@@ -41597,13 +41634,14 @@ def _pruefung_424():
                 return [k.itemcget(k.caption, 'text') for k in knoepfe]
             _t424 = _la424.t
             _werk424 = _extras424('werkstatt')
+            _abbau424 = _extras424('bergung')
             _lagerb424 = _extras424('logistik')
             _base424 = _extras424('basetool')
             _spiel424 = _extras424('spiel_einst')
             _soll424 = {
                 ('logistik', 'meinlager'): [_t424('k_raff_scanner')],
                 ('logistik', 'staffellager'): [],
-                ('werkstatt', 'bergbau'): [_t424('k_scanner')],
+                ('bergung', 'bergbau'): [_t424('k_scanner')],
                 ('werkstatt', 'herstellung'): [],
                 ('basetool', 'meinlager'): [_t424('k_raff_scanner')],
                 ('basetool', 'hangar'): [],
@@ -41616,14 +41654,17 @@ def _pruefung_424():
                 ('spiel_einst', 'grafik'): [],
             }
             _ist424 = {'werkstatt': _werk424, 'logistik': _lagerb424,
-                       'basetool': _base424, 'spiel_einst': _spiel424}
+                       'basetool': _base424, 'spiel_einst': _spiel424,
+                       'bergung': _abbau424}
             _abw424 = {k: _namen424(_ist424[k[0]].get(k[1], []))
                        for k, v in _soll424.items()
                        if _namen424(_ist424[k[0]].get(k[1], [])) != v}
             pruefe(not _abw424, 'jede Unterpunkt-Karte hat ihre Zusatzknöpfe '
                    '(abweichend: %r)' % _abw424)
-            pruefe('bedarf' not in _werk424,
-                   'Bedarf der Einheit steht nur im Bereich Basetool')
+            pruefe([a[0] for a in _ka424.AREAS if 'bedarf' in a[3]]
+                   == ['basetool', 'beschaffung'],
+                   'Bedarf der Einheit steht in den Bereichen Basetool und '
+                   'Beschaffung')
             _reihe424 = list(_base424)
             pruefe(_reihe424[:2] == ['basetool', _ka424.SYNC_CARD],
                    'im Bereich Basetool steht die Abgleich-Karte direkt hinter '
@@ -41631,7 +41672,8 @@ def _pruefung_424():
             # Jeder Zusatzknopf liegt ganz in seiner Karte — bei schmaler
             # Karte oder breiter Schrift ragte er sonst hinaus.
             _draussen424 = []
-            for _alle424 in (_werk424, _lagerb424, _base424, _spiel424):
+            for _alle424 in (_werk424, _abbau424, _lagerb424, _base424,
+                             _spiel424):
                 for _seite424, _knoepfe424 in _alle424.items():
                     for _k424 in _knoepfe424:
                         _fuss424 = _k424.master
@@ -41683,7 +41725,7 @@ def _pruefung_424():
                    'lösen ihre Handlung aus (%r)' % _spur424)
             # Der Scanner-Knopf schaltet denselben Schalter und folgt ihm.
             _sg424.set_enabled(False)
-            _scanner424 = _werk424['bergbau'][0]
+            _scanner424 = _abbau424['bergbau'][0]
 
             def _gefuellt424():
                 return _scanner424.itemcget(_scanner424.shape, 'fill').lower()
@@ -43028,14 +43070,22 @@ def _pruefung_445():
             return tuple(k for z in g['inhalt'].winfo_children()
                          for k, teile in _f445.buttons.items() if teile[0] is z)
 
-        pruefe(reiter_von('basetool') == ('basetool', 'bedarf'),
-               'die Gruppe Basetool hat Verbindung und Bedarf (%r)'
-               % (reiter_von('basetool'),))
-        pruefe(reiter_von('logistik') == ('meinlager', 'staffellager'),
-               'die Gruppe Lager hat Mein Lager und Lager der Einheit (%r)'
-               % (reiter_von('logistik'),))
-        _anderswo445 = [g for g in _f445.groups if g != 'basetool'
-                        and set(reiter_von(g)) & {'basetool', 'bedarf'}]
+        einst = reiter_von('einstellungen')
+        pruefe('basetool' not in _f445.groups
+               and reiter_von('beschaffung') == ('bedarf', 'einkaufsliste')
+               and einst[einst.index('module') + 1] == 'basetool'
+               and einst[einst.index('basetool') + 1] == 'bestand',
+               'keine Gruppe Basetool: der Bedarf steht unter Beschaffung, die '
+               'Verbindung unter Einstellungen zwischen Module und Sichern '
+               '(%r, %r)' % (reiter_von('beschaffung'), einst))
+        pruefe(reiter_von('logistik')
+               == ('hangar', 'wunschliste', 'meinlager', 'staffellager'),
+               'Flotte & Logistik: Hangar, Wunschliste, Mein Lager, Lager der '
+               'Einheit (%r)' % (reiter_von('logistik'),))
+        _anderswo445 = [g for g in _f445.groups if g != 'einstellungen'
+                        and 'basetool' in reiter_von(g)]
+        _anderswo445 += [g for g in _f445.groups if g != 'beschaffung'
+                         and 'bedarf' in reiter_von(g)]
         _anderswo445 += [g for g in _f445.groups if g != 'logistik'
                          and set(reiter_von(g)) & {'meinlager', 'staffellager',
                                                    'lager', 'handelslager'}]
@@ -43053,7 +43103,7 @@ def _pruefung_445():
         alle_auf()
         _f445.open_page('uebersicht')
         _f445.open_page('bergbau', via='sprung')
-        pruefe(offen() == {'werkstatt'},
+        pruefe(offen() == {'bergung'},
                'Sprung aus der Übersicht: nur die Gruppe der Zielseite offen '
                '(%r)' % sorted(offen()))
 
@@ -43077,18 +43127,22 @@ def _pruefung_445():
                'Ziel ohne Reiter: die Leiste bleibt, wie sie ist (%r)'
                % sorted(set(_f445.groups) - offen()))
 
-        # Modul Basetool aus: Gruppe weg, Sprünge landen auf „Module", und
-        # derselbe Schalter nimmt den Kartenbereich weg.
+        # Modul Basetool aus: seine Reiter weg, Sprünge landen auf „Module",
+        # und derselbe Schalter nimmt den Kartenbereich weg.
         from scbp import modules as _mo445, cards as _ka445
         _mo445.set_enabled('basetool', False)
         _f445.close()
         _w445.update()
         _f445 = _mw445.MainWindow(_w445, version='0.0.0-pruefung')
         _w445.update()
-        _g445 = _f445.groups.get('basetool')
-        pruefe(_g445 is not None and not _g445['kopf'].winfo_manager()
-               and not _g445['inhalt'].winfo_manager(),
-               'Modul Basetool aus: die Gruppe ist ausgeblendet')
+        pruefe(not _f445.buttons['basetool'][0].winfo_manager()
+               and _f445._module_hidden('bedarf')
+               and _f445._module_hidden('basetool')
+               and not _f445.buttons['bedarf'][0].winfo_manager()
+               and _f445.buttons['einkaufsliste'][0].winfo_manager()
+               and _f445.groups['beschaffung']['kopf'].winfo_manager(),
+               'Modul Basetool aus: Verbindung und Bedarf sind ausgeblendet, '
+               'die Gruppe Beschaffung bleibt mit der Einkaufsliste')
         _ziele445 = []
         for _seite445 in ('basetool', 'bedarf', 'staffellager'):
             _f445.open_page(_seite445, via='sprung')
@@ -48971,6 +49025,175 @@ def _pruefung_490():
     finally:
         (_cr.storage_name, _cr.piece_materials, _ma._is_piece) = echt
         _la.set_language(_sprache)
+
+
+def _pruefung_491():
+    """491. Seitenleiste wie im Basetool, Menü filtern, Module je Reiter."""
+    print('\n491. Seitenleiste: Gruppen wie im Basetool, Menü filtern')
+    if not hat_anzeige():
+        uebersprungen('491', 'keine Anzeige')
+        return
+    from scbp import main_window as _mw, modules as _mo, paths as _pa
+    from scbp import language as _la, cards as _ka
+    _sprache = _la.current()
+    _la.set_language('de')
+    _heim = tempfile.mkdtemp(prefix='leiste491-')
+    _alt_heim = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim
+    _pa.set_setting(_mw.MainWindow.VIEW_SETTING, 'reiter')
+    # Gespeicherte Klappzustände: Bergung zu, dazu einer für eine Gruppe,
+    # die die Leiste nicht kennt.
+    _pa.set_setting('gruppe_zu_bergung', 'ja')
+    _pa.set_setting('gruppe_zu_basetool', 'ja')
+    w = _wurzel()
+    f = None
+    try:
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        w.update()
+
+        def sichtbare_gruppen():
+            # In der Reihenfolge, in der die Leiste sie wirklich packt.
+            kopf = {g['kopf']: k for k, g in f.groups.items()}
+            return [kopf[x] for x in f.sidebar.pack_slaves() if x in kopf]
+
+        def sichtbare_reiter():
+            inhalt = {g['inhalt']: g for g in f.groups.values()}
+            out = []
+            for x in f.sidebar.pack_slaves():
+                if x not in inhalt:
+                    continue
+                for z in x.pack_slaves():
+                    out += [k for k, teile in f.buttons.items()
+                            if teile[0] is z]
+            return out
+        pruefe(sichtbare_gruppen() == [
+            'bauplaene', 'logistik', 'werkstatt', 'bergung', 'handel',
+            'beschaffung', 'statistiken', 'einstellungen', 'spiel_einst',
+            'info'],
+               'die Gruppen stehen wie im Basetool (%r)' % sichtbare_gruppen())
+        pruefe([f.groups[k]['text'] for k in ('logistik', 'werkstatt',
+                                              'bergung', 'handel',
+                                              'beschaffung')]
+               == ['Flotte & Logistik', 'Herstellung', 'Abbau & Bergung',
+                   'Handel', 'Beschaffung'],
+               'die Gruppen heißen wie im Basetool')
+        pruefe(not f.groups['bergung']['offen']
+               and not f.groups['bergung']['inhalt'].winfo_manager()
+               and 'basetool' not in f.groups,
+               'ein alter Klappzustand gilt weiter (Bergung zu), der der '
+               'Gruppe Basetool stört nicht')
+
+        # Filter: Treffer im Reiternamen.
+        f._group_toggle('logistik', auf=False)
+        w.update()
+        f.nav_filter_var.set('lager')
+        w.update()
+        pruefe(sichtbare_reiter() == ['meinlager']
+               and sichtbare_gruppen() == ['logistik'],
+               'Filter „lager": nur Mein Lager, seine Gruppe offen, obwohl '
+               'sie zugeklappt war (%r)' % sichtbare_reiter())
+        # Treffer im Gruppennamen: die ganze Gruppe.
+        f.nav_filter_var.set('HANDEL')
+        w.update()
+        pruefe(sichtbare_reiter() == ['laeden', 'verkauf', 'routen'],
+               'Filter auf den Gruppennamen zeigt die ganze Gruppe, Groß/Klein '
+               'egal (%r)' % sichtbare_reiter())
+        einst = f.groups['einstellungen']['inhalt']
+        pruefe(f.collapse not in einst.pack_slaves(),
+               'beim Filtern fehlt der Klappteil Fortgeschritten')
+        # Ein Tastendruck kommt im unsichtbaren Fenster nicht an: Bindung und
+        # Wirkung getrennt prüfen.
+        pruefe(bool(f.nav_filter_box.bind('<Escape>'))
+               and bool(f.nav_filter_box.bind('<Return>')),
+               'Escape und Enter sind im Filterfeld gebunden')
+        f._nav_filter_clear()
+        w.update()
+        reihe = einst.pack_slaves()
+        pruefe(f.nav_filter_var.get() == '' and reihe[-1] is f.collapse
+               and reihe[-2] is f.buttons['bestand'][0],
+               'Escape leert das Feld; Fortgeschritten steht wieder ganz '
+               'unten in den Einstellungen')
+        # Klappen bei aktivem Filter: Zustand und Pfeil stimmen, die Treffer
+        # bleiben stehen.
+        f.nav_filter_var.set('lager')
+        w.update()
+        f._group_toggle('logistik', auf=True)
+        w.update()
+        pruefe(f.groups['logistik']['offen']
+               and _pa.setting('gruppe_zu_logistik') == 'nein'
+               and sichtbare_reiter() == ['meinlager'],
+               'Aufklappen bei aktivem Filter merkt den Zustand und lässt die '
+               'Treffer stehen')
+        f._group_toggle('logistik', auf=False)
+        f.nav_filter_var.set('xyzzy')
+        w.update()
+        pruefe(not sichtbare_reiter() and not sichtbare_gruppen()
+               and f.nav_filter_empty.winfo_manager()
+               and f.nav_filter_empty.cget('text') == _la.t('hf_menue_leer'),
+               'ohne Treffer: keine Gruppe, der Satz „Kein Menüeintrag '
+               'gefunden."')
+        # Enter öffnet den ersten Treffer und leert das Feld.
+        f.nav_filter_var.set('raffin')
+        w.update()
+        f._nav_filter_open()
+        w.update()
+        pruefe(f.current == 'raffinerien' and f.nav_filter_var.get() == ''
+               and not f.nav_filter_empty.winfo_manager()
+               and not f.groups['logistik']['inhalt'].winfo_manager()
+               and 'logistik' in sichtbare_gruppen(),
+               'Enter öffnet den ersten Treffer, danach steht die Leiste wie '
+               'vorher (Klappzustände bleiben)')
+        pruefe(f.groups['bergung']['inhalt'].winfo_manager(),
+               'die Gruppe der geöffneten Seite steht offen')
+
+        # Alte Bereichsseite landet im neuen Bereich.
+        f.open_page('bereich_schiffe', via='sprung')
+        w.update()
+        pruefe(f.current == 'bereich_logistik',
+               'bereich_schiffe führt zu Flotte & Logistik (%r)' % f.current)
+
+        # Module je Reiter: Werkstatt aus nimmt Herstellung, Farmliste,
+        # Bergbau und Raffinerien — die Gruppe Herstellung verschwindet,
+        # Abbau & Bergung behält Bergung und Zerlegen.
+        _mo.set_enabled('werkstatt', False)
+        _mo.set_enabled('schiffe', False)
+        f.close()
+        w.update()
+        f = _mw.MainWindow(w, version='0.0.0-pruefung')
+        w.update()
+        f._group_toggle('bergung', auf=True)
+        f._group_toggle('logistik', auf=True)
+        w.update()
+        reiter = sichtbare_reiter()
+        pruefe('werkstatt' not in sichtbare_gruppen()
+               and 'bergung' in sichtbare_gruppen()
+               and not {'herstellung', 'farmliste', 'bergbau', 'raffinerien',
+                        'hangar', 'wunschliste', 'einkaufsliste'} & set(reiter)
+               and {'bergung', 'zerlegen', 'meinlager'} <= set(reiter),
+               'Module blenden ihre Reiter einzeln aus, leere Gruppen '
+               'verschwinden (%r)' % sichtbare_gruppen())
+        pruefe(_ka.page_hidden(f, 'hangar')
+               and not _ka.page_hidden(f, 'meinlager')
+               and not _ka.area_enabled('werkstatt')
+               and _ka.area_enabled('logistik'),
+               'Karten und Bereiche folgen denselben Modul-Schaltern')
+        # Beschaffung: Einkaufsliste per Modul weg, Bedarf ohne Verbindung —
+        # die Hauptkarte fehlt wie die Gruppe.
+        pruefe('beschaffung' not in [a[0] for a in _ka.visible_areas(f)]
+               and 'logistik' in [a[0] for a in _ka.visible_areas(f)],
+               'ein Bereich, dessen Seiten alle ausgeblendet sind, fehlt auch '
+               'in der Kartenansicht')
+    finally:
+        _la.set_language(_sprache)
+        try:
+            w.destroy()
+        except Exception:
+            pass
+        if _alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim
+        shutil.rmtree(_heim, ignore_errors=True)
 
 
 def _pruefung_487():

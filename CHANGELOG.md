@@ -10,8 +10,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Neu
 
-- **Gruppe Flotte & Logistik** direkt unter der Übersicht: „Mein Lager" und
-  „Lager der Einheit" stehen an einer Stelle.
+- **Seitenleiste wie im Basetool** — die Gruppen heißen und stehen wie in
+  der Seitenleiste des KRT Profit Basetools: Baupläne, Flotte & Logistik
+  (Hangar, Wunschliste, Mein Lager, Lager der Einheit), Herstellung, Abbau &
+  Bergung, Handel, Beschaffung (Bedarf der Einheit, Einkaufsliste),
+  Statistik und Einstellungen mit „Verbindung & Abgleich". Ausgeschaltete
+  Module blenden ihre Reiter aus, leere Gruppen verschwinden.
+- **Menü filtern** — ein Feld unter der Übersicht: Tippen lässt nur passende
+  Einträge stehen, ihre Gruppen offen; Enter öffnet den ersten Treffer,
+  Escape leert das Feld.
 - **Items von Hand eintragen** — in „Mein Lager" neben Rohstoff und Ware
   jetzt auch Gegenstände aus der Warenliste: Artefakte, Rüstung, Kleidung,
   Waffen, Komponenten, Medaillen … mit Stückzahl und Ort. Der Abgleich mit

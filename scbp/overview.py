@@ -228,7 +228,7 @@ def overview_page(window, frame):
         if main_grid is None:
             return
         main_grid.clear()
-        for kennung, symbol, name_key, _pages in cards.visible_areas():
+        for kennung, symbol, name_key, _pages in cards.visible_areas(window):
             def build(cell, kennung=kennung, symbol=symbol, name_key=name_key):
                 cards.card(window, cell, symbol, t(name_key),
                            t('ka_' + kennung),

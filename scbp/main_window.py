@@ -2625,19 +2625,16 @@ class MainWindow:
         self.came_from = None
 
         # ⭐ Die Startseite steht allein über allen Gruppen — sie gehört zu
-        # keinem Bereich, sondern fasst alle zusammen.
+        # keinem Bereich, sondern fasst alle zusammen. Darunter das
+        # Filterfeld der Leiste (`_nav_filter_build`).
         start = tk.Frame(self.sidebar, bg=SURFACE)
         start.pack(fill='x', pady=(10, 0))
         self._tab('uebersicht', 'uebersicht', t('hf_uebersicht'), start)
+        self._nav_filter_build(start)
 
-        # Das eigene Lager und das der Einheit an einer Stelle, direkt unter
-        # der Übersicht — die Gruppe heißt wie im Basetool. Lager der Einheit
-        # nur mit Basetool-Verbindung und Recht (`_tab_hidden`).
-        g_logistik = self._group(t('hf_gruppe_logistik'), 'logistik')
-        self._tab('meinlager', 'bestand', t('hf_meinlager'), g_logistik)
-        self._tab('staffellager', 'staffellager', t('hf_staffellager'),
-                  g_logistik)
-
+        # ⭐ Die Gruppen und ihre Reihenfolge folgen der Seitenleiste des
+        # KRT Profit Basetools (Flotte & Logistik, Handel, Beschaffung) —
+        # wer beide benutzt, sucht an derselben Stelle.
         g_bp = self._group(t('hf_gruppe_bp'), 'bauplaene')
         self._tab('liste', 'liste', t('hf_liste'), g_bp)
         self._tab('fortschritt', 'fortschritt', t('hf_fortschritt'), g_bp)
@@ -2646,78 +2643,39 @@ class MainWindow:
         # der Bauplan-Liste, nicht in einem eigenen Bereich.
         self._tab('auftragslog', 'eigenbuch', t('hf_auftragslog'), g_bp)
 
-        # ⭐ Alles zum KRT Profit Basetool an einer Stelle, direkt unter den
-        # Bauplänen und mit denselben Namen wie im Kartenbereich Basetool
-        # (`cards.BASETOOL_TABS`). Die Lager, Hangar und Liste bleiben in
-        # ihren Gruppen: Ein Reiter steht nur einmal in der Leiste.
-        g_basetool = self._group(t('k_basetool_titel'), 'basetool')
-        self._tab('basetool', 'basetool', t('k_basetool_verbindung'),
-                  g_basetool)
-        # Nur sichtbar mit Basetool-Verbindung und Bedarf-Recht — siehe
-        # `_tab_hidden`.
-        self._tab('bedarf', 'basetool', t('hf_bedarf'), g_basetool)
-
-        # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die Seiten
-        # beantworten eine andere Frage (was wird gebraucht, wo gibt es das) als
-        # der eigene Bestand (ist das schon da). Die Gruppenüberschrift gibt
-        # zugleich den Kontext, deshalb reichen darunter kurze Namen.
-        # ⚠ Die Reihenfolge ist die **Kette, wie man sie im Spiel erlebt**:
-        # Was ist da → was wird dafür gebraucht → wo gibt es das. So liest sich
-        # die Leiste von oben nach unten wie ein Ablauf statt wie eine Sammlung.
-        # ⚠ **Schiffe: eigene Gruppe, nicht an „Werkstatt" angehängt.** Die
-        # Werkstatt-Kette lautet Material → bauen → beschaffen; ein Schiff ist
-        # keine Zutat.
-        #
-        # **Vor der Werkstatt**, weil die Frage, ob der Bauplan
-        # ins eigene Schiff passt, die unmittelbare Anschlussfrage an einen
-        # neuen Fund ist — sie kommt vor der Frage, woraus man ihn baut.
-        g_schiff = self._group(t('hf_gruppe_schiffe'), 'schiffe')
-        self._tab('hangar', 'hangar', t('hf_hangar'), g_schiff)
+        # Schiffe und Lager an einer Stelle: was ich habe, was ich will, was
+        # im eigenen Lager und in dem der Einheit liegt. Lager der Einheit
+        # nur mit Basetool-Verbindung und Recht (`_tab_hidden`).
+        g_logistik = self._group(t('hf_gruppe_logistik'), 'logistik')
+        self._tab('hangar', 'hangar', t('hf_hangar'), g_logistik)
         # ⚠ **Eigener Reiter, nicht unten auf der Hangar-Seite:** Unter einer
         # Liste von vierzig Schiffen, von denen jedes seine Ausstattung
         # aufklappt, verschwindet alles, was darunter steht.
-        #
-        # ⚠ Und in derselben Gruppe, nicht in einer eigenen — es betrifft
-        # Schiffe. Eine Gruppe je Reiter wäre keine Gliederung mehr.
         self._tab('wunschliste', 'wunschliste', t('hf_wunschliste'),
-                     g_schiff)
-        # ⚠ **Zuletzt in der Gruppe, und das ist die Kette:** was ich habe →
-        # was ich will → was mich das kostet. Die Einkaufsliste ist die Summe
-        # der beiden Reiter über ihr, nicht ein dritter Anfang.
-        self._tab('einkaufsliste', 'einkaufsliste',
-                     t('hf_einkaufsliste'), g_schiff)
-        # Die eigenen Schiffsnamen stehen im Hangar an jedem Schiff — die
-        # Seite `asop` ist ein Verweis dorthin und hat keinen Reiter.
+                  g_logistik)
+        self._tab('meinlager', 'bestand', t('hf_meinlager'), g_logistik)
+        self._tab('staffellager', 'staffellager', t('hf_staffellager'),
+                  g_logistik)
 
+        # Bauen: Rezept, dann was zum Rezept noch fehlt. Die Kennung bleibt
+        # `werkstatt` — an ihr hängen Modul-Schalter und Klappzustand.
         g_werk = self._group(t('hf_gruppe_herst'), 'werkstatt')
-        # ⭐ Die Reihenfolge folgt dem Ablauf: Rezept, fehlende Rohstoffe,
-        # Fundorte, Raffinerie. Der eigene Bestand steht unter Flotte &
-        # Logistik (Mein Lager).
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
-        self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
+
+        # Erz aus Felsen und Wracks ausschlachten — beides liefert Rohstoffe.
+        # Die Kennung `bergung` behält Klappzustand und Modul-Schalter der
+        # Bergung; die Reiter folgen ihren Modulen einzeln (`_module_hidden`).
+        g_abbau = self._group(t('hf_gruppe_abbau'), 'bergung')
+        self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_abbau)
         # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
         # beim Erz stellt: wo man es raffinieren lässt. Der Raffinerie-Kasten
         # am Erz verlinkt hierher, und der Rückweg steht über der Seite.
-        self._tab('raffinerien', 'raffinerie', t('hf_raffinerien'), g_werk)
-
-        # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt.** Die Kette dort
-        # endet beim Bauen (habe → brauche → beschaffe).
-        # Handel ist die Gegenrichtung: Ware, die man **loswerden** will. Wer
-        # verkauft, denkt nicht an Rezepte — und wer baut, will sein Baumaterial
-        # nicht in einer Verkaufsliste sehen. Der Bestand dazu steht in Mein
-        # Lager.
-        # ⚠ **Eigene Gruppe, nicht bei „Bergbau".** Bergbau ist Erz aus
-        # Felsen, Bergung ist ein Wrack ausschlachten — zwei Spielarten, die
-        # nur im deutschen Wort nah beieinander liegen. Ein eigener
-        # Salvage-Abschnitt ist dort, wo man es sucht.
-        g_bergung = self._group(t('hf_gruppe_bergung'), 'bergung')
-        self._tab('bergung', 'sicherung', t('hf_bergung'), g_bergung)
-        # ⚠ **Zweiter Reiter in dieser Gruppe.** Der erste sagt, was
-        # ein Wrack an Bord hat; hier steht, was davon der Fabricator wieder
-        # herausgibt. Zwei Schritte derselben Arbeit — erst schauen, dann
-        # entscheiden, ob sich das Ausbauen lohnt.
-        self._tab('zerlegen', 'zerlegen', t('hf_zerlegen'), g_bergung)
+        self._tab('raffinerien', 'raffinerie', t('hf_raffinerien'), g_abbau)
+        self._tab('bergung', 'sicherung', t('hf_bergung'), g_abbau)
+        # Der erste Bergungs-Reiter sagt, was ein Wrack an Bord hat; hier
+        # steht, was davon der Fabricator wieder herausgibt.
+        self._tab('zerlegen', 'zerlegen', t('hf_zerlegen'), g_abbau)
 
         g_handel = self._group(t('hf_gruppe_handel'), 'handel')
         # ⭐ Einkauf zuerst: Shops sagen, wo ein fertiges Teil oder Schiff im
@@ -2726,9 +2684,15 @@ class MainWindow:
         self._tab('verkauf', 'verkauf', t('hf_verkauf'), g_handel)
         # ⚠ Nach „Verkauf", weil es die größere Frage ist: Dort geht es um
         # Ware, die man **schon hat**; hier um die Fahrt, die man erst plant.
-        # Wer den Laderaum voll hat, sucht einen Abnehmer — wer ihn leer hat,
-        # sucht erst eine Ladung.
         self._tab('routen', 'routen', t('hf_routen'), g_handel)
+
+        # Was zu beschaffen ist: der Bedarf der Einheit (nur mit
+        # Basetool-Verbindung und Recht, `_tab_hidden`) und die eigene
+        # Einkaufsliste.
+        g_supply = self._group(t('hf_gruppe_beschaffung'), 'beschaffung')
+        self._tab('bedarf', 'basetool', t('hf_bedarf'), g_supply)
+        self._tab('einkaufsliste', 'einkaufsliste', t('hf_einkaufsliste'),
+                  g_supply)
 
         # ⭐ **Statistik als eigene Gruppe** mit ihren Unterseiten als Reitern,
         # die Einstellungen dazu als eigener Reiter.
@@ -2762,6 +2726,10 @@ class MainWindow:
         self._tab('darstellung', 'darstellung', t('hf_darstellung'), g_einst)
         self._tab('ordner', 'ordner', t('hf_ordner'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
+        # Verbindung & Abgleich mit dem KRT Profit Basetool — mit derselben
+        # Beschriftung wie im Kartenbereich Basetool (`cards.BASETOOL_TABS`);
+        # folgt dem Modul Basetool (`_module_hidden`).
+        self._tab('basetool', 'basetool', t('k_basetool_verbindung'), g_einst)
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
@@ -2803,9 +2771,7 @@ class MainWindow:
         # ⚠ Eigener Reiter, kein Abschnitt auf der Update-Seite: Wem was
         # gehört, hat mit Updates nichts zu tun.
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
-        self._apply_pins('info')
-        self._apply_pins(self._group_of_tab('bedarf'))
-        self._apply_pins(self._group_of_tab('staffellager'))
+        # Bedingungen und Module: einmal die ganze Leiste einordnen.
         self._apply_modules()
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
@@ -3173,56 +3139,177 @@ class MainWindow:
     PINNED_TABS = {}
 
     def _apply_modules(self):
-        """Ausgeschaltete Module aus der Leiste nehmen.
+        """Ausgeschaltete Module aus der Leiste nehmen — je Reiter, nicht je
+        Gruppe: Eine Gruppe der Leiste kann Reiter verschiedener Module
+        tragen (Flotte & Logistik: Hangar aus Schiffe, Mein Lager immer).
+        Eine Gruppe ohne sichtbaren Reiter verschwindet ganz.
 
-        ⚠ Nur ausblenden: Die Gruppe wird gebaut wie immer und dann nicht
-        gepackt. So bleibt alles, was an ihren Reitern hängt (Neu-Marken,
+        ⚠ Nur ausblenden: Alles wird gebaut wie immer und dann nicht
+        gepackt. So bleibt alles, was an den Reitern hängt (Neu-Marken,
         Sprünge), unverändert — und Einschalten ist ein Neuaufbau, kein
         Sonderweg."""
+        self._relayout_sidebar()
+
+    def _module_hidden(self, page_id):
+        """Blendet ein ausgeschaltetes Modul diesen Reiter aus?"""
         from . import modules
-        for group in modules.SWITCHABLE:
-            g = self.groups.get(group)
-            if g and not modules.enabled(group):
-                g['kopf'].pack_forget()
-                g['inhalt'].pack_forget()
+        return any(page_id in pages and not modules.enabled(group)
+                   for group, pages in modules.SWITCHABLE.items())
+
+    def _tab_shown(self, page_id, hidden_pages=None):
+        if hidden_pages is not None:
+            module_hidden = page_id in hidden_pages
+        else:
+            module_hidden = self._module_hidden(page_id)
+        return not (module_hidden or self._tab_hidden(page_id))
+
+    # Reiter, die das Filterfeld auch unter einem zweiten Wort findet: Die
+    # Gruppe Basetool gibt es nicht mehr, ihre Seiten heißen anders.
+    SEARCH_WORDS = {'basetool': 'basetool', 'bedarf': 'basetool',
+                    'staffellager': 'basetool'}
 
     def _group_setting(self, kennung):
         """Unter welchem Namen der Klappzustand einer Gruppe gemerkt wird.
 
-        ⚠ Für Info ein **eigener** Name, nicht `gruppe_zu_info`: Ein dort
-        gespeicherter alter Zustand würde die Gruppe sonst unvermittelt
-        zuklappen."""
+        ⚠ Eine Gruppe mit festen Reitern (`PINNED_TABS`) bekommt einen
+        **eigenen** Namen: Ein unter dem alten Namen gespeicherter Zustand
+        würde sie sonst unvermittelt zuklappen."""
         if kennung in self.PINNED_TABS:
             return 'gruppe_zu_%s_2' % kennung
         return 'gruppe_zu_%s' % kennung
 
-    def _apply_pins(self, kennung):
-        """In einer Gruppe zeigen, was zu sehen sein soll.
+    def _apply_pins(self, kennung=None):
+        """Zeigen, was zu sehen sein soll — die ganze Leiste neu einordnen
+        (`_relayout_sidebar`). `kennung` bleibt für die Aufrufer, die nur
+        eine Gruppe meinen."""
+        self._relayout_sidebar()
 
-        Gruppe mit festen Reitern: offen alle, zu nur die festen. Gruppe ohne
-        feste Reiter: alle (das Zuklappen blendet dort den ganzen Inhalt aus).
-        Ausgeblendete Reiter (`_tab_hidden`) bleiben weg. ⚠ Neu gepackt wird
-        in der Reihenfolge, in der die Reiter angelegt wurden — ein bloßes
-        `pack()` hängte einen wieder eingeblendeten Reiter ans Ende."""
-        g = self.groups.get(kennung)
-        if not g:
-            return
-        fest = self.PINNED_TABS.get(kennung, ())
-        ohne_feste = kennung not in self.PINNED_TABS
-        nach_zeile = {teile[0]: k for k, teile in self.buttons.items()}
+    def _relayout_sidebar(self):
+        """Gruppen und Reiter der Leiste in Bauordnung neu packen.
+
+        Ein Reiter steht da, wenn weder seine Bedingung (`_tab_hidden`)
+        noch ein Modul (`_module_hidden`) ihn ausblendet; eine Gruppe ohne
+        solchen Reiter fehlt samt Kopf. Mit Text im Filterfeld stehen nur
+        Treffer da, ihre Gruppen offen: Trifft der Gruppenname,
+        die ganze Gruppe, sonst die Reiter, deren Name den Text enthält.
+
+        ⚠ Neu gepackt wird in der Reihenfolge, in der alles angelegt wurde —
+        ein bloßes `pack()` hängte ein wieder eingeblendetes Teil ans Ende.
+        Was in einer Gruppe kein Reiter ist (der Klappteil Fortgeschritten
+        in den Einstellungen), kommt danach mit seinen alten Maßen zurück
+        und fehlt beim Filtern."""
+        from . import modules
+        query = self._nav_query()
+        by_row = {parts[0]: k for k, parts in self.buttons.items()}
+        # Einmal je Lauf: Die Modul-Schalter stehen in den Einstellungen.
+        hidden_pages = modules.hidden_pages()
+        hits = 0
         try:
-            zeilen = [z for z in g['inhalt'].winfo_children() if z in nach_zeile]
-            for zeile in zeilen:
-                zeile.pack_forget()
-            for zeile in zeilen:
-                reiter = nach_zeile[zeile]
-                if self._tab_hidden(reiter):
+            for g in self.groups.values():
+                g['kopf'].pack_forget()
+                g['inhalt'].pack_forget()
+            for kennung, g in self.groups.items():
+                fixed = self.PINNED_TABS.get(kennung, ())
+                pinned_only = kennung in self.PINNED_TABS and not g['offen']
+                label_hit = bool(query) and query in g['text'].lower()
+                children = g['inhalt'].winfo_children()
+                rows = [c for c in children if c in by_row]
+                extras = g.setdefault('extras', {})
+                for child in children:
+                    if child not in by_row and child not in extras:
+                        try:
+                            extras[child] = child.pack_info()
+                        except tk.TclError:
+                            continue
+                for child in children:
+                    child.pack_forget()
+                shown = 0
+                for row in rows:
+                    tab = by_row[row]
+                    if not self._tab_shown(tab, hidden_pages):
+                        continue
+                    if query:
+                        text = '%s %s' % (
+                            self.buttons[tab][3].cget('text').lower(),
+                            self.SEARCH_WORDS.get(tab, ''))
+                        if not (label_hit or query in text):
+                            continue
+                    elif pinned_only and tab not in fixed:
+                        continue
+                    row.pack(fill='x')
+                    shown += 1
+                if not query:
+                    for child, info in extras.items():
+                        info = {k: v for k, v in info.items() if k != 'in'}
+                        child.pack(**info)
+                if not shown:
                     continue
-                if g['offen'] or ohne_feste or reiter in fest:
-                    zeile.pack(fill='x')
+                hits += shown
+                g['kopf'].pack(fill='x', pady=(10, 0))
+                if query or g['offen'] or kennung in self.PINNED_TABS:
+                    g['inhalt'].pack(fill='x')
         except tk.TclError:
             pass
+        empty = getattr(self, 'nav_filter_empty', None)
+        if empty is not None:
+            try:
+                if query and not hits:
+                    empty.pack(fill='x', padx=16, pady=(6, 0))
+                else:
+                    empty.pack_forget()
+            except tk.TclError:
+                pass
         self._sidebar_dirty = True
+
+    def _nav_query(self):
+        var = getattr(self, 'nav_filter_var', None)
+        try:
+            return (var.get() if var is not None else '').strip().lower()
+        except tk.TclError:
+            return ''
+
+    def _nav_filter_build(self, parent):
+        """Das Filterfeld unter der Übersicht: Tippen lässt nur passende
+        Einträge stehen, Enter öffnet den ersten, Escape leert das Feld."""
+        self.nav_filter_var = tk.StringVar(master=parent, value='')
+        box = round_entry(parent, self.nav_filter_var, self.f_small,
+                          theme.FIELD, BORDER, ACCENT, FG,
+                          placeholder=t('hf_menue_filtern'))
+        box.holder.pack(fill='x', padx=12, pady=(8, 0))
+        self.nav_filter_box = box
+        self.nav_filter_empty = tk.Label(
+            parent, text=t('hf_menue_leer'), bg=SURFACE, fg=SUB,
+            font=self.f_small, anchor='w', justify='left')
+        self.nav_filter_var.trace_add('write',
+                                      lambda *_a: self._nav_filter_changed())
+        box.bind('<Return>', lambda _e: self._nav_filter_open())
+        box.bind('<Escape>', lambda _e: self._nav_filter_clear())
+
+    def _nav_filter_clear(self):
+        """Escape im Filterfeld: leeren, die Leiste steht wieder ganz da."""
+        self.nav_filter_var.set('')
+
+    def _nav_filter_changed(self):
+        self._relayout_sidebar()
+        self._min_height_soon()
+
+    def _nav_filter_open(self):
+        """Enter im Filterfeld: den ersten sichtbaren Treffer öffnen."""
+        if not self._nav_query():
+            return
+        for g in self.groups.values():
+            try:
+                if not g['inhalt'].winfo_manager():
+                    continue
+                for row in g['inhalt'].pack_slaves():
+                    tab = next((k for k, parts in self.buttons.items()
+                                if parts[0] is row), None)
+                    if tab:
+                        self.nav_filter_var.set('')
+                        self.open_page(tab, via='seitenleiste')
+                        return
+            except tk.TclError:
+                continue
 
     def _tab_hidden(self, page_id):
         """Reiter, die nur unter einer Bedingung da sind: Bedarf und Lager
@@ -3247,8 +3334,8 @@ class MainWindow:
         ⭐ **Warum klappbar:** Die Seitenleiste bestimmt mit, wie hoch das
         Fenster mindestens sein muss. Bei 36 px je Reiter kommen schnell über
         1000 px zusammen — mehr, als auf einen 1080er Bildschirm passt. Wer
-        Werkstatt, Handel und Einstellungen zuklappt, spart rund 400 px, und
-        die Mindesthöhe geht mit.
+        Herstellung, Handel und Einstellungen zuklappt, spart rund 400 px,
+        und die Mindesthöhe geht mit.
 
         ⚠ **Das ersetzt weder die Deckelung noch die rollende Leiste.** Klappt
         jemand alles auf, ist der Bedarf wieder da; ohne die beiden anderen
@@ -3259,52 +3346,53 @@ class MainWindow:
         der man gerade steht, aus der Leiste, und das sieht nach kaputt aus.
         """
         kennung = kennung or text
-        fest = kennung in self.ALWAYS_OPEN
+        fixed = kennung in self.ALWAYS_OPEN
         # ⚠ Eine festgenagelte Gruppe steht offen, auch wenn in den
         # Einstellungen ein gespeicherter Zuklapp-Zustand liegt. Sonst bliebe
         # sie bei allen zu, die sie einmal zugeklappt haben.
-        offen = fest or not paths.setting_bool(
+        is_open = fixed or not paths.setting_bool(
             self._group_setting(kennung), False)
 
         # ⚠ Kein Zeigefinger-Zeiger, wo es nichts zu klicken gibt: Ein Kopf,
         # der wie ein Knopf aussieht und nicht reagiert, wirkt kaputt.
-        kopf = tk.Frame(self.sidebar, bg=SURFACE,
-                        cursor='' if fest else 'hand2')
-        kopf.pack(fill='x', pady=(10, 0))
+        head = tk.Frame(self.sidebar, bg=SURFACE,
+                        cursor='' if fixed else 'hand2')
+        head.pack(fill='x', pady=(10, 0))
         # ⚠ **Dasselbe Symbol wie überall sonst im Programm.** Textpfeile
         # (`⌄`/`⌃`) sähen je nach Systemschrift anders aus als die Symbole,
-        # mit denen sich der Bauplan-Fortschritt und der Bestand aufklappen. Ein Werkzeug, das dieselbe Handlung an
-        # zwei Stellen verschieden abbildet, muss zweimal gelernt werden.
-        pfeil = icons.line(kopf, 'zuklappen' if offen else 'aufklappen',
-                              background=SURFACE, font=self.f_small)
+        # mit denen sich der Bauplan-Fortschritt und der Bestand aufklappen.
+        # Ein Werkzeug, das dieselbe Handlung an zwei Stellen verschieden
+        # abbildet, muss zweimal gelernt werden.
+        arrow = icons.line(head, 'zuklappen' if is_open else 'aufklappen',
+                           background=SURFACE, font=self.f_small)
         # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil
         # verspricht, dass sich etwas klappen lässt; ein Versprechen, das
         # nicht eingelöst wird, ist schlimmer als keines.
-        if not fest:
-            pfeil.pack(side='right', padx=(0, 12))
-        beschriftung = tk.Label(kopf, text=text.upper(), bg=SURFACE, fg=SUB,
-                                font=self.f_small, anchor='w', padx=16, pady=6)
-        beschriftung.pack(side='left', fill='x', expand=True)
+        if not fixed:
+            arrow.pack(side='right', padx=(0, 12))
+        caption = tk.Label(head, text=text.upper(), bg=SURFACE, fg=SUB,
+                           font=self.f_small, anchor='w', padx=16, pady=6)
+        caption.pack(side='left', fill='x', expand=True)
 
-        inhalt = tk.Frame(self.sidebar, bg=SURFACE)
+        content = tk.Frame(self.sidebar, bg=SURFACE)
         # ⚠ Eine Gruppe mit festen Reitern bleibt immer gepackt — zugeklappt
-        # blendet `_apply_pins` nur die übrigen Reiter aus.
-        if offen or kennung in self.PINNED_TABS:
-            inhalt.pack(fill='x')
+        # blendet `_relayout_sidebar` nur die übrigen Reiter aus.
+        if is_open or kennung in self.PINNED_TABS:
+            content.pack(fill='x')
 
-        self.groups[kennung] = {'kopf': kopf, 'inhalt': inhalt,
-                                 'pfeil': pfeil, 'offen': offen,
-                                 'reiter': []}
+        self.groups[kennung] = {'kopf': head, 'inhalt': content,
+                                'pfeil': arrow, 'offen': is_open,
+                                'reiter': [], 'text': text}
 
-        if not fest:
-            for part in (kopf, beschriftung, pfeil):
+        if not fixed:
+            for part in (head, caption, arrow):
                 part.bind('<Button-1>',
                           lambda _e, k=kennung: self._group_click(k))
             # ⚠ Nur bei einer Gruppe, die sich wirklich klappen lässt. Bei
             # einer festgenagelten gibt es keinen Pfeil — und aufleuchten zu
             # lassen, was nicht reagiert, wäre genau das falsche Versprechen.
-            icons.hover_group(kopf, pfeil)
-        return inhalt
+            icons.hover_group(head, arrow)
+        return content
 
     def _group_click(self, group_id):
         """Klick auf einen Gruppenkopf: zählt als Klick (`page_usage`) und
@@ -3314,7 +3402,12 @@ class MainWindow:
         self._group_toggle(group_id)
 
     def _group_toggle(self, kennung, auf=None):
-        """Eine Gruppe auf- oder zuklappen. `auf=True` erzwingt das Aufklappen."""
+        """Eine Gruppe auf- oder zuklappen. `auf=True` erzwingt das
+        Aufklappen.
+
+        Erst Zustand, Pfeil und gemerkter Wert, dann packt
+        `_relayout_sidebar` die Leiste neu — auch mit Text im Filterfeld,
+        wo die Gruppen ihrer Treffer ohnehin offen stehen."""
         g = self.groups.get(kennung)
         if not g:
             return
@@ -3324,39 +3417,35 @@ class MainWindow:
         # nicht mehr — und der kommt bestimmt.
         if kennung in self.ALWAYS_OPEN and not (auf is True or auf is None):
             return
-        neu_offen = (not g['offen']) if auf is None else bool(auf)
-        if kennung in self.ALWAYS_OPEN and not neu_offen:
+        now_open = (not g['offen']) if auf is None else bool(auf)
+        if kennung in self.ALWAYS_OPEN and not now_open:
             return
-        if neu_offen == g['offen']:
+        if now_open == g['offen']:
             return
-        g['offen'] = neu_offen
-        if kennung in self.PINNED_TABS:
-            self._apply_pins(kennung)
-            try:
-                g['pfeil'].swap_symbol('zuklappen' if neu_offen
-                                       else 'aufklappen')
-            except tk.TclError:
-                pass
-            paths.set_setting(self._group_setting(kennung),
-                              'nein' if neu_offen else 'ja')
-            self.root.after(30, self._min_height_update)
-            return
+        g['offen'] = now_open
         try:
-            if neu_offen:
-                # ⚠ **Vor dem Klappteil einordnen, nicht ans Ende.** Ohne
-                # `before` landet eine wieder aufgeklappte Gruppe unter allem,
-                # was von unten gepackt ist — die Reihenfolge der Leiste wäre
-                # nach dem ersten Zuklappen dauerhaft durcheinander.
-                g['inhalt'].pack(fill='x', after=g['kopf'])
-            else:
-                g['inhalt'].pack_forget()
-            g['pfeil'].swap_symbol('zuklappen' if neu_offen
-                                       else 'aufklappen')
-            paths.set_setting(self._group_setting(kennung),
-                                     'nein' if neu_offen else 'ja')
+            g['pfeil'].swap_symbol('zuklappen' if now_open else 'aufklappen')
+        except (AttributeError, tk.TclError):
+            pass
+        paths.set_setting(self._group_setting(kennung),
+                          'nein' if now_open else 'ja')
+        self._relayout_sidebar()
+        self._min_height_soon()
+
+    def _min_height_soon(self):
+        """Die Mindesthöhe einmal kurz danach nachziehen — mehrere Anstöße
+        hintereinander (Tippen im Filterfeld) ergeben einen Lauf."""
+        pending = getattr(self, '_min_height_job', None)
+        try:
+            if pending is not None:
+                self.root.after_cancel(pending)
+            self._min_height_job = self.root.after(30, self._min_height_run)
         except tk.TclError:
             pass
-        self.root.after(30, self._min_height_update)
+
+    def _min_height_run(self):
+        self._min_height_job = None
+        self._min_height_update()
 
     # ⚠ Nur Zeichen aus der Grundebene benutzen. `🗀` und `⇅` liegen darüber und
     # fehlen in der Oberflächenschrift — im Fenster stand statt des Symbols ein
@@ -3675,6 +3764,8 @@ class MainWindow:
         page_id, preset = my_stock_page.resolve(page_id)
         if preset:
             self.my_stock_preset = dict(preset)
+        from . import cards
+        page_id = cards.PAGE_ALIASES.get(page_id, page_id)
         # ⭐ Module: Eine Seite, deren Gruppe ausgeschaltet ist, wird
         # nicht still gezeigt — der Sprung landet auf „Module" und sagt, was
         # aus ist. Sonst stünde man auf einer Seite ohne Eintrag in der Leiste.
@@ -3698,6 +3789,13 @@ class MainWindow:
         # sieht nach einem Fehler aus, und der Weg zurück ist nicht zu finden.
         # Betrifft vor allem den Programmstart: Die zuletzt benutzte Seite kann
         # in einer zugeklappten Gruppe liegen.
+        # Ein Treffer aus dem Filterfeld ist gewählt: Die Leiste steht danach
+        # wieder ganz da.
+        # Ebenso nach jedem anderen Weg, den der Spieler nimmt (Overlay,
+        # Tray, Übersicht) — sonst klappte das Öffnen der Zielgruppe in eine
+        # gefilterte Leiste hinein.
+        if via and self._nav_query():
+            self.nav_filter_var.set('')
         self._open_group_of_tab(page_id)
         # Steht gerade eine Meldung (`say`, grün), bleibt sie stehen; danach
         # setzt `say` den Text dieser Seite zurück.

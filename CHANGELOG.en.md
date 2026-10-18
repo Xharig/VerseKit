@@ -10,8 +10,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### New
 
-- **Fleet & Logistics group** right below the overview: "My Inventory" and
-  "Unit storage" sit in one place.
+- **Sidebar like the Basetool's** — the groups are named and ordered like
+  the KRT Profit Basetool's sidebar: Blueprints, Fleet & Logistics (hangar,
+  wishlist, My Inventory, unit storage), Crafting, Mining & Salvage, Trade,
+  Procurement (unit demand, shopping list), Statistics and Settings with
+  "Connection & sync". Modules switched off hide their tabs, empty groups
+  disappear.
+- **Filter menu** — a field below the overview: typing leaves only matching
+  entries, their groups open; Enter opens the first hit, Escape clears the
+  field.
 - **Add items by hand** — next to materials and goods, "My Inventory" now
   takes items from the goods list too: artifacts, armor, clothing, weapons,
   components, medals … with count and location. The sync with the Basetool

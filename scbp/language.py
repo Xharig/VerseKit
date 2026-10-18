@@ -258,9 +258,9 @@ TEXTS = {
     's_lg_sync_ok':    ('Mit dem Basetool abgeglichen: %s',
                         'Synced with the Basetool: %s'),
     's_lg_sync_konflikte': ('%d Posten stehen im Basetool mit anderer Menge — '
-                            'entscheiden unter Einstellungen → Basetool.',
+                            'entscheiden unter Einstellungen → Verbindung & Abgleich.',
                             '%d lots show a different amount in the Basetool — '
-                            'decide under Settings → Basetool.'),
+                            'decide under Settings → Connection & sync.'),
     'ff_alle_patches':   ('alle Patches', 'all patches'),
     'neu_leer':          ('Mit dem letzten Patch kam kein neuer Bauplan dazu. '
                           'Sobald CIG welche nachreicht, stehen sie hier.',
@@ -5805,10 +5805,8 @@ TEXTS = {
                           'fine — then no name is sent.'),
     's_melder_leer':     ('nicht angegeben', 'not given'),
     'hf_gruppe_bp':      ('Baupläne', 'Blueprints'),
-    # `hf_gruppe_herst` heisst „Werkstatt": Die Gruppe umfasst Herstellung,
-    # Bergbau und Lager; drei Woerter waeren als Ueberschrift zu lang.
     'hf_gruppe_schiffe': ('Schiffe', 'Ships'),
-    'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
+    'hf_gruppe_herst':   ('Herstellung', 'Crafting'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
     # --- Eigene Schiffsnamen im Fleet Manager (ASOP) ---
     # ⚠ „ASOP" steht bewusst NICHT im Reiternamen: Das Kuerzel kennt nur, wer
@@ -5918,7 +5916,17 @@ TEXTS = {
     'hf_bergbau':        ('Bergbau', 'Mining'),
     'hf_raffinerien':    ('Raffinerien', 'Refineries'),
     # --- Gruppe „Handel" (v3.4.0) ---
-    'hf_gruppe_handel':  ('Handel & Einkauf', 'Trading & buying'),
+    'hf_gruppe_handel':  ('Handel', 'Trade'),
+    # Gruppen der Seitenleiste wie im KRT Profit Basetool.
+    'hf_gruppe_abbau':   ('Abbau & Bergung', 'Mining & Salvage'),
+    # Name des Moduls `werkstatt` auf der Seite Module: Es blendet auch
+    # Bergbau und Raffinerien aus.
+    's_mo_werkstatt':    ('Herstellen, Bergbau & Raffinerien',
+                          'Crafting, mining & refineries'),
+    'hf_gruppe_beschaffung': ('Beschaffung', 'Procurement'),
+    'hf_menue_filtern':  ('Menü filtern …', 'Filter menu …'),
+    'hf_menue_leer':     ('Kein Menüeintrag gefunden.',
+                          'No menu entry found.'),
     'hf_verkauf':        ('Kaufen & Verkaufen', 'Buy & Sell'),
     'hf_gruppe_einst':   ('Einstellungen', 'Settings'),
     'hf_gruppe_spiel':   ('Spiel-Einstellungen', 'Game settings'),
@@ -6023,14 +6031,14 @@ TEXTS = {
     # --- Kartenansicht: Kurzerklärungen (ka_ Bereich, k_ Seite, kb_ Seite im Basetool-Bereich) ---
     'ka_bauplaene': ('Welche Baupläne du hast, welche dir fehlen und mit welchem Auftrag du sie bekommst.',
           'Which blueprints you have, which are missing and which contract gets you them.'),
-    'ka_schiffe': ('Deine Schiffe, deine Wunschliste und was ihnen an Ausstattung noch fehlt.',
-          'Your ships, your wishlist and what equipment they are still missing.'),
-    'ka_logistik': ('Dein eigenes Lager und das deiner Einheit — Material und Items, mit Art, Ort und Menge.',
-          'Your own inventory and your unit’s — material and items, with type, location and amount.'),
-    'ka_werkstatt': ('Herstellen, Erz finden und raffinieren — alles rund ums Selberbauen.',
-          'Crafting, finding and refining ore — everything around building it yourself.'),
-    'ka_bergung': ('Lohnt sich ein Wrack, und was gibt dir der Fabricator beim Zerlegen zurück?',
-          'Is a wreck worth it, and what does the fabricator give back when you dismantle?'),
+    'ka_logistik': ('Deine Schiffe und deine Wunschliste, dein eigenes Lager und das deiner Einheit.',
+          'Your ships and your wishlist, your own inventory and your unit’s.'),
+    'ka_werkstatt': ('Was du bauen kannst, woraus — und was dir dafür noch fehlt.',
+          'What you can build, from what — and what you still need for it.'),
+    'ka_bergung': ('Wo welches Erz liegt, welche Raffinerie am meisten daraus macht — und ob sich ein Wrack lohnt.',
+          'Where each ore is found, which refinery makes the most of it — and whether a wreck is worth it.'),
+    'ka_beschaffung': ('Was deine Einheit braucht und was deinen Schiffen noch fehlt — kaufen oder selbst bauen.',
+          'What your unit needs and what your ships are still missing — buy or build.'),
     'ka_handel': ('Wo es Teile zu kaufen gibt, wohin mit deiner Ladung und welche Route sich lohnt.',
           'Where to buy parts, where to sell your cargo and which route pays off.'),
     'ka_statistiken': ('Was du gespielt hast — Aufträge, Schiffe, Quantensprünge und Abstürze, aus deinen Spielprotokollen gezählt.',
@@ -6184,7 +6192,7 @@ TEXTS = {
     'k_angeheftet': ('An die Startseite geheftet', 'Pinned to the start page'),
     'k_geloest': ('Von der Startseite gelöst', 'Unpinned from the start page'),
     'k_bereich_versekit': ('Verse-Kit', 'Verse-Kit'),
-    'k_anpassen_bereiche': ('Hauptbereiche', 'Main areas'),
+    'k_anpassen_bereiche': ('Module', 'Modules'),
     'k_anpassen_kacheln': ('Kacheln auf einen Blick', 'At-a-glance tiles'),
     'k_anpassen_zuerst': ('Was steht zuerst?', 'What comes first?'),
     'k_bereich_blick': ('Auf einen Blick', 'At a glance'),
@@ -6253,9 +6261,9 @@ TEXTS = {
                           "Your unit's open orders from the KRT Profit Basetool — "
                           'with what you already have in stock. While mining, the '
                           'overlay tells you whether the ore is wanted.'),
-    'gal_bedarf_w':      ('Einstellungen → Basetool → „Bedarf der Einheit" '
+    'gal_bedarf_w':      ('Einstellungen → Verbindung & Abgleich → „Bedarf der Einheit" '
                           'einschalten',
-                          'Settings → Basetool → turn on "Unit demand"'),
+                          'Settings → Connection & sync → turn on "Unit demand"'),
     'gal_raffinerie_t':  ('Raffinerie mit einem Tastendruck eintragen',
                           'Log the refinery with one key press'),
     'gal_raffinerie_x':  ('Am Raffinerie-Terminal Strg+Alt+R drücken — Verse-Kit '
@@ -6802,8 +6810,8 @@ TEXTS = {
     's_bt_hangar_h':     ('Deine Schiffe ↔ dein Hangar im Basetool. Vorhandene werden erst verknüpft, dann kommt nur Fehlendes dazu — nichts doppelt. Kaufdaten (Preis, Paket) gehen nie hinaus.',
                           'Your ships ↔ your hangar in the Basetool. Existing ones are linked first, then only what is missing is added — nothing twice. Purchase data (price, package) never leaves.'),
     's_bt_bedarf':       ('Bedarf der Einheit', 'Unit demand'),
-    's_bt_bedarf_h':     ('Zeigt unter Basetool → Bedarf der Einheit, was die offenen Aufträge deiner Einheit noch brauchen — Rohstoffe mit Mindestgüte und Gegenstände. Nur lesend; Logistiker sehen dazu die einzelnen Aufträge mit Auftraggeber. Gespeichert wird nichts davon.',
-                          'Shows under Basetool → Unit demand what your unit\'s open orders still need — materials with a quality floor, and items. Read only; logisticians also see the individual orders with their requester. None of it is saved.'),
+    's_bt_bedarf_h':     ('Zeigt unter Beschaffung → Bedarf der Einheit, was die offenen Aufträge deiner Einheit noch brauchen — Rohstoffe mit Mindestgüte und Gegenstände. Nur lesend; Logistiker sehen dazu die einzelnen Aufträge mit Auftraggeber. Gespeichert wird nichts davon.',
+                          'Shows under Procurement → Unit demand what your unit\'s open orders still need — materials with a quality floor, and items. Read only; logisticians also see the individual orders with their requester. None of it is saved.'),
     's_bt_bedarf_stand': ('Gerade gesucht: %d Rohstoffe, %d Gegenstände.',
                           'Wanted right now: %d materials, %d items.'),
     's_bt_bedarf_kein_recht': ('Den Bedarf sehen nur Mitglieder einer Einheit, die an der Gewinnbeteiligung teilnimmt. Für dein Konto gibt das Basetool ihn nicht frei.',
@@ -6837,8 +6845,8 @@ TEXTS = {
     's_bt_rechte_zusatz': ('Für die Zusatzfunktionen dieses Bereichs fehlt noch eine Erlaubnis. Der Bereich läuft auch ohne.',
                            'The extra features of this area still need a permission. The area works without it too.'),
     's_bt_staffellager': ('Lager der Einheit', 'Unit storage'),
-    's_bt_staffellager_h': ('Zeigt unter Basetool → Lager der Einheit, was im gemeinsamen Lager deiner Einheiten liegt — nach Items, Rohstoffen, Handelsware und Komponenten. Als Logistiker siehst du dazu, wem was gehört. Gespeichert wird nichts davon.',
-                            'Shows under Basetool → Unit storage what is in the shared storage of your units — by items, materials, trade goods and components. As a logistician you also see who owns what. None of it is saved.'),
+    's_bt_staffellager_h': ('Zeigt unter Flotte & Logistik → Lager der Einheit, was im gemeinsamen Lager deiner Einheiten liegt — nach Items, Rohstoffen, Handelsware und Komponenten. Als Logistiker siehst du dazu, wem was gehört. Gespeichert wird nichts davon.',
+                            'Shows under Fleet & Logistics → Unit storage what is in the shared storage of your units — by items, materials, trade goods and components. As a logistician you also see who owns what. None of it is saved.'),
     's_bt_staffellager_stand': ('Gerade gelesen: %d Einheiten, %d Posten.',
                                 'Read right now: %d units, %d lots.'),
     's_bt_staffellager_logistiker': ('Einheiten, in denen du Logistiker bist: %d', 'Units where you are a logistician: %d'),
@@ -6852,14 +6860,14 @@ TEXTS = {
     's_sl_keine_einheit': ('Du bist in keiner Einheit, deren Lager das Basetool zeigt.',
                            'You are not in any unit whose storage the Basetool shows.'),
     's_sl_einbuchen':    ('Einbuchen', 'Book in'),
-    's_sl_details_fehlt': ('Du bist hier Logistiker. Damit du siehst, wem was gehört, fehlt noch eine Erlaubnis — unter Basetool → Verbindung.',
-                           'You are a logistician here. To see who owns what, a permission is still missing — under Basetool → Connection.'),
-    's_sl_buchen_aus':   ('Du bist hier Logistiker. Buchen lässt sich unter Basetool → Verbindung einschalten.',
-                          'You are a logistician here. Booking can be switched on under Basetool → Connection.'),
+    's_sl_details_fehlt': ('Du bist hier Logistiker. Damit du siehst, wem was gehört, fehlt noch eine Erlaubnis — unter Einstellungen → Verbindung & Abgleich.',
+                           'You are a logistician here. To see who owns what, a permission is still missing — under Settings → Connection & sync.'),
+    's_sl_buchen_aus':   ('Du bist hier Logistiker. Buchen lässt sich unter Einstellungen → Verbindung & Abgleich einschalten.',
+                          'You are a logistician here. Booking can be switched on under Settings → Connection & sync.'),
     's_sl_kein_logistiker': ('Buchen ist eingeschaltet, aber das Basetool führt dich in dieser Einheit nicht als Logistiker. Dafür braucht es den Logistiker-Haken oder einen Leitungsrang direkt in dieser Einheit — die Leitung eines übergeordneten Bereichs zählt nicht. Bis dahin gibst du eigene Sachen im Basetool im Browser für die Einheit frei.',
                              'Booking is on, but the Basetool does not list you as a logistician in this unit. That takes the logistician flag or a leadership rank directly in this unit — leading an area above it does not count. Until then, share your own items with the unit in the Basetool in your browser.'),
-    's_sl_mitglied':     ('Einlagern: Ins Lager der Einheit buchen die Logistiker. Eigene Sachen gibst du selbst hinein: unter Flotte & Logistik → Mein Lager mit dem Knopf „Ins Lager der Einheit" an der Zeile (mit eingeschaltetem „Lager abgleichen"); zurücknehmen geht dort genauso. Du bleibst dabei der Besitzer. Bist du Logistiker, schalte unter Basetool → Verbindung & Abgleich „Als Logistiker buchen" ein.',
-                          'Storing items: logisticians book into the unit storage. You put your own items in yourself: under Fleet & Logistics → My Inventory with the "Into unit storage" button on the row (with "Sync storage" on); taking them back works the same way. You stay the owner. If you are a logistician, switch on "Book as a logistician" under Basetool → Connection & sync.'),
+    's_sl_mitglied':     ('Einlagern: Ins Lager der Einheit buchen die Logistiker. Eigene Sachen gibst du selbst hinein: unter Flotte & Logistik → Mein Lager mit dem Knopf „Ins Lager der Einheit" an der Zeile (mit eingeschaltetem „Lager abgleichen"); zurücknehmen geht dort genauso. Du bleibst dabei der Besitzer. Bist du Logistiker, schalte unter Einstellungen → Verbindung & Abgleich „Als Logistiker buchen" ein.',
+                          'Storing items: logisticians book into the unit storage. You put your own items in yourself: under Fleet & Logistics → My Inventory with the "Into unit storage" button on the row (with "Sync storage" on); taking them back works the same way. You stay the owner. If you are a logistician, switch on "Book as a logistician" under Settings → Connection & sync.'),
     's_sl_suche':        ('Ware oder Ort suchen', 'Search goods or location'),
     's_sl_masse_h':      ('Das Basetool will diese größere Änderung erst im Browser bestätigt haben. Bis dahin ist nichts gebucht.',
                           'The Basetool wants this larger change confirmed in the browser first. Until then nothing is booked.'),
@@ -7171,11 +7179,11 @@ TEXTS = {
     's_uc_ganz_h':       ('Der tatsächliche Inhalt der Datei, nur zum Nachsehen: %s',
                           'The actual content of the file, for reference only: %s'),
     's_uc_keine_datei':  ('(Diese Installation hat noch keine user.cfg.)', '(This installation has no user.cfg yet.)'),
-    's_mo_lead':         ('Blende ganze Bereiche der Seitenleiste aus, die du nicht brauchst. Es wird nichts gelöscht — schaltest du einen Bereich wieder ein, ist alles noch da.',
-                          'Hide whole sections of the sidebar you do not need. Nothing is deleted — turn a section back on and everything is still there.'),
+    's_mo_lead':         ('Blende Seiten aus, die du nicht brauchst — je Modul, egal in welcher Gruppe der Seitenleiste sie stehen; eine Gruppe ohne sichtbare Seite verschwindet. Es wird nichts gelöscht — schaltest du ein Modul wieder ein, ist alles noch da.',
+                          'Hide pages you do not need — per module, whichever sidebar group they sit in; a group with no visible page disappears. Nothing is deleted — turn a module back on and everything is still there.'),
     's_mo_enthaelt':     ('Enthält: %s', 'Contains: %s'),
-    's_mo_hinweis':      ('Baupläne, Einstellungen und Info lassen sich nicht ausblenden: Sie sind der Kern von Verse-Kit und der Weg, einen Fehler zu melden. Ist die Statistik ausgeblendet, wertet Verse-Kit trotzdem weiter aus, solange „Automatisch auswerten" an ist — schaltest du sie wieder ein, fehlt nichts.',
-                          'Blueprints, settings and info cannot be hidden: they are the core of Verse-Kit and the way to report a problem. With statistics hidden, Verse-Kit keeps evaluating as long as "Evaluate automatically" is on — turn them back on and nothing is missing.'),
+    's_mo_hinweis':      ('Baupläne, die Einstellungen (bis auf die Basetool-Verbindung) und Info lassen sich nicht ausblenden: Sie sind der Kern von Verse-Kit und der Weg, einen Fehler zu melden. Ist die Statistik ausgeblendet, wertet Verse-Kit trotzdem weiter aus, solange „Automatisch auswerten" an ist — schaltest du sie wieder ein, fehlt nichts.',
+                          'Blueprints, the settings (apart from the Basetool connection) and info cannot be hidden: they are the core of Verse-Kit and the way to report a problem. With statistics hidden, Verse-Kit keeps evaluating as long as "Evaluate automatically" is on — turn them back on and nothing is missing.'),
     's_mo_aus_hinweis':  ('„%s" ist ausgeschaltet — hier wieder einschalten.', '"%s" is turned off — turn it back on here.'),
     's_pg_lead':         ('Startet weitere Programme mit Star Citizen — etwa ein Sprachprogramm oder ein Werkzeug für die Steuerung.',
                           'Starts other programs along with Star Citizen — such as a voice program or a tool for your controls.'),
@@ -7271,7 +7279,7 @@ TEXTS = {
                           'zurück.',
                           'Everything only you have, in one file — and back again.'),
     'sich_was':          ('Mit dabei sind dein Bauplan-Bestand, das Lager der '
-                          'Werkstatt und die Ware (Mein Lager), das Auftrags-Protokoll, '
+                          'Ware und die Items (Mein Lager), das Auftrags-Protokoll, '
                           'die Merkliste, deine Einstellungen und deine '
                           'Steuerung — die aktive Belegung und alle '
                           'gespeicherten Profile. Die heruntergeladenen '

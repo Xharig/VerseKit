@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Module: ganze Gruppen der Seitenleiste ein- und ausblenden.
+Module: Seiten der Seitenleiste ein- und ausblenden — je Modul, egal in
+welcher Gruppe sie stehen; eine Gruppe ohne sichtbare Seite verschwindet.
 
 Die Leiste kommt an ihre Grenze. Wer nicht handelt, braucht „Handel" nicht zu
 sehen.
@@ -26,10 +27,12 @@ sehen.
 
 1. **Ab Werk ist alles an.** Wer VerseKit neu hat, sieht alles, was es kann.
 2. **Baupläne, Einstellungen und Info sind nie abschaltbar** — der Kern des
-   Werkzeugs und der Weg zum Fehlerbericht. Sie stehen deshalb gar nicht in
-   `SWITCHABLE`. Die Statistik lässt sich ausblenden. Ausgewertet wird trotzdem
-   weiter, solange „Automatisch auswerten" an ist — sonst fehlten beim
-   Wiedereinschalten die Wochen dazwischen.
+   Werkzeugs und der Weg zum Fehlerbericht. Ihre Seiten stehen deshalb
+   nicht in `SWITCHABLE`; nur die Basetool-Verbindung in den
+   Einstellungen folgt dem Modul Basetool. Die Statistik lässt sich
+   ausblenden. Ausgewertet wird trotzdem weiter, solange „Automatisch
+   auswerten" an ist — sonst fehlten beim Wiedereinschalten die Wochen
+   dazwischen.
 3. **Ausblenden, nicht abschalten.** Es wird nichts gelöscht und nichts
    angehalten; die Daten bleiben, und schaltet man wieder ein, ist alles da.
 4. **Ein Sprung auf eine ausgeblendete Seite** (z. B. von der Bauplan-Liste
@@ -38,8 +41,8 @@ sehen.
 """
 from . import paths
 
-# Gruppe -> ihre Seiten. Muss zu `main_window._body` passen; Prüfung 271
-# vergleicht beides.
+# Modul -> seine Seiten. Jede hat einen Reiter in der Leiste; Prüfung 271
+# vergleicht das.
 SWITCHABLE = {
     # ⚠ Der Schlüssel `modul_basetool` ist zugleich der Schalter des
     # Kartenbereichs Basetool (`cards.BASETOOL_SETTING`): ein Schalter für
@@ -58,8 +61,10 @@ SWITCHABLE = {
 # (`MainWindow._tab_hidden`) — damit die Seite Module sie mit nennt.
 ALSO_HIDES = {'basetool': ('staffellager',)}
 
-# Die Überschrift jeder Gruppe in der Leiste — dieselben Texte wie dort.
-LABELS = {'basetool': 'k_basetool_titel', 'schiffe': 'hf_gruppe_schiffe', 'werkstatt': 'hf_gruppe_herst',
+# Der Name jedes Moduls auf der Seite Module. Ein Modul blendet seine Reiter
+# einzeln aus, egal in welcher Gruppe der Leiste sie stehen
+# (`MainWindow._module_hidden`).
+LABELS = {'basetool': 'k_basetool_titel', 'schiffe': 'hf_gruppe_schiffe', 'werkstatt': 's_mo_werkstatt',
           'bergung': 'hf_gruppe_bergung', 'handel': 'hf_gruppe_handel',
           'statistiken': 'hf_gruppe_statistik'}
 
