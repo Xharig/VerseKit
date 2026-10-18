@@ -3042,6 +3042,18 @@ TEXTS = {
                               '**Farming with locations** — what you need to '
                               'farm and where it is, plus the places where '
                               'you get several materials at once.'),
+    's_dk_aeternitas_idee3': ('**Scan-Bilder für den Signatur-Scanner** — mit '
+                              'seinen Aufnahmen liest der Scanner ab Werk '
+                              'deutlich mehr Signaturen.',
+                              '**Scan images for the signature scanner** — '
+                              'with his captures the scanner reads many more '
+                              'signatures out of the box.'),
+    's_dk_p6_idee':          ('**Scan-Bilder für den Signatur-Scanner** — mit '
+                              'seinen Aufnahmen liest der Scanner ab Werk '
+                              'deutlich mehr Signaturen.',
+                              '**Scan images for the signature scanner** — '
+                              'with his captures the scanner reads many more '
+                              'signatures out of the box.'),
     's_dk_aeternitas_bugs':  ('**Hinweise liefen aus dem Bild**, wenn das Overlay '
                               'unten rechts am Monitor liegt. Mit der Leiste unten '
                               'stehen sie jetzt immer über dem Mauszeiger, nicht '

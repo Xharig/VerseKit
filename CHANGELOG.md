@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Signatur-Scanner liest ab Werk deutlich mehr** — die mitgelieferten
+  Ziffernmuster sind um eingesandte Scan-Bilder erweitert. Bei diesen Bildern
+  stieg die Trefferzahl ohne eigenes Anlernen von 10 auf 22 von 32, und
+  „6,340" wird nicht mehr als 6,740 gelesen. Mit Scan-Bildern von
+  Aeternitas26 (KRT) und P6 (KRT)
+
 ### Behoben
 
 - **Fehlerbericht: verschobener Dokumente-Ordner wird geschwärzt** — liegt

@@ -7541,13 +7541,15 @@ def _thanks(fenster, rahmen):
              + t('s_dk_blackdog_idee4') + '\n\n'
              + t('s_dk_blackdog_idee5'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
-             + t('s_dk_aeternitas_idee2'), t('s_dk_aeternitas_bugs')),
+             + t('s_dk_aeternitas_idee2') + '\n\n'
+             + t('s_dk_aeternitas_idee3'), t('s_dk_aeternitas_bugs')),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
             ('Drachennarr', 'KRT', t('s_dk_drachennarr_idee'),
              t('s_dk_drachennarr_bugs')),
             ('Maluh', 'KRT', t('s_dk_maluh_idee'), ''),
+            ('P6', 'KRT', t('s_dk_p6_idee'), ''),
             ('sotth', '', t('s_dk_sotth_idee'), ''),
             ('Rhino', '', t('s_dk_rhino_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),

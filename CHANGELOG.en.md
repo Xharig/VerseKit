@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **The signature scanner reads much more out of the box** — the bundled
+  digit patterns now include submitted scan images. On those images the hit
+  count without any training of your own went from 10 to 22 of 32, and
+  "6,340" is no longer read as 6,740. With scan images from Aeternitas26
+  (KRT) and P6 (KRT)
+
 ### Fixed
 
 - **Error report: a moved Documents folder is redacted** — if the Documents
