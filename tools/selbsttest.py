@@ -25690,6 +25690,8 @@ def main():
     _pruefung_498()
     _pruefung_499()
     _pruefung_500()
+    _pruefung_501()
+    _pruefung_502()
 
     print()
     if fehler:
@@ -47854,6 +47856,260 @@ def _pruefung_500():
     ohne = text[:stelle] + text[stelle:].replace(' --noupx', '', 1)
     pruefe(stelle > 0 and _pyinstaller_ohne_noupx(ohne)[1] == ['linux'],
            'Gegenprobe: fehlt --noupx im Linux-Aufruf, wird linux genannt')
+
+
+def _vt_schritt(text):
+    """Der VirusTotal-Schritt in `release.yml`: (Job, Zeilen) — oder (None, [])."""
+    zeilen = text.split('\n')
+    job = None
+    for i, z in enumerate(zeilen):
+        if re.match(r'^  [A-Za-z0-9_-]+:\s*$', z):
+            job = z.strip().rstrip(':')
+        if re.match(r'^      - name: .*VirusTotal', z):
+            block = [z]
+            for w in zeilen[i + 1:]:
+                if re.match(r'^      - ', w) or re.match(r'^  \S', w):
+                    break
+                block.append(w)
+            return job, block
+    return None, []
+
+
+def _vt_job_if(text, job):
+    """Die `if:`-Zeile des Jobs `job`."""
+    zeilen = text.split('\n')
+    drin = False
+    for z in zeilen:
+        if re.match(r'^  [A-Za-z0-9_-]+:\s*$', z):
+            drin = z.strip().rstrip(':') == job
+        elif drin and re.match(r'^    if:', z):
+            return z.split('if:', 1)[1].strip()
+    return ''
+
+
+def _vt_maengel(text):
+    """Was am VirusTotal-Schritt nicht stimmt — leer, wenn alles passt."""
+    job, block = _vt_schritt(text)
+    if not block:
+        return ['kein VirusTotal-Schritt']
+    maengel = []
+    befehl = [z for z in block if not z.strip().startswith('#')]
+    if job != 'release':
+        maengel.append('steht im Job %s statt release' % job)
+    if "github.ref_type == 'tag'" not in _vt_job_if(text, job):
+        maengel.append('Job läuft nicht nur bei Tags')
+    if not any(re.match(r"^\s+if: .*steps\.freigabe\.outcome == 'success'", z)
+               for z in befehl):
+        maengel.append('läuft nicht nur nach angelegtem Release')
+    if not any(re.match(r'^\s+continue-on-error:\s*true\s*$', z) for z in befehl):
+        maengel.append('kein continue-on-error')
+    if not any(z.strip() == 'VT_API_KEY: ${{ secrets.VT_API_KEY }}'
+               for z in befehl):
+        maengel.append('Schlüssel nicht über env')
+    lauf = ' '.join(befehl[next((i for i, z in enumerate(befehl)
+                                 if re.match(r'^\s+run:', z)), len(befehl)):])
+    if not lauf:
+        maengel.append('kein run')
+    for verboten in ('VT_API_KEY', 'secrets.', 'set -x', 'echo', 'printenv',
+                     'env '):
+        if verboten in lauf:
+            maengel.append('%r in der Befehlszeile' % verboten)
+    if text.count('secrets.VT_API_KEY') != 1:
+        maengel.append('Schlüssel %d-mal in der Datei'
+                       % text.count('secrets.VT_API_KEY'))
+    if text.find('id: freigabe') < 0 or text.find('id: freigabe') > \
+            text.find('\n'.join(block[:1])):
+        maengel.append('steht nicht nach dem Anlegen des Releases')
+    return maengel
+
+
+def _pruefung_501():
+    """VirusTotal im Bau: nur bei Tag-Releases, Schlüssel nur über env."""
+    print('\n501. Bau: VirusTotal-Schritt nur bei Tags, Schlüssel nie im Log')
+    with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
+              encoding='utf-8') as f:
+        text = f.read()
+    maengel = _vt_maengel(text)
+    pruefe(not maengel, 'VirusTotal-Schritt in release.yml stimmt (%s)'
+           % ('; '.join(maengel) or 'ok'))
+    # Gegenproben an derselben Datei: jede Abweichung muss benannt werden.
+    job, block = _vt_schritt(text)
+    schritt = '\n'.join(block)
+    falsch = {
+        'continue-on-error': text.replace(
+            schritt, schritt.replace('continue-on-error: true\n', '')),
+        'Befehlszeile': text.replace(
+            schritt, schritt.replace('virustotal.py "${TAG}"',
+                                     'virustotal.py "${TAG}" "$VT_API_KEY"')),
+        'Job': text.replace(schritt, '').replace(
+            '      - name: Selbsttest\n        run: python tools/selbsttest.py',
+            schritt + '\n      - name: Selbsttest\n'
+            '        run: python tools/selbsttest.py'),
+    }
+    for was, verfaelscht in falsch.items():
+        pruefe(verfaelscht != text and _vt_maengel(verfaelscht),
+               'Gegenprobe %s: wird bemängelt (%s)'
+               % (was, '; '.join(_vt_maengel(verfaelscht))))
+
+
+def _pruefung_502():
+    """virustotal.py: ohne Schlüssel still, Schlüssel nie in der Ausgabe."""
+    print('\n502. VirusTotal-Skript: übersprungen ohne Schlüssel, Schlüssel '
+          'nie ausgegeben, Notiz bleibt lesbar')
+    import contextlib
+    import io as _io
+    import json as _json
+    import urllib.error
+    sys.path.insert(0, os.path.join(WURZEL, '.github', 'scripts'))
+    try:
+        import virustotal as _vt
+    finally:
+        sys.path.pop(0)
+    from scbp import updater as _up502
+    schluessel = 'GEHEIM-502-xyz'
+    ordner = tempfile.mkdtemp(prefix='vt502-')
+    dateien = []
+    for name, inhalt in (('VerseKit-Setup.exe', b'MZ setup'),
+                         ('VerseKit-x86_64.AppImage', b'\x7fELF app')):
+        pfad = os.path.join(ordner, name)
+        with open(pfad, 'wb') as f:
+            f.write(inhalt)
+        dateien.append(pfad)
+
+    class _Antwort:
+        def __init__(self, daten):
+            self.daten = _json.dumps(daten).encode('utf-8')
+
+        def read(self):
+            return self.daten
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    anfragen = []
+
+    def _netz(antworten):
+        def opener(req, timeout=None):
+            anfragen.append(req)
+            a = antworten.pop(0)
+            if isinstance(a, Exception):
+                raise a
+            return _Antwort(a)
+        return opener
+
+    notiz_alt = ('> Kurz.\n\n### Neu\n\n- **Etwas** neu\n\n### Behoben\n\n'
+                 '- **Fehler** weg\n')
+    gh = {'body': notiz_alt, 'neu': None, 'aufrufe': []}
+
+    def _gh(args, **kw):
+        import types
+        gh['aufrufe'].append(list(args))
+        if args[:3] == ['gh', 'release', 'view']:
+            return types.SimpleNamespace(stdout=gh['body'])
+        if args[:3] == ['gh', 'release', 'edit']:
+            with open(args[args.index('--notes-file') + 1],
+                      encoding='utf-8') as f:
+                gh['neu'] = f.read()
+        return types.SimpleNamespace(stdout='')
+
+    def _lauf(env, antworten, schritt=1.0):
+        puffer = _io.StringIO()
+        pausen = []
+        zeit = [0.0]
+
+        def _uhr():
+            zeit[0] += schritt
+            return zeit[0]
+        with contextlib.redirect_stdout(puffer):
+            code = _vt.main(['v9.9.9'] + dateien, env=env,
+                            opener=_netz(antworten), sleep=pausen.append,
+                            clock=_uhr, run=_gh)
+        return code, puffer.getvalue(), pausen
+
+    try:
+        anfragen.clear()
+        code, aus, _ = _lauf({}, [])
+        pruefe(code == 0 and 'uebersprungen' in aus and not anfragen
+               and not gh['aufrufe'],
+               'ohne VT_API_KEY: Hinweis, Ende mit 0, keine Anfrage')
+
+        # Selbstprüfung der Falle: mit Schlüssel MUSS sie Anfragen sehen.
+        fertig = {'data': {'attributes': {'status': 'completed', 'stats': {
+            'malicious': 1, 'suspicious': 0, 'undetected': 60,
+            'harmless': 7, 'type-unsupported': 4}}}}
+        anfragen.clear()
+        code, aus, pausen = _lauf(
+            {'VT_API_KEY': schluessel},
+            [{'data': {'id': 'a1'}}, {'data': {'id': 'a2'}},
+             {'data': {'attributes': {'status': 'queued'}}},
+             fertig, fertig])
+        pruefe(len(anfragen) == 5, 'Selbstprüfung der Falle: fünf Anfragen '
+               'an VirusTotal (%d)' % len(anfragen))
+        pruefe(all(r.get_header('X-apikey') == schluessel for r in anfragen),
+               'jede Anfrage trägt den Schlüssel als Kopfzeile')
+        pruefe(schluessel not in aus and all(
+               schluessel not in ' '.join(a) for a in gh['aufrufe'])
+               and schluessel not in (gh['neu'] or ''),
+               'der Schlüssel steht weder in der Ausgabe noch in gh-Aufrufen '
+               'noch in der Notiz')
+        pruefe(pausen and all(p >= 15 for p in pausen),
+               'zwischen zwei Anfragen mindestens 15 s (höchstens 4 je '
+               'Minute) (%r)' % pausen)
+        neu = gh['neu'] or ''
+        sha = _vt.sha256(dateien[0])
+        pruefe('1/68' in neu and _vt.GUI + sha in neu,
+               'die Notiz nennt 1/68 und den Link zum Bericht (%r)'
+               % neu[-300:])
+        pruefe(_up502.points_by_kind(neu) == _up502.points_by_kind(notiz_alt)
+               and _up502.intro(neu) == _up502.intro(notiz_alt),
+               '„Was ist neu" liest dieselben Punkte wie ohne die Zeile')
+        gh['body'] = neu
+        _lauf({'VT_API_KEY': schluessel},
+              [{'data': {'id': 'a1'}}, {'data': {'id': 'a2'}},
+               fertig, fertig])
+        pruefe((gh['neu'] or '').count(_vt.MARK) == 1,
+               'ein zweiter Lauf ersetzt die Zeile statt sie zu doppeln')
+        gh['body'] = notiz_alt
+
+        # Fehler bei VirusTotal: Ende mit 0, kein Schlüssel im Text.
+        gh['aufrufe'].clear()
+        fehler = urllib.error.HTTPError(
+            'https://www.virustotal.com/api/v3/files', 401,
+            'Wrong key ' + schluessel, {}, None)
+        code, aus, _ = _lauf({'VT_API_KEY': schluessel}, [fehler])
+        pruefe(code == 0 and schluessel not in aus and 'HTTP 401' in aus
+               and not any(a[:3] == ['gh', 'release', 'edit']
+                           for a in gh['aufrufe']),
+               'HTTP-Fehler: Ende mit 0, Schlüssel geschwärzt, Notiz '
+               'unberührt (%r)' % aus.strip())
+
+        # Zeitüberschreitung: die Zeile sagt, dass die Analyse noch läuft.
+        offen = {'data': {'attributes': {'status': 'queued'}}}
+        code, aus, _ = _lauf({'VT_API_KEY': schluessel},
+                             [{'data': {'id': 'a1'}}, {'data': {'id': 'a2'}}]
+                             + [offen] * 40, schritt=50.0)
+        pruefe(code == 0 and 'analysis running' in (gh['neu'] or ''),
+               'nach Ablauf der Wartezeit: Link mit „Analyse läuft"')
+
+        # Große Datei: erst eine Hochlade-Adresse holen.
+        anfragen.clear()
+        grenze = _vt.DIRECT_LIMIT
+        _vt.DIRECT_LIMIT = 4
+        try:
+            _lauf({'VT_API_KEY': schluessel},
+                  [{'data': 'https://upload.example/u1'}, {'data': {'id': 'a1'}},
+                   {'data': 'https://upload.example/u2'}, {'data': {'id': 'a2'}},
+                   fertig, fertig])
+        finally:
+            _vt.DIRECT_LIMIT = grenze
+        pruefe([r.full_url for r in anfragen[:2]]
+               == [_vt.API + '/files/upload_url', 'https://upload.example/u1'],
+               'über 32 MB: erst upload_url, dann dorthin hochladen')
+    finally:
+        shutil.rmtree(ordner, ignore_errors=True)
 
 
 if __name__ == '__main__':

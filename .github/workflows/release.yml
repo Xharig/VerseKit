@@ -360,6 +360,7 @@ jobs:
       # notduerftig auf Node 24 aus und warnte bei JEDEM Bau. v3.0.0 aendert
       # nichts ausser der Laufzeit — keine geaenderten Eingaben.
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
+        id: freigabe
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
           body_path: release-text.md
@@ -391,3 +392,27 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: python3 .github/scripts/discord_release.py "${GITHUB_REF_NAME}"
+
+      # Die beiden Release-Dateien bei VirusTotal prüfen lassen und das
+      # Ergebnis samt Link an die Release-Notiz hängen.
+      #
+      # Läuft nur in diesem Job, also nur bei einem Tag-Release, und nur, wenn
+      # das Release angelegt wurde. Ohne `VT_API_KEY` endet das Skript mit
+      # einem Hinweis; ein Fehler oder eine Zeitüberschreitung bei VirusTotal
+      # färbt das Release nicht rot (`continue-on-error`, und das Skript
+      # endet immer mit 0).
+      #
+      # ⚠ Der Schlüssel steht nur in `env`, nie in der Befehlszeile — das
+      # Skript liest ihn selbst und gibt ihn nicht aus.
+      - name: Bei VirusTotal pruefen lassen
+        if: always() && steps.freigabe.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: >
+          python3 .github/scripts/virustotal.py "${TAG}"
+          dateien/windows/VerseKit-Setup.exe
+          dateien/linux/VerseKit-x86_64.AppImage
