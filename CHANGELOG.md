@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Steuerung: Änderungen bei laufendem Spiel gingen verloren** — Star
+  Citizen überschrieb sie beim Beenden. Belegen, Zurücksetzen, Einlesen,
+  Kennungstausch, Achsen & Kurven, Gerätesätze und das Zurückholen der
+  Steuerung aus einer Sicherung schreiben jetzt nichts, solange das Spiel
+  läuft, und sagen, dass es erst geschlossen werden muss.
+- **Sicherungen stapelten sich im Profilordner des Spiels** — Verse-Kit
+  behält dort je Datei nur noch die zehn neuesten eigenen Sicherungen und
+  räumt ältere beim nächsten Speichern weg.
+
 ## v4.9.1 - 2026-10-17
 
 > Die Warenauswahl beim Einbuchen findet jetzt, was man sucht: Wer „TS-“

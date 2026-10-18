@@ -39,8 +39,6 @@ Geschrieben wird deshalb nur bei geschlossenem Spiel; der Aufrufer prüft das
 """
 import os
 import re
-import shutil
-import time
 
 from . import errors, paths
 
@@ -253,9 +251,8 @@ def write_renderer(value, path=None):
     if settings.get(RENDERER) == value:
         return True, ''
     settings[RENDERER] = value
-    backup = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
     try:
-        shutil.copy2(path, backup)
+        backup = paths.backup_game_file(path)
     except OSError as exc:
         errors.record('graphics.renderer_backup', exc)
         return False, 's_gr_f_sicherung'
@@ -409,8 +406,8 @@ def _apply(text, name, value, default):
 def write(changes, path=None):
     """Die Werte aus `changes` ({Name: Wert}) in die Datei schreiben.
 
-    Vorher wird die Datei als `attributes.xml.scbpw-<Zeit>` daneben gesichert.
-    Liefert `(erfolg, sicherung_oder_textschluessel)`."""
+    Vorher wird die Datei als `attributes.xml.scbpw-<Zeit>` daneben gesichert
+    (`paths.backup_game_file`, die neuesten zehn bleiben). Liefert `(erfolg, sicherung_oder_textschluessel)`."""
     path = path or attribute_file()
     if not path:
         return False, 's_gr_f_keine_datei'
@@ -438,9 +435,8 @@ def write(changes, path=None):
         fresh = _apply(fresh, name, value, defaults[name])
     if fresh == text:
         return True, ''
-    backup = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
     try:
-        shutil.copy2(path, backup)
+        backup = paths.backup_game_file(path)
     except OSError as exc:
         errors.record('graphics.backup', exc)
         return False, 's_gr_f_sicherung'

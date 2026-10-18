@@ -4332,7 +4332,7 @@ class MainWindow:
         else:
             self.say(t('sich_fehler', meldung))
 
-    def _offer_bindings(self, quelle, sicherung):
+    def _offer_bindings(self, source, backup):
         """Die gesicherte Steuerung anbieten — zwei Fragen, nicht eine.
 
         Die erste betrifft die **Profile**: Sie kommen nur dazu, es geht nichts
@@ -4340,24 +4340,27 @@ class MainWindow:
         andere Größenordnung — deshalb wird sie einzeln gestellt und steht
         voreingestellt auf Nein.
         """
+        from . import joysticks
         try:
-            aktiv_dabei, profile = sicherung.bindings_in_archive(quelle)
-            if not (aktiv_dabei or profile):
+            active_included, profiles = backup.bindings_in_archive(source)
+            if not (active_included or profiles):
                 return
-            was = ', '.join(profile) if profile else t('sich_belegung_keine')
+            what = ', '.join(profiles) if profiles else t('sich_belegung_keine')
             if not ask_yes_no(self.root, t('sich_titel'),
-                                 t('sich_belegung_frage', was)):
+                                 t('sich_belegung_frage', what)):
                 return
-            mit_aktiver = aktiv_dabei and ask_yes_no(
+            with_active = active_included and ask_yes_no(
                 self.root, t('sich_titel'), t('sich_belegung_aktiv'))
-            ok, _meldung, geschrieben = sicherung.restore_bindings(
-                quelle, with_active=mit_aktiver)
+            ok, message, written = backup.restore_bindings(
+                source, with_active=with_active)
             if ok:
-                self.say(t('sich_belegung_ok', geschrieben))
-        except Exception as ausnahme:
+                self.say(t('sich_belegung_ok', written))
+            elif message == joysticks.GAME_RUNNING:
+                show_result(self.root, t('sich_titel'), t(message))
+        except Exception as exception:
             # ⚠ Ein Fehler hier darf das Einspielen nicht mitreißen — der
             # Bestand ist zu diesem Zeitpunkt bereits zurück.
-            errors.record('main_window.belegung_anbieten', ausnahme)
+            errors.record('main_window.belegung_anbieten', exception)
 
     def _backup_read(self, file_picker, sicherung):
         quelle = file_picker.open_file(t('sich_lesen'),

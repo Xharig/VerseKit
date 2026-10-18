@@ -1209,6 +1209,14 @@ TEXTS = {
                            'was restored.'),
     's_js_f_lesen':    ('Die Datei ließ sich nicht lesen.',
                           'The file could not be read.'),
+    's_js_f_spiel':    ('Star Citizen läuft gerade — es wurde nichts '
+                        'geschrieben. Bitte das Spiel erst schließen: Es '
+                        'schreibt die Steuerung beim Beenden selbst und würde '
+                        'die Änderung sonst überschreiben.',
+                          'Star Citizen is running — nothing was written. '
+                          'Please close the game first: it saves the controls '
+                          'itself when it exits and would otherwise overwrite '
+                          'the change.'),
 
     # -- Achsen: Totzone, Sättigung, Kurve --
     # Dieselbe Regel wie oben: Schlüssel zurückgeben, keine fertigen Sätze.

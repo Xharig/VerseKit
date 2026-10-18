@@ -84,13 +84,13 @@ und diese Sicherheit gibt die Datenlage nicht her.
 
 Ebenfalls nicht: die Datei sperren, damit das Spiel sie nicht ueberschreibt.
 Das tun andere Werkzeuge; es ist genau die Sorte Verhalten, bei der
-Virenscanner anschlagen.
+Virenscanner anschlagen. Umgekehrt schreibt dieses Modul nichts, solange das
+Spiel laeuft (`game_lock`, geprueft in `_write`).
 """
 import json
 import os
 import re
 import shutil
-import time
 import xml.etree.ElementTree as ET
 
 from . import paths
@@ -1345,24 +1345,57 @@ def bind_action(action, section, device_id, input_device, filename=None, folder=
     return _write(path, tree, 1)
 
 
-def _write(path, tree, anzahl):
-    """Den geaenderten Baum sichern und zurueckschreiben.
+# Textschlüssel, wenn nichts geschrieben wird, weil Star Citizen läuft.
+GAME_RUNNING = 's_js_f_spiel'
 
-    ⚠ Hier **muss** ueber den XML-Baum geschrieben werden — anders als beim
-    Kennungstausch, der eine reine Textersetzung ist. Deshalb entsteht vorher
-    immer eine Sicherung: Geht etwas schief, ist der Rueckweg ein Umbenennen.
+
+def game_lock():
+    """`GAME_RUNNING`, solange Star Citizen läuft, sonst None.
+
+    Das Spiel schreibt die `actionmaps.xml` beim Beenden selbst und
+    überschreibt damit alles, was in der Zwischenzeit hineingeschrieben wurde.
+    Erkannt über `auto_update.game_running()` — Prozessliste und `Game.log`,
+    unter Windows wie unter Linux; im Zweifel gilt das Spiel als laufend."""
+    from . import auto_update
+    return GAME_RUNNING if auto_update.game_running() else None
+
+
+def _write(path, content, count):
+    """Die `actionmaps.xml` sichern und neu schreiben — jeder Schreibweg in
+    diese Datei endet hier (Belegen, Zurücksetzen, Einlesen, Kennungstausch,
+    Achsen und Kurven, Gerätesätze, Steuerung aus der Sicherung).
+
+    `content` ist ein XML-Baum (`ElementTree`), ein Text oder Bytes.
+
+    ⚠⚠ **Solange Star Citizen läuft, wird nichts geschrieben** (`game_lock`)
+    — auch keine Sicherung angelegt.
+    Vorher entsteht immer eine Sicherung (`paths.backup_game_file`, die
+    neuesten zehn bleiben liegen): Geht etwas schief, ist der Rückweg ein
+    Umbenennen. Geschrieben wird erst daneben, dann umgelegt — scheitert es,
+    ist die Datei unverändert.
+
+    Liefert `(erfolg, sicherung_oder_textschluessel, count)`.
     """
     from . import errors
-    backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
+    blocked = game_lock()
+    if blocked:
+        return False, blocked, 0
+    if isinstance(content, str):
+        data = content.encode('utf-8')
+    elif isinstance(content, bytes):
+        data = content
+    else:
+        data = ET.tostring(content.getroot(), encoding='utf-8',
+                           xml_declaration=False)
     try:
-        shutil.copy2(path, backup_file)
+        backup_file = paths.backup_game_file(path)
     except Exception as exception:
         errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
-    # Erst daneben, dann umlegen: Scheitert es, ist die Datei unverändert.
     temp = path + '.scbpw-tmp'
     try:
-        tree.write(temp, encoding='utf-8', xml_declaration=False)
+        with open(temp, 'wb') as f:
+            f.write(data)
         paths.replace_file(temp, path)
     except Exception as exception:
         try:
@@ -1371,7 +1404,7 @@ def _write(path, tree, anzahl):
             pass
         errors.record('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
-    return True, backup_file, anzahl
+    return True, backup_file, count
 
 
 def conflicts(action, device_id, input_device, filename=None, folder=None):
@@ -1534,16 +1567,13 @@ def import_file(source, filename=None, folder=None):
     root = tree.getroot()
     if root.tag != 'ActionMaps':
         return False, 's_js_f_fremd', 0
-    anzahl = len(list(root.iter('actionmap')))
+    count = len(list(root.iter('actionmap')))
     try:
-        backup_file = '%s.scbpw-%s' % (target, time.strftime('%Y%m%d-%H%M%S'))
-        shutil.copy2(target, backup_file)
-        ET.ElementTree(_as_active_form(root)).write(
-            target, encoding='utf-8', xml_declaration=False)
+        active = ET.ElementTree(_as_active_form(root))
     except Exception as exception:
         errors.record('joysticks.import_file', exception)
         return False, 's_js_f_schreiben', 0
-    return True, backup_file, anzahl
+    return _write(target, active, count)
 
 
 def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
@@ -1565,7 +1595,8 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
     das ab.
 
     ⚠ **Nur bei geschlossenem Spiel.** Star Citizen schreibt die Datei beim
-    Beenden selbst und wuerde die Aenderung sonst ueberschreiben.
+    Beenden selbst und wuerde die Aenderung sonst ueberschreiben — solange es
+    laeuft, schreibt `_write` nichts.
     """
     # ⚠ `errors` lokal importieren — das Modul zieht selbst `paths`, auf
     # Modulebene waere das ein Zirkelbezug.
@@ -1600,22 +1631,9 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
 
     if new == content:
         return False, 's_js_f_gleich', 0
-
-    backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
-    try:
-        shutil.copy2(path, backup_file)
-    except Exception as exception:
-        # Ohne Sicherung wird nicht geschrieben. Lieber gar nicht helfen als
-        # ohne Rueckweg — hier haengt die komplette Steuerung dran.
-        errors.record('joysticks.backup', exception)
-        return False, 's_js_f_sicherung', 0
-    # Atomar: Scheitert das Schreiben, ist die Datei unverändert.
-    try:
-        paths.write_text_atomic(path, new, newline='')
-    except Exception as exception:
-        errors.record('joysticks.write', exception)
-        return False, 's_js_f_schreiben', 0
-    return True, backup_file, hit
+    # Ohne Sicherung wird nicht geschrieben (`_write`) — hier hängt die
+    # komplette Steuerung dran.
+    return _write(path, new, hit)
 
 
 def swap_bindings(id_a, id_b, filename=None, folder=None):
@@ -1688,20 +1706,7 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
         return False, 's_js_f_unbekannt', 0
     if new == content:
         return False, 's_js_f_gleich', 0
-
-    backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
-    try:
-        shutil.copy2(path, backup_file)
-    except Exception as exception:
-        errors.record('joysticks.backup', exception)
-        return False, 's_js_f_sicherung', 0
-    # Atomar: Scheitert das Schreiben, ist die Datei unverändert.
-    try:
-        paths.write_text_atomic(path, new, newline='')
-    except Exception as exception:
-        errors.record('joysticks.swap_write', exception)
-        return False, 's_js_f_schreiben', 0
-    return True, backup_file, swapped[0]
+    return _write(path, new, swapped[0])
 
 
 def _clear_duplicate_entry(content, ident):

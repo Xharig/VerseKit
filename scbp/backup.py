@@ -432,6 +432,13 @@ def restore_bindings(source, with_active=False, game_folder=None):
     ok, _count, _when = check(source)
     if not ok:
         return False, 'ungueltig', 0
+    # Die aktive Belegung und die `attributes.xml` schreibt das Spiel beim
+    # Beenden selbst — solange es läuft, kommt nichts davon zurück. Geprüft
+    # vorab, weil die `attributes.xml` im Archiv vor der Belegung stehen kann.
+    if with_active:
+        blocked = joysticks.game_lock()
+        if blocked:
+            return False, blocked, 0
 
     target_folder = joysticks._mappings_path(game_folder, create=True)
     active_target = joysticks._actionmaps_path(game_folder)
@@ -446,12 +453,13 @@ def restore_bindings(source, with_active=False, game_folder=None):
                 if rest == 'actionmaps.xml':
                     if not (with_active and active_target):
                         continue
-                    fallback = '%s.scbpw-%s' % (
-                        active_target, time.strftime('%Y%m%d-%H%M%S'))
-                    with open(active_target, 'rb') as src, \
-                            open(fallback, 'wb') as dst:
-                        dst.write(src.read())
-                    target = active_target
+                    ok, message, _count = joysticks._write(
+                        active_target, z.read(name), 1)
+                    if not ok:
+                        return False, message, written
+                    fallback = message
+                    written += 1
+                    continue
                 elif rest == 'attributes.xml':
                     # ⚠⚠ **Gehoert zum aktiven Stand, nicht zu den Profilen.**
                     # Darin steht der Blickwinkel und die Grafik — sie
@@ -467,11 +475,7 @@ def restore_bindings(source, with_active=False, game_folder=None):
                     target = os.path.join(os.path.dirname(active_target),
                                           'attributes.xml')
                     if os.path.isfile(target):
-                        with open(target, 'rb') as src, \
-                                open('%s.scbpw-%s' % (
-                                    target, time.strftime('%Y%m%d-%H%M%S')),
-                                     'wb') as dst:
-                            dst.write(src.read())
+                        paths.backup_game_file(target)
                 elif rest.startswith('mappings/') and target_folder:
                     # ⚠ Nur der reine Dateiname. Ein Pfad aus dem Archiv duerfte
                     # sonst aus dem Mappings-Ordner herausfuehren.
