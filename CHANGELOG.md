@@ -8,6 +8,24 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Overlay und Seitenwechsel flüssiger** — Overlay und Hauptfenster
+  ruckeln beim Verschieben und Vergrößern nicht mehr, auch wenn im
+  Hintergrund gerechnet wird, und Seitenwechsel gehen schneller. Solange du
+  klickst, ziehst oder die Maus im Hauptfenster bewegst, hakt nichts mehr
+  dazwischen. Gemeldet von greluc (KRT)
+- **Mein Lager baut sich nicht mehr bei jedem Klick neu auf** — Gruppen
+  auf- und zuklappen, einen Posten zum Bearbeiten anklicken, Abbrechen und
+  das Teilen-Feld öffnen oder schließen ändern nur noch die betroffene
+  Zeile; die Liste bleibt stehen. Im Bearbeiten-Feld gibt es dazu den Knopf
+  „Ins Lager der Einheit geben" bzw. „Zurücknehmen", wo das am Posten geht.
+  Unter der Liste steht jetzt „Verkaufswert höchstens" mit aUEC.
+- **Lager der Einheit baut sich nicht mehr bei jedem Klick neu auf** —
+  Posten auf- und zuklappen, Buchungsfelder öffnen, Abbrechen, Einbuchen
+  und Hinweise beim Ausfüllen ändern nur noch die betroffene Stelle; die
+  Liste und das schon Eingetippte bleiben stehen.
+
 ### Behoben
 
 - **Mein Lager: Edelsteine stehen nicht mehr als „Pflanze" da** — mit

@@ -189,6 +189,49 @@ def show_as_app(window):
         return False
 
 
+# Schaltintervall des GIL, solange ein Fenster bedient wird (nur Windows).
+FAST_SWITCH_S = 0.0005
+_fast_holders = set()
+_switch_default = [None]
+
+
+def fast_switching(holder, on):
+    """Das GIL-Schaltintervall kurz stellen, solange `holder` es braucht.
+
+    ⚠⚠ Tk muss nach jedem Tcl-Aufruf den GIL zurückbekommen, und der
+    Rückruf von `never_activate` holt ihn für jede Fensternachricht. Unter
+    Windows wartet ein Faden darauf in ganzen Millisekunden des Zeitgebers;
+    rechnet ein anderer Faden, kostet ein Verschiebe-Schritt so mehrere
+    hundert Millisekunden. Unter einer Millisekunde wartet Windows gar nicht
+    und fordert den GIL sofort an — 1 ms hilft deshalb nicht, 0,5 ms schon.
+
+    ⚠ Der Preis: Rechnen zwei Fäden zugleich, dreht der wartende einen
+    Kern lang leer. Deshalb nur, solange jemand ein Fenster bedient (Overlay
+    ziehen oder vergrößern, Hauptfenster zu sehen — minimiert oder
+    geschlossen nicht), nicht dauerhaft neben dem Spiel.
+
+    `holder` ist ein beliebiger Schlüssel; erst wenn keiner mehr eingetragen
+    ist, gilt wieder das vorige Intervall. Gibt zurück, ob das kurze
+    Intervall gerade gilt."""
+    if not WINDOWS:
+        return False
+    if on:
+        _fast_holders.add(holder)
+    else:
+        _fast_holders.discard(holder)
+    try:
+        if _fast_holders:
+            if _switch_default[0] is None:
+                _switch_default[0] = sys.getswitchinterval()
+            sys.setswitchinterval(FAST_SWITCH_S)
+        elif _switch_default[0] is not None:
+            sys.setswitchinterval(_switch_default[0])
+            _switch_default[0] = None
+    except (ValueError, TypeError):
+        pass
+    return bool(_fast_holders)
+
+
 WM_MOUSEACTIVATE = 0x0021
 MA_NOACTIVATE = 3
 # Die eingehängten Rückrufe müssen am Leben bleiben, solange das Fenster lebt —

@@ -2036,6 +2036,10 @@ class MainWindow:
         # langsam. Das `deiconify()` am Ende von `__init__` gehoert untrennbar
         # hierher.
         self.root.withdraw()
+        # `(Folge, funcid)` der `bind_all`-Rückrufe dieses Fensters — sie
+        # gelten für den ganzen Interpreter und werden beim Abbau entfernt
+        # (`_window_gone`).
+        self._global_bindings = []
         # Eigener Titel, damit sich Hauptfenster und Overlay (`hf_titel`)
         # unterscheiden lassen, z. B. von einer Fensteraufnahme in OBS.
         self.root.title(window_title(t('titel_einstellungen')))
@@ -2107,8 +2111,10 @@ class MainWindow:
         # nicht dieselbe Zeile an fünfzig Stellen.
         # `bind_all` mit `add='+'`, damit vorhandene Klick-Bindungen weiter
         # feuern — ohne das `+` würde jedes andere `<Button-1>` überschrieben.
-        self.root.bind_all('<Button-1>', self._click_on_empty, add='+')
+        self._global_bindings.append(('<Button-1>', self.root.bind_all(
+            '<Button-1>', self._click_on_empty, add='+')))
 
+        self._bind_window_state()
         self.root.deiconify()
         # Nach einem Update einmal die Galerie „Was ist neu" (`gallery`).
         self.root.after(600, self._show_gallery)
@@ -2121,6 +2127,43 @@ class MainWindow:
                 gallery_window.show(self)
         except Exception as exc:
             errors.record('main_window.gallery', exc)
+
+    def _bind_window_state(self):
+        """Kurzes GIL-Intervall (`overlay.fast_switching`), solange das
+        Fenster zu sehen ist; beim Abbau `_window_gone`.
+
+        ⚠ Ein eigener Bindetag nur am Toplevel: Am Tag des Toplevels selbst
+        liefe der Rückruf auch für jedes Kind — beim Ein- und Ausblenden
+        einer Seite und beim Abbau tausendfach."""
+        from . import overlay
+        tag = 'MainWindowState%d' % id(self)
+        self.root.bindtags((tag,) + tuple(self.root.bindtags()))
+        self._state_tag = tag
+        self._state_commands = [
+            self.root.bind_class(tag, '<Map>', lambda _e:
+                                 overlay.fast_switching(self, True)),
+            self.root.bind_class(tag, '<Unmap>', lambda _e:
+                                 overlay.fast_switching(self, False)),
+            self.root.bind_class(tag, '<Destroy>', self._window_gone)]
+
+    def _window_gone(self, _event=None):
+        """Das Fenster ist abgebaut: kurzes Intervall aus, die
+        `bind_all`-Rückrufe dieses Fensters und den eigenen Bindetag
+        entfernen."""
+        from . import overlay
+        overlay.fast_switching(self, False)
+        bindings, self._global_bindings = self._global_bindings, []
+        for sequence, funcid in bindings:
+            _unbind_all_one(self.root, sequence, funcid)
+        tag = getattr(self, '_state_tag', None)
+        commands, self._state_commands = getattr(self, '_state_commands', []), []
+        for sequence, funcid in zip(('<Map>', '<Unmap>', '<Destroy>'),
+                                    commands):
+            try:
+                self.root.unbind_class(tag, sequence)
+                self.root._root().deletecommand(funcid)
+            except Exception:
+                pass
 
     def _click_on_empty(self, ereignis=None):
         """Wird irgendwo geklickt, das kein Eingabefeld ist: Fokus abgeben.
@@ -4033,12 +4076,27 @@ class MainWindow:
                 # ⚠ Jede Eingabe verschiebt den Vorbau nach hinten — siehe
                 # `_prebuild_pages`. `add='+'` ist Pflicht, sonst verdraengt
                 # das die Haken, die andere Bausteine global gesetzt haben.
-                for event in ('<Button>', '<Key>', '<MouseWheel>'):
+                # `<B1-Motion>` zählt mit: Wer das Overlay zieht, drückt nur
+                # einmal — ohne die Bewegung baute der Vorbau mitten ins
+                # Ziehen hinein.
+                # ⚠ `<Button-1>` steht eigens da: Tk ruft je Bindeziel nur die
+                # genaueste passende Bindung, und `_click_on_empty` hängt
+                # schon an `<Button-1>` — ein Linksklick erreichte
+                # `<Button>` sonst nie.
+                for event in ('<Button>', '<Button-1>', '<Key>',
+                              '<MouseWheel>', '<B1-Motion>'):
                     try:
-                        self.root.bind_all(event, self._remember_action,
-                                           add='+')
+                        self._global_bindings.append((event, self.root.bind_all(
+                            event, self._remember_action, add='+')))
                     except Exception:
                         pass
+                # Bloßes Bewegen nur im Hauptfenster selbst: Die Bindung am
+                # Toplevel gilt für alles darin und geht mit dem Fenster.
+                try:
+                    self.root.bind('<Motion>', self._remember_action,
+                                   add='+')
+                except Exception:
+                    pass
                 self.root.after(400, self._prebuild_pages)
         self._recolor_tabs()
         # Der aktive Reiter wird fett — und fett ist breiter. Die Messung
@@ -4828,6 +4886,21 @@ class MainWindow:
         # gerade selbst gestartet und will hin.
         to_front(self.root, focus=True)
         self.root.mainloop()
+
+
+def _unbind_all_one(widget, sequence, funcid):
+    """Aus der `all`-Bindung von `sequence` genau den Rückruf `funcid`
+    entfernen. ⚠ `unbind_all` löschte auch die fremden Rückrufe dieser
+    Folge. ⚠ Den Befehl an der Wurzel löschen: Dort trägt `bind_all` ihn
+    ein, und deren `destroy()` scheitert sonst an einem fehlenden Befehl."""
+    try:
+        script = widget.tk.call('bind', 'all', sequence)
+        kept = '\n'.join(line for line in str(script).split('\n')
+                         if funcid not in line)
+        widget.tk.call('bind', 'all', sequence, kept)
+        widget._root().deletecommand(funcid)
+    except Exception:
+        pass
 
 
 def _bundled(name):

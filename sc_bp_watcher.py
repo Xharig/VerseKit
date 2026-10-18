@@ -2657,6 +2657,9 @@ class Overlay:
         self.grip.configure(cursor=sicherer_cursor(CURSOR_GROESSE))
         self.grip.place(relx=1.0, rely=1.0, anchor='se')
         self.grip.bind('<B1-Motion>', self._resize)
+        # Wie beim Ziehen: kurzes GIL-Intervall bis zum Loslassen (unten).
+        self.grip.bind('<Button-1>', lambda _e: overlay.fast_switching(
+            'overlay_resize', True), add='+')
         # ⚠ Den Zustand **durchsetzen**, nicht einmal setzen. Ein Schritt im
         # Aufbau kann den versteckten Griff im eingeklappten Zustand wieder
         # herstellen. Deshalb wird bei jedem Layout-Ereignis geprüft, ob der
@@ -2677,6 +2680,8 @@ class Overlay:
         self._lage_nach = None
         self.root.bind('<Configure>', self._lage_merken_bald, add='+')
         self.grip.bind('<ButtonRelease-1>', self._save_geo)   # Größe merken
+        self.grip.bind('<ButtonRelease-1>', lambda _e: overlay.fast_switching(
+            'overlay_resize', False), add='+')
         notice.attach(self.grip, lambda: language.t('hinweis_groesse'))
 
         # Watcher starten
@@ -2986,6 +2991,9 @@ class Overlay:
 
     def _drag_start(self, e):
         self._dx, self._dy = e.x, e.y
+        # Bis zum Loslassen (`_verschoben`) kurzes GIL-Intervall — sonst
+        # wartet jeder Schritt auf rechnende Nebenfäden.
+        overlay.fast_switching('overlay_drag', True)
         # ⚠ Die Fensterlage mitnehmen, nicht nur den Griffpunkt. Erst der
         # Vergleich beim Loslassen unterscheidet ein **Verschieben** von einem
         # blossen **Klick** auf die Leiste — und nur das Verschieben darf die
@@ -3044,6 +3052,7 @@ class Overlay:
         auf die man klickt; ein Klick ohne Bewegung darf die Einstellung nicht
         anfassen. Zwei Pixel Spiel, damit ein Zittern der Hand nicht zaehlt.
         """
+        overlay.fast_switching('overlay_drag', False)
         self._save_geo(e)
         try:
             von = getattr(self, '_drag_von', None)

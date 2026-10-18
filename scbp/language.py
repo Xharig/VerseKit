@@ -2858,7 +2858,11 @@ TEXTS = {
                               'Ortskatalogs werden nicht mehr geleert, und '
                               'das Lager der Einheit ruft die '
                               'Mitgliederliste nur noch dort ab, wo du '
-                              'Logistiker bist.',
+                              'Logistiker bist. Dazu eine Messanalyse zum '
+                              'Tempo: Das Overlay ruckelt beim Verschieben '
+                              'nicht mehr, wenn im Hintergrund gerechnet '
+                              'wird, und Seitenwechsel lesen die '
+                              'Einstellungen nicht mehr jedes Mal neu.',
                               '**Review of the Basetool sync** — wait times after '
                               'errors, a full stop after a block, only your own '
                               'account\'s blueprints and more safely stored '
@@ -2869,7 +2873,12 @@ TEXTS = {
                               'resent on every sync, lots at a place '
                               'outside the location catalog are no longer '
                               'emptied, and unit storage only asks for the '
-                              'member list where you are a logistician.'),
+                              'member list where you are a logistician. '
+                              'Plus a measured analysis of speed: the '
+                              'overlay no longer stutters while you drag it '
+                              'and work runs in the background, and page '
+                              'switches no longer reread the settings every '
+                              'time.'),
     's_dk_parsul_idee':      ('**Bilder im Fehlerbericht** — ein Bildschirmfoto geht '
                               'jetzt direkt mit dem Bericht hinaus, statt es '
                               'getrennt nachzureichen.',
@@ -4003,6 +4012,9 @@ TEXTS = {
     's_ml_menge_ph':     ('Menge', 'Amount'),
     's_ml_teilen_knopf': ('Ins Lager der Einheit', 'Into unit storage'),
     's_ml_zurueck_knopf': ('Zurücknehmen', 'Take back'),
+    # Dieselben zwei Wege als Knopf im Bearbeiten-Feld.
+    's_ml_form_teilen':  ('Ins Lager der Einheit geben', 'Put into unit storage'),
+    's_ml_form_zurueck': ('Zurücknehmen', 'Take back'),
     's_ml_menge_teilen': ('Bitte eine Menge über 0 und höchstens %s eintragen '
                           '— Items in ganzen Stück.',
                           'Please enter an amount above 0 and at most %s — '
@@ -5203,7 +5215,10 @@ TEXTS = {
     's_hl_sp_gesamt':    ('Gesamtpreis', 'Total'),
     's_hl_marke':        ('gestohlen', 'stolen'),
     's_hl_wert':         ('höchstens {summe}', 'up to {summe}'),
-    's_hl_gesamt':       ('Ladung höchstens: {summe}', 'Cargo up to: {summe}'),
+    's_hl_gesamt':       ('Verkaufswert höchstens: {summe}',
+                          'Sale value up to: {summe}'),
+    's_hl_gesamt_hinweis': ('bester Preis laut UEX, nur Ware zum Verkaufen',
+                            'best price per UEX, sale goods only'),
     # Handelslager sichern und zurueckholen — dieselben Knopfnamen wie im
     # Werkstatt-Lager (`s_lg_aus_json`/`s_lg_aus_csv`/`s_lg_einlesen`/
     # `s_lg_leeren`), die werden wiederverwendet statt hier zu doppeln: Zwei
