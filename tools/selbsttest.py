@@ -17180,69 +17180,69 @@ def main():
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
 
-    print('\n183. Die Umbenennungen aus P3 halten')
+    print('\n630. Die Umbenennungen aus P3 halten')
     # ⚠⚠ Hier stehen dauerhaft die Signaturpruefung der Dateiauswahl und der
     # Einzelimport des Sammelimports. Was nicht eingecheckt ist, schuetzt
     # beim naechsten Umbau nichts.
-    import ast as _ast183
-    import inspect as _in183
-    from scbp import file_picker as _fp183
+    import ast as _ast630
+    import inspect as _in630
+    from scbp import file_picker as _fp630
 
     # -- a) Jeder Aufruf von file_picker.* passt zur Signatur.
     #    Kein Pruefllauf oeffnet diese Dialoge. Ein falsches Schluesselwort
     #    fiele sonst erst beim Klick auf „Speichern" auf — und pyflakes sieht
     #    Schluesselwoerter nicht.
-    _sig183 = {n: set(_in183.signature(getattr(_fp183, n)).parameters)
+    _sig630 = {n: set(_in630.signature(getattr(_fp630, n)).parameters)
                for n in ('save_file', 'open_file', 'choose_folder')}
 
-    def _aufrufe183(quelle, name):
+    def _aufrufe630(quelle, name):
         funde, zahl = [], 0
-        for k in _ast183.walk(_ast183.parse(quelle, name)):
-            if not isinstance(k, _ast183.Call):
+        for k in _ast630.walk(_ast630.parse(quelle, name)):
+            if not isinstance(k, _ast630.Call):
                 continue
             f = k.func
-            if not (isinstance(f, _ast183.Attribute) and f.attr in _sig183
-                    and isinstance(f.value, _ast183.Name)
+            if not (isinstance(f, _ast630.Attribute) and f.attr in _sig630
+                    and isinstance(f.value, _ast630.Name)
                     and f.value.id == 'file_picker'):
                 continue
             zahl += 1
             for kw in k.keywords:
-                if kw.arg not in _sig183[f.attr]:
+                if kw.arg not in _sig630[f.attr]:
                     funde.append('%s:%d %s(%s=)' % (name, k.lineno, f.attr,
                                                     kw.arg))
-            if len(k.args) > len(_sig183[f.attr]):
+            if len(k.args) > len(_sig630[f.attr]):
                 funde.append('%s:%d %s: zu viele Argumente'
                              % (name, k.lineno, f.attr))
         return funde, zahl
 
     # Gegenprobe ZUERST: Alte Schluesselwoerter muessen auffallen — sonst
     # beweist das „alles passt" darunter nichts.
-    _g183, _ = _aufrufe183(
+    _g630, _ = _aufrufe630(
         "file_picker.save_file('x', vorschlag='a', endung='.j')\n"
         "file_picker.open_file('x', muster=())\n", 'gegenprobe')
-    pruefe(len(_g183) == 3,
+    pruefe(len(_g630) == 3,
            'die Signaturpruefung erkennt alte Schluesselwoerter (%d von 3)'
-           % len(_g183))
+           % len(_g630))
     # Das Programm: alle Module unter scbp/ und das Hauptprogramm. `tools/`
     # bleibt draussen — dort holt sich der Selbsttest das Modul absichtlich
     # unter einem eigenen Namen.
-    _programm183 = [os.path.join(_o183, _d183)
-                    for _o183, _u183, _n183
+    _programm630 = [os.path.join(_o630, _d630)
+                    for _o630, _u630, _n630
                     in os.walk(os.path.join(_wurzelpfad, 'scbp'))
-                    for _d183 in _n183 if _d183.endswith('.py')]
-    _programm183.append(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'))
-    _alle183, _zahl183 = [], 0
-    for _p183 in _programm183:
-        _f183, _z183 = _aufrufe183(open(_p183, encoding='utf-8').read(),
-                                   os.path.basename(_p183))
-        _alle183 += _f183
-        _zahl183 += _z183
-    for _x183 in _alle183[:6]:
-        print('       ·', _x183)
+                    for _d630 in _n630 if _d630.endswith('.py')]
+    _programm630.append(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'))
+    _alle630, _zahl630 = [], 0
+    for _p630 in _programm630:
+        _f630, _z630 = _aufrufe630(open(_p630, encoding='utf-8').read(),
+                                   os.path.basename(_p630))
+        _alle630 += _f630
+        _zahl630 += _z630
+    for _x630 in _alle630[:6]:
+        print('       ·', _x630)
     # ⚠ `>= 10`: Faende die Suche gar keinen Aufruf (etwa weil der Name
     #   anders importiert wird), waere „kein Fehler" wertlos.
-    pruefe(_zahl183 >= 10 and not _alle183,
-           'alle %d Aufrufe der Dateiauswahl passen zur Signatur' % _zahl183)
+    pruefe(_zahl630 >= 10 and not _alle630,
+           'alle %d Aufrufe der Dateiauswahl passen zur Signatur' % _zahl630)
 
     # -- a2) ⚠⚠ **Die Voraussetzung der Pruefung oben wird erzwungen.**
     #    Sie sieht nur Aufrufe der Form `file_picker.funktion(...)`. Ein
@@ -17251,10 +17251,10 @@ def main():
     #    Schluesselwort dort fiele erst beim Klick auf. Vom Pruefer bemerkt.
     #    Statt jeden Umweg nachzuverfolgen, gibt es im Programm nur EINEN Weg,
     #    die Dateiauswahl zu holen: `from . import file_picker`, ohne Alias.
-    def _importe183(quelle, name):
+    def _importe630(quelle, name):
         funde = []
-        for k in _ast183.walk(_ast183.parse(quelle, name)):
-            if isinstance(k, _ast183.ImportFrom):
+        for k in _ast630.walk(_ast630.parse(quelle, name)):
+            if isinstance(k, _ast630.ImportFrom):
                 if (k.module or '').split('.')[-1] == 'file_picker':
                     funde.append('%s:%d from ...file_picker import ...'
                                  % (name, k.lineno))
@@ -17262,28 +17262,28 @@ def main():
                     if a.name == 'file_picker' and a.asname:
                         funde.append('%s:%d file_picker als %s'
                                      % (name, k.lineno, a.asname))
-            elif isinstance(k, _ast183.Import):
+            elif isinstance(k, _ast630.Import):
                 for a in k.names:
                     if a.name.endswith('file_picker'):
                         funde.append('%s:%d import %s'
                                      % (name, k.lineno, a.name))
         return funde
 
-    _gi183 = _importe183('from scbp.file_picker import save_file\n'
+    _gi630 = _importe630('from scbp.file_picker import save_file\n'
                          'import scbp.file_picker as fp\n'
                          'from . import file_picker as fp2\n', 'gegenprobe')
-    pruefe(len(_gi183) == 3,
+    pruefe(len(_gi630) == 3,
            'die Importpruefung erkennt Umwege an der Signaturpruefung vorbei '
-           '(%d von 3)' % len(_gi183))
-    _umwege183 = []
-    for _p183 in _programm183:
-        _umwege183 += _importe183(open(_p183, encoding='utf-8').read(),
-                                  os.path.basename(_p183))
-    for _x183 in _umwege183[:6]:
-        print('       ·', _x183)
-    pruefe(not _umwege183,
+           '(%d von 3)' % len(_gi630))
+    _umwege630 = []
+    for _p630 in _programm630:
+        _umwege630 += _importe630(open(_p630, encoding='utf-8').read(),
+                                  os.path.basename(_p630))
+    for _x630 in _umwege630[:6]:
+        print('       ·', _x630)
+    pruefe(not _umwege630,
            'die Dateiauswahl wird im Programm nur auf einem Weg geholt '
-           '(%d Umwege)' % len(_umwege183))
+           '(%d Umwege)' % len(_umwege630))
 
     # -- b) Ob jedes Modul aus dem Sammelimport von sc_bp_watcher.py existiert,
     #    entscheidet schon `import sc_bp_watcher` am Anfang von `main()`: Ein
@@ -17293,10 +17293,10 @@ def main():
     # -- c) Die alten Namen sind WEG. Die Roadmap verbietet eine
     #    Weiterleitungsdatei, die beides am Leben haelt — das soll nicht nur
     #    behauptet sein.
-    for _alt183 in ('neuheiten', 'berichtziel', 'dateiwahl', 'hinweis', 'ton'):
+    for _alt630 in ('neuheiten', 'berichtziel', 'dateiwahl', 'hinweis', 'ton'):
         pruefe(not os.path.exists(os.path.join(_wurzelpfad, 'scbp',
-                                               _alt183 + '.py')),
-               'scbp/%s.py gibt es nicht mehr' % _alt183)
+                                               _alt630 + '.py')),
+               'scbp/%s.py gibt es nicht mehr' % _alt630)
 
     print('\n190. Die Umbenennungen aus P4 halten')
     # ⚠⚠ Sprachumstellung P4. Jede Umbenennung traegt sich in `_p4_190` ein:
@@ -17604,99 +17604,99 @@ def main():
             _da190 = False
         pruefe(_da190, 'scbp.%s laesst sich importieren' % _neu190)
 
-    print('\n182. Der Datenschutz-Scanner')
+    print('\n631. Der Datenschutz-Scanner')
     # ⚠⚠ Private Angaben duerfen nicht ins Repo — ein Scanner statt reiner
     # Disziplin. Und **aus dem aktuellen Stand entfernen reicht nicht**:
     # Die Historie behaelt alles. Der Fund muss VOR dem Push passieren.
-    import subprocess as _sp182
-    import tempfile as _tf182
+    import subprocess as _sp631
+    import tempfile as _tf631
 
-    _scan182 = os.path.join(_wurzelpfad, 'tools', 'privacy_scan.py')
-    pruefe(os.path.exists(_scan182), 'es gibt einen Datenschutz-Scanner')
+    _scan631 = os.path.join(_wurzelpfad, 'tools', 'privacy_scan.py')
+    pruefe(os.path.exists(_scan631), 'es gibt einen Datenschutz-Scanner')
 
     # -- Die Sperrliste darf NIE im Repo landen. Das ist die erste Frage.
-    _ign182 = open(os.path.join(_wurzelpfad, '.gitignore'),
+    _ign631 = open(os.path.join(_wurzelpfad, '.gitignore'),
                    encoding='utf-8').read().splitlines()
-    pruefe('.sperrliste' in [z.strip() for z in _ign182],
+    pruefe('.sperrliste' in [z.strip() for z in _ign631],
            'die Sperrliste steht in .gitignore')
 
-    _ordner182 = _tf182.mkdtemp(prefix='pruefung182-')
+    _ordner631 = _tf631.mkdtemp(prefix='pruefung631-')
     try:
         # ⚠ Der Wert ist erfunden, sieht aber aus wie ein echter Fund. Genau
         #   danach wird gleich in der Ausgabe gesucht.
-        _geheim182 = 'HeimlicherWert4711'
-        _probe182 = os.path.join(_ordner182, 'probe.py')
+        _geheim631 = 'HeimlicherWert4711'
+        _probe631 = os.path.join(_ordner631, 'probe.py')
         # privacy-ok: alles hier ist erfunden und wird gleich WEGGEWORFEN —
         # es ist das Pruefmaterial dafuer, dass der Scanner ueberhaupt greift.
         # Ohne diesen Vermerk meldete er seine eigene Pruefung als Fund.
-        with open(_probe182, 'w', encoding='utf-8') as _f182:
-            _f182.write('post = "https://discord.com/api/webhooks/7/%s"\n'  # privacy-ok: erfunden
-                        % _geheim182)
-            _f182.write('mail = "vorname.nachname@gmail.com"\n')  # privacy-ok: erfunden
-            _f182.write('nas = "192.168.0.99"\n')  # privacy-ok: erfunden
-            _f182.write('heim = "/home/echternutzer/geheim"\n')  # privacy-ok: erfunden
+        with open(_probe631, 'w', encoding='utf-8') as _f631:
+            _f631.write('post = "https://discord.com/api/webhooks/7/%s"\n'  # privacy-ok: erfunden
+                        % _geheim631)
+            _f631.write('mail = "vorname.nachname@gmail.com"\n')  # privacy-ok: erfunden
+            _f631.write('nas = "192.168.0.99"\n')  # privacy-ok: erfunden
+            _f631.write('heim = "/home/echternutzer/geheim"\n')  # privacy-ok: erfunden
 
-        _lauf182 = _sp182.run([sys.executable, _scan182, _probe182],
+        _lauf631 = _sp631.run([sys.executable, _scan631, _probe631],
                               capture_output=True, text=True,
                               encoding='utf-8', errors='replace',
                               cwd=_wurzelpfad)
-        _aus182 = (_lauf182.stdout or '') + (_lauf182.stderr or '')
-        pruefe(_lauf182.returncode == 1,
-               'ein Fund macht den Lauf rot (Rueckgabe %d)' % _lauf182.returncode)
-        for _was182 in ('Webhook', 'E-Mail', 'privaten Netz', 'Heimverzeichnis'):
-            pruefe(_was182 in _aus182, 'gefunden: %s' % _was182)
+        _aus631 = (_lauf631.stdout or '') + (_lauf631.stderr or '')
+        pruefe(_lauf631.returncode == 1,
+               'ein Fund macht den Lauf rot (Rueckgabe %d)' % _lauf631.returncode)
+        for _was631 in ('Webhook', 'E-Mail', 'privaten Netz', 'Heimverzeichnis'):
+            pruefe(_was631 in _aus631, 'gefunden: %s' % _was631)
 
         # ⛔⛔ **Die wichtigste Zusage des ganzen Werkzeugs.**
         # Wuerde der Scanner den Fund ausdrucken, staende das Gesuchte im
         # Protokoll eines OEFFENTLICHEN Bau-Laufs — er waere dann selbst die
         # Luecke, die er schliessen soll.
-        pruefe(_geheim182 not in _aus182,
+        pruefe(_geheim631 not in _aus631,
                'der gefundene Text wird NICHT ausgegeben')
-        pruefe('gmail.com' not in _aus182 and 'echternutzer' not in _aus182
-               and '192.168' not in _aus182,
+        pruefe('gmail.com' not in _aus631 and 'echternutzer' not in _aus631
+               and '192.168' not in _aus631,
                'auch die uebrigen Funde stehen nicht im Klartext da')
 
         # -- Und die Gegenrichtung: eine harmlose Datei darf nicht anschlagen.
-        _harmlos182 = os.path.join(_ordner182, 'harmlos.py')
-        with open(_harmlos182, 'w', encoding='utf-8') as _f182:
-            _f182.write('# Beispiel: /home/spieler/Programme, Xharig, '
+        _harmlos631 = os.path.join(_ordner631, 'harmlos.py')
+        with open(_harmlos631, 'w', encoding='utf-8') as _f631:
+            _f631.write('# Beispiel: /home/spieler/Programme, Xharig, '
                         'jemand@example.com\n')
-        _ok182 = _sp182.run([sys.executable, _scan182, _harmlos182],
+        _ok631 = _sp631.run([sys.executable, _scan631, _harmlos631],
                             capture_output=True, text=True, encoding='utf-8',
                             errors='replace', cwd=_wurzelpfad)
-        pruefe(_ok182.returncode == 0,
+        pruefe(_ok631.returncode == 0,
                'erfundene Beispiele und der Name Xharig schlagen NICHT an')
 
         # -- Das ganze Repo muss sauber sein — sonst ist der Scanner ab heute
         #    rot und niemand koennte mehr pushen.
-        _repo182 = _sp182.run([sys.executable, _scan182],
+        _repo631 = _sp631.run([sys.executable, _scan631],
                               capture_output=True, text=True, encoding='utf-8',
                               errors='replace', cwd=_wurzelpfad)
-        pruefe(_repo182.returncode == 0,
+        pruefe(_repo631.returncode == 0,
                'das Repo selbst ist sauber (%s)'
-               % (_repo182.stdout or '').strip().splitlines()[-1:])
+               % (_repo631.stdout or '').strip().splitlines()[-1:])
     finally:
-        shutil.rmtree(_ordner182, ignore_errors=True)
+        shutil.rmtree(_ordner631, ignore_errors=True)
 
     # -- Der Ablauf, der das bei jeder Aenderung tut.
-    _pruef182 = os.path.join(_wurzelpfad, '.github', 'workflows',
+    _pruef631 = os.path.join(_wurzelpfad, '.github', 'workflows',
                              'pruefung.yml')
-    pruefe(os.path.exists(_pruef182), 'es gibt einen Pruef-Ablauf')
-    _py182 = open(_pruef182, encoding='utf-8').read()
-    for _muss182 in ('pull_request', 'privacy_scan.py', 'selbsttest.py',
+    pruefe(os.path.exists(_pruef631), 'es gibt einen Pruef-Ablauf')
+    _py631 = open(_pruef631, encoding='utf-8').read()
+    for _muss631 in ('pull_request', 'privacy_scan.py', 'selbsttest.py',
                      'sprachen_pruefen.py', 'xvfb', 'compileall'):
-        pruefe(_muss182 in _py182, 'der Pruef-Ablauf enthaelt %s' % _muss182)
+        pruefe(_muss631 in _py631, 'der Pruef-Ablauf enthaelt %s' % _muss631)
     # ⚠ ruff darf den Lauf NICHT rot machen — sonst wird der Ablauf umgangen.
-    pruefe('continue-on-error: true' in _py182,
+    pruefe('continue-on-error: true' in _py631,
            'ruff laeuft nur als Bericht, ohne den Lauf rot zu machen')
     # ⚠ Und er darf NICHT bauen: Was baut, dauert, und was dauert, wird umgangen.
     #
     # ⚠⚠ **Nur Nicht-Kommentarzeilen.** Eine Suche im ganzen Text faende den
     # gesuchten Text auch im **eigenen erklaerenden Kommentar** des Ablaufs.
     # Dieselbe Falle wie bei Pruefung 181.
-    _echte182 = [z for z in _py182.splitlines() if not z.lstrip().startswith('#')]
-    _echt182 = '\n'.join(_echte182).lower()
-    pruefe('pyinstaller' not in _echt182 and 'appimage' not in _echt182,
+    _echte631 = [z for z in _py631.splitlines() if not z.lstrip().startswith('#')]
+    _echt631 = '\n'.join(_echte631).lower()
+    pruefe('pyinstaller' not in _echt631 and 'appimage' not in _echt631,
            'der Pruef-Ablauf baut nichts — er prueft nur')
 
     print('\n181. Die Sperrdateien nageln DAS fest, was auch gebaut wird')
