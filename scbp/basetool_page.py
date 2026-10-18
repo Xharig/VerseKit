@@ -267,7 +267,7 @@ def _draw(window, area, login, redraw):
             # Sofort sichtbar machen, dass etwas passiert — der Durchgang
             # selbst startet erst im nächsten Takt des Watchers (Sekunden).
             login['requested'] = True
-            basetool_sync.request_now()
+            basetool_sync.release_held()
             window.say(t('s_bt_laeuft'))
             redraw()
 
@@ -284,16 +284,6 @@ def _draw(window, area, login, redraw):
             _buttons(window, card, [(t('s_bt_konto_bestaetigen'),
                                      basetool_sync.confirm_account, 'strong')])
 
-    # ---------------------------------------- Bestätigung im Browser
-    url = status.get('confirm_url')
-    if url and time.time() < (status.get('confirm_until') or 0):
-        card = _card(area)
-        _title(window, card, t('s_bt_masse'))
-        _note(window, card, t('s_bt_masse_h'))
-        _buttons(window, card, [(t('s_bt_masse_oeffnen'),
-                                 lambda: paths.open_in_browser(url),
-                                 'strong')])
-
     state = basetool_sync.current_state() if connected else None
     if state:
         _decisions(window, area, state)
@@ -301,6 +291,25 @@ def _draw(window, area, login, redraw):
     # ------------------------------------------------------- Hinweis
     _body_text(area, t('s_bt_datenschutz'), window.f_small, fill='x',
                pady=(6, 20))
+
+
+def _held_note(window, card, state, route):
+    """Wartet über `route` eine Sendung auf Bestätigung im Browser: Hinweis,
+    und solange der Link gilt, der Knopf dorthin."""
+    held = basetool_sync.held_routes(state).get(route) if route else None
+    if not held:
+        return
+    if held == 'expired':
+        _note(window, card, t('s_bt_gesperrt_alt'), color=theme.YELLOW,
+              bottom=0)
+        return
+    url = basetool_sync.confirm_link(route)
+    _note(window, card, t('s_bt_masse_h') if url else t('s_bt_gesperrt'),
+          color=theme.YELLOW, bottom=0 if not url else 6)
+    if url:
+        _buttons(window, card, [(t('s_bt_masse_oeffnen'),
+                                 lambda: paths.open_in_browser(url),
+                                 'strong')])
 
 
 def _area_card(window, area, login, redraw, status, connected, granted,
@@ -384,6 +393,8 @@ def _area_card(window, area, login, redraw, status, connected, granted,
                                          .get('location', [])[:5])))
             if c.get('skipped_material'):
                 lines.append(t('s_bt_lager_material', c['skipped_material']))
+            if c.get('guarded'):
+                lines.append(t('s_bt_lager_geschuetzt', c['guarded']))
             if c.get('offers'):
                 lines.append(t('s_bt_lager_angebote', c['offers']))
             if c.get('rejected'):
@@ -433,6 +444,7 @@ def _area_card(window, area, login, redraw, status, connected, granted,
                                    (sub.get('rejected') or {}).values()))[:3])))
     for line in lines:
         _note(window, card, line, color=FG, bottom=0)
+    _held_note(window, card, state, basetool_sync.ROUTES.get(setting))
     if setting == basetool_sync.SETTING_SHIPS:
         _orgunits_consent(window, card, granted, login, redraw)
         _new_ship_unit_row(window, card)

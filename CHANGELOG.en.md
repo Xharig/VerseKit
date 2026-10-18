@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Basetool: a held mass change is no longer resent every few minutes** —
+  when the Basetool holds back a large change to stock, blueprints or hangar
+  until you confirm it in the browser, Verse-Kit now waits with that area
+  instead of sending it again on every sync, and shows the confirm button at
+  that area. Your confirmation link stays valid; sharing in My Inventory waits
+  as well. If the confirmation expires, "Sync now" sends it once more.
+  Reported by greluc (KRT)
+- **Basetool stock: a place outside the location catalog no longer empties
+  lots** — if a place is no longer in the Basetool's location catalog, the
+  lots there stay as they are in the Basetool instead of being set to 0.
+  Reported by greluc (KRT)
+
 ## v4.10.0 - 2026-10-18
 
 > Material storage and cargo hold are now one inventory: **My Inventory**

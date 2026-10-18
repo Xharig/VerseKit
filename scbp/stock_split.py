@@ -69,6 +69,7 @@ REASONS = {
     'STOLEN_MARKING_DISABLED': 's_ml_r_gestohlen',
     'UNMATCHED': 's_ml_r_unbekannt',
     'AMBIGUOUS': 's_ml_r_unbekannt',
+    'MASS_CHANGE_PENDING': 's_ml_r_wartet',
 }
 
 
@@ -270,8 +271,17 @@ def check_amount(text, limit, piece):
 
 
 def send(conn, op):
-    """Die Op schicken. Rückgabe `(True, '')` oder `(False, Grund)`."""
-    from . import basetool
+    """Die Op schicken. Rückgabe `(True, '')` oder `(False, Grund)`.
+
+    ⚠ Wartet über denselben Weg eine Lager-Sendung auf Bestätigung, geht
+    nichts hinaus: Jede neue Sendung machte deren Link ungültig. Geprüft wird
+    der gespeicherte Stand und der Link im Speicher — den setzt der Abgleich,
+    bevor er den Stand speichert."""
+    from . import basetool, basetool_sync
+    state = basetool_sync.current_state() or {}
+    if basetool_sync.held_routes(state).get(CHANGES) == 'pending' \
+            or basetool_sync.confirm_link(CHANGES):
+        return False, 'MASS_CHANGE_PENDING'
     answer = conn.request('POST', CHANGES, {'ops': [op]},
                           idempotency_key=basetool.new_idempotency_key())
     for entry in (answer or {}).get('results') or ():

@@ -261,6 +261,10 @@ TEXTS = {
                             'entscheiden unter Einstellungen → Verbindung & Abgleich.',
                             '%d lots show a different amount in the Basetool — '
                             'decide under Settings → Connection & sync.'),
+    's_lg_sync_wartet': ('Wartet auf deine Bestätigung im Basetool — der Knopf dazu steht unter Einstellungen → Verbindung & Abgleich.',
+                         'Waiting for your confirmation in the Basetool — the button is under Settings → Connection & sync.'),
+    's_lg_sync_abgelaufen': ('Die Bestätigung im Basetool ist abgelaufen, die Änderung ging nicht durch. Ein Klick auf den Abgleich schickt sie noch einmal.',
+                             'The confirmation in the Basetool has expired, the change did not go through. Clicking sync sends it again.'),
     'ff_alle_patches':   ('alle Patches', 'all patches'),
     'neu_leer':          ('Mit dem letzten Patch kam kein neuer Bauplan dazu. '
                           'Sobald CIG welche nachreicht, stehen sie hier.',
@@ -2847,13 +2851,21 @@ TEXTS = {
                               'des eigenen Accounts und sicherer abgelegte '
                               'Zugangsdaten unter Linux. Dazu der Lager-Abgleich: '
                               'Materialien und Items landen im richtigen Lager, '
-                              'Materialien mit ihrer Qualität.',
+                              'Materialien mit ihrer Qualität. Und eine im '
+                              'Basetool zurückgehaltene Massenänderung geht '
+                              'nicht mehr bei jedem Abgleich neu hinaus, '
+                              'Posten an einem Ort außerhalb des '
+                              'Ortskatalogs werden nicht mehr geleert.',
                               '**Review of the Basetool sync** — wait times after '
                               'errors, a full stop after a block, only your own '
                               'account\'s blueprints and more safely stored '
                               'credentials on Linux. Plus the stock sync: '
                               'materials and items land in the right store, '
-                              'materials with their quality.'),
+                              'materials with their quality. And a mass '
+                              'change the Basetool holds back is no longer '
+                              'resent on every sync, and lots at a place '
+                              'outside the location catalog are no longer '
+                              'emptied.'),
     's_dk_parsul_idee':      ('**Bilder im Fehlerbericht** — ein Bildschirmfoto geht '
                               'jetzt direkt mit dem Bericht hinaus, statt es '
                               'getrennt nachzureichen.',
@@ -3991,6 +4003,8 @@ TEXTS = {
                           'The Basetool has its stolen marking switched off.'),
     's_ml_r_unbekannt':  ('Das Basetool erkennt diese Ware nicht eindeutig.',
                           'The Basetool cannot tell which material this is.'),
+    's_ml_r_wartet':     ('Erst die wartende Änderung im Basetool bestätigen (Einstellungen → Verbindung & Abgleich) — sonst verfällt ihr Link.',
+                          'Confirm the waiting change in the Basetool first (Settings → Connection & sync) — otherwise its link expires.'),
     's_ml_r_anders':     ('Das Basetool hat abgelehnt (%s).',
                           'The Basetool refused (%s).'),
     's_ml_teil_herstellen': ('Zum Herstellen (Rohstoffe)',
@@ -7124,9 +7138,15 @@ TEXTS = {
     's_bt_f_kennung':    ('Das Basetool hat keine Kennung für diese Installation geschickt. Abgeglichen wird nicht. Versuch es später mit „Jetzt abgleichen" noch einmal.',
                           'The Basetool did not send an ID for this installation. Nothing is synced. Try again later with "Sync now".'),
     's_bt_masse':        ('Bitte im Browser bestätigen', 'Please confirm in your browser'),
-    's_bt_masse_h':      ('Diesmal würden viele Baupläne im Basetool entfernt. Das Basetool hält das zurück, bis du es dort bestätigst — 30 Minuten lang.',
-                          'This time many blueprints would be removed in the Basetool. The Basetool holds it back until you confirm it there — for 30 minutes.'),
+    's_bt_masse_h':      ('Diesmal würde sich im Basetool viel auf einmal ändern. Das Basetool hält das zurück, bis du es dort bestätigst — 30 Minuten lang. Bis dahin schickt Verse-Kit diesen Bereich nicht noch einmal.',
+                          'This time a lot would change in the Basetool at once. The Basetool holds it back until you confirm it there — for 30 minutes. Until then Verse-Kit does not send this area again.'),
     's_bt_masse_oeffnen': ('Zur Bestätigung', 'Go to confirmation'),
+    's_bt_gesperrt':     ('Wartet auf deine Bestätigung im Basetool — bis dahin schickt Verse-Kit hier nichts. Den Link gibt es nach einem Neustart nicht mehr; nach 30 Minuten schickt „Jetzt abgleichen" die Änderung noch einmal.',
+                          'Waiting for your confirmation in the Basetool — until then Verse-Kit sends nothing here. The link is gone after a restart; after 30 minutes "Sync now" sends the change again.'),
+    's_bt_gesperrt_alt': ('Die Bestätigung im Basetool ist abgelaufen, die Änderung ging nicht durch. „Jetzt abgleichen" schickt sie noch einmal.',
+                          'The confirmation in the Basetool has expired, the change did not go through. "Sync now" sends it again.'),
+    's_bt_lager_geschuetzt': ('%d Posten im Basetool bleiben unverändert, weil ihr Ort hier übersprungen wird.',
+                              '%d lots in the Basetool stay unchanged because their place is skipped here.'),
     's_bt_konflikte':    ('Im Basetool entfernt (%d)', 'Removed in the Basetool (%d)'),
     's_bt_konflikte_h':  ('Diese Baupläne hast du im Basetool gelöscht, deine Spielprotokolle belegen sie aber. Verse-Kit schickt sie nicht von selbst zurück.',
                           'You deleted these blueprints in the Basetool, but your game logs show them. Verse-Kit does not send them back on its own.'),

@@ -592,7 +592,7 @@ def sync_now(window):
     def done():
         pages._from_thread(window.root, finished)
     basetool_sync.LISTENERS.append(done)
-    basetool_sync.request_now()
+    basetool_sync.release_held()
     window.say(t('s_lg_sync_laeuft'))
     return True
 

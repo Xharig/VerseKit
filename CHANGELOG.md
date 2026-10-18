@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Basetool: eine zurückgehaltene Massenänderung wird nicht mehr alle paar
+  Minuten neu geschickt** — hält das Basetool eine große Änderung an
+  Lager, Bauplänen oder Hangar zurück, bis du sie im Browser bestätigst,
+  wartet Verse-Kit mit diesem Bereich, statt sie bei jedem Abgleich neu zu
+  senden, und zeigt den Knopf zur Bestätigung beim jeweiligen Bereich. Dein
+  Bestätigungslink bleibt so gültig; auch Teilen in Mein Lager wartet so
+  lange. Läuft die Bestätigung ab, schickt „Jetzt abgleichen" sie noch
+  einmal. Gemeldet von greluc (KRT)
+- **Basetool-Lager: ein Ort außerhalb des Ortskatalogs leert keine Posten
+  mehr** — steht ein Ort nicht mehr im Ortskatalog des Basetools, bleiben
+  die Posten dort im Basetool unverändert, statt auf 0 gesetzt zu werden.
+  Gemeldet von greluc (KRT)
+
 ## v4.10.0 - 2026-10-18
 
 > Rohstoff- und Handelslager sind jetzt ein Lager: **Mein Lager** unter

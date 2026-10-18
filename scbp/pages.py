@@ -16785,8 +16785,16 @@ def _storage_sync_result(setting=None):
     from . import basetool_sync
     status = dict(basetool_sync.STATUS)
     if status.get('state') == 'ok':
+        state = basetool_sync.current_state() or {}
+        routes = (set(basetool_sync.ROUTES.values()) if setting is None
+                  else {basetool_sync.ROUTES.get(setting)})
+        held = {how for route, how in basetool_sync.held_routes(state).items()
+                if route in routes}
+        if 'pending' in held:
+            return t('s_lg_sync_wartet'), GOLD
+        if held:
+            return t('s_lg_sync_abgelaufen'), GOLD
         if setting in (None, basetool_sync.SETTING_STOCK):
-            state = basetool_sync.current_state() or {}
             conflicts = (state.get('stock') or {}).get('conflicts') or {}
             if conflicts:
                 return t('s_lg_sync_konflikte') % len(conflicts), GOLD
@@ -16810,8 +16818,9 @@ def sync_heading_button(window, parent, page_id, show, make=None):
     Sichtbar nur, solange ihr Abgleich eingeschaltet und das Basetool
     verbunden ist; `show(button, visible)` setzt ihn an seinen Platz oder
     nimmt ihn weg. Geprüft beim Zeigen der Seite und bei jeder Statusänderung
-    des Abgleichs. Ein Klick stößt den vorhandenen Abgleich an
-    (`basetool_sync.request_now`), der im Hintergrund läuft.
+    des Abgleichs. Ein Klick stößt den vorhandenen Abgleich an, der im
+    Hintergrund läuft, und gibt eine abgelaufene Massenänderungs-Sperre auf
+    dem Sendeweg dieser Seite frei (`basetool_sync.release_held`).
 
     `make(click)` baut einen anderen Knopf als den der Überschrift (die
     Karten im Bereich Basetool)."""
@@ -16833,7 +16842,8 @@ def sync_heading_button(window, parent, page_id, show, make=None):
         if page_id == 'meinlager':
             page_usage.action('lager_sync')
         pending['waiting'] = True
-        basetool_sync.request_now()
+        route = basetool_sync.ROUTES.get(setting)
+        basetool_sync.release_held([route] if route else [])
         report(t('s_lg_sync_laeuft'), SUB)
 
     if make is not None:

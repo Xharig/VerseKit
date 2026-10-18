@@ -48,6 +48,7 @@ einem eigenen Faden und reicht seine Änderungen über `watcher.basetool_apply`
 weiter — sonst schriebe der Watcher beim nächsten Fund seinen alten Stand
 zurück, und was aus dem Basetool kam, wäre wieder weg.
 """
+import hashlib
 import json
 import os
 import re
@@ -86,10 +87,17 @@ RESOLVE_AGAIN = 24 * 3600
 # Geheimnis — sie steht nur im Speicher, nie in einer Datei.
 CONFIRM_LIFETIME = 30 * 60
 
+# Die Sendewege, die das Basetool mit einer Massenänderungs-Sperre anhalten kann.
+ROUTE_BLUEPRINTS = '/me/blueprints/changes'
+ROUTE_STOCK = '/me/stock/changes'
+ROUTE_SHIPS = '/me/ships/changes'
+ROUTES = {SETTING_BLUEPRINTS: ROUTE_BLUEPRINTS, SETTING_STOCK: ROUTE_STOCK,
+          SETTING_SHIPS: ROUTE_SHIPS}
+
 _lock = threading.Lock()
+# `confirm`: {Sendeweg: {'url', 'until'}} — die Bestätigungsseite je Weg.
 STATUS = {'state': 'idle', 'code': '', 'running': False, 'last_sync': None,
-          'counts': {}, 'confirm_url': None, 'confirm_until': 0.0,
-          'account': None}
+          'counts': {}, 'confirm': {}, 'account': None}
 # `halted`: nach einem Stopp-Code (Programm gesperrt, Recht fehlt …) gibt es
 # keinen neuen Versuch von selbst — auch nicht nach einer eigenen Änderung.
 _schedule = {'next': 0.0, 'attempt': 0, 'changed_at': None, 'halted': False}
@@ -246,6 +254,116 @@ def _confirm_address(error):
     return safe or None
 
 
+# ------------------------------------------- Zurückgehaltene Sendungen
+# Antwortet das Basetool mit `MASS_CHANGE_CONFIRMATION_REQUIRED`, hält es die
+# Sendung zurück, bis das Mitglied sie im Browser bestätigt. Jede neue Sendung
+# ersetzt die zurückgehaltene und macht den Bestätigungslink ungültig. Darum
+# steht im Stand je Sendeweg `held[route] = {'until', 'fingerprint'}`:
+#
+# * Bis `until` geht über diesen Weg nichts hinaus; geholt wird weiter.
+# * Danach geht dieselbe Sendung (gleicher Fingerabdruck) nicht von selbst
+#   noch einmal hinaus — nur, wenn sich der Plan geändert hat oder der
+#   Spieler einen Abgleich-Knopf drückt (`release_held`).
+# * Ist nichts mehr zu senden (bestätigt oder hier zurückgenommen), fällt der
+#   Eintrag weg.
+#
+# Die Bestätigungsadresse steht nur im Speicher (`STATUS['confirm']`), nie im
+# Stand. Nach einem Neustart gibt es zu einer laufenden Sperre keinen Knopf.
+
+# {Sendeweg}: gesetzt von `release_held`, übernommen und geleert zu Beginn
+# eines Durchgangs.
+_release_requested = [set()]
+# {Sendeweg}: für den laufenden Durchgang — dort darf eine abgelaufene Sperre
+# einmal senden.
+_release_now = [set()]
+
+
+def op_hash(op):
+    """Eine Anweisung ohne `opId` als kurzer Abdruck."""
+    body = json.dumps({k: v for k, v in op.items() if k != 'opId'},
+                      sort_keys=True, ensure_ascii=True)
+    return hashlib.sha256(body.encode('ascii')).hexdigest()
+
+
+def fingerprint(change_sets, skip=()):
+    """Ein Abdruck der Anweisungen, ohne `opId` und ohne die Aufteilung in
+    Sendungen — gleich, solange dasselbe hinausginge. Anweisungen, deren
+    `op_hash` in `skip` steht, zählen nicht mit."""
+    skip = set(skip)
+    hashes = [h for change_set, _keys in change_sets
+              for h in map(op_hash, change_set.get('ops') or ())
+              if h not in skip]
+    return hashlib.sha256('|'.join(hashes).encode('ascii')).hexdigest()
+
+
+def _refused_ops(change_set, keys, refused_keys):
+    """Die Anweisungen einer angenommenen Sendung, die das Basetool für
+    `refused_keys` abgelehnt hat — sie stehen im nächsten Plan wieder."""
+    return [op for op, key in zip(change_set.get('ops') or (), keys)
+            if key in refused_keys]
+
+
+def _hold(state, route, change_sets, error=None, refused=(), now=None):
+    """`route` sperren. `change_sets` sind die Sendungen ab der
+    zurückgehaltenen; `refused` die abgelehnten Anweisungen der angenommenen
+    davor — beide zusammen sind, was der nächste Plan wieder enthält."""
+    now = now or time.time()
+    skip = sorted(op_hash(op) for op in refused)
+    state.setdefault('held', {})[route] = {
+        'until': now + CONFIRM_LIFETIME, 'skip': skip,
+        'fingerprint': fingerprint(change_sets)}
+    with _lock:
+        confirm = dict(STATUS.get('confirm') or {})
+    confirm[route] = {'url': _confirm_address(error) if error else None,
+                      'until': now + CONFIRM_LIFETIME}
+    _set(confirm=confirm)
+
+
+def _clear_hold(state, route):
+    if (state.get('held') or {}).pop(route, None) is None:
+        return
+    with _lock:
+        confirm = dict(STATUS.get('confirm') or {})
+    if confirm.pop(route, None) is not None:
+        _set(confirm=confirm)
+
+
+def confirm_link(route, now=None):
+    """Die Bestätigungsseite für `route`, solange sie gilt — sonst `None`."""
+    now = now or time.time()
+    with _lock:
+        entry = (STATUS.get('confirm') or {}).get(route) or {}
+    if entry.get('url') and now < float(entry.get('until') or 0):
+        return entry['url']
+    return None
+
+
+def may_send(state, route, change_sets, now=None):
+    """Darf über `route` jetzt gesendet werden? Siehe oben."""
+    hold = (state.get('held') or {}).get(route)
+    if hold is None:
+        return True
+    if not change_sets:
+        _clear_hold(state, route)
+        return True
+    now = now or time.time()
+    if now < float(hold.get('until') or 0):
+        return False
+    if route in _release_now[0] or fingerprint(
+            change_sets, hold.get('skip') or ()) != hold.get('fingerprint'):
+        _clear_hold(state, route)
+        return True
+    return False
+
+
+def held_routes(state, now=None):
+    """{Sendeweg: 'pending' | 'expired'} — was gerade zurückgehalten ist."""
+    now = now or time.time()
+    return {route: ('pending' if now < float(hold.get('until') or 0)
+                    else 'expired')
+            for route, hold in (state.get('held') or {}).items()}
+
+
 def _set(**values):
     with _lock:
         STATUS.update(values)
@@ -284,6 +402,16 @@ def request_now():
         _schedule['attempt'] = 0
         _schedule['halted'] = False
         _schedule['again'] = True
+
+
+def release_held(routes=None):
+    """Ein Abgleich-Knopf: sofort abgleichen, und eine abgelaufene
+    Massenänderungs-Sperre auf `routes` (ohne Angabe: alle Wege) darf im
+    nächsten Durchgang einmal neu senden. Eine laufende Sperre bleibt."""
+    with _lock:
+        _release_requested[0] |= set(ROUTES.values() if routes is None
+                                     else routes)
+    request_now()
 
 
 def due(now=None):
@@ -548,6 +676,8 @@ def _run(watcher):
     # Was bis hierher vorgemerkt wurde, steht schon in der Datei.
     with _lock:
         del _inbox[:]
+        _release_now[0] = set(_release_requested[0])
+        _release_requested[0] = set()
     state = load_state(installation_id)
     wanted_label = label()
     if state.get('label_sent') != wanted_label:
@@ -649,16 +779,25 @@ def _sync_blueprints(conn, state, watcher):
     sent_removals, counts = [], {'added': 0, 'removed': 0, 'unchanged': 0,
                                   'unmatched': 0, 'ambiguous': 0}
     new_conflicts = dict(plan['conflicts'])
-    for change_set, targets in exchange_sync.sync_change_sets(plan, local):
+    change_sets = exchange_sync.sync_change_sets(plan, local)
+    # Kennungen der Sendungen, die das Basetool angenommen hat — nur deren
+    # Löschungen und `override` gelten als erledigt.
+    posted, refused = set(), []
+    if not may_send(state, ROUTE_BLUEPRINTS, change_sets):
+        counts['paused'] = 1
+        change_sets = []
+    for number, (change_set, targets) in enumerate(change_sets):
         try:
-            result = conn.request('POST', '/me/blueprints/changes', change_set,
+            result = conn.request('POST', ROUTE_BLUEPRINTS, change_set,
                                   idempotency_key=basetool.new_idempotency_key())
         except basetool.ApiError as error:
             if error.code == 'MASS_CHANGE_CONFIRMATION_REQUIRED':
-                _set(confirm_url=_confirm_address(error),
-                     confirm_until=time.time() + CONFIRM_LIFETIME)
+                _hold(state, ROUTE_BLUEPRINTS, change_sets[number:], error,
+                      refused)
+                counts['paused'] = 1
                 break
             raise
+        posted.update(targets)
         read = exchange_sync.read_result(result, targets)
         counts['unchanged'] += int(result.get('unchanged') or 0)
         counts['unmatched'] += len(read['unmatched'])
@@ -674,6 +813,7 @@ def _sync_blueprints(conn, state, watcher):
         failed = set(read['conflicts']) | set(read['unmatched']) \
             | set(read['ambiguous']) | {k for k, _r in read['rejected']} \
             | unchanged
+        refused += _refused_ops(change_set, targets, failed)
         for op, key in zip(change_set['ops'], targets):
             if key in failed:
                 continue
@@ -708,7 +848,17 @@ def _sync_blueprints(conn, state, watcher):
     if changes and watcher is not None:
         watcher.basetool_apply(changes)
 
-    done = {k for k, _bt in plan['remove']}
+    done = {k for k, _bt in plan['remove'] if k in posted}
+    # Freigaben, die drüben schon erledigt sind (etwa eine im Browser
+    # bestätigte Sendung): Entfernt ist, was nicht mehr im Stand steht;
+    # zurückgeholt, was wieder drin steht.
+    linked = dict(state.get('links') or {})
+    linked.update(new_links)
+    pending = {k for k in set(state.get('pending_removals') or ()) - done
+               if linked.get(k) in server}
+    overrides = {k for k in set(state.get('overrides') or ())
+                 - (set(plan['override']) & posted)
+                 if linked.get(k) not in server}
     state.update({
         'cursor': cursor,
         'baseline': {bt: {'key': bt, 'ref': (item.get('ref') or {}),
@@ -720,10 +870,8 @@ def _sync_blueprints(conn, state, watcher):
                       if bt not in server},
         'local_removed': {k: bt for k, bt in plan['local_removed'].items()
                           if bt in server},
-        'pending_removals': sorted(set(state.get('pending_removals') or ())
-                                   - done),
-        'overrides': sorted(set(state.get('overrides') or ())
-                            - set(plan['override'])),
+        'pending_removals': sorted(pending),
+        'overrides': sorted(overrides),
         'own_removed_keys': sorted(set(state.get('own_removed_keys') or ())
                                    | set(sent_removals)),
     })
@@ -827,29 +975,56 @@ def _locations(conn):
     return _LOCATIONS['places']
 
 
+def _send_unless_held(conn, route, change_sets, state):
+    """`_send` hinter der Massenänderungs-Sperre (siehe `may_send`).
+
+    Im Zusatzzähler steht `paused`, wenn eine Sendung auf Bestätigung wartet,
+    und `posted` mit den Kennungen der angenommenen Sendungen davor (bei einer
+    Sperre vor dem ersten Senden leer)."""
+    change_sets = list(change_sets)
+    if not may_send(state, route, change_sets):
+        return [], 0, {'paused': 1, 'posted': []}
+    failed, applied, extra = _send(conn, route, change_sets)
+    refused = extra.pop('refused', [])
+    if 'held' in extra:
+        held = extra.pop('held')
+        _hold(state, route, change_sets[held:], extra.pop('held_error', None),
+              refused)
+        extra['paused'] = 1
+    return failed, applied, extra
+
+
 def _send(conn, route, change_sets):
     """Sendungen abschicken. Rückgabe: ([(Kennung, Ergebnis, Grund)] der
-    NICHT angewandten Anweisungen, Anzahl angewandt, Zusatzzähler)."""
-    failed, applied, extra = [], 0, {}
-    for change_set, keys in change_sets:
+    NICHT angewandten Anweisungen, Anzahl angewandt, Zusatzzähler).
+
+    Hält das Basetool eine Sendung zur Bestätigung zurück, endet die Schleife
+    dort: Der Zusatzzähler trägt dann `held` (ihre Nummer) und `held_error`.
+    `posted` nennt die Kennungen aller angenommenen Sendungen, `refused` die
+    darin abgelehnten Anweisungen."""
+    failed, applied, extra = [], 0, {'posted': [], 'refused': []}
+    for number, (change_set, keys) in enumerate(change_sets):
         try:
             result = conn.request('POST', route, change_set,
                                   idempotency_key=basetool.new_idempotency_key())
         except basetool.ApiError as error:
             if error.code == 'MASS_CHANGE_CONFIRMATION_REQUIRED':
-                _set(confirm_url=_confirm_address(error),
-                     confirm_until=time.time() + CONFIRM_LIFETIME)
+                extra['held'], extra['held_error'] = number, error
                 break
             raise
+        extra['posted'] += list(keys)
         applied += int(result.get('applied') or 0)
         for name in ('offersReduced', 'offersRemoved', 'detachedFromMissions'):
             extra[name] = extra.get(name, 0) + int(result.get(name) or 0)
+        refused_keys = set()
         for entry in result.get('results') or ():
             index = entry.get('index')
             if isinstance(index, int) and 0 <= index < len(keys) \
                     and entry.get('result') != 'unchanged':
                 failed.append((keys[index], entry.get('result'),
                                entry.get('reason') or ''))
+                refused_keys.add(keys[index])
+        extra['refused'] += _refused_ops(change_set, keys, refused_keys)
     return failed, applied, extra
 
 
@@ -934,10 +1109,13 @@ def _sync_stock(conn, state):
     decisions = dict(sub.get('decisions') or {})
     result = exchange_stock.plan(local, server, sub.get('baseline'), decisions,
                                  open_conflicts=set(sub.get('conflicts') or ()))
+    result, guarded = exchange_stock.keep_unmapped(result, local, server,
+                                                   skipped)
     overrides = {k for k, v in decisions.items() if v == 'mine'}
-    failed, applied, extra = _send(
-        conn, '/me/stock/changes',
-        exchange_stock.change_sets(result, local, server, overrides=overrides))
+    failed, applied, extra = _send_unless_held(
+        conn, ROUTE_STOCK,
+        exchange_stock.change_sets(result, local, server, overrides=overrides),
+        state)
     rejected = {key: reason or kind for key, kind, reason in failed}
 
     if applied:
@@ -973,7 +1151,12 @@ def _sync_stock(conn, state):
     sub.update({'server': server_raw, 'baseline': baseline,
                 'conflicts': {k: list(v) for k, v in conflicts.items()},
                 'conflict_names': names_of,
-                'decisions': {}, 'rejected': rejected,
+                # Bei einer Sperre bleibt `decisions` für alles stehen, was
+                # nicht hinausging.
+                'decisions': {k: v for k, v in decisions.items()
+                              if k not in set(extra.get('posted') or ())}
+                if extra.get('paused') else {},
+                'rejected': rejected,
                 'skipped': {k: sorted(set(v))[:20] for k, v in skipped.items()}})
     # Persönlich/gemeinsam steht nur drüben (`split`). Ändert sich das —
     # oder kommt ein Posten dazu oder fällt weg —, zeichnet Mein Lager seine
@@ -984,6 +1167,7 @@ def _sync_stock(conn, state):
             'conflicts': len(conflicts), 'rejected': len(rejected),
             'skipped_location': len(set(skipped['location'])),
             'skipped_material': len(set(skipped['material'])),
+            'guarded': len(guarded), 'paused': extra.get('paused', 0),
             'offers': extra.get('offersReduced', 0)
             + extra.get('offersRemoved', 0)}
 
@@ -1114,13 +1298,24 @@ def _sync_ships(conn, state, units_ok=False):
                              {ext: ship['ref'] for ext, ship in local.items()},
                              cache)
     result = exchange_ships.plan(local, resolved, server, sub)
-    failed, applied, extra = _send(
-        conn, '/me/ships/changes',
+    failed, applied, extra = _send_unless_held(
+        conn, ROUTE_SHIPS,
         exchange_ships.change_sets(
             result, local, resolved, server,
             new_unit=_new_ship_unit(units_ok),
-            known_units=_known_units() if units_ok else None))
+            known_units=_known_units() if units_ok else None),
+        state)
     rejected = {ext: reason or kind for ext, kind, reason in failed}
+    # Bei einer Sperre zählt nur, was in einer angenommenen Sendung stand.
+    if extra.get('paused'):
+        posted = set(extra.get('posted') or ())
+
+        def sent(entry):
+            return (entry[0] if isinstance(entry, (tuple, list))
+                    else entry) in posted
+        result = dict(result, **{
+            name: [e for e in result.get(name) or () if sent(e)]
+            for name in ('link', 'create', 'update', 'remove', 'override')})
     # Einheit abgelehnt: die des Basetools übernehmen (siehe UNIT_REJECTIONS).
     unit_reset = sorted(ext for ext, reason in rejected.items()
                         if reason in UNIT_REJECTIONS
@@ -1170,6 +1365,14 @@ def _sync_ships(conn, state, units_ok=False):
             baseline_unit[ext] = exchange_ships.server_unit(ship)
     done = {ext for ext, _sid in result['remove']}
     created = set(result['create']) - set(rejected)
+    # Freigaben, die drüben schon erledigt sind (etwa eine im Browser
+    # bestätigte Sendung): Entfernt ist, was nicht mehr im Stand steht;
+    # zurückgeholt, was wieder verknüpft ist.
+    pending = {ext for ext in set(sub.get('pending_removals') or ()) - done
+               if links.get(ext) in server}
+    overrides = {ext for ext in set(sub.get('overrides') or ())
+                 - set(result.get('override') or ())
+                 if links.get(ext) not in server}
     sub.update({'server': server, 'links': links, 'baseline': baseline,
                 'baseline_name': baseline_name,
                 'baseline_fitted': baseline_fitted,
@@ -1177,10 +1380,8 @@ def _sync_ships(conn, state, units_ok=False):
                 'removed_elsewhere': sorted(elsewhere - created),
                 'local_removed': {k: v for k, v in result['local_removed'].items()
                                   if v in server and k not in done},
-                'pending_removals': sorted(set(sub.get('pending_removals') or ())
-                                           - done),
-                'overrides': sorted(set(sub.get('overrides') or ())
-                                    - set(result.get('override') or ())),
+                'pending_removals': sorted(pending),
+                'overrides': sorted(overrides),
                 'rejected': {k: v for k, v in rejected.items()
                              if k not in unit_reset},
                 'names': {ext: local[ext]['name'] for ext in local}})
@@ -1194,7 +1395,8 @@ def _sync_ships(conn, state, units_ok=False):
                               - set(unit_reset)),
             'unit_refused': len(unit_reset),
             'unresolved': len([e for e in local if e not in resolved]),
-            'detached': extra.get('detachedFromMissions', 0)}
+            'detached': extra.get('detachedFromMissions', 0),
+            'paused': extra.get('paused', 0)}
 
 
 def _apply_ships(result, server, local):
@@ -1406,4 +1608,4 @@ def forget_installation():
             except OSError:
                 pass
     _set(state='idle', code='', counts={}, installation_id=None,
-         last_sync=None, confirm_url=None, account=None)
+         last_sync=None, confirm={}, account=None)

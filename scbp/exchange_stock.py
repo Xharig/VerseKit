@@ -310,6 +310,48 @@ def plan(local, server, baseline, decisions=None, open_conflicts=()):
     return {'push': push, 'take': take, 'conflicts': conflicts}
 
 
+def keep_unmapped(plan_result, local, server, skipped):
+    """Posten des Basetools an einem Ort schützen, den `local_lots` hier
+    überspringen musste, weil er nicht im Ortskatalog steht. Rückgabe:
+    (Plan, {Kennung}) — die Kennungen, für die dadurch etwas weggelassen
+    wurde.
+
+    ⚠ Ohne Ort fehlen alle Zeilen dieses Orts in `local`, und `plan` hält
+    die Posten dort für hier entfernt: Sie gingen mit Menge 0 hinaus. Darum
+    geht für sie keine Verringerung hinaus, nichts wird hier übernommen (eine
+    neue Zeile stünde neben der übersprungenen) und es entsteht kein
+    Konflikt. Verglichen wird der Ortsname ohne Groß- und Kleinschreibung.
+
+    Übersprungene Materialien schützen nichts: Ein Name, den das Basetool
+    für einen Posten führt, wird über diesen Posten aufgelöst
+    (`basetool_sync._sync_stock`); ein Name, der nie aufgelöst wurde, kann
+    keinen Posten angelegt haben."""
+    places = {(p or '').strip().lower() for p in skipped.get('location') or ()}
+    places.discard('')
+    guarded = set()
+    for key, lot in server.items():
+        place = ((lot.get('location') or {}).get('name') or '').strip().lower()
+        if place in places:
+            guarded.add(key)
+    if not guarded:
+        return plan_result, set()
+
+    def amount_here(key):
+        return local[key]['amount'] if key in local else 0
+
+    push = [entry for entry in plan_result['push']
+            if not (entry[0] in guarded and entry[1] < entry[2])]
+    take = [entry for entry in plan_result['take']
+            if not (entry[0] in guarded and entry[0] not in local)]
+    conflicts = {key: value for key, value in plan_result['conflicts'].items()
+                 if not (key in guarded and amount_here(key) < value[1])}
+    touched = (({e[0] for e in plan_result['push']} - {e[0] for e in push})
+               | ({e[0] for e in plan_result['take']} - {e[0] for e in take})
+               | (set(plan_result['conflicts']) - set(conflicts)))
+    out = dict(plan_result, push=push, take=take, conflicts=conflicts)
+    return out, touched
+
+
 def change_sets(plan_result, local, server, batch=500, overrides=()):
     """Die Sendungen: [(change_set, Kennungen)] — `set-quantity` je Posten.
 

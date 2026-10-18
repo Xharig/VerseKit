@@ -25744,6 +25744,8 @@ def main():
     _pruefung_502()
     _pruefung_503()
     _pruefung_504()
+    _pruefung_505()
+    _pruefung_506()
 
     print()
     if fehler:
@@ -50783,6 +50785,471 @@ def _pruefung_504():
                'aus: der Joystick-Faden endet')
     finally:
         zurueck()
+
+
+class _BtLager505:
+    """Attrappe des Basetools für das Lager: Posten, Feed, Ortskatalog,
+    Auflösung — und, mit `hold`, die Massenänderungs-Sperre."""
+
+    URL = 'https://profit-base.online/confirm/505'
+
+    def __init__(self, orte=('Levski',)):
+        self.lots, self.stones, self.orte = {}, [], list(orte)
+        self.hold, self.posts, self.held_body = False, 0, None
+
+    def _item(self, key, lot):
+        return {'key': key, 'material': {'bt': lot['bt'], 'name': lot['name']},
+                'location': {'name': lot['ort']}, 'quality': lot['q'],
+                'stolen': False, 'kind': 'MATERIAL',
+                'quantity': {'amount': lot['menge'], 'unit': 'SCU'}}
+
+    def _apply(self, ops):
+        for op in ops:
+            bt, ort = op['material']['bt'], op['location']['name']
+            key = next((k for k, l in self.lots.items() if l['bt'] == bt
+                        and l['ort'] == ort and l['q'] == op['quality']), None)
+            menge = op['quantity']['amount']
+            if not menge:
+                if key:
+                    del self.lots[key]
+                    self.stones.append({'key': key})
+                continue
+            key = key or 'L-%d' % (len(self.lots) + len(self.stones) + 1)
+            self.lots[key] = {'bt': bt, 'name': op['material'].get('name', bt),
+                              'ort': ort, 'q': op['quality'], 'menge': menge}
+
+    def confirm(self):
+        self._apply(self.held_body['ops'])
+        self.held_body = None
+
+    def request(self, method, path, body=None, **_k):
+        from scbp import basetool as _bt
+        if path == '/me/stock':
+            return {'items': [self._item(k, l) for k, l in self.lots.items()],
+                    'removed': list(self.stones), 'nextCursor': 'c-505',
+                    'hasMore': False}
+        if path == '/catalog/locations':
+            return {'items': [{'name': o} for o in self.orte]}
+        if path == '/catalog/resolve':
+            return {'results': [
+                {'index': i, 'status': 'resolved',
+                 'ref': {'bt': 'bt-' + r['name'].lower()}}
+                if body['kind'] == 'MATERIAL' else
+                {'index': i, 'status': 'unmatched'}
+                for i, r in enumerate(body['refs'])]}
+        if path == '/me/stock/changes':
+            self.posts += 1
+            if self.hold:
+                self.held_body = body
+                raise _bt.ApiError('MASS_CHANGE_CONFIRMATION_REQUIRED', 409,
+                                   problem={'confirmationUrl': self.URL})
+            self._apply(body['ops'])
+            return {'applied': len(body['ops']), 'results': []}
+        raise AssertionError(path)
+
+    # Was `basetool_sync.run` außer `request` von der Verbindung braucht.
+    def connected(self):
+        return True
+
+    def service_document(self):
+        from scbp import basetool as _bt
+        return {'installationId': 'pruefung-505',
+                'capabilities': list(_bt.SCOPES_STOCK)}
+
+    def label_installation(self, label):
+        return None
+
+    def account_check(self, handle):
+        return 'match'
+
+    def not_offered(self, scopes):
+        return []
+
+
+def _lager_lauf505(kopf):
+    """Den echten Durchgang (`basetool_sync.run`) nur mit dem Lager, gegen die
+    Attrappe — Einstellungen, Account und Verbindung untergeschoben."""
+    from scbp import (basetool as _bt, basetool_sync as _bs, logsource as _ls,
+                      paths as _pa)
+    alt = (_bt.CONNECTION, _ls.own_account, _bs.IN_TK[0],
+           _bs.PAGES_CHANGED[0], [_pa.setting(s) for s, _sc in _bs.AREAS])
+    try:
+        for setting, _scopes in _bs.AREAS:
+            _pa.set_setting(setting, setting == _bs.SETTING_STOCK)
+        _bt.CONNECTION = kopf
+        _ls.own_account = lambda files=None: 'Pruefer505'
+        _bs.IN_TK[0] = None
+        _bs.PAGES_CHANGED[0] = None
+        _bs._LOCATIONS.update(at=0.0, places={})
+        _bs.run(None)
+        return _bs.load_state('pruefung-505')
+    finally:
+        _bs._LOCATIONS.update(at=0.0, places={})
+        (_bt.CONNECTION, _ls.own_account, _bs.IN_TK[0],
+         _bs.PAGES_CHANGED[0]) = alt[:4]
+        for (setting, _sc), wert in zip(_bs.AREAS, alt[4]):
+            _pa.set_setting(setting, wert)
+
+
+def _bt_zustand505():
+    """Zustand des Abgleich-Moduls sichern; Rückgabe stellt ihn wieder her."""
+    from scbp import basetool_sync as _bs
+    alt = (dict(_bs.STATUS), dict(_bs._schedule),
+           set(_bs._release_requested[0]), set(_bs._release_now[0]))
+
+    def zurueck():
+        _bs.STATUS.clear()
+        _bs.STATUS.update(alt[0])
+        _bs._schedule.clear()
+        _bs._schedule.update(alt[1])
+        _bs._release_requested[0], _bs._release_now[0] = alt[2], alt[3]
+    return zurueck
+
+
+def _pruefung_505():
+    """505. Basetool: nach einer Massenänderungs-Sperre nicht neu senden."""
+    print('\n505. Basetool: zurückgehaltene Sendung nicht wiederholen')
+    import tempfile as _tf
+    import time as _ti
+    from scbp import (basetool as _bt, basetool_sync as _bs, fleet as _fl,
+                      materials as _mt, trade_cargo as _tc,
+                      exchange_ships as _xs, exchange_sync as _ex)
+    heim = _tf.mkdtemp(prefix='pruefung505-')
+    alt_heim = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    route = _bs.ROUTE_STOCK
+    zustand = _bt_zustand505()
+    try:
+        # --- Lager, über den echten Durchgang
+        _mt.save([{'material': 'Erz%02d' % n, 'menge': 5, 'qualitaet': 0,
+                   'ort': 'Levski'} for n in range(12)])
+        _tc.save([])
+        kopf = _BtLager505()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 1 and len(kopf.lots) == 12,
+               'Vorbedingung: der erste Abgleich legt 12 Posten an (%d / %d)'
+               % (kopf.posts, len(kopf.lots)))
+        _mt.save([])
+        kopf.hold = True
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 2 and _bs.held_routes(stand) == {route: 'pending'},
+               'Vorbedingung: die Sperre greift beim zweiten Senden (%d, %r)'
+               % (kopf.posts, _bs.held_routes(stand)))
+        pruefe(_bs.confirm_link(route) == kopf.URL
+               and kopf.URL not in json.dumps(stand),
+               'der Bestätigungslink steht nur im Speicher, nicht im Stand')
+        from scbp import pages as _sei, stock_split as _ss
+        from scbp.language import t as _t
+        pruefe(_sei._storage_sync_result(_bs.SETTING_STOCK)[0]
+               == _t('s_lg_sync_wartet'),
+               'der Abgleich-Knopf meldet „wartet", nicht „abgeglichen"')
+        try:
+            teilen = _ss.send(kopf, {'op': 'share'})
+        except _bt.ApiError as fehler:
+            teilen = ('ApiError', fehler.code)
+        pruefe(teilen == (False, 'MASS_CHANGE_PENDING') and kopf.posts == 2,
+               'Teilen in Mein Lager sendet nicht, solange die Bestätigung '
+               'aussteht (%r, %d)' % (teilen, kopf.posts))
+        # Ein `mine` in `decisions` bleibt stehen, solange nichts hinausging.
+        from scbp import exchange_stock as _xst
+        erz = _xst.identity('bt-erz00', 'Levski', 0, False)
+        stand['stock']['decisions'] = {erz: 'mine'}
+        _bs.save_state(stand)
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 2,
+               'während die Bestätigung aussteht, geht nichts erneut hinaus '
+               '(%d Sendungen)' % kopf.posts)
+        pruefe((stand.get('stock') or {}).get('baseline'),
+               'geholt wird weiter (Stand des Basetools vorhanden)')
+        pruefe((stand['stock'].get('decisions') or {}).get(erz) == 'mine',
+               'die Entscheidung bleibt stehen, solange nichts hinausging (%r)'
+               % stand['stock'].get('decisions'))
+        stand['stock']['decisions'] = {}
+        _bs.save_state(stand)
+        _mt.save([{'material': 'Erz99', 'menge': 1, 'qualitaet': 0,
+                   'ort': 'Levski'}])
+        _lager_lauf505(kopf)
+        pruefe(kopf.posts == 2, 'auch eine neue Änderung hier sendet nicht, '
+               'solange die Bestätigung aussteht (%d)' % kopf.posts)
+        _mt.save([])
+
+        def ablaufen():
+            jetzt = _bs.load_state('pruefung-505')
+            jetzt['held'][route]['until'] = _ti.time() - 1
+            _bs.save_state(jetzt)
+        ablaufen()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 2 and _bs.held_routes(stand) == {route: 'expired'},
+               'abgelaufen, gleiche Sendung: nicht von selbst wiederholt '
+               '(%d, %r)' % (kopf.posts, _bs.held_routes(stand)))
+        _bs.request_now()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 2,
+               'ein Anstoß ohne Abgleich-Knopf (`request_now`) gibt nicht frei '
+               '(%d)' % kopf.posts)
+        _bs.release_held()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 3 and _bs.held_routes(stand) == {route: 'pending'},
+               'Abgleich-Knopf: genau einmal neu gesendet (%d, %r)'
+               % (kopf.posts, _bs.held_routes(stand)))
+        ablaufen()
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 3, 'die Freigabe gilt nur für einen Durchgang '
+               '(%d)' % kopf.posts)
+
+        kopf.confirm()
+        kopf.hold = False
+        stand = _lager_lauf505(kopf)
+        pruefe(kopf.posts == 3 and not _bs.held_routes(stand)
+               and not kopf.lots and _bs.confirm_link(route) is None,
+               'im Browser bestätigt: nichts mehr zu senden, Sperre und Link '
+               'weg (%d, %r, %d Posten)' % (kopf.posts, _bs.held_routes(stand),
+                                            len(kopf.lots)))
+
+        # --- Link je Sendeweg, Abdruck ohne opId und Aufteilung
+        zwei = {'installation_id': 'pruefung-505-zwei'}
+        fehler_a = _bt.ApiError('MASS_CHANGE_CONFIRMATION_REQUIRED', 409,
+                                problem={'confirmationUrl': kopf.URL + '/a'})
+        fehler_b = _bt.ApiError('MASS_CHANGE_CONFIRMATION_REQUIRED', 409,
+                                problem={'confirmationUrl': kopf.URL + '/b'})
+        _bs._hold(zwei, _bs.ROUTE_STOCK, [], fehler_a)
+        _bs._hold(zwei, _bs.ROUTE_SHIPS, [], fehler_b)
+        pruefe(_bs.confirm_link(_bs.ROUTE_STOCK) == kopf.URL + '/a'
+               and _bs.confirm_link(_bs.ROUTE_SHIPS) == kopf.URL + '/b',
+               'zwei Sperren zugleich: jeder Weg behält seinen Link')
+        # Der Link steht schon im Speicher, der Stand noch nicht in der Datei
+        # (der Abgleich speichert erst danach).
+        posts = kopf.posts
+        try:
+            teilen = _ss.send(kopf, {'op': 'share'})
+        except Exception as fehler:
+            teilen = (type(fehler).__name__, str(fehler)[:40])
+        pruefe(teilen == (False, 'MASS_CHANGE_PENDING') and kopf.posts == posts,
+               'Teilen sendet auch, wenn die Sperre nur im Speicher steht, '
+               'nicht (%r)' % (teilen,))
+        _bs._clear_hold(zwei, _bs.ROUTE_STOCK)
+        pruefe(_bs.confirm_link(_bs.ROUTE_STOCK) is None
+               and _bs.confirm_link(_bs.ROUTE_SHIPS) == kopf.URL + '/b',
+               'eine Sperre fällt weg: nur ihr Link geht')
+        _bs._clear_hold(zwei, _bs.ROUTE_SHIPS)
+        a1 = {'op': 'set-quantity', 'x': 1}
+        a2 = {'op': 'set-quantity', 'x': 2}
+        pruefe(_bs.fingerprint([({'ops': [dict(a1, opId='s501')]}, []),
+                                ({'ops': [dict(a2, opId='s502')]}, [])])
+               == _bs.fingerprint([({'ops': [dict(a1, opId='s1'),
+                                             dict(a2, opId='s2')]}, [])])
+               and _bs.fingerprint([({'ops': [a1]}, [])])
+               != _bs.fingerprint([({'ops': [a2]}, [])]),
+               'der Abdruck sieht nur die Anweisungen, nicht opId und '
+               'Aufteilung')
+        # Teilsendung: a1 ging in einer angenommenen Sendung hinaus und wurde
+        # abgelehnt, a2 wurde zurückgehalten. Der nächste Plan enthält beide.
+        teil = {'installation_id': 'pruefung-505-teil'}
+        _bs._hold(teil, _bs.ROUTE_BLUEPRINTS, [({'ops': [dict(a2, opId='s2')]},
+                                                ['k2'])],
+                  None, [dict(a1, opId='s1')])
+        teil['held'][_bs.ROUTE_BLUEPRINTS]['until'] = _ti.time() - 1
+        pruefe(not _bs.may_send(teil, _bs.ROUTE_BLUEPRINTS,
+                                [({'ops': [dict(a1, opId='s1'),
+                                           dict(a2, opId='s2')]},
+                                  ['k1', 'k2'])]),
+               'Teilsendung: eine abgelehnte Anweisung davor macht den Plan '
+               'nicht „neu"')
+        _bs._clear_hold(teil, _bs.ROUTE_BLUEPRINTS)
+        _bs.release_held([_bs.ROUTE_SHIPS])
+        pruefe(_bs._release_requested[0] == {_bs.ROUTE_SHIPS},
+               'die Freigabe eines Knopfs gilt nur für seinen Weg (%r)'
+               % _bs._release_requested[0])
+        _bs._release_requested[0] = set()
+
+        # --- Hangar: dieselbe Sperre über `_send_unless_held`
+        hangar = {'name': 'Cutlass Black', 'hersteller': 'Drake', 'lti': True}
+        ext = _xs.external_id(hangar)
+        _fl.save({'format': 1, 'schiffe': [hangar]})
+        alt = (_bs._pull_generic, _bs._resolve_refs, _bs._send,
+               _bs._own_ship_names, _bs.IN_TK[0], _bs.PAGES_CHANGED[0])
+        gesendet = []
+
+        def senden(conn, path, sets):
+            gesendet.append(path)
+            return [], 0, {'held': 0, 'posted': []}
+        try:
+            # Ein verknüpftes Schiff, hier entfernt und zum Entfernen
+            # freigegeben: Es gehört in dieselbe Sendung.
+            weg = {'s-9': {'shipId': 's-9', 'externalId': 'weg-1', 'version': 1,
+                           'shipType': {'bt': 'st-cut', 'name': 'Cutlass Black'},
+                           'insurance': {'kind': 'LTI'}}}
+            _bs._pull_generic = lambda conn, sub, r, key: (dict(weg), False)
+            _bs._resolve_refs = lambda conn, kind, refs, cache: {ext: 'st-cut'}
+            _bs._send = senden
+            _bs._own_ship_names = lambda data: {}
+            _bs.IN_TK[0] = _bs.PAGES_CHANGED[0] = None
+            schiffe = {'ships': {'pending_removals': ['weg-1']}}
+            _bs._sync_ships(None, schiffe, False)
+            zahl = _bs._sync_ships(None, schiffe, False)
+            pruefe(gesendet == [_bs.ROUTE_SHIPS] and zahl.get('paused') == 1,
+                   'Hangar: nach der Sperre kein zweites Senden (%r)' % gesendet)
+            pruefe(schiffe['ships'].get('pending_removals') == ['weg-1'],
+                   'Hangar: freigegebene Entfernungen bleiben vorgemerkt')
+            schiffe['held'][_bs.ROUTE_SHIPS]['until'] = _ti.time() - 1
+            _bs._sync_ships(None, schiffe, False)
+            pruefe(gesendet == [_bs.ROUTE_SHIPS],
+                   'Hangar: abgelaufen, gleicher Plan: nicht wiederholt')
+            _bs._release_now[0] = {_bs.ROUTE_STOCK}
+            _bs._sync_ships(None, schiffe, False)
+            pruefe(gesendet == [_bs.ROUTE_SHIPS],
+                   'Hangar: die Freigabe eines anderen Wegs gibt ihn nicht frei')
+            _bs._release_now[0] = {_bs.ROUTE_SHIPS}
+            _bs._sync_ships(None, schiffe, False)
+            _bs._release_now[0] = set()
+            pruefe(len(gesendet) == 2, 'Hangar: mit Freigabe genau einmal')
+            pruefe(schiffe['ships'].get('pending_removals') == ['weg-1'],
+                   'Hangar: auch nach der zweiten Sperre bleibt die Entfernung '
+                   'vorgemerkt')
+            # Im Browser bestätigt: Das Schiff ist drüben weg.
+            _bs._pull_generic = lambda conn, sub, r, key: ({}, False)
+            _bs._sync_ships(None, schiffe, False)
+            pruefe(schiffe['ships'].get('pending_removals') == [],
+                   'Hangar: drüben erledigt, die Freigabe fällt weg (%r)'
+                   % schiffe['ships'].get('pending_removals'))
+        finally:
+            _bs._release_now[0] = set()
+            (_bs._pull_generic, _bs._resolve_refs, _bs._send,
+             _bs._own_ship_names, _bs.IN_TK[0], _bs.PAGES_CHANGED[0]) = alt
+
+        # --- Baupläne: eigene Sendeschleife in `_sync_blueprints`
+        # k1: hier entfernt, zum Entfernen freigegeben. k2: woanders entfernt,
+        # mit `override` wieder hinaus.
+        plan = {'conflicts': {}, 'links': {'k1': 'bt-1', 'k2': 'bt-2'},
+                'override': ['k2'], 'remove': [('k1', 'bt-1')], 'add': [],
+                'local_add': [], 'local_remove': [], 'local_removed': {},
+                'unresolved': []}
+        eigene = {'k2': {'name': 'Y', 'tag': None, 'time': None,
+                         'source': 'log'}}
+        drueben = {'bt-1': {'key': 'bt-1', 'ref': {'name': 'X'}}}
+
+        class _Bp:
+            posts = 0
+
+            def request(self, method, path, body=None, **_k):
+                if path == _bs.ROUTE_BLUEPRINTS:
+                    _Bp.posts += 1
+                    raise _bt.ApiError('MASS_CHANGE_CONFIRMATION_REQUIRED',
+                                       409, problem={})
+                raise AssertionError(path)
+        alt = (_bs._pull, _bs._resolve, _bs._foreign_only, _bs._tags,
+               _bs._catalog_names, _ex.local_blueprints, _ex.own_blueprints,
+               _ex.plan_sync)
+        try:
+            _bs._pull = lambda conn, st: (dict(drueben), [], 'c1', False)
+            _bs._resolve = lambda conn, local, st: {}
+            _bs._foreign_only = lambda: frozenset()
+            _bs._tags = lambda: {}
+            _bs._catalog_names = lambda: {}
+            _ex.local_blueprints = lambda *a, **k: {}
+            _ex.own_blueprints = lambda *a, **k: dict(eigene)
+            _ex.plan_sync = lambda *a, **k: dict(plan)
+            bp = {'installation_id': 'pruefung-505-bp',
+                  'pending_removals': ['k1'], 'overrides': ['k2'],
+                  'links': {'k1': 'bt-1', 'k2': 'bt-2'}}
+            _bs._sync_blueprints(_Bp(), bp, None)
+            zahl = _bs._sync_blueprints(_Bp(), bp, None)
+            pruefe(_Bp.posts == 1 and zahl.get('paused') == 1,
+                   'Baupläne: nach der Sperre kein zweites Senden (%d)'
+                   % _Bp.posts)
+            pruefe(bp.get('pending_removals') == ['k1']
+                   and bp.get('overrides') == ['k2'],
+                   'Baupläne: Entfernung und „trotzdem wieder hoch" bleiben '
+                   'vorgemerkt (%r / %r)' % (bp.get('pending_removals'),
+                                             bp.get('overrides')))
+            # Im Browser bestätigt: bt-1 ist drüben weg, bt-2 wieder da.
+            drueben.clear()
+            drueben['bt-2'] = {'key': 'bt-2', 'ref': {'name': 'Y'}}
+            plan.update(override=[], remove=[])
+            _bs._sync_blueprints(_Bp(), bp, None)
+            pruefe(bp.get('pending_removals') == [] and bp.get('overrides') == []
+                   and _Bp.posts == 1,
+                   'Baupläne: drüben erledigt, beide Freigaben fallen weg '
+                   '(%r / %r)' % (bp.get('pending_removals'),
+                                  bp.get('overrides')))
+        finally:
+            (_bs._pull, _bs._resolve, _bs._foreign_only, _bs._tags,
+             _bs._catalog_names, _ex.local_blueprints, _ex.own_blueprints,
+             _ex.plan_sync) = alt
+    finally:
+        zustand()
+        if alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt_heim
+
+
+def _pruefung_506():
+    """506. Lager: nicht zuordenbare Zeilen setzen Posten nie auf 0."""
+    print('\n506. Lager: nicht zuordenbare Zeile nullt keinen Posten')
+    import tempfile as _tf
+    from scbp import exchange_stock as _xs, materials as _mt, trade_cargo as _tc
+    gold = _xs.identity('bt-gold', 'Levski', 0, False)
+    server = {gold: {'material': {'bt': 'bt-gold', 'name': 'Gold'},
+                     'location': {'name': 'Levski'}, 'quality': 0,
+                     'stolen': False, 'amount': 4, 'unit': 'SCU', 'item': False}}
+    plan = _xs.plan({}, server, {gold: 4})
+    pruefe(plan['push'] == [(gold, 0, 4)],
+           'Vorbedingung: ohne Schutz ginge Gold mit 0 hinaus (%r)' % plan['push'])
+    neu, weg = _xs.keep_unmapped(plan, {}, server,
+                                 {'material': [], 'location': ['levski ']})
+    pruefe(not neu['push'] and weg == {gold},
+           'Ort fehlt im Katalog: kein Senden mit 0 (%r)' % neu['push'])
+    neu, weg = _xs.keep_unmapped(plan, {}, server,
+                                 {'material': ['Gold'], 'location': ['Lorville']})
+    pruefe(neu['push'] == plan['push'] and not weg,
+           'ein anderer Ort und übersprungene Materialien schützen nichts')
+    mehr = _xs.plan({gold: dict(server[gold], amount=6)}, server, {gold: 4})
+    neu, _weg = _xs.keep_unmapped(mehr, {gold: dict(server[gold], amount=6)},
+                                  server, {'material': [], 'location': ['Levski']})
+    pruefe(neu['push'] == mehr['push'],
+           'eine Erhöhung geht weiter hinaus (%r)' % neu['push'])
+    neun = {gold: dict(server[gold], amount=9)}
+    for grund, basis in (('neu drüben', {}), ('drüben geändert', {gold: 4})):
+        drueben = _xs.plan({}, neun, basis)
+        pruefe(drueben['take'] or drueben['conflicts'],
+               'Vorbedingung %s: ohne Schutz Übernahme oder Konflikt' % grund)
+        neu, _weg = _xs.keep_unmapped(drueben, {}, neun,
+                                      {'material': [], 'location': ['Levski']})
+        pruefe(not neu['take'] and not neu['conflicts'],
+               '%s: nichts übernommen, kein Konflikt — die Zeile hier gäbe es '
+               'sonst doppelt (%r / %r)' % (grund, neu['take'],
+                                            neu['conflicts']))
+
+    # Der ganze Durchgang: der Ort fällt aus dem Ortskatalog.
+    heim = _tf.mkdtemp(prefix='pruefung506-')
+    alt_heim = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    zustand = _bt_zustand505()
+    try:
+        _mt.save([{'material': 'Gold', 'menge': 4, 'qualitaet': 0,
+                   'ort': 'Levski'}])
+        _tc.save([])
+        kopf = _BtLager505()
+        _lager_lauf505(kopf)
+        pruefe(kopf.posts == 1 and len(kopf.lots) == 1,
+               'Vorbedingung: Gold liegt im Basetool')
+        kopf.orte = []
+        stand = _lager_lauf505(kopf)
+        pruefe(len(kopf.lots) == 1 and kopf.posts == 1,
+               'Ort nicht mehr im Katalog: Gold bleibt drüben unverändert '
+               '(%d Posten, %d Sendungen)' % (len(kopf.lots), kopf.posts))
+        pruefe(len(_mt.load()) == 1,
+               'und hier steht keine zweite Zeile')
+        pruefe(((stand.get('stock') or {}).get('skipped') or {})
+               .get('location') == ['Levski'],
+               'die Seite nennt den übersprungenen Ort')
+    finally:
+        zustand()
+        if alt_heim is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt_heim
 
 
 if __name__ == '__main__':
