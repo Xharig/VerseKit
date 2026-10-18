@@ -42459,6 +42459,50 @@ def _pruefung_436():
                == 'https://profit-base.online/ok',
                'die Bestätigungsadresse beim Basetool bleibt')
     finally:
+
+        # Der Weg in den Speicher: `_hold` legt die Adresse per `_set` in
+        # `STATUS['confirm']`, der Knopf liest sie über `confirm_link`.
+        _alt_confirm436 = _bs436.STATUS.get('confirm')
+        _alt_hoerer436 = list(_bs436.LISTENERS)
+        try:
+            del _bs436.LISTENERS[:]
+            _bs436.STATUS['confirm'] = {}
+            _fehler436.problem = {'confirmationUrl': 'file:///C:/x.exe'}
+            _bs436._hold({}, _bs436.ROUTE_STOCK, [], _fehler436)
+            _fehler436.problem = {'confirmationUrl': 'https://profit-base.online/ok'}
+            _bs436._hold({}, _bs436.ROUTE_SHIPS, [], _fehler436)
+            pruefe(_bs436.confirm_link(_bs436.ROUTE_STOCK) is None
+                   and _bs436.STATUS['confirm'][_bs436.ROUTE_STOCK]['url'] is None,
+                   'eine fremde Bestätigungsadresse landet nicht im Speicher (%r)'
+                   % _bs436.STATUS['confirm'].get(_bs436.ROUTE_STOCK))
+            pruefe(_bs436.confirm_link(_bs436.ROUTE_SHIPS)
+                   == 'https://profit-base.online/ok',
+                   'die Adresse beim Basetool kommt am Knopf an')
+        finally:
+            _bs436.LISTENERS[:] = _alt_hoerer436
+            if _alt_confirm436 is None:
+                _bs436.STATUS.pop('confirm', None)
+            else:
+                _bs436.STATUS['confirm'] = _alt_confirm436
+
+        # Der zweite Weg: eine Buchung im Lager der Einheit.
+        from scbp import exchange_orgstock as _og436
+
+        class _Absage436:
+            def __init__(self, url):
+                self.url = url
+
+            def request(self, *_a, **_k):
+                raise _bt436.ApiError('MASS_CHANGE_CONFIRMATION_REQUIRED', 409,
+                                      problem={'confirmationUrl': self.url})
+
+        pruefe(_og436.send(_Absage436('\\\\angreifer\\x.exe'), [])
+               ['confirm_url'] is None,
+               'Lager der Einheit: eine fremde Bestätigungsadresse ergibt '
+               'keinen Knopf')
+        pruefe(_og436.send(_Absage436('https://profit-base.online/ok'), [])
+               ['confirm_url'] == 'https://profit-base.online/ok',
+               'Lager der Einheit: die Adresse beim Basetool bleibt')
         os.environ.update(_alt_env436)
 
     from scbp import updater as _up436
