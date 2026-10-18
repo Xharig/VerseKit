@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Error report: a moved Documents folder is redacted** — if the Documents
+  folder is not inside your user folder, for example on another drive, its
+  path, name included, used to appear in the report. It now reads
+  `<dokumente>`.
+
 ## v4.11.1 - 2026-10-18
 
 > One fix: the "lost when ranking up" filter in the blueprint list no

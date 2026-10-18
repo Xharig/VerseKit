@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Fehlerbericht: verschobener Dokumente-Ordner wird geschwärzt** — liegt
+  der Dokumente-Ordner nicht im Benutzerordner, etwa auf einem anderen
+  Laufwerk, stand sein Pfad bisher samt Namen im Bericht. Jetzt steht dort
+  `<dokumente>`.
+
 ## v4.11.1 - 2026-10-18
 
 > Eine Fehlerbehebung: Der Filter „weg beim Aufsteigen" in der

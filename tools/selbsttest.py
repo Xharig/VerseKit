@@ -25787,6 +25787,7 @@ def main():
     _pruefung_578()
     _pruefung_579()
     _pruefung_580()
+    _pruefung_590()
 
     print()
     if fehler:
@@ -55422,6 +55423,58 @@ def _pruefung_580():
         else:
             with open(_kat_pfad, 'wb') as _f580:
                 _f580.write(_kat_alt)
+
+
+def _pruefung_590():
+    """paths.redact: ein verschobener Dokumente-Ordner wird geschwärzt."""
+    print('\n590. Bericht: Dokumente-Ordner außerhalb des Heimatordners geschwärzt')
+    from scbp import paths as paths_590
+    real_documents = paths_590._documents
+    if os.name == 'nt':
+        parent = 'Z:\\Pruefname590'
+        docs = parent + '\\Documents'
+        drive_docs = 'Z:\\Documents'
+    else:
+        parent = '/srv/pruefname590'
+        docs = parent + '/Documents'
+        drive_docs = '/Documents'
+
+    def redacted(documents, text, without_fix=False):
+        paths_590._documents = lambda: documents
+        del paths_590._private_memo[:]
+        real_private = paths_590._private_folders
+        if without_fix:
+            paths_590._private_folders = lambda: []
+        try:
+            return paths_590.redact(text)
+        finally:
+            paths_590._private_folders = real_private
+            paths_590._documents = real_documents
+            del paths_590._private_memo[:]
+
+    line = 'Eigener Ordner    %s · beschreibbar' % os.path.join(docs, 'Verse-Kit')
+    out = redacted(docs, line)
+    pruefe('pruefname590' not in out.lower() and '<dokumente>' in out,
+           'der Dokumente-Ordner wird zu <dokumente> (%r)' % out)
+    other = os.path.join(parent, 'Spiele', 'Star Citizen')
+    out = redacted(docs, 'Spiel %s' % other)
+    pruefe('pruefname590' not in out.lower() and '<eigener-ordner>' in out,
+           'auch der Elternordner an anderer Stelle (%r)' % out)
+    out = redacted(docs, 'Ordner %s' % docs.replace('\\', '/').upper())
+    pruefe('pruefname590' not in out.lower(),
+           'Schrägstriche und Großschreibung werden mit erfasst (%r)' % out)
+    out = redacted(drive_docs, 'Ordner %s und %s'
+                   % (os.path.join(drive_docs, 'x'), os.path.join(parent, 'y')))
+    pruefe('<dokumente>' in out and 'pruefname590' in out.lower(),
+           'liegt der Ordner direkt auf dem Laufwerk, bleibt der Rest stehen '
+           '(%r)' % out)
+    home_docs = os.path.join(os.path.expanduser('~'), 'Documents')
+    out = redacted(home_docs, 'Ordner %s' % home_docs)
+    pruefe('<heim>' in out and '<dokumente>' not in out,
+           'im Heimatordner bleibt es bei <heim> (%r)' % out)
+    out = redacted(docs, line, without_fix=True)
+    pruefe('pruefname590' in out.lower(),
+           'Gegenprobe: ohne den Schritt bleibt der Name im Bericht (%r)' % out)
 
 
 if __name__ == '__main__':

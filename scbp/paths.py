@@ -2461,6 +2461,14 @@ def redact(text):
             if variant and len(variant) > 3:
                 text = text.replace(variant, '<heim>')
 
+        # Ein verschobener Dokumente-Ordner (`D:\Name\Documents`) liegt nicht
+        # im Heimatordner und trägt den Namen oft im Elternordner.
+        for folder, mark in _private_folders():
+            for variant in (folder, folder.replace('\\', '/'),
+                            folder.replace('/', '\\')):
+                if variant and len(variant) > 3:
+                    text = re.sub(re.escape(variant), mark, text, flags=re.I)
+
         if name and len(name) > 2:
             text = re.sub(re.escape(name), '<benutzer>', text, flags=re.I)
 
@@ -2470,6 +2478,35 @@ def redact(text):
 
 
 REDACT_FAILED = '<nicht geschwärzt, weggelassen>'
+
+_private_memo = []
+
+
+def _private_folders():
+    """Dokumente-Ordner und sein Elternordner, wenn sie außerhalb des
+    Heimatordners liegen — je (Pfad, Ersatz), längster zuerst.
+
+    Der Elternordner zählt nur, wenn er kein Laufwerk und kein Sammelordner
+    wie `Users` ist."""
+    if _private_memo:
+        return _private_memo[0]
+    found = []
+    try:
+        home = os.path.normcase(os.path.normpath(os.path.expanduser('~')))
+        docs = os.path.normpath(_documents())
+        inside = os.path.normcase(docs)
+        if inside != home and not inside.startswith(home + os.sep):
+            found.append((docs, '<dokumente>'))
+            parent = os.path.dirname(docs)
+            drive_root = os.path.dirname(parent) == parent
+            generic = os.path.basename(parent).lower() in (
+                'users', 'benutzer', 'home', 'onedrive', 'daten', 'data')
+            if parent and not drive_root and not generic:
+                found.append((parent, '<eigener-ordner>'))
+    except Exception:
+        pass
+    _private_memo.append(found)
+    return found
 
 
 # Adressen, die ein Geheimnis IM PFAD tragen. Bei einem Discord-Webhook ist der
