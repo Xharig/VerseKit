@@ -186,8 +186,9 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .ansichten{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .ansichten figure{margin:0}
 @media (max-width:800px){.ansichten{grid-template-columns:1fr}}
-.spielbild{max-width:560px;margin:0 auto}
+.spielbild{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start}
 .spielbild figure{margin:0}
+@media (max-width:800px){.spielbild{grid-template-columns:1fr}}
 
 .karten{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media (max-width:1000px){.karten{grid-template-columns:repeat(2,1fr)}}
@@ -546,6 +547,14 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
            data-de="Ein Kraftwerk im Inventar: „Centurion (Mil/3/C)“ heißt militärisch, Größe 3, Gütegrad C. Du musst dafür keine Beschreibung aufklappen."
            data-en="A power plant in the inventory: “Centurion (Mil/3/C)” means military, size 3, grade C. You don't need to open any description for it.">
           Ein Kraftwerk im Inventar: „Centurion (Mil/3/C)“ heißt militärisch, Größe 3, Gütegrad C. Du musst dafür keine Beschreibung aufklappen.
+        </figcaption>
+      </figure>
+      <figure class="bild">
+        <img src="assets/spiel-bauplan-block.png" alt="FR-66 (Mil/1/A)">
+        <figcaption class="bu"
+           data-de="Ein Schildgenerator am Terminal: oben das Kürzel am Namen, unter der Beschreibung der Verse-Kit-Block. Bauplan vorhanden, drei Zutaten, elf Minuten, im Laden nicht zu kaufen."
+           data-en="A shield generator at the terminal: the tag next to the name at the top, the Verse-Kit block below the description. Blueprint owned, three ingredients, eleven minutes, not sold in shops.">
+          Ein Schildgenerator am Terminal: oben das Kürzel am Namen, unter der Beschreibung der Verse-Kit-Block. Bauplan vorhanden, drei Zutaten, elf Minuten, im Laden nicht zu kaufen.
         </figcaption>
       </figure>
     </div>
