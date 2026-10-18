@@ -6,7 +6,10 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.11.1 - 2026-10-18
+
+> Eine Fehlerbehebung: Der Filter „weg beim Aufsteigen" in der
+> Bauplan-Liste lässt Verse-Kit nicht mehr einfrieren.
 
 ### Behoben
 

@@ -6,7 +6,10 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.11.1 - 2026-10-18
+
+> One fix: the "lost when ranking up" filter in the blueprint list no
+> longer freezes Verse-Kit.
 
 ### Fixed
 
