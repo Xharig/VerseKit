@@ -45,6 +45,7 @@ eingetragen hat und dessen Spiel von 78 spricht, dem fehlt etwas.
 | Import aus der **Star Citizen: Hangar Extension** (AlyxOne), JSON | alle Echtgeld-Schiffe samt Hersteller, Code, Paketzugehörigkeit und **Versicherung** (`"LTI"` oder `"120MI"`) | im Spiel gekaufte Schiffe; Preis und Kaufdatum |
 | dieselbe Erweiterung, **CSV** (Komplett-Export) | Schiffe samt **LTI oder Versicherungsdauer in Monaten** (`versicherung`), Paketname, Datum, Preis | im Spiel gekaufte Schiffe; Schiffskürzel |
 | Import aus **Star Citizen Hangar XPLORer** (dolkensp) | alle Echtgeld-Pledges samt LTI und Paketname | im Spiel gekaufte Schiffe |
+| **Schiffsliste** im Format `hangar-schiffe` v1, JSON | je Schiff Name aus der RSI-Schiffsliste, Kürzel, Hersteller, Versicherung, Paket, Beiboote, Warbond, Kaufdatum, Preis | im Spiel gekaufte Schiffe |
 | **Von Hand** eintragen | alles Übrige | — |
 
 Beide Erweiterungen setzen auf der Pledge-Seite Export-Knöpfe. Gelesen wird
@@ -799,19 +800,30 @@ def _included_ships(raw, ships):
                           entry.get('name')):
                 if _slim(value):
                     known.add(_slim(value))
+    known_codes = {_slim(ship.get('kurz')) for ship in ships
+                   if ship and _slim(ship.get('kurz'))}
     result = []
     for entry, ship in zip(raw, ships):
         if not ship:
             continue
         for included in entry.get('includedShips') or ():
-            if not isinstance(included, str) or not _slim(included):
+            # Die Hangar Extension nennt nur den Namen, die Schiffsliste
+            # `hangar-schiffe` `{"name": …, "code": …}`.
+            if isinstance(included, dict):
+                label, code = included.get('name'), included.get('code')
+            else:
+                label, code = included, ''
+            code = code.strip() if isinstance(code, str) else ''
+            if not isinstance(label, str) or not _slim(label):
                 continue
-            if _slim(included) in known:
+            if _slim(label) in known or (code and _slim(code) in known_codes):
                 continue
-            known.add(_slim(included))
-            name, maker, maker_code = _catalog_name(included.strip())
+            known.add(_slim(label))
+            if code:
+                known_codes.add(_slim(code))
+            name, maker, maker_code = _catalog_name(label.strip())
             result.append({
-                'name': name, 'hersteller': maker, 'kurz': '',
+                'name': name, 'hersteller': maker, 'kurz': code,
                 'hkurz': maker_code, 'lti': ship.get('lti'),
                 'warbond': False, 'versicherung': ship.get('versicherung'),
                 'paket': ship['name'], 'gekauft': '', 'preis': '',
@@ -924,6 +936,141 @@ def _is_starjump(raw):
         or isinstance(raw.get('canvasItems'), list))
 
 
+# ------------------------------------- Schiffsliste `hangar-schiffe`
+#
+# Eine Schiffsliste ohne persönliche Angaben, ein Objekt mit Formatkennung und
+# Version:
+#
+#     {"schema": "hangar-schiffe", "version": 1, …,
+#      "schiffe": [{"pledgeId": 900005, "matrix": "600i Explorer",
+#                   "matrixZuordnung": "sicher", "name": "600i Explorer",
+#                   "code": "ORIG_600i_Explorer", "rsiKennung": "…",
+#                   "manufacturer": {"code": "ORIG", "name": "Origin Jumpworks"},
+#                   "insurance": "LTI", "insuranceAppliesTo": "ship",
+#                   "includedWith": null,
+#                   "includedShips": [{"name": "G12", "code": "ORIG_G12"}],
+#                   "warbond": false, "purchaseDate": "2021-12-25",
+#                   "pledgePriceUsd": 475}]}
+#
+# ⚠ Eine andere Version wird abgelehnt, nicht geraten (`ExportRejected`).
+# Felder, die hier nicht vorkommen, werden übergangen.
+#
+# ⚠ `pledgePriceUsd` ist der Preis des **ganzen** Pledges und steht bei einem
+# Paket an jedem Schiff. Er landet je Schiff unter `preis` und wird nirgends
+# zusammengezählt. `pledgeId` wird nicht übernommen.
+
+HANGAR_SHIPS_SCHEMA = 'hangar-schiffe'
+HANGAR_SHIPS_VERSIONS = (1,)
+# Die andere Ausgabe derselben Erweiterung — eine Übergabedatei je Pledge.
+HANGAR_TRANSFER_SCHEMA = 'hangar-uebergabe'
+
+# Fehlermarken, die `read()` statt eines Fehlertexts zurückgibt.
+UNSUPPORTED_VERSION = 'version'
+TRANSFER_FILE = 'uebergabe'
+
+# `matrixZuordnung`: bei diesen Werten ist `matrix` der Schiffsname.
+_MATRIX_MATCHES = ('sicher', 'naeherung')
+
+
+class ExportRejected(ValueError):
+    """Eine Datei, die `read()` bewusst nicht liest — `args[0]` ist die
+    Fehlermarke (`UNSUPPORTED_VERSION`, `TRANSFER_FILE`)."""
+
+
+def _text_field(entry, key):
+    value = entry.get(key)
+    return value.strip() if isinstance(value, str) else ''
+
+
+def _usd(value):
+    """`475` → `$475.00 USD`, dieselbe Form wie im Export des XPLORer."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) \
+            or value < 0:
+        return ''
+    return '$%.2f USD' % value
+
+
+def _hangar_ships_matrix(entry):
+    """`matrix`, wenn `matrixZuordnung` sie als Schiffsnamen ausweist — sonst `''`."""
+    if entry.get('matrixZuordnung') not in _MATRIX_MATCHES:
+        return ''
+    return _text_field(entry, 'matrix')
+
+
+def _hangar_ships_entry(entry, name_first=False):
+    """Ein Schiff der Schiffsliste `hangar-schiffe`.
+
+    Der Name kommt aus `matrix`, wenn `matrixZuordnung` `sicher` oder
+    `naeherung` sagt, sonst aus `name` (dem Titel im Pledge). Bei einer
+    Näherung steht der Titel unter `naeherung`, damit die Hangar-Seite sie
+    nach dem Import nennen kann. `name_first` wie bei
+    `_hangar_extension_entry`: Einträge mit geteilter `matrix` behalten
+    `name`.
+
+    `includedWith` ist der Paketname und landet unter `paket`. Die
+    Versicherung gilt je Schiff, auch bei `insuranceAppliesTo: "package"`.
+    """
+    maker = entry.get('manufacturer')
+    maker = maker if isinstance(maker, dict) else {}
+    matrix = _hangar_ships_matrix(entry)
+    label = _text_field(entry, 'name')
+    name = (label or matrix) if name_first else (matrix or label)
+    if not name:
+        return None
+    lti, months = _extension_insurance(entry)
+    ship = {
+        'name': name,
+        'hersteller': _text_field(maker, 'name'),
+        'kurz': _text_field(entry, 'code') or _text_field(entry, 'rsiKennung'),
+        'hkurz': _text_field(maker, 'code'),
+        'lti': lti,
+        'warbond': entry.get('warbond') is True,
+        'versicherung': (months if months and not lti else None),
+        'paket': _text_field(entry, 'includedWith'),
+        'gekauft': _text_field(entry, 'purchaseDate'),
+        'preis': _usd(entry.get('pledgePriceUsd')),
+    }
+    if name == matrix and entry.get('matrixZuordnung') == 'naeherung' \
+            and label and _slim(label) != _slim(matrix):
+        ship['naeherung'] = label
+    return ship
+
+
+def _from_hangar_ships(raw):
+    """Die Schiffsliste `hangar-schiffe` → Einträge wie bei `_from_json`.
+
+    ⚠ **Geteilte `matrix`** wie bei der Hangar Extension: Zeigen Einträge mit
+    verschiedenem `code` auf dieselbe `matrix` (eine Näherung landet leicht
+    auf dem Grundtyp), behalten genau diese ihren Titel.
+    """
+    version = raw.get('version')
+    if isinstance(version, bool) or version not in HANGAR_SHIPS_VERSIONS:
+        raise ExportRejected(UNSUPPORTED_VERSION)
+    entries = raw.get('schiffe')
+    entries = [e for e in entries if isinstance(e, dict)] \
+        if isinstance(entries, list) else []
+    codes_by_matrix = {}
+    for entry in entries:
+        matrix = _slim(_hangar_ships_matrix(entry))
+        if matrix:
+            codes_by_matrix.setdefault(matrix, set()).add(
+                _text_field(entry, 'code'))
+    shared = {m for m, codes in codes_by_matrix.items() if len(codes) > 1}
+    ships = [_hangar_ships_entry(
+        entry, name_first=_slim(_hangar_ships_matrix(entry)) in shared)
+        for entry in entries]
+    # `_included_ships` sieht nur Zeichenketten und die Beiboot-Liste.
+    views = [{'matrix': _hangar_ships_matrix(entry),
+              'name': _text_field(entry, 'name'),
+              'includedShips': (entry.get('includedShips')
+                                if isinstance(entry.get('includedShips'), list)
+                                else [])}
+             for entry in entries]
+    result = [ship for ship in ships if ship]
+    result.extend(_included_ships(views, ships))
+    return result
+
+
 def _from_json(text):
     """Der JSON-Export — vom Hangar XPLORer **oder** von der Hangar Extension.
 
@@ -947,6 +1094,12 @@ def _from_json(text):
     beide gleich und `_same_ship` machte beim Import eines daraus.
     """
     raw = json.loads(text)
+    if isinstance(raw, dict):
+        schema = raw.get('schema')
+        if schema == HANGAR_SHIPS_SCHEMA:
+            return _from_hangar_ships(raw)
+        if schema == HANGAR_TRANSFER_SCHEMA:
+            raise ExportRejected(TRANSFER_FILE)
     if _is_starjump(raw):
         return _from_starjump(raw)
     if not isinstance(raw, list):
@@ -1178,6 +1331,10 @@ def read(file_path):
 
     Erkannt wird am Inhalt, nicht an der Endung — wer eine `.json` in `.txt`
     umbenennt, soll trotzdem weiterkommen.
+
+    Eine Datei, die bewusst nicht gelesen wird (`ExportRejected`), gibt statt
+    des Fehlertexts ihre Fehlermarke zurück und landet nicht im
+    Fehlerprotokoll.
     """
     try:
         with open(file_path, encoding='utf-8-sig') as f:
@@ -1187,9 +1344,12 @@ def read(file_path):
         return [], str(exc)
     head = text.lstrip()[:1]
     try:
-        # `{` = StarJump FleetViewer (ein Objekt), `[` = alle übrigen JSON.
+        # `{` = StarJump FleetViewer und `hangar-schiffe` (ein Objekt),
+        # `[` = alle übrigen JSON.
         entries = _from_json(text) if head in '[{' and head else \
             _from_csv(text)
+    except ExportRejected as exc:
+        return [], exc.args[0]
     except Exception as exc:
         errors.record('fleet.read.parse', exc)
         return [], str(exc)

@@ -4388,6 +4388,21 @@ TEXTS = {
                           'or StarJump?'),
     's_hg_import_fehler': ('Die Datei ließ sich nicht lesen.',
                            'That file could not be read.'),
+    's_hg_import_version': ('Diese Schiffsliste hat eine Fassung, die '
+                            'Verse-Kit nicht kennt — nichts übernommen. Ist '
+                            'Verse-Kit auf dem neuesten Stand?',
+                            'This ship list comes in a version Verse-Kit does '
+                            'not know — nothing was imported. Is Verse-Kit up '
+                            'to date?'),
+    's_hg_import_uebergabe': ('Das ist eine Übergabedatei, keine Schiffsliste. '
+                              'Beim Export das Format „Schiffsliste (JSON)" '
+                              'wählen und diese Datei hier einlesen.',
+                              'This is a transfer file, not a ship list. Choose '
+                              'the format “Schiffsliste (JSON)” (ship list) '
+                              'when exporting and import that file here.'),
+    's_hg_import_naeherung': ('Nur ungefähr zugeordnet, bitte prüfen: {namen}.',
+                              'Matched only approximately, please check: '
+                              '{namen}.'),
     's_hg_erweiterung':  ('Erweiterung holen', 'Get the add-on'),
     # --- Von Hand
     's_hg_hand_titel':   ('Von Hand eintragen', 'Add by hand'),

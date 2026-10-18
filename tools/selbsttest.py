@@ -25689,6 +25689,7 @@ def main():
     _pruefung_471()
     _pruefung_472()
     _pruefung_473()
+    _pruefung_474()
     _pruefung_475()
     _pruefung_490()
     _pruefung_491()
@@ -47751,6 +47752,399 @@ def _pruefung_477():
                'alter Reihenfolge (%r)' % gezeigt)
     finally:
         rahmen.destroy()
+
+
+def _pruefung_474():
+    """474. Hangar-Import: Schiffsliste `hangar-schiffe` v1.
+
+    Grundlage ist die unveränderte Beispieldatei des Formats
+    (`tools/pruefdaten/hangar-schiffe-beispiel.json`, Herkunft daneben).
+    Alles läuft über `fleet.read()` und `import_entries`, Abwandlungen als
+    eigene Datei im Wegwerf-Ordner. Jede Reparatur in `fleet.py` hat eine
+    Gegenprobe, deren Falle sich zuerst selbst prüft."""
+    print('\n474. Hangar-Import: Schiffsliste hangar-schiffe')
+    from scbp import fleet as _fl474, errors as _err474, \
+        exchange_ships as _ex474
+    with open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                           'hangar-schiffe-beispiel.json'),
+              encoding='utf-8') as _f:
+        _beispiel474 = json.load(_f)
+    _namen474 = ['Prowler Utility', 'Cutlass Black', 'ATLS GEO',
+                 'F7C-M Super Hornet Heartseeker Mk I', '600i Explorer',
+                 'Gladius', 'Arrow', 'Freelancer MAX', 'Beispiel-Prototyp',
+                 'Carrack', 'G12']
+
+    def _lesen474(daten):
+        """`daten` als Datei schreiben und über `fleet.read()` lesen."""
+        _ordner = tempfile.mkdtemp(prefix='sc-bp-hangar-schiffe-')
+        try:
+            _datei = os.path.join(_ordner, 'schiffe.json')
+            with open(_datei, 'w', encoding='utf-8') as _f:
+                json.dump(daten, _f)
+            return _fl474.read(_datei)
+        finally:
+            shutil.rmtree(_ordner, ignore_errors=True)
+
+    def _abwandeln474(**oben):
+        _d = json.loads(json.dumps(_beispiel474))
+        _d.update(oben)
+        return _d
+
+    def _schiff474(**felder):
+        _s = {'matrixZuordnung': 'sicher', 'manufacturer':
+              {'code': 'MISC', 'name': 'Musashi Industrial & Starflight '
+                                       'Concern'},
+              'insurance': 'LTI', 'insuranceAppliesTo': 'ship',
+              'includedWith': None, 'includedShips': [], 'warbond': False}
+        _s.update(felder)
+        return _s
+
+    def _faelle474():
+        """Alle Fälle einmal. Gibt `{fall: (ok, beleg)}` zurück."""
+        _out = {}
+        _ein, _fehl = _fl474.read(os.path.join(
+            WURZEL, 'tools', 'pruefdaten', 'hangar-schiffe-beispiel.json'))
+        _je = {e['name']: e for e in _ein}
+        _namen = [e['name'] for e in _ein]
+        _out['beispiel'] = (_fehl == '' and _namen == _namen474,
+                            (_fehl, _namen))
+        _f7 = _je.get('F7C-M Super Hornet Heartseeker Mk I') or {}
+        _out['matrix'] = (
+            _f7.get('kurz') == 'ANVL_Hornet_F7CM_Heartseeker'
+            and _f7.get('hkurz') == 'ANVL'
+            and _f7.get('hersteller') == 'Anvil Aerospace'
+            and 'F7C-M Super Hornet Heartseeker' not in _namen, _namen)
+        _out['naeherung'] = (
+            (_je.get('Freelancer MAX') or {}).get('naeherung')
+            == 'Freelancer MAX Anniversary'
+            and [e['name'] for e in _ein if e.get('naeherung')]
+            == ['Freelancer MAX'],
+            [(e['name'], e.get('naeherung')) for e in _ein])
+        _out['keine'] = ('Beispiel-Prototyp' in _namen
+                         and all(_namen), _namen)
+        _streng, _ = _lesen474(_abwandeln474(schiffe=[_schiff474(
+            matrix='Freelancer MAX', matrixZuordnung='keine',
+            name='Freelancer Sonderbau', code='MISC_X')]))
+        _out['keine_streng'] = (
+            [e['name'] for e in _streng] == ['Freelancer Sonderbau'],
+            [e['name'] for e in _streng])
+        _cut, _fm = _je.get('Cutlass Black') or {}, \
+            _je.get('Freelancer MAX') or {}
+        _out['versicherung'] = (
+            _cut.get('lti') is False and _cut.get('versicherung') == 120
+            and _fm.get('versicherung') == 6
+            and all(_je.get(n, {}).get('lti') is True
+                    and _je[n].get('versicherung') is None
+                    for n in ('Gladius', 'Arrow', 'Prowler Utility')),
+            [(e['name'], e.get('lti'), e.get('versicherung')) for e in _ein])
+        _out['privat'] = (
+            _je.get('Carrack', {}).get('warbond') is True
+            and [e['name'] for e in _ein if e.get('warbond')] == ['Carrack']
+            and _je.get('Gladius', {}).get('preis') == '$130.00 USD'
+            and _je.get('Arrow', {}).get('preis') == '$130.00 USD'
+            and _je.get('Gladius', {}).get('gekauft') == '2024-09-05',
+            [(e['name'], e.get('preis'), e.get('gekauft'),
+              e.get('warbond')) for e in _ein])
+        _g12 = [e for e in _ein if e['name'] == 'G12']
+        _out['beiboot'] = (
+            len(_g12) == 1 and _g12[0].get('kurz') == 'ORIG_G12'
+            and _g12[0].get('paket') == '600i Explorer'
+            and _g12[0].get('lti') is True and _g12[0].get('beilage') is True,
+            _g12)
+
+        _hangar = {'format': 1, 'schiffe': [
+            {'name': 'Alter Pledge', 'hersteller': 'Drake Interplanetary',
+             'hkurz': 'DRAK', 'herkunft': 'pledge', 'belegung': {}},
+            {'name': 'Erflogen', 'hersteller': 'Drake Interplanetary',
+             'hkurz': 'DRAK', 'herkunft': 'ingame', 'belegung': {}}]}
+        _erg = _fl474.import_entries(_ein, _hangar, save_now=False)
+        _erg2 = _fl474.import_entries(_ein, _hangar, save_now=False)
+        _da = {s.get('name'): s for s in _hangar['schiffe']}
+        _out['import'] = (
+            _erg == (len(_namen474), 0, ['Alter Pledge'])
+            and _erg2 == (0, len(_namen474), [])
+            and 'Erflogen' in _da
+            and _fl474.bundled_with(_hangar, _da.get('G12', {}))
+            == '600i Explorer'
+            and _fl474.bundled_with(_hangar, _da.get('Gladius', {})) == '',
+            (_erg, _erg2, sorted(_da)))
+        # Kaufdaten bleiben im Haus: Was zum Basetool geht, kennt sie nicht.
+        _gesendet = json.dumps(_ex474.local_ships(_hangar))
+        _out['basetool'] = (
+            all(w not in _gesendet for w in
+                ('130.00', '2024-09-05', 'Squadron', 'warbond', 'preis'))
+            and '"LTI"' in _gesendet, _gesendet[:200])
+
+        _geteilt, _ = _lesen474(_abwandeln474(schiffe=[
+            _schiff474(matrix='Freelancer MAX', name='Freelancer MAX',
+                       code='MISC_Freelancer_MAX'),
+            _schiff474(matrix='Freelancer MAX', matrixZuordnung='naeherung',
+                       name='Freelancer MAX Anniversary',
+                       code='MISC_Freelancer_MAX_Anniversary')]))
+        _leer = {'format': 1, 'schiffe': []}
+        _fl474.import_entries(_geteilt, _leer, save_now=False)
+        _out['geteilt'] = (
+            sorted(s['name'] for s in _leer['schiffe'])
+            == ['Freelancer MAX', 'Freelancer MAX Anniversary'],
+            [s['name'] for s in _leer['schiffe']])
+
+        _vorher = _err474.count()
+        _abgelehnt = [_lesen474(_abwandeln474(version=_v))
+                      for _v in (2, 0, '1', True, None)]
+        _out['version'] = (
+            all(_r == ([], _fl474.UNSUPPORTED_VERSION) for _r in _abgelehnt)
+            and _err474.count() == _vorher,
+            ([(len(_e), _f) for _e, _f in _abgelehnt], _vorher,
+             _err474.count()))
+        _out['uebergabe'] = (
+            _lesen474({'schema': 'hangar-uebergabe', 'version': 1,
+                       'pledges': []}) == ([], _fl474.TRANSFER_FILE),
+            _lesen474({'schema': 'hangar-uebergabe', 'version': 1}))
+        # Unerwartete Felder und Formen: übergangen, nichts geraten.
+        _fremd = _abwandeln474(neuesFeld={'x': 1}, zaehlung=None)
+        for _s in _fremd['schiffe']:
+            _s['neuesFeld'] = [1, 2]
+        _fremd['schiffe'][4]['includedShips'].append(7)
+        _fremd['schiffe'][4]['includedShips'].append({'code': 'NUR_CODE'})
+        _fremd['schiffe'].append('kein Schiff')
+        _fremd['schiffe'].append(_schiff474(matrix=None,
+                                            matrixZuordnung='keine',
+                                            name=None, code='LEER'))
+        _ein_f, _fehl_f = _lesen474(_fremd)
+        _out['fremd'] = (_fehl_f == '' and [e['name'] for e in _ein_f]
+                         == _namen474, (_fehl_f, [e['name'] for e in _ein_f]))
+        return _out
+
+    _texte474 = {
+        'beispiel': 'die Beispieldatei ergibt die elf Schiffe, das Beiboot '
+                    'zuletzt',
+        'matrix': '`sicher`: Name aus `matrix`, nicht der Titel; Kürzel und '
+                  'Hersteller getrennt',
+        'naeherung': '`naeherung`: Name aus `matrix`, der Titel steht für die '
+                     'Meldung bereit',
+        'keine': '`keine`: Rückfall auf den Titel',
+        'keine_streng': '`keine` mit gefüllter `matrix`: trotzdem der Titel',
+        'versicherung': 'LTI und Monate je Schiff, auch bei Versicherung am '
+                        'Paket',
+        'privat': 'Warbond, Kaufdatum und Preis je Schiff — der Paketpreis '
+                  'steht an jedem Schiff, nicht aufsummiert',
+        'beiboot': '`includedShips` als Objekt: die G12 mit Kürzel im Paket '
+                   'der 600i Explorer',
+        'import': 'Import: alle neu, alter Pledge ausgetragen, Erflogenes '
+                  'bleibt, zweiter Import doppelt nichts; Paketname ist keine '
+                  'Beilage',
+        'basetool': 'Preis, Kaufdatum, Paket und Warbond gehen nicht ans '
+                    'Basetool',
+        'geteilt': 'gleiche `matrix`, verschiedener `code`: zwei Schiffe',
+        'version': 'unbekannte Version (2, 0, "1", true, keine) abgelehnt, '
+                   'ohne Eintrag im Fehlerprotokoll',
+        'uebergabe': 'die Übergabedatei derselben Erweiterung wird benannt',
+        'fremd': 'unerwartete Felder und Formen werden übergangen',
+    }
+    _ist474 = _faelle474()
+    for _k474, _text474 in _texte474.items():
+        _ok474, _beleg474 = _ist474[_k474]
+        pruefe(_ok474, '%s (%r)' % (_text474, _beleg474))
+
+    # Gegenproben: jede Reparatur einzeln zur Laufzeit zurücknehmen. Jede
+    # Falle prüft zuerst, dass sie greift.
+    _orig_matrix474 = _fl474._hangar_ships_matrix
+    _orig_eintrag474 = _fl474._hangar_ships_entry
+    _orig_beilage474 = _fl474._included_ships
+    _orig_versionen474 = _fl474.HANGAR_SHIPS_VERSIONS
+    _orig_basetool474 = _ex474.local_ships
+
+    def _ohne_naeherung474(entry, name_first=False):
+        _s = _orig_eintrag474(entry, name_first)
+        if _s:
+            _s.pop('naeherung', None)
+        return _s
+
+    def _beilage_nur_text474(raw, ships):
+        """`_included_ships`, die nur Namen als Zeichenkette kennt."""
+        return _orig_beilage474(
+            [dict(r, includedShips=[i for i in r.get('includedShips') or ()
+                                    if isinstance(i, str)]) for r in raw],
+            ships)
+
+    def _basetool_mit_preis474(fleet_data, own_names=None):
+        _out = _orig_basetool474(fleet_data, own_names)
+        for _e, _v in zip(fleet_data.get('schiffe') or (), _out.values()):
+            _v['preis'] = _e.get('preis')
+        return _out
+
+    _proben474 = (
+        ('matrix übergangen', 'matrix',
+         lambda: setattr(_fl474, '_hangar_ships_matrix', lambda e: ''),
+         lambda: _fl474._hangar_ships_matrix(
+             {'matrixZuordnung': 'sicher', 'matrix': 'A'}) == ''),
+        ('Zuordnung übergangen', 'keine_streng',
+         lambda: setattr(_fl474, '_hangar_ships_matrix',
+                         lambda e: _fl474._text_field(e, 'matrix')),
+         lambda: _fl474._hangar_ships_matrix(
+             {'matrixZuordnung': 'keine', 'matrix': 'A'}) == 'A'),
+        ('ohne Näherungs-Hinweis', 'naeherung',
+         lambda: setattr(_fl474, '_hangar_ships_entry', _ohne_naeherung474),
+         lambda: 'naeherung' not in _fl474._hangar_ships_entry(
+             {'matrixZuordnung': 'naeherung', 'matrix': 'A', 'name': 'B'})),
+        ('ohne Sperre bei geteilter matrix', 'geteilt',
+         lambda: setattr(_fl474, '_hangar_ships_entry',
+                         lambda e, name_first=False:
+                         _orig_eintrag474(e, name_first=False)),
+         lambda: _fl474._hangar_ships_entry(
+             {'matrixZuordnung': 'sicher', 'matrix': 'A', 'name': 'B'},
+             name_first=True)['name'] == 'A'),
+        ('includedShips nur als Text', 'beiboot',
+         lambda: setattr(_fl474, '_included_ships', _beilage_nur_text474),
+         lambda: _fl474._included_ships(
+             [{'includedShips': [{'name': 'Gibt es nicht 3000'}]}],
+             [{'name': 'Y'}]) == []),
+        ('Version nicht geprüft', 'version',
+         lambda: setattr(_fl474, 'HANGAR_SHIPS_VERSIONS', (0, 1, 2, '1')),
+         lambda: _fl474._from_hangar_ships({'version': 2,
+                                            'schiffe': []}) == []),
+        ('Preis zum Basetool', 'basetool',
+         lambda: setattr(_ex474, 'local_ships', _basetool_mit_preis474),
+         lambda: 'preis' in json.dumps(_ex474.local_ships(
+             {'schiffe': [{'name': 'A', 'preis': '$1.00 USD'}]}))),
+    )
+    for _was474, _fall474, _sabotage474, _greift474 in _proben474:
+        try:
+            _sabotage474()
+            pruefe(_greift474(), 'Gegenprobe %s: die Falle greift' % _was474)
+            _rot474, _beleg474 = _faelle474()[_fall474]
+            pruefe(not _rot474, 'Gegenprobe %s: Fall %s wird rot (%r)'
+                   % (_was474, _fall474, _beleg474))
+        finally:
+            _fl474._hangar_ships_matrix = _orig_matrix474
+            _fl474._hangar_ships_entry = _orig_eintrag474
+            _fl474._included_ships = _orig_beilage474
+            _fl474.HANGAR_SHIPS_VERSIONS = _orig_versionen474
+            _ex474.local_ships = _orig_basetool474
+    pruefe(_fl474._hangar_ships_matrix is _orig_matrix474
+           and _fl474._hangar_ships_entry is _orig_eintrag474
+           and _fl474._included_ships is _orig_beilage474
+           and _fl474.HANGAR_SHIPS_VERSIONS is _orig_versionen474
+           and _ex474.local_ships is _orig_basetool474
+           and all(v[0] for v in _faelle474().values()),
+           'nach den Gegenproben ist alles zurückgesetzt und wieder grün')
+
+    # --- Die echte Seite: Import-Knopf drücken, Meldung darunter lesen ------
+    import copy as _cp474
+    import tkinter as _tk474
+    from scbp import file_picker as _fp474, main_window as _hf474, \
+        language as _la474
+    _alt_hangar474 = _cp474.deepcopy(_fl474.load())
+    _echt_wahl474 = _fp474.open_file
+    _echt_unknown474 = _fl474.unknown
+    _ordner474 = tempfile.mkdtemp(prefix='sc-bp-hangar-seite-')
+    _w474 = None
+    try:
+        _dateien474 = {}
+        for _name, _daten in (
+                ('beispiel', _beispiel474),
+                ('version', _abwandeln474(version=2)),
+                ('uebergabe', {'schema': 'hangar-uebergabe', 'version': 1})):
+            _dateien474[_name] = os.path.join(_ordner474, _name + '.json')
+            with open(_dateien474[_name], 'w', encoding='utf-8') as _f:
+                json.dump(_daten, _f)
+        _wahl474 = ['']
+        _fp474.open_file = lambda *a, **k: _wahl474[0]
+        _fl474.unknown = lambda *a, **k: []
+        _leer474 = _fl474.load()
+        _leer474['schiffe'] = []
+        _fl474.save(_leer474)
+        _w474 = _wurzel()
+        _seite474 = _hf474.MainWindow(_w474, version='0.0.0-pruefung')
+        _seite474.open_page('hangar')
+        _w474.update()
+
+        def _alle474():
+            _raus = []
+
+            def _lauf(x):
+                _raus.append(x)
+                for _k in x.winfo_children():
+                    _lauf(_k)
+            _lauf(_seite474.pages['hangar'])
+            return _raus
+
+        def _knopf474():
+            for _x in _alle474():
+                if isinstance(_x, _tk474.Canvas):
+                    for _i in _x.find_all():
+                        try:
+                            if _x.itemcget(_i, 'text') == _la474.t(
+                                    's_hg_import_knopf'):
+                                return _x
+                        except _tk474.TclError:
+                            pass
+            return None
+
+        def _meldung474(was):
+            """Datei `was` über den Knopf einlesen. Gibt die Texte aller
+            Beschriftungen der Seite zurück."""
+            _wahl474[0] = _dateien474[was]
+            _knopf474().event_generate('<Button-1>')
+            _w474.update()
+            return [str(_x.cget('text')) for _x in _alle474()
+                    if isinstance(_x, _tk474.Label)]
+
+        pruefe(_knopf474() is not None, 'Vorbedingung: der Import-Knopf ist da')
+        _hinweis474 = _la474.t('s_hg_import_naeherung').format(
+            namen='Freelancer MAX (Freelancer MAX Anniversary)')
+
+        def _seite_faelle474():
+            _ok = _meldung474('beispiel')
+            _version = _meldung474('version')
+            _uebergabe = _meldung474('uebergabe')
+            return {
+                'naeherung': (any(_x.endswith(_hinweis474) for _x in _ok),
+                              [_x for _x in _ok if 'Freelancer' in _x]),
+                'eingelesen': (any(_x.startswith(_la474.t(
+                    's_hg_import_ok').format(neu=len(_namen474), alt=0))
+                    for _x in _ok), [_x for _x in _ok if 'Freelancer' in _x]),
+                'version': (_la474.t('s_hg_import_version') in _version,
+                            _la474.t('s_hg_import_fehler') in _version),
+                'uebergabe': (_la474.t('s_hg_import_uebergabe') in _uebergabe,
+                              _la474.t('s_hg_import_fehler') in _uebergabe),
+            }
+
+        _seite_texte474 = {
+            'naeherung': 'Seite: nach dem Einlesen nennt die Meldung die '
+                         'Näherung samt Titel',
+            'eingelesen': 'Seite: die Meldung zählt elf neue Schiffe',
+            'version': 'Seite: eine unbekannte Version sagt das, statt „ließ '
+                       'sich nicht lesen"',
+            'uebergabe': 'Seite: die Übergabedatei bekommt den Hinweis auf '
+                         'die Schiffsliste',
+        }
+        _ist_seite474 = _seite_faelle474()
+        for _k474, _text474 in _seite_texte474.items():
+            pruefe(_ist_seite474[_k474][0],
+                   '%s (%r)' % (_text474, _ist_seite474[_k474][1]))
+        try:
+            _fl474._hangar_ships_entry = _ohne_naeherung474
+            _leer474['schiffe'] = []
+            _fl474.save(_leer474)
+            _seite474.open_page('wunschliste')
+            _seite474.open_page('hangar')
+            _w474.update()
+            pruefe(not _seite_faelle474()['naeherung'][0],
+                   'Gegenprobe ohne Näherungs-Hinweis: die Meldung auf der '
+                   'Seite wird rot')
+        finally:
+            _fl474._hangar_ships_entry = _orig_eintrag474
+    finally:
+        try:
+            if _w474 is not None:
+                _w474.destroy()
+        except Exception:
+            pass
+        _fp474.open_file = _echt_wahl474
+        _fl474.unknown = _echt_unknown474
+        _fl474.save(_alt_hangar474)
+        shutil.rmtree(_ordner474, ignore_errors=True)
 
 
 def _alle_eingaben(w):

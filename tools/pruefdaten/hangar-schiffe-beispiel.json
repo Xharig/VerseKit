@@ -1,0 +1,274 @@
+{
+  "schema": "hangar-schiffe",
+  "version": 1,
+  "erzeugt": "2026-10-17T12:00:00Z",
+  "werkzeug": {
+    "name": "hangar-exporter",
+    "version": "0.2.2"
+  },
+  "zaehlung": {
+    "pledges": 10,
+    "schiffe": 10,
+    "ohneMatrix": 1,
+    "naeherung": 1
+  },
+  "selbsttest": [
+    {
+      "name": "Seiten gelesen = uebernommen",
+      "soll": 10,
+      "ist": 10,
+      "ok": true
+    },
+    {
+      "name": "Pledges = uebernommen (ohne doppelte)",
+      "soll": 10,
+      "ist": 10,
+      "ok": true
+    },
+    {
+      "name": "Nichts uebersprungen",
+      "soll": 0,
+      "ist": 0,
+      "ok": true
+    },
+    {
+      "name": "Schiffsliste der Datei vorhanden (sonst fehlt `matrix`)",
+      "soll": true,
+      "ist": true,
+      "ok": true
+    },
+    {
+      "name": "Eintraege + beigelegte Fahrzeuge = Schiffe in den Pledges",
+      "soll": 11,
+      "ist": 11,
+      "ok": true
+    },
+    {
+      "name": "Zaehlung der Datei = Schiffe in den Pledges",
+      "soll": 11,
+      "ist": 11,
+      "ok": true
+    },
+    {
+      "name": "Jeder Eintrag hat Pledge-Nummer, Name und Code",
+      "soll": 0,
+      "ist": 0,
+      "ok": true
+    },
+    {
+      "name": "Spitznamen und Gutscheincodes waren aus",
+      "soll": true,
+      "ist": true,
+      "ok": true
+    },
+    {
+      "name": "Keine verbotenen Felder in der Ausgabe",
+      "soll": 0,
+      "ist": 0,
+      "ok": true
+    },
+    {
+      "name": "Kein einloesbarer Gutscheintext in den Namen",
+      "soll": 0,
+      "ist": 0,
+      "ok": true
+    }
+  ],
+  "schiffe": [
+    {
+      "pledgeId": 900001,
+      "matrix": "Prowler Utility",
+      "matrixZuordnung": "sicher",
+      "name": "Prowler Utility",
+      "code": "ESPR_Prowler_Utility",
+      "rsiKennung": "ESPR_Prowler_Utility",
+      "manufacturer": {
+        "code": "ESPR",
+        "name": "Esperia"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2024-03-02",
+      "pledgePriceUsd": 190
+    },
+    {
+      "pledgeId": 900002,
+      "matrix": "Cutlass Black",
+      "matrixZuordnung": "sicher",
+      "name": "Cutlass Black",
+      "code": "DRAK_Cutlass_Black",
+      "rsiKennung": "DRAK_Cutlass_Black",
+      "manufacturer": {
+        "code": "DRAK",
+        "name": "Drake Interplanetary"
+      },
+      "insurance": "120MI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2023-11-20",
+      "pledgePriceUsd": 100
+    },
+    {
+      "pledgeId": 900003,
+      "matrix": "ATLS GEO",
+      "matrixZuordnung": "sicher",
+      "name": "ATLS GEO",
+      "code": "ARGO_ATLS_GEO",
+      "rsiKennung": "ARGO_ATLS_GEO",
+      "manufacturer": {
+        "code": "ARGO",
+        "name": "Argo Astronautics"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2025-06-10",
+      "pledgePriceUsd": 95
+    },
+    {
+      "pledgeId": 900004,
+      "matrix": "F7C-M Super Hornet Heartseeker Mk I",
+      "matrixZuordnung": "sicher",
+      "name": "F7C-M Super Hornet Heartseeker",
+      "code": "ANVL_Hornet_F7CM_Heartseeker",
+      "rsiKennung": "ANVL_Hornet_F7CM_Super_Heartseeker",
+      "manufacturer": {
+        "code": "ANVL",
+        "name": "Anvil Aerospace"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2022-02-14",
+      "pledgePriceUsd": 475
+    },
+    {
+      "pledgeId": 900005,
+      "matrix": "600i Explorer",
+      "matrixZuordnung": "sicher",
+      "name": "600i Explorer",
+      "code": "ORIG_600i_Explorer",
+      "rsiKennung": "ORIG_600i_Explorer",
+      "manufacturer": {
+        "code": "ORIG",
+        "name": "Origin Jumpworks"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [
+        {
+          "name": "G12",
+          "code": "ORIG_G12"
+        }
+      ],
+      "warbond": false,
+      "purchaseDate": "2021-12-25",
+      "pledgePriceUsd": 475
+    },
+    {
+      "pledgeId": 900006,
+      "matrix": "Gladius",
+      "matrixZuordnung": "sicher",
+      "name": "Gladius",
+      "code": "AEGS_Gladius",
+      "rsiKennung": "AEGS_Gladius",
+      "manufacturer": {
+        "code": "AEGS",
+        "name": "Aegis Dynamics"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "package",
+      "includedWith": "Squadron Starter Pack",
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2024-09-05",
+      "pledgePriceUsd": 130
+    },
+    {
+      "pledgeId": 900006,
+      "matrix": "Arrow",
+      "matrixZuordnung": "sicher",
+      "name": "Arrow",
+      "code": "ANVL_Arrow",
+      "rsiKennung": "ANVL_Arrow",
+      "manufacturer": {
+        "code": "ANVL",
+        "name": "Anvil Aerospace"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "package",
+      "includedWith": "Squadron Starter Pack",
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2024-09-05",
+      "pledgePriceUsd": 130
+    },
+    {
+      "pledgeId": 900007,
+      "matrix": "Freelancer MAX",
+      "matrixZuordnung": "naeherung",
+      "name": "Freelancer MAX Anniversary",
+      "code": "MISC_Freelancer_MAX_Anniversary",
+      "rsiKennung": "MISC_Freelancer_MAX",
+      "manufacturer": {
+        "code": "MISC",
+        "name": "Musashi Industrial & Starflight Concern"
+      },
+      "insurance": "6MI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2025-02-01",
+      "pledgePriceUsd": 130
+    },
+    {
+      "pledgeId": 900008,
+      "matrix": null,
+      "matrixZuordnung": "keine",
+      "name": "Beispiel-Prototyp",
+      "code": "TEST_Prototyp",
+      "rsiKennung": null,
+      "manufacturer": {
+        "code": "TEST",
+        "name": "Beispiel Werft"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": false,
+      "purchaseDate": "2025-07-04",
+      "pledgePriceUsd": 250
+    },
+    {
+      "pledgeId": 900009,
+      "matrix": "Carrack",
+      "matrixZuordnung": "sicher",
+      "name": "Carrack",
+      "code": "ANVL_Carrack",
+      "rsiKennung": "ANVL_Carrack",
+      "manufacturer": {
+        "code": "ANVL",
+        "name": "Anvil Aerospace"
+      },
+      "insurance": "LTI",
+      "insuranceAppliesTo": "ship",
+      "includedWith": null,
+      "includedShips": [],
+      "warbond": true,
+      "purchaseDate": "2023-05-19",
+      "pledgePriceUsd": 550
+    }
+  ]
+}
