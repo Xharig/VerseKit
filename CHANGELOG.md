@@ -6,7 +6,12 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.11.2 - 2026-10-19
+
+> Im Hangar entstehen keine Doppel mehr, wenn Schiffe aus dem Basetool
+> und dieselben aus einer JSON- oder CSV-Datei zusammenkommen, und die
+> Versicherung kommt im Basetool an. Dazu liest der Signatur-Scanner ab
+> Werk deutlich mehr — dank eingesandter Scan-Bilder.
 
 ### Verbessert
 

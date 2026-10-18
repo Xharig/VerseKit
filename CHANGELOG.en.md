@@ -6,7 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.11.2 - 2026-10-19
+
+> The hangar no longer creates duplicates when ships from the Basetool
+> meet the same ships from a JSON or CSV file, and insurance now reaches
+> the Basetool. The signature scanner also reads much more out of the box,
+> thanks to submitted scan images.
 
 ### Improved
 
