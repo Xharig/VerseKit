@@ -25774,6 +25774,16 @@ def main():
     _pruefung_538()
     _pruefung_539()
     _pruefung_543()
+    _pruefung_570()
+    _pruefung_571()
+    _pruefung_572()
+    _pruefung_573()
+    _pruefung_574()
+    _pruefung_575()
+    _pruefung_576()
+    _pruefung_577()
+    _pruefung_578()
+    _pruefung_579()
 
     print()
     if fehler:
@@ -54180,6 +54190,952 @@ def _pruefung_543():
             root.destroy()
         _home_restore520(old_home)
         shutil.rmtree(home, ignore_errors=True)
+
+
+# ------------------------------------------------------- 570–579 Zurück/Vor
+# Zurück und Vor durch die besuchten Seiten (`MainWindow.history`). Jede
+# Prüfung baut ein echtes Hauptfenster in einem Wegwerf-Ordner und führt ihre
+# Gegenprobe selbst: Dieselbe Messung an einem absichtlich verdorbenen Fenster
+# muss anschlagen.
+
+_PAGES57X = ('anzeige', 'darstellung', 'ordner')
+
+
+def _run57x(number, title, body):
+    """Rahmen für 570–579: Wegwerf-Ordner, echtes Fenster, aufräumen."""
+    print('\n%d. Zurück/Vor: %s' % (number, title))
+    if not hat_anzeige():
+        print('  (übersprungen: kein Bildschirm)')
+        return
+    from scbp import paths as paths_57x
+    old_home = os.environ.get('SC_BP_HOME')
+    home = tempfile.mkdtemp(prefix='scbp%d-' % number)
+    os.environ['SC_BP_HOME'] = home
+    root = None
+    try:
+        folder = os.path.normcase(os.path.realpath(paths_57x.app_folder()))
+        safe = folder == os.path.normcase(os.path.realpath(home))
+        pruefe(safe, 'Selbstprüfung: die Ablage ist der Wegwerf-Ordner')
+        if not safe:
+            return
+        root, window = _window57x()
+        try:
+            body(root, window)
+        except Exception as exc:
+            pruefe(False, 'Ausnahme in %d: %s: %s'
+                   % (number, type(exc).__name__, exc))
+    finally:
+        if root is not None:
+            root.destroy()
+        _home_restore520(old_home)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _window57x():
+    """Ein echtes Hauptfenster auf der leichten Seite „Allgemein".
+
+    ⚠ Die Wurzel bleibt verborgen: Unter Windows landet eine Maustaste bei
+    dem Fenster, das unter dem Zeiger liegt, und eine sichtbare Wurzel
+    könnte das Hauptfenster verdecken."""
+    from scbp import main_window as main_window_57x
+    root = _wurzel()
+    window = main_window_57x.MainWindow(root, version='0.0.0-pruefung',
+                                        start_page='allgemein')
+    for _ in range(3):
+        root.update()
+    return root, window
+
+
+def _click57x(root, widget):
+    """Ein Linksklick auf ein Element — derselbe Weg wie mit der Maus."""
+    widget.event_generate('<Button-1>')
+    root.update()
+
+
+def _restart57x(root, window):
+    """Den Verlauf leeren und auf der Seite Allgemein neu beginnen."""
+    window.history[:] = []
+    window.history_areas[:] = []
+    window.history_pos = -1
+    window.open_page('allgemein', via='seitenleiste')
+    root.update()
+
+
+def _fresh57x(root, window):
+    """Neu beginnen, dann drei Reiter der Seitenleiste anklicken."""
+    _restart57x(root, window)
+    for page_id in _PAGES57X:
+        _click57x(root, window.buttons[page_id][3])
+
+
+def _state57x(window):
+    return '%r @%d auf %s' % (window.history, window.history_pos,
+                              window.current)
+
+
+def _sabotage57x(obj, name, value):
+    """Ein Attribut am Fenster verderben. Zurück kommt die Funktion, die den
+    alten Stand wiederherstellt — für ein `finally`."""
+    own = vars(obj)
+    had, old = name in own, own.get(name)
+    setattr(obj, name, value)
+
+    def restore():
+        if had:
+            setattr(obj, name, old)
+        elif name in vars(obj):
+            delattr(obj, name)
+    return restore
+
+
+def _caught57x(obj, name, value, scenario):
+    """Die Gegenprobe: `scenario()` an verdorbenem Fenster. True heißt, die
+    Messung hat den eingebauten Fehler bemerkt — auch, wenn der Fehler sie
+    mit einer Ausnahme abbricht."""
+    restore = _sabotage57x(obj, name, value)
+    try:
+        return not scenario()
+    except Exception:
+        return True
+    finally:
+        restore()
+
+
+def _keys57x(root, widget, sequence):
+    """Ein Tastenkürzel auf `widget`. ⚠ Tastenereignisse gehen an das Feld
+    mit dem Fokus, und den hat ein Fenster erst, wenn es das aktive ist —
+    deshalb `focus_force()` (der Prüflauf steht auf dem unsichtbaren
+    Desktop)."""
+    widget.focus_force()
+    root.update()
+    widget.event_generate(sequence)
+    root.update()
+
+
+def _naive_go57x(window, only_forward=False):
+    """Ein Schritt, der wie ein neuer Weg wirkt — der Fehler, den Zurück und
+    Vor nicht haben dürfen. `only_forward` lässt Zurück richtig laufen."""
+    real = window._history_go
+
+    def go(step):
+        if only_forward and step < 0:
+            return real(step)
+        target = window.history_pos + step
+        if not 0 <= target < len(window.history):
+            return False
+        window.open_page(window.history[target], via='seitenleiste')
+        return True
+    return go
+
+
+def _history570(root, window):
+    _fresh57x(root, window)
+    return (window.history == ['allgemein'] + list(_PAGES57X)
+            and window.history_pos == 3 and window.current == 'ordner')
+
+
+def _body570(root, window):
+    pruefe(window.history == ['allgemein'] and window.history_pos == 0,
+           'nach dem Öffnen steht die Startseite als einziger Eintrag (%s)'
+           % _state57x(window))
+    pruefe(_history570(root, window),
+           'drei Klicks in der Seitenleiste: vier Einträge, die Stelle steht '
+           'am Ende (%s)' % _state57x(window))
+    pruefe(_caught57x(window, '_history_note', lambda *_a: None,
+                      lambda: _history570(root, window)),
+           'Gegenprobe: ohne Eintragen bleibt der Verlauf leer, und die '
+           'Messung schlägt an (%s)' % _state57x(window))
+
+
+def _pruefung_570():
+    _run57x(570, 'drei Seitenwechsel stehen im Verlauf', _body570)
+
+
+def _back571(root, window):
+    """Zweimal Zurück über den echten Knopf in der Kopfleiste."""
+    _fresh57x(root, window)
+    full = ['allgemein'] + list(_PAGES57X)
+    _click57x(root, window.history_buttons[0])
+    first = (window.current, window.history_pos, window.history == full)
+    _click57x(root, window.history_buttons[0])
+    second = (window.current, window.history_pos, window.history == full)
+    return first == ('darstellung', 2, True) and second == ('anzeige', 1,
+                                                            True)
+
+
+def _body571(root, window):
+    pruefe(_back571(root, window),
+           'Zurück per Knopf: Ordner, dann Darstellung, dann Anzeige, kein '
+           'neuer Eintrag (%s)' % _state57x(window))
+    pruefe(_caught57x(window, '_history_go', _naive_go57x(window),
+                      lambda: _back571(root, window)),
+           'Gegenprobe: ein Zurück, das einen neuen Eintrag schreibt, fällt '
+           'auf (%s)' % _state57x(window))
+
+
+def _pruefung_571():
+    _run57x(571, 'Zurück geht eine Seite zurück, ohne Eintrag', _body571)
+
+
+def _forward572(root, window):
+    """Zweimal zurück, dann zweimal Vor über den echten Knopf."""
+    _fresh57x(root, window)
+    window.go_back()
+    window.go_back()
+    root.update()
+    _click57x(root, window.history_buttons[1])
+    first = (window.current, window.history_pos)
+    _click57x(root, window.history_buttons[1])
+    second = (window.current, window.history_pos)
+    return (first == ('darstellung', 2) and second == ('ordner', 3)
+            and window.history == ['allgemein'] + list(_PAGES57X))
+
+
+def _body572(root, window):
+    pruefe(_forward572(root, window),
+           'Vor per Knopf: Anzeige, dann Darstellung, dann Ordner, der '
+           'Verlauf bleibt '
+           '(%s)' % _state57x(window))
+    pruefe(_caught57x(window, '_history_go',
+                      _naive_go57x(window, only_forward=True),
+                      lambda: _forward572(root, window)),
+           'Gegenprobe: ein Vor, das wie ein neuer Weg wirkt, verliert den '
+           'Rest und fällt auf (%s)' % _state57x(window))
+
+
+def _pruefung_572():
+    _run57x(572, 'Vor geht den Weg wieder hin', _body572)
+
+
+def _cut573(root, window):
+    """Zweimal zurück, dann ein neuer Weg über die Seitenleiste."""
+    _fresh57x(root, window)
+    window.go_back()
+    window.go_back()
+    root.update()
+    _click57x(root, window.buttons['module'][3])
+    return (window.history == ['allgemein', 'anzeige', 'module']
+            and window.history_pos == 2 and window.current == 'module'
+            and window.go_forward() is False)
+
+
+def _note_without_cut573(window):
+    """Eintragen wie vorgesehen, nur ohne den Vor-Teil zu kappen."""
+    def note(page_id, via):
+        if window._history_step or via is None:
+            return
+        if window.history and window.history[window.history_pos] == page_id:
+            return
+        window.history.append(page_id)
+        window.history_pos = len(window.history) - 1
+    return note
+
+
+def _body573(root, window):
+    pruefe(_cut573(root, window),
+           'neuer Weg nach Zurück: der Vor-Teil ist weg, Vor geht nicht mehr '
+           '(%s)' % _state57x(window))
+    pruefe(not window.history_buttons[1].enabled,
+           'der Vor-Knopf ist danach grau')
+    pruefe(_caught57x(window, '_history_note', _note_without_cut573(window),
+                      lambda: _cut573(root, window)),
+           'Gegenprobe: ohne Kappen bleiben Darstellung und Ordner stehen, '
+           'die Messung schlägt an (%s)' % _state57x(window))
+
+
+def _pruefung_573():
+    _run57x(573, 'ein neuer Weg nach Zurück kappt den Vor-Teil', _body573)
+
+
+def _edges574(root, window):
+    """Am Anfang kein Zurück, am Ende kein Vor, derselbe Reiter zweimal ist
+    ein Eintrag."""
+    _restart57x(root, window)
+    back = window.go_back()
+    root.update()
+    at_start = (back is False and window.current == 'allgemein'
+                and window.history_pos == 0)
+    _click57x(root, window.buttons['anzeige'][3])
+    _click57x(root, window.buttons['anzeige'][3])
+    same_twice = window.history == ['allgemein', 'anzeige']
+    forward = window.go_forward()
+    root.update()
+    at_end = (forward is False and window.current == 'anzeige'
+              and window.history_pos == 1)
+    return at_start, same_twice, at_end
+
+
+def _go_unchecked574(window):
+    """Ein Schritt ohne Grenzprüfung."""
+    def go(step):
+        window.history_pos += step
+        window._history_step = True
+        try:
+            window.open_page(window.history[window.history_pos], via='sprung')
+        finally:
+            window._history_step = False
+        return True
+    return go
+
+
+def _limit574(root, window):
+    """Mehr Seitenwechsel, als der Verlauf fasst."""
+    limit = type(window).HISTORY_LIMIT
+    window.history[:] = []
+    window.history_pos = -1
+    for index in range(limit + 5):
+        window.open_page(('anzeige', 'darstellung')[index % 2],
+                         via='seitenleiste')
+    root.update()
+    return (len(window.history) == limit and window.history_pos == limit - 1
+            and window.history[-1] == window.current)
+
+
+def _redirect574(root, window):
+    """Vor auf eine Seite, deren Modul inzwischen aus ist: Das Fenster zeigt
+    die Seite Module, der Verlauf bleibt, wie er war."""
+    from scbp import modules as modules_574
+    modules_574.set_enabled('schiffe', True)
+    try:
+        _restart57x(root, window)
+        window.open_page('wunschliste', via='seitenleiste')
+        window.open_page('anzeige', via='seitenleiste')
+        window.go_back()
+        window.go_back()
+        root.update()
+        modules_574.set_enabled('schiffe', False)
+        before = list(window.history)
+        window.go_forward()
+        root.update()
+        return (window.current == 'module' and window.history == before
+                and window.history_pos == 1)
+    finally:
+        modules_574.set_enabled('schiffe', True)
+
+
+def _note_ignoring_step574(window):
+    """Eintragen, als wäre jeder Schritt ein neuer Weg."""
+    real = type(window)._history_note
+
+    def note(page_id, via):
+        saved = window._history_step
+        window._history_step = False
+        try:
+            real(window, page_id, via)
+        finally:
+            window._history_step = saved
+    return note
+
+
+def _body574(root, window):
+    at_start, same_twice, at_end = _edges574(root, window)
+    pruefe(at_start, 'auf der ersten Seite tut Zurück nichts und meldet '
+           'False (%s)' % _state57x(window))
+    pruefe(same_twice, 'derselbe Reiter zweimal hintereinander ist ein '
+           'Eintrag (%s)' % _state57x(window))
+    pruefe(at_end, 'am Ende tut Vor nichts und meldet False (%s)'
+           % _state57x(window))
+    pruefe(_caught57x(window, '_history_go', _go_unchecked574(window),
+                      lambda: _edges574(root, window)[0]),
+           'Gegenprobe: ohne Grenzprüfung läuft Zurück über den Anfang '
+           'hinaus (%s)' % _state57x(window))
+    pruefe(_limit574(root, window),
+           'mehr als %d Wechsel: der Verlauf hält %d Einträge, die Stelle '
+           'steht auf der offenen Seite (%d Einträge)'
+           % (type(window).HISTORY_LIMIT, type(window).HISTORY_LIMIT,
+              len(window.history)))
+    pruefe(_caught57x(window, 'HISTORY_LIMIT', 10 ** 6,
+                      lambda: _limit574(root, window)),
+           'Gegenprobe: ohne Grenze wächst der Verlauf darüber hinaus (%d)'
+           % len(window.history))
+    pruefe(_redirect574(root, window),
+           'Vor auf eine ausgeschaltete Seite landet auf „Module" und lässt '
+           'den Verlauf stehen (%s)' % _state57x(window))
+    pruefe(_caught57x(window, '_history_note', _note_ignoring_step574(window),
+                      lambda: _redirect574(root, window)),
+           'Gegenprobe: zählt der Schritt als neuer Weg, schreibt die '
+           'Umleitung „Module" in den Verlauf (%s)' % _state57x(window))
+
+
+def _pruefung_574():
+    _run57x(574, 'Grenzen am Anfang, am Ende und in der Länge', _body574)
+
+
+def _rebuild575(root, window):
+    """Neuaufbau, frische Daten, Ansichtswechsel und ein Zeigen ohne Weg
+    lassen den Verlauf stehen — auch den Vor-Teil."""
+    from scbp import icons as icons_575
+    _fresh57x(root, window)
+    window.go_back()
+    root.update()
+    before = (list(window.history), window.history_pos, window.current)
+    results = {}
+    window.rebuild()
+    root.update()
+    results['Neuaufbau'] = (list(window.history), window.history_pos,
+                            window.current) == before
+    results['Knöpfe nach Neuaufbau'] = [
+        b.symbol_color for b in window.history_buttons] == [icons_575.LIGHT,
+                                                             icons_575.LIGHT]
+    window.pages_changed([window.current])
+    root.update()
+    results['neue Daten'] = (list(window.history), window.history_pos,
+                             window.current) == before
+    window._toggle_view()
+    root.update()
+    results['Kartenansicht'] = (window.card_mode() and all(
+        b.winfo_exists() and b.winfo_ismapped()
+        for b in window.history_buttons)
+        and (list(window.history), window.history_pos) == before[:2])
+    window._toggle_view()
+    root.update()
+    results['zurück in der Reiteransicht'] = (
+        not window.card_mode()
+        and (list(window.history), window.history_pos,
+             window.current) == before)
+    window.open_page('module')
+    root.update()
+    results['Zeigen ohne Weg'] = (list(window.history),
+                                  window.history_pos) == before[:2]
+    # Der Programmweg auf eine ANDERE Seite: Bedarf wird ausgeblendet,
+    # während er offen ist, und `pages_changed` wechselt auf die Liste.
+    window._tab_hidden = lambda _page: False
+    try:
+        window.open_page('bedarf')
+        root.update()
+        opened = window.current == 'bedarf'
+        middle = (list(window.history), window.history_pos)
+        window._tab_hidden = lambda page: page == 'bedarf'
+        window.pages_changed(['bedarf'])
+        root.update()
+    finally:
+        del window._tab_hidden
+    results['ausgeblendete Seite, Wechsel auf die Liste'] = (
+        opened and window.current == 'liste'
+        and (list(window.history), window.history_pos) == middle)
+    return results
+
+
+def _note_without_via575(window):
+    """Eintragen, auch wenn das Programm die Seite selbst zeigt."""
+    real = type(window)._history_note
+
+    def note(page_id, via):
+        real(window, page_id, via or 'sprung')
+    return note
+
+
+def _body575(root, window):
+    results = _rebuild575(root, window)
+    for name, ok in results.items():
+        pruefe(ok, '%s: Verlauf und Stelle unverändert (%s)'
+               % (name, _state57x(window)))
+    restore = _sabotage57x(window, '_history_note',
+                           _note_without_via575(window))
+    try:
+        sabotaged = _rebuild575(root, window)
+    finally:
+        restore()
+    pruefe(not sabotaged['Zeigen ohne Weg'],
+           'Gegenprobe: zählt ein Zeigen ohne Weg als Besuch, geht der '
+           'Vor-Teil verloren (%s)' % _state57x(window))
+    pruefe(not sabotaged['ausgeblendete Seite, Wechsel auf die Liste'],
+           'Gegenprobe: dasselbe beim Wechsel aus pages_changed')
+    real_rebuild = window.rebuild
+
+    def rebuild_clearing():
+        window.history[:] = []
+        window.history_pos = -1
+        real_rebuild()
+    restore = _sabotage57x(window, 'rebuild', rebuild_clearing)
+    try:
+        sabotaged = _rebuild575(root, window)
+    finally:
+        restore()
+    pruefe(not sabotaged['Neuaufbau'],
+           'Gegenprobe: ein Neuaufbau, der den Verlauf leert, fällt auf')
+    restore = _sabotage57x(window, '_history_buttons_update',
+                           lambda: None)
+    try:
+        sabotaged = _rebuild575(root, window)
+    finally:
+        restore()
+    pruefe(not sabotaged['Knöpfe nach Neuaufbau'],
+           'Gegenprobe: ohne Nachziehen stehen die neu gebauten Knöpfe grau '
+           'da, obwohl es zurück und vor geht')
+
+
+def _pruefung_575():
+    _run57x(575, 'Neuaufbau und Ansichtswechsel zählen nicht als Besuch',
+            _body575)
+
+
+def _keys576(root, window):
+    """Alt+Pfeil links, dann Alt+Pfeil rechts, auf der offenen Seite."""
+    _fresh57x(root, window)
+    _keys57x(root, window.pages[window.current], '<Alt-Left>')
+    back = (window.current, window.history_pos)
+    _keys57x(root, window.pages[window.current], '<Alt-Right>')
+    forward = (window.current, window.history_pos)
+    return back == ('darstellung', 2) and forward == ('ordner', 3)
+
+
+def _other_window576(root, window):
+    """Alt+Pfeil links in einem anderen Fenster derselben Anwendung (wie
+    dem Overlay). Gibt (angekommen, Hauptfenster unverändert) zurück."""
+    import tkinter as tk_576
+    _fresh57x(root, window)
+    other = tk_576.Toplevel(root)
+    try:
+        field = tk_576.Frame(other, width=60, height=40)
+        field.pack()
+        arrived = []
+        field.bind('<Alt-Left>', lambda _e: arrived.append(1), add='+')
+        root.update()
+        before = (window.current, window.history_pos)
+        _keys57x(root, field, '<Alt-Left>')
+        return bool(arrived), (window.current, window.history_pos) == before
+    finally:
+        other.destroy()
+
+
+def _body576(root, window):
+    pruefe(_keys576(root, window),
+           'Alt+Pfeil links geht zurück, Alt+Pfeil rechts wieder vor (%s)'
+           % _state57x(window))
+    scripts = {seq: window.root.bind(seq)
+               for seq in ('<Alt-Left>', '<Alt-Right>')}
+    for seq in scripts:
+        window.root.unbind(seq)
+    try:
+        caught = not _keys576(root, window)
+    finally:
+        for seq, script in scripts.items():
+            window.root.bind(seq, script)
+    pruefe(caught, 'Gegenprobe: ohne die Tastenbindung bleibt die Seite '
+           'stehen (%s)' % _state57x(window))
+    pruefe(_keys576(root, window),
+           'Selbstprüfung: wiederhergestellt greift das Kürzel wieder')
+    arrived, untouched = _other_window576(root, window)
+    pruefe(arrived, 'Selbstprüfung: das Kürzel kommt im anderen Fenster an')
+    pruefe(untouched, 'Alt+Pfeil links in einem anderen Fenster blättert im '
+           'Hauptfenster nicht (%s)' % _state57x(window))
+    root.bind_all('<Alt-Left>', lambda _e: window.go_back())
+    try:
+        _arrived, untouched = _other_window576(root, window)
+    finally:
+        root.unbind_all('<Alt-Left>')
+    pruefe(not untouched, 'Gegenprobe: an `all` gebunden blätterte das '
+           'Kürzel aus jedem Fenster')
+
+
+def _pruefung_576():
+    _run57x(576, 'Alt+Pfeil links/rechts', _body576)
+
+
+def _button_for577(root, num):
+    """Welche Taste `event_generate` erzeugen muss, damit Tk `num` meldet.
+
+    Tk 9 zählt ab der vierten Taste um vier weiter — dort meldet eine als 4
+    erzeugte Taste `num` 8. Unter Tk 8.6 ist es die 8 selbst. Gefragt wird
+    Tk, nicht die Fassungsnummer."""
+    import tkinter as tk_577
+    top = tk_577.Toplevel(root)
+    try:
+        frame = tk_577.Frame(top, width=60, height=40)
+        frame.pack()
+        seen = []
+        frame.bind('<ButtonPress>', lambda e: seen.append(e.num), add='+')
+        root.update()
+        for number in range(1, 10):
+            del seen[:]
+            try:
+                frame.event_generate('<ButtonPress>', button=number, x=5, y=5)
+            except tk_577.TclError:
+                continue
+            root.update()
+            if seen and seen[-1] == num:
+                return number
+        return None
+    finally:
+        top.destroy()
+
+
+def _sides577(root, window, back_button, forward_button):
+    """Hintere, dann vordere Seitentaste auf der offenen Seite."""
+    _fresh57x(root, window)
+    window.pages[window.current].event_generate(
+        '<ButtonPress>', button=back_button, x=5, y=5)
+    root.update()
+    back = (window.current, window.history_pos)
+    window.pages[window.current].event_generate(
+        '<ButtonPress>', button=forward_button, x=5, y=5)
+    root.update()
+    forward = (window.current, window.history_pos)
+    return back == ('darstellung', 2) and forward == ('ordner', 3)
+
+
+def _xbutton577(root, window, which):
+    """Eine echte Seitentaste unter Windows, so wie Tk sie sieht: der
+    Tastenzustand des Fadens (`SetKeyboardState`) und `WM_XBUTTONDOWN`/`UP`
+    an das Fenster. ⚠ Kein `SendInput` — das ginge an den Desktop des
+    Nutzers. Eigene `WinDLL`, damit die Typangaben keine andere Prüfung
+    berühren."""
+    import ctypes
+    user32 = ctypes.WinDLL('user32')
+    user32.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                    ctypes.c_size_t, ctypes.c_ssize_t]
+    key = 0x05 if which == 1 else 0x06
+    held = 0x20 if which == 1 else 0x40
+    hwnd = window.content.winfo_id()
+    where = (10 << 16) | 10
+
+    def state(down):
+        keys = (ctypes.c_ubyte * 256)()
+        user32.GetKeyboardState(keys)
+        keys[key] = 0x80 if down else 0
+        user32.SetKeyboardState(keys)
+    try:
+        state(True)
+        user32.SendMessageW(hwnd, 0x020B, (which << 16) | held, where)
+        root.update()
+    finally:
+        state(False)
+    user32.SendMessageW(hwnd, 0x020C, which << 16, where)
+    root.update()
+
+
+def _real_sides577(root, window):
+    _fresh57x(root, window)
+    _xbutton577(root, window, 1)
+    back = (window.current, window.history_pos)
+    _xbutton577(root, window, 2)
+    forward = (window.current, window.history_pos)
+    return back == ('darstellung', 2) and forward == ('ordner', 3)
+
+
+def _with_list_guard577(window, scenario):
+    """`scenario()`, während am Fenster `<Button-4>`/`<Button-5>` hängen —
+    so wie der Wächter einer offenen Auswahlliste (`round_select`)."""
+    sequences = ('<Button-4>', '<Button-5>')
+    scripts = {seq: window.root.bind(seq) for seq in sequences}
+    for seq in sequences:
+        window.root.bind(seq, lambda _e: None, add='+')
+    try:
+        return scenario()
+    finally:
+        for seq, script in scripts.items():
+            window.root.unbind(seq)
+            if script:
+                window.root.bind(seq, script)
+
+
+def _wheel577(root, window, wheel_button):
+    """Das Mausrad: `<MouseWheel>` in beide Richtungen, dazu Taste 4/5,
+    wo sie als `num` 4/5 ankommt und das Rad ist (nicht unter Windows)."""
+    _fresh57x(root, window)
+    before = (window.current, window.history_pos)
+    page = window.pages[window.current]
+    for delta in (120, -120):
+        page.event_generate('<MouseWheel>', delta=delta, x=5, y=5)
+    if wheel_button:
+        page.event_generate('<ButtonPress>', button=wheel_button, x=5, y=5)
+    root.update()
+    return (window.current, window.history_pos) == before
+
+
+def _table577(root, window):
+    """Taste mit `num` 4 direkt an `_side_button`: unter Windows ist das die
+    hintere Seitentaste von Tk 8.6, sonst das Rad."""
+    import types
+    _fresh57x(root, window)
+    win32 = root.tk.call('tk', 'windowingsystem') == 'win32'
+    window._side_button(types.SimpleNamespace(
+        num=4, widget=window.pages[window.current]))
+    root.update()
+    expected = ('darstellung', 2) if win32 else ('ordner', 3)
+    return (window.current, window.history_pos) == expected
+
+
+def _other_window577(root, window, back_button):
+    """Hintere Seitentaste in einem anderen Fenster derselben Anwendung."""
+    import tkinter as tk_577
+    _fresh57x(root, window)
+    other = tk_577.Toplevel(root)
+    try:
+        field = tk_577.Frame(other, width=60, height=40)
+        field.pack()
+        root.update()
+        before = (window.current, window.history_pos)
+        field.event_generate('<ButtonPress>', button=back_button, x=5, y=5)
+        root.update()
+        return (window.current, window.history_pos) == before
+    finally:
+        other.destroy()
+
+
+def _body577(root, window):
+    back_button = _button_for577(root, 8)
+    forward_button = _button_for577(root, 9)
+    pruefe(back_button and forward_button,
+           'Selbstprüfung: Tk liefert Tastendrücke mit num 8 und 9 (erzeugt '
+           'als Taste %s und %s)' % (back_button, forward_button))
+    if not (back_button and forward_button):
+        return
+
+    def sides():
+        return _sides577(root, window, back_button, forward_button)
+    pruefe(sides(), 'hintere Seitentaste geht zurück, vordere wieder vor '
+           '(%s)' % _state57x(window))
+    pruefe(_caught57x(window, '_side_button', lambda _e: None, sides),
+           'Gegenprobe: ohne den Griff bleibt die Seite stehen')
+    pruefe(_with_list_guard577(window, sides),
+           'auch bei offener Auswahlliste (Wächter an Taste 4/5 des Fensters) '
+           'blättern die Seitentasten (%s)' % _state57x(window))
+    if back_button == 4:
+        # Unter Tk 9 trifft `<Button-4>` die Seitentaste. Hinge der Griff
+        # nur als `<ButtonPress>` am Fenster, nähme der Wächter ihn weg.
+        def on_window_only():
+            window.root.bind('<ButtonPress>', lambda e: (
+                type(window)._side_button(window, e)), add='+')
+            try:
+                return _with_list_guard577(window, sides)
+            finally:
+                window.root.unbind('<ButtonPress>')
+        pruefe(_caught57x(window, '_side_button', lambda _e: None,
+                          on_window_only),
+               'Gegenprobe: nur am Fenster gebunden schluckt der Wächter '
+               'die Seitentaste')
+    else:
+        print('  (Gegenprobe Wächter entfällt: Taste 4 ist hier nicht die '
+              'Seitentaste)')
+    pruefe(_other_window577(root, window, back_button),
+           'Seitentaste in einem anderen Fenster blättert hier nicht')
+
+    def any_window(e):
+        step = window.SIDE_BUTTONS.get(e.num)
+        if step:
+            window._history_go(step)
+    pruefe(_caught57x(window, '_side_button', any_window,
+                      lambda: _other_window577(root, window, back_button)),
+           'Gegenprobe: ohne Blick auf das Fenster blätterte jede Taste '
+           'im Programm')
+    pruefe(_table577(root, window),
+           'num 4: unter Windows Zurück (Tk 8.6), sonst kein Schritt (%s)'
+           % _state57x(window))
+    restore_win32 = _sabotage57x(window, 'SIDE_BUTTONS_WIN32',
+                                 type(window).SIDE_BUTTONS)
+    restore_other = _sabotage57x(window, 'SIDE_BUTTONS',
+                                 type(window).SIDE_BUTTONS_WIN32)
+    try:
+        caught = not _table577(root, window)
+    finally:
+        restore_other()
+        restore_win32()
+    pruefe(caught, 'Gegenprobe: mit vertauschten Tabellen schlägt die '
+           'Messung an')
+    win32 = root.tk.call('tk', 'windowingsystem') == 'win32'
+    wheel_button = None if win32 else _button_for577(root, 4)
+    pruefe(_wheel577(root, window, wheel_button),
+           'das Mausrad blättert nicht%s (%s)'
+           % ('' if wheel_button else ' (nur MouseWheel: Taste 4 ist hier '
+              'nicht das Rad)', _state57x(window)))
+    page = window.pages['ordner']
+    old_script = page.bind('<MouseWheel>')
+    page.bind('<MouseWheel>', lambda _e: window.go_back(), add='+')
+    try:
+        caught = not _wheel577(root, window, wheel_button)
+    finally:
+        page.unbind('<MouseWheel>')
+        if old_script:
+            page.bind('<MouseWheel>', old_script)
+    pruefe(caught, 'Gegenprobe: blätterte das Rad, schlüge die Messung an')
+    if sys.platform != 'win32':
+        return
+    pruefe(_real_sides577(root, window),
+           'Windows: echte Seitentasten (WM_XBUTTONDOWN) blättern zurück und '
+           'vor (%s)' % _state57x(window))
+    pruefe(_caught57x(window, '_side_button', lambda _e: None,
+                      lambda: _real_sides577(root, window)),
+           'Gegenprobe: ohne den Griff bewirkt die echte Seitentaste nichts')
+    pruefe(_with_list_guard577(window,
+                               lambda: _real_sides577(root, window)),
+           'Windows: echte Seitentasten auch bei offener Auswahlliste')
+
+
+def _pruefung_577():
+    _run57x(577, 'Maus-Seitentasten', _body577)
+
+
+def _buttons578(root, window):
+    """Wie die beiden Pfeile aussehen und reagieren."""
+    from scbp import icons as icons_578
+    back, forward = window.history_buttons
+    on, off = (icons_578.LIGHT, 'hand2'), (icons_578.GREY, '')
+
+    def look(button):
+        return button.symbol_color, str(button.cget('cursor'))
+    _restart57x(root, window)
+    results = {'nur die Startseite: beide grau':
+               (look(back), look(forward)) == (off, off)}
+    _click57x(root, window.buttons['anzeige'][3])
+    _click57x(root, window.buttons['darstellung'][3])
+    results['am Ende: Zurück hell, Vor grau'] = (
+        (look(back), look(forward)) == (on, off))
+    before = window.current
+    _click57x(root, forward)
+    results['Klick auf den grauen Pfeil tut nichts'] = (
+        window.current == before)
+    forward.event_generate('<Enter>')
+    root.update()
+    results['grauer Pfeil hebt sich beim Überfahren nicht ab'] = (
+        not getattr(forward, 'hovered', False))
+    forward.event_generate('<Leave>')
+    back.event_generate('<Enter>')
+    root.update()
+    results['heller Pfeil hebt sich beim Überfahren ab'] = getattr(
+        back, 'hovered', False)
+    back.event_generate('<Leave>')
+    root.update()
+    _click57x(root, back)
+    results['nach Zurück: beide hell'] = (
+        (look(back), look(forward), window.current)
+        == (on, on, 'anzeige'))
+    return results
+
+
+def _body578(root, window):
+    from scbp.language import t as t_578
+    results = _buttons578(root, window)
+    for name, ok in results.items():
+        pruefe(ok, name)
+    pruefe(all(t_578(key) and t_578(key) != t_578(key + '_leer')
+               for key in ('hf_seite_zurueck', 'hf_seite_vor')),
+           'jeder Pfeil hat eine Kurzhilfe und eine eigene für den grauen '
+           'Zustand')
+    # Fester Ausgangszustand für die Gegenprobe: beide Pfeile grau.
+    _restart57x(root, window)
+    pruefe(not any(b.enabled for b in window.history_buttons),
+           'Selbstprüfung: vor der Gegenprobe sind beide Pfeile grau')
+    restore = _sabotage57x(window, '_history_buttons_update', lambda: None)
+    try:
+        sabotaged = _buttons578(root, window)
+    finally:
+        restore()
+    pruefe(not sabotaged['am Ende: Zurück hell, Vor grau'],
+           'Gegenprobe: ohne Nachziehen bleiben die Pfeile grau, und die '
+           'Messung schlägt an')
+    pruefe(not sabotaged['nach Zurück: beide hell'],
+           'Gegenprobe: ohne Nachziehen trägt der graue Zurück-Pfeil '
+           'keinen Klick')
+
+
+def _pruefung_578():
+    _run57x(578, 'Zustand der Knöpfe', _body578)
+
+
+def _routes579(root, window):
+    """Sprung, Karte, Enter im Filterfeld der Leiste und die Pfadzeile."""
+    _restart57x(root, window)
+    window.jump_to('anzeige')
+    root.update()
+    window.open_page('darstellung', via='karte')
+    root.update()
+    window.nav_filter_var.set(
+        window.buttons['ordner'][3].cget('text').lower())
+    root.update()
+    _keys57x(root, window.nav_filter_box, '<Return>')
+    filtered = window.current
+    window.open_page('uebersicht', via='pfad')
+    root.update()
+    return filtered, list(window.history)
+
+
+def _back_bar579(root, window):
+    """Nach einem Sprung „Zurück zu …" anklicken: ein Schritt zurück, Vor
+    führt wieder zur Sprungseite."""
+    _restart57x(root, window)
+    window.jump_to('anzeige')
+    root.update()
+    bar = window.back_bar.winfo_children()
+    if not bar:
+        return False
+    _click57x(root, bar[0])
+    return (window.current == 'allgemein'
+            and window.history == ['allgemein', 'anzeige']
+            and window.history_pos == 0 and window.history_buttons[1].enabled)
+
+
+def _body579(root, window):
+    from scbp import page_usage as page_usage_579
+    filtered, history = _routes579(root, window)
+    pruefe(filtered not in (None, 'darstellung')
+           and not window.nav_filter_var.get(),
+           'Selbstprüfung: Enter im Feld „Menü filtern" öffnet einen Treffer '
+           '(%s)' % filtered)
+    pruefe(history == ['allgemein', 'anzeige', 'darstellung', filtered,
+                       'uebersicht'],
+           'Sprung, Karte, Menü filtern und Pfadzeile stehen im Verlauf '
+           '(%r)' % history)
+    pruefe(_caught57x(window, '_history_note', lambda *_a: None,
+                      lambda: _routes579(root, window)[1][1:] == [
+                          'anzeige', 'darstellung', filtered, 'uebersicht']),
+           'Gegenprobe: ohne Eintragen fehlen die vier Wege')
+    pruefe(_back_bar579(root, window),
+           '„Zurück zu …" nach einem Sprung ist ein Schritt zurück, Vor '
+           'bleibt frei (%s)' % _state57x(window))
+
+    def old_back_jump():
+        if window.came_from:
+            window.open_page(window.came_from, via='sprung')
+    pruefe(_caught57x(window, '_back_jump', old_back_jump,
+                      lambda: _back_bar579(root, window)),
+           'Gegenprobe: ein „Zurück zu …" als neuer Weg verliert Vor und '
+           'fällt auf (%s)' % _state57x(window))
+    _fresh57x(root, window)
+    seen = []
+    real = page_usage_579.page_opened
+    page_usage_579.page_opened = (
+        lambda page, route, clock=None: seen.append((page, route)))
+    try:
+        window.go_back()
+        root.update()
+    finally:
+        page_usage_579.page_opened = real
+    route = seen[-1][1] if seen else None
+    pruefe(seen and seen[-1][0] == 'darstellung',
+           'Selbstprüfung: die Nutzungszählung hört den Schritt (%r)' % seen)
+    pruefe(route == 'sprung' and route in page_usage_579.ROUTES,
+           'ein Schritt zurück zählt als Weg „sprung", den der Empfänger '
+           'kennt (%r)' % route)
+    pruefe(_areas579(root, window),
+           'ein Schritt bringt den Kartenbereich mit, aus dem die Seite kam '
+           '(%r)' % window._card_area)
+
+    def go_without_area(step):
+        window.history_areas[:] = [None] * len(window.history_areas)
+        return type(window)._history_go(window, step)
+    pruefe(_caught57x(window, '_history_go', go_without_area,
+                      lambda: _areas579(root, window)),
+           'Gegenprobe: ohne gemerkten Bereich bleibt der zuletzt gesetzte '
+           'stehen')
+
+
+def _areas579(root, window):
+    """Zwei Karten aus verschiedenen Bereichen, dann ein Schritt zurück."""
+    _restart57x(root, window)
+    window.open_page('darstellung', via='karte', area='einstellungen')
+    window.open_page('ordner', via='karte', area='spiel')
+    root.update()
+    window.go_back()
+    root.update()
+    return (window.current == 'darstellung'
+            and window._card_area == 'einstellungen')
+
+
+def _pruefung_579():
+    _run57x(579, 'alle Wege landen im Verlauf, „Zurück zu …" ist ein '
+            'Schritt', _body579)
 
 
 if __name__ == '__main__':

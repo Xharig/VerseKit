@@ -2067,11 +2067,20 @@ class MainWindow:
         # Wer die Schriftgröße ändert, meint das ganze Programm — auch das
         # Overlay. Das Fenster kennt es nicht, deshalb ein Rückruf.
         self.on_font_change = on_font_change
+        # Die besuchten Seiten für Zurück/Vor (`go_back`, `go_forward`) und die
+        # Stelle darin, an der das Fenster gerade steht. Überdauert `rebuild()`.
+        # `history_areas` hält je Eintrag den Bereich der Kartenansicht, aus
+        # dem die Seite kam (die Pfadzeile nennt ihn).
+        self.history = []
+        self.history_areas = []
+        self.history_pos = -1
+        self._history_step = False
 
         self._titlebar()
         self._footer()         # ⚠ vor dem Inhalt — sonst rutscht sie hinaus
         self._body()
         self._bind_click_on_empty()
+        self._bind_history_keys()
 
         # ⚠⚠ **Die verlangte Seite, nicht fest die Liste.** Oeffnete hier
         # immer erst die Liste und der Aufrufer danach seine Seite, wartete
@@ -2279,6 +2288,7 @@ class MainWindow:
                  font=self.f_bold).pack(side='left')
         tk.Label(bar, text='v%s' % (self.version or '—'), bg=BAR, fg=SUB,
                  font=self.f_small).pack(side='left', padx=(6, 0))
+        self._history_buttons(bar)
 
         # Symbol UND Wort: Ein Symbol allein erklärt sich nur dem, der es gebaut
         # hat. Deshalb steht der Zauberstab neben „Einrichtung starten": ein
@@ -2472,6 +2482,143 @@ class MainWindow:
                       else (lambda: erklaerung))
         rahmen.teile = (z, w)
         return rahmen
+
+    def _history_buttons(self, bar):
+        """Zurück und Vor, links in der Kopfleiste neben der Versionsnummer —
+        in Reiter- und Kartenansicht an derselben Stelle.
+
+        Bereit steht ein Pfeil hell, mit Zeigefinger, Klick und Hervorhebung
+        beim Überfahren; gibt es keinen Schritt in seine Richtung, bleibt er
+        grau und trägt keinen Klick. Den Zustand setzt
+        `_history_buttons_update`.
+
+        ⚠ Ohne `action` gebaut: `icons.button` hängt Klick und Hervorhebung
+        sonst fest an, und ein grauer Pfeil würde beim Überfahren grün.
+        """
+        rahmen = tk.Frame(bar, bg=BAR)
+        rahmen.pack(side='left', padx=(14, 0), pady=6)
+        knoepfe = []
+        for name, tat, hilfe in (
+                ('seite_zurueck', self.go_back, 'hf_seite_zurueck'),
+                ('seite_vor', self.go_forward, 'hf_seite_vor')):
+            knopf = icons.button(rahmen, name, background=BAR,
+                                 font=self.f_icon)
+            knopf.pack(side='left', padx=(0, 2))
+            knopf.enabled = False
+            knopf.action = tat
+            knopf.click_id = None
+            knopf.hoverable = True
+            knopf.resize()
+
+            def rein(_e=None, k=knopf):
+                if k.enabled:
+                    k.hovered = True
+                    k.resize()
+
+            def raus(_e=None, k=knopf):
+                k.hovered = False
+                k.resize()
+
+            knopf.bind('<Enter>', rein, add='+')
+            knopf.bind('<Leave>', raus, add='+')
+            notice.attach(knopf, lambda k=knopf, h=hilfe: t(
+                h if k.enabled else h + '_leer'))
+            knoepfe.append(knopf)
+        self.history_buttons = tuple(knoepfe)
+        self._history_buttons_update()
+
+    def _history_buttons_update(self):
+        """Die beiden Pfeile auf den Verlauf setzen: hell und anklickbar, wenn
+        es dorthin einen Schritt gibt, sonst grau und ohne Klick.
+
+        ⚠ Der Klick wird über seine Kennung gelöst, nicht mit einem bloßen
+        `unbind`: `notice` hängt an dasselbe `<Button-1>` seinen eigenen
+        Abräumer."""
+        moeglich = (self.history_pos > 0,
+                    self.history_pos < len(self.history) - 1)
+        for knopf, an in zip(getattr(self, 'history_buttons', ()), moeglich):
+            try:
+                knopf.enabled = an
+                if an and knopf.click_id is None:
+                    knopf.click_id = knopf.bind(
+                        '<Button-1>', lambda _e, f=knopf.action: f(), add='+')
+                elif not an and knopf.click_id is not None:
+                    knopf.unbind('<Button-1>', knopf.click_id)
+                    knopf.click_id = None
+                knopf.configure(cursor='hand2' if an else '')
+                if not an:
+                    knopf.hovered = False
+                knopf.recolor(icons.LIGHT if an else icons.GREY)
+            except tk.TclError:
+                pass
+
+    def _bind_history_keys(self):
+        """Alt+Pfeil links/rechts und die Maus-Seitentasten blättern durch den
+        Verlauf, wie im Browser.
+
+        Die Tastenkürzel hängen am Fenster, nicht an `all`: Das Hauptfenster
+        ist ein Toplevel des Overlays, und `all` gilt für beide.
+
+        ⚠⚠ **Die Seitentasten werden an `num` erkannt, nicht am Muster.**
+        Unter Windows mit Tk 9.0 kommt die hintere Taste als Tastendruck mit
+        `num` 8, die vordere mit 9. Tk 9 zählt ab der vierten Taste um vier
+        weiter — das Muster `<Button-4>` trifft `num` 8, `<Button-8>` erst
+        `num` 12 und damit nie eine Seitentaste. Unter Tk 8.6 tragen sie
+        unter X11 ebenfalls 8 und 9 (4 und 5 sind dort das Mausrad), unter
+        Windows dagegen 4 und 5 (das Rad ist dort `<MouseWheel>`).
+
+        ⚠⚠ **Die Seitentasten hängen an `all`, nicht am Fenster.** Tk nimmt
+        je Bindungsziel nur das genaueste Muster. Eine offene Auswahlliste
+        hängt ihren Wächter als `<Button-4>`/`<Button-5>` ans Fenster
+        (`round_select`) — unter Tk 9 ginge die Seitentaste dann dorthin und
+        nicht an ein `<ButtonPress>` daneben. An `all` werden Bindungen nie
+        gelöst und nur ergänzt (`bind_wheel`); dort hängt der Griff an allen
+        drei Mustern, und `_side_button` sieht nach, ob das Ereignis aus
+        diesem Fenster kommt.
+        """
+        def taste(schritt):
+            def griff(_e=None):
+                self._history_go(schritt)
+                return 'break'
+            return griff
+
+        for muster, griff in (('<Alt-Left>', taste(-1)),
+                              ('<Alt-Right>', taste(1))):
+            try:
+                self.root.bind(muster, griff, add='+')
+            except tk.TclError:
+                pass
+        for muster in ('<ButtonPress>', '<Button-4>', '<Button-5>'):
+            try:
+                self.root.bind_all(muster, lambda e: self._side_button(e),
+                                   add='+')
+            except tk.TclError:
+                pass
+
+    # Maus-Seitentaste (`num`) -> Schritt im Verlauf. Unter Windows sind 4
+    # und 5 die Seitentasten von Tk 8.6, nie das Rad.
+    SIDE_BUTTONS = {8: -1, 9: 1}
+    SIDE_BUTTONS_WIN32 = {8: -1, 9: 1, 4: -1, 5: 1}
+
+    def _side_button(self, ereignis):
+        """Eine Maus-Seitentaste irgendwo im Programm: blättern, wenn sie in
+        diesem Fenster gedrückt wurde."""
+        try:
+            if not self.root.winfo_exists():
+                return
+            ziel = ereignis.widget
+            if isinstance(ziel, str):
+                ziel = self.root.nametowidget(ziel)
+            if str(ziel.winfo_toplevel()) != str(self.root):
+                return
+            tasten = (self.SIDE_BUTTONS_WIN32
+                      if self.root.tk.call('tk', 'windowingsystem') == 'win32'
+                      else self.SIDE_BUTTONS)
+        except (tk.TclError, KeyError, AttributeError):
+            return
+        schritt = tasten.get(getattr(ereignis, 'num', None))
+        if schritt:
+            self._history_go(schritt)
 
     # --------------------------------------------------------------- Fußzeile
     def _footer(self):
@@ -3859,6 +4006,8 @@ class MainWindow:
             self._card_area = area
         elif page_id.startswith('bereich_'):
             self._card_area = page_id[len('bereich_'):]
+        self._history_note(page_id, via)
+        self._history_buttons_update()
         self._crumb_update(page_id)
         # Die Nadel an der Überschrift folgt dem Stand, auch wenn auf einer
         # Karte angeheftet wurde.
@@ -3938,9 +4087,75 @@ class MainWindow:
         """
         self.open_page(page_id, back_to=self.current, via='sprung')
 
+    # So viele Seiten merkt sich der Verlauf; die ältesten fallen zuerst weg.
+    HISTORY_LIMIT = 100
+
+    def _history_note(self, page_id, via):
+        """Eine geöffnete Seite in den Verlauf schreiben, wie im Browser.
+
+        Es zählt nur ein Weg, den der Mensch nimmt (`via` gesetzt). Neuaufbau,
+        Ansichtswechsel und frisch abgeglichene Daten zeigen die Seite ohne
+        `via` — das ist kein Besuch. Ein Schritt mit Zurück/Vor schreibt
+        nichts, er wandert nur durch den Verlauf. Ein neuer Weg nach einem
+        Schritt zurück verwirft, was davor lag.
+        """
+        if self._history_step or via is None:
+            return
+        if (0 <= self.history_pos < len(self.history)
+                and self.history[self.history_pos] == page_id):
+            return
+        del self.history[self.history_pos + 1:]
+        del self.history_areas[self.history_pos + 1:]
+        self.history.append(page_id)
+        self.history_areas.append(getattr(self, '_card_area', None))
+        ueber = max(0, len(self.history) - self.HISTORY_LIMIT)
+        del self.history[:ueber]
+        del self.history_areas[:ueber]
+        self.history_pos = len(self.history) - 1
+
+    def _history_go(self, step):
+        """Im Verlauf `step` Seiten weiter (negativ: zurück). Gibt False
+        zurück, wenn es in diese Richtung nichts mehr gibt.
+
+        ⚠ Gezählt wird der Schritt in `page_usage` als `sprung` — wie der
+        Knopf „Zurück zu …". Einen eigenen Weg kennt der Empfänger der
+        Nutzungsmeldung nicht, und er verwirft eine Meldung mit unbekanntem
+        Weg ganz. Wer schnell mehrere Seiten zurückblättert, verlässt jede
+        Zwischenseite in weniger als `page_usage.MISS_SECONDS` — dort zählt
+        sie als Fehlgriff."""
+        ziel = self.history_pos + step
+        if not 0 <= ziel < len(self.history):
+            return False
+        self.history_pos = ziel
+        self._history_step = True
+        try:
+            bereiche = getattr(self, 'history_areas', ())
+            self.open_page(self.history[ziel], via='sprung',
+                           area=bereiche[ziel] if ziel < len(bereiche)
+                           else None)
+        finally:
+            self._history_step = False
+        self._history_buttons_update()
+        return True
+
+    def go_back(self):
+        """Eine Seite zurück — Knopf, Alt+Pfeil links, hintere Seitentaste."""
+        return self._history_go(-1)
+
+    def go_forward(self):
+        """Eine Seite vor — Knopf, Alt+Pfeil rechts, vordere Seitentaste."""
+        return self._history_go(1)
+
     def _back_jump(self):
-        """Zurück zu der Seite, von der der Sprung ausging."""
+        """Zurück zu der Seite, von der der Sprung ausging.
+
+        Liegt sie im Verlauf direkt davor, ist das ein Schritt zurück — dann
+        bleibt Vor für den Rückweg zur Sprungseite frei."""
         ziel = self.came_from
+        if (self.history_pos > 0
+                and self.history[self.history_pos - 1] == ziel
+                and self.go_back()):
+            return
         if ziel and ziel in self.pages:
             self.open_page(ziel, via='sprung')
 

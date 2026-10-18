@@ -15,6 +15,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Mk IV Andromeda mit im Hangar, gekennzeichnet als „laut Katalog". Jeder
   Eintrag stützt sich auf eine Angabe von RSI; was der Pledge selbst nennt,
   wird nicht doppelt eingetragen.
+- **Zurück und Vor wie im Browser** — zwei Pfeile oben links neben der
+  Versionsnummer blättern durch die zuletzt besuchten Seiten, ebenso Alt +
+  Pfeil links/rechts und die Seitentasten der Maus. Ein Pfeil ist grau, wenn
+  es in seine Richtung nichts gibt. Vorgeschlagen von Morkhan (KRT)
 
 ### Verbessert
 

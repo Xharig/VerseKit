@@ -3239,11 +3239,14 @@ TEXTS = {
                               'maths; crafting deducts the ingredients for you.'),
     's_dk_morkhan_idee':     ('**Angaben am Gegenstand im Spiel**, **Star Citizen aus '
                               'dem Werkzeug starten**, seit v3.4.0 der '
-                              '**Verkaufs-Reiter** — und dass auf der '
-                              'Joystick-Seite auch die **Tastatur** steht.',
+                              '**Verkaufs-Reiter**, dass auf der Joystick-Seite '
+                              'auch die **Tastatur** steht — und **Zurück und Vor** '
+                              'durch die besuchten Seiten, wie im Browser.',
                               '**Item details in game**, **launching Star Citizen from '
-                              'the tool**, since v3.4.0 the **selling tab** — and '
-                              'having the **keyboard** on the joystick page too.'),
+                              'the tool**, since v3.4.0 the **selling tab**, having '
+                              'the **keyboard** on the joystick page too — and '
+                              '**back and forward** through visited pages, like in a '
+                              'browser.'),
     's_dk_morkhan_bugs':     ('Dazu über zwanzig Funde, darunter 797 Baupläne, die '
                               'niemand zu sehen bekam, ein Fenster, das nicht mehr auf '
                               'den Bildschirm passte, und der abgebrochene Auftrag, der '
@@ -3852,6 +3855,20 @@ TEXTS = {
     # kaeme er nur ohne den Filter zurueck, mit dem er losgelaufen ist.
     # Der Platzhalter ist der Name der Seite, von der man kam.
     'hf_zurueck_zu':     ('← Zurück zu %s', '← Back to %s'),
+    # Kurzhilfe der Knöpfe Zurück/Vor in der Kopfleiste (`_history_buttons`).
+    # Die `_leer`-Fassung steht da, solange der Knopf grau ist.
+    'hf_seite_zurueck':  ('Zurück zur vorigen Seite\n'
+                          'Alt + Pfeil links oder die hintere Maus-Seitentaste',
+                          'Back to the previous page\n'
+                          'Alt + Left arrow or the rear mouse side button'),
+    'hf_seite_zurueck_leer': ('Zurück — noch keine vorige Seite',
+                              'Back — no previous page yet'),
+    'hf_seite_vor':      ('Vor zur nächsten Seite\n'
+                          'Alt + Pfeil rechts oder die vordere Maus-Seitentaste',
+                          'Forward to the next page\n'
+                          'Alt + Right arrow or the front mouse side button'),
+    'hf_seite_vor_leer': ('Vor — erst nach einem Schritt zurück',
+                          'Forward — only after going back'),
     # --- Seite „Herstellung" -------------------------------------------------
     's_he_lead':         ('Was ein Gegenstand zum Herstellen braucht. Klick auf '
                           'eine Zeile zeigt die Zutaten.',

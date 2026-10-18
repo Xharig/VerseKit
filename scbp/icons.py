@@ -582,6 +582,7 @@ BUTTON_NAMES = (
     'uebersetzung',
     'sichern', 'basetool', 'staffellager', 'uebersicht', 'fehler',
     'karten', 'reiter', 'haus', 'anheften', 'loesen', 'pfad',
+    'seite_zurueck', 'seite_vor',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
     'ziehen_ol', 'ziehen_or', 'ziehen_ul', 'ziehen_ur',

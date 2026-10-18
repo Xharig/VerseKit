@@ -15,6 +15,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   P-52 Merlin of the Mk IV Andromeda, appear in the hangar, marked "per
   catalogue". Every entry rests on a statement by RSI; anything the pledge
   itself lists is not added twice.
+- **Back and forward like in a browser** — two arrows at the top left, next
+  to the version number, step through the pages you visited last, as do
+  Alt + Left/Right arrow and the side buttons of your mouse. An arrow is
+  grey when there is nothing in its direction. Suggested by Morkhan (KRT)
 
 ### Improved
 
