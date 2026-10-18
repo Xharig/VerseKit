@@ -1,0 +1,33 @@
+{
+  "key": "lot-2",
+  "material": {
+    "bt": "4a7c9e12-5b3d-4f81-a6e0-8d2c1b0f9e34",
+    "name": "FR-66"
+  },
+  "component": {
+    "componentType": "SHIELD",
+    "size": 1,
+    "grade": "A",
+    "itemClass": "MILITARY"
+  },
+  "location": {
+    "name": "Area18",
+    "uex": {
+      "kind": "CITY",
+      "id": 4
+    }
+  },
+  "quality": 0,
+  "stolen": false,
+  "quantity": {
+    "amount": 2,
+    "unit": "PIECE"
+  },
+  "split": {
+    "personal": {
+      "amount": 2,
+      "unit": "PIECE"
+    },
+    "pools": []
+  }
+}

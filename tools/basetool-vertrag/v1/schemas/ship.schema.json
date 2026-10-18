@@ -68,6 +68,15 @@
     "fitted": {
       "type": "boolean"
     },
+    "orgUnit": {
+      "$ref": "org-unit.schema.json",
+      "description": "The org unit the ship belongs to; absent when it belongs to none."
+    },
+    "orgUnitVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The counter of the ship's org unit, separate from version: a change of the unit moves it, an edit of the other fields does not."
+    },
     "extensions": {
       "$ref": "extensions.schema.json"
     }

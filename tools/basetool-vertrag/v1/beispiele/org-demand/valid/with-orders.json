@@ -1,0 +1,99 @@
+{
+  "updatedAt": "2026-10-16T12:00:00Z",
+  "materials": [
+    {
+      "material": {
+        "bt": "m-agr",
+        "name": "Agricium"
+      },
+      "rawRefs": [],
+      "minQuality": 650,
+      "openQuantity": {
+        "amount": 40,
+        "unit": "SCU"
+      },
+      "source": "material-order"
+    }
+  ],
+  "items": [
+    {
+      "item": {
+        "bt": "bp-cf-337-panther-repeater",
+        "name": "CF-337 Panther Repeater"
+      },
+      "component": {
+        "componentType": "WEAPON_GUN",
+        "size": 3
+      },
+      "openQuantity": {
+        "amount": 2,
+        "unit": "PIECE"
+      },
+      "craftableByMe": false
+    }
+  ],
+  "orders": [
+    {
+      "id": "0b9a6f0e-4c1d-4a8e-9a3f-5c2d7e8f9a10",
+      "number": 412,
+      "type": "MATERIAL",
+      "status": "OPEN",
+      "priority": 3,
+      "unit": {
+        "id": "7d1c2b3a-0000-4000-8000-000000000001",
+        "name": "Alpha Squadron"
+      },
+      "requestingUnit": {
+        "id": "7d1c2b3a-0000-4000-8000-000000000002",
+        "name": "Bravo Squadron"
+      },
+      "handle": "Quartermaster",
+      "comment": "Deliver to the hangar at Lorville.",
+      "materials": [
+        {
+          "material": {
+            "bt": "m-agr",
+            "name": "Agricium"
+          },
+          "minQuality": 650,
+          "openQuantity": {
+            "amount": 40,
+            "unit": "SCU"
+          }
+        }
+      ],
+      "items": []
+    },
+    {
+      "id": "1c0b7a1f-5d2e-4b9f-8b4a-6d3e8f9a0b21",
+      "number": 415,
+      "type": "ITEM",
+      "status": "IN_PROGRESS",
+      "unit": {
+        "id": "7d1c2b3a-0000-4000-8000-000000000001",
+        "name": "Alpha Squadron"
+      },
+      "requestingUnit": {
+        "id": "7d1c2b3a-0000-4000-8000-000000000001",
+        "name": "Alpha Squadron"
+      },
+      "materials": [],
+      "items": [
+        {
+          "item": {
+            "bt": "bp-cf-337-panther-repeater",
+            "name": "CF-337 Panther Repeater"
+          },
+          "component": {
+            "componentType": "WEAPON_GUN",
+            "size": 3
+          },
+          "openQuantity": {
+            "amount": 2,
+            "unit": "PIECE"
+          }
+        }
+      ]
+    }
+  ]
+}

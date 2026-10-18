@@ -1,0 +1,16 @@
+{
+  "dryRun": false,
+  "applied": 1,
+  "unchanged": 0,
+  "notApplied": 1,
+  "results": [
+    {
+      "index": 0,
+      "opId": "s1",
+      "result": "rejected",
+      "reason": "NOT_A_MEMBER"
+    }
+  ],
+  "offersReduced": 0,
+  "offersRemoved": 0
+}

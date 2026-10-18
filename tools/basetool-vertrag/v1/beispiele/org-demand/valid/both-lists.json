@@ -39,6 +39,10 @@
         "bt": "bp-cf-337-panther-repeater",
         "name": "CF-337 Panther Repeater"
       },
+      "component": {
+        "componentType": "WEAPON_GUN",
+        "size": 3
+      },
       "openQuantity": {
         "amount": 2,
         "unit": "PIECE"

@@ -1,0 +1,49 @@
+{
+  "ops": [
+    {
+      "opId": "create-in-unit",
+      "op": "upsert",
+      "externalId": "vk-8",
+      "shipType": {
+        "bt": "st-cutlass-black",
+        "name": "Cutlass Black"
+      },
+      "insurance": {
+        "kind": "LTI"
+      },
+      "orgUnit": "ou-squadron-1"
+    },
+    {
+      "opId": "move",
+      "op": "upsert",
+      "externalId": "vk-7",
+      "shipId": "s-1",
+      "version": 4,
+      "shipType": {
+        "bt": "st-cutlass-black",
+        "name": "Cutlass Black"
+      },
+      "insurance": {
+        "kind": "LTI"
+      },
+      "orgUnit": "ou-command-2",
+      "orgUnitVersion": 1
+    },
+    {
+      "opId": "clear",
+      "op": "upsert",
+      "externalId": "vk-6",
+      "shipId": "s-2",
+      "version": 0,
+      "shipType": {
+        "bt": "st-cutlass-black",
+        "name": "Cutlass Black"
+      },
+      "insurance": {
+        "kind": "LTI"
+      },
+      "orgUnit": null,
+      "orgUnitVersion": 3
+    }
+  ]
+}

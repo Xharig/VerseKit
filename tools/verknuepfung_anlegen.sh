@@ -19,7 +19,7 @@ WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # AppImage, damit im Menü nicht zwei gleich heißende Einträge stehen.
 NAME="VerseKit (Quellcode)"
 
-# ⚠⚠ Der Name der ALTEN Fassung. Unter macOS steckt der sichtbare Name im
+# ⚠⚠ Der Name in älteren Versionen. Unter macOS steckt der sichtbare Name im
 # DATEINAMEN (`$NAME.command`) — nach der Umbenennung entstünde also ein
 # zweiter Startknopf neben dem alten. Unter Linux ist der Dateiname fest
 # (`sc-bp-watcher-quellcode.desktop`), dort gibt es das Problem nicht.

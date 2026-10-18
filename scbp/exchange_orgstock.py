@@ -54,12 +54,12 @@ PAGE_LIMIT = 500
 SCU = 'SCU'
 PIECE = 'PIECE'
 
-# Die vier Sichten der Seite.
+# Gespeicherte Werte der früheren vier Sichten; `orgstock_page.OLD_VIEWS`
+# bildet sie auf die heutigen zwei Reiter ab.
 ITEMS = 'items'
 RAW = 'rohstoffe'
 TRADE = 'handelsware'
 COMPONENTS = 'komponenten'
-CATEGORIES = (ITEMS, RAW, TRADE, COMPONENTS)
 
 # Absagen je Anweisung, die die Seite in Worte fasst. Was hier fehlt, zeigt
 # den Code.
@@ -205,63 +205,6 @@ def parse_units(units):
 def is_item(lot):
     """Ein Item trägt kein `materialKind` — nur Materialien haben eins."""
     return lot.get('kind') is None
-
-
-# ------------------------------------------------------------ Einordnen
-_COMPONENT_GROUPS = ('schiffswaffe', 'schiffsmodul', 'schiffswerkzeug')
-_component_cache = {}
-
-
-def _is_component(name):
-    """Ein Schiffsteil (Waffe, Kühler, Kraftwerk, Schild, Werkzeug …)?
-
-    Das Basetool liefert die Art eines Items nicht mit; eingeordnet wird über
-    die eigenen Rezept- und Katalogdaten, wie in der Bauplan-Liste."""
-    key = (name or '').strip().lower()
-    if key in _component_cache:
-        return _component_cache[key]
-    found = False
-    try:
-        from . import categories, crafting
-        raw = crafting.recipe_raw(name) or {}
-        art = ''
-        try:
-            from . import catalog, collection
-            entry = (catalog.load().get('bauplaene') or {}).get(
-                collection.norm(name)) or {}
-            art = entry.get('a') or ''
-        except Exception:
-            art = ''
-        group = categories.classify(art=art, tag=raw.get('tag') or '',
-                                    unterart=raw.get('subtype') or '',
-                                    rezeptart=raw.get('type') or '')[0]
-        found = group in _COMPONENT_GROUPS
-    except Exception:
-        found = False
-    _component_cache[key] = found
-    return found
-
-
-def category(lot):
-    """In welche Sicht ein Posten gehört.
-
-    Materialien: Erz, Mineral, Ernte oder Raffiniertes → Rohstoffe; der Rest
-    mit `commodity` → Handelsware. ⚠ `commodity` allein heißt nur „steht im
-    UEX-Katalog", dort stehen auch Erze und Metalle. Ohne die UEX-Kennzeichen
-    entscheidet `type`: `RAW`/`REFINED` → Rohstoffe.
-    Items: Schiffsteile → Komponenten, alles Übrige → Items."""
-    kind = lot.get('kind')
-    if kind is None:
-        return COMPONENTS if _is_component(lot.get('name')) else ITEMS
-    if any(kind.get(flag) for flag in ('raw', 'mineral', 'harvestable',
-                                        'refined')):
-        return RAW
-    if kind.get('commodity'):
-        uex_known = any(flag in kind for flag in ('raw', 'mineral',
-                                                   'harvestable', 'refined'))
-        if uex_known or (kind.get('type') or '') == 'NO_REFINE':
-            return TRADE
-    return RAW
 
 
 # --------------------------------------------------------------- Abruf
@@ -482,14 +425,12 @@ def current(now=None):
                 'rosters': {k: list(v) for k, v in _state['rosters'].items()}}
 
 
-def lots_of(data, unit_id=None, view=None, search=''):
-    """Die Posten einer Einheit und Sicht, nach Name, Ort, Qualität."""
+def lots_of(data, unit_id=None, search=''):
+    """Die Posten einer Einheit, nach Name, Ort, Qualität."""
     needle = (search or '').strip().lower()
     out = []
     for lot in (data or {}).get('lots', {}).values():
         if unit_id and lot['unit']['id'] != unit_id:
-            continue
-        if view and category(lot) != view:
             continue
         if needle and needle not in lot['name'].lower() \
                 and needle not in lot['place'].lower():
@@ -497,16 +438,6 @@ def lots_of(data, unit_id=None, view=None, search=''):
         out.append(lot)
     out.sort(key=lambda l: (l['name'].lower(), l['place'].lower(),
                             -l['quality'], l['stolen']))
-    return out
-
-
-def counts(data, unit_id=None):
-    """Anzahl Posten je Sicht für eine Einheit."""
-    out = dict.fromkeys(CATEGORIES, 0)
-    for lot in (data or {}).get('lots', {}).values():
-        if unit_id and lot['unit']['id'] != unit_id:
-            continue
-        out[category(lot)] += 1
     return out
 
 

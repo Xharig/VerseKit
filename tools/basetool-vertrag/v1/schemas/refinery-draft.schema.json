@@ -25,7 +25,7 @@
         "$ref": "#/$defs/order"
       },
       "maxItems": 5,
-      "minItems": 0
+      "minItems": 1
     },
     "schemaVersion": {
       "type": "integer"
@@ -64,7 +64,7 @@
             "$ref": "#/$defs/good"
           },
           "maxItems": 100,
-          "minItems": 0
+          "minItems": 1
         },
         "layoutConfidence": {
           "type": "number",
@@ -103,7 +103,7 @@
             "$ref": "#/$defs/image"
           },
           "maxItems": 50,
-          "minItems": 0
+          "minItems": 1
         },
         "totalYieldScu": {
           "type": "number",

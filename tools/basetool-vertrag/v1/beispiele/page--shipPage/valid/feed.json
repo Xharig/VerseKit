@@ -1,0 +1,57 @@
+{
+  "items": [
+    {
+      "shipId": "0b9f6c1e-2a3d-4e5f-8a7b-9c0d1e2f3a4b",
+      "externalId": "vk-7",
+      "version": 3,
+      "shipType": {
+        "bt": "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+        "name": "Cutlass Black"
+      },
+      "name": "Black Betty",
+      "insurance": {
+        "kind": "MONTHS",
+        "months": 6
+      },
+      "location": {
+        "name": "Area18",
+        "uex": {
+          "kind": "CITY",
+          "id": 4
+        }
+      },
+      "fitted": true,
+      "orgUnit": {
+        "id": "0d6f3c1a-5b2e-4f7a-9c8d-1e2f3a4b5c6d",
+        "name": "Staffel Nord",
+        "shorthand": "NORD",
+        "kind": "SQUADRON"
+      },
+      "orgUnitVersion": 1
+    },
+    {
+      "shipId": "1c0a7d2f-3b4e-4f6a-9b8c-0d1e2f3a4b5c",
+      "version": 0,
+      "shipType": {
+        "bt": "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+        "name": "Cutlass Black"
+      },
+      "insurance": {
+        "kind": "LTI"
+      },
+      "fitted": false,
+      "orgUnitVersion": 0
+    }
+  ],
+  "removed": [
+    {
+      "key": "s-2",
+      "removedAt": "2026-10-15T12:00:00Z",
+      "removedBy": {
+        "channel": "web"
+      }
+    }
+  ],
+  "nextCursor": "f1.9.0",
+  "hasMore": false
+}

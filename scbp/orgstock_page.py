@@ -306,7 +306,7 @@ def visible_lots(page, data, unit):
     """Die Posten, die Reiter, Art, Ort und Suche durchlassen."""
     items = page['view'] == VIEW_ITEMS
     found = []
-    for lot in orgstock.lots_of(data, unit, None, page['search'].get()):
+    for lot in orgstock.lots_of(data, unit, page['search'].get()):
         if orgstock.is_item(lot) != items:
             continue
         if page['kind'] and lot_kind(lot) != page['kind']:

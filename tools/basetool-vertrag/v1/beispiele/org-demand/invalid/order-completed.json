@@ -1,0 +1,23 @@
+{
+  "updatedAt": "2026-10-16T12:00:00Z",
+  "materials": [],
+  "items": [],
+  "orders": [
+    {
+      "id": "0b9a6f0e-4c1d-4a8e-9a3f-5c2d7e8f9a10",
+      "number": 412,
+      "type": "MATERIAL",
+      "status": "COMPLETED",
+      "unit": {
+        "id": "7d1c2b3a-0000-4000-8000-000000000001",
+        "name": "Alpha Squadron"
+      },
+      "requestingUnit": {
+        "id": "7d1c2b3a-0000-4000-8000-000000000001",
+        "name": "Alpha Squadron"
+      },
+      "materials": [],
+      "items": []
+    }
+  ]
+}

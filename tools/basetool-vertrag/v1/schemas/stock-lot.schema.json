@@ -17,6 +17,10 @@
     "materialKind": {
       "$ref": "material-kind.schema.json"
     },
+    "component": {
+      "$ref": "component.schema.json",
+      "description": "Ship components only."
+    },
     "location": {
       "$ref": "location-ref.schema.json"
     },
