@@ -42471,10 +42471,16 @@ def _pruefung_436():
             _bs436._hold({}, _bs436.ROUTE_STOCK, [], _fehler436)
             _fehler436.problem = {'confirmationUrl': 'https://profit-base.online/ok'}
             _bs436._hold({}, _bs436.ROUTE_SHIPS, [], _fehler436)
+            _gespeichert436 = _bs436.STATUS.get('confirm') or {}
+            pruefe(_bs436.ROUTE_STOCK in _gespeichert436
+                   and _bs436.ROUTE_SHIPS in _gespeichert436,
+                   'Vorbedingung: _hold legt beide Sperren im Speicher ab (%s)'
+                   % sorted(_gespeichert436))
             pruefe(_bs436.confirm_link(_bs436.ROUTE_STOCK) is None
-                   and _bs436.STATUS['confirm'][_bs436.ROUTE_STOCK]['url'] is None,
+                   and (_gespeichert436.get(_bs436.ROUTE_STOCK) or {}).get('url')
+                   is None,
                    'eine fremde Bestätigungsadresse landet nicht im Speicher (%r)'
-                   % _bs436.STATUS['confirm'].get(_bs436.ROUTE_STOCK))
+                   % _gespeichert436.get(_bs436.ROUTE_STOCK))
             pruefe(_bs436.confirm_link(_bs436.ROUTE_SHIPS)
                    == 'https://profit-base.online/ok',
                    'die Adresse beim Basetool kommt am Knopf an')

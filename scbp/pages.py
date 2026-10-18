@@ -8071,19 +8071,19 @@ def _diagnostics(window, frame):
     pictures_list = tk.Frame(pictures_row, bg=BG)
 
     def draw_pictures():
-        for kind in pictures_list.winfo_children():
-            kind.destroy()
+        for child in pictures_list.winfo_children():
+            child.destroy()
         _stripe_reset(pictures_list)
         for index, (shown_name, _data, _kind) in enumerate(pictures):
             stripe_bg = _stripe(pictures_list)
             picture_row = tk.Frame(pictures_list, bg=stripe_bg)
             picture_row.pack(fill='x', ipady=3)
             remove_icon = icons.line(picture_row, 'schliessen', background=stripe_bg,
-                                   font=window.f_small)
+                                     font=window.f_small)
             remove_icon.configure(cursor='hand2', padx=6)
             remove_icon.pack(side='right')
             remove_icon.bind('<Button-1>',
-                           lambda _e, i=index: remove_picture(i))
+                             lambda _e, i=index: remove_picture(i))
             tk.Label(picture_row, text=shown_name, bg=stripe_bg, fg=FG,
                      font=window.f_small, anchor='w'
                      ).pack(side='left', fill='x', expand=True, padx=(6, 0))
@@ -8108,7 +8108,7 @@ def _diagnostics(window, frame):
                 data is not None and len(data) + sum(len(b[1]) for b in pictures)
                 > report.IMAGE_BUDGET):
             window.say(t('s_di_bild_zugross')
-                        % (report.IMAGE_BUDGET // (1024 * 1024)))
+                       % (report.IMAGE_BUDGET // (1024 * 1024)))
             return
         if problem:
             window.say(t(problem))
@@ -8136,8 +8136,8 @@ def _diagnostics(window, frame):
     # Mac als helle Linie gezeichnet — im runden Kasten sah das aus wie ein
     # zweiter, eckiger Rahmen. `relief='flat'` und `bd=0` schalten das NICHT ab.
     report_field = tk.Text(box, bg=theme.FIELD, fg=FG, font=('Consolas', 10),
-                   height=16, wrap='none', relief='flat', bd=0,
-                   highlightthickness=0, insertbackground=FG, padx=14, pady=12)
+                           height=16, wrap='none', relief='flat', bd=0,
+                           highlightthickness=0, insertbackground=FG, padx=14, pady=12)
     report_field.pack(fill='both', expand=True)
     report_field.insert('1.0', text)
     report_field.configure(state='disabled')
@@ -8150,9 +8150,9 @@ def _diagnostics(window, frame):
         „nicht angegeben" und hielte das Feld für kaputt."""
         try:
             fresh = report.build(version=window.version,
-                                   root=window.root,
-                                   message=message_text(),
-                                   reporter=current_reporter())
+                                 root=window.root,
+                                 message=message_text(),
+                                 reporter=current_reporter())
         except Exception as error:
             errors.record('pages.diagnose_melder', error)
             return
@@ -8349,7 +8349,7 @@ def _diagnostics(window, frame):
             def done():
                 sending[0] = False
                 window.say(t('s_di_ab_ok') if ok
-                            else t('s_di_ab_weg') % reason)
+                           else t('s_di_ab_weg') % reason)
                 # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz,
                 # Dienst weg —, bleibt der Text stehen. Ihn dann zu löschen
                 # hieße, dem Melder seine Arbeit wegzunehmen, genau in dem
@@ -8391,7 +8391,7 @@ def _diagnostics(window, frame):
         from . import signature_scan as _scan_module
         from . import refinery_scan as _refinery_module
         _scan_count = (len(_scan_module.samples())
-                        + len(_refinery_module.kept_images()))
+                       + len(_refinery_module.kept_images()))
     except Exception:
         _scan_count = 0
     consent_row = tk.Frame(buttons_row.master, bg=BG)
@@ -14563,8 +14563,8 @@ def _shopping_list(window, frame):
     body.pack(fill='x', padx=24, pady=(10, 20))
 
     def redraw():
-        for kind in body.winfo_children():
-            kind.destroy()
+        for child in body.winfo_children():
+            child.destroy()
         _build()
 
     def _build():
@@ -14574,7 +14574,7 @@ def _shopping_list(window, frame):
         # Nur, was zu Schiffen gehört. Zum Bauen Vorgemerktes steht mit
         # seinem Material auf der Farmliste.
         items = [p for p in (invoice.get('posten') or [])
-                  if p.get('quelle') != cart.NOTEPAD]
+                 if p.get('quelle') != cart.NOTEPAD]
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall in diesem
         # Bereich: „nichts eingetragen", „nichts zu besorgen" und „keine Daten"
@@ -14631,7 +14631,7 @@ def _shopping_list(window, frame):
             source = (fleet_state.get('wunsch') if item.get('quelle')
                       == cart.WISHLIST else fleet_state.get('schiffe')) or []
             slot_paths = (item.get('pfade')
-                     or [item.get('pfad')])
+                          or [item.get('pfad')])
             for ship in source:
                 if (ship.get('name') or '') == item.get('schiff'):
                     changed = False
@@ -14976,8 +14976,8 @@ def _farm_list(window, frame):
     body.pack(fill='x', padx=24, pady=(10, 20))
 
     def redraw():
-        for kind in body.winfo_children():
-            kind.destroy()
+        for child in body.winfo_children():
+            child.destroy()
         _build()
 
     def _notepad_block(totals):
@@ -15047,7 +15047,7 @@ def _farm_list(window, frame):
             # Dieselbe Packreihenfolge-Falle, die hier schon zweimal zugeschlagen
             # hat (Kaufen-Knopf, „geändert"-Marke).
             remove_button = _button(window, row, t('s_mz_weg'),
-                                lambda n=e.get('name'): _strike(n))
+                                    lambda n=e.get('name'): _strike(n))
             remove_button.configure(bg=stripe_bg)
             remove_button.pack(side='right', padx=(8, 0))
             quantity = int(e.get('anzahl') or 1)
@@ -15088,7 +15088,7 @@ def _farm_list(window, frame):
                 continue
             for stage in recipe['stufen']:
                 for _slot, material, per_piece, grade in (stage.get('zutaten')
-                                                        or []):
+                                                          or []):
                     if not material:
                         continue
                     needed = float(per_piece or 0) * quantity
@@ -19851,7 +19851,7 @@ def _patch_changes(window, frame):
     head = tk.Frame(frame, bg=BG)
     head.pack(fill='x', padx=24, pady=(12, 0))
     status_label = tk.Label(head, text='', bg=BG, fg=SUB, font=window.f_small,
-                     anchor='w')
+                            anchor='w')
 
     # ⚠⚠ **Die Patch-Liste rollt in sich selbst, mit fester Höhe.**
     #
@@ -19883,8 +19883,8 @@ def _patch_changes(window, frame):
 
     def _clear(*frames):
         for r in frames:
-            for kind in r.winfo_children():
-                kind.destroy()
+            for child in r.winfo_children():
+                child.destroy()
 
     # ---------------------------------------------------------- Die Anzeige
     def _show_items():
@@ -19914,13 +19914,13 @@ def _patch_changes(window, frame):
             row = tk.Frame(box, bg=BG)
             row.pack(fill='x')
             mark = {'neu': (t('s_pa_zustand_neu'), ACCENT),
-                     'weg': (t('s_pa_zustand_weg'), GOLD),
-                     'geaendert': (t('s_pa_zustand_geae'), SUB)}[entry['zustand']]
+                    'weg': (t('s_pa_zustand_weg'), GOLD),
+                    'geaendert': (t('s_pa_zustand_geae'), SUB)}[entry['zustand']]
             tk.Label(row, text=mark[0], bg=BG, fg=mark[1],
                      font=window.f_small, anchor='w').pack(side='left')
             tk.Label(row, text=entry['name'], bg=BG, fg=FG,
                      font=window.f_bold, anchor='w').pack(side='left',
-                                                           padx=(10, 0))
+                                                          padx=(10, 0))
             if entry.get('groesse') is not None:
                 tk.Label(row,
                          text=t('s_pa_groesse').format(n=entry['groesse']),
@@ -19994,10 +19994,10 @@ def _patch_changes(window, frame):
             _clear(areas, result_frame)
             entry = _entry_for(version)
             if entry is not None and not entry['leer']:
-                z = entry['summary']
+                summary = entry['summary']
                 _body_text(result_frame, t('s_pa_nicht_geholt').format(
-                    plus=z.get('added', 0), minus=z.get('removed', 0),
-                    tilde=z.get('modified', 0), knopf=t('s_pa_suchen')),
+                    plus=summary.get('added', 0), minus=summary.get('removed', 0),
+                    tilde=summary.get('modified', 0), knopf=t('s_pa_suchen')),
                     window.f_small, fill='x')
             else:
                 _body_text(result_frame, t('s_pa_leer_klick'), window.f_small,
@@ -20028,13 +20028,13 @@ def _patch_changes(window, frame):
             stripe_bg = _stripe(patch_list, BG)
             row = tk.Frame(patch_list, bg=stripe_bg, cursor='hand2')
             row.pack(fill='x', ipady=2)
-            z = entry['summary']
+            summary = entry['summary']
             if entry['leer']:
                 right_text, color = t('s_pa_leer'), SUB
             else:
                 right_text = t('s_pa_zaehler').format(
-                    plus=z.get('added', 0), minus=z.get('removed', 0),
-                    tilde=z.get('modified', 0))
+                    plus=summary.get('added', 0), minus=summary.get('removed', 0),
+                    tilde=summary.get('modified', 0))
                 color = FG
             # ⚠ **Auch die Versionsnummer zurücknehmen, nicht nur die Zahl
             # rechts.** Von zehn Patches sind acht leer; standen alle zehn in
@@ -20045,8 +20045,8 @@ def _patch_changes(window, frame):
             # gültige Auskunft („in dieser Woche hat sich nichts geändert").
             name_color = SUB if entry['leer'] else FG
             for text, fg, bold in ((entry['version'], name_color, True),
-                                    (entry['datum'], SUB, False),
-                                    (right_text, color, False)):
+                                   (entry['datum'], SUB, False),
+                                   (right_text, color, False)):
                 tk.Label(row, text=text, bg=stripe_bg, fg=fg,
                          font=window.f_bold if bold else window.f_small,
                          anchor='w').pack(side='left', padx=(0, 14))
@@ -20060,7 +20060,7 @@ def _patch_changes(window, frame):
             # darunter. Ohne die Schleife reagiert nur der schmale Rand.
             for widget in [row] + list(row.winfo_children()):
                 widget.bind('<Button-1>',
-                          lambda _e, v=entry['version']: _choose_patch(v))
+                            lambda _e, v=entry['version']: _choose_patch(v))
 
         if omitted:
             tk.Label(patch_list, text=t('s_pa_leere_weg').format(n=omitted),
