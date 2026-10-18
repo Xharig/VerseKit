@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/org-stock-targets.schema.json",
+  "title": "Org stock targets",
+  "description": "The job orders and missions an entry of a unit's pool may be earmarked to for one material or item, as the Basetool's warehouse offers them: open and in-progress job orders that need it, and missions; no missions for an item.",
+  "type": "object",
+  "properties": {
+    "unit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "jobOrders": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The job order's id, as an earmark names it. Opaque."
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The order's running number, shown as #number."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      }
+    },
+    "missions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The mission's id, as an earmark names it. Opaque."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ACTIVE",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      }
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "unit",
+    "jobOrders",
+    "missions"
+  ]
+}

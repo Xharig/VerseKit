@@ -187,14 +187,18 @@ def parse_lot(item):
 
 
 def parse_units(units):
+    """Die Einheiten einer Seite. `logistician` ist `True`/`False`, wie die
+    Einheit es trägt, und `None`, wenn sie das Feld nicht trägt."""
     out = []
     for unit in units or ():
         if not isinstance(unit, dict) or not _text(unit.get('id'), 128):
             continue
+        flag = unit.get('logistician')
         out.append({'id': _text(unit.get('id'), 128),
                     'name': _text(unit.get('name')),
                     'shorthand': _text(unit.get('shorthand')),
-                    'kind': _text(unit.get('kind'))})
+                    'kind': _text(unit.get('kind')),
+                    'logistician': flag if isinstance(flag, bool) else None})
     return out
 
 
@@ -306,9 +310,11 @@ def refresh(conn, details=False, write=False, now=None):
     """Den Pool holen: beim ersten Mal den Schnappschuss, danach den Feed.
 
     Kommt das Recht `details` dazu oder fällt es weg, wird neu geholt — so
-    verlangt es die Anleitung. Mit `write` wird je Einheit die Mitgliederliste
-    gefragt; wer dort `NOT_PERMITTED` bekommt, ist dort kein Logistiker.
-    Gibt die Zählung zurück."""
+    verlangt es die Anleitung. Logistiker ist das Mitglied in den Einheiten,
+    die `logistician: true` tragen. Mit `write` wird die Mitgliederliste nur
+    dieser Einheiten gefragt, dazu die jeder Einheit ohne das Feld; wer dort
+    `NOT_PERMITTED` bekommt, ist dort kein Logistiker. Gibt die Zählung
+    zurück."""
     from . import basetool
     with _fetch_lock:
         with _lock:
@@ -331,8 +337,15 @@ def refresh(conn, details=False, write=False, now=None):
         for lot in lots.values():
             if lot['entries'] is not None:
                 logistician.add(lot['unit']['id'])
+        for unit in units:
+            if unit['logistician'] is True:
+                logistician.add(unit['id'])
+            elif unit['logistician'] is False:
+                logistician.discard(unit['id'])
         if write:
             for unit in units:
+                if unit['logistician'] is False:
+                    continue
                 try:
                     rosters[unit['id']] = members(conn, unit['id'])
                     logistician.add(unit['id'])

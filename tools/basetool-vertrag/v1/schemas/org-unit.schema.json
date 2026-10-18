@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/org-unit.schema.json",
+  "title": "Org unit",
+  "description": "An org unit of the organisation: one the member directly belongs to, or the one a ship belongs to.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "shorthand": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "SQUADRON",
+        "SPECIAL_COMMAND",
+        "BEREICH",
+        "ORGANISATIONSLEITUNG"
+      ],
+      "description": "A squadron, a special command, an area or the organisation's leadership."
+    },
+    "logistician": {
+      "type": "boolean",
+      "description": "Only in the units of an org-stock page, and always there: whether the member is a Logistician of exactly this unit. With exchange.orgstock.write the member writes this unit's pool and reads its roster and targets; a unit with false answers those with 403 NOT_PERMITTED."
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "shorthand",
+    "kind"
+  ]
+}

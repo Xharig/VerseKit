@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/org-stock-members.schema.json",
+  "title": "Org stock members",
+  "description": "The roster of a unit a Logistician books stock in for: the unit's direct members, without those who withhold their name, ordered by name.",
+  "type": "object",
+  "properties": {
+    "unit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The member's pseudonym at this client, as the org stock's entries carry it. Opaque."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The name the Basetool shows for the member."
+          }
+        },
+        "required": [
+          "ref",
+          "name"
+        ]
+      }
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "unit",
+    "items"
+  ]
+}

@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/org-stock-lot.schema.json",
+  "title": "Org stock lot",
+  "description": "The shared stock of one unit's pool of one material at one location, quality and stolen state, summed over every holder, with the amounts earmarked to job orders and to missions and, for a Logistician of the pool under exchange.orgstock.details, its single entries. The same material at the same place in two units is two lots.",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+    },
+    "unit": {
+      "type": "object",
+      "description": "The unit whose pool holds the lot.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "material": {
+      "$ref": "item-ref.schema.json"
+    },
+    "materialKind": {
+      "$ref": "material-kind.schema.json"
+    },
+    "component": {
+      "$ref": "component.schema.json",
+      "description": "Ship components only."
+    },
+    "location": {
+      "$ref": "location-ref.schema.json"
+    },
+    "quality": {
+      "$ref": "quality.schema.json"
+    },
+    "stolen": {
+      "type": "boolean"
+    },
+    "quantity": {
+      "$ref": "quantity.schema.json"
+    },
+    "earmarked": {
+      "type": "object",
+      "description": "The part of the lot reserved for job orders and for missions, in the lot's unit.",
+      "properties": {
+        "jobOrders": {
+          "$ref": "quantity.schema.json"
+        },
+        "missions": {
+          "$ref": "quantity.schema.json"
+        }
+      },
+      "required": [
+        "jobOrders",
+        "missions"
+      ]
+    },
+    "entries": {
+      "type": "array",
+      "description": "The single shared rows of the lot, one per holder's entry. Present only with exchange.orgstock.details and only in a pool of a unit in which the member is a Logistician; absent otherwise.",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "key",
+    "unit",
+    "material",
+    "location",
+    "quality",
+    "stolen",
+    "quantity",
+    "earmarked"
+  ],
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "description": "One holder's shared row: what the Basetool's entry row shows a Logistician of the pool. A holder who withholds their name carries neither name, ref nor note.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The entry's version, echoed on a later write of it."
+        },
+        "holder": {
+          "type": "object",
+          "properties": {
+            "withheld": {
+              "type": "boolean",
+              "description": "Whether the holder withholds their name from connected applications."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "The name the Basetool shows for the holder."
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "A pseudonym of the holder, stable at this client and different at every other client. Opaque."
+            }
+          },
+          "required": [
+            "withheld"
+          ],
+          "if": {
+            "properties": {
+              "withheld": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "name": false,
+              "ref": false
+            }
+          },
+          "else": {
+            "required": [
+              "name",
+              "ref"
+            ]
+          }
+        },
+        "quantity": {
+          "$ref": "quantity.schema.json"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "jobOrders": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+              },
+              "number": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The order's number, shown as #number."
+              },
+              "quantity": {
+                "$ref": "quantity.schema.json"
+              },
+              "delivered": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "quantity",
+              "delivered"
+            ]
+          }
+        },
+        "missions": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "quantity": {
+                "$ref": "quantity.schema.json"
+              }
+            },
+            "required": [
+              "id",
+              "quantity"
+            ]
+          }
+        },
+        "free": {
+          "type": "object",
+          "description": "The part of the entry not earmarked, per dimension, in the lot's unit.",
+          "properties": {
+            "jobOrders": {
+              "$ref": "quantity.schema.json"
+            },
+            "missions": {
+              "$ref": "quantity.schema.json"
+            }
+          },
+          "required": [
+            "jobOrders",
+            "missions"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "holder",
+        "quantity",
+        "jobOrders",
+        "missions",
+        "free"
+      ],
+      "if": {
+        "properties": {
+          "holder": {
+            "properties": {
+              "withheld": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "note": false
+        }
+      }
+    }
+  }
+}

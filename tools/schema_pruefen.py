@@ -51,7 +51,7 @@ _HANDLED = {'$ref', 'type', 'properties', 'required', 'additionalProperties',
             'maxLength', 'pattern', 'minimum', 'maximum', 'exclusiveMinimum',
             'minItems', 'maxItems', 'items', 'uniqueItems',
             'dependentRequired', 'propertyNames', 'maxProperties', 'if',
-            'then', 'format'}
+            'then', 'else', 'format'}
 
 _DATE_TIME = re.compile(r'^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?'
                         r'([Zz]|[+-]\d{2}:\d{2})$')
@@ -213,9 +213,11 @@ def validate(value, schema, doc_name, where=''):
         if hits != 1:
             errors.append('%s: passt zu %d statt genau einer Variante (oneOf)'
                           % (here, hits))
-    if 'if' in schema and not validate(value, schema['if'], doc_name, where):
-        if 'then' in schema:
-            errors += validate(value, schema['then'], doc_name, where)
+    if 'if' in schema:
+        branch = 'else' if validate(value, schema['if'], doc_name, where) \
+            else 'then'
+        if branch in schema:
+            errors += validate(value, schema[branch], doc_name, where)
     return errors
 
 

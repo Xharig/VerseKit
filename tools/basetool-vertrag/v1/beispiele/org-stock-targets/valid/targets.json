@@ -1,0 +1,25 @@
+{
+  "unit": {
+    "id": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+    "name": "Iridium"
+  },
+  "jobOrders": [
+    {
+      "id": "4b2d6f80-1a3c-4e57-9b0d-7c5e3a1f2d42",
+      "number": 412,
+      "status": "OPEN"
+    },
+    {
+      "id": "8e1f3a62-5c7d-4b90-a2e4-6f8b0c1d3e57",
+      "number": 398,
+      "status": "IN_PROGRESS"
+    }
+  ],
+  "missions": [
+    {
+      "id": "2c4e6a81-9b3d-4f75-8e1a-0d2c4f6b8a93",
+      "name": "Laranite run",
+      "status": "PLANNED"
+    }
+  ]
+}

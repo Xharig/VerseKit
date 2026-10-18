@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/org-unit-list.schema.json",
+  "title": "Org unit list",
+  "description": "The org units the member directly belongs to, leadership first, then areas, squadrons and special commands, each by name.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "org-unit.schema.json"
+      }
+    }
+  },
+  "required": [
+    "items"
+  ]
+}

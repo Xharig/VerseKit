@@ -1,0 +1,116 @@
+{
+  "items": [
+    {
+      "key": "u:7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10|i:9b4e2c61-7d3f-4a8b-8e5c-2f1a0b9c8d33|l:5e2a9d71-0c4b-4f8e-b3a6-1d7c8e9f0a22|q:0|s:0",
+      "unit": {
+        "id": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+        "name": "Staffel Nord"
+      },
+      "material": {
+        "bt": "9b4e2c61-7d3f-4a8b-8e5c-2f1a0b9c8d33",
+        "name": "Medpen"
+      },
+      "location": {
+        "name": "Area18"
+      },
+      "quality": 0,
+      "stolen": false,
+      "quantity": {
+        "amount": 40,
+        "unit": "PIECE"
+      },
+      "earmarked": {
+        "jobOrders": {
+          "amount": 5,
+          "unit": "PIECE"
+        },
+        "missions": {
+          "amount": 10,
+          "unit": "PIECE"
+        }
+      },
+      "entries": [
+        {
+          "id": "9a7c2e10-4f3b-4d21-8c6e-2b1a0f9d8e31",
+          "version": 2,
+          "holder": {
+            "withheld": false,
+            "name": "Medic One",
+            "ref": "q0Fh3kB9xV7m2LwP5nR8tY1cZ4dE6gJ0sU3aH7bK9fM"
+          },
+          "quantity": {
+            "amount": 25,
+            "unit": "PIECE"
+          },
+          "note": "Erste-Hilfe-Kiste",
+          "jobOrders": [
+            {
+              "id": "4b2d6f80-1a3c-4e57-9b0d-7c5e3a1f2d42",
+              "number": 87,
+              "quantity": {
+                "amount": 5,
+                "unit": "PIECE"
+              },
+              "delivered": true
+            }
+          ],
+          "missions": [
+            {
+              "id": "6e8a0c24-5b7d-4f91-a3c6-8d2f4b6e0a53",
+              "name": "Op Nordlicht",
+              "quantity": {
+                "amount": 10,
+                "unit": "PIECE"
+              }
+            }
+          ],
+          "free": {
+            "jobOrders": {
+              "amount": 20,
+              "unit": "PIECE"
+            },
+            "missions": {
+              "amount": 15,
+              "unit": "PIECE"
+            }
+          }
+        },
+        {
+          "id": "1f3e5a7c-9b2d-4c64-8e0a-3d5f7b9c1e75",
+          "version": 0,
+          "holder": {
+            "withheld": true
+          },
+          "quantity": {
+            "amount": 15,
+            "unit": "PIECE"
+          },
+          "jobOrders": [],
+          "missions": [],
+          "free": {
+            "jobOrders": {
+              "amount": 15,
+              "unit": "PIECE"
+            },
+            "missions": {
+              "amount": 15,
+              "unit": "PIECE"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "removed": [],
+  "units": [
+    {
+      "id": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+      "name": "Staffel Nord",
+      "shorthand": "NORD",
+      "kind": "SQUADRON",
+      "logistician": true
+    }
+  ],
+  "nextCursor": null,
+  "hasMore": false
+}

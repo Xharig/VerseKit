@@ -1,0 +1,26 @@
+{
+  "ops": [
+    {
+      "opId": "sell-1",
+      "op": "sell",
+      "unit": "0c2f8a51-7d3e-4b9a-9f10-5a6b7c8d9e01",
+      "entry": "3a4b5c6d-7e8f-4a0b-9c1d-2e3f4a5b6c7d",
+      "version": 3,
+      "quantity": {
+        "amount": 6,
+        "unit": "SCU"
+      },
+      "terminal": "TDD Area18",
+      "proceeds": 48250,
+      "fromMissions": [
+        {
+          "mission": "8b1c2d3e-4f5a-4b6c-9d7e-0f1a2b3c4d5e",
+          "quantity": {
+            "amount": 2.5,
+            "unit": "SCU"
+          }
+        }
+      ]
+    }
+  ]
+}

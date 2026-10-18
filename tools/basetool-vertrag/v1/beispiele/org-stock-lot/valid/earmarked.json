@@ -1,0 +1,38 @@
+{
+  "key": "u:7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10|m:c3b1e0c2-8a4e-4f64-9a51-2b9f5c7e0a11|l:5e2a9d71-0c4b-4f8e-b3a6-1d7c8e9f0a22|q:500|s:0",
+  "unit": {
+    "id": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+    "name": "Staffel Nord"
+  },
+  "material": {
+    "bt": "c3b1e0c2-8a4e-4f64-9a51-2b9f5c7e0a11",
+    "name": "Laranite"
+  },
+  "materialKind": {
+    "type": "RAW",
+    "commodity": true
+  },
+  "location": {
+    "name": "Area18",
+    "uex": {
+      "kind": "CITY",
+      "id": 4
+    }
+  },
+  "quality": 500,
+  "stolen": false,
+  "quantity": {
+    "amount": 48.25,
+    "unit": "SCU"
+  },
+  "earmarked": {
+    "jobOrders": {
+      "amount": 12,
+      "unit": "SCU"
+    },
+    "missions": {
+      "amount": 0,
+      "unit": "SCU"
+    }
+  }
+}

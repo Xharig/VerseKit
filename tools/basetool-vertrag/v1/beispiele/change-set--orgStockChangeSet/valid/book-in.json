@@ -1,0 +1,47 @@
+{
+  "ops": [
+    {
+      "opId": "in-1",
+      "op": "book-in",
+      "unit": "0c2f8a51-7d3e-4b9a-9f10-5a6b7c8d9e01",
+      "holder": "u3K9m2Qx7Lp4Rt8Vw1Zy5Ab6Cd0Ef2Gh3Ij4Kl5Mn6O",
+      "material": {
+        "bt": "c3b1e0c2-8a4e-4f64-9a51-2b9f5c7e0a11",
+        "name": "Laranite"
+      },
+      "location": {
+        "name": "Area18",
+        "uex": {
+          "kind": "CITY",
+          "id": 4
+        }
+      },
+      "quality": 712,
+      "stolen": false,
+      "quantity": {
+        "amount": 12.5,
+        "unit": "SCU"
+      },
+      "note": "Hangar 3",
+      "mergeScu": true,
+      "jobOrders": [
+        {
+          "jobOrder": "5e7a9c1b-2d4f-4a6b-8c0d-1e2f3a4b5c6d",
+          "quantity": {
+            "amount": 4,
+            "unit": "SCU"
+          }
+        }
+      ],
+      "missions": [
+        {
+          "mission": "8b1c2d3e-4f5a-4b6c-9d7e-0f1a2b3c4d5e",
+          "quantity": {
+            "amount": 2.5,
+            "unit": "SCU"
+          }
+        }
+      ]
+    }
+  ]
+}

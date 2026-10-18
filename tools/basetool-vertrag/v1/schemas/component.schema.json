@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/component.schema.json",
+  "title": "Component",
+  "description": "Read-only ship component data of a game item, as stable codes, never labels. Present only for a ship component; a material or another item carries none. A key the Basetool does not know for the component is left out. A new value of componentType or itemClass may be added within v1; treat an unknown value as UNKNOWN.",
+  "type": "object",
+  "properties": {
+    "componentType": {
+      "type": "string",
+      "enum": [
+        "SHIELD",
+        "COOLER",
+        "POWER_PLANT",
+        "QUANTUM_DRIVE",
+        "JUMP_DRIVE",
+        "RADAR",
+        "WEAPON_GUN",
+        "WEAPON_MINING",
+        "MISSILE_LAUNCHER",
+        "MISSILE",
+        "BOMB_LAUNCHER",
+        "BOMB",
+        "TURRET",
+        "EMP",
+        "QUANTUM_INTERDICTION_GENERATOR",
+        "TRACTOR_BEAM",
+        "TOWING_BEAM",
+        "SALVAGE_HEAD",
+        "LIFE_SUPPORT_GENERATOR"
+      ]
+    },
+    "size": {
+      "type": "integer",
+      "description": "The component size, shown as S followed by the number."
+    },
+    "grade": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "description": "The component grade, usually a single letter such as A."
+    },
+    "itemClass": {
+      "type": "string",
+      "enum": [
+        "MILITARY",
+        "CIVILIAN",
+        "INDUSTRIAL",
+        "STEALTH",
+        "COMPETITION"
+      ]
+    }
+  },
+  "required": [
+    "componentType"
+  ]
+}

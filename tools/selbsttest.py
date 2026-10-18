@@ -25774,6 +25774,8 @@ def main():
     _pruefung_538()
     _pruefung_539()
     _pruefung_543()
+    _pruefung_560()
+    _pruefung_561()
 
     print()
     if fehler:
@@ -54180,6 +54182,188 @@ def _pruefung_543():
             root.destroy()
         _home_restore520(old_home)
         shutil.rmtree(home, ignore_errors=True)
+
+
+def _units560(*flags):
+    """Einheiten `u1`, `u2`, … einer Lager-Seite; `None` lässt das Feld
+    `logistician` weg."""
+    out = []
+    for nummer, flag in enumerate(flags, 1):
+        unit = {'id': 'u%d' % nummer, 'name': 'Einheit %d' % nummer,
+                'shorthand': 'E%d' % nummer, 'kind': 'SQUADRON'}
+        if flag is not None:
+            unit['logistician'] = flag
+        out.append(unit)
+    return out
+
+
+def _roster560(unit):
+    return {'unit': {'id': unit}, 'items': [{'ref': 'r-' + unit,
+                                             'name': 'Hauler ' + unit}]}
+
+
+def _members560(conn):
+    """Für welche Einheiten die Mitgliederliste gefragt wurde."""
+    return [c[2].get('unit') for c in conn.calls
+            if c[1] == '/org-stock/members']
+
+
+def _pruefung_560():
+    """560. Lager der Einheit: Logistiker aus dem Feld `logistician`."""
+    print('\n560. Lager der Einheit: Logistiker aus dem Feld `logistician`, '
+          'Mitgliederliste nur dort')
+    from scbp import exchange_orgstock as _og, basetool as _bt
+    _verboten = _bt.ApiError('NOT_PERMITTED', 403)
+
+    def _abgleich(units, members, items=(), details=True, write=True):
+        answers = {('GET', '/org-stock', None): {
+            'items': list(items), 'removed': [], 'units': units,
+            'hasMore': False}}
+        for unit, answer in members.items():
+            answers[('GET', '/org-stock/members', unit)] = answer
+        conn = _OrgConn465(answers)
+        _og.forget()
+        _og.refresh(conn, details=details, write=write)
+        return conn, _og.current()
+
+    try:
+        # (a) Mit Feld: gefragt wird nur die Logistiker-Einheit. Die andere
+        # gäbe ihre Liste heraus — fragt der Abgleich sie trotzdem, würde sie
+        # buchbar.
+        _conn, _d = _abgleich(_units560(True, False),
+                              {'u1': _roster560('u1'),
+                               'u2': _roster560('u2')})
+        pruefe(_members560(_conn) == ['u1'],
+               'mit Feld: Mitgliederliste nur für die Einheit mit '
+               '`logistician: true` (%r)' % _members560(_conn))
+        pruefe(_d['logistician'] == {'u1'} and _og.can_write(_d, 'u1')
+               and not _og.can_write(_d, 'u2')
+               and set(_d['rosters']) == {'u1'},
+               'mit Feld: Logistiker und buchbar nur u1 (%r, %r)'
+               % (_d['logistician'], sorted(_d['rosters'])))
+        # Ohne Buchen kein Aufruf — die Rolle steht trotzdem fest.
+        _conn, _d = _abgleich(_units560(True, False),
+                              {'u1': _roster560('u1')}, write=False)
+        pruefe(not _members560(_conn) and _d['logistician'] == {'u1'},
+               'ohne Buchen: Logistiker aus dem Feld, keine Mitgliederliste '
+               '(%r, %r)' % (_d['logistician'], _members560(_conn)))
+        # `false` gilt auch gegen Einträge an einem Posten derselben Einheit.
+        _conn, _d = _abgleich(_units560(False), {},
+                              items=[_org_lot465('k1', 'u1', 'Laranite',
+                                                 entries=[_ORG_ENTRY465])],
+                              write=False)
+        pruefe(_d['logistician'] == set(),
+               '`logistician: false` gilt, auch wenn ein Posten Einträge '
+               'trägt (%r)' % _d['logistician'])
+
+        # (b) Ohne Feld (älteres Basetool): wie bisher jede Einheit fragen.
+        _conn, _d = _abgleich(_units560(None, None),
+                              {'u1': _roster560('u1'), 'u2': _verboten})
+        pruefe(_members560(_conn) == ['u1', 'u2'],
+               'ohne Feld: Mitgliederliste für jede Einheit (%r)'
+               % _members560(_conn))
+        pruefe(_d['logistician'] == {'u1'} and _og.can_write(_d, 'u1')
+               and not _og.can_write(_d, 'u2'),
+               'ohne Feld: NOT_PERMITTED heißt kein Logistiker (%r)'
+               % _d['logistician'])
+
+        # (c) Gemischt: Feld gilt, wo es steht; sonst wird gefragt.
+        _conn, _d = _abgleich(_units560(True, False, None, None),
+                              {'u1': _roster560('u1'),
+                               'u2': _roster560('u2'),
+                               'u3': _roster560('u3'), 'u4': _verboten})
+        pruefe(_members560(_conn) == ['u1', 'u3', 'u4'],
+               'gemischt: gefragt werden u1 (true) und die beiden ohne Feld, '
+               'nicht u2 (%r)' % _members560(_conn))
+        pruefe(_d['logistician'] == {'u1', 'u3'}
+               and set(_d['rosters']) == {'u1', 'u3'},
+               'gemischt: Logistiker u1 und u3 (%r)' % _d['logistician'])
+
+        # (d) Die Rolle fällt zwischen Seite und Mitgliederliste weg.
+        _conn, _d = _abgleich(_units560(True),
+                              {'u1': _verboten})
+        pruefe(_members560(_conn) == ['u1'] and _d['logistician'] == set()
+               and not _og.can_write(_d, 'u1') and not _d['rosters'],
+               'NOT_PERMITTED trotz `logistician: true`: kein Logistiker, '
+               'nicht buchbar (%r)' % _d['logistician'])
+        # Andere Fehler der Mitgliederliste reichen weiter wie bisher.
+        try:
+            _abgleich(_units560(True), {'u1': _bt.ApiError('INTERNAL', 500)})
+            _durch = True
+        except _bt.ApiError:
+            _durch = False
+        pruefe(not _durch, 'ein anderer Fehler der Mitgliederliste bricht den '
+                           'Abgleich ab wie bisher')
+    finally:
+        _og.forget()
+
+
+def _pruefung_561():
+    """561. Die Lager-Seiten aus dem Vertrag tragen `logistician`."""
+    print('\n561. Vertragskopie: Lager-Seiten des Basetools mit '
+          '`logistician`')
+    import json as _js
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import schema_pruefen as _sp
+    finally:
+        sys.path.pop(0)
+    from scbp import exchange_orgstock as _og
+    _ordner = os.path.join(_sp.EXAMPLES, 'page--orgStockPage', 'valid')
+    _seiten = {}
+    for _name in ('snapshot.json', 'feed.json', 'details.json'):
+        with open(os.path.join(_ordner, _name), encoding='utf-8') as _f:
+            _seiten[_name] = _js.load(_f)
+    _flags = [u.get('logistician') for s in _seiten.values()
+              for u in s.get('units') or ()]
+    pruefe(_flags and all(isinstance(f, bool) for f in _flags),
+           'jede Einheit der Vertragsbeispiele trägt `logistician` (%r)'
+           % _flags)
+    pruefe(_sp.check(dict(_seiten['snapshot.json'], units=[
+        dict(u, logistician='ja') for u in _seiten['snapshot.json']['units']]),
+        'page--orgStockPage'),
+        'Selbstprüfung: `logistician` als Text verwirft das Schema')
+    # Das Schema des Postens verlangt mit `else` Name und Pseudonym eines
+    # sichtbaren Besitzers.
+    with open(os.path.join(_sp.EXAMPLES, 'org-stock-lot', 'valid',
+                           'with-entries.json'), encoding='utf-8') as _f:
+        _posten = _js.load(_f)
+    _ohne_ref = _js.loads(_js.dumps(_posten))
+    _ohne_ref['entries'][0]['holder'].pop('ref')
+    pruefe(not _sp.check(_posten, 'org-stock-lot')
+           and _sp.check(_ohne_ref, 'org-stock-lot'),
+           'Formatprüfer: `else` greift — ein sichtbarer Besitzer ohne '
+           '`ref` fällt durch')
+    _units = _og.parse_units(_seiten['snapshot.json']['units'])
+    pruefe([u['logistician'] for u in _units]
+           == [u['logistician'] for u in _seiten['snapshot.json']['units']],
+           'die Einheiten des Vertragsbeispiels werden mit `logistician` '
+           'gelesen (%r)' % _units)
+    _alt = _og.parse_units([{'id': 'u1', 'name': 'Iridium'}])
+    pruefe(_alt[0]['logistician'] is None,
+           'eine Einheit ohne das Feld liest sich als unbekannt (None)')
+
+    # Die Vertragsseiten unverändert durch den echten Abgleich: der
+    # Schnappschuss trägt `true`, die Feedseite `false` für dieselbe Einheit.
+    _einheit = _seiten['snapshot.json']['units'][0]['id']
+    try:
+        for _name, _soll_gefragt, _soll in (
+                ('snapshot.json', [_einheit], {_einheit}),
+                ('feed.json', [], set())):
+            _og.forget()
+            _conn = _OrgConn465({
+                ('GET', '/org-stock', None): _seiten[_name],
+                ('GET', '/org-stock/members', _einheit): _roster560(
+                    _einheit)})
+            _og.refresh(_conn, details=True, write=True)
+            _d = _og.current()
+            pruefe(_members560(_conn) == _soll_gefragt
+                   and _d['logistician'] == _soll
+                   and _og.can_write(_d, _einheit) == bool(_soll),
+                   'Vertragsseite %s: Mitgliederliste %r, Logistiker %r'
+                   % (_name, _members560(_conn), _d['logistician']))
+    finally:
+        _og.forget()
 
 
 if __name__ == '__main__':

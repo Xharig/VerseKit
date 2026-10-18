@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "0b6f2d1e-4c1a-4e8e-9a51-3f0c5d7a9b10",
+      "name": "Organisationsleitung",
+      "shorthand": "OL",
+      "kind": "ORGANISATIONSLEITUNG"
+    },
+    {
+      "id": "1c7a3e2f-5d2b-4f9f-8b62-4a1d6e8b0c21",
+      "name": "Bereich Logistik",
+      "shorthand": "LOG",
+      "kind": "BEREICH"
+    },
+    {
+      "id": "2d8b4f30-6e3c-4a0a-9c73-5b2e7f9c1d32",
+      "name": "Staffel Iridium",
+      "shorthand": "IRI",
+      "kind": "SQUADRON"
+    },
+    {
+      "id": "3e9c5041-7f4d-4b1b-8d84-6c3f80ad2e43",
+      "name": "Spezialkommando Bergbau",
+      "shorthand": "SKB",
+      "kind": "SPECIAL_COMMAND"
+    }
+  ]
+}

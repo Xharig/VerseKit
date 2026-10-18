@@ -31,6 +31,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   dabei im Hintergrund, statt den Seitenwechsel warten zu lassen. Katalog,
   Rezepte und Rechnerangaben werden nicht mehr bei jedem Seitenwechsel neu
   gelesen; das macht auch das erste Öffnen vieler Seiten schneller.
+- **Lager der Einheit: Mitgliederliste nur noch, wo du Logistiker bist** —
+  das Basetool sagt jetzt bei jeder Einheit selbst, ob du dort Logistiker
+  bist. Verse-Kit ruft die Mitgliederliste nur noch für diese Einheiten ab,
+  statt alle paar Minuten jede Einheit durchzuprobieren; im Basetool-Log
+  steht dafür keine Absage mehr. Die Rolle wird jetzt auch erkannt, wenn
+  Buchen aus ist. Mit einem älteren Basetool fragt Verse-Kit wie bisher.
+  Gemeldet von greluc (KRT)
 
 ### Behoben
 

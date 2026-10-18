@@ -74,6 +74,31 @@
           }
         }
       }
+    },
+    "orgStockPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "org-stock-lot.schema.json"
+          }
+        },
+        "units": {
+          "type": "array",
+          "maxItems": 1000,
+          "description": "The units whose pools the member reads now. A unit no longer listed is gone for the client with all its lots.",
+          "items": {
+            "$ref": "org-unit.schema.json"
+          }
+        }
+      },
+      "required": [
+        "units"
+      ]
     }
   }
 }

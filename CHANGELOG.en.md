@@ -31,6 +31,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   wait. The catalog, recipes and machine details are no longer
   re-read on every page switch, which also speeds up opening many pages for
   the first time.
+- **Unit storage: member list only where you are a logistician** — the
+  Basetool now says for every unit whether you are a logistician there.
+  Verse-Kit only asks for the member list of those units instead of trying
+  every unit every few minutes; the Basetool log no longer shows a refusal
+  for it. The role is now also recognised while booking is off. With an
+  older Basetool, Verse-Kit asks as before. Reported by greluc (KRT)
 
 ### Fixed
 

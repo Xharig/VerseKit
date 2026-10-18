@@ -1,0 +1,24 @@
+{
+  "ops": [
+    {
+      "opId": "note-1",
+      "op": "note",
+      "unit": "0c2f8a51-7d3e-4b9a-9f10-5a6b7c8d9e01",
+      "entry": "3a4b5c6d-7e8f-4a0b-9c1d-2e3f4a5b6c7d",
+      "version": 3,
+      "note": "Hangar 7"
+    },
+    {
+      "opId": "stolen-1",
+      "op": "stolen",
+      "unit": "0c2f8a51-7d3e-4b9a-9f10-5a6b7c8d9e01",
+      "entry": "6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f90",
+      "version": 0,
+      "stolen": true,
+      "quantity": {
+        "amount": 3,
+        "unit": "SCU"
+      }
+    }
+  ]
+}

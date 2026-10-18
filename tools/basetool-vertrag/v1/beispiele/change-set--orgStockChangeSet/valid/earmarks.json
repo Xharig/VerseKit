@@ -1,0 +1,34 @@
+{
+  "ops": [
+    {
+      "op": "allocation-add",
+      "unit": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+      "entry": "9a7c2e10-4f3b-4d21-8c6e-2b1a0f9d8e31",
+      "version": 3,
+      "jobOrder": "4b2d6f80-1a3c-4e57-9b0d-7c5e3a1f2d42",
+      "quantity": {
+        "amount": 6,
+        "unit": "SCU"
+      }
+    },
+    {
+      "op": "allocation-change",
+      "unit": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+      "entry": "9a7c2e10-4f3b-4d21-8c6e-2b1a0f9d8e31",
+      "version": 4,
+      "mission": "2c4e6a81-9b3d-4f75-8e1a-0d2c4f6b8a93",
+      "quantity": {
+        "amount": 2.5,
+        "unit": "SCU"
+      }
+    },
+    {
+      "opId": "drop-old-order",
+      "op": "allocation-remove",
+      "unit": "7d1c2f4e-3b8a-4c55-9e21-6a0f3b2d9c10",
+      "entry": "1f3e5a7c-9b2d-4c64-8e0a-3d5f7b9c1e75",
+      "version": 0,
+      "jobOrder": "8e1f3a62-5c7d-4b90-a2e4-6f8b0c1d3e57"
+    }
+  ]
+}

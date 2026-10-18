@@ -2855,7 +2855,10 @@ TEXTS = {
                               'Basetool zurückgehaltene Massenänderung geht '
                               'nicht mehr bei jedem Abgleich neu hinaus, '
                               'Posten an einem Ort außerhalb des '
-                              'Ortskatalogs werden nicht mehr geleert.',
+                              'Ortskatalogs werden nicht mehr geleert, und '
+                              'das Lager der Einheit ruft die '
+                              'Mitgliederliste nur noch dort ab, wo du '
+                              'Logistiker bist.',
                               '**Review of the Basetool sync** — wait times after '
                               'errors, a full stop after a block, only your own '
                               'account\'s blueprints and more safely stored '
@@ -2863,9 +2866,10 @@ TEXTS = {
                               'materials and items land in the right store, '
                               'materials with their quality. And a mass '
                               'change the Basetool holds back is no longer '
-                              'resent on every sync, and lots at a place '
+                              'resent on every sync, lots at a place '
                               'outside the location catalog are no longer '
-                              'emptied.'),
+                              'emptied, and unit storage only asks for the '
+                              'member list where you are a logistician.'),
     's_dk_parsul_idee':      ('**Bilder im Fehlerbericht** — ein Bildschirmfoto geht '
                               'jetzt direkt mit dem Bericht hinaus, statt es '
                               'getrennt nachzureichen.',
