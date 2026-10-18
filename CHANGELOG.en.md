@@ -6,7 +6,13 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.11.0 - 2026-10-18
+
+> Pages open much faster when you come back to them, and Back and Forward
+> take you to the page you visited last, just like in a browser.
+> Vehicles that come with a ship, like the Centaurus's Skylark, now show up in
+> your hangar. And syncing with the Basetool is calmer: a mass change waiting
+> for your confirmation is no longer sent again every few minutes.
 
 ### New
 
@@ -40,7 +46,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Verse-Kit only asks for the member list of those units instead of trying
   every unit every few minutes; the Basetool log no longer shows a refusal
   for it. The role is now also recognised while booking is off. With an
-  older Basetool, Verse-Kit asks as before. Reported by greluc (KRT)
+  older Basetool, Verse-Kit asks as before. Suggested by greluc (KRT)
 
 ### Fixed
 

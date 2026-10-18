@@ -6,7 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.11.0 - 2026-10-18
+
+> Seiten öffnen deutlich schneller, wenn du zu ihnen zurückkommst, und
+> Zurück und Vor bringen dich wie im Browser zur zuletzt besuchten Seite. Im Hangar stehen mitgelieferte Beiboote wie die Skylark der
+> Centaurus jetzt mit drin. Und der Abgleich mit dem Basetool läuft ruhiger:
+> Eine Massenänderung, die auf deine Bestätigung wartet, geht nicht mehr alle
+> paar Minuten neu hinaus.
 
 ### Neu
 
@@ -41,13 +47,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   statt alle paar Minuten jede Einheit durchzuprobieren; im Basetool-Log
   steht dafür keine Absage mehr. Die Rolle wird jetzt auch erkannt, wenn
   Buchen aus ist. Mit einem älteren Basetool fragt Verse-Kit wie bisher.
-  Gemeldet von greluc (KRT)
+  Vorgeschlagen von greluc (KRT)
 
 ### Behoben
 
 - **Nur noch ein Verse-Kit zugleich** — zwei schnelle Starts hintereinander
-  öffnen keine zweite Version mehr; der zweite holt die laufende nach vorn.
-  Unter Windows konnten bisher zwei Versionen nebeneinander laufen.
+  öffnen kein zweites Verse-Kit mehr; der zweite holt das laufende nach
+  vorn. Unter Windows konnten bisher zwei nebeneinander laufen.
 - **Fehlerbericht: Mein Lager vollständig** — die Zeile zählt jetzt
   Rohstoffe, Waren und Items und klebt nicht mehr an ihrer Beschriftung.
 - **Einstellungen nach dem Update-Neustart** — ist die Einstellungsdatei

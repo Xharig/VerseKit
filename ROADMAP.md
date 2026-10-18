@@ -35,6 +35,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Lager der Einheit** — das gemeinsame Lager der eigenen Einheiten im Basetool, nach Items, Rohstoffen, Handelsware und Komponenten; Logistiker buchen direkt |
 | ✅ | **Was ist neu als Galerie** — nach einem Update einmal die wichtigsten Neuerungen mit Bild und Weg dorthin |
 | ✅ | **Kartenansicht** — jeder Bereich als Karte mit Unterpunkten, eigene Karten an der Startseite, Basetool gebündelt; Reiteransicht bleibt wählbar |
+| ✅ | **Zurück und Vor** wie im Browser — Pfeile oben links, Alt + Pfeil und die Seitentasten der Maus führen durch die zuletzt besuchten Seiten |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |
 | ✅ | **Overlay in eine Bildschirmecke legen** — nötig im Pop-up-Betrieb, wo es sich nicht ziehen lässt; eingeklappt schrumpft es auf Streifenbreite |
 | ✅ | Katalog-Wache: meldet, was im Spiel **neu craftbar** wird, dazu eine Merkliste |
@@ -70,6 +71,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Schiffsdaten**: Frachtraum, Kaufpreis und Mietpreis — im Routenplaner wählst du dein Schiff, der Laderaum kommt von selbst |
 | ✅ | **Bergung**: was ab Werk in einem Schiff steckt und was die Teile im Laden wert sind — mit dem Hinweis, dass das für NPC-Wracks gilt und nicht für Spielerschiffe |
 | ✅ | **Mein Hangar**: welche Schiffe dir gehören — aus dem Pledge-Store geholt oder von Hand eingetragen, mit Herkunft und Steckplätzen |
+| ✅ | **Beiboote laut Katalog** (im Hangar): mitgelieferte Fahrzeuge wie die Skylark der Centaurus stehen nach dem Import mit drin, jedes mit Angabe von RSI als Beleg |
 | ✅ | **Flottenanalyse** (im Hangar): welche Spielbereiche deine Schiffe abdecken, wo Lücken sind, welche Snubs ohne Mutterschiff dastehen — dazu an jedem Echtgeld-Schiff, ob es sich schmelzen oder per CCU upgraden lässt |
 | ✅ | **Racks und Lackierungen tauschen** — nur die, die an dein Schiff passen; nach einem Rack-Tausch stehen dessen Plätze darunter |
 | ✅ | **Schiffslisten anderer Werkzeuge**: Fleetview (CCU Game), Fleetyards und StarJump FleetViewer — sie ergänzen den Hangar nur, Wunschschiffe landen auf der Wunschliste |

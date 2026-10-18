@@ -212,9 +212,7 @@ KNOPF_SYMBOLE = {
     'haus':         'house',
     # Trenner zwischen den Stücken der Pfadzeile.
     'pfad':         'chevron-right',
-    # Zurück und Vor durch die besuchten Seiten, wie im Browser. Nicht
-    # `undo-2` (`zurueck`, ältere Version einspielen) und nicht
-    # `arrow-left-right` (`basetool`) — eigene Bilder für eine eigene Sache.
+    # Zurück und Vor durch die besuchten Seiten, wie im Browser.
     'seite_zurueck': 'arrow-left',
     'seite_vor':    'arrow-right',
     # Stecknadel auf Unterpunkt-Karten: an die Startseite heften / lösen.

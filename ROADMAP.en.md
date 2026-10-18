@@ -35,6 +35,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Unit storage** — the shared storage of your units in the Basetool, by items, materials, trade goods and components; logisticians book directly |
 | ✅ | **What's new as a gallery** — after an update, the main new features once, with a picture and the way there |
 | ✅ | **Card view** — every area as a card with its pages, your own cards on the start page, Basetool bundled; tab view stays available |
+| ✅ | **Back and Forward** like in a browser — arrows at the top left, Alt + arrow and the side buttons of your mouse step through the pages you visited last |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |
 | ✅ | **Pin the overlay to a screen corner** — required in pop-up mode where it cannot be dragged; collapsed it shrinks to strip width |
 | ✅ | Catalogue watch: reports what becomes **newly craftable** in the game, plus a watchlist |
@@ -69,6 +70,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Routes**: trade routes with buy price, sell price and real profit — across several stops, as a round trip, or the best route anywhere in the verse |
 | ✅ | **Salvage**: what a ship carries from the factory and what those parts are worth in a shop — with the note that this applies to NPC wrecks, not to player ships |
 | ✅ | **My hangar**: which ships you own — pulled from the pledge store or added by hand, with origin and slot counts |
+| ✅ | **Included vehicles per catalogue** (in the hangar): vehicles that come with a ship, like the Centaurus's Skylark, are added after an import, each backed by an RSI source |
 | ✅ | **Fleet analysis** (in the hangar): which gameplay loops your ships cover, where the gaps are, which snubs have no mothership — plus on every pledged ship whether it can be melted or upgraded via CCU |
 | ✅ | **Swap racks and paints** — only the ones that fit your ship; after a rack swap its own slots show up below it |
 | ✅ | **Ship lists from other tools**: Fleetview (CCU Game), Fleetyards and StarJump FleetViewer — they only add to the hangar, wanted ships go to the wishlist |

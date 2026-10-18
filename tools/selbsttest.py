@@ -3198,8 +3198,8 @@ def main():
         import socket as so24
         from scbp import overlay as ov24
         alt_port24 = ov24.WATCHDOG_PORT
-        # ⚠ Frei ermittelt, nicht fest: 47984–47990 belegt etwa Sunshine
-        # (Spiel-Streaming) auf 0.0.0.0, und eine exklusive Bindung scheitert
+        # ⚠ Frei ermittelt, nicht fest: Ein fester Port kann von einem
+        # anderen Programm belegt sein, und eine exklusive Bindung scheitert
         # dann zu Recht.
         ov24.WATCHDOG_PORT = _free_port540()
         try:
