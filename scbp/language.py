@@ -4948,6 +4948,9 @@ TEXTS = {
     # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
     # Carrack) — kommt aus `includedWith` der Hangar Extension.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
+    # Beiboot laut Katalog (`included_vehicles`) — nicht aus dem Pledge.
+    's_hg_katalog':      ('laut Katalog, mit der {schiff}',
+                          'per catalogue, with the {schiff}'),
     # Versicherungsdauer ohne LTI — aus dem CSV der Hangar Extension
     # („120 Month Insurance").
     's_hg_vers_jahre':   ('{n} Jahre Versicherung', '{n} years insurance'),

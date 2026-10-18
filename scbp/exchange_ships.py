@@ -82,12 +82,18 @@ def local_ships(fleet_data, own_names=None):
     `fitted` ist `None`, solange der Haken nie gesetzt wurde.
 
     ⚠ Kaufdaten werden hier schon nicht übernommen — was nicht im Ergebnis
-    steht, kann auch nicht versehentlich hinausgehen."""
+    steht, kann auch nicht versehentlich hinausgehen.
+
+    ⚠ Beiboote laut Katalog (`fleet.CATALOG`) fehlen hier: Sie stehen in
+    keinem Pledge, und das Basetool führt Besitz. Übernimmt der Abgleich
+    dasselbe Fahrzeug von drüben, wird aus dem Katalog-Eintrag einer aus dem
+    Basetool (`fleet.add`) — kein zweiter."""
+    from . import fleet
     own_names = own_names or {}
     out = {}
     for entry in (fleet_data.get('schiffe') or ()):
         name = (entry.get('name') or '').strip()
-        if not name:
+        if not name or entry.get('herkunft') == fleet.CATALOG:
             continue
         ref = {'name': name[:200]}
         if entry.get('kurz'):

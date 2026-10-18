@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Included vehicles in the hangar** — after an import, vehicles that come
+  with a ship, such as the Skylark of the Constellation Mk V Centaurus or the
+  P-52 Merlin of the Mk IV Andromeda, appear in the hangar, marked "per
+  catalogue". Every entry rests on a statement by RSI; anything the pledge
+  itself lists is not added twice.
+
 ### Improved
 
 - **Error report with Anti-AFK** — the report now says whether Anti-AFK is

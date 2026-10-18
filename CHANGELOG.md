@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Beiboote im Hangar** — nach dem Import stehen mitgelieferte Fahrzeuge
+  wie die Skylark der Constellation Mk V Centaurus oder die P-52 Merlin der
+  Mk IV Andromeda mit im Hangar, gekennzeichnet als „laut Katalog". Jeder
+  Eintrag stützt sich auf eine Angabe von RSI; was der Pledge selbst nennt,
+  wird nicht doppelt eingetragen.
+
 ### Verbessert
 
 - **Fehlerbericht mit Anti-AFK** — der Bericht nennt jetzt, ob Anti-AFK an

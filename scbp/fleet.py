@@ -85,7 +85,8 @@ bleiben: der Ablage-Name `hangar.json` und alle Schlüssel darin
 `gekauft`, `preis`, `ref`, `anzahl`, `weg`, `einsatzbereit`, `einheit` — die
 Kennung der Einheit im Basetool, `''` = keine —, `schmelzbar` aus dem Import
 und `schmelz_wahl` mit den Werten `ja`/`nein`) sowie die Herkunftswerte
-`'pledge'` und `'ingame'` — sonst verliert jeder beim Update seinen Hangar.
+`'pledge'`, `'ingame'` und `'katalog'` — sonst verliert jeder beim Update
+seinen Hangar.
 Ebenso der Seitenname `hangar` in Reiterleiste, Symbolsatz und „Neu"-Marken.
 """
 import collections
@@ -112,6 +113,9 @@ BASETOOL = 'basetool'
 # Aus einer Schiffsliste eines anderen Werkzeugs (Fleetview, Fleetyards,
 # StarJump FleetViewer) — `quelle` nennt es.
 LIST = 'liste'
+# Ein Beiboot laut Katalog (`included_vehicles`): mitgeliefert mit dem Schiff
+# unter `paket`, aber in keinem Export genannt. Kein Pledge-Inhalt.
+CATALOG = 'katalog'
 
 
 _SAVE_LOCK = threading.Lock()
@@ -271,6 +275,17 @@ def save(data):
                 disk = _read()
                 if disk is not None and disk != base:
                     out = _merge(base, data, disk)
+            # Nach dem Zusammenführen: Ein älteres Hangar-Objekt kennt die
+            # Beiboote laut Katalog nicht, deren Träger es austrägt.
+            try:
+                from . import included_vehicles
+                included_vehicles.prune(out)
+                # Auch das eigene Objekt, sonst merkt `_remember` sich einen
+                # Stand, der nicht auf der Platte steht.
+                if out is not data:
+                    included_vehicles.prune(data)
+            except Exception as exc:
+                errors.record('fleet.save.beiboote', exc)
             os.makedirs(os.path.dirname(target), exist_ok=True)
             with open(target + '.tmp', 'w', encoding='utf-8') as f:
                 json.dump(out, f, ensure_ascii=False, indent=1)
@@ -596,16 +611,49 @@ def add(data, name, manufacturer='', origin=INGAME, **rest):
     if not (name or '').strip():
         return False
     found = find(data, name, manufacturer, rest.get('kurz'), rest.get('hkurz'))
+    if found is None and origin != CATALOG:
+        # Andere Schreibweise oder kein Hersteller (Basetool, von Hand):
+        # das Beiboot laut Katalog ist trotzdem dasselbe Fahrzeug.
+        from . import included_vehicles
+        found = included_vehicles.catalog_entry(data, name, rest.get('hkurz'))
     if found is not None:
+        # Ein Beiboot laut Katalog, das nun ein Export, das Basetool oder der
+        # Spieler selbst nennt, ist ab jetzt ein gewöhnlicher Eintrag — und
+        # zählt als neu, denn so stand es bisher nicht im Hangar.
+        promoted = found.get('herkunft') == CATALOG and origin != CATALOG
+        if promoted:
+            _promote(found, name, manufacturer, origin, rest)
         _fill(found, **rest)
-        return False
+        return promoted
     entry = {'name': name.strip(), 'hersteller': (manufacturer or '').strip(),
              'herkunft': origin, 'belegung': {}}
     for key in _IMPORT_KEYS:
         if rest.get(key) not in (None, ''):
             entry[key] = rest[key]
+    if rest.get('quelle'):
+        entry['quelle'] = rest['quelle']
     data.setdefault('schiffe', []).append(entry)
     return True
+
+
+def _promote(entry, name, manufacturer, origin, rest):
+    """Aus einem Beiboot laut Katalog einen gewöhnlichen Eintrag machen.
+
+    Name, Hersteller, Paket und Quelle kommen von dort, wo das Fahrzeug jetzt
+    genannt wird — der Träger unter `paket` stimmte nur für den Katalog.
+    Auslegung und Haken des Spielers bleiben."""
+    entry['herkunft'] = origin or PLEDGE
+    if (name or '').strip():
+        entry['name'] = name.strip()
+    if (manufacturer or '').strip():
+        entry['hersteller'] = manufacturer.strip()
+    if (rest.get('hkurz') or '').strip():
+        entry['hkurz'] = rest['hkurz'].strip()
+    entry['paket'] = (rest.get('paket') or '').strip()
+    if rest.get('quelle'):
+        entry['quelle'] = rest['quelle']
+    else:
+        entry.pop('quelle', None)
 
 
 def bundled_with(data, entry):
@@ -652,7 +700,15 @@ def merge_duplicates(data):
             kept.append(s)
             continue
         changed = True
-        _fill(match, **{key: s.get(key) for key in _IMPORT_KEYS})
+        rest = {key: s.get(key) for key in _IMPORT_KEYS}
+        if match.get('herkunft') == CATALOG \
+                and s.get('herkunft') != CATALOG:
+            _promote(match, s.get('name'), s.get('hersteller'),
+                     s.get('herkunft'), dict(rest, quelle=s.get('quelle')))
+        elif s.get('herkunft') == CATALOG:
+            # Der Träger eines Katalog-Eintrags ist kein Paket des Pledges.
+            rest['paket'] = ''
+        _fill(match, **rest)
         if not match.get('belegung') and s.get('belegung'):
             match['belegung'] = s['belegung']
         if match.get('einsatzbereit') is None \
@@ -669,13 +725,21 @@ def merge_duplicates(data):
 
 
 def remove(data, name, manufacturer=''):
-    """Ein Schiff austragen. Gibt zurück, ob eines wegfiel."""
+    """Ein Schiff austragen. Gibt zurück, ob eines wegfiel.
+
+    Seine Beiboote laut Katalog gehen mit (`included_vehicles.prune`); ein
+    ausgetragenes Beiboot laut Katalog kommt erst mit dem nächsten Import
+    wieder."""
+    from . import included_vehicles
     wanted = _slim(manufacturer) + _slim(name)
     before = len(data.get('schiffe') or [])
     data['schiffe'] = [
         s for s in (data.get('schiffe') or [])
         if _slim(s.get('hersteller')) + _slim(s.get('name')) != wanted]
-    return len(data['schiffe']) != before
+    if len(data['schiffe']) == before:
+        return False
+    included_vehicles.prune(data)
+    return True
 
 
 # ---------------------------------------------------------------- Import
@@ -1366,7 +1430,11 @@ def import_entries(entries, data=None, save_now=True):
     Raven EX) das alte Schiff im Hangar stehen. Deshalb fällt ein
     Echtgeld-Schiff heraus, das im Export fehlt. Im Spiel gekaufte (`INGAME`)
     bleiben: Die kennt kein Export.
+
+    Zuletzt ergänzt `included_vehicles.apply` die Beiboote laut Katalog und
+    trägt die aus, deren Träger nicht mehr da ist.
     """
+    from . import included_vehicles
     data = data if data is not None else load()
     new = 0
     # ⚠⚠ Nur ein **Pledge-Export** ist der ganze Hangar. Eine Schiffsliste
@@ -1387,6 +1455,9 @@ def import_entries(entries, data=None, save_now=True):
             same = [s for s in (data.get('schiffe') or [])
                     if _slim(s.get('name')) == _slim(e.get('name'))]
             if len(same) == 1:
+                if same[0].get('herkunft') == CATALOG:
+                    _promote(same[0], e.get('name'), '', origin, e)
+                    new += 1
                 if origin != LIST:
                     _fill(same[0], paket=e.get('paket'), lti=e.get('lti'),
                           versicherung=e.get('versicherung'))
@@ -1397,11 +1468,10 @@ def import_entries(entries, data=None, save_now=True):
                      hkurz=e.get('hkurz'), lti=e.get('lti'),
                      warbond=e.get('warbond'), paket=e.get('paket'),
                      gekauft=e.get('gekauft'), preis=e.get('preis'),
-                     versicherung=e.get('versicherung'))
+                     versicherung=e.get('versicherung'),
+                     quelle=e.get('quelle'))
         if is_new:
             new += 1
-            if e.get('quelle'):
-                data['schiffe'][-1]['quelle'] = e['quelle']
     _apply_meltable(data, entries)
     # Fleetyards führt auch Wunschschiffe (`wanted`) — die gehören auf die
     # Wunschliste, nicht in den Hangar. ⚠ Erst NACH dem Hangar: Kam dasselbe
@@ -1411,24 +1481,36 @@ def import_entries(entries, data=None, save_now=True):
         if not contains(data, e.get('name'), e.get('hersteller'),
                         hkurz=e.get('hkurz')) \
                 and not any(_slim(s.get('name')) == _slim(e.get('name'))
-                            for s in (data.get('schiffe') or [])):
+                            for s in (data.get('schiffe') or [])) \
+                and included_vehicles.catalog_entry(
+                    data, e.get('name'), e.get('hkurz')) is None:
             wishlist_add(data, e.get('name'), e.get('hersteller'))
     # Wunschschiffe zählen weder als übernommen noch als schon vorhanden.
     wished = len(wishes)
     removed = []
     if entries and pledge_export:
-        kept = []
+        kept, gone = [], []
         for ship in (data.get('schiffe') or []):
             in_export = any(ship is s for s in by_name) or any(
                 _same_ship(ship, e.get('name'), e.get('hersteller'),
                            e.get('kurz'), e.get('hkurz'))
                 for e in entries)
             if ship.get('herkunft') == PLEDGE and not in_export:
-                removed.append(ship.get('name') or '')
+                gone.append(ship)
             else:
                 kept.append(ship)
-        if removed:
+        if gone:
+            # Ein Beiboot, das laut Katalog zu einem verbliebenen Träger
+            # gehört, bleibt — als Katalog-Eintrag, mit seiner Auslegung.
+            back = included_vehicles.demote({'schiffe': kept}, gone)
+            kept.extend(back)
+            removed = [s.get('name') or '' for s in gone
+                       if not any(s is b for b in back)]
             data['schiffe'] = kept
+    # Erst nach dem Austragen: Ein Beiboot laut Katalog folgt seinem Träger.
+    # Es zählt weder als übernommen noch als ausgetragen — es stand in keiner
+    # Datei.
+    included_vehicles.apply(data)
     if save_now:
         save(data)
     return new, len(entries) - new - wished, removed

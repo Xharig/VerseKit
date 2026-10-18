@@ -15765,7 +15765,9 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
     # Unterschied machen.
     teile = [{meine.PLEDGE: t('s_hg_pledge'),
               meine.BASETOOL: t('s_hg_basetool'),
-              meine.LIST: t('s_hg_liste', eintrag.get('quelle') or '?')}.get(
+              meine.LIST: t('s_hg_liste', eintrag.get('quelle') or '?'),
+              meine.CATALOG: t('s_hg_katalog').format(
+                  schiff=eintrag.get('paket') or '?')}.get(
                   eintrag.get('herkunft'), t('s_hg_ingame'))]
     if eintrag.get('lti'):
         teile.append(t('s_hg_lti'))
@@ -15781,7 +15783,8 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen,
     # Steht nur da, wenn das Paket ein eigenes Schiff nennt — Pledge-Namen
     # des XPLORer („Standalone Ship") bleiben weg.
     beilage = meine.bundled_with(daten['stand'], eintrag)
-    if beilage:
+    # Ein Beiboot laut Katalog nennt seinen Träger schon in der Herkunft.
+    if beilage and eintrag.get('herkunft') != meine.CATALOG:
         teile.append(t('s_hg_beilage').format(schiff=beilage))
 
     # ⚠⚠ **Drei Zustände, nicht zwei** — und der Unterschied ist der ganze

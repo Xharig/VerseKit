@@ -25755,6 +25755,8 @@ def main():
     _pruefung_520()
     _pruefung_521()
     _pruefung_522()
+    _pruefung_550()
+    _pruefung_551()
 
     print()
     if fehler:
@@ -52042,6 +52044,641 @@ def _pruefung_522():
         language_522.set_language(old_language)
         _home_restore520(old_home)
         shutil.rmtree(home, ignore_errors=True)
+
+
+def _ship550(**fields):
+    """Ein Schiff im Format `hangar-schiffe` v1, erfundene Werte."""
+    ship = {'matrixZuordnung': 'sicher',
+            'manufacturer': {'code': 'RSI',
+                             'name': 'Roberts Space Industries'},
+            'insurance': 'LTI', 'insuranceAppliesTo': 'package',
+            'includedWith': 'Package - Beispielpaket', 'includedShips': [],
+            'warbond': False}
+    ship.update(fields)
+    ship.setdefault('name', ship.get('matrix'))
+    return ship
+
+
+_CENTAURUS550 = dict(matrix='Constellation Mk V Centaurus',
+                     code='RSI_Constellation_Mk_V_Centaurus')
+_ANDROMEDA550 = dict(matrix='Constellation Mk IV Andromeda',
+                     code='RSI_Constellation_Mk_IV_Andromeda')
+
+
+def _read550(ships):
+    """Eine Schiffsliste als Datei schreiben und über `fleet.read()` lesen."""
+    from scbp import fleet as fleet_550
+    folder = tempfile.mkdtemp(prefix='scbp550-')
+    try:
+        path = os.path.join(folder, 'schiffe.json')
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({'schema': 'hangar-schiffe', 'version': 1,
+                       'schiffe': ships}, f)
+        entries, error = fleet_550.read(path)
+        if error:
+            raise AssertionError('Schiffsliste nicht lesbar: %r' % error)
+        return entries
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def _cases550():
+    """Alle Fälle der Prüfung 550 einmal. Gibt `{fall: (ok, beleg)}` zurück."""
+    import copy as copy_550
+    from scbp import (exchange_ships as exchange_550, fleet as fleet_550,
+                      included_vehicles as included_550)
+    out = {}
+
+    def imported(ships, data=None):
+        data = data if data is not None else fleet_550.empty()
+        result = fleet_550.import_entries(_read550(ships), data,
+                                          save_now=False)
+        return data, result
+
+    def view(data):
+        return sorted((s.get('name'), s.get('herkunft'), s.get('paket'))
+                      for s in data['schiffe'])
+
+    def named(data, name):
+        return [s for s in data['schiffe'] if s.get('name') == name]
+
+    # Die zwei Fälle mit leerem `includedShips` im Paket.
+    data, result = imported([_ship550(**_CENTAURUS550),
+                             _ship550(**_ANDROMEDA550)])
+    sky, merlin = named(data, 'Skylark'), named(data, 'P-52 Merlin')
+    out['skylark'] = (
+        len(sky) == 1 and sky[0].get('herkunft') == fleet_550.CATALOG
+        and sky[0].get('paket') == 'Constellation Mk V Centaurus'
+        and sky[0].get('hkurz') == 'RSI', view(data))
+    out['merlin'] = (
+        len(merlin) == 1 and merlin[0].get('herkunft') == fleet_550.CATALOG
+        and merlin[0].get('paket') == 'Constellation Mk IV Andromeda'
+        and merlin[0].get('hkurz') == 'KRIG', view(data))
+    out['zaehlung'] = (result == (2, 0, []) and len(data['schiffe']) == 4,
+                       (result, view(data)))
+    sent = [v['name'] for v in exchange_550.local_ships(data).values()]
+    out['basetool'] = (sorted(sent) == ['Constellation Mk IV Andromeda',
+                                        'Constellation Mk V Centaurus'],
+                       sent)
+
+    # Die mitgelieferten Daten: kein Fahrzeug ohne Beleg.
+    faults = []
+    records = included_550.load()
+    for record in records:
+        vehicles = record.get('fahrzeuge') or []
+        if vehicles and not included_550.has_evidence(record):
+            faults.append('ohne Beleg: %s' % record.get('schiff'))
+        if not vehicles and record.get('beleg') is not None:
+            faults.append('Beleg ohne Fahrzeug: %s' % record.get('schiff'))
+        for vehicle in vehicles:
+            if not (vehicle.get('name') and vehicle.get('hersteller')
+                    and vehicle.get('hkurz')):
+                faults.append('Fahrzeug unvollständig: %s' % vehicle)
+    names = {r.get('schiff') for r in records}
+    for needed in ('Constellation Mk V Centaurus',
+                   'Constellation Mk IV Andromeda',
+                   'Constellation Mk IV Taurus'):
+        if needed not in names:
+            faults.append('fehlt: %s' % needed)
+    out['daten'] = (not faults and len(records) > 3, faults)
+
+    # Ein Eintrag ohne gültigen Beleg bringt nichts, auch mit Fahrzeugen.
+    boat = [{'name': 'Testboot 550', 'hersteller': 'X', 'hkurz': 'X'}]
+    good = {'adresse': 'https://robertsspaceindustries.com/pledge/ships/x',
+            'abgerufen': '2026-10-18', 'auszug': 'comes with'}
+    fake = [{'schiff': 'Träger A 550', 'fahrzeuge': boat, 'beleg': None},
+            {'schiff': 'Träger B 550', 'fahrzeuge': boat,
+             'beleg': dict(good, adresse='https://example.com/x')},
+            {'schiff': 'Träger C 550', 'fahrzeuge': boat,
+             'beleg': dict(good, auszug=' ')},
+            {'schiff': 'Träger D 550', 'fahrzeuge': boat, 'beleg': good}]
+    got = [len(included_550.vehicles_for({'name': r['schiff']}, fake))
+           for r in fake]
+    out['ohne_beleg'] = (got == [0, 0, 0, 1], got)
+
+    # Steht das Beiboot schon als eigener Pledge im Export: einmal, als
+    # Pledge, mit seinen Angaben.
+    own = _ship550(matrix='Skylark', code='RSI_Skylark', includedWith=None,
+                   pledgePriceUsd=55, insurance='120MI')
+    data, _ = imported([_ship550(**_CENTAURUS550), own])
+    sky = named(data, 'Skylark')
+    out['eigener_pledge'] = (
+        len(sky) == 1 and sky[0].get('herkunft') == fleet_550.PLEDGE
+        and sky[0].get('preis') == '$55.00 USD'
+        and sky[0].get('versicherung') == 120, view(data))
+
+    # Ein vorhandener Eintrag des Spielers bleibt Feld für Feld, wie er ist.
+    mine = {'name': 'Skylark', 'hersteller': 'Roberts Space Industries',
+            'hkurz': 'RSI', 'herkunft': fleet_550.INGAME,
+            'belegung': {'waffe_1': 'Beispielkanone'}, 'einsatzbereit': True}
+    data = {'format': 1, 'schiffe': [copy_550.deepcopy(mine)]}
+    imported([_ship550(**_CENTAURUS550)], data)
+    sky = named(data, 'Skylark')
+    out['nicht_ueberschreiben'] = (len(sky) == 1 and sky[0] == mine,
+                                   view(data))
+
+    # Nennt der Pledge das Beiboot selbst (`includedShips`), kein Doppel.
+    data, _ = imported([_ship550(
+        includedShips=[{'name': 'Skylark', 'code': 'RSI_Skylark'}],
+        **_CENTAURUS550)])
+    sky = named(data, 'Skylark')
+    out['included'] = (len(sky) == 1
+                       and sky[0].get('herkunft') == fleet_550.PLEDGE,
+                       view(data))
+
+    # Später nennt es ein Export: aus dem Katalog-Eintrag wird ein Pledge.
+    data, _ = imported([_ship550(**_CENTAURUS550)])
+    imported([_ship550(**_CENTAURUS550), own], data)
+    sky = named(data, 'Skylark')
+    out['aufstieg'] = (len(sky) == 1
+                       and sky[0].get('herkunft') == fleet_550.PLEDGE
+                       and sky[0].get('paket') == '', view(data))
+    # Über den Namenspfad der Beilagen ohne Hersteller: Der Schiffskatalog
+    # darf hier keinen Hersteller liefern, sonst ginge es über `add()`.
+    real_catalog_name = fleet_550._catalog_name
+    try:
+        fleet_550._catalog_name = lambda name: (name, '', '')
+        data, _ = imported([_ship550(**_CENTAURUS550)])
+        imported([_ship550(includedShips=[{'name': 'Skylark', 'code': ''}],
+                           **_CENTAURUS550)], data)
+        sky = named(data, 'Skylark')
+        out['aufstieg_beilage'] = (
+            len(sky) == 1 and sky[0].get('herkunft') == fleet_550.PLEDGE
+            and sky[0].get('paket') == 'Constellation Mk V Centaurus'
+            and fleet_550._included_ships(
+                [{'includedShips': ['Skylark']}],
+                [{'name': 'Y'}])[0].get('hersteller') == '', view(data))
+    finally:
+        fleet_550._catalog_name = real_catalog_name
+
+    # Andere Schreibweise in einem späteren Export (XPLORer): ein Eintrag,
+    # unter dem neuen Namen, mit der Auslegung des Katalog-Eintrags.
+    data, _ = imported([_ship550(matrix='Carrack', code='ANVL_Carrack',
+                                 manufacturer={'code': 'ANVL',
+                                               'name': 'Anvil Aerospace'})])
+    for s in named(data, 'Ursa'):
+        s['belegung'] = {'waffe_1': 'Beispielkanone'}
+    folder = tempfile.mkdtemp(prefix='scbp550-x-')
+    try:
+        path = os.path.join(folder, 'xplorer.json')
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump([{'name': name, 'manufacturer_name': maker,
+                        'manufacturer_code': code, 'lti': True,
+                        'pledge_name': 'Package - Beispielpaket'}
+                       for name, maker, code in (
+                           ('Carrack', 'Anvil Aerospace', 'ANVL'),
+                           ('URSA Rover', 'Roberts Space Industries', 'RSI'))],
+                      f)
+        entries, _ = fleet_550.read(path)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    fleet_550.import_entries(entries, data, save_now=False)
+    ursa = [s for s in data['schiffe']
+            if s.get('name') in ('Ursa', 'URSA Rover')]
+    out['schreibweise'] = (
+        len(ursa) == 1 and ursa[0].get('name') == 'URSA Rover'
+        and ursa[0].get('herkunft') == fleet_550.PLEDGE
+        and ursa[0].get('belegung') == {'waffe_1': 'Beispielkanone'}
+        and len(named(data, 'C8 Pisces')) == 1, view(data))
+
+    # Beide stehen schon da (etwa nach dem Zusammenführen zweier Stände):
+    # der Katalog-Eintrag fällt weg, seine Auslegung geht hinüber.
+    data = {'format': 1, 'schiffe': [
+        {'name': 'Carrack', 'hersteller': 'Anvil Aerospace', 'hkurz': 'ANVL',
+         'herkunft': fleet_550.PLEDGE, 'belegung': {}},
+        {'name': 'Ursa', 'hersteller': 'Roberts Space Industries',
+         'hkurz': 'RSI', 'herkunft': fleet_550.CATALOG, 'paket': 'Carrack',
+         'belegung': {'waffe_1': 'Beispielkanone'}, 'einsatzbereit': True},
+        {'name': 'URSA Rover', 'hersteller': 'Roberts Space Industries',
+         'hkurz': 'RSI', 'herkunft': fleet_550.PLEDGE, 'belegung': {}}]}
+    included_550.apply(data)
+    ursa = [s for s in data['schiffe']
+            if s.get('name') in ('Ursa', 'URSA Rover')]
+    out['zwilling'] = (
+        len(ursa) == 1 and ursa[0].get('herkunft') == fleet_550.PLEDGE
+        and ursa[0].get('belegung') == {'waffe_1': 'Beispielkanone'}
+        and ursa[0].get('einsatzbereit') is True, view(data))
+
+    # Ohne Hersteller: vom Basetool übernommen oder von Hand eingetragen.
+    results = []
+    for origin in (fleet_550.BASETOOL, fleet_550.INGAME):
+        data, _ = imported([_ship550(**_ANDROMEDA550)])
+        new = fleet_550.add(data, 'P-52 Merlin', origin=origin)
+        merlin = named(data, 'P-52 Merlin')
+        results.append((new, [(s.get('herkunft'), s.get('paket'))
+                              for s in merlin]))
+    out['ohne_hersteller'] = (
+        results == [(True, [(fleet_550.BASETOOL, '')]),
+                    (True, [(fleet_550.INGAME, '')])], results)
+
+    # Der Basetool-Abgleich: Drüben steht eine unverknüpfte Merlin. Erst
+    # übernimmt der Plan sie (`take`), danach ist sie hier ein Eintrag und
+    # wird verknüpft statt erneut übernommen.
+    data, _ = imported([_ship550(**_ANDROMEDA550)])
+    server = {'s1': {'shipType': {'bt': 'bt-p52', 'name': 'P-52 Merlin'}}}
+
+    def basetool_plan():
+        local = exchange_550.local_ships(data)
+        resolved = {ext: ('bt-p52' if v['name'] == 'P-52 Merlin'
+                          else 'bt-' + v['name']) for ext, v in local.items()}
+        return exchange_550.plan(local, resolved, server, {})
+    before = basetool_plan()
+    if 's1' in before['take']:
+        fleet_550.add(data, 'P-52 Merlin', origin=fleet_550.BASETOOL)
+    after = basetool_plan()
+    out['basetool_take'] = (
+        before['take'] == ['s1'] and after['take'] == []
+        and [s for _, s in after['link']] == ['s1']
+        and [s.get('herkunft') for s in named(data, 'P-52 Merlin')]
+        == [fleet_550.BASETOOL],
+        (before['take'], after['take'], after['link'], view(data)))
+
+    # Erst Extension (Katalog-Ursa), dann XPLORer mit URSA Rover (befördert),
+    # dann wieder die Extension ohne sie: Die Ursa bleibt mit Auslegung,
+    # wieder laut Katalog, und gilt nicht als ausgetragen.
+    carrack_only = [_ship550(matrix='Carrack', code='ANVL_Carrack',
+                             manufacturer={'code': 'ANVL',
+                                           'name': 'Anvil Aerospace'})]
+    data, _ = imported(carrack_only)
+    for s in named(data, 'Ursa'):
+        s['belegung'] = {'waffe_1': 'Beispielkanone'}
+    fleet_550.import_entries(entries, data, save_now=False)
+    _, result = imported(carrack_only, data)
+    ursa = [s for s in data['schiffe']
+            if s.get('name') in ('Ursa', 'URSA Rover')]
+    out['zurueckstufen'] = (
+        len(ursa) == 1 and ursa[0].get('herkunft') == fleet_550.CATALOG
+        and ursa[0].get('paket') == 'Carrack'
+        and ursa[0].get('belegung') == {'waffe_1': 'Beispielkanone'}
+        and 'lti' not in ursa[0] and result[2] == [], (result, view(data)))
+
+    # Eine Wunschliste mit anderer Schreibweise: steht laut Katalog schon da.
+    data, _ = imported(carrack_only)
+    folder = tempfile.mkdtemp(prefix='scbp550-w-')
+    try:
+        path = os.path.join(folder, 'fleetyards.json')
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump([{'name': 'Ursa Rover', 'slug': 'ursa-rover',
+                        'manufacturerName': 'Roberts Space Industries',
+                        'manufacturerCode': 'RSI', 'wanted': True}], f)
+        wishes, _ = fleet_550.read(path)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    fleet_550.import_entries(wishes, data, save_now=False)
+    out['wunsch'] = (len(wishes) == 1 and not data.get('wunsch'),
+                     (wishes, data.get('wunsch')))
+    out['fremder_hersteller'] = (
+        included_550.catalog_entry(data, 'Ursa', 'DRAK') is None
+        and included_550.catalog_entry(data, 'URSA Rover', 'RSI')
+        is (named(data, 'Ursa') or [False])[0], view(data))
+
+    # Zwei Träger für dasselbe Beiboot: fällt der erste weg, nennt das
+    # Beiboot den zweiten.
+    aquila = _ship550(matrix='Constellation Mk IV Aquila',
+                      code='RSI_Constellation_Mk_IV_Aquila')
+    carrack = _ship550(matrix='Carrack', code='ANVL_Carrack',
+                       manufacturer={'code': 'ANVL',
+                                     'name': 'Anvil Aerospace'})
+    data, _ = imported([carrack, aquila])
+    first = [s.get('paket') for s in named(data, 'Ursa')]
+    imported([aquila], data)
+    out['traegerwechsel'] = (
+        first == ['Carrack'] and [s.get('paket') for s in named(data, 'Ursa')]
+        == ['Constellation Mk IV Aquila'], (first, view(data)))
+
+    # Ältere Namen und das Herstellerkürzel beim Nachschlagen.
+    found = [(included_550.record_for(e) or {}).get('schiff') for e in (
+        {'name': 'Constellation Andromeda', 'hkurz': 'RSI'},
+        {'name': 'Idris-P Frigate'},
+        {'name': 'Constellation Mk IV Andromeda', 'hkurz': 'DRAK'},
+        {'name': 'Carrack Expedition W/C8X'})]
+    out['nachschlagen'] = (found == ['Constellation Mk IV Andromeda', 'Idris-P',
+                                     None, 'Carrack Expedition w/C8X'], found)
+
+    # Ein älteres Hangar-Objekt trägt den Träger aus: Gespeichert ist danach
+    # auch sein Beiboot laut Katalog weg.
+    saved = copy_550.deepcopy(fleet_550.load())
+    try:
+        start = fleet_550.empty()
+        fleet_550.import_entries(_read550([_ship550(**_ANDROMEDA550)]), start,
+                                 save_now=False)
+        start['schiffe'] = [s for s in start['schiffe']
+                            if s.get('herkunft') != fleet_550.CATALOG]
+        fleet_550.save(start)
+        old = fleet_550.load()
+        fresh = fleet_550.load()
+        fleet_550.import_entries(_read550([_ship550(**_ANDROMEDA550)]), fresh)
+        between = [s.get('name') for s in fleet_550.load()['schiffe']]
+        fleet_550.remove(old, 'Constellation Mk IV Andromeda',
+                         'Roberts Space Industries')
+        fleet_550.save(old)
+        out['altes_objekt'] = (
+            'P-52 Merlin' in between and fleet_550.load()['schiffe'] == [],
+            (between, view(fleet_550.load())))
+
+        # Der Träger fällt ohne `remove()` weg (wie beim Basetool-`drop`),
+        # und auf der Platte liegt schon ein anderer Stand: Auch das eigene
+        # Objekt verliert danach sein verwaistes Beiboot.
+        fleet_550.import_entries(_read550([_ship550(**_ANDROMEDA550)]),
+                                 fleet_550.load())
+        mine = fleet_550.load()
+        other = fleet_550.load()
+        other['schiffe'][0]['einsatzbereit'] = True
+        fleet_550.save(other)
+        mine['schiffe'] = [s for s in mine['schiffe']
+                           if s.get('name') != 'Constellation Mk IV Andromeda']
+        fleet_550.save(mine)
+        out['eigenes_objekt'] = (
+            mine['schiffe'] == [] and fleet_550.load()['schiffe'] == [],
+            (view(mine), view(fleet_550.load())))
+    finally:
+        fleet_550.save(saved)
+
+    # Doppelt in der Datei (Katalog zuerst): Beim Laden bleibt einer, als
+    # Pledge, mit der Auslegung des ersten.
+    data = {'format': 1, 'schiffe': [
+        {'name': 'Skylark', 'hersteller': 'Roberts Space Industries',
+         'hkurz': 'RSI', 'herkunft': fleet_550.CATALOG,
+         'paket': 'Constellation Mk V Centaurus',
+         'belegung': {'waffe_1': 'Beispielkanone'}},
+        {'name': 'Skylark', 'hersteller': 'Roberts Space Industries',
+         'hkurz': 'RSI', 'herkunft': fleet_550.PLEDGE, 'belegung': {}}]}
+    fleet_550.merge_duplicates(data)
+    out['zusammenfuehren'] = (
+        len(data['schiffe']) == 1
+        and data['schiffe'][0].get('herkunft') == fleet_550.PLEDGE
+        and data['schiffe'][0].get('paket') == ''
+        and data['schiffe'][0].get('belegung') == {'waffe_1':
+                                                   'Beispielkanone'},
+        data['schiffe'])
+
+    # Ohne Träger kein Beiboot laut Katalog — nach dem Import und von Hand.
+    data, _ = imported([_ship550(**_CENTAURUS550),
+                        _ship550(**_ANDROMEDA550)])
+    imported([_ship550(**_ANDROMEDA550)], data)
+    after_import = [s.get('name') for s in data['schiffe']]
+    fleet_550.remove(data, 'Constellation Mk IV Andromeda',
+                     'Roberts Space Industries')
+    out['traeger_weg'] = (
+        'Skylark' not in after_import and 'P-52 Merlin' in after_import
+        and data['schiffe'] == [], (after_import, view(data)))
+
+    # Ohne Beleg im Katalog bleibt der Hangar, wie er ist.
+    data, _ = imported([_ship550(matrix='Constellation Mk IV Taurus',
+                                 code='RSI_Constellation_Mk_IV_Taurus')])
+    out['taurus'] = (len(data['schiffe']) == 1, view(data))
+    return out
+
+
+def _pruefung_550():
+    """550. Beiboote laut Katalog: belegt, sichtbar getrennt, kein Doppel.
+
+    Über den echten Weg (`fleet.read` → `import_entries`) mit erfundenen
+    Schiffslisten; die Zuordnung kommt aus `daten/beiboote.json`. Jede
+    Reparatur hat eine Gegenprobe, deren Falle sich zuerst selbst prüft."""
+    print('\n550. Beiboote laut Katalog')
+    from scbp import (exchange_ships as exchange_550, fleet as fleet_550,
+                      included_vehicles as included_550)
+    texts = {
+        'skylark': 'Constellation Mk V Centaurus ohne includedShips: die '
+                   'Skylark laut Katalog, ihr Träger unter paket',
+        'merlin': 'Constellation Mk IV Andromeda ohne includedShips: die '
+                  'P-52 Merlin laut Katalog',
+        'zaehlung': 'Beiboote laut Katalog zählen beim Import nicht als '
+                    'übernommen',
+        'basetool': 'Beiboote laut Katalog gehen nicht ans Basetool',
+        'daten': 'beiboote.json: jedes Fahrzeug mit Beleg bei RSI, '
+                 'vollständige Angaben',
+        'ohne_beleg': 'fehlender, fremder oder leerer Beleg: kein Fahrzeug',
+        'eigener_pledge': 'Beiboot als eigener Pledge: einmal, als Pledge, '
+                          'mit Preis und Versicherung',
+        'nicht_ueberschreiben': 'vorhandener Eintrag des Spielers bleibt Feld '
+                                'für Feld',
+        'included': 'Beiboot über includedShips: einmal, als Pledge',
+        'aufstieg': 'später als eigener Pledge: aus Katalog wird Pledge, '
+                    'ohne den Träger als Paket',
+        'aufstieg_beilage': 'später über includedShips ohne Hersteller: aus '
+                            'Katalog wird Pledge',
+        'zusammenfuehren': 'Katalog-Eintrag und Pledge doppelt: einer bleibt, '
+                           'als Pledge, ohne Träger als Paket, mit Auslegung',
+        'schreibweise': 'URSA Rover aus einem späteren XPLORer-Export: ein '
+                        'Eintrag unter neuem Namen, Auslegung bleibt',
+        'zwilling': 'Katalog-Ursa und URSA Rover stehen beide da: einer '
+                    'bleibt, mit Auslegung und Haken',
+        'ohne_hersteller': 'P-52 Merlin ohne Hersteller vom Basetool oder '
+                           'von Hand: kein zweiter Eintrag',
+        'basetool_take': 'Basetool-Abgleich: unverknüpfte Merlin einmal '
+                         'übernommen, danach verknüpft, ein Eintrag',
+        'zurueckstufen': 'befördertes Beiboot fehlt im nächsten Export: '
+                         'bleibt laut Katalog, mit Auslegung, nicht '
+                         'ausgetragen',
+        'wunsch': 'Wunsch „Ursa Rover" bei Katalog-Ursa: nicht auf die '
+                  'Wunschliste',
+        'fremder_hersteller': 'Katalog-Eintrag nur bei passendem '
+                              'Herstellerkürzel',
+        'traegerwechsel': 'zwei Träger, der erste fällt weg: das Beiboot '
+                          'nennt den zweiten',
+        'nachschlagen': 'ältere Namen und abweichende Schreibung treffen, '
+                        'fremdes Herstellerkürzel nicht',
+        'altes_objekt': 'älteres Hangar-Objekt trägt den Träger aus: das '
+                        'Beiboot ist auch gespeichert weg',
+        'eigenes_objekt': 'Träger fällt beim Speichern mit Zusammenführen '
+                          'weg: auch das eigene Objekt verliert das Beiboot',
+        'traeger_weg': 'Träger fehlt im Export oder wird ausgetragen: sein '
+                       'Beiboot laut Katalog geht mit',
+        'taurus': 'Schiff ohne Beleg im Katalog: nichts ergänzt',
+    }
+    actual = _cases550()
+    for key, text in texts.items():
+        ok, proof = actual[key]
+        pruefe(ok, '%s (%r)' % (text, proof))
+
+    real_evidence = included_550.has_evidence
+    real_present = included_550._present
+    real_prune = included_550.prune
+    real_apply = included_550.apply
+    real_local = exchange_550.local_ships
+    real_promote = fleet_550._promote
+    real_entry = included_550.catalog_entry
+    real_absorb = included_550._absorb
+    real_demote = included_550.demote
+
+    def local_with_catalog(fleet_data, own_names=None):
+        relabelled = {'schiffe': [
+            dict(s, herkunft=fleet_550.INGAME)
+            if s.get('herkunft') == fleet_550.CATALOG else s
+            for s in fleet_data.get('schiffe') or ()]}
+        return real_local(relabelled, own_names)
+
+    probes = (
+        ('Beleg nicht geprüft', 'ohne_beleg',
+         lambda: setattr(included_550, 'has_evidence', lambda r: True),
+         lambda: included_550.has_evidence({})),
+        ('Doppel nicht erkannt', 'eigener_pledge',
+         lambda: setattr(included_550, '_present', lambda ships, v: None),
+         lambda: included_550._present([{'name': 'Skylark'}],
+                                       {'name': 'Skylark'}) is None),
+        ('verwaiste nicht ausgetragen', 'traeger_weg',
+         lambda: setattr(included_550, 'prune',
+                         lambda data, entries=None: []),
+         lambda: included_550.prune({'schiffe': [
+             {'name': 'X', 'herkunft': fleet_550.CATALOG}]}) == []),
+        ('Import ergänzt nicht', 'skylark',
+         lambda: setattr(included_550, 'apply',
+                         lambda data, entries=None: ([], [])),
+         lambda: included_550.apply({'schiffe': [
+             {'name': 'Constellation Mk V Centaurus'}]}) == ([], [])),
+        ('Katalog zum Basetool', 'basetool',
+         lambda: setattr(exchange_550, 'local_ships', local_with_catalog),
+         lambda: len(exchange_550.local_ships({'schiffe': [
+             {'name': 'X', 'herkunft': fleet_550.CATALOG}]})) == 1),
+        ('Befördern ohne neue Angaben', 'aufstieg',
+         lambda: setattr(fleet_550, '_promote',
+                         lambda entry, name, maker, origin, rest:
+                         entry.__setitem__('herkunft', origin)),
+         lambda: (lambda e: (fleet_550._promote(e, 'A', '', 'pledge', {}),
+                             e)[1])({'paket': 'X'}).get('paket') == 'X'),
+        ('Beiboot ausgetragen statt zurückgestuft', 'zurueckstufen',
+         lambda: setattr(included_550, 'demote',
+                         lambda data, candidates, entries=None: []),
+         lambda: included_550.demote(
+             {'schiffe': [{'name': 'Carrack', 'hkurz': 'ANVL'}]},
+             [{'name': 'Ursa', 'hkurz': 'RSI',
+               'herkunft': fleet_550.PLEDGE}]) == []),
+        ('Zwilling ohne Auslegung zusammengelegt', 'zwilling',
+         lambda: setattr(included_550, '_absorb', lambda target, entry: None),
+         lambda: (lambda t: (included_550._absorb(
+             t, {'belegung': {'a': 1}}), t)[1])({}) == {}),
+        ('Katalog-Eintrag ohne Hersteller nicht erkannt', 'ohne_hersteller',
+         lambda: setattr(included_550, 'catalog_entry',
+                         lambda data, name, maker_code='', entries=None:
+                         None),
+         lambda: included_550.catalog_entry({'schiffe': [
+             {'name': 'Ursa', 'herkunft': fleet_550.CATALOG}]}, 'Ursa')
+         is None),
+    )
+    for what, case, sabotage, bites in probes:
+        try:
+            sabotage()
+            pruefe(bites(), 'Gegenprobe %s: die Falle greift' % what)
+            red, proof = _cases550()[case]
+            pruefe(not red, 'Gegenprobe %s: Fall %s wird rot (%r)'
+                   % (what, case, proof))
+        finally:
+            included_550.has_evidence = real_evidence
+            included_550._present = real_present
+            included_550.prune = real_prune
+            included_550.apply = real_apply
+            exchange_550.local_ships = real_local
+            fleet_550._promote = real_promote
+            included_550.catalog_entry = real_entry
+            included_550._absorb = real_absorb
+            included_550.demote = real_demote
+    pruefe(included_550._absorb is real_absorb
+           and included_550.demote is real_demote
+           and included_550.has_evidence is real_evidence
+           and included_550._present is real_present
+           and included_550.prune is real_prune
+           and included_550.apply is real_apply
+           and exchange_550.local_ships is real_local
+           and fleet_550._promote is real_promote
+           and included_550.catalog_entry is real_entry
+           and all(v[0] for v in _cases550().values()),
+           'nach den Gegenproben ist alles zurückgesetzt und wieder grün')
+
+
+def _pruefung_551():
+    """551. Hangar-Seite: ein Beiboot laut Katalog sagt das an der Karte.
+
+    Die echte Seite mit einem gespeicherten Hangar im Wegwerf-Ordner: Die
+    Skylark trägt `s_hg_katalog` statt Pledge oder `s_hg_beilage`; die
+    Centaurus bleibt ein Pledge."""
+    print('\n551. Hangar-Seite: Beiboot laut Katalog an der Karte')
+    import copy as copy_551
+    import tkinter as tk_551
+    from scbp import (fleet as fleet_551, language as language_551,
+                      main_window as main_window_551)
+    old_hangar = copy_551.deepcopy(fleet_551.load())
+    old_language = language_551.current()
+    old_unknown = fleet_551.unknown
+    real_catalog = fleet_551.CATALOG
+    try:
+        fleet_551.unknown = lambda *a, **k: []
+        data = fleet_551.empty()
+        fleet_551.import_entries(_read550([_ship550(**_CENTAURUS550)]), data,
+                                 save_now=False)
+        ready = (fleet_551.save(data)
+                 and [s.get('herkunft') for s in fleet_551.load()['schiffe']]
+                 == [fleet_551.PLEDGE, fleet_551.CATALOG])
+        pruefe(ready, 'Vorbedingung: Centaurus als Pledge, Skylark laut '
+               'Katalog gespeichert')
+        if not ready:
+            return
+        def labels():
+            """Die Beschriftungen der Hangar-Seite — je Aufruf ein frisch
+            gebautes Fenster, denn eine Seite wird einmal gebaut."""
+            root = _wurzel()
+            try:
+                window = main_window_551.MainWindow(
+                    root, version='0.0.0-pruefung')
+                window.open_page('hangar')
+                root.update()
+                found = []
+
+                def walk(widget):
+                    if isinstance(widget, tk_551.Label):
+                        found.append(str(widget.cget('text')))
+                    for child in widget.winfo_children():
+                        walk(child)
+                walk(window.pages['hangar'])
+                return found
+            finally:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
+        t = language_551.t
+
+        def card_ok():
+            wanted = t('s_hg_katalog').format(
+                schiff='Constellation Mk V Centaurus')
+            bundled = t('s_hg_beilage').format(
+                schiff='Constellation Mk V Centaurus')
+            texts = labels()
+            rows = [x for x in texts if wanted in x]
+            # Genau zwei Karten: eine Pledge-Zeile (Centaurus), eine Katalog-
+            # Zeile (Skylark).
+            return (len(rows) == 1 and rows[0].startswith(wanted)
+                    and not any(bundled in x for x in texts)
+                    and len([x for x in texts
+                             if x.startswith(t('s_hg_pledge') + '  ·')]) == 1,
+                    [x for x in texts if '·' in x])
+
+        for lang in ('de', 'en'):
+            language_551.set_language(lang)
+            ok, proof = card_ok()
+            pruefe(ok, '%s: die Skylark-Karte nennt „laut Katalog" und ihren '
+                   'Träger, kein „im Paket der"; die Centaurus bleibt Pledge '
+                   '(%r)' % (lang, proof))
+        language_551.set_language(old_language)
+        try:
+            fleet_551.CATALOG = 'kein-katalog-551'
+            pruefe(fleet_551.CATALOG not in [
+                s.get('herkunft') for s in fleet_551.load()['schiffe']],
+                'Gegenprobe Herkunft nicht erkannt: die Falle greift')
+            red, proof = card_ok()
+            pruefe(not red, 'Gegenprobe Herkunft nicht erkannt: die Karte '
+                   'wird rot (%r)' % (proof,))
+        finally:
+            fleet_551.CATALOG = real_catalog
+        pruefe(card_ok()[0], 'nach der Gegenprobe zurückgesetzt und wieder '
+               'grün')
+    finally:
+        language_551.set_language(old_language)
+        fleet_551.CATALOG = real_catalog
+        fleet_551.unknown = old_unknown
+        fleet_551.save(old_hangar)
 
 
 if __name__ == '__main__':
