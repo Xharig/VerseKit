@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Steuerung, „Deine Geräte"** — wer die Sticks ansteckt und danach das
+  Spiel startet, sieht sie jetzt mit ihrer Nummer als „bereit", sobald das
+  Spiel sie eingetragen hat. Bisher blieben sie auf „ohne Nummer" stehen,
+  bis man die Seite neu öffnete. „Neu angesteckt" nennt außerdem alle
+  angesteckten Geräte statt nur des letzten, abgezogene stehen in einer
+  eigenen Zeile.
+
 ## v4.10.0 - 2026-10-18
 
 > Rohstoff- und Handelslager sind jetzt ein Lager: **Mein Lager** unter

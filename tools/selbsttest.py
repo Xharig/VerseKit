@@ -25522,6 +25522,9 @@ def main():
     class _Wache264:
         def check(self, *a, **k):
             return [], []
+
+        def sources_changed(self, *a, **k):
+            return False
     _dh264.summary = lambda *a, **k: {'alles_gut': True, 'geraete': [{
         'kennung': 'X', 'kurz': 'X', 'nummer': 1, 'zustand': _dh264.READY,
         'name': 'RIGHT VPC Stick WarBRD-D', 'systempfad': _pfad264}]}
@@ -25744,6 +25747,8 @@ def main():
     _pruefung_502()
     _pruefung_503()
     _pruefung_504()
+    _pruefung_510()
+    _pruefung_511()
 
     print()
     if fehler:
@@ -50783,6 +50788,321 @@ def _pruefung_504():
                'aus: der Joystick-Faden endet')
     finally:
         zurueck()
+
+
+_HUB_IDS = {'A': 'AAAA1111-0000-0000-0000-504944564944',
+            'B': 'BBBB2222-0000-0000-0000-504944564944',
+            'C': 'CCCC3333-0000-0000-0000-504944564944'}
+
+
+def _hub_actionmaps(game, with_ids):
+    """Eine actionmaps.xml im Testordner — mit oder ohne Kennungen der
+    Geräte A und B (ohne: leere Plätze, wie vor dem ersten Spielstart)."""
+    folder = os.path.join(game, 'USER', 'Client', '0', 'Profiles', 'default')
+    os.makedirs(folder, exist_ok=True)
+    slots = ''
+    for number, key in ((1, 'A'), (2, 'B')):
+        product = (' Product="Stick %s  {%s}"' % (key, _HUB_IDS[key])
+                   if with_ids else '')
+        slots += ('  <options type="joystick" instance="%d"%s/>\n'
+                  % (number, product))
+    path = os.path.join(folder, 'actionmaps.xml')
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write('<ActionMaps>\n <ActionProfiles profileName="default">\n'
+                     + slots + ' </ActionProfiles>\n</ActionMaps>\n')
+    return path
+
+
+def _hub_log(path, keys):
+    """Eine Game.log (oder Sicherung) mit den Startzeilen der Geräte `keys`
+    — leer bei `keys=''`, wie kurz nach dem Spielstart."""
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write('<Init> Spielstart\n')
+        for slot, key in enumerate(keys):
+            handle.write('<Init> Connected joystick%d: Stick %s  {%s}\n'
+                         % (slot, key, _HUB_IDS[key]))
+    return path
+
+
+def _hub_later(path, seconds):
+    """Änderungszeit vorstellen — sonst kann ein grobes Dateisystem zwei
+    Schreibvorgänge in derselben Zeit zeigen."""
+    stamp = time.time() + seconds
+    os.utime(path, (stamp, stamp))
+
+
+def _hub_page(module_pages, tk_module, width=None):
+    """`pages._device_hub` in einem eigenen Fenster bauen. Der Takt wird
+    nicht geplant, sondern gesammelt — `tick()` führt ihn einmal aus.
+    Rückgabe: (Fenster, Rahmen, tick, Texte, Aufräumen)."""
+    import tkinter.font as tk_font
+    ticks = []
+    original_after = tk_module.Misc.after
+
+    def after(widget, ms, func=None, *args):
+        if func is not None and getattr(func, '__name__', '') == '_tick':
+            ticks.append(func)
+            return 'after#selbsttest'
+        return original_after(widget, ms, func, *args)
+
+    tk_module.Misc.after = after
+    root = None
+    try:
+        root = tk_module.Tk()
+        if width:
+            root.geometry('%dx400' % width)
+        font = tk_font.Font(root=root, size=10)
+
+        class Window:
+            f_base = f_bold = f_small = f_title = f_icon = font
+        frame = tk_module.Frame(root)
+        frame.pack(fill='both', expand=True)
+        module_pages._device_hub(Window(), frame)
+        root.update_idletasks()
+    except Exception:
+        tk_module.Misc.after = original_after
+        if root is not None:
+            root.destroy()
+        raise
+
+    def tick():
+        ticks.pop(0)()
+        root.update_idletasks()
+
+    def texts():
+        out, todo = [], [frame]
+        while todo:
+            widget = todo.pop()
+            todo.extend(widget.winfo_children())
+            if isinstance(widget, tk_module.Label):
+                out.append(widget.cget('text'))
+        return out
+
+    def close():
+        tk_module.Misc.after = original_after
+        root.destroy()
+    return root, frame, tick, texts, close
+
+
+def _pruefung_510():
+    """Geräteübersicht: neu zeichnen, wenn das Spiel die Nummern einträgt."""
+    print('\n510. Steuerung: „Deine Geräte" folgt Belegung und Protokoll '
+          'ohne Umstecken')
+    import tkinter as tk_510
+    from scbp import (device_hub, input_device, joysticks,
+                      pages as pages_510, paths as paths_510)
+    base = tempfile.mkdtemp(prefix='vk510-')
+    game = os.path.join(base, 'LIVE')
+    os.makedirs(game)
+    log = _hub_log(os.path.join(game, 'Game.log'), 'AB')
+    saved = (paths_510.game_folder, input_device.devices)
+    paths_510.game_folder = lambda *a, **k: game
+    input_device.devices = lambda: [
+        {'pfad': 'joy%d' % n, 'name': 'System %s' % key,
+         'kennung': _HUB_IDS[key]} for n, key in enumerate('AB')]
+    ready = pages_510.t('s_gh_bereit')
+    without = pages_510.t('s_gh_ohne_nummer')
+    unknown = pages_510.t('s_gh_unbekannt')
+    try:
+        pruefe(paths_510.game_folder() == game
+               and joysticks.all_actionmaps() == []
+               and paths_510.game_log() == log,
+               'der Prüfordner ist der Spielordner (keine echte Installation)')
+
+        # --- Der Stempel: was ihn ändert und was nicht
+        actionmaps = _hub_actionmaps(game, with_ids=False)
+        stamp = device_hub.source_stamp()
+        _hub_later(actionmaps, 5)
+        pruefe(device_hub.source_stamp() != stamp,
+               'eine neu geschriebene Belegung ändert den Stempel')
+        stamp = device_hub.source_stamp()
+        with open(log, 'a', encoding='utf-8') as handle:
+            handle.write('<Zeile kurz nach dem Start>\n')
+        pruefe(device_hub.source_stamp() != stamp,
+               'ein kurzes Protokoll, das wächst, ändert ihn (Gerätezeilen '
+               'können noch kommen)')
+        stamp = device_hub.source_stamp()
+        os.makedirs(os.path.join(game, 'logbackups'), exist_ok=True)
+        size = os.path.getsize(log)
+        os.replace(log, os.path.join(game, 'logbackups', 'Game-alt.log'))
+        _hub_log(log, 'AB')
+        with open(log, 'a', encoding='utf-8') as handle:
+            handle.write('<Zeile kurz nach dem Start>\n')
+        pruefe(os.path.getsize(log) == size
+               and device_hub.source_stamp() != stamp,
+               'eine neue Game.log gleicher Größe (Spielstart) ändert ihn')
+        with open(log, 'a', encoding='utf-8') as handle:
+            handle.write('x' * (joysticks.LOG_HEAD + 10) + '\n')
+        stamp = device_hub.source_stamp()
+        with open(log, 'a', encoding='utf-8') as handle:
+            handle.write('<Zeile im laufenden Spiel>\n')
+        pruefe(device_hub.source_stamp() == stamp,
+               'ein Protokoll, das nach dem Kopf weiterwächst, ändert ihn '
+               'nicht (kein Neuzeichnen im Spieltakt)')
+        watchdog = device_hub.Watchdog()
+        first, still = watchdog.sources_changed(), watchdog.sources_changed()
+        _hub_later(actionmaps, 8)
+        hit, after_hit = watchdog.sources_changed(), \
+            watchdog.sources_changed()
+        pruefe((first, still, hit, after_hit) == (False, False, True, False),
+               'Watchdog: Grundlage, keine Änderung, Änderung gemeldet, '
+               'danach wieder ruhig (%s)' % [first, still, hit, after_hit])
+
+        # --- Die Seite: Geräte stecken, das Spiel trägt danach die Nummern ein
+        def run(with_watch):
+            _hub_actionmaps(game, with_ids=False)
+            original = device_hub.Watchdog.sources_changed
+            if not with_watch:
+                device_hub.Watchdog.sources_changed = \
+                    lambda self, *a, **k: False
+            try:
+                root, frame, tick, texts, close = _hub_page(pages_510,
+                                                            tk_510)
+                try:
+                    before = texts()
+                    _hub_later(_hub_actionmaps(game, with_ids=True), 10)
+                    tick()
+                    return before, texts()
+                finally:
+                    close()
+            finally:
+                device_hub.Watchdog.sources_changed = original
+
+        before, after = run(with_watch=True)
+        pruefe(before.count(without) == 2 and ready not in before,
+               'vorher: beide Sticks „ohne Nummer" (%s)'
+               % before.count(without))
+        pruefe(after.count(ready) == 2 and without not in after,
+               '* nach einem Takt „bereit", ohne dass etwas umgesteckt wurde '
+               '(%d bereit, %d ohne Nummer)'
+               % (after.count(ready), after.count(without)))
+        _before, after = run(with_watch=False)
+        pruefe(after.count(without) == 2,
+               'Gegenprobe: ohne Blick auf die Dateien bleibt es bei '
+               '„ohne Nummer" (%d)' % after.count(without))
+
+        # --- Nur das Protokoll ändert sich: unbekannt -> ohne Nummer
+        shutil.rmtree(os.path.join(game, 'logbackups'))
+        _hub_actionmaps(game, with_ids=False)
+        os.remove(log)
+        _hub_log(log, '')
+        root, frame, tick, texts, close = _hub_page(pages_510, tk_510)
+        try:
+            before = texts()
+            os.remove(log)
+            _hub_log(log, 'AB')
+            tick()
+            after = texts()
+        finally:
+            close()
+        pruefe(before.count(unknown) == 2 and after.count(without) == 2
+               and unknown not in after,
+               '* eine neue Game.log mit den Geräten macht aus „unbekannt" '
+               '„ohne Nummer" (vorher %d unbekannt, nachher %d ohne Nummer)'
+               % (before.count(unknown), after.count(without)))
+
+        # --- Kein Neuaufbau, wenn sich am Bild nichts ändert
+        root, frame, tick, texts, close = _hub_page(pages_510, tk_510)
+        try:
+            board = frame.winfo_children()[-2]
+            rows = list(board.winfo_children())
+            _hub_later(actionmaps, 20)
+            tick()
+            pruefe(bool(rows) and all(r.winfo_exists() for r in rows),
+                   'neu geschriebene, aber gleiche Belegung baut die Zeilen '
+                   'nicht neu')
+        finally:
+            close()
+
+        # --- Ohne Gerätezeilen im laufenden Protokoll gilt die NEUESTE
+        # Sicherung
+        backups = os.path.join(game, 'logbackups')
+        os.makedirs(backups)
+        old = _hub_log(os.path.join(backups, 'Game-1.log'), 'C')
+        new = _hub_log(os.path.join(backups, 'Game-2.log'), 'A')
+        _hub_later(old, -3600)
+        _hub_log(log, '')
+        found = [d['kennung'] for d in joysticks.devices()]
+        pruefe(found == [_HUB_IDS['A']],
+               'ohne Gerätezeilen in der Game.log: die neueste Sicherung, '
+               'nicht die älteste (%s)' % [k[:4] for k in found])
+        pruefe(os.path.getmtime(new) > os.path.getmtime(old),
+               'die Sicherungen tragen die erwarteten Zeiten')
+    finally:
+        paths_510.game_folder, input_device.devices = saved
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def _pruefung_511():
+    """Geräteübersicht: die Meldung sammelt alle Steckänderungen."""
+    print('\n511. Steuerung: „Neu angesteckt" nennt jedes Gerät, nicht nur '
+          'das letzte')
+    import tkinter as tk_511
+    from scbp import input_device, pages as pages_511, paths as paths_511
+    game = tempfile.mkdtemp(prefix='vk511-')
+    plugged = []
+    names = {}
+    saved = (paths_511.game_folder, input_device.devices)
+    paths_511.game_folder = lambda *a, **k: game
+    input_device.devices = lambda: [
+        {'pfad': 'joy%d' % n, 'name': names.get(key, 'Stick %s' % key),
+         'kennung': _HUB_IDS.get(key) or key}
+        for n, key in enumerate(plugged)]
+    try:
+        root, frame, tick, texts, close = _hub_page(pages_511, tk_511)
+        try:
+            message = frame.winfo_children()[-1]
+            pruefe(isinstance(message, tk_511.Label)
+                   and message.cget('text') == '',
+                   'die Meldezeile ist gefunden und anfangs leer')
+            new = pages_511.t('s_gh_neu')
+            gone = pages_511.t('s_gh_weg')
+            for key in 'ABC':
+                plugged.append(key)
+                tick()
+            pruefe(message.cget('text')
+                   == new.format('Stick A, Stick B, Stick C'),
+                   '* drei nacheinander angesteckte Geräte stehen alle da '
+                   '(%s)' % message.cget('text'))
+            plugged.remove('B')
+            tick()
+            pruefe(message.cget('text')
+                   == new.format('Stick A, Stick C') + '\n'
+                   + gone.format('Stick B'),
+                   'ein abgezogenes Gerät wechselt in die zweite Zeile (%s)'
+                   % message.cget('text').replace('\n', ' | '))
+            plugged.append('B')
+            tick()
+            pruefe(message.cget('text')
+                   == new.format('Stick A, Stick C, Stick B'),
+                   'wieder angesteckt: zurück in die erste Zeile, kein '
+                   'Doppel (%s)' % message.cget('text').replace('\n', ' | '))
+        finally:
+            close()
+
+        # --- Lange Systemnamen brechen um, statt die Seite zu sprengen
+        del plugged[:]
+        root, frame, tick, texts, close = _hub_page(pages_511, tk_511,
+                                                    width=420)
+        try:
+            message = frame.winfo_children()[-1]
+            for number in range(5):
+                key = 'LANG%d-0000-0000-0000-504944564944' % number
+                names[key] = ('VIRPIL Controls 20241226 L-VPC Stick '
+                              'WarBRD-D Nummer %d' % number)
+                plugged.append(key)
+                tick()
+            root.update()
+            pruefe(len(message.cget('text')) > 200
+                   and message.winfo_reqwidth() <= frame.winfo_width(),
+                   'fünf lange Namen: die Meldung bleibt in der Breite der '
+                   'Seite (%d von %d px)'
+                   % (message.winfo_reqwidth(), frame.winfo_width()))
+        finally:
+            close()
+    finally:
+        paths_511.game_folder, input_device.devices = saved
+        shutil.rmtree(game, ignore_errors=True)
 
 
 if __name__ == '__main__':

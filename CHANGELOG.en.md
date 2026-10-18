@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Controls, "Your devices"** — if you plug in your sticks and then start
+  the game, they now show their number as "ready" as soon as the game has
+  registered them. Until now they stayed on "no number" until you reopened
+  the page. "Plugged in" also lists every device you plugged in instead of
+  only the last one, and unplugged devices get their own line.
+
 ## v4.10.0 - 2026-10-18
 
 > Material storage and cargo hold are now one inventory: **My Inventory**

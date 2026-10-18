@@ -441,6 +441,11 @@ def devices_from_text(text):
     return found
 
 
+# So viel vom Anfang eines Protokolls liest `devices()`; was danach kommt,
+# aendert die Geraeteliste nicht.
+LOG_HEAD = 200000
+
+
 def devices(folder=None):
     """Die Geraete aus dem neuesten Protokoll des Spiels.
 
@@ -454,7 +459,8 @@ def devices(folder=None):
     if running and os.path.isfile(running):
         files.append(running)
     try:
-        files.extend(paths.log_backups(folder) or [])
+        # `log_backups` liefert die älteste zuerst — gesucht ist die neueste.
+        files.extend(reversed(paths.log_backups(folder) or []))
     except Exception:
         pass
     for filename in files:
@@ -463,7 +469,7 @@ def devices(folder=None):
             # 13-MB-Datei dafuer ganz zu lesen waere Verschwendung — beim
             # Oeffnen der Seite faellt das sofort auf.
             with open(filename, 'r', encoding='utf-8', errors='replace') as f:
-                head = f.read(200000)
+                head = f.read(LOG_HEAD)
         except Exception:
             continue
         hit = devices_from_text(head)

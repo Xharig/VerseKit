@@ -1505,8 +1505,8 @@ TEXTS = {
     's_gh_kein_geraet': ('Es ist kein Eingabegerät zu finden. Steckt ein '
                          'Stick an?',
                            'No input device found. Is a stick plugged in?'),
-    's_gh_neu':        ('Neu angesteckt: {}', 'Just connected: {}'),
-    's_gh_weg':        ('Abgezogen: {}', 'Disconnected: {}'),
+    's_gh_neu':        ('Neu angesteckt: {}', 'Plugged in: {}'),
+    's_gh_weg':        ('Abgezogen: {}', 'Unplugged: {}'),
 
     # -- Der Zuordnungs-Assistent --
     's_gh_was_tun':    ('Was zu tun ist', 'What to do'),
