@@ -25826,6 +25826,9 @@ def main():
     _pruefung_613()
     _pruefung_614()
     _pruefung_615()
+    _pruefung_620()
+    _pruefung_621()
+    _pruefung_622()
 
     print()
     if fehler:
@@ -57008,6 +57011,179 @@ def _pruefung_615():
         try:
             if w is not None:
                 w.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_620():
+    """620. Fehler melden: Setup-Protokolle unter %TEMP% werden einmal
+    gesucht, nicht bei jedem Bau des Berichts.
+
+    Ein Wegwerf-Ordner steht für %TEMP%. Gezählt werden `os.scandir` und
+    `glob.glob` während zweier Bauten von `report.build`.
+    """
+    print('\n620. Fehler melden: %TEMP% einmal durchsuchen')
+    import glob as glob_620
+    from scbp import report as rp_620, updater as up_620
+    folder = tempfile.mkdtemp(prefix='p620-')
+    names = ('scbp-update-setup.txt', 'SCBP-Update-Setup-1700000000.txt',
+             'scbp-update-setup.log', 'andere.txt')
+    for name in names:
+        with open(os.path.join(folder, name), 'w', encoding='utf-8') as f:
+            f.write('Log closed\n')
+    real = (os.scandir, glob_620.glob, tempfile.gettempdir,
+            list(rp_620._TEMP_SETUP_LOGS))
+    calls = {'scandir': 0, 'glob': 0}
+
+    def scandir(path='.'):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(folder):
+            calls['scandir'] += 1
+        return real[0](path)
+
+    def glob(pattern, *a, **k):
+        if os.path.normcase(folder) in os.path.normcase(str(pattern)):
+            calls['glob'] += 1
+        return real[1](pattern, *a, **k)
+    try:
+        os.scandir, glob_620.glob = scandir, glob
+        tempfile.gettempdir = lambda: folder
+        rp_620.forget_temp_setup_logs()
+        found = sorted(os.path.basename(p)
+                       for p in rp_620._temp_setup_logs(folder))
+        pruefe(found == ['SCBP-Update-Setup-1700000000.txt',
+                         'scbp-update-setup.txt'],
+               'nur scbp-update-setup*.txt zählt, Groß- und Kleinschreibung '
+               'egal (%r)' % found)
+        calls.update(scandir=0, glob=0)
+        rp_620.build(version='0.0.0-pruefung')
+        rp_620.build(version='0.0.0-pruefung')
+        pruefe(calls == {'scandir': 0, 'glob': 0},
+               'zwei Berichte durchsuchen %%TEMP%% nicht noch einmal (%r)'
+               % calls)
+        newest = os.path.join(folder, 'scbp-update-setup-1800000000.txt')
+        with open(newest, 'w', encoding='utf-8') as f:
+            f.write('Log closed\n')
+        os.utime(newest, (time.time() + 60, time.time() + 60))
+        up_620._free_setup_log(os.path.join(folder, 'gesperrt', 'x.txt'))
+        pruefe(rp_620._newest_setup_log() == newest and calls['scandir'] == 1,
+               'nach `updater._free_setup_log` wird neu gesucht und das '
+               'jüngste Protokoll gefunden (%r)' % calls)
+    finally:
+        os.scandir, glob_620.glob, tempfile.gettempdir = real[:3]
+        rp_620._TEMP_SETUP_LOGS[:] = real[3]
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def _pruefung_621():
+    """621. Overlay: Reines Verschieben tauscht den Griff nicht und packt
+    die Statuszeile nicht neu.
+
+    Gezählt werden `swap_symbol` am Griff und `pack_configure` an der
+    Statuszeile, während `_grip_nachziehen` wie bei `<Configure>` läuft.
+    """
+    print('\n621. Overlay: Griff beim Verschieben unangetastet')
+    if not ANZEIGE:
+        uebersprungen('621')
+        return
+    import importlib.util as ilu_621
+    spec = ilu_621.spec_from_file_location(
+        '_scbpw621', os.path.join(WURZEL, 'sc_bp_watcher.py'))
+    module = ilu_621.module_from_spec(spec)
+    sys.modules['_scbpw621'] = module
+    spec.loader.exec_module(module)
+    ov = module.Overlay()
+    calls = {'swap': 0, 'pack': 0}
+    try:
+        ov.root.update_idletasks()
+        ov._grip_nachziehen()
+        real_swap = ov.grip.swap_symbol
+        real_pack = ov.status.pack_configure
+
+        def swap(*a, **k):
+            calls['swap'] += 1
+            return real_swap(*a, **k)
+
+        def pack(*a, **k):
+            calls['pack'] += 1
+            return real_pack(*a, **k)
+        ov.grip.swap_symbol = swap
+        ov.status.pack_configure = pack
+        for step in range(5):
+            ov.root.geometry('+%d+%d' % (100 + step * 7, 120 + step * 3))
+            ov.root.update_idletasks()
+            ov._grip_nachziehen()
+        pruefe(calls == {'swap': 0, 'pack': 0},
+               'fünf Verschiebeschritte tauschen nichts (%r)' % calls)
+        ov.eingeklappt = True
+        ov._grip_nachziehen()
+        ov.root.update_idletasks()
+        pruefe(calls['swap'] == 1 and not ov.grip.winfo_ismapped(),
+               'Einklappen stellt den Griff weiter um (%r)' % calls)
+        ov.eingeklappt = False
+        ov._grip_nachziehen()
+        ov.root.update_idletasks()
+        pruefe(calls['swap'] == 2 and bool(ov.grip.place_info()),
+               'Aufklappen zeigt ihn wieder (%r)' % calls)
+        ov.grip.place_forget()
+        ov._grip_nachziehen()
+        pruefe(bool(ov.grip.place_info()),
+               'ein von außen versteckter Griff kommt zurück')
+    finally:
+        try:
+            ov.root.destroy()
+        except Exception:
+            pass
+
+
+def _pruefung_622():
+    """622. Overlay: Beim Ziehen folgt das Fenster der Maus, auch wenn
+    `winfo_x()` dem letzten `geometry()` hinterherhinkt.
+
+    `winfo_x`/`winfo_y` melden die Lage vom Drücken, `geometry` wird nur
+    mitgeschrieben. Die Ereignisse tragen die Mausposition wie beim echten
+    Ziehen: relativ zum schon versetzten Fenster und auf dem Bildschirm.
+    """
+    print('\n622. Overlay: Ziehen ohne Zittern')
+    if not ANZEIGE:
+        uebersprungen('622')
+        return
+    import importlib.util as ilu_622
+    spec = ilu_622.spec_from_file_location(
+        '_scbpw622', os.path.join(WURZEL, 'sc_bp_watcher.py'))
+    module = ilu_622.module_from_spec(spec)
+    sys.modules['_scbpw622'] = module
+    spec.loader.exec_module(module)
+    ov = module.Overlay()
+    try:
+        ov.root.update_idletasks()
+        placed = []
+        ov.root.winfo_x = lambda: 100
+        ov.root.winfo_y = lambda: 200
+        ov.root.geometry = lambda value=None: placed.append(value)
+
+        class _Event:
+            def __init__(self, x_root, y_root):
+                self.x, self.y = 10, 5
+                self.x_root, self.y_root = x_root, y_root
+        ov._drag_start(_Event(110, 205))
+        for step in (1, 2, 3):
+            ov._drag_move(_Event(110 + 20 * step, 205 + 7 * step))
+        pruefe(placed == ['+120+207', '+140+214', '+160+221'],
+               'jeder Schritt setzt Lage beim Drücken plus Mausweg (%r)'
+               % placed)
+        ov._verschoben(_Event(170, 226))
+        del placed[:]
+        ov._drag_move(_Event(300, 300))
+        pruefe(placed == ['+100+200'],
+               'ohne Drücken zieht es wie bisher relativ zur Fensterlage (%r)'
+               % placed)
+    finally:
+        try:
+            del ov.root.winfo_x, ov.root.winfo_y, ov.root.geometry
+        except Exception:
+            pass
+        try:
+            ov.root.destroy()
         except Exception:
             pass
 

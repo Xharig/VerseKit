@@ -1021,6 +1021,8 @@ def _free_setup_log(path):
     geht das Protokoll nach `%TEMP%`.
     """
     import tempfile
+    from . import report
+    report.forget_temp_setup_logs()
     candidates = (path, os.path.join(tempfile.gettempdir(),
                                      'scbp-update-setup.txt'))
     for candidate in candidates:
