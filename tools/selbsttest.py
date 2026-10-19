@@ -46154,14 +46154,9 @@ def _pruefung_466():
                 return _f
         return None
 
-    def _buchungen466(w):
+    def _buchungen466(_w):
         """Die Symbole der Buchungen je Eintrag: `[{Art: Symbol}]`."""
-        out = []
-        if isinstance(getattr(w, 'action_icons', None), dict):
-            out.append(w.action_icons)
-        for _k in w.winfo_children():
-            out.extend(_buchungen466(_k))
-        return out
+        return _lager_symbole(_fe.orgstock_page)
 
     def _pumpen():
         # Auch die Rückmeldung aus dem Buchungsfaden kommt über
@@ -46202,9 +46197,10 @@ def _pruefung_466():
         _seite = _fe.pages['staffellager']
         pruefe(_sp466.t('s_sl_mitglied') not in _texte(_seite, []),
                'als Logistiker steht der Mitglieder-Hinweis nicht da')
-        pruefe(_label(_seite, 'Laranite') is not None,
+        _lager = _fe.orgstock_page
+        pruefe(_lager_zeile(_lager, 'Laranite') is not None,
                'die Seite zeigt den Posten der Einheit')
-        _label(_seite, 'Laranite').event_generate('<Button-1>')
+        _lager_klick(_lager, _lager_zeile(_lager, 'Laranite'))
         _pumpen()
         pruefe('Hauler One' in _texte(_seite, []),
                'aufgeklappt: der Eintrag nennt den Besitzer')
@@ -46220,7 +46216,8 @@ def _pruefung_466():
         _seite = _fe.pages['staffellager']
         pruefe(_knopf(_seite, _sp466.t('s_sl_einbuchen')) is not None,
                'Logistiker mit Buchen: der Knopf Einbuchen steht oben')
-        _label(_seite, 'Laranite').event_generate('<Button-1>')
+        _lager = _fe.orgstock_page
+        _lager_klick(_lager, _lager_zeile(_lager, 'Laranite'))
         _pumpen()
         _symbole466 = _buchungen466(_seite)
         _k = _symbole466[0].get('book_out') if _symbole466 else None
@@ -46229,8 +46226,9 @@ def _pruefung_466():
                == {'book_out', 'sell', 'move', 'note', 'stolen', 'earmark'},
                'am Eintrag stehen alle sechs Buchungen als Symbole (%r)'
                % (sorted(_symbole466[0]) if _symbole466 else None))
-        _k.event_generate('<Button-1>')
+        _lager_symbol_klick(_lager, _k)
         _pumpen()
+        _lager_formular_zeigen(_lager, _root)
         pruefe(_label(_seite, _sp466.t('s_sl_ausbuchen_titel')
                       % ('Laranite', 'Hauler One')) is not None,
                'Ausbuchen öffnet das Formular am Eintrag')
@@ -46249,11 +46247,12 @@ def _pruefung_466():
                                       'failed': [(0, 'rejected',
                                                   'VERSION_CONFLICT')],
                                       'offers': 0, 'confirm_url': None}
-        _label(_seite, 'Laranite').event_generate('<Button-1>') \
-            if _label(_seite, 'Hauler One') is None else None
+        if _lager_zeile(_lager, 'Hauler One') is None:
+            _lager_klick(_lager, _lager_zeile(_lager, 'Laranite'))
         _pumpen()
-        _buchungen466(_seite)[0]['note'].event_generate('<Button-1>')
+        _lager_symbol_klick(_lager, _buchungen466(_seite)[0]['note'])
         _pumpen()
+        _lager_formular_zeigen(_lager, _root)
         _titel = _sp466.t('s_sl_notiz_titel') % ('Laranite', 'Hauler One')
         _form = _label(_seite, _titel).master
         _knopf(_form, _sp466.t('s_sl_speichern')).event_generate('<Button-1>')
@@ -47721,14 +47720,17 @@ def _pruefung_471():
             return
         _ausfuellen('Golden Medmon')
         _einbuchen()
-        _klick(_label(_seite(), 'Laranite'))
-        # Die Buchungen am Eintrag sind Symbole an der Zelle (`action_icons`).
-        _zelle471 = _finde(_seite(), lambda x: isinstance(
-            getattr(x, 'action_icons', None), dict))
-        _notiz471 = (_zelle471.action_icons.get('note')
-                     if _zelle471 is not None else None)
+        _lager471 = _fe.orgstock_page
+        _posten471 = _lager_zeile(_lager471, 'Laranite')
+        if _posten471 is not None:
+            _lager_klick(_lager471, _posten471)
+        _pumpen()
+        _symbole471 = _lager_symbole(_lager471)
+        _notiz471 = _symbole471[0].get('note') if _symbole471 else None
         pruefe(_notiz471 is not None, 'Vorbedingung: Knopf Notiz am Eintrag')
-        _klick(_notiz471)
+        if _notiz471 is not None:
+            _lager_symbol_klick(_lager471, _notiz471)
+        _pumpen()
         _laufen()
         _ohne_buchung('anderes Formular geöffnet während des Nachschlagens')
 
@@ -48859,57 +48861,33 @@ def _pruefung_482():
         f.open_page('staffellager')
         w.update()
         pruefe(f.current == 'staffellager', 'Vorbedingung: Seite offen')
-        tabelle = None
-
-        def labels(x, out):
-            if isinstance(x, tk.Label):
-                out.append(x)
-            for k in x.winfo_children():
-                labels(k, out)
-            return out
-        name = [x for x in labels(f.pages['staffellager'], [])
-                if x.cget('text') == 'Laranite']
-        pruefe(bool(name), 'Vorbedingung: der Posten Laranite steht da')
-        if not name:
+        lager = f.orgstock_page
+        posten = _lager_zeile(lager, 'Laranite')
+        pruefe(posten is not None,
+               'Vorbedingung: der Posten Laranite steht da')
+        if posten is None:
             return
-        tabelle = name[0].master.master
-        # Belegte Reihen, nicht ihre Nummern: Hinter jedem Posten bleiben
-        # Reihen für seine Einträge frei.
-        zeilen = sorted({int(z.grid_info()['row'])
-                         for z in tabelle.grid_slaves()})
-        pruefe(len(zeilen) == 3 and zeilen[0] == 0,
-               'zugeklappt: Kopf und eine Zeile je Posten (Reihen %r)' % zeilen)
-        ort = [z for z in tabelle.grid_slaves(row=int(
-            name[0].master.grid_info()['row']))
-            if isinstance(z, tk.Label) and z.cget('text') == 'Area18']
-        pruefe(bool(ort), 'Ort steht in derselben Zeile wie der Name')
-        art = []
-        for z in [s for r in zeilen[1:] for s in tabelle.grid_slaves(row=r)]:
-            stapel = [z]
-            while stapel:
-                x = stapel.pop()
-                if x.winfo_class() == 'Canvas':
-                    art += [str(x.itemcget(i, 'text')) for i in x.find_all()
-                            if x.type(i) == 'text']
-                stapel.extend(x.winfo_children())
+        tabelle = lager['table']
+        leinwand = tabelle.canvas
+        pruefe([k for k, _w, _z in lager['row_widgets']] == ['lot', 'lot']
+               and bool(leinwand.find_withtag('head')),
+               'zugeklappt: Kopf und eine Zeile je Posten (%r)'
+               % [k for k, _w, _z in lager['row_widgets']])
+        pruefe('Area18' in posten.texts(),
+               'Ort steht in derselben Zeile wie der Name')
+        art = [x for _k, _w, z in lager['row_widgets'] for x in z.texts()]
         pruefe(_la.t('s_ml_k_ore') in art and _la.t('s_ml_k_refined') in art,
                'jede Zeile trägt ihre Art als Abzeichen (%r)' % art)
-        name[0].event_generate('<Button-1>')
+        _lager_klick(lager, posten)
         w.update()
-        name = [x for x in labels(f.pages['staffellager'], [])
-                if x.cget('text') == 'Laranite']
-        tabelle = name[0].master.master
-        zellen = [z for z in tabelle.grid_slaves()
-                  if isinstance(getattr(z, 'action_icons', None), dict)]
+        zellen = _lager_symbole(lager)
         pruefe(len(zellen) == 1, 'aufgeklappt: eine Eintragszeile mit '
                'Buchungen (%d)' % len(zellen))
         if zellen:
-            symbole = zellen[0].action_icons
+            symbole = zellen[0]
             pruefe(set(symbole) == {'book_out', 'sell', 'move', 'note',
                                     'stolen', 'earmark'},
                    'sechs Buchungen als Symbole (%r)' % sorted(symbole))
-            # Den Erklärtext abfangen: Was `notice` zeigen würde, steht in
-            # der Liste — ohne Wartezeit.
             from scbp import notice as _no
             gezeigt, alt_no = [], (_no.DELAY_MS, _no._window.show)
             _no.DELAY_MS = 0
@@ -48917,10 +48895,15 @@ def _pruefung_482():
             try:
                 for art in ('book_out', 'sell', 'move', 'note', 'stolen',
                             'earmark'):
-                    symbole[art].event_generate('<Enter>', x=2, y=2)
+                    x1, y1, x2, y2 = leinwand.bbox(symbole[art].item)
+                    leinwand.event_generate(
+                        '<Motion>',
+                        x=int((x1 + x2) / 2 - leinwand.canvasx(0)),
+                        y=int((y1 + y2) / 2 - leinwand.canvasy(0)))
                     for _ in range(3):
                         w.update()
-                    symbole[art].event_generate('<Leave>')
+                leinwand.event_generate('<Motion>', x=2, y=2)
+                w.update()
             finally:
                 _no.DELAY_MS, _no._window.show = alt_no
             soll = [_la.t(k) for k in ('s_sl_ausbuchen', 's_sl_verkaufen',
@@ -48928,11 +48911,10 @@ def _pruefung_482():
                                        's_sl_marke', 's_sl_reservieren')]
             pruefe(gezeigt == soll,
                    'jedes Symbol erklärt sich beim Überfahren (%r)' % gezeigt)
-            reihe = int(zellen[0].grid_info()['row'])
-            besitzer = [x for z in tabelle.grid_slaves(row=reihe)
-                        for x in labels(z, [])
-                        if x.cget('text') == 'Hauler One']
-            pruefe(bool(besitzer),
+            eintrag = next(z for k, _w, z in lager['row_widgets']
+                           if k == 'entry')
+            pruefe('Hauler One' in eintrag.texts()
+                   and eintrag.action_icons is symbole,
                    'Besitzer und Symbole stehen in einer Zeile')
         # Ohne Verbindung: Reiter weg, Sprung führt zur Verbindung.
         _og.visible = lambda: False
@@ -50037,16 +50019,7 @@ def _pruefung_487():
         namen = [lot['name'] for lot, _z in seite['lot_rows']]
         pruefe(namen == ['FR-66'], 'Items zeigt nur das Item (%r)' % namen)
 
-        def texte(zellen):
-            out = []
-            stapel = list(zellen)
-            while stapel:
-                x = stapel.pop()
-                if isinstance(x, tk.Label):
-                    out.append(str(x.cget('text')))
-                stapel.extend(x.winfo_children())
-            return out
-        zeile = texte(seite['lot_rows'][0][1])
+        zeile = seite['lot_rows'][0][1].texts()
         pruefe('(Mil/1/A)' in zeile,
                'das Item trägt sein Kürzel wie in Mein Lager (%r)' % zeile)
         seite['tabs'].select('material')
@@ -50056,11 +50029,13 @@ def _pruefung_487():
         namen = [lot['name'] for lot, _z in seite['lot_rows']]
         pruefe(namen == ['Laranite'], 'Material zeigt den Rohstoff (%r)'
                % namen)
-        kopf = [str(z.cget('text')) for z in seite['lot_rows'][0][1][0]
-                .master.grid_slaves(row=0)]
+        leinwand = seite['table'].canvas
+        kopf = [str(leinwand.itemcget(i, 'text'))
+                for i in leinwand.find_withtag('head')]
         pruefe(sorted(kopf) == sorted([_ms.t(k).upper() for k in (
                    's_ml_sp_bestand', 's_ml_sp_ort', 's_ml_sp_q',
-                   's_ml_sp_menge')] + ['']),
+                   's_ml_sp_menge')])
+               and seite['table'].keys[-1] == 'action',
                'dieselben Spalten wie in Mein Lager (%r)' % kopf)
     finally:
         _og.visible = alt[0]
@@ -56447,6 +56422,34 @@ def _lager_texte(page):
             for text in line.texts()]
 
 
+def _lager_symbol_klick(page, icon):
+    """Ein echter Klick auf ein Symbol der Tabelle: ins Bild rollen, dann
+    `<Button-1>` an seiner Stelle auf der Leinwand."""
+    canvas = page['area'].canvas
+    x1, y1, x2, y2 = canvas.bbox(icon.item)
+    page['area'].see(y1, margin=20)
+    canvas.update_idletasks()
+    canvas.event_generate('<Button-1>',
+                          x=int((x1 + x2) / 2 - canvas.canvasx(0)),
+                          y=int((y1 + y2) / 2 - canvas.canvasy(0)))
+
+
+def _lager_symbole(page, kind='entry'):
+    """Die Symbole je gezeigter Zeile einer Art: `[{Schlüssel: Symbol}]`."""
+    return [line.action_icons for k, _w, line in page.get('row_widgets') or []
+            if k == kind and line.action_icons]
+
+
+def _lager_formular_zeigen(page, w):
+    """Das Formular-Feld zwischen den Zeilen ins Bild rollen — ein Rahmen
+    außerhalb des Bildes ist nicht abgebildet und nimmt keinen Klick an."""
+    slot = page.get('form_slot') or page.get('share_slot')
+    if slot is not None:
+        page['area'].see(slot.y, margin=10)
+    for _ in range(3):
+        w.update()
+
+
 def _stock_page613(rows_raw, rows_trade=()):
     """Echtes Hauptfenster auf „Mein Lager" mit diesen Posten; `redraw`
     zählt mit. Gibt (Wurzel, Fenster, Seite, Zähler) zurück."""
@@ -56948,29 +56951,34 @@ def _pruefung_615():
             return next(c for lot, c in page['lot_rows'] if lot['name'] == name)
         laranite = lot_row('Laranite')
         others = lot_row('Quantanium')
+        drawn = others.items['bg']
         reset()
-        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, laranite)
         w.update()
-        arrow = getattr(laranite[page['builder']['columns'].index('action')],
-                        'arrow', None)
+        arrow = laranite.arrow
         pruefe(builds == {'list': 0, 'top': 0}
                and sorted(e['id'] for e, _c in page['entry_rows'])
                == ['p615-0', 'p615-1']
-               and all(c.winfo_exists() for c in others)
+               and others.exists()
+               and page['table'].canvas.find_withtag(drawn)
                and getattr(arrow, 'symbol', None) == 'zuklappen',
                'Aufklappen baut nur die Einträge, der Pfeil wechselt (%r, %d)'
                % (builds, len(page['entry_rows'])))
 
         entry, cells = page['entry_rows'][0]
-        icon = cells[page['builder']['columns'].index('action')] \
-            .action_icons['note']
-        icon.event_generate('<Button-1>', x=2, y=2)
+        icon = cells.action_icons['note']
+        _lager_symbol_klick(page, icon)
         w.update()
         holder = page.get('form_holder')
-        slot = page['entry_slots'][entry['id']]['row']
+
+        def under(line):
+            rows = page['table'].rows
+            slot = page.get('form_slot')
+            return (slot in rows and slot.widget is holder
+                    and rows.index(slot) == rows.index(line) + 1)
         pruefe(builds == {'list': 0, 'top': 0} and holder is not None
                and holder.winfo_exists()
-               and int(holder.grid_info()['row']) == slot
+               and under(cells)
                and getattr(icon, 'symbol_color', None) == ic_615.GREEN,
                'das Notiz-Feld steht ohne Neuaufbau unter seinem Eintrag, das '
                'Symbol ist grün (%r)' % builds)
@@ -56984,6 +56992,7 @@ def _pruefung_615():
                'eine Meldung steht oben, das offene Feld bleibt stehen (%r)'
                % message)
 
+        _lager_formular_zeigen(page, w)
         cancel = [x for x in _all_below(holder) if x.winfo_class() == 'Canvas'
                   and op_615.t('s_bt_abbrechen') in [
                       str(x.itemcget(i, 'text')) for i in x.find_all()
@@ -57009,7 +57018,7 @@ def _pruefung_615():
         pruefe(builds == {'list': 0, 'top': 0} and not holder.winfo_exists(),
                'und schließt wieder ohne Neuaufbau (%r)' % builds)
 
-        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, laranite)
         w.update()
         pruefe(builds == {'list': 0, 'top': 0} and not page['entry_rows']
                and getattr(arrow, 'symbol', None) == 'aufklappen',
@@ -57018,14 +57027,20 @@ def _pruefung_615():
         op_615._open_form(page, ('note', 'p615-0'))
         w.update()
         laranite = lot_row('Laranite')
-        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        reset()
+        _lager_klick(page, laranite)
         w.update()
+        holder = page.get('form_holder')
+        pruefe(builds == {'list': 0, 'top': 0} and holder is not None
+               and holder.winfo_exists()
+               and under(page['entry_slots']['p615-0']['line']),
+               'Aufklappen mit offenem Formular: das Feld steht gleich unter '
+               'seinem Eintrag, ohne Neuaufbau (%r)' % builds)
         page['redraw_all']()
         w.update()
         holder = page.get('form_holder')
         pruefe(holder is not None and holder.winfo_exists()
-               and int(holder.grid_info()['row'])
-               == page['entry_slots']['p615-0']['row'],
+               and under(page['entry_slots']['p615-0']['line']),
                'nach einem echten Neuzeichnen steht das offene Feld wieder '
                'unter seinem Eintrag')
     finally:
@@ -57078,13 +57093,12 @@ def _pruefung_623():
     Die Zeilen stehen als Elemente auf der Rollleinwand. Gezählt werden die
     Tk-Fenster der Seite, die Größe der Leinwand und die angeforderten
     Größen von Kopf und Fuß; nur der Fuß rückt um die Höhe der
-    Unterzeilen."""
+    Unterzeilen. Dasselbe für Lager der Einheit (`_einheit623`)."""
     print('\n623. Mein Lager: Klappen ohne neue Fenster')
     if not ANZEIGE:
         uebersprungen('623')
         return
     import tkinter as tk
-    from scbp import my_stock_page as ms
     old = _stock_backup623()
     w = None
     try:
@@ -57129,16 +57143,85 @@ def _pruefung_623():
                'Zuklappen: alles wie vorher (%d Fenster, Fuß %r)'
                % (fenster(), fuss()))
         probe = tk.Frame(canvas)
-        ms.table_cells(window, {'row': 0, 'table': probe,
-                                'columns': ['name', 'place']},
-                       ms.BG, {'name': ('Probe', ms.FG),
-                               'place': ('Ort', ms.SUB)})
+        for text in ('Probe', 'Ort'):
+            tk.Label(probe, text=text).grid(row=0, column=len(
+                probe.grid_slaves()))
         pruefe(fenster() == vorher + 3,
                'Gegenprobe: eine Zeile aus Fenstern (Rahmen und zwei Zellen) '
                'sieht der Zähler (%d)' % (fenster() - vorher))
         probe.destroy()
     finally:
         _stock_restore623(old, w)
+    _einheit623()
+
+
+def _einheit623():
+    """Teil von 623: dasselbe für Lager der Einheit — Aufklappen eines
+    Postens mit drei Einträgen baut keine Fenster, nur der Fuß rückt."""
+    import copy
+    from scbp import (exchange_orgstock as og, main_window as hf,
+                      orgstock_page as op, paths as pa)
+    real = (og.visible, dict(og._state))
+    old_view = pa.setting(op.SETTING_VIEW)
+    w = None
+    try:
+        entries = []
+        for n in range(3):
+            entry = copy.deepcopy(_ORG_HIDDEN465)
+            entry.update(id='p623-%d' % n, holder={
+                'withheld': False, 'name': 'Halter %d' % n, 'ref': 'r%d' % n})
+            entries.append(entry)
+        lots, units = og.apply_pages({}, [{
+            'units': [{'id': 'u1', 'name': 'Iridium'}],
+            'items': [_org_lot465('k%d' % n, 'u1', name,
+                                  {'type': 'RAW', 'commodity': True},
+                                  entries=entries if n == 1 else [])
+                      for n, name in enumerate(('Agricium', 'Laranite',
+                                                'Quantanium'))]}], True)
+        og._state.clear()
+        og._state.update(lots=lots, units=units, cursor='c', at=time.time(),
+                         details=True, write=True, logistician={'u1'},
+                         rosters={'u1': [{'ref': 'r0', 'name': 'Halter 0'}]})
+        og.visible = lambda: True
+        pa.set_setting(op.SETTING_VIEW, op.VIEW_MATERIAL)
+        w = _wurzel()
+        window = hf.MainWindow(w, version='0.0.0-pruefung')
+        window.open_page('staffellager')
+        w.update()
+        page = window.orgstock_page
+        area = page['area']
+        canvas = area.canvas
+        seite = window.pages['staffellager']
+        for stelle in (1.0, 0.0):
+            canvas.yview_moveto(stelle)
+            for _ in range(3):
+                w.update()
+        vorher = len(_all_below(seite))
+        unten = canvas.coords(area.ids['bottom'])[1]
+        posten = _lager_zeile(page, 'Laranite')
+        pruefe(posten is not None,
+               'Lager der Einheit: Vorbedingung, Laranite steht da')
+        if posten is None:
+            return
+        _lager_klick(page, posten)
+        w.update()
+        hoehe = sum(line.height for _k, _w, line in page['row_widgets']
+                    if _k == 'entry')
+        pruefe(len(page['entry_rows']) == 3 and len(_all_below(seite))
+               == vorher and canvas.coords(area.ids['bottom'])[1]
+               == unten + hoehe > unten,
+               'Lager der Einheit: Aufklappen baut keine Fenster, nur der Fuß '
+               'rückt (%d -> %d Fenster)' % (vorher, len(_all_below(seite))))
+    finally:
+        og.visible = real[0]
+        og._state.clear()
+        og._state.update(real[1])
+        pa.set_setting(op.SETTING_VIEW, old_view or '')
+        if w is not None:
+            try:
+                w.destroy()
+            except Exception:
+                pass
 
 
 def _pruefung_624():

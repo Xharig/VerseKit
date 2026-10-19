@@ -205,8 +205,10 @@ class Name:
 
 class Icons:
     """Symbole am rechten Rand einer Zelle, von rechts nach links:
-    `(Symbol, Aktion, Erklärtext)`. Ohne Aktion ist es ein Zeichen in der
-    Zeile (`icons.LINE`), mit Aktion ein Knopf (`icons.TAPPABLE`)."""
+    `(Symbol, Aktion, Erklärtext)`, wahlweise ergänzt um die Farbe (ein
+    Bildsatz aus `icons`) und den Schlüssel in `Row.action_icons` (ab Werk
+    der Symbolname). Ohne Aktion ist es ein Zeichen in der Zeile
+    (`icons.LINE`), mit Aktion ein Knopf (`icons.TAPPABLE`)."""
 
     def __init__(self, entries, right=PAD, between=4):
         self.entries = list(entries)
@@ -260,9 +262,10 @@ class Row:
 class Slot:
     """Ein echter Rahmen zwischen zwei Zeilen (etwa ein Formular)."""
 
-    def __init__(self, widget, pady=(0, 0)):
+    def __init__(self, widget, pady=(0, 0), padx=(0, 0)):
         self.widget = widget
         self.pady = pady
+        self.padx = padx
         self.kind = 'widget'
         self.what = None
         self.tag = None
@@ -321,7 +324,8 @@ class Table:
 
     def _icons_width(self, spec):
         width = spec.right
-        for _symbol, action, _tip in spec.entries:
+        for entry in spec.entries:
+            action = entry[1]
             sizes = icons.TAPPABLE if action else icons.LINE
             width += icons.box_px(sizes, action) + spec.between
         return width
@@ -452,7 +456,8 @@ class Table:
                 if content.badges:
                     heights.append(self.badge_height)
             elif isinstance(content, Icons):
-                for _symbol, action, _tip in content.entries:
+                for entry in content.entries:
+                    action = entry[1]
                     sizes = icons.TAPPABLE if action else icons.LINE
                     heights.append(icons.box_px(sizes, action))
             else:
@@ -578,17 +583,19 @@ class Table:
 
     def _draw_icons(self, row, spec, right, center, tags):
         x = right - spec.right
-        for symbol, action, tip in spec.entries:
+        for entry in spec.entries:
+            symbol, action, tip = entry[:3]
+            color = entry[3] if len(entry) > 3 else icons.GREY
             sizes = icons.TAPPABLE if action else icons.LINE
             box = icons.box_px(sizes, action)
             item_tags = tags + ((CLICK_TAG,) if action else ())
             icon = icons.CanvasSymbol(self.canvas, x - box / 2.0, center,
-                                      symbol, sizes, action,
+                                      symbol, sizes, action, color=color,
                                       tags=item_tags)
             if tip is not None:
                 notice.attach_item(self.canvas, icon.item, tip)
             if action is not None:
-                row.action_icons[symbol] = icon
+                row.action_icons[entry[4] if len(entry) > 4 else symbol] = icon
             elif row.arrow is None:
                 row.arrow = icon
             x -= box + spec.between
@@ -603,8 +610,9 @@ class Table:
             inner = 0
         slot.height = inner + slot.pady[0] + slot.pady[1]
         slot.item = self.canvas.create_window(
-            self.x, y + slot.pady[0], window=slot.widget, anchor='nw',
-            width=self.width, tags=(ROW_TAG,))
+            self.x + slot.padx[0], y + slot.pady[0], window=slot.widget,
+            anchor='nw', width=max(1, self.width - slot.padx[0]
+                                   - slot.padx[1]), tags=(ROW_TAG,))
         slot.drawn = True
 
     def _undraw(self, row):
@@ -704,9 +712,9 @@ class Table:
         self.restripe()
         self.area.layout()
 
-    def insert_widget(self, after, widget, pady=(0, 0)):
+    def insert_widget(self, after, widget, pady=(0, 0), padx=(0, 0)):
         """Einen echten Rahmen (Kind der Leinwand) hinter `after` zeigen."""
-        slot = Slot(widget, pady)
+        slot = Slot(widget, pady, padx)
         self.insert(after, [slot])
         return slot
 

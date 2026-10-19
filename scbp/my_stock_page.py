@@ -596,67 +596,6 @@ def _profit(rows, price_of):
     return total if known else None
 
 
-def table_cells(window, builder, base, values):
-    """Eine Zeile der Tabelle: `values` je Spalte `(Inhalt, Farbe)`; ein
-    Inhalt ist Text oder eine Funktion, die in einen Rahmen baut."""
-    row = builder['row']
-    builder['row'] += 1
-    widgets = []
-    for col, key in enumerate(builder['columns']):
-        content, color = values.get(key, ('', SUB))
-        anchor = 'w' if key in ('name', 'place') else 'e'
-        if callable(content):
-            cell = tk.Frame(builder['table'], bg=base)
-            content(cell)
-        else:
-            cell = tk.Label(builder['table'], text=content, bg=base, fg=color,
-                            font=window.f_small if key != 'name'
-                            else window.f_base, anchor=anchor, padx=8)
-        cell.grid(row=row, column=col, sticky='nsew', ipady=3)
-        widgets.append(cell)
-    return widgets
-
-
-def bind_row(widgets, action):
-    for widget in widgets:
-        stack = [widget]
-        while stack:
-            current = stack.pop()
-            if getattr(current, 'is_action', False):
-                continue
-            try:
-                current.configure(cursor='hand2')
-            except tk.TclError:
-                pass
-            current.bind('<Button-1>', lambda _e: action())
-            stack.extend(current.winfo_children())
-
-
-def name_cell(window, base, name, badges, tag=None, indent=False, extra='',
-              color=FG):
-    """Name, Kürzel und Abzeichen in einer Zelle; `extra` steht klein und
-    blass dahinter (Notiz, Reservierung)."""
-    from .main_window import badge
-
-    def build(cell):
-        if indent:
-            tk.Frame(cell, bg=base, width=28).pack(side='left')
-        if name:
-            tk.Label(cell, text=name, bg=base, fg=color,
-                     font=window.f_small if indent else window.f_base,
-                     anchor='w', padx=0 if indent else 8).pack(side='left')
-        if tag:
-            tk.Label(cell, text=tag, bg=base, fg=SUB, font=window.f_small,
-                     anchor='w').pack(side='left', padx=(2, 0))
-        for text, badge_color in badges:
-            badge(cell, text, badge_color, window.f_small, bg=base).pack(
-                side='left', padx=(6, 0))
-        if extra:
-            tk.Label(cell, text=extra, bg=base, fg=SUB, font=window.f_small,
-                     anchor='w').pack(side='left', padx=(8, 0))
-    return build
-
-
 def mining_text(name):
     """Womit man den Rohstoff abbaut — Hand · Fahrzeug · Schiff — oder leer,
     wenn die Bergbaudaten ihn nicht kennen."""
