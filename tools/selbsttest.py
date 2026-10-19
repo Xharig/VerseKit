@@ -25826,6 +25826,13 @@ def main():
     _pruefung_613()
     _pruefung_614()
     _pruefung_615()
+    _pruefung_623()
+    _pruefung_624()
+    _pruefung_625()
+    _pruefung_626()
+    _pruefung_627()
+    _pruefung_628()
+    _pruefung_629()
 
     print()
     if fehler:
@@ -31369,6 +31376,10 @@ check([round(v, 6) for v in canvas.coords(item)] == [5, 6, 19, 20],
       'Leinwand-Koordinaten ohne Rundungsfehler')
 check([round(float(v), 3) for v in raw(canvas._w, 'coords', item)]
       == [7.5, 9, 28.5, 30], 'Leinwand physisch x1,5')
+probe = canvas.create_rectangle(30, 2, 40, 12, tags=('probe',))
+canvas.addtag_overlapping('treffer', 29, 1, 41, 13)
+check(canvas.find_withtag('treffer') == (probe,),
+      'addtag_overlapping nimmt das Rechteck logisch')
 font = tkfont.Font(family='Helvetica', size=10)
 check(abs(font.measure('Hallo Welt')
           - int(raw('font', 'measure', font.name, 'Hallo Welt')) / 1.5) <= 1,
@@ -31410,7 +31421,7 @@ def _pruefung_309():
     if zeilen == ['OHNE']:
         print('  [--]   kein Bildschirm fuer Tk — Rest uebersprungen')
         return
-    pruefe(lauf.returncode == 0 and len(zeilen) >= 13,
+    pruefe(lauf.returncode == 0 and len(zeilen) >= 14,
            'Kindprozess lief durch (%d Zeilen)%s'
            % (len(zeilen), '' if lauf.returncode == 0
               else ': ' + lauf.stderr.strip()[-300:]))
@@ -33566,20 +33577,10 @@ def _pruefung_327():
         fenster.open_page('meinlager')
         _w327.update()
         seite = fenster.pages['meinlager']
-
-        def _labels():
-            out = []
-
-            def _lauf(x):
-                if x.winfo_class() == 'Label':
-                    out.append(x)
-                for k in x.winfo_children():
-                    _lauf(k)
-            _lauf(seite)
-            return out
+        lager = fenster.my_stock_page
 
         def _texte():
-            return [x.cget('text') for x in _labels()]
+            return _texte_346(seite)
 
         texte = _texte()
         pruefe('Iron (3)' in texte, 'Iron steht als eine Zeile mit 3 Posten')
@@ -33593,36 +33594,35 @@ def _pruefung_327():
         pruefe('Gold' in texte,
                'ein Material mit einem Posten steht als normale Zeile')
 
-        def _streifen_ok(labels):
+        def _streifen_ok():
             """Die Zeilen der Liste wechseln ab Zeile 2 auf die hellere Farbe.
-            Gelesen wird die erste Zelle jeder Tabellenzeile, in der Reihe."""
+            Gelesen wird der gezeichnete Grund jeder Tabellenzeile, in der
+            Reihe."""
             from scbp import theme as _th327
-            if not any(x.cget('text') == 'Iron (3)' for x in labels):
+            if _lager_zeile(lager, 'Iron (3)') is None:
                 return False
-            zeilen = fenster.my_stock_page.get('row_widgets') or []
-            farben = [zellen[0].cget('bg') for _art, _x, zellen in zeilen]
+            farben = _lager_farben(lager)
             soll = [_th327.SURFACE if i % 2 else _th327.BG
                     for i in range(len(farben))]
             if farben != soll:
                 print('     Farben %s, erwartet %s' % (farben, soll))
             return len(farben) >= 2 and farben == soll
 
-        pruefe(_streifen_ok(_labels()),
+        pruefe(_streifen_ok(),
                'zugeklappt: Zeilen im Wechsel hell und dunkel, ab Zeile 2 hell')
 
-        kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
-        if kopf:
-            kopf[0].event_generate('<Button-1>', x=2, y=2)
+        kopf = _lager_zeile(lager, 'Iron (3)')
+        if kopf is not None:
+            _lager_klick(lager, kopf)
             _w327.update()
             texte = _texte()
             pruefe('Orison' in texte and '10 SCU' in texte
                    and '7 SCU' in texte,
                    'ein Klick klappt auf: alle Posten mit Menge und Ort')
-            pruefe(_streifen_ok(_labels()),
+            pruefe(_streifen_ok(),
                    'aufgeklappt: Zeilen im Wechsel hell und dunkel')
 
-            kopf = [x for x in _labels() if x.cget('text') == 'Iron (3)']
-            kopf[0].event_generate('<Button-1>', x=2, y=2)
+            _lager_klick(lager, _lager_zeile(lager, 'Iron (3)'))
             _w327.update()
             pruefe('Orison' not in _texte(), 'ein zweiter Klick klappt zu')
 
@@ -34013,26 +34013,15 @@ def _pruefung_329():
         while _ti329.time() < ende:
             w.update()
             _ti329.sleep(0.01)
-        seite = fenster.pages['meinlager']
+        lager = fenster.my_stock_page
 
         def _koepfe():
-            out = []
-
-            def _lauf(x):
-                if x.winfo_class() == 'Label':
-                    txt = x.cget('text')
-                    if isinstance(txt, str) and txt.startswith('Erz') \
-                            and txt.endswith('(2)'):
-                        out.append(x)
-                for k in x.winfo_children():
-                    _lauf(k)
-            _lauf(seite)
-            return out
+            return [(text, line) for kind, _w, line in lager['row_widgets']
+                    if kind == 'group' for text in line.texts()[:1]
+                    if text.startswith('Erz') and text.endswith('(2)')]
 
         koepfe = _koepfe()
-        leinwand = koepfe[0] if koepfe else None
-        while leinwand is not None and leinwand.winfo_class() != 'Canvas':
-            leinwand = leinwand.master
+        leinwand = lager['area'].canvas if koepfe else None
         pruefe(leinwand is not None and leinwand.winfo_height() > 100,
                'Vorbedingung: die Liste steht in einer Rollfläche')
         if leinwand is None:
@@ -34040,24 +34029,27 @@ def _pruefung_329():
         leinwand.yview_moveto(0.35)
         w.update()
         ziel = None
-        for k in koepfe:
-            y = k.winfo_rooty() - leinwand.winfo_rooty()
+        for text, line in koepfe:
+            y = line.y - leinwand.canvasy(0)
             if 20 < y < leinwand.winfo_height() - 20:
-                ziel = (k.cget('text'), y, k)
+                ziel = (text, y, line)
                 break
         pruefe(ziel is not None and leinwand.yview()[0] > 0.2,
                'Vorbedingung: hinuntergerollt, eine Zeile im Bild')
         if ziel is None:
             return
         name, y_vorher, kopf = ziel
-        kopf.event_generate('<Button-1>', x=2, y=2)
+        leinwand.event_generate(
+            '<Button-1>', x=int(lager['table'].x + 4 - leinwand.canvasx(0)),
+            y=int(y_vorher + kopf.height / 2.0))
         ende = _ti329.time() + 0.5
         while _ti329.time() < ende:
             w.update()
             _ti329.sleep(0.01)
-        nach = [k for k in _koepfe() if k.cget('text') == name]
-        y_nachher = (nach[0].winfo_rooty() - leinwand.winfo_rooty()
-                     if nach else None)
+        nach = [line for text, line in _koepfe() if text == name]
+        y_nachher = (nach[0].y - leinwand.canvasy(0) if nach else None)
+        pruefe(nach and lager['folds'][nach[0].what]['entries'],
+               'der Klick hat die Zeile aufgeklappt')
         pruefe(y_nachher is not None and abs(y_nachher - y_vorher) <= 2,
                'die aufgeklappte Zeile bleibt an ihrer Stelle '
                '(vorher y %s, nachher y %s)' % (y_vorher, y_nachher))
@@ -36313,12 +36305,13 @@ def _pruefung_348():
             {'material': 'Aslarite', 'menge': 0.9, 'qualitaet': 602, 'ort': ''},
         ])
 
-        def _reihe(seite):
+        def _reihe(_seite):
             namen = {'Titanium', 'Feynmaline', 'Agricium', 'Janalite', 'Aslarite'}
-            labels = _alle_346(seite, lambda x: x.winfo_class() == 'Label'
-                               and str(x.cget('text')) in namen)
-            labels.sort(key=lambda x: x.winfo_rooty())
-            return [str(x.cget('text')) for x in labels]
+            zeilen = [line for kind, what, line
+                      in f.my_stock_page['row_widgets']
+                      if kind == 'post' and what['name'] in namen]
+            zeilen.sort(key=lambda line: line.y)
+            return [line.what['name'] for line in zeilen]
 
         w, f, seite = _seite_lager_346()
         reihe = _reihe(seite)
@@ -36333,17 +36326,26 @@ def _pruefung_348():
         pruefe('29 %s' % stueck in texte and '1 %s' % stueck in texte,
                'Stückware ohne Nachkommastellen')
         # Nach Menge sortieren (Spaltenkopf anklicken): die Blöcke bleiben.
-        def _kopf_menge():
+        def _kopf_menge_klicken():
             sp = _la348.t('s_ml_sp_menge').upper()
-            return [x for x in _alle_346(seite, lambda x: x.winfo_class() == 'Label')
-                    if str(x.cget('text')) in (sp, sp + ' ▴', sp + ' ▾')]
-        _kopf_menge()[0].event_generate('<Button-1>', x=2, y=2)
+            leinwand = f.my_stock_page['area'].canvas
+            kopf = [i for i in leinwand.find_withtag('head')
+                    if str(leinwand.itemcget(i, 'text'))
+                    in (sp, sp + ' ▴', sp + ' ▾')]
+            x1, y1, x2, y2 = leinwand.bbox(kopf[0])
+            leinwand.yview_moveto(max(0.0, (y1 - 20) / float(
+                leinwand.cget('scrollregion').split()[3])))
+            w.update()
+            leinwand.event_generate(
+                '<Button-1>', x=int((x1 + x2) / 2 - leinwand.canvasx(0)),
+                y=int((y1 + y2) / 2 - leinwand.canvasy(0)))
+        _kopf_menge_klicken()
         w.update()
         reihe = _reihe(seite)
         pruefe(reihe == ['Janalite', 'Feynmaline', 'Agricium', 'Aslarite', 'Titanium'],
                'nach Menge: Stückware 1 < 29 oben, SCU 0,02 < 0,9 < 13,9 darunter (%s)'
                % reihe)
-        _kopf_menge()[0].event_generate('<Button-1>', x=2, y=2)
+        _kopf_menge_klicken()
         w.update()
         reihe = _reihe(seite)
         pruefe(reihe == ['Feynmaline', 'Janalite', 'Titanium', 'Aslarite', 'Agricium'],
@@ -42668,11 +42670,10 @@ def _pruefung_438():
             _seite438['open'].add((False, 'gold'))
             _seite438['redraw']()
             _w438.update()
-            _texte438 = [z.cget('text') for _a, _r, zellen
-                         in _seite438['row_widgets'] for z in zellen
-                         if isinstance(z, _tk438.Label)]
-            _kopf438 = [z.cget('text') for z in _seite438['listing']
-                        .winfo_children()[0].grid_slaves(row=0)]
+            _texte438 = _lager_texte(_seite438)
+            _leinwand438 = _seite438['area'].canvas
+            _kopf438 = [str(_leinwand438.itemcget(i, 'text'))
+                        for i in _leinwand438.find_withtag('head')]
             pruefe(_pg438.t('s_hl_sp_gewinn').upper() in _kopf438
                    and '+200.000' in _texte438 and '-100.000' in _texte438,
                    'Mein Lager, zum Verkaufen: Spalte Gewinn je Posten, mit '
@@ -46153,14 +46154,9 @@ def _pruefung_466():
                 return _f
         return None
 
-    def _buchungen466(w):
+    def _buchungen466(_w):
         """Die Symbole der Buchungen je Eintrag: `[{Art: Symbol}]`."""
-        out = []
-        if isinstance(getattr(w, 'action_icons', None), dict):
-            out.append(w.action_icons)
-        for _k in w.winfo_children():
-            out.extend(_buchungen466(_k))
-        return out
+        return _lager_symbole(_fe.orgstock_page)
 
     def _pumpen():
         # Auch die Rückmeldung aus dem Buchungsfaden kommt über
@@ -46201,9 +46197,10 @@ def _pruefung_466():
         _seite = _fe.pages['staffellager']
         pruefe(_sp466.t('s_sl_mitglied') not in _texte(_seite, []),
                'als Logistiker steht der Mitglieder-Hinweis nicht da')
-        pruefe(_label(_seite, 'Laranite') is not None,
+        _lager = _fe.orgstock_page
+        pruefe(_lager_zeile(_lager, 'Laranite') is not None,
                'die Seite zeigt den Posten der Einheit')
-        _label(_seite, 'Laranite').event_generate('<Button-1>')
+        _lager_klick(_lager, _lager_zeile(_lager, 'Laranite'))
         _pumpen()
         pruefe('Hauler One' in _texte(_seite, []),
                'aufgeklappt: der Eintrag nennt den Besitzer')
@@ -46219,7 +46216,8 @@ def _pruefung_466():
         _seite = _fe.pages['staffellager']
         pruefe(_knopf(_seite, _sp466.t('s_sl_einbuchen')) is not None,
                'Logistiker mit Buchen: der Knopf Einbuchen steht oben')
-        _label(_seite, 'Laranite').event_generate('<Button-1>')
+        _lager = _fe.orgstock_page
+        _lager_klick(_lager, _lager_zeile(_lager, 'Laranite'))
         _pumpen()
         _symbole466 = _buchungen466(_seite)
         _k = _symbole466[0].get('book_out') if _symbole466 else None
@@ -46228,8 +46226,9 @@ def _pruefung_466():
                == {'book_out', 'sell', 'move', 'note', 'stolen', 'earmark'},
                'am Eintrag stehen alle sechs Buchungen als Symbole (%r)'
                % (sorted(_symbole466[0]) if _symbole466 else None))
-        _k.event_generate('<Button-1>')
+        _lager_symbol_klick(_lager, _k)
         _pumpen()
+        _lager_formular_zeigen(_lager, _root)
         pruefe(_label(_seite, _sp466.t('s_sl_ausbuchen_titel')
                       % ('Laranite', 'Hauler One')) is not None,
                'Ausbuchen öffnet das Formular am Eintrag')
@@ -46248,11 +46247,12 @@ def _pruefung_466():
                                       'failed': [(0, 'rejected',
                                                   'VERSION_CONFLICT')],
                                       'offers': 0, 'confirm_url': None}
-        _label(_seite, 'Laranite').event_generate('<Button-1>') \
-            if _label(_seite, 'Hauler One') is None else None
+        if _lager_zeile(_lager, 'Hauler One') is None:
+            _lager_klick(_lager, _lager_zeile(_lager, 'Laranite'))
         _pumpen()
-        _buchungen466(_seite)[0]['note'].event_generate('<Button-1>')
+        _lager_symbol_klick(_lager, _buchungen466(_seite)[0]['note'])
         _pumpen()
+        _lager_formular_zeigen(_lager, _root)
         _titel = _sp466.t('s_sl_notiz_titel') % ('Laranite', 'Hauler One')
         _form = _label(_seite, _titel).master
         _knopf(_form, _sp466.t('s_sl_speichern')).event_generate('<Button-1>')
@@ -47720,14 +47720,17 @@ def _pruefung_471():
             return
         _ausfuellen('Golden Medmon')
         _einbuchen()
-        _klick(_label(_seite(), 'Laranite'))
-        # Die Buchungen am Eintrag sind Symbole an der Zelle (`action_icons`).
-        _zelle471 = _finde(_seite(), lambda x: isinstance(
-            getattr(x, 'action_icons', None), dict))
-        _notiz471 = (_zelle471.action_icons.get('note')
-                     if _zelle471 is not None else None)
+        _lager471 = _fe.orgstock_page
+        _posten471 = _lager_zeile(_lager471, 'Laranite')
+        if _posten471 is not None:
+            _lager_klick(_lager471, _posten471)
+        _pumpen()
+        _symbole471 = _lager_symbole(_lager471)
+        _notiz471 = _symbole471[0].get('note') if _symbole471 else None
         pruefe(_notiz471 is not None, 'Vorbedingung: Knopf Notiz am Eintrag')
-        _klick(_notiz471)
+        if _notiz471 is not None:
+            _lager_symbol_klick(_lager471, _notiz471)
+        _pumpen()
         _laufen()
         _ohne_buchung('anderes Formular geöffnet während des Nachschlagens')
 
@@ -48642,15 +48645,7 @@ def _pruefung_479():
 
         # Das Abzeichen Verkauf steht nur an Handelslager-Posten.
         def abzeichen(zeile):
-            out = []
-            stapel = list(zeile)
-            while stapel:
-                x = stapel.pop()
-                if x.winfo_class() == 'Canvas':
-                    out += [str(x.itemcget(i, 'text')) for i in x.find_all()
-                            if x.type(i) == 'text']
-                stapel.extend(x.winfo_children())
-            return out
+            return zeile.texts()
         verkauf = _ms.t('s_ml_verkauf')
         gold = [abzeichen(z) for art, x, z in seite['row_widgets']
                 if art == 'group' and x[1] == 'gold']
@@ -48866,57 +48861,33 @@ def _pruefung_482():
         f.open_page('staffellager')
         w.update()
         pruefe(f.current == 'staffellager', 'Vorbedingung: Seite offen')
-        tabelle = None
-
-        def labels(x, out):
-            if isinstance(x, tk.Label):
-                out.append(x)
-            for k in x.winfo_children():
-                labels(k, out)
-            return out
-        name = [x for x in labels(f.pages['staffellager'], [])
-                if x.cget('text') == 'Laranite']
-        pruefe(bool(name), 'Vorbedingung: der Posten Laranite steht da')
-        if not name:
+        lager = f.orgstock_page
+        posten = _lager_zeile(lager, 'Laranite')
+        pruefe(posten is not None,
+               'Vorbedingung: der Posten Laranite steht da')
+        if posten is None:
             return
-        tabelle = name[0].master.master
-        # Belegte Reihen, nicht ihre Nummern: Hinter jedem Posten bleiben
-        # Reihen für seine Einträge frei.
-        zeilen = sorted({int(z.grid_info()['row'])
-                         for z in tabelle.grid_slaves()})
-        pruefe(len(zeilen) == 3 and zeilen[0] == 0,
-               'zugeklappt: Kopf und eine Zeile je Posten (Reihen %r)' % zeilen)
-        ort = [z for z in tabelle.grid_slaves(row=int(
-            name[0].master.grid_info()['row']))
-            if isinstance(z, tk.Label) and z.cget('text') == 'Area18']
-        pruefe(bool(ort), 'Ort steht in derselben Zeile wie der Name')
-        art = []
-        for z in [s for r in zeilen[1:] for s in tabelle.grid_slaves(row=r)]:
-            stapel = [z]
-            while stapel:
-                x = stapel.pop()
-                if x.winfo_class() == 'Canvas':
-                    art += [str(x.itemcget(i, 'text')) for i in x.find_all()
-                            if x.type(i) == 'text']
-                stapel.extend(x.winfo_children())
+        tabelle = lager['table']
+        leinwand = tabelle.canvas
+        pruefe([k for k, _w, _z in lager['row_widgets']] == ['lot', 'lot']
+               and bool(leinwand.find_withtag('head')),
+               'zugeklappt: Kopf und eine Zeile je Posten (%r)'
+               % [k for k, _w, _z in lager['row_widgets']])
+        pruefe('Area18' in posten.texts(),
+               'Ort steht in derselben Zeile wie der Name')
+        art = [x for _k, _w, z in lager['row_widgets'] for x in z.texts()]
         pruefe(_la.t('s_ml_k_ore') in art and _la.t('s_ml_k_refined') in art,
                'jede Zeile trägt ihre Art als Abzeichen (%r)' % art)
-        name[0].event_generate('<Button-1>')
+        _lager_klick(lager, posten)
         w.update()
-        name = [x for x in labels(f.pages['staffellager'], [])
-                if x.cget('text') == 'Laranite']
-        tabelle = name[0].master.master
-        zellen = [z for z in tabelle.grid_slaves()
-                  if isinstance(getattr(z, 'action_icons', None), dict)]
+        zellen = _lager_symbole(lager)
         pruefe(len(zellen) == 1, 'aufgeklappt: eine Eintragszeile mit '
                'Buchungen (%d)' % len(zellen))
         if zellen:
-            symbole = zellen[0].action_icons
+            symbole = zellen[0]
             pruefe(set(symbole) == {'book_out', 'sell', 'move', 'note',
                                     'stolen', 'earmark'},
                    'sechs Buchungen als Symbole (%r)' % sorted(symbole))
-            # Den Erklärtext abfangen: Was `notice` zeigen würde, steht in
-            # der Liste — ohne Wartezeit.
             from scbp import notice as _no
             gezeigt, alt_no = [], (_no.DELAY_MS, _no._window.show)
             _no.DELAY_MS = 0
@@ -48924,10 +48895,15 @@ def _pruefung_482():
             try:
                 for art in ('book_out', 'sell', 'move', 'note', 'stolen',
                             'earmark'):
-                    symbole[art].event_generate('<Enter>', x=2, y=2)
+                    x1, y1, x2, y2 = leinwand.bbox(symbole[art].item)
+                    leinwand.event_generate(
+                        '<Motion>',
+                        x=int((x1 + x2) / 2 - leinwand.canvasx(0)),
+                        y=int((y1 + y2) / 2 - leinwand.canvasy(0)))
                     for _ in range(3):
                         w.update()
-                    symbole[art].event_generate('<Leave>')
+                leinwand.event_generate('<Motion>', x=2, y=2)
+                w.update()
             finally:
                 _no.DELAY_MS, _no._window.show = alt_no
             soll = [_la.t(k) for k in ('s_sl_ausbuchen', 's_sl_verkaufen',
@@ -48935,11 +48911,10 @@ def _pruefung_482():
                                        's_sl_marke', 's_sl_reservieren')]
             pruefe(gezeigt == soll,
                    'jedes Symbol erklärt sich beim Überfahren (%r)' % gezeigt)
-            reihe = int(zellen[0].grid_info()['row'])
-            besitzer = [x for z in tabelle.grid_slaves(row=reihe)
-                        for x in labels(z, [])
-                        if x.cget('text') == 'Hauler One']
-            pruefe(bool(besitzer),
+            eintrag = next(z for k, _w, z in lager['row_widgets']
+                           if k == 'entry')
+            pruefe('Hauler One' in eintrag.texts()
+                   and eintrag.action_icons is symbole,
                    'Besitzer und Symbole stehen in einer Zeile')
         # Ohne Verbindung: Reiter weg, Sprung führt zur Verbindung.
         _og.visible = lambda: False
@@ -49583,9 +49558,9 @@ def _pruefung_489():
                    'Gemeinsam')
 
             def zelle(name):
-                for art, zeile, widgets in seite['row_widgets']:
+                for art, zeile, line in seite['row_widgets']:
                     if art == 'post' and zeile['name'] == name:
-                        return widgets[-1]
+                        return line
             pruefe(set(getattr(zelle('Laranite'), 'action_icons', {}))
                    == {'teilen', 'bearbeiten', 'loeschen'},
                    'die Zeile hat den Knopf Ins Lager der Einheit (%r)'
@@ -49623,18 +49598,7 @@ def _pruefung_489():
                    and seite['share_form'] is None,
                    'über die Seite geteilt, Formular zu (%r)'
                    % (stand()['Laranite'],))
-            texte = []
-            for _a, _z, widgets in seite['row_widgets']:
-                stapel = list(widgets)
-                while stapel:
-                    x = stapel.pop()
-                    if not x.winfo_exists():
-                        continue
-                    if x.winfo_class() == 'Canvas':
-                        texte += [str(x.itemcget(i, 'text'))
-                                  for i in x.find_all()
-                                  if x.type(i) == 'text']
-                    stapel.extend(x.winfo_children())
+            texte = _lager_texte(seite)
             pruefe(_la.t('s_ml_b_geteilt') % _ms.amount_text(5.0, False)
                    in texte,
                    'Alle zeigt, wie viel in der Einheit liegt (%r)' % texte)
@@ -50055,16 +50019,7 @@ def _pruefung_487():
         namen = [lot['name'] for lot, _z in seite['lot_rows']]
         pruefe(namen == ['FR-66'], 'Items zeigt nur das Item (%r)' % namen)
 
-        def texte(zellen):
-            out = []
-            stapel = list(zellen)
-            while stapel:
-                x = stapel.pop()
-                if isinstance(x, tk.Label):
-                    out.append(str(x.cget('text')))
-                stapel.extend(x.winfo_children())
-            return out
-        zeile = texte(seite['lot_rows'][0][1])
+        zeile = seite['lot_rows'][0][1].texts()
         pruefe('(Mil/1/A)' in zeile,
                'das Item trägt sein Kürzel wie in Mein Lager (%r)' % zeile)
         seite['tabs'].select('material')
@@ -50074,11 +50029,13 @@ def _pruefung_487():
         namen = [lot['name'] for lot, _z in seite['lot_rows']]
         pruefe(namen == ['Laranite'], 'Material zeigt den Rohstoff (%r)'
                % namen)
-        kopf = [str(z.cget('text')) for z in seite['lot_rows'][0][1][0]
-                .master.grid_slaves(row=0)]
+        leinwand = seite['table'].canvas
+        kopf = [str(leinwand.itemcget(i, 'text'))
+                for i in leinwand.find_withtag('head')]
         pruefe(sorted(kopf) == sorted([_ms.t(k).upper() for k in (
                    's_ml_sp_bestand', 's_ml_sp_ort', 's_ml_sp_q',
-                   's_ml_sp_menge')] + ['']),
+                   's_ml_sp_menge')])
+               and seite['table'].keys[-1] == 'action',
                'dieselben Spalten wie in Mein Lager (%r)' % kopf)
     finally:
         _og.visible = alt[0]
@@ -54051,6 +54008,14 @@ def _pruefung_537():
         shutil.rmtree(base, ignore_errors=True)
 
 
+def _lager_namen538(window):
+    """Die Tk-Namen unter der Liste von Mein Lager und die Kennungen der
+    Tabellenzeilen — ein Neuaufbau erzeugt neue."""
+    page = window.my_stock_page
+    return _names53x(page['listing']) | {
+        line.tag for _k, _w, line in page.get('row_widgets') or []}
+
+
 def _pruefung_538():
     """Mein Lager: Wiederkommen ohne Neuaufbau, neue Posten sofort sichtbar,
     eine Vorgabe von außen zeichnet immer."""
@@ -54067,43 +54032,42 @@ def _pruefung_538():
         materials_538.add('Pruef-Erz Eins', 2.0, place='Ort 538')
         root, window = _window53x()
         _page53x(root, window, 'meinlager')
-        listing = window.my_stock_page['listing']
-        pruefe('Pruef-Erz Eins' in _texte_346(listing),
+        pruefe('Pruef-Erz Eins' in _lager_texte(window.my_stock_page),
                'Selbstprüfung: der Posten steht in der Liste')
-        before = _names53x(listing)
+        before = _lager_namen538(window)
         _page53x(root, window, 'meinlager')
-        pruefe(_names53x(listing) == before,
+        pruefe(_lager_namen538(window) == before,
                'unverändert: Wiederkommen baut die Liste nicht neu')
         materials_538.add('Pruef-Erz Zwei', 3.0, place='Ort 538')
         _page53x(root, window, 'meinlager')
-        pruefe('Pruef-Erz Zwei' in _texte_346(listing),
+        pruefe('Pruef-Erz Zwei' in _lager_texte(window.my_stock_page),
                'neuer Posten: die Liste zeigt ihn sofort')
-        before = _names53x(listing)
+        before = _lager_namen538(window)
         window.my_stock_preset = {'search_text': None}
         _page53x(root, window, 'meinlager')
-        pruefe(_names53x(listing) != before,
+        pruefe(_lager_namen538(window) != before,
                'eine Vorgabe von außen zeichnet immer neu')
         # Ob es eine Aufteilung (Basetool) gibt, steht nur im Speicher.
         from scbp import stock_split as split_538
         _page53x(root, window, 'meinlager')
-        before = _names53x(listing)
+        before = _lager_namen538(window)
         real_available = split_538.available
         split_538.available = lambda: not real_available()
         try:
             _page53x(root, window, 'meinlager')
-            pruefe(_names53x(listing) != before,
+            pruefe(_lager_namen538(window) != before,
                    'Aufteilung kommt oder geht: die Liste wird neu gebaut')
         finally:
             split_538.available = real_available
         # Die Einheiten mit ihren Namen stehen nur im Speicher.
         from scbp import exchange_orgunits as units_538
         _page53x(root, window, 'meinlager')
-        before = _names53x(listing)
+        before = _lager_namen538(window)
         real_units = units_538._state['units']
         units_538._state['units'] = [{'id': 'pruef-538', 'name': 'Einheit 538'}]
         try:
             _page53x(root, window, 'meinlager')
-            pruefe(_names53x(listing) != before,
+            pruefe(_lager_namen538(window) != before,
                    'neue Einheiten-Liste: die Liste wird neu gebaut')
         finally:
             units_538._state['units'] = real_units
@@ -56431,6 +56395,61 @@ def _has_label_text(widget, text):
                for x in _all_below(widget))
 
 
+def _lager_zeile(page, text):
+    """Die gezeigte Zeile der Tabelle von Mein Lager, die `text` zeigt."""
+    return next((line for _k, _w, line in page.get('row_widgets') or []
+                 if text in line.texts()), None)
+
+
+def _lager_klick(page, line):
+    """Ein echter Klick auf die Zeile: ins Bild rollen, dann `<Button-1>` an
+    der Stelle auf der Leinwand."""
+    table = page['table']
+    x, y = table.point(line)
+    table.canvas.event_generate('<Button-1>', x=x, y=y)
+
+
+def _lager_farben(page):
+    """Der gezeichnete Grund jeder Tabellenzeile, in Tabellenreihenfolge."""
+    canvas = page['area'].canvas
+    return [str(canvas.itemcget(line.items['bg'], 'fill'))
+            for _k, _w, line in page.get('row_widgets') or []]
+
+
+def _lager_texte(page):
+    """Alle Texte, die die Tabelle von Mein Lager gerade zeigt."""
+    return [text for _k, _w, line in page.get('row_widgets') or []
+            for text in line.texts()]
+
+
+def _lager_symbol_klick(page, icon):
+    """Ein echter Klick auf ein Symbol der Tabelle: ins Bild rollen, dann
+    `<Button-1>` an seiner Stelle auf der Leinwand."""
+    canvas = page['area'].canvas
+    x1, y1, x2, y2 = canvas.bbox(icon.item)
+    page['area'].see(y1, margin=20)
+    canvas.update_idletasks()
+    canvas.event_generate('<Button-1>',
+                          x=int((x1 + x2) / 2 - canvas.canvasx(0)),
+                          y=int((y1 + y2) / 2 - canvas.canvasy(0)))
+
+
+def _lager_symbole(page, kind='entry'):
+    """Die Symbole je gezeigter Zeile einer Art: `[{Schlüssel: Symbol}]`."""
+    return [line.action_icons for k, _w, line in page.get('row_widgets') or []
+            if k == kind and line.action_icons]
+
+
+def _lager_formular_zeigen(page, w):
+    """Das Formular-Feld zwischen den Zeilen ins Bild rollen — ein Rahmen
+    außerhalb des Bildes ist nicht abgebildet und nimmt keinen Klick an."""
+    slot = page.get('form_slot') or page.get('share_slot')
+    if slot is not None:
+        page['area'].see(slot.y, margin=10)
+    for _ in range(3):
+        w.update()
+
+
 def _stock_page613(rows_raw, rows_trade=()):
     """Echtes Hauptfenster auf „Mein Lager" mit diesen Posten; `redraw`
     zählt mit. Gibt (Wurzel, Fenster, Seite, Zähler) zurück."""
@@ -56460,37 +56479,42 @@ def _stock_page613(rows_raw, rows_trade=()):
 
 
 def _stripes_wrong613(page):
-    """Zellen, deren Hintergrund nicht zum Streifen ihrer Zeile passt.
+    """Zeilen, deren gezeichneter Grund nicht zu ihrem Streifen passt.
 
-    Die Reihenfolge kommt aus der Tabelle selbst (Grid-Reihe der ersten
-    Zelle), nicht aus `row_widgets`: Ab Zeile 2 abwechselnd SURFACE, die
-    Zeile im Bearbeiten auf HOVER. Dazu jede doppelt belegte Tabellenzelle
-    und ein `row_widgets`, das nicht in Tabellenreihenfolge steht."""
+    Die Reihenfolge kommt aus der Lage auf der Leinwand, nicht aus
+    `row_widgets`: Ab Zeile 2 abwechselnd SURFACE, die Zeile im Bearbeiten
+    auf HOVER — der Grund der Zeile und jede Abzeichen-Blase darin. Dazu jede
+    Zeile, die nicht lückenlos unter ihrer Vorgängerin steht (überdeckt oder
+    mit Lücke), und ein `row_widgets`, das nicht in Tabellenreihenfolge
+    steht."""
     from scbp import theme as th
     wrong = []
     editing = page.get('editing')
+    canvas = page['area'].canvas
     rows = sorted(page['row_widgets'],
-                  key=lambda e: int(e[2][0].grid_info()['row']))
+                  key=lambda e: canvas.coords(e[2].items['bg'])[1])
     if rows != page['row_widgets']:
         wrong.append(('Reihenfolge', 'row_widgets', 'nicht wie die Tabelle'))
-    for n, (kind, what, cells) in enumerate(rows):
+    for n, (kind, what, line) in enumerate(rows):
         if kind == 'post' and editing == (what['store'], what['index']):
             want = th.HOVER
         else:
             want = th.SURFACE if n % 2 else th.BG
-        for c in cells:
-            for x in _all_below(c):
-                if x.winfo_class() in ('Frame', 'Label', 'Canvas') \
-                        and str(x.cget('bg')) != want:
-                    wrong.append((n, x.winfo_class(), str(x.cget('bg'))))
-    if rows:
-        seen = {}
-        for slave in rows[0][2][0].master.grid_slaves():
-            info = slave.grid_info()
-            place = (int(info['row']), int(info['column']))
-            if place in seen:
-                wrong.append(('doppelt belegt', place, ''))
-            seen[place] = slave
+        for item in [line.items['bg']] + line.items['fill']:
+            got = str(canvas.itemcget(item, 'fill'))
+            if got != want:
+                wrong.append((n, canvas.type(item), got))
+    table = page.get('table')
+    if table is not None and table.rows:
+        y = table.y + table.head_height
+        for line in table.rows:
+            if line.kind == 'widget':
+                top = canvas.coords(line.item)[1] - line.pady[0]
+            else:
+                top = canvas.coords(line.items['bg'])[1]
+            if abs(top - y) > 0.5:
+                wrong.append(('Lage', line.kind, top, y))
+            y += line.height
     return wrong
 
 
@@ -56520,14 +56544,16 @@ def _pruefung_613():
 
         def head(text):
             return next((e for e in page['row_widgets'] if e[0] == 'group'
-                         and any(_has_label_text(c, text) for c in e[2])),
-                        None)
+                         and text in e[2].texts()), None)
 
         def shown_places():
-            return {x.cget('text') for _k, _r, cells in page['row_widgets']
-                    for c in cells for x in _all_below(c)
-                    if x.winfo_class() == 'Label'
-                    and x.cget('text') in ('Orison', 'Lorville')}
+            return {x for x in _lager_texte(page)
+                    if x in ('Orison', 'Lorville')}
+
+        def same_items(entries, before):
+            return all(e[2].exists()
+                       and page['area'].canvas.find_withtag(before[e[2].tag])
+                       for e in entries)
 
         iron = head('Iron (3)')
         pruefe(iron is not None and not shown_places()
@@ -56535,16 +56561,16 @@ def _pruefung_613():
                'Vorbedingung: zugeklappt, Streifen stimmen (%s)'
                % _stripes_wrong613(page)[:3])
         others = [e for e in page['row_widgets'] if e is not iron]
-        arrow = getattr(iron[2][page['columns'].index('action')], 'arrow',
-                        None)
+        drawn = {e[2].tag: e[2].items['bg'] for e in page['row_widgets']}
+        arrow = iron[2].arrow
 
-        iron[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, iron[2])
         w.update()
         pruefe(redraws[0] == 0,
                'Aufklappen ruft kein redraw (%d)' % redraws[0])
         pruefe(all(e in page['row_widgets'] for e in others)
-               and all(c.winfo_exists() for e in others for c in e[2]),
-               'die übrigen Zeilen bleiben dieselben Bauteile')
+               and same_items(others, drawn),
+               'die übrigen Zeilen bleiben dieselben Elemente')
         pruefe(shown_places() == {'Orison'},
                'die Posten von Iron sind zu sehen (%s)' % shown_places())
         pruefe(not _stripes_wrong613(page),
@@ -56554,7 +56580,7 @@ def _pruefung_613():
                'der Pfeil zeigt zuklappen (%r)' % getattr(arrow, 'symbol', None))
 
         copper = head('Copper (2)')
-        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, copper[2])
         w.update()
         pruefe(shown_places() == {'Orison', 'Lorville'}
                and not _stripes_wrong613(page),
@@ -56565,20 +56591,21 @@ def _pruefung_613():
         copper = head('Copper (2)')
         nested = page['folds'][copper[1]]['entries']
         keep = [e for e in page['row_widgets']
-                if e is not copper and e not in nested]
-        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+                if e is not copper and e[2] not in nested]
+        drawn = {e[2].tag: e[2].items['bg'] for e in page['row_widgets']}
+        _lager_klick(page, copper[2])
         w.update()
         pruefe(shown_places() == {'Orison'} and not _stripes_wrong613(page)
-               and all(c.winfo_exists() for e in keep for c in e[2])
+               and same_items(keep, drawn)
                and all(e in page['row_widgets'] for e in keep),
                'die erste Gruppe klappt zu, alle Zeilen dahinter bleiben '
                '(%s, %s)' % (shown_places(), _stripes_wrong613(page)[:3]))
-        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, copper[2])
         w.update()
 
         redraws[0] = 0
         iron = head('Iron (3)')
-        iron[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, iron[2])
         w.update()
         pruefe(redraws[0] == 0,
                'Zuklappen ruft kein redraw (%d)' % redraws[0])
@@ -56610,7 +56637,7 @@ def _pruefung_613():
                'Vorbedingung: die Suche nach dem Ort klappt Iron auf')
         iron = head('Iron (2)')
         if iron is not None:
-            iron[2][0].event_generate('<Button-1>', x=2, y=2)
+            _lager_klick(page, iron[2])
             w.update()
             pruefe(not iron_open(),
                    'eine von der Suche geöffnete Gruppe klappt beim ersten '
@@ -56685,19 +56712,23 @@ def _pruefung_614():
                     return True
             return False
 
+        def fill(entry):
+            return str(page['area'].canvas.itemcget(
+                entry[2].items['bg'], 'fill'))
+
         gold = post('Gold')
         pruefe(gold is not None, 'Vorbedingung: Gold steht als eigene Zeile')
         others = [e for e in page['row_widgets'] if e is not gold]
 
-        gold[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, gold[2])
         w.update()
         pruefe(redraws[0] == 0
                and page.get('editing') == (gold[1]['store'], gold[1]['index']),
                'Klick auf die Zeile öffnet das Bearbeiten ohne redraw (%d)'
                % redraws[0])
-        pruefe(str(gold[2][0].cget('bg')) == th_614.HOVER
+        pruefe(fill(gold) == th_614.HOVER
                and not _stripes_wrong613(page)
-               and all(c.winfo_exists() for e in others for c in e[2]),
+               and all(e[2].exists() for e in others),
                'nur die Zeile ist hervorgehoben, die übrigen bleiben '
                '(%s)' % _stripes_wrong613(page)[:3])
         page['forms']['raw']['reset']()
@@ -56715,7 +56746,7 @@ def _pruefung_614():
         w.update()
         nested = post('Iron', 'Orison')
         pruefe(redraws[0] == 0 and nested is not None
-               and str(nested[2][0].cget('bg')) == th_614.HOVER
+               and fill(nested) == th_614.HOVER
                and not _stripes_wrong613(page),
                'Bearbeiten in einer zugeklappten Gruppe klappt nur diese auf '
                '(%d, %s)' % (redraws[0], _stripes_wrong613(page)[:3]))
@@ -56730,23 +56761,26 @@ def _pruefung_614():
         sp_614.split_of = lambda _lot: (3.0, [])
         eo_614.units = lambda: [{'id': 'u614'}]
         eo_614.label = lambda _unit: 'Einheit 614'
-        below = int(gold[2][0].grid_info()['row']) + 1
+        below = page['table'].rows.index(gold[2]) + 1
         ms_614.open_share(page, gold_row, sp_614.SHARE)
         w.update()
         holder = page.get('share_holder')
         pruefe(redraws[0] == 0 and holder is not None and holder.winfo_exists()
-               and int(holder.grid_info()['row']) == below
+               and page['table'].rows.index(page['share_slot']) == below
+               and page['share_slot'].widget is holder
                and not _stripes_wrong613(page),
                'das Teilen-Feld steht ohne redraw direkt unter der Zeile '
                '(%d)' % redraws[0])
-        pruefe(all(c.winfo_exists() for e in others for c in e[2]),
+        pruefe(all(e[2].exists() for e in others),
                'die übrigen Zeilen bleiben dabei stehen')
+        page['area'].see(page['share_slot'].y)
+        w.update()
         pruefe(click_button(holder, t_614('s_hl_abbrechen'))
                and redraws[0] == 0 and not holder.winfo_exists()
                and page.get('share_form') is None,
                'Abbrechen schließt nur das Feld (%d)' % redraws[0])
 
-        gold[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, gold[2])
         w.update()
         form_text = t_614('s_ml_form_teilen')
         pruefe(form_text in canvas_texts(page['inner']),
@@ -56762,7 +56796,7 @@ def _pruefung_614():
         ms_614.share_actions = lambda _page, row: (
             [sp_614.UNSHARE] if row['name'] == 'Gold' else [])
         sp_614.split_of = lambda _lot: (0.0, [('u614', 3.0)])
-        gold[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, gold[2])
         w.update()
         back_text = t_614('s_ml_form_zurueck')
         pruefe(back_text in canvas_texts(page['inner'])
@@ -56780,14 +56814,15 @@ def _pruefung_614():
         ms_614.share_actions = lambda _page, row: (
             [sp_614.SHARE] if row['name'] == 'Gold' else [])
         sp_614.split_of = lambda _lot: (3.0, [])
-        post('Gold')[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, post('Gold')[2])
         w.update()
         page['state']['search'].set('nichts-p614')
         end = time.time() + 2
         while page['row_widgets'] and time.time() < end:
             w.update()
             time.sleep(0.02)
-        pruefe(not page['row_widgets'] and 'builder' not in page,
+        pruefe(not page['row_widgets'] and 'builder' not in page
+               and 'table' not in page,
                'Vorbedingung: die Suche lässt keine Zeile übrig, nichts zeigt '
                'mehr auf die alte Tabelle')
         clicked = click_button(page['inner'], form_text)
@@ -56805,7 +56840,7 @@ def _pruefung_614():
         page['forms']['raw']['reset']()
         w.update()
         copper = post('Copper')
-        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, copper[2])
         w.update()
         pruefe(form_text not in canvas_texts(page['inner']),
                'ohne Teilen-Weg am Posten kein Knopf im Bearbeiten-Feld')
@@ -56821,7 +56856,7 @@ def _pruefung_614():
                'Hinweis (%r)' % texts)
 
         copper = post('Copper')
-        copper[2][0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, copper[2])
         w.update()
         pruefe(click_button(page['inner'], t_614('s_lg_posten_weg')),
                'Vorbedingung: der Knopf Posten löschen ist da')
@@ -56916,29 +56951,34 @@ def _pruefung_615():
             return next(c for lot, c in page['lot_rows'] if lot['name'] == name)
         laranite = lot_row('Laranite')
         others = lot_row('Quantanium')
+        drawn = others.items['bg']
         reset()
-        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, laranite)
         w.update()
-        arrow = getattr(laranite[page['builder']['columns'].index('action')],
-                        'arrow', None)
+        arrow = laranite.arrow
         pruefe(builds == {'list': 0, 'top': 0}
                and sorted(e['id'] for e, _c in page['entry_rows'])
                == ['p615-0', 'p615-1']
-               and all(c.winfo_exists() for c in others)
+               and others.exists()
+               and page['table'].canvas.find_withtag(drawn)
                and getattr(arrow, 'symbol', None) == 'zuklappen',
                'Aufklappen baut nur die Einträge, der Pfeil wechselt (%r, %d)'
                % (builds, len(page['entry_rows'])))
 
         entry, cells = page['entry_rows'][0]
-        icon = cells[page['builder']['columns'].index('action')] \
-            .action_icons['note']
-        icon.event_generate('<Button-1>', x=2, y=2)
+        icon = cells.action_icons['note']
+        _lager_symbol_klick(page, icon)
         w.update()
         holder = page.get('form_holder')
-        slot = page['entry_slots'][entry['id']]['row']
+
+        def under(line):
+            rows = page['table'].rows
+            slot = page.get('form_slot')
+            return (slot in rows and slot.widget is holder
+                    and rows.index(slot) == rows.index(line) + 1)
         pruefe(builds == {'list': 0, 'top': 0} and holder is not None
                and holder.winfo_exists()
-               and int(holder.grid_info()['row']) == slot
+               and under(cells)
                and getattr(icon, 'symbol_color', None) == ic_615.GREEN,
                'das Notiz-Feld steht ohne Neuaufbau unter seinem Eintrag, das '
                'Symbol ist grün (%r)' % builds)
@@ -56952,6 +56992,7 @@ def _pruefung_615():
                'eine Meldung steht oben, das offene Feld bleibt stehen (%r)'
                % message)
 
+        _lager_formular_zeigen(page, w)
         cancel = [x for x in _all_below(holder) if x.winfo_class() == 'Canvas'
                   and op_615.t('s_bt_abbrechen') in [
                       str(x.itemcget(i, 'text')) for i in x.find_all()
@@ -56977,7 +57018,7 @@ def _pruefung_615():
         pruefe(builds == {'list': 0, 'top': 0} and not holder.winfo_exists(),
                'und schließt wieder ohne Neuaufbau (%r)' % builds)
 
-        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        _lager_klick(page, laranite)
         w.update()
         pruefe(builds == {'list': 0, 'top': 0} and not page['entry_rows']
                and getattr(arrow, 'symbol', None) == 'aufklappen',
@@ -56986,14 +57027,20 @@ def _pruefung_615():
         op_615._open_form(page, ('note', 'p615-0'))
         w.update()
         laranite = lot_row('Laranite')
-        laranite[0].event_generate('<Button-1>', x=2, y=2)
+        reset()
+        _lager_klick(page, laranite)
         w.update()
+        holder = page.get('form_holder')
+        pruefe(builds == {'list': 0, 'top': 0} and holder is not None
+               and holder.winfo_exists()
+               and under(page['entry_slots']['p615-0']['line']),
+               'Aufklappen mit offenem Formular: das Feld steht gleich unter '
+               'seinem Eintrag, ohne Neuaufbau (%r)' % builds)
         page['redraw_all']()
         w.update()
         holder = page.get('form_holder')
         pruefe(holder is not None and holder.winfo_exists()
-               and int(holder.grid_info()['row'])
-               == page['entry_slots']['p615-0']['row'],
+               and under(page['entry_slots']['p615-0']['line']),
                'nach einem echten Neuzeichnen steht das offene Feld wieder '
                'unter seinem Eintrag')
     finally:
@@ -57010,6 +57057,504 @@ def _pruefung_615():
                 w.destroy()
         except Exception:
             pass
+
+
+
+def _stock_rows623():
+    """Posten für 623–627: zwei Gruppen oben und unten, dazwischen ein
+    einzelner Posten."""
+    return [('Copper', 4, 300, 'Area18'), ('Copper', 6, 400, 'Lorville'),
+            ('Gold', 3, 600, 'Levski'),
+            ('Iron', 10, 500, 'Levski'), ('Iron', 5, 800, 'Orison'),
+            ('Iron', 7, 900, 'Levski')]
+
+
+def _stock_restore623(old, w):
+    from scbp import materials as ma, trade_cargo as tc
+    ma.save(old[0])
+    tc.save(old[1])
+    try:
+        if w is not None:
+            w.destroy()
+    except Exception:
+        pass
+
+
+def _stock_backup623():
+    import copy
+    from scbp import materials as ma, trade_cargo as tc
+    return copy.deepcopy(ma.load()), copy.deepcopy(tc.load())
+
+
+def _pruefung_623():
+    """623. Mein Lager: Klappen baut keine Fenster und ändert keine
+    Fenstergröße.
+
+    Die Zeilen stehen als Elemente auf der Rollleinwand. Gezählt werden die
+    Tk-Fenster der Seite, die Größe der Leinwand und die angeforderten
+    Größen von Kopf und Fuß; nur der Fuß rückt um die Höhe der
+    Unterzeilen. Dasselbe für Lager der Einheit (`_einheit623`)."""
+    print('\n623. Mein Lager: Klappen ohne neue Fenster')
+    if not ANZEIGE:
+        uebersprungen('623')
+        return
+    import tkinter as tk
+    old = _stock_backup623()
+    w = None
+    try:
+        w, window, page, _redraws = _stock_page613(_stock_rows623())
+        area = page['area']
+        canvas = area.canvas
+        seite = window.pages['meinlager']
+
+        def fenster():
+            return len(_all_below(seite))
+
+        def groessen():
+            return [(canvas.winfo_width(), canvas.winfo_height())] + [
+                (x.winfo_reqwidth(), x.winfo_reqheight())
+                for x in (area.top.master, area.bottom.master)]
+
+        def fuss():
+            return canvas.coords(area.ids['bottom'])[1]
+
+        for stelle in (1.0, 0.0):
+            canvas.yview_moveto(stelle)
+            for _ in range(3):
+                w.update()
+        vorher, groesse, unten = fenster(), groessen(), fuss()
+        kopf = _lager_zeile(page, 'Copper (2)')
+        _lager_klick(page, kopf)
+        w.update()
+        unter = page['folds'][kopf.what]['entries']
+        hoehe = sum(line.height for line in unter)
+        pruefe(len(unter) == 2 and fenster() == vorher
+               and groessen() == groesse,
+               'Aufklappen: keine neuen Fenster, keine Größe ändert sich '
+               '(%d -> %d Fenster, %r -> %r)'
+               % (vorher, fenster(), groesse, groessen()))
+        pruefe(hoehe > 0 and fuss() == unten + hoehe,
+               'nur der Fuß rückt um die Höhe der Unterzeilen (%r -> %r, %r)'
+               % (unten, fuss(), hoehe))
+        _lager_klick(page, kopf)
+        w.update()
+        pruefe(fenster() == vorher and groessen() == groesse
+               and fuss() == unten,
+               'Zuklappen: alles wie vorher (%d Fenster, Fuß %r)'
+               % (fenster(), fuss()))
+        probe = tk.Frame(canvas)
+        for text in ('Probe', 'Ort'):
+            tk.Label(probe, text=text).grid(row=0, column=len(
+                probe.grid_slaves()))
+        pruefe(fenster() == vorher + 3,
+               'Gegenprobe: eine Zeile aus Fenstern (Rahmen und zwei Zellen) '
+               'sieht der Zähler (%d)' % (fenster() - vorher))
+        probe.destroy()
+    finally:
+        _stock_restore623(old, w)
+    _einheit623()
+
+
+def _einheit623():
+    """Teil von 623: dasselbe für Lager der Einheit — Aufklappen eines
+    Postens mit drei Einträgen baut keine Fenster, nur der Fuß rückt."""
+    import copy
+    from scbp import (exchange_orgstock as og, main_window as hf,
+                      orgstock_page as op, paths as pa)
+    real = (og.visible, dict(og._state))
+    old_view = pa.setting(op.SETTING_VIEW)
+    w = None
+    try:
+        entries = []
+        for n in range(3):
+            entry = copy.deepcopy(_ORG_HIDDEN465)
+            entry.update(id='p623-%d' % n, holder={
+                'withheld': False, 'name': 'Halter %d' % n, 'ref': 'r%d' % n})
+            entries.append(entry)
+        lots, units = og.apply_pages({}, [{
+            'units': [{'id': 'u1', 'name': 'Iridium'}],
+            'items': [_org_lot465('k%d' % n, 'u1', name,
+                                  {'type': 'RAW', 'commodity': True},
+                                  entries=entries if n == 1 else [])
+                      for n, name in enumerate(('Agricium', 'Laranite',
+                                                'Quantanium'))]}], True)
+        og._state.clear()
+        og._state.update(lots=lots, units=units, cursor='c', at=time.time(),
+                         details=True, write=True, logistician={'u1'},
+                         rosters={'u1': [{'ref': 'r0', 'name': 'Halter 0'}]})
+        og.visible = lambda: True
+        pa.set_setting(op.SETTING_VIEW, op.VIEW_MATERIAL)
+        w = _wurzel()
+        window = hf.MainWindow(w, version='0.0.0-pruefung')
+        window.open_page('staffellager')
+        w.update()
+        page = window.orgstock_page
+        area = page['area']
+        canvas = area.canvas
+        seite = window.pages['staffellager']
+        for stelle in (1.0, 0.0):
+            canvas.yview_moveto(stelle)
+            for _ in range(3):
+                w.update()
+        vorher = len(_all_below(seite))
+        unten = canvas.coords(area.ids['bottom'])[1]
+        posten = _lager_zeile(page, 'Laranite')
+        pruefe(posten is not None,
+               'Lager der Einheit: Vorbedingung, Laranite steht da')
+        if posten is None:
+            return
+        _lager_klick(page, posten)
+        w.update()
+        hoehe = sum(line.height for _k, _w, line in page['row_widgets']
+                    if _k == 'entry')
+        pruefe(len(page['entry_rows']) == 3 and len(_all_below(seite))
+               == vorher and canvas.coords(area.ids['bottom'])[1]
+               == unten + hoehe > unten,
+               'Lager der Einheit: Aufklappen baut keine Fenster, nur der Fuß '
+               'rückt (%d -> %d Fenster)' % (vorher, len(_all_below(seite))))
+    finally:
+        og.visible = real[0]
+        og._state.clear()
+        og._state.update(real[1])
+        pa.set_setting(op.SETTING_VIEW, old_view or '')
+        if w is not None:
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+
+def _pruefung_624():
+    """624. Mein Lager: Nach dem Klappen steht jede Zeile lückenlos.
+
+    Auf- und Zuklappen der ersten und der letzten Gruppe, auch beide
+    zugleich: Jede Zeile liegt direkt unter ihrer Vorgängerin, die Streifen
+    stimmen, der Fuß schließt an die Tabelle an. Die Summenzeile der letzten
+    Gruppe bleibt an ihrer Stelle."""
+    print('\n624. Mein Lager: Lage der Zeilen nach dem Klappen')
+    if not ANZEIGE:
+        uebersprungen('624')
+        return
+    old = _stock_backup623()
+    w = None
+    try:
+        w, _window, page, _redraws = _stock_page613(_stock_rows623())
+        area = page['area']
+        canvas = area.canvas
+
+        def fuss_passt():
+            table = page['table']
+            return canvas.coords(area.ids['bottom'])[1] == \
+                table.y + table.height()
+
+        def kopf_y(text):
+            line = _lager_zeile(page, text)
+            return canvas.coords(line.items['bg'])[1]
+
+        letzte = kopf_y('Iron (3)')
+        for text in ('Copper (2)', 'Iron (3)'):
+            _lager_klick(page, _lager_zeile(page, text))
+            w.update()
+            pruefe(not _stripes_wrong613(page) and fuss_passt(),
+                   '%s aufgeklappt: Lage und Streifen stimmen (%s)'
+                   % (text, _stripes_wrong613(page)[:3]))
+        pruefe(kopf_y('Iron (3)') == letzte
+               + sum(line.height for line
+                     in page['folds'][_lager_zeile(page, 'Copper (2)').what]
+                     ['entries']),
+               'die Summenzeile der letzten Gruppe rückt nur um die '
+               'Unterzeilen davor')
+        _lager_klick(page, _lager_zeile(page, 'Copper (2)'))
+        w.update()
+        pruefe(not _stripes_wrong613(page) and fuss_passt()
+               and kopf_y('Iron (3)') == letzte,
+               'die erste Gruppe zu, die letzte offen: Lage stimmt (%s)'
+               % (_stripes_wrong613(page)[:3],))
+        _lager_klick(page, _lager_zeile(page, 'Iron (3)'))
+        w.update()
+        pruefe(not _stripes_wrong613(page) and fuss_passt()
+               and kopf_y('Iron (3)') == letzte,
+               'die letzte Gruppe zu: ihre Summenzeile steht, wo sie stand '
+               '(%r, %r)' % (kopf_y('Iron (3)'), letzte))
+        gold = _lager_zeile(page, 'Gold')
+        canvas.move(gold.tag, 0, 3)
+        pruefe(any(x[0] == 'Lage' for x in _stripes_wrong613(page)),
+               'Gegenprobe: eine um 3 px verrutschte Zeile fällt auf')
+        canvas.move(gold.tag, 0, -3)
+    finally:
+        _stock_restore623(old, w)
+
+
+def _pruefung_625():
+    """625. Mein Lager: Ein Klick auf ein Symbol löst nur das Symbol aus.
+
+    Das Symbol Teilen sitzt auf der Zeile, die beim Klick ins Bearbeiten
+    geht. Ein Klick auf das Symbol öffnet das Teilen-Feld und kein
+    Bearbeiten; ein Klick daneben auf dieselbe Zeile öffnet das Bearbeiten."""
+    print('\n625. Mein Lager: Symbol oder Zeile')
+    if not ANZEIGE:
+        uebersprungen('625')
+        return
+    from scbp import (exchange_orgunits as eo, my_stock_page as ms,
+                      stock_split as sp)
+    old = _stock_backup623()
+    real = (ms.share_actions, sp.split_of, eo.units, eo.label)
+    w = None
+    try:
+        ms.share_actions = lambda _page, row: (
+            [sp.SHARE] if row['name'] == 'Gold' else [])
+        sp.split_of = lambda _lot: (3.0, [])
+        eo.units = lambda: [{'id': 'u625'}]
+        eo.label = lambda _unit: 'Einheit 625'
+        w, _window, page, _redraws = _stock_page613(_stock_rows623())
+        canvas = page['area'].canvas
+        gold = _lager_zeile(page, 'Gold')
+        gold.what['lot'] = {'key': 'p625', 'quantity': {'unit': 'SCU'},
+                            'split': {}}
+        _lager_klick(page, gold)
+        w.update()
+        pruefe(page.get('editing') == (gold.what['store'], gold.what['index']),
+               'Gegenprobe: ein Klick auf die Zeile öffnet das Bearbeiten')
+        page['forms']['raw']['reset']()
+        w.update()
+        gold = _lager_zeile(page, 'Gold')
+        icon = gold.action_icons.get('teilen')
+        pruefe(icon is not None, 'Vorbedingung: die Zeile hat Teilen')
+        if icon is None:
+            return
+        page['table'].point(gold)
+        x1, y1, x2, y2 = canvas.bbox(icon.item)
+        canvas.event_generate(
+            '<Button-1>', x=int((x1 + x2) / 2 - canvas.canvasx(0)),
+            y=int((y1 + y2) / 2 - canvas.canvasy(0)))
+        w.update()
+        pruefe((page.get('share_form') or {}).get('kind') == sp.SHARE
+               and page.get('editing') is None,
+               'ein Klick auf Teilen öffnet das Teilen-Feld, ohne das '
+               'Bearbeiten zu öffnen (%r)' % (page.get('editing'),))
+    finally:
+        ms.share_actions, sp.split_of, eo.units, eo.label = real
+        _stock_restore623(old, w)
+
+
+def _pruefung_626():
+    """626. Erklärtexte an Symbolen auf der Leinwand.
+
+    Überfahren eines Symbols in Mein Lager zeigt seinen Erklärtext, die Zeile
+    daneben keinen. Ein Element, das vor Ablauf der Wartezeit verschwindet,
+    zeigt nichts mehr."""
+    print('\n626. Erklärtexte an Leinwand-Symbolen')
+    if not ANZEIGE:
+        uebersprungen('626')
+        return
+    from scbp import notice as no
+    from scbp.language import t
+    old = _stock_backup623()
+    real = (no.DELAY_MS, no._window.show)
+    shown = []
+    w = None
+    try:
+        no.DELAY_MS = 0
+        no._window.show = lambda _w, text, _x, _y: shown.append(text)
+        w, _window, page, _redraws = _stock_page613(_stock_rows623())
+        canvas = page['area'].canvas
+        gold = _lager_zeile(page, 'Gold')
+        page['table'].point(gold)
+        w.update()
+
+        def ueber(x, y):
+            canvas.event_generate('<Motion>', x=int(x - canvas.canvasx(0)),
+                                  y=int(y - canvas.canvasy(0)))
+            for _ in range(3):
+                w.update()
+
+        middle = gold.y + gold.height / 2.0
+        ueber(page['table'].x + 4, middle)
+        pruefe(shown == [], 'Gegenprobe: über der Zeile kein Erklärtext (%r)'
+               % shown)
+        x1, y1, x2, y2 = canvas.bbox(gold.action_icons['loeschen'].item)
+        ueber((x1 + x2) / 2, (y1 + y2) / 2)
+        pruefe(shown == [t('s_lg_weg')],
+               'über Löschen steht sein Erklärtext (%r)' % shown)
+        ueber(page['table'].x + 4, middle)
+        del shown[:]
+        links, oben = canvas.canvasx(5), canvas.canvasy(5)
+        item = canvas.create_rectangle(links, oben, links + 6, oben + 6,
+                                       fill='red', tags=('probe626',))
+        no.attach_item(canvas, 'probe626', 'Probe 626')
+        canvas.tag_bind('probe626', '<Enter>', lambda _e: canvas.delete(item),
+                        add='+')
+        ueber(links + 3, oben + 3)
+        pruefe(shown == [],
+               'ein vor der Anzeige gelöschtes Element zeigt nichts (%r)'
+               % shown)
+    finally:
+        no.DELAY_MS, no._window.show = real
+        _stock_restore623(old, w)
+
+
+def _pruefung_627():
+    """627. Mein Lager: Spalten bleiben beim Klappen, lange Namen enden auf …
+
+    Die Spaltenbreiten kommen auch aus den zugeklappten Unterzeilen, damit
+    Aufklappen keine Spalte verschiebt. Ein zu langer Name wird gekürzt und
+    bleibt in seiner Spalte — auch wenn die Schriften des Fensters an einer
+    anderen Tk-Wurzel hängen."""
+    print('\n627. Mein Lager: Spaltenbreiten und lange Namen')
+    if not ANZEIGE:
+        uebersprungen('627')
+        return
+    import tkinter as tk
+    from scbp import canvas_table as ct
+    old = _stock_backup623()
+    w = None
+    fremd = tk.Tk()
+    fremd.withdraw()
+    lang = 'Sehr ' * 60 + 'langes Erz'
+    try:
+        w, window, page, _redraws = _stock_page613(
+            [('Iron', 10, 500, 'Levski'),
+             ('Iron', 5, 800, 'Orison Landing Zone Ganz Hinten Links'),
+             (lang, 2, 400, 'Levski')])
+        table = page['table']
+        canvas = table.canvas
+        breiten = dict(table.widths)
+        kopf = _lager_zeile(page, 'Iron (2)')
+        _lager_klick(page, kopf)
+        w.update()
+        pruefe(page['table'].widths == breiten,
+               'Aufklappen ändert keine Spaltenbreite (%r -> %r)'
+               % (breiten, page['table'].widths))
+        ort = 'Orison Landing Zone Ganz Hinten Links'
+        pruefe(ort in _lager_texte(page),
+               'der lange Ort einer Unterzeile steht ungekürzt da (%r)'
+               % [x for x in _lager_texte(page) if x.startswith('Orison')])
+        nur_oben = ct.Table(page['area'], window, table.columns)
+        nur_oben.width = table.width
+        nur_oben.measure([line for line in table.data_rows()
+                          if line.kind != 'post' or line.what['name'] != 'Iron'])
+        pruefe(nur_oben.widths['place'] < table.widths['place'],
+               'Gegenprobe: ohne die Unterzeilen wäre die Ortsspalte schmaler '
+               '(%d < %d)' % (nur_oben.widths['place'], table.widths['place']))
+        erz = next(
+            (line for _k, _w, line in page['row_widgets']
+             if line.kind == 'post' and line.what['name'] == lang), None)
+        pruefe(erz is not None, 'Vorbedingung: der lange Name steht da')
+        if erz is None:
+            return
+        name = next(i for i in canvas.find_withtag(erz.tag)
+                    if canvas.type(i) == 'text'
+                    and str(canvas.itemcget(i, 'text')).startswith('Sehr'))
+        table = page['table']
+        grenze = table.x + table.widths['name']
+        gezeigt = str(canvas.itemcget(name, 'text'))
+        pruefe(gezeigt.endswith('…') and canvas.bbox(name)[2] <= grenze,
+               'der lange Name endet auf … und bleibt in seiner Spalte '
+               '(%r <= %r; x %r, %d px gemessen, Schrift %r, Breite %r)'
+               % (canvas.bbox(name)[2], grenze, canvas.coords(name),
+                  table.base.measure(gezeigt), table.base.actual(),
+                  table.width))
+    finally:
+        _stock_restore623(old, w)
+        fremd.destroy()
+
+
+
+def _pruefung_628():
+    """628. Mein Lager: Der Fuß unter einer langen Tabelle bleibt erreichbar.
+
+    Steht der Fuß (Summen, Sichern) außerhalb des sichtbaren Teils, gibt Tk
+    seinem Rahmen keine Größe. Der Rollbereich rechnet deshalb mit der
+    angeforderten Höhe; ganz nach unten gerollt steht der Fuß im Bild."""
+    print('\n628. Mein Lager: Fuß unter langer Tabelle erreichbar')
+    if not ANZEIGE:
+        uebersprungen('628')
+        return
+    old = _stock_backup623()
+    w = None
+    try:
+        w, _window, page, _redraws = _stock_page613(
+            [('Erz %02d' % n, n + 1, 500, 'Levski') for n in range(40)])
+        w.geometry('1000x600')
+        for _ in range(3):
+            w.update()
+        area = page['area']
+        canvas = area.canvas
+        unten = canvas.coords(area.ids['bottom'])[1]
+        fuss = area.holders['bottom']
+        pruefe(unten > canvas.winfo_height() and fuss.winfo_height() <= 1,
+               'Gegenprobe: außerhalb des Bildes hat der Fuß keine echte Höhe '
+               '(%d px, Lage %r)' % (fuss.winfo_height(), unten))
+        ende = float(canvas.cget('scrollregion').split()[3])
+        pruefe(ende >= unten + fuss.winfo_reqheight() > unten,
+               'der Rollbereich reicht bis unter den Fuß (%r >= %r + %r)'
+               % (ende, unten, fuss.winfo_reqheight()))
+        canvas.yview_moveto(1.0)
+        for _ in range(3):
+            w.update()
+        pruefe(fuss.winfo_ismapped() and fuss.winfo_height() > 1,
+               'ganz unten steht der Fuß im Bild (%d px)' % fuss.winfo_height())
+    finally:
+        _stock_restore623(old, w)
+
+
+
+def _pruefung_629():
+    """629. Mein Lager: Bearbeiten verwirft ein ausstehendes Rollen.
+
+    Das Rollen zum Teilen-Feld kommt verzögert. Öffnet der Nutzer vorher das
+    Bearbeiten (die Seite springt nach oben), darf es danach nicht mehr
+    wegrollen."""
+    print('\n629. Mein Lager: kein verspätetes Rollen nach dem Bearbeiten')
+    if not ANZEIGE:
+        uebersprungen('629')
+        return
+    from scbp import (exchange_orgunits as eo, my_stock_page as ms,
+                      stock_split as sp)
+    old = _stock_backup623()
+    real = (ms.share_actions, sp.split_of, eo.units, eo.label)
+    w = None
+    try:
+        ms.share_actions = lambda _page, row: (
+            [sp.SHARE] if row['name'] == 'Gold' else [])
+        sp.split_of = lambda _lot: (3.0, [])
+        eo.units = lambda: [{'id': 'u629'}]
+        eo.label = lambda _unit: 'Einheit 629'
+        w, _window, page, _redraws = _stock_page613(
+            _stock_rows623() + [('Erz %02d' % n, 1, 500, 'Levski')
+                                for n in range(12)])
+        canvas = page['area'].canvas
+        gold = next(line for _k, _w, line in page['row_widgets']
+                    if line.kind == 'post' and line.what['name'] == 'Gold')
+        gold.what['lot'] = {'key': 'p629', 'quantity': {'unit': 'SCU'},
+                            'split': {}}
+
+        def warten(ms_):
+            ende = time.time() + ms_ / 1000.0
+            while time.time() < ende:
+                w.update()
+                time.sleep(0.01)
+
+        ms.open_share(page, gold.what, sp.SHARE)
+        w.update()
+        canvas.yview_moveto(0)
+        w.update()
+        ms._bring_into_view(page, delay_ms=40)
+        warten(200)
+        pruefe(canvas.yview()[0] > 0,
+               'Gegenprobe: ohne Bearbeiten rollt die Seite zum Teilen-Feld '
+               '(%r)' % (canvas.yview(),))
+        canvas.yview_moveto(0)
+        w.update()
+        ms._bring_into_view(page, delay_ms=40)
+        ms.edit(page, gold.what)
+        warten(200)
+        pruefe(canvas.yview()[0] == 0,
+               'nach dem Bearbeiten bleibt die Seite oben (%r)'
+               % (canvas.yview(),))
+    finally:
+        ms.share_actions, sp.split_of, eo.units, eo.label = real
+        _stock_restore623(old, w)
 
 
 if __name__ == '__main__':

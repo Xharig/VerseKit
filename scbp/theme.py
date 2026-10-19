@@ -36,7 +36,7 @@ Neustart. Die Seite „Darstellung" bietet ihn an.
 | Kennung | Name | Vorbild |
 |---|---|---|
 | `original` | Verse-Kit (Original) | die Markenfarbe `#9ce430` auf Nachtblau |
-| `krt` | KRT (Orange) | das Design-System des Profit Basetools: Schwarz, Hausfarbe `#E77E23`, eckige Kästen mit orangen Eckwinkeln, Überschriften und Knöpfe in Großbuchstaben |
+| `krt` | KRT (Orange) | das Design-System des Profit Basetools : Grund `#0F0F0F` mit Flächen `#282C30`, Hausfarbe `#E77E23`, Bedienelemente mit Füllung und sichtbarem Rand, Infokästen eingelassen in `#1A1D21`, eckige Kästen mit orangen Eckwinkeln, Überschriften und Knöpfe in Großbuchstaben |
 | `eis` | Eis (Cyan) | `#38d6f5` auf Nachtblau — kühl, passt zum Weltall |
 | `nebel` | Nebel (Violett) | `#a78bfa` auf tiefem Violettgrau — ruhig, für lange Abende |
 | `glut` | Glut (Rot) | `#ff5a4f` auf Anthrazit; Fehlerfarbe gelb-orange |
@@ -66,28 +66,24 @@ SCHEMES = {
         'scroll_groove': '#0b0e14', 'scroll_grip': '#5a6b85',
         'scroll_grip_light': '#7d90ad',
         # Wie Kästen, Überschriften und Knöpfe gezeichnet werden.
+        'control': '#161c28', 'control_border': '#232c3d',
+        'control_accent': '#9ce430', 'entry': '#0c1017',
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'gruen',
     },
-    # ⭐ Die Werte stammen aus dem Design-System des Profit Basetools
-    # (`colors_and_type.css`): Hausfarbe #E77E23, Seitengrund
-    # Schwarz, Flächen #141414, Haarlinien #282828, Text #D2D2D2, Ecken 0.
-    # Die Form ebenfalls von dort: `.hud-box` mit zwei 10-px-Eckwinkeln,
-    # Überschriften und Knöpfe in Großbuchstaben, Knöpfe orange gefüllt mit
-    # schwarzer Schrift.
     'krt': {
         'label': 's_da_krt',
-        'bg': '#000000', 'surface': '#141414', 'bar': '#141414',
-        'fg': '#d2d2d2', 'sub': '#8a8a8a', 'accent': '#e77e23',
-        'line': '#282828', 'line2': '#282828', 'field': '#1c1c1c',
-        'gold': '#ffd23f', 'red': '#f2564b', 'red_pale': '#d98a82',
-        'yellow': '#eeb64b', 'accent_dark': '#c45c00', 'hover': '#282828',
-        'track': '#282828', 'track_on': '#5a2e08', 'heat_low': '#141414',
-        'selected': '#282828', 'danger_fill': '#2a0a0c',
-        # Rollbalken laut Design-System: Griff #646464, beim Überfahren
-        # #EEB64B (die helle Zierfarbe).
-        'scroll_groove': '#0a0a0a', 'scroll_grip': '#646464',
+        'bg': '#0f0f0f', 'surface': '#282c30', 'bar': '#1a1d21',
+        'fg': '#d1d2d3', 'sub': '#a2a5a9', 'accent': '#e77e23',
+        'line': '#36373b', 'line2': '#36373b', 'field': '#1a1d21',
+        'gold': '#ffd23f', 'red': '#ff7a70', 'red_pale': '#d98a82',
+        'yellow': '#eeb64b', 'accent_dark': '#362313', 'hover': '#373e43',
+        'track': '#373e43', 'track_on': '#653b17', 'heat_low': '#1a1d21',
+        'selected': '#5a412d', 'danger_fill': '#2d0c0e',
+        'scroll_groove': '#282c30', 'scroll_grip': '#8f9399',
         'scroll_grip_light': '#eeb64b',
+        'control': '#373e43', 'control_border': '#8f9399',
+        'control_accent': '#eeb64b', 'entry': '#373e43',
         'square': True, 'upper_headings': True, 'accent_headings': True,
         'filled_buttons': True, 'icon_set': 'orange',
     },
@@ -106,6 +102,8 @@ SCHEMES = {
         'selected': '#162633', 'danger_fill': '#2a1414',
         'scroll_groove': '#070c11', 'scroll_grip': '#4f7184',
         'scroll_grip_light': '#78a6bb',
+        'control': '#111b25', 'control_border': '#1d2c3a',
+        'control_accent': '#38d6f5', 'entry': '#081017',
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'cyan',
     },
@@ -120,6 +118,8 @@ SCHEMES = {
         'selected': '#221c36', 'danger_fill': '#2a1418',
         'scroll_groove': '#0c0a14', 'scroll_grip': '#6b6190',
         'scroll_grip_light': '#8f84b6',
+        'control': '#1a1629', 'control_border': '#2a2440',
+        'control_accent': '#a78bfa', 'entry': '#0e0c18',
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'violett',
     },
@@ -136,6 +136,8 @@ SCHEMES = {
         'selected': '#2a2222', 'danger_fill': '#2e1d08',
         'scroll_groove': '#0c0c0c', 'scroll_grip': '#6a6260',
         'scroll_grip_light': '#9a8e8a',
+        'control': '#1c1c1d', 'control_border': '#2c2a2a',
+        'control_accent': '#ff5a4f', 'entry': '#0f0f0f',
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'glut',
     },
@@ -152,6 +154,8 @@ SCHEMES = {
         'selected': '#2b2600', 'danger_fill': '#330000',
         'scroll_groove': '#000000', 'scroll_grip': '#9a9a9a',
         'scroll_grip_light': '#ffffff',
+        'control': '#0d0d0d', 'control_border': '#5a5a5a',
+        'control_accent': '#ffd400', 'entry': '#000000',
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'kontrast',
     },
@@ -194,6 +198,10 @@ DANGER_FILL = _S['danger_fill']
 SCROLL_GROOVE = _S['scroll_groove']
 SCROLL_GRIP = _S['scroll_grip']
 SCROLL_GRIP_LIGHT = _S['scroll_grip_light']
+CONTROL = _S['control']
+CONTROL_BORDER = _S['control_border']
+CONTROL_ACCENT = _S['control_accent']
+ENTRY = _S['entry']
 SQUARE = _S['square']
 UPPER_HEADINGS = _S['upper_headings']
 ACCENT_HEADINGS = _S['accent_headings']
@@ -206,6 +214,30 @@ def choose(name):
     if name in SCHEMES:
         return paths.set_setting(SETTING, name)
     return False
+
+
+def control_colors(fill, border):
+    """Füllung und Rand eines Bedienelements, das die Grundlinie als Rand trägt.
+
+    Im Schema `krt` werden daraus Control-Füllung und Control-Rand des
+    Design-Systems; in den anderen Schemata bleiben beide Werte gleich.
+    """
+    if border and border.lower() == LINE.lower():
+        border = CONTROL_BORDER
+        if fill and fill.lower() == SURFACE.lower():
+            fill = CONTROL
+    return fill, border
+
+
+def entry_fill(fill):
+    """Die Füllung eines Eingabefelds, das mit der Feldfarbe bestellt wurde.
+
+    Im Schema `krt` ist das die Control-Füllung, denn `FIELD` ist dort der
+    eingelassene Grund von Infokästen; in den anderen Schemata gleich `fill`.
+    """
+    if fill and fill.lower() == FIELD.lower():
+        return ENTRY
+    return fill
 
 
 def heading(text):
