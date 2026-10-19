@@ -845,7 +845,8 @@ def _button(window, parent, text, action, strong=False, danger=False,
             c.itemconfigure(flaeche[0], outline=FG)
             return
         c.itemconfigure(flaeche[0], outline=RED if danger else ACCENT)
-        c.itemconfigure(beschriftung, fill=RED if danger else theme.HOVER_FG)
+        c.itemconfigure(beschriftung,
+                        fill=RED if danger else theme.CONTROL_ACCENT)
 
     def raus(_=None):
         c.itemconfigure(flaeche[0], outline=rand)
@@ -907,6 +908,15 @@ def _choice(window, parent, entries, active, action):
     reihe = tk.Frame(parent, bg=BG)
     knoepfe = {}
     schrift = window.f_small
+    ruhe_fill, ruhe_rand = theme.control_colors(SURFACE, LINE)
+    control = ruhe_fill != SURFACE
+
+    def farben(an):
+        if not control:
+            return SURFACE, (ACCENT if an else LINE), (ACCENT if an else SUB)
+        return ((theme.SELECTED if an else ruhe_fill),
+                (ACCENT if an else ruhe_rand), FG)
+
     for eintrag in entries:
         # ⭐ Ein drittes Feld ist ein Bild vor dem Text (die Flaggen der
         # Sprachwahl) — `None` oder weggelassen heißt: nur Text.
@@ -919,18 +929,17 @@ def _choice(window, parent, entries, active, action):
         c = tk.Canvas(reihe, width=breite, height=hoehe, bg=BG,
                       highlightthickness=0, bd=0, cursor='hand2')
         c.pack(side='left', padx=(0, 6))
+        fuellung, rand, schriftfarbe = farben(an)
         flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
-                                    fill=SURFACE, outline=ACCENT if an else LINE,
-                                    width=1)]
+                                    fill=fuellung, outline=rand, width=1)]
         beschr = c.create_text(vorlauf + (breite - vorlauf) / 2.0,
                                hoehe / 2.0, text=text,
-                               fill=ACCENT if an else SUB, font=schrift)
+                               fill=schriftfarbe, font=schrift)
         if bild:
             c.create_image(12, hoehe / 2.0, image=bild, anchor='w')
             c.bild = bild          # Tk räumt Bilder ohne Verweis weg
         # Dieselbe Falle wie beim gewoehnlichen Knopf — siehe `_nachmessen`.
-        _ensure_size(c, beschr, flaeche, hoehe, SURFACE,
-                      ACCENT if an else LINE, lead=vorlauf)
+        _ensure_size(c, beschr, flaeche, hoehe, fuellung, rand, lead=vorlauf)
         c.teile = (flaeche, beschr)
         c.bind('<Button-1>', lambda e, k=kennung: action(k))
         c.is_button = True      # damit tools/randpruefung.py ihn prüft
@@ -940,8 +949,9 @@ def _choice(window, parent, entries, active, action):
         for kennung, c in knoepfe.items():
             an = (kennung == gewaehlt)
             flaeche, beschr = c.teile
-            c.itemconfigure(flaeche[0], outline=ACCENT if an else LINE)
-            c.itemconfigure(beschr, fill=ACCENT if an else SUB)
+            fuellung, rand, schriftfarbe = farben(an)
+            c.itemconfigure(flaeche[0], fill=fuellung, outline=rand)
+            c.itemconfigure(beschr, fill=schriftfarbe)
 
     reihe.select = setzen
     # ⚠⚠ **`select_quiet` muss es geben, auch wenn es hier dasselbe tut.**

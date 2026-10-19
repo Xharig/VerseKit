@@ -53,7 +53,7 @@ TEXT_COLOR = theme.SUB
 _SET_COLORS = {
     'grau':  TEXT_COLOR,
     'gruen': '#9ce430',   # die Markenfarbe
-    'orange': '#fb8a28',
+    'orange': '#e77e23',
     # Die Akzente der Schemata aus rc8 — gleiche Werte wie in `theme.py`.
     'cyan': '#38d6f5',
     'violett': '#a78bfa',

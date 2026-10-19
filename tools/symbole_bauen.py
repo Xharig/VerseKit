@@ -109,7 +109,7 @@ ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 FARBEN = {
     'grau':  '#8b98a5',      # SUB    — der Normalzustand
     'gruen': '#9ce430',      # ACCENT — Update da, Schalter an, Reiter gewählt
-    'orange': '#fb8a28',
+    'orange': '#e77e23',
     # Die Akzente der vier Schemata aus v3.58.0-rc8 (`scbp/theme.py`).
     'cyan':     '#38d6f5',   # „Eis"
     'violett':  '#a78bfa',   # „Nebel"

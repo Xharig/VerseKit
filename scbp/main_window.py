@@ -763,6 +763,7 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     if textvariable is None:
         textvariable = tk.StringVar(master=parent)
     _, border = theme.control_colors(None, border)
+    bg = theme.entry_fill(bg)
     font = _as_font(font)
     radius = 8
     padding = 6
@@ -870,6 +871,7 @@ def round_textarea(parent, font, bg, border, accent, fg, rows=4, **kw):
     einbauen lassen.
     """
     _, border = theme.control_colors(None, border)
+    bg = theme.entry_fill(bg)
     font = _as_font(font)
     radius = 8
     padding = 8
@@ -1666,7 +1668,7 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
     c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
     shape = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
-                            fill=theme.FIELD, outline=theme.CONTROL_BORDER,
+                            fill=theme.ENTRY, outline=theme.CONTROL_BORDER,
                             width=1)
     text_id = c.create_text(11, height / 2.0,
                             text=_fitting(caption_for(selected)),
@@ -1679,8 +1681,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
         is_set = bool(state['value'])
         c.itemconfigure(shape,
                         outline=ACCENT if is_set else theme.CONTROL_BORDER)
-        c.itemconfigure(text_id, fill=ACCENT if is_set else FG)
-        c.itemconfigure(pfeil, fill=ACCENT if is_set else SUB)
+        c.itemconfigure(text_id, fill=theme.CONTROL_ACCENT if is_set else FG)
+        c.itemconfigure(pfeil, fill=theme.CONTROL_ACCENT if is_set else SUB)
 
     def close_list(_=None):
         # ⚠ Zuerst die Wachen lösen. Die aufgeklappte Liste ist ein **eigenes
@@ -4957,9 +4959,9 @@ def _dialog_button(parent, text, action, font, strong=False):
                                outline=border, width=1)
     caption = c.create_text(width / 2.0, height / 2.0, text=text,
                                  fill=color, font=font, anchor='center')
+    hover = theme.CONTROL_ACCENT
     c.bind('<Enter>', lambda _=None: (c.itemconfigure(surface, outline=ACCENT),
-                                      c.itemconfigure(caption,
-                                                      fill=theme.HOVER_FG)))
+                                      c.itemconfigure(caption, fill=hover)))
     c.bind('<Leave>', lambda _=None: (c.itemconfigure(surface, outline=border),
                                       c.itemconfigure(caption, fill=color)))
     c.bind('<Button-1>', lambda _=None: action())
