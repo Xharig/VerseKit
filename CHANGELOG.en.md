@@ -6,7 +6,13 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.12.0 - 2026-10-19
+
+> Verse-Kit feels noticeably snappier: My Inventory and Unit storage no
+> longer rebuild completely on every click, and the overlay no longer
+> stutters while you drag it, even with work running in the background.
+> The edit panel in My Inventory can now also put a lot into unit
+> storage, and gems no longer show up as "Plant".
 
 ### Improved
 
@@ -21,8 +27,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   edit field also gets a "Put into unit storage" or "Take back" button where
   the lot allows it. Below the list it now says "Sale value up to" in aUEC.
 - **Unit storage no longer rebuilds on every click** — opening and closing
-  lots, opening booking fields, cancelling, booking in and hints while
-  filling in now only change the spot concerned; the list and what you have
+  lots, opening booking fields and the book-in field, cancelling and hints
+  while filling in now only change the spot concerned; the list and what you have
   typed stay put.
 
 ### Fixed

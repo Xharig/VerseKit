@@ -54,8 +54,8 @@ PAGE_LIMIT = 500
 SCU = 'SCU'
 PIECE = 'PIECE'
 
-# Gespeicherte Werte der früheren vier Sichten; `orgstock_page.OLD_VIEWS`
-# bildet sie auf die heutigen zwei Reiter ab.
+# Gespeicherte Sicht-Werte, die `orgstock_page.OLD_VIEWS` auf die zwei
+# Reiter abbildet.
 ITEMS = 'items'
 RAW = 'rohstoffe'
 TRADE = 'handelsware'

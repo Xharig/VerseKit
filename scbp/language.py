@@ -2858,11 +2858,7 @@ TEXTS = {
                               'Ortskatalogs werden nicht mehr geleert, und '
                               'das Lager der Einheit ruft die '
                               'Mitgliederliste nur noch dort ab, wo du '
-                              'Logistiker bist. Dazu eine Messanalyse zum '
-                              'Tempo: Das Overlay ruckelt beim Verschieben '
-                              'nicht mehr, wenn im Hintergrund gerechnet '
-                              'wird, und Seitenwechsel lesen die '
-                              'Einstellungen nicht mehr jedes Mal neu.',
+                              'Logistiker bist.',
                               '**Review of the Basetool sync** — wait times after '
                               'errors, a full stop after a block, only your own '
                               'account\'s blueprints and more safely stored '
@@ -2873,12 +2869,15 @@ TEXTS = {
                               'resent on every sync, lots at a place '
                               'outside the location catalog are no longer '
                               'emptied, and unit storage only asks for the '
-                              'member list where you are a logistician. '
-                              'Plus a measured analysis of speed: the '
-                              'overlay no longer stutters while you drag it '
-                              'and work runs in the background, and page '
-                              'switches no longer reread the settings every '
-                              'time.'),
+                              'member list where you are a logistician.'),
+    's_dk_greluc_bugs2':     ('**Messanalyse zum Tempo** — das Overlay ruckelt '
+                              'beim Verschieben nicht mehr, wenn im Hintergrund '
+                              'gerechnet wird, und Seitenwechsel lesen die '
+                              'Einstellungen nicht mehr jedes Mal neu.',
+                              '**A measured analysis of speed** — the overlay '
+                              'no longer stutters while you drag it and work '
+                              'runs in the background, and page switches no '
+                              'longer reread the settings every time.'),
     's_dk_parsul_idee':      ('**Bilder im Fehlerbericht** — ein Bildschirmfoto geht '
                               'jetzt direkt mit dem Bericht hinaus, statt es '
                               'getrennt nachzureichen.',

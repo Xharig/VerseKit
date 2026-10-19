@@ -6,7 +6,14 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.12.0 - 2026-10-19
+
+> Verse-Kit reagiert spürbar flotter: Mein Lager und Lager der Einheit
+> bauen sich nicht mehr bei jedem Klick komplett neu auf, und das Overlay
+> ruckelt beim Verschieben nicht mehr, auch wenn im Hintergrund gerechnet
+> wird. Auch aus dem Bearbeiten-Feld in Mein Lager lässt sich ein Posten
+> jetzt ins Lager der Einheit geben, und Edelsteine stehen nicht mehr als
+> „Pflanze" da.
 
 ### Verbessert
 
@@ -22,8 +29,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   „Ins Lager der Einheit geben" bzw. „Zurücknehmen", wo das am Posten geht.
   Unter der Liste steht jetzt „Verkaufswert höchstens" mit aUEC.
 - **Lager der Einheit baut sich nicht mehr bei jedem Klick neu auf** —
-  Posten auf- und zuklappen, Buchungsfelder öffnen, Abbrechen, Einbuchen
-  und Hinweise beim Ausfüllen ändern nur noch die betroffene Stelle; die
+  Posten auf- und zuklappen, Buchungsfelder und das Einbuchen-Feld öffnen,
+  Abbrechen und Hinweise beim Ausfüllen ändern nur noch die betroffene
+  Stelle; die
   Liste und das schon Eingetippte bleiben stehen.
 
 ### Behoben
