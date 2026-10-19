@@ -739,7 +739,7 @@ class Table:
 
 
 def _fit(font, text, width):
-    """`text` so kürzen, dass es mit „…" in `width` Pixel passt."""
+    """`text` mit Auslassungszeichen so kürzen, dass es in `width` Pixel passt."""
     if width <= 0:
         return ''
     if font.measure(text) <= width:
