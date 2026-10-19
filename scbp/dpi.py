@@ -524,6 +524,10 @@ def _patch_tkinter():
     tk.Canvas.canvasy = _canvas_xy_wrapper(tk.Canvas.canvasy)
     tk.Canvas.find_overlapping = _find_area_wrapper(tk.Canvas.find_overlapping)
     tk.Canvas.find_enclosed = _find_area_wrapper(tk.Canvas.find_enclosed)
+    tk.Canvas.addtag_overlapping = _addtag_area_wrapper(
+        tk.Canvas.addtag_overlapping)
+    tk.Canvas.addtag_enclosed = _addtag_area_wrapper(
+        tk.Canvas.addtag_enclosed)
 
     find_closest = tk.Canvas.find_closest
 
@@ -619,6 +623,14 @@ def _find_area_wrapper(original):
     def dpi_find_area(self, x1, y1, x2, y2):
         return original(self, _up(x1), _up(y1), _up(x2), _up(y2))
     return dpi_find_area
+
+
+def _addtag_area_wrapper(original):
+    """addtag_overlapping/addtag_enclosed: Rechteck hinein umrechnen."""
+    def dpi_addtag_area(self, newtag, x1, y1, x2, y2):
+        return original(self, newtag, _up_coord(x1), _up_coord(y1),
+                        _up_coord(x2), _up_coord(y2))
+    return dpi_addtag_area
 
 
 def _embed_wrapper(tk, original):

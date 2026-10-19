@@ -44,11 +44,10 @@ import tkinter as tk
 
 from .language import t
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, RED, GOLD, _heading,
-                    _scroll_area, _body_text, _button, _wrap, _stripe,
-                    _stripe_reset, _choice, _combo_box, _checkbox,
-                    _storage_fold, _refinery_box, _keep_scroll, _money, _auec,
-                    _amount_text, after_typing, sync_targets)
-from . import icons, materials, notice, paths, stock_kinds, theme
+                    _body_text, _button, _wrap, _choice, _combo_box,
+                    _checkbox, _storage_fold, _refinery_box, _keep_scroll,
+                    _money, _auec, _amount_text, after_typing, sync_targets)
+from . import canvas_table, icons, materials, notice, paths, stock_kinds, theme
 from . import stock_split, trade_cargo
 
 PAGE = 'meinlager'
@@ -209,10 +208,11 @@ def is_old_user():
 def my_stock_page(window, frame):
     from .main_window import round_entry
     _heading(window, frame, t('hf_meinlager'), t('s_ml_lead'))
-    inner = _scroll_area(frame)
+    area = canvas_table.Area(frame)
+    inner = area.top
     view = paths.setting(SETTING_VIEW) or VIEW_MATERIAL
     page = {
-        'window': window, 'inner': inner,
+        'window': window, 'inner': inner, 'area': area,
         'state': {'view': view if view in (VIEW_MATERIAL, VIEW_ITEMS)
                   else VIEW_MATERIAL,
                   'kind': '', 'place': '', 'purpose': '',
@@ -236,6 +236,7 @@ def my_stock_page(window, frame):
 
     def say(text, color=SUB):
         message.configure(text=text, fg=color)
+        area.refresh()
     page['say'] = say
 
     # Feste Teile oben: Eintragen, Raffinerie.
@@ -257,8 +258,8 @@ def my_stock_page(window, frame):
                       placeholder=t('s_ml_suche'))
     box.holder.pack(fill='x', pady=(8, 0))
     page['search_box'] = box
-    listing = tk.Frame(inner, bg=BG)
-    listing.pack(fill='x', pady=(8, 0))
+    listing = tk.Frame(area.bottom, bg=BG)
+    listing.pack(fill='x')
     page['listing'] = listing
 
     def redraw():
@@ -285,10 +286,11 @@ def my_stock_page(window, frame):
         for child in listing.winfo_children():
             child.destroy()
         _draw_list(window, listing, page, rows, server, cache)
+        area.refresh()
     page['redraw'] = redraw
     page['state']['search'].trace_add('write', after_typing(inner, redraw))
 
-    _backup_section(window, inner, page)
+    _backup_section(window, area.bottom, page)
     sync_targets(window)[PAGE] = (message, redraw)
 
     def split_changed():
@@ -451,14 +453,12 @@ def _sort_key(state, rows):
 
 def _draw_list(window, listing, page, rows, server, cache):
     state = page['state']
-    _stripe_reset(listing)
-    # Vor den frühen Rücksprüngen leeren: Sonst zeigten sie auf die eben
-    # abgebaute Tabelle.
     page['row_widgets'] = []
     page['folds'] = {}
-    page['slots'] = {}
-    page['share_holder'] = None
+    page.pop('table', None)
+    _drop_share_holder(page)
     page.pop('builder', None)
+    page['area'].set_table(None)
     shown = visible_rows(rows, state, server, cache)
     page['shown'] = shown
     if not rows:
@@ -485,9 +485,6 @@ def _draw_list(window, listing, page, rows, server, cache):
         # Stückware (Edelsteine) als eigener Block oben, wie im Spiel.
         order.sort(key=lambda g: materials.piece_first(g[0]['name']))
 
-    table = tk.Frame(listing, bg=BG)
-    table.pack(fill='x')
-    table.grid_columnconfigure(0, weight=1)
     columns = [('name', 's_ml_sp_bestand', 'w'), ('place', 's_ml_sp_ort', 'w')]
     # Verkaufsware hat keine Qualität — mit PURPOSE_SALE fällt die Spalte
     # weg.
@@ -508,22 +505,19 @@ def _draw_list(window, listing, page, rows, server, cache):
             state['sort'], state['descending'] = key, False
         _keep_scroll(listing, page['redraw'])
 
-    for col, (key, text_key, anchor) in enumerate(columns):
+    heads = []
+    for key, text_key, anchor in columns:
         text = t(text_key) if text_key else ''
         sortable = key in ('name', 'place', 'quality', 'amount')
         active = sortable and state['sort'] == key
         if active:
             text += ' ▾' if state['descending'] else ' ▴'
-        head = tk.Label(table, text=text.upper() if text_key else '', bg=BG,
-                        fg=ACCENT if active else SUB, font=window.f_small,
-                        anchor=anchor, padx=8,
-                        cursor='hand2' if sortable else '')
-        head.grid(row=0, column=col, sticky='ew', pady=(0, 2))
-        if sortable:
-            head.bind('<Button-1>', lambda _e, k=key: sort_by(k))
+        heads.append(canvas_table.Column(
+            key, text, anchor,
+            (lambda k=key: sort_by(k)) if sortable else None, active))
 
     from . import selling as prices
-    builder = {'row': 1, 'table': table, 'columns': page['columns'],
+    builder = {'columns': page['columns'],
                'server': server, 'cache': cache, 'prices': prices,
                'selling': selling, 'items': items,
                'sale_badge': not items and not selling}
@@ -535,9 +529,12 @@ def _draw_list(window, listing, page, rows, server, cache):
     if page.get('closed_for') != text:
         closed.clear()
         page['closed_for'] = text
+    lines, measured = [], []
     for group in order:
         if len(group) == 1:
-            _post_row(window, page, builder, group[0], nested=False)
+            line = _post_row(window, page, builder, group[0], nested=False)
+            lines.append(line)
+            measured.append(line)
             continue
         key = (items, group[0]['name'].lower())
         if group[0]['piece'] and not items:
@@ -548,9 +545,24 @@ def _draw_list(window, listing, page, rows, server, cache):
         found = bool(text) and any(text in r['place'].lower() for r in group)
         is_open = (key in page['open'] or edited
                    or (found and key not in closed))
-        _group_row(window, page, builder, group, key, is_open)
+        head = _group_row(window, page, builder, group, key, is_open)
+        fold = page['folds'][key]
+        lines.append(head)
+        measured.append(head)
+        measured.extend(fold['specs'])
         if is_open:
-            _fold_rows(window, page, page['folds'][key])
+            fold['entries'] = list(fold['specs'])
+            lines.extend(fold['entries'])
+    table = canvas_table.Table(
+        page['area'], window, heads,
+        color_of=lambda line, n: _row_color(page, line, n))
+    table.measure(measured)
+    table.show(lines)
+    page['table'] = table
+    page['area'].set_table(table)
+    _sync_rows(page)
+    if page.get('share_form'):
+        _place_share_form(page, drawing=True)
 
     # Items im Handelslager sind keine Ware: keine Preise, keine Summen.
     trade_rows = [r for r in shown
@@ -688,26 +700,24 @@ def _split_badges(row, scope):
 
 
 def _post_row(window, page, builder, row, nested):
-    base = _stripe(page['listing'], BG)
-    editing = page.get('editing') == (row['store'], row['index'])
-    if editing:
-        base = theme.HOVER
+    """Die Zeile eines Postens als `canvas_table.Row` — noch nicht
+    gezeichnet."""
     items = builder['items']
     kind = kind_of(row, builder['server'], builder['cache'])
     tag = stock_kinds.tag(row['name']) if items and not nested else None
     badges = _post_badges(row, kind, builder['sale_badge'], nested) \
         + _split_badges(row, page['state']['scope'])
     values = {
-        'name': (name_cell(window, base, '' if nested else row['name'],
-                           badges, tag, indent=nested,
-                           extra='' if nested or items
-                           else mining_text(row['name'])), FG),
+        'name': (canvas_table.Name('' if nested else row['name'], badges,
+                                   tag, indent=nested,
+                                   extra='' if nested or items
+                                   else mining_text(row['name'])), FG),
         'place': (row['place'] or '—', SUB),
         'quality': ('%d' % row['quality'] if row['quality'] is not None
                     else '—', SUB),
         'amount': (amount_text(row, row['piece']),
                    GOLD if row['leftover'] else ACCENT),
-        'action': (_actions(window, page, row, base), SUB),
+        'action': (_actions(page, row), SUB),
     }
     if builder['selling']:
         price = builder['prices'].best_price(row['name'])
@@ -719,18 +729,10 @@ def _post_row(window, page, builder, row, nested):
         values['profit'] = ('—', SUB) if profit is None else (
             ('+' if profit > 0 else '') + _money(profit),
             ACCENT if profit > 0 else RED if profit < 0 else SUB)
-    widgets = table_cells(window, builder, base, values)
-    # Eine freie Tabellenzeile direkt darunter für das Teilen-Feld
-    # (`_place_share_form`).
-    slot = builder['row']
-    builder['row'] += 1
-    page.setdefault('slots', {})[(row['store'], row['index'])] = slot
-    if whole_row(page, row):
-        bind_row(widgets, lambda: edit(page, row))
-    page['row_widgets'].append(('post', row, widgets))
-    form = page.get('share_form')
-    if form and form['row'] == (row['store'], row['index']):
-        _share_form(window, page, dict(builder, row=slot), row, form)
+    values = {k: v for k, v in values.items() if k in builder['columns']}
+    return canvas_table.Row(
+        'post', row, values,
+        on_click=(lambda: edit(page, row)) if whole_row(page, row) else None)
 
 
 def whole_row(page, row):
@@ -766,31 +768,23 @@ def share_actions(page, row):
     return out
 
 
-def _actions(window, page, row, base):
-    def build(cell):
-        cell.action_icons = {}
-        # In Gemeinsam und Persönlich steht ein Anteil als Menge — Bearbeiten
-        # und Löschen gälten aber der ganzen Zeile. Liegt etwas davon im
-        # Lager der Einheit, dort nur Teilen und Zurücknehmen.
-        shared_view = not whole_row(page, row)
-        icons_here = [] if shared_view else [
-            ('loeschen', lambda _e=None: remove(page, row), 's_lg_weg'),
-            ('bearbeiten', lambda _e=None: edit(page, row),
-             's_ml_bearbeiten')]
-        for kind in reversed(share_actions(page, row)):
-            icons_here.append((
-                'teilen' if kind == stock_split.SHARE else 'zuruecknehmen',
-                lambda _e=None, k=kind: open_share(page, row, k),
-                's_ml_teilen' if kind == stock_split.SHARE
-                else 's_ml_zuruecknehmen'))
-        for position, (name, run, text_key) in enumerate(icons_here):
-            icon = icons.tappable(cell, name, run, background=base,
-                                  font=window.f_small)
-            icon.is_action = True
-            icon.pack(side='right', padx=(4, 8) if position == 0 else (4, 0))
-            notice.attach(icon, lambda k=text_key: t(k))
-            cell.action_icons[name] = icon
-    return build
+def _actions(page, row):
+    """Die Symbole am rechten Rand einer Postenzeile, von rechts nach links.
+
+    In Gemeinsam und Persönlich steht ein Anteil als Menge; Bearbeiten und
+    Löschen gälten der ganzen Zeile und fehlen dort (`whole_row`)."""
+    entries = [] if not whole_row(page, row) else [
+        ('loeschen', lambda: remove(page, row), lambda: t('s_lg_weg')),
+        ('bearbeiten', lambda: edit(page, row),
+         lambda: t('s_ml_bearbeiten'))]
+    for kind in reversed(share_actions(page, row)):
+        text_key = ('s_ml_teilen' if kind == stock_split.SHARE
+                    else 's_ml_zuruecknehmen')
+        entries.append((
+            'teilen' if kind == stock_split.SHARE else 'zuruecknehmen',
+            lambda k=kind: open_share(page, row, k),
+            lambda k=text_key: t(k)))
+    return canvas_table.Icons(entries)
 
 
 def _check_share_form(page, rows):
@@ -823,33 +817,42 @@ def open_share(page, row, kind):
     _place_share_form(page)
 
 
-def _place_share_form(page):
+def _place_share_form(page, drawing=False):
     """Das Teilen-Feld nur an seiner Stelle unter der Zeile bauen oder
     abbauen, die Liste bleibt stehen. Steht die Zeile gerade nicht in der
-    Liste, wird neu gezeichnet."""
+    Liste, wird neu gezeichnet — beim Zeichnen selbst (`drawing`) nicht."""
+    _drop_share_holder(page)
+    form = page.get('share_form')
+    if form is None:
+        return
+    table = page.get('table')
+    target = next((line for kind, what, line in page.get('row_widgets', [])
+                   if kind == 'post'
+                   and (what['store'], what['index']) == form['row']), None)
+    if table is None or not table.alive or target is None:
+        if not drawing:
+            _keep_scroll(page['listing'], page['redraw'])
+        return
+    holder = _share_form(page['window'], page, target.what, form)
+    if holder is None:
+        return
+    page['share_slot'] = table.insert_widget(target, holder, pady=(0, 6))
+
+
+def _drop_share_holder(page):
+    """Das gezeigte Teilen-Feld abbauen; das offene Formular bleibt gemerkt."""
     holder = page.get('share_holder')
+    slot = page.get('share_slot')
     page['share_holder'] = None
+    page['share_slot'] = None
+    table = page.get('table')
+    if slot is not None and table is not None and slot in table.rows:
+        table.remove([slot])
     try:
         if holder is not None and holder.winfo_exists():
             holder.destroy()
     except tk.TclError:
         pass
-    form = page.get('share_form')
-    if form is None:
-        return
-    slot = page.get('slots', {}).get(form['row'])
-    target = next((what for kind, what, _w in page.get('row_widgets', [])
-                   if kind == 'post'
-                   and (what['store'], what['index']) == form['row']), None)
-    try:
-        drawn = 'builder' in page and page['builder']['table'].winfo_exists()
-    except tk.TclError:
-        drawn = False
-    if slot is None or target is None or not drawn:
-        _keep_scroll(page['listing'], page['redraw'])
-        return
-    _share_form(page['window'], page, dict(page['builder'], row=slot),
-                target, form)
 
 
 def share_buttons(window, buttons, page, store, index):
@@ -886,31 +889,43 @@ def _bring_into_view(page, delay_ms=150):
     steht. ⚠ Verzögert: `_keep_scroll` stellt die alte Rollstelle per
     `after_idle` und `after(60)` wieder her und höbe ein sofortiges Rollen
     auf."""
-    inner = page.get('inner')
-    canvas = getattr(inner, 'canvas', None)
-    if canvas is None:
+    area = page.get('area')
+    if area is None:
         return
 
     def roll():
-        widget = page.get('share_holder')
+        page['roll_job'] = None
+        slot = page.get('share_slot')
+        if slot is None or not slot.drawn:
+            return
         try:
-            if widget is None or not widget.winfo_exists():
-                return
-            height = max(1, inner.winfo_height())
-            top = widget.winfo_rooty() - inner.winfo_rooty() - 40
-            canvas.yview_moveto(max(0.0, top / height))
+            area.see(slot.y)
         except tk.TclError:
             pass
+    _cancel_roll(page)
     try:
-        inner.after(delay_ms, roll)
+        page['roll_job'] = area.canvas.after(delay_ms, roll)
+    except tk.TclError:
+        page['roll_job'] = None
+
+
+def _cancel_roll(page):
+    """Ein noch ausstehendes Rollen zum Teilen-Feld verwerfen."""
+    job = page.get('roll_job')
+    page['roll_job'] = None
+    if job is None:
+        return
+    try:
+        page['area'].canvas.after_cancel(job)
     except tk.TclError:
         pass
 
 
-def _share_form(window, page, builder, row, form):
+def _share_form(window, page, row, form):
     """Ins Lager der Einheit geben oder zurücknehmen: Einheit, Menge (ab
     Werk alles), Knöpfe. Höchstens, was der Posten beim Basetool persönlich
-    bzw. im gewählten Pool hält."""
+    bzw. im gewählten Pool hält. Gibt den Rahmen zurück (ein Kind der
+    Leinwand) oder `None`, wenn es nichts zu teilen gibt."""
     from .main_window import round_entry, round_select
     from . import exchange_orgunits
     lot = row['lot']
@@ -924,7 +939,7 @@ def _share_form(window, page, builder, row, form):
         choices = [(unit, stock_split.unit_label(unit)) for unit, _a in pools]
     if not choices:
         page['share_form'] = None
-        return
+        return None
     if form['unit'] not in {c[0] for c in choices}:
         form['unit'] = choices[0][0]
 
@@ -938,11 +953,7 @@ def _share_form(window, page, builder, row, form):
         form['amount'] = tk.StringVar(master=page['inner'],
                                       value=amount_text(limit(), piece,
                                                         unit=False))
-    holder = tk.Frame(builder['table'], bg=SURFACE)
-    holder.grid(row=builder['row'], column=0,
-                columnspan=len(builder['columns']), sticky='ew',
-                pady=(0, 6))
-    builder['row'] += 1
+    holder = tk.Frame(page['area'].canvas, bg=SURFACE)
     page['share_holder'] = holder
     tk.Label(holder, text=t('s_ml_teilen_t' if sharing else 's_ml_zurueck_t')
              % row['name'], bg=SURFACE, fg=ACCENT, font=window.f_bold,
@@ -985,6 +996,7 @@ def _share_form(window, page, builder, row, form):
     _button(window, buttons, t('s_hl_abbrechen'), cancel).pack(
         side='left', padx=(8, 0))
     form['go'], form['pick'] = go, pick
+    return holder
 
 
 def submit_share(window, page, op):
@@ -1034,10 +1046,9 @@ def submit_share(window, page, op):
 
 
 def _group_row(window, page, builder, group, key, is_open):
-    """Die Summenzeile einer Gruppe. Dahinter bleiben Tabellenzeilen für die
-    Unterzeilen frei (`_fold_rows`); ein Klick klappt nur diese um, die
-    übrige Liste bleibt stehen."""
-    base = _stripe(page['listing'], BG)
+    """Die Summenzeile einer Gruppe als `canvas_table.Row`; ihre Unterzeilen
+    stehen fertig beschrieben in `page['folds'][key]['specs']`. Ein Klick
+    klappt nur diese um, die übrige Liste bleibt stehen."""
     items = builder['items']
     first = group[0]
     kind = kind_of(first, builder['server'], builder['cache'])
@@ -1058,16 +1069,17 @@ def _group_row(window, page, builder, group, key, is_open):
         badges.append((t('s_ml_verkauf'), ACCENT))
 
     def toggle():
+        """Umklappen nach dem, was zu sehen ist: Auch eine von der Suche
+        oder vom Bearbeiten geöffnete Gruppe klappt beim ersten Klick zu."""
         fold = page.get('folds', {}).get(key)
-        if fold is None or fold['head'] not in page['row_widgets']:
+        table = page.get('table')
+        if fold is None or table is None or fold['head'] not in table.rows:
             if key in page['open']:
                 page['open'].discard(key)
             else:
                 page['open'].add(key)
             _keep_scroll(page['listing'], page['redraw'])
             return
-        # Nach dem, was zu sehen ist: Auch eine von der Suche oder vom
-        # Bearbeiten geöffnete Gruppe klappt beim ersten Klick zu.
         show = not fold['entries']
         closed = page.setdefault('closed', set())
         if show:
@@ -1079,23 +1091,18 @@ def _group_row(window, page, builder, group, key, is_open):
         fold['by_edit'] = False
         _fold_show(window, page, fold, show)
 
-    def arrow(cell):
-        icon = icons.line(cell, 'zuklappen' if is_open else 'aufklappen',
-                          background=base, font=window.f_small)
-        icon.pack(side='right', padx=(4, 10))
-        cell.arrow = icon
-
     values = {
-        'name': (name_cell(window, base, '%s (%d)' % (first['name'],
-                                                      len(group)),
-                           badges, tag, extra='' if items
-                           else mining_text(first['name'])), FG),
+        'name': (canvas_table.Name('%s (%d)' % (first['name'], len(group)),
+                                   badges, tag, extra='' if items
+                                   else mining_text(first['name'])), FG),
         'place': (places[0] if len(places) == 1 else
                   (t('s_lg_orte_n') % len(places) if places else '—'), SUB),
         'quality': (quality, SUB),
         'amount': (amount_text(round(sum(r['amount'] for r in group), 3),
                                first['piece']), ACCENT),
-        'action': (arrow, SUB),
+        'action': (canvas_table.Icons(
+            [('zuklappen' if is_open else 'aufklappen', None, None)],
+            right=10), SUB),
     }
     if builder['selling']:
         price = builder['prices'].best_price(first['name'])
@@ -1106,90 +1113,80 @@ def _group_row(window, page, builder, group, key, is_open):
         values['profit'] = ('—', SUB) if profit is None else (
             ('+' if profit > 0 else '') + _money(profit),
             ACCENT if profit > 0 else RED if profit < 0 else SUB)
-    widgets = table_cells(window, builder, base, values)
-    bind_row(widgets, toggle)
-    head = ('group', key, widgets)
-    page['row_widgets'].append(head)
+    values = {k: v for k, v in values.items() if k in builder['columns']}
+    head = canvas_table.Row('group', key, values, on_click=toggle)
     rows = sorted(group, key=lambda r: (r['place'].lower(),
                                         -(r['quality'] or 0)))
-    # Je Unterzeile zwei Tabellenzeilen: sie selbst und ihr Teilen-Feld.
-    page['folds'][key] = {'head': head, 'rows': rows, 'key': key,
-                          'by_edit': False,
-                          'start': builder['row'], 'size': 2 * len(rows),
-                          'entries': [],
-                          'arrow': getattr(widgets[builder['columns'].index(
-                              'action')], 'arrow', None)}
-    builder['row'] += 2 * len(rows)
+    page['folds'][key] = {
+        'head': head, 'rows': rows, 'key': key, 'by_edit': False,
+        'specs': [_post_row(window, page, builder, r, nested=True)
+                  for r in rows],
+        'entries': []}
+    return head
 
 
-def _fold_rows(window, page, fold):
-    """Die Unterzeilen einer Gruppe in ihre freien Tabellenzeilen bauen und in
-    `row_widgets` direkt hinter die Summenzeile stellen."""
-    builder = dict(page['builder'], row=fold['start'])
-    before = len(page['row_widgets'])
-    for row in fold['rows']:
-        _post_row(window, page, builder, row, nested=True)
-    entries = page['row_widgets'][before:]
-    del page['row_widgets'][before:]
-    at = page['row_widgets'].index(fold['head']) + 1
-    page['row_widgets'][at:at] = entries
-    fold['entries'] = entries
+def _sync_rows(page):
+    """`page['row_widgets']` aus der Tabelle: `(Art, Posten/Schlüssel,
+    Zeile)` je gezeigter Zeile, in Tabellenreihenfolge."""
+    table = page.get('table')
+    page['row_widgets'] = [] if table is None else [
+        (line.kind, line.what, line) for line in table.data_rows()]
+
+
+def _row_color(page, line, n):
+    """Grund der n-ten Zeile: Streifen ab Zeile 2, die Zeile im Bearbeiten
+    auf `theme.HOVER`."""
+    editing = page.get('editing')
+    if line.kind == 'post' and editing is not None \
+            and editing == (line.what['store'], line.what['index']):
+        return theme.HOVER
+    return SURFACE if n % 2 else BG
 
 
 def _fold_show(window, page, fold, show):
-    """Nur die Unterzeilen dieser Gruppe zeigen oder abbauen, den Pfeil
+    """Nur die Unterzeilen dieser Gruppe zeigen oder wegnehmen, den Pfeil
     tauschen und die Streifen neu verteilen — ohne Neuaufbau der Liste."""
     if show == bool(fold['entries']):
         return
+    table = page.get('table')
+    if table is None or fold['head'] not in table.rows:
+        return
     if show:
-        _fold_rows(window, page, fold)
+        fold['entries'] = list(fold['specs'])
+        table.insert(fold['head'], fold['entries'])
     else:
-        table = page['builder']['table']
-        end = fold['start'] + fold['size']
-        for widget in table.grid_slaves():
-            try:
-                if fold['start'] <= int(widget.grid_info()['row']) < end:
-                    widget.destroy()
-            except (tk.TclError, KeyError, ValueError):
-                pass
-        page['row_widgets'] = [e for e in page['row_widgets']
-                               if e not in fold['entries']]
+        slot = page.get('share_slot')
+        if slot is not None and slot in table.rows:
+            at = table.rows.index(slot)
+            if at and table.rows[at - 1] in fold['entries']:
+                _drop_share_holder(page)
+        table.remove(fold['entries'])
         fold['entries'] = []
-    arrow = fold.get('arrow')
-    if arrow is not None:
-        try:
-            arrow.swap_symbol('zuklappen' if show else 'aufklappen')
-        except (tk.TclError, AttributeError):
-            pass
-    _restripe(page)
+    head = fold['head']
+    if head.arrow is not None:
+        head.arrow.swap_symbol('zuklappen' if show else 'aufklappen')
+    head.cells['action'][0].entries[0] = (
+        'zuklappen' if show else 'aufklappen', None, None)
+    _sync_rows(page)
 
 
 def _restripe(page):
-    """Die Streifen so verteilen, wie `_stripe` sie beim Bauen der Liste
-    vergibt: Zeile für Zeile in der Reihenfolge von `row_widgets`. Die
-    Zeile im Bearbeiten (`page['editing']`) steht auf `theme.HOVER`."""
-    editing = page.get('editing')
-    _stripe_reset(page['listing'])
-    for kind, what, widgets in page['row_widgets']:
-        new = _stripe(page['listing'], BG)
-        if kind == 'post' and editing == (what['store'], what['index']):
-            new = theme.HOVER
-        try:
-            old = str(widgets[0].cget('bg'))
-        except tk.TclError:
-            continue
-        if old != new:
-            for widget in widgets:
-                _repaint(widget, old, new)
+    """Die Streifen und die Hervorhebung der Zeile im Bearbeiten neu
+    verteilen."""
+    table = page.get('table')
+    if table is not None:
+        table.restripe()
 
 
 def _show_editing(page):
     """Die Zeile im Bearbeiten hervorheben bzw. die Hervorhebung abnehmen —
-    liegt sie in einer zugeklappten Gruppe, klappt nur diese auf. Ohne
+    liegt sie in einer zugeklappten Gruppe, klappt nur diese auf, und nach
+    dem Bearbeiten wieder zu. Ohne
     gezeichnete Liste wird neu gezeichnet."""
+    table = page.get('table')
     try:
-        drawn = 'builder' in page and page['listing'].winfo_exists() \
-            and page['builder']['table'].winfo_exists()
+        drawn = table is not None and table.alive \
+            and page['listing'].winfo_exists()
     except tk.TclError:
         drawn = False
     if not drawn:
@@ -1203,27 +1200,10 @@ def _show_editing(page):
             _fold_show(page['window'], page, fold, True)
             fold['by_edit'] = True
         elif not here and fold.get('by_edit'):
-            # Nur fürs Bearbeiten aufgeklappt: wieder zu.
             fold['by_edit'] = False
             if fold['key'] not in page['open']:
                 _fold_show(page['window'], page, fold, False)
     _restripe(page)
-
-
-def _repaint(widget, old, new):
-    """Alles in `widget`, das auf `old` steht, auf `new` stellen — Blasen
-    über ihr `set_background`."""
-    try:
-        if str(widget.cget('bg')) == old:
-            setter = getattr(widget, 'set_background', None)
-            if setter is not None:
-                setter(new)
-            else:
-                widget.configure(bg=new)
-    except tk.TclError:
-        return
-    for child in widget.winfo_children():
-        _repaint(child, old, new)
 
 
 def remove(page, row):
@@ -1287,6 +1267,7 @@ def edit(page, row):
         if kind != form_kind:
             form['reset'](quiet=True)
     page['forms'][form_kind]['edit'](row['index'])
+    _cancel_roll(page)
     canvas = getattr(page['inner'], 'canvas', None)
     if canvas is not None:
         try:
