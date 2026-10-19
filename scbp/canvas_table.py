@@ -565,13 +565,14 @@ class Table:
             else:
                 text, badge_color, w = value
                 h = self.badge_height
-                top = center - h / 2.0
+                top = int(round(center - h / 2.0))
+                left = int(round(x0 + x))
                 bubble = _round_rect(
-                    canvas, x0 + x + 1, top + 1, x0 + x + w - 1, top + h - 1,
+                    canvas, left + 1, top + 1, left + w - 1, top + h - 1,
                     radius=max(4, h // 3), fill=row.bg, outline=badge_color,
                     width=1, tags=tags)
                 row.items['fill'].append(bubble)
-                canvas.create_text(x0 + x + w / 2.0, center, text=text,
+                canvas.create_text(left + w / 2.0, top + h / 2.0, text=text,
                                    anchor='center', font=font,
                                    fill=badge_color, tags=tags)
 
