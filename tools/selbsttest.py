@@ -26635,7 +26635,7 @@ def _pruefung_272():
     pruefe(not _o272['square'] and _o272['icon_set'] == 'gruen',
            'und die alte Form: rund, gruene Symbole')
     _k272 = _th272.SCHEMES['krt']
-    pruefe(_k272['accent'] == '#e77e23' and _k272['square']
+    pruefe(_k272['accent'] == '#fb8a28' and _k272['square']
            and _k272['upper_headings'] and _k272['icon_set'] == 'orange',
            '„KRT" ist orange, eckig, mit Grossbuchstaben')
     pruefe(set(_k272) == set(_o272),

@@ -812,6 +812,8 @@ def _button(window, parent, text, action, strong=False, danger=False,
                 and theme.FILLED_BUTTONS)
     if gefuellt:
         farbe = BG
+    if not (strong or danger or brand):
+        _, rand = theme.control_colors(None, rand)
     c = tk.Canvas(parent, width=breite, height=hoehe, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
     # ⚠ Erst der Text, dann der Rahmen — und dazwischen wird **nachgemessen**.
@@ -824,7 +826,8 @@ def _button(window, parent, text, action, strong=False, danger=False,
                                  fill=farbe, font=schrift, anchor='center')
     fuellung = (theme.DANGER_FILL if danger
                 else (ACCENT if gefuellt
-                      else (theme.ACCENT_DARK if strong else SURFACE)))
+                      else (theme.ACCENT_DARK if strong
+                            else (SURFACE if brand else theme.CONTROL))))
     flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                 fill=fuellung, outline=rand, width=1)]
     c.tag_lower(flaeche[0], beschriftung)
@@ -842,7 +845,7 @@ def _button(window, parent, text, action, strong=False, danger=False,
             c.itemconfigure(flaeche[0], outline=FG)
             return
         c.itemconfigure(flaeche[0], outline=RED if danger else ACCENT)
-        c.itemconfigure(beschriftung, fill=RED if danger else ACCENT)
+        c.itemconfigure(beschriftung, fill=RED if danger else theme.HOVER_FG)
 
     def raus(_=None):
         c.itemconfigure(flaeche[0], outline=rand)

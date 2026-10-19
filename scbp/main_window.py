@@ -762,6 +762,7 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     # vorher — die Variable spiegelt nur den Inhalt.
     if textvariable is None:
         textvariable = tk.StringVar(master=parent)
+    _, border = theme.control_colors(None, border)
     font = _as_font(font)
     radius = 8
     padding = 6
@@ -868,6 +869,7 @@ def round_textarea(parent, font, bg, border, accent, fg, rows=4, **kw):
     dieselbe Verabredung wie bei `round_entry`, damit beide sich gleich
     einbauen lassen.
     """
+    _, border = theme.control_colors(None, border)
     font = _as_font(font)
     radius = 8
     padding = 8
@@ -1544,9 +1546,9 @@ def round_button(parent, text, action, font, bg, fill_color, border, fg,
         b = b or int(c['width'])
         h = h or int(c['height'])
         c.delete('all')
+        fill, border = theme.control_colors(state['fill'], state['border'])
         c.shape = _round_rect(c, 1, 1, b - 1, h - 1, radius=radius,
-                                  fill=state['fill'],
-                                  outline=state['border'], width=1)
+                                  fill=fill, outline=border, width=1)
         if paint:
             paint(c, padding[0], h / 2.0, h - padding[1] * 2, state['fg'])
         # ⚠ Der Text sitzt in der Mitte des **Restes**, nicht der ganzen
@@ -1575,10 +1577,11 @@ def round_button(parent, text, action, font, bg, fill_color, border, fg,
     def setzen(fill_color=None, border_color=None, fg_color=None):
         if fill_color:
             state['fill'] = fill_color
-            c.itemconfigure(c.shape, fill=fill_color)
         if border_color:
             state['border'] = border_color
-            c.itemconfigure(c.shape, outline=border_color)
+        if fill_color or border_color:
+            fill, border = theme.control_colors(state['fill'], state['border'])
+            c.itemconfigure(c.shape, fill=fill, outline=border)
         if fg_color:
             state['fg'] = fg_color
             c.itemconfigure(c.caption, fill=fg_color)
@@ -1663,7 +1666,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
     c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
     shape = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
-                            fill=theme.FIELD, outline=BORDER, width=1)
+                            fill=theme.FIELD, outline=theme.CONTROL_BORDER,
+                            width=1)
     text_id = c.create_text(11, height / 2.0,
                             text=_fitting(caption_for(selected)),
                             fill=FG, font=s, anchor='w')
@@ -1673,7 +1677,8 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
 
     def faerben():
         is_set = bool(state['value'])
-        c.itemconfigure(shape, outline=ACCENT if is_set else BORDER)
+        c.itemconfigure(shape,
+                        outline=ACCENT if is_set else theme.CONTROL_BORDER)
         c.itemconfigure(text_id, fill=ACCENT if is_set else FG)
         c.itemconfigure(pfeil, fill=ACCENT if is_set else SUB)
 
@@ -4943,16 +4948,18 @@ def _dialog_button(parent, text, action, font, strong=False):
     height = font.metrics('linespace') + 16
     width = font.measure(text) + 40
     color = ACCENT if strong else FG
-    border = ACCENT if strong else BORDER
+    border = ACCENT if strong else theme.CONTROL_BORDER
     c = tk.Canvas(parent, width=width, height=height, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
     surface = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
-                               fill=theme.ACCENT_DARK if strong else SURFACE,
+                               fill=theme.ACCENT_DARK if strong
+                               else theme.CONTROL,
                                outline=border, width=1)
     caption = c.create_text(width / 2.0, height / 2.0, text=text,
                                  fill=color, font=font, anchor='center')
     c.bind('<Enter>', lambda _=None: (c.itemconfigure(surface, outline=ACCENT),
-                                      c.itemconfigure(caption, fill=ACCENT)))
+                                      c.itemconfigure(caption,
+                                                      fill=theme.HOVER_FG)))
     c.bind('<Leave>', lambda _=None: (c.itemconfigure(surface, outline=border),
                                       c.itemconfigure(caption, fill=color)))
     c.bind('<Button-1>', lambda _=None: action())
