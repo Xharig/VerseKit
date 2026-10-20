@@ -398,7 +398,10 @@ function zahlZeigen(){
 }
 
 function zahlHolen(seite, summe){
-  fetch("https://api.github.com/repos/Xharig/VerseKit/releases?per_page=100&page=" + seite)
+  /* Never from the browser cache: Safari on an iPhone kept showing a two
+     weeks old version (v3.70.1) from it, a private tab showed the right one.
+     The ten minutes in the sessionStorage still spare the GitHub limit. */
+  fetch("https://api.github.com/repos/Xharig/VerseKit/releases?per_page=100&page=" + seite, {cache: "no-store"})
     .then(function(r){ if (!r.ok) throw r.status; return r.json(); })
     .then(function(liste){
       for (var i = 0; i < liste.length; i++){
