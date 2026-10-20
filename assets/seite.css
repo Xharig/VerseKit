@@ -18,11 +18,11 @@
   --text-leise:#9a9a9a;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;background:var(--grund)}
 body{
   margin:0;
   font-family:Calibri,"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
-  background:
+  background:var(--grund)
     radial-gradient(1200px 700px at 50% -10%, #1c1c1c 0%, #0d0d0d 55%, #0a0a0a 100%);
   background-attachment:fixed;
   color:var(--text);
