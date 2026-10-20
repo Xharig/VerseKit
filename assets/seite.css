@@ -57,7 +57,8 @@ header{
 .kopf nav a.alle{padding-right:22px;border-right:1px solid var(--rand);display:inline-flex;align-items:center;gap:6px}
 .kopf nav a.alle .ic{width:1.15em;height:1.15em;flex:none}
 @media (max-width:600px){.kopf nav{gap:12px}.kopf nav a.alle{padding-right:12px}}
-@media (max-width:420px){.kopf .marke{display:none}}
+@media (max-width:420px){.kopf .marke{display:none}.kopf nav a.alle span{display:none}}
+@media (max-width:359px){.kopf nav a.alle{display:none}}
 .sprache{display:flex;border:1px solid var(--rand);border-radius:999px;overflow:hidden}
 .sprache button{
   background:none;border:0;color:var(--text-leise);
