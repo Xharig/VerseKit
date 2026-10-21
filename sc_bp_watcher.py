@@ -3002,8 +3002,21 @@ class Overlay:
             self._drag_von = (self.root.winfo_x(), self.root.winfo_y())
         except tk.TclError:
             self._drag_von = None
+        maus = (getattr(e, 'x_root', None), getattr(e, 'y_root', None))
+        self._drag_maus = maus if None not in maus else None
 
     def _drag_move(self, e):
+        """Das Overlay mit der Maus mitführen.
+
+        Die neue Lage ergibt sich aus der Fensterlage beim Drücken und dem
+        Mausweg in Bildschirmkoordinaten seitdem, nicht aus `winfo_x()`: Das
+        hinkt einem eben gesetzten `geometry()` hinterher."""
+        von = getattr(self, '_drag_von', None)
+        maus = getattr(self, '_drag_maus', None)
+        if von is not None and maus is not None:
+            self.root.geometry('+%d+%d' % (von[0] + e.x_root - maus[0],
+                                           von[1] + e.y_root - maus[1]))
+            return
         self.root.geometry(f'+{self.root.winfo_x()+e.x-self._dx}+{self.root.winfo_y()+e.y-self._dy}')
 
     def _leiste_seite_wunsch(self):
@@ -3053,6 +3066,7 @@ class Overlay:
         anfassen. Zwei Pixel Spiel, damit ein Zittern der Hand nicht zaehlt.
         """
         overlay.fast_switching('overlay_drag', False)
+        self._drag_maus = None
         self._save_geo(e)
         try:
             von = getattr(self, '_drag_von', None)
@@ -4484,6 +4498,9 @@ class Overlay:
         Bewusst eine eigene Methode: Sie wird auch beim ersten Anzeigen des
         Fensters aufgerufen, damit der Zustand von Anfang an stimmt und nicht
         erst nach dem ersten Umschalten.
+
+        Stimmen Klappzustand, Platzierung, Ecke und Griffbreite mit dem
+        letzten Aufruf überein (reines Verschieben), kehrt sie sofort zurück.
         """
         try:
             soll_sichtbar = not self.eingeklappt
@@ -4502,6 +4519,11 @@ class Overlay:
             # mitten auf ihren Symbolen, der Griff deckte dort das ✕ zu. Die
             # freie Ecke ist immer auch die leistenfreie.
             unten, rechts = self._verankert()
+            if (soll_sichtbar, ist_platziert, unten, rechts,
+                    self.grip.winfo_reqwidth()) == getattr(
+                        self, '_griff_stand', None):
+                return
+            self._griff_stand = None
             lage = dict(relx=0.0 if rechts else 1.0,
                         rely=0.0 if unten else 1.0,
                         anchor=('n' if unten else 's')
@@ -4526,11 +4548,15 @@ class Overlay:
             if ist_platziert == soll_sichtbar:
                 if soll_sichtbar:
                     self.grip.place(**lage)   # Seite kann gewechselt haben
+                self._griff_stand = (soll_sichtbar, soll_sichtbar, unten,
+                                     rechts, self.grip.winfo_reqwidth())
                 return
             if soll_sichtbar:
                 self.grip.place(**lage)
             else:
                 self.grip.place_forget()
+            self._griff_stand = (soll_sichtbar, soll_sichtbar, unten, rechts,
+                                 self.grip.winfo_reqwidth())
             if os.environ.get('SC_BP_GRIFF_PROTOKOLL'):
                 # Nur mit gesetzter Variable: schreibt mit, wer den Griff wann umstellt.
                 # Gedacht, um die Stelle zu finden, die ihn nach dem Start

@@ -619,13 +619,42 @@ def _tail(path, count, keywords=None):
     return rows[-count:]
 
 
+_TEMP_SETUP_PREFIX = 'scbp-update-setup'
+
+_TEMP_SETUP_LOGS = [None, []]
+
+
+def forget_temp_setup_logs():
+    """Die gemerkte Liste der Setup-Protokolle unter `%TEMP%` verwerfen."""
+    _TEMP_SETUP_LOGS[:] = [None, []]
+
+
+def _temp_setup_logs(folder):
+    """Die Setup-Protokolle `scbp-update-setup*.txt` direkt in `folder`.
+
+    Gesucht wird einmal je Ordner, bis `forget_temp_setup_logs()` die Liste
+    verwirft; nur `updater` legt dort solche Dateien an."""
+    if _TEMP_SETUP_LOGS[0] == folder:
+        return list(_TEMP_SETUP_LOGS[1])
+    hits = []
+    try:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                name = entry.name.lower()
+                if name.startswith(_TEMP_SETUP_PREFIX) and name.endswith('.txt'):
+                    hits.append(entry.path)
+    except OSError:
+        return []
+    _TEMP_SETUP_LOGS[:] = [folder, hits]
+    return list(hits)
+
+
 def _newest_setup_log():
     """Das jüngste Setup-Protokoll — im Datenordner oder, wenn es dort nicht
     angelegt werden konnte, unter `%TEMP%` (siehe `updater._free_setup_log`)."""
-    import glob
     import tempfile
-    found = [paths.app_file('update-setup.txt')] + glob.glob(os.path.join(
-        tempfile.gettempdir(), 'scbp-update-setup*.txt'))
+    found = [paths.app_file('update-setup.txt')] + _temp_setup_logs(
+        tempfile.gettempdir())
     found = [p for p in found if os.path.isfile(p)]
     if not found:
         return ''
