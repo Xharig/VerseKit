@@ -222,3 +222,42 @@ def attach(widget, text):
         _window.hide()
 
     widget.bind('<Enter>', on_enter, add='+')
+
+
+def attach_item(canvas, item, text):
+    """Einem Element auf einer Leinwand einen Erklärtext geben — wie `attach`.
+
+    `item` ist die Kennung oder ein Tag des Elements, `text` Zeichenkette oder
+    Funktion. Ist das Element beim Ablauf der Wartezeit weg, bleibt der
+    Hinweis aus."""
+    state = {'job': None}
+
+    def get_text():
+        return text() if callable(text) else text
+
+    def show(x_root, y_root):
+        state['job'] = None
+        try:
+            if not canvas.find_withtag(item):
+                return
+        except tk.TclError:
+            return
+        _window.show(canvas, get_text(), x_root, y_root)
+
+    def on_enter(event):
+        cancel()
+        state['job'] = canvas.after(
+            DELAY_MS, lambda: show(event.x_root, event.y_root))
+
+    def cancel(_event=None):
+        if state['job'] is not None:
+            try:
+                canvas.after_cancel(state['job'])
+            except tk.TclError:
+                pass
+            state['job'] = None
+        _window.hide()
+
+    canvas.tag_bind(item, '<Enter>', on_enter, add='+')
+    canvas.tag_bind(item, '<Leave>', cancel, add='+')
+    canvas.tag_bind(item, '<Button-1>', cancel, add='+')

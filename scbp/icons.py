@@ -565,6 +565,88 @@ def line(parent, name, action=None, color=GREY, background=None, fallback='',
                   text, font)
 
 
+def box_px(sizes, action=None):
+    """Kantenlänge des Kastens, den ein Symbol belegt: mit Klick-Aktion die
+    große Stufe (Überfahren vergrößert), sonst die Ruhegröße."""
+    if action is not None:
+        return hover_px(sizes)
+    return sizes.get(_LEVEL[0], 22)
+
+
+class CanvasSymbol:
+    """Ein Symbol als Bild-Element auf einer Leinwand, ohne eigenes Fenster.
+
+    Trägt dieselben Merkmale wie ein Symbol aus `line()` oder `tappable()`:
+    `symbol`, `symbol_color`, `swap_symbol()` und `recolor()`. Mit `action`
+    reagiert es auf Klick und hebt sich beim Überfahren ab."""
+
+    def __init__(self, canvas, x, y, name, sizes=None, action=None,
+                 color=GREY, anchor='center', tags=()):
+        self.canvas = canvas
+        self.symbol = name
+        self.symbol_sizes = sizes or LINE
+        self.symbol_color = color
+        self.action = action
+        self.hovered = False
+        self.image = None
+        self.item = canvas.create_image(x, y, anchor=anchor, tags=tags)
+        self._show()
+        if action is not None:
+            canvas.tag_bind(self.item, '<Enter>', self._enter, add='+')
+            canvas.tag_bind(self.item, '<Leave>', self._leave, add='+')
+            canvas.tag_bind(self.item, '<Button-1>',
+                            lambda _e: action(), add='+')
+
+    def _show(self):
+        rest = self.symbol_sizes.get(_LEVEL[0], 22)
+        color = (_HOVER.get(self.symbol_color, GREEN) if self.hovered
+                 else self.symbol_color)
+        size = hover_px(self.symbol_sizes) if self.hovered else rest
+        image = photo(self.symbol, size, color, self.canvas)
+        if image is None and self.hovered:
+            image = photo(self.symbol, rest, color, self.canvas)
+        if image is None:
+            return
+        try:
+            self.canvas.itemconfigure(self.item, image=image)
+        except tk.TclError:
+            return
+        self.image = image
+
+    def _enter(self, _event=None):
+        self.hovered = True
+        self._show()
+        try:
+            self.canvas.configure(cursor='hand2')
+        except tk.TclError:
+            pass
+
+    def _leave(self, _event=None):
+        self.hovered = False
+        self._show()
+        try:
+            self.canvas.configure(cursor='')
+        except tk.TclError:
+            pass
+
+    def swap_symbol(self, name):
+        """Ein anderes Motiv zeigen."""
+        self.symbol = name
+        self._show()
+
+    def recolor(self, color):
+        """Den Bildsatz einer anderen Farbe zeigen."""
+        self.symbol_color = color
+        self._show()
+
+    def exists(self):
+        """Steht das Element noch auf der Leinwand?"""
+        try:
+            return bool(self.canvas.find_withtag(self.item))
+        except tk.TclError:
+            return False
+
+
 # Welche Symbole es gibt — für den Selbsttest. Die Zuordnung zu den
 # Lucide-Vorlagen steht in `tools/symbole_bauen.py`.
 BUTTON_NAMES = (

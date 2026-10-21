@@ -40,9 +40,10 @@ import tkinter as tk
 
 from .language import t
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, RED, GOLD, _TK_CALLS,
-                    _heading, _scroll_area, _body_text, _button, _wrap,
+                    _heading, _body_text, _button, _wrap,
                     _stripe, _stripe_reset, _card)
-from . import basetool, basetool_sync, exchange_orgstock as orgstock
+from . import basetool, basetool_sync, canvas_table
+from . import exchange_orgstock as orgstock
 from . import icons, materials, paths, stock_catalog, theme
 
 PAGE = 'staffellager'
@@ -124,8 +125,9 @@ def data_key(data):
 def orgstock_page(window, frame):
     from .main_window import round_entry
     _heading(window, frame, t('hf_staffellager'), t('s_sl_lead'))
-    inner = _scroll_area(frame)
-    page = {'unit': paths.setting(SETTING_UNIT) or '',
+    area = canvas_table.Area(frame)
+    inner = area.top
+    page = {'unit': paths.setting(SETTING_UNIT) or '', 'area': area,
             'view': view_of(paths.setting(SETTING_VIEW)),
             'kind': '', 'place': '',
             'search': tk.StringVar(master=inner, value=''),
@@ -136,8 +138,8 @@ def orgstock_page(window, frame):
     # Derselbe Einzug wie in Mein Lager: Die Rollfläche bringt ihn mit.
     top = tk.Frame(inner, bg=BG)
     top.pack(fill='x', pady=(10, 0))
-    listing = tk.Frame(inner, bg=BG)
-    listing.pack(fill='x', pady=(8, 20))
+    listing = tk.Frame(area.bottom, bg=BG)
+    listing.pack(fill='x', pady=(0, 20))
 
     def redraw():
         try:
@@ -158,11 +160,11 @@ def orgstock_page(window, frame):
             def back():
                 try:
                     canvas.update_idletasks()
-                    canvas.configure(scrollregion=canvas.bbox('all'))
-                    height = (canvas.bbox('all') or (0, 0, 0, 0))[3]
+                    area.layout()
+                    height = float(canvas.cget('scrollregion').split()[3])
                     if height > 0:
                         canvas.yview_moveto(position / height)
-                except tk.TclError:
+                except (tk.TclError, IndexError, ValueError):
                     pass
             canvas.after_idle(back)
 
@@ -175,6 +177,7 @@ def orgstock_page(window, frame):
         for child in listing.winfo_children():
             child.destroy()
         _draw_list(window, listing, page, redraw, redraw_list)
+        area.refresh()
 
     page['redraw_all'] = redraw
     page['redraw_list'] = redraw_list
@@ -378,43 +381,76 @@ def _draw_filters(window, top, page, data, unit, redraw):
 
 
 def _draw_list(window, listing, page, redraw, redraw_list):
-    from .my_stock_page import table_cells
+    _drop_entry_form(page)
+    page['lot_rows'] = []
+    page['entry_rows'] = []
+    page['row_widgets'] = []
+    page['folds'] = {}
+    page['entry_slots'] = {}
+    page.pop('table', None)
+    page.pop('builder', None)
+    page['area'].set_table(None)
     data = orgstock.current()
     if data is None or not data['units']:
         return
     unit = page['unit']
     lots = visible_lots(page, data, unit)
-    _stripe_reset(listing)
     if not lots:
         _body_text(listing, t('s_sl_leer'), window.f_small, fill='x')
         return
     writable = orgstock.can_write(data, unit)
     materials_view = page['view'] == VIEW_MATERIAL
-    table = tk.Frame(listing, bg=BG)
-    table.pack(fill='x')
-    table.grid_columnconfigure(0, weight=1)
     columns = ['name', 'place'] + (['quality'] if materials_view else []) \
         + ['amount', 'action']
     heads = {'name': 's_ml_sp_bestand', 'place': 's_ml_sp_ort',
              'quality': 's_ml_sp_q', 'amount': 's_ml_sp_menge'}
-    for col, key in enumerate(columns):
-        tk.Label(table, text=t(heads[key]).upper() if key in heads else '',
-                 bg=BG, fg=SUB, font=window.f_small, padx=8,
-                 anchor='w' if key in ('name', 'place') else 'e').grid(
-                     row=0, column=col, sticky='ew', pady=(0, 2))
-    builder = {'row': 1, 'table': table, 'columns': columns,
-               'cells': table_cells}
-    page['lot_rows'] = []
-    page['entry_rows'] = []
     page['window'] = window
-    page['builder'] = builder
-    page['folds'] = {}
-    page['entry_slots'] = {}
-    for lot in lots:
-        _lot_row(window, listing, builder, page, data, lot, writable, redraw,
-                 redraw_list)
+    page['builder'] = {'columns': columns}
+    lines, measured = [], []
+    for index, lot in enumerate(lots):
+        head = _lot_row(window, page, data, lot, writable, columns, index)
+        lines.append(head)
+        measured.append(head)
+        fold = page['folds'].get(lot['key'])
+        if fold is None:
+            continue
+        measured.extend(fold['specs'])
+        if lot['key'] in page['open']:
+            fold['built'] = True
+            lines.extend(fold['specs'])
+    table = canvas_table.Table(
+        page['area'], window,
+        [canvas_table.Column(key, t(heads[key]) if key in heads else '',
+                             'w' if key in ('name', 'place') else 'e')
+         for key in columns],
+        color_of=lambda line, _n: SURFACE if line.lot_index % 2 else BG)
+    table.measure(measured)
+    table.show(lines)
+    page['table'] = table
+    page['area'].set_table(table)
+    _sync_rows(page)
     _body_text(listing, t('s_sl_hinweis'), window.f_small, fill='x',
                pady=(16, 0))
+    form = page.get('form')
+    if form and form[0] != 'book_in' and form[1] in page['entry_slots']:
+        _entry_form(window, page, page['entry_slots'][form[1]], form,
+                    page['redraw_all'], lambda: _place_form(page))
+
+
+def _sync_rows(page):
+    """`row_widgets`, `lot_rows` und `entry_rows` aus der Tabelle, in
+    Tabellenreihenfolge; `entry_slots` nur für gezeigte Einträge."""
+    table = page.get('table')
+    lines = table.data_rows() if table is not None else []
+    page['row_widgets'] = [(line.kind, line.what, line) for line in lines]
+    page['lot_rows'] = [(line.what, line) for line in lines
+                        if line.kind == 'lot']
+    page['entry_rows'] = [(line.what[1], line) for line in lines
+                          if line.kind == 'entry']
+    page['entry_slots'] = {
+        line.what[1]['id']: {'line': line, 'lot': line.what[0],
+                             'entry': line.what[1], 'data': line.data}
+        for line in lines if line.kind == 'entry'}
 
 
 def lot_kind(lot):
@@ -427,11 +463,11 @@ def lot_kind(lot):
                                      {lot['name'].lower(): lot['kind']})
 
 
-def _lot_row(window, listing, builder, page, data, lot, writable, redraw,
-             redraw_list):
+def _lot_row(window, page, data, lot, writable, columns, index):
+    """Die Zeile eines Postens als `canvas_table.Row`. Hat er Einträge,
+    stehen sie fertig beschrieben in `page['folds'][key]['specs']`; ein
+    Klick klappt nur sie um, die übrige Liste bleibt stehen."""
     from . import stock_kinds
-    from .my_stock_page import bind_row, name_cell
-    base = _stripe(listing, BG)
     expandable = lot['entries'] is not None
     is_open = lot['key'] in page['open']
     item = orgstock.is_item(lot)
@@ -445,46 +481,30 @@ def _lot_row(window, listing, builder, page, data, lot, writable, redraw,
     if lot['mission'] > 0:
         reserved.append(t('s_sl_res_missionen') % _amount(lot['mission'],
                                                           lot['unit_q']))
-
-    def arrow(cell):
-        if not expandable:
-            return
-        icon = icons.line(cell, 'zuklappen' if is_open else 'aufklappen',
-                          background=base, font=window.f_small)
-        icon.pack(side='right', padx=(4, 10))
-        cell.arrow = icon
     values = {
-        'name': (name_cell(window, base, lot['name'], badges,
-                           stock_kinds.tag(lot['name']) if item else None,
-                           extra=' · '.join(reserved),
-                           color=GOLD if lot['stolen'] else FG), FG),
+        'name': (canvas_table.Name(
+            lot['name'], badges,
+            stock_kinds.tag(lot['name']) if item else None,
+            extra=' · '.join(reserved),
+            color=GOLD if lot['stolen'] else FG), FG),
         'place': (lot['place'] or '?', SUB),
         'quality': ('' if item else '%d' % lot['quality'], SUB),
         'amount': (_amount(lot['amount'], lot['unit_q']), FG),
-        'action': (arrow, SUB),
     }
-    widgets = builder['cells'](window, builder, base, values)
-    page['lot_rows'].append((lot, widgets))
-    if not expandable:
-        return
-    # Dahinter freie Tabellenzeilen: je Eintrag zwei (er selbst und sein
-    # Formular), ohne Einträge eine für den Hinweis. Klappen baut nur dort.
-    fold = {'lot': lot, 'base': base, 'data': data, 'writable': writable,
-            'start': builder['row'], 'size': max(1, 2 * len(lot['entries'])),
-            'built': False,
-            'arrow': getattr(widgets[builder['columns'].index('action')],
-                             'arrow', None)}
-    page['folds'][lot['key']] = fold
-    builder['row'] += fold['size']
+    if expandable:
+        values['action'] = (canvas_table.Icons(
+            [('zuklappen' if is_open else 'aufklappen', None, None)],
+            right=10), SUB)
 
     def toggle():
-        current = page.get('folds', {}).get(lot['key'])
-        if current is not fold:
+        fold = page.get('folds', {}).get(lot['key'])
+        table = page.get('table')
+        if fold is None or table is None or fold['head'] not in table.rows:
             if lot['key'] in page['open']:
                 page['open'].discard(lot['key'])
             else:
                 page['open'].add(lot['key'])
-            redraw_list()
+            page['redraw_list']()
             return
         show = not fold['built']
         if show:
@@ -492,56 +512,61 @@ def _lot_row(window, listing, builder, page, data, lot, writable, redraw,
         else:
             page['open'].discard(lot['key'])
         _lot_fold_show(page, fold, show)
-    bind_row(widgets, toggle)
-    if is_open:
-        _lot_fold_build(page, fold)
 
-
-def _lot_fold_build(page, fold):
-    """Die Einträge eines Postens in seine freien Tabellenzeilen bauen."""
-    window, lot, base = page['window'], fold['lot'], fold['base']
-    builder = dict(page['builder'], row=fold['start'])
-    if not lot['entries']:
-        tk.Label(builder['table'], text=t('s_sl_keine_eintraege'), bg=base,
-                 fg=SUB, font=window.f_small, anchor='w', padx=36).grid(
-                     row=builder['row'], column=0,
-                     columnspan=len(builder['columns']), sticky='ew', ipady=3)
-    for entry in lot['entries']:
-        _entry_row(window, builder, base, page, fold['data'], lot, entry,
-                   fold['writable'], page['redraw_all'],
-                   lambda: _place_form(page))
-    fold['built'] = True
+    head = canvas_table.Row(
+        'lot', lot, {k: v for k, v in values.items() if k in columns},
+        on_click=toggle if expandable else None)
+    head.lot_index = index
+    if not expandable:
+        return head
+    if lot['entries']:
+        specs = [_entry_row(page, data, lot, entry, writable, columns, index)
+                 for entry in lot['entries']]
+    else:
+        empty = canvas_table.Row('empty', lot, {'name': (canvas_table.Name(
+            t('s_sl_keine_eintraege'), indent=True, color=SUB), SUB)})
+        empty.lot_index = index
+        specs = [empty]
+    page['folds'][lot['key']] = {'lot': lot, 'head': head, 'specs': specs,
+                                 'data': data, 'writable': writable,
+                                 'built': False}
+    return head
 
 
 def _lot_fold_show(page, fold, show):
-    """Nur die Einträge dieses Postens zeigen oder abbauen und den Pfeil
+    """Nur die Einträge dieses Postens zeigen oder wegnehmen und den Pfeil
     tauschen — die übrige Liste bleibt stehen. Die Einträge tragen den Grund
-    ihres Postens, die Streifen der Posten verschieben sich dabei nicht."""
+    ihres Postens, die Streifen der Posten verschieben sich dabei nicht. Ein
+    offenes Formular an einem der Einträge steht beim Aufklappen wieder
+    darunter."""
     if show == fold['built']:
         return
+    table = page.get('table')
+    if table is None or fold['head'] not in table.rows:
+        return
     if show:
-        _lot_fold_build(page, fold)
+        table.insert(fold['head'], fold['specs'])
     else:
-        table = page['builder']['table']
-        end = fold['start'] + fold['size']
-        for widget in table.grid_slaves():
-            try:
-                if fold['start'] <= int(widget.grid_info()['row']) < end:
-                    widget.destroy()
-            except (tk.TclError, KeyError, ValueError):
-                pass
-        ids = {e['id'] for e in fold['lot']['entries']}
-        page['entry_rows'] = [r for r in page['entry_rows']
-                              if r[0]['id'] not in ids]
-        for ident in ids:
-            page['entry_slots'].pop(ident, None)
-        fold['built'] = False
-    arrow = fold.get('arrow')
-    if arrow is not None:
-        try:
-            arrow.swap_symbol('zuklappen' if show else 'aufklappen')
-        except (tk.TclError, AttributeError):
-            pass
+        slot = page.get('form_slot')
+        if slot is not None and slot in table.rows:
+            at = table.rows.index(slot)
+            if at and table.rows[at - 1] in fold['specs']:
+                _drop_entry_form(page)
+        table.remove(fold['specs'])
+    fold['built'] = show
+    head = fold['head']
+    if head.arrow is not None:
+        head.arrow.swap_symbol('zuklappen' if show else 'aufklappen')
+    if 'action' in head.cells:
+        head.cells['action'][0].entries[0] = (
+            'zuklappen' if show else 'aufklappen', None, None)
+    _sync_rows(page)
+    form = page.get('form')
+    if show and form and form[0] != 'book_in' \
+            and form[1] in page['entry_slots'] \
+            and page.get('form_slot') is None and page.get('window'):
+        _entry_form(page['window'], page, page['entry_slots'][form[1]], form,
+                    page['redraw_all'], lambda: _place_form(page))
 
 
 # Die Buchungen am Eintrag: Art, Symbol, Erklärtext.
@@ -553,12 +578,10 @@ ENTRY_ACTIONS = (('book_out', 'ausbuchen', 's_sl_ausbuchen'),
                  ('earmark', 'reservieren', 's_sl_reservieren'))
 
 
-def _entry_row(window, builder, base, page, data, lot, entry, writable,
-               redraw, redraw_list):
-    """Ein Eintrag als eine Zeile: Besitzer, Notiz und Reservierungen klein
-    dahinter, die Menge, rechts die Buchungen als Symbole."""
-    from . import notice
-    from .my_stock_page import name_cell
+def _entry_row(page, data, lot, entry, writable, columns, index):
+    """Ein Eintrag als `canvas_table.Row`: Besitzer, Notiz und
+    Reservierungen klein dahinter, die Menge, rechts die Buchungen als
+    Symbole (grün das des offenen Formulars)."""
     details = []
     if entry['note']:
         details.append(t('s_sl_notiz_text') % entry['note'])
@@ -572,54 +595,59 @@ def _entry_row(window, builder, base, page, data, lot, entry, writable,
         details.append(t('s_sl_fuer_mission') % (
             _amount(mission['amount'], lot['unit_q']),
             mission['name'] or '?'))
-    form = page['form']
-
-    def actions(cell):
-        if not writable:
-            return
-        cell.action_icons = {}
-        for kind, symbol, key in reversed(ENTRY_ACTIONS):
-            active = bool(form and form[0] == kind and form[1] == entry['id'])
-            icon = icons.tappable(
-                cell, symbol,
-                lambda _e=None, k=kind: _open_form(page, (k, entry['id'])),
-                color=icons.GREEN if active else icons.GREY,
-                background=base, font=window.f_small)
-            icon.is_action = True
-            icon.pack(side='right', padx=(0, 10 if kind == 'earmark' else 4))
-            notice.attach(icon, lambda k=key: t(k))
-            cell.action_icons[kind] = icon
     values = {
-        'name': (name_cell(window, base, _holder(entry), [], indent=True,
-                           extra=' · '.join(details)), FG),
+        'name': (canvas_table.Name(_holder(entry), [], indent=True,
+                                   extra=' · '.join(details)), FG),
         'amount': (_amount(entry['amount'], lot['unit_q']), FG),
-        'action': (actions, SUB),
     }
-    widgets = builder['cells'](window, builder, base, values)
-    page['entry_rows'].append((entry, widgets))
-    # Die freie Zeile darunter gehört seinem Formular (`_place_form`).
-    slot = builder['row']
-    builder['row'] += 1
-    page.setdefault('entry_slots', {})[entry['id']] = {
-        'row': slot, 'lot': lot, 'entry': entry, 'data': data,
-        'table': builder['table'], 'span': len(builder['columns'])}
-    if not (form and form[1] == entry['id']):
-        return
-    _entry_form(window, page, page['entry_slots'][entry['id']], form,
-                redraw, redraw_list)
+    if writable:
+        form = page['form']
+        values['action'] = (canvas_table.Icons(
+            [(symbol, lambda k=kind: _open_form(page, (k, entry['id'])),
+              lambda k=key: t(k),
+              icons.GREEN if (form and form[0] == kind
+                              and form[1] == entry['id']) else icons.GREY,
+              kind)
+             for kind, symbol, key in reversed(ENTRY_ACTIONS)],
+            right=10), SUB)
+    line = canvas_table.Row('entry', (lot, entry),
+                            {k: v for k, v in values.items() if k in columns})
+    line.lot_index = index
+    line.data = data
+    return line
 
 
 def _entry_form(window, page, spot, form, redraw, redraw_list):
-    """Das Formular eines Eintrags in seiner freien Zeile bauen."""
-    holder = tk.Frame(spot['table'], bg=BG)
-    holder.grid(row=spot['row'], column=0, columnspan=spot['span'],
-                sticky='ew', padx=(36, 8), pady=(4, 8))
+    """Das Formular eines Eintrags bauen und direkt unter seine Zeile
+    setzen."""
+    holder = tk.Frame(page['area'].canvas, bg=BG)
     page['form_holder'] = holder
     form_builder = {'book_out': _form_take, 'sell': _form_take,
                     'move': _form_move, 'note': _form_note,
                     'stolen': _form_stolen, 'earmark': _form_earmark}[form[0]]
     form_builder(window, holder, page, spot['data'], spot['lot'],
                  spot['entry'], form[0], redraw, redraw_list)
+    page['form_slot'] = page['table'].insert_widget(
+        spot['line'], holder, pady=(4, 8), padx=(36, 8))
+
+
+def _drop_entry_form(page):
+    """Das Formular an einem Eintrag abbauen; welches offen ist
+    (`page['form']`), bleibt gemerkt."""
+    slot = page.get('form_slot')
+    if slot is None:
+        return
+    page['form_slot'] = None
+    if page.get('form_holder') is slot.widget:
+        page['form_holder'] = None
+    table = page.get('table')
+    if table is not None and slot in table.rows:
+        table.remove([slot])
+    try:
+        if slot.widget.winfo_exists():
+            slot.widget.destroy()
+    except tk.TclError:
+        pass
 
 
 def _open_form(page, form):
@@ -637,6 +665,7 @@ def _place_form(page):
     das Einbuchen, sonst in der freien Zeile unter seinem Eintrag. Liste und
     Kopf bleiben stehen; die Meldung und die Farbe der Symbole folgen. Ist
     die Stelle nicht gebaut, wird die Seite neu gezeichnet."""
+    _drop_entry_form(page)
     holder = page.get('form_holder')
     page['form_holder'] = None
     try:
@@ -666,7 +695,9 @@ def _place_form(page):
                           page['redraw_all'], lambda: _place_form(page))
             return
         spot = page.get('entry_slots', {}).get(form[1])
-        if window is None or spot is None or not spot['table'].winfo_exists():
+        table = page.get('table')
+        if window is None or spot is None or table is None \
+                or not table.alive:
             page['redraw_list']()
             return
         _entry_form(window, page, spot, form, page['redraw_all'],
@@ -678,17 +709,21 @@ def _place_form(page):
 def _paint_form_icons(page):
     """Das Symbol des offenen Formulars grün, die übrigen grau."""
     form = page.get('form')
-    builder = page.get('builder')
-    if not builder:
-        return
-    column = builder['columns'].index('action')
-    for entry, widgets in page.get('entry_rows', []):
-        icons_here = getattr(widgets[column], 'action_icons', {}) \
-            if column < len(widgets) else {}
-        for kind, icon in icons_here.items():
-            active = bool(form and form[0] == kind and form[1] == entry['id'])
+
+    def color(kind, entry):
+        active = bool(form and form[0] == kind and form[1] == entry['id'])
+        return icons.GREEN if active else icons.GREY
+    for _lot, fold in page.get('folds', {}).items():
+        for line in fold['specs']:
+            if line.kind != 'entry' or 'action' not in line.cells:
+                continue
+            spec = line.cells['action'][0]
+            spec.entries = [e[:3] + (color(e[4], line.what[1]), e[4])
+                            for e in spec.entries]
+    for entry, line in page.get('entry_rows', []):
+        for kind, icon in line.action_icons.items():
             try:
-                icon.recolor(icons.GREEN if active else icons.GREY)
+                icon.recolor(color(kind, entry))
             except (tk.TclError, AttributeError):
                 pass
 
@@ -711,6 +746,9 @@ def _show_message(page):
             _wrap(line)
     except tk.TclError:
         pass
+    area = page.get('area')
+    if area is not None:
+        area.refresh()
 
 
 # ------------------------------------------------------------- Formulare
