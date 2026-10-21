@@ -96,6 +96,9 @@ jobs:
       - name: Zweisprachigkeit
         run: python tools/sprachen_pruefen.py
 
+      - name: Englische Webseite aktuell
+        run: python tools/seite_en_bauen.py --pruefen
+
       # ⚠ **Nur Bericht, nie rot.** `ruff` kennt das Projekt nicht und haette
       # zu vielen Geschmack; es soll Hinweise geben, keine Arbeit erzwingen.
       # `continue-on-error` ist hier Absicht und kein Versehen.

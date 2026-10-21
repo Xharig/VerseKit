@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<!-- Generated from index.html by tools/seite_en_bauen.py. Do not edit; change index.html and run the script. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="color-scheme" content="dark">
+<!-- German page. en/index.html is generated from this file by
+     tools/seite_en_bauen.py: it takes every data-en text and every
+     data-en-<attribute> value. After changing this file, run the script.
+     Link previews (og:title, og:description) stay English on both pages. -->
+<title data-de="Verse-Kit — Star-Citizen-Werkzeug für Baupläne, Crafting, Bergbau und Handel" data-en="Verse-Kit — Star Citizen toolkit for blueprints, crafting, mining and trading">Verse-Kit — Star Citizen toolkit for blueprints, crafting, mining and trading</title>
+<meta name="description" content="Free, open-source Star Citizen companion for Windows and Linux: live blueprint alerts, which contract drops which blueprint, crafting ingredients, refinery comparison, trade routes and your hangar. English and German.">
+<link rel="canonical" href="https://versekit.xharig.com/en/">
+<link rel="alternate" hreflang="de" href="https://versekit.xharig.com/">
+<link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/">
+<link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/">
+<link rel="icon" href="../assets/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Verse-Kit">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:url" content="https://versekit.xharig.com/en/">
+<meta property="og:title" content="Verse-Kit — your toolkit for Star Citizen">
+<meta property="og:description" content="Blueprints, crafting, mining, trading and hangar — live while you play. Free and open source, Windows and Linux.">
+<meta property="og:image" content="https://versekit.xharig.com/assets/social-preview-en.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Verse-Kit next to its crafting page">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/seite.css?v=5">
+</head>
+<body>
+
+<header>
+  <div class="mitte kopf">
+    <img src="../assets/icon.png" alt="">
+    <span class="marke">Verse-Kit</span>
+    <nav>
+      <a class="alle" href="https://xharig.com/" aria-label="xharig.com" title="xharig.com"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg><span>xharig.com</span></a>
+      <a class="weg" href="#tour" data-de="Ansehen" data-en="Take a look">Take a look</a>
+      <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">What it does</a>
+      <a href="#laden" data-de="Herunterladen" data-en="Download">Download</a>
+      <a class="weg" href="#sicher" data-de="Sicher?" data-en="Safe?">Safe?</a>
+      <a class="weg" href="#fragen-alle" data-de="FAQ" data-en="FAQ">FAQ</a>
+      <a class="weg" href="#alle-aenderungen" data-de="Änderungen" data-en="Changelog">Changelog</a>
+      <div class="sprache">
+        <a id="knopf-de" href="/" hreflang="de" lang="de">DE</a>
+        <a id="knopf-en" href="/en/" hreflang="en" lang="en" class="an">EN</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="hinweis-sprache" id="hinweis-sprache" hidden>
+  <div class="mitte">
+    <span id="hinweis-sprache-text"></span>
+    <a id="hinweis-sprache-link" href="/en/"></a>
+    <button type="button" id="hinweis-sprache-zu">×</button>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="kreis a"></div>
+  <div class="kreis b"></div>
+  <div class="mitte">
+    <img class="zeichen" src="../assets/icon.png" alt="Verse-Kit">
+    <h1>Verse-Kit</h1>
+    <p class="unter"
+       data-de="Dein Werkzeugkasten für Star Citizen — Baupläne, Aufträge, Herstellung, Handel und Hangar, live beim Spielen."
+       data-en="Your toolkit for Star Citizen — blueprints, contracts, crafting, trading and hangar, live while you play.">Your toolkit for Star Citizen — blueprints, contracts, crafting, trading and hangar, live while you play.</p>
+    <p class="fruehername"
+       data-de="ehemals SC BP Watcher · Windows und Linux · ohne Konto, ohne Cloud"
+       data-en="formerly SC BP Watcher · Windows and Linux · no account, no cloud">formerly SC BP Watcher · Windows and Linux · no account, no cloud</p>
+    <div class="knopfreihe">
+      <!-- Text und Ziel setzt `knopfRichten()` passend zum System des Besuchers;
+           ohne Skript oder bei unbekanntem System springt er zum Abschnitt „Herunterladen". -->
+      <a class="knopf voll" id="knopf-laden" href="#laden" data-de="Herunterladen" data-en="Download">Download</a>
+      <a class="knopf leer" href="#tour" data-de="Erst ansehen" data-en="Look around first">Look around first</a>
+    </div>
+    <p class="anderes" id="anderes" hidden><a href="#laden" id="anderes-link"></a></p>
+    <p class="klein"
+       data-de="Kostenlos und quelloffen unter GPL-3.0. Herunterladen, starten, fertig."
+       data-en="Free and open source under GPL-3.0. Download, run, done.">Free and open source under GPL-3.0. Download, run, done.</p>
+    <div class="kennzahlen">
+      <div class="kennzahl" id="kz-version" hidden>
+        <span class="was" data-de="Version" data-en="Version">Version</span>
+        <span class="wert" id="kz-version-wert"></span>
+      </div>
+      <div class="kennzahl">
+        <span class="was" data-de="Läuft auf" data-en="Runs on">Runs on</span>
+        <span class="wert">Windows 10/11 · Linux</span>
+      </div>
+      <div class="kennzahl" id="kz-groesse" hidden>
+        <span class="was" data-de="Download" data-en="Download">Download</span>
+        <span class="wert" id="kz-groesse-wert"></span>
+      </div>
+    </div>
+    <p class="zahl" id="downloads" hidden><strong id="downloads-zahl"></strong>Downloads</p>
+
+    <div class="film">
+      <video id="film" src="../assets/video/versekit-en.mp4" poster="../assets/video/versekit-en.jpg"
+             autoplay muted loop playsinline preload="metadata"
+             aria-label="Verse-Kit in 43 seconds"></video>
+    </div>
+  </div>
+</div>
+
+<section id="ansichten">
+  <div class="mitte">
+    <div class="label" data-de="Zwei Ansichten" data-en="Two views">Two views</div>
+    <h2 data-de="Karten oder Reiter — wie es dir lieber ist"
+        data-en="Cards or tabs — whichever you prefer">Cards or tabs — whichever you prefer</h2>
+    <p class="einleitung"
+       data-de="Verse-Kit startet in der Kartenansicht: jeder Bereich als Karte mit kurzer Erklärung, die Seiten, die du ständig brauchst, an der Startseite angeheftet. Wer lieber alles in einer Leiste links hat, schaltet oben rechts auf die Reiteransicht um — die Seiten sind dieselben."
+       data-en="Verse-Kit starts in card view: every area as a card with a short explanation, the pages you use all the time pinned to the start page. Prefer everything in one bar on the left? Switch to tab view at the top right — the pages are the same.">Verse-Kit starts in card view: every area as a card with a short explanation, the pages you use all the time pinned to the start page. Prefer everything in one bar on the left? Switch to tab view at the top right — the pages are the same.</p>
+    <div class="ansichten">
+      <figure class="bild">
+        <img data-bild="screenshot-karten.png" src="../assets/screenshot-karten-en.png" alt="">
+        <figcaption class="bu"
+           data-de="Kartenansicht — Bereiche als Karten, darunter deine angehefteten Seiten und die Kacheln auf einen Blick."
+           data-en="Card view — areas as cards, below them your pinned pages and the at-a-glance tiles.">Card view — areas as cards, below them your pinned pages and the at-a-glance tiles.</figcaption>
+      </figure>
+      <figure class="bild">
+        <img data-bild="screenshot-uebersicht.png" src="../assets/screenshot-uebersicht-en.png" alt="">
+        <figcaption class="bu"
+           data-de="Reiteransicht — alle Seiten links in einer Leiste, so wie im Rundgang unten."
+           data-en="Tab view — all pages in one bar on the left, just like in the tour below.">Tab view — all pages in one bar on the left, just like in the tour below.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="tour">
+  <div class="mitte">
+    <div class="label" data-de="Rundgang" data-en="Tour">Tour</div>
+    <h2 data-de="Sieh dir das Werkzeug an, bevor du es lädst"
+        data-en="Look at the tool before you download it">Look at the tool before you download it</h2>
+    <p class="einleitung"
+       data-de="Links steht die Seitenleiste wie im Programm — dieselben Gruppen, dieselbe Reihenfolge. Die Bilder zeigen das Werkzeug mit Beispieldaten."
+       data-en="On the left is the sidebar as it is in the program — same groups, same order. The pictures show the tool with example data.">On the left is the sidebar as it is in the program — same groups, same order. The pictures show the tool with example data.</p>
+
+    <div class="tour">
+      <div class="reiter" id="reiter"></div>
+      <div class="bild">
+        <img id="tourbild" src="../assets/screenshot-overlay.png" alt="">
+        <div class="bu" id="tourtext"></div>
+        <div class="farben" id="farben" hidden></div>
+      </div>
+    </div>
+
+    <p class="hinweis"
+       data-de="Hinweis: Das hier sind Bildschirmfotos, kein laufendes Programm — ein Klick ins Bild tut nichts. Das echte Werkzeug läuft auf deinem Rechner, nicht im Browser."
+       data-en="Note: these are screenshots, not a running program — clicking inside the picture does nothing. The real tool runs on your computer, not in the browser.">Note: these are screenshots, not a running program — clicking inside the picture does nothing. The real tool runs on your computer, not in the browser.</p>
+  </div>
+</section>
+
+<section id="merkmale">
+  <div class="mitte">
+    <div class="label" data-de="Überblick" data-en="Overview">Overview</div>
+    <h2 data-de="Was es für dich macht" data-en="What it does for you">What it does for you</h2>
+
+    <div class="karten">
+      <div class="karte">
+        <h3 data-de="Baupläne in Sekunden" data-en="Blueprints in seconds">Blueprints in seconds</h3>
+        <p data-de="Schaltest du einen Bauplan frei, steht er sofort in der Liste. Verse-Kit liest die Protokolle des Spiels mit — ohne ins Spiel einzugreifen."
+           data-en="Unlock a blueprint and it is in the list at once. Verse-Kit reads the game's own logs — without touching the game itself.">Unlock a blueprint and it is in the list at once. Verse-Kit reads the game's own logs — without touching the game itself.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Aufträge, die dir etwas bringen" data-en="Contracts that pay off">Contracts that pay off</h3>
+        <p data-de="Im Spiel steht an jedem Auftrag, welche Baupläne er ausschüttet und welche davon dir noch fehlen. Ohne herauszutabben."
+           data-en="In game, every contract shows which blueprints it hands out and which of those you are still missing. Without tabbing out.">In game, every contract shows which blueprints it hands out and which of those you are still missing. Without tabbing out.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Herstellung und Bergbau" data-en="Crafting and mining">Crafting and mining</h3>
+        <p data-de="Zutaten, Zeiten und Preise zu jedem Gegenstand, dazu Fundorte, Konzentration und der Raffinerie-Vergleich je Erz."
+           data-en="Ingredients, times and prices for every item, plus locations, concentration and a refinery comparison per ore.">Ingredients, times and prices for every item, plus locations, concentration and a refinery comparison per ore.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Dein Hangar, deine Ausstattung" data-en="Your hangar, your loadout">Your hangar, your loadout</h3>
+        <p data-de="Welche Schiffe dir gehören, was hineinpasst und was noch fehlt — mit Summe und Einkaufsroute."
+           data-en="Which ships you own, what fits into them and what is still missing — with a total and a shopping route.">Which ships you own, what fits into them and what is still missing — with a total and a shopping route.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Handel mit echtem Gewinn" data-en="Trading with real profit">Trading with real profit</h3>
+        <p data-de="Läden, Verkaufsorte und Routen, die sagen, was am Ende übrig bleibt — nicht nur, was etwas kostet."
+           data-en="Shops, sell locations and routes that tell you what is left at the end — not just what something costs.">Shops, sell locations and routes that tell you what is left at the end — not just what something costs.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Deine Statistik" data-en="Your statistics">Your statistics</h3>
+        <p data-de="Spielzeit, Schiffe, Aufträge, Quantensprünge und Abstürze — aus deinen Spielprotokollen gezählt, und sie bleiben, auch wenn das Spiel die Protokolle löscht."
+           data-en="Play time, ships, contracts, quantum jumps and crashes — counted from your game logs, and kept even after the game deletes them.">Play time, ships, contracts, quantum jumps and crashes — counted from your game logs, and kept even after the game deletes them.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Dein Aussehen, deine Steuerung" data-en="Your look, your controls">Your look, your controls</h3>
+        <p data-de="Sechs Farbschemata und stufenlose Größe. Dazu siehst du, welcher Stick welche Nummer hat, und stellst Totzone und Kurven ein."
+           data-en="Six colour schemes and any size you like. Plus: see which stick has which number, and set dead zones and curves.">Six colour schemes and any size you like. Plus: see which stick has which number, and set dead zones and curves.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Bleibt bei dir" data-en="Stays with you">Stays with you</h3>
+        <p data-de="Kein Konto, keine Cloud, keine persönlichen Daten. Verse-Kit holt nur Nachschlagedaten von Adressen, die dafür freigegeben sind — und zählt einmal am Tag mit, ohne Kennung und abschaltbar."
+           data-en="No account, no cloud, no personal data. Verse-Kit only fetches reference data from sources that are meant for it — and counts itself once a day, without any ID, and you can switch that off.">No account, no cloud, no personal data. Verse-Kit only fetches reference data from sources that are meant for it — and counts itself once a day, without any ID, and you can switch that off.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="imspiel">
+  <div class="mitte">
+    <div class="label" data-de="Im Spiel" data-en="In the game">In the game</div>
+    <h2 data-de="Was Verse-Kit ins Spiel schreibt"
+        data-en="What Verse-Kit writes into the game">What Verse-Kit writes into the game</h2>
+    <p class="einleitung"
+       data-de="Verse-Kit ergänzt die Texte des Spiels um das, was dort fehlt. Klasse, Größe und Gütegrad stehen direkt am Namen eines Bauteils. An jedem Auftrag steht, welche Baupläne er bringt, und unter der Beschreibung eines Gegenstands, ob du den Bauplan schon hast. Jeder Teil lässt sich abschalten, und „Wieder entfernen“ stellt die Originaltexte zeichengenau her."
+       data-en="Verse-Kit adds what the game's own texts leave out. Class, size and grade sit right next to a component's name. Every contract shows which blueprints it hands out, and below an item's description you see whether you already have its blueprint. Each part can be switched off, and “Remove again” restores the original texts character for character.">Verse-Kit adds what the game's own texts leave out. Class, size and grade sit right next to a component's name. Every contract shows which blueprints it hands out, and below an item's description you see whether you already have its blueprint. Each part can be switched off, and “Remove again” restores the original texts character for character.</p>
+    <div class="spielbild">
+      <figure class="bild">
+        <img src="../assets/spiel-angaben-am-gegenstand.png" alt="Centurion (Mil/3/C)">
+        <figcaption class="bu"
+           data-de="Ein Kraftwerk im Inventar: „Centurion (Mil/3/C)“ heißt militärisch, Größe 3, Gütegrad C. Du musst dafür keine Beschreibung aufklappen."
+           data-en="A power plant in the inventory: “Centurion (Mil/3/C)” means military, size 3, grade C. You don't need to open any description for it.">A power plant in the inventory: “Centurion (Mil/3/C)” means military, size 3, grade C. You don't need to open any description for it.</figcaption>
+      </figure>
+      <figure class="bild">
+        <img src="../assets/spiel-bauplan-block.png" alt="FR-66 (Mil/1/A)">
+        <figcaption class="bu"
+           data-de="Ein Schildgenerator am Terminal: oben das Kürzel am Namen, unter der Beschreibung der Verse-Kit-Block. Bauplan vorhanden, drei Zutaten, elf Minuten, im Laden nicht zu kaufen."
+           data-en="A shield generator at the terminal: the tag next to the name at the top, the Verse-Kit block below the description. Blueprint owned, three ingredients, eleven minutes, not sold in shops.">A shield generator at the terminal: the tag next to the name at the top, the Verse-Kit block below the description. Blueprint owned, three ingredients, eleven minutes, not sold in shops.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="laden" class="laden">
+  <div class="kreis c"></div>
+  <div class="mitte">
+    <div class="label" data-de="Herunterladen" data-en="Download">Download</div>
+    <h2 data-de="Herunterladen, starten, spielen" data-en="Download, launch, play">Download, launch, play</h2>
+    <p class="einleitung"
+       data-de="Unter Windows ein Installer, unter Linux eine einzelne Datei. Neue Versionen meldet das Programm selbst und spielt sie auf Knopfdruck ein."
+       data-en="An installer on Windows, a single file on Linux. The program tells you about new versions itself and installs them at the push of a button.">An installer on Windows, a single file on Linux. The program tells you about new versions itself and installs them at the push of a button.</p>
+
+    <div class="dateien">
+      <div class="datei">
+        <div class="sys">Windows</div>
+        <h3 data-de="Installer" data-en="Installer">Installer</h3>
+        <code>VerseKit-Setup.exe</code>
+        <a class="knopf voll" href="https://xharig.com/windows"
+           data-de="Herunterladen" data-en="Download">Download</a>
+      </div>
+      <div class="datei">
+        <div class="sys">Linux</div>
+        <h3 data-de="Einzelne Datei" data-en="Single file">Single file</h3>
+        <code>VerseKit-x86_64.AppImage</code>
+        <a class="knopf voll" href="https://xharig.com/linux"
+           data-de="Herunterladen" data-en="Download">Download</a>
+      </div>
+    </div>
+
+    <p class="fassung">
+      <span data-de="Die Knöpfe laden immer die neueste Fassung." data-en="The buttons always download the latest version.">The buttons always download the latest version.</span>
+      <strong id="fassung"></strong>
+      <a href="https://github.com/Xharig/VerseKit/releases"
+         data-de="Alle Fassungen ansehen" data-en="See all versions">See all versions</a>
+    </p>
+
+    <div class="pruefsumme">
+      <h3 data-de="Echtheit prüfen" data-en="Check it is genuine">Check it is genuine</h3>
+      <p>
+        <span data-de="Zu jeder Fassung gehört eine Prüfsumme. Der Wert, den dein System ausgibt, muss in"
+              data-en="Every version comes with a checksum. The value your system prints must appear in">Every version comes with a checksum. The value your system prints must appear in</span>
+        <a href="https://github.com/Xharig/VerseKit/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>
+        <span data-de="stehen. Sonst die Datei nicht starten."
+              data-en="— otherwise do not run the file.">— otherwise do not run the file.</span>
+      </p>
+      <div class="sys" data-de="Windows (Eingabeaufforderung im Download-Ordner)" data-en="Windows (Command Prompt in your downloads folder)">Windows (Command Prompt in your downloads folder)</div>
+      <code>certutil -hashfile VerseKit-Setup.exe SHA256</code>
+      <div class="sys">Linux</div>
+      <code>sha256sum VerseKit-x86_64.AppImage</code>
+      <p class="vt">
+        <span data-de="Virenprüfung:" data-en="Virus scan:">Virus scan:</span>
+        <a id="vt-bericht" href="https://github.com/Xharig/VerseKit/releases/latest"
+           data-de="VirusTotal-Bericht der aktuellen Version" data-en="VirusTotal report for the current version">VirusTotal report for the current version</a>
+      </p>
+    </div>
+
+    <p class="hinweis"
+       data-de="Beim ersten Start meldet Windows „Der Computer wurde durch Windows geschützt“ — das passiert bei jedem Programm ohne teures Zertifikat. Auf „Weitere Informationen“ klicken, dann auf „Trotzdem ausführen“. Die Anleitung im Verzeichnis erklärt es mit Bildern."
+       data-en="On first start Windows says “Windows protected your PC” — that happens with every program without an expensive certificate. Click “More info”, then “Run anyway”. The readme explains it with pictures.">On first start Windows says “Windows protected your PC” — that happens with every program without an expensive certificate. Click “More info”, then “Run anyway”. The readme explains it with pictures.</p>
+  </div>
+</section>
+
+<!-- ⚠ Hier stehen nur Tatsachen darüber, was das Werkzeug TUT — keine Aussage
+     wie „CIG erlaubt es“ und kein Versprechen über die Zukunft. Beides hängt an
+     einer Auslegung, die nicht wir treffen. Jeder Satz ist am Code belegt:
+     kein Zugriff auf den Spielspeicher (OpenProcess nur mit Abfragerecht),
+     Bau durch GitHub Actions (release.yml), Updates nur mit passender
+     Prüfsumme (SHA256SUMS.txt), Berichte nur auf Klick, VirusTotal je
+     Version (release.yml, .github/scripts/virustotal.py), Tasten nur
+     über den Anti-AFK (scbp/anti_afk.py). -->
+<section id="sicher">
+  <div class="mitte">
+    <div class="label" data-de="Vertrauen" data-en="Trust">Trust</div>
+    <h2 data-de="Ist das sicher?" data-en="Is it safe?">Is it safe?</h2>
+    <p class="einleitung"
+       data-de="Die berechtigte Frage vor jedem Download. Hier steht, was Verse-Kit tut — und was nicht."
+       data-en="The fair question before any download. Here is what Verse-Kit does — and what it does not.">The fair question before any download. Here is what Verse-Kit does — and what it does not.</p>
+    <div class="karten">
+      <div class="karte">
+        <h3 data-de="Kein Eingriff ins Spiel" data-en="No hooks into the game">No hooks into the game</h3>
+        <p data-de="Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. Verse-Kit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest. Einzige Ausnahme ist der Anti-AFK (nur Windows, standardmäßig aus): Eingeschaltet drückt er alle 5 Minuten Alt+X, wie du es selbst tun würdest."
+           data-en="No access to the game's memory, nothing is injected. Verse-Kit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself.">No access to the game's memory, nothing is injected. Verse-Kit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Offener Quellcode" data-en="Open source">Open source</h3>
+        <p data-de="Jede Zeile liegt offen auf GitHub. Die Dateien zum Herunterladen baut GitHub selbst aus genau diesem Code."
+           data-en="Every line is public on GitHub. The files you download are built by GitHub itself from exactly this code.">Every line is public on GitHub. The files you download are built by GitHub itself from exactly this code.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Geprüfte Updates" data-en="Verified updates">Verified updates</h3>
+        <p data-de="Zu jeder Version gehört eine Prüfsumme. Ein Update wird nur eingespielt, wenn die Datei genau dazu passt."
+           data-en="Every version comes with a checksum. An update is only installed if the file matches it exactly.">Every version comes with a checksum. An update is only installed if the file matches it exactly.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Kostenlos, ohne Haken" data-en="Free, no catch">Free, no catch</h3>
+        <p data-de="Keine Bezahlstufe, keine Werbung, keine Anmeldung. Ein Fehlerbericht geht nur raus, wenn du ihn selbst abschickst."
+           data-en="No paid tier, no ads, no sign-up. An error report only goes out when you send it yourself.">No paid tier, no ads, no sign-up. An error report only goes out when you send it yourself.</p>
+      </div>
+    </div>
+    <p class="hinweis"
+       data-de="Jede Version lässt der Bau bei VirusTotal prüfen; den Bericht verlinkt „Herunterladen“. Einzelne Scanner melden bei gepackten Python-Programmen gelegentlich einen Treffer aus maschineller Heuristik — ein bekannter Fehlalarm."
+       data-en="The build has every version checked on VirusTotal; “Download” links the report. Individual scanners occasionally flag packed Python programs through machine-learning heuristics — a known false positive.">The build has every version checked on VirusTotal; “Download” links the report. Individual scanners occasionally flag packed Python programs through machine-learning heuristics — a known false positive.</p>
+    <p class="hinweis"
+       data-de="Verse-Kit ist ein inoffizielles Fanprojekt und steht in keiner Verbindung zu Cloud Imperium Games."
+       data-en="Verse-Kit is an unofficial fan project and is not affiliated with Cloud Imperium Games.">Verse-Kit is an unofficial fan project and is not affiliated with Cloud Imperium Games.</p>
+  </div>
+</section>
+
+<section id="fragen">
+  <div class="mitte">
+    <a class="zurueck nur-unterseite" href="#" data-de="← Zurück zur Startseite" data-en="← Back to the start page">← Back to the start page</a>
+    <div class="label" data-de="Häufige Fragen" data-en="FAQ">FAQ</div>
+    <h2 data-de="Gut zu wissen" data-en="Good to know">Good to know</h2>
+    <div class="faq">
+      <details>
+        <summary data-de="Wie verbinde ich Verse-Kit mit scmdb.net?" data-en="How do I connect Verse-Kit to scmdb.net?">How do I connect Verse-Kit to scmdb.net?</summary>
+        <ol>
+          <li data-de="In Verse-Kit unter Einstellungen → Allgemein „Mit scmdb.net verbinden“ einschalten."
+              data-en="In Verse-Kit, turn on “Connect to scmdb.net” under Settings → General.">In Verse-Kit, turn on “Connect to scmdb.net” under Settings → General.</li>
+          <li data-de="Auf scmdb.net anmelden und dort „Watcher“ → „Enable Watcher“ wählen."
+              data-en="Sign in on scmdb.net and choose “Watcher” → “Enable Watcher”.">Sign in on scmdb.net and choose “Watcher” → “Enable Watcher”.</li>
+          <li data-de="Der Browser fragt einmal, ob die Seite auf Apps auf diesem Gerät zugreifen darf: erlauben, merken lassen und die Seite neu laden."
+              data-en="Your browser asks once whether the site may access apps on this device: allow it, let it remember and reload the page.">Your browser asks once whether the site may access apps on this device: allow it, let it remember and reload the page.</li>
+        </ol>
+        <p data-de="Den Watcher von scmdb musst du dafür nicht herunterladen. Es geht mit LIVE und HOTFIX."
+           data-en="You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX.">You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX.</p>
+      </details>
+      <details>
+        <summary data-de="Windows warnt beim Start — ist das normal?" data-en="Windows warns when I start it — is that normal?">Windows warns when I start it — is that normal?</summary>
+        <p data-de="Ja. Verse-Kit ist (noch) nicht digital signiert, deshalb zeigt Windows „Der Computer wurde durch Windows geschützt“. Auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken. Der Code liegt offen auf GitHub, und GitHub baut die Dateien selbst daraus."
+           data-en="Yes. Verse-Kit is not digitally signed (yet), so Windows shows “Windows protected your PC”. Click “More info”, then “Run anyway”. The code is public on GitHub, and GitHub builds the files from it itself.">Yes. Verse-Kit is not digitally signed (yet), so Windows shows “Windows protected your PC”. Click “More info”, then “Run anyway”. The code is public on GitHub, and GitHub builds the files from it itself.</p>
+      </details>
+      <details>
+        <summary data-de="Welche Tastenkombinationen gibt es im Spiel?" data-en="Which keyboard shortcuts work in game?">Which keyboard shortcuts work in game?</summary>
+        <p data-de="Strg+Alt+B holt die Bauplan-Liste nach vorn. Unter Windows liest Strg+Alt+R das Raffinerie-Terminal und öffnet danach das Lager mit den gelesenen Zeilen. Beide lassen sich unter Einstellungen → Overlay ändern."
+           data-en="Ctrl+Alt+B brings the blueprint list to the front. On Windows, Ctrl+Alt+R reads the refinery terminal and then opens the storage with the lines it read. Both can be changed under Settings → Overlay.">Ctrl+Alt+B brings the blueprint list to the front. On Windows, Ctrl+Alt+R reads the refinery terminal and then opens the storage with the lines it read. Both can be changed under Settings → Overlay.</p>
+      </details>
+      <details>
+        <summary data-de="Wo liegen meine Daten, und wie sichere ich sie?" data-en="Where is my data, and how do I back it up?">Where is my data, and how do I back it up?</summary>
+        <p data-de="Den Ordner siehst und änderst du unter Einstellungen → Installation &amp; Pfade („Ordner für deine Daten“). Eine Sicherung zum Mitnehmen gibt es unter Einstellungen → Sichern &amp; Zurücksetzen."
+           data-en="You can see and change the folder under Settings → Installation &amp; paths (“Folder for your data”). A backup to take along is under Settings → Backup &amp; reset.">You can see and change the folder under Settings → Installation &amp; paths (“Folder for your data”). A backup to take along is under Settings → Backup &amp; reset.</p>
+      </details>
+      <details>
+        <summary data-de="Wie verbinde ich das KRT Profit Basetool?" data-en="How do I connect the KRT Profit Basetool?">How do I connect the KRT Profit Basetool?</summary>
+        <p data-de="Unter Einstellungen → Basetool die gewünschten Bereiche einschalten (Baupläne, Lager, Hangar, Bedarf der Einheit) und auf „Verbinden“ klicken. Die Anmeldung läuft im Browser über dein Basetool-Konto. Der Reiter „Bedarf der Einheit“ erscheint erst mit dieser Verbindung."
+           data-en="Under Settings → Basetool, turn on the areas you want (blueprints, storage, hangar, unit demand) and click “Connect”. You sign in through your Basetool account in the browser. The “Unit demand” tab only appears with this connection.">Under Settings → Basetool, turn on the areas you want (blueprints, storage, hangar, unit demand) and click “Connect”. You sign in through your Basetool account in the browser. The “Unit demand” tab only appears with this connection.</p>
+      </details>
+    </div>
+    <!-- Auf der Startseite ausgeblendet, damit sie kurz bleibt; sichtbar unter #fragen-alle. -->
+    <div class="nur-unterseite">
+      <h3 class="faq-gruppe" data-de="Wenn etwas nicht klappt" data-en="When something does not work">When something does not work</h3>
+      <h4 class="faq-untergruppe" data-de="Installieren, starten, aktualisieren" data-en="Install, start, update">Install, start, update</h4>
+      <div class="faq">
+        <details>
+          <summary data-de="Mein Virenscanner meldet Verse-Kit" data-en="My antivirus flags Verse-Kit">My antivirus flags Verse-Kit</summary>
+          <p data-de="Ein Fehlalarm: Programme, die wie Verse-Kit zu einer einzigen Datei gepackt sind, werden oft fälschlich erkannt. Ob deine Datei echt ist, zeigt die Prüfsumme: An jeder Fassung auf GitHub hängt SHA256SUMS.txt, und der Wert dort muss zu deiner Datei passen (unter Windows: certutil -hashfile VerseKit-Setup.exe SHA256). Passt er, die Datei im Virenscanner freigeben."
+             data-en="A false alarm: programs packed into a single file like Verse-Kit are often flagged by mistake. The checksum shows whether your file is genuine: every version on GitHub comes with SHA256SUMS.txt, and the value there must match your file (on Windows: certutil -hashfile VerseKit-Setup.exe SHA256). If it matches, allow the file in your antivirus.">A false alarm: programs packed into a single file like Verse-Kit are often flagged by mistake. The checksum shows whether your file is genuine: every version on GitHub comes with SHA256SUMS.txt, and the value there must match your file (on Windows: certutil -hashfile VerseKit-Setup.exe SHA256). If it matches, allow the file in your antivirus.</p>
+        </details>
+        <details>
+          <summary data-de="Das Update klappt nicht, die Version bleibt alt" data-en="The update fails and the version stays old">The update fails and the version stays old</summary>
+          <p data-de="Lade die neueste Fassung oben unter „Herunterladen“ und installiere sie über die alte — deine Daten bleiben erhalten. Bleibt die Version trotzdem alt, startest du vermutlich eine alte einzelne .exe statt der Installation: Starte Verse-Kit über das Startmenü."
+             data-en="Download the latest version above under “Download” and install it over the old one — your data is kept. If the version still stays old, you are probably starting an old single .exe instead of the installation: start Verse-Kit from the Start menu.">Download the latest version above under “Download” and install it over the old one — your data is kept. If the version still stays old, you are probably starting an old single .exe instead of the installation: start Verse-Kit from the Start menu.</p>
+        </details>
+        <details>
+          <summary data-de="Windows zeigt „Failed to remove temporary directory“" data-en="Windows shows “Failed to remove temporary directory”">Windows shows “Failed to remove temporary directory”</summary>
+          <ol>
+            <li data-de="Das Fenster mit OK schließen." data-en="Close the window with OK.">Close the window with OK.</li>
+            <li data-de="Task-Manager öffnen (Strg+Umschalt+Esc) und jeden Eintrag von Verse-Kit beenden."
+                data-en="Open Task Manager (Ctrl+Shift+Esc) and end every Verse-Kit entry.">Open Task Manager (Ctrl+Shift+Esc) and end every Verse-Kit entry.</li>
+            <li data-de="Windows+R drücken, %TEMP% eingeben und die Ordner löschen, deren Name mit _MEI beginnt."
+                data-en="Press Windows+R, enter %TEMP% and delete the folders whose name starts with _MEI.">Press Windows+R, enter %TEMP% and delete the folders whose name starts with _MEI.</li>
+            <li data-de="Verse-Kit neu starten." data-en="Start Verse-Kit again.">Start Verse-Kit again.</li>
+          </ol>
+        </details>
+        <details>
+          <summary data-de="Linux: Der Startknopf startet Star Citizen nicht" data-en="Linux: the launch button does not start Star Citizen">Linux: the launch button does not start Star Citizen</summary>
+          <p data-de="Der Knopf findet von allein nur das Startskript des LUG Helper. Wer über Lutris, Heroic oder Flatpak spielt, trägt unter Einstellungen → Installation &amp; Pfade → „Startbefehl für Star Citizen“ seinen eigenen Befehl ein."
+             data-en="On its own the button only finds the LUG Helper start script. If you play through Lutris, Heroic or Flatpak, enter your own command under Settings → Installation &amp; paths → “Launch command for Star Citizen”.">On its own the button only finds the LUG Helper start script. If you play through Lutris, Heroic or Flatpak, enter your own command under Settings → Installation &amp; paths → “Launch command for Star Citizen”.</p>
+        </details>
+      </div>
+      <h4 class="faq-untergruppe" data-de="Im Spiel" data-en="In the game">In the game</h4>
+      <div class="faq">
+        <details>
+          <summary data-de="Meine Bauplan-Angaben sind im Spiel verschwunden" data-en="My blueprint details have disappeared in the game">My blueprint details have disappeared in the game</summary>
+          <p data-de="Jeder Spiel-Patch und jedes Update der Übersetzung schreibt die Textdatei des Spiels neu, dabei fallen die Angaben heraus. Nach einem Patch setzt Verse-Kit sie von selbst wieder ein; von Hand geht es unter Spiel-Einstellungen → Spiel → „Neu einsetzen“. Danach Star Citizen ganz beenden und neu starten — das Spiel liest die Datei nur beim Start. Läuft daneben ein zweites Übersetzungswerkzeug, überschreiben sich beide gegenseitig: Nimm nur eins."
+             data-en="Every game patch and every translation update rewrites the game's text file, which drops the details. After a patch Verse-Kit inserts them again by itself; by hand it is under Game settings → Game → “Insert again”. Then quit Star Citizen completely and start it again — the game only reads the file at startup. If a second translation tool runs alongside, the two overwrite each other: use only one.">Every game patch and every translation update rewrites the game's text file, which drops the details. After a patch Verse-Kit inserts them again by itself; by hand it is under Game settings → Game → “Insert again”. Then quit Star Citizen completely and start it again — the game only reads the file at startup. If a second translation tool runs alongside, the two overwrite each other: use only one.</p>
+        </details>
+        <details>
+          <summary data-de="Der Signatur-Scanner zeigt beim Minen nichts an" data-en="The signature scanner shows nothing while mining">The signature scanner shows nothing while mining</summary>
+          <p data-de="Sieh auf das Auge in der Overlay-Leiste: grau heißt aus — anklicken; gelb heißt an, liest aber nicht — Verse-Kit einmal neu starten; grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Abbau & Bergung → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows."
+             data-en="Look at the eye in the overlay bar: grey means off — click it; yellow means on but not reading — restart Verse-Kit once; green means it is reading. If a number is not recognised, teach it under Mining & Salvage → Mining → “Teach digits”. The scanner is Windows only.">Look at the eye in the overlay bar: grey means off — click it; yellow means on but not reading — restart Verse-Kit once; green means it is reading. If a number is not recognised, teach it under Mining &amp; Salvage → Mining → “Teach digits”. The scanner is Windows only.</p>
+        </details>
+      </div>
+      <h4 class="faq-untergruppe" data-de="Deine Daten" data-en="Your data">Your data</h4>
+      <div class="faq">
+        <details>
+          <summary data-de="In der Bauplan-Liste fehlen Baupläne, die ich habe" data-en="The blueprint list is missing blueprints I own">The blueprint list is missing blueprints I own</summary>
+          <p data-de="Verse-Kit zählt, was seit der Einrichtung in den Logs von Star Citizen stand — ältere Logs löscht das Spiel selbst. Gleich einmal mit dem Fabricator im Spiel ab und hak Fehlendes in der Bauplan-Liste an. Liegt dein Stand schon im Basetool, bei scmdb oder als Datei vor, holst du ihn unter Einstellungen → Sichern &amp; Zurücksetzen → „Bestand einlesen“."
+             data-en="Verse-Kit counts what appeared in Star Citizen's logs since setup — the game deletes older logs itself. Compare once with the fabricator in the game and tick off what is missing in the blueprint list. If your inventory is already in the Basetool, on scmdb or in a file, bring it in under Settings → Backup &amp; reset → “Import inventory”.">Verse-Kit counts what appeared in Star Citizen's logs since setup — the game deletes older logs itself. Compare once with the fabricator in the game and tick off what is missing in the blueprint list. If your inventory is already in the Basetool, on scmdb or in a file, bring it in under Settings → Backup &amp; reset → “Import inventory”.</p>
+        </details>
+        <details>
+          <summary data-de="Verse-Kit merkt sich nichts, die Statistik bleibt bei 0" data-en="Verse-Kit remembers nothing, the statistics stay at 0">Verse-Kit remembers nothing, the statistics stay at 0</summary>
+          <p data-de="Meist liegt der Ordner für deine Daten in OneDrive oder an einer Stelle, an der Verse-Kit nicht schreiben darf. Unter Einstellungen → Installation &amp; Pfade → „Ordner für deine Daten“ einen Ordner außerhalb von OneDrive wählen, etwa auf D:."
+             data-en="Usually the folder for your data is in OneDrive or somewhere Verse-Kit may not write to. Under Settings → Installation &amp; paths → “Folder for your data”, choose a folder outside OneDrive, for example on D:.">Usually the folder for your data is in OneDrive or somewhere Verse-Kit may not write to. Under Settings → Installation &amp; paths → “Folder for your data”, choose a folder outside OneDrive, for example on D:.</p>
+        </details>
+      </div>
+      <h4 class="faq-untergruppe" data-de="Darstellung" data-en="Display">Display</h4>
+      <div class="faq">
+        <details>
+          <summary data-de="Die Schrift ist unscharf (4K oder Skalierung über 100 %)" data-en="The text is blurry (4K or scaling above 100 %)">The text is blurry (4K or scaling above 100 %)</summary>
+          <p data-de="Unter Einstellungen → Darstellung „Scharfe Darstellung“ einschalten und Verse-Kit neu starten."
+             data-en="Turn on “Sharp rendering” under Settings → Appearance and restart Verse-Kit.">Turn on “Sharp rendering” under Settings → Appearance and restart Verse-Kit.</p>
+        </details>
+      </div>
+      <h3 class="faq-gruppe" data-de="Das gehört in einen Fehlerbericht" data-en="What belongs in an error report">What belongs in an error report</h3>
+      <p class="einleitung" data-de="Hilft nichts davon, klick in Verse-Kit unten rechts auf „Fehler melden“. Der Bericht geht direkt an den Entwickler, persönliche Ordnernamen werden vorher entfernt."
+         data-en="If none of this helps, click “Report a problem” at the bottom right in Verse-Kit. The report goes straight to the developer, with personal folder names removed first.">If none of this helps, click “Report a problem” at the bottom right in Verse-Kit. The report goes straight to the developer, with personal folder names removed first.</p>
+      <ol class="checkliste">
+        <li data-de="Version, System und die letzten Fehler — trägt der Bericht selbst ein, du musst nichts abschreiben."
+            data-en="Version, system and the latest errors — the report adds them itself, nothing to copy.">Version, system and the latest errors — the report adds them itself, nothing to copy.</li>
+        <li data-de="Was du getan hast, kurz der Reihe nach: welcher Reiter, welcher Knopf."
+            data-en="What you did, briefly and in order: which tab, which button.">What you did, briefly and in order: which tab, which button.</li>
+        <li data-de="Was passieren sollte und was stattdessen passiert ist."
+            data-en="What should have happened and what happened instead.">What should have happened and what happened instead.</li>
+        <li data-de="Ein Bild davon — bis zu vier lassen sich an den Bericht hängen."
+            data-en="A picture of it — you can attach up to four to the report.">A picture of it — you can attach up to four to the report.</li>
+        <li data-de="Betrifft es das Spiel: ob LIVE oder PTU."
+            data-en="If it concerns the game: whether LIVE or PTU.">If it concerns the game: whether LIVE or PTU.</li>
+      </ol>
+      <p class="hinweis" data-de="Startet Verse-Kit gar nicht, frag im Discord und schick die Fehlermeldung als Bild mit — dazu Windows oder Linux und welche Version du geladen hast."
+         data-en="If Verse-Kit does not start at all, ask on Discord and send the error message as a picture — plus Windows or Linux and which version you downloaded.">If Verse-Kit does not start at all, ask on Discord and send the error message as a picture — plus Windows or Linux and which version you downloaded.</p>
+    </div>
+    <div class="verlauf-mehr alle-aenderungen nur-start">
+      <button id="knopf-fragen-alle"
+              data-de="Alle Fragen ansehen" data-en="See all questions">See all questions</button>
+    </div>
+  </div>
+</section>
+
+<section id="aenderungen">
+  <div class="mitte">
+    <a class="zurueck nur-unterseite" href="#" data-de="← Zurück zur Startseite" data-en="← Back to the start page">← Back to the start page</a>
+    <div class="label" data-de="Verlauf" data-en="History">History</div>
+    <h2 data-de="Was sich geändert hat" data-en="What has changed">What has changed</h2>
+    <p class="einleitung nur-start"
+       data-de="Die neueste Version — alle früheren stehen unter „Alle Änderungen ansehen“."
+       data-en="The latest version — all earlier ones are under “See all changes”.">The latest version — all earlier ones are under “See all changes”.</p>
+    <p class="einleitung nur-unterseite"
+       data-de="Jede Version seit der ersten, mit allem, was neu, besser oder behoben ist — dieselben Texte, die das Programm unter „Was ist neu“ zeigt."
+       data-en="Every version since the first, with everything that is new, improved or fixed — the same texts the program shows under “What’s new”.">Every version since the first, with everything that is new, improved or fixed — the same texts the program shows under “What’s new”.</p>
+
+    <div class="verlauf-leiste nur-unterseite">
+      <div class="suchfeld">
+        <input type="search" id="verlauf-suche"
+               placeholder="Search, e.g. hangar or 3.50"
+               aria-label="Search">
+        <button type="button" class="leeren" id="verlauf-leeren" hidden
+                aria-label="Clear search"
+                title="Clear search">×</button>
+      </div>
+      <label><input type="checkbox" id="verlauf-test"><span
+        data-de="Testfassungen zeigen" data-en="Show test builds">Show test builds</span></label>
+    </div>
+    <p class="verlauf-zahl nur-unterseite" id="verlauf-zahl"></p>
+    <div id="verlauf"></div>
+    <div class="verlauf-mehr" id="verlauf-mehr" hidden>
+      <button id="knopf-aeltere"
+              data-de="Ältere Versionen anzeigen" data-en="Show older versions">Show older versions</button>
+    </div>
+    <div class="verlauf-mehr alle-aenderungen nur-start">
+      <button id="knopf-alle-aenderungen"
+              data-de="Alle Änderungen ansehen" data-en="See all changes">See all changes</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="mitte">
+    <div class="fusslinks">
+      <a href="https://xharig.com/" data-de="Alle Werkzeuge auf xharig.com" data-en="All tools on xharig.com">All tools on xharig.com</a>
+      <a href="https://versespotter.xharig.com/?von=versekit" data-de="VerseSpotter — Schiffe erkennen" data-en="VerseSpotter — recognise ships">VerseSpotter — recognise ships</a>
+      <a href="https://github.com/Xharig/VerseKit">GitHub</a>
+      <a href="https://xharig.com/discord">Discord</a>
+      <a href="https://github.com/Xharig/VerseKit/blob/main/README.md"
+         data-de="Anleitung" data-en="Readme">Readme</a>
+      <a href="#alle-aenderungen" data-de="Änderungen" data-en="Changelog">Changelog</a>
+      <a href="https://github.com/Xharig/VerseKit/issues"
+         data-de="Fehler melden" data-en="Report a bug">Report a bug</a>
+      <a href="https://ko-fi.com/xharig">Ko-fi</a>
+      <a href="https://robertsspaceindustries.com/enlist?referral=STAR-YC7L-S4W2"
+         data-de="Lust auf Star Citizen" data-en="Try Star Citizen">Try Star Citizen</a>
+      <a href="https://xharig.com/impressum.html" data-de="Impressum" data-en="Legal notice">Legal notice</a>
+      <a href="https://xharig.com/datenschutz.html" data-de="Datenschutz" data-en="Privacy">Privacy</a>
+    </div>
+
+    <img class="fankit" src="../assets/fankit/MadeByTheCommunity_White.png"
+         alt="Star Citizen — Made by the Community">
+    <p class="fan">
+      This is an unofficial Star Citizen fan site, not affiliated with the Cloud Imperium group of
+      companies. All content on this site not authored by its host or users are property of their
+      respective owners.
+    </p>
+    <p class="recht">
+      Verse-Kit · GPL-3.0 ·
+      <span data-de="von Xharig" data-en="by Xharig">by Xharig</span>
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/seite.js?v=3"></script>
+
+</body>
+</html>

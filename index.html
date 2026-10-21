@@ -5,16 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d0d0d">
 <meta name="color-scheme" content="dark">
-<!-- ⚠ Titel und Beschreibung stehen fest auf ENGLISCH: Suchmaschinen und
-     Link-Vorschauen (Discord, Foren) lesen nur diese Fassung, das Skript
-     laeuft dort nicht. Die meisten Spieler suchen englisch („blueprint“,
-     „crafting“) — auch die deutschen. Nach der Sprachwahl setzt `sprache()`
-     den Fenstertitel um. -->
-<title>Verse-Kit — Star Citizen toolkit for blueprints, crafting, mining and trading</title>
-<meta name="description" content="Free, open-source Star Citizen companion for Windows and Linux: live blueprint alerts, which contract drops which blueprint, crafting ingredients, refinery comparison, trade routes and your hangar. Deutsch und Englisch.">
+<!-- German page. en/index.html is generated from this file by
+     tools/seite_en_bauen.py: it takes every data-en text and every
+     data-en-<attribute> value. After changing this file, run the script.
+     Link previews (og:title, og:description) stay English on both pages. -->
+<title data-de="Verse-Kit — Star-Citizen-Werkzeug für Baupläne, Crafting, Bergbau und Handel" data-en="Verse-Kit — Star Citizen toolkit for blueprints, crafting, mining and trading">Verse-Kit — Star-Citizen-Werkzeug für Baupläne, Crafting, Bergbau und Handel</title>
+<meta name="description" content="Kostenloser, quelloffener Begleiter für Star Citizen unter Windows und Linux: Bauplan-Meldungen live, welcher Auftrag welchen Bauplan bringt, Crafting-Zutaten, Raffinerie-Vergleich, Handelsrouten und dein Hangar. Auch auf Englisch." data-en-content="Free, open-source Star Citizen companion for Windows and Linux: live blueprint alerts, which contract drops which blueprint, crafting ingredients, refinery comparison, trade routes and your hangar. English and German.">
+<link rel="canonical" href="https://versekit.xharig.com/">
+<link rel="alternate" hreflang="de" href="https://versekit.xharig.com/">
+<link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/">
+<link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/">
 <link rel="icon" href="assets/icon.png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Verse-Kit">
+<meta property="og:locale" content="de_DE">
+<meta property="og:locale:alternate" content="en_US">
 <meta property="og:url" content="https://versekit.xharig.com/">
 <meta property="og:title" content="Verse-Kit — your toolkit for Star Citizen">
 <meta property="og:description" content="Blueprints, crafting, mining, trading and hangar — live while you play. Free and open source, Windows and Linux.">
@@ -23,7 +28,7 @@
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="Verse-Kit next to its crafting page">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="assets/seite.css?v=4">
+<link rel="stylesheet" href="assets/seite.css?v=5">
 </head>
 <body>
 
@@ -40,12 +45,20 @@
       <a class="weg" href="#fragen-alle" data-de="FAQ" data-en="FAQ">FAQ</a>
       <a class="weg" href="#alle-aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <div class="sprache">
-        <button id="knopf-de" class="an">DE</button>
-        <button id="knopf-en">EN</button>
+        <a id="knopf-de" href="/" hreflang="de" lang="de" class="an">DE</a>
+        <a id="knopf-en" href="/en/" hreflang="en" lang="en">EN</a>
       </div>
     </nav>
   </div>
 </header>
+
+<div class="hinweis-sprache" id="hinweis-sprache" hidden>
+  <div class="mitte">
+    <span id="hinweis-sprache-text"></span>
+    <a id="hinweis-sprache-link" href="/en/"></a>
+    <button type="button" id="hinweis-sprache-zu">×</button>
+  </div>
+</div>
 
 <div class="hero">
   <div class="kreis a"></div>
@@ -94,7 +107,7 @@
     <div class="film">
       <video id="film" src="assets/video/versekit-de.mp4" poster="assets/video/versekit-de.jpg"
              autoplay muted loop playsinline preload="metadata"
-             aria-label="Verse-Kit in 43 Sekunden"></video>
+             aria-label="Verse-Kit in 43 Sekunden" data-en-aria-label="Verse-Kit in 43 seconds"></video>
     </div>
   </div>
 </div>
@@ -520,9 +533,11 @@
     <div class="verlauf-leiste nur-unterseite">
       <div class="suchfeld">
         <input type="search" id="verlauf-suche"
-               placeholder="Suchen, z. B. Hangar oder 3.50" aria-label="Suchen">
+               placeholder="Suchen, z. B. Hangar oder 3.50" data-en-placeholder="Search, e.g. hangar or 3.50"
+               aria-label="Suchen" data-en-aria-label="Search">
         <button type="button" class="leeren" id="verlauf-leeren" hidden
-                aria-label="Suche leeren" title="Suche leeren">×</button>
+                aria-label="Suche leeren" data-en-aria-label="Clear search"
+                title="Suche leeren" data-en-title="Clear search">×</button>
       </div>
       <label><input type="checkbox" id="verlauf-test"><span
         data-de="Testfassungen zeigen" data-en="Show test builds">Testfassungen zeigen</span></label>
@@ -573,7 +588,7 @@
   </div>
 </footer>
 
-<script src="assets/seite.js?v=2"></script>
+<script src="assets/seite.js?v=3"></script>
 
 </body>
 </html>
