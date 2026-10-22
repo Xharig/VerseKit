@@ -13,4 +13,52 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/"/>
   </url>
+  <url>
+    <loc>https://versekit.xharig.com/rundgang/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/rundgang/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/rundgang/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/rundgang/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/en/rundgang/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/rundgang/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/rundgang/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/rundgang/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/herunterladen/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/herunterladen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/herunterladen/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/herunterladen/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/en/herunterladen/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/herunterladen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/herunterladen/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/herunterladen/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/fragen/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/fragen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/fragen/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/fragen/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/en/fragen/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/fragen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/fragen/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/fragen/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/aenderungen/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/aenderungen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/aenderungen/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/aenderungen/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/en/aenderungen/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/aenderungen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/aenderungen/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/aenderungen/"/>
+  </url>
 </urlset>

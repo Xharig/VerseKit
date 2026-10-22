@@ -190,6 +190,7 @@ var flach = [];
 
 function bauen(){
   var ziel = document.getElementById("reiter");
+  if (!ziel) return;       // the tour lives on rundgang/ only
   ziel.innerHTML = "";
   flach = [];
   var nr = 0;
@@ -312,7 +313,7 @@ function knopfRichten(){
 }
 
 function anderesZeigen(){
-  if (!system) return;
+  if (!system || !document.getElementById("anderes")) return;
   var andere = system === "windows" ? "Linux" : "Windows";
   document.getElementById("anderes-link").textContent = sprLage === "de"
     ? "Andere Systeme: " + andere : "Other systems: " + andere;
@@ -326,6 +327,7 @@ var wenigBewegung = window.matchMedia &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function filmSprache(){
+  if (!film) return;       // the video is on the start page only
   var ziel = WURZEL + "assets/video/versekit-" + sprLage + ".mp4";
   if (film.src === ziel) return;
   film.setAttribute("poster", WURZEL + "assets/video/versekit-" + sprLage + ".jpg");
@@ -335,7 +337,9 @@ function filmSprache(){
   if (!wenigBewegung) { var p = film.play(); if (p && p.catch) p.catch(function(){}); }
 }
 
-if (wenigBewegung){
+if (!film){
+  // nothing to set up
+} else if (wenigBewegung){
   film.removeAttribute("autoplay");
   film.pause();
   film.controls = true;
@@ -376,8 +380,22 @@ function vtAus(release){
   return null;
 }
 
+// Sets an element's text if the page has it; the numbers appear on the start
+// page (fact sheet) and on herunterladen/ (version line, VirusTotal link).
+function textSetzen(id, text){
+  var el = document.getElementById(id);
+  if (el) el.textContent = text;
+  return el;
+}
+
+function zeigeZeile(id){
+  var el = document.getElementById(id);
+  if (el) el.hidden = false;
+}
+
 function vtZeigen(){
-  if (vtLink) document.getElementById("vt-bericht").href = vtLink;
+  var link = document.getElementById("vt-bericht");
+  if (vtLink && link) link.href = vtLink;
 }
 
 function groessenAus(release){
@@ -397,24 +415,24 @@ function mb(bytes){
 
 function kennzahlenZeigen(){
   if (fassung){
-    document.getElementById("kz-version-wert").textContent = fassung;
-    document.getElementById("kz-version").hidden = false;
+    textSetzen("kz-version-wert", fassung);
+    textSetzen("fassung", fassung);
+    zeigeZeile("kz-version");
   }
   if (groessen){
     var teile = [];
     if (groessen.windows) teile.push("Windows " + mb(groessen.windows));
     if (groessen.linux) teile.push("Linux " + mb(groessen.linux));
-    document.getElementById("kz-groesse-wert").textContent = teile.join(", ");
-    document.getElementById("kz-groesse").hidden = false;
+    textSetzen("kz-groesse-wert", teile.join(", "));
+    zeigeZeile("kz-groesse");
   }
 }
 
 function zahlZeigen(){
   kennzahlenZeigen();
   if (downloads === null) return;
-  document.getElementById("downloads-zahl").textContent =
-    downloads.toLocaleString(sprLage === "de" ? "de-DE" : "en-US");
-  document.getElementById("downloads").hidden = false;
+  textSetzen("downloads-zahl", downloads.toLocaleString(sprLage === "de" ? "de-DE" : "en-US"));
+  zeigeZeile("downloads");
 }
 
 function zahlHolen(seite, summe){
@@ -432,7 +450,6 @@ function zahlHolen(seite, summe){
           groessen = groessenAus(liste[i]);
           vtLink = vtAus(liste[i]);
           vtZeigen();
-          document.getElementById("fassung").textContent = fassung;
         }
         for (var k = 0; k < liste[i].assets.length; k++){
           summe += liste[i].assets[k].download_count;
@@ -450,10 +467,7 @@ try {
   var gemerkt = JSON.parse(sessionStorage.getItem("vk-downloads") || "null");
   if (gemerkt && Date.now() - gemerkt.t < 600000){
     downloads = gemerkt.n;
-    if (gemerkt.v){
-      fassung = gemerkt.v;
-      document.getElementById("fassung").textContent = fassung;
-    }
+    if (gemerkt.v) fassung = gemerkt.v;
     if (gemerkt.g) groessen = gemerkt.g;
     if (gemerkt.vt){
       vtLink = gemerkt.vt;
@@ -608,6 +622,7 @@ function zerlegen(text){
 }
 
 function verlaufLaden(){
+  if (!document.getElementById("verlauf")) return;   // aenderungen/ only
   if (verlaufGeladen === sprLage) return;
   document.getElementById("verlauf-suche").placeholder =
     sprLage === "de" ? "Suchen, z. B. Hangar oder 3.50 …" : "Search, e.g. hangar or 3.50 …";
@@ -654,12 +669,8 @@ function verlaufZeigen(){
     if (suche && alle[i].roh.indexOf(suche) < 0) continue;
     treffer.push(alle[i]);
   }
-  // Startseite: nur die neueste. Unterseite: beim Suchen alle Treffer, sonst
-  // erst die neuesten.
-  var unter = document.body.classList.contains("unterseite-verlauf");
-  if (!unter) suche = "";
-  var zeigen = !unter ? treffer.slice(0, 1)
-             : (suche || verlaufAlle) ? treffer : treffer.slice(0, VERLAUF_ERSTE);
+  // While searching every match, otherwise the newest ones first.
+  var zeigen = (suche || verlaufAlle) ? treffer : treffer.slice(0, VERLAUF_ERSTE);
   var ziel = document.getElementById("verlauf");
   ziel.innerHTML = "";
   for (var k = 0; k < zeigen.length; k++){
@@ -691,40 +702,38 @@ function verlaufZeigen(){
              : "Showing " + zeigen.length + " of " + treffer.length + " versions");
   document.getElementById("verlauf-zahl").textContent = zahl;
   document.getElementById("verlauf-mehr").hidden =
-    !unter || !!suche || zeigen.length >= treffer.length;
+    !!suche || zeigen.length >= treffer.length;
 }
 
-/* Unterseiten derselben Datei: Die Adresse sagt, welche (`#alle-aenderungen`,
-   `#fragen-alle`). Ohne passende Adresse ist es die Startseite; ein Sprung zu
-   einem Abschnitt der Startseite wird nach dem Umschalten nachgeholt, weil der
-   Abschnitt vorher ausgeblendet war. */
-var UNTERSEITEN = {"#alle-aenderungen": "verlauf", "#fragen-alle": "fragen"};
+/* Addresses of the single-page site before 23.10.2026 lead to the pages
+   that hold those parts now, so old links keep working. */
+var ALTE_ADRESSEN = {
+  "#alle-aenderungen": "aenderungen/", "#aenderungen": "aenderungen/",
+  "#fragen-alle": "fragen/", "#fragen": "fragen/",
+  "#laden": "herunterladen/", "#sicher": "herunterladen/#sicher",
+  "#tour": "rundgang/", "#ansichten": "rundgang/#ansichten"
+};
 
-function unterseiteSetzen(){
-  var name = UNTERSEITEN[location.hash] || "";
-  var b = document.body.classList;
-  b.toggle("unterseite", !!name);
-  b.toggle("unterseite-verlauf", name === "verlauf");
-  b.toggle("unterseite-fragen", name === "fragen");
-  verlaufZeigen();
-  if (name){
-    window.scrollTo(0, 0);
-  } else if (location.hash.length > 1){
-    var ziel = document.getElementById(location.hash.slice(1));
-    if (ziel) ziel.scrollIntoView();
+/* Each language has its own address: German at "/", English at "/en/", and
+   every sub-page the same below it ("/rundgang/", "/en/rundgang/"; generated
+   by tools/seite_en_bauen.py). The page language comes from <html lang>,
+   never from the browser: search engines read the page with an English
+   browser and would otherwise never see the German text. A language picked
+   once (button, bar or closing the bar) is remembered and opens directly
+   from then on. Without a choice, a bar offers the other version when the
+   browser prefers it. */
+var seitenSprache = document.documentElement.lang === "en" ? "en" : "de";
+// This page's place below the language root, e.g. "" or "rundgang/".
+var seitenPfad = location.href.split("#")[0].split("?")[0]
+  .slice(WURZEL.length).replace(/^en\//, "").replace(/index\.html$/, "");
+function alteAdresseUmleiten(){
+  if (seitenPfad === "" && ALTE_ADRESSEN[location.hash]){
+    location.replace(WURZEL + (seitenSprache === "en" ? "en/" : "") + ALTE_ADRESSEN[location.hash]);
   }
 }
-window.addEventListener("hashchange", unterseiteSetzen);
-
-/* Each language has its own address: German at "/", English at "/en/"
-   (generated by tools/seite_en_bauen.py). The page language comes from
-   <html lang>, never from the browser: search engines read the page with an
-   English browser and would otherwise never see the German text. A language
-   picked once (button, bar or closing the bar) is remembered and opens
-   directly from then on. Without a choice, a bar offers the other version
-   when the browser prefers it. */
-var seitenSprache = document.documentElement.lang === "en" ? "en" : "de";
-var ADRESSE = {de: WURZEL, en: WURZEL + "en/"};
+alteAdresseUmleiten();
+window.addEventListener("hashchange", alteAdresseUmleiten);
+var ADRESSE = {de: WURZEL + seitenPfad, en: WURZEL + "en/" + seitenPfad};
 var gewaehlt = null;
 try { gewaehlt = localStorage.getItem("vk-sprache"); } catch (e) {}
 
@@ -765,7 +774,37 @@ if (!gewaehlt && browserWill !== seitenSprache){
 }
 
 sprache(seitenSprache);
-unterseiteSetzen();
+
+/* Referral code: on a phone the share sheet, elsewhere the link is copied.
+   Same as the block on xharig.com. */
+function teilenEinrichten(){
+  var knopf = document.getElementById("ref-teilen");
+  if (!knopf) return;
+  var meldung = document.getElementById("ref-meldung");
+  var link = knopf.getAttribute("data-link");
+  var code = knopf.getAttribute("data-code");
+  var de = seitenSprache === "de";
+  function kopieren(){
+    if (!navigator.clipboard){ meldung.textContent = link; return; }
+    navigator.clipboard.writeText(link).then(
+      function(){ meldung.textContent = de ? "Link kopiert. Füg ihn ein, wo du willst." : "Link copied. Paste it wherever you like."; },
+      function(){ meldung.textContent = link; });
+  }
+  knopf.addEventListener("click", function(){
+    if (navigator.share && window.matchMedia("(pointer: coarse)").matches){
+      navigator.share({
+        title: "Star Citizen",
+        text: de
+          ? "Neu in Star Citizen? Mit dem Empfehlungscode " + code + " bekommst du nach dem Kauf eines Spielpakets 50.000 UEC dazu."
+          : "New to Star Citizen? With the referral code " + code + " you get 50,000 UEC after buying a game package.",
+        url: link
+      }).catch(function(){});
+      return;
+    }
+    kopieren();
+  });
+}
+teilenEinrichten();
 
 /* Event handlers instead of onclick and the like in the HTML: the content
    security policy of the page allows no inline code. */
