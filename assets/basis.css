@@ -8,20 +8,20 @@
    corners and buttons, never as a large area. One background for the
    whole page: sections are told apart by lines, not by colour changes.
    Signature: the two accent corners of VerseKit's boxes (.winkel).
-   Everything is served by the site itself: Lato (SIL OFL, schrift/),
+   Everything is served by the site itself: Xharig Sans (a Lato subset, SIL OFL, schrift/),
    Lucide icons (ISC, symbole/), no third-party fonts or CDNs.
    --------------------------------------------------------------- */
 
 @font-face{
-  font-family:"Lato";font-style:normal;font-weight:400;font-display:swap;
-  src:url(schrift/lato-400.woff2) format("woff2");
+  font-family:"Xharig Sans";font-style:normal;font-weight:400;font-display:swap;
+  src:url(schrift/xharig-sans-400.woff2) format("woff2");
   unicode-range:U+0020-007E,U+00A0-00FF,U+0131,U+0152-0153,U+02C6,U+02DA,U+02DC,
     U+2010-2014,U+2018-201E,U+2022,U+2026,U+2039-203A,U+20AC,U+2122,U+2190-2193,
     U+2212,U+FB01-FB02;
 }
 @font-face{
-  font-family:"Lato";font-style:normal;font-weight:700;font-display:swap;
-  src:url(schrift/lato-700.woff2) format("woff2");
+  font-family:"Xharig Sans";font-style:normal;font-weight:700;font-display:swap;
+  src:url(schrift/xharig-sans-700.woff2) format("woff2");
   unicode-range:U+0020-007E,U+00A0-00FF,U+0131,U+0152-0153,U+02C6,U+02DA,U+02DC,
     U+2010-2014,U+2018-201E,U+2022,U+2026,U+2039-203A,U+20AC,U+2122,U+2190-2193,
     U+2212,U+FB01-FB02;
@@ -49,7 +49,7 @@ html{background:var(--grund);-webkit-text-size-adjust:100%;text-size-adjust:100%
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 body{
   margin:0;background:var(--grund);color:var(--text);
-  font-family:"Lato","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  font-family:"Xharig Sans","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
   font-size:17px;line-height:1.6;
   -webkit-font-smoothing:antialiased;
 }

@@ -5,8 +5,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Latin subset of a TrueType font as WOFF2, with the standard library and the brotli CLI.
 
-Builds assets/schrift/lato-400.woff2 and lato-700.woff2 for the project page
-from Lato-Regular.ttf and Lato-Bold.ttf (SIL OFL, licence in assets/schrift/).
+Builds assets/schrift/xharig-sans-400.woff2 and xharig-sans-700.woff2 for the
+web pages from Lato-Regular.ttf and Lato-Bold.ttf (SIL OFL, licence in
+assets/schrift/). A subset is a modified version under the OFL, so the font is
+renamed to "Xharig Sans": the Reserved Font Name "Lato" may not be used for it.
 GPOS keeps only the kern feature, cut down to the kept glyphs.
 
 Glyph outlines outside the kept set are emptied (glyph ids stay, so GPOS
@@ -14,7 +16,7 @@ kerning and GSUB stay valid); the kept set is the cmap of the wanted code
 points, closed over composite glyphs and every GSUB substitution. The font is
 then wrapped as WOFF2 with null transforms and one brotli stream.
 
-    python3 tools/schrift_woff2.py Lato-Regular.ttf assets/schrift/lato-400.woff2
+    python3 tools/schrift_woff2.py Lato-Regular.ttf assets/schrift/xharig-sans-400.woff2
 """
 import struct
 import subprocess
@@ -323,6 +325,42 @@ def gpos_neu(gpos, behalten):
             + scriptlist + featurelist + lookuplist)
 
 
+# The SIL OFL forbids the Reserved Font Name ("Lato") on a modified version,
+# and a subset is one. These name records carry the font's name; copyright,
+# licence and designer records stay as they are.
+NAME_IDS = {1, 3, 4, 6, 16, 18, 21}
+NEUER_NAME = 'Xharig Sans'
+
+
+def name_umbenennen(name, alt='Lato', neu=NEUER_NAME):
+    fmt, anzahl, start = struct.unpack('>HHH', name[:6])
+    if fmt != 0:
+        raise ValueError('name table format %d is not handled' % fmt)
+    saetze, daten = [], b''
+    for i in range(anzahl):
+        pid, eid, lid, nid, laenge, off = struct.unpack('>HHHHHH', name[6 + 12 * i:18 + 12 * i])
+        roh = name[start + off:start + off + laenge]
+        if nid in NAME_IDS:
+            kodierung = 'mac_roman' if pid == 1 else 'utf-16-be'
+            text = roh.decode(kodierung)
+            ersatz = neu.replace(' ', '') if nid == 6 else neu
+            roh = text.replace(alt, ersatz).encode(kodierung)
+        saetze.append((pid, eid, lid, nid, len(roh), len(daten)))
+        daten += roh
+    kopf = struct.pack('>HHH', 0, anzahl, 6 + 12 * anzahl)
+    return kopf + b''.join(struct.pack('>HHHHHH', *s) for s in saetze) + daten
+
+
+def namen_lesen(name, ids=(1, 4, 6)):
+    _fmt, anzahl, start = struct.unpack('>HHH', name[:6])
+    gefunden = []
+    for i in range(anzahl):
+        pid, _eid, _lid, nid, laenge, off = struct.unpack('>HHHHHH', name[6 + 12 * i:18 + 12 * i])
+        if nid in ids and pid == 3:
+            gefunden.append((nid, name[start + off:start + off + laenge].decode('utf-16-be')))
+    return gefunden
+
+
 def ub128(n):
     teile = [n & 0x7F]
     n >>= 7
@@ -376,6 +414,9 @@ def main(quelle, ziel):
                 p = 4 * lm + 2 * (i - lm)
                 hmtx[p:p + 2] = b'\0\0'
     t['hmtx'] = bytes(hmtx)
+    t['name'] = name_umbenennen(t['name'])
+    for nid, text in namen_lesen(t['name']):
+        print('  name %d: %s' % (nid, text))
     if '--groessen' in sys.argv:
         for tag in sorted(t):
             print(tag, len(t[tag]))
