@@ -320,42 +320,20 @@ function anderesZeigen(){
   document.getElementById("anderes").hidden = false;
 }
 
-/* Das Video in der Sprache der Seite. Wer weniger Bewegung eingestellt hat,
-   bekommt es angehalten, mit Bedienleiste. Ein Klick hält an bzw. spielt weiter. */
+/* Das Video in der Sprache der Seite. Es startet nie von selbst: Vorschaubild,
+   abgespielt wird erst auf Klick über die Bedienleiste des Browsers. */
 var film = document.getElementById("film");
-var wenigBewegung = window.matchMedia &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var FILM_STAND = "?v=2";
 
 function filmSprache(){
   if (!film) return;       // the video is on the start page only
-  var ziel = WURZEL + "assets/video/versekit-" + sprLage + ".mp4";
-  if (film.src === ziel) return;
-  film.setAttribute("poster", WURZEL + "assets/video/versekit-" + sprLage + ".jpg");
+  var ziel = WURZEL + "assets/video/versekit-" + sprLage + ".mp4" + FILM_STAND;
+  if (film.getAttribute("src") === ziel) return;
+  film.pause();
+  film.setAttribute("poster", WURZEL + "assets/video/versekit-" + sprLage + ".jpg" + FILM_STAND);
   film.setAttribute("src", ziel);
   film.setAttribute("aria-label", sprLage === "de"
-    ? "VerseKit in 43 Sekunden" : "VerseKit in 43 seconds");
-  if (!wenigBewegung) { var p = film.play(); if (p && p.catch) p.catch(function(){}); }
-}
-
-if (!film){
-  // nothing to set up
-} else if (wenigBewegung){
-  film.removeAttribute("autoplay");
-  film.pause();
-  film.controls = true;
-} else {
-  // Click, or Space/Enter once the video has the keyboard focus.
-  var filmUmschalten = function(){
-    if (film.paused) film.play(); else film.pause();
-  };
-  film.tabIndex = 0;
-  film.addEventListener("click", filmUmschalten);
-  film.addEventListener("keydown", function(event){
-    if (event.key === " " || event.key === "Enter"){
-      event.preventDefault();
-      filmUmschalten();
-    }
-  });
+    ? "VerseKit in 41 Sekunden" : "VerseKit in 41 seconds");
 }
 knopfRichten();
 
