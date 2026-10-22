@@ -152,6 +152,22 @@ Einrichten des Dienst-Zeichens (Cloudflare Zero Trust):
    **Service Auth**, Einschließen → **Service Token** → das eben erstellte.
 3. `npx wrangler secret put SERVICE_ID` → die **Client-ID** (nicht das Secret).
 
+## Aussehen der Übersicht
+
+Die Seite trägt das gemeinsame Design der Webseiten. Alles liegt im Worker, nichts
+kommt von außen (strenge Content-Security-Policy, Skript und Stil nur mit
+Einmal-Wert, Schrift und Symbol als Daten-Adressen, `font-src data:`):
+
+| Datei | Inhalt |
+|---|---|
+| `dashboard.js` | Hülle der Seite und Stil dieser einen Seite |
+| `client.js` | Skript im Browser (Zahlen, Diagramme, Tabellen) |
+| `basis.js` | das gemeinsame Aussehen, **unverändert** aus der Mutterkopie der Webseiten; nie hier ändern |
+| `schrift.js` | die Schrift Xharig Sans als Daten-Adresse |
+
+Wie die Webseiten ändern sich `basis.js` und `schrift.js` nur, wenn sich die
+Mutterkopie ändert; dann dort kopieren, nicht hier anpassen.
+
 ## Prüfen (Code)
 
 ```

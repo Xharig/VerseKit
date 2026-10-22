@@ -244,6 +244,28 @@ test('die Seite lädt nichts von außen', async () => {
   assert.ok(!/(src|href)=["']https?:/i.test(html), 'fremde Quelle in der Seite');
 });
 
+test('die Übersicht hält das Design ein: eigene Schrift, kein Inline-Stil, keine Großbuchstaben-Überschriften, keine Gedankenstriche', async () => {
+  const { dashboardHtml } = await import('./dashboard.js');
+  const html = dashboardHtml('abc');
+  assert.ok(html.includes('Xharig Sans') && html.includes('url(data:font/woff2;base64,'), 'Schrift fehlt');
+  assert.ok(!/url\(schrift\//.test(html), 'Schrift-Adresse neben der Seite statt Daten-Adresse');
+  assert.ok(!/\sstyle=/i.test(html.replace(/<script[\s\S]*<\/script>/, '')), 'style-Attribut in der Seite');
+  assert.ok(!/text-transform\s*:\s*uppercase/.test(html), 'Großbuchstaben-Überschriften');
+  assert.ok(!/<(script|style)(?![^>]*nonce="abc")[^>]*>/.test(html.replace(/<script type="application\/ld\+json">/g, '')), 'Skript oder Stil ohne Einmal-Wert');
+  const text = html.split('<script nonce="abc">')[1];
+  assert.ok(!/[—–](?!['"])/.test(text.replace(/const NONE = '–';/, '')), 'Gedankenstrich im Text der Seite');
+  assert.ok(html.includes('bester abgeschlossener Tag'), 'Beschriftung des besten Tags');
+});
+
+test('die Übersicht erlaubt Schrift nur als Daten-Adresse', async () => {
+  globalThis.fetch = async () => new Response('[]');
+  const r = await worker.fetch(statsReq('/', await token()), env(), undefined, verify);
+  const csp = r.headers.get('content-security-policy');
+  assert.match(csp, /font-src data:;/);
+  assert.match(csp, /default-src 'none'/);
+  assert.ok(!/https?:/.test(csp), 'Fremdquelle in der Richtlinie');
+});
+
 // ---------------------------------------------------------------- Kurzlinks
 
 function short(path, { agent = 'Mozilla/5.0 (Windows NT 10.0) Firefox/130.0', method = 'GET', cf = { country: 'RU', city: 'Moskau' } } = {}) {

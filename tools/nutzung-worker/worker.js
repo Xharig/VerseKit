@@ -543,7 +543,7 @@ async function stats(request, env, ctx, verify) {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy':
         `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; ` +
-        "connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "connect-src 'self'; img-src 'self' data:; font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
       ...SECURITY,
     },
   });

@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// Das gemeinsame Aussehen aller Xharig-Seiten: assets/basis.css der Mutterkopie
+// (Repo Tools, webseiten-basis/), Stand der Webseiten vom 23.10.2026, hier
+// UNVERÄNDERT eingesetzt. ⚠ Nie hier ändern: Änderungen gehören in die
+// Mutterkopie und kommen von dort. Die Seite setzt nur die zwei Schrift-Adressen
+// ein (dashboard.js), weil die strenge Content-Security-Policy keine Dateien
+// neben der Seite kennt.
+export const BASIS_CSS = String.raw`/* ---------------------------------------------------------------
+   Xharig pages: shared base
+   Meant for every Xharig site (VerseKit, xharig.com, VerseSpotter), so
+   colours, type, buttons, header, footer and focus look the same
+   everywhere. Page-specific parts live in each site's own stylesheet.
+   Colours are the "Original" colour scheme of VerseKit itself
+   (crates/versekit-core/src/theme.rs). Neon #9ce430 only for lines,
+   corners and buttons, never as a large area. One background for the
+   whole page: sections are told apart by lines, not by colour changes.
+   Signature: the two accent corners of VerseKit's boxes (.winkel).
+   Everything is served by the site itself: Xharig Sans (a Lato subset, SIL OFL, schrift/),
+   Lucide icons (ISC, symbole/), no third-party fonts or CDNs.
+   --------------------------------------------------------------- */
+
+@font-face{
+  font-family:"Xharig Sans";font-style:normal;font-weight:400;font-display:swap;
+  src:url(schrift/xharig-sans-400.woff2) format("woff2");
+  unicode-range:U+0020-007E,U+00A0-00FF,U+0131,U+0152-0153,U+02C6,U+02DA,U+02DC,
+    U+2010-2014,U+2018-201E,U+2022,U+2026,U+2039-203A,U+20AC,U+2122,U+2190-2193,
+    U+2212,U+FB01-FB02;
+}
+@font-face{
+  font-family:"Xharig Sans";font-style:normal;font-weight:700;font-display:swap;
+  src:url(schrift/xharig-sans-700.woff2) format("woff2");
+  unicode-range:U+0020-007E,U+00A0-00FF,U+0131,U+0152-0153,U+02C6,U+02DA,U+02DC,
+    U+2010-2014,U+2018-201E,U+2022,U+2026,U+2039-203A,U+20AC,U+2122,U+2190-2193,
+    U+2212,U+FB01-FB02;
+}
+
+:root{
+  --grund:#10141c;
+  --flaeche:#161c28;
+  --leiste:#1b2230;
+  --linie:#232c3d;
+  --linie-hell:#34415a;
+  --feld:#0c1017;
+  --hover:#222b3b;
+  --text:#e6edf3;
+  --leise:#8b98a5;
+  --neon:#9ce430;
+  --neon-hell:#b8f266;
+  --neon-dunkel:#1d2a14;
+  --rund:8px;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--grund);-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:72px}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+body{
+  margin:0;background:var(--grund);color:var(--text);
+  font-family:"Xharig Sans","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  font-size:17px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img,video{max-width:100%;height:auto;display:block}
+figure{margin:0}
+a{color:var(--neon);text-decoration:none;text-underline-offset:3px}
+a,button,summary,label{touch-action:manipulation;-webkit-tap-highlight-color:rgba(156,228,48,.18)}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--neon);outline-offset:3px;border-radius:4px}
+h1,h2,h3,h4{text-wrap:balance}
+p,li,figcaption{text-wrap:pretty}
+code{font-family:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace}
+.mitte{max-width:1160px;margin:0 auto;
+  padding:0 max(24px,env(safe-area-inset-right)) 0 max(24px,env(safe-area-inset-left))}
+.ic{width:1.15em;height:1.15em;flex:none}
+
+.springen{position:absolute;left:12px;top:-60px;z-index:50;background:var(--neon);color:var(--grund);
+  font-weight:700;padding:8px 14px;border-radius:var(--rund)}
+.springen:focus{top:12px;text-decoration:none}
+
+/* ---------- The accent corners ----------
+   Same as the boxes in VerseKit: fine line, accent corner top left and
+   bottom right, following the 8 px rounding. */
+.winkel{position:relative;background:var(--feld);border:1px solid var(--linie);border-radius:var(--rund)}
+.winkel::before,.winkel::after{
+  content:"";position:absolute;width:22px;height:22px;pointer-events:none;
+  border:0 solid var(--neon);
+}
+.winkel::before{top:-1px;left:-1px;border-top-width:2px;border-left-width:2px;border-top-left-radius:var(--rund)}
+.winkel::after{bottom:-1px;right:-1px;border-bottom-width:2px;border-right-width:2px;border-bottom-right-radius:var(--rund)}
+.winkel > img,.winkel > video{border-radius:calc(var(--rund) - 1px);width:100%}
+
+/* ---------- Header ---------- */
+.kopfleiste{
+  position:sticky;top:0;z-index:20;
+  background:rgba(16,20,28,.92);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--linie);
+}
+.kopf{display:flex;align-items:center;gap:16px;height:64px}
+.marke{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:700;font-size:19px;white-space:nowrap}
+.marke:hover{text-decoration:none;color:var(--neon)}
+.marke img{width:36px;height:36px}
+.kopf nav{margin-left:auto;display:flex;align-items:center;gap:22px}
+.kopf nav a{color:var(--leise);font-size:15px}
+.kopf nav a:hover{color:var(--neon);text-decoration:none}
+.kopf nav a[aria-current=page]{color:var(--text);font-weight:700;box-shadow:inset 0 -2px 0 var(--neon);padding:4px 0}
+/* The one download offer in the header: outlined, never filled, so it offers
+   rather than asks. */
+.kopf nav a.kopf-laden{color:var(--neon);font-weight:700;border:1px solid var(--neon);border-radius:6px;padding:5px 12px}
+.kopf nav a.kopf-laden:hover{background:var(--neon-dunkel)}
+.kopf nav a.kopf-laden[aria-current=page]{box-shadow:none;padding:5px 12px;background:var(--neon-dunkel)}
+.kopf nav a.alle{display:inline-flex;align-items:center;gap:6px;padding-left:22px;border-left:1px solid var(--linie)}
+.sprache{display:flex;border:1px solid var(--linie-hell);border-radius:6px;overflow:hidden}
+.kopf nav .sprache a{color:var(--leise);font-size:14px;font-weight:700;padding:5px 12px}
+.kopf nav .sprache a:hover{background:var(--hover);color:var(--neon)}
+.kopf nav .sprache a.an{background:var(--neon);color:var(--grund)}
+
+/* Menu for narrow screens: the page links fold into one button. Works
+   without script (details/summary). */
+.menue{display:none;position:relative}
+.menue summary{
+  list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+  padding:6px 12px;border:1px solid var(--linie-hell);border-radius:6px;color:var(--text);font-size:15px;font-weight:700;
+}
+.menue summary::-webkit-details-marker{display:none}
+.menue summary::before{content:"";width:18px;height:18px;background:currentColor;
+  -webkit-mask:url(symbole/menu.svg) center/contain no-repeat;mask:url(symbole/menu.svg) center/contain no-repeat}
+.menue[open] summary::before{-webkit-mask-image:url(symbole/x.svg);mask-image:url(symbole/x.svg)}
+.menue summary:hover{border-color:var(--neon);color:var(--neon);background:var(--neon-dunkel)}
+.menue-liste{
+  position:absolute;right:0;top:calc(100% + 10px);z-index:30;min-width:220px;
+  display:flex;flex-direction:column;padding:8px;
+  background:var(--flaeche);border:1px solid var(--linie-hell);border-radius:var(--rund);
+}
+.kopf nav .menue-liste a{color:var(--text);font-size:16px;padding:10px 12px;border-radius:6px;border-left:3px solid transparent}
+.kopf nav .menue-liste a:hover{background:var(--hover);color:var(--neon)}
+.kopf nav .menue-liste a[aria-current=page]{box-shadow:none;padding:10px 12px;background:var(--neon-dunkel);border-left-color:var(--neon);color:var(--neon)}
+
+/* Offers the other language version (page script) */
+.hinweis-sprache{background:var(--leiste);border-bottom:1px solid var(--linie);font-size:15px}
+.hinweis-sprache .mitte{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}
+.hinweis-sprache a{font-weight:700}
+.hinweis-sprache button{
+  margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;background:none;border:1px solid transparent;border-radius:6px;
+  color:var(--leise);cursor:pointer;
+}
+.hinweis-sprache button:hover{color:var(--neon);border-color:var(--linie-hell);background:var(--hover)}
+
+/* ---------- Buttons ----------
+   One filled main button per area; every button changes border and fill
+   on hover. */
+.knopfreihe{display:flex;gap:12px;flex-wrap:wrap}
+.knopf{
+  display:inline-flex;align-items:center;gap:10px;padding:12px 22px;
+  border-radius:var(--rund);border:2px solid var(--linie-hell);background:none;
+  font:inherit;font-weight:700;font-size:17px;line-height:1.3;color:var(--text);cursor:pointer;
+}
+.knopf:hover{text-decoration:none;border-color:var(--neon);color:var(--neon);background:var(--neon-dunkel)}
+.knopf.voll{background:var(--neon);border-color:var(--neon);color:var(--grund)}
+.knopf.voll:hover{background:var(--neon-hell);border-color:var(--neon-hell);color:var(--grund)}
+
+/* ---------- Sections ---------- */
+section{padding:96px 0 88px;border-top:1px solid var(--linie)}
+h2{font-size:36px;line-height:1.2;font-weight:700;letter-spacing:-.01em;margin:0 0 14px;max-width:24em}
+.einleitung{color:var(--leise);max-width:42em;margin:0 0 36px;font-size:18px}
+.hinweis{margin:14px 0 0;font-size:15px;color:var(--leise);border-left:2px solid var(--linie-hell);padding-left:14px;max-width:46em}
+a.raus{display:inline-flex;align-items:center;gap:5px}
+a.raus::after{content:"";width:.85em;height:.85em;background:currentColor;
+  -webkit-mask:url(symbole/external-link.svg) center/contain no-repeat;mask:url(symbole/external-link.svg) center/contain no-repeat}
+
+/* Head of a sub-page: where you are, then its one h1. */
+.seitenkopf{padding:56px 0 8px}
+.pfad{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 18px;padding:0;list-style:none;font-size:15px;color:var(--leise)}
+.pfad li + li::before{content:"";display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:var(--linie-hell);
+  -webkit-mask:url(symbole/chevron-right.svg) center/contain no-repeat;mask:url(symbole/chevron-right.svg) center/contain no-repeat}
+.pfad a{color:var(--leise)}
+.pfad a:hover{color:var(--neon)}
+.seitenkopf h1{font-size:clamp(34px,5vw,52px);line-height:1.1;letter-spacing:-.02em;margin:0 0 14px;max-width:20em}
+.seitenkopf .einleitung{margin-bottom:0}
+.seitenkopf + section{border-top:0;padding-top:48px}
+
+/* ---------- FAQ ---------- */
+.faq{max-width:860px;border-bottom:1px solid var(--linie)}
+.faq details{border-top:1px solid var(--linie)}
+.faq summary{
+  position:relative;cursor:pointer;list-style:none;padding:18px 0 18px 38px;
+  font-weight:700;font-size:18px;line-height:1.4;
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{
+  content:"";position:absolute;left:4px;top:21px;width:20px;height:20px;background:var(--neon);
+  -webkit-mask:url(symbole/plus.svg) center/contain no-repeat;mask:url(symbole/plus.svg) center/contain no-repeat;
+}
+.faq details[open] summary::before{-webkit-mask-image:url(symbole/minus.svg);mask-image:url(symbole/minus.svg)}
+.faq summary:hover{color:var(--neon)}
+.faq p,.faq ol{color:var(--leise);font-size:16px;margin:0 0 18px 38px}
+.faq ol{padding-left:20px}
+.faq li{margin-bottom:6px}
+
+/* ---------- Switch ----------
+   Switch to the right of its label, as in every VerseKit settings list. */
+.schalter{display:inline-flex;align-items:center;gap:12px;color:var(--leise);font-size:15px;cursor:pointer;user-select:none}
+.schalter input{
+  -webkit-appearance:none;appearance:none;margin:0;position:relative;flex:none;cursor:pointer;
+  width:42px;height:24px;border-radius:999px;background:var(--linie-hell);border:1px solid var(--linie-hell);
+}
+.schalter input::before{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--text)}
+.schalter input:checked{background:var(--neon);border-color:var(--neon)}
+.schalter input:checked::before{left:21px;background:var(--grund)}
+.schalter:hover input{border-color:var(--neon)}
+.schalter:hover{color:var(--text)}
+@media (prefers-reduced-motion:no-preference){.schalter input::before{transition:left .25s}}
+
+/* ---------- Footer ---------- */
+footer{border-top:1px solid var(--linie);padding:56px 0 48px}
+.fuss-raster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.fuss-titel{margin:0 0 10px;font-weight:700;font-size:15px;color:var(--text)}
+.fuss-raster a{display:block;width:fit-content;color:var(--leise);font-size:15px;padding:4px 0}
+.fuss-raster a:hover{color:var(--neon)}
+.fuss-fan{display:flex;gap:24px;align-items:center;margin-top:40px;padding-top:28px;border-top:1px solid var(--linie)}
+.fankit{width:120px;height:auto;flex:none;opacity:.85}
+.fan{color:var(--leise);font-size:13px;line-height:1.5;margin:0;max-width:60em}
+.recht{color:var(--leise);font-size:13px;margin:20px 0 0}
+
+/* ---------- Narrower screens ---------- */
+@media (max-width:1000px){
+  .kopf nav{gap:16px}
+  .kopf nav a.alle{padding-left:16px}
+}
+@media (max-width:860px){
+  .kopf nav a.weg{display:none}
+  .menue{display:block}
+  /* Touch: every tap target at least 44 px high. */
+  .kopf nav a.kopf-laden,.menue summary,.kopf nav .sprache a,.kopf nav a.alle,.marke{min-height:44px;display:inline-flex;align-items:center}
+  .kopf nav .sprache a{padding:0 14px}
+  .kopf nav a.alle{min-width:44px;justify-content:center}
+  .kopf nav .menue-liste a{min-height:44px;display:flex;align-items:center}
+  .marke{min-width:44px}
+  .fuss-raster a{padding:11px 0;min-width:44px}
+  .pfad a{display:inline-block;padding:12px 0}
+  .springen{padding:12px 16px}
+}
+@media (max-width:640px){
+  .kopf nav a.kopf-laden{display:none}
+}
+@media (max-width:640px){
+  body{font-size:16px}
+  .mitte{padding:0 max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left))}
+  section{padding:64px 0 60px}
+  .seitenkopf{padding-top:36px}
+  h2{font-size:28px}
+  .einleitung{font-size:17px}
+  .faq summary{font-size:17px}
+  .faq p,.faq ol{margin-left:0}
+  .fuss-raster{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .fuss-fan{flex-direction:column;align-items:flex-start}
+  .kopf nav a.alle span{display:none}
+  .kopf nav{gap:12px}
+  .kopf nav a.alle{padding-left:12px}
+  .knopfreihe .knopf{flex:1 1 auto;justify-content:center}
+}
+@media (max-width:420px){
+  .marke span{display:none}
+  .fuss-raster{grid-template-columns:minmax(0,1fr)}
+}
+`;
