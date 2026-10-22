@@ -59,9 +59,50 @@ const pageName = (p) => (PAGES[p] || ['', p])[1];
 const stepName = (k) => (Number(k) >= MAX_CLICKS ? MAX_CLICKS + '+' : String(k));
 const NONE = '–';
 
-function card(title, small) {
-  const c = $('section', { class: 'block' + (small ? ' klein' : '') }, [$('h2', { text: title })]);
-  document.getElementById('daten').appendChild(c); return c;
+// Ansicht: ausführlich (wie bisher) oder kompakt. Die Wahl merkt sich der
+// Browser (nur bequem, fehlt der Speicher, gilt ausführlich).
+const readMode = () => { try { return localStorage.getItem('ansicht') === 'kompakt'; } catch (e) { return false; } };
+let compact = readMode();
+// In der kompakten Ansicht aufgeklappte Abschnitte (nach Titel). Bleibt beim
+// Neuladen der Zahlen erhalten, beim Neuladen der Seite ist wieder alles zu.
+const openSections = new Set();
+let lastData = null;
+
+// Ein Abschnitt: Überschrift plus Inhalt. kind: 'klein' (drei je Reihe),
+// 'halb' (zwei nebeneinander), 'paar' (nur kompakt nebeneinander). Gibt den Inhalt zurück.
+function card(title, kind) {
+  const sec = $('section', { class: 'block' + (kind ? ' ' + kind : '') });
+  const h2 = $('h2', { text: title });
+  const body = $('div', { class: 'inhalt' });
+  sec.appendChild(h2); sec.appendChild(body);
+  document.getElementById('daten').appendChild(sec);
+  body.sec = sec; body.h2 = h2; body.title = title;
+  return body;
+}
+
+function chevron() {
+  const e = s('svg', { class: 'ic chev', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2,
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' });
+  e.appendChild(s('path', { d: 'm6 9 6 6 6-6' }));
+  return e;
+}
+
+// Kompakt: der Abschnitt zeigt nur Überschrift und die wichtigste Zahl und
+// klappt auf Klick auf (Knopf mit aria-expanded, per Tastatur bedienbar).
+// Ausführlich: bleibt wie er ist.
+function zusammen(body, text) {
+  if (!compact) return;
+  const open = openSections.has(body.title);
+  const btn = $('button', { type: 'button', class: 'faltet', 'aria-expanded': String(open) }, [
+    $('span', { class: 't', text: body.title }), $('span', { class: 'z', text: text || 'Noch keine Daten' }), chevron()]);
+  body.h2.textContent = ''; body.h2.appendChild(btn); body.h2.classList.add('mitfalt');
+  const apply = (o) => { body.hidden = !o; body.sec.classList.toggle('offen', o); btn.setAttribute('aria-expanded', String(o)); };
+  apply(open);
+  btn.addEventListener('click', () => {
+    const o = !openSections.has(body.title);
+    if (o) openSections.add(body.title); else openSections.delete(body.title);
+    apply(o);
+  });
 }
 
 // Farbmuster der Legende; gestrichelt wie die Linie im Diagramm.
@@ -95,13 +136,15 @@ function lineChart(parent, days, series, label) {
 
   function draw() {
     holder.textContent = '';
-    const W = Math.max(260, Math.round(holder.clientWidth) || 600), H = W < 520 ? 210 : 280;
+    // Kompakt etwa ein Drittel der Höhe, mit drei statt fünf Teilstrichen.
+    const W = Math.max(260, Math.round(holder.clientWidth) || 600), H = compact ? 100 : W < 520 ? 210 : 280;
     const L = 34, R = 8, T = 8, B = 26;
     const X = (i) => L + (days.length < 2 ? 0 : (i * (W - L - R)) / (days.length - 1));
     const Y = (v) => T + (H - T - B) * (1 - v / top);
     const svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': label });
-    for (let k = 0; k <= 4; k++) {
-      const v = Math.round((top * k) / 4), y = Y(v);
+    const ticks = compact ? 2 : 4;
+    for (let k = 0; k <= ticks; k++) {
+      const v = Math.round((top * k) / ticks), y = Y(v);
       svg.appendChild(s('line', { x1: L, x2: W - R, y1: y, y2: y, stroke: 'var(--linie)' }));
       const t = s('text', { x: L - 6, y: y + 4, 'text-anchor': 'end' }); t.textContent = v; svg.appendChild(t);
     }
@@ -159,8 +202,12 @@ function foldButton(parent, label, onToggle) {
 // BARS_SHOWN, bei jedem Laden, ohne gemerkten Zustand.
 const BARS_SHOWN = 3, BARS_LIMIT = 4;
 
+// Gibt die Kurzfassung für die kompakte Ansicht zurück: die Zeile mit dem
+// größten Wert (bei Gleichstand die erste).
 function bars(parent, rows, fmt) {
-  if (!rows.length) { parent.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' })); return; }
+  if (!rows.length) { parent.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' })); return ''; }
+  const best = rows.reduce((a, r) => (r[1] > a[1] ? r : a), rows[0]);
+  const summary = best[0] + ': ' + fmt(best[1], best[2]);
   const max = Math.max(...rows.map((r) => r[1]), 1e-9);
   const extra = [];
   const fold = rows.length > BARS_LIMIT;
@@ -174,11 +221,12 @@ function bars(parent, rows, fmt) {
     list.appendChild(line);
   });
   parent.appendChild(list);
-  if (!extra.length) return;
+  if (!extra.length) return summary;
   let open = false;
   const label = (o) => (o ? 'Nur die ersten ' + BARS_SHOWN : 'Alle zeigen (' + rows.length + ')');
   const b = foldButton(parent, label, () => { open = !open; for (const x of extra) x.hidden = !open; return open; });
   b.textContent = label(false); b.setAttribute('aria-expanded', 'false');
+  return summary;
 }
 
 // Versionsnummern absteigend: 4.10.0 vor 4.9.0, eine fertige vor ihren -rc.
@@ -195,6 +243,7 @@ function versionDesc(a, b) {
 }
 
 function render(d, span) {
+  lastData = d;
   const main = document.getElementById('daten'); main.textContent = '';
   charts.length = 0;
   const days = dayList(span);
@@ -229,7 +278,7 @@ function render(d, span) {
           'über die Webseite (Zeitraum)')])])]));
   k.appendChild($('p', { class: 'hinweis', text: 'Aktiv = hat sich an dem Tag gemeldet (UTC). Jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Erst ab v3.65.0. Der laufende Tag zählt bei den Durchschnitten und beim besten Tag nicht mit, weil er noch nicht zu Ende ist.' }));
 
-  lineChart(card('Aktive Installationen je Tag'), days, [
+  lineChart(card('Aktive Installationen je Tag', 'paar'), days, [
     { name: 'gesamt', color: C_ALL, values: total, fill: true, width: 2.5 },
     { name: 'Windows', color: C_WIN, values: days.map((t) => perSys.windows[t] || 0) },
     { name: 'Linux', color: C_LIN, dash: true, values: days.map((t) => perSys.linux[t] || 0) }],
@@ -244,7 +293,7 @@ function render(d, span) {
     perDayW[vl[i].tag] = Math.max(0, vl[i].windows - vl[i - 1].windows);
     perDayL[vl[i].tag] = Math.max(0, vl[i].linux - vl[i - 1].linux);
   }
-  const dayCard = card('Downloads je Tag');
+  const dayCard = card('Downloads je Tag', 'paar');
   if (vl.length < 2) {
     dayCard.appendChild($('div', { class: 'empty', text: 'Noch zu wenig Messungen. Der Worker schreibt stündlich mit.' }));
   } else {
@@ -290,7 +339,8 @@ function render(d, span) {
   const SHOWN = 5;
   let open = false;
   try { open = localStorage.getItem('dl-alle') === '1'; } catch (e) { open = false; }
-  const dlCard = card('Downloads je Version (neueste zuerst)');
+  const dlCard = card('Downloads je Version (neueste zuerst)', 'halb');
+  zusammen(dlCard, rel.length ? rel[0].tag + ': ' + rel[0].gesamt + ' Downloads' : '');
   const dlMax = Math.max(1, ...rel.map((r) => r.gesamt));
   const extra = [];
   const dlList = $('div', { class: 'liste versionen' });
@@ -339,13 +389,19 @@ function render(d, span) {
   for (const r of (d.kurzlinks || [])) if (inSpan.has(r.tag)) row(r.land).dl += r.n;
   const userSum = Object.values(lands).reduce((a, x) => a + x.users, 0);
   const dlSum = Object.values(lands).reduce((a, x) => a + x.dl, 0);
-  const lc = card('Länder: Nutzer und Downloads');
+  const lc = card('Länder: Nutzer und Downloads', 'halb');
   const entries = Object.entries(lands).sort((a, b) => (b[1].users - a[1].users) || (b[1].dl - a[1].dl));
+  const userPct = (x) => (userSum ? Math.round((x.users / userSum) * 100) + ' %' : NONE);
+  const dlPct = (x) => (dlSum ? Math.round((x.dl / dlSum) * 100) + ' %' : NONE);
+  zusammen(lc, entries.length ? landName(entries[0][0]) + ': ' + userPct(entries[0][1]) + ' der Nutzer' : '');
   if (!entries.length) {
     lc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
   } else {
-    const head = $('tr', {}, ['Land', 'aktive Nutzer je Tag (Durchschnitt 7 Tage)', 'Anteil', 'Downloads (Zeitraum)', 'Anteil']
-      .map((h) => $('th', { text: h })));
+    // Drei Spalten, damit die Tabelle auch halbbreit ohne Rollen passt; der
+    // Anteil steht klein unter der Zahl.
+    const th = (t, sub) => $('th', {}, [document.createTextNode(t), $('small', { text: sub })]);
+    const head = $('tr', {}, [th('Land', ''), th('Nutzer/Tag', 'Durchschnitt 7 Tage'), th('Downloads', 'Zeitraum')]);
+    const zelle = (zahl, anteil) => $('td', { class: 'num' }, [$('span', { class: 'zahl', text: zahl }), $('span', { class: 'anteil', text: anteil })]);
     // Wie bei den Versionen: eingeklappt die ersten 5, ausgeklappt alle.
     // Eigener Merker, damit beide Listen unabhängig auf- und zuklappen.
     const LAND_SHOWN = 5;
@@ -355,10 +411,8 @@ function render(d, span) {
     const body = entries.map(([c, x], i) => {
       const tr = $('tr', {}, [
         $('td', { text: landName(c) }),
-        $('td', { class: 'num', text: win.size ? (x.users / win.size).toFixed(1) : NONE }),
-        $('td', { class: 'num', text: userSum ? Math.round((x.users / userSum) * 100) + ' %' : NONE }),
-        $('td', { class: 'num', text: String(x.dl) }),
-        $('td', { class: 'num', text: dlSum ? Math.round((x.dl / dlSum) * 100) + ' %' : NONE })]);
+        zelle(win.size ? (x.users / win.size).toFixed(1) : NONE, userPct(x)),
+        zelle(String(x.dl), dlPct(x))]);
       if (i >= LAND_SHOWN) { landExtra.push(tr); tr.hidden = !landOpen; }
       return tr;
     });
@@ -374,21 +428,22 @@ function render(d, span) {
       b.textContent = label(landOpen); b.setAttribute('aria-expanded', String(landOpen));
     }
   }
-  lc.appendChild($('p', { class: 'hinweis', text: 'Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.' }));
+  lc.appendChild($('p', { class: 'hinweis', text: 'Nutzer/Tag = aktive Nutzer je Tag im Durchschnitt der letzten 7 Tage, Downloads = im gewählten Zeitraum, klein darunter der Anteil. Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.' }));
 
   // Zwei Reihen zu je drei kleinen Blöcken.
   const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
   const vers = {}; for (const r of d.tage) if (r.tag === lastDay) vers[r.version] = (vers[r.version] || 0) + r.n;
-  bars(card('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay)), true),
+  const klein = (title, rows, fmt) => { const b = card(title, 'klein'); zusammen(b, bars(b, rows, fmt)); };
+  klein('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay)),
     Object.entries(vers).sort((a, b) => versionDesc(a[0], b[0])).slice(0, 10), (v) => v);
   const sys = { Windows: 0, Linux: 0 };
   for (const r of d.tage) if (win.has(r.tag)) sys[r.system === 'linux' ? 'Linux' : 'Windows'] += r.n;
-  bars(card('System (Durchschnitt 7 Tage)', true), Object.entries(sys), pct);
-  bars(card('Sprache der Oberfläche (Durchschnitt 7 Tage)', true), share('ui').map(([c, v]) => [langName(c), v]), pct);
+  klein('System (Durchschnitt 7 Tage)', Object.entries(sys), pct);
+  klein('Sprache der Oberfläche (Durchschnitt 7 Tage)', share('ui').map(([c, v]) => [langName(c), v]), pct);
 
-  bars(card('Sprache des Spiels (Durchschnitt 7 Tage)', true), share('game').map(([c, v]) => [langName(c), v]), pct);
-  bars(card('Eingeschaltete Bereiche (Durchschnitt 7 Tage)', true), share('mod').map(([c, v]) => [NAMES.mod[c] || c, v]), pct);
-  bars(card('Einstellungen (Durchschnitt 7 Tage)', true), [
+  klein('Sprache des Spiels (Durchschnitt 7 Tage)', share('game').map(([c, v]) => [langName(c), v]), pct);
+  klein('Eingeschaltete Bereiche (Durchschnitt 7 Tage)', share('mod').map(([c, v]) => [NAMES.mod[c] || c, v]), pct);
+  klein('Einstellungen (Durchschnitt 7 Tage)', [
     ['Testversionen an', (share('rc').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Autostart an', (share('autostart').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Auto-Update an', (share('update').find((x) => x[0] === 'ja') || [0, 0])[1]],
@@ -404,7 +459,7 @@ function render(d, span) {
   // nichts und ziehen den Anteil nach unten, bis sie ausgetauscht sind).
   const off = Object.fromEntries(share('kachel_aus'));
   const tc = card('Ausgeblendete Kacheln der Startseite (Durchschnitt 7 Tage)');
-  bars(tc, Object.keys(TILES).map((k) => [TILES[k], off[k] || 0]), pct);
+  zusammen(tc, bars(tc, Object.keys(TILES).map((k) => [TILES[k], off[k] || 0]), pct));
   tc.appendChild($('p', { class: 'hinweis', text: 'Erst ab v4.1.2 gemeldet. Ab Werk ist nur die Spielzeit ausgeblendet.' }));
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
@@ -425,6 +480,7 @@ function pageBlocks(d, inSpan) {
   const rc = card('Seiten nach Aufrufen (Zeitraum)');
   const top = Math.max(1, ...ranked.map((p) => views[p] || 0));
   const total = ranked.reduce((a, p) => a + (views[p] || 0), 0);
+  zusammen(rc, total ? pageName(ranked[0]) + ': ' + (views[ranked[0]] || 0) + ' von ' + total + ' Aufrufen' : '');
   const list = $('div', { class: 'liste cols' });
   // Eingeklappt die ersten SEITEN_SHOWN, gerade Zahl, damit beide Spalten
   // gleich lang sind; bei jedem Laden, ohne gemerkten Zustand.
@@ -472,6 +528,7 @@ function pageBlocks(d, inSpan) {
   const targets = Object.keys(dist).filter((p) => PAGES[p])
     .map((p) => [p, Object.values(dist[p]).reduce((a, x) => a + x, 0)])
     .sort((a, b) => (b[1] - a[1]) || (order.indexOf(a[0]) - order.indexOf(b[0])));
+  zusammen(kc, targets.length ? pageName(targets[0][0]) + ': Median ' + stepName(median(dist[targets[0][0]])) + ' Klicks' : '');
   if (!targets.length) {
     kc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
   } else {
@@ -512,13 +569,13 @@ function pageBlocks(d, inSpan) {
     .sort((a, b) => b[1] - a[1]).slice(0, 15)
     .map(([k, n]) => { const [a, b] = k.split('>'); return [pageName(a) + ' → ' + pageName(b), n]; });
   const mc = card('Häufigste Fehlgriffe');
-  bars(mc, pairs, (v) => v);
+  zusammen(mc, bars(mc, pairs, (v) => v));
   mc.appendChild($('p', { class: 'hinweis', text: 'Fehlgriff = Seite nach weniger als 3 Sekunden wieder verlassen. Rechts die Seite, auf der man danach geblieben ist.' }));
 
   // Handlungen: jede aus ACTIONS, auch mit 0, in der Reihenfolge der Liste.
   const done = sum(d.seiten_handlungen, (r) => r.handlung);
   const ac = card('Handlungen (Zeitraum)');
-  bars(ac, Object.keys(ACTIONS).map((k) => [ACTIONS[k], done[k] || 0]), (v) => v);
+  zusammen(ac, bars(ac, Object.keys(ACTIONS).map((k) => [ACTIONS[k], done[k] || 0]), (v) => v));
   ac.appendChild($('p', { class: 'hinweis', text: 'Wie oft eine Handlung genutzt wurde. Es zählt nur die Anzahl, keine Mengen oder Namen.' }));
 }
 
@@ -548,6 +605,17 @@ for (const b of rangeButtons) b.addEventListener('click', () => {
   span = Number(b.dataset.tage);
   for (const o of rangeButtons) o.setAttribute('aria-pressed', String(o === b));
   load();
+});
+// Kompakt / ausführlich: Schalter oben. Die Wahl merkt sich der Browser; die
+// Zahlen werden nicht neu geholt, nur anders aufgebaut.
+const modeSwitch = document.getElementById('kompakt');
+const showMode = () => { document.getElementById('inhalt').classList.toggle('kompakt', compact); };
+modeSwitch.checked = compact; showMode();
+modeSwitch.addEventListener('change', () => {
+  compact = modeSwitch.checked;
+  try { localStorage.setItem('ansicht', compact ? 'kompakt' : 'ausfuehrlich'); } catch (e) { /* nur bequem */ }
+  showMode();
+  if (lastData) render(lastData, span);
 });
 // Der Knopf lädt die GANZE Seite neu, nicht nur die Zahlen, sonst blieb nach
 // einer neuen Fassung der Übersicht die alte stehen, bis jemand F5 drückt.

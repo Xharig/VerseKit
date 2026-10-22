@@ -257,6 +257,21 @@ test('die Übersicht hält das Design ein: eigene Schrift, kein Inline-Stil, kei
   assert.ok(html.includes('bester abgeschlossener Tag'), 'Beschriftung des besten Tags');
 });
 
+test('die Übersicht hat den Kompakt-Schalter mit gemerkter Wahl und bedienbaren Falt-Knöpfen', async () => {
+  const { dashboardHtml } = await import('./dashboard.js');
+  const html = dashboardHtml('abc');
+  assert.ok(/<input type="checkbox" id="kompakt" role="switch">/.test(html), 'Schalter fehlt');
+  assert.ok(html.includes("localStorage.getItem('ansicht')") && html.includes("localStorage.setItem('ansicht'"), 'Wahl wird nicht gemerkt');
+  assert.ok(html.includes("class: 'faltet'") && html.includes("'aria-expanded'"), 'Falt-Knopf ohne aria-expanded');
+  const eigenerStil = html.split('/* ---------- Diese Seite')[1].split('</style>')[0];
+  assert.ok(!/transition|animation/.test(eigenerStil), 'Animation im Stil dieser Seite');
+  for (const t of ['Downloads je Version', 'Länder: Nutzer und Downloads']) {
+    assert.ok(html.includes(`'${t}`) , t + ' fehlt');
+  }
+  assert.ok(html.includes("'Downloads je Version (neueste zuerst)', 'halb'") && html.includes("'Länder: Nutzer und Downloads', 'halb'"),
+    'Versionen und Länder nicht nebeneinander');
+});
+
 test('die Übersicht erlaubt Schrift nur als Daten-Adresse', async () => {
   globalThis.fetch = async () => new Response('[]');
   const r = await worker.fetch(statsReq('/', await token()), env(), undefined, verify);

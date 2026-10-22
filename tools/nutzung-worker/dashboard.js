@@ -47,9 +47,14 @@ const SEITE_CSS = `
 .seitenkopf .einleitung{margin:0 0 6px;font-size:17px}
 .stand{margin:0 0 22px;color:var(--leise);font-size:15px}
 
-.raster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:48px;padding-bottom:64px}
-section.block{grid-column:1 / -1;min-width:0;padding:28px 0 32px;border-top:1px solid var(--linie)}
-section.block.klein{grid-column:auto}
+/* Sechs Spalten: breit = 6, klein = 2 (drei je Reihe), halb = 3 (ab 1000 px zwei
+   nebeneinander: Versionen und Länder immer, die zwei Diagramme nur kompakt) */
+.raster{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));column-gap:48px;padding-bottom:64px}
+section.block{grid-column:span 6;min-width:0;padding:28px 0 32px;border-top:1px solid var(--linie)}
+section.block.klein{grid-column:span 2}
+@media (min-width:1000px){
+  section.block.halb,.kompakt section.block.paar{grid-column:span 3}
+}
 .block h2{font-size:24px;line-height:1.25;letter-spacing:0;margin:0 0 18px;max-width:none}
 .block .hinweis{font-size:14px}
 .empty{color:var(--leise);padding:6px 0 10px}
@@ -80,7 +85,16 @@ section.block.klein{grid-column:auto}
 .bar .fill{height:100%;background:var(--neon)}
 .bar .n{min-width:52px;text-align:right;color:var(--leise);font-variant-numeric:tabular-nums}
 .bar .grp{margin-left:8px;color:var(--leise);font-size:12px}
-.versionen .bar{grid-template-columns:minmax(96px,200px) minmax(0,1fr) 250px}
+/* Versionen: Name und Zahl oben, der Balken darunter (passt auch halbbreit);
+   nur auf mittlerer Breite, wo die Liste die ganze Zeile hat, alles in einer Zeile */
+.versionen .bar{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}
+.versionen .bar .track{grid-column:1 / -1;grid-row:2}
+.versionen .bar .n{grid-row:1;grid-column:2}
+@media (min-width:700px) and (max-width:999px){
+  .versionen .bar{grid-template-columns:minmax(96px,200px) minmax(0,1fr) 250px;gap:14px}
+  .versionen .bar .track{grid-column:auto;grid-row:auto}
+  .versionen .bar .n{grid-row:auto;grid-column:auto}
+}
 .dim{opacity:.5}
 .cols{column-count:2;column-gap:48px}
 .cols .bar{break-inside:avoid}
@@ -95,36 +109,72 @@ section.block.klein{grid-column:auto}
 .tab th:first-child,.tab td:first-child{padding-left:0}
 .tab th:not(:first-child){text-align:right}
 .tab .num{text-align:right;font-variant-numeric:tabular-nums}
+.tab th small{display:block;font-size:12px;font-weight:400;line-height:1.3}
+.tab .zahl,.tab .anteil{display:block}
+.tab .anteil{font-size:13px;color:var(--leise)}
 .hist{display:inline-grid;grid-template-columns:repeat(${MAX_CLICKS + 1},14px);gap:2px;align-items:end;
   height:26px;vertical-align:middle}
 .hist div{background:var(--neon);border-radius:1px 1px 0 0;min-height:1px}
 .hist.axis{height:auto;align-items:start}
 .hist.axis span{color:var(--leise);font-size:11px;font-weight:400;text-align:center}
 
+/* Kompakte Ansicht: engere Abstände, flache Diagramme (in client.js),
+   Abschnitte als Falt-Knopf mit der wichtigsten Zahl. Keine Animation. */
+.faltet{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 16px;width:100%;min-height:44px;padding:0;margin:0;
+  background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.faltet .t{font-weight:700}
+.faltet .z{font-size:15px;font-weight:400;color:var(--leise)}
+.faltet .chev{margin-left:auto;align-self:center;width:22px;height:22px;color:var(--neon)}
+.klein .faltet .t{flex:1 1 0;min-width:0}
+.klein .faltet .chev{order:2;margin-left:0}
+.klein .faltet .z{order:3;flex:1 0 100%}
+.faltet:hover .t{color:var(--neon)}
+.faltet[aria-expanded=true] .chev{transform:rotate(180deg)}
+.kompakt section.block{padding:12px 0 14px}
+.kompakt section.block.offen{padding-bottom:24px}
+.kompakt .block h2{margin-bottom:10px}
+.kompakt .block h2.mitfalt{margin:0}
+.kompakt .block.offen h2.mitfalt{margin-bottom:12px}
+.kompakt .bild{padding:8px 12px 4px}
+.kompakt .tipp{margin-bottom:2px;font-size:14px}
+.kompakt .legende{margin-top:8px}
+.kompakt .kpi{padding:12px 16px}
+.kompakt .kpi .v{font-size:30px}
+.kompakt .hinweis{margin-top:10px}
+
 footer{padding:28px 0 36px}
 .fussnote{margin:0;color:var(--leise);font-size:14px}
 
-@media (max-width:1000px){
-  .raster{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:999px){
+  .raster{column-gap:32px}
+  section.block.klein{grid-column:span 3}
   .kpis.fuenf{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kpis.fuenf .kpi:last-child{grid-column:1 / -1}
 }
 @media (max-width:860px){
   .sprache button{min-height:44px;padding:0 14px}
-  .knopf.klein{min-height:44px}
+  .knopf.klein,.schalter{min-height:44px}
   .cols{column-count:1}
-}
-@media (max-width:640px){
+  /* Kopf ohne feste Höhe, nicht mehr mitlaufend; die Elemente des Menüs liegen direkt in der Kopfzeile */
   .kopfleiste{position:static}
   .kopf{height:auto;flex-wrap:wrap;padding-top:8px;padding-bottom:12px;gap:10px}
   .kopf nav{display:contents}
   .marke{order:1}
-  #neu{order:2;margin-left:auto}
-  #zeitraum{order:3;flex:1 0 100%}
-  #zeitraum button{flex:1 1 0}
+  #zeitraum{order:2}
+  #ansicht{order:3}
+  #neu{order:4;margin-left:auto}
+}
+@media (max-width:640px){
+  /* Handy: Name und Aktualisieren oben, darunter Zeitraum und Kompakt */
+  #neu{order:2}
+  #zeitraum{order:3}
+  #ansicht{order:4;margin-left:auto}
+  #zeitraum button{padding:0 10px}
+  .schalter{gap:8px}
   .seitenkopf{padding-top:28px}
-  .raster{grid-template-columns:minmax(0,1fr)}
-  section.block{padding:24px 0 26px}
+  section.block,.kompakt section.block{padding:24px 0 26px}
+  .kompakt section.block{padding:10px 0 12px}
+  section.block.klein{grid-column:span 6}
   .block h2{font-size:21px;margin-bottom:14px}
   .kpi{padding:14px 14px 12px}
   .kpi .v{font-size:30px}
@@ -171,6 +221,10 @@ ${SEITE_CSS}
         <button type="button" data-tage="90" aria-pressed="true">90 Tage</button>
         <button type="button" data-tage="365" aria-pressed="false">1 Jahr</button>
       </div>
+      <label class="schalter" id="ansicht" title="Kompakt: flachere Diagramme nebeneinander, Abschnitte eingeklappt">
+        <span>Kompakt</span>
+        <input type="checkbox" id="kompakt" role="switch">
+      </label>
       <button class="knopf klein" id="neu" type="button" title="Lädt die Seite neu. Die Zahlen kommen sonst alle 10 Minuten von selbst.">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
         <span class="neu-text" id="neu-text">Aktualisieren</span>
