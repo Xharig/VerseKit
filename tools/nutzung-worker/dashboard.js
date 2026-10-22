@@ -26,7 +26,7 @@ const SEITE_CSS = `
    Nur, was basis.css nicht kennt. Farben für Windows und Linux: blau und
    orange bleiben auch bei Rot-Grün-Schwäche gut trennbar (Okabe und Ito). */
 :root{--win:#56b4e9;--lin:#f08a4b;
-  --weg-blau:#4a8de0;--weg-rosa:#e08fd0;--weg-grau:#6b7685;--weg-rot:#c8382c;--weg-eis:#8ee5f0}
+  --weg-blau:#4a8de0;--weg-rosa:#e08fd0;--weg-grau:#6b7685;--weg-rot:#c8382c;--weg-eis:#8ee5f0;--weg-suche:#1f9d6b}
 [hidden]{display:none !important}
 .kopf nav{gap:14px}
 .marke em{margin-left:-5px;font-style:normal;font-weight:400;color:var(--leise)}
@@ -65,6 +65,7 @@ section.block.klein{grid-column:span 2}
 .kpis{display:grid;gap:1px;background:var(--linie)}
 .kpis.fuenf{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kpis.zwei{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpis.vier{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpi{background:var(--feld);padding:18px 20px 16px}
 .kpi .v{font-size:36px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}
 .kpi .l{margin-top:6px;color:var(--leise);font-size:14px;line-height:1.4}
@@ -148,7 +149,7 @@ footer{padding:28px 0 36px}
 @media (max-width:999px){
   .raster{column-gap:32px}
   section.block.klein{grid-column:span 3}
-  .kpis.fuenf{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis.fuenf,.kpis.vier{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kpis.fuenf .kpi:last-child{grid-column:1 / -1}
 }
 @media (max-width:860px){

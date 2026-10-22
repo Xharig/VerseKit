@@ -35,10 +35,10 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 | `rc`, `autostart`, `update` | Testversionen, Autostart, Auto-Update (ja/nein) | `merkmale` |
 | `mods`, `overlay` | eingeschaltete Bereiche, Overlay-Betrieb | `merkmale` |
 | `pages` | Aufrufe je Seite, `{"liste": 12}` | `seiten` |
-| `entry` | Weg je Seite, `{"laeden": {"seitenleiste": 3}}` | `seiten_wege` |
+| `entry` | Weg je Seite, `{"laeden": {"seitenleiste": 3}}`; ab VerseKit 5 auch der Weg `suche` (Seite über das Suchfeld oder den Menüfilter geöffnet) | `seiten_wege` |
 | `clicks` | Klicks bis zur Zielseite als Verteilung, `{"laeden": {"2": 5}}` (10 = 10 oder mehr) | `seiten_klicks` |
 | `misses` | Fehlgriff → nächstes Ziel, `{"verkauf>laeden": 7}` | `seiten_fehlgriffe` |
-| `actions` | wie oft eine Handlung genutzt wurde, `{"lager_scan": 2}` — nur Kennungen aus `ACTIONS` | `seiten_handlungen` |
+| `actions` | wie oft eine Handlung genutzt wurde, `{"lager_scan": 2}` — nur Kennungen aus `ACTIONS`; ab VerseKit 5 dazu `suche_benutzt` (wie oft gesucht wurde) und `suche_ohne_treffer` (wie oft die Suche nichts fand), nur die Anzahl, nie das Suchwort (`SEARCH` in `pages.js`) | `seiten_handlungen` |
 
 Was „Klick", „Ziel" und „Fehlgriff" heißen, steht in `scbp/page_usage.py`.
 Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest

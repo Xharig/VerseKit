@@ -122,6 +122,18 @@ export const TILES = {
   bedarf: 'Bedarf der Einheit', funde: 'Letzte Funde', sicherung: 'Sicherung',
 };
 
+// Neu mit VerseKit 5: die Suche. Stehen bewusst NICHT in ROUTES und ACTIONS
+// oben, denn deren Listen vergleicht der Selbsttest der Python-Fassung 1:1 mit
+// `page_usage.py`. Der Worker nimmt beide Listen an, die Übersicht zeigt beide.
+//   suche (Weg)          eine Seite wurde über das Suchfeld oder den Menüfilter geöffnet
+//   suche_benutzt        wie oft gesucht wurde (nur die Anzahl, nie das Suchwort)
+//   suche_ohne_treffer   wie oft die Suche nichts fand (nur die Anzahl)
+export const ROUTES_V5 = { suche: 'Suche' };
+export const SEARCH = {
+  suche_benutzt: 'Suche benutzt',
+  suche_ohne_treffer: 'Suche ohne Treffer',
+};
+
 // Die Stufe MAX_CLICKS steht für so viele Klicks und mehr (`page_usage.MAX_CLICKS`).
 export const MAX_CLICKS = 10;
 export const MAX_COUNT = 9999;

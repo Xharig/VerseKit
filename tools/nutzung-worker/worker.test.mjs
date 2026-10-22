@@ -588,6 +588,92 @@ test('falsche Seitenzähler werden abgelehnt — die ganze Meldung', async () =>
   }
 });
 
+// ------------------------------------------------------------------ Suche (VerseKit 5)
+
+import { ROUTES_V5, SEARCH } from './pages.js';
+
+test('Vorbedingung: die Suche wird als Weg und als zwei Zähler angenommen und gezählt (echtes SQLite)', async () => {
+  const e = { ...env(), DB: realD1() };
+  const r = await worker.fetch(ping({ ...FULL, pages: { liste: 2 },
+    entry: { liste: { suche: 2 } }, actions: { suche_benutzt: 5, suche_ohne_treffer: 2 } }), e);
+  assert.equal(r.status, 204);
+  assert.deepEqual(rows(e.DB.db, 'seiten_wege').map((x) => [x.seite, x.weg, x.n]), [['liste', 'suche', 2]]);
+  assert.deepEqual(rows(e.DB.db, 'seiten_handlungen').map((x) => [x.handlung, x.n]),
+    [['suche_benutzt', 5], ['suche_ohne_treffer', 2]]);
+  // Eine zweite Meldung zählt dazu; die Installation zählt genau einmal je Meldung.
+  await worker.fetch(ping({ ...FULL, actions: { suche_benutzt: 1 } }), e);
+  assert.equal(e.DB.db.prepare("SELECT n FROM seiten_handlungen WHERE handlung = 'suche_benutzt'").get().n, 6);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 2);
+});
+
+test('ältere Fassungen ohne die Suche-Felder werden weiter angenommen', async () => {
+  for (const body of [FULL, { ...FULL, ...NAV }, { ...FULL, actions: { lager_scan: 1 }, entry: { liste: { start: 1 } } }]) {
+    const e = { ...env(), DB: realD1() };
+    assert.equal((await worker.fetch(ping(body), e)).status, 204);
+    assert.equal(e.DB.db.prepare("SELECT COUNT(*) AS n FROM seiten_handlungen WHERE handlung LIKE 'suche%'").get().n, 0);
+  }
+});
+
+test('unbekannte Wege und Zähler und jeder Freitext bleiben abgelehnt, auch neben der Suche', async () => {
+  const bad = [
+    { entry: { liste: { suchfeld: 1 } } }, { entry: { liste: { Suche: 1 } } }, { entry: { liste: { 'suche ': 1 } } },
+    { entry: { liste: { 'suche: Gladius': 1 } } }, { entry: { liste: { suche: '2' } } }, { entry: { liste: { suche: 0 } } },
+    { entry: { liste: { suche: MAX_COUNT + 1 } } },
+    { actions: { suche: 1 } }, { actions: { suche_benutzt: 0 } }, { actions: { suche_benutzt: '3' } },
+    { actions: { suche_benutzt: MAX_COUNT + 1 } }, { actions: { suche_ohne_treffer: 1.5 } },
+    { actions: { suche_ergebnis: 1 } }, { actions: { 'suche_benutzt: Gladius': 1 } },
+    { actions: { 'Gladius': 1 } }, { actions: { Gladius: 'Gladius' } },
+    { pages: { suche: 1 } },                              // Suche ist ein Weg, keine Seite
+    { search: 'Gladius' }, { search: { benutzt: 1 } }, { suche: 3 }, { query: 'Titanium' }, { suchwort: 'x' },
+    { actions: { suche_benutzt: 'Gladius' } },
+  ];
+  for (const b of bad) {
+    const e = env();
+    const r = await worker.fetch(navPing(b), e);
+    assert.equal(r.status, 400, JSON.stringify(b));
+    assert.equal(e.DB.calls.length, 0, JSON.stringify(b));
+  }
+  // Gegenprobe: dieselbe Meldung ohne den Fehler geht durch.
+  const ok = await worker.fetch(navPing({ actions: { suche_benutzt: 1 } }), env());
+  assert.equal(ok.status, 204);
+});
+
+test('Suchwörter können nirgends gespeichert werden: Schlüssel nur aus festen Listen, Werte nur ganze Zahlen', async () => {
+  const e = { ...env(), DB: realD1() };
+  await worker.fetch(ping({ ...FULL, actions: { suche_benutzt: 3, suche_ohne_treffer: 1 }, entry: { liste: { suche: 3 } } }), e);
+  const gespeichert = [];
+  for (const t of ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe', 'seiten_handlungen', 'merkmale', 'tage']) {
+    gespeichert.push(...rows(e.DB.db, t).flatMap((x) => Object.values(x).filter((v) => typeof v === 'string')));
+  }
+  const erlaubt = new Set([...Object.keys(ACTIONS), ...Object.keys(SEARCH), ...Object.keys(ROUTES), ...Object.keys(ROUTES_V5),
+    ...Object.keys(PAGES), '3.65.0', 'windows', 'XX', 'DE', 'de', 'en', 'ja', 'nein', 'popup', 'handel', 'schiffe',
+    'ui', 'game', 'rc', 'autostart', 'update', 'overlay', 'mod', new Date().toISOString().slice(0, 10)]);
+  for (const v of gespeichert) assert.ok(erlaubt.has(v), 'unerwarteter Text in der Datenbank: ' + v);
+});
+
+test('ROUTES und ACTIONS bleiben, wie sie die Python-Fassung im Selbsttest erwartet; die Suche steht daneben', () => {
+  assert.deepEqual(Object.keys(ROUTES), ['seitenleiste', 'sprung', 'overlay', 'tray', 'start', 'karte', 'pfad']);
+  assert.ok(Object.keys(ACTIONS).every((k) => !k.startsWith('suche')));
+  assert.deepEqual(Object.keys(ROUTES_V5), ['suche']);
+  assert.deepEqual(Object.keys(SEARCH), ['suche_benutzt', 'suche_ohne_treffer']);
+});
+
+test('die größte Meldung mit der Suche passt weiter unter MAX_BYTES', async () => {
+  const ids = Object.keys(PAGES);
+  const wege = { ...ROUTES, ...ROUTES_V5 };
+  const big = {
+    ...FULL,
+    pages: Object.fromEntries(ids.map((p) => [p, MAX_COUNT])),
+    entry: Object.fromEntries(ids.map((p) => [p, Object.fromEntries(Object.keys(wege).map((w) => [w, MAX_COUNT]))])),
+    clicks: Object.fromEntries(ids.map((p) => [p, Object.fromEntries(
+      Array.from({ length: MAX_CLICKS + 1 }, (_, k) => [String(k), MAX_COUNT]))])),
+    actions: Object.fromEntries([...Object.keys(ACTIONS), ...Object.keys(SEARCH)].map((k) => [k, MAX_COUNT])),
+  };
+  const size = new TextEncoder().encode(JSON.stringify(big)).length;
+  assert.ok(size <= MAX_BYTES, `${size} Byte > ${MAX_BYTES}`);
+  assert.equal((await worker.fetch(ping(big), { ...env(), DB: realD1() })).status, 204);
+});
+
 test('die größte mögliche Meldung passt unter MAX_BYTES und wird angenommen', async () => {
   const ids = Object.keys(PAGES);
   const longest = ids.slice().sort((a, b) => b.length - a.length);

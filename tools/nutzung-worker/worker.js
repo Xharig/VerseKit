@@ -27,7 +27,7 @@
 // gezählt wird die Menge, nicht die Person.
 
 import { dashboardHtml } from './dashboard.js';
-import { PAGES, ROUTES, ACTIONS, TILES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
+import { PAGES, ROUTES, ROUTES_V5, ACTIONS, SEARCH, TILES, MAX_CLICKS, MAX_COUNT, MAX_MISS_PAIRS } from './pages.js';
 
 // Reicht für die größte Meldung, die das Programm bauen kann: jede Seite mit
 // jedem Weg und jeder Klickstufe, dazu alle Fehlgriff-Paare (Prüfung im Test).
@@ -150,7 +150,7 @@ export function navigation(d) {
       nav.pages.push([page, n]);
     }
   }
-  for (const [field, keyOk] of [['entry', (k) => own(ROUTES, k)], ['clicks', isStep]]) {
+  for (const [field, keyOk] of [['entry', (k) => own(ROUTES, k) || own(ROUTES_V5, k)], ['clicks', isStep]]) {
     if (d[field] === undefined) continue;
     if (!isMap(d[field])) bad(field);
     for (const [page, inner] of Object.entries(d[field])) {
@@ -173,7 +173,7 @@ export function navigation(d) {
   if (d.actions !== undefined) {
     if (!isMap(d.actions)) bad('actions');
     for (const [key, n] of Object.entries(d.actions)) {
-      if (!own(ACTIONS, key) || !isCount(n)) bad('actions');
+      if (!(own(ACTIONS, key) || own(SEARCH, key)) || !isCount(n)) bad('actions');
       nav.actions.push([key, n]);
     }
   }

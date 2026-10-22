@@ -6,7 +6,7 @@
 // ein Rückwärtsschrägstrich stehen (Vorlage-Zeichenkette): Texte also mit "+"
 // zusammensetzen.
 
-import { PAGES, ROUTES, ACTIONS, MERGED, TILES, MAX_CLICKS } from './pages.js';
+import { PAGES, ROUTES, ROUTES_V5, ACTIONS, SEARCH, MERGED, TILES, MAX_CLICKS } from './pages.js';
 
 // Für das Skript der Seite: als JSON, `<` maskiert, damit kein Name das
 // Skript-Element beenden kann.
@@ -43,8 +43,9 @@ const NAMES = { ui: { de: 'Deutsch', en: 'Englisch' }, overlay: { immer: 'immer 
 const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch',
   pt: 'Portugiesisch', pl: 'Polnisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch', ru: 'Russisch', xx: 'unbekannt' }[c] || c);
 const PAGES = ${asScript(PAGES)};
-const ROUTES = ${asScript(ROUTES)};
+const ROUTES = ${asScript({ ...ROUTES, ...ROUTES_V5 })};
 const ACTIONS = ${asScript(ACTIONS)};
+const SEARCH = ${asScript(SEARCH)};
 const MERGED = ${asScript(MERGED)};
 const TILES = ${asScript(TILES)};
 const MAX_CLICKS = ${MAX_CLICKS};
@@ -54,7 +55,8 @@ const alias = (p) => MERGED[p] || p;
 // trennbar, Linux zusätzlich gestrichelt); die Wege der Seitenleiste nach Okabe und Ito.
 const C_ALL = 'var(--neon)', C_WIN = 'var(--win)', C_LIN = 'var(--lin)';
 const ROUTE_COLORS = { seitenleiste: 'var(--neon)', sprung: 'var(--weg-blau)', overlay: 'var(--lin)',
-  tray: 'var(--weg-rosa)', start: 'var(--weg-grau)', karte: 'var(--weg-rot)', pfad: 'var(--weg-eis)' };
+  tray: 'var(--weg-rosa)', start: 'var(--weg-grau)', karte: 'var(--weg-rot)', pfad: 'var(--weg-eis)',
+  suche: 'var(--weg-suche)' };
 const pageName = (p) => (PAGES[p] || ['', p])[1];
 const stepName = (k) => (Number(k) >= MAX_CLICKS ? MAX_CLICKS + '+' : String(k));
 const NONE = '–';
@@ -477,6 +479,22 @@ function pageBlocks(d, inSpan) {
   const ways = sum(d.seiten_wege, (r) => alias(r.seite) + '|' + r.weg);
   const order = Object.keys(PAGES).filter((p) => !MERGED[p]);
   const ranked = order.slice().sort((a, b) => ((views[b] || 0) - (views[a] || 0)) || (order.indexOf(a) - order.indexOf(b)));
+  // Suche: nur zwei Zahlen. Wie oft gesucht wurde und wie oft die Suche nichts
+  // fand; nie, was eingegeben wurde. So sieht man, wo Nutzer etwas nicht finden.
+  const searched = sum(d.seiten_handlungen, (r) => r.handlung);
+  const used = searched.suche_benutzt || 0, none = searched.suche_ohne_treffer || 0;
+  const viaSearch = Object.keys(PAGES).reduce((a, p) => a + (ways[p + '|suche'] || 0), 0);
+  const nonePct = used ? Math.min(100, Math.round((none / used) * 100)) + ' %' : NONE;
+  const sc = card('Suche (Zeitraum)');
+  zusammen(sc, used ? used + ' mal gesucht, ' + none + ' ohne Treffer (' + nonePct + ')' : '');
+  const sk = (v, l) => $('div', { class: 'kpi' }, [$('div', { class: 'v', text: String(v) }), $('div', { class: 'l', text: l })]);
+  sc.appendChild($('div', { class: 'winkel datenblatt' }, [$('div', { class: 'zellen' }, [
+    $('div', { class: 'kpis vier' }, [sk(used, SEARCH.suche_benutzt), sk(none, SEARCH.suche_ohne_treffer),
+      sk(nonePct, 'ohne Treffer, Anteil an allen Suchen'), sk(viaSearch, 'Seiten über die Suche geöffnet')])])]));
+  sc.appendChild($('p', { class: 'hinweis', text: used || viaSearch
+    ? 'Gezählt wird nur, wie oft gesucht wurde und wie oft nichts gefunden wurde, nie was eingegeben wurde. Ohne Treffer = die Suche zeigte keine Ergebnisse. Wer die Meldung abschaltet, fehlt.'
+    : 'Noch keine Suchen im Zeitraum. Gezählt wird nur die Anzahl, nie das Suchwort. Erst ab VerseKit 5.' }));
+
   const rc = card('Seiten nach Aufrufen (Zeitraum)');
   const top = Math.max(1, ...ranked.map((p) => views[p] || 0));
   const total = ranked.reduce((a, p) => a + (views[p] || 0), 0);
