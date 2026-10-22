@@ -12,8 +12,8 @@ var WURZEL = document.currentScript.src.replace(/assets\/[^\/]*$/, "");
 var GRUPPEN = [
   {de:"Overlay", en:"Overlay", eintraege:[
     {reiter:"overlay", bild:"screenshot-overlay.png", de:"Overlay", en:"Overlay",
-     bde:"Das kleine Fenster über dem Spiel: schmal, immer im Vordergrund, durchscheinend — und auf Wunsch lässt es Mausklicks durch.",
-     ben:"The small window over the game: narrow, always on top, see-through — and it can let mouse clicks pass through."}
+     bde:"Das kleine Fenster über dem Spiel: schmal, immer im Vordergrund, durchscheinend. Auf Wunsch lässt es Mausklicks durch.",
+     ben:"The small window over the game: narrow, always on top, see-through, and it can let mouse clicks pass through."}
   ]},
   {de:"Übersicht", en:"Overview", eintraege:[
     {reiter:"uebersicht", bild:"screenshot-uebersicht.png", de:"Übersicht", en:"Overview",
@@ -25,143 +25,143 @@ var GRUPPEN = [
      bde:"Alle Baupläne durchsuchen, nach Art gruppiert, mit fünf Filtern und Häkchen per Klick.",
      ben:"Search every blueprint, grouped by type, with five filters and tick boxes."},
     {reiter:"fortschritt", bild:"screenshot-fortschritt.png", de:"Bauplan-Fortschritt", en:"Blueprint progress",
-     bde:"Je Art siehst du, wie weit du bist — und was dir bis zur Vollständigkeit fehlt.",
-     ben:"Per type you see how far along you are — and what is missing to complete it."},
+     bde:"Je Art siehst du, wie weit du bist und was dir bis zur Vollständigkeit fehlt.",
+     ben:"Per type you see how far along you are and what is missing to complete it."},
     {reiter:"auftragslog", bild:"screenshot-auftragslog.png", de:"Aufträge & Protokoll", en:"Missions & log",
      bde:"Welchen Auftrag du wann gespielt hast und welcher Bauplan dabei herauskam.",
      ben:"Which contract you played when, and which blueprint came out of it."}
   ]},
   {de:"Flotte & Logistik", en:"Fleet & Logistics", eintraege:[
     {reiter:"hangar", bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
-     bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt — danach weiß das Werkzeug, was in welches Schiff passt. An jedem Schiff vergibst du auch seinen Namen im Abrufterminal.",
-     ben:"Your fleet, pulled in from the pledge store in one go — after that the tool knows what fits into which ship. Each ship also gets its name for the retrieval terminal right there."},
+     bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt. Danach weiß das Werkzeug, was in welches Schiff passt. An jedem Schiff vergibst du auch seinen Namen im Abrufterminal.",
+     ben:"Your fleet, pulled in from the pledge store in one go. After that the tool knows what fits into which ship. Each ship also gets its name for the retrieval terminal right there."},
     {reiter:"wunschliste", bild:"screenshot-wunschliste.png", de:"Wunschliste", en:"Wishlist",
-     bde:"Was du dir vornimmst, mit Preis und Ort — die Ausstattung planst du, bevor du das Schiff hast.",
-     ben:"What you are aiming for, with price and location — plan the loadout before you own the ship."},
+     bde:"Was du dir vornimmst, mit Preis und Ort. Die Ausstattung planst du, bevor du das Schiff hast.",
+     ben:"What you are aiming for, with price and location. Plan the loadout before you own the ship."},
     {reiter:"meinlager", bild:"screenshot-meinlager.png", de:"Mein Lager", en:"My Inventory",
-     bde:"Rohstoffe, Verkaufsware und Items an einer Stelle — mit Art, Ort, Güte und Menge, gefiltert nach Material oder Items und zum Herstellen oder Verkaufen.",
-     ben:"Materials, goods for sale and items in one place — with type, location, quality and amount, filtered by material or items and for crafting or selling."},
+     bde:"Rohstoffe, Verkaufsware und Items an einer Stelle: mit Art, Ort, Güte und Menge, gefiltert nach Material oder Items und zum Herstellen oder Verkaufen.",
+     ben:"Materials, goods for sale and items in one place: with type, location, quality and amount, filtered by material or items and for crafting or selling."},
     {reiter:"staffellager", bild:"screenshot-staffellager.png", de:"Lager der Einheit", en:"Unit storage",
      bde:"Mit dem KRT Profit Basetool verbunden: was im gemeinsamen Lager deiner Einheit liegt. Logistiker sehen, wem was gehört, und buchen direkt.",
      ben:"Connected to the KRT Profit Basetool: what is in your unit's shared storage. Logisticians see who owns what and book directly."}
   ]},
   {de:"Herstellung", en:"Crafting", eintraege:[
     {reiter:"herstellung", bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
-     bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand — und ob du den Bauplan dafür hast.",
-     ben:"Ingredients, amounts and crafting time for every item — and whether you have the blueprint."},
+     bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand, und ob du den Bauplan dafür hast.",
+     ben:"Ingredients, amounts and crafting time for every item, and whether you have the blueprint."},
     {reiter:"farmliste", bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
-     bde:"Dein Lager gegen alles gerechnet, was du bauen willst — über alle Posten zusammen.",
-     ben:"Your storage measured against everything you want to build — across all items at once."}
+     bde:"Dein Lager gegen alles gerechnet, was du bauen willst, über alle Posten zusammen.",
+     ben:"Your storage measured against everything you want to build, across all items at once."}
   ]},
   {de:"Abbau & Bergung", en:"Mining & Salvage", eintraege:[
     {reiter:"bergbau", bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
      bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt.",
      ben:"Type a material to see where it is found, or type a location to see what is there."},
     {reiter:"raffinerien", bild:"screenshot-raffinerien.png", de:"Raffinerien", en:"Refineries",
-     bde:"Was jede Raffinerie aus deinem Erz macht — Aufschlag und Abschlag je Material, der beste Ort grün.",
-     ben:"What every refinery makes of your ore — bonus and penalty per material, the best place in green."},
+     bde:"Was jede Raffinerie aus deinem Erz macht: Aufschlag und Abschlag je Material, der beste Ort grün.",
+     ben:"What every refinery makes of your ore: bonus and penalty per material, the best place in green."},
     {reiter:"bergung", bild:"screenshot-bergung.png", de:"Was steckt drin?", en:"What's inside?",
-     bde:"Was ein Wrack ab Werk an Bord hat — und was die Teile im Laden wert sind.",
-     ben:"What a wreck carries from the factory — and what those parts are worth in a shop."},
+     bde:"Was ein Wrack ab Werk an Bord hat und was die Teile im Laden wert sind.",
+     ben:"What a wreck carries from the factory, and what those parts are worth in a shop."},
     {reiter:"zerlegen", bild:"screenshot-zerlegen.png", de:"Lohnt das Zerlegen?", en:"Worth dismantling?",
      bde:"Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.",
      ben:"What the fabricator gives back, before you fire up the cutter."}
   ]},
   {de:"Handel", en:"Trade", eintraege:[
     {reiter:"laeden", bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
-     bde:"Wo das fertige Teil im Regal steht und was es dort kostet — der günstigste Laden oben.",
-     ben:"Where the finished part sits on the shelf and what it costs — cheapest shop first."},
+     bde:"Wo das fertige Teil im Regal steht und was es dort kostet. Der günstigste Laden steht oben.",
+     ben:"Where the finished part sits on the shelf and what it costs. Cheapest shop first."},
     {reiter:"verkauf", bild:"screenshot-verkauf.png", de:"Kaufen & Verkaufen", en:"Buy & Sell",
-     bde:"Wo du deine Ware los wirst, sortiert danach, wie viel ein Ort auf einmal abnimmt — und wo du sie am günstigsten bekommst.",
-     ben:"Where to sell your cargo, sorted by how much a location takes at once — and where to buy it cheapest."},
+     bde:"Wo du deine Ware los wirst, sortiert danach, wie viel ein Ort auf einmal abnimmt, und wo du sie am günstigsten bekommst.",
+     ben:"Where to sell your cargo, sorted by how much a location takes at once, and where to buy it cheapest."},
     {reiter:"routen", bild:"screenshot-routen.png", de:"Routen", en:"Routes",
-     bde:"Sag, wo du stehst, wie viel reinpasst und was du ausgeben willst — dann rechnet Verse-Kit, welche Fahrt sich lohnt.",
-     ben:"Say where you are, how much fits and what you want to spend — Verse-Kit works out which run pays."}
+     bde:"Sag, wo du stehst, wie viel reinpasst und was du ausgeben willst. Dann rechnet VerseKit, welche Fahrt sich lohnt.",
+     ben:"Say where you are, how much fits and what you want to spend. VerseKit works out which run pays."}
   ]},
   {de:"Beschaffung", en:"Procurement", eintraege:[
     {reiter:"bedarf", bild:"screenshot-bedarf.png", de:"Bedarf der Einheit", en:"Unit demand",
-     bde:"Mit dem KRT Profit Basetool verbunden: was die offenen Aufträge deiner Einheit noch brauchen — und was du davon schon hast.",
-     ben:"Connected to the KRT Profit Basetool: what your unit's open orders still need — and what of it you already have."},
+     bde:"Mit dem KRT Profit Basetool verbunden: was die offenen Aufträge deiner Einheit noch brauchen, und was du davon schon hast.",
+     ben:"Connected to the KRT Profit Basetool: what your unit's open orders still need, and what of it you already have."},
     {reiter:"einkaufsliste", bild:"screenshot-einkaufsliste.png", de:"Einkaufsliste", en:"Shopping list",
      bde:"Die Rechnung über alle Schiffe: kaufen oder selbst bauen, mit Summe und Einkaufsroute.",
      ben:"The bill across all your ships: buy or build, with a total and a shopping route."}
   ]},
   {de:"Statistik", en:"Statistics", eintraege:[
     {reiter:"statistik_auswertung", bild:"screenshot-statistik-auswertung.png", de:"Auswertung", en:"Evaluation",
-     bde:"Hier entsteht die Statistik: Jedes Spielprotokoll wird einmal gelesen und festgehalten — auch wenn Star Citizen es später löscht.",
-     ben:"This is where the statistics come from: every game log is read once and kept — even after Star Citizen deletes it."},
+     bde:"Hier entsteht die Statistik: Jedes Spielprotokoll wird einmal gelesen und festgehalten, auch wenn Star Citizen es später löscht.",
+     ben:"This is where the statistics come from: every game log is read once and kept, even after Star Citizen deletes it."},
     {reiter:"statistik", bild:"screenshot-statistik.png", de:"Übersicht", en:"Overview",
-     bde:"Spielzeit, Sitzungen, abgeschlossene Aufträge und Quantensprünge — und eine Wärmekarte, wann du spielst. Bleibt erhalten, auch wenn die Logs gelöscht werden.",
-     ben:"Play time, sessions, completed contracts and quantum jumps — plus a heat map of when you play. Kept even when the logs are deleted."},
+     bde:"Spielzeit, Sitzungen, abgeschlossene Aufträge und Quantensprünge, dazu eine Wärmekarte, wann du spielst. Bleibt erhalten, auch wenn die Logs gelöscht werden.",
+     ben:"Play time, sessions, completed contracts and quantum jumps, plus a heat map of when you play. Kept even when the logs are deleted."},
     {reiter:"statistik_schiffe", bild:"screenshot-statistik-schiffe.png", de:"Schiffe & Ausrüstung", en:"Ships & equipment",
      bde:"Womit du fliegst, was du verlierst und welche Waffen du trägst.",
      ben:"What you fly, what you lose and which weapons you carry."},
     {reiter:"statistik_auftraege", bild:"screenshot-statistik-auftraege.png", de:"Aufträge", en:"Contracts",
-     bde:"Wie deine Aufträge ausgingen — abgeschlossen, fehlgeschlagen, abgebrochen — und welche du am häufigsten spielst.",
-     ben:"How your contracts ended — completed, failed, abandoned — and which ones you play most."},
+     bde:"Wie deine Aufträge ausgingen (abgeschlossen, fehlgeschlagen, abgebrochen) und welche du am häufigsten spielst.",
+     ben:"How your contracts ended (completed, failed, abandoned) and which ones you play most."},
     {reiter:"statistik_quantum", bild:"screenshot-statistik-quantum.png", de:"Quantenreisen", en:"Quantum travel",
      bde:"Deine Quantensprünge: wohin du am häufigsten springst und wo deine Reisen beginnen.",
      ben:"Your quantum jumps: where you travel most and where your trips begin."},
     {reiter:"statistik_stabil", bild:"screenshot-statistik-stabil.png", de:"Stabilität", en:"Stability",
-     bde:"Wie deine Sitzungen endeten: sauber beendet, abgestürzt oder die Verbindung verloren — und warum.",
-     ben:"How your sessions ended: closed cleanly, crashed or disconnected — and why."}
+     bde:"Wie deine Sitzungen endeten: sauber beendet, abgestürzt oder die Verbindung verloren, und warum.",
+     ben:"How your sessions ended: closed cleanly, crashed or disconnected, and why."}
   ]},
   {de:"Einstellungen", en:"Settings", eintraege:[
     {reiter:"allgemein", bild:"screenshot-allgemein.png", de:"Allgemein", en:"General",
-     bde:"Start mit Windows, Signalton, Symbol in der Ablage — wie sich Verse-Kit im Hintergrund verhält.",
-     ben:"Start with Windows, alert sound, tray icon — how Verse-Kit behaves in the background."},
+     bde:"Start mit Windows, Signalton, Symbol in der Ablage: wie sich VerseKit im Hintergrund verhält.",
+     ben:"Start with Windows, alert sound, tray icon: how VerseKit behaves in the background."},
     {reiter:"anzeige", bild:"screenshot-anzeige.png", de:"Overlay", en:"Overlay",
      bde:"Alles zum kleinen Fenster über dem Spiel: wann und wo es erscheint, wie durchsichtig es ist, ob Klicks durchgehen.",
      ben:"Everything about the small window above the game: when and where it shows, how transparent it is, whether clicks pass through."},
     {reiter:"darstellung", bild:"screenshot-darstellung.png", de:"Darstellung", en:"Appearance",
-     bde:"Sechs Farbschemata, Schriftgröße stufenlos — so sieht Verse-Kit aus, wie du es magst.",
-     ben:"Six colour schemes, text size without steps — Verse-Kit looks the way you like it."},
+     bde:"Sechs Farbschemata, Schriftgröße stufenlos: So sieht VerseKit aus, wie du es magst.",
+     ben:"Six colour schemes, text size without steps: VerseKit looks the way you like it."},
     {reiter:"ordner", bild:"screenshot-ordner.png", de:"Installation & Pfade", en:"Installation & paths",
-     bde:"Wo Star Citizen liegt und wohin Verse-Kit deine Daten schreibt. Beim Umziehen kommt alles mit.",
-     ben:"Where Star Citizen lives and where Verse-Kit keeps your data. Moving it takes everything along."},
+     bde:"Wo Star Citizen liegt und wohin VerseKit deine Daten schreibt. Beim Umziehen kommt alles mit.",
+     ben:"Where Star Citizen lives and where VerseKit keeps your data. Moving it takes everything along."},
     {reiter:"module", bild:"screenshot-module.png", de:"Module", en:"Modules",
-     bde:"Blende Seiten aus, die du nicht brauchst — je Modul, eine leere Gruppe verschwindet. Gelöscht wird nichts.",
-     ben:"Hide pages you do not need — per module, an empty group disappears. Nothing gets deleted."},
+     bde:"Blende Seiten aus, die du nicht brauchst, je Modul. Eine leere Gruppe verschwindet. Gelöscht wird nichts.",
+     ben:"Hide pages you do not need, per module. An empty group disappears. Nothing gets deleted."},
     {reiter:"basetool", bild:"screenshot-basetool.png", de:"Verbindung & Abgleich", en:"Connection & sync",
-     bde:"Baupläne, Lager und Hangar mit dem KRT Profit Basetool abgleichen — in beide Richtungen, nur wenn du es verbindest.",
-     ben:"Sync blueprints, storage and hangar with the KRT Profit Basetool — both ways, only if you connect it."},
+     bde:"Baupläne, Lager und Hangar mit dem KRT Profit Basetool abgleichen: in beide Richtungen, nur wenn du es verbindest.",
+     ben:"Sync blueprints, storage and hangar with the KRT Profit Basetool: both ways, only if you connect it."},
     {reiter:"bestand", bild:"screenshot-bestand.png", de:"Sichern & Zurücksetzen", en:"Backup & reset",
-     bde:"Alles sichern und zurückholen, deinen Bestand austauschen — auch ohne fremde Werkzeuge.",
-     ben:"Back up and restore everything, exchange your inventory — without any other tool."},
+     bde:"Alles sichern und zurückholen, deinen Bestand austauschen, auch ohne fremde Werkzeuge.",
+     ben:"Back up and restore everything, exchange your inventory, without any other tool."},
     {reiter:"erkennung", bild:"screenshot-erkennung.png", de:"Erkennung", en:"Detection",
-     bde:"Wie Verse-Kit einen neuen Bauplan erkennt — und welcher Account zählt, wenn mehrere auf einem Rechner spielen.",
-     ben:"How Verse-Kit spots a new blueprint — and which account counts when several play on one PC."},
+     bde:"Wie VerseKit einen neuen Bauplan erkennt und welcher Account zählt, wenn mehrere auf einem Rechner spielen.",
+     ben:"How VerseKit spots a new blueprint and which account counts when several play on one PC."},
     {reiter:"startprogramme", bild:"screenshot-startprogramme.png", de:"Startprogramme", en:"Startup programs",
-     bde:"Startet weitere Programme mit Star Citizen — etwa ein Sprachprogramm oder ein Werkzeug für die Steuerung.",
-     ben:"Starts other programs along with Star Citizen — such as a voice tool or a controls utility."}
+     bde:"Startet weitere Programme mit Star Citizen, etwa ein Sprachprogramm oder ein Werkzeug für die Steuerung.",
+     ben:"Starts other programs along with Star Citizen, such as a voice tool or a controls utility."}
   ]},
   {de:"Spiel-Einstellungen", en:"Game settings", eintraege:[
     {reiter:"spiel", bild:"screenshot-auftragstexte.png", de:"Spiel", en:"Game",
-     bde:"Verse-Kit schreibt in die Auftragstexte, welche Baupläne dabei sind und welche dir fehlen — und zeigt dir deine user.cfg.",
-     ben:"Verse-Kit writes into the contract texts which blueprints are included and which you lack — and shows you your user.cfg."},
+     bde:"VerseKit schreibt in die Auftragstexte, welche Baupläne dabei sind und welche dir fehlen. Dazu zeigt es dir deine user.cfg.",
+     ben:"VerseKit writes into the contract texts which blueprints are included and which you lack. It also shows you your user.cfg."},
     {reiter:"uebersetzung", bild:"screenshot-uebersetzung.png", de:"Übersetzung", en:"Translation",
-     bde:"Deutsch, Englisch, Français, Italiano, Español, Português, Türkçe — oder eine eigene Adresse. Je Kanal, also LIVE und PTU getrennt.",
-     ben:"German, English, French, Italian, Spanish, Portuguese, Turkish — or an address of your own. Per channel, so LIVE and PTU separately."},
+     bde:"Deutsch, Englisch, Français, Italiano, Español, Português, Türkçe oder eine eigene Adresse. Je Kanal, also LIVE und PTU getrennt.",
+     ben:"German, English, French, Italian, Spanish, Portuguese, Turkish or an address of your own. Per channel, so LIVE and PTU separately."},
     {reiter:"grafik", bild:"screenshot-grafik.png", de:"Grafik", en:"Graphics",
-     bde:"Fenstermodus, Upscaling, Bewegungsunschärfe, Schärfen — die wichtigsten Grafik-Schalter, ohne ins Spiel zu müssen. Vorher wird gesichert.",
-     ben:"Window mode, upscaling, motion blur, sharpening — the most important graphics switches without starting the game. Backed up first."},
+     bde:"Fenstermodus, Upscaling, Bewegungsunschärfe, Schärfen: die wichtigsten Grafik-Schalter, ohne ins Spiel zu müssen. Vorher wird gesichert.",
+     ben:"Window mode, upscaling, motion blur, sharpening: the most important graphics switches without starting the game. Backed up first."},
     {reiter:"blickwinkel", bild:"screenshot-blickwinkel.png", de:"FOV", en:"Field of view",
      bde:"Sitzt du richtig vor deinem Bildschirm? Breite mit einer Bankkarte messen, Abstand angeben, fertig.",
      ben:"Are you sitting right in front of your screen? Measure the width with a bank card, enter the distance, done."},
     {reiter:"joysticks", bild:"screenshot-joysticks.png", de:"Steuerung", en:"Controls",
-     bde:"Welcher Stick welche Nummer hat, ob alle verbunden sind — und was auf welcher Taste liegt.",
-     ben:"Which stick has which number, whether all are connected — and what is bound to which button."},
+     bde:"Welcher Stick welche Nummer hat, ob alle verbunden sind, und was auf welcher Taste liegt.",
+     ben:"Which stick has which number, whether all are connected, and what is bound to which button."},
     {reiter:"achsen", bild:"screenshot-achsen.png", de:"Achsen & Kurven", en:"Axes & curves",
-     bde:"Totzone, Sättigung und Kurve je Achse — mit Vorschau, was davon im Spiel wirklich ankommt.",
-     ben:"Dead zone, saturation and curve per axis — with a preview of what actually reaches the game."},
+     bde:"Totzone, Sättigung und Kurve je Achse, mit Vorschau, was davon im Spiel wirklich ankommt.",
+     ben:"Dead zone, saturation and curve per axis, with a preview of what actually reaches the game."},
     {reiter:"shader", bild:"screenshot-shader.png", de:"Shader-Cache", en:"Shader cache",
      bde:"Grafikfehler oder Ruckler nach einem Patch? Ein Knopf leert die Shader-Speicher von Star Citizen und dem Grafiktreiber.",
      ben:"Graphics glitches or stutter after a patch? One button empties the shader caches of Star Citizen and the graphics driver."}
   ]},
   {de:"Info", en:"Info", eintraege:[
     {reiter:"patchaenderungen", bild:"screenshot-patchaenderungen.png", de:"Geänderte Spielwerte", en:"Changed game values",
-     bde:"Was ein Spiel-Patch an Werten geändert hat — Schiffe, Waffen, Komponenten, Lackierungen.",
-     ben:"What a game patch changed in the numbers — ships, weapons, components, paints."},
+     bde:"Was ein Spiel-Patch an Werten geändert hat: Schiffe, Waffen, Komponenten, Lackierungen.",
+     ben:"What a game patch changed in the numbers: ships, weapons, components, paints."},
     {reiter:"serverstatus", bild:"screenshot-serverstatus.png", de:"Serverstatus", en:"Server status",
      bde:"Läuft Star Citizen gerade? Was CIG meldet, frischt sich jede Minute selbst auf.",
      ben:"Is Star Citizen up? What CIG reports, refreshing itself every minute."},
@@ -175,7 +175,7 @@ var GRUPPEN = [
    Punkt in Akzentfarbe auf Grundfarbe. Bilder: tools/bilder_machen.py --schema=<kennung>.
    Prüfung 217 hält fest, dass jedes Schema hier steht und seine Bilder hat. */
 var FARBSCHEMATA = [
-  {schema:"original", de:"Verse-Kit (Original)", en:"Verse-Kit (original)", akzent:"#9ce430", grund:"#10141c"},
+  {schema:"original", de:"VerseKit (Original)", en:"VerseKit (original)", akzent:"#9ce430", grund:"#10141c"},
   {schema:"krt", de:"KRT (Orange)", en:"KRT (orange)", akzent:"#e77e23", grund:"#000000"},
   {schema:"eis", de:"Eis (Cyan)", en:"Ice (cyan)", akzent:"#38d6f5", grund:"#0b1219"},
   {schema:"nebel", de:"Nebel (Violett)", en:"Nebula (violet)", akzent:"#a78bfa", grund:"#131020"},
@@ -202,6 +202,7 @@ function bauen(){
       var eintrag = GRUPPEN[g].eintraege[e];
       flach.push(eintrag);
       var knopf = document.createElement("button");
+      knopf.type = "button";
       knopf.textContent = eintrag[sprLage];
       knopf.setAttribute("data-nr", nr);
       knopf.onclick = (function(i){ return function(){ zeigen(i); }; })(nr);
@@ -228,12 +229,13 @@ function zeigen(i){
   }
   var bild = document.getElementById("tourbild");
   bild.src = WURZEL + "assets/" + datei;
-  bild.alt = eintrag[sprLage];
+  bild.alt = eintrag[sprLage] + " in VerseKit";
   document.getElementById("tourtext").textContent =
     eintrag[sprLage === "de" ? "bde" : "ben"];
   var knoepfe = document.querySelectorAll("#reiter button");
   for (var k = 0; k < knoepfe.length; k++){
     knoepfe[k].className = (k === i) ? "an" : "";
+    knoepfe[k].setAttribute("aria-pressed", k === i ? "true" : "false");
   }
 }
 
@@ -243,7 +245,9 @@ function farbenBauen(){
   for (var f = 0; f < FARBSCHEMATA.length; f++){
     var schema = FARBSCHEMATA[f];
     var knopf = document.createElement("button");
+    knopf.type = "button";
     knopf.className = (schema.schema === farbLage) ? "an" : "";
+    knopf.setAttribute("aria-pressed", schema.schema === farbLage ? "true" : "false");
     var punkt = document.createElement("span");
     punkt.className = "punkt";
     punkt.style.background = schema.akzent;
@@ -290,14 +294,20 @@ var system = (function(){
   return null;
 })();
 
+// Every `.knopf-system` button (top of the page and the closing band) gets
+// the file for the visitor's system; its text sits in `.knopf-text`, next to
+// the icon.
 function knopfRichten(){
   if (!system) return;
-  var knopf = document.getElementById("knopf-laden");
   var name = system === "windows" ? "Windows" : "Linux";
-  knopf.href = "https://xharig.com/" + system;
-  knopf.setAttribute("data-de", "Für " + name + " herunterladen");
-  knopf.setAttribute("data-en", "Download for " + name);
-  knopf.textContent = knopf.getAttribute("data-" + sprLage);
+  var knoepfe = document.querySelectorAll(".knopf-system");
+  for (var i = 0; i < knoepfe.length; i++){
+    var text = knoepfe[i].querySelector(".knopf-text");
+    knoepfe[i].href = "https://xharig.com/" + system;
+    text.setAttribute("data-de", "Für " + name + " herunterladen");
+    text.setAttribute("data-en", "Download for " + name);
+    text.textContent = text.getAttribute("data-" + sprLage);
+  }
   anderesZeigen();
 }
 
@@ -321,7 +331,7 @@ function filmSprache(){
   film.setAttribute("poster", WURZEL + "assets/video/versekit-" + sprLage + ".jpg");
   film.setAttribute("src", ziel);
   film.setAttribute("aria-label", sprLage === "de"
-    ? "Verse-Kit in 43 Sekunden" : "Verse-Kit in 43 seconds");
+    ? "VerseKit in 43 Sekunden" : "VerseKit in 43 seconds");
   if (!wenigBewegung) { var p = film.play(); if (p && p.catch) p.catch(function(){}); }
 }
 
@@ -330,8 +340,17 @@ if (wenigBewegung){
   film.pause();
   film.controls = true;
 } else {
-  film.addEventListener("click", function(){
+  // Click, or Space/Enter once the video has the keyboard focus.
+  var filmUmschalten = function(){
     if (film.paused) film.play(); else film.pause();
+  };
+  film.tabIndex = 0;
+  film.addEventListener("click", filmUmschalten);
+  film.addEventListener("keydown", function(event){
+    if (event.key === " " || event.key === "Enter"){
+      event.preventDefault();
+      filmUmschalten();
+    }
   });
 }
 knopfRichten();
@@ -373,7 +392,7 @@ function groessenAus(release){
 
 function mb(bytes){
   var z = Math.round(bytes / 1048576);
-  return z.toLocaleString(sprLage === "de" ? "de-DE" : "en-US") + " MB";
+  return z.toLocaleString(sprLage === "de" ? "de-DE" : "en-US") + " MB";
 }
 
 function kennzahlenZeigen(){
@@ -385,7 +404,7 @@ function kennzahlenZeigen(){
     var teile = [];
     if (groessen.windows) teile.push("Windows " + mb(groessen.windows));
     if (groessen.linux) teile.push("Linux " + mb(groessen.linux));
-    document.getElementById("kz-groesse-wert").textContent = teile.join(" · ");
+    document.getElementById("kz-groesse-wert").textContent = teile.join(", ");
     document.getElementById("kz-groesse").hidden = false;
   }
 }
@@ -537,7 +556,7 @@ function umwandeln(zeilen){
       continue;
     }
     zitatEnde();
-    if (/^### /.test(z)){ allesEnde(); html += "<h4>" + zeile(z.slice(4)) + "</h4>"; continue; }
+    if (/^### /.test(z)){ allesEnde(); html += "<h3>" + zeile(z.slice(4)) + "</h3>"; continue; }
     if (/^- /.test(z)){
       absatzEnde();
       if (!liste) liste = [];
@@ -563,6 +582,13 @@ function umwandeln(zeilen){
   return html;
 }
 
+// Release dates as "19.10.2026" and "19 Oct 2026"; UTC, so no time zone
+// moves a date by one day.
+var DATUM = {
+  de: new Intl.DateTimeFormat("de-DE", {dateStyle: "medium", timeZone: "UTC"}),
+  en: new Intl.DateTimeFormat("en-GB", {dateStyle: "medium", timeZone: "UTC"})
+};
+
 function zerlegen(text){
   var bloecke = text.split(/\n(?=## )/), liste = [];
   for (var i = 0; i < bloecke.length; i++){
@@ -571,7 +597,7 @@ function zerlegen(text){
     if (!m) continue;      // Titel der Datei und "Unveroeffentlicht" fallen weg
     liste.push({
       nummer: m[1],
-      datum: sprLage === "de" ? m[4] + "." + m[3] + "." + m[2] : m[2] + "-" + m[3] + "-" + m[4],
+      datum: DATUM[sprLage].format(new Date(Date.UTC(+m[2], m[3] - 1, +m[4]))),
       test: /-(rc|beta|alpha|dev)/.test(m[1]),
       roh: bloecke[i].toLowerCase(),
       zeilen: bloecke[i].split("\n").slice(1),
@@ -584,8 +610,8 @@ function zerlegen(text){
 function verlaufLaden(){
   if (verlaufGeladen === sprLage) return;
   document.getElementById("verlauf-suche").placeholder =
-    sprLage === "de" ? "Suchen, z. B. Hangar oder 3.50" : "Search, e.g. hangar or 3.50";
-  document.getElementById("verlauf-suche").setAttribute("aria-label", sprLage === "de" ? "Suchen" : "Search");
+    sprLage === "de" ? "Suchen, z. B. Hangar oder 3.50 …" : "Search, e.g. hangar or 3.50 …";
+  document.getElementById("verlauf-suche").setAttribute("aria-label", sprLage === "de" ? "Änderungen durchsuchen" : "Search the changes");
   var leeren = document.getElementById("verlauf-leeren");
   leeren.title = sprLage === "de" ? "Suche leeren" : "Clear search";
   leeren.setAttribute("aria-label", leeren.title);
@@ -724,7 +750,7 @@ if (!gewaehlt && browserWill !== seitenSprache){
   document.getElementById("hinweis-sprache-text").textContent = browserWill === "en"
     ? "This page is also available in English." : "Diese Seite gibt es auch auf Deutsch.";
   var hinweisLink = document.getElementById("hinweis-sprache-link");
-  hinweisLink.textContent = browserWill === "en" ? "English version →" : "Zur deutschen Fassung →";
+  hinweisLink.textContent = browserWill === "en" ? "English version" : "Zur deutschen Fassung";
   hinweisLink.href = ADRESSE[browserWill];
   hinweisLink.lang = browserWill;
   hinweisLink.addEventListener("click", function(event){ spracheWechseln(browserWill, event); });
@@ -749,8 +775,6 @@ function beiEreignis(id, art, handler){
 }
 beiEreignis("knopf-de", "click", function(event){ spracheWechseln("de", event); });
 beiEreignis("knopf-en", "click", function(event){ spracheWechseln("en", event); });
-beiEreignis("knopf-fragen-alle", "click", function(){ location.hash = "fragen-alle"; });
-beiEreignis("knopf-alle-aenderungen", "click", function(){ location.hash = "alle-aenderungen"; });
 beiEreignis("knopf-aeltere", "click", function(){ verlaufAlle = true; verlaufZeigen(); });
 beiEreignis("verlauf-suche", "input", verlaufZeigen);
 beiEreignis("verlauf-suche", "keydown", function(event){ if (event.key === "Escape") sucheLeeren(); });
