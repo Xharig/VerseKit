@@ -775,36 +775,8 @@ if (!gewaehlt && browserWill !== seitenSprache){
 
 sprache(seitenSprache);
 
-/* Referral code: on a phone the share sheet, elsewhere the link is copied.
-   Same as the block on xharig.com. */
-function teilenEinrichten(){
-  var knopf = document.getElementById("ref-teilen");
-  if (!knopf) return;
-  var meldung = document.getElementById("ref-meldung");
-  var link = knopf.getAttribute("data-link");
-  var code = knopf.getAttribute("data-code");
-  var de = seitenSprache === "de";
-  function kopieren(){
-    if (!navigator.clipboard){ meldung.textContent = link; return; }
-    navigator.clipboard.writeText(link).then(
-      function(){ meldung.textContent = de ? "Link kopiert. Füg ihn ein, wo du willst." : "Link copied. Paste it wherever you like."; },
-      function(){ meldung.textContent = link; });
-  }
-  knopf.addEventListener("click", function(){
-    if (navigator.share && window.matchMedia("(pointer: coarse)").matches){
-      navigator.share({
-        title: "Star Citizen",
-        text: de
-          ? "Neu in Star Citizen? Mit dem Empfehlungscode " + code + " bekommst du nach dem Kauf eines Spielpakets 50.000 UEC dazu."
-          : "New to Star Citizen? With the referral code " + code + " you get 50,000 UEC after buying a game package.",
-        url: link
-      }).catch(function(){});
-      return;
-    }
-    kopieren();
-  });
-}
-teilenEinrichten();
+/* The referral "Pass the link on" button is assets/teilen.js, the same file
+   as on xharig.com. */
 
 /* Event handlers instead of onclick and the like in the HTML: the content
    security policy of the page allows no inline code. */

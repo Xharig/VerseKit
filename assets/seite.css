@@ -81,7 +81,7 @@
 .empfehlung p{color:var(--leise);margin:0 0 12px}
 .empfehlung code{color:var(--neon);font-size:16px;white-space:nowrap}
 .empfehlung .knopfreihe{margin-top:20px}
-.ref-meldung{margin:12px 0 0;font-size:15px;color:var(--text);min-height:1.5em}
+.ref-meldung{margin:12px 0 0;font-size:15px;color:var(--neon);min-height:1.5em;overflow-wrap:anywhere}
 
 /* ---------- Two views ---------- */
 .ansichten{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}
@@ -230,7 +230,9 @@
   .tour{grid-template-columns:minmax(0,1fr)}
   /* More than 40 tabs would push the picture far down, so the list scrolls
      within itself on phones too. */
-  .reiter{max-height:300px}
+  .reiter{max-height:320px}
+  .reiter button{padding:12px 10px}
+  .weiter h3 a{min-height:44px}
   .spielbild,.ansichten,.vertrauen,.weiter{grid-template-columns:minmax(0,1fr)}
   .weiter li,.weiter li + li{padding:22px 0 18px;border-left:0}
   .weiter li + li{border-top:1px solid var(--linie)}

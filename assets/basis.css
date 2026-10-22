@@ -97,6 +97,11 @@ code{font-family:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace
 .kopf nav a{color:var(--leise);font-size:15px}
 .kopf nav a:hover{color:var(--neon);text-decoration:none}
 .kopf nav a[aria-current=page]{color:var(--text);font-weight:700;box-shadow:inset 0 -2px 0 var(--neon);padding:4px 0}
+/* The one download offer in the header: outlined, never filled, so it offers
+   rather than asks. */
+.kopf nav a.kopf-laden{color:var(--neon);font-weight:700;border:1px solid var(--neon);border-radius:6px;padding:5px 12px}
+.kopf nav a.kopf-laden:hover{background:var(--neon-dunkel)}
+.kopf nav a.kopf-laden[aria-current=page]{box-shadow:none;padding:5px 12px;background:var(--neon-dunkel)}
 .kopf nav a.alle{display:inline-flex;align-items:center;gap:6px;padding-left:22px;border-left:1px solid var(--linie)}
 .sprache{display:flex;border:1px solid var(--linie-hell);border-radius:6px;overflow:hidden}
 .kopf nav .sprache a{color:var(--leise);font-size:14px;font-weight:700;padding:5px 12px}
@@ -219,6 +224,18 @@ footer{border-top:1px solid var(--linie);padding:56px 0 48px}
 @media (max-width:860px){
   .kopf nav a.weg{display:none}
   .menue{display:block}
+  /* Touch: every tap target at least 44 px high. */
+  .kopf nav a.kopf-laden,.menue summary,.kopf nav .sprache a,.kopf nav a.alle,.marke{min-height:44px;display:inline-flex;align-items:center}
+  .kopf nav .sprache a{padding:0 14px}
+  .kopf nav a.alle{min-width:44px;justify-content:center}
+  .kopf nav .menue-liste a{min-height:44px;display:flex;align-items:center}
+  .marke{min-width:44px}
+  .fuss-raster a{padding:11px 0;min-width:44px}
+  .pfad a{display:inline-block;padding:12px 0}
+  .springen{padding:12px 16px}
+}
+@media (max-width:640px){
+  .kopf nav a.kopf-laden{display:none}
 }
 @media (max-width:640px){
   body{font-size:16px}
