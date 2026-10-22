@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
 // Das gemeinsame Aussehen aller Xharig-Seiten: assets/basis.css der Mutterkopie
-// (Repo Tools, webseiten-basis/), Stand der Webseiten vom 23.10.2026, hier
-// UNVERÄNDERT eingesetzt. ⚠ Nie hier ändern: Änderungen gehören in die
+// der Webseiten, hier UNVERÄNDERT eingesetzt. ⚠ Nie hier ändern: Änderungen gehören in die
 // Mutterkopie und kommen von dort. Die Seite setzt nur die zwei Schrift-Adressen
 // ein (dashboard.js), weil die strenge Content-Security-Policy keine Dateien
 // neben der Seite kennt.
