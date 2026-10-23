@@ -43,7 +43,38 @@ test('Erwähnungen sind abgeschaltet, der Text kommt vom Worker', async () => {
   await worker.fetch(report(), env());
   const payload = JSON.parse(calls[0].init.body.get('payload_json'));
   assert.deepEqual(payload.allowed_mentions, { parse: [] });
-  assert.equal(payload.content, '**Fehlerbericht** · 3.57.1');
+  assert.equal(payload.content, undefined);
+});
+
+test('Berichte mit „Verse-Kit " und mit „VerseKit " am Anfang werden angenommen', async () => {
+  for (const body of ['Verse-Kit 3.57.1 · Bericht', 'VerseKit 5.0.0 · Bericht']) {
+    const calls = trap();
+    const r = await worker.fetch(report({ body }), env());
+    assert.equal(r.status, 204, body);
+    assert.equal(calls.length, 1, body);
+  }
+  // Andere Schreibweisen bleiben draußen.
+  for (const body of ['Verse Kit 3.57.1', 'VerseKit5.0.0', 'verseKit 5.0.0', 'Verse-Kit']) {
+    const calls = trap();
+    const r = await worker.fetch(report({ body }), env());
+    assert.equal(r.status, 400, body);
+    assert.equal(calls.length, 0, body);
+  }
+});
+
+test('die Discord-Nachricht ist ein Embed im Corporate Design', async () => {
+  const calls = trap();
+  await worker.fetch(report({ head: '**Fehlerbericht** · 5.0.0-rc2' }), env());
+  const payload = JSON.parse(calls[0].init.body.get('payload_json'));
+  assert.equal(payload.embeds.length, 1);
+  const embed = payload.embeds[0];
+  assert.equal(embed.color, 0x9ce430);
+  assert.equal(embed.title, 'Fehlerbericht');
+  assert.deepEqual(embed.fields, [{ name: 'Version', value: '5.0.0-rc2', inline: true }]);
+  assert.equal(embed.footer.text, 'VerseKit');
+  // Der Bericht bleibt eine Datei, Erwähnungen bleiben gesperrt.
+  assert.equal(calls[0].init.body.get('files[0]').name, 'bericht-2026-09-26-1500.txt');
+  assert.deepEqual(payload.allowed_mentions, { parse: [] });
 });
 
 test('@everyone im Kopf wird abgelehnt, nicht weitergeleitet', async () => {

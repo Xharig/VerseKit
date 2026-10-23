@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
-// Weiterleitung der Verse-Kit-Fehlerberichte an Discord — läuft als
+// Weiterleitung der VerseKit-Fehlerberichte an Discord — läuft als
 // Cloudflare Worker, NICHT im Programm und NICHT auf einem Heimserver.
 //
 // Warum es das gibt: Stünde die Discord-Webhook-Adresse in der fertigen
@@ -18,7 +18,11 @@ const MAX_BYTES = 8 * 1024 * 1024;   // Discord nimmt je Nachricht mehr, wir bra
 const MAX_FILES = 10;                // Discord: höchstens zehn Dateien je Nachricht
 const HEAD_RE = /^\*\*Fehlerbericht\*\* · (\d{1,3}\.\d{1,3}\.\d{1,3}(?:-rc\d{1,4})?)$/;
 const REPORT_NAME_RE = /^bericht-\d{4}-\d{2}-\d{2}-\d{4}\.txt$/;
-const REPORT_START = 'Verse-Kit ';
+// Alte Programme schreiben „Verse-Kit“, ab v5 heißt es „VerseKit“ — beides gilt.
+const REPORT_START_RE = /^(?:Verse-Kit|VerseKit) /;
+const EMBED_COLOR = 0x9ce430;        // Neon des Corporate Designs
+const EMBED_TITLE = 'Fehlerbericht';
+const EMBED_FOOTER = 'VerseKit';
 const ALLOWED_TYPES = ['text/plain', 'image/png', 'image/jpeg', 'application/zip'];
 const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 const MAX_IMAGES = 4;                // wie IMAGE_LIMIT in scbp/report.py
@@ -65,7 +69,7 @@ export async function check(request) {
   }
   const head = String(form.get('content') || '');
   const m = HEAD_RE.exec(head);
-  if (!m) throw { status: 400, text: 'kein Verse-Kit-Bericht' };
+  if (!m) throw { status: 400, text: 'kein VerseKit-Bericht' };
 
   const files = [];
   let total = 0;
@@ -104,7 +108,7 @@ export async function check(request) {
   const report = files[0];
   if (!report || !REPORT_NAME_RE.test(report.name)) throw { status: 400, text: 'Berichtsdatei' };
   const start = await report.slice(0, 64).text();
-  if (!start.startsWith(REPORT_START)) throw { status: 400, text: 'Berichtsinhalt' };
+  if (!REPORT_START_RE.test(start)) throw { status: 400, text: 'Berichtsinhalt' };
   return { version: m[1], files };
 }
 
@@ -137,7 +141,15 @@ export default {
 
     const out = new FormData();
     out.append('payload_json', JSON.stringify({
-      content: `**Fehlerbericht** · ${checked.version}`,
+      // Version kommt aus der geprüften Kopfzeile (HEAD_RE); ein System-Feld
+      // gibt es nicht, weil der Worker das System nicht kennt — es steht nur
+      // frei formuliert im Berichtstext.
+      embeds: [{
+        title: EMBED_TITLE,
+        color: EMBED_COLOR,
+        fields: [{ name: 'Version', value: checked.version, inline: true }],
+        footer: { text: EMBED_FOOTER },
+      }],
       // ⚠ Keine Erwähnung darf jemanden anpingen — auch kein @everyone,
       // das jemand in einen Dateinamen oder Text schmuggelt.
       allowed_mentions: { parse: [] },
