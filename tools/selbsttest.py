@@ -24918,7 +24918,7 @@ def main():
 
     def _bild255(tag):
         karte = _dr255.bauen(tag)
-        return karte['embeds'][0]['thumbnail']['url']
+        return karte['embeds'][0]['author']['icon_url']
 
     _a255 = _bild255('v3.53.0')
     _b255 = _bild255('v3.54.0')
@@ -24930,6 +24930,26 @@ def main():
     pruefe(_a255.split('?')[0].endswith('/assets/icon.png'),
            'und es bleibt das Programmsymbol aus dem Repo (%r)'
            % _a255.split('?')[0])
+
+    # Corporate Design der Karte: „VerseKit" in einem Wort, Kopfzeile mit
+    # Logo und Link, Farben und Discord-Grenzen.
+    _fertig255 = _dr255.bauen('v4.12.0')['embeds'][0]
+    _test255 = _dr255.bauen('v4.12.0-rc1')['embeds'][0]
+    pruefe(_fertig255['title'] == 'VerseKit 4.12.0'
+           and 'Verse-Kit' not in _fertig255['title'],
+           'Titel „VerseKit <Version>" in einem Wort (%r)' % _fertig255['title'])
+    pruefe(_fertig255['author']['name'] == 'VerseKit'
+           and _fertig255['author']['url'].startswith(
+               'https://versekit.xharig.com/'),
+           'Kopfzeile: Name und Link auf die Projektseite (%r)'
+           % _fertig255['author'])
+    pruefe(_fertig255['color'] == 0x9ce430 and _test255['color'] == 0xd8a03a,
+           'Farben: fertig Neongrün, Testfassung Gold')
+    pruefe(len(_fertig255['title']) <= _dr255.MAX_TITEL
+           and len(_fertig255['description']) <= 4096
+           and len(_fertig255['author']['name']) <= 256
+           and len(_fertig255['footer']['text']) <= 2048,
+           'die Karte bleibt in den Discord-Grenzen')
 
     print('\n256. Der Joystick-Platz kommt aus der Registry, nicht vom Treiber')
     # ⛔⛔ `joyGetDevCapsW` kann ein Windows mit HOTAS-Aufbau hart
