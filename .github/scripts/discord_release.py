@@ -18,6 +18,8 @@ Skript **exakt** auf den Tag und schweigt lieber, als zu viel zu erzählen.
 **Aufruf** (aus dem Bau-Ablauf, `DISCORD_WEBHOOK` als Secret):
 
     python3 .github/scripts/discord_release.py v3.0.0-rc60
+
+Mit `--trockenlauf` wird die Karte als JSON ausgegeben statt gesendet.
 """
 
 import json
@@ -34,6 +36,9 @@ import release_text                                          # noqa: E402
 REPO = 'Xharig/VerseKit'
 GRUEN = 0x9ce430          # Marken-Neongrün für dunklen Grund
 GOLD = 0xd8a03a           # Testfassungen
+NAME = 'VerseKit'         # Schreibweise des Corporate Designs: ein Wort
+SEITE = 'https://versekit.xharig.com/'
+SEITE_EN = 'https://versekit.xharig.com/en/'
 # ⚠⚠ **Die Fassungsnummer gehoert in die URL.**
 #
 # Discord laedt Bilder nicht direkt, sondern ueber einen eigenen Zwischen-
@@ -52,6 +57,8 @@ def logo_url(tag):
 # abgeschnittene Karte — deshalb lieber selbst kürzen.
 MAX_BESCHREIBUNG = 3800
 MAX_TITEL = 250
+MAX_AUTOR = 256           # `author.name`
+MAX_FUSS = 2048           # `footer.text`
 
 
 def nur_diese_fassung(tag, datei='CHANGELOG.md'):
@@ -195,23 +202,32 @@ def bauen(tag):
         rest = '\n\n… [vollständig auf der Release-Seite](%s)' % link
         beschreibung = beschreibung[:MAX_BESCHREIBUNG - len(rest)] + rest
 
+    # Kopfzeile: Logo und Name, verlinkt auf die Projektseite. Steht nur die
+    # englische Fassung im Changelog, führt der Link auf die englische Seite.
+    seite = SEITE_EN if (inhalt_en and not inhalt) else SEITE
     einbettung = {
-        'title': ('Verse-Kit %s' % tag.lstrip('v'))[:MAX_TITEL],
+        'author': {'name': NAME[:MAX_AUTOR], 'url': seite,
+                   'icon_url': logo_url(tag)},
+        'title': ('%s %s' % (NAME, tag.lstrip('v')))[:MAX_TITEL],
         'url': link,
         'description': beschreibung,
         'color': GOLD if vorab else GRUEN,
-        'thumbnail': {'url': logo_url(tag)},
-        'footer': {'text': (
-            'Testfassung · läuft normal, ist aber weniger lange erprobt'
-            if vorab else 'Fertige Version')},
+        # Schlicht: nur die Testfassung trägt einen Hinweis.
+        'footer': {'text': ('Testfassung · Test version' if vorab
+                            else 'versekit.xharig.com')[:MAX_FUSS]},
     }
     return {'embeds': [einbettung]}
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.exit('Aufruf: discord_release.py <tag>')
-    tag = sys.argv[1]
+    args = [a for a in sys.argv[1:] if a != '--trockenlauf']
+    if not args:
+        sys.exit('Aufruf: discord_release.py <tag> [--trockenlauf]')
+    tag = args[0]
+    if '--trockenlauf' in sys.argv:
+        # Nur zeigen, was gesendet würde — kein Webhook nötig, kein Netz.
+        print(json.dumps(bauen(tag), ensure_ascii=False, indent=2))
+        return 0
     haken = os.environ.get('DISCORD_WEBHOOK', '').strip()
     if not haken:
         # ⚠ Kein Fehler: Wer den Schlüssel nicht hinterlegt hat, soll trotzdem
