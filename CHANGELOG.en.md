@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.1 - 2026-10-25
+
+> The signature scanner now reads small digits correctly on very wide
+> screens too: a "56,000" is no longer read as "16,000". Nothing else
+> changes in this version.
+
+### Fixed
+
+- **The signature scanner reads small digits correctly** — on very wide
+  screens (such as 3840 × 1080) small digits were mixed up, for example
+  56,000 read as 16,000. The values now match. Reported by ProCodeX
+
 ## v4.12.0 - 2026-10-19
 
 > Verse-Kit feels noticeably snappier: My Inventory and Unit storage no

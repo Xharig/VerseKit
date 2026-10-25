@@ -3254,6 +3254,14 @@ TEXTS = {
                               'arrive with clean names, special editions stay '
                               'separate from the base ship, and extras like '
                               'the G12 land in the hangar.'),
+    's_dk_procodex_bugs':    ('**Kleine Ziffern im Signatur-Scanner** — auf einem '
+                              'sehr breiten Bildschirm (3840 × 1080) las er sie '
+                              'falsch, zum Beispiel 56,000 als 16,000. Jetzt '
+                              'stimmen die Werte.',
+                              '**Small digits in the signature scanner** — on a '
+                              'very wide screen (3840 × 1080) it misread them, '
+                              'for example 56,000 as 16,000. The values now '
+                              'match.'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '

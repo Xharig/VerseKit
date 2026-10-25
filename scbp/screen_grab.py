@@ -37,9 +37,11 @@ geschichtetes Fenster (`-transparentcolor`), und `BitBlt` ohne `CAPTUREBLT`
 lässt geschichtete Fenster aus. Genau deshalb fehlt der Schalter hier.
 
 Rückgabe ist ein Graustufenraster: Liste von Zeilen, je Zeile eine Liste von
-0–255. Graustufe = **hellster** der drei Farbkanäle, nicht die Luminanz — die
-HUD-Schrift ist farbig, und über die Luminanz verlöre ein türkiser Strich
-gegen den dunklen Grund ein Drittel seines Abstands.
+0–255. Graustufe = **Grünkanal**, nicht die Luminanz und nicht der hellste der
+drei Kanäle — die HUD-Schrift ist weiß mit orange-roter Kontur. Im hellsten
+Kanal füllt die Kontur die dunklen Innenräume kleiner Ziffern (6, 8, 0) zu;
+im Grünkanal bleibt sie dunkel, und die Schrift behält ihren Abstand zum
+Grund.
 """
 import ctypes
 import sys
@@ -237,9 +239,7 @@ def gray_crop(raw, width, box):
     rows = []
     for y in range(top, top + crop_h):
         start = (y * width + left) * 4
-        line = raw[start:start + crop_w * 4]
-        rows.append([max(line[i], line[i + 1], line[i + 2])
-                     for i in range(0, crop_w * 4, 4)])
+        rows.append(list(raw[start + 1:start + crop_w * 4:4]))
     return rows
 
 
@@ -273,13 +273,11 @@ def game_rect():
 
 
 def to_gray(raw, width, height):
-    """BGRA-Bytes → Graustufenraster, Wert = hellster Kanal."""
+    """BGRA-Bytes → Graustufenraster, Wert = Grünkanal."""
     rows = []
     for y in range(height):
         start = y * width * 4
-        line = raw[start:start + width * 4]
-        rows.append([max(line[i], line[i + 1], line[i + 2])
-                     for i in range(0, width * 4, 4)])
+        rows.append(list(raw[start + 1:start + width * 4:4]))
     return rows
 
 

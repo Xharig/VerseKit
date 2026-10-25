@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.1 - 2026-10-25
+
+> Der Signatur-Scanner liest kleine Ziffern jetzt auch auf sehr breiten
+> Bildschirmen richtig: Eine „56,000" wird nicht mehr als „16,000" gelesen.
+> Sonst ändert sich in dieser Fassung nichts.
+
+### Behoben
+
+- **Signatur-Scanner liest kleine Ziffern richtig** — auf sehr breiten
+  Bildschirmen (etwa 3840 × 1080) wurden kleine Ziffern verwechselt, zum
+  Beispiel 56,000 als 16,000. Jetzt stimmen die Werte. Gemeldet von ProCodeX
+
 ## v4.12.0 - 2026-10-19
 
 > Verse-Kit reagiert spürbar flotter: Mein Lager und Lager der Einheit
