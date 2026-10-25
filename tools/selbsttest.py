@@ -21471,7 +21471,9 @@ def main():
     # ⭐ **Geprueft wird das PAAR (deutsch, englisch), nicht jede Sprache fuer
     # sich.** Wer nur eine Seite umbenennt, faellt sonst durchs Raster: Beide
     # Zeichenketten gaebe es ja noch, nur nicht mehr am selben Reiter.
-    _html217 = open(os.path.join(WURZEL, 'index.html'), encoding='utf-8').read()
+    # Der Rundgang steht im Skript der Seite, nicht in `index.html`.
+    _html217 = ''.join(open(os.path.join(WURZEL, *teil), encoding='utf-8').read()
+                       for teil in (('index.html',), ('assets', 'seite.js')))
     pruefe('var GRUPPEN = [' in _html217,
            'die Seite hat einen Rundgang, der sich pruefen laesst')
     _tour217 = _html217.split('var GRUPPEN = [')[1].split('\n];')[0]
@@ -21587,6 +21589,7 @@ def main():
                  if not u.startswith(('https://github.com/Xharig/',
                                       'https://discord.gg/',
                                       'https://xharig.com/',
+                                      'https://versekit.xharig.com/',
                                       'https://versespotter.xharig.com/',
                                       'https://ko-fi.com/',
                                       'https://robertsspaceindustries.com/'))]
@@ -25846,6 +25849,7 @@ def main():
     _pruefung_613()
     _pruefung_614()
     _pruefung_615()
+    _pruefung_616()
 
     print()
     if fehler:
@@ -50813,8 +50817,11 @@ def _vt_seite_maengel(html, yml):
 def _pruefung_503():
     """Projektseite und README verweisen auf den VirusTotal-Bericht."""
     print('\n503. Projektseite und README: Link zum VirusTotal-Bericht')
-    with open(os.path.join(WURZEL, 'index.html'), encoding='utf-8') as f:
-        html = f.read()
+    # Der Link steht in `index.html`, die Suche nach der Setup-Datei im Skript.
+    html = ''
+    for teil in (('index.html',), ('assets', 'seite.js')):
+        with open(os.path.join(WURZEL, *teil), encoding='utf-8') as f:
+            html += f.read()
     with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
               encoding='utf-8') as f:
         yml = f.read()
@@ -57030,6 +57037,78 @@ def _pruefung_615():
                 w.destroy()
         except Exception:
             pass
+
+
+def _pruefung_616():
+    """616. Der Bildschirmabgriff nimmt den Grünkanal: Die orange-rote Kontur
+    der HUD-Schrift füllt die dunklen Innenräume kleiner Ziffern nicht zu.
+
+    Das Bild entsteht hier selbst: eine „0" aus weißem Strich mit zwei Punkte
+    breiter orange-roter Kontur, gerahmt von schwarzem Grund. Im hellsten
+    Kanal ist der Innenraum voll (keine Öffnung), im Grünkanal bleibt er dunkel.
+    """
+    print('\n616. Abgriff: Grünkanal statt hellster Kanal')
+    from scbp import screen_grab as sg_616, signature_scan as ss_616
+
+    frame_w, frame_h, glyph_left, glyph_top = 20, 17, 4, 2
+    white, outline = (255, 255, 255), (0, 70, 255)      # B, G, R
+    ring = {(x, y) for x in range(2, 7) for y in range(2, 11)
+            if x in (2, 6) or y in (2, 10)}
+    pixels = {}
+    for (rx, ry) in ring:
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                pixels[(rx + dx, ry + dy)] = outline
+    for point in ring:
+        pixels[point] = white
+    raw = bytearray(frame_w * frame_h * 4)
+    for (gx, gy), (blue, green, red) in pixels.items():
+        at = ((glyph_top + gy) * frame_w + glyph_left + gx) * 4
+        raw[at:at + 4] = bytes((blue, green, red, 255))
+    raw = bytes(raw)
+
+    def old_gray(data, width, height):
+        rows = []
+        for y in range(height):
+            line = data[y * width * 4:(y + 1) * width * 4]
+            rows.append([max(line[i], line[i + 1], line[i + 2])
+                         for i in range(0, width * 4, 4)])
+        return rows
+
+    def hole_count(raster):
+        bright = [(x, y) for y, row in enumerate(raster)
+                  for x, value in enumerate(row) if value > 128]
+        if not bright:
+            return None
+        box = (min(x for x, _ in bright), min(y for _, y in bright),
+               max(x for x, _ in bright), max(y for _, y in bright))
+        return ss_616.holes(ss_616.normalize(raster, box, 128))[0]
+
+    # Die Falle muss sich zuerst selbst prüfen: Im hellsten Kanal ist das Bild
+    # tatsächlich zugefüllt.
+    before = old_gray(raw, frame_w, frame_h)
+    pruefe(hole_count(before) == 0,
+           'Bild ist eine Falle: im hellsten Kanal hat die Null keine '
+           'Öffnung (%r)' % (hole_count(before),))
+
+    whole = sg_616.to_gray(raw, frame_w, frame_h)
+    pruefe(hole_count(whole) == 1,
+           'to_gray: die Null behält ihre Öffnung (%r)' % (hole_count(whole),))
+    box = (glyph_left, glyph_top, 9, 13)
+    crop = sg_616.gray_crop(raw, frame_w, box)
+    pruefe(hole_count(crop) == 1,
+           'gray_crop: die Null behält ihre Öffnung (%r)' % (hole_count(crop),))
+    pruefe(crop == [row[glyph_left:glyph_left + 9]
+                    for row in whole[glyph_top:glyph_top + 13]],
+           'gray_crop und to_gray liefern für denselben Ausschnitt dieselben '
+           'Werte')
+    pruefe(whole[glyph_top + 2][glyph_left + 2] == 255
+           and whole[glyph_top + 5][glyph_left + 4] < 128
+           and whole[0][0] == 0,
+           'Strich hell, Kontur und Grund dunkel')
+    pruefe(len(whole) == frame_h and all(len(r) == frame_w for r in whole)
+           and len(crop) == 13 and all(len(r) == 9 for r in crop),
+           'Maße des Rasters stimmen')
 
 
 if __name__ == '__main__':
