@@ -47408,6 +47408,16 @@ def _pruefung_471():
                 _root.update()
                 _root.update_idletasks()
                 time.sleep(0.03)
+            # Antworten aus dem Buchungsfaden holt sonst erst der `after`-Takt
+            # von `tk_calls` ab; auf einem langsamen Rechner liegen sie nach
+            # den acht Runden noch in der Warteschlange. `drain` arbeitet sie
+            # hier im Tk-Faden ab.
+            from scbp import tk_calls as _tc471
+            _bis471 = time.time() + 5
+            while _tc471.drain() and time.time() < _bis471:
+                pass
+            _root.update()
+            _root.update_idletasks()
 
         # Ein schon geschlossenes Formular (`None`) findet nichts, statt die
         # Prüfung abzubrechen — der Fehler steht dann als rote Zeile da.
