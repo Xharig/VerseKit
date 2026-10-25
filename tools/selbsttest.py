@@ -50817,9 +50817,11 @@ def _vt_seite_maengel(html, yml):
 def _pruefung_503():
     """Projektseite und README verweisen auf den VirusTotal-Bericht."""
     print('\n503. Projektseite und README: Link zum VirusTotal-Bericht')
-    # Der Link steht in `index.html`, die Suche nach der Setup-Datei im Skript.
+    # Der Link steht auf der Seite Herunterladen, die Suche nach der
+    # Setup-Datei im Skript.
     html = ''
-    for teil in (('index.html',), ('assets', 'seite.js')):
+    for teil in (('index.html',), ('herunterladen', 'index.html'),
+                 ('assets', 'seite.js')):
         with open(os.path.join(WURZEL, *teil), encoding='utf-8') as f:
             html += f.read()
     with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),

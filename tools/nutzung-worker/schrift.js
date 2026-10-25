@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
-// Die Schrift Xharig Sans (Teilmenge von Lato 2.015, SIL Open Font License 1.1,
+// Die Hausschrift (Teilmenge von Lato 2.015, SIL Open Font License 1.1,
 // Lizenztext in der Mutterkopie unter assets/schrift/OFL.txt) als Daten-Adressen, damit die
 // Übersicht nichts von außen lädt. Die Dateien sind byte-gleich mit
 // assets/schrift/ der Webseiten.

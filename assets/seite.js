@@ -574,7 +574,7 @@ function umwandeln(zeilen){
   return html;
 }
 
-// Release dates as "19.10.2026" and "19 Oct 2026"; UTC, so no time zone
+// Release dates as "DD.MM.YYYY" and "D Mon YYYY"; UTC, so no time zone
 // moves a date by one day.
 var DATUM = {
   de: new Intl.DateTimeFormat("de-DE", {dateStyle: "medium", timeZone: "UTC"}),
@@ -683,8 +683,8 @@ function verlaufZeigen(){
     !!suche || zeigen.length >= treffer.length;
 }
 
-/* Addresses of the single-page site before 23.10.2026 lead to the pages
-   that hold those parts now, so old links keep working. */
+/* Anchor addresses of the former single page lead to the pages that hold
+   those parts now, so old links keep working. */
 var ALTE_ADRESSEN = {
   "#alle-aenderungen": "aenderungen/", "#aenderungen": "aenderungen/",
   "#fragen-alle": "fragen/", "#fragen": "fragen/",

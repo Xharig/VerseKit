@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
-// Das gemeinsame Aussehen aller Xharig-Seiten: assets/basis.css der Mutterkopie
+// Das gemeinsame Aussehen aller Seiten der Webseiten-Familie: assets/basis.css der Mutterkopie
 // der Webseiten, hier UNVERÄNDERT eingesetzt. ⚠ Nie hier ändern: Änderungen gehören in die
 // Mutterkopie und kommen von dort. Die Seite setzt nur die zwei Schrift-Adressen
 // ein (dashboard.js), weil die strenge Content-Security-Policy keine Dateien

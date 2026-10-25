@@ -5,10 +5,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Latin subset of a TrueType font as WOFF2, with the standard library and the brotli CLI.
 
-Builds assets/schrift/xharig-sans-400.woff2 and xharig-sans-700.woff2 for the
-web pages from Lato-Regular.ttf and Lato-Bold.ttf (SIL OFL, licence in
-assets/schrift/). A subset is a modified version under the OFL, so the font is
-renamed to "Xharig Sans": the Reserved Font Name "Lato" may not be used for it.
+Builds the -400 and -700 woff2 files in assets/schrift/ for the web pages from
+Lato-Regular.ttf and Lato-Bold.ttf (SIL OFL, licence in assets/schrift/). A
+subset is a modified version under the OFL, so the font is renamed: the
+Reserved Font Name "Lato" may not be used for it.
 GPOS keeps only the kern feature, cut down to the kept glyphs.
 
 Glyph outlines outside the kept set are emptied (glyph ids stay, so GPOS
@@ -16,7 +16,7 @@ kerning and GSUB stay valid); the kept set is the cmap of the wanted code
 points, closed over composite glyphs and every GSUB substitution. The font is
 then wrapped as WOFF2 with null transforms and one brotli stream.
 
-    python3 tools/schrift_woff2.py Lato-Regular.ttf assets/schrift/xharig-sans-400.woff2
+    python3 tools/schrift_woff2.py Lato-Regular.ttf <output>.woff2
 """
 import struct
 import subprocess

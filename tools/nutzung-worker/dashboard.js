@@ -6,7 +6,7 @@
 // und Stil mit dem Einmal-Wert (`nonce`) dieser Antwort zu, dazu Schrift und
 // Bilder als Daten-Adressen.
 //
-// Aussehen: das gemeinsame Design aller Xharig-Seiten (basis.js, unverändert
+// Aussehen: das gemeinsame Design aller Webseiten (basis.js, unverändert
 // aus der Mutterkopie) plus der Stil dieser einen Seite unten. Das Skript
 // steht in client.js.
 
