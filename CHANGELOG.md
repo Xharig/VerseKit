@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.2 - 2026-10-25
+
+> Das Profit Basetool hat seine Anmelde-Adresse geändert. Mit dieser Fassung
+> verbindet sich VerseKit wieder. Einmal neu anmelden ist nötig, alte
+> Anmeldungen nimmt das Basetool nicht mehr an. Sonst ändert sich nichts.
+
+### Behoben
+
+- **Basetool verbindet sich wieder** — VerseKit nutzt die neue
+  Anmelde-Adresse des Profit Basetools. Nach dem Update einmal auf der Seite
+  Basetool neu anmelden.
+
 ## v4.12.1 - 2026-10-25
 
 > Der Signatur-Scanner liest kleine Ziffern jetzt auch auf sehr breiten

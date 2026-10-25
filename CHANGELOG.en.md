@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.2 - 2026-10-25
+
+> The Profit Basetool changed its sign-in address. With this version
+> VerseKit connects again. You need to sign in once more, the Basetool no
+> longer accepts old sign-ins. Nothing else changes.
+
+### Fixed
+
+- **The Basetool connects again** — VerseKit uses the new sign-in address
+  of the Profit Basetool. After the update, sign in once more on the
+  Basetool page.
+
 ## v4.12.1 - 2026-10-25
 
 > The signature scanner now reads small digits correctly on very wide

@@ -39,7 +39,7 @@ nicht exportierbar in CNG, unter Linux im Secret Service (`secret_store`).
 `use_dpop_nonce`. Das ist **normal**, kein Fehler: einmal mit der mitgelieferten
 Nonce wiederholen, jede Antwort bringt eine frische.
 
-**Aussteller festgenagelt** — nur `https://profit-base.online/auth/realms/iri`.
+**Aussteller festgenagelt** — nur `https://profit-base.online/auth/realms/basetool`.
 Die Testumgebung (gelucs Sandbox) lässt sich **ausschließlich** über
 Umgebungsvariablen wählen, nie in der Oberfläche — ein Schalter dort wäre ein
 Hebel für Betrug:
@@ -72,7 +72,7 @@ from email.utils import parsedate_to_datetime
 
 from . import secret_store
 
-ISSUER = 'https://profit-base.online/auth/realms/iri'
+ISSUER = 'https://profit-base.online/auth/realms/basetool'
 API = 'https://ingest.profit-base.online/exchange/v1'
 CLIENT_ID = 'versekit'
 HOMEPAGE = 'https://versekit.xharig.com'

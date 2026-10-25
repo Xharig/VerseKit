@@ -28500,7 +28500,7 @@ class _Basetool290:
         self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0),
                                                       _handler290(self))
         self.base = 'http://127.0.0.1:%d' % self.server.server_address[1]
-        self.issuer = self.base + '/auth/realms/iri'
+        self.issuer = self.base + '/auth/realms/basetool'
         self.api = self.base + '/exchange/v1'
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
@@ -28558,7 +28558,7 @@ class _Basetool290:
         self.requests.append((method, path))
 
         # ---------------------------------------------------- Keycloak
-        if path == '/auth/realms/iri/.well-known/openid-configuration':
+        if path == '/auth/realms/basetool/.well-known/openid-configuration':
             return handler._answer(200, {
                 'issuer': self.issuer_override or self.issuer,
                 'device_authorization_endpoint':
@@ -28967,7 +28967,10 @@ def _pruefung_290():
         _lg.own_account = lambda files=None: 'Spieler_1'
 
         # Aussteller festgenagelt: ein anderer im Discovery-Dokument -> nein
-        _srv.issuer_override = 'https://boese.example/auth/realms/iri'
+        pruefe(_bt.ISSUER == 'https://profit-base.online/auth/realms/basetool',
+               'fester Aussteller ist der Realm basetool (%r)' % _bt.ISSUER)
+
+        _srv.issuer_override = 'https://boese.example/auth/realms/basetool'
         try:
             _conn.start_login(['exchange.blueprints.read'])
             _abgelehnt = None
@@ -42429,7 +42432,7 @@ def _pruefung_436():
     import webbrowser as _wb436
 
     for _gut in ('https://example.org/x?a=1', 'http://example.org',
-                 'https://profit-base.online/auth/realms/iri/device'):
+                 'https://profit-base.online/auth/realms/basetool/device'):
         pruefe(_pa436.web_address(_gut), 'Webadresse wird angenommen: %s' % _gut)
     for _boese in ('file:///C:/Windows/System32/cmd.exe',
                    '\\\\angreifer@SSL\\DavWWWRoot\\x.exe',
