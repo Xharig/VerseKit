@@ -264,7 +264,7 @@ function sprache(s){
   for (var i = 0; i < texte.length; i++){
     texte[i].textContent = texte[i].getAttribute("data-" + s);
   }
-  // Feste Bilder (Abschnitt „Zwei Ansichten“): englisch mit "-en" vor der Endung.
+  // Feste Bilder: die englische Fassung trägt "-en" vor der Endung.
   var bilder = document.querySelectorAll("img[data-bild]");
   for (var b = 0; b < bilder.length; b++){
     var name = bilder[b].getAttribute("data-bild");
@@ -278,8 +278,8 @@ function sprache(s){
 }
 
 /* Der große Knopf oben lädt direkt die Datei für das System des Besuchers.
-   Nur Windows und Linux gibt es — Mac, Telefon und Unbekanntes springen wie
-   bisher zum Abschnitt „Herunterladen", wo beide Dateien stehen.
+   Nur Windows und Linux gibt es — Mac, Telefon und Unbekanntes springen
+   zum Abschnitt Herunterladen, wo beide Dateien stehen.
    Die Texte laufen über data-de/data-en, damit `sprache()` sie mitnimmt. */
 var system = (function(){
   var p = ((navigator.userAgentData && navigator.userAgentData.platform) ||
@@ -469,7 +469,7 @@ function maske(s){
 function zeile(s){
   var t = maske(s);
   t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
-  // Fett darf Kursives enthalten: „**Eigener Bereich *Schiffe***" (v3.19.0-rc2)
+  // Fett darf Kursives enthalten, etwa **Eigener Bereich *Schiffe***.
   t = t.replace(/\*\*((?:[^*]|\*[^*]+\*)+)\*\*/g, "<strong>$1</strong>");
   t = t.replace(/\*([^*\s][^*]*)\*/g, "<em>$1</em>");
   t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function(_, text, ziel){

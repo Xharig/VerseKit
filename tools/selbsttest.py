@@ -21471,7 +21471,9 @@ def main():
     # ⭐ **Geprueft wird das PAAR (deutsch, englisch), nicht jede Sprache fuer
     # sich.** Wer nur eine Seite umbenennt, faellt sonst durchs Raster: Beide
     # Zeichenketten gaebe es ja noch, nur nicht mehr am selben Reiter.
-    _html217 = open(os.path.join(WURZEL, 'index.html'), encoding='utf-8').read()
+    # Der Rundgang steht im Skript der Seite, nicht in `index.html`.
+    _html217 = ''.join(open(os.path.join(WURZEL, *teil), encoding='utf-8').read()
+                       for teil in (('index.html',), ('assets', 'seite.js')))
     pruefe('var GRUPPEN = [' in _html217,
            'die Seite hat einen Rundgang, der sich pruefen laesst')
     _tour217 = _html217.split('var GRUPPEN = [')[1].split('\n];')[0]
@@ -21587,6 +21589,7 @@ def main():
                  if not u.startswith(('https://github.com/Xharig/',
                                       'https://discord.gg/',
                                       'https://xharig.com/',
+                                      'https://versekit.xharig.com/',
                                       'https://versespotter.xharig.com/',
                                       'https://ko-fi.com/',
                                       'https://robertsspaceindustries.com/'))]
@@ -50794,8 +50797,11 @@ def _vt_seite_maengel(html, yml):
 def _pruefung_503():
     """Projektseite und README verweisen auf den VirusTotal-Bericht."""
     print('\n503. Projektseite und README: Link zum VirusTotal-Bericht')
-    with open(os.path.join(WURZEL, 'index.html'), encoding='utf-8') as f:
-        html = f.read()
+    # Der Link steht in `index.html`, die Suche nach der Setup-Datei im Skript.
+    html = ''
+    for teil in (('index.html',), ('assets', 'seite.js')):
+        with open(os.path.join(WURZEL, *teil), encoding='utf-8') as f:
+            html += f.read()
     with open(os.path.join(WURZEL, '.github', 'workflows', 'release.yml'),
               encoding='utf-8') as f:
         yml = f.read()
