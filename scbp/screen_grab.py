@@ -37,15 +37,23 @@ geschichtetes Fenster (`-transparentcolor`), und `BitBlt` ohne `CAPTUREBLT`
 lässt geschichtete Fenster aus. Genau deshalb fehlt der Schalter hier.
 
 Rückgabe ist ein Graustufenraster: Liste von Zeilen, je Zeile eine Liste von
-0–255. Graustufe = **Grünkanal**, nicht die Luminanz und nicht der hellste der
-drei Kanäle — die HUD-Schrift ist weiß mit orange-roter Kontur. Im hellsten
-Kanal füllt die Kontur die dunklen Innenräume kleiner Ziffern (6, 8, 0) zu;
-im Grünkanal bleibt sie dunkel, und die Schrift behält ihren Abstand zum
-Grund.
+0–255. Es gibt zwei Graubilder (`GRAY_VARIANTS`), der Scanner liest beide:
+
+| Variante | Graustufe | trägt, wenn |
+|---|---|---|
+| `gruen` | Grünkanal | die Schrift weiß ist mit orange-roter Kontur: Im hellsten Kanal füllt die Kontur die dunklen Innenräume kleiner Ziffern (6, 8, 0) zu, im Grünkanal bleibt sie dunkel |
+| `hell` | hellster der drei Kanäle | die Schrift selbst wenig Grün trägt: Im Grünkanal verschwindet sie dann im Grund |
+
+Nicht die Luminanz: Über sie verlöre ein farbiger Strich gegen den dunklen
+Grund ein Drittel seines Abstands.
 """
 import ctypes
 import sys
 import threading
+
+# Die Graubilder, die der Scanner liest. Bei gleich guter Lesung gilt das
+# vordere.
+GRAY_VARIANTS = ('gruen', 'hell')
 
 # Kennung für Per-Monitor-DPI-Awareness V2 (Windows 10 1703+).
 _PER_MONITOR_AWARE_V2 = -4
@@ -233,13 +241,22 @@ def grab_raw(left, top, width, height):
     return raw
 
 
-def gray_crop(raw, width, box):
+def gray_line(line, variant='gruen'):
+    """Eine Zeile BGRA-Bytes als Graustufen — `variant` aus `GRAY_VARIANTS`."""
+    if variant == 'hell':
+        return list(map(max, line[0::4], line[1::4], line[2::4]))
+    if variant == 'gruen':
+        return list(line[1::4])
+    raise ValueError(variant)
+
+
+def gray_crop(raw, width, box, variant='gruen'):
     """Aus BGRA-Bytes einen Ausschnitt (links, oben, breite, höhe) als Raster."""
     left, top, crop_w, crop_h = box
     rows = []
     for y in range(top, top + crop_h):
         start = (y * width + left) * 4
-        rows.append(list(raw[start + 1:start + crop_w * 4:4]))
+        rows.append(gray_line(raw[start:start + crop_w * 4], variant))
     return rows
 
 
@@ -272,12 +289,12 @@ def game_rect():
         return None
 
 
-def to_gray(raw, width, height):
-    """BGRA-Bytes → Graustufenraster, Wert = Grünkanal."""
+def to_gray(raw, width, height, variant='gruen'):
+    """BGRA-Bytes → Graustufenraster, Wert nach `variant` (`gray_line`)."""
     rows = []
     for y in range(height):
         start = y * width * 4
-        rows.append(list(raw[start + 1:start + width * 4:4]))
+        rows.append(gray_line(raw[start:start + width * 4], variant))
     return rows
 
 

@@ -7530,7 +7530,8 @@ def _thanks(fenster, rahmen):
              + '\n\n' + t('s_dk_bushwick_idee3')
              + '\n\n' + t('s_dk_bushwick_idee4'),
              t('s_dk_bushwick_bugs') + '\n\n' + t('s_dk_bushwick_bugs2')
-             + '\n\n' + t('s_dk_bushwick_bugs3')),
+             + '\n\n' + t('s_dk_bushwick_bugs3')
+             + '\n\n' + t('s_dk_bushwick_bugs4')),
             ('Choopa', '', t('s_dk_choopa_idee'), ''),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),

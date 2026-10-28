@@ -906,19 +906,24 @@ def build(version='', root=None, error_count=8, message='', reporter=None):
         from . import paths as paths_module, screen_grab, signature_scan, signature_watch
         if not screen_grab.supported():
             return t('b_scan_nicht')
-        own = signature_scan._read_templates(
-            paths_module.app_file(signature_scan.OWN_TEMPLATE_FILE))
+        own = {}
+        for name in signature_scan.own_template_files():
+            for digit, examples in signature_scan._read_templates(
+                    paths_module.app_file(name)).items():
+                own.setdefault(digit, []).extend(examples)
         if not paths_module.setting_bool(signature_watch.SETTING, False):
             state = t('e_aus')
         else:
             state = t('b_scan_laeuft' if signature_watch.running()
                       else 'b_scan_tot')
+        counts = signature_watch.variant_counts()
         return t('b_scan') % (
             state,
             sum(len(v) for v in own.values()), len(own),
             len(signature_scan.samples()),
             signature_watch.shown() or '—',
-            '%.2f' % screen_grab.dpi_scale())
+            '%.2f' % screen_grab.dpi_scale()) + t('b_scan_graubild') % (
+            counts.get('gruen', 0), counts.get('hell', 0))
 
     line(t('b_scanner'), _safe(_scanner_line))
 

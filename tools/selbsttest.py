@@ -25850,6 +25850,9 @@ def main():
     _pruefung_614()
     _pruefung_615()
     _pruefung_616()
+    _pruefung_617()
+    _pruefung_618()
+    _pruefung_619()
 
     print()
     if fehler:
@@ -57124,6 +57127,313 @@ def _pruefung_616():
     pruefe(len(whole) == frame_h and all(len(r) == frame_w for r in whole)
            and len(crop) == 13 and all(len(r) == 9 for r in crop),
            'Maße des Rasters stimmen')
+
+
+def _signaturbilder_617():
+    """Die echten Windows-Aufnahmen (kleine Schrift) aus den Prüfdaten."""
+    with open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                           'signatur-windows-klein.json'), encoding='utf-8') as f:
+        return json.load(f)['bilder']
+
+
+def _bgra_kontur_617(gray, cut):
+    """Graubild → BGRA: Schrift (über `cut`) weiß, ein Punkt orange-rote
+    Kontur drumherum, Grund grau wie im Graubild."""
+    height, width = len(gray), len(gray[0])
+    bright = {(x, y) for y in range(height) for x in range(width) if gray[y][x] > cut}
+    ring = set()
+    for (x, y) in bright:
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                near = (x + dx, y + dy)
+                if 0 <= near[0] < width and 0 <= near[1] < height and near not in bright:
+                    ring.add(near)
+    raw = bytearray()
+    for y in range(height):
+        for x in range(width):
+            value = gray[y][x]
+            raw += b'\x00\x46\xff\xff' if (x, y) in ring else bytes((value, value, value, 255))
+    return bytes(raw), width, height
+
+
+def _bgra_ohne_gruen_618(gray):
+    """Graubild → BGRA: Blau und Rot tragen den Wert, Grün bleibt überall auf
+    dem mittleren Grauwert — eine Schrift, die im Grünkanal nicht zu sehen ist."""
+    flat = sorted(v for row in gray for v in row)
+    ground = flat[len(flat) // 2]
+    raw = bytearray()
+    for row in gray:
+        for value in row:
+            raw += bytes((value, ground, value, 255))
+    return bytes(raw), len(gray[0]), len(gray)
+
+
+def _beide_graubilder_617(sg, raw, width, height):
+    return {v: sg.to_gray(raw, width, height, v) for v in sg.GRAY_VARIANTS}
+
+
+def _pruefung_617():
+    """617. Ein Bild, das nur das Graubild „grün" richtig liest, wird gelesen.
+
+    Nachgestellt aus den echten Windows-Aufnahmen: weiße Schrift mit einem
+    Punkt orange-roter Kontur. Im hellsten Kanal läuft die Kontur in die
+    Ziffern, im Grünkanal nicht. Gelesen werden beide Graubilder; der Wert
+    muss kommen, und aus keinem Bild darf ein falscher werden.
+    """
+    print('\n617. Signatur: nur das Graubild „grün" liest — Wert kommt')
+    from scbp import screen_grab as sg_617, signature_scan as ss_617
+    heim = tempfile.mkdtemp(prefix='pruefung617-')
+    alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    try:
+        known = ss_617.templates_by_variant()
+        bilder = _signaturbilder_617()
+        gray = bilder['16,000#s1']
+        values = sorted(set(ss_617.possible_values()) | {16000})
+        raw, width, height = _bgra_kontur_617(gray, ss_617.otsu(gray))
+        rasters = _beide_graubilder_617(sg_617, raw, width, height)
+        # Die Falle prüft sich zuerst selbst: grün liest, hell nicht.
+        allein = {v: ss_617.read(rasters[v], known[v], values)['wert'] for v in rasters}
+        pruefe(allein.get('gruen') == 16000 and allein.get('hell') != 16000,
+               'Bild ist eine Falle: allein liest nur „grün" 16,000 (%r)' % (allein,))
+        beide = ss_617.read_variants(rasters, known, values)
+        pruefe(beide['wert'] == 16000 and beide['variante'] == 'gruen'
+               and beide['bild'] is rasters['gruen']
+               and set(beide['bilder']) == set(sg_617.GRAY_VARIANTS),
+               'beide gelesen: 16,000 aus „grün", beide Bilder fürs Anlernen dabei '
+               '(%r, %r)' % (beide['wert'], beide['variante']))
+
+        # Derselbe Fall über die Pillensuche im Spielbild (BGRA).
+        frame_w, frame_h, left, top = 640, 240, 300, 110
+        frame = bytearray(b'\x10\x10\x10\xff' * (frame_w * frame_h))
+        for y in range(height):
+            at = ((top + y) * frame_w + left) * 4
+            frame[at:at + width * 4] = raw[y * width * 4:(y + 1) * width * 4]
+        fund = ss_617.search(bytes(frame), frame_w, frame_h, known, values)
+        pruefe(fund['wert'] == 16000 and fund['variante'] == 'gruen',
+               'Pillensuche: 16,000 aus „grün" (%r, %r)'
+               % (fund['wert'], fund.get('variante')))
+
+        # Über alle Aufnahmen: so viele richtig wie „grün" allein, nichts falsch.
+        richtig = gruen = 0
+        falsch = []
+        for key in sorted(bilder):
+            soll = int(key.split('#')[0].replace(',', ''))
+            werte = sorted(set(ss_617.possible_values()) | {soll})
+            roh = _bgra_kontur_617(bilder[key], ss_617.otsu(bilder[key]))
+            paar = _beide_graubilder_617(sg_617, *roh)
+            if ss_617.read(paar['gruen'], known['gruen'], werte)['wert'] == soll:
+                gruen += 1
+            wert = ss_617.read_variants(paar, known, werte)['wert']
+            if wert == soll:
+                richtig += 1
+            elif wert is not None:
+                falsch.append((soll, wert))
+        pruefe(not falsch and richtig >= gruen and richtig >= 20,
+               'alle Aufnahmen mit Kontur: %d richtig („grün" allein %d), falsch %r'
+               % (richtig, gruen, falsch))
+    finally:
+        if alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt
+
+
+def _pruefung_618():
+    """618. Ein Bild, das nur das Graubild „hell" richtig liest, wird gelesen.
+
+    Nachgestellt aus den echten Windows-Aufnahmen: eine Schrift ohne Grün
+    (Blau und Rot tragen sie). Im Grünkanal ist sie nicht zu sehen, im
+    hellsten Kanal schon.
+    """
+    print('\n618. Signatur: nur das Graubild „hell" liest — Wert kommt')
+    from scbp import screen_grab as sg_618, signature_scan as ss_618
+    heim = tempfile.mkdtemp(prefix='pruefung618-')
+    alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    try:
+        # Der hellste Kanal ist wirklich das Maximum aus Blau, Grün und Rot.
+        punkt = bytes((10, 200, 30, 255, 250, 5, 7, 255, 1, 2, 240, 255))
+        pruefe(sg_618.to_gray(punkt, 3, 1, 'hell') == [[200, 250, 240]]
+               and sg_618.to_gray(punkt, 3, 1, 'gruen') == [[200, 5, 2]]
+               and sg_618.gray_crop(punkt, 3, (1, 0, 2, 1), 'hell') == [[250, 240]],
+               'hell = hellster Kanal, grün = Grünkanal, auch im Ausschnitt')
+
+        known = ss_618.templates_by_variant()
+        bilder = _signaturbilder_617()
+        gray = bilder['16,000#s1']
+        values = sorted(set(ss_618.possible_values()) | {16000})
+        raw, width, height = _bgra_ohne_gruen_618(gray)
+        rasters = _beide_graubilder_617(sg_618, raw, width, height)
+        allein = {v: ss_618.read(rasters[v], known[v], values)['wert'] for v in rasters}
+        pruefe(allein.get('hell') == 16000 and allein.get('gruen') is None,
+               'Bild ist eine Falle: allein liest nur „hell" 16,000 (%r)' % (allein,))
+        beide = ss_618.read_variants(rasters, known, values)
+        pruefe(beide['wert'] == 16000 and beide['variante'] == 'hell'
+               and beide['bild'] is rasters['hell'],
+               'beide gelesen: 16,000 aus „hell" (%r, %r)'
+               % (beide['wert'], beide['variante']))
+
+        richtig = 0
+        falsch = []
+        for key in sorted(bilder):
+            soll = int(key.split('#')[0].replace(',', ''))
+            werte = sorted(set(ss_618.possible_values()) | {soll})
+            paar = _beide_graubilder_617(sg_618, *_bgra_ohne_gruen_618(bilder[key]))
+            wert = ss_618.read_variants(paar, known, werte)['wert']
+            if wert == soll:
+                richtig += 1
+            elif wert is not None:
+                falsch.append((soll, wert))
+        pruefe(not falsch and richtig >= 20,
+               'alle Aufnahmen ohne Grün: %d richtig, falsch %r' % (richtig, falsch))
+    finally:
+        if alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt
+
+
+def _pruefung_619():
+    """619. Graubilder: Auswahl, Vorlagen je Graubild, Anlernen, Wache, Bericht.
+
+    | Teil | Nachweis |
+    |---|---|
+    | gleich gut | grün gewinnt |
+    | beide lesen, verschieden gut | der kleinere Abstand gewinnt |
+    | Anlernen | je Graubild in die eigene Datei, die gemeinsame bleibt bytegleich und gilt weiter für beide |
+    | Anlern-Fenster | lernt aus beiden Bildern, die es von der Wache bekommt |
+    | Wache | merkt beide Bilder und zählt, welches Graubild las |
+    | Bericht und ZIP | nennen die Zählung und tragen die Dateien je Graubild |
+    """
+    print('\n619. Signatur: Graubild-Auswahl, Vorlagen und Anlernen je Graubild')
+    import types as _ty619
+    from scbp import paths as pa_619, report as rp_619, scan_window as sw_619
+    from scbp import screen_grab as sg_619, signature_scan as ss_619
+    from scbp import signature_watch as wa_619
+    from scbp.language import t as t_619
+    heim = tempfile.mkdtemp(prefix='pruefung619-')
+    alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    alt_state = dict(wa_619._state)
+    alt_state['variants'] = dict(wa_619._state['variants'])
+    try:
+        bilder = _signaturbilder_617()
+        gray = bilder['2,000']
+        values = [2000, 3000, 4000, 6000, 8000, 12000, 21350]
+        neutral = bytes(b for v in (x for row in gray for x in row)
+                        for b in (v, v, v, 255))
+        rasters = _beide_graubilder_617(sg_619, neutral, len(gray[0]), len(gray))
+        pruefe(rasters['gruen'] == rasters['hell'] == gray,
+               'Vorbedingung: ein graues Bild ergibt zweimal dasselbe Raster')
+
+        # a) Gleich gut gelesen: „grün" gewinnt.
+        gleich = ss_619.read_variants(rasters, ss_619.templates_by_variant(), values)
+        pruefe(gleich['wert'] == 2000 and gleich['variante'] == 'gruen',
+               'gleich gut gelesen: „grün" gewinnt (%r, %r)'
+               % (gleich['wert'], gleich['variante']))
+
+        # Bestehende eigene Vorlagen (gemeinsame Datei) aus einem anderen Bild.
+        pruefe(ss_619.learn(bilder['6,740#s1'], '6,740')[0],
+               'Vorbedingung: gemeinsame eigene Vorlagen angelegt')
+        gemeinsam = pa_619.app_file(ss_619.OWN_TEMPLATE_FILE)
+        with open(gemeinsam, 'rb') as f:
+            vorher = f.read()
+        alte_sieben = ss_619._read_templates(gemeinsam)['7'][0]
+
+        # b) Mit diesem Bild nur ins Graubild hell angelernt, liest hell es
+        #    genauer: Der kleinere Abstand gewinnt gegen die Reihenfolge.
+        pruefe(ss_619.learn(gray, '2,000', 'hell', keep_sample=False)[0],
+               'anlernen nur in „hell" klappt')
+        known = ss_619.templates_by_variant()
+        abstand = {v: ss_619.read(rasters[v], known[v], values)['abstand']
+                   for v in rasters}
+        pruefe(abstand['hell'] < abstand['gruen'],
+               'Vorbedingung: „hell" liest jetzt genauer (%r)' % (abstand,))
+        genauer = ss_619.read_variants(rasters, known, values)
+        pruefe(genauer['wert'] == 2000 and genauer['variante'] == 'hell',
+               'beide lesen, verschieden gut: der kleinere Abstand gewinnt (%r)'
+               % (genauer['variante'],))
+        pruefe(not os.path.exists(pa_619.app_file(ss_619.own_template_file('gruen'))),
+               'was „hell" anlernt, landet nicht bei „grün"')
+
+        # c) Anlernen aus beiden Bildern: je Graubild eine Datei, die
+        #    gemeinsame bleibt bytegleich und gilt für beide weiter. Weiße
+        #    Schrift auf rötlichem Grund lässt sich aus beiden anlernen.
+        proben = len(ss_619.samples())
+        rot = bytes(b for v in (x for row in bilder['17,080#s1'] for x in row)
+                    for b in (v, v, min(255, v + 40), 255))
+        farbig = _beide_graubilder_617(sg_619, rot, len(bilder['17,080#s1'][0]),
+                                       len(bilder['17,080#s1']))
+        pruefe(farbig['gruen'] != farbig['hell'],
+               'Vorbedingung: die beiden Graubilder unterscheiden sich')
+        ok, _grund, bilanz = ss_619.learn_variants(farbig, '17,080', 'hell')
+        with open(gemeinsam, 'rb') as f:
+            nachher = f.read()
+        eigen = {v: ss_619._read_templates(pa_619.app_file(ss_619.own_template_file(v)))
+                 for v in sg_619.GRAY_VARIANTS}
+        pruefe(ok and bilanz.get('erkannt') == 5 and nachher == vorher
+               and all(eigen[v].get('8') for v in eigen),
+               'anlernen aus beiden Bildern: je Graubild gespeichert, die '
+               'gemeinsame Datei unverändert (%r, %r)' % (bilanz, sorted(eigen)))
+        pruefe(len(ss_619.samples()) == proben + 1,
+               'fürs Bild zur Zahl genau eine Ablage, nicht eine je Graubild')
+        gefuellt = ss_619.fill(alte_sieben)
+        pruefe(all(gefuellt in [p for p, _h in ss_619.templates(v).get('7', [])]
+                   for v in sg_619.GRAY_VARIANTS),
+               'die gemeinsamen eigenen Vorlagen gelten weiter für beide Graubilder')
+
+        # d) Das Anlern-Fenster lernt aus den Bildern der Wache.
+        for v in sg_619.GRAY_VARIANTS:
+            datei = pa_619.app_file(ss_619.own_template_file(v))
+            if os.path.exists(datei):
+                os.remove(datei)
+        notiz = {}
+        fenster = _ty619.SimpleNamespace(
+            raster=farbig['gruen'], rasters=farbig, variant='gruen',
+            typed_var=_ty619.SimpleNamespace(get=lambda: '17,080', set=lambda _v: None),
+            note=_ty619.SimpleNamespace(configure=lambda **k: notiz.update(k)))
+        sw_619.ScanWindow._learn(fenster)
+        pruefe(all(os.path.exists(pa_619.app_file(ss_619.own_template_file(v)))
+                   for v in sg_619.GRAY_VARIANTS) and nachher == open(gemeinsam, 'rb').read(),
+               'Anlern-Fenster: je Graubild gespeichert, gemeinsame Datei unverändert '
+               '(%r)' % (notiz.get('text'),))
+
+        # e) Die Wache merkt beide Bilder und zählt das lesende Graubild.
+        wa_619._state['variants'] = {}
+        wa_619._state['shown'] = None
+        ergebnis = {'wert': 17080, 'ziffern': [(0, 0, 1, 1)], 'bild': farbig['hell'],
+                    'bilder': farbig, 'variante': 'hell'}
+        wa_619.step(lambda *_r: None, lambda _r: ergebnis, lambda: True,
+                    (0, 0, 10, 10), [], 100.0, 0.0)
+        bild = wa_619.last_frame()
+        pruefe(bild[0] is farbig['hell'] and bild[3] == farbig and bild[4] == 'hell'
+               and wa_619.variant_counts() == {'hell': 1},
+               'Wache: beide Bilder fürs Anlernen gemerkt, „hell" einmal gezählt (%r)'
+               % (wa_619.variant_counts(),))
+
+        # f) Bericht und ZIP.
+        if sg_619.supported():
+            pruefe(t_619('b_scan_graubild') % (0, 1) in rp_619.build(version='0.0.0-test'),
+                   'Bericht nennt, aus welchem Graubild gelesen wurde')
+        else:
+            print('  [–]    Bericht-Zeile nur dort, wo abgegriffen werden kann')
+        import io as _io619
+        import zipfile as _zip619
+        pa_619.set_setting('melder_name', '')
+        pa_619.set_setting('melder_leer_gewollt', True)
+        namen = _zip619.ZipFile(_io619.BytesIO(ss_619.sample_archive())).namelist()
+        erwartet = [ss_619.OWN_TEMPLATE_FILE] + [ss_619.own_template_file(v)
+                                                 for v in sg_619.GRAY_VARIANTS]
+        pruefe(len(set(erwartet)) == 3 and all(n in namen for n in erwartet),
+               'ZIP trägt die gemeinsame und beide Dateien je Graubild (%r)' % (namen,))
+    finally:
+        wa_619._state.clear()
+        wa_619._state.update(alt_state)
+        if alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt
 
 
 if __name__ == '__main__':

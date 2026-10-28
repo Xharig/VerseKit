@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.3 - 2026-10-28
+
+> Der Signatur-Scanner liest die Zahl jetzt auf zwei Arten, so wie bis
+> 4.12.0 und so wie seit 4.12.1, und nimmt die sicherere Lesung. Wo er seit
+> 4.12.1 schlechter las, erkennt er die Zahl wieder. Sonst ändert sich
+> nichts.
+
+### Behoben
+
+- **Signatur-Scanner liest wieder zuverlässig** — der Scanner liest die
+  Zahl auf zwei Arten und nimmt die sicherere Lesung. Kleine Ziffern auf
+  sehr breiten Bildschirmen bleiben richtig. Neu angelernte Ziffern
+  speichert er je Lesart getrennt, bisher Angelerntes gilt weiter.
+  Gemeldet von Bushwick4712 (KRT), Vorschlag von ProCodeX
+
 ## v4.12.2 - 2026-10-25
 
 > Das Profit Basetool hat seine Anmelde-Adresse geändert. Mit dieser Fassung

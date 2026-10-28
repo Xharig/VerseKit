@@ -165,6 +165,8 @@ class ScanWindow(object):
         self.master = master
         self.on_saved = on_saved
         self.raster = None
+        self.rasters = {}
+        self.variant = None
         self.frame_time = None
         self.preview_image = None
         self.last_error = None
@@ -252,6 +254,8 @@ class ScanWindow(object):
     def _show(self, frame):
         raster, stamp, value = frame[0], frame[1], (frame[2] if len(frame) > 2 else None)
         self.raster, self.frame_time = raster, stamp
+        self.rasters = (frame[3] if len(frame) > 3 else None) or {}
+        self.variant = frame[4] if len(frame) > 4 else None
         if value is not None:
             self.result.configure(text=t('scan_gelesen') % describe(value), fg=ACCENT)
         else:
@@ -263,6 +267,7 @@ class ScanWindow(object):
     def _next(self):
         """Das stehende Bild freigeben — das nächste gefundene wird gezeigt."""
         self.raster = None
+        self.rasters, self.variant = {}, None
         self.note.configure(text='')
         self.result.configure(text=t('scan_warte'), fg=SUB)
         self.preview.configure(image=self.blank)
@@ -272,7 +277,11 @@ class ScanWindow(object):
             self.note.configure(text=t('scan_warte'), fg=SUB)
             return
         typed = self.typed_var.get()
-        ok, reason, stats = signature_scan.learn(self.raster, typed)
+        if self.rasters:
+            ok, reason, stats = signature_scan.learn_variants(self.rasters, typed,
+                                                              self.variant)
+        else:
+            ok, reason, stats = signature_scan.learn(self.raster, typed)
         if not ok:
             self.note.configure(text=t('scan_grund_' + reason), fg=RED)
             return
@@ -293,7 +302,10 @@ class ScanWindow(object):
         if stats['unklar']:
             lines.append(t('scan_gelernt_unklar')
                          % ', '.join(str(p) for p in stats['unklar']))
-        check = signature_scan.read(self.raster)['wert']
+        if self.rasters:
+            check = signature_scan.read_variants(self.rasters)['wert']
+        else:
+            check = signature_scan.read(self.raster)['wert']
         if check is not None and str(check) == digits:
             lines.append(t('scan_probe_ok') % number)
             color = ACCENT

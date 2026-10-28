@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.3 - 2026-10-28
+
+> The signature scanner now reads the number two ways, as up to 4.12.0
+> and as since 4.12.1, and takes the safer reading. Where it has read worse
+> since 4.12.1, it recognises the number again. Nothing else changes.
+
+### Fixed
+
+- **The signature scanner reads reliably again** — the scanner reads the
+  number two ways and takes the safer reading. Small digits on very wide
+  screens stay correct. Newly learned digits are stored separately for
+  each way of reading, everything learned so far still counts.
+  Reported by Bushwick4712 (KRT), suggested by ProCodeX
+
 ## v4.12.2 - 2026-10-25
 
 > The Profit Basetool changed its sign-in address. With this version

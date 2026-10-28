@@ -84,7 +84,10 @@ NORM_W, NORM_H = 16, 24
 SAMPLE_FOLDER = 'signatur-bilder'
 SAMPLE_LIMIT = 200
 TEMPLATE_FILE = 'signatur-ziffern.json'          # mitgeliefert, `daten/`
-OWN_TEMPLATE_FILE = 'signatur-ziffern-eigene.json'  # selbst angelernt
+# Selbst angelernt, ohne Angabe des Graubilds — gilt für beide Graubilder.
+OWN_TEMPLATE_FILE = 'signatur-ziffern-eigene.json'
+# Selbst angelernt aus einem Graubild (`screen_grab.GRAY_VARIANTS`).
+OWN_VARIANT_FILE = 'signatur-ziffern-eigene-%s.json'
 REGION_SETTING = 'signatur_bereich'
 
 # Aufschlag auf den Abstand, wenn die Löcher nicht zusammenpassen. Kein harter
@@ -700,12 +703,35 @@ def _read_templates(path):
     return {}
 
 
-def templates():
-    """Mitgelieferte und selbst angelernte Vorlagen — je Ziffer (Muster, Löcher)."""
+def own_template_file(variant=None):
+    """Dateiname der selbst angelernten Vorlagen — je Graubild eine eigene,
+    ohne `variant` die gemeinsame."""
+    if variant is None:
+        return OWN_TEMPLATE_FILE
+    from .screen_grab import GRAY_VARIANTS
+    if variant not in GRAY_VARIANTS:
+        raise ValueError(variant)
+    return OWN_VARIANT_FILE % variant
+
+
+def own_template_files():
+    """Alle Dateien mit selbst angelernten Vorlagen: die gemeinsame zuerst."""
+    from .screen_grab import GRAY_VARIANTS
+    return [OWN_TEMPLATE_FILE] + [OWN_VARIANT_FILE % v for v in GRAY_VARIANTS]
+
+
+def templates(variant=None):
+    """Mitgelieferte und selbst angelernte Vorlagen — je Ziffer (Muster, Löcher).
+
+    Mit `variant` kommen die aus diesem Graubild angelernten dazu. Die
+    mitgelieferten und die gemeinsamen eigenen gelten für jedes Graubild.
+    """
     from . import paths
     merged = {}
-    for path in (paths.bundled_file(TEMPLATE_FILE),
-                 paths.app_file(OWN_TEMPLATE_FILE)):
+    sources = [paths.bundled_file(TEMPLATE_FILE), paths.app_file(OWN_TEMPLATE_FILE)]
+    if variant is not None:
+        sources.append(paths.app_file(own_template_file(variant)))
+    for path in sources:
         for digit, examples in _read_templates(path).items():
             if digit not in REQUIRED_HOLES:
                 continue
@@ -716,6 +742,23 @@ def templates():
                     if filled not in [p for p, _h in bucket]:
                         bucket.append((filled, holes(filled)))
     return merged
+
+
+def templates_by_variant():
+    """{graubild: Vorlagen} für jedes Graubild aus `screen_grab.GRAY_VARIANTS`."""
+    from .screen_grab import GRAY_VARIANTS
+    return {variant: templates(variant) for variant in GRAY_VARIANTS}
+
+
+def _known_by_variant(known):
+    """`known` als {graubild: Vorlagen}: geladen, wenn None; gemeinsame
+    Vorlagen (Schlüssel sind Ziffern) gelten für jedes Graubild."""
+    from .screen_grab import GRAY_VARIANTS
+    if known is None:
+        return templates_by_variant()
+    if known and all(key in GRAY_VARIANTS for key in known):
+        return known
+    return {variant: known for variant in GRAY_VARIANTS}
 
 
 def fill(pattern):
@@ -1057,31 +1100,98 @@ def pill_candidates(raw, width, height):
     return [box for _distance, box in found]
 
 
+def read_variants(rasters, known=None, values=None):
+    """Dieselbe Stelle in jedem Graubild lesen — es gilt die sicherste Lesung.
+
+    `rasters` ist {graubild: raster}, `known` {graubild: Vorlagen} oder
+    gemeinsame Vorlagen für alle. Gibt das dict von `read`, dazu `variante`
+    (das gewählte Graubild), `bild` (sein Raster) und `bilder` (alle, fürs
+    Anlernen).
+
+    | Lage | gewählt |
+    |---|---|
+    | ein Graubild liest einen Wert | dieses |
+    | beide lesen einen Wert | der kleinere Abstand zu den Vorlagen |
+    | gleicher Abstand | das vordere in `GRAY_VARIANTS` |
+    | keins liest einen Wert | das vordere mit Ziffernreihe, sonst das vordere |
+    """
+    from .screen_grab import GRAY_VARIANTS
+    known = _known_by_variant(known)
+    values = possible_values() if values is None else values
+    chosen = None
+    for variant in GRAY_VARIANTS:
+        raster = rasters.get(variant)
+        if raster is None:
+            continue
+        result = read(raster, known.get(variant) or {}, values)
+        result['variante'], result['bild'] = variant, raster
+        if chosen is None or _safer(result, chosen):
+            chosen = result
+    if chosen is None:
+        chosen = {'wert': None, 'grund': 'kein_text', 'abstand': 1.0,
+                  'ziffern': [], 'schwelle': None, 'variante': None, 'bild': None}
+    chosen['bilder'] = dict(rasters)
+    return chosen
+
+
+def _safer(result, other):
+    """Ist `result` sicherer gelesen als `other`? Gleich gut heißt nein."""
+    if result['wert'] is not None:
+        return other['wert'] is None or result['abstand'] < other['abstand']
+    return other['wert'] is None and bool(result['ziffern']) and not other['ziffern']
+
+
 def search(raw, width, height, known=None, values=None, limit=12):
     """Die Pille in einem großen Ausschnitt finden und lesen.
 
-    Gibt das dict von `read`, dazu `bild` (der Ausschnitt um die Pille, fürs
-    Anlernen) und `kasten`. Ohne Wert: der erste Kandidat mit Ziffernreihe.
+    Gibt das dict von `read_variants` (beide Graubilder), dazu `kasten`.
+    Ohne Wert: der erste Kandidat mit Ziffernreihe.
     """
-    from .screen_grab import gray_crop
-    known = templates() if known is None else known
+    from .screen_grab import GRAY_VARIANTS, gray_crop
+    known = _known_by_variant(known)
     values = possible_values() if values is None else values
     first_with_digits = None
     for box in pill_candidates(raw, width, height)[:limit]:
-        crop = gray_crop(raw, width, box)
-        result = read(crop, known, values)
-        result['bild'], result['kasten'] = crop, box
+        result = read_variants({variant: gray_crop(raw, width, box, variant)
+                                for variant in GRAY_VARIANTS}, known, values)
+        result['kasten'] = box
         if result['wert'] is not None:
             return result
         if result['ziffern'] and first_with_digits is None:
             first_with_digits = result
     return first_with_digits or {'wert': None, 'grund': 'kein_text', 'abstand': 1.0,
                                  'ziffern': [], 'schwelle': None, 'bild': None,
-                                 'kasten': None}
+                                 'bilder': {}, 'variante': None, 'kasten': None}
 
 
-def learn(raster, typed):
+def learn_variants(rasters, typed, first=None):
+    """Dieselbe Stelle aus jedem Graubild anlernen, je in dessen eigene Datei.
+
+    `rasters` ist {graubild: raster}. Gibt (erfolg, kennwort, bilanz) des
+    Graubilds `first` (sonst des ersten in `GRAY_VARIANTS`), falls es dort
+    klappte, sonst des ersten, bei dem es klappte. Das Bild für die
+    Entwicklung (`save_sample`) legt nur dieses ab.
+    """
+    from .screen_grab import GRAY_VARIANTS
+    order = [v for v in GRAY_VARIANTS if v in rasters]
+    if first in order:
+        order.remove(first)
+        order.insert(0, first)
+    outcomes = [learn(rasters[v], typed, v, keep_sample=False) for v in order]
+    if not outcomes:
+        return False, 'anlernen_anzahl', {}
+    for variant, outcome in zip(order, outcomes):
+        if outcome[0]:
+            save_sample(rasters[variant], ''.join(c for c in str(typed) if c.isdigit()))
+            return outcome
+    return outcomes[0]
+
+
+def learn(raster, typed, variant=None, keep_sample=True):
     """Den Ausschnitt als die getippte Zahl anlernen.
+
+    Gespeichert wird in die Datei des Graubilds `variant`
+    (`own_template_file`), ohne Angabe in die gemeinsame.
 
     Gibt (erfolg, kennwort, bilanz). `bilanz` sagt dem Spieler, was geschah:
     `erkannt` (Ziffern im Bild), `neu` (neu gespeichert), `bekannt` (dieses
@@ -1119,9 +1229,9 @@ def learn(raster, typed):
     candidates.sort(key=lambda c: -c[0])
     patterns = candidates[0][1]
 
-    path = paths.app_file(OWN_TEMPLATE_FILE)
+    path = paths.app_file(own_template_file(variant))
     own = _read_templates(path)
-    columns = digit_table(patterns, templates())
+    columns = digit_table(patterns, templates(variant))
     stats = {'erkannt': len(patterns), 'neu': 0, 'bekannt': 0, 'unklar': []}
     for position, (pattern, digit) in enumerate(zip(patterns, digits_typed), 1):
         if not plausible_template(digit, pattern):
@@ -1151,7 +1261,8 @@ def learn(raster, typed):
         os.replace(path + '.tmp', path)
     except OSError:
         return False, 'anlernen_speichern', {}
-    save_sample(raster, ''.join(digits_typed))
+    if keep_sample:
+        save_sample(raster, ''.join(digits_typed))
     return True, None, stats
 
 
@@ -1247,9 +1358,10 @@ def sample_archive(name=None):
         for name in refinery:
             archive.write(os.path.join(refinery_scan.keep_folder(), name),
                           root + 'raffinerie/' + name)
-        own = paths.app_file(OWN_TEMPLATE_FILE)
-        if os.path.isfile(own):
-            archive.write(own, root + OWN_TEMPLATE_FILE)
+        for own_name in own_template_files():
+            own = paths.app_file(own_name)
+            if os.path.isfile(own):
+                archive.write(own, root + own_name)
     return buffer.getvalue()
 
 

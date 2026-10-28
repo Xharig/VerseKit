@@ -55,7 +55,7 @@ IDLE_AFTER_S = 8.0       # so lange nach dem letzten Wert gilt „kürzlich"
 _lock = threading.Lock()
 _listeners = []
 _state = {'thread': None, 'stop': None, 'shown': None, 'last_frame': None,
-          'reload': False}
+          'reload': False, 'variants': {}}
 
 
 def listen(callback):
@@ -88,9 +88,15 @@ def shown():
 def last_frame():
     """Das letzte Bild, in dem eine Ziffernreihe stand — fürs Anlernen.
 
-    Gibt (raster, zeitpunkt) oder None.
+    Gibt (raster, zeitpunkt, wert, {graubild: raster}, graubild) oder None.
     """
     return _state['last_frame']
+
+
+def variant_counts():
+    """Wie oft jedes Graubild seit dem Start den gelesenen Wert lieferte —
+    {graubild: anzahl}."""
+    return dict(_state['variants'])
 
 
 def reload_templates():
@@ -178,11 +184,16 @@ def step(grab, read, foreground, region, history, now, last_seen):
     result = read(raster)
     if result.get('ziffern'):
         # Der Ausschnitt um die Pille (bei der Suche `bild`), dazu der gelesene
-        # Wert — das Anlern-Fenster zeigt genau dieses Bild, stehend.
-        _state['last_frame'] = (result.get('bild') or raster, now, result.get('wert'))
+        # Wert — das Anlern-Fenster zeigt genau dieses Bild, stehend, und
+        # lernt aus jedem Graubild (`bilder`).
+        _state['last_frame'] = (result.get('bild') or raster, now, result.get('wert'),
+                                result.get('bilder') or {}, result.get('variante'))
     history.append(result.get('wert'))
     del history[:-VOTES]
     value = result.get('wert')
+    if value is not None and result.get('variante'):
+        counts = _state['variants']
+        counts[result['variante']] = counts.get(result['variante'], 0) + 1
     if value is not None and history.count(value) >= NEEDED:
         last_seen = now
         if value != _state['shown']:
@@ -299,7 +310,7 @@ def _loop(stop_event):
         try:
             if started - cache['at'] > RELOAD_S or _state['reload']:
                 _state['reload'] = False
-                cache.update(at=started, known=signature_scan.templates(),
+                cache.update(at=started, known=signature_scan.templates_by_variant(),
                              values=signature_scan.possible_values())
             game = screen_grab.game_rect()
             result = tracker.look(game, time.monotonic()) if game else None

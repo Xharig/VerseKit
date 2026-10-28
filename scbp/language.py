@@ -3036,6 +3036,14 @@ TEXTS = {
                               'and the only way back was the sidebar, which lost '
                               'your search and your filter. Now there is a button '
                               'that takes you back.'),
+    's_dk_bushwick_bugs4':   ('**Der Signatur-Scanner las schlechter** — nach einer '
+                              'Umstellung erkannte er die Zahl deutlich seltener. '
+                              'Jetzt liest er sie auf zwei Arten und nimmt die '
+                              'sicherere Lesung.',
+                              '**The signature scanner read worse** — after a '
+                              'change it recognised the number far less often. '
+                              'Now it reads it two ways and takes the safer '
+                              'reading.'),
     's_dk_aeternitas_idee':  ('**Fortschritt nur für die Merkliste** — wie weit man '
                               'mit den Bauplänen ist, die man wirklich haben will. '
                               'Dafür bleiben Erledigte jetzt abgehakt auf der '
@@ -5907,6 +5915,8 @@ TEXTS = {
     'b_scanner':         ('Signatur-Scan', 'Signature scan'),
     'b_scan':            ('%s · %d eigene Ziffernbilder (%d Ziffern) · %d Scan-Bilder · zuletzt %s · Skalierung %s',
                           '%s · %d own digit images (%d digits) · %d scan images · last %s · scale %s'),
+    'b_scan_graubild':   (' · gelesen aus Graubild grün %d, hell %d',
+                          ' · read from gray image green %d, bright %d'),
     'b_scan_nicht':      ('auf diesem System noch nicht verfügbar', 'not available on this system yet'),
     # ⭐ Der Schalter sagt nicht, ob die Wache wirklich liest — siehe
     # `signature_watch.running()`. Ohne diese Unterscheidung ist ein
