@@ -3038,12 +3038,12 @@ TEXTS = {
                               'that takes you back.'),
     's_dk_bushwick_bugs4':   ('**Der Signatur-Scanner las schlechter** — nach einer '
                               'Umstellung erkannte er die Zahl deutlich seltener. '
-                              'Jetzt liest er sie auf zwei Arten und nimmt die '
-                              'sicherere Lesung.',
+                              'Findet er jetzt nichts Sicheres, liest er die '
+                              'Zahl zusätzlich auf die frühere Art.',
                               '**The signature scanner read worse** — after a '
                               'change it recognised the number far less often. '
-                              'Now it reads it two ways and takes the safer '
-                              'reading.'),
+                              'If it now finds nothing certain, it also reads '
+                              'the number the earlier way.'),
     's_dk_aeternitas_idee':  ('**Fortschritt nur für die Merkliste** — wie weit man '
                               'mit den Bauplänen ist, die man wirklich haben will. '
                               'Dafür bleiben Erledigte jetzt abgehakt auf der '

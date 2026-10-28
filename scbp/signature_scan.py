@@ -88,6 +88,11 @@ TEMPLATE_FILE = 'signatur-ziffern.json'          # mitgeliefert, `daten/`
 OWN_TEMPLATE_FILE = 'signatur-ziffern-eigene.json'
 # Selbst angelernt aus einem Graubild (`screen_grab.GRAY_VARIANTS`).
 OWN_VARIANT_FILE = 'signatur-ziffern-eigene-%s.json'
+# Unix-Zeit, ab der angelernte Ziffern aus dem Grünkanal stammen können. Wurde
+# die gemeinsame eigene Datei zuletzt davor geschrieben, enthält sie nur
+# Ziffern aus dem hellsten Kanal und gilt nur für das Graubild `hell`
+# (`shared_own_variants`).
+GREEN_LEARNED_SINCE = 1792890000
 REGION_SETTING = 'signatur_bereich'
 
 # Aufschlag auf den Abstand, wenn die Löcher nicht zusammenpassen. Kein harter
@@ -720,15 +725,36 @@ def own_template_files():
     return [OWN_TEMPLATE_FILE] + [OWN_VARIANT_FILE % v for v in GRAY_VARIANTS]
 
 
+def shared_own_variants():
+    """Für welche Graubilder die gemeinsame eigene Datei gilt.
+
+    ⚠⚠ Zuletzt vor `GREEN_LEARNED_SINCE` geschrieben, stammen alle Ziffern
+    darin aus dem hellsten Kanal. Im Grünkanal verglichen, machen sie
+    eindeutige Ziffern mehrdeutig (gelesen wird dann nichts) oder lassen
+    eine falsche Ziffer genauer passen. Dann gilt sie nur für `hell`, sonst
+    für alle.
+    """
+    from . import paths
+    from .screen_grab import GRAY_VARIANTS
+    try:
+        written = os.path.getmtime(paths.app_file(OWN_TEMPLATE_FILE))
+    except OSError:
+        return tuple(GRAY_VARIANTS)
+    return ('hell',) if written < GREEN_LEARNED_SINCE else tuple(GRAY_VARIANTS)
+
+
 def templates(variant=None):
     """Mitgelieferte und selbst angelernte Vorlagen — je Ziffer (Muster, Löcher).
 
-    Mit `variant` kommen die aus diesem Graubild angelernten dazu. Die
-    mitgelieferten und die gemeinsamen eigenen gelten für jedes Graubild.
+    Mit `variant` kommen die aus diesem Graubild angelernten dazu, die
+    gemeinsamen eigenen nur, wenn sie für dieses Graubild gelten
+    (`shared_own_variants`). Ohne `variant`: mitgelieferte und gemeinsame.
     """
     from . import paths
     merged = {}
-    sources = [paths.bundled_file(TEMPLATE_FILE), paths.app_file(OWN_TEMPLATE_FILE)]
+    sources = [paths.bundled_file(TEMPLATE_FILE)]
+    if variant is None or variant in shared_own_variants():
+        sources.append(paths.app_file(OWN_TEMPLATE_FILE))
     if variant is not None:
         sources.append(paths.app_file(own_template_file(variant)))
     for path in sources:
@@ -1110,10 +1136,14 @@ def read_variants(rasters, known=None, values=None):
 
     | Lage | gewählt |
     |---|---|
-    | ein Graubild liest einen Wert | dieses |
-    | beide lesen einen Wert | der kleinere Abstand zu den Vorlagen |
-    | gleicher Abstand | das vordere in `GRAY_VARIANTS` |
+    | das vordere Graubild in `GRAY_VARIANTS` liest einen Wert | dieses, auch wenn ein späteres einen anderen Wert genauer liest; die späteren werden gar nicht erst gelesen |
+    | erst ein späteres liest einen Wert | dieses |
     | keins liest einen Wert | das vordere mit Ziffernreihe, sonst das vordere |
+
+    ⚠⚠ **Kein Vergleich der Abstände.** Im hellsten Kanal läuft die
+    orange-rote Kontur in kleine Ziffern; dort kann eine 5 genauer als 1
+    passen als im Grünkanal als 5 (56,000 als 16,000). Das hintere Graubild
+    füllt nur Lücken.
     """
     from .screen_grab import GRAY_VARIANTS
     known = _known_by_variant(known)
@@ -1127,6 +1157,8 @@ def read_variants(rasters, known=None, values=None):
         result['variante'], result['bild'] = variant, raster
         if chosen is None or _safer(result, chosen):
             chosen = result
+        if chosen['wert'] is not None:
+            break
     if chosen is None:
         chosen = {'wert': None, 'grund': 'kein_text', 'abstand': 1.0,
                   'ziffern': [], 'schwelle': None, 'variante': None, 'bild': None}
@@ -1135,9 +1167,10 @@ def read_variants(rasters, known=None, values=None):
 
 
 def _safer(result, other):
-    """Ist `result` sicherer gelesen als `other`? Gleich gut heißt nein."""
+    """Taugt `result` (später gelesen) mehr als `other`? Nur, wenn `other`
+    keinen Wert hat — siehe `read_variants`."""
     if result['wert'] is not None:
-        return other['wert'] is None or result['abstand'] < other['abstand']
+        return other['wert'] is None
     return other['wert'] is None and bool(result['ziffern']) and not other['ziffern']
 
 

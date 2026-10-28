@@ -8,16 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v4.12.3 - 2026-10-28
 
-> The signature scanner now reads the number two ways, as up to 4.12.0
-> and as since 4.12.1, and takes the safer reading. Where it has read worse
-> since 4.12.1, it recognises the number again. Nothing else changes.
+> The signature scanner reads the number as since 4.12.1. If that finds
+> nothing certain, it also reads it the way it did up to 4.12.0. Where it
+> has read worse since 4.12.1, it recognises the number again this way.
+> Nothing else changes.
 
 ### Fixed
 
-- **The signature scanner reads reliably again** — the scanner reads the
-  number two ways and takes the safer reading. Small digits on very wide
-  screens stay correct. Newly learned digits are stored separately for
-  each way of reading, everything learned so far still counts.
+- **The signature scanner reads reliably again** — if the scanner finds no
+  certain number, it also reads it the 4.12.0 way. What it already reads
+  with certainty stays as before, small digits on very wide screens
+  included. Newly learned digits are stored separately for each way of
+  reading. Digits learned before 4.12.1 now only count for the 4.12.0 way
+  of reading they came from and no longer get in the way of the new one.
   Reported by Bushwick4712 (KRT), suggested by ProCodeX
 
 ## v4.12.2 - 2026-10-25

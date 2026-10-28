@@ -8,17 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v4.12.3 - 2026-10-28
 
-> Der Signatur-Scanner liest die Zahl jetzt auf zwei Arten, so wie bis
-> 4.12.0 und so wie seit 4.12.1, und nimmt die sicherere Lesung. Wo er seit
-> 4.12.1 schlechter las, erkennt er die Zahl wieder. Sonst ändert sich
+> Der Signatur-Scanner liest die Zahl wie seit 4.12.1. Findet er dabei
+> nichts Sicheres, liest er sie zusätzlich so wie bis 4.12.0. Wo er seit
+> 4.12.1 schlechter las, erkennt er die Zahl so wieder. Sonst ändert sich
 > nichts.
 
 ### Behoben
 
-- **Signatur-Scanner liest wieder zuverlässig** — der Scanner liest die
-  Zahl auf zwei Arten und nimmt die sicherere Lesung. Kleine Ziffern auf
-  sehr breiten Bildschirmen bleiben richtig. Neu angelernte Ziffern
-  speichert er je Lesart getrennt, bisher Angelerntes gilt weiter.
+- **Signatur-Scanner liest wieder zuverlässig** — findet der Scanner keine
+  sichere Zahl, liest er sie zusätzlich auf die Art von 4.12.0. Was er
+  schon sicher liest, bleibt wie bisher, auch kleine Ziffern auf sehr
+  breiten Bildschirmen. Neu angelernte Ziffern speichert er je Lesart
+  getrennt. Was vor 4.12.1 angelernt wurde, gilt nur noch für die Lesart
+  von 4.12.0, aus der es stammt, und stört die neue nicht mehr.
   Gemeldet von Bushwick4712 (KRT), Vorschlag von ProCodeX
 
 ## v4.12.2 - 2026-10-25

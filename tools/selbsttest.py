@@ -25853,6 +25853,8 @@ def main():
     _pruefung_617()
     _pruefung_618()
     _pruefung_619()
+    _pruefung_620()
+    _pruefung_621()
 
     print()
     if fehler:
@@ -57300,7 +57302,7 @@ def _pruefung_619():
     | Teil | Nachweis |
     |---|---|
     | gleich gut | grün gewinnt |
-    | beide lesen, verschieden gut | der kleinere Abstand gewinnt |
+    | beide lesen, hell genauer | grün gewinnt trotzdem |
     | Anlernen | je Graubild in die eigene Datei, die gemeinsame bleibt bytegleich und gilt weiter für beide |
     | Anlern-Fenster | lernt aus beiden Bildern, die es von der Wache bekommt |
     | Wache | merkt beide Bilder und zählt, welches Graubild las |
@@ -57342,7 +57344,7 @@ def _pruefung_619():
         alte_sieben = ss_619._read_templates(gemeinsam)['7'][0]
 
         # b) Mit diesem Bild nur ins Graubild hell angelernt, liest hell es
-        #    genauer: Der kleinere Abstand gewinnt gegen die Reihenfolge.
+        #    genauer. Liest grün einen Wert, bleibt es trotzdem bei grün.
         pruefe(ss_619.learn(gray, '2,000', 'hell', keep_sample=False)[0],
                'anlernen nur in „hell" klappt')
         known = ss_619.templates_by_variant()
@@ -57351,8 +57353,8 @@ def _pruefung_619():
         pruefe(abstand['hell'] < abstand['gruen'],
                'Vorbedingung: „hell" liest jetzt genauer (%r)' % (abstand,))
         genauer = ss_619.read_variants(rasters, known, values)
-        pruefe(genauer['wert'] == 2000 and genauer['variante'] == 'hell',
-               'beide lesen, verschieden gut: der kleinere Abstand gewinnt (%r)'
+        pruefe(genauer['wert'] == 2000 and genauer['variante'] == 'gruen',
+               'beide lesen, „hell" genauer: „grün" gewinnt trotzdem (%r)'
                % (genauer['variante'],))
         pruefe(not os.path.exists(pa_619.app_file(ss_619.own_template_file('gruen'))),
                'was „hell" anlernt, landet nicht bei „grün"')
@@ -57430,6 +57432,201 @@ def _pruefung_619():
     finally:
         wa_619._state.clear()
         wa_619._state.update(alt_state)
+        if alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt
+
+
+def _bild_56000_620(ss):
+    """Das Bild 56,000 aus echten Ziffern: die 1 aus `16,000#s1` durch die 5
+    aus `25,800#s1` ersetzt, unten und rechts bündig."""
+    bilder = _signaturbilder_617()
+    ziel = [list(row) for row in bilder['16,000#s1']]
+    quelle = bilder['25,800#s1']
+
+    def kaesten(gray):
+        for schwelle in ss.thresholds(gray):
+            for reihe in ss.digit_rows(ss.components(gray, schwelle), len(gray[0]),
+                                       gray, schwelle):
+                return reihe
+        return []
+
+    eins, fuenf = kaesten(ziel)[0], kaesten(quelle)[1]
+    grund = ziel[eins[1]][max(0, eins[0] - 3)]
+    for y in range(eins[1], eins[3] + 1):
+        for x in range(eins[0], eins[2] + 1):
+            ziel[y][x] = grund
+    breite, hoehe = fuenf[2] - fuenf[0] + 1, fuenf[3] - fuenf[1] + 1
+    for dy in range(hoehe):
+        for dx in range(breite):
+            ziel[eins[3] - hoehe + 1 + dy][eins[2] - breite + 1 + dx] = \
+                quelle[fuenf[1] + dy][fuenf[0] + dx]
+    return ziel
+
+
+def _bgra_kontur_620(gray, cut, deckung):
+    """Weiße Schrift mit zwei Punkt orange-roter Kontur; `deckung` 1.0 ist
+    die volle Kontur wie in Prüfung 616, darunter scheint der Grund durch."""
+    height, width = len(gray), len(gray[0])
+    bright = {(x, y) for y in range(height) for x in range(width) if gray[y][x] > cut}
+    ring = set()
+    for (x, y) in bright:
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                near = (x + dx, y + dy)
+                if 0 <= near[0] < width and 0 <= near[1] < height and near not in bright:
+                    ring.add(near)
+    raw = bytearray()
+    for y in range(height):
+        for x in range(width):
+            value = gray[y][x]
+            if (x, y) in ring:
+                rest = value * (1 - deckung)
+                raw += bytes((int(rest), int(rest + 70 * deckung),
+                              int(rest + 200 * deckung), 255))
+            else:
+                raw += bytes((value, value, value, 255))
+    return bytes(raw), width, height
+
+
+def _pruefung_620():
+    """620. Liest das Graubild grün einen Wert, gilt er, auch wenn hell genauer passt.
+
+    Nachgestellt: 56,000 aus echten Ziffern, zwei Punkt orange-rote Kontur.
+    Dass der hellste Kanal daraus 16,000 macht, ergibt das Modell nicht von
+    selbst (mit den mitgelieferten Vorlagen liest hell dort 56,000 oder
+    nichts). Die Verwechslung wird deshalb über die Vorlagen des Graubilds
+    hell erzwungen: dieses Bild als 16,000 gelernt, dazu ohne Vorlage für
+    die 5 (sonst passen 16,000 und 56,000 dort fast gleich gut, und hell
+    schweigt). Dann liest hell 16,000 genauer als grün 56,000. Gelesen
+    werden darf trotzdem nur 56,000 oder nichts, nie 16,000, über
+    `read_variants` und über die Pillensuche.
+    """
+    print('\n620. Signatur: „grün" gilt vor einem genaueren „hell" (56,000 nie 16,000)')
+    from scbp import screen_grab as sg_620, signature_scan as ss_620
+    heim = tempfile.mkdtemp(prefix='pruefung620-')
+    alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    try:
+        gray = _bild_56000_620(ss_620)
+        values = sorted(set(ss_620.possible_values()) | {16000, 56000})
+        pruefe(ss_620.read(gray, ss_620.templates(), values)['wert'] == 56000,
+               'Vorbedingung: der Nachbau zeigt 56,000')
+
+        # Volle Kontur wie in Prüfung 616: hell liest nichts, grün 56,000.
+        voll = _beide_graubilder_617(sg_620, *_bgra_kontur_620(gray, ss_620.otsu(gray), 1.0))
+        bekannt = ss_620.templates_by_variant()
+        pruefe(ss_620.read_variants(voll, bekannt, values)['wert'] == 56000,
+               'volle Kontur: 56,000')
+
+        # Halbe Deckung: „hell" lässt sich so anlernen, dass es 16,000 liest.
+        raw, width, height = _bgra_kontur_620(gray, ss_620.otsu(gray), 0.5)
+        rasters = _beide_graubilder_617(sg_620, raw, width, height)
+        pruefe(ss_620.learn(rasters['hell'], '16,000', 'hell', keep_sample=False)[0],
+               'Vorbedingung: „hell" lernt dieses Bild als 16,000')
+        known = ss_620.templates_by_variant()
+        known['hell'] = {d: e for d, e in known['hell'].items() if d != '5'}
+        allein = {v: ss_620.read(rasters[v], known[v], values) for v in rasters}
+        pruefe(allein['gruen']['wert'] == 56000 and allein['hell']['wert'] == 16000
+               and allein['hell']['abstand'] < allein['gruen']['abstand'],
+               'Bild ist eine Falle: „grün" 56,000, „hell" 16,000 und dort genauer '
+               '(%r)' % ({v: (r['wert'], round(r['abstand'], 3))
+                          for v, r in allein.items()},))
+        beide = ss_620.read_variants(rasters, known, values)
+        pruefe(beide['wert'] == 56000 and beide['variante'] == 'gruen',
+               'beide gelesen: 56,000 aus „grün", nicht 16,000 (%r, %r)'
+               % (beide['wert'], beide['variante']))
+
+        frame_w, frame_h, left, top = 640, 240, 300, 110
+        frame = bytearray(b'\x10\x10\x10\xff' * (frame_w * frame_h))
+        for y in range(height):
+            at = ((top + y) * frame_w + left) * 4
+            frame[at:at + width * 4] = raw[y * width * 4:(y + 1) * width * 4]
+        fund = ss_620.search(bytes(frame), frame_w, frame_h, known, values)
+        pruefe(fund['wert'] in (56000, None) and fund['wert'] != 16000
+               and fund['wert'] is not None,
+               'Pillensuche: 56,000, nicht 16,000 (%r, %r)'
+               % (fund['wert'], fund.get('variante')))
+    finally:
+        if alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt
+
+
+def _pruefung_621():
+    """621. Alte eigene Vorlagen aus dem hellsten Kanal gelten nur für hell.
+
+    Die gemeinsame eigene Datei, zuletzt vor `GREEN_LEARNED_SINCE`
+    geschrieben, stammt ganz aus dem hellsten Kanal. Nachgestellt: Ziffern
+    aus dem hellsten Kanal eines Bilds mit 56,000, als 16,000 angelernt. Im
+    Grünkanal verglichen, lassen sie die Grün-Lesung von 56,000 kippen. Alt
+    datiert, gelten sie nur für hell, und grün liest wieder 56,000; neu
+    datiert gelten sie wie bisher für beide.
+    """
+    print('\n621. Signatur: alte eigene Vorlagen (hellster Kanal) nur für „hell"')
+    from scbp import paths as pa_621, screen_grab as sg_621, signature_scan as ss_621
+    heim = tempfile.mkdtemp(prefix='pruefung621-')
+    alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    try:
+        gray = _bild_56000_620(ss_621)
+        values = sorted(set(ss_621.possible_values()) | {16000, 56000})
+        voll = _beide_graubilder_617(sg_621, *_bgra_kontur_620(gray, ss_621.otsu(gray), 1.0))
+        halb = _beide_graubilder_617(sg_621, *_bgra_kontur_620(gray, ss_621.otsu(gray), 0.5))
+        pruefe(ss_621.read(voll['gruen'], ss_621.templates('gruen'), values)['wert'] == 56000,
+               'Vorbedingung: ohne eigene Vorlagen liest „grün" 56,000')
+        pruefe(ss_621.learn(halb['hell'], '16,000')[0],
+               'Vorbedingung: Ziffern aus dem hellsten Kanal als 16,000 in der '
+               'gemeinsamen Datei')
+        gemeinsam = pa_621.app_file(ss_621.OWN_TEMPLATE_FILE)
+        eigene = ss_621._read_templates(gemeinsam)
+        erste = ss_621.fill(eigene['1'][0])
+
+        def enthaelt(vorlagen):
+            return erste in [p for p, _h in vorlagen.get('1', [])]
+
+        # Feste Zeitpunkte, nicht aus der Konstante gerechnet: einer klar
+        # davor (hellster Kanal), einer danach (Grünkanal).
+        import calendar as _ka621
+        frueh = _ka621.timegm((2026, 10, 11, 16, 2, 0))
+        neu = _ka621.timegm((2026, 10, 26, 12, 0, 0))
+
+        # Neu datiert: gilt für beide — die Falle prüft sich selbst.
+        os.utime(gemeinsam, (neu, neu))
+        beide = ss_621.templates_by_variant()
+        gruen_neu = ss_621.read(voll['gruen'], beide['gruen'], values)['wert']
+        pruefe(enthaelt(beide['gruen']) and enthaelt(beide['hell'])
+               and gruen_neu != 56000,
+               'Bild ist eine Falle: neu datiert gilt die Datei für beide, und '
+               '„grün" liest nicht mehr 56,000 (%r)' % (gruen_neu,))
+
+        # Alt datiert: nur für „hell".
+        os.utime(gemeinsam, (frueh, frueh))
+        getrennt = ss_621.templates_by_variant()
+        pruefe(ss_621.shared_own_variants() == ('hell',)
+               and enthaelt(getrennt['hell']) and not enthaelt(getrennt['gruen'])
+               and enthaelt(ss_621.templates()),
+               'alt datiert: gilt nur für „hell", ohne Angabe weiter mit dabei')
+        gelesen = ss_621.read_variants(voll, getrennt, values)
+        pruefe(gelesen['wert'] == 56000 and gelesen['variante'] == 'gruen',
+               'alt datiert: „grün" liest wieder 56,000 (%r, %r)'
+               % (gelesen['wert'], gelesen['variante']))
+        frame_w, frame_h, left, top = 640, 240, 300, 110
+        raw, width, height = _bgra_kontur_620(gray, ss_621.otsu(gray), 1.0)
+        frame = bytearray(b'\x10\x10\x10\xff' * (frame_w * frame_h))
+        for y in range(height):
+            at = ((top + y) * frame_w + left) * 4
+            frame[at:at + width * 4] = raw[y * width * 4:(y + 1) * width * 4]
+        fund = ss_621.search(bytes(frame), frame_w, frame_h, None, values)
+        pruefe(fund['wert'] == 56000,
+               'alt datiert, Pillensuche mit geladenen Vorlagen: 56,000 (%r)'
+               % (fund['wert'],))
+        with open(gemeinsam, 'rb') as f:
+            pruefe(json.loads(f.read().decode('utf-8'))['ziffern'] == eigene,
+                   'die alte Datei bleibt unverändert erhalten')
+    finally:
         if alt is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

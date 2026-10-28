@@ -51,8 +51,8 @@ import ctypes
 import sys
 import threading
 
-# Die Graubilder, die der Scanner liest. Bei gleich guter Lesung gilt das
-# vordere.
+# Die Graubilder, die der Scanner liest. Liest das vordere einen Wert, gilt
+# es; die übrigen füllen nur Lücken (`signature_scan.read_variants`).
 GRAY_VARIANTS = ('gruen', 'hell')
 
 # Kennung für Per-Monitor-DPI-Awareness V2 (Windows 10 1703+).
