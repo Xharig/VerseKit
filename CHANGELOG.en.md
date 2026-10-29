@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.4 - 2026-10-29
+
+> If you changed your player name, your blueprints are counted again,
+> including the ones missed since. Blueprints from sessions of another
+> account are now shown as a number on the Detection page.
+
+### Fixed
+
+- **Blueprints after a new player name** — after a change of the player
+  name (handle), VerseKit counts the blueprints again, including the ones
+  already missed. The account is recognised by its fixed ID, a second
+  account stays separate. If blueprints from sessions of another account
+  were not counted, a note on the Detection page says so, along with the
+  way via “All accounts”. Reported by Bushwick4712 (KRT)
+
 ## v4.12.3 - 2026-10-28
 
 > The signature scanner reads the number as since 4.12.1. If that finds

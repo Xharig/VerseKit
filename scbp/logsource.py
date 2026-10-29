@@ -139,8 +139,22 @@ ACCOUNT_RES = (
 # verpasst, und begrenzt, damit 180 Sicherungen in Sekundenbruchteilen
 # durch sind.
 ACCOUNT_HEAD = 16 * 1024 * 1024
+# ⭐ Die feste Kennung des Accounts. Sie steht in der Charakterzeile
+#
+#   <AccountLoginCharacterStatus_Character> Character: … - accountId 123 - name Spieler - state STATE_CURRENT
+#
+# und bleibt gleich, wenn der Spieler seinen Handle ändert. Ältere Protokolle
+# haben die Zeile nicht; dort entscheidet weiter der Handle.
+ACCOUNT_ID_RE = re.compile(r' - accountId (\d+) - name \S+ - state STATE_CURRENT')
+# So weit hinter dem Handle wird noch nach der Kennung gesucht. Sie steht
+# wenige KB davor; ohne Grenze würde jede alte Log ohne Kennung bis
+# `ACCOUNT_HEAD` gelesen.
+ACCOUNT_ID_REACH = 1024 * 1024
 # Einstellung: der eigene Account. `*` heißt: alle Accounts zählen.
 ACCOUNT_SETTING = 'eigener_account'
+# Einstellung: die Kennung des eigenen Accounts. Gehört zum Handle in
+# `ACCOUNT_SETTING`; wer den Account umstellt, leert sie (`set_own_account`).
+ACCOUNT_ID_SETTING = 'eigene_account_kennung'
 ALL_ACCOUNTS = '*'
 _OWN_TRIED = [0.0]
 
@@ -154,9 +168,20 @@ def account_from_text(text):
     return None
 
 
+def identity_from_text(text):
+    """(Handle, Kennung) aus einem Textabschnitt — fehlendes ist None."""
+    m = ACCOUNT_ID_RE.search(text)
+    return account_from_text(text), (m.group(1) if m else None)
+
+
 def account_of_file(filename):
     """Der Account, zu dem eine Log gehört — oder None (noch kein Login,
-    unlesbar). Gelesen wird nur der Anfang.
+    unlesbar). Gelesen wird nur der Anfang."""
+    return identity_of_file(filename)[0]
+
+
+def identity_of_file(filename):
+    """(Handle, Kennung) einer Log — fehlendes ist None.
 
     ⭐ Gemerkt je Datei und Stand: Die Seite Erkennung und der Abgleich
     fremder Baupläne fragen das für alle rund 180 Sicherungen — bei jedem
@@ -173,21 +198,26 @@ def account_of_file(filename):
     # ⭐ Auch über den Neustart hinweg (rc9): Sicherungen stehen mit ihrem
     # Account in `konten-je-log.json`. Beim ersten Öffnen nach dem Start
     # müssen dann nur neue Protokolle gelesen werden, nicht alle 180.
+    # ⚠ Ein Eintrag mit nur drei Feldern hat noch keine Kennung und wird
+    # einmal neu gelesen.
     stored = _stored_accounts()
     if key is not None:
         hit = stored.get(filename)
-        if hit and hit[0] == key[1] and hit[1] == key[2]:
-            _ACCOUNT_CACHE[key] = hit[2]
-            return hit[2]
-    found = _account_of_file(filename)
+        if (hit and len(hit) >= 4 and hit[0] == key[1]
+                and hit[1] == key[2]):
+            found = (hit[2] or None, hit[3] or None)
+            _ACCOUNT_CACHE[key] = found
+            return found
+    found = _identity_of_file(filename)
     if key is not None:
         if len(_ACCOUNT_CACHE) > 5000:
             _ACCOUNT_CACHE.clear()
         _ACCOUNT_CACHE[key] = found
         # Nur Sicherungen dauerhaft merken — die laufende `Game.log` ändert
         # sich ständig, ein Eintrag für sie wäre sofort veraltet.
-        if found and os.path.basename(filename).lower() != 'game.log':
-            stored[filename] = [key[1], key[2], found]
+        if ((found[0] or found[1])
+                and os.path.basename(filename).lower() != 'game.log'):
+            stored[filename] = [key[1], key[2], found[0], found[1]]
             _UNSAVED[0] += 1
             # Gebündelt schreiben: beim allerersten Lauf kämen sonst 180
             # Schreibvorgänge zusammen. Was zwischen zwei Sicherungen verloren
@@ -233,8 +263,13 @@ def _save_accounts(stored):
         pass                      # nur ein Zwischenspeicher — kein Schaden
 
 
-def _account_of_file(filename):
-    """Die eigentliche Suche hinter `account_of_file` — ohne Zwischenspeicher."""
+def _identity_of_file(filename):
+    """Die eigentliche Suche hinter `identity_of_file` — ohne Zwischenspeicher.
+
+    Der Handle kommt aus dem ersten Block, in dem einer steht. Die Kennung
+    wird danach höchstens `ACCOUNT_ID_REACH` weiter gesucht."""
+    handle = account_id = None
+    handle_at = 0
     try:
         with open(filename, 'rb') as f:
             read = 0
@@ -245,13 +280,17 @@ def _account_of_file(filename):
                     break
                 read += len(block)
                 text = (rest + block).decode('utf-8', 'ignore')
-                found = account_from_text(text)
-                if found:
-                    return found
+                found_handle, found_id = identity_from_text(text)
+                if handle is None and found_handle:
+                    handle, handle_at = found_handle, read
+                account_id = account_id or found_id
+                if handle and (account_id or read - handle_at
+                               >= ACCOUNT_ID_REACH):
+                    break
                 rest = block[-400:]          # eine Zeile über die Blockgrenze
     except OSError:
         pass
-    return None
+    return handle, account_id
 
 
 def _all_log_files():
@@ -263,14 +302,15 @@ def _all_log_files():
 
 
 def accounts_in_logs(files=None):
-    """{Account: Anzahl Protokolle} über alle Sicherungen und die laufende Log."""
+    """{Account: Anzahl Protokolle} über alle Sicherungen und die laufende Log.
+
+    Handles mit derselben Kennung sind ein Account: Er steht unter dem
+    Handle des neuesten Protokolls, mit den Protokollen aller zusammen."""
     counts = {}
-    for filename in (files if files is not None else _all_log_files()):
-        found = account_of_file(filename)
-        if found:
-            counts[found] = counts.get(found, 0) + 1
-    if _UNSAVED[0]:
-        _save_accounts(_stored_accounts())     # den Rest des Durchlaufs sichern
+    for count, _mtime, handle, _id in _account_groups(
+            _identities(files)).values():
+        if handle:
+            counts[handle] = counts.get(handle, 0) + count
     return counts
 
 
@@ -292,20 +332,170 @@ def own_account(files=None):
     if time.time() - _OWN_TRIED[0] < 300:
         return None
     _OWN_TRIED[0] = time.time()
-    counts = accounts_in_logs(files)
-    if not counts:
+    best = _choose_own(_identities(files))
+    if not best:
         return None
-    best = max(sorted(counts), key=lambda a: counts[a])
-    paths.set_setting(ACCOUNT_SETTING, best)
-    return best
+    paths.set_setting(ACCOUNT_SETTING, best[0])
+    paths.set_setting(ACCOUNT_ID_SETTING, best[1] or '')
+    return best[0]
 
 
-def counts_for(own, account):
+def own_account_id():
+    """Die Kennung des eigenen Accounts — oder None (noch nicht gelernt,
+    alle Accounts zählen)."""
+    if (paths.setting(ACCOUNT_SETTING) or '').strip() == ALL_ACCOUNTS:
+        return None
+    return (str(paths.setting(ACCOUNT_ID_SETTING) or '')).strip() or None
+
+
+def set_own_account(value):
+    """Den eigenen Account umstellen. Die Kennung gehört zum alten Handle und
+    wird geleert und sofort für den neuen gelernt — sonst gälten bis zum
+    nächsten Lesen die früheren Handles desselben Accounts als fremd."""
+    paths.set_setting(ACCOUNT_SETTING, value)
+    paths.set_setting(ACCOUNT_ID_SETTING, '')
+    try:
+        refresh_own_identity()
+    except Exception as error:
+        paths._report_error('logsource.set_own_account', error)
+
+
+def _identities(files=None):
+    """[(mtime, Handle, Kennung)] aller Protokolle mit Handle oder Kennung."""
+    out = []
+    for filename in (files if files is not None else _all_log_files()):
+        handle, account_id = identity_of_file(filename)
+        if not (handle or account_id):
+            continue
+        try:
+            mtime = os.path.getmtime(filename)
+        except OSError:
+            mtime = 0.0
+        out.append((mtime, handle, account_id))
+    if _UNSAVED[0]:
+        _save_accounts(_stored_accounts())     # den Rest des Durchlaufs sichern
+    return out
+
+
+def _choose_own(identities):
+    """(Handle, Kennung) des Accounts mit den meisten Protokollen — oder None.
+    Bei Gleichstand entscheidet die Sortierung, also fest."""
+    groups = _account_groups(identities)
+    usable = [k for k in sorted(groups) if groups[k][2]]
+    if not usable:
+        return None
+    best = max(usable, key=lambda k: groups[k][0])
+    return groups[best][2], groups[best][3]
+
+
+def _account_groups(identities):
+    """{Schlüssel: [Protokolle, neueste mtime, Handle, Kennung]} je Account.
+
+    Protokolle mit derselben Kennung zählen zusammen, auch unter
+    verschiedenen Handles; ein Protokoll ohne Kennung zählt zu der Kennung,
+    die sein Handle anderswo trägt. Der Handle ist der des neuesten
+    Protokolls."""
+    handle_ids = {}
+    for _mtime, handle, account_id in identities:
+        if handle and account_id:
+            handle_ids.setdefault(handle.lower(), account_id)
+    groups = {}
+    for mtime, handle, account_id in identities:
+        account_id = account_id or (handle_ids.get(handle.lower())
+                                    if handle else None)
+        key = ('i:' + account_id) if account_id else ('h:' + handle.lower())
+        group = groups.setdefault(key, [0, -1.0, None, account_id])
+        group[0] += 1
+        if handle and mtime >= group[1]:
+            group[1], group[2] = mtime, handle
+    return groups
+
+
+def refresh_own_identity(files=None):
+    """Kennung des eigenen Accounts lernen und den Handle nachziehen.
+
+    Fehlt die Kennung, kommt sie aus den Protokollen mit dem gespeicherten
+    Handle. Steht sie fest, gilt als Handle der des neuesten Protokolls mit
+    dieser Kennung — so zählt nach einem Wechsel des Handles der neue."""
+    own = (paths.setting(ACCOUNT_SETTING) or '').strip()
+    if not own or own == ALL_ACCOUNTS:
+        return
+    identities = _identities(files)
+    own_id = own_account_id()
+    if not own_id:
+        ids = {}
+        for _mtime, handle, account_id in identities:
+            if account_id and handle and handle.lower() == own.lower():
+                ids[account_id] = ids.get(account_id, 0) + 1
+        if not ids:
+            return
+        own_id = max(sorted(ids), key=lambda i: ids[i])
+        paths.set_setting(ACCOUNT_ID_SETTING, own_id)
+    newest = max(((mtime, handle) for mtime, handle, account_id in identities
+                  if account_id == own_id and handle), default=None)
+    if newest and newest[1] != own:
+        paths.set_setting(ACCOUNT_SETTING, newest[1])
+
+
+def note_identity(handle, account_id):
+    """Was die laufende Log über ihren Account sagt, für den eigenen nutzen:
+    Kennung lernen, wenn der Handle der eigene ist; Handle nachziehen, wenn
+    die Kennung die eigene ist. Die laufende Log ist immer die neueste."""
+    if not handle or not account_id:
+        return
+    own = (paths.setting(ACCOUNT_SETTING) or '').strip()
+    if not own or own == ALL_ACCOUNTS:
+        return
+    own_id = own_account_id()
+    if not own_id:
+        if handle.lower() == own.lower():
+            paths.set_setting(ACCOUNT_ID_SETTING, account_id)
+            return
+        # Fremder Handle und noch keine Kennung: aus den Sicherungen lernen,
+        # höchstens alle fünf Minuten, denn das Mitlesen fragt alle paar
+        # Sekunden.
+        if time.time() - _REFRESH_TRIED[0] < 300:
+            return
+        _REFRESH_TRIED[0] = time.time()
+        refresh_own_identity()
+        own = (paths.setting(ACCOUNT_SETTING) or '').strip()
+        own_id = own_account_id()
+    if own_id and account_id == own_id and handle != own:
+        paths.set_setting(ACCOUNT_SETTING, handle)
+
+
+_REFRESH_TRIED = [0.0]
+
+
+def _own_handles(own_id):
+    """Alle Handles, unter denen die Kennung `own_id` gesehen wurde, klein."""
+    out = set()
+    for handle, account_id in list(_ACCOUNT_CACHE.values()):
+        if handle and account_id == own_id:
+            out.add(handle.lower())
+    for hit in list(_stored_accounts().values()):
+        if (isinstance(hit, list) and len(hit) >= 4 and hit[2]
+                and hit[3] == own_id):
+            out.add(str(hit[2]).lower())
+    return out
+
+
+def counts_for(own, account, account_id=None):
     """Zählt ein Protokoll dieses Accounts? Unbekannt zählt — lieber einen
-    Bauplan zu viel als einen verlorenen."""
-    if not own or own == ALL_ACCOUNTS or not account:
+    Bauplan zu viel als einen verlorenen.
+
+    Kennen Protokoll und Einstellung die Kennung, entscheidet sie. Sonst der
+    Handle — auch ein früherer Handle des eigenen Accounts."""
+    if not own or own == ALL_ACCOUNTS or not (account or account_id):
         return True
-    return account.lower() == own.lower()
+    own_id = own_account_id()
+    if own_id and account_id:
+        return str(account_id) == own_id
+    if not account:
+        return True
+    if account.lower() == own.lower():
+        return True
+    return bool(own_id) and account.lower() in _own_handles(own_id)
 
 
 def foreign_only_blueprints(pattern=None, own=None):
@@ -316,24 +506,67 @@ def foreign_only_blueprints(pattern=None, own=None):
     dem Fund schon weggeräumt, sieht der Bauplan hier fremd aus. Deshalb schlägt
     diese Funktion nur vor; entfernt wird erst nach Rückfrage."""
     pattern = pattern or phrases.pattern()
+    # ⚠ Vorher die Kennung lernen: Ohne sie gälten frühere Handles des
+    # eigenen Accounts als fremd, und ihre Baupläne stünden zum Entfernen da.
+    try:
+        refresh_own_identity()
+    except Exception as error:
+        paths._report_error('logsource.foreign_only', error)
     own = own or own_account()
     if not own or own == ALL_ACCOUNTS:
         return []
     mine, foreign = set(), {}
     for filename in _all_log_files():
-        account = account_of_file(filename)
+        account, account_id = identity_of_file(filename)
         try:
             finds = _read_file(filename, pattern)
         except Exception:
             continue
         for name, _extra in finds:
             key = name.lower().strip()
-            if counts_for(own, account):
+            if counts_for(own, account, account_id):
                 mine.add(key)
             else:
                 foreign.setdefault(key, name)
     return sorted((n for k, n in foreign.items() if k not in mine),
                   key=str.lower)
+
+
+def foreign_summary(state=None, pattern=None):
+    """Was aus Sitzungen anderer Accounts nicht gezählt wurde.
+
+    `{'bauplaene': Anzahl, 'sitzungen': Anzahl, 'zuletzt': mtime}` — die
+    Sicherungen aus dem Lesestand, dazu die laufende `Game.log`, wenn sie
+    einem anderen Account gehört. Ohne Handle; zählen alle Accounts
+    (`ALL_ACCOUNTS`), ist alles null."""
+    out = {'bauplaene': 0, 'sitzungen': 0, 'zuletzt': 0.0}
+    own = (paths.setting(ACCOUNT_SETTING) or '').strip()
+    if not own or own == ALL_ACCOUNTS:
+        return out
+    state = state or ReadState()
+    entries = state.data.get('sicherungen') or {}
+    for filename in paths.log_backups():
+        entry = entries.get(os.path.basename(filename)) or {}
+        if not entry.get('fremd') or not state.knows(filename):
+            continue
+        if counts_for(own, *identity_of_file(filename)):
+            continue
+        out['sitzungen'] += 1
+        out['bauplaene'] += int(entry.get('bauplaene') or 0)
+        out['zuletzt'] = max(out['zuletzt'], float(entry.get('mtime') or 0))
+    active = _safe_game_log()
+    if active:
+        handle, account_id = identity_of_file(active)
+        if (handle or account_id) and not counts_for(own, handle, account_id):
+            out['sitzungen'] += 1
+            out['bauplaene'] += len(_read_file(active,
+                                               pattern or phrases.pattern()))
+            try:
+                out['zuletzt'] = max(out['zuletzt'],
+                                     os.path.getmtime(active))
+            except OSError:
+                pass
+    return out
 
 
 # ------------------------------------------------------------------ Lesestand
@@ -378,19 +611,58 @@ class ReadState:
         except OSError:
             return False
 
-    def remember(self, filename, account=None):
+    def remember(self, filename, account=None, foreign=None):
+        """Eine Sicherung als erledigt merken.
+
+        `foreign` ist bei einer Sicherung eines anderen Accounts die Zahl
+        ihrer Baupläne; sie werden nicht gezählt, nur gemerkt
+        (`foreign_summary`). Der Handle steht dann nicht im Eintrag."""
         try:
             entry = {
                 'groesse': os.path.getsize(filename),
                 'mtime': os.path.getmtime(filename),
+                'fremd': foreign is not None,
             }
-            if account:
+            if foreign is not None:
+                entry['bauplaene'] = int(foreign)
+            elif account:
                 entry['account'] = account
             self.data['sicherungen'][os.path.basename(filename)] = entry
             self.data['letzte_sitzung'] = max(
                 self.data.get('letzte_sitzung', 0.0), os.path.getmtime(filename))
         except OSError:
             pass
+
+    def needs_recheck(self, filename, own, previous=None):
+        """Muss eine schon bekannte Sicherung noch einmal gelesen werden?
+
+        Ja, wenn sie als fremd übersprungen wurde und jetzt zählt. Und bei
+        einem Eintrag ohne `fremd`-Feld, dessen Handle nicht der ist, gegen
+        den beim Merken verglichen wurde (`previous`, sonst `own`): Er wurde
+        übersprungen, das Feld fehlt nur. So kommen nach einem Wechsel des
+        Handles die verpassten Baupläne nach."""
+        entry = self.data['sicherungen'].get(os.path.basename(filename)) or {}
+        if entry.get('fremd'):
+            handle, account_id = identity_of_file(filename)
+            return counts_for(own, handle, account_id)
+        compare = previous or own
+        if 'fremd' in entry or not compare or compare == ALL_ACCOUNTS:
+            return False
+        account = entry.get('account')
+        return bool(account) and str(account).lower() != compare.lower()
+
+    def settle(self, filename):
+        """Einen Eintrag ohne `fremd`-Feld als gelesen festhalten, sobald
+        `needs_recheck` ihn durchgelassen hat. Sonst fiele er beim nächsten
+        Start, mit dem nachgezogenen Handle, noch einmal durch."""
+        entry = self.data['sicherungen'].get(os.path.basename(filename))
+        if entry is not None and 'fremd' not in entry:
+            entry['fremd'] = False
+
+    def is_foreign(self, filename):
+        """Wurde diese Sicherung als fremd übersprungen?"""
+        entry = self.data['sicherungen'].get(os.path.basename(filename)) or {}
+        return bool(entry.get('fremd'))
 
     def cleanup(self, existing):
         """Einträge zu Sicherungen wegwerfen, die es nicht mehr gibt — sonst
@@ -430,21 +702,35 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
                'vorhanden': len(all_names), 'luecke': False, 'grund': '',
                'laufende': False, 'unlesbar': 0, 'fremd': 0}
     active = _safe_game_log() if incl_running else None
-    own = own_account(all_names + ([active] if active else []))
+    files = all_names + ([active] if active else [])
+    own = previous = own_account(files)
+    # ⭐ Vor dem Lesen: Kennung lernen und den Handle nachziehen, sonst
+    # gälten nach einem Wechsel des Handles die neuen Sitzungen als fremd.
+    try:
+        refresh_own_identity(files)
+        own = own_account(files)
+    except Exception:
+        pass
 
     match, seen = [], set()
     for filename in all_names:
-        if only_new and state.knows(filename):
+        if (only_new and state.knows(filename)
+                and not state.needs_recheck(filename, own, previous)):
+            state.settle(filename)
             report['uebersprungen'] += 1
             continue
         # ⭐ Protokolle eines anderen Accounts zählen nicht — siehe oben.
-        # Gemerkt werden sie trotzdem, sonst würden sie bei jedem Start neu
-        # angefasst. Stellt der Spieler den Account um, liest „Protokolle
-        # erneut einlesen" ohnehin alles wieder.
-        account = account_of_file(filename)
-        if not counts_for(own, account):
+        # Gemerkt werden sie trotzdem, mit der Zahl ihrer Baupläne, sonst
+        # würden sie bei jedem Start neu angefasst. Stellt der Spieler den
+        # Account um, liest `read_all` ohnehin alles wieder.
+        account, account_id = identity_of_file(filename)
+        if not counts_for(own, account, account_id):
             report['fremd'] += 1
-            state.remember(filename, account)
+            try:
+                foreign = len(_read_file(filename, pattern))
+            except Exception:
+                foreign = 0
+            state.remember(filename, account, foreign=foreign)
             continue
         # ⚠ Eine einzige Datei darf den ganzen Lauf nicht kippen. `_lies_datei`
         # faengt `OSError` selbst ab — alles andere (unerwartete Ausnahme beim
@@ -495,7 +781,7 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
         # Die Datei ganz zu lesen kostet bei 12 MB den Bruchteil einer Sekunde —
         # die Nachlese geht ohnehin über 149 Sicherungen. Doppelte fängt der
         # Bestand ab, der prüft jeden Namen.
-        if active and not counts_for(own, account_of_file(active)):
+        if active and not counts_for(own, *identity_of_file(active)):
             report['fremd'] += 1
         elif active:
             try:
@@ -701,12 +987,14 @@ class LogTail:
         # niemand eingeloggt hat. Baupläne eines fremden Accounts werden nicht
         # angezeigt (siehe `account_from_text`).
         self.account = None
+        # Die Kennung dazu (siehe `ACCOUNT_ID_RE`) — None, solange sie fehlt.
+        self.account_id = None
 
     def _locate(self):
         p = paths.game_log()
         if p and p != self.path:
             self.path = p
-            self.account = account_of_file(p)
+            self.account, self.account_id = identity_of_file(p)
             remembered = self.state.get_active(p)
             try:
                 size = os.path.getsize(p)
@@ -764,6 +1052,7 @@ class LogTail:
             if size < self.offset:          # Log rotiert -> neue Spielsitzung
                 self.offset = 0
                 self.account = None         # neue Sitzung, neue Anmeldung
+                self.account_id = None
             if size == self.offset:
                 return []
             with open(self.path, 'rb') as f:
@@ -797,13 +1086,19 @@ class LogTail:
         # braucht niemand die Ziele, und das Suchen waere reine Arbeit.
         self.objective_events = (contracts.objective_events_from_text(text)
                                 if self.mission_pattern else [])
-        if self.account is None:
-            self.account = account_from_text(text)
+        if self.account is None or self.account_id is None:
+            handle, account_id = identity_from_text(text)
+            self.account = self.account or handle
+            self.account_id = self.account_id or account_id
+        # ⭐ Die laufende Log ist die neueste: Nach einem Wechsel des Handles
+        # zieht sie den gespeicherten nach, bevor `counts_for` unten prüft.
+        if self.account_id:
+            note_identity(self.account, self.account_id)
         # ⚠ Nur die BAUPLÄNE werden für einen fremden Account unterdrückt.
         # Aufträge bleiben: Wer gerade den Zweitaccount spielt, will dessen
         # laufende Aufträge im Overlay sehen — die gehören nicht in den
         # Bestand, sondern zur Sitzung.
-        if not counts_for(own_account(), self.account):
+        if not counts_for(own_account(), self.account, self.account_id):
             return []
         return _names_from_text(text, self.pattern)
 

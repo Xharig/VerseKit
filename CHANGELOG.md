@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v4.12.4 - 2026-10-29
+
+> Wer seinen Spielernamen gewechselt hat, bekommt seine Baupläne wieder
+> gezählt, auch die seitdem verpassten. Baupläne aus Sitzungen eines anderen
+> Accounts zeigt die Seite Erkennung jetzt als Zahl an.
+
+### Behoben
+
+- **Baupläne nach einem neuen Spielernamen** — nach einem Wechsel des
+  Spielernamens (Handle) zählt VerseKit die Baupläne wieder, auch die schon
+  verpassten. Der Account wird an seiner festen Kennung erkannt, ein
+  Zweitaccount bleibt getrennt. Wurden Baupläne aus Sitzungen eines anderen
+  Accounts nicht gezählt, sagt das ein Hinweis auf der Seite Erkennung,
+  samt dem Weg über „Alle Accounts“. Gemeldet von Bushwick4712 (KRT)
+
 ## v4.12.3 - 2026-10-28
 
 > Der Signatur-Scanner liest die Zahl wie seit 4.12.1. Findet er dabei

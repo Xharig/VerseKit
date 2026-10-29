@@ -174,7 +174,10 @@ def _log_line():
              % len(backups)]
     try:
         state_value = logsource.ReadState()
-        read_count = sum(1 for p in backups if state_value.knows(p))
+        # Als fremd übersprungene zählen nicht als durchgesehen; sie stehen
+        # in der Zeile darunter (`_foreign_line`).
+        read_count = sum(1 for p in backups if state_value.knows(p)
+                         and not state_value.is_foreign(p))
         parts.append(t('b_logs_gelesen') % read_count)
     except Exception:
         pass
@@ -186,6 +189,27 @@ def _log_line():
     except Exception:
         pass
     return ' · '.join(parts)
+
+
+def _foreign_line():
+    """Was aus Sitzungen anderer Accounts nicht gezählt wurde — ohne Handle,
+    die Kennung des eigenen Accounts nur als gesetzt oder fehlt."""
+    from . import logsource
+    if ((paths.setting(logsource.ACCOUNT_SETTING) or '').strip()
+            == logsource.ALL_ACCOUNTS):
+        return t('b_fremd_alle')
+    summary = logsource.foreign_summary()
+    tail = t('b_fremd_kennung') % t(
+        'b_fremd_kennung_da' if logsource.own_account_id()
+        else 'b_fremd_kennung_fehlt')
+    if not summary['sitzungen']:
+        return t('b_fremd_keine') + tail
+    blueprints, sessions = summary['bauplaene'], summary['sitzungen']
+    return t('b_fremd_n') % (
+        t('b_fremd_bp_1' if blueprints == 1 else 'b_fremd_bp') % blueprints,
+        t('b_fremd_sitz_1' if sessions == 1 else 'b_fremd_sitz') % sessions,
+        datetime.fromtimestamp(summary['zuletzt']).strftime(t('b_datum'))
+    ) + tail
 
 
 def _collection_line():
@@ -741,9 +765,11 @@ def reporter_name():
 # Spiel-Account oder den Melder-Namen tragen: im Bericht steht statt des
 # Werts nur •••, denn der Bericht kann öffentlich landen. Der Name steht,
 # wenn gewollt, einmal oben als Melder (`reporter_name`).
-# `eigener_account` ist `logsource.ACCOUNT_SETTING` (Prüfung 469 hält das fest).
+# `eigener_account` ist `logsource.ACCOUNT_SETTING` (Prüfung 469 hält das fest),
+# `eigene_account_kennung` ist `logsource.ACCOUNT_ID_SETTING`.
 MASKED_SETTINGS = frozenset({'basetool_einheit_neu', 'staffellager_einheit',
-                             'eigener_account', REPORTER_SETTING})
+                             'eigener_account', 'eigene_account_kennung',
+                             REPORTER_SETTING})
 # Einstellungen, die in der Einstellungszeile gar nicht erscheinen.
 HIDDEN_SETTINGS = frozenset({REPORTER_CLEARED})
 
@@ -829,6 +855,7 @@ def build(version='', root=None, error_count=8, message='', reporter=None):
     line(t('b_gamelog'), _safe(lambda: summary.get('game_log')
                                    or t('b_nicht_gefunden')))
     line(t('b_sicherungen'), _safe(_log_line))
+    line(t('b_fremd'), _safe(_foreign_line))
     # ⚠ **Womit sich das Spiel starten ließe — und ob das jemand von Hand
     # eingetragen hat.** Tut der Startknopf nichts, lässt sich das ohne diese
     # Zeile nicht klären, ohne den Nutzer auszufragen.

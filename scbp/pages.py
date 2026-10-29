@@ -7531,7 +7531,8 @@ def _thanks(fenster, rahmen):
              + '\n\n' + t('s_dk_bushwick_idee4'),
              t('s_dk_bushwick_bugs') + '\n\n' + t('s_dk_bushwick_bugs2')
              + '\n\n' + t('s_dk_bushwick_bugs3')
-             + '\n\n' + t('s_dk_bushwick_bugs4')),
+             + '\n\n' + t('s_dk_bushwick_bugs4')
+             + '\n\n' + t('s_dk_bushwick_bugs5')),
             ('Choopa', '', t('s_dk_choopa_idee'), ''),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
@@ -7908,10 +7909,35 @@ def _account_rows(window, inner):
     target = _setting_row(window, inner, t('s_er_acc'), t('s_er_acc_h'))
     counts, own = {}, None
     try:
+        # Handles derselben Kennung stehen als EIN Eintrag da, unter dem
+        # neuesten; die Einstellung zieht vorher auf ihn nach.
+        logsource.refresh_own_identity()
         counts = logsource.accounts_in_logs()
         own = logsource.own_account()
     except Exception as error:
         errors.record('pages.erkennung.accounts', error)
+    # Hinweis unter der Erklärung, nur wenn Baupläne eines anderen Accounts
+    # nicht gezählt wurden; dieselbe Schrift und derselbe Umbruch wie die
+    # Erklärung darüber.
+    foreign_hint = tk.Label(target.links, text='', bg=BG, fg=SUB,
+                            font=window.f_small, anchor='w', justify='left')
+    _wrap(foreign_hint, reference=target.master, beside=target, inset=26)
+
+    def show_foreign_hint():
+        count = 0
+        try:
+            count = logsource.foreign_summary()['bauplaene']
+        except Exception as error:
+            errors.record('pages.erkennung.fremd_zahl', error)
+        if count > 0:
+            foreign_hint.configure(text=t(
+                's_er_acc_fremd_1' if count == 1 else 's_er_acc_fremd')
+                % (count, t('s_er_acc_alle')))
+            foreign_hint.pack(fill='x', pady=(4, 0))
+        else:
+            foreign_hint.pack_forget()
+
+    show_foreign_hint()
 
     foreign_target = _setting_row(window, inner, t('s_er_fremd'),
                                   t('s_er_fremd_h'), wide=True)
@@ -7985,11 +8011,12 @@ def _account_rows(window, inner):
         def choose(value):
             if value == (paths.setting(logsource.ACCOUNT_SETTING) or ''):
                 return
-            paths.set_setting(logsource.ACCOUNT_SETTING, value)
+            logsource.set_own_account(value)
             label = (t('s_er_acc_alle') if value == logsource.ALL_ACCOUNTS
                      else value)
             window.say(t('s_er_acc_sagen') % label)
             overlay.account_changed()
+            show_foreign_hint()
             search()
 
         round_select(target, entries, chosen, choose, window.f_small).pack()

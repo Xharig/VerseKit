@@ -25855,6 +25855,12 @@ def main():
     _pruefung_619()
     _pruefung_620()
     _pruefung_621()
+    _pruefung_622()
+    _pruefung_623()
+    _pruefung_624()
+    _pruefung_625()
+    _pruefung_626()
+    _pruefung_627()
 
     print()
     if fehler:
@@ -57631,6 +57637,486 @@ def _pruefung_621():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = alt
+
+
+def _t622(key):
+    from scbp.language import t
+    return t(key)
+
+
+def _log_622(handle, account_id, blueprints, character=True):
+    """Eine Log wie vom Spiel: Charakterzeile mit Kennung (optional), danach
+    die Anmeldung, dann die Baupläne."""
+    out = []
+    if character and account_id:
+        out.append('<2026-10-28T20:00:00.000Z> [Notice] '
+                   '<AccountLoginCharacterStatus_Character> Character: '
+                   'createdAt 1 - updatedAt 2 - geid 3 - accountId %s - name %s '
+                   '- state STATE_CURRENT [Team_GameServices][Login]\n'
+                   % (account_id, handle))
+    out.append('<2026-10-28T20:00:01.000Z> [Notice] <Legacy login response> '
+               '[CIG-net] User Login Success - Handle[%s] - Time[1] '
+               '[Team_GameServices][Login]\n' % handle)
+    for bp in blueprints:
+        out.append('<2026-10-28T22:00:00.000Z> [Notice] '
+                   '<SHUDEvent_OnNotification> Added notification '
+                   '"Received Blueprint: %s: " [7] to queue. New queue '
+                   'size: 1, MissionId: [], ObjectiveId: [] '
+                   '[Team_CoreGameplayFeatures][Missions][Comms]\n' % bp)
+    return ''.join(out)
+
+
+class _Umgebung622:
+    """Eigene Installation und eigener Datenordner für 622–625.
+
+    `logs` ist eine Liste `(Dateiname, Handle, Kennung, Baupläne)` für
+    `logbackups/`, in dieser Reihenfolge von alt nach neu datiert; `laufend`
+    dasselbe ohne Dateinamen für die `Game.log`."""
+
+    def __init__(self, tag, logs, laufend, eigener, kennung=''):
+        from scbp import logsource as ls, paths as pa
+        self.ls, self.pa = ls, pa
+        self.basis = tempfile.mkdtemp(prefix='sc-bp-%s-' % tag)
+        self.live = os.path.join(self.basis, 'LIVE')
+        os.makedirs(os.path.join(self.live, 'logbackups'))
+        self.pfade = {}
+        stunde = time.time() - 3600 * (len(logs) + 2)
+        for nummer, (name, handle, kennung_log, bps) in enumerate(logs):
+            pfad = os.path.join(self.live, 'logbackups', name)
+            with open(pfad, 'w', encoding='utf-8') as f:
+                f.write(_log_622(handle, kennung_log, bps))
+            os.utime(pfad, (stunde + 3600 * nummer,) * 2)
+            self.pfade[name] = pfad
+        self.game_log = os.path.join(self.live, 'Game.log')
+        with open(self.game_log, 'w', encoding='utf-8') as f:
+            f.write(_log_622(*laufend) if laufend else '')
+        self.alt = {k: os.environ.get(k) for k in ('SC_BP_HOME',
+                                                    'SC_INSTALL_DIR')}
+        os.environ['SC_BP_HOME'] = os.path.join(self.basis, 'heim')
+        os.environ['SC_INSTALL_DIR'] = self.live
+        self._leeren()
+        pa.set_setting(ls.ACCOUNT_SETTING, eigener)
+        pa.set_setting(ls.ACCOUNT_ID_SETTING, kennung)
+        self.ok = (os.path.normcase(os.path.abspath(pa.game_folder()))
+                   == os.path.normcase(os.path.abspath(self.live)))
+
+    def _leeren(self):
+        ls, pa = self.ls, self.pa
+        ls._ACCOUNT_CACHE.clear()
+        ls._READ_CACHE.clear()
+        ls._STORED[0] = None
+        ls._OWN_TRIED[0] = 0.0
+        ls._REFRESH_TRIED[0] = 0.0
+        pa._LOG_BACKUPS[:] = [None, []]
+
+    def anhaengen(self, text):
+        with open(self.game_log, 'a', encoding='utf-8') as f:
+            f.write(text)
+
+    def zu(self):
+        for k, v in self.alt.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        self._leeren()
+        shutil.rmtree(self.basis, ignore_errors=True)
+
+
+def _pruefung_622():
+    """622. Handle gewechselt, gleiche Kennung: eigen. Andere Kennung: fremd."""
+    print('\n622. Account: gleiche Kennung trotz neuem Handle zählt, '
+          'andere Kennung bleibt fremd')
+    u = _Umgebung622('622', [
+        ('Game Build(1) 01.log', 'Altname622', '700001', ['Altding']),
+        ('Game Build(1) 02.log', 'Neuname622', '700001', ['Neuding']),
+        ('Game Build(1) 03.log', 'Zweitname622', '700002', ['Zweitding']),
+        ('Game Build(1) 04.log', 'Altname622', None, ['Uraltding']),
+    ], ('Neuname622', '700001', ['Laufend-Neu']), 'Altname622')
+    ls, pa = u.ls, u.pa
+    try:
+        pruefe(u.ok, 'Vorbedingung: Spielordner ist der Testordner')
+        if not u.ok:
+            return
+        pruefe(ls.identity_of_file(u.pfade['Game Build(1) 02.log'])
+               == ('Neuname622', '700001')
+               and ls.identity_of_file(u.pfade['Game Build(1) 04.log'])
+               == ('Altname622', None),
+               'Handle und Kennung aus der Log, alte Log ohne Kennung')
+        funde, bericht = ls.read_backlog(ls.ReadState(), only_new=False)
+        namen = sorted(n for n, _z in funde)
+        pruefe(namen == ['Altding', 'Laufend-Neu', 'Neuding', 'Uraltding'],
+               'Nachlese: alter und neuer Handle derselben Kennung zählen, '
+               'der Zweitaccount nicht (%r)' % namen)
+        pruefe(bericht.get('fremd') == 1,
+               'genau eine Sitzung fremd (%r)' % bericht.get('fremd'))
+        pruefe(pa.setting(ls.ACCOUNT_ID_SETTING) == '700001',
+               'Kennung aus der Log mit dem gespeicherten Handle gelernt (%r)'
+               % pa.setting(ls.ACCOUNT_ID_SETTING))
+        pruefe(pa.setting(ls.ACCOUNT_SETTING) == 'Neuname622',
+               'gespeicherter Handle auf den neuesten nachgezogen (%r)'
+               % pa.setting(ls.ACCOUNT_SETTING))
+        pruefe(ls.counts_for('Neuname622', 'Altname622')
+               and not ls.counts_for('Neuname622', 'Zweitname622', '700002')
+               and not ls.counts_for('Neuname622', 'Neuname622', '700002'),
+               'früherer Handle ohne Kennung zählt, andere Kennung nie, auch '
+               'mit gleichem Handle')
+        pruefe(ls.foreign_only_blueprints() == ['Zweitding'],
+               'Aufräumen schlägt nur den Zweitaccount vor (%r)'
+               % ls.foreign_only_blueprints())
+        # Zweitaccount gewählt: Kennung wird geleert und neu gelernt.
+        ls.set_own_account('Zweitname622')
+        u._leeren()
+        namen = sorted(n for n, _z in ls.read_all()[0])
+        pruefe(namen == ['Zweitding']
+               and pa.setting(ls.ACCOUNT_ID_SETTING) == '700002',
+               'umgestellt auf den Zweitaccount: nur seine Baupläne, seine '
+               'Kennung (%r, %r)' % (namen, pa.setting(ls.ACCOUNT_ID_SETTING)))
+    finally:
+        u.zu()
+
+
+def _alter_lesestand_622(u, handles):
+    """Den Lesestand so hinlegen, wie ihn 4.12.3 schrieb: jede Sicherung
+    bekannt, mit Handle, ohne `fremd`-Feld."""
+    from scbp import paths as pa
+    stand = {'aktiv': {}, 'sicherungen': {}, 'letzte_sitzung': time.time()}
+    for name, handle in handles.items():
+        pfad = u.pfade[name]
+        stand['sicherungen'][name] = {'groesse': os.path.getsize(pfad),
+                                      'mtime': os.path.getmtime(pfad),
+                                      'account': handle}
+    ziel = pa.app_file('logstand.json')
+    os.makedirs(os.path.dirname(ziel), exist_ok=True)
+    with open(ziel, 'w', encoding='utf-8') as f:
+        json.dump(stand, f)
+
+
+def _pruefung_623():
+    """623. Nach dem Update kommen die als fremd übersprungenen Sitzungen nach."""
+    print('\n623. Account: früher übersprungene Sitzungen werden beim Start '
+          'nachgelesen')
+    import queue as _qu623
+    import sc_bp_watcher as _sw623
+    from scbp import collection as _bd623, report as _rp623
+    # Drei Sitzungen unter dem neuen Handle, sechs Baupläne darin.
+    neu = {'Game Build(1) 02.log': ['Neuding 1', 'Neuding 2'],
+           'Game Build(1) 03.log': ['Neuding 3'],
+           'Game Build(1) 04.log': ['Neuding 4', 'Neuding 5', 'Neuding 6']}
+    u = _Umgebung622('623', [
+        ('Game Build(1) 01.log', 'Altname623', '700011', ['Altding'])]
+        + [(name, 'Neuname623', '700011', bps)
+           for name, bps in sorted(neu.items())]
+        + [('Game Build(1) 05.log', 'Zweitname623', '700012', ['Zweitding'])],
+        None, 'Altname623')
+    ls = u.ls
+    try:
+        pruefe(u.ok, 'Vorbedingung: Spielordner ist der Testordner')
+        if not u.ok:
+            return
+        handles = {'Game Build(1) 01.log': 'Altname623',
+                   'Game Build(1) 05.log': 'Zweitname623'}
+        handles.update((name, 'Neuname623') for name in neu)
+        _alter_lesestand_622(u, handles)
+        w = _sw623.Watcher(_qu623.Queue())
+        w.bestand = _bd623.empty()
+        _bd623.add(w.bestand, 'Altding', 'nachlese')
+        vorher = _bd623.count(w.bestand)
+        w._nachlese()
+        verpasst = [n for bps in neu.values() for n in bps]
+        pruefe(all(_bd623.contains(w.bestand, n) for n in verpasst)
+               and _bd623.count(w.bestand) == vorher + 6,
+               'Start: die sechs Baupläne aus drei übersprungenen Sitzungen '
+               'sind da, genau sechs mehr (%d -> %d)'
+               % (vorher, _bd623.count(w.bestand)))
+        pruefe(not _bd623.contains(w.bestand, 'Zweitding'),
+               'der Zweitaccount bleibt draußen')
+        stand = ls.ReadState()
+        pruefe([stand.is_foreign(u.pfade[n]) for n in sorted(u.pfade)]
+               == [False, False, False, False, True],
+               'Lesestand: nur die Sitzung des Zweitaccounts als fremd gemerkt')
+        pruefe('Zweitname623' not in json.dumps(stand.data),
+               'der fremde Handle steht nicht im Lesestand')
+        zeile = _rp623._log_line()
+        pruefe(_t622('b_logs_gelesen') % 4 in zeile,
+               'Bericht: vier von fünf durchgesehen, die fremde zählt nicht '
+               'mit (%r)' % zeile)
+        # Ein zweiter Start liest nichts mehr nach.
+        w2 = _sw623.Watcher(_qu623.Queue())
+        _funde, bericht = ls.read_backlog(w2.stand)
+        pruefe(bericht.get('dateien') == 0 and bericht.get('uebersprungen') == 5,
+               'zweiter Start: alles bekannt, nichts erneut gelesen (%r)'
+               % bericht)
+    finally:
+        u.zu()
+
+
+def _pruefung_627():
+    """627. Zählen alle Accounts (`*`), bleibt alles, wie es ist."""
+    print('\n627. Account: „alle Accounts" zählt alles und entfernt nichts')
+    import queue as _qu627
+    import sc_bp_watcher as _sw627
+    from scbp import collection as _bd627, report as _rp627
+    u = _Umgebung622('627', [
+        ('Game Build(1) 01.log', 'Altname627', '700051', ['Altding']),
+        ('Game Build(1) 02.log', 'Neuname627', '700051', ['Neuding']),
+        ('Game Build(1) 03.log', 'Zweitname627', '700052', ['Zweitding']),
+    ], ('Neuname627', '700051', ['Laufend']), '*')
+    ls, pa = u.ls, u.pa
+    try:
+        pruefe(u.ok and ls.ALL_ACCOUNTS == '*',
+               'Vorbedingung: Spielordner ist der Testordner, „alle" ist *')
+        if not u.ok:
+            return
+        # Lesestand aus 4.12.3, als noch der alte Handle galt.
+        _alter_lesestand_622(u, {'Game Build(1) 01.log': 'Altname627',
+                                 'Game Build(1) 02.log': 'Neuname627',
+                                 'Game Build(1) 03.log': 'Zweitname627'})
+        w = _sw627.Watcher(_qu627.Queue())
+        w.bestand = _bd627.empty()
+        for name in ('Altding', 'Neuding', 'Zweitding', 'Laufend'):
+            _bd627.add(w.bestand, name, 'nachlese')
+        _funde, bericht = ls.read_backlog(w.stand)
+        pruefe(bericht.get('dateien') == 0 and bericht.get('fremd') == 0,
+               'Start: nichts erneut gelesen, nichts fremd (%r)' % bericht)
+        pruefe(ls.counts_for('*', 'Zweitname627', '700052')
+               and ls.counts_for('*', 'Neuname627', '700051'),
+               'jede Kennung zählt')
+        w._alles_neu_einlesen()
+        pruefe(all(_bd627.contains(w.bestand, n) for n in
+                   ('Altding', 'Neuding', 'Zweitding', 'Laufend'))
+               and _bd627.count(w.bestand) == 4,
+               'Bestand: alles bleibt, nichts kommt doppelt (%d)'
+               % _bd627.count(w.bestand))
+        pruefe(pa.setting(ls.ACCOUNT_SETTING) == '*'
+               and not pa.setting(ls.ACCOUNT_ID_SETTING),
+               'Einstellung bleibt „alle", keine Kennung gelernt')
+        pruefe(ls.foreign_only_blueprints() == [],
+               'Aufräumen schlägt nichts vor')
+        pruefe(ls.foreign_summary()['bauplaene'] == 0,
+               'nichts als nicht gezählt gemeldet')
+        zeile = next((z for z in _rp627.build(version='0.0.0-test')
+                      .splitlines() if z.startswith(_t622('b_fremd'))), '')
+        pruefe(zeile.endswith(_t622('b_fremd_alle')),
+               'Bericht: „alle Accounts zählen" (%r)' % zeile)
+    finally:
+        u.zu()
+
+
+def _pruefung_624():
+    """624. Mitlesen: Handle gewechselt, gleiche Kennung, Bauplan kommt live."""
+    print('\n624. Account: neuer Handle, Bauplan live -> Bestand +1')
+    import queue as _qu624
+    import sc_bp_watcher as _sw624
+    from scbp import collection as _bd624
+    u = _Umgebung622('624', [
+        ('Game Build(1) 01.log', 'Altname624', '700021', ['Altding']),
+    ], ('Neuname624', '700021', []), 'Altname624')
+    ls, pa = u.ls, u.pa
+    try:
+        pruefe(u.ok, 'Vorbedingung: Spielordner ist der Testordner')
+        if not u.ok:
+            return
+
+        def runde(w):
+            # Der Bauplan-Teil der Schleife in `Watcher.run`.
+            for name, _zusatz in w.tail.new_names():
+                nk = _sw624._norm(name)
+                if nk in w.seen:
+                    continue
+                w.seen.add(nk)
+                _bd624.add(w.bestand, name, 'log')
+
+        w = _sw624.Watcher(_qu624.Queue())
+        w.bestand = _bd624.empty()
+        _bd624.add(w.bestand, 'Altding', 'nachlese')
+        w.seen = _bd624.keys_seen_in_game(w.bestand)
+        w.tail.new_names()                    # Lesestand ans Ende
+        vorher = _bd624.count(w.bestand)
+        u.anhaengen(_log_622('Neuname624', None, ['Liveding'],
+                             character=False).split('\n', 1)[1])
+        runde(w)
+        pruefe(_bd624.contains(w.bestand, 'Liveding')
+               and _bd624.count(w.bestand) == vorher + 1,
+               'live: der Bauplan unter dem neuen Handle ist im Bestand '
+               '(%d -> %d)' % (vorher, _bd624.count(w.bestand)))
+        pruefe(pa.setting(ls.ACCOUNT_SETTING) == 'Neuname624'
+               and pa.setting(ls.ACCOUNT_ID_SETTING) == '700021',
+               'live: Kennung gelernt, Handle nachgezogen')
+        # Zweitaccount live: bleibt fremd und erscheint in der Zählung.
+        with open(u.game_log, 'w', encoding='utf-8') as f:
+            f.write(_log_622('Zweitname624', '700022', []))
+        u._leeren()
+        w.tail.new_names()
+        vorher = _bd624.count(w.bestand)
+        u.anhaengen(_log_622('Zweitname624', None, ['Zweitlive'],
+                             character=False).split('\n', 1)[1])
+        runde(w)
+        pruefe(not _bd624.contains(w.bestand, 'Zweitlive')
+               and _bd624.count(w.bestand) == vorher,
+               'live: der Bauplan des Zweitaccounts kommt nicht in den Bestand')
+        zahl = ls.foreign_summary()
+        pruefe(zahl['bauplaene'] == 1 and zahl['sitzungen'] == 1,
+               'live: die laufende Sitzung des Zweitaccounts wird gezählt (%r)'
+               % zahl)
+    finally:
+        u.zu()
+
+
+def _pruefung_625():
+    """625. Bericht und Seite Erkennung zeigen die nicht gezählten Baupläne."""
+    print('\n625. Anderer Account: Zahl im Bericht, Hinweis auf der Seite '
+          'nur bei N > 0')
+    import queue as _qu625
+    import sc_bp_watcher as _sw625
+    from scbp import collection as _bd625, report as _rp625
+    u = _Umgebung622('625', [
+        ('Game Build(1) 01.log', 'Eigenname625', '700031', ['Eigending']),
+        ('Game Build(1) 02.log', 'Zweitname625', '700032',
+         ['Zweitding A', 'Zweitding B']),
+        ('Game Build(1) 03.log', 'Zweitname625', '700032', ['Zweitding C']),
+    ], ('Eigenname625', '700031', []), 'Eigenname625')
+    ls = u.ls
+    try:
+        pruefe(u.ok, 'Vorbedingung: Spielordner ist der Testordner')
+        if not u.ok:
+            return
+        w = _sw625.Watcher(_qu625.Queue())
+        w.bestand = _bd625.empty()
+        w._nachlese()
+
+        def zeile(text):
+            return next((z for z in text.splitlines()
+                         if z.startswith(_t622('b_fremd'))), '')
+
+        text = _rp625.build(version='0.0.0-test')
+        z = zeile(text)
+        pruefe(_t622('b_fremd_bp') % 3 in z and _t622('b_fremd_sitz') % 2 in z,
+               'Bericht: 3 Baupläne aus 2 Sitzungen (%r)' % z)
+        pruefe('Zweitname625' not in text and '700031' not in text
+               and '700032' not in text,
+               'Bericht: kein Handle, keine Kennung im Klartext')
+        pruefe('eigene_account_kennung=•••' in text
+               and _t622('b_fremd_kennung_da') in z,
+               'Bericht: die Kennung steht nur als gesetzt')
+        _seite625(True)
+        # Ohne fremde Sitzung: „keine", und kein Hinweis.
+        ls.set_own_account(ls.ALL_ACCOUNTS)
+        pruefe(zeile(_rp625.build(version='0.0.0-test'))
+               .endswith(_t622('b_fremd_alle')),
+               'Bericht: mit „alle Accounts" zählt alles')
+        for name in ('Game Build(1) 02.log', 'Game Build(1) 03.log'):
+            os.remove(u.pfade[name])
+        u._leeren()
+        ls.set_own_account('Eigenname625')
+        z = zeile(_rp625.build(version='0.0.0-test'))
+        pruefe(_t622('b_fremd_keine') in z,
+               'Bericht: ohne fremde Sitzung steht „keine" (%r)' % z)
+        _seite625(False)
+    finally:
+        u.zu()
+
+
+def _pruefung_626():
+    """626. Neuen Handle gewählt: ein Account, nichts wird entfernt."""
+    print('\n626. Account: neuen Handle wählen fasst zusammen und entfernt '
+          'nichts')
+    import queue as _qu626
+    import sc_bp_watcher as _sw626
+    from scbp import collection as _bd626
+    alte = [('Game Build(1) a%03d.log' % i, 'Altname626', '700041',
+             ['Altding %03d' % i]) for i in range(40)]
+    neue = [('Game Build(1) n%03d.log' % i, 'Neuname626', '700041',
+             ['Neuding %d' % i]) for i in range(2)]
+    zweit = [('Game Build(1) z000.log', 'Zweitname626', '700042',
+              ['Zweitding'])]
+    u = _Umgebung622('626', alte + neue + zweit, None, 'Altname626')
+    ls, pa = u.ls, u.pa
+    try:
+        pruefe(u.ok, 'Vorbedingung: Spielordner ist der Testordner')
+        if not u.ok:
+            return
+        # Die letzte Sicherung ist die des Zweitaccounts — der neueste Handle
+        # des eigenen bleibt trotzdem „Neuname626".
+        konten = ls.accounts_in_logs()
+        pruefe(konten == {'Neuname626': 42, 'Zweitname626': 1},
+               'Auswahl: alter und neuer Handle derselben Kennung als EIN '
+               'Eintrag unter dem neuesten, Protokolle addiert (%r)' % konten)
+        w = _sw626.Watcher(_qu626.Queue())
+        w.bestand = _bd626.empty()
+        for i in range(40):
+            _bd626.add(w.bestand, 'Altding %03d' % i, 'nachlese')
+        vorher = _bd626.count(w.bestand)
+        ls.set_own_account('Neuname626')       # wie `choose` auf der Seite
+        pruefe(pa.setting(ls.ACCOUNT_ID_SETTING) == '700041',
+               'gewählt: die Kennung ist sofort gelernt')
+        vorschlag = ls.foreign_only_blueprints()
+        pruefe(vorschlag == ['Zweitding'],
+               'Aufräumen schlägt nichts aus dem alten Handle vor (%r)'
+               % vorschlag[:5])
+        w.remove_foreign([n for n in vorschlag
+                          if (w.bestand['bauplaene'].get(_bd626.norm(n)) or {})
+                          .get('quelle') in ('log', 'nachlese')])
+        w._remove_foreign_now()
+        w._alles_neu_einlesen()
+        nachher = _bd626.count(w.bestand)
+        pruefe(all(_bd626.contains(w.bestand, 'Altding %03d' % i)
+                   for i in range(40)),
+               'Bestand: kein Bauplan des alten Handles entfernt')
+        pruefe(_bd626.contains(w.bestand, 'Neuding 0')
+               and _bd626.contains(w.bestand, 'Neuding 1')
+               and nachher == vorher + 2,
+               'die zwei neuen Sitzungen zählen (%d -> %d)' % (vorher, nachher))
+        pruefe(not _bd626.contains(w.bestand, 'Zweitding'),
+               'der Zweitaccount bleibt draußen')
+    finally:
+        u.zu()
+
+
+def _seite625(erwartet):
+    """625 (Seite Erkennung): Der Hinweis steht genau dann da, wenn Baupläne
+    eines anderen Accounts nicht gezählt wurden."""
+    if not ANZEIGE:
+        print('  (übersprungen — kein Bildschirm)')
+        return
+    import tkinter as tk625
+    from scbp import main_window as _hf625
+    _w625 = _wurzel()
+    try:
+        _w625.deiconify()
+        _w625.geometry('1200x900')
+        _f625 = _hf625.MainWindow(_w625, version='0.0.0-pruefung')
+        _f625.open_page('erkennung')
+        _w625.update_idletasks()
+        _w625.update()
+        alle = []
+
+        def sammeln(w):
+            for kind in w.winfo_children():
+                alle.append(kind)
+                sammeln(kind)
+
+        sammeln(_f625.pages['erkennung'])
+        anfang = _t622('s_er_acc_fremd').split('%d', 1)[1][:20]
+        anfang_1 = _t622('s_er_acc_fremd_1').split('%d', 1)[1][:20]
+        sichtbar = [w for w in alle if isinstance(w, tk625.Label)
+                    and w.winfo_ismapped()
+                    and (anfang in str(w.cget('text'))
+                         or anfang_1 in str(w.cget('text')))]
+        if erwartet:
+            pruefe(len(sichtbar) == 1
+                   and str(sichtbar[0].cget('text')).startswith('3 ')
+                   and _t622('s_er_acc_alle') in str(sichtbar[0].cget('text')),
+                   'Seite Erkennung: Hinweis mit der Zahl und „%s"'
+                   % _t622('s_er_acc_alle'))
+        else:
+            pruefe(not sichtbar, 'Seite Erkennung: ohne fremde Baupläne '
+                   'kein Hinweis')
+    finally:
+        try:
+            _w625.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

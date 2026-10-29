@@ -2381,6 +2381,10 @@ TEXTS = {
                           'Blueprints only count from this account\'s logs. If you play several accounts on one computer, you would otherwise get the other one\'s blueprints too.'),
     's_er_acc_alle':   ('Alle Accounts', 'All accounts'),
     's_er_acc_n':      ('%s (%d Protokolle)', '%s (%d logs)'),
+    's_er_acc_fremd':  ('%d Baupläne aus Sitzungen eines anderen Accounts wurden nicht gezählt. Sollen sie mitzählen, stelle auf „%s“.',
+                          '%d blueprints from sessions of another account were not counted. To count them, switch to “%s”.'),
+    's_er_acc_fremd_1': ('%d Bauplan aus Sitzungen eines anderen Accounts wurde nicht gezählt. Soll er mitzählen, stelle auf „%s“.',
+                          '%d blueprint from sessions of another account was not counted. To count it, switch to “%s”.'),
     's_er_acc_keiner': ('Noch keiner erkannt — das geht nach der ersten Anmeldung im Spiel.',
                           'None detected yet — this works after your first login in the game.'),
     's_er_acc_sagen':  ('Eigener Account: %s — die Protokolle werden neu eingelesen',
@@ -3044,6 +3048,16 @@ TEXTS = {
                               'change it recognised the number far less often. '
                               'If it now finds nothing certain, it also reads '
                               'the number the earlier way.'),
+    's_dk_bushwick_bugs5':   ('**Baupläne nach einem neuen Spielernamen** — '
+                              'nach dem Wechsel des Handles zählte Verse-Kit '
+                              'die neuen Baupläne nicht mehr. Jetzt erkennt '
+                              'es den Account an seiner festen Kennung und '
+                              'holt die verpassten nach.',
+                              '**Blueprints after a new player name** — after '
+                              'a handle change Verse-Kit stopped counting new '
+                              'blueprints. It now recognises the account by '
+                              'its fixed ID and catches up on the missed '
+                              'ones.'),
     's_dk_aeternitas_idee':  ('**Fortschritt nur für die Merkliste** — wie weit man '
                               'mit den Bauplänen ist, die man wirklich haben will. '
                               'Dafür bleiben Erledigte jetzt abgehakt auf der '
@@ -3510,6 +3524,18 @@ TEXTS = {
     'b_logs_funde_1':  ('%s Bauplan daraus', '%s blueprint from them'),
     'b_protokolle_1':  ('%s Protokoll', '%s log'),
     'b_protokolle':    ('%s Protokolle', '%s logs'),
+    'b_fremd':         ('Anderer Account', 'Other account'),
+    'b_fremd_keine':   ('keine', 'none'),
+    'b_fremd_alle':    ('alle Accounts zählen', 'all accounts count'),
+    'b_fremd_n':       ('%s aus %s nicht gezählt · zuletzt %s',
+                        '%s from %s not counted · last %s'),
+    'b_fremd_bp':      ('%d Baupläne', '%d blueprints'),
+    'b_fremd_bp_1':    ('%d Bauplan', '%d blueprint'),
+    'b_fremd_sitz':    ('%d Sitzungen', '%d sessions'),
+    'b_fremd_sitz_1':  ('%d Sitzung', '%d session'),
+    'b_fremd_kennung': (' · Account-Kennung %s', ' · account ID %s'),
+    'b_fremd_kennung_da':    ('gesetzt', 'set'),
+    'b_fremd_kennung_fehlt': ('fehlt', 'missing'),
     # ⚠ Startet das Spiel nicht aus dem Werkzeug, ist diese Zeile die halbe
     # Diagnose: Sie zeigt, welchen Starter das Werkzeug gefunden hat — etwa den
     # `lug-helper`, ein Programm, das das Spiel gar nicht starten kann.
