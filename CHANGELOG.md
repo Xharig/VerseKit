@@ -10,7 +10,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 > Wer seinen Spielernamen gewechselt hat, bekommt seine Baupläne wieder
 > gezählt, auch die seitdem verpassten. Baupläne aus Sitzungen eines anderen
-> Accounts zeigt die Seite Erkennung jetzt als Zahl an.
+> Accounts zeigt die Seite Erkennung jetzt als Zahl an. Dazu liest der
+> Signatur-Scanner blasse Werte, an denen er bisher scheiterte.
 
 ### Behoben
 
@@ -19,7 +20,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   verpassten. Der Account wird an seiner festen Kennung erkannt, ein
   Zweitaccount bleibt getrennt. Wurden Baupläne aus Sitzungen eines anderen
   Accounts nicht gezählt, sagt das ein Hinweis auf der Seite Erkennung,
-  samt dem Weg über „Alle Accounts“. Gemeldet von Bushwick4712 (KRT)
+  samt dem Weg über „Alle Accounts“. Gemeldet von Bushwick4711 (KRT)
+- **Signatur-Scanner liest blasse Werte** — findet er bei einem blassen
+  Ortungssymbol keine sichere Zahl (etwa wenn eine 6 wie eine 8 aussieht),
+  versucht er es mit strengeren Einstellungen erneut, statt nichts zu
+  zeigen. Gemeldet von Bushwick4711 (KRT)
 
 ## v4.12.3 - 2026-10-28
 

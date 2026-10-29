@@ -3058,6 +3058,14 @@ TEXTS = {
                               'blueprints. It now recognises the account by '
                               'its fixed ID and catches up on the missed '
                               'ones.'),
+    's_dk_bushwick_bugs6':   ('**Blasse Werte im Signatur-Scanner** — bei einem '
+                              'blassen Ortungssymbol sah eine 6 wie eine 8 aus, '
+                              'und der Scanner zeigte nichts. Jetzt versucht er '
+                              'es mit strengeren Einstellungen erneut.',
+                              '**Faint values in the signature scanner** — next '
+                              'to a faint location symbol a 6 looked like an 8, '
+                              'and the scanner showed nothing. It now tries '
+                              'again with stricter settings.'),
     's_dk_aeternitas_idee':  ('**Fortschritt nur für die Merkliste** — wie weit man '
                               'mit den Bauplänen ist, die man wirklich haben will. '
                               'Dafür bleiben Erledigte jetzt abgehakt auf der '

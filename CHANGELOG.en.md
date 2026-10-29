@@ -10,7 +10,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 > If you changed your player name, your blueprints are counted again,
 > including the ones missed since. Blueprints from sessions of another
-> account are now shown as a number on the Detection page.
+> account are now shown as a number on the Detection page. The signature
+> scanner also reads faint values it used to miss.
 
 ### Fixed
 
@@ -19,7 +20,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   already missed. The account is recognised by its fixed ID, a second
   account stays separate. If blueprints from sessions of another account
   were not counted, a note on the Detection page says so, along with the
-  way via “All accounts”. Reported by Bushwick4712 (KRT)
+  way via “All accounts”. Reported by Bushwick4711 (KRT)
+- **Signature scanner reads faint values** — if it finds no certain number
+  next to a faint location symbol (say a 6 that looks like an 8), it tries
+  again with stricter settings instead of showing nothing. Reported by
+  Bushwick4711 (KRT)
 
 ## v4.12.3 - 2026-10-28
 
