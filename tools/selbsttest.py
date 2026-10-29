@@ -25861,6 +25861,7 @@ def main():
     _pruefung_625()
     _pruefung_626()
     _pruefung_627()
+    _pruefung_900()
 
     print()
     if fehler:
@@ -58117,6 +58118,59 @@ def _seite625(erwartet):
             _w625.destroy()
         except Exception:
             pass
+def _pruefung_900():
+    """900. Blasses Ortungssymbol, die 6 schließt sich bei niedriger Schwelle.
+
+    Nachgestellt aus einer Windows-Aufnahme mit 6,740: Das Ortungssymbol wird
+    auf 160 gedeckelt, damit die Ziffernreihe nur bei EINER Schwelle steht, und
+    zwei Punkte knapp über dieser Schwelle schließen die obere Öffnung der 6.
+    Bei dieser Schwelle hat die 6 zwei Löcher wie eine 8. Gelesen werden muss
+    6,740 über die höheren Schwellen — und nie 8,740.
+    """
+    print('\n900. Signatur: blasses Ortungssymbol, 6 mit zugelaufener Öffnung')
+    from scbp import signature_scan as ss_900
+    heim = tempfile.mkdtemp(prefix='pruefung900-')
+    alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = heim
+    try:
+        known = ss_900.templates()
+        values = sorted(set(ss_900.possible_values()) | {6740, 8740})
+        original = _signaturbilder_617()['6,740#s2']
+        vorher = ss_900.read(original, known, values)
+        pruefe(vorher['wert'] == 6740 and len(vorher['ziffern']) == 4,
+               'Vorbedingung: die Aufnahme liest 6,740 (%r)' % (vorher['wert'],))
+        links = vorher['ziffern'][0][0] - 2
+        gray = [[min(v, 160) if x < links else v for x, v in enumerate(row)]
+                for row in original]
+        reihen = [t for t in ss_900.thresholds(gray)
+                  if ss_900.digit_rows(ss_900.components(gray, t), len(gray[0]), gray, t)]
+        pruefe(len(reihen) == 1,
+               'Vorbedingung: mit gedeckeltem Symbol steht die Reihe nur bei '
+               'einer Schwelle (%r)' % (reihen,))
+        tief = reihen[0] if reihen else 0
+        gray[15][54] = gray[16][54] = tief + 10
+        sechs = ss_900.digit_rows(ss_900.components(gray, tief), len(gray[0]), gray, tief)
+        loecher = (ss_900.holes(ss_900.fill(ss_900.normalize(gray, sechs[0][0], tief)))
+                   if sechs and len(sechs[0]) == 4 else None)
+        pruefe(loecher is not None and loecher[0] == 2 and loecher[1] < 0.5,
+               'Bild ist eine Falle: bei Schwelle %d hat die 6 oben ein zweites '
+               'Loch (%r)' % (tief, loecher))
+        gelesen = ss_900.read(gray, known, values)
+        pruefe(gelesen['wert'] == 6740,
+               'gelesen wird 6,740 über eine höhere Schwelle (%r, Schwelle %r)'
+               % (gelesen['wert'], gelesen['schwelle']))
+        pruefe(gelesen['schwelle'] is not None and gelesen['schwelle'] > tief,
+               'die Lesung stammt aus einer höheren Schwelle als die Reihe '
+               '(%r > %d)' % (gelesen['schwelle'], tief))
+        ohne = ss_900.read(gray, known, [v for v in values if v != 6740])
+        pruefe(ohne['wert'] is None,
+               'ohne 6,740 unter den möglichen Werten bleibt es still, kein '
+               '8,740 (%r)' % (ohne['wert'],))
+    finally:
+        if alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = alt
 
 
 if __name__ == '__main__':
