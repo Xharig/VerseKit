@@ -1049,6 +1049,19 @@ def read(raster, known=None, values=None):
                     best = (distance, value, threshold, digits)
                 elif best is None and (result['abstand'] > distance):
                     result['abstand'] = distance
+    # ⚠ Liest keine Schwelle einen Wert, werden die Ziffernflächen der längsten
+    # Reihe mit jeder höheren Schwelle neu abgetastet. Ist das Ortungssymbol
+    # blass, steht die Reihe nur bei der niedrigsten Schwelle — dort läuft aber
+    # die obere Öffnung einer 6 zu, und sie hat zwei Löcher wie eine 8.
+    if best is None and known and fallback is not None:
+        found_at, digits = fallback
+        for threshold in levels:
+            if threshold <= found_at:
+                continue
+            patterns = [normalize(raster, box, threshold) for box in digits]
+            value, distance = match_values(patterns, known, values)
+            if value is not None and (best is None or distance < best[0]):
+                best = (distance, value, threshold, digits)
     if not known:
         for threshold in levels:
             for digits in digit_rows(boxes(threshold), len(raster[0]),
