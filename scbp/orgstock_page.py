@@ -1095,7 +1095,11 @@ def _material_field(window, form, page, data, redraw):
                 page['values']['unit'] = unit
                 changed = True
         if changed:
-            form.card.after_idle(redraw)
+            # ⚠ Am Fenster, nicht an `form.card`: `redraw` zerstört die Karte.
+            # `after` löscht seinen Befehl nach dem Lauf über den Namen
+            # (Adresse + `<lambda>`), und den trägt dann oft schon ein Rückruf
+            # des neu gebauten Formulars, der damit tot ist.
+            form.card.winfo_toplevel().after_idle(redraw)
 
     # Solange die Warenliste lädt, steht statt der Leermeldung der Ladehinweis.
     line, drop, refresh = _combo_box(
