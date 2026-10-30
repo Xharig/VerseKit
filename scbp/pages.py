@@ -7569,7 +7569,8 @@ def _thanks(fenster, rahmen):
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.
             ('AlyxOne', '', t('s_dk_alyxone_idee'), t('s_dk_alyxone_bugs')),
-            ('ProCodeX', '', '', t('s_dk_procodex_bugs'))):
+            ('ProCodeX', '', '', t('s_dk_procodex_bugs')),
+            ('John-Red', '', '', t('s_dk_johnred_bugs'))):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -8149,6 +8150,14 @@ def _diagnostics(window, frame):
         pictures.append((shown_name, data, kind))
         draw_pictures()
         window.say(t('s_di_bild_dabei') % shown_name)
+        # Ein angehängtes Bild soll mitgehen: Der Schalter der Zustimmung
+        # geht dabei sichtbar an und bleibt gespeichert wie nach einem Klick.
+        if not consent['an']:
+            consent['an'] = True
+            paths.set_setting(BERICHT_ZUSTIMMUNG, True)
+            for switch in consent_switch:
+                if switch.winfo_exists():
+                    switch.draw(True)
 
     _button(window, pictures_row, t('s_di_bild_waehlen'),
             choose_picture).pack(anchor='w')
@@ -8317,6 +8326,9 @@ def _diagnostics(window, frame):
     # ⚠ Gemerkt, sobald der Spieler den Haken einmal setzt — wer
     # Bilder und Berichte schicken will, soll das nicht jedes Mal neu bestätigen.
     consent = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
+    # Der Schalter der Zustimmung, sobald er gebaut ist: `choose_picture`
+    # schaltet ihn ein.
+    consent_switch = []
     sending = [False]
 
     def send_report():
@@ -8434,7 +8446,8 @@ def _diagnostics(window, frame):
         paths.set_setting(BERICHT_ZUSTIMMUNG, consent['an'])
         return consent['an']
 
-    _toggle(consent_row, consent['an'], toggle_consent).pack(side='left')
+    consent_switch.append(_toggle(consent_row, consent['an'], toggle_consent))
+    consent_switch[0].pack(side='left')
     tk.Label(consent_row,
              text=(t('s_di_zustimmung_bilder') % _scan_count if _scan_count
                    else t('s_di_zustimmung')),

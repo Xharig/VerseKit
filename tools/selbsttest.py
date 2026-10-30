@@ -25861,6 +25861,8 @@ def main():
     _pruefung_625()
     _pruefung_626()
     _pruefung_627()
+    _pruefung_628()
+    _pruefung_629()
     _pruefung_900()
 
     print()
@@ -58118,6 +58120,193 @@ def _seite625(erwartet):
             _w625.destroy()
         except Exception:
             pass
+
+
+def _pruefung_628():
+    """628. Fehlerseite: Ein angehängtes Bild schaltet die Zustimmung ein.
+
+    Über den echten Knopf „Bild wählen": Die Dateiauswahl und das Einlesen
+    sind ersetzt. Ein Bild, das angenommen wird, schaltet den Schalter sichtbar
+    an und speichert die Zustimmung; eine abgelehnte Datei lässt beides aus.
+    """
+    print('\n628. Fehlerseite: Bild anhängen schaltet die Zustimmung ein')
+    if not hat_anzeige():
+        uebersprungen('628 Bild anhängen')
+        return
+    import tkinter as tk
+    from scbp import (main_window as main_628, pages as pages_628,
+                      paths as paths_628, report as report_628,
+                      file_picker as picker_628)
+    from scbp.language import t as t_628
+    saved_setting = paths_628.settings().get(pages_628.BERICHT_ZUSTIMMUNG)
+    saved = (picker_628.open_file, report_628.load_image)
+
+    def page_parts(frame):
+        widgets = []
+
+        def collect(widget):
+            for child in widget.winfo_children():
+                widgets.append(child)
+                collect(child)
+        collect(frame.pages['diagnose'])
+        button = switch = None
+        for widget in widgets:
+            if not isinstance(widget, tk.Canvas):
+                continue
+            if getattr(widget, 'is_button', False):
+                for item in widget.find_all():
+                    if (widget.type(item) == 'text' and widget.itemcget(
+                            item, 'text') == t_628('s_di_bild_waehlen')):
+                        button = widget
+            elif callable(getattr(widget, 'draw', None)):
+                # Der Schalter der Zustimmung: neben ihm steht ihr Text.
+                texts = [str(w.cget('text')) for w in widget.master.winfo_children()
+                         if isinstance(w, tk.Label)]
+                if any(text.startswith(t_628('s_di_zustimmung')[:20])
+                       for text in texts):
+                    switch = widget
+        return button, switch
+
+    def switch_on(switch):
+        return any(switch.type(item) == 'oval'
+                   and switch.itemcget(item, 'fill') == main_628.ACCENT
+                   for item in switch.find_all())
+
+    try:
+        for case, answer, wanted in (
+                ('abgelehnt', (None, None, 's_di_bild_art'), False),
+                ('angenommen', (b'\x89PNG\r\n\x1a\n', 'png', None), True)):
+            paths_628.set_setting(pages_628.BERICHT_ZUSTIMMUNG, False)
+            picker_628.open_file = lambda *_a, **_k: os.path.join(
+                tempfile.gettempdir(), 'pruefung628.png')
+            report_628.load_image = lambda _path, a=answer: a
+            root = _wurzel()
+            try:
+                root.deiconify()
+                root.geometry('1200x900')
+                frame = main_628.MainWindow(root, version='0.0.0-pruefung')
+                frame.open_page('diagnose')
+                root.update()
+                button, switch = page_parts(frame)
+                pruefe(button is not None and switch is not None
+                       and not switch_on(switch),
+                       '628 %s: Vorbedingung, Knopf und Schalter da, der '
+                       'Schalter steht aus' % case)
+                if button is None or switch is None:
+                    continue
+                button.event_generate('<Button-1>')
+                root.update()
+                stored = paths_628.setting_bool(pages_628.BERICHT_ZUSTIMMUNG,
+                                                False)
+                pruefe(stored == wanted and switch_on(switch) == wanted,
+                       '628 %s: Zustimmung gespeichert %s, Schalter an %s '
+                       '(erwartet %s)' % (case, stored, switch_on(switch),
+                                          wanted))
+            finally:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+        pruefe('Schalter' in t_628('s_di_erst_bestaetigen')
+               and 'Haken' not in t_628('s_di_erst_bestaetigen'),
+               '628: der Hinweis ohne Zustimmung nennt den Schalter, nicht '
+               'einen Haken')
+    finally:
+        picker_628.open_file, report_628.load_image = saved
+        paths_628.set_setting(pages_628.BERICHT_ZUSTIMMUNG, saved_setting)
+
+
+def _pruefung_629():
+    """629. Bauplan-Liste: Art im Feld und Sprung aus dem Fortschritt
+    widersprechen sich nicht.
+
+    Nachgestellt: Sprung aus dem Fortschritt auf die Helme, danach im Feld die
+    Art „Ausrüstung". Das Feld nennt eine Zahl größer 0; die Liste muss sie
+    zeigen, und `collection_window.filter_leer` darf nicht anschlagen.
+    Dazu der Rückweg (Art gewählt, dann Sprung) und ein angeklickter
+    Auftrag, dessen leere Schnittmenge ehrlich ist.
+    """
+    print('\n629. Bauplan-Liste: Art im Feld nach einem Sprung aus dem '
+          'Fortschritt')
+    from scbp import (catalog as ka_629, collection_window as cw_629,
+                      errors as errors_629, paths as paths_629)
+    helme = ['Pruefhelm %d' % i for i in range(3)]
+    aufsaetze = ['Pruefaufsatz %d' % i for i in range(4)]
+    eintraege = {ka_629._norm(n): {'n': n, 'a': 'Char_Armor_Helmet'}
+                 for n in helme}
+    eintraege.update({ka_629._norm(n): {'n': n, 'a': 'WeaponAttachment'}
+                      for n in aufsaetze})
+    kat_pfad = paths_629.app_file(ka_629.CACHE)
+    kat_alt = open(kat_pfad, 'rb').read() if os.path.isfile(kat_pfad) else None
+    record_echt = errors_629.record
+    gemeldet = []
+
+    def record_merkend(stelle, *args, **kwargs):
+        if stelle == 'collection_window.filter_leer':
+            gemeldet.append(stelle)
+        return record_echt(stelle, *args, **kwargs)
+
+    root = None
+    try:
+        with open(kat_pfad, 'w', encoding='utf-8') as f629:
+            json.dump({'bauplaene': eintraege}, f629)
+        errors_629.record = record_merkend
+        root = _wurzel()
+        liste = cw_629.Bestandsfenster(root)
+        for _ in range(3):
+            root.update(); root.update_idletasks()
+        helm_art = ka_629.kind_readable(ka_629.kind_id(
+            {'n': helme[0], 'a': 'Char_Armor_Helmet'}))
+
+        def gezeigt():
+            return sorted(e['n'] for _art, treffer in liste._auswahl()
+                          for e, _drin in treffer)
+
+        zahl = 0
+        for wert, beschriftung in liste._oberkategorien():
+            if wert == 'ausruestung':
+                zahl = int(beschriftung.rsplit('(', 1)[-1].rstrip(')'))
+        pruefe(zahl == len(aufsaetze),
+               '629 Vorbedingung: das Feld nennt Ausrüstung (%d)' % zahl)
+        pruefe(liste.zur_art(helm_art) and gezeigt() == sorted(helme),
+               '629 Vorbedingung: der Sprung aus dem Fortschritt zeigt die '
+               'Helme (%s)' % gezeigt())
+        liste._fein_setzen('art', 'ausruestung')
+        root.update()
+        pruefe(gezeigt() == sorted(aufsaetze) and not gemeldet,
+               '629 a) danach Art „Ausrüstung": die Liste zeigt die %d der '
+               'Zahl im Feld (%s), keine Meldung filter_leer (%d)'
+               % (zahl, gezeigt(), len(gemeldet)))
+        liste.zur_art(helm_art)
+        root.update()
+        pruefe(gezeigt() == sorted(helme) and not liste.fein.get('art'),
+               '629 b) Sprung aus dem Fortschritt nach gewählter Art: die '
+               'Helme, die Art ist zurückgesetzt (%s, %r)'
+               % (gezeigt(), liste.fein.get('art')))
+        liste._alles_leeren()
+        liste.auftrag = 'Pruefauftrag ohne Bauplan'
+        liste._fein_setzen('art', 'ausruestung')
+        root.update()
+        pruefe(gezeigt() == [] and not gemeldet,
+               '629 c) mit angeklicktem Auftrag ist die leere Liste ehrlich, '
+               'keine Meldung filter_leer (%d)' % len(gemeldet))
+    finally:
+        errors_629.record = record_echt
+        try:
+            if root is not None:
+                root.destroy()
+        except Exception:
+            pass
+        if kat_alt is None:
+            try:
+                os.remove(kat_pfad)
+            except OSError:
+                pass
+        else:
+            with open(kat_pfad, 'wb') as f629:
+                f629.write(kat_alt)
+
+
 def _pruefung_900():
     """900. Blasses Ortungssymbol, die 6 schließt sich bei niedriger Schwelle.
 

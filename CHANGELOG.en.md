@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Images in the error report** — attaching an image now also turns on the
+  switch “I want to send the report to the developer”. Without consent, the
+  hint now names the switch instead of a tick box. Reported by John-Red
+- **Empty blueprint list after the progress** — jumping from the blueprint
+  progress into the list and then picking a kind (say “Gear”) shows its
+  blueprints again instead of an empty list.
+
 ## v4.12.4 - 2026-10-29
 
 > If you changed your player name, your blueprints are counted again,

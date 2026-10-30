@@ -2415,7 +2415,8 @@ TEXTS = {
     's_di_zustimmung': ('Ich möchte den Bericht an den Entwickler senden', 'I want to send the report to the developer'),
     's_di_zustimmung_bilder': ('Ich möchte den Bericht und meine %d Scan-Bilder (Signatur und Raffinerie) an den Entwickler senden',
                                'I want to send the report and my %d scan images (signature and refinery) to the developer'),
-    's_di_erst_bestaetigen': ('Erst den Haken unter „Absenden" setzen.', 'Tick the box below "Send" first.'),
+    's_di_erst_bestaetigen': ('Erst den Schalter „Ich möchte den Bericht an den Entwickler senden" unter den Knöpfen einschalten.',
+                              'First turn on the switch "I want to send the report to the developer" below the buttons.'),
     's_di_ab_ok':      ('Bericht ist angekommen. Danke!', 'Report received. Thank you!'),
     's_di_ab_weg':     ('Senden ging nicht: %s', 'Sending did not work: %s'),
     'm_bericht_kein_ziel': ('In dieser Fassung ist kein Ziel eingebaut.',
@@ -3292,6 +3293,12 @@ TEXTS = {
                               'very wide screen (3840 × 1080) it misread them, '
                               'for example 56,000 as 16,000. The values now '
                               'match.'),
+    's_dk_johnred_bugs':     ('**Bilder im Fehlerbericht gingen nicht mit** — der '
+                              'Schalter für die Zustimmung war kaum zu finden. '
+                              'Jetzt schaltet ein angehängtes Bild ihn selbst ein.',
+                              '**Images in the error report did not go along** — '
+                              'the switch for the consent was hard to find. Now '
+                              'an attached image turns it on by itself.'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '
