@@ -198,6 +198,18 @@ for _kennung, _ordner, _anzeige, _flagge, _textschluessel in (
     }
 del _kennung, _ordner, _anzeige, _flagge, _textschluessel
 
+# ⚠ Nederlands und Português (Portugal) sind keine Sprachen des Spiels, und
+# Star Citizen lädt nur seine eigenen Sprachordner. Die Datei kommt deshalb in
+# einen Ordner, den das Spiel kennt, und ersetzt dort dessen Texte; die
+# Adresse bei der Quelle bleibt die der eigentlichen Sprache.
+for _kennung, _traeger in (('luftwerft_nl', 'english'),
+                           ('luftwerft_pt', 'portuguese_(brazil)')):
+    # Auf der Seite stehen sie weiter in einer eigenen Reihe ihrer Sprache.
+    SOURCES[_kennung]['gruppe'] = SOURCES[_kennung]['sprache']
+    SOURCES[_kennung]['sprache'] = _traeger
+    SOURCES[_kennung]['ton'] = 'english' if _traeger != 'english' else None
+del _kennung, _traeger
+
 # ⭐ Die eigene Adresse (v3.59.0, wie SC Deutsch Launcher und SCLC): Der
 # Spieler trägt selbst ein, wo eine Übersetzung liegt. Keine Zeile in
 # `SOURCES` — Adresse und Sprachordner stehen je Kanal in den Einstellungen.
@@ -214,9 +226,9 @@ GAME_LANGUAGES = ('english', 'german_(germany)', 'french_(france)',
                   'italian_(italy)', 'spanish_(spain)', 'portuguese_(brazil)',
                   'turkish_(turkey)', 'chinese_(simplified)',
                   'korean_(south_korea)', 'japanese_(japan)', 'polish_(poland)')
-# Sprachordner von Übersetzungen, die keine Sprachen des Spiels sind: Ordner
-# und `g_language` heißen so, wie die Quelle sie nennt.
-COMMUNITY_LANGUAGES = ('dutch_(netherlands)', 'portuguese_(portugal)')
+# Sprachordner außerhalb der Spielsprachen. Leer: Das Spiel lädt nur seine
+# eigenen, fremde Sprachen nutzen einen davon als Träger (siehe oben).
+COMMUNITY_LANGUAGES = ()
 # Mehr als das lädt niemand als Textdatei (die echte hat rund 16 MB).
 CUSTOM_MAX_BYTES = 80 * 1048576
 
@@ -378,7 +390,8 @@ def grouped_sources(channel=None, with_original=True):
     for key, spec in SOURCES.items():
         if not available(key, channel):
             continue
-        by_language.setdefault(spec.get('sprache') or '', []).append(key)
+        by_language.setdefault(spec.get('gruppe') or spec.get('sprache') or '',
+                               []).append(key)
     if with_original:
         # Das Originalenglisch aus dem Spiel gehört zu den englischen.
         by_language.setdefault('english', []).append('original')

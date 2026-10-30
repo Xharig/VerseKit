@@ -17,7 +17,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Two new translations from Luftwerft** — Dutch (Nederlands) and
   Portuguese (Português), each for the main installation and the PTU,
-  selectable under “Translation”.
+  selectable under “Translation”. As the game only loads its own languages,
+  Dutch takes the place of English and Portuguese that of Português
+  (Brasil).
 
 ### Fixed
 

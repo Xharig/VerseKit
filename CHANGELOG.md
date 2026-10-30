@@ -17,7 +17,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 ### Neu
 
 - **Zwei neue Übersetzungen von Luftwerft** — Nederlands und Português, je
-  für die Hauptinstallation und das PTU, wählbar unter „Übersetzung“.
+  für die Hauptinstallation und das PTU, wählbar unter „Übersetzung“. Weil
+  das Spiel nur seine eigenen Sprachen lädt, tritt Nederlands an die Stelle
+  von Englisch und Português an die von Português (Brasil).
 
 ### Behoben
 
