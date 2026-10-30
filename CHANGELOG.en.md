@@ -24,6 +24,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Images in the error report** — attaching an image now also turns on the
   switch “I want to send the report to the developer”. Without consent, the
   hint now names the switch instead of a tick box. Reported by John-Red
+- **Booking into the unit's stock** — after picking an item, the quantity
+  typed in reliably reaches the booking, and every button of the form
+  responds.
 - **Empty blueprint list after the progress** — jumping from the blueprint
   progress into the list and then picking a kind (say “Gear”) shows its
   blueprints again instead of an empty list.

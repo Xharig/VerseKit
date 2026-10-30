@@ -25,6 +25,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Schalter „Ich möchte den Bericht an den Entwickler senden“ gleich mit ein.
   Ohne Zustimmung nennt der Hinweis jetzt den Schalter statt eines Hakens.
   Gemeldet von John-Red
+- **Einbuchen ins Lager der Einheit** — nach der Wahl eines Gegenstands kommt
+  die getippte Menge zuverlässig in der Buchung an, und alle Knöpfe des
+  Formulars reagieren.
 - **Leere Bauplan-Liste nach dem Fortschritt** — wer aus dem
   Bauplan-Fortschritt in die Liste springt und danach eine Art wählt
   (etwa „Ausrüstung“), sieht wieder deren Baupläne statt einer leeren Liste.
