@@ -649,7 +649,7 @@ As a base for the blueprint details you can pick **[StarStrings](https://github.
 
 **German translation by rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), one of the translations Verse-Kit offers to choose from. Verse-Kit does **not bundle** it and never passes on a modified copy — it only extends the file on your own machine, and the **source note in its first line is left untouched**.
 
-**The other translations** come from **Dymerz** (German, French, Italian, Spanish, Portuguese, Turkish), **Thord82** (Spanish, PTU too) and **MrKraken** (StarStrings, English with contract markers). These are **not bundled** either — Verse-Kit fetches the one you pick on your machine and keeps it current. **Thanks** to Dymerz, Thord82 and MrKraken! 🙏
+**The other translations** come from **Luftwerft** (SC Launch Configurator: German, English, French, Italian, Spanish, Dutch, Portuguese, for LIVE and PTU), **Dymerz** (German, French, Italian, Spanish, Portuguese, Turkish), **Thord82** (Spanish, PTU too) and **MrKraken** (StarStrings, English with contract markers). These are **not bundled** either — Verse-Kit fetches the one you pick on your machine and keeps it current. **Thanks** to Luftwerft, Dymerz, Thord82 and MrKraken! 🙏
 
 **Resource prices** come from **[UEX Corp](https://uexcorp.space)** — a data project maintained by players. That is what puts a price next to every missing ingredient, or says it cannot be bought at all. These data are **not bundled** either; they are fetched on your machine, at most once a day. **Thanks** to UEX Corp! 🙏
 

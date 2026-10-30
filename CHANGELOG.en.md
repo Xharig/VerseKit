@@ -6,7 +6,12 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v4.12.5 - 2026-10-30
+
+> The Translation page has two new languages from Luftwerft: Dutch and
+> Portuguese, for the main installation and the PTU. Attaching an image to
+> the error report now also turns on the consent to send it. And the
+> blueprint list no longer stays empty after a jump from the progress.
 
 ### New
 

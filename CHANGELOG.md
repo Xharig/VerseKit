@@ -6,7 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v4.12.5 - 2026-10-30
+
+> Auf der Seite Übersetzung gibt es zwei neue Sprachen von Luftwerft:
+> Nederlands und Português, für die Hauptinstallation und das PTU. Wer im
+> Fehlerbericht ein Bild anhängt, schaltet die Zustimmung zum Senden gleich
+> mit ein. Und die Bauplan-Liste bleibt nach einem Sprung aus dem
+> Fortschritt nicht mehr leer.
 
 ### Neu
 

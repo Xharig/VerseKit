@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '4.12.4'
+__version__ = '4.12.5'
 
 # Zeitpunkt des Programmstarts — misst, wie lange das Programm schon läuft
 # (siehe `Overlay.AUTO_UPDATE_VISIBLE_S`).

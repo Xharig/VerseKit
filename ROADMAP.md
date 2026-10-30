@@ -95,7 +95,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Einstellungen neu gegliedert**, **Module** ausblendbar, **Startprogramme** mit dem Spiel, die **user.cfg** sichtbar und bearbeitbar, unter Linux **MangoHud** per Schalter |
 | ✅ | **Das Overlay nimmt dem Spiel nie den Fokus** — auch nicht, wenn der unsichtbare Mauszeiger darüber steht |
 | ✅ | **Übersetzung je Kanal**: welche Textdatei Star Citizen liest — für LIVE und PTU getrennt einstellbar, die Hauptinstallation dazu mit den Bauplan-Angaben |
-| ✅ | **Sieben Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst; oder **gar keine**, dann bleibt die Textdatei unberührt |
+| ✅ | **Acht Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe, Nederlands und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst; oder **gar keine**, dann bleibt die Textdatei unberührt |
 | ✅ | **Alle Baupläne oder nur die erspielbaren**: Das Spiel kann rund 1.600 Dinge herstellen, über Aufträge zu bekommen sind 738 — ein Schalter entscheidet, was in Liste und Fortschritt zählt |
 | ✅ | **Abgleich mit dem KRT Profit Basetool**: Baupläne, Lager und Hangar in beide Richtungen — verbunden per Code im Browser, jeder Bereich einzeln einschaltbar |
 | ✅ | **Bilder im Fehlerbericht** — bis zu vier Bildschirmfotos gehen mit „Absenden" mit, ohne versteckte Zusatzangaben |
