@@ -178,7 +178,11 @@ for _kennung, _ordner, _anzeige, _flagge, _textschluessel in (
         ('luftwerft_it', 'italian_(italy)',   'Italiano (Luftwerft)', 'it',
          's_sp_q_lw_it'),
         ('luftwerft_es', 'spanish_(spain)',   'Español (Luftwerft)',  'es',
-         's_sp_q_lw_es')):
+         's_sp_q_lw_es'),
+        ('luftwerft_nl', 'dutch_(netherlands)',    'Nederlands (Luftwerft)',
+         'nl', 's_sp_q_lw_nl'),
+        ('luftwerft_pt', 'portuguese_(portugal)',  'Português (Luftwerft)',
+         'pt', 's_sp_q_lw_pt')):
     SOURCES[_kennung] = {
         'url':      '%s/LIVE/%s/global.ini' % (_LUFTWERFT, _ordner),
         'sprache':  _ordner,
@@ -210,6 +214,9 @@ GAME_LANGUAGES = ('english', 'german_(germany)', 'french_(france)',
                   'italian_(italy)', 'spanish_(spain)', 'portuguese_(brazil)',
                   'turkish_(turkey)', 'chinese_(simplified)',
                   'korean_(south_korea)', 'japanese_(japan)', 'polish_(poland)')
+# Sprachordner von Übersetzungen, die keine Sprachen des Spiels sind: Ordner
+# und `g_language` heißen so, wie die Quelle sie nennt.
+COMMUNITY_LANGUAGES = ('dutch_(netherlands)', 'portuguese_(portugal)')
 # Mehr als das lädt niemand als Textdatei (die echte hat rund 16 MB).
 CUSTOM_MAX_BYTES = 80 * 1048576
 
@@ -711,16 +718,20 @@ def looks_like_global_ini(content):
 
 
 def _known_language(sprache):
-    """Ist `sprache` einer der Sprachordner des Spiels — in beliebiger
-    Groß- und Kleinschreibung, wie sie in einer `user.cfg` stehen kann?"""
-    return isinstance(sprache, str) and sprache.lower() in GAME_LANGUAGES
+    """Ist `sprache` einer der Sprachordner des Spiels oder einer Quelle
+    (`COMMUNITY_LANGUAGES`) — in beliebiger Groß- und Kleinschreibung, wie sie
+    in einer `user.cfg` stehen kann?"""
+    return isinstance(sprache, str) and (
+        sprache.lower() in GAME_LANGUAGES
+        or sprache.lower() in COMMUNITY_LANGUAGES)
 
 
 def target_ini(sprache, game_dir=None):
     """Wohin die Datei gehört. Ein vorhandener `Data`-Ordner wird beibehalten,
     sonst wird `data` angelegt — Linux unterscheidet die beiden.
 
-    Nur für Sprachordner aus `GAME_LANGUAGES`; sonst `None`."""
+    Nur für Sprachordner aus `GAME_LANGUAGES` und `COMMUNITY_LANGUAGES`;
+    sonst `None`."""
     if not _known_language(sprache):
         return None
     root = game_dir or paths.game_folder()
@@ -775,7 +786,8 @@ def set_user_cfg(sprache, audio=None, game_dir=None):
     Schaden — deshalb wird zeilenweise gelesen und nur die betroffene Zeile
     ausgetauscht.
 
-    Nur für Sprachordner aus `GAME_LANGUAGES` — ein Wert mit Zeilenumbruch
+    Nur für Sprachordner aus `GAME_LANGUAGES` und `COMMUNITY_LANGUAGES` — ein
+    Wert mit Zeilenumbruch
     ergäbe sonst eigene Zeilen in der `user.cfg`."""
     if not _known_language(sprache) or (audio and not _known_language(audio)):
         return False

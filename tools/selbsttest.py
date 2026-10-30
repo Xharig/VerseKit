@@ -25864,6 +25864,7 @@ def main():
     _pruefung_628()
     _pruefung_629()
     _pruefung_900()
+    _pruefung_901()
 
     print()
     if fehler:
@@ -58360,6 +58361,71 @@ def _pruefung_900():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = alt
+
+
+def _pruefung_901():
+    """901. Nederlands und Português von Luftwerft, LIVE und PTU.
+
+    Die zwei Sprachen sind keine Sprachordner des Spiels: Ordner und
+    `g_language` heißen, wie Luftwerft sie nennt. Geprüft wird über die echten
+    Wege: Adresse je Kanal, Gruppe auf „Übersetzung", Zielordner und die Zeile
+    in der `user.cfg` eines Spielordners im Wegwerf-Ordner.
+    """
+    print('\n901. Übersetzung: Nederlands, Português (Luftwerft)')
+    from scbp import translation as tr_901
+    from scbp import language as la_901
+    basis = 'https://www.luftwerft.com/download/resources/localizations'
+    neu = (('luftwerft_nl', 'dutch_(netherlands)', 'Nederlands (Luftwerft)', 'nl'),
+           ('luftwerft_pt', 'portuguese_(portugal)', 'Português (Luftwerft)', 'pt'))
+    heim = tempfile.mkdtemp(prefix='pruefung901-')
+    spiel = os.path.join(heim, 'StarCitizen', 'LIVE')
+    os.makedirs(spiel)
+    with open(os.path.join(spiel, 'user.cfg'), 'w', encoding='utf-8') as f901:
+        f901.write('r_VSync = 0\ng_language = english\n')
+    for kennung, ordner, name, flagge in neu:
+        live = tr_901._spec(kennung)
+        ptu = tr_901._spec(kennung, 'PTU')
+        pruefe(live is not None and ptu is not None
+               and live['url'] == '%s/LIVE/%s/global.ini' % (basis, ordner)
+               and ptu['url'] == '%s/PTU/%s/global.ini' % (basis, ordner)
+               and tr_901._spec(kennung, 'EPTU')['url'] == ptu['url'],
+               '%s: Adresse für LIVE und PTU (%r, %r)'
+               % (kennung, live and live['url'], ptu and ptu['url']))
+        pruefe(tr_901.language_folder(kennung) == ordner
+               and tr_901.language_folder(kennung, 'PTU') == ordner
+               and live['ton'] == 'english' and live['flagge'] == flagge,
+               '%s: Ordner %s, Sprachausgabe englisch, Flagge %s'
+               % (kennung, ordner, flagge))
+        pruefe(la_901.TEXTS[live['label']] == (name, name),
+               '%s: Name auf Deutsch und Englisch (%r)'
+               % (kennung, la_901.TEXTS.get(live['label'])))
+        for kanal in (None, 'PTU'):
+            gruppen = tr_901.grouped_sources(kanal)
+            pruefe([kennung] in gruppen,
+                   '%s: eigene Gruppe auf „Übersetzung" (%s)'
+                   % (kennung, kanal or 'LIVE'))
+        ziel = tr_901.target_ini(ordner, spiel)
+        pruefe(ziel == os.path.join(spiel, 'data', 'Localization', ordner,
+                                    'global.ini'),
+               '%s: Zielordner im Spiel (%r)' % (kennung, ziel))
+        gesetzt = tr_901.set_user_cfg(ordner, 'english', spiel)
+        with open(os.path.join(spiel, 'user.cfg'), encoding='utf-8') as f901:
+            cfg = f901.read()
+        pruefe(gesetzt and ('g_language = %s' % ordner) in cfg
+               and 'g_languageAudio = english' in cfg and 'r_VSync = 0' in cfg,
+               '%s: user.cfg nennt den Ordner, der Rest bleibt (%r)'
+               % (kennung, cfg))
+    pruefe(tr_901.target_ini('klingon_(qonos)', spiel) is None
+           and not tr_901.set_user_cfg('klingon_(qonos)', None, spiel),
+           'ein unbekannter Ordner bleibt draußen')
+    pruefe(tr_901._known_language('Dutch_(Netherlands)'),
+           'Groß- und Kleinschreibung wie in einer user.cfg')
+    pruefe(all(o not in tr_901.GAME_LANGUAGES for _, o, _, _ in neu),
+           'die eigene Adresse bietet weiter nur die Sprachen des Spiels an')
+    pruefe('luftwerft_bar' not in tr_901.SOURCES
+           and not tr_901._known_language('bavarian_(germany)'),
+           'Boarisch gibt es in dieser Fassung nicht')
+    shutil.rmtree(heim, ignore_errors=True)
 
 
 if __name__ == '__main__':
