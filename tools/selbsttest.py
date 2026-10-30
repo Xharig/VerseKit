@@ -47495,7 +47495,14 @@ def _pruefung_471():
             _name = _feld.cget('textvariable')
             pruefe(bool(_name), 'Vorbedingung: Feld %d hat seine Variable'
                    % nummer)
-            _root.setvar(_name, text)
+            # Ein toter Rückruf an der Variablen ist ein Fund dieser Prüfung,
+            # kein Abbruch des ganzen Laufs.
+            try:
+                _root.setvar(_name, text)
+            except tk.TclError as _fehler:
+                pruefe(False, 'Feld %d nimmt den Text an (%s)'
+                       % (nummer, _fehler))
+                return
             # Die Auswahlliste der Ware filtert erst nach der Tipp-Pause
             # (`main_window.TYPING_DELAY_MS`); die übrigen Felder nicht.
             _bis = time.time() + (0.6 if nummer == 0 else 0)
@@ -47552,7 +47559,34 @@ def _pruefung_471():
                'Art')
         if _zeile471 is None:
             return
-        _klick(_zeile471)
+        # ⚠ Die Auswahl stellt auf Stück und baut das Formular neu. Ein
+        # Rückruf aus `after_idle` darf dabei nicht das Widget zerstören, an
+        # dem er hängt: `after` löscht danach seinen Befehl über den Namen,
+        # und den trägt oft schon ein Rückruf des neuen Formulars (Adresse +
+        # `<lambda>`) — ein Feld verliert so seine Beobachtung, mal hier, mal
+        # erst Schritte später.
+        _selbst_zerstoert471 = []
+        _after_idle471 = tk.Misc.after_idle
+
+        def _after_idle_beobachtet(widget, func, *args):
+            def _lauf(*a):
+                try:
+                    return func(*a)
+                finally:
+                    try:
+                        if not widget.winfo_exists():
+                            _selbst_zerstoert471.append(str(widget))
+                    except tk.TclError:
+                        _selbst_zerstoert471.append(str(widget))
+            return _after_idle471(widget, _lauf, *args)
+        tk.Misc.after_idle = _after_idle_beobachtet
+        try:
+            _klick(_zeile471)
+        finally:
+            tk.Misc.after_idle = _after_idle471
+        pruefe(not _selbst_zerstoert471,
+               'der Neubau nach der Auswahl hängt an einem Widget, das ihn '
+               'überlebt (zerstört: %r)' % _selbst_zerstoert471)
         _form471 = _formular()
         if _form471 is None:
             pruefe(False, 'nach der Auswahl steht das Formular noch')
