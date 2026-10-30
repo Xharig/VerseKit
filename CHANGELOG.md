@@ -25,6 +25,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Schalter „Ich möchte den Bericht an den Entwickler senden“ gleich mit ein.
   Ohne Zustimmung nennt der Hinweis jetzt den Schalter statt eines Hakens.
   Gemeldet von John-Red
+- **Auswahllisten bleiben offen** — eine aufgeklappte Liste (etwa Art oder
+  Größe in der Bauplan-Liste) schließt sich nicht mehr von selbst, wenn sich
+  im Fenster etwas auffrischt, sondern erst bei einer Wahl, einem Klick
+  daneben oder wenn das Fenster bewegt wird.
 - **Einbuchen ins Lager der Einheit** — nach der Wahl eines Gegenstands kommt
   die getippte Menge zuverlässig in der Buchung an, und alle Knöpfe des
   Formulars reagieren.

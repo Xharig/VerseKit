@@ -1916,11 +1916,29 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
                 # Dasselbe gilt, wenn das Fenster verschoben oder in der Grösse
                 # geändert wird: Die Liste stünde dann neben ihrem Feld.
                 root_window = c.winfo_toplevel()
+                place = (root_window.winfo_width(), root_window.winfo_height(),
+                         root_window.winfo_rootx(), root_window.winfo_rooty())
+
+                def close_on_move(event):
+                    # ⚠⚠ Das Hauptfenster steht in den `bindtags` jedes
+                    # Kindes: `<Configure>` kommt hier auch, wenn sich nur ein
+                    # Bauteil darin neu anordnet (die Spielzeit oben, die
+                    # Liste nach einem Fund). Geschlossen wird nur, wenn das
+                    # Fenster selbst wandert oder seine Größe ändert.
+                    if event.widget is not root_window:
+                        return
+                    now = (root_window.winfo_width(), root_window.winfo_height(),
+                           root_window.winfo_rootx(), root_window.winfo_rooty())
+                    if now != place:
+                        close_list()
+
                 guards = []
-                for event in ('<MouseWheel>', '<Button-4>', '<Button-5>',
-                                 '<Configure>'):
+                for event in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
                     guards.append((event,
                                    root_window.bind(event, close_list, add='+')))
+                guards.append(('<Configure>',
+                               root_window.bind('<Configure>', close_on_move,
+                                                add='+')))
                 state['guards'] = guards
             except tk.TclError:
                 pass

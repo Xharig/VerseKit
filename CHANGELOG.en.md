@@ -24,6 +24,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Images in the error report** — attaching an image now also turns on the
   switch “I want to send the report to the developer”. Without consent, the
   hint now names the switch instead of a tick box. Reported by John-Red
+- **Drop-down lists stay open** — an opened list (such as kind or size in
+  the blueprint list) no longer closes by itself when something in the
+  window refreshes, only on a choice, a click elsewhere or when the window
+  is moved.
 - **Booking into the unit's stock** — after picking an item, the quantity
   typed in reliably reaches the booking, and every button of the form
   responds.

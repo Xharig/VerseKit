@@ -25865,6 +25865,7 @@ def main():
     _pruefung_629()
     _pruefung_900()
     _pruefung_901()
+    _pruefung_902()
 
     print()
     if fehler:
@@ -58395,6 +58396,58 @@ def _pruefung_900():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = alt
+
+
+def _pruefung_902():
+    """902. Aufgeklappte Auswahlliste bleibt offen, wenn sich im Fenster etwas
+    neu anordnet.
+
+    Die Wache gegen Verschieben hängt am Hauptfenster, und dessen Name steht in
+    den `bindtags` jedes Kindes: Ein Bauteil, das seine Größe ändert (die
+    Spielzeit oben, die Liste nach einem Fund), schloss die Liste mit.
+    Geschlossen werden darf sie nur, wenn das Fenster selbst wandert oder seine
+    Größe ändert.
+    """
+    print('\n902. Auswahlliste: bleibt offen, wenn sich im Fenster etwas neu anordnet')
+    import time as time_902
+    import tkinter as tk_902
+    from scbp import main_window as mw_902
+
+    fenster = tk_902.Tk()
+
+    def warten(sekunden):
+        ende = time_902.time() + sekunden
+        while time_902.time() < ende:
+            fenster.update()
+            time_902.sleep(0.02)
+
+    try:
+        fenster.geometry('900x600+40+40')
+        zeile = tk_902.Label(fenster, text='436 h 04 min')
+        zeile.pack()
+        feld = mw_902.round_select(fenster, [('', 'Alle Arten'), ('a', 'Rüstung')],
+                                   '', lambda _wert: None, ('TkDefaultFont', 10))
+        feld.pack()
+        warten(0.2)
+
+        def offen():
+            return [k for k in feld.winfo_children()
+                    if isinstance(k, tk_902.Toplevel) and k.winfo_exists()]
+
+        feld.event_generate('<Button-1>', x=5, y=5)
+        # Die Wachen greifen erst nach 250 ms.
+        warten(0.6)
+        pruefe(bool(offen()), 'Vorbedingung: die Liste ist aufgeklappt')
+        zeile.configure(text='436 h 05 min, mit einem deutlich längeren Text')
+        warten(0.4)
+        pruefe(bool(offen()),
+               'ein Bauteil im Fenster ordnet sich neu an: die Liste bleibt offen')
+        fenster.geometry('700x500+60+60')
+        warten(0.4)
+        pruefe(not offen(),
+               'das Fenster ändert Größe und Lage: die Liste schließt sich')
+    finally:
+        fenster.destroy()
 
 
 def _pruefung_901():
