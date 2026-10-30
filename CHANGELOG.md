@@ -8,6 +8,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Zwei neue Übersetzungen von Luftwerft** — Nederlands und Português, je
+  für die Hauptinstallation und das PTU, wählbar unter „Übersetzung“.
+
 ### Behoben
 
 - **Bilder im Fehlerbericht** — wer ein Bild anhängt, schaltet damit den

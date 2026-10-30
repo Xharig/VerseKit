@@ -2102,6 +2102,8 @@ TEXTS = {
     's_sp_q_lw_fr':    ('Français (Luftwerft)', 'Français (Luftwerft)'),
     's_sp_q_lw_it':    ('Italiano (Luftwerft)', 'Italiano (Luftwerft)'),
     's_sp_q_lw_es':    ('Español (Luftwerft)', 'Español (Luftwerft)'),
+    's_sp_q_lw_nl':    ('Nederlands (Luftwerft)', 'Nederlands (Luftwerft)'),
+    's_sp_q_lw_pt':    ('Português (Luftwerft)', 'Português (Luftwerft)'),
     # ⚠ Der Wortlaut ist mit dem Urheber der Übersetzung abgestimmt — nicht
     # eigenmächtig kürzen.
     's_sp_hinweis_luftwerft':
@@ -2698,12 +2700,14 @@ TEXTS = {
                         '„Übersetzung".',
                         'Spanish translation for LIVE and PTU — selectable under '
                         '“Translation”.'),
-    's_dk_luftwerft':  ('Deutsch, Englisch, Français, Italiano und Español für '
+    's_dk_luftwerft':  ('Deutsch, Englisch, Français, Italiano, Español, '
+                        'Nederlands und Português für '
                         'LIVE und PTU, vom Entwickler des SC Launch '
                         'Configurator freigegeben — wählbar unter '
                         '„Übersetzung". Sie entstehen weitgehend automatisch '
                         'aus den Spieldaten und werden weiter verfeinert.',
-                        'German, English, French, Italian and Spanish for LIVE '
+                        'German, English, French, Italian, Spanish, '
+                        'Dutch and Portuguese for LIVE '
                         'and PTU, released by the developer of the SC Launch '
                         'Configurator — selectable under “Translation”. They '
                         'are generated largely automatically from the game '

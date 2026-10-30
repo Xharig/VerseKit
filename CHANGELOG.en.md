@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Two new translations from Luftwerft** — Dutch (Nederlands) and
+  Portuguese (Português), each for the main installation and the PTU,
+  selectable under “Translation”.
+
 ### Fixed
 
 - **Images in the error report** — attaching an image now also turns on the
