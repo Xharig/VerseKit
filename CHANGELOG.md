@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Bilder im Fehlerbericht** — wer ein Bild anhängt, schaltet damit den
+  Schalter „Ich möchte den Bericht an den Entwickler senden“ gleich mit ein.
+  Ohne Zustimmung nennt der Hinweis jetzt den Schalter statt eines Hakens.
+  Gemeldet von John-Red
+- **Leere Bauplan-Liste nach dem Fortschritt** — wer aus dem
+  Bauplan-Fortschritt in die Liste springt und danach eine Art wählt
+  (etwa „Ausrüstung“), sieht wieder deren Baupläne statt einer leeren Liste.
+
 ## v4.12.4 - 2026-10-29
 
 > Wer seinen Spielernamen gewechselt hat, bekommt seine Baupläne wieder

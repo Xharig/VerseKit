@@ -894,8 +894,11 @@ class Bestandsfenster:
             # Andere Filter dürfen sehr wohl auf null führen — dann ist es
             # kein Widerspruch, sondern eine ehrliche leere Schnittmenge.
             weitere = [s for s, w in self.fein.items() if w and s != 'art']
+            # Ein angeklickter Auftrag oder ein Sprung aus dem Fortschritt
+            # grenzt ebenfalls ein: Eine leere Schnittmenge ist dann ehrlich.
             wenn_nur_art = not weitere and self.filter == 'alle' \
-                and not self.suche.get().strip()
+                and not self.suche.get().strip() \
+                and not self.auftrag and not self.katalog_art
             if not wenn_nur_art:
                 return
             errors.record(
@@ -1231,6 +1234,11 @@ class Bestandsfenster:
 
     def _fein_setzen(self, schluessel, wert):
         self.fein[schluessel] = wert
+        # ⚠ Art und Unterart ersetzen den Sprung aus dem Fortschritt
+        # (`katalog_art`). Blieben beide stehen, zeigte die Liste ihre
+        # Schnittmenge, oft nichts, während das Feld eine Zahl nennt.
+        if schluessel in ('art', 'unterart') and wert:
+            self.katalog_art = ''
         # ⚠ Die Unterarten hängen an der Art. Wird die Art gewechselt, muss das
         # Feld neu bestückt werden — sonst stünden dort die Unterarten der
         # vorigen Art, und wer eine wählt, bekommt eine leere Liste.
@@ -3019,6 +3027,13 @@ class Bestandsfenster:
         self.auftrag = ''
         self.auftrag_bp = None
         self.katalog_art = art
+        # Eine gewählte Art oder Unterart zählt nach `categories.classify`,
+        # der Sprung nach `catalog.kind_readable`: Sie gehen hier weg, damit
+        # die Liste genau die Baupläne des Fortschritts zeigt.
+        if self.fein.get('art') or self.fein.get('unterart'):
+            self.fein['art'] = ''
+            self.fein['unterart'] = ''
+            self._feinfilter_neu()
         self._zeichnen(nach_oben=True)
         return True
 
