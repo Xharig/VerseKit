@@ -27,7 +27,8 @@
 //! einrichtung (every step of the real setup assistant for a new program),
 //! willkommen (every step of the short setup "Willkommen in 5.0" for a program
 //! set up with 4.12; both on a throwaway data folder, nothing of the computer
-//! is touched), galerie (the pictures of the gallery of 5.0, 700 × 430).
+//! is touched), galerie (the pictures of the gallery of 5.0, 700 × 430),
+//! webseite (one picture of the whole window per page of the website, 1400 × 860).
 //! `--en` draws in English (default German).
 //! Targets are found by their names and roles, not by fixed points, so the
 //! images keep working when the sample page changes.
@@ -351,6 +352,85 @@ fn gallery_pictures(dir: &str, english: bool) {
     }
 }
 
+/// The pictures of the website: the whole window model with the menu, one page each on the sample data, drawn at
+/// twice the size and shrunk to 1400 × 860 pixels. Named as the website takes them: `screenshot-<name>.png`, in
+/// English `screenshot-<name>-en.png`. A page key of `None` is the start page the window opens on.
+fn website_pictures(dir: &str, english: bool) {
+    const SIZE: egui::Vec2 = vec2(1400.0, 860.0);
+    let pages: [(&str, Option<&str>); 15] = [
+        ("uebersicht", None),
+        ("liste", Some("hf_liste")),
+        ("auftragstexte", Some("hf_spiel")),
+        ("herstellung", Some("hf_herstellung")),
+        ("raffinerien", Some("hf_raffinerien")),
+        ("bergbau", Some("hf_bergbau")),
+        ("hangar", Some("hf_hangar")),
+        ("meinlager", Some("hf_meinlager")),
+        ("einkaufsliste", Some("hf_einkaufsliste")),
+        ("routen", Some("hf_routen")),
+        ("verkauf", Some("hf_verkauf")),
+        ("statistik", Some("hf_st_uebersicht")),
+        ("joysticks", Some("hf_joysticks")),
+        ("karten", Some("hf_contested")),
+        ("handlesuche", Some("hf_handlesuche")),
+    ];
+    for (name, key) in pages {
+        let mut page = SamplePage::preview_still();
+        let (mut installed, mut opened) = (false, false);
+        let harness = Harness::builder()
+            .with_size(SIZE)
+            .with_pixels_per_point(SCALE)
+            .with_max_steps(50)
+            .with_accessibility_check(false)
+            .wgpu()
+            .build_ui(move |ui| {
+                if !installed {
+                    versekit_ui::install(ui.ctx());
+                    installed = true;
+                    ui.ctx().request_repaint();
+                    return;
+                }
+                if !opened {
+                    if let Some(key) = key {
+                        let group = versekit_ui::sample::group_of_page(key).expect("Seite im Menü");
+                        page.open_page(ui.ctx(), key, group);
+                    }
+                    opened = true;
+                }
+                page.show(ui);
+            });
+        let mut s = Shots { dir: dir.to_string(), harness };
+        s.steps(12);
+        // A page that only lists shows more with the first entry open.
+        if name == "herstellung" {
+            let first = s
+                .harness
+                .query_all_by(|n| n.label().or_else(|| n.value()).is_some_and(|v| v.contains("Frostline")))
+                .map(|n| n.rect())
+                .next();
+            match first {
+                Some(first) => s.click(first.center()),
+                None => println!("Herstellung: Frostline nicht gefunden, Seite ohne Auswahl"),
+            }
+            s.steps(8);
+        }
+        s.harness.remove_cursor();
+        s.steps(3);
+        let image = (0..5)
+            .find_map(|_| {
+                s.harness.render().ok().or_else(|| {
+                    std::thread::sleep(std::time::Duration::from_millis(800));
+                    None
+                })
+            })
+            .expect("render");
+        let small = image::imageops::resize(&image, 1400, 860, image::imageops::FilterType::Lanczos3);
+        let file = format!("{}/screenshot-{name}{}.png", s.dir, if english { "-en" } else { "" });
+        small.save(&file).expect("Bild speichern");
+        println!("gespeichert: {file}");
+    }
+}
+
 fn main() {
     // `--en` draws in English; the other words are the folder, the scheme, the kind of pictures, a search word.
     let mut words: Vec<String> = std::env::args().skip(1).collect();
@@ -377,6 +457,11 @@ fn main() {
 
     if what == "galerie" {
         gallery_pictures(&dir, english);
+        return;
+    }
+
+    if what == "webseite" {
+        website_pictures(&dir, english);
         return;
     }
 

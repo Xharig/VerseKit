@@ -1189,6 +1189,15 @@ impl SamplePage {
         page
     }
 
+    /// [`Self::preview`] without the made-up update bar and the made-up loading in the foot bar: for pictures of
+    /// the window that stand for the program as it is.
+    pub fn preview_still() -> Self {
+        let mut page = Self::preview();
+        page.update_version = String::new();
+        page.loading_shown = true;
+        page
+    }
+
     /// Connects the pages that talk to the Basetool to the real one (the sync
     /// of the program, see [`basetool_page::Wire::system`]): nothing goes out
     /// before a switch is on and someone connects. Where the connection cannot
@@ -5828,6 +5837,11 @@ const SALVAGE_PAGE: &str = "hf_bergung";
 const ASOP_PAGE: &str = "hf_asop";
 
 /// The group a page belongs to; empty for the page at the top of the menu, which has none.
+/// The menu group of the page `page`, for tools that open a page by its key.
+pub fn group_of_page(page: &str) -> Option<&'static str> {
+    group_of(page)
+}
+
 fn group_of(page: &str) -> Option<&'static str> {
     if page == TOP_PAGE.0 {
         return Some("");
