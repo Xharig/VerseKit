@@ -1936,6 +1936,8 @@ dependencies = [
  "num-traits",
  "png 0.18.1",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
@@ -4697,7 +4699,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-core"
-version = "5.0.0-dev"
+version = "5.0.0"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.3.4",
@@ -4718,7 +4720,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-gamedata"
-version = "5.0.0-dev"
+version = "5.0.0"
 dependencies = [
  "p4kx-archive",
  "p4kx-cryxml",
@@ -4732,7 +4734,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-ui"
-version = "5.0.0-dev"
+version = "5.0.0"
 dependencies = [
  "eframe",
  "egui",
