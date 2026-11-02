@@ -1,0 +1,16 @@
+# Cargo fetches git dependencies with the git command line, so the system
+# credentials (locally) and an SSH agent with a deploy key (release builds)
+# reach the private p4kx repository.
+[net]
+git-fetch-with-cli = true
+
+# The C runtime goes into the Windows program file, so that it starts on a computer without the
+# Visual C++ runtime installed.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# Every process cargo starts (tests, examples, `cargo run`) works on a machine of its own below `target/`:
+# `paths::Host::current` puts home, Documents, the configuration and the local folders there and leaves the
+# registry alone. A program file started directly does not get it.
+[env]
+VERSEKIT_TESTUMGEBUNG = { value = "target/testumgebung", relative = true }

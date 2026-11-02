@@ -47,7 +47,6 @@ WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAARE = [
     ('README.en.md', 'README.md', 'abschnitte'),
     ('CHANGELOG.en.md', 'CHANGELOG.md', 'versionen'),
-    ('ROADMAP.en.md', 'ROADMAP.md', 'abschnitte'),
     # ⚠ Auch die beiden Nebenseiten — in einem Projekt, dessen Hauptsprache
     # Deutsch ist, ist ausgerechnet die Sicherheitsseite die falsche Stelle
     # zum Sparen.

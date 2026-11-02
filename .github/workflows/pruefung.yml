@@ -1,109 +1,57 @@
-# Prueft jede Aenderung — nicht erst den Release.
+# Checks every push to main without building a release: clippy, the tests that run without a window, nothing
+# private in the repository, the German and English documents in step. The release build stays untouched: it
+# builds, this one checks.
 #
-# ⚠⚠ **Warum das ein eigener, schlanker Ablauf ist.** Der grosse Selbsttest
-# lief bisher in `release.yml`, also praktisch erst, wenn gebaut wird. Ein
-# Fehler, der beim Committen entsteht, faellt damit im schlechtesten Fall erst
-# am Release-Tag auf — und dann steht er schon in der Historie.
-#
-# Der Release-Bau bleibt davon **unberuehrt**: Er baut, dieser hier prueft.
-# Zwei Ablaeufe, zwei Aufgaben.
-#
-# ⚠ **Er muss schnell bleiben.** Was Minuten frisst, wird umgangen; was
-# umgangen wird, schuetzt nichts. Deshalb kein PyInstaller, kein AppImage,
-# kein Windows-Job — nur Lesen, Pruefen, Selbsttest.
+# Rules of this file as in release.yml: actions pinned to a commit, the job only reads the repository, no ${{ }}
+# inside `run:` (values come through `env:`), the deploy key of the p4kx repository only through ssh-agent,
+# never printed and never part of an artifact.
 
 name: Pruefung
 
 on:
-  pull_request:
   push:
-    branches: [main, arbeit]
+    branches: [main]
 
-# ⚠ Dieselben Werte wie in release.yml und sperrdateien.yml — Pruefung 181 im
-# Selbsttest haelt fest, dass sie nicht auseinanderlaufen.
 env:
-  PY_PYFLAKES: '3.4.0'
-  # ⚠ Auch das reine Berichts-Werkzeug bekommt eine feste Fassung. Sonst
-  # aendert sich der Bericht von Lauf zu Lauf, ohne dass jemand etwas
-  # geaendert haette — und Pruefung 178 schlaegt zu Recht an.
-  PY_RUFF: '0.14.6'
+  RUST_VERSION: '1.99.1'
+  CARGO_TERM_COLOR: never
 
 permissions:
   contents: read
 
 jobs:
   pruefen:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
         with:
-          # ⚠ 3.14 wie im Bau — `scbp/gametext.py` braucht
-          # `compression.zstd` aus der Standardbibliothek.
-          python-version: '3.14'
+          ssh-private-key: ${{ secrets.P4KX_DEPLOY_KEY }}
 
-      - name: Bildschirm und Tk
-        # ⚠⚠ Der Selbsttest baut **echte** Fenster. Ohne Xvfb ueberspringt er
-        # Pruefungen still — eine Pruefung, die nicht greift.
-        # Deshalb wird hier ausdruecklich nachgesehen, ob Tk da ist, statt es
-        # anzunehmen: Ein Ablauf, der die halbe Pruefung weglaesst und trotzdem
-        # gruen wird, ist schlimmer als gar keiner.
+      - name: Fetch p4kx over SSH
+        run: git config --global url."ssh://git@github.com/p4kx-org/".insteadOf "https://github.com/p4kx-org/"
+
+      - name: Rust
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends xvfb tk
-          python -c "import tkinter; print('tkinter:', tkinter.TkVersion)"
+          rustup toolchain install "$env:RUST_VERSION" --profile minimal --component clippy
+          rustup default "$env:RUST_VERSION"
+          rustc --version
 
-      # ⚠ Hier reicht die Version ohne Pruefsumme: Dieser Ablauf **baut
-      # nichts**, was jemand herunterlaedt. Die Sperrdateien mit `--hash`
-      # gelten fuer den Release-Bau, wo aus dem Ergebnis eine Datei fuer
-      # Nutzer wird.
-      - name: pyflakes bereitstellen
-        # ⚠⚠ **Nur installieren, nicht selbst aufrufen.** Der Selbsttest hat
-        # dafuer **Pruefung 20**, und die filtert bewusst auf `undefined name`
-        # — Zugriffe auf Namen, die es nicht gibt. Fehlt das Paket,
-        # ueberspringt sie sich; deshalb steht es hier.
-        #
-        # ⚠ `pyflakes` hier direkt aufzurufen waere strenger als das Projekt:
-        # Es ergaebe Dutzende `imported but unused` aus dem Altbestand, und der
-        # Ablauf waere aus Prinzip rot. Ein solcher Ablauf wird abgeschaltet —
-        # dann prueft er nichts.
-        # Aufgeraeumt wird ueber die Dauerregel Kleinkram, nicht mit der
-        # Brechstange.
-        run: pip install --quiet "pyflakes==${{ env.PY_PYFLAKES }}"
+      - name: Clippy
+        run: cargo clippy --release --workspace --locked -- -D warnings
 
-      - name: Syntax aller Python-Dateien
-        # Faengt, was pyflakes gar nicht erst zu sehen bekommt: eine Datei,
-        # die sich nicht uebersetzen laesst.
-        run: python -m compileall -q scbp tools sc_bp_watcher.py .github/scripts
+      # The same tests as in release.yml, plus the language files; none of them opens a window.
+      - name: Tests without a window
+        run: |
+          cargo test --locked -p versekit-gamedata --test no_key
+          cargo test --locked -p versekit-app
+          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup
+          cargo test --locked -p versekit-core --test language_files
 
-      - name: Nichts Privates im Repo
-        # ⛔ Meldet Datei, Zeile und Regel — **nie** den gefundenen Text.
-        # Sonst stuende das Gesuchte im Protokoll eines oeffentlichen Laufs.
+      - name: Nothing private in the repository
+        # Prints file, line and rule, never the text that was found.
         run: python tools/privacy_scan.py
 
-      - name: Selbsttest
-        # ⚠⚠ **`xvfb-run` muss HIER stehen, nicht im Programm.**
-        # `unsichtbar.sicherstellen()` startet sich nur dann selbst neu, wenn
-        # es einen Bildschirm SIEHT — es ist dazu da, den Bildschirm des
-        # Entwicklers zu schuetzen, nicht dazu, einen herbeizuschaffen. Auf
-        # einem Bau-Rechner gibt es gar kein `DISPLAY`, also bleibt es untaetig
-        # und `tk.Tk()` scheitert. `release.yml` macht es genauso.
-        env:
-          SC_BP_HOME: ${{ runner.temp }}/sc-bp-home
-        run: xvfb-run -a python tools/selbsttest.py
-
-      - name: Zweisprachigkeit
+      - name: German and English in step
         run: python tools/sprachen_pruefen.py
-
-      - name: Englische Webseite aktuell
-        run: python tools/seite_en_bauen.py --pruefen
-
-      # ⚠ **Nur Bericht, nie rot.** `ruff` kennt das Projekt nicht und haette
-      # zu vielen Geschmack; es soll Hinweise geben, keine Arbeit erzwingen.
-      # `continue-on-error` ist hier Absicht und kein Versehen.
-      - name: ruff (nur Bericht)
-        continue-on-error: true
-        run: |
-          pip install --quiet "ruff==${{ env.PY_RUFF }}"
-          ruff check --output-format=concise . || true

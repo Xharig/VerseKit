@@ -82,7 +82,7 @@ fi
 install -m 755 "$NEU" "$ZIEL"
 echo "Eingesetzt: $ZIEL"
 
-VER="$(grep -m1 '^__version__' "$WURZEL/sc_bp_watcher.py" | cut -d"'" -f2 || true)"
+VER="$(grep -m1 '^version = ' "$WURZEL/Cargo.toml" | cut -d'"' -f2 || true)"
 echo "Quellstand dieser Fassung: ${VER:-unbekannt} (unveroeffentlicht)"
 echo
 echo "Starten:  \"$ZIEL\""

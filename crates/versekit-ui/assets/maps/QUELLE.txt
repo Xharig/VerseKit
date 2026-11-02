@@ -1,0 +1,23 @@
+Karten der Contested Zones, eingebaut in das Programm (Seite „Contested Zones“).
+
+Die Ersteller haben die Karten zur freien Nutzung freigegeben; einzige Bedingung ist,
+dass der Ersteller genannt wird. VerseKit nennt ihn unter jeder Karte auf der Seite und
+auf der Seite „Danke & Lizenzen“.
+
+Die Dateien stammen unverändert von https://exectimer.com/maps/ (heruntergeladen am
+24.10.2026, WebP). Dort stehen sie mit Nennung der Ersteller.
+
+checkmate.webp           658806 Bytes   Ersteller: Zane_DragonBorn
+                         https://robertsspaceindustries.com/community-hub/post/accurate-pyro-contested-zone-maps-c-zs-7l8Ih9mXyPDpu
+orbituary.webp           716246 Bytes   Ersteller: Zane_DragonBorn
+                         https://robertsspaceindustries.com/community-hub/post/accurate-pyro-contested-zone-maps-c-zs-7l8Ih9mXyPDpu
+ruin-station.webp        639334 Bytes   Ersteller: Zane_DragonBorn
+                         https://robertsspaceindustries.com/community-hub/post/accurate-pyro-contested-zone-maps-c-zs-7l8Ih9mXyPDpu
+pyam-exhang-0-1.webp      59840 Bytes   Ersteller: Kerast
+                         https://www.reddit.com/r/starcitizen/comments/1i3iyq9/supervisor_exectutive_hangar_maps_pyamsupvisr345/
+pyam-supvisr-3-4-5.webp   61040 Bytes   Ersteller: Kerast
+                         https://www.reddit.com/r/starcitizen/comments/1i3iyq9/supervisor_exectutive_hangar_maps_pyamsupvisr345/
+
+Eine Karte, die dazukommt oder getauscht wird, braucht hier eine Zeile mit Ersteller und Link,
+und denselben Eintrag in `MAPS` (crates/versekit-ui/src/contested_page.rs) und
+`BUNDLED` (crates/versekit-core/src/credits.rs).

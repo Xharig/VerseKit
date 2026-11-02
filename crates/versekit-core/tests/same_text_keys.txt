@@ -1,0 +1,198 @@
+# Keys whose English text is the German one. Each is a word that is written the same in both
+# languages (a loanword, a product name, a unit, a name); a key does not belong here when only
+# the translation is missing. The test `texts_that_read_the_same_are_known` in language_files.rs
+# reads this file: a new key with the same text in both languages must be translated or listed here,
+# and a key that no longer reads the same must leave.
+
+# An amount with the unit SCU, which the game writes the same in both languages.
+s_p9_menge
+s_p9_menge_n
+s_he_mix_einheit
+
+# The shader cache place of a game version: the game name and the version, the same in both languages.
+s_sc_ort_sc
+s_sc_ort_sc_n
+
+# Categories of the crafting terminal and a button that the game writes the same in both languages.
+s_fb_kat_utility
+s_fb_un_undersuits
+s_fb_un_flair
+s_fb_un_gadgets
+s_fb_un_emp
+s_fb_un_radar
+s_fb_max
+
+# Kinds of ship parts on the salvage page that are written the same in both languages.
+s_wr_art_emp
+s_wr_art_radar
+
+# The names of the graphics settings, as the game writes them in its own menu.
+s_gr_stufe_5
+s_gr_fenster_0
+s_gr_fenster_1
+s_gr_fenster_2
+s_gr_vsync
+s_gr_upscaling
+s_gr_up_0
+s_gr_up_1
+s_gr_tech_0
+s_gr_tech_1
+s_gr_tech_2
+s_gr_modell_0
+s_gr_modell_1
+s_gr_renderer_1
+s_gr_renderer_0
+s_gr_auto
+s_gr_fullhd
+s_gr_wqhd
+s_gr_uhd125
+s_gr_uhd150
+
+# Names of keyboard keys and input devices.
+s_js_a_gamepad
+s_js_k_stick
+s_js_t_escape
+s_js_t_tab
+s_js_t_minus
+s_js_t_pause
+
+# Names of the translation sources: a language with the name of its author.
+s_sp_q_ss
+s_sp_q_dymerz_de
+s_sp_q_fr
+s_sp_q_it
+s_sp_q_es
+s_sp_q_es2
+s_sp_q_lw_de
+s_sp_q_lw_en
+s_sp_q_lw_fr
+s_sp_q_lw_it
+s_sp_q_lw_es
+s_sp_q_lw_bar
+s_sp_q_lw_nl
+s_sp_q_lw_pt
+s_sp_q_pt
+s_sp_q_tr
+
+# Names from the game data (kinds of components and items).
+he_art_radar
+he_sub_laser
+he_sub_distortion
+he_sub_neutron
+he_sub_plasma
+he_sub_tachyon
+he_sub_pilot
+kat_unter_scatter_gun
+kat_unter_radar
+kat_unter_torso
+s_uk_torso
+s_uk_radar
+s_ps_dps
+s_ps_dmg_distortion
+s_ps_radar
+s_ps_radius
+art_QuantumDrive
+art_PowerPlant
+art_Cooler
+art_Radar
+
+# Words, names and phrases that read the same in German and English.
+s_mu_dialog
+s_mu_tint_normal
+s_mu_sort_name
+s_rf_beispiel
+s_rf_wird_zu
+s_rf_auftrag_summe
+status
+s_ov_modus_sagen
+s_lg_abbau_fps
+s_pl_spielordner
+s_al_ic
+aafk_titel
+aafk_sagen
+s_al_autostart
+s_dk_fankit_kopf
+hf_discord
+b_system
+b_v_exe
+b_v_appimage
+b_python
+b_gamelog
+b_overlay
+b_basetool
+s_ub_version
+hf_titel
+s_he_minuten
+s_he_std_min
+s_he_menge
+s_ml_material
+s_ml_items
+s_ml_item
+s_ml_k_mineral
+hf_laeden
+s_rt_scu_menge
+s_auec
+s_vk_aus_lager_zeile
+s_hg_lti
+# The middle stance of a relation: German and English write it the same.
+s_hq_neutral
+# The short name of an organization on the card: SID is the word of the RSI site in both languages.
+s_hq_sid
+# The name of the game's settings file in the report, the same in both languages.
+b_usercfg
+# The players on the shard and on the server: the words of the game in both languages.
+ov_spieler
+ov_spieler_shard
+# The columns and kinds of the handle list: handle, org and name are the same words in both languages.
+s_hqs_handle
+s_hqs_handles
+s_hqs_name
+s_hqs_org
+s_hl_scu
+s_vk_scu_kurz
+s_hl_sp_menge
+s_lg_cscu
+s_rf_material
+s_he_menge_n
+s_bg_art_fps
+b_aafk
+k_basetool_titel
+k_bereich_versekit
+hf_gruppe_info
+hf_update
+hf_update_da
+hf_overlay
+hf_basetool
+s_sl_terminal
+s_sl_auec
+s_sl_mission
+s_sl_k_flair
+s_uc_titel
+s_pg_name
+hf_s_normal
+bf_h_system
+
+# Names from the game and the word Start, which the page Contested Zones writes the same in both languages.
+hf_contested
+s_cz_hangar
+ov_hangar_kurz
+s_cz_start
+
+# The names of the browsers on the buttons for the Hangar-Exporter.
+as_exporter_firefox
+as_exporter_chrome
+as_exporter_edge
+
+# Names of the programs and sites whose stand files the import reads, as they call themselves.
+s_be_art_basetool
+s_be_art_bpdb
+erhalten_q_basetool
+erhalten_q_import
+erhalten_q_launcher
+erhalten_q_start
+
+# The words of the game for its servers and frame rates (Shard, Region, Server, FPS), the same in both languages.
+ov_shard
+ov_fps_allein
+s_sb_shard_region
+s_sb_shard_nr

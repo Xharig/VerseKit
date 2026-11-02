@@ -1,5 +1,5 @@
-# English bug report. The tool opens this form from "Report a problem" and
-# pre-fills the `bericht` field — see scbp/bericht.py, issue_adresse().
+# English bug report. VerseKit opens this form from "Report a problem" and
+# pre-fills the `bericht` field — see crates/versekit-core/src/report_send.rs, ISSUE_ADDRESS.
 name: Report a problem (English)
 description: Something does not work as expected
 labels: [bug]

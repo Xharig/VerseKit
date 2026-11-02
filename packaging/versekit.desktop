@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=VerseKit
+Comment=Dein Werkzeugkasten für Star Citizen
+Comment[en]=Your Star Citizen toolkit
+Exec=versekit
+Icon=versekit
+Categories=Game;Utility;
+Terminal=false
+StartupWMClass=Versekit
+Keywords=Star Citizen;Blueprint;Bauplan;

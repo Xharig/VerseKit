@@ -6,98 +6,258 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## v4.12.5 - 2026-10-30
+## v5.0.0 - 2026-11-02
 
-> Auf der Seite Übersetzung gibt es zwei neue Sprachen von Luftwerft:
-> Nederlands und Português, für die Hauptinstallation und das PTU. Wer im
-> Fehlerbericht ein Bild anhängt, schaltet die Zustimmung zum Senden gleich
-> mit ein. Und die Bauplan-Liste bleibt nach einem Sprung aus dem
-> Fortschritt nicht mehr leer.
+> VerseKit 5.0 ist neu gebaut, in Rust. Es ist schneller und läuft als ein
+> Programm unter Windows und Linux. Alles, was 4.12 konnte, ist drin, dazu
+> das Neue aus dieser Liste.
+
+> [!important]
+> **Was 5.0 noch nicht kann**
+> - Beim Scannen fehlt im Overlay noch die Zeile „Die Einheit sucht: …“.
+> - Ein neuer Bauplan geht erst mit dem 5-Minuten-Takt ans Basetool, nicht
+>   sofort.
+> - „In die Mitte holen“ setzt nur die Lage zurück, nicht die Größe.
+> - Linux ist weniger erprobt als Windows: Ablagesymbol, Autostart und der
+>   Startmenü-Eintrag haben Einschränkungen.
+>
+> Der Umstieg von 4.12 läuft über das normale Update, deine Daten werden
+> vorher gesichert. 4.12 bleibt über den Tag v4.12.0 abrufbar.
 
 ### Neu
 
-- **Zwei neue Übersetzungen von Luftwerft** — Nederlands und Português, je
-  für die Hauptinstallation und das PTU, wählbar unter „Übersetzung“. Weil
-  das Spiel nur seine eigenen Sprachen lädt, tritt Nederlands an die Stelle
-  von Englisch und Português an die von Português (Brasil).
+- **Einkaufskorb aus den Shops** — In Shops legst du jedes Teil mit einer
+  Menge in die Einkaufsliste, zum Beispiel eine ganze FPS-Ausrüstung. Die
+  Einkaufsliste rechnet die Kosten zusammen, zeigt zu jedem Teil alle
+  Einkaufsorte und plant die Route mit den wenigsten Stopps. Unterwegs
+  hakst du jeden Stopp ab. Eine Zusammenstellung speicherst du als Vorlage
+  unter einem Namen (etwa „FPS-Set Schwer“) und lädst sie später wieder.
+  Vorgeschlagen von Katschaeng (KRT)
+- **Hangar-Exporter für Firefox wird mitgeliefert** — Der Installer legt
+  die von Mozilla signierte Erweiterung von Drachennarr gleich mit ab. Auf
+  der Hangarseite und im Einrichtungsassistenten gibt es je einen Knopf
+  für Firefox, Chrome und Edge.
+- **Käufe im Laden landen als Vorschlag in Mein Lager** — Was du im Spiel
+  im Laden kaufst, schlägt dir Mein Lager unter „Laut Log neu“ zum
+  Übernehmen vor, mit dem Preis je Stück. Du übernimmst oder verwirfst
+  jeden Kauf einzeln oder alle auf einmal und kannst es zurücknehmen;
+  gebucht wird nie von allein. Stationen, die das Spiel kürzer schreibt als
+  deine Ortsliste (etwa „Checkmate“ für „Checkmate Station“ oder „Pyro
+  Gateway“), findet VerseKit selbst in der Liste. Ein Ort, den die Liste
+  noch nicht kennt, kommt beim Übernehmen in deine Ortsliste, und ein Kauf
+  ohne Ort wird ohne Ort gebucht; beides steht vorher am Knopf.
+  Zurücknehmen nimmt auch den neuen Ort wieder heraus. Der Block lässt
+  sich einklappen, und Art, Ort und Suche stehen direkt über der Liste und
+  filtern auch die Vorschläge. Die Statistik zeigt, was du im Laden
+  ausgegeben hast. Unter Einstellungen › Erkennung lässt sich das
+  abschalten.
+- **Die Sicherung nimmt deine Steuerung mit** — Zur Sicherung gehören jetzt
+  auch deine aktive Belegung und die gespeicherten Steuerungsprofile aus dem
+  Spielordner. Beim Einspielen fragt VerseKit getrennt, ob die Profile
+  zurückgelegt werden und ob auch die aktive Belegung ersetzt wird. Bei
+  laufendem Spiel passiert nichts, und vorher entsteht immer eine Kopie.
+- **Sichern mit einem Klick** — Auf der Seite Sichern & Zurücksetzen führen
+  „Sicherung erstellen“ und „Sicherung einspielen“ direkt zum Dialog. Die
+  Kachel Sicherung in der Übersicht hat den Link „Jetzt sichern“.
+- **Scanner erkennt ROC, Handabbau und Asteroiden mit mehreren Brocken** —
+  Die Scan-Signatur zeigt wieder ROC/Boden und Handabbau, und bei Asteroiden
+  zählt der Scanner die Brocken, zum Beispiel „2× Asteroid (C-Type)“ bei
+  9400.
+- **Infozeile zur Werkbank auf der Seite Herstellung** — Unter dem Kopf der
+  Seite steht eine Zeile mit den Grenzen der Werkbank, zum Beispiel
+  „Fabrikator: 2 in Arbeit, 4 wartend, 10 im Verlauf · Zerlegen 4/4“.
+- **Streamer-Modus** — Unter Einstellungen › Allgemein › Datenschutz
+  schaltest du ihn an. Spielername, Pfade, Org und Einheit, Basetool-Name
+  und Gerätecodes erscheinen dann als „[Geschwärzt]“, auf jeder Seite und im
+  Overlay. Solange er an ist, zeigt die Kopfzeile den Knopf „Streamer-Modus
+  an“. Ab Werk ist er aus. Die Kopieren-Knöpfe kopieren weiter den
+  Klartext.
+- **Das Overlay klappt bei den Ereignissen auf, die du wählst** — Unter
+  Einstellungen › Overlay legst du je Ereignis fest, ob es das Overlay
+  aufklappt: Bauplan, Scanner-Treffer, Auftrag, fertige Raffinerie und
+  Katalogeintrag. Ab Werk klappt nur der Bauplan auf, wie in 4.12.
+  Vorgeschlagen von MindBurnt [R/SC]
+- **Baupläne nach Zeitraum** — Die Bauplan-Liste hat den Filter „Erhalten“
+  mit heute, 7 Tage, 14 Tage und dieser Monat. Dann steht die Liste flach,
+  neueste zuerst, jede Zeile mit Datum und Quelle. Ein Klick auf „+N diese
+  Woche“ in der Kachel Baupläne öffnet die Liste dieser Woche; die Kachel
+  zeigt auch heute und diesen Monat.
+- **Shader-Cache: nur alte löschen** — Unter Spiel-Einstellungen ›
+  Shader-Cache löscht „Nur alte Shader löschen“ die Ordner älterer
+  Star-Citizen-Versionen; installierte und unklare Ordner bleiben stehen.
+  „Alles löschen“ bleibt die zweite Wahl. Jede Fundstelle hat einen
+  Schalter mit Größe, danach zeigt ein Fenster, was frei wurde. Läuft das
+  Spiel, wird nichts gelöscht.
+- **Deine Daten werden vorher gesichert.** Beim ersten Start von VerseKit 5
+  sichert das Programm deine Daten aus 4.12 samt Steuerung im Ordner
+  „Sicherungen“ deines Datenordners, bevor es irgendetwas ändert. Klappt
+  das nicht, etwa weil Platz fehlt, startet VerseKit nicht weiter und
+  bietet „Erneut versuchen“, „Ordner wählen“ und „Beenden“. Danach sagt
+  dir die Übersicht einmal, wo die Sicherung liegt.
+- **Linux: Startmenü, Ton und Systemmeldung** — Unter Einstellungen ›
+  Allgemein trägst du VerseKit ins Startmenü ein oder nimmst es wieder
+  heraus; ein Update zieht Name und Symbol des Eintrags nach, und der
+  Eintrag des SC BP Watcher wird übernommen. Der Signalton kommt über die
+  Klänge deines Desktops, die Systemmeldung über `notify-send`; fehlt es,
+  sagt die Einstellung das. Den Spielordner findet VerseKit jetzt auch bei
+  Heroic, Bottles als Flatpak und Steam mit Proton. Unter Wayland steht
+  unter der Tastenkombination ein fertiger Befehl zum Kopieren für ein
+  Kürzel deines Desktops. Ablagesymbol und Scanner gibt es nur unter
+  Windows, die Einstellung sagt das.
+- **Info-Leiste über dem Spiel:** Eine eigene schmale Leiste zeigt Shard,
+  deine FPS, Server-FPS und Spieler, beim Bergbau rechts das
+  Scanner-Ergebnis, und in der Mitte steht das Suchfeld der Handle-Suche.
+  Du schaltest sie unter „Einstellungen › Overlay“ ein. Bei offenem
+  Schloss ziehst du sie an ihren Platz, VerseKit merkt ihn sich.
+  Vorgeschlagen von Shockwaffel (KRT)
+- **Handle-Suche:** Ein Handle im Suchfeld der Info-Leiste öffnet eine
+  Karte über dem Spiel, wie bei der Handle Query von Kuehlwagen (KRT), dem
+  Vorbild dieser Suche. Im Hauptfenster hat die Suche eine eigene Seite mit
+  Name, Orgs, Rang, SID und Profil; Enter sucht, Strg+Enter holt neu.
+  Jeden Handle stufst du als freundlich, neutral oder feindlich ein, die
+  Liste lässt sich exportieren und einspielen, und ein Log-Monitor zeigt,
+  wer dir im Spiel begegnet. Vorgeschlagen von Shockwaffel (KRT)
+- **Spieler auf Shard und Server:** Unter Einstellungen › Overlay ›
+  Info-Leiste schaltest du deine FPS, die Server-FPS und die Spieler auf
+  Shard und Server einzeln ein. Die Werte liest VerseKit aus dem Spielbild,
+  sie bleiben auf deinem Rechner. Vorgeschlagen von Shockwaffel (KRT)
+- **Org-Mitglieder und Verlauf:** Ein Klick auf eine Organisation in der
+  Handle-Suche zeigt ihre Mitglieder, ein Klick auf ein Mitglied sucht es.
+  Die zuletzt gesuchten Handles stehen im leeren Suchfeld. Vorgeschlagen
+  von Shockwaffel (KRT)
+- **Größe von Overlay und Leiste:** Overlay und Info-Leiste lassen sich
+  größer stellen als das Hauptfenster, von 100 bis 200 %. Vorgeschlagen
+  von Shockwaffel (KRT)
+- **Notnamen für Teile ohne Spieltext:** Liefert das Spiel für ein Teil
+  keinen Namen (drei Radare), trägt VerseKit einen Notnamen ein, damit der
+  Bauplan-Hinweis auch dort steht.
+- **Linux mit KDE: Overlay ohne Startzusatz:** Im Vollbild liegt das
+  Overlay von selbst über dem Spiel, ein Startzusatz ist nicht mehr nötig.
+
+### Verbessert
+
+- **Zurück zur Ergebnisliste in Shops** — Wer in Shops ein Teil öffnet,
+  kommt mit „Zurück zur Ergebnisliste“ oder dem Zurück-Pfeil oben wieder
+  zur Liste. Suchtext und Filter bleiben dabei stehen. Vorgeschlagen von
+  Katschaeng (KRT)
+- **Suchzeilen fallen auf** — Jede Suche hat jetzt einen grünen Rand, eine
+  Lupe und einen helleren Grund, beim Hineinklicken wird der Rand voll grün.
+  So findest du sie auf jeder Seite sofort. Vorgeschlagen von P6 (KRT)
+- **Notizen: die Liste nutzt das ganze Fenster** — Die Liste der Zettel
+  reicht bis zum unteren Fensterrand und wächst mit dem Fenster; bei vielen
+  Zetteln rollt sie.
+- **Übersetzungen alle 5 Minuten geprüft** — VerseKit sieht alle 5 Minuten
+  nach einer neuen Übersetzung, auch nach einem Patch. Die Statuszeile zeigt
+  jetzt dazu, wann sie zuletzt geholt wurde, zum Beispiel „Stand 16.09.2026
+  · geholt heute 14:30 · aktuell, nachgesehen heute 14:35“.
+- **Schließen versteckt das Hauptfenster** — Das X schließt das Hauptfenster
+  nur noch, VerseKit läuft weiter. Zurück holst du es über das Symbol neben
+  der Uhr, das Zahnrad im Overlay oder einen zweiten Start. Ohne laufendes
+  Overlay, während eine Sicherung geschrieben wird und bei Update oder
+  Neustart beendet sich VerseKit wie bisher.
+- **Einkaufsroute per Maus sortieren** — Die Stopps der Einkaufsroute
+  ziehst du am Griff links in die gewünschte Reihenfolge; eine Linie zeigt
+  das Ziel. Die Pfeile bleiben für die Tastatur.
+- **Farbschema KRT** — Unter der Kopfleiste läuft eine orange Linie, die
+  Farben folgen der Vorlage von greluc (KRT).
+- **Overlay und Hauptfenster schreiben nicht mehr durcheinander** — Läuft
+  beides gleichzeitig, warten die Programme beim Speichern aufeinander,
+  damit kein Eintrag verloren geht.
+- **Karten in Contested Zones bleiben im Rahmen** — Mausrad und Ziehen
+  lassen die Karte nicht mehr aus dem Rahmen laufen, der kleinste Zoom zeigt
+  die ganze Karte. Ein Doppelklick stellt die ganze Karte wieder her.
+- **Basetool auf einer Testkopie: dein Schlüssel bleibt** — Läuft VerseKit
+  mit einer Kopie deiner Daten (`--daten`) und dem Schlüssel deiner echten
+  Installation, löscht „Trennen“ nur die Anmeldung der Kopie, nie den
+  Schlüssel. Für Prüfläufe gegen das Basetool begrenzt
+  `VERSEKIT_BASETOOL_WRITE_MAX` die Änderungen des ganzen Laufs (`0` holt
+  nur), und `VERSEKIT_BASETOOL_JOURNAL=1` schreibt jede Anfrage ohne Inhalt
+  mit Zeit, Status und Größe nach `Diagnose\basetool-anfragen.log`.
+- **Updates kommen von selbst** — VerseKit sieht alle zehn Minuten nach
+  einer neuen Version, lädt sie mit Prüfsumme und spielt sie ein, sobald
+  Star Citizen zu ist. Die Schalter „Nach neuen Versionen sehen“ und
+  „Updates automatisch einspielen“ aus 4.12 gibt es nicht mehr; wer sie
+  dort ausgeschaltet hatte, bekommt die Updates jetzt trotzdem.
+- **Überall „VerseKit“** — Startmenü, „Apps & Features“ und der Start mit
+  Windows heißen jetzt VerseKit. Ein vorhandener Autostart-Eintrag wird
+  übernommen; war er ausgeschaltet, bleibt er aus.
+- **Eigener Account unter „Allgemein“** — Die Einstellung steht jetzt als
+  erste auf der Seite „Allgemein“, die Baupläne anderer Accounts darunter.
+  Der Einrichtungsassistent hat einen eigenen Schritt „Dein Account“: ein
+  erkannter Account wird bestätigt, bei mehreren wählst du deinen.
+- **Versionsnummer nur im Hauptfenster:** Die Leiste des Overlays zeigt
+  nur noch den Namen. Vorgeschlagen von Shockwaffel (KRT)
+- **Bauplan-Hinweise an fast allen Teilen:** Der Hinweis am Gegenstand im
+  Spiel steht jetzt auch an Armen, Helmen und Lasern wie dem Helix II.
+  Gemeldet von Shockwaffel (KRT)
+- **Signatur-Fenster mit Spielbild und Suchrahmen:** Das Spielbild für den
+  Suchrahmen ist deutlich größer, und beide Spielbilder wachsen mit dem
+  Fenster. Das größere Bild: Vorgeschlagen von Shockwaffel (KRT)
+- **Hinweisfenster:** Die Hinweise der Overlay-Knöpfe erscheinen in einem
+  eigenen kleinen Fenster und werden nicht mehr abgeschnitten.
+- **Grafik-Einstufung gemerkt:** Die Grafik-Seite behält die Einstufung
+  deines Rechners, auch wenn das Spiel sie lange nicht mehr ins Log
+  schreibt, und sagt, wann zuletzt eingestuft wurde.
+- **Scanner prüft die letzte Ziffer:** Die letzte Ziffer einer Signatur
+  wird auf 0 oder 5 geprüft, unbekannte Werte brauchen mehr gleiche
+  Lesungen, bevor sie gelten.
+- **Alte Erklärzeilen verschwinden:** Erklärzeilen aus 4.x verschwinden
+  beim ersten Start aus der Einstellungsdatei.
 
 ### Behoben
 
-- **Bilder im Fehlerbericht** — wer ein Bild anhängt, schaltet damit den
-  Schalter „Ich möchte den Bericht an den Entwickler senden“ gleich mit ein.
-  Ohne Zustimmung nennt der Hinweis jetzt den Schalter statt eines Hakens.
-  Gemeldet von John-Red
-- **Auswahllisten bleiben offen** — eine aufgeklappte Liste (etwa Art oder
-  Größe in der Bauplan-Liste) schließt sich nicht mehr von selbst, wenn sich
-  im Fenster etwas auffrischt, sondern erst bei einer Wahl, einem Klick
-  daneben oder wenn das Fenster bewegt wird.
-- **Einbuchen ins Lager der Einheit** — nach der Wahl eines Gegenstands kommt
-  die getippte Menge zuverlässig in der Buchung an, und alle Knöpfe des
-  Formulars reagieren.
-- **Leere Bauplan-Liste nach dem Fortschritt** — wer aus dem
-  Bauplan-Fortschritt in die Liste springt und danach eine Art wählt
-  (etwa „Ausrüstung“), sieht wieder deren Baupläne statt einer leeren Liste.
-
-## v4.12.4 - 2026-10-29
-
-> Wer seinen Spielernamen gewechselt hat, bekommt seine Baupläne wieder
-> gezählt, auch die seitdem verpassten. Baupläne aus Sitzungen eines anderen
-> Accounts zeigt die Seite Erkennung jetzt als Zahl an. Dazu liest der
-> Signatur-Scanner blasse Werte, an denen er bisher scheiterte.
-
-### Behoben
-
-- **Baupläne nach einem neuen Spielernamen** — nach einem Wechsel des
-  Spielernamens (Handle) zählt VerseKit die Baupläne wieder, auch die schon
-  verpassten. Der Account wird an seiner festen Kennung erkannt, ein
-  Zweitaccount bleibt getrennt. Wurden Baupläne aus Sitzungen eines anderen
-  Accounts nicht gezählt, sagt das ein Hinweis auf der Seite Erkennung,
-  samt dem Weg über „Alle Accounts“. Gemeldet von Bushwick4711 (KRT)
-- **Signatur-Scanner liest blasse Werte** — findet er bei einem blassen
-  Ortungssymbol keine sichere Zahl (etwa wenn eine 6 wie eine 8 aussieht),
-  versucht er es mit strengeren Einstellungen erneut, statt nichts zu
-  zeigen. Gemeldet von Bushwick4711 (KRT)
-
-## v4.12.3 - 2026-10-28
-
-> Der Signatur-Scanner liest die Zahl wie seit 4.12.1. Findet er dabei
-> nichts Sicheres, liest er sie zusätzlich so wie bis 4.12.0. Wo er seit
-> 4.12.1 schlechter las, erkennt er die Zahl so wieder. Sonst ändert sich
-> nichts.
-
-### Behoben
-
-- **Signatur-Scanner liest wieder zuverlässig** — findet der Scanner keine
-  sichere Zahl, liest er sie zusätzlich auf die Art von 4.12.0. Was er
-  schon sicher liest, bleibt wie bisher, auch kleine Ziffern auf sehr
-  breiten Bildschirmen. Neu angelernte Ziffern speichert er je Lesart
-  getrennt. Was vor 4.12.1 angelernt wurde, gilt nur noch für die Lesart
-  von 4.12.0, aus der es stammt, und stört die neue nicht mehr.
-  Gemeldet von Bushwick4712 (KRT), Vorschlag von ProCodeX
-
-## v4.12.2 - 2026-10-25
-
-> Das Profit Basetool hat seine Anmelde-Adresse geändert. Mit dieser Fassung
-> verbindet sich VerseKit wieder. Einmal neu anmelden ist nötig, alte
-> Anmeldungen nimmt das Basetool nicht mehr an. Sonst ändert sich nichts.
-
-### Behoben
-
-- **Basetool verbindet sich wieder** — VerseKit nutzt die neue
-  Anmelde-Adresse des Profit Basetools. Nach dem Update einmal auf der Seite
-  Basetool neu anmelden.
-
-## v4.12.1 - 2026-10-25
-
-> Der Signatur-Scanner liest kleine Ziffern jetzt auch auf sehr breiten
-> Bildschirmen richtig: Eine „56,000" wird nicht mehr als „16,000" gelesen.
-> Sonst ändert sich in dieser Fassung nichts.
-
-### Behoben
-
-- **Signatur-Scanner liest kleine Ziffern richtig** — auf sehr breiten
-  Bildschirmen (etwa 3840 × 1080) wurden kleine Ziffern verwechselt, zum
-  Beispiel 56,000 als 16,000. Jetzt stimmen die Werte. Gemeldet von ProCodeX
+- **Scanner liest blasse Ziffern** — Liest bei keinem Schwellenwert eine
+  Zahl, liest der Scanner die Ziffern bei höheren Schwellen noch einmal,
+  zum Beispiel eine blasse 6, die wie eine 8 aussieht. Gemeldet von
+  Bushwick4711 (KRT)
+- **Anti-AFK drückt deine Taste für „Visier abwischen“.** Mit HOTAS oder
+  Joysticks löst Anti-AFK zuverlässig aus, ein Stick in Ruhe zählt nicht
+  als Eingabe. Hast du die Aktion im Spiel umgelegt, etwa auf Alt + K,
+  drückt Anti-AFK genau diese Taste, sonst Alt + X. Welche Taste gesendet
+  wird, steht auf der Seite Spiel. Eine gehaltene Taste zählt nur einmal
+  als Eingabe, und ob Tasten von Makro-Software zählen, stellst du dort
+  selbst ein. Gemeldet von Bushwick4711 (KRT)
+- **Overlay nach der Ersteinrichtung** — Am Ende des
+  Einrichtungsassistenten startet das Overlay wieder. Bisher beendete es
+  sich sofort, weil es das noch offene Hauptfenster für einen zweiten Start
+  hielt. Beim Neustart nach dem Einspielen einer Sicherung konnte das
+  ebenfalls passieren.
+- **Erster Start mit `--daten` auf einem leeren Ordner.** VerseKit legt
+  dort eine neue Testkopie an und richtet sie mit dem Assistenten ein.
+  Bisher lief das Fenster mit Beispielwerten: ein erfundener Datenordner,
+  ein Update auf 5.1, eine Spielzeit und keine Suche nach Star Citizen.
+  Im Schritt Datenordner steht jetzt der Ordner der Kopie, und
+  „Durchsuchen …“ sagt, dass er beim Start mit `--daten` festgelegt ist.
+- **Baupläne nach einem Handle-Wechsel** — Wer seinen RSI-Handle geändert
+  hatte, dessen neue Sitzungen galten als fremder Account, und die
+  Baupläne daraus fehlten ohne Hinweis. VerseKit erkennt den eigenen
+  Account jetzt an seiner festen Account-Nummer aus dem Spielprotokoll. Ein
+  aus 4.12 übernommener Account lernt die Nummer aus einer Sitzung mit dem
+  alten Handle, früher übersprungene Sitzungen werden einmal nachgelesen.
+  Gemeldet von bushwick
+- **Nicht gezählte Baupläne werden gezeigt** — Baupläne aus Sitzungen
+  eines anderen Accounts zählen weiter nicht, VerseKit sagt aber, wie viele
+  es sind: unter „Allgemein“ beim eigenen Account, auf der Übersicht an der
+  Bauplan-Kachel und im Fehlerbericht. „Alle Accounts zählen“ nimmt sie
+  mit. Gemeldet von bushwick
+- **Kein geratener Account bei Gleichstand** — Haben zwei Accounts gleich
+  viele Protokolle, legt VerseKit keinen fest und zählt alle, bis du deinen
+  wählst.
+- **Menüsuche findet den eigenen Account** — „Account“, „Handle“, „Konto“
+  oder „Spielername“ führen zu „Allgemein › Eigener Account“. Lange Treffer
+  in der Seitenleiste brechen um, statt abgeschnitten zu werden.
+- **Ein zweiter Start endet nie mehr still** — Startest du VerseKit noch
+  einmal, während der Einrichtungsassistent oder das Fenster der Sicherung
+  beim ersten Start offen ist, holt der zweite Start dieses Fenster nach
+  vorn. Bisher konnte es verdeckt liegen, und jeder weitere Doppelklick
+  schien nichts zu tun. Hängt das laufende VerseKit, sagt dir eine Meldung,
+  was zu tun ist. Gemeldet von Shockwaffel (KRT)
+- **Beenden über das X des Overlays beendet alles:** Bisher blieb ein
+  offenes Hauptfenster als Prozess stehen.
+- **Knopf „Was ist neu“ öffnet die Galerie:** Unter Update & Über führte
+  der Knopf bisher nicht dorthin.
+- **Suchfeld nach dem Einblenden:** Nach Aus- und Einblenden der
+  Info-Leiste ließ sich nicht mehr ins Suchfeld klicken.
 
 ## v4.12.0 - 2026-10-19
 
@@ -2405,8 +2565,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **„Auch Baupläne ohne bekannten Weg"** unter *Erkennung* — eingeschaltet
   stehen alle **1.591** in Liste und Fortschritt statt 738. **Ab Werk aus**,
   damit dein Fortschritt die Zahl bleibt, die du kennst. Vorschlag von Choopa
-- **Fünf weitere Übersetzungen vom SC Launch Configurator** (Luftwerft) —
-  Deutsch, Englisch, Français, Italiano und Español, für LIVE und PTU, von
+- **Acht weitere Übersetzungen vom SC Launch Configurator** (Luftwerft) —
+  Deutsch, Englisch, Français, Italiano, Español, Boarisch, Nederlands und
+  Português, für LIVE und PTU, von
   seinem Entwickler für die Nutzung hier freigegeben. Sie kommen mit seinem
   eigenen Hinweis: Da wird noch gefeilt
 

@@ -1,0 +1,36 @@
+[package]
+name = "versekit-overlay"
+description = "Verse-Kit: das Overlay über dem Spiel mit den Funden aus der Game.log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+raw-window-handle.workspace = true
+regex.workspace = true
+versekit-core.workspace = true
+versekit-gamedata.workspace = true
+versekit-ui = { path = "../versekit-ui" }
+
+[target.'cfg(windows)'.dependencies]
+# Process list (is the game running), the find signal, the window photo of
+# the self-check, the mutex of the one overlay and the rounded corners.
+windows-sys = { workspace = true, features = [
+    "Win32_Graphics_Dwm",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_Storage_Xps",
+    "Win32_System_Threading",
+    "Win32_System_StationsAndDesktops",
+] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+# X11 asked for by name (winit), the shape of the window and the grab of the hotkey (x11rb): the versions
+# eframe already brings in.
+winit = { version = "0.30", default-features = false, features = ["x11"] }
+x11rb = { workspace = true, features = ["shape"] }

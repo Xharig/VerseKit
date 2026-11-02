@@ -54,8 +54,7 @@ if [ "$quellcode" = ja ]; then
   echo "  Daten    : $TEST_HOME"
   echo "  (die Live-Version bleibt unberuehrt)"
   echo
-  SC_BP_HOME="$TEST_HOME" SC_BP_TESTFASSUNG=1 \
-    bash "$WURZEL/SC-BP-Watcher starten.sh" &
+  ( cd "$WURZEL" && cargo run --release -p versekit-app -- --daten "$TEST_HOME" ) &
   echo "Läuft im Hintergrund. Zum Beenden das Fenster schliessen."
   exit 0
 fi

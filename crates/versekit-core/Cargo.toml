@@ -1,0 +1,50 @@
+[package]
+name = "versekit-core"
+description = "Verse-Kit: Logik ohne Oberfläche (Game.log, Baupläne, Daten)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+getrandom.workspace = true
+miniz_oxide.workspace = true
+regex.workspace = true
+ring.workspace = true
+roxmltree.workspace = true
+rustls.workspace = true
+serde_json.workspace = true
+ureq.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = [
+    "Win32_Graphics_GdiPlus",
+    "Win32_Networking_WinSock",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Threading",
+] }
+windows = { workspace = true, features = [
+    "Foundation",
+    "Foundation_Collections",
+    "Globalization",
+    "Graphics_Imaging",
+    "Media_Ocr",
+    "Security_Cryptography",
+    "Storage_Streams",
+] }
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+# Screens and pointer on X11. Also built on macOS, so that the code is type checked there; only used on Linux.
+x11rb.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit.workspace = true
+objc2-foundation.workspace = true
+
+[[test]]
+name = "diagnostics_process"
+harness = false

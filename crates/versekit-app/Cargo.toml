@@ -1,0 +1,29 @@
+[package]
+name = "versekit-app"
+description = "Verse-Kit: das Programm, Overlay und Hauptfenster in einer Datei"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+# The program is called `versekit`; the old name does not appear in it.
+[[bin]]
+name = "versekit"
+path = "src/main.rs"
+
+# The icon and the version details of the Windows program file (`build.rs`); without the TOML reader.
+[target.'cfg(windows)'.build-dependencies]
+winresource = { version = "0.1.34", default-features = false }
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+versekit-core.workspace = true
+versekit-overlay = { path = "../versekit-overlay" }
+versekit-ui = { path = "../versekit-ui" }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+# X11 asked for by name for the windows of the program: the version eframe already brings in.
+winit = { version = "0.30", default-features = false, features = ["x11"] }

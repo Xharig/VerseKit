@@ -31,6 +31,8 @@ export const PAGES = {
   routen: ['Handel', 'Routen'],
   bedarf: ['Beschaffung', 'Bedarf der Einheit'],
   einkaufsliste: ['Beschaffung', 'Einkaufsliste'],
+  notizen: ['Beschaffung', 'Notizen'],
+  contested: ['Beschaffung', 'Contested Zones'],
   statistik_auswertung: ['Statistik', 'Auswertung'],
   statistik: ['Statistik', 'Übersicht'],
   statistik_schiffe: ['Statistik', 'Schiffe & Ausrüstung'],
@@ -120,6 +122,7 @@ export const TILES = {
   dienste: 'Dienste', raffinerie: 'Raffinerie', lager: 'Lager',
   auftraege: 'Aufträge', neu_patch: 'Neu im Patch', merkliste: 'Merkliste',
   bedarf: 'Bedarf der Einheit', funde: 'Letzte Funde', sicherung: 'Sicherung',
+  notizen: 'Notizen', executive_hangar: 'Executive Hangar',
 };
 
 // Neu mit VerseKit 5: die Suche. Stehen bewusst NICHT in ROUTES und ACTIONS

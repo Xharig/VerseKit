@@ -1,24 +1,25 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="Verse-Kit icon" width="200">
+<img src="assets/icon.png" alt="VerseKit icon" width="128">
 
-# Verse-Kit
+# VerseKit
 
-**Your Star Citizen toolkit — blueprints, contracts, crafting, trade and more, live while you play**
+**Your Star Citizen toolkit: blueprints, contracts, crafting, trade and more, live while you play**
+
+<sub>Windows · Linux · free · no account, no cloud</sub>
 
 <sub>formerly **SC BP Watcher** · your collection and settings are kept</sub>
 
-<sub>Windows · Linux · no account, no cloud — installer on Windows, single file on Linux</sub>
-
-[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
-[![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Downloads)](https://github.com/Xharig/VerseKit/releases)
-[![Website](https://img.shields.io/badge/Website-take%20the%20tour-5fa522)](https://versekit.xharig.com/)
-[![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://xharig.com/discord)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
-[![Python](https://img.shields.io/badge/Python-3.14-0a4a7a?logo=python&logoColor=white)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%C2%B7%20Linux-0a4a7a)](#requirements)
-[![Star Citizen](https://img.shields.io/badge/Star%20Citizen-compatible-0a4a7a)](https://robertsspaceindustries.com/enlist?referral=STAR-YC7L-S4W2)
+[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=9ce430&labelColor=161c28)](https://github.com/Xharig/VerseKit/releases)
+[![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Downloads&color=9ce430&labelColor=161c28)](https://github.com/Xharig/VerseKit/releases)
+[![Website](https://img.shields.io/badge/Website-take%20the%20tour-9ce430?labelColor=161c28)](https://versekit.xharig.com/)
+[![License](https://img.shields.io/badge/License-GPL--3.0-9ce430?labelColor=161c28)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-join-9ce430?labelColor=161c28&logo=discord&logoColor=9ce430)](https://xharig.com/discord)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-9ce430?labelColor=161c28&logo=kofi&logoColor=9ce430)](https://ko-fi.com/xharig)
+<br>
+[![Rust](https://img.shields.io/badge/Rust-1.99-34415a?labelColor=161c28&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%C2%B7%20Linux-34415a?labelColor=161c28)](#download)
+[![Star Citizen](https://img.shields.io/badge/Star%20Citizen-compatible-34415a?labelColor=161c28)](https://robertsspaceindustries.com/enlist?referral=STAR-YC7L-S4W2)
 
 [Deutsch](https://github.com/Xharig/VerseKit/blob/main/README.md) · **English**
 
@@ -26,88 +27,125 @@
 
 ---
 
-A small, borderless overlay that tells you **in real time** when a new blueprint drops — name, type and time. No account, no cloud. Runs on **Windows and Linux**.
+<img src="assets/readme-kopf-en.png" alt="The VerseKit website on a PC and a phone" width="100%">
 
-> 🌐 **There is a website.** At **[versekit.xharig.com](https://versekit.xharig.com/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
+VerseKit sits on top of Star Citizen as a narrow overlay and reports every new blueprint within seconds. The window behind it covers what comes next: where to get what you are missing, what you need to craft, where to find ore and where to sell your cargo.
 
-> 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[xharig.com/discord](https://xharig.com/discord)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
+## What VerseKit does
 
-> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](https://github.com/Xharig/VerseKit/releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Update** (top right) **→ "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](https://github.com/Xharig/VerseKit/issues) — that is exactly what they are for.
+- **Blueprints live:** Every new blueprint shows up in the overlay within seconds. On first start VerseKit reads your existing collection from the game logs.
+- **Where to get what you miss:** For every blueprint that comes from a contract: the faction, contract, rank and reward, easiest route first.
+- **Handle search:** Who is behind a handle? Name, organisations and rank, plus marking friend and foe, right from the info bar over the game.
+- **Details in the game:** The contract texts show which blueprints a contract pays out and which you already have; every craftable item in the terminal says whether you own the blueprint, where it comes from and what crafting takes.
+- **Crafting and inventory:** Ingredients, crafting time and what your material does to the stats, plus your inventory, what you still lack and your shop purchases as a suggestion from the log.
+- **Mining and refining:** Locations for every resource, the best refinery and the right refining method; on Windows the scanner reads the signature while you scan and tells you in the overlay which ore it is.
+- **Trade:** Shops, the best buyers and trade routes with real profit.
+- **Your hangar:** Pull your ships from the pledge store and see which part fits which ship.
+- **Game settings from outside:** Controls, graphics, axes, field of view and shader cache, without switching into the game.
+
+## Download
+
+| System | File | |
+|---|---|---|
+| **Windows** | [`VerseKit-Setup.exe`](https://github.com/Xharig/VerseKit/releases/latest) | Installer with a start menu entry, uninstalls cleanly |
+| **Linux** | [`VerseKit-x86_64.AppImage`](https://github.com/Xharig/VerseKit/releases/latest) | A single file, make it executable once |
+
+Run it, and a wizard sets everything up in about a minute. VerseKit is free and open source, needs no account and keeps itself up to date: it checks every ten minutes and installs a new version as soon as Star Citizen is closed, with no switch to set. The Windows warning on first start is not a virus detection, more on that below under *Installation in detail*.
+
+**[Tour on the website](https://versekit.xharig.com/)** · **[Discord](https://xharig.com/discord)** · **[Report a bug or wish](https://github.com/Xharig/VerseKit/issues)** · **[What's new](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.en.md)**
+
+## Details
+
+Everything else folds open below. Technical matters like files, settings and environment variables are in the **[manual](MANUAL.en.md)**.
+
+### Pictures
+
+<details>
+<summary><b>Overlay and blueprint list</b></summary>
 
 <table>
 <tr>
 <td width="32%" valign="top" align="center">
 <img src="assets/screenshot-overlay-en.png" alt="The overlay while playing" width="100%"><br>
-<sub>The overlay — narrow, always on top, opacity adjustable</sub>
+<sub>The overlay: narrow, sits on top of the game, opacity adjustable</sub>
 </td>
 <td width="68%" valign="top" align="center">
 <img src="assets/screenshot-liste-en.png" alt="The window with the blueprint list" width="100%"><br>
-<sub>The blueprint list — search, five filters, and where each blueprint comes from</sub>
+<sub>The blueprint list: search, five filters, and where each blueprint comes from</sub>
 </td>
 </tr>
 </table>
 
-### In game, without tabbing out
+</details>
 
-The watcher writes into the game's mission text **which** blueprints a contract hands out — with `[x]` for the ones you already have. The title shows `[BP]` — where every tier has the same reputation threshold, with the reputation needed: `[BP 10,000 Rep]` —, the names are in the description — split by Stanton, Pyro and Nyx where a contract hands out different blueprints there.
+<details>
+<summary><b>In game, without tabbing out</b></summary>
+
+VerseKit writes into the game's mission text **which** blueprints a contract hands out, with `[x]` for the ones you already have. The title shows `[BP]` (where every tier has the same reputation threshold, with the reputation needed: `[BP 10,000 Rep]`), and the names are in the description, split by Stanton, Pyro and Nyx where a contract hands out different blueprints there.
 
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-ingame-teils.jpg" alt="Contract with some blueprints already owned" width="100%"><br>
-<sub><b>3 of 6</b> — <code>[x]</code> you have, <code>[&nbsp;&nbsp;]</code> still missing</sub>
+<sub><b>3 of 6</b>: <code>[x]</code> you have, <code>[&nbsp;&nbsp;]</code> still missing</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-ingame-keine.jpg" alt="Contract with none of the blueprints owned" width="100%"><br>
-<sub><b>0 of 12</b> — nothing here that you already own</sub>
+<sub><b>0 of 12</b>: nothing here that you already own</sub>
 </td>
 </tr>
 </table>
 
-### My ships
+</details>
 
-A new blueprint immediately raises the next question: **does this part even fit any of my ships?** For that the tool has to know what is in your hangar — the game records it nowhere.
+<details>
+<summary><b>My ships</b></summary>
 
-> **How your hangar gets into the tool:** the browser add-on **Star Citizen: Hangar Extension** by AlyxOne adds export buttons to your pledge page — for [Firefox](https://addons.mozilla.org/en-US/firefox/addon/star-citizen-hangar-extension/), [Chrome](https://chromewebstore.google.com/detail/star-citizen-hangar-exten/jeoidbfcbdplammndhpflojejmpkjcfm) and [Edge](https://microsoftedge.microsoft.com/addons/detail/star-citizen-hangar-exte/agahppbhmogalnjlaolmjbbemlcjbioe). Download **both** files there and pick them one after the other under **My ships → “Import from the pledge store”**: the JSON brings the bundle relations and the insurance, the CSV adds purchase date, price and whether a pledge is meltable — nothing gets duplicated. No export knows about ships bought in-game; you add those by hand.
+A new blueprint immediately raises the next question: **does this part even fit any of my ships?** For that the tool has to know what is in your hangar: the game records it nowhere.
 
-**Fleet analysis:** Above the ship list you can fold open which gameplay loops your ships cover (cargo, mining, salvage, fighters …), where there is a gap and which snubs have no mothership. Every pledged ship shows whether it can be melted or upgraded via CCU. The gameplay loops per ship come from Maluh's [Fleetmanifest](https://github.com/MaluhTV/SC_Fleetmanifest) — an assessment, not game data.
+> **How your hangar gets into the tool:** the browser add-on **Star Citizen: Hangar Extension** by AlyxOne adds export buttons to your pledge page, for [Firefox](https://addons.mozilla.org/en-US/firefox/addon/star-citizen-hangar-extension/), [Chrome](https://chromewebstore.google.com/detail/star-citizen-hangar-exten/jeoidbfcbdplammndhpflojejmpkjcfm) and [Edge](https://microsoftedge.microsoft.com/addons/detail/star-citizen-hangar-exte/agahppbhmogalnjlaolmjbbemlcjbioe). Download **both** files there and pick them one after the other under **My ships → “Import from the pledge store”**: the JSON brings the bundle relations and the insurance, the CSV adds purchase date, price and whether a pledge is meltable. Nothing gets duplicated. No export knows about ships bought in-game; you add those by hand.
+
+**Fleet analysis:** Above the ship list you can fold open which gameplay loops your ships cover, grouped into combat, support and travel, where there is a gap and which snubs have no mothership. Every pledged ship shows whether it can be melted or upgraded via CCU. The gameplay loops per ship come from Maluh's [Fleetmanifest](https://github.com/MaluhTV/SC_Fleetmanifest) (an assessment, not game data).
 
 <table>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-hangar-en.png" alt="My hangar with four ships added" width="100%"><br>
-<sub><b>My hangar</b> — pulled from the pledge store in one go or added by hand; after that, crafting tells you which of your ships a blueprint fits</sub>
+<sub><b>My hangar</b>: pulled from the pledge store in one go or added by hand; after that, crafting tells you which of your ships a blueprint fits</sub>
 </td>
 </tr>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-asop-ingame-en.jpg" alt="The in-game fleet manager with three self-named ships" width="100%"><br>
-<sub><b>Names in the game</b> — this is what it looks like <b>in game</b>: your own names at the retrieval terminal instead of the factory ones, given right in the hangar. The star does more than mark — since the fleet manager sorts alphabetically, starred ships move to the top</sub>
+<sub><b>Names in the game</b>: this is what it looks like <b>in game</b>: your own names at the retrieval terminal instead of the factory ones, given right in the hangar. The star does more than mark: since the fleet manager sorts alphabetically, starred ships move to the top</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-wunschliste-en.png" alt="Wishlist with price and planned loadout" width="100%"><br>
-<sub><b>Wishlist</b> — what you are aiming for, with price and location; the loadout can be planned before you own the ship</sub>
+<sub><b>Wishlist</b>: what you are aiming for, with price and location; the loadout can be planned before you own the ship</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-einkaufsliste-en.png" alt="Shopping list: the bill across all ships" width="100%"><br>
-<sub><b>Shopping list</b> — the bill across all ships: buy or build per item, with total and shopping route</sub>
+<sub><b>Shopping list</b>: the bill across all ships: buy or build per item, with total and shopping route</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-bergung-en.png" alt="What is inside a wreck" width="100%"><br>
-<sub><b>What is inside?</b> — what a wreck carries from the factory and what the parts are worth in a shop</sub>
+<sub><b>What is inside?</b>: what a wreck carries from the factory and what the parts are worth in a shop</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-zerlegen-en.png" alt="Worth dismantling: what the fabricator returns" width="100%"><br>
-<sub><b>Worth dismantling?</b> — what the fabricator returns, and which materials vanish for good</sub>
+<sub><b>Worth dismantling?</b>: what the fabricator returns, and which materials vanish for good</sub>
 </td>
 </tr>
 </table>
 
-### The workshop
+</details>
+
+<details>
+<summary><b>The workshop</b></summary>
 
 The blueprint is the start. The workshop answers what comes after it: **what do I need, do I have it, and what will it turn into?**
 
@@ -115,61 +153,67 @@ The blueprint is the start. The workshop answers what comes after it: **what do 
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-herstellung-en.png" alt="Crafting with an expanded recipe" width="100%"><br>
-<sub><b>Crafting</b> — ingredients, craft time and what <i>your</i> material does to the stats</sub>
+<sub><b>Crafting</b>: ingredients, craft time and what <i>your</i> material does to the stats</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-meinlager-en.png" alt="My Inventory with recorded resources" width="100%"><br>
-<sub><b>My Inventory</b> — materials, goods for sale and items in one place: type, location, quality and amount, kept by hand</sub>
+<sub><b>My Inventory</b>: materials, goods for sale and items in one place: type, location, quality and amount, kept by hand</sub>
 </td>
 </tr>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-bergbau-en.png" alt="Mining showing where Iron is found" width="100%"><br>
-<sub><b>Mining</b> — type a resource and see where it sits; or enter the scanner reading and see what it found</sub>
+<sub><b>Mining</b>: type a resource and see where it sits; or enter the scanner reading and see what it found</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-farmliste-en.png" alt="What to farm" width="100%"><br>
-<sub><b>What to farm</b> — the raw materials still missing for everything you plan to build, with where to find them</sub>
+<sub><b>What to farm</b>: the raw materials still missing for everything you plan to build, with where to find them</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-raffinerien-en.png" alt="Refineries" width="100%"><br>
-<sub><b>Refineries</b> — what each refinery makes of your ore: bonus and penalty per material</sub>
+<sub><b>Refineries</b>: what each refinery makes of your ore: bonus and penalty per material</sub>
 </td>
 </tr>
 </table>
 
-### Trading & buying
+</details>
 
-Buying and selling: **where is a part or ship on the shelf — and where do I offload my cargo, and what does it pay per SCU?**
+<details>
+<summary><b>Trading & buying</b></summary>
+
+Buying and selling: **where is a part or ship on the shelf, and where do I offload my cargo, and what does it pay per SCU?**
 
 <table>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-laeden-en.png" alt="Shops" width="100%"><br>
-<sub><b>Shops</b> — where a finished part is on the shelf and what it costs there</sub>
+<sub><b>Shops</b>: where a finished part is on the shelf and what it costs there</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-meinlager-verkauf-en.png" alt="My Inventory filtered to goods for selling" width="100%"><br>
-<sub><b>My Inventory, for selling</b> — what is in your hold, with selling price and profit</sub>
+<sub><b>My Inventory, for selling</b>: what is in your hold, with selling price and profit</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-verkauf-en.png" alt="Buy & Sell tab with the best buyers" width="100%"><br>
-<sub><b>Buy & Sell</b> — the best buyers, sorted by how many of your goods a place takes; switched to Buy, the cheapest places to buy</sub>
+<sub><b>Buy & Sell</b>: the best buyers, sorted by how many of your goods a place takes; switched to Buy, the cheapest places to buy</sub>
 </td>
 </tr>
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-routen-en.png" alt="Trade routes" width="100%"><br>
-<sub><b>Routes</b> — say where you are and what fits in the hold; the best runs from there come out on top</sub>
+<sub><b>Routes</b>: say where you are and what fits in the hold; the best runs from there come out on top</sub>
 </td>
 </tr>
 </table>
 
-### The window
+</details>
+
+<details>
+<summary><b>The window</b></summary>
 
 > [!NOTE]
 > The screenshots are regenerated before every release and show this version. On an older version some of what is shown here does not exist yet.
@@ -178,52 +222,52 @@ Buying and selling: **where is a part or ship on the shelf — and where do I of
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-statistik-en.png" alt="Statistics" width="100%"><br>
-<sub><b>Statistics</b> — play time, sessions, contracts, quantum jumps, deaths and when you play</sub>
+<sub><b>Statistics</b>: play time, sessions, contracts, quantum jumps, deaths and when you play</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-darstellung-en.png" alt="Appearance" width="100%"><br>
-<sub><b>Appearance</b> — colour scheme with preview, language, interface size</sub>
+<sub><b>Appearance</b>: colour scheme with preview, language, interface size</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-fortschritt-en.png" alt="Progress by area" width="100%"><br>
-<sub><b>Progress</b> — per area, details on click</sub>
+<sub><b>Progress</b>: per area, details on click</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-auftragstexte-en.png" alt="Mission text settings" width="100%"><br>
-<sub><b>Game</b> — pick a text source, switch it on and off, view the user.cfg</sub>
+<sub><b>Game</b>: pick a text source, switch it on and off, view the user.cfg</sub>
 </td>
 </tr>
 <tr>
 <td valign="top" align="center">
 <img src="assets/screenshot-bestand-en.png" alt="Backup and reset" width="100%"><br>
-<sub><b>Backup & reset</b> — backup, export your inventory for the basetool or import one</sub>
+<sub><b>Backup & reset</b>: backup, export your inventory for the basetool or import one</sub>
 </td>
 <td valign="top" align="center">
 <img src="assets/screenshot-anzeige-en.png" alt="Overlay settings" width="100%"><br>
-<sub><b>Overlay</b> — pop-up mode, click-through, opacity</sub>
+<sub><b>Overlay</b>: pop-up mode, click-through, opacity</sub>
 </td>
 </tr>
 <tr>
 <td valign="top" align="center">
 <img src="assets/screenshot-ueber-en.png" alt="About and update channel" width="100%"><br>
-<sub><b>About</b> — stable releases or test builds, with a button to fetch one</sub>
+<sub><b>About</b>: stable releases or test builds, with a button to fetch one</sub>
 </td>
 <td valign="top" align="center">
 <img src="assets/screenshot-wasistneu-en.png" alt="What's new" width="100%"><br>
-<sub><b>What's new</b> — every release expandable, filtered by kind</sub>
+<sub><b>What's new</b>: every release expandable, filtered by kind</sub>
 </td>
 </tr>
 </tr>
 <tr>
 <td valign="top" align="center">
 <img src="assets/screenshot-danke-en.png" alt="Thanks and licenses" width="100%"><br>
-<sub><b>Thanks &amp; Licenses</b> — what belongs to whom, and who helped</sub>
+<sub><b>Thanks &amp; Licenses</b>: what belongs to whom, and who helped</sub>
 </td>
 <td valign="top" align="center">
 <img src="assets/screenshot-serverstatus-en.png" alt="Server status" width="100%"><br>
-<sub><b>Server status</b> — is Star Citizen up?</sub>
+<sub><b>Server status</b>: is Star Citizen up?</sub>
 </td>
 </table>
 
@@ -234,40 +278,43 @@ Buying and selling: **where is a part or ship on the shelf — and where do I of
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-allgemein-en.png" alt="General settings" width="100%"><br>
-<sub><b>General</b> — language, sound, autostart, menu entry</sub>
+<sub><b>General</b>: language, sound, autostart, menu entry</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-blickwinkel-en.png" alt="Field of view" width="100%"><br>
-<sub><b>FOV</b> — the field of view for your monitor, calculated instead of guessed</sub>
+<sub><b>FOV</b>: the field of view for your monitor, calculated instead of guessed</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-auftragslog-en.png" alt="Missions and log" width="100%"><br>
-<sub><b>Missions &amp; log</b> — which mission you played when, kept even after the game deletes its logs</sub>
+<sub><b>Missions &amp; log</b>: which mission you played when, kept even after the game deletes its logs</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-patchaenderungen-en.png" alt="Changed game values" width="100%"><br>
-<sub><b>Changed game values</b> — what a patch changed on ships, weapons and components</sub>
+<sub><b>Changed game values</b>: what a patch changed on ships, weapons and components</sub>
 </td>
 </tr>
 </table>
 
 </details>
 
-### The colour schemes
+</details>
 
-Under **Settings → Appearance** you choose how VerseKit looks — the overlay and every window. The choice applies after a restart, which the button next to it does for you.
+<details>
+<summary><b>The colour schemes</b></summary>
+
+Under **Settings → Appearance** you choose how VerseKit looks: the overlay and every window. The choice applies at once, without a restart.
 
 <table>
 <tr>
 <td width="33%" valign="top" align="center">
-<img src="assets/screenshot-farbschema-original-en.png" alt="Verse-Kit (original)" width="100%"><br>
-<sub><b>Verse-Kit (original)</b></sub>
+<img src="assets/screenshot-farbschema-original-en.png" alt="VerseKit (original)" width="100%"><br>
+<sub><b>VerseKit (original)</b></sub>
 </td>
 <td width="33%" valign="top" align="center">
 <img src="assets/screenshot-farbschema-krt-en.png" alt="KRT (orange)" width="100%"><br>
-<sub><b>KRT (orange)</b> — square, with corner marks</sub>
+<sub><b>KRT (orange)</b>: square, with corner marks</sub>
 </td>
 <td width="33%" valign="top" align="center">
 <img src="assets/screenshot-farbschema-eis-en.png" alt="Ice (cyan)" width="100%"><br>
@@ -281,16 +328,19 @@ Under **Settings → Appearance** you choose how VerseKit looks — the overlay 
 </td>
 <td valign="top" align="center">
 <img src="assets/screenshot-farbschema-glut-en.png" alt="Ember (red)" width="100%"><br>
-<sub><b>Ember (red)</b> — warnings in yellow-orange</sub>
+<sub><b>Ember (red)</b>: warnings in yellow-orange</sub>
 </td>
 <td valign="top" align="center">
 <img src="assets/screenshot-farbschema-kontrast-en.png" alt="High contrast" width="100%"><br>
-<sub><b>High contrast</b> — white and yellow on black</sub>
+<sub><b>High contrast</b>: white and yellow on black</sub>
 </td>
 </tr>
 </table>
 
-### What dead zone, saturation and sensitivity do
+</details>
+
+<details>
+<summary><b>What dead zone, saturation and sensitivity do</b></summary>
 
 Under **Game settings → Axes & curves** you can set how sharply each stick axis responds. Three values, each bending the curve differently:
 
@@ -305,129 +355,115 @@ Under **Game settings → Axes & curves** you can set how sharply each stick axi
 The dashed line shows how it would run with nothing set. The dark areas are the travel where nothing changes any more.
 
 > [!NOTE]
-> Star Citizen ties these values to an internal device number, not to its name. When a stick gets a new number — a different USB port, new firmware — the game treats it as a new device, and the old values stay in the file without any effect. The watcher finds such leftovers and clears them out on request.
+> Star Citizen ties these values to an internal device number, not to its name. When a stick gets a new number (a different USB port, new firmware), the game treats it as a new device, and the old values stay in the file without any effect. VerseKit finds such leftovers and clears them out on request.
 
-## Why this tool
+</details>
 
-There are several blueprint lists. Four things make the difference day to day:
+### Learn more
 
-- **You never leave the game.** The overlay sits on top of Star Citizen. No second window, no alt-tab, no browser — the new blueprint is simply there while you keep playing.
-- **It knows what you already have.** The watcher keeps your blueprint inventory itself and reads Star Citizen's stored session logs on first start — you get your existing collection for free, without typing anything. If a gap remains anyway, it says so instead of passing off an incomplete list as complete.
-- **It tells you where to get what's missing.** For **678 of the 746** blueprints it shows which faction offers it, in which contract, from which standing, and what it pays — sorted by the easiest route. "I'm missing X" is half the information; "X drops at Foxwell from Veteran Contractor" is all of it.
-- **Nothing leaves your machine.** No account, no sign-in, no cloud. It reads files that are already on your disk and writes nothing back into the game.
+<details>
+<summary><b>Why VerseKit</b></summary>
 
-On top of that: class, size and grade are right there in the line (`M/1/A`), the interface speaks German and English, and the whole thing runs on the plain Python standard library — no extra packages, no dependencies that break tomorrow.
+There are several blueprint lists. Five things make the difference day to day:
 
-## Features
+- **You never leave the game.** The overlay sits on top of Star Citizen. No second window, no alt-tab, no browser: the new blueprint is simply there while you keep playing.
+- **It knows what you already have.** VerseKit keeps your blueprint inventory itself and reads Star Citizen's stored session logs on first start: you get your existing collection for free, without typing anything. If a gap remains anyway, it says so instead of passing off an incomplete list as complete.
+- **It tells you where to get what's missing.** For every blueprint that comes from a contract it shows which faction offers it, in which contract, from which standing, and what it pays, sorted by the easiest route. "I'm missing X" is half the information; "X drops at Foxwell from Veteran Contractor" is all of it.
+- **It also reports what you cannot have yet.** The catalogue watch notices when CIG makes something **newly craftable** with a patch, regardless of your own unlocks; such lines are blue. If you are waiting for a particular part, put it on the watchlist and you will be pointed at it the moment it appears.
+- **No account, no cloud.** The tool reads files that are already on your disk and only writes into the game what you explicitly switch on. What it fetches from the network and what it sends is under *Your data and the network*.
+
+On top of that: class, size and grade are right there in the line (`M/1/A`), the interface speaks German and English, and the whole thing is a single program written in Rust: one file per system, nothing to install on top.
+
+</details>
+
+<details>
+<summary><b>All features</b></summary>
 
 | | |
 |---|---|
-| <img src="assets/symbole/22/karten-gruen.png" width="22" alt=""> **Card view** | Every area as a card with a short explanation, its pages below. Pin the pages you use all the time to the start page. Prefer tabs on the left? Switch at the top right |
+| <img src="assets/symbole/22/karten-gruen.png" width="22" alt=""> **Overview** | The start page shows every area as a tile. Pin the pages you use all the time to the start page |
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Instant** | Reads Star Citizen's `Game.log` → the blueprint is in the list **within seconds** |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Keyboard shortcut** | **Ctrl+Alt+B** brings the blueprint list to the front — from inside the full-screen game, no blind hunting for the window. Exactly that one combination is registered; nothing else is listened to |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watchlist / farming / new in game*, with progress — for all blueprints or just your watchlist. Tick items with one click |
-| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Where it drops** | The **"Where from?"** button shows faction, contract, required standing and payout — for **678 of 746** blueprints, sorted by the easiest route. From **Crafting** a button leads straight there: missing the blueprint, one click tells you which contract to run |
-| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Contract accepted** | Accept a contract and you see right away whether blueprints are part of it — and **which of those you are still missing**. If the catalogue does not know the contract, it stays quiet rather than guessing |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **What to do next** | Every running contract lists its **open objectives** underneath — "Disable the Hartmoore inverter", "Locate and reset the node". They come from the same log and move on as soon as you finish one |
-| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Missions & log** | Which missions you played when, how often — and **which blueprint came out of it**. The answer to "which mission was it again that dropped the helmet?". It works the other way round too: search for a mission, click it, and you see what it gives. Already filled on first start: the game's kept logs reach back weeks. From then on it grows with you and stays, long after the game has dropped its own. If a mission is bugged, the bug icon on its row searches the **Issue Council** for it — always with the English title, even if you play in another language |
-| <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Crafting** | For each of the **1,609** craftable items: the ingredients with amounts and the craft time — and whether you have the blueprint. **At the top, the product stats as base, crafted and change** — damage, DPS, shield, cooling, armour —, calculated like scmdb.net. Clicking a resource jumps to where it can be mined |
-| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Mining** | Both directions in one search: type a resource → its locations (Iron: 27). Type a location → what is found there (Daymar: 14 ores). Plus the **concentration** at every location — what share of the rocks there is that ore, from "barely any" to "almost all of it", with the list ordered by richness. A **"With what?"** selector separates ship, vehicle and hand mining, because the three see entirely different deposits. With a **refinery comparison** per ore (which station gives the best bonus — 18 percentage points apart for Bexalite) and the **scan signature** to recognise it in game. **On Windows Verse-Kit reads the signature by itself while scanning** and shows the ore in the overlay — switched on and off with the eye in the bar |
-| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Which refining method?** | The terminal offers nine methods and shows a single line for each. Tell it what matters to you instead — **yield, cost or speed** — and it names the method. Two of the nine are never worth taking: another one beats them on every count, and the tool says so |
-| <img src="assets/symbole/22/raffinerie-gruen.png" width="22" alt=""> **Refineries** | **Which station makes the most of your ore — as one table.** One row per material, one column per refinery, and in each cell the bonus or penalty that station applies. Green is the best value in the row, red costs you yield; the system is shown above the columns, so you can see at a glance whether the better price is worth the trip. The other direction to "Which refining method?": that one picks the method, this one picks the station |
-| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **My Inventory** | **Your whole inventory in one place**, in the **Fleet & Logistics** group next to hangar and wishlist: tabs **Material** and **Items** at the top, below them filters by **type** (ore, refined, mineral, commodity, vehicle component, armor …), **location** and **purpose** (for crafting or for selling) plus a search. One line per entry, with the type as a badge and, for items, the class/size/grade tag such as `(Mil/3/A)` — no internet and no Basetool needed. Enter what resources you have — **material, amount, quality, location**. The same material is grouped on one line with total amount and quality range; unfold it to see the individual entries. **Every entry is a crate, just like in the game:** crates of the same quality at the same place sit under one summary line, crafting takes each portion from a single crate that holds enough, and a crate too small for any recipe is marked **"Leftover — sell only"**. Recipes then show what is missing, and a button subtracts the ingredients when you craft — in exactly the quality you set: by slider, typed in, or like at the terminal with **Best / Worst material**. **And because the recipes carry how material quality changes the item\'s values, you see what *your* material would produce** |
-| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Prices** | What a material costs at the terminal and what it sells for — the numbers come from **[UEX Corp](https://uexcorp.space/)** and refresh daily. That way crafting answers not only "what am I missing" but also "what will it cost me". Without a connection the column simply stays empty |
-| <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **My hangar** | **Which ships you own — and whether a blueprint even fits in one.** You can pull your hangar out of the pledge store in one go: the browser add-on [Star Citizen: Hangar Extension](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W) puts it into a file, and the watcher reads it — JSON **and** CSV, with LTI or insurance duration per ship (the older [Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR) is still read as well). Ship lists from **Fleetview** (CCU Game), **Fleetyards** and **StarJump FleetViewer** are read too — they only add, nothing gets removed. Ships bought in-game go in by hand right next to it — every ship remembers where it came from. After that, crafting shows under every blueprint **which of your ships the part fits** and how many slots it has there. Slot data comes from [erkul.games](https://erkul.games) and stays on your machine; only what you actually have in your hangar is fetched, and only once per game patch |
-| <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **Names in the game** (in the hangar) | **Your ships are called what you call them at the retrieval terminal (ASOP).** Instead of "Anvil F7C-M Super Hornet Mk II" it shows what you entered — and a star in front marks one without renaming it. The field sits right at each ship in the hangar, and the search there finds it by your own name too. ⚠ A name belongs to the **model**, not to the individual ship: two identical Hornets get the same name; variants like F7C, F7C-M, Mk I and Mk II can be told apart. The factory name comes back character for character at any time |
-| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Reputation thresholds** | **The reputation menu shows after every rank how much reputation it starts at** — "Guild Member [10,000+]". Only the game server fills the bar, but you see what comes next: bounty hunters, contractors, hauling, security, technicians, Battaglia and Wikelo. Can be switched off under "Game" |
-| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Blueprint details in item descriptions** | **Below the description of every craftable item the game shows whether you own the blueprint** — and if not, which contract it comes from, easiest first. Plus how many ingredients and how much time crafting takes and where the item is cheapest to buy. Text from other tools stays, the block goes below it. Can be switched off under "Game" |
-| <img src="assets/symbole/22/wunschliste-gruen.png" width="22" alt=""> **Wishlist** | **What you are aiming for — with price, location and a loadout you can plan in advance.** Add a ship and see what it costs in game and where it is sold. The loadout can be planned **before** you own it — while the total is still a decision, not a receipt. Nothing here shows up under "fits your ship": a wish is not a possession |
-| <img src="assets/symbole/22/einkaufsliste-gruen.png" width="22" alt=""> **Shopping list** | **The bill across all your ships.** Set what belongs in each slot — every part shows **grade and class** ("A · Military · blueprint only") so you can build towards a purpose without knowing 1,500 names. **Military parts** are included: no shop sells them, only blueprints. Per item you choose **buy or build**, and below stands the total with a shopping route of as few stops as possible. Tick off what you fitted — it leaves the list and the total |
-| <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **What to farm** | **Your stock weighed against everything you want to build.** Across all items at once, not recipe by recipe: two parts needing 2 Iron each with 3 Iron in stock — checked individually both say "enough", together one is missing. Ore below the required quality does not count as stock but is named rather than passed over. Each missing material shows its **richest locations**, plus the places where you get **several at once**. Parts on your list get a **quantity** — two suits of armour mean twice the material. Clicking a material shows it in Mining with every place to find it |
-| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **What is inside?** | **What a wreck carries from the factory — and what it is worth in a shop.** Type a ship and see every fitted part with its shop value. ⚠ NPC wrecks are lootable; player ships become useless once the insurance is claimed — stripped parts are then worthless too. That warning comes **before** any number |
-| <img src="assets/symbole/22/zerlegen-gruen.png" width="22" alt=""> **Worth dismantling?** | **What the fabricator returns, before you start cutting.** 50 % of the materials — but **six never come back**, Quantainium and Stileron among them. Most parts contain at least one; anyone dismantling just for those hauled it for nothing. The figures come from the game data, not from the program |
-| <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **Field of view** | **Are you sitting right in front of your screen?** Measure your screen width with a bank card (they are standardised), enter your seating distance — and you get the field of view your setup actually delivers, with a rating |
-| <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Where a finished part sits on the shelf — and what it costs there.** The other direction to crafting: instead of "what do I need to build this", the question "is building it worth the effort at all". **1,528 parts across 38 item groups** — not just craftable ones, but missiles, bombs, ammunition and weapon attachments, plus **174 ships to buy or rent**. Every row shows **class, size, grade and manufacturer**, and you can filter by them: that is how you find the quantum drive that fits your ship without knowing all 44 names. The **Location** field shows only what is sold where you are right now — say, everything on the shelves in Levski. Click a part and you get every shop with price, location and system — the cheapest one first, used stock with its condition. Anything that is not sold anywhere never shows up |
-| <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routes** | **Trade routes with real profit instead of a price list.** Tell it where you are, how much cargo space you have and how much money — and you get the run with buy price, sell price and what is left at the end. Optionally across several stops in a row, sorted by highest profit or shortest hop, and as a round trip back to your start. One button searches the best route **anywhere in the verse**, no starting point needed. Pick your ship and the cargo capacity fills itself in |
-| <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Controls** | **What is bound to which key — and rebind without switching to the game.** Your complete binding list in plain language ("Eject" instead of `v_eject`, in the tool's own language), joystick, keyboard, mouse and gamepad in one searchable list, switchable between *changed by me*, *everything* and *default*. To **rebind**, click a row and press the button you mean — no need to know its number, and if the input is already taken you see it beforehand. Plus: which stick has which number, and whether your bindings still point at a connected device. Works for **any** device — nothing needs to be set up in advance |
-| <img src="assets/symbole/22/einrichtung-gruen.png" width="22" alt=""> **Setup wizard** | Walks you through everything important on first start, including the key settings — and **repeatable any time**, no digging through menus |
-| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Backup** | Everything only you have, in **one file** — blueprint inventory, both stocks, mission log, watchlist and settings. The same button restores it: file onto a stick, read it in on the new machine, keep playing. The downloaded reference data stays out, the program fetches that itself |
-| <img src="assets/symbole/22/anzeige-gruen.png" width="22" alt=""> **Graphics** | Renderer, window mode, VSync, upscaling with technique and model, motion blur, film grain, sharpening and chromatic aberration — set without starting the game. Above it, what the game measures about your PC: performance index and its rating from Low to Ultra. It only writes while the game is closed, and backs up the file next to it first |
-| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Clear shader cache** | Graphics glitches or stutter after a patch? Its own tab under *Game settings* empties the shader caches of Star Citizen and the graphics drivers plus old crash reports — the program finds the folders itself, on Linux inside the Wine prefix too. Your graphics settings stay, and nothing happens while the game is running |
-| <img src="assets/symbole/18/punkt-blau.png" width="22" alt=""> **Catalogue watch** | Also reports when something becomes **newly craftable in the game** — a blueprint CIG added that did not exist before |
-| <img src="assets/symbole/22/serverstatus-gruen.png" width="22" alt=""> **Server status** | A tab of its own: **is Star Citizen up?** Shows what CIG reports on its status page — all three systems plus the incidents of the last two months in full. Refreshes itself once a minute. States stay in CIG's own wording; the entries are maintained by hand, not measured |
-| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Changed game values** | Its own tab: **what a game patch changed about values** — ships, weapons, quantum drives, components, field by field with the old and the new value. Increased green, decreased red. The source only keeps the last ten patches; whatever you fetched once stays with you. |
-| <img src="assets/symbole/18/punkt-blau.png" width="22" alt=""> **New in game** | Its own filter in the list: **only what the current patch added**. Every blueprint carries the game version it first appeared in; when the next patch lands, the new ones move in and the old ones drop out of the filter — the stamp stays |
-| <img src="assets/symbole/18/gemerkt-gruen.png" width="22" alt=""> **Watchlist** | Click the star next to anything you are waiting for. When it shows up it is announced in gold — and **ticked off on the watchlist**, so the progress page shows how far along you are with your starred blueprints |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Keyboard shortcut** | **Ctrl+Alt+B** brings the blueprint list to the front, from inside the full-screen game, no blind hunting for the window. Exactly that one combination is registered; nothing else is listened to. **On Wayland** (Linux) no program can register a system-wide combination itself: there a ready command to copy stands under the setting, which you bind to a combination in your desktop, on KDE Plasma under *System Settings → Keyboard → Shortcuts → Add New → Command or Script*. If VerseKit is already running, the command opens the main window instead of starting it a second time |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watchlist / farming / new in game*, with progress, for all blueprints or just your watchlist. Tick items with one click. The **Received** filter (today, 7 days, 14 days, this month) flattens the list, newest first, each line with date and source |
+| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Where it drops** | The **"Where from?"** button shows faction, contract, required standing and payout, for every blueprint that comes from a contract, sorted by the easiest route. From **Crafting** a button leads straight there: missing the blueprint, one click tells you which contract to run |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Contract accepted** | Accept a contract and you see right away whether blueprints are part of it, and **which of those you are still missing**. If the catalogue does not know the contract, it stays quiet rather than guessing |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **What to do next** | Every running contract lists its **open objectives** underneath: "Disable the Hartmoore inverter", "Locate and reset the node". They come from the same log and move on as soon as you finish one |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Missions & log** | Which missions you played when, how often, and **which blueprint came out of it**. The answer to "which mission was it again that dropped the helmet?". It works the other way round too: search for a mission, click it, and you see what it gives. Already filled on first start: the game's kept logs reach back weeks. From then on it grows with you and stays, long after the game has dropped its own. If a mission is bugged, the bug icon on its row searches the **Issue Council** for it, always with the English title, even if you play in another language |
+| <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Crafting** | For each craftable item: the ingredients with amounts and the craft time, and whether you have the blueprint. **At the top, the product stats as base, crafted and change** (damage, DPS, shield, cooling, armour), read from the game data of your own installation and cross-checked against scmdb.net. Weapons also show their integrity. Clicking a resource jumps to where it can be mined |
+| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Mining** | Both directions in one search: type a resource → its locations. Type a location → what is found there. Plus the **concentration** at every location: what share of the rocks there is that ore, from "barely any" to "almost all of it", with the list ordered by richness. A **"With what?"** selector separates ship, vehicle and hand mining, because the three see entirely different deposits. With a **refinery comparison** per ore (which station gives the best bonus) and the **scan signature** to recognise it in game. **On Windows VerseKit reads the signature by itself while scanning** and shows the ore in the overlay, also ROC/ground and hand mining; for asteroids it counts the rocks ("2× Asteroid (C-Type)"). Switched on and off with the eye in the bar. The **signature window** sits right above the signature in the game: under *Settings → Overlay* you drag it into place and pick Small, Medium or Large. The **search frame** tells VerseKit where the signature stands in the ship HUD: "Get game picture", switch into the game, draw a frame in the picture, and "Show the frame in the game" lets you check it in the game itself |
+| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Which refining method?** | The terminal offers nine methods and shows a single line for each. Tell it what matters to you instead (**yield, cost or speed**) and it names the method. Two of the nine are never worth taking: another one beats them on every count, and the tool says so |
+| <img src="assets/symbole/22/raffinerie-gruen.png" width="22" alt=""> **Refineries** | **Which station makes the most of your ore, as one table.** One row per material, one column per refinery, and in each cell the bonus or penalty that station applies. Green is the best value in the row, red costs you yield; the system is shown above the columns, so you can see at a glance whether the better price is worth the trip. The other direction to "Which refining method?": that one picks the method, this one picks the station |
+| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **My Inventory** | **Your whole inventory in one place**, in the **Fleet & Logistics** group next to hangar and wishlist: tabs **Material** and **Items** at the top, below them filters by **type** (ore, refined, mineral, commodity, vehicle component, armor …), **location** and **purpose** (for crafting or for selling) plus a search. One line per entry, with the type as a badge and, for items, the class/size/grade tag such as `(Mil/3/A)`: no internet and no Basetool needed. Enter what resources you have: **material, amount, quality, location**. The same material is grouped on one line with total amount and quality range; unfold it to see the individual entries. **Every entry is a crate, just like in the game:** crates of the same quality at the same place sit under one summary line, crafting takes each portion from a single crate that holds enough, and a crate too small for any recipe is marked **"Leftover: sell only"**. Recipes then show what is missing, and a button subtracts the ingredients when you craft, in exactly the quality you set: by slider, typed in, or like at the terminal with **Best / Worst material**. **And because the recipes carry how material quality changes the item's values, you see what *your* material would produce** |
+| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Prices** | What a material costs at the terminal and what it sells for: the numbers come from **[UEX Corp](https://uexcorp.space/)** and refresh daily. That way crafting answers not only "what am I missing" but also "what will it cost me". Without a connection the column simply stays empty |
+| <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **My Inventory: for selling** | What you carry to sell: in the same inventory, but with the **Sale** badge and its own filter: one is building material you keep, the other is cargo you want gone. Enter commodity, location and SCU; the amount field does maths (`100+5`). Instead of a quality there is a **"marked as stolen"** tick: quality does not affect selling, and looted cargo is always Q 0 anyway. Enter what you **paid per SCU** and you see the **profit** per item and per selling location |
+| <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Buy & Sell** | Switch between **Sell** and **Buy** at the top. **Buy:** search a commodity (e.g. gold) and see which terminals sell it, cheapest place first, with stock level (empty and nearly empty are flagged), box sizes and the age of the report. **Sell:** where to offload your goods and what they pay **per SCU**, for **several commodities at once**. Sorted not by the highest price but by **how many of your goods a place takes**: 100 SCU gold, 40 copper and 25 iron pay 3,533,000 aUEC at one place, 3,566,000 spread over three, one percent more for two extra approaches. If the cargo is marked as stolen, the tab narrows down to the 15 terminals that ask no questions |
+| <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **My hangar** | **Which ships you own, and whether a blueprint even fits in one.** You can pull your hangar out of the pledge store in one go: the browser add-on [Star Citizen: Hangar Extension](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W) puts it into a file, and VerseKit reads it: JSON **and** CSV, with LTI or insurance duration per ship (the older [Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR) is still read as well). The [Hangar-Exporter](https://github.com/Drachennarr/Hangar-Exporter-Releases/releases/latest) by Drachennarr reads the hangar from the RSI site too; the installer puts its Firefox add-on in place for you, and the hangar page and the setup wizard each have a button for Firefox, Chrome and Edge. Ship lists from **Fleetview** (CCU Game), **Fleetyards** and **StarJump FleetViewer** are read too: they only add, nothing gets removed. Ships bought in-game go in by hand right next to it: every ship remembers where it came from. After that, crafting shows under every blueprint **which of your ships the part fits** and how many slots it has there. Slot data comes from [erkul.games](https://erkul.games) and stays on your machine; only what you actually have in your hangar is fetched, and only once per game patch |
+| <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **Names in the game** (in the hangar) | **Your ships are called what you call them at the retrieval terminal (ASOP).** Instead of "Anvil F7C-M Super Hornet Mk II" it shows what you entered, and a star in front marks one without renaming it. The field sits right at each ship in the hangar, and the search there finds it by your own name too. ⚠ A name belongs to the **model**, not to the individual ship: two identical Hornets get the same name; variants like F7C, F7C-M, Mk I and Mk II can be told apart. The factory name comes back character for character at any time |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Reputation thresholds** | **The reputation menu shows after every rank how much reputation it starts at**: "Guild Member [10,000+]". Only the game server fills the bar, but you see what comes next: bounty hunters, contractors, hauling, security, technicians, Battaglia and Wikelo. Can be switched off under "Game" |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Blueprint details in item descriptions** | **Below the description of every craftable item the game shows whether you own the blueprint**, and if not, which contract it comes from, easiest first. Plus how many ingredients and how much time crafting takes and where the item is cheapest to buy. Text from other tools stays, the block goes below it. If the game has no name text for a craftable item, VerseKit writes a stand-in name from the class name. Text the game has stays untouched, and taking the details back removes the stand-in name again. Can be switched off under "Game" |
+| <img src="assets/symbole/22/wunschliste-gruen.png" width="22" alt=""> **Wishlist** | **What you are aiming for, with price, location and a loadout you can plan in advance.** Add a ship and see what it costs in game and where it is sold. The loadout can be planned **before** you own it, while the total is still a decision, not a receipt. Nothing here shows up under "fits your ship": a wish is not a possession |
+| <img src="assets/symbole/22/einkaufsliste-gruen.png" width="22" alt=""> **Shopping list** | **The bill across all your ships.** Set what belongs in each slot: every part shows **grade and class** ("A · Military · blueprint only") so you can build towards a purpose without knowing 1,500 names. **Military parts** are included: no shop sells them, only blueprints. Per item you choose **buy or build**, and below stands the total with a shopping route of as few stops as possible. Tick off what you fitted: it leaves the list and the total |
+| <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **What to farm** | **Your stock weighed against everything you want to build.** Across all items at once, not recipe by recipe: two parts needing 2 Iron each with 3 Iron in stock: checked individually both say "enough", together one is missing. Ore below the required quality does not count as stock but is named rather than passed over. Each missing material shows its **richest locations**, plus the places where you get **several at once**. Parts on your list get a **quantity**: two suits of armour mean twice the material. Clicking a material shows it in Mining with every place to find it |
+| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **What is inside?** | **What a wreck carries from the factory, and what it is worth in a shop.** Type a ship and see every fitted part with its shop value. ⚠ NPC wrecks are lootable; player ships become useless once the insurance is claimed: stripped parts are then worthless too. That warning comes **before** any number |
+| <img src="assets/symbole/22/zerlegen-gruen.png" width="22" alt=""> **Worth dismantling?** | **What the fabricator returns, before you start cutting.** 50 % of the materials, but **six never come back**, Quantainium and Stileron among them. Most parts contain at least one; anyone dismantling just for those hauled it for nothing. The figures come from the game data, not from the program |
+| <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **Field of view** | **Are you sitting right in front of your screen?** Measure your screen width with a bank card (they are standardised), enter your seating distance, and you get the field of view your setup actually delivers, with a rating |
+| <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Where a finished part sits on the shelf, and what it costs there.** The other direction to crafting: instead of "what do I need to build this", the question "is building it worth the effort at all". Parts of every item group: not just craftable ones, but missiles, bombs, ammunition and weapon attachments, plus ships to buy or rent. **Put any part into the shopping basket with an amount**, say a whole FPS loadout: the shopping list adds up the costs, shows every place to buy each part, plans the route with the fewest stops and lets you tick off each stop. You save a set as a template under a name. Every row shows **class, size, grade and manufacturer**, and you can filter by them: that is how you find the quantum drive that fits your ship without knowing all the names. The **Location** field shows only what is sold where you are right now (say, everything on the shelves in Levski). Click a part and you get every shop with price, location and system, the cheapest one first, used stock with its condition. Anything that is not sold anywhere never shows up |
+| <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routes** | **Trade routes with real profit instead of a price list.** Tell it where you are, how much cargo space you have and how much money, and you get the run with buy price, sell price and what is left at the end. Optionally across several stops in a row, sorted by highest profit or shortest hop, and as a round trip back to your start. One button searches the best route **anywhere in the verse**, no starting point needed. Pick your ship and the cargo capacity fills itself in |
+| <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Controls** | **What is bound to which key, and rebind without switching to the game.** Your complete binding list in plain language ("Eject" instead of `v_eject`, in the tool's own language), joystick, keyboard, mouse and gamepad in one searchable list, switchable between *changed by me*, *everything* and *default*. To **rebind**, click a row and press the button you mean, no need to know its number, and if the input is already taken you see it beforehand. Plus: which stick has which number, and whether your bindings still point at a connected device. Works for **any** device: nothing needs to be set up in advance |
+| <img src="assets/symbole/22/einrichtung-gruen.png" width="22" alt=""> **Setup wizard** | Walks you through everything important on first start, including the key settings, and **repeatable any time**, no digging through menus |
+| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Backup** | Everything only you have, in **one file**: blueprint inventory, both stocks, mission log, watchlist, settings and your controls (active mapping and saved profiles). The same button restores it: file onto a stick, read it in on the new machine, keep playing. On restoring, VerseKit asks separately whether the profiles are put back and whether the active mapping is replaced too; nothing happens while the game is running, and a copy is always made first. The downloaded reference data stays out, the program fetches that itself. **On the first start of VerseKit 5** it also backs up your 4.12 data with the controls into the "Sicherungen" folder of your data folder before it changes anything |
+| <img src="assets/symbole/22/anzeige-gruen.png" width="22" alt=""> **Graphics** | Renderer, window mode, VSync, upscaling with technique and model, motion blur, film grain, sharpening and chromatic aberration, set without starting the game. Above it, what the game measures about your PC: performance index and its rating from Low to Ultra. VerseKit remembers the rating and says when it was last rated ("last rated on …"). It only writes while the game is closed, and backs up the file next to it first |
+| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Clear shader cache** | Graphics glitches or stutter after a patch? Its own tab under *Game settings* empties the shader caches of Star Citizen and the graphics drivers plus old crash reports. "Clear only old shaders" takes just the folders of older Star Citizen versions; installed and unclear folders stay. Clearing everything remains the second choice. The program finds the folders itself, on Linux inside the Wine prefix too. Your graphics settings stay, and nothing happens while the game is running |
+| <img src="assets/symbole/18/punkt-blau.png" width="22" alt=""> **Catalogue watch** | Also reports when something becomes **newly craftable in the game**: a blueprint CIG added that did not exist before |
+| <img src="assets/symbole/22/serverstatus-gruen.png" width="22" alt=""> **Server status** | A tab of its own: **is Star Citizen up?** Shows what CIG reports on its status page: all three systems plus the incidents of the last two months in full. Refreshes itself once a minute. States stay in CIG's own wording; the entries are maintained by hand, not measured |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Changed game values** | Its own tab: **what a game patch changed about values**: ships, weapons, quantum drives, components, field by field with the old and the new value. Increased green, decreased red. The source only keeps the last ten patches; whatever you fetched once stays with you. |
+| <img src="assets/symbole/18/punkt-blau.png" width="22" alt=""> **New in game** | Its own filter in the list: **only what the current patch added**. Every blueprint carries the game version it first appeared in; when the next patch lands, the new ones move in and the old ones drop out of the filter. The stamp stays |
+| <img src="assets/symbole/18/gemerkt-gruen.png" width="22" alt=""> **Watchlist** | Click the star next to anything you are waiting for. When it shows up it is announced in gold, and **ticked off on the watchlist**, so the progress page shows how far along you are with your starred blueprints |
 | <img src="assets/symbole/22/kuerzel-gruen.png" width="22" alt=""> **Class · size · grade** | Compact tag `class/size/grade` per blueprint, e.g. `M/1/A` (Military · Size 1 · Grade A) |
-| <img src="assets/symbole/22/ton-gruen.png" width="22" alt=""> **Sound** | A short beep on every find — you don't have to watch the window |
-| <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Always on top** | Borderless, slightly translucent overlay above the game |
-| <img src="assets/symbole/22/schloss_auf-gruen.png" width="22" alt=""> **Pass clicks through** | One click on the lock in the bar and the overlay lets mouse clicks through — still in view, no longer in the way. The same lock turns green and brings it back with one click, with no detour through the settings |
-| <img src="assets/symbole/22/verschieben-gruen.png" width="22" alt=""> **Movable & resizable** | Drag the title bar, resize at the ◢ handle — **position and size are remembered** |
-| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Six colour schemes** | Under **"Appearance"** with a small preview: **Verse-Kit (original), KRT (orange), Ice (cyan), Nebula (violet), Ember (red) and High contrast** — each with its own symbols, for the overlay and every window. Pictures [below](#the-colour-schemes) |
-| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Interface size** | Text, symbols and buttons **steplessly** with a slider — or the preset for your screen: Auto, Full HD, WQHD, UHD (125 %), UHD (150 %) |
-| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Sharp rendering (test)** | For Windows with scaling above 100 % — such as 150 % on a 4K screen: Verse-Kit renders at full resolution itself instead of being upscaled and blurred by Windows. Size and position stay the same. Under **"Appearance"**, off by default, takes effect after a restart |
-| <img src="assets/symbole/22/module-gruen.png" width="22" alt=""> **Modules** | Basetool, Ships, Crafting (with mining and refineries), Salvage, Trading and Statistics can be **hidden from the sidebar** if you don't need them — per page, whichever group it sits in; an empty group disappears. Nothing is deleted |
-| <img src="assets/symbole/22/startprogramme-gruen.png" width="22" alt=""> **Start programs** | Launch further programs **with the RSI Launcher**, once Star Citizen runs, or **instead** of the launcher — optionally close them when the game ends |
-| <img src="assets/symbole/22/startprogramme-gruen.png" width="22" alt=""> **Launch with MangoHud** (Linux) | A switch under *Installation & paths* turns on **MangoHud** when you start through "Launch RSI Launcher" — frames per second, CPU and GPU load right in the game. MangoHud itself comes from your package manager; if it is missing, the page says where to get it |
+| <img src="assets/symbole/22/ton-gruen.png" width="22" alt=""> **Sound** | A short beep on every find: you don't have to watch the window |
+| <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Info bar** | **A narrow bar of its own over the game**, switched on under *Settings → Overlay → Info bar*. It shows the server shard and, on request, three values with a switch each: **your FPS**, the **server FPS** and the **players** on the shard and on your server. VerseKit reads the values from the game picture; for that `r_DisplayInfo 1` (FPS) or `r_DisplayInfo 3` (players) must be on in the game. While mining, the scanner result stands on the right. With the lock open you drag the bar into place (top left, middle or right), and VerseKit remembers it. **"Show without the game running too"** keeps it visible without Star Citizen |
+| <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Handle search** | **Who is behind a handle?** In the field of the info bar and on the *Handle search* page: **Enter** searches, **Ctrl+Enter** fetches the data anew from RSI. The card shows name, main organisation and further organisations, rank, SID and the profile at RSI. You mark handles and organisations as **friendly, neutral or hostile** and see the list filtered on the page; the relations can be exported and imported. For an organisation the card shows its **members** ("n of total loaded", with "Load more"); hidden members are missing from the list. **Searched lately** keeps the history. The **log monitor** shows kills, deaths and loading screens from the game log; a click on the handle searches it. VerseKit keeps found handles for as many days as you set. Modelled on the [Star Citizen Handle Query](https://github.com/Kuehlwagen/Star-Citizen-Handle-Query) by Kuehlwagen |
+| <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **On top of the game** | Borderless, slightly translucent overlay that follows the game: it sits on top of Star Citizen while you play |
+| <img src="assets/symbole/22/schloss_auf-gruen.png" width="22" alt=""> **Pass clicks through** | One click on the lock in the bar and the overlay lets mouse clicks through: still in view, no longer in the way. The same lock turns green and brings it back with one click, with no detour through the settings |
+| <img src="assets/symbole/22/verschieben-gruen.png" width="22" alt=""> **Movable & resizable** | Drag the title bar, resize at the ◢ handle: **position and size are remembered**. For more, set the **size of the overlay** and the **size of the info bar** from 100 to 200 percent under *Settings → Overlay*: text, spacing and windows grow with it |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Six colour schemes** | Under **"Appearance"** with a small preview: **VerseKit (original), KRT (orange), Ice (cyan), Nebula (violet), Ember (red) and High contrast**, each with its own symbols, for the overlay and every window. The switch takes effect at once, without a restart. Pictures above under *The colour schemes* |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Interface size** | Text, symbols and buttons **steplessly** with a slider, or the preset for your screen: Auto, Full HD, WQHD, UHD (125 %), UHD (150 %) |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Sharp rendering** | Even on Windows with scaling above 100 %, such as 150 % on a 4K screen, VerseKit renders at full resolution itself instead of being upscaled and blurred by Windows. No switch, out of the box |
+| <img src="assets/symbole/22/module-gruen.png" width="22" alt=""> **Modules** | Basetool, Ships, Crafting (with mining and refineries), Salvage, Trading and Statistics can be **hidden from the sidebar** if you don't need them (per page, whichever group it sits in); an empty group disappears. Nothing is deleted |
+| <img src="assets/symbole/22/startprogramme-gruen.png" width="22" alt=""> **Start programs** | Launch further programs **with the RSI Launcher**, once Star Citizen runs, or **instead** of the launcher. Optionally close them when the game ends |
+| <img src="assets/symbole/22/startprogramme-gruen.png" width="22" alt=""> **Launch with MangoHud** (Linux) | A switch under *Installation & paths* turns on **MangoHud** when you start through "Launch RSI Launcher": frames per second, CPU and GPU load right in the game. MangoHud itself comes from your package manager; if it is missing, the page says where to get it |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **user.cfg** | On the **"Game"** page: what VerseKit writes, your own lines and the whole file, per game channel. The old file is backed up before the first change |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **German and English** | Interface switchable; the in-game blueprint message is recognised in both languages |
-| <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Updates itself** | Checks for new versions every 10 minutes and installs them on its own — **never while Star Citizen is running**, it waits until the game is closed. Can be switched off. With „What's new" to read up on, including older releases |
-| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log`. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved. Plus the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself |
-| <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have — no other program needed |
-| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Play time** | The bar at the top shows **how long you have played** — in total, and while you are playing the current session next to it. Counted from the game's own logs, and **kept**: Star Citizen clears out its old logs, the count stays. The backup takes it along when you move machines |
-| <img src="assets/symbole/22/statistik-gruen.png" width="22" alt=""> **Statistics** | A section with six tabs: **play time, sessions, contracts and quantum jumps** with a heat map of **when you play** — plus **ships & equipment** (most used and lost ships, weapons carried), **contracts**, **quantum travel** and **stability** (crashes, disconnects). Only what is reliably in the log in every game language is counted; each session is kept once and stays even when the logs are deleted. Can be saved as a file |
-| <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Translation — per channel** | Which text file Star Citizen reads is set **separately for each channel**: LIVE and PTU. Your main install also gets the blueprint details, a secondary channel only the text file — or nothing at all, if you would rather leave it alone. Verse-Kit fetches new releases for each channel by itself. Available are **German** (rjcncpt and Dymerz), **StarStrings** (MrKraken, PTU too), **French, Italian, Spanish, Portuguese and Turkish** (Dymerz), **Spanish** (Thord82), five languages from the **SC Launch Configurator** (Luftwerft: German, English, French, Italian, Spanish) and the game's own **English** — or **none at all**, leaving the text file untouched. Using a different one? Enter its **URL** — a zip or a `global.ini`, `https://` only; a GitHub file view is turned into the download for you, and anything that is not a game text file is rejected |
-| <img src="assets/symbole/22/basetool-gruen.png" width="22" alt=""> **Sync with the KRT Profit Basetool** | Blueprints, My Inventory and your hangar sync with your Basetool — both ways. Plus the demand and your **unit's storage** (in the **Fleet & Logistics** group, one compact line per lot with type and tag); as a logistician you book there right from Verse-Kit, using the icons on each entry. Your own goods and items go into one of your units' storage with a button on their row in **My Inventory**, and come back the same way — you stay the owner; a switch **All / Personal / Shared** shows what lies where. You connect with a code you type in your browser; Verse-Kit never sees a password, and the credentials stay in your system's key store. Every area is off by default. Nothing is deleted silently, you decide where amounts differ, and your ships' purchase data never leaves. What is transferred is in the [privacy statement](PRIVACY.en.md). The connection sits under **Settings → Connection & sync**, the demand under **Procurement**, the unit storage under **Fleet & Logistics** — the same groups as in the Basetool's sidebar |
-| <img src="assets/symbole/22/quellen-gruen.png" width="22" alt=""> **Connect to scmdb.net** | New blueprints and running missions land straight in your scmdb account — no export, no upload and no extra program. Turn it on under *Settings → General*, then enable "Watcher" on scmdb.net. Only LIVE and HOTFIX are taken over; it is off by default |
-| <img src="assets/symbole/22/bestaetigt-gruen.png" width="22" alt=""> **All blueprints, or only the obtainable ones** | Star Citizen can craft **1609** things — **746** of those are handed out by contracts. The rest comes from kiosks, from events, or is tied to no mission at all. Out of the box only the obtainable ones count, so your progress is a number you can measure yourself against; under *Detection* you can add the rest |
-| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Report a problem in one click** | A field for one sentence, the finished report below it, a red button beside it — that is all. Up to four **screenshots** can go along if you like. The report holds system, packaging, game state and the last errors, but **neither your user name nor your paths** — a name appears only at the top as the reporter and can be cleared — and you see all of it beforehand. Prefer to write it yourself? One button hands you a prepared issue |
-| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Catch-up** | Reads stored logs of earlier sessions **and the running one** on start, picking up what was unlocked while it wasn't running — finds are reported, not added silently. A **Read the logs again** button (overlay and settings) goes through everything once more on demand |
-| 🐧 **Windows and Linux** | One build for both systems, including autostart and log language detection |
+| <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Updates itself** | Checks for a new version every ten minutes, downloads it with a checksum and installs it as soon as Star Citizen is closed, **never while the game is running**. No switch to set. With „What's new" to read up on, including older releases |
+| <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log`. **One exception, and it asks first:** on request VerseKit writes the blueprint markers into `global.ini`. That can be undone at any time, and text from other tools is preserved. Plus the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself |
+| <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have: no other program needed |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Play time** | The bar at the top shows **how long you have played**: in total, and while you are playing the current session next to it. Counted from the game's own logs, and **kept**: Star Citizen clears out its old logs, the count stays. The backup takes it along when you move machines |
+| <img src="assets/symbole/22/statistik-gruen.png" width="22" alt=""> **Statistics** | A section with five tabs: the **overview** (play time, sessions, contracts and quantum jumps with a heat map of **when you play**), plus **ships & equipment** (most used and lost ships, weapons carried), **contracts**, **quantum travel** and **stability** (crashes, disconnects). It also shows what you spent in shops. Only what is reliably in the log in every game language is counted; each session is kept once and stays even when the logs are deleted. Can be saved as a file |
+| <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Translation per channel** | Which text file Star Citizen reads is set **separately for each channel**: LIVE and PTU. Your main install also gets the blueprint details, a secondary channel only the text file, or nothing at all, if you would rather leave it alone. VerseKit fetches new releases for each channel by itself: it looks every five minutes, after a patch too, and the status line shows when it last fetched and checked. Available are **German** (rjcncpt and Dymerz), **StarStrings** (MrKraken, PTU too), **French, Italian, Spanish, Portuguese and Turkish** (Dymerz), **Spanish** (Thord82), eight languages from the **SC Launch Configurator** (Luftwerft: German, English, French, Italian, Spanish, Boarisch, Dutch and Portuguese, for LIVE and PTU) and the game's own **English**, or **none at all**, leaving the text file untouched. Using a different one? Enter its **URL**: a zip or a `global.ini`, `https://` only; a GitHub file view is turned into the download for you, and anything that is not a game text file is rejected |
+| <img src="assets/symbole/22/basetool-gruen.png" width="22" alt=""> **Sync with the KRT Profit Basetool** | Blueprints, My Inventory and your hangar sync with your Basetool, both ways. Plus the demand and your **unit's storage** (in the **Fleet & Logistics** group, one compact line per lot with type and tag); as a logistician you book there right from VerseKit, using the icons on each entry. Your own goods and items go into one of your units' storage with a button on their row in **My Inventory**, and come back the same way: you stay the owner; a switch **All / Personal / Shared** shows what lies where. You connect with a code you type in your browser; VerseKit never sees a password, and the credentials stay in your system's key store. Every area is off by default. Nothing is deleted silently, you decide where amounts differ, and your ships' purchase data never leaves. What is transferred is in the [privacy statement](PRIVACY.en.md). The connection sits under **Settings → Connection & sync**, the demand under **Procurement**, the unit storage under **Fleet & Logistics**, the same groups as in the Basetool's sidebar |
+| <img src="assets/symbole/22/quellen-gruen.png" width="22" alt=""> **Connect to scmdb.net** | New blueprints and running missions land straight in your scmdb account: no export, no upload and no extra program. Turn it on under *Settings → General*, then enable "Watcher" on scmdb.net. Only LIVE and HOTFIX are taken over; it is off by default |
+| <img src="assets/symbole/22/bestaetigt-gruen.png" width="22" alt=""> **All blueprints, or only the obtainable ones** | Star Citizen can craft a lot, but only some of the blueprints are handed out by contracts. The rest comes from kiosks, from events, or is tied to no mission at all. Out of the box only the obtainable ones count, so your progress is a number you can measure yourself against; under *Detection* you can add the rest |
+| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Report a problem in one click** | A field for one sentence, the finished report below it, a red button beside it. That is all. Up to four **screenshots** can go along if you like. The report holds system, packaging, game state and the last errors, but **neither your user name nor your paths** (a name appears only at the top as the reporter and can be cleared), and you see all of it beforehand. Prefer to write it yourself? One button hands you a prepared issue |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Catch-up** | Reads stored logs of earlier sessions **and the running one** on start, picking up what was unlocked while it wasn't running: finds are reported, not added silently. A **Read the logs again** button (overlay and settings) goes through everything once more on demand |
+| <img src="assets/symbole/22/anzeige-gruen.png" width="22" alt=""> **Streamer mode** | Switch it on under *Settings → General → Privacy*: player name, paths, org and unit, Basetool name and device codes show as "[Redacted]" on every page and in the overlay. While it is on, the header shows the button "Streamer mode on". Off by default. The copy buttons still copy the plain text |
+| <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Overlay unfolds** | Under *Settings → Overlay* you set per event whether it unfolds the overlay: blueprint, scanner hit, contract, finished refinery job and catalogue entry. By default only the blueprint unfolds it |
+| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Purchases as a suggestion** | What you buy in a shop in the game, *My stock* suggests under "New per log" for you to take over, with the price per piece. You take over or discard each purchase singly or all at once, and you can undo it; nothing is booked by itself. Can be switched off under *Settings → Detection* |
+| 🐧 **Windows and Linux** | One build for both systems, including autostart and log language detection. On Linux you add VerseKit to the application menu under *Settings → General*, the signal sound comes through your desktop's sounds and the system notice through `notify-send`. On **KDE** the overlay sits over the full-screen game without an extra start argument; the environment variable `VERSEKIT_X11_FENSTERTYP` picks another window type and takes precedence. Tray icon and scanner exist on Windows only |
 
-## Requirements
+</details>
 
-- **Windows or Linux**
-- **Star Citizen** installed — the folder containing `Game.log` is what's looked for. On Linux the usual Wine prefixes are searched (lug-helper, Lutris, Bottles, Heroic). If nothing is found, the wizard asks.
+<details>
+<summary><b>Installation in detail</b></summary>
 
-Nothing else. No Python, no account — and whether you install is your call (see below).
+**Requirements:** Windows or Linux and an installed Star Citizen. VerseKit looks for the folder containing `Game.log`, on Linux in the usual Wine prefixes (lug-helper, Lutris, Bottles also as a Flatpak, Heroic, Steam with Proton). If nothing is found, the wizard asks. Nothing else is needed: no account, nothing to install on top.
 
-## Getting started
+**Windows:** `VerseKit-Setup.exe` installs with a start menu entry, optionally a desktop icon and autostart, and can be removed cleanly through *Apps & Features*. A standalone `.exe` without an installer has been gone since v3.0.0: an update put the new version beside the old file, and anyone clicking their usual shortcut kept using the old version without noticing. With the installer an update really replaces it.
 
-1. Download the file for your system from the **[releases page](https://github.com/Xharig/VerseKit/releases)**:
+**Linux:** `VerseKit-x86_64.AppImage` is a single file. Make it executable once (right click → Properties → *Executable as program*, or `chmod +x VerseKit-x86_64.AppImage`). The wizard offers an application menu entry if you want one; later you find it under *Settings → General*.
 
-   | System | File | What happens |
-   |---|---|---|
-   | **Windows** | `VerseKit-Setup.exe` | Installs with a start menu entry, optional desktop icon and autostart — and uninstalls cleanly |
-   | **Linux** | `VerseKit-x86_64.AppImage` | A single file. The wizard offers an application menu entry if you want one |
+**On first start** a wizard walks you through setup: language, finding Star Citizen, collecting your existing blueprints, display, startup and details in the game. It takes a minute, and then your collection is there.
 
-2. Run it. Done.
-
-No Python, no extra packages — the installer brings everything with it and can be removed again through *Apps & Features*.
-
-> **Why the standalone `.exe` is gone** (as of v3.0.0): it existed for a long
-> time as a second route, for anyone who did not want to install anything. That
-> came at a price you only noticed later — an update put the new version
-> **beside** the old file instead of replacing it. Anyone clicking their usual
-> shortcut afterwards kept using the old version for months without noticing.
-> With the installer that cannot happen: a start-menu entry, updates that
-> genuinely replace, autostart as a checkbox, and a clean uninstall. On Linux
-> the AppImage stays as it is. On Linux, make the AppImage executable once (right click → Properties → *Executable as program*, or `chmod +x VerseKit-x86_64.AppImage`).
-
-On first start a **wizard** walks you through setup: language, finding Star Citizen, collecting your existing blueprints, display, startup and details in the game. It takes a minute, and then your inventory is there.
-
-### Code signing
-
-This project has applied to the [SignPath Foundation](https://signpath.org/)
-for free code signing for open source projects. Once approved, released
-Windows binaries will be signed by SignPath, and Windows will show the
-publisher name instead of "unknown publisher".
-
-Builds are produced exclusively by a public GitHub Actions workflow — see
-[SECURITY.en.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.en.md) for how releases are built, and
-[PRIVACY.en.md](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.en.md) for what the program reads, fetches and
-sends (and what not).
-
-### ⚠️ Windows says "Windows protected your PC"
+#### ⚠️ Windows says "Windows protected your PC"
 
 This appears on the first launch, and it is **not a virus detection**:
 
@@ -435,248 +471,164 @@ This appears on the first launch, and it is **not a virus detection**:
 
 **To run it anyway:** click **More info** → **Run anyway**. It will not ask again.
 
-**Why this happens:** SmartScreen does not check whether a program is harmful — it checks whether it is **known**. A file becomes known through a purchased code-signing certificate (several hundred euros a year) or by being downloaded by very many people. A free fan tool has neither, and every new version starts from zero again.
+**Why this happens:** SmartScreen does not check whether a program is harmful: it checks whether it is **known**. A file becomes known through a purchased code-signing certificate (several hundred euros a year) or by being downloaded by very many people. A free fan tool has neither, and every new version starts from zero again.
 
-**If you would rather not take my word for it — you don't have to:**
+**If you would rather not take my word for it, you don't have to:**
 
-- The **source is open** ([here](https://github.com/Xharig/VerseKit)), and the file is not built by me but by **GitHub Actions** from exactly that source. The build is there to read: [`.github/workflows/release.yml`](.github/workflows/release.yml)
-- Every file on the releases page carries its **SHA-256 checksum** — GitHub shows it directly
-- The build has every version checked on **VirusTotal** — the result and a link to the report sit at the bottom of the [release notes](https://github.com/Xharig/VerseKit/releases/latest). Individual scanners occasionally flag packed Python programs through machine-learning heuristics, a known false positive
+- The **source is open** ([here](https://github.com/Xharig/VerseKit)), and the file is not built by me but by **GitHub Actions** from exactly that source. The build is there to read: [`.github/workflows/`](.github/workflows/)
+- Every file on the releases page carries its **SHA-256 checksum**: GitHub shows it directly
+- The build has every version checked on **VirusTotal**: the result and a link to the report sit at the bottom of the [release notes](https://github.com/Xharig/VerseKit/releases/latest). Individual scanners occasionally flag new, still unknown programs through machine-learning heuristics, a known false positive
 
-On **Linux** this message does not exist — the file just needs to be made executable once.
+On **Linux** this message does not exist: the file just needs to be made executable once.
 
-> ℹ️ Verified against a real Star Citizen installation, with both a **German and an English** game client. Feedback from other machines is still welcome — different install locations, different screen setups, Windows. As an [issue](https://github.com/Xharig/VerseKit/issues).
+#### Code signing
+
+This project has applied to the [SignPath Foundation](https://signpath.org/)
+for free code signing for open source projects. Once approved, released
+Windows binaries will be signed by SignPath, and Windows will show the
+publisher name instead of "unknown publisher".
+
+Builds are produced exclusively by a public GitHub Actions workflow. See
+[SECURITY.en.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.en.md) for how releases are built, and
+[PRIVACY.en.md](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.en.md) for what the program reads, fetches and
+sends (and what not).
+
+> ℹ️ Verified against a real Star Citizen installation, with both a **German and an English** game client. Feedback from other machines is still welcome: different install locations, different screen setups, Windows. As an [issue](https://github.com/Xharig/VerseKit/issues).
+
+</details>
 
 <details>
-<summary>Running from source (for the curious and for developers)</summary>
+<summary><b>Building from source</b></summary>
 
-You need [Python](https://www.python.org/downloads/) — it is tested with **3.14**; older versions from 3.8 should work but are not tested. On Windows tick **„Add Python to PATH"** during setup. No extra packages required.
+For the curious and for developers. You need [Rust](https://www.rust-lang.org/tools/install) 1.99 or newer.
 
 ```bash
 git clone https://github.com/Xharig/VerseKit.git
 ```
 
-| System | Start with |
-|---|---|
-| Windows | `SC-BP-Watcher starten.bat` |
-| Linux | `SC-BP-Watcher starten.sh` |
+```bash
+cd VerseKit
+```
 
-On Linux the `tk` package (Python's window library) is often missing. The start script tells you what it is called on your distribution — on Arch `sudo pacman -S tk`, on Debian and Ubuntu `sudo apt install python3-tk`.
+```bash
+cargo build --release
+```
 
-The finished files are built by **GitHub** on every version tag ([`.github/workflows/release.yml`](.github/workflows/release.yml)) — nobody has to build by hand, not even the author.
+The finished files on the releases page are built by **GitHub Actions** on every version tag from exactly this source ([workflows](.github/workflows/)). Nobody builds them by hand, not even the author.
 
 </details>
 
-## Using it
+<details>
+<summary><b>Using the overlay</b></summary>
 
 The narrow bar sits above the game and reports new finds. Everything else is behind the symbols in its title bar:
 
 | Symbol | What it does |
 |---|---|
-| <img src="assets/symbole/22/glocke-grau.png" width="22" alt=""> | **Bell** — a new build is available; turns green as soon as there is one |
-| <img src="assets/symbole/22/starten-grau.png" width="22" alt=""> | **Rocket** — launch the RSI Launcher. Only appears if a way to start it was found |
-| <img src="assets/symbole/22/einstellungen-grau.png" width="22" alt=""> | **Gear** — open the main window: blueprint list, hangar, workshop, settings |
-| <img src="assets/symbole/22/schloss_auf-grau.png" width="22" alt=""> | **Lock** — pass mouse clicks through to the game. It turns green and closed while they do; one click on it catches them again |
-| <img src="assets/symbole/22/einklappen-grau.png" width="22" alt=""> | **Chevron** — fold the overlay down to just its bar |
-| <img src="assets/symbole/22/leeren-grau.png" width="22" alt=""> | **Eraser** — clear the messages on screen. Your blueprints stay |
-| <img src="assets/symbole/22/schliessen-grau.png" width="22" alt=""> | **Cross** — close |
-| <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **My Inventory: for selling** | What you carry to sell — in the same inventory, but with the **Sale** badge and its own filter: one is building material you keep, the other is cargo you want gone. Enter commodity, location and SCU; the amount field does maths (`100+5`). Instead of a quality there is a **"marked as stolen"** tick — quality does not affect selling, and looted cargo is always Q 0 anyway. Enter what you **paid per SCU** and you see the **profit** per item and per selling location |
-| <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Buy & Sell** | Switch between **Sell** and **Buy** at the top. **Buy:** search a commodity (e.g. gold) and see which terminals sell it — cheapest place first, with stock level (empty and nearly empty are flagged), box sizes and the age of the report. **Sell:** where to offload your goods and what they pay **per SCU** — for **several commodities at once**. Sorted not by the highest price but by **how many of your goods a place takes**: 100 SCU gold, 40 copper and 25 iron pay 3,533,000 aUEC at one place, 3,566,000 spread over three — one percent more for two extra approaches. If the cargo is marked as stolen, the tab narrows down to the 15 terminals that ask no questions |
+| <img src="assets/symbole/22/glocke-grau.png" width="22" alt=""> | **Bell**: a new build is available; turns green as soon as there is one |
+| <img src="assets/symbole/22/starten-grau.png" width="22" alt=""> | **Rocket**: launch the RSI Launcher. Only appears if a way to start it was found |
+| <img src="assets/symbole/22/einstellungen-grau.png" width="22" alt=""> | **Gear**: open or bring back the main window: blueprint list, hangar, workshop, settings |
+| <img src="assets/symbole/22/schloss_auf-grau.png" width="22" alt=""> | **Lock**: pass mouse clicks through to the game. It turns green and closed while they do; one click on it catches them again |
+| <img src="assets/symbole/22/einklappen-grau.png" width="22" alt=""> | **Chevron**: fold the overlay down to just its bar |
+| <img src="assets/symbole/22/leeren-grau.png" width="22" alt=""> | **Eraser**: clear the messages on screen. Your blueprints stay |
+| <img src="assets/symbole/22/schliessen-grau.png" width="22" alt=""> | **Cross**: ends VerseKit, with every open main window |
 
 | Action | How |
 |---|---|
 | Move the window | Drag the bar at the top |
 | Resize | Drag the **◢** handle at the bottom right |
 
-## How it works
+The hints of the buttons appear in a small window of their own next to the pointer, even when the overlay is folded.
+
+**The X of the main window only hides it**; VerseKit keeps running. Bring it back with the icon next to the clock, the gear in the overlay or a second start. VerseKit ends with the cross in the overlay. Without a running overlay, while a backup is being written, and on an update or restart, closing the main window ends the program.
 
 What the coloured dots mean:
 
 | | |
 |---|---|
-| <img src="assets/symbole/18/bestaetigt-gruen.png" width="18" alt=""> | Blueprint unlocked — it's in your inventory |
-| <img src="assets/symbole/18/punkt-blau.png" width="18" alt=""> | Became newly craftable **in the game** — not something *you* have yet |
+| <img src="assets/symbole/18/bestaetigt-gruen.png" width="18" alt=""> | Blueprint unlocked: it's in your inventory |
+| <img src="assets/symbole/18/punkt-blau.png" width="18" alt=""> | Became newly craftable **in the game**: not something *you* have yet |
 | <img src="assets/symbole/18/gemerkt-gelb.png" width="18" alt=""> | Something from your watchlist has appeared |
 | <img src="assets/symbole/18/hinweiszeile-grau.png" width="18" alt=""> | A note, not an unlock (e.g. a gap in your inventory) |
 
-1. **On start** the tool goes through the stored logs of earlier sessions (`logbackups/`) and quietly adds everything it finds to your inventory — nothing is lost if you played without the watcher running. Those blueprints are **not** reported as new. If the stored logs don't reach far enough back, the watcher says so as an <img src="assets/symbole/16/hinweiszeile-grau.png" width="16" alt=""> line instead of passing off an incomplete list as complete.
-2. **In the background** the **`Game.log`** is read — every 3 seconds, adjustable. *(The wording of the blueprint message depends on your game language — the watcher works it out by itself, see below.)* When the game writes `Added notification "Blueprint Received: <name>: "` on unlock, the blueprint is in the list **immediately** (<img src="assets/symbole/16/bestaetigt-gruen.png" width="16" alt="">) and in your inventory.
-   - There is no intermediate stage: what the `Game.log` says is what the game did — there is nothing to confirm.
-3. Every new line is inserted at the top (name · type · `M/1/A` · time) and a short sound plays.
-   - **Once a minute** the craftable catalogue is checked. If it grew, CIG made something **newly craftable** with a patch → a blue line. This has nothing to do with your own unlocks.
-4. **Type, size, grade and class** come from scmdb.net's crafting data and from the bundled game data. Above all of it are your own corrections from `bp-overrides.json`.
-5. **Your inventory** grows along and stays in `bestand.json` — with a note where each blueprint came from (log, catch-up, import).
+</details>
 
-> **Why read the log directly?** Reading it yourself gets you there in seconds — with nobody in between.
+<details>
+<summary><b>Test versions and reporting problems</b></summary>
 
-Files watched:
-
-```text
-…\StarCitizen\LIVE\Game.log                 (the game — the actual source)
-…\StarCitizen\LIVE\logbackups\              (earlier sessions, read on start)```
-
-Its own files (inventory, settings, cache) live here:
-
-| System | Folder |
-|---|---|
-| Windows | `%APPDATA%\sc-bp-watcher\` |
-| Linux | `~/.config/sc-bp-watcher/` |
-
-Both can be moved with the `SC_BP_HOME` environment variable.
-
-### Game language
-
-The blueprint message in the log is translated, and the watcher **works out by itself** how it reads in your client. It knows over 700 blueprint names; if a log line contains one of them, the text in front of it is the phrase it was looking for. That works for languages nobody planned for — French and Spanish just as well as English.
-
-German and English are additionally built in, and you can add your own in `phrasen.json` in its own folder:
-
-```json
-{ "phrasen": ["Blueprint Received"] }
-```
-
-### Setting your own paths
-
-If Star Citizen isn't in one of the usual places, you enter the folder yourself — in `einstellungen.json` in the folder above:
-
-```json
-{
-  "spiel_ordner": "D:\\Games\\StarCitizen\\LIVE"
-}
-```
-
-`spiel_ordner` is the folder containing `Game.log` (usually `LIVE`). An empty field means „search automatically". Restart the watcher after changing it.
-
-> If the watcher can't find the game, it creates this file **by itself** on start and tells you where it is — you don't have to create it by hand. The file lists the places that were searched next to each field, as does the window. So you can see what such a path looks like on your system instead of guessing.
-
-### Windows and Linux side by side? One folder for both
-
-If you boot the same machine into Windows sometimes and Linux other times, you otherwise keep **two separate blueprint inventories** — without noticing. Each system reads the game logs it can see and writes into its own folder under *Documents*. You only find out months later, when blueprints are missing on one side.
-
-**The fix is a setting, not a sync:** put the folder for your data on a disk **both systems can see**, and point both systems at the same path — under *Settings → Installation & paths → Folder for your data*. Linux reads NTFS, so a shared data drive is enough.
-
-After that there is only **one** inventory. Nothing is copied and nothing is synced, so nothing can drift apart or overwrite anything.
-
-> When you switch, the watcher asks whether your existing data should come along, and checks every copied file against the original. The old folder is left completely intact — nothing is deleted.
-
-The same works across **two machines** if both use the same cloud or network folder. ⚠️ There, only one watcher should run at a time.
-
-### Waiting for specific items
-
-Waiting for one particular blueprint? Click the **star** next to its name in the blueprint list. The search box finds it in seconds, and the **watchlist** filter shows what you're waiting for.
-
-When a watched blueprint appears, the watcher announces it in gold with a star and its own sound — and **ticks it off on the watchlist**. It stays there so the "Watchlist only" progress counts it; the star takes it off again.
-
-## Settings
-
-In `einstellungen.json` in its own folder — a text file, not code. Restart the watcher after changing it. The file is created on first start and explains every field itself.
-
-| Field | Meaning | Default |
-|---|---|---|
-| `sprache` | Interface language: `auto`, `de` or `en` | `auto` |
-| `spiel_ordner` | Where Star Citizen is (empty = search automatically) | empty |
-| `pruefintervall_sekunden` | How often `Game.log` is checked — 1 to 60 allowed | `3` |
-| `signalton` | Short sound on a find | `true` |
-
-**Environment variables** — for a one-off case, without changing anything permanently:
-
-| Variable | Effect |
-|---|---|
-| `SC_BP_HOME` | different folder for inventory and settings |
-| `SC_INSTALL_DIR` | different game folder |
-| `SC_BP_NO_NET=1` | **no** network access — neither crafting data nor update check |
-| `SC_BP_SPRACHE` | language for this run (`de` / `en`) |
-
-## Helping to test
-
-New versions appear **on Saturdays**. If you would rather not wait, you can get them earlier:
-
-**Update** (top right) **→ "Offer test versions too"**
-
-From then on the tool also reports test versions (recognisable by the `rc` in the number)
-— through the same update notice as always. Nothing to download by hand, nothing to hunt for.
+Before every release there are **test versions**, recognisable by the `rc` in the number. They are listed under [Releases](https://github.com/Xharig/VerseKit/releases), each with what it brings and what changed since the previous one. They are only offered if you switch them on: pick **Test version** on the **Update & About** page. From then on they arrive the same way as every update, nothing to download by hand.
 
 - **Test versions are fully built and runnable**, but have not been proven for long.
-  Something may act up — that is exactly what they are for.
+  Something may act up: that is exactly what they are for.
 - **The way back is always open.** Switch it off again and you will be offered the next
   finished version: a finished version always counts as newer than any test version of
   the same number. So nobody gets stuck on the test channel by accident.
 - **Without this setting you never see a test version.** If you want peace and quiet,
-  do nothing — that is the default.
+  do nothing: that is the default.
+- **If you already run a test version, you get further test versions by themselves.**
 
-Found something? The quickest way is **Report a problem** (bottom right): there is a field
-"What happened?" for one sentence, the finished report below it — and the red
+Found something? The quickest way is the **Report a problem** page: there is a field
+"What happened?" for one sentence, the finished report below it, and the red
 **Send error report** button sends it straight off. **Attach image** adds up to four
 screenshots. That is all you need to do. The report
 holds everything needed to track a problem down and no personal information; you see
 all of it beforehand.
 
-Prefer to do it yourself? An [issue](https://github.com/Xharig/VerseKit/issues) works just as well — the **GitHub
+Prefer to do it yourself? An [issue](https://github.com/Xharig/VerseKit/issues) works just as well: the **GitHub
 issue …** button on the same page fills the report in for you. Or the **Report a bug**
 forum on [Discord](https://xharig.com/discord), if a screenshot is quicker than a description.
 
-## Passing it on
+Work continues, and what exactly is not on a list. What a version brought you can read in [`CHANGELOG.en.md`](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.en.md) or right in the tool under **"What's new"**. What a test build contains is in its release notes; this page always shows the **released** version.
 
-> 🔒 **It's yours.** No account, no sign-in, no cloud. The tool reads files that are on your disk anyway and changes nothing about the game installation. It only reaches out to the network to **fetch** data — never to hand any over:
->
-> | What for | How often |
-> |---|---|
-> | Values and origins from scmdb.net | once per game version |
-> | Resource prices and storage locations from UEX Corp | at most once a day |
-> | Reputation thresholds of ranks from scunpacked-data | once per game version |
-> | Contract texts and translation sources | when you switch them on |
-> | Whether there is a new build | at start |
-> | CIG's server status | while the page is open |
->
-> **All of it** can be switched off with `SC_BP_NO_NET=1`. The one exception is the problem report — that only goes out when you press the button yourself, and you see the contents beforehand.
+Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/VerseKit/issues) or on [Discord](https://xharig.com/discord). Suggestions make it into the next build more reliably than mind reading.
 
-Just pass on the file from the [releases page](https://github.com/Xharig/VerseKit/releases) — the recipient needs neither Python nor a launcher, only Star Citizen.
+</details>
 
-If you fork this project, please keep the credit in the footer or mention the original source.
+<details>
+<summary><b>Your data and the network</b></summary>
 
-> ℹ️ Windows SmartScreen reports „unknown publisher" for unsigned files → **More info → Run anyway**.
+🔒 **It's yours.** No account, no sign-in, no cloud. VerseKit reads files that are on your disk anyway. It only changes the game installation where you explicitly switch something on (such as the details in the contract texts), and backs up the file first.
 
-## Thanks & credits
+**What VerseKit fetches:**
 
-The values for type, size, grade and class as well as the origin of each blueprint come from the **[Star Citizen Mission DataBase (scmdb.net)](https://scmdb.net)** — a hobby project that prepares the game data and makes it freely available. **Thank you** for that! 🙏
+| What for | How often |
+|---|---|
+| Values and origins from scmdb.net | once per game version |
+| Resource prices and storage locations from UEX Corp | at most once a day |
+| Reputation thresholds of ranks from scunpacked-data | once per game version |
+| Slots of your ships from erkul.games | once per game patch |
+| Contract texts and translations | when you switch them on |
+| Whether there is a new version | in the background |
+| CIG's server status | while the page is open |
+| A handle search at RSI | when you search, or anew with Ctrl+Enter |
+| The start time of the Executive Hangar from contestedzonetimers.com | when the Contested Zones page opens, at most every six hours |
 
-> The watcher **does not ship this data**; it fetches it on your machine directly from scmdb.net, the way a browser would. scmdb is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/); a bundled copy would be redistribution and would conflict with that licence as well as with this project's GPL. Fetching is sparing: only when a **new game version** is out.
+**What VerseKit sends:**
 
-As a base for the blueprint details you can pick **[StarStrings](https://github.com/MrKraken/StarStrings)** by **MrKraken** — cleaned-up English game text, used across many organisations. **Thanks** to MrKraken! 🙏
+| What | When |
+|---|---|
+| Usage count: version, system, language and which pages were opened how often, without an ID | once a day, on by default, can be switched off |
+| Sync with the KRT Profit Basetool or your scmdb.net account | only if you switch it on |
+| Problem report | only when you press the button yourself, and you see its contents first |
 
-> StarStrings is **not bundled** either; it is fetched from its own address when you ask for it. The project states no licence — all the more reason the text stays his.
+What exactly each message contains is in the [privacy policy](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.en.md). **All fetching and sending** can be switched off with `SC_BP_NO_NET=1`.
 
-**The watcher gets along with other tools.** StarStrings and the SC Deutsch Launcher mark blueprint contracts too, with the same `[BP]` mark. So the watcher adds **no second mark where one already stands**, and leaves any item name alone that already carries a tag. With the launcher its own blueprint list **replaces** the launcher's instead of sitting beside it — with the **tick boxes** for your own collection. Take the details back out and the other tool's state is there again, character for character.
+The info bar reads its values from the game picture on your own machine: every few seconds the top right corner, and only while Star Citizen is in front.
 
-**German translation by rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), one of the translations Verse-Kit offers to choose from. Verse-Kit does **not bundle** it and never passes on a modified copy — it only extends the file on your own machine, and the **source note in its first line is left untouched**.
+**Passing it on:** Just pass on the file from the [releases page](https://github.com/Xharig/VerseKit/releases). The recipient only needs Star Citizen.
 
-**The other translations** come from **Luftwerft** (SC Launch Configurator: German, English, French, Italian, Spanish, Dutch, Portuguese, for LIVE and PTU), **Dymerz** (German, French, Italian, Spanish, Portuguese, Turkish), **Thord82** (Spanish, PTU too) and **MrKraken** (StarStrings, English with contract markers). These are **not bundled** either — Verse-Kit fetches the one you pick on your machine and keeps it current. **Thanks** to Luftwerft, Dymerz, Thord82 and MrKraken! 🙏
+</details>
 
-**Resource prices** come from **[UEX Corp](https://uexcorp.space)** — a data project maintained by players. That is what puts a price next to every missing ingredient, or says it cannot be bought at all. These data are **not bundled** either; they are fetched on your machine, at most once a day. **Thanks** to UEX Corp! 🙏
+📖 **[Manual](MANUAL.en.md):** how VerseKit spots blueprints, which files it creates, your own paths, Windows and Linux on one machine, the watchlist with patterns, settings and environment variables.
 
-**Reputation thresholds of ranks** ("Guild Member [10,000+]") come from **[scunpacked-data](https://github.com/StarCitizenWiki/scunpacked-data)** by the **Star Citizen Wiki** — the game files, unpacked for every patch and made freely available. They are **not bundled** either; they are fetched on your machine, once per game version. **Thanks** to the Star Citizen Wiki! 🙏
-
-**The ship slots** come from **[erkul.games](https://erkul.games)** — the loadout tool the Star Citizen community has used for years. Without that data the watcher could not answer the question that follows every new blueprint: *does this part even fit one of my ships?* These data are **not bundled** either; they are fetched on your machine — only for the ships you actually added, plus the lists of racks, missiles, bombs and paints — and only once per game patch. **Thank you** to erkul.games! 🙏
-
-**The hangar import** is made possible by two browser extensions: the **[Star Citizen: Hangar Extension](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W)** by **AlyxOne** (MIT licence, maintained, recommended) and the original **[Star Citizen Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR)** by **dolkensp** (MIT licence). Both save your pledge store as a file the watcher reads. Without them every ship would have to be typed in by hand. **Thank you!** 🙏
-
-The interface symbols come from the **[Lucide](https://lucide.dev)** set (ISC licence) — all drawn on the same grid with the same stroke width, which is why they look identical on Windows, Linux and macOS. **Thanks** to the Lucide community! 🙏 The licence text ships with the tool (`assets/symbole/LIZENZ.txt`) and is shown under **Thanks & Licenses**.
-
-Verse-Kit is an independent, unofficial companion tool with **no** official connection to the SC Deutsch Launcher or Cloud Imperium Games. All brand and project names belong to their respective owners.
-
-## What's next
-
-Work continues — what exactly is not on a list. What a build brought you can read in [`CHANGELOG.en.md`](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.en.md) or right in the tool under **„What's new"**.
-
-**What a test build contains** is in its release notes under [Releases](https://github.com/Xharig/VerseKit/releases). This page always shows the **released** version.
-
-Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/VerseKit/issues) or on [Discord](https://xharig.com/discord) — suggestions make it into the next build more reliably than mind reading.
+**New to Star Citizen?** Sign up with my referral code [`STAR-YC7L-S4W2`](https://robertsspaceindustries.com/enlist?referral=STAR-YC7L-S4W2) and you get 50,000 UEC of in-game credit after buying a game package.
 
 ## Star Citizen Fan Content
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/fankit/MadeByTheCommunity_White.png">
-    <img alt="Star Citizen — Made by the Community" src="assets/fankit/MadeByTheCommunity_Black.png" width="150" height="150">
+    <img alt="Star Citizen: Made by the Community" src="assets/fankit/MadeByTheCommunity_Black.png" width="150" height="150">
   </picture>
 </p>
 
@@ -684,7 +636,7 @@ Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/Verse
 > companies. All content on this site not authored by its host or users are property of their
 > respective owners.
 
-Verse-Kit is an unofficial, non-commercial fan project for the *Star Citizen* community.
+VerseKit is an unofficial, non-commercial fan project for the *Star Citizen* community.
 It is **not affiliated with, endorsed, sponsored, or approved by** Cloud Imperium Rights LLC,
 Cloud Imperium Rights Ltd., or Roberts Space Industries.
 
@@ -692,7 +644,7 @@ This project makes use of assets from the official
 [Star Citizen Fankit](https://robertsspaceindustries.com/fankit). Those materials are published
 for fan use and may only be used as explained by the terms of the **Fankit Agreement**, the
 **Fan Style Guide**, and the
-[Roberts Space Industries Terms of Service](https://robertsspaceindustries.com/tos) —
+[Roberts Space Industries Terms of Service](https://robertsspaceindustries.com/tos),
 specifically the section on User Generated Content (UGC).
 
 > **Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of
@@ -705,13 +657,72 @@ Official site: **[robertsspaceindustries.com](https://robertsspaceindustries.com
 
 ## License
 
-[GNU GPL v3.0](LICENSE) — free to use and modify; if you distribute it, the source has to come along under the same licence.
+**GNU General Public License v3.0**: full text in [LICENSE](LICENSE).
+
+In short: you may use, modify and pass on the program. Whoever passes it on, modified or not, has to include the source under the same licence. There is no warranty. If you fork this project, please keep the credit in the footer or mention the original source.
+
+## Thanks
+
+- **[scmdb.net](https://scmdb.net)**: blueprint origins and values to cross-check against.
+- **[UEX Corp](https://uexcorp.space)**: resource prices, shops and storage locations.
+- **[erkul.games](https://erkul.games)**: ship slots.
+- **[Star Citizen Wiki](https://github.com/StarCitizenWiki/scunpacked-data)**: reputation thresholds of ranks.
+- **Maluh**: the [Fleetmanifest](https://github.com/MaluhTV/SC_Fleetmanifest) behind the fleet analysis.
+- **[AlyxOne](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W)**, **[dolkensp](https://github.com/dolkensp/HangarXPLOR)** and **[Drachennarr](https://github.com/Drachennarr/Hangar-Exporter-Releases/releases/latest)**: the browser extensions for the hangar import.
+- **[greluc](https://github.com/krt-profit/basetool)**: the Profit Basetool and the [DPoP reference](https://krt-profit.github.io/basetool/) for the sign-in.
+- **[Luftwerft](https://www.luftwerft.com/)**, **rjcncpt**, **[Dymerz](https://github.com/Dymerz/StarCitizen-Localization)**, **[Thord82](https://github.com/Thord82/Star_citizen_ES)** and **[MrKraken](https://starstrings.app)**: the translations and StarStrings.
+- **[Kuehlwagen](https://github.com/Kuehlwagen/Star-Citizen-Handle-Query)**: the model for the handle search and the log monitor.
+- **[Zane_DragonBorn](https://robertsspaceindustries.com/community-hub/post/accurate-pyro-contested-zone-maps-c-zs-7l8Ih9mXyPDpu)** and **[Kerast](https://www.reddit.com/r/starcitizen/comments/1i3iyq9/supervisor_exectutive_hangar_maps_pyamsupvisr345/)**: the Contested Zones maps.
+- **[Appieman](https://contestedzonetimers.com/)**: the start time of the Executive Hangar from contestedzonetimers.com.
+- **[Lucide](https://lucide.dev)**: the interface symbols.
+- **[flag-icons](https://flagicons.lipis.dev)**: the flags of the language choice.
+
+<details>
+<summary><b>Sources and licences in detail</b></summary>
+
+The origin of each blueprint comes from the **[Star Citizen Mission DataBase (scmdb.net)](https://scmdb.net)**, a hobby project that prepares the game data and makes it freely available. The values for type, size, grade and class and for crafting are read by VerseKit from the game data of your own installation first; scmdb.net serves as the cross-check and steps in where the game data cannot be read. **Thank you** for that! 🙏
+
+> VerseKit **does not ship this data**; it fetches it on your machine directly from scmdb.net, the way a browser would. scmdb is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/); a bundled copy would be redistribution and would conflict with that licence as well as with this project's GPL. Fetching is sparing: only when a **new game version** is out.
+
+As a base for the blueprint details you can pick **[StarStrings](https://github.com/MrKraken/StarStrings)** by **MrKraken**, cleaned-up English game text, used across many organisations. **Thanks** to MrKraken! 🙏
+
+> StarStrings is **not bundled** either; it is fetched from its own address when you ask for it. The project states no licence: all the more reason the text stays his.
+
+**VerseKit gets along with other tools.** StarStrings and the SC Deutsch Launcher mark blueprint contracts too, with the same `[BP]` mark. So VerseKit adds **no second mark where one already stands**, and leaves any item name alone that already carries a tag. With the launcher its own blueprint list **replaces** the launcher's instead of sitting beside it, with the **tick boxes** for your own collection. Take the details back out and the other tool's state is there again, character for character.
+
+**German translation by rjcncpt**: [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), one of the translations VerseKit offers to choose from. VerseKit does **not bundle** it and never passes on a modified copy: it only extends the file on your own machine, and the **source note in its first line is left untouched**.
+
+**The other translations** come from **[Luftwerft](https://www.luftwerft.com/)**, **[Dymerz](https://github.com/Dymerz/StarCitizen-Localization)** (German, French, Italian, Spanish, Portuguese, Turkish), **[Thord82](https://github.com/Thord82/Star_citizen_ES)** (Spanish, PTU too) and **[MrKraken](https://starstrings.app)** (StarStrings, English with contract markers). These are **not bundled** either. VerseKit fetches the one you pick on your machine and keeps it current.
+
+**Luftwerft** offers German, English, Français, Italiano, Español, Boarisch, Nederlands and Português for LIVE and PTU in the **[SC Launch Configurator](https://www.luftwerft.com/)**. Its developer has released them for VerseKit. You pick them under *Translation*. They are generated largely automatically from the game data and are still being polished; VerseKit shows the developer's note before you switch. **Thanks** to Luftwerft, Dymerz, Thord82 and MrKraken! 🙏
+
+**Resource prices** come from **[UEX Corp](https://uexcorp.space)**, a data project maintained by players. That is what puts a price next to every missing ingredient, or says it cannot be bought at all. These data are **not bundled** either; they are fetched on your machine, at most once a day. **Thanks** to UEX Corp! 🙏
+
+**Reputation thresholds of ranks** ("Guild Member [10,000+]") come from **[scunpacked-data](https://github.com/StarCitizenWiki/scunpacked-data)** by the **Star Citizen Wiki**, the game files, unpacked for every patch and made freely available. They are **not bundled** either; they are fetched on your machine, once per game version. **Thanks** to the Star Citizen Wiki! 🙏
+
+**The ship slots** come from **[erkul.games](https://erkul.games)**, the loadout tool the Star Citizen community has used for years. Without that data VerseKit could not answer the question that follows every new blueprint: *does this part even fit one of my ships?* These data are **not bundled** either; they are fetched on your machine, only for the ships you actually added (plus the lists of racks, missiles, bombs and paints), and only once per game patch. **Thank you** to erkul.games! 🙏
+
+**The hangar import** is made possible by browser extensions: the **[Hangar-Exporter](https://github.com/Drachennarr/Hangar-Exporter-Releases/releases/latest)** by **Drachennarr** (GPL-3.0), which saves the hangar as a file or sends it without a file straight to VerseKit on this machine, the **[Star Citizen: Hangar Extension](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W)** by **AlyxOne** (MIT licence, maintained, recommended) and the original **[Star Citizen Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR)** by **dolkensp** (MIT licence). They fetch your pledge store, and VerseKit reads the files. Without them every ship would have to be typed in by hand. **Thank you!** 🙏
+
+**The Profit Basetool** by **greluc** (GPL-3.0) syncs with VerseKit, and its **[DPoP reference](https://krt-profit.github.io/basetool/)** (MIT) signs the sign-in without the key ever leaving your machine. The reference is built into the program. **Thanks** to greluc! 🙏
+
+**The handle search and the log monitor** are modelled on the **[Star Citizen Handle Query](https://github.com/Kuehlwagen/Star-Citizen-Handle-Query)** by **Kuehlwagen** (MIT), rebuilt with code of our own. **Thanks** for the idea and the model! 🙏
+
+**The Contested Zones maps** are built into VerseKit: Checkmate, Orbituary and Ruin Station by **Zane_DragonBorn** (to the [post](https://robertsspaceindustries.com/community-hub/post/accurate-pyro-contested-zone-maps-c-zs-7l8Ih9mXyPDpu)), PYAM-EXHANG-0-1 and PYAM-SUPVISR-3-4/5 by **Kerast** (to the [post](https://www.reddit.com/r/starcitizen/comments/1i3iyq9/supervisor_exectutive_hangar_maps_pyamsupvisr345/)). Both released them for free use if they are named. VerseKit reads the start time of the Executive Hangar from **[contestedzonetimers.com](https://contestedzonetimers.com/)**; **Appieman** runs the site and allowed it. **Thanks** to all three! 🙏
+
+The interface symbols come from the **[Lucide](https://lucide.dev)** set (ISC licence), all drawn on the same grid with the same stroke width, which is why they look identical on Windows, Linux and macOS. **Thanks** to the Lucide community! 🙏 The licence text ships with the tool (`assets/symbole/LIZENZ.txt`) and is shown under **Thanks & Licenses**.
+
+The flags at the language choice come from **[flag-icons](https://flagicons.lipis.dev)** (MIT licence, © 2013 Panayiotis Lipiridis). **Thanks** for them! 🙏
+
+VerseKit is an independent, unofficial companion tool with **no** official connection to the SC Deutsch Launcher or Cloud Imperium Games. All brand and project names belong to their respective owners.
+
+</details>
 
 <div align="center">
 
 [![Xharig](https://github.com/Xharig.png?size=80)](https://github.com/Xharig)
 
-**Xharig** — development and design of this project
+**Xharig**: development and design of this project
 
 <sub>Like the tool? <a href="https://ko-fi.com/xharig">Ko-fi</a> ☕</sub>
 

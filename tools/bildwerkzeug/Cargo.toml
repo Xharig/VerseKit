@@ -1,0 +1,17 @@
+[package]
+name = "bildwerkzeug"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+authors = ["Xharig"]
+publish = false
+
+# Own workspace: the main build and its tests never compile wgpu for this tool.
+[workspace]
+
+[dependencies]
+versekit-ui = { path = "../../crates/versekit-ui" }
+versekit-core = { path = "../../crates/versekit-core" }
+egui = "=0.37.0"
+egui_kittest = { version = "=0.37.0", features = ["wgpu", "snapshot"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

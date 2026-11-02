@@ -93,6 +93,7 @@ AUSGENOMMEN = (
     'daten/',
     '.git/',
     'assets/',
+    'crates/versekit-ui/fonts/',
 )
 
 # Was trotz Treffer in Ordnung ist. ⚠ Sparsam halten: Jede Ausnahme ist ein
@@ -109,7 +110,9 @@ ERLAUBT = (
     # Aufgefallen erst in der Gegenprobe, nicht beim Schreiben.
     # Eine Ausnahme muss so eng sein, dass sie nur das durchlaesst, was sie
     # durchlassen soll.
-    '@example.', '@beispiel.', '@invalid',
+    '@example.', '@beispiel.', '@invalid', '@dragonkeep.invalid',
+    # Der SSH-Zugang zu GitHub in den Abläufen, keine Person.
+    'ssh://git@github.com/',
     # Die Kuerzungen aus `paths.redact()` — genau die sollen dastehen.
     '<heim>', '<benutzer>', '<user>', '<home>',
 )
@@ -117,7 +120,8 @@ ERLAUBT = (
 # Erfundene Benutzernamen, die als Beispiel in der Doku stehen duerfen.
 GENERISCH = ('spieler', 'user', 'users', 'nutzer', 'benutzer', 'runner',
              'name', 'dein', 'you', 'xharig', 'ich', 'max', 'mustermann',
-             'home', 'du', 'wer', 'jemand')
+             'home', 'du', 'wer', 'jemand', 'x', 'me', 'a', 'ab', 'test',
+             'someone', 'anna')
 
 # ⚠ Wer eine Stelle bewusst stehen lassen will, schreibt diesen Vermerk in die
 # Zeile — **mit Begruendung dahinter**. Er wirkt nur fuer diese eine Zeile.

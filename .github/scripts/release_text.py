@@ -131,9 +131,7 @@ Der Quellcode ist offen, die Datei wird **nicht von mir** gebaut, sondern von Gi
 Actions aus genau diesem Quellcode, und jede Datei oben trägt ihre SHA-256-Prüfsumme.
 Unter Linux gibt es diese Meldung nicht.
 
-Für dieses Projekt ist eine kostenlose Code-Signatur bei der
-[SignPath Foundation](https://signpath.org/) beantragt. Sobald sie bewilligt ist, werden
-die Windows-Dateien oben von SignPath unterschrieben.
+Die Windows-Dateien sind derzeit nicht signiert.
 
 <details>
 <summary><b>English</b></summary>
@@ -146,9 +144,7 @@ neither, and every new version starts from zero. The source is open, the file is
 **GitHub Actions** from exactly that source, and every asset above carries its SHA-256
 checksum. On Linux this message does not exist.
 
-This project has applied to the [SignPath Foundation](https://signpath.org/) for free code
-signing for open source projects. Once approved, the Windows binaries below will be signed
-by SignPath.
+The Windows files are not signed at the moment.
 
 </details>"""
 

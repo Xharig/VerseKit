@@ -1,0 +1,116 @@
+# Lizenzprüfung der Rust-Abhängigkeiten gegen GPL-3.0-only, dazu die Hinweise
+# der RustSec-Datenbank.
+# Aufruf: cargo deny check (alles) oder cargo deny check licenses sources bans advisories
+#
+# Erlaubt sind nur Lizenzen, die sich mit GPL-3.0 vertragen. Eine neue
+# Abhängigkeit mit einer anderen Lizenz lässt die Prüfung scheitern.
+
+[graph]
+all-features = false
+
+# Four crates that are no longer maintained (no known weakness): they come only
+# with eframe/egui-winit 0.37 and only into the Linux build, ttf-parser through
+# winit 0.30 → sctk-adwaita 0.10 → ab_glyph (window decorations under Wayland),
+# the zbus crates through accesskit_unix 0.24 → atspi 0.29 → zbus 5 (screen
+# readers). winit 0.30 and accesskit_winit 0.34 are the newest egui 0.37 takes;
+# their successors (sctk-adwaita 0.12 with skrifa, zbus 6) need a newer egui.
+# To be checked again with the next upgrade of egui.
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained; only via eframe/egui-winit 0.37 on Linux, see above" },
+    { id = "RUSTSEC-2026-0370", reason = "zvariant unmaintained (merged into zbus 6); only via eframe/egui-winit 0.37 on Linux, see above" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names unmaintained (merged into zbus 6); only via eframe/egui-winit 0.37 on Linux, see above" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive unmaintained (merged into zbus 6); only via eframe/egui-winit 0.37 on Linux, see above" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+# Nicht veröffentlichte Pakete werden mitgeprüft, auch die aus Git-Quellen.
+[licenses.private]
+ignore = false
+
+# Die eigenen Pakete stehen unter GPL-3.0-only.
+[[licenses.exceptions]]
+crate = "versekit-app"
+allow = ["GPL-3.0-only"]
+
+[[licenses.exceptions]]
+crate = "versekit-core"
+allow = ["GPL-3.0-only"]
+
+[[licenses.exceptions]]
+crate = "versekit-gamedata"
+allow = ["GPL-3.0-only"]
+
+[[licenses.exceptions]]
+crate = "versekit-overlay"
+allow = ["GPL-3.0-only"]
+
+[[licenses.exceptions]]
+crate = "versekit-overlay-proto"
+allow = ["GPL-3.0-only"]
+
+[[licenses.exceptions]]
+crate = "versekit-parity"
+allow = ["GPL-3.0-only"]
+
+[[licenses.exceptions]]
+crate = "versekit-ui"
+allow = ["GPL-3.0-only"]
+
+# The image tool (tools/bildwerkzeug, own workspace, never shipped):
+# `cargo deny --manifest-path tools/bildwerkzeug/Cargo.toml check licenses sources bans`.
+[[licenses.exceptions]]
+crate = "bildwerkzeug"
+allow = ["GPL-3.0-only"]
+
+# Comes with egui_kittest (via dify) and only into the image tool; MPL-2.0
+# goes with GPL-3.0 (its section 3.3).
+[[licenses.exceptions]]
+crate = "colored"
+allow = ["MPL-2.0"]
+
+# Comes with the p4k-extractor (p4kx-archive → dirs → dirs-sys) into every
+# build; MPL-2.0 goes with GPL-3.0 (its section 3.3), as for `colored`.
+[[licenses.exceptions]]
+crate = "option-ext"
+allow = ["MPL-2.0"]
+
+# Root certificates of rustls-platform-verifier, a dependency only on wasm32,
+# which Verse-Kit never builds; on Windows, macOS and Linux the system checks
+# the certificates. A permissive data license.
+[[licenses.exceptions]]
+crate = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
+# Die eingebauten Standardschriften von egui (Hack, Ubuntu-Light, Noto Emoji).
+# Schriftlizenzen, keine Code-Lizenzen: Ob sie mit ausgeliefert werden dürfen,
+# ist noch zu klären. Entfällt, sobald v5 eine eigene Schrift einbettet und die
+# Standardschriften abschaltet.
+[[licenses.exceptions]]
+crate = "epaint_default_fonts"
+allow = ["OFL-1.1", "Ubuntu-font-1.0"]
+
+# Crates come from crates.io; the only git source is the p4kx repository,
+# which provides the readers for Data.p4k, DataForge and global.ini
+# (MIT OR Apache-2.0), pinned to one release tag in Cargo.toml.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = ["https://github.com/p4kx-org/p4kx"]

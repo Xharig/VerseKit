@@ -2,7 +2,8 @@
 # Ohne diese Datei gibt es ihn nicht, egal wie viele Spendenlinks im
 # Programm selbst stehen.
 #
-# Derselbe Ko-fi-Zugang wie der Ko-fi-Knopf im Werkzeug
-# (`KOFI_URL` in scbp/main_window.py) — wer den einen ändert, ändert
-# den anderen mit.
+# Derselbe Ko-fi-Zugang wie der Ko-fi-Knopf in VerseKit
+# (`KOFI_URL` in crates/versekit-ui/src/sample/controls.rs und `DONATE` in
+# crates/versekit-overlay/src/tray.rs) — wer den einen ändert, ändert
+# die anderen mit.
 ko_fi: xharig

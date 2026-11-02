@@ -34,22 +34,22 @@ Released artifacts:
 
 | File | Platform | Built with |
 |---|---|---|
-| `VerseKit-Setup.exe` | Windows | PyInstaller + Inno Setup |
-| `VerseKit-x86_64.AppImage` | Linux | PyInstaller + AppImage |
+| `VerseKit-Setup.exe` | Windows | Rust (`cargo build --release`) + Inno Setup |
+| `VerseKit-x86_64.AppImage` | Linux | Rust (`cargo build --release`) + AppImage |
 
 ## Dependencies
 
-The program uses the Python standard library only — no third-party packages,
-no network libraries beyond `urllib`, and no proprietary components. This is a
-deliberate project rule, not a coincidence.
+The program is written in Rust. Every dependency is pinned with its version and
+checksum in `Cargo.lock`; the build runs with `--locked`, and `deny.toml` states
+which licences and sources are allowed.
 
-Only three third-party parts are shipped, each with its licence:
+Three third-party parts are shipped, each with its licence:
 
 | What | Licence | Where |
 |---|---|---|
 | Icons from [Lucide](https://lucide.dev) | ISC | `tools/symbol-vorlagen/` |
 | Flags from [flag-icons](https://flagicons.lipis.dev) | MIT | `tools/flaggen-vorlagen/` |
-| DPoP reference of the [KRT Profit Basetool](https://krt-profit.github.io/basetool/) | MIT | `scbp/dpop_reference/` |
+| DPoP reference of the [KRT Profit Basetool](https://krt-profit.github.io/basetool/) | MIT | `crates/versekit-core/licenses/` |
 
 ## What the program sends
 
@@ -57,7 +57,7 @@ See the [privacy statement](PRIVACY.en.md).
 
 ## Antivirus false positives
 
-PyInstaller executables are regularly flagged by machine-learning
+Self-built, unsigned executables are occasionally flagged by machine-learning
 detections such as `Trojan:Win32/Wacatac.C!ml`. These are false
 positives; the full source is in this repository and the build is
 public. If you encounter one, please report it to your vendor — and feel

@@ -2,22 +2,27 @@
 
 [Deutsch](PRIVACY.md) · **English**
 
-Verse-Kit runs on your computer. There is no account, no advertising and no
+VerseKit runs on your computer. There is no account, no advertising and no
 tracking. Once a day the program reports that it is running and which pages
-were used — without any ID, switched on by default, and you can switch it off (see *Count usage*). This page states in full
+were used, without any ID, always on and without a switch (see *Count usage*). This page states in full
 what the program reads, what it fetches from the internet and what it sends.
 
 ## What is read on your computer
 
 Star Citizen's log files (`Game.log` and `logbackups/`), your control files and
 the game's text file. From them come your blueprint list, your contract log and
-your statistics. The logs also contain your RSI handle; Verse-Kit uses it to
+your statistics. The logs also contain your RSI handle; VerseKit uses it to
 count only the blueprints of your own account. Everything stays in your
-Verse-Kit data folder.
+VerseKit data folder.
+
+Only while you switch on anti-AFK (off by default, Windows only) the program also
+sees which program is in the foreground, when keyboard and mouse were last used
+and whether anything moved on a joystick, HOTAS or gamepad (only *whether*, not
+what). None of it is stored or sent.
 
 ## What is fetched from the internet
 
-Only reads of public data — nothing about you is sent along. As with any
+Only reads of public data; nothing about you is sent along. As with any
 request, the other side sees your IP address.
 
 | For | From |
@@ -29,11 +34,11 @@ request, the other side sees your IP address.
 | Server status | status.robertsspaceindustries.com |
 | Translations you choose | the respective source (such as StarStrings, Luftwerft, rjcncpt) |
 
-With the environment variable `SC_BP_NO_NET=1` Verse-Kit fetches nothing.
+With the environment variable `SC_BP_NO_NET=1` VerseKit fetches nothing.
 
 ## Count usage
 
-Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com`:
+Once a day VerseKit sends exactly these details to `nutzung-versekit.xharig.com`:
 
 | Detail | Example |
 |---|---|
@@ -43,32 +48,32 @@ Once a day Verse-Kit sends exactly these details to `nutzung-versekit.xharig.com
 | whether you are offered test versions | yes / no |
 | which areas are switched on | Ships, Workshop, Trade, Basetool … |
 | how the overlay runs | always visible / only on new blueprints |
-| whether Verse-Kit starts with your computer | yes / no |
+| whether VerseKit starts with your computer | yes / no |
 | whether new versions are installed automatically | yes / no |
-| whether you use the card view or the tab view | cards / tabs |
+| which view the main window has (always the same in VerseKit 5) | tabs |
 | which tiles of the start page you have hidden | Play time, Computer … |
 | which pages of the main window you opened, how often | Blueprint list 12×, Shops 3× |
-| how a page was opened | sidebar, jump, overlay, tray menu, program start |
+| how a page was opened | sidebar, jump, overlay, program start |
 | how many clicks it took to reach a page | Shops: 5× after 2 clicks |
 | which page you left again after a few seconds, and where you stayed next | Selling → Shops: 7× |
-| how often you added a material to My Inventory by hand, added a refinery yield, read the screen or pressed "Sync now" | Screen read: 2× |
-| how often you used the buttons on the cards (Sync now, refinery scanner, mining scanner, check or reload translation) and opened the "What's new" gallery, opened a page from it or tried the card view | Sync now: 1× |
+| how often you added a material or a refinery yield to My Inventory by hand | added by hand: 2× |
+| how often you opened the "What's new" gallery and opened a page from it | gallery opened: 1× |
 
 The page and action details are only counters since the last report, using
-fixed IDs — no content, no amounts, no resources, no search terms, no names, no
+fixed IDs: no content, no amounts, no resources, no search terms, no names, no
 times of day. They stay
 in your data folder (`seitennutzung.json`) until the next report and are
-cleared afterwards. If reporting is switched off, nothing is counted at all.
+cleared afterwards. Where the report is not sent (see below), nothing is counted either.
 
-Plus the **country** that Cloudflare detects on every request by itself — only
+Plus the **country** that Cloudflare detects on every request by itself, only
 the country code, no city, no region. No ID, no name, no RSI handle, no paths.
-All that is stored there is one counter per day and value — your IP address is
-not kept. This counts how many people use Verse-Kit on a given day and which
+All that is stored there is one counter per day and value; your IP address is
+not kept. This counts how many people use VerseKit on a given day and which
 parts, but not who, and no single installation can be followed across days.
 Only the developer sees the numbers.
 
-Switch it off: *Settings → General → Count usage*. `SC_BP_NO_NET=1` stops it
-as well — and with it the counting of pages.
+The report is always on; there is no switch for it. Only `SC_BP_NO_NET=1` stops
+it, and with it the counting of pages.
 
 ## Downloads from the website
 
@@ -80,48 +85,48 @@ counted here.
 
 ## Problem report
 
-The report is **only sent when you press "Send"** — after you have seen its
+The report is **only sent when you press "Send"**, after you have seen its
 full text. It goes to `bericht.xharig.com`, a relay into the project's report
 channel on Discord. Your user name, your home folder in any path and anything
 that looks like a credential are replaced beforehand. Paths outside your home
-folder (such as a game folder on `D:\`) stay as they are — you see them
+folder (such as a game folder on `D:\`) stay as they are; you see them
 before sending.
 
 At the top the report says **who is reporting**, so follow-up questions reach
 you. As long as you enter nothing of your own there, the field is pre-filled
 with your game account, if one is chosen on the *Detection* page. You see it
-before sending and can change or clear it — cleared, no name goes out. The
+before sending and can change or clear it; cleared, no name goes out. The
 same name also labels the zip with the images and its folder. Otherwise it
 appears nowhere in the report.
 
 Instead of sending, you can also copy the report or have the **GitHub issue …**
-button put it into a form. An issue is **public** — including the name at the
+button put it into a form. An issue is **public**, including the name at the
 top, if you leave it in.
 
 If you ticked the box for images, the scan images go along: for signatures the
 crop around the number, for the refinery scanner the terminal's table from a
 reading that was not reliable (the last three). Only if the table was not found
-at all is it the game picture, scaled down — it can show your handle and your
+at all is it the game picture, scaled down; it can show your handle and your
 aUEC balance. Until then the images stay in your data folder
 (`raffinerie-bilder`, `signatur-bilder`).
 
 ## KRT Profit Basetool
 
-Only if you explicitly connect Verse-Kit **and** turn syncing on. Both are off
+Only if you explicitly connect VerseKit **and** turn syncing on. Both are off
 by default.
 
-**What goes there** — depending on the areas you turn on: your blueprints
-(name, the Basetool's key, time, and how Verse-Kit knows them), your stock lots
+**What goes there**, depending on the areas you turn on: your blueprints
+(name, the Basetool's key, time, and how VerseKit knows them), your stock lots
 from My Inventory (materials, goods for sale and items; material, place, quality, amount,
 "stolen"; when you put a lot into unit storage or take it back, also the
 chosen unit and the amount) and your ships (type, insurance, own name, "ready" and the unit a
 ship belongs to). Plus the name you give this
-installation — never your computer's name — and, for the account check only,
+installation, never your computer's name, and, for the account check only,
 your RSI handle. Never purchase data (price, purchase date, package). Other
 members' data only when you book in the **unit storage** as a logistician:
-then the booking itself — which entry, amount, location, note, reservation,
-sale proceeds and the owner as a pseudonym the Basetool issues for Verse-Kit
-alone. Before booking in, Verse-Kit looks the goods up at the Basetool: for
+then the booking itself, that is which entry, amount, location, note, reservation,
+sale proceeds and the owner as a pseudonym the Basetool issues for VerseKit
+alone. Before booking in, VerseKit looks the goods up at the Basetool: for
 that the name or the UEX number of the goods goes there, even if nothing is
 booked afterwards.
 
@@ -129,8 +134,8 @@ booked afterwards.
 Basetool, per stock lot how much of it is personal and how much sits in which
 unit's storage, and for hangar and storage the list of units you are a member
 of (kept in memory only, for the choice on the ship card and when sharing). With the *unit storage* area
-the shared storage of your units — as a logistician including owners and
-notes —, and with the demand, as a logistician, your unit's orders with
+the shared storage of your units (as a logistician including owners and
+notes), and with the demand, as a logistician, your unit's orders with
 requester and comment. Both in memory only, for at most 7 days, never in a
 file or backup.
 
@@ -148,30 +153,51 @@ drive, the file is there too. The credentials themselves are never in the data
 folder and never in the backup.
 
 **Disconnect** revokes the connection at the Basetool and deletes the
-credentials (refresh token and this installation's key) and the synced state —
+credentials (refresh token and this installation's key) and the synced state:
 `basetool-<id>.json` **and** `basetool-<id>.bak.json`. Whatever is already in a
 backup zip stays there until you delete it.
 
-**Problem report:** It can contain the names of blueprints Verse-Kit cannot
-match — including ones that came from the Basetool. The credentials are never
+**Problem report:** It can contain the names of blueprints VerseKit cannot
+match, including ones that came from the Basetool. The credentials are never
 in it, your RSI handle only at the top as the reporter unless you change or
 clear that field (see [Problem report](#problem-report)), and it only goes out when you send it yourself. What the Basetool itself does with your data
 is governed by its own privacy policy at
 [profit-base.online](https://profit-base.online).
 
+## Hangar-Exporter
+
+So that the **Hangar-Exporter** (a browser add-on by Drachennarr) can send your
+hangar straight to VerseKit, VerseKit accepts deliveries on a small port **on
+your own computer only** (`127.0.0.1`; the hangar page shows the port next to
+the pairing code). This exists only with your own data, not in the preview. It
+is on by default; you switch it off under *My hangar → Manage pairing*.
+VerseKit itself sends nothing over the internet for it.
+
+**Who may deliver:** only whoever knows the **pairing code**. You paste it into
+the add-on once. It stays the same until you renew it; after that the old one
+no longer works. The code is kept in your settings file in the data folder and
+never appears in a report, a log or an answer from VerseKit.
+
+**What arrives:** the ship list of your hangar, as the add-on reads it on the
+RSI site. VerseKit takes it into your hangar (`hangar.json`) in the data folder
+like an imported file, and it stays on your computer. If a delivery removes a
+ship, VerseKit first writes `hangar.bak.json`. What the add-on itself does is
+governed by its own privacy policy in the
+[Hangar-Exporter repository](https://github.com/Drachennarr/Hangar-Exporter-Releases).
+
 ## scmdb.net
 
-Only if you turn on *Connect to scmdb.net* — off by default. Verse-Kit then
+Only if you turn on *Connect to scmdb.net*, off by default. VerseKit then
 opens a small port **on your own computer only** (`127.0.0.1:23456`).
-Verse-Kit itself sends nothing over the internet: the scmdb page in **your**
+VerseKit itself sends nothing over the internet: the scmdb page in **your**
 browser picks the data up there and enters it into the scmdb account you are
 signed in with.
 
 **What the page gets:** the names of newly received blueprints (in English, as
 in the catalogue) and, for running missions, the IDs from the game log, the
-internal contract name, start, end and how it ended — only from the current
+internal contract name, start, end and how it ended, only from the current
 game session and with the game channel (LIVE, PTU …). No handle, no paths, no
-storage data. Other websites get no access — not even through a name
+storage data. Other websites get no access, not even through a name
 redirected to your computer. What scmdb does with it is
 governed by its own privacy policy at [scmdb.net](https://scmdb.net).
 

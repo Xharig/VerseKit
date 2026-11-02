@@ -6,97 +6,253 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## v4.12.5 - 2026-10-30
+## v5.0.0 - 2026-11-02
 
-> The Translation page has two new languages from Luftwerft: Dutch and
-> Portuguese, for the main installation and the PTU. Attaching an image to
-> the error report now also turns on the consent to send it. And the
-> blueprint list no longer stays empty after a jump from the progress.
+> VerseKit 5.0 is built anew, in Rust. It is faster and runs as one program
+> on Windows and Linux. Everything 4.12 could do is in, plus what is new in
+> this list.
+
+> [!important]
+> **What 5.0 cannot do yet**
+> - While scanning, the overlay line “The unit is looking for: …” is still
+>   missing.
+> - A new blueprint reaches the Basetool with the 5-minute cycle, not at
+>   once.
+> - “Bring to the centre” only resets the position, not the size.
+> - Linux is less tried than Windows: tray icon, autostart and the
+>   application menu entry have limits.
+>
+> The move from 4.12 goes through the normal update, and your data are
+> backed up first. 4.12 stays available under the tag v4.12.0.
 
 ### New
 
-- **Two new translations from Luftwerft** — Dutch (Nederlands) and
-  Portuguese (Português), each for the main installation and the PTU,
-  selectable under “Translation”. As the game only loads its own languages,
-  Dutch takes the place of English and Portuguese that of Português
-  (Brasil).
+- **Shopping basket from the shops** — In Shops you put any part into the
+  shopping list with a quantity, a whole FPS loadout for example. The
+  shopping list adds up the cost, shows every place to buy each part and
+  plans the route with the fewest stops. On the way you tick off each
+  stop. A set of parts is saved as a template under a name (say “FPS set
+  heavy”) and loaded again later. Suggested by Katschaeng (KRT)
+- **The Hangar-Exporter for Firefox comes with VerseKit** — The installer
+  puts Drachennarr's extension, signed by Mozilla, next to the program.
+  The hangar page and the setup assistant have one button each for
+  Firefox, Chrome and Edge.
+- **Shop purchases show up as suggestions in My Inventory** — What you buy
+  in a shop in the game, My Inventory offers you under “New according to
+  the log”, with the price per piece. You take or dismiss each purchase
+  one by one or all at once and can undo it; nothing is ever booked by
+  itself. Stations the game writes shorter than your location list (such
+  as “Checkmate” for “Checkmate Station”, or “Pyro Gateway”) are found in
+  the list by VerseKit itself. A place the list does not know yet is added
+  to your location list when you take the purchase over, and a purchase
+  without a place is booked without one; the button says both beforehand.
+  Undo takes the new place out again. The block folds shut, and kind,
+  place and search stand right above the list and filter the suggestions
+  too. The statistics show what you spent in shops. You can switch it off
+  under Settings › Detection.
+- **The backup takes your controls along** — A backup now also contains
+  your active key bindings and the saved control profiles from the game
+  folder. When you restore, VerseKit asks separately whether to put the
+  profiles back and whether to replace the active bindings as well. While
+  the game runs nothing happens, and a copy is always made first.
+- **Back up with one click** — On the Backup & reset page, “Create backup”
+  and “Restore backup” lead straight to the dialog. The Backup tile in the
+  overview has the link “Back up now”.
+- **Scanner recognises ROC, hand mining and asteroids with several chunks**
+  — The scan signature shows ROC/ground and hand mining again, and for
+  asteroids the scanner counts the chunks, for example “2× Asteroid
+  (C-Type)” at 9400.
+- **Workbench info line on the Crafting page** — Below the page header a
+  line shows the limits of the workbench, for example “Fabricator: 2 in
+  progress, 4 waiting, 10 in history · Dismantle 4/4”.
+- **Streamer mode** — You switch it on under Settings › General › Privacy.
+  Player name, paths, org and unit, Basetool name and device codes then
+  show as “[Redacted]”, on every page and in the overlay. While it is on,
+  the header shows a “Streamer mode on” button. It is off by default. The
+  copy buttons still copy the plain text.
+- **The overlay opens on the events you choose** — Under Settings ›
+  Overlay you decide per event whether it opens the overlay: blueprint,
+  scanner hit, contract, finished refinery job and catalogue entry. By
+  default only the blueprint opens it, as in 4.12. Suggested by MindBurnt
+  [R/SC]
+- **Blueprints by period** — The blueprint list has the filter “Received”
+  with today, 7 days, 14 days and this month. The list is then flat,
+  newest first, every row with date and source. A click on “+N this week”
+  in the Blueprints tile opens the list of that week; the tile also shows
+  today and this month.
+- **Shader cache: delete only old ones** — Under Game settings › Shader
+  cache, “Delete only old shaders” clears the folders of older Star
+  Citizen versions; installed and unclear folders stay. “Delete all” stays
+  the second choice. Every place found has a switch with its size, and a
+  window then shows what was freed. While the game runs, nothing is
+  deleted.
+- **Your data are backed up first.** At the first start of VerseKit 5 the
+  program backs up your 4.12 data, controls included, in the folder
+  “Sicherungen” of your data folder before it changes anything. If that
+  does not work, for lack of space for example, VerseKit does not go on
+  and offers “Try again”, “Choose folder” and “Quit”. Afterwards the
+  overview tells you once where the backup is.
+- **Linux: application menu, sound and system message** — Under Settings
+  › General you add VerseKit to the application menu or take it out again;
+  an update brings name and icon of the entry along, and the entry of SC
+  BP Watcher is taken over. The signal sound comes through the sounds of
+  your desktop, the system message through `notify-send`; if it is
+  missing, the setting says so. VerseKit now also finds the game folder
+  with Heroic, Bottles as a Flatpak and Steam with Proton. On Wayland the
+  shortcut setting shows a ready command to copy for a shortcut of your
+  desktop. The tray icon and the scanners are Windows only, and the
+  settings say so.
+- **Info bar above the game:** A small bar of its own shows the shard,
+  your FPS, the server FPS and the players, while mining the scanner
+  result on the right, and in the middle the search field of the handle
+  search. Switch it on under “Settings › Overlay”. With the lock open you
+  drag it to its place, and VerseKit keeps it. Suggested by Shockwaffel
+  (KRT)
+- **Handle search:** A handle in the search field of the info bar opens a
+  card above the game, as in the Handle Query by Kuehlwagen (KRT), the
+  model of this search. In the main window the search has a page of its
+  own with name, orgs, rank, SID and profile; Enter searches, Ctrl+Enter
+  fetches anew. You rate every handle as friendly, neutral or hostile, the
+  list exports and imports, and a log monitor shows who meets you in the
+  game. Suggested by Shockwaffel (KRT)
+- **Players on shard and server:** Under Settings › Overlay › Info bar you
+  switch on your FPS, the server FPS and the players on shard and server
+  one by one. VerseKit reads the values from the game picture, and they
+  stay on your computer. Suggested by Shockwaffel (KRT)
+- **Org members and history:** A click on an organization in the handle
+  search lists its members, a click on a member searches it. The handles
+  searched lately stand in the empty search field. Suggested by
+  Shockwaffel (KRT)
+- **Size of overlay and bar:** Overlay and info bar can be set larger than
+  the main window, from 100 to 200 %. Suggested by Shockwaffel (KRT)
+- **Stand-in names for items without a game text:** When the game has no
+  name for an item (three radars), VerseKit writes a stand-in name so the
+  blueprint note stands there too.
+- **Linux with KDE: overlay without a start option:** In full screen the
+  overlay stays above the game by itself, no start option is needed any
+  more.
+
+### Improved
+
+- **Back to the results in Shops** — When you open a part in Shops,
+  “Back to the results” or the back arrow at the top takes you to the
+  list again, with the search text and the filters as they were.
+  Suggested by Katschaeng (KRT)
+- **Search lines stand out** — Every search now has a green border, a
+  magnifier and a lighter ground, and the border turns fully green when you
+  click into it. You find it on every page at once. Suggested by P6 (KRT)
+- **Notes: the list uses the whole window** — The list of notes reaches
+  down to the bottom of the window and grows with it; with many notes it
+  scrolls.
+- **Translations checked every 5 minutes** — VerseKit looks for a new
+  translation every 5 minutes, also after a patch. The status line now also
+  shows when it was last fetched, for example “Version 16.09.2026 · fetched
+  today 14:30 · up to date, checked today 14:35”.
+- **Closing hides the main window** — The X now only closes the main
+  window and VerseKit keeps running. You bring it back with the icon next
+  to the clock, the gear in the overlay or a second start. Without a
+  running overlay, while a backup is being written and on update or
+  restart, VerseKit quits as before.
+- **Sort the shopping route with the mouse** — You drag the stops of the
+  shopping route into the order you want by the handle on the left; a line
+  shows the target. The arrows stay for the keyboard.
+- **KRT colour scheme** — An orange line runs under the header bar, and
+  the colours follow greluc's (KRT) template.
+- **Overlay and main window no longer write over each other** — When both
+  run at the same time, the programs wait for each other while saving, so
+  no entry gets lost.
+- **Maps in Contested Zones stay in the frame** — Mouse wheel and
+  dragging no longer let the map leave the frame, and the smallest zoom
+  shows the whole map. A double click brings back the whole map.
+- **Basetool on a test copy: your key stays** — When VerseKit runs on a
+  copy of your data (`--daten`) with the key of your real installation,
+  "Disconnect" only signs the copy out and never deletes the key. For test
+  runs against the Basetool, `VERSEKIT_BASETOOL_WRITE_MAX` limits the
+  changes of the whole run (`0` only fetches), and
+  `VERSEKIT_BASETOOL_JOURNAL=1` writes every request without content, with
+  time, status and size, to `Diagnose\basetool-anfragen.log`.
+- **Updates come by themselves** — VerseKit looks for a new version every
+  ten minutes, fetches it with its checksum and installs it once Star
+  Citizen is closed. The switches “Look for new versions” and “Install
+  updates automatically” of 4.12 are gone; whoever switched them off
+  there now gets the updates anyway.
+- **“VerseKit” everywhere** — The start menu, “Apps & features” and the
+  start with Windows are called VerseKit now. An existing autostart entry
+  is taken over; if it was switched off, it stays off.
+- **Your account under “General”** — The setting now comes first on the
+  page “General”, the blueprints of other accounts below it. The setup
+  assistant has a step of its own, “Your account”: an account found is
+  confirmed, with several you pick yours.
+- **Version number in the main window only:** The bar of the overlay
+  shows just the name. Suggested by Shockwaffel (KRT)
+- **Blueprint notes on nearly every item:** The note on the item in the
+  game now stands on arms, helmets and lasers like the Helix II too.
+  Reported by Shockwaffel (KRT)
+- **Signature window with game picture and search frame:** The game
+  picture for the search frame is much larger, and both game pictures grow
+  with the window. The larger picture: Suggested by Shockwaffel (KRT)
+- **Hint window:** The hints of the overlay buttons show in a small window
+  of their own and are no longer cut off.
+- **Graphics rating kept:** The Graphics page keeps the rating of your
+  computer, even when the game stops writing it to the log, and says when
+  it was rated last.
+- **Scanner checks the last digit:** The last digit of a signature is
+  checked against 0 or 5, and unknown values need more equal readings
+  before they count.
+- **Old explanatory lines leave:** Explanatory lines from 4.x leave the
+  settings file on the first start.
 
 ### Fixed
 
-- **Images in the error report** — attaching an image now also turns on the
-  switch “I want to send the report to the developer”. Without consent, the
-  hint now names the switch instead of a tick box. Reported by John-Red
-- **Drop-down lists stay open** — an opened list (such as kind or size in
-  the blueprint list) no longer closes by itself when something in the
-  window refreshes, only on a choice, a click elsewhere or when the window
-  is moved.
-- **Booking into the unit's stock** — after picking an item, the quantity
-  typed in reliably reaches the booking, and every button of the form
-  responds.
-- **Empty blueprint list after the progress** — jumping from the blueprint
-  progress into the list and then picking a kind (say “Gear”) shows its
-  blueprints again instead of an empty list.
-
-## v4.12.4 - 2026-10-29
-
-> If you changed your player name, your blueprints are counted again,
-> including the ones missed since. Blueprints from sessions of another
-> account are now shown as a number on the Detection page. The signature
-> scanner also reads faint values it used to miss.
-
-### Fixed
-
-- **Blueprints after a new player name** — after a change of the player
-  name (handle), VerseKit counts the blueprints again, including the ones
-  already missed. The account is recognised by its fixed ID, a second
-  account stays separate. If blueprints from sessions of another account
-  were not counted, a note on the Detection page says so, along with the
-  way via “All accounts”. Reported by Bushwick4711 (KRT)
-- **Signature scanner reads faint values** — if it finds no certain number
-  next to a faint location symbol (say a 6 that looks like an 8), it tries
-  again with stricter settings instead of showing nothing. Reported by
+- **Scanner reads faint digits** — If no threshold yields a number, the
+  scanner reads the digits again at higher thresholds, for example a faint
+  6 that looks like an 8. Reported by Bushwick4711 (KRT)
+- **Anti-AFK presses your key for “Wipe visor”.** With a HOTAS or
+  joysticks anti-AFK fires reliably, a stick at rest does not count as
+  input. If you rebound the action in the game, say to Alt + K, anti-AFK
+  presses exactly that key, otherwise Alt + X. The Game page shows which
+  key is sent. A key held down counts as input only once, and whether keys
+  from macro software count is up to you on the same page. Reported by
   Bushwick4711 (KRT)
-
-## v4.12.3 - 2026-10-28
-
-> The signature scanner reads the number as since 4.12.1. If that finds
-> nothing certain, it also reads it the way it did up to 4.12.0. Where it
-> has read worse since 4.12.1, it recognises the number again this way.
-> Nothing else changes.
-
-### Fixed
-
-- **The signature scanner reads reliably again** — if the scanner finds no
-  certain number, it also reads it the 4.12.0 way. What it already reads
-  with certainty stays as before, small digits on very wide screens
-  included. Newly learned digits are stored separately for each way of
-  reading. Digits learned before 4.12.1 now only count for the 4.12.0 way
-  of reading they came from and no longer get in the way of the new one.
-  Reported by Bushwick4712 (KRT), suggested by ProCodeX
-
-## v4.12.2 - 2026-10-25
-
-> The Profit Basetool changed its sign-in address. With this version
-> VerseKit connects again. You need to sign in once more, the Basetool no
-> longer accepts old sign-ins. Nothing else changes.
-
-### Fixed
-
-- **The Basetool connects again** — VerseKit uses the new sign-in address
-  of the Profit Basetool. After the update, sign in once more on the
-  Basetool page.
-
-## v4.12.1 - 2026-10-25
-
-> The signature scanner now reads small digits correctly on very wide
-> screens too: a "56,000" is no longer read as "16,000". Nothing else
-> changes in this version.
-
-### Fixed
-
-- **The signature scanner reads small digits correctly** — on very wide
-  screens (such as 3840 × 1080) small digits were mixed up, for example
-  56,000 read as 16,000. The values now match. Reported by ProCodeX
+- **Overlay after the first setup** — At the end of the setup assistant
+  the overlay starts again. Before, it quit at once because it took the
+  main window that was still open for a second start. The restart after
+  restoring a backup could run into the same.
+- **First start with `--daten` on an empty folder.** VerseKit makes a new
+  test copy there and sets it up with the assistant. Before, the window
+  ran on sample values: a made-up data folder, an update to 5.1, a play
+  time and no search for Star Citizen. The data folder step now shows the
+  folder of the copy, and "Browse …" says it is set at start with
+  `--daten`.
+- **Blueprints after a change of handle** — Whoever had changed their RSI
+  handle had their new sessions taken for another account, and the
+  blueprints from them were missing without a word. VerseKit now tells
+  your own account by its fixed account number from the game log. An
+  account taken over from 4.12 learns the number from a session with the
+  old handle, and sessions skipped before are read once more. Reported by
+  bushwick
+- **Blueprints that did not count are shown** — Blueprints from sessions
+  of another account still do not count, but VerseKit says how many there
+  are: under “General” at your account, on the overview at the blueprint
+  tile and in the error report. “Count all accounts” takes them in.
+  Reported by bushwick
+- **No guessed account on a tie** — When two accounts have as many logs,
+  VerseKit fixes neither and counts all until you pick yours.
+- **The menu search finds your account** — “Account”, “handle” or
+  “player name” lead to “General › Your account”. Long hits in the side
+  bar wrap instead of being cut off.
+- **A second start never ends silently** — If you start VerseKit again
+  while the setup assistant or the backup window of the first start is
+  open, the second start brings that window to the front. Before, it could
+  lie hidden, and every further double-click seemed to do nothing. If the
+  running VerseKit hangs, a message tells you what to do. Reported by
+  Shockwaffel (KRT)
+- **Quit through the X of the overlay quits everything:** Before, an open
+  main window stayed as a process.
+- **The button “What is new” opens the gallery:** Under Update & About
+  the button did not lead there before.
+- **Search field after showing the bar:** After hiding and showing the
+  info bar the search field could no longer be clicked.
 
 ## v4.12.0 - 2026-10-19
 
@@ -2333,9 +2489,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **"Include blueprints with no known source"** under *Detection* — switched on,
   all **1,591** appear in the list and in your progress instead of 738. **Off by
   default**, so your progress stays the number you know. Suggested by Choopa
-- **Five more translations from the SC Launch Configurator** (Luftwerft) —
-  German, English, French, Italian and Spanish, for LIVE and PTU, released for
-  use here by its developer. They come with his own note: still being polished
+- **Eight more translations from the SC Launch Configurator** (Luftwerft) —
+  German, English, French, Italian, Spanish, Bavarian, Dutch and Portuguese,
+  for LIVE and PTU, released for use here by its developer. They come with his own note: still being polished
 
 ### Improved
 

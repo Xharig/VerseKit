@@ -1,0 +1,254 @@
+# -*- coding: utf-8 -*-
+# Verse-Kit — companion for Star Citizen.
+# Copyright (C) 2026 Xharig
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+Checks the Windows delivery end to end, on an invisible desktop of its own:
+
+  1. installs the first check setup silently into a throwaway folder with awkward characters,
+  2. starts the installed program on a throwaway data folder (SC_BP_HOME),
+  3. hands over to the update helper (a copy of the installed program file, as the program does it) with the
+     second check setup; the program is ended as it ends itself before an update,
+  4. checks: exit code 0, the lock released, the version in "Apps & Features" is the second one, the program
+     was started again from the file the setup names,
+  5. uninstalls and checks that the entries are gone.
+
+Only check setups (built with /DTestRun=1 and their own id, program name, start value and key; see
+packaging/installer.iss): the real installation, its start menu, its start with Windows and a running real
+program are never touched.
+
+    python -I tools/ausliefern_pruefen.py dist/VerseKit-Setup-Pruefung1.exe dist/VerseKit-Setup-Pruefung2.exe
+
+Prints one line per check and `ERGEBNIS gruen` or `ERGEBNIS rot`.
+"""
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import winreg
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import eigener_desktop  # noqa: E402
+
+GUID = '2462E8F8-8D10-4C5A-84E6-7C7749A83D71'
+PROGRAM = 'VerseKit-Pruefung.exe'
+RUN_VALUE = 'VerseKit-Pruefung'
+PROGRAM_KEY = r'Software\Xharig\VerseKit-Pruefung'
+UNINSTALL_KEY = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{%s}_is1' % GUID
+RUN_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
+NO_WINDOW = 0x08000000 | 0x00000200
+
+RESULTS = []
+
+
+def check(ok, what):
+    RESULTS.append(bool(ok))
+    print('%s  %s' % ('ok  ' if ok else 'FEHLT', what), flush=True)
+    return ok
+
+
+def value(path, name):
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+            return winreg.QueryValueEx(key, name)[0]
+    except OSError:
+        return None
+
+
+def key_exists(path):
+    try:
+        winreg.OpenKey(winreg.HKEY_CURRENT_USER, path).Close()
+        return True
+    except OSError:
+        return False
+
+
+def processes(folder):
+    """Process ids of the check program file in `folder` (by its image path)."""
+    out = subprocess.run(
+        ['powershell', '-NoProfile', '-Command',
+         "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+         "Get-Process -Name '%s' -ErrorAction SilentlyContinue | ForEach-Object { \"$($_.Id)|$($_.Path)\" }"
+         % PROGRAM[:-4]],
+        capture_output=True, encoding='utf-8', errors='replace', creationflags=NO_WINDOW).stdout
+    found = []
+    for line in out.splitlines():
+        pid, _, path = line.strip().partition('|')
+        print('     process %s %s' % (pid, path), flush=True)
+        if path and os.path.normcase(os.path.dirname(path)) == os.path.normcase(folder):
+            found.append(int(pid))
+    return found
+
+
+def end_program():
+    subprocess.run(['taskkill', '/F', '/IM', PROGRAM], capture_output=True, creationflags=NO_WINDOW)
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def inside(setup1, setup2):
+    work = tempfile.mkdtemp(prefix='versekit-ausliefern-')
+    target = os.path.join(work, "Programme & ^ % ! ( ) ' Ümlaut")
+    data = os.path.join(work, 'daten')
+    temp = os.path.join(work, 'temp')
+    appdata = os.path.join(work, 'appdata')
+    local = os.path.join(work, 'localappdata')
+    for folder in (data, temp, appdata, local):
+        os.makedirs(folder)
+    # The program keeps files under %APPDATA% also with its own data folder: both point into the throwaway folder.
+    env = dict(os.environ, SC_BP_HOME=data, SC_BP_NO_NET='1', TEMP=temp, TMP=temp, APPDATA=appdata,
+               LOCALAPPDATA=local)
+    try:
+        if not check(not key_exists(UNINSTALL_KEY), 'no check installation left from before'):
+            return
+        # 1. Install.
+        rc = subprocess.run([setup1, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
+                             '/DIR=%s' % target, '/LOG=%s' % os.path.join(work, 'setup1.txt')],
+                            env=env).returncode
+        check(rc == 0, 'first setup installs silently (exit code %s)' % rc)
+        program = os.path.join(target, PROGRAM)
+        check(os.path.isfile(program), 'the program file has the name of the setup: %s' % PROGRAM)
+        check(os.path.isfile(os.path.join(target, 'LICENSE.txt')), 'the licence lies next to it')
+        extension = os.path.join(target, 'erweiterung')
+        check(os.path.isfile(os.path.join(extension, 'hangar-exporter-0.5.0.xpi'))
+              and os.path.isfile(os.path.join(extension, 'LICENSE.txt'))
+              and os.path.isfile(os.path.join(extension, 'COPYRIGHT.txt'))
+              and os.path.isfile(os.path.join(extension, 'QUELLE.txt')),
+              'the Hangar-Exporter with licence, copyright and source lies in erweiterung')
+        check(value(UNINSTALL_KEY, 'DisplayVersion') == '5.0.0-pruefung1', '"Apps & Features" shows the first version')
+        check(value(UNINSTALL_KEY, 'DisplayName') == 'VerseKit Pruefung', 'and the name')
+        check(value(PROGRAM_KEY, 'Programm') == program, 'the setup names its program file for the helper')
+        check(value(RUN_KEY, RUN_VALUE) is None, 'no start with Windows without the task')
+
+        # 2. The installed program runs (as it does when an update is handed over).
+        running = subprocess.Popen([program], env=env, cwd=target)
+        time.sleep(6)
+        check(running.poll() is None, 'the installed program runs (on its own data folder)')
+
+        # 3. Hand over: the helper is a copy of the program file in the temporary folder.
+        setup = os.path.join(temp, 'VerseKit-Setup.exe')
+        shutil.copy(setup2, setup)
+        helper = os.path.join(temp, 'versekit-update-helfer.exe')
+        shutil.copy(program, helper)
+        lock = os.path.join(data, 'update-sperre.json')
+        with open(lock, 'w', encoding='utf-8') as f:
+            json.dump({'pid': 0, 'zeit': time.time()}, f)
+        job = {
+            'SETUP': setup, 'SHA256': sha256(setup2), 'ZIEL': target,
+            'SETUPLOG': os.path.join(data, 'update-setup.txt'), 'LOG': os.path.join(data, 'update-helfer.txt'),
+            'ERGEBNIS': os.path.join(data, 'update-ergebnis.txt'), 'SPERRE': lock, 'PROGRAMM': program,
+            'PID': str(running.pid), 'PROGRAMM_SCHLUESSEL': PROGRAM_KEY, 'WARTEN': '60',
+        }
+        helper_env = dict(env, **{'VERSEKIT_UPDATE_' + k: v for k, v in job.items()})
+        started = time.time()
+        helping = subprocess.Popen([helper, '--update-helfer'], env=helper_env, cwd=temp, creationflags=NO_WINDOW)
+        time.sleep(3)
+        check(helping.poll() is None, 'the helper waits while the program runs')
+        # The program ends itself before an update; here it is ended.
+        end_program()
+        rc = helping.wait(timeout=300)
+        log = open(job['LOG'], encoding='utf-8', errors='replace').read() if os.path.exists(job['LOG']) else ''
+        print('     helper log:\n' + '\n'.join('       ' + line for line in log.splitlines()))
+        result = open(job['ERGEBNIS'], encoding='ascii').read().strip() if os.path.exists(job['ERGEBNIS']) else ''
+        check(result == '0', 'the installer of the update ended with 0 (written: %r, after %.0f s)'
+              % (result, time.time() - started))
+        check(not os.path.exists(lock), 'the lock is released')
+        check(value(UNINSTALL_KEY, 'DisplayVersion') == '5.0.0-pruefung2', '"Apps & Features" shows the second version')
+        check(not os.path.exists(setup) or sha256(setup) == sha256(setup2), 'the installer was the checked one')
+        time.sleep(4)
+        again = processes(target)
+        check(len(again) >= 1, 'the program was started again from the installation folder (%s)' % again)
+        check('Starting the program %s' % program in log, 'from the file the setup names')
+        end_program()
+        time.sleep(1)
+
+        # 5. Uninstall.
+        uninstaller = os.path.join(target, 'unins000.exe')
+        rc = subprocess.run([uninstaller, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'], env=env).returncode
+        check(rc == 0, 'uninstalling runs silently (exit code %s)' % rc)
+        for _ in range(30):
+            if not os.path.exists(program):
+                break
+            time.sleep(0.5)
+        check(not os.path.exists(program), 'the program file is gone')
+        check(not key_exists(UNINSTALL_KEY), 'the entry in "Apps & Features" is gone')
+        check(not key_exists(PROGRAM_KEY), 'the key of the program file is gone')
+        check(value(RUN_KEY, RUN_VALUE) is None, 'no start with Windows is left')
+        check(os.path.isdir(data), 'the data folder of the player is not touched')
+    except Exception as error:
+        check(False, 'the check broke off: %s: %s' % (type(error).__name__, error))
+    finally:
+        end_program()
+        clean_up(work, env)
+
+
+def clean_up(work, env):
+    """Whatever a run broke off left: the check installation (by its uninstaller, else its two keys, which only
+    a check setup writes) and the throwaway folder."""
+    if key_exists(UNINSTALL_KEY):
+        command = value(UNINSTALL_KEY, 'UninstallString') or ''
+        uninstaller = command.strip('"')
+        if os.path.isfile(uninstaller):
+            subprocess.run([uninstaller, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'], env=env)
+            time.sleep(2)
+    for path in (UNINSTALL_KEY, PROGRAM_KEY):
+        if key_exists(path):
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, path)
+                print('     removed what the run left: HKCU\\%s' % path, flush=True)
+            except OSError as error:
+                print('     could not remove HKCU\\%s: %s' % (path, error), flush=True)
+    remove_folder(work)
+
+
+def remove_folder(folder):
+    """The throwaway folder; files a process still holds for a moment get a few more tries."""
+    for _ in range(20):
+        shutil.rmtree(folder, ignore_errors=True)
+        if not os.path.exists(folder):
+            return
+        time.sleep(0.5)
+    print('     could not remove %s' % folder, flush=True)
+
+
+def main(argv):
+    if len(argv) >= 3 and argv[0] == '--innen':
+        # The throwaway folders of earlier runs that could not be removed then.
+        for name in os.listdir(tempfile.gettempdir()):
+            if name.startswith('versekit-ausliefern-'):
+                remove_folder(os.path.join(tempfile.gettempdir(), name))
+        inside(os.path.abspath(argv[1]), os.path.abspath(argv[2]))
+        ok = all(RESULTS) and RESULTS
+        print('ERGEBNIS %s' % ('gruen' if ok else 'rot'), flush=True)
+        return 0 if ok else 1
+    if len(argv) != 2:
+        print(__doc__)
+        return 2
+    return eigener_desktop.starten([sys.executable, '-I', os.path.abspath(__file__), '--innen'] + argv)
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

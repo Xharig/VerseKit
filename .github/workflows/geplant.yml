@@ -124,5 +124,7 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.pruefen.outputs.tag }}
+    # The build fetches the private p4kx repository with its deploy key.
+    secrets: inherit
     permissions:
       contents: write

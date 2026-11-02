@@ -1,0 +1,14 @@
+einstellungen-4-12-beispiel.json
+
+Herkunft: die Einstellungsdatei einer echten Installation von SC BP Watcher 4.12 (Linux; die Zahl 3.58.0 in
+`inj_bestand` ist die Spielversion), im Aufbau unverändert: dieselben Schlüssel in derselben Reihenfolge, auch
+die Erklärzeilen mit Unterstrich.
+Bereinigt: Ordner und Konto sind erfunden (Pfade /spiele/…, Konto „Beispielspieler“), der Fingerabdruck des
+Bestands (`inj_bestand`) ist ein erfundener Wert. Die Erklärsätze und die übrigen Werte sind die der Datei.
+
+Verwendet vom Test der Kurzfassung „Willkommen in 5.0“ (crates/versekit-ui, sample/setup_wizard.rs): eine
+Kopie der Datei in einem Wegwerf-Datenordner (der Test setzt `deckkraft_prozent` auf einen Wert, der nicht der
+Standard ist); die Kurzfassung öffnet sich, weil `einrichtung_fertig` steht und `einrichtung_version` fehlt.
+Das Bildwerkzeug (`tools/bildwerkzeug`, Modus `willkommen`) nimmt dieselbe Datei.
+
+Nicht eintragen: echte Pfade, Konten, Kennungen oder Fingerabdrücke.

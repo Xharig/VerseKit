@@ -36,22 +36,22 @@ Ausgeliefert werden:
 
 | Datei | System | Gebaut mit |
 |---|---|---|
-| `VerseKit-Setup.exe` | Windows | PyInstaller + Inno Setup |
-| `VerseKit-x86_64.AppImage` | Linux | PyInstaller + AppImage |
+| `VerseKit-Setup.exe` | Windows | Rust (`cargo build --release`) + Inno Setup |
+| `VerseKit-x86_64.AppImage` | Linux | Rust (`cargo build --release`) + AppImage |
 
 ## Fremde Bestandteile
 
-Das Programm benutzt ausschließlich die Python-Standardbibliothek — keine
-Zusatzpakete, keine Netzbibliothek außer `urllib`, nichts Proprietäres. Das ist
-eine bewusste Projektregel, kein Zufall.
+Das Programm ist in Rust geschrieben. Jede Abhängigkeit steht mit fester Version
+und Prüfsumme in `Cargo.lock`; der Bau läuft mit `--locked`, und `deny.toml`
+legt fest, welche Lizenzen und Quellen erlaubt sind.
 
-Mitgeliefert werden nur drei fremde Bestandteile, jeweils mit Lizenz:
+Mitgeliefert werden drei fremde Bestandteile, jeweils mit Lizenz:
 
 | Was | Lizenz | Wo |
 |---|---|---|
 | Symbole aus [Lucide](https://lucide.dev) | ISC | `tools/symbol-vorlagen/` |
 | Flaggen aus [flag-icons](https://flagicons.lipis.dev) | MIT | `tools/flaggen-vorlagen/` |
-| DPoP-Referenz des [KRT Profit Basetools](https://krt-profit.github.io/basetool/) | MIT | `scbp/dpop_reference/` |
+| DPoP-Referenz des [KRT Profit Basetools](https://krt-profit.github.io/basetool/) | MIT | `crates/versekit-core/licenses/` |
 
 ## Was das Programm verschickt
 
@@ -59,8 +59,8 @@ Siehe die [Datenschutzerklärung](PRIVACY.md).
 
 ## Fehlalarme von Virenscannern
 
-Mit PyInstaller gebaute Programme werden regelmäßig von lernenden Erkennungen
-gemeldet, etwa als `Trojan:Win32/Wacatac.C!ml`. Das sind Fehlalarme; der
+Selbst gebaute, nicht signierte Programme werden gelegentlich von lernenden
+Erkennungen gemeldet, etwa als `Trojan:Win32/Wacatac.C!ml`. Das sind Fehlalarme; der
 vollständige Quellcode liegt in diesem Repository, und der Bau ist öffentlich.
 Wenn dir so etwas begegnet, melde es gern deinem Hersteller — und mach ruhig
 ein Issue auf, damit andere die Information finden.

@@ -1,38 +1,9 @@
 #!/bin/sh
-# Einstiegspunkt des AppImage. Liegt als eigene Datei im Repo statt im Workflow —
-# so lässt sie sich lesen und ändern, ohne YAML anzufassen.
-HIER="$(dirname "$(readlink -f "$0")")"
-
-# --- Zertifikate finden --------------------------------------------------
-# Das AppImage wird in einem Ubuntu-22.04-Container gebaut (wegen glibc). Das
-# darin gebündelte Python sucht seinen Zertifikatsspeicher deshalb unter
-# `/usr/lib/ssl` — dem Ubuntu-Pfad. Auf Arch, Fedora und openSUSE gibt es den
-# nicht, und **jede** HTTPS-Verbindung scheitert: kein Bauplan-Katalog, keine
-# Übersetzung, keine Update-Meldung. Das Programm startet, kann aber nichts
-# laden, und der Fehler sieht nach „Server nicht erreichbar" aus.
+# VerseKit - entry point of the AppImage.
+# Copyright (C) 2026 Xharig
+# SPDX-License-Identifier: GPL-3.0-only
 #
-# Gefunden am 24.08.2026 auf EndeavourOS: Der Watcher meldete „Fassung nicht
-# gefunden", während dieselbe Abfrage außerhalb des AppImage sofort antwortete.
-#
-# Deshalb hier den ersten lesbaren Systemspeicher setzen. Die Reihenfolge deckt
-# Debian/Ubuntu, Fedora/RHEL, openSUSE und Arch ab.
-if [ -z "$SSL_CERT_FILE" ]; then
-    for zertifikate in \
-        /etc/ssl/certs/ca-certificates.crt \
-        /etc/pki/tls/certs/ca-bundle.crt \
-        /etc/ssl/ca-bundle.pem \
-        /etc/ssl/cert.pem
-    do
-        if [ -r "$zertifikate" ]; then
-            SSL_CERT_FILE="$zertifikate"
-            export SSL_CERT_FILE
-            break
-        fi
-    done
-fi
-if [ -z "$SSL_CERT_DIR" ] && [ -d /etc/ssl/certs ]; then
-    SSL_CERT_DIR=/etc/ssl/certs
-    export SSL_CERT_DIR
-fi
-
-exec "$HIER/usr/bin/SC-BP-Watcher" "$@"
+# Starts the program inside the AppImage with all arguments. The program checks certificates with the store of
+# the system it runs on, so nothing has to be set here.
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/bin/versekit" "$@"

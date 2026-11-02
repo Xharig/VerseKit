@@ -1,0 +1,86 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "5.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "GPL-3.0-only"
+authors = ["Xharig"]
+publish = false
+
+[workspace.dependencies]
+# Base64 for DPoP proofs and PEM keys of the Basetool connection.
+base64 = "0.22"
+eframe = { version = "=0.37.0", default-features = true, features = ["glow"] }
+egui = "=0.37.0"
+egui_extras = "=0.37.0"
+# Headless harness of the layout check of all pages (no renderer, no window).
+egui_kittest = "=0.37.0"
+getrandom = "0.3"
+# PNG for the pictures of the program, WebP for the maps of the Contested Zones, JPEG for the pictures of the
+# handle search (pure Rust decoders).
+image = { version = "0.25", default-features = false, features = ["png", "webp", "jpeg"] }
+libc = "0.2"
+# Deflate for the zip archives of the translations (already in use through flate2).
+miniz_oxide = "0.9"
+# Screens and pointer on macOS (NSScreen, NSEvent): the versions eframe and winit already bring in.
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent", "NSScreen", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry"] }
+# p4kx, main at the merge of p4kx-org/p4kx#927 (milestone v0.4.2, not released yet): the Basetool
+# catalog with `offeredAt`, `giverFaction` and `blueprintRewards` per contract entry.
+# Switch to `tag = "v0.4.2"` once v0.4.2 is released.
+# The repository is private: locally the git credentials fetch it, release builds use a read-only
+# deploy key over SSH (`.cargo/config.toml` lets cargo use the git command line for that).
+p4kx-archive = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+p4kx-cryxml = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+p4kx-dataforge = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+p4kx-export = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+p4kx-localization = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+p4kx-testkit = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+raw-window-handle = "0.6"
+regex = "1"
+# ES256 keys and signatures (DPoP) and the crypto of the TLS connection.
+ring = "0.17"
+# Reads the XML files of the game (`actionmaps.xml`, the profile of the controls); the version the lock already holds.
+roxmltree = "0.21"
+# TLS for the Basetool connection, with the ring provider only.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+# HTTP client of the Basetool connection; certificates checked by the system.
+ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "platform-verifier"] }
+# System file dialogs; on Linux through the XDG portal, without gtk.
+rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal", "wayland"] }
+serde_json = "1"
+versekit-core = { path = "crates/versekit-core" }
+versekit-gamedata = { path = "crates/versekit-gamedata" }
+# Screens and pointer on X11 (RandR, root window): the version winit already brings in.
+x11rb = { version = "0.13", features = ["randr", "resource_manager"] }
+# The WinRT classes of the text recognition (refinery scanner): the version the lock file already holds.
+windows = "0.62"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Security_Cryptography",
+    "Win32_UI_HiDpi",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Devices_HumanInterfaceDevice",
+    "Win32_Media",
+    "Win32_Media_Multimedia",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Kernel",
+    "Win32_System_Registry",
+    "Win32_System_SystemInformation",
+    "Win32_System_Time",
+] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

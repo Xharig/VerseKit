@@ -1,6 +1,6 @@
-# Deutsche Fehlermeldung. Das Werkzeug öffnet dieses Formular über
+# Deutsche Fehlermeldung. VerseKit öffnet dieses Formular über
 # "Fehler melden" und füllt das Feld `bericht` schon aus — siehe
-# scbp/bericht.py, issue_adresse().
+# crates/versekit-core/src/report_send.rs, ISSUE_ADDRESS.
 name: Fehler melden (Deutsch)
 description: Etwas funktioniert nicht wie erwartet
 labels: [fehler]

@@ -1,14 +1,13 @@
 .DS_Store
 Thumbs.db
 
-# Python
+# Python (Hilfsskripte unter tools/ und .github/scripts/)
 __pycache__/
 *.pyc
 
-# PyInstaller-Build-Artefakte (die EXE wird lokal/Release gebaut, nicht eingecheckt)
+# Bau-Ausgaben (Installer und AppImage entstehen im Release-Lauf, nicht im Repo)
 build/
 dist/
-*.spec
 
 # Claude-Arbeitsordner
 .claude/
@@ -19,9 +18,6 @@ _avatar_src.png
 
 # Interne Planung und Notizen gehören nicht ins Repo
 docs/
-
-# Entwuerfe fuer kommende Fassungen — bleiben lokal, damit sie nichts vorwegnehmen
-tools/entwurf_*.py
 
 # Private Uebergabe-Notiz — gehoert NIE ins oeffentliche Repo (29.08.2026)
 UEBERGABE.md
@@ -38,3 +34,7 @@ tools/bericht-worker/.wrangler/
 tools/bericht-worker/node_modules/
 tools/nutzung-worker/.wrangler/
 tools/nutzung-worker/node_modules/
+
+# Rust-Bauordner
+/target
+/tools/bildwerkzeug/target

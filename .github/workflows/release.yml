@@ -1,94 +1,36 @@
-# Baut bei jedem Versions-Tag die fertigen Dateien und haengt sie an ein Release.
+# Builds the files of a release for every version tag and attaches them to the GitHub release.
 #
-# Warum das hier laeuft und nicht auf dem Entwicklungsrechner:
-#   * Niemand soll etwas selbst bauen muessen.
-#   * Die .exe braucht Windows, das AppImage braucht Linux. Kein Rechner hat beides.
-#   * Tag pushen und Release anlegen sind damit ein Schritt — die veroeffentlichten
-#     Dateien koennen nicht hinter dem Code zurueckbleiben.
+#   Windows: dist/VerseKit-Setup.exe (Inno Setup; the program file inside is target/release/versekit.exe)
+#   Linux:   VerseKit-x86_64.AppImage (built in Ubuntu 22.04, packaging/appimage.sh)
+#   Both:    SHA256SUMS.txt over exactly these two files
 #
-# Ausloesen:  git tag v2.0.0 && git push origin v2.0.0
+# A tag with -rc, -beta or -alpha becomes a pre-release: the program offers it only to whoever runs a test
+# version or asked for them. Every update needs SHA256SUMS.txt; without it nobody installs anything.
+#
+# Rules of this file: actions pinned to a commit, the build jobs only read the repository, no ${{ }} inside
+# `run:` (values come through `env:`), the deploy key of the p4kx repository only in the build jobs and only
+# through ssh-agent, never printed and never part of an artifact.
 
 name: Release bauen
 
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:          # zum Ausprobieren auch von Hand startbar
-  workflow_call:              # aufgerufen von "geplant.yml" (Release nach Zeitplan)
+  workflow_dispatch:
+  workflow_call:
     inputs:
       tag:
-        description: 'Welcher Tag gebaut werden soll, z. B. v2.1.0'
+        description: 'The tag to build, e.g. v5.0.0'
         required: true
         type: string
 
-# ⚠⚠ Die **direkten** Werkzeuge stehen hier mit fester Version — und die
-# Actions weiter unten mit ihrem Commit-SHA statt mit `@v4`.
-#
-# Warum: Ein Tag laesst sich verschieben, ein Commit-SHA nicht. Und
-# `pip install --upgrade pyinstaller` holt bei jedem Lauf, was gerade neu ist —
-# damit ergibt ein zweiter Bau desselben Tags nicht zwingend dieselbe Datei.
-#
-# Die SHAs unten sind die, auf die die beweglichen Tags (`v4`, `v5`, `v2`)
-# beim Festschreiben zeigten (nachgemessen mit `git ls-remote --tags`).
-#
-# ⚠⚠ **Auch die Unterabhaengigkeiten sind festgenagelt.**
-# `packaging/lock-windows.txt` und `packaging/lock-linux.txt` nennen jedes
-# Paket mit Version und SHA-256; installiert wird mit `--require-hashes`.
-# Damit liegen `altgraph`, `packaging`, `setuptools`,
-# `pyinstaller-hooks-contrib` und unter Windows `pefile` und
-# `pywin32-ctypes` ebenfalls fest.
-#
-# ⚠ **Je Plattform eine eigene Datei, erzeugt auf der Plattform selbst.**
-# Die Windows-Pakete haengen an `sys_platform == "win32"`; ein anderswo
-# erzeugter Lock laesst sie weg, und der Bau bricht. Dafuer gibt es den
-# Ablauf `sperrdateien.yml` — er laeuft auf beiden Systemen und haengt die
-# Ergebnisse als Anhang an. **Nach jedem Anheben eines Werkzeugs neu laufen
-# lassen und die Dateien einchecken.**
-#
-# ⚠ Was weiterhin NICHT festliegt: das Betriebssystem der Bau-Rechner, die
-# Python-Punktversion, `apt`-Pakete im Linux-Container und Inno Setup unter
-# Windows. Reproduzierbar waere also weiter zu viel gesagt — festgenagelt
-# ist die Python-Seite der Lieferkette.
-#
-# Anheben ist Handarbeit und Absicht: SHA UND den Kommentar daneben aendern.
-# `tools/selbsttest.py` (Pruefung 178) haelt fest, dass hier nichts wieder
-# beweglich wird.
 env:
-  # Der Tag steht je nach Ausloeser woanders: beim Push in github.ref_name,
-  # beim Aufruf aus geplant.yml in inputs.tag. Ab hier gilt nur noch TAG.
   TAG: ${{ inputs.tag || github.ref_name }}
-  PY_PYINSTALLER: '6.22.2'
-  PY_PYFLAKES: '3.4.0'
-  PY_PIP: '26.2.1'
-  # AppImageTool: feste Fassung statt des beweglichen `continuous`-Links.
-  # ⚠ Das Nachfolge-Repo — `AppImage/AppImageKit` ist abgeloest, seine aelteren
-  # Anhaenge tragen dort bereits `obsolete-` im Namen.
-  APPIMAGETOOL_VERSION: '1.9.1'
-  # Selbst nachgerechnet (Datei geladen, `shasum -a 256`), nicht
-  # von der Seite abgeschrieben.
-  APPIMAGETOOL_SHA256: 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0'
-  # ⚠⚠ **Die Runtime ist der zweite Netzzugriff, den AppImageTool macht — und
-  # der faellt leicht unter den Tisch.** Ohne `--runtime-file` laedt es die
-  # Runtime beim Schnueren selbst nach (`fetch_runtime()` in seinem Quelltext),
-  # und zwar die jeweils neueste. Sie landet als erstes Stueck IM fertigen
-  # AppImage: Man haette also ein festgenageltes Werkzeug, das trotzdem jedes
-  # Mal etwas anderes ausliefert.
-  #
-  # Deshalb das **datierte** Release `20251108` statt `continuous` — plus
-  # Pruefsumme, ebenfalls selbst nachgerechnet.
-  RUNTIME_VERSION: '20251108'
-  RUNTIME_SHA256: '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d'
+  RUST_VERSION: '1.99.1'
+  CARGO_TERM_COLOR: never
 
-# ⚠ Ab Werk nur lesen. Schreiben darf allein der Job `release`, der das
-# Release anlegt — die Bau-Jobs fuehren fremden Code aus (pip, PyInstaller,
-# AppImageTool) und brauchen kein Schreibrecht am Repo.
 permissions:
   contents: read
-
-# ⚠⚠ **Kein `${{ … }}` in `run:`.** GitHub setzt den Ausdruck als Text in das
-# Skript ein, bevor die Shell es sieht — ein Tag-Name mit `;` oder `$(…)`
-# wuerde so zu Befehlen. Werte kommen ueber `env:` und stehen im Skript als
-# `"$TAG"` (pwsh: `"$env:TAG"`).
 
 jobs:
 
@@ -98,216 +40,137 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
-        with:
-          # ⚠ 3.14 ist Absicht, keine Modepflege: Erst ab dieser Fassung
-          # bringt Python `compression.zstd` in der Standardbibliothek mit —
-          # und genau das braucht `scbp/gametext.py`, um die englische
-          # `global.ini` aus CIGs `Data.p4k` zu holen (CIG komprimiert mit
-          # zstd). Mit einer aelteren Fassung braeuchte der Nutzer 7-Zip — eine
-          # Wand fuer jeden, der englisch spielt und bloss die Angaben am
-          # Gegenstand haben will.
-          python-version: '3.14'
-
-      - name: Version gegen den Tag pruefen
+      - name: Version against the tag
         if: inputs.tag != '' || github.ref_type == 'tag'
         run: python .github/scripts/version_pruefen.py "$env:TAG"
 
-      # pyflakes findet Zugriffe auf Namen, die es nicht gibt — Fehler, die
-      # sonst erst beim Klicken auffliegen. Ohne das Paket ueberspringt der
-      # Selbsttest diese Pruefung stillschweigend; vor einem Release soll sie
-      # aber wirklich laufen.
-      - name: Werkzeuge aus der Sperrdatei
-        # ⚠⚠ `--require-hashes` verlangt, dass JEDES Paket mit Pruefsumme
-        # dasteht — auch `pefile` und `pywin32-ctypes`, die es nur unter
-        # Windows gibt. Deshalb hat jede Plattform ihre eigene Datei, erzeugt
-        # auf der Plattform selbst (Ablauf "Sperrdateien bauen").
-        #
-        # Hier kommen pyflakes UND PyInstaller in einem Rutsch: pyflakes wird
-        # gleich fuer den Selbsttest gebraucht, PyInstaller erst spaeter —
-        # zwei Laeufe mit derselben Sperrdatei waeren nur doppelte Zeit.
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.P4KX_DEPLOY_KEY }}
+
+      - name: Fetch p4kx over SSH
+        run: git config --global url."ssh://git@github.com/p4kx-org/".insteadOf "https://github.com/p4kx-org/"
+
+      - name: Rust
         run: |
-          pip install --quiet --require-hashes -r packaging/lock-windows.txt
-          pip list
+          rustup toolchain install "$env:RUST_VERSION" --profile minimal --component clippy
+          rustup default "$env:RUST_VERSION"
+          rustc --version
 
-      - name: Selbsttest
-        run: python tools/selbsttest.py
+      - name: Checks
+        run: |
+          cargo clippy --release --workspace --locked -- -D warnings
+          cargo test --locked -p versekit-gamedata --test no_key
+          cargo test --locked -p versekit-app
+          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup
 
-      # Ohne diese Angaben zeigt der Task-Manager den Dateinamen
-      # `SC-BP-Watcher` statt des Programmnamens — und das unter Hintergrundprozessen.
-      - name: Versionsangaben schreiben
-        run: python .github/scripts/versionsinfo.py build/versionsinfo.txt
+      - name: Build the program
+        run: cargo build --release --locked -p versekit-app
 
-      # ⚠ `--noupx`: Mit UPX gepackte Programme melden Virenscanner häufig
-      # fälschlich. Auf dem Bau-Rechner ist UPX derzeit nicht installiert;
-      # ohne die Angabe würde PyInstaller es benutzen, sobald es da ist.
-      - name: EXE bauen
-        run: >
-          python -m PyInstaller --noconfirm --onefile --windowed --noupx
-          --name "SC-BP-Watcher" --icon "icon.ico"
-          --version-file "build/versionsinfo.txt"
-          --add-data "CHANGELOG.en.md;." --add-data "CHANGELOG.md;."
-          --add-data "assets/icon.png;assets" --add-data "assets/xharig.png;assets" --add-data "assets/made-by-the-community.png;assets" --add-data "icon.ico;."
-          --add-data "assets/symbole;assets/symbole" --add-data "assets/flaggen;assets/flaggen" --add-data "assets/community;assets/community" --add-data "assets/galerie;assets/galerie"
-          --add-data "daten;daten"
-          sc_bp_watcher.py
+      - name: The program file brings its C runtime and its details
+        shell: pwsh
+        run: |
+          $exe = 'target\release\versekit.exe'
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+          if ($text -match '(?i)vcruntime140') { throw "$exe imports the Visual C++ runtime" }
+          $info = (Get-Item $exe).VersionInfo
+          if ($info.ProductName -ne 'VerseKit') { throw "ProductName is '$($info.ProductName)'" }
+          Write-Host "versekit.exe $($info.ProductVersion), $((Get-Item $exe).Length) bytes"
 
-      # Installer bauen. Inno Setup ist auf den Windows-Baurechnern von GitHub
-      # vorinstalliert; falls nicht, wird es nachgeholt statt den Bau abzubrechen.
-      - name: Installer bauen
+      # Later, once a code signing certificate is there: sign target\release\versekit.exe here, before it goes
+      # into the setup.
+
+      - name: Hangar-Exporter (checked against its fixed checksum and its Mozilla signature)
+        shell: pwsh
+        run: |
+          pwsh packaging/hangar-exporter.ps1 -SelfTest
+          pwsh packaging/hangar-exporter.ps1
+
+      - name: Build the installer
         shell: pwsh
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
-            Write-Host "Inno Setup fehlt — wird geholt"
             choco install innosetup --no-progress -y
           }
-          if (-not (Test-Path $iscc)) { $iscc = "ISCC.exe" }
-          # ⚠⚠ Die Version kommt aus __version__, NICHT aus dem Tag. Bei einem
-          # Lauf von Hand gibt es keinen Tag — dann steht in github.ref_name der
-          # Zweigname, und Inno Setup bricht mit "Value of [Setup] section
-          # directive VersionInfoVersion is invalid" ab, weil aus "in-arbeit"
-          # keine Dateiversion wird. Der Weg "bauen ohne Release" scheiterte
-          # damit bei JEDEM Versuch — unauffaellig, weil der Linux-Teil
-          # durchlaeuft. Bei einem Tag-Lauf ist beides ohnehin dasselbe: Der Schritt
-          # "Version pruefen" laesst den Bau gar nicht erst weiterlaufen, wenn
-          # Tag und __version__ auseinandergehen.
-          $roh = Get-Content sc_bp_watcher.py -Raw
-          $version = [regex]::Match($roh, "__version__\s*=\s*'([^']+)'").Groups[1].Value
-          if (-not $version) { throw "__version__ nicht gefunden" }
-          Write-Host "Installer-Version: $version"
+          if (-not (Test-Path $iscc)) { $iscc = 'ISCC.exe' }
+          $version = python .github/scripts/version_pruefen.py --nur-version
+          if (-not $version) { throw 'no version in Cargo.toml' }
+          Write-Host "Installer version: $version"
           & $iscc "/DAppVersion=$version" packaging\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC ended with $LASTEXITCODE" }
           Get-ChildItem dist
+
+      # Later, once a code signing certificate is there: sign dist\VerseKit-Setup.exe here, before the checksums
+      # are made.
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: windows
-          path: |
-            dist/SC-BP-Watcher.exe
-            dist/VerseKit-Setup.exe
+          path: dist/VerseKit-Setup.exe
+          if-no-files-found: error
 
   # -------------------------------------------------------------------- Linux
   linux:
     runs-on: ubuntu-latest
-    # Gebaut wird IM Container mit Ubuntu 22.04 (glibc 2.35), nicht auf dem
-    # Runner: Ein auf neuerem glibc gebautes AppImage startet auf aelteren
-    # Systemen gar nicht — und die sind verbreiteter als das neueste.
+    # Built in Ubuntu 22.04 (glibc 2.35): an AppImage built on a newer glibc does not start on older systems.
     container: ubuntu:22.04
     env:
-      # Ohne das fragt `tzdata` beim Installieren interaktiv nach der Zeitzone
-      # und wartet ewig auf eine Eingabe, die im Bau nie kommt. Kostete beim
-      # ersten Probelauf acht Minuten, bis der Job abgebrochen wurde.
       DEBIAN_FRONTEND: noninteractive
       TZ: Etc/UTC
     steps:
-      - name: Werkzeuge
+      - name: Git and SSH for the checkout and for p4kx
         run: |
           apt-get update -qq
-          # python3-dev ist noetig, weil PyInstaller die Python-Bibliothek selbst
-          # einpackt (libpython3.x.so). Im schlanken Container fehlt sie sonst.
-          # xvfb liefert den Bildschirm fuer den Selbsttest.
-          apt-get install -y -qq --no-install-recommends \
-            software-properties-common gpg-agent \
-            binutils file wget ca-certificates git xvfb
-          # ⚠ Python 3.14 statt der 3.10 aus Ubuntu 22.04 — wegen
-          # `compression.zstd` (siehe Windows-Job). Der **Container** bleibt
-          # bewusst 22.04: Sein altes glibc ist der Grund, warum das AppImage
-          # auch auf betagteren Systemen startet. Nur das Python ist neuer.
-          add-apt-repository -y ppa:deadsnakes/ppa
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends \
-            python3.14 python3.14-dev python3.14-tk python3.14-venv
-          update-alternatives --install /usr/bin/python3 python3 \
-            /usr/bin/python3.14 1
-          # ⚠⚠ Hier stand `wget -qO- .../get-pip.py | python3.14` — ein Skript
-          # aus dem Netz, ungesehen ausgefuehrt, mit vollem Zugriff auf den
-          # Bau-Rechner. Wer diese Quelle einmal uebernimmt, baut in JEDE
-          # veroeffentlichte Datei mit, und niemand wuerde es bemerken.
-          #
-          # `ensurepip` macht dasselbe aus dem bereits installierten Python
-          # heraus (Paket `python3.14-venv`, oben mitinstalliert) — kein
-          # Download, keine Pipe.
-          python3.14 -m ensurepip --upgrade
-          # Feste Version: siehe die Begruendung im Kopf dieser Datei.
-          python3.14 -m pip install --quiet "pip==${PY_PIP}"
-          python3 -c "import compression.zstd; print('zstd in der Standardbibliothek: ok')"
+          apt-get install -y -qq --no-install-recommends git openssh-client ca-certificates
 
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      # ⚠⚠ **Erst NACH dem Auschecken** — die Sperrdatei liegt im Repo.
-      # Vorher stand die Installation weiter oben; mit einer Sperrdatei geht
-      # das nicht mehr, und das ist der einzige Grund fuer die Umstellung.
-      - name: Werkzeuge aus der Sperrdatei
-        # ⚠ `--require-hashes` verlangt, dass JEDES Paket mit Pruefsumme
-        # dasteht — auch die Unterabhaengigkeiten. Fehlt eines, bricht der Bau
-        # ab. Genau das ist der Zweck: laut ist besser als still.
-        # Neue Sperrdateien erzeugt der Ablauf "Sperrdateien bauen".
+      - name: Version against the tag
+        if: inputs.tag != '' || github.ref_type == 'tag'
         run: |
-          python3.14 -m pip install --quiet --require-hashes \
-            -r packaging/lock-linux.txt
-          python3.14 -m pip list
+          apt-get install -y -qq --no-install-recommends python3
+          python3 .github/scripts/version_pruefen.py "$TAG"
 
-      # Dasselbe wie im Windows-Job — siehe die Begruendung dort.
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.P4KX_DEPLOY_KEY }}
 
-      - name: Selbsttest
-        # xvfb-run stellt einen Bildschirm bereit, den es auf einem Bau-Rechner
-        # sonst nicht gibt. Ohne ihn wuerden die Fenster-Pruefungen still
-        # uebersprungen — geprueft werden soll aber alles.
-        run: xvfb-run -a python3 tools/selbsttest.py
-
-      # `--noupx` wie im Windows-Job.
-      - name: Binaerdatei bauen
-        run: >
-          python3 -m PyInstaller --noconfirm --onefile --windowed --noupx
-          --name "SC-BP-Watcher"
-          --add-data "CHANGELOG.en.md:." --add-data "CHANGELOG.md:."
-          --add-data "assets/icon.png:assets" --add-data "assets/xharig.png:assets" --add-data "assets/made-by-the-community.png:assets"
-          --add-data "assets/symbole:assets/symbole" --add-data "assets/flaggen:assets/flaggen" --add-data "assets/community:assets/community" --add-data "assets/galerie:assets/galerie"
-          --add-data "daten:daten"
-          sc_bp_watcher.py
-
-      - name: AppImage schnueren
+      - name: Fetch p4kx over SSH
         run: |
-          set -e
-          APPDIR=SC-BP-Watcher.AppDir
-          mkdir -p "$APPDIR/usr/bin"
-          cp dist/SC-BP-Watcher "$APPDIR/usr/bin/"
-          cp assets/icon.png "$APPDIR/sc-bp-watcher.png"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global url."ssh://git@github.com/p4kx-org/".insteadOf "https://github.com/p4kx-org/"
 
-          # Beide Dateien liegen als echte Dateien im Repo (packaging/) — so
-          # lassen sie sich lesen und aendern, ohne YAML anzufassen.
-          cp packaging/sc-bp-watcher.desktop "$APPDIR/"
-          cp packaging/AppRun "$APPDIR/AppRun"
-          chmod +x "$APPDIR/AppRun"
+      - name: Tools and Rust
+        run: bash packaging/appimage.sh --tools
 
-          # ⚠⚠ Feste Fassung statt des beweglichen `continuous`-Links, und die
-          # geladene Datei wird VOR der Benutzung geprueft. Bisher wurde hier
-          # ein Programm aus dem Netz geholt und sofort ausgefuehrt, ohne dass
-          # irgendetwas sagen konnte, ob es dasselbe wie beim letzten Mal ist.
-          #
-          # Stimmt die Pruefsumme nicht, bricht der Bau ab — `sha256sum -c`
-          # liefert dann einen Fehler, und `set -e` ganz oben beendet den
-          # Schritt. Das ist gewollt: lieber kein AppImage als ein fremdes.
-          wget -q "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
-          echo "${APPIMAGETOOL_SHA256}  appimagetool-x86_64.AppImage" | sha256sum -c -
-          chmod +x appimagetool-x86_64.AppImage
+      - name: Build the program
+        run: bash packaging/appimage.sh --build
 
-          # Und die Runtime dazu — sonst holt AppImageTool sie selbst aus dem
-          # Netz und packt eine unbestimmte Fassung in unser AppImage.
-          # ⚠ Die Pruefung steht VOR dem Weiterverwenden, nicht danach.
-          wget -q "https://github.com/AppImage/type2-runtime/releases/download/${RUNTIME_VERSION}/runtime-x86_64"
-          echo "${RUNTIME_SHA256}  runtime-x86_64" | sha256sum -c -
+      # The update of 4.12 puts the old version back when the new one has ended three seconds after its start:
+      # the program has to live, on an empty copy of the data under a virtual screen.
+      - name: Start check under a virtual screen
+        run: |
+          data="$(mktemp -d)"
+          xvfb-run -a target/release/versekit --daten "$data" > start.log 2>&1 &
+          started=$!
+          sleep 10
+          if ! kill -0 "$started" 2>/dev/null; then
+            cat start.log
+            echo "the program ended within ten seconds of its start" >&2
+            exit 1
+          fi
+          kill "$started"
 
-          # --appimage-extract-and-run, weil im Container kein FUSE zur Verfuegung steht
-          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run \
-            --runtime-file runtime-x86_64 \
-            "$APPDIR" VerseKit-x86_64.AppImage
+      - name: Pack the AppImage
+        run: bash packaging/appimage.sh --pack
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: linux
-          path: VerseKit-x86_64.AppImage
+          path: dist/VerseKit-x86_64.AppImage
+          if-no-files-found: error
 
   # ------------------------------------------------------------------ Release
   release:
@@ -315,108 +178,61 @@ jobs:
     if: inputs.tag != '' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
-      contents: write         # noetig, um das Release anzulegen
+      contents: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
-        # ⚠ Mit voller Historie und Tags: `release_text.py` sucht die vorige
-        # Testfassung, um die Änderungen seit dann zu verlinken. Ein
-        # flacher Klon kennt keine Tags, und der Link fiele still weg.
+        # With the whole history and the tags: the release text links the changes since the test version before.
         with: { fetch-depth: 0 }
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with: { path: dateien }
 
-      - name: Beschreibung aus dem CHANGELOG holen
-        # Der Abschnitt zur getaggten Version wird zum Release-Text — dadurch
-        # steht im Werkzeug unter "Was ist neu" dasselbe wie auf GitHub.
-        run: >
-          python3 .github/scripts/release_text.py "$TAG"
-          > release-text.md
+      - name: Exactly the two files
+        run: |
+          set -eu
+          found="$(cd dateien && find . -type f | sort | tr '\n' ' ')"
+          echo "artifacts: $found"
+          test "$found" = "./linux/VerseKit-x86_64.AppImage ./windows/VerseKit-Setup.exe "
 
-      - name: Vorabversion?
+      - name: Release text from the CHANGELOG
+        run: python3 .github/scripts/release_text.py "$TAG" > release-text.md
+
+      - name: Pre-release?
         id: art
-        # Ein Tag mit -rc, -beta oder -alpha wird auf GitHub als Vorabversion
-        # gekennzeichnet. Das Werkzeug bietet solche Fassungen niemandem
-        # ungefragt als Update an — sie sind zum Pruefen da, nicht zum Verteilen.
         run: |
           case "$TAG" in
             *-rc*|*-beta*|*-alpha*) echo "vorab=true"  >> "$GITHUB_OUTPUT" ;;
             *)                      echo "vorab=false" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      - name: Pruefsummen erzeugen
-        # ⚠⚠ **Ohne diese Datei bekommt niemand mehr ein automatisches
-        # Update.** Seit P1 gilt im Programm: keine gueltige Pruefsumme, keine
-        # Installation. Das ist so gewollt und deshalb streng — aber es heisst
-        # auch, dass dieser Schritt bei JEDEM Release laufen muss.
-        #
-        # ⚠ Die Namen stehen ohne Ordner in der Datei (`cd` statt Pfadangabe):
-        # Der Updater sucht darin nach dem reinen Dateinamen des Anhangs, so
-        # wie GitHub ihn ausliefert. Mit `dateien/windows/…` davor faende er
-        # seinen Eintrag nie und wuerde jedes Update ablehnen.
+      # The bare file names, as the updater looks them up; two lines, else a file is missing.
+      - name: Checksums
         run: |
           set -eu
-          ( cd dateien/windows && sha256sum VerseKit-Setup.exe ) \
-            > SHA256SUMS.txt
-          ( cd dateien/linux && sha256sum VerseKit-x86_64.AppImage ) \
-            >> SHA256SUMS.txt
-          echo "--- SHA256SUMS.txt ---"
+          ( cd dateien/windows && sha256sum VerseKit-Setup.exe ) > SHA256SUMS.txt
+          ( cd dateien/linux && sha256sum VerseKit-x86_64.AppImage ) >> SHA256SUMS.txt
           cat SHA256SUMS.txt
-          # Gegenprobe: zwei Zeilen, sonst fehlt eine Datei.
           test "$(wc -l < SHA256SUMS.txt)" = "2"
+          if grep -q '/' SHA256SUMS.txt; then echo "a path in SHA256SUMS.txt" >&2; exit 1; fi
 
-      # ⚠ Die einzige Fremd-Action hier — und deshalb bei der Aktualisierungs-
-      # runde durchgerutscht, als die vier GitHub-eigenen auf Node 24 gehoben
-      # wurden. Sie blieb auf v2.6.2 (Node 20) stehen; GitHub fuehrte sie
-      # notduerftig auf Node 24 aus und warnte bei JEDEM Bau. v3.0.0 aendert
-      # nichts ausser der Laufzeit — keine geaenderten Eingaben.
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
         id: freigabe
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
           body_path: release-text.md
-          # ⚠ Die nackte `SC-BP-Watcher.exe` wird NICHT angehängt: Zwei
-          # Auslieferungswege heißen zwei Fehlerquellen und doppelte
-          # Unterstützung.
-          #
-          # Der Weg für **v2.0.0** bleibt trotzdem offen: Deren Update-Logik
-          # greift die erste Datei auf `.exe` — das ist jetzt der Installer —
-          # und ihr Hilfsskript **startet** die getauschte Datei
-          # (`start "" "<ziel>"`). Der Installer läuft also und installiert
-          # sauber, statt als totes Programm liegenzubleiben.
           files: |
             dateien/windows/VerseKit-Setup.exe
             dateien/linux/VerseKit-x86_64.AppImage
             SHA256SUMS.txt
 
-      # Meldung im eigenen Discord — als lesbare Karte statt als nackter Link.
-      #
-      # Laeuft **nach** dem Release, damit der Link im Beitrag schon zieht. Ohne
-      # hinterlegten Schluessel passiert nichts und der Bau bleibt gruen: Eine
-      # Chat-Meldung darf eine fertige Veroeffentlichung nicht rot faerben.
-      #
-      # ⚠ Der Beitrag landet nur im EIGENEN Discord. Ob ihn jemand anderes
-      # sieht, haengt weiterhin an einem Klick auf „Veroeffentlichen" — diese
-      # Bremse ist gewollt.
-      - name: Im Discord melden
+      # A message in the own Discord; without the secret nothing happens and the build stays green.
+      - name: Tell Discord
         if: always()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        # ⚠ `$TAG`, nicht `GITHUB_REF_NAME`: Beim Aufruf aus geplant.yml
-        # gehoert der github-Kontext dem Aufrufer, dort steht der Zweig.
         run: python3 .github/scripts/discord_release.py "$TAG"
 
-      # Die beiden Release-Dateien bei VirusTotal prüfen lassen und das
-      # Ergebnis samt Link an die Release-Notiz hängen.
-      #
-      # Läuft nur in diesem Job, also nur bei einem Tag-Release, und nur, wenn
-      # das Release angelegt wurde. Ohne `VT_API_KEY` endet das Skript mit
-      # einem Hinweis; ein Fehler oder eine Zeitüberschreitung bei VirusTotal
-      # färbt das Release nicht rot (`continue-on-error`, und das Skript
-      # endet immer mit 0).
-      #
-      # ⚠ Der Schlüssel steht nur in `env`, nie in der Befehlszeile — das
-      # Skript liest ihn selbst und gibt ihn nicht aus.
-      - name: Bei VirusTotal pruefen lassen
+      # The two files at VirusTotal, the result attached to the release text. Never turns the release red.
+      - name: VirusTotal
         if: always() && steps.freigabe.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 15

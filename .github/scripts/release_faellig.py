@@ -7,7 +7,7 @@ Gedacht fuer den Zeitplan-Ablauf `geplant.yml`, der mittwochs nachsieht. Er darf
 raus, nur weil Mittwoch ist. Faellig ist eine Version genau dann, wenn alle vier
 Punkte stimmen:
 
-  1. `__version__` in `sc_bp_watcher.py` steht auf einer Nummer,
+  1. die Version in `Cargo.toml` (`[workspace.package]`) steht auf einer Nummer,
   2. zu der es in **beiden** CHANGELOG-Dateien einen Abschnitt gibt,
   3. dessen Datum heute oder frueher ist (das ist die bewusste Freigabe),
   4. und fuer die es noch **keinen** Tag gibt.
@@ -27,10 +27,12 @@ CHANGELOGS = ('CHANGELOG.en.md', 'CHANGELOG.md')
 
 
 def version():
-    """Die Nummer aus der Versionskonstante."""
-    pfad = os.path.join(WURZEL, 'sc_bp_watcher.py')
+    """Die Nummer aus `Cargo.toml` (`[workspace.package] version`)."""
+    pfad = os.path.join(WURZEL, 'Cargo.toml')
     with open(pfad, encoding='utf-8') as f:
-        treffer = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", f.read(), re.M)
+        text = f.read()
+    abschnitt = re.search(r'^\[workspace\.package\]\s*$(.*?)(?=^\[|\Z)', text, re.M | re.S)
+    treffer = abschnitt and re.search(r'^version\s*=\s*"([^"]+)"', abschnitt.group(1), re.M)
     return treffer.group(1) if treffer else ''
 
 

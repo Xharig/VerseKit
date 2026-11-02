@@ -23,8 +23,7 @@ nicht von Hand hergestellt werden. Lizenz ISC, Mitliefern erlaubt (siehe
 an der System-Bibliothek *cairo*. Die ist unter Windows ein Ärgernis (fehlende
 DLLs) — und dieses Skript soll auf **jedem** System laufen, ohne vorher etwas zu
 installieren. Deshalb liest es die
-Pfade selbst und malt mit Pillow, das ohnehin schon Bau-Werkzeug ist
-(`tools/make_icon_from_art.py`).
+Pfade selbst und malt mit Pillow.
 
 **Wie gemalt wird.** Jeder Strich wird in eine dichte Punktkette aufgelöst und
 mit einem Kreis je Punkt gestempelt. Das ergibt runde Enden und runde Ecken

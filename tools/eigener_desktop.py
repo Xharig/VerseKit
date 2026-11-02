@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# SC BP Watcher — zeigt live neue Star-Citizen-Baupläne an.
+# Verse-Kit — Begleiter für Star Citizen.
 # Copyright (C) 2026 Xharig
 #
 # SPDX-License-Identifier: GPL-3.0-only
@@ -34,10 +34,27 @@ Ausgabe abfängt, bekommt sie wie gewohnt.
 Nur Standardbibliothek (`ctypes`).
 """
 import ctypes
+import itertools
 import os
 import sys
+import time
 
 DESKTOP_NAME = 'VerseKit-Pruefung'
+
+# Wie oft dieser Prozess schon einen Desktop angelegt hat: gibt dem Namen eine Zahl dazu.
+_ZAEHLER = itertools.count(1)
+
+
+def eindeutiger_name():
+    """Ein Desktop-Name, den kein anderer Lauf trägt.
+
+    ⚠ Der Name gilt für die ganze Sitzung: `CreateDesktop` mit einem Namen, den es schon gibt,
+    liefert den vorhandenen Desktop. Prüfläufe verschiedener Programme oder Sitzungen, die alle
+    `VerseKit-Pruefung` nähmen, teilten sich dann Fenster, Zeiger und Nachrichten und stören sich
+    gegenseitig (ein Fenster des einen liegt unter dem Zeiger des anderen). Darum: Prozessnummer,
+    Zeit und eine Zählung dazu.
+    """
+    return '%s-%d-%d-%d' % (DESKTOP_NAME, os.getpid(), int(time.time() * 1000) % 10_000_000, next(_ZAEHLER))
 
 _GENERIC_ALL = 0x10000000
 _STARTF_USESTDHANDLES = 0x00000100
@@ -98,20 +115,68 @@ def _bauteile():
             PROCESS_INFORMATION)
 
 
+_FENSTER_TITEL = 'vk-sichtbar-auf-dem-desktop'
+
+# Das Kind A legt ein Fenster an und wartet; das Kind B sucht es. Auf demselben Desktop findet B das
+# Fenster (Ausgang 1), auf einem eigenen nicht (Ausgang 0).
+_KIND_A = (
+    "import ctypes, time\n"
+    "u = ctypes.WinDLL('user32')\n"
+    "u.CreateWindowExW.restype = ctypes.c_void_p\n"
+    "u.CreateWindowExW(0, 'STATIC', %r, 0, 0, 0, 10, 10, None, None, None, None)\n"
+    "time.sleep(4)\n" % _FENSTER_TITEL
+)
+_KIND_B = (
+    "import ctypes, sys\n"
+    "u = ctypes.WinDLL('user32')\n"
+    "u.FindWindowW.restype = ctypes.c_void_p\n"
+    "sys.exit(1 if u.FindWindowW(None, %r) else 0)\n" % _FENSTER_TITEL
+)
+
+
+def pruefen(gegenprobe=False):
+    """Zwei gleichzeitige Läufe sehen die Fenster des anderen nicht — Gegenprobe: gleicher Name.
+
+    Gibt 0 zurück, wenn das Fenster von A für B unsichtbar blieb (bei `gegenprobe` erwartet man das
+    Gegenteil, die Ausgabe sagt dann `ERGEBNIS rot`).
+    """
+    import threading
+    gemeinsam = DESKTOP_NAME if gegenprobe else None
+    ergebnis = {}
+
+    def kind_a():
+        ergebnis['a'] = starten([sys.executable, '-I', '-c', _KIND_A], name=gemeinsam)
+
+    thread = threading.Thread(target=kind_a)
+    thread.start()
+    time.sleep(1.5)
+    ergebnis['b'] = starten([sys.executable, '-I', '-c', _KIND_B], name=gemeinsam)
+    thread.join()
+    gesehen = ergebnis['b'] != 0
+    print('Fenster des anderen Laufs gesehen: %s' % ('ja' if gesehen else 'nein'))
+    print('ERGEBNIS rot' if gesehen else 'ERGEBNIS gruen')
+    return 1 if gesehen else 0
+
+
 def _befehlszeile(argv):
     """Die Argumente als eine Windows-Befehlszeile, richtig gequotet."""
     import subprocess
     return subprocess.list2cmdline(argv)
 
 
-def starten(argv, env=None):
+def starten(argv, env=None, name=None):
     """`argv` auf dem eigenen Desktop ausführen und den Rückgabewert liefern.
+
+    Jeder Aufruf bekommt einen Desktop mit eigenem Namen (`eindeutiger_name`), sodass sich
+    gleichzeitige Läufe nicht sehen. `name` setzt den Namen fest; `DESKTOP_NAME` selbst ist der
+    gemeinsame Desktop von früher (nur für die Gegenprobe der Selbstprüfung).
 
     Wirft `OSError`, wenn der Desktop oder der Prozess nicht entsteht — der
     Aufrufer fällt dann auf seinen bisherigen Weg zurück.
     """
     (user32, kernel32, msvcrt, wintypes, STARTUPINFOW,
      PROCESS_INFORMATION) = _bauteile()
+    name = name or eindeutiger_name()
 
     def griff(strom):
         try:
@@ -121,8 +186,7 @@ def starten(argv, env=None):
         except Exception:
             return None
 
-    desktop = user32.CreateDesktopW(DESKTOP_NAME, None, None, 0,
-                                    _GENERIC_ALL, None)
+    desktop = user32.CreateDesktopW(name, None, None, 0, _GENERIC_ALL, None)
     if not desktop:
         raise ctypes.WinError(ctypes.get_last_error())
     try:
@@ -133,7 +197,7 @@ def starten(argv, env=None):
                 pass
         si = STARTUPINFOW()
         si.cb = ctypes.sizeof(si)
-        si.lpDesktop = DESKTOP_NAME
+        si.lpDesktop = name
         si.dwFlags = _STARTF_USESTDHANDLES
         si.hStdInput = griff(sys.stdin)
         si.hStdOutput = griff(sys.stdout)
@@ -159,3 +223,10 @@ def starten(argv, env=None):
             kernel32.CloseHandle(pi.hProcess)
     finally:
         user32.CloseDesktop(desktop)
+
+
+if __name__ == '__main__':
+    # Selbstprüfung: `python -I tools/eigener_desktop.py --pruefen [--gegenprobe]`
+    if '--pruefen' in sys.argv[1:]:
+        sys.exit(pruefen('--gegenprobe' in sys.argv[1:]))
+    print(__doc__)

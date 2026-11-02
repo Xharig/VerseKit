@@ -1,0 +1,180 @@
+# Texts that stay in the code because they read the same in both languages.
+# Every group starts with the reason; the checks of the source (tests/standards.rs)
+# and of the drawn interface (src/sample/english.rs) both read this file.
+# An entry the code no longer has must go (tests/standards.rs finds it).
+# A line with `{}` or `{name}` stands for a text with something filled in there.
+
+# Names from the game: manufacturers, ships, places. The game does not translate them.
+Aegis Dynamics
+Anvil Aerospace
+Aurora MR
+Avenger Titan
+C8 Pisces
+Constellation Andromeda
+Cutlass Black
+Cutlass Red
+Drake Interplanetary
+Freelancer MAX
+Hornet Ghost
+Mercury Star Runner
+Ruin Station
+Seraphim Station
+Super Hornet
+
+# Manufacturers, factions and items of the blueprint list sample, as the game names them.
+Amon & Reese
+Clark Defense Systems
+Coda Pistol
+Covalex Shipping
+Foxwell Enforcement
+Gorgon Defender
+Juno Starwerk
+Karna Rifle
+Kastak Arms
+Klaus & Werner
+Lightning Power Ltd.
+Novikov Backpack
+Pembroke Core
+Pembroke Helmet
+Roussimoff Rehabilitation
+Strata Backpack
+
+# Items and materials as the game names them.
+Construction Materials
+Arclight Pistol
+Morozov-SH Core
+Morozov-SH Helmet
+
+# Section names of the game data. They are looked up as they are and shown through a language key.
+Personal Weapons
+Vehicle Weapons
+
+# A property name as the game data gives it, in the made-up recipes of the crafting sample; shown through a language key.
+Integrity
+
+# Titles of contracts as the game writes them (the language of the game, not of the interface).
+Bounty Hunter
+Deliver Supplies
+Protect Fuel Tanks
+Recover Vanduul Corpses
+Retake the Outpost
+Stop Rival Attack at Asteroiden Bergbaubasis
+Verified Bounty: Brendon Broad | HRT (Großes Mehrbesatzungsschiff, mittlere Unterstützung)
+
+# Places and routes with amounts: names, numbers and units, no wording.
+Agricium: Orison → New Babbage
+Area18: 180 SCU
+Gold: CRU-L1 → ARC-L1
+GrimHEX: 52 SCU
+Laranite: Lorville → Area18
+Lorville: 120 SCU
+Orison: 60 SCU
+
+# Paths and file names.
+C:\Program Files\Roberts Space Industries
+C:\Program Files\Roberts Space Industries\StarCitizen\LIVE
+C:\Program Files\Roberts Space Industries\StarCitizen\PTU
+Program Files
+Roberts Space Industries
+Game Build(12913470) 18 Oct 26 (15 22 07).log
+
+# Technical names: file types, libraries, screen sizes, the program with a number.
+HTTP/1.1 200 OKrnContent-Length: 0rnConnection: closernrn
+PNG / JPG
+Rust · egui 0.37
+S{size} · {grade}
+UHD 125 %
+UHD 150 %
+VerseKit {version}
+VerseKit {} · {}
+
+# The phrase of the German game in its log, listed in the error report as it is.
+Bauplan erhalten
+
+# Names of accounts and ranks as the game and the Basetool give them.
+Neutral
+PlayerOne
+
+# Names of licences (the licence MIT is no German word).
+MIT
+
+# Names of the program and its author, the game's unit.
+Basetool
+SCU
+Xharig
+
+# The names of the languages, each written in its own language.
+Deutsch
+English
+Türkçe
+
+# Names of the made-up items and makers of the sample of the crafting page (names as in the game).
+Arc Shield
+Grand Core
+Greycat Industrial
+Laranite (Raw)
+
+# Names of the made-up parts, shops and places of the sample of the shopping list (names as in the game).
+Cubby Blast
+Dumper's Depot
+Frostline Cooler
+Pad A
+Port Tressler
+Quantum Drive
+Quantum Drive Mk2
+Quantum Drives
+Radar X
+Shield Generators
+Stock Radar
+Tammany and Sons
+Teasa Spaceport
+
+# Names of the categories of the price source UEX, which the code matches letter for letter.
+Salvage and Repair
+
+# Names in the samples of mining and salvage, written as the mining data and erkul write them: places,
+# raw materials, rocks, refineries, kinds of places and parts. The game does not translate them.
+ARC-L1 Wide Forest Station
+Aaron Halo
+Asteroid belt
+CRU-L1 Ambitious Dream Station
+Gold (Ore)
+Gold rock
+Pyro Gateway (Stanton)
+Pyro IV
+Quantanium (Raw)
+Quantanium rock
+Sample Repeater
+Titanium (Ore)
+Titanium rock
+
+# The name of the site of the mining data, as a link.
+scmdb.net
+
+# Names of other tools whose files the stand reader takes.
+Baupläne DB
+
+# Systems, titles and lines of the status page of CIG in the sample of the server status page: the words of CIG are shown as they are, never translated.
+Arena Commander
+Live Deployment
+Login Issues
+PU down
+Persistent Universe
+Please stow your vehicles.
+We are investigating reports of login failures.
+
+# Ships and weapons of the sample of the changed game values, as the game names them.
+Behring M5A Cannon
+Drake Cutter
+Klaus & Werner Lumin V
+MISC Starlancer TAC
+
+# Lines of the error log, written as 4.12 writes them: the report is for the developer, no page shows them.
+Code {code}: {said}
+
+# The made-up player and organization of the handle page sample, written as the RSI site writes them (names, the
+# date of joining): data of the site, the same in both languages.
+Mar 3, 2019
+Night Owl
+Nova Wing
+NOVA

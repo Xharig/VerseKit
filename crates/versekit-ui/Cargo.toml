@@ -1,0 +1,33 @@
+[package]
+name = "versekit-ui"
+description = "Verse-Kit: Oberfläche (egui) — Farbschemata"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+# The renderer of the windows (`renderer`).
+eframe.workspace = true
+egui.workspace = true
+egui_extras = { workspace = true, features = ["svg", "image"] }
+image.workspace = true
+raw-window-handle.workspace = true
+rfd.workspace = true
+versekit-core.workspace = true
+versekit-gamedata.workspace = true
+
+# The hidden window and the message box of the choice of the DX12 stage, and the error lines of wgpu
+# (`renderer`): the version eframe already brings in.
+[target.'cfg(windows)'.dependencies]
+log = "0.4"
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_UI_WindowsAndMessaging"] }
+
+[dev-dependencies]
+egui_kittest.workspace = true
+
+# A hidden window of a test that stands in for another run of the program, and the desktop it is on.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_StationsAndDesktops", "Win32_System_Threading"] }

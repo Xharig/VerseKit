@@ -23,11 +23,11 @@ contact_links:
       Use the "Fehler-Melden" forum. No GitHub account required, no sign-in
       here. Questions and feature requests are welcome too.
 
-  # ⚠ Der Anker ist geprüft: Er zeigt auf die Überschrift "Beim Testen
-  # mithelfen". Wer hier etwas ändert, prüft ihn erneut — ein Link ins Leere
+  # ⚠ Der Anker ist geprüft: Er zeigt auf die Überschrift "Mitmachen".
+  # Wer hier etwas ändert, prüft ihn erneut — ein Link ins Leere
   # ist schlimmer als keiner, weil er das Werkzeug kaputt aussehen lässt.
   - name: Direkt aus dem Programm melden — der schnellste Weg
-    url: https://github.com/Xharig/VerseKit/blob/main/README.md#beim-testen-mithelfen
+    url: https://github.com/Xharig/VerseKit/blob/main/README.md#mitmachen
     about: >-
       Läuft Verse-Kit noch? Dann Info -> Fehler melden, roter Knopf. Der
       Bericht geht fertig an den Entwickler, ganz ohne Formular - ohne

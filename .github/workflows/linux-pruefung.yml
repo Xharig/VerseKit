@@ -1,0 +1,188 @@
+# Checks the program under Linux without building a release: check, clippy, the tests of four crates and a
+# start under a virtual screen. Started only by hand. Every step runs even when one before it is red; the
+# artifact linux-lauf.txt lists the findings of check and clippy per file and the red tests per crate, and the
+# job ends red when any step was red.
+#
+# Rules of this file as in release.yml: actions pinned to a commit, the job only reads the repository, no ${{ }}
+# inside `run:` (values come through `env:`), the deploy key of the p4kx repository only through ssh-agent,
+# never printed and never part of an artifact.
+
+name: Linux-Pruefung
+
+on:
+  workflow_dispatch:
+
+env:
+  RUST_VERSION: '1.99.1'
+  CARGO_TERM_COLOR: never
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    # The same system as the release build of the AppImage.
+    container: ubuntu:22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Git and SSH for the checkout and for p4kx
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git openssh-client ca-certificates
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.P4KX_DEPLOY_KEY }}
+
+      - name: Fetch p4kx over SSH
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global url."ssh://git@github.com/p4kx-org/".insteadOf "https://github.com/p4kx-org/"
+
+      - name: Tools and Rust
+        run: |
+          bash packaging/appimage.sh --tools
+          . "$HOME/.cargo/env"
+          rustup component add clippy --toolchain "$RUST_VERSION"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          mkdir -p logs
+
+      - name: Check of the program
+        id: check_app
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo +"$RUST_VERSION" check -p versekit-app --locked --message-format short 2>&1 | tee logs/check-app.log
+
+      - name: Check of the workspace with all targets
+        id: check_workspace
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo +"$RUST_VERSION" check --workspace --exclude versekit-overlay-proto --all-targets --locked \
+            --message-format short 2>&1 | tee logs/check-workspace.log
+
+      # Red on any warning, as with -D warnings, but without stopping at the first crate with a finding, so that
+      # the crates above it are linted too.
+      - name: Clippy
+        id: clippy
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo +"$RUST_VERSION" clippy --workspace --exclude versekit-overlay-proto --all-targets --locked \
+            --message-format short 2>&1 | tee logs/clippy.log
+          if grep -qE '^[^ ]+\.rs:[0-9]+:[0-9]+: (error|warning)' logs/clippy.log; then
+            echo "clippy has findings" >&2
+            exit 1
+          fi
+
+      # Each crate on its own, so that the red tests can be counted per crate; under a virtual screen for the
+      # tests that open an X11 connection.
+      - name: Tests
+        id: tests
+        continue-on-error: true
+        run: |
+          red=0
+          for crate in versekit-core versekit-overlay versekit-ui versekit-app; do
+            if ! xvfb-run -a cargo +"$RUST_VERSION" test -p "$crate" --locked --no-fail-fast > "logs/test-$crate.log" 2>&1; then
+              red=1
+            fi
+            tail -n 5 "logs/test-$crate.log"
+          done
+          exit "$red"
+
+      # The update of 4.12 puts the old version back when the new one has ended three seconds after its start:
+      # the program has to live, on an empty copy of the data under a virtual screen.
+      - name: Start check under a virtual screen
+        id: start
+        continue-on-error: true
+        run: |
+          cargo +"$RUST_VERSION" build -p versekit-app --locked
+          data="$(mktemp -d)"
+          xvfb-run -a target/debug/versekit --daten "$data" > logs/start.log 2>&1 &
+          started=$!
+          sleep 10
+          if ! kill -0 "$started" 2>/dev/null; then
+            cat logs/start.log
+            echo "the program ended within ten seconds of its start" >&2
+            exit 1
+          fi
+          kill "$started"
+
+      - name: Summary
+        if: always()
+        env:
+          CHECK_APP: ${{ steps.check_app.outcome }}
+          CHECK_WORKSPACE: ${{ steps.check_workspace.outcome }}
+          CLIPPY: ${{ steps.clippy.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          START: ${{ steps.start.outcome }}
+        run: |
+          finding='^[^ ]+\.rs:[0-9]+:[0-9]+: (error|warning)'
+          {
+            echo "Linux-Pruefung $GITHUB_SHA"
+            echo
+            echo "check -p versekit-app:     $CHECK_APP"
+            echo "check --workspace:         $CHECK_WORKSPACE"
+            echo "clippy (red on warnings):  $CLIPPY"
+            echo "tests:                     $TESTS"
+            echo "start under xvfb:          $START"
+            echo
+            echo "== Findings of check and clippy per file =="
+            cat logs/check-*.log logs/clippy.log 2>/dev/null | grep -E "$finding" | sort -u | cut -d: -f1 | uniq -c || true
+            echo
+            echo "== Findings of check and clippy =="
+            cat logs/check-*.log logs/clippy.log 2>/dev/null | grep -E "$finding" | sort -u || true
+            echo
+            echo "== Red tests per crate =="
+            for crate in versekit-core versekit-overlay versekit-ui versekit-app; do
+              log="logs/test-$crate.log"
+              if [ ! -f "$log" ]; then
+                echo "$crate: not run"
+                continue
+              fi
+              count="$(grep -cE '^test .+ \.\.\. FAILED$' "$log" || true)"
+              if grep -qE '^error(\[E[0-9]+\])?: could not compile' "$log"; then
+                echo "$crate: $count red, tests did not compile"
+              else
+                echo "$crate: $count red"
+              fi
+              grep -E '^test .+ \.\.\. FAILED$' "$log" | sed -E 's/^test (.+) \.\.\. FAILED$/  \1/' || true
+            done
+            echo
+            echo "== Start under xvfb (end of the output) =="
+            tail -n 30 logs/start.log 2>/dev/null || echo "no output"
+          } > linux-lauf.txt
+          cat linux-lauf.txt
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        if: always()
+        with:
+          name: linux-lauf
+          path: |
+            linux-lauf.txt
+            logs/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Red when a step was red
+        if: always()
+        env:
+          OUTCOMES: >-
+            ${{ steps.check_app.outcome }} ${{ steps.check_workspace.outcome }} ${{ steps.clippy.outcome }}
+            ${{ steps.tests.outcome }} ${{ steps.start.outcome }}
+        run: |
+          for outcome in $OUTCOMES; do
+            if [ "$outcome" != "success" ]; then
+              echo "at least one step was red, see linux-lauf.txt" >&2
+              exit 1
+            fi
+          done
