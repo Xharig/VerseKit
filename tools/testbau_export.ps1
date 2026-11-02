@@ -46,6 +46,8 @@ param(
     [string]$Remote = 'https://github.com/Xharig/VerseKit-Testbau.git',
     [switch]$NoPush,
     [switch]$SkipNoKey,
+    # Builds the finished version X.Y.Z of the tree as it is, without -rc.
+    [switch]$Final,
     [switch]$SelfTest
 )
 
@@ -173,7 +175,7 @@ if ($SelfTest) {
     Write-Host 'Selbsttest gruen'
     exit 0
 }
-if (-not $PSBoundParameters.ContainsKey('Rc')) { Fail 2 'Die Nummer des Testbaus fehlt: -Rc <n> (ergibt X.Y.Z-rc<n>).' }
+if (-not $Final -and -not $PSBoundParameters.ContainsKey('Rc')) { Fail 2 'Die Nummer des Testbaus fehlt: -Rc <n> (ergibt X.Y.Z-rc<n>).' }
 
 # ---------------------------------------------------------------- source and target
 $sha = (Invoke-Git $Source @('rev-parse', '--verify', "$Ref^{commit}")).Trim()
@@ -234,14 +236,23 @@ foreach ($path in $carriedText.Keys) {
 # ---------------------------------------------------------------- test version
 $tomlFile = Join-Path $targetFull 'Cargo.toml'
 $lockFile = Join-Path $targetFull 'Cargo.lock'
-try {
-    $changed = Set-TestVersion ([System.IO.File]::ReadAllText($tomlFile)) ([System.IO.File]::ReadAllText($lockFile)) $Rc
-} catch { Fail 1 $_.Exception.Message }
 $noBom = [System.Text.UTF8Encoding]::new($false)
-[System.IO.File]::WriteAllText($tomlFile, $changed.Toml, $noBom)
-[System.IO.File]::WriteAllText($lockFile, $changed.Lock, $noBom)
-$version = $changed.New
-Write-Host "Version: $($changed.Old) -> $version ($($changed.Members) Pakete im Cargo.lock)"
+if ($Final) {
+    $tomlText = [System.IO.File]::ReadAllText($tomlFile)
+    if ($tomlText -notmatch '(?m)^\[workspace\.package\]\s*\r?\nversion = "(\d{1,4}\.\d{1,4}\.\d{1,4})"') {
+        Fail 1 'Die Version im Baum ist keine fertige X.Y.Z.'
+    }
+    $version = $Matches[1]
+    Write-Host "Version: $version (fertig, unveraendert)"
+} else {
+    try {
+        $changed = Set-TestVersion ([System.IO.File]::ReadAllText($tomlFile)) ([System.IO.File]::ReadAllText($lockFile)) $Rc
+    } catch { Fail 1 $_.Exception.Message }
+    [System.IO.File]::WriteAllText($tomlFile, $changed.Toml, $noBom)
+    [System.IO.File]::WriteAllText($lockFile, $changed.Lock, $noBom)
+    $version = $changed.New
+    Write-Host "Version: $($changed.Old) -> $version ($($changed.Members) Pakete im Cargo.lock)"
+}
 
 # ---------------------------------------------------------------- forbidden files and .gitignore
 $tracked = Get-ChildItem -LiteralPath $targetFull -Force | Where-Object Name -notin @('.git', 'target')
