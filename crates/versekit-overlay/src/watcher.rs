@@ -1108,7 +1108,7 @@ mod tests {
         use versekit_core::game_texts::Notice;
         use versekit_core::language::{Choice, Lang, set_thread_language};
         let notices = [
-            Notice::TranslationUpdated("Deutsch (rjcncpt) · 4.3".to_string()),
+            Notice::TranslationUpdated("Deutsch (Luftwerft) · 4.3".to_string()),
             Notice::GapsFilled(12),
             Notice::LanguageRepaired("german_(germany)".to_string()),
             Notice::Applied(345),

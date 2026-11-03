@@ -1892,6 +1892,13 @@ static CLASS_CODE_PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
         .expect("fester Ausdruck")
 });
 
+/// Type, size and grade in brackets as a prefix: `[civ-s2-a] 7ma 'lorica'`,
+/// `[e-s1] fl-11 cannon`. A size (`-s1`) is required, so bracketed words
+/// like `[prototype]` stay part of the name.
+static BRACKET_CODE_PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"\A{PY_SPACE}*\[[a-z]{{1,5}}-s\d{{1,2}}(?:-[a-d])?\]{PY_SPACE}+")).expect("fester Ausdruck")
+});
+
 /// Quantity in parentheses: `(16 cap)`, `(16 Schuss)`; the number is kept.
 static QUANTITY_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(&format!(r"\((\d+){PY_SPACE}+[^)]*\)")).expect("fester Ausdruck"));
@@ -1905,7 +1912,7 @@ const QUOTES: [char; 11] = [
 /// A blueprint name as a comparison key, the only place for this.
 ///
 /// Normalized are case, non-breaking and broken spaces, quotation marks,
-/// class codes (appended or prefixed) and the language of the quantity
+/// class codes (appended or prefixed, also in brackets) and the language of the quantity
 /// (`(16 cap)` ↔ `(16 Schuss)` both become `(16)`).
 pub fn name_key(s: &str) -> String {
     let low: String = s
@@ -1919,7 +1926,7 @@ pub fn name_key(s: &str) -> String {
         .collect();
     let without_suffix = CLASS_CODE_RE.replace(&low, "");
     let text = py_strip(&without_suffix);
-    let text = match CLASS_CODE_PREFIX_RE.find(text) {
+    let text = match CLASS_CODE_PREFIX_RE.find(text).or_else(|| BRACKET_CODE_PREFIX_RE.find(text)) {
         Some(m) if m.end() < text.len() => &text[m.end()..],
         _ => text,
     };

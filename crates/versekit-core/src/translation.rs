@@ -82,8 +82,6 @@ pub struct Source {
     pub id: &'static str,
     /// GitHub repository, or none for a file at a direct address.
     pub repo: Option<&'static str>,
-    /// A file in the repository that is newer than its releases.
-    pub repo_file: Option<&'static str>,
     /// The release asset.
     pub asset: Option<&'static str>,
     pub tag: Option<&'static str>,
@@ -144,19 +142,6 @@ fn luftwerft(id: &'static str, language: &'static str, label: &'static str, flag
 /// The sources, in the order of `translation.SOURCES`.
 pub static SOURCES: LazyLock<Vec<Source>> = LazyLock::new(|| {
     vec![
-        Source {
-            id: "deutsch",
-            repo: Some("rjcncpt/StarCitizen-Deutsch-INI"),
-            repo_file: Some("live/global.ini"),
-            asset: Some("StarCitizen.Deutsch.LIVE.zip"),
-            language: "german_(germany)",
-            audio: Some("english"),
-            license: "CC-BY-NC-SA-4.0",
-            page: "https://github.com/rjcncpt/StarCitizen-Deutsch-INI",
-            label: "s_sp_q_de",
-            flag: "de",
-            ..Source::default()
-        },
         Source {
             id: "starstrings",
             repo: Some("MrKraken/StarStrings"),
@@ -268,7 +253,6 @@ pub fn set_custom(paths: &Paths, url: &str, language: &str, channel: Option<&str
 pub struct Spec {
     pub source: String,
     pub repo: Option<String>,
-    pub repo_file: Option<String>,
     pub asset: Option<String>,
     pub tag: Option<String>,
     pub part: Option<String>,
@@ -298,7 +282,6 @@ pub fn spec(paths: &Paths, source: &str, channel: Option<&str>) -> Option<Spec> 
         return Some(Spec {
             source: CUSTOM.into(),
             repo: None,
-            repo_file: None,
             asset: None,
             tag: None,
             part: None,
@@ -313,7 +296,6 @@ pub fn spec(paths: &Paths, source: &str, channel: Option<&str>) -> Option<Spec> 
     let mut spec = Spec {
         source: q.id.into(),
         repo: owned(q.repo),
-        repo_file: owned(q.repo_file),
         asset: owned(q.asset),
         tag: owned(q.tag),
         part: owned(q.part),
@@ -396,7 +378,7 @@ pub fn grouped_sources(paths: &Paths, channel: Option<&str>, with_original: bool
     let source_rank = |id: &str| {
         if id.starts_with("luftwerft_") {
             0
-        } else if id == "deutsch" || id == "starstrings" {
+        } else if id == "starstrings" {
             1
         } else {
             2
@@ -455,6 +437,83 @@ pub fn set_channel_source(paths: &Paths, channel: &str, source: &str) -> bool {
         map_set(&mut map, channel, Value::str(source));
     }
     paths.set_setting(SETTING_CHANNELS, Value::Object(map))
+}
+
+/// Source ids that are no longer offered, each with the source that takes its place (same language folder).
+pub const RETIRED_SOURCES: [(&str, &str); 1] = [("deutsch", "luftwerft_de")];
+
+/// The source that takes the place of a retired one, if `id` is retired.
+fn successor(id: &str) -> Option<&'static str> {
+    RETIRED_SOURCES.iter().find(|(old, _)| *old == id).map(|(_, new)| *new)
+}
+
+/// Moves the settings and notes of retired sources ([`RETIRED_SOURCES`]) to the source that takes their place: the
+/// chosen source of the main installation and of the side channels, the notes of placed files and the list of
+/// confirmed sources. A moved note keeps the identifier of the old file, so the next look finds a newer version and
+/// fetches the file of the new source. When the new source has a note of its own, the old note replaces it only
+/// where the old source was the chosen one (its file is the one in the game folder); otherwise the old note goes.
+/// Returns whether anything changed.
+pub fn retire_sources(paths: &Paths) -> bool {
+    let mut changed = false;
+    let main_was_old = paths.setting(SETTING_SOURCE).is_some_and(|s| successor(&s).is_some());
+    if let Some(new) = paths.setting(SETTING_SOURCE).as_deref().and_then(successor) {
+        paths.set_setting(SETTING_SOURCE, Value::str(new));
+        changed = true;
+    }
+    let mut channels = channel_sources(paths);
+    let mut old_channels: Vec<String> = Vec::new();
+    for (channel, value) in &mut channels {
+        if let Some(new) = value.as_str().and_then(successor) {
+            *value = Value::str(new);
+            old_channels.push(channel.clone());
+        }
+    }
+    if !old_channels.is_empty() {
+        paths.set_setting(SETTING_CHANNELS, Value::Object(channels));
+        changed = true;
+    }
+    let mut data = note(paths);
+    let old_keys: Vec<(String, String, bool)> = data
+        .iter()
+        .filter_map(|(key, _)| {
+            let (source, channel) = match key.split_once('@') {
+                Some((source, channel)) => (source, Some(channel)),
+                None => (key.as_str(), None),
+            };
+            let new = successor(source)?;
+            let chosen = match channel {
+                Some(channel) => old_channels.iter().any(|c| c == channel),
+                None => main_was_old,
+            };
+            Some((key.clone(), note_key(new, channel), chosen))
+        })
+        .collect();
+    for (old_key, new_key, chosen) in &old_keys {
+        let Some(at) = data.iter().position(|(k, _)| k == old_key) else { continue };
+        let (_, entry) = data.remove(at);
+        let taken = data.iter().any(|(k, _)| k == new_key);
+        if !taken || *chosen {
+            let kept: Map = match entry {
+                Value::Object(fields) => {
+                    fields.into_iter().filter(|(k, _)| ["kennung", "stand", "sprache"].contains(&k.as_str())).collect()
+                }
+                _ => Map::new(),
+            };
+            map_set(&mut data, new_key, Value::Object(kept));
+        }
+    }
+    if !old_keys.is_empty() {
+        note_write(paths, data);
+        changed = true;
+    }
+    let confirmed = paths.setting(crate::game_texts::SETTING_CONFIRMED).unwrap_or_default();
+    let list: Vec<&str> = confirmed.split(',').filter(|s| !s.is_empty()).collect();
+    if list.iter().any(|s| successor(s).is_some()) {
+        let kept: Vec<&str> = list.into_iter().filter(|s| successor(s).is_none()).collect();
+        paths.set_setting(crate::game_texts::SETTING_CONFIRMED, Value::str(kept.join(",")));
+        changed = true;
+    }
+    changed
 }
 
 // ------------------------------------------------------- the notes
@@ -950,23 +1009,6 @@ pub fn latest(net: &dyn Net, spec: &Spec) -> Result<Latest, Problem> {
         return Ok(Latest { ident: head_ident(net, &url)?, url, size: 0, date: None });
     }
     let repo = spec.repo.as_deref().unwrap_or("");
-    if let Some(file) = &spec.repo_file {
-        let commits = get_json(net, &format!("https://api.github.com/repos/{repo}/commits?path={file}&per_page=1"))?;
-        let first = match &commits {
-            Value::Array(list) => list.first().cloned().unwrap_or(Value::Null),
-            _ => Value::Null,
-        };
-        let sha = str_of(first.get("sha"));
-        if !sha.is_empty() {
-            let stamp = str_of(first.get("commit").and_then(|c| c.get("committer")).and_then(|c| c.get("date")));
-            return Ok(Latest {
-                ident: Some(format!("git-{}", sha.chars().take(12).collect::<String>())),
-                url: format!("https://raw.githubusercontent.com/{repo}/{sha}/{file}"),
-                size: 0,
-                date: (!stamp.is_empty()).then(|| stamp.chars().take(10).collect()),
-            });
-        }
-    }
     let release = match &spec.tag {
         Some(tag) => get_json(net, &format!("https://api.github.com/repos/{repo}/releases/tags/{tag}"))?,
         None => get_json(net, &format!("https://api.github.com/repos/{repo}/releases/latest"))?,

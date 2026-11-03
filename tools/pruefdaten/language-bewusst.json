@@ -339,7 +339,6 @@
   "s_dk_choopa_idee": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dk_greluc_idee": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dk_ini": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
-  "s_dk_marken": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dk_parsul_bugs": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dk_parsul_bugs2": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dk_parsul_bugs4": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
@@ -349,7 +348,6 @@
   "s_dkv_choopa_idee": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dkv_exporter": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dkv_greluc_idee": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
-  "s_dkv_ini": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dkv_marken": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dkv_parsul_bugs": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "s_dkv_parsul_bugs2": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
@@ -438,11 +436,18 @@
   "rf_hk_fehler": "Raffinerie-Scanner: Gedankenstrich durch Punkt ersetzt, nennt die Seite beim Namen",
   "s_scmdb_h": "scmdb-Brücke: Gedankenstrich durch Komma (deutsch) und Doppelpunkt (englisch) ersetzt",
   "s_scmdb_bereit": "scmdb-Brücke: Gedankenstrich durch Punkt ersetzt, ganzer Satz",
-  "s_scmdb_belegt": "scmdb-Brücke: Gedankenstrich durch Punkt ersetzt"
+  "s_scmdb_belegt": "scmdb-Brücke: Gedankenstrich durch Punkt ersetzt",
+  "s_be_erkannt": "Einlesen: die Aufzählung nennt nur noch Formate, die erkannt werden",
+  "s_be_unbekannt_h": "Einlesen: die Aufzählung nennt nur noch Formate, die erkannt werden",
+  "s_sp_hinweis_luftwerft": "Übersetzung: Hinweistext gekürzt"
  },
  "entfallen": {
   "s_sc_art_sc": "Shader-Cache: die Rückfrage zeigt jede Fundstelle einzeln mit Schalter und Größe (s_sc_ort_*), nicht mehr drei Summen",
   "s_sc_art_gpu": "Shader-Cache: die Rückfrage zeigt jede Fundstelle einzeln mit Schalter und Größe (s_sc_ort_*), nicht mehr drei Summen",
-  "s_sc_art_crash": "Shader-Cache: die Rückfrage zeigt jede Fundstelle einzeln mit Schalter und Größe (s_sc_ort_*), nicht mehr drei Summen"
+  "s_sc_art_crash": "Shader-Cache: die Rückfrage zeigt jede Fundstelle einzeln mit Schalter und Größe (s_sc_ort_*), nicht mehr drei Summen",
+  "s_sp_q_de": "Übersetzung: Schlüssel entfällt",
+  "inj_quelle_de": "Übersetzung: Schlüssel entfällt",
+  "s_dkv_ini": "Danke: Schlüssel entfällt",
+  "s_dk_marken": "Danke: ungenutzt, die Seite zeigt s_dkv_marken"
  }
 }

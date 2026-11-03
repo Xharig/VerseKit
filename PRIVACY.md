@@ -32,7 +32,7 @@ bei jedem Abruf sieht die Gegenseite deine IP-Adresse.
 | Preise, Läden, Orte, Gegenstands- und Warenliste | UEX (uexcorp.space) |
 | Schiffswerte | erkul.games |
 | Serverstatus | status.robertsspaceindustries.com |
-| Übersetzungen, die du auswählst | die jeweilige Quelle (etwa StarStrings, Luftwerft, rjcncpt) |
+| Übersetzungen, die du auswählst | die jeweilige Quelle (etwa StarStrings, Luftwerft, Dymerz) |
 
 Mit der Umgebungsvariable `SC_BP_NO_NET=1` holt VerseKit gar nichts.
 

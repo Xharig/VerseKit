@@ -57,8 +57,8 @@ impl Setup {
     /// The German translation as set up: file, note, choice, catalog.
     pub(super) fn set_up_german(&self) {
         fs::write(self.ini(), "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n").unwrap();
-        translation::note_set(&self.paths, "deutsch", Some("git-1"), Some("german_(germany)"), None);
-        self.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("deutsch"));
+        translation::note_set(&self.paths, "dymerz_de", Some("v1"), Some("german_(germany)"), None);
+        self.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("dymerz_de"));
         let catalog = r#"{"geholt": "2026-10-22 04:00", "bauplaene": {}, "missionen": {"Bounty_title_001": {"bp": ["Atzkav Sniper Rifle"], "rep": 0, "titel_key": "Bounty_title_001", "text_key": "Bounty_desc_001"}}}"#;
         fs::write(self.paths.app_file(sources::CATALOG_412), catalog).unwrap();
     }
@@ -217,7 +217,7 @@ fn the_original_texts_of_another_file_never_go_into_this_one() {
     assert!(!text.contains("Kopfgeld"), "{text}");
     // A copy put back keeps the note of a file that is still there.
     fs::write(&english, ENGLISH).unwrap();
-    s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("deutsch"));
+    s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("dymerz_de"));
     apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
     let note = injection::load_origtext(&s.paths);
     translation::backup_game_file(&s.paths, &english).unwrap();
@@ -283,7 +283,7 @@ fn a_given_game_folder_keeps_the_real_installation_out() {
     crate::writeguard::allow_also(&format!("{}/data", s.root));
     let job = Job {
         channels: vec![("PTU".into(), source.into())],
-        source: Some("deutsch".into()),
+        source: Some("dymerz_de".into()),
         own_original: false,
         stock_only: false,
     };
@@ -352,7 +352,7 @@ fn the_active_source_is_the_choice_as_it_is() {
     let s = Setup::new("active");
     assert_eq!(active_source(&s.paths), None, "nothing set up");
     s.set_up_german();
-    assert_eq!(active_source(&s.paths).as_deref(), Some("deutsch"));
+    assert_eq!(active_source(&s.paths).as_deref(), Some("dymerz_de"));
     // A chosen source that is not set up is no source, even when another is.
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("starstrings"));
     assert_eq!(active_source(&s.paths), None);
@@ -363,7 +363,7 @@ fn the_active_source_is_the_choice_as_it_is() {
     assert_eq!(active_source(&s.paths), None);
     // Without any choice the first set up counts.
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::Null);
-    assert_eq!(active_source(&s.paths).as_deref(), Some("deutsch"));
+    assert_eq!(active_source(&s.paths).as_deref(), Some("dymerz_de"));
 }
 
 #[test]
@@ -405,7 +405,7 @@ fn start_hour_collection_file_and_game_end() {
     let owned = BTreeSet::new();
     let mut upkeep = Upkeep::default();
     let job = upkeep.tick(&s.paths, &archive, &owned, 1000.0).expect("due at start");
-    assert_eq!(job.source.as_deref(), Some("deutsch"));
+    assert_eq!(job.source.as_deref(), Some("dymerz_de"));
     assert!(!job.stock_only);
     assert_eq!(upkeep.tick(&s.paths, &archive, &owned, 1001.0), None, "no second run while one goes on");
     upkeep.finished(&s.paths, false);
@@ -472,7 +472,7 @@ fn a_run_writes_the_notes_repairs_the_language_and_remembers_the_mark() {
     s.set_up_german();
     let archive = FakeArchive { gaps: 0, ..FakeArchive::default() };
     let net = Fake::default();
-    let job = Job { channels: Vec::new(), source: Some("deutsch".into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some("dymerz_de".into()), own_original: false, stock_only: false };
     let ran = run(&job, &s.paths, &net, &archive, "");
     assert!(ran.notices.contains(&Notice::LanguageRepaired("german_(germany)".into())), "{:?}", ran.notices);
     assert!(ran.notices.iter().any(|n| matches!(n, Notice::Applied(_))), "{:?}", ran.notices);
@@ -493,27 +493,27 @@ fn on_a_copy_of_the_data_the_translation_is_only_looked_at_by_the_page_and_the_r
     let s = Setup::new("testkopie");
     s.set_up_german();
     s.paths.set_given_data(&format!("{}/data", s.root), crate::given::GivenBy::CommandLine);
-    let spec = translation::spec(&s.paths, "deutsch", None).expect("source");
-    let (repo, file) = (spec.repo.unwrap_or_default(), spec.repo_file.unwrap_or_default());
-    let commits = format!("https://api.github.com/repos/{repo}/commits?path={file}&per_page=1");
-    let raw = format!("https://raw.githubusercontent.com/{repo}/abcdef1234567890/{file}");
+    let raw = "https://dl/de.zip".to_string();
     let net = Fake::default()
-        .with(&commits, r#"[{"sha": "abcdef1234567890", "commit": {"committer": {"date": "2026-10-28T09:00:00Z"}}}]"#)
+        .with(
+            "https://api.github.com/repos/Dymerz/StarCitizen-Localization/releases/latest",
+            r#"{"tag_name": "v2", "published_at": "2026-10-28T09:00:00Z", "assets": [{"name": "german_.germany.zip", "browser_download_url": "https://dl/de.zip", "size": 10}]}"#,
+        )
         .with(&raw, "Bounty_title_001=Neu\nvehicle_x=y\n");
     // The button of the page: a calm sentence, no failure, nothing fetched or written into the game.
     crate::language::set_language(crate::language::Choice::De);
-    let done = switch_source(&s.paths, &net, &FakeArchive::default(), "deutsch", "", &|_| {}).expect("no failure");
+    let done = switch_source(&s.paths, &net, &FakeArchive::default(), "dymerz_de", "", &|_| {}).expect("no failure");
     assert_eq!(done.fetched, "Neue Fassung vom 28.10.2026 gibt es, im Testbetrieb nicht eingespielt.");
     assert!(done.cleaned.is_none() && done.applied.is_none());
     // The run in the background: the same look, no download either.
-    let job = Job { channels: Vec::new(), source: Some("deutsch".into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some("dymerz_de".into()), own_original: false, stock_only: false };
     let ran = run(&job, &s.paths, &net, &FakeArchive::default(), "");
     assert!(!ran.renewed && !ran.notices.iter().any(|n| matches!(n, Notice::TranslationUpdated(_))));
     assert!(!net.asked().contains(&raw), "the file is never fetched: {:?}", net.asked());
     let text = fs::read_to_string(s.ini()).unwrap();
     assert!(text.contains("Kopfgeld") && !text.contains("=Neu"), "the translation is not replaced: {text}");
-    assert_eq!(translation::installed(&s.paths, "deutsch", None).as_deref(), Some("git-1"), "nothing noted as placed");
-    let state = translation::status_text(&s.paths, "deutsch", None, crate::language::Lang::De, &translation::today());
+    assert_eq!(translation::installed(&s.paths, "dymerz_de", None).as_deref(), Some("v1"), "nothing noted as placed");
+    let state = translation::status_text(&s.paths, "dymerz_de", None, crate::language::Lang::De, &translation::today());
     assert!(state.contains("im Testbetrieb nicht eingespielt") && !state.contains("gesperrt"), "{state}");
 }
 
@@ -526,7 +526,7 @@ fn removing_and_status() {
     assert!(matches!(outcome, Outcome::Done(_)), "{outcome:?}");
     let now = status(&s.paths);
     assert!(now.applied);
-    assert_eq!(now.source.as_deref(), Some("deutsch"));
+    assert_eq!(now.source.as_deref(), Some("dymerz_de"));
     remove(&s.paths);
     assert!(!status(&s.paths).applied);
     assert_eq!(fs::read_to_string(s.ini()).unwrap(), "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n");
@@ -535,11 +535,11 @@ fn removing_and_status() {
 #[test]
 fn a_source_is_confirmed_once() {
     let s = Setup::new("confirm");
-    assert!(!confirmed(&s.paths, "deutsch"));
-    confirm(&s.paths, "deutsch");
+    assert!(!confirmed(&s.paths, "dymerz_de"));
+    confirm(&s.paths, "dymerz_de");
     confirm(&s.paths, "starstrings");
-    confirm(&s.paths, "deutsch");
-    assert_eq!(s.paths.setting(SETTING_CONFIRMED).as_deref(), Some("deutsch,starstrings"));
+    confirm(&s.paths, "dymerz_de");
+    assert_eq!(s.paths.setting(SETTING_CONFIRMED).as_deref(), Some("dymerz_de,starstrings"));
 }
 
 #[test]
@@ -550,7 +550,7 @@ fn the_report_line_tells_state_switches_source_and_language() {
     assert_eq!(injection_line(&s.paths, Lang::De), "keine gefunden", "no file is no warning");
     s.set_up_german();
     let before = injection_line(&s.paths, Lang::De);
-    assert!(before.starts_with("NICHT eingetragen · Auffrischen automatisch · deutsch git-1 "), "{before}");
+    assert!(before.starts_with("NICHT eingetragen · Auffrischen automatisch · dymerz_de v1 "), "{before}");
     assert!(before.ends_with(" · german_(germany) / Spiel: —"), "{before}");
     apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
     s.paths.set_setting(SETTING_ON, Value::Bool(false));

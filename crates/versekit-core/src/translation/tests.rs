@@ -90,8 +90,8 @@ fn every_source_knows_its_folder_and_the_test_versions_are_right() {
     for (id, folder) in game_ini::SOURCES {
         assert_eq!(language_folder(&game.paths, id, None), folder);
     }
-    assert!(spec(&game.paths, "deutsch", Some("PTU")).is_none(), "rjcncpt has no test version");
-    assert!(spec(&game.paths, "deutsch", Some("HOTFIX")).is_some(), "HOTFIX runs like LIVE");
+    assert!(spec(&game.paths, "dymerz_de", Some("PTU")).is_none(), "a source without a test version has none");
+    assert!(spec(&game.paths, "dymerz_de", Some("HOTFIX")).is_some(), "HOTFIX runs like LIVE");
     assert_eq!(spec(&game.paths, "starstrings", Some("PTU")).unwrap().tag.as_deref(), Some("latest-ptu"));
     assert_eq!(spec(&game.paths, "thord82_es", Some("EPTU")).unwrap().part.as_deref(), Some("PTU/"));
     assert!(spec(&game.paths, "luftwerft_fr", Some("PTU")).unwrap().url.unwrap().contains("/PTU/french_(france)/"));
@@ -104,7 +104,7 @@ fn grouped_sources_like_4_12() {
     let game = Game::new("groups");
     let live = grouped_sources(&game.paths, None, true);
     let expected: Vec<Vec<&str>> = vec![
-        vec!["luftwerft_de", "deutsch", "dymerz_de"],
+        vec!["luftwerft_de", "dymerz_de"],
         vec!["luftwerft_en", "starstrings", "original"],
         vec!["luftwerft_bar"],
         vec!["luftwerft_nl"],
@@ -174,24 +174,21 @@ fn own_address_github_view_becomes_the_download() {
 }
 
 #[test]
-fn german_comes_from_the_repository_file_and_is_placed_with_its_language_line() {
-    let game = Game::new("deutsch");
+fn german_comes_from_a_release_and_is_placed_with_its_language_line() {
+    let game = Game::new("german");
     let target = game.ini(&game.live, "german_(germany)");
     fs::create_dir_all(std::path::Path::new(&target).parent().unwrap()).unwrap();
     fs::write(&target, b"old text").unwrap();
     fs::write(format!("{}/user.cfg", game.live), "r_VSync = 0\ng_language = english\n").unwrap();
-    let sha = "0123456789abcdef0123456789abcdef01234567";
+    let zip = crate::zip::tests::build(&[("data/Localization/german_(germany)/global.ini", &game_file("Deutsch"), true)]);
     let net = Fake::default()
         .with(
-            "https://api.github.com/repos/rjcncpt/StarCitizen-Deutsch-INI/commits?path=live/global.ini&per_page=1",
-            format!(r#"[{{"sha": "{sha}", "commit": {{"committer": {{"date": "2026-09-16T04:52:00Z"}}}}}}]"#),
+            "https://api.github.com/repos/Dymerz/StarCitizen-Localization/releases/latest",
+            r#"{"tag_name": "v4.3.1", "published_at": "2026-09-16T04:52:00Z", "assets": [{"name": "german_.germany.zip", "browser_download_url": "https://dl/de.zip", "size": 10}]}"#,
         )
-        .with(
-            &format!("https://raw.githubusercontent.com/rjcncpt/StarCitizen-Deutsch-INI/{sha}/live/global.ini"),
-            game_file("Deutsch"),
-        );
-    let placed = fetch(&net, &game.paths, "deutsch", &game.live, None, &no_progress).unwrap();
-    assert_eq!(placed.ident, "git-0123456789ab");
+        .with("https://dl/de.zip", zip);
+    let placed = fetch(&net, &game.paths, "dymerz_de", &game.live, None, &no_progress).unwrap();
+    assert_eq!(placed.ident, "v4.3.1");
     assert_eq!(fs::read(&target).unwrap(), game_file("Deutsch"));
     assert_eq!(fs::read(placed.backup.as_ref().unwrap()).unwrap(), b"old text", "the old file is kept beside it");
     assert_eq!(
@@ -202,11 +199,10 @@ fn german_comes_from_the_repository_file_and_is_placed_with_its_language_line() 
         fs::read_to_string(format!("{}/{USER_CFG_BACKUP}", game.live)).unwrap(),
         "r_VSync = 0\ng_language = english\n"
     );
-    assert_eq!(installed(&game.paths, "deutsch", None).as_deref(), Some("git-0123456789ab"));
+    assert_eq!(installed(&game.paths, "dymerz_de", None).as_deref(), Some("v4.3.1"));
     assert!(injection::is_fresh(&game.paths), "a new base file is fresh");
-    assert!(!net.asked().iter().any(|u| u.contains("/releases/")), "the release is not asked");
     let lang = Lang::De;
-    let today_text = status_text(&game.paths, "deutsch", None, lang, &today());
+    let today_text = status_text(&game.paths, "dymerz_de", None, lang, &today());
     assert!(
         today_text.starts_with("Stand 16.09.2026 · geholt heute ") && today_text.contains(" · aktuell, nachgesehen heute "),
         "{today_text}"
@@ -415,16 +411,16 @@ fn on_a_copy_of_the_data_only_a_look_is_taken_and_said_calmly() {
     assert!(state_de(&game, "luftwerft_de", None).contains("aktuell, nachgesehen heute"));
 
     // A source on GitHub names the day of the newer version.
-    let spec = spec(&game.paths, "deutsch", None).expect("a source with a file in a repository");
-    let (repo, file) = (spec.repo.unwrap_or_default(), spec.repo_file.unwrap_or_default());
-    note_set(&game.paths, "deutsch", Some("git-000000000000"), Some("german_(germany)"), Some("2026-09-01"));
-    let commits = format!("https://api.github.com/repos/{repo}/commits?path={file}&per_page=1");
-    let github = Fake::default()
-        .with(&commits, r#"[{"sha": "abcdef1234567890", "commit": {"committer": {"date": "2026-10-28T09:00:00Z"}}}]"#);
-    let looked = look_on_copy(&github, &game.paths, "deutsch", None);
+    let release = "https://api.github.com/repos/MrKraken/StarStrings/releases/latest";
+    note_set(&game.paths, "starstrings", Some("v1"), Some("english"), Some("2026-09-01"));
+    let github = Fake::default().with(
+        release,
+        r#"{"tag_name": "v2", "published_at": "2026-10-28T09:00:00Z", "assets": [{"name": "StarStrings-LIVE.zip", "browser_download_url": "https://dl/live.zip", "size": 10}]}"#,
+    );
+    let looked = look_on_copy(&github, &game.paths, "starstrings", None);
     assert_eq!(looked, Ok(Looked::Newer(Some("2026-10-28".into()))));
-    assert_eq!(github.asked(), [commits], "only the list of commits, no file");
-    let state = state_de(&game, "deutsch", None);
+    assert_eq!(github.asked(), [release], "only the release, no file");
+    let state = state_de(&game, "starstrings", None);
     assert!(state.contains("Neue Fassung vom 28.10.2026 gibt es, im Testbetrieb nicht eingespielt"), "{state}");
     for lang in [Lang::De, Lang::En] {
         let said = looked.clone().unwrap().text_in(lang);
@@ -663,4 +659,46 @@ fn a_real_archive_unpacks_like_a_zip_tool() {
     assert_eq!(folder.as_deref(), Some("english"));
     assert_eq!(ini.as_deref(), Some(expected.as_slice()));
     assert!(looks_like_global_ini(&expected));
+}
+
+#[test]
+fn a_retired_source_moves_to_its_successor_with_its_note_and_is_fetched_anew() {
+    let game = Game::new("retired");
+    let (old, new) = RETIRED_SOURCES[0];
+    game.paths.set_setting(SETTING_SOURCE, Value::str(old));
+    set_channel_source(&game.paths, "HOTFIX", old);
+    note_set(&game.paths, old, Some("git-0123456789ab"), Some("german_(germany)"), Some("2026-09-01"));
+    note_set(&game.paths, &note_key(old, Some("HOTFIX")), Some("git-1"), Some("german_(germany)"), None);
+    game.paths.set_setting(crate::game_texts::SETTING_CONFIRMED, Value::str(format!("{old},starstrings")));
+    assert!(retire_sources(&game.paths));
+    assert_eq!(game.paths.setting(SETTING_SOURCE).as_deref(), Some(new));
+    let channels = channel_sources(&game.paths);
+    assert_eq!(channels.iter().find(|(k, _)| k == "HOTFIX").and_then(|(_, v)| v.as_str()), Some(new));
+    assert!(note(&game.paths).iter().all(|(k, _)| k != old && !k.starts_with(&format!("{old}@"))), "no old note stays");
+    assert_eq!(installed(&game.paths, new, None).as_deref(), Some("git-0123456789ab"), "the old file counts as placed");
+    assert_eq!(installed(&game.paths, new, Some("HOTFIX")).as_deref(), Some("git-1"));
+    assert!(info(&game.paths, new, None).iter().all(|(k, _)| k != "datum"), "the day of the old version goes");
+    assert_eq!(game.paths.setting(crate::game_texts::SETTING_CONFIRMED).as_deref(), Some("starstrings"));
+    assert_eq!(crate::game_texts::active_source(&game.paths).as_deref(), Some(new));
+    // The next look finds the file of the successor newer than the old one and fetches it.
+    let url = "https://www.luftwerft.com/download/resources/localizations/LIVE/german_(germany)/global.ini";
+    let net = Fake::default().with_head(url, &[("ETag", "\"lw\"")]);
+    assert_eq!(update_available(&net, &game.paths, new, None), (true, Some("etag:lw".into())));
+    assert!(!retire_sources(&game.paths), "a second start finds nothing");
+}
+
+#[test]
+fn a_retired_note_replaces_the_successor_only_where_it_was_chosen() {
+    let game = Game::new("retired-taken");
+    let (old, new) = RETIRED_SOURCES[0];
+    note_set(&game.paths, old, Some("git-1"), Some("german_(germany)"), None);
+    note_set(&game.paths, new, Some("etag:lw"), Some("german_(germany)"), None);
+    game.paths.set_setting(SETTING_SOURCE, Value::str(new));
+    assert!(retire_sources(&game.paths));
+    assert_eq!(installed(&game.paths, new, None).as_deref(), Some("etag:lw"), "the chosen successor keeps its note");
+    assert_eq!(installed(&game.paths, old, None), None);
+    note_set(&game.paths, old, Some("git-1"), Some("german_(germany)"), None);
+    game.paths.set_setting(SETTING_SOURCE, Value::str(old));
+    assert!(retire_sources(&game.paths));
+    assert_eq!(installed(&game.paths, new, None).as_deref(), Some("git-1"), "the file of the chosen old source counts");
 }

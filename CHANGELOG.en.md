@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.0.1 - 2026-11-03
+
+> Blueprints with a code in front of the name land in the catalogue again,
+> and an older German translation is no longer offered.
+
+### Improved
+
+- **One German translation fewer** — An older German translation is no
+  longer offered. If you had picked it, VerseKit switches by itself to the
+  German translation by Luftwerft at the next refresh.
+
+### Fixed
+
+- **Blueprints with a code in front of the name** — A blueprint found
+  while a translation with codes like `[CIV-S2-A]` or `[E-S1]` in front of
+  the names was installed stood as “not in the catalogue”. VerseKit now
+  recognises these names. Reported by George_Rotfuchs
+
 ## v5.0.0 - 2026-11-02
 
 > VerseKit 5.0 is built anew, in Rust. It is faster and runs as one program
@@ -1041,11 +1059,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v4.0.2 - 2026-10-11
 
-> The thanks page describes rjcncpt's German translation correctly again.
+> The thanks page describes one of the translations correctly again.
 
 ### Fixed
 
-- **Thanks page: rjcncpt's translation** — the text dated from when it was the
+- **Thanks page: text on a translation** — it dated from when it was the
   only translation. It now says it is one of the translations Verse-Kit
   offers to choose from
 
@@ -2283,12 +2301,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 > On top of that, every contract text with blueprint details now shows who it
 > gives reputation to and which region it takes place in.
 
-> [!important]
-> **Verse-Kit no longer uses the SC Deutsch Launcher.** The launcher folder
-> field in the settings is gone, and so is the danger level in the contract
-> text. Launcher files can still be imported, and the German translation
-> remains available.
-
 ### New
 
 - **Swap racks and paints** — under *My hangar → Loadout* you can now pick
@@ -2298,13 +2310,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
-- **VerseKit no longer depends on the SC Deutsch Launcher** — the launcher
-  project's contract data is no longer publicly available. The contract texts
-  in the game are therefore built from VerseKit's own data (scmdb.net) only;
-  the danger level, which only that data had, is gone.
-  The launcher's files are no longer read, and the folder field in the
-  settings and the export for the Baupläne DB are removed. Their files can
-  still be imported, and the German translation remains available.
 - **Who a contract gives reputation to, and where it takes place** — faction
   and type ("Headhunters +150 Standing") and the region ("Pyro (Bloom)") now
   appear in every contract text with blueprint details, with the reputation
@@ -3414,7 +3419,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   removes ships that are no longer in it and names them. Ships bought in game
   stay
 - **The warning when resetting your inventory named too few blueprints that
-  come back.** Anything the SC Deutsch Launcher also knew counted as lost,
+  come back.** Anything another tool also knew counted as lost,
   even though it is in your logs. Starter blueprints now count as well
 
 ## v3.46.1 - 2026-09-17
@@ -4105,10 +4110,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
-- **The right name for the Baupläne DB.** The export row still said “SC
-  Deutsch Launcher", but it meant the blueprint overview in the browser,
-  **Baupläne DB · Star Citizen Deutsch**. The launcher itself is unaffected and
-  is still recognised as its own format. The file in the export folder is now
+- **The right name for the Baupläne DB.** The export row still carried a wrong
+  name — it meant the blueprint overview in the browser,
+  **Baupläne DB · Star Citizen Deutsch**. The file in the export folder is now
   called `bauplaene-db-import-*.json`; you can delete the old one
 
 ## v3.31.0 - 2026-09-13
@@ -8150,18 +8154,6 @@ instead of across 24 fields.
   scroll position reset. It is now kept, in both the workshop and cargo stock.
 
 ### Fixed
-- **The README said something wrong about the SC Deutsch Launcher.** It claimed
-  the launcher "confirms finds" — that intermediate state has been gone since
-  v3.0.0: what is in the `Game.log` is in the game, there is nothing to confirm.
-  The English version had been right for a while, the German one had not.
-
-  What stands there instead is the point that actually matters: **both write
-  into the same game text file.** That is not a problem — the watcher replaces
-  the launcher's list with the same list plus checkboxes instead of adding a
-  second one, and undoing the notes brings the launcher's state back. But if the
-  launcher runs afterwards, the checkboxes are gone until the watcher has been
-  through again (six hours at the latest, immediately via *Refresh*).
-
 - ⚠⚠ **With the "Original" text source, the wrong file was written.** If your
   game is set to German, the details went into the **English** `global.ini` —
   which the game never reads. Writing succeeded, nothing ever arrived, and the
@@ -8348,19 +8340,6 @@ description that explained the fault straight away. Thank you 🙏
   makes of the values — the data carries it for **1,524 of the 1,597**
   blueprints. If you hold quality 900 iron and quality 500 riccite, you see
   exactly what that yields.
-
-- **The author of the German translation is now credited** — with name,
-  repository and licence. It is by **rjcncpt**
-  ([StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI))
-  under **CC BY-NC-SA 4.0**, which requires exactly that. Until now only the SC
-  Deutsch Launcher was named — the distributor, not the author.
-
-  Shown under **Thanks & Licenses** and in both readmes.
-
-  The watcher does **not bundle** the translation and never passes on a modified
-  copy: it only extends the file on your own machine, and the **source note in
-  its first line is left untouched** — the author asks for that, so anyone can
-  find their way back to the original translation.
 
 - ⭐⭐ **Only things that actually exist in the game can be stored** — resource
   **and** location. The "Add anyway" button is gone.
@@ -9237,11 +9216,9 @@ And **Krovax** (SCMDB), who set up a public data mirror on request so tools like
 
 ### Fixed
 
-- **Other tools are no longer written over.** Three programs mark blueprint
-  contracts in the game, and all three use the same `[BP]` mark: this one,
-  **MrKraken's StarStrings** and the **SC Deutsch Launcher** (watcher and
-  launcher even draw on the same data source, so they write word-identical
-  lists). Until now the watcher did not tell its own marks from anyone else's.
+- **Other tools are no longer written over.** Several programs mark blueprint
+  contracts in the game and use the same `[BP]` mark: this one,
+  **MrKraken's StarStrings** and others. Until now the watcher did not tell its own marks from anyone else's.
   All counted against the real 29 Aug 2026 release:
 
   - **17** of MrKraken's marks were **deleted** when details were written — and
@@ -9250,25 +9227,20 @@ And **Krovax** (SCMDB), who set up a public data mirror on request so tools like
   - **297** more ended up **twice**.
   - **136** item names got their tag twice:
     `[CS1] Spark-G Missile (CS1)`.
-  - Anyone running the **SC Deutsch Launcher** alongside would have read the
-    blueprint list twice over on **336** contracts, and lost the launcher's
-    state on reset.
 
   **The new rule is simple: where a mark already stands, no second one is
   added.** And whatever was there before our first insertion belongs to the
   player — it is restored on reset, even when another tool put it there.
 
-  With the launcher the watcher goes one step further: its list **replaces** the
-  launcher's instead of sitting next to it. Because it is the same list — only
-  with **tick boxes**, the comparison against your own blueprints. Take the
-  details back out and the launcher's list is there again, character for
-  character.
+  Where another tool's blueprint list already stands in a contract, the
+  watcher's own list **replaces** it instead of sitting next to it — with
+  **tick boxes**, the comparison against your own blueprints. Take the details
+  back out and the other list is there again, character for character.
 
   If an item name already carries a tag in square brackets, it is left alone.
 
   **Thanks to MrKraken** for [StarStrings](https://github.com/MrKraken/StarStrings)
-  and to the **SC Deutsch Launcher** team — and sorry for writing over your
-  work. 🙏
+  — and sorry for writing over your work. 🙏
 
 - **The watcher reported "details are in the game" where none of its own were.**
   It recognised the injection by the `[BP]` mark and by the blueprint list
@@ -9346,8 +9318,8 @@ And **Krovax** (SCMDB), who set up a public data mirror on request so tools like
 
 ### Fixed
 
-- **The same blueprint counted twice when the game runs in German.** The SC
-  Deutsch Launcher reads the **English** catalogue and writes
+- **The same blueprint counted twice when the game runs in German.** One
+  source reads the **English** catalogue and writes
   `Ravager-212 Twin Shotgun Magazine (16 cap)`. Re-reading the logs picks up the
   same crate in whatever language Star Citizen runs in — in German
   `… (16 Schuss)`. To the Watcher those were two different blueprints.
@@ -9489,11 +9461,6 @@ And **Krovax** (SCMDB), who set up a public data mirror on request so tools like
 > therefore opens an installation window once — that is correct and not foreign
 > software. The watcher restarts by itself afterwards. On Linux it stays one
 > file: the AppImage.
->
-> **The SC Deutsch Launcher is no longer required.** Blueprints come from Star
-> Citizen's own `Game.log`. With the launcher you keep German names and a few
-> extra details — without it (always the case on Linux) nothing essential is
-> missing.
 
 A year after the first build, the narrow notification bar has grown into a tool
 that fully answers „which blueprint do I have, and where do I get the rest?" —
@@ -9625,26 +9592,23 @@ sections below.
 
 > [!important]
 > **A found blueprint is green from now on — no more yellow „provisional".**
-> Anyone with the SC Deutsch Launcher installed saw every find from the
-> `Game.log` in yellow first, until the launcher confirmed it. That confirmation
-> no longer exists, and neither does the yellow waiting.
+> With an additional tool every find from the `Game.log` was yellow first,
+> until that tool confirmed it. That confirmation no longer exists, and neither
+> does the yellow waiting.
 
 - **The waiting state is gone, not just the colour.** The yellow dot meant „read
-  from the Game.log, waiting for the launcher to confirm". Since the `Game.log`
-  is the source and the launcher only adds to it, that confirmation can never
-  arrive.
+  from the Game.log, waiting for confirmation". Since the `Game.log` is the
+  source, that confirmation can never arrive.
 
-  What remained was a state with no way out: with the launcher you saw permanent
-  yellow — without it permanent green, at **exactly the same certainty**. Two
-  colours for one statement are not information, they are a dead end.
+  What remained was a state with no way out: with the additional tool you saw
+  permanent yellow — without it permanent green, at **exactly the same
+  certainty**. Two colours for one statement are not information, they are a
+  dead end.
 
   The whole mechanism went, not just the display: the register of unconfirmed
-  rows, the matching of log names to launcher keys, the after-the-fact
+  rows, the matching of log names to foreign keys, the after-the-fact
   confirming of a row, the word „provisional" — and the yellow dot in the
   documentation, so nobody hunts for a symbol that does not exist.
-
-  The launcher stays what it is: an addition. German names, maintained details
-  for type, size and grade, and it reports anything the log missed.
 
 ## v3.0.0-rc94 - 2026-08-28
 
@@ -10017,9 +9981,6 @@ sections below.
   on 28 Aug 2026: "it's confusing no matter how you turn it." He was right, and
   the confusion sat in the heading, not in the list.
 
-  The SC Deutsch Launcher words it the same way for the same reason — 367 times
-  in its data file.
-
 
 - **The `[BP 3/12]` count in the title is gone; it now reads just `[BP]`.** The
   number looked useful but was not true: a contract's list merges all payout
@@ -10095,12 +10056,12 @@ sections below.
 
 ## v3.0.0-rc80 - 2026-08-28
 
-> **Blueprints from the launcher get ticked off again — existing collections migrate themselves.**
+> **Imported blueprints get ticked off again — existing collections migrate themselves.**
 
 ### Fixed
 
-- **Blueprints from the launcher or a backup were not ticked off.** Anyone
-  bringing their collection over from the SC Deutsch Launcher, the KRT Profit
+- **Imported blueprints or those of a backup were not ticked off.** Anyone
+  bringing their collection over from other tools, the KRT Profit
   Basetool, scmdb.net or their own backup saw empty boxes in the list — even
   though the blueprints were in the collection.
 
@@ -10145,8 +10106,8 @@ sections below.
   different destinations and cargo for the same mission. Measured:
   `Covalex_HaulCargo_SingleToMulti` lists three descriptions in the catalogue,
   the game's text file holds **eight**. Anyone hitting one of the other five saw
-  the counter and nothing underneath. The route via the SCDL team's contract
-  data had long solved this; our own route via the blueprint catalogue had not.
+  the counter and nothing underneath. The route via foreign contract data had
+  long solved this; our own route via the blueprint catalogue had not.
   Reported by **Morkhan**.
 
 ### Added
@@ -10800,7 +10761,7 @@ sections below.
   `assets/symbole/`, so it can no longer go stale: swapping a symbol updates the
   readme picture by itself. Same for the message symbol key.
 - **"Who built this" suddenly appeared twice.** The block naming the author,
-  scmdb, the SC Deutsch Launcher and StarStrings sat on "Update & About" — and
+  scmdb and StarStrings sat on "Update & About" — and
   the new "Thanks & Licenses" page listed the same projects again. It now lives
   only on "Thanks & Licenses", with the author **at the top**: a page listing
   other people's work has to name its own first.
@@ -10814,8 +10775,8 @@ sections below.
   **no licence information at all** — neither its own (GPL-3.0) nor that of the
   bundled symbols, and third-party projects were only mentioned in passing where
   they happened to be used. There is now one place stating what belongs to whom:
-  the program itself, the Lucide symbols, the scmdb data, StarStrings and the SC
-  Deutsch Launcher — each with its licence and a clickable link. Plus thanks to
+  the program itself, the Lucide symbols, the scmdb data and
+  StarStrings — each with its licence and a clickable link. Plus thanks to
   the people whose feedback turned into something.
 
 ## v3.0.0-rc57 - 2026-08-27
@@ -11280,18 +11241,18 @@ notice problems, but to describe them precisely enough to be found:
 - **Morkhan** (KRT) — the suggestion to launch Star Citizen straight from
   the tool.
 
-The blueprint details are based on the openly published contract data of the
-**SC Deutsch Launcher team** and on **scmdb.net**.
+The blueprint details are based on openly published contract data and on
+**scmdb.net**.
 
 ## v2.0.0 - 2026-08-24
 
 **The Windows overlay has become a standalone tool for Windows and Linux — and on
 request it writes blueprint details straight into the game.**
 
-The SC Deutsch Launcher is no longer required. Verified against a real Star Citizen
-installation, with both a German **and** an English client.
+Verified against a real Star Citizen installation, with both a German **and** an
+English client.
 
-### Without the launcher
+### Own source
 
 - **`Game.log` is the source.** Your collection is maintained by the tool itself; on
   first start the stored session logs are read. If a gap remains, the tool says so
@@ -11300,8 +11261,6 @@ installation, with both a German **and** an English client.
   the tool derives the wording from your own logs — it knows over 700 blueprint names,
   and where one appears in a log line, the text before it is the phrase. German and
   English are measured; other languages it figures out by itself.
-- **If the launcher is present it is still used** — including when it sits on a mounted
-  Windows drive, which is the normal case on dual-boot systems.
 
 ### Blueprint list
 
@@ -11320,8 +11279,7 @@ installation, with both a German **and** an English client.
   tick boxes: ticked for what you own, empty for what you lack. Plus a marker in the
   title (`[BP 2/3]`), visible in the contract list itself. **681 text spots**, German and
   English.
-- **Three ways to get the base text:** the German translation by
-  [rjcncpt](https://github.com/rjcncpt/StarCitizen-Deutsch-INI),
+- **Several ways to get the base text:** a German translation,
   [StarStrings](https://github.com/MrKraken/StarStrings) by MrKraken — or the English
   originals from your own `Data.p4k`, with no download at all.
 - **Undo is byte-exact.** StarStrings users keep it: its markup stays, ours is added.
@@ -11359,8 +11317,8 @@ installation, with both a German **and** an English client.
 
 ### Thanks
 
-The in-game blueprint details build on the openly published contract data of the
-**SC Deutsch Launcher team** (813 contracts, German and English) and on **scmdb.net**.
+The in-game blueprint details build on openly published contract data (813
+contracts, German and English) and on **scmdb.net**.
 Without either, this release would not exist.
 
 ## v2.0.0-rc1 - 2026-08-24
@@ -11370,8 +11328,7 @@ Without either, this release would not exist.
 > is what testers help with. Feedback welcome as an [issue](../../issues).
 
 **The Windows overlay has become a standalone tool for Windows and Linux.** The
-SC Deutsch Launcher is no longer required, the blueprint inventory is kept by the
-tool itself, and for most blueprints it now says where to get them.
+blueprint inventory is kept by the tool itself, and for most blueprints it now says where to get them.
 
 ### Added
 
@@ -11403,7 +11360,6 @@ tool itself, and for most blueprints it now says where to get them.
 ### Changed
 
 - **The status line shows your own inventory**, not the launcher's count, and whether it is working with or without the launcher. Reason: the launcher demonstrably counts too low — the P4-AR Rifle is missing from it although the Fabricator lists it as owned. Starter blueprints were never "received" and appear in no log. Its number is a lower bound, not an inventory.
-- **The SC Deutsch Launcher is optional.** If present it still confirms finds (🟡 → 🟢) and supplies its maintained catalogue. Without it only that falls away — the log is the actual source either way.
 - **Starting no longer requires the launcher file**, only that Star Citizen itself is found. If it is not, the wizard **asks** — instead of showing a message and quitting, which would have meant editing a JSON file by hand and restarting. Nobody does that.
 - **Brand colour** moved to `#9ce430`; the overlay was still running on the pre-logo-change green.
 
@@ -11444,7 +11400,7 @@ tool itself, and for most blueprints it now says where to get them.
 
 ### Added
 
-- **Catalogue watch — reports what became NEWLY craftable in the game.** Until now the watcher only reported what *you* unlocked. It now also keeps an eye on `bp_item_types.json`, the list of everything that has a blueprint at all. The SC Deutsch Launcher refreshes it with each patch; when something is added it appears as 🔵 **newly craftable**. That way you notice when CIG adds an item that simply had no blueprint before.
+- **Catalogue watch — reports what became NEWLY craftable in the game.** Until now the watcher only reported what *you* unlocked. It now also keeps an eye on `bp_item_types.json`, the list of everything that has a blueprint at all. It is refreshed with each patch; when something is added it appears as 🔵 **newly craftable**. That way you notice when CIG adds an item that simply had no blueprint before.
 - **Watchlist for wanted items:** if `watchlist.json` exists, matches from it are announced prominently in gold with ⭐ and their own sound (`<title> — now craftable!`). Format: `{"eintraege": [{"titel": "…", "muster": ["substring", …]}]}`, patterns lowercase, matched as substrings. Without the file the watcher simply reports every addition.
 - The comparison state lives in `catalog-seen.json` and **survives restarts** — otherwise half the catalogue would arrive as "new" after every start. The very first start only establishes the baseline and reports nothing.
 
@@ -11463,7 +11419,7 @@ tool itself, and for most blueprints it now says where to get them.
 
 ### Added
 
-- **Instant reporting from `Game.log`:** the watcher now reads Star Citizen's log itself and shows a new blueprint **within seconds** instead of waiting for the launcher's export. Background: the SC Deutsch Launcher rewrites `sc_bp_erledigt.json` only every few minutes — measured on 2026-07-30, **2.5 minutes** passed between the unlock in game (21:23:49) and the launcher export (21:26:24). Reading the log closes exactly that gap.
+- **Instant reporting from `Game.log`:** the watcher now reads Star Citizen's log itself and shows a new blueprint **within seconds** instead of waiting for the launcher's export. Background: the export file is rewritten only every few minutes — measured on 2026-07-30, **2.5 minutes** passed between the unlock in game (21:23:49) and the export (21:26:24). Reading the log closes exactly that gap.
 - **Two-stage display:** blueprints freshly read from the log appear as 🟡 **provisional**; once the launcher catches up, the line is confirmed to 🟢 and refreshed with its data. The launcher file remains the authoritative source — type, size, grade and class still come from its catalogue.
 - **Name matching between log and launcher:** ship components appear in the log with a suffix (`7CA 'Nargun' (Civ/3/A)`) and without it in the launcher — the suffix is stripped (and doubles as a fallback for the `M/A/1` tag if an item is not yet in the catalogue after a patch). Genuine name brackets such as `(30 cap)` or `Singe Cannon (S2)` are left alone. Where translations differ (seen: `(12 Schuss)` in the log versus `(12 cap)` in the launcher), a fallback match without the bracket applies — but only when it is unambiguous. Verified against all 127 stored log backups: 148 blueprint messages, 147 exact matches, the remaining one via the fallback.
 - **Automatic log discovery** and detection of a game restart (rotated log).
@@ -11514,12 +11470,11 @@ tool itself, and for most blueprints it now says where to get them.
 
 ### Added
 
-- **Thanks and credits** to the SC Deutsch Launcher (the tool's data source at the time), including a note that SC BP Watcher is an independent, unofficial companion tool
-- Official link to the **[SC Deutsch Launcher](https://www.sc-deutsch-launcher.de/)**
+- **A note** that SC BP Watcher is an independent, unofficial companion tool
 
 ### Changed
 
-- The mandatory prerequisite (SC Deutsch Launcher) highlighted at the top of the README
+- The prerequisites highlighted at the top of the README
 
 ## v1.0.0 - 2026-06-29
 

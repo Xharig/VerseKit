@@ -32,7 +32,7 @@ request, the other side sees your IP address.
 | Prices, shops, places, list of items and goods | UEX (uexcorp.space) |
 | Ship values | erkul.games |
 | Server status | status.robertsspaceindustries.com |
-| Translations you choose | the respective source (such as StarStrings, Luftwerft, rjcncpt) |
+| Translations you choose | the respective source (such as StarStrings, Luftwerft, Dymerz) |
 
 With the environment variable `SC_BP_NO_NET=1` VerseKit fetches nothing.
 

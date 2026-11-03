@@ -348,8 +348,7 @@ mod tests {
         }
         assert!(has("Xharig") && has("GPL-3.0-only"));
         assert!(has(&t(FAN_CONTENT_HEAD)));
-        assert!(has("StarCitizen-Deutsch-INI (rjcncpt)") && has("Hangar-Exporter (Drachennarr)"));
-        assert!(!nodes.iter().any(|(_, text, _)| text.contains("SCDL")), "no box of the launcher of its own");
+        assert!(has("SC Launch Configurator (Luftwerft)") && has("Hangar-Exporter (Drachennarr)"));
     }
 
     #[test]

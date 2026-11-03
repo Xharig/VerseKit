@@ -809,6 +809,11 @@ mod tests {
         assert_eq!(name_key("Rakete (IR1)"), "rakete");
         assert_eq!(name_key("x (mil/2/a)\n"), "x");
         assert_eq!(name_key("\u{1c}Helm\u{1f}"), "helm");
+        assert_eq!(name_key("[CIV-S2-A] 7MA \"Lorica\""), "7ma 'lorica'");
+        assert_eq!(name_key("[E-S1] FL-11 Cannon"), "fl-11 cannon");
+        assert_eq!(name_key("[CIV-S3-A] Kragen"), "kragen");
+        assert_eq!(name_key("[E-S1] "), "[e-s1]");
+        assert_eq!(name_key("[Prototype] Helm"), "[prototype] helm");
     }
 
     #[test]

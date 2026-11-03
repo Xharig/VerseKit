@@ -1,5 +1,5 @@
 {
-  "_hinweis": "Eigene Pfade eintragen, wenn Star Citizen oder der SC Deutsch Launcher nicht an den ueblichen Stellen liegen. Leeres Feld = automatisch suchen. Nach dem Aendern den Watcher neu starten. Zeilen mit _ sind nur Erklaerung.",
+  "_hinweis": "Eigene Pfade eintragen, wenn Star Citizen oder ein anderer Ordner nicht an den ueblichen Stellen liegen. Leeres Feld = automatisch suchen. Nach dem Aendern den Watcher neu starten. Zeilen mit _ sind nur Erklaerung.",
   "spiel_ordner": "/spiele/star-citizen/StarCitizen/LIVE",
   "_spiel_ordner_gemeint_ist": "Der Ordner, in dem die Game.log liegt — meist \"LIVE\".",
   "_spiel_ordner_gesucht_wird_hier": [
@@ -15,9 +15,9 @@
   "deckkraft_prozent": 93,
   "_deckkraft_gemeint_ist": "Wie undurchsichtig das Fenster ist. 100 = blickdicht, 30 = stark durchscheinend. Erlaubt 30 bis 100.",
   "launcher_ordner": "",
-  "_launcher_ordner_gemeint_ist": "Optional. Der Ordner \"blueprints\" des SC Deutsch Launchers. Ohne ihn laeuft der Watcher trotzdem.",
+  "_launcher_ordner_gemeint_ist": "Optional. Der Ordner \"blueprints\" eines anderen Werkzeugs. Ohne ihn laeuft der Watcher trotzdem.",
   "_launcher_ordner_gesucht_wird_hier": [
-    "/benutzer/launcher/sc-deutsch-launcher/blueprints"
+    "/benutzer/launcher/blueprints"
   ],
   "eigener_account": "Beispielspieler",
   "inj_quelle": "deutsch",

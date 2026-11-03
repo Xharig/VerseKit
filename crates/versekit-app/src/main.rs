@@ -70,14 +70,17 @@ fn run_paths(data: Option<&str>) -> Option<versekit_core::paths::Paths> {
 
 /// Copies the files an older version kept in the hidden folder into a data folder without a collection, and
 /// brings own files dragged into the data folder by hand to their places (`Paths::migrate`,
-/// `Paths::tidy_storage`), and removes the explanatory lines of the settings file
-/// (`Paths::drop_explanation_lines`). Returns the message about the copied files, if any were copied.
+/// `Paths::tidy_storage`), removes the explanatory lines of the settings file
+/// (`Paths::drop_explanation_lines`) and moves the choice of a translation that is no longer offered to the one
+/// that takes its place (`translation::retire_sources`). Returns the message about the copied files, if any were
+/// copied.
 fn take_in_older_files(data: Option<&str>) -> Option<String> {
     use versekit_core::language::{Arg, tf};
     let paths = run_paths(data)?;
     let copied = if paths.migration_needed() { paths.migrate() } else { 0 };
     paths.tidy_storage(None);
     paths.drop_explanation_lines();
+    versekit_core::translation::retire_sources(&paths);
     (copied > 0).then(|| tf("umzug_fertig", &[("0", Arg::from(copied)), ("1", Arg::Text(paths.app_folder()))]))
 }
 

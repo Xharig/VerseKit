@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.0.1 - 2026-11-03
+
+> Baupläne mit einem Kürzel vor dem Namen landen wieder im Katalog, und
+> eine ältere deutsche Übersetzung steht nicht mehr zur Auswahl.
+
+### Verbessert
+
+- **Eine deutsche Übersetzung weniger** — Eine ältere deutsche Übersetzung
+  wird nicht mehr angeboten. Hattest du sie gewählt, wechselt VerseKit beim
+  nächsten Auffrischen von selbst auf die deutsche Übersetzung von
+  Luftwerft.
+
+### Behoben
+
+- **Baupläne mit Kürzel vor dem Namen** — Wurde ein Bauplan gefunden,
+  während eine Übersetzung mit Kürzeln wie `[CIV-S2-A]` oder `[E-S1]` vor
+  den Namen installiert war, stand er als „nicht im Katalog“. VerseKit
+  erkennt diese Namen jetzt. Gemeldet von George_Rotfuchs
+
 ## v5.0.0 - 2026-11-02
 
 > VerseKit 5.0 ist neu gebaut, in Rust. Es ist schneller und läuft als ein
@@ -1077,12 +1096,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v4.0.2 - 2026-10-11
 
-> Die Danke-Seite beschreibt die deutsche Übersetzung von rjcncpt wieder
-> richtig.
+> Die Danke-Seite beschreibt eine der Übersetzungen wieder richtig.
 
 ### Behoben
 
-- **Danke-Seite: Übersetzung von rjcncpt** — der Text stammte noch aus der
+- **Danke-Seite: Text zu einer Übersetzung** — er stammte noch aus der
   Zeit, als es nur diese eine Übersetzung gab. Jetzt steht dort, dass sie eine
   der Übersetzungen ist, die Verse-Kit zur Auswahl anbietet
 
@@ -2351,12 +2369,6 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 > Plätzen darunter. Dazu steht in jedem Auftragstext mit Bauplan-Angaben, wem
 > er Ruf bringt und in welcher Region er spielt.
 
-> [!important]
-> **Verse-Kit nutzt den SC Deutsch Launcher nicht mehr.** Das Ordnerfeld für
-> den Launcher in den Einstellungen entfällt, ebenso die Gefahrenstufe im
-> Auftragstext. Dateien des Launchers lassen sich weiterhin einlesen, und die
-> deutsche Übersetzung bleibt wählbar.
-
 ### Neu
 
 - **Racks und Lackierungen tauschen** — unter *Mein Hangar → Ausstattung*
@@ -2367,13 +2379,6 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
-- **VerseKit ist unabhängig vom SC Deutsch Launcher** — die Vertragsdaten des
-  Launcher-Projekts stehen nicht mehr öffentlich bereit. Die Auftragstexte im
-  Spiel entstehen deshalb nur noch aus eigenen Daten (scmdb.net); die
-  Gefahrenstufe, die nur dort stand, fällt weg. Die Dateien des
-  Launchers werden nicht mehr gelesen, das Ordnerfeld in den Einstellungen und
-  die Ausgabe für die Baupläne DB entfallen. Einlesen lassen sich deren Dateien
-  weiterhin, und die deutsche Übersetzung bleibt wählbar.
 - **Wem ein Auftrag Ruf bringt und wo er spielt** — Partei und Art
   („Headhunters +150 Standing") und die Region („Pyro (Bloom)") stehen jetzt
   in jedem Auftragstext mit Bauplan-Angaben, die Ruf-Zeilen blau
@@ -3520,7 +3525,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   trägt jetzt Schiffe aus, die darin nicht mehr vorkommen, und nennt sie.
   Im Spiel gekaufte Schiffe bleiben
 - **Die Warnung beim Zurücksetzen des Bestands nannte zu wenig Baupläne, die
-  wiederkommen.** Was auch der SC Deutsch Launcher kannte, zählte als
+  wiederkommen.** Was auch ein anderes Werkzeug kannte, zählte als
   verloren, obwohl es in deinen Protokollen steht. Startbaupläne zählen jetzt
   ebenfalls mit
 
@@ -4239,10 +4244,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
-- **Der richtige Name für die Baupläne DB.** Beim Ausgeben hieß die Zeile noch
-  „SC Deutsch Launcher" — gemeint war aber die Bauplan-Übersicht im Browser,
-  **Baupläne DB · Star Citizen Deutsch**. Der Launcher selbst ist davon
-  unberührt und wird weiter als eigenes Format erkannt. Die Datei in der Ablage
+- **Der richtige Name für die Baupläne DB.** Beim Ausgeben trug die Zeile noch
+  einen falschen Namen — gemeint war die Bauplan-Übersicht im Browser,
+  **Baupläne DB · Star Citizen Deutsch**. Die Datei in der Ablage
   heißt jetzt `bauplaene-db-import-*.json`; die alte kannst du löschen
 
 ## v3.31.0 - 2026-09-13
@@ -8467,18 +8471,6 @@ jetzt in einem Rutsch ab statt in 24 Feldern.
   bleibt jetzt erhalten, im Werkstatt- wie im Handelslager.
 
 ### Behoben
-- **Die Anleitung sagte Falsches über den SC Deutsch Launcher.** Dort stand, er
-  „bestätige die Funde" — diese Zwischenstufe gibt es seit v3.0.0 nicht mehr:
-  Was in der `Game.log` steht, steht im Spiel, da ist nichts zu bestätigen. Die
-  englische Fassung war längst richtig, die deutsche nicht.
-
-  Neu steht dafür der Punkt da, der wirklich zählt: **Beide schreiben in
-  dieselbe Textdatei des Spiels.** Das ist kein Problem — der Watcher ersetzt
-  die Liste des Launchers durch dieselbe mit Kästchen, statt eine zweite
-  danebenzustellen, und beim Zurücknehmen steht dessen Stand wieder da. Läuft
-  der Launcher aber danach noch einmal, sind die Kästchen weg, bis der Watcher
-  wieder dran war (spätestens nach sechs Stunden, sofort über *Auffrischen*).
-
 - ⚠⚠ **Bei der Textquelle „Original" wurde in die falsche Datei geschrieben.**
   Wer sein Spiel auf Deutsch stellt, bekam die Angaben in die **englische**
   `global.ini` — die das Spiel nie liest. Eingetragen wurde korrekt, angekommen
@@ -8668,20 +8660,6 @@ Danke dafür 🙏
   **Und die Qualität zählt mit.** Ein Regler je Zutat zeigt, was *dein* Material
   aus den Werten macht — bei **1.524 der 1.597** Baupläne tragen die Daten das
   mit. Wer 900er Iron hat und 500er Riccite, sieht genau, was dabei herauskommt.
-
-- **Der Urheber der deutschen Übersetzung ist jetzt genannt** — mit Name,
-  Repository und Lizenz. Sie stammt von **rjcncpt**
-  ([StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI))
-  und steht unter **CC BY-NC-SA 4.0**; die Lizenz verlangt das ausdrücklich.
-  Bisher stand dort nur der SC Deutsch Launcher — der Verteiler, nicht der Autor.
-
-  Zu finden unter **Danke & Lizenzen** und in beiden Anleitungen.
-
-  Der Watcher **liefert die Übersetzung nicht mit** und gibt auch keine
-  veränderte Fassung weiter: Er ergänzt die Datei ausschließlich auf deinem
-  Rechner, und die **Quellenangabe in ihrer ersten Zeile bleibt unangetastet** —
-  so verlangt es der Autor, damit jeder zur ursprünglichen Übersetzung
-  zurückfindet.
 
 - ⭐⭐ **Ins Lager kommt nur noch, was es im Spiel wirklich gibt** — Rohstoff
   **und** Lagerort. Der Knopf „Trotzdem eintragen" ist weg.
@@ -9675,12 +9653,10 @@ Dazu **Krovax** (SCMDB), der auf Anfrage eigens einen öffentlichen Datenspiegel
 
 ### Behoben
 
-- **Andere Werkzeuge werden nicht mehr überschrieben.** Drei Programme
-  kennzeichnen Bauplan-Aufträge im Spiel, und alle drei benutzen dieselbe Marke
-  `[BP]`: dieses hier, **MrKrakens StarStrings** und der **SC Deutsch Launcher**
-  (Watcher und Launcher schöpfen sogar aus derselben Datenquelle und schreiben
-  darum wortgleiche Listen). Bisher hat der Watcher nicht unterschieden, was von
-  ihm stammt und was nicht. Alles an der echten Fassung vom 29.08.2026
+- **Andere Werkzeuge werden nicht mehr überschrieben.** Mehrere Programme
+  kennzeichnen Bauplan-Aufträge im Spiel und benutzen dieselbe Marke
+  `[BP]`: dieses hier, **MrKrakens StarStrings** und andere. Bisher hat der
+  Watcher nicht unterschieden, was von ihm stammt und was nicht. Alles an der echten Fassung vom 29.08.2026
   nachgezählt:
 
   - **17** von MrKrakens Kennzeichnungen wurden beim Eintragen **gelöscht** —
@@ -9689,26 +9665,22 @@ Dazu **Krovax** (SCMDB), der auf Anfrage eigens einen öffentlichen Datenspiegel
   - **297** weitere standen danach **doppelt**.
   - **136** Gegenstandsnamen bekamen ihr Kürzel zweimal:
     `[CS1] Spark-G Missile (CS1)`.
-  - Wer den **SC Deutsch Launcher** parallel benutzt, hätte die Bauplan-Liste
-    an **336** Aufträgen zweimal untereinander gelesen und beim Zurücksetzen
-    den Stand des Launchers verloren.
 
   **Die neue Regel ist einfach: Wo schon eine Marke steht, kommt keine zweite
   dazu.** Und was vor der ersten eigenen Einfügung dastand, gehört dem Spieler —
   es wird beim Zurücksetzen wiederhergestellt, auch wenn es von einem anderen
   Werkzeug stammt.
 
-  Beim Launcher geht der Watcher einen Schritt weiter: Seine Liste **ersetzt**
-  dessen Liste, statt eine zweite danebenzusetzen. Denn sie ist dieselbe — nur
-  mit **Kästchen**, also mit dem Abgleich gegen deine eigenen Baupläne. Nimmst du
-  die Angaben zurück, steht seine Liste wieder da, Zeichen für Zeichen.
+  Steht schon die Bauplan-Liste eines anderen Werkzeugs im Auftrag, **ersetzt**
+  der Watcher sie durch die eigene, statt eine zweite danebenzusetzen — mit
+  **Kästchen**, also mit dem Abgleich gegen deine eigenen Baupläne. Nimmst du
+  die Angaben zurück, steht die andere Liste wieder da, Zeichen für Zeichen.
 
   Trägt ein Gegenstandsname schon ein Kürzel in eckigen Klammern, bleibt er, wie
   er ist.
 
   **Danke an MrKraken** für [StarStrings](https://github.com/MrKraken/StarStrings)
-  und an das Team des **SC Deutsch Launchers** — und Entschuldigung für das
-  Hineinschreiben. 🙏
+  — und Entschuldigung für das Hineinschreiben. 🙏
 
 - **Der Watcher meldete „Angaben stehen im Spiel", wo nichts von ihm stand.**
   Erkannt wurde die Injektion an der Marke `[BP]` und an der Überschrift der
@@ -9786,8 +9758,8 @@ Dazu **Krovax** (SCMDB), der auf Anfrage eigens einen öffentlichen Datenspiegel
 
 ### Behoben
 
-- **Derselbe Bauplan zählte zweimal, wenn das Spiel auf Deutsch läuft.** Der SC
-  Deutsch Launcher liest den **englischen** Katalog und schreibt
+- **Derselbe Bauplan zählte zweimal, wenn das Spiel auf Deutsch läuft.** Eine
+  Quelle liest den **englischen** Katalog und schreibt
   `Ravager-212 Twin Shotgun Magazine (16 cap)`. Die Nachlese aus den Protokollen
   liest dieselbe Kiste in der Sprache, in der Star Citizen läuft — auf Deutsch
   also `… (16 Schuss)`. Für den Watcher waren das zwei verschiedene Baupläne.
@@ -9936,11 +9908,6 @@ Dazu **Krovax** (SCMDB), der auf Anfrage eigens einen öffentlichen Datenspiegel
 > Beim Update öffnet sich deshalb einmal ein Installationsfenster — das ist
 > richtig so und keine fremde Software. Danach startet der Watcher von selbst
 > wieder. Unter Linux bleibt es bei einer Datei: dem AppImage.
->
-> **Der SC Deutsch Launcher wird nicht mehr gebraucht.** Die Baupläne kommen aus
-> Star Citizens eigener `Game.log`. Wer den Launcher hat, behält deutsche
-> Bezeichnungen und ein paar Zusatzangaben — wer nicht (unter Linux immer), dem
-> fehlt nichts Wesentliches.
 
 Ein Jahr nach der ersten Fassung ist aus der schmalen Melde-Leiste ein Werkzeug
 geworden, das die Frage „welchen Bauplan habe ich, und wo bekomme ich den Rest?"
@@ -10079,29 +10046,24 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
 
 > [!important]
 > **Ein gefundener Bauplan ist ab sofort grün — kein gelbes „vorläufig" mehr.**
-> Wer den SC Deutsch Launcher installiert hat, sah jeden Fund aus der `Game.log`
-> zuerst gelb, bis der Launcher ihn bestätigte. Diese Bestätigung gibt es nicht
+> Mit einem zusätzlichen Werkzeug war jeder Fund aus der `Game.log` zuerst
+> gelb, bis dieses Werkzeug ihn bestätigte. Diese Bestätigung gibt es nicht
 > mehr, und das gelbe Warten damit auch nicht.
 
 - **Der Wartezustand ist raus, nicht nur die Farbe.** Der gelbe Punkt hieß „aus
-  der Game.log gelesen, wartet auf Bestätigung durch den Launcher". Seit die
-  `Game.log` die Quelle ist und der Launcher nur noch ergänzt, kann diese
-  Bestätigung gar nicht mehr kommen.
+  der Game.log gelesen, wartet auf Bestätigung". Seit die `Game.log` die
+  Quelle ist, kann diese Bestätigung gar nicht mehr kommen.
 
-  Übrig geblieben war ein Zustand, aus dem nichts mehr herausführt: Wer den
-  Launcher hatte, sah dauerhaft Gelb — wer ihn nicht hat, dauerhaft Grün, bei
+  Übrig geblieben war ein Zustand, aus dem nichts mehr herausführt: Mit dem
+  Zusatzwerkzeug sah man dauerhaft Gelb, ohne es dauerhaft Grün, bei
   **genau derselben Sicherheit**. Zwei Farben für dieselbe Aussage sind keine
   Auskunft, sondern eine Sackgasse.
 
   Entfernt wurde die ganze Mechanik, nicht nur die Anzeige: der Merker für
-  unbestätigte Zeilen, die Zuordnung von Log-Namen zu Launcher-Schlüsseln, das
+  unbestätigte Zeilen, die Zuordnung von Log-Namen zu fremden Schlüsseln, das
   Nachträgliche-Bestätigen einer Zeile, der Text „vorläufig" — und der gelbe
   Punkt aus der Anleitung, damit niemand nach einem Symbol sucht, das es nicht
   gibt.
-
-  Der Launcher bleibt, was er ist: eine Ergänzung. Deutsche Bezeichnungen,
-  gepflegte Angaben zu Typ, Größe und Gütegrad, und er meldet nach, was im Log
-  fehlte.
 
 ## v3.0.0-rc94 - 2026-08-28
 
@@ -10492,9 +10454,6 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   nichts. Morkhan am 28.08.2026: „is trotzdem verwirrend, egal wie man's dreht."
   Er hatte recht, und die Verwirrung saß in der Überschrift, nicht in der Liste.
 
-  Der SC Deutsch Launcher formuliert es aus demselben Grund so — 367 mal in
-  seiner Datendatei.
-
 
 - **Die Zählung `[BP 3/12]` im Titel ist weg, es steht nur noch `[BP]`.** Die
   Zahl sah nützlich aus, war aber nicht wahr: Die Liste eines Auftrags führt
@@ -10573,12 +10532,12 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
 
 ## v3.0.0-rc80 - 2026-08-28
 
-> **Baupläne aus dem Launcher werden wieder abgehakt — vorhandene Bestände ziehen selbst um.**
+> **Eingelesene Baupläne werden wieder abgehakt — vorhandene Bestände ziehen selbst um.**
 
 ### Behoben
 
-- **Baupläne aus dem Launcher oder einer Sicherung wurden nicht abgehakt.** Wer
-  seinen Stand aus dem SC Deutsch Launcher, dem KRT Profit Basetool, von
+- **Eingelesene Baupläne oder die einer Sicherung wurden nicht abgehakt.** Wer
+  seinen Stand aus anderen Werkzeugen, dem KRT Profit Basetool, von
   scmdb.net oder aus einer eigenen Sicherung mitbrachte, sah in der Liste leere
   Kästchen — obwohl die Baupläne im Bestand standen.
 
@@ -10624,8 +10583,8 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   kennt — verschiedene Zielorte und Waren derselben Mission. Gemessen:
   `Covalex_HaulCargo_SingleToMulti` führt drei Beschreibungen im Katalog, in
   der Textdatei des Spiels stehen **acht**. Wer eine der übrigen fünf erwischte,
-  sah den Zähler und darunter nichts. Der Weg über die Vertragsdaten des
-  SCDL-Teams löste das längst, der eigene Weg über den Bauplan-Katalog nicht.
+  sah den Zähler und darunter nichts. Der Weg über fremde Vertragsdaten löste
+  das längst, der eigene Weg über den Bauplan-Katalog nicht.
   Gemeldet von **Morkhan**.
 
 ### Hinzugefügt
@@ -11316,7 +11275,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   veralten, weil sich mit einem getauschten Symbol das Bild in der Anleitung von
   selbst mitändert. Dasselbe für die Zeichen-Erklärung der Meldungen.
 - **„Wer das gebaut hat" stand plötzlich zweimal.** Der Block mit Autor,
-  scmdb, SC Deutsch Launcher und StarStrings lag auf „Update & Über" — und die
+  scmdb und StarStrings lag auf „Update & Über" — und die
   neue Seite „Danke & Lizenzen" nannte dieselben Projekte noch einmal. Er liegt
   jetzt nur noch auf „Danke & Lizenzen", und zwar mit dem Autor **ganz oben**:
   Eine Seite, die fremde Arbeit aufzählt, muss die eigene zuerst nennen.
@@ -11332,7 +11291,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   der mitgelieferten Symbole, und fremde Projekte wurden nur nebenbei genannt,
   dort wo sie gerade gebraucht wurden. Jetzt steht an einer Stelle, wem was
   gehört: das Programm selbst, die Symbole von Lucide, die Daten von scmdb,
-  StarStrings und der SC Deutsch Launcher — jeweils mit Lizenz und anklickbarem
+  StarStrings — jeweils mit Lizenz und anklickbarem
   Verweis. Dazu der Dank an die, aus deren Rückmeldung etwas geworden ist.
 
 ## v3.0.0-rc57 - 2026-08-27
@@ -11830,18 +11789,18 @@ beschreiben, dass sie zu finden waren:
 - **Morkhan** (KRT) — der Vorschlag, Star Citizen gleich aus dem Werkzeug
   heraus starten zu können.
 
-Die Bauplan-Angaben beruhen auf den offen veröffentlichten Vertragsdaten des
-**SC-Deutsch-Launcher-Teams** und auf **scmdb.net**.
+Die Bauplan-Angaben beruhen auf offen veröffentlichten Vertragsdaten und auf
+**scmdb.net**.
 
 ## v2.0.0 - 2026-08-24
 
 **Aus dem Windows-Overlay ist ein eigenständiges Werkzeug für Windows und Linux
 geworden — und es schreibt die Bauplan-Angaben auf Wunsch direkt ins Spiel.**
 
-Der SC Deutsch Launcher wird nicht mehr gebraucht. Geprüft an einer echten
-Star-Citizen-Installation, mit deutschem **und** englischem Client.
+Geprüft an einer echten Star-Citizen-Installation, mit deutschem **und**
+englischem Client.
 
-### Ohne Launcher
+### Eigene Quelle
 
 - **Die `Game.log` ist die Quelle.** Der Bauplan-Bestand wird selbst geführt; beim ersten
   Start werden die aufgehobenen Spielprotokolle nachgelesen. Bleibt eine Lücke, sagt das
@@ -11850,8 +11809,6 @@ Star-Citizen-Installation, mit deutschem **und** englischem Client.
   übersetzt; das Werkzeug leitet den Wortlaut aus den eigenen Logs ab — es kennt über 700
   Bauplan-Namen, und steht einer davon in einer Logzeile, ist der Text davor die gesuchte
   Formulierung. Deutsch und Englisch sind gemessen, andere Sprachen findet es selbst.
-- **Ist der Launcher da, wird er weiter genutzt** — auch wenn er auf einer eingehängten
-  Windows-Platte liegt, was bei Dual-Boot der Normalfall ist.
 
 ### Bauplan-Liste
 
@@ -11871,8 +11828,7 @@ Star-Citizen-Installation, mit deutschem **und** englischem Client.
   mit Kästchen: angehakt, was man hat, leer, was fehlt. Dazu ein Kürzel im Titel
   (`[BP 2/3]`), sichtbar schon in der Auftragsliste. **681 Textstellen**, deutsch und
   englisch.
-- **Drei Wege zur Grundlage:** die deutsche Übersetzung von
-  [rjcncpt](https://github.com/rjcncpt/StarCitizen-Deutsch-INI),
+- **Mehrere Wege zur Grundlage:** eine deutsche Übersetzung,
   [StarStrings](https://github.com/MrKraken/StarStrings) von MrKraken — oder die
   englischen Originaltexte aus dem eigenen `Data.p4k`, ganz ohne Download.
 - **Rückgängig auf den Buchstaben genau.** Wer StarStrings nutzt, behält es: Dessen
@@ -11912,8 +11868,8 @@ Star-Citizen-Installation, mit deutschem **und** englischem Client.
 
 ### Dank
 
-Die Bauplan-Angaben beruhen auf den offen veröffentlichten Vertragsdaten des
-**SC-Deutsch-Launcher-Teams** (813 Verträge, deutsch und englisch) und auf **scmdb.net**.
+Die Bauplan-Angaben beruhen auf offen veröffentlichten Vertragsdaten (813 Verträge,
+deutsch und englisch) und auf **scmdb.net**.
 Ohne beide gäbe es diese Version nicht.
 
 ## v2.0.0-rc1 - 2026-08-24
@@ -11924,8 +11880,7 @@ Ohne beide gäbe es diese Version nicht.
 > [Issue](../../issues).
 
 **Aus dem Windows-Overlay ist ein eigenständiges Werkzeug für Windows und Linux
-geworden.** Der SC Deutsch Launcher ist nicht mehr nötig, der Bauplan-Bestand wird
-selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekommt.
+geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekommt.
 
 ### Hinzugefügt
 
@@ -11957,7 +11912,7 @@ selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekomm
 
 **Was sich am Verhalten ändert:** Wird Star Citizen nicht gefunden, zeigte das Programm bisher eine Meldung und **beendete sich** — der Spieler hätte eine JSON-Datei von Hand bearbeiten und neu starten müssen. Das macht niemand. Jetzt wird gefragt, und die Angabe wirkt sofort.
 
-- **Bauplan-Katalog mit Herkunft** (`scbp/katalog.py`). 714 Baupläne, für 655 davon (92 %) steht dabei, **woher man sie bekommt**: Fraktion, Auftrag, nötiger Rang samt Rufpunkten, Belohnung in aUEC und Rufgewinn. Das kann der SC Deutsch Launcher nicht — „mir fehlt X" ist die halbe Information, „X droppt bei Fraktion Y ab Rang Z" die ganze.
+- **Bauplan-Katalog mit Herkunft** (`scbp/katalog.py`). 714 Baupläne, für 655 davon (92 %) steht dabei, **woher man sie bekommt**: Fraktion, Auftrag, nötiger Rang samt Rufpunkten, Belohnung in aUEC und Rufgewinn. „Mir fehlt X" ist die halbe Information, „X droppt bei Fraktion Y ab Rang Z" die ganze.
   - Die Kette durch die scmdb-Daten: `contracts[].blueprintRewards[].blueprintPool` → `blueprintPools[…].blueprints[].name`, dazu `factions`, `minStanding` und `factionRewardsPools`.
   - Bezugsquellen sind nach **leichtestem Weg** sortiert (niedrigste Ruf-Anforderung zuerst), höchstens drei je Bauplan.
   - Der Sammel-Dump ist rund 12 MB und wird **nicht** aufgehoben, sondern sofort zu 347 KB eingedampft. Geholt wird einmal je Spielversion, mit Wiederholversuchen — bei der Größe reißt die Leitung gern mitten drin ab (beim Bauen zweimal passiert).
@@ -12000,7 +11955,6 @@ selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekomm
 
 - **Markenfarbe auf `#9ce430` gezogen.** Das Overlay lief noch mit `#47aa42` — der Xharig-Farbe von vor dem Logo-Wechsel. Betrifft `ACCENT` im Overlay und `GREEN` im Icon-Werkzeug. Für helle Flächen (README-Badges) bleibt es beim Text-Grün `#5fa522`.
 - **Die Statuszeile zeigt den eigenen Bestand**, nicht mehr die Launcher-Zahl, und dazu, ob mit oder ohne Launcher gearbeitet wird. Grund: Der Launcher zählt nachweislich zu niedrig — ihm fehlt die P4-AR Rifle, obwohl sie im Fabricator als „im Besitz" steht (gemessen 11.08.2026). Startbaupläne wurden nie „erhalten" und stehen in keinem Log.
-- **Der SC Deutsch Launcher ist optional.** Ist er da, wird er weiter genutzt: Er bestätigt die Funde (🟡 → 🟢) und liefert den gepflegten Katalog. Fehlt er, entfällt nur das — gemeldet wird trotzdem, denn die Game.log ist die eigentliche Quelle.
 - **Startbedingung.** Der Watcher verlangt beim Start nicht mehr die Launcher-Datei, sondern nur noch, dass Star Citizen selbst gefunden wird.
 
 ## v1.5.0 - 2026-08-11
@@ -12037,7 +11991,7 @@ selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekomm
 
 ### Hinzugefügt
 
-- **Katalog-Wache — meldet, was im Spiel NEU craftbar geworden ist.** Bisher meldete der Watcher nur, was *du* freischaltest. Jetzt behält er zusätzlich `bp_item_types.json` im Auge — die Liste dessen, was überhaupt einen Bauplan hat. Der SC Deutsch Launcher frischt sie mit den Patches auf; kommt etwas dazu, erscheint es als 🔵 **neu im Spiel craftbar**. So bekommt man mit, wenn CIG einen Gegenstand nachreicht, den es vorher schlicht nicht als Bauplan gab.
+- **Katalog-Wache — meldet, was im Spiel NEU craftbar geworden ist.** Bisher meldete der Watcher nur, was *du* freischaltest. Jetzt behält er zusätzlich `bp_item_types.json` im Auge — die Liste dessen, was überhaupt einen Bauplan hat. Sie wird mit den Patches aufgefrischt; kommt etwas dazu, erscheint es als 🔵 **neu im Spiel craftbar**. So bekommt man mit, wenn CIG einen Gegenstand nachreicht, den es vorher schlicht nicht als Bauplan gab.
 - **Beobachtungsliste für Wunsch-Gegenstände:** Liegt `%APPDATA%\sc-bp-watcher\watchlist.json`, werden Treffer daraus auffällig in Gold mit ⭐ und eigenem Signalton gemeldet (`<Titel> — jetzt craftbar!`). Format: `{"eintraege": [{"titel": "…", "muster": ["teilstring", …]}]}`, Muster kleingeschrieben, Treffer per Teilstring. Ohne die Datei meldet der Watcher einfach jeden Zuwachs.
 - Der Vergleichsstand liegt in `%APPDATA%\sc-bp-watcher\catalog-seen.json` und **überlebt Neustarts** — sonst käme nach jedem Programmstart der halbe Katalog als „neu". Beim allerersten Start wird nur die Basis gesetzt, es wird nichts gemeldet.
 
@@ -12056,10 +12010,10 @@ selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekomm
 
 ### Hinzugefügt
 
-- **Sofort-Meldung aus der `Game.log`:** Der Watcher liest die Star-Citizen-Log jetzt zusätzlich selbst mit und zeigt einen neuen Bauplan **in Sekunden** an, statt auf den Export des Launchers zu warten. Hintergrund: Der SC Deutsch Launcher schreibt `sc_bp_erledigt.json` nur alle paar Minuten neu — gemessen am 30.07.2026 lagen zwischen Freischaltung im Spiel (21:23:49) und Launcher-Export (21:26:24) **2,5 Minuten**. Genau diese Lücke schließt die Log-Mitlesung.
+- **Sofort-Meldung aus der `Game.log`:** Der Watcher liest die Star-Citizen-Log jetzt zusätzlich selbst mit und zeigt einen neuen Bauplan **in Sekunden** an, statt auf den Export des Launchers zu warten. Hintergrund: Die Exportdatei wird nur alle paar Minuten neu geschrieben — gemessen am 30.07.2026 lagen zwischen Freischaltung im Spiel (21:23:49) und Export (21:26:24) **2,5 Minuten**. Genau diese Lücke schließt die Log-Mitlesung.
 - **Zwei-Stufen-Anzeige:** Frisch aus der Log gemeldete Baupläne stehen als 🟡 **vorläufig** in der Liste; sobald der Launcher nachzieht, wird die Zeile auf 🟢 bestätigt und mit dessen Daten aufgefrischt. Die Launcher-Datei bleibt die verbindliche Quelle — Art, Size/Grade/Klasse kommen weiterhin aus dem Launcher-Katalog.
 - **Namens-Abgleich Log ↔ Launcher:** Schiffskomponenten stehen im Log mit Zusatz (`7CA 'Nargun' (Civ/3/A)`), beim Launcher ohne — der Zusatz wird abgeschnitten (und dient als Rückfall fürs `M/A/1`-Kürzel, falls ein Item nach einem SC-Patch noch nicht im Katalog steht). Echte Namens-Klammern wie `(30 cap)` oder `Singe Cannon (S2)` bleiben unangetastet. Weichen die Übersetzungen ab (gesehen: `(12 Schuss)` im Log vs. `(12 cap)` beim Launcher), greift ein Notfall-Abgleich ohne Klammer-Zusatz — aber nur, wenn er eindeutig ist. Geprüft gegen alle 127 vorhandenen Log-Backups: 148 Bauplan-Meldungen, 147 exakte Treffer, der eine Rest über den Notfall-Abgleich.
-- **Automatische Log-Findung** über den `Installfolder` aus `scdl-settings.json`, ersatzweise über den Lesestand des Launchers (`scan-state.json`) oder den Standard-Installationspfad. Spiel-Neustart (rotierte Log) wird erkannt.
+- **Automatische Log-Findung** über den eingetragenen Installationsordner, ersatzweise über den Lesestand des Launchers (`scan-state.json`) oder den Standard-Installationspfad. Spiel-Neustart (rotierte Log) wird erkannt.
 - **Statuszeile** zeigt jetzt auch, ob die Log mitgelesen wird: `Überwache 377 BPs · Log ✓ · geprüft 21:26:27`.
 
 ### Behoben
@@ -12107,12 +12061,11 @@ selbst geführt, und zu den meisten Bauplänen steht dabei, woher man sie bekomm
 
 ### Hinzugefügt
 
-- **Danksagung & Credits** an den SC Deutsch Launcher (Datenquelle des Tools) inkl. Hinweis, dass SC BP Watcher ein eigenständiges, inoffizielles Zusatz-Tool ist
-- Offizieller Link zum **[SC Deutsch Launcher](https://www.sc-deutsch-launcher.de/)** im Pflicht-Hinweis und in den Credits
+- **Hinweis**, dass SC BP Watcher ein eigenständiges, inoffizielles Zusatz-Tool ist
 
 ### Geändert
 
-- Pflicht-Voraussetzung (SC Deutsch Launcher) prominent ganz oben in der README hervorgehoben
+- Voraussetzungen prominent ganz oben in der README hervorgehoben
 
 ## v1.0.0 - 2026-06-29
 

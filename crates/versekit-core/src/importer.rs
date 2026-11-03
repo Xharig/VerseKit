@@ -28,8 +28,8 @@
 //! | Basetool envelope (SC Extractor and others) | `format: "basetool.blueprints"`, `formatVersion` 1.x, `items[].ref` |
 //! | Blueprint DB (Star Citizen Deutsch) | `blueprints[].key` with `isDone` or `isMarked`, only `isDone: true` |
 //!
-//! The format of the SC Deutsch Launcher (`blueprints[].key` alone) is not
-//! read any more: there is nothing left to fetch from there.
+//! A list of `blueprints[].key` alone (without `isDone` or `isMarked`) is
+//! not read.
 //!
 //! **Merging, never replacing.** What is there stays, new comes in. Names the
 //! catalog does not know come in too and are marked: one entry too few is
@@ -488,9 +488,9 @@ mod tests {
         let (kind, entries) = read_value(&db, &plain);
         assert_eq!((kind, names(&entries)), (Some(Kind::BlueprintDb), vec!["H"]));
 
-        // The launcher's format is not read any more, and neither is a list of anything else.
-        let launcher = value(r#"{"blueprints": [{"key": "K"}]}"#);
-        assert_eq!(read_value(&launcher, &plain), (None, Vec::new()));
+        // A list of keys alone is not read, and neither is a list of anything else.
+        let keys_only = value(r#"{"blueprints": [{"key": "K"}]}"#);
+        assert_eq!(read_value(&keys_only, &plain), (None, Vec::new()));
         assert_eq!(read_value(&value("[1, 2]"), &plain), (None, Vec::new()));
         assert_eq!(read_value(&value(r#"{"blueprints": []}"#), &plain), (None, Vec::new()));
     }

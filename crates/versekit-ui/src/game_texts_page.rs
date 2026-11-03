@@ -1056,7 +1056,11 @@ mod tests {
     use super::*;
 
     const GAME: &str = "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\nitem_NameCOOL_A=Glacier\nitem_DescCOOL_A=Größe: 1\\nGütegrad: A\\nKlasse: Militär\n";
-    const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+    /// The German source the tests take, with its newest release and the address of its file.
+    const GERMAN: &str = "dymerz_de";
+    const RELEASE: &str = "https://api.github.com/repos/Dymerz/StarCitizen-Localization/releases/latest";
+    const RELEASE_JSON: &str = r#"{"tag_name": "v2", "published_at": "2026-10-20T10:00:00Z", "assets": [{"name": "german_.germany.zip", "browser_download_url": "https://dl/de.zip", "size": 10}]}"#;
+    const DOWNLOAD: &str = "https://dl/de.zip";
 
     struct Game {
         root: String,
@@ -1103,8 +1107,8 @@ mod tests {
         /// The German translation set up, notes not yet written.
         fn german(&self) {
             fs::write(self.ini(), GAME).unwrap();
-            translation::note_set(&self.paths, "deutsch", Some("git-old"), Some("german_(germany)"), None);
-            self.paths.set_setting(translation::SETTING_SOURCE, Value::str("deutsch"));
+            translation::note_set(&self.paths, GERMAN, Some("v-old"), Some("german_(germany)"), None);
+            self.paths.set_setting(translation::SETTING_SOURCE, Value::str(GERMAN));
         }
     }
 
@@ -1114,21 +1118,14 @@ mod tests {
         }
     }
 
-    /// A stand-in for rjcncpt's repository with a newer file.
+    /// A stand-in for the German source's releases with a newer file.
     fn german_net() -> Arc<dyn Net> {
         let mut file =
             "Bounty_title_001=Kopfgeld neu\nBounty_desc_001=Fang ihn.\nvehicle_NameAEGS_Gladius=Gladius\n".to_string();
         for i in 0..5001 {
             file.push_str(&format!("k{i}=v\n"));
         }
-        Arc::new(
-            Fake::default()
-                .with(
-                    "https://api.github.com/repos/rjcncpt/StarCitizen-Deutsch-INI/commits?path=live/global.ini&per_page=1",
-                    format!(r#"[{{"sha": "{SHA}", "commit": {{"committer": {{"date": "2026-10-20T10:00:00Z"}}}}}}]"#),
-                )
-                .with(&format!("https://raw.githubusercontent.com/rjcncpt/StarCitizen-Deutsch-INI/{SHA}/live/global.ini"), file),
-        )
+        Arc::new(Fake::default().with(RELEASE, RELEASE_JSON).with(DOWNLOAD, file))
     }
 
     struct Page {
@@ -1340,7 +1337,7 @@ mod tests {
         let (said, bad) = state.said().cloned().expect("an answer");
         assert!(!bad, "a lock that is wanted is no failure: {said}");
         assert!(said.contains("Neue Fassung vom 20.10.2026 gibt es, im Testbetrieb nicht eingespielt"), "{said}");
-        state.check_channel("deutsch", None, &game.live);
+        state.check_channel(GERMAN, None, &game.live);
         settle(&mut state);
         let (said, bad) = state.said().cloned().expect("an answer");
         versekit_core::writeguard::deny(false);
@@ -1351,7 +1348,7 @@ mod tests {
         assert!(denied.is_empty(), "nothing was even tried in the game folder: {denied:?}");
         let state_line = translation::status_text(
             &game.paths,
-            "deutsch",
+            GERMAN,
             None,
             versekit_core::language::Lang::De,
             &translation::today(),
@@ -1456,7 +1453,7 @@ mod tests {
         assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_sp_pruefen")));
         settle(&mut state);
         let said = state.said().cloned().unwrap_or_default().0;
-        assert!(said.contains(&tf("inj_update_da", &[("0", Arg::from("git-0123456789ab"))])), "{said}");
+        assert!(said.contains(&tf("inj_update_da", &[("0", Arg::from("v2"))])), "{said}");
         assert_eq!(game.text(), GAME, "looking changes nothing");
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let at = nodes.iter().find(|(r, l, _)| *r == Role::Button && *l == t("s_sp_zur_uebersetzung")).unwrap().2;
@@ -1477,13 +1474,13 @@ mod tests {
         fs::write(game.ini(), "old=Text\n").unwrap();
         let mut state = GameTextsState::with_parts(&game.paths, german_net(), Arc::new(game_texts::NoArchive));
         let page = Page::new();
-        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_sp_q_de")));
+        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_sp_q_dymerz_de")));
         assert!(state.question.is_some(), "it asks before it replaces the text file");
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("e_ja")));
         settle(&mut state);
         assert!(game.text().starts_with("Bounty_title_001=Kopfgeld neu <EM4>[BP]</EM4>\n"), "{}", &game.text()[..80]);
-        assert_eq!(translation::installed(&game.paths, "deutsch", None).as_deref(), Some("git-0123456789ab"));
-        assert!(game_texts::confirmed(&game.paths, "deutsch"));
+        assert_eq!(translation::installed(&game.paths, GERMAN, None).as_deref(), Some("v2"));
+        assert!(game_texts::confirmed(&game.paths, GERMAN));
         assert!(
             fs::read_to_string(format!("{}/user.cfg", game.live)).unwrap().contains("g_language = german_(germany)")
         );
@@ -1532,7 +1529,7 @@ mod tests {
         let checks = checkable(&game.paths);
         let shown: Vec<(&str, Option<&str>)> =
             checks.iter().map(|c| (c.source.as_str(), c.channel.as_deref())).collect();
-        assert_eq!(shown, [("deutsch", None), ("luftwerft_de", Some("PTU"))]);
+        assert_eq!(shown, [(GERMAN, None), ("luftwerft_de", Some("PTU"))]);
 
         let mut german = "Bounty_title_001=Kopfgeld neu\nvehicle_NameAEGS_Gladius=Gladius\n".to_string();
         for i in 0..5001 {
@@ -1540,14 +1537,8 @@ mod tests {
         }
         let side = "https://www.luftwerft.com/download/resources/localizations/PTU/german_(germany)/global.ini";
         let net = Fake::default()
-            .with(
-                "https://api.github.com/repos/rjcncpt/StarCitizen-Deutsch-INI/commits?path=live/global.ini&per_page=1",
-                format!(r#"[{{"sha": "{SHA}", "commit": {{"committer": {{"date": "2026-10-20T10:00:00Z"}}}}}}]"#),
-            )
-            .with(
-                &format!("https://raw.githubusercontent.com/rjcncpt/StarCitizen-Deutsch-INI/{SHA}/live/global.ini"),
-                german,
-            )
+            .with(RELEASE, RELEASE_JSON)
+            .with(DOWNLOAD, german)
             .with_head(side, &[("ETag", "\"ptu-1\"")])
             .with(side, direct_file());
         let mut state = GameTextsState::with_parts(&game.paths, Arc::new(net), Arc::new(game_texts::NoArchive));
@@ -1617,7 +1608,7 @@ mod tests {
         assert_eq!(placed, direct_file());
         assert_eq!(translation::installed(&game.paths, "luftwerft_de", Some("PTU")).as_deref(), Some("etag:ptu-1"));
         assert_eq!(game.text(), GAME, "the main installation stays as it is");
-        assert_eq!(game.paths.setting(translation::SETTING_SOURCE).as_deref(), Some("deutsch"));
+        assert_eq!(game.paths.setting(translation::SETTING_SOURCE).as_deref(), Some(GERMAN));
         assert_eq!(state.said().map(|s| s.1), Some(false), "{:?}", state.said());
     }
 

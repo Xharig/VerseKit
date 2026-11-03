@@ -197,7 +197,7 @@ fn a_block_of_the_same_source_is_replaced_and_comes_back() {
         "Bounty_desc_001=Fang ihn.\\n\\n{}\\nBAUPLÄNE AUS DIESEM AUFTRAG\\n    - Atzkav Sniper Rifle\n",
         "-".repeat(57)
     );
-    let fx = Fixture::new("scdl", "german_(germany)", &foreign);
+    let fx = Fixture::new("foreign-block", "german_(germany)", &foreign);
     apply_texts(&fx.paths, &fx.ini, "german_(germany)", &inputs(&[]), false);
     let text = fx.text();
     assert!(!text.contains("    - Atzkav"), "replaced, not listed twice: {text}");

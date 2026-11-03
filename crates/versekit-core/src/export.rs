@@ -693,7 +693,7 @@ pub fn complete(data: &Map, catalog: &CatalogView, now: i64) -> Result<Value, St
 // ------------------------------------------------------------ Contract log
 
 /// Blueprint marks in contract titles: the block of the previous version and
-/// the bubble that StarStrings and the SC Deutsch Launcher set as well
+/// the bubble that other tools set as well
 /// (`<EM4>[BP]?</EM4>`, `<EM4>[150 Rep] [BP]*</EM4>`).
 static TITLE_MARKS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r"{}|<EM4>[^<>]*\[(?:BP|Bauplan)[^\]]*\][^<>]*</EM4>", legacy::TITLE_BLOCK))

@@ -92,9 +92,7 @@ pub const MAPS_PYAM: &str =
     "https://www.reddit.com/r/starcitizen/comments/1i3iyq9/supervisor_exectutive_hangar_maps_pyamsupvisr345/";
 
 /// The sources that are not part of the program: fetched when needed.
-/// "SC Deutsch Launcher" is named only inside the text of the translation of
-/// rjcncpt, never as a source of its own.
-pub const FETCHED: [Credit; 14] = [
+pub const FETCHED: [Credit; 13] = [
     credit("Star Citizen Mission DataBase", Licence::Named("CC BY-NC-ND 4.0"), "s_dkv_scmdb", "https://scmdb.net"),
     credit("UEX Corp", Licence::None, "s_dkv_uex", "https://uexcorp.space"),
     credit(
@@ -127,12 +125,6 @@ pub const FETCHED: [Credit; 14] = [
     ),
     credit("Star_citizen_ES (Thord82)", Licence::None, "s_dkv_thord82", "https://github.com/Thord82/Star_citizen_ES"),
     credit("SC Launch Configurator (Luftwerft)", Licence::None, "s_dkv_luftwerft", "https://www.luftwerft.com/"),
-    credit(
-        "StarCitizen-Deutsch-INI (rjcncpt)",
-        Licence::Named("CC BY-NC-SA 4.0"),
-        "s_dkv_ini",
-        "https://github.com/rjcncpt/StarCitizen-Deutsch-INI",
-    ),
     credit("contestedzonetimers.com (Appieman)", Licence::None, "s_dkv_contested", "https://contestedzonetimers.com/"),
 ];
 
@@ -170,7 +162,7 @@ const fn person(
 }
 
 /// Everyone named on the page, in the order of the page.
-pub const PEOPLE: [Person; 29] = [
+pub const PEOPLE: [Person; 30] = [
     person("Haldjas", "pr0", &["s_dkv_haldjas_idee"], &["s_dkv_haldjas_bugs"]),
     person("rurudotorg", "SC4M", &["s_dkv_rurudotorg_idee"], &["s_dkv_rurudotorg_bugs", "s_dkv_rurudotorg_bugs2"]),
     person("Morkhan", "KRT", &["s_dkv_morkhan_idee"], &["s_dk_morkhan_bugs"]),
@@ -239,6 +231,7 @@ pub const PEOPLE: [Person; 29] = [
         &["s_dkv_shockwaffel_bugs", "s_dkv_shockwaffel_bugs2"],
     ),
     person("Kuehlwagen", "KRT", &["s_dkv_kuehlwagen_idee"], &[]),
+    person("George_Rotfuchs", "", &[], &["s_dkv_george_bugs"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its
@@ -308,16 +301,17 @@ mod tests {
     }
 
     #[test]
-    fn the_german_launcher_stands_only_in_the_text_of_the_translation() {
+    fn names_that_are_not_credited_stand_nowhere_on_the_page() {
+        const NOT_CREDITED: [&str; 3] = ["Deutsch Launcher", "SCDL", "rjcncpt"];
         for key in text_keys() {
             for lang in [Lang::De, Lang::En] {
                 let text = text_in(lang, key).unwrap_or_default();
-                let named = text.contains("SC Deutsch Launcher") || text.contains("SCDL");
-                assert_eq!(named, key == "s_dkv_ini", "{key} ({lang:?})");
+                assert!(!NOT_CREDITED.iter().any(|name| text.contains(name)), "{key} ({lang:?})");
             }
         }
         for credit in BUNDLED.iter().chain(FETCHED.iter()) {
-            assert!(!credit.name.contains("Deutsch Launcher") && !credit.name.contains("SCDL"), "{}", credit.name);
+            let named = [credit.name, credit.url];
+            assert!(!NOT_CREDITED.iter().any(|name| named.iter().any(|n| n.contains(name))), "{}", credit.name);
         }
     }
 

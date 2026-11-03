@@ -4111,7 +4111,7 @@ impl SamplePage {
                             widgets::status_box(page, scheme, scheme.accent, "circle-check", &infos[0], &infos[1]);
                         }
                         page.add_space(GAP);
-                        // One folder per channel, like the SC Deutsch Launcher; below the data folder.
+                        // One folder per channel, below the data folder.
                         let rows = settings_of("hf_ordner");
                         let titles: Vec<String> = rows.iter().map(|(title, _)| label(title)).collect();
                         let groups: Vec<(&str, usize)> =
