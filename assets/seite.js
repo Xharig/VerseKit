@@ -1,10 +1,10 @@
 /* Der Rundgang.
-   ⚠ Gruppen und Reihenfolge sind KEINE eigene Erfindung — sie stehen genau
-   so in `scbp/main_window.py` (die `_tab(...)`-Aufrufe je Gruppe). Wer dort
-   einen Reiter verschiebt oder umbenennt, zieht diese Liste mit.
+   ⚠ Gruppen und Reihenfolge folgen dem Menü des Programms (`NAV` in
+   `crates/versekit-ui/src/sample.rs`). Wer dort eine Seite verschiebt oder
+   umbenennt, zieht diese Liste mit.
    Aufgenommen sind nur Bereiche, von denen es ein Bild gibt.
    Die englischen Bilder heissen wie die deutschen, nur mit "-en" vor der
-   Endung — so erzeugt sie tools/bilder_machen.py. */
+   Endung — so erzeugt sie tools/bildwerkzeug (Modus `webseite`). */
 // Site root, taken from this script's own address, so that "/" and "/en/"
 // load the same assets and files.
 var WURZEL = document.currentScript.src.replace(/assets\/[^\/]*$/, "");
@@ -35,9 +35,6 @@ var GRUPPEN = [
     {reiter:"hangar", bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
      bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt. Danach weiß das Werkzeug, was in welches Schiff passt. An jedem Schiff vergibst du auch seinen Namen im Abrufterminal.",
      ben:"Your fleet, pulled in from the pledge store in one go. After that the tool knows what fits into which ship. Each ship also gets its name for the retrieval terminal right there."},
-    {reiter:"wunschliste", bild:"screenshot-wunschliste.png", de:"Wunschliste", en:"Wishlist",
-     bde:"Was du dir vornimmst, mit Preis und Ort. Die Ausstattung planst du, bevor du das Schiff hast.",
-     ben:"What you are aiming for, with price and location. Plan the loadout before you own the ship."},
     {reiter:"meinlager", bild:"screenshot-meinlager.png", de:"Mein Lager", en:"My Inventory",
      bde:"Rohstoffe, Verkaufsware und Items an einer Stelle: mit Art, Ort, Güte und Menge, gefiltert nach Material oder Items und zum Herstellen oder Verkaufen.",
      ben:"Materials, goods for sale and items in one place: with type, location, quality and amount, filtered by material or items and for crafting or selling."},
@@ -60,12 +57,9 @@ var GRUPPEN = [
     {reiter:"raffinerien", bild:"screenshot-raffinerien.png", de:"Raffinerien", en:"Refineries",
      bde:"Was jede Raffinerie aus deinem Erz macht: Aufschlag und Abschlag je Material, der beste Ort grün.",
      ben:"What every refinery makes of your ore: bonus and penalty per material, the best place in green."},
-    {reiter:"bergung", bild:"screenshot-bergung.png", de:"Was steckt drin?", en:"What's inside?",
-     bde:"Was ein Wrack ab Werk an Bord hat und was die Teile im Laden wert sind.",
-     ben:"What a wreck carries from the factory, and what those parts are worth in a shop."},
-    {reiter:"zerlegen", bild:"screenshot-zerlegen.png", de:"Lohnt das Zerlegen?", en:"Worth dismantling?",
-     bde:"Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.",
-     ben:"What the fabricator gives back, before you fire up the cutter."}
+    {reiter:"bergung", bild:"screenshot-bergung.png", de:"Zerlegen & Bergen", en:"Dismantle & Salvage",
+     bde:"Was ein Wrack ab Werk an Bord hat, was die Teile im Laden wert sind und was der Fabricator beim Zerlegen zurückgibt.",
+     ben:"What a wreck carries from the factory, what those parts are worth in a shop and what the fabricator gives back when you dismantle."}
   ]},
   {de:"Handel", en:"Trade", eintraege:[
     {reiter:"laeden", bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
@@ -84,12 +78,12 @@ var GRUPPEN = [
      ben:"Connected to the KRT Profit Basetool: what your unit's open orders still need, and what of it you already have."},
     {reiter:"einkaufsliste", bild:"screenshot-einkaufsliste.png", de:"Einkaufsliste", en:"Shopping list",
      bde:"Die Rechnung über alle Schiffe: kaufen oder selbst bauen, mit Summe und Einkaufsroute.",
-     ben:"The bill across all your ships: buy or build, with a total and a shopping route."}
+     ben:"The bill across all your ships: buy or build, with a total and a shopping route."},
+    {reiter:"contested", bild:"screenshot-contested.png", de:"Contested Zones", en:"Contested Zones",
+     bde:"Wann der Executive Hangar öffnet, mit den fünf Lampen und den nächsten Öffnungen in deiner Ortszeit, dazu eigene Timer.",
+     ben:"When the Executive Hangar opens, with the five lamps and the next openings in your local time, plus timers of your own."}
   ]},
   {de:"Statistik", en:"Statistics", eintraege:[
-    {reiter:"statistik_auswertung", bild:"screenshot-statistik-auswertung.png", de:"Auswertung", en:"Evaluation",
-     bde:"Hier entsteht die Statistik: Jedes Spielprotokoll wird einmal gelesen und festgehalten, auch wenn Star Citizen es später löscht.",
-     ben:"This is where the statistics come from: every game log is read once and kept, even after Star Citizen deletes it."},
     {reiter:"statistik", bild:"screenshot-statistik.png", de:"Übersicht", en:"Overview",
      bde:"Spielzeit, Sitzungen, abgeschlossene Aufträge und Quantensprünge, dazu eine Wärmekarte, wann du spielst. Bleibt erhalten, auch wenn die Logs gelöscht werden.",
      ben:"Play time, sessions, completed contracts and quantum jumps, plus a heat map of when you play. Kept even when the logs are deleted."},
@@ -159,6 +153,9 @@ var GRUPPEN = [
      ben:"Graphics glitches or stutter after a patch? One button empties the shader caches of Star Citizen and the graphics driver."}
   ]},
   {de:"Info", en:"Info", eintraege:[
+    {reiter:"handlesuche", bild:"screenshot-handlesuche.png", de:"Handle-Suche", en:"Handle search",
+     bde:"Neu in 5.0: Wer steckt hinter einem Handle? Name, Organisationen, Rang und Mitglieder, freundlich, neutral oder feindlich markiert, mit Verlauf.",
+     ben:"New in 5.0: who is behind a handle? Name, organizations, rank and members, marked friendly, neutral or hostile, with a history."},
     {reiter:"patchaenderungen", bild:"screenshot-patchaenderungen.png", de:"Geänderte Spielwerte", en:"Changed game values",
      bde:"Was ein Spiel-Patch an Werten geändert hat: Schiffe, Waffen, Komponenten, Lackierungen.",
      ben:"What a game patch changed in the numbers: ships, weapons, components, paints."},
