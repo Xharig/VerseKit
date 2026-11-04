@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.0.2 - 2026-11-04
+
+> Der Bauplan-Abschnitt unter einer Beschreibung bleibt kurz, auch wenn
+> sich viele Varianten eines Gegenstands diese Beschreibung teilen.
+
+### Verbessert
+
+- **Kürzerer Bauplan-Abschnitt bei vielen Varianten** — Viele Waffen und
+  Rüstungen zeigen im Spiel für alle Lackierungen dieselbe Beschreibung.
+  Bisher stand dort für jede Variante eine eigene Zeile, und bei sieben
+  Varianten rutschte die Qualität aus dem sichtbaren Bereich. Ab vier
+  Varianten zählt VerseKit sie jetzt („Bauplan: [  ] 6 Varianten fehlen —
+  aus …“), eine einzelne vorhandene oder fehlende Variante steht weiter mit
+  Namen da. Ganz ausblenden lässt sich der Abschnitt wie bisher unter
+  Spiel-Einstellungen › Spiel › „Bauplan-Angaben in den Beschreibungen“.
+  Angeregt von TomLov
+
 ## v5.0.1 - 2026-11-03
 
 > Baupläne mit einem Kürzel vor dem Namen landen wieder im Katalog, und

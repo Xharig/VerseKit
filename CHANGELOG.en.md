@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.0.2 - 2026-11-04
+
+> The blueprint section below a description stays short, even when many
+> variants of an item share that description.
+
+### Improved
+
+- **Shorter blueprint section for many variants** — Many weapons and
+  armours show the same description in the game for all their paints.
+  Until now there was one line per variant, and with seven variants the
+  quality slid out of view. From four variants on, VerseKit now counts
+  them (“Blueprint: [  ] 6 variants missing — from …”); a single owned or
+  missing variant still stands there by name. You can still hide the
+  section completely under Game settings › Game › “Blueprint details in
+  item descriptions”. Suggested by TomLov
+
 ## v5.0.1 - 2026-11-03
 
 > Blueprints with a code in front of the name land in the catalogue again,

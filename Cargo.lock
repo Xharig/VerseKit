@@ -4718,7 +4718,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-app"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "eframe",
  "egui",
@@ -4731,7 +4731,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-core"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.3.4",
@@ -4752,7 +4752,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-gamedata"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "p4kx-archive",
  "p4kx-cryxml",
@@ -4767,7 +4767,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-overlay"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "eframe",
  "egui",
@@ -4783,7 +4783,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-overlay-proto"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "eframe",
  "egui",
@@ -4794,7 +4794,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-parity"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "p4kx-dataforge",
  "regex",
@@ -4806,7 +4806,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-ui"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "eframe",
  "egui",

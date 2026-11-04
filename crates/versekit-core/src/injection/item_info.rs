@@ -290,13 +290,21 @@ fn blueprint_line(have: bool, routes: Option<&Vec<Route>>, name: Option<&str>, c
         return format!("{}: {} {}", w.it_blueprint, super::form::BOX_HAVE, state(w.it_have));
     }
     let line = format!("{}: {} {}", w.it_blueprint, super::form::BOX_MISSING, state(w.it_missing));
+    line + &route_part(routes, ctx)
+}
+
+/// The tail of a missing blueprint line: from which contract and rank for
+/// the easiest of `routes` and how many other contracts give it, or that no
+/// contract gives it.
+fn route_part(routes: Option<&Vec<Route>>, ctx: &ItemContext<'_>) -> String {
+    let w = ctx.words;
     let named: Vec<(&Route, String)> = routes
         .into_iter()
         .flatten()
         .map(|r| (r, clean_title(&(ctx.title_of)(&r.2))))
         .filter(|(_, t)| !t.is_empty())
         .collect();
-    let Some((first, title)) = named.first() else { return format!("{line} — {}", w.it_no_contract) };
+    let Some((first, title)) = named.first() else { return format!(" — {}", w.it_no_contract) };
     let mut part = format!(" — {} \"{title}\"", w.it_from);
     if !first.3.is_empty() {
         part.push_str(&format!(", {} {}", w.it_from_rank, first.3));
@@ -305,7 +313,42 @@ fn blueprint_line(have: bool, routes: Option<&Vec<Route>>, name: Option<&str>, c
     if others > 0 {
         part.push_str(&format!(" (+{others} {})", w.it_more));
     }
-    line + &part
+    part
+}
+
+/// Named blueprint lines a shared description shows at most; with more
+/// items, owned and missing ones are counted instead.
+const NAMED_LINES: usize = 3;
+
+/// The blueprint lines of a shared description with more than
+/// [`NAMED_LINES`] items: owned and missing ones each as one counted line
+/// (`Blueprint: [  ] 6 variants missing` and the contract), a group of one
+/// by name.
+fn counted_lines(rows: &[Rows], ctx: &ItemContext<'_>) -> Vec<String> {
+    let w = ctx.words;
+    let mut lines = Vec::new();
+    for have in [true, false] {
+        let group: Vec<&Rows> = rows.iter().filter(|r| r.have == have).collect();
+        match group.len() {
+            0 => {}
+            1 => lines.push(group[0].named.clone()),
+            count if have => {
+                lines.push(format!("{}: {} {count} {}", w.it_blueprint, super::form::BOX_HAVE, w.it_variants_have))
+            }
+            count => {
+                let mut routes: Vec<Route> = group.iter().flat_map(|r| r.routes.iter().cloned()).collect();
+                routes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
+                lines.push(format!(
+                    "{}: {} {count} {}{}",
+                    w.it_blueprint,
+                    super::form::BOX_MISSING,
+                    w.it_variants_missing,
+                    route_part(Some(&routes), ctx)
+                ));
+            }
+        }
+    }
+    lines
 }
 
 /// `item_info._craft_line`.
@@ -477,6 +520,8 @@ pub fn missing_texts(
 /// with the name, crafting and shop (empty when unknown).
 struct Rows {
     label: String,
+    have: bool,
+    routes: Vec<Route>,
     plain: String,
     named: String,
     craft: String,
@@ -493,19 +538,25 @@ fn block_of(rows: Vec<String>, words: &Words) -> String {
 
 /// The block of a description the game shows for several items: one block as
 /// for a single item when it reads the same for all of them, else one named
-/// blueprint line per item, with crafting and shop only where they are the
-/// same for all.
-fn shared_block(mut rows: Vec<Rows>, words: &Words) -> String {
+/// blueprint line per item (counted past [`NAMED_LINES`] items, see
+/// [`counted_lines`]), with crafting and shop only where they are the same
+/// for all.
+fn shared_block(mut rows: Vec<Rows>, ctx: &ItemContext<'_>) -> String {
     rows.sort_by(|a, b| a.label.cmp(&b.label));
     let first = &rows[0];
     let same = |pick: fn(&Rows) -> &String| rows.iter().all(|r| pick(r) == pick(first));
     let craft = if same(|r| &r.craft) { first.craft.clone() } else { String::new() };
     let shop = if same(|r| &r.shop) { first.shop.clone() } else { String::new() };
-    let mut lines: Vec<String> =
-        if same(|r| &r.plain) { vec![first.plain.clone()] } else { rows.iter().map(|r| r.named.clone()).collect() };
+    let mut lines: Vec<String> = if same(|r| &r.plain) {
+        vec![first.plain.clone()]
+    } else if rows.len() > NAMED_LINES {
+        counted_lines(&rows, ctx)
+    } else {
+        rows.iter().map(|r| r.named.clone()).collect()
+    };
     lines.push(craft);
     lines.push(shop);
-    block_of(lines, words)
+    block_of(lines, ctx.words)
 }
 
 /// `item_info.build`: description key → block, for every craftable item.
@@ -572,6 +623,8 @@ pub fn build<S: AsRef<str>>(
                 craft: craft_line(item, ctx.words),
                 shop: shop_line(item, shops, ctx),
                 label,
+                have,
+                routes: routes.cloned().unwrap_or_default(),
             };
             match shared.iter_mut().find(|(k, _)| k == keys) {
                 Some((_, list)) => list.push(rows),
@@ -595,7 +648,7 @@ pub fn build<S: AsRef<str>>(
         }
     }
     for (keys, rows) in shared {
-        let block = shared_block(rows, ctx.words);
+        let block = shared_block(rows, ctx);
         for key in keys {
             result.insert(key, block.clone());
         }
@@ -957,6 +1010,58 @@ mod tests {
         assert!(blocks["item_Descklwe_rifle_energy_01"].contains("\\nBlueprint: [  ] missing — from \"Destroy"));
         let guessed = english_blocks(&lines, &items, &ItemTexts::new());
         assert!(guessed.contains_key("item_Descklwe_rifle_energy_01_black01"), "4.12 writes the look-alike key");
+    }
+
+    /// Seven paints of one pistol that all show the description of the
+    /// pistol; `owned` lists the indexes of the owned ones.
+    fn arclight_blocks(owned: &[usize], count: usize) -> String {
+        let paints = ["", "_black01", "_blue01", "_desert01", "_exec01", "_red01", "_white01"];
+        let mut lines = vec!["item_Descklwe_pistol_energy_01=Manufacturer: Klaus & Werner".to_string()];
+        let mut items = Vec::new();
+        let mut texts = ItemTexts::new();
+        for (i, paint) in paints.iter().take(count).enumerate() {
+            let name = if paint.is_empty() { "Gallant Rifle".to_string() } else { format!("Gallant \"P{i}\" Rifle") };
+            let key = format!("item_Nameklwe_pistol_energy_01{paint}");
+            lines.push(format!("{key}={name}"));
+            let guid = format!("g{i}");
+            items.push(armor(&name, &format!("BP_CRAFT_klwe_pistol_energy_01{paint}"), &guid, owned.contains(&i)));
+            texts.insert(guid, keys(&key, "item_Descklwe_pistol_energy_01"));
+        }
+        lines.push("cfp_title=Destroy Stolen Data".into());
+        let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
+        let blocks = english_blocks(&lines, &items, &texts);
+        assert_eq!(blocks.len(), 1, "{blocks:?}");
+        blocks["item_Descklwe_pistol_energy_01"].clone()
+    }
+
+    fn blueprint_rows(block: &str) -> Vec<&str> {
+        block.split("\\n").filter(|row| row.starts_with("Blueprint:")).collect()
+    }
+
+    #[test]
+    fn many_items_on_one_description_are_counted_not_listed() {
+        let block = arclight_blocks(&[2], 7);
+        assert_eq!(
+            blueprint_rows(&block),
+            [
+                "Blueprint: <EM4>[x]</EM4> Gallant \"P2\" Rifle (owned)",
+                "Blueprint: [  ] 6 variants missing — from \"Destroy Stolen Data\"",
+            ],
+            "{block}"
+        );
+        let block = arclight_blocks(&[0, 3], 7);
+        assert_eq!(
+            blueprint_rows(&block),
+            ["Blueprint: <EM4>[x]</EM4> 2 variants owned", "Blueprint: [  ] 5 variants missing — not from contracts"],
+            "{block}"
+        );
+    }
+
+    #[test]
+    fn up_to_three_items_on_one_description_stay_named() {
+        let block = arclight_blocks(&[1], 3);
+        assert_eq!(blueprint_rows(&block).len(), 3, "{block}");
+        assert!(block.contains("Gallant \"P2\" Rifle (missing)"), "{block}");
     }
 
     #[test]

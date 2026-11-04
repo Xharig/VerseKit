@@ -67,6 +67,10 @@ pub struct Words {
     pub it_ingredients: &'static str,
     pub it_shop: &'static str,
     pub it_not_sold: &'static str,
+    /// `N variants owned`, for a description several items share.
+    pub it_variants_have: &'static str,
+    /// `N variants missing`, for a description several items share.
+    pub it_variants_missing: &'static str,
     /// The setting „Rufschwelle im Auftragstitel“, read once per run.
     pub rep_on: bool,
 }
@@ -105,6 +109,8 @@ pub const GERMAN: Words = Words {
     it_ingredients: "Zutaten",
     it_shop: "Im Laden",
     it_not_sold: "nicht erhältlich, nur Herstellen",
+    it_variants_have: "Varianten vorhanden",
+    it_variants_missing: "Varianten fehlen",
     rep_on: true,
 };
 
@@ -142,6 +148,8 @@ pub const ENGLISH: Words = Words {
     it_ingredients: "ingredients",
     it_shop: "In shops",
     it_not_sold: "not sold, crafting only",
+    it_variants_have: "variants owned",
+    it_variants_missing: "variants missing",
     rep_on: true,
 };
 
