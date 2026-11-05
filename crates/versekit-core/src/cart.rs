@@ -588,7 +588,7 @@ pub fn total(lines: &[Line]) -> Total {
 type Key = (String, String, String);
 
 /// A place that could be the next stop: (minus the cover, the cost, the place, the slots it covers).
-type Candidate = (i64, f64, (String, String), BTreeSet<Key>);
+type Candidate = (i64, i64, f64, (String, String), BTreeSet<Key>);
 
 fn route_key(line: &Line) -> Key {
     (line.ship.clone(), line.origin.as_str().to_string(), line.path.clone())
@@ -641,8 +641,9 @@ pub struct Stop {
 ///
 /// ⚠⚠ Chosen by cover, not by price: whoever takes the cheapest shop per item
 /// gets eight items in eight systems, the best on paper and a lost evening in
-/// practice. The price decides only at the same cover. A stop is a place, a
-/// shop a terminal in it: two shops at one station are one stop.
+/// practice. At the same cover a place in a system the route already visits
+/// comes first, then the price. A stop is a place, a shop a terminal in it:
+/// two shops at one station are one stop.
 pub fn route(lines: &[Line], sources: &dyn Sources) -> (Vec<Stop>, Vec<String>) {
     let offers = offers_of(lines, sources);
     let buyable = to_buy(lines);
@@ -667,6 +668,7 @@ pub fn route(lines: &[Line], sources: &dyn Sources) -> (Vec<Stop>, Vec<String>) 
     }
 
     let mut stops = Vec::new();
+    let mut visited: BTreeSet<String> = BTreeSet::new();
     while !open_paths.is_empty() {
         let mut best: Option<Candidate> = None;
         for (place, here) in &places {
@@ -676,16 +678,20 @@ pub fn route(lines: &[Line], sources: &dyn Sources) -> (Vec<Stop>, Vec<String>) 
             }
             let cost = py_sum(covers.iter().map(|k| here[k].price));
             let cover = -(covers.len() as i64);
-            // Much cover first, then cheap, then by name, so that the result stays stable.
+            let jump = i64::from(!visited.is_empty() && !visited.contains(&place.0));
+            // Much cover first, then no new system, then cheap, then by name, so that the result stays stable.
             let better = match &best {
                 None => true,
-                Some((c, p, k, _)) => (cover, cost, place).partial_cmp(&(*c, *p, k)) == Some(std::cmp::Ordering::Less),
+                Some((c, j, p, k, _)) => {
+                    (cover, jump, cost, place).partial_cmp(&(*c, *j, *p, k)) == Some(std::cmp::Ordering::Less)
+                }
             };
             if better {
-                best = Some((cover, cost, place.clone(), covers));
+                best = Some((cover, jump, cost, place.clone(), covers));
             }
         }
-        let Some((_, _, place, covers)) = best else { break };
+        let Some((_, _, _, place, covers)) = best else { break };
+        visited.insert(place.0.clone());
         let here = &places[&place];
         let mut entries = Vec::new();
         for key in &covers {
@@ -1218,6 +1224,26 @@ mod tests {
         ];
         lines[4].done = true;
         (fake, lines)
+    }
+
+    #[test]
+    fn the_route_stays_in_its_system_before_it_takes_a_cheaper_shop_elsewhere() {
+        let mut fake = Fake::default();
+        fake.shops.insert("a".into(), vec![offer("L", "Lorville", "Stanton", 100.0)]);
+        fake.shops.insert("b".into(), vec![offer("L", "Lorville", "Stanton", 200.0)]);
+        // Cheaper in Pyro, a little dearer in Stanton, where the route already is.
+        fake.shops.insert(
+            "c".into(),
+            vec![offer("O", "Orbituary", "Pyro", 11000.0), offer("N", "New Babbage", "Stanton", 11600.0)],
+        );
+        let lines =
+            vec![part("S", "p1", "a", "One", BUY), part("S", "p2", "b", "Two", BUY), part("S", "p3", "c", "Three", BUY)];
+        let (stops, _) = route(&lines, &fake);
+        assert_eq!(stops.iter().map(|s| s.place.as_str()).collect::<Vec<_>>(), ["Lorville", "New Babbage"]);
+        assert_eq!(route_total(&stops).systems, 1);
+        // Alone on the list the cheapest shop wins: there is no system to stay in yet.
+        let (alone, _) = route(&lines[2..], &fake);
+        assert_eq!(alone[0].place, "Orbituary");
     }
 
     #[test]

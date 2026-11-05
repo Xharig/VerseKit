@@ -604,6 +604,16 @@ impl OverlayApp {
     /// before. A window that moved or got a new size takes the part at once,
     /// and so does one that is resized at the grip: its edge follows the pointer.
     fn follow_region(&mut self, ctx: &egui::Context, canvas_changed: bool) {
+        // Waiting hidden: an empty region, so nothing of the window is drawn and it takes no clicks.
+        if self.waits_hidden() {
+            if self.region != Some(Rect::default()) && os::set_region(self.hwnd, Some(Rect::default()), 0) {
+                self.region = Some(Rect::default());
+            }
+            self.painted = Rect::default();
+            return;
+        }
+        // Back from waiting hidden: the region takes the visible part at once, as for a new window.
+        let canvas_changed = canvas_changed || self.region == Some(Rect::default());
         let visible = self.current.relative_to(self.canvas.x, self.canvas.y);
         let Some(wanted) = self.region_wanted(ctx, canvas_changed, visible) else { return };
         let radius = self.region_radius(ctx);
@@ -1793,7 +1803,8 @@ impl OverlayApp {
             self.follow_system_move();
         }
         let pointer = self.pointer_override.or_else(os::pointer);
-        let hovered = pointer.is_some_and(|p| self.current.contains(p.x, p.y));
+        // A hidden overlay is not there for the pointer either.
+        let hovered = !self.waits_hidden() && pointer.is_some_and(|p| self.current.contains(p.x, p.y));
         if self.probe.is_none() {
             self.vis.set_hovered(now, hovered, self.popup_seconds());
         }
@@ -1811,7 +1822,6 @@ impl OverlayApp {
         let lost = self.counter.as_deref() == Some("leer") && self.was_waiting;
         let empty = Rows::default();
         let rows = if lost { &empty } else { &self.rows };
-        let peek = self.vis.peek(now);
         let hangar = self.hangar_line(contested::now());
         let signature = self.scanner.line(now < self.scanner_line_until);
         let wanted = signature.as_ref().and_then(|_| self.demand_line());
@@ -1840,8 +1850,6 @@ impl OverlayApp {
             signature: signature.as_deref(),
             demand: wanted.as_deref(),
             update: self.update.as_deref().filter(|_| sections.contains(Section::Update)),
-            peek,
-            mode: self.settings.mode,
             game: self.vis.game(),
             locked: self.settings.click_through,
             bar: self.settings.layout.bar,
@@ -1914,7 +1922,7 @@ impl OverlayApp {
         let pointer_now = self.pointer_override.or_else(os::pointer);
         self.step_info_bar(&ctx, pointer_now);
         // No hint while a drag runs: it would follow the pointer over the screen.
-        let hint = self.hint.as_deref().filter(|_| self.drag.is_none());
+        let hint = self.hint.as_deref().filter(|_| self.drag.is_none() && !self.waits_hidden());
         self.hint_window.step(&ctx, hint, pointer_now, scheme);
         self.remember_place();
         ctx.request_repaint_after(TICK);
@@ -1930,6 +1938,12 @@ impl OverlayApp {
 
     fn info_bar_on(&self) -> bool {
         self.settings.info_bar && !self.closed && (self.vis.game() || self.settings.info_bar_always)
+    }
+
+    /// Whether the overlay waits hidden: the game does not run and the player did not ask for the overlay without
+    /// it. The self-check (`--probe`) always has it on the screen.
+    fn waits_hidden(&self) -> bool {
+        !self.vis.game() && !self.settings.overlay_always && self.probe.is_none()
     }
 
     /// The info bar: shown while its switch is on, with the frame rates and the shard while the game runs and the
@@ -2756,7 +2770,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn the_open_and_the_folded_overlay_have_a_rounded_region() {
-        let mut bench = bench(Args::default(), false, None);
+        let mut bench = bench(Args::default(), true, None);
         let hwnd = crate::win::hidden_window();
         assert_ne!(hwnd, 0);
         let ctx = egui::Context::default();
@@ -2778,6 +2792,40 @@ mod tests {
         app.current = open;
         app.follow_region(&ctx, true);
         assert_eq!(crate::win::in_region(hwnd, &open_points), round, "open again: rounded region");
+        crate::win::destroy_window(hwnd);
+    }
+
+    /// Without the game the region of the window is empty: nothing of it is shown and it takes no clicks. With the
+    /// game the visible part comes back at once, and so it does with the switch for showing without the game.
+    #[cfg(windows)]
+    #[test]
+    fn the_region_is_empty_while_the_overlay_waits_hidden() {
+        let mut bench = bench(Args::default(), true, None);
+        let hwnd = crate::win::hidden_window();
+        assert_ne!(hwnd, 0);
+        let ctx = egui::Context::default();
+        let app = &mut bench.app;
+        app.hwnd = hwnd;
+        let open = Rect::new(100, 100, 400, 300);
+        crate::win::set_rect(hwnd, open);
+        (app.canvas, app.current) = (open, open);
+        let points = [(200, 150), (20, 20), (380, 280), (200, 20)];
+        let everywhere = Some(vec![true; points.len()]);
+        app.follow_region(&ctx, true);
+        assert_eq!(crate::win::in_region(hwnd, &points), everywhere, "the game runs: shown");
+        app.vis.set_game(false);
+        app.follow_region(&ctx, false);
+        assert!(crate::win::region_is_empty(hwnd), "no game: nothing of the window");
+        app.follow_region(&ctx, false);
+        assert!(crate::win::region_is_empty(hwnd), "and it stays so");
+        app.vis.set_game(true);
+        app.follow_region(&ctx, false);
+        assert_eq!(crate::win::in_region(hwnd, &points), everywhere, "the game again: the whole part at once");
+        app.vis.set_game(false);
+        app.follow_region(&ctx, false);
+        app.settings.overlay_always = true;
+        app.follow_region(&ctx, false);
+        assert_eq!(crate::win::in_region(hwnd, &points), everywhere, "the switch: shown without the game");
         crate::win::destroy_window(hwnd);
     }
 
@@ -3130,6 +3178,43 @@ mod tests {
         app.settings.info_bar_always = true;
         run_frame(app, &ctx);
         assert!(app.info.shown(), "asked for without the game: the bar shows");
+    }
+
+    /// Without the game the overlay waits hidden, and the pointer on its place neither opens it nor gets a hint; with
+    /// the game it is there, and with its switch on it is there without the game too.
+    #[test]
+    fn the_overlay_waits_hidden_while_the_game_does_not_run() {
+        let _screens = screen::fixed(laptop());
+        let ctx = egui::Context::default();
+        versekit_ui::install(&ctx);
+        let mut bench = popup_bench(versekit_core::overlay::Events::default());
+        let app = &mut bench.app;
+        app.settings.auto_through = false;
+        assert!(!app.settings.overlay_always, "the default: not without the game");
+        let on_it = |app: &OverlayApp| Some(Pointer { hidden: false, x: app.current.x + 4, y: app.current.y + 4 });
+        for _ in 0..3 {
+            run_frame(app, &ctx);
+        }
+        assert!(app.waits_hidden(), "no game: hidden");
+        app.pointer_override = on_it(app);
+        run_frame(app, &ctx);
+        let now = app.now();
+        assert_eq!(app.vis.shown(now), Shown::Strip, "the pointer on its place does not open a hidden overlay");
+        app.pointer_override = None;
+        app.vis.set_game(true);
+        for _ in 0..3 {
+            run_frame(app, &ctx);
+        }
+        assert!(!app.waits_hidden(), "the game runs: it is there");
+        app.pointer_override = on_it(app);
+        run_frame(app, &ctx);
+        let now = app.now();
+        assert_eq!(app.vis.shown(now), Shown::Open, "the pointer on the strip opens it");
+        app.pointer_override = None;
+        app.vis.set_game(false);
+        assert!(app.waits_hidden(), "the game ended: hidden again");
+        app.settings.overlay_always = true;
+        assert!(!app.waits_hidden(), "asked for without the game: it is there");
     }
 
     /// The size of the overlay makes only the overlay larger, the size of the bar only the bar: the context draws at

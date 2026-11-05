@@ -33,7 +33,7 @@ use versekit_core::paths::Paths;
 use versekit_core::refining;
 use versekit_core::stock_data::lower;
 use versekit_core::stock_fetch::{self, Outcome, Reason};
-use versekit_core::theme::Scheme;
+use versekit_core::theme::{IconTint, Scheme};
 
 use crate::color;
 use crate::farm_page::share_text;
@@ -497,7 +497,7 @@ fn method_line(key: &str) -> String {
 /// "Which processing method?": two axes to choose, the method that suits them and all nine in a fold.
 fn method_box(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
     widgets::card(ui, scheme, |card| {
-        card.label(widgets::bold(card, t("s_rm_kopf"), egui::TextStyle::Body));
+        widgets::card_title(card, scheme, &t("s_rm_kopf"));
         card.label(sub(scheme, t("s_rm_lead")));
         let first: Vec<String> =
             std::iter::once(t("s_rm_erste")).chain(refining::AXES.iter().map(|a| axis_word(a))).collect();
@@ -857,45 +857,81 @@ pub(crate) fn bonus_color(scheme: &Scheme, bonus: f64) -> versekit_core::theme::
 fn refinery_box(ui: &mut Ui, scheme: &Scheme, mining: &MiningData, ore: &str) -> bool {
     let rows = refining::for_ore(mining, ore);
     let (Some(best), Some(worst)) = (rows.first(), rows.last()) else { return false };
+    let spread = best.2 - worst.2;
+    // The closed header already names the best refinery, so the list below can stay shut.
+    let title = if spread == 0.0 {
+        tf("s_bg_raff_klappe_gleich", &[("0", Arg::from(t("s_bg_raff_kopf"))), ("1", Arg::from(best.2))])
+    } else {
+        tf(
+            "s_bg_raff_klappe_beste",
+            &[
+                ("0", Arg::from(t("s_bg_raff_kopf"))),
+                ("1", Arg::from(refining::box_name(&best.0).0)),
+                ("2", Arg::from(best.2)),
+            ],
+        )
+    };
     let mut clicked = false;
     egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 8, top: 4, bottom: 8 }).show(ui, |inner| {
         inner.set_width(inner.available_width());
-        inner.label(t("s_bg_raff_kopf"));
-        let spread = best.2 - worst.2;
-        if spread == 0.0 {
-            inner.label(sub(scheme, tf("s_bg_raff_egal", &[("0", Arg::from(best.2))])));
-        } else {
-            for (k, (names, system, bonus)) in rows.iter().enumerate() {
-                let (first, more) = refining::box_name(names);
-                let short = match more {
-                    0 => first,
-                    1 => tf("s_bg_raff_weitere_1", &[("0", Arg::from(first))]),
-                    _ => tf("s_bg_raff_weitere", &[("0", Arg::from(first)), ("1", Arg::from(more))]),
-                };
-                let tone = bonus_color(scheme, *bonus);
-                let frame = egui::Frame::new()
-                    .fill(if k % 2 == 1 { color(scheme.bar) } else { egui::Color32::TRANSPARENT })
-                    .inner_margin(egui::Margin::symmetric(6, 1));
-                frame.show(inner, |row| {
-                    row.set_width(row.available_width());
-                    sides(
-                        row,
-                        |left| {
-                            left.label(short.clone());
-                            left.label(sub(scheme, system.clone()));
-                        },
-                        |right| {
-                            right.label(
-                                RichText::new(tf("s_bg_raff_zeile", &[("0", Arg::from(*bonus))])).color(color(tone)),
-                            );
-                        },
-                    );
-                });
-            }
-            inner.label(sub(scheme, tf("s_bg_raff_spanne", &[("0", Arg::from(spread.trunc() as i64))])));
+        // The open state lives in egui's memory under the ore: kept for the session, closed at the start.
+        // A header whose text wraps (the title is long), with the same Lucide chevron as `widgets::collapsing`.
+        let id = inner.make_persistent_id(("refinery-fold", ore));
+        let mut state = egui::collapsing_header::CollapsingState::load_with_default_open(inner.ctx(), id, false);
+        let mut label_clicked = false;
+        let head = inner.horizontal_top(|head| {
+            state.show_toggle_button(head, |ui, openness, response| {
+                let name = if openness > 0.5 { "chevron-down" } else { "chevron-right" };
+                let size = response.rect.height().max(12.0) + 4.0;
+                let tint = if response.hovered() { IconTint::Hover } else { IconTint::Normal };
+                if let Some(image) = crate::icons::themed(name, versekit_core::theme::current(), tint, size) {
+                    image.paint_at(ui, egui::Rect::from_center_size(response.rect.center(), egui::Vec2::splat(size)));
+                }
+            });
+            let label = egui::Label::new(&title).wrap().sense(egui::Sense::click());
+            label_clicked = head.add(label).on_hover_cursor(egui::CursorIcon::PointingHand).clicked();
+        });
+        if label_clicked {
+            state.toggle(inner);
         }
-        let word = t("s_bg_raff_alle");
-        clicked = inner.add(widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked();
+        let body = state.show_body_indented(&head.response, inner, |inner| {
+            if spread == 0.0 {
+                inner.label(sub(scheme, tf("s_bg_raff_egal", &[("0", Arg::from(best.2))])));
+            } else {
+                for (k, (names, system, bonus)) in rows.iter().enumerate() {
+                    let (first, more) = refining::box_name(names);
+                    let short = match more {
+                        0 => first,
+                        1 => tf("s_bg_raff_weitere_1", &[("0", Arg::from(first))]),
+                        _ => tf("s_bg_raff_weitere", &[("0", Arg::from(first)), ("1", Arg::from(more))]),
+                    };
+                    let tone = bonus_color(scheme, *bonus);
+                    let frame = egui::Frame::new()
+                        .fill(if k % 2 == 1 { color(scheme.bar) } else { egui::Color32::TRANSPARENT })
+                        .inner_margin(egui::Margin::symmetric(6, 1));
+                    frame.show(inner, |row| {
+                        row.set_width(row.available_width());
+                        sides(
+                            row,
+                            |left| {
+                                left.label(short.clone());
+                                left.label(sub(scheme, system.clone()));
+                            },
+                            |right| {
+                                right.label(
+                                    RichText::new(tf("s_bg_raff_zeile", &[("0", Arg::from(*bonus))]))
+                                        .color(color(tone)),
+                                );
+                            },
+                        );
+                    });
+                }
+                inner.label(sub(scheme, tf("s_bg_raff_spanne", &[("0", Arg::from(spread.trunc() as i64))])));
+            }
+            let word = t("s_bg_raff_alle");
+            inner.add(widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked()
+        });
+        clicked = body.is_some_and(|body| body.inner);
     });
     clicked
 }

@@ -58,6 +58,11 @@ Once a day VerseKit sends exactly these details to `nutzung-versekit.xharig.com`
 | which page you left again after a few seconds, and where you stayed next | Selling → Shops: 7× |
 | how often you added a material or a refinery yield to My Inventory by hand | added by hand: 2× |
 | how often you opened the "What's new" gallery and opened a page from it | gallery opened: 1× |
+| from VerseKit 5.2: the age of the installation in days, without an ID (from 31 days only "older") | 3 days |
+
+The age is counted on its own, not together with version, system or country.
+This shows how many people are new and how many are still there after a week,
+but not who.
 
 The page and action details are only counters since the last report, using
 fixed IDs: no content, no amounts, no resources, no search terms, no names, no
@@ -79,9 +84,11 @@ it, and with it the counting of pages.
 
 The download buttons on versekit.xharig.com lead through `xharig.com/windows`
 and `xharig.com/linux` to the file on GitHub. On that path we count: the day,
-the system and the **country** that Cloudflare detects by itself. No IP
-address, no city, no ID, no cookie. Downloading directly from GitHub is not
-counted here.
+the system and the **country** that Cloudflare detects by itself. If the link
+carries a channel tag (such as `xharig.com/windows?ref=discord`, to show which
+post brought downloads), that is counted per day as well, on its own and not
+together with system or country. No IP address, no city, no ID, no cookie.
+Downloading directly from GitHub is not counted here.
 
 ## Problem report
 

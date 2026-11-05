@@ -598,7 +598,8 @@ fn a_side_channel_gets_its_language_and_the_notes_like_the_main_installation() {
     assert!(text.contains("Kopfgeld <EM4>[BP]</EM4>"), "{text}");
     assert!(text.starts_with(&format!("Frontend_PU_Version=Luftwerft PTU\\nVerseKit v{} · ", version())), "{text}");
     assert_eq!(injection::load_origtext(&s.paths), live_note, "the note of LIVE is untouched");
-    assert!(game_ini::is_file(&s.paths.app_file("injektion-urtext@PTU.json")), "PTU keeps a note of its own");
+    let note = "injektion-urtext@PTU.json"; // privacy-ok: a file name with the channel after the @, no mail.
+    assert!(game_ini::is_file(&s.paths.app_file(note)), "PTU keeps a note of its own");
     // The menu line of the game: the button "Wieder entfernen" takes the notes out of both channels.
     remove(&s.paths);
     assert_eq!(fs::read_to_string(&german).unwrap(), before);

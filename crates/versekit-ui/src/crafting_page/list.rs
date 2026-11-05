@@ -248,6 +248,18 @@ fn menu_frame(scheme: &Scheme) -> egui::Frame {
         .inner_margin(egui::Margin::same(4))
 }
 
+/// Room the window keeps free above and below a menu.
+pub(super) const MENU_MARGIN: f32 = 24.0;
+/// A menu is at least this high, however small the window.
+const MENU_MIN: f32 = 120.0;
+
+/// The entries of a menu: at most as high as the window, the rest scrolls.
+pub(super) fn menu_entries(menu: &mut Ui, scheme: &Scheme, add: impl FnOnce(&mut Ui)) {
+    let room = (menu.ctx().content_rect().height() - 2.0 * MENU_MARGIN).max(MENU_MIN);
+    let area = egui::ScrollArea::vertical().id_salt("entries").max_height(room).auto_shrink([true, true]);
+    widgets::scroll_area(menu, scheme, area, add);
+}
+
 /// One entry of a menu: a tick where it is chosen, the text, muted when
 /// nothing stands under it.
 fn menu_row(ui: &mut Ui, scheme: &Scheme, ticked: bool, text: &str, empty: bool) -> egui::Response {
@@ -346,17 +358,19 @@ fn category_bar(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
             let id = row.make_persistent_id(("herstellung-kategorie", index));
             egui::Popup::menu(&response).id(id).frame(menu_frame(scheme)).show(|menu| {
                 menu.set_min_width(180.0);
-                let all = format!("{} ({})", names.all(), per_category[index]);
-                if menu_row(menu, scheme, on && picks.sub.is_none(), &all, per_category[index] == 0).clicked() {
-                    chosen = Some((index, None));
-                }
-                for sub in category.subs {
-                    let n = counts.get(&Place { category: index, sub: Some(sub.key) }).copied().unwrap_or(0);
-                    let text = format!("{} ({n})", names.sub(sub.key));
-                    if menu_row(menu, scheme, on && picks.sub == Some(sub.key), &text, n == 0).clicked() {
-                        chosen = Some((index, Some(sub.key)));
+                menu_entries(menu, scheme, |menu| {
+                    let all = format!("{} ({})", names.all(), per_category[index]);
+                    if menu_row(menu, scheme, on && picks.sub.is_none(), &all, per_category[index] == 0).clicked() {
+                        chosen = Some((index, None));
                     }
-                }
+                    for sub in category.subs {
+                        let n = counts.get(&Place { category: index, sub: Some(sub.key) }).copied().unwrap_or(0);
+                        let text = format!("{} ({n})", names.sub(sub.key));
+                        if menu_row(menu, scheme, on && picks.sub == Some(sub.key), &text, n == 0).clicked() {
+                            chosen = Some((index, Some(sub.key)));
+                        }
+                    }
+                });
             });
         }
     });
@@ -409,14 +423,16 @@ fn ship_button(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
                 menu.add(egui::Label::new(sub(scheme, t("s_he_schiff_leer"))).wrap());
                 return;
             }
-            if menu_row(menu, scheme, state.picks.ship.is_empty(), &t("s_he_schiff_alle"), false).clicked() {
-                picked = Some(String::new());
-            }
-            for name in &names {
-                if menu_row(menu, scheme, state.picks.ship == *name, name, false).clicked() {
-                    picked = Some(name.clone());
+            menu_entries(menu, scheme, |menu| {
+                if menu_row(menu, scheme, state.picks.ship.is_empty(), &t("s_he_schiff_alle"), false).clicked() {
+                    picked = Some(String::new());
                 }
-            }
+                for name in &names {
+                    if menu_row(menu, scheme, state.picks.ship == *name, name, false).clicked() {
+                        picked = Some(name.clone());
+                    }
+                }
+            });
         },
     );
     if let Some(ship) = picked {

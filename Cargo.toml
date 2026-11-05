@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "5.1.0"
+version = "5.1.1"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
@@ -84,3 +84,11 @@ windows-sys = { version = "0.61", features = [
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# Debug builds keep line numbers for the workspace crates and no debug info for dependencies,
+# which keeps target/debug small; backtraces still name file and line.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

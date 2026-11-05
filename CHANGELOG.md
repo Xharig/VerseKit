@@ -6,6 +6,103 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.1 - 2026-11-05
+
+> Handle-Suche und Beziehungen liegen auf einer Seite, der Notizblock
+> formatiert mit einer Knopfleiste, unter Module schaltest du
+> Herstellung, Bergbau und Beschaffung getrennt, und das Overlay wartet
+> ohne laufendes Spiel verborgen.
+
+### Neu
+
+- **Handle-Suche mit zwei Reitern** — Handle-Suche und Beziehungen sind
+  jetzt eine Seite mit den Reitern „Suche“ und „Beziehungen“. Der alte
+  Menüpunkt Beziehungen führt direkt auf seinen Reiter.
+- **Notizblock mit Knopfleiste** — Fett, Kursiv, Unterstrichen,
+  Durchgestrichen, Aufzählung, Nummerierung und kleine Tabellen per Knopf
+  oder mit Strg+B, Strg+I und Strg+U. Die Formatierung siehst du direkt,
+  Markdown-Zeichen tauchen im Text nicht auf.
+- **Raffinerie je Erz einklappbar** — Unter Bergbau lässt sich jedes Erz
+  einer Raffinerie zuklappen, lange Aufträge bleiben übersichtlich.
+- **Overlay wartet ohne Spiel verborgen** — Läuft Star Citizen nicht, ist
+  das Overlay unsichtbar und fängt keine Klicks ab. Wer es trotzdem sehen
+  will, schaltet unter Einstellungen › Overlay „Auch ohne laufendes Spiel
+  zeigen“ ein. Gemeldet von fok
+
+### Verbessert
+
+- **Overlay ohne reine Zustandszeilen** — Der wartende Streifen ist nur
+  noch das Auge. „Star Citizen läuft nicht“, der Countdown, „Bleibt,
+  solange …“ und „Warte auf neue Baupläne“ fallen weg. Gemeldet von fok
+- **Einkaufsroute bleibt im System** — Gibt es ein Teil in einem System,
+  das du ohnehin anfliegst, nimmt die Route diesen Laden, statt für einen
+  etwas günstigeren Preis in ein anderes System zu springen.
+- **Spielkanäle neben „Start des Spiels“** — Unter Installation & Pfade
+  steht die Karte Spielkanäle jetzt in derselben Reihe wie die anderen.
+- **Pinnadel für Handle-Suche und Beziehungen** — Beide Seiten haben
+  oben neben dem Titel die Pinnadel wie die anderen Seiten. Ein Klick
+  heftet sie als Karte auf die Übersicht, ein zweiter löst sie wieder.
+- **Herstellung und Bergbau getrennt** — Unter Einstellungen › Module ist
+  „Herstellen, Bergbau & Raffinerien“ jetzt zwei Module: „Herstellung“
+  (mit „Was ich farmen muss“) und „Bergbau & Raffinerien“. Wer nur minen
+  will, blendet die Herstellung aus und umgekehrt. Hattest du das alte
+  Modul aus, bleiben beide aus.
+- **Info-Leiste rastet am Rand ein** — Wie das Overlay springt die
+  Info-Leiste an den Bildschirmrand, wenn du sie knapp davor loslässt, und
+  bleibt ganz auf dem Bildschirm. Angeregt von Kuehlwagen
+- **Modul Beschaffung** — Einkaufsliste und Contested Zones lassen sich
+  jetzt zusammen ausblenden. Die Einkaufsliste hing bisher am Modul
+  Schiffe; hattest du das aus, bleibt auch Beschaffung aus.
+- **Karten auf mehr Seiten** — „Sichern & Zurücksetzen“, „Spiel“, „Achsen &
+  Kurven“ und „Update & Über“ zeigen jeden Block in einer eigenen Karte, wie
+  „Installation & Pfade“. Große Zwischenüberschriften sind Kartentitel
+  geworden, nichts steht mehr lose zwischen den Karten.
+- **Einheitliche Kartenüberschriften** — Jede Karte trägt ihren Titel gleich:
+  fett, grün, eine Stufe größer als der Text darunter und in normaler
+  Schreibweise statt in kleinen grünen Großbuchstaben.
+- **Raffinerie-Tabelle wächst mit dem Fenster** — Die Spalten teilen sich
+  die ganze Breite, die Zeilen werden bei Platz bis zum unteren Rand höher.
+  Die Erznamen stehen so groß wie die Werte daneben.
+- **Bayrisch in der Reihe von Deutsch** — Unter Übersetzung steht die
+  bayrische Fassung von Luftwerft jetzt in derselben Reihe wie die
+  deutschen, heißt „Bayrisch (Luftwerft) [FUN]“ und trägt direkt daneben
+  den Hinweis „work in progress“.
+
+### Behoben
+
+- **Grafik-Seite zuckte** — Lag zwischen zwei Bildern eine kurze Pause,
+  las die Seite den Rechner neu ein und klappte den Kasten „Dein Rechner
+  laut Spiel“ kurz zusammen. Alles darunter sprang. Jetzt bleibt die
+  Anzeige stehen, bis die neuen Werte da sind.
+- **Einstufung des Spiels fehlte** — VerseKit suchte die Einstufung
+  („Final rating“) nur in den 40 neuesten Spiel-Logs. Wer seit der
+  letzten Einstufung öfter gespielt hat, sah „Noch nicht eingestuft“.
+  Jetzt wird jedes alte Log einmal durchsucht, danach nur noch die neuen.
+- **Vorschau „Lage des Fensters“ winzig** — Ohne Spielbild zeigte die
+  Vorschau die gemerkte Stelle der Signatur maßstabsgetreu, auf breiten
+  Bildschirmen kaum zu sehen. Jetzt steht dort wie beim Suchrahmen eine gut
+  lesbare Signatur; mit Spielbild bleibt es die echte Stelle.
+- **Handle-Suche vergaß nichts** — „Gefundene Handles speichern, Tage“
+  galt nur für die Frage an die RSI-Seite. „Zuletzt gesucht“ zeigte
+  trotzdem ältere Handles. Jetzt verschwinden Handles nach den eingestellten
+  Tagen aus der Liste und aus dem Speicher. Die Liste zeigt höchstens 5
+  Handles statt 8.
+- **Spielkanäle in Mini-Schrift** — Unter Installation & Pfade steht der
+  Block „Spielkanäle“ jetzt als Karte wie die anderen, in normaler Schrift.
+- **Lange Menüs der Herstellung liefen aus dem Fenster** — Die Auswahl
+  „Für Schiff“ und die Kategorien sind jetzt höchstens so hoch wie das
+  Fenster und lassen sich scrollen.
+- **Erzkapseln passten angeblich in jedes Bergbauschiff** — „Passt in“
+  verglich nur Art und Größe. Jetzt passt eine Kapsel nur in Schiffe ihres
+  Herstellers: Argo in die MOLE, MISC in die Prospector, Drake und GOLEM in
+  die Golem. Die „MISC Enhanced Ore Pod“ baut Argo, sie passt in MOLE und
+  Prospector. Die Zeile heißt dazu „Passt in deine Schiffe“.
+- **„Für Schiff“ fand bei manchen Schiffen keine Komponenten** — Bei
+  Schiffen wie F7C-M Super Hornet Mk II, F8C, Arrow, Eclipse oder Polaris
+  zeigte die Herstellung mit „Für Schiff“ nur Waffen, aber keine Kühler,
+  Kraftwerke, Schilde oder Quantenantriebe. Ihre Steckplätze werden jetzt
+  vollständig gezählt, auch bei „Passt in dein Schiff“.
+
 ## v5.1.0 - 2026-11-05
 
 > Das Overlay zeigt mehr und lässt sich genauer einstellen, Mein Lager
@@ -18,7 +115,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   „Für Schiff“ eines deiner Schiffe aus Mein Hangar. Die Liste zeigt dann
   nur Teile, die in eine Halterung des Schiffs passen, mit und ohne
   Bauplan. Auf der Schiffskarte im Hangar springt „Herstellbare Teile“
-  direkt dorthin. Vorgeschlagen von StarGround und LunaticSmile [KRT]
+  direkt dorthin. Vorgeschlagen von LunaticSmile [KRT]
 - **Verkäufe im Laden als Vorschlag in Mein Lager** — Was du im Spiel im
   Laden verkaufst, schlägt Mein Lager unter „Laut Log neu“ zum Abbuchen
   vor. Du buchst oder verwirfst jeden Verkauf einzeln oder alle auf

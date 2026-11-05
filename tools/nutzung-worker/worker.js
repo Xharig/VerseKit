@@ -14,6 +14,7 @@
 //                             Tag, System und Land und leiten IMMER auf die
 //                             neueste Datei bei GitHub weiter — auch wenn das
 //                             Zählen scheitert. Vorschau-Roboter zählen nicht.
+//                             `?ref=<kanal>` zählt dazu den Kanal (`channel`).
 //   statistik-versekit.xharig.com      privat. Davor sitzt Cloudflare Access (Anmeldung
 //                             über GitHub); der Worker prüft dessen Zeichen
 //                             ZUSÄTZLICH selbst (`verifyAccess`). Fehlt die
@@ -39,8 +40,12 @@ const MODULE_RE = /^[a-z]{1,20}$/;
 const MAX_MODULES = 12;
 const OVERLAY = ['immer', 'popup'];
 const VIEWS = ['karten', 'reiter'];
-const FIELDS = ['actions', 'autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os',
+const FIELDS = ['actions', 'alter', 'autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os',
                 'overlay', 'pages', 'rc', 'tiles_off', 'ui', 'update', 'v', 'view'];
+// Alter der Installation in ganzen Tagen; alles ab 31 meldet das Programm als 31.
+export const MAX_AGE = 31;
+// Kanal-Kennzeichen an den Kurzlinks (`?ref=discord`). Alles andere wird verworfen.
+const REF_RE = /^[a-z]{1,20}$/;
 const COUNTRY_RE = /^[A-Z][A-Z0-9]$/;   // ISO-Kürzel; Cloudflare nutzt auch T1 (Tor), XX (unbekannt)
 const STATS_HOST = 'statistik-versekit.xharig.com';
 const MAX_DAYS = 400;
@@ -125,6 +130,13 @@ export async function check(request) {
       seen.add(k);
       out.traits.push(['kachel_aus', k]);
     }
+  }
+  // Ab VerseKit 5.2: wie viele Tage die Installation alt ist. Fehlt das Feld
+  // (ältere Fassungen), bleibt `alter` null und die Meldung gilt trotzdem.
+  out.alter = null;
+  if (d.alter !== undefined) {
+    if (!Number.isInteger(d.alter) || d.alter < 0 || d.alter > MAX_AGE) throw { status: 400, text: 'alter' };
+    out.alter = d.alter;
   }
   out.nav = navigation(d);
   return out;
@@ -236,6 +248,16 @@ async function ping(request, env) {
   await env.DB.batch(statements);
   // ⚠ Getrennt und abgefangen: Fehlen die Seiten-Tabellen noch (schema.sql
   // nicht eingespielt), zählt die Installation trotzdem.
+  if (c.alter !== null) {
+    try {
+      await env.DB.prepare(
+        'INSERT INTO installationen_alter (tag, tage, n) VALUES (?1, ?2, 1) ' +
+        'ON CONFLICT (tag, tage) DO UPDATE SET n = n + 1'
+      ).bind(day, c.alter).run();
+    } catch (e) {
+      await store(env, 'fehler_alter', { ausnahme: String(e && e.message).slice(0, 200) }).catch(() => {});
+    }
+  }
   const nav = navStatements(env.DB, day, c.nav);
   if (nav.length) {
     try {
@@ -412,12 +434,29 @@ async function data(env, ctx, days) {
   const nav = await Promise.all(NAV_TABLES.map((table) =>
     env.DB.prepare(`SELECT * FROM ${table} WHERE tag >= ?1`).bind(since).all()
       .then((r) => r.results || []).catch(() => [])));
+  // Für den Block „Wie läuft VerseKit?" und die Wochenkurve: unabhängig vom
+  // gewählten Zeitraum. Je Tag nur die Summe (eine Zeile je Tag, auch über
+  // Jahre klein); Alter und Kanäle nur die letzten Wochen, mehr braucht der
+  // Vergleich mit der Vorwoche nicht.
+  const recent = new Date(Date.now() - SUCCESS_DAYS * 86400000).toISOString().slice(0, 10);
+  const [sums, ages, refs] = await Promise.all([
+    env.DB.prepare('SELECT tag, SUM(n) AS n FROM tage GROUP BY tag ORDER BY tag').all()
+      .then((r) => r.results || []).catch(() => []),
+    env.DB.prepare('SELECT tag, tage, n FROM installationen_alter WHERE tag >= ?1').bind(recent).all()
+      .then((r) => r.results || []).catch(() => []),
+    env.DB.prepare('SELECT tag, kanal, n FROM downloads_kanal WHERE tag >= ?1').bind(recent).all()
+      .then((r) => r.results || []).catch(() => []),
+  ]);
   return { tage: t.results || [], merkmale: m.results || [], downloads: dl.liste,
            downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [],
            bestand: bestand.results || [], verlauf: verlauf.results || [],
            seiten: nav[0], seiten_wege: nav[1], seiten_klicks: nav[2], seiten_fehlgriffe: nav[3],
-           seiten_handlungen: nav[4] };
+           seiten_handlungen: nav[4], tage_summe: sums, alter: ages, kanaele: refs };
 }
+
+// Wie weit „Alter" und „Kanäle" zurückreichen: drei Wochen für das Bleiben
+// (Neue der Vorwoche plus 7 Tage) und etwas Luft.
+const SUCCESS_DAYS = 35;
 
 const NAV_TABLES = ['seiten', 'seiten_wege', 'seiten_klicks', 'seiten_fehlgriffe', 'seiten_handlungen'];
 
@@ -440,6 +479,14 @@ export function countsAsDownload(request) {
   return agent.length > 0 && !NOT_A_PERSON.test(agent);
 }
 
+// Das Kanal-Kennzeichen am Kurzlink (`xharig.com/windows?ref=discord`) oder
+// null. Nur Kleinbuchstaben a–z, höchstens 20 Zeichen; alles andere wird
+// verworfen (der Download zählt dann ohne Kanal).
+export function channel(request) {
+  const ref = new URL(request.url).searchParams.get('ref');
+  return ref !== null && REF_RE.test(ref) ? ref : null;
+}
+
 async function countDownload(request, env, link) {
   if (!env.DB || !env.LIMIT || !countsAsDownload(request)) return;
   // Dieselbe Adresse mehrfach in kurzer Zeit (Doppelklick, Abbruch und neu)
@@ -452,6 +499,14 @@ async function countDownload(request, env, link) {
     'INSERT INTO downloads (tag, system, land, n) VALUES (?1, ?2, ?3, 1) ' +
     'ON CONFLICT (tag, system, land) DO UPDATE SET n = n + 1'
   ).bind(day, link.system, country(request)).run();
+  const kanal = channel(request);
+  if (kanal) {
+    // Abgefangen: fehlt die Tabelle noch, zählt der Download oben trotzdem.
+    await env.DB.prepare(
+      'INSERT INTO downloads_kanal (tag, kanal, n) VALUES (?1, ?2, 1) ' +
+      'ON CONFLICT (tag, kanal) DO UPDATE SET n = n + 1'
+    ).bind(day, kanal).run().catch(() => {});
+  }
 }
 
 function shortLink(request, env, ctx, link) {
@@ -503,7 +558,7 @@ async function exportAll(env) {
   for (const t of tables) {
     out[t] = (await env.DB.prepare('SELECT * FROM ' + t).all()).results || [];
   }
-  for (const t of NAV_TABLES) {
+  for (const t of [...NAV_TABLES, 'downloads_kanal', 'installationen_alter']) {
     out[t] = await env.DB.prepare('SELECT * FROM ' + t).all()
       .then((r) => r.results || []).catch(() => []);
   }
@@ -564,6 +619,9 @@ export default {
     if (SHORT_HOSTS.includes(url.hostname) && SHORT_LINKS[shortPath]) {
       return shortLink(request, env, ctx, SHORT_LINKS[shortPath]);
     }
+    // The routes end in `*` so that `?ref=` reaches the worker; any other path
+    // they catch on the website (`/windowsxyz`) goes on to the website itself.
+    if (SHORT_HOSTS.includes(url.hostname)) return fetch(request);
     if (url.pathname === '/ping') return ping(request, env);
     return answer(404, 'nicht hier');
   },

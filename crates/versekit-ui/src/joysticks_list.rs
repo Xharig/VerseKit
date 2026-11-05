@@ -482,8 +482,7 @@ pub fn show(
     use crate::joysticks_bind::Outcome;
     let (own, stored) = (data.own, data.stored);
     state.poll(ui, paths);
-    let title = widgets::bold(ui, t("s_js_belegt"), egui::TextStyle::Body);
-    ui.label(title);
+    widgets::card_title(ui, scheme, &t("s_js_belegt"));
     ui.add_space(GAP);
     // The four buttons above the table: profile, file, list, play back.
     let names_now = state.names.clone();

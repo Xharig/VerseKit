@@ -342,14 +342,33 @@ test('vom Download wird weder IP noch Stadt gespeichert', async () => {
   assert.ok(!stored.includes('203.0.113.9') && !stored.includes('Moskau'), stored);
 });
 
-test('andere Pfade auf xharig.com gehören nicht dem Worker', async () => {
-  const r = await worker.fetch(short('/discord'), env(), ctxCollect());
-  assert.equal(r.status, 404);
+test('andere Pfade auf xharig.com gehen an die Webseite weiter', async () => {
+  const before = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (req) => { seen.push(new URL(req.url).pathname); return new Response('seite', { status: 200 }); };
+  try {
+    const r = await worker.fetch(short('/windowsxyz'), env(), ctxCollect());
+    assert.equal(r.status, 200);
+    assert.deepEqual(seen, ['/windowsxyz']);
+  } finally {
+    globalThis.fetch = before;
+  }
 });
 
-test('alle vier Schreibweisen der Kurzlinks führen zur Datei', async () => {
+test('die Routen fangen die Kurzlinks auch mit ?ref=', () => {
+  const toml = readFileSync(new URL('./wrangler.toml', import.meta.url), 'utf-8');
+  const patterns = [...toml.matchAll(/pattern = "([^"]+)"/g)].map((m) => m[1]);
+  const covers = (url) => patterns.some((p) => p.endsWith('*') ? url.startsWith(p.slice(0, -1)) : url === p);
+  for (const url of ['xharig.com/windows?ref=discord', 'www.xharig.com/linux?ref=reddit',
+                     'xharig.com/windows/', 'xharig.com/linux']) {
+    assert.ok(covers(url), url + ' fängt keine Route: ' + patterns.join(', '));
+  }
+});
+
+test('alle Schreibweisen der Kurzlinks führen zur Datei', async () => {
   for (const url of ['https://xharig.com/windows', 'https://xharig.com/windows/',
-                     'https://www.xharig.com/windows', 'https://www.xharig.com/linux/']) {
+                     'https://www.xharig.com/windows', 'https://www.xharig.com/linux/',
+                     'https://xharig.com/windows?ref=discord', 'https://xharig.com/linux/?ref=discord']) {
     const req = new Request(url, { headers: { 'user-agent': 'Mozilla/5.0 Firefox/130.0' } });
     Object.defineProperty(req, 'cf', { value: { country: 'DE' } });
     const r = await worker.fetch(req, env(), ctxCollect());
@@ -679,7 +698,7 @@ test('die größte mögliche Meldung passt unter MAX_BYTES und wird angenommen',
   const longest = ids.slice().sort((a, b) => b.length - a.length);
   const big = {
     ...FULL,
-    mods: ['schiffe', 'werkstatt', 'bergung', 'handel', 'statistiken'],
+    mods: ['basetool', 'schiffe', 'werkstatt', 'bergbau', 'bergung', 'handel', 'beschaffung', 'statistiken'],
     pages: Object.fromEntries(ids.map((p) => [p, MAX_COUNT])),
     entry: Object.fromEntries(ids.map((p) => [p, Object.fromEntries(Object.keys(ROUTES).map((w) => [w, MAX_COUNT]))])),
     clicks: Object.fromEntries(ids.map((p) => [p, Object.fromEntries(
@@ -744,4 +763,258 @@ test('Export über den echten Weg: Dienst-Zeichen bekommt alle Tabellen', async 
                    ...NAV_TABLE_NAMES]) assert.ok(Array.isArray(j[t]), t);
   const r2 = await worker.fetch(statsReq('/daten', jwt), env, undefined, verify);
   assert.equal(r2.status, 403, 'das Dienst-Zeichen sieht die Übersicht nicht');
+});
+
+// ---------------------------------------------------------------- Erfolg: Alter, Kanal, Vorwoche
+
+import { channel, MAX_AGE } from './worker.js';
+import { trend, activeWeek, newWeek, stayWeek, downloadsWeek, topChannel, weeklyActive,
+         releaseMarks, weekDays, dayBefore, ERFOLG } from './erfolg.js';
+
+test('Vorbedingung: das Alter der Installation wird je Tag und Alter gezählt (echtes SQLite)', async () => {
+  const e = { ...env(), DB: realD1() };
+  for (const alter of [0, 0, 7, MAX_AGE]) {
+    assert.equal((await worker.fetch(ping({ ...FULL, alter }), e)).status, 204, String(alter));
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  assert.deepEqual(rows(e.DB.db, 'installationen_alter'),
+    [{ tag: day, tage: 0, n: 2 }, { tag: day, tage: 7, n: 1 }, { tag: day, tage: 31, n: 1 }]);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 4);
+});
+
+test('das Alter steht ohne Kennung, Version, Land oder System', async () => {
+  const e = { ...env(), DB: realD1() };
+  await worker.fetch(ping({ ...FULL, alter: 3 }), e);
+  const cols = e.DB.db.prepare('PRAGMA table_info(installationen_alter)').all().map((c) => c.name);
+  assert.deepEqual(cols, ['tag', 'tage', 'n']);
+  const merk = e.DB.db.prepare('SELECT merkmal FROM merkmale').all().map((r) => r.merkmal);
+  assert.ok(!merk.includes('alter'), 'Alter auch unter den Merkmalen');
+});
+
+test('Meldungen ohne Alter bleiben gültig und schreiben kein Alter', async () => {
+  const e = { ...env(), DB: realD1() };
+  assert.equal((await worker.fetch(ping(FULL), e)).status, 204);
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM installationen_alter').get().n, 0);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 1);
+});
+
+test('falsches Alter wird abgelehnt, die ganze Meldung', async () => {
+  for (const alter of [-1, MAX_AGE + 1, 3.5, '7', true, null, [1], 1e9]) {
+    const e = { ...env(), DB: realD1() };
+    const r = await worker.fetch(ping({ ...FULL, alter }), e);
+    assert.equal(r.status, 400, JSON.stringify(alter));
+    assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM tage').get().n, 0, JSON.stringify(alter));
+  }
+});
+
+test('fehlt die Alters-Tabelle noch, zählt die Installation trotzdem', async () => {
+  const e = { ...env(), DB: realD1() };
+  e.DB.db.exec('DROP TABLE installationen_alter');
+  assert.equal((await worker.fetch(ping({ ...FULL, alter: 0 }), e)).status, 204);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM tage').get().n, 1);
+});
+
+test('Vorbedingung: ein Kurzlink mit ?ref= zählt den Kanal mit (echtes SQLite)', async () => {
+  const e = { ...env(), DB: realD1() }; const c = ctxCollect();
+  const r = await worker.fetch(short('/windows?ref=discord'), e, c); await Promise.all(c.p);
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get('location'), 'https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-Setup.exe');
+  const day = new Date().toISOString().slice(0, 10);
+  assert.deepEqual(rows(e.DB.db, 'downloads_kanal'), [{ tag: day, kanal: 'discord', n: 1 }]);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM downloads').get().n, 1);
+  const cols = e.DB.db.prepare('PRAGMA table_info(downloads_kanal)').all().map((x) => x.name);
+  assert.deepEqual(cols, ['tag', 'kanal', 'n'], 'Kanal ohne System und Land');
+});
+
+test('falsches Kanal-Kennzeichen wird verworfen, der Download zählt trotzdem', async () => {
+  for (const ref of ['Discord', 'dis-cord', 'a'.repeat(21), '', 'x1', 'ü', '%3Cscript%3E', 'discord&ref=x']) {
+    const e = { ...env(), DB: realD1() }; const c = ctxCollect();
+    const r = await worker.fetch(short('/linux?ref=' + ref), e, c); await Promise.all(c.p);
+    assert.equal(r.status, 302, ref);
+    assert.match(r.headers.get('location'), /VerseKit-x86_64\.AppImage$/, ref);
+    assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM downloads_kanal').get().n,
+      ref === 'discord&ref=x' ? 1 : 0, ref);
+    assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM downloads').get().n, 1, ref);
+  }
+  assert.equal(channel(new Request('https://xharig.com/windows?ref=' + 'a'.repeat(20))), 'a'.repeat(20));
+  assert.equal(channel(new Request('https://xharig.com/windows')), null);
+});
+
+test('Roboter mit ?ref= zählen auch keinen Kanal; fehlt die Kanal-Tabelle, zählt der Download', async () => {
+  let e = { ...env(), DB: realD1() }; let c = ctxCollect();
+  await worker.fetch(short('/windows?ref=discord', { agent: 'Discordbot/2.0' }), e, c); await Promise.all(c.p);
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM downloads_kanal').get().n, 0);
+  e = { ...env(), DB: realD1() }; c = ctxCollect();
+  e.DB.db.exec('DROP TABLE downloads_kanal');
+  const r = await worker.fetch(short('/windows?ref=discord'), e, c); await Promise.all(c.p);
+  assert.equal(r.status, 302);
+  assert.equal(e.DB.db.prepare('SELECT SUM(n) AS n FROM downloads').get().n, 1);
+});
+
+test('die Übersicht bekommt Tagessummen über die ganze Zeit, Alter und Kanäle', async () => {
+  const e = { ...env(), DB: realD1() };
+  e.DB.db.exec("INSERT INTO tage VALUES ('2020-01-01', '1.0.0', 'windows', 'DE', 3), ('2020-01-01', '1.0.0', 'linux', 'DE', 2)");
+  await worker.fetch(ping({ ...FULL, alter: 0 }), e);
+  const c = ctxCollect(); await worker.fetch(short('/windows?ref=forum'), e, c); await Promise.all(c.p);
+  globalThis.fetch = async () => new Response('[]');
+  const d = await (await worker.fetch(statsReq('/daten?tage=30', await token()), e, undefined, verify)).json();
+  assert.deepEqual(d.tage_summe[0], { tag: '2020-01-01', n: 5 }, 'alte Tage trotz Zeitraum 30');
+  assert.equal(d.tage.some((r) => r.tag === '2020-01-01'), false, 'die Tageszeilen bleiben im Zeitraum');
+  assert.deepEqual(d.alter.map((r) => [r.tage, r.n]), [[0, 1]]);
+  assert.deepEqual(d.kanaele.map((r) => [r.kanal, r.n]), [['forum', 1]]);
+  const env2 = { ...env0(), DB: e.DB, SERVICE_ID: 'abc.access' };
+  const j = await (await worker.fetch(statsReq('/export', await token({ email: undefined, common_name: 'abc.access' })), env2, undefined, verify)).json();
+  assert.equal(j.installationen_alter.length, 1);
+  assert.equal(j.downloads_kanal.length, 1);
+});
+
+// Rechnungen gegen feste Tage. Heute = Donnerstag 05.11.2026; diese Woche =
+// 29.10. bis 04.11., Vorwoche = 22.10. bis 28.10.
+const HEUTE = '2026-11-05';
+
+test('Wochen: die letzten 7 vollen Tage, ohne heute, und die 7 davor', () => {
+  assert.deepEqual(weekDays(HEUTE, 0), ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04']);
+  assert.equal(weekDays(HEUTE, 1)[0], '2026-10-22');
+  assert.equal(weekDays(HEUTE, 1)[6], '2026-10-28');
+  assert.equal(dayBefore('2026-03-01', 1), '2026-02-28');
+});
+
+test('Vorwoche: aktive Installationen, Schnitt gegen Schnitt, der laufende Tag zählt nicht', () => {
+  const sums = [];
+  for (const t of weekDays(HEUTE, 1)) sums.push({ tag: t, n: 40 });
+  for (const t of weekDays(HEUTE, 0)) sums.push({ tag: t, n: 50 });
+  sums.push({ tag: HEUTE, n: 1000 });
+  const a = activeWeek(sums, HEUTE);
+  assert.deepEqual(a, { jetzt: 50, vorher: 40 });
+  assert.deepEqual(trend(a.jetzt, a.vorher, 'prozent'), { art: 'auf', pfeil: '▲', text: '+25 % zur Vorwoche' });
+  assert.deepEqual(trend(40, 50, 'prozent'), { art: 'ab', pfeil: '▼', text: '−20 % zur Vorwoche' });
+  assert.equal(trend(50, 50, 'prozent').art, 'gleich');
+  assert.equal(trend(50, 50, 'prozent').pfeil, '=');
+  assert.equal(trend(3, 0, 'prozent').art, 'neu');
+  assert.deepEqual(trend(0.4, 0.3, 'punkte'), { art: 'auf', pfeil: '▲', text: '+10 Punkte zur Vorwoche' });
+  // Ein fehlender Tag zählt als 0 (niemand aktiv), nicht als Lücke.
+  const gap = sums.filter((r) => r.tag !== '2026-11-01');
+  assert.equal(activeWeek(gap, HEUTE).jetzt, 300 / 7);
+});
+
+test('Vorwoche: begann die Zählung erst in dieser Woche, gibt es keinen Vergleich', () => {
+  const a = activeWeek([{ tag: '2026-11-01', n: 10 }], HEUTE);
+  assert.equal(a.vorher, null);
+  assert.equal(trend(a.jetzt, a.vorher, 'prozent').art, 'keiner');
+  assert.deepEqual(activeWeek([], HEUTE), { jetzt: null, vorher: null });
+});
+
+test('Neue und Bleiben: ohne Alters-Meldungen null, mit Meldungen aus Alter 0 und 7', () => {
+  assert.deepEqual(newWeek([], HEUTE), { jetzt: null, vorher: null });
+  assert.deepEqual(stayWeek([], HEUTE), { jetzt: null, vorher: null, neu: 0 });
+  const ages = [];
+  // Vorvorwoche: 10 Neue am 15.10., davon am 22.10. noch 5 da.
+  ages.push({ tag: '2026-10-15', tage: 0, n: 10 }, { tag: '2026-10-22', tage: 7, n: 5 });
+  // Vorwoche: 4 Neue am 22.10. und 4 am 28.10.; am 29.10. und 04.11. noch je 3 da.
+  ages.push({ tag: '2026-10-22', tage: 0, n: 4 }, { tag: '2026-10-28', tage: 0, n: 4 },
+            { tag: '2026-10-29', tage: 7, n: 3 }, { tag: '2026-11-04', tage: 7, n: 3 });
+  // Diese Woche: 6 Neue, heute zählt nicht mit; andere Alter zählen nicht als neu.
+  ages.push({ tag: '2026-10-30', tage: 0, n: 6 }, { tag: HEUTE, tage: 0, n: 99 }, { tag: '2026-10-30', tage: 1, n: 50 });
+  assert.deepEqual(newWeek(ages, HEUTE), { jetzt: 6, vorher: 8 });
+  const st = stayWeek(ages, HEUTE);
+  assert.equal(st.jetzt, 6 / 8);
+  assert.equal(st.vorher, 0.5);
+  assert.equal(st.neu, 8);
+  assert.equal(trend(st.jetzt, st.vorher, 'punkte').text, '+25 Punkte zur Vorwoche');
+});
+
+test('Neue: begann die Alters-Meldung mitten in der Woche, gibt es für sie keine Zahl', () => {
+  assert.deepEqual(newWeek([{ tag: '2026-11-02', tage: 0, n: 5 }], HEUTE), { jetzt: null, vorher: null });
+  assert.deepEqual(newWeek([{ tag: '2026-10-29', tage: 0, n: 5 }], HEUTE), { jetzt: 5, vorher: null });
+});
+
+test('Downloads der Woche: Zuwachs des nie sinkenden Stands, Lücken schieben ihn weiter', () => {
+  const v = [
+    { tag: '2026-10-21', je_gesehen: 100 },   // Ende der Vorvorwoche
+    { tag: '2026-10-28', je_gesehen: 130 },   // Ende der Vorwoche
+    { tag: '2026-11-02', je_gesehen: 170 },
+    { tag: '2026-11-04', je_gesehen: 190 },   // Ende dieser Woche
+    { tag: HEUTE, je_gesehen: 500 },          // heute zählt nicht
+  ];
+  assert.deepEqual(downloadsWeek(v, HEUTE), { jetzt: 60, vorher: 30 });
+  // Messung fehlt am letzten Tag: der letzte Stand davor gilt.
+  assert.deepEqual(downloadsWeek(v.filter((r) => r.tag !== '2026-11-04'), HEUTE), { jetzt: 40, vorher: 30 });
+  // Mitschreiben begann erst am Ende der Vorwoche: kein Wert für die Vorwoche.
+  assert.deepEqual(downloadsWeek(v.slice(1), HEUTE), { jetzt: 60, vorher: null });
+  assert.deepEqual(downloadsWeek([], HEUTE), { jetzt: null, vorher: null });
+});
+
+test('stärkster Kanal der Woche, sonst null', () => {
+  assert.equal(topChannel([], HEUTE), null);
+  const k = [{ tag: '2026-11-01', kanal: 'discord', n: 3 }, { tag: '2026-11-02', kanal: 'forum', n: 2 },
+             { tag: '2026-11-03', kanal: 'forum', n: 2 }, { tag: '2026-10-20', kanal: 'reddit', n: 50 },
+             { tag: HEUTE, kanal: 'reddit', n: 50 }];
+  assert.deepEqual(topChannel(k, HEUTE), { kanal: 'forum', n: 4, gesamt: 7 });
+});
+
+test('Wochenkurve: Montag bis Sonntag, Schnitt der vollen Tage ab der ersten Meldung', () => {
+  const sums = [{ tag: '2026-10-22', n: 10 }, { tag: '2026-10-25', n: 20 },  // Do und So
+                { tag: '2026-10-27', n: 7 }, { tag: HEUTE, n: 999 }];
+  const w = weeklyActive(sums, HEUTE);
+  assert.deepEqual(w.map((x) => x.ab), ['2026-10-19', '2026-10-26', '2026-11-02']);
+  assert.deepEqual(w.map((x) => x.tage), [4, 7, 3]);
+  assert.equal(w[0].schnitt, 30 / 4);
+  assert.equal(w[1].schnitt, 1);
+  assert.equal(w[2].schnitt, 0);
+  assert.deepEqual(weeklyActive([], HEUTE), []);
+});
+
+test('Markierungen: jede fertige Version einmal, gelöschte dabei, Vorabversionen nicht', () => {
+  const m = releaseMarks(
+    [{ tag: 'v5.1.0', am: '2026-10-20', vorab: false }, { tag: 'v5.1.1-rc1', am: '2026-10-25', vorab: true }],
+    [{ version: 'v5.1.0', veroeffentlicht: '2026-10-20', vorab: 0 }, { version: 'v5.0.0', veroeffentlicht: '2026-10-01', vorab: 0 },
+     { version: 'v4.9.0-rc2', veroeffentlicht: '2026-09-01', vorab: 1 }, { version: 'v3.0.0', veroeffentlicht: null, vorab: 0 }]);
+  assert.deepEqual(m, [{ tag: 'v5.0.0', am: '2026-10-01' }, { tag: 'v5.1.0', am: '2026-10-20' }]);
+});
+
+test('die Rechnungen laufen auch, wenn der Bündler beim Hochladen __name-Aufrufe einsetzt', async () => {
+  const { dashboardHtml } = await import('./dashboard.js');
+  const code = dashboardHtml('abc').split('<script nonce="abc">')[1].split('</script>')[0];
+  // So sieht der Text nach dem Bündeln von wrangler aus (keepNames): ein Aufruf in jeder Funktion.
+  const bundled = code.replace(/function dayBefore\(([^)]*)\) \{/, (m) => m + ' __name(dayBefore, "dayBefore");');
+  assert.ok(bundled.includes('__name(dayBefore'), 'Nachbildung des Bündlers greift nicht');
+  const shim = bundled.indexOf('const __name'), first = bundled.indexOf('__name(');
+  assert.ok(shim >= 0 && shim < first, 'der Helfer __name fehlt vor seinem ersten Aufruf');
+});
+
+test('das Skript der Seite lässt sich übersetzen und hält die Zeichen-Regel ein', async () => {
+  for (const f of ERFOLG) {
+    const src = f.toString();
+    assert.ok(!src.includes('`') && !src.includes('$' + '{') && !src.includes(String.fromCharCode(92)), f.name);
+  }
+  const { dashboardHtml } = await import('./dashboard.js');
+  const html = dashboardHtml('abc');
+  const code = html.split('<script nonce="abc">')[1].split('</script>')[0];
+  assert.doesNotThrow(() => new Function(code), 'Syntaxfehler im Skript der Seite');
+  for (const t of ["'Wie läuft VerseKit?'", "'Aktive Installationen je Tag', 'paar'", "'Aktive Nutzer je Woche', 'paar'",
+                   "'Für die Entwicklung'", "localStorage.getItem('entwicklung')", "'ab VerseKit 5.2'",
+                   "'Kanal: noch keine Kennzeichen'", 'function activeWeek(']) {
+    assert.ok(code.includes(t), t + ' fehlt');
+  }
+  // Reihenfolge: Erfolg, Tageskurve, Wochenkurve, dann erst die Klappe.
+  const at = (t) => code.indexOf(t);
+  assert.ok(at("card('Wie läuft VerseKit?')") < at("card('Aktive Installationen je Tag'")
+    && at("card('Aktive Installationen je Tag'") < at("card('Aktive Nutzer je Woche'")
+    && at("card('Aktive Nutzer je Woche'") < at('target = dev;')
+    && at('target = dev;') < at("card('Downloads je Tag')"), 'Reihenfolge der Seite');
+});
+
+import { siteWeek, firstData } from './erfolg.js';
+
+test('Reichweite zählt nur Downloads über die Webseite, 7 volle Tage gegen die 7 davor', () => {
+  const kurz = [{ tag: '2026-11-04', n: 5 }, { tag: '2026-10-29', n: 2 }, { tag: '2026-10-28', n: 3 },
+    { tag: '2026-10-22', n: 4 }, { tag: '2026-10-21', n: 8 }, { tag: '2026-11-05', n: 9 }];
+  // Heute (05.11.) zählt nicht mit; diese Woche 29.10.–04.11., Vorwoche 22.10.–28.10., der 21.10. gehört zu keiner.
+  assert.deepEqual(siteWeek(kurz, '2026-11-05'), { jetzt: 7, vorher: 7 });
+});
+
+test('die Tageskurve beginnt am ersten Tag mit Meldungen', () => {
+  assert.equal(firstData([0, 0, 0, 4, 0, 6]), 3);
+  assert.equal(firstData([0, 0]), 0);
+  assert.equal(firstData([2, 0]), 0);
 });

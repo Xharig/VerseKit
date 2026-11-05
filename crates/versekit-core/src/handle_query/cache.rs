@@ -353,6 +353,16 @@ pub fn kept(paths: &Paths, handle: &str) -> Option<(Card, f64)> {
     read(paths).into_iter().find(|(k, _, _)| *k == key).map(|(_, card, at)| (card, at))
 }
 
+/// The handles kept that are not older than the days set (`days`, `0`: none), the newest last. Older ones are
+/// taken out of the file as well, so a handle is kept no longer than the days set.
+pub fn recent(paths: &Paths, now: f64, days: i64) -> Vec<(String, Card, f64)> {
+    let (kept, old): (Vec<_>, Vec<_>) = read(paths).into_iter().partition(|(_, _, at)| fresh(*at, now, days));
+    if !old.is_empty() {
+        write(paths, kept.clone());
+    }
+    kept
+}
+
 /// Whether a handle fetched at `fetched` is still fresh at `now` with `days` set.
 pub fn fresh(fetched: f64, now: f64, days: i64) -> bool {
     days > 0 && now - fetched < days as f64 * 86_400.0 && fetched <= now + 60.0
@@ -502,6 +512,19 @@ pub(crate) mod tests {
         assert!(!Settings::read(&paths).clear_due(0.0, 1e9));
         assert!(paths.set_setting(KEY_CLEAR_AFTER, Value::int(99_999)));
         assert_eq!(Settings::read(&paths).clear_after, CLEAR_AFTER_MAX);
+    }
+
+    #[test]
+    fn a_handle_older_than_the_days_set_is_neither_shown_nor_kept() {
+        let dir = TestDir::new("handle-cache-alt");
+        let paths = paths(&dir, &[]);
+        let gate = quick();
+        search_with(&gate, &paths, &site(), "Musterpilot", false, 1000.0).expect("found");
+        let fetched = read(&paths)[0].2;
+        // Within the one day set it is there, a day later it is gone, from the list and from the file.
+        assert_eq!(recent(&paths, fetched + 3600.0, 1).len(), 1);
+        assert!(recent(&paths, fetched + 1.5 * DAY, 1).is_empty());
+        assert!(read(&paths).is_empty(), "taken out of the file");
     }
 
     #[test]

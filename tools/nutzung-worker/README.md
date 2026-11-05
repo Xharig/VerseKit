@@ -39,6 +39,17 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 | `clicks` | Klicks bis zur Zielseite als Verteilung, `{"laeden": {"2": 5}}` (10 = 10 oder mehr) | `seiten_klicks` |
 | `misses` | Fehlgriff → nächstes Ziel, `{"verkauf>laeden": 7}` | `seiten_fehlgriffe` |
 | `actions` | wie oft eine Handlung genutzt wurde, `{"lager_scan": 2}` — nur Kennungen aus `ACTIONS`; ab VerseKit 5 dazu `suche_benutzt` (wie oft gesucht wurde) und `suche_ohne_treffer` (wie oft die Suche nichts fand), nur die Anzahl, nie das Suchwort (`SEARCH` in `pages.js`) | `seiten_handlungen` |
+| `alter` | ab VerseKit 5.2: Alter der Installation in ganzen Tagen, 0–30, 31 = älter. Fehlt es, gilt die Meldung trotzdem | `installationen_alter` (nur Tag, Alter, Anzahl) |
+
+Die Kurzlinks `xharig.com/windows` und `/linux` zählen außerdem ein
+Kanal-Kennzeichen `?ref=<kanal>` (nur `a`–`z`, höchstens 20 Zeichen, sonst
+verworfen) in `downloads_kanal`, ohne System und Land. Die Weiterleitung bleibt
+dieselbe.
+
+Die Übersicht beantwortet oben „Wie läuft VerseKit?" mit vier Zahlen gegen die
+Vorwoche (aktive je Tag, Neue, Bleiben, Downloads). Die Rechnungen stehen in
+`erfolg.js` und sind in `worker.test.mjs` geprüft; alles für die Entwicklung
+liegt darunter zugeklappt.
 
 Was „Klick", „Ziel" und „Fehlgriff" heißen, steht in `scbp/page_usage.py`.
 Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest
@@ -47,7 +58,8 @@ Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest
 
 ## Seiten-Tabellen einspielen (einmalig, vor dem Hochladen)
 
-Die fünf Seiten-Tabellen kommen über `schema.sql` dazu. Die Datei legt nur an,
+Die fünf Seiten-Tabellen und die zwei Erfolgs-Tabellen (`downloads_kanal`,
+`installationen_alter`) kommen über `schema.sql` dazu. Die Datei legt nur an,
 was fehlt (`CREATE TABLE IF NOT EXISTS`), vorhandene Tabellen und Zahlen bleiben
 unberührt. **Erst einspielen, dann den Worker hochladen:**
 

@@ -98,15 +98,98 @@ mod tests {
         assert_eq!(state.search, "Quantanium (Raw)");
         let (shown, _) = mining(&context(), &mut state, 900.0);
         assert!(shown.contains(&"Daymar".to_string()) && shown.contains(&"Aaron Halo".to_string()), "{shown:?}");
-        assert!(shown.contains(&t("s_bg_raff_kopf")), "{shown:?}");
-        // The best refinery first, the bundle of two stations named once with the other one counted.
-        let best = tf("s_bg_raff_weitere", &[("0", Arg::from("ARC-L1")), ("1", Arg::from(1))]);
-        assert!(shown.contains(&best), "{shown:?}");
-        assert!(shown.contains(&tf("s_bg_raff_zeile", &[("0", Arg::from(9))])), "{shown:?}");
-        assert!(shown.contains(&tf("s_bg_raff_spanne", &[("0", Arg::from(12))])), "9 against -3: {shown:?}");
+        // The refinery list is shut at first; its header names the best station and its bonus.
+        assert!(shown.contains(&refinery_title()), "{shown:?}");
+        assert!(!shown.contains(&t("s_bg_raff_alle")), "{shown:?}");
+        let (shown, _) = mining(&context(), &mut state, 900.0);
+        assert!(!shown.contains(&tf("s_bg_raff_spanne", &[("0", Arg::from(12))])), "{shown:?}");
         // A name without a match stands in the search and opens nothing.
         state.jump_to("Daymar");
         assert_eq!((state.search.as_str(), state.open.as_deref()), ("Daymar", None));
+    }
+
+    /// The header of the shut refinery list under Quantanium: the best station of the sample data.
+    fn refinery_title() -> String {
+        tf(
+            "s_bg_raff_klappe_beste",
+            &[("0", Arg::from(t("s_bg_raff_kopf"))), ("1", Arg::from("ARC-L1")), ("2", Arg::from(9))],
+        )
+    }
+
+    /// One frame of the page with these events: the texts with their place on the screen.
+    fn frame_with(ctx: &egui::Context, state: &mut MiningState, events: Vec<egui::Event>) -> Vec<(String, Rect)> {
+        let scheme = versekit_core::theme::current();
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 3000.0))),
+                events,
+                ..Default::default()
+            },
+            |ui| {
+                crate::layout::page(ui, scheme, "bergbau-test", |ui| {
+                    show_page(ui, scheme, state);
+                });
+            },
+        );
+        output.textures_delta.clear();
+        fn collect(shape: &egui::epaint::Shape, out: &mut Vec<(String, Rect)>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => {
+                    out.push((text.galley.text().to_string(), text.galley.rect.translate(text.pos.to_vec2())))
+                }
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect(shape, out)),
+                _ => {}
+            }
+        }
+        let mut out = Vec::new();
+        output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut out));
+        out
+    }
+
+    /// Frames without input until the opening or closing animation of the list is over.
+    fn settle(ctx: &egui::Context, state: &mut MiningState) -> Vec<(String, Rect)> {
+        let mut last = Vec::new();
+        for _ in 0..12 {
+            last = frame_with(ctx, state, Vec::new());
+        }
+        last
+    }
+
+    fn click_on(ctx: &egui::Context, state: &mut MiningState, at: egui::Pos2) -> Vec<(String, Rect)> {
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame_with(ctx, state, vec![egui::Event::PointerMoved(at)]);
+        frame_with(ctx, state, vec![button(true)]);
+        frame_with(ctx, state, vec![button(false)]);
+        settle(ctx, state)
+    }
+
+    #[test]
+    fn the_refinery_list_is_shut_at_first_and_opens_and_shuts_with_a_click_on_its_header() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let ctx = context();
+        let mut state = MiningState::default();
+        state.jump_to("Quantanium");
+        let has = |shown: &[(String, Rect)], text: &str| shown.iter().any(|(t, _)| t == text);
+        let list = tf("s_bg_raff_spanne", &[("0", Arg::from(12))]);
+        let shown = settle(&ctx, &mut state);
+        // Shut: the header names the best station, the list and the button for all refineries stay away.
+        let header = refinery_title();
+        assert!(has(&shown, &header), "{shown:?}");
+        assert!(!has(&shown, &list) && !has(&shown, &t("s_bg_raff_alle")), "{shown:?}");
+        let at = shown.iter().find(|(t, _)| *t == header).expect("header").1.center();
+        // A click opens it.
+        let shown = click_on(&ctx, &mut state, at);
+        assert!(has(&shown, &list) && has(&shown, &t("s_bg_raff_alle")), "{shown:?}");
+        // A second click shuts it again.
+        let shown = click_on(&ctx, &mut state, at);
+        assert!(!has(&shown, &list) && !has(&shown, &t("s_bg_raff_alle")), "{shown:?}");
+        assert!(has(&shown, &header), "{shown:?}");
     }
 
     #[test]
@@ -371,6 +454,52 @@ mod tests {
             assert!((name.center().x - middle).abs() < 1.0, "{system}: at {:.1}, columns {span:?}", name.center().x);
             start += count;
         }
+    }
+
+    /// The table of the refineries in a window of this size: the stripes of its rows and every text.
+    fn refinery_table_in(width: f32, height: f32) -> (Vec<Rect>, Vec<(String, Rect)>) {
+        let ctx = context();
+        let scheme = versekit_core::theme::current();
+        let mut state = MiningState::default();
+        let mut shapes = Vec::new();
+        for _ in 0..3 {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(width, height))),
+                    ..Default::default()
+                },
+                |ui| {
+                    crate::layout::page(ui, scheme, "raffinerie-test", |ui| {
+                        crate::refineries_page::show_page(ui, scheme, &mut state)
+                    });
+                },
+            );
+            output.textures_delta.clear();
+            shapes = output.shapes;
+        }
+        stripes_and_texts(&shapes, color(scheme.bar))
+    }
+
+    /// The table grows with the window: its columns share the width, its rows the height down to the bottom.
+    #[test]
+    fn the_refinery_table_grows_with_the_window() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (columns, _) = refining::matrix(MiningState::default().data());
+        let last = refining::head(&crate::refineries_page::short_name(&columns[columns.len() - 1]));
+        let right_edge = |texts: &[(String, Rect)]| texts.iter().find(|(t, _)| *t == last).expect("head").1.max.x;
+        let stripe = |stripes: &[Rect]| stripes.iter().map(Rect::height).fold(0.0, f32::max);
+        // The sample has three materials: a window this low leaves them one line each, a tall one the most.
+        let (small_stripes, small) = refinery_table_in(1000.0, 160.0);
+        let (big_stripes, big) = refinery_table_in(1800.0, 1400.0);
+        assert!(right_edge(&big) > 1800.0 - 120.0, "the columns reach the right side: {}", right_edge(&big));
+        assert!(right_edge(&big) > right_edge(&small) + 400.0, "{} {}", right_edge(&big), right_edge(&small));
+        assert!(
+            stripe(&big_stripes) > stripe(&small_stripes) + 4.0,
+            "{} {}",
+            stripe(&big_stripes),
+            stripe(&small_stripes)
+        );
     }
 
     #[test]

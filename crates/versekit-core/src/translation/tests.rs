@@ -105,9 +105,8 @@ fn grouped_sources_like_4_12() {
     let game = Game::new("groups");
     let live = grouped_sources(&game.paths, None, true);
     let expected: Vec<Vec<&str>> = vec![
-        vec!["luftwerft_de", "dymerz_de"],
+        vec!["luftwerft_de", "dymerz_de", "luftwerft_bar"],
         vec!["luftwerft_en", "starstrings", "original"],
-        vec!["luftwerft_bar"],
         vec!["luftwerft_nl"],
         vec!["luftwerft_fr", "dymerz_fr"],
         vec!["luftwerft_it", "dymerz_it"],
@@ -119,9 +118,8 @@ fn grouped_sources_like_4_12() {
     assert_eq!(live, expected);
     let ptu = grouped_sources(&game.paths, Some("PTU"), true);
     let expected: Vec<Vec<&str>> = vec![
-        vec!["luftwerft_de"],
+        vec!["luftwerft_de", "luftwerft_bar"],
         vec!["luftwerft_en", "starstrings", "original"],
-        vec!["luftwerft_bar"],
         vec!["luftwerft_nl"],
         vec!["luftwerft_fr"],
         vec!["luftwerft_it"],
@@ -136,7 +134,7 @@ fn the_new_luftwerft_languages_come_for_both_channels_into_their_own_folders() {
     let game = Game::new("luftwerft-neu");
     let base = "https://www.luftwerft.com/download/resources/localizations";
     for (id, folder, label, flag) in [
-        ("luftwerft_bar", "bavarian_(germany)", "Boarisch (Luftwerft)", "de"),
+        ("luftwerft_bar", "bavarian_(germany)", "Bayrisch (Luftwerft) [FUN]", "de"),
         ("luftwerft_nl", "dutch_(netherlands)", "Nederlands (Luftwerft)", "nl"),
         ("luftwerft_pt", "portuguese_(portugal)", "Português (Luftwerft)", "pt"),
     ] {
@@ -181,7 +179,8 @@ fn german_comes_from_a_release_and_is_placed_with_its_language_line() {
     fs::create_dir_all(std::path::Path::new(&target).parent().unwrap()).unwrap();
     fs::write(&target, b"old text").unwrap();
     fs::write(format!("{}/user.cfg", game.live), "r_VSync = 0\ng_language = english\n").unwrap();
-    let zip = crate::zip::tests::build(&[("data/Localization/german_(germany)/global.ini", &game_file("Deutsch"), true)]);
+    let zip =
+        crate::zip::tests::build(&[("data/Localization/german_(germany)/global.ini", &game_file("Deutsch"), true)]);
     let net = Fake::default()
         .with(
             "https://api.github.com/repos/Dymerz/StarCitizen-Localization/releases/latest",
@@ -205,7 +204,8 @@ fn german_comes_from_a_release_and_is_placed_with_its_language_line() {
     let lang = Lang::De;
     let today_text = status_text(&game.paths, "dymerz_de", None, lang, &today());
     assert!(
-        today_text.starts_with("Stand 16.09.2026 · geholt heute ") && today_text.contains(" · aktuell, nachgesehen heute "),
+        today_text.starts_with("Stand 16.09.2026 · geholt heute ")
+            && today_text.contains(" · aktuell, nachgesehen heute "),
         "{today_text}"
     );
 }

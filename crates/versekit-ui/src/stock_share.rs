@@ -606,7 +606,7 @@ impl Split {
                     if sharing { "s_ml_teilen_t" } else { "s_ml_zurueck_t" },
                     &[("0", Arg::from(form.name.clone()))],
                 );
-                ui.label(RichText::new(title).strong().color(color(scheme.accent)));
+                widgets::card_title(ui, scheme, &title);
                 ui.add_space(4.0);
                 ui.horizontal_wrapped(|row| {
                     let shown = names.iter().find(|(id, _)| *id == form.unit).map(|(_, l)| l.clone()).unwrap_or_default();

@@ -350,7 +350,7 @@ impl InfoWindow {
         }
         // The lock closed while the bar was held: the drag ends where the bar stands.
         let held = primary_down && content.movable;
-        self.follow_drag(ctx, drawn.drag, held, pointer, &mut out);
+        self.follow_drag(ctx, drawn.drag, held, pointer, own, &mut out);
         if self.native != 0 && self.last_topmost.elapsed() >= Duration::from_secs(1) {
             os::reassert_topmost(self.native);
             self.last_topmost = Instant::now();
@@ -400,13 +400,16 @@ impl InfoWindow {
         let _ = title;
     }
 
-    /// The bar follows the pointer while a drag runs; at its end the place is kept for the size of the main screen.
+    /// The bar follows the pointer while a drag runs; let go a few pixels before an edge of the screen under its
+    /// middle, it goes onto that edge and wholly onto that screen (as the overlay does), and the place is kept for the
+    /// size of the main screen. `own` is the scale of the bar (points to pixels).
     fn follow_drag(
         &mut self,
         ctx: &egui::Context,
         began: bool,
         primary_down: bool,
         pointer: Option<Pointer>,
+        own: f32,
         out: &mut Step,
     ) {
         let Some((x, y)) = self.at else { return };
@@ -422,9 +425,24 @@ impl InfoWindow {
             return;
         }
         self.grab = None;
+        let (w, h) = ((self.width * own).round() as i32, (self.height * own).round() as i32);
+        let (cx, cy) = (x + w / 2, y + h / 2);
+        let screen = versekit_core::screen::monitor_area(cx, cy, false);
+        let work = versekit_core::screen::monitor_area(cx, cy, true);
+        let (x, y) = match (screen, work) {
+            (Some(area), Some(work)) => {
+                let bar = versekit_core::overlay::Rect::new(x, y, w, h);
+                let area = versekit_core::overlay::Rect::from_area(area);
+                let snapped = versekit_core::overlay::snapped(bar, area, versekit_core::overlay::Rect::from_area(work));
+                (snapped.x, snapped.y)
+            }
+            _ => (x, y),
+        };
+        self.at = Some((x, y));
         let key = info_bar::screen_key(screens_now().0);
         self.places = self.places.with_place(&key, [x, y]);
         out.store = Some(self.places.clone());
+        ctx.request_repaint();
     }
 }
 
@@ -544,11 +562,11 @@ mod tests {
         let mut info = InfoWindow::new(Places::default());
         info.at = Some((1000, 0));
         let mut out = Step::default();
-        info.follow_drag(&ctx, true, true, pointer(1010, 10), &mut out);
-        info.follow_drag(&ctx, false, true, pointer(410, 610), &mut out);
+        info.follow_drag(&ctx, true, true, pointer(1010, 10), 1.0, &mut out);
+        info.follow_drag(&ctx, false, true, pointer(410, 610), 1.0, &mut out);
         assert_eq!(info.at, Some((400, 600)), "follows the pointer, held where it was taken");
         assert_eq!(out.store, None, "nothing stored while held");
-        info.follow_drag(&ctx, false, false, pointer(410, 610), &mut out);
+        info.follow_drag(&ctx, false, false, pointer(410, 610), 1.0, &mut out);
         let places = out.store.expect("stored at the end");
         assert_eq!(places.place_for("2560x1440"), Some([400, 600]));
         let again = InfoWindow::new(places);
@@ -556,8 +574,32 @@ mod tests {
         assert_eq!(info_bar::start_place(&again.places, screen, work, 300, Corner::Middle, |_, _, _| true), (400, 600));
         // Without a drag nothing moves and nothing is stored.
         let mut quiet = Step::default();
-        info.follow_drag(&ctx, false, false, pointer(5, 5), &mut quiet);
+        info.follow_drag(&ctx, false, false, pointer(5, 5), 1.0, &mut quiet);
         assert_eq!((info.at, quiet.store), (Some((400, 600)), None));
+    }
+
+    /// Let go a few pixels before an edge of the screen, the bar goes onto it and wholly onto the screen, like the
+    /// overlay; further away it stays where it was let go.
+    #[test]
+    fn a_bar_let_go_near_an_edge_snaps_onto_it() {
+        let _screens = screen::fixed(one_screen());
+        let ctx = egui::Context::default();
+        let mut info = InfoWindow::new(Places::default());
+        (info.width, info.height) = (300.0, 40.0);
+        let let_go = |info: &mut InfoWindow, x: i32, y: i32| {
+            info.at = Some((1000, 500));
+            let mut out = Step::default();
+            info.follow_drag(&ctx, true, true, pointer(1000, 500), 2.0, &mut out);
+            info.follow_drag(&ctx, false, true, pointer(x, y), 2.0, &mut out);
+            info.follow_drag(&ctx, false, false, pointer(x, y), 2.0, &mut out);
+            (info.at, out.store.and_then(|p| p.place_for("2560x1440")))
+        };
+        // 600 x 80 pixels at scale 2: 10 pixels before the right edge and the top it snaps onto both.
+        assert_eq!(let_go(&mut info, 2560 - 600 - 10, 10), (Some((1960, 0)), Some([1960, 0])));
+        // Over the panel at the bottom (work area ends at 1392): onto the work area.
+        assert_eq!(let_go(&mut info, 800, 1392 - 80 - 6).0, Some((800, 1312)));
+        // In the middle nothing moves.
+        assert_eq!(let_go(&mut info, 900, 700).0, Some((900, 700)));
     }
 
     /// The bar takes the keyboard only while the field of the search has the cursor and the lock is open; the

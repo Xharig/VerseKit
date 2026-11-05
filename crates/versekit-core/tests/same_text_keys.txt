@@ -68,6 +68,7 @@ s_sp_q_lw_fr
 s_sp_q_lw_it
 s_sp_q_lw_es
 s_sp_q_lw_bar
+s_tq_bayrisch_wip
 s_sp_q_lw_nl
 s_sp_q_lw_pt
 s_sp_q_pt

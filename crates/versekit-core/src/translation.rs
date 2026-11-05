@@ -348,12 +348,15 @@ pub fn grouped_sources(paths: &Paths, channel: Option<&str>, with_original: bool
     };
     for q in SOURCES.iter() {
         if available(paths, q.id, channel) {
-            push(q.language, q.id);
+            // Bavarian is a German language: it stands in the row of German.
+            let group = if q.language.starts_with("bavarian") { "german_(germany)" } else { q.language };
+            push(group, q.id);
         }
     }
     if with_original {
         push("english", ORIGINAL);
     }
+    // German, then English, then the rest by name.
     let rank = |language: &str| {
         if language.starts_with("german") {
             0
@@ -363,8 +366,11 @@ pub fn grouped_sources(paths: &Paths, channel: Option<&str>, with_original: bool
             2
         }
     };
+    // In a row: Luftwerft, StarStrings, the others, and Bavarian last behind the German ones.
     let source_rank = |id: &str| {
-        if id.starts_with("luftwerft_") {
+        if id == "luftwerft_bar" {
+            3
+        } else if id.starts_with("luftwerft_") {
             0
         } else if id == "starstrings" {
             1

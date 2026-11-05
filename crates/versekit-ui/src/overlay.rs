@@ -28,14 +28,14 @@
 //! window needs.
 
 use egui::{
-    Align, Color32, CursorIcon, FontId, Layout, Rect, Response, RichText, Role, ScrollArea, Sense, Stroke, StrokeKind,
+    Align, Color32, CursorIcon, Layout, Rect, Response, RichText, Role, ScrollArea, Sense, Stroke, StrokeKind,
     TextStyle, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 use versekit_core::contested::{LAMPS, Lamp, OverlayLine, Phase};
 use versekit_core::contracts::OBJECTIVES_MAX;
 use versekit_core::language::{Phrase, t, tf};
 use versekit_core::live_contracts::Line as ContractLine;
-use versekit_core::overlay::{BarSide, Message, Mode, Peek, Row, Rows, Shown};
+use versekit_core::overlay::{BarSide, Message, Row, Rows, Shown};
 use versekit_core::theme::{Color, IconTint, Scheme};
 
 use crate::widgets::{corner_marks, rounded_corner_marks};
@@ -81,8 +81,6 @@ pub struct View<'a> {
     pub demand: Option<&'a str>,
     /// A newer version is ready (only shown while the game runs).
     pub update: Option<&'a str>,
-    pub peek: Option<Peek>,
-    pub mode: Mode,
     pub game: bool,
     /// The lock is closed: clicks pass through except on it.
     pub locked: bool,
@@ -464,13 +462,11 @@ fn bar(ui: &mut Ui, rect: Rect, view: &View, out: &mut Output) -> f32 {
     min_width
 }
 
-/// The waiting strip: an eye and a short line saying what it does.
+/// The waiting strip: an eye alone, what it does in its hint.
 fn strip(ui: &mut Ui, view: &View, out: &mut Output) {
     let s = view.scheme;
     let rect = ui.max_rect();
-    let font = FontId::proportional(TextStyle::Small.resolve(ui.style()).size);
-    let galley = ui.painter().layout_no_wrap(t("ov_streifen"), font, color(s.accent));
-    out.strip = vec2(PAD + BAR_ICON + 6.0 + galley.size().x + PAD, STRIP_HEIGHT);
+    out.strip = vec2(PAD + BAR_ICON + PAD, STRIP_HEIGHT);
     let radius = if s.square { 0.0 } else { STRIP_HEIGHT / 2.0 };
     ui.painter().rect(
         rect,
@@ -483,11 +479,10 @@ fn strip(ui: &mut Ui, view: &View, out: &mut Output) {
     if let Some(eye) = crate::icons::image("eye", s.accent, BAR_ICON) {
         eye.paint_at(ui, Rect::from_center_size(pos2(rect.min.x + PAD + BAR_ICON / 2.0, y), Vec2::splat(BAR_ICON)));
     }
-    let text_pos = pos2(rect.min.x + PAD + BAR_ICON + 6.0, y - galley.size().y / 2.0);
-    ui.painter().galley(text_pos, galley, color(s.accent));
+    let meaning = t("ov_streifen_h");
     let response = ui.interact(rect, ui.make_persistent_id("overlay-streifen"), Sense::hover());
-    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, t("ov_streifen")));
-    out.drawn.push(t("ov_streifen"));
+    response.widget_info(|| WidgetInfo::labeled(Role::Image, true, &meaning));
+    let _ = hover_hint(ui, response, &meaning, &mut out.hint);
 }
 
 /// Diameter of a dot of the hangar line and the gap between two.
@@ -715,17 +710,6 @@ fn status_with_shard(
     });
 }
 
-/// The quiet line under the status: why the overlay is open only for a while.
-fn peek_line(view: &View) -> Option<String> {
-    match view.peek? {
-        Peek::Held => Some(t("ov_bleibt")),
-        Peek::Closes(left) => {
-            let key = if view.mode == Mode::Popup { "ov_blendet_aus" } else { "ov_klappt_zu" };
-            Some(tf(key, &[("0", (left.ceil() as i64).into())]))
-        }
-    }
-}
-
 /// The corners of the bar: rounded like the box where they lie on its edge, square towards the body.
 fn bar_corners(radius: egui::CornerRadius, shown: Shown, bar: BarSide) -> egui::CornerRadius {
     let (r, zero) = (radius.nw, 0);
@@ -806,18 +790,12 @@ pub fn show(ui: &mut Ui, view: &View) -> Output {
                 content.add(egui::Label::new(RichText::new(wanted).small().color(color(s.fg))).wrap());
             }
         }
-        if !view.game {
-            content.add(egui::Label::new(RichText::new(t("ov_spiel_aus")).small().color(color(s.sub))).wrap());
-        }
         if let Some(version) = view.update.filter(|_| view.game) {
             let text = tf("ov_update", &[("0", version.into())]);
             content.add(egui::Label::new(RichText::new(text).small().color(color(s.accent))).wrap());
         }
         if let Some(line) = view.hangar {
             hangar_line(&mut content, s, line, &mut out);
-        }
-        if let Some(line) = peek_line(view) {
-            content.add(egui::Label::new(RichText::new(line).small().color(color(s.sub))).wrap());
         }
         content.add_space(4.0);
         if !view.contracts.is_empty() || view.hidden.is_some() {
@@ -844,11 +822,6 @@ pub fn show(ui: &mut Ui, view: &View) -> Output {
             ScrollArea::vertical().id_salt("overlay-zeilen").auto_shrink([false, false]),
             |ui| {
                 ui.spacing_mut().item_spacing.y = 4.0;
-                if view.rows.is_empty() {
-                    let wait = t("ov_warte");
-                    ui.label(RichText::new(&wait).small().color(color(s.sub)));
-                    out.drawn.push(wait);
-                }
                 for entry in view.rows.iter() {
                     row(ui, s, entry, &mut out);
                 }
@@ -946,8 +919,6 @@ mod tests {
             signature: None,
             demand: None,
             update: None,
-            peek: None,
-            mode: Mode::Always,
             game: true,
             locked: false,
             bar: BarSide::Top,
@@ -1515,42 +1486,92 @@ mod tests {
 
     /// The pop-up cycle drawn: waiting strip without rows, then open again with them.
     #[test]
-    fn the_strip_says_what_it_does_and_the_rows_come_back() {
+    fn the_strip_is_an_eye_alone_and_the_rows_come_back() {
         let rows = rows();
         let status = Message::Plain("2 Baupläne".into());
         let scheme = theme::by_id("krt").expect("krt");
         let mut v = view(scheme, &rows, &status, Shown::Open);
-        v.mode = Mode::Popup;
         let (open, _) = frame(&v, vec2(420.0, 500.0), None);
         assert!(open.drawn.iter().any(|d| d == "Ultra-Fine Kühler"));
         v.shown = Shown::Strip;
         let (strip, painted) = frame(&v, vec2(200.0, STRIP_HEIGHT), Some(pos2(10.0, 10.0)));
-        assert!(painted.iter().any(|p| p == &t("ov_streifen")), "the strip says it waits: {painted:?}");
-        assert!(!strip.drawn.iter().any(|d| d == "Ultra-Fine Kühler"));
-        assert!(strip.strip.x > 60.0);
+        assert!(painted.is_empty(), "the strip writes nothing beside the eye: {painted:?}");
+        assert!(strip.drawn.is_empty(), "{:?}", strip.drawn);
+        assert_eq!(strip.strip.x, PAD + BAR_ICON + PAD, "as wide as the eye");
         v.shown = Shown::Open;
         let (back, _) = frame(&v, vec2(420.0, 500.0), None);
         assert_eq!(back.drawn, open.drawn, "the same content after coming back");
     }
 
+    /// The strip says what it does on hover, in a hint and as the name for screen readers.
     #[test]
-    fn the_peek_and_update_lines_show_while_they_apply() {
+    fn the_eye_of_the_strip_says_what_it_does_on_hover() {
+        let rows = rows();
+        let status = Message::Plain("2 Baupläne".into());
+        let scheme = theme::by_id("original").expect("original");
+        let mut v = view(scheme, &rows, &status, Shown::Strip);
+        v.hints_outside = true;
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut last = Output::default();
+        for second in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(40.0, STRIP_HEIGHT))),
+                events: if second == 0 { vec![egui::Event::PointerMoved(pos2(12.0, 10.0))] } else { Vec::new() },
+                time: Some(f64::from(second)),
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ui| last = show(ui, &v));
+        }
+        assert_eq!(last.hint, Some(t("ov_streifen_h")), "the hint of the eye");
+        assert!(last.drawn.is_empty());
+    }
+
+    /// The lines that only told the state are gone: no "game not running", no countdown, no waiting placeholder.
+    /// The update line stays while the game runs.
+    #[test]
+    fn the_overlay_draws_no_state_lines() {
         let rows = Rows::default();
         let status = Message::Plain("0".into());
         let scheme = theme::by_id("original").expect("original");
-        let mut v = view(scheme, &rows, &status, Shown::Open);
-        v.peek = Some(Peek::Closes(4.2));
-        v.update = Some("5.0.1");
-        let (out, painted) = frame(&v, vec2(420.0, 400.0), None);
-        let closes = tf("ov_klappt_zu", &[("0", 5.into())]);
-        assert!(painted.contains(&closes), "{painted:?}");
-        assert!(painted.contains(&tf("ov_update", &[("0", "5.0.1".into())])));
-        assert_eq!(out.drawn, vec![t("ov_warte")], "the placeholder while empty");
-        v.game = false;
-        let (_, painted) = frame(&v, vec2(420.0, 400.0), None);
-        assert!(!painted.iter().any(|p| p.contains("5.0.1")), "no update hint without the game");
-        assert!(painted.contains(&t("ov_spiel_aus")));
+        for choice in [language::Choice::De, language::Choice::En] {
+            language::set_thread_language(choice);
+            let mut v = view(scheme, &rows, &status, Shown::Open);
+            v.update = Some("5.0.1");
+            let state_line = |painted: &[String]| -> Vec<String> {
+                painted.iter().filter(|p| GONE_LINES.iter().any(|gone| p.contains(gone))).cloned().collect()
+            };
+            let (out, painted) = frame(&v, vec2(420.0, 400.0), None);
+            assert!(painted.contains(&tf("ov_update", &[("0", "5.0.1".into())])), "{choice:?}: {painted:?}");
+            assert!(out.drawn.is_empty(), "{choice:?}: no placeholder while empty: {:?}", out.drawn);
+            assert_eq!(state_line(&painted), Vec::<String>::new(), "{choice:?}");
+            v.game = false;
+            let (_, painted) = frame(&v, vec2(420.0, 400.0), None);
+            assert!(!painted.iter().any(|p| p.contains("5.0.1")), "no update hint without the game");
+            assert_eq!(state_line(&painted), Vec::<String>::new(), "{choice:?}: no line about the game");
+            assert!(painted.contains(&"0".to_string()), "{choice:?}: the status stays: {painted:?}");
+            v.shown = Shown::Strip;
+            let (_, painted) = frame(&v, vec2(200.0, STRIP_HEIGHT), Some(pos2(10.0, 10.0)));
+            assert_eq!(state_line(&painted), Vec::<String>::new(), "{choice:?}: the strip");
+        }
+        language::set_thread_language(language::Choice::De);
     }
+
+    /// The wordings of the state lines the overlay no longer draws, in both languages.
+    const GONE_LINES: [&str; 12] = [
+        "Overlay wartet",
+        "Overlay waiting",
+        "Star Citizen läuft nicht",
+        "Star Citizen is not running",
+        "Bleibt, solange",
+        "Stays while the pointer",
+        "Blendet in",
+        "Hides in",
+        "Klappt in",
+        "Folds in",
+        "Warte auf neue Baupläne",
+        "Waiting for new blueprints",
+    ];
 
     /// The default size shows 5 to 7 rows in every scheme and text size.
     #[test]

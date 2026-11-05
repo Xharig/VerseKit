@@ -38,12 +38,14 @@ use crate::paths::Paths;
 ///
 /// ⚠ The key `modul_basetool` is also the switch of the Basetool area of the overview: one switch for both
 /// views.
-pub const SWITCHABLE: [(&str, &[&str]); 6] = [
+pub const SWITCHABLE: [(&str, &[&str]); 8] = [
     ("basetool", &["k_basetool_verbindung", "hf_bedarf"]),
-    ("schiffe", &["hf_hangar", "hf_einkaufsliste"]),
-    ("werkstatt", &["hf_herstellung", "hf_farmliste", "hf_bergbau", "hf_raffinerien"]),
+    ("schiffe", &["hf_hangar"]),
+    ("werkstatt", &["hf_herstellung", "hf_farmliste"]),
+    ("bergbau", &["hf_bergbau", "hf_raffinerien"]),
     ("bergung", &["hf_bergung"]),
     ("handel", &["hf_laeden", "hf_verkauf", "hf_routen"]),
+    ("beschaffung", &["hf_einkaufsliste", "hf_contested"]),
     ("statistiken", &["hf_st_uebersicht", "hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil"]),
 ];
 
@@ -56,8 +58,10 @@ pub fn label(group: &str) -> &'static str {
         "basetool" => "k_basetool_titel",
         "schiffe" => "hf_gruppe_schiffe",
         "werkstatt" => "s_mo_werkstatt",
+        "bergbau" => "s_mo_bergbau",
         "bergung" => "hf_gruppe_bergung",
         "handel" => "hf_gruppe_handel",
+        "beschaffung" => "hf_gruppe_beschaffung",
         "statistiken" => "hf_gruppe_statistik",
         _ => "",
     }
@@ -68,12 +72,21 @@ pub fn key(group: &str) -> String {
     format!("modul_{group}")
 }
 
-/// Is the module on? A group that cannot be switched off is always on.
+/// The module whose switch held these pages before they got a module of their own: without a switch of its own
+/// a module follows it, so nothing comes back that was hidden.
+const FOLLOWS: [(&str, &str); 2] = [("bergbau", "werkstatt"), ("beschaffung", "schiffe")];
+
+/// Is the module on? A group that cannot be switched off is always on. A module of [`FOLLOWS`] without a switch
+/// of its own is as its former module.
 pub fn enabled(paths: &Paths, group: &str) -> bool {
     if SWITCHABLE.iter().all(|(name, _)| *name != group) {
         return true;
     }
-    paths.setting_bool(&key(group), true)
+    let default = FOLLOWS
+        .iter()
+        .find(|(module, _)| *module == group)
+        .is_none_or(|(_, former)| paths.setting_bool(&key(former), true));
+    paths.setting_bool(&key(group), default)
 }
 
 /// Switches a module; true if it was written (a group that cannot be switched is never written).
@@ -192,5 +205,48 @@ mod tests {
         assert!(!enabled(&paths, "schiffe"));
         assert!(enabled(&paths, "werkstatt"));
         let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn crafting_and_mining_are_two_modules_and_an_old_off_switch_keeps_both_off() {
+        let home = scratch("werkstatt-bergbau");
+        let paths = paths_in(&home);
+        assert_eq!(group_of("hf_herstellung"), Some("werkstatt"));
+        assert_eq!(group_of("hf_farmliste"), Some("werkstatt"));
+        assert_eq!(group_of("hf_bergbau"), Some("bergbau"));
+        assert_eq!(group_of("hf_raffinerien"), Some("bergbau"));
+        // Crafting off, mining on: only the crafting pages go.
+        assert!(set_enabled(&paths, "werkstatt", false) && set_enabled(&paths, "bergbau", true));
+        assert_eq!(hidden_pages(&paths), ["hf_herstellung", "hf_farmliste"]);
+        // Whoever had the old module off, before mining had a switch of its own, keeps mining off too.
+        let old = scratch("werkstatt-alt");
+        let before = paths_in(&old);
+        assert!(before.set_setting("modul_werkstatt", Value::Bool(false)));
+        assert!(!enabled(&before, "bergbau"));
+        assert_eq!(hidden_pages(&before), ["hf_herstellung", "hf_farmliste", "hf_bergbau", "hf_raffinerien"]);
+        // Mining switched on by itself stays on.
+        assert!(set_enabled(&before, "bergbau", true));
+        assert!(enabled(&before, "bergbau") && !enabled(&before, "werkstatt"));
+        let _ = std::fs::remove_dir_all(home);
+        let _ = std::fs::remove_dir_all(old);
+    }
+
+    #[test]
+    fn procurement_is_a_module_of_its_own_and_follows_an_old_off_switch_of_the_ships() {
+        let home = scratch("beschaffung");
+        let paths = paths_in(&home);
+        assert_eq!(group_of("hf_einkaufsliste"), Some("beschaffung"));
+        assert_eq!(group_of("hf_contested"), Some("beschaffung"));
+        assert_eq!(group_of("hf_hangar"), Some("schiffe"));
+        assert!(set_enabled(&paths, "beschaffung", false));
+        assert_eq!(hidden_pages(&paths), ["hf_einkaufsliste", "hf_contested"]);
+        // The shopping list stood under the ships: whoever had them off keeps it off.
+        let old = scratch("beschaffung-alt");
+        let before = paths_in(&old);
+        assert!(before.set_setting("modul_schiffe", Value::Bool(false)));
+        assert!(!enabled(&before, "beschaffung"));
+        assert!(set_enabled(&before, "beschaffung", true) && enabled(&before, "beschaffung"));
+        let _ = std::fs::remove_dir_all(home);
+        let _ = std::fs::remove_dir_all(old);
     }
 }

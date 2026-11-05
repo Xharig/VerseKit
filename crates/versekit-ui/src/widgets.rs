@@ -2592,10 +2592,28 @@ pub fn heading(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
     shown
 }
 
-/// The color of the small capital title above a group of rows ([`crate::settings::setting_group`]): the accent of
-/// the scheme, as the border of a search line at focus.
+/// The color of the title of a card ([`card_title`], [`crate::settings::setting_group`]): the text color of the
+/// scheme.
 pub fn section_title_color(scheme: &Scheme) -> Color {
     scheme.accent
+}
+
+/// How much larger the title of a card is than the text of its rows.
+pub const CARD_TITLE_SCALE: f32 = 1.15;
+
+/// The title of a card: bold, one step larger than the text of its rows, in the accent of the scheme, written as
+/// given, never underlined. After a jump from the menu filter to its text it frames itself.
+pub fn card_title(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
+    let shown = card_title_label(ui, scheme, text);
+    crate::highlight::mark(ui, scheme, shown.rect, &[text]);
+    shown
+}
+
+/// [`card_title`] without the frame of a menu filter jump, for a caller that frames the whole card.
+pub fn card_title_label(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
+    let size = TextStyle::Body.resolve(ui.style()).size * CARD_TITLE_SCALE;
+    let title = RichText::new(text).font(crate::fonts::bold(size)).color(color(section_title_color(scheme)));
+    ui.add(egui::Label::new(title).wrap())
 }
 
 // ---------------------------------------------------------------------------

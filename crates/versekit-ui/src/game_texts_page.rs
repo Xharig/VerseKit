@@ -23,8 +23,8 @@
 //! Fetching and writing take seconds, so they run on a thread of their own,
 //! one at a time; the page shows what happens and what came of it.
 
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
 use egui::{RichText, Ui};
@@ -39,6 +39,7 @@ use versekit_core::translation::{self, CUSTOM, ORIGINAL};
 use versekit_gamedata::game_text;
 
 use crate::color;
+use crate::layout::GAP;
 use crate::widgets::{self, ButtonKind};
 
 mod anti_afk;
@@ -674,69 +675,79 @@ pub fn show_game(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) -> Op
             widgets::status_box(ui, scheme, scheme.sub, "circle-dashed", &t("s_sp_nichts"), &t("s_sp_nichts_h"));
         }
     }
-    ui.add_space(12.0);
+    ui.add_space(GAP);
 
-    widgets::heading(ui, scheme, &t("s_sp_quelle"));
-    let chosen =
-        paths.setting(game_ini_source()).map_or_else(|| t("s_uv_keine_quelle"), |s| translation::display_name(&s));
-    hint(ui, scheme, &tf("s_sp_quelle_jetzt", &[("0", Arg::from(chosen))]));
-    if ui.add(widgets::Button::new(&t("s_sp_zur_uebersetzung"), ButtonKind::Normal, scheme)).clicked() {
-        jump = Some(Jump::Translation);
-    }
-    ui.add_space(12.0);
-
-    if let Some(on) =
-        switch(ui, scheme, &t("s_sp_auto"), &t("s_sp_auto_h"), paths.setting_bool(game_texts::SETTING_AUTO, true))
-    {
-        paths.set_setting(game_texts::SETTING_AUTO, Value::Bool(on));
-        state.say(tf("s_sp_auto_sagen", &[("0", Arg::from(t(if on { "e_an" } else { "e_aus" })))]), false);
-    }
-    if let Some(on) =
-        switch(ui, scheme, &t("s_sp_an"), &t("s_sp_an_h"), paths.setting_bool(game_texts::SETTING_ON, true))
-    {
-        state.switch_on(on);
-    }
-    let details = [
-        (injection::SETTING_DETAILS, "s_sp_angaben", "s_sp_angaben_h", "s_sp_angaben_sagen"),
-        (ranks::SETTING, "s_sp_rang", "s_sp_rang_h", "s_sp_rang_sagen"),
-        (injection::SETTING_TITLE_REP, "s_sp_titelruf", "s_sp_titelruf_h", "s_sp_titelruf_sagen"),
-        (item_info::SETTING, "s_sp_itinfo", "s_sp_itinfo_h", "s_sp_itinfo_sagen"),
-    ];
-    for (setting, label, help, said) in details {
-        if let Some(on) = switch(ui, scheme, &t(label), &t(help), paths.setting_bool(setting, true)) {
-            state.switch_detail(setting, on, said);
+    widgets::card(ui, scheme, |ui| {
+        crate::settings::setting_group(ui, scheme, &t("s_sp_quelle"));
+        let chosen =
+            paths.setting(game_ini_source()).map_or_else(|| t("s_uv_keine_quelle"), |s| translation::display_name(&s));
+        hint(ui, scheme, &tf("s_sp_quelle_jetzt", &[("0", Arg::from(chosen))]));
+        ui.add_space(4.0);
+        if ui.add(widgets::Button::new(&t("s_sp_zur_uebersetzung"), ButtonKind::Normal, scheme)).clicked() {
+            jump = Some(Jump::Translation);
         }
-    }
+    });
+    ui.add_space(GAP);
 
-    widgets::heading(ui, scheme, &t("s_sp_hand"));
-    hint(ui, scheme, &t("s_sp_hand_h"));
-    let busy = state.busy().then(|| t("inj_laeuft"));
-    let mut pressed = None;
-    ui.horizontal_wrapped(|row| {
-        let buttons = [
-            ("s_sp_jetzt", ButtonKind::Strong),
-            ("s_sp_pruefen", ButtonKind::Normal),
-            ("s_sp_weg", ButtonKind::Danger),
+    widgets::card(ui, scheme, |ui| {
+        crate::settings::setting_group(ui, scheme, &t("s_sp_schalter"));
+        if let Some(on) =
+            switch(ui, scheme, &t("s_sp_auto"), &t("s_sp_auto_h"), paths.setting_bool(game_texts::SETTING_AUTO, true))
+        {
+            paths.set_setting(game_texts::SETTING_AUTO, Value::Bool(on));
+            state.say(tf("s_sp_auto_sagen", &[("0", Arg::from(t(if on { "e_an" } else { "e_aus" })))]), false);
+        }
+        if let Some(on) =
+            switch(ui, scheme, &t("s_sp_an"), &t("s_sp_an_h"), paths.setting_bool(game_texts::SETTING_ON, true))
+        {
+            state.switch_on(on);
+        }
+        let details = [
+            (injection::SETTING_DETAILS, "s_sp_angaben", "s_sp_angaben_h", "s_sp_angaben_sagen"),
+            (ranks::SETTING, "s_sp_rang", "s_sp_rang_h", "s_sp_rang_sagen"),
+            (injection::SETTING_TITLE_REP, "s_sp_titelruf", "s_sp_titelruf_h", "s_sp_titelruf_sagen"),
+            (item_info::SETTING, "s_sp_itinfo", "s_sp_itinfo_h", "s_sp_itinfo_sagen"),
         ];
-        for (i, (label, kind)) in buttons.into_iter().enumerate() {
-            if row.add(widgets::Button::new(&t(label), kind, scheme).blocked(busy.as_deref())).clicked() {
-                pressed = Some(i);
+        for (setting, label, help, said) in details {
+            if let Some(on) = switch(ui, scheme, &t(label), &t(help), paths.setting_bool(setting, true)) {
+                state.switch_detail(setting, on, said);
             }
         }
     });
-    match pressed {
-        Some(0) => state.apply_now(),
-        Some(1) => state.check_now(),
-        Some(2) => state.remove_now(),
-        _ => {}
-    }
-    said_line(ui, scheme, state);
-    ui.add_space(8.0);
-    widgets::status_box(ui, scheme, scheme.gold, "shield-alert", &t("s_sp_warn"), &t("s_sp_warn_h"));
-    ui.add_space(12.0);
-    anti_afk::show(ui, scheme, state);
-    ui.add_space(12.0);
-    user_cfg::show(ui, scheme, state);
+    ui.add_space(GAP);
+
+    widgets::card(ui, scheme, |ui| {
+        crate::settings::setting_group(ui, scheme, &t("s_sp_hand"));
+        hint(ui, scheme, &t("s_sp_hand_h"));
+        ui.add_space(4.0);
+        let busy = state.busy().then(|| t("inj_laeuft"));
+        let mut pressed = None;
+        ui.horizontal_wrapped(|row| {
+            let buttons = [
+                ("s_sp_jetzt", ButtonKind::Strong),
+                ("s_sp_pruefen", ButtonKind::Normal),
+                ("s_sp_weg", ButtonKind::Danger),
+            ];
+            for (i, (label, kind)) in buttons.into_iter().enumerate() {
+                if row.add(widgets::Button::new(&t(label), kind, scheme).blocked(busy.as_deref())).clicked() {
+                    pressed = Some(i);
+                }
+            }
+        });
+        match pressed {
+            Some(0) => state.apply_now(),
+            Some(1) => state.check_now(),
+            Some(2) => state.remove_now(),
+            _ => {}
+        }
+        said_line(ui, scheme, state);
+        ui.add_space(8.0);
+        widgets::status_box(ui, scheme, scheme.gold, "shield-alert", &t("s_sp_warn"), &t("s_sp_warn_h"));
+    });
+    ui.add_space(GAP);
+    widgets::card(ui, scheme, |ui| anti_afk::show(ui, scheme, state));
+    ui.add_space(GAP);
+    widgets::card(ui, scheme, |ui| user_cfg::show(ui, scheme, state));
     jump
 }
 
@@ -845,7 +856,7 @@ fn card(
     };
     widgets::card(ui, scheme, |c| {
         c.set_width(c.available_width());
-        widgets::heading(c, scheme, title);
+        widgets::card_title(c, scheme, title);
         hint(c, scheme, &t(if main { "s_tq_haupt" } else { "s_tq_neben" }));
         c.add_space(6.0);
         let mut groups = translation::grouped_sources(paths, channel, true);
@@ -873,6 +884,10 @@ fn card(
                     }
                     if row.add(button).clicked() {
                         picked = Some(id.clone());
+                    }
+                    // The note of Bavarian stands right beside its button, so it is clearly its own.
+                    if id == "luftwerft_bar" {
+                        row.label(RichText::new(t("s_tq_bayrisch_wip")).small().color(color(scheme.sub)));
                     }
                 }
             });
@@ -2242,7 +2257,7 @@ mod tests {
     /// Below this width of the page the two texts stand under each other, from this one on side by side
     /// (the threshold of the block lies between).
     const NARROW: f32 = 660.0;
-    const WIDE: f32 = 720.0;
+    const WIDE: f32 = 760.0;
 
     /// What the block showed after a few frames at `width`: the nodes, the rectangles of both boxes, and where
     /// the block begins and ends.

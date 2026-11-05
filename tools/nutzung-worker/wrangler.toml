@@ -14,14 +14,12 @@ routes = [
   # ⚠ Greift erst, wenn die Weiterleitungsregeln VerseKit-Windows und
   # VerseKit-Linux in Cloudflare entfernt sind — Weiterleitungsregeln laufen
   # VOR Workern.
-  { pattern = "xharig.com/windows", zone_name = "xharig.com" },
-  { pattern = "xharig.com/windows/", zone_name = "xharig.com" },
-  { pattern = "www.xharig.com/windows", zone_name = "xharig.com" },
-  { pattern = "www.xharig.com/windows/", zone_name = "xharig.com" },
-  { pattern = "xharig.com/linux", zone_name = "xharig.com" },
-  { pattern = "xharig.com/linux/", zone_name = "xharig.com" },
-  { pattern = "www.xharig.com/linux", zone_name = "xharig.com" },
-  { pattern = "www.xharig.com/linux/", zone_name = "xharig.com" }
+  # Mit `*` am Ende, sonst fängt die Route `?ref=discord` nicht (gemessen:
+  # 404 auf der Webseite). Andere Pfade gibt der Worker an die Webseite weiter.
+  { pattern = "xharig.com/windows*", zone_name = "xharig.com" },
+  { pattern = "www.xharig.com/windows*", zone_name = "xharig.com" },
+  { pattern = "xharig.com/linux*", zone_name = "xharig.com" },
+  { pattern = "www.xharig.com/linux*", zone_name = "xharig.com" }
 ]
 
 # Die Access-Angaben für die zweite Prüfung im Worker stehen NICHT hier —

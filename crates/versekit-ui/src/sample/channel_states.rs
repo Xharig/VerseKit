@@ -27,6 +27,7 @@ use versekit_core::theme::Scheme;
 use versekit_core::usercfg::{self, Status};
 
 use crate::color;
+#[cfg(test)]
 use crate::widgets;
 
 /// How long a look at the files holds (the page is only drawn now and then, the files change rarely).
@@ -68,25 +69,36 @@ impl ChannelStates {
         }
     }
 
-    /// The block: a title, a line of explanation and a bubble below the other for each channel (a row of them
-    /// would run out of a narrow window).
-    pub(super) fn show(&mut self, ui: &mut Ui, scheme: &Scheme, paths: &Paths) {
-        let now = ui.input(|i| i.time);
-        self.look(paths, now);
-        ui.ctx().request_repaint_after(Duration::from_secs_f64(LOOK_SECONDS));
-        ui.add_space(20.0);
-        ui.label(RichText::new(t("s_uc_kanaele")).strong());
+    /// The inside of the card, below its group title: a line of explanation and a line for each channel in the size
+    /// of the rest of the page, one below the other (a row of them would run out of a narrow window). Without
+    /// `paths` (the sample) nothing is looked at and the list stays as it is.
+    pub(super) fn rows(&mut self, ui: &mut Ui, scheme: &Scheme, paths: Option<&Paths>) {
+        if let Some(paths) = paths {
+            let now = ui.input(|i| i.time);
+            self.look(paths, now);
+            ui.ctx().request_repaint_after(Duration::from_secs_f64(LOOK_SECONDS));
+        }
         ui.add(egui::Label::new(RichText::new(t("s_uc_kanaele_h")).small().color(color(scheme.sub))).wrap());
-        ui.add_space(4.0);
+        ui.add_space(6.0);
         if self.list.is_empty() {
-            ui.add(egui::Label::new(RichText::new(t("s_uc_keine_kanaele")).small().color(color(scheme.sub))).wrap());
+            ui.add(egui::Label::new(RichText::new(t("s_uc_keine_kanaele")).color(color(scheme.sub))).wrap());
             return;
         }
         for (name, status) in &self.list {
             let (word, tone) = Self::word(*status, scheme);
-            widgets::badge(ui, scheme, tone, &format!("{name}: {word}"));
-            ui.add_space(2.0);
+            ui.add(egui::Label::new(RichText::new(format!("{name}: {word}")).color(color(tone))).wrap());
+            ui.add_space(4.0);
         }
+    }
+
+    /// The block alone in a card of its own, with its group title.
+    #[cfg(test)]
+    pub(super) fn show(&mut self, ui: &mut Ui, scheme: &Scheme, paths: &Paths) {
+        widgets::card(ui, scheme, |ui| {
+            ui.set_min_width(ui.available_width());
+            crate::settings::setting_group(ui, scheme, &t("s_uc_kanaele"));
+            self.rows(ui, scheme, Some(paths));
+        });
     }
 }
 
@@ -167,7 +179,9 @@ mod tests {
             let bubble = format!("{channel}: {}", t(key));
             assert!(texts.contains(&bubble), "{bubble}: {texts:?}");
         }
-        assert!(texts.contains(&t("s_uc_kanaele")) && texts.contains(&t("s_uc_kanaele_h")), "{texts:?}");
+        // The title stands as written, as the group titles of the cards above.
+        let title = t("s_uc_kanaele");
+        assert!(texts.contains(&title) && texts.contains(&t("s_uc_kanaele_h")), "{texts:?}");
         // The order of the channels is the one of the game.
         let at = |channel: &str| texts.iter().position(|text| text.starts_with(channel)).unwrap();
         assert!(at("LIVE") < at("HOTFIX") && at("HOTFIX") < at("PTU") && at("PTU") < at("EPTU"));

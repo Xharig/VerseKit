@@ -15,18 +15,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Two pages of the main window around the handle search, on one state:
+//! The page "Handle-Suche" of the main window, with two tabs on one state:
 //!
-//! - "Handle-Suche": the field and the card of the search at the top, a button to the relations, below them the
-//!   handles searched lately, the newest first. The members of an organization opened on the card stand in the
-//!   card, as in the info bar.
+//! - "Suche": the field and the card of the search at the top, below them the handles searched lately, the
+//!   newest first. The members of an organization opened on the card stand in the card, as in the info bar.
 //! - "Beziehungen": the handles and organizations marked, with the export and the import of the list. The
 //!   handles searched lately without a mark stand there too, under the filter "unknown".
 //!
-//! Both lists are one list: it sorts by stance, kind, name or the time searched and filters by stance, kind and a
-//! text. A click on a handle searches it, a click on an organization opens its card, both on the page of the
-//! search; the marks of a row set or take away its stance. The bin of a row deletes its mark; a notice puts it
-//! back for a few seconds.
+//! Both lists share one build: it sorts by stance, kind, name or the time searched and filters by stance, kind
+//! and a text. A click on a handle searches it, a click on an organization opens its card, both on the tab of
+//! the search; the marks of a row set or take away its stance. The bin of a row deletes its mark; a notice puts
+//! it back for a few seconds.
 //!
 //! The overlay runs in a process of its own and keeps the relations and settings in memory: after every change
 //! here it is told to read them anew. A change the overlay wrote shows here within a second, from the times the
@@ -208,9 +207,11 @@ impl Stamps {
     }
 }
 
-/// The handles kept, the newest first, as the site writes them.
+/// The handles kept within the days set, the newest first, as the site writes them.
 fn recent_of(paths: &Paths) -> Vec<(String, f64)> {
-    cache::read(paths).into_iter().rev().map(|(_, card, at)| (card.profile.handle, at)).collect()
+    let days = cache::Settings::read(paths).days;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+    cache::recent(paths, now, days).into_iter().rev().map(|(_, card, at)| (card.profile.handle, at)).collect()
 }
 
 /// Tells the overlay to read the settings and relations anew.
@@ -259,21 +260,34 @@ fn sample_card(now: f64) -> (Found, Roster) {
     (found, roster)
 }
 
-/// Which of the two lists: the relations (page "Beziehungen") or the handles searched lately (page
-/// "Handle-Suche").
+/// Which of the two lists: the relations (tab "Beziehungen") or the handles searched lately (tab "Suche").
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Which {
     Relations,
     Recent,
 }
 
-/// What a page asks of the main window.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Action {
-    /// Open the page "Beziehungen".
-    ToRelations,
-    /// Open the page "Handle-Suche": an entry of the relations was opened there.
-    ToSearch,
+/// The tabs of the page.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Tab {
+    #[default]
+    Search,
+    Relations,
+}
+
+impl Tab {
+    const ALL: [Tab; 2] = [Tab::Search, Tab::Relations];
+
+    fn index(self) -> usize {
+        Tab::ALL.iter().position(|tab| *tab == self).unwrap_or(0)
+    }
+
+    fn label(self) -> String {
+        t(match self {
+            Tab::Search => "s_hqt_reiter_suche",
+            Tab::Relations => "s_hqt_reiter_beziehungen",
+        })
+    }
 }
 
 /// One list as its page shows it.
@@ -304,9 +318,11 @@ impl ListState {
     }
 }
 
-/// What the two pages keep.
+/// What the page keeps.
 pub struct HandlePageState {
     pub search: HandleSearch,
+    /// The tab shown.
+    pub tab: Tab,
     /// The handles searched lately, the newest first.
     recent: Vec<(String, f64)>,
     /// The list of the relations.
@@ -333,9 +349,12 @@ impl HandlePageState {
     }
 
     /// The page around `search`; the handles kept come with the first frame.
-    pub fn with_search(search: HandleSearch) -> HandlePageState {
+    pub fn with_search(mut search: HandleSearch) -> HandlePageState {
+        // On the page the card is as wide as the cards around it.
+        search.card_spread = true;
         HandlePageState {
             search,
+            tab: Tab::default(),
             recent: Vec::new(),
             list: ListState::new(View::default()),
             recent_list: ListState::new(View::recent()),
@@ -453,11 +472,17 @@ fn actions_width(ui: &Ui) -> f32 {
     3.0 * MARK_SIZE + 3.0 * gap + widgets::ICON_BUTTON_SIZE
 }
 
-/// The width of the name column in a row of `ui`.
-fn name_width(ui: &Ui) -> f32 {
+/// The widths of the columns stance, kind, name and searched in a row of `ui`: the three beside the name shrink
+/// down to half their width before the name gets narrower than [`NAME_MIN_WIDTH`].
+fn column_widths(ui: &Ui) -> [f32; 4] {
     let gap = ui.spacing().item_spacing.x;
-    let fixed = STANCE_WIDTH + KIND_WIDTH + SEARCHED_WIDTH + actions_width(ui) + 4.0 * gap;
-    (ui.available_width() - fixed).max(NAME_MIN_WIDTH)
+    let rest = actions_width(ui) + 4.0 * gap;
+    let wanted = STANCE_WIDTH + KIND_WIDTH + SEARCHED_WIDTH;
+    let room = ui.available_width() - rest - NAME_MIN_WIDTH;
+    let shrink = (room / wanted).clamp(0.5, 1.0);
+    let (stance, kind, searched) = (STANCE_WIDTH * shrink, KIND_WIDTH * shrink, SEARCHED_WIDTH * shrink);
+    let name = (ui.available_width() - rest - stance - kind - searched).max(NAME_MIN_WIDTH);
+    [stance, kind, name, searched]
 }
 
 /// The colour, the icon and the word of a stance; unknown in the muted colour.
@@ -480,12 +505,12 @@ fn head(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, which: Which)
     let sorted = |column: Column| (view.sort == column).then_some(view.ascending);
     let mut clicked = None;
     ui.horizontal(|row| {
-        let name_width = name_width(row);
+        let [stance_width, kind_width, name_width, searched_width] = column_widths(row);
         for (column, width, key) in [
-            (Column::Stance, STANCE_WIDTH, "s_hqs_haltung"),
-            (Column::Kind, KIND_WIDTH, "s_hqs_art"),
+            (Column::Stance, stance_width, "s_hqs_haltung"),
+            (Column::Kind, kind_width, "s_hqs_art"),
             (Column::Name, name_width, "s_hqs_name"),
-            (Column::Searched, SEARCHED_WIDTH, "s_hqs_gesucht"),
+            (Column::Searched, searched_width, "s_hqs_gesucht"),
         ] {
             cell(row, width, |c| {
                 if widgets::sort_head(c, scheme, &t(key), sorted(column), false) {
@@ -504,14 +529,14 @@ fn head(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, which: Which)
 fn row(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, entry: &Row, now: f64) {
     let (tone, icon, word) = stance_look(scheme, entry.stance);
     ui.horizontal(|row| {
-        let name_width = name_width(row);
-        cell(row, STANCE_WIDTH, |c| {
+        let [stance_width, kind_width, name_width, searched_width] = column_widths(row);
+        cell(row, stance_width, |c| {
             if let Some(image) = crate::icons::image(icon, tone, MARK_SIZE) {
                 c.add(image);
             }
             c.add(egui::Label::new(RichText::new(&word).color(color(tone))).truncate());
         });
-        cell(row, KIND_WIDTH, |c| {
+        cell(row, kind_width, |c| {
             let kind = t(match entry.kind {
                 Kind::Handle => "s_hqs_handle",
                 Kind::Org => "s_hqs_org",
@@ -536,7 +561,7 @@ fn row(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, entry: &Row, n
                 state.opened = true;
             }
         });
-        cell(row, SEARCHED_WIDTH, |c| {
+        cell(row, searched_width, |c| {
             let age = entry.searched.map_or_else(|| "—".to_string(), |at| language::relative_age(now - at));
             small(c, &age, scheme.sub);
         });
@@ -636,57 +661,80 @@ fn undo_notice(ui: &Ui, scheme: &Scheme, state: &mut HandlePageState) {
     }
 }
 
-/// Draws the page "Handle-Suche": the field, the card, the way to the relations and the handles searched lately.
-pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) -> Option<Action> {
-    let now = handle_search::now();
-    state.refresh(now);
+/// A card with `title` over `add`.
+fn titled_card(ui: &mut Ui, scheme: &Scheme, title: &str, add: impl FnOnce(&mut Ui)) {
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, title);
+        ui.add_space(4.0);
+        add(ui);
+    });
+}
+
+/// The tab "Suche": the field, the card of the handle found and the handles searched lately.
+fn search_tab(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f64) {
     widgets::hint(ui, scheme, &t("s_hqs_lead"));
     ui.add_space(6.0);
-    let field = state.search.field(ui, scheme);
-    if std::mem::take(&mut state.to_top) {
+    let mut field = None;
+    titled_card(ui, scheme, &t("s_hqt_karte_suche"), |ui| field = Some(state.search.field(ui, scheme)));
+    if std::mem::take(&mut state.to_top)
+        && let Some(field) = &field
+    {
         field.scroll_to_me(Some(Align::TOP));
     }
-    // The card keeps its own width without narrowing the page below it. The members of an organization stand in
-    // the card, as in the info bar; a member clicked shows at the top.
+    ui.add_space(GAP);
+    // The card of the handle keeps its own width without narrowing the page below it. The members of an
+    // organization stand in the card, as in the info bar; a member clicked shows at the top.
     let searching = state.search.searching();
-    ui.scope(|ui| state.search.card(ui, scheme));
+    let card = ui.scope(|ui| state.search.card(ui, scheme)).response.rect;
     state.to_top |= !searching && state.search.searching();
-    ui.add_space(GAP);
-    let manage = t("s_hqs_verwalten");
-    let action = ui
-        .add(widgets::Button::new(&manage, ButtonKind::Normal, scheme).icon("shield-half"))
-        .clicked()
-        .then_some(Action::ToRelations);
-    ui.add_space(GAP);
-    widgets::heading(ui, scheme, &t("s_hq_verlauf"));
-    widgets::hint(ui, scheme, &t("s_hqs_verlauf_h"));
-    ui.add_space(4.0);
-    list(ui, scheme, state, now, Which::Recent, &t("s_hqs_verlauf_leer"));
+    if card.height() > 0.5 {
+        ui.add_space(GAP);
+    }
+    titled_card(ui, scheme, &t("s_hq_verlauf"), |ui| {
+        widgets::hint(ui, scheme, &t("s_hqs_verlauf_h"));
+        ui.add_space(4.0);
+        list(ui, scheme, state, now, Which::Recent, &t("s_hqs_verlauf_leer"));
+    });
     state.opened = false;
-    undo_notice(ui, scheme, state);
-    state.after_change();
     ui.add_space(GAP);
     // The settings of the search stand with the info bar, in one place with its other settings.
     widgets::hint(ui, scheme, &t("s_hqs_einstellungen_wo"));
-    action
 }
 
-/// Draws the page "Beziehungen": the handles and organizations marked, with the export and the import of the list.
-/// An entry opened goes to the page of the search.
-pub fn show_relations_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) -> Option<Action> {
-    let now = handle_search::now();
-    state.refresh(now);
+/// The tab "Beziehungen": the export and the import, and the handles and organizations marked. An entry opened
+/// goes to the tab of the search.
+fn relations_tab(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f64) {
     widgets::hint(ui, scheme, &t("s_hqb_lead"));
     ui.add_space(6.0);
-    state.search.transfer(ui, scheme);
+    titled_card(ui, scheme, &t("s_hqt_karte_austausch"), |ui| state.search.transfer(ui, scheme));
     ui.add_space(GAP);
-    widgets::heading(ui, scheme, &t("s_hqs_liste"));
-    widgets::hint(ui, scheme, &t("s_hqs_liste_h"));
-    ui.add_space(4.0);
-    list(ui, scheme, state, now, Which::Relations, &t("s_hqs_leer"));
+    titled_card(ui, scheme, &t("s_hqs_liste"), |ui| {
+        widgets::hint(ui, scheme, &t("s_hqs_liste_h"));
+        ui.add_space(4.0);
+        list(ui, scheme, state, now, Which::Relations, &t("s_hqs_leer"));
+    });
+    if std::mem::take(&mut state.opened) {
+        state.tab = Tab::Search;
+    }
+}
+
+/// Draws the page "Handle-Suche": the tabs "Suche" and "Beziehungen" and the one chosen.
+pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
+    let now = handle_search::now();
+    state.refresh(now);
+    let labels: Vec<String> = Tab::ALL.iter().map(|tab| tab.label()).collect();
+    let names: Vec<&str> = labels.iter().map(String::as_str).collect();
+    let mut chosen = state.tab.index();
+    if widgets::tab_bar(ui, scheme, &names, &mut chosen) {
+        state.tab = Tab::ALL.get(chosen).copied().unwrap_or_default();
+    }
+    ui.add_space(GAP);
+    match state.tab {
+        Tab::Search => search_tab(ui, scheme, state, now),
+        Tab::Relations => relations_tab(ui, scheme, state, now),
+    }
     undo_notice(ui, scheme, state);
     state.after_change();
-    std::mem::take(&mut state.opened).then_some(Action::ToSearch)
 }
 
 /// The settings of the search, for the settings of the info bar: written changes reach the overlay.

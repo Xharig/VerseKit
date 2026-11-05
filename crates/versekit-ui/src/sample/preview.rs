@@ -24,7 +24,7 @@
 
 use egui::{Align2, Color32, FontId, Rect, Role, Sense, Stroke, StrokeKind, Ui, WidgetInfo, pos2, vec2};
 use versekit_core::language::{Phrase, t};
-use versekit_core::overlay::{BarSide, Message, Mode, Peek, Row, Rows, Shown};
+use versekit_core::overlay::{BarSide, Message, Row, Rows, Shown};
 use versekit_core::theme::Scheme;
 
 use crate::{box_radius, color, overlay};
@@ -124,16 +124,13 @@ pub fn sample_rows() -> Rows {
     rows
 }
 
-/// The overlay as the player's settings draw it, inside a frame of the game. `opacity` is 0.3 … 1.0; in the
-/// pop-up mode the overlay shows the line that tells it folds away again, after `seconds` as the setting says.
+/// The overlay as the player's settings draw it, inside a frame of the game. `opacity` is 0.3 … 1.0.
 ///
 /// What the overlay learned in the frame comes back, for a test: in the picture it must always be nothing.
 pub fn overlay_picture(
     ui: &mut Ui,
     scheme: &Scheme,
     opacity: f32,
-    mode: Mode,
-    seconds: i64,
     bar: BarSide,
 ) -> overlay::Output {
     let mut learned = overlay::Output::default();
@@ -159,8 +156,6 @@ pub fn overlay_picture(
             signature: None,
             demand: None,
             update: None,
-            peek: (mode == Mode::Popup).then_some(Peek::Closes(seconds as f64)),
-            mode,
             game: true,
             locked: false,
             bar,
@@ -471,7 +466,7 @@ mod tests {
     use super::*;
 
     /// Runs one frame of the picture in a window of 700 x 300, with `events`, and gives back the shapes.
-    fn frame_of(ctx: &Context, opacity: f32, mode: Mode, events: Vec<Event>) -> Vec<Shape> {
+    fn frame_of(ctx: &Context, opacity: f32, events: Vec<Event>) -> Vec<Shape> {
         let scheme = &theme::schemes()[0];
         let input = RawInput {
             screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(700.0, 300.0))),
@@ -479,7 +474,7 @@ mod tests {
             ..Default::default()
         };
         let mut out = ctx.run_ui(input, |ui| {
-            let _ = overlay_picture(ui, scheme, opacity, mode, 6, BarSide::Top);
+            let _ = overlay_picture(ui, scheme, opacity, BarSide::Top);
         });
         out.textures_delta.clear();
         out.shapes.into_iter().map(|c| c.shape).collect()
@@ -504,7 +499,7 @@ mod tests {
             let mut fills = Vec::new();
             for _ in 0..3 {
                 fills.clear();
-                rect_fills(&frame_of(&ctx, opacity, Mode::Always, Vec::new()), &mut fills);
+                rect_fills(&frame_of(&ctx, opacity, Vec::new()), &mut fills);
             }
             let base = color(scheme.bg);
             let alpha = (opacity * 255.0).round() as u8;
@@ -609,7 +604,7 @@ mod tests {
                 ..Default::default()
             };
             let mut out =
-                ctx.run_ui(input, |ui| learned = overlay_picture(ui, scheme, 0.9, Mode::Always, 6, BarSide::Top));
+                ctx.run_ui(input, |ui| learned = overlay_picture(ui, scheme, 0.9, BarSide::Top));
             out.textures_delta.clear();
             assert!(ctx.memory(|m| m.focused()).is_none(), "the picture took the focus at step {step}");
             assert!(learned.actions.is_empty() && learned.drag.is_none(), "step {step}: {learned:?}");
@@ -634,7 +629,7 @@ mod tests {
                 ..Default::default()
             };
             let mut out =
-                ctx.run_ui(input, |ui| *learned = overlay_picture(ui, scheme, 0.9, Mode::Always, 6, BarSide::Top));
+                ctx.run_ui(input, |ui| *learned = overlay_picture(ui, scheme, 0.9, BarSide::Top));
             out.textures_delta.clear();
         };
         // A few frames so that the buttons have their places.

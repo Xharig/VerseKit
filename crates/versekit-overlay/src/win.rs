@@ -533,6 +533,22 @@ pub fn in_region(hwnd: isize, points: &[(i32, i32)]) -> Option<Vec<bool>> {
     }
 }
 
+/// Whether the window has a region and it is empty: nothing of the window is shown.
+#[cfg(test)]
+pub fn region_is_empty(hwnd: isize) -> bool {
+    use windows_sys::Win32::Graphics::Gdi::NULLREGION;
+    // SAFETY: a region made here receives a copy of the window region and is deleted before returning.
+    unsafe {
+        let region = CreateRectRgn(0, 0, 0, 0);
+        if region.is_null() {
+            return false;
+        }
+        let empty = GetWindowRgn(hwnd as HWND, region) == NULLREGION;
+        DeleteObject(region as HGDIOBJ);
+        empty
+    }
+}
+
 /// The name of the desktop of this thread (`Default` for the player's own), empty when it cannot be asked.
 fn desktop_name() -> String {
     use windows_sys::Win32::System::StationsAndDesktops::{GetThreadDesktop, GetUserObjectInformationW, UOI_NAME};

@@ -1633,7 +1633,7 @@ fn body(ui: &mut Ui, scheme: &Scheme, state: &mut OrgStockState, data: &Arc<OrgS
         ui.add_space(GAP);
         widgets::card(ui, scheme, |card| {
             card.set_width(card.available_width());
-            card.label(RichText::new(t("s_bt_masse")).strong());
+            widgets::card_title(card, scheme, &t("s_bt_masse"));
             small(card, scheme, &t("s_sl_masse_h"), scheme.sub);
             card.add_space(4.0);
             if card

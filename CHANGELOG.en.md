@@ -6,6 +6,103 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.1 - 2026-11-05
+
+> Handle search and Relations share one page, the notepad formats with a
+> button bar, under Modules you switch crafting, mining and procurement
+> on their own, and the overlay waits hidden while the game is not
+> running.
+
+### New
+
+- **Handle search with two tabs** — Handle search and Relations are now
+  one page with the tabs “Search” and “Relations”. The old Relations menu
+  entry leads straight to its tab.
+- **Notepad button bar** — Bold, italic, underline, strikethrough,
+  bullets, numbering and small tables by button or with Ctrl+B, Ctrl+I and
+  Ctrl+U. You see the formatting directly, no Markdown characters show up
+  in the text.
+- **Refinery per ore collapsible** — Under Mining, every ore of a refinery
+  can be folded away, so long jobs stay easy to read.
+- **Overlay waits hidden without the game** — While Star Citizen is not
+  running, the overlay is invisible and catches no clicks. To see it
+  anyway, switch on “Show without the game running too” under
+  Settings › Overlay. Reported by fok
+
+### Improved
+
+- **Overlay without lines that only tell its state** — The waiting strip
+  is just the eye. “Star Citizen is not running”, the countdown, “stays
+  while …” and “waiting for new blueprints” are gone. Reported by fok
+- **Shopping route stays in the system** — If a part is available in a
+  system you fly to anyway, the route takes that shop instead of jumping to
+  another system for a slightly lower price.
+- **Game channels next to “Game start”** — Under Installation & paths, the
+  Game channels card now sits in the same row as the others.
+- **Pin for the handle search and Relations** — Both pages now have the
+  pin next to the title, like the other pages. One click pins them as a
+  card to the overview, a second one takes it off again.
+- **Crafting and mining apart** — Under Settings › Modules, “Crafting,
+  mining & refineries” is now two modules: “Crafting” (with “What to
+  farm”) and “Mining & refineries”. If you only mine, you hide
+  crafting, and the other way round. If you had the old module off, both
+  stay off.
+- **The info bar snaps to the screen edge** — Like the overlay, the info
+  bar jumps onto the screen edge when you let go of it close to it, and
+  stays wholly on the screen. Suggested by Kuehlwagen
+- **Procurement module** — The shopping list and Contested Zones can now
+  be hidden together. The shopping list used to belong to the ships
+  module; if you had that off, procurement stays off too.
+- **Cards on more pages** — “Backup & reset”, “Game”, “Axes & curves” and
+  “Update & about” show each block in a card of its own, like
+  “Installation & paths”. Large in-between headings became card titles,
+  nothing stands loose between the cards any more.
+- **Uniform card titles** — Every card carries its title the same way:
+  bold, green, one step larger than the text below it and written as is,
+  instead of small green capitals.
+- **The refinery table grows with the window** — The columns share the
+  whole width, and with room the rows get taller down to the bottom edge.
+  The ore names are as large as the values beside them.
+- **Bavarian in the row of German** — Under Translation, Luftwerft's
+  Bavarian version now stands in the same row as the German ones, is
+  called “Bayrisch (Luftwerft) [FUN]” and carries the note “work in
+  progress” right beside it.
+
+### Fixed
+
+- **The graphics page twitched** — After a short pause between two
+  frames, the page read the computer again and folded the box “Your PC
+  according to the game” for a moment. Everything below it
+  jumped. Now the box stays as it is until the new values are there.
+- **The rating of the game was missing** — VerseKit looked for the rating
+  (“Final rating”) only in the 40 newest game logs. Whoever played more
+  often since the last rating saw “Not rated yet”. Now every old log is
+  searched once, after that only the new ones.
+- **The preview “Place of the window” was tiny** — Without a game
+  picture, the preview showed the remembered place of the signature true
+  to scale, hard to see on wide screens. Now it shows a well readable
+  signature like the search frame does; with a game picture it stays the
+  real place.
+- **The handle search forgot nothing** — “Keep found handles, days” only
+  counted for asking the RSI site again. “Searched lately” still showed
+  older handles. Now handles leave the list and the store after the days
+  set. The list shows at most 5 handles instead of 8.
+- **Game channels in tiny print** — Under Installation & paths the block
+  “Game channels” is now a card like the others, in normal print.
+- **Long menus in Crafting ran out of the window** — The “For ship”
+  choice and the categories are now at most as tall as the window and
+  scroll.
+- **Ore pods supposedly fitted every mining ship** — “Fits” compared only
+  kind and size. Now a pod fits only ships of its maker: Argo into the
+  MOLE, MISC into the Prospector, Drake and GOLEM into the Golem. The
+  “MISC Enhanced Ore Pod” is made by Argo and fits the MOLE and the
+  Prospector. The line is now called “Fits your ships”.
+- **“For ship” found no components on some ships** — On ships such as the
+  F7C-M Super Hornet Mk II, F8C, Arrow, Eclipse or Polaris, Crafting with
+  “For ship” showed only weapons, but no coolers, power plants, shields or
+  quantum drives. Their slots are now counted in full, in “Fits your
+  ship” too.
+
 ## v5.1.0 - 2026-11-05
 
 > The overlay shows more and is easier to tune, My Inventory knows sales
@@ -18,7 +115,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   from My Hangar under “For ship”. The list then shows only parts that fit
   a mount of that ship, with and without a blueprint. On the ship card in
   the hangar, “Craftable parts” jumps straight there.
-  Suggested by StarGround and LunaticSmile [KRT]
+  Suggested by LunaticSmile [KRT]
 - **Shop sales as suggestions in My Inventory** — What you sell in a shop
   in the game, My Inventory offers under “New according to the log” to
   take out. You book or dismiss each sale one by one or all at once with

@@ -639,7 +639,9 @@ impl CraftingState {
                     .filter_map(|(index, item)| {
                         let blueprint = by_key.get(name_key(&item.basis).as_str())?;
                         let slots = table.takes(&blueprint.kind, blueprint.size);
-                        (slots > 0).then_some((index, slots))
+                        let maker = blueprint.maker.as_deref();
+                        let allowed = erkul_slots::maker_allows(&blueprint.kind, maker, &blueprint.name, entry);
+                        (slots > 0 && allowed).then_some((index, slots))
                     })
                     .collect();
                 ShipFit::Parts(parts)
@@ -1163,10 +1165,8 @@ fn head(ui: &mut Ui, scheme: &Scheme, sure: usize, all: usize, unclear: usize) {
 
 /// The limits of the fabricator in one line: "2 in progress, 4 waiting, 10 in the history · Dismantling 4/4".
 fn crafter_line(limits: versekit_gamedata::values::CrafterLimits) -> String {
-    let mut line = tn(
-        "s_p9_werkbank",
-        &[Arg::Int(limits.in_progress), Arg::Int(limits.waiting), Arg::Int(limits.history)],
-    );
+    let mut line =
+        tn("s_p9_werkbank", &[Arg::Int(limits.in_progress), Arg::Int(limits.waiting), Arg::Int(limits.history)]);
     if let Some((progress, waiting)) = limits.dismantle {
         line = format!("{line}  ·  {}", tn("s_p9_werkbank_zerlegen", &[Arg::Int(progress), Arg::Int(waiting)]));
     }
@@ -1491,7 +1491,9 @@ fn item_head(
 fn fits_block(ui: &mut Ui, scheme: &Scheme, state: &CraftingState, catalog: &CatalogCache, item: &CraftItem) {
     let Some(blueprint) = catalog.blueprints.iter().find(|b| b.key == name_key(&item.basis)) else { return };
     let ships = hangar::ships(&state.notes);
-    let (text, tint, muted) = match erkul_slots::fit_answer(&state.ships, &blueprint.kind, blueprint.size, &ships) {
+    let part = (blueprint.maker.as_deref(), blueprint.name.as_str());
+    let (text, tint, muted) = match erkul_slots::fit_answer(&state.ships, &blueprint.kind, blueprint.size, part, &ships)
+    {
         FitAnswer::Silent => return,
         FitAnswer::EmptyHangar => (t("s_hg_passt_leer"), scheme.sub, true),
         FitAnswer::NoData => {
@@ -1531,7 +1533,7 @@ fn recipe_side(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, values: 
     };
     let mut action = None;
     widgets::card(ui, scheme, |ui| {
-        ui.label(widgets::bold(ui, t("s_fb_rezept"), egui::TextStyle::Body));
+        widgets::card_title(ui, scheme, &t("s_fb_rezept"));
         count_row(ui, scheme, state, &ingredients);
         craft_buttons(ui, scheme, state, &item, &ingredients);
         fill_row(ui, scheme, state, &ingredients);
@@ -2462,6 +2464,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_long_menu_stays_inside_the_window_and_scrolls() {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let scheme = versekit_core::theme::by_id("original").expect("original");
+        let mut height = 0.0;
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 400.0))),
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ui| {
+                let shown = ui.scope(|ui| {
+                    list::menu_entries(ui, scheme, |menu| {
+                        for n in 0..60 {
+                            menu.label(format!("Schiff {n}"));
+                        }
+                    });
+                });
+                height = shown.response.rect.height();
+            });
+        }
+        assert!(height > 200.0 && height <= 400.0 - 2.0 * list::MENU_MARGIN, "60 ships in a 400 high window: {height}");
+    }
+
+    #[test]
     fn it_says_why_the_game_values_are_not_there() {
         // The sample holds values.
         assert_eq!(CraftingState::default().values_wait(), None);
@@ -3260,10 +3287,10 @@ mod tests {
         let (mut page, catalog) = fits_page("fits-in", eclipse, Some(SHIPS));
         let shown = frame_with(&ctx, &mut page, &[], 900.0, &catalog);
         // Written out: the names of the values must be those of the text, or the braces would stand there.
-        assert!(shown.contains(&"Passt in: Eclipse (3×)".to_string()), "{shown:?}");
+        assert!(shown.contains(&"Passt in deine Schiffe: Eclipse (3×)".to_string()), "{shown:?}");
         set_language(Choice::En);
         let shown = frame_with(&ctx, &mut page, &[], 900.0, &catalog);
-        assert!(shown.contains(&"Fits: Eclipse (3×)".to_string()), "{shown:?}");
+        assert!(shown.contains(&"Fits your ships: Eclipse (3×)".to_string()), "{shown:?}");
         assert!(!shown.iter().any(|s| s.contains('{') && s.contains('}')), "{shown:?}");
         set_language(Choice::De);
 
@@ -3386,6 +3413,19 @@ mod tests {
         assert!(!shown.iter().any(|s| s.contains('{') && s.contains('}')), "{shown:?}");
         set_language(Choice::De);
 
+        // A category on top narrows to the parts of the ship in it: the cooler stays under its own category and
+        // subcategory, alone or with the ship.
+        let frostline = page.book.items.iter().position(|i| i.name == "Frostline").unwrap();
+        let place = page.places[frostline];
+        (page.picks.category, page.picks.sub) = (Some(place.category), place.sub);
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ["Frostline"], "ship and category: {shown:?}");
+        let ship = std::mem::take(&mut page.picks.ship);
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert!(listed(&shown).contains(&"Frostline"), "category alone: {shown:?}");
+        page.picks.ship = ship;
+        (page.picks.category, page.picks.sub) = (None, None);
+
         // The switch "blueprint owned" still narrows.
         page.picks.state = "habe".into();
         let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
@@ -3396,7 +3436,7 @@ mod tests {
         page.open = page.book.items.iter().position(|i| i.name == "Arc Shield");
         let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
         assert!(has(&shown, &t("s_he_woher_bp")), "{shown:?}");
-        assert!(shown.iter().any(|s| s.starts_with("Passt in: Eclipse")), "{shown:?}");
+        assert!(shown.iter().any(|s| s.starts_with("Passt in deine Schiffe: Eclipse")), "{shown:?}");
 
         // The Gladius takes only the power plant.
         page.open = None;
@@ -3413,7 +3453,8 @@ mod tests {
             let ShipFit::Parts(parts) = &page.ship_fit.0 else { panic!("the ship has slots") };
             for (index, item) in page.book.items.iter().enumerate() {
                 let blueprint = catalog.blueprints.iter().find(|b| b.key == name_key(&item.basis)).unwrap();
-                let answer = erkul_slots::fit_answer(&page.ships, &blueprint.kind, blueprint.size, &[ship]);
+                let part = (blueprint.maker.as_deref(), blueprint.name.as_str());
+                let answer = erkul_slots::fit_answer(&page.ships, &blueprint.kind, blueprint.size, part, &[ship]);
                 assert_eq!(
                     parts.contains_key(&index),
                     matches!(answer, FitAnswer::In(_)),

@@ -237,11 +237,11 @@ impl From<Option<usize>> for Answer {
     }
 }
 
-/// The section "Read in the stand".
+/// The section "Read in the stand", for a card of its own: the title of the card, the button, and the preview of
+/// the file below.
 pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Host) {
     state.follow(ui.ctx(), host);
-    ui.label(RichText::new(t("s_be_ein")).heading().strong());
-    ui.add_space(2.0);
+    crate::settings::setting_group(ui, scheme, &t("s_be_ein"));
     ui.add(egui::Label::new(RichText::new(t("s_be_ein_h")).small().color(color(scheme.sub))).wrap());
     ui.add_space(8.0);
     let busy = state.working.is_some() || state.dialog.is_some();
@@ -256,10 +256,8 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Host) 
     ui.add_space(10.0);
     match state.stage.clone() {
         Stage::Empty => {
-            widgets::card(ui, scheme, |ui| {
-                ui.label(RichText::new(t("s_vorschau_leer")).strong());
-                ui.add(egui::Label::new(RichText::new(t("s_vorschau_leer_h")).small().color(color(scheme.sub))).wrap());
-            });
+            ui.label(RichText::new(t("s_vorschau_leer")).strong());
+            ui.add(egui::Label::new(RichText::new(t("s_vorschau_leer_h")).small().color(color(scheme.sub))).wrap());
         }
         Stage::Unknown => {
             widgets::status_box(ui, scheme, scheme.red, "circle-x", &t("s_be_unbekannt"), &t("s_be_unbekannt_h"));
@@ -278,7 +276,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Host) 
 fn show_preview(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Host, kind: Kind, v: &Preview) {
     let mut take = false;
     let mut cancel = false;
-    widgets::card(ui, scheme, |ui| {
+    ui.scope(|ui| {
         ui.horizontal(|row| {
             row.label(RichText::new(t("s_be_vorschau")).strong());
             row.with_layout(egui::Layout::right_to_left(egui::Align::Center), |row| {

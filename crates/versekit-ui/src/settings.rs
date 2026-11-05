@@ -220,11 +220,9 @@ impl Said {
     }
 }
 
-/// The small name of a group of settings above its rows, in the accent of the scheme.
+/// The name of a group of settings above its rows: the title of its card ([`widgets::card_title`]).
 pub fn setting_group(ui: &mut Ui, scheme: &Scheme, title: &str) {
-    let tone = color(widgets::section_title_color(scheme));
-    let shown = ui.label(RichText::new(title.to_uppercase()).small().color(tone));
-    crate::highlight::mark(ui, scheme, shown.rect, &[title]);
+    widgets::card_title(ui, scheme, title);
     ui.add_space(2.0);
 }
 
@@ -727,9 +725,10 @@ mod tests {
         bar_bottom: "Leiste unten",
     };
 
-    /// The title of a group stands in capitals in the accent of every scheme, the color the contrast check measures.
+    /// The title of a group stands as written in the accent of every scheme, the color the contrast check
+    /// measures, and one step larger than the rows.
     #[test]
-    fn the_title_of_a_group_stands_in_the_accent_of_every_scheme() {
+    fn the_title_of_a_group_stands_as_written_in_the_accent_of_every_scheme() {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         for s in theme::schemes() {
@@ -737,20 +736,26 @@ mod tests {
                 screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(600.0, 200.0))),
                 ..Default::default()
             };
-            let mut output = ctx.run_ui(input, |ui| setting_group(ui, s, "Info-Leiste"));
+            let mut body = 0.0;
+            let mut output = ctx.run_ui(input, |ui| {
+                body = egui::TextStyle::Body.resolve(ui.style()).size;
+                setting_group(ui, s, "Info-Leiste");
+            });
             output.textures_delta.clear();
-            let colors: Vec<egui::Color32> = output
+            let colors: Vec<(egui::Color32, f32)> = output
                 .shapes
                 .iter()
                 .filter_map(|clipped| match &clipped.shape {
-                    egui::Shape::Text(text) if text.galley.text() == "INFO-LEISTE" => {
-                        text.galley.job.sections.first().map(|section| section.format.color)
+                    egui::Shape::Text(text) if text.galley.text() == "Info-Leiste" => {
+                        text.galley.job.sections.first().map(|section| (section.format.color, section.format.font_id.size))
                     }
                     _ => None,
                 })
                 .collect();
-            assert_eq!(colors, [color(widgets::section_title_color(s))], "{}", s.id);
+            assert_eq!(colors.len(), 1, "{}", s.id);
+            assert_eq!(colors[0].0, color(widgets::section_title_color(s)), "{}", s.id);
             assert_eq!(widgets::section_title_color(s), s.accent, "{}", s.id);
+            assert!(colors[0].1 > body, "{}: title {} not larger than the rows {body}", s.id, colors[0].1);
         }
     }
 

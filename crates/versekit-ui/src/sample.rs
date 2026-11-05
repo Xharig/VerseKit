@@ -63,6 +63,8 @@ mod back_bar;
 #[cfg(test)]
 mod filter_jump;
 #[cfg(test)]
+mod handle_tabs;
+#[cfg(test)]
 mod nav_groups;
 mod first_backup_hint;
 mod glance;
@@ -592,6 +594,7 @@ pub struct SamplePage {
     overlay_info_bar: bool,
     /// The info bar shows while the game does not run too (off by default).
     overlay_info_bar_always: bool,
+    overlay_always: bool,
     /// Where the info bar starts at the top while it was not dragged.
     overlay_info_bar_corner: versekit_core::info_bar::Corner,
     /// The size of the info bar in percent of the main window's size, in the same steps.
@@ -1227,6 +1230,7 @@ impl SamplePage {
             overlay_players: false,
             overlay_info_bar: versekit_core::overlay::INFO_BAR_DEFAULT,
             overlay_info_bar_always: versekit_core::overlay::INFO_BAR_ALWAYS_DEFAULT,
+            overlay_always: versekit_core::overlay::OVERLAY_ALWAYS_DEFAULT,
             overlay_info_bar_corner: versekit_core::info_bar::Corner::default(),
             overlay_info_bar_size: versekit_core::overlay::SIZE_STEPS[0],
             place_reset_at: None,
@@ -1414,6 +1418,9 @@ impl SamplePage {
         let Some(key) = versekit_core::overview::page_key(page) else { return false };
         if let Some(preset) = preset {
             self.stock.apply_preset(preset);
+        }
+        if name == "beziehungen" {
+            self.handles.tab = crate::handle_page::Tab::Relations;
         }
         match group_of(key) {
             Some(group) => self.open_page(ctx, key, group),
@@ -1998,6 +2005,10 @@ impl SamplePage {
             versekit_core::overlay::keys::INFO_BAR_ALWAYS,
             versekit_core::overlay::INFO_BAR_ALWAYS_DEFAULT,
         );
+        self.overlay_always = paths.setting_bool(
+            versekit_core::overlay::keys::OVERLAY_ALWAYS,
+            versekit_core::overlay::OVERLAY_ALWAYS_DEFAULT,
+        );
         self.overlay_info_bar_corner = versekit_core::info_bar::Corner::read(paths);
         self.overlay_size = versekit_core::overlay::size_setting(paths, versekit_core::overlay::keys::SIZE);
         self.overlay_info_bar_size = versekit_core::overlay::size_setting(paths, versekit_core::overlay::keys::INFO_BAR_SIZE);
@@ -2115,6 +2126,7 @@ impl SamplePage {
         values.push((versekit_core::overlay::keys::PLAYERS, Value::Bool(self.overlay_players)));
         values.push((versekit_core::overlay::keys::INFO_BAR, Value::Bool(self.overlay_info_bar)));
         values.push((versekit_core::overlay::keys::INFO_BAR_ALWAYS, Value::Bool(self.overlay_info_bar_always)));
+        values.push((versekit_core::overlay::keys::OVERLAY_ALWAYS, Value::Bool(self.overlay_always)));
         values.push((versekit_core::info_bar::keys::CORNER, Value::str(self.overlay_info_bar_corner.word())));
         values.push((versekit_core::overlay::keys::SIZE, Value::int(self.overlay_size)));
         values.push((versekit_core::overlay::keys::INFO_BAR_SIZE, Value::int(self.overlay_info_bar_size)));
@@ -2280,7 +2292,7 @@ impl SamplePage {
         widgets::card(ui, scheme, |ui| self.data(ui, scheme));
         ui.add_space(GAP);
         widgets::card(ui, scheme, |ui| {
-            ui.label(RichText::new(t("s_mu_waerme")).strong());
+            widgets::card_title(ui, scheme, &t("s_mu_waerme"));
             ui.add_space(4.0);
             let days = days();
             let days: Vec<&str> = days.iter().map(String::as_str).collect();
@@ -3301,19 +3313,30 @@ impl SamplePage {
                     }
                     // The backup and reading in a stand are real; the rest of the page comes later.
                     "hf_sichern" if self.real() => {
-                        self.backup_section(page, scheme);
+                        widgets::card(page, scheme, |card| self.backup_section(card, scheme));
                         page.add_space(GAP);
-                        self.repeat_setup_row(page, scheme);
-                        page.add_space(GAP);
-                        if let Some(store) = &self.store {
-                            crate::collection_tools::show_export(page, scheme, &mut self.collection_tools, &store.paths);
+                        let (tools, import) = (&mut self.collection_tools, &mut self.import);
+                        let paths = self.store.as_ref().map(|store| &store.paths);
+                        if let Some(paths) = paths {
+                            widgets::card(page, scheme, |card| {
+                                crate::collection_tools::show_export(card, scheme, tools, paths);
+                            });
                             page.add_space(GAP);
-                            import_page::show(page, scheme, &mut self.import, &store.paths.host);
+                            widgets::card(page, scheme, |card| import_page::show(card, scheme, import, &paths.host));
                             page.add_space(GAP);
-                            // Right above the reset: reading again adds what is missing, resetting throws away.
-                            crate::collection_tools::show_rescan(page, scheme, &mut self.collection_tools, &store.paths);
-                            page.add_space(GAP);
-                            crate::collection_tools::show_reset(page, scheme, &mut self.collection_tools, &store.paths);
+                        }
+                        let mut setup = false;
+                        widgets::card(page, scheme, |card| {
+                            settings::setting_group(card, scheme, &t("s_si_protokolle"));
+                            setup = Self::repeat_setup_line(card, scheme);
+                            if let Some(paths) = paths {
+                                // Right above the reset: reading again adds what is missing, resetting throws away.
+                                crate::collection_tools::show_rescan(card, scheme, tools, paths);
+                                crate::collection_tools::show_reset(card, scheme, tools, paths);
+                            }
+                        });
+                        if setup {
+                            self.open_setup();
                         }
                         if let Some(said) = self.collection_tools.take_notice() {
                             self.pin_fault = said.fault.then(|| said.text.clone());
@@ -3813,6 +3836,7 @@ impl SamplePage {
                         let players = &mut self.overlay_players;
                         let info_bar = &mut self.overlay_info_bar;
                         let info_bar_always = &mut self.overlay_info_bar_always;
+                        let overlay_always = &mut self.overlay_always;
                         let info_bar_corner = &mut self.overlay_info_bar_corner;
                         let (overlay_size, info_bar_size) = (&mut self.overlay_size, &mut self.overlay_info_bar_size);
                         let handles = &mut self.handles;
@@ -3830,10 +3854,17 @@ impl SamplePage {
                                 let (name, hint, choices) = rows[g].1[r];
                                 let name = label(name);
                                 // The opacity of an overlay drawn without transparency says why it has no effect.
-                                let hint = if (g, r, opaque) == (0, 5, true) { "ov_s_deck_ohne_h" } else { hint };
+                                let hint = if (g, r, opaque) == (0, 6, true) { "ov_s_deck_ohne_h" } else { hint };
                                 let hint = label(hint);
                                 let hint = hint.as_str();
-                                if g == 0 {
+                                if g == 0 && r == 1 {
+                                    // Whether the overlay shows without the game too.
+                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                                        row.add(widgets::Toggle::new(overlay_always, scheme));
+                                    });
+                                } else if g == 0 {
+                                    // The rows after that switch keep the numbers they had before it.
+                                    let r = if r > 1 { r - 1 } else { r };
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         match r {
                                             // Comes and folds with the game, no switch.
@@ -4288,17 +4319,26 @@ impl SamplePage {
                         // One folder per channel, below the data folder.
                         let rows = settings_of("hf_ordner");
                         let titles: Vec<String> = rows.iter().map(|(title, _)| label(title)).collect();
-                        let groups: Vec<(&str, usize)> =
+                        let mut groups: Vec<(&str, usize)> =
                             titles.iter().zip(rows).map(|(title, (_, group))| (title.as_str(), group.len())).collect();
+                        // The states of the channels exist on real data only.
+                        if !real {
+                            groups.truncate(3);
+                        }
                         let paths = self.store.as_ref().map(|store| &store.paths);
                         let given_game = paths.and_then(|p| p.given().game);
                         let (folders, data) = (&mut self.folders, &mut self.data_folder);
                         let start_command = &mut self.start_command;
+                        let channel_states = &mut self.channel_states;
                         let mut start_commit = false;
                         // What happened at the folder fields: handled once the page is drawn.
                         let mut events: Vec<(usize, widgets::FolderEvents)> = Vec::new();
                         settings::settings_page(page, scheme, "ordner", &group_refs(&groups), &mut |ui, g, r| {
                             let (name, hint, words) = rows[g].1[r];
+                            if g == 3 {
+                                channel_states.rows(ui, scheme, if real { paths } else { None });
+                                return;
+                            }
                             if g == 1 {
                                 let name = label(name);
                                 settings::setting_row(ui, scheme, &name, &label(hint), false, |_| {});
@@ -4373,9 +4413,6 @@ impl SamplePage {
                             }
                             ui.add_space(4.0);
                         });
-                        if let (true, Some(paths)) = (real, paths) {
-                            self.channel_states.show(page, scheme, paths);
-                        }
                         for (channel, seen) in events {
                             if seen.typed {
                                 self.commit_game_folder(channel);
@@ -4416,11 +4453,18 @@ impl SamplePage {
                     }
                     "hf_sichern" => {
                         let infos = page_infos("hf_sichern");
-                        let restore = widgets::Button::new(&infos[0], ButtonKind::Normal, scheme);
-                        if page.add(restore.icon("archive-restore")).clicked() {
-                            self.restore_open = true;
-                        }
-                        self.repeat_setup_row(page, scheme);
+                        widgets::card(page, scheme, |card| {
+                            settings::setting_group(card, scheme, &t("s_si_sicherung"));
+                            let restore = widgets::Button::new(&infos[0], ButtonKind::Normal, scheme);
+                            if card.add(restore.icon("archive-restore")).clicked() {
+                                self.restore_open = true;
+                            }
+                        });
+                        page.add_space(GAP);
+                        widgets::card(page, scheme, |card| {
+                            settings::setting_group(card, scheme, &t("s_si_protokolle"));
+                            self.repeat_setup_row(card, scheme);
+                        });
                     }
                     "k_basetool_verbindung" if self.connection.wire().is_some() => {
                         basetool_page::show_page(page, scheme, &mut self.connection)
@@ -4580,21 +4624,7 @@ impl SamplePage {
                     "hf_patchaenderungen" => {
                         crate::patch_changes_page::show_page(page, scheme, &mut self.patch_changes);
                     }
-                    "hf_handlesuche" => {
-                        if let Some(crate::handle_page::Action::ToRelations) =
-                            crate::handle_page::show_page(page, scheme, &mut self.handles)
-                        {
-                            jump = Some(("hf_beziehungen".to_string(), "hf_gruppe_info"));
-                        }
-                    }
-                    // An entry opened in the list of the relations shows its card on the page of the search.
-                    "hf_beziehungen" => {
-                        if let Some(crate::handle_page::Action::ToSearch) =
-                            crate::handle_page::show_relations_page(page, scheme, &mut self.handles)
-                        {
-                            jump = Some(("hf_handlesuche".to_string(), "hf_gruppe_info"));
-                        }
-                    }
+                    "hf_handlesuche" => crate::handle_page::show_page(page, scheme, &mut self.handles),
                     "hf_bergbau" => {
                         if let Some(mining_page::Action::ToRefineries) =
                             mining_page::show_page(page, scheme, &mut self.mining)
@@ -5175,7 +5205,6 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
             ("hf_patchaenderungen", "clock"),
             ("hf_serverstatus", "server"),
             ("hf_handlesuche", "users"),
-            ("hf_beziehungen", "shield-half"),
             ("hf_danke", "heart-handshake"),
         ],
     ),
@@ -5274,6 +5303,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                 "hf_overlay",
                 &[
                     ("s_ei_ov_spiel", "s_ei_ov_spiel_h", &[]),
+                    ("s_ov_ohne_spiel", "s_ov_ohne_spiel_h", &[]),
                     ("s_ei_ov_durch", "s_ei_ov_durch_h", &[]),
                     ("s_zeilen", "s_ei_ov_zeilen_h", &["s_ei_zeilen_einheit"]),
                     ("s_ei_ov_taste", "s_ei_ov_taste_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
@@ -5410,6 +5440,8 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
             ("s_eigene", &[("s_pf_datenordner", "s_pf_daten_h", &["s_durchsuchen", "s_oeffnen"])]),
             // The own command that starts the game (Lutris, Heroic, Flatpak or a script); empty: the way found.
             ("s_pf_start_gruppe", &[("s_or_start", "s_or_start_h", &["s_or_uebernehmen"])]),
+            // The state of each channel found, beside the start of the game.
+            ("s_uc_kanaele", &[("s_uc_kanaele", "s_uc_kanaele_h", &[])]),
         ],
     ),
     ("hf_grafik", &[("s_ei_bild", &[("s_ei_sichtweite", "s_ei_sichtweite_h", &[])])]),
@@ -5853,8 +5885,13 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_p9_ek_ziehen",
         ]),
         "hf_notizen" => texts(&["s_nz_lead", "s_nz_neu", "s_nz_loeschen", "s_nz_schreib_hier"]),
-        "hf_handlesuche" => texts(&["s_hqs_lead", "s_hqs_verwalten", "s_hq_verlauf"]),
-        "hf_beziehungen" => texts(&[
+        "hf_handlesuche" => texts(&[
+            "s_hqt_reiter_suche",
+            "s_hqt_reiter_beziehungen",
+            "s_hqt_karte_suche",
+            "s_hqt_karte_austausch",
+            "s_hqs_lead",
+            "s_hq_verlauf",
             "s_hqb_lead",
             "s_hqs_liste",
             "s_hq_export",
@@ -6052,7 +6089,8 @@ fn usage_page_id(key: &str) -> Option<&'static str> {
         "hf_ueber" => Some("ueber"),
         "hf_diagnose" => Some("diagnose"),
         ASOP_PAGE => Some("asop"),
-        _ => versekit_core::overview::page_name(key),
+        // Pages the receiver of the counters does not know yet are not counted, even where they can be pinned.
+        _ => versekit_core::overview::page_name(key).filter(|id| versekit_core::usage::PAGES.contains(id)),
     }
 }
 
@@ -6506,7 +6544,7 @@ mod tests {
         assert_eq!(usage_page_id("eigene_seite"), None);
         // Every page of the side bar has an id the receiver takes, but the pages new in v5 that the receiver
         // does not know yet: those are not counted.
-        let unknown_to_the_receiver = ["hf_handlesuche", "hf_beziehungen"];
+        let unknown_to_the_receiver = ["hf_handlesuche"];
         for (_, pages) in NAV {
             for (page, _) in pages.iter() {
                 if unknown_to_the_receiver.contains(page) {

@@ -481,9 +481,20 @@ fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
     ui.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap());
 }
 
+/// The name of a box inside a card (a device set, an old entry), in bold.
 fn block_title(ui: &mut Ui, text: &str) {
     let title = widgets::bold(ui, text, egui::TextStyle::Body);
     ui.label(title);
+}
+
+/// A card of its own below what stands above, with its title on top; gives what `add` gives.
+fn titled_card<R>(ui: &mut Ui, scheme: &Scheme, title: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
+    ui.add_space(GAP);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, title);
+        add(ui)
+    })
+    .inner
 }
 
 /// The plain name of a game axis (`Nicken`), or the technical name where the game has none.
@@ -612,7 +623,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, paths: &Pa
         ui.horizontal_top(|ui| {
             ui.vertical(|ui| {
                 ui.set_width((ui.available_width() - PLOT_SIDE - 2.0 * GAP).max(200.0));
-                chosen = axis_list(ui, scheme, &look, block, &state.axis);
+                chosen = axes_card(ui, scheme, &look, block, &state.axis);
                 ui.add_space(GAP);
                 act = sliders_and_functions(ui, scheme, state, &look, block, &axis, &sensitivities);
                 tools = device_tools(ui, scheme, state, &look, block);
@@ -625,7 +636,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, paths: &Pa
     } else {
         ui.vertical(|ui| plot_column(ui, state));
         ui.add_space(GAP);
-        chosen = axis_list(ui, scheme, &look, block, &state.axis);
+        chosen = axes_card(ui, scheme, &look, block, &state.axis);
         ui.add_space(GAP);
         act = sliders_and_functions(ui, scheme, state, &look, block, &axis, &sensitivities);
         tools = device_tools(ui, scheme, state, &look, block);
@@ -751,6 +762,15 @@ fn plotted_sensitivity(state: &mut AxesState, keys: &[(Key, Function)]) -> Plott
     };
     let exponent = EXPONENT.value(state.slide(key, game_file(function)).now);
     Plotted { exponent, function: Some(function_name(&function.axis)), several: keys.len() > 1 }
+}
+
+/// The card with the list of the axes; gives the axis that was clicked.
+fn axes_card(ui: &mut Ui, scheme: &Scheme, look: &Look, block: &DeviceBlock, chosen: &str) -> Option<String> {
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_ac_kopf_achsen"));
+        axis_list(ui, scheme, look, block, chosen)
+    })
+    .inner
 }
 
 /// The list of the axes of the device; gives the axis that was clicked.
@@ -924,8 +944,11 @@ fn ask(ui: &mut Ui, scheme: &Scheme, text: &str, danger: bool) -> Option<Act> {
 /// The device sets: a whole set-up under one name. Applying asks first (and is blocked while the game runs or when
 /// there is nothing to change); deleting asks too; a name that exists asks before it is overwritten.
 fn sets_block(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -> Option<Act> {
-    ui.add_space(GAP);
-    block_title(ui, &t("s_gs_titel"));
+    titled_card(ui, scheme, &t("s_gs_titel"), |ui| sets_body(ui, scheme, state, look))
+}
+
+/// What the card of the device sets holds below its title.
+fn sets_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -> Option<Act> {
     small(ui, scheme, &t("s_gs_lead"));
     ui.add_space(GAP / 2.0);
     let mut act = None;
@@ -1029,11 +1052,17 @@ fn py_strip_name(name: &str) -> String {
 /// presses all buttons overwrites working values with old ones that contradict each other. So: below, closed, a
 /// calm title, and the first sentence says that nothing has to be done.
 fn leftovers(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -> Option<Act> {
-    let cases = &look.summary.adoptable;
-    if cases.is_empty() && look.dead == 0 {
+    if look.summary.adoptable.is_empty() && look.dead == 0 {
         return None;
     }
     ui.add_space(GAP);
+    widgets::card(ui, scheme, |ui| leftovers_body(ui, scheme, state, look)).inner
+}
+
+/// What the card of the old entries holds: the head that opens and closes it, and below it, while it is open, the
+/// clearing and the carrying over.
+fn leftovers_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -> Option<Act> {
+    let cases = &look.summary.adoptable;
     let count = if look.dead == 1 {
         t("s_ac_befund_kopf_eins")
     } else {
@@ -1174,34 +1203,34 @@ fn device_tools(ui: &mut Ui, scheme: &Scheme, state: &AxesState, look: &Look, bl
         (Change::Align, "s_ac_kopf_angleichen", "s_ac_lead_angleichen", "s_ac_angleichen", "s_ac_angleichen_frage"),
         (Change::Swap, "s_ac_kopf_tauschen", "s_ac_lead_tauschen", "s_ac_tauschen", "s_ac_tausch_frage"),
     ] {
-        ui.add_space(GAP);
-        block_title(ui, &t(head));
-        small(ui, scheme, &t(lead));
-        ui.add_space(GAP / 2.0);
-        for other in &others {
-            let wanted = Pending {
-                change,
-                from: block.ident.clone(),
-                to: other.ident.clone(),
-                from_name: device_label(look, block),
-                to_name: device_label(look, other),
-            };
-            if state.pending.as_ref() == Some(&wanted) {
-                let text = tf(
-                    question,
-                    &[("0", Arg::from(wanted.from_name.as_str())), ("1", Arg::from(wanted.to_name.as_str()))],
-                );
-                if let Some(next) = ask(ui, scheme, &text, false) {
-                    act = Some(next);
-                }
-            } else {
-                let label = tf(button, &[("0", Arg::from(wanted.to_name.as_str()))]);
-                if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme).wrapping().blocked(quiet)).clicked()
-                {
-                    act = Some(Act::Ask(wanted));
+        titled_card(ui, scheme, &t(head), |ui| {
+            small(ui, scheme, &t(lead));
+            ui.add_space(GAP / 2.0);
+            for other in &others {
+                let wanted = Pending {
+                    change,
+                    from: block.ident.clone(),
+                    to: other.ident.clone(),
+                    from_name: device_label(look, block),
+                    to_name: device_label(look, other),
+                };
+                if state.pending.as_ref() == Some(&wanted) {
+                    let text = tf(
+                        question,
+                        &[("0", Arg::from(wanted.from_name.as_str())), ("1", Arg::from(wanted.to_name.as_str()))],
+                    );
+                    if let Some(next) = ask(ui, scheme, &text, false) {
+                        act = Some(next);
+                    }
+                } else {
+                    let label = tf(button, &[("0", Arg::from(wanted.to_name.as_str()))]);
+                    let widget = widgets::Button::new(&label, ButtonKind::Normal, scheme).wrapping().blocked(quiet);
+                    if ui.add(widget).clicked() {
+                        act = Some(Act::Ask(wanted));
+                    }
                 }
             }
-        }
+        });
     }
     act
 }
@@ -1216,47 +1245,50 @@ fn sliders_and_functions(
     axis: &str,
     sensitivities: &[(Key, Function)],
 ) -> Option<Act> {
-    presets_block(ui, scheme, state, block, axis, sensitivities);
-    ui.add_space(GAP);
-    for (prop, text) in [(Prop::Deadzone, t("s_kv_totzone")), (Prop::Saturation, t("s_kv_saettigung"))] {
-        let file = physical_file(block, axis, prop);
-        let key = physical_key(block, axis, prop);
-        slider_row(ui, scheme, state, &key, file, SHARE, &text, 14, Name::Plain);
-    }
-    ui.add_space(GAP / 2.0);
-    if state.changed_any() {
-        ui.add(egui::Label::new(RichText::new(t("s_ac_geaendert")).color(color(scheme.gold))).wrap());
-    } else {
-        // The place of the mark stays: what stands below must not jump when the first slider is moved.
-        ui.add_space(ui.text_style_height(&egui::TextStyle::Body));
-    }
-    if look.numbers.contains_key(&block.ident) {
+    // The presets, the dead zone and the saturation of the axis.
+    widgets::card(ui, scheme, |ui| {
+        presets_block(ui, scheme, state, block, axis, sensitivities);
         ui.add_space(GAP);
-        block_title(ui, &t("s_ac_kopf_empf"));
-        small(ui, scheme, &t("s_ac_lead_empf"));
+        for (prop, text) in [(Prop::Deadzone, t("s_kv_totzone")), (Prop::Saturation, t("s_kv_saettigung"))] {
+            let file = physical_file(block, axis, prop);
+            let key = physical_key(block, axis, prop);
+            slider_row(ui, scheme, state, &key, file, SHARE, &text, 14, Name::Plain);
+        }
         ui.add_space(GAP / 2.0);
-        if sensitivities.is_empty() {
-            small(ui, scheme, &t("s_ac_keine_funktion"));
+        if state.changed_any() {
+            ui.add(egui::Label::new(RichText::new(t("s_ac_geaendert")).color(color(scheme.gold))).wrap());
+        } else {
+            // The place of the mark stays: what stands below must not jump when the first slider is moved.
+            ui.add_space(ui.text_style_height(&egui::TextStyle::Body));
         }
-        let shown = shown_pair(state, sensitivities).map(|(key, _)| key.clone());
-        for (key, function) in sensitivities {
-            let name = Name::Pick { shown: shown.as_ref() == Some(key) };
-            let touched = slider_row(
-                ui,
-                scheme,
-                state,
-                key,
-                game_file(function),
-                EXPONENT,
-                &function_name(&function.axis),
-                20,
-                name,
-            );
-            if touched {
-                // The curve follows the function the player is working on.
-                state.shown = Some(key.clone());
+    });
+    if look.numbers.contains_key(&block.ident) {
+        titled_card(ui, scheme, &t("s_ac_kopf_empf"), |ui| {
+            small(ui, scheme, &t("s_ac_lead_empf"));
+            ui.add_space(GAP / 2.0);
+            if sensitivities.is_empty() {
+                small(ui, scheme, &t("s_ac_keine_funktion"));
             }
-        }
+            let shown = shown_pair(state, sensitivities).map(|(key, _)| key.clone());
+            for (key, function) in sensitivities {
+                let name = Name::Pick { shown: shown.as_ref() == Some(key) };
+                let touched = slider_row(
+                    ui,
+                    scheme,
+                    state,
+                    key,
+                    game_file(function),
+                    EXPONENT,
+                    &function_name(&function.axis),
+                    20,
+                    name,
+                );
+                if touched {
+                    // The curve follows the function the player is working on.
+                    state.shown = Some(key.clone());
+                }
+            }
+        });
     }
     copy_block(ui, scheme, state, look, block, axis);
     // The two buttons. Writing needs a changed slider and a quiet game; each says on the button what is wrong.
@@ -1266,21 +1298,23 @@ fn sliders_and_functions(
     let save_reason = look.quiet.as_deref().or_else(|| (!changed).then_some(nothing.as_str()));
     let discard_reason = (!changed).then_some(nothing.as_str());
     let mut act = None;
-    ui.horizontal_wrapped(|ui| {
-        let save = t("s_ac_speichern");
-        if ui.add(widgets::Button::new(&save, ButtonKind::Strong, scheme).blocked(save_reason)).clicked() {
-            act = Some(Act::Save);
-        }
-        let discard = t("s_ac_verwerfen");
-        if ui.add(widgets::Button::new(&discard, ButtonKind::Normal, scheme).blocked(discard_reason)).clicked() {
-            act = Some(Act::Discard);
+    widgets::card(ui, scheme, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            let save = t("s_ac_speichern");
+            if ui.add(widgets::Button::new(&save, ButtonKind::Strong, scheme).blocked(save_reason)).clicked() {
+                act = Some(Act::Save);
+            }
+            let discard = t("s_ac_verwerfen");
+            if ui.add(widgets::Button::new(&discard, ButtonKind::Normal, scheme).blocked(discard_reason)).clicked() {
+                act = Some(Act::Discard);
+            }
+        });
+        if let Some(reason) = look.quiet.as_deref() {
+            small(ui, scheme, reason);
+        } else {
+            small(ui, scheme, &t("s_js_spiel_zu"));
         }
     });
-    if let Some(reason) = look.quiet.as_deref() {
-        small(ui, scheme, reason);
-    } else {
-        small(ui, scheme, &t("s_js_spiel_zu"));
-    }
     act
 }
 
@@ -1395,7 +1429,7 @@ fn presets_block(
     axis: &str,
     functions: &[(Key, Function)],
 ) {
-    block_title(ui, &t("s_ac_kopf_vor"));
+    widgets::card_title(ui, scheme, &t("s_ac_kopf_vor"));
     small(ui, scheme, &t("s_ac_lead_vor"));
     ui.add_space(GAP / 2.0);
     let (deadzone, saturation) = shares_of(state, block, axis);
@@ -1453,8 +1487,19 @@ fn copy_block(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look, 
         state.copy_for = (block.ident.clone(), axis.to_string());
         state.copy_targets.clear();
     }
-    ui.add_space(GAP);
-    block_title(ui, &t("s_ac_kopf_uebertragen"));
+    titled_card(ui, scheme, &t("s_ac_kopf_uebertragen"), |ui| copy_body(ui, scheme, state, look, block, axis, &others));
+}
+
+/// What the card "Auf andere Achsen übertragen" holds below its title: the ticks and the button.
+fn copy_body(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut AxesState,
+    look: &Look,
+    block: &DeviceBlock,
+    axis: &str,
+    others: &[&str],
+) {
     small(ui, scheme, &t("s_ac_lead_uebertragen"));
     ui.add_space(GAP / 2.0);
     let mut all = others.iter().all(|other| state.copy_targets.contains(*other));
@@ -1465,7 +1510,7 @@ fn copy_block(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look, 
             state.copy_targets.clear();
         }
     }
-    for other in &others {
+    for other in others {
         let mut on = state.copy_targets.contains(*other);
         let functions = function_label(look.on_axis(&block.ident, other));
         let label = if functions.is_empty() { other.to_string() } else { format!("{other} · {functions}") };
@@ -1488,7 +1533,7 @@ fn copy_block(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look, 
         let own = sensitivity_keys(look, block, axis);
         let exponent = shown_pair(state, &own).map(|(key, function)| state.slide(key, game_file(function)).now);
         let mut count = 0_i64;
-        for other in &others {
+        for other in others {
             if state.copy_targets.contains(*other) {
                 let functions = sensitivity_keys(look, block, other);
                 put_on_axis(state, block, other, &functions, (deadzone, saturation, exponent));

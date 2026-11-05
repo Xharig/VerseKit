@@ -431,42 +431,50 @@ impl UpdateUi {
         ui.add_space(GAP);
         let busy = self.is_busy();
         let blocked = busy.then(|| t("up_laeuft_schon"));
-        small(ui, &t("s_up_sofort_h"), color(scheme.sub));
-        ui.add_space(4.0);
-        let fetch_word = t("s_up_sofort");
-        let fetch =
-            widgets::Button::new(&fetch_word, ButtonKind::Strong, scheme).icon("download").blocked(blocked.as_deref());
-        if ui.add(fetch).clicked() {
-            out.fetch = Some(true);
-        }
-        if packaging == Packaging::Source {
+        widgets::card(ui, scheme, |ui| {
+            ui.set_width(ui.available_width());
+            widgets::card_title(ui, scheme, &t("hf_update"));
+            small(ui, &t("s_up_sofort_h"), color(scheme.sub));
             ui.add_space(4.0);
-            small(ui, &t("update_quellcode"), color(scheme.sub));
-        }
-        ui.add_space(GAP);
-        ui.horizontal_wrapped(|row| {
-            let (copy_word, news_word, setup_word) =
-                (t("s_mu_version_kopieren"), t("hf_wasistneu"), t("s_ub_einrichtung"));
-            let copy = widgets::Button::new(&copy_word, ButtonKind::Normal, scheme).icon("copy");
-            out.copy = row.add(copy).clicked();
-            let news = widgets::Button::new(&news_word, ButtonKind::Normal, scheme).icon("sparkles");
-            out.news = row.add(news).clicked();
-            let setup = widgets::Button::new(&setup_word, ButtonKind::Normal, scheme).icon("wand-sparkles");
-            out.setup = row.add(setup).clicked();
-        });
-        ui.add_space(4.0);
-        out.site = widgets::external_link(ui, scheme, &t("s_mu_projektseite")).clicked();
-        ui.add_space(GAP);
-        self.channels(ui, scheme, facts.test_on, busy, &mut out);
-        if let Some(note) = self.note.and_then(|look| look.note()) {
+            let fetch_word = t("s_up_sofort");
+            let fetch = widgets::Button::new(&fetch_word, ButtonKind::Strong, scheme)
+                .icon("download")
+                .blocked(blocked.as_deref());
+            if ui.add(fetch).clicked() {
+                out.fetch = Some(true);
+            }
+            if packaging == Packaging::Source {
+                ui.add_space(4.0);
+                small(ui, &t("update_quellcode"), color(scheme.sub));
+            }
             ui.add_space(GAP);
-            small(ui, &note, color(scheme.yellow));
-        }
+            ui.horizontal_wrapped(|row| {
+                let (copy_word, news_word, setup_word) =
+                    (t("s_mu_version_kopieren"), t("hf_wasistneu"), t("s_ub_einrichtung"));
+                let copy = widgets::Button::new(&copy_word, ButtonKind::Normal, scheme).icon("copy");
+                out.copy = row.add(copy).clicked();
+                let news = widgets::Button::new(&news_word, ButtonKind::Normal, scheme).icon("sparkles");
+                out.news = row.add(news).clicked();
+                let setup = widgets::Button::new(&setup_word, ButtonKind::Normal, scheme).icon("wand-sparkles");
+                out.setup = row.add(setup).clicked();
+            });
+            ui.add_space(4.0);
+            out.site = widgets::external_link(ui, scheme, &t("s_mu_projektseite")).clicked();
+        });
+        ui.add_space(GAP);
+        widgets::card(ui, scheme, |ui| {
+            ui.set_width(ui.available_width());
+            self.channels(ui, scheme, facts.test_on, busy, &mut out);
+            if let Some(note) = self.note.and_then(|look| look.note()) {
+                ui.add_space(GAP);
+                small(ui, &note, color(scheme.yellow));
+            }
+        });
         out
     }
 
     fn channels(&self, ui: &mut Ui, scheme: &Scheme, on: bool, busy: bool, out: &mut PageOut) {
-        ui.label(RichText::new(t("s_ub_kanal")).strong());
+        widgets::card_title(ui, scheme, &t("s_ub_kanal"));
         small(ui, &t("s_ub_kanal_h"), color(scheme.sub));
         ui.add_space(6.0);
         let stable = BoxTexts { title: t("s_ub_fertig"), hint: t("s_ub_fertig_h"), mark: None };

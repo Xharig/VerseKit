@@ -181,6 +181,16 @@ fn the_arrow_keys_move_the_window_when_the_model_has_the_focus_and_stay_within_t
 }
 
 #[test]
+fn without_a_game_picture_the_window_model_shows_the_signature_as_large_as_the_frame_model() {
+    // A place kept on a wide screen: a few per mille, far too small for the model.
+    let kept = Some([493, 60, 23, 28]);
+    assert_eq!(shown_pill(&Ground::MODEL, kept), None, "the place of the model");
+    let picture = Ground { texture: Some(egui::TextureId::Managed(7)), size: (5120, 1440) };
+    assert_eq!(shown_pill(&picture, kept), kept, "on the picture the real place");
+    assert_eq!(shown_pill(&picture, None), None);
+}
+
+#[test]
 fn the_model_says_what_it_shows_in_both_languages_and_stays_inside_a_narrow_page() {
     let _language = crate::language_lock();
     let ctx = context();

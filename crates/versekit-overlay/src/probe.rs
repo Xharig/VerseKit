@@ -1392,7 +1392,7 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             probe.value("streifen", overlay::geometry_text(r));
             let bar = (versekit_ui::overlay::BAR_HEIGHT * ctx.pixels_per_point()) as i32;
             probe.check("streifen_schmal", r.h < bar && r.w < app.last_open.w);
-            probe.check("streifen_sagt_was_er_tut", app.drawn.contains(&t("ov_streifen")));
+            probe.check("streifen_ohne_text", app.drawn.is_empty());
             let accent = accent_pixels(hwnd);
             probe.value("akzentpunkte_streifen", accent);
             probe.check("streifen_sichtbar", accent >= 40);
@@ -1467,7 +1467,7 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             let dots = ink(hwnd);
             probe.value("textpunkte_ohne_zeilen", dots);
             probe.check("ohne_zeilen_kaum_textpunkte", app.vis.shown(now) == Shown::Open && dots < INK);
-            probe.check("platzhalter_ohne_zeilen", app.drawn == vec![t("ov_warte")]);
+            probe.check("kein_platzhalter_ohne_zeilen", app.drawn.is_empty());
             // Fold and unfold with the bar below, frame by frame.
             probe.start_filming(app.region);
             next(&mut probe);

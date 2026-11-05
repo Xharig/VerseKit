@@ -604,15 +604,22 @@ impl SamplePage {
     /// The row "start the setup again" of the pages that can: the name and what it does at the left, the button at
     /// the right. Clicking opens the assistant.
     pub(super) fn repeat_setup_row(&mut self, ui: &mut Ui, scheme: &Scheme) {
+        if Self::repeat_setup_line(ui, scheme) {
+            self.open_setup();
+        }
+    }
+
+    /// [`Self::repeat_setup_row`] for a caller that opens the assistant itself: whether the button was clicked.
+    pub(super) fn repeat_setup_line(ui: &mut Ui, scheme: &Scheme) -> bool {
         let (name, hint, label) = (t("s_si_einrichtung"), t("s_si_einrichtung_h"), t("hf_einrichtung"));
         let found_by_name = crate::highlight::pointed(ui, &[&name]);
+        let mut clicked = false;
         settings::setting_row(ui, scheme, &name, &hint, found_by_name, |row| {
             // The head bar has a button of the same label: the row's one is named by its row.
             let button = widgets::Button::new(&label, ButtonKind::Normal, scheme).icon("wand-sparkles").spoken(&name);
-            if row.add(button).clicked() {
-                self.open_setup();
-            }
+            clicked = row.add(button).clicked();
         });
+        clicked
     }
 
     fn step_language(&mut self, ui: &mut Ui, scheme: &Scheme) {
@@ -919,21 +926,13 @@ impl SamplePage {
     fn step_picture(&mut self, ui: &mut Ui, scheme: &Scheme, wizard: &Wizard, step: Step) {
         match step {
             Step::Overlay => {
-                let mode = if self.overlay_popup { overlay::Mode::Popup } else { overlay::Mode::Always };
                 let bar = if self.bar_side == settings::BarSide::Bottom {
                     overlay::BarSide::Bottom
                 } else {
                     overlay::BarSide::Top
                 };
                 // What the overlay of the picture learns (a click that did not happen) is nothing.
-                let _ = preview::overlay_picture(
-                    ui,
-                    scheme,
-                    self.overlay_opacity as f32 / 100.0,
-                    mode,
-                    self.overlay_seconds,
-                    bar,
-                );
+                let _ = preview::overlay_picture(ui, scheme, self.overlay_opacity as f32 / 100.0, bar);
             }
             Step::Texts => {
                 let rep_on =
@@ -1364,7 +1363,7 @@ mod tests {
     }
 
     #[test]
-    fn the_overlay_step_shows_the_overlay_in_a_frame_of_the_game_and_follows_the_mode() {
+    fn the_overlay_step_shows_the_overlay_in_a_frame_of_the_game_without_a_countdown() {
         let _language = crate::language_lock();
         let (page, dir) = page_with_game("einrichtung-overlay");
         let mut bench = Bench::new(page);
@@ -1376,14 +1375,12 @@ mod tests {
         // The placeholder of the game, and the real overlay with its made-up finds.
         assert!(shows(&texts, &language::t("as_vorschau_spiel")), "the game is a placeholder");
         assert!(shows(&texts, "Pembroke Helmet") && shows(&texts, "Arclight Pistol"), "the finds of the picture");
-        // The seconds are the ones of the setting, not a made-up number.
+        // The pop-up mode draws the same overlay: no line counts down to its folding away.
         bench.page.overlay_seconds = 9;
-        let folds = tf("ov_blendet_aus", &[("0", Arg::from(9))]);
-        assert!(!shows(&texts, &folds), "always visible: it does not fold away");
-        // The pop-up mode: the picture tells that the overlay fades out again.
         bench.click(&language::t("s_ov_popup"));
         let texts = bench.settle();
-        assert!(shows(&texts, &folds), "pop-up: {folds}");
+        assert!(shows(&texts, "Pembroke Helmet"), "pop-up: the same picture");
+        assert!(!texts.iter().any(|(text, _)| text.contains("9 s")), "pop-up: no countdown: {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

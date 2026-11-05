@@ -27,6 +27,26 @@ CREATE TABLE IF NOT EXISTS downloads (
   PRIMARY KEY (tag, system, land)
 );
 
+-- Woher ein Download über die Kurzlinks kam: das Kennzeichen `?ref=<kanal>`
+-- am Link (nur a–z, höchstens 20 Zeichen, sonst verworfen), je Tag. Bewusst
+-- NICHT mit System oder Land verknüpft.
+CREATE TABLE IF NOT EXISTS downloads_kanal (
+  tag   TEXT    NOT NULL,
+  kanal TEXT    NOT NULL,
+  n     INTEGER NOT NULL,
+  PRIMARY KEY (tag, kanal)
+);
+
+-- Alter der meldenden Installationen in Tagen (0–30, 31 = älter), je Tag.
+-- Ab VerseKit 5.2. Daraus: neue Installationen (Alter 0) und wer nach 7
+-- Tagen noch dabei ist (Alter 7). Keine Kennung, NICHT mit `tage` verknüpft.
+CREATE TABLE IF NOT EXISTS installationen_alter (
+  tag  TEXT    NOT NULL,
+  tage INTEGER NOT NULL,
+  n    INTEGER NOT NULL,
+  PRIMARY KEY (tag, tage)
+);
+
 -- Weitere Merkmale, je eines für sich gezählt (Sprache, Testversionen,
 -- Bereiche, Overlay, Autostart). Bewusst NICHT mit der Tabelle oben
 -- verknüpft: Kombinationen würden kleine Gruppen erkennbar machen.

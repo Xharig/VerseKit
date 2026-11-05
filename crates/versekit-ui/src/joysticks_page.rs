@@ -393,10 +393,9 @@ fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
     ui.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap());
 }
 
-/// The name of a block, in bold.
-fn block_title(ui: &mut Ui, text: &str) {
-    let title = widgets::bold(ui, text, egui::TextStyle::Body);
-    ui.label(title);
+/// The name of a block: the title of its card.
+fn block_title(ui: &mut Ui, scheme: &Scheme, text: &str) {
+    widgets::card_title(ui, scheme, text);
 }
 
 fn named(entry: &Entry) -> String {
@@ -560,7 +559,7 @@ fn reset_block(
 
 /// The block "Deine Geräte": all sticks of the three sources, then what is to be done.
 fn hub(ui: &mut Ui, scheme: &Scheme, state: &JoystickState) -> Option<Act> {
-    block_title(ui, &t("s_gh_titel"));
+    block_title(ui, scheme, &t("s_gh_titel"));
     small(ui, scheme, &t("s_gh_lead"));
     ui.add_space(GAP);
     let Some(look) = &state.look else {
@@ -620,7 +619,7 @@ fn hub(ui: &mut Ui, scheme: &Scheme, state: &JoystickState) -> Option<Act> {
         return None;
     }
     ui.add_space(GAP);
-    block_title(ui, &t("s_gh_was_tun"));
+    block_title(ui, scheme, &t("s_gh_was_tun"));
     let mut act = None;
     for suggestion in device_hub::suggestions_of(&summary.devices) {
         ui.add_space(GAP);
@@ -682,7 +681,7 @@ fn status_text(status: Status) -> String {
 fn comparison(ui: &mut Ui, scheme: &Scheme, state: &JoystickState) {
     let Some(look) = &state.look else { return };
     let compare = &look.files.compare;
-    block_title(ui, &t("s_js_geraete"));
+    block_title(ui, scheme, &t("s_js_geraete"));
     if compare.devices.is_empty() {
         small(ui, scheme, &t("s_js_leer"));
         return;

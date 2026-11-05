@@ -779,6 +779,13 @@ fn paint_pill(ui: &Ui, pill: Rect) {
     );
 }
 
+/// Where the model of the window shows the signature: on the picture of the game at the place kept, so the
+/// window stands over the real signature; without a picture at the place of the model, like the model of the
+/// search frame, because the place kept is true to a wide screen and too small to see on the model.
+fn shown_pill(ground: &Ground, kept: Option<[i32; 4]>) -> Option<[i32; 4]> {
+    ground.texture.and(kept)
+}
+
 /// The two models one below the other in a card each, each as wide as the page: where the window stands, and the
 /// area the scanner reads, the latter up to [`MODEL_WIDTH`] so that the signature in the picture is large
 /// enough to frame. `place` and `frame` are title, hint and the button of each. Both stand on the picture of the
@@ -797,12 +804,11 @@ pub fn model_cards(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, place
         }
         let [title, hint, button] = if i == 0 { place } else { frame };
         widgets::card(ui, scheme, |ui| {
-            let name = ui.label(widgets::bold(ui, title, egui::TextStyle::Body));
-            crate::highlight::mark(ui, scheme, name.rect, &[title]);
+            widgets::card_title(ui, scheme, title);
             widgets::hint(ui, scheme, hint);
             ui.add_space(4.0);
             if i == 0 {
-                let pill = state.pill_place();
+                let pill = shown_pill(&ground, state.pill_place());
                 place_model(ui, scheme, &mut state.layout, &ground, pill);
                 if ui.add(widgets::Button::new(button, ButtonKind::Normal, scheme)).clicked() {
                     (state.layout.dx, state.layout.dy) = (0, 0);

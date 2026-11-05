@@ -185,7 +185,7 @@ fn lines_box(
 /// and on "Reload", not at every frame.
 pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
     let Some(paths) = state.paths.clone() else { return };
-    widgets::heading(ui, scheme, &t("s_uc_titel"));
+    crate::settings::setting_group(ui, scheme, &t("s_uc_titel"));
     hint(ui, scheme, &t("s_uc_lead"));
     ui.add_space(4.0);
     // Only installations with a Data.p4k: a folder without it is no game.

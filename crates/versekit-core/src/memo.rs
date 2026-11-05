@@ -17,16 +17,25 @@
 
 //! The memo pages ("Notizen", new in v5): free text the player jots down,
 //! one memo per page, kept in `notizen.json` in the data folder as
-//! `{"format": 1, "zettel": [{"text", "bearbeitet"}]}`.
+//! `{"format": 1, "zettel": [{"text", "bearbeitet", "formatierung"?}]}`.
 //!
 //! A memo is named by its first line that holds something. The list keeps
 //! its order (a new memo stands on top), so that it does not jump while one
-//! types; "last edited" is told by the time each memo carries.
+//! types; "last edited" is told by the time each memo carries. The look of
+//! the text (bold, lists, …) stands beside the plain text, see [`format`];
+//! a memo without one is written exactly as before.
+
+pub mod format;
+pub mod table;
 
 use std::sync::Mutex;
 
 use crate::jsonio::{self, Map, Value};
 use crate::paths::Paths;
+use format::Formatting;
+
+/// The key of the look in a memo's entry.
+const LOOK_KEY: &str = "formatierung";
 
 /// The file of the memos (in the folder `Intern`).
 pub const FILE: &str = "notizen.json";
@@ -36,11 +45,12 @@ const FORMAT: i64 = 1;
 /// One writer of the file at a time.
 static LOCK: Mutex<()> = Mutex::new(());
 
-/// One memo: its text, and when it was last changed (seconds since 1970).
+/// One memo: its text, when it was last changed (seconds since 1970), and the look of its text.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Memo {
     pub text: String,
     pub edited: i64,
+    pub look: Formatting,
 }
 
 impl Memo {
@@ -64,7 +74,7 @@ pub struct Memos {
 impl Memos {
     /// An empty memo on top, edited at `now`. Returns its place.
     pub fn add(&mut self, now: i64) -> usize {
-        self.items.insert(0, Memo { text: String::new(), edited: now });
+        self.items.insert(0, Memo { text: String::new(), edited: now, look: Formatting::default() });
         0
     }
 
@@ -80,11 +90,43 @@ impl Memos {
         at
     }
 
-    /// Sets the text of the memo at `at` and stamps it as edited at `now`; false where nothing changed.
+    /// Sets the text of the memo at `at` and stamps it as edited at `now`; false where nothing changed. The
+    /// look follows the change (see [`Formatting::follow_edit`]).
     pub fn set_text(&mut self, at: usize, text: &str, now: i64) -> bool {
+        self.edit(at, text, None, None, now)
+    }
+
+    /// [`Memos::set_text`] with where the cursor stands after the change and the styles of new letters
+    /// where they were chosen before typing.
+    pub fn edit(&mut self, at: usize, text: &str, cursor: Option<usize>, typing: Option<u8>, now: i64) -> bool {
         match self.items.get_mut(at) {
             Some(memo) if memo.text != text => {
+                memo.look.follow_edit(&memo.text, text, cursor, typing);
                 memo.text = text.to_string();
+                memo.edited = now;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Sets the text and the look of the memo at `at` together (a change of a table) and stamps it as edited
+    /// at `now`; false where nothing changed.
+    pub fn rebuild(&mut self, at: usize, text: String, look: Formatting, now: i64) -> bool {
+        match self.items.get_mut(at) {
+            Some(memo) if memo.text != text || memo.look != look => {
+                (memo.text, memo.look, memo.edited) = (text, look, now);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Sets the look of the memo at `at` and stamps it as edited at `now`; false where nothing changed.
+    pub fn set_look(&mut self, at: usize, look: Formatting, now: i64) -> bool {
+        match self.items.get_mut(at) {
+            Some(memo) if memo.look != look => {
+                memo.look = look;
                 memo.edited = now;
                 true
             }
@@ -109,14 +151,18 @@ pub fn load(paths: &Paths) -> Memos {
     let items = list
         .iter()
         .filter_map(Value::as_object)
-        .map(|entry| Memo {
-            text: field(entry, "text").and_then(Value::as_str).unwrap_or("").to_string(),
-            edited: match field(entry, "bearbeitet") {
-                Some(Value::Int(n)) => n.parse().unwrap_or(0),
-                // A time written as a fraction counts to the second.
-                Some(Value::Float(f)) => *f as i64,
-                _ => 0,
-            },
+        .map(|entry| {
+            let text = field(entry, "text").and_then(Value::as_str).unwrap_or("").to_string();
+            Memo {
+                look: Formatting::from_value(field(entry, LOOK_KEY), &text),
+                text,
+                edited: match field(entry, "bearbeitet") {
+                    Some(Value::Int(n)) => n.parse().unwrap_or(0),
+                    // A time written as a fraction counts to the second.
+                    Some(Value::Float(f)) => *f as i64,
+                    _ => 0,
+                },
+            }
         })
         .collect();
     Memos { items }
@@ -133,10 +179,14 @@ pub fn save(paths: &Paths, memos: &Memos) -> std::io::Result<()> {
         .items
         .iter()
         .map(|memo| {
-            Value::Object(vec![
+            let mut entry: Map = vec![
                 ("text".into(), Value::str(memo.text.as_str())),
                 ("bearbeitet".into(), Value::int(memo.edited)),
-            ])
+            ];
+            if let Some(look) = memo.look.to_value(&memo.text) {
+                entry.push((LOOK_KEY.into(), look));
+            }
+            Value::Object(entry)
         })
         .collect();
     let data = Value::Object(vec![("format".into(), Value::int(FORMAT)), ("zettel".into(), Value::Array(list))]);
@@ -163,11 +213,11 @@ mod tests {
 
     #[test]
     fn a_memo_is_named_by_its_first_line_with_something_in_it() {
-        let memo = Memo { text: "\n  \n  Titanium holen  \n\nLorville\nArea18\r\n".into(), edited: 0 };
+        let memo = Memo { text: "\n  \n  Titanium holen  \n\nLorville\nArea18\r\n".into(), edited: 0, ..Default::default() };
         assert_eq!(memo.title(), "Titanium holen");
         assert_eq!(memo.following(5), ["Lorville", "Area18"]);
         assert_eq!(memo.following(1), ["Lorville"]);
-        let empty = Memo { text: " \n\n ".into(), edited: 0 };
+        let empty = Memo { text: " \n\n ".into(), edited: 0, ..Default::default() };
         assert_eq!((empty.title(), empty.following(3).len()), ("", 0));
     }
 
@@ -205,7 +255,7 @@ mod tests {
         let mut memos = Memos::default();
         assert!(memos.latest().is_none());
         for (text, edited) in [("alt", 5), ("neu", 50), ("auch neu", 50)] {
-            memos.items.push(Memo { text: text.into(), edited });
+            memos.items.push(Memo { text: text.into(), edited, ..Default::default() });
         }
         assert_eq!(memos.latest().map(|m| m.text.as_str()), Some("neu"));
     }
@@ -236,11 +286,53 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// A file as 5.1.0 writes it opens with every memo, its text unchanged and no look, and is written again
+    /// byte for byte the same.
+    #[test]
+    fn a_file_of_the_version_before_the_look_opens_unchanged_and_is_written_the_same() {
+        let (paths, dir) = paths_in("alt");
+        let old = "{\n \"format\": 1,\n \"zettel\": [\n  {\n   \"text\": \"Titanium holen\\nLorville\\n- kein Punkt\",\n   \"bearbeitet\": 1762300000\n  },\n  {\n   \"text\": \"**nicht fett**\",\n   \"bearbeitet\": 1762300100\n  }\n ]\n}";
+        std::fs::create_dir_all(std::path::Path::new(&paths.app_file(FILE)).parent().unwrap()).unwrap();
+        std::fs::write(paths.app_file(FILE), old).unwrap();
+        let memos = load(&paths);
+        assert_eq!(memos.items.len(), 2);
+        assert_eq!(memos.items[0].text, "Titanium holen\nLorville\n- kein Punkt");
+        assert_eq!(memos.items[1].text, "**nicht fett**", "signs in the text stay signs");
+        assert!(memos.items.iter().all(|m| m.look.is_plain()));
+        save(&paths, &memos).unwrap();
+        assert_eq!(std::fs::read_to_string(paths.app_file(FILE)).unwrap(), old);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A memo with a look keeps its text plain in the file (as the version before reads it) and the look
+    /// beside it, and reads back the same.
+    #[test]
+    fn the_look_is_kept_beside_the_plain_text() {
+        let (paths, dir) = paths_in("aussehen");
+        let mut memos = Memos::default();
+        memos.add(1);
+        memos.set_text(0, "Einkauf\nTitanium\nGold", 2);
+        let mut look = memos.items[0].look.clone();
+        look.set_style(8..16, format::BOLD, true);
+        look.set_lines(1..3, format::LineKind::Bullet);
+        assert!(memos.set_look(0, look.clone(), 3));
+        assert!(!memos.set_look(0, look, 4), "the same look is no edit");
+        assert_eq!(memos.items[0].edited, 3);
+        save(&paths, &memos).unwrap();
+        let Ok(Value::Object(data)) = jsonio::read_json(&paths.app_file(FILE)) else { panic!("written") };
+        let Some(Value::Array(list)) = field(&data, "zettel") else { panic!("memos") };
+        let entry = list[0].as_object().unwrap();
+        assert_eq!(field(entry, "text").and_then(Value::as_str), Some("Einkauf\nTitanium\nGold"));
+        assert!(field(entry, LOOK_KEY).is_some());
+        assert_eq!(load(&paths), memos);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn a_locked_folder_is_an_error_and_leaves_no_file() {
         let (paths, dir) = paths_in("gesperrt");
         crate::writeguard::deny(true);
-        let written = save(&paths, &Memos { items: vec![Memo { text: "x".into(), edited: 1 }] });
+        let written = save(&paths, &Memos { items: vec![Memo { text: "x".into(), edited: 1, ..Default::default() }] });
         crate::writeguard::deny(false);
         assert!(written.is_err());
         assert!(!std::path::Path::new(&paths.app_file(FILE)).exists());

@@ -137,7 +137,7 @@ pub const ADDED: [&str; 5] = [
     "Star Citizen Handle Query (Kuehlwagen)",
 ];
 /// People that version 5 names and version 4.12 does not: their ideas or the faults they found came with 5.0.
-pub const ADDED_PEOPLE: [&str; 12] = [
+pub const ADDED_PEOPLE: [&str; 11] = [
     "Katschaeng",
     "pinhead92",
     "DarthUrmel",
@@ -146,7 +146,6 @@ pub const ADDED_PEOPLE: [&str; 12] = [
     "MindBurnt",
     "Shockwaffel",
     "Kuehlwagen",
-    "StarGround",
     "LunaticSmile",
     "SirFrog",
     "Shockwave",
@@ -250,10 +249,10 @@ pub const PEOPLE: [Person; 35] = [
     person("Kuehlwagen", "KRT", &["s_dkv_kuehlwagen_idee", "s_dkv_kuehlwagen_idee2"], &[]),
     person("George_Rotfuchs", "", &[], &["s_dkv_george_bugs"]),
     person("TomLov", "", &["s_dkv_tomlov_idee"], &[]),
-    person("StarGround", "", &["s_dkv_starground_idee"], &[]),
     person("LunaticSmile", "KRT", &["s_dkv_lunaticsmile_idee"], &[]),
     person("SirFrog", "KRT", &[], &["s_dkv_sirfrog_bugs"]),
     person("Shockwave", "TSA", &[], &["s_dkv_shockwave_bugs"]),
+    person("fok", "", &[], &["s_dkv_fok_bugs"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its

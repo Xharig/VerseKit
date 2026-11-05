@@ -19,7 +19,10 @@
 //! memos stands at the left (above the text where the window is narrow), the
 //! text of the chosen one in a large field next to it. A memo is named by its
 //! first line, saves a moment after typing and when it is left, and a deleted
-//! one can be taken back for a few seconds.
+//! one can be taken back for a few seconds. A bar above the text gives it its
+//! look (see [`rich`]).
+
+mod rich;
 
 use egui::{RichText, Ui};
 use versekit_core::language::{Arg, t, tf};
@@ -65,6 +68,11 @@ pub struct NotesState {
     deleted: Option<(f64, usize, Memo)>,
     /// The text field gets the cursor in the next frame.
     focus_text: bool,
+    /// Where the cursor of the field stood, and the styles chosen for the next letters.
+    caret: rich::Caret,
+    /// The letters to mark again in the frame after a click on the bar (the field drops the marking when it
+    /// gives up its cursor for the click).
+    reselect: Option<std::ops::Range<usize>>,
 }
 
 impl Default for NotesState {
@@ -100,6 +108,8 @@ impl NotesState {
             failed: false,
             deleted: None,
             focus_text: false,
+            caret: rich::Caret::default(),
+            reselect: None,
         }
     }
 
@@ -144,6 +154,8 @@ impl NotesState {
     fn open(&mut self, at: usize) {
         self.selected = at;
         self.epoch += 1;
+        self.caret = rich::Caret::default();
+        self.reselect = None;
     }
 
     fn select(&mut self, at: usize, now: f64) {
@@ -177,8 +189,38 @@ impl NotesState {
     }
 
     /// The text of the open memo was typed into.
+    #[cfg(test)]
     pub(crate) fn typed(&mut self, text: &str, now: f64) {
-        if self.memos.set_text(self.selected, text, versekit_core::export::now_unix()) {
+        self.typed_at(text, None, now);
+    }
+
+    /// [`NotesState::typed`] with where the cursor stands after it (in letters); new letters get the styles
+    /// chosen for them.
+    fn typed_at(&mut self, text: &str, cursor: Option<usize>, now: f64) {
+        let typing = self.caret.pending.take();
+        if self.memos.edit(self.selected, text, cursor, typing, versekit_core::export::now_unix()) {
+            self.changed_at = Some(now);
+        }
+    }
+
+    /// Takes what a button or a key did into the open memo; the cursor goes where it says.
+    fn take(&mut self, outcome: rich::Outcome, now: f64) {
+        match outcome {
+            rich::Outcome::Typing => {}
+            rich::Outcome::Look(look) => self.restyled(look, now),
+            rich::Outcome::Moved(at) => self.caret.selection = at..at,
+            rich::Outcome::Rebuilt(text, look, at) => {
+                if self.memos.rebuild(self.selected, text, look, versekit_core::export::now_unix()) {
+                    self.changed_at = Some(now);
+                }
+                self.caret.selection = at..at;
+            }
+        }
+    }
+
+    /// The open memo got a new look.
+    fn restyled(&mut self, look: versekit_core::memo::format::Formatting, now: f64) {
+        if self.memos.set_look(self.selected, look, versekit_core::export::now_unix()) {
             self.changed_at = Some(now);
         }
     }
@@ -317,29 +359,73 @@ fn editor(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState, height: f32, now
         widgets::empty_state(ui, scheme, "sticky-note", &t("s_nz_nichts_offen"));
         return None;
     };
-    let mut text = open.text.clone();
+    let id = text_id(state.epoch);
+    let (before, look_before) = (open.text.clone(), open.look.clone());
+
+    // The bar and the keys act on the text marked when the field last had the cursor.
+    let bar_top = ui.cursor().top();
+    let mut action = rich::toolbar(ui, scheme, &before, &look_before, &state.caret);
+    ui.add_space(4.0);
+    let height = (height - (ui.cursor().top() - bar_top)).max(0.0);
+    let mut outcome = None;
+    if ui.memory(|memory| memory.has_focus(id)) {
+        action = action.or_else(|| rich::shortcut(ui));
+        if let Some(look) = rich::backspace_leaves_list(ui, &before, &look_before, &state.caret) {
+            outcome = Some(rich::Outcome::Look(look));
+        }
+        outcome = outcome.or_else(|| rich::table_keys(ui, &before, &look_before, &state.caret));
+    }
+    let acted = action.is_some() || outcome.is_some();
+    if let Some(action) = action {
+        outcome = rich::apply(action, &before, &look_before, &mut state.caret);
+    }
+    if let Some(outcome) = outcome {
+        state.take(outcome, now);
+    }
+    if acted {
+        // A click on the bar gives the field its cursor back, with the same letters marked. The field gives
+        // up both when it sees the click elsewhere, so they are given again in the next frame.
+        rich::restore_selection(ui.ctx(), id, &state.caret.selection);
+        state.reselect = Some(state.caret.selection.clone());
+    } else if let Some(marked) = state.reselect.take() {
+        rich::restore_selection(ui.ctx(), id, &marked);
+    }
+
+    let (before, look) = {
+        let open = &state.memos.items[state.selected];
+        (open.text.clone(), open.look.clone())
+    };
+    let mut text = before.clone();
+    let in_table = state.caret.in_table(&before, &look);
     let hint = t("s_nz_schreib_hier");
     let name = t("hf_notizen");
     // The line that names the memo stands as a heading: Lato Bold in the size and colour of a heading.
-    let title_font = crate::fonts::bold(egui::TextStyle::Heading.resolve(ui.style()).size);
-    let body_font = egui::TextStyle::Body.resolve(ui.style());
-    let (title_color, body_color) = (color(widgets::heading_color(scheme)), color(scheme.fg));
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    let fonts = rich::Fonts {
+        title: crate::fonts::bold(egui::TextStyle::Heading.resolve(ui.style()).size),
+        bold: crate::fonts::bold(body.size),
+        body,
+        title_color: color(widgets::heading_color(scheme)),
+        body_color: color(scheme.fg),
+        grid: color(scheme.line),
+    };
+    let tables = std::cell::RefCell::new(Vec::new());
     let mut layouter = |ui: &Ui, buffer: &dyn egui::TextBuffer, wrap: f32| {
         let all = buffer.as_str();
-        let end = title_end(all);
-        let mut job = egui::text::LayoutJob::default();
-        job.append(&all[..end], 0.0, egui::TextFormat::simple(title_font.clone(), title_color));
-        job.append(&all[end..], 0.0, egui::TextFormat::simple(body_font.clone(), body_color));
-        job.wrap.max_width = wrap;
-        ui.fonts_mut(|fonts| fonts.layout_job(job))
+        rich::layout(ui, all, &before, &look, title_end(all), &fonts, wrap, &tables)
     };
-    let edit = widgets::text_area(&mut text, &hint, scheme)
+    let edit = widgets::text_area(&mut text, &hint, scheme);
+    // In a table Tab goes from cell to cell instead of to the next control.
+    let filter = egui::EventFilter { tab: in_table, ..edit.get_event_filter() };
+    let edit = edit
+        .event_filter(filter)
         .layouter(&mut layouter)
-        .id(text_id(state.epoch))
+        .id(id)
         .desired_width(f32::INFINITY)
         .desired_rows(TEXT_ROWS)
         .min_size(egui::vec2(0.0, height));
-    let response = ui.add(edit);
+    let output = edit.show(ui);
+    let response = output.response.response.clone();
     response.widget_info(|| {
         let mut info = egui::WidgetInfo::labeled(egui::Role::MultilineTextInput, true, &name);
         info.current_text_value = Some(text.clone());
@@ -348,8 +434,36 @@ fn editor(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState, height: f32, now
     if std::mem::take(&mut state.focus_text) {
         response.request_focus();
     }
+    let cursor = output.cursor_range.map(|range| range.primary.index.0);
+    if let Some(range) = output.cursor_range {
+        let marked = range.as_sorted_char_range();
+        let marked = marked.start.0..marked.end.0;
+        // Moving the cursor forgets styles chosen for letters not typed yet.
+        if !response.changed() && marked != state.caret.selection {
+            state.caret.pending = None;
+        }
+        state.caret.selection = marked;
+    }
     if response.changed() {
-        state.typed(&text, now);
+        match look.break_ends_list(&before, &text, cursor) {
+            // Enter in an empty point ends the list there, the text stays as it was.
+            Some(line) => {
+                let mut ended = look.clone();
+                ended.set_lines(line..line + 1, versekit_core::memo::format::LineKind::Plain);
+                state.restyled(ended, now);
+                let at = cursor.unwrap_or(1).saturating_sub(1);
+                state.caret.selection = at..at;
+                rich::restore_selection(ui.ctx(), id, &state.caret.selection);
+                ui.ctx().request_repaint();
+            }
+            None => state.typed_at(&text, cursor, now),
+        }
+    }
+    let shown = &state.memos.items[state.selected];
+    if shown.text == text {
+        let (galley, at, clip) = (&output.galley, output.galley_pos, output.text_clip_rect);
+        rich::paint_markers(ui, galley, at, clip, &shown.look, &fonts);
+        rich::paint_tables(ui, galley, at, clip, &tables.borrow(), &fonts);
     }
     if response.lost_focus() {
         state.flush(Some(now));
@@ -703,6 +817,529 @@ mod tests {
         assert_eq!(state.memos().items[0].text, "Bleibt im Fenster");
         state.write(Some(3.0));
         assert!(!state.failed);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    use versekit_core::memo::format::{BOLD, ITALIC, LineKind, STRIKE, UNDERLINE};
+
+    /// Marks the letters `range` of the open note and gives the field the cursor, as dragging over them
+    /// would; one frame later the page knows the marked letters.
+    fn mark(ctx: &egui::Context, state: &mut NotesState, range: std::ops::Range<usize>, time: f64) {
+        rich::restore_selection(ctx, text_id(state.epoch), &range);
+        frame(ctx, state, 900.0, time, Vec::new());
+    }
+
+    /// Clicks the button `at` of the bar (in the order of [`rich::BUTTONS`]).
+    fn click_button(ctx: &egui::Context, state: &mut NotesState, at: usize, time: f64) {
+        let rects: Vec<Rect> = ctx.data(|d| d.get_temp(egui::Id::unique(rich::BAR_ID))).expect("the bar drew");
+        let centre = rects[at].center();
+        let press = |pressed| Event::PointerButton {
+            pos: centre,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(ctx, state, 900.0, time, vec![Event::PointerMoved(centre), press(true)]);
+        frame(ctx, state, 900.0, time + 0.05, vec![press(false)]);
+    }
+
+    fn key(key: egui::Key, modifiers: egui::Modifiers) -> Event {
+        Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers }
+    }
+
+    /// The sections of the drawn field: (text, bold, italics, underlined, struck through).
+    fn field_sections(ctx: &egui::Context, state: &mut NotesState, needle: &str) -> Vec<(String, bool, bool, bool, bool)> {
+        let scheme = versekit_core::theme::current();
+        let output = ctx.run_ui(
+            egui::RawInput {
+                time: Some(50.0),
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                ..Default::default()
+            },
+            |ui| {
+                layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
+            },
+        );
+        fn find(shape: &egui::epaint::Shape, needle: &str) -> Option<std::sync::Arc<egui::Galley>> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text().contains(needle) => Some(text.galley.clone()),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(|s| find(s, needle)),
+                _ => None,
+            }
+        }
+        let galley = output.shapes.iter().find_map(|c| find(&c.shape, needle)).expect("the field is drawn");
+        let bold = egui::FontFamily::Name(crate::fonts::BOLD.into());
+        let job = &galley.job;
+        job.sections
+            .iter()
+            .map(|s| {
+                let f = &s.format;
+                (
+                    job.text[s.byte_range.start.0..s.byte_range.end.0].to_string(),
+                    f.font_id.family == bold,
+                    f.italics,
+                    f.underline.width > 0.0,
+                    f.strikethrough.width > 0.0,
+                )
+            })
+            .collect()
+    }
+
+    /// The circles drawn on the page (the bullets of a list).
+    fn circles(shapes: &[egui::epaint::ClippedShape]) -> usize {
+        fn count(shape: &egui::epaint::Shape) -> usize {
+            match shape {
+                egui::epaint::Shape::Circle(_) => 1,
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().map(count).sum(),
+                _ => 0,
+            }
+        }
+        shapes.iter().map(|c| count(&c.shape)).sum()
+    }
+
+    /// A page with one open note holding `text`, the field with the cursor.
+    fn page_with(text: &str) -> (egui::Context, NotesState) {
+        let ctx = context();
+        let mut state = NotesState::default();
+        state.add(0.0);
+        state.typed(text, 0.0);
+        state.focus_text = true;
+        frame(&ctx, &mut state, 900.0, 0.0, Vec::new());
+        (ctx, state)
+    }
+
+    #[test]
+    fn the_buttons_give_the_marked_letters_their_look_and_take_it_again() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Einkauf\nTitanium und Gold");
+        for (button, style) in [(0, BOLD), (1, ITALIC), (2, UNDERLINE), (3, STRIKE)] {
+            mark(&ctx, &mut state, 8..16, 1.0);
+            click_button(&ctx, &mut state, button, 1.1);
+            let look = &state.memos().items[0].look;
+            assert!(look.all_have(8..16, style), "button {button} gives \"Titanium\" its style");
+            assert_eq!(look.style_at(7) & style, 0, "the line break before is not touched");
+            assert_eq!(look.style_at(16) & style, 0, "the blank after is not touched");
+            assert_eq!(state.caret.selection, 8..16, "the letters stay marked after the click");
+        }
+        let sections = field_sections(&ctx, &mut state, "Titanium");
+        assert!(sections.contains(&("Titanium".to_string(), true, true, true, true)), "{sections:?}");
+        assert!(sections.iter().any(|s| s.0 == " und Gold" && !s.1 && !s.2 && !s.3 && !s.4), "{sections:?}");
+        // A second click takes the style away again.
+        mark(&ctx, &mut state, 8..16, 2.0);
+        click_button(&ctx, &mut state, 0, 2.1);
+        assert_eq!(state.memos().items[0].look.style_at(8) & BOLD, 0);
+        assert_eq!(state.memos().items[0].text, "Einkauf\nTitanium und Gold", "the text has no signs in it");
+        // After a click on the bar the field keeps the cursor: what is typed next goes in, in the new style.
+        mark(&ctx, &mut state, 25..25, 3.0);
+        click_button(&ctx, &mut state, 0, 3.1);
+        frame(&ctx, &mut state, 900.0, 3.2, Vec::new());
+        frame(&ctx, &mut state, 900.0, 3.3, type_text(" Erz"));
+        let memo = &state.memos().items[0];
+        assert_eq!(memo.text, "Einkauf\nTitanium und Gold Erz");
+        assert!(memo.look.all_have(25..29, BOLD), "typed bold after the click");
+    }
+
+    /// The bar stands inside the field's column at every size, in both languages and every width.
+    #[test]
+    fn the_bar_fits_at_every_size_language_and_width() {
+        let _language = crate::language_lock();
+        let mut findings = Vec::new();
+        for language in [Choice::De, Choice::En] {
+            set_language(language);
+            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                for (physical, in_table) in [260.0f32, 330.0, 400.0, 559.0, 560.0, 700.0, 900.0]
+                    .into_iter()
+                    .flat_map(|width| [(width, false), (width, true)])
+                {
+                    let ctx = context();
+                    crate::apply_size(&ctx, points);
+                    let zoom = versekit_core::font_size::zoom_factor(points);
+                    let width = physical / zoom;
+                    let mut state = NotesState::default();
+                    state.add(0.0);
+                    state.typed("Ein Zettel mit einem sehr langen Titel\nErz\tMenge", 0.0);
+                    if in_table {
+                        // The cursor in the table: the buttons for its rows and columns stand in the bar too.
+                        let mut look = state.memos().items[0].look.clone();
+                        look.set_lines(1..2, LineKind::Table);
+                        state.restyled(look, 0.0);
+                        state.caret.selection = 40..40;
+                    }
+                    let mut over = 0.0;
+                    for _ in 0..3 {
+                        over = frame_in(&ctx, &mut state, vec2(width, 900.0 / zoom), 0.0, Vec::new()).1;
+                    }
+                    let rects: Vec<Rect> = ctx.data(|d| d.get_temp(egui::Id::unique(rich::BAR_ID))).unwrap();
+                    let buttons = rich::BUTTONS.len() + if in_table { rich::TABLE_BUTTONS.len() } else { 0 };
+                    assert_eq!(rects.len(), buttons, "table {in_table}");
+                    let editor = boxes(&ctx).1.unwrap();
+                    let right = rects.iter().map(|r| r.right()).fold(0.0, f32::max);
+                    let left = rects.iter().map(|r| r.left()).fold(f32::MAX, f32::min);
+                    if over > 0.5 || right > width + 0.5 || left < editor.left() - 0.5 || right > editor.right() + 0.5
+                    {
+                        findings.push(format!(
+                            "{language:?} size {points} width {physical}: over {over}, bar {left}..{right}, field {}..{}",
+                            editor.left(),
+                            editor.right()
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
+    #[test]
+    fn ctrl_b_i_u_act_on_the_marked_letters_and_ctrl_u_deletes_nothing() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Einkauf\nTitanium und Gold");
+        mark(&ctx, &mut state, 8..16, 1.0);
+        let command = egui::Modifiers::COMMAND;
+        frame(&ctx, &mut state, 900.0, 1.1, vec![key(egui::Key::B, command)]);
+        frame(&ctx, &mut state, 900.0, 1.2, vec![key(egui::Key::I, command)]);
+        frame(&ctx, &mut state, 900.0, 1.3, vec![key(egui::Key::U, command)]);
+        let memo = &state.memos().items[0];
+        assert_eq!(memo.text, "Einkauf\nTitanium und Gold", "Ctrl+U does not delete to the start of the line");
+        assert!(memo.look.all_have(8..16, BOLD | ITALIC | UNDERLINE));
+        assert!(memo.look.all_have(8..16, BOLD) && memo.look.all_have(8..16, ITALIC));
+        assert!(memo.look.all_have(8..16, UNDERLINE));
+        // With nothing marked, Ctrl+B makes the next letters bold, and the button shows it.
+        mark(&ctx, &mut state, 25..25, 2.0);
+        frame(&ctx, &mut state, 900.0, 2.1, vec![key(egui::Key::B, command)]);
+        assert!(state.caret.is_active(rich::Action::Style(BOLD), &state.memos().items[0].text, &state.memos().items[0].look));
+        frame(&ctx, &mut state, 900.0, 2.2, type_text(" fett"));
+        let memo = &state.memos().items[0];
+        assert_eq!(memo.text, "Einkauf\nTitanium und Gold fett");
+        assert!(memo.look.all_have(25..30, BOLD), "the letters typed after Ctrl+B are bold");
+        assert!(!memo.look.all_have(17..25, BOLD));
+    }
+
+    #[test]
+    fn the_list_buttons_make_points_with_bullets_and_numbers_and_no_signs_in_the_text() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Einkauf\nTitanium\nGold\nQuantanium");
+        mark(&ctx, &mut state, 8..20, 1.0);
+        click_button(&ctx, &mut state, 4, 1.1);
+        let look = state.memos().items[0].look.clone();
+        assert_eq!((0..4).map(|l| look.line_kind(l)).collect::<Vec<_>>(), [
+            LineKind::Plain,
+            LineKind::Bullet,
+            LineKind::Bullet,
+            LineKind::Plain
+        ]);
+        let scheme = versekit_core::theme::current();
+        let shapes = |ctx: &egui::Context, state: &mut NotesState| {
+            ctx.run_ui(
+                egui::RawInput {
+                    time: Some(9.0),
+                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
+                },
+            )
+            .shapes
+        };
+        let before = circles(&shapes(&ctx, &mut state));
+        assert!(before >= 2, "a bullet in front of each point: {before}");
+        // The numbered list takes the same lines over and counts them.
+        mark(&ctx, &mut state, 8..30, 2.0);
+        click_button(&ctx, &mut state, 5, 2.1);
+        let look = state.memos().items[0].look.clone();
+        assert_eq!((1..4).map(|l| look.number_of(l)).collect::<Vec<_>>(), [Some(1), Some(2), Some(3)]);
+        let shown = texts(&shapes(&ctx, &mut state));
+        for number in ["1.", "2.", "3."] {
+            assert!(shown.contains(&number.to_string()), "{number} in front of its point: {shown:?}");
+        }
+        assert_eq!(circles(&shapes(&ctx, &mut state)), before - 2, "no bullets left");
+        let text = &state.memos().items[0].text;
+        assert_eq!(text, "Einkauf\nTitanium\nGold\nQuantanium");
+        assert!(!text.contains(['•', '-', '*', '|', '#']), "{text:?}");
+        // The same button again takes the lines out of the list.
+        mark(&ctx, &mut state, 8..30, 3.0);
+        click_button(&ctx, &mut state, 5, 3.1);
+        assert!(state.memos().items[0].look.is_plain());
+    }
+
+    #[test]
+    fn enter_in_an_empty_point_ends_the_list_and_backspace_takes_a_point_out() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Einkauf\nTitanium");
+        mark(&ctx, &mut state, 8..8, 1.0);
+        click_button(&ctx, &mut state, 4, 1.1);
+        // Enter at the end of the point makes the next point.
+        mark(&ctx, &mut state, 16..16, 2.0);
+        frame(&ctx, &mut state, 900.0, 2.1, vec![key(egui::Key::Enter, egui::Modifiers::NONE)]);
+        assert_eq!(state.memos().items[0].text, "Einkauf\nTitanium\n");
+        assert_eq!(state.memos().items[0].look.line_kind(2), LineKind::Bullet);
+        // Enter in that empty point ends the list and adds no line.
+        frame(&ctx, &mut state, 900.0, 2.2, vec![key(egui::Key::Enter, egui::Modifiers::NONE)]);
+        frame(&ctx, &mut state, 900.0, 2.3, Vec::new());
+        assert_eq!(state.memos().items[0].text, "Einkauf\nTitanium\n");
+        assert_eq!(state.memos().items[0].look.line_kind(2), LineKind::Plain);
+        assert_eq!(state.memos().items[0].look.line_kind(1), LineKind::Bullet);
+        // Backspace at the start of a point takes it out of the list and keeps the text.
+        mark(&ctx, &mut state, 8..8, 3.0);
+        frame(&ctx, &mut state, 900.0, 3.1, vec![key(egui::Key::Backspace, egui::Modifiers::NONE)]);
+        assert_eq!(state.memos().items[0].text, "Einkauf\nTitanium\n");
+        assert!(state.memos().items[0].look.is_plain());
+        // On a plain line Backspace deletes as always.
+        frame(&ctx, &mut state, 900.0, 3.2, vec![key(egui::Key::Backspace, egui::Modifiers::NONE)]);
+        assert_eq!(state.memos().items[0].text, "EinkaufTitanium\n");
+    }
+
+    #[test]
+    fn a_formatted_note_is_saved_and_opens_again_in_its_look() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (paths, dir) = paths_in("aussehen");
+        let ctx = context();
+        let mut state = NotesState::with_files(&paths);
+        state.add(0.0);
+        state.focus_text = true;
+        frame(&ctx, &mut state, 900.0, 0.0, Vec::new());
+        frame(&ctx, &mut state, 900.0, 0.1, type_text("Einkauf\nTitanium und Gold"));
+        mark(&ctx, &mut state, 8..16, 0.2);
+        click_button(&ctx, &mut state, 0, 0.3);
+        mark(&ctx, &mut state, 8..8, 0.4);
+        click_button(&ctx, &mut state, 5, 0.5);
+        frame(&ctx, &mut state, 900.0, 2.0, Vec::new());
+        let read = memo::load(&paths);
+        assert_eq!(read.items[0].text, "Einkauf\nTitanium und Gold");
+        assert!(read.items[0].look.all_have(8..16, BOLD));
+        assert_eq!(read.items[0].look.line_kind(1), LineKind::Number);
+        // A new window shows it in that look.
+        let mut again = NotesState::with_files(&paths);
+        let sections = field_sections(&ctx, &mut again, "Titanium");
+        assert!(sections.iter().any(|s| s.0 == "Titanium" && s.1), "{sections:?}");
+        drop(state);
+        drop(again);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A note as 5.1.0 saved it opens with its text as it was: signs that look like formatting stay letters,
+    /// the first line stands as the heading, and saving it again changes nothing in the file.
+    #[test]
+    fn a_note_of_5_1_0_opens_as_it_was_and_stays_the_same_in_the_file() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (paths, dir) = paths_in("alt-5-1-0");
+        let old = "{\n \"format\": 1,\n \"zettel\": [\n  {\n   \"text\": \"Titanium holen\\n- Lorville\\n**Area18**\",\n   \"bearbeitet\": 1762300000\n  }\n ]\n}";
+        let file = paths.app_file(memo::FILE);
+        std::fs::create_dir_all(std::path::Path::new(&file).parent().unwrap()).unwrap();
+        std::fs::write(&file, old).unwrap();
+        let ctx = context();
+        let mut state = NotesState::with_files(&paths);
+        let sections = field_sections(&ctx, &mut state, "Lorville");
+        assert_eq!(sections[0], ("Titanium holen".to_string(), true, false, false, false), "{sections:?}");
+        let rest: String = sections[1..].iter().map(|s| s.0.as_str()).collect();
+        assert_eq!(rest, "\n- Lorville\n**Area18**");
+        assert!(sections[1..].iter().all(|s| !s.1 && !s.2 && !s.3 && !s.4), "{sections:?}");
+        state.flush(Some(1.0));
+        state.write(Some(1.0));
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), old);
+        drop(state);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn every_button_says_what_it_does_in_both_languages() {
+        let _language = crate::language_lock();
+        for (choice, words) in [(Choice::De, ["Fett (Strg+B)", "Kursiv (Strg+I)", "Unterstrichen (Strg+U)"]), (
+            Choice::En,
+            ["Bold (Ctrl+B)", "Italic (Ctrl+I)", "Underline (Ctrl+U)"],
+        )] {
+            set_language(choice);
+            let meanings: Vec<String> =
+                rich::BUTTONS.iter().map(|(_, _, key, letter)| rich::meaning(key, *letter)).collect();
+            if !cfg!(target_os = "macos") {
+                assert_eq!(meanings[..3], words);
+            }
+            assert!(meanings.iter().all(|m| !m.is_empty() && !m.starts_with("s_nz_")), "{meanings:?}");
+            for (_, icon, key, letter) in rich::BUTTONS.iter().chain(&rich::TABLE_BUTTONS) {
+                assert!(crate::icons::image(icon, versekit_core::theme::current().fg, 16.0).is_some(), "{icon}");
+                let meaning = rich::meaning(key, *letter);
+                assert!(!meaning.is_empty() && !meaning.starts_with("s_nz_"), "{key}: {meaning:?}");
+            }
+        }
+    }
+
+    /// The field as drawn: its galley.
+    fn field_galley(ctx: &egui::Context, state: &mut NotesState, needle: &str) -> std::sync::Arc<egui::Galley> {
+        let scheme = versekit_core::theme::current();
+        let output = ctx.run_ui(
+            egui::RawInput {
+                time: Some(40.0),
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                ..Default::default()
+            },
+            |ui| {
+                layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
+            },
+        );
+        fn find(shape: &egui::epaint::Shape, needle: &str) -> Option<std::sync::Arc<egui::Galley>> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text().contains(needle) => Some(text.galley.clone()),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(|s| find(s, needle)),
+                _ => None,
+            }
+        }
+        output.shapes.iter().find_map(|c| find(&c.shape, needle)).expect("the field is drawn")
+    }
+
+    /// Where the letter `letter` of `row` of the galley starts (from the left of the galley).
+    fn letter_x(galley: &egui::Galley, row: usize, letter: char) -> f32 {
+        let row = &galley.rows[row];
+        row.pos.x + row.glyphs.iter().find(|g| g.chr == letter).expect("the letter is drawn").pos.x
+    }
+
+    /// The straight lines drawn on the page (the lines of a table and the frames of other boxes).
+    fn segments(ctx: &egui::Context, state: &mut NotesState) -> usize {
+        let scheme = versekit_core::theme::current();
+        let shapes = ctx
+            .run_ui(
+                egui::RawInput {
+                    time: Some(41.0),
+                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
+                },
+            )
+            .shapes;
+        fn count(shape: &egui::epaint::Shape) -> usize {
+            match shape {
+                egui::epaint::Shape::LineSegment { .. } => 1,
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().map(count).sum(),
+                _ => 0,
+            }
+        }
+        shapes.iter().map(|c| count(&c.shape)).sum()
+    }
+
+    fn bar_buttons(ctx: &egui::Context) -> usize {
+        ctx.data(|d| d.get_temp::<Vec<Rect>>(egui::Id::unique(rich::BAR_ID))).map_or(0, |r| r.len())
+    }
+
+    const TABLE: usize = 6;
+    const ADD_ROW: usize = 7;
+    const REMOVE_ROW: usize = 8;
+    const ADD_COLUMN: usize = 9;
+    const REMOVE_COLUMN: usize = 10;
+
+    #[test]
+    fn a_table_is_put_in_filled_with_tab_and_its_columns_stand_in_line() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Erze");
+        let lines_before = segments(&ctx, &mut state);
+        mark(&ctx, &mut state, 4..4, 1.0);
+        assert_eq!(bar_buttons(&ctx), rich::BUTTONS.len(), "no buttons for rows outside a table");
+        click_button(&ctx, &mut state, TABLE, 1.1);
+        assert_eq!(state.memos().items[0].text, "Erze\n\t\n\t");
+        assert_eq!(state.caret.selection, 5..5, "the cursor in the first cell");
+        frame(&ctx, &mut state, 900.0, 1.2, Vec::new());
+        assert_eq!(bar_buttons(&ctx), rich::BUTTONS.len() + rich::TABLE_BUTTONS.len());
+        let tab = key(egui::Key::Tab, egui::Modifiers::NONE);
+        let mut time = 1.3;
+        for typed in ["Erz", "Menge", "Gold", "12"] {
+            frame(&ctx, &mut state, 900.0, time, type_text(typed));
+            frame(&ctx, &mut state, 900.0, time + 0.05, vec![tab.clone()]);
+            time += 0.1;
+        }
+        // Tab after the last cell added a row.
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\tMenge\nGold\t12\n\t");
+        // In the very frame Tab is pressed the field keeps the cursor: it does not go on to the next control.
+        let scheme = versekit_core::theme::current();
+        let _ = ctx.run_ui(
+            egui::RawInput {
+                time: Some(time),
+                events: vec![tab.clone()],
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                ..Default::default()
+            },
+            |ui| {
+                layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, &mut state));
+            },
+        );
+        assert_eq!(ctx.memory(|m| m.focused()), Some(text_id(state.epoch)), "Tab stays in the table");
+        assert_eq!(state.caret.selection, 24..24, "the cursor in the next cell");
+        let look = &state.memos().items[0].look;
+        assert_eq!((1..4).map(|l| look.line_kind(l)).collect::<Vec<_>>(), [LineKind::Table; 3]);
+        // The second column starts at the same place in every row, behind the widest word of the first.
+        let galley = field_galley(&ctx, &mut state, "Menge");
+        let (menge, twelve) = (letter_x(&galley, 1, 'M'), letter_x(&galley, 2, '1'));
+        assert!((menge - twelve).abs() < 0.5, "Menge at {menge}, 12 at {twelve}");
+        let gold_end = galley.rows[2].pos.x + galley.rows[2].glyphs.iter().find(|g| g.chr == 'd').unwrap().max_x();
+        assert!(twelve > gold_end + 4.0, "room between the columns: {gold_end} {twelve}");
+        // Three rows and two columns: four lines across, three down.
+        assert!(segments(&ctx, &mut state) >= lines_before + 7, "the lines of the table are drawn");
+    }
+
+    #[test]
+    fn the_row_and_column_buttons_change_the_table_and_the_table_button_takes_it_out() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Erze\nErz\tMenge\nGold\t12\nEnde");
+        let mut look = state.memos().items[0].look.clone();
+        look.set_lines(1..3, LineKind::Table);
+        state.restyled(look, 0.0);
+        mark(&ctx, &mut state, 6..6, 1.0);
+        click_button(&ctx, &mut state, ADD_COLUMN, 1.1);
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\t\tMenge\nGold\t\t12\nEnde");
+        click_button(&ctx, &mut state, ADD_ROW, 1.2);
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\t\tMenge\n\t\t\nGold\t\t12\nEnde");
+        click_button(&ctx, &mut state, REMOVE_ROW, 1.3);
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\t\tMenge\nGold\t\t12\nEnde");
+        mark(&ctx, &mut state, 9..9, 2.0);
+        click_button(&ctx, &mut state, REMOVE_COLUMN, 2.1);
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\tMenge\nGold\t12\nEnde");
+        // Enter in a row adds the next one; Backspace at the start of a cell joins nothing.
+        mark(&ctx, &mut state, 9..9, 3.0);
+        frame(&ctx, &mut state, 900.0, 3.1, vec![key(egui::Key::Backspace, egui::Modifiers::NONE)]);
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\tMenge\nGold\t12\nEnde");
+        frame(&ctx, &mut state, 900.0, 3.2, vec![key(egui::Key::Enter, egui::Modifiers::NONE)]);
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\tMenge\n\t\nGold\t12\nEnde");
+        // The table button in a table makes its rows plain lines again; the words stay.
+        mark(&ctx, &mut state, 6..6, 4.0);
+        click_button(&ctx, &mut state, TABLE, 4.1);
+        assert!(state.memos().items[0].look.is_plain());
+        assert_eq!(state.memos().items[0].text, "Erze\nErz\tMenge\n\t\nGold\t12\nEnde");
+    }
+
+    #[test]
+    fn a_table_is_saved_as_tab_separated_lines_and_opens_again_as_a_table() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (paths, dir) = paths_in("tabelle");
+        let ctx = context();
+        let mut state = NotesState::with_files(&paths);
+        state.add(0.0);
+        state.focus_text = true;
+        frame(&ctx, &mut state, 900.0, 0.0, Vec::new());
+        frame(&ctx, &mut state, 900.0, 0.1, type_text("Erze"));
+        click_button(&ctx, &mut state, TABLE, 0.2);
+        frame(&ctx, &mut state, 900.0, 0.3, type_text("Gold"));
+        frame(&ctx, &mut state, 900.0, 2.0, Vec::new());
+        let read = memo::load(&paths);
+        assert_eq!(read.items[0].text, "Erze\nGold\t\n\t", "the plain text an older version shows");
+        assert_eq!(read.items[0].look.line_kind(1), LineKind::Table);
+        let mut again = NotesState::with_files(&paths);
+        frame(&ctx, &mut again, 900.0, 3.0, Vec::new());
+        // The same words without the table drawn fewer lines.
+        let mut plain = NotesState::default();
+        plain.add(0.0);
+        plain.typed("Erze\nGold\t\n\t", 0.0);
+        frame(&ctx, &mut plain, 900.0, 3.0, Vec::new());
+        assert!(segments(&ctx, &mut again) > segments(&ctx, &mut plain), "drawn as a table");
+        drop(state);
+        drop(again);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

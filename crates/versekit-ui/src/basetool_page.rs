@@ -670,7 +670,7 @@ fn connection_card(
 ) {
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
-        ui.label(RichText::new(t("s_btv_verbindung")).strong());
+        widgets::card_title(ui, scheme, &t("s_btv_verbindung"));
         let config = wire.sync.connection().config();
         if config.sandbox {
             small(ui, &t("s_btv_sandbox"), scheme.yellow);
@@ -1053,7 +1053,7 @@ fn new_ship_unit(ui: &mut Ui, scheme: &Scheme, wire: &Wire, f: &Frame, acts: &mu
 fn sync_card(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState, f: &Frame, acts: &mut Vec<Act>) {
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
-        ui.label(RichText::new(t("s_btv_abgleich")).strong());
+        widgets::card_title(ui, scheme, &t("s_btv_abgleich"));
         let running = f.status.phase == Phase::Running || page.requested.is_some();
         if running {
             widgets::loading(ui, scheme, &t("s_btv_laeuft"));
@@ -1083,7 +1083,7 @@ fn sync_card(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState, f: &Frame
 fn account_card(ui: &mut Ui, scheme: &Scheme, f: &Frame, acts: &mut Vec<Act>) {
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
-        ui.label(RichText::new(t("s_btv_konto")).strong());
+        widgets::card_title(ui, scheme, &t("s_btv_konto"));
         let tone = if f.status.code == "account_mismatch" { scheme.red } else { scheme.yellow };
         small(ui, &error_text(&f.status.code), tone);
         if f.status.code == "account_unknown" {
@@ -1108,7 +1108,7 @@ fn decision_card(ui: &mut Ui, scheme: &Scheme, wire: &Wire, card: &DecisionCard,
     let reason = (!wire.sync.has_area(area)).then_some(waiting.as_str());
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
-        ui.label(RichText::new(&card.title).strong());
+        widgets::card_title(ui, scheme, &card.title);
         small(ui, &card.help, scheme.sub);
         ui.add_space(4.0);
         ui.add(egui::Label::new(&card.listing).wrap());

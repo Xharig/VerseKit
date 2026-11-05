@@ -133,6 +133,16 @@ enum Machine {
     Known(Box<Option<Info>>),
 }
 
+/// Reads the box in a thread of its own.
+fn read_machine(paths: &Paths) -> Receiver<Option<Info>> {
+    let (sender, receiver) = mpsc::channel();
+    let copy = paths.working_copy();
+    std::thread::spawn(move || {
+        let _ = sender.send(machine_info::read(&copy, None));
+    });
+    receiver
+}
+
 /// What the page keeps.
 pub struct GrafikState {
     /// What the player wants and the files do not say yet.
@@ -143,6 +153,8 @@ pub struct GrafikState {
     seen: Stamps,
     looked_at: f64,
     machine: Machine,
+    /// The box read again while the known one stays on the page.
+    machine_again: Option<Receiver<Option<Info>>>,
     /// When the page was drawn last: a longer gap means it was left and is shown again.
     drawn_at: f64,
     /// The typed text of the two frame-rate fields.
@@ -175,6 +187,7 @@ impl Default for GrafikState {
             seen: Stamps::default(),
             looked_at: f64::NEG_INFINITY,
             machine: Machine::Unasked,
+            machine_again: None,
             drawn_at: f64::NEG_INFINITY,
             fps: [String::new(), String::new()],
             fps_stale: true,
@@ -289,12 +302,14 @@ impl GrafikState {
         if !matches!(self.machine, Machine::Unasked) {
             return;
         }
-        let (sender, receiver) = mpsc::channel();
-        let copy = paths.working_copy();
-        std::thread::spawn(move || {
-            let _ = sender.send(machine_info::read(&copy, None));
-        });
-        self.machine = Machine::Reading(receiver);
+        self.machine = Machine::Reading(read_machine(paths));
+    }
+
+    /// Reads the box again while the known one stays on the page, so nothing below it moves meanwhile.
+    fn ask_machine_again(&mut self, paths: &Paths) {
+        if matches!(self.machine, Machine::Known(_)) && self.machine_again.is_none() {
+            self.machine_again = Some(read_machine(paths));
+        }
     }
 
     fn poll_machine(&mut self, ui: &Ui) {
@@ -303,6 +318,16 @@ impl GrafikState {
                 Ok(info) => self.machine = Machine::Known(Box::new(info)),
                 Err(TryRecvError::Empty) => ui.ctx().request_repaint_after(std::time::Duration::from_millis(200)),
                 Err(TryRecvError::Disconnected) => self.machine = Machine::Known(Box::new(None)),
+            }
+        }
+        if let Some(receiver) = &self.machine_again {
+            match receiver.try_recv() {
+                Ok(info) => {
+                    self.machine = Machine::Known(Box::new(info));
+                    self.machine_again = None;
+                }
+                Err(TryRecvError::Empty) => ui.ctx().request_repaint_after(std::time::Duration::from_millis(200)),
+                Err(TryRecvError::Disconnected) => self.machine_again = None,
             }
         }
     }
@@ -523,9 +548,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, paths: &
     let now = ui.input(|i| i.time);
     if now - state.drawn_at > 2.0 {
         state.invalidate();
-        if !matches!(state.machine, Machine::Reading(_)) {
-            state.machine = Machine::Unasked;
-        }
+        state.ask_machine_again(paths);
     }
     state.drawn_at = now;
     state.start(paths);
@@ -610,8 +633,9 @@ fn switch_row(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, has_rendere
         }
         Kind::Slider => {
             let mut pct = percent(value);
-            let response =
-                settings::slider_with_value(row, scheme, &name, &mut pct, (0, 100), false, |n| formats::percent(n as f64));
+            let response = settings::slider_with_value(row, scheme, &name, &mut pct, (0, 100), false, |n| {
+                formats::percent(n as f64)
+            });
             let enabled = response.enabled();
             response.widget_info(|| WidgetInfo::slider(enabled, pct as f64, &name));
             if response.changed() {
@@ -857,7 +881,7 @@ fn performance_hints(
 fn machine_card(ui: &mut Ui, scheme: &Scheme, state: &GrafikState) -> f32 {
     let shown = widgets::card(ui, scheme, |ui| {
         ui.set_min_width(ui.available_width());
-        ui.label(RichText::new(t("s_gr_rechner")).strong());
+        widgets::card_title(ui, scheme, &t("s_gr_rechner"));
         let info = match &state.machine {
             Machine::Unasked | Machine::Reading(_) => {
                 widgets::loading(ui, scheme, &t("s_gr_rechner_liest"));
@@ -992,6 +1016,7 @@ mod tests {
         paths: Paths,
         game: String,
         home: String,
+        clock: Option<f64>,
     }
 
     impl Bench {
@@ -1000,13 +1025,14 @@ mod tests {
             crate::install(&ctx);
             ctx.enable_accesskit();
             let (paths, home, game) = world(name, age);
-            Bench { ctx, state: GrafikState::default(), paths, game, home }
+            Bench { ctx, state: GrafikState::default(), paths, game, home, clock: None }
         }
 
         fn frame(&mut self, events: Vec<Event>) -> (Texts, Named) {
             let scheme = theme::by_id("original").expect("original");
             let input = egui::RawInput {
                 screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(1100.0, 2600.0))),
+                time: self.clock,
                 events,
                 ..Default::default()
             };
@@ -1145,9 +1171,9 @@ mod tests {
         for key in ["s_gr_lead", "s_gr_rechner", "s_gr_renderer", "s_gr_vsync", "s_gr_maxfps"] {
             assert!(shows(&texts, &t(key)), "{key}: {texts:?}");
         }
-        // The names of the groups stand in capitals.
+        // The names of the groups stand as written.
         for key in ["hf_grafik", "s_gr_q_titel", "s_gr_cfg_titel"] {
-            assert!(shows(&texts, &t(key).to_uppercase()), "{key}: {texts:?}");
+            assert!(shows(&texts, &t(key)), "{key}: {texts:?}");
         }
         assert!(shows(&texts, "Vulkan"), "the renderer of the file: {texts:?}");
         assert!(shows(&texts, "NVIDIA GeForce RTX 4070"), "{texts:?}");
@@ -1155,6 +1181,26 @@ mod tests {
         assert!(shows(&texts, &t("s_gr_alles_drin")), "nothing waits: {texts:?}");
         let fps = bench.state.fps.clone();
         assert_eq!(fps[0], "60", "the frame rate of the user.cfg stands in its field");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn the_page_stands_still_when_nothing_happens_and_when_a_frame_comes_late() {
+        let _guard = setup();
+        let mut bench = Bench::new("steht", Some(7200));
+        bench.until(|t| shows(t, "AMD Ryzen"));
+        let mut clock = 100.0;
+        bench.clock = Some(clock);
+        let reference = bench.settle().0;
+        // A repaint every 1/60 s, every second, and one after a pause of three seconds (no input meanwhile).
+        for step in [1.0 / 60.0, 1.0, 3.0, 1.0 / 60.0, 1.0] {
+            for _ in 0..5 {
+                clock += step;
+                bench.clock = Some(clock);
+                let (texts, _) = bench.frame(Vec::new());
+                assert_eq!(texts, reference, "the page moved after a step of {step} s");
+            }
+        }
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 

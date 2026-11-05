@@ -381,7 +381,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
         let first = index;
         index += group.sections.iter().map(|section| section.timers.len()).sum::<usize>();
         widgets::card(ui, scheme, |ui| {
-            ui.label(RichText::new(group.name).strong());
+            widgets::card_title(ui, scheme, group.name);
             ui.add_space(2.0);
             let mut offsets = Vec::new();
             let mut at = first;
@@ -605,7 +605,7 @@ fn maps_section(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
 /// The phase, the countdown, the lamps and the next openings.
 fn hangar_card(ui: &mut Ui, scheme: &Scheme, state: &ContestedState, now: f64) {
     widgets::card(ui, scheme, |ui| {
-        ui.label(RichText::new(t("s_cz_hangar")).strong());
+        widgets::card_title(ui, scheme, &t("s_cz_hangar"));
         let Some(start) = state.start() else {
             ui.add_space(4.0);
             let (head, line) = (t("s_cz_ohne_titel"), t("s_cz_ohne_text"));
@@ -653,7 +653,7 @@ fn hangar_card(ui: &mut Ui, scheme: &Scheme, state: &ContestedState, now: f64) {
             });
         });
         ui.add_space(8.0);
-        ui.label(RichText::new(t("s_cz_naechste")).strong());
+        widgets::card_title(ui, scheme, &t("s_cz_naechste"));
         let lang = language::current();
         egui::Grid::new("contested-openings").num_columns(3).spacing([16.0, 2.0]).show(ui, |grid| {
             for opening in contested::next_openings(start, now, OPENINGS_SHOWN) {

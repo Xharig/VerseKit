@@ -177,7 +177,7 @@ fn block<R>(
     add: impl FnOnce(&mut Ui) -> R,
 ) -> egui::InnerResponse<R> {
     let drawn = widgets::card(ui, scheme, |ui| {
-        ui.label(RichText::new(name).strong());
+        widgets::card_title_label(ui, scheme, name);
         if !hint.is_empty() {
             ui.label(RichText::new(hint).small().color(color(scheme.sub)));
         }

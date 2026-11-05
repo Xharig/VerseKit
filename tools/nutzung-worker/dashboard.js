@@ -69,6 +69,24 @@ section.block.klein{grid-column:span 2}
 .kpi{background:var(--feld);padding:18px 20px 16px}
 .kpi .v{font-size:36px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}
 .kpi .l{margin-top:6px;color:var(--leise);font-size:14px;line-height:1.4}
+/* Erfolgszahlen: Pfeil als Zeichen UND Farbe (auf = Neon, ab = Rot, gleich = leise) */
+:root{--ab:#ff7b6b}
+.kpi .trend{margin-top:6px;font-size:15px;line-height:1.4;font-weight:700}
+.kpi .trend .pfeil{margin-right:6px}
+.trend.auf,.trend.neu{color:var(--neon)}
+.trend.ab{color:var(--ab)}
+.trend.gleich,.trend.keiner{color:var(--leise);font-weight:400}
+.kpi .v.wartet{font-size:22px;line-height:1.3;color:var(--leise);padding-top:6px}
+.kpi .l.zusatz{margin-top:4px;font-size:13px}
+.kpis.sechs{grid-template-columns:repeat(6,minmax(0,1fr))}
+.kpis.neben .kpi{padding-top:14px;padding-bottom:12px}
+.kpis.neben .kpi .v{font-size:24px}
+/* „Für die Entwicklung": Klapp-Überschrift, darunter dasselbe Raster */
+.entwicklung{grid-column:1 / -1;min-width:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));column-gap:inherit}
+.entwicklung-kopf h2,.kompakt .entwicklung-kopf h2.mitfalt{margin:0}
+.entwicklung-kopf .faltet .t{flex:1 1 0;min-width:0}
+.entwicklung-kopf .faltet .chev{order:2;margin-left:0}
+.entwicklung-kopf .faltet .z{order:3;flex:1 0 100%}
 
 /* Diagramme */
 .bild{padding:14px 16px 8px}
@@ -151,6 +169,7 @@ footer{padding:28px 0 36px}
   section.block.klein{grid-column:span 3}
   .kpis.fuenf,.kpis.vier{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kpis.fuenf .kpi:last-child{grid-column:1 / -1}
+  .kpis.sechs{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:860px){
   .sprache button{min-height:44px;padding:0 14px}
@@ -179,6 +198,10 @@ footer{padding:28px 0 36px}
   .block h2{font-size:21px;margin-bottom:14px}
   .kpi{padding:14px 14px 12px}
   .kpi .v{font-size:30px}
+  .kpi .v.wartet{font-size:18px}
+  .kpi .trend{font-size:14px}
+  .kpis.sechs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis.neben .kpi .v{font-size:22px}
   .bild{padding:10px 10px 6px}
   .bar,.versionen .bar{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}
   .bar .track{grid-column:1 / -1;grid-row:2}
@@ -236,8 +259,8 @@ ${SEITE_CSS}
 
 <main id="inhalt" class="mitte">
   <div class="seitenkopf">
-    <h1>Nutzung und Downloads</h1>
-    <p class="einleitung">Private Übersicht, nur für dich sichtbar.</p>
+    <h1>Wie erfolgreich ist VerseKit?</h1>
+    <p class="einleitung">Nutzung und Downloads, private Übersicht, nur für dich sichtbar.</p>
     <p class="stand" id="stand" role="status">lädt …</p>
   </div>
   <div class="raster" id="daten"></div>

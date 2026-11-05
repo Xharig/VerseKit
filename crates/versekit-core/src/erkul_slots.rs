@@ -424,17 +424,48 @@ pub fn stock_loadout(ships: &ErkulShips, parts: &ErkulParts, id: ShipId) -> Vec<
     counted
 }
 
+/// The slots of a stored ship counted as `(kind, size, number)`: the counts of `plaetze`, and for each kind and size
+/// the larger number where the fitted `slots` list more. Some ships keep their components (cooler, power plant,
+/// shield, quantum drive) only in `slots`; without them no component would fit those ships.
+fn slot_counts(entry: &Map) -> Vec<(String, i64, i64)> {
+    let mut counted: Vec<(String, i64, i64)> = Vec::new();
+    if let Some(Value::Array(stored)) = get(entry, "plaetze") {
+        for p in stored.iter().filter_map(Value::as_object) {
+            let key = (text(p, "art").to_string(), py_int(get(p, "groesse")).unwrap_or(-1));
+            let n = py_int(get(p, "anzahl")).unwrap_or(0);
+            match counted.iter_mut().find(|(k, s, _)| *k == key.0 && *s == key.1) {
+                Some(found) => found.2 += n,
+                None => counted.push((key.0, key.1, n)),
+            }
+        }
+    }
+    let mut fitted: Vec<(String, i64, i64)> = Vec::new();
+    if let Some(Value::Array(slots)) = get(entry, "slots") {
+        for slot in slots.iter().filter_map(Value::as_object) {
+            let (kind, size) = (text(slot, "art"), py_int(get(slot, "groesse")).unwrap_or(-1));
+            if kind.is_empty() {
+                continue;
+            }
+            match fitted.iter_mut().find(|(k, s, _)| k == kind && *s == size) {
+                Some(found) => found.2 += 1,
+                None => fitted.push((kind.to_string(), size, 1)),
+            }
+        }
+    }
+    for (kind, size, n) in fitted {
+        match counted.iter_mut().find(|(k, s, _)| *k == kind && *s == size) {
+            Some(found) => found.2 = found.2.max(n),
+            None => counted.push((kind, size, n)),
+        }
+    }
+    counted
+}
+
 /// `erkul.fits`: how many slots of this kind and size the ship has; 0 where none fits or the ship is unknown.
 pub fn fits(ships: &ErkulShips, kind: &str, size: Option<i64>, id: ShipId) -> i64 {
     let Some(size) = size.filter(|_| !kind.is_empty()) else { return 0 };
     let Some(entry) = ships.entry(id) else { return 0 };
-    let Some(Value::Array(counted)) = get(entry, "plaetze") else { return 0 };
-    counted
-        .iter()
-        .filter_map(Value::as_object)
-        .filter(|p| text(p, "art") == kind && py_int(get(p, "groesse")).unwrap_or(-1) == size)
-        .map(|p| py_int(get(p, "anzahl")).unwrap_or(0))
-        .sum()
+    slot_counts(entry).iter().filter(|(k, s, _)| k == kind && *s == size).map(|(_, _, n)| *n).sum()
 }
 
 /// `erkul.matching_ships`: into which of these hangar ships a part of this kind and size goes; pairs
@@ -502,8 +533,51 @@ pub enum FitAnswer {
     Nowhere,
 }
 
-/// The part (`kind`, `size` as the blueprint catalog has them) against the hangar.
-pub fn fit_answer(ships: &ErkulShips, kind: &str, size: Option<i64>, hangar: &[&Map]) -> FitAnswer {
+/// Kinds of part that go only into ships of their own maker: erkul names their slots only by kind and size, but an
+/// ore pod of Argo goes into the MOLE, one of MISC into the Prospector, one of Drake into the Golem.
+pub const OWN_MAKER_KINDS: [&str; 1] = ["Container"];
+
+/// The words of a maker's name, lower case, without the signs between them.
+fn maker_words(name: &str) -> Vec<String> {
+    name.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_lowercase).collect()
+}
+
+/// Whether a part of this kind, maker and name may go into the hangar ship `ship` at all. Kinds outside
+/// [`OWN_MAKER_KINDS`] always may; those inside only into a ship of the maker of the part, or of the brand the name
+/// of the part begins with ("MISC Enhanced Ore Pod" is made by Argo and goes into the MOLE and the Prospector).
+pub fn maker_allows(kind: &str, part_maker: Option<&str>, part_name: &str, ship: &Map) -> bool {
+    if !OWN_MAKER_KINDS.contains(&kind) {
+        return true;
+    }
+    let brand = part_name.split_whitespace().next().unwrap_or_default();
+    same_maker(part_maker.unwrap_or_default(), ship) || same_maker(brand, ship)
+}
+
+/// Whether `maker` names the maker of the hangar ship `ship`: by the whole name, its first word ("Argo Astronautics"
+/// and "ARGO") or its initials ("Musashi Industrial & Starflight Concern" and "MISC"), against the maker and the
+/// maker code of the hangar. An empty name names nobody.
+fn same_maker(maker: &str, ship: &Map) -> bool {
+    let part = maker_words(maker);
+    let Some(first) = part.first() else { return false };
+    let initials: String = part.iter().filter_map(|w| w.chars().next()).collect();
+    let ship_maker = maker_words(text(ship, "hersteller"));
+    if !ship_maker.is_empty() && (ship_maker == part || ship_maker[0] == *first) {
+        return true;
+    }
+    [text(ship, "hersteller"), text(ship, "hkurz")].iter().any(|name| {
+        let name = name.trim().to_lowercase();
+        !name.is_empty() && (name == initials || name == *first)
+    })
+}
+
+/// The part (`kind`, `size`, `maker` and `name` as the blueprint catalog has them) against the hangar.
+pub fn fit_answer(
+    ships: &ErkulShips,
+    kind: &str,
+    size: Option<i64>,
+    (maker, name): (Option<&str>, &str),
+    hangar: &[&Map],
+) -> FitAnswer {
     if kind.is_empty() || size.is_none_or(|s| s == 0) || !INTERESTING.contains(&kind) {
         return FitAnswer::Silent;
     }
@@ -513,7 +587,8 @@ pub fn fit_answer(ships: &ErkulShips, kind: &str, size: Option<i64>, hangar: &[&
     if ships.is_empty() {
         return FitAnswer::NoData;
     }
-    let found = matching_ships(ships, kind, size, hangar);
+    let allowed: Vec<&Map> = hangar.iter().copied().filter(|ship| maker_allows(kind, maker, name, ship)).collect();
+    let found = matching_ships(ships, kind, size, &allowed);
     if found.is_empty() { FitAnswer::Nowhere } else { FitAnswer::In(found) }
 }
 
@@ -528,18 +603,7 @@ pub struct SlotTable {
 impl SlotTable {
     /// The stored counts of a ship; `None` where erkul does not know the ship or stores no slots for it.
     pub fn of(ships: &ErkulShips, id: ShipId) -> Option<SlotTable> {
-        let Some(Value::Array(counted)) = get(ships.entry(id)?, "plaetze") else { return None };
-        let counted: Vec<(String, i64, i64)> = counted
-            .iter()
-            .filter_map(Value::as_object)
-            .map(|p| {
-                (
-                    text(p, "art").to_string(),
-                    py_int(get(p, "groesse")).unwrap_or(-1),
-                    py_int(get(p, "anzahl")).unwrap_or(0),
-                )
-            })
-            .collect();
+        let counted = slot_counts(ships.entry(id)?);
         (!counted.is_empty()).then_some(SlotTable { counted })
     }
 
@@ -638,6 +702,46 @@ mod tests {
         assert_eq!(bare.len(), 1);
     }
 
+    /// [`fit_answer`] for a part without a maker.
+    fn any_maker(ships: &ErkulShips, kind: &str, size: Option<i64>, hangar: &[&Map]) -> FitAnswer {
+        fit_answer(ships, kind, size, (None, ""), hangar)
+    }
+
+    #[test]
+    fn an_ore_pod_fits_only_the_ships_of_its_maker() {
+        let file = std::env::temp_dir().join(format!("versekit-fit-pods-{}.json", crate::testdir::run_tag()));
+        let stored = r#"{"format": 4, "spielversion": "4.1", "hersteller": {},
+            "schiffe": {"argomole": {"id": "argo_mole", "name": "Argo MOLE",
+                "plaetze": [{"art": "Container", "groesse": 1, "anzahl": 8}]},
+              "miscprospector": {"id": "misc_prospector", "name": "MISC Prospector",
+                "plaetze": [{"art": "Container", "groesse": 1, "anzahl": 2}]},
+              "drakegolem": {"id": "drak_golem", "name": "Drake Golem",
+                "plaetze": [{"art": "Container", "groesse": 1, "anzahl": 1}]}}}"#;
+        std::fs::write(&file, stored).unwrap();
+        let ships = ErkulShips::load(&file.to_string_lossy());
+        let _ = std::fs::remove_file(&file);
+        let entry = |text: &str| crate::jsonio::loads(text).unwrap().as_object().unwrap().clone();
+        let mole = entry(r#"{"name": "MOLE", "hersteller": "ARGO Astronautics", "hkurz": "ARGO"}"#);
+        let prospector = entry(r#"{"name": "Prospector", "hersteller": "MISC", "hkurz": "MISC"}"#);
+        let golem = entry(r#"{"name": "Golem", "hersteller": "Drake Interplanetary", "hkurz": "DRAK"}"#);
+        let hangar = [&mole, &prospector, &golem];
+        let fits =
+            |name: &str, maker: &str| match fit_answer(&ships, "Container", Some(1), (Some(maker), name), &hangar) {
+                FitAnswer::In(found) => found.into_iter().map(|(name, _)| name).collect::<Vec<_>>(),
+                other => panic!("{name}: {other:?}"),
+            };
+        assert_eq!(fits("Argo Ore Pod", "Argo Astronautics"), ["MOLE"]);
+        assert_eq!(fits("MISC Ore Pod", "Musashi Industrial & Starflight Concern"), ["Prospector"]);
+        assert_eq!(fits("Drake Ore Pod", "Drake Interplanetary"), ["Golem"]);
+        assert_eq!(fits("GOLEM MC-4 Ore Pod", "Drake Interplanetary"), ["Golem"]);
+        // Made by Argo, named after MISC: both.
+        assert_eq!(fits("MISC Enhanced Ore Pod", "Argo Astronautics"), ["MOLE", "Prospector"]);
+        assert_eq!(fit_answer(&ships, "Container", Some(1), (None, ""), &hangar), FitAnswer::Nowhere, "no maker");
+        // Other kinds keep fitting by kind and size alone.
+        assert!(maker_allows("Cooler", Some("Aegis Dynamics"), "", &mole));
+        assert!(!maker_allows("Container", Some("Aegis Dynamics"), "Aegis Pod", &mole));
+    }
+
     #[test]
     fn the_answer_to_fits_my_ship_tells_the_four_cases_apart() {
         let file = std::env::temp_dir().join(format!("versekit-fit-answer-{}.json", crate::testdir::run_tag()));
@@ -657,26 +761,26 @@ mod tests {
 
         let both = [eclipse, gladius];
         assert_eq!(
-            fit_answer(&ships, "Cooler", Some(2), &both),
+            any_maker(&ships, "Cooler", Some(2), &both),
             FitAnswer::In(vec![("Eclipse".to_string(), 3), ("Gladius".to_string(), 1)]),
             "the most slots first"
         );
-        assert_eq!(fit_answer(&ships, "Shield", Some(1), &both), FitAnswer::In(vec![("Eclipse".to_string(), 1)]));
-        assert_eq!(fit_answer(&ships, "Cooler", Some(4), &both), FitAnswer::Nowhere);
+        assert_eq!(any_maker(&ships, "Shield", Some(1), &both), FitAnswer::In(vec![("Eclipse".to_string(), 1)]));
+        assert_eq!(any_maker(&ships, "Cooler", Some(4), &both), FitAnswer::Nowhere);
         assert_eq!(
-            fit_answer(&ships, "Cooler", Some(2), &[unknown]),
+            any_maker(&ships, "Cooler", Some(2), &[unknown]),
             FitAnswer::Nowhere,
             "a ship without data fits nothing"
         );
         // Nothing is said where there is nothing to say.
-        assert_eq!(fit_answer(&ships, "Cooler", None, &both), FitAnswer::Silent, "no size");
-        assert_eq!(fit_answer(&ships, "Cooler", Some(0), &both), FitAnswer::Silent, "size 0 is no size");
-        assert_eq!(fit_answer(&ships, "Char_Armor_Helmet", Some(1), &both), FitAnswer::Silent, "armour");
-        assert_eq!(fit_answer(&ships, "", Some(1), &both), FitAnswer::Silent);
+        assert_eq!(any_maker(&ships, "Cooler", None, &both), FitAnswer::Silent, "no size");
+        assert_eq!(any_maker(&ships, "Cooler", Some(0), &both), FitAnswer::Silent, "size 0 is no size");
+        assert_eq!(any_maker(&ships, "Char_Armor_Helmet", Some(1), &both), FitAnswer::Silent, "armour");
+        assert_eq!(any_maker(&ships, "", Some(1), &both), FitAnswer::Silent);
         // An empty hangar is not "fits nowhere", and missing data is not either.
-        assert_eq!(fit_answer(&ships, "Cooler", Some(2), &[]), FitAnswer::EmptyHangar);
-        assert_eq!(fit_answer(&ErkulShips::default(), "Cooler", Some(2), &both), FitAnswer::NoData);
-        assert_eq!(fit_answer(&ErkulShips::default(), "Cooler", Some(2), &[]), FitAnswer::EmptyHangar);
+        assert_eq!(any_maker(&ships, "Cooler", Some(2), &[]), FitAnswer::EmptyHangar);
+        assert_eq!(any_maker(&ErkulShips::default(), "Cooler", Some(2), &both), FitAnswer::NoData);
+        assert_eq!(any_maker(&ErkulShips::default(), "Cooler", Some(2), &[]), FitAnswer::EmptyHangar);
     }
 
     #[test]
@@ -710,6 +814,37 @@ mod tests {
         assert_eq!(SlotTable::of(&ships, ship_id(&gladius)), None);
         assert_eq!(SlotTable::of(&ships, ship_id(&unknown)), None);
         assert_eq!(SlotTable::of(&ErkulShips::default(), ship_id(&eclipse)), None);
+    }
+
+    /// Some ships keep their components only in the fitted slots, not in the counts (the F7C-M Super Hornet Mk II
+    /// of the stored file): they count all the same, and where both list a kind the larger number counts.
+    #[test]
+    fn components_only_in_the_fitted_slots_count_too() {
+        let file = std::env::temp_dir().join(format!("versekit-slot-fitted-{}.json", crate::testdir::run_tag()));
+        let stored = r#"{"format": 4, "spielversion": "4.1", "hersteller": {"anvilaerospace": "anvl"},
+            "schiffe": {"anvilhornet": {"id": "anvl_hornet", "name": "Hornet",
+                "plaetze": [{"art": "WeaponGun", "groesse": 3, "anzahl": 2}, {"art": "Cooler", "groesse": 1, "anzahl": 3}],
+                "slots": [{"art": "Cooler", "groesse": 1}, {"art": "Cooler", "groesse": 1},
+                          {"art": "PowerPlant", "groesse": 2}, {"art": "Shield", "groesse": 1}, {"art": "Shield", "groesse": 1},
+                          {"art": "QuantumDrive", "groesse": 1}, {"art": "WeaponGun", "groesse": 3}]}}}"#;
+        std::fs::write(&file, stored).unwrap();
+        let ships = ErkulShips::load(&file.to_string_lossy());
+        let _ = std::fs::remove_file(&file);
+        let hornet = crate::jsonio::loads(r#"{"name": "Hornet", "hersteller": "Anvil Aerospace"}"#)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .clone();
+        let table = SlotTable::of(&ships, ship_id(&hornet)).expect("the Hornet has slots");
+        assert_eq!(table.takes("PowerPlant", Some(2)), 1, "only in the fitted slots");
+        assert_eq!(table.takes("Shield", Some(1)), 2);
+        assert_eq!(table.takes("QuantumDrive", Some(1)), 1);
+        assert_eq!(table.takes("Cooler", Some(1)), 3, "both list it: the larger number, not the sum");
+        assert_eq!(table.takes("WeaponGun", Some(3)), 2);
+        assert_eq!(fits(&ships, "PowerPlant", Some(2), ship_id(&hornet)), 1, "fits into your ship says the same");
+        let names: Vec<String> =
+            matching_ships(&ships, "Shield", Some(1), &[&hornet]).into_iter().map(|(name, _)| name).collect();
+        assert_eq!(names, ["Hornet"]);
     }
 
     #[test]

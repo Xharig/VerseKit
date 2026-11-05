@@ -505,7 +505,10 @@ fn the_facts_come_from_the_settings() {
         (f.ui.as_str(), f.rc, f.overlay.as_str(), f.update, f.view.as_str()),
         ("de", false, "immer", true, "reiter")
     );
-    assert_eq!(f.mods, vec!["basetool", "bergung", "handel", "schiffe", "statistiken", "werkstatt"]);
+    assert_eq!(
+        f.mods,
+        vec!["basetool", "bergbau", "bergung", "beschaffung", "handel", "schiffe", "statistiken", "werkstatt"]
+    );
     assert_eq!(f.tiles_off, vec!["spielzeit"]);
     assert_eq!(f.os, if cfg!(windows) { "windows" } else { "linux" });
     std::fs::write(

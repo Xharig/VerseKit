@@ -84,7 +84,7 @@ pub const MEMBERS_HEIGHT_PAGE: f32 = 420.0;
 /// The share of a member row the handle takes beside the stars; the rank takes the rest.
 const MEMBER_HANDLE_SHARE: f32 = 0.55;
 /// How many handles searched lately the empty field shows.
-pub const HISTORY_MAX: usize = 8;
+pub const HISTORY_MAX: usize = 5;
 
 /// An organization shown instead of a handle: its card, or the organizations of the name searched.
 #[derive(Clone, Debug, PartialEq)]
@@ -208,6 +208,9 @@ pub struct HandleSearch {
     history: Option<Vec<(String, Vec<String>)>>,
     /// Where they were drawn last: they stay while the mouse is over them.
     history_rect: Option<egui::Rect>,
+    /// The card of a handle or organization spreads over the width it is given instead of keeping
+    /// [`CARD_WIDTH`].
+    pub card_spread: bool,
 }
 
 impl HandleSearch {
@@ -266,6 +269,14 @@ impl HandleSearch {
             members_in_card: true,
             history: None,
             history_rect: None,
+            card_spread: false,
+        }
+    }
+
+    /// Limits `ui` to the width of the card, unless the card spreads.
+    fn limit_card(&self, ui: &mut Ui) {
+        if !self.card_spread {
+            ui.set_max_width(CARD_WIDTH);
         }
     }
 
@@ -669,10 +680,10 @@ impl HandleSearch {
         }
     }
 
-    /// The handles kept, the newest first, with the SIDs of their organizations.
+    /// The handles kept within the days set, the newest first, with the SIDs of their organizations.
     fn recent_handles(&self) -> Vec<(String, Vec<String>)> {
         let Some(paths) = &self.paths else { return Vec::new() };
-        cache::read(paths)
+        cache::recent(paths, now(), self.settings.days)
             .into_iter()
             .rev()
             .take(HISTORY_MAX)
@@ -758,7 +769,7 @@ impl HandleSearch {
             return;
         }
         let Some(shown) = self.shown.clone() else { return };
-        ui.set_max_width(CARD_WIDTH);
+        self.limit_card(ui);
         let mut close = false;
         widgets::card(ui, scheme, |ui| {
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
@@ -803,7 +814,7 @@ impl HandleSearch {
     /// The card of an organization (its head, the link to its page, its marks and its members) or the
     /// organizations of the name searched, a click opening one.
     fn org_card(&mut self, ui: &mut Ui, scheme: &Scheme, shown: &OrgShown) {
-        ui.set_max_width(CARD_WIDTH);
+        self.limit_card(ui);
         let (mut close, mut open) = (false, None);
         widgets::card(ui, scheme, |ui| {
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {

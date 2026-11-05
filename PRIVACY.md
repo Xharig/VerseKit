@@ -58,6 +58,11 @@ Einmal am Tag schickt VerseKit an `nutzung-versekit.xharig.com` genau diese Anga
 | welche Seite du nach wenigen Sekunden wieder verlassen hast, und wo du danach geblieben bist | Verkauf → Shops: 7× |
 | wie oft du in Mein Lager einen Rohstoff von Hand oder eine Raffinerie-Ausbeute eingetragen hast | von Hand eingetragen: 2× |
 | wie oft du die Galerie „Was ist neu" geöffnet und daraus eine Seite geöffnet hast | Galerie geöffnet: 1× |
+| ab VerseKit 5.2: das Alter der Installation in Tagen, ohne Kennung (ab 31 Tagen nur „älter") | 3 Tage |
+
+Das Alter wird für sich gezählt, nicht zusammen mit Version, System oder
+Land. Damit lässt sich sehen, wie viele neu dazukommen und wie viele nach
+einer Woche noch dabei sind, aber nicht, wer.
 
 Die Seiten- und Handlungsangaben sind nur Zähler seit der letzten Meldung, mit
 festen Kennungen: keine Inhalte, keine Mengen, keine Rohstoffe, keine
@@ -80,9 +85,11 @@ Die Meldung ist immer an, einen Schalter dafür gibt es nicht. Nur mit
 
 Die Download-Knöpfe auf versekit.xharig.com führen über `xharig.com/windows`
 und `xharig.com/linux` zur Datei bei GitHub. Auf diesem Weg wird gezählt: Tag,
-System und das **Land**, das Cloudflare selbst erkennt. Keine IP-Adresse,
-keine Stadt, keine Kennung, kein Cookie. Wer direkt bei GitHub lädt, wird hier
-nicht gezählt.
+System und das **Land**, das Cloudflare selbst erkennt. Trägt der Link ein
+Kanal-Kennzeichen (etwa `xharig.com/windows?ref=discord`, damit sich zeigt,
+welcher Beitrag Downloads gebracht hat), wird auch das je Tag gezählt, für sich
+und nicht zusammen mit System oder Land. Keine IP-Adresse, keine Stadt, keine
+Kennung, kein Cookie. Wer direkt bei GitHub lädt, wird hier nicht gezählt.
 
 ## Fehlerbericht
 

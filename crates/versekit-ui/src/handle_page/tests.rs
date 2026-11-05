@@ -66,27 +66,29 @@ enum On {
 }
 
 /// One frame of the page `on` and, below it, the settings of the search (they stand with the info bar) with
-/// `events`: the accesskit nodes with role, label and the middle of their place, and what the page asked.
+/// `events`: the accesskit nodes with role, label and the middle of their place, and the tab shown after it.
+/// The frame starts on the tab `on`.
 fn frame_on(
     ctx: &egui::Context,
     state: &mut HandlePageState,
     events: Vec<egui::Event>,
     on: On,
-) -> (Nodes, Option<Action>) {
+) -> (Nodes, Tab) {
     let scheme = versekit_core::theme::current();
     let input = egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 3000.0))),
         events,
         ..Default::default()
     };
-    let mut action = None;
+    state.tab = match on {
+        On::Search => Tab::Search,
+        On::Relations => Tab::Relations,
+    };
     let mut output = ctx.run_ui(input, |ui| {
-        action = match on {
-            On::Search => show_page(ui, scheme, state),
-            On::Relations => show_relations_page(ui, scheme, state),
-        };
+        show_page(ui, scheme, state);
         show_settings(ui, scheme, state);
     });
+    let action = state.tab;
     output.textures_delta.clear();
     let Some(update) = output.platform_output.accesskit_update else { return (Vec::new(), action) };
     let nodes = update
@@ -254,8 +256,8 @@ fn a_click_on_a_handle_of_the_list_searches_it_at_the_top() {
     let nodes = settled(&ctx, &mut state);
     let name = find(&nodes, Role::Button, "Vex").unwrap_or_else(|| panic!("the handle: {nodes:?}"));
     assert!(state.search.shown().is_none());
-    let (_, action) = frame_on(&ctx, &mut state, click(name), On::Relations);
-    assert_eq!(action, Some(Action::ToSearch), "the card shows on the page of the search");
+    let (_, tab) = frame_on(&ctx, &mut state, click(name), On::Relations);
+    assert_eq!(tab, Tab::Search, "the card shows on the tab of the search");
     // Without the net the card says so, for the handle clicked.
     assert_eq!(state.search.query, "Vex");
     assert_eq!(state.search.shown(), Some(&Err(Failure::Offline)));
@@ -420,27 +422,29 @@ fn the_search_shows_the_handles_searched_lately_and_leads_to_the_relations() {
     // Marked, never searched: on the page of the relations only.
     assert_eq!(rows("REDSUN"), 0, "{nodes:?}");
     assert_eq!(rows("QuietComet"), 1, "only in the card, as a member");
-    let manage = find(&nodes, Role::Button, &t("s_hqs_verwalten")).unwrap_or_else(|| panic!("the button: {nodes:?}"));
-    let (_, action) = frame_on(&ctx, &mut state, click(manage), On::Search);
-    assert_eq!(action, Some(Action::ToRelations));
+    let tab = find(&nodes, Role::Tab, &t("s_hqt_reiter_beziehungen")).unwrap_or_else(|| panic!("the tab: {nodes:?}"));
+    let (_, shown) = frame_on(&ctx, &mut state, click(tab), On::Search);
+    assert_eq!(shown, Tab::Relations, "a click on the tab opens the relations");
     // The page of the relations shows the marked ones with the export and the import.
     frame(&ctx, &mut state, Vec::new());
     let nodes = frame(&ctx, &mut state, Vec::new());
     let has = |text: &str| nodes.iter().any(|(_, l, _)| l == text);
     assert!(has("REDSUN") && has("QuietComet") && !has("Drifter_9"), "marked only: {nodes:?}");
     assert!(has(&t("s_hq_export")) && has(&t("s_hq_import")), "{nodes:?}");
-    // Counter-check: drawing alone asks no page to open.
-    assert_eq!(frame_on(&ctx, &mut state, Vec::new(), On::Relations).1, None);
-    assert_eq!(frame_on(&ctx, &mut state, Vec::new(), On::Search).1, None);
+    // Counter-check: drawing alone changes no tab.
+    assert_eq!(frame_on(&ctx, &mut state, Vec::new(), On::Relations).1, Tab::Relations);
+    assert_eq!(frame_on(&ctx, &mut state, Vec::new(), On::Search).1, Tab::Search);
 }
 
 #[test]
 fn every_text_key_of_the_page_exists_in_both_languages() {
     let keys = [
         "hf_handlesuche",
-        "hf_beziehungen",
+        "s_hqt_reiter_suche",
+        "s_hqt_reiter_beziehungen",
+        "s_hqt_karte_suche",
+        "s_hqt_karte_austausch",
         "s_hqb_lead",
-        "s_hqs_verwalten",
         "s_hqs_verlauf_h",
         "s_hqs_verlauf_leer",
         "s_hqs_lead",

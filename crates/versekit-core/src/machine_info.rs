@@ -58,8 +58,11 @@ pub const NOTE_FILE: &str = "rechnerklasse.json";
 const NOTE_FORMAT: i64 = 1;
 /// Up to here the start block is read; the hardware stands in it.
 const HEAD_BYTES: usize = 600_000;
-/// So many kept logs are searched for the class.
-const BACKUPS_SEARCHED: usize = 40;
+/// The key of [`NOTE_FILE`] with the time of change (Unix seconds) of the newest kept log searched: logs up to
+/// it are not searched again.
+const SEARCHED_KEY: &str = "durchsucht_bis";
+/// The words every line of a rating holds; only such lines of a kept log are looked at closer.
+const RATING_WORDS: &[u8] = b"Final rating";
 
 /// What the log says about the computer; what it does not say is `None`.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -256,33 +259,52 @@ fn class_in(path: &str) -> std::io::Result<Option<Rating>> {
     if let Some(found) = lock().classes.get(&key) {
         return Ok(*found);
     }
-    let text = text_of(path, None)?;
-    let found = patterns()
-        .class
-        .captures_iter(&text)
-        .collect::<Vec<_>>()
-        .iter()
-        .rev()
-        .find_map(rating_of)
-        .map(|rating| Rating { at: rating.at.or_else(|| seconds_of(key.1)), ..rating });
+    // Line by line, so a log of hundreds of megabytes is never held whole.
+    let mut reader = std::io::BufReader::new(std::fs::File::open(path)?);
+    let mut line = Vec::new();
+    let mut found = None;
+    while std::io::BufRead::read_until(&mut reader, b'\n', &mut line)? > 0 {
+        if line.windows(RATING_WORDS.len()).any(|w| w == RATING_WORDS) {
+            let text = String::from_utf8_lossy(&line);
+            if let Some(rating) = patterns().class.captures_iter(&text).filter_map(|c| rating_of(&c)).last() {
+                found = Some(rating);
+            }
+        }
+        line.clear();
+    }
+    let found = found.map(|rating| Rating { at: rating.at.or_else(|| seconds_of(key.1)), ..rating });
     lock().classes.insert(key, found);
     Ok(found)
 }
 
-/// The newest rating of the kept logs.
+/// The newest rating of the kept logs, newest log first. Logs not newer than the mark of [`NOTE_FILE`] were
+/// searched before (what they held is in the note), so the search ends there; afterwards the mark is the newest
+/// log.
 fn class_from_backups(paths: &Paths, folder: Option<&str>) -> Option<Rating> {
+    let searched = searched_read(paths);
     let mut backups = paths.log_backups(folder);
     backups.reverse();
-    backups.truncate(BACKUPS_SEARCHED);
-    // Only what is still searched is kept in mind, or the memo would grow with every start of the game.
+    // Only what is still there is kept in mind, or the memo would grow with every start of the game.
     lock().classes.retain(|(path, _, _), _| backups.contains(path));
+    let mut newest = None;
+    let mut found = None;
     for path in &backups {
         // A log that cannot be read is passed over.
-        if let Ok(Some(found)) = class_in(path) {
-            return Some(found);
+        let Ok(key) = stamp(path) else { continue };
+        let changed = seconds_of(key.1).unwrap_or(0);
+        newest = newest.max(Some(changed));
+        if changed <= searched {
+            break;
+        }
+        if let Ok(Some(rating)) = class_in(path) {
+            found = Some(rating);
+            break;
         }
     }
-    None
+    if let Some(newest) = newest.filter(|newest| *newest > searched) {
+        note_store(paths, note_read(paths), newest);
+    }
+    found
 }
 
 /// The class kept in [`NOTE_FILE`] and when it was found.
@@ -306,12 +328,33 @@ fn note_read(paths: &Paths) -> Option<Note> {
     Some(Note { class, at: number("gefunden_am")? })
 }
 
+/// The mark of the kept logs searched (0 where there is none).
+fn searched_read(paths: &Paths) -> i64 {
+    let Ok(data) = jsonio::read_json(&paths.app_file(NOTE_FILE)) else { return 0 };
+    if data.get("format") != Some(&Value::int(NOTE_FORMAT)) {
+        return 0;
+    }
+    match data.get(SEARCHED_KEY) {
+        Some(Value::Int(text)) => text.parse::<i64>().unwrap_or(0),
+        _ => 0,
+    }
+}
+
 fn note_write(paths: &Paths, note: Note) {
-    let value = Value::Object(vec![
-        ("format".to_string(), Value::int(NOTE_FORMAT)),
-        ("klasse".to_string(), Value::int(note.class)),
-        ("gefunden_am".to_string(), Value::int(note.at)),
-    ]);
+    note_store(paths, Some(note), searched_read(paths));
+}
+
+/// Writes the note: the class where there is one, the mark where it is set.
+fn note_store(paths: &Paths, note: Option<Note>, searched: i64) {
+    let mut fields = vec![("format".to_string(), Value::int(NOTE_FORMAT))];
+    if let Some(note) = note {
+        fields.push(("klasse".to_string(), Value::int(note.class)));
+        fields.push(("gefunden_am".to_string(), Value::int(note.at)));
+    }
+    if searched > 0 {
+        fields.push((SEARCHED_KEY.to_string(), Value::int(searched)));
+    }
+    let value = Value::Object(fields);
     let text = jsonio::dumps(&value, Some(2), false);
     if let Err(error) = jsonio::write_text_atomic(&paths.app_file(NOTE_FILE), &text, jsonio::Newline::Native) {
         errors::record("machine_info.note", &error);
@@ -474,6 +517,38 @@ mod tests {
             .unwrap();
         assert_eq!(read(&paths, None).expect("a log").machine_class, Some(5));
         assert!(read(&paths_in(&home, &format!("{home}/nowhere")), None).is_none(), "no log: nothing");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn every_kept_log_is_searched_once_and_older_ones_not_again() {
+        let home = scratch("klasse-alle");
+        let game = format!("{home}/StarCitizen/LIVE");
+        let kept = format!("{game}/logbackups");
+        std::fs::create_dir_all(&kept).expect("folder");
+        std::fs::write(format!("{game}/Game.log"), START.replace("Final rating: Machine class 4\n", "")).unwrap();
+        let now = std::time::SystemTime::now();
+        let write_kept = |name: &str, text: &str, minutes_ago: u64| {
+            let path = format!("{kept}/{name}.log");
+            std::fs::write(&path, text).unwrap();
+            let at = now - std::time::Duration::from_secs(minutes_ago * 60);
+            std::fs::File::options().write(true).open(&path).and_then(|f| f.set_modified(at)).expect("age");
+        };
+        // Seventy logs without a rating, the rating in the oldest of all, behind other lines.
+        for n in 0..70 {
+            write_kept(&format!("Game Build(1) {n:03}"), "<t> nothing rated here\n", 100 + n);
+        }
+        write_kept("Game Build(1) oldest", "<t> start\n<t> - Final rating: Machine class 2\n<t> end\n", 500);
+        let paths = paths_in(&home, &game);
+        assert_eq!(read(&paths, None).expect("a log").machine_class, Some(2), "found in the oldest kept log");
+        assert!(note_text(&paths).contains(&format!("\"{SEARCHED_KEY}\"")), "{}", note_text(&paths));
+        // A log no newer than the mark is not searched again: its rating is not taken.
+        write_kept("Game Build(1) older", "<t> - Final rating: Machine class 5\n", 600);
+        let info = read(&paths, None).expect("a log");
+        assert_eq!((info.machine_class, info.class_remembered), (Some(2), true), "from the note");
+        // A newer one is.
+        write_kept("Game Build(1) newer", "<t> - Final rating: Machine class 3\n", 1);
+        assert_eq!(read(&paths, None).expect("a log").machine_class, Some(3));
         let _ = std::fs::remove_dir_all(home);
     }
 

@@ -37,8 +37,9 @@ pub(super) const KOFI_URL: &str = "https://ko-fi.com/xharig";
 /// Pages that are no more in the menu and the page that took over: the hangar delivery settings
 /// sit in the fold "Kopplung verwalten" of Mein Hangar, the wishlist is the section "Planned" of it, the
 /// dismantle calculation is a view of the page "Dismantle & Salvage", and the evaluation of the statistics is
-/// part of their overview.
-const REMOVED_PAGES: [(&str, &str); 4] = [
+/// part of their overview, and the relations are a tab of the handle search.
+const REMOVED_PAGES: [(&str, &str); 5] = [
+    ("hf_beziehungen", "hf_handlesuche"),
     ("hf_hangar_einlieferung", "hf_hangar"),
     ("hf_wunschliste", "hf_hangar"),
     ("hf_zerlegen", "hf_bergung"),
@@ -142,7 +143,9 @@ impl SamplePage {
     pub(super) fn follow_removed_page(&mut self) {
         if let Some((old, to)) = REMOVED_PAGES.iter().find(|(old, _)| *old == self.page) {
             self.page = (*to).to_string();
-            if *old == "hf_wunschliste" {
+            if *old == "hf_beziehungen" {
+                self.handles.tab = crate::handle_page::Tab::Relations;
+            } else if *old == "hf_wunschliste" {
                 self.hangar.show_planned();
             } else if *to == "hf_hangar" {
                 self.hangar.point_to_pairing();
@@ -976,6 +979,15 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.page.overlay_runs = || true;
         bench.page.go_to("hf_overlay");
+        // A little down the page, so that the picker below the last row of the first group stands in the window.
+        bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+        bench.frame(vec![egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: egui::vec2(0.0, -240.0),
+            modifiers: egui::Modifiers::NONE,
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Wheel,
+        }]);
         let texts = bench.settle();
         let strg = language::t("s_ei_taste_strg");
         let pickers = |texts: &[(String, Pos2)]| texts.iter().filter(|(t, _)| *t == strg).count();
@@ -1427,6 +1439,8 @@ pub(in crate::sample) mod tests {
         bench.settle();
         let pinned: Vec<String> = bench.page.tiles.iter().filter(|t| t.pinned).map(|t| t.key.clone()).collect();
         assert!(pinned.len() >= 30, "most pages can be pinned: {pinned:?}");
+        assert!(pinned.iter().any(|key| key == "hf_handlesuche"), "the handle search has a pin: {pinned:?}");
+        assert!(!pinned.iter().any(|key| key == "hf_beziehungen"), "the relations have no pin of their own");
         for choice in [language::Choice::De, language::Choice::En] {
             language::set_language(choice);
             bench.page.overview = None;
@@ -2142,6 +2156,41 @@ pub(in crate::sample) mod tests {
         assert!(!written.contains("infoleiste_ohne_spiel"), "the untouched companion is not written: {written}");
         assert!(!SamplePage::with_settings(host()).overlay_info_bar, "a stored choice wins over the default");
         assert!(!versekit_core::overlay::Settings::read(&host()).info_bar, "the overlay reads the switch");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The switch "without the game" of the overlay stands in the first group of the page Overlay in both languages,
+    /// right under the row about the game, is off at first, is written only when touched and is what the overlay reads.
+    #[test]
+    fn the_switch_of_the_overlay_without_the_game_stands_on_the_page_and_reaches_the_overlay() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("overlay-ohne-spiel", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.page.go_to("hf_overlay");
+        assert!(!bench.page.overlay_always, "off by default");
+        for lang in [language::Choice::De, language::Choice::En] {
+            language::set_language(lang);
+            let texts = bench.settle();
+            let at = |key: &str| texts.iter().find(|(t, _)| *t == language::t(key)).map(|(_, at)| at.y);
+            let (game, switch) = (at("s_ei_ov_spiel"), at("s_ov_ohne_spiel"));
+            assert!(game.is_some() && switch.is_some(), "{lang:?}: the rows are on the page: {texts:?}");
+            assert!(game < switch, "{lang:?}: under the row about the game");
+            assert!(texts.iter().any(|(t, _)| *t == language::t("s_ei_ov_durch")), "{lang:?}: the rows after it stay");
+        }
+        language::set_language(language::Choice::De);
+        let file = dir.join("einstellungen.json");
+        let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
+        assert!(!versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads it off");
+        bench.page.overlay_info_bar = false;
+        bench.settle();
+        let written = std::fs::read_to_string(&file).unwrap();
+        assert!(!written.contains("overlay_ohne_spiel"), "untouched, it is not written: {written}");
+        bench.page.overlay_always = true;
+        bench.settle();
+        let written = std::fs::read_to_string(&file).unwrap();
+        assert!(written.contains("\"overlay_ohne_spiel\": true"), "{written}");
+        assert!(SamplePage::with_settings(host()).overlay_always, "a stored choice wins over the default");
+        assert!(versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads the switch");
         let _ = std::fs::remove_dir_all(dir);
     }
 

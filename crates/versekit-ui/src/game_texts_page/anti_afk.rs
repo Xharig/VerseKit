@@ -301,7 +301,7 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
         });
         ui.add_space(8.0);
     } else {
-        ui.label(egui::RichText::new(t("aafk_titel")).strong());
+        widgets::card_title(ui, scheme, &t("aafk_titel"));
         hint(ui, scheme, &t("aafk_h"));
         hint(ui, scheme, &t("aafk_nur_windows"));
         ui.add_space(8.0);

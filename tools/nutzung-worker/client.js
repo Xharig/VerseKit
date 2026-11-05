@@ -7,6 +7,13 @@
 // zusammensetzen.
 
 import { PAGES, ROUTES, ROUTES_V5, ACTIONS, SEARCH, MERGED, TILES, MAX_CLICKS } from './pages.js';
+import { ERFOLG } from './erfolg.js';
+
+// Die Rechnungen des Blocks „Wie läuft VerseKit?" als Quelltext (erfolg.js,
+// dort in Node geprüft). `export` steht nicht im Text einer Funktion.
+// ⚠ Der Bündler von wrangler setzt beim Hochladen Aufrufe `__name(fn, "…")`
+// in den Quelltext; ohne die Zeile davor bricht die Seite im Browser ab.
+const successCode = () => 'const __name = (f) => f;\n' + ERFOLG.map((f) => f.toString()).join('\n');
 
 // Für das Skript der Seite: als JSON, `<` maskiert, damit kein Name das
 // Skript-Element beenden kann.
@@ -38,8 +45,8 @@ let land;
 try { land = new Intl.DisplayNames(['de'], { type: 'region' }); } catch (e) { land = null; }
 const landName = (c) => c === 'XX' ? 'unbekannt' : c === 'T1' ? 'Tor' : (land && land.of(c)) || c;
 const NAMES = { ui: { de: 'Deutsch', en: 'Englisch' }, overlay: { immer: 'immer sichtbar', popup: 'nur bei neuen Bauplänen' },
-  mod: { schiffe: 'Schiffe', werkstatt: 'Werkstatt', bergung: 'Bergung', handel: 'Handel', statistiken: 'Statistiken',
-    basetool: 'Basetool' } };
+  mod: { basetool: 'Basetool', schiffe: 'Schiffe', werkstatt: 'Herstellung', bergbau: 'Bergbau & Raffinerien',
+    bergung: 'Bergung', handel: 'Handel', beschaffung: 'Beschaffung', statistiken: 'Statistik' } };
 const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch',
   pt: 'Portugiesisch', pl: 'Polnisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch', ru: 'Russisch', xx: 'unbekannt' }[c] || c);
 const PAGES = ${asScript(PAGES)};
@@ -49,6 +56,10 @@ const SEARCH = ${asScript(SEARCH)};
 const MERGED = ${asScript(MERGED)};
 const TILES = ${asScript(TILES)};
 const MAX_CLICKS = ${MAX_CLICKS};
+${successCode()}
+// Zahlen deutsch: 59,3 und 1.234.
+const num1 = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const int = (v) => Math.round(v).toLocaleString('de-DE');
 // Seite, unter der eine Kennung gezählt wird (MERGED, sonst sie selbst).
 const alias = (p) => MERGED[p] || p;
 // Farben: gesamt Neon; Windows blau und Linux orange (auch für Farbschwache
@@ -69,6 +80,9 @@ let compact = readMode();
 // Neuladen der Zahlen erhalten, beim Neuladen der Seite ist wieder alles zu.
 const openSections = new Set();
 let lastData = null;
+// Wohin card() die Abschnitte hängt: erst oben in die Seite, ab der Überschrift
+// „Für die Entwicklung" in deren Klappbereich.
+let target = null;
 
 // Ein Abschnitt: Überschrift plus Inhalt. kind: 'klein' (drei je Reihe),
 // 'halb' (zwei nebeneinander), 'paar' (nur kompakt nebeneinander). Gibt den Inhalt zurück.
@@ -77,7 +91,7 @@ function card(title, kind) {
   const h2 = $('h2', { text: title });
   const body = $('div', { class: 'inhalt' });
   sec.appendChild(h2); sec.appendChild(body);
-  document.getElementById('daten').appendChild(sec);
+  (target || document.getElementById('daten')).appendChild(sec);
   body.sec = sec; body.h2 = h2; body.title = title;
   return body;
 }
@@ -124,12 +138,27 @@ function legend(items) {
 // Handy lesbar bleibt (sonst schrumpft eine feste Zeichenfläche mit).
 const charts = [];
 
-function lineChart(parent, days, series, label) {
+// opts (alles freiwillig): marks = [{ i, name }] dünne senkrechte Markierungen
+// (etwa fertige Versionen), der Name steht beim Überfahren im Tipp und als
+// Titel der Linie; when(i) = Text vor dem Doppelpunkt im Tipp (sonst das Datum);
+// je Reihe fmt(v) = Schreibweise der Zahl im Tipp.
+function lineChart(parent, days, series, label, opts = {}) {
   const tip = $('p', { class: 'tipp' });
   const holder = $('div', { class: 'diagramm' });
   parent.appendChild($('div', { class: 'winkel bild' }, [tip, holder]));
-  parent.appendChild(legend(series.map((sr) => ({ name: sr.name, color: sr.color, dash: sr.dash }))));
-  const showDay = (i) => { tip.textContent = short(days[i]) + ': ' + series.map((sr) => sr.name + ' ' + sr.values[i]).join(' · '); };
+  const marks = opts.marks || [];
+  // Mehrere Markierungen an einer Stelle: bis drei mit Namen, sonst erste bis letzte.
+  const names = {};
+  for (const m of marks) (names[m.i] = names[m.i] || []).push(m.name);
+  const markAt = {};
+  for (const i of Object.keys(names)) { const n = names[i];
+    markAt[i] = n.length <= 3 ? n.join(', ') : n[0] + ' bis ' + n[n.length - 1] + ' (' + n.length + ' Versionen)'; }
+  const keys = series.map((sr) => ({ name: sr.name, color: sr.color, dash: sr.dash }));
+  if (marks.length) keys.push({ name: opts.markName || 'Markierung', color: 'var(--leise)', dash: true });
+  parent.appendChild(legend(keys));
+  const when = opts.when || ((i) => short(days[i]));
+  const showDay = (i) => { tip.textContent = when(i) + ': ' + series.map((sr) => sr.name + ' ' + (sr.fmt ? sr.fmt(sr.values[i]) : sr.values[i])).join(' · ')
+    + (markAt[i] ? ' · ' + markAt[i] : ''); };
 
   // Obergrenze auf ein Vielfaches von 4, sonst ergeben die fünf Teilstriche
   // krumme Werte, und gerundet fehlt einer (0, 1, 3, 4, 5).
@@ -155,6 +184,13 @@ function lineChart(parent, days, series, label) {
     const step = Math.max(1, Math.ceil(days.length / fit));
     days.forEach((d, i) => { if ((days.length - 1 - i) % step === 0) {
       const t = s('text', { x: X(i), y: H - 8, 'text-anchor': i === days.length - 1 ? 'end' : i === 0 ? 'start' : 'middle' }); t.textContent = short(d); svg.appendChild(t); } });
+    // Markierungen unter den Linien, dünn und gestrichelt, damit sie die Kurve nicht verdecken.
+    for (const i of Object.keys(markAt)) {
+      const mk = s('line', { x1: X(Number(i)), x2: X(Number(i)), y1: T, y2: H - B, stroke: 'var(--leise)',
+        'stroke-width': 1, 'stroke-dasharray': '2 3', class: 'marke-linie' });
+      const ti = s('title'); ti.textContent = markAt[i]; mk.appendChild(ti);
+      svg.appendChild(mk);
+    }
     const guide = s('line', { y1: T, y2: H - B, stroke: 'var(--linie-hell)', visibility: 'hidden' });
     svg.appendChild(guide);
     for (const sr of series) {
@@ -184,12 +220,13 @@ function lineChart(parent, days, series, label) {
   draw();
 }
 
+// Neu zeichnen, was seit dem letzten Mal breiter oder schmaler geworden ist
+// (auch nach dem Aufklappen: zugeklappt hat ein Diagramm keine Breite).
+const redraw = () => { for (const c of charts) if (c.holder.dataset.breite !== String(c.holder.clientWidth)) c.draw(); };
 let resizeTimer = 0;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    for (const c of charts) if (c.holder.dataset.breite !== String(c.holder.clientWidth)) c.draw();
-  }, 150);
+  resizeTimer = setTimeout(redraw, 150);
 });
 
 // Knopf „Alle zeigen": in der Liste die Zeilen ab dem Grenzwert ein- und ausklappen.
@@ -248,6 +285,7 @@ function render(d, span) {
   lastData = d;
   const main = document.getElementById('daten'); main.textContent = '';
   charts.length = 0;
+  target = null;
   const days = dayList(span);
   const perDay = {}, perSys = { windows: {}, linux: {} };
   for (const r of d.tage) {
@@ -256,7 +294,6 @@ function render(d, span) {
   }
   const total = days.map((t) => perDay[t] || 0);
   const yesterday = days[days.length - 2], full = days.slice(0, -1);
-  const avg = (n) => { const w = full.slice(-n); return w.length ? w.reduce((a, t) => a + (perDay[t] || 0), 0) / w.length : 0; };
   // Der laufende Tag ist noch nicht zu Ende und zählt bei Durchschnitt und
   // bestem Tag bewusst nicht mit (Absicht, nicht Fehler).
   const peak = Math.max(0, ...full.map((t) => perDay[t] || 0));
@@ -267,24 +304,104 @@ function render(d, span) {
   const lastV = (d.verlauf || [])[(d.verlauf || []).length - 1];
   const dlTotal = lastV ? Math.max(lastV.je_gesehen, dlNow) : dlNow;
 
-  const k = card('Überblick');
+  // ⭐ Oben die Antwort auf „Wie erfolgreich ist VerseKit?": vier Zahlen mit
+  // Vergleich zur Vorwoche, darunter die übrigen Eckzahlen (vorher „Überblick"),
+  // jede genau einmal. Unabhängig vom gewählten Zeitraum, außer wo es dasteht.
+  const sums = d.tage_summe || Object.keys(perDay).map((t) => ({ tag: t, n: perDay[t] }));
+  const allDay = {}; for (const r of sums) allDay[r.tag] = (allDay[r.tag] || 0) + r.n;
+  const ages = d.alter || [];
+  const a = activeWeek(sums, today), nw = newWeek(ages, today), st = stayWeek(ages, today);
+  const dw = downloadsWeek(d.verlauf || [], today), ch = topChannel(d.kanaele || [], today);
+  const k = card('Wie läuft VerseKit?');
   const kpi = (v, l) => $('div', { class: 'kpi' }, [$('div', { class: 'v', text: String(v) }), $('div', { class: 'l', text: l })]);
+  // Eine Erfolgszahl: Wert, Pfeil mit Veränderung (Zeichen UND Farbe), Beschriftung.
+  // Wartet sie auf VerseKit 5.2, steht das an der Stelle der Zahl, im selben Aussehen.
+  const goal = (value, tr, label, more) => {
+    const waits = value === null;
+    const line = $('div', { class: 'trend ' + (waits ? 'keiner' : tr.art) });
+    if (!waits && tr.pfeil) line.appendChild($('span', { class: 'pfeil', 'aria-hidden': 'true', text: tr.pfeil }));
+    line.appendChild(document.createTextNode(waits ? 'noch keine Daten' : tr.text));
+    const kids = [$('div', { class: 'v' + (waits ? ' wartet' : ''), text: waits ? 'ab VerseKit 5.2' : value }), line,
+      $('div', { class: 'l', text: label })];
+    if (more) kids.push($('div', { class: 'l zusatz', text: more }));
+    return $('div', { class: 'kpi erfolg' }, kids);
+  };
+  const noAges = !ages.length;
+  const ta = trend(a.jetzt, a.vorher, 'prozent');
+  if (a.vorher !== null && ta.art !== 'keiner') ta.text += ' (' + num1(a.vorher) + ')';
+  const tb = trend(nw.jetzt, nw.vorher, 'prozent');
+  if (nw.vorher !== null && tb.art !== 'keiner') tb.text += ' (' + int(nw.vorher) + ')';
+  const tst = trend(st.jetzt, st.vorher, 'punkte');
+  const sw = siteWeek(d.kurzlinks || [], today);
+  const td = trend(sw.jetzt, sw.vorher, 'prozent');
+  if (td.art !== 'keiner') td.text += ' (' + int(sw.vorher) + ')';
+  const reachMore = (ch ? 'stärkster Kanal: ' + ch.kanal + ' (' + int(ch.n) + ' von ' + int(ch.gesamt) + ')' : 'Kanal: noch keine Kennzeichen')
+    + (dw.jetzt === null ? '' : ' · alle GitHub-Downloads mit Updates: ' + int(dw.jetzt));
+  const pct0 = (x) => Math.round(x * 100) + ' %';
+  const thirty = (() => { let sum = 0; for (let i = 1; i <= 30; i++) sum += allDay[dayBefore(today, i)] || 0; return sum / 30; })();
   k.appendChild($('div', { class: 'winkel datenblatt' }, [$('div', { class: 'zellen' }, [
-    $('div', { class: 'kpis fuenf' }, [
-      kpi(perDay[today] || 0, 'heute bisher'), kpi(perDay[yesterday] || 0, 'gestern'),
-      kpi(avg(7).toFixed(1), 'Durchschnitt letzte 7 Tage'), kpi(avg(30).toFixed(1), 'Durchschnitt letzte 30 Tage'),
-      kpi(peak, 'bester abgeschlossener Tag im Zeitraum' + (peak && peakDay ? ' (' + short(peakDay) + ')' : ''))]),
-    $('div', { class: 'kpis zwei' }, [
-      kpi(dlTotal, 'Downloads gesamt (mit gelöschten)'),
+    $('div', { class: 'kpis vier' }, [
+      goal(a.jetzt === null ? NONE : num1(a.jetzt), ta, 'Nutzen es Leute? Aktive Installationen je Tag, Schnitt der letzten 7 Tage'),
+      goal(noAges ? null : nw.jetzt === null ? NONE : int(nw.jetzt), tb, 'Kommen neue dazu? Neue Installationen in den letzten 7 Tagen'),
+      goal(noAges ? null : st.jetzt === null ? NONE : pct0(st.jetzt), tst,'Bleiben sie? Von den Neuen nach 7 Tagen noch aktiv',
+        noAges ? '' : st.neu ? 'von ' + int(st.neu) + ' Neuen der Vorwoche' : 'Vorwoche ohne Neue'),
+      goal(int(sw.jetzt), td, 'Reichweite: neue Downloads über die Webseite in den letzten 7 Tagen (ohne Auto-Updates)', reachMore)]),
+    $('div', { class: 'kpis sechs neben' }, [
+      kpi(perDay[today] || 0, 'aktiv heute bisher'), kpi(perDay[yesterday] || 0, 'aktiv gestern'),
+      kpi(num1(thirty), 'Schnitt letzte 30 Tage'),
+      kpi(peak, 'bester abgeschlossener Tag im Zeitraum' + (peak && peakDay ? ' (' + short(peakDay) + ')' : '')),
+      kpi(int(dlTotal), 'Downloads gesamt (mit gelöschten)'),
       kpi((d.kurzlinks || []).filter((r) => days.includes(r.tag)).reduce((a, r) => a + r.n, 0),
           'über die Webseite (Zeitraum)')])])]));
-  k.appendChild($('p', { class: 'hinweis', text: 'Aktiv = hat sich an dem Tag gemeldet (UTC). Jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Erst ab v3.65.0. Der laufende Tag zählt bei den Durchschnitten und beim besten Tag nicht mit, weil er noch nicht zu Ende ist.' }));
+  k.appendChild($('p', { class: 'hinweis', text: 'Pfeil = die letzten 7 vollen Tage gegen die 7 Tage davor, in Klammern der Wert der Vorwoche. Aktiv = hat sich an dem Tag gemeldet (UTC), jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Der laufende Tag zählt bei Schnitt, Vergleich und bestem Tag nicht mit, weil er noch nicht zu Ende ist. Neue und Bleiben erst ab VerseKit 5.2. Reichweite zählt nur Downloads über xharig.com/windows und /linux, also neue Leute; Auto-Updates bestehender Nutzer stehen klein darunter. Der Kanal erscheint, sobald gepostete Links ein Kennzeichen tragen.' }));
 
-  lineChart(card('Aktive Installationen je Tag', 'paar'), days, [
-    { name: 'gesamt', color: C_ALL, values: total, fill: true, width: 2.5 },
-    { name: 'Windows', color: C_WIN, values: days.map((t) => perSys.windows[t] || 0) },
-    { name: 'Linux', color: C_LIN, dash: true, values: days.map((t) => perSys.linux[t] || 0) }],
+  // Erst ab dem ersten Tag mit Meldungen: davor wurde noch nicht gezählt (bei „1 Jahr“ sonst Monate Nulllinie).
+  const from = firstData(total), shown = days.slice(from);
+  lineChart(card('Aktive Installationen je Tag', 'paar'), shown, [
+    { name: 'gesamt', color: C_ALL, values: total.slice(from), fill: true, width: 2.5 },
+    { name: 'Windows', color: C_WIN, values: shown.map((t) => perSys.windows[t] || 0) },
+    { name: 'Linux', color: C_LIN, dash: true, values: shown.map((t) => perSys.linux[t] || 0) }],
     'Aktive Installationen je Tag');
+
+  // Aktive Nutzer je Woche über die ganze Zeit, mit einer Markierung je
+  // fertiger Version: zeigt, nach welchem Release es mehr wurden.
+  const weeks = weeklyActive(sums, today);
+  const wc = card('Aktive Nutzer je Woche', 'paar');
+  if (!weeks.length) {
+    wc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
+  } else {
+    const weekOf = (day) => weeks.findIndex((w) => w.ab <= day && day <= dayBefore(w.ab, -6));
+    const marks = releaseMarks(d.downloads || [], d.bestand || [])
+      .map((r) => ({ i: weekOf(r.am), name: r.tag })).filter((m) => m.i >= 0);
+    lineChart(wc, weeks.map((w) => w.ab), [
+      { name: 'Schnitt je Tag', color: C_ALL, values: weeks.map((w) => w.schnitt), fill: true, width: 2.5, fmt: num1 }],
+      'Aktive Nutzer je Woche, mit Markierungen der Versionen',
+      { marks, markName: 'fertige Version (Name beim Überfahren)',
+        when: (i) => 'Woche ab ' + short(weeks[i].ab) + (weeks[i].tage < 7 ? ' (' + weeks[i].tage + ' Tage)' : '') });
+    wc.appendChild($('p', { class: 'hinweis', text: 'Je Woche (Montag bis Sonntag, UTC) der Schnitt der aktiven Installationen je Tag, über die ganze Zeit seit der ersten Meldung. Senkrechte Linie = in dieser Woche kam eine fertige Version heraus.' }));
+  }
+
+  // Alles Weitere ist für die Entwicklung: eingeklappt unter einer Überschrift.
+  // Die Wahl merkt sich der Browser (nur bequem, fehlt der Speicher, bleibt es zu).
+  let devOpen = false;
+  try { devOpen = localStorage.getItem('entwicklung') === '1'; } catch (e) { devOpen = false; }
+  const devHead = $('section', { class: 'block entwicklung-kopf' });
+  const devBtn = $('button', { type: 'button', class: 'faltet', 'aria-expanded': String(devOpen), 'aria-controls': 'entwicklung' }, [
+    $('span', { class: 't', text: 'Für die Entwicklung' }),
+    $('span', { class: 'z', text: 'Downloads je Tag und Version, Länder, Versionen, Sprachen, Module, Einstellungen, Seiten, Suche, Klicks' }),
+    chevron()]);
+  devHead.appendChild($('h2', { class: 'mitfalt' }, [devBtn]));
+  main.appendChild(devHead);
+  const dev = $('div', { class: 'entwicklung', id: 'entwicklung' });
+  dev.hidden = !devOpen;
+  main.appendChild(dev);
+  devBtn.addEventListener('click', () => {
+    const o = dev.hidden;
+    dev.hidden = !o; devBtn.setAttribute('aria-expanded', String(o));
+    try { localStorage.setItem('entwicklung', o ? '1' : '0'); } catch (e) { /* nur bequem */ }
+    if (o) redraw();
+  });
+  target = dev;
 
   // Downloads je Tag: aus dem Mitschreiben (Zuwachs des nie sinkenden
   // Gesamtstands). Fehlt ein Tag, steht sein Zuwachs am nächsten gemessenen.
@@ -295,7 +412,7 @@ function render(d, span) {
     perDayW[vl[i].tag] = Math.max(0, vl[i].windows - vl[i - 1].windows);
     perDayL[vl[i].tag] = Math.max(0, vl[i].linux - vl[i - 1].linux);
   }
-  const dayCard = card('Downloads je Tag', 'paar');
+  const dayCard = card('Downloads je Tag');
   if (vl.length < 2) {
     dayCard.appendChild($('div', { class: 'empty', text: 'Noch zu wenig Messungen. Der Worker schreibt stündlich mit.' }));
   } else {
@@ -444,7 +561,12 @@ function render(d, span) {
   klein('Sprache der Oberfläche (Durchschnitt 7 Tage)', share('ui').map(([c, v]) => [langName(c), v]), pct);
 
   klein('Sprache des Spiels (Durchschnitt 7 Tage)', share('game').map(([c, v]) => [langName(c), v]), pct);
-  klein('Eingeschaltete Bereiche (Durchschnitt 7 Tage)', share('mod').map(([c, v]) => [NAMES.mod[c] || c, v]), pct);
+  // Jedes Modul steht da, auch eins, das niemand an hat (0 %): sonst fiele ein ganz abgeschaltetes nicht auf.
+  // Bergbau und Beschaffung melden erst Fassungen ab 5.1.1, ältere zählen sie unter Herstellung und Schiffe.
+  const mods = Object.fromEntries(share('mod'));
+  klein('Module an (Durchschnitt 7 Tage, Bergbau und Beschaffung ab 5.1.1)', [
+    ...Object.keys(NAMES.mod).map((c) => [NAMES.mod[c], mods[c] || 0]),
+    ...Object.keys(mods).filter((c) => !NAMES.mod[c]).map((c) => [c, mods[c]])], pct);
   klein('Einstellungen (Durchschnitt 7 Tage)', [
     ['Testversionen an', (share('rc').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Autostart an', (share('autostart').find((x) => x[0] === 'ja') || [0, 0])[1]],
