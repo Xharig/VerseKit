@@ -67,8 +67,8 @@ pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+Umschalt+H";
 pub const INFO_BAR_DEFAULT: bool = true;
 /// The info bar waits hidden without the game while its setting is missing; a stored setting wins.
 pub const INFO_BAR_ALWAYS_DEFAULT: bool = false;
-/// The overlay waits hidden without the game while its setting is missing; a stored setting wins.
-pub const OVERLAY_ALWAYS_DEFAULT: bool = false;
+/// The overlay shows without the game too while its setting is missing; a stored setting wins.
+pub const OVERLAY_ALWAYS_DEFAULT: bool = true;
 /// After a game exit, a log written this recently still counts as running
 /// while the process list says the game is gone.
 pub const EXIT_QUIET_SECONDS: f64 = 30.0;
@@ -1987,27 +1987,27 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Without its key the overlay waits hidden without the game; a stored choice stays either way.
+    /// Without its key the overlay shows without the game too; a stored choice stays either way.
     #[test]
-    fn the_overlay_waits_hidden_without_the_game_until_the_player_chooses() {
+    fn the_overlay_shows_without_the_game_until_the_player_chooses() {
         let (paths, dir) = events_paths("overlay-ohne-spiel-lesen");
         let read = || Settings::read(&paths).overlay_always;
-        assert!(!read(), "nothing written: hidden without the game");
-        assert!(!Settings::default().overlay_always);
-        paths.set_setting(keys::OVERLAY_ALWAYS, Value::Bool(true));
-        assert!(read(), "shown without the game: stays shown");
+        assert!(read(), "nothing written: shown without the game");
+        assert!(Settings::default().overlay_always);
         paths.set_setting(keys::OVERLAY_ALWAYS, Value::Bool(false));
-        assert!(!read());
+        assert!(!read(), "hidden without the game: stays hidden");
+        paths.set_setting(keys::OVERLAY_ALWAYS, Value::Bool(true));
+        assert!(read());
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Data the overlay already ran with (its `watcher.json` is there) wait hidden without the game too, like new data.
+    /// Data the overlay already ran with (its `watcher.json` is there) show without the game too, like new data.
     #[test]
-    fn an_overlay_that_ran_before_waits_hidden_without_the_game_too() {
+    fn an_overlay_that_ran_before_shows_without_the_game_too() {
         let (paths, dir) = events_paths("overlay-ohne-spiel-bestand");
         assert!(save_place(&paths, Rect::new(10, 20, 440, 300)), "the overlay ran: its place is kept");
         assert!(load_remembered(&paths).is_some());
-        assert!(!Settings::read(&paths).overlay_always, "ran before: hidden without the game all the same");
+        assert!(Settings::read(&paths).overlay_always, "ran before: shown without the game all the same");
         let settings = std::fs::read_to_string(paths.settings_file()).unwrap_or_default();
         assert!(!settings.contains(keys::OVERLAY_ALWAYS), "nothing written for it: {settings}");
         let _ = std::fs::remove_dir_all(dir);

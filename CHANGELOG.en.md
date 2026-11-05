@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.2 - 2026-11-05
+
+> The overlay shows again without the game running, by default.
+
+### Fixed
+
+- **Overlay visible without the game again** — Since 5.1.1 the overlay
+  waited hidden while Star Citizen was not running, and many took it for
+  gone. Now “Show without the game running too” is on by default. If you
+  switched it off, your choice stays. Reported by Morkhan and Rhino
+- **Linux: no dead window in the task bar** — While the overlay waited
+  hidden, it stood in the task bar as an empty window that could not be
+  clicked. Now it leaves the task bar entirely. Reported by Rhino
+
 ## v5.1.1 - 2026-11-05
 
 > Handle search and Relations share one page, the notepad formats with a

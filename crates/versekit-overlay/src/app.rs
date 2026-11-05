@@ -328,6 +328,9 @@ pub struct OverlayApp {
     /// The hint that the window region was refused is in the rows already.
     #[cfg(all(unix, not(target_os = "macos")))]
     region_refused_told: bool,
+    /// Outside Windows the window itself is hidden while the overlay waits without the game.
+    #[cfg(not(windows))]
+    os_hidden: bool,
     /// The window region, in window pixels, and the rounding of its corners in pixels.
     pub region: Option<Rect>,
     region_rounding: i32,
@@ -606,11 +609,20 @@ impl OverlayApp {
     fn follow_region(&mut self, ctx: &egui::Context, canvas_changed: bool) {
         // Waiting hidden: an empty region, so nothing of the window is drawn and it takes no clicks.
         if self.waits_hidden() {
+            // Outside Windows an empty region leaves a dead window in the task bar: the window goes away there.
+            #[cfg(not(windows))]
+            if !std::mem::replace(&mut self.os_hidden, true) {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            }
             if self.region != Some(Rect::default()) && os::set_region(self.hwnd, Some(Rect::default()), 0) {
                 self.region = Some(Rect::default());
             }
             self.painted = Rect::default();
             return;
+        }
+        #[cfg(not(windows))]
+        if std::mem::replace(&mut self.os_hidden, false) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
         }
         // Back from waiting hidden: the region takes the visible part at once, as for a new window.
         let canvas_changed = canvas_changed || self.region == Some(Rect::default());
@@ -2329,6 +2341,8 @@ impl OverlayApp {
             place_sent: None,
             #[cfg(all(unix, not(target_os = "macos")))]
             region_refused_told: false,
+            #[cfg(not(windows))]
+            os_hidden: false,
             region: None,
             region_rounding: 0,
             painted: Rect::default(),
@@ -3190,7 +3204,7 @@ mod tests {
         let mut bench = popup_bench(versekit_core::overlay::Events::default());
         let app = &mut bench.app;
         app.settings.auto_through = false;
-        assert!(!app.settings.overlay_always, "the default: not without the game");
+        app.settings.overlay_always = false;
         let on_it = |app: &OverlayApp| Some(Pointer { hidden: false, x: app.current.x + 4, y: app.current.y + 4 });
         for _ in 0..3 {
             run_frame(app, &ctx);

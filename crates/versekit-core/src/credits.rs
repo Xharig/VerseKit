@@ -216,7 +216,7 @@ pub const PEOPLE: [Person; 35] = [
         &["s_dkv_p6_bugs", "s_dk_p6_bugs2"],
     ),
     person("sotth", "", &["s_dkv_sotth_idee"], &[]),
-    person("Rhino", "", &["s_dkv_rhino_idee"], &[]),
+    person("Rhino", "", &["s_dkv_rhino_idee"], &["s_dkv_rhino_bugs"]),
     person("F_i_r_e", "KRT", &[], &["s_dkv_fire_bugs"]),
     person("greluc", "KRT", &["s_dkv_greluc_idee", "s_dkv_greluc_idee2"], &["s_dkv_greluc_bugs", "s_dkv_greluc_bugs2"]),
     person(

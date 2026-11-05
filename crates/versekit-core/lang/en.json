@@ -4591,6 +4591,7 @@
   "s_dkv_lunaticsmile_idee": "Craftable modules per ship: pick a ship, and crafting shows only parts that fit it, with the jump from the ship card in the hangar. Thank you!",
   "s_dkv_sirfrog_bugs": "A foreign text file loaded by hand stayed in the game folder; since then VerseKit replaces it and keeps it beside as a backup. Thank you!",
   "s_dkv_shockwave_bugs": "The mouse wheel over the Contested map zoomed instead of scrolling the page; since then it scrolls, and Ctrl zooms. Thank you!",
+  "s_dkv_rhino_bugs": "On Linux the waiting overlay hung in the task bar as a dead window; since then it leaves the task bar, and without the game it shows again by default. Thank you!",
   "s_dkv_fok_bugs": "The overlay stayed in view without the game running and showed lines that only told its state; since then it waits hidden and shows just the eye. Thank you!",
   "s_dkv_tomlov_idee": "When many variants share one description in the game, the blueprint section now counts them instead of listing each one, so the quality below stays in view. Thank you!",
   "s_dkv_greluc_idee": "Blueprints from your own account only: His SC Extractor assigns every log to its account. VerseKit took over the idea: if you play two accounts on one computer, you no longer get the other one's blueprints.",

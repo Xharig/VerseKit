@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.2 - 2026-11-05
+
+> Das Overlay ist ohne laufendes Spiel wieder ab Werk sichtbar.
+
+### Behoben
+
+- **Overlay ohne Spiel wieder sichtbar** — Seit 5.1.1 wartete das Overlay
+  ohne laufendes Star Citizen unsichtbar, viele hielten es für
+  verschwunden. Jetzt ist „Auch ohne laufendes Spiel zeigen“ ab Werk an.
+  Wer es ausgeschaltet hat, behält seine Wahl. Gemeldet von Morkhan und
+  Rhino
+- **Linux: kein totes Fenster in der Taskleiste** — Wartete das Overlay
+  verborgen, stand es als leeres Fenster in der Taskleiste und ließ sich
+  nicht anklicken. Jetzt verschwindet es dort ganz. Gemeldet von Rhino
+
 ## v5.1.1 - 2026-11-05
 
 > Handle-Suche und Beziehungen liegen auf einer Seite, der Notizblock

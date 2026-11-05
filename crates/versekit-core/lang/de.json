@@ -4591,6 +4591,7 @@
   "s_dkv_lunaticsmile_idee": "Herstellbare Module je Schiff: Schiff wählen, und die Herstellung zeigt nur Teile, die hineinpassen, dazu der Sprung von der Schiffskarte im Hangar. Danke!",
   "s_dkv_sirfrog_bugs": "Eine selbst geladene fremde Textdatei blieb im Spielordner liegen; seitdem ersetzt VerseKit sie und sichert sie daneben. Danke!",
   "s_dkv_shockwave_bugs": "Das Mausrad über der Contested-Karte zoomte, statt die Seite zu scrollen; seitdem scrollt es, und Strg zoomt. Danke!",
+  "s_dkv_rhino_bugs": "Unter Linux hing das wartende Overlay als totes Fenster in der Taskleiste; seitdem verschwindet es dort, und ohne Spiel ist es ab Werk wieder zu sehen. Danke!",
   "s_dkv_fok_bugs": "Das Overlay stand auch ohne laufendes Spiel im Bild und zeigte reine Zustandszeilen; seitdem wartet es verborgen und zeigt nur noch das Auge. Danke!",
   "s_dkv_tomlov_idee": "Teilen sich viele Varianten eine Beschreibung im Spiel, zählt der Bauplan-Abschnitt sie jetzt, statt jede aufzulisten. So bleibt darunter die Qualität sichtbar. Danke!",
   "s_dkv_greluc_idee": "Baupläne nur vom eigenen Account: Sein SC-Extractor ordnet jede Log ihrem Account zu. Die Idee hat VerseKit übernommen: Wer zwei Accounts auf einem Rechner spielt, bekommt die Baupläne des anderen nicht mehr mit.",

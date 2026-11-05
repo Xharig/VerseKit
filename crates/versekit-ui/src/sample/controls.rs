@@ -2160,14 +2160,14 @@ pub(in crate::sample) mod tests {
     }
 
     /// The switch "without the game" of the overlay stands in the first group of the page Overlay in both languages,
-    /// right under the row about the game, is off at first, is written only when touched and is what the overlay reads.
+    /// right under the row about the game, is on at first, is written only when touched and is what the overlay reads.
     #[test]
     fn the_switch_of_the_overlay_without_the_game_stands_on_the_page_and_reaches_the_overlay() {
         let _language = crate::language_lock();
         let (page, dir) = real_page("overlay-ohne-spiel", "", &[]);
         let mut bench = Bench::new(page);
         bench.page.go_to("hf_overlay");
-        assert!(!bench.page.overlay_always, "off by default");
+        assert!(bench.page.overlay_always, "on by default");
         for lang in [language::Choice::De, language::Choice::En] {
             language::set_language(lang);
             let texts = bench.settle();
@@ -2180,17 +2180,17 @@ pub(in crate::sample) mod tests {
         language::set_language(language::Choice::De);
         let file = dir.join("einstellungen.json");
         let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
-        assert!(!versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads it off");
+        assert!(versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads it on");
         bench.page.overlay_info_bar = false;
         bench.settle();
         let written = std::fs::read_to_string(&file).unwrap();
         assert!(!written.contains("overlay_ohne_spiel"), "untouched, it is not written: {written}");
-        bench.page.overlay_always = true;
+        bench.page.overlay_always = false;
         bench.settle();
         let written = std::fs::read_to_string(&file).unwrap();
-        assert!(written.contains("\"overlay_ohne_spiel\": true"), "{written}");
-        assert!(SamplePage::with_settings(host()).overlay_always, "a stored choice wins over the default");
-        assert!(versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads the switch");
+        assert!(written.contains("\"overlay_ohne_spiel\": false"), "{written}");
+        assert!(!SamplePage::with_settings(host()).overlay_always, "a stored choice wins over the default");
+        assert!(!versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads the switch");
         let _ = std::fs::remove_dir_all(dir);
     }
 
