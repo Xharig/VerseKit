@@ -206,9 +206,19 @@ fn the_window_stands_above_the_pill_while_the_number_is_read_follows_the_layout_
         scanner.step(scheme);
         assert!(scanner.window.as_ref().unwrap().visible(), "the window is back without the bar");
 
-        // The pill is gone: the window goes after the grace.
+        // The pill is gone: after the grace of the watch the reading stays for the time the layout says, the
+        // window with it; the overlay is told when to wake.
         pill.store(false, Ordering::Relaxed);
-        wait_for(&mut scanner, scheme, |s| s.shown.is_none());
+        wait_for(&mut scanner, scheme, |s| s.clear_at.is_some());
+        assert!(scanner.shown.is_some(), "still shown while it stays");
+        assert!(scanner.window.as_ref().unwrap().visible(), "the window stays too");
+        let left = scanner.wake_in().expect("a time to wake");
+        let stays = moved.linger as f64 - signature_watch::CLEAR_S;
+        assert!(left.as_secs_f64() <= stays && left.as_secs_f64() > stays - 1.0, "{left:?} for {stays} s");
+        // Its time over: it goes at the next frame.
+        scanner.clear_at = Some(Instant::now());
+        scanner.step(scheme);
+        assert!(scanner.shown.is_none() && scanner.wake_in().is_none());
         assert!(!scanner.window.as_ref().unwrap().visible());
         // Switched off: the thread ends and the eye is grey.
         scanner.apply_from(false, moved, &Hint::default(), true, || {}, || unreachable!());

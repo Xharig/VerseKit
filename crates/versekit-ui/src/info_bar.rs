@@ -165,8 +165,9 @@ pub fn show_with(ui: &mut Ui, view: &View, mut search: Option<&mut HandleSearch>
     let text_width = |galleys: &[std::sync::Arc<egui::Galley>]| {
         galleys.iter().map(|g| g.size().x).sum::<f32>() + ICON_GAP * galleys.len().saturating_sub(1) as f32
     };
+    let field_width = handle_search::field_width(ui);
     let part_width = |galleys: &[std::sync::Arc<egui::Galley>], field: bool| {
-        if field { handle_search::FIELD_WIDTH } else { ICON + ICON_GAP + text_width(galleys) }
+        if field { field_width } else { ICON + ICON_GAP + text_width(galleys) }
     };
     let width = PAD
         + laid.iter().map(|(_, galleys, field)| part_width(galleys, *field)).sum::<f32>()
@@ -192,10 +193,7 @@ pub fn show_with(ui: &mut Ui, view: &View, mut search: Option<&mut HandleSearch>
         }
         if *field {
             let place =
-                Rect::from_min_max(
-                    pos2(x, rect.min.y + FIELD_INSET),
-                    pos2(x + handle_search::FIELD_WIDTH, rect.max.y - FIELD_INSET),
-                );
+                Rect::from_min_max(pos2(x, rect.min.y + FIELD_INSET), pos2(x + field_width, rect.max.y - FIELD_INSET));
             let builder =
                 egui::UiBuilder::new().max_rect(place).layout(egui::Layout::left_to_right(egui::Align::Center));
             let mut inner = ui.new_child(builder);
@@ -204,7 +202,7 @@ pub fn show_with(ui: &mut Ui, view: &View, mut search: Option<&mut HandleSearch>
                 let query = search.query.trim();
                 out.drawn.push(if query.is_empty() { t("s_hq_feld_hinweis") } else { query.to_string() });
             }
-            x += handle_search::FIELD_WIDTH;
+            x += field_width;
             continue;
         }
         if let Some(image) = crate::icons::image(icon, s.icon(IconTint::Normal), ICON) {
@@ -250,7 +248,14 @@ pub fn show_with(ui: &mut Ui, view: &View, mut search: Option<&mut HandleSearch>
 
 /// The short help, the card of the search and the lines of its log monitor below the bar `bar`: what they need
 /// goes into `out`. The window grows to that size in the next frame; until then the part outside it is cut off.
-fn below(ui: &mut Ui, view: &View, mut search: Option<&mut HandleSearch>, bar: Rect, drag_help: bool, out: &mut Output) {
+fn below(
+    ui: &mut Ui,
+    view: &View,
+    mut search: Option<&mut HandleSearch>,
+    bar: Rect,
+    drag_help: bool,
+    out: &mut Output,
+) {
     let s = view.scheme;
     let now = handle_search::now();
     let card = search.as_deref().is_some_and(|search| search.has_card());

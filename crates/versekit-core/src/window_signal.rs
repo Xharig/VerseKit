@@ -145,6 +145,8 @@ pub enum Signal {
     /// Show the page "Mein Lager" and take the reading of the refinery terminal that waits there
     /// (`refinery_scan::screen::HANDOVER_FILE`).
     OpenStockScan = 11,
+    /// Hand the demand of the unit to the overlay ([`DataKind::Demand`]): the overlay asks so when it starts.
+    DemandWanted = 12,
 }
 
 impl Signal {
@@ -161,9 +163,81 @@ impl Signal {
             9 => Some(Signal::OpenMining),
             10 => Some(Signal::ShowFrame),
             11 => Some(Signal::OpenStockScan),
+            12 => Some(Signal::DemandWanted),
             _ => None,
         }
     }
+}
+
+/// What data a window is handed with [`send_data`]. The data live in the memory of the two processes only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DataKind {
+    /// The materials the unit wants (`basetool::demand::handover`), from the main window to the overlay.
+    Demand = 1,
+}
+
+impl DataKind {
+    fn from_code(code: usize) -> Option<DataKind> {
+        match code {
+            1 => Some(DataKind::Demand),
+            _ => None,
+        }
+    }
+}
+
+/// The most bytes one handing over carries; longer data are not sent.
+pub const DATA_MAX: usize = 64 * 1024;
+
+type DataHook = Arc<dyn Fn(DataKind, Vec<u8>) + Send + Sync>;
+
+/// What data handed to this process do, set by [`on_data`].
+static ON_DATA: RwLock<Option<DataHook>> = RwLock::new(None);
+
+/// What data handed to a window of this process ([`send_data`]) do: `hook` gets them on the window's thread
+/// (Windows) or the thread of the signals (elsewhere). Without a hook they are dropped.
+pub fn on_data(hook: impl Fn(DataKind, Vec<u8>) + Send + Sync + 'static) {
+    *ON_DATA.write().unwrap_or_else(PoisonError::into_inner) = Some(Arc::new(hook));
+}
+
+fn deliver_data(kind: DataKind, bytes: Vec<u8>) {
+    let hook = ON_DATA.read().unwrap_or_else(PoisonError::into_inner).clone();
+    if let Some(hook) = hook {
+        hook(kind, bytes);
+    }
+}
+
+/// Hands `bytes` to the window `hwnd` (a handle from [`find`]), in memory, never through a file; `false` when it
+/// cannot be reached or the data are longer than [`DATA_MAX`]. Waits for the other window at most a second.
+pub fn send_data(hwnd: isize, kind: DataKind, bytes: &[u8]) -> bool {
+    bytes.len() <= DATA_MAX && imp::send_data(hwnd, kind, bytes)
+}
+
+/// The first byte of a handing over on the socket of a role (elsewhere than Windows); the signals are below it.
+#[cfg_attr(windows, allow(dead_code))]
+const DATA_BYTE: u8 = 0xD0;
+
+/// A handing over as one message on the socket: [`DATA_BYTE`], the kind, the length in four bytes (little end
+/// first), the bytes.
+#[cfg_attr(windows, allow(dead_code))]
+fn encode_data(kind: DataKind, bytes: &[u8]) -> Vec<u8> {
+    let mut out = vec![DATA_BYTE, kind as u8];
+    out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+    out.extend_from_slice(bytes);
+    out
+}
+
+/// The handing over in `message`, if it is one, of a known kind, with as many bytes as it says and no more than
+/// [`DATA_MAX`].
+#[cfg_attr(windows, allow(dead_code))]
+fn decode_data(message: &[u8]) -> Option<(DataKind, Vec<u8>)> {
+    let (&first, rest) = message.split_first()?;
+    if first != DATA_BYTE || rest.len() < 5 {
+        return None;
+    }
+    let kind = DataKind::from_code(usize::from(rest[0]))?;
+    let length = u32::from_le_bytes([rest[1], rest[2], rest[3], rest[4]]) as usize;
+    let bytes = &rest[5..];
+    (length <= DATA_MAX && bytes.len() == length).then(|| (kind, bytes.to_vec()))
 }
 
 #[cfg(windows)]
@@ -171,17 +245,49 @@ mod imp {
     use std::sync::OnceLock;
 
     use windows_sys::Win32::Foundation::{HANDLE, HWND, LPARAM, LRESULT, WPARAM};
+    use windows_sys::Win32::System::DataExchange::COPYDATASTRUCT;
     use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GetPropW, HWND_NOTOPMOST, HWND_TOPMOST, IsIconic, IsWindowVisible, PostMessageW,
         RegisterWindowMessageW, RemovePropW, SMTO_ABORTIFHUNG, SMTO_BLOCK, SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS,
         SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW, SetPropW, SetWindowPos, ShowWindowAsync, WM_CLOSE,
-        WM_NCDESTROY, WM_NULL,
+        WM_COPYDATA, WM_NCDESTROY, WM_NULL,
     };
 
-    use super::{ANSWER_WAIT, Role, Signal, mark_value, needs_show};
+    use super::{ANSWER_WAIT, DATA_MAX, DataKind, Role, Signal, deliver_data, mark_value, needs_show};
 
     const SUBCLASS_ID: usize = 0x5645_5349;
+
+    /// The upper part of `dwData` of a handing over of Verse-Kit; the kind is in the lowest byte. Data of other
+    /// programs (another number) are passed on untouched.
+    const DATA_MARK: usize = 0x5645_5300;
+
+    /// How long a handing over waits for the other window.
+    const DATA_WAIT_MS: u32 = 1000;
+
+    /// The handing over that `lparam` of a `WM_COPYDATA` carries, if it is one of Verse-Kit.
+    ///
+    /// # Safety
+    /// `lparam` is the `COPYDATASTRUCT` of a `WM_COPYDATA` the system delivers, valid during the message.
+    unsafe fn taken_data(lparam: LPARAM) -> Option<(DataKind, Vec<u8>)> {
+        // SAFETY: as the caller promises; the system maps the data into this process for the message.
+        let data = unsafe { (lparam as *const COPYDATASTRUCT).as_ref() }?;
+        if data.dwData & !0xFF != DATA_MARK {
+            return None;
+        }
+        let kind = DataKind::from_code(data.dwData & 0xFF)?;
+        let length = data.cbData as usize;
+        if length > DATA_MAX || (length > 0 && data.lpData.is_null()) {
+            return None;
+        }
+        let bytes = if length == 0 {
+            Vec::new()
+        } else {
+            // SAFETY: `lpData` points to `cbData` bytes for the time of the message.
+            unsafe { std::slice::from_raw_parts(data.lpData as *const u8, length) }.to_vec()
+        };
+        Some((kind, bytes))
+    }
 
     fn wide(text: &str) -> Vec<u16> {
         text.encode_utf16().chain(std::iter::once(0)).collect()
@@ -217,6 +323,13 @@ mod imp {
                 handler(signal);
             }
             return 0;
+        }
+        // SAFETY: the system delivers `lparam` of a WM_COPYDATA as its data, valid during the message.
+        if msg == WM_COPYDATA
+            && let Some((kind, bytes)) = unsafe { taken_data(lparam) }
+        {
+            deliver_data(kind, bytes);
+            return 1;
         }
         if msg == WM_NCDESTROY {
             // SAFETY: the window goes away: its mark, the hook and the handler with it.
@@ -284,6 +397,30 @@ mod imp {
         let msg = message();
         // SAFETY: posts plain numbers to a window; a gone window just fails.
         msg != 0 && unsafe { PostMessageW(hwnd as HWND, msg, signal as usize, 0) } != 0
+    }
+
+    pub fn send_data(hwnd: isize, kind: DataKind, bytes: &[u8]) -> bool {
+        let Ok(length) = u32::try_from(bytes.len()) else { return false };
+        let data = COPYDATASTRUCT {
+            dwData: DATA_MARK | kind as usize,
+            cbData: length,
+            lpData: bytes.as_ptr() as *mut core::ffi::c_void,
+        };
+        let mut result = 0;
+        // SAFETY: the system copies the bytes into the other process for the time of the message; `data` and
+        // `bytes` outlive the call, which returns after DATA_WAIT_MS at the latest and at once for a hung window.
+        let sent = unsafe {
+            SendMessageTimeoutW(
+                hwnd as HWND,
+                WM_COPYDATA,
+                0,
+                &data as *const COPYDATASTRUCT as LPARAM,
+                SMTO_ABORTIFHUNG | SMTO_BLOCK,
+                DATA_WAIT_MS,
+                &mut result,
+            )
+        };
+        sent != 0 && result == 1
     }
 
     pub fn close_window(hwnd: isize) -> bool {
@@ -618,11 +755,60 @@ mod tests {
             Signal::OpenMining,
             Signal::ShowFrame,
             Signal::OpenStockScan,
+            Signal::DemandWanted,
         ] {
             assert_eq!(Signal::from_code(signal as usize), Some(signal));
         }
         assert_eq!(Signal::from_code(0), None);
-        assert_eq!(Signal::from_code(12), None);
+        assert_eq!(Signal::from_code(13), None);
+    }
+
+    /// A handing over goes as one message and back whole; anything cut, too long, of an unknown kind or without the
+    /// first byte is none, and the first byte is no signal.
+    #[test]
+    fn data_go_over_the_socket_as_one_message_and_back_and_nothing_cut_or_unknown_is_taken() {
+        let bytes = b"{\"materials\": []}".to_vec();
+        let message = encode_data(DataKind::Demand, &bytes);
+        assert_eq!(message[0], DATA_BYTE);
+        assert_eq!(decode_data(&message), Some((DataKind::Demand, bytes.clone())));
+        assert_eq!(decode_data(&encode_data(DataKind::Demand, &[])), Some((DataKind::Demand, Vec::new())));
+        assert_eq!(decode_data(&message[..message.len() - 1]), None, "cut");
+        let mut longer = message.clone();
+        longer.push(b'x');
+        assert_eq!(decode_data(&longer), None, "more than it says");
+        let mut unknown = message.clone();
+        unknown[1] = 9;
+        assert_eq!(decode_data(&unknown), None, "unknown kind");
+        assert_eq!(decode_data(&message[1..]), None, "without the first byte");
+        assert_eq!(decode_data(&[DATA_BYTE, 1, 0, 0]), None);
+        let mut huge = vec![DATA_BYTE, 1];
+        huge.extend_from_slice(&((DATA_MAX + 1) as u32).to_le_bytes());
+        huge.resize(huge.len() + DATA_MAX + 1, 0);
+        assert_eq!(decode_data(&huge), None, "longer than allowed");
+        assert_eq!(decode(DATA_BYTE), None, "the first byte of data asks nothing as a signal");
+    }
+
+    /// The handing over between two windows under Windows: a hidden window of this test, never shown, gets the
+    /// bytes through `WM_COPYDATA` whole; a window that is gone gets nothing and says so.
+    #[cfg(windows)]
+    #[test]
+    fn data_handed_to_a_window_arrive_whole_and_a_window_that_is_gone_gets_none() {
+        use windows_sys::Win32::UI::WindowsAndMessaging::DestroyWindow;
+        let got = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let noted = Arc::clone(&got);
+        on_data(move |kind, bytes| noted.lock().unwrap().push((kind, bytes)));
+        let window = hidden_window();
+        assert!(serve_as(window, Role::Overlay, "pruefung-daten", |_| {}));
+        let bytes: Vec<u8> = (0..=255).cycle().take(5000).collect();
+        assert!(send_data(window, DataKind::Demand, &bytes), "taken");
+        assert!(send_data(window, DataKind::Demand, &[]), "empty data are data too");
+        assert_eq!(*got.lock().unwrap(), [(DataKind::Demand, bytes), (DataKind::Demand, Vec::new())]);
+        assert!(!send_data(window, DataKind::Demand, &vec![0; DATA_MAX + 1]), "too long: not sent");
+        assert_eq!(got.lock().unwrap().len(), 2);
+        // SAFETY: the window made above.
+        unsafe { DestroyWindow(window as _) };
+        assert!(!send_data(window, DataKind::Demand, b"x"), "gone");
+        assert_eq!(got.lock().unwrap().len(), 2);
     }
 
     #[test]
@@ -698,6 +884,7 @@ mod tests {
             Signal::OpenMining,
             Signal::ShowFrame,
             Signal::OpenStockScan,
+            Signal::DemandWanted,
         ];
         let mut bytes = std::collections::HashSet::new();
         for asked in all.map(Asked::Signal).into_iter().chain([Asked::Close]) {
@@ -839,6 +1026,16 @@ mod tests {
         assert_eq!(process_of(hwnd), std::process::id());
         assert!(send(hwnd, Signal::Settings));
         assert_eq!(rx.recv_timeout(Duration::from_secs(5)), Ok(Signal::Settings));
+        let (data_tx, data_rx) = std::sync::mpsc::channel();
+        let data_tx = std::sync::Mutex::new(data_tx);
+        on_data(move |kind, bytes| {
+            let _ = data_tx.lock().unwrap().send((kind, bytes));
+        });
+        let bytes: Vec<u8> = (0..=255).cycle().take(5000).collect();
+        assert!(send_data(hwnd, DataKind::Demand, &bytes));
+        assert_eq!(data_rx.recv_timeout(Duration::from_secs(5)), Ok((DataKind::Demand, bytes)), "the data whole");
+        assert!(send(hwnd, Signal::Overview), "signals go on after data");
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)), Ok(Signal::Overview));
         assert!(!serve_as(0, Role::Overlay, &key, |_| {}), "a role is served by one process only");
         assert_eq!(process_of(handle_of(Role::Main, &key)), 0, "nothing serves it");
         for file in imp::files_of(hwnd) {

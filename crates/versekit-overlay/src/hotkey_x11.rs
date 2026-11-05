@@ -44,12 +44,12 @@ pub const MOD2: u16 = 1 << 4;
 const NUM_LOCK: u32 = 0xff7f;
 
 /// The X11 key symbol of a Windows key code as [`Hotkey`] holds it: the small letter for `A`–`Z`, the
-/// digit for `0`–`9`, `F1`–`F12`.
+/// digit for `0`–`9`, `F1`–`F24` (X11 counts them on from `F1` = 0xffbe, as Windows does from 0x70).
 pub fn keysym(vkey: u16) -> Option<u32> {
     match vkey {
         0x41..=0x5a => Some(u32::from(vkey) + 0x20),
         0x30..=0x39 => Some(u32::from(vkey)),
-        0x70..=0x7b => Some(0xffbe + u32::from(vkey - 0x70)),
+        0x70..=0x87 => Some(0xffbe + u32::from(vkey - 0x70)),
         _ => None,
     }
 }
@@ -295,10 +295,13 @@ mod tests {
         assert_eq!(keysym(u16::from(b'9')), Some(0x39));
         assert_eq!(keysym(0x70), Some(0xffbe), "F1");
         assert_eq!(keysym(0x7b), Some(0xffc9), "F12");
-        assert_eq!(keysym(0x7c), None, "F13 is not taken");
+        // The X11 symbols XK_F13 and XK_F24.
+        assert_eq!(keysym(0x7c), Some(0xffca), "F13");
+        assert_eq!(keysym(0x87), Some(0xffd5), "F24");
+        assert_eq!(keysym(0x88), None, "past F24");
         assert_eq!(keysym(0x20), None);
         // Every key the settings accept has a symbol.
-        for text in ["Strg+Alt+B", "Alt+F8", "Umschalt+7", "Ctrl+Shift+F12"] {
+        for text in ["Strg+Alt+B", "Alt+F8", "Umschalt+7", "Ctrl+Shift+F12", "Alt+F13", "Strg+F24"] {
             assert!(keysym(combo(text).key).is_some(), "{text}");
         }
     }

@@ -89,7 +89,7 @@ mod tests {
     }
 
     fn session(start: i64, purchases: Vec<Purchase>) -> Session {
-        Session { start, purchases, movements: Vec::new() }
+        Session { start, purchases, sales: Vec::new(), movements: Vec::new() }
     }
 
     /// Days of 86 400 seconds from the epoch, as UTC days: the clock of the check.

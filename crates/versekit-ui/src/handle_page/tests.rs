@@ -56,22 +56,40 @@ fn context() -> egui::Context {
     ctx
 }
 
-/// One frame of the page and, below it, the settings of the search (they stand with the info bar) with `events`;
-/// the accesskit nodes with role, label and the middle of their place.
-fn frame(ctx: &egui::Context, state: &mut HandlePageState, events: Vec<egui::Event>) -> Vec<(Role, String, egui::Pos2)> {
+type Nodes = Vec<(Role, String, egui::Pos2)>;
+
+/// The page a frame draws.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum On {
+    Search,
+    Relations,
+}
+
+/// One frame of the page `on` and, below it, the settings of the search (they stand with the info bar) with
+/// `events`: the accesskit nodes with role, label and the middle of their place, and what the page asked.
+fn frame_on(
+    ctx: &egui::Context,
+    state: &mut HandlePageState,
+    events: Vec<egui::Event>,
+    on: On,
+) -> (Nodes, Option<Action>) {
     let scheme = versekit_core::theme::current();
     let input = egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 3000.0))),
         events,
         ..Default::default()
     };
+    let mut action = None;
     let mut output = ctx.run_ui(input, |ui| {
-        show_page(ui, scheme, state);
+        action = match on {
+            On::Search => show_page(ui, scheme, state),
+            On::Relations => show_relations_page(ui, scheme, state),
+        };
         show_settings(ui, scheme, state);
     });
     output.textures_delta.clear();
-    let Some(update) = output.platform_output.accesskit_update else { return Vec::new() };
-    update
+    let Some(update) = output.platform_output.accesskit_update else { return (Vec::new(), action) };
+    let nodes = update
         .nodes
         .iter()
         .filter_map(|(_, n)| {
@@ -79,7 +97,19 @@ fn frame(ctx: &egui::Context, state: &mut HandlePageState, events: Vec<egui::Eve
             let b = n.bounds()?;
             Some((n.role(), text, egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32)))
         })
-        .collect()
+        .collect();
+    (nodes, action)
+}
+
+/// One frame of the page "Beziehungen", see [`frame_on`].
+fn frame(ctx: &egui::Context, state: &mut HandlePageState, events: Vec<egui::Event>) -> Nodes {
+    frame_on(ctx, state, events, On::Relations).0
+}
+
+/// Two frames of the page "Handle-Suche".
+fn settled_search(ctx: &egui::Context, state: &mut HandlePageState) -> Nodes {
+    frame_on(ctx, state, Vec::new(), On::Search);
+    frame_on(ctx, state, Vec::new(), On::Search).0
 }
 
 fn click(at: egui::Pos2) -> Vec<egui::Event> {
@@ -124,24 +154,28 @@ fn the_list_sorts_by_stance_name_kind_and_time_and_filters() {
     let view = |sort, ascending| View { sort, ascending, ..View::default() };
     let order = |view: View| names(&arrange(&all, &view)).iter().map(|n| n.to_string()).collect::<Vec<String>>();
     let (a, b, g, z, nova, red) = ("Alpha", "beta", "Gamma", "Zeta", "NOVA", "REDSUN");
-    assert_eq!(order(View::default()), [a, nova, b, g, red, z], "friendly, neutral, unknown, hostile");
-    assert_eq!(order(view(Column::Stance, false)), [red, z, g, b, a, nova]);
-    assert_eq!(order(view(Column::Name, true)), [a, b, g, nova, red, z]);
-    assert_eq!(order(view(Column::Name, false)), [z, red, nova, g, b, a]);
-    assert_eq!(order(view(Column::Kind, true)), [a, b, g, z, nova, red]);
-    assert_eq!(order(view(Column::Searched, true)), [g, z, a, b, nova, red], "the newest first");
+    assert_eq!(order(View::default()), [a, nova, b, red, z], "marked only: friendly, neutral, hostile");
+    assert_eq!(order(view(Column::Stance, false)), [red, z, b, a, nova]);
+    assert_eq!(order(view(Column::Name, true)), [a, b, nova, red, z]);
+    assert_eq!(order(view(Column::Name, false)), [z, red, nova, b, a]);
+    assert_eq!(order(view(Column::Kind, true)), [a, b, z, nova, red]);
+    assert_eq!(order(view(Column::Searched, true)), [z, a, b, nova, red], "the newest first");
     let filtered = |stance, kind, text: &str| order(View { stance, kind, text: text.into(), ..View::default() });
-    assert_eq!(filtered(3, 0, ""), [g], "unknown");
+    assert_eq!(filtered(3, 0, ""), [g], "unknown: searched without a mark");
     assert_eq!(filtered(4, 0, ""), [red, z], "hostile");
     assert_eq!(filtered(1, 2, ""), [nova], "friendly organizations");
     assert_eq!(filtered(0, 1, " TA "), [b, z], "a part of the name, capitals alike");
     assert!(filtered(2, 2, "").is_empty(), "nothing matches");
+    // The handles searched lately: every one searched, marked or not, the newest first.
+    assert_eq!(order(View::recent()), [g, z]);
+    assert_eq!(order(View { stance: 4, ..View::recent() }), [g, z], "the stance filter counts not there");
     // A click on the column sorted turns it, a click on another sorts that one up.
     let mut state = HandlePageState::with_search(HandleSearch::empty().with_relations(relations));
     state.sort_by(Column::Stance);
-    assert_eq!((state.view.sort, state.view.ascending), (Column::Stance, false));
+    assert_eq!((state.list.view.sort, state.list.view.ascending), (Column::Stance, false));
     state.sort_by(Column::Name);
-    assert_eq!((state.view.sort, state.view.ascending), (Column::Name, true));
+    assert_eq!((state.list.view.sort, state.list.view.ascending), (Column::Name, true));
+    assert_eq!(state.recent_list.view.sort, Column::Searched, "the other list keeps its order");
     assert_eq!(names(state.arranged()), ["Alpha", "beta", "NOVA", "REDSUN", "Zeta"]);
 }
 
@@ -157,7 +191,8 @@ fn a_stance_changed_on_a_row_is_written_and_the_overlay_is_told() {
     let ctx = context();
     let nodes = settled(&ctx, &mut state);
     assert_eq!(told(), 0, "drawing tells nothing");
-    let hostile = tf("s_hq_handle_als", &[("haltung", Arg::Text(t("s_hq_feindlich"))), ("org", Arg::Text("Vex".into()))]);
+    let hostile =
+        tf("s_hq_handle_als", &[("haltung", Arg::Text(t("s_hq_feindlich"))), ("org", Arg::Text("Vex".into()))]);
     let mark = find(&nodes, Role::CheckBox, &hostile).unwrap_or_else(|| panic!("the hostile mark: {nodes:?}"));
     frame(&ctx, &mut state, click(mark));
     assert_eq!(Relations::load(&paths).of(Kind::Handle, "Vex"), Some(Stance::Hostile), "written at once");
@@ -174,6 +209,38 @@ fn a_stance_changed_on_a_row_is_written_and_the_overlay_is_told() {
 }
 
 #[test]
+fn a_mark_deleted_in_the_list_comes_back_at_its_place_with_undo() {
+    set_thread_language(Choice::De);
+    let dir = Dir::new("handle-seite-loeschen");
+    let paths = paths(&dir);
+    let mut relations = Relations::default();
+    relations.set(Kind::Handle, "Erster", Some(Stance::Friendly));
+    relations.set(Kind::Org, "MITTE", Some(Stance::Hostile));
+    relations.set(Kind::Handle, "Letzter", Some(Stance::Neutral));
+    assert!(relations.save(&paths));
+    let mut state = HandlePageState::with_files(&paths).with_notify(count);
+    let ctx = context();
+    let nodes = settled(&ctx, &mut state);
+    let remove = tf("s_hqs_entfernen", &[("name", Arg::Text("MITTE".into()))]);
+    let button = find(&nodes, Role::Button, &remove).unwrap_or_else(|| panic!("the bin: {nodes:?}"));
+    frame(&ctx, &mut state, click(button));
+    assert_eq!(Relations::load(&paths).of(Kind::Org, "MITTE"), None, "deleted at once");
+    assert_eq!(told(), 1);
+    assert_eq!(names(state.arranged()), ["Erster", "Letzter"]);
+    // The notice says what went and offers to take it back.
+    let nodes = settled(&ctx, &mut state);
+    let gone = tf("s_hqs_geloescht", &[("name", Arg::Text("MITTE".into()))]);
+    assert!(nodes.iter().any(|(_, l, _)| *l == gone), "the notice: {nodes:?}");
+    let undo = find(&nodes, Role::Button, &t("s_mlg_rueckgaengig")).unwrap_or_else(|| panic!("undo: {nodes:?}"));
+    frame(&ctx, &mut state, click(undo));
+    assert_eq!(Relations::load(&paths), relations, "back with its stance at its place in the file");
+    assert_eq!(told(), 2, "the overlay is told again");
+    let nodes = settled(&ctx, &mut state);
+    assert!(find(&nodes, Role::Button, &t("s_mlg_rueckgaengig")).is_none(), "the notice went");
+    assert_eq!(names(state.arranged()), ["Erster", "Letzter", "MITTE"]);
+}
+
+#[test]
 fn a_click_on_a_handle_of_the_list_searches_it_at_the_top() {
     set_thread_language(Choice::De);
     let dir = Dir::new("handle-seite-klick");
@@ -185,14 +252,51 @@ fn a_click_on_a_handle_of_the_list_searches_it_at_the_top() {
     let mut state = HandlePageState::with_files(&paths).with_notify(count);
     let ctx = context();
     let nodes = settled(&ctx, &mut state);
-    assert!(find(&nodes, Role::Button, "NOVA").is_none(), "an organization is no handle to search");
     let name = find(&nodes, Role::Button, "Vex").unwrap_or_else(|| panic!("the handle: {nodes:?}"));
     assert!(state.search.shown().is_none());
-    frame(&ctx, &mut state, click(name));
+    let (_, action) = frame_on(&ctx, &mut state, click(name), On::Relations);
+    assert_eq!(action, Some(Action::ToSearch), "the card shows on the page of the search");
     // Without the net the card says so, for the handle clicked.
     assert_eq!(state.search.query, "Vex");
     assert_eq!(state.search.shown(), Some(&Err(Failure::Offline)));
     assert_eq!(told(), 0, "a search changes nothing to tell");
+}
+
+#[test]
+fn a_click_on_an_organization_of_the_list_opens_its_card_without_asking_for_a_handle() {
+    use versekit_core::handle_query::page;
+    use versekit_core::net::{Fake, Net};
+    set_thread_language(Choice::De);
+    let dir = Dir::new("handle-seite-org-klick");
+    let home = dir.path().to_string_lossy().into_owned();
+    let online = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let mut relations = Relations::default();
+    relations.set(Kind::Org, "SEITENORG", Some(Stance::Friendly));
+    assert!(relations.save(&online));
+    let org_page = r#"<div id="organization"><div class="heading"><h1>Seitenstaffel / <span class="symbol">SEITENORG</span></h1></div><hr /></div>"#;
+    let site = std::sync::Arc::new(Fake::default().with(&page::org_url("SEITENORG"), org_page));
+    let net: std::sync::Arc<dyn Net> = site.clone();
+    let mut state = HandlePageState::with_search(HandleSearch::with_net(&online, Some(net))).with_notify(count);
+    let ctx = context();
+    let nodes = settled(&ctx, &mut state);
+    let org = find(&nodes, Role::Button, "SEITENORG").unwrap_or_else(|| panic!("the organization: {nodes:?}"));
+    frame(&ctx, &mut state, click(org));
+    assert_eq!(state.search.query, "SEITENORG");
+    // The pause between two pages of the site is shared by the tests running at the same time.
+    for _ in 0..3000 {
+        if !state.search.searching() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        frame(&ctx, &mut state, Vec::new());
+    }
+    let shown = state.search.org_shown().cloned();
+    assert!(
+        matches!(&shown, Some(crate::handle_search::OrgShown::Card(found)) if found.org.name == "Seitenstaffel"),
+        "{shown:?}"
+    );
+    let asked: Vec<String> = site.asked().into_iter().filter(|url| !url.contains("getOrgMembers")).collect();
+    assert_eq!(asked, [page::org_url("SEITENORG")], "only the page of the organization, no handle");
 }
 
 #[test]
@@ -201,8 +305,7 @@ fn a_handle_opened_from_the_list_shows_its_card_with_the_logos() {
     set_thread_language(Choice::De);
     let dir = Dir::new("handle-seite-logos");
     let home = dir.path().to_string_lossy().into_owned();
-    let online =
-        Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let online = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
     let mut relations = Relations::default();
     relations.set(Kind::Handle, "Seitenpilot", Some(Stance::Friendly));
     assert!(relations.save(&online));
@@ -218,7 +321,9 @@ fn a_handle_opened_from_the_list_shows_its_card_with_the_logos() {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 3000.0))),
             ..Default::default()
         };
-        let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+        let mut output = ctx.run_ui(input, |ui| {
+            show_page(ui, scheme, state);
+        });
         output.textures_delta.clear();
         output.shapes
     };
@@ -278,9 +383,11 @@ fn a_setting_changed_on_the_page_is_written_and_the_overlay_is_told() {
 fn the_preview_shows_marks_and_a_handle_searched_without_one() {
     let mut state = HandlePageState::sample(1_000_000.0);
     let rows = state.arranged().to_vec();
-    assert_eq!(names(&rows), ["NightOwl_77", "NOVA", "QuietComet", "Drifter_9", "REDSUN", "Vex"]);
-    assert_eq!(rows[3].stance, None);
+    assert_eq!(names(&rows), ["NightOwl_77", "NOVA", "QuietComet", "REDSUN", "Vex"], "the marked ones");
     assert!(rows[0].searched.is_some() && rows[1].searched.is_none());
+    let recent = state.arranged_of(Which::Recent).to_vec();
+    assert_eq!(names(&recent), ["Drifter_9", "NightOwl_77", "Vex"], "searched lately, the newest first");
+    assert_eq!(recent[0].stance, None);
 }
 
 #[test]
@@ -288,12 +395,12 @@ fn the_page_shows_the_members_in_the_card_and_a_click_searches_one() {
     set_thread_language(Choice::De);
     let mut state = HandlePageState::sample(1_000_000.0);
     let ctx = context();
-    let nodes = settled(&ctx, &mut state);
+    let nodes = settled_search(&ctx, &mut state);
     let buttons = |name: &str| nodes.iter().filter(|(r, l, _)| *r == Role::Button && l == name).count();
     assert_eq!(buttons("Starlight_Nova"), 1, "once, in the card: {nodes:?}");
     assert!(nodes.iter().any(|(_, l, _)| *l == t("s_hqm_verborgen")), "the hidden member");
     let member = find(&nodes, Role::Button, "Starlight_Nova").unwrap_or_else(|| panic!("the member: {nodes:?}"));
-    frame(&ctx, &mut state, click(member));
+    frame_on(&ctx, &mut state, click(member), On::Search);
     // The preview asks no net: the card says so, for the member clicked.
     assert_eq!(state.search.query, "Starlight_Nova");
     assert_eq!(state.search.shown(), Some(&Err(Failure::Offline)));
@@ -301,14 +408,46 @@ fn the_page_shows_the_members_in_the_card_and_a_click_searches_one() {
 }
 
 #[test]
+fn the_search_shows_the_handles_searched_lately_and_leads_to_the_relations() {
+    set_thread_language(Choice::De);
+    let mut state = HandlePageState::sample(1_000_000.0);
+    let ctx = context();
+    let nodes = settled_search(&ctx, &mut state);
+    let has = |text: &str| nodes.iter().any(|(_, l, _)| l == text);
+    let rows = |name: &str| nodes.iter().filter(|(r, l, _)| *r == Role::Button && l == name).count();
+    assert!(has(&t("s_hq_verlauf")), "{nodes:?}");
+    assert_eq!(rows("Drifter_9"), 2, "searched lately and a member in the card: {nodes:?}");
+    // Marked, never searched: on the page of the relations only.
+    assert_eq!(rows("REDSUN"), 0, "{nodes:?}");
+    assert_eq!(rows("QuietComet"), 1, "only in the card, as a member");
+    let manage = find(&nodes, Role::Button, &t("s_hqs_verwalten")).unwrap_or_else(|| panic!("the button: {nodes:?}"));
+    let (_, action) = frame_on(&ctx, &mut state, click(manage), On::Search);
+    assert_eq!(action, Some(Action::ToRelations));
+    // The page of the relations shows the marked ones with the export and the import.
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    let has = |text: &str| nodes.iter().any(|(_, l, _)| l == text);
+    assert!(has("REDSUN") && has("QuietComet") && !has("Drifter_9"), "marked only: {nodes:?}");
+    assert!(has(&t("s_hq_export")) && has(&t("s_hq_import")), "{nodes:?}");
+    // Counter-check: drawing alone asks no page to open.
+    assert_eq!(frame_on(&ctx, &mut state, Vec::new(), On::Relations).1, None);
+    assert_eq!(frame_on(&ctx, &mut state, Vec::new(), On::Search).1, None);
+}
+
+#[test]
 fn every_text_key_of_the_page_exists_in_both_languages() {
     let keys = [
         "hf_handlesuche",
+        "hf_beziehungen",
+        "s_hqb_lead",
+        "s_hqs_verwalten",
+        "s_hqs_verlauf_h",
+        "s_hqs_verlauf_leer",
         "s_hqs_lead",
         "s_hqs_liste",
         "s_hqs_liste_h",
         "s_hqs_filter",
-        "s_hqs_alle_haltungen",
+        "s_hqs_alle_markierten",
         "s_hqs_unbekannt",
         "s_hqs_alle_arten",
         "s_hqs_handles",
@@ -320,7 +459,9 @@ fn every_text_key_of_the_page_exists_in_both_languages() {
         "s_hqs_handle",
         "s_hqs_org",
         "s_hqs_suchen",
+        "s_hqs_org_oeffnen",
         "s_hqs_entfernen",
+        "s_hqs_geloescht",
         "s_hqs_leer",
         "s_hqs_keine_treffer",
         "s_hqs_mehr",

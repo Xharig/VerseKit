@@ -155,6 +155,7 @@ pub mod stock;
 pub mod stock_data;
 pub mod stock_fetch;
 pub mod stock_journal;
+pub mod stock_relocation;
 pub mod stock_use;
 pub mod storage_move;
 #[doc(hidden)]

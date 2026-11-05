@@ -303,6 +303,15 @@ pub const NO_ANSWER_LINE: &str = "Einzelstart: Sperre belegt, nach dem Warten ke
 /// Set by [`already_running`] when no window answered; the line waits for the trail of this start.
 static NO_ANSWER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// The main window keeps the game's texts itself while no overlay runs (`watcher::keep_texts_alone`).
+pub fn keep_texts_without_overlay(
+    window: &versekit_core::paths::Paths,
+    guard: versekit_core::writeguard::State,
+    overlay_runs: impl Fn() -> bool + Send + 'static,
+) {
+    watcher::keep_texts_alone(window, guard, overlay_runs);
+}
+
 /// Writes what [`already_running`] noted into the trail, once its diagnostics are set up (before that the trail
 /// takes nothing, and the note stays for a later call).
 pub fn trail_start_notes() {

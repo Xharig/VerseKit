@@ -686,6 +686,7 @@ pub(crate) fn texts_phrase(notice: &versekit_core::game_texts::Notice) -> Phrase
         Notice::TranslationUpdated(what) => Phrase::new("texte_erneuert").with("0", what.as_str()),
         Notice::GapsFilled(lines) => Phrase::new("texte_ergaenzt").with("0", *lines),
         Notice::LanguageRepaired(folder) => Phrase::new("spielsprache_repariert").with("0", folder.as_str()),
+        Notice::FileRestored(channel) => Phrase::new("texte_wieder_eingesetzt").with("0", channel.as_str()),
         Notice::Applied(count) => Phrase::new("inj_aktiv").with("0", *count),
         Notice::CraftData { build, items } => Phrase::new("craftdaten_neu").with("0", build.as_str()).with("1", *items),
     }
@@ -745,6 +746,65 @@ pub fn keep_stock(paths: Paths, guard: writeguard::State, news: Sender<News>, wa
 /// it. The thread ends with the window (when the news cannot be told any more). `paths` are those of the thread
 /// ([`thread_paths`]).
 pub fn keep_texts(paths: Paths, guard: writeguard::State, news: Sender<News>, wake: impl Fn() + Send + 'static) {
+    keep_texts_while(paths, guard, news, wake, || true);
+}
+
+/// Keeps the game's texts from the main window while no overlay runs (`overlay_runs` says whether one does), so
+/// that switching the overlay off loses no update of the translation: the same watch as [`keep_texts`], which waits
+/// while an overlay runs (that one keeps the texts then, no run happens twice). The main window has no status line
+/// for what it tells; the notices go nowhere. `window` are the paths of the window.
+pub fn keep_texts_alone(window: &Paths, guard: writeguard::State, overlay_runs: impl Fn() -> bool + Send + 'static) {
+    let (news, told) = std::sync::mpsc::channel::<News>();
+    // The receiver lives as long as the program: the thread of the texts ends when nobody takes its news.
+    let drained = std::thread::Builder::new().name("spieltexte-fenster-meldungen".into()).spawn(move || {
+        for _ in told {}
+    });
+    if let Err(error) = drained {
+        errors::record("watcher.spieltexte", &error);
+        return;
+    }
+    let mut gate = AloneGate::default();
+    keep_texts_while(thread_paths(window, None), guard, news, || {}, move || gate.active(overlay_runs(), Instant::now()));
+}
+
+/// How long no overlay must have run before the main window keeps the texts: an overlay that is just starting has no
+/// window to be found yet.
+pub const OVERLAY_GONE_FOR: Duration = Duration::from_secs(30);
+
+/// Whether the main window keeps the game's texts now: only once no overlay has run for [`OVERLAY_GONE_FOR`].
+#[derive(Default)]
+struct AloneGate {
+    absent_since: Option<Instant>,
+}
+
+impl AloneGate {
+    fn active(&mut self, overlay_runs: bool, now: Instant) -> bool {
+        if overlay_runs {
+            self.absent_since = None;
+            return false;
+        }
+        now.duration_since(*self.absent_since.get_or_insert(now)) >= OVERLAY_GONE_FOR
+    }
+}
+
+/// One look of the thread of the game's texts: the watch ticks only while it is `active`; what it told.
+fn texts_step(
+    watch: &mut versekit_core::game_texts::watch::Watch,
+    paths: &std::sync::Arc<Paths>,
+    now: f64,
+    active: bool,
+) -> Vec<versekit_core::game_texts::Notice> {
+    if active { watch.tick(paths, now) } else { Vec::new() }
+}
+
+/// [`keep_texts`] that looks only while `active` says yes.
+fn keep_texts_while(
+    paths: Paths,
+    guard: writeguard::State,
+    news: Sender<News>,
+    wake: impl Fn() + Send + 'static,
+    mut active: impl FnMut() -> bool + Send + 'static,
+) {
     use std::sync::Arc;
     use versekit_core::game_texts::watch::Watch as TextsWatch;
     use versekit_core::translation;
@@ -777,7 +837,9 @@ pub fn keep_texts(paths: Paths, guard: writeguard::State, news: Sender<News>, wa
         loop {
             let mut told = Vec::new();
             told.extend(
-                watch.tick(&paths, start.elapsed().as_secs_f64()).iter().map(|n| News::Status(texts_phrase(n).into())),
+                texts_step(&mut watch, &paths, start.elapsed().as_secs_f64(), active())
+                    .iter()
+                    .map(|n| News::Status(texts_phrase(n).into())),
             );
             let mut denied = writeguard::take_denied();
             denied.extend(watch.take_denied());
@@ -1103,6 +1165,80 @@ fn rescan(run: &mut Run, source: &LogSource, contracts: &mut Contracts) {
 mod tests {
     use super::*;
 
+    /// The main window keeps the game's texts only once no overlay has run for a while, and stops when one comes.
+    #[test]
+    fn the_main_window_keeps_the_texts_only_once_no_overlay_ran_for_a_while() {
+        let mut gate = AloneGate::default();
+        let t0 = Instant::now();
+        let at = |seconds: u64| t0 + Duration::from_secs(seconds);
+        assert!(!gate.active(true, at(0)), "an overlay runs: it keeps them");
+        assert!(!gate.active(false, at(1)), "just gone, or still starting");
+        assert!(!gate.active(false, at(30)));
+        assert!(gate.active(false, at(31)), "gone for half a minute: the window keeps them");
+        assert!(gate.active(false, at(400)));
+        assert!(!gate.active(true, at(401)), "an overlay again: the window waits");
+        assert!(!gate.active(false, at(402)));
+    }
+
+    /// No scmdb: every look fails.
+    struct NoScmdb;
+
+    impl versekit_core::recipe_file::Supply for NoScmdb {
+        fn file(&self, name: &str) -> Result<Vec<u8>, String> {
+            Err(format!("{name}: missing"))
+        }
+    }
+
+    /// While it is not active the watch of the main window writes nothing into the game; once it is, the same watch
+    /// as the overlay's enters the language and writes the notes.
+    #[test]
+    fn the_watch_of_the_main_window_writes_only_while_it_is_active() {
+        use std::sync::Arc;
+        use versekit_core::game_texts::{self, watch::Watch as TextsWatch};
+        let dir = std::env::temp_dir().join(format!("versekit-watcher-allein-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let root = dir.to_string_lossy().replace('\\', "/");
+        let live = format!("{root}/StarCitizen/LIVE");
+        let data = format!("{root}/data");
+        let ini = format!("{live}/data/Localization/german_(germany)/global.ini");
+        std::fs::create_dir_all(format!("{live}/data/Localization/german_(germany)")).expect("folder");
+        std::fs::create_dir_all(&data).expect("folder");
+        std::fs::write(format!("{live}/Game.log"), "").expect("log");
+        std::fs::write(&ini, "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n").expect("ini");
+        let host = versekit_core::paths::Host::new(
+            versekit_core::pypath::Flavor::Posix,
+            &[("HOME", root.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
+            &root,
+        );
+        let paths = Arc::new(Paths::new(host));
+        versekit_core::translation::note_set(&paths, "dymerz_de", Some("v1"), Some("german_(germany)"), None);
+        paths.set_setting(versekit_core::game_ini::SETTING_SOURCE, versekit_core::jsonio::Value::str("dymerz_de"));
+        let catalog = r#"{"geholt": "2026-10-22 04:00", "bauplaene": {}, "missionen": {"Bounty_title_001": {"bp": ["Atzkav Sniper Rifle"], "rep": 0, "titel_key": "Bounty_title_001", "text_key": "Bounty_desc_001"}}}"#;
+        std::fs::write(paths.app_file(versekit_core::injection::sources::CATALOG_412), catalog).expect("catalog");
+        let mut watch = TextsWatch::new(
+            Arc::new(versekit_core::net::Fake::default()),
+            Arc::new(game_texts::NoArchive),
+            Arc::new(NoScmdb),
+        );
+        for now in [0.0, 1.0, 2.0, 300.0] {
+            assert!(texts_step(&mut watch, &paths, now, false).is_empty());
+        }
+        assert!(!watch.busy(), "no run started");
+        assert!(!versekit_core::injection::is_applied(&ini), "nothing written while an overlay keeps the texts");
+        assert!(!std::path::Path::new(&format!("{live}/user.cfg")).exists());
+        let start = Instant::now();
+        let mut told = texts_step(&mut watch, &paths, 400.0, true);
+        while watch.busy() {
+            assert!(start.elapsed() < Duration::from_secs(60), "the run ends");
+            std::thread::sleep(Duration::from_millis(5));
+            told.extend(texts_step(&mut watch, &paths, 400.0, true));
+        }
+        assert!(versekit_core::injection::is_applied(&ini), "{told:?}");
+        let cfg = std::fs::read_to_string(format!("{live}/user.cfg")).expect("user.cfg");
+        assert!(cfg.contains("g_language = german_(germany)"), "{cfg}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn the_status_line_tells_the_watch_of_the_game_texts_in_the_words_of_the_pages() {
         use versekit_core::game_texts::Notice;
@@ -1111,6 +1247,7 @@ mod tests {
             Notice::TranslationUpdated("Deutsch (Luftwerft) · 4.3".to_string()),
             Notice::GapsFilled(12),
             Notice::LanguageRepaired("german_(germany)".to_string()),
+            Notice::FileRestored("PTU · german_(germany)".to_string()),
             Notice::Applied(345),
             Notice::CraftData { build: "4.3.2-live.12345".to_string(), items: 1591 },
         ];

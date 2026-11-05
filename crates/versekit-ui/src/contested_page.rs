@@ -77,6 +77,8 @@ pub struct ContestedState {
     /// The map that stands open (an index of [`MAPS`]), and for each map the part of it in view.
     map: usize,
     scenes: Vec<egui::Rect>,
+    /// The map was clicked into and the pointer has not left it since: the plain wheel zooms it.
+    map_taken: bool,
     /// Where the frame of the map stood in the last frame, for the checks that move the mouse over it.
     #[cfg(test)]
     map_frame: egui::Rect,
@@ -208,6 +210,7 @@ impl ContestedState {
             overlay: false,
             map: 0,
             scenes: vec![egui::Rect::ZERO; MAPS.len()],
+            map_taken: false,
             #[cfg(test)]
             map_frame: egui::Rect::ZERO,
             map_tex: None,
@@ -512,8 +515,9 @@ fn constrain_view(view: egui::Rect, frame: egui::Vec2, picture: egui::Vec2) -> e
     egui::Rect::from_center_size(egui::pos2(at(centre.x, size.x, picture.x), at(centre.y, size.y, picture.y)), size)
 }
 
-/// The tabs of the maps and the chosen map, large: the mouse wheel zooms, dragging moves it, a double click shows
-/// the whole map again, and under it stand its maker and a link to where it was published.
+/// The tabs of the maps and the chosen map, large: the mouse wheel with Ctrl zooms it, and so does the wheel alone
+/// after a click into the map until the pointer leaves it; otherwise the wheel scrolls the page. Dragging moves the
+/// map, a double click shows the whole map again, and under it stand its maker and a link to where it was published.
 fn maps_section(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
     widgets::heading(ui, scheme, &t("s_cz_karten"));
     ui.add(egui::Label::new(sub(scheme, t("s_cz_karten_lead"))).wrap());
@@ -542,11 +546,22 @@ fn maps_section(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
             let zoom = map_zoom_range(frame, picture_size);
             let view = &mut state.scenes[chosen];
             *view = constrain_view(*view, frame, picture_size);
+            // Ctrl and the wheel come as a zoom, which the scene takes. The plain wheel zooms only a map clicked
+            // into; otherwise the scene does not see it (it would move the map) and the page scrolls with it.
+            let taken = state.map_taken;
+            let scroll =
+                if taken { egui::Vec2::ZERO } else { ui.input_mut(|i| std::mem::take(&mut i.smooth_scroll_delta)) };
             let shown = egui::Scene::new()
-                .scroll_zooms(true)
+                .scroll_zooms(taken)
                 .zoom_range(zoom.0..=zoom.1)
                 .max_inner_size([8000.0, 8000.0])
                 .show(&mut inner, view, |scene| scene.add(picture));
+            ui.input_mut(|i| i.smooth_scroll_delta += scroll);
+            if shown.response.clicked() || shown.response.drag_started() {
+                state.map_taken = true;
+            } else if !shown.response.contains_pointer() {
+                state.map_taken = false;
+            }
             // A double click shows the whole map again; everything else is held inside the frame.
             *view = if shown.response.double_clicked() {
                 fit_view(frame, picture_size)
@@ -559,8 +574,8 @@ fn maps_section(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
             } else if shown.response.hovered() {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
             }
-            // The wheel zooms the map: the page behind it does not scroll along.
-            if shown.response.contains_pointer() {
+            // The wheel zooms a map clicked into: the page behind it does not scroll along.
+            if taken && shown.response.contains_pointer() {
                 ui.input_mut(|input| input.smooth_scroll_delta = egui::Vec2::ZERO);
             }
         }
@@ -1354,9 +1369,14 @@ mod tests {
     }
 
     fn drive(ctx: &egui::Context, state: &mut ContestedState, events: Vec<egui::Event>) {
+        drive_in(ctx, state, events, 4000.0);
+    }
+
+    /// One frame of the page in a window 1000 points wide and `height` high.
+    fn drive_in(ctx: &egui::Context, state: &mut ContestedState, events: Vec<egui::Event>, height: f32) {
         let scheme = versekit_core::theme::current();
         let input = egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1000.0, 4000.0))),
+            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1000.0, height))),
             events,
             ..Default::default()
         };
@@ -1394,6 +1414,73 @@ mod tests {
         }
     }
 
+    /// The wheel with Ctrl held.
+    fn zoom_wheel(y: f32) -> egui::Event {
+        match wheel(y) {
+            egui::Event::MouseWheel { unit, delta, phase, source, .. } => {
+                egui::Event::MouseWheel { unit, delta, phase, source, modifiers: egui::Modifiers::COMMAND }
+            }
+            other => other,
+        }
+    }
+
+    /// Over the map the plain wheel scrolls the page and leaves the map as it is. After a click into the map the
+    /// wheel zooms it until the pointer leaves the map; Ctrl and the wheel zoom it without a click.
+    #[test]
+    fn the_plain_wheel_scrolls_the_page_over_the_map_until_it_is_clicked() {
+        let ctx = context();
+        let mut state = ContestedState::default();
+        let (centre, _) = open_map(&ctx, &mut state, 3);
+        // The same view but for the rounding of a frame that moved on the screen.
+        let same = |a: Rect, b: Rect| (a.min - b.min).length() < 0.5 && (a.max - b.max).length() < 0.5;
+        // A window that ends 100 points below the middle of the map: the page has something left to scroll.
+        let height = centre.y + 100.0;
+        // Frames after the wheel for the scrolling of the page to come to rest.
+        const SETTLE: usize = 90;
+        let run = |state: &mut ContestedState, events: Vec<egui::Event>, frames: usize| {
+            drive_in(&ctx, state, events, height);
+            for _ in 0..frames {
+                drive_in(&ctx, state, Vec::new(), height);
+            }
+        };
+        run(&mut state, vec![egui::Event::PointerMoved(centre)], 1);
+        let (top, view) = (state.map_frame.min.y, state.scenes[3]);
+        for _ in 0..6 {
+            run(&mut state, vec![wheel(-30.0)], 0);
+        }
+        run(&mut state, Vec::new(), SETTLE);
+        let scrolled = state.map_frame.min.y;
+        assert!(scrolled < top - 20.0, "the page scrolled: {top} -> {scrolled}");
+        assert!(same(state.scenes[3], view), "the map stays as it was: {:?} {view:?}", state.scenes[3]);
+        // A click into the map: now the wheel zooms it, and the page stays.
+        run(&mut state, vec![button(centre, true)], 0);
+        run(&mut state, vec![button(centre, false)], 1);
+        for _ in 0..6 {
+            run(&mut state, vec![wheel(400.0)], 0);
+        }
+        run(&mut state, Vec::new(), SETTLE);
+        assert!(state.scenes[3].width() < view.width() - 10.0, "zoomed in: {:?} {view:?}", state.scenes[3]);
+        assert!((state.map_frame.min.y - scrolled).abs() < 0.5, "the page stayed: {}", state.map_frame.min.y);
+        // The pointer leaves the map and comes back: the wheel scrolls the page again.
+        run(&mut state, vec![egui::Event::PointerGone], 1);
+        run(&mut state, vec![egui::Event::PointerMoved(centre)], 1);
+        let zoomed = state.scenes[3];
+        for _ in 0..6 {
+            run(&mut state, vec![wheel(30.0)], 0);
+        }
+        run(&mut state, Vec::new(), SETTLE);
+        assert!(state.map_frame.min.y > scrolled + 20.0, "the page scrolled back: {}", state.map_frame.min.y);
+        assert!(same(state.scenes[3], zoomed), "the map stays as it was: {:?} {zoomed:?}", state.scenes[3]);
+        // Ctrl and the wheel zoom without a click, and the page stays.
+        let (at, before) = (state.map_frame.min.y, state.scenes[3]);
+        for _ in 0..6 {
+            run(&mut state, vec![zoom_wheel(-400.0)], 0);
+        }
+        run(&mut state, Vec::new(), SETTLE);
+        assert!(state.scenes[3].width() > before.width() + 10.0, "zoomed out: {:?} {before:?}", state.scenes[3]);
+        assert!((state.map_frame.min.y - at).abs() < 0.5, "the page stayed: {}", state.map_frame.min.y);
+    }
+
     fn button(at: egui::Pos2, pressed: bool) -> egui::Event {
         egui::Event::PointerButton {
             pos: at,
@@ -1422,7 +1509,7 @@ mod tests {
             let name = shown.name;
             // The wheel far out: the whole map in the frame, and no smaller.
             for step in 0..40 {
-                drive(&ctx, &mut state, vec![wheel(-400.0)]);
+                drive(&ctx, &mut state, vec![zoom_wheel(-400.0)]);
                 assert!(in_reach(state.scenes[map], picture), "{name} out, step {step}: {:?}", state.scenes[map]);
             }
             let view = state.scenes[map];
@@ -1432,7 +1519,7 @@ mod tests {
             );
             // In again, then the mouse dragged far away in every direction, one frame after the other.
             for step in 0..25 {
-                drive(&ctx, &mut state, vec![wheel(400.0)]);
+                drive(&ctx, &mut state, vec![zoom_wheel(400.0)]);
                 assert!(in_reach(state.scenes[map], picture), "{name} in, step {step}: {:?}", state.scenes[map]);
             }
             assert!(size_of(state.scenes[map]).x < size_of(whole).x, "{name}: it zoomed in");
@@ -1455,7 +1542,7 @@ mod tests {
             }
             // Out again from the edge it was dragged to: the whole map, in the middle.
             for _ in 0..40 {
-                drive(&ctx, &mut state, vec![wheel(-400.0)]);
+                drive(&ctx, &mut state, vec![zoom_wheel(-400.0)]);
             }
             let view = state.scenes[map];
             assert!(
@@ -1464,7 +1551,7 @@ mod tests {
             );
             // Far in: not beyond four to one.
             for _ in 0..70 {
-                drive(&ctx, &mut state, vec![wheel(400.0)]);
+                drive(&ctx, &mut state, vec![zoom_wheel(400.0)]);
             }
             let zoom = frame.x / state.scenes[map].width();
             assert!(zoom <= MAP_ZOOM_MAX + 0.01, "{name}: zoomed to {zoom}");
@@ -1479,7 +1566,7 @@ mod tests {
         let (centre, picture) = open_map(&ctx, &mut state, 3);
         let whole = fit_view(state.map_frame.size(), picture);
         for _ in 0..20 {
-            drive(&ctx, &mut state, vec![wheel(400.0)]);
+            drive(&ctx, &mut state, vec![zoom_wheel(400.0)]);
         }
         assert!(state.scenes[3].width() < whole.width() - 10.0, "it is zoomed in: {:?}", state.scenes[3]);
         for event in [button(centre, true), button(centre, false), button(centre, true), button(centre, false)] {

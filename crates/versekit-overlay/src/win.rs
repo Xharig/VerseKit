@@ -234,7 +234,20 @@ pub fn allow_typing(hwnd: isize, on: bool) -> bool {
             }
             TYPING.store(hwnd, Ordering::Relaxed);
             SetWindowLongPtrW(window, GWL_EXSTYLE, (current & !WS_EX_NOACTIVATE) as isize);
-            SetForegroundWindow(window) != 0
+            if SetForegroundWindow(window) != 0 {
+                return true;
+            }
+            // Windows gives the front only to the program the last input went to, which a hotkey read by raw
+            // input is not: joined to the input of the window in front for the call, the program may take it.
+            use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+            let theirs = GetWindowThreadProcessId(GetForegroundWindow(), std::ptr::null_mut());
+            let ours = GetCurrentThreadId();
+            if theirs == 0 || theirs == ours || AttachThreadInput(ours, theirs, 1) == 0 {
+                return false;
+            }
+            let done = SetForegroundWindow(window) != 0;
+            AttachThreadInput(ours, theirs, 0);
+            done
         } else {
             let _ = TYPING.compare_exchange(hwnd, 0, Ordering::Relaxed, Ordering::Relaxed);
             if GUARD.load(Ordering::Relaxed) {
@@ -900,6 +913,19 @@ mod tests {
         k.release(0x77);
         k.hotkey = None;
         assert!(!k.press(0x77));
+    }
+
+    /// F13 and F24 arrive by raw input with their key codes 0x7C and 0x87, like the other keys.
+    #[test]
+    fn the_keys_f13_to_f24_fire_like_the_others() {
+        let mut k = Board::new("Alt+F13");
+        k.press(VK_MENU);
+        assert!(!k.press(0x7b), "F12 is another key");
+        assert!(k.press(0x7c));
+        k.release(0x7c);
+        k.hotkey = combo("Alt+F24");
+        assert!(!k.press(0x7c), "F13 no more");
+        assert!(k.press(0x87));
     }
 
     /// After Ctrl+Alt+Del the releases of Ctrl and Alt never arrive: a plain

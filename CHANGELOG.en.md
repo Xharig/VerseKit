@@ -6,6 +6,115 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.0 - 2026-11-05
+
+> The overlay shows more and is easier to tune, My Inventory knows sales
+> and the move after a patch, and the translation now works in every game
+> channel.
+
+### New
+
+- **Craftable modules per ship** — In Crafting you pick one of your ships
+  from My Hangar under “For ship”. The list then shows only parts that fit
+  a mount of that ship, with and without a blueprint. On the ship card in
+  the hangar, “Craftable parts” jumps straight there.
+  Suggested by StarGround and LunaticSmile [KRT]
+- **Shop sales as suggestions in My Inventory** — What you sell in a shop
+  in the game, My Inventory offers under “New according to the log” to
+  take out. You book or dismiss each sale one by one or all at once with
+  “Book all” and can undo it. VerseKit does not detect commodity sales
+  at the trading terminal, and the statistics do not count sales.
+- **Moving home after a patch** — My Inventory › “Move home” brings every
+  entry to your new home location and removes what the patch does not
+  keep: food, drinks, pens and injectors, magazines. You choose beforehand
+  which kinds go; ores and minerals stay by default. Both stocks are
+  backed up first, afterwards VerseKit lists the removed entries to
+  compare in the game, and the move can be undone.
+- **Search orgs** — The search field in the info bar and on the handle
+  search page now also takes the SID or the full name of an org.
+- **Relations page** — In the Info group you manage your marked handles
+  and orgs, with export and import. The handle search shows “Recently
+  searched” and has the button “Manage relations”. A marked handle can be
+  deleted on its own, with undo.
+- **Hotkey for the handle search** — One press puts the cursor into the
+  search field of the info bar. Enter searches, Esc gives the keyboard
+  back to the game. It is off by default (Alt+Shift+H); you switch it on
+  under Settings › Overlay. Suggested by Kuehlwagen
+- **“Shown in the overlay” block** — Under Settings › Overlay you switch
+  server, location, running contracts, refinery jobs and the update notice
+  on or off one by one. Everything is on by default. The “Contract
+  notice” switch now only opens the overlay.
+- **Refinery jobs in the overlay** — Your refinery jobs stand below the
+  contracts with the time left. Finished ones are highlighted.
+- **Translation in every game channel** — PTU, Tech Preview and EPTU get
+  the text file, the language and the blueprint details in descriptions,
+  just like LIVE.
+
+### Improved
+
+- **“Your unit wants: …” while scanning** — Below the signature line in
+  the overlay it says again what your unit needs of the ores behind the
+  signature, as in 4.12.
+- **“Move to the middle” with the size** — The button now also resets
+  the overlay to its starting size, not only to the middle.
+- **Teaching signatures** — A taught picture now also helps when the
+  number looks a little different (brighter, shifted, blurred).
+- **Contract counter “3/10”** — The contracts header in the overlay counts
+  running contracts against the maximum. You set the maximum in the
+  “Shown in the overlay” block, 10 by default.
+- **Overlay from 2 rows** — The number of rows can go down to 2, before it
+  stopped at 5.
+- **Info bar on by default in the game** — It stands over the running
+  game. Without the game it stays off. If you already switched it on or
+  off, your choice stays.
+- **Signature window while mining** — You choose whether it sits “Above
+  the signature” or “In the info bar”. The info bar stays on, before the
+  window stayed closed. You set the size with a slider, much smaller than
+  before; by default it is about half as big as the old “Medium”, and a
+  size you chose stays. The display stays 5 to 15 seconds after the number
+  disappears in the game, before it was 1.5. Suggested by P6
+- **Overlay snaps to the screen edge** — You can no longer drag it off
+  the screen. Let go close to an edge and it jumps onto that edge.
+  Suggested by Kuehlwagen
+- **Keys F13 to F24 for the hotkeys** — The choice of keys now goes up to
+  F24. Suggested by Kuehlwagen
+- **Notes with a heading** — The first line stands in the field as a
+  heading, because it is the name of the note.
+- **Bug report asks for a sentence** — Without a sentence, the first click
+  on “Send” asks for one. The second click sends the report anyway.
+- **Translation: state of the file first** — The status line names the
+  state of the file first, for example “State 04.11.2026 13:09 for
+  4.10.2-live…”, then the download time. The menu line in the game is
+  called “VerseKit” without a hyphen.
+- **Translation stays as you chose it** — If another program such as SCDL
+  overwrites the text file or the language, VerseKit puts it back: at
+  start, every 5 minutes, after the game and before you start the game
+  from VerseKit. The main window also checks every 5 minutes without the
+  overlay.
+- **Spanish by Luftwerft instead of Thord82** — The Spanish translation
+  by Thord82 is no longer offered. If you had picked it, VerseKit
+  switches to the Spanish translation by Luftwerft. Thord82 stays on the
+  thanks page, and Luftwerft stands first among the translations there.
+- **Section titles in the accent colour** — The small titles above the
+  cards now use the accent colour of the colour scheme.
+- **Linux: application menu and tray icon** — The application menu entry
+  appears only under “Games”. The help text of the tray icon says that
+  closing there ends the main window.
+
+### Fixed
+
+- **A foreign text file is replaced** — If a foreign global.ini lay in the
+  game folder, for example StarStrings you loaded yourself, VerseKit left
+  it alone. Now it replaces it with the file you chose and keeps the
+  foreign one beside it as a backup. Reported by SirFrog [KRT]
+- **English from the game** — The choice always fetches the original
+  English file, even when another English file already lay in the game
+  folder. The old file stays beside it as a backup.
+- **Mouse wheel over the Contested map** — The wheel scrolls the page
+  again. Ctrl + wheel zooms the map; after a click in the map the wheel
+  alone zooms until the pointer leaves it.
+  Reported by |TSA* Shockwave
+
 ## v5.0.2 - 2026-11-04
 
 > The blueprint section below a description stays short, even when many

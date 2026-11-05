@@ -26,7 +26,7 @@
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
-use super::{Archive, Notice, Ran, SETTING_STOCK_MARK, Upkeep, check_game_language, run};
+use super::{Archive, Notice, Ran, SETTING_STOCK_MARK, Upkeep, check_game_languages, run};
 use crate::errors;
 use crate::injection::sources;
 use crate::jsonio::Value;
@@ -269,7 +269,7 @@ impl Watch {
         }
         if !self.started {
             self.started = true;
-            notices.extend(check_game_language(paths, None));
+            notices.extend(check_game_languages(paths));
         }
         if now - self.last_tick < TICK_SECONDS {
             return notices;

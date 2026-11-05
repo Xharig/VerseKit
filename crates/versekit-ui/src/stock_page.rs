@@ -43,6 +43,7 @@ use crate::color;
 use crate::layout::GAP;
 use crate::widgets::{self, ButtonKind};
 
+mod relocation;
 mod scan;
 mod suggestions;
 
@@ -204,6 +205,8 @@ enum Undo {
     Replaced(Store, Vec<Value>),
     /// Suggestions of the log taken over or discarded.
     Suggestions(suggestions::SuggestionUndo),
+    /// Both stores moved to one home place: back from the copies made before.
+    Relocated,
 }
 
 /// A message at the top right.
@@ -242,6 +245,7 @@ fn today() -> String {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Panel {
     Backup,
+    Move,
     Clear,
 }
 
@@ -299,7 +303,7 @@ pub struct StockState {
     counted: Vec<&'static str>,
     /// Personal and shared parts of the rows, with a connection.
     pub(crate) split: crate::stock_share::Split,
-    /// The purchases of the log offered on top of the tab Items.
+    /// The purchases and sales of the log offered on top of the tab Items.
     sugg: suggestions::Suggestions,
     /// The refinery terminal read from the screen into the field of the refinery yield.
     scan: scan::Scan,
@@ -309,6 +313,8 @@ pub struct StockState {
     moved_seen: bool,
     /// Nobody to tell where the stores went: noted as seen once the page is shown.
     moved_unneeded: bool,
+    /// The panel that moves both stores to one home place.
+    reloc: relocation::Relocation,
 }
 
 fn entries_of(text: &str) -> Vec<Value> {
@@ -367,6 +373,7 @@ impl Default for StockState {
             moved_note: false,
             moved_seen: false,
             moved_unneeded: false,
+            reloc: relocation::Relocation::default(),
         }
     }
 }
@@ -410,6 +417,7 @@ impl StockState {
         let files = (paths.app_file(stock::RAW_FILE), paths.app_file(stock::TRADE_FILE));
         let mut state = StockState { files: Some(files), ..StockState::default() };
         state.connect_journal(paths);
+        state.reloc = relocation::Relocation::new(paths);
         state.reload();
         state
     }
@@ -484,6 +492,7 @@ impl StockState {
         state.panel =
             paths.setting_bool(SETTING_PANEL_OPEN, false).then(|| match paths.setting(SETTING_PANEL).as_deref() {
                 Some("leeren") => Panel::Clear,
+                Some("umziehen") => Panel::Move,
                 _ => Panel::Backup,
             });
         state.raw_place = paths.setting(SETTING_RAW_PLACE).unwrap_or_default();
@@ -496,6 +505,7 @@ impl StockState {
         state.sugg.open = paths.setting_bool(SETTING_SUGGESTIONS_OPEN, true);
         state.scan = scan::Scan::new(paths);
         state.connect_journal(paths);
+        state.reloc = relocation::Relocation::new(paths);
         state.reload();
         state.moved_seen = paths.setting_bool(SETTING_MOVED_SEEN, false);
         if !state.moved_seen {
@@ -556,7 +566,14 @@ impl StockState {
             (SETTING_FORM_KIND, Value::str(self.form.code())),
             (SETTING_REFINERY_OPEN, Value::Bool(self.refinery_open)),
             (SETTING_PANEL_OPEN, Value::Bool(self.panel.is_some())),
-            (SETTING_PANEL, Value::str(if self.panel == Some(Panel::Clear) { "leeren" } else { "sichern" })),
+            (
+                SETTING_PANEL,
+                Value::str(match self.panel {
+                    Some(Panel::Clear) => "leeren",
+                    Some(Panel::Move) => "umziehen",
+                    _ => "sichern",
+                }),
+            ),
             (SETTING_UNIT, Value::str(if self.raw_form.cscu { "cscu" } else { "scu" })),
             (SETTING_RAW_PLACE, Value::str(self.raw_place.clone())),
             (SETTING_TRADE_PLACE, Value::str(self.trade_place.clone())),
@@ -802,6 +819,7 @@ impl StockState {
                 }
             }
             Undo::Suggestions(undo) => self.undo_suggestions(undo),
+            Undo::Relocated => relocation::take_back(self),
         }
     }
 
@@ -1606,6 +1624,7 @@ fn show_message(ui: &Ui, scheme: &Scheme, state: &mut StockState) {
         Some(Undo::Deleted(_)) => "trash-2",
         Some(Undo::Replaced(..)) => "folder",
         Some(Undo::Suggestions(_)) => "package-plus",
+        Some(Undo::Relocated) => "house",
         None => "check",
     };
     let shown = widgets::notice(ui.ctx(), scheme, since, icon, &message.text, action.as_deref());
@@ -2062,7 +2081,8 @@ fn tabs(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row]) {
     let items = rows.len() - materials;
     let tabs = [format!("{} ({materials})", t("s_ml_material")), format!("{} ({items})", t("s_ml_items"))];
     let mut chosen = usize::from(state.items);
-    let words = [t("s_mlg_aktion_sichern"), t("s_mlg_aktion_einlesen"), t("s_mlg_aktion_leeren")];
+    let words =
+        [t("s_mlg_aktion_sichern"), t("s_mlg_aktion_einlesen"), t("s_mlg_aktion_umziehen"), t("s_mlg_aktion_leeren")];
     let actions = [
         widgets::PageAction { icon: "download", text: &words[0], on: state.panel == Some(Panel::Backup) },
         widgets::PageAction {
@@ -2070,7 +2090,8 @@ fn tabs(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row]) {
             text: &words[1],
             on: state.dialog.as_ref().is_some_and(|(_, j)| *j == Job::Import),
         },
-        widgets::PageAction { icon: "trash-2", text: &words[2], on: state.panel == Some(Panel::Clear) },
+        widgets::PageAction { icon: "house", text: &words[2], on: state.panel == Some(Panel::Move) },
+        widgets::PageAction { icon: "trash-2", text: &words[3], on: state.panel == Some(Panel::Clear) },
     ];
     let (changed, action) =
         widgets::tab_bar_with_actions(ui, scheme, &[tabs[0].as_str(), tabs[1].as_str()], &mut chosen, &actions);
@@ -2081,7 +2102,8 @@ fn tabs(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row]) {
     match action {
         Some(0) => state.toggle_panel(Panel::Backup),
         Some(1) => state.ask_file(ui.ctx(), Job::Import),
-        Some(2) => state.toggle_panel(Panel::Clear),
+        Some(2) => state.toggle_panel(Panel::Move),
+        Some(3) => state.toggle_panel(Panel::Clear),
         _ => {}
     }
     action_panel(ui, scheme, state);
@@ -2549,6 +2571,14 @@ fn summaries(ui: &mut Ui, scheme: &Scheme, state: &StockState, shown: &[Row], la
 /// part out, or clearing it after a question in the row.
 fn action_panel(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let Some(panel) = state.panel else { return };
+    if panel == Panel::Move {
+        ui.add_space(4.0);
+        widgets::list_frame(ui, scheme, |ui| {
+            ui.set_width(ui.available_width() - crate::layout::SAFETY);
+            relocation::show(ui, scheme, state);
+        });
+        return;
+    }
     let mut run = None;
     let mut ask = None;
     let busy = state.dialog.is_some();
@@ -2602,6 +2632,8 @@ fn action_panel(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
                         }
                     }
                 }
+                // Shown by its own module above.
+                Panel::Move => {}
             });
             ui.add_space(4.0);
         }

@@ -15,9 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The block "Laut Log neu" on top of the tab Items: the purchases the game log knows that are not in the
-//! stock yet. Each one can be taken over (booked as an item with its price per piece), or discarded; "all"
-//! does that for every one shown, and a message takes the last step back. Nothing is booked without a click.
+//! The block "Laut Log neu" on top of the tab Items: the purchases and sales the game log knows that are not
+//! decided yet. A purchase can be taken over (booked as an item with its price per piece), a sale taken out of
+//! the stock ("Abbuchen"), each one discarded; "all" does that for every one shown, and a message takes the last
+//! step back. Nothing is booked without a click.
 //! The block folds shut by its head and keeps that; the filters and the search of the list below narrow it too.
 //!
 //! ⚠ The decisions go to `lagervorschlaege.json` before the stock file is written: a crash in between loses
@@ -98,21 +99,47 @@ fn place_text(place: &PlaceName) -> String {
     }
 }
 
-/// Why a suggestion cannot be taken over; `None` when it can.
-fn blocked_reason(proposal: &Proposal) -> Option<String> {
+/// Why a suggestion cannot be taken over into or out of this stock; `None` when it can.
+fn blocked_reason(proposal: &Proposal, trade: &[Value]) -> Option<String> {
     if proposal.stock_name.is_none() {
-        Some(t("s_lj_grund_item"))
+        Some(t(if proposal.sold { "s_lj_grund_item_verkauf" } else { "s_lj_grund_item" }))
     } else if proposal.quantity == 0 {
         Some(t("s_lj_grund_menge"))
+    } else if !proposal.bookable(trade) {
+        let name = Arg::from(proposal.name.as_str());
+        Some(match proposal.place_to_book() {
+            "" => tf("s_lj_grund_lager_ohne_ort", &[("name", name)]),
+            place => tf("s_lj_grund_lager", &[("name", name), ("ort", Arg::from(place))]),
+        })
     } else {
         None
     }
 }
 
-/// What the button "Übernehmen" of a suggestion says on hover: why it is blocked, or what it does besides booking.
-fn adopt_hint(proposal: &Proposal) -> Option<String> {
-    if let Some(reason) = blocked_reason(proposal) {
+/// What "Abbuchen" of a sale does: how many pieces it takes, whether some come from stacks without a place,
+/// and whether the stock holds fewer than were sold.
+fn take_hint(proposal: &Proposal, trade: &[Value]) -> String {
+    let lang = language::current();
+    let plan = suggestions::take_plan(trade, proposal);
+    let pieces = |n: u32| Arg::from(amount_with_unit(lang, f64::from(n), true));
+    let mut lines = vec![tf("s_lj_tipp_abbuchen", &[("n", pieces(plan.pieces))])];
+    if plan.without_place {
+        lines.push(t("s_lj_tipp_abbuchen_ohne_ort"));
+    }
+    if plan.pieces < proposal.quantity {
+        lines.push(tf("s_lj_tipp_abbuchen_rest", &[("n", pieces(proposal.quantity))]));
+    }
+    lines.join("\n")
+}
+
+/// What the button "Übernehmen" or "Abbuchen" of a suggestion says on hover: why it is blocked, or what it does
+/// besides booking.
+fn adopt_hint(proposal: &Proposal, trade: &[Value]) -> Option<String> {
+    if let Some(reason) = blocked_reason(proposal, trade) {
         return Some(reason);
+    }
+    if proposal.sold {
+        return Some(take_hint(proposal, trade));
     }
     if let Some(place) = proposal.new_place() {
         return Some(tf("s_lj_tipp_neuer_ort", &[("0", Arg::from(place.name.as_str()))]));
@@ -125,8 +152,9 @@ fn joined(places: &[OwnPlace]) -> String {
     places.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ")
 }
 
-/// What "Alle übernehmen" does besides booking: the places it adds and the purchases it books without a place.
-fn all_hint(shown: &[Proposal]) -> Vec<String> {
+/// What "Alle buchen" does besides booking: the places it adds, the purchases it books without a place and
+/// the sales it takes out of the stock.
+fn all_hint(shown: &[Proposal], trade: &[Value]) -> Vec<String> {
     let new = suggestions::new_places(shown);
     let mut lines = Vec::new();
     match new.len() {
@@ -139,13 +167,18 @@ fn all_hint(shown: &[Proposal]) -> Vec<String> {
         1 => lines.push(t("s_lj_alle_ohne_ort_eins")),
         n => lines.push(tf("s_lj_alle_ohne_ort_n", &[("n", Arg::from(n))])),
     }
+    match suggestions::batch(trade, shown).iter().filter(|p| p.sold).count() {
+        0 => {}
+        1 => lines.push(t("s_lj_alle_verkaeufe_eins")),
+        n => lines.push(tf("s_lj_alle_verkaeufe_n", &[("n", Arg::from(n))])),
+    }
     lines
 }
 
-/// The small line under the name: amount, price per piece, place and moment.
+/// The small line under the name: amount, price per piece, place and moment; a sale says so in front.
 fn detail_line(lang: Lang, proposal: &Proposal) -> String {
     tf(
-        "s_lj_zeile",
+        if proposal.sold { "s_lj_zeile_verkauf" } else { "s_lj_zeile" },
         &[
             ("menge", Arg::from(amount_with_unit(lang, f64::from(proposal.quantity), true))),
             ("preis", Arg::from(formats::money(lang, proposal.unit_price))),
@@ -153,6 +186,44 @@ fn detail_line(lang: Lang, proposal: &Proposal) -> String {
             ("zeit", Arg::from(report::local_moment(lang, proposal.time))),
         ],
     )
+}
+
+/// The message after a take-over: what was booked in, what was taken out (`taken` pieces of sales) and the places
+/// that were added.
+fn adopted_text(done: &[&Proposal], added: &[String], taken: u32) -> String {
+    let (sales, purchases): (Vec<&Proposal>, Vec<&Proposal>) = done.iter().copied().partition(|p| p.sold);
+    if purchases.is_empty() {
+        return match sales.as_slice() {
+            [one] => tf(
+                "s_lj_abgebucht_eins",
+                &[
+                    ("name", Arg::from(one.name.as_str())),
+                    ("menge", Arg::from(amount_with_unit(language::current(), f64::from(taken), true))),
+                ],
+            ),
+            many => tf("s_lj_abgebucht_n", &[("n", Arg::from(many.len()))]),
+        };
+    }
+    if !sales.is_empty() {
+        let (k, v) = (Arg::from(purchases.len()), Arg::from(sales.len()));
+        return match added {
+            [] => tf("s_lj_gebucht_gemischt", &[("k", k), ("v", v)]),
+            [place] => tf("s_lj_gebucht_gemischt_ort", &[("k", k), ("v", v), ("ort", Arg::from(place.as_str()))]),
+            places => tf("s_lj_gebucht_gemischt_orte", &[("k", k), ("v", v), ("o", Arg::from(places.len()))]),
+        };
+    }
+    match (purchases.as_slice(), added) {
+        ([one], []) => tf("s_lj_uebernommen_eins", &[("name", Arg::from(one.name.as_str()))]),
+        ([one], [place]) => tf(
+            "s_lj_uebernommen_eins_neu",
+            &[("name", Arg::from(one.name.as_str())), ("ort", Arg::from(place.as_str()))],
+        ),
+        (many, []) => tf("s_lj_uebernommen_n", &[("n", Arg::from(many.len()))]),
+        (many, [place]) => {
+            tf("s_lj_uebernommen_n_neu_eins", &[("n", Arg::from(many.len())), ("ort", Arg::from(place.as_str()))])
+        }
+        (many, places) => tf("s_lj_uebernommen_n_neu", &[("n", Arg::from(many.len())), ("k", Arg::from(places.len()))]),
+    }
 }
 
 fn journal_file(paths: &Paths) -> String {
@@ -248,20 +319,25 @@ impl StockState {
         done
     }
 
-    /// Takes the suggestions with these keys into the stock as items (`Übernehmen`, `Alle übernehmen`); a place
-    /// the list does not know yet is added to it.
+    /// Takes the suggestions with these keys into the stock as items, or a sale out of it (`Übernehmen`,
+    /// `Abbuchen`, `Alle buchen`); a place the list does not know yet is added to it.
     fn adopt_suggestions(&mut self, keys: &[String]) {
         let Some(paths) = self.sugg.paths.as_ref().map(Paths::working_copy) else { return };
         if !self.fresh() {
             return;
         }
-        let chosen: Vec<Proposal> =
+        // Oldest first: a piece bought and then sold is booked in before it is taken out.
+        let mut chosen: Vec<Proposal> =
             self.sugg.found.list.iter().filter(|p| keys.contains(&p.key) && p.adoptable()).cloned().collect();
+        chosen.sort_by(|a, b| a.time.cmp(&b.time).then_with(|| a.key.cmp(&b.key)));
         let before = self.trade.clone();
         let mut done: Vec<&Proposal> = Vec::new();
+        let mut taken: u32 = 0;
         for proposal in &chosen {
+            let pieces = suggestions::take_plan(&self.trade, proposal).pieces;
             if suggestions::adopt(&mut self.trade, proposal).is_ok() {
                 done.push(proposal);
+                taken += pieces;
             }
         }
         if done.is_empty() {
@@ -302,20 +378,7 @@ impl StockState {
             self.sugg.places = Places::load(&paths);
         }
         self.sugg.seen[1] = modified(&decisions_file(&paths));
-        let text = match (done.as_slice(), added.as_slice()) {
-            ([one], []) => tf("s_lj_uebernommen_eins", &[("name", Arg::from(one.name.as_str()))]),
-            ([one], [place]) => tf(
-                "s_lj_uebernommen_eins_neu",
-                &[("name", Arg::from(one.name.as_str())), ("ort", Arg::from(place.as_str()))],
-            ),
-            (many, []) => tf("s_lj_uebernommen_n", &[("n", Arg::from(many.len()))]),
-            (many, [place]) => {
-                tf("s_lj_uebernommen_n_neu_eins", &[("n", Arg::from(many.len())), ("ort", Arg::from(place.as_str()))])
-            }
-            (many, places) => {
-                tf("s_lj_uebernommen_n_neu", &[("n", Arg::from(many.len())), ("k", Arg::from(places.len()))])
-            }
-        };
+        let text = adopted_text(&done, &added, taken);
         let undo = SuggestionUndo { stock: Some((before, self.trade.clone())), keys: booked, places: added };
         self.message = Some(Message { text, since: None, undo: Some(Undo::Suggestions(undo)) });
         self.recompute_suggestions();
@@ -388,6 +451,15 @@ impl StockState {
     }
 }
 
+/// The icon of "Alle buchen" for what it books: purchases only adds, sales only takes out, both checks off.
+fn book_all_icon(batch: &[&Proposal]) -> &'static str {
+    match (batch.iter().any(|p| !p.sold), batch.iter().any(|p| p.sold)) {
+        (true, true) => "check-check",
+        (false, true) => "package-minus",
+        _ => "package-plus",
+    }
+}
+
 /// The rows, the buttons for all and the hints of an open block.
 fn block_body(ui: &mut Ui, scheme: &Scheme, state: &StockState, list: &[Proposal], total: usize) -> Option<Ask> {
     let lang = language::current();
@@ -398,14 +470,24 @@ fn block_body(ui: &mut Ui, scheme: &Scheme, state: &StockState, list: &[Proposal
         ui.add(egui::Label::new(RichText::new(line).small().color(color(scheme.gold))).wrap());
     }
     ui.add_space(6.0);
-    let adoptable: Vec<String> = list.iter().filter(|p| p.adoptable()).map(|p| p.key.clone()).collect();
+    let trade = &state.trade;
+    let batch = suggestions::batch(trade, list);
+    let adoptable: Vec<String> = batch.iter().map(|p| p.key.clone()).collect();
+    let all_icon = book_all_icon(&batch);
     let every: Vec<String> = list.iter().map(|p| p.key.clone()).collect();
+    // "Übernehmen" and "Abbuchen" in one width, so the main button of every row starts at the same edge.
+    let take_width = ["s_lj_uebernehmen", "s_lj_abbuchen"]
+        .map(|key| widgets::icon_button_size(ui, scheme, ButtonKind::Strong, &t(key)))
+        .into_iter()
+        .fold(egui::Vec2::ZERO, |widest, size| widest.max(size));
     let shown = if state.sugg.all { list.len() } else { ROWS_SHOWN.min(list.len()) };
     for proposal in list.iter().take(shown) {
         ui.push_id(&proposal.key, |ui| {
-            let reason = blocked_reason(proposal);
-            let hint = adopt_hint(proposal);
-            let (take_word, drop_word) = (t("s_lj_uebernehmen"), t("s_lj_verwerfen"));
+            let reason = blocked_reason(proposal, trade);
+            let hint = adopt_hint(proposal, trade);
+            let (take_key, take_icon) =
+                if proposal.sold { ("s_lj_abbuchen", "package-minus") } else { ("s_lj_uebernehmen", "package-plus") };
+            let (take_word, drop_word) = (t(take_key), t("s_lj_verwerfen"));
             let (take_name, drop_name) =
                 (format!("{take_word}: {}", proposal.name), format!("{drop_word}: {}", proposal.name));
             ui.horizontal(|line| {
@@ -416,10 +498,17 @@ fn block_body(ui: &mut Ui, scheme: &Scheme, state: &StockState, list: &[Proposal
                         ask = Some(Ask::Discard(vec![proposal.key.clone()]));
                     }
                     let adopt = widgets::Button::new(&take_word, ButtonKind::Strong, scheme)
-                        .icon("package-plus")
+                        .icon(take_icon)
                         .spoken(&take_name)
-                        .blocked(reason.as_deref());
-                    let mut response = row.add(adopt);
+                        .blocked(reason.as_deref())
+                        .wide();
+                    let (cell, _) = row.allocate_exact_size(take_width, Sense::hover());
+                    let mut spot = row.new_child(
+                        UiBuilder::new()
+                            .max_rect(cell)
+                            .layout(Layout::centered_and_justified(egui::Direction::LeftToRight)),
+                    );
+                    let mut response = spot.add(adopt);
                     if reason.is_none()
                         && let Some(hint) = &hint
                     {
@@ -439,11 +528,11 @@ fn block_body(ui: &mut Ui, scheme: &Scheme, state: &StockState, list: &[Proposal
             ui.add_space(6.0);
         });
     }
-    let hints = all_hint(list);
+    let hints = all_hint(list, trade);
     ui.horizontal_wrapped(|row| {
         if !adoptable.is_empty() {
-            let word = tf("s_lj_alle_uebernehmen", &[("n", Arg::from(adoptable.len()))]);
-            let mut response = row.add(widgets::Button::new(&word, ButtonKind::Strong, scheme).icon("package-plus"));
+            let word = tf("s_lj_alle_buchen", &[("n", Arg::from(adoptable.len()))]);
+            let mut response = row.add(widgets::Button::new(&word, ButtonKind::Strong, scheme).icon(all_icon));
             if !hints.is_empty() {
                 response = response.on_hover_text(hints.join("\n"));
             }
@@ -562,11 +651,17 @@ mod tests {
     }
 
     fn write_journal(paths: &Paths, purchases: &[Purchase]) {
+        write_deals(paths, purchases, &[]);
+    }
+
+    fn write_deals(paths: &Paths, purchases: &[Purchase], sales: &[Purchase]) {
         let bought: Vec<Value> = purchases.iter().map(Purchase::to_value).collect();
+        let sold: Vec<Value> = sales.iter().map(Purchase::to_value).collect();
         let session = Value::Object(vec![
             ("von".into(), Value::int(1000)),
             ("bis".into(), Value::int(2000)),
             ("kaeufe".into(), Value::Array(bought)),
+            ("verkaeufe".into(), Value::Array(sold)),
             ("bewegungen".into(), Value::Array(Vec::new())),
         ]);
         let mut data: Map = vec![
@@ -899,8 +994,8 @@ mod tests {
         // Before the click the block says which place it adds, beside the button and on hover.
         let hint = tf("s_lj_alle_neue_orte_eins", &[("orte", Arg::from("outpost"))]);
         assert!(shows(&texts, &hint), "{texts:?}");
-        assert_eq!(bench.button("Alle übernehmen (4)").description, hint);
-        bench.press_button("Alle übernehmen (4)");
+        assert_eq!(bench.button("Alle buchen (4)").description, hint);
+        bench.press_button("Alle buchen (4)");
         let trade = trade_on_disk(&paths);
         assert_eq!(trade.len(), 4, "TS-2 and three new stacks: {trade:?}");
         let arms_at = |place: &str| {
@@ -938,7 +1033,7 @@ mod tests {
         let mut bench = Bench::new(&paths);
         bench.settle();
         let before = trade_on_disk(&paths);
-        bench.press_button("Alle übernehmen (4)");
+        bench.press_button("Alle buchen (4)");
         assert_ne!(trade_on_disk(&paths), before);
         assert!(bench.state.data.places().iter().any(|p| p == "outpost"), "the forms know the new place");
         let Some(Message { undo: Some(back), .. }) = bench.state.message.take() else { panic!("no undo") };
@@ -990,7 +1085,7 @@ mod tests {
         let (home, paths) = world("ort-bleibt", &standard());
         let mut bench = Bench::new(&paths);
         bench.settle();
-        bench.press_button("Alle übernehmen (4)");
+        bench.press_button("Alle buchen (4)");
         let Some(Message { undo: Some(back), .. }) = bench.state.message.take() else { panic!("no undo") };
         // A material is booked at the new place before the undo.
         std::fs::write(
@@ -1017,7 +1112,7 @@ mod tests {
         assert!(!node.disabled);
         assert_eq!(node.description, t("s_lj_tipp_ohne_ort"));
         assert!(shows(&texts, &t("s_lj_alle_ohne_ort_eins")), "{texts:?}");
-        bench.press_button("Alle übernehmen (2)");
+        bench.press_button("Alle buchen (2)");
         let trade = trade_on_disk(&paths);
         let arms = trade.iter().find(|e| e.get("ware") == Some(&Value::str("Venture Arms"))).expect("booked");
         assert_eq!(arms.get("ort"), Some(&Value::str("")));
@@ -1040,6 +1135,242 @@ mod tests {
             assert!(!node.description.is_empty(), "blocked without a reason: {node:?}");
         }
         assert!(blocked.iter().any(|b| b.description == t("s_lj_grund_menge")));
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// A stock of items: `(name, pieces, place)`, beside TS-2 at Levski.
+    fn stock_of(paths: &Paths, entries: &[(&str, f64, &str)]) {
+        let mut trade = trade_on_disk(paths);
+        for (name, amount, place) in entries {
+            let pieces = amount.to_string();
+            assert_eq!(stock::trade_add_item(&mut trade, name, &pieces, place, false, None, None), Ok(()));
+        }
+        assert!(stock::save(&paths.app_file(stock::TRADE_FILE), &trade, "test"));
+    }
+
+    fn pieces_of(paths: &Paths, name: &str, place: &str) -> Option<f64> {
+        trade_on_disk(paths)
+            .iter()
+            .find(|e| e.get("ware") == Some(&Value::str(name)) && e.get("ort") == Some(&Value::str(place)))
+            .map(|e| stock::number_of(e, "menge"))
+    }
+
+    fn pieces(n: f64) -> String {
+        amount_with_unit(Lang::De, n, true)
+    }
+
+    #[test]
+    fn a_sale_is_taken_out_of_the_stock_with_one_click_and_the_undo_brings_it_back() {
+        let _language = setup();
+        let (home, paths) = world("verkauf", &[]);
+        stock_of(&paths, &[("Venture Arms", 3.0, "Levski"), ("Venture Arms", 4.0, "")]);
+        write_deals(&paths, &[], &[purchase(1700, "mag", 2, 124.0, Some("1"))]);
+        let before = trade_on_disk(&paths);
+        let mut bench = Bench::new(&paths);
+        let texts = bench.settle();
+        assert!(shows(&texts, &title(1)), "{texts:?}");
+        assert!(shows(&texts, "Verkauft: 2 Stück · 62 aUEC je Stück erhalten · laut Log an Levski · "), "{texts:?}");
+        let node = bench.button("Abbuchen: Venture Arms");
+        assert!(!node.disabled, "{node:?}");
+        assert_eq!(node.description, tf("s_lj_tipp_abbuchen", &[("n", Arg::from(pieces(2.0)))]));
+        assert!(!bench.buttons().iter().any(|b| b.name.starts_with("Übernehmen")), "a sale is no take-over");
+        assert!(shows(&texts, &t("s_lj_alle_verkaeufe_eins")), "{texts:?}");
+        bench.press_button("Abbuchen: Venture Arms");
+        assert_eq!(pieces_of(&paths, "Venture Arms", "Levski"), Some(1.0), "taken at the place of the sale");
+        assert_eq!(pieces_of(&paths, "Venture Arms", ""), Some(4.0), "the stack without a place stays");
+        assert_eq!(Decisions::load(&paths).len(), 1);
+        assert!(!shows(&bench.settle(), "Laut Log neu"), "nothing open any more");
+        let message = bench.state.message.take().expect("a message");
+        assert_eq!(
+            message.text,
+            tf("s_lj_abgebucht_eins", &[("name", Arg::from("Venture Arms")), ("menge", Arg::from(pieces(2.0)))])
+        );
+        let Some(back) = message.undo else { panic!("no undo") };
+        bench.state.take_back(back);
+        assert_eq!(trade_on_disk(&paths), before, "the stock as it was");
+        assert!(Decisions::load(&paths).is_empty());
+        assert!(shows(&bench.settle(), &title(1)));
+        assert_eq!(bench.state.message.as_ref().map(|m| m.text.clone()), Some(t("s_lj_zurueck")));
+        // The same sale after a restart: still open, nothing taken out by itself.
+        bench.restart(&paths);
+        assert!(shows(&bench.settle(), &title(1)));
+        assert_eq!(trade_on_disk(&paths), before);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn a_sale_takes_the_rest_without_a_place_and_says_what_is_missing() {
+        let _language = setup();
+        let (home, paths) = world("verkauf-rest", &[]);
+        stock_of(&paths, &[("Venture Arms", 1.0, "Levski"), ("Venture Arms", 1.0, "")]);
+        write_deals(&paths, &[], &[purchase(1700, "mag", 3, 90.0, Some("1"))]);
+        let mut bench = Bench::new(&paths);
+        bench.settle();
+        let node = bench.button("Abbuchen: Venture Arms");
+        let expected = [
+            tf("s_lj_tipp_abbuchen", &[("n", Arg::from(pieces(2.0)))]),
+            t("s_lj_tipp_abbuchen_ohne_ort"),
+            tf("s_lj_tipp_abbuchen_rest", &[("n", Arg::from(pieces(3.0)))]),
+        ]
+        .join("\n");
+        assert_eq!(node.description, expected);
+        bench.press_button("Abbuchen: Venture Arms");
+        assert_eq!(pieces_of(&paths, "Venture Arms", "Levski"), None, "an emptied stack is gone");
+        assert_eq!(pieces_of(&paths, "Venture Arms", ""), None);
+        assert_eq!(trade_on_disk(&paths).len(), 1, "TS-2 stays");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn a_sale_the_stock_does_not_hold_is_blocked_with_its_reason_and_can_be_discarded() {
+        let _language = setup();
+        let (home, paths) = world("verkauf-sperre", &[]);
+        stock_of(&paths, &[("Venture Arms", 2.0, "Area 18")]);
+        let sales = [
+            purchase(1700, "mag", 1, 50.0, Some("1")),
+            purchase(1710, "odd", 1, 5.0, Some("1")),
+            purchase(1720, "mult", 1, 9.0, None),
+        ];
+        write_deals(&paths, &[], &sales);
+        let before = trade_on_disk(&paths);
+        let mut bench = Bench::new(&paths);
+        bench.settle();
+        let buttons = bench.buttons();
+        let blocked: Vec<&Node> = buttons.iter().filter(|b| b.disabled).collect();
+        assert_eq!(blocked.len(), 3, "{buttons:?}");
+        assert!(blocked.iter().all(|b| !b.description.is_empty()), "blocked without a reason: {blocked:?}");
+        let arms = bench.button("Abbuchen: Venture Arms");
+        assert_eq!(
+            arms.description,
+            tf("s_lj_grund_lager", &[("name", Arg::from("Venture Arms")), ("ort", Arg::from("Levski"))])
+        );
+        assert_eq!(bench.button("Abbuchen: Odd Thing").description, t("s_lj_grund_item_verkauf"));
+        assert_eq!(
+            bench.button("Abbuchen: FBL-8a Arms Arctic Digital").description,
+            tf("s_lj_grund_lager_ohne_ort", &[("name", Arg::from("FBL-8a Arms Arctic Digital"))])
+        );
+        assert!(!buttons.iter().any(|b| b.name.starts_with("Alle buchen")), "nothing to take over: {buttons:?}");
+        // Asked by hand anyway: nothing is booked, nothing decided.
+        let keys: Vec<String> = bench.state.sugg.found.list.iter().map(|p| p.key.clone()).collect();
+        bench.state.adopt_suggestions(&keys);
+        assert_eq!(trade_on_disk(&paths), before);
+        assert!(Decisions::load(&paths).is_empty());
+        assert_eq!(bench.state.message.as_ref().map(|m| m.text.clone()), Some(t("s_lj_nicht_gebucht")));
+        bench.press_button("Verwerfen: Venture Arms");
+        assert_eq!(trade_on_disk(&paths), before, "a discard books nothing");
+        assert_eq!(Decisions::load(&paths).len(), 1);
+        assert!(shows(&bench.settle(), &title(2)));
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn take_over_all_books_the_purchases_first_and_takes_the_sales_out_after() {
+        let _language = setup();
+        let (home, paths) = world("gemischt", &[]);
+        // `mult` is bought at Levski and sold again later; nothing of it was in the stock before.
+        write_deals(&paths, &standard(), &[purchase(1700, "mult", 1, 700.0, Some("1"))]);
+        let mut bench = Bench::new(&paths);
+        let texts = bench.settle();
+        assert!(shows(&texts, &title(6)), "{texts:?}");
+        assert!(shows(&texts, &t("s_lj_alle_verkaeufe_eins")), "{texts:?}");
+        let hint = bench.button("Alle buchen (5)").description;
+        assert!(hint.contains(&t("s_lj_alle_verkaeufe_eins")), "{hint}");
+        // The sale alone finds nothing yet: its own button is blocked.
+        assert!(bench.button("Abbuchen: FBL-8a Arms Arctic Digital").disabled);
+        bench.press_button("Alle buchen (5)");
+        assert_eq!(pieces_of(&paths, "FBL-8a Arms Arctic Digital", "Levski"), None, "bought and sold again");
+        assert_eq!(pieces_of(&paths, "Venture Arms", "Levski"), Some(4.0));
+        assert_eq!(
+            bench.state.message.as_ref().map(|m| m.text.clone()),
+            Some(tf(
+                "s_lj_gebucht_gemischt_ort",
+                &[("k", Arg::from(4)), ("v", Arg::from(1)), ("ort", Arg::from("outpost"))]
+            ))
+        );
+        assert_eq!(open_names(&bench), ["Odd Thing:1"]);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn take_over_and_take_out_are_one_width_at_one_edge_in_every_scheme_size_and_language() {
+        let _language = setup();
+        let (home, paths) = world("breite", &[]);
+        stock_of(&paths, &[("Venture Arms", 2.0, "Levski")]);
+        write_deals(&paths, &standard(), &[purchase(1700, "mag", 1, 50.0, Some("1"))]);
+        let schemes = theme::schemes();
+        assert!(schemes.iter().any(|s| s.filled_buttons), "a scheme with filled buttons, in capitals");
+        let mut findings = Vec::new();
+        for scheme in schemes {
+            for choice in [Choice::De, Choice::En] {
+                language::set_language(choice);
+                for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                    let ctx = egui::Context::default();
+                    crate::install(&ctx);
+                    crate::apply_size(&ctx, points);
+                    ctx.enable_accesskit();
+                    let mut state = StockState::sample_on(&paths);
+                    state.items = true;
+                    let mut nodes: Nodes = Vec::new();
+                    for _ in 0..3 {
+                        let input = egui::RawInput {
+                            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(380.0, 2400.0))),
+                            ..Default::default()
+                        };
+                        let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, &mut state));
+                        output.textures_delta.clear();
+                        let Some(update) = output.platform_output.accesskit_update else { continue };
+                        nodes = update
+                            .nodes
+                            .iter()
+                            .filter_map(|(_, node)| {
+                                let b = node.bounds()?;
+                                let rect = Rect::from_min_max(
+                                    Pos2::new(b.x0 as f32, b.y0 as f32),
+                                    Pos2::new(b.x1 as f32, b.y1 as f32),
+                                );
+                                Some((node.role(), node.label().unwrap_or_default().to_string(), rect))
+                            })
+                            .collect();
+                    }
+                    let rects_of = |key: &str| -> Vec<Rect> {
+                        let word = format!("{}: ", t(key));
+                        nodes
+                            .iter()
+                            .filter(|(role, name, _)| *role == egui::Role::Button && name.starts_with(&word))
+                            .map(|(_, _, rect)| *rect)
+                            .collect()
+                    };
+                    let (take, out) = (rects_of("s_lj_uebernehmen"), rects_of("s_lj_abbuchen"));
+                    let at = format!("{} {choice:?} size {points}", scheme.id);
+                    assert!(!take.is_empty() && !out.is_empty(), "{at}: {nodes:?}");
+                    let first = take[0];
+                    for rect in take.iter().chain(&out) {
+                        if (rect.width() - first.width()).abs() > 0.5 || (rect.left() - first.left()).abs() > 0.5 {
+                            findings.push(format!("{at}: {first:?} against {rect:?}"));
+                        }
+                    }
+                }
+            }
+        }
+        language::set_language(Choice::De);
+        let _ = std::fs::remove_dir_all(home);
+        assert!(findings.is_empty(), "{findings:#?}");
+    }
+
+    #[test]
+    fn book_all_shows_what_it_books_with_its_icon() {
+        let _language = setup();
+        let (home, paths) = world("symbol", &[]);
+        write_deals(&paths, &standard(), &[purchase(1700, "mag", 1, 50.0, Some("1"))]);
+        let mut bench = Bench::new(&paths);
+        bench.settle();
+        let list = &bench.state.sugg.found.list;
+        let bought = list.iter().find(|p| !p.sold).expect("a purchase");
+        let sold = list.iter().find(|p| p.sold).expect("a sale");
+        assert_eq!(book_all_icon(&[bought]), "package-plus");
+        assert_eq!(book_all_icon(&[sold]), "package-minus");
+        assert_eq!(book_all_icon(&[bought, sold]), "check-check");
+        assert_eq!(book_all_icon(&[]), "package-plus");
         let _ = std::fs::remove_dir_all(home);
     }
 
@@ -1085,7 +1416,7 @@ mod tests {
         assert!(shows(&texts, &narrowed), "{texts:?}");
         assert!(shows(&texts, &tf("s_lj_gefiltert", &[("m", Arg::from(1)), ("n", Arg::from(5))])), "{texts:?}");
         assert!(!shows(&texts, "Odd Thing"), "{texts:?}");
-        bench.press_button("Alle übernehmen (1)");
+        bench.press_button("Alle buchen (1)");
         let trade = trade_on_disk(&paths);
         assert_eq!(trade.len(), 2, "only what the filter shows: {trade:?}");
         assert_eq!(trade[1].get("ware"), Some(&Value::str("FBL-8a Arms Arctic Digital")));
@@ -1110,7 +1441,7 @@ mod tests {
         let (home, paths) = world("veraendert", &standard());
         let mut bench = Bench::new(&paths);
         bench.settle();
-        bench.press_button("Alle übernehmen (4)");
+        bench.press_button("Alle buchen (4)");
         let Some(Message { undo: Some(back), .. }) = bench.state.message.take() else { panic!("no undo") };
         // Something else books an item before the undo.
         let mut trade = trade_on_disk(&paths);
@@ -1164,6 +1495,14 @@ mod tests {
     fn the_block_fits_every_size_and_both_languages() {
         let _language = setup();
         let (home, paths) = world("passt", &standard());
+        // Sales on top: one that can be taken out, one the stock does not hold, one of an unlisted item.
+        stock_of(&paths, &[("Venture Arms", 1.0, "Levski")]);
+        let sales = [
+            purchase(1700, "mag", 2, 124.0, Some("1")),
+            purchase(1710, "mult", 1, 9.0, None),
+            purchase(1720, "odd", 1, 5.0, Some("2")),
+        ];
+        write_deals(&paths, &standard(), &sales);
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
             language::set_language(choice);
@@ -1286,8 +1625,11 @@ mod tests {
         }
         // Booked in memory on a copy of the trade list: what the stock would hold.
         let mut trade = stock::load(&paths.app_file(stock::TRADE_FILE), "kopie");
-        let booked =
-            found.list.iter().filter(|p| p.adoptable()).filter(|p| suggestions::adopt(&mut trade, p).is_ok()).count();
+        let sold = found.list.iter().filter(|p| p.sold).count();
+        let takeable = found.list.iter().filter(|p| p.sold && p.bookable(&trade)).count();
+        println!("Verkäufe {sold}, davon jetzt abbuchbar {takeable}");
+        let order = suggestions::batch(&trade, &found.list);
+        let booked = order.iter().filter(|p| suggestions::adopt(&mut trade, p).is_ok()).count();
         println!("im Speicher gebucht: {booked}, Posten danach {}", trade.len());
         // The page itself, drawn on the copy.
         let mut state = StockState::with_files(&paths);

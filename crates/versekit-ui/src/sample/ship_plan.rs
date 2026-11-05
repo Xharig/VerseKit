@@ -40,6 +40,9 @@ fn two_ships() -> String {
 }
 
 fn page(name: &str, hangar_file: &str) -> (SamplePage, std::path::PathBuf) {
+    // The plain scheme for this test thread: other tests switch the scheme of the whole program meanwhile, and
+    // the scheme with the capital letters writes the buttons looked for here in another way.
+    versekit_core::theme::set_thread_current("original");
     let files = [
         ("laeden-katalog.json", catalog_file()),
         ("laeden.json", shops_file()),

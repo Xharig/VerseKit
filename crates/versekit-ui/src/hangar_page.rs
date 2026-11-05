@@ -144,6 +144,8 @@ pub struct HangarState {
     sync: SlotSync,
     /// The frame the page was last drawn in: a gap means the page was entered again.
     last_frame: Option<u64>,
+    /// The ship whose parts the crafting page is to show, until the window takes it.
+    craft_jump: Option<String>,
 }
 
 const SAMPLE: &str = r#"{"format": 1, "schiffe": [
@@ -206,6 +208,7 @@ impl Default for HangarState {
             unit_menu: None,
             sync: crate::slot_sync::global().clone(),
             last_frame: None,
+            craft_jump: None,
         }
     }
 }
@@ -230,6 +233,11 @@ impl HangarState {
     /// Whether `setting` (a shown name) is one of the pairing settings.
     pub fn is_pairing_setting(setting: &str) -> bool {
         PAIRING_SETTINGS.iter().any(|key| t(key) == setting)
+    }
+
+    /// The ship whose parts the crafting page is to show, once: the button of a ship card asked for it.
+    pub fn take_craft_jump(&mut self) -> Option<String> {
+        self.craft_jump.take()
     }
 
     /// Whether the pairing settings are unfolded.
@@ -976,6 +984,8 @@ enum RowAction {
     Unit(UnitPick),
     /// The box "Loadout & cart" asks for a change of the equipment.
     Equip(equipment_box::Action),
+    /// The parts that can be crafted for the ship of this name.
+    Craft(String),
 }
 
 /// One ship: name and remove button; origin, insurance, package, slots and
@@ -1076,6 +1086,13 @@ fn ship_row(
         && let Some(asked) = equipment_box::show(ui, scheme, ctx, eq_state, entry, &key, false)
     {
         action = Some(RowAction::Equip(asked));
+    }
+    // To the crafting page, with this ship in its filter: what can be built for it, with or without the blueprint.
+    let word = t("s_hg_herstellbar");
+    let spoken = tf("s_hg_herstellbar_fuer", &[("schiff", Arg::from(name))]);
+    let craft = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("zap").spoken(&spoken);
+    if ui.add(craft).on_hover_text(t("s_hg_herstellbar_tip")).clicked() {
+        action = Some(RowAction::Craft(name.trim().to_string()));
     }
     names.card(ui, scheme, name, &key);
     action
@@ -1787,6 +1804,7 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
             }
         }
         RowAction::Unit(pick) => state.set_unit(i, pick),
+        RowAction::Craft(name) => state.craft_jump = Some(name),
         RowAction::Equip(asked) => {
             let (stores, extra) = (state.stores.clone(), state.extra.clone());
             if let Some(entry) = hangar::ship_mut(&mut state.held.data, i)
@@ -1819,6 +1837,7 @@ mod tests {
 
     #[test]
     fn details_name_origin_insurance_and_package() {
+        steady();
         let state = HangarState::default();
         let ships = hangar::ships(&state.held.data);
         let line = |name: &str| {
@@ -1837,6 +1856,19 @@ mod tests {
     const TWO: &str = r#"{"format": 1, "schiffe": [
         {"name": "Carrack", "hersteller": "Anvil", "herkunft": "pledge", "belegung": {}},
         {"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {}}]}"#;
+
+    /// Pins this test thread to the plain scheme: other tests switch the scheme of the whole program meanwhile,
+    /// and a page drawn in another scheme between two frames has its rows elsewhere.
+    fn steady_scheme() {
+        versekit_core::theme::set_thread_current("original");
+    }
+
+    /// Pins this test thread to German and the plain scheme, for the tests that compare a shown text with the
+    /// language file without holding the language lock.
+    fn steady() {
+        steady_scheme();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+    }
 
     /// A page on `hangar.json` in a new folder, with a UEX list of two ships.
     fn page_on(name: &str, start: &str) -> (HangarState, std::path::PathBuf) {
@@ -1861,6 +1893,7 @@ mod tests {
 
     #[test]
     fn a_failed_save_after_an_import_stays_red() {
+        steady();
         // Ships bought in the game: the import removes none, no backup is due.
         let (mut state, dir) = page_on("importfehler", &TWO.replace("pledge", "ingame"));
         let list = dir.join("liste.json");
@@ -1881,6 +1914,7 @@ mod tests {
 
     #[test]
     fn removing_keeps_a_backup_first() {
+        steady();
         let (mut state, dir) = page_on("sicherung", TWO);
         state.remove("Gladius", "Aegis");
         assert_eq!(std::fs::read_to_string(dir.join("hangar.bak.json")).expect("backup"), TWO);
@@ -1909,6 +1943,7 @@ mod tests {
 
     #[test]
     fn under_the_names_stands_how_many_ships_can_be_renamed_and_which_not() {
+        steady_scheme();
         use versekit_core::language::{Choice, set_language};
         let _language = crate::language_lock();
         let ctx = egui::Context::default();
@@ -1944,6 +1979,7 @@ mod tests {
 
     #[test]
     fn the_page_asks_for_slots_after_an_import_a_ship_by_hand_and_on_entering() {
+        steady_scheme();
         use crate::slot_sync::tests::{Counter, WAIT};
         let _language = crate::language_lock();
         let (mut state, dir) = page_on("steckplaetze", &TWO.replace("pledge", "ingame"));
@@ -1996,6 +2032,7 @@ mod tests {
 
     #[test]
     fn the_wish_list_takes_a_ship_of_the_list_with_its_maker_and_says_why_it_refuses_another() {
+        steady_scheme();
         let _language = crate::language_lock();
         versekit_core::language::set_language(versekit_core::language::Choice::De);
         let (mut state, dir) = page_on(
@@ -2093,6 +2130,7 @@ mod tests {
 
     #[test]
     fn the_hangar_page_ends_with_the_section_planned_and_scrolls_to_it_once_asked() {
+        steady_scheme();
         let _language = crate::language_lock();
         versekit_core::language::set_language(versekit_core::language::Choice::De);
         let ctx = egui::Context::default();
@@ -2261,6 +2299,7 @@ mod tests {
 
     #[test]
     fn the_wish_list_with_cards_sticks_out_nowhere_in_both_languages() {
+        steady_scheme();
         use versekit_core::language::{Choice as Lang, set_language};
         let _language = crate::language_lock();
         let scheme = versekit_core::theme::current();
@@ -2306,6 +2345,7 @@ mod tests {
 
     #[test]
     fn the_parts_of_the_open_boxes_without_a_shop_price_are_looked_up_once_and_in_the_background() {
+        steady();
         let (mut state, dir) = page_on("preise", TWO);
         let data_dir = dir.to_string_lossy().into_owned();
         state.paths = Some(Paths::new(versekit_core::paths::Host::new(
@@ -2416,6 +2456,7 @@ mod tests {
     /// Every own control of a ship row has a name for screen readers.
     #[test]
     fn row_controls_have_names() {
+        steady();
         let ctx = egui::Context::default();
         crate::install(&ctx);
         ctx.enable_accesskit();
@@ -2431,6 +2472,44 @@ mod tests {
         assert!(has(Role::ComboBox, &t("s_hgl_schmelzen")), "{labels:?}");
         assert!(has(Role::Button, &t("s_hg_entfernen")), "{labels:?}");
         assert!(has(Role::CheckBox, &t("s_as_stern")), "{labels:?}");
+    }
+
+    #[test]
+    fn the_button_of_a_ship_asks_for_its_craftable_parts_once() {
+        steady_scheme();
+        let _language = crate::language_lock();
+        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        let start = r#"{"format": 1, "schiffe": [{"name": "Arrow", "hersteller": "Anvil Aerospace"},
+            {"name": "Avenger Titan", "hersteller": "Aegis Dynamics"}]}"#;
+        let (mut state, dir) = page_on("craft-jump", start);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let scheme = versekit_core::theme::current();
+        let run = |state: &mut HangarState, events: Vec<egui::Event>| {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 4000.0))),
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+            output.textures_delta.clear();
+            output.platform_output.accesskit_update.expect("accesskit is on").nodes
+        };
+        let nodes = run(&mut state, Vec::new());
+        let spoken = tf("s_hg_herstellbar_fuer", &[("schiff", Arg::from("Avenger Titan"))]);
+        assert_eq!(spoken, "Herstellbare Teile für Avenger Titan");
+        let at = nodes
+            .iter()
+            .find(|(_, n)| n.role() == Role::Button && n.label() == Some(spoken.as_str()))
+            .and_then(|(_, n)| n.bounds())
+            .map(|b| egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32))
+            .expect("every ship card has the button, named with its ship");
+        assert_eq!(state.take_craft_jump(), None, "nothing is asked before the click");
+        run(&mut state, click(at));
+        assert_eq!(state.take_craft_jump().as_deref(), Some("Avenger Titan"));
+        assert_eq!(state.take_craft_jump(), None, "taken once");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     fn labels_of(ctx: &egui::Context, state: &mut HangarState) -> Vec<(Role, String)> {
@@ -2504,6 +2583,7 @@ mod tests {
     /// The import part says that the Basetool comes first only while the hangar is shared over it.
     #[test]
     fn the_import_says_the_basetool_comes_first_only_with_the_hangar_area_on() {
+        steady_scheme();
         use versekit_core::basetool::exchange_double::ExchangeDouble;
         let _language = crate::language_lock();
         let dir = std::env::temp_dir()
@@ -2665,6 +2745,7 @@ mod tests {
 
     #[test]
     fn a_jump_from_the_menu_filter_lights_the_row_of_its_setting_only() {
+        steady_scheme();
         versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let plain = pairing_drawn(None);
         for key in PAIRING_SETTINGS {
@@ -2679,6 +2760,7 @@ mod tests {
 
     #[test]
     fn identical_ships_share_their_name_and_enter_stores_it() {
+        steady();
         let hangar_text = r#"{"format": 1, "schiffe": [
             {"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {}},
             {"name": "Gladius", "hersteller": "", "herkunft": "ingame", "belegung": {}},
@@ -2725,14 +2807,17 @@ mod tests {
     /// in a row; the button writes at once.
     #[test]
     fn a_stored_name_is_written_into_the_game_and_the_button_writes_at_once() {
+        steady();
         use std::sync::atomic::{AtomicUsize, Ordering};
         let hangar_text = r#"{"format": 1, "schiffe": [{"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {}}]}"#;
         let (mut state, dir, file) = names_page("schreiben", hangar_text, &["vehicle_NameAEGS_Gladius=Gladius"]);
         let writes = std::sync::Arc::new(AtomicUsize::new(0));
         let counted = writes.clone();
+        // The text is taken here: the writer runs in a thread of its own, which has the language of the program.
+        let stands = t("s_as_steht");
         state.names.set_writer(std::sync::Arc::new(move || {
             counted.fetch_add(1, Ordering::SeqCst);
-            (t("s_as_steht"), false)
+            (stands.clone(), false)
         }));
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -2789,6 +2874,7 @@ mod tests {
 
     #[test]
     fn the_star_is_stored_at_once_and_sorts_first_after_a_new_search() {
+        steady();
         let hangar_text = r#"{"format": 1, "schiffe": [
             {"name": "Arrow", "hersteller": "Anvil", "herkunft": "pledge", "belegung": {}},
             {"name": "Zeus", "hersteller": "RSI", "herkunft": "pledge", "belegung": {}}]}"#;
@@ -2826,6 +2912,7 @@ mod tests {
     /// fitted parts, at every width.
     #[test]
     fn row_controls_keep_their_places() {
+        steady();
         use versekit_core::language::{Choice, Lang, set_thread_language};
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
@@ -2920,6 +3007,7 @@ mod tests {
 
     #[test]
     fn a_name_still_being_typed_is_stored_when_the_window_closes() {
+        steady();
         let (mut state, dir, file) = names_page("schliessen", TWO, &["vehicle_NameAEGS_Gladius=Gladius"]);
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -2937,6 +3025,7 @@ mod tests {
 
     #[test]
     fn a_name_that_cannot_be_stored_stays_on_the_page() {
+        steady();
         let (mut state, dir, file) = names_page("fehler", TWO, &["vehicle_NameAEGS_Gladius=Gladius"]);
         // A folder in place of the file: writing fails.
         std::fs::create_dir_all(&file).expect("in the way");
@@ -2957,6 +3046,7 @@ mod tests {
 
     #[test]
     fn the_search_finds_the_own_name() {
+        steady();
         let mut state = HangarState::default();
         let mut data = versekit_core::asop::empty();
         versekit_core::asop::set_name(&mut data, "vehicle_NameANVL_Carrack", "Mutterschiff", false);
@@ -2975,6 +3065,7 @@ mod tests {
     /// long search and a long last message.
     #[test]
     fn nothing_sticks_out() {
+        steady();
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
         for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
@@ -3042,6 +3133,7 @@ mod tests {
     /// in-game name block lies inside the frame of its card, once per card.
     #[test]
     fn ship_cards_stand_apart_and_hold_their_name_block() {
+        steady();
         let hangar_text = r#"{"format": 1, "schiffe": [
             {"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {}},
             {"name": "Idris", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {}},

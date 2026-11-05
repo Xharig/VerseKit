@@ -129,16 +129,33 @@ fn ores_come_before_the_salvage_and_a_real_scan_of_a_game_is_named_as_seen() {
 }
 
 #[test]
-fn the_sizes_grow_with_the_picture_and_are_read_from_their_words() {
-    assert!(Size::Small.font_px(1080) < Size::Medium.font_px(1080));
-    assert!(Size::Medium.font_px(1080) < Size::Large.font_px(1080));
-    assert!(Size::Medium.font_px(2160) > Size::Medium.font_px(1080));
-    assert_eq!(Size::Small.font_px(100), 12, "never smaller than twelve points");
-    for size in Size::ALL {
-        assert_eq!(Size::from_setting(Some(size.setting())), size);
+fn the_sizes_grow_with_the_picture_and_are_read_from_numbers_and_the_old_words() {
+    assert!(Size::MIN.font_px(1080) < Size::DEFAULT.font_px(1080));
+    assert!(Size::DEFAULT.font_px(1080) < Size::MAX.font_px(1080));
+    assert!(Size::DEFAULT.font_px(2160) > Size::DEFAULT.font_px(1080));
+    assert_eq!(Size::MIN.font_px(100), 8, "never smaller than eight points");
+    // The default is about half of the former medium, and the slider reaches below the former small.
+    assert_eq!(Size::DEFAULT, Size(11));
+    assert!(Size::MIN.0 < Size::read(Some(&Value::str("klein"))).0);
+    // The words of the three fixed sizes keep the size they stood for.
+    assert_eq!(Size::read(Some(&Value::str("klein"))), Size(16));
+    assert_eq!(Size::read(Some(&Value::str("mittel"))), Size(22));
+    assert_eq!(Size::read(Some(&Value::str("gross"))), Size(32));
+    assert_eq!(Size::read(Some(&Value::str("riesig"))), Size::DEFAULT);
+    assert_eq!(Size::read(None), Size::DEFAULT);
+    assert_eq!(Size::read(Some(&Size(14).value())), Size(14), "a number comes back as it was written");
+    assert_eq!(Size::read(Some(&Value::int(2))), Size::MIN);
+    assert_eq!(Size::read(Some(&Value::int(99))), Size::MAX);
+}
+
+#[test]
+fn the_place_and_the_time_left_come_from_the_settings_with_their_limits() {
+    for place in Place::ALL {
+        assert_eq!(Place::from_setting(Some(place.setting())), place);
     }
-    assert_eq!(Size::from_setting(None), Size::Medium);
-    assert_eq!(Size::from_setting(Some("riesig")), Size::Medium);
+    assert_eq!(Place::from_setting(None), Place::InfoBar, "as before: beside the info bar no window");
+    let layout = Layout::default();
+    assert_eq!((layout.place, layout.linger, layout.size), (Place::InfoBar, 5, Size::DEFAULT));
 }
 
 #[test]

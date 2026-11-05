@@ -2373,7 +2373,8 @@ mod tests {
                 (880.0, 380.0, "original"),
                 (880.0, 380.0, "krt"),
             ] {
-                theme::set_current(scheme_id);
+                // The scheme of this test thread only: the scheme of the program is one for all tests side by side.
+                theme::set_thread_current(scheme_id);
                 language::set_language(lang);
                 // What the window shows without the assistant stands behind it: only the rest is the assistant's.
                 page.setup = None;
@@ -2503,7 +2504,7 @@ mod tests {
             }
         }
         language::set_language(Choice::De);
-        theme::set_current("original");
+        theme::set_thread_current("original");
         let _ = std::fs::remove_dir_all(dir);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }

@@ -19,7 +19,7 @@
 //! draw, in every scheme (WCAG 2.x: text 4.5, borders and marks 3).
 
 use versekit_core::theme::{self, Color, KRT_ORANGE, Scheme};
-use versekit_ui::widgets::{ButtonKind, RankTone, button_colors, rank_bar, rank_edge};
+use versekit_ui::widgets::{ButtonKind, RankTone, button_colors, rank_bar, rank_edge, section_title_color};
 
 /// (what, foreground, background, needed ratio)
 fn pairs(s: &Scheme) -> Vec<(String, Color, Color, f64)> {
@@ -68,6 +68,9 @@ fn pairs(s: &Scheme) -> Vec<(String, Color, Color, f64)> {
         ("Akzent-Lupe in Suchzeile".into(), s.accent, s.search_ground(), mark),
         ("Rand der Suchzeile auf Grund".into(), s.search_border(), s.bg, mark),
         ("Rand der Suchzeile auf Kasten".into(), s.search_border(), s.surface, mark),
+        // The small capital titles of the groups: in a card and, on some pages, on the ground.
+        ("Abschnittsüberschrift auf Kasten".into(), section_title_color(s), s.surface, text),
+        ("Abschnittsüberschrift auf Grund".into(), section_title_color(s), s.bg, text),
     ];
     let kinds = [
         ("normal", ButtonKind::Normal),

@@ -220,9 +220,10 @@ impl Said {
     }
 }
 
-/// The small name of a group of settings above its rows.
+/// The small name of a group of settings above its rows, in the accent of the scheme.
 pub fn setting_group(ui: &mut Ui, scheme: &Scheme, title: &str) {
-    let shown = ui.label(RichText::new(title.to_uppercase()).small().color(color(scheme.sub)));
+    let tone = color(widgets::section_title_color(scheme));
+    let shown = ui.label(RichText::new(title.to_uppercase()).small().color(tone));
     crate::highlight::mark(ui, scheme, shown.rect, &[title]);
     ui.add_space(2.0);
 }
@@ -725,6 +726,33 @@ mod tests {
         bar_top: "Leiste oben",
         bar_bottom: "Leiste unten",
     };
+
+    /// The title of a group stands in capitals in the accent of every scheme, the color the contrast check measures.
+    #[test]
+    fn the_title_of_a_group_stands_in_the_accent_of_every_scheme() {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        for s in theme::schemes() {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(600.0, 200.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| setting_group(ui, s, "Info-Leiste"));
+            output.textures_delta.clear();
+            let colors: Vec<egui::Color32> = output
+                .shapes
+                .iter()
+                .filter_map(|clipped| match &clipped.shape {
+                    egui::Shape::Text(text) if text.galley.text() == "INFO-LEISTE" => {
+                        text.galley.job.sections.first().map(|section| section.format.color)
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(colors, [color(widgets::section_title_color(s))], "{}", s.id);
+            assert_eq!(widgets::section_title_color(s), s.accent, "{}", s.id);
+        }
+    }
 
     #[test]
     fn the_overlay_square_places_the_overlay_where_it_is_clicked() {

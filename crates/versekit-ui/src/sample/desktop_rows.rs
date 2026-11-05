@@ -315,6 +315,7 @@ mod tests {
         for key in [
             "s_tray",
             "s_tray_h",
+            "s_tray_h_ohne",
             "s_nur_win",
             "s_systemmeldung",
             "s_systemmeldung_h",

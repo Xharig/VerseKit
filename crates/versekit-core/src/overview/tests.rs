@@ -254,6 +254,25 @@ fn refinery_jobs_split_into_running_and_done_and_old_ones_go() {
 }
 
 #[test]
+fn the_overlay_lines_of_the_refinery_put_the_running_first_and_mark_the_done() {
+    let job = |ends: f64, material: &str| {
+        vec![
+            ("ends".to_string(), Value::Float(ends)),
+            ("materials".to_string(), Value::Array(vec![Value::str(material)])),
+        ]
+    };
+    let now = 100_000.0;
+    let jobs = [job(now - 10.0, "Gold"), job(now + 600.0, "Quarz"), job(now + 60.0, "Iron")];
+    let lines = refinery_lines(&jobs, now);
+    let marks: Vec<bool> = lines.iter().map(|(_, done)| *done).collect();
+    assert_eq!(marks, [false, false, true], "{lines:?}");
+    assert!(lines[0].0.starts_with("Iron") && lines[0].0.contains("1m 0s"), "the nearest end first: {lines:?}");
+    assert!(lines[1].0.starts_with("Quarz") && lines[1].0.contains("10m 0s"), "{lines:?}");
+    assert!(lines[2].0.starts_with("Gold") && !lines[2].0.contains("0s"), "a done one has no time left: {lines:?}");
+    assert!(refinery_lines(&[], now).is_empty());
+}
+
+#[test]
 fn storage_counts_names_and_puts_counted_materials_last() {
     use crate::stock::{Row, Store};
     let row = |store: Store, name: &str, amount: f64, place: &str, piece: bool, item: bool| Row {

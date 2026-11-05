@@ -196,6 +196,19 @@ fn name_of(memo: &Memo) -> String {
     }
 }
 
+/// Where the title of `text` ends (see [`Memo::title`]): the end of its first line that holds something,
+/// without the line break; 0 for a text without one.
+fn title_end(text: &str) -> usize {
+    let mut at = 0;
+    for line in text.split_inclusive('\n') {
+        if !line.trim().is_empty() {
+            return at + line.trim_end_matches(['\n', '\r']).len();
+        }
+        at += line.len();
+    }
+    0
+}
+
 /// Draws the page.
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState) {
     state.tick(ui);
@@ -307,7 +320,21 @@ fn editor(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState, height: f32, now
     let mut text = open.text.clone();
     let hint = t("s_nz_schreib_hier");
     let name = t("hf_notizen");
+    // The line that names the memo stands as a heading: Lato Bold in the size and colour of a heading.
+    let title_font = crate::fonts::bold(egui::TextStyle::Heading.resolve(ui.style()).size);
+    let body_font = egui::TextStyle::Body.resolve(ui.style());
+    let (title_color, body_color) = (color(widgets::heading_color(scheme)), color(scheme.fg));
+    let mut layouter = |ui: &Ui, buffer: &dyn egui::TextBuffer, wrap: f32| {
+        let all = buffer.as_str();
+        let end = title_end(all);
+        let mut job = egui::text::LayoutJob::default();
+        job.append(&all[..end], 0.0, egui::TextFormat::simple(title_font.clone(), title_color));
+        job.append(&all[end..], 0.0, egui::TextFormat::simple(body_font.clone(), body_color));
+        job.wrap.max_width = wrap;
+        ui.fonts_mut(|fonts| fonts.layout_job(job))
+    };
     let edit = widgets::text_area(&mut text, &hint, scheme)
+        .layouter(&mut layouter)
         .id(text_id(state.epoch))
         .desired_width(f32::INFINITY)
         .desired_rows(TEXT_ROWS)
@@ -426,6 +453,57 @@ mod tests {
         }
         state.open(0);
         state
+    }
+
+    #[test]
+    fn the_title_ends_with_the_first_line_that_holds_something() {
+        for (text, title) in [
+            ("", ""),
+            ("Titanium holen", "Titanium holen"),
+            ("Titanium holen\nLorville", "Titanium holen"),
+            ("\n  \nTitanium\r\nLorville", "\n  \nTitanium"),
+            ("   \n", ""),
+        ] {
+            assert_eq!(&text[..title_end(text)], title, "{text:?}");
+            let memo = Memo { text: text.to_string(), ..Default::default() };
+            assert_eq!(text[..title_end(text)].trim(), memo.title(), "the same line as the name in the list: {text:?}");
+        }
+    }
+
+    #[test]
+    fn the_first_line_of_the_field_stands_as_a_heading_and_the_rest_as_text() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let ctx = context();
+        let mut state = state_with(1);
+        state.memos.set_text(0, "Titanium holen\nLorville\nArea18", 1);
+        state.epoch += 1;
+        let scheme = versekit_core::theme::current();
+        let output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                ..Default::default()
+            },
+            |ui| {
+                layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, &mut state));
+            },
+        );
+        fn find(shape: &egui::epaint::Shape) -> Option<std::sync::Arc<egui::Galley>> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text().contains("Lorville") => Some(text.galley.clone()),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(find),
+                _ => None,
+            }
+        }
+        let galley = output.shapes.iter().find_map(|c| find(&c.shape)).expect("the field is drawn");
+        let sections = &galley.job.sections;
+        let bold = egui::FontFamily::Name(crate::fonts::BOLD.into());
+        let range = |s: &egui::text::LayoutSection| (s.byte_range.start.0, s.byte_range.end.0);
+        let title = sections.iter().find(|s| range(s) == (0, 14)).expect("a section for the first line");
+        assert_eq!(title.format.font_id.family, bold, "the first line in Lato Bold");
+        let rest = sections.iter().find(|s| range(s).0 == 14).expect("a section for the rest");
+        assert_ne!(rest.format.font_id.family, bold, "the rest as usual text");
+        assert!(title.format.font_id.size > rest.format.font_id.size, "the first line larger");
     }
 
     #[test]

@@ -149,8 +149,6 @@ impl std::error::Error for FetchError {}
 /// What [`fetch_original`] did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FetchOutcome {
-    /// A file was already there and is not ours: it stays.
-    Kept,
     /// The original was written; its size in bytes.
     Written { bytes: usize },
 }
@@ -635,19 +633,16 @@ fn target_ini(paths: &Paths, language: &str, game_folder: Option<&str>) -> Optio
 // ------------------------------------------------------ backup and writing
 
 /// `_write_original`: put the original texts at the target, atomically, after
-/// a copy of the file that was there. For the main installation the
-/// remembered original texts of that file are discarded (a fresh base, see
-/// `injection::discard_origtext_for`); a side channel never touches them,
-/// they belong to the main installation.
-fn write_original(paths: &Paths, target: &str, data: &[u8], main: bool) -> io::Result<()> {
+/// a copy of the file that was there. The remembered original texts of that
+/// file are discarded (a fresh base, see `injection::discard_origtext_for`),
+/// in the note of the channel the file belongs to.
+fn write_original(paths: &Paths, target: &str, data: &[u8]) -> io::Result<()> {
     let folder = paths.host.flavor.dirname(target);
     if !folder.is_empty() {
         jsonio::make_dirs(&folder)?;
     }
     translation::replace_game_file(paths, target, data, BACKUPS_KEPT)?;
-    if main {
-        injection::discard_origtext_for(paths, target);
-    }
+    injection::discard_origtext_for(paths, target);
     Ok(())
 }
 
@@ -690,7 +685,7 @@ fn refresh_original_with(paths: &Paths, game_folder: Option<&str>, read: Archive
     }
     let Some(target) = target_ini(paths, ENGLISH, Some(&folder)) else { return Ok(false) };
     let Ok(data) = read(ENGLISH, &folder) else { return Ok(false) };
-    write_original(paths, &target, &data, true)?;
+    write_original(paths, &target, &data)?;
     paths.set_setting(ORIGINAL_STAMP, Value::str(stamp));
     Ok(true)
 }
@@ -698,21 +693,17 @@ fn refresh_original_with(paths: &Paths, game_folder: Option<&str>, read: Archive
 /// `fetch`: get the `global.ini` of a language from the archive and place it
 /// where the game expects it.
 ///
-/// An existing foreign file is not touched: it could be the translation of
-/// another project, and replacing it because someone chose the original
-/// texts would be a real loss. Except for a file this tool placed itself and
-/// noted (StarStrings in `english/`): it is replaced, and the note of the
-/// replaced source is forgotten, else the page would still show it as set up
-/// and the next switch to the original would replace the fresh file once
-/// more. The note "original" itself stays; the file is the original.
-///
-/// A file that is replaced is copied next to it first (see the module text).
+/// The file that lies there goes first, whoever placed it: what the player
+/// gets is the file of the archive and nothing of an older one. It is copied
+/// next to it before (see the module text), so another translation is not
+/// lost. The notes of the tool's own sources in that folder (StarStrings in
+/// `english/`) are forgotten, else the page would still show them as set up.
+/// The note "original" itself stays; the file is the original.
 ///
 /// The file alone is not enough: without `g_language` in the `user.cfg` the
 /// game does not read it. With `set_language`, `set_user_cfg` is called with
-/// the language folder, after placing and also when a file was kept (it lies
-/// right but would not be read without the entry). It returns whether it
-/// worked; a failure does not discard the rest.
+/// the language folder after placing. It returns whether it worked; a failure
+/// does not discard the rest.
 ///
 /// # Errors
 ///
@@ -738,11 +729,6 @@ fn fetch_original_with(
     set_user_cfg: &dyn Fn(&str) -> bool,
     read: ArchiveRead<'_>,
 ) -> Result<FetchOutcome, FetchError> {
-    let enter_language = || {
-        if set_language && !set_user_cfg(language) {
-            errors::record("gametext._set_language", &"g_language could not be entered");
-        }
-    };
     let folder = resolve_folder(paths, game_folder).ok_or(FetchError::Read(ReadError::NoArchive))?;
     if !game_ini::is_file(&archive_file(&folder)) {
         return Err(FetchError::Read(ReadError::NoArchive));
@@ -750,12 +736,8 @@ fn fetch_original_with(
     let target = target_ini(paths, language, Some(&folder)).ok_or(FetchError::UnknownTarget)?;
     let channel = side_channel(paths, &folder);
     let replaced = placed_by_us(paths, language, channel.as_deref());
-    if game_ini::is_file(&target) && replaced.is_empty() {
-        enter_language();
-        return Ok(FetchOutcome::Kept);
-    }
     let data = read(language, &folder).map_err(FetchError::Read)?;
-    write_original(paths, &target, &data, channel.is_none()).map_err(|error| FetchError::Write(error_text(&error)))?;
+    write_original(paths, &target, &data).map_err(|error| FetchError::Write(error_text(&error)))?;
     if language == ENGLISH
         && channel.is_none()
         && let Some(stamp) = archive_stamp(&folder)
@@ -765,7 +747,9 @@ fn fetch_original_with(
     for source in replaced.iter().filter(|source| *source != ORIGINAL) {
         forget_note(paths, &versekit_core::translation::note_key(source, channel.as_deref()));
     }
-    enter_language();
+    if set_language && !set_user_cfg(language) {
+        errors::record("gametext._set_language", &"g_language could not be entered");
+    }
     Ok(FetchOutcome::Written { bytes: data.len() })
 }
 
@@ -1388,12 +1372,14 @@ mod tests {
 
     // ------------------------------------------------ the original
 
+    /// A file the tool did not place (another translation, an older English one) goes too: the original comes from
+    /// the archive whole, the old file stays as a copy beside it, and the language is entered.
     #[test]
-    fn a_foreign_file_is_kept_and_the_language_is_still_entered() {
+    fn a_foreign_file_makes_way_for_the_original_and_stays_as_a_copy() {
         let fx = Fixture::new("fetch-foreign");
         fx.archive(b"original=Original text\n");
         let target = fx.english();
-        fx.put(&target, b"Foreign version <EM4>[BP]</EM4>\n");
+        fx.put(&target, b"Foreign version <EM4>[BP]</EM4>\nold_only=A line the archive no longer has\n");
         let entered = Cell::new(0);
         let enter = |language: &str| {
             assert_eq!(language, ENGLISH);
@@ -1401,18 +1387,121 @@ mod tests {
             true
         };
         let outcome = fetch_original(&fx.paths, ENGLISH, Some(&fx.game), true, &enter).unwrap();
-        assert_eq!(outcome, FetchOutcome::Kept);
-        assert_eq!(fs::read(&target).unwrap(), b"Foreign version <EM4>[BP]</EM4>\n");
+        assert_eq!(outcome, FetchOutcome::Written { bytes: b"original=Original text\n".len() });
+        assert_eq!(fs::read(&target).unwrap(), b"original=Original text\n", "nothing of the old file is left");
         assert_eq!(entered.get(), 1);
+        let backups = fx.backups(&target);
+        assert_eq!(backups.len(), 1);
+        let copy = format!("{}/{}", Path::new(&target).parent().unwrap().display(), backups[0]);
+        assert_eq!(
+            fs::read(copy).unwrap(),
+            b"Foreign version <EM4>[BP]</EM4>\nold_only=A line the archive no longer has\n",
+            "the old file is kept as a copy"
+        );
+        assert_eq!(fx.paths.setting(ORIGINAL_STAMP), archive_stamp(&fx.game));
         // Not asked for: the user.cfg stays alone.
         fetch_original(&fx.paths, ENGLISH, Some(&fx.game), false, &enter).unwrap();
         assert_eq!(entered.get(), 1);
-        assert!(fx.backups(&target).is_empty());
-        assert_eq!(fx.paths.setting(ORIGINAL_STAMP), None);
+    }
+
+    /// The original texts chosen for a copy of a game folder (`VERSEKIT_GAME_COPY`, with a `Data.p4k` of any content
+    /// and an English file not placed by the tool) are the English file of the archive of an installed channel
+    /// (`VERSEKIT_CHANNEL_FOLDER`, only read), whole; the old file stays as a copy and the `user.cfg` names English.
+    #[test]
+    #[ignore = "reads the installed game and writes into the copy given"]
+    fn the_original_of_the_installed_game_replaces_the_english_file_of_a_copy() {
+        let real = std::env::var("VERSEKIT_CHANNEL_FOLDER").expect("VERSEKIT_CHANNEL_FOLDER");
+        let copy = std::env::var("VERSEKIT_GAME_COPY").expect("VERSEKIT_GAME_COPY");
+        let same = |a: &str, b: &str| fs::canonicalize(a).ok() == fs::canonicalize(b).ok();
+        assert!(!same(&real, &copy), "the copy is not the installed game");
+        let data = format!("{copy}/../versekit-daten");
+        fs::create_dir_all(&data).unwrap();
+        let host = Host::new(
+            Flavor::native(),
+            &[("HOME", copy.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", copy.as_str())],
+            &copy,
+        );
+        let paths = Paths::new(host);
+        let target = format!("{copy}/data/Localization/english/global.ini");
+        let before = fs::read(&target).expect("an English file in the copy");
+        assert!(placed_by_us(&paths, ENGLISH, None).is_empty(), "the file of the copy is not the tool's");
+        let original = read_from_archive(ENGLISH, &real).unwrap();
+        println!("archive: {} bytes, file of the copy before: {} bytes", original.len(), before.len());
+        let set = |language: &str| versekit_core::translation::set_user_cfg(&paths, &copy, language, None);
+        let from_real = |language: &str, _: &str| read_from_archive(language, &real);
+        let outcome = fetch_original_with(&paths, ENGLISH, Some(&copy), true, &set, &from_real).unwrap();
+        assert_eq!(outcome, FetchOutcome::Written { bytes: original.len() });
+        let after = fs::read(&target).unwrap();
+        assert!(after == original.as_slice(), "the English file is the one of the archive");
+        assert!(versekit_core::translation::looks_like_global_ini(&after));
+        let copies: Vec<String> = fs::read_dir(format!("{copy}/data/Localization/english"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path().to_string_lossy().into_owned())
+            .filter(|name| name.contains("global.ini.versekit-"))
+            .collect();
+        assert!(copies.iter().any(|c| fs::read(c).unwrap() == before), "the old file stays as a copy: {copies:?}");
+        let cfg = fs::read_to_string(format!("{copy}/user.cfg")).unwrap();
+        assert!(cfg.lines().any(|l| l.replace(' ', "").eq_ignore_ascii_case("g_language=english")), "{cfg}");
+    }
+
+    /// The archive as the program hands it to a switch of the source: the original through [`fetch_original`].
+    struct FromArchive;
+
+    impl versekit_core::game_texts::Archive for FromArchive {
+        fn stamp(&self, _: &Paths) -> Option<String> {
+            None
+        }
+        fn refresh_original(&self, _: &Paths) -> bool {
+            false
+        }
+        fn fill_gaps(&self, _: &Paths, _: &str) -> usize {
+            0
+        }
+        fn fetch_original(
+            &self,
+            paths: &Paths,
+            root: &str,
+            set_language: bool,
+        ) -> Result<versekit_core::game_texts::Placed, String> {
+            let set = |language: &str| versekit_core::translation::set_user_cfg(paths, root, language, None);
+            match fetch_original(paths, ENGLISH, Some(root), set_language, &set) {
+                Ok(FetchOutcome::Written { bytes }) => {
+                    Ok(versekit_core::game_texts::Placed { said: bytes.to_string(), written: true })
+                }
+                Err(error) => Err(error.to_string()),
+            }
+        }
+        fn refresh_names(&self, _: &Paths) {}
+    }
+
+    /// The original chosen over an English file of an earlier source that still carries notes and lines of its
+    /// own: the file of the archive comes whole, the notes go in as with any source, and taking them out again
+    /// leaves exactly the file of the archive. Outside the English folder nothing changes.
+    #[test]
+    fn the_original_over_an_earlier_english_file_is_clean_once_the_notes_are_taken_out() {
+        use versekit_core::game_texts::{remove, switch_source};
+        let fx = Fixture::new("original-clean");
+        let original = b"Bounty_title_001=Bounty\nBounty_desc_001=Catch him.\n";
+        fx.archive(original);
+        let target = fx.english();
+        fx.put(&target, b"Bounty_title_001=Old bounty <EM4>[BP]</EM4>\nBounty_desc_001=Old text.\nold_only=Rest\n");
+        let german = format!("{}/data/Localization/german_(germany)/global.ini", fx.game);
+        fx.put(&german, b"Bounty_title_001=Kopfgeld\n");
+        let catalog = r#"{"geholt": "2026-10-22 04:00", "bauplaene": {}, "missionen": {"Bounty_title_001": {"bp": ["Atzkav Sniper Rifle"], "rep": 0, "titel_key": "Bounty_title_001", "text_key": "Bounty_desc_001"}}}"#;
+        fs::write(fx.paths.app_file(versekit_core::injection::sources::CATALOG_412), catalog).unwrap();
+        let net = versekit_core::net::Fake::default();
+        let done = switch_source(&fx.paths, &net, &FromArchive, ORIGINAL, "", &|_| {}).unwrap();
+        assert_eq!(done.fetched, original.len().to_string());
+        let with_notes = fs::read_to_string(&target).unwrap();
+        assert!(with_notes.contains("Bounty <EM4>[BP]</EM4>"), "the notes go in: {with_notes}");
+        assert!(!with_notes.contains("Old") && !with_notes.contains("old_only"), "nothing old is left: {with_notes}");
+        remove(&fx.paths);
+        assert_eq!(fs::read(&target).unwrap(), original, "taken out: the file of the archive, exactly");
+        assert_eq!(fs::read(&german).unwrap(), b"Bounty_title_001=Kopfgeld\n", "another language stays alone");
     }
 
     #[test]
-    fn the_original_replaces_an_own_starstrings_file_but_no_foreign_one() {
+    fn the_original_replaces_an_own_starstrings_file_and_forgets_its_note() {
         let fx = Fixture::new("fetch-own");
         fx.archive(b"original=Original text\n");
         let target = fx.english();
@@ -1440,11 +1529,11 @@ mod tests {
         // The remembered original texts of the old file are discarded.
         assert!(Path::new(&fx.paths.app_file(injection::ORIGTEXT_FILE)).exists());
 
-        // The note is gone: a second "original" leaves the fresh file alone.
+        // A second "original" takes the file of the archive again, also over a file changed by hand.
         fx.put(&target, b"Hand made\n");
         let again = fetch_original(&fx.paths, ENGLISH, Some(&fx.game), false, &no_language).unwrap();
-        assert_eq!(again, FetchOutcome::Kept);
-        assert_eq!(fs::read(&target).unwrap(), b"Hand made\n");
+        assert_eq!(again, FetchOutcome::Written { bytes: b"original=Original text\n".len() });
+        assert_eq!(fs::read(&target).unwrap(), b"original=Original text\n");
     }
 
     #[test]

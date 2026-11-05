@@ -227,13 +227,6 @@ jobs:
             dateien/linux/VerseKit-x86_64.AppImage
             SHA256SUMS.txt
 
-      # A message in the own Discord; without the secret nothing happens and the build stays green.
-      - name: Tell Discord
-        if: always()
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python3 .github/scripts/discord_release.py "$TAG"
-
       # The two files at VirusTotal, the result attached to the release text. Never turns the release red.
       - name: VirusTotal
         if: always() && steps.freigabe.outcome == 'success'

@@ -695,7 +695,7 @@ fn keyed_crops() -> Vec<(&'static str, String, u64, Gray)> {
 fn no_crop_of_the_test_sets_is_read_wrong_with_the_numbers_of_all_keys_as_possible_values() {
     let known = shipped();
     let all = keyed_crops();
-    assert_eq!(all.len(), 106);
+    assert_eq!(all.len(), 108);
     let mut values: Vec<u64> = all.iter().map(|c| c.2).collect();
     values.extend([4_000, 8_000, 12_680, 16_980, 17_200, 2_010, 3_100, 19_375]);
     values.sort();
@@ -711,4 +711,93 @@ fn no_crop_of_the_test_sets_is_read_wrong_with_the_numbers_of_all_keys_as_possib
     }
     assert!(wrong.is_empty(), "{wrong:?}");
     assert!(right >= 91, "{right}");
+}
+
+/// (right, none, wrong list) over all crops with the given templates.
+fn measure(known: &Templates) -> (usize, usize, Vec<String>) {
+    let all = keyed_crops();
+    let mut values: Vec<u64> = all.iter().map(|c| c.2).collect();
+    values.extend([4_000, 8_000, 12_680, 16_980, 17_200, 2_010, 3_100, 19_375]);
+    values.sort();
+    values.dedup();
+    let (mut right, mut none, mut wrong) = (0, 0, Vec::new());
+    for (set, key, number, crop) in &all {
+        match read(crop, known, &values).value {
+            Some(value) if value == *number => right += 1,
+            Some(value) => wrong.push(format!("{set}/{key} read {value}")),
+            None => none += 1,
+        }
+    }
+    (right, none, wrong)
+}
+
+#[test]
+fn derived_templates_keep_all_crops_free_of_wrong_readings_and_lose_no_right_one() {
+    let (right, none, wrong) = measure(&shipped());
+    let mut enriched = shipped();
+    enriched.add_derived();
+    let (right2, none2, wrong2) = measure(&enriched);
+    eprintln!("MEASURE plain: right {right} none {none} wrong {}", wrong.len());
+    eprintln!("MEASURE derived: right {right2} none {none2} wrong {} {wrong2:?}", wrong2.len());
+    assert!(wrong.is_empty() && wrong2.is_empty(), "{wrong:?} {wrong2:?}");
+    assert!(right2 >= right, "{right2} < {right}");
+}
+
+#[test]
+fn templates_taught_with_derived_variants_still_read_no_crop_wrong() {
+    let known = shipped();
+    let folder = testdir::fresh("signatur-abgeleitet-lesen");
+    let own = folder.join("eigene.json").to_string_lossy().into_owned();
+    let samples_folder = folder.join("bilder").to_string_lossy().into_owned();
+    for (_, _, number, crop) in keyed_crops().iter().step_by(3) {
+        let _ = learn(crop, &number.to_string(), &known, &own, &samples_folder);
+    }
+    let (right, none, wrong) = measure(&templates(SHIPPED, &own));
+    eprintln!("MEASURE taught: right {right} none {none} wrong {} {wrong:?}", wrong.len());
+    assert!(wrong.is_empty(), "{wrong:?}");
+}
+
+#[test]
+fn derived_patterns_differ_from_the_original_and_are_plausible_for_the_digit() {
+    let known = shipped();
+    let mut total = 0;
+    for (digit, examples) in &known.digits {
+        for example in examples.iter().take(3) {
+            let variants = derived_patterns(*digit, &example.pattern);
+            for (i, v) in variants.iter().enumerate() {
+                assert_ne!(*v, example.pattern);
+                assert!(plausible_template(*digit, v));
+                assert!(!variants[..i].contains(v));
+            }
+            total += variants.len();
+        }
+    }
+    assert!(total > 0);
+    assert!(derived_patterns('1', &[0u8; CELLS]).is_empty());
+}
+
+#[test]
+fn teaching_stores_derived_variants_apart_from_the_taught_ones_within_their_own_limit() {
+    let known = shipped();
+    let folder = testdir::fresh("signatur-abgeleitet");
+    let own = folder.join("eigene.json").to_string_lossy().into_owned();
+    let samples_folder = folder.join("bilder").to_string_lossy().into_owned();
+    let all = pictures();
+    for (number, crop) in all.iter().take(20) {
+        learn(crop, &number.to_string(), &known, &own, &samples_folder).expect("taught");
+    }
+    let file = jsonio::read_json(&own).unwrap();
+    let Some(Value::Object(taught)) = file.get("ziffern") else { panic!("ziffern") };
+    let Some(Value::Object(derived)) = file.get("abgeleitet") else { panic!("abgeleitet") };
+    assert!(!derived.is_empty());
+    for (digit, list) in derived {
+        let Value::Array(list) = list else { panic!("list") };
+        assert!(list.len() <= MAX_DERIVED_PER_DIGIT, "digit {digit}");
+        let Some((_, Value::Array(own_list))) = taught.iter().find(|(k, _)| k == digit) else { panic!("{digit}") };
+        assert!(own_list.len() <= MAX_OWN_PER_DIGIT);
+        assert!(list.iter().all(|v| !own_list.contains(v)), "derived equals a taught one");
+    }
+    let loaded = templates(SHIPPED, &own);
+    let count = |t: &Templates| t.digest().iter().map(|d| d.1).sum::<usize>();
+    assert!(count(&loaded) > count(&shipped()));
 }

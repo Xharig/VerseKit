@@ -38,13 +38,12 @@ pub const CUSTOM: &str = "eigene";
 pub const ORIGINAL: &str = "original";
 
 /// `translation.SOURCES` in their order: name and language folder.
-pub const SOURCES: [(&str, &str); 16] = [
+pub const SOURCES: [(&str, &str); 15] = [
     ("starstrings", "english"),
     ("dymerz_de", "german_(germany)"),
     ("dymerz_fr", "french_(france)"),
     ("dymerz_it", "italian_(italy)"),
     ("dymerz_es", "spanish_(spain)"),
-    ("thord82_es", "spanish_(spain)"),
     ("dymerz_pt", "portuguese_(brazil)"),
     ("dymerz_tr", "turkish_(turkey)"),
     ("luftwerft_de", "german_(germany)"),

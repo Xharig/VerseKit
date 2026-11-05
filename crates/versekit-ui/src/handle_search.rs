@@ -22,6 +22,9 @@
 //! Enter searches, Ctrl+Enter fetches anew, Escape closes the card. The site is asked in a thread of its own,
 //! never in the frame.
 //!
+//! The field takes a handle, the SID of an organization or its name ([`org::lookup`]); an organization found
+//! shows a card of its own with its members open, several of one name a choice to click.
+//!
 //! A click on the name of an organization on the card opens its members, page by page; a click on a member
 //! searches it. The empty field with the cursor shows the handles searched lately; a click searches one.
 
@@ -33,7 +36,8 @@ use versekit_core::browser;
 use versekit_core::handle_query::cache::{self, KEY_AFFILIATIONS, KEY_CLEAR_AFTER, KEY_DAYS, KEY_HIDE_HIDDEN};
 use versekit_core::handle_query::log_monitor::{self, Monitor};
 use versekit_core::handle_query::members::{self, Member};
-use versekit_core::handle_query::relations::{ImportError, Kind, Relations, Stance};
+use versekit_core::handle_query::org::{self, Answer, Hit};
+use versekit_core::handle_query::relations::{ImportError, Kind, Relation, Relations, Stance};
 use versekit_core::handle_query::{Failure, Found, Membership, Org, Settings, page};
 use versekit_core::jsonio::Value;
 use versekit_core::language::{self, Arg, t, tf};
@@ -53,6 +57,16 @@ pub const FIELD_WIDTH: f32 = 180.0;
 pub const CARD_WIDTH: f32 = 356.0;
 /// The size of the marks of a relation.
 const MARK_SIZE: f32 = 16.0;
+
+/// The width of the field in `ui`: [`FIELD_WIDTH`], wider when its hint would not fit at the size of the text there.
+/// The hint naming the own handle is not measured, so that a long handle does not widen the bar.
+pub fn field_width(ui: &Ui) -> f32 {
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let hint = ui.painter().layout_no_wrap(t("s_hq_feld_hinweis"), font, egui::Color32::WHITE).size().x;
+    // The magnifier and the X with their gaps on both sides, and the border.
+    let margins = 2.0 * (8.0 + widgets::SEARCH_ICON_SIZE) + 4.0;
+    FIELD_WIDTH.max((hint + margins).ceil())
+}
 /// The sizes of the profile picture, of a logo and of the title picture.
 pub const AVATAR_SIZE: f32 = 66.0;
 pub const LOGO_SIZE: f32 = 66.0;
@@ -71,6 +85,13 @@ pub const MEMBERS_HEIGHT_PAGE: f32 = 420.0;
 const MEMBER_HANDLE_SHARE: f32 = 0.55;
 /// How many handles searched lately the empty field shows.
 pub const HISTORY_MAX: usize = 8;
+
+/// An organization shown instead of a handle: its card, or the organizations of the name searched.
+#[derive(Clone, Debug, PartialEq)]
+pub enum OrgShown {
+    Card(org::Found),
+    Choices(Vec<Hit>),
+}
 
 /// The members of one organization as the search shows them.
 struct MembersView {
@@ -148,9 +169,14 @@ pub struct HandleSearch {
     net: Option<Arc<dyn Net>>,
     /// The text in the field.
     pub query: String,
-    /// The handle being asked and the way its answer comes.
-    job: Option<(String, Receiver<Result<Found, Failure>>)>,
+    /// The text being asked and the way its answer comes.
+    job: Option<(String, Receiver<Result<Answer, Failure>>)>,
+    /// The handle shown, or why nothing is.
     shown: Option<Result<Found, Failure>>,
+    /// The organization shown instead of a handle.
+    org_shown: Option<OrgShown>,
+    /// The organization whose card came: its members open with the next frame.
+    members_wanted: Option<String>,
     /// Since when the card stands untouched ([`now`]); the card and the field empty themselves after the
     /// seconds set.
     shown_at: f64,
@@ -223,6 +249,8 @@ impl HandleSearch {
             query: String::new(),
             job: None,
             shown: None,
+            org_shown: None,
+            members_wanted: None,
             shown_at: 0.0,
             monitor: Monitor::default(),
             own: None,
@@ -244,7 +272,7 @@ impl HandleSearch {
     /// Shows `found` and the members `roster` below it, without the net and kept until closed (the preview).
     pub fn with_sample(mut self, found: Found, roster: members::Roster) -> HandleSearch {
         self.settings.clear_after = 0;
-        self.show(Ok(found));
+        self.show(Ok(Answer::Handle(Box::new(found))));
         let sid = roster.sid.clone();
         let shown = Some(Ok(members::Found { roster, live: true, failed: None }));
         self.members = Some(MembersView { sid, shown, job: None, more_failed: None });
@@ -278,9 +306,15 @@ impl HandleSearch {
         std::mem::take(&mut self.changed)
     }
 
-    /// The answer shown, `None` before the first search and after closing.
+    /// The handle shown or why nothing was found; `None` before the first search, after closing and while an
+    /// organization is shown.
     pub fn shown(&self) -> Option<&Result<Found, Failure>> {
         self.shown.as_ref()
+    }
+
+    /// The organization shown instead of a handle.
+    pub fn org_shown(&self) -> Option<&OrgShown> {
+        self.org_shown.as_ref()
     }
 
     /// Whether a search runs.
@@ -308,19 +342,31 @@ impl HandleSearch {
     /// Closes the card and the members below it.
     pub fn close(&mut self) {
         self.shown = None;
+        self.org_shown = None;
+        self.members_wanted = None;
         self.members = None;
     }
 
-    /// Shows `answer` from now on.
-    fn show(&mut self, answer: Result<Found, Failure>) {
-        self.shown = Some(answer);
+    /// Shows `answer` from now on; the card of an organization opens its members.
+    fn show(&mut self, answer: Result<Answer, Failure>) {
         self.shown_at = now();
+        self.shown = None;
+        self.org_shown = None;
+        match answer {
+            Ok(Answer::Handle(found)) => self.shown = Some(Ok(*found)),
+            Ok(Answer::Org(found)) => {
+                self.members_wanted = Some(found.org.sid.clone());
+                self.org_shown = Some(OrgShown::Card(found));
+            }
+            Ok(Answer::Choices(hits)) => self.org_shown = Some(OrgShown::Choices(hits)),
+            Err(failure) => self.shown = Some(Err(failure)),
+        }
     }
 
     /// Empties the card and the field once the card stood untouched for the seconds set; `busy` (typing, a
     /// search running) keeps it and counts anew. The seconds left until then, `None` when nothing is to go.
     pub fn expire(&mut self, now: f64, busy: bool) -> Option<f64> {
-        if self.shown.is_none() || self.settings.clear_after <= 0 {
+        if (self.shown.is_none() && self.org_shown.is_none()) || self.settings.clear_after <= 0 {
             return None;
         }
         if busy {
@@ -333,15 +379,39 @@ impl HandleSearch {
         Some(self.shown_at + self.settings.clear_after as f64 - now)
     }
 
-    /// Searches `handle` in a thread of its own; `force` fetches anew. A search running goes on, a second one
-    /// waits for it.
-    pub fn search(&mut self, ctx: &egui::Context, handle: &str, force: bool) {
+    /// Searches `text` in a thread of its own: a handle, the SID of an organization or its name; `force` fetches
+    /// a handle anew. A search running goes on, a second one waits for it.
+    pub fn search(&mut self, ctx: &egui::Context, text: &str, force: bool) {
         self.history = None;
-        let Some(handle) = page::valid_handle(handle) else {
+        let Some(text) = org::valid_name(text) else {
             self.show(Err(Failure::Invalid));
             return;
         };
-        self.query.clone_from(&handle);
+        self.query.clone_from(&text);
+        let asked = text.clone();
+        self.ask(ctx, text, move |paths, net| org::lookup(paths, net, &asked, force, now()));
+    }
+
+    /// Opens the card of the organization `sid` in a thread of its own, as [`HandleSearch::search`] does.
+    pub fn open_org(&mut self, ctx: &egui::Context, sid: &str) {
+        self.history = None;
+        let Some(sid) = page::valid_handle(sid) else {
+            self.show(Err(Failure::Invalid));
+            return;
+        };
+        self.query.clone_from(&sid);
+        let asked = sid.clone();
+        self.ask(ctx, sid, move |paths, net| org::org(paths, net, &asked, now()).map(Answer::Org));
+    }
+
+    /// Asks `ask` in a thread of its own for the card, `label` being what the card says meanwhile; without a data
+    /// folder or the net it says so at once.
+    fn ask(
+        &mut self,
+        ctx: &egui::Context,
+        label: String,
+        ask: impl FnOnce(&Paths, &dyn Net) -> Result<Answer, Failure> + Send + 'static,
+    ) {
         if self.job.is_some() {
             return;
         }
@@ -354,14 +424,13 @@ impl HandleSearch {
         let net = Arc::clone(net);
         let lock = versekit_core::writeguard::state();
         let wake = ctx.clone();
-        let asked = handle.clone();
         let started = std::thread::Builder::new().name("handle-suche".into()).spawn(move || {
             versekit_core::writeguard::adopt(&lock);
-            let _ = sender.send(cache::search(&own, net.as_ref(), &asked, force, now()));
+            let _ = sender.send(ask(&own, net.as_ref()));
             wake.request_repaint();
         });
         if started.is_ok() {
-            self.job = Some((handle, receiver));
+            self.job = Some((label, receiver));
         }
     }
 
@@ -519,6 +588,25 @@ impl HandleSearch {
         self.shown_at = now();
     }
 
+    /// Takes the relation of `name` away, written at once: where it stood and what it was, to put it back with
+    /// [`HandleSearch::restore_relation`]; `None` when there was none.
+    pub fn remove_relation(&mut self, kind: Kind, name: &str) -> Option<(usize, Relation)> {
+        let gone = self.relations.remove(kind, name)?;
+        self.save_relations();
+        self.changed = true;
+        Some(gone)
+    }
+
+    /// Puts a relation taken away back at its place, written at once; false when one of that name was set since.
+    pub fn restore_relation(&mut self, at: usize, relation: Relation) -> bool {
+        if !self.relations.restore(at, relation) {
+            return false;
+        }
+        self.save_relations();
+        self.changed = true;
+        true
+    }
+
     /// The stance that counts for the handle of `found`, what it was set on.
     fn stance_of(&self, found: &Found) -> Option<(Stance, Kind, String)> {
         let sids: Vec<&str> = found.card.orgs.shown().map(|o| o.sid.as_str()).collect();
@@ -531,7 +619,7 @@ impl HandleSearch {
         self.tick();
         let hint = self.field_hint();
         let had_text = !self.query.trim().is_empty();
-        let response = widgets::search_field(ui, &mut self.query, &hint, scheme, FIELD_WIDTH);
+        let response = widgets::search_field(ui, &mut self.query, &hint, scheme, field_width(ui));
         // The field emptied (deleted or its clear mark): the card of the handle goes with it.
         if had_text && self.query.trim().is_empty() {
             self.close();
@@ -657,8 +745,17 @@ impl HandleSearch {
             widgets::loading(ui, scheme, &tf("s_hq_sucht", &[("handle", Arg::Text(handle.clone()))]));
             return;
         }
+        if let Some(sid) = self.members_wanted.take()
+            && !self.members_sid().is_some_and(|open| open.eq_ignore_ascii_case(&sid))
+        {
+            self.open_members(ui.ctx(), &sid);
+        }
         if let Some(left) = self.expire(now(), self.typing(ui.ctx())) {
             ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(left.max(0.1)));
+        }
+        if let Some(shown) = self.org_shown.clone() {
+            self.org_card(ui, scheme, &shown);
+            return;
         }
         let Some(shown) = self.shown.clone() else { return };
         ui.set_max_width(CARD_WIDTH);
@@ -671,9 +768,14 @@ impl HandleSearch {
                 match &shown {
                     Ok(found) => self.head(ui, scheme, found, text_width),
                     Err(failure) => {
+                        // Nothing found by the field: neither a handle nor an organization.
+                        let text = match failure {
+                            Failure::NotFound => t("s_hq_nichts_gefunden"),
+                            other => failure_text(other),
+                        };
                         ui.allocate_ui_with_layout(vec2(text_width, 0.0), Layout::top_down(Align::Min), |ui| {
                             ui.set_width(text_width);
-                            ui.label(RichText::new(failure_text(failure)).color(color(scheme.yellow)));
+                            ui.label(RichText::new(text).color(color(scheme.yellow)));
                         });
                     }
                 }
@@ -696,6 +798,121 @@ impl HandleSearch {
         if close {
             self.close();
         }
+    }
+
+    /// The card of an organization (its head, the link to its page, its marks and its members) or the
+    /// organizations of the name searched, a click opening one.
+    fn org_card(&mut self, ui: &mut Ui, scheme: &Scheme, shown: &OrgShown) {
+        ui.set_max_width(CARD_WIDTH);
+        let (mut close, mut open) = (false, None);
+        widgets::card(ui, scheme, |ui| {
+            ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                let gap = ui.spacing().item_spacing.x;
+                let text_width = ui.available_width() - widgets::ICON_BUTTON_SIZE - gap;
+                match shown {
+                    OrgShown::Card(found) => self.org_head(ui, scheme, &found.org, text_width),
+                    OrgShown::Choices(hits) => open = self.choices(ui, scheme, hits, text_width),
+                }
+                ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                    close = widgets::icon_button(ui, scheme, "x", &t("s_hq_schliessen")).clicked();
+                });
+            });
+            let OrgShown::Card(found) = shown else { return };
+            let sid = found.org.sid.clone();
+            ui.add(egui::Separator::default().spacing(6.0));
+            if widgets::external_link(ui, scheme, &t("s_hq_org_seite")).clicked() {
+                (self.open_url)(&page::org_url(&sid));
+            }
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(t("s_hq_org_markieren")).small().color(color(scheme.sub)));
+                self.marks(ui, scheme, Kind::Org, &sid);
+            });
+            if self.members_in_card && self.members.is_some() {
+                ui.add(egui::Separator::default().spacing(6.0));
+                self.members(ui, scheme, false);
+            }
+        });
+        // The mouse over the card reads it: the time counts anew.
+        if ui.ui_contains_pointer() {
+            self.shown_at = now();
+        }
+        if close {
+            self.close();
+        }
+        if let Some(sid) = open {
+            self.open_org(ui.ctx(), &sid);
+        }
+    }
+
+    /// The logo of an organization, beside it its name in the colour of its stance, its SID and what it asks of its
+    /// members; on the right how many it has and what it does. The text takes at most `width` with the logo.
+    fn org_head(&mut self, ui: &mut Ui, scheme: &Scheme, org: &Org, width: f32) {
+        let stance = self.relations.of(Kind::Org, &org.sid);
+        let tone = stance.map_or(scheme.fg, |s| stance_color(scheme, s));
+        let body = egui::TextStyle::Body.resolve(ui.style()).size;
+        let (big, bold) = (crate::fonts::bold(body * NAME_SCALE), crate::fonts::bold(body));
+        self.pictures.show(ui, scheme, &org.logo, LOGO_SIZE);
+        let gap = ui.spacing().item_spacing.x;
+        let width = (width - LOGO_SIZE - gap).max(1.0);
+        let right = (width * RIGHT_SHARE).floor();
+        let middle = (width - right - gap).max(1.0);
+        ui.allocate_ui_with_layout(vec2(middle, 0.0), Layout::top_down(Align::Min), |ui| {
+            ui.set_width(middle);
+            ui.spacing_mut().item_spacing.y = 1.0;
+            ui.horizontal_wrapped(|ui| {
+                if let Some(stance) = stance
+                    && let Some(image) = crate::icons::image(stance_icon(stance), tone, MARK_SIZE)
+                {
+                    ui.add(image);
+                }
+                let name = if org.name.is_empty() { &org.sid } else { &org.name };
+                ui.label(RichText::new(name).font(big.clone()).color(color(tone)));
+            });
+            ui.label(RichText::new(tf("s_hq_sid", &[("sid", Arg::Text(org.sid.clone()))])).font(bold.clone()));
+            if !org.commitment.is_empty() {
+                ui.label(&org.commitment);
+            }
+        });
+        ui.allocate_ui_with_layout(vec2(right, 0.0), Layout::top_down(Align::Max), |ui| {
+            ui.set_width(right);
+            ui.spacing_mut().item_spacing.y = 1.0;
+            if let Some(members) = org.members {
+                ui.label(RichText::new(tf("s_hq_mitglieder", &[("n", Arg::Int(members as i64))])).font(bold.clone()));
+            }
+            for text in [&org.activity, &org.second_activity] {
+                if !text.is_empty() {
+                    ui.label(text);
+                }
+            }
+        });
+    }
+
+    /// The organizations of the name searched, each in the colour of its stance with its SID and members, within
+    /// `width`. The SID clicked, if one was.
+    fn choices(&mut self, ui: &mut Ui, scheme: &Scheme, hits: &[Hit], width: f32) -> Option<String> {
+        let mut open = None;
+        ui.allocate_ui_with_layout(vec2(width, 0.0), Layout::top_down(Align::Min), |ui| {
+            ui.set_width(width);
+            ui.spacing_mut().item_spacing.y = 2.0;
+            ui.label(RichText::new(t("s_hq_auswahl")).small().color(color(scheme.sub)));
+            for hit in hits {
+                let tone = self.relations.of(Kind::Org, &hit.sid).map_or(scheme.fg, |s| stance_color(scheme, s));
+                let name = if hit.name.is_empty() { &hit.sid } else { &hit.name };
+                let label = egui::Label::new(RichText::new(name).strong().color(color(tone))).truncate();
+                let response = ui.add(label.sense(Sense::click()));
+                let hint = tf("s_hq_auswahl_klick", &[("sid", Arg::Text(hit.sid.clone()))]);
+                response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &hint));
+                if response.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(&hint).clicked() {
+                    open = Some(hit.sid.clone());
+                }
+                let mut line = tf("s_hq_sid", &[("sid", Arg::Text(hit.sid.clone()))]);
+                if let Some(members) = hit.members {
+                    line = format!("{line} · {}", tf("s_hq_mitglieder", &[("n", Arg::Int(members as i64))]));
+                }
+                ui.add(egui::Label::new(RichText::new(line).small().color(color(scheme.sub))).truncate());
+            }
+        });
+        open
     }
 
     /// The profile picture, beside it handle, name, title, number, date of enlisting and languages; the handle in
@@ -1062,7 +1279,7 @@ impl HandleSearch {
 
     /// Whether there is something to show below the field: a card, a search running.
     pub fn has_card(&self) -> bool {
-        self.shown.is_some() || self.job.is_some() || self.history_open()
+        self.shown.is_some() || self.org_shown.is_some() || self.job.is_some() || self.history_open()
     }
 
     /// Takes the settings anew, e.g. after they changed in the main window.
@@ -1180,8 +1397,7 @@ impl HandleSearch {
             }
         }
         let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
-        let (clear, export, import) = (t("s_hq_cache_leeren"), t("s_hq_export"), t("s_hq_import"));
-        let filters: file_dialog::Filters = &[("JSON", &["json"])];
+        let clear = t("s_hq_cache_leeren");
         ui.horizontal_wrapped(|ui| {
             if ui.add(widgets::Button::new(&clear, ButtonKind::Normal, scheme)).clicked()
                 && let Some(paths) = &paths
@@ -1189,14 +1405,33 @@ impl HandleSearch {
                 cache::clear(paths);
                 members::clear(paths);
             }
-            if ui.add(widgets::Button::new(&export, ButtonKind::Normal, scheme)).clicked() && self.export.is_none() {
-                let pending = file_dialog::save_file(ui.ctx(), &export, filters, None, "versekit-beziehungen.json");
-                self.export = Some((pending, self.relations.export_text()));
-            }
-            if ui.add(widgets::Button::new(&import, ButtonKind::Normal, scheme)).clicked() && self.import.is_none() {
-                self.import = Some(file_dialog::open_file(ui.ctx(), &import, filters, None));
-            }
+            self.transfer_buttons(ui, scheme);
         });
+        self.transfer_message(ui, scheme);
+    }
+
+    /// The export and the import of the relations, with what the last one said.
+    pub fn transfer(&mut self, ui: &mut Ui, scheme: &Scheme) {
+        self.tick();
+        ui.horizontal_wrapped(|ui| self.transfer_buttons(ui, scheme));
+        self.transfer_message(ui, scheme);
+    }
+
+    /// The buttons that export and import the relations; each opens its dialog.
+    fn transfer_buttons(&mut self, ui: &mut Ui, scheme: &Scheme) {
+        let (export, import) = (t("s_hq_export"), t("s_hq_import"));
+        let filters: file_dialog::Filters = &[("JSON", &["json"])];
+        if ui.add(widgets::Button::new(&export, ButtonKind::Normal, scheme)).clicked() && self.export.is_none() {
+            let pending = file_dialog::save_file(ui.ctx(), &export, filters, None, "versekit-beziehungen.json");
+            self.export = Some((pending, self.relations.export_text()));
+        }
+        if ui.add(widgets::Button::new(&import, ButtonKind::Normal, scheme)).clicked() && self.import.is_none() {
+            self.import = Some(file_dialog::open_file(ui.ctx(), &import, filters, None));
+        }
+    }
+
+    /// What the last export or import said.
+    fn transfer_message(&self, ui: &mut Ui, scheme: &Scheme) {
         if let Some(message) = &self.message {
             widgets::hint(ui, scheme, message);
         }
@@ -1228,7 +1463,8 @@ pub(crate) mod tests {
         frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
         search.focus_field(&ctx);
         frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
-        let key = |key, modifiers| egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers };
+        let key =
+            |key, modifiers| egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers };
         let wipe = vec![key(egui::Key::A, egui::Modifiers::COMMAND), key(egui::Key::Backspace, egui::Modifiers::NONE)];
         frame(&ctx, &mut search, wipe, egui::Modifiers::NONE);
         assert!(search.query.is_empty(), "the field is empty: {:?}", search.query);
@@ -1491,8 +1727,10 @@ pub(crate) mod tests {
         // Three of five stars filled, in the colour of the text.
         let filled = later
             .iter()
-            .filter(|c| matches!(&c.shape, egui::Shape::Circle(circle)
-                if (circle.radius - STAR_SIZE / 2.0).abs() < 0.01 && circle.fill == color(scheme.fg)))
+            .filter(|c| {
+                matches!(&c.shape, egui::Shape::Circle(circle)
+                if (circle.radius - STAR_SIZE / 2.0).abs() < 0.01 && circle.fill == color(scheme.fg))
+            })
             .count();
         assert_eq!(filled, 3);
         let nodes = frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
@@ -1690,12 +1928,12 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_text_that_is_no_handle_asks_nothing() {
+    fn a_text_that_cannot_be_searched_asks_nothing() {
         let _lang = german();
         let dir = versekit_core::testdir::Dir::new("handle-suche-ungueltig");
         let mut search = search_with_site(&dir);
         let ctx = egui::Context::default();
-        search.search(&ctx, "a/b", false);
+        search.search(&ctx, "a\u{7}b", false);
         assert!(!search.searching());
         assert_eq!(search.shown(), Some(&Err(Failure::Invalid)));
         // Counter-check: without a way to the net nothing is asked either, and the card says so.
@@ -1729,6 +1967,107 @@ pub(crate) mod tests {
         assert!(!search.take_log(&line.replace("20:03", "20:04"), 95.0));
         let nodes = frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
         assert!(!nodes.iter().any(|(_, label, _)| *label == text));
+    }
+
+    /// The page of an organization in the shape of the site, its SID `ORGKARTE`.
+    const ORG_PAGE: &str = r#"<div id="organization" class="public"><div class="heading ">
+        <div class="banner"><img src="/media/b/banner/B.png" /></div><div class="inner">
+        <div class="logo noshadow"><img src="/media/o/logo/O.png" /><span class="count">40 members</span></div>
+        <h1>Testgeschwader / <span class="symbol">ORGKARTE</span></h1>
+        <ul class="tags clearfix"><li class="model">Organization</li><li class="commitment">Regular</li></ul>
+        <ul class="focus clearfix"><li class="primary tooltip-wrap"><img src="/media/i/S.png" alt="Security" /></li></ul>
+        </div><hr /></div></div>"#;
+    /// The first page of its members: one shown.
+    const ORG_MEMBERS: &str = r#"{"success":1,"data":{"totalrows":1,"html":"<li class=\"member-item org-visibility-V\"><a href=\"/citizens/Orgmitglied\"><span class=\"rank\">Pilot</span></a></li>"}}"#;
+    /// The answer to a search of a name two organizations have.
+    const TWO_ORGS: &str = r#"{"success":1,"data":{"totalrows":9,"html":"<div class=\"org-cell\"><a href=\"/orgs/GLEICHEINS\"><h3 class=\"name\">Zwei Gleiche</h3><span class=\"label\">Members: </span><span class=\"value\">7</span></a></div><div class=\"org-cell\"><a href=\"/orgs/GLEICHZWEI\"><h3 class=\"name\">Zwei Gleiche</h3></a></div>"}}"#;
+
+    /// Waits until the members opened by the card of an organization came.
+    fn settle_org_members(ctx: &egui::Context, search: &mut HandleSearch) {
+        for _ in 0..3000 {
+            frame(ctx, search, Vec::new(), egui::Modifiers::NONE);
+            if search.members_shown().is_some() && !search.members_loading() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the members did not come");
+    }
+
+    #[test]
+    fn an_sid_in_the_field_opens_the_card_of_the_organization_with_its_members() {
+        let _lang = german();
+        let dir = versekit_core::testdir::Dir::new("handle-suche-org");
+        let net = Fake::default().with(&page::org_url("ORGKARTE"), ORG_PAGE).with_post(
+            members::API,
+            members::request_body("ORGKARTE", 1),
+            ORG_MEMBERS,
+        );
+        let mut search = HandleSearch::with_net(&paths(&dir), Some(Arc::new(net))).with_opener(record);
+        let ctx = context();
+        search.search(&ctx, " ORGKARTE ", false);
+        settle(&ctx, &mut search);
+        let Some(OrgShown::Card(found)) = search.org_shown().cloned() else {
+            panic!("the organization: {:?} {:?}", search.org_shown(), search.shown())
+        };
+        assert_eq!((found.org.sid.as_str(), found.org.name.as_str()), ("ORGKARTE", "Testgeschwader"));
+        assert!(search.shown().is_none() && search.has_card(), "no handle card beside it");
+        settle_org_members(&ctx, &mut search);
+        assert_eq!(search.members_sid(), Some("ORGKARTE"), "its members open by themselves");
+        let nodes = frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        let has = |text: &str| nodes.iter().any(|(_, label, _)| label == text);
+        let sid = tf("s_hq_sid", &[("sid", Arg::Text("ORGKARTE".into()))]);
+        let count = tf("s_hq_mitglieder", &[("n", Arg::Int(40))]);
+        assert!(has("Testgeschwader") && has(&sid) && has(&count) && has("Regular") && has("Security"), "{nodes:?}");
+        assert!(has("Orgmitglied"), "the member in the card: {nodes:?}");
+        // Its marks set the stance of the organization.
+        let meaning =
+            tf("s_hq_org_als", &[("haltung", Arg::Text(t("s_hq_feindlich"))), ("org", Arg::Text("ORGKARTE".into()))]);
+        let mark = nodes.iter().find(|(r, l, _)| *r == Role::CheckBox && *l == meaning).expect("the mark");
+        frame(&ctx, &mut search, click(mark.2), egui::Modifiers::NONE);
+        assert_eq!(Relations::load(&paths(&dir)).of(Kind::Org, "ORGKARTE"), Some(Stance::Hostile));
+        // The link opens the page of the organization.
+        let link = nodes.iter().find(|(r, l, _)| *r == Role::Link && *l == t("s_hq_org_seite")).expect("link");
+        frame(&ctx, &mut search, click(link.2), egui::Modifiers::NONE);
+        assert!(OPENED.lock().map(|l| l.iter().any(|u| u.ends_with("/orgs/ORGKARTE"))).unwrap_or(false));
+        // Closing takes the card and its members away.
+        search.close();
+        assert!(search.org_shown().is_none() && search.members_sid().is_none() && !search.has_card());
+    }
+
+    #[test]
+    fn a_name_of_several_organizations_offers_them_and_a_click_opens_one() {
+        let _lang = german();
+        let dir = versekit_core::testdir::Dir::new("handle-suche-org-wahl");
+        let net = Fake::default()
+            .with_post(org::SEARCH_API, org::search_body("Zwei Gleiche"), TWO_ORGS)
+            .with(&page::org_url("GLEICHZWEI"), ORG_PAGE.replace("ORGKARTE", "GLEICHZWEI"));
+        let mut search = HandleSearch::with_net(&paths(&dir), Some(Arc::new(net))).with_opener(record);
+        let ctx = context();
+        search.search(&ctx, "Zwei Gleiche", false);
+        settle(&ctx, &mut search);
+        let Some(OrgShown::Choices(hits)) = search.org_shown().cloned() else { panic!("{:?}", search.org_shown()) };
+        assert_eq!(hits.iter().map(|h| h.sid.as_str()).collect::<Vec<_>>(), ["GLEICHEINS", "GLEICHZWEI"]);
+        frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        let nodes = frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        assert!(nodes.iter().any(|(_, l, _)| *l == t("s_hq_auswahl")), "{nodes:?}");
+        let open = tf("s_hq_auswahl_klick", &[("sid", Arg::Text("GLEICHZWEI".into()))]);
+        let entry = nodes.iter().find(|(r, l, _)| *r == Role::Button && *l == open).expect("the second one");
+        frame(&ctx, &mut search, click(entry.2), egui::Modifiers::NONE);
+        assert_eq!(search.query, "GLEICHZWEI");
+        settle(&ctx, &mut search);
+        assert!(
+            matches!(search.org_shown(), Some(OrgShown::Card(found)) if found.org.sid == "GLEICHZWEI"),
+            "{:?}",
+            search.org_shown()
+        );
+        // Counter-check: a name the site does not know says that neither a handle nor an organization was found.
+        search.search(&ctx, "Ganz Unbekannt", false);
+        settle(&ctx, &mut search);
+        assert_eq!(search.shown(), Some(&Err(Failure::NotFound)));
+        frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        let nodes = frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        assert!(nodes.iter().any(|(_, l, _)| *l == t("s_hq_nichts_gefunden")), "{nodes:?}");
     }
 
     /// The full card with the members of its organization open at every text size in both languages: nothing
@@ -1794,6 +2133,78 @@ pub(crate) mod tests {
         assert!(findings.is_empty(), "zu breit:\n{}", findings.join("\n"));
     }
 
+    /// The rightmost edge of a text or a box `search` draws as its card, after two frames.
+    fn card_right(ctx: &egui::Context, search: &mut HandleSearch) -> f32 {
+        let scheme = versekit_core::theme::current();
+        let mut output = egui::FullOutput::default();
+        for _ in 0..2 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1200.0, 2000.0))),
+                ..Default::default()
+            };
+            output = ctx.run_ui(input, |ui| search.card(ui, scheme));
+            output.textures_delta.clear();
+        }
+        output
+            .shapes
+            .iter()
+            .filter_map(|c| match &c.shape {
+                egui::Shape::Text(text) => Some(text.pos.x + text.galley.rect.max.x),
+                egui::Shape::Rect(rect) => Some(rect.rect.max.x),
+                _ => None,
+            })
+            .fold(0.0f32, f32::max)
+    }
+
+    /// The card of an organization with long names and the choice of several at every text size in both
+    /// languages: nothing reaches past the width of the card.
+    #[test]
+    fn the_card_of_an_organization_and_the_choice_fit_their_width_at_every_size() {
+        let _guard = crate::language_lock();
+        let long = "Eine Organisation mit einem sehr langen Namen aus vielen Worten";
+        let org = Org {
+            sid: "LANGESIDNAME0123456789".into(),
+            name: long.into(),
+            members: Some(1_234_567),
+            commitment: "Hardcore".into(),
+            activity: "Bounty Hunting".into(),
+            second_activity: "Resource Management".into(),
+            ..Org::default()
+        };
+        let hits: Vec<Hit> = (0..3)
+            .map(|n| Hit {
+                sid: format!("LANGESIDNAME{n:010}"),
+                name: long.into(),
+                logo: String::new(),
+                members: Some(99_999),
+            })
+            .collect();
+        let (low, high) = versekit_core::font_size::POINTS_RANGE;
+        let mut findings = Vec::new();
+        for lang in [Choice::De, Choice::En] {
+            set_language(lang);
+            for points in low..=high {
+                for answer in
+                    [Answer::Org(org::Found { org: org.clone(), fetched: 0.0 }), Answer::Choices(hits.clone())]
+                {
+                    let ctx = context();
+                    crate::apply_size(&ctx, points);
+                    let mut search = HandleSearch::empty();
+                    search.settings.clear_after = 0;
+                    search.show(Ok(answer.clone()));
+                    let right = card_right(&ctx, &mut search);
+                    assert!(right > 0.0, "the card is drawn");
+                    if right > CARD_WIDTH + 0.5 {
+                        let what = if matches!(answer, Answer::Org(_)) { "Karte" } else { "Auswahl" };
+                        findings.push(format!("{lang:?} Stufe {points} {what}: {right:.1}"));
+                    }
+                }
+            }
+        }
+        set_language(Choice::Auto);
+        assert!(findings.is_empty(), "zu breit:\n{}", findings.join("\n"));
+    }
+
     #[test]
     fn the_own_handle_stands_in_the_empty_field_and_not_in_the_log_monitor() {
         let _lang = german();
@@ -1829,7 +2240,10 @@ pub(crate) mod tests {
                 .filter(|(_, n)| n.role() == Role::RadioButton)
                 .filter_map(|(_, n)| {
                     let b = n.bounds()?;
-                    Some((n.label()?.to_string(), egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32)))
+                    Some((
+                        n.label()?.to_string(),
+                        egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32),
+                    ))
                 })
                 .collect::<Vec<_>>()
         };
@@ -1896,6 +2310,11 @@ pub(crate) mod tests {
             "s_hq_einst_log_sek",
             "s_hq_cache_leeren",
             "s_hq_verlauf",
+            "s_hq_nichts_gefunden",
+            "s_hq_org_seite",
+            "s_hq_org_markieren",
+            "s_hq_auswahl",
+            "s_hq_auswahl_klick",
             "s_hqm_auf",
             "s_hqm_zu",
             "s_hqm_titel",

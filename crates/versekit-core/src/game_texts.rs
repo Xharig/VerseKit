@@ -124,6 +124,9 @@ pub enum Notice {
     GapsFilled(usize),
     /// `spielsprache_repariert`: the language line is back in the user.cfg.
     LanguageRepaired(String),
+    /// `texte_wieder_eingesetzt`: another program had replaced the text file of a channel (or it was gone); the
+    /// chosen one is placed again.
+    FileRestored(String),
     /// `inj_aktiv`: the notes are written.
     Applied(usize),
     /// `craftdaten_neu`: the craft data (kind, size, grade, class) were built anew for a new build of the game, with
@@ -139,6 +142,7 @@ impl Notice {
             Notice::TranslationUpdated(what) => tf("texte_erneuert", &[("0", Arg::from(what.as_str()))]),
             Notice::GapsFilled(n) => tf("texte_ergaenzt", &[("0", Arg::from(*n as i64))]),
             Notice::LanguageRepaired(folder) => tf("spielsprache_repariert", &[("0", Arg::from(folder.as_str()))]),
+            Notice::FileRestored(channel) => tf("texte_wieder_eingesetzt", &[("0", Arg::from(channel.as_str()))]),
             Notice::Applied(n) => tf("inj_aktiv", &[("0", Arg::from(*n as i64))]),
             Notice::CraftData { build, items } => {
                 tf("craftdaten_neu", &[("0", Arg::from(build.as_str())), ("1", Arg::from(*items as i64))])
@@ -178,19 +182,190 @@ pub fn choice(paths: &Paths) -> game_ini::IniChoice {
     game_ini::ini_choice(paths)
 }
 
-/// `injection.setup`: write the notes into the file that counts.
+/// `injection.setup`: write the notes into the file that counts, and into the text file of every other channel whose
+/// translation VerseKit keeps ([`side_channels`]). How the file of the main installation went decides, the spots of
+/// all files count together; without a file there, the other channels decide.
 pub fn apply(paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Outcome {
     let choice = choice(paths);
-    let Some(path) = choice.path else { return Outcome::NoFile };
+    let sides = side_files(paths);
+    if choice.path.is_none() && sides.is_empty() {
+        return Outcome::NoFile;
+    }
     let inputs = prepare(paths, net, archive, game_version);
-    injection::apply_texts(paths, &path, &choice.language, &inputs, false)
+    let mut outcome = choice
+        .path
+        .as_deref()
+        .map_or(Outcome::NoFile, |path| injection::apply_texts(paths, path, &choice.language, &inputs, false));
+    for (target, language) in &sides {
+        outcome = together(outcome, injection::apply_texts(paths, target, language, &inputs, false));
+    }
+    outcome
 }
 
-/// `injection.remove_texts` on the file that counts.
+/// `injection.remove_texts` on the file that counts and on the files of the other channels that hold notes.
 pub fn remove(paths: &Paths) -> Outcome {
     let choice = choice(paths);
-    let Some(path) = choice.path else { return Outcome::NoFile };
-    injection::remove_texts(paths, &path, &choice.language)
+    let mut outcome =
+        choice.path.as_deref().map_or(Outcome::NoFile, |path| injection::remove_texts(paths, path, &choice.language));
+    for (target, language) in side_files(paths) {
+        if injection::is_applied(&target) {
+            outcome = together(outcome, injection::remove_texts(paths, &target, &language));
+        }
+    }
+    outcome
+}
+
+/// The outcome of the main file and one of another channel as one: the spots count together, a failure of the main
+/// file stays, one of the other channel goes to the error log; without a main file the other one decides.
+fn together(main: Outcome, side: Outcome) -> Outcome {
+    match (main, side) {
+        (Outcome::Done(a), Outcome::Done(b)) => Outcome::Done(a + b),
+        (Outcome::NoFile, side) => side,
+        (main, Outcome::Done(_) | Outcome::NoFile) => main,
+        (main, side) => {
+            errors::record("injection.kanal", &format!("{side:?}"));
+            main
+        }
+    }
+}
+
+/// A channel whose text file VerseKit keeps: `None` for the main installation, its folder and the source chosen
+/// there, which is set up.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Kept {
+    pub channel: Option<String>,
+    pub root: String,
+    pub source: String,
+}
+
+impl Kept {
+    /// The language folder of its source.
+    pub fn language(&self, paths: &Paths) -> String {
+        translation::language_folder(paths, &self.source, self.channel.as_deref())
+    }
+
+    /// Where its text file belongs.
+    pub fn target(&self, paths: &Paths) -> Option<String> {
+        game_ini::target_ini_in(paths, &self.root, &self.language(paths))
+    }
+
+    /// What a notice names: the folder for the main installation (as 4.12 says it), `CHANNEL · folder` else.
+    fn label(&self, paths: &Paths) -> String {
+        match &self.channel {
+            None => self.language(paths),
+            Some(channel) => format!("{channel} · {}", self.language(paths)),
+        }
+    }
+}
+
+/// The source the main installation keeps: the chosen one when it is set up ([`active_source`]), or the original
+/// texts when they are chosen and placed.
+fn main_source(paths: &Paths) -> Option<String> {
+    active_source(paths).or_else(|| {
+        (paths.setting(game_ini::SETTING_SOURCE).as_deref() == Some(ORIGINAL)
+            && translation::installed(paths, ORIGINAL, None).is_some())
+        .then(|| ORIGINAL.to_string())
+    })
+}
+
+/// The other channels besides the main installation (`main`) whose translation VerseKit keeps like the one of the
+/// main installation: every installed channel with an archive whose chosen source is set up there. A channel left
+/// alone is not among them.
+pub fn side_channels(paths: &Paths, main: Option<&str>) -> Vec<Kept> {
+    let flavor = paths.host.flavor;
+    let same = |a: &str, b: &str| flavor.normcase(&flavor.normpath(a)) == flavor.normcase(&flavor.normpath(b));
+    let sources = translation::channel_sources(paths);
+    paths
+        .installed_channels()
+        .into_iter()
+        .filter(|(name, folder, p4k)| {
+            *p4k && translation::CHANNELS.contains(&name.as_str()) && !main.is_some_and(|main| same(main, folder))
+        })
+        .filter_map(|(name, folder, _)| {
+            let source = sources.iter().find(|(k, _)| *k == name).and_then(|(_, v)| v.as_str())?.to_string();
+            (!source.is_empty() && translation::installed(paths, &source, Some(&name)).is_some())
+                .then_some(Kept { channel: Some(name), root: folder, source })
+        })
+        .collect()
+}
+
+/// Every channel whose translation VerseKit keeps: the main installation first, when its source is set up, then
+/// [`side_channels`].
+pub fn kept_channels(paths: &Paths) -> Vec<Kept> {
+    let main = paths.game_folder();
+    let mut kept: Vec<Kept> = main
+        .as_ref()
+        .and_then(|root| main_source(paths).map(|source| Kept { channel: None, root: root.clone(), source }))
+        .into_iter()
+        .collect();
+    kept.extend(side_channels(paths, main.as_deref()));
+    kept
+}
+
+/// The text files of the [`side_channels`] that are there, with their language folders.
+fn side_files(paths: &Paths) -> Vec<(String, String)> {
+    side_channels(paths, paths.game_folder().as_deref())
+        .into_iter()
+        .filter_map(|kept| kept.target(paths).filter(|t| game_ini::is_file(t)).map(|t| (t, kept.language(paths))))
+        .collect()
+}
+
+/// Put the language of the chosen translation back into the `user.cfg` of a channel when another program changed
+/// it or it is missing; only when its file is there, never on a copy of the data.
+fn language_line(paths: &Paths, kept: &Kept) -> Option<Notice> {
+    let folder = kept.language(paths);
+    let target = kept.target(paths)?;
+    if !game_ini::is_file(&target)
+        || game_ini::game_language_in(paths, &kept.root).as_deref() == Some(folder.as_str())
+        || translation::only_looks(paths, &kept.root)
+    {
+        return None;
+    }
+    let audio = translation::source(&kept.source).and_then(|q| q.audio);
+    translation::set_user_cfg(paths, &kept.root, &folder, audio).then(|| Notice::LanguageRepaired(kept.label(paths)))
+}
+
+/// The language line of every kept channel ([`language_line`]), without the net: at the start and right before
+/// the game is started.
+pub fn check_game_languages(paths: &Paths) -> Vec<Notice> {
+    kept_channels(paths).iter().filter_map(|kept| language_line(paths, kept)).collect()
+}
+
+/// Place the text file of a kept channel again when it is gone or another program put its own file there
+/// ([`translation::replaced_by_other`]); the file that was there stays as a copy beside it, the language goes into
+/// the `user.cfg`. A file placed by an older version, which has no version box noted, is taken as it is and noted.
+/// Nothing on a copy of the data. What it told, if it placed the file.
+fn put_back(paths: &Paths, net: &dyn Net, archive: &dyn Archive, kept: &Kept) -> Option<Notice> {
+    if translation::only_looks(paths, &kept.root) {
+        return None;
+    }
+    let channel = kept.channel.as_deref();
+    let target = kept.target(paths)?;
+    let key = translation::note_key(&kept.source, channel);
+    if game_ini::is_file(&target) && !translation::replaced_by_other(paths, &kept.source, channel, &target) {
+        if !translation::head_noted(paths, &kept.source, channel) {
+            translation::note_head_of_file(paths, &key, &target);
+        }
+        return None;
+    }
+    let placed = if kept.source == ORIGINAL {
+        archive.fetch_original(paths, &kept.root, true).map(|placed| placed.written)
+    } else {
+        translation::fetch(net, paths, &kept.source, &kept.root, channel, &|_| {}).map(|_| true).map_err(|p| p.text())
+    };
+    match placed {
+        Ok(true) => {
+            if kept.source == ORIGINAL {
+                translation::note_head_of_file(paths, &key, &target);
+            }
+            Some(Notice::FileRestored(kept.label(paths)))
+        }
+        Ok(false) => None,
+        Err(problem) => {
+            errors::record("watcher.textdatei", &problem);
+            None
+        }
+    }
 }
 
 /// The state for the pages and the error report (`injection.status`).
@@ -269,6 +444,9 @@ pub fn switch_source(
         // background must not renew it after a patch.
         if placed.written {
             translation::note_source(paths, ORIGINAL, "Data.p4k", None);
+            if let Some(target) = game_ini::target_ini_in(paths, &root, "english") {
+                translation::note_head_of_file(paths, ORIGINAL, &target);
+            }
         }
         placed.said
     } else {
@@ -285,8 +463,10 @@ pub fn switch_source(
     Ok(Switched { fetched, cleaned, applied })
 }
 
-/// A side channel takes another source (`pages._fetch_side`): only the
-/// text file, never notes. An empty source leaves the channel alone.
+/// A side channel takes another source (`pages._fetch_side`): the text file
+/// with the language in its `user.cfg`, and the notes as in the main
+/// installation (while they are switched on). An empty source leaves the
+/// channel alone.
 ///
 /// # Errors
 ///
@@ -304,25 +484,50 @@ pub fn switch_side(
     if source.is_empty() {
         return Ok(String::new());
     }
-    if source == ORIGINAL {
+    let said = if source == ORIGINAL {
         let placed = archive.fetch_original(paths, root, true)?;
         if placed.written {
-            translation::note_set(
-                paths,
-                &translation::note_key(ORIGINAL, Some(channel)),
-                Some("Data.p4k"),
-                Some("english"),
-                None,
-            );
+            let key = translation::note_key(ORIGINAL, Some(channel));
+            translation::note_set(paths, &key, Some("Data.p4k"), Some("english"), None);
+            if let Some(target) = game_ini::target_ini_in(paths, root, "english") {
+                translation::note_head_of_file(paths, &key, &target);
+            }
         }
-        return Ok(placed.said);
-    }
-    if translation::only_looks(paths, root) {
+        placed.said
+    } else if translation::only_looks(paths, root) {
         let looked = translation::look_on_copy(net, paths, source, Some(channel)).map_err(|p| p.text())?;
         return Ok(looked.text_in(crate::language::current()));
+    } else {
+        let placed = translation::fetch(net, paths, source, root, Some(channel), progress).map_err(|p| p.text())?;
+        fetched_text(source, channel, placed.bytes)
+    };
+    let kept = Kept { channel: Some(channel.to_string()), root: root.to_string(), source: source.to_string() };
+    let Some(applied) = side_notes(paths, net, archive, &kept, &crate::stock_fetch::live_build(paths)) else {
+        return Ok(said);
+    };
+    use crate::language::{Arg, tf};
+    Ok(match applied {
+        Outcome::Done(count) => format!("{said} · {}", tf("inj_aktiv", &[("0", Arg::from(count as i64))])),
+        other => {
+            errors::record("injection.kanal", &format!("{other:?}"));
+            said
+        }
+    })
+}
+
+/// The notes in the text file of a side channel after its source changed: the old file of the channel (another
+/// language folder) gets its wording back first, then the new one is written. `None` while notes are switched off
+/// or there is no file.
+fn side_notes(paths: &Paths, net: &dyn Net, archive: &dyn Archive, kept: &Kept, version: &str) -> Option<Outcome> {
+    if !paths.setting_bool(SETTING_ON, true) {
+        return None;
     }
-    let placed = translation::fetch(net, paths, source, root, Some(channel), progress).map_err(|p| p.text())?;
-    Ok(fetched_text(source, channel, placed.bytes))
+    let target = kept.target(paths).filter(|t| game_ini::is_file(t))?;
+    if injection::clean_leftover(paths, Some(&target)).is_some() {
+        injection::discard_origtext_for(paths, &target);
+    }
+    let inputs = prepare(paths, net, archive, version);
+    Some(injection::apply_texts(paths, &target, &kept.language(paths), &inputs, false))
 }
 
 /// `Watcher._aktive_quelle`: the chosen source of the main installation when
@@ -346,15 +551,9 @@ pub fn active_source(paths: &Paths) -> Option<String> {
 /// translation back into the user.cfg when it is missing. Only for a source
 /// the player chose, and only when its file is there.
 pub fn check_game_language(paths: &Paths, source: Option<&str>) -> Option<Notice> {
-    let source = source.map(str::to_string).or_else(|| active_source(paths))?;
-    let folder = translation::language_folder(paths, &source, None);
-    let target = game_ini::target_ini(paths, &folder)?;
-    if !game_ini::is_file(&target) || game_ini::game_language(paths).as_deref() == Some(folder.as_str()) {
-        return None;
-    }
+    let source = source.map(str::to_string).or_else(|| main_source(paths))?;
     let root = paths.game_folder()?;
-    let audio = translation::source(&source).and_then(|q| q.audio);
-    translation::set_user_cfg(paths, &root, &folder, audio).then_some(Notice::LanguageRepaired(folder))
+    language_line(paths, &Kept { channel: None, root, source })
 }
 
 /// `Watcher._inj_mark`: collection, version and the shop catalog stand.
@@ -373,15 +572,33 @@ pub fn stock_mark(paths: &Paths, owned: &BTreeSet<String>) -> String {
     mark
 }
 
-/// Size and time of the text file the notes go into.
-type FileStamp = (String, u64, std::time::SystemTime);
+/// Size and time of the files another program rewrites: the text file the notes go into and the `user.cfg` of the
+/// main installation, and the same of every side channel VerseKit keeps; `None` for a file that is not there.
+type FileStamp = Vec<(String, Option<(u64, std::time::SystemTime)>)>;
 
 fn file_stamp(paths: &Paths) -> Option<FileStamp> {
     let folder =
         active_source(paths).map_or_else(|| "english".to_string(), |s| translation::language_folder(paths, &s, None));
-    let target = game_ini::target_ini(paths, &folder)?;
-    let info = std::fs::metadata(&target).ok()?;
-    Some((target, info.len(), info.modified().ok()?))
+    let main = paths.game_folder();
+    let mut files: Vec<String> = game_ini::target_ini(paths, &folder).into_iter().collect();
+    files.extend(main.as_deref().map(|root| paths.host.flavor.join(root, "user.cfg")));
+    for kept in side_channels(paths, main.as_deref()) {
+        files.extend(kept.target(paths));
+        files.push(paths.host.flavor.join(&kept.root, "user.cfg"));
+    }
+    if files.is_empty() {
+        return None;
+    }
+    let stamp = |file: &str| std::fs::metadata(file).ok().and_then(|info| Some((info.len(), info.modified().ok()?)));
+    Some(
+        files
+            .into_iter()
+            .map(|file| {
+                let at = stamp(&file);
+                (file, at)
+            })
+            .collect(),
+    )
 }
 
 /// One run of the background, decided by [`Upkeep::tick`].
@@ -497,14 +714,11 @@ impl Upkeep {
         }
         let source = active_source(paths);
         let own_original = translation::installed(paths, ORIGINAL, None).is_some();
-        let channels: Vec<(String, String)> = if due {
-            translation::channel_sources(paths)
-                .into_iter()
-                .filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_string())))
-                .collect()
-        } else {
-            Vec::new()
-        };
+        // The side channels in every run: their files change with the collection and with another program too.
+        let channels: Vec<(String, String)> = side_channels(paths, paths.game_folder().as_deref())
+            .into_iter()
+            .filter_map(|kept| kept.channel.map(|channel| (channel, kept.source)))
+            .collect();
         if source.is_none() && !own_original && channels.is_empty() {
             return None;
         }
@@ -538,43 +752,79 @@ pub struct Ran {
 /// Never fails; problems go to the error log.
 pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Ran {
     let mut ran = Ran::default();
+    let mut inputs: Option<Inputs> = None;
+    let mut side_written = None;
     if !job.channels.is_empty() {
-        let folders: Vec<(String, String)> =
-            paths.installed_channels().into_iter().filter(|(_, _, p4k)| *p4k).map(|(n, f, _)| (n, f)).collect();
+        // Whether the collection or the catalog changed since the last writing; the main installation notes it anew.
+        let mark = stock_mark(paths, &sources::owned(paths));
+        let stand = catalog_stand(paths);
+        let marks_new = paths.setting(SETTING_STOCK_MARK).as_deref() != Some(mark.as_str())
+            || (!stand.is_empty() && paths.setting(SETTING_CATALOG).as_deref() != Some(stand.as_str()));
+        let sides = side_channels(paths, paths.game_folder().as_deref());
         for (channel, source) in &job.channels {
-            let Some((_, root)) = folders.iter().find(|(n, _)| n == channel) else { continue };
-            if source == ORIGINAL || translation::installed(paths, source, Some(channel)).is_none() {
+            let Some(kept) = sides.iter().find(|k| k.channel.as_deref() == Some(channel) && k.source == *source) else {
                 continue;
-            }
+            };
             // On a copy of the data the run only looks and notes what it found; the page says it calmly.
-            if translation::only_looks(paths, root) {
-                let _ = translation::look_on_copy(net, paths, source, Some(channel));
-                continue;
-            }
-            let (newer, ident) = translation::update_available(net, paths, source, Some(channel));
-            if !newer {
-                continue;
-            }
-            match translation::fetch(net, paths, source, root, Some(channel), &|_| {}) {
-                Ok(_) => {
-                    let said = translation::status_text(
-                        paths,
-                        source,
-                        Some(channel),
-                        crate::language::current(),
-                        &translation::today(),
-                    );
-                    let said = if said.is_empty() { ident.unwrap_or_default() } else { said };
-                    ran.notices.push(Notice::TranslationUpdated(format!("{channel} · {said}")));
+            if translation::only_looks(paths, &kept.root) {
+                if !job.stock_only && source != ORIGINAL {
+                    let _ = translation::look_on_copy(net, paths, source, Some(channel));
                 }
-                Err(problem) => errors::record("watcher.kanaele", &problem.text()),
+                continue;
+            }
+            let mut fresh = false;
+            if !job.stock_only {
+                if let Some(notice) = put_back(paths, net, archive, kept) {
+                    ran.notices.push(notice);
+                    fresh = true;
+                } else if source != ORIGINAL {
+                    fresh = renew_side(paths, net, kept, &mut ran);
+                }
+                ran.notices.extend(language_line(paths, kept));
+            }
+            let Some(target) = kept.target(paths).filter(|t| game_ini::is_file(t)) else { continue };
+            if !paths.setting_bool(SETTING_ON, true) || !(fresh || marks_new || !injection::is_applied(&target)) {
+                continue;
+            }
+            let inputs = inputs.get_or_insert_with(|| prepare(paths, net, archive, game_version));
+            match injection::apply_texts(paths, &target, &kept.language(paths), inputs, false) {
+                Outcome::Done(_) => side_written = Some((mark.clone(), stand.clone())),
+                other => errors::record("watcher.kanaele", &format!("{other:?}")),
             }
         }
     }
     if job.source.is_some() || job.own_original {
         reconcile(job, paths, net, archive, game_version, &mut ran);
+    } else if let Some((mark, stand)) = side_written {
+        // Without notes in the main installation the side channels keep the marks.
+        paths.set_setting(SETTING_STOCK_MARK, Value::str(mark));
+        if !stand.is_empty() {
+            paths.set_setting(SETTING_CATALOG, Value::str(stand));
+        }
     }
     ran
+}
+
+/// Look for a newer version of the source of a side channel and fetch it; whether it came.
+fn renew_side(paths: &Paths, net: &dyn Net, kept: &Kept, ran: &mut Ran) -> bool {
+    let (channel, source) = (kept.channel.as_deref().unwrap_or_default(), kept.source.as_str());
+    let (newer, ident) = translation::update_available(net, paths, source, Some(channel));
+    if !newer {
+        return false;
+    }
+    match translation::fetch(net, paths, source, &kept.root, Some(channel), &|_| {}) {
+        Ok(_) => {
+            let said =
+                translation::status_text(paths, source, Some(channel), crate::language::current(), &translation::today());
+            let said = if said.is_empty() { ident.unwrap_or_default() } else { said };
+            ran.notices.push(Notice::TranslationUpdated(format!("{channel} · {said}")));
+            true
+        }
+        Err(problem) => {
+            errors::record("watcher.kanaele", &problem.text());
+            false
+        }
+    }
 }
 
 /// `Watcher._texte_abgleichen`.
@@ -583,14 +833,25 @@ fn reconcile(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, gam
     let folder = source.map_or_else(|| "english".to_string(), |s| translation::language_folder(paths, s, None));
     let Some(target) = game_ini::target_ini(paths, &folder) else { return };
     let mut needed = false;
-    if !job.stock_only
-        && let Some(notice) = check_game_language(paths, source)
-    {
-        ran.notices.push(notice);
-    }
     let mut renewed = false;
+    // The file another program put in place of the chosen one goes first; the language follows it.
+    let kept = paths.game_folder().zip(source.map(str::to_string).or_else(|| main_source(paths))).map(
+        |(root, source)| Kept { channel: None, root, source },
+    );
+    if !job.stock_only
+        && let Some(kept) = &kept
+    {
+        if let Some(notice) = put_back(paths, net, archive, kept) {
+            ran.notices.push(notice);
+            needed = true;
+            renewed = true;
+        }
+        ran.notices.extend(language_line(paths, kept));
+    }
     let looks_only = paths.game_folder().is_some_and(|root| translation::only_looks(paths, &root));
-    if let Some(source) = source.filter(|_| !job.stock_only && looks_only) {
+    if renewed {
+        // Just placed anew: the newest version, nothing to look for.
+    } else if let Some(source) = source.filter(|_| !job.stock_only && looks_only) {
         // On a copy of the data only a look: the note says whether a newer version is out.
         let _ = translation::look_on_copy(net, paths, source, None);
     } else if let Some(source) = source.filter(|_| !job.stock_only) {
@@ -620,6 +881,10 @@ fn reconcile(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, gam
     }
     if !job.stock_only && job.own_original && archive.refresh_original(paths) {
         ran.notices.push(Notice::TranslationUpdated(translation::display_name(ORIGINAL)));
+        // The version box of the game changed with the patch: the new file is the one placed.
+        if let Some(english) = game_ini::target_ini(paths, "english") {
+            translation::note_head_of_file(paths, ORIGINAL, &english);
+        }
         needed = true;
     }
     if !job.stock_only && source.is_some() && !renewed {

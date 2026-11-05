@@ -37,7 +37,7 @@ use versekit_core::game_start;
 use versekit_core::jsonio::Value;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::Paths;
-use versekit_core::signature_window::Size;
+use versekit_core::signature_window::{Place, Size};
 use versekit_core::theme::{self, Color, IconTint, Scheme};
 use versekit_core::window_signal::{self, Role, Signal};
 use versekit_core::{font_size, language};
@@ -97,8 +97,8 @@ use crate::{
 };
 
 const SYSTEMS: [&str; 4] = ["Stanton", "Pyro", "Nyx", "Castra"];
-/// The made-up version the update bar of the sample page names.
-const SAMPLE_UPDATE: &str = "5.1";
+/// The made-up version the update bar of the sample page names: newer than the program itself.
+const SAMPLE_UPDATE: &str = "5.2";
 /// How often the foot bar looks at the process list and the game log on real data (seconds).
 const GAME_LOOK_SECONDS: f64 = 2.0;
 
@@ -468,6 +468,10 @@ pub struct SamplePage {
     scan_modifiers: [bool; 3],
     scan_key: usize,
     scan_hotkey_on: bool,
+    /// The hotkey of the handle search in the info bar (`hotkey_suche`) and whether it is used (`hotkey_suche_an`).
+    search_modifiers: [bool; 3],
+    search_key: usize,
+    search_hotkey_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -575,6 +579,10 @@ pub struct SamplePage {
     overlay_seconds: i64,
     /// What opens the folded or waiting overlay (blueprint, scanner, contract, refinery, catalog).
     overlay_events: versekit_core::overlay::Events,
+    /// What the open overlay shows besides its rows (server, place, contracts, update), all on by default.
+    overlay_sections: versekit_core::overlay::Sections,
+    /// The most contracts the game allows at a time, for the head of the bar in the overlay (`3/10`).
+    overlay_contracts_max: i64,
     /// The frame rates beside the shard in the overlay (read from the picture of the game, off by default).
     overlay_fps: bool,
     /// The frame rate of the server and the players from the same picture, each on its own switch.
@@ -698,6 +706,38 @@ pub struct MainSignals {
     ended: Arc<AtomicBool>,
     /// The page the overlay asked for (the code of its signal), 0 for none: the last request counts.
     page: Arc<AtomicU8>,
+    /// The overlay asked for the demand of the unit (it started).
+    demand_wanted: Arc<AtomicBool>,
+    /// The demand last handed to the overlay, and when it was last tried.
+    demand_handed: Arc<std::sync::Mutex<DemandHanded>>,
+}
+
+/// What the main window last handed the overlay of the demand of the unit.
+#[derive(Default)]
+struct DemandHanded {
+    bytes: Option<Vec<u8>>,
+    tried: Option<std::time::Instant>,
+}
+
+/// A change of the demand is handed to the overlay at most this often while no overlay takes it.
+const DEMAND_RETRY: std::time::Duration = std::time::Duration::from_secs(2);
+
+impl DemandHanded {
+    /// Whether `bytes` go to the overlay now: when it asked, or when they changed and the last try is long enough
+    /// ago. Marks them as handed when they go.
+    fn due(&mut self, bytes: &[u8], asked: bool, now: std::time::Instant) -> bool {
+        let changed = self.bytes.as_deref() != Some(bytes);
+        let waited = self.tried.is_none_or(|at| now.duration_since(at) >= DEMAND_RETRY);
+        if asked || (changed && waited) {
+            self.tried = Some(now);
+            return true;
+        }
+        false
+    }
+
+    fn handed(&mut self, bytes: Vec<u8>) {
+        self.bytes = Some(bytes);
+    }
 }
 
 impl MainSignals {
@@ -728,6 +768,7 @@ impl MainSignals {
                 self.page.store(signal as u8, Ordering::Relaxed);
                 return;
             }
+            Signal::DemandWanted => &self.demand_wanted,
             // Anti-AFK is switched in the overlay; the main window is the one who asks.
             Signal::AntiAfkOn | Signal::AntiAfkOff | Signal::ShowFrame => return,
         };
@@ -740,6 +781,9 @@ impl MainSignals {
         if self.settings.swap(false, Ordering::Relaxed) {
             page.reload_settings();
         }
+        self.hand_demand(page, window_signal::find, |overlay, bytes| {
+            window_signal::send_data(overlay, window_signal::DataKind::Demand, bytes)
+        });
         let shown = self.overview.swap(false, Ordering::Relaxed);
         if shown {
             page.open_overview();
@@ -770,6 +814,31 @@ impl MainSignals {
         if self.close.swap(false, Ordering::Relaxed) && !self.keep_open.load(Ordering::Relaxed) {
             self.ended.store(true, Ordering::Relaxed);
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
+
+    /// Hands the demand of the unit to the running overlay (`find` gives it, `send` hands the bytes over) when the
+    /// overlay asked for it or it changed: all wanted materials while the page "Bedarf der Einheit" is there, none
+    /// otherwise. Only the real Basetool: the made-up one of the preview stays in its window. In memory only.
+    fn hand_demand(
+        &self,
+        page: &SamplePage,
+        find: impl Fn(Role) -> Option<isize>,
+        send: impl Fn(isize, &[u8]) -> bool,
+    ) {
+        use versekit_core::basetool::{demand, scopes::SETTING_DEMAND};
+        let asked = self.demand_wanted.swap(false, Ordering::Relaxed);
+        let Some(wire) = page.connection.wire().filter(|wire| wire.demo.is_none()) else { return };
+        let wanted = wire.demand.for_overlay(wire.sync.area_visible(SETTING_DEMAND), wire.sync.now());
+        let bytes = demand::handover(&wanted);
+        let mut handed = self.demand_handed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !handed.due(&bytes, asked, std::time::Instant::now()) {
+            return;
+        }
+        if let Some(overlay) = find(Role::Overlay)
+            && send(overlay, &bytes)
+        {
+            handed.handed(bytes);
         }
     }
 
@@ -1078,6 +1147,10 @@ impl SamplePage {
             scan_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_SCAN_HOTKEY).map_or([true, true, false], |h| h.0),
             scan_key: parse_hotkey(versekit_core::overlay::DEFAULT_SCAN_HOTKEY).map_or(0, |h| h.1),
             scan_hotkey_on: true,
+            search_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY)
+                .map_or([false, true, true], |h| h.0),
+            search_key: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY).map_or(7, |h| h.1),
+            search_hotkey_on: false,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -1139,7 +1212,7 @@ impl SamplePage {
             status_look: glance_tiles::StatusLook::default(),
             new_pages: controls::sample_new_pages(),
             gallery: None,
-            overlay_rows: 20,
+            overlay_rows: versekit_core::overlay::ROWS_DEFAULT,
             overlay_auto: true,
             overlay_opacity: 93,
             overlay_opaque: false,
@@ -1147,11 +1220,13 @@ impl SamplePage {
             overlay_popup: false,
             overlay_seconds: 6,
             overlay_events: versekit_core::overlay::Events::default(),
+            overlay_sections: versekit_core::overlay::Sections::default(),
+            overlay_contracts_max: versekit_core::overlay::CONTRACTS_MAX_DEFAULT,
             overlay_fps: false,
             overlay_server_fps: false,
             overlay_players: false,
-            overlay_info_bar: false,
-            overlay_info_bar_always: false,
+            overlay_info_bar: versekit_core::overlay::INFO_BAR_DEFAULT,
+            overlay_info_bar_always: versekit_core::overlay::INFO_BAR_ALWAYS_DEFAULT,
             overlay_info_bar_corner: versekit_core::info_bar::Corner::default(),
             overlay_info_bar_size: versekit_core::overlay::SIZE_STEPS[0],
             place_reset_at: None,
@@ -1184,7 +1259,8 @@ impl SamplePage {
     /// Only the window model with sample contents, to pass on: people try
     /// the functions without their own data. Nothing is saved.
     pub fn preview() -> Self {
-        let mut page = SamplePage { preview: true, ..Self::new() };
+        // The hotkey of the handle search stands switched on, so that its picker is drawn and measured too.
+        let mut page = SamplePage { preview: true, search_hotkey_on: true, ..Self::new() };
         page.connect_preview(true);
         page
     }
@@ -1898,19 +1974,30 @@ impl SamplePage {
         self.apply_streamer(paths);
         self.start_command = paths.setting(game_start::STARTER_SETTING).unwrap_or_default();
         self.overlay_clickable = paths.setting_bool("durchklickbar", false);
-        self.overlay_rows = paths.setting_int("max_zeilen", 20, Some(OVERLAY_ROWS.0), Some(OVERLAY_ROWS.1));
+        self.overlay_rows = paths.setting_int(
+            versekit_core::overlay::keys::ROWS,
+            versekit_core::overlay::ROWS_DEFAULT,
+            Some(OVERLAY_ROWS.0),
+            Some(OVERLAY_ROWS.1),
+        );
         self.overlay_auto = paths.setting_bool("durchklick_auto", true);
         self.overlay_opacity = paths.setting_int("deckkraft_prozent", 93, Some(30), Some(100));
         self.overlay_opaque = crate::renderer::overlay_opaque(paths);
         self.overlay_popup = paths.setting("overlay_modus").as_deref() == Some("popup");
         self.overlay_seconds = paths.setting_int("popup_sekunden", 6, Some(2), Some(60));
         self.overlay_events = versekit_core::overlay::Events::read(paths);
+        self.overlay_sections = versekit_core::overlay::Sections::read(paths);
+        self.overlay_contracts_max = versekit_core::overlay::Settings::read(paths).contracts_max;
         self.overlay_fps = paths.setting_bool(versekit_core::overlay::keys::FPS_LINE, false);
         // Read like the overlay reads them: without their own key they follow the frame rates.
         let overlay = versekit_core::overlay::Settings::read(paths);
         (self.overlay_server_fps, self.overlay_players) = (overlay.server_fps, overlay.players);
-        self.overlay_info_bar = paths.setting_bool(versekit_core::overlay::keys::INFO_BAR, false);
-        self.overlay_info_bar_always = paths.setting_bool(versekit_core::overlay::keys::INFO_BAR_ALWAYS, false);
+        self.overlay_info_bar =
+            paths.setting_bool(versekit_core::overlay::keys::INFO_BAR, versekit_core::overlay::INFO_BAR_DEFAULT);
+        self.overlay_info_bar_always = paths.setting_bool(
+            versekit_core::overlay::keys::INFO_BAR_ALWAYS,
+            versekit_core::overlay::INFO_BAR_ALWAYS_DEFAULT,
+        );
         self.overlay_info_bar_corner = versekit_core::info_bar::Corner::read(paths);
         self.overlay_size = versekit_core::overlay::size_setting(paths, versekit_core::overlay::keys::SIZE);
         self.overlay_info_bar_size = versekit_core::overlay::size_setting(paths, versekit_core::overlay::keys::INFO_BAR_SIZE);
@@ -1924,6 +2011,12 @@ impl SamplePage {
                 (self.scan_modifiers, self.scan_key) = (modifiers, key);
             }
             self.scan_hotkey_on = overlay::scan_hotkey_on(paths);
+            let stored =
+                paths.setting(keys::HOTKEY_SEARCH).unwrap_or_else(|| overlay::DEFAULT_SEARCH_HOTKEY.to_string());
+            if let Some((modifiers, key)) = parse_hotkey(&stored) {
+                (self.search_modifiers, self.search_key) = (modifiers, key);
+            }
+            self.search_hotkey_on = overlay::search_hotkey_on(paths);
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2013,6 +2106,10 @@ impl SamplePage {
         values.extend(
             versekit_core::overlay::Event::ALL.map(|e| (e.key(), Value::Bool(self.overlay_events.contains(e)))),
         );
+        values.extend(
+            versekit_core::overlay::Section::ALL.map(|s| (s.key(), Value::Bool(self.overlay_sections.contains(s)))),
+        );
+        values.push((versekit_core::overlay::keys::CONTRACTS_MAX, Value::int(self.overlay_contracts_max)));
         values.push((versekit_core::overlay::keys::FPS_LINE, Value::Bool(self.overlay_fps)));
         values.push((versekit_core::overlay::keys::SERVER_FPS, Value::Bool(self.overlay_server_fps)));
         values.push((versekit_core::overlay::keys::PLAYERS, Value::Bool(self.overlay_players)));
@@ -2029,6 +2126,10 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_SCAN, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_SCAN_ON, Value::Bool(self.scan_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.search_modifiers, self.search_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_SEARCH, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_SEARCH_ON, Value::Bool(self.search_hotkey_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -3422,7 +3523,8 @@ impl SamplePage {
                             // The same row for every system: its name says Windows or the login.
                             let name =
                                 label(if name == "autostart_win" && !cfg!(windows) { "autostart_linux" } else { name });
-                            let hint = label(hint);
+                            // Without an icon next to the clock (off Windows) closing ends the window: the hint says so.
+                            let hint = label(if hint == "s_tray_h" && !cfg!(windows) { "s_tray_h_ohne" } else { hint });
                             let choices: Vec<String> = choices.iter().map(|c| label(c)).collect();
                             settings::setting_row(ui, scheme, &name, &hint, false, |row| {
                                 match (g, r) {
@@ -3694,12 +3796,18 @@ impl SamplePage {
                             (&mut self.scan_modifiers, &mut self.scan_key, &mut self.scan_hotkey_on);
                         let scan_before = hotkey_text(*scan_modifiers, *scan_key);
                         let mut scan_refused = false;
+                        let (search_modifiers, search_key, search_on) =
+                            (&mut self.search_modifiers, &mut self.search_key, &mut self.search_hotkey_on);
+                        let search_before = search_on.then(|| hotkey_text(*search_modifiers, *search_key)).flatten();
+                        let mut search_refused = false;
                         // The refinery scan reads the screen: only where that works.
                         let scan_possible = versekit_core::refinery_scan::screen::supported();
                         let (auto, opacity) = (&mut self.overlay_auto, &mut self.overlay_opacity);
                         let opaque = self.overlay_opaque;
                         let (popup, seconds) = (&mut self.overlay_popup, &mut self.overlay_seconds);
                         let events = &mut self.overlay_events;
+                        let sections = &mut self.overlay_sections;
+                        let contracts_max = &mut self.overlay_contracts_max;
                         let fps = &mut self.overlay_fps;
                         let server_fps = &mut self.overlay_server_fps;
                         let players = &mut self.overlay_players;
@@ -3717,7 +3825,7 @@ impl SamplePage {
                             scheme,
                             "overlay",
                             &group_refs(&groups),
-                            &[2, 3, 4, 5],
+                            &[2, 3, 4, 5, 6],
                             &mut |ui, g, r| {
                                 let (name, hint, choices) = rows[g].1[r];
                                 let name = label(name);
@@ -3779,6 +3887,10 @@ impl SamplePage {
                                                 let reason = language::t("s_nicht_moegl");
                                                 row.label(RichText::new(reason).color(color(scheme.sub)));
                                             }
+                                            // The hotkey of the handle search: on or off, its picker below the row.
+                                            10 => {
+                                                row.add(widgets::Toggle::new(search_on, scheme));
+                                            }
                                             // The hotkey: its picker below the row.
                                             _ => {}
                                         }
@@ -3799,6 +3911,32 @@ impl SamplePage {
                                         if scan_modifiers.iter().all(|on| !on) && before.iter().any(|on| *on) {
                                             *scan_modifiers = before;
                                             scan_refused = true;
+                                        }
+                                    }
+                                    if r == 10 && *search_on {
+                                        let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
+                                        let mut words: Vec<(&str, bool)> = names
+                                            .iter()
+                                            .zip(search_modifiers.iter())
+                                            .map(|(w, on)| (w.as_str(), *on))
+                                            .collect();
+                                        let before = *search_modifiers;
+                                        widgets::hotkey_picker(
+                                            ui,
+                                            scheme,
+                                            "overlay-suche",
+                                            &mut words,
+                                            &HOTKEYS,
+                                            search_key,
+                                            &name,
+                                        );
+                                        for (on, (_, pressed)) in search_modifiers.iter_mut().zip(words) {
+                                            *on = pressed;
+                                        }
+                                        // Without Strg, Alt or Umschalt it is no hotkey: the saved one stays.
+                                        if search_modifiers.iter().all(|on| !on) && before.iter().any(|on| *on) {
+                                            *search_modifiers = before;
+                                            search_refused = true;
                                         }
                                     }
                                     if r == 3 {
@@ -3823,7 +3961,7 @@ impl SamplePage {
                                         // Under Wayland: the way through a shortcut of the desktop.
                                         shortcut_copied |= desktop.shortcut_hint(ui, scheme);
                                     }
-                                } else if g == 4 {
+                                } else if g == 5 {
                                     // The window with the scanned material: its place and the search frame on two
                                     // models one below the other (the frame has no row of its own), its size and the
                                     // extra line in the overlay.
@@ -3839,22 +3977,34 @@ impl SamplePage {
                                         );
                                     } else if r != 3 {
                                         settings::setting_row(ui, scheme, &name, hint, false, |row| match r {
+                                            // The size in per mille of the game window's height.
                                             1 => {
-                                                for (size, word) in Size::ALL.into_iter().zip(choices) {
-                                                    if widgets::radio(
-                                                        row,
-                                                        scheme,
-                                                        scanner.layout.size == size,
-                                                        &label(word),
-                                                    )
-                                                    .clicked()
-                                                    {
-                                                        scanner.layout.size = size;
-                                                    }
-                                                }
+                                                let mut size = i64::from(scanner.layout.size.0);
+                                                let range = (i64::from(Size::MIN.0), i64::from(Size::MAX.0));
+                                                settings::slider_with_value(row, scheme, &name, &mut size, range, false, |n| {
+                                                    format!("{n} ‰")
+                                                });
+                                                scanner.layout.size = Size(size as i32);
                                             }
                                             2 => {
                                                 row.add(widgets::Toggle::new(&mut scanner.layout.overlay_line, scheme));
+                                            }
+                                            // Above the signature or in the info bar.
+                                            4 => {
+                                                for (place, word) in Place::ALL.into_iter().zip(choices) {
+                                                    if widgets::radio(row, scheme, scanner.layout.place == place, &label(word))
+                                                        .clicked()
+                                                    {
+                                                        scanner.layout.place = place;
+                                                    }
+                                                }
+                                            }
+                                            5 => {
+                                                let range = versekit_core::signature_window::LINGER_RANGE;
+                                                let linger = &mut scanner.layout.linger;
+                                                settings::slider_with_value(row, scheme, &name, linger, range, false, |n| {
+                                                    format!("{n} s")
+                                                });
                                             }
                                             _ => {}
                                         });
@@ -3868,16 +4018,32 @@ impl SamplePage {
                                             *events = events.with(event, on);
                                         }
                                     });
-                                } else if g == 3 && r == 7 {
+                                } else if g == 3 && r == versekit_core::overlay::Section::ALL.len() {
+                                    // After the switches: the most contracts the game allows, for the head of the bar.
+                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                                        let range = versekit_core::overlay::CONTRACTS_MAX_RANGE;
+                                        let id = "auftraege-hoechstzahl";
+                                        widgets::number_field(row, scheme, id, contracts_max, range.0..=range.1, "");
+                                    });
+                                } else if g == 3 {
+                                    // What the open overlay shows: one switch each.
+                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                                        let section = versekit_core::overlay::Section::ALL[r];
+                                        let mut on = sections.contains(section);
+                                        if row.add(widgets::Toggle::new(&mut on, scheme)).changed() {
+                                            *sections = sections.with(section, on);
+                                        }
+                                    });
+                                } else if g == 4 && r == 7 {
                                     // The settings of the handle search, which shows in the bar.
                                     settings::setting_row(ui, scheme, &name, hint, false, |_| {});
                                     crate::handle_page::show_settings(ui, scheme, handles);
-                                } else if g == 3 && r == 3 {
+                                } else if g == 4 && r == 3 {
                                     // The size of the bar with its card and lines, apart from the overlay's.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         window_size_slider(row, scheme, &name, info_bar_size);
                                     });
-                                } else if g == 3 && r == 2 {
+                                } else if g == 4 && r == 2 {
                                     // Where the bar starts: top left, middle or right.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         let corners = versekit_core::info_bar::Corner::ALL;
@@ -3889,7 +4055,7 @@ impl SamplePage {
                                             }
                                         }
                                     });
-                                } else if g == 3 {
+                                } else if g == 4 {
                                     // The bar itself, whether it shows without the game too, and the frame rates
                                     // (in the bar while it is on, else beside the shard in the overlay).
                                     let switch = match r {
@@ -3926,13 +4092,21 @@ impl SamplePage {
                             let text = language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from(saved))]);
                             self.pin_notice = Some((page.input(|i| i.time), text));
                         }
-                        if scan_refused {
+                        if scan_refused || search_refused {
                             self.pin_notice = Some((page.input(|i| i.time), language::t("s_hk_falsch")));
                         }
-                        // A new hotkey: the running overlay takes it with the settings (it registers both).
-                        let now_hotkeys =
-                            [hotkey_text(self.hotkey_modifiers, self.hotkey_key), hotkey_text(self.scan_modifiers, self.scan_key)];
-                        for (before, now) in [hotkey_before, scan_before].into_iter().zip(now_hotkeys) {
+                        // A new hotkey: the running overlay takes it with the settings (it registers all of them). The
+                        // one of the handle search counts only while it is on, so switching it on says it too.
+                        let search_now = self
+                            .search_hotkey_on
+                            .then(|| hotkey_text(self.search_modifiers, self.search_key))
+                            .flatten();
+                        let now_hotkeys = [
+                            hotkey_text(self.hotkey_modifiers, self.hotkey_key),
+                            hotkey_text(self.scan_modifiers, self.scan_key),
+                            search_now,
+                        ];
+                        for (before, now) in [hotkey_before, scan_before, search_before].into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
                                 && (self.overlay_runs)()
                             {
@@ -4365,7 +4539,14 @@ impl SamplePage {
                             self.pin_notice = Some((page.input(|i| i.time), said.text));
                         }
                     }
-                    "hf_hangar" => self.show_hangar(page, scheme),
+                    "hf_hangar" => {
+                        self.show_hangar(page, scheme);
+                        // The parts that can be crafted for a ship: Crafting with the ship in its filter.
+                        if let Some(ship) = self.hangar.take_craft_jump() {
+                            self.crafting.jump_to_ship(&ship);
+                            jump = Some(("hf_herstellung".to_string(), "hf_gruppe_herst"));
+                        }
+                    }
                     // The page without an entry in the menu: the names moved into the hangar, a button leads there.
                     ASOP_PAGE => {
                         widgets::hint(page, scheme, &t("s_as_umgezogen_2"));
@@ -4399,7 +4580,21 @@ impl SamplePage {
                     "hf_patchaenderungen" => {
                         crate::patch_changes_page::show_page(page, scheme, &mut self.patch_changes);
                     }
-                    "hf_handlesuche" => crate::handle_page::show_page(page, scheme, &mut self.handles),
+                    "hf_handlesuche" => {
+                        if let Some(crate::handle_page::Action::ToRelations) =
+                            crate::handle_page::show_page(page, scheme, &mut self.handles)
+                        {
+                            jump = Some(("hf_beziehungen".to_string(), "hf_gruppe_info"));
+                        }
+                    }
+                    // An entry opened in the list of the relations shows its card on the page of the search.
+                    "hf_beziehungen" => {
+                        if let Some(crate::handle_page::Action::ToSearch) =
+                            crate::handle_page::show_relations_page(page, scheme, &mut self.handles)
+                        {
+                            jump = Some(("hf_handlesuche".to_string(), "hf_gruppe_info"));
+                        }
+                    }
                     "hf_bergbau" => {
                         if let Some(mining_page::Action::ToRefineries) =
                             mining_page::show_page(page, scheme, &mut self.mining)
@@ -4980,6 +5175,7 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
             ("hf_patchaenderungen", "clock"),
             ("hf_serverstatus", "server"),
             ("hf_handlesuche", "users"),
+            ("hf_beziehungen", "shield-half"),
             ("hf_danke", "heart-handshake"),
         ],
     ),
@@ -5087,6 +5283,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_modus", "ov_s_modus_h", &["s_ov_immer", "s_ov_popup"]),
                     ("s_ov_dauer", "ov_s_dauer_h", &["s"]),
                     ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             (
@@ -5120,6 +5317,20 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_bei_katalog", "s_ov_bei_katalog_h", &[]),
                 ],
             ),
+            // What the open overlay shows besides its rows, one switch each (the order of
+            // `versekit_core::overlay::Section::ALL`).
+            (
+                "s_ov_anzeigen",
+                &[
+                    ("s_ov_zeige_server", "s_ov_zeige_server_h", &[]),
+                    ("s_ov_zeige_ort", "s_ov_zeige_ort_h", &[]),
+                    ("s_ov_zeige_auftraege", "s_ov_zeige_auftraege_h", &[]),
+                    ("s_ov_zeige_raffinerie", "s_ov_zeige_raffinerie_h", &[]),
+                    ("s_ov_zeige_update", "s_ov_zeige_update_h", &[]),
+                    // After the switches: the most contracts for the count in the head of the bar.
+                    ("s_ov_auftraege_max", "s_ov_auftraege_max_h", &[]),
+                ],
+            ),
             // The info bar: a small window of its own over the game, with what it shows (the frame rates too).
             (
                 "s_ov_infoleiste_titel",
@@ -5143,9 +5354,12 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                 "s_sg_titel",
                 &[
                     ("s_sg_lage", "s_sg_lage_h", &["s_sg_lage_mitte"]),
-                    ("s_sg_groesse", "s_sg_groesse_h", &["s_sg_klein", "s_sg_mittel", "s_sg_gross"]),
+                    ("s_sg_groesse", "s_sg_groesse_h", &[]),
                     ("s_sg_zeile", "s_sg_zeile_h", &[]),
                     ("s_sg_rahmen", "s_sg_rahmen_h", &["s_sg_rahmen_weg"]),
+                    // From here on rows of their own after the frame (row 3 is drawn inside the model).
+                    ("s_sg_ort", "s_sg_ort_h", &["s_sg_ort_signatur", "s_sg_ort_leiste"]),
+                    ("s_sg_nachlauf", "s_sg_nachlauf_h", &[]),
                 ],
             ),
         ],
@@ -5223,16 +5437,16 @@ const HISTORY: [(&str, &str, &[&str]); 3] = [
     ("5.0.1", "26.10.2026", &["s_mu_hist_overlay", "s_mu_hist_pfade"]),
     ("5.0", "20.10.2026", &["s_mu_hist_rust", "s_mu_hist_schemata", "s_mu_hist_halb"]),
 ];
-/// Keys a hotkey can use: a letter, a digit or F1 … F12, as 4.12 takes them.
-const HOTKEYS: [&str; 48] = [
+/// Keys a hotkey can use: a letter, a digit or F1 … F24 (`overlay::Hotkey::parse`).
+const HOTKEYS: [&str; 60] = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W",
     "X", "Y", "Z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8",
-    "F9", "F10", "F11", "F12",
+    "F9", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24",
 ];
 /// The modifier keys of a hotkey as stored, in the order of the picker.
 const HOTKEY_MODIFIERS: [&str; 3] = ["Strg", "Alt", "Umschalt"];
-/// Fewest and most rows of the overlay, as 4.12 allows them.
-const OVERLAY_ROWS: (i64, i64) = (5, 100);
+/// Fewest and most rows of the overlay, as the overlay reads them.
+const OVERLAY_ROWS: (i64, i64) = versekit_core::overlay::ROWS_RANGE;
 
 /// A stored hotkey such as `Strg+Alt+B`: which modifiers, which key (index
 /// into `HOTKEYS`). Read by the same parser as the overlay
@@ -5639,6 +5853,17 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_p9_ek_ziehen",
         ]),
         "hf_notizen" => texts(&["s_nz_lead", "s_nz_neu", "s_nz_loeschen", "s_nz_schreib_hier"]),
+        "hf_handlesuche" => texts(&["s_hqs_lead", "s_hqs_verwalten", "s_hq_verlauf"]),
+        "hf_beziehungen" => texts(&[
+            "s_hqb_lead",
+            "s_hqs_liste",
+            "s_hq_export",
+            "s_hq_import",
+            "s_hq_freundlich",
+            "s_hq_neutral",
+            "s_hq_feindlich",
+            "s_hqs_unbekannt",
+        ]),
         "hf_contested" => texts(&[
             "s_cz_hangar",
             "s_cz_naechste",
@@ -6281,7 +6506,7 @@ mod tests {
         assert_eq!(usage_page_id("eigene_seite"), None);
         // Every page of the side bar has an id the receiver takes, but the pages new in v5 that the receiver
         // does not know yet: those are not counted.
-        let unknown_to_the_receiver = ["hf_handlesuche"];
+        let unknown_to_the_receiver = ["hf_handlesuche", "hf_beziehungen"];
         for (_, pages) in NAV {
             for (page, _) in pages.iter() {
                 if unknown_to_the_receiver.contains(page) {
@@ -6618,8 +6843,16 @@ mod tests {
     fn hotkeys_like_4_12() {
         let b = HOTKEYS.iter().position(|k| *k == "B").unwrap();
         assert_eq!(parse_hotkey("strg + alt + b"), Some(([true, true, false], b)));
-        assert_eq!(parse_hotkey("Ctrl-Shift-F12"), Some(([true, false, true], HOTKEYS.len() - 1)));
-        for wrong in ["B", "Strg+A+B", "Strg+Ä", "Alt+F13", ""] {
+        let f12 = HOTKEYS.iter().position(|k| *k == "F12").unwrap();
+        assert_eq!(parse_hotkey("Ctrl-Shift-F12"), Some(([true, false, true], f12)));
+        // F13 to F24 stand in the list after F12 and are read back to the same place.
+        assert_eq!(parse_hotkey("Alt+F13"), Some(([false, true, false], f12 + 1)));
+        assert_eq!(parse_hotkey("Strg+F24"), Some(([true, false, false], HOTKEYS.len() - 1)));
+        for key in f12 + 1..HOTKEYS.len() {
+            let text = hotkey_text([false, true, true], key).unwrap();
+            assert_eq!(parse_hotkey(&text), Some(([false, true, true], key)), "{text}");
+        }
+        for wrong in ["B", "Strg+A+B", "Strg+Ä", "Alt+F25", ""] {
             assert_eq!(parse_hotkey(wrong), None, "{wrong}");
         }
         assert_eq!(hotkey_text([true, true, false], b).as_deref(), Some("Strg+Alt+B"));
@@ -7501,7 +7734,7 @@ mod tests {
             })
             .expect("Reiter Items");
         let mut last_right = tab.x1;
-        for key in ["s_mlg_aktion_sichern", "s_mlg_aktion_einlesen", "s_mlg_aktion_leeren"] {
+        for key in ["s_mlg_aktion_sichern", "s_mlg_aktion_einlesen", "s_mlg_aktion_umziehen", "s_mlg_aktion_leeren"] {
             let b = find(&nodes, &t(key)).unwrap_or_else(|| panic!("{key} fehlt"));
             assert!(b.x0 > last_right, "{key} nicht rechts vom Vorigen");
             assert!((b.y0 + b.y1) / 2.0 > tab.y0 && (b.y0 + b.y1) / 2.0 < tab.y1, "{key} nicht in der Reiterzeile");
@@ -7645,6 +7878,9 @@ mod tests {
         // shell the check runs in, nor a game installed on this computer, counts.
         let mut page = SamplePage::with_settings(Paths::new(super::real_data::host_apart(&dir)));
         page.use_test_receiver();
+        // A sentence of the player before the report is made, so that one click sends: without one the first
+        // click only asks for it, and a sentence typed after the report was shown makes the click refresh it.
+        page.diagnose.as_mut().expect("the page has a data folder").set_message("Probe");
         page.page = "hf_diagnose".to_string();
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -7677,7 +7913,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         let state = page.diagnose.as_ref().expect("page");
-        assert_eq!(state.test_receiver_count(), 1, "one report reached the test receiver");
+        assert_eq!(state.test_receiver_count(), 1, "one report reached the test receiver: {:?}", state.notice());
         assert_eq!(state.notice().map(|n| n.0.clone()), Some(language::t("s_di_ab_ok")));
         let _ = std::fs::remove_dir_all(&dir);
     }

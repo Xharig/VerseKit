@@ -58,8 +58,12 @@ pub struct View<'a> {
     pub rows: &'a Rows,
     /// The running contracts, as the log says: shown above the rows, nothing while there are none.
     pub contracts: &'a [ContractLine],
+    /// The most contracts the game allows at a time, for the head of the bar (`3/10`).
+    pub contracts_max: usize,
     /// The title of the contract the player just hid: a line with the way back, for a few seconds.
     pub hidden: Option<&'a str>,
+    /// The refinery jobs, one line each, `true` for a done one: under the contracts, nothing while there are none.
+    pub refinery: &'a [(String, bool)],
     /// A way to start the game is known: the rocket stands in the bar. Without one there is no
     /// button; a button that does nothing is worse than none.
     pub launcher: bool,
@@ -73,6 +77,8 @@ pub struct View<'a> {
     /// The scanned signature with its material in one line, while the scanner reads one and the player asked
     /// for the line (the window above the signature in the game is the usual place).
     pub signature: Option<&'a str>,
+    /// What the unit wants of the ores behind that signature ("Die Einheit sucht: …"), under its line.
+    pub demand: Option<&'a str>,
     /// A newer version is ready (only shown while the game runs).
     pub update: Option<&'a str>,
     pub peek: Option<Peek>,
@@ -609,7 +615,7 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
         ui.add_space(2.0);
         return;
     }
-    let head = t("ov_auftraege_kopf");
+    let head = contracts_head(view.contracts.len(), view.contracts_max);
     quiet(ui, &head);
     out.contract_texts.push(head);
     for line in view.contracts {
@@ -659,6 +665,11 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
         }
     }
     ui.add_space(2.0);
+}
+
+/// The head of the bar of contracts with how many run of the most the game allows (`3/10`).
+pub fn contracts_head(running: usize, most: usize) -> String {
+    tf("ov_auftraege_kopf_zahl", &[("0", running.into()), ("1", most.into())])
 }
 
 /// How many rows the overlay shows on its first start.
@@ -791,6 +802,9 @@ pub fn show(ui: &mut Ui, view: &View) -> Output {
         }
         if let Some(line) = view.signature {
             content.add(egui::Label::new(RichText::new(line).small().color(color(s.accent))).wrap());
+            if let Some(wanted) = view.demand {
+                content.add(egui::Label::new(RichText::new(wanted).small().color(color(s.fg))).wrap());
+            }
         }
         if !view.game {
             content.add(egui::Label::new(RichText::new(t("ov_spiel_aus")).small().color(color(s.sub))).wrap());
@@ -816,6 +830,13 @@ pub fn show(ui: &mut Ui, view: &View) -> Output {
                 .min_scrolled_height(cap)
                 .auto_shrink([false, true]);
             crate::widgets::scroll_area(&mut content, s, area, |ui| contracts_bar(ui, view, &mut out));
+        }
+        for (line, done) in view.refinery {
+            let tint = if *done { s.accent } else { s.fg };
+            content.add(egui::Label::new(RichText::new(line).small().color(color(tint))).truncate());
+        }
+        if !view.refinery.is_empty() {
+            content.add_space(4.0);
         }
         crate::widgets::scroll_area(
             &mut content,
@@ -914,13 +935,16 @@ mod tests {
             shown,
             rows,
             contracts: &[],
+            contracts_max: 10,
             hidden: None,
+            refinery: &[],
             launcher: false,
             status,
             location: None,
             shard: None,
             shard_hint: None,
             signature: None,
+            demand: None,
             update: None,
             peek: None,
             mode: Mode::Always,
@@ -1112,6 +1136,24 @@ mod tests {
         let texts = drawn(&shown, 440.0, 1, None);
         assert!(!texts.iter().any(|t| t.text == short));
         assert!(texts.iter().any(|t| t.text == status.render() && !t.cut));
+    }
+
+    /// What the unit wants of the scanned ores stands whole under the signature line, and only with it.
+    #[test]
+    fn the_demand_of_the_unit_stands_under_the_signature_line_and_only_with_it() {
+        let scheme = theme::by_id("original").expect("scheme");
+        let rows = rows();
+        let status = Message::Plain("12 Baupläne".into());
+        let mut shown = view(scheme, &rows, &status, Shown::Open);
+        let (signature, wanted) = ("Signatur: 8,420 → 2× Agricium", "Die Einheit sucht: 40 SCU Agricium (ab Q 650)");
+        shown.demand = Some(wanted);
+        assert!(!drawn(&shown, 440.0, 1, None).iter().any(|t| t.text == wanted), "no signature line: no demand");
+        shown.signature = Some(signature);
+        let texts = drawn(&shown, 440.0, 1, None);
+        let read = texts.iter().find(|t| t.text == signature).expect("the signature line");
+        let line = texts.iter().find(|t| t.text == wanted).expect("the demand is drawn");
+        assert!(line.top > read.top, "under the signature line: {} over {}", line.top, read.top);
+        assert!(!line.cut, "whole");
     }
 
     /// Streamer mode: the lines of the overlay (status, hints, the signature line) hide a path, a
@@ -1627,6 +1669,23 @@ mod tests {
         ]
     }
 
+    #[test]
+    fn the_refinery_jobs_stand_under_the_contracts_and_take_no_room_without_any() {
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let jobs = vec![("Gold · noch 1m 0s".to_string(), false), ("Iron · fertig, abholen".to_string(), true)];
+        for scheme in theme::schemes() {
+            let mut v = view(scheme, &rows, &status, Shown::Open);
+            let (_, without) = frame(&v, vec2(420.0, 400.0), None);
+            assert!(!without.iter().any(|p| p.starts_with("Gold") || p.starts_with("Iron")), "{}", scheme.id);
+            v.refinery = &jobs;
+            let (_, painted) = frame(&v, vec2(420.0, 400.0), None);
+            for (line, _) in &jobs {
+                assert!(painted.contains(line), "{}: {line} in {painted:?}", scheme.id);
+            }
+        }
+    }
+
     /// The bar says what runs: header, a line each, the objectives indented
     /// and counted past the limit, the reason for a grey one, a button to hide
     /// each; and it takes no room when nothing runs.
@@ -1642,7 +1701,13 @@ mod tests {
             v.contracts = &lines;
             let (out, _) = frame(&v, vec2(420.0, 400.0), None);
             let texts = &out.contract_texts;
-            assert_eq!(texts[0], t("ov_auftraege_kopf"), "{}", scheme.id);
+            assert_eq!(texts[0], contracts_head(lines.len(), 10), "{}", scheme.id);
+            assert!(texts[0].ends_with(&format!("{}/10", lines.len())), "{}: {}", scheme.id, texts[0]);
+            // The most the player set stands behind the count.
+            v.contracts_max = 12;
+            let (more, _) = frame(&v, vec2(420.0, 400.0), None);
+            assert!(more.contract_texts[0].ends_with(&format!("{}/12", lines.len())), "{}", scheme.id);
+            v.contracts_max = 10;
             assert!(texts.contains(&lines[0].text.render()) && texts.contains(&lines[2].text.render()));
             assert!(texts.contains(&t("ov_a_unklar")), "{}: the reason for the grey one", scheme.id);
             assert!(!texts.contains(&"Nicht gezeigt".to_string()), "{}: a grey one shows no objectives", scheme.id);
@@ -1793,7 +1858,7 @@ mod tests {
         let lines = contract_lines();
         v.contracts = &lines;
         let (both, _) = frame(&v, size, None);
-        assert_eq!(both.contract_texts[1], t("ov_auftraege_kopf"));
+        assert_eq!(both.contract_texts[1], contracts_head(lines.len(), 10));
         assert_eq!(both.hide_buttons.len(), 3);
     }
 

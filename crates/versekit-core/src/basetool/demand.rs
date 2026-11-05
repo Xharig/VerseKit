@@ -299,19 +299,114 @@ impl DemandStore {
     /// material itself or as one of the ores it is made of. Empty without a
     /// demand.
     pub fn matching(&self, names: &[String], now: f64) -> Vec<Material> {
-        let wanted: Vec<String> = names.iter().filter(|n| !n.is_empty()).map(|n| norm_material(n)).collect();
         let (_, data) = self.current(now);
-        let Some(data) = data.filter(|_| !wanted.is_empty()) else { return Vec::new() };
-        data.materials
-            .iter()
-            .filter(|line| {
-                std::iter::once(norm_material(&line.name))
-                    .chain(line.raw.iter().map(|r| norm_material(r)))
-                    .any(|key| wanted.contains(&key))
-            })
-            .cloned()
-            .collect()
+        data.map(|data| matching_in(&data.materials, names)).unwrap_or_default()
     }
+
+    /// The materials the overlay is handed ([`handover`]): all wanted materials while the demand is `visible`,
+    /// none otherwise (switched off, right missing, not connected, too old).
+    pub fn for_overlay(&self, visible: bool, now: f64) -> Vec<Material> {
+        let (_, data) = self.current(now);
+        data.filter(|_| visible).map(|data| data.materials.clone()).unwrap_or_default()
+    }
+
+    /// The line of the overlay while mining (`exchange_demand.overlay_text`): what the unit wants of the materials
+    /// that fit `names`; empty when the demand is not `visible` (area off, right missing, not connected) or nothing
+    /// fits.
+    pub fn overlay_text(&self, names: &[String], visible: bool, now: f64) -> String {
+        if !visible {
+            return String::new();
+        }
+        overlay_line(&self.matching(names, now))
+    }
+}
+
+/// The materials of `materials` that fit one of `names`, as the material itself or as one of the ores it is made
+/// of (`exchange_demand.matching`).
+pub fn matching_in(materials: &[Material], names: &[String]) -> Vec<Material> {
+    let wanted: Vec<String> = names.iter().filter(|n| !n.is_empty()).map(|n| norm_material(n)).collect();
+    if wanted.is_empty() {
+        return Vec::new();
+    }
+    materials
+        .iter()
+        .filter(|line| {
+            std::iter::once(norm_material(&line.name))
+                .chain(line.raw.iter().map(|r| norm_material(r)))
+                .any(|key| wanted.contains(&key))
+        })
+        .cloned()
+        .collect()
+}
+
+/// The wanted materials as the main window hands them to the running overlay (`window_signal::DataKind::Demand`):
+/// what the overlay line needs, in the memory of the two processes only, never in a file.
+pub fn handover(materials: &[Material]) -> Vec<u8> {
+    let lines: Vec<Value> = materials
+        .iter()
+        .map(|m| {
+            Value::Object(vec![
+                ("name".into(), Value::str(&m.name)),
+                ("raw".into(), Value::Array(m.raw.iter().map(Value::str).collect())),
+                ("min_quality".into(), Value::int(m.min_quality)),
+                ("amount".into(), Value::Float(m.amount)),
+                ("unit".into(), Value::str(&m.unit)),
+            ])
+        })
+        .collect();
+    crate::jsonio::dumps(&Value::Object(vec![("materials".into(), Value::Array(lines))]), None, false).into_bytes()
+}
+
+/// The materials of a [`handover`]; nothing for anything else.
+pub fn taken_over(bytes: &[u8]) -> Vec<Material> {
+    let Some(answer) = std::str::from_utf8(bytes).ok().and_then(|text| crate::jsonio::loads(text).ok()) else {
+        return Vec::new();
+    };
+    let Some(map) = answer.as_object() else { return Vec::new() };
+    list(map, "materials")
+        .iter()
+        .filter_map(Value::as_object)
+        .map(|line| Material {
+            name: text_of(get(line, "name"), usize::MAX),
+            raw: match get(line, "raw") {
+                Some(Value::Array(raw)) => raw.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+                _ => Vec::new(),
+            },
+            min_quality: int_of(get(line, "min_quality")),
+            amount: float_of(get(line, "amount")),
+            unit: text_value(get(line, "unit")),
+            source: String::new(),
+        })
+        .filter(|m| !m.name.is_empty() && m.amount > 0.0)
+        .collect()
+}
+
+/// `'Die Einheit sucht: 40 SCU Agricium (ab Q 650) · …'` for at most three of `lines`, empty without any. Pieces are
+/// counted whole, everything else in SCU as Python's `%g` with a decimal comma.
+pub fn overlay_line(lines: &[Material]) -> String {
+    use crate::language::{self, Arg};
+    if lines.is_empty() {
+        return String::new();
+    }
+    let parts: Vec<String> = lines
+        .iter()
+        .take(3)
+        .map(|line| {
+            let piece = line.unit.to_uppercase() == "PIECE";
+            let (amount, unit) = if piece {
+                ((line.amount.trunc() as i64).to_string(), language::t("s_lg_stueck"))
+            } else {
+                (language::py_g(line.amount, false).replace('.', ","), "SCU".to_string())
+            };
+            let mut text = format!("{amount} {unit} {}", line.name);
+            if line.min_quality != 0 {
+                let quality = language::tf("s_bd_ab_q", &[("0", Arg::from(line.min_quality))]);
+                text.push_str(&format!(" ({quality})"));
+            }
+            text
+        })
+        .collect();
+    language::tf("ov_bedarf", &[("0", Arg::from(parts.join(" · ")))])
 }
 
 /// The area of the sync: runs while the demand is switched on and its right
@@ -430,6 +525,87 @@ mod tests {
         assert_eq!(store.reason(), "NOT_PERMITTED");
         store.forget();
         assert_eq!(store.reason(), "");
+    }
+
+    /// The line under the signature (selbsttest 417 of 4.12): a fitting ore names amount, material and quality; no
+    /// fitting ore or no visible demand gives no line.
+    #[test]
+    fn the_overlay_line_names_what_the_unit_wants_of_the_scanned_ores() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let store = DemandStore::new();
+        store.take(
+            parse(&answer(
+                r#"{"materials": [
+                    {"material": {"name": "Agricium"}, "rawRefs": [{"name": "Agricium (Ore)"}],
+                     "minQuality": 650, "openQuantity": {"amount": 40, "unit": "SCU"}},
+                    {"material": {"name": "Leer"}, "openQuantity": {"amount": 0}}],
+                   "items": [{"item": {"name": "CF-337 Panther Repeater"}, "openQuantity": {"amount": 2, "unit": "PIECE"}}]}"#,
+            )),
+            1000.0,
+        );
+        let scanned = ["Agricium (Ore)".to_string(), "Quartz (Raw)".to_string()];
+        assert_eq!(store.overlay_text(&scanned, true, 1000.0), "Die Einheit sucht: 40 SCU Agricium (ab Q 650)");
+        assert_eq!(store.overlay_text(&["Quartz (Raw)".to_string()], true, 1000.0), "", "no fitting ore: no line");
+        assert_eq!(store.overlay_text(&scanned, false, 1000.0), "", "without the Basetool connection: no line");
+        assert_eq!(store.overlay_text(&scanned, true, 1000.0 + MAX_AGE + 1.0), "", "an old demand: no line");
+        crate::language::set_thread_language(crate::language::Choice::En);
+        store.take(
+            parse(&answer(r#"{"materials": [{"material": {"name": "Agricium"}, "openQuantity": {"amount": 4}}]}"#)),
+            1000.0,
+        );
+        assert_eq!(store.overlay_text(&scanned, true, 1000.0), "Your unit wants: 4 SCU Agricium", "no quality: none said");
+    }
+
+    /// What the main window hands the overlay comes back as it was, only while the demand is visible, and the overlay
+    /// line from it is the one the main window would write.
+    #[test]
+    fn the_handover_to_the_overlay_carries_the_wanted_materials_whole_and_only_while_visible() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let store = DemandStore::new();
+        store.take(
+            parse(&answer(
+                r#"{"materials": [
+                    {"material": {"name": "Agricium"}, "rawRefs": [{"name": "Agricium (Ore)"}],
+                     "minQuality": 650, "openQuantity": {"amount": 40, "unit": "SCU"}, "source": "JOB"},
+                    {"material": {"name": "Gold"}, "openQuantity": {"amount": 2.5, "unit": "SCU"}}]}"#,
+            )),
+            1000.0,
+        );
+        assert!(store.for_overlay(false, 1000.0).is_empty(), "not visible: nothing goes over");
+        let sent = store.for_overlay(true, 1000.0);
+        let taken = taken_over(&handover(&sent));
+        let without_source: Vec<Material> = sent.iter().map(|m| Material { source: String::new(), ..m.clone() }).collect();
+        assert_eq!(taken, without_source, "everything the line needs, nothing more");
+        let scanned = ["Agricium (Ore)".to_string()];
+        assert_eq!(overlay_line(&matching_in(&taken, &scanned)), store.overlay_text(&scanned, true, 1000.0));
+        assert!(taken_over(&handover(&[])).is_empty());
+        assert!(taken_over(b"not json").is_empty() && taken_over(b"[1]").is_empty() && taken_over(&[0xff]).is_empty());
+        assert!(store.for_overlay(true, 1000.0 + MAX_AGE + 1.0).is_empty(), "an old demand goes over as none");
+    }
+
+    /// As 4.12 writes the amounts: `%g` with a decimal comma, pieces whole; at most three materials.
+    #[test]
+    fn the_overlay_line_writes_amounts_as_4_12_and_names_three_at_most() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let line = |name: &str, amount: f64, unit: &str, min_quality: i64| Material {
+            name: name.into(),
+            raw: Vec::new(),
+            min_quality,
+            amount,
+            unit: unit.into(),
+            source: String::new(),
+        };
+        assert_eq!(overlay_line(&[]), "");
+        let lines = [
+            line("Titan", 12.5, "SCU", 0),
+            line("Kerne", 3.9, "piece", 0),
+            line("Gold", 0.25, "", 900),
+            line("Eisen", 1.0, "SCU", 0),
+        ];
+        assert_eq!(
+            overlay_line(&lines),
+            "Die Einheit sucht: 12,5 SCU Titan · 3 Stück Kerne · 0,25 SCU Gold (ab Q 900)",
+        );
     }
 
     #[test]

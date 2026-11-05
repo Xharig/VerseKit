@@ -75,6 +75,11 @@ pub struct InfoWindow {
     placed: Option<(i32, i32)>,
     /// The window may take the keyboard: the field of the search has the cursor and the lock is open.
     typing: bool,
+    /// The hotkey of the search asked for the cursor in the field, for the next frame.
+    key_asked: bool,
+    /// The hotkey put the cursor into the field: it keeps the keyboard with the lock closed too, until the field
+    /// gives the cursor up (Enter, Escape).
+    by_key: bool,
     /// The handle of the native window once found, and how often it was looked for.
     native: isize,
     looked: u32,
@@ -100,6 +105,8 @@ impl InfoWindow {
             zoom: 1.0,
             placed: None,
             typing: false,
+            key_asked: false,
+            by_key: false,
             native: 0,
             looked: 0,
             last_topmost: Instant::now(),
@@ -143,6 +150,18 @@ impl InfoWindow {
     #[cfg(test)]
     pub fn typing(&self) -> bool {
         self.typing
+    }
+
+    /// Waits a press of the hotkey of the search for the next frame?
+    #[cfg(test)]
+    pub fn key_asked(&self) -> bool {
+        self.key_asked
+    }
+
+    /// The hotkey of the search was pressed: the next frame puts the cursor into the field, and the window takes the
+    /// keyboard from the game, with the lock closed too.
+    pub fn type_by_key(&mut self) {
+        self.key_asked = true;
     }
 
     /// Lets the window take the keyboard while the field of the search has the cursor, and gives it back.
@@ -221,6 +240,7 @@ impl InfoWindow {
         let mut out = Step::default();
         if !on {
             self.allow_typing(false);
+            (self.key_asked, self.by_key) = (false, false);
             if self.shown {
                 trail(&format!("hidden, window {}", self.native));
                 self.shown = false;
@@ -261,6 +281,9 @@ impl InfoWindow {
         if fresh {
             trail(&format!("shown, window {} movable {}", self.native, content.movable));
         }
+        // The cursor the hotkey asked for is put into the field once it is drawn, also with the lock closed.
+        let asked = std::mem::take(&mut self.key_asked) && search.is_some();
+        let by_key = self.by_key || asked;
         let (mut drawn, primary_down) = ctx.show_viewport_immediate(self.id, builder, |ui, class| {
             if ui.input(|i| i.pointer.any_pressed() || i.pointer.any_released()) {
                 let (down, focused) = ui.input(|i| (i.pointer.primary_down(), i.focused));
@@ -270,16 +293,26 @@ impl InfoWindow {
             }
             let mut drawn = view::show_with(ui, content, search.as_deref_mut());
             // The lock closed while the field had the cursor, or the bar comes back with the cursor it had when it
-            // went: the cursor goes (the focus is kept per window, also while the window is gone).
+            // went: the cursor goes (the focus is kept per window, also while the window is gone). The cursor the
+            // hotkey put there stays.
             if drawn.typing
-                && (!content.movable || fresh)
+                && (!content.movable && !by_key || fresh)
                 && let Some(search) = search.as_deref()
             {
                 search.stop_typing(ui.ctx());
                 drawn.typing = false;
             }
+            if asked && let Some(search) = search.as_deref() {
+                search.focus_field(ui.ctx());
+                ui.ctx().request_repaint();
+            }
             (drawn, ui.input(|i| i.pointer.primary_down()))
         });
+        if asked {
+            trail(&format!("hotkey, window {} cursor asked", self.native));
+        }
+        // The field gave the cursor up: the hotkey's hold on the keyboard ends with it.
+        self.by_key = asked || self.by_key && drawn.typing;
         self.shown = true;
         if drawn.width > 0.0 && (drawn.width - self.width).abs() > 0.5 {
             self.width = drawn.width;
@@ -293,8 +326,8 @@ impl InfoWindow {
             self.height = drawn.height;
             ctx.request_repaint();
         }
-        // The keyboard only while the field has the cursor and the lock is open.
-        drawn.typing &= content.movable;
+        // The keyboard only while the field has the cursor and the lock is open, or the hotkey put the cursor there.
+        drawn.typing &= content.movable || self.by_key;
         self.allow_typing(drawn.typing);
         // Placed once more with the width the first frame measured: in the middle for the real width. After that
         // the left end stays and the bar grows to the right.
@@ -567,6 +600,67 @@ mod tests {
         run(&mut info, &mut search, false, true);
         run(&mut info, &mut search, false, false);
         assert!(!info.typing());
+    }
+
+    /// The hotkey of the search puts the cursor into the field and gives the bar the keyboard, with the lock closed
+    /// too; Escape takes the cursor out of the field and gives the keyboard back, and the closed lock holds again.
+    #[test]
+    fn the_hotkey_of_the_search_gives_the_field_the_cursor_and_the_bar_the_keyboard() {
+        let _screens = screen::fixed(one_screen());
+        let ctx = egui::Context::default();
+        versekit_ui::install(&ctx);
+        let mut info = InfoWindow::new(Places::default());
+        let mut search = HandleSearch::empty();
+        let content = view::View {
+            scheme: theme::by_id("original").expect("scheme"),
+            fps: None,
+            players: None,
+            shard: None,
+            mining: None,
+            opacity: 1.0,
+            movable: false,
+        };
+        let run = |info: &mut InfoWindow, search: &mut HandleSearch, events: Vec<egui::Event>, focus: bool| {
+            let input = egui::RawInput { events, ..Default::default() };
+            let mut output = ctx.run_ui(input, |ui| {
+                if focus {
+                    search.focus_field(ui.ctx());
+                }
+                info.step(ui.ctx(), true, &content, pointer(0, 0), Some(search));
+            });
+            output.textures_delta.clear();
+        };
+        run(&mut info, &mut search, Vec::new(), false);
+        assert!(!info.typing(), "lock closed, no hotkey: no keyboard");
+        info.type_by_key();
+        run(&mut info, &mut search, Vec::new(), false);
+        run(&mut info, &mut search, Vec::new(), false);
+        assert!(info.typing(), "the hotkey: the keyboard, with the lock closed");
+        assert!(search.typing(&ctx), "and the cursor in the field");
+        run(&mut info, &mut search, Vec::new(), false);
+        assert!(info.typing(), "it stays while the field has the cursor");
+        let escape = egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        run(&mut info, &mut search, vec![escape], false);
+        run(&mut info, &mut search, Vec::new(), false);
+        assert!(!search.typing(&ctx), "Escape: the cursor left the field");
+        assert!(!info.typing(), "and the keyboard went back");
+        // Counter-check: the cursor put into the field otherwise is taken out again while the lock is closed.
+        run(&mut info, &mut search, Vec::new(), true);
+        run(&mut info, &mut search, Vec::new(), false);
+        assert!(!info.typing() && !search.typing(&ctx));
+        // The bar switched off forgets a hotkey press it did not show yet.
+        info.type_by_key();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            info.step(ui.ctx(), false, &content, pointer(0, 0), Some(&mut search));
+        });
+        output.textures_delta.clear();
+        assert!(!info.key_asked && !info.by_key);
     }
 
     /// The bar hidden while the field has the cursor and shown again: it comes back without the cursor, and a

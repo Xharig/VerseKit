@@ -371,6 +371,10 @@ pub fn run(args: &[String]) -> eframe::Result {
     // The overlay writes the same files: one write lock for both processes.
     if let Some(paths) = &paths {
         paths.share_saves();
+        // The overlay keeps the game's texts; while none runs (switched off, ended) this window does it.
+        versekit_overlay::keep_texts_without_overlay(paths, writeguard::state(), || {
+            window_signal::find(Role::Overlay).is_some()
+        });
     }
     // The scheme is decided by the settings that are loaded below.
     theme::set_current(theme::DEFAULT);

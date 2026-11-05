@@ -116,14 +116,14 @@ fn count_log(path: &str, gegenprobe: bool) -> Result<(Value, BTreeSet<u64>, Vec<
         .iter()
         .filter_map(|e| match e {
             Event::Purchase(p) => Some(p),
-            Event::Movement(_) => None,
+            Event::Sale(_) | Event::Movement(_) => None,
         })
         .collect();
     let moves: Vec<&Movement> = events
         .iter()
         .filter_map(|e| match e {
             Event::Movement(m) => Some(m),
-            Event::Purchase(_) => None,
+            Event::Purchase(_) | Event::Sale(_) => None,
         })
         .collect();
     let mut classes: Vec<&str> = purchases.iter().map(|p| p.class.as_str()).collect();
@@ -188,7 +188,7 @@ fn coverage(folder: &str, events: &[Event], landings: &BTreeSet<u64>, learned: &
         let (class, guid, is_purchase) = match event {
             Event::Purchase(p) => (p.class.as_str(), p.guid.as_str(), true),
             Event::Movement(m) if !m.class.is_empty() => (m.class.as_str(), "", false),
-            Event::Movement(_) => continue,
+            Event::Movement(_) | Event::Sale(_) => continue,
         };
         let named = items.item(class, guid).adoptable();
         classes.insert((is_purchase, class.to_string()), named);

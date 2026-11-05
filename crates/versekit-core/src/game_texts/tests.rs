@@ -165,8 +165,9 @@ fn the_original_in_a_side_channel_leaves_the_main_note_alone() {
     let ptu = format!("{}/StarCitizen/PTU", s.root);
     fs::create_dir_all(&ptu).unwrap();
     let said = switch_side(&s.paths, &Fake::default(), &FakeArchive::default(), "PTU", &ptu, ORIGINAL, &|_| {});
-    assert_eq!(said.as_deref(), Ok("1.0 MB"));
-    assert!(fs::read_to_string(format!("{ptu}/data/Localization/english/global.ini")).unwrap() == ENGLISH);
+    assert!(said.as_deref().is_ok_and(|said| said.starts_with("1.0 MB · ")), "placed with its notes: {said:?}");
+    let side = fs::read_to_string(format!("{ptu}/data/Localization/english/global.ini")).unwrap();
+    assert!(side.starts_with("Bounty_title_001=Bounty <EM4>[BP]</EM4>\n"), "the PTU file carries the notes: {side}");
     assert_eq!(injection::load_origtext(&s.paths), note, "the note of the main file is untouched");
     assert!(translation::installed(&s.paths, ORIGINAL, Some("PTU")).is_some());
     assert!(translation::installed(&s.paths, ORIGINAL, None).is_none());
@@ -530,6 +531,218 @@ fn removing_and_status() {
     remove(&s.paths);
     assert!(!status(&s.paths).applied);
     assert_eq!(fs::read_to_string(s.ini()).unwrap(), "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n");
+}
+
+/// What SCDL writes into the version box of the files it places.
+const SCDL_BOX: &str = "Frontend_PU_Version=4.10.3 PTU\\nEnglish, Source: Data.p4k\\n\\nSCDL Version: 2026.1009.13";
+
+impl Setup {
+    /// A PTU beside LIVE with its archive and the German translation of Luftwerft placed there once, without
+    /// notes; SCDL wrote its English file and the language line into the PTU afterwards.
+    fn ptu_with_scdl_leftovers(&self) -> String {
+        let ptu = format!("{}/StarCitizen/PTU", self.root);
+        for folder in ["german_(germany)", "english"] {
+            fs::create_dir_all(format!("{ptu}/data/Localization/{folder}")).unwrap();
+        }
+        fs::write(format!("{ptu}/Data.p4k"), "").unwrap();
+        fs::write(
+            format!("{ptu}/data/Localization/german_(germany)/global.ini"),
+            "Frontend_PU_Version=Luftwerft PTU\nBounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n",
+        )
+        .unwrap();
+        let key = translation::note_key("luftwerft_de", Some("PTU"));
+        translation::note_set(&self.paths, &key, Some("etag:a"), Some("german_(germany)"), None);
+        translation::set_channel_source(&self.paths, "PTU", "luftwerft_de");
+        fs::write(format!("{ptu}/data/Localization/english/global.ini"), format!("{SCDL_BOX}\nBounty_title_001=Bounty\n"))
+            .unwrap();
+        fs::write(format!("{ptu}/user.cfg"), "g_language = english\n").unwrap();
+        ptu
+    }
+}
+
+/// The address of the German file of Luftwerft for a channel.
+fn luftwerft_german(channel: &str) -> String {
+    format!("https://www.luftwerft.com/download/resources/localizations/{channel}/german_(germany)/global.ini")
+}
+
+/// A text file of Luftwerft as large as a real one, with its own version box.
+fn luftwerft_file(box_text: &str) -> String {
+    [format!("Frontend_PU_Version={box_text}\n"), "vehicle_NameAEGS_Gladius=Gladius\n".to_string()]
+        .into_iter()
+        .chain(["Bounty_title_001=Kopfgeld\n".to_string(), "Bounty_desc_001=Fang ihn.\n".to_string()])
+        .chain((0..5001).map(|i| format!("Text_{i:05}=Zeile {i}\n")))
+        .collect()
+}
+
+/// PTU gets the chosen translation like LIVE: the run of the background enters its language over the one SCDL
+/// left, writes the notes and the menu line into its file and keeps the note of LIVE apart; taking the notes out
+/// brings the PTU file back to the letter.
+#[test]
+fn a_side_channel_gets_its_language_and_the_notes_like_the_main_installation() {
+    let s = Setup::new("ptu-wie-live");
+    s.set_up_german();
+    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    let live_note = injection::load_origtext(&s.paths);
+    let ptu = s.ptu_with_scdl_leftovers();
+    let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
+    let before = fs::read_to_string(&german).unwrap();
+    let mut upkeep = Upkeep::default();
+    let job = upkeep.tick(&s.paths, &FakeArchive::default(), &BTreeSet::new(), 1000.0).expect("due at start");
+    assert_eq!(job.channels, [("PTU".to_string(), "luftwerft_de".to_string())]);
+    let net = Fake::default().with_head(&luftwerft_german("PTU"), &[("etag", "\"a\"")]);
+    let ran = run(&job, &s.paths, &net, &FakeArchive::default(), "");
+    assert!(ran.notices.contains(&Notice::LanguageRepaired("PTU · german_(germany)".into())), "{:?}", ran.notices);
+    let cfg = fs::read_to_string(format!("{ptu}/user.cfg")).unwrap();
+    assert!(cfg.contains("g_language = german_(germany)") && !cfg.contains("g_language = english"), "{cfg}");
+    let text = fs::read_to_string(&german).unwrap();
+    assert!(text.contains("Kopfgeld <EM4>[BP]</EM4>"), "{text}");
+    assert!(text.starts_with(&format!("Frontend_PU_Version=Luftwerft PTU\\nVerseKit v{} · ", version())), "{text}");
+    assert_eq!(injection::load_origtext(&s.paths), live_note, "the note of LIVE is untouched");
+    assert!(game_ini::is_file(&s.paths.app_file("injektion-urtext@PTU.json")), "PTU keeps a note of its own");
+    // The menu line of the game: the button "Wieder entfernen" takes the notes out of both channels.
+    remove(&s.paths);
+    assert_eq!(fs::read_to_string(&german).unwrap(), before);
+    assert_eq!(fs::read_to_string(s.ini()).unwrap(), "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n");
+}
+
+/// The button "Neu einsetzen" writes into the side channels as well, and a source chosen for a side channel brings
+/// its notes with it.
+#[test]
+fn inserting_again_and_choosing_a_source_write_the_notes_into_the_side_channel() {
+    let s = Setup::new("ptu-knopf");
+    s.set_up_german();
+    let ptu = s.ptu_with_scdl_leftovers();
+    let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
+    assert!(matches!(apply(&s.paths, &Fake::default(), &FakeArchive::default(), ""), Outcome::Done(_)));
+    assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
+    remove(&s.paths);
+    // TECH-PREVIEW takes a source of its own: the test version of Luftwerft, the language, the notes.
+    let tech = format!("{}/StarCitizen/TECH-PREVIEW", s.root);
+    fs::create_dir_all(format!("{tech}/data")).unwrap();
+    fs::write(format!("{tech}/Data.p4k"), "").unwrap();
+    let url = luftwerft_german("PTU");
+    let net = Fake::default().with_head(&url, &[("etag", "\"tp\"")]).with(&url, luftwerft_file("Luftwerft TP"));
+    let said = switch_side(&s.paths, &net, &FakeArchive::default(), "TECH-PREVIEW", &tech, "luftwerft_de", &|_| {})
+        .expect("placed");
+    assert!(said.contains(" · "), "the notes are told with it: {said}");
+    let text = fs::read_to_string(format!("{tech}/data/Localization/german_(germany)/global.ini")).unwrap();
+    assert!(text.contains("Kopfgeld <EM4>[BP]</EM4>") && text.contains("Luftwerft TP\\nVerseKit v"), "{text}");
+    assert!(fs::read_to_string(format!("{tech}/user.cfg")).unwrap().contains("g_language = german_(germany)"));
+}
+
+/// SCDL wrote its own file over the chosen translation and set its language: the next run places the chosen file
+/// again (the one of SCDL stays as a copy beside it, so "Vorherige Textdatei zurückholen" brings it back), enters
+/// the language and writes the notes; a second run finds everything in place.
+#[test]
+fn a_file_another_program_wrote_over_the_chosen_one_is_placed_again() {
+    let s = Setup::new("scdl-live");
+    s.set_up_german();
+    let url = luftwerft_german("LIVE");
+    let net = Fake::default().with_head(&url, &[("etag", "\"v1\"")]).with(&url, luftwerft_file("Luftwerft 4.3"));
+    switch_source(&s.paths, &net, &FakeArchive::default(), "luftwerft_de", "", &|_| {}).expect("placed");
+    assert!(fs::read_to_string(s.ini()).unwrap().contains("Luftwerft 4.3\\nVerseKit v"));
+    let scdl = format!("{}\nBounty_title_001=Kopfgeld von SCDL\n", SCDL_BOX.replace("4.10.3 PTU", "4.3 LIVE"));
+    fs::write(s.ini(), &scdl).unwrap();
+    fs::write(format!("{}/user.cfg", s.live), "g_language = english\n").unwrap();
+    let job = Job { channels: Vec::new(), source: Some("luftwerft_de".into()), own_original: false, stock_only: false };
+    let ran = run(&job, &s.paths, &net, &FakeArchive::default(), "");
+    // Placing the file enters its language as well: no second notice for it.
+    assert!(ran.notices.contains(&Notice::FileRestored("german_(germany)".into())), "{:?}", ran.notices);
+    let text = fs::read_to_string(s.ini()).unwrap();
+    assert!(text.starts_with("Frontend_PU_Version=Luftwerft 4.3\\nVerseKit v") && !text.contains("SCDL"), "{text}");
+    assert!(text.contains("Kopfgeld <EM4>[BP]</EM4>"), "{text}");
+    let copies = translation::backups_of(&s.ini());
+    assert!(copies.iter().any(|copy| fs::read_to_string(copy).unwrap() == scdl), "the file of SCDL is kept: {copies:?}");
+    assert!(fs::read_to_string(format!("{}/user.cfg", s.live)).unwrap().contains("g_language = german_(germany)"));
+    let again = run(&job, &s.paths, &net, &FakeArchive::default(), "");
+    assert!(!again.notices.iter().any(|n| matches!(n, Notice::FileRestored(_))), "{:?}", again.notices);
+}
+
+/// The version box tells the file VerseKit placed from one another program put there: the box noted at placing
+/// counts, with or without our menu line; without a noted box only the words of SCDL make a file foreign. A file the
+/// player took back counts as placed.
+#[test]
+fn the_version_box_tells_the_placed_file_from_one_of_another_program() {
+    let s = Setup::new("kopf");
+    let ini = s.ini();
+    let (source, channel) = ("luftwerft_de", None);
+    translation::note_set(&s.paths, source, Some("etag:a"), Some("german_(germany)"), None);
+    let foreign = |text: &str| {
+        fs::write(&ini, text).unwrap();
+        translation::replaced_by_other(&s.paths, source, channel, &ini)
+    };
+    // Placed by an older version, nothing noted.
+    assert!(!foreign("Frontend_PU_Version=Luftwerft\\nVerse-Kit v5.0.1 · versekit.xharig.com\nx=y\n"));
+    assert!(foreign(&format!("{SCDL_BOX}\nx=y\n")));
+    // Noted at placing.
+    translation::note_head(&s.paths, source, "\u{feff}Frontend_PU_Version=Luftwerft\nx=y\n".as_bytes());
+    assert!(translation::head_noted(&s.paths, source, channel));
+    assert!(!foreign("\u{feff}Frontend_PU_Version=Luftwerft\\nVerseKit v5.0.2 · versekit.xharig.com\nx=y\n"));
+    assert!(foreign("Frontend_PU_Version=StarStrings 4.3 by MrKraken\nx=y\n"), "a file loaded by hand");
+    assert!(foreign("x=y\n"), "a file without the box");
+    // The player took the file of SCDL back on purpose.
+    fs::write(&ini, format!("{SCDL_BOX}\nx=y\n")).unwrap();
+    translation::note_head_of_file(&s.paths, source, &ini);
+    assert!(!translation::replaced_by_other(&s.paths, source, channel, &ini));
+    // A source whose file has no box: one with a box is another one.
+    translation::note_head(&s.paths, source, b"x=y\n");
+    assert!(!foreign("x=z\n"));
+    assert!(foreign("Frontend_PU_Version=Andere\nx=y\n"));
+}
+
+/// The version box as Luftwerft writes it: the build of the game and the stand of its data.
+const LUFTWERFT_BOX: &str = "Alpha 4.10: Siege of Orison\\n\\nSC Launch Configurator 4.10.2-live.12913470\\nData Version: \
+04.11.2026 13:09\\nhttps://www.luftwerft.com";
+
+/// The line of the page names the stand of the file first, as the source gives it in its version box (day, time,
+/// build), then when VerseKit fetched it: a fetch alone is no new version.
+#[test]
+fn the_state_line_names_the_stand_of_the_file_before_the_fetch() {
+    let s = Setup::new("stand");
+    s.set_up_german();
+    let url = luftwerft_german("LIVE");
+    let net = Fake::default().with_head(&url, &[("etag", "\"v1\"")]).with(&url, luftwerft_file(LUFTWERFT_BOX));
+    switch_source(&s.paths, &net, &FakeArchive::default(), "luftwerft_de", "", &|_| {}).expect("placed");
+    let today = translation::today();
+    let de = translation::status_text(&s.paths, "luftwerft_de", None, crate::language::Lang::De, &today);
+    assert!(de.starts_with("Stand 04.11.2026 13:09 für 4.10.2-live.12913470 · geholt heute "), "{de}");
+    let en = translation::status_text(&s.paths, "luftwerft_de", None, crate::language::Lang::En, &today);
+    assert!(en.starts_with("Version of 2026-11-04 13:09 for 4.10.2-live.12913470 · fetched today "), "{en}");
+    assert_eq!(translation::build_of("SC 4.10.3-ptu.13093654\\n").as_deref(), Some("4.10.3-ptu.13093654"));
+    assert_eq!(translation::data_stand("Data Version: 31.10.2026").as_deref(), Some("2026-10-31"));
+    assert_eq!(translation::data_stand("Data Version: 41.10.2026 13:09"), None);
+}
+
+/// A file placed by an older version has nothing of its stand noted: the next run takes it from its version box.
+#[test]
+fn a_run_notes_the_stand_of_a_file_placed_by_an_older_version() {
+    let s = Setup::new("stand-alt");
+    s.set_up_german();
+    fs::write(s.ini(), format!("Frontend_PU_Version={LUFTWERFT_BOX}\nBounty_title_001=Kopfgeld\n")).unwrap();
+    translation::note_set(&s.paths, "luftwerft_de", Some("etag:v1"), Some("german_(germany)"), None);
+    s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("luftwerft_de"));
+    let job = Job { channels: Vec::new(), source: Some("luftwerft_de".into()), own_original: false, stock_only: false };
+    run(&job, &s.paths, &Fake::default(), &FakeArchive::default(), "");
+    let de = translation::status_text(&s.paths, "luftwerft_de", None, crate::language::Lang::De, &translation::today());
+    assert!(de.starts_with("Stand 04.11.2026 13:09 für 4.10.2-live.12913470 · "), "{de}");
+}
+
+/// The file watch sees a change of a side channel too: SCDL setting the language of the PTU starts a run.
+#[test]
+fn a_changed_language_line_of_a_side_channel_starts_a_run() {
+    let s = Setup::new("ptu-wache");
+    s.set_up_german();
+    let ptu = s.ptu_with_scdl_leftovers();
+    let archive = FakeArchive::default();
+    let owned = BTreeSet::new();
+    let mut upkeep = Upkeep::default();
+    upkeep.tick(&s.paths, &archive, &owned, 1000.0).expect("due at start");
+    upkeep.finished(&s.paths, false);
+    s.paths.set_setting(SETTING_STOCK_MARK, Value::str(stock_mark(&s.paths, &owned)));
+    assert_eq!(upkeep.tick(&s.paths, &archive, &owned, 1010.0), None);
+    fs::write(format!("{ptu}/user.cfg"), "g_language = english\ng_languageAudio = english\n").unwrap();
+    let job = upkeep.tick(&s.paths, &archive, &owned, 1020.0).expect("the PTU changed");
+    assert!(!job.stock_only && job.channels.iter().any(|(channel, _)| channel == "PTU"), "{job:?}");
 }
 
 #[test]

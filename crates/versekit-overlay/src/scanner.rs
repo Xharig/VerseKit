@@ -90,6 +90,10 @@ pub struct Scanner {
     mining_file: String,
     seen: u64,
     shown: Option<Text>,
+    /// The number left the HUD: it stays shown until then (the time left of the layout).
+    clear_at: Option<Instant>,
+    /// The names of the data behind the shown signature, for the demand of the unit.
+    names: Vec<String>,
     /// The info bar shows the reading: the window stays closed.
     window_off: bool,
     written: u64,
@@ -145,6 +149,8 @@ impl Scanner {
             mining_at: None,
             seen: 0,
             shown: None,
+            clear_at: None,
+            names: Vec::new(),
             window_off: false,
             written: 0,
             written_at: None,
@@ -295,7 +301,9 @@ impl Scanner {
     }
 
     fn hide(&mut self) {
+        self.clear_at = None;
         self.shown = None;
+        self.names.clear();
         self.hide_window();
     }
 
@@ -359,9 +367,33 @@ impl Scanner {
         self.shown.as_ref().map(|text| t("ov_signatur").replace("{0}", &text.line()))
     }
 
+    /// The names of the data behind the signature shown now; empty while none is shown.
+    pub fn names(&self) -> &[String] {
+        &self.names
+    }
+
+    /// A signature as the watch would have shown it, with the names behind it (for the checks).
+    #[cfg(test)]
+    pub fn show_read(&mut self, text: Text, names: Vec<String>, overlay_line: bool) {
+        self.layout.overlay_line = overlay_line;
+        self.shown = Some(text);
+        self.names = names;
+    }
+
     /// What the window above the signature shows now; `None` while it is hidden.
     pub fn shown(&self) -> Option<&Text> {
         self.shown.as_ref()
+    }
+
+    /// How long until the number that left the HUD goes, while it stays shown: the overlay wakes then.
+    pub fn wake_in(&self) -> Option<Duration> {
+        self.clear_at.map(|at| at.saturating_duration_since(Instant::now()))
+    }
+
+    /// The time the number stays shown after the watch cleared it: the time left of the layout minus the grace
+    /// the watch already waited.
+    fn linger(&self) -> Duration {
+        Duration::from_secs_f64((self.layout.linger as f64 - signature_watch::CLEAR_S).max(0.0))
     }
 
     fn reload_mining(&mut self) {
@@ -425,6 +457,10 @@ impl Scanner {
                 }
             }
         }
+        // The number left the HUD a while ago: its time to stay is over.
+        if self.clear_at.is_some_and(|at| Instant::now() >= at) {
+            self.hide();
+        }
         if state.version == self.seen && !self.place_pending() {
             return out;
         }
@@ -432,13 +468,21 @@ impl Scanner {
         self.reload_mining();
         match (state.shown, state.pill, state.game) {
             (Some(value), Some(pill), Some(game)) => {
+                self.clear_at = None;
                 let text = signature_window::describe(value, &self.mining);
+                self.names = signature_window::materials(value, &self.mining);
                 if self.window_off {
                     self.hide_window();
                 } else {
                     self.show(&text, pill, game, scheme);
                 }
                 self.shown = Some(text);
+            }
+            // Gone from the HUD: what was shown stays for the time the player chose, then goes.
+            _ if self.shown.is_some() => {
+                if self.clear_at.is_none() {
+                    self.clear_at = Some(Instant::now() + self.linger());
+                }
             }
             _ => self.hide(),
         }

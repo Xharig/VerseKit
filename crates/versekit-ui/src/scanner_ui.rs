@@ -375,8 +375,10 @@ impl ScannerState {
             (signature_watch::SETTING, Value::Bool(self.on)),
             (signature_window::keys::OFFSET_X, Value::int(i64::from(self.layout.dx))),
             (signature_window::keys::OFFSET_Y, Value::int(i64::from(self.layout.dy))),
-            (signature_window::keys::SIZE, Value::str(self.layout.size.setting())),
+            (signature_window::keys::SIZE, self.layout.size.value()),
             (signature_window::keys::OVERLAY_LINE, Value::Bool(self.layout.overlay_line)),
+            (signature_window::keys::PLACE, Value::str(self.layout.place.setting())),
+            (signature_window::keys::LINGER, Value::int(self.layout.linger)),
             (signature_window::keys::FRAME, Hint { frame: self.search_frame, places: Vec::new() }.frame_value()),
         ]
     }

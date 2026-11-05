@@ -647,5 +647,24 @@ pub fn countdown_text(seconds: f64) -> String {
     }
 }
 
+/// The refinery jobs as lines of the overlay: the running ones by their end with the time left and the clock time
+/// of the end, then the done ones; `true` marks a done one.
+pub fn refinery_lines(jobs: &[Map], now: f64) -> Vec<(String, bool)> {
+    let (running, done) = refinery_current(jobs, now);
+    let label = |job: &Map| crate::refinery_jobs::job_label(job, 2);
+    let mut lines: Vec<(String, bool)> = running
+        .iter()
+        .map(|job| {
+            let ends = job_ends(job);
+            let at = crate::formats::local_time(ends as i64)
+                .map_or_else(String::new, |time| crate::formats::strftime("%H:%M", &time));
+            let left = [("0", countdown_text(ends - now).into()), ("1", at.into())];
+            (format!("{} · {}", label(job), crate::language::tf("s_uv_raff_noch", &left)), false)
+        })
+        .collect();
+    lines.extend(done.iter().map(|job| (format!("{} · {}", label(job), crate::language::t("s_uv_raff_fertig")), true)));
+    lines
+}
+
 #[cfg(test)]
 mod tests;

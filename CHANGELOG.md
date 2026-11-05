@@ -6,6 +6,118 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.0 - 2026-11-05
+
+> Das Overlay zeigt mehr und lässt sich genauer einstellen, Mein Lager
+> kennt Verkäufe und den Umzug nach dem Patch, und die Übersetzung gilt
+> jetzt in jedem Spielkanal.
+
+### Neu
+
+- **Herstellbare Module je Schiff** — In der Herstellung wählst du unter
+  „Für Schiff“ eines deiner Schiffe aus Mein Hangar. Die Liste zeigt dann
+  nur Teile, die in eine Halterung des Schiffs passen, mit und ohne
+  Bauplan. Auf der Schiffskarte im Hangar springt „Herstellbare Teile“
+  direkt dorthin. Vorgeschlagen von StarGround und LunaticSmile [KRT]
+- **Verkäufe im Laden als Vorschlag in Mein Lager** — Was du im Spiel im
+  Laden verkaufst, schlägt Mein Lager unter „Laut Log neu“ zum Abbuchen
+  vor. Du buchst oder verwirfst jeden Verkauf einzeln oder alle auf
+  einmal mit „Alle buchen“ und kannst es zurücknehmen. Warenverkäufe am
+  Handelsterminal erkennt VerseKit nicht, und die Statistik zählt
+  Verkäufe nicht mit.
+- **Umzug nach dem Patch** — Mein Lager › „Umziehen“ bringt alle Posten an
+  deinen neuen Heimatort und entfernt, was der Patch nicht sichert:
+  Nahrung, Getränke, Pens und Injektoren, Magazine. Welche Arten gehen,
+  stellst du vorher ein; Erze und Minerale bleiben ab Werk. Beide Lager
+  werden vorher gesichert, danach zeigt VerseKit die entfernten Posten
+  zum Abgleich im Spiel, und der Umzug lässt sich rückgängig machen.
+- **Orgs suchen** — Das Suchfeld in der Info-Leiste und auf der Seite
+  Handle-Suche nimmt jetzt auch die SID oder den ganzen Namen einer Org.
+- **Seite Beziehungen** — In der Info-Gruppe verwaltest du deine
+  markierten Handles und Orgs, mit Export und Import. Die Handle-Suche
+  zeigt „Zuletzt gesucht“ und hat den Knopf „Beziehungen verwalten“. Ein
+  markierter Handle lässt sich einzeln löschen, mit Rückgängig.
+- **Tastenkürzel für die Handle-Suche** — Ein Druck setzt den Cursor ins
+  Suchfeld der Info-Leiste. Enter sucht, Esc gibt die Tastatur ans Spiel
+  zurück. Ab Werk ist es aus (Alt+Umschalt+H); du schaltest es unter
+  Einstellungen › Overlay ein. Vorgeschlagen von Kuehlwagen
+- **Block „Anzeigen im Overlay“** — Unter Einstellungen › Overlay schaltest
+  du Server, Ort, laufende Aufträge, Raffinerie-Aufträge und den
+  Update-Hinweis einzeln ein und aus. Ab Werk ist alles an. Der Schalter
+  „Auftrags-Hinweis“ klappt das Overlay nur noch auf.
+- **Raffinerie-Aufträge im Overlay** — Unter den Aufträgen stehen deine
+  Raffinerie-Aufträge mit der Restzeit. Fertige sind hervorgehoben.
+- **Übersetzung in jedem Spielkanal** — PTU, Tech-Preview und EPTU
+  bekommen wie LIVE die Textdatei, die Sprache und die Bauplan-Angaben in
+  den Beschreibungen.
+
+### Verbessert
+
+- **„Die Einheit sucht: …“ beim Scannen** — Unter der Signatur-Zeile im
+  Overlay steht wieder, was deine Einheit von den Erzen hinter der
+  Signatur braucht, wie in 4.12.
+- **„In die Mitte holen“ samt Größe** — Der Knopf setzt das Overlay jetzt
+  auch auf die Startgröße zurück, nicht nur in die Mitte.
+- **Anlernen von Signaturen** — Ein angelerntes Bild hilft jetzt auch bei
+  leicht anderer Darstellung der Zahl (heller, verschoben, unscharf).
+- **Auftragszähler „3/10“** — Der Kopf der Aufträge im Overlay zählt
+  laufende Aufträge gegen die Höchstzahl. Die Höchstzahl stellst du im
+  Block „Anzeigen im Overlay“ ein, ab Werk 10.
+- **Overlay ab 2 Zeilen** — Die Zeilenzahl lässt sich bis auf 2 senken,
+  vorher ging es nur bis 5.
+- **Info-Leiste ab Werk im Spiel an** — Sie steht über dem laufenden
+  Spiel. Ohne Spiel bleibt sie aus. Wer sie schon ein- oder
+  ausgeschaltet hat, behält seine Wahl.
+- **Signaturfenster beim Bergbau** — Du wählst, ob es „Über der Signatur“
+  steht oder „In der Info-Leiste“. Die Info-Leiste bleibt dabei an,
+  vorher blieb das Fenster zu. Die Größe stellst du per Schieberegler
+  ein, deutlich kleiner als bisher; ab Werk ist es etwa halb so groß wie
+  früher „Mittel“, eine gewählte Größe bleibt. Die Anzeige bleibt 5 bis
+  15 Sekunden stehen, nachdem die Zahl im Spiel verschwunden ist,
+  vorher 1,5. Angeregt von P6
+- **Overlay rastet am Bildschirmrand ein** — Du kannst es nicht mehr aus
+  dem Bildschirm ziehen. Lässt du es knapp vor einem Rand los, springt es
+  an den Rand. Angeregt von Kuehlwagen
+- **Tasten F13 bis F24 für die Tastenkürzel** — Die Auswahl der Kürzel
+  reicht jetzt bis F24. Angeregt von Kuehlwagen
+- **Notizen mit Überschrift** — Die erste Zeile steht im Feld als
+  Überschrift, weil sie der Name der Notiz ist.
+- **Fehlerbericht fragt nach einem Satz** — Ohne Satz fragt der erste
+  Klick auf „Absenden“ danach. Der zweite Klick schickt den Bericht
+  trotzdem.
+- **Übersetzung: Stand der Datei zuerst** — Die Statuszeile nennt zuerst
+  den Stand der Datei, zum Beispiel „Stand 04.11.2026 13:09 für
+  4.10.2-live…“, dann die Abholzeit. Die Menüzeile im Spiel heißt
+  „VerseKit“ ohne Bindestrich.
+- **Übersetzung bleibt, wie du sie gewählt hast** — Überschreibt ein
+  anderes Programm wie SCDL die Textdatei oder die Sprache, stellt
+  VerseKit sie zurück: beim Start, alle 5 Minuten, nach dem Spiel und vor
+  dem Spielstart aus VerseKit. Das Hauptfenster sieht auch ohne Overlay
+  alle 5 Minuten nach.
+- **Spanisch von Luftwerft statt Thord82** — Die spanische Übersetzung
+  von Thord82 wird nicht mehr angeboten. Hattest du sie gewählt, wechselt
+  VerseKit auf die spanische Übersetzung von Luftwerft. Thord82 bleibt
+  auf der Danke-Seite, Luftwerft steht dort bei den Übersetzungen vorn.
+- **Abschnittstitel in der Akzentfarbe** — Die kleinen Titel über den
+  Karten haben jetzt die Akzentfarbe des Farbschemas.
+- **Linux: Startmenü und Ablagesymbol** — Der Startmenü-Eintrag steht nur
+  noch unter „Spiele“. Der Hilfetext zum Ablagesymbol sagt, dass Schließen
+  dort das Hauptfenster beendet.
+
+### Behoben
+
+- **Fremde Textdatei wird ersetzt** — Lag eine fremde global.ini im
+  Spielordner, zum Beispiel selbst geladene StarStrings, ließ VerseKit sie
+  liegen. Jetzt ersetzt es sie durch die gewählte Datei und sichert die
+  fremde daneben. Gemeldet von SirFrog [KRT]
+- **Englisch aus dem Spiel** — Die Auswahl holt immer die englische
+  Originaldatei, auch wenn schon eine andere englische Datei im
+  Spielordner lag. Die alte Datei bleibt als Sicherung daneben.
+- **Mausrad über der Contested-Karte** — Das Mausrad scrollt die Seite
+  wieder. Strg + Mausrad zoomt die Karte; nach einem Klick in die Karte
+  zoomt das Mausrad allein, bis der Zeiger sie verlässt.
+  Gemeldet von |TSA* Shockwave
+
 ## v5.0.2 - 2026-11-04
 
 > Der Bauplan-Abschnitt unter einer Beschreibung bleibt kurz, auch wenn

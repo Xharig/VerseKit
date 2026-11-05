@@ -305,7 +305,14 @@ fn the_settings_of_the_scanner_go_to_the_file_under_their_names_and_come_back() 
     let mut state = ScannerState::with_files(&paths);
     assert!(!state.on, "off by default");
     state.on = true;
-    state.layout = Layout { dx: -120, dy: 45, size: signature_window::Size::Large, overlay_line: true };
+    state.layout = Layout {
+        dx: -120,
+        dy: 45,
+        size: signature_window::Size(14),
+        overlay_line: true,
+        place: signature_window::Place::AboveSignature,
+        linger: 12,
+    };
     state.search_frame = Some([300, 20, 400, 120]);
     for (key, value) in state.setting_values() {
         assert!(paths.set_setting(key, value), "{key}");
@@ -323,6 +330,8 @@ fn the_settings_of_the_scanner_go_to_the_file_under_their_names_and_come_back() 
             "signatur_fenster_dy",
             "signatur_fenster_groesse",
             "signatur_overlay_zeile",
+            "signatur_fenster_ort",
+            "signatur_fenster_nachlauf",
             "signatur_rahmen"
         ]
     );

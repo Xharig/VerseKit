@@ -15,13 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The page "Handle-Suche" of the main window: the field and the card of the handle search at the top, below
-//! them the list of the handles and organizations marked, together with the handles searched lately (without a
-//! mark they count as unknown), and the settings of the search at the bottom. The members of an organization
-//! opened on the card stand in the card, as in the info bar.
+//! Two pages of the main window around the handle search, on one state:
 //!
-//! The list sorts by stance, kind, name or the time searched and filters by stance, kind and a text. A click on
-//! a handle searches it at the top; the marks of a row set or take away its stance.
+//! - "Handle-Suche": the field and the card of the search at the top, a button to the relations, below them the
+//!   handles searched lately, the newest first. The members of an organization opened on the card stand in the
+//!   card, as in the info bar.
+//! - "Beziehungen": the handles and organizations marked, with the export and the import of the list. The
+//!   handles searched lately without a mark stand there too, under the filter "unknown".
+//!
+//! Both lists are one list: it sorts by stance, kind, name or the time searched and filters by stance, kind and a
+//! text. A click on a handle searches it, a click on an organization opens its card, both on the page of the
+//! search; the marks of a row set or take away its stance. The bin of a row deletes its mark; a notice puts it
+//! back for a few seconds.
 //!
 //! The overlay runs in a process of its own and keeps the relations and settings in memory: after every change
 //! here it is told to read them anew. A change the overlay wrote shows here within a second, from the times the
@@ -31,7 +36,7 @@ use std::time::SystemTime;
 
 use egui::{Align, Layout, RichText, Role, Sense, Ui, WidgetInfo};
 use versekit_core::handle_query::members::{Member, Roster};
-use versekit_core::handle_query::relations::{self, Kind, Relations, Stance};
+use versekit_core::handle_query::relations::{self, Kind, Relation, Relations, Stance};
 use versekit_core::handle_query::{Card, Found, Membership, Org, Orgs, Profile, cache};
 use versekit_core::language::{self, Arg, t, tf};
 use versekit_core::paths::Paths;
@@ -66,7 +71,7 @@ pub enum Column {
     Searched,
 }
 
-/// The choices of the stance filter: all, then one stance each, `Some(None)` for unknown.
+/// The choices of the stance filter: every row marked, then one stance each, `Some(None)` for unknown.
 const STANCE_FILTERS: [Option<Option<Stance>>; 5] =
     [None, Some(Some(Stance::Friendly)), Some(Some(Stance::Neutral)), Some(None), Some(Some(Stance::Hostile))];
 /// The choices of the kind filter.
@@ -87,17 +92,27 @@ pub struct Row {
 pub struct View {
     pub sort: Column,
     pub ascending: bool,
-    /// An index into the stance filter: 0 all, 1 friendly, 2 neutral, 3 unknown, 4 hostile.
+    /// An index into the stance filter: 0 every row marked, 1 friendly, 2 neutral, 3 unknown, 4 hostile.
     pub stance: usize,
     /// An index into the kind filter: 0 all, 1 handles, 2 organizations.
     pub kind: usize,
     /// A part of the name, capitals and small letters alike.
     pub text: String,
+    /// The list of the handles searched lately: every row searched, whatever its stance; the stance filter counts
+    /// not.
+    pub recent: bool,
 }
 
 impl Default for View {
     fn default() -> View {
-        View { sort: Column::Stance, ascending: true, stance: 0, kind: 0, text: String::new() }
+        View { sort: Column::Stance, ascending: true, stance: 0, kind: 0, text: String::new(), recent: false }
+    }
+}
+
+impl View {
+    /// The view of the handles searched lately: the newest first.
+    pub fn recent() -> View {
+        View { sort: Column::Searched, recent: true, ..View::default() }
     }
 }
 
@@ -149,9 +164,14 @@ pub fn arrange(rows: &[Row], view: &View) -> Vec<Row> {
     let stance = STANCE_FILTERS.get(view.stance).copied().flatten();
     let kind = KIND_FILTERS.get(view.kind).copied().flatten();
     let text = view.text.trim().to_lowercase();
+    let fits_stance = |row: &Row| match (view.recent, stance) {
+        (true, _) => row.searched.is_some(),
+        (false, None) => row.stance.is_some(),
+        (false, Some(s)) => row.stance == s,
+    };
     let mut shown: Vec<(String, &Row)> = rows
         .iter()
-        .filter(|row| stance.is_none_or(|s| row.stance == s))
+        .filter(|row| fits_stance(row))
         .filter(|row| kind.is_none_or(|k| row.kind == k))
         .map(|row| (row.name.to_lowercase(), row))
         .filter(|(name, _)| text.is_empty() || name.contains(&text))
@@ -239,11 +259,25 @@ fn sample_card(now: f64) -> (Found, Roster) {
     (found, roster)
 }
 
-/// What the page keeps.
-pub struct HandlePageState {
-    pub search: HandleSearch,
-    /// The handles searched lately, the newest first.
-    recent: Vec<(String, f64)>,
+/// Which of the two lists: the relations (page "Beziehungen") or the handles searched lately (page
+/// "Handle-Suche").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Which {
+    Relations,
+    Recent,
+}
+
+/// What a page asks of the main window.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Action {
+    /// Open the page "Beziehungen".
+    ToRelations,
+    /// Open the page "Handle-Suche": an entry of the relations was opened there.
+    ToSearch,
+}
+
+/// One list as its page shows it.
+pub struct ListState {
     pub view: View,
     /// The filters as the filter bar holds them: stance, kind.
     filters: [usize; 2],
@@ -251,11 +285,43 @@ pub struct HandlePageState {
     shown_rows: usize,
     /// The rows as arranged last; `None` when something changed.
     arranged: Option<Vec<Row>>,
+}
+
+impl ListState {
+    fn new(view: View) -> ListState {
+        ListState { view, filters: [0, 0], shown_rows: PAGE_ROWS, arranged: None }
+    }
+
+    /// Sorts by `column`; the column sorted already turns its direction.
+    pub fn sort_by(&mut self, column: Column) {
+        if self.view.sort == column {
+            self.view.ascending = !self.view.ascending;
+        } else {
+            self.view.sort = column;
+            self.view.ascending = true;
+        }
+        self.arranged = None;
+    }
+}
+
+/// What the two pages keep.
+pub struct HandlePageState {
+    pub search: HandleSearch,
+    /// The handles searched lately, the newest first.
+    recent: Vec<(String, f64)>,
+    /// The list of the relations.
+    pub list: ListState,
+    /// The list of the handles searched lately.
+    pub recent_list: ListState,
     /// When the files were looked at last, and what they said.
     looked: f64,
     stamps: Option<Stamps>,
     /// A handle of the list was searched: the page scrolls up to the card.
     to_top: bool,
+    /// An entry of a list was opened in the search this frame.
+    opened: bool,
+    /// The mark deleted a moment ago: since when (the time of the input), where it stood, what it was.
+    removed: Option<(f64, usize, Relation)>,
     /// Tells the overlay that something changed.
     notify: fn(),
 }
@@ -271,13 +337,13 @@ impl HandlePageState {
         HandlePageState {
             search,
             recent: Vec::new(),
-            view: View::default(),
-            filters: [0, 0],
-            shown_rows: PAGE_ROWS,
-            arranged: None,
+            list: ListState::new(View::default()),
+            recent_list: ListState::new(View::recent()),
             looked: f64::NEG_INFINITY,
             stamps: None,
             to_top: false,
+            opened: false,
+            removed: None,
             notify: tell_overlay,
         }
     }
@@ -293,8 +359,11 @@ impl HandlePageState {
         let (found, roster) = sample_card(now);
         let search = HandleSearch::empty().with_relations(relations).with_sample(found, roster);
         let mut page = HandlePageState::with_search(search);
-        page.recent =
-            vec![("Drifter_9".into(), now - 600.0), ("NightOwl_77".into(), now - 3600.0), ("Vex".into(), now - 172_800.0)];
+        page.recent = vec![
+            ("Drifter_9".into(), now - 600.0),
+            ("NightOwl_77".into(), now - 3600.0),
+            ("Vex".into(), now - 172_800.0),
+        ];
         page.looked = f64::INFINITY;
         page
     }
@@ -305,12 +374,33 @@ impl HandlePageState {
         self
     }
 
-    /// The rows the list shows, all of them, in their order.
-    pub fn arranged(&mut self) -> &[Row] {
-        if self.arranged.is_none() {
-            self.arranged = Some(arrange(&rows(self.search.relations(), &self.recent), &self.view));
+    /// The list `which`.
+    pub fn list_of(&mut self, which: Which) -> &mut ListState {
+        match which {
+            Which::Relations => &mut self.list,
+            Which::Recent => &mut self.recent_list,
         }
-        self.arranged.as_deref().unwrap_or_default()
+    }
+
+    /// The rows the list of the relations shows, all of them, in their order.
+    pub fn arranged(&mut self) -> &[Row] {
+        self.arranged_of(Which::Relations)
+    }
+
+    /// The rows the list `which` shows, all of them, in their order.
+    pub fn arranged_of(&mut self, which: Which) -> &[Row] {
+        if self.list_of(which).arranged.is_none() {
+            let rows = rows(self.search.relations(), &self.recent);
+            let list = self.list_of(which);
+            list.arranged = Some(arrange(&rows, &list.view));
+        }
+        self.list_of(which).arranged.as_deref().unwrap_or_default()
+    }
+
+    /// Both lists are arranged anew.
+    fn rearrange(&mut self) {
+        self.list.arranged = None;
+        self.recent_list.arranged = None;
     }
 
     /// Reads the relations, the settings and the handles kept anew when one of their files was written since
@@ -330,25 +420,19 @@ impl HandlePageState {
             self.search.reload_settings();
         }
         self.stamps = Some(stamps);
-        self.arranged = None;
+        self.rearrange();
     }
 
-    /// Sorts by `column`; the column sorted already turns its direction.
+    /// Sorts the list of the relations by `column`; the column sorted already turns its direction.
     pub fn sort_by(&mut self, column: Column) {
-        if self.view.sort == column {
-            self.view.ascending = !self.view.ascending;
-        } else {
-            self.view.sort = column;
-            self.view.ascending = true;
-        }
-        self.arranged = None;
+        self.list.sort_by(column);
     }
 
-    /// Something was written: the overlay is told and the list arranged anew.
+    /// Something was written: the overlay is told and the lists arranged anew.
     fn after_change(&mut self) {
         if self.search.take_changed() {
             (self.notify)();
-            self.arranged = None;
+            self.rearrange();
         }
     }
 }
@@ -390,9 +474,10 @@ fn small(ui: &mut Ui, text: &str, tone: Color) -> egui::Response {
     ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).truncate())
 }
 
-/// The head of the list: the columns, each sorting on a click.
-fn head(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
-    let sorted = |column: Column| (state.view.sort == column).then_some(state.view.ascending);
+/// The head of the list `which`: the columns, each sorting on a click.
+fn head(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, which: Which) {
+    let view = state.list_of(which).view.clone();
+    let sorted = |column: Column| (view.sort == column).then_some(view.ascending);
     let mut clicked = None;
     ui.horizontal(|row| {
         let name_width = name_width(row);
@@ -410,12 +495,12 @@ fn head(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
         }
     });
     if let Some(column) = clicked {
-        state.sort_by(column);
+        state.list_of(which).sort_by(column);
     }
 }
 
-/// One row: stance, kind, name, time searched, then the marks and, for a row marked, the button that takes the
-/// mark away. A click on the name of a handle searches it.
+/// One row: stance, kind, name, time searched, then the marks and, for a row marked, the button that deletes the
+/// mark. A click on the name of a handle searches it, on that of an organization opens its card.
 fn row(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, entry: &Row, now: f64) {
     let (tone, icon, word) = stance_look(scheme, entry.stance);
     ui.horizontal(|row| {
@@ -434,24 +519,21 @@ fn row(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, entry: &Row, n
             small(c, &kind, scheme.sub);
         });
         cell(row, name_width, |c| {
-            let text = RichText::new(&entry.name).strong().color(color(if entry.stance.is_some() {
-                tone
-            } else {
-                scheme.fg
-            }));
-            match entry.kind {
-                Kind::Handle => {
-                    let hint = tf("s_hqs_suchen", &[("handle", Arg::Text(entry.name.clone()))]);
-                    let response = c.add(egui::Label::new(text).truncate().sense(Sense::click()));
-                    response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &entry.name));
-                    if response.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint).clicked() {
-                        state.search.search(c.ctx(), &entry.name, false);
-                        state.to_top = true;
-                    }
+            let text =
+                RichText::new(&entry.name).strong().color(color(if entry.stance.is_some() { tone } else { scheme.fg }));
+            let hint = match entry.kind {
+                Kind::Handle => tf("s_hqs_suchen", &[("handle", Arg::Text(entry.name.clone()))]),
+                Kind::Org => tf("s_hqs_org_oeffnen", &[("sid", Arg::Text(entry.name.clone()))]),
+            };
+            let response = c.add(egui::Label::new(text).truncate().sense(Sense::click()));
+            response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &entry.name));
+            if response.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint).clicked() {
+                match entry.kind {
+                    Kind::Handle => state.search.search(c.ctx(), &entry.name, false),
+                    Kind::Org => state.search.open_org(c.ctx(), &entry.name),
                 }
-                Kind::Org => {
-                    c.add(egui::Label::new(text).truncate());
-                }
+                state.to_top = true;
+                state.opened = true;
             }
         });
         cell(row, SEARCHED_WIDTH, |c| {
@@ -462,29 +544,25 @@ fn row(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, entry: &Row, n
             state.search.marks(c, scheme, entry.kind, &entry.name);
             if entry.stance.is_some() {
                 let meaning = tf("s_hqs_entfernen", &[("name", Arg::Text(entry.name.clone()))]);
-                if widgets::icon_button(c, scheme, "trash-2", &meaning).clicked() {
-                    state.search.set_stance(entry.kind, &entry.name, None);
+                if widgets::icon_button(c, scheme, "trash-2", &meaning).clicked()
+                    && let Some((at, gone)) = state.search.remove_relation(entry.kind, &entry.name)
+                {
+                    state.removed = Some((c.input(|i| i.time), at, gone));
                 }
             }
         });
     });
 }
 
-/// The list with its filters, its head and the rows shown.
-fn list(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f64) {
-    widgets::heading(ui, scheme, &t("s_hqs_liste"));
-    widgets::hint(ui, scheme, &t("s_hqs_liste_h"));
-    ui.add_space(4.0);
-    if state.search.relations().is_empty() && state.recent.is_empty() {
-        widgets::empty_state(ui, scheme, "users", &t("s_hqs_leer"));
-        return;
-    }
+/// The filters of the list of the relations: a text, the stance and the kind.
+fn filters(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
+    let list = &mut state.list;
     ui.horizontal_wrapped(|row| {
-        if widgets::search_field(row, &mut state.view.text, &t("s_hqs_filter"), scheme, 180.0).changed() {
-            state.arranged = None;
+        if widgets::search_field(row, &mut list.view.text, &t("s_hqs_filter"), scheme, 180.0).changed() {
+            list.arranged = None;
         }
         let stances = [
-            t("s_hqs_alle_haltungen"),
+            t("s_hqs_alle_markierten"),
             t(Stance::Friendly.label()),
             t(Stance::Neutral.label()),
             t("s_hqs_unbekannt"),
@@ -493,19 +571,41 @@ fn list(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f64) {
         let kinds = [t("s_hqs_alle_arten"), t("s_hqs_handles"), t("s_hqs_orgs")];
         let stance_refs: Vec<&str> = stances.iter().map(String::as_str).collect();
         let kind_refs: Vec<&str> = kinds.iter().map(String::as_str).collect();
-        if widgets::filter_bar(row, "handle-liste", &[&stance_refs, &kind_refs], &mut state.filters) {
-            state.view.stance = state.filters[0];
-            state.view.kind = state.filters[1];
-            state.arranged = None;
+        if widgets::filter_bar(row, "handle-liste", &[&stance_refs, &kind_refs], &mut list.filters) {
+            list.view.stance = list.filters[0];
+            list.view.kind = list.filters[1];
+            list.arranged = None;
         }
     });
-    ui.add_space(4.0);
-    head(ui, scheme, state);
-    let shown_rows = state.shown_rows;
-    let total = state.arranged().len();
-    let shown: Vec<Row> = state.arranged().iter().take(shown_rows).cloned().collect();
+}
+
+/// The list `which` with its head and the rows shown; the relations with their filters above. `empty` says what
+/// stands in place of a list without a row before any filter.
+fn list(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f64, which: Which, empty: &str) {
+    let nothing = match which {
+        Which::Relations => state.search.relations().is_empty() && state.recent.is_empty(),
+        Which::Recent => state.recent.is_empty(),
+    };
+    if nothing {
+        widgets::empty_state(ui, scheme, "users", empty);
+        return;
+    }
+    if which == Which::Relations {
+        filters(ui, scheme, state);
+        ui.add_space(4.0);
+    }
+    head(ui, scheme, state, which);
+    let shown_rows = state.list_of(which).shown_rows;
+    let total = state.arranged_of(which).len();
+    let shown: Vec<Row> = state.arranged_of(which).iter().take(shown_rows).cloned().collect();
     if shown.is_empty() {
-        widgets::hint(ui, scheme, &t("s_hqs_keine_treffer"));
+        // No relation yet: the list says how to set one; else nothing fits the filters.
+        let marked_only = which == Which::Relations && state.list.view.stance == 0;
+        if marked_only && state.search.relations().is_empty() {
+            widgets::empty_state(ui, scheme, "users", empty);
+        } else {
+            widgets::hint(ui, scheme, &t("s_hqs_keine_treffer"));
+        }
         return;
     }
     widgets::list_frame(ui, scheme, |ui| {
@@ -519,13 +619,25 @@ fn list(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f64) {
         ui.add_space(4.0);
         let word = tf("s_hqs_mehr", &[("n", Arg::Int(left.min(PAGE_ROWS) as i64))]);
         if ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked() {
-            state.shown_rows += PAGE_ROWS;
+            state.list_of(which).shown_rows += PAGE_ROWS;
         }
     }
 }
 
-/// Draws the page.
-pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
+/// The notice of a mark deleted in a list: for a few seconds its button puts the mark back at its place.
+fn undo_notice(ui: &Ui, scheme: &Scheme, state: &mut HandlePageState) {
+    let Some((since, at, gone)) = state.removed.take() else { return };
+    let text = tf("s_hqs_geloescht", &[("name", Arg::Text(gone.name.clone()))]);
+    let shown = widgets::notice(ui.ctx(), scheme, since, "trash-2", &text, Some(&t("s_mlg_rueckgaengig")));
+    if shown.acted {
+        state.search.restore_relation(at, gone);
+    } else if shown.shown {
+        state.removed = Some((since, at, gone));
+    }
+}
+
+/// Draws the page "Handle-Suche": the field, the card, the way to the relations and the handles searched lately.
+pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) -> Option<Action> {
     let now = handle_search::now();
     state.refresh(now);
     widgets::hint(ui, scheme, &t("s_hqs_lead"));
@@ -540,11 +652,41 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
     ui.scope(|ui| state.search.card(ui, scheme));
     state.to_top |= !searching && state.search.searching();
     ui.add_space(GAP);
-    list(ui, scheme, state, now);
+    let manage = t("s_hqs_verwalten");
+    let action = ui
+        .add(widgets::Button::new(&manage, ButtonKind::Normal, scheme).icon("shield-half"))
+        .clicked()
+        .then_some(Action::ToRelations);
+    ui.add_space(GAP);
+    widgets::heading(ui, scheme, &t("s_hq_verlauf"));
+    widgets::hint(ui, scheme, &t("s_hqs_verlauf_h"));
+    ui.add_space(4.0);
+    list(ui, scheme, state, now, Which::Recent, &t("s_hqs_verlauf_leer"));
+    state.opened = false;
+    undo_notice(ui, scheme, state);
     state.after_change();
     ui.add_space(GAP);
     // The settings of the search stand with the info bar, in one place with its other settings.
     widgets::hint(ui, scheme, &t("s_hqs_einstellungen_wo"));
+    action
+}
+
+/// Draws the page "Beziehungen": the handles and organizations marked, with the export and the import of the list.
+/// An entry opened goes to the page of the search.
+pub fn show_relations_page(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) -> Option<Action> {
+    let now = handle_search::now();
+    state.refresh(now);
+    widgets::hint(ui, scheme, &t("s_hqb_lead"));
+    ui.add_space(6.0);
+    state.search.transfer(ui, scheme);
+    ui.add_space(GAP);
+    widgets::heading(ui, scheme, &t("s_hqs_liste"));
+    widgets::hint(ui, scheme, &t("s_hqs_liste_h"));
+    ui.add_space(4.0);
+    list(ui, scheme, state, now, Which::Relations, &t("s_hqs_leer"));
+    undo_notice(ui, scheme, state);
+    state.after_change();
+    std::mem::take(&mut state.opened).then_some(Action::ToSearch)
 }
 
 /// The settings of the search, for the settings of the info bar: written changes reach the overlay.

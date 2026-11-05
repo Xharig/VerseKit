@@ -2592,6 +2592,12 @@ pub fn heading(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
     shown
 }
 
+/// The color of the small capital title above a group of rows ([`crate::settings::setting_group`]): the accent of
+/// the scheme, as the border of a search line at focus.
+pub fn section_title_color(scheme: &Scheme) -> Color {
+    scheme.accent
+}
+
 // ---------------------------------------------------------------------------
 // Boxes
 // ---------------------------------------------------------------------------

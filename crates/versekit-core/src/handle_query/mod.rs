@@ -24,6 +24,7 @@
 pub mod cache;
 pub mod log_monitor;
 pub mod members;
+pub mod org;
 pub mod page;
 pub mod pictures;
 pub mod relations;

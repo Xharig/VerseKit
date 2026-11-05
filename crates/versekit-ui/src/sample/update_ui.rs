@@ -722,10 +722,13 @@ fn on_real_data_the_page_reads_the_built_in_log_in_the_language_of_the_window() 
     bench.page.go_to("hf_wasistneu");
     let german = bench.settle();
     assert!(shows(&german, &t("s_wn_lead")));
-    assert!(shows(&german, "v5.0"), "the series of the program is the first");
+    // The series of the program itself (`v5.1` for 5.1.0) stands first.
+    let version = env!("CARGO_PKG_VERSION");
+    let series = format!("v{}", version.rsplit_once('.').map_or(version, |(series, _)| series));
+    assert!(shows(&german, &series), "the series of the program is the first: {series}");
     versekit_core::language::set_thread_language(versekit_core::language::Choice::En);
     let english = bench.settle();
-    assert!(shows(&english, &t("s_wn_lead")) && shows(&english, "v5.0"));
+    assert!(shows(&english, &t("s_wn_lead")) && shows(&english, &series));
     let first = |lang| {
         let entries = versekit_core::changelog::grouped(lang, &[]);
         let points = versekit_core::changelog::points_by_kind(&entries[0].text);

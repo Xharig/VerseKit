@@ -30,7 +30,8 @@
 //! a text is the two characters `\n`, never a real line break.
 //!
 //! No mark stands in the game text. The original text of every touched line
-//! is stored (`injektion-urtext.json`) and put back before the next writing
+//! is stored (`injektion-urtext.json`, for another channel than the main
+//! installation `injektion-urtext@<CHANNEL>.json`) and put back before the next writing
 //! and when removing, so nothing stacks up and removing restores the file
 //! to the character. Where that note is missing, earlier additions are
 //! found by their form; never in a freshly placed file, where the same form
@@ -63,7 +64,14 @@ pub const ADDED: &str = asop::ADDED;
 /// The version box of the main menu.
 pub const MENU_KEY: &str = "Frontend_PU_Version";
 pub const WEBSITE: &str = "https://versekit.xharig.com";
-pub const MENU_MARK: &str = "\\nVerse-Kit";
+pub const MENU_MARK: &str = "\\nVerseKit";
+/// The mark of the menu line as older versions wrote it; it is taken out like the own one.
+pub const OLD_MENU_MARK: &str = "\\nVerse-Kit";
+/// Words in the version box that only another program writes there: a file with them is not the one VerseKit
+/// placed (the launcher SCDL writes its own translations with this line).
+pub const FOREIGN_MENU_WORDS: [&str; 1] = ["SCDL Version"];
+/// The name of the note of original texts of a channel besides the main installation: `<stem>@<CHANNEL>.json`.
+const ORIGTEXT_STEM: &str = "injektion-urtext";
 /// The setting „Rufschwelle im Auftragstitel“.
 pub const SETTING_TITLE_REP: &str = "ruf_im_titel";
 /// The setting „Angaben am Gegenstand“.
@@ -205,11 +213,41 @@ pub enum Outcome {
 
 // ------------------------------------------------------- the note file
 
-fn origtext_file(paths: &Paths) -> Map {
-    match jsonio::read_json(&paths.app_file(ORIGTEXT_FILE)) {
+/// The channel folder a text file `<root>/<data>/Localization/<language>/global.ini` lies in, when it is one of the
+/// installed channels and not the main installation: (channel, folder).
+fn side_channel_of(paths: &Paths, ini: &str) -> Option<(String, String)> {
+    let flavor = paths.host.flavor;
+    let language = flavor.dirname(ini);
+    let localization = flavor.dirname(&language);
+    if !flavor.basename(&localization).eq_ignore_ascii_case("localization") {
+        return None;
+    }
+    let root = flavor.dirname(&flavor.dirname(&localization));
+    let same = |a: &str, b: &str| flavor.normcase(&flavor.normpath(a)) == flavor.normcase(&flavor.normpath(b));
+    if paths.game_folder().is_some_and(|main| same(&main, &root)) {
+        return None;
+    }
+    paths.installed_channels().into_iter().find(|(_, folder, _)| same(folder, &root)).map(|(name, folder, _)| (name, folder))
+}
+
+/// The note of original texts that belongs to the text file `ini`: `injektion-urtext@<CHANNEL>.json` for a file of
+/// an installed channel besides the main installation, else the one of the main installation ([`ORIGTEXT_FILE`]).
+pub fn origtext_path(paths: &Paths, ini: &str) -> String {
+    match side_channel_of(paths, ini) {
+        Some((channel, _)) => paths.app_file(&format!("{ORIGTEXT_STEM}@{channel}.json")),
+        None => paths.app_file(ORIGTEXT_FILE),
+    }
+}
+
+fn origtext_at(file: &str) -> Map {
+    match jsonio::read_json(file) {
         Ok(Value::Object(map)) => map,
         _ => Map::new(),
     }
+}
+
+fn origtext_file(paths: &Paths) -> Map {
+    origtext_at(&paths.app_file(ORIGTEXT_FILE))
 }
 
 fn field<'a>(map: &'a Map, key: &str) -> Option<&'a Value> {
@@ -224,9 +262,22 @@ pub fn load_origtext(paths: &Paths) -> Map {
     }
 }
 
+/// The stored original texts of the note that belongs to `ini` ([`origtext_path`]).
+pub fn load_origtext_for(paths: &Paths, ini: &str) -> Map {
+    match field(&origtext_at(&origtext_path(paths, ini)), "texte") {
+        Some(Value::Object(texts)) => texts.clone(),
+        _ => Map::new(),
+    }
+}
+
 /// `injection.is_fresh`: a freshly placed file nobody wrote into yet.
 pub fn is_fresh(paths: &Paths) -> bool {
     truthy(field(&origtext_file(paths), "frisch"))
+}
+
+/// [`is_fresh`] for the note that belongs to `ini`.
+fn is_fresh_for(paths: &Paths, ini: &str) -> bool {
+    truthy(field(&origtext_at(&origtext_path(paths, ini)), "frisch"))
 }
 
 /// `time.strftime('%Y-%m-%d %H:%M:%S')`.
@@ -235,9 +286,9 @@ pub fn now_stamp() -> String {
     format!("{y:04}-{mo:02}-{d:02} {h:02}:{mi:02}:{s:02}")
 }
 
-fn write_note(paths: &Paths, data: Map, label: &str) -> bool {
+fn write_note_at(file: &str, data: Map, label: &str) -> bool {
     let text = jsonio::dumps(&Value::Object(data), None, false);
-    match jsonio::write_text_atomic(&paths.app_file(ORIGTEXT_FILE), &text, jsonio::Newline::Keep) {
+    match jsonio::write_text_atomic(file, &text, jsonio::Newline::Keep) {
         Ok(()) => true,
         Err(error) => {
             errors::record(label, &error);
@@ -246,31 +297,33 @@ fn write_note(paths: &Paths, data: Map, label: &str) -> bool {
     }
 }
 
-/// `injection.discard_origtext`: forget the stored texts and mark the file
-/// as fresh. Belongs to every placing of a new base file.
-pub fn discard_origtext(paths: &Paths) -> bool {
-    let data = vec![
+fn fresh_note() -> Map {
+    vec![
         ("stand".to_string(), Value::str(now_stamp())),
         ("frisch".to_string(), Value::Bool(true)),
         ("texte".to_string(), Value::Object(Map::new())),
-    ];
-    write_note(paths, data, "injection.discard_origtext")
+    ]
 }
 
-/// `discard_origtext` for a new base file at `target`, unless the note holds
-/// original texts of another file: those are still needed to reset that
-/// file (`clean_leftover`), and a side channel never owns them.
+/// `injection.discard_origtext`: forget the stored texts of the main installation and mark its file as fresh.
+/// Belongs to every placing of a new base file.
+pub fn discard_origtext(paths: &Paths) -> bool {
+    write_note_at(&paths.app_file(ORIGTEXT_FILE), fresh_note(), "injection.discard_origtext")
+}
+
+/// `discard_origtext` for a new base file at `target` (in the note of its channel, [`origtext_path`]), unless that
+/// note holds original texts of another file: those are still needed to reset that file (`clean_leftover`).
 pub fn discard_origtext_for(paths: &Paths, target: &str) -> bool {
     if origtext_held_for_other(paths, target) {
         return false;
     }
-    discard_origtext(paths)
+    write_note_at(&origtext_path(paths, target), fresh_note(), "injection.discard_origtext")
 }
 
-/// Whether the note holds original texts of a file other than `target` that
-/// is still there. A file that is gone needs them no more.
+/// Whether the note of `target`'s channel holds original texts of a file other than `target` that is still there.
+/// A file that is gone needs them no more.
 pub fn origtext_held_for_other(paths: &Paths, target: &str) -> bool {
-    let note = origtext_file(paths);
+    let note = origtext_at(&origtext_path(paths, target));
     let datei = note_file(&note);
     truthy(field(&note, "texte"))
         && !datei.is_empty()
@@ -285,14 +338,14 @@ fn note_file(note: &Map) -> &str {
 /// The whole note when it holds original texts of `target`: what a copy of
 /// that file needs to be reset later.
 pub fn origtext_note_of(paths: &Paths, target: &str) -> Option<Map> {
-    let note = origtext_file(paths);
+    let note = origtext_at(&origtext_path(paths, target));
     let datei = note_file(&note);
     (truthy(field(&note, "texte")) && !datei.is_empty() && same_file(paths, datei, target)).then_some(note)
 }
 
-/// Put back a note that [`origtext_note_of`] gave.
-pub fn put_origtext_note(paths: &Paths, note: Map) -> bool {
-    write_note(paths, note, "injection.put_origtext_note")
+/// Put back a note that [`origtext_note_of`] gave for `target`, into the note of its channel.
+pub fn put_origtext_note(paths: &Paths, target: &str, note: Map) -> bool {
+    write_note_at(&origtext_path(paths, target), note, "injection.put_origtext_note")
 }
 
 /// Whether two paths name the same file (`os.path.samefile`, else by text).
@@ -306,14 +359,14 @@ fn same_file(paths: &Paths, a: &str, b: &str) -> bool {
     }
 }
 
-/// `injection.save_origtext`.
+/// `injection.save_origtext`, into the note of `ini`'s channel.
 pub fn save_origtext(paths: &Paths, texts: Map, ini: &str) -> bool {
     let data = vec![
         ("datei".to_string(), Value::str(ini)),
         ("stand".to_string(), Value::str(now_stamp())),
         ("texte".to_string(), Value::Object(texts)),
     ];
-    write_note(paths, data, "injection.save_origtext")
+    write_note_at(&origtext_path(paths, ini), data, "injection.save_origtext")
 }
 
 // ----------------------------------------------------- recognising
@@ -332,7 +385,7 @@ pub fn is_applied(ini: &str) -> bool {
 
 /// `injection._fallback_form`.
 fn fallback_form(paths: &Paths, origtext_old: &Map, ini: &str) -> Fallback {
-    if is_fresh(paths) || !origtext_old.is_empty() {
+    if is_fresh_for(paths, ini) || !origtext_old.is_empty() {
         return Fallback::Off;
     }
     if is_applied(ini) { Fallback::Full } else { Fallback::Block }
@@ -351,6 +404,35 @@ pub fn menu_line(version: &str) -> String {
     let suffix = if version.is_empty() { String::new() } else { format!(" v{version}") };
     let site = WEBSITE.split_once("//").map_or(WEBSITE, |(_, rest)| rest);
     format!("{MENU_MARK}{suffix} · {site}")
+}
+
+/// The text of the version box without our line (also as older versions wrote it) and without the line breaks
+/// it ends with: what the translation itself wrote there.
+pub fn menu_base(text: &str) -> &str {
+    let ours = |at: usize, mark: &str| {
+        let rest = &text[at + mark.len()..];
+        rest.is_empty() || rest.starts_with(" v") || rest.starts_with(" ·")
+    };
+    let cut = [MENU_MARK, OLD_MENU_MARK]
+        .iter()
+        .flat_map(|mark| text.match_indices(mark).filter(|(at, _)| ours(*at, mark)).map(|(at, _)| at))
+        .min()
+        .unwrap_or(text.len());
+    let mut base = &text[..cut];
+    while let Some(shorter) = base.strip_suffix("\\n") {
+        base = shorter;
+    }
+    base
+}
+
+/// The version box of a text file as the translation wrote it ([`menu_base`]), or `None` when the file has no
+/// such line or cannot be read.
+pub fn menu_text_of(bytes: &[u8]) -> Option<String> {
+    let text = crate::text::decode_ignore(bytes);
+    crate::text::py_splitlines(&text).into_iter().find_map(|line| {
+        let (key, _, value) = form::split_line(line)?;
+        (key.trim_start_matches('\u{feff}') == MENU_KEY).then(|| menu_base(value).to_string())
+    })
 }
 
 /// `injection.stock_mark`: a short fingerprint of the own blueprints, by
@@ -400,7 +482,8 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
     // Original texts of another file that is still there would put that
     // file's wording (maybe another language) into this one: not used here.
     // On purpose unlike 4.12, which takes the note whatever file it names.
-    let mut origtext_old = if origtext_held_for_other(paths, ini) { Map::new() } else { load_origtext(paths) };
+    let mut origtext_old =
+        if origtext_held_for_other(paths, ini) { Map::new() } else { load_origtext_for(paths, ini) };
     let mut origtext_new = Map::new();
     let fallback = fallback_form(paths, &origtext_old, ini);
     // A line we added for a crafted item that now holds another text is the
@@ -540,10 +623,7 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
             let (base, _foreign) = form::split_foreign_block(&orig);
             let mut touched = false;
             if key.trim_start_matches('\u{feff}') == MENU_KEY {
-                orig = orig.split(MENU_MARK).next().unwrap_or("").to_string();
-                while let Some(shorter) = orig.strip_suffix("\\n") {
-                    orig = shorter.to_string();
-                }
+                orig = menu_base(&orig).to_string();
                 clean = format!("{orig}{}", menu_line(&inputs.version));
                 touched = true;
             } else if let Some((own, star)) = own_ships.get(key) {
@@ -624,7 +704,11 @@ pub fn remove_texts(paths: &Paths, ini: &str, language: &str) -> Outcome {
 /// `injection.leftover_file`: the file our additions still stand in,
 /// though nobody tends them any more, or `None`.
 pub fn leftover_file(paths: &Paths, new_path: Option<&str>) -> Option<String> {
-    let note = origtext_file(paths);
+    // The old file of the same channel stands in the note of that channel.
+    let note = match new_path.filter(|p| !p.is_empty()) {
+        Some(new_path) => origtext_at(&origtext_path(paths, new_path)),
+        None => origtext_file(paths),
+    };
     let old = field(&note, "datei").and_then(Value::as_str).map(crate::text::py_strip).unwrap_or("").to_string();
     if old.is_empty() || !truthy(field(&note, "texte")) {
         return None;

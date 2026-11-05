@@ -661,6 +661,36 @@ pub(in crate::sample) mod tests {
             self.click_at(at);
         }
 
+        /// Where the controls named `label` for a screen reader stand, from one frame.
+        fn named(&mut self, label: &str) -> Vec<egui::Rect> {
+            self.ctx.enable_accesskit();
+            let (width, height) = font_size::BASE_MIN_SIZE;
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    Pos2::ZERO,
+                    egui::vec2(width.max(1300.0), height.max(900.0)),
+                )),
+                time: self.time,
+                ..Default::default()
+            };
+            let page = &mut self.page;
+            let mut output = self.ctx.run_ui(input, |ui| {
+                page.show(ui);
+            });
+            output.textures_delta.clear();
+            let Some(update) = output.platform_output.accesskit_update else { return Vec::new() };
+            update
+                .nodes
+                .iter()
+                .filter(|(_, node)| node.label().is_some_and(|name| name == label))
+                .filter_map(|(_, node)| {
+                    let b = node.bounds()?;
+                    let (min, max) = (Pos2::new(b.x0 as f32, b.y0 as f32), Pos2::new(b.x1 as f32, b.y1 as f32));
+                    Some(egui::Rect::from_min_max(min, max))
+                })
+                .collect()
+        }
+
         pub(in crate::sample) fn notice(&self) -> Option<String> {
             self.page.pin_notice.as_ref().map(|(_, text)| text.clone())
         }
@@ -931,6 +961,46 @@ pub(in crate::sample) mod tests {
         bench.click_nth("Alt", 1);
         bench.settle();
         assert_eq!(hotkey_text(bench.page.scan_modifiers, bench.page.scan_key).as_deref(), Some("Alt+R"), "the last one stays");
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
+        assert_eq!(said, Some(language::t("s_hk_falsch")));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey of the handle search on the overlay page: off at first and without a picker; switched on, its picker
+    /// shows the default, a change is said while the overlay runs and kept in `hotkey_suche`, and without a modifier
+    /// key the saved one stays.
+    #[test]
+    fn the_hotkey_of_the_handle_search_is_switched_on_changed_and_refused_without_a_modifier() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("such-taste", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.page.overlay_runs = || true;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let strg = language::t("s_ei_taste_strg");
+        let pickers = |texts: &[(String, Pos2)]| texts.iter().filter(|(t, _)| *t == strg).count();
+        assert!(texts.iter().any(|(t, _)| *t == language::t("s_hk_suche")), "the row: {texts:?}");
+        assert!(!bench.page.search_hotkey_on, "off at first");
+        let off = pickers(&texts);
+        let current = |page: &SamplePage| hotkey_text(page.search_modifiers, page.search_key);
+        assert_eq!(current(&bench.page).as_deref(), Some("Alt+Umschalt+H"));
+        bench.page.search_hotkey_on = true;
+        let texts = bench.settle();
+        assert_eq!(pickers(&texts), off + 1, "switched on: its picker, the last on the page");
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_suche_an\": true"), "{stored}");
+        bench.click_nth(&strg, off);
+        bench.settle();
+        assert_eq!(current(&bench.page).as_deref(), Some("Strg+Alt+Umschalt+H"));
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
+        assert_eq!(said, Some(language::tf("s_hk_ok", &[("0", language::Arg::from("Strg+Alt+Umschalt+H"))])));
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_suche\": \"Strg+Alt+Umschalt+H\""), "{stored}");
+        for word in [strg.clone(), "Alt".to_string(), language::t("s_ei_taste_umschalt")] {
+            bench.click_nth(&word, off);
+            bench.settle();
+        }
+        assert_eq!(current(&bench.page).as_deref(), Some("Umschalt+H"), "the last one stays");
         let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
         assert_eq!(said, Some(language::t("s_hk_falsch")));
         let _ = std::fs::remove_dir_all(dir);
@@ -1856,6 +1926,64 @@ pub(in crate::sample) mod tests {
     }
 
     #[test]
+    fn the_parts_shown_in_the_overlay_stand_on_the_page_are_saved_and_reach_the_overlay() {
+        use versekit_core::overlay::{Section, Sections};
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("anzeigen", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.page.go_to("hf_overlay");
+        assert_eq!(bench.page.overlay_sections, Sections::default(), "nothing written: everything shows");
+        for lang in [language::Choice::De, language::Choice::En] {
+            language::set_language(lang);
+            let wheel = |dy: f32| egui::Event::MouseWheel {
+                unit: egui::MouseWheelUnit::Point,
+                delta: egui::vec2(0.0, dy),
+                modifiers: egui::Modifiers::NONE,
+                phase: egui::TouchPhase::Move,
+                source: egui::MouseWheelSource::Wheel,
+            };
+            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+            for _ in 0..60 {
+                bench.frame(vec![wheel(120.0)]);
+            }
+            let mut texts = bench.settle();
+            for _ in 0..12 {
+                for _ in 0..5 {
+                    bench.frame(vec![wheel(-120.0)]);
+                }
+                texts.extend(bench.settle());
+            }
+            for key in [
+                "s_ov_anzeigen",
+                "s_ov_zeige_server",
+                "s_ov_zeige_ort",
+                "s_ov_zeige_auftraege",
+                "s_ov_zeige_raffinerie",
+                "s_ov_zeige_update",
+                "s_ov_auftraege_max",
+            ] {
+                let text = language::t(key).to_lowercase();
+                assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
+            }
+        }
+        language::set_language(language::Choice::De);
+        // The contracts off: written to the file, read back by a new page and by the overlay.
+        bench.page.overlay_sections = Sections::default().with(Section::Contracts, false);
+        bench.page.overlay_contracts_max = 12;
+        bench.settle();
+        let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
+        assert!(file.contains("\"overlay_zeige_auftraege\": false"), "{file}");
+        assert!(file.contains("\"overlay_auftraege_hoechstzahl\": 12"), "{file}");
+        assert!(!file.contains("overlay_zeige_ort"), "only what changed is written: {file}");
+        let again = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[])));
+        assert_eq!(again.overlay_sections, bench.page.overlay_sections);
+        let read = versekit_core::overlay::Settings::read(&Paths::new(super::super::real_data::host_in(&dir, &[])));
+        assert!(!read.sections.contains(Section::Contracts) && read.sections.contains(Section::Location));
+        assert_eq!((again.overlay_contracts_max, read.contracts_max), (12, 12));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn the_events_that_open_the_overlay_stand_on_the_page_are_saved_and_come_back() {
         use versekit_core::overlay::{Event, Events};
         let _language = crate::language_lock();
@@ -1964,15 +2092,16 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// The switch of the info bar stands on the page Overlay in both languages, is off at first, is written when
-    /// switched on and is what the overlay reads.
+    /// The switch of the info bar stands on the page Overlay in both languages, is on at first while its companion
+    /// "without the game" is off, is written when switched off and is what the overlay reads.
     #[test]
-    fn the_switch_of_the_info_bar_stands_on_the_page_is_off_at_first_and_reaches_the_overlay() {
+    fn the_switch_of_the_info_bar_stands_on_the_page_is_on_at_first_and_reaches_the_overlay() {
         let _language = crate::language_lock();
         let (page, dir) = real_page("infoleiste", "", &[]);
         let mut bench = Bench::new(page);
         bench.page.go_to("hf_overlay");
-        assert!(!bench.page.overlay_info_bar, "off by default");
+        assert!(bench.page.overlay_info_bar, "on by default");
+        assert!(!bench.page.overlay_info_bar_always, "without the game off by default");
         for lang in [language::Choice::De, language::Choice::En] {
             language::set_language(lang);
             // From the top, in steps shorter than the window, so that no part of the page is scrolled past unseen.
@@ -2004,13 +2133,52 @@ pub(in crate::sample) mod tests {
         let before = std::fs::read_to_string(&file).unwrap_or_default();
         assert!(!before.contains("\"infoleiste\""), "nothing written yet");
         let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
-        assert!(!versekit_core::overlay::Settings::read(&host()).info_bar, "the overlay reads it off");
-        bench.page.overlay_info_bar = true;
+        let read = versekit_core::overlay::Settings::read(&host());
+        assert!(read.info_bar && !read.info_bar_always, "the overlay reads it on, without the game off");
+        bench.page.overlay_info_bar = false;
         bench.settle();
         let written = std::fs::read_to_string(&file).unwrap();
-        assert!(written.contains("\"infoleiste\": true"), "{written}");
-        assert!(SamplePage::with_settings(host()).overlay_info_bar);
-        assert!(versekit_core::overlay::Settings::read(&host()).info_bar, "the overlay reads the switch");
+        assert!(written.contains("\"infoleiste\": false"), "{written}");
+        assert!(!written.contains("infoleiste_ohne_spiel"), "the untouched companion is not written: {written}");
+        assert!(!SamplePage::with_settings(host()).overlay_info_bar, "a stored choice wins over the default");
+        assert!(!versekit_core::overlay::Settings::read(&host()).info_bar, "the overlay reads the switch");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The rows of the overlay go down to two: a stored three is read as three, the minus of the field on the page
+    /// Overlay takes it to two and no further, two is written and is what the overlay reads; a stored one is two.
+    #[test]
+    fn the_rows_of_the_overlay_go_down_to_two() {
+        let _language = crate::language_lock();
+        language::set_language(language::Choice::De);
+        let (page, dir) = real_page("zeilen-zwei", "{\n  \"max_zeilen\": 3\n}\n", &[]);
+        let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
+        assert_eq!(page.overlay_rows, 3, "three is kept as it stands");
+        assert_eq!(versekit_core::overlay::Settings::read(&host()).rows, 3);
+        let mut bench = Bench::new(page);
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let label = language::t("s_zeilen");
+        let (_, at) = texts.iter().find(|(t, _)| *t == label).unwrap_or_else(|| panic!("{label} is not on the page"));
+        let row_y = at.y + 8.0;
+        let minus = bench
+            .named(&language::t("s_ff_weniger"))
+            .into_iter()
+            .min_by(|a, b| (a.center().y - row_y).abs().total_cmp(&(b.center().y - row_y).abs()))
+            .filter(|rect| (rect.center().y - row_y).abs() < 20.0)
+            .unwrap_or_else(|| panic!("no minus in the row of {label}"));
+        bench.click_at(minus.center() - egui::vec2(3.0, 3.0));
+        bench.settle();
+        assert_eq!(bench.page.overlay_rows, 2, "three less one");
+        bench.click_at(minus.center() - egui::vec2(3.0, 3.0));
+        bench.settle();
+        assert_eq!(bench.page.overlay_rows, 2, "two is the fewest");
+        let written = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
+        assert!(written.contains("\"max_zeilen\": 2"), "{written}");
+        assert_eq!(versekit_core::overlay::Settings::read(&host()).rows, 2, "the overlay reads two");
+        std::fs::write(dir.join("einstellungen.json"), "{\n  \"max_zeilen\": 1\n}\n").unwrap();
+        assert_eq!(versekit_core::overlay::Settings::read(&host()).rows, 2, "a stored one is read as two");
+        assert_eq!(SamplePage::with_settings(host()).overlay_rows, 2);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2321,6 +2489,66 @@ pub(in crate::sample) mod tests {
             "the sample page keeps its made-up Basetool"
         );
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The main window hands the demand of the unit to the overlay at the first look, again when the overlay asks
+    /// and when it changed, none while the page of the demand is not there, and nothing of the made-up Basetool.
+    #[test]
+    fn the_main_window_hands_the_demand_to_the_overlay_when_asked_or_changed_and_never_the_made_up_one() {
+        use versekit_core::basetool::demand;
+        use versekit_core::window_signal::{Role, Signal};
+        let _language = crate::language_lock();
+        let dir = folder("bedarf-ans-overlay");
+        let page = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[])));
+        let wire = page.connection.wire().expect("the connection of the program").clone();
+        assert!(wire.demo.is_none(), "the real Basetool");
+        let signals = super::super::MainSignals::default();
+        let sent = RefCell::new(Vec::new());
+        let hand = |signals: &super::super::MainSignals, page: &SamplePage| {
+            signals.hand_demand(
+                page,
+                |role| (role == Role::Overlay).then_some(7),
+                |overlay, bytes| {
+                    sent.borrow_mut().push((overlay, bytes.to_vec()));
+                    true
+                },
+            );
+        };
+        let none = demand::handover(&[]);
+        hand(&signals, &page);
+        assert_eq!(*sent.borrow(), [(7, none.clone())], "the first look hands over what there is: nothing");
+        hand(&signals, &page);
+        assert_eq!(sent.borrow().len(), 1, "unchanged: not again");
+        signals.note(Signal::DemandWanted);
+        hand(&signals, &page);
+        assert_eq!(sent.borrow().len(), 2, "the overlay asked: again");
+        // A demand in memory while its page is not there (switched off, not connected): none goes over.
+        let read = jsonio::loads(r#"{"materials": [{"material": {"name": "Gold"}, "openQuantity": {"amount": 2}}]}"#);
+        wire.demand.take(demand::parse(&read.expect("json")), wire.sync.now());
+        signals.note(Signal::DemandWanted);
+        hand(&signals, &page);
+        assert_eq!(sent.borrow().last(), Some(&(7, none)), "not visible: nothing of it");
+        // The preview has a made-up Basetool: its demand never reaches a running overlay.
+        let preview = SamplePage::preview();
+        signals.note(Signal::DemandWanted);
+        hand(&signals, &preview);
+        assert_eq!(sent.borrow().len(), 3, "nothing of the preview");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A change goes over at once; while no overlay takes it, it is tried again only after a pause.
+    #[test]
+    fn a_changed_demand_is_tried_again_only_after_a_pause_while_no_overlay_takes_it() {
+        let mut handed = super::super::DemandHanded::default();
+        let start = std::time::Instant::now();
+        assert!(handed.due(b"a", false, start), "the first look");
+        assert!(!handed.due(b"a", false, start), "not taken, just tried: waits");
+        let later = start + super::super::DEMAND_RETRY;
+        assert!(handed.due(b"a", false, later), "after the pause");
+        handed.handed(b"a".to_vec());
+        assert!(!handed.due(b"a", false, later + super::super::DEMAND_RETRY), "taken and unchanged: no more");
+        assert!(handed.due(b"a", true, later), "asked: at once");
+        assert!(handed.due(b"b", false, later + super::super::DEMAND_RETRY * 2), "changed");
     }
 
     /// „In die Mitte holen“ puts everything back as 4.12 does: size and place forgotten (the default size in the

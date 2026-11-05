@@ -62,7 +62,6 @@ s_sp_q_dymerz_de
 s_sp_q_fr
 s_sp_q_it
 s_sp_q_es
-s_sp_q_es2
 s_sp_q_lw_de
 s_sp_q_lw_en
 s_sp_q_lw_fr
@@ -196,3 +195,6 @@ ov_shard
 ov_fps_allein
 s_sb_shard_region
 s_sb_shard_nr
+
+# The server of the session in the overlay settings: the loanword, the same in both languages.
+s_ov_zeige_server

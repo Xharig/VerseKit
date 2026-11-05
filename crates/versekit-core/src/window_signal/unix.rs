@@ -30,8 +30,8 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
 use super::{
-    Asked, REPLACE_WAIT, Role, Signal, close_hook, decode, deliver, encode, handle_of, lock_file, name_of, outlive,
-    read_pid, signal_folder, take_instance,
+    Asked, DATA_BYTE, DATA_MAX, DataKind, REPLACE_WAIT, Role, Signal, close_hook, decode, decode_data, deliver,
+    deliver_data, encode, encode_data, handle_of, lock_file, name_of, outlive, read_pid, signal_folder, take_instance,
 };
 
 /// How long a signal may take to be written, and a connection to be read.
@@ -89,8 +89,8 @@ pub fn serve(_hwnd: isize, role: Role, key: &str, on_signal: impl Fn(Signal) + S
     true
 }
 
-/// Takes the connections to the socket one by one and does what each byte asks; a connection that only looks
-/// whether the role is served brings none.
+/// Takes the connections to the socket one by one and does what each byte asks, or hands on the data of a
+/// connection that starts with [`DATA_BYTE`]; a connection that only looks whether the role is served brings none.
 fn listen(listener: &UnixListener, on_signal: impl Fn(Signal)) {
     for stream in listener.incoming() {
         let Ok(stream) = stream else {
@@ -99,7 +99,14 @@ fn listen(listener: &UnixListener, on_signal: impl Fn(Signal)) {
         };
         let _ = stream.set_read_timeout(Some(WAIT));
         let mut bytes = Vec::new();
-        let _ = stream.take(64).read_to_end(&mut bytes);
+        let _ = stream.take((DATA_MAX + 6) as u64).read_to_end(&mut bytes);
+        if bytes.first() == Some(&DATA_BYTE) {
+            if let Some((kind, data)) = decode_data(&bytes) {
+                deliver_data(kind, data);
+            }
+            continue;
+        }
+        bytes.truncate(64);
         for asked in bytes.into_iter().filter_map(decode) {
             deliver(asked, close_hook().as_ref(), &on_signal);
         }
@@ -128,6 +135,12 @@ pub fn send(hwnd: isize, signal: Signal) -> bool {
 
 pub fn close_window(hwnd: isize) -> bool {
     write(hwnd, Asked::Close)
+}
+
+pub fn send_data(hwnd: isize, kind: DataKind, bytes: &[u8]) -> bool {
+    let Some(mut stream) = connect(hwnd) else { return false };
+    let _ = stream.set_write_timeout(Some(WAIT));
+    stream.write_all(&encode_data(kind, bytes)).is_ok()
 }
 
 /// Under X11 the window of the process that serves `hwnd` (`super::x11`); elsewhere nothing to do from outside:

@@ -47,6 +47,12 @@ pub const OPEN_EXTRA_HEIGHT: i32 = 120;
 pub const MIN_BAR_WIDTH: i32 = 260;
 /// A drag of at most this many pixels is a click and keeps the corner.
 pub const DRAG_SLACK: i32 = 2;
+/// How many rows the overlay keeps without a setting, and the fewest and most a setting may ask for.
+pub const ROWS_DEFAULT: i64 = 20;
+pub const ROWS_RANGE: (i64, i64) = (2, 100);
+/// How many contracts the game lets a player hold, as long as the player set nothing else.
+pub const CONTRACTS_MAX_DEFAULT: i64 = 10;
+pub const CONTRACTS_MAX_RANGE: (i64, i64) = (1, 50);
 /// Fewer blueprints caught up at once are shown one by one.
 pub const CAUGHT_UP_ROWS: usize = 10;
 /// The hotkey without a setting, the same on every system. Without Strg: under Wayland no program can keep a key
@@ -54,6 +60,13 @@ pub const CAUGHT_UP_ROWS: usize = 10;
 pub const DEFAULT_HOTKEY: &str = "Alt+Umschalt+V";
 /// The hotkey that reads the refinery terminal, without a setting (R for refinery), in the same way.
 pub const DEFAULT_SCAN_HOTKEY: &str = "Alt+Umschalt+R";
+/// The hotkey that puts the cursor into the handle search of the info bar, without a setting (H for handle). It is
+/// off until switched on ([`keys::HOTKEY_SEARCH_ON`]).
+pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+Umschalt+H";
+/// The info bar stands over the running game while its setting is missing; a stored setting wins.
+pub const INFO_BAR_DEFAULT: bool = true;
+/// The info bar waits hidden without the game while its setting is missing; a stored setting wins.
+pub const INFO_BAR_ALWAYS_DEFAULT: bool = false;
 /// After a game exit, a log written this recently still counts as running
 /// while the process list says the game is gone.
 pub const EXIT_QUIET_SECONDS: f64 = 30.0;
@@ -68,6 +81,9 @@ pub mod keys {
     /// The hotkey of the refinery scan is registered (only a literal `false` switches it off).
     pub const HOTKEY_SCAN_ON: &str = "hotkey_scan_an";
     pub const HOTKEY_SCAN: &str = "hotkey_scan";
+    /// The hotkey of the handle search in the info bar is registered (only a literal `true` switches it on).
+    pub const HOTKEY_SEARCH_ON: &str = "hotkey_suche_an";
+    pub const HOTKEY_SEARCH: &str = "hotkey_suche";
     pub const CORNER: &str = "overlay_ecke";
     pub const BAR: &str = "overlay_leiste";
     pub const SOUND: &str = "signalton";
@@ -94,9 +110,11 @@ pub mod keys {
     /// The players on the shard and on the own server from the same picture; without the key it follows
     /// [`FPS_LINE`].
     pub const PLAYERS: &str = "overlay_spieler";
-    /// The info bar: a small window of its own with the shard and the scanned material (off by default).
+    /// The info bar: a small window of its own with the shard and the scanned material
+    /// ([`super::INFO_BAR_DEFAULT`] without the key).
     pub const INFO_BAR: &str = "infoleiste";
-    /// The info bar shows while the game does not run too (off by default: without the game it waits hidden).
+    /// The info bar shows while the game does not run too ([`super::INFO_BAR_ALWAYS_DEFAULT`] without the key:
+    /// without the game it waits hidden).
     pub const INFO_BAR_ALWAYS: &str = "infoleiste_ohne_spiel";
     /// The size of the overlay window in percent of the main window's size (one of [`super::SIZE_STEPS`]).
     pub const SIZE: &str = "overlay_groesse_prozent";
@@ -108,6 +126,15 @@ pub mod keys {
     pub const EVENT_CONTRACT: &str = "overlay_bei_auftrag";
     pub const EVENT_REFINERY: &str = "overlay_bei_raffinerie";
     pub const EVENT_CATALOG: &str = "overlay_bei_katalog";
+    /// One switch for each part the open overlay shows (see [`super::Section`]).
+    pub const SHOW_SHARD: &str = "overlay_zeige_server";
+    pub const SHOW_LOCATION: &str = "overlay_zeige_ort";
+    pub const SHOW_CONTRACTS: &str = "overlay_zeige_auftraege";
+    pub const SHOW_UPDATE: &str = "overlay_zeige_update";
+    pub const SHOW_REFINERY: &str = "overlay_zeige_raffinerie";
+    /// How many contracts the game lets a player hold, for the count in the head of the bar
+    /// ([`super::CONTRACTS_MAX_DEFAULT`] without the key).
+    pub const CONTRACTS_MAX: &str = "overlay_auftraege_hoechstzahl";
 }
 
 // ------------------------------------------------------------ places
@@ -291,6 +318,29 @@ pub fn resized(layout: Layout, window: Rect, pointer: (i32, i32), min_width: i32
     let h = h.max(MIN_RESIZE_HEIGHT).min(max_h);
     let y = if bottom { window.bottom() - h } else { window.y };
     Rect { x, y, w, h }
+}
+
+/// A window let go after a drag at most this many pixels from an edge of its screen goes onto that edge.
+pub const SNAP: i32 = 16;
+
+/// The window `r` held wholly inside `bounds`; a window larger than `bounds` keeps its left or top edge on it.
+pub fn held_inside(r: Rect, bounds: Rect) -> Rect {
+    let x = r.x.min(bounds.right() - r.w).max(bounds.x);
+    let y = r.y.min(bounds.bottom() - r.h).max(bounds.y);
+    Rect { x, y, ..r }
+}
+
+/// The window `r` let go after a drag on the screen `screen` with its work area `work`: an edge at most [`SNAP`]
+/// pixels from an edge of the screen or of the work area goes onto the nearest of them, and the window then lies
+/// wholly on the screen ([`held_inside`]). The size stays.
+pub fn snapped(r: Rect, screen: Rect, work: Rect) -> Rect {
+    let near = |at: i32, edges: [i32; 2]| {
+        edges.into_iter().filter(|edge| (edge - at).abs() <= SNAP).min_by_key(|edge| (edge - at).abs())
+    };
+    let x = near(r.x, [screen.x, work.x]).or_else(|| near(r.right(), [screen.right(), work.right()]).map(|e| e - r.w));
+    let y =
+        near(r.y, [screen.y, work.y]).or_else(|| near(r.bottom(), [screen.bottom(), work.bottom()]).map(|e| e - r.h));
+    held_inside(Rect { x: x.unwrap_or(r.x), y: y.unwrap_or(r.y), ..r }, screen)
 }
 
 /// A size limited to a work area with a 16 pixel margin (4.12 `groesse_begrenzen`).
@@ -552,6 +602,66 @@ impl Events {
     }
 }
 
+/// A part of the open overlay the player may switch off (`overlay_zeige_*`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Section {
+    /// The shard of the session (with the frame rates) at the right of the first line.
+    Shard,
+    /// The place the log names, under the status.
+    Location,
+    /// The bar of the running contracts above the rows.
+    Contracts,
+    /// The refinery jobs, running with the time left and done, under the contracts.
+    Refinery,
+    /// The line that a newer version is ready.
+    Update,
+}
+
+impl Section {
+    pub const ALL: [Section; 5] =
+        [Section::Shard, Section::Location, Section::Contracts, Section::Refinery, Section::Update];
+
+    /// The settings key of the switch.
+    pub fn key(self) -> &'static str {
+        match self {
+            Section::Shard => keys::SHOW_SHARD,
+            Section::Location => keys::SHOW_LOCATION,
+            Section::Contracts => keys::SHOW_CONTRACTS,
+            Section::Refinery => keys::SHOW_REFINERY,
+            Section::Update => keys::SHOW_UPDATE,
+        }
+    }
+
+    fn bit(self) -> u8 {
+        1 << (self as u8)
+    }
+}
+
+/// The parts the open overlay shows: a set of [`Section`]s, all of them by default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Sections(u8);
+
+impl Default for Sections {
+    fn default() -> Sections {
+        Section::ALL.iter().fold(Sections(0), |set, &s| set.with(s, true))
+    }
+}
+
+impl Sections {
+    pub fn contains(self, section: Section) -> bool {
+        self.0 & section.bit() != 0
+    }
+
+    pub fn with(self, section: Section, on: bool) -> Sections {
+        Sections(if on { self.0 | section.bit() } else { self.0 & !section.bit() })
+    }
+
+    /// From the settings: a switch that is missing stays on.
+    pub fn read(paths: &Paths) -> Sections {
+        Section::ALL.iter().fold(Sections(0), |set, &s| set.with(s, paths.setting_bool(s.key(), true)))
+    }
+}
+
 /// Which readings of the scanner are new: a number that was not shown before, or another one than before.
 ///
 /// The scanner state also counts up when the pill only moves; that is no new reading.
@@ -576,14 +686,17 @@ pub struct Hotkey {
     pub ctrl: bool,
     pub alt: bool,
     pub shift: bool,
-    /// The Windows key code: `A`–`Z`, `0`–`9`, `F1` = 0x70 … `F12`.
+    /// The Windows key code: `A`–`Z`, `0`–`9`, `F1` = 0x70 … `F24` = 0x87.
     pub key: u16,
 }
 
+/// The highest function key a hotkey can use.
+pub const LAST_F_KEY: u16 = 24;
+
 impl Hotkey {
     /// `Strg+Alt+B`; case, spaces and `-` instead of `+` do not matter. At
-    /// least one modifier and exactly one key, a letter, a digit or F1–F12
-    /// (4.12 `hotkey.parse`). Letters beyond A–Z are not taken.
+    /// least one modifier and exactly one key, a letter, a digit or F1–F24
+    /// (4.12 `hotkey.parse`, which took F1–F12). Letters beyond A–Z are not taken.
     pub fn parse(text: &str) -> Option<Hotkey> {
         let mut hotkey = Hotkey { ctrl: false, alt: false, shift: false, key: 0 };
         let mut key = None;
@@ -604,7 +717,7 @@ impl Hotkey {
         hotkey.key = match key.as_bytes() {
             [c] if c.is_ascii_alphanumeric() => u16::from(*c),
             [b'F', rest @ ..] => match std::str::from_utf8(rest).ok()?.parse::<u16>().ok()? {
-                n @ 1..=12 if rest.iter().all(u8::is_ascii_digit) => 0x70 + n - 1,
+                n @ 1..=LAST_F_KEY if rest.iter().all(u8::is_ascii_digit) => 0x70 + n - 1,
                 _ => return None,
             },
             _ => return None,
@@ -621,7 +734,7 @@ impl Hotkey {
             }
         }
         parts.push(match self.key {
-            0x70..=0x7b => format!("F{}", self.key - 0x70 + 1),
+            0x70..=0x87 => format!("F{}", self.key - 0x70 + 1),
             key => char::from_u32(u32::from(key)).map_or_else(String::new, String::from),
         });
         parts.join("+")
@@ -663,6 +776,16 @@ impl HotkeyChoice {
         Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
     }
 
+    /// The hotkey of the handle search in the info bar, [`DEFAULT_SEARCH_HOTKEY`] where none is set; off unless
+    /// switched on.
+    pub fn read_search(paths: &Paths) -> HotkeyChoice {
+        if !search_hotkey_on(paths) {
+            return HotkeyChoice::Off;
+        }
+        let text = paths.setting(keys::HOTKEY_SEARCH).unwrap_or_else(|| DEFAULT_SEARCH_HOTKEY.to_string());
+        Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
+    }
+
     pub fn hotkey(&self) -> Option<Hotkey> {
         match self {
             HotkeyChoice::Combination(hotkey) => Some(*hotkey),
@@ -676,6 +799,26 @@ pub fn scan_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_SCAN_ON)
 }
 
+/// Whether the hotkey of the handle search is to be registered: on only by a literal `true` (`hotkey_suche_an`).
+pub fn search_hotkey_on(paths: &Paths) -> bool {
+    paths.settings().iter().any(|(k, v)| k == keys::HOTKEY_SEARCH_ON && *v == Value::Bool(true))
+}
+
+/// One line of the start trail about a hotkey: its name and what came of its registration.
+fn trail_line(name: &str, choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    match (choice, registered) {
+        (HotkeyChoice::Off, _) => format!("{name}: ausgeschaltet"),
+        (HotkeyChoice::Wrong(text), _) => format!("{name}: entfaellt (ungueltig: {text})"),
+        (HotkeyChoice::Combination(hotkey), Ok(())) => format!("{name}: {} angemeldet (ok)", hotkey.text()),
+        (HotkeyChoice::Combination(_), Err(reason)) => format!("{name}: entfaellt ({reason})"),
+    }
+}
+
+/// The line of the start trail about the hotkey of the handle search, in the way of [`hotkey_trail`].
+pub fn search_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    trail_line("Such-Hotkey", choice, registered)
+}
+
 /// The lines of the start trail about the hotkeys, as 4.12 writes them (`hotkey_anmelden`, `hotkey_scan_anmelden`):
 /// each hotkey with what came of its registration (`registered`, the reason where the system did not take it).
 /// `scan` is `None` where the refinery scan cannot read at all: then 4.12 says nothing of it.
@@ -684,15 +827,9 @@ pub fn hotkey_trail(
     registered: Result<(), String>,
     scan: Option<(&HotkeyChoice, Result<(), String>)>,
 ) -> Vec<String> {
-    let line = |name: &str, choice: &HotkeyChoice, registered: Result<(), String>| match (choice, registered) {
-        (HotkeyChoice::Off, _) => format!("{name}: ausgeschaltet"),
-        (HotkeyChoice::Wrong(text), _) => format!("{name}: entfaellt (ungueltig: {text})"),
-        (HotkeyChoice::Combination(hotkey), Ok(())) => format!("{name}: {} angemeldet (ok)", hotkey.text()),
-        (HotkeyChoice::Combination(_), Err(reason)) => format!("{name}: entfaellt ({reason})"),
-    };
-    let mut lines = vec![line("Hotkey", choice, registered)];
+    let mut lines = vec![trail_line("Hotkey", choice, registered)];
     if let Some((scan, registered)) = scan {
-        lines.push(line("Scan-Hotkey", scan, registered));
+        lines.push(trail_line("Scan-Hotkey", scan, registered));
     }
     lines
 }
@@ -720,6 +857,8 @@ pub struct Settings {
     pub hotkey: Option<Hotkey>,
     /// The hotkey that reads the refinery terminal.
     pub scan_hotkey: Option<Hotkey>,
+    /// The hotkey that puts the cursor into the handle search of the info bar.
+    pub search_hotkey: Option<Hotkey>,
     pub layout: Layout,
     pub sound: bool,
     pub mode: Mode,
@@ -763,6 +902,10 @@ pub struct Settings {
     pub scanner_hint: crate::signature_window::Hint,
     /// What opens a folded or waiting overlay for a while.
     pub events: Events,
+    /// What the open overlay shows besides its rows.
+    pub sections: Sections,
+    /// The most contracts the game allows at a time, for the head of the bar (`3/10`).
+    pub contracts_max: i64,
 }
 
 impl Default for Settings {
@@ -770,9 +913,10 @@ impl Default for Settings {
         Settings {
             click_through: false,
             auto_through: true,
-            rows: 20,
+            rows: ROWS_DEFAULT as usize,
             hotkey: Hotkey::parse(DEFAULT_HOTKEY),
             scan_hotkey: Hotkey::parse(DEFAULT_SCAN_HOTKEY),
+            search_hotkey: None,
             layout: Layout::default(),
             sound: true,
             mode: Mode::Always,
@@ -786,8 +930,8 @@ impl Default for Settings {
             server_fps: false,
             players: false,
             size_percent: SIZE_STEPS[0],
-            info_bar: false,
-            info_bar_always: false,
+            info_bar: INFO_BAR_DEFAULT,
+            info_bar_always: INFO_BAR_ALWAYS_DEFAULT,
             info_bar_size_percent: SIZE_STEPS[0],
             info_bar_corner: crate::info_bar::Corner::default(),
             info_bar_places: crate::info_bar::Places::default(),
@@ -796,6 +940,8 @@ impl Default for Settings {
             scanner_window: crate::signature_window::Layout::default(),
             scanner_hint: crate::signature_window::Hint::default(),
             events: Events::default(),
+            sections: Sections::default(),
+            contracts_max: CONTRACTS_MAX_DEFAULT,
         }
     }
 }
@@ -816,9 +962,10 @@ impl Settings {
         Settings {
             click_through: paths.setting_bool(keys::CLICK_THROUGH, false),
             auto_through: !off(keys::AUTO_THROUGH),
-            rows: paths.setting_int(keys::ROWS, 20, Some(5), Some(100)) as usize,
+            rows: paths.setting_int(keys::ROWS, ROWS_DEFAULT, Some(ROWS_RANGE.0), Some(ROWS_RANGE.1)) as usize,
             hotkey,
             scan_hotkey: HotkeyChoice::read_scan(paths).hotkey(),
+            search_hotkey: HotkeyChoice::read_search(paths).hotkey(),
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
@@ -835,8 +982,8 @@ impl Settings {
             server_fps: paths.setting_bool(keys::SERVER_FPS, paths.setting_bool(keys::FPS_LINE, false)),
             players: paths.setting_bool(keys::PLAYERS, paths.setting_bool(keys::FPS_LINE, false)),
             size_percent: size_setting(paths, keys::SIZE),
-            info_bar: paths.setting_bool(keys::INFO_BAR, false),
-            info_bar_always: paths.setting_bool(keys::INFO_BAR_ALWAYS, false),
+            info_bar: paths.setting_bool(keys::INFO_BAR, INFO_BAR_DEFAULT),
+            info_bar_always: paths.setting_bool(keys::INFO_BAR_ALWAYS, INFO_BAR_ALWAYS_DEFAULT),
             info_bar_size_percent: size_setting(paths, keys::INFO_BAR_SIZE),
             info_bar_corner: crate::info_bar::Corner::read(paths),
             info_bar_places: crate::info_bar::Places::read(paths),
@@ -845,6 +992,13 @@ impl Settings {
             scanner_window: crate::signature_window::Layout::read(paths),
             scanner_hint: crate::signature_window::Hint::read(paths),
             events: Events::read(paths),
+            sections: Sections::read(paths),
+            contracts_max: paths.setting_int(
+                keys::CONTRACTS_MAX,
+                CONTRACTS_MAX_DEFAULT,
+                Some(CONTRACTS_MAX_RANGE.0),
+                Some(CONTRACTS_MAX_RANGE.1),
+            ),
         }
     }
 }
@@ -1423,14 +1577,58 @@ mod tests {
         assert_eq!(a.relative_to(10, 10), Rect::new(0, 10, 30, 40));
     }
 
+    /// Let go a few pixels before an edge of the screen or of the work area, the window goes onto it; further away
+    /// it stays where it was let go, but never beyond the screen.
+    #[test]
+    fn a_window_let_go_near_an_edge_snaps_onto_it_and_stays_on_the_screen() {
+        // 1920 x 1080 with a task bar of 48 at the bottom.
+        let screen = Rect::new(0, 0, 1920, 1080);
+        let work = Rect::new(0, 0, 1920, 1032);
+        let at = |x, y| snapped(Rect::new(x, y, 400, 300), screen, work);
+        assert_eq!(at(9, 13), Rect::new(0, 0, 400, 300), "near the top left corner");
+        assert_eq!(at(1920 - 400 - 16, 500), Rect::new(1520, 500, 400, 300), "16 pixels: still onto the right edge");
+        assert_eq!(at(1920 - 400 - 17, 500), Rect::new(1503, 500, 400, 300), "17 pixels: it stays");
+        assert_eq!(at(-12, 500), Rect::new(0, 500, 400, 300), "a little over the edge: back onto it");
+        // Above the task bar, onto the work area; over it, onto the bottom of the screen.
+        assert_eq!(at(700, 1032 - 300 - 5), Rect::new(700, 732, 400, 300));
+        assert_eq!(at(700, 1080 - 300 - 4), Rect::new(700, 780, 400, 300));
+        // Far off the screen: held on it.
+        assert_eq!(at(5000, -900), Rect::new(1520, 0, 400, 300));
+        assert_eq!(at(-5000, 4000), Rect::new(0, 780, 400, 300));
+        // In the middle nothing moves.
+        assert_eq!(at(600, 400), Rect::new(600, 400, 400, 300));
+        // A second screen to the right with negative places above: its own edges.
+        let right = Rect::new(1920, -200, 2560, 1440);
+        assert_eq!(snapped(Rect::new(1930, -190, 400, 300), right, right), Rect::new(1920, -200, 400, 300));
+        // A window larger than the screen keeps its top left corner on it.
+        assert_eq!(snapped(Rect::new(300, 200, 3000, 2000), screen, work), Rect::new(0, 0, 3000, 2000));
+        assert_eq!(held_inside(Rect::new(10, 20, 30, 40), Rect::new(0, 0, 100, 100)), Rect::new(10, 20, 30, 40));
+        assert_eq!(held_inside(Rect::new(90, -5, 30, 40), Rect::new(0, 0, 100, 100)), Rect::new(70, 0, 30, 40));
+    }
+
     #[test]
     fn hotkeys_like_4_12() {
         let b = Hotkey::parse("Strg+Alt+B").unwrap();
         assert_eq!((b.ctrl, b.alt, b.shift, b.key), (true, true, false, u16::from(b'B')));
         assert_eq!(Hotkey::parse("ctrl - shift - f12").unwrap().key, 0x7b);
         assert_eq!(Hotkey::parse("Alt+7").unwrap().key, u16::from(b'7'));
-        for wrong in ["", "B", "Strg+Alt", "Strg+A+B", "Strg+F13", "Strg+F0", "Strg+Ä", "Strg+Tab", "Strg+F1x"] {
+        for wrong in ["", "B", "F13", "Strg+Alt", "Strg+A+B", "Strg+F25", "Strg+F0", "Strg+Ä", "Strg+Tab", "Strg+F1x"]
+        {
             assert_eq!(Hotkey::parse(wrong), None, "{wrong}");
+        }
+    }
+
+    /// F13 to F24 (keys of macro keyboards and of tools such as AutoHotkey) are taken with the Windows key codes
+    /// 0x7C to 0x87 and are written back as they were typed.
+    #[test]
+    fn the_function_keys_run_to_f24() {
+        assert_eq!(Hotkey::parse("Strg+F13").unwrap().key, 0x7c);
+        assert_eq!(Hotkey::parse("alt + umschalt + f24").unwrap().key, 0x87);
+        for n in 1..=LAST_F_KEY {
+            let text = format!("Alt+F{n}");
+            let hotkey = Hotkey::parse(&text).unwrap_or_else(|| panic!("{text}"));
+            assert_eq!(hotkey.key, 0x70 + n - 1, "{text}");
+            assert_eq!(hotkey.text(), text, "written as read");
         }
     }
 
@@ -1587,6 +1785,33 @@ mod tests {
         }
     }
 
+    #[test]
+    fn every_part_shows_by_default_and_one_switch_takes_away_only_its_own() {
+        let (paths, dir) = events_paths("anzeigen-lesen");
+        assert_eq!(Settings::read(&paths).sections, Sections::default());
+        assert_eq!(Settings::default().sections, Sections::default());
+        for section in Section::ALL {
+            assert!(Sections::default().contains(section), "{section:?}");
+        }
+        let mut keys: Vec<&str> = Section::ALL.iter().map(|s| s.key()).collect();
+        keys.sort_unstable();
+        keys.dedup();
+        assert_eq!(keys.len(), Section::ALL.len());
+        paths.set_setting(keys::SHOW_CONTRACTS, Value::Bool(false));
+        let read = Settings::read(&paths).sections;
+        assert!(!read.contains(Section::Contracts));
+        for section in [Section::Location, Section::Shard, Section::Refinery, Section::Update] {
+            assert!(read.contains(section), "{section:?}");
+        }
+        // The most contracts: ten by default, the player's number within its limits.
+        assert_eq!(Settings::read(&paths).contracts_max, 10);
+        paths.set_setting(keys::CONTRACTS_MAX, Value::int(12));
+        assert_eq!(Settings::read(&paths).contracts_max, 12);
+        paths.set_setting(keys::CONTRACTS_MAX, Value::int(0));
+        assert_eq!(Settings::read(&paths).contracts_max, CONTRACTS_MAX_RANGE.0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// ⚠ Off Windows the game gets every key of a combination, and Strg alone makes the figure lie down: the
     /// defaults have no Strg, and they are the same on every system.
     #[test]
@@ -1658,6 +1883,32 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The hotkey of the handle search is off until a literal `true` switches it on; then it is the default or the
+    /// one saved, and the start trail says what came of it.
+    #[test]
+    fn the_hotkey_of_the_handle_search_is_off_until_switched_on() {
+        let (paths, dir) = events_paths("suchtaste");
+        assert!(!search_hotkey_on(&paths));
+        assert_eq!(HotkeyChoice::read_search(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).search_hotkey, None);
+        assert_eq!(search_hotkey_trail(&HotkeyChoice::read_search(&paths), Ok(())), "Such-Hotkey: ausgeschaltet");
+        for (value, on) in [(Value::str("true"), false), (Value::int(1), false), (Value::Bool(true), true)] {
+            paths.set_setting(keys::HOTKEY_SEARCH_ON, value.clone());
+            assert_eq!(search_hotkey_on(&paths), on, "{value:?}");
+        }
+        let h = Hotkey::parse(DEFAULT_SEARCH_HOTKEY).unwrap();
+        assert!(!h.ctrl && h.alt && h.shift, "like the other defaults, without Strg");
+        assert_eq!(Settings::read(&paths).search_hotkey, Some(h));
+        let trail = search_hotkey_trail(&HotkeyChoice::read_search(&paths), Ok(()));
+        assert_eq!(trail, "Such-Hotkey: Alt+Umschalt+H angemeldet (ok)");
+        paths.set_setting(keys::HOTKEY_SEARCH, Value::str("Strg+F13"));
+        assert_eq!(Settings::read(&paths).search_hotkey.map(Hotkey::text).as_deref(), Some("Strg+F13"));
+        paths.set_setting(keys::HOTKEY_SEARCH, Value::str("H"));
+        assert_eq!(HotkeyChoice::read_search(&paths), HotkeyChoice::Wrong("H".into()));
+        assert_eq!(Settings::read(&paths).search_hotkey, None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn a_hotkey_is_written_back_as_it_is_read() {
         for text in ["Strg+Alt+B", "Alt+7", "Strg+Umschalt+F12", "Umschalt+F1"] {
@@ -1705,6 +1956,25 @@ mod tests {
         assert_eq!(read(), (100, 100));
         assert_eq!(SIZE_STEPS.map(size_step), SIZE_STEPS, "every step is its own");
         assert_eq!((size_step(i64::MIN), size_step(i64::MAX), size_step(140)), (100, 200, 130));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Without its keys the info bar stands over the running game and waits hidden without it; a choice stored
+    /// before, either way, stays.
+    #[test]
+    fn the_info_bar_is_on_with_the_game_and_off_without_it_until_the_player_chooses() {
+        let (paths, dir) = events_paths("infoleiste-lesen");
+        let read = || {
+            let s = Settings::read(&paths);
+            (s.info_bar, s.info_bar_always)
+        };
+        assert_eq!(read(), (true, false), "nothing written: on with the game, hidden without it");
+        assert_eq!((Settings::default().info_bar, Settings::default().info_bar_always), (true, false));
+        paths.set_setting(keys::INFO_BAR, Value::Bool(false));
+        assert_eq!(read(), (false, false), "switched off before: stays off");
+        paths.set_setting(keys::INFO_BAR, Value::Bool(true));
+        paths.set_setting(keys::INFO_BAR_ALWAYS, Value::Bool(true));
+        assert_eq!(read(), (true, true), "shown without the game before: stays shown");
         let _ = std::fs::remove_dir_all(dir);
     }
 

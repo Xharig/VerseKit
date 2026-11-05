@@ -28,7 +28,12 @@
 //! willkommen (every step of the short setup "Willkommen in 5.0" for a program
 //! set up with 4.12; both on a throwaway data folder, nothing of the computer
 //! is touched), galerie (the pictures of the gallery of 5.0, 700 × 430),
-//! webseite (one picture of the whole window per page of the website, 1400 × 860).
+//! webseite (one picture of the whole window per page of the website, 1400 × 860; a fourth word names a
+//! single picture, e.g. `beziehungen`), overlay (the overlay window on made-up finds, for the website and
+//! the README), echt (the pages that read the game folder and the data folder, on a made-up installation in a
+//! throwaway folder; a fourth word names a single picture), verbunden (the pages that need a connection to the
+//! Basetool, on the demonstration Basetool of the program), farbschemata (the page "Darstellung" in each colour
+//! scheme).
 //! `--en` draws in English (default German).
 //! Targets are found by their names and roles, not by fixed points, so the
 //! images keep working when the sample page changes.
@@ -37,6 +42,8 @@ use egui::{Pos2, Rect, pos2, vec2};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use versekit_ui::sample::SamplePage;
+
+mod install;
 
 /// Hover text of a group head in the sidebar.
 const GROUP_HEAD: &str = "Klicken: auf- und zuklappen · Ziehen: verschieben";
@@ -185,7 +192,7 @@ fn throwaway(set_up: bool) -> (std::path::PathBuf, versekit_core::paths::Paths) 
     // falls back to the temporary folder where that is not allowed.
     let name = format!("vk-bilder-{}", std::process::id());
     let root = std::env::var("SystemDrive").map(|d| std::path::PathBuf::from(format!("{d}\\"))).ok();
-    let mut dir = root.map_or_else(std::env::temp_dir, |r| r).join(&name);
+    let mut dir = root.unwrap_or_else(std::env::temp_dir).join(&name);
     let mut live = dir.join("StarCitizen").join("LIVE");
     if std::fs::create_dir_all(&live).is_err() {
         dir = std::env::temp_dir().join(&name);
@@ -355,27 +362,115 @@ fn gallery_pictures(dir: &str, english: bool) {
 /// The pictures of the website: the whole window model with the menu, one page each on the sample data, drawn at
 /// twice the size and shrunk to 1400 × 860 pixels. Named as the website takes them: `screenshot-<name>.png`, in
 /// English `screenshot-<name>-en.png`. A page key of `None` is the start page the window opens on.
-fn website_pictures(dir: &str, english: bool) {
-    const SIZE: egui::Vec2 = vec2(1400.0, 860.0);
-    let pages: [(&str, Option<&str>); 15] = [
+fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
+    // The pictures of the start page and of every stop of the tour (`assets/seite.js`).
+    let pages: [(&str, Option<&str>); 45] = [
         ("uebersicht", None),
         ("liste", Some("hf_liste")),
-        ("auftragstexte", Some("hf_spiel")),
-        ("herstellung", Some("hf_herstellung")),
-        ("raffinerien", Some("hf_raffinerien")),
-        ("bergbau", Some("hf_bergbau")),
+        ("fortschritt", Some("hf_fortschritt")),
+        ("auftragslog", Some("hf_auftragslog")),
         ("hangar", Some("hf_hangar")),
         ("meinlager", Some("hf_meinlager")),
-        ("einkaufsliste", Some("hf_einkaufsliste")),
-        ("routen", Some("hf_routen")),
+        ("staffellager", Some("hf_staffellager")),
+        ("herstellung", Some("hf_herstellung")),
+        ("farmliste", Some("hf_farmliste")),
+        ("bergbau", Some("hf_bergbau")),
+        ("raffinerien", Some("hf_raffinerien")),
+        ("bergung", Some("hf_bergung")),
+        ("laeden", Some("hf_laeden")),
         ("verkauf", Some("hf_verkauf")),
+        ("routen", Some("hf_routen")),
+        ("bedarf", Some("hf_bedarf")),
+        ("einkaufsliste", Some("hf_einkaufsliste")),
+        ("contested", Some("hf_contested")),
         ("statistik", Some("hf_st_uebersicht")),
+        ("statistik-schiffe", Some("hf_st_schiffe")),
+        ("statistik-auftraege", Some("hf_st_auftraege")),
+        ("statistik-quantum", Some("hf_st_quantum")),
+        ("statistik-stabil", Some("hf_st_stabil")),
+        ("allgemein", Some("hf_allgemein")),
+        ("anzeige", Some("hf_overlay")),
+        ("darstellung", Some("hf_darstellung")),
+        ("ordner", Some("hf_ordner")),
+        ("module", Some("hf_module")),
+        ("erkennung", Some("hf_erkennung")),
+        ("startprogramme", Some("hf_startprogramme")),
+        ("basetool", Some("k_basetool_verbindung")),
+        ("bestand", Some("hf_sichern")),
+        ("auftragstexte", Some("hf_spiel")),
+        ("uebersetzung", Some("hf_uebersetzung")),
+        ("grafik", Some("hf_grafik")),
+        ("blickwinkel", Some("hf_blickwinkel")),
         ("joysticks", Some("hf_joysticks")),
-        ("karten", Some("hf_contested")),
+        ("achsen", Some("hf_achsen")),
+        ("shader", Some("hf_shader")),
         ("handlesuche", Some("hf_handlesuche")),
+        ("beziehungen", Some("hf_beziehungen")),
+        // The picture of the README: the stock filtered to what lies there to sell.
+        ("meinlager-verkauf", Some("hf_meinlager")),
+        ("patchaenderungen", Some("hf_patchaenderungen")),
+        ("serverstatus", Some("hf_serverstatus")),
+        ("danke", Some("hf_danke")),
     ];
     for (name, key) in pages {
-        let mut page = SamplePage::preview_still();
+        if only.is_some_and(|only| only != name) {
+            continue;
+        }
+        page_picture(dir, english, name, key, SamplePage::preview_still());
+    }
+}
+
+/// What a page gets done before its picture, so that it shows what it is for: a search typed into its field.
+fn touch(name: &str, s: &mut Shots) {
+    if name == "meinlager-verkauf" {
+        // The purpose filter of the stock: only what lies there to sell.
+        let all = versekit_core::language::t("s_ml_alle_zwecke");
+        let sell = versekit_core::language::t("s_ml_verkaufen");
+        match s.texts(&all).first().copied() {
+            Some(combo) => {
+                s.click(combo.center());
+                match s.named(&sell).into_iter().chain(s.texts(&sell)).next() {
+                    Some(option) => s.click(option.center()),
+                    None => println!("{name}: Auswahl „{sell}“ nicht gefunden"),
+                }
+            }
+            None => println!("{name}: Filter „{all}“ nicht gefunden"),
+        }
+        s.steps(8);
+        return;
+    }
+    let search = match name {
+        "laeden" => "CF-337 Panther",
+        "zerlegen" => "Aves Helmet",
+        _ => return,
+    };
+    // The search of the page is the first text field right of the menu.
+    let fields = sorted(s.harness.query_all_by_role(Role::TextInput).map(|n| n.rect()).collect());
+    let Some(field) = fields.iter().find(|f| f.min.x > 240.0).copied() else {
+        println!("{name}: Suchfeld nicht gefunden, Seite ohne Suche");
+        return;
+    };
+    s.click(field.center());
+    s.type_text(search);
+    s.steps(8);
+    // The first hit opens: where the part stands and what it costs.
+    let hit = s
+        .harness
+        .query_all_by(|n| n.label().or_else(|| n.value()).is_some_and(|v| v.contains(search)))
+        .map(|n| n.rect())
+        .find(|r| r.min.y > field.max.y + 40.0);
+    match hit {
+        Some(hit) => s.click(hit.center()),
+        None => println!("{name}: Treffer für „{search}“ nicht gefunden, Seite ohne geöffneten Eintrag"),
+    }
+    s.steps(8);
+}
+
+/// One picture of the whole window model with `page` open on the page `key` (none: the start page), 1400 × 860
+/// pixels, saved as `screenshot-<name>.png` (`-en` in English).
+fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>, mut page: SamplePage) {
+    const SIZE: egui::Vec2 = vec2(1400.0, 860.0);
+    {
         let (mut installed, mut opened) = (false, false);
         let harness = Harness::builder()
             .with_size(SIZE)
@@ -392,7 +487,8 @@ fn website_pictures(dir: &str, english: bool) {
                 }
                 if !opened {
                     if let Some(key) = key {
-                        let group = versekit_ui::sample::group_of_page(key).expect("Seite im Menü");
+                        // A page without an entry in the menu ("Was ist neu") has no group.
+                        let group = versekit_ui::sample::group_of_page(key).unwrap_or("");
                         page.open_page(ui.ctx(), key, group);
                     }
                     opened = true;
@@ -401,6 +497,7 @@ fn website_pictures(dir: &str, english: bool) {
             });
         let mut s = Shots { dir: dir.to_string(), harness };
         s.steps(12);
+        touch(name, &mut s);
         // A page that only lists shows more with the first entry open.
         if name == "herstellung" {
             let first = s
@@ -431,11 +528,221 @@ fn website_pictures(dir: &str, english: bool) {
     }
 }
 
+/// The pictures of the pages that read the game folder and the data folder, on a made-up installation
+/// (`install.rs`): the window model on real data, with nothing of the computer touched. Named as the website takes
+/// them, like [`website_pictures`].
+fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&std::path::Path>) {
+    let pages: [(&str, &str); 17] = [
+        ("bergung", "hf_bergung"),
+        ("zerlegen", "hf_bergung"),
+        ("wasistneu", "hf_wasistneu"),
+        ("auftragstexte", "hf_spiel"),
+        ("uebersetzung", "hf_uebersetzung"),
+        ("grafik", "hf_grafik"),
+        ("blickwinkel", "hf_blickwinkel"),
+        ("joysticks", "hf_joysticks"),
+        ("achsen", "hf_achsen"),
+        ("shader", "hf_shader"),
+        ("module", "hf_module"),
+        ("erkennung", "hf_erkennung"),
+        ("startprogramme", "hf_startprogramme"),
+        ("laeden", "hf_laeden"),
+        ("verkauf", "hf_verkauf"),
+        ("bestand", "hf_sichern"),
+        ("ueber", "hf_ueber"),
+    ];
+    let (tmp, host) = install::build(SETTINGS_OF_4_12, market);
+    for (name, key) in pages {
+        if only.is_some_and(|only| only != name) {
+            continue;
+        }
+        let paths = versekit_core::paths::Paths::new(host.clone());
+        page_picture(dir, english, name, Some(key), SamplePage::with_settings(paths));
+    }
+    let _ = std::fs::remove_dir_all(tmp);
+}
+
+/// The pictures of the pages that need a connection to the Basetool (the unit demand, the unit storage, the
+/// connection itself): the window model with the demonstration Basetool of the program, logged in and with the
+/// switches of those pages on. Nothing goes out; the folder of the connection is a throwaway one.
+fn connected_pictures(dir: &str, english: bool, only: Option<&str>) {
+    use versekit_core::basetool::demo::DemoLogin;
+    use versekit_core::basetool::scopes::{SETTING_DEMAND, SETTING_ORGSTOCK};
+    use versekit_ui::basetool_page::Wire;
+    let pages: [(&str, &str); 3] =
+        [("bedarf", "hf_bedarf"), ("staffellager", "hf_staffellager"), ("basetool", "k_basetool_verbindung")];
+    let folder = std::env::temp_dir().join(format!("vk-bilder-basetool-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    for (name, key) in pages {
+        if only.is_some_and(|only| only != name) {
+            continue;
+        }
+        let wire = Wire::in_folder(&folder.to_string_lossy(), false);
+        wire.demo.as_ref().expect("Demo-Basetool").script_login(DemoLogin::Approve, 1);
+        wire.sync.set_setting(SETTING_DEMAND, versekit_core::jsonio::Value::Bool(true));
+        wire.sync.set_setting(SETTING_ORGSTOCK, versekit_core::jsonio::Value::Bool(true));
+        wire.sync.connect();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !wire.sync.connection().connected() && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(wire.sync.connection().connected(), "keine Verbindung zum Demo-Basetool");
+        wire.sync.pass_now().expect("Abgleich");
+        let mut page = SamplePage::preview_still();
+        page.connect_wire(wire);
+        page_picture(dir, english, name, Some(key), page);
+    }
+    let _ = std::fs::remove_dir_all(folder);
+}
+
+/// The pictures of the page "Darstellung" in each colour scheme, named `screenshot-farbschema-<scheme>.png` as the
+/// tour of the website takes them.
+fn scheme_pictures(dir: &str, english: bool) {
+    for scheme in ["original", "krt", "eis", "nebel", "glut", "kontrast"] {
+        assert!(versekit_core::theme::set_current(scheme), "Farbschema {scheme} unbekannt");
+        let name = format!("farbschema-{scheme}");
+        page_picture(dir, english, &name, Some("hf_darstellung"), SamplePage::preview_still());
+    }
+}
+
+/// The picture of the overlay: the real window (`overlay::show`) open on made-up finds, running contracts and the
+/// status line, drawn at twice the size on a plain dark ground. Named as the website takes it:
+/// `screenshot-overlay.png`, in English `screenshot-overlay-en.png`.
+fn overlay_picture(dir: &str, english: bool) {
+    use versekit_core::blueprints::kind_readable;
+    use versekit_core::language::{Arg, Phrase, t, tf};
+    use versekit_core::live_contracts::Line as ContractLine;
+    use versekit_core::overlay::{BarSide, DEFAULT_WIDTH, Message, Mode, Row, Rows, Shown};
+    use versekit_ui::overlay::{self, Action, Extra, Tone, View};
+    // Ground around the window, in points: the corner marks of the window stand on it.
+    const MARGIN: f32 = 12.0;
+    // The window as tall as its content needs.
+    const HEIGHT: f32 = 232.0;
+    let scheme = versekit_core::theme::current();
+    let mut rows = Rows::default();
+    for row in [
+        Row::Found {
+            name: "Arclight Pistol".into(),
+            kind: kind_readable("WeaponPersonal"),
+            code: "S1".into(),
+            time: "20:12:33".into(),
+            caught_up: false,
+        },
+        Row::Found {
+            name: "Pembroke Helmet".into(),
+            kind: kind_readable("Char_Armor_Helmet"),
+            code: "S2".into(),
+            time: "20:41:07".into(),
+            caught_up: false,
+        },
+        Row::Catalog {
+            name: "Zephyr".into(),
+            kind: kind_readable("QuantumDrive"),
+            time: "20:44:52".into(),
+            watch_title: None,
+        },
+    ] {
+        rows.push(row, overlay::DEFAULT_ROWS);
+    }
+    // The lines of the running contracts as the log reader makes them: the title, then what the catalog says.
+    let contract = |title: &str, tail: String| ContractLine {
+        title: title.into(),
+        text: Message::Plain(tf(
+            "ov_a_zeile_mit",
+            &[("0", Arg::from(tf("auftrag_zeile", &[("0", Arg::from(title))]))), ("1", Arg::from(tail))],
+        )),
+        goals: Vec::new(),
+        grey: false,
+    };
+    let contracts = vec![
+        contract(
+            "Retake the Outpost",
+            tf("auftrag_fehlt", &[("0", Arg::from(2)), ("1", Arg::from(3)), ("2", Arg::from("Morozov-SH Helmet"))]),
+        ),
+        contract("Protect Fuel Tanks", tf("auftrag_komplett", &[("0", Arg::from(4)), ("1", Arg::from(4))])),
+    ];
+    let status = Message::Phrase(Phrase::new("ov_status").with("0", 442).with("1", "20:44:52"));
+    let extras: Vec<Extra> = [
+        ("bell", "hinweis_versionen", Tone::Normal),
+        ("timer-off", "hinweis_aafk_aus", Tone::Normal),
+        ("eye", "hinweis_scanner_an", Tone::Lit),
+        ("graduation-cap", "hinweis_anlernen", Tone::Normal),
+    ]
+    .into_iter()
+    .map(|(icon, hint, tone)| Extra { action: Action::Extra(icon), icon, meaning: t(hint), id: icon, tone })
+    .collect();
+    let width = DEFAULT_WIDTH as f32;
+    let size = vec2(width + 2.0 * MARGIN, HEIGHT + 2.0 * MARGIN);
+    let mut installed = false;
+    let mut harness = Harness::builder()
+        .with_size(size)
+        .with_pixels_per_point(SCALE)
+        .with_max_steps(50)
+        .with_accessibility_check(false)
+        .wgpu()
+        .build_ui(move |ui| {
+            if !installed {
+                versekit_ui::install(ui.ctx());
+                installed = true;
+                ui.ctx().request_repaint();
+                return;
+            }
+            ui.painter().rect_filled(ui.max_rect(), 0.0, egui::Color32::from_rgb(0x0a, 0x10, 0x1c));
+            let view = View {
+                scheme,
+                shown: Shown::Open,
+                rows: &rows,
+                contracts: &contracts,
+                hidden: None,
+                launcher: true,
+                status: &status,
+                location: None,
+                shard: Some("euw1b"),
+                shard_hint: None,
+                signature: None,
+                demand: None,
+                update: None,
+                peek: None,
+                mode: Mode::Always,
+                game: true,
+                locked: false,
+                bar: BarSide::Top,
+                anchored: (false, false),
+                opacity: 1.0,
+                extras: &extras,
+                menu: true,
+                drag_under_buttons: false,
+                hangar: None,
+                hints_outside: false,
+            };
+            let at = Rect::from_min_size(pos2(MARGIN, MARGIN), vec2(width, HEIGHT));
+            let mut child = ui.new_child(egui::UiBuilder::new().max_rect(at));
+            child.set_clip_rect(at);
+            overlay::show(&mut child, &view);
+        });
+    harness.run_steps(12);
+    harness.remove_cursor();
+    harness.run_steps(3);
+    let image = (0..5)
+        .find_map(|_| {
+            harness.render().ok().or_else(|| {
+                std::thread::sleep(std::time::Duration::from_millis(800));
+                None
+            })
+        })
+        .expect("render");
+    let file = format!("{dir}/screenshot-overlay{}.png", if english { "-en" } else { "" });
+    image.save(&file).expect("Bild speichern");
+    println!("gespeichert: {file}");
+}
+
 fn main() {
     // `--en` draws in English; the other words are the folder, the scheme, the kind of pictures, a search word.
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     let english = words.iter().any(|w| w == "--en");
-    words.retain(|w| w != "--en" && w != "--de");
+    // `--markt=<folder>`: where `echt` copies the price lists of the market from (public data, read only).
+    let market = words.iter().find_map(|w| w.strip_prefix("--markt=")).map(std::path::PathBuf::from);
+    words.retain(|w| w != "--en" && w != "--de" && !w.starts_with("--markt="));
     let arg = |n: usize| words.get(n - 1).cloned();
     let dir = arg(1).expect("Zielordner");
     let scheme = arg(2).unwrap_or_else(|| "krt".into());
@@ -461,7 +768,27 @@ fn main() {
     }
 
     if what == "webseite" {
-        website_pictures(&dir, english);
+        website_pictures(&dir, english, arg(4).as_deref());
+        return;
+    }
+
+    if what == "verbunden" {
+        connected_pictures(&dir, english, arg(4).as_deref());
+        return;
+    }
+
+    if what == "farbschemata" {
+        scheme_pictures(&dir, english);
+        return;
+    }
+
+    if what == "echt" {
+        real_pictures(&dir, english, arg(4).as_deref(), market.as_deref());
+        return;
+    }
+
+    if what == "overlay" {
+        overlay_picture(&dir, english);
         return;
     }
 

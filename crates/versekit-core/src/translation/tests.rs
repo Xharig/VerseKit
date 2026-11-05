@@ -93,10 +93,11 @@ fn every_source_knows_its_folder_and_the_test_versions_are_right() {
     assert!(spec(&game.paths, "dymerz_de", Some("PTU")).is_none(), "a source without a test version has none");
     assert!(spec(&game.paths, "dymerz_de", Some("HOTFIX")).is_some(), "HOTFIX runs like LIVE");
     assert_eq!(spec(&game.paths, "starstrings", Some("PTU")).unwrap().tag.as_deref(), Some("latest-ptu"));
-    assert_eq!(spec(&game.paths, "thord82_es", Some("EPTU")).unwrap().part.as_deref(), Some("PTU/"));
     assert!(spec(&game.paths, "luftwerft_fr", Some("PTU")).unwrap().url.unwrap().contains("/PTU/french_(france)/"));
     assert_eq!(language_folder(&game.paths, ORIGINAL, None), "english");
-    assert!(!CHANNELS.contains(&"TECH-PREVIEW"));
+    // TECH-PREVIEW takes a translation like PTU, with the test version of the source.
+    assert!(CHANNELS.contains(&"TECH-PREVIEW") && TEST_CHANNELS.contains(&"TECH-PREVIEW"));
+    assert!(spec(&game.paths, "luftwerft_de", Some("TECH-PREVIEW")).unwrap().url.unwrap().contains("/PTU/german_"));
 }
 
 #[test]
@@ -112,7 +113,7 @@ fn grouped_sources_like_4_12() {
         vec!["luftwerft_it", "dymerz_it"],
         vec!["dymerz_pt"],
         vec!["luftwerft_pt"],
-        vec!["luftwerft_es", "dymerz_es", "thord82_es"],
+        vec!["luftwerft_es", "dymerz_es"],
         vec!["dymerz_tr"],
     ];
     assert_eq!(live, expected);
@@ -125,7 +126,7 @@ fn grouped_sources_like_4_12() {
         vec!["luftwerft_fr"],
         vec!["luftwerft_it"],
         vec!["luftwerft_pt"],
-        vec!["luftwerft_es", "thord82_es"],
+        vec!["luftwerft_es"],
     ];
     assert_eq!(ptu, expected);
 }
@@ -684,6 +685,34 @@ fn a_retired_source_moves_to_its_successor_with_its_note_and_is_fetched_anew() {
     let url = "https://www.luftwerft.com/download/resources/localizations/LIVE/german_(germany)/global.ini";
     let net = Fake::default().with_head(url, &[("ETag", "\"lw\"")]);
     assert_eq!(update_available(&net, &game.paths, new, None), (true, Some("etag:lw".into())));
+    assert!(!retire_sources(&game.paths), "a second start finds nothing");
+}
+
+/// Español of Thord82 is no longer offered: who chose it, for LIVE or for the PTU, gets Español of Luftwerft into
+/// the same folder, and the next look fetches its file.
+#[test]
+fn the_spanish_of_thord82_moves_to_the_spanish_of_luftwerft() {
+    let game = Game::new("retired-thord82");
+    assert!(source("thord82_es").is_none(), "no longer offered");
+    assert!(grouped_sources(&game.paths, None, true).iter().flatten().all(|id| id != "thord82_es"));
+    game.paths.set_setting(SETTING_SOURCE, Value::str("thord82_es"));
+    set_channel_source(&game.paths, "PTU", "thord82_es");
+    note_set(&game.paths, "thord82_es", Some("v4.10"), Some("spanish_(spain)"), Some("2026-10-01"));
+    note_set(&game.paths, &note_key("thord82_es", Some("PTU")), Some("v4.11"), Some("spanish_(spain)"), None);
+    game.paths.set_setting(crate::game_texts::SETTING_CONFIRMED, Value::str("thord82_es,starstrings"));
+    assert!(retire_sources(&game.paths));
+    assert_eq!(game.paths.setting(SETTING_SOURCE).as_deref(), Some("luftwerft_es"));
+    let channels = channel_sources(&game.paths);
+    assert_eq!(channels.iter().find(|(k, _)| k == "PTU").and_then(|(_, v)| v.as_str()), Some("luftwerft_es"));
+    assert!(note(&game.paths).iter().all(|(k, _)| !k.starts_with("thord82_es")), "no old note stays");
+    assert_eq!(installed(&game.paths, "luftwerft_es", None).as_deref(), Some("v4.10"));
+    assert_eq!(installed(&game.paths, "luftwerft_es", Some("PTU")).as_deref(), Some("v4.11"));
+    assert_eq!(language_folder(&game.paths, "luftwerft_es", None), "spanish_(spain)", "the same folder as before");
+    assert_eq!(game.paths.setting(crate::game_texts::SETTING_CONFIRMED).as_deref(), Some("starstrings"));
+    assert_eq!(crate::game_texts::active_source(&game.paths).as_deref(), Some("luftwerft_es"));
+    let url = "https://www.luftwerft.com/download/resources/localizations/LIVE/spanish_(spain)/global.ini";
+    let net = Fake::default().with_head(url, &[("ETag", "\"lw\"")]);
+    assert_eq!(update_available(&net, &game.paths, "luftwerft_es", None), (true, Some("etag:lw".into())));
     assert!(!retire_sources(&game.paths), "a second start finds nothing");
 }
 

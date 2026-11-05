@@ -156,6 +156,9 @@ var GRUPPEN = [
     {reiter:"handlesuche", bild:"screenshot-handlesuche.png", de:"Handle-Suche", en:"Handle search",
      bde:"Neu in 5.0: Wer steckt hinter einem Handle? Name, Organisationen, Rang und Mitglieder, freundlich, neutral oder feindlich markiert, mit Verlauf.",
      ben:"New in 5.0: who is behind a handle? Name, organizations, rank and members, marked friendly, neutral or hostile, with a history."},
+    {reiter:"beziehungen", bild:"screenshot-beziehungen.png", de:"Beziehungen", en:"Relations",
+     bde:"Neu in 5.0: Alle markierten Handles und Organisationen an einem Ort, nach Haltung und Art filterbar, mit Export und Import.",
+     ben:"New in 5.0: every handle and organization you marked in one place, filtered by stance and type, with export and import."},
     {reiter:"patchaenderungen", bild:"screenshot-patchaenderungen.png", de:"Geänderte Spielwerte", en:"Changed game values",
      bde:"Was ein Spiel-Patch an Werten geändert hat: Schiffe, Waffen, Komponenten, Lackierungen.",
      ben:"What a game patch changed in the numbers: ships, weapons, components, paints."},
@@ -168,8 +171,8 @@ var GRUPPEN = [
   ]}
 ];
 
-/* Die Farbschemata aus `scbp/theme.py` (SCHEMES) — Namen wie im Programm,
-   Punkt in Akzentfarbe auf Grundfarbe. Bilder: tools/bilder_machen.py --schema=<kennung>.
+/* Die Farbschemata des Programms (`crates/versekit-core/src/theme.rs`) — Namen wie im Programm,
+   Punkt in Akzentfarbe auf Grundfarbe. Bilder: tools/bildwerkzeug, Modus `farbschemata`.
    Prüfung 217 hält fest, dass jedes Schema hier steht und seine Bilder hat. */
 var FARBSCHEMATA = [
   {schema:"original", de:"VerseKit (Original)", en:"VerseKit (original)", akzent:"#9ce430", grund:"#10141c"},
@@ -686,7 +689,7 @@ var ALTE_ADRESSEN = {
   "#alle-aenderungen": "aenderungen/", "#aenderungen": "aenderungen/",
   "#fragen-alle": "fragen/", "#fragen": "fragen/",
   "#laden": "herunterladen/", "#sicher": "herunterladen/#sicher",
-  "#tour": "rundgang/", "#ansichten": "rundgang/#ansichten"
+  "#tour": "rundgang/", "#ansichten": "rundgang/"
 };
 
 /* Each language has its own address: German at "/", English at "/en/", and

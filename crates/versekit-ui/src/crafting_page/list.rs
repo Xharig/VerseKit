@@ -18,7 +18,7 @@
 //! The side of the crafting page to choose from, laid out like the crafting
 //! terminal of the game: search, "clear filters" and sort, the ten
 //! categories (each with a menu of its subcategories), the switches
-//! "affordable" and "owned", the blueprint and material filters and the
+//! "affordable" and "owned", the blueprint, material and ship filters and the
 //! items as tiles or rows under the headings of their subcategories.
 //!
 //! The list draws only the lines in sight, so all items can stand in it at
@@ -33,7 +33,7 @@ use versekit_core::stock_data::lower;
 use versekit_core::theme::Scheme;
 use versekit_gamedata::craft_book::{CraftItem, Have};
 
-use super::{CraftingState, MaterialHit, Picks, sub, tn};
+use super::{CraftingState, MaterialHit, Picks, ShipFit, sub, tn};
 use crate::widgets::{self, ButtonKind};
 use crate::{color, control_radius, icons};
 
@@ -123,7 +123,11 @@ pub(super) fn passes(state: &mut CraftingState, index: usize, mark: Have) -> boo
             return false;
         }
     }
-    true
+    match &state.ship_fit.0 {
+        ShipFit::Off => true,
+        ShipFit::NoData => false,
+        ShipFit::Parts(parts) => parts.contains_key(&index),
+    }
 }
 
 /// Whether the search text finds the item: its name, its maker, its kind, the
@@ -385,6 +389,60 @@ fn sort_button(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
     }
 }
 
+/// The button of the ship filter with the chosen ship; it opens the menu of the hangar ships, "all ships"
+/// first, or says that the hangar is empty.
+fn ship_button(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
+    let names = state.ship_names();
+    let word = if state.picks.ship.is_empty() {
+        t("s_he_schiff_knopf")
+    } else {
+        tf("s_he_schiff_fuer", &[("schiff", Arg::from(state.picks.ship.as_str()))])
+    };
+    let response = ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("rocket").wrapping());
+    let response = response.on_hover_text(t("s_he_schiff_tip"));
+    let mut picked: Option<String> = None;
+    egui::Popup::menu(&response).id(ui.make_persistent_id("herstellung-schiff")).frame(menu_frame(scheme)).show(
+        |menu| {
+            menu.set_min_width(200.0);
+            if names.is_empty() {
+                menu.set_max_width(260.0);
+                menu.add(egui::Label::new(sub(scheme, t("s_he_schiff_leer"))).wrap());
+                return;
+            }
+            if menu_row(menu, scheme, state.picks.ship.is_empty(), &t("s_he_schiff_alle"), false).clicked() {
+                picked = Some(String::new());
+            }
+            for name in &names {
+                if menu_row(menu, scheme, state.picks.ship == *name, name, false).clicked() {
+                    picked = Some(name.clone());
+                }
+            }
+        },
+    );
+    if let Some(ship) = picked {
+        state.picks.ship = ship;
+    }
+}
+
+/// The line about the chosen ship: how many of the shown items fit it and how many of them one has the
+/// blueprint of, or that its slots are not known yet.
+fn ship_line(ui: &mut Ui, scheme: &Scheme, state: &CraftingState, marks: &[Have], shown: &[usize]) {
+    let ship = Arg::from(state.picks.ship.as_str());
+    match &state.ship_fit.0 {
+        ShipFit::Off => {}
+        ShipFit::NoData => {
+            let text = tf("s_he_schiff_unbekannt", &[("schiff", ship)]);
+            ui.add(egui::Label::new(widgets::bold(ui, &text, egui::TextStyle::Body).color(color(scheme.gold))).wrap());
+        }
+        ShipFit::Parts(_) => {
+            let held = shown.iter().filter(|&&i| marks.get(i) == Some(&Have::Yes)).count();
+            let text =
+                tf("s_he_schiff_zeile", &[("schiff", ship), ("n", Arg::from(shown.len())), ("habe", Arg::from(held))]);
+            ui.add(egui::Label::new(RichText::new(text).color(color(scheme.accent))).wrap());
+        }
+    }
+}
+
 /// Everything above the list: search, buttons, categories, switches and filters.
 fn filters(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
     let width = ui.available_width();
@@ -398,6 +456,7 @@ fn filters(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
             state.clear_filters();
         }
         sort_button(row, scheme, state);
+        ship_button(row, scheme, state);
         let (icon, meaning, next) = match state.view {
             View::Grid => ("list", t("s_fb_liste"), View::List),
             View::List => ("layout-grid", t("s_fb_raster"), View::Grid),
@@ -600,6 +659,7 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, mark
         }
         row.label(sub(scheme, tf("s_fb_treffer", &[("n", Arg::from(shown.len()))])));
     });
+    ship_line(ui, scheme, state, marks, &shown);
     for (material, names) in material_hits.iter().take(3) {
         let line = if names.is_empty() {
             tn("s_he_aus_keine", &[Arg::from(material.as_str())])
@@ -613,7 +673,8 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, mark
     let used = ui.cursor().min.y - top;
     let room = (height - used - 12.0).max(super::list_min(ui));
     if shown.is_empty() {
-        if material_hits.is_empty() {
+        // Without the slots of the ship its line says why the list is empty, not "nothing found".
+        if material_hits.is_empty() && state.ship_fit.0 != ShipFit::NoData {
             widgets::empty_state(ui, scheme, "scan-search", &t("s_he_nichts"));
         }
         return;

@@ -40,7 +40,12 @@ pub mod keys {
     pub const OFFSET_X: &str = "signatur_fenster_dx";
     /// Offset downwards, in per mille of the game window's height.
     pub const OFFSET_Y: &str = "signatur_fenster_dy";
+    /// The size of the window ([`super::Size`]): a number in per mille, older settings hold a word.
     pub const SIZE: &str = "signatur_fenster_groesse";
+    /// Where the number shows while the info bar is on ([`super::Place`]).
+    pub const PLACE: &str = "signatur_fenster_ort";
+    /// Seconds the number stays shown after it left the HUD.
+    pub const LINGER: &str = "signatur_fenster_nachlauf";
     /// Besides the window, the line "Signature …" in the open overlay.
     pub const OVERLAY_LINE: &str = "signatur_overlay_zeile";
 }
@@ -160,54 +165,88 @@ pub const OFFSET_LIMIT: i32 = 600;
 /// Space between the window and the pill, in per mille of the game window's height.
 const GAP: f64 = 4.0;
 
-/// The three sizes of the window (for older eyes too).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum Size {
-    Small,
-    #[default]
-    Medium,
-    Large,
+/// The size of the window: the height of the letters of its headline in per mille of the game window's height,
+/// so the window grows with the picture. A slider sets it from [`Size::MIN`] to [`Size::MAX`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Size(pub i32);
+
+impl Default for Size {
+    fn default() -> Size {
+        Size::DEFAULT
+    }
 }
 
 impl Size {
-    pub const ALL: [Size; 3] = [Size::Small, Size::Medium, Size::Large];
+    pub const MIN: Size = Size(6);
+    pub const DEFAULT: Size = Size(11);
+    pub const MAX: Size = Size(32);
 
-    pub fn from_setting(value: Option<&str>) -> Size {
+    /// From the settings: a number in per mille, or one of the words the three fixed sizes were stored as
+    /// (`klein`, `mittel`, `gross`); anything else is the default.
+    pub fn read(value: Option<&Value>) -> Size {
+        let within = |n: i32| Size(n.clamp(Size::MIN.0, Size::MAX.0));
         match value {
-            Some("klein") => Size::Small,
-            Some("gross") => Size::Large,
-            _ => Size::Medium,
+            Some(Value::Str(word)) => match word.as_str() {
+                "klein" => Size(16),
+                "mittel" => Size(22),
+                "gross" => Size(32),
+                _ => Size::DEFAULT,
+            },
+            Some(Value::Int(text)) => text.parse().map_or(Size::DEFAULT, within),
+            Some(Value::Float(x)) => within(x.round() as i32),
+            _ => Size::DEFAULT,
+        }
+    }
+
+    /// As the settings keep it: the number.
+    pub fn value(self) -> Value {
+        Value::int(i64::from(self.0))
+    }
+
+    /// The height of the letters of the headline in points of a game window `game_height` points high, never
+    /// below eight points.
+    pub fn font_px(self, game_height: i32) -> i32 {
+        ((f64::from(game_height) * f64::from(self.0) / 1000.0).round() as i32).max(8)
+    }
+}
+
+/// Where the number and its ore show while the info bar is on: in the window above the signature (and not in the
+/// bar), or in the info bar (and no window). Without the info bar the window always shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Place {
+    AboveSignature,
+    #[default]
+    InfoBar,
+}
+
+impl Place {
+    pub const ALL: [Place; 2] = [Place::AboveSignature, Place::InfoBar];
+
+    pub fn from_setting(value: Option<&str>) -> Place {
+        match value {
+            Some("signatur") => Place::AboveSignature,
+            _ => Place::InfoBar,
         }
     }
 
     pub fn setting(self) -> &'static str {
         match self {
-            Size::Small => "klein",
-            Size::Medium => "mittel",
-            Size::Large => "gross",
+            Place::AboveSignature => "signatur",
+            Place::InfoBar => "infoleiste",
         }
     }
 
     /// The text key of its name on the page.
     pub fn label(self) -> &'static str {
         match self {
-            Size::Small => "s_sg_klein",
-            Size::Medium => "s_sg_mittel",
-            Size::Large => "s_sg_gross",
+            Place::AboveSignature => "s_sg_ort_signatur",
+            Place::InfoBar => "s_sg_ort_leiste",
         }
     }
-
-    /// The height of the letters of the headline in points of a game window `game_height` points high:
-    /// a fixed share, so the window grows with the picture.
-    pub fn font_px(self, game_height: i32) -> i32 {
-        let share = match self {
-            Size::Small => 0.016,
-            Size::Medium => 0.022,
-            Size::Large => 0.032,
-        };
-        ((f64::from(game_height) * share).round() as i32).max(12)
-    }
 }
+
+/// How many seconds the number stays shown after it left the HUD: from the first to the second.
+pub const LINGER_RANGE: (i64, i64) = (5, 15);
 
 /// The layout of the window as the settings keep it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -217,22 +256,36 @@ pub struct Layout {
     pub size: Size,
     /// The number with its ore also as a line of the open overlay, on by default as the line of 4.12.
     pub overlay_line: bool,
+    pub place: Place,
+    /// Seconds the number stays shown after it left the HUD (within [`LINGER_RANGE`]).
+    pub linger: i64,
 }
 
 impl Default for Layout {
     fn default() -> Layout {
-        Layout { dx: 0, dy: 0, size: Size::default(), overlay_line: true }
+        Layout {
+            dx: 0,
+            dy: 0,
+            size: Size::default(),
+            overlay_line: true,
+            place: Place::default(),
+            linger: LINGER_RANGE.0,
+        }
     }
 }
 
 impl Layout {
     pub fn read(paths: &Paths) -> Layout {
         let (low, high) = (Some(-i64::from(OFFSET_LIMIT)), Some(i64::from(OFFSET_LIMIT)));
+        let settings = paths.settings();
+        let size = settings.iter().find(|(k, _)| k == keys::SIZE).map(|(_, v)| v);
         Layout {
             dx: paths.setting_int(keys::OFFSET_X, 0, low, high) as i32,
             dy: paths.setting_int(keys::OFFSET_Y, 0, low, high) as i32,
-            size: Size::from_setting(paths.setting(keys::SIZE).as_deref()),
+            size: Size::read(size),
             overlay_line: paths.setting_bool(keys::OVERLAY_LINE, true),
+            place: Place::from_setting(paths.setting(keys::PLACE).as_deref()),
+            linger: paths.setting_int(keys::LINGER, LINGER_RANGE.0, Some(LINGER_RANGE.0), Some(LINGER_RANGE.1)),
         }
     }
 }

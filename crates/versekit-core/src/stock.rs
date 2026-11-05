@@ -287,7 +287,7 @@ fn quality_value(quality: Option<i64>) -> Value {
 
 /// The same stack: material, place (without case) and quality
 /// (`materials.same_stack`).
-fn same_material_stack(material: &str, quality: Option<i64>, place: &str, b: &Value) -> bool {
+pub(crate) fn same_material_stack(material: &str, quality: Option<i64>, place: &str, b: &Value) -> bool {
     use crate::stock_data::{lower, norm_material};
     if norm_material(material) != norm_material(text_of(get(b, "material"))) {
         return false;
@@ -425,7 +425,7 @@ pub fn is_pieces(entry: &Value) -> bool {
 
 /// The same stack: goods, place and stolen mark, exactly
 /// (`trade_cargo.same_stack`).
-fn same_trade_stack(goods: &str, place: &str, stolen: bool, b: &Value) -> bool {
+pub(crate) fn same_trade_stack(goods: &str, place: &str, stolen: bool, b: &Value) -> bool {
     let ware_same = matches!(get(b, "ware"), Some(Value::Str(s)) if s == goods);
     let place_b = get(b, "ort");
     let place_same =
@@ -433,7 +433,12 @@ fn same_trade_stack(goods: &str, place: &str, stolen: bool, b: &Value) -> bool {
     ware_same && place_same && truthy(get(b, "gestohlen")) == stolen
 }
 
-fn mixed_cost(old_amount: f64, old_cost: Option<f64>, new_amount: f64, new_cost: Option<f64>) -> Option<f64> {
+pub(crate) fn mixed_cost(
+    old_amount: f64,
+    old_cost: Option<f64>,
+    new_amount: f64,
+    new_cost: Option<f64>,
+) -> Option<f64> {
     let (old_cost, new_cost) = (old_cost?, new_cost?);
     let total = old_amount + new_amount;
     if total <= 0.0 {

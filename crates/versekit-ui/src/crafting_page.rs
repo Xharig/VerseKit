@@ -109,6 +109,20 @@ struct Picks {
     state: String,
     /// The material in the stock: empty, `reicht` or `fehlt`.
     material: String,
+    /// The name of the hangar ship whose slots the items have to fit; empty is every item.
+    ship: String,
+}
+
+/// What the ship of the filter lets through, worked out once for the list.
+#[derive(Clone, Debug, Default, PartialEq)]
+enum ShipFit {
+    /// No ship is chosen.
+    #[default]
+    Off,
+    /// The slots of the chosen ship are not known: nothing can be said, so nothing passes.
+    NoData,
+    /// The items that fit a slot of the ship, with the number of slots each fits.
+    Parts(HashMap<usize, i64>),
 }
 
 /// Which feedback line stands under the buttons.
@@ -296,6 +310,13 @@ pub struct CraftingState {
     failed_at: Option<f64>,
     /// The fetches of the slots from erkul, for a blueprint without data.
     sync: crate::slot_sync::SlotSync,
+    /// What the ship of the filter lets through, and what it was worked out from: the ship, the number of
+    /// blueprints in the catalog and [`CraftingState::ship_version`].
+    ship_fit: (ShipFit, Option<(String, usize, u64)>),
+    /// Counts up whenever the recipes, the hangar or the slots of the ships are read anew.
+    ship_version: u64,
+    /// A ship another page asked to filter by when this page is entered.
+    jump_ship: Option<String>,
 }
 
 /// Where the values are read from, kept for another try.
@@ -417,6 +438,9 @@ impl CraftingState {
             retry: None,
             failed_at: None,
             sync: crate::slot_sync::global().clone(),
+            ship_fit: (ShipFit::Off, None),
+            ship_version: 0,
+            jump_ship: None,
         }
     }
 
@@ -536,6 +560,12 @@ impl CraftingState {
     /// The page is entered again: it starts without filters and choice, but
     /// only when something was set.
     pub fn enter(&mut self) {
+        // A ship to filter by needs no recipes yet: the filter stands until they are there.
+        if let Some(ship) = self.jump_ship.take() {
+            self.reset();
+            self.picks.ship = ship;
+            return;
+        }
         // While the recipes are still being read the jump waits for them.
         if self.jump.is_some() && !self.book.items.is_empty() {
             let name = self.jump.take().unwrap_or_default();
@@ -560,6 +590,64 @@ impl CraftingState {
         self.jump = Some(name.to_string());
     }
 
+    /// A jump from another page: the list shows the items that fit this hangar ship once the page is entered.
+    pub fn jump_to_ship(&mut self, name: &str) {
+        self.jump = None;
+        self.jump_ship = Some(name.to_string());
+    }
+
+    /// The names of the ships in the hangar, each once, in the order of the hangar.
+    fn ship_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        for entry in hangar::ships(&self.notes) {
+            let name = hangar::field_text(entry, "name").trim();
+            if !name.is_empty() && !names.iter().any(|n| n == name) {
+                names.push(name.to_string());
+            }
+        }
+        names
+    }
+
+    /// Works out what the ship of the filter lets through, when ship, catalog, recipes, hangar or slots changed
+    /// since the last time. A ship that is no longer in the hangar takes the filter away.
+    fn refresh_ship_fit(&mut self, catalog: &CatalogCache) {
+        if self.picks.ship.is_empty() {
+            self.ship_fit = (ShipFit::Off, None);
+            return;
+        }
+        let key = (self.picks.ship.clone(), catalog.blueprints.len(), self.ship_version);
+        if self.ship_fit.1.as_ref() == Some(&key) {
+            return;
+        }
+        let ships = hangar::ships(&self.notes);
+        let Some(entry) = ships.iter().find(|e| hangar::field_text(e, "name").trim() == self.picks.ship) else {
+            self.picks.ship.clear();
+            self.ship_fit = (ShipFit::Off, None);
+            return;
+        };
+        let fit = match erkul_slots::SlotTable::of(&self.ships, erkul_slots::ship_id(entry)) {
+            None => ShipFit::NoData,
+            Some(table) => {
+                // The blueprint of an item as "fits into your ship" finds it: by the comparable name.
+                let by_key: HashMap<&str, &versekit_core::catalog_cache::Blueprint> =
+                    catalog.blueprints.iter().map(|b| (b.key.as_str(), b)).collect();
+                let parts = self
+                    .book
+                    .items
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, item)| {
+                        let blueprint = by_key.get(name_key(&item.basis).as_str())?;
+                        let slots = table.takes(&blueprint.kind, blueprint.size);
+                        (slots > 0).then_some((index, slots))
+                    })
+                    .collect();
+                ShipFit::Parts(parts)
+            }
+        };
+        self.ship_fit = (fit, Some(key));
+    }
+
     fn take_values(&mut self, values: Arc<GameValues>, source: &str) {
         // The chosen item stays chosen, though the list may be sorted anew.
         let open_name = self.open.and_then(|i| self.book.items.get(i)).map(|item| item.name.clone());
@@ -582,6 +670,7 @@ impl CraftingState {
         self.by_material = None;
         self.open = open_name.and_then(|name| self.book.items.iter().position(|item| item.name == name));
         self.detail = None;
+        self.ship_version += 1;
     }
 
     /// Fetches the raw material prices in a thread of their own when they
@@ -711,6 +800,7 @@ impl CraftingState {
         let file = paths.app_file(NOTES_FILE);
         self.notes_seen = Self::file_time(&file);
         self.notes = hangar::read(&file).unwrap_or_else(hangar::empty);
+        self.ship_version += 1;
     }
 
     fn reload_ships(&mut self) {
@@ -718,6 +808,7 @@ impl CraftingState {
         let file = paths.app_file(ERKUL_FILE);
         self.ships_seen = Self::file_time(&file);
         self.ships = ErkulShips::load(&file);
+        self.ship_version += 1;
     }
 
     /// Reads the stock, the notes and the slots of the ships again when they changed on disk.
@@ -916,6 +1007,14 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, shared
         return None;
     }
     let marks = state.book.with_collection(shared.have);
+    state.refresh_ship_fit(shared.catalog);
+    if state.ship_fit.0 == ShipFit::NoData
+        && let Some(paths) = &state.paths
+    {
+        // As for "fits into your ship": the slots are fetched, whichever page asks first.
+        state.sync.wake(ui.ctx());
+        state.sync.request(paths, crate::slot_sync::Trigger::BlueprintNoData);
+    }
     let (sure, all, unclear) = state.book.counts(shared.have);
     head(ui, scheme, sure, all, unclear);
     if let Some(line) = values.crafter_limits.map(crafter_line) {
@@ -2456,6 +2555,7 @@ mod tests {
     struct Bench {
         ctx: egui::Context,
         page: CraftingState,
+        catalog: CatalogCache,
         have: HashSet<String>,
         width: f32,
         time: f64,
@@ -2470,6 +2570,7 @@ mod tests {
             Bench {
                 ctx,
                 page: state(name, stock_json),
+                catalog: CatalogCache::default(),
                 have: HashSet::new(),
                 width,
                 time: 10.0,
@@ -2487,10 +2588,9 @@ mod tests {
                 ..Default::default()
             };
             let scheme = versekit_core::theme::current();
-            let catalog = CatalogCache::default();
-            let (page, have) = (&mut self.page, &self.have);
+            let (page, have, catalog) = (&mut self.page, &self.have, &self.catalog);
             let mut output = self.ctx.run_ui(input, |ui| {
-                show_page(ui, scheme, page, &Shared { have, catalog: &catalog });
+                show_page(ui, scheme, page, &Shared { have, catalog });
             });
             output.textures_delta.clear();
             self.texts = texts(&output.shapes);
@@ -3217,6 +3317,191 @@ mod tests {
         set_language(Choice::En);
         assert!(t("s_hg_passt_unbekannt").contains("being fetched"), "{}", t("s_hg_passt_unbekannt"));
         set_language(Choice::De);
+    }
+
+    /// Eclipse: coolers and a shield of size 2, a power plant of size 1. Gladius: a power plant of size 2.
+    const FLEET: &str = r#"{"format": 4, "spielversion": "4.1", "hersteller": {"aegisdynamics": "aegs"},
+        "schiffe": {"aegiseclipse": {"id": "aegs_eclipse", "name": "Eclipse",
+            "plaetze": [{"art": "Cooler", "groesse": 2, "anzahl": 3}, {"art": "Shield", "groesse": 2, "anzahl": 1},
+                        {"art": "PowerPlant", "groesse": 1, "anzahl": 1}]},
+          "aegisgladius": {"id": "aegs_gladius", "name": "Gladius",
+            "plaetze": [{"art": "PowerPlant", "groesse": 2, "anzahl": 1}]}}}"#;
+
+    const ECLIPSE_AND_GLADIUS: &str = r#"{"format": 1, "schiffe": [
+        {"name": "Eclipse", "hersteller": "Aegis Dynamics"}, {"name": "Gladius", "hersteller": "Aegis Dynamics"},
+        {"name": "Eclipse", "hersteller": "Aegis Dynamics"}]}"#;
+
+    /// The sample recipes against a hangar (written to its file), the stored slots of the ships and a
+    /// catalog that knows all three items at size 2, each with a contract that gives it.
+    fn ship_page(name: &str, hangar_json: &str, ships_json: Option<&str>) -> (CraftingState, CatalogCache) {
+        let mut page = state(name, STOCK);
+        std::fs::write(page.paths.as_ref().unwrap().app_file(NOTES_FILE), hangar_json).unwrap();
+        page.reload_notes();
+        if let Some(stored) = ships_json {
+            std::fs::write(page.paths.as_ref().unwrap().app_file(ERKUL_FILE), stored).unwrap();
+            page.reload_ships();
+        }
+        let mut catalog = CatalogCache::default();
+        for (item, kind) in [("Frostline", "Cooler"), ("Arc Shield", "Shield"), ("Grand Core", "PowerPlant")] {
+            let basis = page.book.items.iter().find(|i| i.name == item).unwrap().basis.clone();
+            catalog.blueprints.push(versekit_core::catalog_cache::Blueprint {
+                key: name_key(&basis),
+                name: item.into(),
+                kind: kind.into(),
+                size: Some(2),
+                ways: vec![versekit_core::catalog_cache::Way { contract: "A job".into(), ..Default::default() }],
+                ..Default::default()
+            });
+        }
+        (page, catalog)
+    }
+
+    const ITEMS: [&str; 3] = ["Frostline", "Arc Shield", "Grand Core"];
+
+    fn listed(shown: &[String]) -> Vec<&'static str> {
+        ITEMS.into_iter().filter(|name| has(shown, name)).collect()
+    }
+
+    #[test]
+    fn the_ship_filter_shows_the_parts_of_a_ship_with_and_without_the_blueprint() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let ctx = context();
+        let (mut page, catalog) = ship_page("ship-filter", ECLIPSE_AND_GLADIUS, Some(FLEET));
+        assert_eq!(page.ship_names(), ["Eclipse", "Gladius"], "each ship once, in the order of the hangar");
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ITEMS, "without a ship every item stands");
+
+        // The cooler and the shield go into the Eclipse; the power plant of size 2 does not. The shield stands
+        // although its blueprint is missing.
+        page.picks.ship = "Eclipse".into();
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ["Frostline", "Arc Shield"], "{shown:?}");
+        assert!(has(&shown, "Passt in Eclipse · Bauplan vorhanden: 1 von 2"), "{shown:?}");
+        assert!(has(&shown, "Für Eclipse"), "the button names the ship: {shown:?}");
+        set_language(Choice::En);
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert!(has(&shown, "Fits Eclipse · blueprint owned: 1 of 2"), "{shown:?}");
+        assert!(has(&shown, "For Eclipse"), "{shown:?}");
+        assert!(!shown.iter().any(|s| s.contains('{') && s.contains('}')), "{shown:?}");
+        set_language(Choice::De);
+
+        // The switch "blueprint owned" still narrows.
+        page.picks.state = "habe".into();
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ["Frostline"]);
+        page.picks.state.clear();
+
+        // The part without the blueprint opens with the way to it, and says that it fits the Eclipse.
+        page.open = page.book.items.iter().position(|i| i.name == "Arc Shield");
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert!(has(&shown, &t("s_he_woher_bp")), "{shown:?}");
+        assert!(shown.iter().any(|s| s.starts_with("Passt in: Eclipse")), "{shown:?}");
+
+        // The Gladius takes only the power plant.
+        page.open = None;
+        page.picks.ship = "Gladius".into();
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ["Grand Core"], "{shown:?}");
+        assert!(has(&shown, "Passt in Gladius · Bauplan vorhanden: 0 von 1"), "{shown:?}");
+
+        // Both directions say the same: an item stands for a ship exactly when "fits into your ship" names it.
+        let notes = page.notes.clone();
+        for ship in hangar::ships(&notes) {
+            page.picks.ship = hangar::field_text(ship, "name").to_string();
+            page.refresh_ship_fit(&catalog);
+            let ShipFit::Parts(parts) = &page.ship_fit.0 else { panic!("the ship has slots") };
+            for (index, item) in page.book.items.iter().enumerate() {
+                let blueprint = catalog.blueprints.iter().find(|b| b.key == name_key(&item.basis)).unwrap();
+                let answer = erkul_slots::fit_answer(&page.ships, &blueprint.kind, blueprint.size, &[ship]);
+                assert_eq!(
+                    parts.contains_key(&index),
+                    matches!(answer, FitAnswer::In(_)),
+                    "{} {}",
+                    item.name,
+                    page.picks.ship
+                );
+            }
+        }
+
+        // "Clear filters" takes the ship away too.
+        page.picks.ship = "Eclipse".into();
+        assert!(page.is_narrowed());
+        page.clear_filters();
+        let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ITEMS);
+
+        // A ship that leaves the hangar takes the filter with it instead of emptying the list.
+        page.picks.ship = "Eclipse".into();
+        let gladius = r#"{"format": 1, "schiffe": [{"name": "Gladius", "hersteller": "Aegis Dynamics"}]}"#;
+        std::fs::write(page.paths.as_ref().unwrap().app_file(NOTES_FILE), gladius).unwrap();
+        page.reload_notes();
+        let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
+        assert_eq!(listed(&shown), ITEMS, "{shown:?}");
+        assert!(page.picks.ship.is_empty());
+    }
+
+    #[test]
+    fn a_ship_without_slot_data_says_so_and_fetches_them_instead_of_saying_nothing_fits() {
+        use crate::slot_sync::tests::{Counter, WAIT};
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let ctx = context();
+        let (mut page, catalog) = ship_page("ship-nodata", ECLIPSE_AND_GLADIUS, None);
+        let counter = Counter::new("4.3");
+        page.sync = counter.sync();
+        page.picks.ship = "Eclipse".into();
+        let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
+        assert!(has(&shown, "Zu Eclipse fehlen noch die Steckplatz-Daten. Sie werden gerade geholt."), "{shown:?}");
+        assert!(listed(&shown).is_empty(), "{shown:?}");
+        assert!(!has(&shown, &t("s_he_nichts")), "not \"nothing found\": {shown:?}");
+        assert!(page.sync.asked(crate::slot_sync::Trigger::BlueprintNoData) >= 1);
+        assert!(page.sync.wait_idle(WAIT));
+        set_language(Choice::En);
+        let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
+        assert!(has(&shown, "The slot data for Eclipse is still missing. It is being fetched now."), "{shown:?}");
+        set_language(Choice::De);
+        assert!(page.sync.wait_idle(WAIT));
+    }
+
+    #[test]
+    fn the_ship_is_chosen_in_the_menu_and_an_empty_hangar_says_what_to_do() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let mut bench = Bench::new("ship-menu", STOCK, 1300.0);
+        let (page, catalog) = ship_page("ship-menu-page", ECLIPSE_AND_GLADIUS, Some(FLEET));
+        (bench.page, bench.catalog) = (page, catalog);
+        let shown = bench.click_button("Für Schiff");
+        assert!(has(&shown, "Alle Schiffe") && has(&shown, "Gladius"), "the menu is open: {shown:?}");
+        let shown = bench.click_text("Gladius");
+        assert_eq!(bench.page.picks.ship, "Gladius");
+        assert_eq!(listed(&shown), ["Grand Core"], "{shown:?}");
+        // "All ships" takes the filter away again.
+        bench.click_button("Für Gladius");
+        let shown = bench.click_text("Alle Schiffe");
+        assert!(bench.page.picks.ship.is_empty());
+        assert_eq!(listed(&shown), ITEMS);
+
+        let (page, catalog) = ship_page("ship-menu-empty", r#"{"format": 1, "schiffe": []}"#, Some(FLEET));
+        (bench.page, bench.catalog) = (page, catalog);
+        let shown = bench.click_button("Für Schiff");
+        assert!(has(&shown, &t("s_he_schiff_leer")), "{shown:?}");
+        assert!(t("s_he_schiff_leer").contains("Mein Hangar"));
+    }
+
+    #[test]
+    fn a_jump_to_a_ship_sets_the_filter_and_nothing_else() {
+        let (mut page, _) = ship_page("ship-jump", ECLIPSE_AND_GLADIUS, Some(FLEET));
+        page.search = "frost".into();
+        page.picks.state = "habe".into();
+        page.jump_to("Frostline");
+        page.jump_to_ship("Eclipse");
+        page.enter();
+        assert_eq!(page.picks, Picks { ship: "Eclipse".into(), ..Picks::default() });
+        assert!(page.search.is_empty() && page.open.is_none() && page.jump.is_none());
+        // Entered again without a jump, the page starts clean as before.
+        page.enter();
+        assert_eq!(page.picks, Picks::default());
     }
 
     #[test]

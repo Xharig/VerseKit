@@ -229,7 +229,7 @@ pub fn present(host: &Host) -> bool {
 pub fn content(command: &str, icon: &str, name: &str, comment_de: &str, comment_en: &str) -> String {
     format!(
         "[Desktop Entry]\nType=Application\nName={name}\nComment={comment_de}\nComment[en]={comment_en}\n\
-         Exec={command}\nIcon={icon}\nTerminal=false\nCategories=Utility;Game;\nStartupWMClass={WM_CLASS}\n\
+         Exec={command}\nIcon={icon}\nTerminal=false\nCategories=Game;\nStartupWMClass={WM_CLASS}\n\
          Keywords=Star Citizen;Blueprint;Bauplan;\n"
     )
 }
@@ -449,10 +449,11 @@ mod tests {
     #[test]
     fn the_entry_has_the_lines_of_4_12_in_the_same_order_and_the_window_class_not_the_name() {
         let text = content("\"/a b/versekit\"", "/icons/versekit.png", "VerseKit", "Deutsch", "English");
+        // The entry stands under games only.
         assert_eq!(
             text,
             "[Desktop Entry]\nType=Application\nName=VerseKit\nComment=Deutsch\nComment[en]=English\n\
-             Exec=\"/a b/versekit\"\nIcon=/icons/versekit.png\nTerminal=false\nCategories=Utility;Game;\n\
+             Exec=\"/a b/versekit\"\nIcon=/icons/versekit.png\nTerminal=false\nCategories=Game;\n\
              StartupWMClass=Versekit\nKeywords=Star Citizen;Blueprint;Bauplan;\n"
         );
         assert!(text.contains(&format!("StartupWMClass={WM_CLASS}\n")));

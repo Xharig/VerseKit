@@ -217,6 +217,8 @@ pub struct DiagnoseState {
     copy: bool,
     /// The sync of the program, for the Basetool line of the report.
     basetool: Option<SyncHandle>,
+    /// "Send" was clicked once with an empty sentence: the player was asked for one, the next click sends.
+    asked_for_sentence: bool,
 }
 
 impl DiagnoseState {
@@ -252,6 +254,7 @@ impl DiagnoseState {
             scan_counted: f64::NEG_INFINITY,
             copy: false,
             basetool: None,
+            asked_for_sentence: false,
         }
     }
 
@@ -623,6 +626,13 @@ impl DiagnoseState {
             self.say(SendFailure::NoTarget.text(language::current()), Tone::Bad);
             return;
         }
+        // Without a sentence the first click asks for one; the second sends all the same.
+        if self.message.trim().is_empty() && !self.asked_for_sentence {
+            self.asked_for_sentence = true;
+            self.say(t("s_di_ohne_satz"), Tone::Bad);
+            return;
+        }
+        self.asked_for_sentence = false;
         self.commit_reporter();
         let (text, was_stale) = self.fresh_text(ctx);
         if was_stale {
@@ -806,6 +816,9 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut DiagnoseState) {
         if ui.add(edit).changed() {
             state.last_edit = now;
         }
+        if state.asked_for_sentence && state.message.trim().is_empty() {
+            small(ui, &t("s_di_ohne_satz_feld"), color(scheme.red));
+        }
     });
 
     // The images.
@@ -916,14 +929,40 @@ mod tests {
         let paths = Arc::new(Paths::new(Host::new(Flavor::native(), &vars, "/")));
         let transport = Arc::new(Recording { seen: std::sync::Mutex::new(Vec::new()), status });
         let env = Environment { version: "5.0.0-test".into(), ..Default::default() };
-        let state = DiagnoseState::new(
+        let mut state = DiagnoseState::new(
             paths,
             env,
             Target::local("http://127.0.0.1:9/bericht"),
             SendVia::Transport(transport.clone()),
         )
         .with_opener(|_| true);
+        // A sentence of the player, so that one click sends; the empty case has a test of its own.
+        state.message = "Probe".into();
         (state, transport, dir)
+    }
+
+    #[test]
+    fn without_a_sentence_the_first_click_asks_and_the_second_sends() {
+        let _german = german();
+        let (mut state, transport, dir) = state_in("ohne-satz", 200);
+        state.message.clear();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        wait_for_report(&ctx, &mut state);
+        state.consent = true;
+        state.send(&ctx);
+        assert!(transport.seen.lock().map(|s| s.is_empty()).unwrap_or(false), "the first click only asks");
+        assert_eq!(state.notice().map(|n| n.0.clone()), Some(t("s_di_ohne_satz")));
+        state.send(&ctx);
+        for _ in 0..200 {
+            run_frame(&ctx, &mut state, Vec::new());
+            if !state.is_sending() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(transport.seen.lock().map(|s| s.len()).unwrap_or(0), 1, "the second click sends");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn run_frame(ctx: &egui::Context, state: &mut DiagnoseState, events: Vec<egui::Event>) -> egui::FullOutput {

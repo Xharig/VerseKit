@@ -60,7 +60,6 @@ impl Archive for GameArchive {
     fn fetch_original(&self, paths: &Paths, root: &str, set_language: bool) -> Result<Placed, String> {
         let set = |language: &str| translation::set_user_cfg(paths, root, language, None);
         match game_text::fetch_original(paths, "english", Some(root), set_language, &set) {
-            Ok(game_text::FetchOutcome::Kept) => Ok(Placed { said: t("s_tq_orig_behalten"), written: false }),
             Ok(game_text::FetchOutcome::Written { bytes }) => Ok(Placed { said: megabytes(bytes), written: true }),
             Err(game_text::FetchError::Read(error)) => Err(error.text_key().map_or_else(|| error.to_string(), t)),
             Err(game_text::FetchError::UnknownTarget) => Err(t("s_tq_kein_spiel")),
@@ -496,11 +495,15 @@ impl GameTextsState {
         });
     }
 
-    /// Put the text file back as it was before the last replacement.
-    fn restore(&mut self, target: String, main: bool) {
+    /// Put the text file back as it was before the last replacement, with its note of original texts. The file put
+    /// back counts as the one placed for the note `key`, so the background keeps it and does not replace it again.
+    fn restore(&mut self, target: String, key: String) {
         self.start(move |paths, _, _, out| {
-            let said = match translation::restore_backup(paths, &target, main) {
-                Ok(_) => (t("s_tq_zurueck_fertig"), false),
+            let said = match translation::restore_backup(paths, &target, true) {
+                Ok(_) => {
+                    translation::note_head_of_file(paths, &key, &target);
+                    (t("s_tq_zurueck_fertig"), false)
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => (t("s_tq_zurueck_keine"), true),
                 Err(error) => (tf("inj_fehler", &[("0", Arg::from(error.to_string()))]), true),
             };
@@ -939,7 +942,7 @@ fn card(
             state.check_channel(&current, channel, root);
         }
         if restore && let Some(target) = target {
-            state.restore(target, main);
+            state.restore(target, translation::note_key(&current, channel));
         }
     });
     ui.add_space(12.0);
@@ -1548,7 +1551,8 @@ mod tests {
         assert!(!bad, "{said}");
         assert!(game.text().starts_with("Bounty_title_001=Kopfgeld neu"), "{}", &game.text()[..60]);
         let placed = fs::read_to_string(format!("{ptu}/data/Localization/german_(germany)/global.ini")).unwrap();
-        assert_eq!(placed, direct_file(), "the PTU got its own file");
+        assert!(placed.starts_with("Bounty_title_001=Kopfgeld PTU <EM4>[BP]</EM4>\n"), "the PTU got its own file");
+        assert!(placed.contains("\nk5000=v\n"), "with the notes in it");
         assert!(said.contains("PTU"), "{said}");
 
         state.check_all();
@@ -1604,8 +1608,10 @@ mod tests {
         assert!(page.click_nth(&Which::Translation, &mut state, Role::Button, &name, 1));
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("e_ja")));
         settle(&mut state);
+        // Its own file, with the notes and the language as in the main installation.
         let placed = fs::read_to_string(format!("{ptu}/data/Localization/german_(germany)/global.ini")).unwrap();
-        assert_eq!(placed, direct_file());
+        assert!(placed.starts_with("Bounty_title_001=Kopfgeld PTU <EM4>[BP]</EM4>\n"), "{}", &placed[..80]);
+        assert!(fs::read_to_string(format!("{ptu}/user.cfg")).unwrap().contains("g_language = german_(germany)"));
         assert_eq!(translation::installed(&game.paths, "luftwerft_de", Some("PTU")).as_deref(), Some("etag:ptu-1"));
         assert_eq!(game.text(), GAME, "the main installation stays as it is");
         assert_eq!(game.paths.setting(translation::SETTING_SOURCE).as_deref(), Some(GERMAN));

@@ -15,11 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! What the Game.log says about the stock: the purchases at a kiosk and the
-//! moves of the inventory.
+//! What the Game.log says about the stock: the purchases and sales at a kiosk
+//! and the moves of the inventory.
 //!
 //! ⚠ The log has no stock, only events. A purchase is certain: a request with
 //! amount, class and total price, and an answer that says it went through. A
+//! sale at a kiosk is the same request with `Sell` and an answer of the type
+//! `Selling`; a sale of goods at a commodity terminal has no answer line and is
+//! not read. A
 //! move only says where a piece went; the stock before it is not in the log,
 //! so the moves are a hint, never a sum.
 //!
@@ -60,7 +63,8 @@ use crate::pypath::Flavor;
 use crate::text::decode_replace;
 
 pub const FILE: &str = "lagerjournal.json";
-pub const FORMAT: i64 = 1;
+/// 2 holds the sales (`verkaeufe`); an older journal reads every log once more.
+pub const FORMAT: i64 = 2;
 /// The setting that switches the reading of the stock lines on (on by default).
 pub const SETTING: &str = "lager_aus_log";
 
@@ -132,9 +136,9 @@ impl Endpoint {
     }
 }
 
-/// A purchase the shop confirmed.
+/// A purchase or a sale the shop confirmed.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Purchase {
+pub struct Deal {
     /// Seconds since 1970 (UTC), the stamp of the request.
     pub time: i64,
     /// The class of the item (`behr_lmg_ballistic_01_mag`), not the name shown in the game.
@@ -142,7 +146,7 @@ pub struct Purchase {
     /// The entity GUID the shop lists the item under.
     pub guid: String,
     pub quantity: u32,
-    /// What the request paid for all pieces together.
+    /// The price of the request for all pieces together: paid for a purchase, received for a sale.
     pub price_total: f64,
     /// The number of the landing place at the request; `None` while the player was in flight.
     pub place: Option<String>,
@@ -150,7 +154,12 @@ pub struct Purchase {
     pub shop: String,
 }
 
-impl Purchase {
+/// A purchase the shop confirmed.
+pub type Purchase = Deal;
+/// A sale the shop confirmed.
+pub type Sale = Deal;
+
+impl Deal {
     /// The price of one piece; a fraction when the total does not divide.
     pub fn unit_price(&self) -> f64 {
         self.price_total / f64::from(self.quantity.max(1))
@@ -175,6 +184,7 @@ pub struct Movement {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
     Purchase(Purchase),
+    Sale(Sale),
     Movement(Movement),
 }
 
@@ -200,6 +210,14 @@ static BUY: LazyLock<Regex> = LazyLock::new(|| {
     ))
     .expect("pattern")
 });
+static SELL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"<CEntityComponentShopUIProvider::SendShopSellRequest> Sending SShopSellRequest - ",
+        r"playerId\[(\d+)\] shopId\[[^\]]*\] shopName\[([^\]]*)\] kioskId\[[^\]]*\] client_price\[([^\]]*)\] ",
+        r"itemClassGUID\[([^\]]*)\] itemName\[([^\]]*)\] quantity\[(\d+)\]"
+    ))
+    .expect("pattern")
+});
 static ANSWER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<CEntityComponent(ShopUI|Shopping)Provider::RmShopFlowResponse>.*?result\[(\w+)\]").expect("pattern")
 });
@@ -213,6 +231,7 @@ static MARKERS: LazyLock<Regex> = LazyLock::new(|| {
         "Queued Request[",
         "<Player Inventory Request Complete>",
         "SShopBuyRequest",
+        "SShopSellRequest",
         "RmShopFlowResponse",
         "<Update Inventory Location>",
     ];
@@ -229,9 +248,9 @@ fn class_of(kind: Kind, source: &str, item: &str) -> String {
     }
 }
 
-/// A buy request waiting for its answer.
+/// A buy or sell request waiting for its answer.
 struct Pending {
-    purchase: Purchase,
+    deal: Deal,
     /// Only to tell whose request it is; never leaves this module.
     player: String,
 }
@@ -245,6 +264,8 @@ struct Reading {
     handles: HashMap<String, String>,
     /// The requests waiting for an answer, one queue per way of buying.
     waiting: [VecDeque<Pending>; 2],
+    /// The sell requests waiting for an answer.
+    selling: VecDeque<Pending>,
     landing: Option<String>,
 }
 
@@ -256,6 +277,8 @@ impl Reading {
             self.complete(line, own);
         } else if line.contains("SShopBuyRequest") {
             self.buy(line);
+        } else if line.contains("SShopSellRequest") {
+            self.sell(line);
         } else if line.contains("RmShopFlowResponse") {
             self.answer(line);
         } else if line.contains("<Update Inventory Location>")
@@ -307,44 +330,63 @@ impl Reading {
         }
     }
 
-    fn buy(&mut self, line: &str) {
-        let Some(c) = BUY.captures(line) else { return };
-        let Some(time) = seconds(time_of(line)) else { return };
-        let (Ok(price_total), Ok(quantity)) = (c[4].parse::<f64>(), c[7].parse::<u32>()) else { return };
+    /// The request of a line from the captures player, shop, price, GUID, class and amount, in this order from
+    /// `first` on; `None` for a request of no piece or a price that is no number.
+    fn request(&self, line: &str, c: &regex::Captures<'_>, first: usize) -> Option<Pending> {
+        let time = seconds(time_of(line))?;
+        let field = |n: usize| &c[first + n];
+        let (Ok(price_total), Ok(quantity)) = (field(2).parse::<f64>(), field(5).parse::<u32>()) else { return None };
         if quantity == 0 || !price_total.is_finite() || price_total < 0.0 {
-            return;
+            return None;
         }
-        let purchase = Purchase {
+        let deal = Deal {
             time,
-            class: c[6].to_string(),
-            guid: c[5].to_string(),
+            class: field(4).to_string(),
+            guid: field(3).to_string(),
             quantity,
             price_total,
             place: self.landing.clone(),
-            shop: c[3].to_string(),
+            shop: field(1).to_string(),
         };
+        Some(Pending { deal, player: field(0).to_string() })
+    }
+
+    fn buy(&mut self, line: &str) {
+        let Some(c) = BUY.captures(line) else { return };
+        let Some(pending) = self.request(line, &c, 2) else { return };
         let way = usize::from(&c[1] == "Shopping");
-        self.waiting[way].push_back(Pending { purchase, player: c[2].to_string() });
+        self.waiting[way].push_back(pending);
+    }
+
+    fn sell(&mut self, line: &str) {
+        let Some(c) = SELL.captures(line) else { return };
+        if let Some(pending) = self.request(line, &c, 1) {
+            self.selling.push_back(pending);
+        }
     }
 
     fn answer(&mut self, line: &str) {
         let Some(c) = ANSWER.captures(line) else { return };
-        // A flow that is not a purchase takes no request with it.
-        if ANSWER_TYPE.captures(line).is_some_and(|t| &t[1] != "Buying") {
-            return;
-        }
         let way = usize::from(&c[1] == "Shopping");
-        let Some(done) = self.waiting[way].pop_front() else { return };
+        let (queue, sale) = match ANSWER_TYPE.captures(line).as_ref().map(|t| &t[1]) {
+            None | Some("Buying") => (&mut self.waiting[way], false),
+            // Only the kiosk way is known to sell.
+            Some("Selling") if way == 0 => (&mut self.selling, true),
+            // A flow that is neither takes no request with it.
+            Some(_) => return,
+        };
+        let Some(done) = queue.pop_front() else { return };
         if &c[2] == "Success" {
-            self.events.push((Event::Purchase(done.purchase), Some(done.player)));
+            let event = if sale { Event::Sale(done.deal) } else { Event::Purchase(done.deal) };
+            self.events.push((event, Some(done.player)));
         }
     }
 }
 
 /// The events of one log's text, in the order of the log: every move the player's inventory queued (with its
-/// result when the log has one) and every purchase the shop confirmed.
+/// result when the log has one) and every purchase and sale the shop confirmed.
 ///
-/// `account` is the player of this log; only its own lines count. A purchase names the player by number only,
+/// `account` is the player of this log; only its own lines count. A deal names the player by number only,
 /// so it counts unless that number is known to belong to another handle. Without an account everyone counts.
 pub fn parse_text(text: &str, account: Option<&str>) -> Vec<Event> {
     let account = account.filter(|a| !a.is_empty()).map(str::to_lowercase);
@@ -394,7 +436,7 @@ fn text_of<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
 }
 
-impl Purchase {
+impl Deal {
     /// The entry of the journal: `zeit`, `klasse`, `guid`, `menge`, `preis` (the total), `ort` (empty in flight)
     /// and `laden`.
     pub fn to_value(&self) -> Value {
@@ -409,14 +451,14 @@ impl Purchase {
         ])
     }
 
-    /// The purchase of an entry of the journal; `None` when a field is missing.
-    pub fn from_value(value: &Value) -> Option<Purchase> {
+    /// The deal of an entry of the journal; `None` when a field is missing.
+    pub fn from_value(value: &Value) -> Option<Deal> {
         let price_total = match value.get("preis")? {
             Value::Float(price) => *price,
             Value::Int(text) => text.parse().ok()?,
             _ => return None,
         };
-        Some(Purchase {
+        Some(Deal {
             time: int_of(value, "zeit")?,
             class: text_of(value, "klasse")?.to_string(),
             guid: text_of(value, "guid")?.to_string(),
@@ -462,7 +504,8 @@ impl Movement {
     }
 }
 
-/// The session entry of one log's text and its events: `von`, `bis` (seconds, UTC), `kaeufe`, `bewegungen`.
+/// The session entry of one log's text and its events: `von`, `bis` (seconds, UTC), `kaeufe`, `verkaeufe`,
+/// `bewegungen`.
 /// `None` without an event, or when the stamps make no session.
 pub fn session_entry(text: &str, events: &[Event]) -> Option<Map> {
     if events.is_empty() {
@@ -475,10 +518,12 @@ pub fn session_entry(text: &str, events: &[Event]) -> Option<Map> {
         return None;
     }
     let mut bought = Vec::new();
+    let mut sold = Vec::new();
     let mut moved = Vec::new();
     for event in events {
         match event {
             Event::Purchase(purchase) => bought.push(purchase.to_value()),
+            Event::Sale(sale) => sold.push(sale.to_value()),
             Event::Movement(movement) => moved.push(movement.to_value()),
         }
     }
@@ -486,6 +531,7 @@ pub fn session_entry(text: &str, events: &[Event]) -> Option<Map> {
         ("von".into(), Value::int(start)),
         ("bis".into(), Value::int(end)),
         ("kaeufe".into(), Value::Array(bought)),
+        ("verkaeufe".into(), Value::Array(sold)),
         ("bewegungen".into(), Value::Array(moved)),
     ])
 }
@@ -507,6 +553,7 @@ pub struct Session {
     /// Seconds since 1970 (UTC) of the first stamp of the log.
     pub start: i64,
     pub purchases: Vec<Purchase>,
+    pub sales: Vec<Sale>,
     pub movements: Vec<Movement>,
 }
 
@@ -522,7 +569,8 @@ pub fn sessions(data: &Map) -> Vec<Session> {
             };
             Some(Session {
                 start: int_of(entry, "von")?,
-                purchases: list("kaeufe").iter().filter_map(Purchase::from_value).collect(),
+                purchases: list("kaeufe").iter().filter_map(Deal::from_value).collect(),
+                sales: list("verkaeufe").iter().filter_map(Deal::from_value).collect(),
                 movements: list("bewegungen").iter().filter_map(Movement::from_value).collect(),
             })
         })
@@ -684,12 +732,31 @@ mod tests {
          playerId[4711] shopId[99] shopName[SCShop_Kiosk] kioskId[77] kioskState[BuyRequestProcessing] \
          result[Success] type[Buying] [Team][Shops]";
 
+    /// A sell request at a kiosk, built after the form of the game (the numbers are made up).
+    fn sell_line(price: &str, class: &str, quantity: u32) -> String {
+        format!(
+            "[Notice] <CEntityComponentShopUIProvider::SendShopSellRequest> Sending SShopSellRequest - \
+             playerId[4711] shopId[99] shopName[SCShop_Pharmacy] kioskId[77] client_price[{price}] \
+             itemClassGUID[0b6c7d2e-1f3a-4c5b-9d8e-7a6b5c4d3e2f] itemName[{class}] quantity[{quantity}]  [Team][Shops][UI]"
+        )
+    }
+
+    const ANSWER_SOLD: &str = "[Notice] <CEntityComponentShopUIProvider::RmShopFlowResponse> Received ShopFlowResponse - \
+         playerId[4711] shopId[99] shopName[SCShop_Pharmacy] kioskId[77] kioskState[SellRequestProcessing] \
+         result[Success] type[Selling] [Team][Shops][UI]";
+
+    /// A sell request of goods at a commodity terminal; the game writes no answer for it.
+    const COMMODITY_SOLD: &str = "[Notice] <CEntityComponentCommodityUIProvider::SendCommoditySellRequest> Sending \
+         SShopCommoditySellRequest - playerId[4711] shopId[99] shopName[SCShop_CommEx] kioskId[77] amount[15710.000000] \
+         resourceGUID[1a2b3c4d-0000-4000-8000-000000000001] autoLoading[0] quantity[2] transactionMode[ResourceContainer] \
+         Cargo Box Data:  [boxSize[1] | unitAmount[2]] [Team][Shops][UI]";
+
     fn movements(events: &[Event]) -> Vec<&Movement> {
         events
             .iter()
             .filter_map(|e| match e {
                 Event::Movement(m) => Some(m),
-                Event::Purchase(_) => None,
+                _ => None,
             })
             .collect()
     }
@@ -699,9 +766,101 @@ mod tests {
             .iter()
             .filter_map(|e| match e {
                 Event::Purchase(p) => Some(p),
-                Event::Movement(_) => None,
+                _ => None,
             })
             .collect()
+    }
+
+    fn sales(events: &[Event]) -> Vec<&Sale> {
+        events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Sale(s) => Some(s),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_sale_at_the_kiosk_is_read_with_its_answer_and_its_place() {
+        let landing = "[Notice] <Update Inventory Location> Player [Spieler] is changing location. Landing [0] -> [1105]. Location [0] -> [1105]. Pending [0]";
+        let text = [at(1, landing), at(2, &sell_line("62.000000", "nvtc_ubarrel_lasr_s1", 1)), at(3, ANSWER_SOLD)].concat();
+        let events = parse_text(&text, Some(WHO));
+        assert!(purchases(&events).is_empty(), "a sale is no purchase");
+        let sold = sales(&events);
+        assert_eq!(sold.len(), 1);
+        let sale = sold[0];
+        assert_eq!((sale.class.as_str(), sale.quantity, sale.place.as_deref()), ("nvtc_ubarrel_lasr_s1", 1, Some("1105")));
+        assert!((sale.price_total - 62.0).abs() < f64::EPSILON);
+        assert_eq!(sale.shop, "SCShop_Pharmacy");
+        assert_eq!(sale.guid, "0b6c7d2e-1f3a-4c5b-9d8e-7a6b5c4d3e2f");
+        // The price of the request is the total, like for a purchase.
+        let two = [at(1, &sell_line("124.000000", "mag", 2)), at(2, ANSWER_SOLD)].concat();
+        assert!((sales(&parse_text(&two, Some(WHO)))[0].unit_price() - 62.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn a_sale_and_a_purchase_take_their_own_answers() {
+        // Buy, then sell, then the answer of the sale comes before the one of the purchase.
+        let text = [
+            at(1, &buy_way_one("10.000000", "bought", 1)),
+            at(2, &sell_line("20.000000", "sold", 1)),
+            at(3, ANSWER_SOLD),
+            at(4, ANSWER_ONE),
+        ]
+        .concat();
+        let events = parse_text(&text, Some(WHO));
+        let bought: Vec<&str> = purchases(&events).iter().map(|p| p.class.as_str()).collect();
+        let sold: Vec<&str> = sales(&events).iter().map(|s| s.class.as_str()).collect();
+        assert_eq!((bought, sold), (vec!["bought"], vec!["sold"]));
+        // A purchase answer never books a sale, a sale answer never books a purchase.
+        let crossed = [at(1, &sell_line("20.000000", "sold", 1)), at(2, ANSWER_ONE)].concat();
+        assert!(parse_text(&crossed, Some(WHO)).is_empty());
+    }
+
+    #[test]
+    fn a_sale_without_an_answer_or_with_a_failed_one_is_not_booked() {
+        let failed = ANSWER_SOLD.replace("result[Success]", "result[Failure]");
+        let text = [
+            at(1, &sell_line("10.000000", "failed", 1)),
+            at(2, &failed),
+            at(3, &sell_line("20.000000", "went", 1)),
+            at(4, ANSWER_SOLD),
+            at(5, &sell_line("30.000000", "unanswered", 1)),
+        ]
+        .concat();
+        let sold: Vec<String> = sales(&parse_text(&text, Some(WHO))).iter().map(|s| s.class.clone()).collect();
+        assert_eq!(sold, ["went"]);
+        // A sale of no piece is no request.
+        let none = [at(1, &sell_line("10.000000", "zero", 0)), at(2, ANSWER_SOLD)].concat();
+        assert!(parse_text(&none, Some(WHO)).is_empty());
+    }
+
+    #[test]
+    fn a_sale_of_goods_at_a_terminal_is_not_read() {
+        let text = [at(1, COMMODITY_SOLD), at(2, ANSWER_SOLD), at(3, &sell_line("5.000000", "kiosk", 1)), at(4, ANSWER_SOLD)]
+            .concat();
+        let events = parse_text(&text, Some(WHO));
+        let sold: Vec<&str> = sales(&events).iter().map(|s| s.class.as_str()).collect();
+        assert_eq!(sold, ["kiosk"], "the terminal line waits for no answer and takes none");
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn a_sale_keeps_nothing_that_names_the_player_and_reads_back_the_same() {
+        let text = [at(1, &sell_line("62.500000", "sold", 3)), at(2, ANSWER_SOLD)].concat();
+        let events = parse_text(&text, Some(WHO));
+        let entry = session_entry(&text, &events).expect("entry");
+        let written = jsonio::dumps(&Value::Object(entry.clone()), None, false);
+        for secret in [WHO, "4711", "shopId", "kioskId", "playerId", "[99]", "[77]"] {
+            assert!(!written.contains(secret), "{secret} is in {written}");
+        }
+        assert!(written.contains("\"verkaeufe\""));
+        let start = seconds("2026-10-01T10:00:01").expect("stamp");
+        let data: Map = vec![("sitzungen".into(), Value::Object(vec![(start.to_string(), Value::Object(entry))]))];
+        let read = sessions(&data);
+        assert!(read[0].purchases.is_empty());
+        assert_eq!(read[0].sales.iter().collect::<Vec<_>>(), sales(&events));
     }
 
     #[test]

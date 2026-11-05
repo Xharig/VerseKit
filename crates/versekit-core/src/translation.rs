@@ -24,7 +24,7 @@
 //! address, only when the player picks it. The own address of the player
 //! works the same way.
 //!
-//! Every channel (LIVE, HOTFIX, PTU, EPTU) can have its own source. The main
+//! Every channel (LIVE, HOTFIX, PTU, EPTU, TECH-PREVIEW) can have its own source. The main
 //! installation keeps its notes under the bare source name, a side channel
 //! under `source@CHANNEL`.
 //!
@@ -56,9 +56,11 @@ pub const SETTING_SOURCE: &str = game_ini::SETTING_SOURCE;
 pub const SETTING_CUSTOM: &str = game_ini::SETTING_CUSTOM;
 pub const SETTING_CHANNELS: &str = "kanal_quellen";
 /// Channels a translation can be picked for.
-pub const CHANNELS: [&str; 4] = ["LIVE", "HOTFIX", "PTU", "EPTU"];
+pub const CHANNELS: [&str; 5] = ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
 /// Channels that get the test version of a source.
-pub const TEST_CHANNELS: [&str; 2] = ["PTU", "EPTU"];
+pub const TEST_CHANNELS: [&str; 3] = ["PTU", "EPTU", "TECH-PREVIEW"];
+/// The field of a note with the version box of the file as it was placed ([`injection::menu_text_of`]).
+const HEAD: &str = "kopf";
 /// More than this nobody loads as a text file.
 pub const CUSTOM_MAX_BYTES: usize = 80 * 1_048_576;
 /// Copies of a replaced `global.ini` kept beside it.
@@ -158,20 +160,6 @@ pub static SOURCES: LazyLock<Vec<Source>> = LazyLock::new(|| {
         dymerz("dymerz_fr", "french_.france.zip", "french_(france)", "s_sp_q_fr", "fr"),
         dymerz("dymerz_it", "italian_.italy.zip", "italian_(italy)", "s_sp_q_it", "it"),
         dymerz("dymerz_es", "spanish_.spain.zip", "spanish_(spain)", "s_sp_q_es", "es"),
-        Source {
-            id: "thord82_es",
-            repo: Some("Thord82/Star_citizen_ES"),
-            asset: Some("Star_citizen_ES.zip"),
-            part: Some("LIVE/"),
-            language: "spanish_(spain)",
-            audio: Some("english"),
-            license: "siehe Projektseite",
-            page: "https://github.com/Thord82/Star_citizen_ES",
-            label: "s_sp_q_es2",
-            flag: "es",
-            test: Some(Test { part: Some("PTU/"), ..Test::default() }),
-            ..Source::default()
-        },
         dymerz("dymerz_pt", "portuguese_.brazil.zip", "portuguese_(brazil)", "s_sp_q_pt", "br"),
         dymerz("dymerz_tr", "turkish_.turkey.zip", "turkish_(turkey)", "s_sp_q_tr", "tr"),
         luftwerft("luftwerft_de", "german_(germany)", "s_sp_q_lw_de", "de"),
@@ -440,7 +428,7 @@ pub fn set_channel_source(paths: &Paths, channel: &str, source: &str) -> bool {
 }
 
 /// Source ids that are no longer offered, each with the source that takes its place (same language folder).
-pub const RETIRED_SOURCES: [(&str, &str); 1] = [("deutsch", "luftwerft_de")];
+pub const RETIRED_SOURCES: [(&str, &str); 2] = [("deutsch", "luftwerft_de"), ("thord82_es", "luftwerft_es")];
 
 /// The source that takes the place of a retired one, if `id` is retired.
 fn successor(id: &str) -> Option<&'static str> {
@@ -751,6 +739,83 @@ pub fn forget_note(paths: &Paths, source: &str) {
     }
 }
 
+/// Notes the version box of the file just placed for the note `key` ([`injection::menu_text_of`]): by it a file
+/// another program puts there later is told from the one VerseKit placed ([`replaced_by_other`]). Only an entry that
+/// is there; a file without a version box notes `null`.
+/// Where the version box names the stand of the translation's data (`Data Version: DD.MM.YYYY HH:MM`, as
+/// Luftwerft writes it) and the build of the game it is made for (`4.10.2-live.12913470`), those go into the note
+/// too (`datum` as `YYYY-MM-DD HH:MM`, `build`): the page says the stand of the file, not only when it was fetched.
+pub fn note_head(paths: &Paths, key: &str, bytes: &[u8]) {
+    let head = injection::menu_text_of(bytes);
+    let mut data = note(paths);
+    let Some((_, Value::Object(entry))) = data.iter_mut().find(|(k, _)| k == key) else { return };
+    if let Some(stand) = head.as_deref().and_then(data_stand) {
+        map_set(entry, "datum", Value::str(stand));
+    }
+    if let Some(build) = head.as_deref().and_then(build_of) {
+        map_set(entry, BUILD, Value::str(build));
+    }
+    map_set(entry, HEAD, head.map_or(Value::Null, Value::str));
+    note_write(paths, data);
+}
+
+/// The field of a note with the build of the game the placed file names.
+const BUILD: &str = "build";
+
+/// The stand of the data a version box names (`Data Version: 04.11.2026 13:09`), as `2026-11-04 13:09`.
+pub fn data_stand(head: &str) -> Option<String> {
+    static STAND: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"(?i)data\s*version:\s*(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?")
+            .expect("pattern")
+    });
+    let found = STAND.captures(head)?;
+    let number = |i: usize| found.get(i).and_then(|m| m.as_str().parse::<u32>().ok());
+    let (day, month, year) = (number(1)?, number(2)?, number(3)?);
+    if !(1..=31).contains(&day) || !(1..=12).contains(&month) {
+        return None;
+    }
+    Some(match (number(4), number(5)) {
+        (Some(hour), Some(minute)) => format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}"),
+        _ => format!("{year:04}-{month:02}-{day:02}"),
+    })
+}
+
+/// The build of the game a version box names (`4.10.2-live.12913470`, `4.10.3-ptu.13093654`).
+pub fn build_of(head: &str) -> Option<String> {
+    static BUILD_NAME: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"(?i)\b\d+\.\d+(?:\.\d+)*-(?:live|ptu|eptu|hotfix|tech-preview|evocati)\.\d+\b")
+            .expect("pattern")
+    });
+    BUILD_NAME.find(head).map(|m| m.as_str().to_string())
+}
+
+/// [`note_head`] with the file at `target` as it is now.
+pub fn note_head_of_file(paths: &Paths, key: &str, target: &str) {
+    match std::fs::read(target) {
+        Ok(bytes) => note_head(paths, key, &bytes),
+        Err(error) => errors::record("translation.note_head", &error),
+    }
+}
+
+/// Whether the note of `source` in `channel` holds the version box of its file.
+pub fn head_noted(paths: &Paths, source: &str, channel: Option<&str>) -> bool {
+    info(paths, source, channel).iter().any(|(k, _)| k == HEAD)
+}
+
+/// Whether the text file `target` of `source` in `channel` is no longer the one VerseKit placed, because another
+/// program wrote its own file there: its version box (without our line) differs from the one noted at placing, or,
+/// where none was noted (a file placed by an older version), it holds words only another program writes there
+/// ([`injection::FOREIGN_MENU_WORDS`]). A file that cannot be read tells nothing.
+pub fn replaced_by_other(paths: &Paths, source: &str, channel: Option<&str>, target: &str) -> bool {
+    let Ok(bytes) = std::fs::read(target) else { return false };
+    let head = injection::menu_text_of(&bytes);
+    let entry = info(paths, source, channel);
+    match entry.iter().find(|(k, _)| k == HEAD).map(|(_, v)| v) {
+        Some(noted) => noted.as_str() != head.as_deref(),
+        None => head.is_some_and(|head| injection::FOREIGN_MENU_WORDS.iter().any(|word| head.contains(word))),
+    }
+}
+
 /// `translation._day`: `YYYY-MM-DD` as `DD.MM.YYYY` in German.
 fn day(stamp: &str, lang: Lang) -> String {
     let parts: Vec<&str> = stamp.get(..10).unwrap_or(stamp).split('-').collect();
@@ -774,9 +839,22 @@ pub fn status_text(paths: &Paths, source: &str, channel: Option<&str>, lang: Lan
     let entry = info(paths, source, channel);
     let text = |key: &str| entry.iter().find(|(k, _)| k == key).and_then(|(_, v)| v.as_str()).unwrap_or("").to_string();
     let mut parts = Vec::new();
+    // First the stand of the file (its day, with the time where the source names one, and the build it is for),
+    // then when it was fetched and looked at.
     let date = text("datum");
+    let build = text(BUILD);
     if !date.is_empty() {
-        parts.push(language::tf_in(lang, "s_sp_stand_vom", &[("0", Arg::from(day(&date, lang)))]));
+        let mut stand = day(&date, lang);
+        if let Some(clock) = date.get(11..16) {
+            stand = format!("{stand} {clock}");
+        }
+        parts.push(if build.is_empty() {
+            language::tf_in(lang, "s_sp_stand_vom", &[("0", Arg::from(stand))])
+        } else {
+            language::tf_in(lang, "s_sp_stand_build", &[("0", Arg::from(stand)), ("1", Arg::from(build.as_str()))])
+        });
+    } else if !build.is_empty() {
+        parts.push(language::tf_in(lang, "s_sp_fuer_build", &[("0", Arg::from(build.as_str()))]));
     }
     let fetched = text("stand");
     if !fetched.is_empty() {
@@ -1266,7 +1344,7 @@ fn prune_backups(target: &str, keep: usize, fresh: Option<&str>) {
 
 /// Put the newest copy of a game file back. Returns the copy used.
 ///
-/// For the main installation the note of original texts follows: the one
+/// For a text file (`main`, in any channel) its note of original texts follows: the one
 /// kept beside the copy, so its notes can be reset again. A copy without one
 /// held no notes the note knew of; then the note of this file is emptied but
 /// not marked fresh, and the next writing finds leftovers by their form
@@ -1291,7 +1369,7 @@ pub fn restore_backup(paths: &Paths, target: &str, main: bool) -> std::io::Resul
     let mut noted = true;
     if main && !injection::origtext_held_for_other(paths, target) {
         noted = match kept {
-            Some(note) => injection::put_origtext_note(paths, note),
+            Some(note) => injection::put_origtext_note(paths, target, note),
             None => injection::save_origtext(paths, Map::new(), target),
         };
     }
@@ -1385,8 +1463,9 @@ pub enum Progress {
 }
 
 /// `translation.fetch`: fetch a source and place it. `root` is the folder of
-/// the channel; `channel` is `None` for the main installation, which also
-/// gets its stored original texts discarded (a fresh base file).
+/// the channel; `channel` is `None` for the main installation. The stored
+/// original texts of the channel's note are discarded (a fresh base file), and
+/// the version box of the file is noted ([`note_head`]).
 ///
 /// While it runs, [`fetching`] answers yes for its note; a fetch that places
 /// nothing notes why (refused by the lock of a copy of the data, or failed).
@@ -1416,6 +1495,7 @@ fn fetch_and_place(
     channel: Option<&str>,
     progress: &dyn Fn(Progress),
 ) -> Result<Fetched, Problem> {
+    let key = note_key(source, channel);
     let spec =
         spec(paths, source, channel).ok_or_else(|| Problem::NoChannelVersion(channel.unwrap_or("LIVE").to_string()))?;
     let found = latest(net, &spec)?;
@@ -1458,10 +1538,10 @@ fn fetch_and_place(
     jsonio::make_dirs(&flavor.dirname(&target)).map_err(|e| Problem::of_write(&e))?;
     let backup = replace_game_file(paths, &target, &ini, BACKUPS_KEPT).map_err(|e| Problem::of_write(&e))?;
     set_user_cfg(paths, root, &language, spec.audio.as_deref());
-    note_set(paths, &note_key(source, channel), Some(&ident), Some(&language), found.date.as_deref());
-    if channel.is_none() {
-        injection::discard_origtext_for(paths, &target);
-    }
+    note_set(paths, &key, Some(&ident), Some(&language), found.date.as_deref());
+    note_head(paths, &key, &ini);
+    // A fresh base file, in the note of original texts of its own channel.
+    injection::discard_origtext_for(paths, &target);
     Ok(Fetched { source: source.to_string(), ident, bytes: ini.len(), target, language, backup })
 }
 

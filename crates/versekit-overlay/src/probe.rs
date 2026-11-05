@@ -1664,7 +1664,12 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             let wanted: Vec<String> = sample_contracts()
                 .iter()
                 .map(|c| c.text.render())
-                .chain([t("ov_auftraege_kopf"), "Fliege los".into(), "Sammle die Kisten".into(), t("ov_a_unklar")])
+                .chain([
+                    versekit_ui::overlay::contracts_head(app.contracts.len(), app.settings.contracts_max as usize),
+                    "Fliege los".into(),
+                    "Sammle die Kisten".into(),
+                    t("ov_a_unklar"),
+                ])
                 .collect();
             probe.check("auftraege_leiste_gezeichnet", wanted.iter().all(|w| texts.contains(w)));
             probe.check("graue_zeile_ohne_ziele", !texts.iter().any(|x| x == "Nicht gezeigt"));

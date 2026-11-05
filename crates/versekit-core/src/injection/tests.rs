@@ -104,7 +104,7 @@ fn writes_marks_blocks_tags_and_the_menu_line() {
     let lines: Vec<&str> = text.split('\n').collect();
     assert_eq!(
         lines[0],
-        "\u{feff}Frontend_PU_Version=Star Citizen 4.10\\nOther Tool v1\\nVerse-Kit v5.0.0 · versekit.xharig.com"
+        "\u{feff}Frontend_PU_Version=Star Citizen 4.10\\nOther Tool v1\\nVerseKit v5.0.0 · versekit.xharig.com"
     );
     assert_eq!(lines[1], "Bounty_title_001=Kopfgeld <EM4>[BP 800 Rep]</EM4>");
     assert!(lines[2].starts_with("Bounty_desc_001=Fang ihn.\\n\\n---"), "{}", lines[2]);
@@ -114,6 +114,24 @@ fn writes_marks_blocks_tags_and_the_menu_line() {
     assert_eq!(lines[4], "item_NameCOOL_A=Glacier (Mil/1/A)");
     assert_eq!(lines[6], "no line");
     assert_eq!(text.matches('\n').count(), 7, "one entry per line");
+}
+
+/// The menu line of an older version (`Verse-Kit`, with the hyphen) in a file without its original texts gives way
+/// to the one of today; the header of the translation above it stays, nothing stacks.
+#[test]
+fn the_old_menu_line_with_the_hyphen_gives_way_to_the_new_one() {
+    let old = "Frontend_PU_Version=Luftwerft 4.3\\nEnglish, Source: Data.p4k\\nVerse-Kit v5.0.1 · versekit.xharig.com\n\
+Bounty_title_001=Kopfgeld\n";
+    let fx = Fixture::new("old-menu", "german_(germany)", old);
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &inputs(&[]), false);
+    let first = fx.text().lines().next().unwrap_or_default().to_string();
+    assert_eq!(
+        first,
+        "Frontend_PU_Version=Luftwerft 4.3\\nEnglish, Source: Data.p4k\\nVerseKit v5.0.0 · versekit.xharig.com"
+    );
+    assert_eq!(menu_base("Kopf\\nVerseKit · versekit.xharig.com"), "Kopf", "without a version too");
+    assert_eq!(menu_base("Ein Gruß an VerseKit-Freunde\\nVerseKit-Fans"), "Ein Gruß an VerseKit-Freunde\\nVerseKit-Fans");
+    assert_eq!(menu_text_of(fx.text().as_bytes()).as_deref(), Some("Luftwerft 4.3\\nEnglish, Source: Data.p4k"));
 }
 
 #[test]

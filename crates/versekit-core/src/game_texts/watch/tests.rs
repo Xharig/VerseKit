@@ -123,6 +123,31 @@ fn watch_with(scmdb: Arc<BuildScmdb>) -> Watch {
     watch
 }
 
+/// While the game runs the translation is still looked at every five minutes: a game session holds nothing back.
+#[test]
+fn while_the_game_runs_the_translation_is_looked_at_every_five_minutes() {
+    let s = Setup::new("wache-spiel");
+    s.set_up_german();
+    let release = "https://api.github.com/repos/Dymerz/StarCitizen-Localization/releases/latest";
+    let net = Arc::new(Fake::default());
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let mut watch = Watch::new(net.clone(), Arc::new(FakeArchive::default()), Arc::new(CountingScmdb::default()));
+    watch.game_running = game;
+    GAME.with(|g| g.set(true));
+    let looks = || net.asked().iter().filter(|url| *url == release).count();
+    settle(&mut watch, &paths, 0.0);
+    assert_eq!(looks(), 1, "looked at the start");
+    for now in [60.0, 120.0, 299.0] {
+        settle(&mut watch, &paths, now);
+    }
+    assert_eq!(looks(), 1, "not before five minutes");
+    settle(&mut watch, &paths, 300.0);
+    assert_eq!(looks(), 2, "five minutes later, with the game running");
+    settle(&mut watch, &paths, 600.0);
+    assert_eq!(looks(), 3, "and again");
+    GAME.with(|g| g.set(false));
+}
+
 #[test]
 fn the_start_repairs_the_language_once_and_writes_the_notes_at_once() {
     let s = Setup::new("wache-start");

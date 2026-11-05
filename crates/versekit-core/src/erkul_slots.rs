@@ -517,6 +517,44 @@ pub fn fit_answer(ships: &ErkulShips, kind: &str, size: Option<i64>, hangar: &[&
     if found.is_empty() { FitAnswer::Nowhere } else { FitAnswer::In(found) }
 }
 
+/// The slots of one ship counted by kind and size, read once, so that every part of a long list can be held
+/// against the same ship without looking the ship up again.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SlotTable {
+    /// `(kind, size, number of slots)` as stored.
+    counted: Vec<(String, i64, i64)>,
+}
+
+impl SlotTable {
+    /// The stored counts of a ship; `None` where erkul does not know the ship or stores no slots for it.
+    pub fn of(ships: &ErkulShips, id: ShipId) -> Option<SlotTable> {
+        let Some(Value::Array(counted)) = get(ships.entry(id)?, "plaetze") else { return None };
+        let counted: Vec<(String, i64, i64)> = counted
+            .iter()
+            .filter_map(Value::as_object)
+            .map(|p| {
+                (
+                    text(p, "art").to_string(),
+                    py_int(get(p, "groesse")).unwrap_or(-1),
+                    py_int(get(p, "anzahl")).unwrap_or(0),
+                )
+            })
+            .collect();
+        (!counted.is_empty()).then_some(SlotTable { counted })
+    }
+
+    /// How many slots of the ship take a part of this kind and size: the count of [`fits`], with the
+    /// guard of [`fit_answer`] (a kind of [`INTERESTING`] and a size other than 0), so that "fits into
+    /// your ship" and the parts of a ship never say different things.
+    pub fn takes(&self, kind: &str, size: Option<i64>) -> i64 {
+        let Some(size) = size.filter(|s| *s != 0) else { return 0 };
+        if kind.is_empty() || !INTERESTING.contains(&kind) {
+            return 0;
+        }
+        self.counted.iter().filter(|(k, s, _)| k == kind && *s == size).map(|(_, _, n)| *n).sum()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -639,6 +677,39 @@ mod tests {
         assert_eq!(fit_answer(&ships, "Cooler", Some(2), &[]), FitAnswer::EmptyHangar);
         assert_eq!(fit_answer(&ErkulShips::default(), "Cooler", Some(2), &both), FitAnswer::NoData);
         assert_eq!(fit_answer(&ErkulShips::default(), "Cooler", Some(2), &[]), FitAnswer::EmptyHangar);
+    }
+
+    #[test]
+    fn the_slot_table_of_a_ship_counts_as_fits_does_and_keeps_silent_where_fit_answer_does() {
+        let file = std::env::temp_dir().join(format!("versekit-slot-table-{}.json", crate::testdir::run_tag()));
+        let stored = r#"{"format": 4, "spielversion": "4.1", "hersteller": {"aegisdynamics": "aegs"},
+            "schiffe": {"aegiseclipse": {"id": "aegs_eclipse", "name": "Eclipse",
+                "plaetze": [{"art": "Cooler", "groesse": 2, "anzahl": 3}, {"art": "Shield", "groesse": 1, "anzahl": 1},
+                            {"art": "Cooler", "groesse": 2, "anzahl": 1}, {"art": "Battery", "groesse": 1, "anzahl": 2}]},
+              "aegisgladius": {"id": "aegs_gladius", "name": "Gladius", "plaetze": []}}}"#;
+        std::fs::write(&file, stored).unwrap();
+        let ships = ErkulShips::load(&file.to_string_lossy());
+        let _ = std::fs::remove_file(&file);
+        let entry = |json: &str| crate::jsonio::loads(json).unwrap().as_object().unwrap().clone();
+        let eclipse = entry(r#"{"name": "Eclipse", "hersteller": "Aegis Dynamics"}"#);
+        let gladius = entry(r#"{"name": "Gladius", "hersteller": "Aegis Dynamics"}"#);
+        let unknown = entry(r#"{"name": "Nobody", "hersteller": "Nowhere"}"#);
+
+        let table = SlotTable::of(&ships, ship_id(&eclipse)).expect("the Eclipse has slots");
+        assert_eq!(table.takes("Cooler", Some(2)), 4, "two rows of the same kind and size add up");
+        assert_eq!(table.takes("Shield", Some(1)), 1);
+        assert_eq!(table.takes("Cooler", Some(1)), 0, "the size has to match exactly");
+        assert_eq!(table.takes("Cooler", None), 0);
+        assert_eq!(table.takes("Cooler", Some(0)), 0);
+        assert_eq!(table.takes("Battery", Some(1)), 0, "no kind outside INTERESTING");
+        // Every answer agrees with the one of `fits` behind "fits into your ship".
+        for (kind, size) in [("Cooler", Some(2)), ("Shield", Some(1)), ("Cooler", Some(3)), ("Radar", Some(1))] {
+            assert_eq!(table.takes(kind, size), fits(&ships, kind, size, ship_id(&eclipse)), "{kind} {size:?}");
+        }
+        // A ship with no counted slots and a ship erkul does not know have no table: no data, not "nothing fits".
+        assert_eq!(SlotTable::of(&ships, ship_id(&gladius)), None);
+        assert_eq!(SlotTable::of(&ships, ship_id(&unknown)), None);
+        assert_eq!(SlotTable::of(&ErkulShips::default(), ship_id(&eclipse)), None);
     }
 
     #[test]

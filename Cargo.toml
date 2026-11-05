@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "5.0.2"
+version = "5.1.0"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
@@ -28,9 +28,9 @@ miniz_oxide = "0.9"
 # Screens and pointer on macOS (NSScreen, NSEvent): the versions eframe and winit already bring in.
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent", "NSScreen", "objc2-core-foundation"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry"] }
-# p4kx, main at the merge of p4kx-org/p4kx#927 (milestone v0.4.2, not released yet): the Basetool
-# catalog with `offeredAt`, `giverFaction` and `blueprintRewards` per contract entry.
-# Switch to `tag = "v0.4.2"` once v0.4.2 is released.
+# p4kx, main at the merge of p4kx-org/p4kx#927: the Basetool catalog with `offeredAt`, `giverFaction` and
+# `blueprintRewards` per contract entry.
+# v0.4.2 is 278 commits further on; moving to it is an update of its own, with a check of the catalog.
 # The repository is private: locally the git credentials fetch it, release builds use a read-only
 # deploy key over SSH (`.cargo/config.toml` lets cargo use the git command line for that).
 p4kx-archive = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }

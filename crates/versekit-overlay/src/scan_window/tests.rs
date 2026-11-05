@@ -232,11 +232,15 @@ fn ink_rows(px: i32, text: &str) -> (i32, i32) {
 }
 
 const GAME_HEIGHTS: [i32; 3] = [720, 1080, 1440];
+/// The ends of the slider and the default between them.
+const SIZES: [versekit_core::signature_window::Size; 3] = {
+    use versekit_core::signature_window::Size;
+    [Size::MIN, Size::DEFAULT, Size::MAX]
+};
 
 #[test]
 fn a_line_has_room_for_the_tails_of_g_p_and_y_at_every_size_of_the_window() {
-    use versekit_core::signature_window::Size;
-    for size in Size::ALL {
+    for size in SIZES {
         for game in GAME_HEIGHTS {
             let px = size.font_px(game);
             let m = metrics(px);
@@ -257,12 +261,11 @@ fn a_line_has_room_for_the_tails_of_g_p_and_y_at_every_size_of_the_window() {
 
 #[test]
 fn the_text_stays_inside_a_whole_frame_at_every_size_with_the_longest_line() {
-    use versekit_core::signature_window::Size;
     let near = |p: u32, rgb: (u32, u32, u32)| {
         let (b, g, r) = (p & 0xFF, (p >> 8) & 0xFF, (p >> 16) & 0xFF);
         r.abs_diff(rgb.0) < 24 && g.abs_diff(rgb.1) < 24 && b.abs_diff(rgb.2) < 24
     };
-    for size in Size::ALL {
+    for size in SIZES {
         for game in GAME_HEIGHTS {
             let px = size.font_px(game);
             let (w, h, pixels) = on_hidden_desktop(move || {
@@ -302,14 +305,13 @@ fn snapshot_of(font_px: i32, square: bool) -> (i32, i32, Vec<u32>) {
 
 #[test]
 fn the_edge_is_closed_at_the_corners_rounded_as_the_cards_with_the_green_brackets_top_left_and_bottom_right() {
-    use versekit_core::signature_window::Size;
     let near = |p: u32, (r, g, b): (u32, u32, u32)| {
         let (pb, pg, pr) = (p & 0xFF, (p >> 8) & 0xFF, (p >> 16) & 0xFF);
         pr.abs_diff(r) < 30 && pg.abs_diff(g) < 30 && pb.abs_diff(b) < 30
     };
     let (line, accent) = ((0x3a, 0x46, 0x58), (0x9c, 0xe4, 0x30));
     let r = f32::from(versekit_ui::BOX_RADIUS);
-    for size in Size::ALL {
+    for size in SIZES {
         let (w, h, pixels) = snapshot_of(size.font_px(1080), false);
         // A pixel of the edge near the point, in the colour: the neighbours count (the edge is one pixel wide).
         let has = |x: f32, y: f32, colour: (u32, u32, u32)| {

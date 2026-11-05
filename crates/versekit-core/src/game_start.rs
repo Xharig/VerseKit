@@ -405,7 +405,11 @@ pub fn can_start(paths: &Paths) -> bool {
 /// starter is run and the start programs that run with the launcher follow.
 ///
 /// ⚠ A failure of the MangoHud part never stops the start: it goes without.
+///
+/// Right before, the language line of every channel whose translation VerseKit keeps is put back where another
+/// program changed it (`game_texts::check_game_languages`): the game reads it when it starts.
 pub fn start_game(paths: &Paths, spawner: &std::sync::Arc<dyn Spawner>) -> Result<(), String> {
+    crate::game_texts::check_game_languages(paths);
     if let Some(instead) = crate::start_programs::replacement(paths) {
         return crate::start_programs::launch(&instead, spawner.clone(), paths.host.flavor, false)
             .map_err(|error| error.reason());
@@ -816,6 +820,30 @@ mod tests {
         let paths = linux(&home, &[]);
         assert_eq!(start_game(&paths, &spawner), Err(t("s_sp_kein_starter")));
         assert!(recorder.calls().is_empty(), "nothing was started");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// Right before the start the language line of the chosen translation goes back where another program (a
+    /// launcher) changed it: the game reads it when it starts.
+    #[test]
+    fn the_start_puts_the_language_line_of_the_translation_back_first() {
+        let home = scratch("sprache");
+        let live = format!("{home}/StarCitizen/LIVE");
+        touch(&format!("{live}/Game.log"), "");
+        touch(&format!("{live}/data/Localization/german_(germany)/global.ini"), "Bounty_title_001=Kopfgeld\n");
+        touch(&format!("{live}/user.cfg"), "g_language = english\n");
+        let data = format!("{home}/data");
+        std::fs::create_dir_all(&data).expect("folder");
+        let paths = linux(&home, &[("SC_BP_HOME", data.as_str()), (ENV_INSTALL_DIR, live.as_str())]);
+        crate::translation::note_set(&paths, "dymerz_de", Some("v1"), Some("german_(germany)"), None);
+        assert!(paths.set_setting(crate::game_ini::SETTING_SOURCE, Value::str("dymerz_de")));
+        assert!(paths.set_setting(STARTER_SETTING, Value::str("lutris rungame/star-citizen")));
+        let recorder = std::sync::Arc::new(Recorder::default());
+        let spawner: std::sync::Arc<dyn Spawner> = recorder.clone();
+        assert_eq!(start_game(&paths, &spawner), Ok(()));
+        let cfg = std::fs::read_to_string(format!("{live}/user.cfg")).expect("user.cfg");
+        assert!(cfg.contains("g_language = german_(germany)") && !cfg.contains("g_language = english"), "{cfg}");
+        assert_eq!(recorder.calls().len(), 1, "and the game started");
         let _ = std::fs::remove_dir_all(home);
     }
 

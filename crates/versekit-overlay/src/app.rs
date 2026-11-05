@@ -35,13 +35,14 @@ use std::time::{Duration, Instant};
 
 use eframe::egui;
 use egui::{ViewportCommand, WindowLevel};
+use versekit_core::basetool::demand::{self, Material};
 use versekit_core::contested;
 use versekit_core::game_start::{self, Spawner};
 use versekit_core::language::{self, Lang, Phrase};
 use versekit_core::live_contracts::Line as ContractLine;
 use versekit_core::overlay::{
     self, BarSide, Corner, DRAG_SLACK, Event, Hotkey, Layout, MIN_BAR_WIDTH, Message, Mode, OPEN_EXTRA_HEIGHT, Pointer,
-    Rect, Remembered, Row, Rows, Screens, Settings, Shown, Visibility, keys,
+    Rect, Remembered, Row, Rows, Screens, Section, Settings, Shown, Visibility, keys,
 };
 use versekit_core::overlay_control::{self, Control, Place};
 use versekit_core::paths::{Host, Paths};
@@ -147,6 +148,8 @@ const PAGE_WAIT: Duration = Duration::from_secs(60);
 /// How often the game and the location are looked at.
 const GAME_EVERY: Duration = Duration::from_secs(2);
 const LOCATION_EVERY: Duration = Duration::from_secs(10);
+/// How often the open overlay reads the refinery jobs again (the time left counts on in between).
+const REFINERY_READ_EVERY: Duration = Duration::from_secs(15);
 /// A frame at least this often: pointer, click-through and the timers.
 const TICK: Duration = Duration::from_millis(120);
 /// The place is written once the window stood still this long.
@@ -176,6 +179,11 @@ pub fn screens_now() -> (Rect, Rect) {
 
 pub fn work_at(x: i32, y: i32) -> Rect {
     screen::monitor_area(x, y, true).map_or_else(|| screens_now().1, Rect::from_area)
+}
+
+/// Everything the screens cover together, in pixels; `None` where they cannot be asked.
+fn all_screens() -> Option<Rect> {
+    screen::screens().into_iter().map(Rect::from_area).reduce(|a, b| a.union(b))
 }
 
 fn screens_with<R>(f: impl FnOnce(&Screens) -> R) -> R {
@@ -275,6 +283,8 @@ pub struct OverlayApp {
     /// Until then (seconds of the run) the line of the scanner shows in the open overlay, also where the
     /// player did not ask for it: a reading opened the overlay, and it should show why.
     scanner_line_until: f64,
+    /// The materials the unit wants, as the main window last handed them over; in memory only.
+    demand: Arc<Mutex<Vec<Material>>>,
     pub rows: Rows,
     /// The running contracts, as the watcher tells them.
     pub contracts: Vec<ContractLine>,
@@ -297,6 +307,9 @@ pub struct OverlayApp {
     hotkey: Arc<Mutex<Option<Hotkey>>>,
     hotkey_presses: Receiver<()>,
     refinery: crate::refinery::RefineryKey,
+    /// The hotkey of the handle search in the info bar, read at every key, and its presses.
+    search_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    search_presses: Receiver<()>,
     /// The bridge to scmdb.net (`apply_scmdb`).
     scmdb: versekit_core::scmdb_bridge::Bridge,
     started: Instant,
@@ -345,6 +358,9 @@ pub struct OverlayApp {
     /// The contract hidden last, kept for a few seconds so the player can take it back: its line
     /// (to put back when there is no watcher) and when it was hidden.
     pub hidden_note: Option<HiddenNote>,
+    /// The refinery jobs kept in the data, read every [`REFINERY_READ_EVERY`], and when.
+    pub refinery_jobs: Vec<versekit_core::jsonio::Map>,
+    refinery_read: Option<Instant>,
     /// Where the button that takes the hiding back was drawn in the last frame.
     pub unhide_button: Option<egui::Rect>,
     /// A way to start the game is known (the watcher says so): the rocket and the entry of the icon's menu.
@@ -815,6 +831,7 @@ impl OverlayApp {
             self.rows.trim(fresh.rows);
             *self.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.hotkey;
             *self.refinery.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.scan_hotkey;
+            *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
             let scmdb_changed = fresh.scmdb != self.settings.scmdb;
             let sizes = (self.settings.size_percent, fresh.size_percent);
             self.settings = fresh;
@@ -1041,6 +1058,20 @@ impl OverlayApp {
             }
             None => {}
         }
+        // The hotkey of the handle search: the info bar takes the keyboard and its field the cursor; without the bar
+        // on the screen a hint row says where the search is.
+        let mut search_asked = false;
+        while self.search_presses.try_recv().is_ok() {
+            search_asked = true;
+        }
+        if search_asked {
+            if self.info_bar_on() {
+                self.info.type_by_key();
+            } else {
+                let hint = Row::Hint { text: Phrase::new("ov_hk_suche_ohne_leiste").into(), contract: None };
+                self.rows.push(hint, self.settings.rows);
+            }
+        }
         // What became of the hotkey grab under X11: taken, no such key, or a new one that works.
         for phrase in hotkey_x11::take_told() {
             self.rows.push(Row::Hint { text: phrase.into(), contract: None }, self.settings.rows);
@@ -1076,6 +1107,25 @@ impl OverlayApp {
         {
             self.contracts.push(line);
         }
+    }
+
+    /// The lines of the refinery jobs for this frame, while their part is shown: the file is read again once
+    /// [`REFINERY_READ_EVERY`] is over, the time left counts every second.
+    fn refinery_lines(&mut self, ctx: &egui::Context) -> Vec<(String, bool)> {
+        if !self.settings.sections.contains(Section::Refinery) {
+            return Vec::new();
+        }
+        if self.refinery_read.is_none_or(|at| at.elapsed() >= REFINERY_READ_EVERY) {
+            self.refinery_read = Some(Instant::now());
+            if let Some(paths) = self.paths.as_ref().map(|p| Paths::new(p.host.clone())) {
+                self.refinery_jobs = versekit_core::refinery_jobs::load(&paths);
+            }
+        }
+        let lines = versekit_core::overview::refinery_lines(&self.refinery_jobs, contested::now());
+        if lines.iter().any(|(_, done)| !done) {
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
+        lines
     }
 
     /// The note of the contract hidden last stays for [`UNHIDE_SECONDS`].
@@ -1286,15 +1336,11 @@ impl OverlayApp {
     /// The overlay follows the pointer `p` of a drag that began at `start`.
     fn drag_to(&mut self, ctx: &egui::Context, kind: Drag, grab: (i32, i32), start: Rect, p: Pointer) {
         match kind {
-            // The whole window moves along, its size and region stay.
+            // The whole window moves along, its size and region stay; it cannot leave what the screens cover.
             Drag::Move => {
                 let r = Rect { x: p.x - grab.0, y: p.y - grab.1, ..self.current };
-                if r != self.current {
-                    self.canvas.x += r.x - self.current.x;
-                    self.canvas.y += r.y - self.current.y;
-                    self.set_window(self.canvas);
-                    self.current = r;
-                }
+                let r = all_screens().map_or(r, |bounds| overlay::held_inside(r, bounds));
+                self.move_visible(r);
             }
             // The visible part takes the size at once. The window around it keeps its
             // size (see [`Self::canvas_needed`]) and the region follows this frame.
@@ -1306,10 +1352,29 @@ impl OverlayApp {
         }
     }
 
-    /// A drag that began at `start` is over: the open place follows it, and
-    /// a real move frees the corner (written at once, the main window told).
+    /// Moves the visible part to `r` and the window around it by as much; size and region stay.
+    fn move_visible(&mut self, r: Rect) {
+        if r != self.current {
+            self.canvas.x += r.x - self.current.x;
+            self.canvas.y += r.y - self.current.y;
+            self.set_window(self.canvas);
+            self.current = r;
+        }
+    }
+
+    /// A drag that began at `start` is over: let go near an edge of the screen under its middle, the window goes
+    /// onto that edge and wholly onto that screen; the open place follows it, and a real move frees the corner
+    /// (written at once, the main window told).
     pub fn drag_ended(&mut self, kind: Drag, start: Rect, shown: Shown) {
         self.drag = None;
+        let dragged = (self.current.x - start.x).abs() + (self.current.y - start.y).abs();
+        if kind == Drag::Move && dragged > DRAG_SLACK {
+            let (cx, cy) = (self.current.x + self.current.w / 2, self.current.y + self.current.h / 2);
+            if let (Some(area), Some(work)) = (screen::monitor_area(cx, cy, false), screen::monitor_area(cx, cy, true))
+            {
+                self.move_visible(overlay::snapped(self.current, Rect::from_area(area), Rect::from_area(work)));
+            }
+        }
         match shown {
             Shown::Open => self.last_open = self.current,
             // A folded bar carries the open place along: the same left
@@ -1590,9 +1655,15 @@ impl OverlayApp {
                 self.status = Phrase::new("ov_rahmen_kein_spiel").into();
             }
         }
-        // The info bar shows the reading itself: the window of the scanner then stays closed.
-        self.scanner.set_window_off(self.info_bar_on());
+        // The info bar shows the reading itself: the window of the scanner then stays closed, unless the player
+        // wants it above the signature as well.
+        let in_bar_only = layout.place == versekit_core::signature_window::Place::InfoBar;
+        self.scanner.set_window_off(self.info_bar_on() && in_bar_only);
         let step = self.scanner.step(theme::current());
+        // A number that left the HUD stays for a while: a frame comes when it goes.
+        if let Some(left) = self.scanner.wake_in() {
+            ctx.request_repaint_after(left + Duration::from_millis(50));
+        }
         if step.hit {
             // The reading is judged by the switches written before it, like a find.
             self.read_control_now();
@@ -1735,6 +1806,7 @@ impl OverlayApp {
         }
 
         let scheme = theme::current();
+        let refinery = if shown == Shown::Open { self.refinery_lines(&ctx) } else { Vec::new() };
         // Counter check: the content is lost after coming back from the strip.
         let lost = self.counter.as_deref() == Some("leer") && self.was_waiting;
         let empty = Rows::default();
@@ -1742,25 +1814,32 @@ impl OverlayApp {
         let peek = self.vis.peek(now);
         let hangar = self.hangar_line(contested::now());
         let signature = self.scanner.line(now < self.scanner_line_until);
+        let wanted = signature.as_ref().and_then(|_| self.demand_line());
         let lang = language::current();
         // The frame rates stand in the info bar while it shows, not twice.
         let fps = self.fps.reading().filter(|_| !self.info_bar_on());
         let (shard_part, shard_hint) =
             (shard::status_part(&self.shard, fps.as_ref(), self.shown_parts(), lang), shard::hint(&self.shard, lang));
+        // The parts the player switched off are not drawn at all.
+        let sections = self.settings.sections;
+        let contracts_shown = sections.contains(Section::Contracts) && self.counter.as_deref() != Some("ohne_leiste");
         let shown_view = view::View {
             scheme,
             shown,
             rows,
             // Counter check: the bar is not drawn.
-            contracts: if self.counter.as_deref() == Some("ohne_leiste") { &[] } else { self.contracts.as_slice() },
-            hidden: self.hidden_note.as_ref().map(|n| n.title.as_str()),
+            contracts: if contracts_shown { self.contracts.as_slice() } else { &[] },
+            contracts_max: self.settings.contracts_max as usize,
+            hidden: self.hidden_note.as_ref().map(|n| n.title.as_str()).filter(|_| contracts_shown),
+            refinery: &refinery,
             launcher: self.launcher,
             status: &self.status,
-            location: self.location.as_ref(),
-            shard: shard_part.as_deref(),
+            location: self.location.as_ref().filter(|_| sections.contains(Section::Location)),
+            shard: shard_part.as_deref().filter(|_| sections.contains(Section::Shard)),
             shard_hint: shard_hint.as_deref(),
             signature: signature.as_deref(),
-            update: self.update.as_deref(),
+            demand: wanted.as_deref(),
+            update: self.update.as_deref().filter(|_| sections.contains(Section::Update)),
             peek,
             mode: self.settings.mode,
             game: self.vis.game(),
@@ -1868,7 +1947,9 @@ impl OverlayApp {
         }
         self.info.set_places(self.settings.info_bar_places.clone());
         let shard = self.shard.current().filter(|_| self.vis.game()).map(|join| join.shard.short());
-        let text = self.scanner.shown().filter(|_| self.settings.scanner);
+        // The reading stands in the bar unless the player chose the window above the signature for it.
+        let in_bar = self.settings.scanner_window.place == versekit_core::signature_window::Place::InfoBar;
+        let text = self.scanner.shown().filter(|_| self.settings.scanner && in_bar);
         let mining = text.map(|text| versekit_ui::info_bar::Mining {
             material: text.material.as_str(),
             known: text.known,
@@ -2116,6 +2197,8 @@ struct Parts {
     hotkey: Arc<Mutex<Option<Hotkey>>>,
     hotkey_presses: Receiver<()>,
     refinery: crate::refinery::RefineryKey,
+    search_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    search_presses: Receiver<()>,
     control: Option<Receiver<Control>>,
     start: Rect,
     /// A size or place was remembered: the first frame does not measure a default size.
@@ -2128,9 +2211,17 @@ struct Parts {
     frame_asked: Arc<AtomicBool>,
     /// What the main window asked of anti-AFK (see [`afk::ASKED_ON`]).
     afk_asked: Arc<AtomicU8>,
+    /// Where the demand the main window hands over lands.
+    demand: Arc<Mutex<Vec<Material>>>,
 }
 
 impl OverlayApp {
+    /// "Die Einheit sucht: …" for the ores behind the signature shown now, when the unit wants one of them.
+    fn demand_line(&self) -> Option<String> {
+        let wanted = self.demand.lock().unwrap_or_else(|e| e.into_inner());
+        Some(demand::overlay_line(&demand::matching_in(&wanted, self.scanner.names()))).filter(|l| !l.is_empty())
+    }
+
     /// The line of the Executive Hangar at `wall` (Unix seconds), when the player switched it on.
     fn hangar_line(&self, wall: f64) -> Option<contested::OverlayLine> {
         self.settings.hangar_timer.then(|| contested::overlay_line(self.hangar_start, wall))
@@ -2188,6 +2279,7 @@ impl OverlayApp {
             inline_read: Instant::now(),
             inline_writes: 0,
             scanner_line_until: 0.0,
+            demand: p.demand,
             update: p.args.update.clone(),
             counter: p.args.counter.clone(),
             args: p.args,
@@ -2212,6 +2304,8 @@ impl OverlayApp {
             hotkey: p.hotkey,
             hotkey_presses: p.hotkey_presses,
             refinery: p.refinery,
+            search_hotkey: p.search_hotkey,
+            search_presses: p.search_presses,
             scmdb: versekit_core::scmdb_bridge::Bridge::new(),
             started: Instant::now(),
             current: start,
@@ -2241,6 +2335,8 @@ impl OverlayApp {
             contract_texts: Vec::new(),
             hide_buttons: Vec::new(),
             hidden_note: None,
+            refinery_jobs: Vec::new(),
+            refinery_read: None,
             unhide_button: None,
             launcher: false,
             game_programs_checked: false,
@@ -2420,11 +2516,23 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     | Signal::OpenMining
                     | Signal::OpenStockScan
                     | Signal::AntiAfkOn
-                    | Signal::AntiAfkOff => return,
+                    | Signal::AntiAfkOff
+                    | Signal::DemandWanted => return,
                 };
                 flag.store(true, Ordering::Relaxed);
                 ctx.request_repaint();
             });
+            // The demand of the unit comes from the main window, in memory only; a main window that runs already is
+            // asked for it, one that starts later hands it over by itself.
+            let demand: Arc<Mutex<Vec<Material>>> = Arc::new(Mutex::new(Vec::new()));
+            let (handed, ctx) = (demand.clone(), cc.egui_ctx.clone());
+            window_signal::on_data(move |kind, bytes| {
+                if kind == window_signal::DataKind::Demand {
+                    *handed.lock().unwrap_or_else(|e| e.into_inner()) = demand::taken_over(&bytes);
+                    ctx.request_repaint();
+                }
+            });
+            window_signal::send_to(Role::Main, Signal::DemandWanted);
             let (news_tx, news_rx) = mpsc::channel();
             let texts_news = news_tx.clone();
             let stock_news = news_tx.clone();
@@ -2526,6 +2634,28 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(target_os = "macos")]
             drop(hotkey_tx);
+            // The hotkey of the handle search, the same way as the one of the overlay.
+            let search_hotkey = Arc::new(Mutex::new(settings.search_hotkey));
+            let (search_tx, search_rx) = mpsc::channel();
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
+            let mut search_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() {
+                let ctx = cc.egui_ctx.clone();
+                search_registered =
+                    crate::win::start_hotkeys(search_hotkey.clone(), search_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() {
+                let ctx = cc.egui_ctx.clone();
+                search_registered = hotkey_x11::start(search_hotkey.clone(), search_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
+            drop(search_tx);
             if args.probe.is_none()
                 && let Some(choice) = &hotkey_choice
             {
@@ -2535,6 +2665,10 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     .map(|scan| (scan, scan_registered));
                 for line in overlay::hotkey_trail(choice, registered, scan) {
                     versekit_core::trail::step(&line);
+                }
+                if let Some(paths) = &paths {
+                    let search = overlay::HotkeyChoice::read_search(paths);
+                    versekit_core::trail::step(&overlay::search_hotkey_trail(&search, search_registered));
                 }
             }
             let mut app = OverlayApp::new(Parts {
@@ -2551,6 +2685,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 hotkey,
                 hotkey_presses: hotkey_rx,
                 refinery,
+                search_hotkey,
+                search_presses: search_rx,
                 control: control_rx,
                 start,
                 remembered: remembered.is_some(),
@@ -2561,6 +2697,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 overview_asked,
                 frame_asked,
                 afk_asked,
+                demand,
             });
             #[cfg(windows)]
             if let Some(file) = &args.probe {
@@ -2650,6 +2787,8 @@ mod tests {
         news: Sender<News>,
         game: Sender<GameNews>,
         control: Sender<Control>,
+        /// A press of the hotkey of the handle search.
+        search_key: Sender<()>,
     }
 
     fn bench(args: Args, real_game: bool, paths: Option<Paths>) -> Bench {
@@ -2675,6 +2814,47 @@ mod tests {
         assert_eq!(bench.app.hangar_line(now), None);
     }
 
+    /// The hotkey of the handle search asks the info bar for the cursor while the bar is on the screen; without the
+    /// bar a hint row says where the search is.
+    #[test]
+    fn the_hotkey_of_the_search_asks_the_bar_or_says_where_the_search_is() {
+        let mut bench = bench(Args::default(), false, None);
+        let hint = language::t("ov_hk_suche_ohne_leiste");
+        let hints = |app: &OverlayApp| {
+            app.rows.iter().filter(|row| matches!(row, Row::Hint { text, .. } if text.render() == hint)).count()
+        };
+        bench.app.rows.clear();
+        bench.search_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(!bench.app.info.key_asked(), "the bar is off: nothing to ask");
+        assert_eq!(hints(&bench.app), 1, "the hint row");
+        (bench.app.settings.info_bar, bench.app.settings.info_bar_always) = (true, true);
+        bench.search_key.send(()).unwrap();
+        bench.search_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.info.key_asked(), "the bar is asked for the cursor");
+        assert_eq!(hints(&bench.app), 1, "no second hint");
+    }
+
+    /// The refinery jobs come to the open overlay while their switch is on, and the switch takes them away.
+    #[test]
+    fn the_refinery_jobs_follow_their_switch() {
+        use versekit_core::jsonio::Value;
+        let mut bench = bench(Args::default(), false, None);
+        let ctx = egui::Context::default();
+        let ends = contested::now() + 600.0;
+        bench.app.refinery_jobs = vec![vec![
+            ("ends".to_string(), Value::Float(ends)),
+            ("materials".to_string(), Value::Array(vec![Value::str("Gold")])),
+        ]];
+        bench.app.refinery_read = Some(Instant::now());
+        let lines = bench.app.refinery_lines(&ctx);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(lines[0].0.starts_with("Gold") && !lines[0].1, "{lines:?}");
+        bench.app.settings.sections = bench.app.settings.sections.with(Section::Refinery, false);
+        assert!(bench.app.refinery_lines(&ctx).is_empty(), "switched off: nothing");
+    }
+
     fn bench_at(args: Args, real_game: bool, paths: Option<Paths>, scale: f32) -> Bench {
         // The language of this thread only: asking for the program's would decide it from the
         // real data of whoever runs the test, and race with the tests that set it.
@@ -2683,6 +2863,7 @@ mod tests {
         let (game, game_rx) = mpsc::channel();
         let (_presses, presses_rx) = mpsc::channel();
         let (control, control_rx) = mpsc::channel();
+        let (search_key, search_rx) = mpsc::channel();
         let file_settings = Settings::default();
         let forced_game = Arc::new(ForcedGame::new(args.game.then_some(true)));
         let app = OverlayApp::new(Parts {
@@ -2699,6 +2880,8 @@ mod tests {
             hotkey: Arc::new(Mutex::new(None)),
             hotkey_presses: presses_rx,
             refinery: crate::refinery::RefineryKey::new(None, mpsc::channel().1),
+            search_hotkey: Arc::new(Mutex::new(None)),
+            search_presses: search_rx,
             control: Some(control_rx),
             start: Rect::new(10, 20, 540, 390),
             remembered: true,
@@ -2709,8 +2892,9 @@ mod tests {
             overview_asked: Arc::new(AtomicBool::new(false)),
             frame_asked: Arc::new(AtomicBool::new(false)),
             afk_asked: Arc::new(AtomicU8::new(0)),
+            demand: Arc::new(Mutex::new(Vec::new())),
         });
-        Bench { app, news, game, control }
+        Bench { app, news, game, control, search_key }
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {
@@ -2756,6 +2940,42 @@ mod tests {
                 monitor((1280, 0, 1920, 1080), (1280, 30, 1920, 1050)),
             ],
         }
+    }
+
+    /// Dragged, the overlay cannot leave what the screens cover; let go a few pixels before an edge it goes onto it,
+    /// wholly onto the screen under its middle, and the window around it moves by as much. A click on the bar (a drag
+    /// of at most [`DRAG_SLACK`]) moves nothing.
+    #[test]
+    fn a_dragged_overlay_stays_on_the_screens_and_snaps_onto_an_edge() {
+        let _screens = screen::fixed(linux_two_screens());
+        let ctx = egui::Context::default();
+        let mut bench = bench(Args::default(), false, None);
+        let app = &mut bench.app;
+        let start = Rect::new(1500, 300, 400, 300);
+        (app.current, app.last_open, app.canvas) = (start, start, start);
+        let to = |app: &mut OverlayApp, x: i32, y: i32| {
+            app.drag_to(&ctx, Drag::Move, (10, 10), start, Pointer { hidden: false, x: x + 10, y: y + 10 })
+        };
+        // Far beyond the right and the top edge: held where the screens end (both together are 3200 x 1080).
+        to(app, 9000, -500);
+        assert_eq!(app.current, Rect::new(2800, 0, 400, 300));
+        assert_eq!(app.canvas, app.current, "the window moves along");
+        // Let go 9 pixels before the right edge of the main screen: onto it.
+        to(app, 2791, 500);
+        app.drag_ended(Drag::Move, start, Shown::Open);
+        assert_eq!(app.current, Rect::new(2800, 500, 400, 300));
+        assert_eq!((app.canvas, app.last_open), (app.current, app.current), "window and open place follow");
+        // Over the lower edge of the small screen on the left (1024 high, the main one 1080): let go there, the
+        // whole window comes back onto the small screen.
+        to(app, 300, 900);
+        assert_eq!(app.current, Rect::new(300, 780, 400, 300), "held at the bottom of what the screens cover");
+        app.drag_ended(Drag::Move, start, Shown::Open);
+        assert_eq!(app.current, Rect::new(300, 724, 400, 300), "wholly on the screen under its middle");
+        // A click 2 pixels from the left edge keeps the place.
+        let near = Rect::new(2, 500, 400, 300);
+        (app.current, app.canvas) = (near, near);
+        app.drag_ended(Drag::Move, Rect { x: 0, ..near }, Shown::Open);
+        assert_eq!(app.current, near);
     }
 
     const DEFAULT: (i32, i32) = (880, 544);
@@ -2868,8 +3088,8 @@ mod tests {
         out.viewport_output.get(&egui::ViewportId::ROOT).map(|v| v.commands.clone()).unwrap_or_default()
     }
 
-    /// The info bar is off at first and comes with its switch; the lock of the overlay locks it too and opens it
-    /// again: one switch for both windows.
+    /// The info bar stands over the running game at first and goes and comes with its switch; the lock of the
+    /// overlay locks it too and opens it again: one switch for both windows.
     #[test]
     fn the_lock_of_the_overlay_locks_the_info_bar_too() {
         let _screens = screen::fixed(laptop());
@@ -2878,7 +3098,10 @@ mod tests {
         let mut bench = bench_at(Args { game: true, ..Args::default() }, true, None, 2.0);
         let app = &mut bench.app;
         run_frame(app, &ctx);
-        assert!(!app.info.shown(), "off by default");
+        assert!(app.info.shown(), "on by default while the game runs");
+        app.settings.info_bar = false;
+        run_frame(app, &ctx);
+        assert!(!app.info.shown(), "switched off: gone");
         app.settings.info_bar = true;
         run_frame(app, &ctx);
         assert!(app.info.shown() && !app.info.passing(), "on, lock open: the bar takes the mouse");
@@ -2901,7 +3124,7 @@ mod tests {
         versekit_ui::install(&ctx);
         let mut bench = bench_at(Args::default(), false, None, 2.0);
         let app = &mut bench.app;
-        app.settings.info_bar = true;
+        assert!(app.settings.info_bar && !app.settings.info_bar_always, "the defaults: on, but not without the game");
         run_frame(app, &ctx);
         assert!(!app.info.shown(), "no game: no bar");
         app.settings.info_bar_always = true;
@@ -3182,6 +3405,72 @@ mod tests {
         assert_eq!(bench.app.last_open, Rect::new(100, 120, 300, 200));
         bench.app.apply_control(Control { place: Some(Place::Remembered), place_nr: 1, ..Control::default() });
         assert_eq!(bench.app.last_open, Rect::new(40, 50, 410, 330), "back where the data say");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// "Die Einheit sucht: …" stands under the signature line when the unit wants one of the ores behind it, as the
+    /// main window handed the demand over; no signature line, no wanted ore or no demand: no line.
+    #[test]
+    fn the_overlay_names_what_the_unit_wants_of_the_ores_behind_the_signature() {
+        use versekit_core::signature_window::Text;
+        let mut bench = bench(Args::default(), false, None);
+        let app = &mut bench.app;
+        let text = Text { material: "2× Agricium".into(), number: "8,420".into(), known: true };
+        let handed = demand::handover(&[Material {
+            name: "Agricium".into(),
+            raw: vec!["Agricium (Ore)".into()],
+            min_quality: 650,
+            amount: 40.0,
+            unit: "SCU".into(),
+            source: String::new(),
+        }]);
+        assert_eq!(app.demand_line(), None, "nothing read yet");
+        app.scanner.show_read(text.clone(), vec!["Agricium".into()], true);
+        assert_eq!(app.demand_line(), None, "nothing handed over yet");
+        *app.demand.lock().unwrap() = demand::taken_over(&handed);
+        assert_eq!(app.demand_line().as_deref(), Some("Die Einheit sucht: 40 SCU Agricium (ab Q 650)"));
+        app.scanner.show_read(text.clone(), vec!["Quantainium".into()], true);
+        assert_eq!(app.demand_line(), None, "an ore the unit does not want");
+        *app.demand.lock().unwrap() = demand::taken_over(&demand::handover(&[]));
+        app.scanner.show_read(text, vec!["Agricium".into()], true);
+        assert_eq!(app.demand_line(), None, "the demand went away (switched off, disconnected)");
+    }
+
+    /// „In die Mitte holen“ while the overlay runs: the main window forgets size and place and says so, and the
+    /// running overlay stands in the middle of the main screen in the default size a start without them measures.
+    #[test]
+    fn a_forgotten_place_brings_the_running_overlay_to_the_middle_in_its_default_size() {
+        let _screens = screen::fixed(laptop());
+        let ctx = egui::Context::default();
+        versekit_ui::install(&ctx);
+        let root = scratch("mitte");
+        std::fs::create_dir_all(root.join(versekit_core::paths::COPY_DATA_FOLDER)).expect("data folder");
+        let host = Host::new(versekit_core::pypath::Flavor::native(), &[], &root.to_string_lossy());
+        let main_window = Paths::for_copy(host.clone(), &root.to_string_lossy()).expect("a copy");
+        assert!(overlay::save_place(&main_window, Rect::new(1500, 900, 600, 400)));
+        let args = || Args { game: true, counter: Some("im_bildfaden".into()), ..Args::default() };
+        let mut running = bench_at(args(), true, Paths::for_copy(host.clone(), &root.to_string_lossy()), 2.0);
+        let told = |bench: &Bench| bench.app.settings_told.store(true, Ordering::Relaxed);
+        running.app.place_known = true;
+        told(&running);
+        run_frame(&mut running.app, &ctx);
+        let moved = running.app.last_open;
+        assert!(versekit_core::overlay::forget_place(&main_window));
+        told(&running);
+        run_frame(&mut running.app, &ctx);
+        run_frame(&mut running.app, &ctx);
+        // A start without a remembered size, for the default size the text heights give.
+        let fresh_ctx = egui::Context::default();
+        versekit_ui::install(&fresh_ctx);
+        let mut fresh = bench_at(args(), true, None, 2.0);
+        fresh.app.default_pending = true;
+        run_frame(&mut fresh.app, &fresh_ctx);
+        run_frame(&mut fresh.app, &fresh_ctx);
+        let back = running.app.last_open;
+        assert_ne!(back, moved, "the running overlay followed");
+        assert_eq!(back, fresh.app.last_open, "the default size in the middle of the main screen");
+        assert_eq!(back, centered_on_main((back.w, back.h)));
+        assert!(running.app.place_changed.is_none(), "nothing remembered until the player moves it");
         let _ = std::fs::remove_dir_all(&root);
     }
 

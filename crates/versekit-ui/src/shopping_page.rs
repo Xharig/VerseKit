@@ -776,7 +776,19 @@ pub(crate) fn drop_line_y(rects: &[egui::Rect], from: usize, to: usize) -> Optio
     }
 }
 
-/// One stop: its tick on the way (with `marks`), its place, the sum and the parts bought there.
+/// One part of a stop: its name with the count and its price.
+fn stop_part(line: &cart::RouteLine) -> (String, String) {
+    let name = if line.count > 1 { format!("{} × {}", line.count, line.name) } else { line.name.clone() };
+    let price = if line.count > 1 {
+        tf("s_wk_route_je", &[("summe", Arg::from(auec(line.sum))), ("preis", Arg::from(auec(line.price)))])
+    } else {
+        auec(line.sum)
+    };
+    (name, price)
+}
+
+/// One stop: its tick on the way (with `marks`), the parts bought there in the first rows, below them the place
+/// with its shops and, for more than one part, the sum.
 fn stop_block(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -795,22 +807,25 @@ fn stop_block(
         ui.set_width(ui.available_width());
         let place =
             [stop.system.as_str(), stop.place.as_str()].into_iter().filter(|x| !x.is_empty()).collect::<Vec<_>>();
-        let mut title = format!("{}  {}", k + 1, place.join(" · "));
+        let lines = cart::route_lines(&stop.entries);
+        let parts: Vec<(String, String)> = lines.iter().map(stop_part).collect();
+        let (first_name, first_price) = parts.first().cloned().unwrap_or_default();
+        let mut title = format!("{}  {first_name}", k + 1);
         if done {
             title = format!("{title}  ·  {}", t("s_ek_stopp_erledigt"));
         }
         // The name of the buttons for a screen reader: the stop with its number, not with the gap of the display.
         let who = format!("{}. {}", k + 1, place.join(" · "));
         let gap = ui.spacing().item_spacing.x;
-        let sum = auec(stop.sum);
         let tick_width = if marks.is_some() { widgets::ICON_BUTTON_SIZE + gap } else { 0.0 };
         // The grip and the two arrows.
         let arrows_width = tick_width + if count > 1 { 3.0 * (widgets::ICON_BUTTON_SIZE + gap) } else { 0.0 };
         let title_width = arrows_width + text_width(ui, &title, egui::TextStyle::Body, true);
+        let tone = if done { scheme.sub } else { scheme.fg };
         spread(
             ui,
             title_width,
-            text_width(ui, &sum, egui::TextStyle::Small, false),
+            text_width(ui, &first_price, egui::TextStyle::Body, false),
             arrows_width,
             |row| {
                 // The grip at the left: the stop is dragged to its place with the mouse.
@@ -850,35 +865,51 @@ fn stop_block(
                         drag.moves = Some((k, k + 1));
                     }
                 }
-                let tone = if done { scheme.sub } else { scheme.fg };
                 row.label(widgets::bold(row, title.clone(), egui::TextStyle::Body).color(color(tone)));
+            },
+            |right| {
+                right.label(RichText::new(first_price.clone()).color(color(tone)));
+            },
+        );
+        // The further parts in the same weight as the first, under its name.
+        let indent = arrows_width + text_width(ui, &format!("{}  ", k + 1), egui::TextStyle::Body, true);
+        for (name, price) in parts.iter().skip(1) {
+            spread(
+                ui,
+                indent + text_width(ui, name, egui::TextStyle::Body, true),
+                text_width(ui, price, egui::TextStyle::Body, false),
+                indent,
+                |row| {
+                    row.add_space(indent);
+                    row.label(widgets::bold(row, name.clone(), egui::TextStyle::Body).color(color(tone)));
+                },
+                |right| {
+                    right.label(RichText::new(price.clone()).color(color(tone)));
+                },
+            );
+        }
+        // Below the parts, small: where they are bought, and the sum of the stop when it holds more than one part.
+        let mut shops: Vec<&str> = Vec::new();
+        for line in &lines {
+            if !line.shop.is_empty() && !shops.contains(&line.shop.as_str()) {
+                shops.push(line.shop.as_str());
+            }
+        }
+        let where_text = place.iter().copied().chain(shops).collect::<Vec<_>>().join(" · ");
+        let sum = if parts.len() > 1 { auec(stop.sum) } else { String::new() };
+        spread(
+            ui,
+            indent + text_width(ui, &where_text, egui::TextStyle::Small, false),
+            text_width(ui, &sum, egui::TextStyle::Small, false),
+            indent,
+            |row| {
+                row.add_space(indent);
+                row.label(sub(scheme, where_text.clone()));
             },
             |right| {
                 right.label(sub(scheme, sum.clone()));
             },
         );
-        for line in cart::route_lines(&stop.entries) {
-            let name = if line.count > 1 { format!("{} × {}", line.count, line.name) } else { line.name.clone() };
-            let what = if line.shop.is_empty() { name } else { format!("{name} · {}", line.shop) };
-            let price = if line.count > 1 {
-                tf("s_wk_route_je", &[("summe", Arg::from(auec(line.sum))), ("preis", Arg::from(auec(line.price)))])
-            } else {
-                auec(line.sum)
-            };
-            spread(
-                ui,
-                12.0 + text_width(ui, &what, egui::TextStyle::Small, false),
-                text_width(ui, &price, egui::TextStyle::Small, false),
-                12.0,
-                |row| {
-                    row.add_space(12.0);
-                    row.label(sub(scheme, what.clone()));
-                },
-                |right| {
-                    right.label(sub(scheme, price.clone()));
-                },
-            );
-        }
     });
     drag.rects.push(shown.response.rect);
 }
@@ -1731,7 +1762,8 @@ mod tests {
         assert!(shown.contains(&t("s_p9_ek_untergrenze")), "the Quantainium has no price: {shown:?}");
         // One stop: both coolers at the same shop are one line with the count.
         assert!(shown.contains(&t("s_wk_route")), "{shown:?}");
-        assert!(shown.iter().any(|s| s == "2 × Frostline Cooler · Dumper's Depot"), "{shown:?}");
+        assert!(shown.iter().any(|s| s == "1  2 × Frostline Cooler"), "the parts on top: {shown:?}");
+        assert!(shown.iter().any(|s| s.ends_with("Dumper's Depot")), "the place below: {shown:?}");
         // The done position is folded under its count.
         assert!(shown.contains(&tf("s_ek_abgehakt", &[("n", Arg::Int(1))])), "{shown:?}");
         // A part that is the factory part is no position.
@@ -2104,21 +2136,21 @@ mod tests {
     }
 
     /// Where the title of a stop lies after a frame (top left of the text): the one that starts with its
-    /// number and names `place`.
-    fn title_at(shapes: &[egui::epaint::ClippedShape], number: usize, place: &str) -> egui::Pos2 {
-        fn find(shape: &egui::epaint::Shape, start: &str, place: &str) -> Option<egui::Pos2> {
+    /// number and names its first `part`.
+    fn title_at(shapes: &[egui::epaint::ClippedShape], number: usize, part: &str) -> egui::Pos2 {
+        fn find(shape: &egui::epaint::Shape, start: &str, part: &str) -> Option<egui::Pos2> {
             match shape {
                 egui::epaint::Shape::Text(text)
-                    if text.galley.text().starts_with(start) && text.galley.text().contains(place) =>
+                    if text.galley.text().starts_with(start) && text.galley.text().contains(part) =>
                 {
                     Some(text.pos)
                 }
-                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(|shape| find(shape, start, place)),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(|shape| find(shape, start, part)),
                 _ => None,
             }
         }
         let start = format!("{number}  ");
-        shapes.iter().find_map(|clipped| find(&clipped.shape, &start, place)).expect(place)
+        shapes.iter().find_map(|clipped| find(&clipped.shape, &start, part)).expect(part)
     }
 
     /// One frame of the page with `events` coming in; the painted shapes.
@@ -2188,7 +2220,7 @@ mod tests {
         let ctx = context();
         let mut state = two_stops();
         let shapes = settle(&ctx, &mut state);
-        let (first, second) = (title_at(&shapes, 1, "Port Tressler"), title_at(&shapes, 2, "Area18"));
+        let (first, second) = (title_at(&shapes, 1, "Radar X"), title_at(&shapes, 2, "Frostline Cooler"));
         assert!(first.y < second.y);
         // Let go above the middle of the first stop: nothing changes for the first one.
         drag_grip(&ctx, &mut state, first, egui::pos2(first.x, first.y - 4.0));
@@ -2196,7 +2228,7 @@ mod tests {
         // The first stop let go below the second one: it is the last now.
         drag_grip(&ctx, &mut state, first, egui::pos2(first.x, second.y + 40.0));
         let shapes = settle(&ctx, &mut state);
-        assert!(title_at(&shapes, 1, "Area18").y < title_at(&shapes, 2, "Port Tressler").y, "the order is turned");
+        assert!(title_at(&shapes, 1, "Frostline Cooler").y < title_at(&shapes, 2, "Radar X").y, "the order is turned");
         assert_eq!(state.view.order.len(), 2, "and kept: {:?}", state.view.order);
     }
 
@@ -2207,8 +2239,8 @@ mod tests {
         let ctx = context();
         let mut state = two_stops();
         let shapes = settle(&ctx, &mut state);
-        let first = title_at(&shapes, 1, "Port Tressler");
-        let second = title_at(&shapes, 2, "Area18");
+        let first = title_at(&shapes, 1, "Radar X");
+        let second = title_at(&shapes, 2, "Frostline Cooler");
         // Taken and let go on the spot, even though the mouse then lies under the second stop.
         let grip = grip_of(first);
         let button = |pos, pressed| egui::Event::PointerButton {
@@ -2279,8 +2311,10 @@ mod tests {
         let total = 2.0 * 22_700.0 + 8_400.0;
         assert!(shown.contains(&tf("s_wk_summe", &[("preis", Arg::from(plain(total)))])), "{shown:?}");
         assert!(shown.contains(&t("s_wk_route")), "{shown:?}");
-        assert!(shown.iter().any(|s| s == "2 × Frostline Cooler · Dumper's Depot"), "{shown:?}");
-        assert!(shown.iter().any(|s| s == "Radar X · Tammany and Sons"), "{shown:?}");
+        assert!(shown.iter().any(|s| s.ends_with("  2 × Frostline Cooler")), "{shown:?}");
+        assert!(shown.iter().any(|s| s.ends_with("  Radar X")), "{shown:?}");
+        assert!(shown.iter().any(|s| s.ends_with("Dumper's Depot")), "{shown:?}");
+        assert!(shown.iter().any(|s| s.ends_with("Tammany and Sons")), "{shown:?}");
         assert!(shown.contains(&t("s_ek_vorlagen")), "a list with parts can be kept: {shown:?}");
     }
 
@@ -2299,7 +2333,7 @@ mod tests {
         let total = 3.0 * 22_700.0;
         assert!(shown.contains(&tf("s_wk_summe", &[("preis", Arg::from(plain(total)))])), "{shown:?}");
         assert!(
-            shown.iter().any(|s| s == "3 × Frostline Cooler · Dumper's Depot"),
+            shown.iter().any(|s| s == "1  3 × Frostline Cooler"),
             "one stop for all three: {shown:?}"
         );
     }
@@ -2703,7 +2737,10 @@ mod tests {
         bench.click_named(&["Area18", &t("s_ek_stopp_abhaken")]);
         assert_eq!(bench.state.view.basket.stops_done, ["Stanton|Area18"]);
         let shown = bench.settle();
-        assert!(shown.iter().any(|s| s.contains("Area18") && s.contains(&t("s_ek_stopp_erledigt"))), "{shown:?}");
+        assert!(
+            shown.iter().any(|s| s.contains("Frostline Cooler") && s.contains(&t("s_ek_stopp_erledigt"))),
+            "{shown:?}"
+        );
         let said = tf("s_ek_stopps_erledigt", &[("0", Arg::from(1)), ("1", Arg::from(2))]);
         assert!(shown.contains(&said), "{shown:?}");
         // The tick is taken back on the stop itself, and all at once below the route.

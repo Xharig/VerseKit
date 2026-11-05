@@ -100,6 +100,10 @@ const VALUE_MARGIN: f64 = 0.02;
 const MAX_DIGIT_DISTANCE: f64 = 0.26;
 /// So many taught images per digit; the youngest stay.
 const MAX_OWN_PER_DIGIT: usize = 24;
+/// Other thresholds each taught image is cut at for derived templates.
+const DERIVED_THRESHOLDS: usize = 2;
+/// Most derived templates kept per digit in a file of taught digits, apart from the taught ones.
+const MAX_DERIVED_PER_DIGIT: usize = 24;
 /// At least so many characters in a row.
 const MIN_CHARS: usize = 3;
 const LEARN_HOLE_TOLERANCE: f64 = 0.07;
@@ -868,6 +872,61 @@ pub fn fill(pattern: &Pattern) -> Pattern {
     result
 }
 
+/// The pattern moved by whole cells; cells pushed off the grid are lost.
+fn shifted(pattern: &Pattern, dx: i32, dy: i32) -> Pattern {
+    let mut result = [0u8; CELLS];
+    for y in 0..NORM_H as i32 {
+        for x in 0..NORM_W as i32 {
+            let (sx, sy) = (x - dx, y - dy);
+            if (0..NORM_W as i32).contains(&sx) && (0..NORM_H as i32).contains(&sy) {
+                result[(y as usize) * NORM_W + x as usize] = pattern[(sy as usize) * NORM_W + sx as usize];
+            }
+        }
+    }
+    result
+}
+
+/// Each cell set when at least `need` of the cells of its 3x3 neighbourhood (itself included) are set.
+fn neighbourhood(pattern: &Pattern, need: usize) -> Pattern {
+    let mut result = [0u8; CELLS];
+    for y in 0..NORM_H as i32 {
+        for x in 0..NORM_W as i32 {
+            let mut count = 0;
+            for (dx, dy) in (-1..=1).flat_map(|dx| (-1..=1).map(move |dy| (dx, dy))) {
+                let (nx, ny) = (x + dx, y + dy);
+                if (0..NORM_W as i32).contains(&nx) && (0..NORM_H as i32).contains(&ny) {
+                    count += usize::from(pattern[(ny as usize) * NORM_W + nx as usize] != 0);
+                }
+            }
+            result[(y as usize) * NORM_W + x as usize] = u8::from(count >= need);
+        }
+    }
+    result
+}
+
+/// Variants of a pattern a second grab of the same digit could look like: moved one cell to each side, slightly
+/// blurred and one cell thicker. Only those that plausibly are the digit and differ from the
+/// pattern and from each other (after [`fill`]) are returned.
+pub fn derived_patterns(digit: char, pattern: &Pattern) -> Vec<Pattern> {
+    let mut raw: Vec<Pattern> =
+        [(-1, 0), (1, 0), (0, -1), (0, 1)].iter().map(|&(dx, dy)| shifted(pattern, dx, dy)).collect();
+    raw.push(neighbourhood(pattern, 4));
+    raw.push(neighbourhood(pattern, 1));
+    keep_new(digit, &fill(pattern), raw)
+}
+
+/// The candidates that, filled, are plausible for the digit and differ from the base and from each other.
+fn keep_new(digit: char, base: &Pattern, candidates: Vec<Pattern>) -> Vec<Pattern> {
+    let mut out: Vec<Pattern> = Vec::new();
+    for candidate in candidates {
+        let filled = fill(&candidate);
+        if filled != *base && !out.contains(&filled) && plausible_template(digit, &filled) {
+            out.push(filled);
+        }
+    }
+    out
+}
+
 #[derive(Clone, Debug)]
 struct Example {
     pattern: Pattern,
@@ -920,6 +979,25 @@ impl Templates {
         out
     }
 
+    /// Adds the derived variants ([`derived_patterns`]) of every example held now.
+    pub fn add_derived(&mut self) {
+        for (digit, examples) in &mut self.digits {
+            let originals: Vec<Pattern> = examples.iter().map(|e| e.pattern).collect();
+            for pattern in originals {
+                for variant in derived_patterns(*digit, &pattern) {
+                    if !examples.iter().any(|e| e.pattern == variant) {
+                        examples.push(Example {
+                            pattern: variant,
+                            bits: bits_of(&variant),
+                            holes: holes(&variant),
+                            slash: slashed_zero(&variant),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     /// Adds the examples of one file (`{"format": 1, "ziffern": {"0": [[…384…], …]}}`); a broken file adds none.
     pub fn add_file(&mut self, path: &str) {
         if let Ok(data) = jsonio::read_json(path) {
@@ -938,7 +1016,14 @@ impl Templates {
         if data.get("format") != Some(&Value::int(1)) {
             return;
         }
-        let Some(Value::Object(digits)) = data.get("ziffern") else { return };
+        for field in ["ziffern", "abgeleitet"] {
+            if let Some(Value::Object(digits)) = data.get(field) {
+                self.add_digits(digits);
+            }
+        }
+    }
+
+    fn add_digits(&mut self, digits: &[(String, Value)]) {
         for (key, examples) in digits {
             let mut chars = key.chars();
             let (Some(digit), None) = (chars.next(), chars.next()) else { continue };
@@ -1668,7 +1753,7 @@ fn learn_into(
     if typed_digits.len() < 2 {
         return Err("anlernen_leer");
     }
-    let mut candidates: Vec<(usize, Vec<Pattern>)> = Vec::new();
+    let mut candidates: Vec<(usize, Vec<Pattern>, Vec<Box4>, u8)> = Vec::new();
     for variants in [false, true] {
         if !candidates.is_empty() {
             break;
@@ -1679,7 +1764,7 @@ fn learn_into(
                     let patterns: Vec<Pattern> = digits.iter().map(|&b| normalize(raster, b, threshold)).collect();
                     let fitting =
                         patterns.iter().zip(&typed_digits).filter(|(p, d)| plausible_template(**d, p)).count();
-                    candidates.push((fitting, patterns));
+                    candidates.push((fitting, patterns, digits, threshold));
                 }
             }
         }
@@ -1689,17 +1774,28 @@ fn learn_into(
     }
     // Stable: the first of the equally fitting stays first.
     candidates.sort_by_key(|c| std::cmp::Reverse(c.0));
-    let patterns = candidates.swap_remove(0).1;
+    let (_, patterns, boxes, used_threshold) = candidates.swap_remove(0);
+    // The same boxes cut at the nearest other thresholds: brighter or darker type of a second grab.
+    let other_thresholds: Vec<u8> = {
+        let mut others: Vec<u8> = thresholds(raster).into_iter().filter(|t| *t != used_threshold).collect();
+        others.sort_by_key(|t| (i32::from(*t) - i32::from(used_threshold)).abs());
+        others.truncate(DERIVED_THRESHOLDS);
+        others
+    };
 
     // Only a file that is not there starts empty: a file that cannot be read (locked, not JSON) would be
     // replaced by the one set of this teaching and lose everything taught before.
-    let mut own = match jsonio::read_json(own_file) {
-        Ok(Value::Object(map)) => map
-            .into_iter()
-            .find(|(k, _)| k == "ziffern")
-            .and_then(|(_, v)| if let Value::Object(m) = v { Some(m) } else { None })
-            .unwrap_or_default(),
-        Err(jsonio::ReadError::NotFound) => Vec::new(),
+    let (mut own, mut derived_own) = match jsonio::read_json(own_file) {
+        Ok(Value::Object(map)) => {
+            let field = |name: &str| {
+                map.iter()
+                    .find(|(k, _)| k == name)
+                    .and_then(|(_, v)| if let Value::Object(m) = v { Some(m.clone()) } else { None })
+                    .unwrap_or_default()
+            };
+            (field("ziffern"), field("abgeleitet"))
+        }
+        Err(jsonio::ReadError::NotFound) => (Vec::new(), Vec::new()),
         Ok(_) | Err(_) => return Err("anlernen_lesen"),
     };
     let columns = digit_table(&patterns, known);
@@ -1728,7 +1824,7 @@ fn learn_into(
         let slot = match own.iter().position(|(k, _)| *k == key) {
             Some(at) => at,
             None => {
-                own.push((key, Value::Array(Vec::new())));
+                own.push((key.clone(), Value::Array(Vec::new())));
                 own.len() - 1
             }
         };
@@ -1746,11 +1842,31 @@ fn learn_into(
             let excess = list.len().saturating_sub(MAX_OWN_PER_DIGIT);
             list.drain(..excess);
         }
+        let mut variants: Vec<Pattern> =
+            other_thresholds.iter().map(|&t| normalize(raster, boxes[position - 1], t)).collect();
+        variants.extend(derived_patterns(digit, pattern));
+        for variant in keep_new(digit, &fill(pattern), variants) {
+            let slot = match derived_own.iter().position(|(k, _)| *k == key) {
+                Some(at) => at,
+                None => {
+                    derived_own.push((key.clone(), Value::Array(Vec::new())));
+                    derived_own.len() - 1
+                }
+            };
+            let Value::Array(list) = &mut derived_own[slot].1 else { continue };
+            let value = Value::Array(variant.iter().map(|&v| Value::int(i64::from(v))).collect());
+            if !list.contains(&value) {
+                list.push(value);
+                let excess = list.len().saturating_sub(MAX_DERIVED_PER_DIGIT);
+                list.drain(..excess);
+            }
+        }
     }
     let file = Value::Object(vec![
         ("format".into(), Value::int(1)),
         ("raster".into(), Value::Array(vec![Value::int(NORM_W as i64), Value::int(NORM_H as i64)])),
         ("ziffern".into(), Value::Object(own)),
+        ("abgeleitet".into(), Value::Object(derived_own)),
     ]);
     if let Some(folder) = std::path::Path::new(own_file).parent() {
         let _ = jsonio::make_dirs(&folder.to_string_lossy());

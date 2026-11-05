@@ -128,7 +128,7 @@ impl Orgs {
 }
 
 /// The part of `html` from `from` on, or nothing.
-fn after<'a>(html: &'a str, from: &str) -> Option<&'a str> {
+pub(super) fn after<'a>(html: &'a str, from: &str) -> Option<&'a str> {
     html.find(from).map(|at| &html[at + from.len()..])
 }
 
@@ -155,7 +155,7 @@ pub(super) fn clean(raw: &str) -> String {
 
 /// The content of the next element `tag` in `html`: everything between the end of its opening tag and its
 /// closing tag.
-fn element<'a>(html: &'a str, tag: &str) -> Option<&'a str> {
+pub(super) fn element<'a>(html: &'a str, tag: &str) -> Option<&'a str> {
     let open = html.find(&format!("<{tag}"))?;
     let rest = &html[open..];
     let start = rest.find('>')? + 1;
@@ -180,7 +180,7 @@ fn value_after(html: &str, label: &str) -> Option<String> {
 
 /// The address in the first `src="…"` of `html`, made whole (`/media/…` → `https://robertsspaceindustries.com/media/…`).
 /// Only an address on https is kept.
-fn image_in(html: &str) -> String {
+pub(super) fn image_in(html: &str) -> String {
     between(html, "src=\"", "\"").map(whole_url).unwrap_or_default()
 }
 

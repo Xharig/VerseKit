@@ -15,11 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The purchases of the journal as suggestions for the items of the stock.
+//! The purchases and sales of the journal as suggestions for the items of the stock.
 //!
-//! A suggestion is a purchase that was neither taken over nor thrown away. What the player decided is kept
-//! in `lagervorschlaege.json`, one word per purchase; a purchase without an entry is open. Nothing is written
-//! into the stock by this module: it only says what could be booked and how.
+//! A suggestion is a purchase or a sale that was neither taken over nor thrown away. What the player decided is
+//! kept in `lagervorschlaege.json`, one word per deal; a deal without an entry is open. Nothing is written into
+//! the stock by this module on its own: it says what could be booked and how, and books what it is asked to.
+//!
+//! ⚠ A sale takes its pieces out of the stock: first from the stacks of the item at the place of the sale, then
+//! from the stacks of the item without a place, the ones not marked stolen first in each. A stack that runs empty
+//! is removed. When the stock holds fewer pieces than were sold, what is there is taken; when it holds none, the
+//! sale cannot be taken over. Its key starts with `verkauf:`, so a sale and a purchase never share one.
 //!
 //! ⚠ A purchase has no number of its own. Its key is the start of the session, the second of the request,
 //! the class, the amount and the count of equal purchases before it in that session, so two purchases of one
@@ -33,7 +38,7 @@
 use std::collections::BTreeMap;
 
 use super::names::{Items, PlaceName, Places};
-use super::{Purchase, Session};
+use super::{Deal, Purchase, Sale, Session};
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::paths::Paths;
 pub use crate::places::OwnPlace;
@@ -128,10 +133,12 @@ impl Decisions {
     }
 }
 
-/// One purchase offered to the stock.
+/// One purchase or sale offered to the stock.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Proposal {
     pub key: String,
+    /// A sale: taking it over takes the pieces out of the stock instead of booking them in.
+    pub sold: bool,
     /// Seconds since 1970 (UTC) of the request.
     pub time: i64,
     pub class: String,
@@ -151,12 +158,18 @@ pub struct Proposal {
 }
 
 impl Proposal {
-    /// May it be booked? The item is in the list of the stock and there is something to book.
+    /// May it be booked? The item is in the list of the stock and there is something to book. Whether the stock
+    /// holds a piece to take out for a sale is told by [`Proposal::bookable`].
     pub fn adoptable(&self) -> bool {
         self.stock_name.is_some() && self.quantity >= 1
     }
 
-    /// The place to book it at; empty for a purchase without a place.
+    /// May it be booked into or out of this stock? A sale needs at least one piece of its item there.
+    pub fn bookable(&self, trade: &[Value]) -> bool {
+        self.adoptable() && (!self.sold || take_plan(trade, self).pieces > 0)
+    }
+
+    /// The place to book it at (for a sale: the place it was sold at); empty for a deal without a place.
     pub fn place_to_book(&self) -> &str {
         match &self.place {
             PlaceName::Listed(name) | PlaceName::Shown(name) => name,
@@ -164,18 +177,75 @@ impl Proposal {
         }
     }
 
-    /// The place that taking it over adds to the list of the stock.
+    /// The place that taking it over adds to the list of the stock; a sale adds none.
     pub fn new_place(&self) -> Option<OwnPlace> {
         match &self.place {
-            PlaceName::Shown(name) => Some(OwnPlace { name: name.clone(), system: self.system.clone() }),
+            PlaceName::Shown(name) if !self.sold => Some(OwnPlace { name: name.clone(), system: self.system.clone() }),
             _ => None,
         }
     }
 
-    /// Is it booked without a place?
+    /// Is a purchase booked without a place?
     pub fn without_place(&self) -> bool {
-        matches!(self.place, PlaceName::Unknown(_))
+        !self.sold && matches!(self.place, PlaceName::Unknown(_))
     }
+}
+
+/// Where the pieces of a sale come from.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Take {
+    /// The index of a stack in the trade list and the pieces taken from it, in the order they are taken.
+    pub parts: Vec<(usize, u32)>,
+    /// All pieces taken; fewer than were sold when the stock holds fewer.
+    pub pieces: u32,
+    /// Some of them come from a stack without a place.
+    pub without_place: bool,
+}
+
+fn same_text(a: &str, b: &str) -> bool {
+    a.trim().to_lowercase() == b.trim().to_lowercase()
+}
+
+/// The stacks a sale takes its pieces from: the item at the place of the sale, then the item without a place,
+/// the ones not marked stolen first in each; empty for a purchase or an item the stock list does not know.
+pub fn take_plan(trade: &[Value], proposal: &Proposal) -> Take {
+    let mut plan = Take::default();
+    let Some(name) = proposal.stock_name.as_deref().filter(|_| proposal.sold) else { return plan };
+    let place = proposal.place_to_book();
+    let text = |entry: &Value, key: &str| entry.get(key).and_then(Value::as_str).unwrap_or("").to_string();
+    let mut stacks: Vec<(u8, bool, usize)> = trade
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| stock::is_pieces(e) && same_text(&text(e, "ware"), name))
+        .filter_map(|(i, e)| {
+            let at = text(e, "ort");
+            let tier = if !place.trim().is_empty() && same_text(&at, place) {
+                0
+            } else if at.trim().is_empty() {
+                1
+            } else {
+                return None;
+            };
+            Some((tier, matches!(e.get("gestohlen"), Some(Value::Bool(true))), i))
+        })
+        .collect();
+    stacks.sort_unstable();
+    let mut left = proposal.quantity;
+    for (tier, _, index) in stacks {
+        if left == 0 {
+            break;
+        }
+        let there = stock::number_of(&trade[index], "menge").max(0.0).floor();
+        let taken = if there >= f64::from(left) { left } else { there as u32 };
+        if taken == 0 {
+            continue;
+        }
+        plan.parts.push((index, taken));
+        plan.pieces += taken;
+        plan.without_place |= tier == 1;
+        left -= taken;
+    }
+    plan
 }
 
 /// The places that taking these suggestions over adds to the list, each once (by name without case), in order.
@@ -189,7 +259,7 @@ pub fn new_places<'a>(chosen: impl IntoIterator<Item = &'a Proposal>) -> Vec<Own
     out
 }
 
-/// The open suggestions, the newest first, and how many open purchases had no name and were left out.
+/// The open suggestions, the newest first, and how many open deals had no name and were left out.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Proposals {
     pub list: Vec<Proposal>,
@@ -201,6 +271,11 @@ pub fn key_of(session_start: i64, purchase: &Purchase, nth: usize) -> String {
     format!("{session_start}:{}:{}:{}:{nth}", purchase.time, purchase.class, purchase.quantity)
 }
 
+/// The key of a sale: the one a purchase would have, after `verkauf:`.
+pub fn sale_key_of(session_start: i64, sale: &Sale, nth: usize) -> String {
+    format!("verkauf:{}", key_of(session_start, sale, nth))
+}
+
 /// The number of the item in the catalog of the stock (`teile` rows carry it).
 fn uex_of(item: Option<&Value>) -> Option<i64> {
     match item {
@@ -209,7 +284,52 @@ fn uex_of(item: Option<&Value>) -> Option<i64> {
     }
 }
 
-/// The open purchases of the sessions as suggestions.
+/// What the sources and the lists of the stock know about one deal.
+struct Lookup<'a> {
+    decisions: &'a Decisions,
+    items: &'a Items,
+    places: &'a Places,
+    data: &'a StockData,
+}
+
+impl Lookup<'_> {
+    /// Adds the deal to the open suggestions unless it was decided; counts it when nothing names its item.
+    fn offer(&self, out: &mut Proposals, key: String, deal: &Deal, sold: bool) {
+        if self.decisions.get(&key).is_some() {
+            return;
+        }
+        let candidates = self.items.candidates(&deal.class, &deal.guid);
+        let Some(first) = candidates.first() else {
+            out.unnamed += 1;
+            return;
+        };
+        let choice = candidates.iter().find_map(|name| self.data.item_choice(name));
+        let place = match &deal.place {
+            Some(number) => self.places.place(number),
+            None => PlaceName::Unknown(String::new()),
+        };
+        let system = match (&place, &deal.place) {
+            (PlaceName::Shown(_), Some(number)) => self.places.system(number),
+            _ => None,
+        };
+        out.list.push(Proposal {
+            key,
+            sold,
+            time: deal.time,
+            class: deal.class.clone(),
+            quantity: deal.quantity,
+            price_total: deal.price_total,
+            unit_price: deal.unit_price(),
+            stock_name: choice.map(|c| c.name.clone()),
+            name: choice.map_or_else(|| (*first).to_string(), |c| c.name.clone()),
+            uex: choice.and_then(|c| uex_of(c.item.as_ref())),
+            place,
+            system,
+        });
+    }
+}
+
+/// The open purchases and sales of the sessions as suggestions.
 pub fn proposals(
     sessions: &[Session],
     decisions: &Decisions,
@@ -217,56 +337,65 @@ pub fn proposals(
     places: &Places,
     data: &StockData,
 ) -> Proposals {
+    let lookup = Lookup { decisions, items, places, data };
     let mut out = Proposals::default();
     for session in sessions {
-        let mut seen: BTreeMap<(i64, &str, u32), usize> = BTreeMap::new();
-        for purchase in &session.purchases {
-            let nth = seen.entry((purchase.time, purchase.class.as_str(), purchase.quantity)).or_insert(0);
-            let key = key_of(session.start, purchase, *nth);
-            *nth += 1;
-            if decisions.get(&key).is_some() {
-                continue;
+        for (deals, sold) in [(&session.purchases, false), (&session.sales, true)] {
+            let mut seen: BTreeMap<(i64, &str, u32), usize> = BTreeMap::new();
+            for deal in deals {
+                let nth = seen.entry((deal.time, deal.class.as_str(), deal.quantity)).or_insert(0);
+                let key = if sold { sale_key_of(session.start, deal, *nth) } else { key_of(session.start, deal, *nth) };
+                *nth += 1;
+                lookup.offer(&mut out, key, deal, sold);
             }
-            let candidates = items.candidates(&purchase.class, &purchase.guid);
-            let Some(first) = candidates.first() else {
-                out.unnamed += 1;
-                continue;
-            };
-            let choice = candidates.iter().find_map(|name| data.item_choice(name));
-            let place = match &purchase.place {
-                Some(number) => places.place(number),
-                None => PlaceName::Unknown(String::new()),
-            };
-            let system = match (&place, &purchase.place) {
-                (PlaceName::Shown(_), Some(number)) => places.system(number),
-                _ => None,
-            };
-            out.list.push(Proposal {
-                key,
-                time: purchase.time,
-                class: purchase.class.clone(),
-                quantity: purchase.quantity,
-                price_total: purchase.price_total,
-                unit_price: purchase.unit_price(),
-                stock_name: choice.map(|c| c.name.clone()),
-                name: choice.map_or_else(|| (*first).to_string(), |c| c.name.clone()),
-                uex: choice.and_then(|c| uex_of(c.item.as_ref())),
-                place,
-                system,
-            });
         }
     }
     out.list.sort_by(|a, b| b.time.cmp(&a.time).then_with(|| a.key.cmp(&b.key)));
     out
 }
 
-/// Books one suggestion as an item at its place with its price per piece; a purchase that cost nothing
-/// is booked without a price. Nothing happens, and an error comes back, when the suggestion cannot be booked.
-/// The place is not added to the list here: that is [`new_places`] and `places::add_own`.
+/// The suggestions that booking them one after the other, oldest first, would book: a sale counts the pieces
+/// the purchases before it booked in. The trade list itself stays as it is.
+pub fn batch<'a>(trade: &[Value], chosen: &'a [Proposal]) -> Vec<&'a Proposal> {
+    let mut order: Vec<&Proposal> = chosen.iter().filter(|p| p.adoptable()).collect();
+    order.sort_by(|a, b| a.time.cmp(&b.time).then_with(|| a.key.cmp(&b.key)));
+    let mut trial = trade.to_vec();
+    order.into_iter().filter(|p| adopt(&mut trial, p).is_ok()).collect()
+}
+
+/// Takes the pieces of a sale out of the stock as [`take_plan`] finds them; a stack that runs empty is removed.
+fn take_out(trade: &mut Vec<Value>, proposal: &Proposal) -> Result<(), Refused> {
+    let plan = take_plan(trade, proposal);
+    if plan.pieces == 0 {
+        return Err(Refused::Gone);
+    }
+    let mut empty = Vec::new();
+    for (index, taken) in plan.parts {
+        let left = stock::number_of(&trade[index], "menge") - f64::from(taken);
+        if left < 1.0 {
+            empty.push(index);
+        } else if let Value::Object(entry) = &mut trade[index] {
+            map_set(entry, "menge", Value::Float(left));
+        }
+    }
+    empty.sort_unstable();
+    for index in empty.into_iter().rev() {
+        trade.remove(index);
+    }
+    Ok(())
+}
+
+/// Books one suggestion: a purchase as an item at its place with its price per piece (one that cost nothing
+/// without a price), a sale out of the stock (see [`take_plan`]). Nothing happens, and an error comes back, when
+/// the suggestion cannot be booked. The place is not added to the list here: that is [`new_places`] and
+/// `places::add_own`.
 pub fn adopt(trade: &mut Vec<Value>, proposal: &Proposal) -> Result<(), Refused> {
     let Some(name) = proposal.stock_name.as_deref() else {
         return Err(Refused::Goods);
     };
+    if proposal.sold {
+        return take_out(trade, proposal);
+    }
     let place = proposal.place_to_book();
     let amount = proposal.quantity.to_string();
     if proposal.unit_price > 0.0 {
@@ -298,7 +427,146 @@ mod tests {
     }
 
     fn session(start: i64, purchases: Vec<Purchase>) -> Session {
-        Session { start, purchases, movements: Vec::new() }
+        Session { start, purchases, sales: Vec::new(), movements: Vec::new() }
+    }
+
+    fn sold(start: i64, sales: Vec<Sale>) -> Session {
+        Session { start, purchases: Vec::new(), sales, movements: Vec::new() }
+    }
+
+    /// An item stack of the stock.
+    fn stack(name: &str, amount: f64, place: &str, stolen: bool) -> Value {
+        Value::Object(vec![
+            ("ware".into(), Value::str(name)),
+            ("menge".into(), Value::Float(amount)),
+            ("ort".into(), Value::str(place)),
+            ("gestohlen".into(), Value::Bool(stolen)),
+            ("stueck".into(), Value::Bool(true)),
+        ])
+    }
+
+    fn amounts(trade: &[Value]) -> Vec<(String, f64)> {
+        trade
+            .iter()
+            .map(|e| (e.get("ort").and_then(Value::as_str).unwrap_or("").to_string(), number_of(e, "menge")))
+            .collect()
+    }
+
+    #[test]
+    fn a_sale_becomes_a_suggestion_to_take_out_with_its_price_per_piece() {
+        let sessions = [sold(100, vec![purchase(150, "mag", 2, 124.0, Some("1"))])];
+        let found = open(&sessions, &Decisions::default());
+        assert_eq!(found.list.len(), 1);
+        let p = &found.list[0];
+        assert!(p.sold);
+        assert!(p.key.starts_with("verkauf:"), "{}", p.key);
+        assert_eq!((p.name.as_str(), p.quantity, p.unit_price), ("Venture Arms", 2, 62.0));
+        assert_eq!(p.place, PlaceName::Listed("Levski".into()));
+        assert!(p.adoptable());
+        // A place outside the list adds nothing for a sale, and a sale is never booked "without a place".
+        let outside = open(&[sold(100, vec![purchase(150, "mag", 1, 9.0, Some("2"))])], &Decisions::default());
+        assert_eq!(outside.list[0].new_place(), None);
+        assert!(new_places(&outside.list).is_empty());
+        let nowhere = open(&[sold(100, vec![purchase(150, "mag", 1, 9.0, None)])], &Decisions::default());
+        assert!(!nowhere.list[0].without_place());
+    }
+
+    #[test]
+    fn a_sale_and_a_purchase_of_the_same_moment_have_their_own_keys() {
+        let deal = purchase(150, "mag", 1, 10.0, Some("1"));
+        let both = Session { start: 100, purchases: vec![deal.clone()], sales: vec![deal], movements: Vec::new() };
+        let found = open(std::slice::from_ref(&both), &Decisions::default());
+        assert_eq!(found.list.len(), 2);
+        assert_ne!(found.list[0].key, found.list[1].key);
+        let sale = found.list.iter().find(|p| p.sold).expect("sale");
+        let mut decisions = Decisions::default();
+        decisions.set(std::slice::from_ref(&sale.key), Decision::Discarded);
+        let left = open(&[both], &decisions);
+        assert_eq!(left.list.len(), 1);
+        assert!(!left.list[0].sold, "discarding the sale leaves the purchase");
+    }
+
+    #[test]
+    fn a_sale_takes_from_its_place_first_then_without_a_place_and_stolen_last() {
+        let sale = &open(&[sold(100, vec![purchase(150, "mag", 5, 50.0, Some("1"))])], &Decisions::default()).list[0];
+        let mut trade = vec![
+            stack("Venture Arms", 4.0, "Area 18", false),
+            stack("Venture Arms", 2.0, "", false),
+            stack("Venture Arms", 1.0, "Levski", true),
+            stack("venture arms ", 2.0, "levski", false),
+            stack("FBL-8a Arms Arctic Digital", 3.0, "Levski", false),
+        ];
+        let plan = take_plan(&trade, sale);
+        assert_eq!(plan.parts, vec![(3, 2), (2, 1), (1, 2)], "place before no place, not stolen before stolen");
+        assert_eq!((plan.pieces, plan.without_place), (5, true));
+        assert!(sale.bookable(&trade));
+        assert_eq!(adopt(&mut trade, sale), Ok(()));
+        // The emptied stacks are gone; the stack at another place and the other item stay as they were.
+        assert_eq!(amounts(&trade), vec![("Area 18".to_string(), 4.0), ("Levski".to_string(), 3.0)]);
+        assert_eq!(trade[1].get("ware"), Some(&Value::str("FBL-8a Arms Arctic Digital")));
+    }
+
+    #[test]
+    fn a_sale_takes_what_is_there_and_keeps_the_rest_and_its_price() {
+        let sale = &open(&[sold(100, vec![purchase(150, "mag", 2, 50.0, Some("1"))])], &Decisions::default()).list[0];
+        let mut big = vec![stack("Venture Arms", 5.0, "Levski", false)];
+        if let Value::Object(entry) = &mut big[0] {
+            map_set(entry, "einkauf", Value::Float(30.0));
+        }
+        assert_eq!(adopt(&mut big, sale), Ok(()));
+        assert_eq!(number_of(&big[0], "menge"), 3.0);
+        assert_eq!(cost_of(&big[0]), Some(30.0), "what was paid for the rest stays");
+        // Fewer in stock than sold: what is there is taken.
+        let mut small = vec![stack("Venture Arms", 1.0, "Levski", false)];
+        assert_eq!(take_plan(&small, sale).pieces, 1);
+        assert_eq!(adopt(&mut small, sale), Ok(()));
+        assert!(small.is_empty());
+    }
+
+    #[test]
+    fn all_at_once_books_oldest_first_so_a_sale_takes_what_a_purchase_before_it_brought() {
+        let both = Session {
+            start: 100,
+            purchases: vec![purchase(150, "mag", 3, 30.0, Some("1"))],
+            sales: vec![purchase(160, "mag", 2, 40.0, Some("1")), purchase(140, "mult", 1, 5.0, Some("1"))],
+            movements: Vec::new(),
+        };
+        let found = open(&[both], &Decisions::default());
+        assert_eq!(found.list.len(), 3);
+        let trade: Vec<Value> = Vec::new();
+        // The sale of `mult` comes before anything was bought and finds nothing; the sale of `mag` finds the purchase.
+        let booked: Vec<(i64, bool)> = batch(&trade, &found.list).iter().map(|p| (p.time, p.sold)).collect();
+        assert_eq!(booked, vec![(150, false), (160, true)]);
+        assert!(trade.is_empty(), "the trial leaves the list alone");
+        let mut real = Vec::new();
+        for p in batch(&trade, &found.list) {
+            assert_eq!(adopt(&mut real, p), Ok(()));
+        }
+        assert_eq!(amounts(&real), vec![("Levski".to_string(), 1.0)]);
+    }
+
+    #[test]
+    fn a_sale_of_an_item_the_stock_does_not_hold_there_cannot_be_taken_over() {
+        let sale = &open(&[sold(100, vec![purchase(150, "mag", 1, 50.0, Some("1"))])], &Decisions::default()).list[0];
+        let mut elsewhere = vec![stack("Venture Arms", 4.0, "Area 18", false), stack("TS-2", 2.0, "Levski", false)];
+        assert!(sale.adoptable() && !sale.bookable(&elsewhere));
+        let before = elsewhere.clone();
+        assert_eq!(adopt(&mut elsewhere, sale), Err(Refused::Gone));
+        assert_eq!(elsewhere, before, "nothing changed");
+        // Goods of the same name are no item stack.
+        let mut goods = stack("Venture Arms", 4.0, "Levski", false);
+        if let Value::Object(entry) = &mut goods {
+            entry.retain(|(k, _)| k != "stueck");
+        }
+        assert!(!sale.bookable(&[goods]));
+        // A sale without a place only takes from stacks without a place.
+        let flying = &open(&[sold(100, vec![purchase(150, "mag", 1, 9.0, None)])], &Decisions::default()).list[0];
+        assert!(!flying.bookable(&[stack("Venture Arms", 4.0, "Levski", false)]));
+        assert!(flying.bookable(&[stack("Venture Arms", 4.0, "", false)]));
+        // A purchase is bookable without any stock.
+        let bought = &open(&[session(100, vec![purchase(150, "mag", 1, 9.0, Some("1"))])], &Decisions::default()).list[0];
+        assert!(bought.bookable(&[]));
+        assert_eq!(take_plan(&[stack("Venture Arms", 4.0, "Levski", false)], bought), Take::default());
     }
 
     fn pairs(list: &[(&str, &str)]) -> Vec<(String, String)> {
@@ -596,7 +864,7 @@ mod tests {
             amount: 1,
             ok: Some(true),
         };
-        let sessions = [Session { start: 100, purchases: Vec::new(), movements: vec![moved] }];
+        let sessions = [Session { start: 100, purchases: Vec::new(), sales: Vec::new(), movements: vec![moved] }];
         assert!(open(&sessions, &Decisions::default()).list.is_empty());
     }
 }

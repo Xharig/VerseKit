@@ -116,6 +116,7 @@ pub const FETCHED: [Credit; 13] = [
         "s_dk_basetool",
         "https://github.com/krt-profit/basetool",
     ),
+    credit("SC Launch Configurator (Luftwerft)", Licence::None, "s_dkv_luftwerft", "https://www.luftwerft.com/"),
     credit("StarStrings (MrKraken)", Licence::None, "s_dkv_ss", "https://starstrings.app"),
     credit(
         "StarCitizen-Localization (Dymerz)",
@@ -124,7 +125,6 @@ pub const FETCHED: [Credit; 13] = [
         "https://github.com/Dymerz/StarCitizen-Localization",
     ),
     credit("Star_citizen_ES (Thord82)", Licence::None, "s_dkv_thord82", "https://github.com/Thord82/Star_citizen_ES"),
-    credit("SC Launch Configurator (Luftwerft)", Licence::None, "s_dkv_luftwerft", "https://www.luftwerft.com/"),
     credit("contestedzonetimers.com (Appieman)", Licence::None, "s_dkv_contested", "https://contestedzonetimers.com/"),
 ];
 
@@ -137,10 +137,22 @@ pub const ADDED: [&str; 5] = [
     "Star Citizen Handle Query (Kuehlwagen)",
 ];
 /// People that version 5 names and version 4.12 does not: their ideas or the faults they found came with 5.0.
-pub const ADDED_PEOPLE: [&str; 8] =
-    ["Katschaeng", "pinhead92", "DarthUrmel", "smokyjohn", "Lenoro", "MindBurnt", "Shockwaffel", "Kuehlwagen"];
+pub const ADDED_PEOPLE: [&str; 12] = [
+    "Katschaeng",
+    "pinhead92",
+    "DarthUrmel",
+    "smokyjohn",
+    "Lenoro",
+    "MindBurnt",
+    "Shockwaffel",
+    "Kuehlwagen",
+    "StarGround",
+    "LunaticSmile",
+    "SirFrog",
+    "Shockwave",
+];
 /// Ideas of people that version 4.12 names too, which version 5 adds: the person and the text key.
-pub const ADDED_IDEAS: [(&str, &str); 1] = [("P6", "s_dkv_p6_idee2")];
+pub const ADDED_IDEAS: [(&str, &str); 2] = [("P6", "s_dkv_p6_idee2"), ("P6", "s_dkv_p6_idee3")];
 
 /// One person: the name as it stands in the changelog, the group, and the
 /// text keys of what became of their ideas and of the faults they found.
@@ -162,7 +174,7 @@ const fn person(
 }
 
 /// Everyone named on the page, in the order of the page.
-pub const PEOPLE: [Person; 31] = [
+pub const PEOPLE: [Person; 35] = [
     person("Haldjas", "pr0", &["s_dkv_haldjas_idee"], &["s_dkv_haldjas_bugs"]),
     person("rurudotorg", "SC4M", &["s_dkv_rurudotorg_idee"], &["s_dkv_rurudotorg_bugs", "s_dkv_rurudotorg_bugs2"]),
     person("Morkhan", "KRT", &["s_dkv_morkhan_idee"], &["s_dk_morkhan_bugs"]),
@@ -198,7 +210,12 @@ pub const PEOPLE: [Person; 31] = [
     person("ryze", "KRT", &["s_dkv_ryze_idee"], &[]),
     person("Drachennarr", "KRT", &["s_dkv_drachennarr_idee"], &["s_dkv_drachennarr_bugs"]),
     person("Maluh", "KRT", &["s_dkv_maluh_idee"], &[]),
-    person("P6", "KRT", &["s_dkv_p6_idee", "s_dkv_p6_idee2"], &["s_dkv_p6_bugs", "s_dk_p6_bugs2"]),
+    person(
+        "P6",
+        "KRT",
+        &["s_dkv_p6_idee", "s_dkv_p6_idee2", "s_dkv_p6_idee3"],
+        &["s_dkv_p6_bugs", "s_dk_p6_bugs2"],
+    ),
     person("sotth", "", &["s_dkv_sotth_idee"], &[]),
     person("Rhino", "", &["s_dkv_rhino_idee"], &[]),
     person("F_i_r_e", "KRT", &[], &["s_dkv_fire_bugs"]),
@@ -230,9 +247,13 @@ pub const PEOPLE: [Person; 31] = [
         &["s_dkv_shockwaffel_idee", "s_dkv_shockwaffel_idee2"],
         &["s_dkv_shockwaffel_bugs", "s_dkv_shockwaffel_bugs2"],
     ),
-    person("Kuehlwagen", "KRT", &["s_dkv_kuehlwagen_idee"], &[]),
+    person("Kuehlwagen", "KRT", &["s_dkv_kuehlwagen_idee", "s_dkv_kuehlwagen_idee2"], &[]),
     person("George_Rotfuchs", "", &[], &["s_dkv_george_bugs"]),
     person("TomLov", "", &["s_dkv_tomlov_idee"], &[]),
+    person("StarGround", "", &["s_dkv_starground_idee"], &[]),
+    person("LunaticSmile", "KRT", &["s_dkv_lunaticsmile_idee"], &[]),
+    person("SirFrog", "KRT", &[], &["s_dkv_sirfrog_bugs"]),
+    person("Shockwave", "TSA", &[], &["s_dkv_shockwave_bugs"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its

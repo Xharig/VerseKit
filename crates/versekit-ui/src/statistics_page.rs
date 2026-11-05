@@ -1423,7 +1423,7 @@ mod tests {
         assert_eq!(tile("Letzte Sitzung"), "1.000 aUEC");
         assert_eq!(tile("Gesamt"), "1.270 aUEC");
         assert!(has(&shown, "Käufe: 3"), "{shown:?}");
-        assert!(has(&shown, "Verkäufe stehen nicht im Protokoll"), "no income is claimed: {shown:?}");
+        assert!(has(&shown, "Verkäufe zählen hier nicht mit"), "no income is claimed: {shown:?}");
         // The switch off: the section is gone, the journal stays on disk.
         assert!(stock_journal::set_enabled(&paths, false));
         let mut state = StatsState::of(&paths);

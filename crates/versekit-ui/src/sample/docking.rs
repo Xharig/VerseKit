@@ -610,7 +610,7 @@ pub(crate) mod tests {
         use versekit_core::paths::{ENV_INSTALL_DIR, Host};
         use versekit_core::pypath::Flavor;
 
-        theme::set_current("original");
+        theme::set_thread_current("original");
         let dir =
             std::env::temp_dir().join(format!("versekit-fenster-statistik-{}", versekit_core::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -625,7 +625,8 @@ pub(crate) mod tests {
             dir.to_str().unwrap(),
         );
         let mut page = SamplePage::with_settings(Paths::new(host));
-        language::set_language(language::Choice::De);
+        // The language of this thread only: the language of the program is one for all tests side by side.
+        language::set_thread_language(language::Choice::De);
         let (width, height) = (1280.0, 900.0);
         let shows = |texts: &[(String, Pos2)], part: &str| texts.iter().any(|(text, _)| text.contains(part));
         for key in [
@@ -638,8 +639,13 @@ pub(crate) mod tests {
         ] {
             page.go_to(key);
             draw(&mut page, width, height);
-            std::thread::sleep(std::time::Duration::from_millis(300));
+            // Entering the page starts a reading of the logs: waits for its end instead of a fixed time, so that
+            // the checks below look at the page as read and not at its loading or running line.
+            page.stats.wait();
             let texts = draw(&mut page, width, height).1;
+            for busy in ["s_sa_laedt", "s_sa_laeuft"] {
+                assert!(!shows(&texts, &language::t(busy)), "{key} has read its logs: {busy}");
+            }
             assert!(!shows(&texts, super::super::glance::NOT_YET), "{key} is built, it does not come later");
             assert!(!shows(&texts, "Hier steht die Seite."), "{key}");
             for sample in ["AEGS Gladius", "Pyro6", "Retake the Outpost", "128", "41 h"] {
@@ -744,7 +750,7 @@ pub(crate) mod tests {
         let foot: Vec<&String> = texts.iter().map(|(text, _)| text).filter(|text| text.contains("·")).collect();
         assert!(shows(&texts, &language::t("ov_spiel_an")), "a fresh log: the game runs, foot {foot:?}");
         assert!(!shows(&texts, "Stanton · 4.3.1"), "no made-up game state");
-        assert!(!shows(&texts, "5.1"), "no made-up version");
+        assert!(!shows(&texts, super::super::SAMPLE_UPDATE), "no made-up version");
         assert!(!shows(&texts, "ist da."), "no version named: no update bar");
         // The overview counts the data that are open, or says the page comes later.
         for sample in ["412 SCU", "412 h", "41 200 aUEC", "Alle Dienste laufen", "Fertig in 2 h 10 min"] {
@@ -800,7 +806,8 @@ pub(crate) mod tests {
         let mut sample = SamplePage::preview();
         assert!(shows(&draw(&mut sample, width, height).1, "Basetool-Daten werden geladen"));
         let texts = look(&mut sample);
-        assert!(shows(&texts, "Stanton · 4.3.1") && shows(&texts, "VerseKit 5.1 ist da."));
+        let bar = format!("VerseKit {} ist da.", super::super::SAMPLE_UPDATE);
+        assert!(shows(&texts, "Stanton · 4.3.1") && shows(&texts, &bar));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

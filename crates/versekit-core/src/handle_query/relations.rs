@@ -170,6 +170,23 @@ impl Relations {
         }
     }
 
+    /// Takes the relation of `name` away: where it stood and what it was, to put it back with
+    /// [`Relations::restore`]; `None` when there is none.
+    pub fn remove(&mut self, kind: Kind, name: &str) -> Option<(usize, Relation)> {
+        let at = self.list.iter().position(|r| r.kind == kind && r.name.eq_ignore_ascii_case(name))?;
+        Some((at, self.list.remove(at)))
+    }
+
+    /// Puts `relation` back at `at`, as [`Relations::remove`] gave it. A relation of the same name set since then
+    /// stays and nothing changes; false then.
+    pub fn restore(&mut self, at: usize, relation: Relation) -> bool {
+        if self.of(relation.kind, &relation.name).is_some() || self.list.len() >= MAX {
+            return false;
+        }
+        self.list.insert(at.min(self.list.len()), relation);
+        true
+    }
+
     /// The stance that counts for a handle with its organizations (the main one first), and what it was set on.
     pub fn for_handle<'a>(
         &self,
@@ -284,6 +301,28 @@ mod tests {
         assert!(!relations.set(Kind::Handle, "Musterpilot", None));
         assert!(!relations.set(Kind::Org, "../böse", Some(Stance::Hostile)), "no SID has these characters");
         assert!(relations.is_empty());
+    }
+
+    #[test]
+    fn a_relation_removed_comes_back_at_its_place() {
+        let mut relations = Relations::default();
+        relations.set(Kind::Handle, "Eins", Some(Stance::Hostile));
+        relations.set(Kind::Org, "ZWEI", Some(Stance::Friendly));
+        relations.set(Kind::Handle, "Drei", Some(Stance::Neutral));
+        let before = relations.clone();
+        let (at, gone) = relations.remove(Kind::Org, "zwei").expect("there");
+        assert_eq!((at, gone.name.as_str(), gone.stance), (1, "ZWEI", Stance::Friendly));
+        assert_eq!(relations.of(Kind::Org, "ZWEI"), None);
+        assert_eq!(relations.remove(Kind::Org, "ZWEI"), None, "gone already");
+        assert_eq!(relations.remove(Kind::Handle, "ZWEI"), None, "an organization is no handle");
+        assert!(relations.restore(at, gone.clone()));
+        assert_eq!(relations, before, "the same place, the same stance");
+        // Counter-check: set anew in the meantime, the newer stance stays.
+        let (at, gone) = relations.remove(Kind::Org, "ZWEI").expect("there");
+        relations.set(Kind::Org, "ZWEI", Some(Stance::Hostile));
+        assert!(!relations.restore(at, gone));
+        assert_eq!(relations.of(Kind::Org, "ZWEI"), Some(Stance::Hostile));
+        assert_eq!(relations.list().len(), 3);
     }
 
     #[test]

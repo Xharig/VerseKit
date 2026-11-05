@@ -34,6 +34,7 @@ pushes it as one commit without history.
 
 Run:  pwsh tools/testbau_export.ps1 -Rc <n> [-Ref rust] [-Target <clone>] [-NoPush] [-SkipNoKey]
       pwsh tools/testbau_export.ps1 -SelfTest     the version change on samples and on the files of -Ref
+                                                   (X.Y.Z-dev: its test version; X.Y.Z: the release -Final builds)
 Exit code: 0 pushed (or ready with -NoPush), 1 a check failed, 2 the export itself failed.
 #>
 
@@ -107,6 +108,22 @@ function Get-WorkspaceVersion([string]$Toml) {
     return $line[0].Groups[1].Value
 }
 
+# The finished version X.Y.Z of a Cargo.toml, built as it is with -Final; anything with a suffix is refused.
+function Get-FinalVersion([string]$Toml) {
+    $version = Get-WorkspaceVersion $Toml
+    if ($version -notmatch '^\d{1,4}\.\d{1,4}\.\d{1,4}$') { throw "Die Version im Baum ist '$version', keine fertige X.Y.Z." }
+    return $version
+}
+
+# The packages without a source (the crates of the workspace) in a Cargo.lock that carry $Version.
+function Get-LockMembers([string]$Lock, [string]$Version) {
+    $blocks = [regex]::Split($Lock, '(?m)^(?=\[\[package\]\])')
+    return @($blocks | Where-Object {
+        $_.StartsWith('[[package]]') -and $_ -notmatch '(?m)^source[ \t]*=' -and
+        $_ -match ('(?m)^version = "' + [regex]::Escape($Version) + '"\r?$')
+    }).Count
+}
+
 # Cargo.toml and Cargo.lock with the test version: the version of [workspace.package], and in the lock every
 # package without a source (the crates of the workspace) that carries the old version. Nothing else changes.
 function Set-TestVersion([string]$Toml, [string]$Lock, [int]$Number) {
@@ -164,13 +181,32 @@ if ($SelfTest) {
     $range = (Get-Command $PSCommandPath).Parameters['Rc'].Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
     Check '-Rc nur 1 bis 9999 (der Fehlerbericht-Server nimmt hoechstens vier Ziffern)' ($range -and $range.MinRange -eq 1 -and $range.MaxRange -eq 9999)
 
+    # -Final: the finished X.Y.Z only, unchanged.
+    $finishedToml = $toml.Replace('5.0.0-dev"' + "`nedition", '5.0.2"' + "`nedition")
+    Check '-Final: fertige Version 5.0.2 wird genommen' ((Get-FinalVersion $finishedToml) -eq '5.0.2')
+    Check '-Final: andere Zeile vor version' ((Get-FinalVersion "[workspace.package]`nedition = `"2024`"`nversion = `"5.0.2`"`n") -eq '5.0.2')
+    Check '-Final abgelehnt: Version -dev' (Refused { Get-FinalVersion $toml })
+    Check '-Final abgelehnt: Version -rc' (Refused { Get-FinalVersion ($toml.Replace('5.0.0-dev"' + "`nedition", '5.0.2-rc1"' + "`nedition")) })
+    Check 'Pakete des Workspace im Lock gezaehlt, das aus der Registry nicht' ((Get-LockMembers $lock '5.0.0-dev') -eq 2)
+
+    # The files of -Ref: a tree with X.Y.Z-dev gets its test version; a released tree (X.Y.Z, built with -Final)
+    # gets none, and every crate in the lock has to carry the version.
     $realToml = (Invoke-Git $Source @('show', "${Ref}:Cargo.toml")) -join "`n"
     $realLock = (Invoke-Git $Source @('show', "${Ref}:Cargo.lock")) -join "`n"
     $crates = @(Invoke-Git $Source @('ls-tree', '--name-only', "${Ref}:crates")).Count
-    $real = Set-TestVersion $realToml $realLock 1
-    Check "echte Dateien von ${Ref}: $($real.Old) wird $($real.New)" ((Get-WorkspaceVersion $real.Toml) -eq $real.New)
-    Check "echte Dateien von ${Ref}: $($real.Members) Pakete im Lock = $crates Crates" ($real.Members -eq $crates)
-    Check "echte Dateien von ${Ref}: kein $($real.Old) mehr" (-not $real.Toml.Contains($real.Old) -and -not $real.Lock.Contains("`"$($real.Old)`""))
+    $realVersion = Get-WorkspaceVersion $realToml
+    if ($realVersion -match '-dev$') {
+        $real = Set-TestVersion $realToml $realLock 1
+        Check "echte Dateien von ${Ref}: $($real.Old) wird $($real.New)" ((Get-WorkspaceVersion $real.Toml) -eq $real.New)
+        Check "echte Dateien von ${Ref}: $($real.Members) Pakete im Lock = $crates Crates" ($real.Members -eq $crates)
+        Check "echte Dateien von ${Ref}: kein $($real.Old) mehr" (-not $real.Toml.Contains($real.Old) -and -not $real.Lock.Contains("`"$($real.Old)`""))
+    } else {
+        $finished = try { Get-FinalVersion $realToml } catch { $null }
+        Check "echte Dateien von ${Ref}: $realVersion ist eine fertige Version (nur mit -Final)" ($finished -eq $realVersion)
+        Check "echte Dateien von ${Ref}: kein Testbau ohne -dev" (Refused { Set-TestVersion $realToml $realLock 1 })
+        $members = Get-LockMembers $realLock $realVersion
+        Check "echte Dateien von ${Ref}: $members Pakete im Lock mit $realVersion = $crates Crates" ($members -eq $crates)
+    }
     if ($failed) { Write-Host "$failed Pruefung(en) rot" -ForegroundColor Red; exit 1 }
     Write-Host 'Selbsttest gruen'
     exit 0
@@ -238,11 +274,7 @@ $tomlFile = Join-Path $targetFull 'Cargo.toml'
 $lockFile = Join-Path $targetFull 'Cargo.lock'
 $noBom = [System.Text.UTF8Encoding]::new($false)
 if ($Final) {
-    $tomlText = [System.IO.File]::ReadAllText($tomlFile)
-    if ($tomlText -notmatch '(?m)^\[workspace\.package\]\s*\r?\nversion = "(\d{1,4}\.\d{1,4}\.\d{1,4})"') {
-        Fail 1 'Die Version im Baum ist keine fertige X.Y.Z.'
-    }
-    $version = $Matches[1]
+    try { $version = Get-FinalVersion ([System.IO.File]::ReadAllText($tomlFile)) } catch { Fail 1 $_.Exception.Message }
     Write-Host "Version: $version (fertig, unveraendert)"
 } else {
     try {
